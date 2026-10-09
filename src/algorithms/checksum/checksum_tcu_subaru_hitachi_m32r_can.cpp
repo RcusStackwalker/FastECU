@@ -8,7 +8,7 @@ ChecksumResult ChecksumTcuSubaruHitachiM32rCan::calculate_checksum_result(bytes:
     // Fixed 64 KiB M3779x/M3775x layout; checksum fields begin at 0x8000.
     if (romView.size() != 0x10000)
     {
-        return {.status = ChecksumResult::Status::InvalidSize,
+        return {.status = ChecksumResult::Status::kInvalidSize,
                 .rom_data = bytes::Bytes(romView.begin(), romView.end()),
                 .message = "ROM size does not match the checksum layout"};
     }
@@ -77,12 +77,12 @@ ChecksumResult ChecksumTcuSubaruHitachiM32rCan::calculate_checksum_result(bytes:
     result.rom_data = romData;
     if (!checksum_ok)
     {
-        result.status = ChecksumResult::Status::Corrected;
+        result.status = ChecksumResult::Status::kCorrected;
         result.message = "Subaru Hitachi M32R K-Line/CAN ECU Checksum";
     }
     else
     {
-        result.status = ChecksumResult::Status::Unchanged;
+        result.status = ChecksumResult::Status::kUnchanged;
     }
     return result;
 }

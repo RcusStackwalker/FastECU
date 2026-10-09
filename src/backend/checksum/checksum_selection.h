@@ -19,12 +19,12 @@ struct ChecksumCorrectionOutcome
 {
     enum class Status
     {
-        UnknownMcuType,      // mcu_type not found in kFlashDevices[]
-        BadRomSize,          // rom size != kFlashDevices[index].romsize
-        NoModuleForProtocol, // make/checksum_flag/flash_method matched no family
-        FamilyRan,           // flash_method matched a family branch
+        kUnknownMcuType,      // mcu_type not found in kFlashDevices[]
+        kBadRomSize,          // rom size != kFlashDevices[index].romsize
+        kNoModuleForProtocol, // make/checksum_flag/flash_method matched no family
+        kFamilyRan,           // flash_method matched a family branch
     };
-    Status status = Status::NoModuleForProtocol;
+    Status status = Status::kNoModuleForProtocol;
     // Present iff a family's calculate_checksum_result actually ran. FamilyRan
     // itself can occur with family_result == std::nullopt for one legacy edge
     // case: flash_method matches "sub_ecu_hitachi_m32r_kline" but RomId's

@@ -48,7 +48,7 @@ Status check_cancelled(const ICancellationToken& cancellation, std::string detai
 {
     if (cancellation.cancelled())
     {
-        return fail(ErrorKind::Cancelled, std::move(detail));
+        return fail(ErrorKind::kCancelled, std::move(detail));
     }
     return {};
 }
@@ -86,7 +86,7 @@ Result<IKlineFlashTransport::OptionalBytes> exchange(IKlineFlashTransport& trans
     }
     if (*written != request.size())
     {
-        return fail(ErrorKind::Disconnected, "short K-Line write");
+        return fail(ErrorKind::kDisconnected, "short K-Line write");
     }
     if (Status cancelled = check_cancelled(cancellation, "cancelled after write"); !cancelled.has_value())
     {
@@ -183,7 +183,7 @@ Status SubaruDensoSh7055_02Executor::connect_bootloader(IKlineFlashTransport& tr
     {
         return cancelled;
     }
-    events.log(LogLevel::Info, "Checking if kernel is already running...");
+    events.log(LogLevel::kInfo, "Checking if kernel is already running...");
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_sh7055_02_operation.cpp:108-131 and
     // 1169-1198.
     Result<bytes::Bytes> probe = request_kernel_id(transport, clock, cancellation);
@@ -194,7 +194,7 @@ Status SubaruDensoSh7055_02Executor::connect_bootloader(IKlineFlashTransport& tr
     if (response_ok(*probe, static_cast<bytes::Byte>(kOpId | 0x40U)))
     {
         kernel_alive = true;
-        events.log(LogLevel::Info, "Kernel already running");
+        events.log(LogLevel::kInfo, "Kernel already running");
         return {};
     }
 
@@ -204,7 +204,7 @@ Status SubaruDensoSh7055_02Executor::connect_bootloader(IKlineFlashTransport& tr
         {
             return baud;
         }
-        events.log(LogLevel::Info, "Requesting ECU ID");
+        events.log(LogLevel::kInfo, "Requesting ECU ID");
         const bytes::Bytes request =
             ssm_protocol::addHeader(bytes::Bytes{0xBF}, family_plan.tester_id, family_plan.target_id);
         // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_sh7055_02_operation.cpp:133-168
@@ -217,19 +217,19 @@ Status SubaruDensoSh7055_02Executor::connect_bootloader(IKlineFlashTransport& tr
         }
         if (!received->has_value())
         {
-            return fail(ErrorKind::Timeout, "no response from ECU during ID read");
+            return fail(ErrorKind::kTimeout, "no response from ECU during ID read");
         }
         const bytes::Bytes& response = **received;
         if (response.size() <= 4 || response[4] != 0xFF)
         {
-            return fail(ErrorKind::BadResponse, "wrong response from ECU during ID read");
+            return fail(ErrorKind::kBadResponse, "wrong response from ECU during ID read");
         }
         if (response.size() < 13)
         {
-            return fail(ErrorKind::BadResponse, "ECU ID response is too short");
+            return fail(ErrorKind::kBadResponse, "ECU ID response is too short");
         }
         ecu_id = ecu_id_hex(bytes::ByteView(response).subspan(8, 5));
-        events.log(LogLevel::Info, "ECU ID: " + *ecu_id);
+        events.log(LogLevel::kInfo, "ECU ID: " + *ecu_id);
     }
 
     if (Status baud = change_baud(transport, cancellation, 9600); !baud.has_value())
@@ -263,13 +263,13 @@ Status SubaruDensoSh7055_02Executor::connect_bootloader(IKlineFlashTransport& tr
     // 1300-1314.
     for (int seconds_left = 3; seconds_left > 0; --seconds_left)
     {
-        events.log(LogLevel::Info, std::format("Starting in {}", seconds_left));
+        events.log(LogLevel::kInfo, std::format("Starting in {}", seconds_left));
         if (Status slept = clock.sleep(1000ms, cancellation); !slept.has_value())
         {
             return slept;
         }
     }
-    events.log(LogLevel::Info, "Switch Ignition ON!");
+    events.log(LogLevel::kInfo, "Switch Ignition ON!");
     if (Status slept = clock.sleep(250ms, cancellation); !slept.has_value())
     {
         return slept;
@@ -316,7 +316,7 @@ Status SubaruDensoSh7055_02Executor::connect_bootloader(IKlineFlashTransport& tr
         // !check_received_message(...) enters the connected branch.
         if (matches_expected)
         {
-            events.log(LogLevel::Info, "Connected to bootloader");
+            events.log(LogLevel::kInfo, "Connected to bootloader");
             if (Status slept = clock.sleep(100ms, cancellation); !slept.has_value())
             {
                 return slept;
@@ -337,7 +337,7 @@ Status SubaruDensoSh7055_02Executor::connect_bootloader(IKlineFlashTransport& tr
     {
         return drained;
     }
-    return fail(ErrorKind::Timeout, "no response from bootloader");
+    return fail(ErrorKind::kTimeout, "no response from bootloader");
 }
 
 Status SubaruDensoSh7055_02Executor::upload_kernel(IKlineFlashTransport& transport, IClock& clock,
@@ -350,7 +350,7 @@ Status SubaruDensoSh7055_02Executor::upload_kernel(IKlineFlashTransport& transpo
     }
     if (kernel.bytes.empty())
     {
-        return fail(ErrorKind::InvalidConfig, "kernel image is empty");
+        return fail(ErrorKind::kInvalidConfig, "kernel image is empty");
     }
 
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_sh7055_02_operation.cpp:267-295:
@@ -385,7 +385,7 @@ Status SubaruDensoSh7055_02Executor::upload_kernel(IKlineFlashTransport& transpo
     request.insert(request.end(), encrypted.begin(), encrypted.end());
     request.push_back(fastecu::checksum::negatedSum8(request));
 
-    events.log(LogLevel::Info, "Sending kernel...");
+    events.log(LogLevel::kInfo, "Sending kernel...");
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_sh7055_02_operation.cpp:297-321.
     // On Unix the OpenPort2/J2534 adapter requires the legacy 5000 ms quiet
     // period after the raw write and before reading its upload response.
@@ -399,9 +399,9 @@ Status SubaruDensoSh7055_02Executor::upload_kernel(IKlineFlashTransport& transpo
     }
     if (upload_response->has_value() && !(**upload_response).empty())
     {
-        return fail(ErrorKind::BadResponse, "error on kernel upload");
+        return fail(ErrorKind::kBadResponse, "error on kernel upload");
     }
-    events.log(LogLevel::Info, "Kernel uploaded successfully");
+    events.log(LogLevel::kInfo, "Kernel uploaded successfully");
 
     if (Status baud = change_baud(transport, cancellation, 62500); !baud.has_value())
     {
@@ -420,13 +420,13 @@ Status SubaruDensoSh7055_02Executor::upload_kernel(IKlineFlashTransport& transpo
     }
     if (id->size() <= 4)
     {
-        return fail(ErrorKind::BadResponse, "no valid response from ECU after kernel upload");
+        return fail(ErrorKind::kBadResponse, "no valid response from ECU after kernel upload");
     }
     if (!response_ok(*id, static_cast<bytes::Byte>(kOpId | 0x40U)))
     {
-        return fail(ErrorKind::BadResponse, "wrong response from ECU after kernel upload");
+        return fail(ErrorKind::kBadResponse, "wrong response from ECU after kernel upload");
     }
-    events.log(LogLevel::Info, "Kernel is alive");
+    events.log(LogLevel::kInfo, "Kernel is alive");
     return {};
 }
 
@@ -464,7 +464,7 @@ Result<bytes::Bytes> SubaruDensoSh7055_02Executor::read_mem(IKlineFlashTransport
         if (!response->has_value() || !response_ok(**response, static_cast<bytes::Byte>(kOpReadArea | 0x40U)) ||
             (**response).size() != kReadPageSize + 6)
         {
-            return fail(ErrorKind::BadResponse, "Wrong response from ECU during read");
+            return fail(ErrorKind::kBadResponse, "Wrong response from ECU during read");
         }
         const bytes::Bytes& received = **response;
         mapdata.insert(mapdata.end(), received.begin() + 5, received.end() - 1);
@@ -504,7 +504,7 @@ Result<std::uint32_t> SubaruDensoSh7055_02Executor::read_block_crc(IKlineFlashTr
     }
     if (*written != request.size())
     {
-        return fail(ErrorKind::Disconnected, "short K-Line write");
+        return fail(ErrorKind::kDisconnected, "short K-Line write");
     }
     if (Status cancelled = check_cancelled(cancellation, "cancelled after CRC write"); !cancelled.has_value())
     {
@@ -546,7 +546,7 @@ Result<std::uint32_t> SubaruDensoSh7055_02Executor::read_block_crc(IKlineFlashTr
         const std::optional<std::size_t> expected_size = declared_frame_size();
         if (expected_size.has_value() && *expected_size == 0)
         {
-            return fail(ErrorKind::BadResponse, "Oversized CRC response from ECU");
+            return fail(ErrorKind::kBadResponse, "Oversized CRC response from ECU");
         }
         if (expected_size.has_value() && response.size() >= *expected_size)
         {
@@ -582,7 +582,7 @@ Result<std::uint32_t> SubaruDensoSh7055_02Executor::read_block_crc(IKlineFlashTr
         !response_ok(response, kOpCrc | 0x40U) ||
         response.back() != bytes::sum8(bytes::ByteView(response).first(response.size() - 1)))
     {
-        return fail(ErrorKind::BadResponse, "Wrong or incomplete response from ECU during CRC check");
+        return fail(ErrorKind::kBadResponse, "Wrong or incomplete response from ECU during CRC check");
     }
 
     // SH7055-specific legacy unwrap, lines 704-717: remove the five-byte
@@ -592,16 +592,16 @@ Result<std::uint32_t> SubaruDensoSh7055_02Executor::read_block_crc(IKlineFlashTr
     response.pop_back();
     if (response.empty())
     {
-        return fail(ErrorKind::BadResponse, "Missing CRC response prefix");
+        return fail(ErrorKind::kBadResponse, "Missing CRC response prefix");
     }
     if (const bytes::Byte length_or_failure = response.front(); length_or_failure == 0x7F)
     {
-        return fail(ErrorKind::BadResponse, "ECU marked CRC response failed");
+        return fail(ErrorKind::kBadResponse, "ECU marked CRC response failed");
     }
     response.erase(response.begin());
     if (response.size() != 4)
     {
-        return fail(ErrorKind::BadResponse, "Truncated CRC response from ECU");
+        return fail(ErrorKind::kBadResponse, "Truncated CRC response from ECU");
     }
     const std::uint32_t crc = bytes::readU32Be(response, 0);
     // Legacy lines 742 and 748 perform a short read after either compare
@@ -621,14 +621,14 @@ Status SubaruDensoSh7055_02Executor::flash_block(IKlineFlashTransport& transport
     if (block.start > image.size() || block.length > image.size() - block.start ||
         block.length % kWriteChunkSize != 0 || block.length % kCommitBlockSize != 0)
     {
-        return fail(ErrorKind::InvalidConfig, "flash block is not represented by the image");
+        return fail(ErrorKind::kInvalidConfig, "flash block is not represented by the image");
     }
 
     if (!test_write)
     {
         // Legacy flash_block(), lines 982-1019: erase, settle 500ms, then
         // wait up to 3000ms for the 0x65 acknowledgment.
-        events.log(LogLevel::Info, "Erasing flash page...");
+        events.log(LogLevel::kInfo, "Erasing flash page...");
         const bytes::Bytes erase_payload = composeBe(block.start);
         Result<IKlineFlashTransport::OptionalBytes> erase_exchange =
             exchange(transport, &clock, cancellation, frame(kOpBlankPage, erase_payload), 500ms, 3000ms);
@@ -638,13 +638,13 @@ Status SubaruDensoSh7055_02Executor::flash_block(IKlineFlashTransport& transport
         }
         if (!erase_exchange->has_value())
         {
-            return fail(ErrorKind::Timeout, "no response from ECU during erase");
+            return fail(ErrorKind::kTimeout, "no response from ECU during erase");
         }
         if (!response_ok(**erase_exchange, kOpBlankPage | 0x40U))
         {
-            return fail(ErrorKind::BadResponse, "Wrong response from ECU during erase");
+            return fail(ErrorKind::kBadResponse, "Wrong response from ECU during erase");
         }
-        events.log(LogLevel::Info, "Erased");
+        events.log(LogLevel::kInfo, "Erased");
     }
 
     std::uint32_t offset = 0;
@@ -668,11 +668,11 @@ Status SubaruDensoSh7055_02Executor::flash_block(IKlineFlashTransport& transport
         }
         if (!write_response->has_value())
         {
-            return fail(ErrorKind::Timeout, "no response from ECU during write");
+            return fail(ErrorKind::kTimeout, "no response from ECU during write");
         }
         if (!response_ok(**write_response, kOpWriteFlashBuffer | 0x40U))
         {
-            return fail(ErrorKind::BadResponse, "Wrong response from ECU during write");
+            return fail(ErrorKind::kBadResponse, "Wrong response from ECU during write");
         }
         offset += kWriteChunkSize;
 
@@ -691,11 +691,11 @@ Status SubaruDensoSh7055_02Executor::flash_block(IKlineFlashTransport& transport
             }
             if (!commit_response->has_value())
             {
-                return fail(ErrorKind::Timeout, "no response from ECU during commit");
+                return fail(ErrorKind::kTimeout, "no response from ECU during commit");
             }
             if (!response_ok(**commit_response, commit_opcode | 0x40U))
             {
-                return fail(ErrorKind::BadResponse, "Wrong response from ECU during commit");
+                return fail(ErrorKind::kBadResponse, "Wrong response from ECU during commit");
             }
             commit_block_start += kCommitBlockSize;
         }
@@ -713,7 +713,7 @@ Status SubaruDensoSh7055_02Executor::write_mem(IKlineFlashTransport& transport, 
     const FlashDevice *device = find_flash_device(mcu_name);
     if (device == nullptr)
     {
-        return fail(ErrorKind::InvalidConfig, "Unknown MCU type");
+        return fail(ErrorKind::kInvalidConfig, "Unknown MCU type");
     }
     std::uint64_t physical_size = 0;
     for (unsigned block_no = 0; block_no < device->numblocks; ++block_no)
@@ -724,11 +724,11 @@ Status SubaruDensoSh7055_02Executor::write_mem(IKlineFlashTransport& transport, 
     if (image.size() != device->romsize || physical_size > image.size() ||
         physical_size > std::numeric_limits<std::size_t>::max())
     {
-        return fail(ErrorKind::InvalidConfig, "ROM image does not match the flash device");
+        return fail(ErrorKind::kInvalidConfig, "ROM image does not match the flash device");
     }
 
     // Legacy write_mem()/get_changed_blocks(), lines 484-637.
-    events.log(LogLevel::Info, "Comparing ECU flash memory pages to image file");
+    events.log(LogLevel::kInfo, "Comparing ECU flash memory pages to image file");
     const auto compare_blocks = [&](std::vector<bool>& modified) -> Result<unsigned>
     {
         unsigned modified_count = 0;
@@ -778,7 +778,7 @@ Status SubaruDensoSh7055_02Executor::write_mem(IKlineFlashTransport& transport, 
 
     if (*modified_count == 0)
     {
-        events.log(LogLevel::Info, "No difference between ROM and ECU data, no flashing needed");
+        events.log(LogLevel::kInfo, "No difference between ROM and ECU data, no flashing needed");
         return {};
     }
 
@@ -794,21 +794,21 @@ Status SubaruDensoSh7055_02Executor::write_mem(IKlineFlashTransport& transport, 
         }
         if (!response->has_value())
         {
-            return fail(ErrorKind::Timeout, "no response from ECU during flash init");
+            return fail(ErrorKind::kTimeout, "no response from ECU during flash init");
         }
         if ((**response).size() <= 9 || !response_ok(**response, opcode | 0x40U))
         {
-            return fail(ErrorKind::BadResponse, "Wrong response from ECU during flash init");
+            return fail(ErrorKind::kBadResponse, "Wrong response from ECU during flash init");
         }
         const bytes::Bytes& received = **response;
         const std::uint32_t length = bytes::readU32Be(received, 6);
         if (opcode == kOpGetMaxMsgSize)
         {
-            events.log(LogLevel::Info, std::format("Max message length: 0x{:08X}", length));
+            events.log(LogLevel::kInfo, std::format("Max message length: 0x{:08X}", length));
         }
         else
         {
-            events.log(LogLevel::Info, std::format("Flash block size: 0x{:08X}", length));
+            events.log(LogLevel::kInfo, std::format("Flash block size: 0x{:08X}", length));
         }
     }
     const std::uint8_t enable_opcode = test_write ? kOpFlashDisable : kOpFlashEnable;
@@ -820,11 +820,11 @@ Status SubaruDensoSh7055_02Executor::write_mem(IKlineFlashTransport& transport, 
     }
     if (!enable_response->has_value())
     {
-        return fail(ErrorKind::Timeout, "no response from ECU during flash init");
+        return fail(ErrorKind::kTimeout, "no response from ECU during flash init");
     }
     if (!response_ok(**enable_response, enable_opcode | 0x40U))
     {
-        return fail(ErrorKind::BadResponse, "Wrong response from ECU during flash init");
+        return fail(ErrorKind::kBadResponse, "Wrong response from ECU during flash init");
     }
 
     for (unsigned block_no = 0; block_no < device->numblocks; ++block_no)
@@ -844,23 +844,23 @@ Status SubaruDensoSh7055_02Executor::write_mem(IKlineFlashTransport& transport, 
         }
         if (!voltage_response->has_value())
         {
-            return fail(ErrorKind::Timeout, "no response from ECU during prog-volt query");
+            return fail(ErrorKind::kTimeout, "no response from ECU during prog-volt query");
         }
         if ((**voltage_response).size() <= 7 || !response_ok(**voltage_response, kOpProgVolt | 0x40U))
         {
-            return fail(ErrorKind::BadResponse, "Wrong response from ECU during prog-volt query");
+            return fail(ErrorKind::kBadResponse, "Wrong response from ECU during prog-volt query");
         }
         if (Status flashed = flash_block(transport, clock, cancellation, events, image, block, test_write);
             !flashed.has_value())
         {
             return flashed;
         }
-        events.log(LogLevel::Info, "Block reflash complete");
+        events.log(LogLevel::kInfo, "Block reflash complete");
     }
 
     // Legacy lines 562-593 repeat the per-block CRC comparison after all
     // selected blocks have been transferred.
-    events.log(LogLevel::Info, "Comparing ECU flash memory pages to image file after reflash");
+    events.log(LogLevel::kInfo, "Comparing ECU flash memory pages to image file after reflash");
     Result<unsigned> remaining_modified = compare_blocks(modified);
     if (!remaining_modified.has_value())
     {
@@ -868,18 +868,18 @@ Status SubaruDensoSh7055_02Executor::write_mem(IKlineFlashTransport& transport, 
     }
     if (test_write)
     {
-        events.log(LogLevel::Info, "Test write PASS, it is safe to perform the actual write");
+        events.log(LogLevel::kInfo, "Test write PASS, it is safe to perform the actual write");
     }
     else if (*remaining_modified != 0)
     {
-        events.log(LogLevel::Error, "Flash verification differs; do not power off, the kernel is still running");
+        events.log(LogLevel::kError, "Flash verification differs; do not power off, the kernel is still running");
     }
     return {};
 }
 
 Result<KlineConfig> SubaruDensoSh7055_02Executor::transport_setup(const FlashPlan& plan) const
 {
-    if (Status match = check_family(plan, FlashFamily::SubaruDensoSh7055_02); !match.has_value())
+    if (Status match = check_family(plan, FlashFamily::kSubaruDensoSh705502); !match.has_value())
     {
         return std::unexpected(match.error());
     }
@@ -907,7 +907,7 @@ Result<FlashExecutionResult> SubaruDensoSh7055_02Executor::execute(const FlashPl
                                                                    const ICancellationToken& cancellation,
                                                                    IEventSink& events)
 {
-    if (Status match = check_family(plan, FlashFamily::SubaruDensoSh7055_02); !match.has_value())
+    if (Status match = check_family(plan, FlashFamily::kSubaruDensoSh705502); !match.has_value())
     {
         return std::unexpected(match.error());
     }
@@ -946,7 +946,7 @@ Result<FlashExecutionResult> SubaruDensoSh7055_02Executor::execute(const FlashPl
     {
         if (!plan.kernel().has_value())
         {
-            return fail(ErrorKind::InvalidConfig, "SH7055_02 requires a kernel image");
+            return fail(ErrorKind::kInvalidConfig, "SH7055_02 requires a kernel image");
         }
         if (Status uploaded = upload_kernel(kline, clock, cancellation, events, *plan.kernel()); !uploaded.has_value())
         {
@@ -954,7 +954,7 @@ Result<FlashExecutionResult> SubaruDensoSh7055_02Executor::execute(const FlashPl
         }
     }
 
-    if (plan.operation() == FlashOperation::Read)
+    if (plan.operation() == FlashOperation::kRead)
     {
         Result<bytes::Bytes> read = read_mem(kline, clock, cancellation, events, plan.transfer_region());
         if (!read.has_value())
@@ -966,10 +966,10 @@ Result<FlashExecutionResult> SubaruDensoSh7055_02Executor::execute(const FlashPl
 
     if (!plan.image().has_value())
     {
-        return fail(ErrorKind::InvalidConfig, "SH7055_02 write requires a ROM image");
+        return fail(ErrorKind::kInvalidConfig, "SH7055_02 write requires a ROM image");
     }
     if (Status written = write_mem(kline, clock, cancellation, events, *plan.image(), plan.mcu_name(),
-                                   plan.operation() == FlashOperation::TestWrite);
+                                   plan.operation() == FlashOperation::kTestWrite);
         !written.has_value())
     {
         return std::unexpected(written.error());

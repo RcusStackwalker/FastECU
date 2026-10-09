@@ -27,16 +27,16 @@ Status DesktopMixedCanFlashTransport::configure(const MixedCanConfig& config)
     {
         return std::unexpected(*transition_error_);
     }
-    if (mode_ != Mode::Unconfigured && mode_ != Mode::Closed)
+    if (mode_ != Mode::kUnconfigured && mode_ != Mode::kClosed)
     {
-        return fail(ErrorKind::InvalidConfig, "configure() called while mixed CAN transport is already configured");
+        return fail(ErrorKind::kInvalidConfig, "configure() called while mixed CAN transport is already configured");
     }
     stored_config_ = config;
     if (const Status configured = configure_iso(config); !configured.has_value())
     {
         return configured;
     }
-    mode_ = Mode::Iso15765;
+    mode_ = Mode::kIso15765;
     return {};
 }
 
@@ -48,23 +48,23 @@ Status DesktopMixedCanFlashTransport::open()
     }
     if (!serial_)
     {
-        return fail(ErrorKind::Disconnected, "open() called after close()");
+        return fail(ErrorKind::kDisconnected, "open() called after close()");
     }
     try
     {
         if (serial_->open_serial_port().isEmpty())
         {
-            return fail(ErrorKind::Disconnected, "open_serial_port failed");
+            return fail(ErrorKind::kDisconnected, "open_serial_port failed");
         }
         return {};
     }
     catch (const std::exception& error)
     {
-        return fail(ErrorKind::Disconnected, error.what());
+        return fail(ErrorKind::kDisconnected, error.what());
     }
     catch (...)
     {
-        return fail(ErrorKind::Disconnected, "open_serial_port exception");
+        return fail(ErrorKind::kDisconnected, "open_serial_port exception");
     }
 }
 
@@ -72,19 +72,19 @@ Status DesktopMixedCanFlashTransport::close()
 {
     owned_serial_.reset();
     serial_ = nullptr;
-    mode_ = Mode::Closed;
+    mode_ = Mode::kClosed;
     return {};
 }
 
 Status DesktopMixedCanFlashTransport::enter_raw_bootloader_mode()
 {
-    if (const Status ready = io_ready(Mode::Iso15765, "raw bootloader transition"); !ready.has_value())
+    if (const Status ready = io_ready(Mode::kIso15765, "raw bootloader transition"); !ready.has_value())
     {
         return ready;
     }
     if (!stored_config_.has_value())
     {
-        return fail(ErrorKind::InvalidConfig, "mixed CAN transport has no stored configuration");
+        return fail(ErrorKind::kInvalidConfig, "mixed CAN transport has no stored configuration");
     }
     const MixedCanConfig config = *stored_config_;
     if (const Status reset = reset_connection(); !reset.has_value())
@@ -99,13 +99,13 @@ Status DesktopMixedCanFlashTransport::enter_raw_bootloader_mode()
     {
         return transition_failure(opened);
     }
-    mode_ = Mode::Raw;
+    mode_ = Mode::kRaw;
     return {};
 }
 
 Status DesktopMixedCanFlashTransport::clear_receive_buffer()
 {
-    if (const Status ready = io_ready(Mode::Raw, "receive-buffer clear"); !ready.has_value())
+    if (const Status ready = io_ready(Mode::kRaw, "receive-buffer clear"); !ready.has_value())
     {
         return ready;
     }
@@ -113,33 +113,33 @@ Status DesktopMixedCanFlashTransport::clear_receive_buffer()
     {
         if (!serial_->is_serial_port_open())
         {
-            return fail(ErrorKind::Disconnected, "mixed CAN adapter disconnected before receive-buffer clear");
+            return fail(ErrorKind::kDisconnected, "mixed CAN adapter disconnected before receive-buffer clear");
         }
         if (serial_->clear_rx_buffer() != kSerialSuccess)
         {
-            return fail(ErrorKind::Internal, "clear_rx_buffer failed");
+            return fail(ErrorKind::kInternal, "clear_rx_buffer failed");
         }
         return {};
     }
     catch (const std::exception& error)
     {
-        return fail(ErrorKind::Internal, error.what());
+        return fail(ErrorKind::kInternal, error.what());
     }
     catch (...)
     {
-        return fail(ErrorKind::Internal, "clear_rx_buffer exception");
+        return fail(ErrorKind::kInternal, "clear_rx_buffer exception");
     }
 }
 
 Status DesktopMixedCanFlashTransport::enter_iso15765_kernel_mode()
 {
-    if (const Status ready = io_ready(Mode::Raw, "ISO-15765 kernel transition"); !ready.has_value())
+    if (const Status ready = io_ready(Mode::kRaw, "ISO-15765 kernel transition"); !ready.has_value())
     {
         return ready;
     }
     if (!stored_config_.has_value())
     {
-        return fail(ErrorKind::InvalidConfig, "mixed CAN transport has no stored configuration");
+        return fail(ErrorKind::kInvalidConfig, "mixed CAN transport has no stored configuration");
     }
     const MixedCanConfig config = *stored_config_;
     if (const Status reset = reset_connection(); !reset.has_value())
@@ -154,13 +154,13 @@ Status DesktopMixedCanFlashTransport::enter_iso15765_kernel_mode()
     {
         return transition_failure(opened);
     }
-    mode_ = Mode::Iso15765;
+    mode_ = Mode::kIso15765;
     return {};
 }
 
 Status DesktopMixedCanFlashTransport::write_iso15765(bytes::ByteView data, const ICancellationToken& cancellation)
 {
-    if (const Status ready = io_ready(Mode::Iso15765, "ISO-15765 write"); !ready.has_value())
+    if (const Status ready = io_ready(Mode::kIso15765, "ISO-15765 write"); !ready.has_value())
     {
         return ready;
     }
@@ -170,7 +170,7 @@ Status DesktopMixedCanFlashTransport::write_iso15765(bytes::ByteView data, const
 Result<std::optional<bytes::Bytes>> DesktopMixedCanFlashTransport::read_iso15765(std::chrono::milliseconds timeout,
                                                                                  const ICancellationToken& cancellation)
 {
-    if (const Status ready = io_ready(Mode::Iso15765, "ISO-15765 read"); !ready.has_value())
+    if (const Status ready = io_ready(Mode::kIso15765, "ISO-15765 read"); !ready.has_value())
     {
         return std::unexpected(ready.error());
     }
@@ -179,13 +179,13 @@ Result<std::optional<bytes::Bytes>> DesktopMixedCanFlashTransport::read_iso15765
 
 Status DesktopMixedCanFlashTransport::write_raw(const cdbg::CanFrame& frame, const ICancellationToken& cancellation)
 {
-    if (const Status ready = io_ready(Mode::Raw, "raw CAN write"); !ready.has_value())
+    if (const Status ready = io_ready(Mode::kRaw, "raw CAN write"); !ready.has_value())
     {
         return ready;
     }
     if (frame.payload.size() > 8)
     {
-        return fail(ErrorKind::InvalidConfig, "raw CAN payload exceeds 8 bytes");
+        return fail(ErrorKind::kInvalidConfig, "raw CAN payload exceeds 8 bytes");
     }
     // Contract: the frame is sent exactly as composed, so DLC equals
     // frame.payload.size() -- unlike the legacy DensoCAN path, which always
@@ -197,7 +197,7 @@ Status DesktopMixedCanFlashTransport::write_raw(const cdbg::CanFrame& frame, con
 Result<std::optional<cdbg::CanFrame>> DesktopMixedCanFlashTransport::read_raw(std::chrono::milliseconds timeout,
                                                                               const ICancellationToken& cancellation)
 {
-    if (const Status ready = io_ready(Mode::Raw, "raw CAN read"); !ready.has_value())
+    if (const Status ready = io_ready(Mode::kRaw, "raw CAN read"); !ready.has_value())
     {
         return std::unexpected(ready.error());
     }
@@ -212,22 +212,22 @@ Result<std::optional<cdbg::CanFrame>> DesktopMixedCanFlashTransport::read_raw(st
     }
     if (raw->value().size() < 4)
     {
-        return fail(ErrorKind::BadResponse, "raw CAN response lacks a four-byte arbitration ID");
+        return fail(ErrorKind::kBadResponse, "raw CAN response lacks a four-byte arbitration ID");
     }
     const std::uint32_t id = bytes::readU32Be(raw->value());
     if (!stored_config_.has_value())
     {
-        return fail(ErrorKind::InvalidConfig, "mixed CAN transport has no stored configuration");
+        return fail(ErrorKind::kInvalidConfig, "mixed CAN transport has no stored configuration");
     }
     if (id != stored_config_->bootloader.receive_id)
     {
-        return fail(ErrorKind::BadResponse, std::format("expected raw CAN reply id 0x{:x}, got 0x{:x}",
-                                                        stored_config_->bootloader.receive_id, id));
+        return fail(ErrorKind::kBadResponse, std::format("expected raw CAN reply id 0x{:x}, got 0x{:x}",
+                                                         stored_config_->bootloader.receive_id, id));
     }
     bytes::Bytes payload(raw->value().begin() + 4, raw->value().end());
     if (payload.size() > 8)
     {
-        return fail(ErrorKind::BadResponse, "raw CAN response payload exceeds 8 bytes");
+        return fail(ErrorKind::kBadResponse, "raw CAN response payload exceeds 8 bytes");
     }
     return std::optional<cdbg::CanFrame>{cdbg::CanFrame{.id = id, .payload = std::move(payload)}};
 }
@@ -241,29 +241,29 @@ Status DesktopMixedCanFlashTransport::configure_iso(const MixedCanConfig& config
 {
     if (!serial_)
     {
-        return fail(ErrorKind::Disconnected, "configure() called after close()");
+        return fail(ErrorKind::kDisconnected, "configure() called after close()");
     }
     try
     {
         if (!serial_->set_is_iso14230_connection(false))
         {
-            return fail(ErrorKind::InvalidConfig, "set_is_iso14230_connection failed");
+            return fail(ErrorKind::kInvalidConfig, "set_is_iso14230_connection failed");
         }
         if (!serial_->set_is_can_connection(false))
         {
-            return fail(ErrorKind::InvalidConfig, "set_is_can_connection failed");
+            return fail(ErrorKind::kInvalidConfig, "set_is_can_connection failed");
         }
         if (!serial_->set_is_iso15765_connection(true))
         {
-            return fail(ErrorKind::InvalidConfig, "set_is_iso15765_connection failed");
+            return fail(ErrorKind::kInvalidConfig, "set_is_iso15765_connection failed");
         }
         if (!serial_->set_is_29_bit_id(config.kernel.extended_id))
         {
-            return fail(ErrorKind::InvalidConfig, "set_is_29_bit_id failed");
+            return fail(ErrorKind::kInvalidConfig, "set_is_29_bit_id failed");
         }
         if (!serial_->set_can_speed(QString::number(config.kernel.bitrate)))
         {
-            return fail(ErrorKind::InvalidConfig, "set_can_speed failed");
+            return fail(ErrorKind::kInvalidConfig, "set_can_speed failed");
         }
         // Deliberate, not a copy-paste slip against DesktopCanFlashTransport::
         // configure(): while ISO-15765 is selected, set_j2534_can_filters()
@@ -276,33 +276,33 @@ Status DesktopMixedCanFlashTransport::configure_iso(const MixedCanConfig& config
         // (flash_ecu_subaru_denso_sh705x_densocan_operation.cpp:68-70).
         if (!serial_->set_can_source_address(config.bootloader.transmit_id))
         {
-            return fail(ErrorKind::InvalidConfig, "set_can_source_address failed");
+            return fail(ErrorKind::kInvalidConfig, "set_can_source_address failed");
         }
         if (!serial_->set_can_destination_address(config.bootloader.receive_id))
         {
-            return fail(ErrorKind::InvalidConfig, "set_can_destination_address failed");
+            return fail(ErrorKind::kInvalidConfig, "set_can_destination_address failed");
         }
         if (!serial_->set_iso15765_source_address(config.kernel.request_id))
         {
-            return fail(ErrorKind::InvalidConfig, "set_iso15765_source_address failed");
+            return fail(ErrorKind::kInvalidConfig, "set_iso15765_source_address failed");
         }
         if (!serial_->set_iso15765_destination_address(config.kernel.response_id))
         {
-            return fail(ErrorKind::InvalidConfig, "set_iso15765_destination_address failed");
+            return fail(ErrorKind::kInvalidConfig, "set_iso15765_destination_address failed");
         }
         if (!serial_->set_add_iso14230_header(false))
         {
-            return fail(ErrorKind::InvalidConfig, "set_add_iso14230_header failed");
+            return fail(ErrorKind::kInvalidConfig, "set_add_iso14230_header failed");
         }
         return {};
     }
     catch (const std::exception& error)
     {
-        return fail(ErrorKind::Internal, error.what());
+        return fail(ErrorKind::kInternal, error.what());
     }
     catch (...)
     {
-        return fail(ErrorKind::Internal, "mixed CAN ISO-15765 configure exception");
+        return fail(ErrorKind::kInternal, "mixed CAN ISO-15765 configure exception");
     }
 }
 
@@ -312,45 +312,45 @@ Status DesktopMixedCanFlashTransport::configure_raw(const RawCanConfig& config)
     {
         if (!serial_->set_is_iso14230_connection(false))
         {
-            return fail(ErrorKind::InvalidConfig, "set_is_iso14230_connection failed");
+            return fail(ErrorKind::kInvalidConfig, "set_is_iso14230_connection failed");
         }
         if (!serial_->set_is_can_connection(true))
         {
-            return fail(ErrorKind::InvalidConfig, "set_is_can_connection failed");
+            return fail(ErrorKind::kInvalidConfig, "set_is_can_connection failed");
         }
         if (!serial_->set_is_iso15765_connection(false))
         {
-            return fail(ErrorKind::InvalidConfig, "set_is_iso15765_connection failed");
+            return fail(ErrorKind::kInvalidConfig, "set_is_iso15765_connection failed");
         }
         if (!serial_->set_is_29_bit_id(config.extended_id))
         {
-            return fail(ErrorKind::InvalidConfig, "set_is_29_bit_id failed");
+            return fail(ErrorKind::kInvalidConfig, "set_is_29_bit_id failed");
         }
         if (!serial_->set_can_speed(QString::number(config.bitrate)))
         {
-            return fail(ErrorKind::InvalidConfig, "set_can_speed failed");
+            return fail(ErrorKind::kInvalidConfig, "set_can_speed failed");
         }
         if (!serial_->set_can_source_address(config.transmit_id))
         {
-            return fail(ErrorKind::InvalidConfig, "set_can_source_address failed");
+            return fail(ErrorKind::kInvalidConfig, "set_can_source_address failed");
         }
         if (!serial_->set_can_destination_address(config.receive_id))
         {
-            return fail(ErrorKind::InvalidConfig, "set_can_destination_address failed");
+            return fail(ErrorKind::kInvalidConfig, "set_can_destination_address failed");
         }
         if (!serial_->set_add_iso14230_header(false))
         {
-            return fail(ErrorKind::InvalidConfig, "set_add_iso14230_header failed");
+            return fail(ErrorKind::kInvalidConfig, "set_add_iso14230_header failed");
         }
         return {};
     }
     catch (const std::exception& error)
     {
-        return fail(ErrorKind::Internal, error.what());
+        return fail(ErrorKind::kInternal, error.what());
     }
     catch (...)
     {
-        return fail(ErrorKind::Internal, "mixed CAN raw configure exception");
+        return fail(ErrorKind::kInternal, "mixed CAN raw configure exception");
     }
 }
 
@@ -358,7 +358,7 @@ Status DesktopMixedCanFlashTransport::reset_connection()
 {
     if (!serial_)
     {
-        return fail(ErrorKind::Disconnected, "reset_connection() called after close()");
+        return fail(ErrorKind::kDisconnected, "reset_connection() called after close()");
     }
     try
     {
@@ -369,17 +369,17 @@ Status DesktopMixedCanFlashTransport::reset_connection()
         // blocks below can produce an Internal error here.
         if (!serial_->reset_connection())
         {
-            return fail(ErrorKind::Internal, "reset_connection failed");
+            return fail(ErrorKind::kInternal, "reset_connection failed");
         }
         return {};
     }
     catch (const std::exception& error)
     {
-        return fail(ErrorKind::Internal, error.what());
+        return fail(ErrorKind::kInternal, error.what());
     }
     catch (...)
     {
-        return fail(ErrorKind::Internal, "reset_connection exception");
+        return fail(ErrorKind::kInternal, "reset_connection exception");
     }
 }
 
@@ -397,11 +397,11 @@ Status DesktopMixedCanFlashTransport::io_ready(Mode required_mode, std::string_v
     }
     if (!serial_)
     {
-        return fail(ErrorKind::Disconnected, std::format("{} called after close()", operation));
+        return fail(ErrorKind::kDisconnected, std::format("{} called after close()", operation));
     }
     if (mode_ != required_mode)
     {
-        return fail(ErrorKind::InvalidConfig, std::format("mixed CAN {} in wrong mode", operation));
+        return fail(ErrorKind::kInvalidConfig, std::format("mixed CAN {} in wrong mode", operation));
     }
     return {};
 }
@@ -410,28 +410,28 @@ Status DesktopMixedCanFlashTransport::write_serial(bytes::ByteView data, const I
 {
     if (cancellation.cancelled() || unblock_requested_.load())
     {
-        return fail(ErrorKind::Cancelled, "mixed CAN write skipped due to cancellation/unblock");
+        return fail(ErrorKind::kCancelled, "mixed CAN write skipped due to cancellation/unblock");
     }
     try
     {
         if (!serial_->is_serial_port_open())
         {
-            return fail(ErrorKind::Disconnected, "mixed CAN adapter disconnected before write");
+            return fail(ErrorKind::kDisconnected, "mixed CAN adapter disconnected before write");
         }
         serial_->write_serial_data_echo_check(bytes::toQByteArray(data));
         if (!serial_->is_serial_port_open())
         {
-            return fail(ErrorKind::Disconnected, "mixed CAN adapter disconnected during write");
+            return fail(ErrorKind::kDisconnected, "mixed CAN adapter disconnected during write");
         }
         return {};
     }
     catch (const std::exception& error)
     {
-        return fail(ErrorKind::Internal, error.what());
+        return fail(ErrorKind::kInternal, error.what());
     }
     catch (...)
     {
-        return fail(ErrorKind::Internal, "mixed CAN driver write exception");
+        return fail(ErrorKind::kInternal, "mixed CAN driver write exception");
     }
 }
 
@@ -440,7 +440,7 @@ Result<std::optional<bytes::Bytes>> DesktopMixedCanFlashTransport::read_serial(s
 {
     if (cancellation.cancelled() || unblock_requested_.load())
     {
-        return fail(ErrorKind::Cancelled, "mixed CAN read skipped due to cancellation/unblock");
+        return fail(ErrorKind::kCancelled, "mixed CAN read skipped due to cancellation/unblock");
     }
     return fastecu::desktop::detail::read_serial(serial_, timeout, cancellation, [this](std::uint16_t driver_timeout)
                                                  { return serial_->read_serial_data(driver_timeout); });

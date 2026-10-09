@@ -74,7 +74,7 @@ struct BridgeProcess
         {
             return;
         }
-        writeFrame(to_child_write, Function::Shutdown, nullptr, 0);
+        writeFrame(to_child_write, Function::kShutdown, nullptr, 0);
         if (WaitForSingleObject(pi.hProcess, 2000) == WAIT_TIMEOUT)
         {
             TerminateProcess(pi.hProcess, 1);
@@ -94,7 +94,7 @@ void test_open_connect_and_read(BridgeProcess& bridge)
 {
     PassThruOpenRequest openReq{};
     openReq.has_name = false;
-    writeFrame(bridge.to_child_write, Function::PassThruOpen, &openReq, sizeof(openReq));
+    writeFrame(bridge.to_child_write, Function::kPassThruOpen, &openReq, sizeof(openReq));
     FrameHeader header{};
     PassThruOpenResponse openResp{};
     ASSERT_TRUE(readFrame(bridge.from_child_read, header, &openResp, sizeof(openResp)));
@@ -104,7 +104,7 @@ void test_open_connect_and_read(BridgeProcess& bridge)
     PassThruConnectRequest connectReq{};
     connectReq.device_id = openResp.device_id;
     connectReq.protocol_id = kJ2534Iso9141;
-    writeFrame(bridge.to_child_write, Function::PassThruConnect, &connectReq, sizeof(connectReq));
+    writeFrame(bridge.to_child_write, Function::kPassThruConnect, &connectReq, sizeof(connectReq));
     PassThruConnectResponse connectResp{};
     ASSERT_TRUE(readFrame(bridge.from_child_read, header, &connectResp, sizeof(connectResp)));
     ASSERT_TRUE(connectResp.result == kJ2534StatusNoerror);
@@ -113,7 +113,7 @@ void test_open_connect_and_read(BridgeProcess& bridge)
     PassThruReadMsgsRequest readReq{};
     readReq.channel_id = connectResp.channel_id;
     readReq.timeout = 100;
-    writeFrame(bridge.to_child_write, Function::PassThruReadMsgs, &readReq, sizeof(readReq));
+    writeFrame(bridge.to_child_write, Function::kPassThruReadMsgs, &readReq, sizeof(readReq));
     PassThruReadMsgsResponse readResp{};
     ASSERT_TRUE(readFrame(bridge.from_child_read, header, &readResp, sizeof(readResp)));
     ASSERT_TRUE(readResp.result == kJ2534StatusNoerror);
@@ -131,7 +131,7 @@ void test_write_msgs_success_and_failure(BridgeProcess& bridge)
     goodReq.channel_id = 3;
     goodReq.msg.data_size = 1;
     goodReq.msg.data[0] = 0x11;
-    writeFrame(bridge.to_child_write, Function::PassThruWriteMsgs, &goodReq, sizeof(goodReq));
+    writeFrame(bridge.to_child_write, Function::kPassThruWriteMsgs, &goodReq, sizeof(goodReq));
     FrameHeader header{};
     PassThruWriteMsgsResponse goodResp{};
     ASSERT_TRUE(readFrame(bridge.from_child_read, header, &goodResp, sizeof(goodResp)));
@@ -139,7 +139,7 @@ void test_write_msgs_success_and_failure(BridgeProcess& bridge)
 
     PassThruWriteMsgsRequest badReq = goodReq;
     badReq.msg.data[0] = 0x99;
-    writeFrame(bridge.to_child_write, Function::PassThruWriteMsgs, &badReq, sizeof(badReq));
+    writeFrame(bridge.to_child_write, Function::kPassThruWriteMsgs, &badReq, sizeof(badReq));
     PassThruWriteMsgsResponse badResp{};
     ASSERT_TRUE(readFrame(bridge.from_child_read, header, &badResp, sizeof(badResp)));
     ASSERT_TRUE(badResp.result == kJ2534ErrFailed);
@@ -152,7 +152,7 @@ void test_ioctl_read_vbatt(BridgeProcess& bridge)
     PassThruIoctlRequest req{};
     req.channel_id = 3;
     req.ioctl_id = kJ2534ReadVbatt;
-    writeFrame(bridge.to_child_write, Function::PassThruIoctl, &req, sizeof(req));
+    writeFrame(bridge.to_child_write, Function::kPassThruIoctl, &req, sizeof(req));
     FrameHeader header{};
     PassThruIoctlResponse resp{};
     ASSERT_TRUE(readFrame(bridge.from_child_read, header, &resp, sizeof(resp)));
@@ -172,7 +172,7 @@ void test_child_crash_is_detected_as_broken_pipe(const std::string& hostExe, con
 
     PassThruCloseRequest req{};
     req.device_id = 7;
-    writeFrame(bridge.to_child_write, Function::PassThruClose, &req, sizeof(req));
+    writeFrame(bridge.to_child_write, Function::kPassThruClose, &req, sizeof(req));
     FrameHeader header{};
     PassThruCloseResponse resp{};
     bool ok = readFrame(bridge.from_child_read, header, &resp, sizeof(resp));

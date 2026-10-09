@@ -291,7 +291,7 @@ TEST_F(MutDmaIntegrationTest, setBaud_throughAdapter_trueWhenConnected_falseWhen
     // change_port_speed returns STATUS_ERROR when the port is not open -> false.
     const auto closedResult = closedTr.setBaud(15625);
     ASSERT_TRUE(!closedResult);
-    ASSERT_EQ(closedResult.error().kind, fastecu::ErrorKind::Disconnected);
+    ASSERT_EQ(closedResult.error().kind, fastecu::ErrorKind::kDisconnected);
 
     int master = -1, slave = -1;
     std::array<char, 256> name{};

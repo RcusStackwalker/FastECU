@@ -88,9 +88,9 @@ bool isDestructiveStep(const PreparedStep& step)
 
 enum class EraseSequenceState
 {
-    NeedsHelper,
-    NeedsUnlock,
-    Ready,
+    kNeedsHelper,
+    kNeedsUnlock,
+    kReady,
 };
 
 constexpr std::string_view kEraseSequenceRequirement =
@@ -101,19 +101,20 @@ EraseSequenceState advanceEraseSequence(EraseSequenceState state, const Prepared
 {
     if (!successful)
     {
-        return EraseSequenceState::NeedsHelper;
+        return EraseSequenceState::kNeedsHelper;
     }
     if (step.provides_erase_helper)
     {
-        return EraseSequenceState::NeedsUnlock;
+        return EraseSequenceState::kNeedsUnlock;
     }
     if (step.spec.id == CommandId::Unlock)
     {
-        return state == EraseSequenceState::NeedsUnlock ? EraseSequenceState::Ready : EraseSequenceState::NeedsHelper;
+        return state == EraseSequenceState::kNeedsUnlock ? EraseSequenceState::kReady
+                                                         : EraseSequenceState::kNeedsHelper;
     }
     if (isDestructiveStep(step))
     {
-        return EraseSequenceState::NeedsHelper;
+        return EraseSequenceState::kNeedsHelper;
     }
     return state;
 }
@@ -132,7 +133,7 @@ template <std::ranges::input_range Steps>
 std::optional<PlanValidationFailure> validateSessionPlan(Steps&& steps)
 {
     bool saw_session_step = false;
-    EraseSequenceState erase_sequence = EraseSequenceState::NeedsHelper;
+    EraseSequenceState erase_sequence = EraseSequenceState::kNeedsHelper;
     for (const PreparedStep& step : steps)
     {
         if (step.spec.id == CommandId::Ports)
@@ -142,15 +143,15 @@ std::optional<PlanValidationFailure> validateSessionPlan(Steps&& steps)
         if (step.spec.id == CommandId::Connect && saw_session_step)
         {
             return PlanValidationFailure{
-                &step, Error{ErrorKind::InvalidConfig,
+                &step, Error{ErrorKind::kInvalidConfig,
                              "connect must be the first non-ports session step and may appear only once"}};
         }
         saw_session_step = true;
 
-        if (step.spec.id == CommandId::Erase && erase_sequence != EraseSequenceState::Ready)
+        if (step.spec.id == CommandId::Erase && erase_sequence != EraseSequenceState::kReady)
         {
             return PlanValidationFailure{&step,
-                                         Error{ErrorKind::InvalidConfig, std::string(kEraseSequenceRequirement)}};
+                                         Error{ErrorKind::kInvalidConfig, std::string(kEraseSequenceRequirement)}};
         }
         erase_sequence = advanceEraseSequence(erase_sequence, step, true);
     }
@@ -159,7 +160,7 @@ std::optional<PlanValidationFailure> validateSessionPlan(Steps&& steps)
 
 struct SessionState
 {
-    EraseSequenceState erase_sequence = EraseSequenceState::NeedsHelper;
+    EraseSequenceState erase_sequence = EraseSequenceState::kNeedsHelper;
 };
 
 int runSteps(IBenchSession& session, IBenchFiles& files, const Reporter& reporter, std::span<const PreparedStep> steps,
@@ -170,10 +171,10 @@ int runSteps(IBenchSession& session, IBenchFiles& files, const Reporter& reporte
     for (const PreparedStep& step : steps)
     {
         CommandOutcome outcome;
-        if (step.spec.id == CommandId::Erase && state.erase_sequence != EraseSequenceState::Ready)
+        if (step.spec.id == CommandId::Erase && state.erase_sequence != EraseSequenceState::kReady)
         {
             outcome = failedOutcome(render_step(step.spec),
-                                    Error{ErrorKind::InvalidConfig, std::string(kEraseSequenceRequirement)});
+                                    Error{ErrorKind::kInvalidConfig, std::string(kEraseSequenceRequirement)});
             if (const Result<double> battery = session.vbatt(); battery.has_value())
             {
                 outcome.vbatt = *battery;
@@ -191,7 +192,7 @@ int runSteps(IBenchSession& session, IBenchFiles& files, const Reporter& reporte
         {
             continue;
         }
-        ratchet(code, exit_code_for(outcome.error_kind.value_or(ErrorKind::Internal)));
+        ratchet(code, exit_code_for(outcome.error_kind.value_or(ErrorKind::kInternal)));
         if (!reporter.options.keep_going)
         {
             break;
@@ -325,7 +326,7 @@ ScriptPlan prepareScript(IBenchFiles& files, const Reporter& reporter, std::istr
                                                         { return find_global_option(token) != nullptr; });
             forbidden != tokens.end())
         {
-            if (const Error error{ErrorKind::InvalidConfig,
+            if (const Error error{ErrorKind::kInvalidConfig,
                                   std::format("script-line global option {} is not allowed; put it on the outer "
                                               "--script invocation",
                                               *forbidden)};

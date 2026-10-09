@@ -107,12 +107,12 @@ bytes::Bytes response(std::initializer_list<bytes::Byte> tail)
 
 fastecu::Result<fastecu::flash::FlashPlan> readPlan()
 {
-    return build_subaru_denso_1n83m_4m_can_plan(FlashOperation::Read, kProtocol, kMcu, std::nullopt);
+    return build_subaru_denso_1n83m_4m_can_plan(FlashOperation::kRead, kProtocol, kMcu, std::nullopt);
 }
 
 fastecu::Result<fastecu::flash::FlashPlan> writePlan(bytes::Bytes rom)
 {
-    return build_subaru_denso_1n83m_4m_can_plan(FlashOperation::Write, kProtocol, kMcu, std::move(rom));
+    return build_subaru_denso_1n83m_4m_can_plan(FlashOperation::kWrite, kProtocol, kMcu, std::move(rom));
 }
 
 // Hand-built rather than produced by build_subaru_denso_1n83m_4m_can_plan, so
@@ -123,8 +123,8 @@ fastecu::Result<fastecu::flash::FlashPlan> handBuiltPlan(FlashOperation operatio
 {
     fastecu::flash::FlashPlanFields fields;
     fields.operation = operation;
-    fields.family = fastecu::flash::FlashFamily::SubaruDenso1n83m_4mCan;
-    fields.transport = fastecu::flash::TransportKind::CanIso15765;
+    fields.family = fastecu::flash::FlashFamily::kSubaruDenso1n83m4mCan;
+    fields.transport = fastecu::flash::TransportKind::kCanIso15765;
     fields.target_id = std::string(kProtocol);
     fields.mcu_name = std::string(kMcu);
     fields.transfer_region = fastecu::flash::MemoryRegion{kBlockStart, kBlockLength};
@@ -405,7 +405,7 @@ TEST(SubaruDenso1n83m_4mCanExecutor, ProceedsPastMalformedConnectAndDumpSetupRes
     EXPECT_THAT(bytes::ByteView(*result->read_bytes).subspan(0x10000, kBlockLength), Each(0x5A));
     EXPECT_TRUE(transport.scriptConsumed());
     // Legacy's own wording for the absent-reply branch it then steps over.
-    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Error, "No valid response from ECU")));
+    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::kError, "No valid response from ECU")));
 }
 
 TEST(SubaruDenso1n83m_4mCanExecutor, ProceedsPastMalformedInCarProbeAndDumpSetup)
@@ -419,7 +419,7 @@ TEST(SubaruDenso1n83m_4mCanExecutor, ProceedsPastMalformedInCarProbeAndDumpSetup
     scriptInCarConnectTail(transport, 0x50, 0x02); // wrong subfunction, tolerated
     scriptReadSetupWithMissingThenWrongReply(transport);
     transport.exchange(request(bytes::composeBe(bytes::Byte(0xB7), kBlockStart)));
-    transport.queue_error(ErrorKind::Disconnected, "adapter gone");
+    transport.queue_error(ErrorKind::kDisconnected, "adapter gone");
 
     FakeClock clock;
     RecordingEventSink events;
@@ -431,9 +431,9 @@ TEST(SubaruDenso1n83m_4mCanExecutor, ProceedsPastMalformedInCarProbeAndDumpSetup
 
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
-    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::Disconnected));
+    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kDisconnected));
     EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Error, "No valid response from ECU")));
+    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::kError, "No valid response from ECU")));
 }
 
 TEST(SubaruDenso1n83m_4mCanExecutor, BenchReadReturnsPaddedImage)
@@ -516,7 +516,7 @@ TEST(SubaruDenso1n83m_4mCanExecutor, WriteErasesThenFlashesBlockOne)
 
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
     ASSERT_THAT(result, fastecu::testing::IsOk());
-    EXPECT_EQ(result->operation, FlashOperation::Write);
+    EXPECT_EQ(result->operation, FlashOperation::kWrite);
     EXPECT_FALSE(result->read_bytes.has_value());
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_THAT(events.notices, Contains("Writing ROM, please wait..."));
@@ -555,7 +555,7 @@ TEST(SubaruDenso1n83m_4mCanExecutor, ReadDisconnectMidDumpLoopPropagates)
     scriptBenchConnect(transport);
     scriptReadSetup(transport);
     transport.exchange(request(bytes::composeBe(bytes::Byte(0xB7), kBlockStart)));
-    transport.queue_error(ErrorKind::Disconnected, "adapter gone");
+    transport.queue_error(ErrorKind::kDisconnected, "adapter gone");
 
     FakeClock clock;
     RecordingEventSink events;
@@ -567,7 +567,7 @@ TEST(SubaruDenso1n83m_4mCanExecutor, ReadDisconnectMidDumpLoopPropagates)
 
     const auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
-    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::Disconnected));
+    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kDisconnected));
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
@@ -587,7 +587,7 @@ TEST(SubaruDenso1n83m_4mCanExecutor, ReadTimeoutAtTheTolerantDumpSetupStillPropa
     ScriptedCanFlashTransport transport;
     scriptBenchConnect(transport);
     transport.exchange(request({0x34, 0x04, 0x44, 0x08, 0xFA, 0xC0, 0x00, 0x00, 0x3D, 0x3F, 0x00}));
-    transport.queue_error(ErrorKind::Timeout, "no reply");
+    transport.queue_error(ErrorKind::kTimeout, "no reply");
 
     FakeClock clock;
     RecordingEventSink events;
@@ -599,7 +599,7 @@ TEST(SubaruDenso1n83m_4mCanExecutor, ReadTimeoutAtTheTolerantDumpSetupStillPropa
 
     const auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
-    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::Timeout));
+    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kTimeout));
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
@@ -623,7 +623,7 @@ TEST(SubaruDenso1n83m_4mCanExecutor, NegativeResponseDuringConnectFails)
 
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
-    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::BadResponse));
+    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kBadResponse));
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
@@ -653,7 +653,7 @@ TEST(SubaruDenso1n83m_4mCanExecutor, EmptyBranchSelectorReplyFails)
 
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
-    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::Timeout));
+    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kTimeout));
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
@@ -680,11 +680,11 @@ TEST(SubaruDenso1n83m_4mCanExecutor, EraseRetryExhaustionFails)
 
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
-    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::BadResponse));
+    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kBadResponse));
     EXPECT_TRUE(transport.scriptConsumed());
     // A second trigger would have hit the end of the script and surfaced as an
     // Internal error rather than BadResponse; the failure is the erase's own.
-    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Error, "Flash area erase failed")));
+    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::kError, "Flash area erase failed")));
 }
 
 // The IFlashExecutor contract this family satisfies -- see

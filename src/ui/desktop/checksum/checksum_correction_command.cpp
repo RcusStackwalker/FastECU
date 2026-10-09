@@ -60,16 +60,16 @@ void ChecksumCorrectionCommand::showFamilyResultDialog(const ChecksumResult& fam
     }
     switch (family_result.status)
     {
-    case ChecksumResult::Status::Disabled:
+    case ChecksumResult::Status::kDisabled:
         QMessageBox::information(nullptr, QObject::tr("32-bit checksum"), message);
         break;
-    case ChecksumResult::Status::InvalidSize:
-    case ChecksumResult::Status::UnsupportedRom:
-    case ChecksumResult::Status::ParseError:
+    case ChecksumResult::Status::kInvalidSize:
+    case ChecksumResult::Status::kUnsupportedRom:
+    case ChecksumResult::Status::kParseError:
         QMessageBox::warning(nullptr, QObject::tr("Checksum module"), message);
         break;
-    case ChecksumResult::Status::Corrected:
-    case ChecksumResult::Status::Unchanged:
+    case ChecksumResult::Status::kCorrected:
+    case ChecksumResult::Status::kUnchanged:
         break;
     }
 }
@@ -100,20 +100,20 @@ ChecksumCorrectionResult ChecksumCorrectionCommand::run(bytes::ByteView rom_data
     switch (const ChecksumCorrectionOutcome outcome = fastecu::checksum::apply_checksum_correction(rom_data, selection);
             outcome.status)
     {
-    case ChecksumCorrectionOutcome::Status::UnknownMcuType:
+    case ChecksumCorrectionOutcome::Status::kUnknownMcuType:
         // Unreachable: the find_flash_device precheck above returns first.
         // Handled defensively as a no-op, matching legacy's silent return.
         break;
-    case ChecksumCorrectionOutcome::Status::BadRomSize:
+    case ChecksumCorrectionOutcome::Status::kBadRomSize:
         showBadRomSizeDialog(parent);
         break;
-    case ChecksumCorrectionOutcome::Status::NoModuleForProtocol:
+    case ChecksumCorrectionOutcome::Status::kNoModuleForProtocol:
         if (selection.checksum_flag != "no")
         {
             result.canceled_due_to_missing_module = confirmProceedWithoutChecksumModule();
         }
         break;
-    case ChecksumCorrectionOutcome::Status::FamilyRan:
+    case ChecksumCorrectionOutcome::Status::kFamilyRan:
         if (outcome.family_result.has_value())
         {
             if (outcome.family_result->ok())

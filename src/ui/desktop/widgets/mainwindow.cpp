@@ -116,7 +116,7 @@ MainWindow::MainWindow(MainWindowServices services, const QString& peerAddress, 
         services_.make_clock,
         [this](fastecu::LogLevel level, const QString& message)
         {
-            if (level == fastecu::LogLevel::Warning)
+            if (level == fastecu::LogLevel::kWarning)
             {
                 emit LOG_W(message, true, true);
             }
@@ -189,10 +189,10 @@ MainWindow::MainWindow(MainWindowServices services, const QString& peerAddress, 
     }
 
     // Scan errors are nonfatal and already reported by the session.
-    std::ignore = services_.definition_catalogs.refresh_index(fastecu::definition::DefinitionFormat::EcuFlash);
+    std::ignore = services_.definition_catalogs.refresh_index(fastecu::definition::DefinitionFormat::kEcuFlash);
 
     // Scan errors are nonfatal and already reported by the session.
-    std::ignore = services_.definition_catalogs.refresh_index(fastecu::definition::DefinitionFormat::RomRaider);
+    std::ignore = services_.definition_catalogs.refresh_index(fastecu::definition::DefinitionFormat::kRomRaider);
 
     if (const QString kernel_dir = qs(config_session_->effective_paths().kernel_files_directory);
         QDir(kernel_dir).exists())
@@ -463,16 +463,16 @@ void MainWindow::emit_log_line(fastecu::LogLevel level, const QString& message)
 {
     switch (level)
     {
-    case fastecu::LogLevel::Error:
+    case fastecu::LogLevel::kError:
         emit LOG_E(message, true, true);
         break;
-    case fastecu::LogLevel::Warning:
+    case fastecu::LogLevel::kWarning:
         emit LOG_W(message, true, true);
         break;
-    case fastecu::LogLevel::Info:
+    case fastecu::LogLevel::kInfo:
         emit LOG_I(message, true, true);
         break;
-    case fastecu::LogLevel::Debug:
+    case fastecu::LogLevel::kDebug:
         emit LOG_D(message, true, true);
         break;
     }
@@ -737,7 +737,7 @@ bool MainWindow::add_calibration(fastecu::calibration::SessionId id)
     calibrations_.push_back(OpenCalibration{.id = id});
 
     update_protocol_info(
-        fastecu::ui::rom_info_value(fastecu::ui::rom_info_values(*session), fastecu::ui::RomInfoRow::FlashMethod));
+        fastecu::ui::rom_info_value(fastecu::ui::rom_info_values(*session), fastecu::ui::RomInfoRow::kFlashMethod));
     if (session->definition() == nullptr)
     {
         prompt_for_missing_definition(id);
@@ -977,13 +977,13 @@ int MainWindow::start_ecu_operations(const QString& cmd_type)
             .display_filename = prepared_write.has_value() ? prepared_write->display_filename : std::string{},
         });
 
-        if (outcome.status == fastecu::flash::FlashOperationStatus::ServiceActionHandled)
+        if (outcome.status == fastecu::flash::FlashOperationStatus::kServiceActionHandled)
         {
             // The old goto skipped the post-operation block entirely.
         }
         else if (cmd_type == "read")
         {
-            if (outcome.status == fastecu::flash::FlashOperationStatus::Completed && outcome.read_bytes &&
+            if (outcome.status == fastecu::flash::FlashOperationStatus::kCompleted && outcome.read_bytes &&
                 !outcome.read_bytes->empty())
             {
                 const QString dateTimeString = QDateTime::currentDateTime().toString("yyyy-MM-dd_hh'h'mm'm'ss's'");
@@ -1097,7 +1097,7 @@ void MainWindow::prompt_for_missing_definition(fastecu::calibration::SessionId i
 void MainWindow::save_calibration_file()
 {
     // The coordinator reports every outcome; saving in place changes no label.
-    calibration_operations_->save(selected_calibration(), fastecu::ui::SaveMode::Save);
+    calibration_operations_->save(selected_calibration(), fastecu::ui::SaveMode::kSave);
 }
 
 void MainWindow::save_calibration_file_as()
@@ -1105,7 +1105,7 @@ void MainWindow::save_calibration_file_as()
     // Resolved once: the selection can change while the picker is open, and
     // the label belongs to the session that was saved.
     fastecu::calibration::CalibrationSession *session = selected_calibration();
-    if (calibration_operations_->save(session, fastecu::ui::SaveMode::SaveAs) != fastecu::ui::SaveOutcome::Saved)
+    if (calibration_operations_->save(session, fastecu::ui::SaveMode::kSaveAs) != fastecu::ui::SaveOutcome::kSaved)
     {
         return;
     }
@@ -1140,7 +1140,7 @@ void MainWindow::set_map_selection(fastecu::calibration::SessionId id, int map_i
     }
     // A name no selection carries still refreshes, so the combo snaps back to the ROM's bytes.
     if (const auto *skipped = std::get_if<fastecu::calibration::SelectableEditNotApplicable>(&*outcome);
-        skipped != nullptr && skipped->reason != fastecu::calibration::SelectableNotApplicableReason::UnknownSelection)
+        skipped != nullptr && skipped->reason != fastecu::calibration::SelectableNotApplicableReason::kUnknownSelection)
     {
         return;
     }
@@ -1203,7 +1203,7 @@ void MainWindow::calibration_files_treewidget_item_selected(QTreeWidgetItem *ite
     }
     calibration_tree_widget_->buildCalibrationDataTree(ui_->calibrationDataTreeWidget, *session, open->view);
     update_protocol_info(
-        fastecu::ui::rom_info_value(fastecu::ui::rom_info_values(*session), fastecu::ui::RomInfoRow::FlashMethod));
+        fastecu::ui::rom_info_value(fastecu::ui::rom_info_values(*session), fastecu::ui::RomInfoRow::kFlashMethod));
 }
 
 void MainWindow::calibration_data_treewidget_item_selected(QTreeWidgetItem *item)
@@ -1962,20 +1962,20 @@ void MainWindow::handleLoggingSessionEnded(fastecu::desktop::logging::SessionEnd
 {
     restoreLoggingUiState();
 
-    if (reason == fastecu::desktop::logging::SessionEndReason::StoppedByUser)
+    if (reason == fastecu::desktop::logging::SessionEndReason::kStoppedByUser)
     {
         return;
     }
 
-    if (reason == fastecu::desktop::logging::SessionEndReason::AdapterDisconnected)
+    if (reason == fastecu::desktop::logging::SessionEndReason::kAdapterDisconnected)
     {
         QMessageBox::warning(this, tr("Logging"), "Logging adapter disconnected: " + message);
     }
-    else if (reason == fastecu::desktop::logging::SessionEndReason::HandshakeFailed)
+    else if (reason == fastecu::desktop::logging::SessionEndReason::kHandshakeFailed)
     {
         QMessageBox::warning(this, tr("Logging"), "Unable to start logging: " + message);
     }
-    else if (reason == fastecu::desktop::logging::SessionEndReason::RuntimeFailed)
+    else if (reason == fastecu::desktop::logging::SessionEndReason::kRuntimeFailed)
     {
         QMessageBox::warning(this, tr("Logging"), "Logging stopped: " + message);
     }

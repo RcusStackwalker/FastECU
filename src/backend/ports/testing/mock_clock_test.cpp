@@ -43,7 +43,7 @@ TEST(MockClock, DefaultSleepHonoursCancellation)
     MockClock clock;
     FakeCancellationToken cancelled{true};
 
-    EXPECT_THAT(clock.sleep(5ms, cancelled), fastecu::testing::IsErr(ErrorKind::Cancelled));
+    EXPECT_THAT(clock.sleep(5ms, cancelled), fastecu::testing::IsErr(ErrorKind::kCancelled));
     EXPECT_EQ(clock.elapsed(), 0ms);
 }
 
@@ -64,9 +64,9 @@ TEST(MockClock, ASpecificExpectationOverridesTheDefaultAction)
 {
     MockClock clock;
     FakeCancellationToken active;
-    EXPECT_CALL(clock, sleep(5000ms, _)).WillOnce(Return(fastecu::fail(ErrorKind::Cancelled, "upload delay")));
+    EXPECT_CALL(clock, sleep(5000ms, _)).WillOnce(Return(fastecu::fail(ErrorKind::kCancelled, "upload delay")));
 
-    EXPECT_THAT(clock.sleep(5000ms, active), fastecu::testing::IsErr(ErrorKind::Cancelled));
+    EXPECT_THAT(clock.sleep(5000ms, active), fastecu::testing::IsErr(ErrorKind::kCancelled));
     EXPECT_EQ(clock.elapsed(), 0ms);
 }
 
@@ -76,7 +76,7 @@ TEST(MockClock, SleepOnFakeComposesWithASideEffect)
     FakeCancellationToken cancellation;
     EXPECT_CALL(clock, sleep(3ms, _)).WillOnce(DoAll([&] { cancellation.set_cancelled(true); }, clock.sleep_on_fake()));
 
-    EXPECT_THAT(clock.sleep(3ms, cancellation), fastecu::testing::IsErr(ErrorKind::Cancelled));
+    EXPECT_THAT(clock.sleep(3ms, cancellation), fastecu::testing::IsErr(ErrorKind::kCancelled));
     EXPECT_TRUE(cancellation.cancelled());
 }
 
@@ -98,7 +98,7 @@ TEST(MockClock, AnActionCanSleepOnTheFakeThenActAndReturnTheSleepResult)
             });
 
     EXPECT_THAT(clock.sleep(4ms, cancellation), fastecu::testing::IsOk());
-    EXPECT_THAT(clock.sleep(4ms, cancellation), fastecu::testing::IsErr(ErrorKind::Cancelled));
+    EXPECT_THAT(clock.sleep(4ms, cancellation), fastecu::testing::IsErr(ErrorKind::kCancelled));
     EXPECT_EQ(clock.elapsed(), 4ms);
 }
 

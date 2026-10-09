@@ -79,7 +79,7 @@ TEST_F(DefinitionCatalogSessionIntegration, CreatedFileOutsideDirectoryRoundTrip
     EXPECT_EQ(parsed->metadata.notes, "Header notes");
     EXPECT_THAT(std::string(bytes->begin(), bytes->end()), testing::HasSubstr("<notes>Document notes</notes>"));
     EXPECT_THAT(parsed->parents, ElementsAre("BASE_XML"));
-    auto catalog = session_.catalog(DefinitionFormat::EcuFlash);
+    auto catalog = session_.catalog(DefinitionFormat::kEcuFlash);
     ASSERT_THAT(catalog, IsOk());
     EXPECT_THAT(catalog->entries(),
                 ElementsAre(Field(&fastecu::definition::DefinitionIndexEntry::source, path("outside.xml"))));
@@ -93,7 +93,7 @@ TEST_F(DefinitionCatalogSessionIntegration, ImportedFilePreservesTablesAndParent
     auto input = header();
     input.include = "PARENT";
     ASSERT_THAT(session_.submit_imported_definition(path("source.xml"), path("imported.xml"), input), IsOk());
-    EXPECT_EQ(session_.indexed_source(DefinitionFormat::EcuFlash, "NEW_XML"), path("imported.xml"));
+    EXPECT_EQ(session_.indexed_source(DefinitionFormat::kEcuFlash, "NEW_XML"), path("imported.xml"));
     auto bytes = files_.read(path("imported.xml"));
     ASSERT_THAT(bytes, IsOk());
     auto parsed = fastecu::definition::parse_ecuflash_definition(*bytes, path("imported.xml"));
@@ -106,15 +106,15 @@ TEST_F(DefinitionCatalogSessionIntegration, ImportedFilePreservesTablesAndParent
 TEST_F(DefinitionCatalogSessionIntegration, DirectoryChangeDropsDiscoveryAndKeepsSubmissions)
 {
     ASSERT_THAT(service_.create_definition(path("defs/old.xml"), header("OLD")), IsOk());
-    ASSERT_THAT(session_.refresh_index(DefinitionFormat::EcuFlash), IsOk());
+    ASSERT_THAT(session_.refresh_index(DefinitionFormat::kEcuFlash), IsOk());
     ASSERT_THAT(session_.submit_new_definition(path("outside.xml"), header("SUBMITTED"), true), IsOk());
     ASSERT_TRUE(QDir().mkpath(root_.filePath("new")));
     ASSERT_THAT(service_.create_definition(path("new/new.xml"), header("NEW")), IsOk());
     config_.session.settings().ecuflash_definition_files_directory = path("new");
-    ASSERT_THAT(session_.refresh_index(DefinitionFormat::EcuFlash), IsOk());
-    EXPECT_EQ(session_.indexed_source(DefinitionFormat::EcuFlash, "OLD"), std::nullopt);
-    EXPECT_EQ(session_.indexed_source(DefinitionFormat::EcuFlash, "NEW"), path("new/new.xml"));
-    EXPECT_EQ(session_.indexed_source(DefinitionFormat::EcuFlash, "SUBMITTED"), path("outside.xml"));
+    ASSERT_THAT(session_.refresh_index(DefinitionFormat::kEcuFlash), IsOk());
+    EXPECT_EQ(session_.indexed_source(DefinitionFormat::kEcuFlash, "OLD"), std::nullopt);
+    EXPECT_EQ(session_.indexed_source(DefinitionFormat::kEcuFlash, "NEW"), path("new/new.xml"));
+    EXPECT_EQ(session_.indexed_source(DefinitionFormat::kEcuFlash, "SUBMITTED"), path("outside.xml"));
 }
 
 TEST_F(DefinitionCatalogSessionIntegration, ConflictingAuthoredIdsKeepFirstLookupButRejectFreshCatalog)
@@ -123,24 +123,24 @@ TEST_F(DefinitionCatalogSessionIntegration, ConflictingAuthoredIdsKeepFirstLooku
     auto conflicting = header();
     conflicting.ecu_id = "DIFFERENT_ECU";
     ASSERT_THAT(session_.submit_new_definition(path("second.xml"), conflicting, true), IsOk());
-    EXPECT_EQ(session_.indexed_source(DefinitionFormat::EcuFlash, "NEW_XML"), path("first.xml"));
-    EXPECT_THAT(session_.catalog(DefinitionFormat::EcuFlash), IsErr(fastecu::ErrorKind::InvalidConfig));
-    EXPECT_THAT(session_.refresh_index(DefinitionFormat::EcuFlash), IsErr(fastecu::ErrorKind::InvalidConfig));
-    EXPECT_EQ(session_.indexed_source(DefinitionFormat::EcuFlash, "NEW_XML"), path("first.xml"));
+    EXPECT_EQ(session_.indexed_source(DefinitionFormat::kEcuFlash, "NEW_XML"), path("first.xml"));
+    EXPECT_THAT(session_.catalog(DefinitionFormat::kEcuFlash), IsErr(fastecu::ErrorKind::kInvalidConfig));
+    EXPECT_THAT(session_.refresh_index(DefinitionFormat::kEcuFlash), IsErr(fastecu::ErrorKind::kInvalidConfig));
+    EXPECT_EQ(session_.indexed_source(DefinitionFormat::kEcuFlash, "NEW_XML"), path("first.xml"));
 }
 
 TEST_F(DefinitionCatalogSessionIntegration, OverwritingWithNewIdPreservesOldLookupUntilRefresh)
 {
     ASSERT_THAT(session_.submit_new_definition(path("same.xml"), header("OLD"), true), IsOk());
     ASSERT_THAT(session_.submit_new_definition(path("same.xml"), header("NEW"), true), IsOk());
-    EXPECT_EQ(session_.indexed_source(DefinitionFormat::EcuFlash, "OLD"), path("same.xml"));
-    EXPECT_EQ(session_.indexed_source(DefinitionFormat::EcuFlash, "NEW"), path("same.xml"));
-    auto catalog = session_.catalog(DefinitionFormat::EcuFlash);
+    EXPECT_EQ(session_.indexed_source(DefinitionFormat::kEcuFlash, "OLD"), path("same.xml"));
+    EXPECT_EQ(session_.indexed_source(DefinitionFormat::kEcuFlash, "NEW"), path("same.xml"));
+    auto catalog = session_.catalog(DefinitionFormat::kEcuFlash);
     ASSERT_THAT(catalog, IsOk());
     EXPECT_THAT(catalog->entries(),
                 ElementsAre(Field(&fastecu::definition::DefinitionIndexEntry::definition_id, "NEW")));
-    ASSERT_THAT(session_.refresh_index(DefinitionFormat::EcuFlash), IsOk());
-    EXPECT_EQ(session_.indexed_source(DefinitionFormat::EcuFlash, "OLD"), std::nullopt);
+    ASSERT_THAT(session_.refresh_index(DefinitionFormat::kEcuFlash), IsOk());
+    EXPECT_EQ(session_.indexed_source(DefinitionFormat::kEcuFlash, "OLD"), std::nullopt);
 }
 
 TEST_F(DefinitionCatalogSessionIntegration, RepeatedSubmittedHandlesAreDiscoveredOnceInSortedOrder)
@@ -148,7 +148,7 @@ TEST_F(DefinitionCatalogSessionIntegration, RepeatedSubmittedHandlesAreDiscovere
     ASSERT_THAT(session_.submit_new_definition(path("z.xml"), header("Z"), true), IsOk());
     ASSERT_THAT(session_.submit_new_definition(path("a.xml"), header("A"), true), IsOk());
     ASSERT_THAT(session_.submit_new_definition(path("z.xml"), header("Z"), true), IsOk());
-    auto catalog = session_.catalog(DefinitionFormat::EcuFlash);
+    auto catalog = session_.catalog(DefinitionFormat::kEcuFlash);
     ASSERT_THAT(catalog, IsOk());
     EXPECT_THAT(catalog->entries(),
                 ElementsAre(Field(&fastecu::definition::DefinitionIndexEntry::source, path("a.xml")),
@@ -158,12 +158,12 @@ TEST_F(DefinitionCatalogSessionIntegration, RepeatedSubmittedHandlesAreDiscovere
 TEST_F(DefinitionCatalogSessionIntegration, RemovedDiscoveredFileIsNotRetriedByRefresh)
 {
     ASSERT_THAT(service_.create_definition(path("defs/removed.xml"), header()), IsOk());
-    ASSERT_THAT(session_.refresh_index(DefinitionFormat::EcuFlash), IsOk());
+    ASSERT_THAT(session_.refresh_index(DefinitionFormat::kEcuFlash), IsOk());
     ASSERT_TRUE(QFile::remove(root_.filePath("defs/removed.xml")));
-    ASSERT_THAT(session_.refresh_index(DefinitionFormat::EcuFlash), IsOk());
-    EXPECT_EQ(session_.indexed_source(DefinitionFormat::EcuFlash, "NEW_XML"), std::nullopt);
+    ASSERT_THAT(session_.refresh_index(DefinitionFormat::kEcuFlash), IsOk());
+    EXPECT_EQ(session_.indexed_source(DefinitionFormat::kEcuFlash, "NEW_XML"), std::nullopt);
     EXPECT_THAT(config_.events.logs,
-                testing::Not(testing::Contains(testing::Pair(fastecu::LogLevel::Error, testing::_))));
+                testing::Not(testing::Contains(testing::Pair(fastecu::LogLevel::kError, testing::_))));
 }
 
 TEST_F(DefinitionCatalogSessionIntegration, RomOpenFindsAnAuthoredDefinitionOutsideConfiguredDirectory)
@@ -189,7 +189,7 @@ TEST_F(DefinitionCatalogSessionIntegration, RomOpenFindsAnAuthoredDefinitionOuts
 TEST_F(DefinitionCatalogSessionIntegration, RomOpenReportsAnIndexedFileDeletedAfterRefresh)
 {
     ASSERT_THAT(service_.create_definition(path("defs/gone.xml"), header()), IsOk());
-    ASSERT_THAT(session_.refresh_index(DefinitionFormat::EcuFlash), IsOk());
+    ASSERT_THAT(session_.refresh_index(DefinitionFormat::kEcuFlash), IsOk());
     ASSERT_TRUE(QFile::remove(root_.filePath("defs/gone.xml")));
     config_.session.settings().primary_definition_base = "ecuflash";
     config_.session.settings().use_ecuflash_definitions = "enabled";

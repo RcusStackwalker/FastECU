@@ -52,7 +52,7 @@ class ScriptedCanTransport : public ICanTransport
             expected_payloads_.at(w_idx_) != bytes::Bytes(payload.begin(), payload.end()))
         {
             ok_ = false;
-            return fastecu::fail(fastecu::ErrorKind::Internal, "unexpected scripted CAN write");
+            return fastecu::fail(fastecu::ErrorKind::kInternal, "unexpected scripted CAN write");
         }
         else
         {
@@ -65,11 +65,11 @@ class ScriptedCanTransport : public ICanTransport
     {
         if (cancellation.cancelled())
         {
-            return fastecu::fail(fastecu::ErrorKind::Cancelled, "scripted CAN read cancelled");
+            return fastecu::fail(fastecu::ErrorKind::kCancelled, "scripted CAN read cancelled");
         }
         if (reads_.empty())
         {
-            return fastecu::fail(fastecu::ErrorKind::Internal, "no scripted CAN read outcome");
+            return fastecu::fail(fastecu::ErrorKind::kInternal, "no scripted CAN read outcome");
         }
         auto result = std::move(reads_.front());
         reads_.pop_front();

@@ -593,14 +593,14 @@ class SerialPortActionsDirect : public QObject, public SerialBackend
 
     enum RxMsgType
     {
-        NORM_MSG,
-        TX_DONE_MSG = 0x10,
-        TX_LB_MSG = 0x20,
-        RX_MSG_END_IND = 0x40,
-        EXT_ADDR_MSG_END_IND = 0x44,
-        LB_MSG_END_IND = 0x60,
-        NORM_MSG_START_IND = 0x80,
-        TX_LB_START_IND = 0xA0,
+        kNormMsg,
+        kTxDoneMsg = 0x10,
+        kTxLbMsg = 0x20,
+        kRxMsgEndInd = 0x40,
+        kExtAddrMsgEndInd = 0x44,
+        kLbMsgEndInd = 0x60,
+        kNormMsgStartInd = 0x80,
+        kTxLbStartInd = 0xA0,
     };
 
   protected:

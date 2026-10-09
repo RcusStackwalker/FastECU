@@ -29,7 +29,7 @@ class Session
     }
     Status checkpoint() const
     {
-        return cancel_.cancelled() ? fail(ErrorKind::Cancelled, "SH7058 write cancelled") : Status{};
+        return cancel_.cancelled() ? fail(ErrorKind::kCancelled, "SH7058 write cancelled") : Status{};
     }
     Result<std::optional<Bytes>> exchange(bytes::ByteView payload, std::chrono::milliseconds delay = 0ms,
                                           std::chrono::milliseconds timeout = 200ms, std::uint32_t id = 0x7e0)
@@ -57,7 +57,7 @@ class Session
         auto reply = transport_.read(timeout, cancel_);
         if (!reply.has_value())
         {
-            if (reply.error().kind == ErrorKind::Timeout)
+            if (reply.error().kind == ErrorKind::kTimeout)
             {
                 return std::optional<Bytes>{};
             }
@@ -83,7 +83,7 @@ class Session
         {
             return std::unexpected(reply.error());
         }
-        return prefix(*reply, expected) ? Status{} : fail(ErrorKind::BadResponse, "unexpected SH7058 CAN reply");
+        return prefix(*reply, expected) ? Status{} : fail(ErrorKind::kBadResponse, "unexpected SH7058 CAN reply");
     }
     Status present(bytes::ByteView payload, std::uint32_t id = 0x7e0)
     {
@@ -94,7 +94,7 @@ class Session
         }
         return reply->has_value() && (*reply)->size() > 4 && (**reply)[4] != 0x7f
                    ? Status{}
-                   : fail(ErrorKind::BadResponse, "missing SH7058 CAN reply");
+                   : fail(ErrorKind::kBadResponse, "missing SH7058 CAN reply");
     }
     Status security()
     {
@@ -106,7 +106,7 @@ class Session
         const std::optional<Bytes>& reply = *seed;
         if (!reply.has_value() || !prefix(reply, {0x67, 0x01}) || reply->size() < 10)
         {
-            return fail(ErrorKind::BadResponse, "invalid SH7058 seed");
+            return fail(ErrorKind::kBadResponse, "invalid SH7058 seed");
         }
         Bytes key = ssm_protocol::calculateSeedKey(bytes::ByteView{*reply}.subspan(6, 4), kSeedTable,
                                                    ssm_protocol::kIndexTransformationStock);
@@ -123,7 +123,7 @@ class Session
         }
         if (!active->has_value())
         {
-            return fail(ErrorKind::Timeout, "SH7058 kernel probe timed out");
+            return fail(ErrorKind::kTimeout, "SH7058 kernel probe timed out");
         }
         if (prefix(*active, {0x7f, 0xb7, 0x13}))
         {
@@ -131,7 +131,7 @@ class Session
         }
         if ((*active)->size() < 5)
         {
-            return fail(ErrorKind::BadResponse, "invalid SH7058 kernel probe");
+            return fail(ErrorKind::kBadResponse, "invalid SH7058 kernel probe");
         }
         if (auto status = require(Bytes{0xaa}, {0xea}, 50ms); !status.has_value())
         {
@@ -156,7 +156,7 @@ class Session
         }
         if (!mode->has_value() || (*mode)->size() < 6)
         {
-            return fail(ErrorKind::BadResponse, "SH7058 programming mode absent");
+            return fail(ErrorKind::kBadResponse, "SH7058 programming mode absent");
         }
         if (auto slept = clock_.sleep(777ms, cancel_); !slept.has_value())
         {
@@ -248,7 +248,7 @@ class Session
                 return {};
             }
         }
-        return fail(ErrorKind::BadResponse, "SH7058 erase was not acknowledged");
+        return fail(ErrorKind::kBadResponse, "SH7058 erase was not acknowledged");
     }
     Status retry(bytes::ByteView request, std::initializer_list<bytes::Byte> expected, int attempts)
     {
@@ -264,7 +264,7 @@ class Session
                 return {};
             }
         }
-        return fail(ErrorKind::BadResponse, "SH7058 retry limit exceeded");
+        return fail(ErrorKind::kBadResponse, "SH7058 retry limit exceeded");
     }
     Status program(bytes::ByteView encrypted)
     {
@@ -284,7 +284,7 @@ class Session
             }
             if (!prefix(*reply, {0xf6}))
             {
-                return fail(ErrorKind::BadResponse, "SH7058 write frame rejected");
+                return fail(ErrorKind::kBadResponse, "SH7058 write frame rejected");
             }
             events_.progress(static_cast<int>(address + 0x100), 0x100000);
         }
@@ -312,9 +312,9 @@ Result<Iso15765Config> SubaruHitachiSh7058CanExecutor::transport_setup(const Fla
     {
         return std::unexpected(valid.error());
     }
-    if (plan.operation() != FlashOperation::Write)
+    if (plan.operation() != FlashOperation::kWrite)
     {
-        return fail(ErrorKind::Unsupported, "SH7058 CAN supports write only");
+        return fail(ErrorKind::kUnsupported, "SH7058 CAN supports write only");
     }
     return iso15765_config_from(std::get<SubaruHitachiSh7058CanPlan>(plan.family_plan()));
 }
@@ -343,6 +343,6 @@ Result<FlashExecutionResult> SubaruHitachiSh7058CanExecutor::execute(const Flash
     {
         return std::unexpected(status.error());
     }
-    return FlashExecutionResult{FlashOperation::Write, std::nullopt, std::nullopt};
+    return FlashExecutionResult{FlashOperation::kWrite, std::nullopt, std::nullopt};
 }
 } // namespace fastecu::flash

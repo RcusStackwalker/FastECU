@@ -23,14 +23,14 @@ class ScriptedWorkflow final : public FlashWorkflow
     {
         if (!answered_)
         {
-            return FlashPromptStep{FlashPromptKind::Begin, {}};
+            return FlashPromptStep{FlashPromptKind::kBegin, {}};
         }
-        return FlashCompletedStep{FlashWorkflowOutcome::Succeeded, bytes::Bytes{0x12, 0x34},
+        return FlashCompletedStep{FlashWorkflowOutcome::kSucceeded, bytes::Bytes{0x12, 0x34},
                                   std::string("123456789A_")};
     }
     void submit(FlashPromptResponse response) override
     {
-        answered_ = response == FlashPromptResponse::Accept;
+        answered_ = response == FlashPromptResponse::kAccept;
     }
     void submit(FlashAttemptResult) override
     {
@@ -54,7 +54,7 @@ class InstantAttempt final : public BoundFlashAttempt
     Result<FlashExecutionResult> run(IClock&, const ICancellationToken&, IEventSink&) override
     {
         return FlashExecutionResult{
-            .operation = FlashOperation::Write, .read_bytes = std::nullopt, .rom_id = std::nullopt};
+            .operation = FlashOperation::kWrite, .read_bytes = std::nullopt, .rom_id = std::nullopt};
     }
     void request_unblock() noexcept override
     {
@@ -82,7 +82,7 @@ class BlockingAttempt final : public BoundFlashAttempt
         started_ = true;
         changed_.notify_all();
         changed_.wait(lock, [this] { return unblocked_; });
-        return fail(ErrorKind::Cancelled, "unblocked");
+        return fail(ErrorKind::kCancelled, "unblocked");
     }
     void request_unblock() noexcept override
     {
@@ -113,12 +113,12 @@ class CancellableWorkflow final : public FlashWorkflow
     {
         if (!begun_)
         {
-            return FlashPromptStep{FlashPromptKind::Begin, {}};
+            return FlashPromptStep{FlashPromptKind::kBegin, {}};
         }
         if (!attempted_)
         {
             attempted_ = true;
-            auto plan = build_subaru_unisia_jecs_m32r_kline_plan(FlashOperation::Read, "sub_ecu_unisia_jecs_20",
+            auto plan = build_subaru_unisia_jecs_m32r_kline_plan(FlashOperation::kRead, "sub_ecu_unisia_jecs_20",
                                                                  "M32R_128KB", std::nullopt, true);
             if (!plan.has_value())
             {
@@ -130,10 +130,10 @@ class CancellableWorkflow final : public FlashWorkflow
         }
         if (notice_due_)
         {
-            return FlashPromptStep{FlashPromptKind::RemoveProgrammingVoltage,
+            return FlashPromptStep{FlashPromptKind::kRemoveProgrammingVoltage,
                                    {{"outcome", "cancelled"}, {"external_vpp", "yes"}}};
         }
-        return FlashCompletedStep{FlashWorkflowOutcome::Cancelled, std::nullopt, std::nullopt};
+        return FlashCompletedStep{FlashWorkflowOutcome::kCancelled, std::nullopt, std::nullopt};
     }
     void submit(FlashPromptResponse) override
     {
@@ -146,7 +146,7 @@ class CancellableWorkflow final : public FlashWorkflow
     void submit(FlashAttemptResult result) override
     {
         attempt_results.push_back(result.error_kind);
-        notice_due_ = !result.success && result.error_kind == ErrorKind::Cancelled;
+        notice_due_ = !result.success && result.error_kind == ErrorKind::kCancelled;
     }
 
     BlockingAttempt *active_attempt = nullptr; // owned by the FlashWorker once started
@@ -166,16 +166,16 @@ class TwoAttemptWorkflow final : public FlashWorkflow
     {
         if (step_ == 0)
         {
-            return FlashPromptStep{FlashPromptKind::Begin, {}};
+            return FlashPromptStep{FlashPromptKind::kBegin, {}};
         }
         if (step_ == 2)
         {
-            return FlashPromptStep{FlashPromptKind::RemoveMod1, {}};
+            return FlashPromptStep{FlashPromptKind::kRemoveMod1, {}};
         }
         if (step_ == 1 || step_ == 3)
         {
             ++step_;
-            auto plan = build_subaru_unisia_jecs_m32r_kline_plan(FlashOperation::Read, "sub_ecu_unisia_jecs_20",
+            auto plan = build_subaru_unisia_jecs_m32r_kline_plan(FlashOperation::kRead, "sub_ecu_unisia_jecs_20",
                                                                  "M32R_128KB", std::nullopt, true);
             if (!plan.has_value())
             {
@@ -183,7 +183,7 @@ class TwoAttemptWorkflow final : public FlashWorkflow
             }
             return FlashAttempt{std::make_unique<InstantAttempt>(std::move(*plan)), std::make_unique<FakeClock>()};
         }
-        return FlashCompletedStep{FlashWorkflowOutcome::Succeeded, std::nullopt, std::nullopt};
+        return FlashCompletedStep{FlashWorkflowOutcome::kSucceeded, std::nullopt, std::nullopt};
     }
     void submit(FlashPromptResponse) override
     {
@@ -214,7 +214,7 @@ class RecordingDialog final : public FlashDialog
     FlashPromptResponse presentPrompt(const FlashPromptStep& prompt) override
     {
         prompts.push_back(prompt.kind);
-        return FlashPromptResponse::Accept;
+        return FlashPromptResponse::kAccept;
     }
     void showSuccess() override
     {
@@ -228,12 +228,12 @@ class RecordingDialog final : public FlashDialog
 
 TEST(FlashDialogTest, returnsAcceptedBytesAndUsesNormalizedReadTitle)
 {
-    RecordingDialog dialog(std::make_unique<ScriptedWorkflow>(), FlashOperation::Read, "ignored.bin");
+    RecordingDialog dialog(std::make_unique<ScriptedWorkflow>(), FlashOperation::kRead, "ignored.bin");
     const FlashDialogResult result = dialog.run();
     ASSERT_EQ(dialog.windowTitle(), QString("Read ROM from ECU"));
-    ASSERT_EQ(dialog.prompts, QList{FlashPromptKind::Begin});
+    ASSERT_EQ(dialog.prompts, QList{FlashPromptKind::kBegin});
     ASSERT_TRUE(dialog.success_shown);
-    ASSERT_EQ(result.outcome, FlashWorkflowOutcome::Succeeded);
+    ASSERT_EQ(result.outcome, FlashWorkflowOutcome::kSucceeded);
     ASSERT_EQ(result.accepted_read_bytes, bytes::Bytes({0x12, 0x34}));
     ASSERT_EQ(result.rom_id, std::string("123456789A_"));
 }
@@ -244,7 +244,7 @@ TEST(FlashDialogTest, closingMidAttemptSubmitsCancelledAndPresentsTheNotice)
 {
     auto owned = std::make_unique<CancellableWorkflow>();
     CancellableWorkflow *workflow = owned.get();
-    RecordingDialog dialog(std::move(owned), FlashOperation::Write, "rom.bin");
+    RecordingDialog dialog(std::move(owned), FlashOperation::kWrite, "rom.bin");
     QTimer::singleShot(0, &dialog,
                        [&dialog, workflow]
                        {
@@ -253,17 +253,17 @@ TEST(FlashDialogTest, closingMidAttemptSubmitsCancelledAndPresentsTheNotice)
                            dialog.close();
                        });
     const FlashDialogResult result = dialog.run();
-    ASSERT_EQ(result.outcome, FlashWorkflowOutcome::Cancelled);
-    ASSERT_EQ(dialog.prompts, (QList{FlashPromptKind::Begin, FlashPromptKind::RemoveProgrammingVoltage}));
-    ASSERT_EQ(workflow->attempt_results, QList{ErrorKind::Cancelled});
+    ASSERT_EQ(result.outcome, FlashWorkflowOutcome::kCancelled);
+    ASSERT_EQ(dialog.prompts, (QList{FlashPromptKind::kBegin, FlashPromptKind::kRemoveProgrammingVoltage}));
+    ASSERT_EQ(workflow->attempt_results, QList{ErrorKind::kCancelled});
     ASSERT_TRUE(!dialog.success_shown);
 
     // The worker emitted finished before closeEvent joined it; that queued
     // delivery must not submit the attempt a second time.
     QCoreApplication::sendPostedEvents();
     QCoreApplication::processEvents();
-    ASSERT_EQ(workflow->attempt_results, QList{ErrorKind::Cancelled});
-    ASSERT_EQ(dialog.prompts, (QList{FlashPromptKind::Begin, FlashPromptKind::RemoveProgrammingVoltage}));
+    ASSERT_EQ(workflow->attempt_results, QList{ErrorKind::kCancelled});
+    ASSERT_EQ(dialog.prompts, (QList{FlashPromptKind::kBegin, FlashPromptKind::kRemoveProgrammingVoltage}));
     ASSERT_TRUE(!dialog.success_shown);
 }
 
@@ -271,10 +271,10 @@ TEST(FlashDialogTest, runsASecondAttemptAfterAPromptBetweenAttempts)
 {
     auto owned = std::make_unique<TwoAttemptWorkflow>();
     TwoAttemptWorkflow *workflow = owned.get();
-    RecordingDialog dialog(std::move(owned), FlashOperation::Write, "rom.bin");
+    RecordingDialog dialog(std::move(owned), FlashOperation::kWrite, "rom.bin");
     const FlashDialogResult result = dialog.run();
-    ASSERT_EQ(result.outcome, FlashWorkflowOutcome::Succeeded);
-    ASSERT_EQ(dialog.prompts, (QList{FlashPromptKind::Begin, FlashPromptKind::RemoveMod1}));
+    ASSERT_EQ(result.outcome, FlashWorkflowOutcome::kSucceeded);
+    ASSERT_EQ(dialog.prompts, (QList{FlashPromptKind::kBegin, FlashPromptKind::kRemoveMod1}));
     ASSERT_EQ(workflow->attempts, (QList{true, true}));
     ASSERT_TRUE(dialog.success_shown);
 }
@@ -282,7 +282,7 @@ TEST(FlashDialogTest, runsASecondAttemptAfterAPromptBetweenAttempts)
 TEST(FlashDialogTest, programmingVoltageNoticeKeepsTheSixC3AdviceByDefault)
 {
     const auto notice = FlashDialog::programmingVoltageNotice(
-        {FlashPromptKind::RemoveProgrammingVoltage, {{"outcome", "failed"}, {"external_vpp", "yes"}}});
+        {FlashPromptKind::kRemoveProgrammingVoltage, {{"outcome", "failed"}, {"external_vpp", "yes"}}});
     ASSERT_EQ(notice.title, QString("Programming voltage"));
     ASSERT_TRUE(notice.text.contains("Remove VPP voltage"));
     ASSERT_TRUE(notice.text.contains("do not power it off"));
@@ -291,7 +291,7 @@ TEST(FlashDialogTest, programmingVoltageNoticeKeepsTheSixC3AdviceByDefault)
 TEST(FlashDialogTest, programmingVoltageNoticeWithoutPowerOffAdviceOnFailure)
 {
     const auto notice = FlashDialog::programmingVoltageNotice(
-        {FlashPromptKind::RemoveProgrammingVoltage,
+        {FlashPromptKind::kRemoveProgrammingVoltage,
          {{"outcome", "failed"}, {"external_vpp", "yes"}, {"power_off_advice", "no"}}});
     ASSERT_TRUE(notice.text.contains("Remove VPP voltage"));
     ASSERT_TRUE(!notice.text.contains("do not power it off"));
@@ -301,7 +301,7 @@ TEST(FlashDialogTest, programmingVoltageNoticeWithoutPowerOffAdviceOnFailure)
 TEST(FlashDialogTest, programmingVoltageNoticeWithoutPowerOffAdviceOnSuccess)
 {
     const auto notice = FlashDialog::programmingVoltageNotice(
-        {FlashPromptKind::RemoveProgrammingVoltage,
+        {FlashPromptKind::kRemoveProgrammingVoltage,
          {{"outcome", "succeeded"}, {"external_vpp", "yes"}, {"power_off_advice", "no"}}});
     ASSERT_TRUE(notice.text.contains("Remove VPP voltage"));
     ASSERT_TRUE(notice.text.contains("request SSM Init"));

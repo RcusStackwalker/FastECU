@@ -80,7 +80,7 @@ Status ConfigSession::initialize(std::string_view app_root, std::string_view ver
     }
     else
     {
-        events_.log(LogLevel::Warning,
+        events_.log(LogLevel::kWarning,
                     std::format("Unable to save settings {}: {}", paths.config_file, rewritten.error().detail));
     }
 
@@ -106,7 +106,7 @@ Status ConfigSession::save()
 {
     if (!initialized_)
     {
-        return fail(ErrorKind::Internal, "configuration session is not initialized");
+        return fail(ErrorKind::kInternal, "configuration session is not initialized");
     }
     Result<AppConfig> saved = save_app_config(settings_, provisioned_, file_repository_);
     if (!saved.has_value())
@@ -155,12 +155,12 @@ Result<std::size_t> ConfigSession::selected_row() const
 {
     if (!initialized_)
     {
-        return fail(ErrorKind::Internal, "configuration session is not initialized");
+        return fail(ErrorKind::kInternal, "configuration session is not initialized");
     }
     const std::optional<std::size_t> row = catalog_.find_vehicle(settings_.selected_vehicle_id);
     if (!row.has_value())
     {
-        return fail(ErrorKind::InvalidConfig, "no vehicle is selected");
+        return fail(ErrorKind::kInvalidConfig, "no vehicle is selected");
     }
     return *row;
 }
@@ -175,12 +175,12 @@ Status ConfigSession::select_row(std::size_t row)
 {
     if (!initialized_)
     {
-        return fail(ErrorKind::Internal, "configuration session is not initialized");
+        return fail(ErrorKind::kInternal, "configuration session is not initialized");
     }
     const std::span<const VehicleSpec> vehicles = catalog_.vehicles();
     if (row >= vehicles.size())
     {
-        return fail(ErrorKind::InvalidConfig,
+        return fail(ErrorKind::kInvalidConfig,
                     std::format("vehicle row {} is out of range ({} rows)", row, vehicles.size()));
     }
     settings_.selected_vehicle_id = std::string(vehicles[row].id);

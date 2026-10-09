@@ -69,7 +69,7 @@ TEST(CanFlashUdsChannelTest, RejectsAFrameShorterThanTheEnvelope)
     transport.queueRead(Bytes{0x00, 0x00, 0x07});
 
     CanFlashUdsChannel channel(transport, kRequestId, kResponseId);
-    ASSERT_THAT(channel.receive(500ms, cancellation), fastecu::testing::IsErr(ErrorKind::BadResponse));
+    ASSERT_THAT(channel.receive(500ms, cancellation), fastecu::testing::IsErr(ErrorKind::kBadResponse));
 }
 
 TEST(CanFlashUdsChannelTest, RejectsAFrameFromAnUnexpectedReplyId)
@@ -81,7 +81,7 @@ TEST(CanFlashUdsChannelTest, RejectsAFrameFromAnUnexpectedReplyId)
     CanFlashUdsChannel channel(transport, kRequestId, kResponseId);
     const auto received = channel.receive(500ms, cancellation);
 
-    ASSERT_THAT(received, fastecu::testing::IsErr(ErrorKind::BadResponse));
+    ASSERT_THAT(received, fastecu::testing::IsErr(ErrorKind::kBadResponse));
     EXPECT_THAT(received.error().detail, HasSubstr("7e9"));
 }
 
@@ -105,11 +105,11 @@ TEST(CanFlashUdsChannelTest, PropagatesATransportError)
 {
     ScriptedCanFlashTransport transport;
     FakeCancellationToken cancellation;
-    transport.queue_error(ErrorKind::Disconnected, "adapter closed");
+    transport.queue_error(ErrorKind::kDisconnected, "adapter closed");
 
     CanFlashUdsChannel channel(transport, kRequestId, kResponseId);
     ASSERT_THAT(channel.receive(500ms, cancellation),
-                fastecu::testing::IsErrWith(ErrorKind::Disconnected, "adapter closed"));
+                fastecu::testing::IsErrWith(ErrorKind::kDisconnected, "adapter closed"));
 }
 
 } // namespace

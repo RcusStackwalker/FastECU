@@ -10,7 +10,7 @@ namespace fastecu::diagnostics
 bytes::Bytes build_request(ObdProtocol protocol, std::uint32_t source_id, bytes::ByteView payload)
 {
     bytes::Bytes out;
-    if (protocol == ObdProtocol::Iso15765)
+    if (protocol == ObdProtocol::kIso15765)
     {
         out = {0x00, 0x00, static_cast<bytes::Byte>((source_id >> 8U) & 0xFFU),
                static_cast<bytes::Byte>(source_id & 0xFFU)};
@@ -25,21 +25,21 @@ ResponseCheck check_response(ObdProtocol protocol, bytes::ByteView frame, std::u
     const std::size_t index = response_index(protocol);
     if (frame.size() <= index)
     {
-        return ResponseCheck::Short;
+        return ResponseCheck::kShort;
     }
     if (frame[index] == 0x7F)
     {
-        return ResponseCheck::Nrc;
+        return ResponseCheck::kNrc;
     }
     if (frame[index] != static_cast<bytes::Byte>(mode | 0x40U))
     {
-        return ResponseCheck::WrongId;
+        return ResponseCheck::kWrongId;
     }
     if (pid.has_value() && (frame.size() <= index + 1 || frame[index + 1] != *pid))
     {
-        return ResponseCheck::WrongId;
+        return ResponseCheck::kWrongId;
     }
-    return ResponseCheck::Ok;
+    return ResponseCheck::kOk;
 }
 
 namespace
@@ -62,7 +62,7 @@ bytes::ByteView without_checksum(bytes::ByteView frame)
 
 bytes::Bytes unframe_data_response(ObdProtocol protocol, bytes::ByteView frame)
 {
-    if (protocol == ObdProtocol::Iso15765)
+    if (protocol == ObdProtocol::kIso15765)
     {
         return tail(frame, response_index(protocol) + 3);
     }
@@ -80,7 +80,7 @@ bytes::Bytes unframe_data_response(ObdProtocol protocol, bytes::ByteView frame)
 
 bytes::Bytes unframe_dtc_list_response(ObdProtocol protocol, bytes::ByteView frame)
 {
-    if (protocol == ObdProtocol::Iso15765)
+    if (protocol == ObdProtocol::kIso15765)
     {
         return tail(frame, response_index(protocol) + 2);
     }
@@ -100,23 +100,23 @@ std::optional<KlineHeader> five_baud_header(ObdProtocol requested, bytes::ByteVi
 {
     if (uses_j2534)
     {
-        if (requested == ObdProtocol::Iso9141 && r.size() > 7 && r[5] == '8' && r[7] == '8')
+        if (requested == ObdProtocol::kIso9141 && r.size() > 7 && r[5] == '8' && r[7] == '8')
         {
-            return KlineHeader::Iso9141;
+            return KlineHeader::kIso9141;
         }
-        if (requested == ObdProtocol::Iso14230 && r.size() > 9 && r[8] == '8' && r[9] == 'f')
+        if (requested == ObdProtocol::kIso14230 && r.size() > 9 && r[8] == '8' && r[9] == 'f')
         {
-            return KlineHeader::Iso14230;
+            return KlineHeader::kIso14230;
         }
         return std::nullopt;
     }
     if (r.size() > 2 && r[1] == 0x08 && r[2] == 0x08)
     {
-        return KlineHeader::Iso9141;
+        return KlineHeader::kIso9141;
     }
     if (r.size() > 2 && r[2] == 0x8F)
     {
-        return KlineHeader::Iso14230;
+        return KlineHeader::kIso14230;
     }
     return std::nullopt;
 }

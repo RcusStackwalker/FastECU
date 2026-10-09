@@ -20,7 +20,7 @@ Result<std::unique_ptr<SerialPortActions>> make_serial(const DesktopCanTransport
 {
     if (!config.backend_factory)
     {
-        return fail(ErrorKind::InvalidConfig, "no serial backend factory");
+        return fail(ErrorKind::kInvalidConfig, "no serial backend factory");
     }
     return std::make_unique<SerialPortActions>(config.backend_factory);
 }
@@ -56,7 +56,7 @@ Result<std::unique_ptr<ICanFlashTransport>> open_desktop_can_flash_transport(con
     const QStringList detected = serial->check_serial_ports();
     if (detected.isEmpty())
     {
-        return fail(ErrorKind::Disconnected, "no serial ports detected");
+        return fail(ErrorKind::kDisconnected, "no serial ports detected");
     }
 
     QString wanted;
@@ -73,7 +73,7 @@ Result<std::unique_ptr<ICanFlashTransport>> open_desktop_can_flash_transport(con
             // Distinct from the empty-list case above: ports were found, none
             // of them is an adapter. Different user action -- plug the adapter
             // in, rather than check the cable.
-            return fail(ErrorKind::Disconnected,
+            return fail(ErrorKind::kDisconnected,
                         std::format("no J2534 adapter among {} detected serial ports", detected.size()));
         }
         wanted = *adapter;
@@ -87,14 +87,14 @@ Result<std::unique_ptr<ICanFlashTransport>> open_desktop_can_flash_transport(con
         wanted = QString::fromStdString(config.port_name);
         if (!detected.contains(wanted))
         {
-            return fail(ErrorKind::InvalidConfig,
+            return fail(ErrorKind::kInvalidConfig,
                         std::format("no such device: {} (detected {})", wanted.toStdString(), detected.size()));
         }
         // Accepting a named non-J2534 port only buys one read timeout per
         // exchange: ISO-15765 cannot run over a plain serial port.
         if (!isJ2534CapableEntry(wanted))
         {
-            return fail(ErrorKind::InvalidConfig, std::format("not a J2534 adapter: {}", wanted.toStdString()));
+            return fail(ErrorKind::kInvalidConfig, std::format("not a J2534 adapter: {}", wanted.toStdString()));
         }
     }
     // open_serial_port() consumes the selected UI-style entry from
@@ -103,7 +103,7 @@ Result<std::unique_ptr<ICanFlashTransport>> open_desktop_can_flash_transport(con
     // leaves that list empty, which makes the direct backend assert on open.
     if (!serial->set_serial_port_list(QStringList{wanted}))
     {
-        return fail(ErrorKind::InvalidConfig, std::format("set_serial_port_list({}) failed", wanted.toStdString()));
+        return fail(ErrorKind::kInvalidConfig, std::format("set_serial_port_list({}) failed", wanted.toStdString()));
     }
 
     auto transport = std::make_unique<DesktopCanFlashTransport>(std::move(serial));

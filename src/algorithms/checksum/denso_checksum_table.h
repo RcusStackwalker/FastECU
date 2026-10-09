@@ -26,12 +26,12 @@ struct DensoTableSpec
 
 enum class DensoTableOutcome
 {
-    Unchanged,
-    Corrected,
-    Disabled,
-    InvalidTableRange,
-    InvalidBlockRange,
-    InvalidRecordLength,
+    kUnchanged,
+    kCorrected,
+    kDisabled,
+    kInvalidTableRange,
+    kInvalidBlockRange,
+    kInvalidRecordLength,
 };
 
 DensoTableOutcome correctDensoTable(bytes::MutableByteView rom, const DensoTableSpec& spec);

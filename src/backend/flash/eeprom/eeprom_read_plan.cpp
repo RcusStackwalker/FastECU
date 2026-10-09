@@ -24,9 +24,9 @@ FlashFamily family_for_protocol(std::string_view protocol_name)
 {
     if (protocol_name.contains("kline"))
     {
-        return FlashFamily::DensoSh705xEepromKline;
+        return FlashFamily::kDensoSh705xEepromKline;
     }
-    return FlashFamily::DensoSh705xEepromCan;
+    return FlashFamily::kDensoSh705xEepromCan;
 }
 
 // CONFIRMED: the Denso security-variant suffix lives directly on the
@@ -48,21 +48,21 @@ Result<DensoSecurityVariant> security_for_protocol(std::string_view protocol_nam
 {
     if (protocol_name.ends_with("_ecutek_racerom_alt"))
     {
-        return fail(ErrorKind::InvalidConfig, "_ecutek_racerom_alt is not supported by the portable EEPROM path");
+        return fail(ErrorKind::kInvalidConfig, "_ecutek_racerom_alt is not supported by the portable EEPROM path");
     }
     if (protocol_name.ends_with("_cobb"))
     {
-        return DensoSecurityVariant::Cobb;
+        return DensoSecurityVariant::kCobb;
     }
     if (protocol_name.ends_with("_ecutek_racerom"))
     {
-        return DensoSecurityVariant::EcuTekRaceRom;
+        return DensoSecurityVariant::kEcuTekRaceRom;
     }
     if (protocol_name.ends_with("_ecutek"))
     {
-        return DensoSecurityVariant::EcuTek;
+        return DensoSecurityVariant::kEcuTek;
     }
-    return DensoSecurityVariant::Stock;
+    return DensoSecurityVariant::kStock;
 }
 
 } // namespace
@@ -75,7 +75,7 @@ Result<FlashPlan> build_eeprom_read_plan(const config::ConfigPaths& paths, const
     // Every fallible metadata-only validation runs before the kernel read below.
     if (!protocol.kernel_load_address.has_value())
     {
-        return fail(ErrorKind::InvalidConfig,
+        return fail(ErrorKind::kInvalidConfig,
                     std::format("protocol '{}' declares no kernel load address", protocol.name));
     }
     Result<MemoryRegion> eeprom_region = resolve_sh705x_eeprom_region(std::string(protocol.mcu));
@@ -90,7 +90,7 @@ Result<FlashPlan> build_eeprom_read_plan(const config::ConfigPaths& paths, const
     }
 
     DensoSh705xEepromInput input{
-        .operation = FlashOperation::Read,
+        .operation = FlashOperation::kRead,
         .family = family_for_protocol(protocol.name),
         .target_id = target_id,
         .mcu_name = std::string(protocol.mcu),

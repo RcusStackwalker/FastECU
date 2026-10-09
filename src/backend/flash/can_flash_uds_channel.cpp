@@ -37,13 +37,13 @@ Result<std::optional<bytes::Bytes>> CanFlashUdsChannel::receive(std::chrono::mil
     last_received_frame_ = raw;
     if (raw.size() < kEnvelopeSize)
     {
-        return fail(ErrorKind::BadResponse,
+        return fail(ErrorKind::kBadResponse,
                     std::format("CAN frame of {} bytes is shorter than its 4-byte id envelope", raw.size()));
     }
 
     if (const std::uint32_t id = bytes::readU32Be(raw); id != response_id_)
     {
-        return fail(ErrorKind::BadResponse, std::format("expected CAN reply id 0x{:x}, got 0x{:x}", response_id_, id));
+        return fail(ErrorKind::kBadResponse, std::format("expected CAN reply id 0x{:x}, got 0x{:x}", response_id_, id));
     }
 
     return std::optional<bytes::Bytes>(

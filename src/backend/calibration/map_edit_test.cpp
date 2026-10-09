@@ -18,7 +18,7 @@ MapElementSpec uint8_spec()
 {
     MapElementSpec spec;
     spec.address = 0x10;
-    spec.storage_type = definition::StorageType::Uint8;
+    spec.storage_type = definition::StorageType::kUint8;
     spec.endian = "big";
     spec.to_byte = "x";
     spec.from_byte = "x";
@@ -53,7 +53,7 @@ TEST(ReadRawElement, ReportsInternalWhenTheWindowRunsPastTheRom)
 {
     auto rom = rom_of(0x11);
 
-    ASSERT_THAT(read_raw_element(rom, uint8_spec(), 8), fastecu::testing::IsErr(ErrorKind::Internal));
+    ASSERT_THAT(read_raw_element(rom, uint8_spec(), 8), fastecu::testing::IsErr(ErrorKind::kInternal));
 }
 
 TEST(ReadRawElement, ReadsAnUnsignedWordBigEndian)
@@ -62,7 +62,7 @@ TEST(ReadRawElement, ReadsAnUnsignedWordBigEndian)
     rom[0x10] = 0x12;
     rom[0x11] = 0x34;
 
-    ASSERT_THAT(read_raw_element(rom, spec_for(definition::StorageType::Uint16, "big"), 0),
+    ASSERT_THAT(read_raw_element(rom, spec_for(definition::StorageType::kUint16, "big"), 0),
                 fastecu::testing::IsOkAnd(0x1234));
 }
 
@@ -72,7 +72,7 @@ TEST(ReadRawElement, ReadsAnUnsignedWordLittleEndian)
     rom[0x10] = 0x34;
     rom[0x11] = 0x12;
 
-    ASSERT_THAT(read_raw_element(rom, spec_for(definition::StorageType::Uint16, "little"), 0),
+    ASSERT_THAT(read_raw_element(rom, spec_for(definition::StorageType::kUint16, "little"), 0),
                 fastecu::testing::IsOkAnd(0x1234));
 }
 
@@ -84,7 +84,7 @@ TEST(ReadRawElement, ReadsAnUnsignedDwordBigEndian)
     rom[0x12] = 0x56;
     rom[0x13] = 0x78;
 
-    ASSERT_THAT(read_raw_element(rom, spec_for(definition::StorageType::Uint32, "big"), 0),
+    ASSERT_THAT(read_raw_element(rom, spec_for(definition::StorageType::kUint32, "big"), 0),
                 fastecu::testing::IsOkAnd(0x12345678));
 }
 
@@ -96,7 +96,7 @@ TEST(ReadRawElement, ReadsAnUnsignedDwordLittleEndian)
     rom[0x12] = 0x34;
     rom[0x13] = 0x12;
 
-    ASSERT_THAT(read_raw_element(rom, spec_for(definition::StorageType::Uint32, "little"), 0),
+    ASSERT_THAT(read_raw_element(rom, spec_for(definition::StorageType::kUint32, "little"), 0),
                 fastecu::testing::IsOkAnd(0x12345678));
 }
 
@@ -105,7 +105,7 @@ TEST(ReadRawElement, ReadsASignedByteAsMinusOne)
     auto rom = rom_of(0x20);
     rom[0x10] = 0xFF;
 
-    ASSERT_THAT(read_raw_element(rom, spec_for(definition::StorageType::Int8, "big"), 0),
+    ASSERT_THAT(read_raw_element(rom, spec_for(definition::StorageType::kInt8, "big"), 0),
                 fastecu::testing::IsOkAnd(-1));
 }
 
@@ -126,7 +126,7 @@ TEST(ReadRawElement, ReadsASignedWordBigEndian)
     rom[0x10] = 0x01;
     rom[0x11] = 0x02;
 
-    ASSERT_THAT(read_raw_element(rom, spec_for(definition::StorageType::Int16, "big"), 0),
+    ASSERT_THAT(read_raw_element(rom, spec_for(definition::StorageType::kInt16, "big"), 0),
                 fastecu::testing::IsOkAnd(0x0102));
 }
 
@@ -136,7 +136,7 @@ TEST(ReadRawElement, ReadsASignedWordLittleEndian)
     rom[0x10] = 0x01;
     rom[0x11] = 0x02;
 
-    ASSERT_THAT(read_raw_element(rom, spec_for(definition::StorageType::Int16, "little"), 0),
+    ASSERT_THAT(read_raw_element(rom, spec_for(definition::StorageType::kInt16, "little"), 0),
                 fastecu::testing::IsOkAnd(0x0201));
 }
 
@@ -148,7 +148,7 @@ TEST(ReadRawElement, ReadsASignedDwordBigEndian)
     rom[0x12] = 0x03;
     rom[0x13] = 0x04;
 
-    ASSERT_THAT(read_raw_element(rom, spec_for(definition::StorageType::Int32, "big"), 0),
+    ASSERT_THAT(read_raw_element(rom, spec_for(definition::StorageType::kInt32, "big"), 0),
                 fastecu::testing::IsOkAnd(0x01020304));
 }
 
@@ -160,7 +160,7 @@ TEST(ReadRawElement, ReadsASignedDwordLittleEndian)
     rom[0x12] = 0x03;
     rom[0x13] = 0x04;
 
-    ASSERT_THAT(read_raw_element(rom, spec_for(definition::StorageType::Int32, "little"), 0),
+    ASSERT_THAT(read_raw_element(rom, spec_for(definition::StorageType::kInt32, "little"), 0),
                 fastecu::testing::IsOkAnd(0x04030201));
 }
 
@@ -196,7 +196,7 @@ TEST(ReadRawElement, ReadsFloatAsBigEndianInRomRegardlessOfEndianField)
 
     // spec.endian is "little" here specifically to demonstrate it is
     // ignored for float storage.
-    const auto value = read_raw_element(rom, spec_for(definition::StorageType::Float, "little"), 0);
+    const auto value = read_raw_element(rom, spec_for(definition::StorageType::kFloat, "little"), 0);
 
     ASSERT_THAT(value, fastecu::testing::IsOk());
     EXPECT_EQ(static_cast<std::uint32_t>(*value), 0x3FC00000U);
@@ -210,7 +210,7 @@ TEST(ReadRawElement, ReadsAnUnsigned24BitValueCorrectly)
     rom[0x11] = 0x02;
     rom[0x12] = 0x03;
 
-    ASSERT_THAT(read_raw_element(rom, spec_for(definition::StorageType::Uint24, "big"), 0),
+    ASSERT_THAT(read_raw_element(rom, spec_for(definition::StorageType::kUint24, "big"), 0),
                 fastecu::testing::IsOkAnd(0x010203));
 }
 
@@ -228,13 +228,13 @@ TEST(ReadRawElement, ReadsASigned24BitValueCorrectly)
     rom[0x11] = 0x02;
     rom[0x12] = 0x03;
 
-    ASSERT_THAT(read_raw_element(rom, spec_for(definition::StorageType::Int24, "big"), 0),
+    ASSERT_THAT(read_raw_element(rom, spec_for(definition::StorageType::kInt24, "big"), 0),
                 fastecu::testing::IsOkAnd(0x010203));
 }
 
 TEST(ElementByteAddress, Wrx02ReadAndWritePredicatesAgreeWhenNeitherRelocates)
 {
-    MapElementSpec spec = spec_for(definition::StorageType::Uint8, "big", /*address=*/0x100);
+    MapElementSpec spec = spec_for(definition::StorageType::kUint8, "big", /*address=*/0x100);
     spec.flash_method = "wrx02";
     spec.rom_file_size = 0x40000; // 256 KiB: >= address, and >= the 190 KiB write threshold.
 
@@ -254,7 +254,7 @@ TEST(ElementByteAddress, Wrx02ReadAndWritePredicatesAgreeWhenNeitherRelocates)
 // intentionally does not touch this one.
 TEST(ElementByteAddress, PinnedDefect_Wrx02FixupDiffersBetweenReadAndWrite)
 {
-    MapElementSpec spec = spec_for(definition::StorageType::Uint8, "big", /*address=*/0x28000);
+    MapElementSpec spec = spec_for(definition::StorageType::kUint8, "big", /*address=*/0x28000);
     spec.flash_method = "wrx02";
     spec.rom_file_size = std::uint64_t{180} * 1024;
 
@@ -268,7 +268,7 @@ TEST(ElementByteAddress, HonoursTheStartPositionAndIntervalStride)
 {
     MapElementSpec spec;
     spec.address = 0x100;
-    spec.storage_type = definition::StorageType::Uint16;
+    spec.storage_type = definition::StorageType::kUint16;
     spec.start_position = 2;
     spec.interval = 3;
 
@@ -288,22 +288,22 @@ TEST(WriteRawElement, WritesInTheLabeledByteOrderForEveryWidth)
         std::vector<std::uint8_t> expected;
     };
     const std::vector<Case> cases = {
-        {definition::StorageType::Uint8, "big", 0xAB, {0xAB}},
-        {definition::StorageType::Uint8, "little", 0xAB, {0xAB}},
-        {definition::StorageType::Uint16, "big", 0x1234, {0x12, 0x34}},
-        {definition::StorageType::Uint16, "little", 0x1234, {0x34, 0x12}},
-        {definition::StorageType::Uint24, "big", 0x123456, {0x12, 0x34, 0x56}},
-        {definition::StorageType::Uint24, "little", 0x123456, {0x56, 0x34, 0x12}},
-        {definition::StorageType::Uint32, "big", 0x12345678, {0x12, 0x34, 0x56, 0x78}},
-        {definition::StorageType::Uint32, "little", 0x12345678, {0x78, 0x56, 0x34, 0x12}},
-        {definition::StorageType::Int8, "big", -2, {0xFE}},
-        {definition::StorageType::Int16, "big", -300, {0xFE, 0xD4}},
-        {definition::StorageType::Int32, "big", -70000, {0xFF, 0xFE, 0xEE, 0x90}},
+        {definition::StorageType::kUint8, "big", 0xAB, {0xAB}},
+        {definition::StorageType::kUint8, "little", 0xAB, {0xAB}},
+        {definition::StorageType::kUint16, "big", 0x1234, {0x12, 0x34}},
+        {definition::StorageType::kUint16, "little", 0x1234, {0x34, 0x12}},
+        {definition::StorageType::kUint24, "big", 0x123456, {0x12, 0x34, 0x56}},
+        {definition::StorageType::kUint24, "little", 0x123456, {0x56, 0x34, 0x12}},
+        {definition::StorageType::kUint32, "big", 0x12345678, {0x12, 0x34, 0x56, 0x78}},
+        {definition::StorageType::kUint32, "little", 0x12345678, {0x78, 0x56, 0x34, 0x12}},
+        {definition::StorageType::kInt8, "big", -2, {0xFE}},
+        {definition::StorageType::kInt16, "big", -300, {0xFE, 0xD4}},
+        {definition::StorageType::kInt32, "big", -70000, {0xFF, 0xFE, 0xEE, 0x90}},
         // Float: raw is a BIT PATTERN, not a number to convert -- the encoded
         // bits of 1.5F supplied directly to the byte-packing primitive.
         // "little" is used deliberately to show the endian label is ignored
         // for float storage.
-        {definition::StorageType::Float,
+        {definition::StorageType::kFloat,
          "little",
          static_cast<std::int64_t>(std::bit_cast<std::uint32_t>(1.5F)),
          {0x3F, 0xC0, 0x00, 0x00}},
@@ -329,7 +329,7 @@ TEST(ResolveEditTarget, LeftColumnSelectionOnAMultiRowMapTargetsTheYAxis)
     const auto target = resolve_edit_target({.first_row = 1, .first_col = 0, .last_row = 2, .last_col = 0},
                                             {.x_size = 4, .y_size = 4}, "Y Axis");
 
-    EXPECT_EQ(target.kind, EditTargetKind::YAxis);
+    EXPECT_EQ(target.kind, EditTargetKind::kYAxis);
     // Legacy subtracts 1 from every bound, then adds 1 back to both columns.
     EXPECT_EQ(target.range.first_col, 0);
     EXPECT_EQ(target.range.last_col, 0);
@@ -343,7 +343,7 @@ TEST(ResolveEditTarget, TopRowSelectionOnAMultiColumnMapTargetsTheXAxis)
     const auto target = resolve_edit_target({.first_row = 0, .first_col = 1, .last_row = 0, .last_col = 3},
                                             {.x_size = 4, .y_size = 4}, "X Axis");
 
-    EXPECT_EQ(target.kind, EditTargetKind::XAxis);
+    EXPECT_EQ(target.kind, EditTargetKind::kXAxis);
     EXPECT_EQ(target.range.first_row, 0);
     EXPECT_EQ(target.x_size, 4U);
 }
@@ -355,7 +355,7 @@ TEST(ResolveEditTarget, XAxisSelectionOnAMultiRowMapShiftsColumnsPastTheYAxisHea
     const auto target = resolve_edit_target({.first_row = 0, .first_col = 1, .last_row = 0, .last_col = 3},
                                             {.x_size = 4, .y_size = 4}, "X Axis");
 
-    EXPECT_EQ(target.kind, EditTargetKind::XAxis);
+    EXPECT_EQ(target.kind, EditTargetKind::kXAxis);
     EXPECT_EQ(target.range.first_col, 0);
     EXPECT_EQ(target.range.last_col, 2);
 }
@@ -368,7 +368,7 @@ TEST(ResolveEditTarget, XAxisSelectionOnASingleRowMapKeepsColumnsInRange)
     const auto target = resolve_edit_target({.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 2},
                                             {.x_size = 8, .y_size = 1}, "X Axis");
 
-    EXPECT_EQ(target.kind, EditTargetKind::XAxis);
+    EXPECT_EQ(target.kind, EditTargetKind::kXAxis);
     EXPECT_EQ(target.range.first_row, 0);
     EXPECT_EQ(target.range.last_row, 0);
     EXPECT_EQ(target.range.first_col, 0);
@@ -382,7 +382,7 @@ TEST(ResolveEditTarget, StaticScaleTypesRejectAnAxisEdit)
     {
         const auto target = resolve_edit_target({.first_row = 1, .first_col = 0, .last_row = 2, .last_col = 0},
                                                 {.x_size = 4, .y_size = 4}, type);
-        EXPECT_EQ(target.kind, EditTargetKind::Rejected) << type;
+        EXPECT_EQ(target.kind, EditTargetKind::kRejected) << type;
     }
 }
 
@@ -395,7 +395,7 @@ TEST(ResolveEditTarget, StaticScaleTypesRejectAnXAxisEdit)
     // first_col == 0, so both loop iterations take the Y-axis branch).
     const auto target = resolve_edit_target({.first_row = 0, .first_col = 1, .last_row = 0, .last_col = 1},
                                             {.x_size = 4, .y_size = 4}, "Static X Axis");
-    EXPECT_EQ(target.kind, EditTargetKind::Rejected);
+    EXPECT_EQ(target.kind, EditTargetKind::kRejected);
 }
 
 TEST(ResolveEditTarget, SingleColumnMapShiftsRowsBackIntoRange)
@@ -404,7 +404,7 @@ TEST(ResolveEditTarget, SingleColumnMapShiftsRowsBackIntoRange)
     const auto target = resolve_edit_target({.first_row = 1, .first_col = 1, .last_row = 2, .last_col = 1},
                                             {.x_size = 1, .y_size = 8}, "Y Axis");
 
-    EXPECT_EQ(target.kind, EditTargetKind::MapBody);
+    EXPECT_EQ(target.kind, EditTargetKind::kMapBody);
     EXPECT_EQ(target.range.first_row, 1);
     EXPECT_EQ(target.range.last_row, 2);
 }
@@ -416,7 +416,7 @@ TEST(ResolveEditTarget, SingleRowMapShiftsColumnsBackIntoRange)
     const auto target = resolve_edit_target({.first_row = 1, .first_col = 1, .last_row = 1, .last_col = 2},
                                             {.x_size = 8, .y_size = 1}, "X Axis");
 
-    EXPECT_EQ(target.kind, EditTargetKind::MapBody);
+    EXPECT_EQ(target.kind, EditTargetKind::kMapBody);
     EXPECT_EQ(target.range.first_col, 1);
     EXPECT_EQ(target.range.last_col, 2);
 }
@@ -428,7 +428,7 @@ TEST(ResolveEditTarget, BodySelectionOnAMapThatIsNeitherOneByNNorNByOne)
     const auto target = resolve_edit_target({.first_row = 2, .first_col = 2, .last_row = 3, .last_col = 3},
                                             {.x_size = 4, .y_size = 4}, "X Axis");
 
-    EXPECT_EQ(target.kind, EditTargetKind::MapBody);
+    EXPECT_EQ(target.kind, EditTargetKind::kMapBody);
     EXPECT_EQ(target.range.first_row, 1);
     EXPECT_EQ(target.range.first_col, 1);
     EXPECT_EQ(target.range.last_row, 2);
@@ -444,7 +444,7 @@ TEST(ResolveEditTarget, WidgetRowZeroOnASingleColumnMapFallsThroughToTheBodyBran
     const auto target = resolve_edit_target({.first_row = 0, .first_col = 1, .last_row = 0, .last_col = 1},
                                             {.x_size = 1, .y_size = 4}, "Y Axis");
 
-    EXPECT_EQ(target.kind, EditTargetKind::MapBody);
+    EXPECT_EQ(target.kind, EditTargetKind::kMapBody);
     EXPECT_EQ(target.range.first_row, 0);
     EXPECT_EQ(target.range.last_row, 0);
 }
@@ -461,7 +461,7 @@ TEST(ResolveEditTarget, EmptySelectionProducesAZeroCountElementRange)
     const auto target = resolve_edit_target({.first_row = 1, .first_col = 1, .last_row = 0, .last_col = 0},
                                             {.x_size = 4, .y_size = 4}, "X Axis");
 
-    EXPECT_EQ(target.kind, EditTargetKind::MapBody);
+    EXPECT_EQ(target.kind, EditTargetKind::kMapBody);
     EXPECT_EQ(target.range.first_row, 0);
     EXPECT_EQ(target.range.last_row, -1);
     EXPECT_EQ(target.range.first_col, 0);

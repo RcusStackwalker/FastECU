@@ -30,7 +30,7 @@ Result<std::optional<bytes::Bytes>> exchange_optional(IKlineFlashTransport& tran
 {
     if (cancellation.cancelled())
     {
-        return fail(ErrorKind::Cancelled, "cancelled before write");
+        return fail(ErrorKind::kCancelled, "cancelled before write");
     }
     auto written = transport.write(framed(payload, p));
     if (!written.has_value())
@@ -39,11 +39,11 @@ Result<std::optional<bytes::Bytes>> exchange_optional(IKlineFlashTransport& tran
     }
     if (*written != payload.size() + 5)
     {
-        return fail(ErrorKind::Disconnected, "short K-Line write");
+        return fail(ErrorKind::kDisconnected, "short K-Line write");
     }
     if (cancellation.cancelled())
     {
-        return fail(ErrorKind::Cancelled, "cancelled after write");
+        return fail(ErrorKind::kCancelled, "cancelled after write");
     }
     auto response = transport.read(std::chrono::milliseconds{kTimeoutMs}, cancellation);
     if (!response.has_value())
@@ -52,7 +52,7 @@ Result<std::optional<bytes::Bytes>> exchange_optional(IKlineFlashTransport& tran
     }
     if (cancellation.cancelled())
     {
-        return fail(ErrorKind::Cancelled, "cancelled after read");
+        return fail(ErrorKind::kCancelled, "cancelled after read");
     }
     return std::move(*response);
 }
@@ -67,7 +67,7 @@ Result<bytes::Bytes> exchange(IKlineFlashTransport& transport, const ICancellati
     }
     if (!response->has_value())
     {
-        return fail(ErrorKind::Timeout, "no response from ECU");
+        return fail(ErrorKind::kTimeout, "no response from ECU");
     }
     return std::move(**response);
 }
@@ -76,14 +76,14 @@ Status expect_service(bytes::ByteView response, std::initializer_list<bytes::Byt
 {
     if (response.size() < 4 + service.size())
     {
-        return fail(ErrorKind::BadResponse, "No valid response from ECU");
+        return fail(ErrorKind::kBadResponse, "No valid response from ECU");
     }
     std::size_t i = 4;
     for (const bytes::Byte value : service)
     {
         if (response[i++] != value)
         {
-            return fail(ErrorKind::BadResponse, "Wrong response from ECU");
+            return fail(ErrorKind::kBadResponse, "Wrong response from ECU");
         }
     }
     return {};
@@ -113,7 +113,7 @@ Result<std::string> handshake(IKlineFlashTransport& transport, IClock& clock, co
     {
         return std::unexpected(slept.error());
     }
-    events.log(LogLevel::Info, "Requesting ECU ID");
+    events.log(LogLevel::kInfo, "Requesting ECU ID");
     auto id = exchange(transport, cancellation, bytes::Bytes{0xbf}, p);
     if (!id.has_value())
     {
@@ -125,7 +125,7 @@ Result<std::string> handshake(IKlineFlashTransport& transport, IClock& clock, co
     }
     if (id->size() < 14)
     {
-        return fail(ErrorKind::BadResponse, "ECU ID response does not contain five ID bytes");
+        return fail(ErrorKind::kBadResponse, "ECU ID response does not contain five ID bytes");
     }
     std::string rom_id;
     for (std::size_t i = 8; i < 13; ++i)
@@ -133,7 +133,7 @@ Result<std::string> handshake(IKlineFlashTransport& transport, IClock& clock, co
         rom_id += std::format("{:02X}", (*id)[i]);
     }
     rom_id += '_';
-    events.log(LogLevel::Info, std::format("ECU ID: {}", rom_id.substr(0, rom_id.size() - 1)));
+    events.log(LogLevel::kInfo, std::format("ECU ID: {}", rom_id.substr(0, rom_id.size() - 1)));
 
     const auto request = [&](bytes::Bytes payload, std::initializer_list<bytes::Byte> expected) -> Status
     {
@@ -144,19 +144,19 @@ Result<std::string> handshake(IKlineFlashTransport& transport, IClock& clock, co
         }
         return expect_service(*response, expected);
     };
-    events.log(LogLevel::Info, "Requesting to start communication");
+    events.log(LogLevel::kInfo, "Requesting to start communication");
     if (auto s = request({0x81}, {0xc1}); !s.has_value())
     {
         return std::unexpected(s.error());
     }
-    events.log(LogLevel::Info, "Start communication ok");
-    events.log(LogLevel::Info, "Requesting timings params");
+    events.log(LogLevel::kInfo, "Start communication ok");
+    events.log(LogLevel::kInfo, "Requesting timings params");
     if (auto s = request({0x83, 0x00}, {0xc3}); !s.has_value())
     {
         return std::unexpected(s.error());
     }
-    events.log(LogLevel::Info, "Timing parameters ok");
-    events.log(LogLevel::Info, "Requesting seed");
+    events.log(LogLevel::kInfo, "Timing parameters ok");
+    events.log(LogLevel::kInfo, "Requesting seed");
     auto seed_response =
         exchange(transport, cancellation, bytes::Bytes{uds::kSidSecurityAccess, uds::kSecurityAccessRequestSeed}, p);
     if (!seed_response.has_value())
@@ -169,22 +169,22 @@ Result<std::string> handshake(IKlineFlashTransport& transport, IClock& clock, co
     }
     if (seed_response->size() < 10)
     {
-        return fail(ErrorKind::BadResponse, "seed response is too short");
+        return fail(ErrorKind::kBadResponse, "seed response is too short");
     }
     const bytes::Bytes key_request = composeBe(uds::kSidSecurityAccess, uds::kSecurityAccessSendKey,
                                                seed_key(bytes::ByteView{*seed_response}.subspan(6, 4)));
-    events.log(LogLevel::Info, "Sending seed key to ECU");
+    events.log(LogLevel::kInfo, "Sending seed key to ECU");
     if (auto s = request(std::move(key_request), {0x67, uds::kSecurityAccessSendKey}); !s.has_value())
     {
         return std::unexpected(s.error());
     }
-    events.log(LogLevel::Info, "Seed key ok");
-    events.log(LogLevel::Info, "Set session mode");
+    events.log(LogLevel::kInfo, "Seed key ok");
+    events.log(LogLevel::kInfo, "Set session mode");
     if (auto s = request({uds::kSidDiagnosticSessionControl, 0x85, 0x02}, {0x50}); !s.has_value())
     {
         return std::unexpected(s.error());
     }
-    events.log(LogLevel::Info, "Succesfully set to programming session");
+    events.log(LogLevel::kInfo, "Succesfully set to programming session");
     return rom_id;
 }
 
@@ -198,7 +198,7 @@ Result<bytes::Bytes> read_rom(IKlineFlashTransport& transport, const ICancellati
     {
         if (cancellation.cancelled())
         {
-            return fail(ErrorKind::Cancelled, "cancelled during ROM read");
+            return fail(ErrorKind::kCancelled, "cancelled during ROM read");
         }
         const std::uint32_t address = region.start + offset;
         const bytes::Bytes request = composeBe(0xa0_b, 0x00_b, 0x20_b, u24(address), bytes::Byte(p.chunk_size - 1));
@@ -209,12 +209,12 @@ Result<bytes::Bytes> read_rom(IKlineFlashTransport& transport, const ICancellati
         }
         if (response->size() != p.chunk_size + 6 || (*response)[4] != 0xe0)
         {
-            return fail(ErrorKind::BadResponse, "ROM read response must contain exactly 128 data bytes");
+            return fail(ErrorKind::kBadResponse, "ROM read response must contain exactly 128 data bytes");
         }
         rom.insert(rom.end(), response->begin() + 5, response->end() - 1);
         events.progress(static_cast<int>(offset + p.chunk_size), static_cast<int>(region.length));
     }
-    events.log(LogLevel::Warning, "The first 0x8000 ROM bytes are synthetic 0xFF; this protocol reads userspace only");
+    events.log(LogLevel::kWarning, "The first 0x8000 ROM bytes are synthetic 0xFF; this protocol reads userspace only");
     return rom;
 }
 
@@ -238,7 +238,7 @@ Status write_rom(IKlineFlashTransport& transport, IClock& clock, const ICancella
     {
         return s;
     }
-    events.log(LogLevel::Info, "Erasing...");
+    events.log(LogLevel::kInfo, "Erasing...");
     auto erased = exchange(transport, cancellation,
                            bytes::Bytes{uds::kSidRoutineControl, uds::kRoutineControlStop, 0x0f, 0xff, 0xff, 0xff}, p);
     if (!erased.has_value())
@@ -251,17 +251,17 @@ Status write_rom(IKlineFlashTransport& transport, IClock& clock, const ICancella
     }
     if (cancellation.cancelled())
     {
-        return fail(ErrorKind::Cancelled, "cancelled after erase");
+        return fail(ErrorKind::kCancelled, "cancelled after erase");
     }
 
     const bytes::Bytes encrypted = encrypt(plan.image_or_empty());
     const MemoryRegion region = plan.transfer_region();
-    events.log(LogLevel::Info, "Starting ROM Flashing...");
+    events.log(LogLevel::kInfo, "Starting ROM Flashing...");
     for (std::uint32_t offset = 0; offset < region.length; offset += p.chunk_size)
     {
         if (cancellation.cancelled())
         {
-            return fail(ErrorKind::Cancelled, "cancelled during ROM write");
+            return fail(ErrorKind::kCancelled, "cancelled during ROM write");
         }
         const std::uint32_t address = region.start + offset;
         const bytes::Bytes request =
@@ -272,7 +272,7 @@ Status write_rom(IKlineFlashTransport& transport, IClock& clock, const ICancella
         }
         events.progress(static_cast<int>(offset + p.chunk_size), static_cast<int>(region.length));
     }
-    events.log(LogLevel::Info, "Verifying checksum...");
+    events.log(LogLevel::kInfo, "Verifying checksum...");
     if (auto slept = clock.sleep(1000ms, cancellation); !slept.has_value())
     {
         return slept;
@@ -287,7 +287,7 @@ Status write_rom(IKlineFlashTransport& transport, IClock& clock, const ICancella
     {
         return s;
     }
-    events.log(LogLevel::Info, "Checksum verified...");
+    events.log(LogLevel::kInfo, "Checksum verified...");
     return {};
 }
 
@@ -299,15 +299,15 @@ Result<FlashExecutionResult> execute_open_transport(const FlashPlan& plan, IKlin
     {
         return std::unexpected(header.error());
     }
-    events.log(LogLevel::Info, "Connecting to ECU K-Line bootloader, please wait...");
+    events.log(LogLevel::kInfo, "Connecting to ECU K-Line bootloader, please wait...");
     auto rom_id = handshake(transport, clock, cancellation, events, parameters);
     if (!rom_id.has_value())
     {
         return std::unexpected(rom_id.error());
     }
-    if (plan.operation() == FlashOperation::Read)
+    if (plan.operation() == FlashOperation::kRead)
     {
-        events.log(LogLevel::Info, "Reading ROM from ECU using K-Line");
+        events.log(LogLevel::kInfo, "Reading ROM from ECU using K-Line");
         auto bytes = read_rom(transport, cancellation, events, parameters, plan.transfer_region());
         if (!bytes.has_value())
         {
@@ -315,7 +315,7 @@ Result<FlashExecutionResult> execute_open_transport(const FlashPlan& plan, IKlin
         }
         return FlashExecutionResult{plan.operation(), std::move(*bytes), std::move(*rom_id)};
     }
-    events.log(LogLevel::Info, "Writing ROM to ECU using K-Line");
+    events.log(LogLevel::kInfo, "Writing ROM to ECU using K-Line");
     if (auto status = write_rom(transport, clock, cancellation, events, parameters, plan); !status.has_value())
     {
         return std::unexpected(status.error());
@@ -326,7 +326,7 @@ Result<FlashExecutionResult> execute_open_transport(const FlashPlan& plan, IKlin
 
 Result<KlineConfig> SubaruMitsuM32rKlineExecutor::transport_setup(const FlashPlan& plan) const
 {
-    if (const Status match = check_family(plan, FlashFamily::SubaruMitsuM32rKline); !match.has_value())
+    if (const Status match = check_family(plan, FlashFamily::kSubaruMitsuM32rKline); !match.has_value())
     {
         return std::unexpected(match.error());
     }
@@ -343,7 +343,7 @@ Result<FlashExecutionResult> SubaruMitsuM32rKlineExecutor::execute(const FlashPl
                                                                    const ICancellationToken& cancellation,
                                                                    IEventSink& events)
 {
-    if (const Status match = check_family(plan, FlashFamily::SubaruMitsuM32rKline); !match.has_value())
+    if (const Status match = check_family(plan, FlashFamily::kSubaruMitsuM32rKline); !match.has_value())
     {
         return std::unexpected(match.error());
     }
@@ -353,7 +353,7 @@ Result<FlashExecutionResult> SubaruMitsuM32rKlineExecutor::execute(const FlashPl
     }
     if (cancellation.cancelled())
     {
-        return fail(ErrorKind::Cancelled, "cancelled before setup");
+        return fail(ErrorKind::kCancelled, "cancelled before setup");
     }
     const auto& p = std::get<SubaruMitsuM32rKlinePlan>(plan.family_plan());
     return execute_open_transport(plan, transport, clock, cancellation, events, p);

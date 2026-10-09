@@ -24,7 +24,7 @@ Status DesktopKlineFlashTransport::configure(const KlineConfig& config)
 {
     if (!serial_)
     {
-        return fail(ErrorKind::Disconnected, "configure() called after close()");
+        return fail(ErrorKind::kDisconnected, "configure() called after close()");
     }
 
     try
@@ -38,40 +38,40 @@ Status DesktopKlineFlashTransport::configure(const KlineConfig& config)
         // hardware and maps failure to Disconnected.
         if (!serial_->set_is_iso14230_connection(config.iso14230))
         {
-            return fail(ErrorKind::InvalidConfig, "set_is_iso14230_connection failed");
+            return fail(ErrorKind::kInvalidConfig, "set_is_iso14230_connection failed");
         }
         if (!serial_->set_is_can_connection(false))
         {
-            return fail(ErrorKind::InvalidConfig, "set_is_can_connection failed");
+            return fail(ErrorKind::kInvalidConfig, "set_is_can_connection failed");
         }
         if (!serial_->set_is_iso15765_connection(false))
         {
-            return fail(ErrorKind::InvalidConfig, "set_is_iso15765_connection failed");
+            return fail(ErrorKind::kInvalidConfig, "set_is_iso15765_connection failed");
         }
         if (!serial_->set_is_29_bit_id(false))
         {
-            return fail(ErrorKind::InvalidConfig, "set_is_29_bit_id failed");
+            return fail(ErrorKind::kInvalidConfig, "set_is_29_bit_id failed");
         }
         if (!serial_->set_serial_port_baudrate(QString::number(config.baud)))
         {
-            return fail(ErrorKind::InvalidConfig, "set_serial_port_baudrate failed");
+            return fail(ErrorKind::kInvalidConfig, "set_serial_port_baudrate failed");
         }
-        const auto parity = config.parity == KlineParity::Even  ? QSerialPort::EvenParity
-                            : config.parity == KlineParity::Odd ? QSerialPort::OddParity
-                                                                : QSerialPort::NoParity;
+        const auto parity = config.parity == KlineParity::kEven  ? QSerialPort::EvenParity
+                            : config.parity == KlineParity::kOdd ? QSerialPort::OddParity
+                                                                 : QSerialPort::NoParity;
         if (!serial_->set_serial_port_parity(static_cast<std::uint8_t>(parity)))
         {
-            return fail(ErrorKind::InvalidConfig, "set_serial_port_parity failed");
+            return fail(ErrorKind::kInvalidConfig, "set_serial_port_parity failed");
         }
         return {};
     }
     catch (const std::exception& error)
     {
-        return fail(ErrorKind::Internal, error.what());
+        return fail(ErrorKind::kInternal, error.what());
     }
     catch (...)
     {
-        return fail(ErrorKind::Internal, "K-Line configure exception");
+        return fail(ErrorKind::kInternal, "K-Line configure exception");
     }
 }
 
@@ -79,7 +79,7 @@ Status DesktopKlineFlashTransport::open()
 {
     if (!serial_)
     {
-        return fail(ErrorKind::Disconnected, "open() called after close()");
+        return fail(ErrorKind::kDisconnected, "open() called after close()");
     }
 
     try
@@ -94,17 +94,17 @@ Status DesktopKlineFlashTransport::open()
         const QString openResult = serial_->open_serial_port();
         if (openResult.isEmpty())
         {
-            return fail(ErrorKind::Disconnected, "open_serial_port failed");
+            return fail(ErrorKind::kDisconnected, "open_serial_port failed");
         }
         return {};
     }
     catch (const std::exception& error)
     {
-        return fail(ErrorKind::Disconnected, error.what());
+        return fail(ErrorKind::kDisconnected, error.what());
     }
     catch (...)
     {
-        return fail(ErrorKind::Disconnected, "open_serial_port exception");
+        return fail(ErrorKind::kDisconnected, "open_serial_port exception");
     }
 }
 
@@ -124,7 +124,7 @@ Status DesktopKlineFlashTransport::reset_connection()
 {
     if (!serial_)
     {
-        return fail(ErrorKind::Disconnected, "reset_connection() called after close()");
+        return fail(ErrorKind::kDisconnected, "reset_connection() called after close()");
     }
     try
     {
@@ -135,17 +135,17 @@ Status DesktopKlineFlashTransport::reset_connection()
         // blocks below can produce an Internal error here.
         if (!serial_->reset_connection())
         {
-            return fail(ErrorKind::Internal, "reset_connection failed");
+            return fail(ErrorKind::kInternal, "reset_connection failed");
         }
         return {};
     }
     catch (const std::exception& error)
     {
-        return fail(ErrorKind::Internal, error.what());
+        return fail(ErrorKind::kInternal, error.what());
     }
     catch (...)
     {
-        return fail(ErrorKind::Internal, "reset_connection exception");
+        return fail(ErrorKind::kInternal, "reset_connection exception");
     }
 }
 
@@ -153,23 +153,23 @@ Status DesktopKlineFlashTransport::disable_lec_lines()
 {
     if (!serial_)
     {
-        return fail(ErrorKind::Disconnected, "disable_lec_lines() called after close()");
+        return fail(ErrorKind::kDisconnected, "disable_lec_lines() called after close()");
     }
     try
     {
         if (serial_->set_lec_lines(serial_->get_requestToSendDisabled(), serial_->get_dataTerminalDisabled()) != 0)
         {
-            return fail(ErrorKind::Internal, "set_lec_lines disabled failed");
+            return fail(ErrorKind::kInternal, "set_lec_lines disabled failed");
         }
         return {};
     }
     catch (const std::exception& error)
     {
-        return fail(ErrorKind::Internal, error.what());
+        return fail(ErrorKind::kInternal, error.what());
     }
     catch (...)
     {
-        return fail(ErrorKind::Internal, "disable_lec_lines exception");
+        return fail(ErrorKind::kInternal, "disable_lec_lines exception");
     }
 }
 
@@ -177,23 +177,23 @@ Status DesktopKlineFlashTransport::pulse_lec_2_line(std::chrono::milliseconds ti
 {
     if (!serial_)
     {
-        return fail(ErrorKind::Disconnected, "pulse_lec_2_line() called after close()");
+        return fail(ErrorKind::kDisconnected, "pulse_lec_2_line() called after close()");
     }
     try
     {
         if (serial_->pulse_lec_2_line(fastecu::saturating_ms<int>(timeout)) != 0)
         {
-            return fail(ErrorKind::Internal, "pulse_lec_2_line failed");
+            return fail(ErrorKind::kInternal, "pulse_lec_2_line failed");
         }
         return {};
     }
     catch (const std::exception& error)
     {
-        return fail(ErrorKind::Internal, error.what());
+        return fail(ErrorKind::kInternal, error.what());
     }
     catch (...)
     {
-        return fail(ErrorKind::Internal, "pulse_lec_2_line exception");
+        return fail(ErrorKind::kInternal, "pulse_lec_2_line exception");
     }
 }
 
@@ -201,24 +201,24 @@ Status DesktopKlineFlashTransport::enable_programming_voltage_line()
 {
     if (!serial_)
     {
-        return fail(ErrorKind::Disconnected, "enable_programming_voltage_line() called after close()");
+        return fail(ErrorKind::kDisconnected, "enable_programming_voltage_line() called after close()");
     }
     try
     {
         // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:513.
         if (serial_->set_lec_lines(serial_->get_requestToSendEnabled(), serial_->get_dataTerminalDisabled()) != 0)
         {
-            return fail(ErrorKind::Internal, "set_lec_lines programming state failed");
+            return fail(ErrorKind::kInternal, "set_lec_lines programming state failed");
         }
         return {};
     }
     catch (const std::exception& error)
     {
-        return fail(ErrorKind::Internal, error.what());
+        return fail(ErrorKind::kInternal, error.what());
     }
     catch (...)
     {
-        return fail(ErrorKind::Internal, "enable_programming_voltage_line exception");
+        return fail(ErrorKind::kInternal, "enable_programming_voltage_line exception");
     }
 }
 
@@ -226,24 +226,24 @@ Status DesktopKlineFlashTransport::enable_boot_mode_lines()
 {
     if (!serial_)
     {
-        return fail(ErrorKind::Disconnected, "enable_boot_mode_lines() called after close()");
+        return fail(ErrorKind::kDisconnected, "enable_boot_mode_lines() called after close()");
     }
     try
     {
         // Legacy flash_ecu_subaru_unisia_jecs_m32r_bootmode_operation.cpp:66.
         if (serial_->set_lec_lines(serial_->get_requestToSendEnabled(), serial_->get_dataTerminalEnabled()) != 0)
         {
-            return fail(ErrorKind::Internal, "set_lec_lines boot mode state failed");
+            return fail(ErrorKind::kInternal, "set_lec_lines boot mode state failed");
         }
         return {};
     }
     catch (const std::exception& error)
     {
-        return fail(ErrorKind::Internal, error.what());
+        return fail(ErrorKind::kInternal, error.what());
     }
     catch (...)
     {
-        return fail(ErrorKind::Internal, "enable_boot_mode_lines exception");
+        return fail(ErrorKind::kInternal, "enable_boot_mode_lines exception");
     }
 }
 
@@ -260,7 +260,7 @@ Status DesktopKlineFlashTransport::set_add_iso14230_header(bool add_header)
 {
     if (!serial_)
     {
-        return fail(ErrorKind::Disconnected, "set_add_iso14230_header() called after close()");
+        return fail(ErrorKind::kDisconnected, "set_add_iso14230_header() called after close()");
     }
 
     try
@@ -272,17 +272,17 @@ Status DesktopKlineFlashTransport::set_add_iso14230_header(bool add_header)
         // InvalidConfig, never Disconnected.
         if (!serial_->set_add_iso14230_header(add_header))
         {
-            return fail(ErrorKind::InvalidConfig, "set_add_iso14230_header failed");
+            return fail(ErrorKind::kInvalidConfig, "set_add_iso14230_header failed");
         }
         return {};
     }
     catch (const std::exception& error)
     {
-        return fail(ErrorKind::Internal, error.what());
+        return fail(ErrorKind::kInternal, error.what());
     }
     catch (...)
     {
-        return fail(ErrorKind::Internal, "set_add_iso14230_header exception");
+        return fail(ErrorKind::kInternal, "set_add_iso14230_header exception");
     }
 }
 
@@ -304,14 +304,14 @@ Status DesktopKlineFlashTransport::setBaud(int baud)
 {
     if (!serial_)
     {
-        return fail(ErrorKind::Disconnected, "setBaud() called after close()");
+        return fail(ErrorKind::kDisconnected, "setBaud() called after close()");
     }
 
     try
     {
         if (!serial_->is_serial_port_open())
         {
-            return fail(ErrorKind::Disconnected, "K-Line adapter disconnected before baud change");
+            return fail(ErrorKind::kDisconnected, "K-Line adapter disconnected before baud change");
         }
         // Real sentinel, confirmed by reading the body (step 5c Task 12):
         // SerialPortActionsDirect::change_port_speed()
@@ -326,7 +326,7 @@ Status DesktopKlineFlashTransport::setBaud(int baud)
         }
         if (!serial_->is_serial_port_open())
         {
-            return fail(ErrorKind::Disconnected, "K-Line adapter disconnected during baud change");
+            return fail(ErrorKind::kDisconnected, "K-Line adapter disconnected during baud change");
         }
         // Port is still open but the driver rejected the change (e.g. the
         // generic-adapter branch's serial->setBaudRate() call failed) --
@@ -334,15 +334,15 @@ Status DesktopKlineFlashTransport::setBaud(int baud)
         // it maps to Internal rather than InvalidConfig (mirrors
         // FastEcuKlineTransport::setBaud() in this same package, which
         // wraps the identical change_port_speed() call).
-        return fail(ErrorKind::Internal, "K-Line driver rejected baud change");
+        return fail(ErrorKind::kInternal, "K-Line driver rejected baud change");
     }
     catch (const std::exception& error)
     {
-        return fail(ErrorKind::Internal, error.what());
+        return fail(ErrorKind::kInternal, error.what());
     }
     catch (...)
     {
-        return fail(ErrorKind::Internal, "K-Line driver baud-change exception");
+        return fail(ErrorKind::kInternal, "K-Line driver baud-change exception");
     }
 }
 
@@ -350,18 +350,18 @@ Result<std::size_t> DesktopKlineFlashTransport::write(bytes::ByteView data)
 {
     if (unblock_requested_.load())
     {
-        return fail(ErrorKind::Cancelled, "K-Line write skipped after request_unblock");
+        return fail(ErrorKind::kCancelled, "K-Line write skipped after request_unblock");
     }
     if (!serial_)
     {
-        return fail(ErrorKind::Disconnected, "write() called after close()");
+        return fail(ErrorKind::kDisconnected, "write() called after close()");
     }
 
     try
     {
         if (!serial_->is_serial_port_open())
         {
-            return fail(ErrorKind::Disconnected, "K-Line adapter disconnected before write");
+            return fail(ErrorKind::kDisconnected, "K-Line adapter disconnected before write");
         }
         // write_serial_data_echo_check()'s QByteArray return cannot signal
         // success/failure: every path through SerialPortActionsDirect::
@@ -377,17 +377,17 @@ Result<std::size_t> DesktopKlineFlashTransport::write(bytes::ByteView data)
         serial_->write_serial_data_echo_check(bytes::toQByteArray(data));
         if (!serial_->is_serial_port_open())
         {
-            return fail(ErrorKind::Disconnected, "K-Line adapter disconnected during write");
+            return fail(ErrorKind::kDisconnected, "K-Line adapter disconnected during write");
         }
         return data.size();
     }
     catch (const std::exception& error)
     {
-        return fail(ErrorKind::Internal, error.what());
+        return fail(ErrorKind::kInternal, error.what());
     }
     catch (...)
     {
-        return fail(ErrorKind::Internal, "K-Line driver write exception");
+        return fail(ErrorKind::kInternal, "K-Line driver write exception");
     }
 }
 
@@ -396,11 +396,11 @@ DesktopKlineFlashTransport::read(std::chrono::milliseconds timeout, const ICance
 {
     if (cancellation.cancelled() || unblock_requested_.load())
     {
-        return fail(ErrorKind::Cancelled, "K-Line read skipped due to cancellation/unblock");
+        return fail(ErrorKind::kCancelled, "K-Line read skipped due to cancellation/unblock");
     }
     if (!serial_)
     {
-        return fail(ErrorKind::Disconnected, "read() called after close()");
+        return fail(ErrorKind::kDisconnected, "read() called after close()");
     }
 
     return fastecu::desktop::detail::read_serial(serial_, timeout, cancellation, [this](std::uint16_t driver_timeout)
@@ -411,18 +411,18 @@ Result<std::size_t> DesktopKlineFlashTransport::write_raw(bytes::ByteView data)
 {
     if (unblock_requested_.load())
     {
-        return fail(ErrorKind::Cancelled, "K-Line write skipped after request_unblock");
+        return fail(ErrorKind::kCancelled, "K-Line write skipped after request_unblock");
     }
     if (!serial_)
     {
-        return fail(ErrorKind::Disconnected, "write_raw() called after close()");
+        return fail(ErrorKind::kDisconnected, "write_raw() called after close()");
     }
 
     try
     {
         if (!serial_->is_serial_port_open())
         {
-            return fail(ErrorKind::Disconnected, "K-Line adapter disconnected before write");
+            return fail(ErrorKind::kDisconnected, "K-Line adapter disconnected before write");
         }
         // write_serial_data()'s QByteArray return cannot signal
         // success/failure: every path through SerialPortActionsDirect::
@@ -438,17 +438,17 @@ Result<std::size_t> DesktopKlineFlashTransport::write_raw(bytes::ByteView data)
         serial_->write_serial_data(bytes::toQByteArray(data));
         if (!serial_->is_serial_port_open())
         {
-            return fail(ErrorKind::Disconnected, "K-Line adapter disconnected during write");
+            return fail(ErrorKind::kDisconnected, "K-Line adapter disconnected during write");
         }
         return data.size();
     }
     catch (const std::exception& error)
     {
-        return fail(ErrorKind::Internal, error.what());
+        return fail(ErrorKind::kInternal, error.what());
     }
     catch (...)
     {
-        return fail(ErrorKind::Internal, "K-Line driver write exception");
+        return fail(ErrorKind::kInternal, "K-Line driver write exception");
     }
 }
 
@@ -457,11 +457,11 @@ DesktopKlineFlashTransport::read_raw(std::chrono::milliseconds timeout, const IC
 {
     if (cancellation.cancelled() || unblock_requested_.load())
     {
-        return fail(ErrorKind::Cancelled, "K-Line read skipped due to cancellation/unblock");
+        return fail(ErrorKind::kCancelled, "K-Line read skipped due to cancellation/unblock");
     }
     if (!serial_)
     {
-        return fail(ErrorKind::Disconnected, "read_raw() called after close()");
+        return fail(ErrorKind::kDisconnected, "read_raw() called after close()");
     }
 
     return fastecu::desktop::detail::read_serial(serial_, timeout, cancellation, [this](std::uint16_t driver_timeout)

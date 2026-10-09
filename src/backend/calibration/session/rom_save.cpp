@@ -14,7 +14,7 @@ Status RomSaveUseCase::save(CalibrationSession& session, std::string_view path, 
     const Status result = files_.write(path, image);
     if (!result.has_value())
     {
-        events_.log(LogLevel::Error, std::format("Unable to open file {} for writing", path));
+        events_.log(LogLevel::kError, std::format("Unable to open file {} for writing", path));
         events_.notice(std::format("Ecu calibration file: Unable to open file {} for writing", path));
         return result;
     }

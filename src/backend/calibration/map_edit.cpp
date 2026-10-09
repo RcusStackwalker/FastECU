@@ -70,7 +70,7 @@ Result<std::int64_t> read_raw_element(bytes::ByteView rom_data, const MapElement
 
     if (!byte_window_fits(rom_data, address, width))
     {
-        return fail(ErrorKind::Internal,
+        return fail(ErrorKind::kInternal,
                     std::format("element {} at 0x{:x} runs past ROM size {}", index, address, rom_data.size()));
     }
 
@@ -90,7 +90,7 @@ Result<std::int64_t> read_raw_element(bytes::ByteView rom_data, const MapElement
     std::uint32_t data_byte = 0;
     std::array<std::uint8_t, 4> byte_value{};
 
-    const bool little_or_float = spec.endian == "little" || spec.storage_type == definition::StorageType::Float;
+    const bool little_or_float = spec.endian == "little" || spec.storage_type == definition::StorageType::kFloat;
 
     for (std::uint32_t k = 0; k < width; ++k)
     {
@@ -105,7 +105,7 @@ Result<std::int64_t> read_raw_element(bytes::ByteView rom_data, const MapElement
         return static_cast<std::int64_t>(data_byte);
     }
 
-    if (spec.storage_type == definition::StorageType::Float)
+    if (spec.storage_type == definition::StorageType::kFloat)
     {
         // Assembles the four bytes into a uint32_t and returns those bits
         // reinterpreted as int32_t, rather than reading a union member that
@@ -146,7 +146,7 @@ Result<std::int64_t> read_raw_element(bytes::ByteView rom_data, const MapElement
 Result<std::vector<std::uint8_t>> write_raw_element(const MapElementSpec& spec, std::int64_t raw)
 {
     const std::uint32_t width = definition::storage_byte_size(spec.storage_type);
-    const bool is_float = spec.storage_type == definition::StorageType::Float;
+    const bool is_float = spec.storage_type == definition::StorageType::kFloat;
 
     // `raw`'s low 32 bits are packed bit-for-bit -- for float storage this is
     // already the encoded float's bit pattern, not a number to convert; see
@@ -181,12 +181,12 @@ EditTarget resolve_edit_target(const SelectionRange& selection, MapDimensions di
     {
         if (is_static_scale)
         {
-            return {.kind = EditTargetKind::Rejected, .range = {}, .x_size = dims.x_size};
+            return {.kind = EditTargetKind::kRejected, .range = {}, .x_size = dims.x_size};
         }
         first_col++;
         last_col++;
         x_size = 1;
-        return {.kind = EditTargetKind::YAxis,
+        return {.kind = EditTargetKind::kYAxis,
                 .range = {.first_row = first_row, .first_col = first_col, .last_row = last_row, .last_col = last_col},
                 .x_size = x_size};
     }
@@ -195,7 +195,7 @@ EditTarget resolve_edit_target(const SelectionRange& selection, MapDimensions di
     {
         if (is_static_scale)
         {
-            return {.kind = EditTargetKind::Rejected, .range = {}, .x_size = dims.x_size};
+            return {.kind = EditTargetKind::kRejected, .range = {}, .x_size = dims.x_size};
         }
         first_row++;
         last_row++;
@@ -205,7 +205,7 @@ EditTarget resolve_edit_target(const SelectionRange& selection, MapDimensions di
             first_col++;
             last_col++;
         }
-        return {.kind = EditTargetKind::XAxis,
+        return {.kind = EditTargetKind::kXAxis,
                 .range = {.first_row = first_row, .first_col = first_col, .last_row = last_row, .last_col = last_col},
                 .x_size = x_size};
     }
@@ -221,7 +221,7 @@ EditTarget resolve_edit_target(const SelectionRange& selection, MapDimensions di
         last_col++;
     }
 
-    return {.kind = EditTargetKind::MapBody,
+    return {.kind = EditTargetKind::kMapBody,
             .range = {.first_row = first_row, .first_col = first_col, .last_row = last_row, .last_col = last_col},
             .x_size = x_size};
 }

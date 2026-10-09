@@ -17,11 +17,11 @@ struct SsmTransportConfig
 {
     enum class Framing
     {
-        Iso15765,
-        Kline14230,
+        kIso15765,
+        kKline14230,
     };
 
-    Framing framing{Framing::Iso15765};
+    Framing framing{Framing::kIso15765};
     int bitrate_or_baud{500000};
     std::uint32_t request_id{0x7e1};  // ISO-15765 only
     std::uint32_t response_id{0x7e9}; // ISO-15765 only
@@ -34,14 +34,14 @@ struct SsmTransportConfig
 
 enum class OperatorGateId
 {
-    RelearnStaticSetup,   // legacy :648
-    RelearnEngineRunning, // legacy :735
+    kRelearnStaticSetup,   // legacy :648
+    kRelearnEngineRunning, // legacy :735
 };
 
 enum class GateResponse
 {
-    Accept,
-    Decline,
+    kAccept,
+    kDecline,
 };
 
 struct TcuParameterReadout

@@ -15,9 +15,9 @@ namespace fastecu::config
 // spelled these "yes", "n/a" and "no".
 enum class ChecksumSupport
 {
-    Corrected, // a checksum module corrects the image
-    Missing,   // a module should exist but does not: warn before writing
-    None,      // the family has no checksum: write without a warning
+    kCorrected, // a checksum module corrects the image
+    kMissing,   // a module should exist but does not: warn before writing
+    kNone,      // the family has no checksum: write without a warning
 };
 
 // The legacy flag text ChecksumSelection still takes: "yes", "n/a" or "no".
@@ -31,7 +31,7 @@ struct ProtocolSpec
     std::string_view ecu;
     std::string_view mcu;
     std::string_view mode;
-    ChecksumSupport checksum = ChecksumSupport::None;
+    ChecksumSupport checksum = ChecksumSupport::kNone;
     bool read = false;
     bool test_write = false;
     bool write = false;

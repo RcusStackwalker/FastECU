@@ -132,7 +132,7 @@ TEST(DefinitionHeaderInputTest, NormalizesScalarsAndValidatesEditedAddress)
     EXPECT_EQ(input->ecu_id, "ECU");
     EXPECT_EQ(input->internal_id_address, std::nullopt);
     editors.internal_id_address->setText("not-hex");
-    EXPECT_THAT(definition_header_input(editors), fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
+    EXPECT_THAT(definition_header_input(editors), fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
 }
 
 TEST(NormalizeXmlSuffixTest, StripsOneTrailingDotThenAppendsXml)

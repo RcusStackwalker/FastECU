@@ -180,7 +180,7 @@ Result<UnresolvedCalibrationMap> parse_table(pugi::xml_node table, std::string_v
     }
     if (scaling->has_value())
     {
-        if ((*scaling)->storage_type == StorageType::Bloblist)
+        if ((*scaling)->storage_type == StorageType::kBloblist)
         {
             map.type = "Selectable";
         }
@@ -246,11 +246,11 @@ Result<std::vector<DefinitionIndexEntry>> parse_ecuflash_index(std::span<const s
     }
 
     return std::vector<DefinitionIndexEntry>{DefinitionIndexEntry{
-        .format = DefinitionFormat::EcuFlash,
+        .format = DefinitionFormat::kEcuFlash,
         .definition_id = std::move(header->identity.xml_id),
         .internal_id = std::move(header->identity.internal_id),
         .internal_id_address = header->identity.internal_id_address,
-        .internal_id_encoding = IdEncoding::AsciiOrHex,
+        .internal_id_encoding = IdEncoding::kAsciiOrHex,
         .ecu_id = std::move(header->identity.ecu_id),
         .source = std::string(source),
         .parents = parent_references(header->rom),
@@ -267,7 +267,7 @@ Result<UnresolvedDefinition> parse_ecuflash_definition(std::span<const std::uint
     }
 
     UnresolvedDefinition definition{
-        .format = DefinitionFormat::EcuFlash,
+        .format = DefinitionFormat::kEcuFlash,
         .source = std::string(source),
         .identity = std::move(header->identity),
         .metadata = parse_metadata(header->rom.child("romid")),

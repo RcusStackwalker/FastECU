@@ -1093,7 +1093,7 @@ QByteArray SerialPortActionsDirect::read_j2534_data(unsigned long timeout_arg)
             {
                 j2534_->PassThruReadMsgs(chan_id_, &rxmsg, &numRxMsg, timeout_arg);
             }
-            if (rxmsg.rx_status & static_cast<unsigned long>(RX_MSG_END_IND))
+            if (rxmsg.rx_status & static_cast<unsigned long>(kRxMsgEndInd))
             {
             }
             for (unsigned long i = 0; i < rxmsg.data_size; i++)

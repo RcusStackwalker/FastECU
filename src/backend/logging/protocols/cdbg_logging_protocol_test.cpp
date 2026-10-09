@@ -22,7 +22,7 @@ LoggingChannel channel()
         .id = "cdbg.load",
         .address = 0x804000,
         .length = 1,
-        .raw_assembly = RawAssembly::UnsignedIntegerDecimal,
+        .raw_assembly = RawAssembly::kUnsignedIntegerDecimal,
         .from_byte_expression = "x",
         .unit = "%",
         .decimal_precision = 0,
@@ -79,7 +79,7 @@ TEST(CdbgLoggingProtocolTest, StartFailurePinsInvalidConfigForEmptyChannels)
     auto protocol = makeProtocol(std::make_unique<cdbg::ScriptedCanTransport>(), {});
     fastecu::FakeCancellationToken cancellation;
 
-    ASSERT_THAT(protocol->start(cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
+    ASSERT_THAT(protocol->start(cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
 }
 
 TEST(CdbgLoggingProtocolTest, StartFailurePinsBadResponseForMissingHandshakeReply)
@@ -90,7 +90,7 @@ TEST(CdbgLoggingProtocolTest, StartFailurePinsBadResponseForMissingHandshakeRepl
     auto protocol = makeProtocol(std::move(transport));
     fastecu::FakeCancellationToken cancellation;
 
-    ASSERT_THAT(protocol->start(cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::BadResponse));
+    ASSERT_THAT(protocol->start(cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::kBadResponse));
 }
 
 TEST(CdbgLoggingProtocolTest, StartFailsWhenAdapterIsClosed)
@@ -100,7 +100,7 @@ TEST(CdbgLoggingProtocolTest, StartFailsWhenAdapterIsClosed)
     auto protocol = makeProtocol(std::move(transport));
     fastecu::FakeCancellationToken cancellation;
 
-    ASSERT_THAT(protocol->start(cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::Disconnected));
+    ASSERT_THAT(protocol->start(cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::kDisconnected));
 }
 
 TEST(CdbgLoggingProtocolTest, PollReturnsNoResponseBeforeStart)
@@ -122,7 +122,7 @@ TEST(CdbgLoggingProtocolTest, PollReturnsTransportErrorWhenAdapterIsClosed)
     auto protocol = makeProtocol(std::move(transport));
     fastecu::FakeCancellationToken cancellation;
 
-    ASSERT_THAT(protocol->poll(20ms, cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::Disconnected));
+    ASSERT_THAT(protocol->poll(20ms, cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::kDisconnected));
 }
 
 TEST(CdbgLoggingProtocolTest, PollReturnsStableIdAndRawDecimalString)
@@ -166,5 +166,5 @@ TEST(CdbgLoggingProtocolTest, StartPropagatesCancellation)
     auto protocol = makeProtocol(std::make_unique<cdbg::ScriptedCanTransport>());
     fastecu::FakeCancellationToken cancellation(true);
 
-    ASSERT_THAT(protocol->start(cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::Cancelled));
+    ASSERT_THAT(protocol->start(cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::kCancelled));
 }

@@ -28,7 +28,7 @@ Status ensure_directory(IFileSystem& fs, const std::string& path, IEventSink& ev
     }
     if (Status result = fs.create_directory(path); !result.has_value())
     {
-        events.log(LogLevel::Error, std::format("Unable to create directory: {}", path));
+        events.log(LogLevel::kError, std::format("Unable to create directory: {}", path));
         return at_path(result.error(), path);
     }
     return {};
@@ -49,7 +49,7 @@ Status copy_bundle_if_absent(IFileSystem& fs, IResourceBundle& bundle, IFileRepo
         {
             continue;
         }
-        events.log(LogLevel::Debug, std::format("Provisioning default file: {}", target));
+        events.log(LogLevel::kDebug, std::format("Provisioning default file: {}", target));
         // The bytes come from the bundle port itself: the bundle's files are
         // compiled-in resources (Qt ":/..." in production) that no file path
         // the filesystem port understands reaches. Any failure past the
@@ -58,12 +58,12 @@ Status copy_bundle_if_absent(IFileSystem& fs, IResourceBundle& bundle, IFileRepo
         Result<std::vector<std::uint8_t>> bytes = bundle.read(bundle_id, name);
         if (!bytes.has_value())
         {
-            events.log(LogLevel::Error, std::format("Unable to provision default file: {}", target));
+            events.log(LogLevel::kError, std::format("Unable to provision default file: {}", target));
             return at_path(bytes.error(), target);
         }
         if (Status written = file_repository.write(target, *bytes); !written.has_value())
         {
-            events.log(LogLevel::Error, std::format("Unable to provision default file: {}", target));
+            events.log(LogLevel::kError, std::format("Unable to provision default file: {}", target));
             return at_path(written.error(), target);
         }
     }

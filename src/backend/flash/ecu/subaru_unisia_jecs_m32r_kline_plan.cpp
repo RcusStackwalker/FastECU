@@ -46,43 +46,43 @@ Result<Variant> find_variant(std::string_view protocol, std::string_view mcu)
     const auto variant = std::ranges::find(kVariants, protocol, &Variant::protocol);
     if (variant == kVariants.end() || variant->mcu != mcu)
     {
-        return fail(ErrorKind::InvalidConfig,
+        return fail(ErrorKind::kInvalidConfig,
                     std::format("Unisia Jecs M32R protocol '{}' does not match MCU '{}'", protocol, mcu));
     }
     const FlashDevice *device = find_flash_device(mcu);
     if (device == nullptr || device->romsize != variant->rom_size || device->fblocks == nullptr ||
         device->fblocks[0].start != 0)
     {
-        return fail(ErrorKind::InvalidConfig, "Unisia Jecs M32R memory map is invalid");
+        return fail(ErrorKind::kInvalidConfig, "Unisia Jecs M32R memory map is invalid");
     }
     return *variant;
 }
 
 Status check_operation(const Variant& variant, FlashOperation operation)
 {
-    if (operation == FlashOperation::TestWrite)
+    if (operation == FlashOperation::kTestWrite)
     {
-        return fail(ErrorKind::Unsupported, "Unisia Jecs M32R has no test write");
+        return fail(ErrorKind::kUnsupported, "Unisia Jecs M32R has no test write");
     }
-    if (operation == FlashOperation::Write && !variant.writable)
+    if (operation == FlashOperation::kWrite && !variant.writable)
     {
-        return fail(ErrorKind::Unsupported, std::format("{} is read-only", variant.protocol));
+        return fail(ErrorKind::kUnsupported, std::format("{} is read-only", variant.protocol));
     }
     return {};
 }
 
 MemoryRegion region_for(const Variant& variant, FlashOperation operation)
 {
-    return operation == FlashOperation::Read ? MemoryRegion{kReadBase, variant.rom_size}
-                                             : MemoryRegion{0, variant.rom_size};
+    return operation == FlashOperation::kRead ? MemoryRegion{kReadBase, variant.rom_size}
+                                              : MemoryRegion{0, variant.rom_size};
 }
 } // namespace
 
 Status validate_subaru_unisia_jecs_m32r_kline_plan(const FlashPlan& plan)
 {
-    if (plan.family() != FlashFamily::SubaruUnisiaJecsM32rKline || plan.transport() != TransportKind::Kline)
+    if (plan.family() != FlashFamily::kSubaruUnisiaJecsM32rKline || plan.transport() != TransportKind::kKline)
     {
-        return fail(ErrorKind::InvalidConfig, "plan is not for Subaru Unisia Jecs M32R");
+        return fail(ErrorKind::kInvalidConfig, "plan is not for Subaru Unisia Jecs M32R");
     }
     const auto variant = find_variant(plan.target_id(), plan.mcu_name());
     if (!variant.has_value())
@@ -97,30 +97,30 @@ Status validate_subaru_unisia_jecs_m32r_kline_plan(const FlashPlan& plan)
     if (wire == nullptr || wire->initial_baud != kWire.initial_baud || wire->tester_id != kWire.tester_id ||
         wire->target_id != kWire.target_id)
     {
-        return fail(ErrorKind::InvalidConfig, "Unisia Jecs M32R wire parameters are invalid");
+        return fail(ErrorKind::kInvalidConfig, "Unisia Jecs M32R wire parameters are invalid");
     }
     if (!plan.erase_regions().empty() || plan.kernel().has_value() ||
         plan.transfer_region() != region_for(*variant, plan.operation()))
     {
-        return fail(ErrorKind::InvalidConfig, "Unisia Jecs M32R plan shape is invalid");
+        return fail(ErrorKind::kInvalidConfig, "Unisia Jecs M32R plan shape is invalid");
     }
     const auto& confirmations = plan.confirmations();
-    if (plan.operation() == FlashOperation::Read)
+    if (plan.operation() == FlashOperation::kRead)
     {
         if (plan.image().has_value() || !confirmations.empty())
         {
-            return fail(ErrorKind::InvalidConfig, "Unisia Jecs M32R read-plan shape is invalid");
+            return fail(ErrorKind::kInvalidConfig, "Unisia Jecs M32R read-plan shape is invalid");
         }
         return {};
     }
     if (!plan.image().has_value() || plan.image()->size() != variant->rom_size)
     {
-        return fail(ErrorKind::InvalidConfig, "Unisia Jecs M32R write image must be exactly the ROM size");
+        return fail(ErrorKind::kInvalidConfig, "Unisia Jecs M32R write image must be exactly the ROM size");
     }
     if (confirmations.size() > 1 ||
-        (confirmations.size() == 1 && confirmations[0].id != ConfirmationSpec::Id::ApplyProgrammingVoltage))
+        (confirmations.size() == 1 && confirmations[0].id != ConfirmationSpec::Id::kApplyProgrammingVoltage))
     {
-        return fail(ErrorKind::InvalidConfig, "Unisia Jecs M32R write confirmations are invalid");
+        return fail(ErrorKind::kInvalidConfig, "Unisia Jecs M32R write confirmations are invalid");
     }
     return {};
 }
@@ -138,30 +138,30 @@ Result<FlashPlan> build_subaru_unisia_jecs_m32r_kline_plan(FlashOperation operat
     {
         return std::unexpected(checked.error());
     }
-    if (operation == FlashOperation::Read)
+    if (operation == FlashOperation::kRead)
     {
         if (image.has_value())
         {
-            return fail(ErrorKind::InvalidConfig, "Unisia Jecs M32R read plans must not carry an image");
+            return fail(ErrorKind::kInvalidConfig, "Unisia Jecs M32R read plans must not carry an image");
         }
     }
     else if (!image.has_value() || image->size() != variant->rom_size)
     {
-        return fail(ErrorKind::InvalidConfig,
+        return fail(ErrorKind::kInvalidConfig,
                     std::format("{} write image must be exactly {} bytes, not {}", variant->protocol, variant->rom_size,
                                 image.has_value() ? image->size() : 0));
     }
 
     std::vector<ConfirmationSpec> confirmations;
-    if (operation == FlashOperation::Write && !adapter_supplies_programming_voltage)
+    if (operation == FlashOperation::kWrite && !adapter_supplies_programming_voltage)
     {
-        confirmations.push_back(ConfirmationSpec{ConfirmationSpec::Id::ApplyProgrammingVoltage, {}});
+        confirmations.push_back(ConfirmationSpec{ConfirmationSpec::Id::kApplyProgrammingVoltage, {}});
     }
 
     auto plan = validate_and_build(FlashPlanFields{
         .operation = operation,
-        .family = FlashFamily::SubaruUnisiaJecsM32rKline,
-        .transport = TransportKind::Kline,
+        .family = FlashFamily::kSubaruUnisiaJecsM32rKline,
+        .transport = TransportKind::kKline,
         .target_id = std::string(protocol_name),
         .mcu_name = std::string(mcu_type),
         .transfer_region = region_for(*variant, operation),

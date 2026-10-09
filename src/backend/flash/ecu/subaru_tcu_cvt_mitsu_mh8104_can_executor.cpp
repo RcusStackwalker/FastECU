@@ -107,13 +107,13 @@ struct Ctx
 Error report_exchange_failure(Ctx& ctx, const Error& failure, std::string_view rejection_prefix,
                               std::string_view operation)
 {
-    if (failure.kind == ErrorKind::Cancelled)
+    if (failure.kind == ErrorKind::kCancelled)
     {
-        ctx.events.log(LogLevel::Warning, std::format("Cancelled by operator during {} -- this is not an ECU "
-                                                      "rejection. The request may already have reached the ECU "
-                                                      "and still be running there; check the unit before "
-                                                      "power-cycling it.",
-                                                      operation));
+        ctx.events.log(LogLevel::kWarning, std::format("Cancelled by operator during {} -- this is not an ECU "
+                                                       "rejection. The request may already have reached the ECU "
+                                                       "and still be running there; check the unit before "
+                                                       "power-cycling it.",
+                                                       operation));
         return failure;
     }
     error(ctx, std::format("{}{}", rejection_prefix, failure.detail));
@@ -157,7 +157,7 @@ Result<bytes::Bytes> single_shot(Ctx& ctx, bytes::ByteView pdu, std::chrono::mil
     if (!reply->has_value())
     {
         error(ctx, std::format("No response from TCU to {}", label));
-        return fail(ErrorKind::Timeout, std::format("no response to {}", label));
+        return fail(ErrorKind::kTimeout, std::format("no response to {}", label));
     }
     return std::move(**reply);
 }
@@ -425,7 +425,7 @@ Result<bytes::Bytes> dump_flash_range(Ctx& ctx, PhaseReporter& progress)
         // Legacy stopRequested() at line 423, top of loop.
         if (ctx.cancellation.cancelled())
         {
-            return fail(ErrorKind::Cancelled, "read cancelled");
+            return fail(ErrorKind::kCancelled, "read cancelled");
         }
 
         // 0xB7 dump request (lines 406-454): single-shot per chunk, NO
@@ -501,7 +501,7 @@ Status erase_memory(Ctx& ctx)
     if (!reply->has_value())
     {
         error(ctx, "No response from TCU to the erase command");
-        return fail(ErrorKind::Timeout, "no response to the erase command");
+        return fail(ErrorKind::kTimeout, "no response to the erase command");
     }
     // Content check (lines 885-889) is non-fatal -- `// return
     // STATUS_ERROR;` is commented out.
@@ -553,7 +553,7 @@ Status unlock_and_reflash_block(Ctx& ctx, bytes::ByteView block_plain, PhaseRepo
         // mid-write is reported as Cancelled, never success.
         if (ctx.cancellation.cancelled())
         {
-            return fail(ErrorKind::Cancelled, "write cancelled");
+            return fail(ErrorKind::kCancelled, "write cancelled");
         }
 
         const std::uint32_t addr = kWriteRegion.start + offset;
@@ -644,7 +644,7 @@ Status write_mem(Ctx& ctx, bytes::ByteView image, PhaseSequence& phases)
 
 Result<Iso15765Config> SubaruTcuCvtMitsuMh8104CanExecutor::transport_setup(const FlashPlan& plan) const
 {
-    if (const Status match = check_family(plan, FlashFamily::SubaruTcuCvtMitsuMh8104Can); !match.has_value())
+    if (const Status match = check_family(plan, FlashFamily::kSubaruTcuCvtMitsuMh8104Can); !match.has_value())
     {
         return std::unexpected(match.error());
     }
@@ -661,7 +661,7 @@ Result<FlashExecutionResult> SubaruTcuCvtMitsuMh8104CanExecutor::execute(const F
                                                                          const ICancellationToken& cancellation,
                                                                          IEventSink& events)
 {
-    if (const Status matched = check_family(plan, FlashFamily::SubaruTcuCvtMitsuMh8104Can); !matched.has_value())
+    if (const Status matched = check_family(plan, FlashFamily::kSubaruTcuCvtMitsuMh8104Can); !matched.has_value())
     {
         return std::unexpected(matched.error());
     }
@@ -671,11 +671,11 @@ Result<FlashExecutionResult> SubaruTcuCvtMitsuMh8104CanExecutor::execute(const F
     }
     if (cancellation.cancelled())
     {
-        return fail(ErrorKind::Cancelled, "cancelled before setup");
+        return fail(ErrorKind::kCancelled, "cancelled before setup");
     }
 
     const auto& family = std::get<SubaruTcuCvtMitsuMh8104CanPlan>(plan.family_plan());
-    const bool read = plan.operation() == FlashOperation::Read;
+    const bool read = plan.operation() == FlashOperation::kRead;
     PhaseSequence phases(events, read ? 2 : 3);
     PhaseReporter connect = phases.start(read ? "Connect to TCU" : "Connect", 1);
 
@@ -689,7 +689,7 @@ Result<FlashExecutionResult> SubaruTcuCvtMitsuMh8104CanExecutor::execute(const F
     }
     connect.complete();
 
-    if (plan.operation() == FlashOperation::Read)
+    if (plan.operation() == FlashOperation::kRead)
     {
         events.notice("Reading ROM, please wait...");
         info(ctx, "Reading ROM from TCU Subaru Mitsubishi using CAN");
@@ -707,7 +707,7 @@ Result<FlashExecutionResult> SubaruTcuCvtMitsuMh8104CanExecutor::execute(const F
         bytes::Bytes rom(kReadRegion.start, 0xFF);
         rom.append_range(*window);
         return FlashExecutionResult{
-            .operation = FlashOperation::Read,
+            .operation = FlashOperation::kRead,
             .read_bytes = std::move(rom),
         };
     }
@@ -715,9 +715,9 @@ Result<FlashExecutionResult> SubaruTcuCvtMitsuMh8104CanExecutor::execute(const F
     // build_subaru_tcu_cvt_mitsu_mh8104_can_plan refuses TestWrite; the
     // guard is repeated here so a plan built another way cannot turn a dry
     // run into a real erase and write.
-    if (plan.operation() != FlashOperation::Write)
+    if (plan.operation() != FlashOperation::kWrite)
     {
-        return fail(ErrorKind::Unsupported,
+        return fail(ErrorKind::kUnsupported,
                     "test_write is not supported by the Subaru TCU CVT Mitsu MH8104 CAN family");
     }
 

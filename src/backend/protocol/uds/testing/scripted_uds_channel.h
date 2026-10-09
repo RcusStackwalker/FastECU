@@ -54,11 +54,11 @@ class ScriptedUdsChannel final : public IUdsChannel
     {
         if (cancellation.cancelled())
         {
-            return fastecu::fail(fastecu::ErrorKind::Cancelled, "scripted UDS send cancelled");
+            return fastecu::fail(fastecu::ErrorKind::kCancelled, "scripted UDS send cancelled");
         }
         if (send_index_ >= expected_.size() || expected_.at(send_index_) != bytes::Bytes(pdu.begin(), pdu.end()))
         {
-            return fastecu::fail(fastecu::ErrorKind::Internal, "unexpected scripted UDS send");
+            return fastecu::fail(fastecu::ErrorKind::kInternal, "unexpected scripted UDS send");
         }
         ++send_index_;
         return {};
@@ -71,11 +71,11 @@ class ScriptedUdsChannel final : public IUdsChannel
         timeouts.push_back(timeout);
         if (cancellation.cancelled())
         {
-            return fastecu::fail(fastecu::ErrorKind::Cancelled, "scripted UDS receive cancelled");
+            return fastecu::fail(fastecu::ErrorKind::kCancelled, "scripted UDS receive cancelled");
         }
         if (receives_.empty())
         {
-            return fastecu::fail(fastecu::ErrorKind::Internal, "no scripted UDS receive outcome");
+            return fastecu::fail(fastecu::ErrorKind::kInternal, "no scripted UDS receive outcome");
         }
         auto result = std::move(receives_.front());
         receives_.pop_front();

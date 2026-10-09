@@ -45,7 +45,7 @@ TEST(TestSerialDiagnosticLink, klineOpenResetsAppliesEverySetterThenOpens)
         EXPECT_CALL(serial.fake(), open_serial_port()).WillOnce(Return(QString("ttyUSB0")));
     }
     SerialDiagnosticLink link(serial.get());
-    ASSERT_TRUE(link.open(KlineLinkConfig{.header = KlineHeader::Iso14230,
+    ASSERT_TRUE(link.open(KlineLinkConfig{.header = KlineHeader::kIso14230,
                                           .iso14230_connection = true,
                                           .baud = 10400,
                                           .start_byte = 0xC0,
@@ -91,7 +91,7 @@ TEST(TestSerialDiagnosticLink, evenParityIsAppliedBeforeTheOpen)
         EXPECT_CALL(serial.fake(), open_serial_port()).WillOnce(Return(QString("ttyUSB0")));
     }
     SerialDiagnosticLink link(serial.get());
-    ASSERT_TRUE(link.open(KlineLinkConfig{.baud = 1953, .parity = Parity::Even}).has_value());
+    ASSERT_TRUE(link.open(KlineLinkConfig{.baud = 1953, .parity = Parity::kEven}).has_value());
 }
 
 TEST(TestSerialDiagnosticLink, failingSetterIsInvalidConfigAndStopsTheSequence)
@@ -103,7 +103,7 @@ TEST(TestSerialDiagnosticLink, failingSetterIsInvalidConfigAndStopsTheSequence)
     SerialDiagnosticLink link(serial.get());
     const auto result = link.open(KlineLinkConfig{});
     ASSERT_TRUE(!result.has_value());
-    ASSERT_EQ(result.error().kind, ErrorKind::InvalidConfig);
+    ASSERT_EQ(result.error().kind, ErrorKind::kInvalidConfig);
 }
 
 TEST(TestSerialDiagnosticLink, emptyOpenedPortIsDisconnected)
@@ -124,7 +124,7 @@ TEST(TestSerialDiagnosticLink, emptyOpenedPortIsDisconnected)
     SerialDiagnosticLink link(serial.get());
     const auto result = link.open(KlineLinkConfig{});
     ASSERT_TRUE(!result.has_value());
-    ASSERT_EQ(result.error().kind, ErrorKind::Disconnected);
+    ASSERT_EQ(result.error().kind, ErrorKind::kDisconnected);
 }
 
 TEST(TestSerialDiagnosticLink, setHeaderSetsAllThreeFlags)
@@ -137,7 +137,7 @@ TEST(TestSerialDiagnosticLink, setHeaderSetsAllThreeFlags)
         EXPECT_CALL(serial.fake(), set_add_iso14230_header(false)).WillOnce(Return(true));
     }
     SerialDiagnosticLink link(serial.get());
-    ASSERT_TRUE(link.set_header(KlineHeader::Iso9141).has_value());
+    ASSERT_TRUE(link.set_header(KlineHeader::kIso9141).has_value());
 }
 
 TEST(TestSerialDiagnosticLink, p1UsesTheJ2534IoctlOnOpenPort)
@@ -172,7 +172,7 @@ TEST(TestSerialDiagnosticLink, initCallsPassBytesThrough)
     ASSERT_EQ(response->size(), std::size_t{3});
     const auto fast = link.fast_init(bytes::Bytes{0x81});
     ASSERT_TRUE(!fast.has_value());
-    ASSERT_EQ(fast.error().kind, ErrorKind::Disconnected);
+    ASSERT_EQ(fast.error().kind, ErrorKind::kDisconnected);
 }
 
 TEST(TestSerialDiagnosticLink, writeIsEchoCheckedAndReadsSelectTheFacadeCall)
@@ -202,14 +202,14 @@ TEST(TestSerialDiagnosticLink, cancelledReadNeverReachesTheFacade)
     FakeCancellationToken token(true);
     const auto result = link.read(200ms, token);
     ASSERT_TRUE(!result.has_value());
-    ASSERT_EQ(result.error().kind, ErrorKind::Cancelled);
+    ASSERT_EQ(result.error().kind, ErrorKind::kCancelled);
 }
 
 TEST(TestSerialDiagnosticLink, nullFacadeIsDisconnected)
 {
     SerialDiagnosticLink link(nullptr);
-    ASSERT_EQ(link.open(KlineLinkConfig{}).error().kind, ErrorKind::Disconnected);
-    ASSERT_EQ(link.write(bytes::Bytes{0x01}).error().kind, ErrorKind::Disconnected);
+    ASSERT_EQ(link.open(KlineLinkConfig{}).error().kind, ErrorKind::kDisconnected);
+    ASSERT_EQ(link.write(bytes::Bytes{0x01}).error().kind, ErrorKind::kDisconnected);
     ASSERT_TRUE(!link.uses_j2534());
 }
 

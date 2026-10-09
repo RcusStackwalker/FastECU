@@ -90,7 +90,7 @@ TEST(SetParametersSession, RequiresTheKlineConfigurationNotTheCanOne)
     const Fixture fixture;
     const auto setup = fixture.session.transport_setup();
     ASSERT_THAT(setup, fastecu::testing::IsOk());
-    EXPECT_EQ(setup->framing, SsmTransportConfig::Framing::Kline14230);
+    EXPECT_EQ(setup->framing, SsmTransportConfig::Framing::kKline14230);
     EXPECT_EQ(setup->bitrate_or_baud, 4800);
     EXPECT_EQ(setup->tester_id, 0xf0);
     EXPECT_EQ(setup->target_id, 0x18);
@@ -100,7 +100,7 @@ TEST(SetParametersSession, RequiresTheKlineConfigurationNotTheCanOne)
 TEST(SetParametersSession, RejectsAnUnknownProtocolBeforeAnyIo)
 {
     const SetParametersSession session{"sub_ecu_denso_sh7058_can", sample()};
-    ASSERT_THAT(session.transport_setup(), fastecu::testing::IsErr(ErrorKind::Unsupported));
+    ASSERT_THAT(session.transport_setup(), fastecu::testing::IsErr(ErrorKind::kUnsupported));
 }
 
 TEST(SetParametersSession, WritesAllTwelveFramesEachFramedExactlyOnce)
@@ -147,7 +147,7 @@ TEST(SetParametersSession, StopsAfterOneSilentReadWithoutRetrying)
     const auto step = fixture.session.resume(fixture.transport, fixture.clock, fixture.cancellation, fixture.events);
 
     ASSERT_TRUE(std::holds_alternative<FailedStep>(step));
-    EXPECT_EQ(std::get<FailedStep>(step).error.kind, ErrorKind::Timeout);
+    EXPECT_EQ(std::get<FailedStep>(step).error.kind, ErrorKind::kTimeout);
     EXPECT_TRUE(fixture.transport.scriptConsumed()); // exactly one live write
 }
 
@@ -160,7 +160,7 @@ TEST(SetParametersSession, StopsAfterOneNonPositiveResponseWithoutRetrying)
 
     const auto step = fixture.session.resume(fixture.transport, fixture.clock, fixture.cancellation, fixture.events);
     ASSERT_TRUE(std::holds_alternative<FailedStep>(step));
-    EXPECT_EQ(std::get<FailedStep>(step).error.kind, ErrorKind::BadResponse);
+    EXPECT_EQ(std::get<FailedStep>(step).error.kind, ErrorKind::kBadResponse);
     EXPECT_TRUE(fixture.transport.scriptConsumed()); // negative response is terminal
 }
 
@@ -172,7 +172,7 @@ TEST(SetParametersSession, StopsAfterOneMalformedResponseWithoutRetrying)
 
     const auto step = fixture.session.resume(fixture.transport, fixture.clock, fixture.cancellation, fixture.events);
     ASSERT_TRUE(std::holds_alternative<FailedStep>(step));
-    EXPECT_EQ(std::get<FailedStep>(step).error.kind, ErrorKind::BadResponse);
+    EXPECT_EQ(std::get<FailedStep>(step).error.kind, ErrorKind::kBadResponse);
     EXPECT_TRUE(fixture.transport.scriptConsumed());
 }
 
@@ -189,7 +189,7 @@ TEST(SetParametersSession, StopsAfterOneSilentCommitWithoutRetrying)
 
     const auto step = fixture.session.resume(fixture.transport, fixture.clock, fixture.cancellation, fixture.events);
     ASSERT_TRUE(std::holds_alternative<FailedStep>(step));
-    EXPECT_EQ(std::get<FailedStep>(step).error.kind, ErrorKind::Timeout);
+    EXPECT_EQ(std::get<FailedStep>(step).error.kind, ErrorKind::kTimeout);
     EXPECT_TRUE(fixture.transport.scriptConsumed()); // commit value 0x55 sent once
 }
 
@@ -198,11 +198,11 @@ TEST(SetParametersSession, ReportsADroppedTransportAsDisconnected)
     Fixture fixture;
     const auto writes = tcu_parameter_writes(sample());
     fixture.transport.expectWrite(framed(writes[0].address, writes[0].value));
-    fixture.transport.queue_error(ErrorKind::Disconnected, "adapter gone");
+    fixture.transport.queue_error(ErrorKind::kDisconnected, "adapter gone");
 
     const auto step = fixture.session.resume(fixture.transport, fixture.clock, fixture.cancellation, fixture.events);
     ASSERT_TRUE(std::holds_alternative<FailedStep>(step));
-    EXPECT_EQ(std::get<FailedStep>(step).error.kind, ErrorKind::Disconnected);
+    EXPECT_EQ(std::get<FailedStep>(step).error.kind, ErrorKind::kDisconnected);
 }
 
 TEST(SetParametersSession, ObservesCancellationBetweenWrites)
@@ -218,18 +218,18 @@ TEST(SetParametersSession, ObservesCancellationBetweenWrites)
 
     const auto step = fixture.session.resume(fixture.transport, fixture.clock, fixture.cancellation, fixture.events);
     ASSERT_TRUE(std::holds_alternative<FailedStep>(step));
-    EXPECT_EQ(std::get<FailedStep>(step).error.kind, ErrorKind::Cancelled);
+    EXPECT_EQ(std::get<FailedStep>(step).error.kind, ErrorKind::kCancelled);
     EXPECT_TRUE(fixture.transport.scriptConsumed()); // exactly one write went out
 }
 
 TEST(SetParametersSession, SubmitIsInternalBecauseItHasNoGates)
 {
     Fixture fixture;
-    fixture.session.submit(GateResponse::Accept);
+    fixture.session.submit(GateResponse::kAccept);
 
     const auto step = fixture.session.resume(fixture.transport, fixture.clock, fixture.cancellation, fixture.events);
     ASSERT_TRUE(std::holds_alternative<FailedStep>(step));
-    EXPECT_EQ(std::get<FailedStep>(step).error.kind, ErrorKind::Internal);
+    EXPECT_EQ(std::get<FailedStep>(step).error.kind, ErrorKind::kInternal);
 }
 
 } // namespace

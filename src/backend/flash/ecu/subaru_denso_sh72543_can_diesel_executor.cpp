@@ -456,7 +456,7 @@ Status connect_bootloader(Ctx& ctx, ICanFlashTransport& can)
     if (selector->size() < 4)
     {
         error(ctx, "Wrong response from ECU: programming-branch selector reply is too short");
-        return fail(ErrorKind::BadResponse, "programming-branch selector reply is too short");
+        return fail(ErrorKind::kBadResponse, "programming-branch selector reply is too short");
     }
     return (*selector)[3] != 0xFF ? connect_in_car(ctx, can) : connect_bench(ctx);
 }
@@ -512,7 +512,7 @@ Result<bytes::Bytes> read_memory(Ctx& ctx, const SubaruDensoSh72543CanDieselPlan
         // Legacy stopRequested() at line 924, top of loop.
         if (ctx.cancellation.cancelled())
         {
-            return fail(ErrorKind::Cancelled, "read cancelled");
+            return fail(ErrorKind::kCancelled, "read cancelled");
         }
         const std::uint32_t addr = region.start + offset;
         // Lines 907-967: SID 0xB7 plus a 4-byte address. Legacy fixes the
@@ -600,7 +600,7 @@ Status reflash_block(Ctx& ctx, bytes::ByteView image, const MemoryRegion& block,
         // subaru_hitachi_m32r_can_executor.cpp does.
         if (ctx.cancellation.cancelled())
         {
-            return fail(ErrorKind::Cancelled, "write cancelled");
+            return fail(ErrorKind::kCancelled, "write cancelled");
         }
         const std::uint32_t block_addr = block.start + chunk_index * kChunkSize;
         // Lines 1202-1218: SID 0xB6, a 4-byte address whose top byte legacy
@@ -717,7 +717,7 @@ Status write_memory(Ctx& ctx, bytes::ByteView image, const MemoryRegion& block, 
 
 Result<Iso15765Config> SubaruDensoSh72543CanDieselExecutor::transport_setup(const FlashPlan& plan) const
 {
-    if (const Status match = check_family(plan, FlashFamily::SubaruDensoSh72543CanDiesel); !match.has_value())
+    if (const Status match = check_family(plan, FlashFamily::kSubaruDensoSh72543CanDiesel); !match.has_value())
     {
         return std::unexpected(match.error());
     }
@@ -734,7 +734,7 @@ Result<FlashExecutionResult> SubaruDensoSh72543CanDieselExecutor::execute(const 
                                                                           const ICancellationToken& cancellation,
                                                                           IEventSink& events)
 {
-    if (const Status matched = check_family(plan, FlashFamily::SubaruDensoSh72543CanDiesel); !matched.has_value())
+    if (const Status matched = check_family(plan, FlashFamily::kSubaruDensoSh72543CanDiesel); !matched.has_value())
     {
         return std::unexpected(matched.error());
     }
@@ -744,12 +744,12 @@ Result<FlashExecutionResult> SubaruDensoSh72543CanDieselExecutor::execute(const 
     }
     if (cancellation.cancelled())
     {
-        return fail(ErrorKind::Cancelled, "cancelled before setup");
+        return fail(ErrorKind::kCancelled, "cancelled before setup");
     }
 
     const auto& family = std::get<SubaruDensoSh72543CanDieselPlan>(plan.family_plan());
 
-    const bool read = plan.operation() == FlashOperation::Read;
+    const bool read = plan.operation() == FlashOperation::kRead;
     PhaseSequence phases(events, read ? 2 : 3);
     PhaseReporter connect = phases.start("Connect", 1);
 
@@ -777,7 +777,7 @@ Result<FlashExecutionResult> SubaruDensoSh72543CanDieselExecutor::execute(const 
         }
         read_phase.complete();
         return FlashExecutionResult{
-            .operation = FlashOperation::Read,
+            .operation = FlashOperation::kRead,
             .read_bytes = std::move(*rom),
         };
     }
@@ -795,9 +795,9 @@ Result<FlashExecutionResult> SubaruDensoSh72543CanDieselExecutor::execute(const 
     // thing between a non-Write operation and a real erase-and-write of an
     // ECU should that entry validation ever be relaxed or the enum gain a
     // value. Do not delete it as "dead code".
-    if (plan.operation() != FlashOperation::Write)
+    if (plan.operation() != FlashOperation::kWrite)
     {
-        return fail(ErrorKind::Unsupported,
+        return fail(ErrorKind::kUnsupported,
                     "test_write is not supported by the Subaru Denso SH72543 Diesel CAN family");
     }
 

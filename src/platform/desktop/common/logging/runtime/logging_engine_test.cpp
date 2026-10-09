@@ -26,11 +26,11 @@ using namespace std::chrono_literals;
 
 DesktopLoggingSnapshot snapshot()
 {
-    auto session = make_logging_session(LoggingProtocolId::Ssm,
+    auto session = make_logging_session(LoggingProtocolId::kSsm,
                                         {LoggingChannel{.id = "rpm",
                                                         .address = 0x10,
                                                         .length = 1,
-                                                        .raw_assembly = RawAssembly::UnsignedIntegerDecimal,
+                                                        .raw_assembly = RawAssembly::kUnsignedIntegerDecimal,
                                                         .from_byte_expression = "x",
                                                         .unit = "rpm",
                                                         .decimal_precision = 0}},
@@ -69,9 +69,9 @@ class BlockingFailureProtocol final : public fastecu::logging::LoggingProtocol
         }
         if (cancellation.cancelled())
         {
-            return fastecu::fail(fastecu::ErrorKind::Cancelled, "active run cancelled");
+            return fastecu::fail(fastecu::ErrorKind::kCancelled, "active run cancelled");
         }
-        return fastecu::fail(fastecu::ErrorKind::Internal, "active run failed");
+        return fastecu::fail(fastecu::ErrorKind::kInternal, "active run failed");
     }
 
     fastecu::Status stop() override
@@ -131,7 +131,7 @@ class SampleThenBlockProtocol final : public fastecu::logging::LoggingProtocol
         {
             cancellation_cv_.wait_for(lock, std::chrono::milliseconds(1));
         }
-        return fastecu::fail(fastecu::ErrorKind::Cancelled, "first run cancelled");
+        return fastecu::fail(fastecu::ErrorKind::kCancelled, "first run cancelled");
     }
 
     fastecu::Status stop() override
@@ -175,17 +175,17 @@ class StartRejectionsParameters : public ::testing::Test, public ::testing::With
 
 INSTANTIATE_TEST_SUITE_P(
     Rows, StartRejectionsParameters,
-    ::testing::Values(StartRejectionsCase{"active_run", 0, static_cast<int>(fastecu::ErrorKind::InvalidConfig),
+    ::testing::Values(StartRejectionsCase{"active_run", 0, static_cast<int>(fastecu::ErrorKind::kInvalidConfig),
                                           QString("a logging run is already active")},
-                      StartRejectionsCase{"unknown_ID", 1, static_cast<int>(fastecu::ErrorKind::InvalidConfig),
+                      StartRejectionsCase{"unknown_ID", 1, static_cast<int>(fastecu::ErrorKind::kInvalidConfig),
                                           QString("no logging protocol registered for 'NOPE'")},
-                      StartRejectionsCase{"null_factory_value", 2, static_cast<int>(fastecu::ErrorKind::Internal),
+                      StartRejectionsCase{"null_factory_value", 2, static_cast<int>(fastecu::ErrorKind::kInternal),
                                           QString("protocol factory for 'TEST' returned null")},
-                      StartRejectionsCase{"returned_error", 3, static_cast<int>(fastecu::ErrorKind::Disconnected),
+                      StartRejectionsCase{"returned_error", 3, static_cast<int>(fastecu::ErrorKind::kDisconnected),
                                           QString("open failed")},
-                      StartRejectionsCase{"std_exception", 4, static_cast<int>(fastecu::ErrorKind::Internal),
+                      StartRejectionsCase{"std_exception", 4, static_cast<int>(fastecu::ErrorKind::kInternal),
                                           QString("driver setup exploded")},
-                      StartRejectionsCase{"unknown_exception", 5, static_cast<int>(fastecu::ErrorKind::Internal),
+                      StartRejectionsCase{"unknown_exception", 5, static_cast<int>(fastecu::ErrorKind::kInternal),
                                           QString("protocol factory threw an unknown exception")}),
     [](const ::testing::TestParamInfo<StartRejectionsCase>& info) { return info.param.name; });
 
@@ -217,7 +217,7 @@ TEST_P(StartRejectionsParameters, start_rejections)
     {
         engine.registerProtocol("TEST",
                                 [](const DesktopLoggingSnapshot&) -> fastecu::Result<std::unique_ptr<LoggingProtocol>>
-                                { return fastecu::fail(fastecu::ErrorKind::Disconnected, "open failed"); });
+                                { return fastecu::fail(fastecu::ErrorKind::kDisconnected, "open failed"); });
     }
     else if (source == 4)
     {
@@ -251,7 +251,7 @@ TEST_P(StartRejectionsParameters, start_rejections)
     active_protocol->releaseFailure();
     ASSERT_TRUE(fastecu::testing::wait_until([&] { return ended_spy.count() != 0; }, std::chrono::milliseconds(2000)));
     ASSERT_EQ(ended_spy.count(), 1U);
-    ASSERT_EQ(std::get<0>(ended_spy.snapshot().at(0)), SessionEndReason::RuntimeFailed);
+    ASSERT_EQ(std::get<0>(ended_spy.snapshot().at(0)), SessionEndReason::kRuntimeFailed);
     ASSERT_EQ(std::get<1>(ended_spy.snapshot().at(0)), QString("active run failed"));
     ASSERT_EQ(error_spy.count(), 2U);
     ASSERT_TRUE(!engine.isRunning());
@@ -287,7 +287,7 @@ TEST(TestLoggingEngine, user_stop_publishes_joined_completion_exactly_once)
 
     engine.stop();
     ASSERT_EQ(ended_spy.count(), 1U);
-    ASSERT_EQ(std::get<0>(ended_spy.snapshot().at(0)), SessionEndReason::StoppedByUser);
+    ASSERT_EQ(std::get<0>(ended_spy.snapshot().at(0)), SessionEndReason::kStoppedByUser);
     ASSERT_EQ(std::get<1>(ended_spy.snapshot().at(0)), QString());
     ASSERT_TRUE(!engine.isRunning());
     engine.stop();
@@ -300,7 +300,7 @@ TEST(TestLoggingEngine, completion_observer_can_immediately_start_a_second_run)
     LoggingEngine engine;
     auto *first_protocol = new ScriptedLoggingProtocol();
     first_protocol->queueStartResult({});
-    first_protocol->queuePollResult(fastecu::fail(fastecu::ErrorKind::Internal, "first run failed"));
+    first_protocol->queuePollResult(fastecu::fail(fastecu::ErrorKind::kInternal, "first run failed"));
     auto *second_protocol = new ScriptedLoggingProtocol();
     second_protocol->queueStartResult({});
     second_protocol->blockPollUntilCancelled();
@@ -346,7 +346,7 @@ TEST(TestLoggingEngine, explicit_stop_restart_ignores_stale_worker_events_and_pr
     LoggingEngine engine;
     auto *first_protocol = new SampleThenBlockProtocol();
     auto *second_protocol = new ScriptedLoggingProtocol();
-    second_protocol->queueStartResult(fastecu::fail(fastecu::ErrorKind::BadResponse, "second handshake failed"));
+    second_protocol->queueStartResult(fastecu::fail(fastecu::ErrorKind::kBadResponse, "second handshake failed"));
     int factory_calls = 0;
     engine.registerProtocol("TEST",
                             [first_protocol, second_protocol, &factory_calls](const DesktopLoggingSnapshot&)
@@ -365,7 +365,7 @@ TEST(TestLoggingEngine, explicit_stop_restart_ignores_stale_worker_events_and_pr
     QObject::connect(&engine, &LoggingEngine::sessionEnded, &engine,
                      [&](SessionEndReason reason, const QString&)
                      {
-                         if (reason == SessionEndReason::StoppedByUser)
+                         if (reason == SessionEndReason::kStoppedByUser)
                          {
                              restart_succeeded =
                                  engine.start(LogSessionConfig{.protocol_id = "TEST"}, snapshot()).has_value();
@@ -379,8 +379,8 @@ TEST(TestLoggingEngine, explicit_stop_restart_ignores_stale_worker_events_and_pr
 
     ASSERT_TRUE(
         fastecu::testing::wait_until([&] { return (ended_spy.count()) == (2); }, std::chrono::milliseconds(2000)));
-    ASSERT_EQ(std::get<0>(ended_spy.snapshot().at(0)), SessionEndReason::StoppedByUser);
-    ASSERT_EQ(std::get<0>(ended_spy.snapshot().at(1)), SessionEndReason::HandshakeFailed);
+    ASSERT_EQ(std::get<0>(ended_spy.snapshot().at(0)), SessionEndReason::kStoppedByUser);
+    ASSERT_EQ(std::get<0>(ended_spy.snapshot().at(1)), SessionEndReason::kHandshakeFailed);
     ASSERT_EQ(std::get<1>(ended_spy.snapshot().at(1)), QString("second handshake failed"));
     ASSERT_EQ(status_spy.count(), 0U);
     ASSERT_EQ(value_spy.count(), 0U);
@@ -392,7 +392,7 @@ TEST(TestLoggingEngine, natural_terminal_result_is_published_once_after_reproces
     LoggingEngine engine;
     auto *protocol = new ScriptedLoggingProtocol();
     protocol->queueStartResult({});
-    protocol->queuePollResult(fastecu::fail(fastecu::ErrorKind::Internal, "terminal failure"));
+    protocol->queuePollResult(fastecu::fail(fastecu::ErrorKind::kInternal, "terminal failure"));
     engine.registerProtocol("TEST", [protocol](const DesktopLoggingSnapshot&)
                             { return std::unique_ptr<LoggingProtocol>(protocol); });
     fastecu::testing::SignalRecorder ended_spy(&engine, &LoggingEngine::sessionEnded);
@@ -423,7 +423,7 @@ TEST(TestLoggingEngine, successful_worker_result_is_reported_as_runtime_failure)
                                           Q_ARG(fastecu::Status, fastecu::Status{})));
 
     ASSERT_EQ(ended_spy.count(), 1U);
-    ASSERT_EQ(std::get<0>(ended_spy.snapshot().at(0)), SessionEndReason::RuntimeFailed);
+    ASSERT_EQ(std::get<0>(ended_spy.snapshot().at(0)), SessionEndReason::kRuntimeFailed);
     ASSERT_EQ(std::get<1>(ended_spy.snapshot().at(0)), QString("logging run ended without an error"));
     ASSERT_TRUE(!engine.isRunning());
 }
@@ -467,7 +467,7 @@ TEST(TestLoggingEngine, every_cdbg_serial_setup_failure_is_structured_and_stops_
         });
 
         ASSERT_TRUE(!status);
-        ASSERT_EQ(status.error().kind, fastecu::ErrorKind::InvalidConfig);
+        ASSERT_EQ(status.error().kind, fastecu::ErrorKind::kInvalidConfig);
         ASSERT_EQ(calls, failure + 1);
     }
 }
@@ -476,7 +476,7 @@ TEST(TestLoggingEngine, start_error_preserves_handshake_failure_ui_path)
 {
     LoggingEngine engine;
     auto *protocol = new ScriptedLoggingProtocol();
-    protocol->queueStartResult(fastecu::fail(fastecu::ErrorKind::BadResponse, "no ECU"));
+    protocol->queueStartResult(fastecu::fail(fastecu::ErrorKind::kBadResponse, "no ECU"));
     engine.registerProtocol("TEST", [protocol](const DesktopLoggingSnapshot&)
                             { return std::unique_ptr<LoggingProtocol>(protocol); });
     fastecu::testing::SignalRecorder ended_spy(&engine, &LoggingEngine::sessionEnded);
@@ -485,7 +485,7 @@ TEST(TestLoggingEngine, start_error_preserves_handshake_failure_ui_path)
     ASSERT_TRUE(engine.start(LogSessionConfig{.protocol_id = "TEST"}, snapshot()));
     ASSERT_TRUE(fastecu::testing::wait_until([&] { return ended_spy.count() != 0; }, std::chrono::milliseconds(2000)));
 
-    ASSERT_EQ(std::get<0>(ended_spy.snapshot().at(0)), SessionEndReason::HandshakeFailed);
+    ASSERT_EQ(std::get<0>(ended_spy.snapshot().at(0)), SessionEndReason::kHandshakeFailed);
     ASSERT_EQ(std::get<1>(ended_spy.snapshot().at(0)), QString("no ECU"));
     ASSERT_EQ(std::get<0>(error_spy.snapshot().at(0)), QString("Logging session failed to start: no ECU"));
     ASSERT_TRUE(!engine.isRunning());
@@ -496,7 +496,7 @@ TEST(TestLoggingEngine, disconnect_error_preserves_adapter_failure_ui_path)
     LoggingEngine engine;
     auto *protocol = new ScriptedLoggingProtocol();
     protocol->queueStartResult({});
-    protocol->queuePollResult(fastecu::fail(fastecu::ErrorKind::Disconnected, "port closed"));
+    protocol->queuePollResult(fastecu::fail(fastecu::ErrorKind::kDisconnected, "port closed"));
     engine.registerProtocol("TEST", [protocol](const DesktopLoggingSnapshot&)
                             { return std::unique_ptr<LoggingProtocol>(protocol); });
     fastecu::testing::SignalRecorder ended_spy(&engine, &LoggingEngine::sessionEnded);
@@ -504,7 +504,7 @@ TEST(TestLoggingEngine, disconnect_error_preserves_adapter_failure_ui_path)
     ASSERT_TRUE(engine.start(LogSessionConfig{.protocol_id = "TEST"}, snapshot()));
     ASSERT_TRUE(fastecu::testing::wait_until([&] { return ended_spy.count() != 0; }, std::chrono::milliseconds(2000)));
 
-    ASSERT_EQ(std::get<0>(ended_spy.snapshot().at(0)), SessionEndReason::AdapterDisconnected);
+    ASSERT_EQ(std::get<0>(ended_spy.snapshot().at(0)), SessionEndReason::kAdapterDisconnected);
     ASSERT_EQ(std::get<1>(ended_spy.snapshot().at(0)), QString("port closed"));
     ASSERT_TRUE(!engine.isRunning());
 }
@@ -514,7 +514,7 @@ TEST(TestLoggingEngine, post_start_failure_is_not_reported_as_handshake_failure)
     LoggingEngine engine;
     auto *protocol = new ScriptedLoggingProtocol();
     protocol->queueStartResult({});
-    protocol->queuePollResult(fastecu::fail(fastecu::ErrorKind::Internal, "bad stream frame"));
+    protocol->queuePollResult(fastecu::fail(fastecu::ErrorKind::kInternal, "bad stream frame"));
     engine.registerProtocol("TEST", [protocol](const DesktopLoggingSnapshot&)
                             { return std::unique_ptr<LoggingProtocol>(protocol); });
     fastecu::testing::SignalRecorder ended_spy(&engine, &LoggingEngine::sessionEnded);
@@ -523,7 +523,7 @@ TEST(TestLoggingEngine, post_start_failure_is_not_reported_as_handshake_failure)
     ASSERT_TRUE(engine.start(LogSessionConfig{.protocol_id = "TEST"}, snapshot()));
     ASSERT_TRUE(fastecu::testing::wait_until([&] { return ended_spy.count() != 0; }, std::chrono::milliseconds(2000)));
 
-    ASSERT_EQ(std::get<0>(ended_spy.snapshot().at(0)), SessionEndReason::RuntimeFailed);
+    ASSERT_EQ(std::get<0>(ended_spy.snapshot().at(0)), SessionEndReason::kRuntimeFailed);
     ASSERT_EQ(std::get<0>(error_spy.snapshot().at(0)), QString("Logging session failed: bad stream frame"));
 }
 
@@ -532,7 +532,7 @@ TEST(TestLoggingEngine, unexpected_cancelled_outcome_is_reported_as_runtime_fail
     LoggingEngine engine;
     auto *protocol = new ScriptedLoggingProtocol();
     protocol->queueStartResult({});
-    protocol->queuePollResult(fastecu::fail(fastecu::ErrorKind::Cancelled, "scripted poll cancelled"));
+    protocol->queuePollResult(fastecu::fail(fastecu::ErrorKind::kCancelled, "scripted poll cancelled"));
     engine.registerProtocol("TEST", [protocol](const DesktopLoggingSnapshot&)
                             { return std::unique_ptr<LoggingProtocol>(protocol); });
     fastecu::testing::SignalRecorder ended_spy(&engine, &LoggingEngine::sessionEnded);
@@ -542,7 +542,7 @@ TEST(TestLoggingEngine, unexpected_cancelled_outcome_is_reported_as_runtime_fail
     ASSERT_TRUE(fastecu::testing::wait_until([&] { return ended_spy.count() != 0; }, std::chrono::milliseconds(2000)));
 
     ASSERT_EQ(ended_spy.count(), 1U);
-    ASSERT_EQ(std::get<0>(ended_spy.snapshot().at(0)), SessionEndReason::RuntimeFailed);
+    ASSERT_EQ(std::get<0>(ended_spy.snapshot().at(0)), SessionEndReason::kRuntimeFailed);
     ASSERT_EQ(std::get<1>(ended_spy.snapshot().at(0)), QString("scripted poll cancelled"));
     ASSERT_EQ(error_spy.count(), 1U);
     ASSERT_EQ(std::get<0>(error_spy.snapshot().at(0)), QString("Logging session failed: scripted poll cancelled"));
@@ -555,7 +555,7 @@ TEST(TestLoggingEngine, diagnostic_slot_forwards_error_level_with_timestamp_and_
     fastecu::testing::SignalRecorder error_spy(&engine, &LoggingEngine::LOG_E);
 
     ASSERT_TRUE(QMetaObject::invokeMethod(&engine, "handleDiagnostic", Qt::DirectConnection,
-                                          Q_ARG(int, static_cast<int>(fastecu::LogLevel::Error)),
+                                          Q_ARG(int, static_cast<int>(fastecu::LogLevel::kError)),
                                           Q_ARG(QString, QString("error diagnostic"))));
 
     ASSERT_EQ(error_spy.count(), 1U);
@@ -570,7 +570,7 @@ TEST(TestLoggingEngine, diagnostic_slot_forwards_warning_level_with_timestamp_an
     fastecu::testing::SignalRecorder warning_spy(&engine, &LoggingEngine::LOG_W);
 
     ASSERT_TRUE(QMetaObject::invokeMethod(&engine, "handleDiagnostic", Qt::DirectConnection,
-                                          Q_ARG(int, static_cast<int>(fastecu::LogLevel::Warning)),
+                                          Q_ARG(int, static_cast<int>(fastecu::LogLevel::kWarning)),
                                           Q_ARG(QString, QString("warning diagnostic"))));
 
     ASSERT_EQ(warning_spy.count(), 1U);
@@ -585,7 +585,7 @@ TEST(TestLoggingEngine, diagnostic_slot_forwards_info_level_with_timestamp_and_l
     fastecu::testing::SignalRecorder info_spy(&engine, &LoggingEngine::LOG_I);
 
     ASSERT_TRUE(QMetaObject::invokeMethod(&engine, "handleDiagnostic", Qt::DirectConnection,
-                                          Q_ARG(int, static_cast<int>(fastecu::LogLevel::Info)),
+                                          Q_ARG(int, static_cast<int>(fastecu::LogLevel::kInfo)),
                                           Q_ARG(QString, QString("info diagnostic"))));
 
     ASSERT_EQ(info_spy.count(), 1U);
@@ -600,7 +600,7 @@ TEST(TestLoggingEngine, diagnostic_slot_forwards_debug_level_with_timestamp_and_
     fastecu::testing::SignalRecorder debug_spy(&engine, &LoggingEngine::LOG_D);
 
     ASSERT_TRUE(QMetaObject::invokeMethod(&engine, "handleDiagnostic", Qt::DirectConnection,
-                                          Q_ARG(int, static_cast<int>(fastecu::LogLevel::Debug)),
+                                          Q_ARG(int, static_cast<int>(fastecu::LogLevel::kDebug)),
                                           Q_ARG(QString, QString("debug diagnostic"))));
 
     ASSERT_EQ(debug_spy.count(), 1U);
@@ -628,9 +628,9 @@ TEST(TestLoggingEngine, portable_events_map_to_existing_status_and_value_signals
     engine.stop();
 
     ASSERT_TRUE(status_spy.count() >= 3);
-    ASSERT_EQ(std::get<0>(status_spy.snapshot().at(0)), LoggingStatus::Running);
-    ASSERT_EQ(std::get<0>(status_spy.snapshot().at(1)), LoggingStatus::CarNotResponding);
-    ASSERT_EQ(std::get<0>(status_spy.snapshot().at(2)), LoggingStatus::Running);
+    ASSERT_EQ(std::get<0>(status_spy.snapshot().at(0)), LoggingStatus::kRunning);
+    ASSERT_EQ(std::get<0>(status_spy.snapshot().at(1)), LoggingStatus::kCarNotResponding);
+    ASSERT_EQ(std::get<0>(status_spy.snapshot().at(2)), LoggingStatus::kRunning);
     const auto values = std::get<0>(value_spy.snapshot().at(0));
     ASSERT_EQ(values.at(0).channel_id, std::string("rpm"));
     ASSERT_EQ(values.at(0).numeric_value, 42.0);

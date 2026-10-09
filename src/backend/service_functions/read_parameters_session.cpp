@@ -60,7 +60,7 @@ Result<SsmTransportConfig> ReadParametersSession::transport_setup() const
 {
     if (protocol_ != "sub_tcu_denso_sh7055_can" && protocol_ != "sub_tcu_denso_sh7058_can")
     {
-        return fail(ErrorKind::Unsupported, std::format("not a Subaru Denso SH705x TCU protocol: {}", protocol_));
+        return fail(ErrorKind::kUnsupported, std::format("not a Subaru Denso SH705x TCU protocol: {}", protocol_));
     }
     // legacy :70 -- configureIso15765Can(serial, "500000", 0x7E1, 0x7E9).
     return SsmTransportConfig{};
@@ -76,14 +76,14 @@ ServiceFunctionStep ReadParametersSession::resume(ISsmTransport& transport, IClo
 {
     if (misused_)
     {
-        return FailedStep{Error{ErrorKind::Internal, "read parameters has no operator gate to answer"}};
+        return FailedStep{Error{ErrorKind::kInternal, "read parameters has no operator gate to answer"}};
     }
     if (cancellation.cancelled())
     {
-        return FailedStep{Error{ErrorKind::Cancelled, "cancelled before reading TCU parameters"}};
+        return FailedStep{Error{ErrorKind::kCancelled, "cancelled before reading TCU parameters"}};
     }
 
-    events.log(LogLevel::Info, "Reading TCU parameters...");
+    events.log(LogLevel::kInfo, "Reading TCU parameters...");
 
     const bytes::Bytes request = buildRequest();
     bytes::Bytes frame;
@@ -112,7 +112,7 @@ ServiceFunctionStep ReadParametersSession::resume(ISsmTransport& transport, IClo
         {
             if (frame.size() < kMinFrameSize)
             {
-                return FailedStep{Error{ErrorKind::BadResponse, "TCU parameter frame shorter than 15 bytes"}};
+                return FailedStep{Error{ErrorKind::kBadResponse, "TCU parameter frame shorter than 15 bytes"}};
             }
             return CompletedStep{decode(frame)};
         }
@@ -120,10 +120,10 @@ ServiceFunctionStep ReadParametersSession::resume(ISsmTransport& transport, IClo
 
     if (frame.empty())
     {
-        return FailedStep{Error{ErrorKind::Timeout, "no response to the TCU parameter read after 6 attempts"}};
+        return FailedStep{Error{ErrorKind::kTimeout, "no response to the TCU parameter read after 6 attempts"}};
     }
     return FailedStep{
-        Error{ErrorKind::BadResponse, std::format("TCU rejected the parameter read: {}", bytes::toHex(frame))}};
+        Error{ErrorKind::kBadResponse, std::format("TCU rejected the parameter read: {}", bytes::toHex(frame))}};
 }
 
 } // namespace fastecu::service_functions

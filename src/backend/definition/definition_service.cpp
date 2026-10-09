@@ -62,13 +62,13 @@ std::optional<unsigned> hex_nibble(char character)
 
 Result<std::vector<std::uint8_t>> identifier_bytes(std::string_view identifier, IdEncoding encoding)
 {
-    if (encoding == IdEncoding::Ascii)
+    if (encoding == IdEncoding::kAscii)
     {
         return std::vector<std::uint8_t>(identifier.begin(), identifier.end());
     }
     if (identifier.size() % 2 != 0)
     {
-        return fail(ErrorKind::InvalidConfig, "hexadecimal identifier has odd length");
+        return fail(ErrorKind::kInvalidConfig, "hexadecimal identifier has odd length");
     }
 
     std::vector<std::uint8_t> decoded;
@@ -79,7 +79,7 @@ Result<std::vector<std::uint8_t>> identifier_bytes(std::string_view identifier, 
         auto low = hex_nibble(identifier[index + 1]);
         if (!high.has_value() || !low.has_value())
         {
-            return fail(ErrorKind::InvalidConfig, "identifier contains a non-hexadecimal digit");
+            return fail(ErrorKind::kInvalidConfig, "identifier contains a non-hexadecimal digit");
         }
         decoded.push_back(static_cast<std::uint8_t>((*high << 4U) | *low));
     }
@@ -88,7 +88,7 @@ Result<std::vector<std::uint8_t>> identifier_bytes(std::string_view identifier, 
 
 Result<std::vector<std::vector<std::uint8_t>>> identifier_candidates(std::string_view identifier, IdEncoding encoding)
 {
-    if (encoding != IdEncoding::AsciiOrHex)
+    if (encoding != IdEncoding::kAsciiOrHex)
     {
         auto result = identifier_bytes(identifier, encoding);
         if (!result.has_value())
@@ -101,7 +101,7 @@ Result<std::vector<std::vector<std::uint8_t>>> identifier_candidates(std::string
     std::vector<std::vector<std::uint8_t>> candidates{
         std::vector<std::uint8_t>(identifier.begin(), identifier.end()),
     };
-    if (auto hexadecimal = identifier_bytes(identifier, IdEncoding::Hex); hexadecimal.has_value())
+    if (auto hexadecimal = identifier_bytes(identifier, IdEncoding::kHex); hexadecimal.has_value())
     {
         candidates.push_back(std::move(*hexadecimal));
     }
@@ -247,7 +247,7 @@ Result<DefinitionIndexEntry> DefinitionService::match_rom(const DefinitionCatalo
             }
         }
     }
-    return fail(ErrorKind::InvalidConfig, "no matching ROM definition found");
+    return fail(ErrorKind::kInvalidConfig, "no matching ROM definition found");
 }
 
 Result<RomDefinition> DefinitionService::load(const DefinitionCatalog& catalog, DefinitionFormat format,
@@ -271,7 +271,7 @@ Result<RomDefinition> DefinitionService::load(const DefinitionCatalog& catalog, 
             return std::unexpected(contents.error());
         }
 
-        if (requested_format == DefinitionFormat::RomRaider)
+        if (requested_format == DefinitionFormat::kRomRaider)
         {
             return parse_romraider_definition(*contents, entry.source, requested_id);
         }
@@ -282,7 +282,7 @@ Result<RomDefinition> DefinitionService::load(const DefinitionCatalog& catalog, 
         }
         if (parsed->identity.xml_id != requested_id)
         {
-            return fail(ErrorKind::InvalidConfig,
+            return fail(ErrorKind::kInvalidConfig,
                         std::format("EcuFlash catalog ID '{}' from '{}' loaded definition '{}'", requested_id,
                                     entry.source, parsed->identity.xml_id));
         }
@@ -311,7 +311,7 @@ Status DefinitionService::create_definition(std::string_view destination, const 
     // confirmed the overwrite (e.g. a native Save-As dialog) pass allow_overwrite=true.
     if (!allow_overwrite && file_system_.exists(destination))
     {
-        return fail(ErrorKind::InvalidConfig, std::format("definition destination '{}' already exists", destination));
+        return fail(ErrorKind::kInvalidConfig, std::format("definition destination '{}' already exists", destination));
     }
     auto contents = create_ecuflash_xml(input);
     if (!contents.has_value())

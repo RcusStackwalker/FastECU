@@ -21,16 +21,16 @@ namespace fastecu::desktop::logging
 
 enum class LoggingStatus
 {
-    Running,
-    CarNotResponding,
+    kRunning,
+    kCarNotResponding,
 };
 
 enum class SessionEndReason
 {
-    StoppedByUser,
-    HandshakeFailed,
-    AdapterDisconnected,
-    RuntimeFailed,
+    kStoppedByUser,
+    kHandshakeFailed,
+    kAdapterDisconnected,
+    kRuntimeFailed,
 };
 
 struct LogSessionConfig

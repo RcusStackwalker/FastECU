@@ -11,22 +11,22 @@ fastecu::Result<std::size_t> FastEcuSsmTransport::write(bytes::ByteView data)
     {
         if (!serial_ || !serial_->is_serial_port_open())
         {
-            return fastecu::fail(fastecu::ErrorKind::Disconnected, "SSM adapter disconnected before write");
+            return fastecu::fail(fastecu::ErrorKind::kDisconnected, "SSM adapter disconnected before write");
         }
         serial_->write_serial_data_echo_check(bytes::toQByteArray(data));
         if (!serial_->is_serial_port_open())
         {
-            return fastecu::fail(fastecu::ErrorKind::Disconnected, "SSM adapter disconnected during write");
+            return fastecu::fail(fastecu::ErrorKind::kDisconnected, "SSM adapter disconnected during write");
         }
         return data.size();
     }
     catch (const std::exception& error)
     {
-        return fastecu::fail(fastecu::ErrorKind::Internal, error.what());
+        return fastecu::fail(fastecu::ErrorKind::kInternal, error.what());
     }
     catch (...)
     {
-        return fastecu::fail(fastecu::ErrorKind::Internal, "SSM driver write exception");
+        return fastecu::fail(fastecu::ErrorKind::kInternal, "SSM driver write exception");
     }
 }
 
@@ -35,7 +35,7 @@ FastEcuSsmTransport::read(std::chrono::milliseconds timeout, const fastecu::ICan
 {
     if (cancellation.cancelled())
     {
-        return fastecu::fail(fastecu::ErrorKind::Cancelled, "SSM read cancelled before driver call");
+        return fastecu::fail(fastecu::ErrorKind::kCancelled, "SSM read cancelled before driver call");
     }
 
     return fastecu::desktop::detail::read_serial(serial_, timeout, cancellation, [this](std::uint16_t driver_timeout)

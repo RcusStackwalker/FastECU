@@ -26,7 +26,7 @@ TEST(ServiceFunctionDialogTest, setParametersSpinBoxesCarryTheLegacyPromptBounds
     // legacy :162-202 -- eight prompts bounded 0-255 and one bounded
     // 0-65535. The value model makes these unrepresentable rather than
     // rejectable, so this is where the bounds are actually asserted.
-    ServiceFunctionDialog dialog{nullptr, "sub_tcu_denso_sh7058_can", ServiceFunctionKind::SetParameters};
+    ServiceFunctionDialog dialog{nullptr, "sub_tcu_denso_sh7058_can", ServiceFunctionKind::kSetParameters};
 
     for (const char *name :
          {"correction_1to2", "correction_2to3", "correction_3to4", "correction_4to5", "correction_forward_brake",
@@ -49,7 +49,7 @@ TEST(ServiceFunctionDialogTest, everyFormFieldLandsInItsOwnStructMember)
     // Guards against a form-to-struct mix-up, which the wire-order table
     // in tcu_parameter_table_test cannot catch: nine distinct values in,
     // nine distinct members out.
-    ServiceFunctionDialog dialog{nullptr, "sub_tcu_denso_sh7058_can", ServiceFunctionKind::SetParameters};
+    ServiceFunctionDialog dialog{nullptr, "sub_tcu_denso_sh7058_can", ServiceFunctionKind::kSetParameters};
 
     box(dialog, "correction_1to2")->setValue(0x11);
     box(dialog, "correction_2to3")->setValue(0x22);
@@ -77,13 +77,13 @@ TEST(ServiceFunctionDialogTest, setParametersFormIsOneDialogNotNineModals)
 {
     // The legacy asks nine sequential QInputDialogs (:162-202); this shows
     // all nine at once so the operator can review before any write.
-    ServiceFunctionDialog dialog{nullptr, "sub_tcu_denso_sh7058_can", ServiceFunctionKind::SetParameters};
+    ServiceFunctionDialog dialog{nullptr, "sub_tcu_denso_sh7058_can", ServiceFunctionKind::kSetParameters};
     ASSERT_EQ(dialog.findChildren<QSpinBox *>().count(), 9);
 }
 
 TEST(ServiceFunctionDialogTest, readParametersRendersAllNineLegacyQualifiedLabelsAndValues)
 {
-    ServiceFunctionDialog dialog{nullptr, "sub_tcu_denso_sh7058_can", ServiceFunctionKind::ReadParameters};
+    ServiceFunctionDialog dialog{nullptr, "sub_tcu_denso_sh7058_can", ServiceFunctionKind::kReadParameters};
     dialog.showReadout(TcuParameterReadout{
         .input_clutch = 0x11,
         .high_low_reverse_clutch = 0x22,
@@ -120,7 +120,7 @@ TEST(ServiceFunctionDialogTest, readParametersRendersAllNineLegacyQualifiedLabel
 
 TEST(ServiceFunctionDialogTest, readParametersHasNoSpinBoxes)
 {
-    ServiceFunctionDialog dialog{nullptr, "sub_tcu_denso_sh7058_can", ServiceFunctionKind::ReadParameters};
+    ServiceFunctionDialog dialog{nullptr, "sub_tcu_denso_sh7058_can", ServiceFunctionKind::kReadParameters};
     ASSERT_EQ(dialog.findChildren<QSpinBox *>().count(), 0);
 }
 

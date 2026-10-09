@@ -153,7 +153,7 @@ Result<UnresolvedCalibrationMap> parse_table(pugi::xml_node table, std::string_v
     if (map.type == "Switch")
     {
         map.type = "Selectable";
-        map.storage_type = StorageType::Bloblist;
+        map.storage_type = StorageType::kBloblist;
         if (!scaling.has_value())
         {
             scaling.emplace();
@@ -161,7 +161,7 @@ Result<UnresolvedCalibrationMap> parse_table(pugi::xml_node table, std::string_v
             append_selections(table, *scaling);
             map.scaling_name = scaling->name;
         }
-        scaling->storage_type = StorageType::Bloblist;
+        scaling->storage_type = StorageType::kBloblist;
     }
     if (scaling.has_value())
     {
@@ -203,11 +203,11 @@ Result<std::vector<DefinitionIndexEntry>> parse_romraider_index(std::span<const 
         }
 
         entries.push_back(DefinitionIndexEntry{
-            .format = DefinitionFormat::RomRaider,
+            .format = DefinitionFormat::kRomRaider,
             .definition_id = std::move(header->identity.xml_id),
             .internal_id = std::move(header->identity.internal_id),
             .internal_id_address = header->identity.internal_id_address,
-            .internal_id_encoding = IdEncoding::AsciiOrHex,
+            .internal_id_encoding = IdEncoding::kAsciiOrHex,
             .ecu_id = std::move(header->identity.ecu_id),
             .source = std::string{source},
             .parents = parent_references(rom),
@@ -261,7 +261,7 @@ Result<UnresolvedDefinition> parse_romraider_definition(std::span<const std::uin
     }
 
     UnresolvedDefinition definition{
-        .format = DefinitionFormat::RomRaider,
+        .format = DefinitionFormat::kRomRaider,
         .source = std::string{source},
         .identity = std::move(header->identity),
         .metadata = parse_metadata(header->rom.child("romid")),

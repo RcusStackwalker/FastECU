@@ -69,7 +69,7 @@ Status check_cancelled(const ICancellationToken& cancellation, std::string detai
 {
     if (cancellation.cancelled())
     {
-        return fail(ErrorKind::Cancelled, std::move(detail));
+        return fail(ErrorKind::kCancelled, std::move(detail));
     }
     return {};
 }
@@ -105,7 +105,7 @@ Result<OptionalBytes> exchange(IKlineFlashTransport& transport, IClock& clock, c
     }
     if (*written != request.size())
     {
-        return fail(ErrorKind::Disconnected, "short K-Line write");
+        return fail(ErrorKind::kDisconnected, "short K-Line write");
     }
     if (settle > 0ms)
     {
@@ -144,7 +144,7 @@ Result<bytes::Bytes> required_exchange(IKlineFlashTransport& transport, IClock& 
     }
     if (!received->has_value())
     {
-        return fail(ErrorKind::Timeout, std::format("no response from ECU during {}", what));
+        return fail(ErrorKind::kTimeout, std::format("no response from ECU during {}", what));
     }
     return std::move(**received);
 }
@@ -169,7 +169,7 @@ Status sleep_for(IClock& clock, const ICancellationToken& cancellation, std::chr
 void log_wrong_response(IEventSink& events, bytes::ByteView received, std::size_t offset)
 {
     const bytes::ByteView nrc = offset < received.size() ? received.subspan(offset) : bytes::ByteView{};
-    events.log(LogLevel::Error, "Wrong response from ECU: " + nrc_description(nrc));
+    events.log(LogLevel::kError, "Wrong response from ECU: " + nrc_description(nrc));
 }
 
 // received.remove(0, 5); received.remove(received.length() - 1, 1): the
@@ -214,8 +214,8 @@ Result<bool> probe_kernel(IKlineFlashTransport& transport, IClock& clock, const 
     {
         return std::unexpected(slept.error());
     }
-    events.log(LogLevel::Info, "Checking if kernel is already running...");             // :130
-    events.log(LogLevel::Info, "Requesting kernel ID");                                 // :131
+    events.log(LogLevel::kInfo, "Checking if kernel is already running...");            // :130
+    events.log(LogLevel::kInfo, "Requesting kernel ID");                                // :131
     Result<OptionalBytes> received = request_kernel_id(transport, clock, cancellation); // :133
     if (!received.has_value())
     {
@@ -223,7 +223,7 @@ Result<bool> probe_kernel(IKlineFlashTransport& transport, IClock& clock, const 
     }
     if (!received->has_value() || (**received).size() <= 4) // :134
     {
-        events.log(LogLevel::Error, "No valid response from ECU"); // :156
+        events.log(LogLevel::kError, "No valid response from ECU"); // :156
         return false;
     }
     const bytes::Bytes& reply = **received;
@@ -232,7 +232,7 @@ Result<bool> probe_kernel(IKlineFlashTransport& transport, IClock& clock, const 
         log_wrong_response(events, reply, 8); // :140-142, mid(8)
         return false;
     }
-    events.log(LogLevel::Info, "Kernel ID: " + kernel_id_text(reply)); // :146-148
+    events.log(LogLevel::kInfo, "Kernel ID: " + kernel_id_text(reply)); // :146-148
     return true;
 }
 
@@ -248,9 +248,9 @@ Result<bytes::Bytes> ssm_exchange(IKlineFlashTransport& transport, IClock& clock
     Result<bytes::Bytes> reply =
         required_exchange(transport, clock, cancellation,
                           ssm_protocol::addHeader(payload, plan.tester_id, plan.target_id), 0ms, timeout, what);
-    if (!reply.has_value() && reply.error().kind == ErrorKind::Timeout)
+    if (!reply.has_value() && reply.error().kind == ErrorKind::kTimeout)
     {
-        events.log(LogLevel::Error, "No valid response from ECU");
+        events.log(LogLevel::kError, "No valid response from ECU");
     }
     return reply;
 }
@@ -263,13 +263,13 @@ Status require_ssm(const bytes::Bytes& reply, std::size_t min_size, std::uint8_t
 {
     if (reply.size() < min_size)
     {
-        events.log(LogLevel::Error, "No valid response from ECU");
-        return fail(ErrorKind::BadResponse, "No valid response from ECU");
+        events.log(LogLevel::kError, "No valid response from ECU");
+        return fail(ErrorKind::kBadResponse, "No valid response from ECU");
     }
     if (reply[4] != byte4 || (byte5.has_value() && reply[5] != *byte5))
     {
         log_wrong_response(events, reply, 4);
-        return fail(ErrorKind::BadResponse, "Wrong response from ECU");
+        return fail(ErrorKind::kBadResponse, "Wrong response from ECU");
     }
     return {};
 }
@@ -279,7 +279,7 @@ Result<std::string> connect_bootloader(IKlineFlashTransport& transport, IClock& 
                                        const ICancellationToken& cancellation, IEventSink& events,
                                        const SubaruDensoSh705xKlinePlan& plan)
 {
-    events.log(LogLevel::Info, "No response from kernel, initialising ECU..."); // :159
+    events.log(LogLevel::kInfo, "No response from kernel, initialising ECU..."); // :159
     // :161-162. Legacy ignored this result; a failed baud change stops here.
     if (Status baud = change_baud(transport, cancellation, kSsmBaud); !baud.has_value())
     {
@@ -291,7 +291,7 @@ Result<std::string> connect_bootloader(IKlineFlashTransport& transport, IClock& 
     }
 
     // :164-182, send_sid_bf_ssm_init():1373-1378.
-    events.log(LogLevel::Info, "Requesting ECU ID");
+    events.log(LogLevel::kInfo, "Requesting ECU ID");
     Result<bytes::Bytes> bf =
         ssm_exchange(transport, clock, cancellation, events, plan, bytes::Bytes{0xBF}, kReadTimeout, "ECU ID request");
     if (!bf.has_value())
@@ -307,14 +307,14 @@ Result<std::string> connect_bootloader(IKlineFlashTransport& transport, IClock& 
     // above stays first so a negative reply still logs its NRC.
     if (bf->size() < 13)
     {
-        events.log(LogLevel::Error, "No valid response from ECU");
-        return fail(ErrorKind::BadResponse, "ECU ID reply too short");
+        events.log(LogLevel::kError, "No valid response from ECU");
+        return fail(ErrorKind::kBadResponse, "ECU ID reply too short");
     }
     std::string ecu_id = ecu_id_hex(bytes::ByteView(*bf).subspan(8, 5));
-    events.log(LogLevel::Info, "ECU ID: " + ecu_id); // :192
+    events.log(LogLevel::kInfo, "ECU ID: " + ecu_id); // :192
 
     // :198-217, send_sid_81_start_communication():1393-1398.
-    events.log(LogLevel::Info, "Requesting to start communication");
+    events.log(LogLevel::kInfo, "Requesting to start communication");
     Result<bytes::Bytes> start = ssm_exchange(transport, clock, cancellation, events, plan, bytes::Bytes{0x81},
                                               kReadTimeout, "start communication");
     if (!start.has_value())
@@ -325,10 +325,10 @@ Result<std::string> connect_bootloader(IKlineFlashTransport& transport, IClock& 
     {
         return std::unexpected(ok.error());
     }
-    events.log(LogLevel::Info, "Start communication ok");
+    events.log(LogLevel::kInfo, "Start communication ok");
 
     // :219-238, send_sid_83_request_timings():1413-1419.
-    events.log(LogLevel::Info, "Requesting timings params");
+    events.log(LogLevel::kInfo, "Requesting timings params");
     Result<bytes::Bytes> timings = ssm_exchange(transport, clock, cancellation, events, plan, bytes::Bytes{0x83, 0x00},
                                                 kReadTimeout, "timing parameters");
     if (!timings.has_value())
@@ -339,10 +339,10 @@ Result<std::string> connect_bootloader(IKlineFlashTransport& transport, IClock& 
     {
         return std::unexpected(ok.error());
     }
-    events.log(LogLevel::Info, "Timing parameters ok");
+    events.log(LogLevel::kInfo, "Timing parameters ok");
 
     // :240-259, send_sid_27_request_seed():1434-1440.
-    events.log(LogLevel::Info, "Requesting seed");
+    events.log(LogLevel::kInfo, "Requesting seed");
     Result<bytes::Bytes> seed_reply = ssm_exchange(transport, clock, cancellation, events, plan,
                                                    bytes::Bytes{0x27, 0x01}, kReadTimeout, "seed request");
     if (!seed_reply.has_value())
@@ -353,18 +353,18 @@ Result<std::string> connect_bootloader(IKlineFlashTransport& transport, IClock& 
     {
         return std::unexpected(ok.error());
     }
-    events.log(LogLevel::Info, "Seed request ok");
+    events.log(LogLevel::kInfo, "Seed request ok");
 
     // :261-279 -- seed at(6..9); ECUTEK transformation for "_ecutek" methods.
     const bytes::ByteView seed = bytes::ByteView(*seed_reply).subspan(6, 4);
-    events.log(LogLevel::Info, "Received seed: " + bytes::toHex(seed));
-    const bytes::Bytes key = plan.seed_key == SubaruDensoSh705xKlineSeedKey::EcuTek
+    events.log(LogLevel::kInfo, "Received seed: " + bytes::toHex(seed));
+    const bytes::Bytes key = plan.seed_key == SubaruDensoSh705xKlineSeedKey::kEcuTek
                                  ? denso_sh705x_kline_ecutek_seed_key(seed)
                                  : denso_sh705x_kline_stock_seed_key(seed);
-    events.log(LogLevel::Info, "Calculated seed key: " + bytes::toHex(key));
+    events.log(LogLevel::kInfo, "Calculated seed key: " + bytes::toHex(key));
 
     // :281-300, send_sid_27_send_seed_key():1455-1462.
-    events.log(LogLevel::Info, "Sending seed key to ECU");
+    events.log(LogLevel::kInfo, "Sending seed key to ECU");
     Result<bytes::Bytes> key_reply = ssm_exchange(transport, clock, cancellation, events, plan,
                                                   composeBe(0x27_b, 0x02_b, key), kReadTimeout, "seed key");
     if (!key_reply.has_value())
@@ -375,10 +375,10 @@ Result<std::string> connect_bootloader(IKlineFlashTransport& transport, IClock& 
     {
         return std::unexpected(ok.error());
     }
-    events.log(LogLevel::Info, "Seed key ok");
+    events.log(LogLevel::kInfo, "Seed key ok");
 
     // :302-321, send_sid_10_start_diagnostic():1477-1484.
-    events.log(LogLevel::Info, "Set session mode");
+    events.log(LogLevel::kInfo, "Set session mode");
     Result<bytes::Bytes> session = ssm_exchange(transport, clock, cancellation, events, plan,
                                                 bytes::Bytes{0x10, 0x85, 0x02}, kReadTimeout, "session mode");
     if (!session.has_value())
@@ -389,7 +389,7 @@ Result<std::string> connect_bootloader(IKlineFlashTransport& transport, IClock& 
     {
         return std::unexpected(ok.error());
     }
-    events.log(LogLevel::Info, "Succesfully set to programming session");
+    events.log(LogLevel::kInfo, "Succesfully set to programming session");
     return ecu_id;
 }
 
@@ -413,16 +413,16 @@ Status transfer_kernel(IKlineFlashTransport& transport, IClock& clock, const ICa
             0ms, kReadTimeout, "kernel transfer");
         if (!reply.has_value())
         {
-            if (reply.error().kind == ErrorKind::Timeout)
+            if (reply.error().kind == ErrorKind::kTimeout)
             {
-                events.log(LogLevel::Error, "Write data failed!");
-                events.log(LogLevel::Error, "No valid response from ECU");
+                events.log(LogLevel::kError, "Write data failed!");
+                events.log(LogLevel::kError, "No valid response from ECU");
             }
             return std::unexpected(reply.error());
         }
         if (reply->size() <= 4 || (*reply)[4] != 0x76)
         {
-            events.log(LogLevel::Error, "Write data failed!");
+            events.log(LogLevel::kError, "Write data failed!");
             return require_ssm(*reply, 5, 0x76, std::nullopt, events);
         }
         events.progress(static_cast<int>(offset + chunk), static_cast<int>(length));
@@ -434,7 +434,7 @@ Status transfer_kernel(IKlineFlashTransport& transport, IClock& clock, const ICa
 Status upload_kernel(IKlineFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
                      IEventSink& events, const SubaruDensoSh705xKlinePlan& plan, const KernelImage& kernel)
 {
-    events.log(LogLevel::Debug, std::format("Start address to upload kernel: 0x{:x}", kernel.load_address)); // :345
+    events.log(LogLevel::kDebug, std::format("Start address to upload kernel: 0x{:x}", kernel.load_address)); // :345
     // :354-357 -- the one baud change legacy checked.
     if (Status baud = change_baud(transport, cancellation, kUploadBaud); !baud.has_value())
     {
@@ -447,7 +447,7 @@ Status upload_kernel(IKlineFlashTransport& transport, IClock& clock, const ICanc
     const auto size = static_cast<std::uint32_t>(encrypted.size());
 
     // :391-411, send_sid_34_request_upload():1494-1506.
-    events.log(LogLevel::Info, "Requesting kernel upload");
+    events.log(LogLevel::kInfo, "Requesting kernel upload");
     Result<bytes::Bytes> request = ssm_exchange(transport, clock, cancellation, events, plan,
                                                 composeBe(0x34_b, u24(kernel.load_address), 0x04_b, u24(size)),
                                                 kExtraLongTimeout, "upload request");
@@ -459,19 +459,19 @@ Status upload_kernel(IKlineFlashTransport& transport, IClock& clock, const ICanc
     {
         return ok;
     }
-    events.log(LogLevel::Info, "Kernel upload request ok");
+    events.log(LogLevel::kInfo, "Kernel upload request ok");
 
     // :413-432.
-    events.log(LogLevel::Info, "Transfer kernel data");
+    events.log(LogLevel::kInfo, "Transfer kernel data");
     if (Status sent = transfer_kernel(transport, clock, cancellation, events, plan, kernel.load_address, encrypted);
         !sent.has_value())
     {
         return sent;
     }
-    events.log(LogLevel::Info, "Kernel uploaded");
+    events.log(LogLevel::kInfo, "Kernel uploaded");
 
     // :434-460 -- 31 01 01, read_serial_data(serial_read_extra_long_timeout).
-    events.log(LogLevel::Info, "Jump to kernel");
+    events.log(LogLevel::kInfo, "Jump to kernel");
     Result<bytes::Bytes> routine = ssm_exchange(transport, clock, cancellation, events, plan,
                                                 bytes::Bytes{0x31, 0x01, 0x01}, kExtraLongTimeout, "start routine");
     if (!routine.has_value())
@@ -482,7 +482,7 @@ Status upload_kernel(IKlineFlashTransport& transport, IClock& clock, const ICanc
     {
         return ok;
     }
-    events.log(LogLevel::Info, "Kernel started, initializing...");
+    events.log(LogLevel::kInfo, "Kernel started, initializing...");
 
     // :462-463.
     if (Status slept = sleep_for(clock, cancellation, kPostStartRoutine); !slept.has_value())
@@ -496,7 +496,7 @@ Status upload_kernel(IKlineFlashTransport& transport, IClock& clock, const ICanc
     }
 
     // :465-495.
-    events.log(LogLevel::Info, "Requesting kernel ID");
+    events.log(LogLevel::kInfo, "Requesting kernel ID");
     Result<OptionalBytes> id = request_kernel_id(transport, clock, cancellation);
     if (!id.has_value())
     {
@@ -504,21 +504,21 @@ Status upload_kernel(IKlineFlashTransport& transport, IClock& clock, const ICanc
     }
     if (!id->has_value())
     {
-        events.log(LogLevel::Error, "No valid response from ECU"); // :492
-        return fail(ErrorKind::Timeout, "no kernel ID after upload");
+        events.log(LogLevel::kError, "No valid response from ECU"); // :492
+        return fail(ErrorKind::kTimeout, "no kernel ID after upload");
     }
     const bytes::Bytes& reply = **id;
     if (reply.size() <= 4)
     {
-        events.log(LogLevel::Error, "No valid response from ECU"); // :492
-        return fail(ErrorKind::BadResponse, "kernel ID reply too short after upload");
+        events.log(LogLevel::kError, "No valid response from ECU"); // :492
+        return fail(ErrorKind::kBadResponse, "kernel ID reply too short after upload");
     }
     if (!kernel_reply_ok(reply, kOpId, 5)) // :470-472
     {
         log_wrong_response(events, reply, 8); // :474-476, mid(8)
-        return fail(ErrorKind::BadResponse, "kernel did not start after upload");
+        return fail(ErrorKind::kBadResponse, "kernel did not start after upload");
     }
-    events.log(LogLevel::Info, "Kernel ID: " + kernel_id_text(reply)); // :482-484
+    events.log(LogLevel::kInfo, "Kernel ID: " + kernel_id_text(reply)); // :482-484
     return {};
 }
 
@@ -530,7 +530,7 @@ Result<std::optional<std::string>> start_session(IKlineFlashTransport& transport
                                                  const FlashPlan& plan)
 {
     const auto& family = std::get<SubaruDensoSh705xKlinePlan>(plan.family_plan());
-    events.log(LogLevel::Info, "Connecting to Subaru 04 32-bit K-Line bootloader, please wait..."); // :79
+    events.log(LogLevel::kInfo, "Connecting to Subaru 04 32-bit K-Line bootloader, please wait..."); // :79
     Result<bool> alive = probe_kernel(transport, clock, cancellation, events);
     if (!alive.has_value())
     {
@@ -545,8 +545,8 @@ Result<std::optional<std::string>> start_session(IKlineFlashTransport& transport
     {
         return std::unexpected(ecu_id.error());
     }
-    events.notice("Preparing, please wait...");                                                       // :84
-    events.log(LogLevel::Info, "Initializing Subaru 04 32-bit K-Line kernel upload, please wait..."); // :85
+    events.notice("Preparing, please wait...");                                                        // :84
+    events.log(LogLevel::kInfo, "Initializing Subaru 04 32-bit K-Line kernel upload, please wait..."); // :85
     if (Status uploaded = upload_kernel(transport, clock, cancellation, events, family, plan.kernel_or_empty());
         !uploaded.has_value())
     {
@@ -561,7 +561,7 @@ Result<bytes::Bytes> read_mem(IKlineFlashTransport& transport, IClock& clock, co
 {
     bytes::Bytes rom;
     rom.reserve(region.length);
-    events.log(LogLevel::Info, "Start reading ROM, please wait..."); // :523
+    events.log(LogLevel::kInfo, "Start reading ROM, please wait..."); // :523
     events.progress(0, static_cast<int>(region.length));
     for (std::uint32_t address = region.start; address < region.start + region.length; address += kReadPageSize)
     {
@@ -577,13 +577,13 @@ Result<bytes::Bytes> read_mem(IKlineFlashTransport& transport, IClock& clock, co
         if (page.size() != kReadPageSize + 6 || !kernel_reply_ok(page, kOpReadArea, kReadPageSize + 6) ||
             page.back() != bytes::sum8(bytes::ByteView(page).first(page.size() - 1)))
         {
-            events.log(LogLevel::Error, "Wrong response from ECU");
-            return fail(ErrorKind::BadResponse, std::format("incomplete or corrupt page at 0x{:06X}", address));
+            events.log(LogLevel::kError, "Wrong response from ECU");
+            return fail(ErrorKind::kBadResponse, std::format("incomplete or corrupt page at 0x{:06X}", address));
         }
         rom.insert(rom.end(), page.begin() + 5, page.end() - 1);
         events.progress(static_cast<int>(rom.size()), static_cast<int>(region.length));
     }
-    events.log(LogLevel::Info, "ROM read ready"); // :628
+    events.log(LogLevel::kInfo, "ROM read ready"); // :628
     rom.resize(region.length);
     return rom;
 }
@@ -597,9 +597,9 @@ Result<bytes::Bytes> kernel_exchange(IKlineFlashTransport& transport, IClock& cl
                                      bytes::ByteView request, std::chrono::milliseconds timeout, std::string_view what)
 {
     Result<bytes::Bytes> reply = required_exchange(transport, clock, cancellation, request, 0ms, timeout, what);
-    if (!reply.has_value() && reply.error().kind == ErrorKind::Timeout)
+    if (!reply.has_value() && reply.error().kind == ErrorKind::kTimeout)
     {
-        events.log(LogLevel::Error, "No valid response from ECU");
+        events.log(LogLevel::kError, "No valid response from ECU");
     }
     return reply;
 }
@@ -613,8 +613,8 @@ Status require_kernel_reply(const bytes::Bytes& reply, std::uint8_t opcode, std:
 {
     if (reply.size() < min_size)
     {
-        events.log(LogLevel::Error, "No valid response from ECU");
-        return fail(ErrorKind::BadResponse, std::format("No valid response from ECU during {}", what));
+        events.log(LogLevel::kError, "No valid response from ECU");
+        return fail(ErrorKind::kBadResponse, std::format("No valid response from ECU during {}", what));
     }
     if (!kernel_reply_ok(reply, opcode, min_size))
     {
@@ -624,9 +624,9 @@ Status require_kernel_reply(const bytes::Bytes& reply, std::uint8_t opcode, std:
         }
         else
         {
-            events.log(LogLevel::Error, "Wrong response from ECU");
+            events.log(LogLevel::kError, "Wrong response from ECU");
         }
-        return fail(ErrorKind::BadResponse, std::format("Wrong response from ECU during {}", what));
+        return fail(ErrorKind::kBadResponse, std::format("Wrong response from ECU during {}", what));
     }
     return {};
 }
@@ -677,7 +677,7 @@ Result<std::vector<bool>> compare_blocks(IKlineFlashTransport& transport, IClock
             return std::unexpected(cancelled.error());
         }
         const MemoryRegion block{device.fblocks[i].start, device.fblocks[i].len};
-        events.log(LogLevel::Info, std::format("FB{:02}\t0x{:08X}\t0x{:08X}", i, block.start, block.length)); // :782
+        events.log(LogLevel::kInfo, std::format("FB{:02}\t0x{:08X}\t0x{:08X}", i, block.start, block.length)); // :782
         Result<std::uint32_t> ecu_crc = read_block_crc(transport, clock, cancellation, events, block);
         if (!ecu_crc.has_value())
         {
@@ -685,9 +685,9 @@ Result<std::vector<bool>> compare_blocks(IKlineFlashTransport& transport, IClock
         }
         const std::uint32_t image_crc = fastecu::checksum::crc32(image.subspan(block.start, block.length));
         changed[i] = *ecu_crc != image_crc;
-        events.log(LogLevel::Debug, std::format("ROM CRC: 0x{:08x} IMG CRC: 0x{:08x}", *ecu_crc, image_crc)); // :860
-        events.log(LogLevel::Info, std::format("\t{:08X}\t{:08X}", *ecu_crc, image_crc));                     // :868
-        events.log(LogLevel::Info, changed[i] ? "\tNO" : "\tYES");                              // :872/:878
+        events.log(LogLevel::kDebug, std::format("ROM CRC: 0x{:08x} IMG CRC: 0x{:08x}", *ecu_crc, image_crc)); // :860
+        events.log(LogLevel::kInfo, std::format("\t{:08X}\t{:08X}", *ecu_crc, image_crc));                     // :868
+        events.log(LogLevel::kInfo, changed[i] ? "\tNO" : "\tYES");                             // :872/:878
         if (Status slept = sleep_for(clock, cancellation, kCrcBlockPacing); !slept.has_value()) // :789
         {
             return std::unexpected(slept.error());
@@ -700,16 +700,16 @@ Result<std::vector<bool>> compare_blocks(IKlineFlashTransport& transport, IClock
 unsigned log_changed_blocks(IEventSink& events, const std::vector<bool>& changed)
 {
     unsigned count = 0;
-    events.log(LogLevel::Info, "Different blocks : ");
+    events.log(LogLevel::kInfo, "Different blocks : ");
     for (std::size_t i = 0; i < changed.size(); ++i)
     {
         if (changed[i])
         {
-            events.log(LogLevel::Info, std::format("{}, ", i));
+            events.log(LogLevel::kInfo, std::format("{}, ", i));
             ++count;
         }
     }
-    events.log(LogLevel::Info, std::format(" (total: {})", count));
+    events.log(LogLevel::kInfo, std::format(" (total: {})", count));
     return count;
 }
 
@@ -721,7 +721,7 @@ Status init_flash_write(IKlineFlashTransport& transport, IClock& clock, const IC
     for (const std::uint8_t opcode : {kOpGetMaxMsgSize, kOpGetMaxBlockSize})
     {
         // :893 / :935.
-        events.log(LogLevel::Info, opcode == kOpGetMaxMsgSize ? "Check max message length" : "Check flashblock size");
+        events.log(LogLevel::kInfo, opcode == kOpGetMaxMsgSize ? "Check max message length" : "Check flashblock size");
         Result<bytes::Bytes> reply =
             kernel_exchange(transport, clock, cancellation, events, frame(opcode), kMediumTimeout, "flash init");
         if (!reply.has_value())
@@ -733,12 +733,12 @@ Status init_flash_write(IKlineFlashTransport& transport, IClock& clock, const IC
         {
             return ok;
         }
-        events.log(LogLevel::Info, std::format(": 0x{:04x}", bytes::readU32Be(*reply, 5))); // :916 / :958
+        events.log(LogLevel::kInfo, std::format(": 0x{:04x}", bytes::readU32Be(*reply, 5))); // :916 / :958
     }
     // :977-987.
     const std::uint8_t mode = test_write ? kOpFlashDisable : kOpFlashEnable;
-    events.log(LogLevel::Info, test_write ? "Test write mode on, no actual flash write is performed"
-                                          : "Test write mode off, perform actual flash write");
+    events.log(LogLevel::kInfo, test_write ? "Test write mode on, no actual flash write is performed"
+                                           : "Test write mode off, perform actual flash write");
     Result<bytes::Bytes> reply =
         kernel_exchange(transport, clock, cancellation, events, frame(mode), kMediumTimeout, "flash mode");
     if (!reply.has_value())
@@ -751,7 +751,7 @@ Status init_flash_write(IKlineFlashTransport& transport, IClock& clock, const IC
     {
         return ok;
     }
-    events.log(LogLevel::Error, "Flash mode succesfully set"); // :1008, legacy LOG_E
+    events.log(LogLevel::kError, "Flash mode succesfully set"); // :1008, legacy LOG_E
     return {};
 }
 
@@ -770,8 +770,9 @@ Status flash_block(IKlineFlashTransport& transport, IClock& clock, const ICancel
                    std::uint64_t& written, std::uint64_t total)
 {
     // :1148-1195.
-    events.log(LogLevel::Info, std::format("Flash page erase addr: 0x{:08x} len: 0x{:08x}", block.start, block.length));
-    events.log(LogLevel::Info, "Erasing flash page...");
+    events.log(LogLevel::kInfo,
+               std::format("Flash page erase addr: 0x{:08x} len: 0x{:08x}", block.start, block.length));
+    events.log(LogLevel::kInfo, "Erasing flash page...");
     Result<bytes::Bytes> erased =
         kernel_exchange(transport, clock, cancellation, events, frame(kOpBlankPage, composeBe(block.start)),
                         kExtraLongTimeout, "erase");
@@ -783,8 +784,8 @@ Status flash_block(IKlineFlashTransport& transport, IClock& clock, const ICancel
     {
         return ok;
     }
-    events.log(LogLevel::Info, " erased");
-    events.log(LogLevel::Info,
+    events.log(LogLevel::kInfo, " erased");
+    events.log(LogLevel::kInfo,
                std::format("Start flash write addr: 0x{:08x} len: 0x{:08x}", block.start, block.length)); // :1197
 
     std::uint32_t commit_start = block.start;
@@ -810,7 +811,7 @@ Status flash_block(IKlineFlashTransport& transport, IClock& clock, const ICancel
         {
             return ok;
         }
-        events.log(LogLevel::Debug, "Data written to flash buffer"); // :1238
+        events.log(LogLevel::kDebug, "Data written to flash buffer"); // :1238
         // :1254-1286. Legacy printed the previous chunk's speed (and an
         // uninitialised one first); this chunk's is printed instead.
         const std::uint64_t elapsed_ms = elapsed_milliseconds(chunk_started, clock.now());
@@ -826,21 +827,21 @@ Status flash_block(IKlineFlashTransport& transport, IClock& clock, const ICancel
             tleft = 9999U;
         }
         ++tleft;
-        events.log(LogLevel::Info, std::format("Write flash buffer: 0x{:08X} ({}% - {} B/s, ~ {} s remain)", address,
-                                               (100U * offset) / block.length, curspeed, tleft));
+        events.log(LogLevel::kInfo, std::format("Write flash buffer: 0x{:08X} ({}% - {} B/s, ~ {} s remain)", address,
+                                                (100U * offset) / block.length, curspeed, tleft));
         events.progress(static_cast<int>(written), static_cast<int>(total)); // :1288-1289
 
         // :1291-1358.
         if (commit_start + kCommitBlockSize == address + kWriteChunkSize)
         {
             const std::uint32_t crc = fastecu::checksum::crc32(image.subspan(commit_start, kCommitBlockSize));
-            events.log(LogLevel::Info, "Flash buffer write complete... ");
-            events.log(LogLevel::Debug, std::format("Image CRC32: 0x{:x}", crc));
+            events.log(LogLevel::kInfo, "Flash buffer write complete... ");
+            events.log(LogLevel::kDebug, std::format("Image CRC32: 0x{:x}", crc));
             const std::uint8_t commit = test_write ? kOpValidateFlashBuffer : kOpCommitFlashBuffer;
-            events.log(LogLevel::Info, test_write ? std::format("Validate flash addr: 0x{:x}", commit_start)
-                                                  : std::format("Committ flash addr: 0x{:x}", commit_start));
-            events.log(LogLevel::Info, std::format(" len: 0x{:x}", kCommitBlockSize));
-            events.log(LogLevel::Info, std::format(" crc32: 0x{:x}", crc));
+            events.log(LogLevel::kInfo, test_write ? std::format("Validate flash addr: 0x{:x}", commit_start)
+                                                   : std::format("Committ flash addr: 0x{:x}", commit_start));
+            events.log(LogLevel::kInfo, std::format(" len: 0x{:x}", kCommitBlockSize));
+            events.log(LogLevel::kInfo, std::format(" crc32: 0x{:x}", crc));
             Result<bytes::Bytes> committed = kernel_exchange(
                 transport, clock, cancellation, events,
                 frame(commit, composeBe(commit_start, static_cast<std::uint16_t>(kCommitBlockSize), crc)),
@@ -874,10 +875,10 @@ Status reflash_block(IKlineFlashTransport& transport, IClock& clock, const ICanc
         }
         flash_write_init = true;
     }
-    events.log(LogLevel::Info,
+    events.log(LogLevel::kInfo,
                std::format("Flash block addr: 0x{:08X} len: 0x{:08X}", block.start, block.length)); // :1065
     // :1068-1105 -- `> 9`, voltage at(5..6) / 50.
-    events.log(LogLevel::Info, "Check flash voltage");
+    events.log(LogLevel::kInfo, "Check flash voltage");
     Result<bytes::Bytes> volt =
         kernel_exchange(transport, clock, cancellation, events, frame(kOpProgVolt), kMediumTimeout, "prog voltage");
     if (!volt.has_value())
@@ -890,17 +891,17 @@ Status reflash_block(IKlineFlashTransport& transport, IClock& clock, const ICanc
     }
     // QString::number(float) is 'g' with precision 6, as is std::format's {:g}.
     const auto prog_voltage = static_cast<float>(bytes::readU16Be(*volt, 5) / 50.0);
-    events.log(LogLevel::Info, std::format(": {:g}V", prog_voltage));
+    events.log(LogLevel::kInfo, std::format(": {:g}V", prog_voltage));
 
     // :1107-1115.
     if (Status flashed = flash_block(transport, clock, cancellation, events, image, block, test_write, written, total);
         !flashed.has_value())
     {
-        events.log(LogLevel::Error, "Reflash error! Do not panic, do not reset the ECU immediately. The kernel is "
-                                    "most likely still running and receiving commands!");
+        events.log(LogLevel::kError, "Reflash error! Do not panic, do not reset the ECU immediately. The kernel is "
+                                     "most likely still running and receiving commands!");
         return flashed;
     }
-    events.log(LogLevel::Info, "Flash block ok");
+    events.log(LogLevel::kInfo, "Flash block ok");
     return {};
 }
 
@@ -911,24 +912,24 @@ Status write_mem(IKlineFlashTransport& transport, IClock& clock, const ICancella
     const FlashDevice *device = find_flash_device(plan.mcu_name());
     if (device == nullptr || !plan.image().has_value() || plan.image()->size() < device->romsize)
     {
-        return fail(ErrorKind::InvalidConfig, "Denso SH705x K-Line write needs the full ROM image");
+        return fail(ErrorKind::kInvalidConfig, "Denso SH705x K-Line write needs the full ROM image");
     }
     // Legacy indexed the image by absolute flash address (fblocks[0].start is
     // 0 for every SH705x device), for the compare and the write alike.
     const bytes::ByteView image = *plan.image();
-    const bool test_write = plan.operation() == FlashOperation::TestWrite;
+    const bool test_write = plan.operation() == FlashOperation::kTestWrite;
 
-    events.log(LogLevel::Info, "--- Comparing ECU flash memory pages to image file ---"); // :661
-    events.log(LogLevel::Info, "blk\tstart\tlen\tecu crc\timg crc\tsame?");               // :662
+    events.log(LogLevel::kInfo, "--- Comparing ECU flash memory pages to image file ---"); // :661
+    events.log(LogLevel::kInfo, "blk\tstart\tlen\tecu crc\timg crc\tsame?");               // :662
     Result<std::vector<bool>> changed = compare_blocks(transport, clock, cancellation, events, *device, image);
     if (!changed.has_value())
     {
-        events.log(LogLevel::Error, "Error in ROM compare"); // :666
+        events.log(LogLevel::kError, "Error in ROM compare"); // :666
         return std::unexpected(changed.error());
     }
     if (log_changed_blocks(events, *changed) == 0)
     {
-        events.log(LogLevel::Info,
+        events.log(LogLevel::kInfo,
                    "*** Compare results no difference between ROM and ECU data, no flashing needed! ***"); // :751
         return {};
     }
@@ -942,8 +943,8 @@ Status write_mem(IKlineFlashTransport& transport, IClock& clock, const ICancella
             total += device->fblocks[i].len;
         }
     }
-    events.log(LogLevel::Info, "--- Start writing ROM file to ECU flash memory ---"); // :695
-    events.progress(0, static_cast<int>(total));                                      // :654
+    events.log(LogLevel::kInfo, "--- Start writing ROM file to ECU flash memory ---"); // :695
+    events.progress(0, static_cast<int>(total));                                       // :654
     bool flash_write_init = false;
     std::uint64_t written = 0;
     for (unsigned i = 0; i < device->numblocks; ++i)
@@ -957,18 +958,18 @@ Status write_mem(IKlineFlashTransport& transport, IClock& clock, const ICancella
                                       flash_write_init, written, total);
             !ok.has_value())
         {
-            events.log(LogLevel::Info, std::format("Block {} reflash failed.", i)); // :703
+            events.log(LogLevel::kInfo, std::format("Block {} reflash failed.", i)); // :703
             return ok;
         }
-        events.log(LogLevel::Info, std::format("Block {} reflash complete.", i)); // :709
+        events.log(LogLevel::kInfo, std::format("Block {} reflash complete.", i)); // :709
     }
 
-    events.log(LogLevel::Info, "--- Comparing ECU flash memory pages to image file after reflash ---"); // :715
-    events.log(LogLevel::Info, "blk\tstart\tlen\tecu crc\timg crc\tsame?");                             // :716
+    events.log(LogLevel::kInfo, "--- Comparing ECU flash memory pages to image file after reflash ---"); // :715
+    events.log(LogLevel::kInfo, "blk\tstart\tlen\tecu crc\timg crc\tsame?");                             // :716
     Result<std::vector<bool>> after = compare_blocks(transport, clock, cancellation, events, *device, image);
     if (!after.has_value())
     {
-        events.log(LogLevel::Error, "Error in ROM compare"); // :720
+        events.log(LogLevel::kError, "Error in ROM compare"); // :720
         return std::unexpected(after.error());
     }
     const unsigned still_different = log_changed_blocks(events, *after);
@@ -976,16 +977,16 @@ Status write_mem(IKlineFlashTransport& transport, IClock& clock, const ICancella
     {
         // :746 -- a validate-only pass leaves the flash unchanged, so the
         // post-compare still differs by design.
-        events.log(LogLevel::Info, "*** Test write PASS, it's ok to perform actual write! ***");
+        events.log(LogLevel::kInfo, "*** Test write PASS, it's ok to perform actual write! ***");
         return {};
     }
     if (still_different != 0)
     {
-        events.log(LogLevel::Error, "*** ERROR IN FLASH PROCESS ***"); // :739
-        events.log(LogLevel::Error,
+        events.log(LogLevel::kError, "*** ERROR IN FLASH PROCESS ***"); // :739
+        events.log(LogLevel::kError,
                    "Don't power off your ECU, kernel is still running and you can try flashing again!"); // :740
         // Correction: legacy returned STATUS_SUCCESS here (:754).
-        return fail(ErrorKind::BadResponse, "ECU flash still differs from the image after reflash");
+        return fail(ErrorKind::kBadResponse, "ECU flash still differs from the image after reflash");
     }
     return {};
 }
@@ -1015,7 +1016,7 @@ bytes::Bytes denso_sh705x_kline_balanced_kernel(bytes::ByteView kernel)
 
 Result<KlineConfig> SubaruDensoSh705xKlineExecutor::transport_setup(const FlashPlan& plan) const
 {
-    if (Status match = check_family(plan, FlashFamily::SubaruDensoSh705xKline); !match.has_value())
+    if (Status match = check_family(plan, FlashFamily::kSubaruDensoSh705xKline); !match.has_value())
     {
         return std::unexpected(match.error());
     }
@@ -1046,7 +1047,7 @@ Result<FlashExecutionResult> SubaruDensoSh705xKlineExecutor::execute(const Flash
                                                                      const ICancellationToken& cancellation,
                                                                      IEventSink& events)
 {
-    if (Status match = check_family(plan, FlashFamily::SubaruDensoSh705xKline); !match.has_value())
+    if (Status match = check_family(plan, FlashFamily::kSubaruDensoSh705xKline); !match.has_value())
     {
         return std::unexpected(match.error());
     }
@@ -1065,7 +1066,7 @@ Result<FlashExecutionResult> SubaruDensoSh705xKlineExecutor::execute(const Flash
     {
         return std::unexpected(ecu_id.error());
     }
-    if (plan.operation() == FlashOperation::Read)
+    if (plan.operation() == FlashOperation::kRead)
     {
         // :92-93 -- externalLoggerMessage() precedes the LOG_I() the brief
         // cites; every ported sibling executor keeps both (e.g.
@@ -1073,7 +1074,7 @@ Result<FlashExecutionResult> SubaruDensoSh705xKlineExecutor::execute(const Flash
         // step-3 snippet; added here to match legacy and the established
         // pattern (see task-7-report.md).
         events.notice("Reading ROM, please wait...");
-        events.log(LogLevel::Info, "Reading ROM from Subaru 04 32-bit using K-Line");
+        events.log(LogLevel::kInfo, "Reading ROM from Subaru 04 32-bit using K-Line");
         Result<bytes::Bytes> rom = read_mem(transport, clock, cancellation, events, plan.transfer_region());
         if (!rom.has_value())
         {
@@ -1088,7 +1089,7 @@ Result<FlashExecutionResult> SubaruDensoSh705xKlineExecutor::execute(const Flash
     }
     // :96-101 -- test_write and write share write_mem().
     events.notice("Writing ROM, please wait...");
-    events.log(LogLevel::Info, "Writing ROM to Subaru 04 32-bit using K-Line");
+    events.log(LogLevel::kInfo, "Writing ROM to Subaru 04 32-bit using K-Line");
     if (Status written = write_mem(transport, clock, cancellation, events, plan); !written.has_value())
     {
         return std::unexpected(written.error());

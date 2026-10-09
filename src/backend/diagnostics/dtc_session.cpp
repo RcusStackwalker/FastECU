@@ -39,7 +39,7 @@ struct KlineIds
 
 constexpr KlineIds ids_for(ObdProtocol protocol)
 {
-    return protocol == ObdProtocol::Iso9141 ? KlineIds{0x68, 0xF1, 0x6A} : KlineIds{0xC0, 0xF1, 0x33};
+    return protocol == ObdProtocol::kIso9141 ? KlineIds{0x68, 0xF1, 0x6A} : KlineIds{0xC0, 0xF1, 0x33};
 }
 
 std::string as_text(const bytes::Bytes& data)
@@ -60,7 +60,7 @@ class DtcRun
     {
         const Status outcome = body();
         // Today's select_operation epilogue; its results were never checked.
-        std::ignore = link_.set_header(KlineHeader::None);
+        std::ignore = link_.set_header(KlineHeader::kNone);
         std::ignore = link_.reset();
         if (!outcome.has_value())
         {
@@ -80,32 +80,32 @@ class DtcRun
         {
             return info;
         }
-        return request_.operation == DtcOperation::Read ? read_dtcs() : clear_dtcs();
+        return request_.operation == DtcOperation::kRead ? read_dtcs() : clear_dtcs();
     }
 
     Status init()
     {
         switch (request_.protocol)
         {
-        case ObdProtocol::Iso9141:
-            return five_baud(ObdProtocol::Iso9141);
-        case ObdProtocol::Iso14230:
-            if (auto fast = fast_init(); fast.has_value() || fast.error().kind == ErrorKind::Cancelled)
+        case ObdProtocol::kIso9141:
+            return five_baud(ObdProtocol::kIso9141);
+        case ObdProtocol::kIso14230:
+            if (auto fast = fast_init(); fast.has_value() || fast.error().kind == ErrorKind::kCancelled)
             {
                 return fast;
             }
-            return five_baud(ObdProtocol::Iso14230);
-        case ObdProtocol::Iso15765:
+            return five_baud(ObdProtocol::kIso14230);
+        case ObdProtocol::kIso15765:
             return can_init();
         }
-        return fail(ErrorKind::Internal, "unknown OBD protocol");
+        return fail(ErrorKind::kInternal, "unknown OBD protocol");
     }
 
     Status five_baud(ObdProtocol requested)
     {
         const std::string name(protocol_name(requested));
         const KlineIds ids = ids_for(requested);
-        if (auto opened = link_.open(KlineLinkConfig{.header = KlineHeader::None,
+        if (auto opened = link_.open(KlineLinkConfig{.header = KlineHeader::kNone,
                                                      .iso14230_connection = false,
                                                      .baud = 10400,
                                                      .start_byte = ids.start_byte,
@@ -132,7 +132,7 @@ class DtcRun
         if (!header.has_value())
         {
             error(name + " five baud init failed.");
-            return fail(ErrorKind::BadResponse, name + " five baud init failed");
+            return fail(ErrorKind::kBadResponse, name + " five baud init failed");
         }
         std::ignore = link_.set_header(*header);
         info(name + " five baud init succesfully completed.");
@@ -141,8 +141,8 @@ class DtcRun
 
     Status fast_init()
     {
-        const KlineIds ids = ids_for(ObdProtocol::Iso14230);
-        if (auto opened = link_.open(KlineLinkConfig{.header = KlineHeader::Iso14230,
+        const KlineIds ids = ids_for(ObdProtocol::kIso14230);
+        if (auto opened = link_.open(KlineLinkConfig{.header = KlineHeader::kIso14230,
                                                      .iso14230_connection = true,
                                                      .baud = 10400,
                                                      .start_byte = ids.start_byte,
@@ -165,7 +165,7 @@ class DtcRun
         if (!frame->has_value() || !fast_init_accepted(**frame))
         {
             error("iso14230 fast init mode failed.");
-            return fail(ErrorKind::BadResponse, "iso14230 fast init mode failed");
+            return fail(ErrorKind::kBadResponse, "iso14230 fast init mode failed");
         }
         info("iso14230 fast init mode succesfully completed.");
         return {};
@@ -183,7 +183,7 @@ class DtcRun
             return opened;
         }
         info("Initialising iso15765 CAN communications, please wait...");
-        const bytes::Bytes probe = build_request(ObdProtocol::Iso15765, kCanSource, bytes::Bytes{kLiveData, 0x00});
+        const bytes::Bytes probe = build_request(ObdProtocol::kIso15765, kCanSource, bytes::Bytes{kLiveData, 0x00});
         if (auto written = link_.write(probe); !written.has_value())
         {
             return std::unexpected(written.error());
@@ -196,18 +196,18 @@ class DtcRun
         const bytes::Bytes f = frame->value_or(bytes::Bytes{});
         if (f.size() <= 4)
         {
-            return fail(ErrorKind::BadResponse, "no iso15765 init response");
+            return fail(ErrorKind::kBadResponse, "no iso15765 init response");
         }
         if (f[4] == 0x7F)
         {
             // Today's code describes the NRC from offset 3, not 4.
             error("Wrong response from ECU: " + nrc_description(bytes::ByteView(f).subspan(3)));
-            return fail(ErrorKind::BadResponse, "iso15765 init rejected");
+            return fail(ErrorKind::kBadResponse, "iso15765 init rejected");
         }
         if (f[4] != 0x41)
         {
             error("Wrong response from ECU: " + format_hex(f));
-            return fail(ErrorKind::BadResponse, "iso15765 init wrong response");
+            return fail(ErrorKind::kBadResponse, "iso15765 init wrong response");
         }
         info("iso15765 init mode succesfully completed.");
         return {};
@@ -301,7 +301,7 @@ class DtcRun
             }
             if (response->empty())
             {
-                return fail(ErrorKind::BadResponse, list.missing);
+                return fail(ErrorKind::kBadResponse, list.missing);
             }
             info(std::string(list.label) + format_hex(*response));
             report_.*list.field = decode_dtcs(*response);
@@ -362,7 +362,7 @@ class DtcRun
         }
         if (!cleared)
         {
-            return fail(ErrorKind::BadResponse, "clear DTCs not acknowledged");
+            return fail(ErrorKind::kBadResponse, "clear DTCs not acknowledged");
         }
         report_.cleared = true;
         info("Diagnostic trouble codes succesfully cleared!");
@@ -396,13 +396,13 @@ class DtcRun
             }
             const bytes::Bytes& f = **frame;
             const ResponseCheck check = check_response(request_.protocol, f, mode, pid);
-            if (check == ResponseCheck::Nrc)
+            if (check == ResponseCheck::kNrc)
             {
                 error("Wrong response from ECU: " +
                       nrc_description(bytes::ByteView(f).subspan(response_index(request_.protocol))));
                 break;
             }
-            if (check == ResponseCheck::WrongId)
+            if (check == ResponseCheck::kWrongId)
             {
                 error("Wrong response from ECU: " + format_hex(f));
                 break;
@@ -421,11 +421,11 @@ class DtcRun
 
     void info(const std::string& message)
     {
-        events_.log(LogLevel::Info, message);
+        events_.log(LogLevel::kInfo, message);
     }
     void error(const std::string& message)
     {
-        events_.log(LogLevel::Error, message);
+        events_.log(LogLevel::kError, message);
     }
 
     DtcRequest request_;

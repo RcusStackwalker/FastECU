@@ -50,7 +50,7 @@ std::optional<config::ConfigPaths> bundledKernelPaths(const QTemporaryDir& direc
 // reason for an Unsupported rejection.
 std::optional<bytes::Bytes> imageFor(const config::ProtocolSpec& protocol, FlashOperation operation)
 {
-    if (operation == FlashOperation::Read)
+    if (operation == FlashOperation::kRead)
     {
         return std::nullopt;
     }
@@ -74,13 +74,13 @@ TEST(BuiltinCatalogCapability, EveryOfferedOperationIsAcceptedAndEveryOtherIsUns
         if (!protocol.read && !protocol.test_write && !protocol.write)
         {
             EXPECT_TRUE(FlashWorkflowFactory::tryCreate(
-                            {.operation = FlashOperation::Read, .protocol = protocol, .paths = *paths}) == nullptr)
+                            {.operation = FlashOperation::kRead, .protocol = protocol, .paths = *paths}) == nullptr)
                 << protocol.name << " offers no operation but has a route";
             continue;
         }
-        for (const auto& [operation, offered] :
-             {std::pair{FlashOperation::Read, protocol.read}, std::pair{FlashOperation::TestWrite, protocol.test_write},
-              std::pair{FlashOperation::Write, protocol.write}})
+        for (const auto& [operation, offered] : {std::pair{FlashOperation::kRead, protocol.read},
+                                                 std::pair{FlashOperation::kTestWrite, protocol.test_write},
+                                                 std::pair{FlashOperation::kWrite, protocol.write}})
         {
             SCOPED_TRACE(std::format("{} operation {}", protocol.name, static_cast<int>(operation)));
             auto workflow = FlashWorkflowFactory::tryCreate({.operation = operation,
@@ -95,15 +95,15 @@ TEST(BuiltinCatalogCapability, EveryOfferedOperationIsAcceptedAndEveryOtherIsUns
             if (!offered)
             {
                 ASSERT_TRUE(failure != nullptr) << "an unoffered operation passed preflight";
-                EXPECT_EQ(failure->error.kind, ErrorKind::Unsupported) << failure->error.detail;
+                EXPECT_EQ(failure->error.kind, ErrorKind::kUnsupported) << failure->error.detail;
             }
-            else if (operation == FlashOperation::Read)
+            else if (operation == FlashOperation::kRead)
             {
                 EXPECT_TRUE(failure == nullptr) << (failure != nullptr ? failure->error.detail : std::string{});
             }
             else if (failure != nullptr)
             {
-                EXPECT_NE(failure->error.kind, ErrorKind::Unsupported) << failure->error.detail;
+                EXPECT_NE(failure->error.kind, ErrorKind::kUnsupported) << failure->error.detail;
             }
         }
     }

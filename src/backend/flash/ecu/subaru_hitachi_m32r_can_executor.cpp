@@ -172,7 +172,7 @@ Status connect_bootloader(Ctx& ctx)
         // STATUS_ERROR;` (line 759): this is the only failure point in
         // connect_bootloader with no dedicated legacy log line, and the
         // first point that DOES propagate rather than falling through.
-        return fail(ErrorKind::Timeout, "no response from ECU during the session-scope probe");
+        return fail(ErrorKind::kTimeout, "no response from ECU during the session-scope probe");
     }
     const bytes::Bytes& session_probe = **probe;
     // `at(5) != 0xA0 && at(6) != 0x20` selects on-car; De Morgan's gives
@@ -181,7 +181,7 @@ Status connect_bootloader(Ctx& ctx)
     {
         // On-car programming branch (lines 281-579): out of scope per the
         // design's on-car scope decision (only the bench path is ported).
-        return fail(ErrorKind::Unsupported, "on-car programming is not supported by this port");
+        return fail(ErrorKind::kUnsupported, "on-car programming is not supported by this port");
     }
     info(ctx, "Bench Programming, Accessing...");
 
@@ -275,7 +275,7 @@ Result<bytes::Bytes> dump_flash_range(Ctx& ctx, PhaseReporter& progress)
         // Legacy stopRequested() at line 840, top of loop.
         if (ctx.cancellation.cancelled())
         {
-            return fail(ErrorKind::Cancelled, "read cancelled");
+            return fail(ErrorKind::kCancelled, "read cancelled");
         }
 
         // Lines 823-832/855-858: SID 0xB7 + 3-byte big-endian address.
@@ -347,7 +347,7 @@ Status erase_memory(Ctx& ctx)
     if (!connected)
     {
         error(ctx, "Flash area erase failed");
-        return fail(ErrorKind::BadResponse, "flash area erase failed");
+        return fail(ErrorKind::kBadResponse, "flash area erase failed");
     }
     info(ctx, "Flash erased! Starting flash write, do not power off!");
     return {};
@@ -385,7 +385,7 @@ Status unlock_and_reflash_block(Ctx& ctx, bytes::ByteView image, PhaseReporter& 
         // and reports Cancelled like every other family's write loop.
         if (ctx.cancellation.cancelled())
         {
-            return fail(ErrorKind::Cancelled, "write cancelled");
+            return fail(ErrorKind::kCancelled, "write cancelled");
         }
 
         const bytes::ByteView chunk_data = bytes::ByteView(encrypted).subspan(addr, kChunkSize);
@@ -455,7 +455,7 @@ Status write_mem(Ctx& ctx, bytes::ByteView image, PhaseSequence& phases)
 
 Result<Iso15765Config> SubaruHitachiM32rCanExecutor::transport_setup(const FlashPlan& plan) const
 {
-    if (const Status match = check_family(plan, FlashFamily::SubaruHitachiM32rCan); !match.has_value())
+    if (const Status match = check_family(plan, FlashFamily::kSubaruHitachiM32rCan); !match.has_value())
     {
         return std::unexpected(match.error());
     }
@@ -472,7 +472,7 @@ Result<FlashExecutionResult> SubaruHitachiM32rCanExecutor::execute(const FlashPl
                                                                    const ICancellationToken& cancellation,
                                                                    IEventSink& events)
 {
-    if (const Status matched = check_family(plan, FlashFamily::SubaruHitachiM32rCan); !matched.has_value())
+    if (const Status matched = check_family(plan, FlashFamily::kSubaruHitachiM32rCan); !matched.has_value())
     {
         return std::unexpected(matched.error());
     }
@@ -482,12 +482,12 @@ Result<FlashExecutionResult> SubaruHitachiM32rCanExecutor::execute(const FlashPl
     }
     if (cancellation.cancelled())
     {
-        return fail(ErrorKind::Cancelled, "cancelled before setup");
+        return fail(ErrorKind::kCancelled, "cancelled before setup");
     }
 
     const auto& family = std::get<SubaruHitachiM32rCanPlan>(plan.family_plan());
 
-    const bool read = plan.operation() == FlashOperation::Read;
+    const bool read = plan.operation() == FlashOperation::kRead;
     PhaseSequence phases(events, read ? 2 : 3);
     PhaseReporter connect = phases.start(read ? "Connect to ECU" : "Connect", 1);
 
@@ -502,7 +502,7 @@ Result<FlashExecutionResult> SubaruHitachiM32rCanExecutor::execute(const FlashPl
     }
     connect.complete();
 
-    if (plan.operation() == FlashOperation::Read)
+    if (plan.operation() == FlashOperation::kRead)
     {
         events.notice("Reading ROM, please wait...");
         info(ctx, "Reading ROM from ECU Subaru using CAN");
@@ -515,7 +515,7 @@ Result<FlashExecutionResult> SubaruHitachiM32rCanExecutor::execute(const FlashPl
         }
         read_phase.complete();
         return FlashExecutionResult{
-            .operation = FlashOperation::Read,
+            .operation = FlashOperation::kRead,
             .read_bytes = std::move(*rom),
         };
     }
@@ -523,9 +523,9 @@ Result<FlashExecutionResult> SubaruHitachiM32rCanExecutor::execute(const FlashPl
     // build_subaru_hitachi_m32r_can_plan refuses TestWrite; the guard is
     // repeated here so a plan built another way cannot turn a dry run into a
     // real erase and write.
-    if (plan.operation() != FlashOperation::Write)
+    if (plan.operation() != FlashOperation::kWrite)
     {
-        return fail(ErrorKind::Unsupported, "test_write is not supported by the Subaru Hitachi M32R CAN family");
+        return fail(ErrorKind::kUnsupported, "test_write is not supported by the Subaru Hitachi M32R CAN family");
     }
 
     events.notice("Writing ROM, please wait...");

@@ -84,25 +84,25 @@ KernelImage kernel_for(const DieselCase& diesel, bytes::Bytes data = {0x01, 0x02
 
 std::optional<bytes::Bytes> image_for(const DieselCase& diesel, FlashOperation operation)
 {
-    if (operation == FlashOperation::Read)
+    if (operation == FlashOperation::kRead)
     {
         return std::nullopt;
     }
     return bytes::Bytes(diesel.rom_size, bytes::Byte{0});
 }
 
-FlashPlanFields valid_fields(const DieselCase& diesel, FlashOperation operation = FlashOperation::Write)
+FlashPlanFields valid_fields(const DieselCase& diesel, FlashOperation operation = FlashOperation::kWrite)
 {
     const auto& blocks = blocks_for(diesel);
     return {
         .operation = operation,
-        .family = FlashFamily::SubaruDensoSh7058CanDiesel,
-        .transport = TransportKind::CanIso15765,
+        .family = FlashFamily::kSubaruDensoSh7058CanDiesel,
+        .transport = TransportKind::kCanIso15765,
         .target_id = std::string(diesel.protocol),
         .mcu_name = std::string(diesel.mcu),
         .transfer_region = {0, static_cast<std::uint32_t>(diesel.rom_size)},
-        .erase_regions = operation == FlashOperation::Read ? std::vector<MemoryRegion>{}
-                                                           : std::vector<MemoryRegion>(blocks.begin(), blocks.end()),
+        .erase_regions = operation == FlashOperation::kRead ? std::vector<MemoryRegion>{}
+                                                            : std::vector<MemoryRegion>(blocks.begin(), blocks.end()),
         .image = image_for(diesel, operation),
         .kernel = kernel_for(diesel),
         .family_plan = SubaruDensoSh7058CanDieselPlan{},
@@ -114,13 +114,14 @@ TEST(SubaruDensoSh7058CanDieselPlan, BuildsBothExactGenerationsForEveryOperation
 {
     for (const DieselCase& diesel : kDiesel)
     {
-        for (const FlashOperation operation : {FlashOperation::Read, FlashOperation::TestWrite, FlashOperation::Write})
+        for (const FlashOperation operation :
+             {FlashOperation::kRead, FlashOperation::kTestWrite, FlashOperation::kWrite})
         {
             const auto plan = build_subaru_denso_sh7058_can_diesel_plan(
                 operation, diesel.protocol, diesel.mcu, image_for(diesel, operation), kernel_for(diesel));
             ASSERT_TRUE(plan.has_value()) << diesel.protocol << ": " << plan.error().detail;
-            EXPECT_EQ(plan->family(), FlashFamily::SubaruDensoSh7058CanDiesel);
-            EXPECT_EQ(plan->transport(), TransportKind::CanIso15765);
+            EXPECT_EQ(plan->family(), FlashFamily::kSubaruDensoSh7058CanDiesel);
+            EXPECT_EQ(plan->transport(), TransportKind::kCanIso15765);
             EXPECT_EQ(plan->target_id(), diesel.protocol);
             EXPECT_EQ(plan->mcu_name(), diesel.mcu);
             EXPECT_EQ(plan->transfer_region().start, 0U);
@@ -136,7 +137,7 @@ TEST(SubaruDensoSh7058CanDieselPlan, BuildsBothExactGenerationsForEveryOperation
             EXPECT_EQ(wire.bitrate, 500000);
             EXPECT_FALSE(wire.extended_id);
 
-            if (operation == FlashOperation::Read)
+            if (operation == FlashOperation::kRead)
             {
                 EXPECT_FALSE(plan->image().has_value());
                 EXPECT_TRUE(plan->erase_regions().empty());
@@ -163,18 +164,18 @@ TEST(SubaruDensoSh7058CanDieselPlan, RejectsNearMissesAndWrongMcus)
          {"unknown_diesel_can", "sub_ecu_denso_sh7058_can_diesel_future", "sub_ecu_denso_sh7059_can_diesel_extra",
           "sub_ecu_denso_sh7058_can", "sub_ecu_denso_sh7058_densocan", "sub_tcu_denso_sh7058_can"})
     {
-        const auto plan = build_subaru_denso_sh7058_can_diesel_plan(FlashOperation::Read, protocol, "SH7058d",
+        const auto plan = build_subaru_denso_sh7058_can_diesel_plan(FlashOperation::kRead, protocol, "SH7058d",
                                                                     std::nullopt, kernel_for(kDiesel.front()));
         ASSERT_FALSE(plan.has_value()) << protocol;
-        EXPECT_EQ(plan.error().kind, ErrorKind::InvalidConfig);
+        EXPECT_EQ(plan.error().kind, ErrorKind::kInvalidConfig);
     }
     for (const DieselCase& diesel : kDiesel)
     {
-        const auto plan = build_subaru_denso_sh7058_can_diesel_plan(FlashOperation::Read, diesel.protocol,
+        const auto plan = build_subaru_denso_sh7058_can_diesel_plan(FlashOperation::kRead, diesel.protocol,
                                                                     diesel.mcu == "SH7058d" ? "SH7059d" : "SH7058d",
                                                                     std::nullopt, kernel_for(diesel));
         ASSERT_FALSE(plan.has_value()) << diesel.protocol;
-        EXPECT_EQ(plan.error().kind, ErrorKind::InvalidConfig);
+        EXPECT_EQ(plan.error().kind, ErrorKind::kInvalidConfig);
     }
 }
 
@@ -183,11 +184,11 @@ TEST(SubaruDensoSh7058CanDieselPlan, EnforcesImageAndKernelBoundsPerGeneration)
     for (const DieselCase& diesel : kDiesel)
     {
         const auto read_with_image = build_subaru_denso_sh7058_can_diesel_plan(
-            FlashOperation::Read, diesel.protocol, diesel.mcu, bytes::Bytes(diesel.rom_size, 0), kernel_for(diesel));
+            FlashOperation::kRead, diesel.protocol, diesel.mcu, bytes::Bytes(diesel.rom_size, 0), kernel_for(diesel));
         ASSERT_FALSE(read_with_image.has_value());
-        EXPECT_EQ(read_with_image.error().kind, ErrorKind::InvalidConfig);
+        EXPECT_EQ(read_with_image.error().kind, ErrorKind::kInvalidConfig);
 
-        for (const FlashOperation operation : {FlashOperation::TestWrite, FlashOperation::Write})
+        for (const FlashOperation operation : {FlashOperation::kTestWrite, FlashOperation::kWrite})
         {
             for (const std::optional<bytes::Bytes>& image :
                  {std::optional<bytes::Bytes>{}, std::optional<bytes::Bytes>{bytes::Bytes(diesel.rom_size - 1, 0)},
@@ -196,12 +197,12 @@ TEST(SubaruDensoSh7058CanDieselPlan, EnforcesImageAndKernelBoundsPerGeneration)
                 const auto plan = build_subaru_denso_sh7058_can_diesel_plan(operation, diesel.protocol, diesel.mcu,
                                                                             image, kernel_for(diesel));
                 ASSERT_FALSE(plan.has_value()) << diesel.protocol;
-                EXPECT_EQ(plan.error().kind, ErrorKind::InvalidConfig);
+                EXPECT_EQ(plan.error().kind, ErrorKind::kInvalidConfig);
             }
         }
 
         const auto exact = build_subaru_denso_sh7058_can_diesel_plan(
-            FlashOperation::Read, diesel.protocol, diesel.mcu, std::nullopt,
+            FlashOperation::kRead, diesel.protocol, diesel.mcu, std::nullopt,
             kernel_for(diesel, bytes::Bytes(diesel.kernel_region_size, bytes::Byte{0xA5})));
         if (diesel.mcu == "SH7058d")
         {
@@ -210,7 +211,7 @@ TEST(SubaruDensoSh7058CanDieselPlan, EnforcesImageAndKernelBoundsPerGeneration)
         else
         {
             ASSERT_FALSE(exact.has_value());
-            EXPECT_EQ(exact.error().kind, ErrorKind::InvalidConfig);
+            EXPECT_EQ(exact.error().kind, ErrorKind::kInvalidConfig);
         }
 
         for (KernelImage invalid : {
@@ -218,10 +219,10 @@ TEST(SubaruDensoSh7058CanDieselPlan, EnforcesImageAndKernelBoundsPerGeneration)
                  KernelImage{.id = "empty", .load_address = diesel.kernel_address, .bytes = {}},
              })
         {
-            const auto plan = build_subaru_denso_sh7058_can_diesel_plan(FlashOperation::Read, diesel.protocol,
+            const auto plan = build_subaru_denso_sh7058_can_diesel_plan(FlashOperation::kRead, diesel.protocol,
                                                                         diesel.mcu, std::nullopt, std::move(invalid));
             ASSERT_FALSE(plan.has_value()) << diesel.protocol;
-            EXPECT_EQ(plan.error().kind, ErrorKind::InvalidConfig);
+            EXPECT_EQ(plan.error().kind, ErrorKind::kInvalidConfig);
         }
     }
 }
@@ -255,7 +256,7 @@ TEST(SubaruDensoSh7058CanDieselPlan, ValidatorRejectsWireGeometryTransportAndCon
                 fields.erase_regions.pop_back();
                 break;
             case 6:
-                fields.confirmations = {ConfirmationSpec{.id = ConfirmationSpec::Id::CycleIgnition}};
+                fields.confirmations = {ConfirmationSpec{.id = ConfirmationSpec::Id::kCycleIgnition}};
                 break;
             default:
                 FAIL() << "unexpected validator mutation " << mutation;
@@ -264,7 +265,7 @@ TEST(SubaruDensoSh7058CanDieselPlan, ValidatorRejectsWireGeometryTransportAndCon
             ASSERT_TRUE(plan.has_value()) << plan.error().detail;
             const auto valid = validate_subaru_denso_sh7058_can_diesel_plan(*plan);
             ASSERT_FALSE(valid.has_value()) << diesel.protocol << " mutation " << mutation;
-            EXPECT_EQ(valid.error().kind, ErrorKind::InvalidConfig);
+            EXPECT_EQ(valid.error().kind, ErrorKind::kInvalidConfig);
         }
     }
 }
@@ -288,7 +289,7 @@ TEST(SubaruDensoSh7058CanDieselPlan, RejectsAlteredAddressesAndLengthsInEveryEra
             ASSERT_TRUE(plan.has_value()) << plan.error().detail;
             const auto validation = validate_subaru_denso_sh7058_can_diesel_plan(*plan);
             ASSERT_FALSE(validation.has_value()) << index;
-            EXPECT_EQ(validation.error(), (Error{ErrorKind::InvalidConfig, "erase geometry does not match the MCU"}));
+            EXPECT_EQ(validation.error(), (Error{ErrorKind::kInvalidConfig, "erase geometry does not match the MCU"}));
         }
     }
 }

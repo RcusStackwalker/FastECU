@@ -25,7 +25,7 @@ TEST(FakeDiagnosticLink, RecordsEveryCallInOrder)
 {
     FakeDiagnosticLink link;
     FakeCancellationToken token;
-    ASSERT_THAT(link.open(KlineLinkConfig{.header = KlineHeader::Iso14230,
+    ASSERT_THAT(link.open(KlineLinkConfig{.header = KlineHeader::kIso14230,
                                           .iso14230_connection = true,
                                           .baud = 10400,
                                           .start_byte = 0xC0,
@@ -36,7 +36,7 @@ TEST(FakeDiagnosticLink, RecordsEveryCallInOrder)
         link.open(CanLinkConfig{
             .iso15765 = true, .bitrate = 500000, .extended_id = false, .source_id = 0x7E0, .destination_id = 0x7E8}),
         IsOk());
-    ASSERT_THAT(link.set_header(KlineHeader::Iso9141), IsOk());
+    ASSERT_THAT(link.set_header(KlineHeader::kIso9141), IsOk());
     ASSERT_THAT(link.set_p1_max(35ms), IsOk());
     ASSERT_THAT(link.five_baud_init(0x33), IsOk());
     ASSERT_THAT(link.fast_init(bytes::Bytes{0x81}), IsOk());
@@ -57,18 +57,18 @@ TEST(FakeDiagnosticLink, ServesQueuedOutcomesThenNoFrame)
     FakeDiagnosticLink link;
     FakeCancellationToken token;
     link.queue_read(bytes::Bytes{0x41, 0x00});
-    link.queue_read_error(ErrorKind::Disconnected);
+    link.queue_read_error(ErrorKind::kDisconnected);
     link.queue_five_baud(bytes::Bytes{0x55, 0x08, 0x08});
-    link.queue_fast_init(fastecu::fail(ErrorKind::Disconnected));
-    link.queue_open(fastecu::fail(ErrorKind::Disconnected));
+    link.queue_fast_init(fastecu::fail(ErrorKind::kDisconnected));
+    link.queue_open(fastecu::fail(ErrorKind::kDisconnected));
 
     EXPECT_THAT(link.read(200ms, token), IsOkAnd(Optional(ElementsAre(0x41, 0x00))));
-    EXPECT_THAT(link.read_obd(200ms, token), IsErr(ErrorKind::Disconnected));
+    EXPECT_THAT(link.read_obd(200ms, token), IsErr(ErrorKind::kDisconnected));
     EXPECT_THAT(link.read(200ms, token), IsOkAnd(std::nullopt));
     EXPECT_THAT(link.five_baud_init(0x33), IsOkAnd(ElementsAre(0x55, 0x08, 0x08)));
     EXPECT_THAT(link.five_baud_init(0x33), IsOkAnd(::testing::IsEmpty()));
-    EXPECT_THAT(link.fast_init(bytes::Bytes{0x81}), IsErr(ErrorKind::Disconnected));
-    EXPECT_THAT(link.open(KlineLinkConfig{}), IsErr(ErrorKind::Disconnected));
+    EXPECT_THAT(link.fast_init(bytes::Bytes{0x81}), IsErr(ErrorKind::kDisconnected));
+    EXPECT_THAT(link.open(KlineLinkConfig{}), IsErr(ErrorKind::kDisconnected));
     EXPECT_TRUE(link.script_consumed());
 }
 
@@ -77,14 +77,14 @@ TEST(FakeDiagnosticLink, ReadHonoursCancellation)
     FakeDiagnosticLink link;
     FakeCancellationToken token(true);
     link.queue_read(bytes::Bytes{0x41});
-    EXPECT_THAT(link.read(200ms, token), IsErr(ErrorKind::Cancelled));
+    EXPECT_THAT(link.read(200ms, token), IsErr(ErrorKind::kCancelled));
     EXPECT_FALSE(link.script_consumed());
 }
 
 TEST(FakeDiagnosticLink, RecordsEvenParityAndStaysSilentForNone)
 {
     FakeDiagnosticLink link;
-    std::ignore = link.open(KlineLinkConfig{.baud = 1953, .parity = Parity::Even});
+    std::ignore = link.open(KlineLinkConfig{.baud = 1953, .parity = Parity::kEven});
     std::ignore = link.open(KlineLinkConfig{.baud = 4800});
     EXPECT_EQ(link.calls.at(0),
               "open kline header=None iso14230=false baud=1953 start=00 tester=00 target=00 parity=Even");

@@ -24,7 +24,7 @@ LoggingChannel channel()
         .id = "mut.rpm",
         .address = 0x8000,
         .length = 2,
-        .raw_assembly = RawAssembly::UnsignedIntegerDecimal,
+        .raw_assembly = RawAssembly::kUnsignedIntegerDecimal,
         .from_byte_expression = "x",
         .unit = "rpm",
         .decimal_precision = 0,
@@ -68,7 +68,7 @@ TEST(MutDmaLoggingProtocolTest, StartFailsWhenAdapterIsClosed)
     auto protocol = makeProtocol(std::move(transport));
     fastecu::FakeCancellationToken cancellation;
 
-    ASSERT_THAT(protocol->start(cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::Disconnected));
+    ASSERT_THAT(protocol->start(cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::kDisconnected));
 }
 
 TEST(MutDmaLoggingProtocolTest, StartFailurePinsBadResponseForInvalidHandshake)
@@ -79,53 +79,53 @@ TEST(MutDmaLoggingProtocolTest, StartFailurePinsBadResponseForInvalidHandshake)
     auto protocol = makeProtocol(std::move(transport));
     fastecu::FakeCancellationToken cancellation;
 
-    ASSERT_THAT(protocol->start(cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::BadResponse));
+    ASSERT_THAT(protocol->start(cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::kBadResponse));
 }
 
 TEST(MutDmaLoggingProtocolTest, StartPropagatesDisconnectedSetBaudErrorKindAndDetail)
 {
     auto transport = std::make_unique<ScriptedKlineTransport>();
-    transport->queue_set_baud_error(fastecu::ErrorKind::Disconnected, "sentinel core set-baud disconnect");
+    transport->queue_set_baud_error(fastecu::ErrorKind::kDisconnected, "sentinel core set-baud disconnect");
     auto protocol = makeProtocol(std::move(transport));
     fastecu::FakeCancellationToken cancellation;
 
     ASSERT_THAT(protocol->start(cancellation),
-                fastecu::testing::IsErrWith(fastecu::ErrorKind::Disconnected, "sentinel core set-baud disconnect"));
+                fastecu::testing::IsErrWith(fastecu::ErrorKind::kDisconnected, "sentinel core set-baud disconnect"));
 }
 
 TEST(MutDmaLoggingProtocolTest, StartPropagatesInternalSetBaudErrorKindAndDetail)
 {
     auto transport = std::make_unique<ScriptedKlineTransport>();
-    transport->queue_set_baud_error(fastecu::ErrorKind::Internal, "sentinel core set-baud internal");
+    transport->queue_set_baud_error(fastecu::ErrorKind::kInternal, "sentinel core set-baud internal");
     auto protocol = makeProtocol(std::move(transport));
     fastecu::FakeCancellationToken cancellation;
 
     ASSERT_THAT(protocol->start(cancellation),
-                fastecu::testing::IsErrWith(fastecu::ErrorKind::Internal, "sentinel core set-baud internal"));
+                fastecu::testing::IsErrWith(fastecu::ErrorKind::kInternal, "sentinel core set-baud internal"));
 }
 
 TEST(MutDmaLoggingProtocolTest, StartPropagatesQueuedWriteErrorKindAndDetail)
 {
     auto transport = std::make_unique<ScriptedKlineTransport>();
     transport->expectWrite(mutdma::buildSetupFrame(0xA0, 1));
-    transport->queue_write_error(fastecu::ErrorKind::Disconnected, "sentinel core setup write disconnect");
+    transport->queue_write_error(fastecu::ErrorKind::kDisconnected, "sentinel core setup write disconnect");
     auto protocol = makeProtocol(std::move(transport));
     fastecu::FakeCancellationToken cancellation;
 
     ASSERT_THAT(protocol->start(cancellation),
-                fastecu::testing::IsErrWith(fastecu::ErrorKind::Disconnected, "sentinel core setup write disconnect"));
+                fastecu::testing::IsErrWith(fastecu::ErrorKind::kDisconnected, "sentinel core setup write disconnect"));
 }
 
 TEST(MutDmaLoggingProtocolTest, StartPropagatesQueuedReadErrorKindAndDetail)
 {
     auto transport = std::make_unique<ScriptedKlineTransport>();
     transport->expectWrite(mutdma::buildSetupFrame(0xA0, 1));
-    transport->queue_error(fastecu::ErrorKind::Internal, "sentinel core setup read internal");
+    transport->queue_error(fastecu::ErrorKind::kInternal, "sentinel core setup read internal");
     auto protocol = makeProtocol(std::move(transport));
     fastecu::FakeCancellationToken cancellation;
 
     ASSERT_THAT(protocol->start(cancellation),
-                fastecu::testing::IsErrWith(fastecu::ErrorKind::Internal, "sentinel core setup read internal"));
+                fastecu::testing::IsErrWith(fastecu::ErrorKind::kInternal, "sentinel core setup read internal"));
 }
 
 TEST(MutDmaLoggingProtocolTest, PollReturnsNoResponseBeforeStart)
@@ -150,7 +150,7 @@ TEST(MutDmaLoggingProtocolTest, PollReturnsTransportErrorWhenAdapterClosesMidSes
     ASSERT_THAT(protocol->start(cancellation), fastecu::testing::IsOk());
     script->setOpen(false);
 
-    ASSERT_THAT(protocol->poll(20ms, cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::Disconnected));
+    ASSERT_THAT(protocol->poll(20ms, cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::kDisconnected));
 }
 
 TEST(MutDmaLoggingProtocolTest, PollReturnsStableIdAndRawDecimalString)
@@ -182,7 +182,7 @@ TEST(MutDmaLoggingProtocolTest, StartPropagatesCancellation)
     auto protocol = makeProtocol(std::move(transport));
     fastecu::FakeCancellationToken cancellation(true);
 
-    ASSERT_THAT(protocol->start(cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::Cancelled));
+    ASSERT_THAT(protocol->start(cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::kCancelled));
 }
 
 TEST(MutDmaLoggingProtocol, PollRejectsShortChecksummedPayloadAndAcceptsNextCompleteReply)

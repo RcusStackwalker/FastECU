@@ -39,8 +39,8 @@ DtcOperations::DtcOperations(fastecu::diagnostics::IDiagnosticLink& link, QWidge
         }
     }
 
-    connect(ui_->readDtcButton, &QPushButton::clicked, this, [this] { start(DtcOperation::Read); });
-    connect(ui_->clearDtcButton, &QPushButton::clicked, this, [this] { start(DtcOperation::Clear); });
+    connect(ui_->readDtcButton, &QPushButton::clicked, this, [this] { start(DtcOperation::kRead); });
+    connect(ui_->clearDtcButton, &QPushButton::clicked, this, [this] { start(DtcOperation::kClear); });
     connect(ui_->closeButton, &QPushButton::clicked, this, &QDialog::close);
 
     this->show();
@@ -51,18 +51,18 @@ DtcOperations::~DtcOperations() = default;
 void DtcOperations::start(DtcOperation operation)
 {
     const QString text = ui_->protocolComboBox->currentText();
-    ObdProtocol protocol = ObdProtocol::Iso9141;
+    ObdProtocol protocol = ObdProtocol::kIso9141;
     if (text.startsWith("iso9141"))
     {
-        protocol = ObdProtocol::Iso9141;
+        protocol = ObdProtocol::kIso9141;
     }
     else if (text.startsWith("iso14230"))
     {
-        protocol = ObdProtocol::Iso14230;
+        protocol = ObdProtocol::kIso14230;
     }
     else if (text.startsWith("iso15765"))
     {
-        protocol = ObdProtocol::Iso15765;
+        protocol = ObdProtocol::kIso15765;
     }
     else
     {
@@ -78,15 +78,15 @@ void DtcOperations::start(DtcOperation operation)
 
 void DtcOperations::forwardLog(int level, const QString& message)
 {
-    if (level == static_cast<int>(fastecu::LogLevel::Error))
+    if (level == static_cast<int>(fastecu::LogLevel::kError))
     {
         emit LOG_E(message, true, true);
     }
-    else if (level == static_cast<int>(fastecu::LogLevel::Warning))
+    else if (level == static_cast<int>(fastecu::LogLevel::kWarning))
     {
         emit LOG_W(message, true, true);
     }
-    else if (level == static_cast<int>(fastecu::LogLevel::Debug))
+    else if (level == static_cast<int>(fastecu::LogLevel::kDebug))
     {
         emit LOG_D(message, true, true);
     }

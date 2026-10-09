@@ -101,7 +101,7 @@ TEST(ReadSelection, ReturnsNulloptWhenTheEcuIsAbsent)
 TEST(ReadSelection, RejectsMalformedXml)
 {
     const auto result = read_selection(view("<config><logger>"), "ECUID1", "broken.xml");
-    ASSERT_THAT(result, fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
+    ASSERT_THAT(result, fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
     EXPECT_THAT(result.error().detail, HasSubstr("broken.xml"));
 }
 
@@ -186,7 +186,7 @@ TEST(WriteSelection, RejectsADocumentWhoseRootIsNotConfig)
 
     const auto written =
         write_selection(view(R"(<notconfig><data id="keep"/></notconfig>)"), "ECUID1", selection, "conf.xml");
-    ASSERT_THAT(written, fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
+    ASSERT_THAT(written, fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
     EXPECT_THAT(written.error().detail, HasSubstr("conf.xml"));
     EXPECT_THAT(written.error().detail, HasSubstr("notconfig"));
 }
@@ -218,7 +218,7 @@ TEST(WriteSelection, RejectsAnEmptyDocument)
     selection.protocol = "SSM";
 
     ASSERT_THAT(write_selection(view(""), "ECUID1", selection, "conf.xml"),
-                fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
+                fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
 }
 
 TEST(WriteSelection, AppendsANewEcuElementAndKeepsTheExistingOne)

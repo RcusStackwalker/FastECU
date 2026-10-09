@@ -103,11 +103,11 @@ Result<BeefMessage> parse_beef(bytes::ByteView pdu)
 {
     if (pdu.size() < 5)
     {
-        return fail(ErrorKind::BadResponse, "short BEEF response envelope");
+        return fail(ErrorKind::kBadResponse, "short BEEF response envelope");
     }
     if (bytes::readU16Be(pdu) != kKernelStartComm)
     {
-        return fail(ErrorKind::BadResponse, "wrong BEEF response marker");
+        return fail(ErrorKind::kBadResponse, "wrong BEEF response marker");
     }
     const std::uint16_t declared = bytes::readU16Be(pdu, 2);
     // The legacy serial reader can return a complete ISO payload with
@@ -117,7 +117,7 @@ Result<BeefMessage> parse_beef(bytes::ByteView pdu)
     // opcode-plus-payload body.
     if (declared < 1 || static_cast<std::size_t>(declared) + 4 > pdu.size())
     {
-        return fail(ErrorKind::BadResponse, "invalid BEEF response length");
+        return fail(ErrorKind::kBadResponse, "invalid BEEF response length");
     }
     return BeefMessage{.opcode = pdu[4], .payload = pdu.subspan(5, declared - 1)};
 }
@@ -148,7 +148,7 @@ Result<bytes::Bytes> channel_request(Context& context, bytes::ByteView pdu, std:
     }
     if (!received->has_value())
     {
-        return fail(ErrorKind::Timeout, "no CAN response within the read timeout");
+        return fail(ErrorKind::kTimeout, "no CAN response within the read timeout");
     }
     return std::move(**received);
 }
@@ -165,7 +165,7 @@ Status discard_stale_frame(Context& context)
     }
     Result<std::optional<bytes::Bytes>> stale = context.transport.read(kShortTimeout, context.cancellation);
     if (!stale.has_value() &&
-        (stale.error().kind == ErrorKind::Cancelled || stale.error().kind == ErrorKind::Disconnected))
+        (stale.error().kind == ErrorKind::kCancelled || stale.error().kind == ErrorKind::kDisconnected))
     {
         return std::unexpected(stale.error());
     }
@@ -192,12 +192,12 @@ Result<bytes::Bytes> beef_exchange(Context& context, bytes::Byte opcode, bytes::
     const bytes::Byte expected_opcode = static_cast<bytes::Byte>(opcode | 0x40U);
     if (parsed->opcode != expected_opcode)
     {
-        return fail(ErrorKind::BadResponse, std::format("unexpected BEEF response opcode 0x{:02x}, expected 0x{:02x}",
-                                                        parsed->opcode, expected_opcode));
+        return fail(ErrorKind::kBadResponse, std::format("unexpected BEEF response opcode 0x{:02x}, expected 0x{:02x}",
+                                                         parsed->opcode, expected_opcode));
     }
     if (parsed->payload.size() < minimum_payload)
     {
-        return fail(ErrorKind::BadResponse, "short BEEF response payload");
+        return fail(ErrorKind::kBadResponse, "short BEEF response payload");
     }
     return bytes::Bytes(parsed->payload.begin(), parsed->payload.end());
 }
@@ -237,12 +237,12 @@ Result<std::optional<std::string>> request_kernel_id(Context& context, bool tole
         }
         if (!received.has_value())
         {
-            if (received.error().kind == ErrorKind::Timeout)
+            if (received.error().kind == ErrorKind::kTimeout)
             {
                 continue;
             }
-            if (tolerate_malformed && received.error().kind != ErrorKind::Cancelled &&
-                received.error().kind != ErrorKind::Disconnected)
+            if (tolerate_malformed && received.error().kind != ErrorKind::kCancelled &&
+                received.error().kind != ErrorKind::kDisconnected)
             {
                 return std::optional<std::string>{};
             }
@@ -260,7 +260,7 @@ Result<std::optional<std::string>> request_kernel_id(Context& context, bool tole
             {
                 return std::optional<std::string>{};
             }
-            return fail(ErrorKind::BadResponse, "short CAN frame in kernel ID response");
+            return fail(ErrorKind::kBadResponse, "short CAN frame in kernel ID response");
         }
         if (bytes::readU32Be(raw) != context.response_id)
         {
@@ -268,7 +268,7 @@ Result<std::optional<std::string>> request_kernel_id(Context& context, bool tole
             {
                 return std::optional<std::string>{};
             }
-            return fail(ErrorKind::BadResponse, "wrong CAN id in kernel ID response");
+            return fail(ErrorKind::kBadResponse, "wrong CAN id in kernel ID response");
         }
 
         bytes::Bytes coalesced(raw.begin() + static_cast<std::ptrdiff_t>(CanFlashUdsChannel::kEnvelopeSize), raw.end());
@@ -291,11 +291,11 @@ Result<std::optional<std::string>> request_kernel_id(Context& context, bool tole
             Result<std::optional<bytes::Bytes>> fragment = context.transport.read(kShortTimeout, context.cancellation);
             if (!fragment.has_value())
             {
-                if (fragment.error().kind == ErrorKind::Cancelled || fragment.error().kind == ErrorKind::Disconnected)
+                if (fragment.error().kind == ErrorKind::kCancelled || fragment.error().kind == ErrorKind::kDisconnected)
                 {
                     return std::unexpected(fragment.error());
                 }
-                if (fragment.error().kind == ErrorKind::Timeout)
+                if (fragment.error().kind == ErrorKind::kTimeout)
                 {
                     drain_terminated = true;
                     break;
@@ -330,7 +330,7 @@ Result<std::optional<std::string>> request_kernel_id(Context& context, bool tole
             {
                 return std::optional<std::string>{};
             }
-            return fail(ErrorKind::BadResponse, "kernel ID trailing drain exceeded its frame bound");
+            return fail(ErrorKind::kBadResponse, "kernel ID trailing drain exceeded its frame bound");
         }
 
         Result<BeefMessage> parsed = parse_beef(coalesced);
@@ -349,7 +349,7 @@ Result<std::optional<std::string>> request_kernel_id(Context& context, bool tole
             {
                 return std::optional<std::string>{};
             }
-            return fail(ErrorKind::BadResponse, "unexpected kernel ID response opcode");
+            return fail(ErrorKind::kBadResponse, "unexpected kernel ID response opcode");
         }
         return std::optional<std::string>{std::string(parsed->payload.begin(), parsed->payload.end())};
     }
@@ -362,11 +362,11 @@ Result<std::optional<bytes::Bytes>> nonfatal_query(Context& context, bytes::Byte
         channel_request_optional(context, pdu, kReadTimeout, kExtraShortTimeout);
     if (!received.has_value())
     {
-        if (received.error().kind == ErrorKind::Cancelled || received.error().kind == ErrorKind::Disconnected)
+        if (received.error().kind == ErrorKind::kCancelled || received.error().kind == ErrorKind::kDisconnected)
         {
             return std::unexpected(received.error());
         }
-        if (received.error().kind == ErrorKind::Timeout)
+        if (received.error().kind == ErrorKind::kTimeout)
         {
             error(context, "No valid response from ECU");
             return std::optional<bytes::Bytes>{};
@@ -394,7 +394,7 @@ Status strict_payload(Context& context, bytes::ByteView pdu, bytes::ByteView exp
     if (payload.size() < required || !std::equal(expected.begin(), expected.end(), payload.begin()))
     {
         error(context, std::format("Wrong response from TCU during {}", label));
-        return fail(ErrorKind::BadResponse, std::format("unexpected response during {}", label));
+        return fail(ErrorKind::kBadResponse, std::format("unexpected response during {}", label));
     }
     return {};
 }
@@ -415,7 +415,7 @@ Status upload_b6_discard(Context& context, bytes::ByteView pdu)
     }
     const Result<std::optional<bytes::Bytes>> ignored = context.transport.read(kReadTimeout, context.cancellation);
     if (!ignored.has_value() &&
-        (ignored.error().kind == ErrorKind::Cancelled || ignored.error().kind == ErrorKind::Disconnected))
+        (ignored.error().kind == ErrorKind::kCancelled || ignored.error().kind == ErrorKind::kDisconnected))
     {
         return std::unexpected(ignored.error());
     }
@@ -433,7 +433,7 @@ Status strict_seed(Context& context, bytes::Bytes& key)
     const bytes::ByteView payload = uds::payload(*seed_reply);
     if (payload.size() < 5 || payload[0] != uds::kSecurityAccessRequestSeed)
     {
-        return fail(ErrorKind::BadResponse, "invalid TCU seed response");
+        return fail(ErrorKind::kBadResponse, "invalid TCU seed response");
     }
     key = seed_key(payload.subspan(1, 4));
     return {};
@@ -553,7 +553,7 @@ Status connect_bootloader(Context& context, bool read_operation, bool& kernel_al
     const bytes::ByteView programming_payload = uds::payload(*programming);
     if (programming_payload.empty() || (programming_payload[0] != 0x02 && programming_payload[0] != 0x42))
     {
-        return fail(ErrorKind::BadResponse, "unexpected programming session response");
+        return fail(ErrorKind::kBadResponse, "unexpected programming session response");
     }
     info(context, "Succesfully set to programming session");
     return {};
@@ -568,14 +568,14 @@ Status upload_kernel(Context& context, const KernelImage& kernel)
     const std::size_t block_count = (padded_file_size + kKernelUploadBlockSize - 1U) / kKernelUploadBlockSize;
     if (block_count == 0 || block_count > (std::numeric_limits<std::size_t>::max() / kKernelUploadBlockSize))
     {
-        return fail(ErrorKind::InvalidConfig, "TCU kernel upload size is invalid");
+        return fail(ErrorKind::kInvalidConfig, "TCU kernel upload size is invalid");
     }
     const std::size_t data_length = block_count * kKernelUploadBlockSize;
     bytes::Bytes plain = kernel.bytes;
     plain.resize(data_length, bytes::Byte{0});
     if (plain.size() < 4)
     {
-        return fail(ErrorKind::InvalidConfig, "TCU kernel upload is shorter than its checksum word");
+        return fail(ErrorKind::kInvalidConfig, "TCU kernel upload is shorter than its checksum word");
     }
     plain.resize(plain.size() - 4);
     std::uint32_t sum = 0;
@@ -672,7 +672,7 @@ Status upload_kernel(Context& context, const KernelImage& kernel)
     else
     {
         error(context, "No valid response from ECU");
-        return fail(ErrorKind::Timeout, "kernel did not answer after upload");
+        return fail(ErrorKind::kTimeout, "kernel did not answer after upload");
     }
     return {};
 }
@@ -765,7 +765,7 @@ Result<CompareResult> compare_blocks(Context& context, const FlashPlan& plan, by
         if (block.start < plan.transfer_region().start ||
             static_cast<std::uint64_t>(block.start - plan.transfer_region().start) + block.length > image.size())
         {
-            return fail(ErrorKind::InvalidConfig, "TCU CRC block is outside the image");
+            return fail(ErrorKind::kInvalidConfig, "TCU CRC block is outside the image");
         }
         info(context, std::format("FB{:02}\t0x{:08X}\t0x{:08X}", index, block.start, block.length));
         Result<std::uint32_t> ecu_crc = query_crc(context, block);
@@ -841,7 +841,7 @@ Status flash_block(Context& context, bytes::ByteView image, const FlashPlan& pla
     // uses 0x200-byte buffer writes and commits each 0x1000-byte page.
     if (block.length == 0 || block.length % kFlashBufferSize != 0 || block.length % kFlashCommitSize != 0)
     {
-        return fail(ErrorKind::InvalidConfig, "TCU flash block is not aligned to the portable write windows");
+        return fail(ErrorKind::kInvalidConfig, "TCU flash block is not aligned to the portable write windows");
     }
     const std::size_t image_offset = block.start - plan.transfer_region().start;
     std::uint32_t start = block.start;
@@ -1028,7 +1028,7 @@ Status write_memory(Context& context, const FlashPlan& plan, PhaseSequence& phas
 
 Result<Iso15765Config> SubaruTcuDensoSh705xCanExecutor::transport_setup(const FlashPlan& plan) const
 {
-    if (const Status matched = check_family(plan, FlashFamily::SubaruTcuDensoSh705xCan); !matched.has_value())
+    if (const Status matched = check_family(plan, FlashFamily::kSubaruTcuDensoSh705xCan); !matched.has_value())
     {
         return std::unexpected(matched.error());
     }
@@ -1045,7 +1045,7 @@ Result<FlashExecutionResult> SubaruTcuDensoSh705xCanExecutor::execute(const Flas
                                                                       const ICancellationToken& cancellation,
                                                                       IEventSink& events)
 {
-    if (const Status matched = check_family(plan, FlashFamily::SubaruTcuDensoSh705xCan); !matched.has_value())
+    if (const Status matched = check_family(plan, FlashFamily::kSubaruTcuDensoSh705xCan); !matched.has_value())
     {
         return std::unexpected(matched.error());
     }
@@ -1055,7 +1055,7 @@ Result<FlashExecutionResult> SubaruTcuDensoSh705xCanExecutor::execute(const Flas
     }
     if (cancellation.cancelled())
     {
-        return fail(ErrorKind::Cancelled, "cancelled before setup");
+        return fail(ErrorKind::kCancelled, "cancelled before setup");
     }
 
     const auto& family = std::get<SubaruTcuDensoSh705xCanPlan>(plan.family_plan());
@@ -1063,7 +1063,7 @@ Result<FlashExecutionResult> SubaruTcuDensoSh705xCanExecutor::execute(const Flas
     uds::UdsClient uds_client(channel, clock, events);
     Context context{cancellation, events, clock, transport, family.request_id, family.response_id, uds_client, channel};
 
-    const bool read_operation = plan.operation() == FlashOperation::Read;
+    const bool read_operation = plan.operation() == FlashOperation::kRead;
     PhaseSequence phases(events, read_operation ? 2 : 4);
     PhaseReporter kernel_phase = phases.start("Kernel", 1);
     bool kernel_alive = false;
@@ -1096,7 +1096,7 @@ Result<FlashExecutionResult> SubaruTcuDensoSh705xCanExecutor::execute(const Flas
         }
         read_phase.complete();
         return FlashExecutionResult{
-            .operation = FlashOperation::Read, .read_bytes = std::move(*rom), .rom_id = std::move(rom_id)};
+            .operation = FlashOperation::kRead, .read_bytes = std::move(*rom), .rom_id = std::move(rom_id)};
     }
 
     events.notice("Writing ROM, please wait...");
@@ -1107,7 +1107,7 @@ Result<FlashExecutionResult> SubaruTcuDensoSh705xCanExecutor::execute(const Flas
     }
     PhaseReporter complete = phases.start("Complete", 1);
     complete.complete();
-    return FlashExecutionResult{.operation = FlashOperation::Write};
+    return FlashExecutionResult{.operation = FlashOperation::kWrite};
 }
 
 } // namespace fastecu::flash

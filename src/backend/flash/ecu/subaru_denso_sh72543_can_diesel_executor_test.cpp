@@ -108,12 +108,12 @@ bytes::Bytes response(std::initializer_list<bytes::Byte> tail)
 
 fastecu::Result<fastecu::flash::FlashPlan> readPlan()
 {
-    return build_subaru_denso_sh72543_can_diesel_plan(FlashOperation::Read, kProtocol, kMcu, std::nullopt);
+    return build_subaru_denso_sh72543_can_diesel_plan(FlashOperation::kRead, kProtocol, kMcu, std::nullopt);
 }
 
 fastecu::Result<fastecu::flash::FlashPlan> writePlan(bytes::Bytes rom)
 {
-    return build_subaru_denso_sh72543_can_diesel_plan(FlashOperation::Write, kProtocol, kMcu, std::move(rom));
+    return build_subaru_denso_sh72543_can_diesel_plan(FlashOperation::kWrite, kProtocol, kMcu, std::move(rom));
 }
 
 // Hand-built rather than produced by build_subaru_denso_sh72543_can_diesel_plan,
@@ -124,8 +124,8 @@ fastecu::Result<fastecu::flash::FlashPlan> handBuiltPlan(FlashOperation operatio
 {
     fastecu::flash::FlashPlanFields fields;
     fields.operation = operation;
-    fields.family = fastecu::flash::FlashFamily::SubaruDensoSh72543CanDiesel;
-    fields.transport = fastecu::flash::TransportKind::CanIso15765;
+    fields.family = fastecu::flash::FlashFamily::kSubaruDensoSh72543CanDiesel;
+    fields.transport = fastecu::flash::TransportKind::kCanIso15765;
     fields.target_id = std::string(kProtocol);
     fields.mcu_name = std::string(kMcu);
     fields.transfer_region = fastecu::flash::MemoryRegion{kBlockStart, kBlockLength};
@@ -341,14 +341,14 @@ TEST(SubaruDensoSh72543CanDieselExecutor, BenchReadReturnsPaddedImage)
     ASSERT_GT(transport.readTimeouts().size(), 9U);
     EXPECT_EQ(transport.readTimeouts()[8], 2000ms);
     EXPECT_EQ(transport.readTimeouts()[9], 2000ms);
-    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Info,
+    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::kInfo,
                                            "Connecting to ECU Denso SH72543 Diesel CAN bootloader, please wait...")));
-    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Info, "Reading ROM from ECU, Denso SH72543 Diesel using CAN")));
-    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Info, "OBK not active, initialising ECU...")));
-    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Info, "Bench programming: accessing, please wait...")));
+    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::kInfo, "Reading ROM from ECU, Denso SH72543 Diesel using CAN")));
+    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::kInfo, "OBK not active, initialising ECU...")));
+    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::kInfo, "Bench programming: accessing, please wait...")));
     // Legacy's own wording for this line, lowercase-hex and unpadded because
     // it is built with QString::number(x, 16).
-    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Info, "Setting flash start: 0x8000 and length: 0x1f7f00")));
+    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::kInfo, "Setting flash start: 0x8000 and length: 0x1f7f00")));
 }
 
 TEST(SubaruDensoSh72543CanDieselExecutor, InCarReadReturnsPaddedImage)
@@ -376,7 +376,7 @@ TEST(SubaruDensoSh72543CanDieselExecutor, InCarReadReturnsPaddedImage)
     EXPECT_THAT(bytes::ByteView(rom).subspan(0x8000, kBlockLength), Each(0x5A));
     EXPECT_THAT(bytes::ByteView(rom).last(0x100), Each(0xFF));
     EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Info, "In car programming: accessing, please wait...")));
+    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::kInfo, "In car programming: accessing, please wait...")));
 }
 
 TEST(SubaruDensoSh72543CanDieselExecutor, WriteErasesThenFlashesBlockZero)
@@ -400,18 +400,18 @@ TEST(SubaruDensoSh72543CanDieselExecutor, WriteErasesThenFlashesBlockZero)
 
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
     ASSERT_THAT(result, fastecu::testing::IsOk());
-    EXPECT_EQ(result->operation, FlashOperation::Write);
+    EXPECT_EQ(result->operation, FlashOperation::kWrite);
     EXPECT_FALSE(result->read_bytes.has_value());
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_THAT(events.notices, Contains("Writing ROM, please wait..."));
-    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Info, "Writing ROM to ECU, Denso SH72543 Diesel using CAN")));
+    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::kInfo, "Writing ROM to ECU, Denso SH72543 Diesel using CAN")));
     // The block index legacy reports, which is 0 for this family's single-
     // block table.
-    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Info, "Blocks to flash: 0,  (total: 1)")));
-    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Info, "Block 0 reflash complete.")));
-    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Info, "Flash erased! Starting flash write, do not power off!")));
-    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Info, "Closing out Flashing of this block")));
-    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Info, "Checksum verified")));
+    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::kInfo, "Blocks to flash: 0,  (total: 1)")));
+    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::kInfo, "Block 0 reflash complete.")));
+    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::kInfo, "Flash erased! Starting flash write, do not power off!")));
+    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::kInfo, "Closing out Flashing of this block")));
+    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::kInfo, "Checksum verified")));
     // Every sleep the write path performs, in order, each with the legacy
     // delay() it reproduces: connect_bench's wait (50 ms here, where the three
     // sibling families wait 500), the settle after the erase command, and the
@@ -454,7 +454,7 @@ TEST(SubaruDensoSh72543CanDieselExecutor, WriteTakesBytesFromTheAbsoluteAddress)
 
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
-    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::Internal));
+    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kInternal));
     EXPECT_EQ(transport.writesConsumed(), kBenchConnectWrites + kEraseWrites + 1);
     EXPECT_TRUE(transport.scriptConsumed());
     // Independent of the executor: the planted byte really does distinguish
@@ -473,7 +473,7 @@ TEST(SubaruDensoSh72543CanDieselExecutor, BenchSessionMismatchIsToleratedAndCont
     scriptPreliminaries(transport, 0xFF);
     transport.exchange(request({0x10, 0x43}), response({0x50, 0x01})); // wrong subfunction, tolerated
     transport.exchange(request({0x27, 0x61}));
-    transport.queue_error(ErrorKind::Timeout, "stop after the tolerated mismatch");
+    transport.queue_error(ErrorKind::kTimeout, "stop after the tolerated mismatch");
 
     FakeClock clock;
     RecordingEventSink events;
@@ -485,12 +485,12 @@ TEST(SubaruDensoSh72543CanDieselExecutor, BenchSessionMismatchIsToleratedAndCont
 
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
-    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::Timeout));
+    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kTimeout));
     EXPECT_TRUE(transport.scriptConsumed());
     // The mismatch was logged, not swallowed silently...
-    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Error, "Wrong response from ECU: 50 01 ")));
+    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::kError, "Wrong response from ECU: 50 01 ")));
     // ...and the sequence carried on past it into the seed request.
-    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Info, "Starting seed request")));
+    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::kInfo, "Starting seed request")));
 }
 
 // Kept alongside the generic conformance ReadTimeoutPropagates (which uses
@@ -504,7 +504,7 @@ TEST(SubaruDensoSh72543CanDieselExecutor, ReadTimeoutAfterConnectOnlySleepsTheBe
     ScriptedCanFlashTransport transport;
     scriptBenchConnect(transport);
     transport.exchange(request({0x34, 0x04, 0x44, 0x00, 0x00, 0x80, 0x00, 0x00, 0x1F, 0x7F, 0x00}));
-    transport.queue_error(ErrorKind::Timeout, "no reply");
+    transport.queue_error(ErrorKind::kTimeout, "no reply");
 
     FakeClock clock;
     RecordingEventSink events;
@@ -516,9 +516,9 @@ TEST(SubaruDensoSh72543CanDieselExecutor, ReadTimeoutAfterConnectOnlySleepsTheBe
 
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
-    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::Timeout));
+    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kTimeout));
     EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Info, "Kernel jump acknowledged")));
+    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::kInfo, "Kernel jump acknowledged")));
     EXPECT_EQ(clock.elapsed(), 50ms);
 }
 
@@ -538,7 +538,7 @@ TEST(SubaruDensoSh72543CanDieselExecutor, ReadDisconnectMidDumpLoopPropagates)
     scriptBenchConnect(transport);
     scriptReadSetup(transport);
     transport.exchange(request(bytes::composeBe(bytes::Byte(0xB7), kBlockStart)));
-    transport.queue_error(ErrorKind::Disconnected, "adapter gone");
+    transport.queue_error(ErrorKind::kDisconnected, "adapter gone");
 
     FakeClock clock;
     RecordingEventSink events;
@@ -550,7 +550,7 @@ TEST(SubaruDensoSh72543CanDieselExecutor, ReadDisconnectMidDumpLoopPropagates)
 
     const auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
-    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::Disconnected));
+    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kDisconnected));
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
@@ -574,7 +574,7 @@ TEST(SubaruDensoSh72543CanDieselExecutor, NegativeResponseDuringConnectFails)
 
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
-    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::BadResponse));
+    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kBadResponse));
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
@@ -603,7 +603,7 @@ TEST(SubaruDensoSh72543CanDieselExecutor, NegativeResponseAtDumpSetupFails)
 
     const auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
-    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::BadResponse));
+    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kBadResponse));
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
@@ -631,7 +631,7 @@ TEST(SubaruDensoSh72543CanDieselExecutor, EmptyBranchSelectorReplyFails)
 
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
-    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::Timeout));
+    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kTimeout));
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
@@ -661,7 +661,7 @@ TEST(SubaruDensoSh72543CanDieselExecutor, EcuIdLogKeepsOnlyLegacysFiveBytes)
 
     ASSERT_FALSE(result.has_value());
     EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Info, "ECU ID: 11 22 33 44 55 ")));
+    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::kInfo, "ECU ID: 11 22 33 44 55 ")));
 }
 
 TEST(SubaruDensoSh72543CanDieselExecutor, EraseRetryExhaustionFails)
@@ -687,11 +687,11 @@ TEST(SubaruDensoSh72543CanDieselExecutor, EraseRetryExhaustionFails)
 
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
-    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::BadResponse));
+    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kBadResponse));
     EXPECT_TRUE(transport.scriptConsumed());
     // A second trigger would have hit the end of the script and surfaced as an
     // Internal error rather than BadResponse; the failure is the erase's own.
-    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Error, "Flash area erase failed")));
+    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::kError, "Flash area erase failed")));
 }
 
 // Unlike this family's kProbeTimeout (2000ms, see the conformance suite's

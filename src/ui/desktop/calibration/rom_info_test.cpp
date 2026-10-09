@@ -11,14 +11,14 @@ TEST(RomInfo, PinsLabelsAndRowPositions)
     EXPECT_EQ(rom_info_labels(), (QStringList{"XML ID", "Internal ID Address", "Internal ID String", "ECU ID", "Make",
                                               "Market", "Model", "Submodel", "Transmission", "Year", "Flash Method",
                                               "Memory Model", "Checksum Module", "Rom Base", "File Size", "Def File"}));
-    EXPECT_EQ(static_cast<int>(RomInfoRow::FlashMethod), 10);
-    EXPECT_EQ(static_cast<int>(RomInfoRow::DefFile), 15);
+    EXPECT_EQ(static_cast<int>(RomInfoRow::kFlashMethod), 10);
+    EXPECT_EQ(static_cast<int>(RomInfoRow::kDefFile), 15);
     EXPECT_EQ(kRomInfoRowCount, 16);
 }
 
 TEST(RomInfo, DefinitionRowsUseProtocolMetadataAndDirectParent)
 {
-    definition::RomDefinition definition{.format = definition::DefinitionFormat::EcuFlash};
+    definition::RomDefinition definition{.format = definition::DefinitionFormat::kEcuFlash};
     definition.identity = {.xml_id = "ID", .internal_id = "INT", .ecu_id = "ECU", .internal_id_address = 0x10};
     definition.metadata = {.make = "Subaru",
                            .market = "EU",
@@ -46,45 +46,45 @@ TEST(RomInfo, DefinitionRowsUseProtocolMetadataAndDirectParent)
     protocol.flash_method = "updated";
     protocol.checksum_module = "updated checksum";
     session.set_protocol(protocol);
-    EXPECT_EQ(rom_info_value(rom_info_values(session), RomInfoRow::FlashMethod), "updated");
-    EXPECT_EQ(rom_info_value(rom_info_values(session), RomInfoRow::ChecksumModule), "updated checksum");
+    EXPECT_EQ(rom_info_value(rom_info_values(session), RomInfoRow::kFlashMethod), "updated");
+    EXPECT_EQ(rom_info_value(rom_info_values(session), RomInfoRow::kChecksumModule), "updated checksum");
 }
 
 TEST(RomInfo, DefinitionlessAndContinueWithoutPlaceholders)
 {
     const calibration::CalibrationSession session(calibration::SessionId{1},
                                                   {
-                                                      .source = {.origin = calibration::RomOrigin::File},
+                                                      .source = {.origin = calibration::RomOrigin::kFile},
                                                       .protocol = {.file_size_label = "16kb"},
                                                   });
     const auto plain = rom_info_values(session);
     EXPECT_EQ(plain.size(), kRomInfoRowCount);
-    EXPECT_EQ(rom_info_value(plain, RomInfoRow::XmlId), " ");
-    EXPECT_EQ(rom_info_value(plain, RomInfoRow::FlashMethod), " ");
-    EXPECT_EQ(rom_info_value(plain, RomInfoRow::FileSize), "16kb");
+    EXPECT_EQ(rom_info_value(plain, RomInfoRow::kXmlId), " ");
+    EXPECT_EQ(rom_info_value(plain, RomInfoRow::kFlashMethod), " ");
+    EXPECT_EQ(rom_info_value(plain, RomInfoRow::kFileSize), "16kb");
     const auto continued = rom_info_values(session, QString("Subaru"));
-    EXPECT_EQ(rom_info_value(continued, RomInfoRow::XmlId), "UnknownID");
-    EXPECT_EQ(rom_info_value(continued, RomInfoRow::InternalIdAddress), "");
-    EXPECT_EQ(rom_info_value(continued, RomInfoRow::InternalIdString), "");
-    EXPECT_EQ(rom_info_value(continued, RomInfoRow::EcuId), "");
-    EXPECT_EQ(rom_info_value(continued, RomInfoRow::Make), "Subaru");
-    EXPECT_EQ(rom_info_value(continued, RomInfoRow::DefFile), " ");
+    EXPECT_EQ(rom_info_value(continued, RomInfoRow::kXmlId), "UnknownID");
+    EXPECT_EQ(rom_info_value(continued, RomInfoRow::kInternalIdAddress), "");
+    EXPECT_EQ(rom_info_value(continued, RomInfoRow::kInternalIdString), "");
+    EXPECT_EQ(rom_info_value(continued, RomInfoRow::kEcuId), "");
+    EXPECT_EQ(rom_info_value(continued, RomInfoRow::kMake), "Subaru");
+    EXPECT_EQ(rom_info_value(continued, RomInfoRow::kDefFile), " ");
 }
 
 TEST(RomInfo, EcuReadAndHeaderOnlyDefinitionRetainMetadata)
 {
     calibration::SessionContents contents{
-        .source = {.origin = calibration::RomOrigin::EcuRead},
+        .source = {.origin = calibration::RomOrigin::kEcuRead},
         .protocol = {.flash_method = "read protocol", .checksum_module = "No checksums", .file_size_label = "256kb"}};
     const calibration::CalibrationSession read(calibration::SessionId{1}, contents);
-    EXPECT_EQ(rom_info_value(rom_info_values(read), RomInfoRow::FlashMethod), "read protocol");
+    EXPECT_EQ(rom_info_value(rom_info_values(read), RomInfoRow::kFlashMethod), "read protocol");
     contents.definition = calibration::ResolvedDefinition{
-        .definition = {.format = definition::DefinitionFormat::EcuFlash, .identity = {.xml_id = "HEADER"}}};
+        .definition = {.format = definition::DefinitionFormat::kEcuFlash, .identity = {.xml_id = "HEADER"}}};
     contents.protocol.flash_method.clear();
     const calibration::CalibrationSession header(calibration::SessionId{2}, contents);
-    EXPECT_EQ(rom_info_value(rom_info_values(header), RomInfoRow::XmlId), "HEADER");
-    EXPECT_EQ(rom_info_value(rom_info_values(header), RomInfoRow::FlashMethod), "");
-    EXPECT_EQ(rom_info_value(rom_info_values(header), RomInfoRow::FileSize), "256kb");
+    EXPECT_EQ(rom_info_value(rom_info_values(header), RomInfoRow::kXmlId), "HEADER");
+    EXPECT_EQ(rom_info_value(rom_info_values(header), RomInfoRow::kFlashMethod), "");
+    EXPECT_EQ(rom_info_value(rom_info_values(header), RomInfoRow::kFileSize), "256kb");
 }
 } // namespace
 } // namespace fastecu::ui

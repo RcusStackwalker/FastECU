@@ -17,7 +17,7 @@ class InMemoryResourceBundle : public IResourceBundle
         auto it = bundles.find(std::string(bundle_id));
         if (it == bundles.end())
         {
-            return fastecu::fail(ErrorKind::InvalidConfig, "no such bundle");
+            return fastecu::fail(ErrorKind::kInvalidConfig, "no such bundle");
         }
         std::vector<std::string> names;
         for (auto& [name, bytes] : it->second)
@@ -31,12 +31,12 @@ class InMemoryResourceBundle : public IResourceBundle
         auto bundle_it = bundles.find(std::string(bundle_id));
         if (bundle_it == bundles.end())
         {
-            return fastecu::fail(ErrorKind::InvalidConfig, "no such bundle");
+            return fastecu::fail(ErrorKind::kInvalidConfig, "no such bundle");
         }
         auto file_it = bundle_it->second.find(std::string(name));
         if (file_it == bundle_it->second.end())
         {
-            return fastecu::fail(ErrorKind::InvalidConfig, "no such file");
+            return fastecu::fail(ErrorKind::kInvalidConfig, "no such file");
         }
         return file_it->second;
     }

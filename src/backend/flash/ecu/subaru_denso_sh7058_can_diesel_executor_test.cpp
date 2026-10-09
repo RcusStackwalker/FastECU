@@ -125,7 +125,7 @@ Result<FlashPlan> plan_for(const DieselVariant& variant, FlashOperation operatio
                            bytes::Bytes kernel_data = {0x01, 0x02, 0x03, 0x04})
 {
     std::optional<bytes::Bytes> selected_image;
-    if (operation != FlashOperation::Read)
+    if (operation != FlashOperation::kRead)
     {
         if (image.empty())
         {
@@ -259,7 +259,7 @@ void script_tolerated_identity_failures(ScriptedCanFlashTransport& transport)
     transport.expectWrite(request(bytes::Bytes{0x09, 0x04}));
     transport.queueRead(response(bytes::Bytes{0x49}));
     transport.expectWrite(request(bytes::Bytes{0x09, 0x06}));
-    transport.queue_error(ErrorKind::Timeout, "tolerated CVN timeout");
+    transport.queue_error(ErrorKind::kTimeout, "tolerated CVN timeout");
 }
 
 void script_session_selection(ScriptedCanFlashTransport& transport, bool fallback_to_43 = false)
@@ -318,50 +318,50 @@ void script_bootloader_connection(ScriptedCanFlashTransport& transport, bool fal
 
 enum class UploadB6Reply
 {
-    NoFrame,
-    Timeout,
-    Short,
-    Malformed,
-    WrongCanId,
-    AdapterError,
-    Cancelled,
-    Disconnected,
+    kNoFrame,
+    kTimeout,
+    kShort,
+    kMalformed,
+    kWrongCanId,
+    kAdapterError,
+    kCancelled,
+    kDisconnected,
 };
 
 void queue_upload_b6_reply(ScriptedCanFlashTransport& transport, UploadB6Reply reply)
 {
     switch (reply)
     {
-    case UploadB6Reply::NoFrame:
+    case UploadB6Reply::kNoFrame:
         transport.queue_no_frame();
         return;
-    case UploadB6Reply::Timeout:
-        transport.queue_error(ErrorKind::Timeout, "B6 timeout");
+    case UploadB6Reply::kTimeout:
+        transport.queue_error(ErrorKind::kTimeout, "B6 timeout");
         return;
-    case UploadB6Reply::Short:
+    case UploadB6Reply::kShort:
         transport.queueRead(bytes::Bytes{0x00, 0x00, 0x07});
         return;
-    case UploadB6Reply::Malformed:
+    case UploadB6Reply::kMalformed:
         transport.queueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE8, 0xBE});
         return;
-    case UploadB6Reply::WrongCanId:
+    case UploadB6Reply::kWrongCanId:
         transport.queueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0xBE, 0xEF, 0x00, 0x01, 0x01});
         return;
-    case UploadB6Reply::AdapterError:
-        transport.queue_error(ErrorKind::Internal, "stale B6 adapter error");
+    case UploadB6Reply::kAdapterError:
+        transport.queue_error(ErrorKind::kInternal, "stale B6 adapter error");
         return;
-    case UploadB6Reply::Cancelled:
-        transport.queue_error(ErrorKind::Cancelled, "B6 cancellation");
+    case UploadB6Reply::kCancelled:
+        transport.queue_error(ErrorKind::kCancelled, "B6 cancellation");
         return;
-    case UploadB6Reply::Disconnected:
-        transport.queue_error(ErrorKind::Disconnected, "B6 disconnect");
+    case UploadB6Reply::kDisconnected:
+        transport.queue_error(ErrorKind::kDisconnected, "B6 disconnect");
         return;
     }
 }
 
 void script_129_byte_kernel_upload(ScriptedCanFlashTransport& transport, std::uint32_t address,
                                    bytes::Bytes final_kernel_id = kernel_id_response(),
-                                   UploadB6Reply b6_reply = UploadB6Reply::NoFrame,
+                                   UploadB6Reply b6_reply = UploadB6Reply::kNoFrame,
                                    bytes::Bytes kernel_start_response = response(bytes::Bytes{0x71, 0x01, 0x02, 0x02,
                                                                                               0x02}),
                                    bool queue_post_upload_probe = true)
@@ -562,7 +562,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, TransportSetupUsesExactIsoConfiguration
     SubaruDensoSh7058CanDieselExecutor executor;
     for (const DieselVariant& variant : kVariants)
     {
-        auto plan = plan_for(variant, FlashOperation::Read);
+        auto plan = plan_for(variant, FlashOperation::kRead);
         ASSERT_TRUE(plan.has_value()) << plan.error().detail;
         auto setup = executor.transport_setup(*plan);
         ASSERT_TRUE(setup.has_value()) << setup.error().detail;
@@ -575,7 +575,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, TransportSetupUsesExactIsoConfiguration
 
 TEST(SubaruDensoSh7058CanDieselExecutor, BoundAttemptPreservesResetQuietPeriodConfigureOpenOrder)
 {
-    auto plan = plan_for(kVariants.front(), FlashOperation::Read);
+    auto plan = plan_for(kVariants.front(), FlashOperation::kRead);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
     auto transport = std::make_unique<RecordingCanFlashTransport>();
     RecordingCanFlashTransport *observed_transport = transport.get();
@@ -594,14 +594,14 @@ TEST(SubaruDensoSh7058CanDieselExecutor, BoundAttemptPreservesResetQuietPeriodCo
     const auto result = attempt->run(clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
+    EXPECT_EQ(result.error().kind, ErrorKind::kCancelled);
     EXPECT_THAT(observed_transport->lifecycle, ElementsAre("reset_connection", "configure", "open", "close"));
     EXPECT_THAT(timeline, ElementsAre("reset_connection", "sleep:500", "configure", "open", "close"));
 }
 
 TEST(SubaruDensoSh7058CanDieselExecutor, StartupCancellationAfterResetSkipsConfigureAndOpen)
 {
-    auto plan = plan_for(kVariants.front(), FlashOperation::Read);
+    auto plan = plan_for(kVariants.front(), FlashOperation::kRead);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
     auto transport = std::make_unique<RecordingCanFlashTransport>();
     RecordingCanFlashTransport *observed_transport = transport.get();
@@ -625,7 +625,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, StartupCancellationAfterResetSkipsConfi
     const auto result = attempt->run(clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
+    EXPECT_EQ(result.error().kind, ErrorKind::kCancelled);
     EXPECT_THAT(observed_transport->lifecycle, ElementsAre("reset_connection"));
     EXPECT_THAT(timeline, ElementsAre("reset_connection", "sleep:500"));
 }
@@ -636,7 +636,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, AlreadyRunningKernelReadsBothLiteralRom
     for (const DieselVariant& variant : kVariants)
     {
         SCOPED_TRACE(variant.protocol);
-        auto plan = plan_for(variant, FlashOperation::Read);
+        auto plan = plan_for(variant, FlashOperation::kRead);
         ASSERT_TRUE(plan.has_value()) << plan.error().detail;
         RecordingCanFlashTransport transport;
         configure_and_open(executor, *plan, transport);
@@ -675,13 +675,13 @@ TEST(SubaruDensoSh7058CanDieselExecutor, AlreadyRunningKernelReadsBothLiteralRom
         EXPECT_TRUE(std::all_of(transport.read_timeouts.begin() + 1, transport.read_timeouts.end(),
                                 [](std::chrono::milliseconds timeout) { return timeout == 2000ms; }));
         EXPECT_THAT(events.notices, ElementsAre("Reading ROM, please wait..."));
-        EXPECT_TRUE(has_exact_log(events, LogLevel::Info,
+        EXPECT_TRUE(has_exact_log(events, LogLevel::kInfo,
                                   "Connecting to Subaru 07+ Diesel 32-bit CAN bootloader, please wait..."));
-        EXPECT_TRUE(has_exact_log(events, LogLevel::Info, "Reading ROM from Subaru 07+ Diesel 32-bit using CAN"));
-        EXPECT_TRUE(has_exact_log(events, LogLevel::Info, "Kernel ID: KID"));
-        EXPECT_TRUE(has_exact_log(events, LogLevel::Info,
+        EXPECT_TRUE(has_exact_log(events, LogLevel::kInfo, "Reading ROM from Subaru 07+ Diesel 32-bit using CAN"));
+        EXPECT_TRUE(has_exact_log(events, LogLevel::kInfo, "Kernel ID: KID"));
+        EXPECT_TRUE(has_exact_log(events, LogLevel::kInfo,
                                   "Kernel read addr: 0x00000000 length: 0x00000400, 1024000 B/s      2 s"));
-        EXPECT_TRUE(has_exact_log(events, LogLevel::Info,
+        EXPECT_TRUE(has_exact_log(events, LogLevel::kInfo,
                                   std::format("Kernel read addr: 0x{:08X} length: 0x00000400, 1024000 B/s      1 s",
                                               variant.rom_size - 0x400)));
         ASSERT_FALSE(events.phase_progress_calls.empty());
@@ -699,7 +699,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, UploadsLiteralKernelAtEachGenerationAdd
         SCOPED_TRACE(variant.protocol);
         bytes::Bytes kernel_data(129, bytes::Byte{0});
         kernel_data.back() = 0x01;
-        auto plan = plan_for(variant, FlashOperation::Read, {}, std::move(kernel_data));
+        auto plan = plan_for(variant, FlashOperation::kRead, {}, std::move(kernel_data));
         ASSERT_TRUE(plan.has_value()) << plan.error().detail;
         SubaruDensoSh7058CanDieselExecutor executor;
         RecordingCanFlashTransport transport;
@@ -716,7 +716,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, UploadsLiteralKernelAtEachGenerationAdd
         const auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
         ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
+        EXPECT_EQ(result.error().kind, ErrorKind::kCancelled);
         EXPECT_TRUE(transport.scripted.scriptConsumed());
         ASSERT_EQ(transport.writes.size(), 17U);
         const bytes::Bytes expected_download =
@@ -750,15 +750,15 @@ TEST(SubaruDensoSh7058CanDieselExecutor, UploadsLiteralKernelAtEachGenerationAdd
         EXPECT_EQ(std::count(transport.read_timeouts.begin(), transport.read_timeouts.end(), 10ms), 3);
         EXPECT_EQ(std::count(transport.read_timeouts.begin(), transport.read_timeouts.end(), 800ms), 2);
         EXPECT_THAT(events.notices, ElementsAre("Preparing, please wait...", "Reading ROM, please wait..."));
-        EXPECT_TRUE(has_exact_log(events, LogLevel::Info,
+        EXPECT_TRUE(has_exact_log(events, LogLevel::kInfo,
                                   "Connecting to Subaru 07+ Diesel 32-bit CAN bootloader, please wait..."));
-        EXPECT_TRUE(has_exact_log(events, LogLevel::Info,
+        EXPECT_TRUE(has_exact_log(events, LogLevel::kInfo,
                                   "Initializing Subaru 07+ Diesel 32-bit CAN kernel upload, please wait..."));
-        EXPECT_TRUE(has_exact_log(events, LogLevel::Debug, "Data bytes sent: 0x256"));
-        EXPECT_TRUE(has_exact_log(events, LogLevel::Info, "Kernel uploaded, starting..."));
-        EXPECT_TRUE(has_exact_log(events, LogLevel::Info, "Requesting kernel ID..."));
-        EXPECT_TRUE(has_exact_log(events, LogLevel::Info, "Kernel ID: KID"));
-        EXPECT_TRUE(has_exact_log(events, LogLevel::Info, "Reading ROM from Subaru 07+ Diesel 32-bit using CAN"));
+        EXPECT_TRUE(has_exact_log(events, LogLevel::kDebug, "Data bytes sent: 0x256"));
+        EXPECT_TRUE(has_exact_log(events, LogLevel::kInfo, "Kernel uploaded, starting..."));
+        EXPECT_TRUE(has_exact_log(events, LogLevel::kInfo, "Requesting kernel ID..."));
+        EXPECT_TRUE(has_exact_log(events, LogLevel::kInfo, "Kernel ID: KID"));
+        EXPECT_TRUE(has_exact_log(events, LogLevel::kInfo, "Reading ROM from Subaru 07+ Diesel 32-bit using CAN"));
     }
 }
 
@@ -769,7 +769,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, ProbeFallbackUploadsExactKernelAddressA
         SCOPED_TRACE(variant.protocol);
         bytes::Bytes kernel_data(129, bytes::Byte{0});
         kernel_data.back() = 0x01;
-        auto plan = plan_for(variant, FlashOperation::Read, {}, std::move(kernel_data));
+        auto plan = plan_for(variant, FlashOperation::kRead, {}, std::move(kernel_data));
         ASSERT_TRUE(plan.has_value()) << plan.error().detail;
         SubaruDensoSh7058CanDieselExecutor executor;
         RecordingCanFlashTransport transport;
@@ -784,11 +784,11 @@ TEST(SubaruDensoSh7058CanDieselExecutor, ProbeFallbackUploadsExactKernelAddressA
         const auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
         ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+        EXPECT_EQ(result.error().kind, ErrorKind::kBadResponse);
         EXPECT_TRUE(transport.scripted.scriptConsumed());
         EXPECT_THAT(transport.read_timeouts, Contains(500ms));
-        EXPECT_TRUE(has_log(events, LogLevel::Info, "Requesting ECU ID"));
-        EXPECT_TRUE(has_log(events, LogLevel::Info, "Sending seed key"));
+        EXPECT_TRUE(has_log(events, LogLevel::kInfo, "Requesting ECU ID"));
+        EXPECT_TRUE(has_log(events, LogLevel::kInfo, "Sending seed key"));
     }
 }
 
@@ -803,7 +803,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, InitialProbeToleratesShortMalformedNega
     for (const bytes::Bytes& probe_reply : probe_replies)
     {
         SCOPED_TRACE(bytes::toHex(probe_reply));
-        auto plan = plan_for(kVariants.front(), FlashOperation::Read);
+        auto plan = plan_for(kVariants.front(), FlashOperation::kRead);
         ASSERT_TRUE(plan.has_value()) << plan.error().detail;
         SubaruDensoSh7058CanDieselExecutor executor;
         ScriptedCanFlashTransport transport;
@@ -811,7 +811,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, InitialProbeToleratesShortMalformedNega
         transport.expectWrite(kernel_id_request());
         transport.queueRead(probe_reply);
         transport.expectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE0, 0xAA});
-        transport.queue_error(ErrorKind::Disconnected, "stop after tolerant initial probe");
+        transport.queue_error(ErrorKind::kDisconnected, "stop after tolerant initial probe");
         FakeCancellationToken cancellation;
         FakeClock clock;
         RecordingEventSink events;
@@ -819,25 +819,25 @@ TEST(SubaruDensoSh7058CanDieselExecutor, InitialProbeToleratesShortMalformedNega
         const auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
         ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, ErrorKind::Disconnected);
+        EXPECT_EQ(result.error().kind, ErrorKind::kDisconnected);
         EXPECT_TRUE(transport.scriptConsumed());
         EXPECT_EQ(transport.writesConsumed(), 2U);
-        EXPECT_TRUE(has_exact_log(events, LogLevel::Info, "No response from kernel, initialising ECU..."));
-        EXPECT_TRUE(has_exact_log(events, LogLevel::Info, "Initializing connection..."));
+        EXPECT_TRUE(has_exact_log(events, LogLevel::kInfo, "No response from kernel, initialising ECU..."));
+        EXPECT_TRUE(has_exact_log(events, LogLevel::kInfo, "Initializing connection..."));
     }
 }
 
 TEST(SubaruDensoSh7058CanDieselExecutor, EveryB6ReplyIsRawAndIgnoredExceptCancellationOrDisconnect)
 {
-    const std::array<UploadB6Reply, 6> tolerated{UploadB6Reply::NoFrame,    UploadB6Reply::Timeout,
-                                                 UploadB6Reply::Short,      UploadB6Reply::Malformed,
-                                                 UploadB6Reply::WrongCanId, UploadB6Reply::AdapterError};
+    const std::array<UploadB6Reply, 6> tolerated{UploadB6Reply::kNoFrame,    UploadB6Reply::kTimeout,
+                                                 UploadB6Reply::kShort,      UploadB6Reply::kMalformed,
+                                                 UploadB6Reply::kWrongCanId, UploadB6Reply::kAdapterError};
     for (const UploadB6Reply reply : tolerated)
     {
         SCOPED_TRACE(static_cast<int>(reply));
         bytes::Bytes kernel_data(129, bytes::Byte{0});
         kernel_data.back() = 1;
-        auto plan = plan_for(kVariants.front(), FlashOperation::Read, {}, std::move(kernel_data));
+        auto plan = plan_for(kVariants.front(), FlashOperation::kRead, {}, std::move(kernel_data));
         ASSERT_TRUE(plan.has_value()) << plan.error().detail;
         SubaruDensoSh7058CanDieselExecutor executor;
         RecordingCanFlashTransport transport;
@@ -850,16 +850,16 @@ TEST(SubaruDensoSh7058CanDieselExecutor, EveryB6ReplyIsRawAndIgnoredExceptCancel
         RecordingEventSink events;
         const auto result = executor.execute(*plan, transport, clock, cancellation, events);
         ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+        EXPECT_EQ(result.error().kind, ErrorKind::kBadResponse);
         EXPECT_TRUE(transport.scripted.scriptConsumed());
     }
 
-    for (const auto& [reply, expected] : {std::pair{UploadB6Reply::Cancelled, ErrorKind::Cancelled},
-                                          std::pair{UploadB6Reply::Disconnected, ErrorKind::Disconnected}})
+    for (const auto& [reply, expected] : {std::pair{UploadB6Reply::kCancelled, ErrorKind::kCancelled},
+                                          std::pair{UploadB6Reply::kDisconnected, ErrorKind::kDisconnected}})
     {
         bytes::Bytes kernel_data(129, bytes::Byte{0});
         kernel_data.back() = 1;
-        auto plan = plan_for(kVariants.front(), FlashOperation::Read, {}, std::move(kernel_data));
+        auto plan = plan_for(kVariants.front(), FlashOperation::kRead, {}, std::move(kernel_data));
         ASSERT_TRUE(plan.has_value()) << plan.error().detail;
         SubaruDensoSh7058CanDieselExecutor executor;
         RecordingCanFlashTransport transport;
@@ -885,27 +885,27 @@ TEST(SubaruDensoSh7058CanDieselExecutor, KernelStartAcceptsServiceOnlyPositiveAn
         ErrorKind expected;
     };
     const std::array<StartCase, 3> cases{{
-        {"service-only", response(bytes::Bytes{0x71}), ErrorKind::Cancelled},
-        {"malformed", response(bytes::Bytes{0x00}), ErrorKind::BadResponse},
-        {"wrong-service", response(bytes::Bytes{0x70, 0x01}), ErrorKind::BadResponse},
+        {"service-only", response(bytes::Bytes{0x71}), ErrorKind::kCancelled},
+        {"malformed", response(bytes::Bytes{0x00}), ErrorKind::kBadResponse},
+        {"wrong-service", response(bytes::Bytes{0x70, 0x01}), ErrorKind::kBadResponse},
     }};
     for (const StartCase& test_case : cases)
     {
         SCOPED_TRACE(test_case.name);
         bytes::Bytes kernel_data(129, bytes::Byte{0});
         kernel_data.back() = 1;
-        auto plan = plan_for(kVariants.front(), FlashOperation::Read, {}, std::move(kernel_data));
+        auto plan = plan_for(kVariants.front(), FlashOperation::kRead, {}, std::move(kernel_data));
         ASSERT_TRUE(plan.has_value()) << plan.error().detail;
         SubaruDensoSh7058CanDieselExecutor executor;
         RecordingCanFlashTransport transport;
         configure_and_open(executor, *plan, transport);
         script_bootloader_connection(transport.scripted);
         script_129_byte_kernel_upload(transport.scripted, kVariants.front().kernel_address, kernel_id_response(),
-                                      UploadB6Reply::NoFrame, test_case.response_pdu,
-                                      test_case.expected == ErrorKind::Cancelled);
+                                      UploadB6Reply::kNoFrame, test_case.response_pdu,
+                                      test_case.expected == ErrorKind::kCancelled);
         FakeCancellationToken cancellation;
         RecordingEventSink events;
-        if (test_case.expected == ErrorKind::Cancelled)
+        if (test_case.expected == ErrorKind::kCancelled)
         {
             PhaseCancellingEventSink cancelling_events(cancellation, "Kernel", 1);
             FakeClock clock;
@@ -927,7 +927,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, KernelStartAcceptsServiceOnlyPositiveAn
 
 TEST(SubaruDensoSh7058CanDieselExecutor, IdentityQueriesAndSessionThreeToFortyThreeFallbackPrecedeStrictSecurity)
 {
-    auto plan = plan_for(kVariants.front(), FlashOperation::Read);
+    auto plan = plan_for(kVariants.front(), FlashOperation::kRead);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
     SubaruDensoSh7058CanDieselExecutor executor;
     RecordingCanFlashTransport transport;
@@ -940,10 +940,10 @@ TEST(SubaruDensoSh7058CanDieselExecutor, IdentityQueriesAndSessionThreeToFortyTh
     const auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    EXPECT_EQ(result.error().kind, ErrorKind::kBadResponse);
     EXPECT_TRUE(transport.scripted.scriptConsumed());
-    EXPECT_TRUE(has_log(events, LogLevel::Error, "No valid response from ECU"));
-    EXPECT_TRUE(has_exact_log(events, LogLevel::Info, "Sending seed key"));
+    EXPECT_TRUE(has_log(events, LogLevel::kError, "No valid response from ECU"));
+    EXPECT_TRUE(has_exact_log(events, LogLevel::kInfo, "Sending seed key"));
     EXPECT_NE(std::find(transport.writes.begin(), transport.writes.end(),
                         bytes::Bytes{0x00, 0x00, 0x07, 0xE0, 0x27, 0x02, 0x35, 0xB6, 0x83, 0xBF}),
               transport.writes.end());
@@ -956,7 +956,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, IdentityQueriesAndSessionThreeToFortyTh
 // later seed-payload validation and report the wrong operator record.
 TEST(SubaruDensoSh7058CanDieselExecutor, ShortSecuritySeedFrameUsesTheOracleNoValidResponseRecord)
 {
-    auto plan = plan_for(kVariants.front(), FlashOperation::Read);
+    auto plan = plan_for(kVariants.front(), FlashOperation::kRead);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
     SubaruDensoSh7058CanDieselExecutor executor;
     ScriptedCanFlashTransport transport;
@@ -973,15 +973,15 @@ TEST(SubaruDensoSh7058CanDieselExecutor, ShortSecuritySeedFrameUsesTheOracleNoVa
     const auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    EXPECT_EQ(result.error().kind, ErrorKind::kBadResponse);
     EXPECT_TRUE(transport.scriptConsumed());
     ASSERT_FALSE(events.logs.empty());
-    EXPECT_EQ(events.logs.back(), (std::pair{LogLevel::Error, std::string{"No valid response from ECU"}}));
+    EXPECT_EQ(events.logs.back(), (std::pair{LogLevel::kError, std::string{"No valid response from ECU"}}));
 }
 
 TEST(SubaruDensoSh7058CanDieselExecutor, ShortSecurityKeyFrameUsesTheOracleNoValidResponseRecord)
 {
-    auto plan = plan_for(kVariants.front(), FlashOperation::Read);
+    auto plan = plan_for(kVariants.front(), FlashOperation::kRead);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
     SubaruDensoSh7058CanDieselExecutor executor;
     ScriptedCanFlashTransport transport;
@@ -1000,10 +1000,10 @@ TEST(SubaruDensoSh7058CanDieselExecutor, ShortSecurityKeyFrameUsesTheOracleNoVal
     const auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    EXPECT_EQ(result.error().kind, ErrorKind::kBadResponse);
     EXPECT_TRUE(transport.scriptConsumed());
     ASSERT_FALSE(events.logs.empty());
-    EXPECT_EQ(events.logs.back(), (std::pair{LogLevel::Error, std::string{"No valid response from ECU"}}));
+    EXPECT_EQ(events.logs.back(), (std::pair{LogLevel::kError, std::string{"No valid response from ECU"}}));
 }
 
 // RequestDownload uses the generic legacy error slice (received.mid(8)),
@@ -1012,7 +1012,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, ShortSecurityKeyFrameUsesTheOracleNoVal
 // "Not a valid answer" record rather than the NRC's "Invalid key" text.
 TEST(SubaruDensoSh7058CanDieselExecutor, RequestDownloadNegativeUsesTheGenericOracleErrorSlice)
 {
-    auto plan = plan_for(kVariants.front(), FlashOperation::Read);
+    auto plan = plan_for(kVariants.front(), FlashOperation::kRead);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
     SubaruDensoSh7058CanDieselExecutor executor;
     ScriptedCanFlashTransport transport;
@@ -1027,18 +1027,18 @@ TEST(SubaruDensoSh7058CanDieselExecutor, RequestDownloadNegativeUsesTheGenericOr
     const auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    EXPECT_EQ(result.error().kind, ErrorKind::kBadResponse);
     EXPECT_TRUE(transport.scriptConsumed());
     ASSERT_FALSE(events.logs.empty());
     EXPECT_EQ(events.logs.back(),
-              (std::pair{LogLevel::Error, std::string{"Wrong response from ECU: Not a valid answer"}}));
+              (std::pair{LogLevel::kError, std::string{"Wrong response from ECU: Not a valid answer"}}));
 }
 
 // Security negative replies use the separate received.mid(4) oracle slice,
 // so this same NRC remains human-readable for the stock seed request.
 TEST(SubaruDensoSh7058CanDieselExecutor, SecurityNegativeUsesTheSecurityOracleErrorSlice)
 {
-    auto plan = plan_for(kVariants.front(), FlashOperation::Read);
+    auto plan = plan_for(kVariants.front(), FlashOperation::kRead);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
     SubaruDensoSh7058CanDieselExecutor executor;
     ScriptedCanFlashTransport transport;
@@ -1055,19 +1055,19 @@ TEST(SubaruDensoSh7058CanDieselExecutor, SecurityNegativeUsesTheSecurityOracleEr
     const auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    EXPECT_EQ(result.error().kind, ErrorKind::kBadResponse);
     EXPECT_TRUE(transport.scriptConsumed());
     ASSERT_FALSE(events.logs.empty());
-    EXPECT_EQ(events.logs.back(), (std::pair{LogLevel::Error, std::string{"Wrong response from ECU: Invalid key"}}));
+    EXPECT_EQ(events.logs.back(), (std::pair{LogLevel::kError, std::string{"Wrong response from ECU: Invalid key"}}));
 }
 
 TEST(SubaruDensoSh7058CanDieselExecutor, MalformedNegativeWrongIdTimeoutAndDisconnectAreTypedAtStrictSecurity)
 {
     enum class ReplyKind
     {
-        Frame,
-        NoFrame,
-        Error,
+        kFrame,
+        kNoFrame,
+        kError,
     };
     struct ErrorCase
     {
@@ -1080,30 +1080,30 @@ TEST(SubaruDensoSh7058CanDieselExecutor, MalformedNegativeWrongIdTimeoutAndDisco
     };
     const std::array<ErrorCase, 5> cases{{
         {"malformed",
-         ReplyKind::Frame,
+         ReplyKind::kFrame,
          {0x00, 0x00, 0x07, 0xE8, 0x67},
-         ErrorKind::Internal,
-         ErrorKind::BadResponse,
+         ErrorKind::kInternal,
+         ErrorKind::kBadResponse,
          "No valid response from ECU"},
         {"negative",
-         ReplyKind::Frame,
+         ReplyKind::kFrame,
          {0x00, 0x00, 0x07, 0xE8, 0x7F, 0x27, 0x35},
-         ErrorKind::Internal,
-         ErrorKind::BadResponse,
+         ErrorKind::kInternal,
+         ErrorKind::kBadResponse,
          "Wrong response from ECU: Invalid key"},
         {"wrong-id",
-         ReplyKind::Frame,
+         ReplyKind::kFrame,
          {0x00, 0x00, 0x07, 0xE9, 0x67, 0x01, 0x11, 0x22, 0x33, 0x44},
-         ErrorKind::Internal,
-         ErrorKind::BadResponse,
+         ErrorKind::kInternal,
+         ErrorKind::kBadResponse,
          "Wrong response from ECU: Not a valid answer"},
-        {"timeout", ReplyKind::NoFrame, {}, ErrorKind::Internal, ErrorKind::Timeout, "No valid response from ECU"},
-        {"disconnect", ReplyKind::Error, {}, ErrorKind::Disconnected, ErrorKind::Disconnected, ""},
+        {"timeout", ReplyKind::kNoFrame, {}, ErrorKind::kInternal, ErrorKind::kTimeout, "No valid response from ECU"},
+        {"disconnect", ReplyKind::kError, {}, ErrorKind::kDisconnected, ErrorKind::kDisconnected, ""},
     }};
     for (const ErrorCase& test_case : cases)
     {
         SCOPED_TRACE(test_case.name);
-        auto plan = plan_for(kVariants.front(), FlashOperation::Read);
+        auto plan = plan_for(kVariants.front(), FlashOperation::kRead);
         ASSERT_TRUE(plan.has_value()) << plan.error().detail;
         SubaruDensoSh7058CanDieselExecutor executor;
         ScriptedCanFlashTransport transport;
@@ -1114,13 +1114,13 @@ TEST(SubaruDensoSh7058CanDieselExecutor, MalformedNegativeWrongIdTimeoutAndDisco
         transport.expectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE0, 0x27, 0x01});
         switch (test_case.kind)
         {
-        case ReplyKind::Frame:
+        case ReplyKind::kFrame:
             transport.queueRead(test_case.frame);
             break;
-        case ReplyKind::NoFrame:
+        case ReplyKind::kNoFrame:
             transport.queue_no_frame();
             break;
-        case ReplyKind::Error:
+        case ReplyKind::kError:
             transport.queue_error(test_case.injected, "injected strict-security transport failure");
             break;
         }
@@ -1134,7 +1134,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, MalformedNegativeWrongIdTimeoutAndDisco
         EXPECT_EQ(result.error().kind, test_case.expected);
         if (!test_case.operator_record.empty())
         {
-            EXPECT_TRUE(has_exact_log(events, LogLevel::Error, test_case.operator_record));
+            EXPECT_TRUE(has_exact_log(events, LogLevel::kError, test_case.operator_record));
         }
         EXPECT_TRUE(transport.scriptConsumed());
     }
@@ -1142,7 +1142,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, MalformedNegativeWrongIdTimeoutAndDisco
 
 TEST(SubaruDensoSh7058CanDieselExecutor, StrictUdsPendingRetriesAreBoundedAndNeverResend)
 {
-    auto plan = plan_for(kVariants.front(), FlashOperation::Read);
+    auto plan = plan_for(kVariants.front(), FlashOperation::kRead);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
     SubaruDensoSh7058CanDieselExecutor executor;
     RecordingCanFlashTransport transport;
@@ -1163,7 +1163,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, StrictUdsPendingRetriesAreBoundedAndNev
     const auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Timeout);
+    EXPECT_EQ(result.error().kind, ErrorKind::kTimeout);
     EXPECT_TRUE(transport.scripted.scriptConsumed());
     EXPECT_EQ(std::count(transport.writes.begin(), transport.writes.end(), seed_request), 1);
     ASSERT_GE(transport.read_timeouts.size(), 11U);
@@ -1173,7 +1173,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, StrictUdsPendingRetriesAreBoundedAndNev
     EXPECT_EQ(std::count_if(events.logs.begin(), events.logs.end(),
                             [](const auto& record)
                             {
-                                return record.first == LogLevel::Debug &&
+                                return record.first == LogLevel::kDebug &&
                                        record.second == "ECU reported responsePending for SID 0x27; waiting";
                             }),
               11);
@@ -1181,7 +1181,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, StrictUdsPendingRetriesAreBoundedAndNev
 
 TEST(SubaruDensoSh7058CanDieselExecutor, CancellationStopsAtPendingRetryBoundaryWithoutResending)
 {
-    auto plan = plan_for(kVariants.front(), FlashOperation::Read);
+    auto plan = plan_for(kVariants.front(), FlashOperation::kRead);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
     SubaruDensoSh7058CanDieselExecutor executor;
     RecordingCanFlashTransport transport;
@@ -1202,7 +1202,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, CancellationStopsAtPendingRetryBoundary
     const auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
+    EXPECT_EQ(result.error().kind, ErrorKind::kCancelled);
     EXPECT_EQ(std::count(transport.writes.begin(), transport.writes.end(), seed_request), 1);
     EXPECT_EQ(transport.read_timeouts.back(), 3000ms);
     EXPECT_EQ(transport.scripted.writesConsumed(), transport.writes.size());
@@ -1213,7 +1213,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, TestWriteDisablesFlashAndValidatesWitho
     for (const DieselVariant& variant : kVariants)
     {
         SCOPED_TRACE(variant.protocol);
-        auto plan = plan_for(variant, FlashOperation::TestWrite);
+        auto plan = plan_for(variant, FlashOperation::kTestWrite);
         ASSERT_TRUE(plan.has_value()) << plan.error().detail;
         SubaruDensoSh7058CanDieselExecutor executor;
         RecordingCanFlashTransport transport;
@@ -1230,10 +1230,10 @@ TEST(SubaruDensoSh7058CanDieselExecutor, TestWriteDisablesFlashAndValidatesWitho
         const auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
         ASSERT_TRUE(result.has_value()) << result.error().detail;
-        EXPECT_EQ(result->operation, FlashOperation::TestWrite);
+        EXPECT_EQ(result->operation, FlashOperation::kTestWrite);
         EXPECT_TRUE(transport.scripted.scriptConsumed());
-        EXPECT_TRUE(has_log(events, LogLevel::Info, "Test write mode on, no actual flash write is performed"));
-        EXPECT_TRUE(has_log(events, LogLevel::Info, "*** Test write PASS, it's ok to perform actual write! ***"));
+        EXPECT_TRUE(has_log(events, LogLevel::kInfo, "Test write mode on, no actual flash write is performed"));
+        EXPECT_TRUE(has_log(events, LogLevel::kInfo, "*** Test write PASS, it's ok to perform actual write! ***"));
         EXPECT_EQ(std::count_if(transport.writes.begin(), transport.writes.end(),
                                 [](const bytes::Bytes& wire) { return wire.size() > 8 && wire[8] == 0x24; }),
                   0);
@@ -1241,7 +1241,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, TestWriteDisablesFlashAndValidatesWitho
             std::find(transport.writes.begin(), transport.writes.end(),
                       beef_request(0x23, bytes::Bytes{0x00, 0x00, 0x00, 0x00, 0x10, 0x00, 0xF7, 0x22, 0xEF, 0x49})),
             transport.writes.end());
-        EXPECT_TRUE(has_exact_log(events, LogLevel::Info, "Write flash buffer: 0x00000000 (0% - 512000 B/s, ~ 1 s)"));
+        EXPECT_TRUE(has_exact_log(events, LogLevel::kInfo, "Write flash buffer: 0x00000000 (0% - 512000 B/s, ~ 1 s)"));
         ASSERT_FALSE(events.phase_progress_calls.empty());
         EXPECT_EQ(events.phase_progress_calls.front(), (RecordedPhaseProgress{"Kernel", 1, 4, 0, 1}));
         EXPECT_EQ(events.phase_progress_calls.back(), (RecordedPhaseProgress{"Complete", 4, 4, 1, 1}));
@@ -1252,8 +1252,8 @@ TEST(SubaruDensoSh7058CanDieselExecutor, ProprietaryReadRejectsMalformedWrongOpc
 {
     enum class ReplyKind
     {
-        Frame,
-        NoFrame,
+        kFrame,
+        kNoFrame,
     };
     struct ErrorCase
     {
@@ -1265,23 +1265,23 @@ TEST(SubaruDensoSh7058CanDieselExecutor, ProprietaryReadRejectsMalformedWrongOpc
     };
     const std::array<ErrorCase, 4> cases{{
         {"malformed-length",
-         ReplyKind::Frame,
+         ReplyKind::kFrame,
          {0x00, 0x00, 0x07, 0xE8, 0xBE, 0xEF, 0x00, 0x05, 0x43, 0x00},
-         ErrorKind::BadResponse,
+         ErrorKind::kBadResponse,
          "Wrong response from ECU: Not a valid answer"},
-        {"wrong-opcode", ReplyKind::Frame, beef_response(0x44, bytes::Bytes(kReadPageSize, bytes::Byte{0})),
-         ErrorKind::BadResponse, "Wrong response from ECU: Not a valid answer"},
+        {"wrong-opcode", ReplyKind::kFrame, beef_response(0x44, bytes::Bytes(kReadPageSize, bytes::Byte{0})),
+         ErrorKind::kBadResponse, "Wrong response from ECU: Not a valid answer"},
         {"wrong-id",
-         ReplyKind::Frame,
+         ReplyKind::kFrame,
          {0x00, 0x00, 0x07, 0xE9, 0xBE, 0xEF, 0x00, 0x01, 0x43},
-         ErrorKind::BadResponse,
+         ErrorKind::kBadResponse,
          "Wrong response from ECU: Not a valid answer"},
-        {"timeout", ReplyKind::NoFrame, {}, ErrorKind::Timeout, "No valid response from ECU"},
+        {"timeout", ReplyKind::kNoFrame, {}, ErrorKind::kTimeout, "No valid response from ECU"},
     }};
     for (const ErrorCase& test_case : cases)
     {
         SCOPED_TRACE(test_case.name);
-        auto plan = plan_for(kVariants.front(), FlashOperation::Read);
+        auto plan = plan_for(kVariants.front(), FlashOperation::kRead);
         ASSERT_TRUE(plan.has_value()) << plan.error().detail;
         SubaruDensoSh7058CanDieselExecutor executor;
         ScriptedCanFlashTransport transport;
@@ -1289,7 +1289,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, ProprietaryReadRejectsMalformedWrongOpc
         script_kernel_alive(transport);
         transport.expectWrite(
             bytes::Bytes{0x00, 0x00, 0x07, 0xE0, 0xBE, 0xEF, 0x00, 0x07, 0x03, 0x00, 0x00, 0x00, 0x00, 0x04, 0x00});
-        if (test_case.kind == ReplyKind::Frame)
+        if (test_case.kind == ReplyKind::kFrame)
         {
             transport.queueRead(test_case.reply);
         }
@@ -1305,7 +1305,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, ProprietaryReadRejectsMalformedWrongOpc
 
         ASSERT_FALSE(result.has_value());
         EXPECT_EQ(result.error().kind, test_case.expected);
-        EXPECT_TRUE(has_exact_log(events, LogLevel::Error, test_case.operator_record));
+        EXPECT_TRUE(has_exact_log(events, LogLevel::kError, test_case.operator_record));
         EXPECT_TRUE(transport.scriptConsumed());
     }
 }
@@ -1313,11 +1313,11 @@ TEST(SubaruDensoSh7058CanDieselExecutor, ProprietaryReadRejectsMalformedWrongOpc
 TEST(SubaruDensoSh7058CanDieselExecutor, CrcStaleDrainToleratesContentButPropagatesTerminalErrors)
 {
     for (const std::optional<ErrorKind> terminal :
-         {std::optional<ErrorKind>{}, std::optional<ErrorKind>{ErrorKind::Cancelled},
-          std::optional<ErrorKind>{ErrorKind::Disconnected}})
+         {std::optional<ErrorKind>{}, std::optional<ErrorKind>{ErrorKind::kCancelled},
+          std::optional<ErrorKind>{ErrorKind::kDisconnected}})
     {
         SCOPED_TRACE(terminal.has_value() ? static_cast<int>(*terminal) : -1);
-        auto plan = plan_for(kVariants.front(), FlashOperation::Write);
+        auto plan = plan_for(kVariants.front(), FlashOperation::kWrite);
         ASSERT_TRUE(plan.has_value()) << plan.error().detail;
         SubaruDensoSh7058CanDieselExecutor executor;
         ScriptedCanFlashTransport transport;
@@ -1360,7 +1360,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, UnchangedWriteSkipsFlashForBothGenerati
 {
     for (const DieselVariant& variant : kVariants)
     {
-        auto plan = plan_for(variant, FlashOperation::Write);
+        auto plan = plan_for(variant, FlashOperation::kWrite);
         ASSERT_TRUE(plan.has_value()) << plan.error().detail;
         SubaruDensoSh7058CanDieselExecutor executor;
         ScriptedCanFlashTransport transport;
@@ -1374,10 +1374,10 @@ TEST(SubaruDensoSh7058CanDieselExecutor, UnchangedWriteSkipsFlashForBothGenerati
         const auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
         ASSERT_TRUE(result.has_value()) << result.error().detail;
-        EXPECT_EQ(result->operation, FlashOperation::Write);
+        EXPECT_EQ(result->operation, FlashOperation::kWrite);
         EXPECT_TRUE(transport.scriptConsumed());
         EXPECT_TRUE(
-            has_exact_log(events, LogLevel::Info,
+            has_exact_log(events, LogLevel::kInfo,
                           "*** Compare results no difference between ROM and ECU data, no flashing needed! ***"));
         EXPECT_THAT(events.notices, ElementsAre("Writing ROM, please wait..."));
         EXPECT_THAT(
@@ -1398,7 +1398,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, UnchangedWriteSkipsFlashForBothGenerati
 
 TEST(SubaruDensoSh7058CanDieselExecutor, RealWriteErasesProgramsCommitsAndVerifiesOneSmallBlock)
 {
-    auto plan = plan_for(kVariants.front(), FlashOperation::Write);
+    auto plan = plan_for(kVariants.front(), FlashOperation::kWrite);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
     SubaruDensoSh7058CanDieselExecutor executor;
     RecordingCanFlashTransport transport;
@@ -1417,12 +1417,12 @@ TEST(SubaruDensoSh7058CanDieselExecutor, RealWriteErasesProgramsCommitsAndVerifi
     const auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_TRUE(result.has_value()) << result.error().detail;
-    EXPECT_EQ(result->operation, FlashOperation::Write);
+    EXPECT_EQ(result->operation, FlashOperation::kWrite);
     EXPECT_TRUE(transport.scripted.scriptConsumed());
     EXPECT_THAT(events.notices, ElementsAre("Writing ROM, please wait..."));
-    EXPECT_TRUE(
-        has_exact_log(events, LogLevel::Info, "Connecting to Subaru 07+ Diesel 32-bit CAN bootloader, please wait..."));
-    EXPECT_TRUE(has_exact_log(events, LogLevel::Info, "Writing ROM to Subaru 07+ Diesel 32-bit using CAN"));
+    EXPECT_TRUE(has_exact_log(events, LogLevel::kInfo,
+                              "Connecting to Subaru 07+ Diesel 32-bit CAN bootloader, please wait..."));
+    EXPECT_TRUE(has_exact_log(events, LogLevel::kInfo, "Writing ROM to Subaru 07+ Diesel 32-bit using CAN"));
     const bytes::Bytes commit{0x00, 0x00, 0x07, 0xE0, 0xBE, 0xEF, 0x00, 0x0B, 0x24, 0x00,
                               0x00, 0x00, 0x00, 0x10, 0x00, 0xF7, 0x22, 0xEF, 0x49};
     EXPECT_EQ(std::count(transport.writes.begin(), transport.writes.end(), commit), 1);
@@ -1435,8 +1435,8 @@ TEST(SubaruDensoSh7058CanDieselExecutor, RealWriteErasesProgramsCommitsAndVerifi
                             "Write flash buffer: 0x00000A00 (62% - 512000 B/s, ~ 1 s)",
                             "Write flash buffer: 0x00000C00 (75% - 512000 B/s, ~ 1 s)",
                             "Write flash buffer: 0x00000E00 (87% - 512000 B/s, ~ 1 s)"));
-    EXPECT_TRUE(has_exact_log(events, LogLevel::Info, "Block 0 reflash complete."));
-    EXPECT_FALSE(has_log(events, LogLevel::Error, "*** ERROR IN FLASH PROCESS ***"));
+    EXPECT_TRUE(has_exact_log(events, LogLevel::kInfo, "Block 0 reflash complete."));
+    EXPECT_FALSE(has_log(events, LogLevel::kError, "*** ERROR IN FLASH PROCESS ***"));
     const auto write_progress = phase_records(events, "Write");
     ASSERT_EQ(write_progress.size(), 10U);
     EXPECT_EQ(write_progress.front(), (RecordedPhaseProgress{"Write", 3, 4, 0, 0x1000}));
@@ -1448,7 +1448,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, NonzeroLargeBlockCommitsEveryWindowWith
 {
     bytes::Bytes image(kVariants.back().rom_size, bytes::Byte{0});
     std::fill(image.begin() + 0x8000, image.begin() + 0x20000, bytes::Byte{0xA5});
-    auto plan = plan_for(kVariants.back(), FlashOperation::Write, std::move(image));
+    auto plan = plan_for(kVariants.back(), FlashOperation::kWrite, std::move(image));
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
     SubaruDensoSh7058CanDieselExecutor executor;
     RecordingCanFlashTransport transport;
@@ -1500,12 +1500,12 @@ TEST(SubaruDensoSh7058CanDieselExecutor, NonzeroLargeBlockCommitsEveryWindowWith
     }
     EXPECT_EQ(write_progress[192], (RecordedPhaseProgress{"Write", 3, 4, 0x17FFF, 0x18000}));
     EXPECT_EQ(write_progress[193], (RecordedPhaseProgress{"Write", 3, 4, 0x18000, 0x18000}));
-    EXPECT_TRUE(has_exact_log(events, LogLevel::Info, "Block 8 reflash complete."));
+    EXPECT_TRUE(has_exact_log(events, LogLevel::kInfo, "Block 8 reflash complete."));
 }
 
 TEST(SubaruDensoSh7058CanDieselExecutor, CancellationIsRejectedBeforeAnyTransportWrite)
 {
-    auto plan = plan_for(kVariants.front(), FlashOperation::Read);
+    auto plan = plan_for(kVariants.front(), FlashOperation::kRead);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
     SubaruDensoSh7058CanDieselExecutor executor;
     ScriptedCanFlashTransport transport;
@@ -1517,13 +1517,13 @@ TEST(SubaruDensoSh7058CanDieselExecutor, CancellationIsRejectedBeforeAnyTranspor
     const auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
+    EXPECT_EQ(result.error().kind, ErrorKind::kCancelled);
     EXPECT_EQ(transport.writesConsumed(), 0U);
 }
 
 TEST(SubaruDensoSh7058CanDieselExecutor, CancellationDuringKernelProbeStopsBeforeProbeRead)
 {
-    auto plan = plan_for(kVariants.front(), FlashOperation::Read);
+    auto plan = plan_for(kVariants.front(), FlashOperation::kRead);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
     SubaruDensoSh7058CanDieselExecutor executor;
     RecordingCanFlashTransport transport;
@@ -1538,7 +1538,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, CancellationDuringKernelProbeStopsBefor
     const auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
+    EXPECT_EQ(result.error().kind, ErrorKind::kCancelled);
     EXPECT_EQ(transport.scripted.writesConsumed(), 1U);
     EXPECT_TRUE(transport.read_timeouts.empty());
 }
@@ -1547,7 +1547,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, CancellationDuringKernelUploadStopsBefo
 {
     bytes::Bytes kernel_data(129, bytes::Byte{0});
     kernel_data.back() = 0x01;
-    auto plan = plan_for(kVariants.front(), FlashOperation::Read, {}, std::move(kernel_data));
+    auto plan = plan_for(kVariants.front(), FlashOperation::kRead, {}, std::move(kernel_data));
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
     SubaruDensoSh7058CanDieselExecutor executor;
     RecordingCanFlashTransport transport;
@@ -1563,7 +1563,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, CancellationDuringKernelUploadStopsBefo
     const auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
+    EXPECT_EQ(result.error().kind, ErrorKind::kCancelled);
     EXPECT_EQ(std::count_if(transport.writes.begin(), transport.writes.end(),
                             [](const bytes::Bytes& wire) { return wire.size() >= 5 && wire[4] == 0xB6; }),
               1);
@@ -1573,7 +1573,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, UploadedKernelReachesFirstReadPageBefor
 {
     bytes::Bytes kernel_data(129, bytes::Byte{0});
     kernel_data.back() = 1;
-    auto plan = plan_for(kVariants.front(), FlashOperation::Read, {}, std::move(kernel_data));
+    auto plan = plan_for(kVariants.front(), FlashOperation::kRead, {}, std::move(kernel_data));
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
     SubaruDensoSh7058CanDieselExecutor executor;
     RecordingCanFlashTransport transport;
@@ -1592,14 +1592,14 @@ TEST(SubaruDensoSh7058CanDieselExecutor, UploadedKernelReachesFirstReadPageBefor
     const auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
+    EXPECT_EQ(result.error().kind, ErrorKind::kCancelled);
     EXPECT_TRUE(transport.scripted.scriptConsumed());
     EXPECT_EQ(transport.writes.back(), beef_request(0x03, first_read_payload));
 }
 
 TEST(SubaruDensoSh7058CanDieselExecutor, CancellationAtReadPageBoundaryStopsBeforeSecondPage)
 {
-    auto plan = plan_for(kVariants.front(), FlashOperation::Read);
+    auto plan = plan_for(kVariants.front(), FlashOperation::kRead);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
     SubaruDensoSh7058CanDieselExecutor executor;
     ScriptedCanFlashTransport transport;
@@ -1621,13 +1621,13 @@ TEST(SubaruDensoSh7058CanDieselExecutor, CancellationAtReadPageBoundaryStopsBefo
     const auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
+    EXPECT_EQ(result.error().kind, ErrorKind::kCancelled);
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
 TEST(SubaruDensoSh7058CanDieselExecutor, CancellationAtCrcBoundaryStopsBeforeSecondBlock)
 {
-    auto plan = plan_for(kVariants.front(), FlashOperation::Write);
+    auto plan = plan_for(kVariants.front(), FlashOperation::kWrite);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
     SubaruDensoSh7058CanDieselExecutor executor;
     ScriptedCanFlashTransport transport;
@@ -1641,13 +1641,13 @@ TEST(SubaruDensoSh7058CanDieselExecutor, CancellationAtCrcBoundaryStopsBeforeSec
     const auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
+    EXPECT_EQ(result.error().kind, ErrorKind::kCancelled);
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
 TEST(SubaruDensoSh7058CanDieselExecutor, CancellationAfterEraseReportsKernelRecoveryWarning)
 {
-    auto plan = plan_for(kVariants.front(), FlashOperation::Write);
+    auto plan = plan_for(kVariants.front(), FlashOperation::kWrite);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
     SubaruDensoSh7058CanDieselExecutor executor;
     ScriptedCanFlashTransport transport;
@@ -1666,16 +1666,16 @@ TEST(SubaruDensoSh7058CanDieselExecutor, CancellationAfterEraseReportsKernelReco
     const auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
+    EXPECT_EQ(result.error().kind, ErrorKind::kCancelled);
     EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_TRUE(has_exact_log(events, LogLevel::Error,
+    EXPECT_TRUE(has_exact_log(events, LogLevel::kError,
                               "Reflash error! Do not panic, do not reset the ECU immediately. The kernel is most "
                               "likely still running and receiving commands!"));
 }
 
 TEST(SubaruDensoSh7058CanDieselExecutor, CancellationDuringBufferWriteReportsKernelRecoveryWarning)
 {
-    auto plan = plan_for(kVariants.front(), FlashOperation::Write);
+    auto plan = plan_for(kVariants.front(), FlashOperation::kWrite);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
     SubaruDensoSh7058CanDieselExecutor executor;
     RecordingCanFlashTransport transport;
@@ -1697,15 +1697,15 @@ TEST(SubaruDensoSh7058CanDieselExecutor, CancellationDuringBufferWriteReportsKer
     const auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
-    EXPECT_TRUE(has_exact_log(events, LogLevel::Error,
+    EXPECT_EQ(result.error().kind, ErrorKind::kCancelled);
+    EXPECT_TRUE(has_exact_log(events, LogLevel::kError,
                               "Reflash error! Do not panic, do not reset the ECU immediately. The kernel is most "
                               "likely still running and receiving commands!"));
 }
 
 TEST(SubaruDensoSh7058CanDieselExecutor, CancellationBeforeCommitReportsKernelRecoveryWarning)
 {
-    auto plan = plan_for(kVariants.front(), FlashOperation::Write);
+    auto plan = plan_for(kVariants.front(), FlashOperation::kWrite);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
     SubaruDensoSh7058CanDieselExecutor executor;
     ScriptedCanFlashTransport transport;
@@ -1731,16 +1731,16 @@ TEST(SubaruDensoSh7058CanDieselExecutor, CancellationBeforeCommitReportsKernelRe
     const auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
+    EXPECT_EQ(result.error().kind, ErrorKind::kCancelled);
     EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_TRUE(has_exact_log(events, LogLevel::Error,
+    EXPECT_TRUE(has_exact_log(events, LogLevel::kError,
                               "Reflash error! Do not panic, do not reset the ECU immediately. The kernel is most "
                               "likely still running and receiving commands!"));
 }
 
 TEST(SubaruDensoSh7058CanDieselExecutor, CancellationDuringCommitReplyReportsKernelRecoveryWarning)
 {
-    auto plan = plan_for(kVariants.front(), FlashOperation::Write);
+    auto plan = plan_for(kVariants.front(), FlashOperation::kWrite);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
     SubaruDensoSh7058CanDieselExecutor executor;
     RecordingCanFlashTransport transport;
@@ -1758,11 +1758,11 @@ TEST(SubaruDensoSh7058CanDieselExecutor, CancellationDuringCommitReplyReportsKer
     const auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
+    EXPECT_EQ(result.error().kind, ErrorKind::kCancelled);
     EXPECT_EQ(std::count_if(transport.writes.begin(), transport.writes.end(),
                             [](const bytes::Bytes& wire) { return wire.size() == 19 && wire[8] == 0x24; }),
               1);
-    EXPECT_TRUE(has_exact_log(events, LogLevel::Error,
+    EXPECT_TRUE(has_exact_log(events, LogLevel::kError,
                               "Reflash error! Do not panic, do not reset the ECU immediately. The kernel is most "
                               "likely still running and receiving commands!"));
 }

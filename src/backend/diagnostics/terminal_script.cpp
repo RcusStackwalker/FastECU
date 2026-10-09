@@ -17,7 +17,7 @@ constexpr std::string_view kWhitespace = " \t\r\n";
 
 Error line_error(std::size_t line, const std::string& detail)
 {
-    return Error{ErrorKind::InvalidConfig, std::format("line {}: {}", line, detail)};
+    return Error{ErrorKind::kInvalidConfig, std::format("line {}: {}", line, detail)};
 }
 
 std::string_view trim(std::string_view text)
@@ -105,7 +105,7 @@ Result<std::vector<TerminalStep>> parse_terminal_script(std::span<const std::str
     }
     if (steps.empty())
     {
-        return fail(ErrorKind::InvalidConfig, "script has no steps");
+        return fail(ErrorKind::kInvalidConfig, "script has no steps");
     }
     return steps;
 }

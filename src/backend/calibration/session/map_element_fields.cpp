@@ -52,7 +52,7 @@ MapElementFields collect_map_element_fields(const CalibrationSession& session, s
     const auto& def = session.definition()->definition;
     const auto& map = def.maps.at(map_index);
     const definition::Scaling *scaling = nullptr;
-    if (target == NumericTarget::MapBody)
+    if (target == NumericTarget::kMapBody)
     {
         scaling = definition::find_scaling(def, map.scaling_name);
         fields.address_ = map.address.value_or(0);
@@ -65,7 +65,7 @@ MapElementFields collect_map_element_fields(const CalibrationSession& session, s
     }
     else
     {
-        const auto& axis = target == NumericTarget::XAxis ? map.x_axis : map.y_axis;
+        const auto& axis = target == NumericTarget::kXAxis ? map.x_axis : map.y_axis;
         const bool present = !axis.type.empty();
         scaling = present ? definition::find_scaling(def, axis.scaling_name) : nullptr;
         fields.address_ = present ? axis.address.value_or(0) : 0;

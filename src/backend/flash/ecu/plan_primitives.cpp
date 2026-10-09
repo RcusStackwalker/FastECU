@@ -6,17 +6,17 @@ Status validate_regions(const FlashPlan& plan, const FlashDevice& device)
 {
     if (plan.transfer_region().start != device.fblocks[0].start || plan.transfer_region().length != device.romsize)
     {
-        return fail(ErrorKind::InvalidConfig, "transfer region does not match the MCU");
+        return fail(ErrorKind::kInvalidConfig, "transfer region does not match the MCU");
     }
-    if (plan.operation() == FlashOperation::Read)
+    if (plan.operation() == FlashOperation::kRead)
     {
         return plan.erase_regions().empty()
                    ? Status{}
-                   : fail(ErrorKind::InvalidConfig, "read plans must not declare erase regions");
+                   : fail(ErrorKind::kInvalidConfig, "read plans must not declare erase regions");
     }
     if (!erase_geometry_matches(plan.erase_regions(), device))
     {
-        return fail(ErrorKind::InvalidConfig, "erase geometry does not match the MCU");
+        return fail(ErrorKind::kInvalidConfig, "erase geometry does not match the MCU");
     }
     return {};
 }

@@ -431,7 +431,7 @@ Status connect_bootloader(Ctx& ctx, ICanFlashTransport& can)
     if (selector->size() < 4)
     {
         error(ctx, "Wrong response from ECU: programming-branch selector reply is too short");
-        return fail(ErrorKind::BadResponse, "programming-branch selector reply is too short");
+        return fail(ErrorKind::kBadResponse, "programming-branch selector reply is too short");
     }
     return (*selector)[3] != 0xFF ? connect_in_car(ctx, can) : connect_bench(ctx);
 }
@@ -475,7 +475,7 @@ Result<bytes::Bytes> read_memory(Ctx& ctx, const SubaruDenso1n83m_4mCanPlan& fam
         // Legacy stopRequested() at line 942, top of loop.
         if (ctx.cancellation.cancelled())
         {
-            return fail(ErrorKind::Cancelled, "read cancelled");
+            return fail(ErrorKind::kCancelled, "read cancelled");
         }
         const std::uint32_t addr = region.start + offset;
         // Lines 929-965: SID 0xB7 plus a 4-byte big-endian address; the reply
@@ -554,7 +554,7 @@ Status reflash_block(Ctx& ctx, bytes::ByteView image, const MemoryRegion& block,
         // subaru_hitachi_m32r_can_executor.cpp does.
         if (ctx.cancellation.cancelled())
         {
-            return fail(ErrorKind::Cancelled, "write cancelled");
+            return fail(ErrorKind::kCancelled, "write cancelled");
         }
         const std::uint32_t block_addr = block.start + chunk_index * kChunkSize;
         // Lines 1211-1242: SID 0xB6, a 4-byte big-endian address, and the 256
@@ -658,7 +658,7 @@ Status write_memory(Ctx& ctx, bytes::ByteView image, const MemoryRegion& block, 
 
 Result<Iso15765Config> SubaruDenso1n83m_4mCanExecutor::transport_setup(const FlashPlan& plan) const
 {
-    if (const Status match = check_family(plan, FlashFamily::SubaruDenso1n83m_4mCan); !match.has_value())
+    if (const Status match = check_family(plan, FlashFamily::kSubaruDenso1n83m4mCan); !match.has_value())
     {
         return std::unexpected(match.error());
     }
@@ -675,7 +675,7 @@ Result<FlashExecutionResult> SubaruDenso1n83m_4mCanExecutor::execute(const Flash
                                                                      const ICancellationToken& cancellation,
                                                                      IEventSink& events)
 {
-    if (const Status matched = check_family(plan, FlashFamily::SubaruDenso1n83m_4mCan); !matched.has_value())
+    if (const Status matched = check_family(plan, FlashFamily::kSubaruDenso1n83m4mCan); !matched.has_value())
     {
         return std::unexpected(matched.error());
     }
@@ -685,12 +685,12 @@ Result<FlashExecutionResult> SubaruDenso1n83m_4mCanExecutor::execute(const Flash
     }
     if (cancellation.cancelled())
     {
-        return fail(ErrorKind::Cancelled, "cancelled before setup");
+        return fail(ErrorKind::kCancelled, "cancelled before setup");
     }
 
     const auto& family = std::get<SubaruDenso1n83m_4mCanPlan>(plan.family_plan());
 
-    const bool read = plan.operation() == FlashOperation::Read;
+    const bool read = plan.operation() == FlashOperation::kRead;
     PhaseSequence phases(events, read ? 2 : 3);
     PhaseReporter connect = phases.start("Connect", 1);
 
@@ -718,7 +718,7 @@ Result<FlashExecutionResult> SubaruDenso1n83m_4mCanExecutor::execute(const Flash
         }
         read_phase.complete();
         return FlashExecutionResult{
-            .operation = FlashOperation::Read,
+            .operation = FlashOperation::kRead,
             .read_bytes = std::move(*rom),
         };
     }
@@ -736,9 +736,9 @@ Result<FlashExecutionResult> SubaruDenso1n83m_4mCanExecutor::execute(const Flash
     // thing between a non-Write operation and a real erase-and-write of an
     // ECU should that entry validation ever be relaxed or the enum gain a
     // value. Do not delete it as "dead code".
-    if (plan.operation() != FlashOperation::Write)
+    if (plan.operation() != FlashOperation::kWrite)
     {
-        return fail(ErrorKind::Unsupported, "test_write is not supported by the Subaru Denso 1N83M 4M CAN family");
+        return fail(ErrorKind::kUnsupported, "test_write is not supported by the Subaru Denso 1N83M 4M CAN family");
     }
 
     events.notice("Writing ROM, please wait...");

@@ -43,7 +43,7 @@ bytes::Bytes ascii(std::string_view text)
 
 Status cancelled_if_requested(const ICancellationToken& cancellation)
 {
-    return cancellation.cancelled() ? fail(ErrorKind::Cancelled, "MC68HC16Y5 BDM operation cancelled") : Status{};
+    return cancellation.cancelled() ? fail(ErrorKind::kCancelled, "MC68HC16Y5 BDM operation cancelled") : Status{};
 }
 
 Status write_exact(IKlineFlashTransport& transport, bytes::ByteView request)
@@ -53,7 +53,7 @@ Status write_exact(IKlineFlashTransport& transport, bytes::ByteView request)
     {
         return std::unexpected(written.error());
     }
-    return *written == request.size() ? Status{} : fail(ErrorKind::Disconnected, "short BDM write");
+    return *written == request.size() ? Status{} : fail(ErrorKind::kDisconnected, "short BDM write");
 }
 
 // Reads until `want` bytes have arrived, `budget` has elapsed, or a read
@@ -102,7 +102,7 @@ Status discard(IKlineFlashTransport& transport, IClock& clock, const ICancellati
     }
     if (!drained->empty())
     {
-        events.log(LogLevel::Debug, std::format("BDM discarded: {}", bytes::toHex(*drained)));
+        events.log(LogLevel::kDebug, std::format("BDM discarded: {}", bytes::toHex(*drained)));
     }
     return {};
 }
@@ -123,10 +123,10 @@ Status expect_ack(IKlineFlashTransport& transport, IClock& clock, const ICancell
     }
     if (received->size() < token.size())
     {
-        return fail(ErrorKind::Timeout,
+        return fail(ErrorKind::kTimeout,
                     std::format("BDM bridge did not send {} (received {})", token, bytes::toHex(*received)));
     }
-    return fail(ErrorKind::BadResponse,
+    return fail(ErrorKind::kBadResponse,
                 std::format("BDM bridge sent {} instead of {}", bytes::toHex(*received), token));
 }
 
@@ -152,8 +152,8 @@ Result<bytes::Bytes> read_page(std::uint32_t address, IKlineFlashTransport& tran
         page.insert(page.end(), chunk->begin(), chunk->end());
         if (page.size() > kPageSize)
         {
-            return fail(ErrorKind::BadResponse, std::format("BDM page at 0x{:08X} returned {} bytes, expected {}",
-                                                            address, page.size(), kPageSize));
+            return fail(ErrorKind::kBadResponse, std::format("BDM page at 0x{:08X} returned {} bytes, expected {}",
+                                                             address, page.size(), kPageSize));
         }
         if (auto slept = clock.sleep(kPagePollDelay, cancellation); !slept.has_value())
         {
@@ -162,7 +162,7 @@ Result<bytes::Bytes> read_page(std::uint32_t address, IKlineFlashTransport& tran
     }
     if (page.size() != kPageSize)
     {
-        return fail(ErrorKind::Timeout,
+        return fail(ErrorKind::kTimeout,
                     std::format("BDM page at 0x{:08X} returned {} of {} bytes", address, page.size(), kPageSize));
     }
     return page;
@@ -172,7 +172,7 @@ Result<bytes::Bytes> read_page(std::uint32_t address, IKlineFlashTransport& tran
 Result<bytes::Bytes> read_image(const FlashPlan& plan, IKlineFlashTransport& transport, IClock& clock,
                                 const ICancellationToken& cancellation, IEventSink& events)
 {
-    events.log(LogLevel::Info, "Reading ROM from Subaru Denso MC68HC16 with BDM");
+    events.log(LogLevel::kInfo, "Reading ROM from Subaru Denso MC68HC16 with BDM");
     if (auto cleared = discard(transport, clock, cancellation, events, kShortTimeout); !cleared.has_value())
     {
         return std::unexpected(cleared.error());
@@ -202,7 +202,7 @@ Result<bytes::Bytes> read_image(const FlashPlan& plan, IKlineFlashTransport& tra
             return std::unexpected(page.error());
         }
         image.insert(image.end(), page->begin(), page->end());
-        events.log(LogLevel::Info, std::format("BDM read addr: 0x{:08X} length: 0x{:08X}", address, kPageSize));
+        events.log(LogLevel::kInfo, std::format("BDM read addr: 0x{:08X} length: 0x{:08X}", address, kPageSize));
         events.progress(++pages_done, total_pages);
         if (auto slept = clock.sleep(kInterPageDelay, cancellation); !slept.has_value())
         {
@@ -239,7 +239,7 @@ Status log_reply(std::string_view command, IKlineFlashTransport& transport, IClo
     {
         return std::unexpected(reply.error());
     }
-    events.log(LogLevel::Info, std::format("BDM {} reply: {}", command, bytes::toHex(*reply)));
+    events.log(LogLevel::kInfo, std::format("BDM {} reply: {}", command, bytes::toHex(*reply)));
     return {};
 }
 
@@ -248,14 +248,14 @@ Status log_reply(std::string_view command, IKlineFlashTransport& transport, IClo
 Status bootstrap_kernel(bytes::ByteView kernel, IKlineFlashTransport& transport, IClock& clock,
                         const ICancellationToken& cancellation, IEventSink& events)
 {
-    events.log(LogLevel::Info, "Uploading kernel to Subaru Denso MC68HC16 RAM with BDM");
+    events.log(LogLevel::kInfo, "Uploading kernel to Subaru Denso MC68HC16 RAM with BDM");
     // write_mem() :226.
     if (auto cleared = discard(transport, clock, cancellation, events, kShortTimeout); !cleared.has_value())
     {
         return cleared;
     }
     // flash_block() :378-399.
-    events.log(LogLevel::Info, std::format("Writing block: 00 at address 0x{:08X}", kRamStart));
+    events.log(LogLevel::kInfo, std::format("Writing block: 00 at address 0x{:08X}", kRamStart));
     if (auto started = send_and_ack(transport, clock, cancellation,
                                     ascii(std::format("wdmem 0x{:08X} 0x{:08X}", kRamStart, kernel.size())),
                                     kAckCommand, kExtraLongTimeout);
@@ -279,7 +279,7 @@ Status bootstrap_kernel(bytes::ByteView kernel, IKlineFlashTransport& transport,
         }
         events.progress(static_cast<int>(index + 1), static_cast<int>(chunks));
     }
-    events.log(LogLevel::Info, "Block write complete.");
+    events.log(LogLevel::kInfo, "Block write complete.");
     // flash_block() :470.
     if (auto cleared = discard(transport, clock, cancellation, events, kShortTimeout); !cleared.has_value())
     {
@@ -331,11 +331,11 @@ Status bootstrap_kernel(bytes::ByteView kernel, IKlineFlashTransport& transport,
     }
     if (auto reply = accumulate(transport, clock, cancellation, kUnbounded, kLongTimeout); reply.has_value())
     {
-        events.log(LogLevel::Info, std::format("BDM go reply: {}", bytes::toHex(*reply)));
+        events.log(LogLevel::kInfo, std::format("BDM go reply: {}", bytes::toHex(*reply)));
     }
     else
     {
-        events.log(LogLevel::Warning, std::format("BDM go reply not read: {}", reply.error().detail));
+        events.log(LogLevel::kWarning, std::format("BDM go reply not read: {}", reply.error().detail));
     }
     return {};
 }
@@ -350,7 +350,7 @@ Result<KlineConfig> SubaruDensoMc68hc16y5_02BdmExecutor::transport_setup(const F
     const auto& wire = std::get<SubaruDensoMc68hc16y5_02BdmPlan>(plan.family_plan());
     // execute() :50-54.
     return KlineConfig{
-        .baud = wire.baud, .iso14230 = false, .tester_id = 0, .target_id = 0, .parity = KlineParity::None};
+        .baud = wire.baud, .iso14230 = false, .tester_id = 0, .target_id = 0, .parity = KlineParity::kNone};
 }
 
 Status SubaruDensoMc68hc16y5_02BdmExecutor::before_transport_configure(IKlineFlashTransport& transport, IClock&,
@@ -373,7 +373,7 @@ SubaruDensoMc68hc16y5_02BdmExecutor::execute(const FlashPlan& plan, IKlineFlashT
     {
         return std::unexpected(cancelled.error());
     }
-    if (plan.operation() == FlashOperation::Read)
+    if (plan.operation() == FlashOperation::kRead)
     {
         auto image = read_image(plan, transport, clock, cancellation, events);
         if (!image.has_value())
@@ -381,13 +381,14 @@ SubaruDensoMc68hc16y5_02BdmExecutor::execute(const FlashPlan& plan, IKlineFlashT
             return std::unexpected(image.error());
         }
         return FlashExecutionResult{
-            .operation = FlashOperation::Read, .read_bytes = std::move(*image), .rom_id = std::nullopt};
+            .operation = FlashOperation::kRead, .read_bytes = std::move(*image), .rom_id = std::nullopt};
     }
     if (auto booted = bootstrap_kernel(plan.image_or_empty(), transport, clock, cancellation, events);
         !booted.has_value())
     {
         return std::unexpected(booted.error());
     }
-    return FlashExecutionResult{.operation = FlashOperation::Write, .read_bytes = std::nullopt, .rom_id = std::nullopt};
+    return FlashExecutionResult{
+        .operation = FlashOperation::kWrite, .read_bytes = std::nullopt, .rom_id = std::nullopt};
 }
 } // namespace fastecu::flash

@@ -37,7 +37,7 @@ Result<AppConfig> parse_app_config(const ConfigPaths& paths, IFileRepository& fi
     pugi::xml_document doc;
     if (pugi::xml_parse_result parsed = doc.load_buffer(bytes->data(), bytes->size()); !parsed)
     {
-        return fail(ErrorKind::InvalidConfig, std::format("config parse error: {}", parsed.description()));
+        return fail(ErrorKind::kInvalidConfig, std::format("config parse error: {}", parsed.description()));
     }
 
     AppConfig config;

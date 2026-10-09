@@ -20,11 +20,11 @@ Status validateEcho(bytes::ByteView reply, bytes::Byte expected, std::size_t min
     const bytes::ByteView payload = uds::payload(reply);
     if (payload.size() < minimum_size)
     {
-        return fail(ErrorKind::BadResponse, std::format("{} reply too short", subject));
+        return fail(ErrorKind::kBadResponse, std::format("{} reply too short", subject));
     }
     if (payload[0] != expected)
     {
-        return fail(ErrorKind::BadResponse,
+        return fail(ErrorKind::kBadResponse,
                     std::format("{} echoed 0x{:02x}, expected 0x{:02x}", subject, payload[0], expected));
     }
     return {};
@@ -123,13 +123,13 @@ Status BenchSession::connect()
         const bytes::ByteView vendor_seed_payload = uds::payload(*vendor_seed_reply);
         if (vendor_seed_payload.size() < 6)
         {
-            return fail(ErrorKind::BadResponse, "vendor challenge seed reply too short");
+            return fail(ErrorKind::kBadResponse, "vendor challenge seed reply too short");
         }
         if (vendor_seed_payload[0] != mitsu_colt_can_vendor_ext::kVendorChallengeSelector ||
             vendor_seed_payload[1] != mitsu_colt_can_vendor_ext::kVendorChallengeSeedSubfunction)
         {
-            return fail(ErrorKind::BadResponse, std::format("vendor challenge seed reply carried 0x{:02x} 0x{:02x}",
-                                                            vendor_seed_payload[0], vendor_seed_payload[1]));
+            return fail(ErrorKind::kBadResponse, std::format("vendor challenge seed reply carried 0x{:02x} 0x{:02x}",
+                                                             vendor_seed_payload[0], vendor_seed_payload[1]));
         }
 
         const std::uint32_t vendor_key = mitsu_colt_can_vendor_ext::challengeInverseTransform(
@@ -143,7 +143,7 @@ Status BenchSession::connect()
         const bytes::ByteView vendor_key_payload = uds::payload(*vendor_key_reply);
         if (vendor_key_payload.size() < 2)
         {
-            return fail(ErrorKind::BadResponse, "vendor challenge key reply too short");
+            return fail(ErrorKind::kBadResponse, "vendor challenge key reply too short");
         }
         // Mirrors connect_bootloader's fatal_query prefix check: the reply must
         // carry both the echoed selector and kVendorChallengeAccepted, not just
@@ -151,8 +151,8 @@ Status BenchSession::connect()
         if (vendor_key_payload[0] != mitsu_colt_can_vendor_ext::kVendorChallengeSelector ||
             vendor_key_payload[1] != mitsu_colt_can_vendor_ext::kVendorChallengeAccepted)
         {
-            return fail(ErrorKind::BadResponse, std::format("vendor challenge key rejected: reply 0x{:02x} 0x{:02x}",
-                                                            vendor_key_payload[0], vendor_key_payload[1]));
+            return fail(ErrorKind::kBadResponse, std::format("vendor challenge key rejected: reply 0x{:02x} 0x{:02x}",
+                                                             vendor_key_payload[0], vendor_key_payload[1]));
         }
     }
 
@@ -229,7 +229,7 @@ Result<bytes::Bytes> BenchSession::exchange_raw(bytes::ByteView pdu, int timeout
     }
     if (!received->has_value())
     {
-        return fail(ErrorKind::Timeout, "no response within the read timeout");
+        return fail(ErrorKind::kTimeout, "no response within the read timeout");
     }
     return std::move(**received);
 }
@@ -244,7 +244,7 @@ Result<double> BenchSession::vbatt()
     // ICanFlashTransport exposes no read_vbatt(); CommandOutcome::vbatt is
     // optional, so this degrades cleanly rather than widening the transport
     // interface to reach it. See Task 8's bench checklist.
-    return fail(ErrorKind::Unsupported, "battery voltage needs the serial layer");
+    return fail(ErrorKind::kUnsupported, "battery voltage needs the serial layer");
 }
 
 } // namespace fastecu::bench

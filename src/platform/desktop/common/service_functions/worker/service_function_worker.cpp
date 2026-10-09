@@ -54,7 +54,7 @@ void ServiceFunctionWorker::answerGate(int gateId, bool accepted)
     {
         return;
     }
-    gate_response_ = accepted ? GateResponse::Accept : GateResponse::Decline;
+    gate_response_ = accepted ? GateResponse::kAccept : GateResponse::kDecline;
     gate_answered_.wakeAll();
 }
 
@@ -95,7 +95,7 @@ void ServiceFunctionWorker::run()
     connect(&events, &QtEventSink::progressed, this, &ServiceFunctionWorker::progressChanged, Qt::DirectConnection);
     connect(
         &events, &QtEventSink::noticed, this, [this](QString message)
-        { emit logEvent(static_cast<int>(LogLevel::Info), std::move(message)); }, Qt::DirectConnection);
+        { emit logEvent(static_cast<int>(LogLevel::kInfo), std::move(message)); }, Qt::DirectConnection);
 
     while (true)
     {
@@ -114,7 +114,7 @@ void ServiceFunctionWorker::run()
                 session_->submit(*response);
                 continue;
             }
-            emit finished(failureResult(Error{ErrorKind::Cancelled, "cancelled while waiting for operator gate"}));
+            emit finished(failureResult(Error{ErrorKind::kCancelled, "cancelled while waiting for operator gate"}));
             return;
         }
         if (auto *completed = std::get_if<CompletedStep>(&step); completed != nullptr)

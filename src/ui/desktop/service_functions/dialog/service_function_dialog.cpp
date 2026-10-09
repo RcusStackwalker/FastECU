@@ -50,14 +50,14 @@ ServiceFunctionDialog::ServiceFunctionDialog(SerialPortActions *serial, std::str
     auto *layout = new QVBoxLayout(this);
     switch (kind_)
     {
-    case ServiceFunctionKind::Relearn:
+    case ServiceFunctionKind::kRelearn:
         setWindowTitle(tr("TCU Relearn"));
         break;
-    case ServiceFunctionKind::ReadParameters:
+    case ServiceFunctionKind::kReadParameters:
         setWindowTitle(tr("Read TCU Parameters"));
         buildReadout(layout);
         break;
-    case ServiceFunctionKind::SetParameters:
+    case ServiceFunctionKind::kSetParameters:
         setWindowTitle(tr("Set TCU Parameters"));
         buildParameterForm(layout);
         break;
@@ -112,7 +112,7 @@ void ServiceFunctionDialog::buildReadout(QVBoxLayout *layout)
 
 TcuParameterValues ServiceFunctionDialog::collectedValues() const
 {
-    if (kind_ != ServiceFunctionKind::SetParameters)
+    if (kind_ != ServiceFunctionKind::kSetParameters)
     {
         return {};
     }
@@ -163,12 +163,12 @@ bool ServiceFunctionDialog::askGate(OperatorGateId id)
     QString text;
     switch (id)
     {
-    case OperatorGateId::RelearnStaticSetup:
+    case OperatorGateId::kRelearnStaticSetup:
         // legacy :649-651
         text = tr("Engine must be at operating temperature. Car must be off the ground! "
                   "Start with Engine off, Ignition on, stick in P, press OK to continue");
         break;
-    case OperatorGateId::RelearnEngineRunning:
+    case OperatorGateId::kRelearnEngineRunning:
         // legacy :736
         text = tr("Start Engine, let revs settle, move stick into D, fully press brake, press OK to continue");
         break;
@@ -187,13 +187,13 @@ void ServiceFunctionDialog::startWorker()
     std::unique_ptr<ServiceFunctionSession> session;
     switch (kind_)
     {
-    case ServiceFunctionKind::Relearn:
+    case ServiceFunctionKind::kRelearn:
         session = std::make_unique<RelearnSession>(protocol_);
         break;
-    case ServiceFunctionKind::ReadParameters:
+    case ServiceFunctionKind::kReadParameters:
         session = std::make_unique<ReadParametersSession>(protocol_);
         break;
-    case ServiceFunctionKind::SetParameters:
+    case ServiceFunctionKind::kSetParameters:
         session = std::make_unique<SetParametersSession>(protocol_, collectedValues());
         break;
     }

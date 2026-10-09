@@ -10,11 +10,11 @@ namespace fastecu::service_functions
 
 enum class DensoTcuReadAction
 {
-    Dump,
-    Relearn,
-    ReadParameters,
-    SetParameters,
-    Cancelled,
+    kDump,
+    kRelearn,
+    kReadParameters,
+    kSetParameters,
+    kCancelled,
 };
 
 DensoTcuReadAction choose_denso_tcu_read_action(QWidget *parent);

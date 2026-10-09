@@ -39,15 +39,15 @@ std::optional<fastecu::diagnostics::SsmVariant> ssm_variant_for_transport(const 
 {
     if (transport == "SSM")
     {
-        return fastecu::diagnostics::SsmVariant::Ssm1;
+        return fastecu::diagnostics::SsmVariant::kSsm1;
     }
     if (transport == "K-Line")
     {
-        return fastecu::diagnostics::SsmVariant::KlineSsm2;
+        return fastecu::diagnostics::SsmVariant::kKlineSsm2;
     }
     if (transport == "iso15765")
     {
-        return fastecu::diagnostics::SsmVariant::Iso15765Uds;
+        return fastecu::diagnostics::SsmVariant::kIso15765Uds;
     }
     return std::nullopt;
 }
@@ -57,17 +57,17 @@ void show_no_change(QWidget *parent, fastecu::calibration::NoChangeReason reason
     QString message;
     switch (reason)
     {
-    case NoChangeReason::BelowStorageResolution:
+    case NoChangeReason::kBelowStorageResolution:
         message = "The requested change is below storage resolution; no stored values changed.";
         break;
-    case NoChangeReason::DefinitionLimit:
+    case NoChangeReason::kDefinitionLimit:
         message = "A definition limit was reached; no stored values changed.";
         break;
-    case NoChangeReason::MultipleCauses:
+    case NoChangeReason::kMultipleCauses:
         message = "Storage resolution and definition limits prevented changes; no stored values changed.";
         break;
-    case NoChangeReason::None:
-    case NoChangeReason::Unchanged:
+    case NoChangeReason::kNone:
+    case NoChangeReason::kUnchanged:
         message = "No stored values changed.";
         break;
     }
@@ -136,18 +136,18 @@ void MainWindow::connect_menu_actions()
     connect(ui_->actionCopy, &QAction::triggered, this, [this] { copy_value(); });
     connect(ui_->actionPaste, &QAction::triggered, this, [this] { paste_value(); });
     connect(ui_->actionSettings, &QAction::triggered, this, [this] { show_preferences_window(); });
-    connect(ui_->actionCoarseIncrement, &QAction::triggered, this, [this] { inc_dec_value(IncrementStep::CoarseUp); });
+    connect(ui_->actionCoarseIncrement, &QAction::triggered, this, [this] { inc_dec_value(IncrementStep::kCoarseUp); });
     connect(ui_->actionCoarseDecrement, &QAction::triggered, this,
-            [this] { inc_dec_value(IncrementStep::CoarseDown); });
-    connect(ui_->actionFineIncrement, &QAction::triggered, this, [this] { inc_dec_value(IncrementStep::FineUp); });
-    connect(ui_->actionFineDecrement, &QAction::triggered, this, [this] { inc_dec_value(IncrementStep::FineDown); });
+            [this] { inc_dec_value(IncrementStep::kCoarseDown); });
+    connect(ui_->actionFineIncrement, &QAction::triggered, this, [this] { inc_dec_value(IncrementStep::kFineUp); });
+    connect(ui_->actionFineDecrement, &QAction::triggered, this, [this] { inc_dec_value(IncrementStep::kFineDown); });
     connect(ui_->actionSetValue, &QAction::triggered, this, [this] { set_value(); });
     connect(ui_->actionInterpolateHorizontal, &QAction::triggered, this,
-            [this] { interpolate_value(InterpolationMode::Horizontal); });
+            [this] { interpolate_value(InterpolationMode::kHorizontal); });
     connect(ui_->actionInterpolateVertical, &QAction::triggered, this,
-            [this] { interpolate_value(InterpolationMode::Vertical); });
+            [this] { interpolate_value(InterpolationMode::kVertical); });
     connect(ui_->actionInterpolateBidirectional, &QAction::triggered, this,
-            [this] { interpolate_value(InterpolationMode::Bidirectional); });
+            [this] { interpolate_value(InterpolationMode::kBidirectional); });
     connect(ui_->actionConnectToEcu, &QAction::triggered, this, [this] { connect_to_ecu(); });
     connect(ui_->actionDisconnectFromEcu, &QAction::triggered, this, [this] { disconnect_from_ecu(); });
     connect(ui_->actionToggleRealtime, &QAction::triggered, this, [this] { toggle_realtime(); });
@@ -358,8 +358,8 @@ void MainWindow::connect_to_ecu(std::function<void(bool)> on_done)
     qDebug() << "Initialising ECU, please wait...";
     connection_coordinator_->begin(
         fastecu::diagnostics::SsmIdentifyRequest{*variant, ecu_radio_button_->isChecked()
-                                                               ? fastecu::diagnostics::SsmTarget::Ecu
-                                                               : fastecu::diagnostics::SsmTarget::Tcu},
+                                                               ? fastecu::diagnostics::SsmTarget::kEcu
+                                                               : fastecu::diagnostics::SsmTarget::kTcu},
         std::move(on_done));
 }
 
@@ -516,7 +516,7 @@ void MainWindow::continue_start_logging()
     {
         config.protocol_id = "MUT_DMA";
         active_log_value_protocol_filter_ = "MUT_DMA";
-        protocol_id = fastecu::logging::LoggingProtocolId::MutDma;
+        protocol_id = fastecu::logging::LoggingProtocolId::kMutDma;
         logging_policy = {.poll_timeout = 50ms,
                           .car_silence_miss_threshold = 20,
                           .reconnect_attempt_threshold = 100,
@@ -526,7 +526,7 @@ void MainWindow::continue_start_logging()
     {
         config.protocol_id = "CDBG";
         active_log_value_protocol_filter_ = "CDBG";
-        protocol_id = fastecu::logging::LoggingProtocolId::Cdbg;
+        protocol_id = fastecu::logging::LoggingProtocolId::kCdbg;
         logging_policy = {.poll_timeout = 50ms,
                           .car_silence_miss_threshold = 20,
                           .reconnect_attempt_threshold = 100,
@@ -536,7 +536,7 @@ void MainWindow::continue_start_logging()
     {
         config.protocol_id = "SSM";
         active_log_value_protocol_filter_ = protocol_;
-        protocol_id = fastecu::logging::LoggingProtocolId::Ssm;
+        protocol_id = fastecu::logging::LoggingProtocolId::kSsm;
         logging_policy = {.poll_timeout = 300ms,
                           .car_silence_miss_threshold = 10,
                           .reconnect_attempt_threshold = 30,
@@ -646,7 +646,7 @@ void MainWindow::show_subaru_biu_window()
 
     fastecu::diagnostics::SerialDiagnosticLink link(&connection_->facade());
     const auto opened = link.open(fastecu::diagnostics::KlineLinkConfig{
-        .header = fastecu::diagnostics::KlineHeader::None, .iso14230_connection = true, .baud = 10400});
+        .header = fastecu::diagnostics::KlineHeader::kNone, .iso14230_connection = true, .baud = 10400});
     if (opened.has_value())
     {
         // The legacy BIU path opened through open_serial_port, which also
@@ -669,7 +669,7 @@ void MainWindow::show_subaru_biu_window()
 
     emit LOG_D("BIU stopped", true, true);
 
-    std::ignore = link.set_header(fastecu::diagnostics::KlineHeader::None);
+    std::ignore = link.set_header(fastecu::diagnostics::KlineHeader::kNone);
 }
 
 void MainWindow::show_terminal_window()

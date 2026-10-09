@@ -15,11 +15,11 @@ namespace fastecu::desktop::connection
 // The toolbar's log-transport combo text, parsed once.
 enum class LogTransport
 {
-    Can,
-    Iso15765,
-    KLine,
-    Ssm,
-    Other,
+    kCan,
+    kIso15765,
+    kKLine,
+    kSsm,
+    kOther,
 };
 
 LogTransport log_transport_from_text(const QString& text);

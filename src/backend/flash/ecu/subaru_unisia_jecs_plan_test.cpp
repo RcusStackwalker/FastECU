@@ -20,9 +20,9 @@ using fastecu::testing::IsOk;
 FlashPlanFields fields()
 {
     return FlashPlanFields{
-        .operation = FlashOperation::Read,
-        .family = FlashFamily::SubaruUnisiaJecs,
-        .transport = TransportKind::Kline,
+        .operation = FlashOperation::kRead,
+        .family = FlashFamily::kSubaruUnisiaJecs,
+        .transport = TransportKind::kKline,
         .target_id = "sub_ecu_unisia_jecs_m3779x",
         .mcu_name = "M3779x",
         .transfer_region = MemoryRegion{0, 0x10000},
@@ -41,10 +41,10 @@ TEST(SubaruUnisiaJecsPlan, MapsBothConfiguredProtocolMcuPairs)
              {"sub_ecu_unisia_jecs_m3775x", "M3775x"},
          }))
     {
-        const auto plan = build_subaru_unisia_jecs_plan(FlashOperation::Read, protocol, mcu, std::nullopt);
+        const auto plan = build_subaru_unisia_jecs_plan(FlashOperation::kRead, protocol, mcu, std::nullopt);
         ASSERT_THAT(plan, IsOk());
-        EXPECT_EQ(plan->family(), FlashFamily::SubaruUnisiaJecs);
-        EXPECT_EQ(plan->transport(), TransportKind::Kline);
+        EXPECT_EQ(plan->family(), FlashFamily::kSubaruUnisiaJecs);
+        EXPECT_EQ(plan->transport(), TransportKind::kKline);
         EXPECT_EQ(plan->transfer_region().start, 0U);
         EXPECT_EQ(plan->transfer_region().length, 0x10000U);
         const auto& family = std::get<SubaruUnisiaJecsPlan>(plan->family_plan());
@@ -56,20 +56,20 @@ TEST(SubaruUnisiaJecsPlan, MapsBothConfiguredProtocolMcuPairs)
 TEST(SubaruUnisiaJecsPlan, RejectsCrossPairedProtocolAndMcu)
 {
     EXPECT_THAT(
-        build_subaru_unisia_jecs_plan(FlashOperation::Read, "sub_ecu_unisia_jecs_m3779x", "M3775x", std::nullopt),
-        IsErr(ErrorKind::InvalidConfig));
+        build_subaru_unisia_jecs_plan(FlashOperation::kRead, "sub_ecu_unisia_jecs_m3779x", "M3775x", std::nullopt),
+        IsErr(ErrorKind::kInvalidConfig));
     EXPECT_THAT(
-        build_subaru_unisia_jecs_plan(FlashOperation::Read, "sub_ecu_unisia_jecs_m3775x", "M3779x", std::nullopt),
-        IsErr(ErrorKind::InvalidConfig));
+        build_subaru_unisia_jecs_plan(FlashOperation::kRead, "sub_ecu_unisia_jecs_m3775x", "M3779x", std::nullopt),
+        IsErr(ErrorKind::kInvalidConfig));
 }
 
 TEST(SubaruUnisiaJecsPlan, RejectsWriteOperations)
 {
-    for (const FlashOperation operation : {FlashOperation::Write, FlashOperation::TestWrite})
+    for (const FlashOperation operation : {FlashOperation::kWrite, FlashOperation::kTestWrite})
     {
         EXPECT_THAT(
             build_subaru_unisia_jecs_plan(operation, "sub_ecu_unisia_jecs_m3779x", "M3779x", bytes::Bytes(0x10000, 0)),
-            IsErr(ErrorKind::Unsupported));
+            IsErr(ErrorKind::kUnsupported));
     }
 }
 
@@ -104,25 +104,25 @@ TEST(SubaruUnisiaJecsPlan, StandaloneValidatorRejectsForgedFields)
             forged.kernel = KernelImage{"unexpected", 0, {1}};
             break;
         case 7:
-            forged.confirmations.push_back({ConfirmationSpec::Id::CycleIgnition, {}});
+            forged.confirmations.push_back({ConfirmationSpec::Id::kCycleIgnition, {}});
             break;
         default:
             FAIL() << "unexpected mutation";
         }
         const auto plan = validate_and_build(std::move(forged));
         ASSERT_THAT(plan, IsOk());
-        EXPECT_THAT(validate_subaru_unisia_jecs_plan(*plan), IsErr(ErrorKind::InvalidConfig));
+        EXPECT_THAT(validate_subaru_unisia_jecs_plan(*plan), IsErr(ErrorKind::kInvalidConfig));
     }
 }
 
 TEST(SubaruUnisiaJecsPlan, StandaloneValidatorRejectsTestWrite)
 {
     auto forged = fields();
-    forged.operation = FlashOperation::TestWrite;
+    forged.operation = FlashOperation::kTestWrite;
     forged.image = bytes::Bytes(0x10000, 0);
     const auto plan = validate_and_build(std::move(forged));
     ASSERT_THAT(plan, IsOk());
-    EXPECT_THAT(validate_subaru_unisia_jecs_plan(*plan), IsErr(ErrorKind::Unsupported));
+    EXPECT_THAT(validate_subaru_unisia_jecs_plan(*plan), IsErr(ErrorKind::kUnsupported));
 }
 } // namespace
 } // namespace fastecu::flash

@@ -35,8 +35,8 @@ bool user_wants_to_retry(QWidget *parent, const QString& noun)
 
 enum class PathMode
 {
-    Open,
-    Save
+    kOpen,
+    kSave
 };
 
 // The legacy chooser-plus-nag loop, identical in all three legacy call
@@ -48,12 +48,12 @@ QString select_definition_path(QWidget *parent, const QString& directory, PathMo
     bool gaveUp = false;
     while (filename.isEmpty() && !gaveUp)
     {
-        filename = mode == PathMode::Save
+        filename = mode == PathMode::kSave
                        ? QFileDialog::getSaveFileName(parent, QObject::tr("Select definition file"), directory,
                                                       QObject::tr("Definition file (*.xml)"))
                        : QFileDialog::getOpenFileName(parent, QObject::tr("Select definition file"), directory,
                                                       QObject::tr("Definition file (*.xml)"));
-        if (filename.isEmpty() && !user_wants_to_retry(parent, mode == PathMode::Save ? "create" : "select"))
+        if (filename.isEmpty() && !user_wants_to_retry(parent, mode == PathMode::kSave ? "create" : "select"))
         {
             gaveUp = true;
         }
@@ -136,7 +136,7 @@ bool DefinitionAuthoringDialog::create_new_definition()
     }
 
     QString filename =
-        select_definition_path(parent_, qs(config_.settings().ecuflash_definition_files_directory), PathMode::Save);
+        select_definition_path(parent_, qs(config_.settings().ecuflash_definition_files_directory), PathMode::kSave);
     if (filename.isEmpty())
     {
         return true;
@@ -169,7 +169,7 @@ bool DefinitionAuthoringDialog::create_new_definition()
 bool DefinitionAuthoringDialog::use_existing_definition()
 {
     const QString source =
-        select_definition_path(parent_, qs(config_.settings().ecuflash_definition_files_directory), PathMode::Open);
+        select_definition_path(parent_, qs(config_.settings().ecuflash_definition_files_directory), PathMode::kOpen);
     if (source.isEmpty())
     {
         return true;
@@ -202,7 +202,7 @@ bool DefinitionAuthoringDialog::use_existing_definition()
     }
 
     QString filename =
-        select_definition_path(parent_, qs(config_.settings().ecuflash_definition_files_directory), PathMode::Save);
+        select_definition_path(parent_, qs(config_.settings().ecuflash_definition_files_directory), PathMode::kSave);
     if (filename.isEmpty())
     {
         return true;

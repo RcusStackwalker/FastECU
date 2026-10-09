@@ -97,12 +97,12 @@ bytes::Bytes response(std::initializer_list<bytes::Byte> tail)
 
 fastecu::Result<fastecu::flash::FlashPlan> readPlan()
 {
-    return build_subaru_denso_1n83m_1_5m_can_plan(FlashOperation::Read, kProtocol, kMcu, std::nullopt);
+    return build_subaru_denso_1n83m_1_5m_can_plan(FlashOperation::kRead, kProtocol, kMcu, std::nullopt);
 }
 
 fastecu::Result<fastecu::flash::FlashPlan> writePlan(bytes::Bytes rom)
 {
-    return build_subaru_denso_1n83m_1_5m_can_plan(FlashOperation::Write, kProtocol, kMcu, std::move(rom));
+    return build_subaru_denso_1n83m_1_5m_can_plan(FlashOperation::kWrite, kProtocol, kMcu, std::move(rom));
 }
 
 // Hand-built rather than produced by build_subaru_denso_1n83m_1_5m_can_plan,
@@ -113,8 +113,8 @@ fastecu::Result<fastecu::flash::FlashPlan> handBuiltPlan(FlashOperation operatio
 {
     fastecu::flash::FlashPlanFields fields;
     fields.operation = operation;
-    fields.family = fastecu::flash::FlashFamily::SubaruDenso1n83m_1_5mCan;
-    fields.transport = fastecu::flash::TransportKind::CanIso15765;
+    fields.family = fastecu::flash::FlashFamily::kSubaruDenso1n83m15mCan;
+    fields.transport = fastecu::flash::TransportKind::kCanIso15765;
     fields.target_id = std::string(kProtocol);
     fields.mcu_name = std::string(kMcu);
     fields.transfer_region = fastecu::flash::MemoryRegion{kBlockStart, kBlockLength};
@@ -351,9 +351,9 @@ TEST(SubaruDenso1n83m_1_5mCanExecutor, OperatorFacingLogLinesNameThe1_5MFamily)
     ASSERT_THAT(result, fastecu::testing::IsOk());
 
     EXPECT_THAT(events.logs,
-                testing::Contains(testing::Pair(fastecu::LogLevel::Info,
+                testing::Contains(testing::Pair(fastecu::LogLevel::kInfo,
                                                 "Connecting to ECU Denso 1N83M 1.5MB CAN bootloader, please wait...")));
-    EXPECT_THAT(events.logs, testing::Contains(testing::Pair(fastecu::LogLevel::Info,
+    EXPECT_THAT(events.logs, testing::Contains(testing::Pair(fastecu::LogLevel::kInfo,
                                                              "Reading ROM from ECU, Denso 1N83M 1.5MB using CAN")));
     EXPECT_THAT(events.logs, testing::Each(testing::Pair(testing::_, testing::Not(testing::HasSubstr("4MB")))));
 }
@@ -406,13 +406,13 @@ TEST(SubaruDenso1n83m_1_5mCanExecutor, WriteErasesThenFlashesBlockOne)
 
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
     ASSERT_THAT(result, fastecu::testing::IsOk());
-    EXPECT_EQ(result->operation, FlashOperation::Write);
+    EXPECT_EQ(result->operation, FlashOperation::kWrite);
     EXPECT_FALSE(result->read_bytes.has_value());
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_THAT(events.notices, testing::Contains("Writing ROM, please wait..."));
     // The write path's own identity line, the third of the three legacy named
     // the 4MB sibling in.
-    EXPECT_THAT(events.logs, testing::Contains(testing::Pair(fastecu::LogLevel::Info,
+    EXPECT_THAT(events.logs, testing::Contains(testing::Pair(fastecu::LogLevel::kInfo,
                                                              "Writing ROM to ECU, Denso 1N83M 1.5MB using CAN")));
     EXPECT_THAT(events.logs, testing::Each(testing::Pair(testing::_, testing::Not(testing::HasSubstr("4MB")))));
     // The image base is already pinned by the scripted exchanges:
@@ -448,7 +448,7 @@ TEST(SubaruDenso1n83m_1_5mCanExecutor, ReadDisconnectMidDumpLoopPropagates)
     scriptBenchConnect(transport);
     scriptReadSetup(transport);
     transport.exchange(request(bytes::composeBe(bytes::Byte(0xB7), kBlockStart)));
-    transport.queue_error(ErrorKind::Disconnected, "adapter gone");
+    transport.queue_error(ErrorKind::kDisconnected, "adapter gone");
 
     FakeClock clock;
     RecordingEventSink events;
@@ -460,7 +460,7 @@ TEST(SubaruDenso1n83m_1_5mCanExecutor, ReadDisconnectMidDumpLoopPropagates)
 
     const auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
-    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::Disconnected));
+    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kDisconnected));
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
@@ -484,7 +484,7 @@ TEST(SubaruDenso1n83m_1_5mCanExecutor, NegativeResponseDuringConnectFails)
 
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
-    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::BadResponse));
+    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kBadResponse));
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
@@ -511,7 +511,7 @@ TEST(SubaruDenso1n83m_1_5mCanExecutor, NegativeResponseAtDumpSetupFails)
 
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
-    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::BadResponse));
+    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kBadResponse));
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
@@ -539,7 +539,7 @@ TEST(SubaruDenso1n83m_1_5mCanExecutor, EmptyBranchSelectorReplyFails)
 
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
-    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::Timeout));
+    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kTimeout));
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
@@ -566,11 +566,11 @@ TEST(SubaruDenso1n83m_1_5mCanExecutor, EraseRetryExhaustionFails)
 
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
-    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::BadResponse));
+    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kBadResponse));
     EXPECT_TRUE(transport.scriptConsumed());
     // A second trigger would have hit the end of the script and surfaced as an
     // Internal error rather than BadResponse; the failure is the erase's own.
-    EXPECT_THAT(events.logs, testing::Contains(testing::Pair(fastecu::LogLevel::Error, "Flash area erase failed")));
+    EXPECT_THAT(events.logs, testing::Contains(testing::Pair(fastecu::LogLevel::kError, "Flash area erase failed")));
 }
 
 // The IFlashExecutor contract this family satisfies -- see

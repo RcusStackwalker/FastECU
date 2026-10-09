@@ -23,8 +23,8 @@ INSTANTIATE_TEST_SUITE_P(SubaruDensoSh72531Can, SingleWindowPlanContract, ::test
 // The wire parameters are this family's own; they do not generalize.
 TEST(SubaruDensoSh72531CanPlan, ReadPlanCarriesThisFamilysWireParameters)
 {
-    const auto plan =
-        build_subaru_denso_sh72531_can_plan(FlashOperation::Read, "sub_ecu_denso_sh72531_can", "SH72531", std::nullopt);
+    const auto plan = build_subaru_denso_sh72531_can_plan(FlashOperation::kRead, "sub_ecu_denso_sh72531_can", "SH72531",
+                                                          std::nullopt);
 
     ASSERT_THAT(plan, fastecu::testing::IsOk());
     const auto& family = std::get<SubaruDensoSh72531CanPlan>(plan->family_plan());

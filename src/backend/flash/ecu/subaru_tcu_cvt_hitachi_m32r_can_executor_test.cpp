@@ -94,12 +94,12 @@ bytes::Bytes requestOnId(std::uint32_t arb_id, std::initializer_list<bytes::Byte
 
 fastecu::Result<fastecu::flash::FlashPlan> readPlan()
 {
-    return build_subaru_tcu_cvt_hitachi_m32r_can_plan(FlashOperation::Read, kProtocol, kMcu, std::nullopt);
+    return build_subaru_tcu_cvt_hitachi_m32r_can_plan(FlashOperation::kRead, kProtocol, kMcu, std::nullopt);
 }
 
 fastecu::Result<fastecu::flash::FlashPlan> writePlan(bytes::Bytes rom)
 {
-    return build_subaru_tcu_cvt_hitachi_m32r_can_plan(FlashOperation::Write, kProtocol, kMcu, std::move(rom));
+    return build_subaru_tcu_cvt_hitachi_m32r_can_plan(FlashOperation::kWrite, kProtocol, kMcu, std::move(rom));
 }
 
 // Hand-built rather than produced by build_subaru_tcu_cvt_hitachi_m32r_can_plan,
@@ -111,8 +111,8 @@ fastecu::Result<fastecu::flash::FlashPlan> handBuiltPlan(FlashOperation operatio
 {
     fastecu::flash::FlashPlanFields fields;
     fields.operation = operation;
-    fields.family = fastecu::flash::FlashFamily::SubaruTcuCvtHitachiM32rCan;
-    fields.transport = fastecu::flash::TransportKind::CanIso15765;
+    fields.family = fastecu::flash::FlashFamily::kSubaruTcuCvtHitachiM32rCan;
+    fields.transport = fastecu::flash::TransportKind::kCanIso15765;
     fields.target_id = std::string(kProtocol);
     fields.mcu_name = std::string(kMcu);
     fields.transfer_region = fastecu::flash::MemoryRegion{0x8000, 0x78000};
@@ -322,7 +322,7 @@ TEST(SubaruTcuCvtHitachiM32rCanExecutor, ConnectSkipsTheRestWhenKernelAlreadyRun
 {
     // : a matching alive-probe reply returns STATUS_SUCCESS immediately, with
     // zero further writes.
-    ScriptedCanFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
+    ScriptedCanFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::kOpen};
     FakeClock clock;
     RecordingEventSink events;
     fastecu::ManualCancellationToken cancellation;
@@ -348,7 +348,7 @@ TEST(SubaruTcuCvtHitachiM32rCanExecutor, ConnectSkipsTheRestWhenKernelAlreadyRun
 
 TEST(SubaruTcuCvtHitachiM32rCanExecutor, ConnectFullSequenceWhenKernelNotRunning)
 {
-    ScriptedCanFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
+    ScriptedCanFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::kOpen};
     FakeClock clock;
     RecordingEventSink events;
     fastecu::ManualCancellationToken cancellation;
@@ -369,7 +369,7 @@ TEST(SubaruTcuCvtHitachiM32rCanExecutor, ConnectFullSequenceWhenKernelNotRunning
 
 TEST(SubaruTcuCvtHitachiM32rCanExecutor, ReadReturnsTheFloorClampedWindowPaddedWithZero)
 {
-    ScriptedCanFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
+    ScriptedCanFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::kOpen};
     FakeClock clock;
     RecordingEventSink events;
     fastecu::ManualCancellationToken cancellation;
@@ -396,7 +396,7 @@ TEST(SubaruTcuCvtHitachiM32rCanExecutor, ReadReturnsTheFloorClampedWindowPaddedW
 
 TEST(SubaruTcuCvtHitachiM32rCanExecutor, ReadStopsWhenCancelled)
 {
-    ScriptedCanFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
+    ScriptedCanFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::kOpen};
     FakeClock clock;
     RecordingEventSink events;
     fastecu::ManualCancellationToken cancellation;
@@ -407,7 +407,7 @@ TEST(SubaruTcuCvtHitachiM32rCanExecutor, ReadStopsWhenCancelled)
 
     const auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
-    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::Cancelled));
+    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kCancelled));
     EXPECT_EQ(transport.writesConsumed(), 0U);
 }
 
@@ -423,7 +423,7 @@ TEST(SubaruTcuCvtHitachiM32rCanExecutor, ReadStopsWhenCancelled)
 // implies the loop wrapping it behaves the same way.
 TEST(SubaruTcuCvtHitachiM32rCanExecutor, ReadDisconnectMidDumpLoopPropagates)
 {
-    ScriptedCanFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
+    ScriptedCanFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::kOpen};
     FakeClock clock;
     RecordingEventSink events;
     fastecu::ManualCancellationToken cancellation;
@@ -434,11 +434,11 @@ TEST(SubaruTcuCvtHitachiM32rCanExecutor, ReadDisconnectMidDumpLoopPropagates)
     scriptFullConnect(transport);
     scriptDumpSetup(transport);
     transport.exchange(request(bytes::composeBe(bytes::Byte(0xB7), bytes::u24(0x8000))));
-    transport.queue_error(ErrorKind::Disconnected, "adapter gone");
+    transport.queue_error(ErrorKind::kDisconnected, "adapter gone");
 
     const auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
-    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::Disconnected));
+    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kDisconnected));
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
@@ -450,7 +450,7 @@ TEST(SubaruTcuCvtHitachiM32rCanExecutor, WriteErasesThenFlashesEightBlocksOfSixt
     // Constraints table states 0x10000 for block 3, which does not match
     // the source -- see subaru_tcu_cvt_hitachi_m32r_can_executor.cpp's
     // kWriteBlocks comment). Scripted here with the real per-block sizes.
-    ScriptedCanFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
+    ScriptedCanFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::kOpen};
     FakeClock clock;
     RecordingEventSink events;
     fastecu::ManualCancellationToken cancellation;
@@ -481,14 +481,14 @@ TEST(SubaruTcuCvtHitachiM32rCanExecutor, WriteErasesThenFlashesEightBlocksOfSixt
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_EQ(result->operation, FlashOperation::Write);
+    EXPECT_EQ(result->operation, FlashOperation::kWrite);
     EXPECT_FALSE(result->read_bytes.has_value());
     EXPECT_THAT(events.notices, testing::Contains("Writing ROM, please wait..."));
 }
 
 TEST(SubaruTcuCvtHitachiM32rCanExecutor, WriteRefusesAnImageThatDoesNotMatchThePlanBeforeAnyIo)
 {
-    ScriptedCanFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
+    ScriptedCanFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::kOpen};
     FakeClock clock;
     RecordingEventSink events;
     fastecu::ManualCancellationToken cancellation;
@@ -498,12 +498,12 @@ TEST(SubaruTcuCvtHitachiM32rCanExecutor, WriteRefusesAnImageThatDoesNotMatchTheP
     // validate_and_build does not. The executor must still reject it before
     // it configures or opens the transport, let alone reaches the TCU
     // handshake.
-    auto plan = handBuiltPlan(FlashOperation::Write, 0x7ffff);
+    auto plan = handBuiltPlan(FlashOperation::kWrite, 0x7ffff);
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
     const auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
-    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::InvalidConfig, HasSubstr("0x80000")));
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("0x80000")));
     EXPECT_EQ(transport.writesConsumed(), 0U);
     EXPECT_THAT(events.logs, IsEmpty());
 }

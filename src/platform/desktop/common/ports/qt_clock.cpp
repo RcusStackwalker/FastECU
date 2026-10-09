@@ -24,7 +24,7 @@ fastecu::Status QtClock::sleep(std::chrono::milliseconds duration, const fastecu
     {
         if (t.cancelled())
         {
-            return fastecu::fail(fastecu::ErrorKind::Cancelled);
+            return fastecu::fail(fastecu::ErrorKind::kCancelled);
         }
         const auto step = remaining < kSlice ? remaining : kSlice;
         QThread::msleep(fastecu::saturating_ms<unsigned long>(step));

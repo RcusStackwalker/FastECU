@@ -36,7 +36,7 @@ Status CalibrationWorkspace::close(SessionId id)
     const auto found = std::ranges::find_if(sessions_, [id](const auto& session) { return session->id() == id; });
     if (found == sessions_.end())
     {
-        return fail(ErrorKind::InvalidConfig,
+        return fail(ErrorKind::kInvalidConfig,
                     std::format("no open calibration session {}", static_cast<std::uint64_t>(id)));
     }
     sessions_.erase(found);

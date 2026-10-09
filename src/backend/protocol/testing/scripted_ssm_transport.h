@@ -54,7 +54,7 @@ class ScriptedSsmTransport : public fastecu::ISsmTransport
         if (w_idx_ >= expected_.size() || expected_.at(w_idx_) != bytes::Bytes(data.begin(), data.end()))
         {
             ok_ = false;
-            return fastecu::fail(fastecu::ErrorKind::Internal, "unexpected scripted SSM write");
+            return fastecu::fail(fastecu::ErrorKind::kInternal, "unexpected scripted SSM write");
         }
         else
         {
@@ -74,11 +74,11 @@ class ScriptedSsmTransport : public fastecu::ISsmTransport
     {
         if (cancellation.cancelled())
         {
-            return fastecu::fail(fastecu::ErrorKind::Cancelled, "scripted SSM read cancelled");
+            return fastecu::fail(fastecu::ErrorKind::kCancelled, "scripted SSM read cancelled");
         }
         if (reads_.empty())
         {
-            return fastecu::fail(fastecu::ErrorKind::Internal, "no scripted SSM read outcome");
+            return fastecu::fail(fastecu::ErrorKind::kInternal, "no scripted SSM read outcome");
         }
         auto result = std::move(reads_.front());
         reads_.pop_front();

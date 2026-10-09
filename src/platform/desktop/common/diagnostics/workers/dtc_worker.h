@@ -18,7 +18,7 @@ namespace fastecu::diagnostics
 struct DtcWorkerResult
 {
     bool success = false;
-    ErrorKind error_kind = ErrorKind::Internal;
+    ErrorKind error_kind = ErrorKind::kInternal;
     QString error_detail;
 };
 

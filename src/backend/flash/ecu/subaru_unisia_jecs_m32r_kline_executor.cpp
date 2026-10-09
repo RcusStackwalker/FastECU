@@ -54,7 +54,7 @@ Status cancelled_if_requested(const ICancellationToken& cancellation, std::strin
 {
     if (cancellation.cancelled())
     {
-        return fail(ErrorKind::Cancelled, std::format("cancelled {}", where));
+        return fail(ErrorKind::kCancelled, std::format("cancelled {}", where));
     }
     return {};
 }
@@ -74,7 +74,7 @@ Status send(Session& s, bytes::ByteView payload)
     }
     if (*written != request.size())
     {
-        return fail(ErrorKind::Disconnected, "short K-Line write");
+        return fail(ErrorKind::kDisconnected, "short K-Line write");
     }
     return {};
 }
@@ -119,11 +119,11 @@ Result<bytes::Bytes> exchange_expect(Session& s, bytes::ByteView payload, std::c
     }
     if (!response->has_value())
     {
-        return fail(ErrorKind::Timeout, std::format("no response to {}", what));
+        return fail(ErrorKind::kTimeout, std::format("no response to {}", what));
     }
     if (!has_sid(**response, s.wire, sid))
     {
-        return fail(ErrorKind::BadResponse,
+        return fail(ErrorKind::kBadResponse,
                     std::format("unexpected response to {}: {}", what, bytes::toHex(**response)));
     }
     return std::move(**response);
@@ -140,7 +140,7 @@ Result<bytes::Bytes> expect_ssm_init(Session& s)
     }
     if (!carries_ecu_id(*init))
     {
-        return fail(ErrorKind::BadResponse, std::format("SSM init reply carries no ECU ID: {}", bytes::toHex(*init)));
+        return fail(ErrorKind::kBadResponse, std::format("SSM init reply carries no ECU ID: {}", bytes::toHex(*init)));
     }
     return init;
 }
@@ -159,7 +159,7 @@ std::string ecu_id_hex(bytes::ByteView init)
 // read_mem() and write_mem() both logged the ECU ID after SSM init.
 void log_ecu_id(Session& s, std::string_view id)
 {
-    s.events.log(LogLevel::Info, std::format("ECU ID: {}", id));
+    s.events.log(LogLevel::kInfo, std::format("ECU ID: {}", id));
 }
 
 Result<FlashExecutionResult> read_rom(Session& s, const FlashPlan& plan)
@@ -170,7 +170,7 @@ Result<FlashExecutionResult> read_rom(Session& s, const FlashPlan& plan)
     {
         return std::unexpected(baud.error());
     }
-    s.events.log(LogLevel::Info, "Checking if ECU in read mode");
+    s.events.log(LogLevel::kInfo, "Checking if ECU in read mode");
     if (Status sent = send(s, composeBe(0xbf_b)); !sent.has_value())
     {
         return std::unexpected(sent.error());
@@ -187,7 +187,7 @@ Result<FlashExecutionResult> read_rom(Session& s, const FlashPlan& plan)
     }
     else
     {
-        s.events.log(LogLevel::Info, "Read mode not active, initialising ECU...");
+        s.events.log(LogLevel::kInfo, "Read mode not active, initialising ECU...");
         // read_mem() :141-216.
         if (Status baud = s.transport.setBaud(kColdBaud); !baud.has_value())
         {
@@ -210,7 +210,7 @@ Result<FlashExecutionResult> read_rom(Session& s, const FlashPlan& plan)
         {
             return std::unexpected(baud.error());
         }
-        s.events.log(LogLevel::Info, "Requesting ECU ID, checking if baudrate change was ok");
+        s.events.log(LogLevel::kInfo, "Requesting ECU ID, checking if baudrate change was ok");
         auto confirmed = expect_ssm_init(s);
         if (!confirmed.has_value())
         {
@@ -237,7 +237,7 @@ Result<FlashExecutionResult> read_rom(Session& s, const FlashPlan& plan)
         }
         if (block->size() != 4 + 1 + kPage + 1)
         {
-            return fail(ErrorKind::BadResponse,
+            return fail(ErrorKind::kBadResponse,
                         std::format("block read at 0x{:06X} returned {} bytes", address, block->size()));
         }
         rom.insert(rom.end(), block->begin() + 5, block->begin() + 5 + kPage);
@@ -247,7 +247,7 @@ Result<FlashExecutionResult> read_rom(Session& s, const FlashPlan& plan)
             return std::unexpected(paced.error());
         }
     }
-    return FlashExecutionResult{.operation = FlashOperation::Read, .read_bytes = std::move(rom), .rom_id = id + "_"};
+    return FlashExecutionResult{.operation = FlashOperation::kRead, .read_bytes = std::move(rom), .rom_id = id + "_"};
 }
 
 bool is_exact_reply(bytes::ByteView frame, const SubaruUnisiaJecsM32rKlinePlan& wire, bytes::ByteView payload)
@@ -273,7 +273,7 @@ Status poll_for(Session& s, bytes::ByteView expected, int rounds, std::string_vi
         {
             if (!is_exact_reply(**response, s.wire, expected))
             {
-                return fail(ErrorKind::BadResponse, std::format("{} failed: {}", what, bytes::toHex(**response)));
+                return fail(ErrorKind::kBadResponse, std::format("{} failed: {}", what, bytes::toHex(**response)));
             }
             return {};
         }
@@ -282,7 +282,7 @@ Status poll_for(Session& s, bytes::ByteView expected, int rounds, std::string_vi
             return slept;
         }
     }
-    return fail(ErrorKind::Timeout, std::format("no {} response after {} polls", what, rounds));
+    return fail(ErrorKind::kTimeout, std::format("no {} response after {} polls", what, rounds));
 }
 
 // write_mem() :346-432. Returns once the ECU is in flash mode at 19200 baud.
@@ -292,7 +292,7 @@ Status enter_flash_mode(Session& s, std::uint32_t rom_size)
     {
         return baud;
     }
-    s.events.log(LogLevel::Info, "Checking if OBK is running");
+    s.events.log(LogLevel::kInfo, "Checking if OBK is running");
     if (Status sent = send(s, composeBe(0xaf_b)); !sent.has_value())
     {
         return sent;
@@ -306,7 +306,7 @@ Status enter_flash_mode(Session& s, std::uint32_t rom_size)
     {
         return {};
     }
-    s.events.log(LogLevel::Info, "OBK not running, requesting flash mode");
+    s.events.log(LogLevel::kInfo, "OBK not running, requesting flash mode");
 
     if (Status baud = s.transport.setBaud(kColdBaud); !baud.has_value())
     {
@@ -320,7 +320,7 @@ Status enter_flash_mode(Session& s, std::uint32_t rom_size)
     log_ecu_id(s, ecu_id_hex(*init));
     // send_sid_af_enter_flash_mode() :690-714. Gated: legacy logged a
     // rejection here and went on to raise VPP and erase.
-    s.events.log(LogLevel::Info, "Sending request to change to flash mode");
+    s.events.log(LogLevel::kInfo, "Sending request to change to flash mode");
     auto entered = exchange_expect(
         s, composeBe(0xaf_b, 0x11_b, bytes::ByteView(*init).subspan(kEcuIdOffset, kEcuIdLength), u24(rom_size)),
         kTimeout, 0xef, "enter flash mode");
@@ -328,7 +328,7 @@ Status enter_flash_mode(Session& s, std::uint32_t rom_size)
     {
         return std::unexpected(entered.error());
     }
-    s.events.log(LogLevel::Debug, "Changing baudrate to 19200");
+    s.events.log(LogLevel::kDebug, "Changing baudrate to 19200");
     return s.transport.setBaud(kWriteBaud);
 }
 
@@ -347,14 +347,14 @@ Status write_rom(Session& s, const FlashPlan& plan)
     {
         return cancelled;
     }
-    s.events.log(LogLevel::Debug, "Set programming voltage +12v to Line End Check 1");
+    s.events.log(LogLevel::kDebug, "Set programming voltage +12v to Line End Check 1");
     if (Status raised = s.transport.enable_programming_voltage_line(); !raised.has_value())
     {
         return raised;
     }
 
     // send_sid_af_erase_memory_block() :716-731 sends without reading.
-    s.events.log(LogLevel::Info, "Sending request to erase flash");
+    s.events.log(LogLevel::kInfo, "Sending request to erase flash");
     if (Status sent = send(s, composeBe(0xaf_b, 0x31_b)); !sent.has_value())
     {
         return sent;
@@ -364,12 +364,12 @@ Status write_rom(Session& s, const FlashPlan& plan)
     {
         return started;
     }
-    s.events.log(LogLevel::Info, "Flash erase in progress, please wait...");
+    s.events.log(LogLevel::kInfo, "Flash erase in progress, please wait...");
     if (Status erased = poll_for(s, composeBe(0xef_b, 0x52_b), kEraseDoneRounds, "flash erase"); !erased.has_value())
     {
         return erased;
     }
-    s.events.log(LogLevel::Info, "Flash erased!");
+    s.events.log(LogLevel::kInfo, "Flash erased!");
     // write_mem() :517: one more read, whose result legacy discarded.
     auto trailing = receive(s, kMediumTimeout);
     if (!trailing.has_value())
@@ -378,7 +378,7 @@ Status write_rom(Session& s, const FlashPlan& plan)
     }
     if (trailing->has_value())
     {
-        s.events.log(LogLevel::Debug, std::format("Discarded after erase: {}", bytes::toHex(**trailing)));
+        s.events.log(LogLevel::kDebug, std::format("Discarded after erase: {}", bytes::toHex(**trailing)));
     }
 
     // write_mem() :535-625.
@@ -407,26 +407,26 @@ Status write_rom(Session& s, const FlashPlan& plan)
         {
             if (!last)
             {
-                return fail(ErrorKind::Timeout, std::format("no response to block write at 0x{:06X}", address));
+                return fail(ErrorKind::kTimeout, std::format("no response to block write at 0x{:06X}", address));
             }
             // Legacy never read a reply to AF 69 (:564); its shape is unknown.
-            s.events.log(LogLevel::Warning, "No reply to the final block; treating the write as complete");
+            s.events.log(LogLevel::kWarning, "No reply to the final block; treating the write as complete");
         }
         else if (!is_exact_reply(**response, s.wire, done))
         {
-            return fail(ErrorKind::BadResponse,
+            return fail(ErrorKind::kBadResponse,
                         std::format("block write at 0x{:06X} failed: {}", address, bytes::toHex(**response)));
         }
         s.events.progress(block + 1, blocks);
     }
-    s.events.log(LogLevel::Info, "ROM written to flash.");
+    s.events.log(LogLevel::kInfo, "ROM written to flash.");
     return {};
 }
 } // namespace
 
 Result<KlineConfig> SubaruUnisiaJecsM32rKlineExecutor::transport_setup(const FlashPlan& plan) const
 {
-    if (Status match = check_family(plan, FlashFamily::SubaruUnisiaJecsM32rKline); !match.has_value())
+    if (Status match = check_family(plan, FlashFamily::kSubaruUnisiaJecsM32rKline); !match.has_value())
     {
         return std::unexpected(match.error());
     }
@@ -450,7 +450,7 @@ Result<FlashExecutionResult> SubaruUnisiaJecsM32rKlineExecutor::execute(const Fl
                                                                         const ICancellationToken& cancellation,
                                                                         IEventSink& events)
 {
-    if (Status match = check_family(plan, FlashFamily::SubaruUnisiaJecsM32rKline); !match.has_value())
+    if (Status match = check_family(plan, FlashFamily::kSubaruUnisiaJecsM32rKline); !match.has_value())
     {
         return std::unexpected(match.error());
     }
@@ -460,14 +460,14 @@ Result<FlashExecutionResult> SubaruUnisiaJecsM32rKlineExecutor::execute(const Fl
     }
     Session session{transport, clock, cancellation, events,
                     std::get<SubaruUnisiaJecsM32rKlinePlan>(plan.family_plan())};
-    if (plan.operation() == FlashOperation::Read)
+    if (plan.operation() == FlashOperation::kRead)
     {
         return read_rom(session, plan);
     }
 
     const Status written = write_rom(session, plan);
     // execute() :71-72: the LEC lines drop after write_mem() on every outcome.
-    events.log(LogLevel::Debug, "Removing programming voltage +12v from Line End Check 1");
+    events.log(LogLevel::kDebug, "Removing programming voltage +12v from Line End Check 1");
     const Status dropped = transport.disable_lec_lines();
     if (!written.has_value())
     {
@@ -477,6 +477,7 @@ Result<FlashExecutionResult> SubaruUnisiaJecsM32rKlineExecutor::execute(const Fl
     {
         return std::unexpected(dropped.error());
     }
-    return FlashExecutionResult{.operation = FlashOperation::Write, .read_bytes = std::nullopt, .rom_id = std::nullopt};
+    return FlashExecutionResult{
+        .operation = FlashOperation::kWrite, .read_bytes = std::nullopt, .rom_id = std::nullopt};
 }
 } // namespace fastecu::flash

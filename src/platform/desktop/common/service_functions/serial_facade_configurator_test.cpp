@@ -23,7 +23,7 @@ namespace
 SsmTransportConfig klineConfig()
 {
     return SsmTransportConfig{
-        .framing = SsmTransportConfig::Framing::Kline14230,
+        .framing = SsmTransportConfig::Framing::kKline14230,
         .bitrate_or_baud = 4800,
         .request_id = 0,
         .response_id = 0,
@@ -109,7 +109,7 @@ TEST(SerialFacadeConfiguratorTest, nullFacadeIsDisconnected)
     const auto result = configurator.apply(SsmTransportConfig{});
 
     ASSERT_TRUE(!result.has_value());
-    ASSERT_EQ(result.error().kind, ErrorKind::Disconnected);
+    ASSERT_EQ(result.error().kind, ErrorKind::kDisconnected);
 }
 
 TEST(SerialFacadeConfiguratorTest, anEmptyOpenResultIsDisconnectedEvenWithAStaleOpenFlag)
@@ -120,7 +120,7 @@ TEST(SerialFacadeConfiguratorTest, anEmptyOpenResultIsDisconnectedEvenWithAStale
     const auto result = harness.configurator->apply(SsmTransportConfig{});
 
     ASSERT_TRUE(!result.has_value());
-    ASSERT_EQ(result.error().kind, ErrorKind::Disconnected);
+    ASSERT_EQ(result.error().kind, ErrorKind::kDisconnected);
 }
 
 TEST(SerialFacadeConfiguratorTest, aPortThatIsNotOpenAfterOpenIsDisconnected)
@@ -133,7 +133,7 @@ TEST(SerialFacadeConfiguratorTest, aPortThatIsNotOpenAfterOpenIsDisconnected)
     const auto result = harness.configurator->apply(klineConfig());
 
     ASSERT_TRUE(!result.has_value());
-    ASSERT_EQ(result.error().kind, ErrorKind::Disconnected);
+    ASSERT_EQ(result.error().kind, ErrorKind::kDisconnected);
 }
 
 struct EachBooleanSetterFailureIsInvalidConfigCase
@@ -204,7 +204,7 @@ TEST_P(EachBooleanSetterFailureIsInvalidConfigParameters, eachBooleanSetterFailu
     const auto result = harness.configurator->apply(SsmTransportConfig{});
 
     ASSERT_TRUE(!result.has_value());
-    ASSERT_EQ(result.error().kind, ErrorKind::InvalidConfig);
+    ASSERT_EQ(result.error().kind, ErrorKind::kInvalidConfig);
 }
 
 TEST(SerialFacadeConfiguratorTest, aKlineHeaderSetterFailureIsInvalidConfig)
@@ -215,7 +215,7 @@ TEST(SerialFacadeConfiguratorTest, aKlineHeaderSetterFailureIsInvalidConfig)
     const auto result = harness.configurator->apply(klineConfig());
 
     ASSERT_TRUE(!result.has_value());
-    ASSERT_EQ(result.error().kind, ErrorKind::InvalidConfig);
+    ASSERT_EQ(result.error().kind, ErrorKind::kInvalidConfig);
 }
 
 TEST(SerialFacadeConfiguratorTest, aSetterExceptionBecomesInternalStatus)
@@ -227,7 +227,7 @@ TEST(SerialFacadeConfiguratorTest, aSetterExceptionBecomesInternalStatus)
     const auto result = harness.configurator->apply(SsmTransportConfig{});
 
     ASSERT_TRUE(!result.has_value());
-    ASSERT_EQ(result.error().kind, ErrorKind::Internal);
+    ASSERT_EQ(result.error().kind, ErrorKind::kInternal);
 }
 
 TEST(SerialFacadeConfiguratorTest, anOpenExceptionBecomesInternalStatus)
@@ -239,7 +239,7 @@ TEST(SerialFacadeConfiguratorTest, anOpenExceptionBecomesInternalStatus)
     const auto result = harness.configurator->apply(SsmTransportConfig{});
 
     ASSERT_TRUE(!result.has_value());
-    ASSERT_EQ(result.error().kind, ErrorKind::Internal);
+    ASSERT_EQ(result.error().kind, ErrorKind::kInternal);
 }
 
 TEST(SerialFacadeConfiguratorTest, aRejectedBaudChangeIsInternal)
@@ -250,7 +250,7 @@ TEST(SerialFacadeConfiguratorTest, aRejectedBaudChangeIsInternal)
     const auto result = harness.configurator->apply(klineConfig());
 
     ASSERT_TRUE(!result.has_value());
-    ASSERT_EQ(result.error().kind, ErrorKind::Internal);
+    ASSERT_EQ(result.error().kind, ErrorKind::kInternal);
 }
 
 TEST(SerialFacadeConfiguratorTest, aPortDropDuringRejectedBaudChangeIsDisconnected)
@@ -264,7 +264,7 @@ TEST(SerialFacadeConfiguratorTest, aPortDropDuringRejectedBaudChangeIsDisconnect
     const auto result = harness.configurator->apply(klineConfig());
 
     ASSERT_TRUE(!result.has_value());
-    ASSERT_EQ(result.error().kind, ErrorKind::Disconnected);
+    ASSERT_EQ(result.error().kind, ErrorKind::kDisconnected);
 }
 
 TEST(SerialFacadeConfiguratorTest, aStandardFacadeExceptionBecomesInternalStatus)
@@ -277,7 +277,7 @@ TEST(SerialFacadeConfiguratorTest, aStandardFacadeExceptionBecomesInternalStatus
     {
         const auto result = harness.configurator->apply(SsmTransportConfig{});
         ASSERT_TRUE(!result.has_value());
-        ASSERT_EQ(result.error().kind, ErrorKind::Internal);
+        ASSERT_EQ(result.error().kind, ErrorKind::kInternal);
         ASSERT_EQ(QString::fromStdString(result.error().detail), QString("scripted backend reset failure"));
     }
     catch (...)
@@ -295,7 +295,7 @@ TEST(SerialFacadeConfiguratorTest, aNonStandardFacadeExceptionBecomesInternalSta
     {
         const auto result = harness.configurator->apply(klineConfig());
         ASSERT_TRUE(!result.has_value());
-        ASSERT_EQ(result.error().kind, ErrorKind::Internal);
+        ASSERT_EQ(result.error().kind, ErrorKind::kInternal);
     }
     catch (...)
     {

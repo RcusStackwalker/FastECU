@@ -29,13 +29,13 @@ Status validate_identity(std::string_view protocol, std::string_view mcu, const 
 {
     if (protocol != kProtocol && protocol != "sub_ecu_hitachi_sh72543r_can_recovery")
     {
-        return fail(ErrorKind::InvalidConfig,
+        return fail(ErrorKind::kInvalidConfig,
                     std::format("Unsupported Subaru Hitachi SH72543R CAN protocol: {}", protocol));
     }
     if (mcu != kMcu)
     {
         return fail(
-            ErrorKind::InvalidConfig,
+            ErrorKind::kInvalidConfig,
             std::format("Subaru Hitachi SH72543R CAN protocol {} requires MCU {}, not {}", protocol, kMcu, mcu));
     }
     device = find_flash_device(kMcu);
@@ -43,7 +43,7 @@ Status validate_identity(std::string_view protocol, std::string_view mcu, const 
         device->fblocks[0].start != 0 || device->fblocks[0].len != 0x6000 || device->fblocks[1].start != 0x6000 ||
         device->fblocks[1].len != 0x1FA000)
     {
-        return fail(ErrorKind::InvalidConfig, "Subaru Hitachi SH72543R CAN flash geometry is invalid");
+        return fail(ErrorKind::kInvalidConfig, "Subaru Hitachi SH72543R CAN flash geometry is invalid");
     }
     return {};
 }
@@ -56,36 +56,36 @@ bool wire_parameters_match(const SubaruHitachiSh72543rCanPlan& wire)
 
 Status validate_regions(const FlashPlan& plan)
 {
-    const auto window = plan.operation() == FlashOperation::Read ? kReadWindow : kWriteWindow;
+    const auto window = plan.operation() == FlashOperation::kRead ? kReadWindow : kWriteWindow;
     if (plan.transfer_region().start != window.start || plan.transfer_region().length != window.length)
     {
-        return fail(ErrorKind::InvalidConfig, "Subaru Hitachi SH72543R CAN transfer region is invalid");
+        return fail(ErrorKind::kInvalidConfig, "Subaru Hitachi SH72543R CAN transfer region is invalid");
     }
-    if (plan.operation() == FlashOperation::Read)
+    if (plan.operation() == FlashOperation::kRead)
     {
         return plan.erase_regions().empty()
                    ? Status{}
-                   : fail(ErrorKind::InvalidConfig, "Subaru Hitachi SH72543R CAN read plans must not erase memory");
+                   : fail(ErrorKind::kInvalidConfig, "Subaru Hitachi SH72543R CAN read plans must not erase memory");
     }
     if (plan.erase_regions().size() != 1 || plan.erase_regions()[0].start != kWriteWindow.start ||
         plan.erase_regions()[0].length != kWriteWindow.length)
     {
-        return fail(ErrorKind::InvalidConfig, "Subaru Hitachi SH72543R CAN erase region is invalid");
+        return fail(ErrorKind::kInvalidConfig, "Subaru Hitachi SH72543R CAN erase region is invalid");
     }
     return {};
 }
 
 Status validate_image(const FlashPlan& plan)
 {
-    if (plan.operation() == FlashOperation::Read)
+    if (plan.operation() == FlashOperation::kRead)
     {
         return plan.image().has_value()
-                   ? fail(ErrorKind::InvalidConfig, "Subaru Hitachi SH72543R CAN read plan carries a ROM image")
+                   ? fail(ErrorKind::kInvalidConfig, "Subaru Hitachi SH72543R CAN read plan carries a ROM image")
                    : Status{};
     }
     if (!plan.image().has_value() || plan.image()->size() != kRomSize)
     {
-        return fail(ErrorKind::InvalidConfig, std::format("ROM file must be exactly 0x{:x} bytes", kRomSize));
+        return fail(ErrorKind::kInvalidConfig, std::format("ROM file must be exactly 0x{:x} bytes", kRomSize));
     }
     return {};
 }
@@ -94,9 +94,9 @@ Status validate_image(const FlashPlan& plan)
 
 Status validate_subaru_hitachi_sh72543r_can_plan(const FlashPlan& plan)
 {
-    if (plan.family() != FlashFamily::SubaruHitachiSh72543rCan || plan.transport() != TransportKind::CanIso15765)
+    if (plan.family() != FlashFamily::kSubaruHitachiSh72543rCan || plan.transport() != TransportKind::kCanIso15765)
     {
-        return fail(ErrorKind::InvalidConfig, "plan is not for Subaru Hitachi SH72543R CAN");
+        return fail(ErrorKind::kInvalidConfig, "plan is not for Subaru Hitachi SH72543R CAN");
     }
     const FlashDevice *device = nullptr;
     if (Status identity = validate_identity(plan.target_id(), plan.mcu_name(), device); !identity.has_value())
@@ -106,23 +106,24 @@ Status validate_subaru_hitachi_sh72543r_can_plan(const FlashPlan& plan)
     const auto *wire = std::get_if<SubaruHitachiSh72543rCanPlan>(&plan.family_plan());
     if (wire == nullptr || !wire_parameters_match(*wire))
     {
-        return fail(ErrorKind::InvalidConfig, "Subaru Hitachi SH72543R CAN wire parameters are invalid");
+        return fail(ErrorKind::kInvalidConfig, "Subaru Hitachi SH72543R CAN wire parameters are invalid");
     }
     if (plan.kernel().has_value())
     {
-        return fail(ErrorKind::InvalidConfig, "Subaru Hitachi SH72543R CAN plans are kernel-free");
+        return fail(ErrorKind::kInvalidConfig, "Subaru Hitachi SH72543R CAN plans are kernel-free");
     }
     // Legacy operation.cpp:681: reflash_block ignores its test_write_arg
     // parameter entirely, so "test write" performs the same live erase and
     // flash write as "write" -- see the TestWrite comment in
     // subaru_hitachi_sh72543r_can_types.h. There is no dry-run to port.
-    if (plan.operation() != FlashOperation::Read && plan.operation() != FlashOperation::Write)
+    if (plan.operation() != FlashOperation::kRead && plan.operation() != FlashOperation::kWrite)
     {
-        return fail(ErrorKind::Unsupported, "operation is not supported by Subaru Hitachi SH72543R CAN");
+        return fail(ErrorKind::kUnsupported, "operation is not supported by Subaru Hitachi SH72543R CAN");
     }
     if (!plan.confirmations().empty())
     {
-        return fail(ErrorKind::InvalidConfig, "Subaru Hitachi SH72543R CAN plans must not declare extra confirmations");
+        return fail(ErrorKind::kInvalidConfig,
+                    "Subaru Hitachi SH72543R CAN plans must not declare extra confirmations");
     }
     if (Status regions = validate_regions(plan); !regions.has_value())
     {
@@ -142,32 +143,32 @@ Result<FlashPlan> build_subaru_hitachi_sh72543r_can_plan(FlashOperation operatio
     // Safety-critical: see the TestWrite policy above and in
     // subaru_hitachi_sh72543r_can_types.h. Checked before the image checks
     // below so a TestWrite is rejected even without a ROM image supplied.
-    if (operation != FlashOperation::Read && operation != FlashOperation::Write)
+    if (operation != FlashOperation::kRead && operation != FlashOperation::kWrite)
     {
-        return fail(ErrorKind::Unsupported, "operation is not supported by Subaru Hitachi SH72543R CAN");
+        return fail(ErrorKind::kUnsupported, "operation is not supported by Subaru Hitachi SH72543R CAN");
     }
-    if (operation == FlashOperation::Read)
+    if (operation == FlashOperation::kRead)
     {
         if (image.has_value())
         {
-            return fail(ErrorKind::InvalidConfig, "Subaru Hitachi SH72543R CAN read plans must not carry an image");
+            return fail(ErrorKind::kInvalidConfig, "Subaru Hitachi SH72543R CAN read plans must not carry an image");
         }
     }
     else if (!image.has_value() || image->size() != kRomSize)
     {
-        return fail(ErrorKind::InvalidConfig, std::format("ROM file must be exactly 0x{:x} bytes", kRomSize));
+        return fail(ErrorKind::kInvalidConfig, std::format("ROM file must be exactly 0x{:x} bytes", kRomSize));
     }
 
     FlashPlanFields fields{
         .operation = operation,
-        .family = FlashFamily::SubaruHitachiSh72543rCan,
-        .transport = TransportKind::CanIso15765,
+        .family = FlashFamily::kSubaruHitachiSh72543rCan,
+        .transport = TransportKind::kCanIso15765,
         .target_id = std::string(protocol_name),
         .mcu_name = std::string(mcu_type),
-        .transfer_region = operation == FlashOperation::Read ? kReadWindow : kWriteWindow,
+        .transfer_region = operation == FlashOperation::kRead ? kReadWindow : kWriteWindow,
         // Intended programming window; actual hardware erase scope is unqualified.
-        .erase_regions = operation == FlashOperation::Write ? std::vector{kWriteWindow} : std::vector<MemoryRegion>{},
-        .image = operation == FlashOperation::Write ? std::move(image) : std::nullopt,
+        .erase_regions = operation == FlashOperation::kWrite ? std::vector{kWriteWindow} : std::vector<MemoryRegion>{},
+        .image = operation == FlashOperation::kWrite ? std::move(image) : std::nullopt,
         .kernel = std::nullopt,
         .family_plan = SubaruHitachiSh72543rCanPlan{.request_id = kRequestId,
                                                     .response_id = kResponseId,

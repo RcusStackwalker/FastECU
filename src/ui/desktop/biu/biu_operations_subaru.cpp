@@ -35,8 +35,8 @@ BiuOperationsSubaru::BiuOperationsSubaru(fastecu::diagnostics::IDiagnosticLink& 
     data_result_ = new QStringList();
     keep_alive_timer_ = new QTimer(this);
     keep_alive_timer_->setInterval(1000);
-    current_command_ = NO_COMMAND;
-    connection_state_ = NOT_CONNECTED;
+    current_command_ = kNoCommand;
+    connection_state_ = kNotConnected;
 
     for (int i = 0; i < biu_messages_.length(); i += 2)
     {
@@ -207,7 +207,7 @@ void BiuOperationsSubaru::closeEvent(QCloseEvent *event)
 
 void BiuOperationsSubaru::keep_alive()
 {
-    if (current_command_ == TESTER_PRESENT)
+    if (current_command_ == kTesterPresent)
     {
         output_ = biu_subaru::keepAliveRequest();
     }
@@ -286,7 +286,7 @@ void BiuOperationsSubaru::parse_biu_cmd()
     if (cmd_ready)
     {
         current_command_ = cmd_[0];
-        if (current_command_ == INFO_REQUEST)
+        if (current_command_ == kInfoRequest)
         {
             current_command_ = cmd_[1];
         }
@@ -295,7 +295,7 @@ void BiuOperationsSubaru::parse_biu_cmd()
     }
     else
     {
-        current_command_ = TESTER_PRESENT;
+        current_command_ = kTesterPresent;
     }
 }
 
@@ -309,7 +309,7 @@ void BiuOperationsSubaru::prepare_biu_set_cmd(const QByteArray& cmd_settings)
     std::copy(settings.begin(), settings.end(), cmd_.begin() + 2);
 
     current_command_ = cmd_[0];
-    if (current_command_ == WRITE_DATA)
+    if (current_command_ == kWriteData)
     {
         current_command_ = cmd_[1];
     }
@@ -331,13 +331,13 @@ void BiuOperationsSubaru::send_biu_msg()
 
     QByteArray received;
 
-    if (connection_state_ == NOT_CONNECTED && current_command_ != CONNECT)
+    if (connection_state_ == kNotConnected && current_command_ != kConnect)
     {
         emit LOG_I("Not connected, can't send command", true, true);
         return;
     }
 
-    if (connection_state_ == NOT_CONNECTED && current_command_ == CONNECT)
+    if (connection_state_ == kNotConnected && current_command_ == kConnect)
     {
         std::ignore = link_->fast_init(output_);
     }
@@ -350,7 +350,7 @@ void BiuOperationsSubaru::send_biu_msg()
 
     parse_biu_message(received);
 
-    if (connection_state_ == CONNECTED)
+    if (connection_state_ == kConnected)
     {
         keep_alive_timer_->start();
     }
@@ -385,7 +385,7 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
         return;
     }
 
-    if ((uint8_t)message.at(3) == (CONNECT + 0x40))
+    if ((uint8_t)message.at(3) == (kConnect + 0x40))
     {
         /*
          * index: 0    1    2    3    4    5    6
@@ -394,10 +394,10 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
          */
 
         emit LOG_I("Connection to BIU successful", true, true);
-        connection_state_ = CONNECTED;
-        current_command_ = TESTER_PRESENT;
+        connection_state_ = kConnected;
+        current_command_ = kTesterPresent;
     }
-    else if ((uint8_t)message.at(3) == (DISCONNECT + 0x40))
+    else if ((uint8_t)message.at(3) == (kDisconnect + 0x40))
     {
         /*
          * index: 0    1    2    3    4    5    6
@@ -406,11 +406,11 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
          */
 
         emit LOG_I("Disconnection from BIU successful", true, true);
-        connection_state_ = NOT_CONNECTED;
-        current_command_ = NO_COMMAND;
+        connection_state_ = kNotConnected;
+        current_command_ = kNoCommand;
         close_results_windows();
     }
-    else if ((uint8_t)message.at(3) == (DTC_READ + 0x40))
+    else if ((uint8_t)message.at(3) == (kDtcRead + 0x40))
     {
         /*
          * index: 0    1    2    3    4    5    6
@@ -422,7 +422,7 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
         QString dtc_code;
         QString byte;
 
-        current_command_ = TESTER_PRESENT;
+        current_command_ = kTesterPresent;
 
         int index = 5;
 
@@ -472,7 +472,7 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
 
         biu_ops_subaru_data_dtcs_ = update_biu_ops_subaru_data_window(biu_ops_subaru_data_dtcs_);
     }
-    else if ((uint8_t)message.at(3) == (DTC_CLEAR + 0x40))
+    else if ((uint8_t)message.at(3) == (kDtcClear + 0x40))
     {
         /*
          * index: 0    1    2    3    4    5    6
@@ -480,11 +480,11 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
          * rsp:   fm+l dest src  rply 0x40 0x00 cksm
          */
 
-        current_command_ = TESTER_PRESENT;
+        current_command_ = kTesterPresent;
 
         emit LOG_I("BIU DTCs successfully cleared", true, true);
     }
-    else if ((uint8_t)message.at(3) == (INFO_REQUEST + 0x40) && (uint8_t)message.at(4) == IN_OUT_SWITCHES)
+    else if ((uint8_t)message.at(3) == (kInfoRequest + 0x40) && (uint8_t)message.at(4) == kInOutSwitches)
     {
         /*
          * index: 0    1    2    3    4    5    6    7
@@ -522,7 +522,7 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
 
         biu_ops_subaru_switches_io_ = update_biu_ops_subaru_switches_window(biu_ops_subaru_switches_io_);
     }
-    else if ((uint8_t)message.at(3) == (INFO_REQUEST + 0x40) && (uint8_t)message.at(4) == LIGHTING_SWITCHES)
+    else if ((uint8_t)message.at(3) == (kInfoRequest + 0x40) && (uint8_t)message.at(4) == kLightingSwitches)
     {
         /*
          * index: 0    1    2    3    4    5    6    7
@@ -560,7 +560,7 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
 
         biu_ops_subaru_switches_lighting_ = update_biu_ops_subaru_switches_window(biu_ops_subaru_switches_lighting_);
     }
-    else if ((uint8_t)message.at(3) == (INFO_REQUEST + 0x40) && (uint8_t)message.at(4) == BIU_DATA)
+    else if ((uint8_t)message.at(3) == (kInfoRequest + 0x40) && (uint8_t)message.at(4) == kBiuData)
     {
         /*
          * index: 0    1    2    3    4    5    6    7
@@ -591,7 +591,7 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
 
         biu_ops_subaru_data_biu_ = update_biu_ops_subaru_data_window(biu_ops_subaru_data_biu_);
     }
-    else if ((uint8_t)message.at(3) == (INFO_REQUEST + 0x40) && (uint8_t)message.at(4) == CAN_DATA)
+    else if ((uint8_t)message.at(3) == (kInfoRequest + 0x40) && (uint8_t)message.at(4) == kCanData)
     {
         /*
          * index: 0    1    2    3    4    5    6    7
@@ -708,7 +708,7 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
 
         biu_ops_subaru_data_can_ = update_biu_ops_subaru_data_window(biu_ops_subaru_data_can_);
     }
-    else if ((uint8_t)message.at(3) == (INFO_REQUEST + 0x40) && (uint8_t)message.at(4) == TIME_TEMP_READ)
+    else if ((uint8_t)message.at(3) == (kInfoRequest + 0x40) && (uint8_t)message.at(4) == kTimeTempRead)
     {
         /*
          * index: 0    1    2    3    4    5    6    7
@@ -716,7 +716,7 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
          * rsp:   fm+l dest src  rply 0x52 0xB1 0xB2 0xBn cksm
          */
 
-        current_command_ = TESTER_PRESENT;
+        current_command_ = kTesterPresent;
         QString temp;
         float calc_result;
 
@@ -774,7 +774,7 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
 
         biu_ops_subaru_data_tt_ = update_biu_ops_subaru_data_window(biu_ops_subaru_data_tt_);
     }
-    else if ((uint8_t)message.at(3) == (INFO_REQUEST + 0x40) && (uint8_t)message.at(4) == OPTIONS_READ)
+    else if ((uint8_t)message.at(3) == (kInfoRequest + 0x40) && (uint8_t)message.at(4) == kOptionsRead)
     {
         /*
          * index: 0    1    2    3    4    5    6    7
@@ -784,7 +784,7 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
 
         // QString biu_option_result;
 
-        current_command_ = TESTER_PRESENT;
+        current_command_ = kTesterPresent;
         switch_result_->clear();
 
         int index = 5;
@@ -817,7 +817,7 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
 
         biu_ops_subaru_switches_options_ = update_biu_ops_subaru_switches_window(biu_ops_subaru_switches_options_);
     }
-    else if ((uint8_t)message.at(3) == (INFO_REQUEST + 0x40) && (uint8_t)message.at(4) == VDC_ABS_CONDITION)
+    else if ((uint8_t)message.at(3) == (kInfoRequest + 0x40) && (uint8_t)message.at(4) == kVdcAbsCondition)
     {
         /*
          * index: 0    1    2    3    4    5    6    7
@@ -825,7 +825,7 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
          * rsp:   fm+l dest src  rply 0x60 0xB1 cksm
          */
 
-        current_command_ = TESTER_PRESENT;
+        current_command_ = kTesterPresent;
         data_result_->clear();
 
         int condition = static_cast<int>((uint8_t)message.at(5) & 0x07U);
@@ -834,7 +834,7 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
 
         biu_ops_subaru_data_vdcabs_ = update_biu_ops_subaru_data_window(biu_ops_subaru_data_vdcabs_);
     }
-    else if ((uint8_t)message.at(3) == (INFO_REQUEST + 0x40) && (uint8_t)message.at(4) == DEST_TOUCH_STATUS)
+    else if ((uint8_t)message.at(3) == (kInfoRequest + 0x40) && (uint8_t)message.at(4) == kDestTouchStatus)
     {
         /*
          * index: 0    1    2    3    4    5    6    7
@@ -843,7 +843,7 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
          */
 
         int condition;
-        current_command_ = TESTER_PRESENT;
+        current_command_ = kTesterPresent;
         data_result_->clear();
 
         condition = static_cast<int>((uint8_t)message.at(5) & 0x0FU);
@@ -854,7 +854,7 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
 
         biu_ops_subaru_data_dest_ = update_biu_ops_subaru_data_window(biu_ops_subaru_data_dest_);
     }
-    else if ((uint8_t)message.at(3) == (INFO_REQUEST + 0x40) && (uint8_t)message.at(4) == FACTORY_STATUS)
+    else if ((uint8_t)message.at(3) == (kInfoRequest + 0x40) && (uint8_t)message.at(4) == kFactoryStatus)
     {
         /*
          * index: 0    1    2    3    4    5    6    7
@@ -863,7 +863,7 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
          */
 
         QString setting;
-        current_command_ = TESTER_PRESENT;
+        current_command_ = kTesterPresent;
         data_result_->clear();
 
         if ((uint8_t)message.at(5) & 0x01U)
@@ -879,7 +879,7 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
 
         biu_ops_subaru_data_factory_ = update_biu_ops_subaru_data_window(biu_ops_subaru_data_factory_);
     }
-    else if ((uint8_t)message.at(3) == (WRITE_DATA + 0x40) && (uint8_t)message.at(4) == TIME_TEMP_WRITE)
+    else if ((uint8_t)message.at(3) == (kWriteData + 0x40) && (uint8_t)message.at(4) == kTimeTempWrite)
     {
         /*
          * index: 0    1    2    3    4    5    6    7
@@ -887,13 +887,13 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
          * rsp:   fm+l dest src  rply 0x8A cksm
          */
 
-        current_command_ = TESTER_PRESENT;
+        current_command_ = kTesterPresent;
 
         emit LOG_I("Setting change successful", true, true);
         biu_tt_result_->clear();
         biu_ops_subaru_input1_->close();
     }
-    else if ((uint8_t)message.at(3) == (WRITE_DATA + 0x40) && (uint8_t)message.at(4) == OPTIONS_WRITE)
+    else if ((uint8_t)message.at(3) == (kWriteData + 0x40) && (uint8_t)message.at(4) == kOptionsWrite)
     {
         /*
          * index: 0    1    2    3    4    5    6    7
@@ -901,7 +901,7 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
          * rsp:   fm+l dest src  rply 0x8C cksm
          */
 
-        current_command_ = TESTER_PRESENT;
+        current_command_ = kTesterPresent;
 
         emit LOG_I("Setting change successful", true, true);
         biu_option_result_->clear();

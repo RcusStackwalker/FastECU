@@ -29,7 +29,7 @@ fastecu::definition::CalibrationMap map(std::string name, std::string category, 
 
 CalibrationSession session_with_maps()
 {
-    fastecu::definition::RomDefinition definition{.format = fastecu::definition::DefinitionFormat::EcuFlash};
+    fastecu::definition::RomDefinition definition{.format = fastecu::definition::DefinitionFormat::kEcuFlash};
     definition.identity.xml_id = "TREE";
     definition.maps = {
         map("Idle", "Idle", "1D", 1, 1, "Idle speed", "idle-id"), // 0

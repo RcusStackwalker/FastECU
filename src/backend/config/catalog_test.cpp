@@ -26,7 +26,7 @@ constexpr auto kProtocols = std::to_array<ProtocolSpec>({
     {.name = "proto_a",
      .alias = "alias_a",
      .mcu = "SH7058",
-     .checksum = ChecksumSupport::Corrected,
+     .checksum = ChecksumSupport::kCorrected,
      .read = true,
      .kernel = "a.bin",
      .kernel_load_address = 0xFFFF3000U},
@@ -51,9 +51,9 @@ static_assert(catalog_references_resolve(kProtocols, kVehicles));
 
 TEST(ChecksumFlag, SpellsTheLegacyFlagText)
 {
-    EXPECT_EQ(checksum_flag(ChecksumSupport::Corrected), "yes");
-    EXPECT_EQ(checksum_flag(ChecksumSupport::Missing), "n/a");
-    EXPECT_EQ(checksum_flag(ChecksumSupport::None), "no");
+    EXPECT_EQ(checksum_flag(ChecksumSupport::kCorrected), "yes");
+    EXPECT_EQ(checksum_flag(ChecksumSupport::kMissing), "n/a");
+    EXPECT_EQ(checksum_flag(ChecksumSupport::kNone), "no");
 }
 
 TEST(KernelLoadAddressText, IsUnpaddedUppercaseHexOrEmpty)

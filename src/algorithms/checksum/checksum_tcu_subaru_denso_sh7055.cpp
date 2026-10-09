@@ -38,7 +38,7 @@ ChecksumResult ChecksumTcuSubaruDensoSH7055::calculate_checksum_result(bytes::By
     // Fixed 512 KiB SH7055 layout; the last checksum area ends at 0x80000.
     if (romView.size() != 0x80000)
     {
-        return {.status = ChecksumResult::Status::InvalidSize,
+        return {.status = ChecksumResult::Status::kInvalidSize,
                 .rom_data = bytes::Bytes(romView.begin(), romView.end()),
                 .message = "ROM size does not match the checksum layout"};
     }
@@ -68,12 +68,12 @@ ChecksumResult ChecksumTcuSubaruDensoSH7055::calculate_checksum_result(bytes::By
     {
         fastecu::checksum::internal::rebalanceU16Be(romData, 0x7fff4, checksum, 0x5aa5);
 
-        result.status = ChecksumResult::Status::Corrected;
+        result.status = ChecksumResult::Status::kCorrected;
         result.message = "Subaru Denso SH7055 TCU Checksum";
     }
     else
     {
-        result.status = ChecksumResult::Status::Unchanged;
+        result.status = ChecksumResult::Status::kUnchanged;
     }
     result.rom_data = romData;
     return result;

@@ -217,22 +217,22 @@ class MainWindow : public QMainWindow
 
     enum RomInfoEnum
     {
-        XmlId,
-        InternalIdAddress,
-        InternalIdString,
-        EcuId,
-        Make,
-        Market,
-        Model,
-        SubModel,
-        Transmission,
-        Year,
-        FlashMethod,
-        MemModel,
-        ChecksumModule,
-        RomBase,
-        FileSize,
-        DefFile,
+        kXmlId,
+        kInternalIdAddress,
+        kInternalIdString,
+        kEcuId,
+        kMake,
+        kMarket,
+        kModel,
+        kSubModel,
+        kTransmission,
+        kYear,
+        kFlashMethod,
+        kMemModel,
+        kChecksumModule,
+        kRomBase,
+        kFileSize,
+        kDefFile,
     };
 
     QString ecuid_ = "";

@@ -157,7 +157,7 @@ TEST(LoadAppConfig, MissingFileIsPropagatedAsInvalidConfig)
     InMemoryFileRepository repo;
     ConfigPaths paths = test_paths();
 
-    ASSERT_THAT(load_app_config(paths, repo), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(load_app_config(paths, repo), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
 TEST(SaveAppConfig, NormalizesTrailingSlashesOnThreeDirectoryFields)

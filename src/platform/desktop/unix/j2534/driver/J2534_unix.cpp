@@ -399,7 +399,7 @@ long J2534::PassThruReadMsgs(unsigned long ChannelID, PassThruMsg *pMsg, unsigne
                     pMsg->data[msg_index++] = (uint8_t)msg.at(static_cast<qsizetype>(i));
                 }
 
-                pMsg->rx_status = NORM_MSG;
+                pMsg->rx_status = kNormMsg;
                 pMsg->data_size = msg_index;
                 msg_cnt++;
                 // emit LOG_D("Fast init msg response: " + parseMessageToHex(received), true, true);
@@ -411,31 +411,31 @@ long J2534::PassThruReadMsgs(unsigned long ChannelID, PassThruMsg *pMsg, unsigne
                 msg_type = received.at(4);
                 switch (msg_type)
                 {
-                case NORM_MSG:
+                case kNormMsg:
                     msg_type_string = "NORM_MSG";
                     break;
                 case kJ2534StartOfMessage:
                     msg_type_string = "START_OF_MESSAGE";
                     break;
-                case TX_DONE_MSG:
+                case kTxDoneMsg:
                     msg_type_string = "TX_DONE_MSG";
                     break;
-                case TX_LB_MSG:
+                case kTxLbMsg:
                     msg_type_string = "TX_LB_MSG";
                     break;
-                case RX_MSG_END_IND:
+                case kRxMsgEndInd:
                     msg_type_string = "RX_MSG_END_IND";
                     break;
-                case EXT_ADDR_MSG_END_IND:
+                case kExtAddrMsgEndInd:
                     msg_type_string = "EXT_ADDR_MSG_END_IND";
                     break;
-                case LB_MSG_END_IND:
+                case kLbMsgEndInd:
                     msg_type_string = "LB_MSG_END_IND";
                     break;
-                case NORM_MSG_START_IND:
+                case kNormMsgStartInd:
                     msg_type_string = "NORM_MSG_START_IND";
                     break;
-                case TX_LB_START_IND:
+                case kTxLbStartInd:
                     msg_type_string = "TX_LB_START_IND";
                     break;
                 default:
@@ -453,9 +453,9 @@ long J2534::PassThruReadMsgs(unsigned long ChannelID, PassThruMsg *pMsg, unsigne
                     // emit LOG_D("START_OF_MESSAGE: " + parseMessageToHex(received), true, true);
                 }
 
-                if (msg_type == TX_DONE_MSG)
+                if (msg_type == kTxDoneMsg)
                 {
-                    pMsg->rx_status = TX_DONE_MSG;
+                    pMsg->rx_status = kTxDoneMsg;
                     received.append(read_serial_data(msg_byte_cnt, Timeout));
                     msg_index = 0;
                     msg_cnt = 0;
@@ -463,36 +463,36 @@ long J2534::PassThruReadMsgs(unsigned long ChannelID, PassThruMsg *pMsg, unsigne
                     received.clear();
                     is_tx_done_ = true;
                 }
-                if (msg_type == TX_LB_START_IND)
+                if (msg_type == kTxLbStartInd)
                 {
-                    pMsg->rx_status = TX_LB_START_IND;
+                    pMsg->rx_status = kTxLbStartInd;
                     received.append(read_serial_data(msg_byte_cnt, Timeout));
                     msg_index = 0;
                     msg_cnt = 0;
                     // emit LOG_D("TX_LB_START_IND: " + parseMessageToHex(received), true, true);
                     received.clear();
                 }
-                if (msg_type == TX_LB_MSG)
+                if (msg_type == kTxLbMsg)
                 {
-                    pMsg->rx_status = TX_LB_MSG;
+                    pMsg->rx_status = kTxLbMsg;
                     received.append(read_serial_data(msg_byte_cnt, Timeout));
                     msg_index = 0;
                     msg_cnt = 0;
                     // emit LOG_D("TX_LB_MSG: " + parseMessageToHex(received), true, true);
                     received.clear();
                 }
-                if (msg_type == LB_MSG_END_IND)
+                if (msg_type == kLbMsgEndInd)
                 {
-                    pMsg->rx_status = LB_MSG_END_IND;
+                    pMsg->rx_status = kLbMsgEndInd;
                     received.append(read_serial_data(msg_byte_cnt, Timeout));
                     msg_index = 0;
                     msg_cnt = 0;
                     // emit LOG_D("LB_MSG_END_IND: " + parseMessageToHex(received), true, true);
                     received.clear();
                 }
-                if (msg_type == NORM_MSG_START_IND)
+                if (msg_type == kNormMsgStartInd)
                 {
-                    pMsg->rx_status = NORM_MSG_START_IND;
+                    pMsg->rx_status = kNormMsgStartInd;
                     received.append(read_serial_data(msg_byte_cnt, Timeout));
 
                     msg_index = 0;
@@ -502,9 +502,9 @@ long J2534::PassThruReadMsgs(unsigned long ChannelID, PassThruMsg *pMsg, unsigne
                     // emit LOG_D("NORM_MSG_START_IND: " + parseMessageToHex(received), true, true);
                     received.clear();
                 }
-                if (msg_type == NORM_MSG || msg_type == kJ2534StartOfMessage)
+                if (msg_type == kNormMsg || msg_type == kJ2534StartOfMessage)
                 {
-                    pMsg->rx_status = NORM_MSG;
+                    pMsg->rx_status = kNormMsg;
 
                     received.append(read_serial_data(msg_byte_cnt, Timeout));
                     // emit LOG_D("NORM_MSG: " + parseMessageToHex(received), true, true);
@@ -552,9 +552,9 @@ long J2534::PassThruReadMsgs(unsigned long ChannelID, PassThruMsg *pMsg, unsigne
                     }
                     received.clear();
                 }
-                if (msg_type == RX_MSG_END_IND)
+                if (msg_type == kRxMsgEndInd)
                 {
-                    pMsg->rx_status = RX_MSG_END_IND;
+                    pMsg->rx_status = kRxMsgEndInd;
 
                     received.append(read_serial_data(msg_byte_cnt, Timeout));
 

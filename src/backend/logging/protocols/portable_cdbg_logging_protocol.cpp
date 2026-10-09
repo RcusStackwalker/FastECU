@@ -26,7 +26,7 @@ fastecu::Status checkCancellation(const fastecu::ICancellationToken& cancellatio
 {
     if (cancellation.cancelled())
     {
-        return fastecu::fail(fastecu::ErrorKind::Cancelled, "CDBG logging cancelled");
+        return fastecu::fail(fastecu::ErrorKind::kCancelled, "CDBG logging cancelled");
     }
     return {};
 }
@@ -47,7 +47,7 @@ fastecu::Status CdbgLoggingProtocol::start(const fastecu::ICancellationToken& ca
     }
     if (!transport_->isOpen())
     {
-        return fastecu::fail(fastecu::ErrorKind::Disconnected, "adapter disconnected");
+        return fastecu::fail(fastecu::ErrorKind::kDisconnected, "adapter disconnected");
     }
     return driver_.startFreeFormLog(wire_channels_, 0, 10, cancellation);
 }
@@ -61,7 +61,7 @@ fastecu::Result<PollData> CdbgLoggingProtocol::poll(std::chrono::milliseconds ti
     }
     if (!transport_->isOpen())
     {
-        return fastecu::fail(fastecu::ErrorKind::Disconnected, "adapter disconnected");
+        return fastecu::fail(fastecu::ErrorKind::kDisconnected, "adapter disconnected");
     }
     if (!driver_.isStreaming())
     {

@@ -28,7 +28,7 @@ TEST(RecordingClock, RecordsACancelledSleepWithoutAdvancing)
     RecordingClock clock;
     FakeCancellationToken cancelled{true};
 
-    EXPECT_THAT(clock.sleep(7ms, cancelled), fastecu::testing::IsErr(ErrorKind::Cancelled));
+    EXPECT_THAT(clock.sleep(7ms, cancelled), fastecu::testing::IsErr(ErrorKind::kCancelled));
 
     EXPECT_EQ(clock.sleep_calls, (std::vector<std::chrono::milliseconds>{7ms}));
     EXPECT_EQ(clock.elapsed(), 0ms);

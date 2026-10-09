@@ -6,10 +6,10 @@ namespace fastecu
 
 enum class LogLevel
 {
-    Error,
-    Warning,
-    Info,
-    Debug
+    kError,
+    kWarning,
+    kInfo,
+    kDebug
 };
 
 struct PhaseProgressEvent

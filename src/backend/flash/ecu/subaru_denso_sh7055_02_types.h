@@ -11,7 +11,7 @@ struct SubaruDensoSh7055_02Plan
 {
     std::uint8_t tester_id; // 0xf0
     std::uint8_t target_id; // 0x10
-    bool read_ecu_id;       // true iff FlashOperation::Read
+    bool read_ecu_id;       // true iff FlashOperation::kRead
 };
 
 } // namespace fastecu::flash

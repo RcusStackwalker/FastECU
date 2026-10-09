@@ -26,7 +26,7 @@ TEST(FakeBenchSession, FailsLoudlyWhenTheScriptRunsOut)
 {
     FakeBenchSession session;
     ASSERT_THAT(session.exchange(bytes::Bytes{0x31, 0xE0}, uds::ExchangePolicy{}),
-                fastecu::testing::IsErr(ErrorKind::Internal));
+                fastecu::testing::IsErr(ErrorKind::kInternal));
 }
 
 } // namespace

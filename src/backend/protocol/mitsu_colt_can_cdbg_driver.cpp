@@ -22,7 +22,7 @@ fastecu::Result<bytes::Bytes> sendAndReceive(cdbg::ICanTransport& transport, byt
     }
     if (*written != command.size())
     {
-        return fastecu::fail(fastecu::ErrorKind::Internal, "partial CAN write");
+        return fastecu::fail(fastecu::ErrorKind::kInternal, "partial CAN write");
     }
     auto reply = transport.read(250ms, cancellation);
     if (!reply)
@@ -31,7 +31,7 @@ fastecu::Result<bytes::Bytes> sendAndReceive(cdbg::ICanTransport& transport, byt
     }
     if (!reply->has_value() || reply->value().id != kReplyCanId || reply->value().payload.empty())
     {
-        return fastecu::fail(fastecu::ErrorKind::BadResponse, std::string(failureDetail));
+        return fastecu::fail(fastecu::ErrorKind::kBadResponse, std::string(failureDetail));
     }
     return std::move(reply->value().payload);
 }
@@ -47,14 +47,14 @@ fastecu::Status CdbgLogDriver::startFreeFormLog(const std::vector<CdbgChannel>& 
 
     if (channels.empty())
     {
-        return fastecu::fail(fastecu::ErrorKind::InvalidConfig, "no CDBG log parameters selected");
+        return fastecu::fail(fastecu::ErrorKind::kInvalidConfig, "no CDBG log parameters selected");
     }
 
     for (const CdbgChannel& ch : channels)
     {
         if (ch.size != 1 && ch.size != 2 && ch.size != 4)
         {
-            return fastecu::fail(fastecu::ErrorKind::InvalidConfig, "CDBG log parameter has unsupported byte length");
+            return fastecu::fail(fastecu::ErrorKind::kInvalidConfig, "CDBG log parameter has unsupported byte length");
         }
     }
 
@@ -77,12 +77,12 @@ fastecu::Status CdbgLogDriver::startFreeFormLog(const std::vector<CdbgChannel>& 
     }
     if (!securityGranted(*reply))
     {
-        return fastecu::fail(fastecu::ErrorKind::BadResponse, "CDBG security access denied");
+        return fastecu::fail(fastecu::ErrorKind::kBadResponse, "CDBG security access denied");
     }
 
     if (!batchChannelsIntoFrames(channels, frames_))
     {
-        return fastecu::fail(fastecu::ErrorKind::InvalidConfig, "too many CDBG log parameters selected");
+        return fastecu::fail(fastecu::ErrorKind::kInvalidConfig, "too many CDBG log parameters selected");
     }
 
     reply = sendAndReceive(t_, buildLogResetFrame(instance), cancellation, "CDBG log reset failed");

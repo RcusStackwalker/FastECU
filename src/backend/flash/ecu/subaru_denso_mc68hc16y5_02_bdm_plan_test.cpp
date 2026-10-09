@@ -29,9 +29,9 @@ KernelImage kernel(bytes::Bytes content, std::uint32_t load_address = 0x20000)
 FlashPlanFields read_fields()
 {
     return FlashPlanFields{
-        .operation = FlashOperation::Read,
-        .family = FlashFamily::SubaruDensoMc68hc16y5_02Bdm,
-        .transport = TransportKind::Kline,
+        .operation = FlashOperation::kRead,
+        .family = FlashFamily::kSubaruDensoMc68hc16y502Bdm,
+        .transport = TransportKind::kKline,
         .target_id = std::string(kProtocol),
         .mcu_name = std::string(kMcu),
         .transfer_region = MemoryRegion{0, 0x30000},
@@ -46,20 +46,20 @@ FlashPlanFields read_fields()
 FlashPlanFields write_fields(std::uint32_t size)
 {
     FlashPlanFields fields = read_fields();
-    fields.operation = FlashOperation::Write;
+    fields.operation = FlashOperation::kWrite;
     fields.transfer_region = MemoryRegion{0x20000, size};
     fields.image = bytes::Bytes(size, 0xab);
-    fields.confirmations = {ConfirmationSpec{.id = ConfirmationSpec::Id::KernelBootstrap}};
+    fields.confirmations = {ConfirmationSpec{.id = ConfirmationSpec::Id::kKernelBootstrap}};
     return fields;
 }
 
 TEST(SubaruDensoMc68hc16y5_02BdmPlan, ReadCoversTheAddressSpaceImage)
 {
     const auto plan =
-        build_subaru_denso_mc68hc16y5_02_bdm_plan(FlashOperation::Read, kProtocol, kMcu, std::nullopt, std::nullopt);
+        build_subaru_denso_mc68hc16y5_02_bdm_plan(FlashOperation::kRead, kProtocol, kMcu, std::nullopt, std::nullopt);
     ASSERT_THAT(plan, IsOk());
-    EXPECT_EQ(plan->family(), FlashFamily::SubaruDensoMc68hc16y5_02Bdm);
-    EXPECT_EQ(plan->transport(), TransportKind::Kline);
+    EXPECT_EQ(plan->family(), FlashFamily::kSubaruDensoMc68hc16y502Bdm);
+    EXPECT_EQ(plan->transport(), TransportKind::kKline);
     EXPECT_EQ(plan->transfer_region(), (MemoryRegion{0, 0x30000}));
     EXPECT_FALSE(plan->image().has_value());
     EXPECT_FALSE(plan->kernel().has_value());
@@ -68,7 +68,7 @@ TEST(SubaruDensoMc68hc16y5_02BdmPlan, ReadCoversTheAddressSpaceImage)
 
 TEST(SubaruDensoMc68hc16y5_02BdmPlan, WritePadsTheKernelAndCarriesItAsTheImage)
 {
-    const auto plan = build_subaru_denso_mc68hc16y5_02_bdm_plan(FlashOperation::Write, kProtocol, kMcu, std::nullopt,
+    const auto plan = build_subaru_denso_mc68hc16y5_02_bdm_plan(FlashOperation::kWrite, kProtocol, kMcu, std::nullopt,
                                                                 kernel(bytes::Bytes(33, 0xab)));
     ASSERT_THAT(plan, IsOk());
     ASSERT_TRUE(plan->image().has_value());
@@ -82,12 +82,12 @@ TEST(SubaruDensoMc68hc16y5_02BdmPlan, WritePadsTheKernelAndCarriesItAsTheImage)
 
 TEST(SubaruDensoMc68hc16y5_02BdmPlan, WriteAcceptsAKernelThatFillsTheRamBlockExactly)
 {
-    EXPECT_THAT(build_subaru_denso_mc68hc16y5_02_bdm_plan(FlashOperation::Write, kProtocol, kMcu, std::nullopt,
+    EXPECT_THAT(build_subaru_denso_mc68hc16y5_02_bdm_plan(FlashOperation::kWrite, kProtocol, kMcu, std::nullopt,
                                                           kernel(bytes::Bytes(0x8000, 0x01))),
                 IsOk());
-    EXPECT_THAT(build_subaru_denso_mc68hc16y5_02_bdm_plan(FlashOperation::Write, kProtocol, kMcu, std::nullopt,
+    EXPECT_THAT(build_subaru_denso_mc68hc16y5_02_bdm_plan(FlashOperation::kWrite, kProtocol, kMcu, std::nullopt,
                                                           kernel(bytes::Bytes(0x8001, 0x01))),
-                IsErr(ErrorKind::InvalidConfig));
+                IsErr(ErrorKind::kInvalidConfig));
 }
 
 TEST(SubaruDensoMc68hc16y5_02BdmPlan, RejectsEveryOtherIdentity)
@@ -100,48 +100,48 @@ TEST(SubaruDensoMc68hc16y5_02BdmPlan, RejectsEveryOtherIdentity)
          }))
     {
         EXPECT_THAT(
-            build_subaru_denso_mc68hc16y5_02_bdm_plan(FlashOperation::Read, protocol, mcu, std::nullopt, std::nullopt),
-            IsErr(ErrorKind::InvalidConfig))
+            build_subaru_denso_mc68hc16y5_02_bdm_plan(FlashOperation::kRead, protocol, mcu, std::nullopt, std::nullopt),
+            IsErr(ErrorKind::kInvalidConfig))
             << protocol << " / " << mcu;
     }
 }
 
 TEST(SubaruDensoMc68hc16y5_02BdmPlan, RejectsTestWrite)
 {
-    EXPECT_THAT(build_subaru_denso_mc68hc16y5_02_bdm_plan(FlashOperation::TestWrite, kProtocol, kMcu, std::nullopt,
+    EXPECT_THAT(build_subaru_denso_mc68hc16y5_02_bdm_plan(FlashOperation::kTestWrite, kProtocol, kMcu, std::nullopt,
                                                           kernel(bytes::Bytes(0x20, 0x01))),
-                IsErr(ErrorKind::Unsupported));
+                IsErr(ErrorKind::kUnsupported));
 }
 
 TEST(SubaruDensoMc68hc16y5_02BdmPlan, RejectsARomImageForEveryOperation)
 {
-    EXPECT_THAT(build_subaru_denso_mc68hc16y5_02_bdm_plan(FlashOperation::Read, kProtocol, kMcu,
+    EXPECT_THAT(build_subaru_denso_mc68hc16y5_02_bdm_plan(FlashOperation::kRead, kProtocol, kMcu,
                                                           bytes::Bytes(0x30000, 0x00), std::nullopt),
-                IsErr(ErrorKind::InvalidConfig));
-    EXPECT_THAT(build_subaru_denso_mc68hc16y5_02_bdm_plan(FlashOperation::Write, kProtocol, kMcu,
+                IsErr(ErrorKind::kInvalidConfig));
+    EXPECT_THAT(build_subaru_denso_mc68hc16y5_02_bdm_plan(FlashOperation::kWrite, kProtocol, kMcu,
                                                           bytes::Bytes(0x30000, 0x00),
                                                           kernel(bytes::Bytes(0x20, 0x01))),
-                IsErr(ErrorKind::InvalidConfig));
+                IsErr(ErrorKind::kInvalidConfig));
 }
 
 TEST(SubaruDensoMc68hc16y5_02BdmPlan, ReadRejectsAKernel)
 {
-    EXPECT_THAT(build_subaru_denso_mc68hc16y5_02_bdm_plan(FlashOperation::Read, kProtocol, kMcu, std::nullopt,
+    EXPECT_THAT(build_subaru_denso_mc68hc16y5_02_bdm_plan(FlashOperation::kRead, kProtocol, kMcu, std::nullopt,
                                                           kernel(bytes::Bytes(0x20, 0x01))),
-                IsErr(ErrorKind::InvalidConfig));
+                IsErr(ErrorKind::kInvalidConfig));
 }
 
 TEST(SubaruDensoMc68hc16y5_02BdmPlan, WriteRejectsAMissingEmptyOrMisplacedKernel)
 {
     EXPECT_THAT(
-        build_subaru_denso_mc68hc16y5_02_bdm_plan(FlashOperation::Write, kProtocol, kMcu, std::nullopt, std::nullopt),
-        IsErr(ErrorKind::InvalidConfig));
-    EXPECT_THAT(build_subaru_denso_mc68hc16y5_02_bdm_plan(FlashOperation::Write, kProtocol, kMcu, std::nullopt,
+        build_subaru_denso_mc68hc16y5_02_bdm_plan(FlashOperation::kWrite, kProtocol, kMcu, std::nullopt, std::nullopt),
+        IsErr(ErrorKind::kInvalidConfig));
+    EXPECT_THAT(build_subaru_denso_mc68hc16y5_02_bdm_plan(FlashOperation::kWrite, kProtocol, kMcu, std::nullopt,
                                                           kernel(bytes::Bytes{})),
-                IsErr(ErrorKind::InvalidConfig));
-    EXPECT_THAT(build_subaru_denso_mc68hc16y5_02_bdm_plan(FlashOperation::Write, kProtocol, kMcu, std::nullopt,
+                IsErr(ErrorKind::kInvalidConfig));
+    EXPECT_THAT(build_subaru_denso_mc68hc16y5_02_bdm_plan(FlashOperation::kWrite, kProtocol, kMcu, std::nullopt,
                                                           kernel(bytes::Bytes(0x20, 0x01), 0x21000)),
-                IsErr(ErrorKind::InvalidConfig));
+                IsErr(ErrorKind::kInvalidConfig));
 }
 
 TEST(SubaruDensoMc68hc16y5_02BdmPlan, ValidatorRejectsHandBuiltShapes)
@@ -156,60 +156,60 @@ TEST(SubaruDensoMc68hc16y5_02BdmPlan, ValidatorRejectsHandBuiltShapes)
     {
         auto fields = read_fields();
         fields.family_plan = SubaruDensoMc68hc16y5_02BdmPlan{.baud = 9600};
-        cases.push_back({"wrong baud", std::move(fields), ErrorKind::InvalidConfig});
+        cases.push_back({"wrong baud", std::move(fields), ErrorKind::kInvalidConfig});
     }
     {
         auto fields = read_fields();
         fields.kernel = kernel(bytes::Bytes(0x20, 0x01));
-        cases.push_back({"read with kernel", std::move(fields), ErrorKind::InvalidConfig});
+        cases.push_back({"read with kernel", std::move(fields), ErrorKind::kInvalidConfig});
     }
     {
         auto fields = read_fields();
         fields.transfer_region = MemoryRegion{0, 0x28000};
-        cases.push_back({"packed read region", std::move(fields), ErrorKind::InvalidConfig});
+        cases.push_back({"packed read region", std::move(fields), ErrorKind::kInvalidConfig});
     }
     {
         auto fields = write_fields(0x20);
         fields.confirmations = {};
-        cases.push_back({"write without consent", std::move(fields), ErrorKind::InvalidConfig});
+        cases.push_back({"write without consent", std::move(fields), ErrorKind::kInvalidConfig});
     }
     {
         auto fields = write_fields(0x20);
-        fields.confirmations = {ConfirmationSpec{.id = ConfirmationSpec::Id::StartKlineRead}};
-        cases.push_back({"write with another id", std::move(fields), ErrorKind::InvalidConfig});
+        fields.confirmations = {ConfirmationSpec{.id = ConfirmationSpec::Id::kStartKlineRead}};
+        cases.push_back({"write with another id", std::move(fields), ErrorKind::kInvalidConfig});
     }
     {
         auto fields = write_fields(0x20);
         fields.confirmations = {
-            ConfirmationSpec{.id = ConfirmationSpec::Id::KernelBootstrap, .arguments = {{"unexpected", "argument"}}}};
-        cases.push_back({"consent with arguments", std::move(fields), ErrorKind::InvalidConfig});
+            ConfirmationSpec{.id = ConfirmationSpec::Id::kKernelBootstrap, .arguments = {{"unexpected", "argument"}}}};
+        cases.push_back({"consent with arguments", std::move(fields), ErrorKind::kInvalidConfig});
     }
     {
         auto fields = write_fields(0x20);
-        fields.confirmations.push_back(ConfirmationSpec{.id = ConfirmationSpec::Id::CycleIgnition});
-        cases.push_back({"write with an extra consent", std::move(fields), ErrorKind::InvalidConfig});
+        fields.confirmations.push_back(ConfirmationSpec{.id = ConfirmationSpec::Id::kCycleIgnition});
+        cases.push_back({"write with an extra consent", std::move(fields), ErrorKind::kInvalidConfig});
     }
     {
         auto fields = read_fields();
-        fields.confirmations = {ConfirmationSpec{.id = ConfirmationSpec::Id::KernelBootstrap}};
-        cases.push_back({"read with the bootstrap consent", std::move(fields), ErrorKind::InvalidConfig});
+        fields.confirmations = {ConfirmationSpec{.id = ConfirmationSpec::Id::kKernelBootstrap}};
+        cases.push_back({"read with the bootstrap consent", std::move(fields), ErrorKind::kInvalidConfig});
     }
-    cases.push_back({"unaligned image", write_fields(0x21), ErrorKind::InvalidConfig});
-    cases.push_back({"oversize image", write_fields(0x8020), ErrorKind::InvalidConfig});
+    cases.push_back({"unaligned image", write_fields(0x21), ErrorKind::kInvalidConfig});
+    cases.push_back({"oversize image", write_fields(0x8020), ErrorKind::kInvalidConfig});
     {
         auto fields = write_fields(0x20);
         fields.transfer_region = MemoryRegion{0x20000, 0x40};
-        cases.push_back({"region/image mismatch", std::move(fields), ErrorKind::InvalidConfig});
+        cases.push_back({"region/image mismatch", std::move(fields), ErrorKind::kInvalidConfig});
     }
     {
         auto fields = write_fields(0x20);
         fields.transfer_region = MemoryRegion{0, 0x20};
-        cases.push_back({"image outside RAM", std::move(fields), ErrorKind::InvalidConfig});
+        cases.push_back({"image outside RAM", std::move(fields), ErrorKind::kInvalidConfig});
     }
     {
         auto fields = write_fields(0x20);
-        fields.operation = FlashOperation::TestWrite;
-        cases.push_back({"test write", std::move(fields), ErrorKind::Unsupported});
+        fields.operation = FlashOperation::kTestWrite;
+        cases.push_back({"test write", std::move(fields), ErrorKind::kUnsupported});
     }
 
     for (auto& test_case : cases)
@@ -223,15 +223,15 @@ TEST(SubaruDensoMc68hc16y5_02BdmPlan, ValidatorRejectsHandBuiltShapes)
 TEST(SubaruDensoMc68hc16y5_02BdmPlan, WriteCarriesTheKernelBootstrapConsentAndReadNone)
 {
     const auto read =
-        build_subaru_denso_mc68hc16y5_02_bdm_plan(FlashOperation::Read, kProtocol, kMcu, std::nullopt, std::nullopt);
+        build_subaru_denso_mc68hc16y5_02_bdm_plan(FlashOperation::kRead, kProtocol, kMcu, std::nullopt, std::nullopt);
     ASSERT_THAT(read, IsOk());
     EXPECT_TRUE(read->confirmations().empty());
 
-    const auto write = build_subaru_denso_mc68hc16y5_02_bdm_plan(FlashOperation::Write, kProtocol, kMcu, std::nullopt,
+    const auto write = build_subaru_denso_mc68hc16y5_02_bdm_plan(FlashOperation::kWrite, kProtocol, kMcu, std::nullopt,
                                                                  kernel(bytes::Bytes(0x20, 0x01)));
     ASSERT_THAT(write, IsOk());
     ASSERT_EQ(write->confirmations().size(), 1U);
-    EXPECT_EQ(write->confirmations().front().id, ConfirmationSpec::Id::KernelBootstrap);
+    EXPECT_EQ(write->confirmations().front().id, ConfirmationSpec::Id::kKernelBootstrap);
     EXPECT_TRUE(write->confirmations().front().arguments.empty());
 }
 

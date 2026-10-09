@@ -24,8 +24,8 @@ enum class SessionId : std::uint64_t
 
 enum class RomOrigin
 {
-    File,
-    EcuRead,
+    kFile,
+    kEcuRead,
 };
 
 struct RomSource
@@ -33,14 +33,14 @@ struct RomSource
     // Basename of `path`; "default.bin" when the path has none.
     std::string display_name;
     std::string path;
-    RomOrigin origin{RomOrigin::File};
+    RomOrigin origin{RomOrigin::kFile};
 
     bool operator==(const RomSource&) const = default;
 };
 
 struct ResolvedDefinition
 {
-    definition::DefinitionFormat format{definition::DefinitionFormat::EcuFlash};
+    definition::DefinitionFormat format{definition::DefinitionFormat::kEcuFlash};
     std::string id;
     definition::RomDefinition definition;
 

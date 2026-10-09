@@ -34,7 +34,7 @@ Result<bytes::Bytes> exchangeTolerantly(ISsmTransport& transport, const ICancell
     {
         if (cancellation.cancelled())
         {
-            return fail(ErrorKind::Cancelled, "cancelled before a TCU relearn write");
+            return fail(ErrorKind::kCancelled, "cancelled before a TCU relearn write");
         }
         if (const auto sent = transport.write(frame); !sent.has_value())
         {
@@ -70,7 +70,7 @@ Result<SsmTransportConfig> RelearnSession::transport_setup() const
 {
     if (protocol_ != "sub_tcu_denso_sh7055_can" && protocol_ != "sub_tcu_denso_sh7058_can")
     {
-        return fail(ErrorKind::Unsupported, std::format("not a Subaru Denso SH705x TCU protocol: {}", protocol_));
+        return fail(ErrorKind::kUnsupported, std::format("not a Subaru Denso SH705x TCU protocol: {}", protocol_));
     }
     // legacy :70 -- configureIso15765Can(serial, "500000", 0x7E1, 0x7E9).
     return SsmTransportConfig{};
@@ -79,7 +79,7 @@ Result<SsmTransportConfig> RelearnSession::transport_setup() const
 void RelearnSession::submit(GateResponse response)
 {
     gate_outstanding_ = false;
-    declined_ = response == GateResponse::Decline;
+    declined_ = response == GateResponse::kDecline;
 }
 
 ServiceFunctionStep RelearnSession::resume(ISsmTransport& transport, IClock&, const ICancellationToken& cancellation,
@@ -87,29 +87,29 @@ ServiceFunctionStep RelearnSession::resume(ISsmTransport& transport, IClock&, co
 {
     if (gate_outstanding_)
     {
-        return FailedStep{Error{ErrorKind::Internal, "resume() called with an operator gate outstanding"}};
+        return FailedStep{Error{ErrorKind::kInternal, "resume() called with an operator gate outstanding"}};
     }
     if (declined_)
     {
-        return FailedStep{Error{ErrorKind::Cancelled, "operator declined a relearn gate"}};
+        return FailedStep{Error{ErrorKind::kCancelled, "operator declined a relearn gate"}};
     }
     if (cancellation.cancelled())
     {
-        return FailedStep{Error{ErrorKind::Cancelled, "cancelled during TCU relearn"}};
+        return FailedStep{Error{ErrorKind::kCancelled, "cancelled during TCU relearn"}};
     }
 
     switch (stage_)
     {
-    case Stage::AwaitStaticSetupGate:
+    case Stage::kAwaitStaticSetupGate:
         // legacy :648 -- engine at temperature, car off the ground, engine off,
         // ignition on, stick in P.
-        stage_ = Stage::WriteSteps;
+        stage_ = Stage::kWriteSteps;
         gate_outstanding_ = true;
-        return GateStep{OperatorGateId::RelearnStaticSetup};
+        return GateStep{OperatorGateId::kRelearnStaticSetup};
 
-    case Stage::WriteSteps:
+    case Stage::kWriteSteps:
     {
-        events.log(LogLevel::Info, "Initialising TCU relearn, step 1...");
+        events.log(LogLevel::kInfo, "Initialising TCU relearn, step 1...");
         const auto first = exchangeTolerantly(transport, cancellation, kStepOne, kWriteAck);
         if (!first.has_value())
         {
@@ -118,10 +118,10 @@ ServiceFunctionStep RelearnSession::resume(ISsmTransport& transport, IClock&, co
         if (first->size() <= 4 || (*first)[4] != kWriteAck)
         {
             // legacy :688/:694 -- logged, not fatal.
-            events.log(LogLevel::Error, "Wrong response from TCU on relearn step 1; continuing");
+            events.log(LogLevel::kError, "Wrong response from TCU on relearn step 1; continuing");
         }
 
-        events.log(LogLevel::Info, "Initialising TCU relearn, step 2...");
+        events.log(LogLevel::kInfo, "Initialising TCU relearn, step 2...");
         const auto second = exchangeTolerantly(transport, cancellation, kStepTwo, kWriteAck);
         if (!second.has_value())
         {
@@ -130,24 +130,24 @@ ServiceFunctionStep RelearnSession::resume(ISsmTransport& transport, IClock&, co
         if (second->size() <= 4 || (*second)[4] != kWriteAck)
         {
             // legacy :722/:733 -- logged, not fatal.
-            events.log(LogLevel::Error, "Wrong response from TCU on relearn step 2; continuing");
+            events.log(LogLevel::kError, "Wrong response from TCU on relearn step 2; continuing");
         }
 
         // legacy :735 -- the gate that cannot be pre-collected.
-        stage_ = Stage::Poll;
+        stage_ = Stage::kPoll;
         gate_outstanding_ = true;
-        return GateStep{OperatorGateId::RelearnEngineRunning};
+        return GateStep{OperatorGateId::kRelearnEngineRunning};
     }
 
-    case Stage::Poll:
+    case Stage::kPoll:
     {
-        events.log(LogLevel::Info, "Tracking relearn status...");
+        events.log(LogLevel::kInfo, "Tracking relearn status...");
         RelearnOutcome outcome;
         for (int poll = 0; poll < kPollIterations; ++poll)
         {
             if (cancellation.cancelled())
             {
-                return FailedStep{Error{ErrorKind::Cancelled, "cancelled while tracking relearn status"}};
+                return FailedStep{Error{ErrorKind::kCancelled, "cancelled while tracking relearn status"}};
             }
 
             if (const auto sent = transport.write(kPoll); !sent.has_value())
@@ -169,7 +169,7 @@ ServiceFunctionStep RelearnSession::resume(ISsmTransport& transport, IClock&, co
                 if (outcome.last_status_frame.size() > 4 && outcome.last_status_frame[4] != kReadAck)
                 {
                     // legacy :771/:777 -- logged, not fatal.
-                    events.log(LogLevel::Error, "Unexpected relearn status response; continuing");
+                    events.log(LogLevel::kError, "Unexpected relearn status response; continuing");
                 }
             }
         }
@@ -177,15 +177,15 @@ ServiceFunctionStep RelearnSession::resume(ISsmTransport& transport, IClock&, co
         // Which status value means "relearn complete" is not recoverable from
         // the legacy source, so no terminal condition is invented: the bound
         // is the legacy's 200 and the frame is surfaced for the bench.
-        stage_ = Stage::Done;
+        stage_ = Stage::kDone;
         return CompletedStep{outcome};
     }
 
-    case Stage::Done:
+    case Stage::kDone:
         break;
     }
 
-    return FailedStep{Error{ErrorKind::Internal, "relearn resumed after completion"}};
+    return FailedStep{Error{ErrorKind::kInternal, "relearn resumed after completion"}};
 }
 
 } // namespace fastecu::service_functions

@@ -68,7 +68,7 @@ template <WithCancellation C> Status cancelled_if_requested(const C& ctx, std::s
 {
     if (ctx.cancellation.cancelled())
     {
-        return fail(ErrorKind::Cancelled, std::string(detail));
+        return fail(ErrorKind::kCancelled, std::string(detail));
     }
     return {};
 }

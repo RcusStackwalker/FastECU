@@ -14,7 +14,7 @@ TEST(DensoChecksumTable, CorrectsCompleteTableAtomically)
     bytes::writeU32Be(rom, 24, 8);
 
     const internal::DensoTableSpec spec{.table_offset = 8, .table_length = 24};
-    EXPECT_EQ(internal::correctDensoTable(rom, spec), internal::DensoTableOutcome::Corrected);
+    EXPECT_EQ(internal::correctDensoTable(rom, spec), internal::DensoTableOutcome::kCorrected);
     EXPECT_EQ(bytes::readU32Be(rom, 16), 0x5AA5A55AU);
     EXPECT_EQ(bytes::readU32Be(rom, 28), 0x5AA5A559U);
 }
@@ -24,7 +24,7 @@ TEST(DensoChecksumTable, RejectsInvalidRecordLengthWithoutMutation)
     bytes::Bytes rom(16, 0x11);
     const bytes::Bytes original = rom;
     const internal::DensoTableSpec spec{.table_offset = 0, .table_length = 10};
-    EXPECT_EQ(internal::correctDensoTable(rom, spec), internal::DensoTableOutcome::InvalidRecordLength);
+    EXPECT_EQ(internal::correctDensoTable(rom, spec), internal::DensoTableOutcome::kInvalidRecordLength);
     EXPECT_EQ(rom, original);
 }
 
@@ -37,7 +37,7 @@ TEST(DensoChecksumTable, RejectsInvalidBlockWithoutPartialMutation)
     bytes::writeU32Be(rom, 16, 28);
     const bytes::Bytes original = rom;
     const internal::DensoTableSpec spec{.table_offset = 0, .table_length = 24};
-    EXPECT_EQ(internal::correctDensoTable(rom, spec), internal::DensoTableOutcome::InvalidBlockRange);
+    EXPECT_EQ(internal::correctDensoTable(rom, spec), internal::DensoTableOutcome::kInvalidBlockRange);
     EXPECT_EQ(rom, original);
 }
 
@@ -55,7 +55,7 @@ TEST(DensoChecksumTable, AppliesNegativeOffsetAndWordOverride)
         .overrides = std::span<const internal::DensoWordOverride>(&override, 1),
     };
 
-    EXPECT_EQ(internal::correctDensoTable(rom, spec), internal::DensoTableOutcome::Corrected);
+    EXPECT_EQ(internal::correctDensoTable(rom, spec), internal::DensoTableOutcome::kCorrected);
     EXPECT_EQ(bytes::readU32Be(rom, 28), 0x5AA5A55BU);
 }
 
@@ -73,7 +73,7 @@ TEST(DensoChecksumTable, ZeroAddressRecordResetsAddressOffset)
         .detect_disabled = false,
     };
 
-    EXPECT_EQ(internal::correctDensoTable(rom, spec), internal::DensoTableOutcome::Corrected);
+    EXPECT_EQ(internal::correctDensoTable(rom, spec), internal::DensoTableOutcome::kCorrected);
     EXPECT_EQ(bytes::readU32Be(rom, 32), 0x5AA5A55AU);
 }
 
@@ -84,7 +84,7 @@ TEST(DensoChecksumTable, DescendingRangeKeepsLegacyEmptySumBehavior)
     bytes::writeU32Be(rom, 24, 4);
     const internal::DensoTableSpec spec{.table_offset = 20, .table_length = 12};
 
-    EXPECT_EQ(internal::correctDensoTable(rom, spec), internal::DensoTableOutcome::Corrected);
+    EXPECT_EQ(internal::correctDensoTable(rom, spec), internal::DensoTableOutcome::kCorrected);
     EXPECT_EQ(bytes::readU32Be(rom, 28), 0x5AA5A55AU);
 }
 
@@ -97,7 +97,7 @@ TEST(DensoChecksumTable, UnalignedRangeKeepsLegacyWordTraversalBehavior)
     bytes::writeU32Be(rom, 28, 10);
     const internal::DensoTableSpec spec{.table_offset = 24, .table_length = 12};
 
-    EXPECT_EQ(internal::correctDensoTable(rom, spec), internal::DensoTableOutcome::Corrected);
+    EXPECT_EQ(internal::correctDensoTable(rom, spec), internal::DensoTableOutcome::kCorrected);
     EXPECT_EQ(bytes::readU32Be(rom, 32), 0x5AA5A557U);
 }
 
@@ -111,5 +111,5 @@ TEST(DensoChecksumTable, DetectDisabledFalseTreatsMarkerAsOrdinaryRecord)
         .detect_disabled = false,
     };
 
-    EXPECT_EQ(internal::correctDensoTable(rom, spec), internal::DensoTableOutcome::Unchanged);
+    EXPECT_EQ(internal::correctDensoTable(rom, spec), internal::DensoTableOutcome::kUnchanged);
 }

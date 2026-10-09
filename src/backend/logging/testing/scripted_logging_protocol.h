@@ -91,7 +91,7 @@ class ScriptedLoggingProtocol final : public fastecu::logging::LoggingProtocol
                 std::unique_lock lock(mutex_);
                 cancellation_poll_cv_.wait_for(lock, std::chrono::milliseconds(1));
             }
-            return fastecu::fail(fastecu::ErrorKind::Cancelled, "scripted poll cancelled");
+            return fastecu::fail(fastecu::ErrorKind::kCancelled, "scripted poll cancelled");
         }
 
         std::unique_lock lock(mutex_);

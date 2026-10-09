@@ -22,12 +22,12 @@ Status validate_kernel_upload(std::uint64_t size, std::uint32_t load_address, st
     static_assert(BlockSize > 0);
     if (load_address != expected_load_address)
     {
-        return fail(ErrorKind::InvalidConfig, "kernel address does not match the selected protocol");
+        return fail(ErrorKind::kInvalidConfig, "kernel address does not match the selected protocol");
     }
     constexpr std::uint64_t kPadding = BlockSize - 1;
     if (size > std::numeric_limits<std::uint64_t>::max() - kPadding)
     {
-        return fail(ErrorKind::InvalidConfig, "kernel size cannot be padded to transfer blocks");
+        return fail(ErrorKind::kInvalidConfig, "kernel size cannot be padded to transfer blocks");
     }
     const std::uint64_t padded_size = ((size + kPadding) / BlockSize) * BlockSize;
     const std::uint64_t region_start = region.start;
@@ -35,7 +35,7 @@ Status validate_kernel_upload(std::uint64_t size, std::uint32_t load_address, st
     const std::uint64_t upload_start = load_address;
     if (upload_start < region_start || upload_start > region_end || padded_size > region_end - upload_start)
     {
-        return fail(ErrorKind::InvalidConfig, "padded kernel lies outside the MCU kernel region");
+        return fail(ErrorKind::kInvalidConfig, "padded kernel lies outside the MCU kernel region");
     }
     return {};
 }

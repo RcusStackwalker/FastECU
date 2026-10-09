@@ -39,18 +39,18 @@ Result<void> validate(const DefinitionIndexEntry& entry)
 {
     if (entry.definition_id.empty())
     {
-        return fail(ErrorKind::InvalidConfig, "definition ID must not be empty");
+        return fail(ErrorKind::kInvalidConfig, "definition ID must not be empty");
     }
     if (entry.source.empty())
     {
-        return fail(ErrorKind::InvalidConfig,
+        return fail(ErrorKind::kInvalidConfig,
                     std::format("definition source must not be empty for ID '{}'", entry.definition_id));
     }
     for (const std::string& parent : entry.parents)
     {
         if (parent.empty() || has_whitespace(parent))
         {
-            return fail(ErrorKind::InvalidConfig, std::format("invalid parent reference in '{}'", entry.source));
+            return fail(ErrorKind::kInvalidConfig, std::format("invalid parent reference in '{}'", entry.source));
         }
     }
     return {};
@@ -61,16 +61,16 @@ Result<void> validate(const DefinitionIndexEntry& entry)
 std::optional<StorageType> storage_type_from_text(std::string_view text)
 {
     static constexpr std::array<std::pair<std::string_view, StorageType>, 10> kStorageTypes{{
-        {"uint8", StorageType::Uint8},
-        {"int8", StorageType::Int8},
-        {"uint16", StorageType::Uint16},
-        {"int16", StorageType::Int16},
-        {"uint24", StorageType::Uint24},
-        {"int24", StorageType::Int24},
-        {"uint32", StorageType::Uint32},
-        {"int32", StorageType::Int32},
-        {"float", StorageType::Float},
-        {"bloblist", StorageType::Bloblist},
+        {"uint8", StorageType::kUint8},
+        {"int8", StorageType::kInt8},
+        {"uint16", StorageType::kUint16},
+        {"int16", StorageType::kInt16},
+        {"uint24", StorageType::kUint24},
+        {"int24", StorageType::kInt24},
+        {"uint32", StorageType::kUint32},
+        {"int32", StorageType::kInt32},
+        {"float", StorageType::kFloat},
+        {"bloblist", StorageType::kBloblist},
     }};
     for (const auto& [name, value] : kStorageTypes)
     {
@@ -90,25 +90,25 @@ std::string storage_type_text(std::optional<StorageType> value)
     }
     switch (*value)
     {
-    case StorageType::Uint8:
+    case StorageType::kUint8:
         return "uint8";
-    case StorageType::Int8:
+    case StorageType::kInt8:
         return "int8";
-    case StorageType::Uint16:
+    case StorageType::kUint16:
         return "uint16";
-    case StorageType::Int16:
+    case StorageType::kInt16:
         return "int16";
-    case StorageType::Uint24:
+    case StorageType::kUint24:
         return "uint24";
-    case StorageType::Int24:
+    case StorageType::kInt24:
         return "int24";
-    case StorageType::Uint32:
+    case StorageType::kUint32:
         return "uint32";
-    case StorageType::Int32:
+    case StorageType::kInt32:
         return "int32";
-    case StorageType::Float:
+    case StorageType::kFloat:
         return "float";
-    case StorageType::Bloblist:
+    case StorageType::kBloblist:
         return "bloblist";
     }
     return {};
@@ -122,19 +122,19 @@ std::uint32_t storage_byte_size(std::optional<StorageType> storage_type)
     }
     switch (*storage_type)
     {
-    case StorageType::Uint16:
-    case StorageType::Int16:
+    case StorageType::kUint16:
+    case StorageType::kInt16:
         return 2;
-    case StorageType::Uint24:
-    case StorageType::Int24:
+    case StorageType::kUint24:
+    case StorageType::kInt24:
         return 3;
-    case StorageType::Uint32:
-    case StorageType::Int32:
-    case StorageType::Float:
+    case StorageType::kUint32:
+    case StorageType::kInt32:
+    case StorageType::kFloat:
         return 4;
-    case StorageType::Uint8:
-    case StorageType::Int8:
-    case StorageType::Bloblist:
+    case StorageType::kUint8:
+    case StorageType::kInt8:
+    case StorageType::kBloblist:
         return 1;
     }
     return 1;
@@ -154,17 +154,17 @@ bool is_unsigned_storage(std::optional<StorageType> storage_type)
     }
     switch (*storage_type)
     {
-    case StorageType::Uint8:
-    case StorageType::Uint16:
-    case StorageType::Uint24:
-    case StorageType::Uint32:
+    case StorageType::kUint8:
+    case StorageType::kUint16:
+    case StorageType::kUint24:
+    case StorageType::kUint32:
         return true;
-    case StorageType::Int8:
-    case StorageType::Int16:
-    case StorageType::Int24:
-    case StorageType::Int32:
-    case StorageType::Float:
-    case StorageType::Bloblist:
+    case StorageType::kInt8:
+    case StorageType::kInt16:
+    case StorageType::kInt24:
+    case StorageType::kInt32:
+    case StorageType::kFloat:
+    case StorageType::kBloblist:
         return false;
     }
     return false;
@@ -196,7 +196,7 @@ Result<DefinitionCatalog> DefinitionCatalog::create(std::vector<DefinitionIndexE
 
         if (!has_same_content(*existing, entry))
         {
-            return fail(ErrorKind::InvalidConfig,
+            return fail(ErrorKind::kInvalidConfig,
                         std::format("conflicting duplicate definition ID '{}' from '{}' and '{}'", entry.definition_id,
                                     existing->source, entry.source));
         }
@@ -212,7 +212,7 @@ Result<std::reference_wrapper<const DefinitionIndexEntry>> DefinitionCatalog::fi
                                       { return candidate.format == format && candidate.definition_id == id; });
     if (entry == std::ranges::end(entries_))
     {
-        return fail(ErrorKind::InvalidConfig, std::format("definition ID not found: '{}'", id));
+        return fail(ErrorKind::kInvalidConfig, std::format("definition ID not found: '{}'", id));
     }
     return std::cref(*entry);
 }

@@ -23,7 +23,7 @@ INSTANTIATE_TEST_SUITE_P(SubaruHitachiM32rCan, SingleWindowPlanContract, ::testi
 // The wire parameters are this family's own; they do not generalize.
 TEST(SubaruHitachiM32rCanPlan, ReadPlanCarriesThisFamilysWireParameters)
 {
-    const auto plan = build_subaru_hitachi_m32r_can_plan(FlashOperation::Read, "sub_ecu_hitachi_m32r_can",
+    const auto plan = build_subaru_hitachi_m32r_can_plan(FlashOperation::kRead, "sub_ecu_hitachi_m32r_can",
                                                          "M32R_512KB_1block", std::nullopt);
 
     ASSERT_THAT(plan, fastecu::testing::IsOk());

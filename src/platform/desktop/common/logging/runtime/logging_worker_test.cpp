@@ -37,11 +37,11 @@ LoggingSession session(LoggingPolicy policy = {.poll_timeout = 5ms,
                                                .reconnect_attempt_threshold = 1000,
                                                .reconnect_retry_period = 0})
 {
-    auto result = make_logging_session(LoggingProtocolId::Ssm,
+    auto result = make_logging_session(LoggingProtocolId::kSsm,
                                        {LoggingChannel{.id = "rpm",
                                                        .address = 0x10,
                                                        .length = 1,
-                                                       .raw_assembly = RawAssembly::UnsignedIntegerDecimal,
+                                                       .raw_assembly = RawAssembly::kUnsignedIntegerDecimal,
                                                        .from_byte_expression = "x",
                                                        .unit = "rpm",
                                                        .decimal_precision = 0}},
@@ -78,9 +78,9 @@ TEST(TestLoggingWorker, forwards_portable_states_samples_and_cancelled_result)
     ASSERT_TRUE(worker.wait(2000));
 
     ASSERT_TRUE(state_spy.count() >= 3);
-    ASSERT_EQ(std::get<0>(state_spy.snapshot().at(0)), LoggingState::Running);
-    ASSERT_EQ(std::get<0>(state_spy.snapshot().at(1)), LoggingState::CarNotResponding);
-    ASSERT_EQ(std::get<0>(state_spy.snapshot().at(2)), LoggingState::Running);
+    ASSERT_EQ(std::get<0>(state_spy.snapshot().at(0)), LoggingState::kRunning);
+    ASSERT_EQ(std::get<0>(state_spy.snapshot().at(1)), LoggingState::kCarNotResponding);
+    ASSERT_EQ(std::get<0>(state_spy.snapshot().at(2)), LoggingState::kRunning);
     const auto samples = std::get<0>(samples_spy.snapshot().at(0));
     ASSERT_EQ(samples.size(), 1U);
     ASSERT_EQ(samples.at(0).channel_id, std::string("rpm"));
@@ -88,14 +88,14 @@ TEST(TestLoggingWorker, forwards_portable_states_samples_and_cancelled_result)
     ASSERT_EQ(finished_spy.count(), 1U);
     const auto result = std::get<0>(finished_spy.snapshot().at(0));
     ASSERT_TRUE(!result.has_value());
-    ASSERT_EQ(result.error().kind, fastecu::ErrorKind::Cancelled);
+    ASSERT_EQ(result.error().kind, fastecu::ErrorKind::kCancelled);
     ASSERT_TRUE(protocol.stopCalled());
 }
 
 TEST(TestLoggingWorker, forwards_final_start_error_without_policy_mapping)
 {
     ScriptedLoggingProtocol protocol;
-    protocol.queueStartResult(fastecu::fail(fastecu::ErrorKind::BadResponse, "handshake rejected"));
+    protocol.queueStartResult(fastecu::fail(fastecu::ErrorKind::kBadResponse, "handshake rejected"));
     NullDiagnostics diagnostics;
     LoggingWorker worker(session(), &protocol, diagnostics);
     fastecu::testing::SignalRecorder finished_spy(&worker, &LoggingWorker::sessionFinished);
@@ -108,7 +108,7 @@ TEST(TestLoggingWorker, forwards_final_start_error_without_policy_mapping)
 
     const auto result = std::get<0>(finished_spy.snapshot().at(0));
     ASSERT_TRUE(!result.has_value());
-    ASSERT_EQ(result.error().kind, fastecu::ErrorKind::BadResponse);
+    ASSERT_EQ(result.error().kind, fastecu::ErrorKind::kBadResponse);
     ASSERT_EQ(result.error().detail, std::string("handshake rejected"));
 }
 

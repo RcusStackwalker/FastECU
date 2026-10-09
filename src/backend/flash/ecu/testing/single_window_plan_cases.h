@@ -59,7 +59,7 @@ TEST_P(SingleWindowPlanContract, ReadPlanCarriesTheTransferRegion)
 {
     const SingleWindowPlanCase& c = GetParam();
 
-    const auto plan = c.build(FlashOperation::Read, c.protocol, c.mcu, std::nullopt);
+    const auto plan = c.build(FlashOperation::kRead, c.protocol, c.mcu, std::nullopt);
 
     ASSERT_THAT(plan, fastecu::testing::IsOk());
     EXPECT_THAT(plan->transfer_region(), RegionIs(c.read_region));
@@ -72,34 +72,34 @@ TEST_P(SingleWindowPlanContract, TestWriteIsRejectedBeforeAnyIo)
 {
     const SingleWindowPlanCase& c = GetParam();
 
-    const auto plan = c.build(FlashOperation::TestWrite, c.protocol, c.mcu, std::nullopt);
+    const auto plan = c.build(FlashOperation::kTestWrite, c.protocol, c.mcu, std::nullopt);
 
-    EXPECT_THAT(plan, fastecu::testing::IsErr(ErrorKind::Unsupported));
+    EXPECT_THAT(plan, fastecu::testing::IsErr(ErrorKind::kUnsupported));
 }
 
 TEST_P(SingleWindowPlanContract, WriteWithNoImageIsRejected)
 {
     const SingleWindowPlanCase& c = GetParam();
 
-    const auto plan = c.build(FlashOperation::Write, c.protocol, c.mcu, std::nullopt);
+    const auto plan = c.build(FlashOperation::kWrite, c.protocol, c.mcu, std::nullopt);
 
-    EXPECT_THAT(plan, fastecu::testing::IsErr(c.supports_write ? ErrorKind::InvalidConfig : ErrorKind::Unsupported));
+    EXPECT_THAT(plan, fastecu::testing::IsErr(c.supports_write ? ErrorKind::kInvalidConfig : ErrorKind::kUnsupported));
 }
 
 TEST_P(SingleWindowPlanContract, WriteRequiresAFullStartAlignedImage)
 {
     const SingleWindowPlanCase& c = GetParam();
 
-    const auto tooShort = c.build(FlashOperation::Write, c.protocol, c.mcu, bytes::Bytes(c.image_size - 1, 0x00));
+    const auto tooShort = c.build(FlashOperation::kWrite, c.protocol, c.mcu, bytes::Bytes(c.image_size - 1, 0x00));
 
     EXPECT_THAT(tooShort,
-                fastecu::testing::IsErr(c.supports_write ? ErrorKind::InvalidConfig : ErrorKind::Unsupported));
+                fastecu::testing::IsErr(c.supports_write ? ErrorKind::kInvalidConfig : ErrorKind::kUnsupported));
 
-    const auto ok = c.build(FlashOperation::Write, c.protocol, c.mcu, bytes::Bytes(c.image_size, 0x00));
+    const auto ok = c.build(FlashOperation::kWrite, c.protocol, c.mcu, bytes::Bytes(c.image_size, 0x00));
 
     if (!c.supports_write)
     {
-        EXPECT_THAT(ok, fastecu::testing::IsErr(ErrorKind::Unsupported));
+        EXPECT_THAT(ok, fastecu::testing::IsErr(ErrorKind::kUnsupported));
         return;
     }
 
@@ -111,10 +111,10 @@ TEST_P(SingleWindowPlanContract, AForeignProtocolOrMcuIsRejected)
 {
     const SingleWindowPlanCase& c = GetParam();
 
-    EXPECT_THAT(c.build(FlashOperation::Read, c.foreign_protocol, c.mcu, std::nullopt),
-                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
-    EXPECT_THAT(c.build(FlashOperation::Read, c.protocol, c.foreign_mcu, std::nullopt),
-                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    EXPECT_THAT(c.build(FlashOperation::kRead, c.foreign_protocol, c.mcu, std::nullopt),
+                fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
+    EXPECT_THAT(c.build(FlashOperation::kRead, c.protocol, c.foreign_mcu, std::nullopt),
+                fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
 } // namespace fastecu::flash::testing

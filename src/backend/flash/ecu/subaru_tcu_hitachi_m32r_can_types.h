@@ -13,7 +13,7 @@ namespace fastecu::flash
 // "test write" in the legacy UI erases and reflashes the TCU exactly like
 // "write", differing only in a log line. This plan/executor pair has no
 // dry-run to port, so TestWrite is rejected outright with
-// ErrorKind::Unsupported rather than silently performing a live write.
+// ErrorKind::kUnsupported rather than silently performing a live write.
 //
 // Deliberate divergence 2 (read region, same shape as
 // subaru_tcu_cvt_hitachi_m32r_can): read_mem (line 395) computes

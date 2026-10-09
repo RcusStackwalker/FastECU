@@ -389,7 +389,7 @@ constexpr auto kWindowProtocols = std::to_array<ProtocolSpec>({
      .ecu = "Denso TCU SH7058",
      .mcu = "SH7058",
      .mode = "OBD2",
-     .checksum = ChecksumSupport::Missing,
+     .checksum = ChecksumSupport::kMissing,
      .read = true,
      .test_write = false,
      .write = true,
@@ -403,7 +403,7 @@ constexpr auto kWindowProtocols = std::to_array<ProtocolSpec>({
      .ecu = "Denso SH7058",
      .mcu = "SH7058",
      .mode = "OBD2",
-     .checksum = ChecksumSupport::Corrected,
+     .checksum = ChecksumSupport::kCorrected,
      .read = true,
      .test_write = true,
      .write = true,
@@ -417,7 +417,7 @@ constexpr auto kWindowProtocols = std::to_array<ProtocolSpec>({
      .ecu = "Denso SH7058",
      .mcu = "SH7058",
      .mode = "OBD2",
-     .checksum = ChecksumSupport::Corrected,
+     .checksum = ChecksumSupport::kCorrected,
      .read = true,
      .test_write = true,
      .write = true,
@@ -431,7 +431,7 @@ constexpr auto kWindowProtocols = std::to_array<ProtocolSpec>({
      .ecu = "Denso SH7058",
      .mcu = "SH7058",
      .mode = "OBD2",
-     .checksum = ChecksumSupport::Corrected,
+     .checksum = ChecksumSupport::kCorrected,
      .read = true,
      .test_write = false,
      .write = true,
@@ -445,7 +445,7 @@ constexpr auto kWindowProtocols = std::to_array<ProtocolSpec>({
      .ecu = "Denso SH7058",
      .mcu = "SH7058",
      .mode = "OBD2",
-     .checksum = ChecksumSupport::Corrected,
+     .checksum = ChecksumSupport::kCorrected,
      .read = true,
      .test_write = true,
      .write = true,
@@ -459,7 +459,7 @@ constexpr auto kWindowProtocols = std::to_array<ProtocolSpec>({
      .ecu = "Denso SH7058",
      .mcu = "SH7058",
      .mode = "OBD2",
-     .checksum = ChecksumSupport::Corrected,
+     .checksum = ChecksumSupport::kCorrected,
      .read = true,
      .test_write = true,
      .write = true,
@@ -473,7 +473,7 @@ constexpr auto kWindowProtocols = std::to_array<ProtocolSpec>({
      .ecu = "Denso SH7058",
      .mcu = "SH7058",
      .mode = "OBD2",
-     .checksum = ChecksumSupport::Corrected,
+     .checksum = ChecksumSupport::kCorrected,
      .read = true,
      .test_write = true,
      .write = true,
@@ -487,7 +487,7 @@ constexpr auto kWindowProtocols = std::to_array<ProtocolSpec>({
      .ecu = "Denso SH7058",
      .mcu = "SH7058",
      .mode = "OBD2",
-     .checksum = ChecksumSupport::Missing,
+     .checksum = ChecksumSupport::kMissing,
      .read = true,
      .test_write = true,
      .write = true,
@@ -895,20 +895,20 @@ class MainWindowTest : public ::testing::Test
     void check_failedMapDecodeKeepsAnErrorView();
     enum class AssignmentScenario
     {
-        Absolute,
-        Relative,
-        CurrentBytes,
-        CurrentBytesNoOp,
-        SelectionChanged,
-        ActiveMapChanged,
-        ActiveMapChangedNoOp,
-        PasteLf,
-        PasteCrLf,
-        PasteInteriorEmpty,
-        OriginalClosed,
-        InvalidCurrent,
-        NoOpResolution,
-        NoOpLimit
+        kAbsolute,
+        kRelative,
+        kCurrentBytes,
+        kCurrentBytesNoOp,
+        kSelectionChanged,
+        kActiveMapChanged,
+        kActiveMapChangedNoOp,
+        kPasteLf,
+        kPasteCrLf,
+        kPasteInteriorEmpty,
+        kOriginalClosed,
+        kInvalidCurrent,
+        kNoOpResolution,
+        kNoOpLimit
     };
     void check_typedAssignment(AssignmentScenario scenario);
     void check_windowPreservesInjectedLoggingFactory();
@@ -1847,9 +1847,9 @@ void MainWindowTest::check_writePreparationRefreshesMetadataAndStatusLabel()
             .rom = std::vector<std::uint8_t>(16, 0),
             .definition =
                 fastecu::calibration::ResolvedDefinition{
-                    .id = "D", .definition = {.format = fastecu::definition::DefinitionFormat::EcuFlash}},
+                    .id = "D", .definition = {.format = fastecu::definition::DefinitionFormat::kEcuFlash}},
         });
-    ASSERT_EQ(fastecu::ui::rom_info_value(fastecu::ui::rom_info_values(session), fastecu::ui::RomInfoRow::FlashMethod),
+    ASSERT_EQ(fastecu::ui::rom_info_value(fastecu::ui::rom_info_values(session), fastecu::ui::RomInfoRow::kFlashMethod),
               QString(""));
 
     // The 16-byte image draws the checksum command's bad-size notice, which
@@ -1863,7 +1863,7 @@ void MainWindowTest::check_writePreparationRefreshesMetadataAndStatusLabel()
     EXPECT_EQ(window.status_bar_ecu_label_->text().toStdString(), std::string{"Denso SH7058 K-Line "});
     EXPECT_EQ(services.config.selected_vehicle()->make, std::string{"Nissan"});
     EXPECT_EQ(session.protocol().flash_method, std::string{"sub_ecu_denso_sh7058"});
-    EXPECT_EQ(fastecu::ui::rom_info_value(fastecu::ui::rom_info_values(session), fastecu::ui::RomInfoRow::FlashMethod)
+    EXPECT_EQ(fastecu::ui::rom_info_value(fastecu::ui::rom_info_values(session), fastecu::ui::RomInfoRow::kFlashMethod)
                   .toStdString(),
               std::string{"sub_ecu_denso_sh7058"});
     EXPECT_EQ(session.protocol().mcu_type, std::string{"SH7058"});
@@ -1893,7 +1893,7 @@ void MainWindowTest::check_checksumAndSaveUseATemporaryImage()
     services.config.settings().use_ecuflash_definitions = "enabled";
     services.config.settings().ecuflash_definition_files_directory = files.path().toStdString();
     ASSERT_TRUE(
-        services.definition_catalogs.refresh_index(fastecu::definition::DefinitionFormat::EcuFlash).has_value());
+        services.definition_catalogs.refresh_index(fastecu::definition::DefinitionFormat::kEcuFlash).has_value());
     const QString path = files.path() + "/save.bin";
     const auto opened = services.calibrations.adopt_read_image({
         .rom = bytes::Bytes(1024UZ * 1024, 0),
@@ -1920,7 +1920,7 @@ void MainWindowTest::check_checksumAndSaveUseATemporaryImage()
                       .mcu_type = session->protocol().mcu_type,
                       .rom_id = session->protocol().rom_id,
                   });
-    ASSERT_EQ(correction.status, fastecu::checksum::ChecksumCorrectionOutcome::Status::FamilyRan);
+    ASSERT_EQ(correction.status, fastecu::checksum::ChecksumCorrectionOutcome::Status::kFamilyRan);
     ASSERT_TRUE(correction.family_result.has_value());
     ASSERT_TRUE(correction.family_result->ok());
     const bytes::Bytes corrected = correction.family_result->rom_data;
@@ -2113,7 +2113,7 @@ void MainWindowTest::check_selectableSignalEditsItsEmittingSession()
     services.config.settings().use_ecuflash_definitions = "enabled";
     services.config.settings().ecuflash_definition_files_directory = files.path().toStdString();
     ASSERT_TRUE(
-        services.definition_catalogs.refresh_index(fastecu::definition::DefinitionFormat::EcuFlash).has_value());
+        services.definition_catalogs.refresh_index(fastecu::definition::DefinitionFormat::kEcuFlash).has_value());
     const auto open_map = [&](const QString& name) -> CalibrationMaps *
     {
         const auto opened = services.calibrations.adopt_read_image({
@@ -2188,7 +2188,7 @@ void MainWindowTest::check_failedMapDecodeKeepsAnErrorView()
     const auto id = window.calibrations_.front().id;
     auto *session = services.calibrations.find(id);
     ASSERT_TRUE(session != nullptr);
-    fastecu::definition::RomDefinition definition{.format = fastecu::definition::DefinitionFormat::EcuFlash};
+    fastecu::definition::RomDefinition definition{.format = fastecu::definition::DefinitionFormat::kEcuFlash};
     definition.scalings.push_back({.name = "Raw"});
     fastecu::definition::CalibrationMap map;
     map.name = "Broken";
@@ -2197,7 +2197,7 @@ void MainWindowTest::check_failedMapDecodeKeepsAnErrorView()
     map.address = 1000; // Beyond the opened 16-byte image.
     map.x_size = 1;
     map.y_size = 1;
-    map.storage_type = fastecu::definition::StorageType::Uint8;
+    map.storage_type = fastecu::definition::StorageType::kUint8;
     map.scaling_name = "Raw";
     definition.maps.push_back(map);
     *session = fastecu::calibration::CalibrationSession(
@@ -2259,11 +2259,11 @@ void MainWindowTest::check_windowPreservesInjectedLoggingFactory()
     // drives actual menu dispatch and checks the selected target.
     QObject::disconnect(&services.logging_engine, nullptr, &window, nullptr);
     auto session =
-        fastecu::logging::make_logging_session(fastecu::logging::LoggingProtocolId::Ssm,
+        fastecu::logging::make_logging_session(fastecu::logging::LoggingProtocolId::kSsm,
                                                {{.id = "rpm",
                                                  .address = 0x10,
                                                  .length = 1,
-                                                 .raw_assembly = fastecu::logging::RawAssembly::UnsignedIntegerDecimal,
+                                                 .raw_assembly = fastecu::logging::RawAssembly::kUnsignedIntegerDecimal,
                                                  .from_byte_expression = "x",
                                                  .unit = "rpm",
                                                  .decimal_precision = 0}},
@@ -3432,7 +3432,7 @@ void MainWindowTest::check_csvSharedIdProtocolIdentity()
     ASSERT_TRUE(window.logger_values_.set_parameter_value({"SSM", "rpm"}, "11.00"));
     ASSERT_TRUE(window.logger_values_.set_parameter_value({"CDBG", "rpm"}, "22.00"));
     auto snapshot = fastecu::desktop::logging::make_desktop_logging_snapshot(
-        *window.logger_model_, fastecu::logging::LoggingProtocolId::Cdbg, "CDBG",
+        *window.logger_model_, fastecu::logging::LoggingProtocolId::kCdbg, "CDBG",
         {.poll_timeout = std::chrono::milliseconds{50},
          .car_silence_miss_threshold = 20,
          .reconnect_attempt_threshold = 100,
@@ -3628,11 +3628,11 @@ void MainWindowTest::check_connectStopsAnActiveLoggingWorkerBeforeIdentification
                                                  return protocol;
                                              });
     auto session =
-        fastecu::logging::make_logging_session(fastecu::logging::LoggingProtocolId::Ssm,
+        fastecu::logging::make_logging_session(fastecu::logging::LoggingProtocolId::kSsm,
                                                {{.id = "rpm",
                                                  .address = 0x10,
                                                  .length = 1,
-                                                 .raw_assembly = fastecu::logging::RawAssembly::UnsignedIntegerDecimal,
+                                                 .raw_assembly = fastecu::logging::RawAssembly::kUnsignedIntegerDecimal,
                                                  .from_byte_expression = "x",
                                                  .unit = "rpm",
                                                  .decimal_precision = 0}},
@@ -4071,7 +4071,7 @@ void MainWindowTest::check_tuneActionsEditTheSelectionThroughTheirOwnHandlers()
     services.config.settings().use_ecuflash_definitions = "enabled";
     services.config.settings().ecuflash_definition_files_directory = files.path().toStdString();
     ASSERT_TRUE(
-        services.definition_catalogs.refresh_index(fastecu::definition::DefinitionFormat::EcuFlash).has_value());
+        services.definition_catalogs.refresh_index(fastecu::definition::DefinitionFormat::kEcuFlash).has_value());
 
     // Row-major body. The zero edges and distinct corners make each
     // interpolation direction produce a different grid.
@@ -4232,7 +4232,7 @@ void MainWindowTest::check_copyFromALargerMapPastesIntoASmallerOneThroughItsScal
     services.config.settings().use_ecuflash_definitions = "enabled";
     services.config.settings().ecuflash_definition_files_directory = files.path().toStdString();
     ASSERT_TRUE(
-        services.definition_catalogs.refresh_index(fastecu::definition::DefinitionFormat::EcuFlash).has_value());
+        services.definition_catalogs.refresh_index(fastecu::definition::DefinitionFormat::kEcuFlash).has_value());
 
     constexpr std::size_t kSource = 0x10;
     constexpr std::size_t kDest = 0x30;
@@ -4355,27 +4355,27 @@ void MainWindowTest::check_typedAssignment(AssignmentScenario scenario)
     ASSERT_NE(session, nullptr);
     fastecu::definition::RomDefinition definition;
     definition.scalings.push_back({.name = "Raw",
-                                   .from_byte = scenario == AssignmentScenario::InvalidCurrent ? "1/0" : "x",
+                                   .from_byte = scenario == AssignmentScenario::kInvalidCurrent ? "1/0" : "x",
                                    .to_byte = "x",
                                    .format = "0.00",
-                                   .storage_type = fastecu::definition::StorageType::Int16,
+                                   .storage_type = fastecu::definition::StorageType::kInt16,
                                    .endian = "big"});
     fastecu::definition::CalibrationMap model;
     model.name = "Value";
     model.category = "Controls";
     model.type = "1D";
     model.address = 0;
-    model.storage_type = fastecu::definition::StorageType::Int16;
+    model.storage_type = fastecu::definition::StorageType::kInt16;
     model.endian = "big";
     model.scaling_name = "Raw";
     definition.maps.push_back(model);
-    const bool no_op = scenario == AssignmentScenario::NoOpResolution || scenario == AssignmentScenario::NoOpLimit;
+    const bool no_op = scenario == AssignmentScenario::kNoOpResolution || scenario == AssignmentScenario::kNoOpLimit;
     if (no_op)
     {
         definition.scalings[0].from_byte = "x/10";
         definition.scalings[0].to_byte = "x*10";
         definition.scalings[0].fine_increment = "0.01";
-        if (scenario == AssignmentScenario::NoOpLimit)
+        if (scenario == AssignmentScenario::kNoOpLimit)
         {
             definition.scalings[0].maximum = "1";
         }
@@ -4405,11 +4405,11 @@ void MainWindowTest::check_typedAssignment(AssignmentScenario scenario)
     table->setRangeSelected(QTableWidgetSelectionRange(0, 0, 0, 0), true);
     std::optional<fastecu::calibration::SessionId> other;
     const bool active_changed =
-        scenario == AssignmentScenario::ActiveMapChanged || scenario == AssignmentScenario::ActiveMapChangedNoOp;
-    const bool paste = scenario == AssignmentScenario::PasteLf || scenario == AssignmentScenario::PasteCrLf ||
-                       scenario == AssignmentScenario::PasteInteriorEmpty;
+        scenario == AssignmentScenario::kActiveMapChanged || scenario == AssignmentScenario::kActiveMapChangedNoOp;
+    const bool paste = scenario == AssignmentScenario::kPasteLf || scenario == AssignmentScenario::kPasteCrLf ||
+                       scenario == AssignmentScenario::kPasteInteriorEmpty;
     QMdiSubWindow *other_window = nullptr;
-    if (scenario == AssignmentScenario::SelectionChanged || active_changed)
+    if (scenario == AssignmentScenario::kSelectionChanged || active_changed)
     {
         const auto adopted = services.calibrations.adopt_read_image({.rom = {0, 40}, .filename = "other.bin"});
         ASSERT_THAT(adopted, fastecu::testing::IsOk());
@@ -4469,13 +4469,13 @@ void MainWindowTest::check_typedAssignment(AssignmentScenario scenario)
                 }
                 return;
             }
-            if (scenario == AssignmentScenario::CurrentBytes || scenario == AssignmentScenario::CurrentBytesNoOp ||
-                scenario == AssignmentScenario::ActiveMapChangedNoOp)
+            if (scenario == AssignmentScenario::kCurrentBytes || scenario == AssignmentScenario::kCurrentBytesNoOp ||
+                scenario == AssignmentScenario::kActiveMapChangedNoOp)
             {
                 EXPECT_THAT(services.calibrations.find(id)->write_bytes(0, bytes::Bytes{0, 20}),
                             fastecu::testing::IsOk());
             }
-            if (scenario == AssignmentScenario::SelectionChanged)
+            if (scenario == AssignmentScenario::kSelectionChanged)
             {
                 auto *file_tree = window.ui_->calibrationFilesTreeWidget;
                 for (int row = 0; row < file_tree->topLevelItemCount(); ++row)
@@ -4489,15 +4489,15 @@ void MainWindowTest::check_typedAssignment(AssignmentScenario scenario)
             {
                 window.ui_->mdiArea->setActiveSubWindow(other_window);
             }
-            if (scenario == AssignmentScenario::OriginalClosed)
+            if (scenario == AssignmentScenario::kOriginalClosed)
             {
                 window.close_calibration();
             }
-            dialog->setTextValue(scenario == AssignmentScenario::Absolute   ? "-20"
-                                 : scenario == AssignmentScenario::Relative ? "x-20"
-                                 : scenario == AssignmentScenario::InvalidCurrent ||
-                                         scenario == AssignmentScenario::CurrentBytesNoOp ||
-                                         scenario == AssignmentScenario::ActiveMapChangedNoOp
+            dialog->setTextValue(scenario == AssignmentScenario::kAbsolute   ? "-20"
+                                 : scenario == AssignmentScenario::kRelative ? "x-20"
+                                 : scenario == AssignmentScenario::kInvalidCurrent ||
+                                         scenario == AssignmentScenario::kCurrentBytesNoOp ||
+                                         scenario == AssignmentScenario::kActiveMapChangedNoOp
                                      ? "20"
                                      : "x+1");
             answered = true;
@@ -4506,15 +4506,15 @@ void MainWindowTest::check_typedAssignment(AssignmentScenario scenario)
     reply.start();
     if (paste)
     {
-        QApplication::clipboard()->setText(scenario == AssignmentScenario::PasteLf     ? "20\n"
-                                           : scenario == AssignmentScenario::PasteCrLf ? "20\r\n"
-                                                                                       : "20\n\n30");
+        QApplication::clipboard()->setText(scenario == AssignmentScenario::kPasteLf     ? "20\n"
+                                           : scenario == AssignmentScenario::kPasteCrLf ? "20\r\n"
+                                                                                        : "20\n\n30");
         answered = true;
         window.paste_value();
     }
     else if (no_op)
     {
-        window.inc_dec_value(fastecu::calibration::IncrementStep::FineUp);
+        window.inc_dec_value(fastecu::calibration::IncrementStep::kFineUp);
     }
     else
     {
@@ -4522,7 +4522,7 @@ void MainWindowTest::check_typedAssignment(AssignmentScenario scenario)
     }
     reply.stop();
     ASSERT_TRUE(answered);
-    if (scenario == AssignmentScenario::OriginalClosed)
+    if (scenario == AssignmentScenario::kOriginalClosed)
     {
         EXPECT_EQ(services.calibrations.find(id), nullptr);
         return;
@@ -4533,7 +4533,7 @@ void MainWindowTest::check_typedAssignment(AssignmentScenario scenario)
     {
         EXPECT_EQ(bytes::readU16Be(session->rom()), 10);
         EXPECT_FALSE(session->dirty());
-        if (scenario == AssignmentScenario::NoOpResolution)
+        if (scenario == AssignmentScenario::kNoOpResolution)
         {
             EXPECT_TRUE(notice_text.contains("storage resolution"));
         }
@@ -4544,7 +4544,7 @@ void MainWindowTest::check_typedAssignment(AssignmentScenario scenario)
         }
         return;
     }
-    if (scenario == AssignmentScenario::PasteInteriorEmpty)
+    if (scenario == AssignmentScenario::kPasteInteriorEmpty)
     {
         EXPECT_EQ(bytes::readU16Be(session->rom()), 10);
         EXPECT_FALSE(session->dirty());
@@ -4559,27 +4559,28 @@ void MainWindowTest::check_typedAssignment(AssignmentScenario scenario)
         return;
     }
     const std::uint16_t expected =
-        scenario == AssignmentScenario::Absolute       ? 65516
-        : scenario == AssignmentScenario::Relative     ? 65526
-        : scenario == AssignmentScenario::CurrentBytes ? 21
-        : scenario == AssignmentScenario::CurrentBytesNoOp || scenario == AssignmentScenario::ActiveMapChangedNoOp ? 20
-        : scenario == AssignmentScenario::InvalidCurrent                                                           ? 20
-                                                                                                                   : 11;
+        scenario == AssignmentScenario::kAbsolute       ? 65516
+        : scenario == AssignmentScenario::kRelative     ? 65526
+        : scenario == AssignmentScenario::kCurrentBytes ? 21
+        : scenario == AssignmentScenario::kCurrentBytesNoOp || scenario == AssignmentScenario::kActiveMapChangedNoOp
+            ? 20
+        : scenario == AssignmentScenario::kInvalidCurrent ? 20
+                                                          : 11;
     EXPECT_EQ(bytes::readU16Be(session->rom()), expected);
     if (other.has_value())
     {
         EXPECT_EQ(bytes::readU16Be(services.calibrations.find(*other)->rom()), 40);
         EXPECT_FALSE(services.calibrations.find(*other)->dirty());
     }
-    if (scenario == AssignmentScenario::ActiveMapChanged)
+    if (scenario == AssignmentScenario::kActiveMapChanged)
     {
         EXPECT_EQ(table->item(0, 0)->text(), "11.00");
     }
-    if (scenario == AssignmentScenario::InvalidCurrent)
+    if (scenario == AssignmentScenario::kInvalidCurrent)
     {
         EXPECT_EQ(table->item(0, 0)->text(), "NaN");
     }
-    if (scenario == AssignmentScenario::CurrentBytesNoOp || scenario == AssignmentScenario::ActiveMapChangedNoOp)
+    if (scenario == AssignmentScenario::kCurrentBytesNoOp || scenario == AssignmentScenario::kActiveMapChangedNoOp)
     {
         EXPECT_EQ(table->item(0, 0)->text(), "20.00");
         EXPECT_TRUE(session->dirty());
@@ -4588,60 +4589,60 @@ void MainWindowTest::check_typedAssignment(AssignmentScenario scenario)
 
 TEST_F(MainWindowTest, SignedLiteralAssignsAbsoluteValue)
 {
-    ASSERT_NO_FATAL_FAILURE(check_typedAssignment(AssignmentScenario::Absolute));
+    ASSERT_NO_FATAL_FAILURE(check_typedAssignment(AssignmentScenario::kAbsolute));
 }
 TEST_F(MainWindowTest, VariableExpressionEditsRelativeValue)
 {
-    ASSERT_NO_FATAL_FAILURE(check_typedAssignment(AssignmentScenario::Relative));
+    ASSERT_NO_FATAL_FAILURE(check_typedAssignment(AssignmentScenario::kRelative));
 }
 TEST_F(MainWindowTest, AssignmentUsesBytesChangedDuringDialog)
 {
-    ASSERT_NO_FATAL_FAILURE(check_typedAssignment(AssignmentScenario::CurrentBytes));
+    ASSERT_NO_FATAL_FAILURE(check_typedAssignment(AssignmentScenario::kCurrentBytes));
 }
 TEST_F(MainWindowTest, AssignmentKeepsOriginalSessionDuringSelectionChange)
 {
-    ASSERT_NO_FATAL_FAILURE(check_typedAssignment(AssignmentScenario::SelectionChanged));
+    ASSERT_NO_FATAL_FAILURE(check_typedAssignment(AssignmentScenario::kSelectionChanged));
 }
 TEST_F(MainWindowTest, AssignmentOfClosedOriginalSessionIsInert)
 {
-    ASSERT_NO_FATAL_FAILURE(check_typedAssignment(AssignmentScenario::OriginalClosed));
+    ASSERT_NO_FATAL_FAILURE(check_typedAssignment(AssignmentScenario::kOriginalClosed));
 }
 TEST_F(MainWindowTest, AssignmentCanLeaveBrokenDecodeDisplayedAsNan)
 {
-    ASSERT_NO_FATAL_FAILURE(check_typedAssignment(AssignmentScenario::InvalidCurrent));
+    ASSERT_NO_FATAL_FAILURE(check_typedAssignment(AssignmentScenario::kInvalidCurrent));
 }
 
 TEST_F(MainWindowTest, SubResolutionIncrementReportsNoChangeAndKeepsClean)
 {
-    ASSERT_NO_FATAL_FAILURE(check_typedAssignment(AssignmentScenario::NoOpResolution));
+    ASSERT_NO_FATAL_FAILURE(check_typedAssignment(AssignmentScenario::kNoOpResolution));
 }
 TEST_F(MainWindowTest, ClampedIncrementReportsLimitAndKeepsClean)
 {
-    ASSERT_NO_FATAL_FAILURE(check_typedAssignment(AssignmentScenario::NoOpLimit));
+    ASSERT_NO_FATAL_FAILURE(check_typedAssignment(AssignmentScenario::kNoOpLimit));
 }
 
 TEST_F(MainWindowTest, NoOpAssignmentRefreshesBytesChangedDuringDialog)
 {
-    ASSERT_NO_FATAL_FAILURE(check_typedAssignment(AssignmentScenario::CurrentBytesNoOp));
+    ASSERT_NO_FATAL_FAILURE(check_typedAssignment(AssignmentScenario::kCurrentBytesNoOp));
 }
 
 TEST_F(MainWindowTest, AssignmentRefreshesOriginalAfterActiveMapChanges)
 {
-    ASSERT_NO_FATAL_FAILURE(check_typedAssignment(AssignmentScenario::ActiveMapChanged));
+    ASSERT_NO_FATAL_FAILURE(check_typedAssignment(AssignmentScenario::kActiveMapChanged));
 }
 TEST_F(MainWindowTest, NoOpAssignmentRefreshesOriginalAfterActiveMapChanges)
 {
-    ASSERT_NO_FATAL_FAILURE(check_typedAssignment(AssignmentScenario::ActiveMapChangedNoOp));
+    ASSERT_NO_FATAL_FAILURE(check_typedAssignment(AssignmentScenario::kActiveMapChangedNoOp));
 }
 TEST_F(MainWindowTest, PasteAcceptsTerminalLf)
 {
-    ASSERT_NO_FATAL_FAILURE(check_typedAssignment(AssignmentScenario::PasteLf));
+    ASSERT_NO_FATAL_FAILURE(check_typedAssignment(AssignmentScenario::kPasteLf));
 }
 TEST_F(MainWindowTest, PasteAcceptsTerminalCrLf)
 {
-    ASSERT_NO_FATAL_FAILURE(check_typedAssignment(AssignmentScenario::PasteCrLf));
+    ASSERT_NO_FATAL_FAILURE(check_typedAssignment(AssignmentScenario::kPasteCrLf));
 }
 TEST_F(MainWindowTest, PasteRejectsInteriorEmptyCellAtomically)
 {
-    ASSERT_NO_FATAL_FAILURE(check_typedAssignment(AssignmentScenario::PasteInteriorEmpty));
+    ASSERT_NO_FATAL_FAILURE(check_typedAssignment(AssignmentScenario::kPasteInteriorEmpty));
 }

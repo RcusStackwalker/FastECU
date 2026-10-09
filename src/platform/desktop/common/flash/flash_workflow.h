@@ -34,15 +34,15 @@ struct FlashWorkflowRequest
 
 enum class FlashPromptKind
 {
-    Begin,
-    ColtEraseTrigger,
-    ColtTopRegionBootstrap,
-    InspectRead,
-    CycleIgnition,
-    ConfirmSh7058Read,
-    ConfirmBdmKernelBootstrap,
+    kBegin,
+    kColtEraseTrigger,
+    kColtTopRegionBootstrap,
+    kInspectRead,
+    kCycleIgnition,
+    kConfirmSh7058Read,
+    kConfirmBdmKernelBootstrap,
     // Before the attempt: the operator applies external VPP.
-    ApplyProgrammingVoltage,
+    kApplyProgrammingVoltage,
     // After a write attempt, OK-only. Due after every write that
     // did not succeed, whatever the adapter, and after a successful write
     // when external VPP was needed. Argument "outcome" is "succeeded",
@@ -51,27 +51,27 @@ enum class FlashPromptKind
     // outcome other than "succeeded" carries the don't-power-off advice
     // unless "power_off_advice" is "no" (bootmode: the boot ROM is
     // always re-enterable, so a power cycle is the recovery path).
-    RemoveProgrammingVoltage,
+    kRemoveProgrammingVoltage,
     // Before a bootmode write: the operator connects VPP and MOD1.
-    ApplyBootModeVoltages,
+    kApplyBootModeVoltages,
     // Between the bootmode kernel upload and programming, OK/Cancel.
-    RemoveMod1,
+    kRemoveMod1,
 };
 
 enum class FlashPromptResponse
 {
-    Accept,
-    Decline,
-    Save,
-    Discard,
+    kAccept,
+    kDecline,
+    kSave,
+    kDiscard,
 };
 
 enum class FlashWorkflowOutcome
 {
-    Succeeded,
-    Cancelled,
-    Discarded,
-    Failed,
+    kSucceeded,
+    kCancelled,
+    kDiscarded,
+    kFailed,
 };
 
 struct FlashPromptStep
@@ -89,7 +89,7 @@ struct FlashAttempt
 struct FlashAttemptResult
 {
     bool success = false;
-    ErrorKind error_kind = ErrorKind::Internal;
+    ErrorKind error_kind = ErrorKind::kInternal;
     std::string error_detail;
     std::optional<bytes::Bytes> read_bytes;
     std::optional<std::string> rom_id;

@@ -13,27 +13,27 @@ enum class Function : std::uint8_t
 {
     // Never sent. The value of a zero-initialised FrameHeader before
     // readFrameHeader() fills it in, and what a corrupt frame decodes to.
-    Invalid = 0,
-    PassThruOpen = 1,
-    PassThruClose = 2,
-    PassThruConnect = 3,
-    PassThruDisconnect = 4,
-    PassThruReadMsgs = 5,
-    PassThruWriteMsgs = 6,
-    PassThruStartPeriodicMsg = 7,
-    PassThruStopPeriodicMsg = 8,
-    PassThruStartMsgFilter = 9,
-    PassThruStopMsgFilter = 10,
-    PassThruSetProgrammingVoltage = 11,
-    PassThruReadVersion = 12,
-    PassThruGetLastError = 13,
-    PassThruIoctl = 14,
-    Shutdown = 255,
+    kInvalid = 0,
+    kPassThruOpen = 1,
+    kPassThruClose = 2,
+    kPassThruConnect = 3,
+    kPassThruDisconnect = 4,
+    kPassThruReadMsgs = 5,
+    kPassThruWriteMsgs = 6,
+    kPassThruStartPeriodicMsg = 7,
+    kPassThruStopPeriodicMsg = 8,
+    kPassThruStartMsgFilter = 9,
+    kPassThruStopMsgFilter = 10,
+    kPassThruSetProgrammingVoltage = 11,
+    kPassThruReadVersion = 12,
+    kPassThruGetLastError = 13,
+    kPassThruIoctl = 14,
+    kShutdown = 255,
 };
 
 struct FrameHeader
 {
-    Function function = Function::Invalid;
+    Function function = Function::kInvalid;
     std::uint32_t payload_size = 0;
 };
 

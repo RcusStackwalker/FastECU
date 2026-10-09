@@ -7,13 +7,13 @@ FlashOperation flash_operation_from_command(std::string_view command)
 {
     if (command == "write")
     {
-        return FlashOperation::Write;
+        return FlashOperation::kWrite;
     }
     if (command == "test_write")
     {
-        return FlashOperation::TestWrite;
+        return FlashOperation::kTestWrite;
     }
-    return FlashOperation::Read;
+    return FlashOperation::kRead;
 }
 
 bool is_denso_tcu_protocol(std::string_view protocol)

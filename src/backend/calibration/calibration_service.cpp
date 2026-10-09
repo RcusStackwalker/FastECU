@@ -17,18 +17,18 @@ using namespace internal;
 
 Result<NumericRun> decode_numeric_run(bytes::ByteView rom, const ElementRun& run)
 {
-    if (!run.storage_type.has_value() || run.storage_type == definition::StorageType::Bloblist ||
+    if (!run.storage_type.has_value() || run.storage_type == definition::StorageType::kBloblist ||
         run.start_position == 0 || run.interval == 0)
     {
-        return fail(ErrorKind::InvalidConfig, "numeric run has invalid storage or stride metadata");
+        return fail(ErrorKind::kInvalidConfig, "numeric run has invalid storage or stride metadata");
     }
     const auto width = definition::storage_byte_size(run.storage_type);
-    const bool is_float = run.storage_type == definition::StorageType::Float;
+    const bool is_float = run.storage_type == definition::StorageType::kFloat;
     const bool little_endian = !is_float && run.endian == "little";
     const auto end = element_run_end(run.address, run.start_position, run.interval, width, run.count);
     if (end > rom.size())
     {
-        return fail(ErrorKind::InvalidConfig, "numeric run exceeds ROM size");
+        return fail(ErrorKind::kInvalidConfig, "numeric run exceeds ROM size");
     }
     NumericRun result;
     result.cells.reserve(run.count);
@@ -53,7 +53,7 @@ Result<NumericRun> decode_numeric_run(bytes::ByteView rom, const ElementRun& run
         else
         {
             result.cells.emplace_back(
-                fail(ErrorKind::InvalidConfig, std::format("cell {}: {}", index, value.error().detail)));
+                fail(ErrorKind::kInvalidConfig, std::format("cell {}: {}", index, value.error().detail)));
         }
     }
     return result;
@@ -74,7 +74,7 @@ Status validate_extent(std::optional<std::uint64_t> address, std::uint32_t count
     if (const std::uint64_t end = element_run_end(*address, start_position, interval, width, count);
         end > rom_byte_length)
     {
-        return fail(ErrorKind::InvalidConfig, std::string(context) + " address exceeds ROM size");
+        return fail(ErrorKind::kInvalidConfig, std::string(context) + " address exceeds ROM size");
     }
     return {};
 }
@@ -119,7 +119,7 @@ Result<AxisValue> decode_typed_axis(const definition::AxisDefinition& axis, std:
     {
         if (axis.static_data.size() != extent)
         {
-            return fail(ErrorKind::InvalidConfig, "static axis label count differs from map extent");
+            return fail(ErrorKind::kInvalidConfig, "static axis label count differs from map extent");
         }
         return AxisValue(StaticAxis{axis.static_data});
     }
@@ -129,7 +129,7 @@ Result<AxisValue> decode_typed_axis(const definition::AxisDefinition& axis, std:
     }
     if (!axis.address.has_value())
     {
-        return fail(ErrorKind::InvalidConfig, "numeric axis has no address");
+        return fail(ErrorKind::kInvalidConfig, "numeric axis has no address");
     }
     auto values = decode_numeric_run(rom, axis_element_run(axis, extent));
     if (!values.has_value())
@@ -147,23 +147,23 @@ Result<DecodedMap> decode_calibration_map(const definition::RomDefinition& rom_d
     const auto *scaling = definition::find_scaling(rom_definition, map.scaling_name);
     if (!map.scaling_name.empty() && scaling == nullptr)
     {
-        return fail(ErrorKind::InvalidConfig, std::format("map '{}' has unresolved scaling", map.name));
+        return fail(ErrorKind::kInvalidConfig, std::format("map '{}' has unresolved scaling", map.name));
     }
     const std::uint64_t count = std::uint64_t(map.x_size) * map.y_size;
     if (!map.address.has_value() || count == 0 || count > std::numeric_limits<std::uint32_t>::max())
     {
-        return fail(ErrorKind::InvalidConfig, std::format("map '{}' has invalid address or dimensions", map.name));
+        return fail(ErrorKind::kInvalidConfig, std::format("map '{}' has invalid address or dimensions", map.name));
     }
     DecodedMap result;
     const auto storage = map.storage_type.has_value() ? map.storage_type
                          : scaling != nullptr         ? scaling->storage_type
                                                       : std::nullopt;
-    if (storage == definition::StorageType::Bloblist)
+    if (storage == definition::StorageType::kBloblist)
     {
         const auto width = element_byte_size(storage, scaling);
         if (!byte_window_fits(rom, *map.address, width))
         {
-            return fail(ErrorKind::InvalidConfig, std::format("map '{}' blob exceeds ROM size", map.name));
+            return fail(ErrorKind::kInvalidConfig, std::format("map '{}' blob exceeds ROM size", map.name));
         }
         const auto data = rom.subspan(static_cast<std::size_t>(*map.address), width);
         result.body = BlobValue{bytes::Bytes(data.begin(), data.end())};
@@ -212,7 +212,7 @@ void backup_rom(std::span<const std::uint8_t> rom_data, std::string_view backup_
 
 std::uint32_t element_byte_size(std::optional<definition::StorageType> storage_type, const definition::Scaling *scaling)
 {
-    if (storage_type == definition::StorageType::Bloblist && scaling != nullptr && !scaling->selections.empty())
+    if (storage_type == definition::StorageType::kBloblist && scaling != nullptr && !scaling->selections.empty())
     {
         return static_cast<std::uint32_t>(scaling->selections.front().value.size());
     }

@@ -16,22 +16,22 @@ TEST(ParserUtilsTest, AdoptInlineScalingTakesTheNameAndFillsOnlyUnsetStorageAndE
 {
     UnresolvedScaling scaling;
     scaling.name = "inline";
-    scaling.storage_type = StorageType::Uint8;
+    scaling.storage_type = StorageType::kUint8;
     scaling.endian = "little";
 
     UnresolvedCalibrationMap unset;
     adopt_inline_scaling(scaling, unset);
     EXPECT_EQ(unset.scaling_name, "inline");
-    EXPECT_EQ(unset.storage_type, StorageType::Uint8);
+    EXPECT_EQ(unset.storage_type, StorageType::kUint8);
     EXPECT_EQ(unset.endian, "little");
 
     UnresolvedCalibrationMap set;
     set.scaling_name = "reference";
-    set.storage_type = StorageType::Uint16;
+    set.storage_type = StorageType::kUint16;
     set.endian = "big";
     adopt_inline_scaling(scaling, set);
     EXPECT_EQ(set.scaling_name, "inline");
-    EXPECT_EQ(set.storage_type, StorageType::Uint16);
+    EXPECT_EQ(set.storage_type, StorageType::kUint16);
     EXPECT_EQ(set.endian, "big");
 }
 
@@ -55,7 +55,7 @@ TEST(ParserUtilsTest, DocumentLoadingRetainsParseErrorSourceContext)
 {
     pugi::xml_document document;
     const auto result = parse_document_root(document, xml_bytes("<rom><romid>"), "broken.xml", pugi::encoding_auto);
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     EXPECT_NE(result.error().detail.find("source 'broken.xml': XML document: malformed XML:"), std::string::npos);
 }
 
@@ -86,7 +86,7 @@ TEST(ParserUtilsTest, StrictRootSelectionDoesNotAcceptAuthoringContainerPolicy)
 {
     pugi::xml_document document;
     const auto root = parse_root(document, xml_bytes("<roms><rom/></roms>"), "wrong-root.xml", "rom");
-    ASSERT_THAT(root, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(root, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     EXPECT_NE(root.error().detail.find("root element <rom>: wrong root; found <roms>"), std::string::npos);
 }
 
@@ -127,7 +127,7 @@ TEST(ParserUtilsTest, RomHeaderRejectsMissingAndDuplicateIdentityElementsWithCon
         pugi::xml_document document;
         ASSERT_TRUE(document.load_buffer(xml.data(), xml.size()));
         const auto header = parse_rom_header(document.document_element(), "identity.xml");
-        ASSERT_THAT(header, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+        ASSERT_THAT(header, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
         EXPECT_NE(header.error().detail.find("source 'identity.xml'"), std::string::npos);
         EXPECT_NE(header.error().detail.find(context), std::string::npos);
     }
@@ -143,7 +143,7 @@ TEST(ParserUtilsTest, RomHeaderRejectsInvalidAndOverflowingAddressesWithDefiniti
             "<rom><romid><xmlid>ID</xmlid><internalidaddress>" + address + "</internalidaddress></romid></rom>";
         ASSERT_TRUE(document.load_string(xml.c_str()));
         const auto header = parse_rom_header(document.document_element(), "identity.xml");
-        ASSERT_THAT(header, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+        ASSERT_THAT(header, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
         EXPECT_NE(header.error().detail.find(
                       "source 'identity.xml', definition 'ID': element <romid> child <internalidaddress>"),
                   std::string::npos);
@@ -211,7 +211,7 @@ TEST(ParserUtilsTest, HeaderRejectsNestedScalarContentWithSourceContext)
                                 (field == "xmlid" ? "" : "<xmlid>ID</xmlid>") + "</romid></rom>";
         ASSERT_TRUE(document.load_string(xml.c_str()));
         const auto header = parse_rom_header(document.document_element(), "nested.xml");
-        ASSERT_THAT(header, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+        ASSERT_THAT(header, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
         EXPECT_THAT(header.error().detail, ::testing::HasSubstr("nested.xml"));
         EXPECT_THAT(header.error().detail, ::testing::HasSubstr(field));
     }
@@ -221,7 +221,7 @@ TEST(ParserUtilsTest, DocumentLoadingRejectsMultipleRootsForStrictLoadersToo)
 {
     pugi::xml_document document;
     EXPECT_THAT(parse_document_root(document, xml_bytes("<rom/><rom/>"), "roots.xml", pugi::encoding_auto),
-                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+                fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
 } // namespace fastecu::definition

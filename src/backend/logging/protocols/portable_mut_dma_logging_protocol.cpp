@@ -27,7 +27,7 @@ fastecu::Status checkCancellation(const fastecu::ICancellationToken& cancellatio
 {
     if (cancellation.cancelled())
     {
-        return fastecu::fail(fastecu::ErrorKind::Cancelled, "MUT/DMA logging cancelled");
+        return fastecu::fail(fastecu::ErrorKind::kCancelled, "MUT/DMA logging cancelled");
     }
     return {};
 }
@@ -49,7 +49,7 @@ fastecu::Status MutDmaLoggingProtocol::start(const fastecu::ICancellationToken& 
     }
     if (!transport_->isOpen())
     {
-        return fastecu::fail(fastecu::ErrorKind::Disconnected, "adapter disconnected");
+        return fastecu::fail(fastecu::ErrorKind::kDisconnected, "adapter disconnected");
     }
     return driver_.startFreeFormLog(wire_channels_, 0xA0, 0xA1, cancellation);
 }
@@ -63,7 +63,7 @@ fastecu::Result<PollData> MutDmaLoggingProtocol::poll(std::chrono::milliseconds 
     }
     if (!transport_->isOpen())
     {
-        return fastecu::fail(fastecu::ErrorKind::Disconnected, "adapter disconnected");
+        return fastecu::fail(fastecu::ErrorKind::kDisconnected, "adapter disconnected");
     }
     if (!driver_.isStreaming())
     {

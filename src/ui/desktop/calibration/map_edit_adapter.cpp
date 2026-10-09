@@ -19,13 +19,13 @@ std::optional<calibration::NumericTarget> to_numeric_target(calibration::EditTar
 {
     switch (kind)
     {
-    case calibration::EditTargetKind::MapBody:
-        return calibration::NumericTarget::MapBody;
-    case calibration::EditTargetKind::XAxis:
-        return calibration::NumericTarget::XAxis;
-    case calibration::EditTargetKind::YAxis:
-        return calibration::NumericTarget::YAxis;
-    case calibration::EditTargetKind::Rejected:
+    case calibration::EditTargetKind::kMapBody:
+        return calibration::NumericTarget::kMapBody;
+    case calibration::EditTargetKind::kXAxis:
+        return calibration::NumericTarget::kXAxis;
+    case calibration::EditTargetKind::kYAxis:
+        return calibration::NumericTarget::kYAxis;
+    case calibration::EditTargetKind::kRejected:
         return std::nullopt;
     }
     return std::nullopt;
@@ -103,7 +103,7 @@ std::optional<calibration::SelectionRange> body_widget_range(const calibration::
         const auto target =
             calibration::resolve_edit_target({.first_row = row, .first_col = col, .last_row = row, .last_col = col},
                                              {.x_size = map.x_size, .y_size = map.y_size}, map.x_axis.type);
-        return target.kind == calibration::EditTargetKind::MapBody;
+        return target.kind == calibration::EditTargetKind::kMapBody;
     };
     for (int row = 0; row < rows; ++row)
     {

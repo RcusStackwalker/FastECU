@@ -81,14 +81,14 @@ Result<LoggerDefinition> parse_logger_definition(bytes::ByteView xml, std::strin
     pugi::xml_document document;
     if (const pugi::xml_parse_result parsed = document.load_buffer(xml.data(), xml.size()); !parsed)
     {
-        return fail(ErrorKind::InvalidConfig,
+        return fail(ErrorKind::kInvalidConfig,
                     std::format("{}: {} at offset {}", source, parsed.description(), parsed.offset));
     }
 
     const pugi::xml_node root = document.child("logger");
     if (!root)
     {
-        return fail(ErrorKind::InvalidConfig, std::format("{}: expected root element <logger>", source));
+        return fail(ErrorKind::kInvalidConfig, std::format("{}: expected root element <logger>", source));
     }
 
     LoggerDefinition definition;

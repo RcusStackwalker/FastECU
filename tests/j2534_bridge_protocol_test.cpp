@@ -21,14 +21,14 @@ TEST(J2534BridgeProtocol, round_trip_small_payload)
     PassThruCloseRequest req{};
     req.device_id = 42;
 
-    bool wrote = writeFrame(writeEnd, Function::PassThruClose, &req, sizeof(req));
+    bool wrote = writeFrame(writeEnd, Function::kPassThruClose, &req, sizeof(req));
     ASSERT_TRUE(wrote && "writeFrame failed");
 
     FrameHeader header{};
     PassThruCloseRequest received{};
     bool read = readFrame(readEnd, header, &received, sizeof(received));
     ASSERT_TRUE(read && "readFrame failed");
-    ASSERT_TRUE(header.function == Function::PassThruClose);
+    ASSERT_TRUE(header.function == Function::kPassThruClose);
     ASSERT_TRUE(header.payload_size == sizeof(req));
     ASSERT_TRUE(received.device_id == 42);
 

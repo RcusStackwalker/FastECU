@@ -61,7 +61,7 @@ TEST(TestDesktopTransportFactory, refusesToOpenWhenNoDeviceIsDetected)
     const auto transport = open_desktop_can_flash_transport(configWith(&fake, {}, kOpenPort0), kColtCan);
 
     ASSERT_TRUE(!transport.has_value());
-    ASSERT_EQ(transport.error().kind, ErrorKind::Disconnected);
+    ASSERT_EQ(transport.error().kind, ErrorKind::kDisconnected);
 }
 
 TEST(TestDesktopTransportFactory, refusesToOpenWhenTheNamedDeviceIsAbsent)
@@ -72,7 +72,7 @@ TEST(TestDesktopTransportFactory, refusesToOpenWhenTheNamedDeviceIsAbsent)
     const auto transport = open_desktop_can_flash_transport(config, kColtCan);
 
     ASSERT_TRUE(!transport.has_value());
-    ASSERT_EQ(transport.error().kind, ErrorKind::InvalidConfig);
+    ASSERT_EQ(transport.error().kind, ErrorKind::kInvalidConfig);
 }
 
 TEST(TestDesktopTransportFactory, selectsTheFirstJ2534DeviceWhenNoNameIsGiven)
@@ -119,7 +119,7 @@ TEST(TestDesktopTransportFactory, refusesToOpenWhenNoDetectedPortIsAJ2534Adapter
 
 #if defined(Q_OS_UNIX)
     ASSERT_TRUE(!transport.has_value());
-    ASSERT_EQ(transport.error().kind, ErrorKind::Disconnected);
+    ASSERT_EQ(transport.error().kind, ErrorKind::kDisconnected);
 #else
     ASSERT_TRUE(transport.has_value());
 #endif
@@ -137,7 +137,7 @@ TEST(TestDesktopTransportFactory, refusesToOpenWhenTheNamedDeviceIsNotAJ2534Adap
 
 #if defined(Q_OS_UNIX)
     ASSERT_TRUE(!transport.has_value());
-    ASSERT_EQ(transport.error().kind, ErrorKind::InvalidConfig);
+    ASSERT_EQ(transport.error().kind, ErrorKind::kInvalidConfig);
 #else
     ASSERT_TRUE(transport.has_value());
 #endif
@@ -149,7 +149,7 @@ TEST(TestDesktopTransportFactory, reportsDisconnectedWhenTheOpenFails)
     const auto transport = open_desktop_can_flash_transport(configWith(&fake, {kOpenPort0}, ""), kColtCan);
 
     ASSERT_TRUE(!transport.has_value());
-    ASSERT_EQ(transport.error().kind, ErrorKind::Disconnected);
+    ASSERT_EQ(transport.error().kind, ErrorKind::kDisconnected);
 }
 
 TEST(TestDesktopTransportFactory, refusesAConfigWithoutABackendFactory)
@@ -158,11 +158,11 @@ TEST(TestDesktopTransportFactory, refusesAConfigWithoutABackendFactory)
 
     const auto ports = list_desktop_serial_ports(config);
     ASSERT_TRUE(!ports.has_value());
-    ASSERT_EQ(ports.error().kind, ErrorKind::InvalidConfig);
+    ASSERT_EQ(ports.error().kind, ErrorKind::kInvalidConfig);
 
     const auto transport = open_desktop_can_flash_transport(config, kColtCan);
     ASSERT_TRUE(!transport.has_value());
-    ASSERT_EQ(transport.error().kind, ErrorKind::InvalidConfig);
+    ASSERT_EQ(transport.error().kind, ErrorKind::kInvalidConfig);
 }
 
 namespace

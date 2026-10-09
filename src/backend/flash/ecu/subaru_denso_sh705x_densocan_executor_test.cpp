@@ -192,11 +192,11 @@ KernelImage kernel_for(const Case& test_case, bytes::Bytes data = {0x11, 0x22, 0
 
 Result<FlashPlan> read_plan(const Case& test_case, bytes::Bytes kernel = {0x11, 0x22, 0x33, 0x44, 0x55})
 {
-    return build_subaru_denso_sh705x_densocan_plan(FlashOperation::Read, test_case.protocol, test_case.mcu,
+    return build_subaru_denso_sh705x_densocan_plan(FlashOperation::kRead, test_case.protocol, test_case.mcu,
                                                    std::nullopt, kernel_for(test_case, std::move(kernel)));
 }
 
-Result<FlashPlan> write_plan(const Case& test_case, FlashOperation operation = FlashOperation::Write,
+Result<FlashPlan> write_plan(const Case& test_case, FlashOperation operation = FlashOperation::kWrite,
                              bytes::Bytes image = {})
 {
     if (image.empty())
@@ -631,75 +631,76 @@ using LogRecord = std::pair<LogLevel, std::string>;
 void append_legacy_compare_logs(std::vector<LogRecord>& logs, const FlashDevice& device, bool first_block_mismatches,
                                 bool after_reflash)
 {
-    logs.emplace_back(LogLevel::Info, after_reflash
-                                          ? "--- Comparing ECU flash memory pages to image file after reflash ---"
-                                          : "--- Comparing ECU flash memory pages to image file ---");
-    logs.emplace_back(LogLevel::Info, "blk\tstart\tlen\tecu crc\timg crc\tsame?");
+    logs.emplace_back(LogLevel::kInfo, after_reflash
+                                           ? "--- Comparing ECU flash memory pages to image file after reflash ---"
+                                           : "--- Comparing ECU flash memory pages to image file ---");
+    logs.emplace_back(LogLevel::kInfo, "blk\tstart\tlen\tecu crc\timg crc\tsame?");
     for (unsigned index = 0; index < device.numblocks; ++index)
     {
         const MemoryRegion block{device.fblocks[index].start, device.fblocks[index].len};
         const bool differs = first_block_mismatches && index == 0;
         const std::uint32_t image_crc = fixed_raw_zero_crc(block, false);
         const std::uint32_t ecu_crc = fixed_raw_zero_crc(block, differs);
-        logs.emplace_back(LogLevel::Info, std::format("FB{:02}\t0x{:08X}\t0x{:08X}", index, block.start, block.length));
-        logs.emplace_back(LogLevel::Debug, std::format("ROM CRC: 0x{:08x} IMG CRC: 0x{:08x}", ecu_crc, image_crc));
-        logs.emplace_back(LogLevel::Info, std::format("\t{:08X}\t{:08X}", ecu_crc, image_crc));
-        logs.emplace_back(LogLevel::Info, differs ? "\tNO" : "\tYES");
+        logs.emplace_back(LogLevel::kInfo,
+                          std::format("FB{:02}\t0x{:08X}\t0x{:08X}", index, block.start, block.length));
+        logs.emplace_back(LogLevel::kDebug, std::format("ROM CRC: 0x{:08x} IMG CRC: 0x{:08x}", ecu_crc, image_crc));
+        logs.emplace_back(LogLevel::kInfo, std::format("\t{:08X}\t{:08X}", ecu_crc, image_crc));
+        logs.emplace_back(LogLevel::kInfo, differs ? "\tNO" : "\tYES");
     }
-    logs.emplace_back(LogLevel::Info, "Different blocks : ");
+    logs.emplace_back(LogLevel::kInfo, "Different blocks : ");
     if (first_block_mismatches)
     {
-        logs.emplace_back(LogLevel::Info, "0, ");
+        logs.emplace_back(LogLevel::kInfo, "0, ");
     }
-    logs.emplace_back(LogLevel::Info, first_block_mismatches ? " (total: 1)" : " (total: 0)");
+    logs.emplace_back(LogLevel::kInfo, first_block_mismatches ? " (total: 1)" : " (total: 0)");
 }
 
 std::vector<LogRecord> expected_legacy_write_logs(const FlashDevice& device, FlashOperation operation)
 {
-    const bool test_write = operation == FlashOperation::TestWrite;
+    const bool test_write = operation == FlashOperation::kTestWrite;
     std::vector<LogRecord> logs;
-    logs.emplace_back(LogLevel::Info, "Checking if Kernel already running...");
-    logs.emplace_back(LogLevel::Info, "Requesting kernel ID");
-    logs.emplace_back(LogLevel::Info, "Kernel ID: KID");
+    logs.emplace_back(LogLevel::kInfo, "Checking if Kernel already running...");
+    logs.emplace_back(LogLevel::kInfo, "Requesting kernel ID");
+    logs.emplace_back(LogLevel::kInfo, "Kernel ID: KID");
     append_legacy_compare_logs(logs, device, true, false);
-    logs.emplace_back(LogLevel::Info, "--- Start writing ROM file to ECU flash memory ---");
-    logs.emplace_back(LogLevel::Info, "Check max message length");
-    logs.emplace_back(LogLevel::Info, ": 0x0200");
-    logs.emplace_back(LogLevel::Info, "Check flashblock size");
-    logs.emplace_back(LogLevel::Info, ": 0x1000");
-    logs.emplace_back(LogLevel::Info, test_write ? "Test write mode on, no actual flash write is performed"
-                                                 : "Test write mode off, perform actual flash write");
-    logs.emplace_back(LogLevel::Error, "Flash mode succesfully set");
-    logs.emplace_back(LogLevel::Info, "Flash block addr: 0x00000000 len: 0x00001000");
-    logs.emplace_back(LogLevel::Info, "Check flash voltage");
-    logs.emplace_back(LogLevel::Info, ": 2V");
+    logs.emplace_back(LogLevel::kInfo, "--- Start writing ROM file to ECU flash memory ---");
+    logs.emplace_back(LogLevel::kInfo, "Check max message length");
+    logs.emplace_back(LogLevel::kInfo, ": 0x0200");
+    logs.emplace_back(LogLevel::kInfo, "Check flashblock size");
+    logs.emplace_back(LogLevel::kInfo, ": 0x1000");
+    logs.emplace_back(LogLevel::kInfo, test_write ? "Test write mode on, no actual flash write is performed"
+                                                  : "Test write mode off, perform actual flash write");
+    logs.emplace_back(LogLevel::kError, "Flash mode succesfully set");
+    logs.emplace_back(LogLevel::kInfo, "Flash block addr: 0x00000000 len: 0x00001000");
+    logs.emplace_back(LogLevel::kInfo, "Check flash voltage");
+    logs.emplace_back(LogLevel::kInfo, ": 2V");
     if (!test_write)
     {
-        logs.emplace_back(LogLevel::Info, "Flash page erase addr: 0x00000000 len: 0x00001000");
-        logs.emplace_back(LogLevel::Info, "Erasing flash page...");
-        logs.emplace_back(LogLevel::Info, " erased");
+        logs.emplace_back(LogLevel::kInfo, "Flash page erase addr: 0x00000000 len: 0x00001000");
+        logs.emplace_back(LogLevel::kInfo, "Erasing flash page...");
+        logs.emplace_back(LogLevel::kInfo, " erased");
     }
-    logs.emplace_back(LogLevel::Info, "Start flash write addr: 0x00000000 len: 0x00001000");
+    logs.emplace_back(LogLevel::kInfo, "Start flash write addr: 0x00000000 len: 0x00001000");
     constexpr std::array<std::uint32_t, 8> kBufferAddresses{0x00000000, 0x00000200, 0x00000400, 0x00000600,
                                                             0x00000800, 0x00000A00, 0x00000C00, 0x00000E00};
     constexpr std::array<unsigned, 8> kPercents{0, 12, 25, 37, 50, 62, 75, 87};
     for (std::size_t index = 0; index < kBufferAddresses.size(); ++index)
     {
-        logs.emplace_back(LogLevel::Debug, "Data written to flash buffer");
-        logs.emplace_back(LogLevel::Info, std::format("Write flash buffer: 0x{:08X} ({}% - 512000 B/s, ~ 1 s)",
-                                                      kBufferAddresses[index], kPercents[index]));
+        logs.emplace_back(LogLevel::kDebug, "Data written to flash buffer");
+        logs.emplace_back(LogLevel::kInfo, std::format("Write flash buffer: 0x{:08X} ({}% - 512000 B/s, ~ 1 s)",
+                                                       kBufferAddresses[index], kPercents[index]));
     }
-    logs.emplace_back(LogLevel::Info, "Flash buffer write complete... ");
-    logs.emplace_back(LogLevel::Debug, "Image CRC32: 0xf722ef49");
-    logs.emplace_back(LogLevel::Info, test_write ? "Validate flash addr: 0x0" : "Committ flash addr: 0x0");
-    logs.emplace_back(LogLevel::Info, " len: 0x1000");
-    logs.emplace_back(LogLevel::Info, " crc32: 0xf722ef49");
-    logs.emplace_back(LogLevel::Info, "Flash block ok");
-    logs.emplace_back(LogLevel::Info, "Block 0 reflash complete.");
+    logs.emplace_back(LogLevel::kInfo, "Flash buffer write complete... ");
+    logs.emplace_back(LogLevel::kDebug, "Image CRC32: 0xf722ef49");
+    logs.emplace_back(LogLevel::kInfo, test_write ? "Validate flash addr: 0x0" : "Committ flash addr: 0x0");
+    logs.emplace_back(LogLevel::kInfo, " len: 0x1000");
+    logs.emplace_back(LogLevel::kInfo, " crc32: 0xf722ef49");
+    logs.emplace_back(LogLevel::kInfo, "Flash block ok");
+    logs.emplace_back(LogLevel::kInfo, "Block 0 reflash complete.");
     append_legacy_compare_logs(logs, device, false, true);
     if (test_write)
     {
-        logs.emplace_back(LogLevel::Info, "*** Test write PASS, it's ok to perform actual write! ***");
+        logs.emplace_back(LogLevel::kInfo, "*** Test write PASS, it's ok to perform actual write! ***");
     }
     return logs;
 }
@@ -707,11 +708,11 @@ std::vector<LogRecord> expected_legacy_write_logs(const FlashDevice& device, Fla
 std::vector<LogRecord> expected_legacy_unchanged_write_logs(const FlashDevice& device)
 {
     std::vector<LogRecord> logs;
-    logs.emplace_back(LogLevel::Info, "Checking if Kernel already running...");
-    logs.emplace_back(LogLevel::Info, "Requesting kernel ID");
-    logs.emplace_back(LogLevel::Info, "Kernel ID: KID");
+    logs.emplace_back(LogLevel::kInfo, "Checking if Kernel already running...");
+    logs.emplace_back(LogLevel::kInfo, "Requesting kernel ID");
+    logs.emplace_back(LogLevel::kInfo, "Kernel ID: KID");
     append_legacy_compare_logs(logs, device, false, false);
-    logs.emplace_back(LogLevel::Info,
+    logs.emplace_back(LogLevel::kInfo,
                       "*** Compare results no difference between ROM and ECU data, no flashing needed! ***");
     return logs;
 }
@@ -719,52 +720,52 @@ std::vector<LogRecord> expected_legacy_unchanged_write_logs(const FlashDevice& d
 std::vector<LogRecord> expected_legacy_read_logs(std::uint32_t rom_size)
 {
     std::vector<LogRecord> logs;
-    logs.emplace_back(LogLevel::Info, "Checking if Kernel already running...");
-    logs.emplace_back(LogLevel::Info, "Requesting kernel ID");
-    logs.emplace_back(LogLevel::Info, "Kernel ID: KID");
-    logs.emplace_back(LogLevel::Info, "Start reading ROM, please wait...");
+    logs.emplace_back(LogLevel::kInfo, "Checking if Kernel already running...");
+    logs.emplace_back(LogLevel::kInfo, "Requesting kernel ID");
+    logs.emplace_back(LogLevel::kInfo, "Kernel ID: KID");
+    logs.emplace_back(LogLevel::kInfo, "Start reading ROM, please wait...");
     for (std::uint32_t address = 0; address < rom_size; address += kReadPageSize)
     {
         // The controller-approved correction clamps FakeClock's zero elapsed
         // interval to one millisecond before applying legacy's speed formula.
         logs.emplace_back(
-            LogLevel::Info,
+            LogLevel::kInfo,
             std::format("Kernel read addr: 0x{:08X} length: 0x00000400, 1024000 B/s {:>6} s", address, 1));
     }
-    logs.emplace_back(LogLevel::Info, "ROM read ready");
+    logs.emplace_back(LogLevel::kInfo, "ROM read ready");
     return logs;
 }
 
 std::vector<LogRecord> expected_legacy_upload_read_logs(std::uint32_t rom_size)
 {
     std::vector<LogRecord> logs;
-    logs.emplace_back(LogLevel::Info, "Checking if Kernel already running...");
-    logs.emplace_back(LogLevel::Info, "Requesting kernel ID");
-    logs.emplace_back(LogLevel::Error, "No valid response from ECU");
-    logs.emplace_back(LogLevel::Info, "No response from kernel, continue initializing bootloader...");
-    logs.emplace_back(LogLevel::Info, "Initializing bootloader");
-    logs.emplace_back(LogLevel::Info, "Check if connected to bootloader");
-    logs.emplace_back(LogLevel::Debug, "Connected to bootloader");
-    logs.emplace_back(LogLevel::Debug, "Start address to upload kernel: ffff6004");
-    logs.emplace_back(LogLevel::Info, "Set kernel upload address");
-    logs.emplace_back(LogLevel::Debug, "Kernel load address set");
-    logs.emplace_back(LogLevel::Info, "Uploading kernel, please wait...");
-    logs.emplace_back(LogLevel::Debug, "Sending 1 blocks");
-    logs.emplace_back(LogLevel::Debug, "All kernel blocks sent, checksum: 0xff");
-    logs.emplace_back(LogLevel::Debug, "Verifying kernel checksum, please wait...");
-    logs.emplace_back(LogLevel::Debug, "Checksum ok");
-    logs.emplace_back(LogLevel::Info, "Kernel uploaded, jump to kernel");
-    logs.emplace_back(LogLevel::Error, "No valid response from ECU");
-    logs.emplace_back(LogLevel::Info, "Requesting kernel ID");
-    logs.emplace_back(LogLevel::Info, "Kernel ID: KID");
-    logs.emplace_back(LogLevel::Info, "Start reading ROM, please wait...");
+    logs.emplace_back(LogLevel::kInfo, "Checking if Kernel already running...");
+    logs.emplace_back(LogLevel::kInfo, "Requesting kernel ID");
+    logs.emplace_back(LogLevel::kError, "No valid response from ECU");
+    logs.emplace_back(LogLevel::kInfo, "No response from kernel, continue initializing bootloader...");
+    logs.emplace_back(LogLevel::kInfo, "Initializing bootloader");
+    logs.emplace_back(LogLevel::kInfo, "Check if connected to bootloader");
+    logs.emplace_back(LogLevel::kDebug, "Connected to bootloader");
+    logs.emplace_back(LogLevel::kDebug, "Start address to upload kernel: ffff6004");
+    logs.emplace_back(LogLevel::kInfo, "Set kernel upload address");
+    logs.emplace_back(LogLevel::kDebug, "Kernel load address set");
+    logs.emplace_back(LogLevel::kInfo, "Uploading kernel, please wait...");
+    logs.emplace_back(LogLevel::kDebug, "Sending 1 blocks");
+    logs.emplace_back(LogLevel::kDebug, "All kernel blocks sent, checksum: 0xff");
+    logs.emplace_back(LogLevel::kDebug, "Verifying kernel checksum, please wait...");
+    logs.emplace_back(LogLevel::kDebug, "Checksum ok");
+    logs.emplace_back(LogLevel::kInfo, "Kernel uploaded, jump to kernel");
+    logs.emplace_back(LogLevel::kError, "No valid response from ECU");
+    logs.emplace_back(LogLevel::kInfo, "Requesting kernel ID");
+    logs.emplace_back(LogLevel::kInfo, "Kernel ID: KID");
+    logs.emplace_back(LogLevel::kInfo, "Start reading ROM, please wait...");
     for (std::uint32_t address = 0; address < rom_size; address += kReadPageSize)
     {
         logs.emplace_back(
-            LogLevel::Info,
+            LogLevel::kInfo,
             std::format("Kernel read addr: 0x{:08X} length: 0x00000400, 1024000 B/s {:>6} s", address, 1));
     }
-    logs.emplace_back(LogLevel::Info, "ROM read ready");
+    logs.emplace_back(LogLevel::kInfo, "ROM read ready");
     return logs;
 }
 
@@ -815,7 +816,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor, BoundAttemptResetsBeforeMixedConfigurati
     const auto result = attempt->run(clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
+    EXPECT_EQ(result.error().kind, ErrorKind::kCancelled);
     EXPECT_THAT(observed->lifecycle, ElementsAre("reset_connection", "configure", "open", "close"));
 }
 
@@ -835,7 +836,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor, StartupCancellationBeforeResetTouchesNoL
     const auto result = attempt->run(clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
+    EXPECT_EQ(result.error().kind, ErrorKind::kCancelled);
     EXPECT_TRUE(observed->lifecycle.empty());
 }
 
@@ -855,7 +856,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor, StartupCancellationAfterResetSkipsConfig
     const auto result = attempt->run(clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
+    EXPECT_EQ(result.error().kind, ErrorKind::kCancelled);
     EXPECT_THAT(observed->lifecycle, ElementsAre("reset_connection"));
 }
 
@@ -865,7 +866,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor, StartupResetFailurePropagatesWithoutConf
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
     auto transport = std::make_unique<TimeoutRecordingMixedCanTransport>();
     TimeoutRecordingMixedCanTransport *observed = transport.get();
-    observed->reset_result = fail(ErrorKind::Internal, "mixed reset marker");
+    observed->reset_result = fail(ErrorKind::kInternal, "mixed reset marker");
     FakeCancellationToken cancellation;
     FakeClock clock;
     RecordingEventSink events;
@@ -875,7 +876,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor, StartupResetFailurePropagatesWithoutConf
     const auto result = attempt->run(clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Internal);
+    EXPECT_EQ(result.error().kind, ErrorKind::kInternal);
     EXPECT_EQ(result.error().detail, "mixed reset marker");
     EXPECT_THAT(observed->lifecycle, ElementsAre("reset_connection"));
 }
@@ -901,7 +902,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor, AlreadyRunningKernelReadsEveryPageAndRet
     // revision-59f4e442 read_mem() appends the BEEF page payload untouched.
     EXPECT_THAT(bytes::ByteView(*result->read_bytes).first(4), ElementsAre(0x00, 0x00, 0x00, 0x00));
     EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_EQ(transport.modeChanges(), (std::vector<ScriptedMixedCanMode>{ScriptedMixedCanMode::Iso15765Kernel}));
+    EXPECT_EQ(transport.modeChanges(), (std::vector<ScriptedMixedCanMode>{ScriptedMixedCanMode::kIso15765Kernel}));
     EXPECT_EQ(events.logs, expected_legacy_read_logs(test_case.rom_size));
     EXPECT_FALSE(events.progress_calls.empty());
     ASSERT_FALSE(events.phase_progress_calls.empty());
@@ -941,9 +942,9 @@ TEST(SubaruDensoSh705xDensoCanExecutor, WriteAndTestWriteUseCallerRawImageBytesA
     const Case& test_case = kCases.front();
     const FlashDevice *device = find_flash_device(test_case.mcu);
     ASSERT_NE(device, nullptr);
-    for (const FlashOperation operation : {FlashOperation::Write, FlashOperation::TestWrite})
+    for (const FlashOperation operation : {FlashOperation::kWrite, FlashOperation::kTestWrite})
     {
-        SCOPED_TRACE(operation == FlashOperation::Write ? "Write" : "TestWrite");
+        SCOPED_TRACE(operation == FlashOperation::kWrite ? "Write" : "TestWrite");
         auto plan = write_plan(test_case, operation, caller_raw_densocan_image(test_case));
         ASSERT_TRUE(plan.has_value()) << plan.error().detail;
         SubaruDensoSh705xDensoCanExecutor executor;
@@ -951,8 +952,8 @@ TEST(SubaruDensoSh705xDensoCanExecutor, WriteAndTestWriteUseCallerRawImageBytesA
         configure_and_open(executor, *plan, transport);
         script_kernel_alive(transport);
         script_raw_image_compare(transport, *device, false);
-        script_flash_init(transport, operation == FlashOperation::TestWrite);
-        script_raw_first_flash_block(transport, operation == FlashOperation::TestWrite);
+        script_flash_init(transport, operation == FlashOperation::kTestWrite);
+        script_raw_first_flash_block(transport, operation == FlashOperation::kTestWrite);
         script_raw_image_compare(transport, *device, true);
         FakeCancellationToken cancellation;
         FakeClock clock;
@@ -991,9 +992,9 @@ TEST(SubaruDensoSh705xDensoCanExecutor, ProbeTimeoutTransitionsThroughRawUploadA
     ASSERT_TRUE(result.has_value()) << result.error().detail;
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_EQ(transport.clear_receive_buffer_call_count, 1);
-    EXPECT_EQ(transport.modeChanges(), (std::vector<ScriptedMixedCanMode>{ScriptedMixedCanMode::Iso15765Kernel,
-                                                                          ScriptedMixedCanMode::RawBootloader,
-                                                                          ScriptedMixedCanMode::Iso15765Kernel}));
+    EXPECT_EQ(transport.modeChanges(), (std::vector<ScriptedMixedCanMode>{ScriptedMixedCanMode::kIso15765Kernel,
+                                                                          ScriptedMixedCanMode::kRawBootloader,
+                                                                          ScriptedMixedCanMode::kIso15765Kernel}));
     EXPECT_EQ(events.logs, expected_legacy_upload_read_logs(test_case.rom_size));
 }
 
@@ -1036,7 +1037,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor, UploadPaddingAndChecksumUseHandDerivedSe
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    EXPECT_EQ(result.error().kind, ErrorKind::kBadResponse);
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
@@ -1161,8 +1162,8 @@ TEST(SubaruDensoSh705xDensoCanExecutor, InitialKernelProbeTreatsLegacyNontermina
     };
     const std::array<ProbeCase, 7> cases{{
         {"no-frame", std::nullopt, std::nullopt},
-        {"timeout", std::nullopt, ErrorKind::Timeout},
-        {"adapter-internal", std::nullopt, ErrorKind::Internal},
+        {"timeout", std::nullopt, ErrorKind::kTimeout},
+        {"adapter-internal", std::nullopt, ErrorKind::kInternal},
         {"short", bytes::Bytes{0x00, 0x00, 0x07}, std::nullopt},
         {"malformed-length", bytes::Bytes{0x00, 0x00, 0x07, 0xE8, 0xBE, 0xEF, 0x00, 0x02, 0x41}, std::nullopt},
         {"wrong-id", bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0xBE, 0xEF, 0x00, 0x01, 0x41}, std::nullopt},
@@ -1202,16 +1203,16 @@ TEST(SubaruDensoSh705xDensoCanExecutor, InitialKernelProbeTreatsLegacyNontermina
         auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
         ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
-        EXPECT_EQ(transport.modeChanges(), (std::vector<ScriptedMixedCanMode>{ScriptedMixedCanMode::Iso15765Kernel,
-                                                                              ScriptedMixedCanMode::RawBootloader}));
+        EXPECT_EQ(result.error().kind, ErrorKind::kCancelled);
+        EXPECT_EQ(transport.modeChanges(), (std::vector<ScriptedMixedCanMode>{ScriptedMixedCanMode::kIso15765Kernel,
+                                                                              ScriptedMixedCanMode::kRawBootloader}));
         EXPECT_TRUE(transport.scriptConsumed());
     }
 }
 
 TEST(SubaruDensoSh705xDensoCanExecutor, InitialKernelProbeKeepsCancellationAndDisconnectTerminal)
 {
-    for (const ErrorKind terminal : {ErrorKind::Cancelled, ErrorKind::Disconnected})
+    for (const ErrorKind terminal : {ErrorKind::kCancelled, ErrorKind::kDisconnected})
     {
         SCOPED_TRACE(static_cast<int>(terminal));
         auto plan = read_plan(kCases.front());
@@ -1229,7 +1230,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor, InitialKernelProbeKeepsCancellationAndDi
 
         ASSERT_FALSE(result.has_value());
         EXPECT_EQ(result.error().kind, terminal);
-        EXPECT_EQ(transport.modeChanges(), (std::vector<ScriptedMixedCanMode>{ScriptedMixedCanMode::Iso15765Kernel}));
+        EXPECT_EQ(transport.modeChanges(), (std::vector<ScriptedMixedCanMode>{ScriptedMixedCanMode::kIso15765Kernel}));
         EXPECT_TRUE(transport.scriptConsumed());
     }
 }
@@ -1253,7 +1254,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor, PostUploadKernelProbeRemainsStrict)
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    EXPECT_EQ(result.error().kind, ErrorKind::kBadResponse);
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
@@ -1277,7 +1278,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor, RejectsBEEFResponseWhoseDeclaredLengthDo
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    EXPECT_EQ(result.error().kind, ErrorKind::kBadResponse);
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
@@ -1298,8 +1299,8 @@ TEST(SubaruDensoSh705xDensoCanExecutor, RawTransitionAndRawResponseFailuresAreFa
         transport.failNextRawTransition();
         auto result = executor.execute(*plan, transport, clock, cancellation, events);
         ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, ErrorKind::Internal);
-        EXPECT_EQ(transport.modeChanges(), (std::vector<ScriptedMixedCanMode>{ScriptedMixedCanMode::Iso15765Kernel}));
+        EXPECT_EQ(result.error().kind, ErrorKind::kInternal);
+        EXPECT_EQ(transport.modeChanges(), (std::vector<ScriptedMixedCanMode>{ScriptedMixedCanMode::kIso15765Kernel}));
         EXPECT_TRUE(transport.scriptConsumed());
     }
 
@@ -1317,7 +1318,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor, RawTransitionAndRawResponseFailuresAreFa
         transport.queueRawRead(raw_response({0x7A, 0x96, 0, 0, 0, 0, 0, 0}, 0x22));
         auto result = executor.execute(*plan, transport, clock, cancellation, events);
         ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+        EXPECT_EQ(result.error().kind, ErrorKind::kBadResponse);
         EXPECT_TRUE(transport.scriptConsumed());
     }
 }
@@ -1341,10 +1342,10 @@ TEST(SubaruDensoSh705xDensoCanExecutor, IsoTransitionFailureIsFailClosedAfterRaw
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Internal);
+    EXPECT_EQ(result.error().kind, ErrorKind::kInternal);
     EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_EQ(transport.modeChanges(), (std::vector<ScriptedMixedCanMode>{ScriptedMixedCanMode::Iso15765Kernel,
-                                                                          ScriptedMixedCanMode::RawBootloader}));
+    EXPECT_EQ(transport.modeChanges(), (std::vector<ScriptedMixedCanMode>{ScriptedMixedCanMode::kIso15765Kernel,
+                                                                          ScriptedMixedCanMode::kRawBootloader}));
 }
 
 TEST(SubaruDensoSh705xDensoCanExecutor, TimeoutAndDisconnectPropagateWithoutAnUnsafeFallback)
@@ -1367,7 +1368,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor, TimeoutAndDisconnectPropagateWithoutAnUn
         auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
         ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, ErrorKind::Timeout);
+        EXPECT_EQ(result.error().kind, ErrorKind::kTimeout);
         EXPECT_TRUE(transport.scriptConsumed());
     }
 
@@ -1378,14 +1379,14 @@ TEST(SubaruDensoSh705xDensoCanExecutor, TimeoutAndDisconnectPropagateWithoutAnUn
         ScriptedMixedCanFlashTransport transport;
         configure_and_open(executor, *plan, transport);
         transport.expectIsoWrite(kernel_id_request());
-        transport.queueIsoError(ErrorKind::Disconnected, "adapter dropped");
+        transport.queueIsoError(ErrorKind::kDisconnected, "adapter dropped");
 
         auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
         ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, ErrorKind::Disconnected);
+        EXPECT_EQ(result.error().kind, ErrorKind::kDisconnected);
         EXPECT_TRUE(transport.scriptConsumed());
-        EXPECT_EQ(transport.modeChanges(), (std::vector<ScriptedMixedCanMode>{ScriptedMixedCanMode::Iso15765Kernel}));
+        EXPECT_EQ(transport.modeChanges(), (std::vector<ScriptedMixedCanMode>{ScriptedMixedCanMode::kIso15765Kernel}));
     }
 }
 
@@ -1410,7 +1411,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor, MalformedJumpAcknowledgementIsToleratedB
 
     ASSERT_TRUE(result.has_value()) << result.error().detail;
     EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_EQ(exact_log_count(events, LogLevel::Error, "Wrong response from ECU"), 1);
+    EXPECT_EQ(exact_log_count(events, LogLevel::kError, "Wrong response from ECU"), 1);
 }
 
 TEST(SubaruDensoSh705xDensoCanExecutor, ShortReadAndCrcPayloadsAreRejectedBeforeDecoding)
@@ -1433,7 +1434,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor, ShortReadAndCrcPayloadsAreRejectedBefore
         auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
         ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+        EXPECT_EQ(result.error().kind, ErrorKind::kBadResponse);
         EXPECT_TRUE(transport.scriptConsumed());
     }
 
@@ -1453,7 +1454,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor, ShortReadAndCrcPayloadsAreRejectedBefore
         auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
         ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+        EXPECT_EQ(result.error().kind, ErrorKind::kBadResponse);
         EXPECT_TRUE(transport.scriptConsumed());
     }
 }
@@ -1481,7 +1482,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor, ShortInitializationAndVoltagePayloadsAre
         auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
         ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+        EXPECT_EQ(result.error().kind, ErrorKind::kBadResponse);
         EXPECT_TRUE(transport.scriptConsumed());
     }
 
@@ -1500,7 +1501,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor, ShortInitializationAndVoltagePayloadsAre
         auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
         ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+        EXPECT_EQ(result.error().kind, ErrorKind::kBadResponse);
         EXPECT_TRUE(transport.scriptConsumed());
     }
 }
@@ -1530,7 +1531,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor, ShortRawAndFlashAcknowledgementsAreRejec
         auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
         ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+        EXPECT_EQ(result.error().kind, ErrorKind::kBadResponse);
         EXPECT_TRUE(transport.scriptConsumed());
     }
 
@@ -1556,7 +1557,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor, ShortRawAndFlashAcknowledgementsAreRejec
         auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
         ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+        EXPECT_EQ(result.error().kind, ErrorKind::kBadResponse);
         EXPECT_TRUE(transport.scriptConsumed());
     }
 }
@@ -1588,10 +1589,10 @@ TEST(SubaruDensoSh705xDensoCanExecutor, PostEraseProtocolFailureEmitsTheLegacyRe
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
-    EXPECT_EQ(exact_log_count(events, LogLevel::Error, kReflashRecoveryWarning), 1);
+    EXPECT_EQ(result.error().kind, ErrorKind::kBadResponse);
+    EXPECT_EQ(exact_log_count(events, LogLevel::kError, kReflashRecoveryWarning), 1);
     ASSERT_FALSE(events.logs.empty());
-    EXPECT_EQ(events.logs.back().first, LogLevel::Error);
+    EXPECT_EQ(events.logs.back().first, LogLevel::kError);
     EXPECT_EQ(events.logs.back().second, kReflashRecoveryWarning);
     EXPECT_TRUE(transport.scriptConsumed());
 }
@@ -1623,10 +1624,10 @@ TEST(SubaruDensoSh705xDensoCanExecutor, CancellationAfterEraseEmitsTheLegacyReco
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
-    EXPECT_EQ(exact_log_count(events, LogLevel::Error, kReflashRecoveryWarning), 1);
+    EXPECT_EQ(result.error().kind, ErrorKind::kCancelled);
+    EXPECT_EQ(exact_log_count(events, LogLevel::kError, kReflashRecoveryWarning), 1);
     ASSERT_FALSE(events.logs.empty());
-    EXPECT_EQ(events.logs.back().first, LogLevel::Error);
+    EXPECT_EQ(events.logs.back().first, LogLevel::kError);
     EXPECT_EQ(events.logs.back().second, kReflashRecoveryWarning);
     EXPECT_TRUE(transport.scriptConsumed());
 }
@@ -1653,8 +1654,8 @@ TEST(SubaruDensoSh705xDensoCanExecutor, FailureBeforeEraseDoesNotEmitTheRecovery
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
-    EXPECT_EQ(exact_log_count(events, LogLevel::Error, kReflashRecoveryWarning), 0);
+    EXPECT_EQ(result.error().kind, ErrorKind::kBadResponse);
+    EXPECT_EQ(exact_log_count(events, LogLevel::kError, kReflashRecoveryWarning), 0);
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
@@ -1678,7 +1679,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor, CancellationStopsWakeAndUploadAtTheirLoo
         RecordingEventSink events;
         auto result = executor.execute(*plan, transport, clock, cancellation, events);
         ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
+        EXPECT_EQ(result.error().kind, ErrorKind::kCancelled);
     }
 
     {
@@ -1706,7 +1707,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor, CancellationStopsWakeAndUploadAtTheirLoo
         RecordingEventSink events;
         auto result = executor.execute(*plan, transport, clock, cancellation, events);
         ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
+        EXPECT_EQ(result.error().kind, ErrorKind::kCancelled);
         EXPECT_TRUE(transport.scriptConsumed());
     }
 }
@@ -1728,7 +1729,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor, ReadAndWriteCancellationStopBeforeASecon
         CancellingEventSink events(cancellation);
         auto result = executor.execute(*plan, transport, clock, cancellation, events);
         ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
+        EXPECT_EQ(result.error().kind, ErrorKind::kCancelled);
         EXPECT_TRUE(transport.scriptConsumed());
     }
 
@@ -1757,7 +1758,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor, ReadAndWriteCancellationStopBeforeASecon
         auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
         ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
+        EXPECT_EQ(result.error().kind, ErrorKind::kCancelled);
         EXPECT_TRUE(transport.scriptConsumed());
     }
 }
@@ -1774,8 +1775,8 @@ void expect_legacy_write_logs(FlashOperation operation)
     configure_and_open(executor, *plan, transport);
     script_kernel_alive(transport);
     script_compare(transport, *device, true);
-    script_flash_init(transport, operation == FlashOperation::TestWrite);
-    script_first_flash_block(transport, operation == FlashOperation::TestWrite);
+    script_flash_init(transport, operation == FlashOperation::kTestWrite);
+    script_first_flash_block(transport, operation == FlashOperation::kTestWrite);
     script_compare(transport, *device, false);
     FakeCancellationToken cancellation;
     FakeClock clock;
@@ -1790,12 +1791,12 @@ void expect_legacy_write_logs(FlashOperation operation)
 
 TEST(SubaruDensoSh705xDensoCanExecutor, TestWriteOperatorLogsMatchTheCompleteLegacyRecord)
 {
-    expect_legacy_write_logs(FlashOperation::TestWrite);
+    expect_legacy_write_logs(FlashOperation::kTestWrite);
 }
 
 TEST(SubaruDensoSh705xDensoCanExecutor, WriteOperatorLogsMatchTheCompleteLegacyRecord)
 {
-    expect_legacy_write_logs(FlashOperation::Write);
+    expect_legacy_write_logs(FlashOperation::kWrite);
 }
 
 TEST(SubaruDensoSh705xDensoCanExecutor,
@@ -1805,7 +1806,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor,
     const FlashDevice *device = find_flash_device(test_case.mcu);
     ASSERT_NE(device, nullptr);
     ASSERT_EQ(device->numblocks, 16U);
-    for (const FlashOperation operation : {FlashOperation::Write, FlashOperation::TestWrite})
+    for (const FlashOperation operation : {FlashOperation::kWrite, FlashOperation::kTestWrite})
     {
         auto plan = write_plan(test_case, operation);
         ASSERT_TRUE(plan.has_value()) << plan.error().detail;
@@ -1826,7 +1827,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor,
         // programming traffic was sent.
         EXPECT_TRUE(transport.scriptConsumed());
         EXPECT_EQ(events.logs, expected_legacy_unchanged_write_logs(*device));
-        expect_unchanged_write_phase_trace(events, operation == FlashOperation::TestWrite ? "TestWrite" : "Write");
+        expect_unchanged_write_phase_trace(events, operation == FlashOperation::kTestWrite ? "TestWrite" : "Write");
     }
 }
 
@@ -1835,7 +1836,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor, WriteAndTestWriteUseCrcInitAndDistinctEr
     const Case& test_case = kCases.front();
     const FlashDevice *device = find_flash_device(test_case.mcu);
     ASSERT_NE(device, nullptr);
-    for (const FlashOperation operation : {FlashOperation::Write, FlashOperation::TestWrite})
+    for (const FlashOperation operation : {FlashOperation::kWrite, FlashOperation::kTestWrite})
     {
         auto plan = write_plan(test_case, operation);
         ASSERT_TRUE(plan.has_value()) << plan.error().detail;
@@ -1844,8 +1845,8 @@ TEST(SubaruDensoSh705xDensoCanExecutor, WriteAndTestWriteUseCrcInitAndDistinctEr
         configure_and_open(executor, *plan, transport);
         script_kernel_alive(transport);
         script_compare(transport, *device, true);
-        script_flash_init(transport, operation == FlashOperation::TestWrite);
-        script_first_flash_block(transport, operation == FlashOperation::TestWrite);
+        script_flash_init(transport, operation == FlashOperation::kTestWrite);
+        script_first_flash_block(transport, operation == FlashOperation::kTestWrite);
         script_compare(transport, *device, false);
         // The 59f4e442 oracle returns after the final comparison. In
         // particular, real-write has no trailing FLASH_DISABLE (0x21)
@@ -1859,8 +1860,8 @@ TEST(SubaruDensoSh705xDensoCanExecutor, WriteAndTestWriteUseCrcInitAndDistinctEr
 
         ASSERT_TRUE(result.has_value()) << result.error().detail;
         EXPECT_TRUE(transport.scriptConsumed());
-        EXPECT_EQ(exact_log_count(events, LogLevel::Error, kReflashRecoveryWarning), 0);
-        expect_phase_trace(events, operation == FlashOperation::TestWrite ? "TestWrite" : "Write");
+        EXPECT_EQ(exact_log_count(events, LogLevel::kError, kReflashRecoveryWarning), 0);
+        expect_phase_trace(events, operation == FlashOperation::kTestWrite ? "TestWrite" : "Write");
     }
 }
 
@@ -1873,7 +1874,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor, BoundedAttemptClosesOnceAndPreservesExec
     auto transport = std::make_unique<ScriptedMixedCanFlashTransport>();
     ScriptedMixedCanFlashTransport *raw_transport = transport.get();
     script_live_read(*raw_transport, test_case);
-    raw_transport->close_result = fail(ErrorKind::Internal, "close failed");
+    raw_transport->close_result = fail(ErrorKind::kInternal, "close failed");
     auto attempt = bind_flash_attempt(std::move(*plan), std::move(executor), std::move(transport));
     FakeCancellationToken cancellation;
     FakeClock clock;
@@ -1882,7 +1883,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor, BoundedAttemptClosesOnceAndPreservesExec
     auto result = attempt->run(clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Internal);
+    EXPECT_EQ(result.error().kind, ErrorKind::kInternal);
     EXPECT_EQ(raw_transport->closeCallCount(), 1);
 
     auto failing_plan = read_plan(test_case);
@@ -1893,16 +1894,16 @@ TEST(SubaruDensoSh705xDensoCanExecutor, BoundedAttemptClosesOnceAndPreservesExec
     raw_failing_transport->expectIsoWrite(kernel_id_request());
     raw_failing_transport->queueNoIsoFrame();
     raw_failing_transport->failNextRawTransition();
-    raw_failing_transport->close_result = fail(ErrorKind::Timeout, "close timeout");
+    raw_failing_transport->close_result = fail(ErrorKind::kTimeout, "close timeout");
     auto failing_attempt =
         bind_flash_attempt(std::move(*failing_plan), std::move(failing_executor), std::move(failing_transport));
 
     auto execution_error = failing_attempt->run(clock, cancellation, events);
 
     ASSERT_FALSE(execution_error.has_value());
-    EXPECT_EQ(execution_error.error().kind, ErrorKind::Internal);
+    EXPECT_EQ(execution_error.error().kind, ErrorKind::kInternal);
     EXPECT_EQ(raw_failing_transport->closeCallCount(), 1);
-    EXPECT_TRUE(has_log(events, LogLevel::Warning, "close failed after execution error"));
+    EXPECT_TRUE(has_log(events, LogLevel::kWarning, "close failed after execution error"));
 }
 
 } // namespace

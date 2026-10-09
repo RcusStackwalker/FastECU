@@ -14,7 +14,7 @@ class StartupEventSink : public fastecu::IEventSink
   public:
     void log(fastecu::LogLevel level, std::string_view message) override
     {
-        if (level == fastecu::LogLevel::Warning || level == fastecu::LogLevel::Error)
+        if (level == fastecu::LogLevel::kWarning || level == fastecu::LogLevel::kError)
         {
             warnings_.append(QString::fromUtf8(message.data(), static_cast<qsizetype>(message.size())));
         }

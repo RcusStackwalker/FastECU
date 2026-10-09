@@ -11,16 +11,16 @@ namespace fastecu::flash
 Error report_exchange_failure(IEventSink& events, const Error& failure, std::string_view rejection_prefix,
                               std::string_view operation)
 {
-    if (failure.kind == ErrorKind::Cancelled)
+    if (failure.kind == ErrorKind::kCancelled)
     {
-        events.log(LogLevel::Warning, std::format("Cancelled by operator during {} -- this is not an ECU "
-                                                  "rejection. The request may already have reached the ECU "
-                                                  "and still be running there; check the unit before "
-                                                  "power-cycling it.",
-                                                  operation));
+        events.log(LogLevel::kWarning, std::format("Cancelled by operator during {} -- this is not an ECU "
+                                                   "rejection. The request may already have reached the ECU "
+                                                   "and still be running there; check the unit before "
+                                                   "power-cycling it.",
+                                                   operation));
         return failure;
     }
-    events.log(LogLevel::Error, std::format("{}{}", rejection_prefix, failure.detail));
+    events.log(LogLevel::kError, std::format("{}{}", rejection_prefix, failure.detail));
     return failure;
 }
 
@@ -42,16 +42,16 @@ void non_fatal_query(const UdsExchangeContext& ctx, bytes::ByteView pdu,
     Result<bytes::Bytes> reply = ctx.client.request(pdu, ctx.policy, ctx.cancellation);
     if (!reply.has_value())
     {
-        ctx.events.log(LogLevel::Error, std::format("{}{}", rejection_prefix, reply.error().detail));
+        ctx.events.log(LogLevel::kError, std::format("{}{}", rejection_prefix, reply.error().detail));
         return;
     }
     const bytes::ByteView payload = uds::payload(*reply);
     if (expected_subfunction.has_value() && (payload.empty() || payload[0] != *expected_subfunction))
     {
-        ctx.events.log(LogLevel::Error, std::format("{}unexpected subfunction", rejection_prefix));
+        ctx.events.log(LogLevel::kError, std::format("{}unexpected subfunction", rejection_prefix));
         return;
     }
-    ctx.events.log(LogLevel::Info, std::format("{}: {}", label, bytes::toHex(payload)));
+    ctx.events.log(LogLevel::kInfo, std::format("{}: {}", label, bytes::toHex(payload)));
 }
 
 Result<bytes::Bytes> fatal_query(const UdsExchangeContext& ctx, bytes::ByteView pdu, bytes::ByteView expected_prefix,
@@ -67,8 +67,8 @@ Result<bytes::Bytes> fatal_query(const UdsExchangeContext& ctx, bytes::ByteView 
     if (const std::size_t required_size = min_payload_size.value_or(expected_prefix.size());
         payload.size() < required_size || !std::equal(expected_prefix.begin(), expected_prefix.end(), payload.begin()))
     {
-        ctx.events.log(LogLevel::Error, std::format("{}unexpected {} response", rejection_prefix, subject));
-        return fail(ErrorKind::BadResponse, std::format("{} rejected", subject));
+        ctx.events.log(LogLevel::kError, std::format("{}unexpected {} response", rejection_prefix, subject));
+        return fail(ErrorKind::kBadResponse, std::format("{} rejected", subject));
     }
     return reply;
 }

@@ -63,7 +63,7 @@ class FakeBenchSession : public IBenchSession
                                         .elapsed_ms = next_reply < elapsed_ms.size() ? elapsed_ms[next_reply] : 1};
         if (next_reply >= replies.size())
         {
-            return fail(ErrorKind::Internal, "FakeBenchSession ran out of scripted replies");
+            return fail(ErrorKind::kInternal, "FakeBenchSession ran out of scripted replies");
         }
         Result<bytes::Bytes> result = replies[next_reply];
         if (result.has_value())

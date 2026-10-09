@@ -260,7 +260,7 @@ Result<std::optional<bytes::Bytes>> can_raw_exchange(ICanFlashTransport& transpo
 {
     if (cancellation.cancelled())
     {
-        return fail(ErrorKind::Cancelled, "cancelled before write");
+        return fail(ErrorKind::kCancelled, "cancelled before write");
     }
     if (Status written = transport.write(request, cancellation); !written.has_value())
     {
@@ -268,7 +268,7 @@ Result<std::optional<bytes::Bytes>> can_raw_exchange(ICanFlashTransport& transpo
     }
     if (cancellation.cancelled())
     {
-        return fail(ErrorKind::Cancelled, "cancelled after write");
+        return fail(ErrorKind::kCancelled, "cancelled after write");
     }
     if (delay_ms > 0)
     {
@@ -278,7 +278,7 @@ Result<std::optional<bytes::Bytes>> can_raw_exchange(ICanFlashTransport& transpo
         }
         if (cancellation.cancelled())
         {
-            return fail(ErrorKind::Cancelled, "cancelled after delay");
+            return fail(ErrorKind::kCancelled, "cancelled after delay");
         }
     }
     auto received = transport.read(timeout, cancellation);
@@ -288,12 +288,12 @@ Result<std::optional<bytes::Bytes>> can_raw_exchange(ICanFlashTransport& transpo
     }
     if (cancellation.cancelled())
     {
-        return fail(ErrorKind::Cancelled, "cancelled after read");
+        return fail(ErrorKind::kCancelled, "cancelled after read");
     }
     return std::move(*received);
 }
 
-// Gated variant: an absent response maps to ErrorKind::Timeout. Used only at
+// Gated variant: an absent response maps to ErrorKind::kTimeout. Used only at
 // connect_bootloader()'s 3 hard-gating steps (seed request, seed-key send,
 // session set) and upload_kernel()'s SID34/0x37/0x31 acks -- exactly the
 // sites where legacy's own `if (received.length() > N) {...} else { return
@@ -310,7 +310,7 @@ Result<bytes::Bytes> can_exchange_gated(ICanFlashTransport& transport, IClock& c
     }
     if (!raw->has_value())
     {
-        return fail(ErrorKind::Timeout, "no response from ECU");
+        return fail(ErrorKind::kTimeout, "no response from ECU");
     }
     return std::move(**raw);
 }
@@ -331,7 +331,7 @@ Result<std::optional<bytes::Bytes>> request_kernel_id(ICanFlashTransport& transp
 
 Result<Iso15765Config> DensoSh705xEepromCanExecutor::transport_setup(const FlashPlan& plan) const
 {
-    if (Status match = check_family(plan, FlashFamily::DensoSh705xEepromCan); !match.has_value())
+    if (Status match = check_family(plan, FlashFamily::kDensoSh705xEepromCan); !match.has_value())
     {
         return std::unexpected(match.error());
     }
@@ -345,13 +345,13 @@ Result<FlashExecutionResult> DensoSh705xEepromCanExecutor::execute(const FlashPl
                                                                    const ICancellationToken& cancellation,
                                                                    IEventSink& events)
 {
-    if (Status match = check_family(plan, FlashFamily::DensoSh705xEepromCan); !match.has_value())
+    if (Status match = check_family(plan, FlashFamily::kDensoSh705xEepromCan); !match.has_value())
     {
         return std::unexpected(match.error());
     }
     if (cancellation.cancelled())
     {
-        return fail(ErrorKind::Cancelled, "cancelled before setup");
+        return fail(ErrorKind::kCancelled, "cancelled before setup");
     }
 
     const auto& can_plan = std::get<DensoSh705xEepromCanPlan>(plan.family_plan());
@@ -404,7 +404,7 @@ Result<FlashExecutionResult> DensoSh705xEepromCanExecutor::execute(const FlashPl
 //      executor could actually perform the branch's prerequisite step: a
 //      temporary K-Line-shaped SSM exchange (read_ram_location(), addHeader-
 //      framed, no CAN-ID prefix) multiplexed over the SAME physical adapter
-//      the plan declares as TransportKind::CanIso15765. Nothing in the
+//      the plan declares as TransportKind::kCanIso15765. Nothing in the
 //      portable transport seam (ICanFlashTransport/Iso15765Config) exposes a
 //      "become K-Line for a moment" capability; inventing one is a
 //      transport-architecture change well beyond this task's scope (build
@@ -448,12 +448,12 @@ Status DensoSh705xEepromCanExecutor::connect_bootloader(ICanFlashTransport& tran
 {
     if (cancellation.cancelled())
     {
-        return fail(ErrorKind::Cancelled, "cancelled before connect");
+        return fail(ErrorKind::kCancelled, "cancelled before connect");
     }
 
     const std::uint32_t request_id = can_plan.request_id;
 
-    events.log(LogLevel::Info, "Checking if kernel is already running...");
+    events.log(LogLevel::kInfo, "Checking if kernel is already running...");
     Result<std::optional<bytes::Bytes>> probe = request_kernel_id(transport, clock, cancellation, request_id);
     if (!probe.has_value())
     {
@@ -464,20 +464,20 @@ Status DensoSh705xEepromCanExecutor::connect_bootloader(ICanFlashTransport& tran
         // lines 174-187: a well-formed alive response short-circuits the
         // rest of connect_bootloader() -- upload_kernel() is skipped too.
         kernel_alive = true;
-        events.log(LogLevel::Info, "Kernel already running");
+        events.log(LogLevel::kInfo, "Kernel already running");
         return {};
     }
     // lines 174-191: BOTH "no frame at all" and "frame present but markers
     // wrong" fall through to the full init sequence below -- neither is a
     // hard failure at this point (same shape as the K-Line sibling's own
     // initial probe).
-    events.log(LogLevel::Warning, "No response from kernel, initialising ECU...");
+    events.log(LogLevel::kWarning, "No response from kernel, initialising ECU...");
 
     // NOT IMPLEMENTED: the legacy "_ecutek_racerom_alt" branch (lines
     // 195-234) -- see the OPEN QUESTION resolution comment above this
     // function.
 
-    events.log(LogLevel::Info, "Initializing connection...");
+    events.log(LogLevel::kInfo, "Initializing connection...");
     if (Result<std::optional<bytes::Bytes>> init_resp = can_raw_exchange(
             transport, clock, cancellation, init_connection_request(request_id), kHandshakeDelayMs, kHandshakeTimeout);
         !init_resp.has_value())
@@ -490,7 +490,7 @@ Status DensoSh705xEepromCanExecutor::connect_bootloader(ICanFlashTransport& tran
     // closing: only a genuine transport-level failure (handled above)
     // propagates.
 
-    events.log(LogLevel::Info, "Requesting ECU ID");
+    events.log(LogLevel::kInfo, "Requesting ECU ID");
     if (Result<std::optional<bytes::Bytes>> ecuid_resp = can_raw_exchange(
             transport, clock, cancellation, ecu_id_request(request_id), kHandshakeDelayMs, kHandshakeTimeout);
         !ecuid_resp.has_value())
@@ -498,7 +498,7 @@ Status DensoSh705xEepromCanExecutor::connect_bootloader(ICanFlashTransport& tran
         return std::unexpected(ecuid_resp.error());
     }
 
-    events.log(LogLevel::Info, "Requesting VIN");
+    events.log(LogLevel::kInfo, "Requesting VIN");
     if (Result<std::optional<bytes::Bytes>> vin_resp = can_raw_exchange(
             transport, clock, cancellation, vin_request(request_id), kHandshakeDelayMs, kHandshakeTimeout);
         !vin_resp.has_value())
@@ -506,7 +506,7 @@ Status DensoSh705xEepromCanExecutor::connect_bootloader(ICanFlashTransport& tran
         return std::unexpected(vin_resp.error());
     }
 
-    events.log(LogLevel::Info, "Requesting CAL ID");
+    events.log(LogLevel::kInfo, "Requesting CAL ID");
     if (Result<std::optional<bytes::Bytes>> cal_resp = can_raw_exchange(
             transport, clock, cancellation, cal_id_request(request_id), kHandshakeDelayMs, kHandshakeTimeout);
         !cal_resp.has_value())
@@ -514,7 +514,7 @@ Status DensoSh705xEepromCanExecutor::connect_bootloader(ICanFlashTransport& tran
         return std::unexpected(cal_resp.error());
     }
 
-    events.log(LogLevel::Info, "Requesting CVN");
+    events.log(LogLevel::kInfo, "Requesting CVN");
     if (Result<std::optional<bytes::Bytes>> cvn_resp = can_raw_exchange(
             transport, clock, cancellation, cvn_request(request_id), kHandshakeDelayMs, kHandshakeTimeout);
         !cvn_resp.has_value())
@@ -522,7 +522,7 @@ Status DensoSh705xEepromCanExecutor::connect_bootloader(ICanFlashTransport& tran
         return std::unexpected(cvn_resp.error());
     }
 
-    events.log(LogLevel::Info, "Requesting session mode");
+    events.log(LogLevel::kInfo, "Requesting session mode");
     bool req_10_03_connected = false;
     Result<std::optional<bytes::Bytes>> s03_resp = can_raw_exchange(
         transport, clock, cancellation, session_mode_request(request_id, 0x03), kHandshakeDelayMs, kHandshakeTimeout);
@@ -547,7 +547,7 @@ Status DensoSh705xEepromCanExecutor::connect_bootloader(ICanFlashTransport& tran
         req_10_43_connected = true;
     }
 
-    events.log(LogLevel::Info, "Requesting seed");
+    events.log(LogLevel::kInfo, "Requesting seed");
     Result<bytes::Bytes> seed_resp = can_exchange_gated(transport, clock, cancellation, seed_request(request_id),
                                                         kHandshakeDelayMs, kHandshakeTimeout);
     if (!seed_resp.has_value())
@@ -556,11 +556,11 @@ Status DensoSh705xEepromCanExecutor::connect_bootloader(ICanFlashTransport& tran
     }
     if (seed_resp->size() <= 5 || (*seed_resp)[4] != 0x67 || (*seed_resp)[5] != 0x01)
     {
-        return fail(ErrorKind::BadResponse, "seed request rejected");
+        return fail(ErrorKind::kBadResponse, "seed request rejected");
     }
     if (seed_resp->size() < 10)
     {
-        return fail(ErrorKind::BadResponse, "seed response too short to contain a 4-byte seed");
+        return fail(ErrorKind::kBadResponse, "seed response too short to contain a 4-byte seed");
     }
     const bytes::Bytes seed(seed_resp->begin() + 6, seed_resp->begin() + 10);
 
@@ -569,21 +569,21 @@ Status DensoSh705xEepromCanExecutor::connect_bootloader(ICanFlashTransport& tran
     bytes::Bytes seed_key;
     switch (can_plan.security)
     {
-    case DensoSecurityVariant::Stock:
+    case DensoSecurityVariant::kStock:
         seed_key = generate_stock_seed_key(seed);
         break;
-    case DensoSecurityVariant::EcuTek:
+    case DensoSecurityVariant::kEcuTek:
         seed_key = generate_ecutek_seed_key(seed);
         break;
-    case DensoSecurityVariant::Cobb:
+    case DensoSecurityVariant::kCobb:
         seed_key = generate_cobb_seed_key(seed);
         break;
-    case DensoSecurityVariant::EcuTekRaceRom:
+    case DensoSecurityVariant::kEcuTekRaceRom:
         seed_key = generate_ecutek_racerom_can_seed_key(seed);
         break;
     }
 
-    events.log(LogLevel::Info, "Sending seed key");
+    events.log(LogLevel::kInfo, "Sending seed key");
     Result<bytes::Bytes> key_resp =
         can_exchange_gated(transport, clock, cancellation, seed_key_send_request(request_id, seed_key),
                            kHandshakeDelayMs, kHandshakeTimeout);
@@ -593,10 +593,10 @@ Status DensoSh705xEepromCanExecutor::connect_bootloader(ICanFlashTransport& tran
     }
     if (key_resp->size() <= 5 || (*key_resp)[4] != 0x67 || (*key_resp)[5] != 0x02)
     {
-        return fail(ErrorKind::BadResponse, "seed key send rejected");
+        return fail(ErrorKind::kBadResponse, "seed key send rejected");
     }
 
-    events.log(LogLevel::Info, "Set session mode");
+    events.log(LogLevel::kInfo, "Set session mode");
     Result<bytes::Bytes> set_resp = can_exchange_gated(
         transport, clock, cancellation, session_set_request(request_id, req_10_03_connected, req_10_43_connected),
         kHandshakeDelayMs, kHandshakeTimeout);
@@ -606,10 +606,10 @@ Status DensoSh705xEepromCanExecutor::connect_bootloader(ICanFlashTransport& tran
     }
     if (set_resp->size() <= 5 || (*set_resp)[4] != 0x50 || ((*set_resp)[5] != 0x02 && (*set_resp)[5] != 0x42))
     {
-        return fail(ErrorKind::BadResponse, "session set rejected");
+        return fail(ErrorKind::kBadResponse, "session set rejected");
     }
 
-    events.log(LogLevel::Info, "Successfully set to programming session");
+    events.log(LogLevel::kInfo, "Successfully set to programming session");
     return {};
 }
 
@@ -621,17 +621,17 @@ Status DensoSh705xEepromCanExecutor::upload_kernel(ICanFlashTransport& transport
 {
     if (cancellation.cancelled())
     {
-        return fail(ErrorKind::Cancelled, "cancelled before kernel upload");
+        return fail(ErrorKind::kCancelled, "cancelled before kernel upload");
     }
     if (kernel.bytes.empty())
     {
-        return fail(ErrorKind::InvalidConfig, "kernel image is empty");
+        return fail(ErrorKind::kInvalidConfig, "kernel image is empty");
     }
 
     const std::uint32_t request_id = can_plan.request_id;
     const std::uint32_t start_address = kernel.load_address;
     Result<DensoSh705xEepromUploadSizes> upload_sizes =
-        denso_sh705x_eeprom_upload_sizes(FlashFamily::DensoSh705xEepromCan, kernel.bytes.size());
+        denso_sh705x_eeprom_upload_sizes(FlashFamily::kDensoSh705xEepromCan, kernel.bytes.size());
     if (!upload_sizes.has_value())
     {
         return std::unexpected(upload_sizes.error());
@@ -658,7 +658,7 @@ Status DensoSh705xEepromCanExecutor::upload_kernel(ICanFlashTransport& transport
     bytes::appendU32Be(buf, chk_sum);
     const bytes::Bytes encrypted = encrypt_can_kernel_payload(buf, static_cast<std::uint32_t>(buf.size()));
 
-    events.log(LogLevel::Info, "Initialize kernel upload");
+    events.log(LogLevel::kInfo, "Initialize kernel upload");
     Result<bytes::Bytes> download_resp =
         can_exchange_gated(transport, clock, cancellation, sid34_request(request_id, start_address, data_len),
                            kHandshakeDelayMs, kQuickAckTimeout);
@@ -668,16 +668,16 @@ Status DensoSh705xEepromCanExecutor::upload_kernel(ICanFlashTransport& transport
     }
     if (download_resp->size() <= 5 || (*download_resp)[4] != 0x74 || (*download_resp)[5] != 0x20)
     {
-        return fail(ErrorKind::BadResponse, "kernel upload request rejected");
+        return fail(ErrorKind::kBadResponse, "kernel upload request rejected");
     }
 
-    events.log(LogLevel::Info, "Uploading kernel, please wait...");
+    events.log(LogLevel::kInfo, "Uploading kernel, please wait...");
     const bytes::ByteView encrypted_view(encrypted);
     for (std::uint32_t blockno = 0; blockno <= max_blocks; ++blockno)
     {
         if (cancellation.cancelled())
         {
-            return fail(ErrorKind::Cancelled, "cancelled between kernel transfer chunks");
+            return fail(ErrorKind::kCancelled, "cancelled between kernel transfer chunks");
         }
 
         const std::uint32_t block_addr = start_address + blockno * kUploadChunkBytes;
@@ -702,7 +702,7 @@ Status DensoSh705xEepromCanExecutor::upload_kernel(ICanFlashTransport& transport
         }
         if (cancellation.cancelled())
         {
-            return fail(ErrorKind::Cancelled, "cancelled after kernel chunk write");
+            return fail(ErrorKind::kCancelled, "cancelled after kernel chunk write");
         }
         // No delay() call between this write and its read (legacy line
         // 852-853).
@@ -712,7 +712,7 @@ Status DensoSh705xEepromCanExecutor::upload_kernel(ICanFlashTransport& transport
         }
         if (cancellation.cancelled())
         {
-            return fail(ErrorKind::Cancelled, "cancelled after kernel chunk read");
+            return fail(ErrorKind::kCancelled, "cancelled after kernel chunk read");
         }
         // Response content is never inspected here (legacy line 853 just
         // discards it) -- reading it anyway keeps the wire exchange in
@@ -721,7 +721,7 @@ Status DensoSh705xEepromCanExecutor::upload_kernel(ICanFlashTransport& transport
         events.progress(static_cast<int>(blockno), static_cast<int>(max_blocks));
     }
 
-    events.log(LogLevel::Info, "Kernel uploaded, starting...");
+    events.log(LogLevel::kInfo, "Kernel uploaded, starting...");
     Result<bytes::Bytes> start_resp = can_exchange_gated(transport, clock, cancellation, sid37_request(request_id),
                                                          kHandshakeDelayMs, kQuickAckTimeout);
     if (!start_resp.has_value())
@@ -730,7 +730,7 @@ Status DensoSh705xEepromCanExecutor::upload_kernel(ICanFlashTransport& transport
     }
     if (start_resp->size() <= 4 || (*start_resp)[4] != 0x77)
     {
-        return fail(ErrorKind::BadResponse, "kernel start ack rejected");
+        return fail(ErrorKind::kBadResponse, "kernel start ack rejected");
     }
 
     if (Status slept = clock.sleep(std::chrono::milliseconds{kPostUploadSettleDelayMs}, cancellation);
@@ -740,7 +740,7 @@ Status DensoSh705xEepromCanExecutor::upload_kernel(ICanFlashTransport& transport
     }
     if (cancellation.cancelled())
     {
-        return fail(ErrorKind::Cancelled, "cancelled before start routine");
+        return fail(ErrorKind::kCancelled, "cancelled before start routine");
     }
 
     Result<bytes::Bytes> routine_resp = can_exchange_gated(transport, clock, cancellation, sid31_request(request_id),
@@ -751,10 +751,10 @@ Status DensoSh705xEepromCanExecutor::upload_kernel(ICanFlashTransport& transport
     }
     if (routine_resp->size() <= 4 || (*routine_resp)[4] != 0x71)
     {
-        return fail(ErrorKind::BadResponse, "kernel start routine rejected");
+        return fail(ErrorKind::kBadResponse, "kernel start routine rejected");
     }
 
-    events.log(LogLevel::Info, "Kernel requesting kernel ID...");
+    events.log(LogLevel::kInfo, "Kernel requesting kernel ID...");
     // Unlike the K-Line sibling's up-to-10-iteration poll loop, this is a
     // SINGLE attempt -- legacy lines 930-953 `return STATUS_ERROR`
     // immediately on a non-alive response here, with no retry.
@@ -765,14 +765,14 @@ Status DensoSh705xEepromCanExecutor::upload_kernel(ICanFlashTransport& transport
     }
     if (!poll->has_value())
     {
-        return fail(ErrorKind::Timeout, "kernel did not respond after upload");
+        return fail(ErrorKind::kTimeout, "kernel did not respond after upload");
     }
     if (!looks_kernel_alive(**poll))
     {
-        return fail(ErrorKind::BadResponse, "kernel did not report a valid ID after upload");
+        return fail(ErrorKind::kBadResponse, "kernel did not report a valid ID after upload");
     }
 
-    events.log(LogLevel::Info, "Kernel is alive");
+    events.log(LogLevel::kInfo, "Kernel is alive");
     return {};
 }
 
@@ -803,7 +803,7 @@ Result<bytes::Bytes> DensoSh705xEepromCanExecutor::read_mem(ICanFlashTransport& 
     {
         if (cancellation.cancelled())
         {
-            return fail(ErrorKind::Cancelled, "cancelled during EEPROM read");
+            return fail(ErrorKind::kCancelled, "cancelled during EEPROM read");
         }
 
         constexpr std::uint32_t kNumBlocks = 1; // legacy hardcodes this per outer iteration
@@ -816,7 +816,7 @@ Result<bytes::Bytes> DensoSh705xEepromCanExecutor::read_mem(ICanFlashTransport& 
         }
         if (cancellation.cancelled())
         {
-            return fail(ErrorKind::Cancelled, "cancelled after EEPROM read request");
+            return fail(ErrorKind::kCancelled, "cancelled after EEPROM read request");
         }
 
         // No delay() call between this write and the header-ack read (legacy
@@ -828,16 +828,16 @@ Result<bytes::Bytes> DensoSh705xEepromCanExecutor::read_mem(ICanFlashTransport& 
         }
         if (cancellation.cancelled())
         {
-            return fail(ErrorKind::Cancelled, "cancelled after EEPROM header ack");
+            return fail(ErrorKind::kCancelled, "cancelled after EEPROM header ack");
         }
         if (!header->has_value())
         {
-            return fail(ErrorKind::Timeout, "no response to EEPROM read request");
+            return fail(ErrorKind::kTimeout, "no response to EEPROM read request");
         }
         const bytes::Bytes& hdr = **header;
         if (hdr.size() <= 8)
         {
-            return fail(ErrorKind::BadResponse, "EEPROM read header ack too short");
+            return fail(ErrorKind::kBadResponse, "EEPROM read header ack too short");
         }
         if (hdr[4] == 0xBE && hdr[5] == 0xEF && hdr[8] == static_cast<bytes::Byte>(kSubKernelReadArea | 0x40U))
         {
@@ -853,7 +853,7 @@ Result<bytes::Bytes> DensoSh705xEepromCanExecutor::read_mem(ICanFlashTransport& 
         {
             if (cancellation.cancelled())
             {
-                return fail(ErrorKind::Cancelled, "cancelled during EEPROM page read");
+                return fail(ErrorKind::kCancelled, "cancelled during EEPROM page read");
             }
             auto chunk = transport.read(kPagedataPollTimeout, cancellation);
             if (!chunk.has_value())
@@ -862,7 +862,7 @@ Result<bytes::Bytes> DensoSh705xEepromCanExecutor::read_mem(ICanFlashTransport& 
             }
             if (cancellation.cancelled())
             {
-                return fail(ErrorKind::Cancelled, "cancelled during EEPROM page read");
+                return fail(ErrorKind::kCancelled, "cancelled during EEPROM page read");
             }
             if (chunk->has_value() && !(*chunk)->empty())
             {

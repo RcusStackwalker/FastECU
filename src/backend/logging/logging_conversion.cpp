@@ -15,7 +15,7 @@ fastecu::Result<LogSample> convert_sample(const LoggingSession& session, const P
     const LoggingChannel *channel = session.find_channel(raw.channel_id);
     if (channel == nullptr)
     {
-        return fastecu::fail(fastecu::ErrorKind::Internal, "protocol sample channel is not in the logging session");
+        return fastecu::fail(fastecu::ErrorKind::kInternal, "protocol sample channel is not in the logging session");
     }
 
     // Legacy logging always evaluated intermediate expression results at 15
@@ -25,7 +25,7 @@ fastecu::Result<LogSample> convert_sample(const LoggingSession& session, const P
         expression_evaluate(channel->from_byte_expression, raw.raw_value, kCalculationPrecision);
     if (!std::isfinite(numeric_value))
     {
-        return fastecu::fail(fastecu::ErrorKind::InvalidConfig,
+        return fastecu::fail(fastecu::ErrorKind::kInvalidConfig,
                              "protocol sample evaluates to a non-finite logging value");
     }
 

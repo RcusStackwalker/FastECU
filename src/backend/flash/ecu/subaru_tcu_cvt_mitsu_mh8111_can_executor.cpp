@@ -220,7 +220,7 @@ Status connect_bootloader(Ctx& ctx)
         {
             error(ctx, "No valid response from ECU");
         }
-        return fail(ErrorKind::BadResponse, "kernel alive check failed");
+        return fail(ErrorKind::kBadResponse, "kernel alive check failed");
     }
 
     info(ctx, "Kernel verified to be running");
@@ -265,7 +265,7 @@ Result<bytes::Bytes> dump_flash_range(Ctx& ctx, PhaseReporter& progress)
         {
             error(ctx, "No valid response from ECU");
         }
-        return fail(ErrorKind::BadResponse, "dump start & length setup rejected");
+        return fail(ErrorKind::kBadResponse, "dump start & length setup rejected");
     }
 
     info(ctx, "Start reading ROM, please wait...");
@@ -276,7 +276,7 @@ Result<bytes::Bytes> dump_flash_range(Ctx& ctx, PhaseReporter& progress)
         // Legacy stopRequested() at line 421, top of loop.
         if (ctx.cancellation.cancelled())
         {
-            return fail(ErrorKind::Cancelled, "read cancelled");
+            return fail(ErrorKind::kCancelled, "read cancelled");
         }
 
         // Lines 406-454: SID 0xB7 + 3-byte big-endian address, standard
@@ -358,7 +358,7 @@ Status erase_memory(Ctx& ctx)
             }
             error(ctx, "Wrong response from TCU: unexpected erase acknowledgement");
         }
-        else if (reply.error().kind == ErrorKind::Cancelled)
+        else if (reply.error().kind == ErrorKind::kCancelled)
         {
             return std::unexpected(
                 report_exchange_failure(ctx, reply.error(), "Wrong response from TCU: ", "the erase command"));
@@ -369,7 +369,7 @@ Status erase_memory(Ctx& ctx)
         }
     }
     error(ctx, "Flash area erase failed");
-    return fail(ErrorKind::BadResponse, "flash area erase failed");
+    return fail(ErrorKind::kBadResponse, "flash area erase failed");
 }
 
 // Legacy reflash_block, lines 636-826, called once (this family flashes
@@ -415,7 +415,7 @@ Status unlock_and_reflash_block(Ctx& ctx, bytes::ByteView block_plain, PhaseRepo
     }
     if (!setup_ok)
     {
-        return fail(ErrorKind::BadResponse, "flash start & length setup rejected");
+        return fail(ErrorKind::kBadResponse, "flash start & length setup rejected");
     }
 
     const bytes::Bytes encrypted = encrypt_rom(block_plain);
@@ -428,7 +428,7 @@ Status unlock_and_reflash_block(Ctx& ctx, bytes::ByteView block_plain, PhaseRepo
         // cancellation mid-write is reported as Cancelled, never success.
         if (ctx.cancellation.cancelled())
         {
-            return fail(ErrorKind::Cancelled, "write cancelled");
+            return fail(ErrorKind::kCancelled, "write cancelled");
         }
 
         const std::uint32_t addr = kWriteRegion.start + offset;
@@ -472,7 +472,7 @@ Status unlock_and_reflash_block(Ctx& ctx, bytes::ByteView block_plain, PhaseRepo
     }
     if (!closed_ok)
     {
-        return fail(ErrorKind::BadResponse, "block close failed");
+        return fail(ErrorKind::kBadResponse, "block close failed");
     }
 
     // "Verifying checksum..." (lines 786-825): retried up to 20 times,
@@ -499,7 +499,7 @@ Status unlock_and_reflash_block(Ctx& ctx, bytes::ByteView block_plain, PhaseRepo
             error(ctx, std::format("Wrong response from TCU: {}", checksum.error().detail));
         }
     }
-    return fail(ErrorKind::BadResponse, "ROM checksum verify failed");
+    return fail(ErrorKind::kBadResponse, "ROM checksum verify failed");
 }
 
 // Legacy write_mem, lines 552-629: erase_mem() first, then exactly one
@@ -527,7 +527,7 @@ Status write_mem(Ctx& ctx, bytes::ByteView image, PhaseSequence& phases)
 
 Result<Iso15765Config> SubaruTcuCvtMitsuMh8111CanExecutor::transport_setup(const FlashPlan& plan) const
 {
-    if (const Status match = check_family(plan, FlashFamily::SubaruTcuCvtMitsuMh8111Can); !match.has_value())
+    if (const Status match = check_family(plan, FlashFamily::kSubaruTcuCvtMitsuMh8111Can); !match.has_value())
     {
         return std::unexpected(match.error());
     }
@@ -544,7 +544,7 @@ Result<FlashExecutionResult> SubaruTcuCvtMitsuMh8111CanExecutor::execute(const F
                                                                          const ICancellationToken& cancellation,
                                                                          IEventSink& events)
 {
-    if (const Status matched = check_family(plan, FlashFamily::SubaruTcuCvtMitsuMh8111Can); !matched.has_value())
+    if (const Status matched = check_family(plan, FlashFamily::kSubaruTcuCvtMitsuMh8111Can); !matched.has_value())
     {
         return std::unexpected(matched.error());
     }
@@ -554,11 +554,11 @@ Result<FlashExecutionResult> SubaruTcuCvtMitsuMh8111CanExecutor::execute(const F
     }
     if (cancellation.cancelled())
     {
-        return fail(ErrorKind::Cancelled, "cancelled before setup");
+        return fail(ErrorKind::kCancelled, "cancelled before setup");
     }
 
     const auto& family = std::get<SubaruTcuCvtMitsuMh8111CanPlan>(plan.family_plan());
-    const bool read = plan.operation() == FlashOperation::Read;
+    const bool read = plan.operation() == FlashOperation::kRead;
     PhaseSequence phases(events, read ? 2 : 3);
     PhaseReporter connect = phases.start(read ? "Connect to TCU" : "Connect", 1);
 
@@ -573,7 +573,7 @@ Result<FlashExecutionResult> SubaruTcuCvtMitsuMh8111CanExecutor::execute(const F
     }
     connect.complete();
 
-    if (plan.operation() == FlashOperation::Read)
+    if (plan.operation() == FlashOperation::kRead)
     {
         events.notice("Reading ROM, please wait...");
         info(ctx, "Reading ROM from TCU Subaru Mitsubishi using CAN");
@@ -594,7 +594,7 @@ Result<FlashExecutionResult> SubaruTcuCvtMitsuMh8111CanExecutor::execute(const F
         bytes::Bytes rom(kReadRegion.start, 0xFF);
         rom.append_range(*window);
         return FlashExecutionResult{
-            .operation = FlashOperation::Read,
+            .operation = FlashOperation::kRead,
             .read_bytes = std::move(rom),
         };
     }
@@ -602,9 +602,9 @@ Result<FlashExecutionResult> SubaruTcuCvtMitsuMh8111CanExecutor::execute(const F
     // build_subaru_tcu_cvt_mitsu_mh8111_can_plan refuses TestWrite; the
     // guard is repeated here so a plan built another way cannot turn a dry
     // run into a real erase and write.
-    if (plan.operation() != FlashOperation::Write)
+    if (plan.operation() != FlashOperation::kWrite)
     {
-        return fail(ErrorKind::Unsupported,
+        return fail(ErrorKind::kUnsupported,
                     "test_write is not supported by the Subaru TCU CVT Mitsu MH8111 CAN family");
     }
 

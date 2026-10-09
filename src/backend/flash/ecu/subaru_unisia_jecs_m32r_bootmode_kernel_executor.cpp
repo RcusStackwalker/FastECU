@@ -22,7 +22,7 @@ Status cancelled_if_requested(const ICancellationToken& cancellation, std::strin
 {
     if (cancellation.cancelled())
     {
-        return fail(ErrorKind::Cancelled, std::format("cancelled {}", where));
+        return fail(ErrorKind::kCancelled, std::format("cancelled {}", where));
     }
     return {};
 }
@@ -35,7 +35,7 @@ Status upload(const FlashPlan& plan, IKlineFlashTransport& transport, IClock& cl
         return cancelled;
     }
     // execute() :64-67.
-    events.log(LogLevel::Info, "Set programming voltage +12v to Line End Check 1 and MOD1 to Line End Check 2");
+    events.log(LogLevel::kInfo, "Set programming voltage +12v to Line End Check 1 and MOD1 to Line End Check 2");
     if (Status raised = transport.enable_boot_mode_lines(); !raised.has_value())
     {
         return raised;
@@ -43,7 +43,7 @@ Status upload(const FlashPlan& plan, IKlineFlashTransport& transport, IClock& cl
 
     // upload_kernel() :318-335: unframed 128-byte chunks, no reply read per
     // chunk.
-    events.log(LogLevel::Info, "Uploading kernel, please wait...");
+    events.log(LogLevel::kInfo, "Uploading kernel, please wait...");
     const bytes::Bytes& kernel = plan.image_or_empty();
     const auto chunks = static_cast<int>(kernel.size() / kChunk);
     for (int index = 0; index < chunks; ++index)
@@ -60,7 +60,7 @@ Status upload(const FlashPlan& plan, IKlineFlashTransport& transport, IClock& cl
         }
         if (*written != data.size())
         {
-            return fail(ErrorKind::Disconnected, "short K-Line write during kernel upload");
+            return fail(ErrorKind::kDisconnected, "short K-Line write during kernel upload");
         }
         events.progress(index + 1, chunks);
     }
@@ -79,7 +79,7 @@ Status upload(const FlashPlan& plan, IKlineFlashTransport& transport, IClock& cl
     }
     if (trailing->has_value())
     {
-        events.log(LogLevel::Debug, std::format("Discarded after kernel upload: {}", bytes::toHex(**trailing)));
+        events.log(LogLevel::kDebug, std::format("Discarded after kernel upload: {}", bytes::toHex(**trailing)));
     }
     return {};
 }
@@ -87,7 +87,7 @@ Status upload(const FlashPlan& plan, IKlineFlashTransport& transport, IClock& cl
 
 Result<KlineConfig> SubaruUnisiaJecsM32rBootModeKernelExecutor::transport_setup(const FlashPlan& plan) const
 {
-    if (Status match = check_family(plan, FlashFamily::SubaruUnisiaJecsM32rBootModeKernel); !match.has_value())
+    if (Status match = check_family(plan, FlashFamily::kSubaruUnisiaJecsM32rBootModeKernel); !match.has_value())
     {
         return std::unexpected(match.error());
     }
@@ -98,7 +98,7 @@ Result<KlineConfig> SubaruUnisiaJecsM32rBootModeKernelExecutor::transport_setup(
     // execute() :52-60.
     KlineConfig config =
         non_iso14230_kline_config_from(std::get<SubaruUnisiaJecsM32rBootModeKernelPlan>(plan.family_plan()));
-    config.parity = KlineParity::Even; // execute() :57
+    config.parity = KlineParity::kEven; // execute() :57
     return config;
 }
 
@@ -119,7 +119,7 @@ Result<FlashExecutionResult> SubaruUnisiaJecsM32rBootModeKernelExecutor::execute
                                                                                  const ICancellationToken& cancellation,
                                                                                  IEventSink& events)
 {
-    if (Status match = check_family(plan, FlashFamily::SubaruUnisiaJecsM32rBootModeKernel); !match.has_value())
+    if (Status match = check_family(plan, FlashFamily::kSubaruUnisiaJecsM32rBootModeKernel); !match.has_value())
     {
         return std::unexpected(match.error());
     }
@@ -132,7 +132,7 @@ Result<FlashExecutionResult> SubaruUnisiaJecsM32rBootModeKernelExecutor::execute
     // write_mem()'s reset_connection() (:361); the explicit drop here is the
     // same on every adapter, and unconditional so a failed or cancelled
     // upload never leaves VPP/MOD1 raised.
-    events.log(LogLevel::Debug, "Removing boot mode voltages from Line End Check 1 and 2");
+    events.log(LogLevel::kDebug, "Removing boot mode voltages from Line End Check 1 and 2");
     const Status dropped = transport.disable_lec_lines();
     if (!uploaded.has_value())
     {
@@ -142,6 +142,7 @@ Result<FlashExecutionResult> SubaruUnisiaJecsM32rBootModeKernelExecutor::execute
     {
         return std::unexpected(dropped.error());
     }
-    return FlashExecutionResult{.operation = FlashOperation::Write, .read_bytes = std::nullopt, .rom_id = std::nullopt};
+    return FlashExecutionResult{
+        .operation = FlashOperation::kWrite, .read_bytes = std::nullopt, .rom_id = std::nullopt};
 }
 } // namespace fastecu::flash

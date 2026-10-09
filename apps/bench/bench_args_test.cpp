@@ -41,7 +41,7 @@ TEST(BenchArgs, RejectsADestructiveStepWithoutItsFlag)
 {
     const auto parsed = parse({"erase"});
 
-    ASSERT_THAT(parsed, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(parsed, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     EXPECT_NE(parsed.error().detail.find("--destructive"), std::string::npos);
 }
 
@@ -59,7 +59,7 @@ TEST(BenchArgs, RejectsTheWholeChainWhenALaterStepIsUngated)
     // The gate must fire before the port opens, so an ungated third step
     // fails the whole parse rather than being discovered mid-session.
     ASSERT_THAT(parse({"read", "0x200", "1", ":", "unlock", "--destructive", ":", "erase"}),
-                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+                fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
 TEST(BenchArgs, RejectsPortsChainedWithAnotherStep)
@@ -68,13 +68,13 @@ TEST(BenchArgs, RejectsPortsChainedWithAnotherStep)
     // step so it can be handled before any transport is constructed.
     const auto parsed = parse({"ports", ":", "erase", "--destructive"});
 
-    ASSERT_THAT(parsed, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(parsed, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     EXPECT_NE(parsed.error().detail.find("ports"), std::string::npos);
 }
 
 TEST(BenchArgs, RejectsDestructiveFlagOnANonDestructiveStep)
 {
-    ASSERT_THAT(parse({"read", "0x200", "1", "--destructive"}), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(parse({"read", "0x200", "1", "--destructive"}), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
 TEST(BenchArgs, RejectsArbitraryDiagnosticPdusWithoutDestructiveAcknowledgement)
@@ -87,7 +87,7 @@ TEST(BenchArgs, RejectsArbitraryDiagnosticPdusWithoutDestructiveAcknowledgement)
     for (const auto& command_line : command_lines)
     {
         const auto parsed = parse(command_line);
-        ASSERT_THAT(parsed, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+        ASSERT_THAT(parsed, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
         EXPECT_NE(parsed.error().detail.find("--destructive"), std::string::npos);
     }
 }
@@ -120,7 +120,7 @@ TEST(BenchArgs, RejectsKnownDestructivePdusThroughDiagnosticCommands)
     for (const auto& command_line : command_lines)
     {
         const auto parsed = parse(command_line);
-        ASSERT_THAT(parsed, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+        ASSERT_THAT(parsed, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
         EXPECT_NE(parsed.error().detail.find("named destructive command"), std::string::npos);
     }
 }
@@ -138,7 +138,7 @@ TEST(BenchArgs, PassesUploadRoutineFromThroughAsOrdinaryArguments)
 
 TEST(BenchArgs, RejectsUnknownCommands)
 {
-    ASSERT_THAT(parse({"frobnicate"}), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(parse({"frobnicate"}), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
 TEST(BenchArgs, RejectsWrongArgumentCounts)
@@ -171,21 +171,21 @@ TEST(BenchArgs, RejectsAnEmptyStepBetweenSeparators)
 
 TEST(BenchArgs, RejectsGlobalOptionsMissingTheirValue)
 {
-    ASSERT_THAT(parse({"--port"}), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(parse({"--port"}), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 
-    ASSERT_THAT(parse({"--timeout"}), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(parse({"--timeout"}), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 
-    ASSERT_THAT(parse({"--script"}), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(parse({"--script"}), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
 TEST(BenchArgs, RejectsANonNumericTimeoutValue)
 {
-    ASSERT_THAT(parse({"--timeout", "abc"}), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(parse({"--timeout", "abc"}), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
 TEST(BenchArgs, RejectsTimeoutThatCannotFitDownstreamStorage)
 {
-    ASSERT_THAT(parse({"--timeout", "65536", "send-raw", "22"}), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(parse({"--timeout", "65536", "send-raw", "22"}), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
 TEST(BenchArgs, AcceptsLargestTimeoutThatFitsDownstreamStorage)
@@ -198,7 +198,7 @@ TEST(BenchArgs, AcceptsLargestTimeoutThatFitsDownstreamStorage)
 
 TEST(BenchArgs, RejectsAScriptValueOtherThanStdin)
 {
-    ASSERT_THAT(parse({"--script", "notstdin"}), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(parse({"--script", "notstdin"}), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
 TEST(BenchArgs, ParsesU32InHexAndDecimal)

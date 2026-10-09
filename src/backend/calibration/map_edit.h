@@ -12,10 +12,10 @@ namespace fastecu::calibration
 {
 enum class EditTargetKind
 {
-    MapBody,
-    XAxis,
-    YAxis,
-    Rejected,
+    kMapBody,
+    kXAxis,
+    kYAxis,
+    kRejected,
 };
 
 // Widget coordinates reserve row/column zero for axis headers where present.
@@ -37,7 +37,7 @@ struct MapDimensions
 // width, which is one for Y axes and differs from the map's own geometry.
 struct EditTarget
 {
-    EditTargetKind kind{EditTargetKind::MapBody};
+    EditTargetKind kind{EditTargetKind::kMapBody};
     SelectionRange range;
     std::uint32_t x_size{0};
 };
@@ -46,9 +46,9 @@ struct EditTarget
 // coordinates inside a target follow that run's own geometry.
 enum class NumericTarget
 {
-    MapBody,
-    XAxis,
-    YAxis,
+    kMapBody,
+    kXAxis,
+    kYAxis,
 };
 
 EditTarget resolve_edit_target(const SelectionRange& selection, MapDimensions dims, std::string_view x_scale_type);
@@ -92,16 +92,16 @@ Result<bytes::Bytes> write_raw_element(const MapElementSpec& spec, std::int64_t 
 
 enum class IncrementStep
 {
-    FineUp,
-    FineDown,
-    CoarseUp,
-    CoarseDown,
+    kFineUp,
+    kFineDown,
+    kCoarseUp,
+    kCoarseDown,
 };
 
 enum class InterpolationMode
 {
-    Horizontal,
-    Vertical,
-    Bidirectional,
+    kHorizontal,
+    kVertical,
+    kBidirectional,
 };
 } // namespace fastecu::calibration

@@ -23,7 +23,7 @@ std::vector<std::uint8_t> bytes(std::string_view text)
 void expect_invalid_with_context(const Result<UnresolvedDefinition>& result, std::string_view source_context,
                                  std::string_view xml_context)
 {
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     EXPECT_THAT(result.error().detail, ::testing::HasSubstr(source_context));
     EXPECT_THAT(result.error().detail, ::testing::HasSubstr(xml_context));
 }
@@ -49,7 +49,7 @@ TEST(RomRaiderParserTest, IndexesMultipleDefinitionsAndRecordsParentReferences)
     ASSERT_EQ(result->size(), 2U);
     EXPECT_EQ(result->at(0).definition_id, "BASE");
     EXPECT_EQ(result->at(0).internal_id, "BASE-ID");
-    EXPECT_EQ(result->at(0).internal_id_encoding, IdEncoding::AsciiOrHex);
+    EXPECT_EQ(result->at(0).internal_id_encoding, IdEncoding::kAsciiOrHex);
     EXPECT_EQ(result->at(0).source, "rr.xml");
     EXPECT_TRUE(result->at(0).parents.empty());
     EXPECT_EQ(result->at(1).definition_id, "CHILD");
@@ -94,7 +94,7 @@ TEST(RomRaiderParserTest, ParsesChildWithoutResolvingItsBase)
     auto result = parse_romraider_definition(xml, "rr.xml", "CHILD");
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
-    EXPECT_EQ(result->format, DefinitionFormat::RomRaider);
+    EXPECT_EQ(result->format, DefinitionFormat::kRomRaider);
     EXPECT_EQ(result->source, "rr.xml");
     EXPECT_EQ(result->parents, std::vector<std::string>{"BASE"});
     EXPECT_EQ(result->identity.xml_id, "CHILD");
@@ -129,7 +129,7 @@ TEST(RomRaiderParserTest, ParsesChildWithoutResolvingItsBase)
     EXPECT_EQ(map.swap_xy, true);
     EXPECT_EQ(map.flip_x, false);
     EXPECT_EQ(map.flip_y, true);
-    EXPECT_EQ(map.storage_type, StorageType::Uint16);
+    EXPECT_EQ(map.storage_type, StorageType::kUint16);
     EXPECT_EQ(map.endian, "big");
     EXPECT_EQ(map.scaling_name, "fuel-scale");
     EXPECT_EQ(map.start_position, 0x12U);
@@ -167,7 +167,7 @@ TEST(RomRaiderParserTest, ParsesChildWithoutResolvingItsBase)
     EXPECT_EQ(scaling.maximum, "100");
     EXPECT_EQ(scaling.fine_increment, "0.5");
     EXPECT_EQ(scaling.coarse_increment, "1");
-    EXPECT_EQ(scaling.storage_type, StorageType::Uint16);
+    EXPECT_EQ(scaling.storage_type, StorageType::kUint16);
     EXPECT_EQ(scaling.endian, "big");
 }
 
@@ -184,11 +184,11 @@ TEST(RomRaiderParserTest, ConvertsSwitchStatesToSelectableScaling)
     ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_EQ(result->maps.size(), 1U);
     EXPECT_EQ(result->maps.front().type, "Selectable");
-    EXPECT_EQ(result->maps.front().storage_type, StorageType::Bloblist);
+    EXPECT_EQ(result->maps.front().storage_type, StorageType::kBloblist);
     ASSERT_EQ(result->scalings.size(), 1U);
     EXPECT_EQ(result->maps.front().scaling_name, "Feature Switch");
     EXPECT_EQ(result->scalings.front().name, "Feature Switch");
-    EXPECT_EQ(result->scalings.front().storage_type, StorageType::Bloblist);
+    EXPECT_EQ(result->scalings.front().storage_type, StorageType::kBloblist);
     EXPECT_EQ(result->scalings.front().selections, (std::vector<std::pair<std::string, std::string>>{
                                                        {"disabled", "00"},
                                                        {"enabled", "01"},
@@ -209,10 +209,10 @@ TEST(RomRaiderParserTest, SwitchWithInlineScalingAppendsTableStatesAfterScalingD
     ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_EQ(result->maps.size(), 1U);
     EXPECT_EQ(result->maps.front().type, "Selectable");
-    EXPECT_EQ(result->maps.front().storage_type, StorageType::Bloblist);
+    EXPECT_EQ(result->maps.front().storage_type, StorageType::kBloblist);
     EXPECT_EQ(result->maps.front().scaling_name, "switch-scale");
     ASSERT_EQ(result->scalings.size(), 1U);
-    EXPECT_EQ(result->scalings.front().storage_type, StorageType::Bloblist);
+    EXPECT_EQ(result->scalings.front().storage_type, StorageType::kBloblist);
     EXPECT_EQ(result->scalings.front().selections, (std::vector<std::pair<std::string, std::string>>{
                                                        {"auto", "02"},
                                                        {"disabled", "00"},
@@ -237,7 +237,7 @@ TEST(RomRaiderParserTest, AxisScalingFallsBackToTheAxisTableAttributes)
     ASSERT_EQ(result->scalings.size(), 1U);
     const auto& scaling = result->scalings.front();
     EXPECT_EQ(scaling.name, "Load");
-    EXPECT_EQ(scaling.storage_type, StorageType::Uint8);
+    EXPECT_EQ(scaling.storage_type, StorageType::kUint8);
     EXPECT_EQ(scaling.endian, "little");
     EXPECT_EQ(scaling.minimum, "1");
     EXPECT_EQ(scaling.maximum, "9");
@@ -432,7 +432,7 @@ TEST(RomRaiderParserTest, UnselectedInvalidAddressDoesNotBlockRequestedDefinitio
     EXPECT_EQ(definition->parents, (std::vector<std::string>{"BASE"}));
 
     const auto index = parse_romraider_index(xml, "selection.xml");
-    ASSERT_THAT(index, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(index, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     EXPECT_THAT(index.error().detail, ::testing::HasSubstr("definition 'OTHER'"));
     EXPECT_THAT(index.error().detail, ::testing::HasSubstr("internalidaddress"));
 }
@@ -443,7 +443,7 @@ TEST(RomRaiderParserTest, DuplicateRequestedIdentityIsReportedBeforeParsingItsAd
                            "<internalidaddress>invalid</internalidaddress></romid></rom>"
                            "<rom><romid><xmlid>SELECTED</xmlid></romid></rom></roms>");
     const auto definition = parse_romraider_definition(xml, "duplicate-id.xml", "SELECTED");
-    ASSERT_THAT(definition, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(definition, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     EXPECT_THAT(definition.error().detail, ::testing::HasSubstr("definition 'SELECTED'"));
     EXPECT_THAT(definition.error().detail, ::testing::HasSubstr("duplicate definition identity"));
 }
@@ -453,7 +453,7 @@ TEST(RomRaiderParserTest, UnknownIdentityIsReportedWithoutParsingOtherRecordAddr
     const auto xml = bytes("<roms><rom><romid><xmlid>OTHER</xmlid>"
                            "<internalidaddress>invalid</internalidaddress></romid></rom></roms>");
     const auto definition = parse_romraider_definition(xml, "unknown-id.xml", "MISSING");
-    ASSERT_THAT(definition, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(definition, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     EXPECT_THAT(definition.error().detail, ::testing::HasSubstr("definition 'MISSING'"));
     EXPECT_THAT(definition.error().detail, ::testing::HasSubstr("definition ID not found"));
 }

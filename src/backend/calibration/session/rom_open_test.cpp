@@ -84,7 +84,7 @@ TEST_F(RomOpenBasics, OpensAFileWithoutDefinitionsWhenBothFormatsAreDisabled)
     const auto outcome = opener_.open_file("/cal/dir/a.bin");
 
     ASSERT_THAT(outcome, IsOk());
-    EXPECT_EQ(outcome->contents.source, (RomSource{"a.bin", "/cal/dir/a.bin", RomOrigin::File}));
+    EXPECT_EQ(outcome->contents.source, (RomSource{"a.bin", "/cal/dir/a.bin", RomOrigin::kFile}));
     EXPECT_EQ(outcome->contents.rom, synthetic_rom());
     EXPECT_FALSE(outcome->contents.definition.has_value());
     EXPECT_THAT(catalogs_.calls, IsEmpty());
@@ -103,16 +103,16 @@ TEST_F(RomOpenBasics, APathWithoutABasenameIsShownAsDefaultBin)
 
 TEST_F(RomOpenBasics, AnEmptyPathIsRejected)
 {
-    EXPECT_THAT(opener_.open_file(""), IsErr(ErrorKind::InvalidConfig));
+    EXPECT_THAT(opener_.open_file(""), IsErr(ErrorKind::kInvalidConfig));
 }
 
 TEST_F(RomOpenBasics, AnUnreadableFileFailsWithTheLegacyNotice)
 {
-    cfg_.file_repository.read_errors["/cal/a.bin"] = Error{ErrorKind::Disconnected, "gone"};
+    cfg_.file_repository.read_errors["/cal/a.bin"] = Error{ErrorKind::kDisconnected, "gone"};
 
     const auto outcome = opener_.open_file("/cal/a.bin");
 
-    ASSERT_THAT(outcome, IsErr(ErrorKind::Disconnected));
+    ASSERT_THAT(outcome, IsErr(ErrorKind::kDisconnected));
     EXPECT_THAT(notices(), Contains("Calibration file: Unable to open calibration file for reading"));
     EXPECT_THAT(log_text(), Contains("Unable to open calibration file [Disconnected]: gone"));
 }
@@ -153,7 +153,7 @@ TEST_F(RomOpenBasics, AdoptingAReadImageBacksItUpAndSelectsItsProtocol)
     ASSERT_THAT(outcome, IsOk());
     const std::string backup = cfg_.session.effective_paths().calibration_files_directory + "read.bin";
     EXPECT_EQ(cfg_.file_repository.files.at(backup), synthetic_rom());
-    EXPECT_EQ(outcome->contents.source.origin, RomOrigin::EcuRead);
+    EXPECT_EQ(outcome->contents.source.origin, RomOrigin::kEcuRead);
     EXPECT_EQ(outcome->contents.source.display_name, "A2WC522N2026-09-28_10h00m00s.bin");
     EXPECT_TRUE(outcome->vehicle_selected);
     EXPECT_EQ(*cfg_.session.selected_row(), 1U);
@@ -170,15 +170,15 @@ TEST_F(RomOpenBasics, AdoptionNeedsAFilenameAndBytes)
 {
     const std::size_t writes_before = cfg_.file_repository.write_calls.size();
 
-    EXPECT_THAT(opener_.adopt_read_image(ReadImage{.rom = synthetic_rom()}), IsErr(ErrorKind::InvalidConfig));
-    EXPECT_THAT(opener_.adopt_read_image(ReadImage{.filename = "x.bin"}), IsErr(ErrorKind::InvalidConfig));
+    EXPECT_THAT(opener_.adopt_read_image(ReadImage{.rom = synthetic_rom()}), IsErr(ErrorKind::kInvalidConfig));
+    EXPECT_THAT(opener_.adopt_read_image(ReadImage{.filename = "x.bin"}), IsErr(ErrorKind::kInvalidConfig));
     EXPECT_EQ(cfg_.file_repository.write_calls.size(), writes_before); // no backup written
 }
 
 TEST_F(RomOpenBasics, AFailedBackupDoesNotFailTheAdoption)
 {
     const std::string backup = cfg_.session.effective_paths().calibration_files_directory + "read.bin";
-    cfg_.file_repository.write_errors[backup] = Error{ErrorKind::Disconnected, "disk full"};
+    cfg_.file_repository.write_errors[backup] = Error{ErrorKind::kDisconnected, "disk full"};
 
     EXPECT_THAT(opener_.adopt_read_image(ReadImage{.rom = synthetic_rom(), .filename = "x.bin"}), IsOk());
 }
@@ -225,7 +225,7 @@ definition::DefinitionIndexEntry test_entry(DefinitionFormat format, std::string
         .definition_id = "TESTROM",
         .internal_id = "TESTROM",
         .internal_id_address = 0x10,
-        .internal_id_encoding = definition::IdEncoding::Ascii,
+        .internal_id_encoding = definition::IdEncoding::kAscii,
         .source = std::move(source),
     };
 }
@@ -261,13 +261,13 @@ class RomOpenDefinitions : public RomOpenTest
 TEST_F(RomOpenDefinitions, MatchesLoadsAndDecodesFromThePrimaryFormat)
 {
     enable_ecuflash_primary();
-    catalogs_.entries[DefinitionFormat::EcuFlash] = {test_entry(DefinitionFormat::EcuFlash)};
+    catalogs_.entries[DefinitionFormat::kEcuFlash] = {test_entry(DefinitionFormat::kEcuFlash)};
 
     const auto outcome = opener_.open_file("/cal/a.bin");
 
     ASSERT_THAT(outcome, IsOk());
     ASSERT_TRUE(outcome->contents.definition.has_value());
-    EXPECT_EQ(outcome->contents.definition->format, DefinitionFormat::EcuFlash);
+    EXPECT_EQ(outcome->contents.definition->format, DefinitionFormat::kEcuFlash);
     EXPECT_EQ(outcome->contents.definition->id, "TESTROM");
     EXPECT_EQ(outcome->contents.protocol.rom_id, "TESTROM");
     EXPECT_THAT(log_text(), Contains("EcuFlash cal id TESTROM found"));
@@ -281,7 +281,7 @@ TEST_F(RomOpenDefinitions, MatchesLoadsAndDecodesFromThePrimaryFormat)
 TEST_F(RomOpenDefinitions, ADefinitionsFlashMethodAliasSelectsItsVehicle)
 {
     enable_ecuflash_primary();
-    catalogs_.entries[DefinitionFormat::EcuFlash] = {test_entry(DefinitionFormat::EcuFlash)};
+    catalogs_.entries[DefinitionFormat::kEcuFlash] = {test_entry(DefinitionFormat::kEcuFlash)};
 
     const auto outcome = opener_.open_file("/cal/a.bin");
 
@@ -301,7 +301,7 @@ TEST_F(RomOpenDefinitions, AnUnaliasedFlashMethodIsKept)
     std::string text{kTestDefinition};
     text.replace(text.find("alias_a"), 7, "unknown_method");
     cfg_.put("/defs/test.xml", text);
-    catalogs_.entries[DefinitionFormat::EcuFlash] = {test_entry(DefinitionFormat::EcuFlash)};
+    catalogs_.entries[DefinitionFormat::kEcuFlash] = {test_entry(DefinitionFormat::kEcuFlash)};
 
     const auto outcome = opener_.open_file("/cal/a.bin");
 
@@ -316,17 +316,17 @@ TEST_F(RomOpenDefinitions, TheSecondaryFormatIsTriedWhenThePrimaryFindsNothing)
     enable_ecuflash_primary();
     cfg_.session.settings().use_romraider_definitions = "enabled";
     cfg_.session.settings().primary_definition_base = "ecuflash";
-    catalogs_.entries[DefinitionFormat::RomRaider] = {test_entry(DefinitionFormat::RomRaider)};
+    catalogs_.entries[DefinitionFormat::kRomRaider] = {test_entry(DefinitionFormat::kRomRaider)};
     cfg_.put("/defs/test.xml", R"xml(<roms><rom><romid><xmlid>TESTROM</xmlid>
         <internalidaddress>10</internalidaddress><internalidstring>TESTROM</internalidstring></romid></rom></roms>)xml");
 
     const auto outcome = opener_.open_file("/cal/a.bin");
 
     ASSERT_THAT(outcome, IsOk());
-    EXPECT_EQ(catalogs_.calls, (std::vector{DefinitionFormat::EcuFlash, DefinitionFormat::RomRaider}));
+    EXPECT_EQ(catalogs_.calls, (std::vector{DefinitionFormat::kEcuFlash, DefinitionFormat::kRomRaider}));
     EXPECT_THAT(log_text(), Contains(HasSubstr("Unable to match EcuFlash definition")));
     ASSERT_TRUE(outcome->contents.definition.has_value());
-    EXPECT_EQ(outcome->contents.definition->format, DefinitionFormat::RomRaider);
+    EXPECT_EQ(outcome->contents.definition->format, DefinitionFormat::kRomRaider);
 }
 
 TEST_F(RomOpenDefinitions, RomRaiderPrimaryIsTriedFirst)
@@ -336,24 +336,24 @@ TEST_F(RomOpenDefinitions, RomRaiderPrimaryIsTriedFirst)
 
     ASSERT_THAT(opener_.open_file("/cal/a.bin"), IsOk());
 
-    EXPECT_EQ(catalogs_.calls, (std::vector{DefinitionFormat::RomRaider, DefinitionFormat::EcuFlash}));
+    EXPECT_EQ(catalogs_.calls, (std::vector{DefinitionFormat::kRomRaider, DefinitionFormat::kEcuFlash}));
 }
 
 TEST_F(RomOpenDefinitions, APrimaryHitSkipsTheSecondary)
 {
     enable_ecuflash_primary();
     cfg_.session.settings().use_romraider_definitions = "enabled";
-    catalogs_.entries[DefinitionFormat::EcuFlash] = {test_entry(DefinitionFormat::EcuFlash)};
+    catalogs_.entries[DefinitionFormat::kEcuFlash] = {test_entry(DefinitionFormat::kEcuFlash)};
 
     ASSERT_THAT(opener_.open_file("/cal/a.bin"), IsOk());
 
-    EXPECT_EQ(catalogs_.calls, (std::vector{DefinitionFormat::EcuFlash}));
+    EXPECT_EQ(catalogs_.calls, (std::vector{DefinitionFormat::kEcuFlash}));
 }
 
 TEST_F(RomOpenDefinitions, ACatalogFailureIsLoggedAndTheRomStillOpens)
 {
     enable_ecuflash_primary();
-    catalogs_.errors[DefinitionFormat::EcuFlash] = Error{ErrorKind::Disconnected, "no dir"};
+    catalogs_.errors[DefinitionFormat::kEcuFlash] = Error{ErrorKind::kDisconnected, "no dir"};
 
     const auto outcome = opener_.open_file("/cal/a.bin");
 
@@ -365,9 +365,9 @@ TEST_F(RomOpenDefinitions, ACatalogFailureIsLoggedAndTheRomStillOpens)
 TEST_F(RomOpenDefinitions, EcuReportedIdIsUsedWhenMatchingFails)
 {
     enable_ecuflash_primary();
-    definition::DefinitionIndexEntry entry = test_entry(DefinitionFormat::EcuFlash);
+    definition::DefinitionIndexEntry entry = test_entry(DefinitionFormat::kEcuFlash);
     entry.internal_id = "NOT-IN-ROM";
-    catalogs_.entries[DefinitionFormat::EcuFlash] = {entry};
+    catalogs_.entries[DefinitionFormat::kEcuFlash] = {entry};
 
     const auto outcome = opener_.adopt_read_image(ReadImage{
         .rom = synthetic_rom(),
@@ -385,9 +385,9 @@ TEST_F(RomOpenDefinitions, EcuReportedIdIsUsedWhenMatchingFails)
 TEST_F(RomOpenDefinitions, AnIdOutsideTheCatalogEndsTheAttemptSilently)
 {
     enable_ecuflash_primary();
-    definition::DefinitionIndexEntry entry = test_entry(DefinitionFormat::EcuFlash);
+    definition::DefinitionIndexEntry entry = test_entry(DefinitionFormat::kEcuFlash);
     entry.internal_id = "NOT-IN-ROM";
-    catalogs_.entries[DefinitionFormat::EcuFlash] = {entry};
+    catalogs_.entries[DefinitionFormat::kEcuFlash] = {entry};
 
     const auto outcome = opener_.adopt_read_image(ReadImage{
         .rom = synthetic_rom(),
@@ -405,7 +405,7 @@ TEST_F(RomOpenDefinitions, AnIdOutsideTheCatalogEndsTheAttemptSilently)
 TEST_F(RomOpenDefinitions, MissingDefinitionFileOpensWithoutDefinitionAndNotifies)
 {
     enable_ecuflash_primary();
-    catalogs_.entries[DefinitionFormat::EcuFlash] = {test_entry(DefinitionFormat::EcuFlash, "/defs/gone.xml")};
+    catalogs_.entries[DefinitionFormat::kEcuFlash] = {test_entry(DefinitionFormat::kEcuFlash, "/defs/gone.xml")};
 
     const auto outcome = opener_.open_file("/cal/a.bin");
 
@@ -420,7 +420,7 @@ TEST_F(RomOpenDefinitions, AnUnparseableDefinitionThatExistsIsLoggedWithoutANoti
 {
     enable_ecuflash_primary();
     cfg_.put("/defs/test.xml", "<rom><romid>");
-    catalogs_.entries[DefinitionFormat::EcuFlash] = {test_entry(DefinitionFormat::EcuFlash)};
+    catalogs_.entries[DefinitionFormat::kEcuFlash] = {test_entry(DefinitionFormat::kEcuFlash)};
 
     const auto outcome = opener_.open_file("/cal/a.bin");
 
@@ -433,7 +433,7 @@ TEST_F(RomOpenDefinitions, AnUnparseableDefinitionThatExistsIsLoggedWithoutANoti
 TEST_F(RomOpenDefinitions, SizeRejectionKeepsHeaderAndDropsMaps)
 {
     enable_ecuflash_primary();
-    catalogs_.entries[DefinitionFormat::EcuFlash] = {test_entry(DefinitionFormat::EcuFlash)};
+    catalogs_.entries[DefinitionFormat::kEcuFlash] = {test_entry(DefinitionFormat::kEcuFlash)};
     std::vector<std::uint8_t> short_rom = synthetic_rom();
     short_rom.resize(0x20); // the map at 0x20 is now past the end
     put_rom("/cal/short.bin", short_rom);
@@ -455,7 +455,7 @@ TEST_F(RomOpenDefinitions, SizeRejectionKeepsHeaderAndDropsMaps)
 TEST_F(RomOpenDefinitions, AnIndexedDefinitionMissingFromTheCatalogNotifiesOnEcuRead)
 {
     enable_ecuflash_primary();
-    catalogs_.indexed_sources[{DefinitionFormat::EcuFlash, "TESTROM"}] = "/defs/gone.xml";
+    catalogs_.indexed_sources[{DefinitionFormat::kEcuFlash, "TESTROM"}] = "/defs/gone.xml";
 
     const auto outcome = opener_.adopt_read_image(ReadImage{
         .rom = synthetic_rom(),
@@ -474,7 +474,7 @@ TEST_F(RomOpenDefinitions, AnIndexedDefinitionMissingFromTheCatalogNotifiesOnEcu
 TEST_F(RomOpenDefinitions, AnIndexedDefinitionThatStillExistsIsLoggedWithoutANotice)
 {
     enable_ecuflash_primary();
-    catalogs_.indexed_sources[{DefinitionFormat::EcuFlash, "TESTROM"}] = "/defs/test.xml";
+    catalogs_.indexed_sources[{DefinitionFormat::kEcuFlash, "TESTROM"}] = "/defs/test.xml";
 
     const auto outcome = opener_.adopt_read_image(ReadImage{
         .rom = synthetic_rom(),

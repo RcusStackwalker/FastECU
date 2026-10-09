@@ -202,7 +202,7 @@ TEST(DensoIso15765CanCommonTest, SecurityAccessRejectsShortSeedWithoutSendingKey
     const Status result = denso_security_access(f.ctx);
 
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    EXPECT_EQ(result.error().kind, ErrorKind::kBadResponse);
     EXPECT_EQ(f.transport.writesConsumed(), 1U);
 }
 
@@ -217,7 +217,7 @@ TEST(DensoIso15765CanCommonTest, SecurityAccessPropagatesCancellation)
     const Status result = denso_security_access(ctx);
 
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
+    EXPECT_EQ(result.error().kind, ErrorKind::kCancelled);
     EXPECT_EQ(f.transport.writesConsumed(), 1U);
 }
 
@@ -243,7 +243,7 @@ TEST(DensoIso15765CanCommonTest, EraseSetupMismatchDoesNotSendTrigger)
     const Status result = denso_iso15765_erase(f.ctx, kSetupPdu);
 
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    EXPECT_EQ(result.error().kind, ErrorKind::kBadResponse);
     EXPECT_EQ(f.transport.writesConsumed(), 1U);
 }
 
@@ -263,9 +263,9 @@ TEST(DensoIso15765CanCommonTest, EraseAccepts71_01_02AfterPolling)
     EXPECT_THAT(f.clock.sleep_calls, ::testing::ElementsAre(500ms, 500ms));
     EXPECT_THAT(f.events.logs,
                 ::testing::ElementsAre(
-                    ::testing::Pair(LogLevel::Info, "Setting flash start & length"),
-                    ::testing::Pair(LogLevel::Info, "Erasing ECU ROM"),
-                    ::testing::Pair(LogLevel::Info, "Flash erased! Starting flash write, do not power off!")));
+                    ::testing::Pair(LogLevel::kInfo, "Setting flash start & length"),
+                    ::testing::Pair(LogLevel::kInfo, "Erasing ECU ROM"),
+                    ::testing::Pair(LogLevel::kInfo, "Flash erased! Starting flash write, do not power off!")));
 }
 
 TEST(DensoIso15765CanCommonTest, ErasePollingStopsAfter20ReceivesAndNeverResendsTrigger)
@@ -281,14 +281,14 @@ TEST(DensoIso15765CanCommonTest, ErasePollingStopsAfter20ReceivesAndNeverResends
     const Status result = denso_iso15765_erase(f.ctx, kSetupPdu);
 
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    EXPECT_EQ(result.error().kind, ErrorKind::kBadResponse);
     EXPECT_TRUE(f.transport.scriptConsumed());
     EXPECT_EQ(f.transport.writesConsumed(), 2U);
     EXPECT_THAT(f.transport.readTimeouts(), ::testing::Each(500ms));
     EXPECT_EQ(f.transport.readTimeouts().size(), 21U);
     EXPECT_THAT(f.clock.sleep_calls, ::testing::Each(500ms));
     EXPECT_EQ(f.clock.sleep_calls.size(), 21U);
-    EXPECT_THAT(f.events.logs, ::testing::Contains(::testing::Pair(LogLevel::Error, "Flash area erase failed")));
+    EXPECT_THAT(f.events.logs, ::testing::Contains(::testing::Pair(LogLevel::kError, "Flash area erase failed")));
 }
 
 TEST(DensoIso15765CanCommonTest, EraseCancellationAfterTriggerStopsPolling)
@@ -305,7 +305,7 @@ TEST(DensoIso15765CanCommonTest, EraseCancellationAfterTriggerStopsPolling)
     const Status result = denso_iso15765_erase(ctx, kSetupPdu);
 
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
+    EXPECT_EQ(result.error().kind, ErrorKind::kCancelled);
     EXPECT_EQ(f.transport.writesConsumed(), 2U);
     EXPECT_EQ(f.transport.readTimeouts().size(), 1U);
 }

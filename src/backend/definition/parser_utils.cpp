@@ -68,7 +68,7 @@ std::string detail_prefix(std::string_view source, std::string_view definition_i
 std::unexpected<Error> invalid(std::string_view source, std::string context, std::string message,
                                std::string_view definition_id)
 {
-    return fail(ErrorKind::InvalidConfig,
+    return fail(ErrorKind::kInvalidConfig,
                 std::format("{}{}: {}", detail_prefix(source, definition_id), context, message));
 }
 

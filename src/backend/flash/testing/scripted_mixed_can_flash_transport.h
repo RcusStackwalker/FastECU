@@ -18,10 +18,10 @@ namespace fastecu::flash
 
 enum class ScriptedMixedCanMode
 {
-    Unconfigured,
-    Iso15765Kernel,
-    RawBootloader,
-    Closed,
+    kUnconfigured,
+    kIso15765Kernel,
+    kRawBootloader,
+    kClosed,
 };
 
 class ScriptedMixedCanFlashTransport final : public IMixedCanFlashTransport
@@ -132,7 +132,7 @@ class ScriptedMixedCanFlashTransport final : public IMixedCanFlashTransport
             return configure_result;
         }
         configured_ = true;
-        mode_ = ScriptedMixedCanMode::Unconfigured;
+        mode_ = ScriptedMixedCanMode::kUnconfigured;
         return {};
     }
     Status open() override
@@ -140,13 +140,13 @@ class ScriptedMixedCanFlashTransport final : public IMixedCanFlashTransport
         ++open_call_count_;
         if (!configured_)
         {
-            return fail(ErrorKind::InvalidConfig, "scripted mixed CAN transport opened before configuration");
+            return fail(ErrorKind::kInvalidConfig, "scripted mixed CAN transport opened before configuration");
         }
         if (!open_result.has_value())
         {
             return open_result;
         }
-        set_mode(ScriptedMixedCanMode::Iso15765Kernel);
+        set_mode(ScriptedMixedCanMode::kIso15765Kernel);
         return {};
     }
     Status close() override
@@ -156,25 +156,25 @@ class ScriptedMixedCanFlashTransport final : public IMixedCanFlashTransport
         {
             return close_result;
         }
-        set_mode(ScriptedMixedCanMode::Closed);
+        set_mode(ScriptedMixedCanMode::kClosed);
         return {};
     }
     Status enter_raw_bootloader_mode() override
     {
-        if (mode_ != ScriptedMixedCanMode::Iso15765Kernel)
+        if (mode_ != ScriptedMixedCanMode::kIso15765Kernel)
         {
             return wrong_mode("raw bootloader transition");
         }
         if (std::exchange(fail_next_raw_transition_, false))
         {
-            return fail(ErrorKind::Internal, "scripted raw transition failed");
+            return fail(ErrorKind::kInternal, "scripted raw transition failed");
         }
-        set_mode(ScriptedMixedCanMode::RawBootloader);
+        set_mode(ScriptedMixedCanMode::kRawBootloader);
         return {};
     }
     Status clear_receive_buffer() override
     {
-        if (mode_ != ScriptedMixedCanMode::RawBootloader)
+        if (mode_ != ScriptedMixedCanMode::kRawBootloader)
         {
             return wrong_mode("receive-buffer clear");
         }
@@ -183,31 +183,31 @@ class ScriptedMixedCanFlashTransport final : public IMixedCanFlashTransport
     }
     Status enter_iso15765_kernel_mode() override
     {
-        if (mode_ != ScriptedMixedCanMode::RawBootloader)
+        if (mode_ != ScriptedMixedCanMode::kRawBootloader)
         {
             return wrong_mode("ISO-15765 kernel transition");
         }
         if (std::exchange(fail_next_iso_transition_, false))
         {
-            return fail(ErrorKind::Internal, "scripted ISO-15765 transition failed");
+            return fail(ErrorKind::kInternal, "scripted ISO-15765 transition failed");
         }
-        set_mode(ScriptedMixedCanMode::Iso15765Kernel);
+        set_mode(ScriptedMixedCanMode::kIso15765Kernel);
         return {};
     }
     Status write_iso15765(bytes::ByteView data, const ICancellationToken& cancellation) override
     {
         if (cancelled_or_unblocked(cancellation))
         {
-            return fail(ErrorKind::Cancelled, "scripted ISO-15765 write cancelled");
+            return fail(ErrorKind::kCancelled, "scripted ISO-15765 write cancelled");
         }
-        if (mode_ != ScriptedMixedCanMode::Iso15765Kernel)
+        if (mode_ != ScriptedMixedCanMode::kIso15765Kernel)
         {
             return wrong_mode("ISO-15765 write");
         }
         if (iso_write_index_ >= expected_iso_writes_.size() ||
             expected_iso_writes_[iso_write_index_] != bytes::Bytes(data.begin(), data.end()))
         {
-            return fail(ErrorKind::Internal, "unexpected scripted ISO-15765 write");
+            return fail(ErrorKind::kInternal, "unexpected scripted ISO-15765 write");
         }
         ++iso_write_index_;
         return {};
@@ -217,9 +217,9 @@ class ScriptedMixedCanFlashTransport final : public IMixedCanFlashTransport
     {
         if (cancelled_or_unblocked(cancellation))
         {
-            return fail(ErrorKind::Cancelled, "scripted ISO-15765 read cancelled");
+            return fail(ErrorKind::kCancelled, "scripted ISO-15765 read cancelled");
         }
-        if (mode_ != ScriptedMixedCanMode::Iso15765Kernel)
+        if (mode_ != ScriptedMixedCanMode::kIso15765Kernel)
         {
             return std::unexpected(wrong_mode("ISO-15765 read").error());
         }
@@ -229,7 +229,7 @@ class ScriptedMixedCanFlashTransport final : public IMixedCanFlashTransport
         }
         if (iso_reads_.empty())
         {
-            return fail(ErrorKind::Internal, "no scripted ISO-15765 read outcome");
+            return fail(ErrorKind::kInternal, "no scripted ISO-15765 read outcome");
         }
         auto result = std::move(iso_reads_.front());
         iso_reads_.pop_front();
@@ -239,20 +239,20 @@ class ScriptedMixedCanFlashTransport final : public IMixedCanFlashTransport
     {
         if (cancelled_or_unblocked(cancellation))
         {
-            return fail(ErrorKind::Cancelled, "scripted raw CAN write cancelled");
+            return fail(ErrorKind::kCancelled, "scripted raw CAN write cancelled");
         }
-        if (mode_ != ScriptedMixedCanMode::RawBootloader)
+        if (mode_ != ScriptedMixedCanMode::kRawBootloader)
         {
             return wrong_mode("raw CAN write");
         }
         if (frame.payload.size() > 8)
         {
-            return fail(ErrorKind::InvalidConfig, "raw CAN payload exceeds eight bytes");
+            return fail(ErrorKind::kInvalidConfig, "raw CAN payload exceeds eight bytes");
         }
         if (raw_write_index_ >= expected_raw_writes_.size() ||
             !same_frame(expected_raw_writes_[raw_write_index_], frame))
         {
-            return fail(ErrorKind::Internal, "unexpected scripted raw CAN write");
+            return fail(ErrorKind::kInternal, "unexpected scripted raw CAN write");
         }
         ++raw_write_index_;
         return {};
@@ -262,9 +262,9 @@ class ScriptedMixedCanFlashTransport final : public IMixedCanFlashTransport
     {
         if (cancelled_or_unblocked(cancellation))
         {
-            return fail(ErrorKind::Cancelled, "scripted raw CAN read cancelled");
+            return fail(ErrorKind::kCancelled, "scripted raw CAN read cancelled");
         }
-        if (mode_ != ScriptedMixedCanMode::RawBootloader)
+        if (mode_ != ScriptedMixedCanMode::kRawBootloader)
         {
             return std::unexpected(wrong_mode("raw CAN read").error());
         }
@@ -274,13 +274,13 @@ class ScriptedMixedCanFlashTransport final : public IMixedCanFlashTransport
         }
         if (raw_reads_.empty())
         {
-            return fail(ErrorKind::Internal, "no scripted raw CAN read outcome");
+            return fail(ErrorKind::kInternal, "no scripted raw CAN read outcome");
         }
         auto result = std::move(raw_reads_.front());
         raw_reads_.pop_front();
         if (result.has_value() && result->has_value() && result->value().payload.size() > 8)
         {
-            return fail(ErrorKind::InvalidConfig, "scripted raw CAN frame exceeds eight bytes");
+            return fail(ErrorKind::kInvalidConfig, "scripted raw CAN frame exceeds eight bytes");
         }
         return result;
     }
@@ -307,7 +307,7 @@ class ScriptedMixedCanFlashTransport final : public IMixedCanFlashTransport
     }
     Status wrong_mode(std::string_view operation) const
     {
-        return fail(ErrorKind::InvalidConfig, std::format("scripted mixed CAN {} in wrong mode", operation));
+        return fail(ErrorKind::kInvalidConfig, std::format("scripted mixed CAN {} in wrong mode", operation));
     }
     void set_mode(ScriptedMixedCanMode mode)
     {
@@ -336,7 +336,7 @@ class ScriptedMixedCanFlashTransport final : public IMixedCanFlashTransport
         blocking_iso_read_entered_cv_.notify_all();
         blocking_iso_read_cv_.wait(lock, [this] { return unblock_requested_; });
         blocking_iso_read_pending_ = false;
-        return fail(ErrorKind::Cancelled, "scripted ISO-15765 read unblocked");
+        return fail(ErrorKind::kCancelled, "scripted ISO-15765 read unblocked");
     }
     Status release_blocking_raw_read(const ICancellationToken&)
     {
@@ -349,7 +349,7 @@ class ScriptedMixedCanFlashTransport final : public IMixedCanFlashTransport
         blocking_raw_read_entered_cv_.notify_all();
         blocking_raw_read_cv_.wait(lock, [this] { return unblock_requested_; });
         blocking_raw_read_pending_ = false;
-        return fail(ErrorKind::Cancelled, "scripted raw CAN read unblocked");
+        return fail(ErrorKind::kCancelled, "scripted raw CAN read unblocked");
     }
 
     std::vector<bytes::Bytes> expected_iso_writes_;
@@ -358,7 +358,7 @@ class ScriptedMixedCanFlashTransport final : public IMixedCanFlashTransport
     std::vector<cdbg::CanFrame> expected_raw_writes_;
     std::deque<Result<std::optional<cdbg::CanFrame>>> raw_reads_;
     std::size_t raw_write_index_ = 0;
-    ScriptedMixedCanMode mode_ = ScriptedMixedCanMode::Unconfigured;
+    ScriptedMixedCanMode mode_ = ScriptedMixedCanMode::kUnconfigured;
     std::vector<ScriptedMixedCanMode> mode_changes_;
     int configure_call_count_ = 0;
     int open_call_count_ = 0;

@@ -119,7 +119,7 @@ TEST(BenchSession, ConnectRejectsAWrongPositiveSessionEcho)
     Harness harness;
     harness.expectSession(mitsu_colt_can::kSessionBasic);
 
-    ASSERT_THAT(harness.session->connect(), fastecu::testing::IsErr(ErrorKind::BadResponse));
+    ASSERT_THAT(harness.session->connect(), fastecu::testing::IsErr(ErrorKind::kBadResponse));
     EXPECT_EQ(harness.session->last_traffic().rx, (bytes::Bytes{0x50, mitsu_colt_can::kSessionBasic}));
 }
 
@@ -129,7 +129,7 @@ TEST(BenchSession, ConnectRejectsAWrongPositiveSeedLevelEcho)
     harness.expectSession();
     harness.expectSeed(0x04);
 
-    ASSERT_THAT(harness.session->connect(), fastecu::testing::IsErr(ErrorKind::BadResponse));
+    ASSERT_THAT(harness.session->connect(), fastecu::testing::IsErr(ErrorKind::kBadResponse));
 }
 
 TEST(BenchSession, ConnectRejectsAWrongPositiveKeyLevelEcho)
@@ -139,7 +139,7 @@ TEST(BenchSession, ConnectRejectsAWrongPositiveKeyLevelEcho)
     harness.expectSeed();
     harness.expectKey(0x07);
 
-    ASSERT_THAT(harness.session->connect(), fastecu::testing::IsErr(ErrorKind::BadResponse));
+    ASSERT_THAT(harness.session->connect(), fastecu::testing::IsErr(ErrorKind::kBadResponse));
 }
 
 TEST(BenchSession, VendorChallengeIsSkippedWhenNotRequested)
@@ -180,7 +180,7 @@ TEST(BenchSession, VendorChallengeRejectsAKeyReplyThatOnlyEchoesTheSelector)
     // but the ECU has not granted the transition.
     harness.expectVendorKey(0x00);
 
-    ASSERT_THAT(harness.session->connect(), fastecu::testing::IsErr(ErrorKind::BadResponse));
+    ASSERT_THAT(harness.session->connect(), fastecu::testing::IsErr(ErrorKind::kBadResponse));
 }
 
 TEST(BenchSession, VendorChallengeRejectsAKeyReplyThatOnlyEchoesAcceptance)
@@ -196,7 +196,7 @@ TEST(BenchSession, VendorChallengeRejectsAKeyReplyThatOnlyEchoesAcceptance)
     harness.transport->queueRead(
         response(bytes::Bytes{0x63, 0x00, mitsu_colt_can_vendor_ext::kVendorChallengeAccepted}));
 
-    ASSERT_THAT(harness.session->connect(), fastecu::testing::IsErr(ErrorKind::BadResponse));
+    ASSERT_THAT(harness.session->connect(), fastecu::testing::IsErr(ErrorKind::kBadResponse));
 }
 
 TEST(BenchSession, VendorChallengeRejectsAShortSeedReply)
@@ -209,7 +209,7 @@ TEST(BenchSession, VendorChallengeRejectsAShortSeedReply)
         response(bytes::Bytes{0x63, mitsu_colt_can_vendor_ext::kVendorChallengeSelector,
                               mitsu_colt_can_vendor_ext::kVendorChallengeSeedSubfunction, 0xDE, 0xAD}));
 
-    ASSERT_THAT(harness.session->connect(), fastecu::testing::IsErr(ErrorKind::BadResponse));
+    ASSERT_THAT(harness.session->connect(), fastecu::testing::IsErr(ErrorKind::kBadResponse));
 }
 
 } // namespace

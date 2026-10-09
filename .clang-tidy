@@ -80,6 +80,10 @@ CheckOptions:
     value: CamelCase
   - key: readability-identifier-naming.EnumCase
     value: CamelCase
+  - key: readability-identifier-naming.EnumConstantCase
+    value: CamelCase
+  - key: readability-identifier-naming.EnumConstantPrefix
+    value: k
   - key: readability-identifier-naming.ClassConstantCase
     value: CamelCase
   - key: readability-identifier-naming.ClassConstantPrefix

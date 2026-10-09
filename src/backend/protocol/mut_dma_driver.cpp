@@ -22,7 +22,7 @@ fastecu::Status writeFrame(IKlineTransport& transport, bytes::ByteView frame)
     }
     if (*result != frame.size())
     {
-        return fastecu::fail(fastecu::ErrorKind::Internal, "partial K-Line write");
+        return fastecu::fail(fastecu::ErrorKind::kInternal, "partial K-Line write");
     }
     return {};
 }
@@ -49,7 +49,7 @@ fastecu::Status MutDmaDriver::startFreeFormLog(const std::vector<Channel>& chann
     }
     if (!resp1->has_value() || !ackOk(resp1->value(), 0xA5, 0xB5))
     {
-        return fastecu::fail(fastecu::ErrorKind::BadResponse, "MUT/DMA setup acknowledgement invalid");
+        return fastecu::fail(fastecu::ErrorKind::kBadResponse, "MUT/DMA setup acknowledgement invalid");
     }
     const auto idList = buildIdListFrame(listCmd, channels);
     if (auto written = writeFrame(t_, idList); !written)
@@ -63,7 +63,7 @@ fastecu::Status MutDmaDriver::startFreeFormLog(const std::vector<Channel>& chann
     }
     if (!resp2->has_value() || !ackOk(resp2->value(), 0x05, 0x15))
     {
-        return fastecu::fail(fastecu::ErrorKind::BadResponse, "MUT/DMA channel-list acknowledgement invalid");
+        return fastecu::fail(fastecu::ErrorKind::kBadResponse, "MUT/DMA channel-list acknowledgement invalid");
     }
     streaming_ = true;
     return {};
@@ -79,7 +79,7 @@ fastecu::Status MutDmaDriver::writeMemory(std::uint16_t addr, bytes::ByteView da
     const std::vector<MutDmaFrame> frames = buildWriteFrames(addr, data);
     if (frames.empty() && !data.empty())
     {
-        return fastecu::fail(fastecu::ErrorKind::InvalidConfig, "MUT/DMA memory write range is invalid");
+        return fastecu::fail(fastecu::ErrorKind::kInvalidConfig, "MUT/DMA memory write range is invalid");
     }
     for (const MutDmaFrame& f : frames)
     {
@@ -94,7 +94,7 @@ fastecu::Status MutDmaDriver::writeMemory(std::uint16_t addr, bytes::ByteView da
         }
         if (!echo->has_value() || !verifyFrame(echo->value()))
         {
-            return fastecu::fail(fastecu::ErrorKind::BadResponse, "MUT/DMA memory-write echo invalid");
+            return fastecu::fail(fastecu::ErrorKind::kBadResponse, "MUT/DMA memory-write echo invalid");
         }
     }
     return {};

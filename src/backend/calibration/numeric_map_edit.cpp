@@ -30,7 +30,7 @@ Result<std::optional<double>> parse_limit(std::string_view text)
     const auto value = expression::parse_finite_number(text);
     if (!value.has_value())
     {
-        return fail(ErrorKind::InvalidConfig, std::format("invalid definition limit: {}", value.error().detail));
+        return fail(ErrorKind::kInvalidConfig, std::format("invalid definition limit: {}", value.error().detail));
     }
     return std::optional<double>(*value);
 }
@@ -49,7 +49,7 @@ Result<Limits> limits_for(const MapElementSpec& spec)
     }
     if (minimum->has_value() && maximum->has_value() && **minimum > **maximum)
     {
-        return fail(ErrorKind::InvalidConfig, "definition minimum exceeds maximum");
+        return fail(ErrorKind::kInvalidConfig, "definition minimum exceeds maximum");
     }
     return Limits{*minimum, *maximum};
 }
@@ -61,28 +61,28 @@ Status validate_selection(std::uint32_t width, std::uint64_t count, const Select
         range.last_col < range.first_col || static_cast<std::uint64_t>(range.last_col) >= width ||
         static_cast<std::uint64_t>(range.last_row) >= count / width)
     {
-        return fail(ErrorKind::InvalidConfig, "edit selection exceeds its numeric run");
+        return fail(ErrorKind::kInvalidConfig, "edit selection exceeds its numeric run");
     }
     return {};
 }
 
 Result<bytes::Bytes> encode_value(const MapElementSpec& spec, double value)
 {
-    if (!spec.storage_type.has_value() || spec.storage_type == definition::StorageType::Bloblist ||
+    if (!spec.storage_type.has_value() || spec.storage_type == definition::StorageType::kBloblist ||
         spec.start_position == 0 || spec.interval == 0 || !std::isfinite(value))
     {
-        return fail(ErrorKind::InvalidConfig, "edit has invalid numeric storage, stride, or value");
+        return fail(ErrorKind::kInvalidConfig, "edit has invalid numeric storage, stride, or value");
     }
     const auto encoded = expression::evaluate_checked(spec.to_byte, value);
     if (!encoded.has_value())
     {
-        return fail(ErrorKind::InvalidConfig, std::format("encoding expression: {}", encoded.error().detail));
+        return fail(ErrorKind::kInvalidConfig, std::format("encoding expression: {}", encoded.error().detail));
     }
-    if (spec.storage_type == definition::StorageType::Float)
+    if (spec.storage_type == definition::StorageType::kFloat)
     {
         if (std::abs(*encoded) > static_cast<double>(std::numeric_limits<float>::max()))
         {
-            return fail(ErrorKind::InvalidConfig, "value exceeds finite float storage range");
+            return fail(ErrorKind::kInvalidConfig, "value exceeds finite float storage range");
         }
         const auto bits = std::bit_cast<std::uint32_t>(static_cast<float>(*encoded));
         return write_raw_element(spec, static_cast<std::int64_t>(bits));
@@ -94,7 +94,7 @@ Result<bytes::Bytes> encode_value(const MapElementSpec& spec, double value)
     const double rounded = std::round(*encoded);
     if (rounded < minimum || rounded > maximum)
     {
-        return fail(ErrorKind::InvalidConfig,
+        return fail(ErrorKind::kInvalidConfig,
                     std::format("encoded value is outside storage range [{}, {}]", minimum, maximum));
     }
     return write_raw_element(spec, static_cast<std::int64_t>(rounded));
@@ -102,17 +102,17 @@ Result<bytes::Bytes> encode_value(const MapElementSpec& spec, double value)
 
 void merge_reason(NoChangeReason& previous, NoChangeReason next)
 {
-    if (next == NoChangeReason::Unchanged)
+    if (next == NoChangeReason::kUnchanged)
     {
         return;
     }
-    if (previous == NoChangeReason::Unchanged)
+    if (previous == NoChangeReason::kUnchanged)
     {
         previous = next;
     }
     else if (previous != next)
     {
-        previous = NoChangeReason::MultipleCauses;
+        previous = NoChangeReason::kMultipleCauses;
     }
 }
 
@@ -121,7 +121,7 @@ Status append_write(NumericEditResult& result, bytes::ByteView rom, const MapEle
 {
     if (!std::isfinite(requested))
     {
-        return fail(ErrorKind::InvalidConfig, "requested value is not finite");
+        return fail(ErrorKind::kInvalidConfig, "requested value is not finite");
     }
     double clamped = requested;
     if (limits.minimum.has_value())
@@ -140,14 +140,14 @@ Status append_write(NumericEditResult& result, bytes::ByteView rom, const MapEle
     const auto address = element_byte_address(spec, index, true);
     if (!internal::byte_window_fits(rom, address, encoded->size()))
     {
-        return fail(ErrorKind::InvalidConfig, "edit byte range exceeds ROM size");
+        return fail(ErrorKind::kInvalidConfig, "edit byte range exceeds ROM size");
     }
     if (std::ranges::equal(rom.subspan(static_cast<std::size_t>(address), encoded->size()), *encoded))
     {
-        const auto reason = clamped != requested ? NoChangeReason::DefinitionLimit
+        const auto reason = clamped != requested ? NoChangeReason::kDefinitionLimit
                             : old_value != nullptr && old_value->has_value() && **old_value != clamped
-                                ? NoChangeReason::BelowStorageResolution
-                                : NoChangeReason::Unchanged;
+                                ? NoChangeReason::kBelowStorageResolution
+                                : NoChangeReason::kUnchanged;
         merge_reason(result.no_change, reason);
     }
     else
@@ -172,7 +172,7 @@ Result<NumericEditResult> build_patch(bytes::ByteView rom, const MapElementSpec&
     {
         return std::unexpected(limits.error());
     }
-    NumericEditResult result{.no_change = NoChangeReason::Unchanged};
+    NumericEditResult result{.no_change = NoChangeReason::kUnchanged};
     for (std::uint64_t row = static_cast<std::uint64_t>(range.first_row);
          row <= static_cast<std::uint64_t>(range.last_row); ++row)
     {
@@ -194,7 +194,7 @@ Result<NumericEditResult> build_patch(bytes::ByteView rom, const MapElementSpec&
     }
     if (!result.writes.empty())
     {
-        result.no_change = NoChangeReason::None;
+        result.no_change = NoChangeReason::kNone;
     }
     return result;
 }
@@ -207,7 +207,7 @@ Result<double> current_value(std::span<const NumericCell> cells, std::uint32_t i
     }
     if (!std::isfinite(*cells[index]))
     {
-        return fail(ErrorKind::InvalidConfig, "current cell is not finite");
+        return fail(ErrorKind::kInvalidConfig, "current cell is not finite");
     }
     return cells[index];
 }
@@ -233,7 +233,7 @@ Result<bool> uses_current_value(std::string_view formula)
             const auto parsed = std::from_chars(formula.data(), formula.data() + formula.size(), number);
             if (parsed.ec != std::errc{} || !std::isfinite(number))
             {
-                return fail(ErrorKind::InvalidConfig, "assignment contains an invalid numeric literal");
+                return fail(ErrorKind::kInvalidConfig, "assignment contains an invalid numeric literal");
             }
             formula.remove_prefix(static_cast<std::size_t>(parsed.ptr - formula.data()));
         }
@@ -243,7 +243,7 @@ Result<bool> uses_current_value(std::string_view formula)
         }
         else
         {
-            return fail(ErrorKind::InvalidConfig, "assignment contains an unsupported token");
+            return fail(ErrorKind::kInvalidConfig, "assignment contains an unsupported token");
         }
     }
     return uses_input;
@@ -276,11 +276,11 @@ Result<double> interpolated(std::span<const NumericCell> cells, std::uint32_t wi
         first_col == last_col ? 0.0 : static_cast<double>(col - first_col) / static_cast<double>(last_col - first_col);
     const double vertical_fraction =
         first_row == last_row ? 0.0 : static_cast<double>(row - first_row) / static_cast<double>(last_row - first_row);
-    if (mode == InterpolationMode::Horizontal)
+    if (mode == InterpolationMode::kHorizontal)
     {
         return interpolate_pair(cells, row * width + first_col, row * width + last_col, horizontal_fraction);
     }
-    if (mode == InterpolationMode::Vertical)
+    if (mode == InterpolationMode::kVertical)
     {
         return interpolate_pair(cells, first_row * width + col, last_row * width + col, vertical_fraction);
     }
@@ -305,12 +305,12 @@ Result<NumericEditResult> calculate_increment(bytes::ByteView rom, const MapElem
                                               std::span<const NumericCell> cells, const SelectionRange& range,
                                               IncrementStep step)
 {
-    const bool fine = step == IncrementStep::FineUp || step == IncrementStep::FineDown;
-    const bool down = step == IncrementStep::FineDown || step == IncrementStep::CoarseDown;
+    const bool fine = step == IncrementStep::kFineUp || step == IncrementStep::kFineDown;
+    const bool down = step == IncrementStep::kFineDown || step == IncrementStep::kCoarseDown;
     const double amount = (fine ? spec.fine_increment : spec.coarse_increment) * (down ? -1.0 : 1.0);
     if (!std::isfinite(amount) || amount == 0.0)
     {
-        return fail(ErrorKind::InvalidConfig, "increment must be finite and nonzero");
+        return fail(ErrorKind::kInvalidConfig, "increment must be finite and nonzero");
     }
     return build_patch(rom, spec, width, cells, range,
                        [&](std::uint32_t index, std::uint64_t, std::uint64_t) -> Result<double>
@@ -344,7 +344,7 @@ Result<NumericEditResult> calculate_assignment(bytes::ByteView rom, const MapEle
                            const auto value = expression::evaluate_checked(formula, *current);
                            if (!value.has_value())
                            {
-                               return fail(ErrorKind::InvalidConfig, value.error().detail);
+                               return fail(ErrorKind::kInvalidConfig, value.error().detail);
                            }
                            return *value;
                        });
@@ -372,7 +372,7 @@ Result<NumericEditResult> calculate_paste(bytes::ByteView rom, const MapElementS
     {
         return std::unexpected(limits.error());
     }
-    NumericEditResult result{.no_change = NoChangeReason::Unchanged};
+    NumericEditResult result{.no_change = NoChangeReason::kUnchanged};
     const auto columns = values.empty() ? 0 : values.front().size();
     const auto rows_to_use = std::min(values.size(), std::size_t(height) - static_cast<std::size_t>(range.first_row));
     for (std::size_t row = 0; row < rows_to_use; ++row)
@@ -392,7 +392,7 @@ Result<NumericEditResult> calculate_paste(bytes::ByteView rom, const MapElementS
     }
     if (!result.writes.empty())
     {
-        result.no_change = NoChangeReason::None;
+        result.no_change = NoChangeReason::kNone;
     }
     return result;
 }

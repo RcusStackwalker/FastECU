@@ -18,13 +18,13 @@ namespace fastecu::calibration
 // uses the map's geometry; an X axis is one row; a Y axis is one column.
 struct NumericSelection
 {
-    NumericTarget target{NumericTarget::MapBody};
+    NumericTarget target{NumericTarget::kMapBody};
     SelectionRange elements;
 };
 
 struct IncrementEdit
 {
-    IncrementStep step{IncrementStep::FineUp};
+    IncrementStep step{IncrementStep::kFineUp};
 };
 
 // A checked expression; `x` is each cell's current scaled value.
@@ -35,7 +35,7 @@ struct AssignmentEdit
 
 struct InterpolationEdit
 {
-    InterpolationMode mode{InterpolationMode::Horizontal};
+    InterpolationMode mode{InterpolationMode::kHorizontal};
 };
 
 // Source rows of unparsed text cells. Rows may be ragged and cells empty.
@@ -65,21 +65,21 @@ struct NumericEditChanged
 // No stored byte differs; the session's dirty state is untouched.
 struct NumericEditUnchanged
 {
-    NoChangeReason reason{NoChangeReason::Unchanged};
+    NoChangeReason reason{NoChangeReason::kUnchanged};
 };
 
 enum class NotApplicableReason
 {
-    ClosedSession,
-    NoDefinition,
+    kClosedSession,
+    kNoDefinition,
     // An unknown map, an absent or static axis, a blob body, or a map whose
     // layout cannot be decoded.
-    UnavailableTarget,
+    kUnavailableTarget,
 };
 
 struct NumericEditNotApplicable
 {
-    NotApplicableReason reason{NotApplicableReason::ClosedSession};
+    NotApplicableReason reason{NotApplicableReason::kClosedSession};
 };
 
 using NumericEditOutcome = std::variant<NumericEditChanged, NumericEditUnchanged, NumericEditNotApplicable>;

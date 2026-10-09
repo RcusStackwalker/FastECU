@@ -147,10 +147,10 @@ TEST(SubaruKeyRecovery, ShortInputFailsBeforeReading)
     const bytes::ByteView full_plain(pair.plain);
     const bytes::ByteView full_cipher(pair.cipher);
     EXPECT_EQ(subaru_key_recovery::recover_keys(full_plain.first(full_plain.size() - 1), full_cipher),
-              std::unexpected(Failure::InputTooShort));
+              std::unexpected(Failure::kInputTooShort));
     EXPECT_EQ(subaru_key_recovery::recover_keys(full_plain, full_cipher.first(full_cipher.size() - 1)),
-              std::unexpected(Failure::InputTooShort));
-    EXPECT_EQ(subaru_key_recovery::recover_keys({}, {}), std::unexpected(Failure::InputTooShort));
+              std::unexpected(Failure::kInputTooShort));
+    EXPECT_EQ(subaru_key_recovery::recover_keys({}, {}), std::unexpected(Failure::kInputTooShort));
 }
 
 // Word 0x7fff repeats word 0x3fff, so 0x7ffe is the last distinct pair. Its
@@ -179,7 +179,7 @@ TEST(SubaruKeyRecovery, UnrelatedFilesFailWithoutAMajorityKey)
         bytes::appendU32Be(pair.cipher, xorshift(state));
     }
     EXPECT_EQ(subaru_key_recovery::recover_keys(bytes::ByteView(pair.plain), bytes::ByteView(pair.cipher)),
-              std::unexpected(Failure::NoMatchingKey));
+              std::unexpected(Failure::kNoMatchingKey));
 }
 
 } // namespace

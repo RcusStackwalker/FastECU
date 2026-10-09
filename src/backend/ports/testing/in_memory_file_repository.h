@@ -31,7 +31,7 @@ class InMemoryFileRepository : public IFileRepository
         auto it = files.find(key);
         if (it == files.end())
         {
-            return fail(ErrorKind::InvalidConfig, "no such handle");
+            return fail(ErrorKind::kInvalidConfig, "no such handle");
         }
         return it->second;
     }

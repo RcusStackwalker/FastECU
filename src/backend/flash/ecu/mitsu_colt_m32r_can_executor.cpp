@@ -220,7 +220,7 @@ Result<bytes::Bytes> read_one_chunk(Ctx& ctx, std::uint32_t addr, bytes::Byte ch
         error(ctx, std::format("Wrong response from ECU at 0x{:x}: expected {} payload "
                                "bytes, got {}",
                                addr, static_cast<unsigned>(chunk_len), payload.size()));
-        return fail(ErrorKind::BadResponse, "read chunk rejected");
+        return fail(ErrorKind::kBadResponse, "read chunk rejected");
     }
 
     // Lines 202-206: received.mid(5, chunkLen) on the enveloped frame.
@@ -245,7 +245,7 @@ Result<bytes::Bytes> read_flash_range(Ctx& ctx, std::uint32_t start_addr, std::u
         // Line 183: stopRequested() is polled only at the top of each chunk.
         if (ctx.cancellation.cancelled())
         {
-            return fail(ErrorKind::Cancelled, "read cancelled");
+            return fail(ErrorKind::kCancelled, "read cancelled");
         }
 
         // Lines 188-189.
@@ -287,7 +287,7 @@ Result<bool> flash_range_matches(Ctx& ctx, std::uint32_t start_addr, bytes::Byte
     {
         if (ctx.cancellation.cancelled())
         {
-            return fail(ErrorKind::Cancelled, "read cancelled");
+            return fail(ErrorKind::kCancelled, "read cancelled");
         }
 
         const std::uint32_t remaining = end_addr - addr;
@@ -418,7 +418,7 @@ Status unlock_and_erase(Ctx& ctx, std::string_view stage)
 
     if (ctx.cancellation.cancelled())
     {
-        return fail(ErrorKind::Cancelled, "cancelled after erase");
+        return fail(ErrorKind::kCancelled, "cancelled after erase");
     }
 
     return {};
@@ -471,10 +471,10 @@ Status ensure_top_region_written(Ctx& ctx, const FlashPlan& plan, bytes::ByteVie
     info(ctx, "Top 128KB mismatch, bootstrapping via redirect routines...");
 
     // Lines 320-333.
-    if (!confirmation_granted(plan, ConfirmationSpec::Id::TopRegionBootstrap))
+    if (!confirmation_granted(plan, ConfirmationSpec::Id::kTopRegionBootstrap))
     {
         info(ctx, "Top 128KB bootstrap canceled by user");
-        return fail(ErrorKind::Cancelled, "top region bootstrap was not confirmed");
+        return fail(ErrorKind::kCancelled, "top region bootstrap was not confirmed");
     }
 
     // The bootloader's post-write CRC check reads the logical RequestDownload
@@ -491,7 +491,7 @@ Status ensure_top_region_written(Ctx& ctx, const FlashPlan& plan, bytes::ByteVie
     if (!*carrier_matches)
     {
         error(ctx, "Carrier window 0x8000-0x27fff does not match desired top payload; refusing redirect bootstrap");
-        return fail(ErrorKind::InvalidConfig, "redirect carrier window does not match desired top payload");
+        return fail(ErrorKind::kInvalidConfig, "redirect carrier window does not match desired top payload");
     }
 
     // Lines 335-340.
@@ -541,7 +541,7 @@ Status ensure_top_region_written(Ctx& ctx, const FlashPlan& plan, bytes::ByteVie
     if (!std::ranges::equal(*verify_top, wanted_top))
     {
         error(ctx, "Top 128KB verify failed after redirect write");
-        return fail(ErrorKind::BadResponse, "top region verify mismatch");
+        return fail(ErrorKind::kBadResponse, "top region verify mismatch");
     }
     info(ctx, "Top 128KB verified");
     phase.complete();
@@ -602,10 +602,10 @@ Status write_mem(Ctx& ctx, const FlashPlan& plan, bytes::ByteView rom, PhaseSequ
     // available (see this project's boot-talk utility for bricked-ECU
     // recovery). Legacy lines 425-443 gated it behind a QMessageBox; the
     // portable gate is the plan's EraseTrigger confirmation.
-    if (!confirmation_granted(plan, ConfirmationSpec::Id::EraseTrigger))
+    if (!confirmation_granted(plan, ConfirmationSpec::Id::kEraseTrigger))
     {
         info(ctx, "Erase trigger canceled by user");
-        return fail(ErrorKind::Cancelled, "erase trigger was not confirmed");
+        return fail(ErrorKind::kCancelled, "erase trigger was not confirmed");
     }
 
     // Lines 445-464.
@@ -638,7 +638,7 @@ Status write_mem(Ctx& ctx, const FlashPlan& plan, bytes::ByteView rom, PhaseSequ
     if (!std::ranges::equal(*verify_userspace, userspace))
     {
         error(ctx, "Userspace verify failed after write");
-        return fail(ErrorKind::BadResponse, "userspace verify mismatch");
+        return fail(ErrorKind::kBadResponse, "userspace verify mismatch");
     }
     info(ctx, "Userspace flash verified");
     verify.complete();
@@ -650,7 +650,7 @@ Status write_mem(Ctx& ctx, const FlashPlan& plan, bytes::ByteView rom, PhaseSequ
 
 Result<Iso15765Config> MitsuColtM32rCanExecutor::transport_setup(const FlashPlan& plan) const
 {
-    if (const Status match = check_family(plan, FlashFamily::MitsuColtM32rCan); !match.has_value())
+    if (const Status match = check_family(plan, FlashFamily::kMitsuColtM32rCan); !match.has_value())
     {
         return std::unexpected(match.error());
     }
@@ -668,7 +668,7 @@ Result<FlashExecutionResult> MitsuColtM32rCanExecutor::execute(const FlashPlan& 
                                                                IClock& clock, const ICancellationToken& cancellation,
                                                                IEventSink& events)
 {
-    if (const Status matched = check_family(plan, FlashFamily::MitsuColtM32rCan); !matched.has_value())
+    if (const Status matched = check_family(plan, FlashFamily::kMitsuColtM32rCan); !matched.has_value())
     {
         return std::unexpected(matched.error());
     }
@@ -678,13 +678,13 @@ Result<FlashExecutionResult> MitsuColtM32rCanExecutor::execute(const FlashPlan& 
     }
     if (cancellation.cancelled())
     {
-        return fail(ErrorKind::Cancelled, "cancelled before setup");
+        return fail(ErrorKind::kCancelled, "cancelled before setup");
     }
 
     const auto& family = std::get<MitsuColtM32rCanPlan>(plan.family_plan());
 
     const std::uint32_t rom_end = plan.transfer_region().start + plan.transfer_region().length;
-    const bool read = plan.operation() == FlashOperation::Read;
+    const bool read = plan.operation() == FlashOperation::kRead;
     PhaseSequence phases(events, read ? 2 : (rom_end == mitsu_colt_can::kFullRomSize ? 6 : 5));
     PhaseReporter connect = phases.start(read ? "Connect to ECU" : "Connect", 1);
 
@@ -702,7 +702,7 @@ Result<FlashExecutionResult> MitsuColtM32rCanExecutor::execute(const FlashPlan& 
     }
     connect.complete();
 
-    if (plan.operation() == FlashOperation::Read)
+    if (plan.operation() == FlashOperation::kRead)
     {
         // The protocol plan supplies a zero-based, capacity-sized range; the
         // chunk loop itself remains generic.
@@ -724,7 +724,7 @@ Result<FlashExecutionResult> MitsuColtM32rCanExecutor::execute(const FlashPlan& 
         // reports done == total, so repeating it would only duplicate the
         // last progress pair.
         return FlashExecutionResult{
-            .operation = FlashOperation::Read,
+            .operation = FlashOperation::kRead,
             .read_bytes = std::move(*rom),
         };
     }
@@ -733,9 +733,9 @@ Result<FlashExecutionResult> MitsuColtM32rCanExecutor::execute(const FlashPlan& 
     // silently reported success for anything else. TestWrite is refused by
     // build_mitsu_colt_m32r_can_plan; the guard is repeated here so a plan
     // built another way cannot turn a dry run into a real erase and write.
-    if (plan.operation() != FlashOperation::Write)
+    if (plan.operation() != FlashOperation::kWrite)
     {
-        return fail(ErrorKind::Unsupported, "test_write is not supported by the Mitsu Colt M32R CAN family");
+        return fail(ErrorKind::kUnsupported, "test_write is not supported by the Mitsu Colt M32R CAN family");
     }
 
     // Legacy lines 49-51.

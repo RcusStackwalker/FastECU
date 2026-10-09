@@ -17,7 +17,8 @@ TEST(PlanPrimitives, AddressMismatchPrecedesPaddingAndRangeErrors)
 {
     const auto result = validate_kernel_upload<128>(std::numeric_limits<std::uint64_t>::max(), 0, 0xFFFF3000, kRegion);
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), (Error{ErrorKind::InvalidConfig, "kernel address does not match the selected protocol"}));
+    EXPECT_EQ(result.error(),
+              (Error{ErrorKind::kInvalidConfig, "kernel address does not match the selected protocol"}));
 }
 
 TEST(PlanPrimitives, Padded128ByteUploadsMustFitIncludingTheLastBlock)
@@ -71,7 +72,7 @@ template <std::uint64_t Padding> void expect_overflow_boundary()
         const auto overflow = validate_kernel_upload<Padding>(size, 0, 0, kRegion);
         ASSERT_FALSE(overflow.has_value());
         EXPECT_EQ(overflow.error(),
-                  (Error{ErrorKind::InvalidConfig, "kernel size cannot be padded to transfer blocks"}));
+                  (Error{ErrorKind::kInvalidConfig, "kernel size cannot be padded to transfer blocks"}));
     }
 }
 
@@ -84,7 +85,7 @@ TEST(PlanPrimitives, PaddingOverflowPrecedesRangeErrors)
 TEST(PlanPrimitives, EraseRegionsPreserveOrderedBlockAddressesAndLengths)
 {
     const std::array<FlashBlock, 3> blocks{{{0, 0x1000}, {0x1000, 0x1000}, {0x2000, 0x6000}}};
-    const FlashDevice device{"test", SH7058, 0x8000, 3, blocks.data(), nullptr, nullptr, nullptr};
+    const FlashDevice device{"test", kSH7058, 0x8000, 3, blocks.data(), nullptr, nullptr, nullptr};
     const auto regions = make_erase_regions(device);
     ASSERT_EQ(regions.size(), 3U);
     EXPECT_EQ(regions[0].start, 0U);

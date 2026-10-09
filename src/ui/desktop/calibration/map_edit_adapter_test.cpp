@@ -55,7 +55,7 @@ definition::RomDefinition two_by_two_definition()
     definition::CalibrationMap map;
     map.name = "Timing";
     map.address = 16;
-    map.storage_type = definition::StorageType::Uint16;
+    map.storage_type = definition::StorageType::kUint16;
     map.endian = "big";
     map.scaling_name = "body";
     map.x_size = 2;
@@ -64,12 +64,12 @@ definition::RomDefinition two_by_two_definition()
     map.interval = 3;
     map.x_axis.type = "X Axis";
     map.x_axis.address = 64;
-    map.x_axis.storage_type = definition::StorageType::Uint8;
+    map.x_axis.storage_type = definition::StorageType::kUint8;
     map.x_axis.from_byte = "x*10";
     map.x_axis.to_byte = "x/10";
     map.y_axis.type = "Y Axis";
     map.y_axis.address = 80;
-    map.y_axis.storage_type = definition::StorageType::Int16;
+    map.y_axis.storage_type = definition::StorageType::kInt16;
     map.y_axis.endian = "big";
     map.y_axis.from_byte = "x/4";
     map.y_axis.to_byte = "x*4";
@@ -155,19 +155,19 @@ TEST(SelectedNumericTarget, TranslatesBodyAndAxisHeaderSelections)
     select(1, 1, 2, 2);
     const auto body = selected_numeric_target(&window, session, 0);
     ASSERT_TRUE(body.has_value());
-    EXPECT_EQ(body->target, calibration::NumericTarget::MapBody);
+    EXPECT_EQ(body->target, calibration::NumericTarget::kMapBody);
     EXPECT_THAT(body->elements, ::testing::FieldsAre(0, 0, 1, 1));
 
     select(0, 1, 0, 2);
     const auto x_axis = selected_numeric_target(&window, session, 0);
     ASSERT_TRUE(x_axis.has_value());
-    EXPECT_EQ(x_axis->target, calibration::NumericTarget::XAxis);
+    EXPECT_EQ(x_axis->target, calibration::NumericTarget::kXAxis);
     EXPECT_THAT(x_axis->elements, ::testing::FieldsAre(0, 0, 0, 1));
 
     select(1, 0, 2, 0);
     const auto y_axis = selected_numeric_target(&window, session, 0);
     ASSERT_TRUE(y_axis.has_value());
-    EXPECT_EQ(y_axis->target, calibration::NumericTarget::YAxis);
+    EXPECT_EQ(y_axis->target, calibration::NumericTarget::kYAxis);
     EXPECT_THAT(y_axis->elements, ::testing::FieldsAre(0, 0, 1, 0));
 }
 

@@ -28,7 +28,7 @@ std::string checksum_module_for(const std::string& flash_method)
 
 std::string_view format_name(definition::DefinitionFormat format)
 {
-    return format == definition::DefinitionFormat::EcuFlash ? "EcuFlash" : "RomRaider";
+    return format == definition::DefinitionFormat::kEcuFlash ? "EcuFlash" : "RomRaider";
 }
 
 } // namespace
@@ -45,7 +45,7 @@ Result<RomOpenOutcome> RomOpenUseCase::open_file(std::string_view path)
 {
     if (path.empty())
     {
-        return fail(ErrorKind::InvalidConfig, "open_file called with no filename");
+        return fail(ErrorKind::kInvalidConfig, "open_file called with no filename");
     }
     Result<std::vector<std::uint8_t>> rom = read_rom(path, files_);
     if (!rom.has_value())
@@ -55,7 +55,7 @@ Result<RomOpenOutcome> RomOpenUseCase::open_file(std::string_view path)
         return std::unexpected(rom.error());
     }
     return finish(Seed{
-        .source = {.display_name = display_name(path), .path = std::string{path}, .origin = RomOrigin::File},
+        .source = {.display_name = display_name(path), .path = std::string{path}, .origin = RomOrigin::kFile},
         .rom = std::move(*rom),
     });
 }
@@ -64,16 +64,16 @@ Result<RomOpenOutcome> RomOpenUseCase::adopt_read_image(ReadImage image)
 {
     if (image.filename.empty())
     {
-        return fail(ErrorKind::InvalidConfig, "adopt_read_image called with no filename");
+        return fail(ErrorKind::kInvalidConfig, "adopt_read_image called with no filename");
     }
     if (image.rom.empty())
     {
-        return fail(ErrorKind::InvalidConfig, "adopt_read_image called with an empty image");
+        return fail(ErrorKind::kInvalidConfig, "adopt_read_image called with an empty image");
     }
     // Fire-and-forget, as legacy: a failed backup must not fail the open.
     backup_rom(image.rom, config_.effective_paths().calibration_files_directory + "read.bin", files_);
     return finish(Seed{
-        .source = {.display_name = display_name(image.filename), .path = image.filename, .origin = RomOrigin::EcuRead},
+        .source = {.display_name = display_name(image.filename), .path = image.filename, .origin = RomOrigin::kEcuRead},
         .rom = std::move(image.rom),
         .rom_id = std::move(image.rom_id),
         .flash_method = std::move(image.protocol_name),
@@ -105,13 +105,13 @@ RomOpenOutcome RomOpenUseCase::finish(Seed seed)
     {
         switch (vehicle->protocol->checksum)
         {
-        case config::ChecksumSupport::Corrected:
+        case config::ChecksumSupport::kCorrected:
             checksum_module = checksum_module_for(flash_method);
             break;
-        case config::ChecksumSupport::Missing:
+        case config::ChecksumSupport::kMissing:
             checksum_module = "Not implemented yet";
             break;
-        case config::ChecksumSupport::None:
+        case config::ChecksumSupport::kNone:
             checksum_module = "No checksums";
             break;
         }
@@ -165,22 +165,22 @@ std::optional<ResolvedDefinition> RomOpenUseCase::find_definition(std::span<cons
     {
         if (ecuflash_enabled)
         {
-            found = try_format(DefinitionFormat::EcuFlash, rom, rom_id);
+            found = try_format(DefinitionFormat::kEcuFlash, rom, rom_id);
         }
         if (!found.has_value() && romraider_enabled)
         {
-            found = try_format(DefinitionFormat::RomRaider, rom, rom_id);
+            found = try_format(DefinitionFormat::kRomRaider, rom, rom_id);
         }
     }
     else if (settings.primary_definition_base == "romraider" && !settings.romraider_definition_files.empty())
     {
         if (romraider_enabled)
         {
-            found = try_format(DefinitionFormat::RomRaider, rom, rom_id);
+            found = try_format(DefinitionFormat::kRomRaider, rom, rom_id);
         }
         if (!found.has_value() && ecuflash_enabled)
         {
-            found = try_format(DefinitionFormat::EcuFlash, rom, rom_id);
+            found = try_format(DefinitionFormat::kEcuFlash, rom, rom_id);
         }
     }
     return found;
@@ -201,7 +201,7 @@ std::optional<ResolvedDefinition> RomOpenUseCase::try_format(definition::Definit
     if (match.has_value())
     {
         rom_id = match->definition_id;
-        events_.log(LogLevel::Debug, std::format("{} cal id {} found", format_name(format), rom_id));
+        events_.log(LogLevel::kDebug, std::format("{} cal id {} found", format_name(format), rom_id));
     }
     else
     {
@@ -215,7 +215,7 @@ std::optional<ResolvedDefinition> RomOpenUseCase::try_format(definition::Definit
         return std::nullopt;
     }
     std::string source;
-    Result<definition::RomDefinition> loaded = fail(ErrorKind::InvalidConfig, "definition is not in the catalog");
+    Result<definition::RomDefinition> loaded = fail(ErrorKind::kInvalidConfig, "definition is not in the catalog");
     if (auto entry = catalog->find(format, rom_id); entry.has_value())
     {
         source = entry->get().source;
@@ -253,14 +253,14 @@ std::string RomOpenUseCase::resolve_alias(const std::string& flash_method)
     {
         return flash_method;
     }
-    events_.log(LogLevel::Debug, std::format("Alias: {}", flash_method));
-    events_.log(LogLevel::Debug, std::format("Protocol: {}", vehicle->protocol->name));
+    events_.log(LogLevel::kDebug, std::format("Alias: {}", flash_method));
+    events_.log(LogLevel::kDebug, std::format("Protocol: {}", vehicle->protocol->name));
     return std::string(vehicle->protocol->name);
 }
 
 void RomOpenUseCase::log_error(std::string_view operation, const Error& error)
 {
-    events_.log(LogLevel::Error, std::format("{} [{}]: {}", operation, to_string(error.kind), error.detail));
+    events_.log(LogLevel::kError, std::format("{} [{}]: {}", operation, to_string(error.kind), error.detail));
 }
 
 } // namespace fastecu::calibration

@@ -23,12 +23,12 @@ INSTANTIATE_TEST_SUITE_P(SubaruMitsuM32rKline, SingleWindowPlanContract, ::testi
 // they do not generalize.
 TEST(SubaruMitsuM32rKlinePlan, ReadPlanCarriesThisFamilysIdentityAndWireParameters)
 {
-    const auto plan = build_subaru_mitsu_m32r_kline_plan(FlashOperation::Read, "sub_ecu_mitsu_m32r_kline",
+    const auto plan = build_subaru_mitsu_m32r_kline_plan(FlashOperation::kRead, "sub_ecu_mitsu_m32r_kline",
                                                          "M32R_512KB_4blocks", std::nullopt);
 
     ASSERT_THAT(plan, fastecu::testing::IsOk());
-    EXPECT_EQ(plan->family(), FlashFamily::SubaruMitsuM32rKline);
-    EXPECT_EQ(plan->transport(), TransportKind::Kline);
+    EXPECT_EQ(plan->family(), FlashFamily::kSubaruMitsuM32rKline);
+    EXPECT_EQ(plan->transport(), TransportKind::kKline);
 
     const auto& family = std::get<SubaruMitsuM32rKlinePlan>(plan->family_plan());
     EXPECT_EQ(family.tester_id, 0xf0);

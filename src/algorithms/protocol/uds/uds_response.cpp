@@ -17,13 +17,13 @@ Response parseResponse(bytes::ByteView pdu)
         {
             return {};
         }
-        return {ResponseKind::Negative, pdu[1], pdu[2], pdu.subspan(3)};
+        return {ResponseKind::kNegative, pdu[1], pdu[2], pdu.subspan(3)};
     }
     if (pdu[0] < kPositiveResponseOffset)
     {
         return {};
     }
-    return {ResponseKind::Positive, requestFromPositive(pdu[0]), 0, pdu.subspan(1)};
+    return {ResponseKind::kPositive, requestFromPositive(pdu[0]), 0, pdu.subspan(1)};
 }
 
 bytes::ByteView payload(bytes::ByteView pdu)

@@ -70,17 +70,17 @@ concept WithEventSink = requires(const C& ctx) {
 // three families with their own context shape use them unchanged.
 template <WithEventSink C> void info(const C& ctx, std::string_view message)
 {
-    ctx.events.log(LogLevel::Info, message);
+    ctx.events.log(LogLevel::kInfo, message);
 }
 
 template <WithEventSink C> void error(const C& ctx, std::string_view message)
 {
-    ctx.events.log(LogLevel::Error, message);
+    ctx.events.log(LogLevel::kError, message);
 }
 
 template <WithEventSink C> void debug(const C& ctx, std::string_view message)
 {
-    ctx.events.log(LogLevel::Debug, message);
+    ctx.events.log(LogLevel::kDebug, message);
 }
 
 // The pieces every UdsClient-backed exchange below needs, bundled so call

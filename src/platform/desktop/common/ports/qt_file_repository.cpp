@@ -7,7 +7,7 @@ fastecu::Result<std::vector<std::uint8_t>> QtFileRepository::read(std::string_vi
     QFile f(QString::fromUtf8(handle.data(), static_cast<int>(handle.size())));
     if (!f.open(QIODevice::ReadOnly))
     {
-        return fastecu::fail(fastecu::ErrorKind::InvalidConfig, "cannot open file");
+        return fastecu::fail(fastecu::ErrorKind::kInvalidConfig, "cannot open file");
     }
     QByteArray a = f.readAll();
     return std::vector<std::uint8_t>(a.begin(), a.end());
@@ -18,12 +18,12 @@ fastecu::Status QtFileRepository::write(std::string_view handle, std::span<const
     QFile f(QString::fromUtf8(handle.data(), static_cast<int>(handle.size())));
     if (!f.open(QIODevice::WriteOnly))
     {
-        return fastecu::fail(fastecu::ErrorKind::InvalidConfig, "cannot open file");
+        return fastecu::fail(fastecu::ErrorKind::kInvalidConfig, "cannot open file");
     }
     qint64 n = f.write(reinterpret_cast<const char *>(d.data()), static_cast<qint64>(d.size()));
     if (n != static_cast<qint64>(d.size()))
     {
-        return fastecu::fail(fastecu::ErrorKind::Internal, "short write");
+        return fastecu::fail(fastecu::ErrorKind::kInternal, "short write");
     }
     // QFile::write() only reports what reached QFile's own buffer. A write
     // that fails at the OS (a full volume being the classic case) surfaces at
@@ -32,12 +32,12 @@ fastecu::Status QtFileRepository::write(std::string_view handle, std::span<const
     // successful one.
     if (!f.flush())
     {
-        return fastecu::fail(fastecu::ErrorKind::Internal, "flush failed: " + f.errorString().toStdString());
+        return fastecu::fail(fastecu::ErrorKind::kInternal, "flush failed: " + f.errorString().toStdString());
     }
     f.close();
     if (f.error() != QFileDevice::NoError)
     {
-        return fastecu::fail(fastecu::ErrorKind::Internal, "close failed: " + f.errorString().toStdString());
+        return fastecu::fail(fastecu::ErrorKind::kInternal, "close failed: " + f.errorString().toStdString());
     }
     return {};
 }

@@ -43,11 +43,11 @@ struct Variant
 };
 
 constexpr std::array<Variant, 5> kVariants{{
-    {"sub_ecu_denso_sh7058_can", SubaruDensoSh7058CanSecurity::Stock},
-    {"sub_ecu_denso_sh7058_can_ecutek", SubaruDensoSh7058CanSecurity::EcuTek},
-    {"sub_ecu_denso_sh7058_can_ecutek_racerom", SubaruDensoSh7058CanSecurity::RaceRom},
-    {"sub_ecu_denso_sh7058_can_ecutek_racerom_alt", SubaruDensoSh7058CanSecurity::RaceRomAlt},
-    {"sub_ecu_denso_sh7058_can_cobb", SubaruDensoSh7058CanSecurity::Cobb},
+    {"sub_ecu_denso_sh7058_can", SubaruDensoSh7058CanSecurity::kStock},
+    {"sub_ecu_denso_sh7058_can_ecutek", SubaruDensoSh7058CanSecurity::kEcuTek},
+    {"sub_ecu_denso_sh7058_can_ecutek_racerom", SubaruDensoSh7058CanSecurity::kRaceRom},
+    {"sub_ecu_denso_sh7058_can_ecutek_racerom_alt", SubaruDensoSh7058CanSecurity::kRaceRomAlt},
+    {"sub_ecu_denso_sh7058_can_cobb", SubaruDensoSh7058CanSecurity::kCobb},
 }};
 
 constexpr std::uint32_t kRomSize = 0x00100000;
@@ -61,23 +61,23 @@ KernelImage kernel(bytes::Bytes data = {0x01, 0x02, 0x03, 0x04})
 
 std::optional<bytes::Bytes> image_for(FlashOperation operation)
 {
-    if (operation == FlashOperation::Read)
+    if (operation == FlashOperation::kRead)
     {
         return std::nullopt;
     }
     return bytes::Bytes(kRomSize, bytes::Byte{0});
 }
 
-FlashPlanFields valid_fields(const Variant& variant, FlashOperation operation = FlashOperation::Write)
+FlashPlanFields valid_fields(const Variant& variant, FlashOperation operation = FlashOperation::kWrite)
 {
     return {
         .operation = operation,
-        .family = FlashFamily::SubaruDensoSh7058Can,
-        .transport = TransportKind::CanIso15765,
+        .family = FlashFamily::kSubaruDensoSh7058Can,
+        .transport = TransportKind::kCanIso15765,
         .target_id = std::string(variant.protocol),
         .mcu_name = "SH7058",
         .transfer_region = {0x00000000, kRomSize},
-        .erase_regions = operation == FlashOperation::Read
+        .erase_regions = operation == FlashOperation::kRead
                              ? std::vector<MemoryRegion>{}
                              : std::vector<MemoryRegion>(kSh7058Blocks.begin(), kSh7058Blocks.end()),
         .image = image_for(operation),
@@ -91,14 +91,15 @@ TEST(SubaruDensoSh7058CanPlan, BuildsEveryExactSecurityVariantOperationAndGeomet
 {
     for (const Variant& variant : kVariants)
     {
-        for (const FlashOperation operation : {FlashOperation::Read, FlashOperation::TestWrite, FlashOperation::Write})
+        for (const FlashOperation operation :
+             {FlashOperation::kRead, FlashOperation::kTestWrite, FlashOperation::kWrite})
         {
             auto plan = build_subaru_denso_sh7058_can_plan(operation, variant.protocol, "SH7058", image_for(operation),
                                                            kernel());
 
             ASSERT_TRUE(plan.has_value()) << variant.protocol << ": " << plan.error().detail;
-            EXPECT_EQ(plan->family(), FlashFamily::SubaruDensoSh7058Can);
-            EXPECT_EQ(plan->transport(), TransportKind::CanIso15765);
+            EXPECT_EQ(plan->family(), FlashFamily::kSubaruDensoSh7058Can);
+            EXPECT_EQ(plan->transport(), TransportKind::kCanIso15765);
             EXPECT_EQ(plan->target_id(), variant.protocol);
             EXPECT_EQ(plan->mcu_name(), "SH7058");
             EXPECT_EQ(plan->transfer_region().start, 0U);
@@ -115,7 +116,7 @@ TEST(SubaruDensoSh7058CanPlan, BuildsEveryExactSecurityVariantOperationAndGeomet
             EXPECT_FALSE(wire.extended_id);
             EXPECT_EQ(wire.security, variant.security);
 
-            if (operation == FlashOperation::Read)
+            if (operation == FlashOperation::kRead)
             {
                 EXPECT_FALSE(plan->image().has_value());
                 EXPECT_TRUE(plan->erase_regions().empty());
@@ -151,29 +152,29 @@ TEST(SubaruDensoSh7058CanPlan, RejectsUnknownSuffixDieselDensoCanTcuAndWrongMcuI
     for (const std::string_view protocol : kRejected)
     {
         auto plan =
-            build_subaru_denso_sh7058_can_plan(FlashOperation::Read, protocol, "SH7058", std::nullopt, kernel());
+            build_subaru_denso_sh7058_can_plan(FlashOperation::kRead, protocol, "SH7058", std::nullopt, kernel());
         ASSERT_FALSE(plan.has_value()) << protocol;
-        EXPECT_EQ(plan.error().kind, ErrorKind::InvalidConfig);
+        EXPECT_EQ(plan.error().kind, ErrorKind::kInvalidConfig);
     }
 
     for (const Variant& variant : kVariants)
     {
-        auto plan = build_subaru_denso_sh7058_can_plan(FlashOperation::Read, variant.protocol, "SH7058d", std::nullopt,
+        auto plan = build_subaru_denso_sh7058_can_plan(FlashOperation::kRead, variant.protocol, "SH7058d", std::nullopt,
                                                        kernel());
         ASSERT_FALSE(plan.has_value()) << variant.protocol;
-        EXPECT_EQ(plan.error().kind, ErrorKind::InvalidConfig);
+        EXPECT_EQ(plan.error().kind, ErrorKind::kInvalidConfig);
     }
 }
 
 TEST(SubaruDensoSh7058CanPlan, EnforcesReadAndWriteImageRequirementsExactly)
 {
     const Variant& stock = kVariants.front();
-    auto read_with_image = build_subaru_denso_sh7058_can_plan(FlashOperation::Read, stock.protocol, "SH7058",
+    auto read_with_image = build_subaru_denso_sh7058_can_plan(FlashOperation::kRead, stock.protocol, "SH7058",
                                                               bytes::Bytes(kRomSize, 0), kernel());
     ASSERT_FALSE(read_with_image.has_value());
-    EXPECT_EQ(read_with_image.error().kind, ErrorKind::InvalidConfig);
+    EXPECT_EQ(read_with_image.error().kind, ErrorKind::kInvalidConfig);
 
-    for (const FlashOperation operation : {FlashOperation::TestWrite, FlashOperation::Write})
+    for (const FlashOperation operation : {FlashOperation::kTestWrite, FlashOperation::kWrite})
     {
         const std::array<std::optional<bytes::Bytes>, 3> invalid{{
             std::nullopt,
@@ -184,7 +185,7 @@ TEST(SubaruDensoSh7058CanPlan, EnforcesReadAndWriteImageRequirementsExactly)
         {
             auto plan = build_subaru_denso_sh7058_can_plan(operation, stock.protocol, "SH7058", image, kernel());
             ASSERT_FALSE(plan.has_value());
-            EXPECT_EQ(plan.error().kind, ErrorKind::InvalidConfig);
+            EXPECT_EQ(plan.error().kind, ErrorKind::kInvalidConfig);
         }
     }
 }
@@ -192,7 +193,7 @@ TEST(SubaruDensoSh7058CanPlan, EnforcesReadAndWriteImageRequirementsExactly)
 TEST(SubaruDensoSh7058CanPlan, EnforcesKernelIdentityAddressAnd128BytePaddedContainingRegion)
 {
     const Variant& stock = kVariants.front();
-    auto exact = build_subaru_denso_sh7058_can_plan(FlashOperation::Read, stock.protocol, "SH7058", std::nullopt,
+    auto exact = build_subaru_denso_sh7058_can_plan(FlashOperation::kRead, stock.protocol, "SH7058", std::nullopt,
                                                     kernel(bytes::Bytes(kKernelRegionSize, bytes::Byte{0xA5})));
     ASSERT_TRUE(exact.has_value()) << exact.error().detail;
 
@@ -203,10 +204,10 @@ TEST(SubaruDensoSh7058CanPlan, EnforcesKernelIdentityAddressAnd128BytePaddedCont
              kernel(bytes::Bytes(kKernelRegionSize + 1, bytes::Byte{0xA5})),
          })
     {
-        auto plan = build_subaru_denso_sh7058_can_plan(FlashOperation::Read, stock.protocol, "SH7058", std::nullopt,
+        auto plan = build_subaru_denso_sh7058_can_plan(FlashOperation::kRead, stock.protocol, "SH7058", std::nullopt,
                                                        std::move(invalid));
         ASSERT_FALSE(plan.has_value());
-        EXPECT_EQ(plan.error().kind, ErrorKind::InvalidConfig);
+        EXPECT_EQ(plan.error().kind, ErrorKind::kInvalidConfig);
     }
 }
 
@@ -231,7 +232,7 @@ TEST(SubaruDensoSh7058CanPlan, ValidatorRejectsWireSecurityRegionGeometryAndConf
             wire.extended_id = true;
             break;
         case 4:
-            wire.security = SubaruDensoSh7058CanSecurity::EcuTek;
+            wire.security = SubaruDensoSh7058CanSecurity::kEcuTek;
             break;
         case 5:
             fields.transfer_region.length -= 1;
@@ -240,7 +241,7 @@ TEST(SubaruDensoSh7058CanPlan, ValidatorRejectsWireSecurityRegionGeometryAndConf
             fields.erase_regions.pop_back();
             break;
         case 7:
-            fields.confirmations = {ConfirmationSpec{.id = ConfirmationSpec::Id::CycleIgnition}};
+            fields.confirmations = {ConfirmationSpec{.id = ConfirmationSpec::Id::kCycleIgnition}};
             break;
         case 8:
             // Security is carried by the validated enum, never inferred from
@@ -254,7 +255,7 @@ TEST(SubaruDensoSh7058CanPlan, ValidatorRejectsWireSecurityRegionGeometryAndConf
         ASSERT_TRUE(plan.has_value()) << plan.error().detail;
         auto valid = validate_subaru_denso_sh7058_can_plan(*plan);
         ASSERT_FALSE(valid.has_value()) << mutation;
-        EXPECT_EQ(valid.error().kind, ErrorKind::InvalidConfig);
+        EXPECT_EQ(valid.error().kind, ErrorKind::kInvalidConfig);
     }
 }
 
@@ -277,7 +278,7 @@ TEST(SubaruDensoSh7058CanPlan, RejectsAlteredAddressesAndLengthsInEveryEraseBloc
             ASSERT_TRUE(plan.has_value()) << plan.error().detail;
             const auto validation = validate_subaru_denso_sh7058_can_plan(*plan);
             ASSERT_FALSE(validation.has_value()) << index;
-            EXPECT_EQ(validation.error(), (Error{ErrorKind::InvalidConfig, "erase geometry does not match the MCU"}));
+            EXPECT_EQ(validation.error(), (Error{ErrorKind::kInvalidConfig, "erase geometry does not match the MCU"}));
         }
     }
 }
