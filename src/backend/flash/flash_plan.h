@@ -84,7 +84,7 @@ class FlashPlan
     // The kernel of a family that requires one (kFamilyRequiresKernel).
     // Empty for a plan without one, for the same reason as image_or_empty().
     const KernelImage& KernelOrEmpty() const;
-    const FamilyPlan& FamilyPlan() const
+    const flash::FamilyPlan& FamilyPlan() const
     {
         return fields_.family_plan;
     }
