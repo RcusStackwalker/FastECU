@@ -20,6 +20,10 @@ class ScriptedSsmTransport : public fastecu::ISsmTransport
     {
         reads_.emplace_back(OptionalBytes{bytes::Bytes(b.begin(), b.end())});
     }
+    void ExpectReadTimeout(std::chrono::milliseconds timeout)
+    {
+        expected_read_timeouts_.push_back(timeout);
+    }
     void QueueNoFrame()
     {
         reads_.emplace_back(OptionalBytes{});
@@ -34,7 +38,7 @@ class ScriptedSsmTransport : public fastecu::ISsmTransport
     }
     bool ScriptConsumed() const
     {
-        return w_idx_ == expected_.size() && reads_.empty();
+        return w_idx_ == expected_.size() && reads_.empty() && expected_read_timeouts_.empty();
     }
     bool Ok() const
     {
@@ -69,12 +73,22 @@ class ScriptedSsmTransport : public fastecu::ISsmTransport
         return data.size();
     }
 
-    fastecu::Result<OptionalBytes> Read(std::chrono::milliseconds,
+    fastecu::Result<OptionalBytes> Read(std::chrono::milliseconds timeout,
                                         const fastecu::ICancellationToken& cancellation) override
     {
         if (cancellation.Cancelled())
         {
             return fastecu::Fail(fastecu::ErrorKind::kCancelled, "scripted SSM read cancelled");
+        }
+        if (!expected_read_timeouts_.empty())
+        {
+            const auto expected_timeout = expected_read_timeouts_.front();
+            expected_read_timeouts_.pop_front();
+            if (timeout != expected_timeout)
+            {
+                ok_ = false;
+                return fastecu::Fail(fastecu::ErrorKind::kInternal, "unexpected scripted SSM read timeout");
+            }
         }
         if (reads_.empty())
         {
@@ -88,6 +102,7 @@ class ScriptedSsmTransport : public fastecu::ISsmTransport
   private:
     std::vector<bytes::Bytes> expected_;
     std::deque<fastecu::Result<OptionalBytes>> reads_;
+    std::deque<std::chrono::milliseconds> expected_read_timeouts_;
     std::deque<fastecu::Result<std::size_t>> write_errors_;
     std::size_t w_idx_ = 0;
     bool ok_ = true;

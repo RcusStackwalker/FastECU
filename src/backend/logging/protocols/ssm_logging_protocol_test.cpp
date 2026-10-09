@@ -58,8 +58,7 @@ TEST(SsmLoggingProtocolTest, StartPreservesHistoricalRequestVector)
 {
     auto transport = std::make_unique<ScriptedSsmTransport>();
     transport->ExpectWrite(BuildRequest(bytes::Bytes{0xA8, 0x00, 0x00, 0x00, 0x07}));
-    transport->QueueRead(BuildResponse(bytes::Bytes{0, 0, 0}));
-    transport->QueueNoFrame();
+    transport->QueueRead(BuildResponse(bytes::Bytes{7}));
     auto *script = transport.get();
     auto clock = fastecu::MakeAutoAdvancingClock(10ms);
     fastecu::FakeCancellationToken cancellation;
@@ -86,8 +85,9 @@ TEST(SsmLoggingProtocolTest, StartReturnsBadResponseForNegativeReply)
 {
     auto transport = std::make_unique<ScriptedSsmTransport>();
     transport->ExpectWrite(BuildRequest(bytes::Bytes{0xA8, 0x00, 0x00, 0x00, 0x07}));
-    auto response = BuildResponse(bytes::Bytes{0, 0, 0});
+    auto response = BuildResponse(bytes::Bytes{7});
     response[4] = 0x7f;
+    response.back() = bytes::Sum8(bytes::ByteView(response).first(response.size() - 1));
     transport->QueueRead(response);
     auto clock = fastecu::MakeAutoAdvancingClock(10ms);
     fastecu::FakeCancellationToken cancellation;
@@ -113,7 +113,6 @@ TEST(SsmLoggingProtocolTest, PreservesDecimalByteConcatenation)
     auto transport = std::make_unique<ScriptedSsmTransport>();
     transport->ExpectWrite(BuildRequest(bytes::Bytes{0xA8, 0x01, 0x00, 0x10, 0x00}));
     transport->QueueRead(BuildResponse(bytes::Bytes{16, 16}));
-    transport->QueueNoFrame();
     auto *script = transport.get();
     auto clock = fastecu::MakeAutoAdvancingClock(10ms);
     fastecu::FakeCancellationToken cancellation;
@@ -212,7 +211,7 @@ TEST(SsmLoggingProtocolTest, CancellationDuringFramingReturnsCancelled)
     transport->QueueRead(bytes::Bytes{0xf0, 0x10});
     auto clock = fastecu::MakeAutoAdvancingClock(10ms);
     fastecu::FakeCancellationToken cancellation;
-    cancellation.CancelOnCheck(4);
+    cancellation.CancelOnCheck(7);
     SsmLoggingProtocol protocol(clock, std::move(transport), {Channel()}, true, false);
 
     ASSERT_THAT(protocol.Poll(50ms, cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::kCancelled));
@@ -398,3 +397,307 @@ TEST(SsmLoggingProtocolTest, StopSucceeds)
 
     EXPECT_THAT(protocol.Stop(), fastecu::testing::IsOk());
 }
+
+// A complete frame must not consume the next response, even when both arrive
+// in one transport read. Replacing extraction with whole-buffer consumption
+// loses the second sample and must fail this test.
+TEST(SsmLoggingProtocolTest, DirectPollRetainsCoalescedFrameForNextPoll)
+{
+    auto transport = std::make_unique<ScriptedSsmTransport>();
+    const auto request = BuildRequest(bytes::Bytes{0xA8, 0x01, 0x00, 0x10, 0x00});
+    transport->ExpectWrite(request);
+    transport->ExpectWrite(request);
+    auto responses = BuildResponse(bytes::Bytes{42});
+    const auto second = BuildResponse(bytes::Bytes{99});
+    responses.insert(responses.end(), second.begin(), second.end());
+    transport->QueueRead(responses);
+    QueueNoFrames(*transport, 60);
+    auto clock = fastecu::MakeAutoAdvancingClock(1ms);
+    fastecu::FakeCancellationToken cancellation;
+    SsmLoggingProtocol protocol(clock, std::move(transport), {Channel()}, true, false);
+
+    const auto first = protocol.Poll(50ms, cancellation);
+    ASSERT_THAT(first, fastecu::testing::IsOk());
+    ASSERT_TRUE(first->responded);
+    ASSERT_EQ(first->samples.size(), 1U);
+    EXPECT_EQ(first->samples[0].raw_value, "42");
+    const auto next = protocol.Poll(50ms, cancellation);
+    ASSERT_THAT(next, fastecu::testing::IsOk());
+    ASSERT_TRUE(next->responded);
+    ASSERT_EQ(next->samples.size(), 1U);
+    EXPECT_EQ(next->samples[0].raw_value, "99");
+}
+
+TEST(SsmLoggingProtocolTest, DirectPollLeavesConsecutiveTransportFramesForNextPoll)
+{
+    auto transport = std::make_unique<ScriptedSsmTransport>();
+    const auto request = BuildRequest(bytes::Bytes{0xA8, 0x01, 0x00, 0x10, 0x00});
+    transport->ExpectWrite(request);
+    transport->ExpectWrite(request);
+    transport->QueueRead(BuildResponse(bytes::Bytes{42}));
+    transport->QueueRead(BuildResponse(bytes::Bytes{99}));
+    QueueNoFrames(*transport, 60);
+    auto clock = fastecu::MakeAutoAdvancingClock(1ms);
+    fastecu::FakeCancellationToken cancellation;
+    SsmLoggingProtocol protocol(clock, std::move(transport), {Channel()}, true, false);
+
+    const auto first = protocol.Poll(50ms, cancellation);
+    ASSERT_THAT(first, fastecu::testing::IsOk());
+    ASSERT_TRUE(first->responded);
+    const auto next = protocol.Poll(50ms, cancellation);
+    ASSERT_THAT(next, fastecu::testing::IsOk());
+    ASSERT_TRUE(next->responded);
+    ASSERT_EQ(next->samples.size(), 1U);
+    EXPECT_EQ(next->samples[0].raw_value, "99");
+}
+
+class SsmFrameIntegrityTest : public ::testing::TestWithParam<bool>
+{
+};
+
+TEST_P(SsmFrameIntegrityTest, StartRejectsCorruptChecksum)
+{
+    auto transport = std::make_unique<ScriptedSsmTransport>();
+    transport->ExpectWrite(BuildRequest(bytes::Bytes{0xA8, 0x00, 0x00, 0x00, 0x07}));
+    auto reply = BuildResponse(bytes::Bytes{7});
+    reply.back() ^= 1;
+    transport->QueueRead(reply);
+    transport->QueueNoFrame();
+    auto clock = fastecu::MakeAutoAdvancingClock(10ms);
+    fastecu::FakeCancellationToken cancellation;
+    SsmLoggingProtocol protocol(clock, std::move(transport), {Channel()}, true, GetParam());
+    EXPECT_THAT(protocol.Start(cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::kBadResponse));
+}
+
+TEST_P(SsmFrameIntegrityTest, StartRejectsExtraProbeData)
+{
+    auto transport = std::make_unique<ScriptedSsmTransport>();
+    transport->ExpectWrite(BuildRequest(bytes::Bytes{0xA8, 0x00, 0x00, 0x00, 0x07}));
+    transport->QueueRead(BuildResponse(bytes::Bytes{7, 8}));
+    transport->QueueNoFrame();
+    auto clock = fastecu::MakeAutoAdvancingClock(10ms);
+    fastecu::FakeCancellationToken cancellation;
+    SsmLoggingProtocol protocol(clock, std::move(transport), {Channel()}, true, GetParam());
+    EXPECT_THAT(protocol.Start(cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::kBadResponse));
+}
+
+TEST_P(SsmFrameIntegrityTest, PollRejectsCorruptChecksumAndRetries)
+{
+    auto transport = std::make_unique<ScriptedSsmTransport>();
+    const auto request = BuildRequest(bytes::Bytes{0xA8, 0x01, 0x00, 0x10, 0x00});
+    transport->ExpectWrite(request);
+    transport->ExpectWrite(request);
+    auto reply = BuildResponse(bytes::Bytes{42});
+    reply.back() ^= 1;
+    transport->QueueRead(reply);
+    // A direct transport may have a gap before the retry frame arrives.
+    if (!GetParam())
+    {
+        transport->QueueNoFrame();
+    }
+    transport->QueueRead(BuildResponse(bytes::Bytes{99}));
+    transport->QueueNoFrame();
+    auto clock = fastecu::MakeAutoAdvancingClock(1ms);
+    fastecu::FakeCancellationToken cancellation;
+    SsmLoggingProtocol protocol(clock, std::move(transport), {Channel()}, true, GetParam());
+    const auto rejected = protocol.Poll(50ms, cancellation);
+    ASSERT_THAT(rejected, fastecu::testing::IsOk());
+    EXPECT_FALSE(rejected->responded);
+    EXPECT_TRUE(rejected->samples.empty());
+    const auto retry = protocol.Poll(50ms, cancellation);
+    ASSERT_THAT(retry, fastecu::testing::IsOk());
+    ASSERT_TRUE(retry->responded);
+    ASSERT_EQ(retry->samples.size(), 1U);
+    EXPECT_EQ(retry->samples[0].raw_value, "99");
+}
+
+TEST_P(SsmFrameIntegrityTest, PollAcceptsCapturedTcuSender)
+{
+    auto transport = std::make_unique<ScriptedSsmTransport>();
+    transport->ExpectWrite(BuildRequest(bytes::Bytes{0xA8, 0x01, 0x00, 0x10, 0x00}, false));
+    auto reply = BuildResponse(bytes::Bytes{42});
+    reply[2] = 0x18;
+    reply.back() = bytes::Sum8(bytes::ByteView(reply).first(reply.size() - 1));
+    transport->QueueRead(reply);
+    QueueNoFrames(*transport, 60);
+    auto clock = fastecu::MakeAutoAdvancingClock(1ms);
+    fastecu::FakeCancellationToken cancellation;
+    SsmLoggingProtocol protocol(clock, std::move(transport), {Channel()}, false, GetParam());
+    const auto result = protocol.Poll(50ms, cancellation);
+    ASSERT_THAT(result, fastecu::testing::IsOk());
+    ASSERT_TRUE(result->responded);
+    ASSERT_EQ(result->samples.size(), 1U);
+    EXPECT_EQ(result->samples[0].raw_value, "42");
+}
+
+TEST_P(SsmFrameIntegrityTest, PollRejectsWrongSender)
+{
+    auto transport = std::make_unique<ScriptedSsmTransport>();
+    transport->ExpectWrite(BuildRequest(bytes::Bytes{0xA8, 0x01, 0x00, 0x10, 0x00}, false));
+    transport->QueueRead(BuildResponse(bytes::Bytes{42}));
+    QueueNoFrames(*transport, 60);
+    auto clock = fastecu::MakeAutoAdvancingClock(1ms);
+    fastecu::FakeCancellationToken cancellation;
+    SsmLoggingProtocol protocol(clock, std::move(transport), {Channel()}, false, GetParam());
+    const auto result = protocol.Poll(50ms, cancellation);
+    ASSERT_THAT(result, fastecu::testing::IsOk());
+    EXPECT_FALSE(result->responded);
+    EXPECT_TRUE(result->samples.empty());
+}
+
+TEST_P(SsmFrameIntegrityTest, StartAcceptsExactlyOneProbeByteFromTcu)
+{
+    auto transport = std::make_unique<ScriptedSsmTransport>();
+    transport->ExpectWrite(BuildRequest(bytes::Bytes{0xA8, 0x00, 0x00, 0x00, 0x07}, false));
+    // Hand-checked sum: 0x80 + 0xf0 + 0x18 + 2 + 0xe8 + 7 = 0x279.
+    transport->QueueRead(bytes::Bytes{0x80, 0xf0, 0x18, 2, 0xe8, 7, 0x79});
+    auto clock = fastecu::MakeAutoAdvancingClock(10ms);
+    fastecu::FakeCancellationToken cancellation;
+    SsmLoggingProtocol protocol(clock, std::move(transport), {Channel()}, false, GetParam());
+    EXPECT_THAT(protocol.Start(cancellation), fastecu::testing::IsOk());
+}
+
+TEST_P(SsmFrameIntegrityTest, StartRejectsWrongSender)
+{
+    auto transport = std::make_unique<ScriptedSsmTransport>();
+    transport->ExpectWrite(BuildRequest(bytes::Bytes{0xA8, 0x00, 0x00, 0x00, 0x07}, false));
+    transport->QueueRead(BuildResponse(bytes::Bytes{7}));
+    QueueNoFrames(*transport, 110);
+    auto clock = fastecu::MakeAutoAdvancingClock(10ms);
+    fastecu::FakeCancellationToken cancellation;
+    SsmLoggingProtocol protocol(clock, std::move(transport), {Channel()}, false, GetParam());
+    EXPECT_THAT(protocol.Start(cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::kBadResponse));
+}
+
+TEST_P(SsmFrameIntegrityTest, PollRejectsDeclaredSizeMismatch)
+{
+    auto transport = std::make_unique<ScriptedSsmTransport>();
+    transport->ExpectWrite(BuildRequest(bytes::Bytes{0xA8, 0x01, 0x00, 0x10, 0x00}));
+    // The checksum is valid, but the declared body asks for a missing byte.
+    transport->QueueRead(bytes::Bytes{0x80, 0xf0, 0x10, 3, 0xe8, 42, 0x95});
+    QueueNoFrames(*transport, 10);
+    auto clock = fastecu::MakeAutoAdvancingClock(10ms);
+    fastecu::FakeCancellationToken cancellation;
+    SsmLoggingProtocol protocol(clock, std::move(transport), {Channel()}, true, GetParam());
+    const auto result = protocol.Poll(50ms, cancellation);
+    ASSERT_THAT(result, fastecu::testing::IsOk());
+    EXPECT_FALSE(result->responded);
+    EXPECT_TRUE(result->samples.empty());
+}
+
+TEST(SsmLoggingProtocolTest, DirectPollCompletesFragmentedDeclaredFrame)
+{
+    auto transport = std::make_unique<ScriptedSsmTransport>();
+    transport->ExpectWrite(BuildRequest(bytes::Bytes{0xA8, 0x01, 0x00, 0x10, 0x00}));
+    transport->QueueRead(bytes::Bytes{0x01, 0x80});
+    transport->QueueRead(bytes::Bytes{0xf0, 0x10, 2});
+    transport->QueueNoFrame();
+    transport->QueueRead(bytes::Bytes{0xe8, 42, 0x94});
+    auto clock = fastecu::MakeAutoAdvancingClock(1ms);
+    fastecu::FakeCancellationToken cancellation;
+    SsmLoggingProtocol protocol(clock, std::move(transport), {Channel()}, true, false);
+    const auto result = protocol.Poll(50ms, cancellation);
+    ASSERT_THAT(result, fastecu::testing::IsOk());
+    ASSERT_TRUE(result->responded);
+    ASSERT_EQ(result->samples.size(), 1U);
+    EXPECT_EQ(result->samples[0].raw_value, "42");
+}
+
+TEST(SsmLoggingProtocolTest, ReconnectDiscardsBufferedPollBeforeFreshProbe)
+{
+    auto transport = std::make_unique<ScriptedSsmTransport>();
+    transport->ExpectWrite(BuildRequest(bytes::Bytes{0xA8, 0x01, 0x00, 0x10, 0x00}));
+    transport->ExpectWrite(BuildRequest(bytes::Bytes{0xA8, 0x00, 0x00, 0x00, 0x07}));
+    auto replies = BuildResponse(bytes::Bytes{42});
+    const auto buffered = BuildResponse(bytes::Bytes{99});
+    replies.insert(replies.end(), buffered.begin(), buffered.end());
+    transport->QueueRead(replies);
+    auto probe = BuildResponse(bytes::Bytes{7});
+    probe.back() ^= 1;
+    transport->QueueRead(probe);
+    auto clock = fastecu::MakeAutoAdvancingClock(1ms);
+    fastecu::FakeCancellationToken cancellation;
+    SsmLoggingProtocol protocol(clock, std::move(transport), {Channel()}, true, false);
+
+    const auto first = protocol.Poll(50ms, cancellation);
+    ASSERT_THAT(first, fastecu::testing::IsOk());
+    ASSERT_TRUE(first->responded);
+    EXPECT_THAT(protocol.Start(cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::kBadResponse));
+}
+
+TEST(SsmLoggingProtocolTest, StopDiscardsBufferedPollBeforeNextRead)
+{
+    auto transport = std::make_unique<ScriptedSsmTransport>();
+    const auto request = BuildRequest(bytes::Bytes{0xA8, 0x01, 0x00, 0x10, 0x00});
+    transport->ExpectWrite(request);
+    transport->ExpectWrite(request);
+    auto replies = BuildResponse(bytes::Bytes{42});
+    const auto buffered = BuildResponse(bytes::Bytes{99});
+    replies.insert(replies.end(), buffered.begin(), buffered.end());
+    transport->QueueRead(replies);
+    transport->QueueRead(BuildResponse(bytes::Bytes{123}));
+    auto clock = fastecu::MakeAutoAdvancingClock(1ms);
+    fastecu::FakeCancellationToken cancellation;
+    SsmLoggingProtocol protocol(clock, std::move(transport), {Channel()}, true, false);
+
+    ASSERT_THAT(protocol.Poll(50ms, cancellation), fastecu::testing::IsOk());
+    ASSERT_THAT(protocol.Stop(), fastecu::testing::IsOk());
+    const auto next = protocol.Poll(50ms, cancellation);
+    ASSERT_THAT(next, fastecu::testing::IsOk());
+    ASSERT_TRUE(next->responded);
+    ASSERT_EQ(next->samples.size(), 1U);
+    EXPECT_EQ(next->samples[0].raw_value, "123");
+}
+
+TEST(SsmLoggingProtocolTest, DirectPollRetainsCoalescedFramesReadAtDeadline)
+{
+    auto transport = std::make_unique<ScriptedSsmTransport>();
+    const auto request = BuildRequest(bytes::Bytes{0xA8, 0x01, 0x00, 0x10, 0x00});
+    transport->ExpectWrite(request);
+    transport->ExpectWrite(request);
+    auto replies = BuildResponse(bytes::Bytes{42});
+    const auto buffered = BuildResponse(bytes::Bytes{99});
+    replies.insert(replies.end(), buffered.begin(), buffered.end());
+    transport->QueueRead(replies);
+    QueueNoFrames(*transport, 60);
+    auto clock = fastecu::MakeAutoAdvancingClock(1ms);
+    fastecu::FakeCancellationToken cancellation;
+    SsmLoggingProtocol protocol(clock, std::move(transport), {Channel()}, true, false);
+
+    const auto first = protocol.Poll(2ms, cancellation);
+    ASSERT_THAT(first, fastecu::testing::IsOk());
+    ASSERT_TRUE(first->responded);
+    ASSERT_EQ(first->samples.size(), 1U);
+    EXPECT_EQ(first->samples[0].raw_value, "42");
+    const auto next = protocol.Poll(50ms, cancellation);
+    ASSERT_THAT(next, fastecu::testing::IsOk());
+    ASSERT_TRUE(next->responded);
+    ASSERT_EQ(next->samples.size(), 1U);
+    EXPECT_EQ(next->samples[0].raw_value, "99");
+}
+
+TEST(SsmLoggingProtocolTest, DirectPollCapsEachReadToRemainingDeadline)
+{
+    auto transport = std::make_unique<ScriptedSsmTransport>();
+    transport->ExpectWrite(BuildRequest(bytes::Bytes{0xA8, 0x01, 0x00, 0x10, 0x00}));
+    // now() advances 3ms: the four remaining budgets are 11, 8, 5, 2ms.
+    transport->ExpectReadTimeout(10ms);
+    transport->QueueRead(bytes::Bytes{0x80});
+    transport->ExpectReadTimeout(8ms);
+    transport->QueueRead(bytes::Bytes{0xf0, 0x10});
+    transport->ExpectReadTimeout(5ms);
+    transport->QueueNoFrame();
+    transport->ExpectReadTimeout(2ms);
+    transport->QueueRead(bytes::Bytes{2, 0xe8, 42, 0x94});
+    auto clock = fastecu::MakeAutoAdvancingClock(3ms);
+    fastecu::FakeCancellationToken cancellation;
+    SsmLoggingProtocol protocol(clock, std::move(transport), {Channel()}, true, false);
+
+    const auto result = protocol.Poll(14ms, cancellation);
+    ASSERT_THAT(result, fastecu::testing::IsOk());
+    ASSERT_TRUE(result->responded);
+    ASSERT_EQ(result->samples.size(), 1U);
+    EXPECT_EQ(result->samples[0].raw_value, "42");
+}
+
+INSTANTIATE_TEST_SUITE_P(DirectAndOpenPort, SsmFrameIntegrityTest, ::testing::Bool());
