@@ -399,7 +399,7 @@ TEST_F(MutDmaIntegrationTest, driverPollOnce_throughAdapter_decodesStreamFrameFr
         AlreadyInMode init(125000);
         MutDmaDriver driver(tr, init);
 
-        // Two channels: one 1-byte, one 2-byte, big-endian.
+        // Two channels: one 1-byte, one 2-byte, little-endian.
         std::vector<Channel> channels{{0x1234, 1}, {0x5678, 2}};
         driver.SetChannelsForTest(channels);
 
@@ -407,8 +407,8 @@ TEST_F(MutDmaIntegrationTest, driverPollOnce_throughAdapter_decodesStreamFrameFr
         const bytes::Byte log_id = 0x00;
         QByteArray data;
         data.append(char(0x42)); // channel 0 (1B) = 0x42
-        data.append(char(0xDE));
-        data.append(char(0xAD)); // channel 1 (2B) = 0xDEAD
+        data.append(char(0xAD));
+        data.append(char(0xDE)); // channel 1 (2B) = 0xDEAD
         QByteArray frame;
         frame.append(char(log_id));
         frame.append(data);

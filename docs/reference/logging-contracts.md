@@ -94,6 +94,14 @@ under the title "OEM K-Line DMA Logging — Activation Control Flow & Wire Proto
 (2026-06-07, Z27AG / 33520003). Search that repository by title/date for the
 original extraction; it is not a deleted FastECU-local spec.
 
+The [free-form wire evidence](logging-mut-freeform-wire.md) records request
+codes and multi-byte stream values in little-endian order, derived from Colt
+33520003 firmware. Free-form numeric values are converted to unsigned decimal
+input for scaling. This corrects the previous unverified big-endian behavior;
+XML definitions do not select a dialect. Other MUT command layouts retain their
+own byte order. Firmware-specific capacity and hardware qualification remain
+separate work.
+
 The maintained [codec sources](../../src/algorithms/protocol/mut_dma/) and
 [driver sources](../../src/backend/protocol/) describe implemented behavior.
 Static protocol extraction does not qualify the host adapter, electrical path,

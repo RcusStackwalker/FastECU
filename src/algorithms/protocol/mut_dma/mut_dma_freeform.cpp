@@ -44,8 +44,8 @@ bytes::Bytes BuildIdListFrame(bytes::Byte list_cmd, const std::vector<Channel>& 
     }
     std::size_t id_off = 2 + desc_bytes;
     for (const Channel& channel : channels)
-    { // big-endian u16 ids
-        bytes::WriteU16Be(f, id_off, channel.id);
+    { // least-significant request byte first
+        bytes::WriteU16Le(f, id_off, channel.id);
         id_off += 2;
     }
     f[total - 2] = Sum8(f, 0, total - 2);
@@ -72,7 +72,7 @@ std::vector<std::uint32_t> DecodeStreamValues(const std::vector<Channel>& channe
     std::size_t off = 0;
     for (const Channel& c : channels)
     {
-        out.push_back(bytes::ReadUBe(data, off, c.len));
+        out.push_back(bytes::ReadULe(data, off, c.len));
         off += c.len;
     }
     return out;

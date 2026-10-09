@@ -162,7 +162,7 @@ TEST(MutDmaLoggingProtocolTest, PollReturnsStableIdAndRawDecimalString)
     fastecu::FakeCancellationToken cancellation;
     ASSERT_THAT(protocol->Start(cancellation), fastecu::testing::IsOk());
 
-    bytes::Bytes frame = {0x51, 0x12, 0x34};
+    bytes::Bytes frame = {0x51, 0x34, 0x12};
     frame.push_back(mutdma::Sum8(frame));
     frame.push_back(mutdma::kTrailerStd);
     script->QueueRead(frame);
@@ -190,7 +190,7 @@ TEST(MutDmaLoggingProtocol, PollRejectsShortChecksummedPayloadAndAcceptsNextComp
     auto transport = std::make_unique<ScriptedKlineTransport>();
     ScriptValidHandshake(*transport);
     transport->QueueRead(bytes::Bytes{0x51, 0x12, 0x63, 0x0d});
-    transport->QueueRead(bytes::Bytes{0x51, 0x12, 0x34, 0x97, 0x0d});
+    transport->QueueRead(bytes::Bytes{0x51, 0x34, 0x12, 0x97, 0x0d});
     auto protocol = MakeProtocol(std::move(transport));
     fastecu::FakeCancellationToken cancellation;
     ASSERT_THAT(protocol->Start(cancellation), fastecu::testing::IsOk());

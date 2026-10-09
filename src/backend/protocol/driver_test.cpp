@@ -63,8 +63,8 @@ TEST(TestDriver, poll_decodes_stream_frame)
     std::vector<Channel> ch = {{0x8000, 2}};
     ScriptedKlineTransport t;
     AlreadyInMode init(125000);
-    // one streamed frame: [0x51][12 34][csum][0x0D]
-    bytes::Bytes fr = {0x51, 0x12, 0x34};
+    // one streamed frame: [0x51][34 12][csum][0x0D]
+    bytes::Bytes fr = {0x51, 0x34, 0x12};
     fr.push_back(Sum8(fr));
     fr.push_back(kTrailerStd);
     t.QueueRead(fr);
