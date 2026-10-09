@@ -47,7 +47,8 @@ INSTANTIATE_TEST_SUITE_P(Grammar, CheckedArithmetic,
                          ::testing::Values(ArithmeticCase{"x*2+1", 3, 7}, ArithmeticCase{"-(x+2)", 3, -5},
                                            ArithmeticCase{"+1.25e-2", 3, 0.0125}, ArithmeticCase{"", 3, 3},
                                            ArithmeticCase{" \t\n", 3, 3}, ArithmeticCase{"(2+3)*(4-1)", 0, 15},
-                                           ArithmeticCase{"x/-2", 3, -1.5}, ArithmeticCase{"--x", 3, 3},
+                                           ArithmeticCase{"x/-2", 3, -1.5}, ArithmeticCase{"-x+5", 3, 2},
+                                           ArithmeticCase{"x*-2", 3, -6}, ArithmeticCase{"--x", 3, 3},
                                            ArithmeticCase{".5+1.", 0, 1.5}, ArithmeticCase{"1E+2", 0, 100},
                                            ArithmeticCase{"1000000000000000+1-1000000000000000", 0, 1}));
 

@@ -92,7 +92,7 @@ cc_library(
     srcs = ["logging_session.cpp"],
     hdrs = ["logging_session.h"],
     implementation_deps = [
-        "//src/algorithms/expression",
+        "//src/algorithms/expression:checked_expression",
         "//src/algorithms/protocol/colt:mitsu_colt_can_cdbg_protocol",
     ],
     deps = [
@@ -117,7 +117,7 @@ cc_library(
     hdrs = ["logging_conversion.h"],
     implementation_deps = [
         ":logging_session",
-        "//src/algorithms/expression",
+        "//src/algorithms/expression:checked_expression",
     ],
     deps = [
         ":logging_types",

@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <array>
-#include <cctype>
 #include <chrono>
 #include <cmath>
 #include <string>
@@ -10,7 +9,7 @@
 #include <unordered_set>
 #include <utility>
 
-#include "src/algorithms/expression/expression_evaluator.h"
+#include "src/algorithms/expression/checked_expression.h"
 #include "src/algorithms/protocol/colt/mitsu_colt_can_cdbg_protocol.h"
 
 namespace fastecu::logging
@@ -21,242 +20,18 @@ using namespace std::chrono_literals;
 namespace
 {
 
-class ExpressionValidator
-{
-  public:
-    explicit ExpressionValidator(std::string_view expression) : expression_(expression)
-    {
-    }
-
-    bool Valid()
-    {
-        SkipSpaces();
-        if (const ParsedValue value = ParseExpression(); !value.valid)
-        {
-            return false;
-        }
-        SkipSpaces();
-        return position_ == expression_.size();
-    }
-
-  private:
-    struct ParsedValue
-    {
-        bool valid = false;
-        bool depends_on_x = false;
-        double value = 0.0;
-    };
-
-    ParsedValue ParseExpression()
-    {
-        ParsedValue left = ParseTerm();
-        if (!left.valid)
-        {
-            return {};
-        }
-        while (true)
-        {
-            char operation = '\0';
-            if (Consume('+'))
-            {
-                operation = '+';
-            }
-            else if (Consume('-'))
-            {
-                operation = '-';
-            }
-            else
-            {
-                return left;
-            }
-
-            ParsedValue right = ParseTerm();
-            if (!right.valid)
-            {
-                return {};
-            }
-            left = Combine(left, right, operation);
-            if (!left.valid)
-            {
-                return {};
-            }
-        }
-    }
-
-    ParsedValue ParseTerm()
-    {
-        ParsedValue left = ParseFactor();
-        if (!left.valid)
-        {
-            return {};
-        }
-        while (true)
-        {
-            char operation = '\0';
-            if (Consume('*'))
-            {
-                operation = '*';
-            }
-            else if (Consume('/'))
-            {
-                operation = '/';
-            }
-            else
-            {
-                return left;
-            }
-
-            ParsedValue right = ParseFactor();
-            if (!right.valid)
-            {
-                return {};
-            }
-            left = Combine(left, right, operation);
-            if (!left.valid)
-            {
-                return {};
-            }
-        }
-    }
-
-    ParsedValue ParseFactor()
-    {
-        if (Consume('-'))
-        {
-            if (Consume('x'))
-            {
-                return {.valid = true, .depends_on_x = true};
-            }
-            ParsedValue number = ParseNumber();
-            if (number.valid)
-            {
-                number.value = -number.value;
-            }
-            return number;
-        }
-        if (Consume('x'))
-        {
-            return {.valid = true, .depends_on_x = true};
-        }
-        if (Consume('('))
-        {
-            ParsedValue nested = ParseExpression();
-            if (!nested.valid || !Consume(')'))
-            {
-                return {};
-            }
-            return nested;
-        }
-        return ParseNumber();
-    }
-
-    ParsedValue ParseNumber()
-    {
-        SkipSpaces();
-        const std::size_t start = position_;
-        bool saw_digit = false;
-        bool saw_decimal_point = false;
-        while (position_ < expression_.size())
-        {
-            const char current = expression_[position_];
-            if (current >= '0' && current <= '9')
-            {
-                saw_digit = true;
-                ++position_;
-            }
-            else if (current == '.' && !saw_decimal_point)
-            {
-                saw_decimal_point = true;
-                ++position_;
-            }
-            else
-            {
-                break;
-            }
-        }
-        if (!saw_digit || position_ == start)
-        {
-            return {};
-        }
-        try
-        {
-            // TODO: rewrite to use std::from_chars and analyze std::from_chars_result instead of try/catch
-            const double value = std::stod(std::string(expression_.substr(start, position_ - start)));
-            return std::isfinite(value) ? ParsedValue{.valid = true, .value = value} : ParsedValue{};
-        }
-        catch (const std::exception&)
-        {
-            return {};
-        }
-    }
-
-    ParsedValue Combine(ParsedValue left, ParsedValue right, char operation) const
-    {
-        if (operation == '/' && !right.depends_on_x && right.value == 0.0)
-        {
-            return {};
-        }
-        if (left.depends_on_x || right.depends_on_x)
-        {
-            return {.valid = true, .depends_on_x = true};
-        }
-
-        switch (operation)
-        {
-        case '+':
-            left.value += right.value;
-            break;
-        case '-':
-            left.value -= right.value;
-            break;
-        case '*':
-            left.value *= right.value;
-            break;
-        case '/':
-            left.value /= right.value;
-            break;
-        default:
-            return {};
-        }
-        return std::isfinite(left.value) ? left : ParsedValue{};
-    }
-
-    bool Consume(char expected)
-    {
-        SkipSpaces();
-        if (position_ == expression_.size() || expression_[position_] != expected)
-        {
-            return false;
-        }
-        ++position_;
-        return true;
-    }
-
-    void SkipSpaces()
-    {
-        while (position_ < expression_.size() && std::isspace(static_cast<unsigned char>(expression_[position_])))
-        {
-            ++position_;
-        }
-    }
-
-    std::string_view expression_;
-    std::size_t position_ = 0;
-};
-
 bool ValidExpression(const LoggingChannel& channel)
 {
-    if (channel.from_byte_expression.empty() || !ExpressionValidator(channel.from_byte_expression).Valid())
+    if (channel.from_byte_expression.empty())
     {
         return false;
     }
-    const auto is_finite = [&channel](const std::string_view& probe)
-    {
-        return std::isfinite(
-            ExpressionEvaluate(channel.from_byte_expression, probe, static_cast<int>(channel.decimal_precision)));
-    };
-    constexpr std::array<std::string_view, 3> kProbes{"1", "16", "1616"};
-    return std::ranges::any_of(kProbes, is_finite);
+    // A syntax error fails every probe; a probe-dependent failure such as a
+    // division by x-1 only rejects the expression if no probe evaluates.
+    const auto evaluates = [&channel](double probe)
+    { return fastecu::expression::EvaluateChecked(channel.from_byte_expression, probe).has_value(); };
+    constexpr std::array<double, 3> kProbes{1.0, 16.0, 1616.0};
+    return std::ranges::any_of(kProbes, evaluates);
 }
 
 bool ValidAddress(LoggingProtocolId protocol, std::uint32_t address)

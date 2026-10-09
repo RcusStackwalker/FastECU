@@ -47,7 +47,7 @@ scientific-notation literals, binary `+ - * /`, parentheses, and unary signs.
 Missing numeric scaling and missing/blank definition expressions mean identity;
 unresolved named scaling, malformed syntax, division by zero, and non-finite
 results are errors. Parenthesis nesting beyond 128 levels is rejected with a
-diagnostic. The logging-facing evaluator retains its separate behavior.
+diagnostic. Logging channels use the same evaluator.
 
 Decimal precision follows the definition's display format, typically up to two
 places; it does not round values used for calculation. The Set Value dialog treats
