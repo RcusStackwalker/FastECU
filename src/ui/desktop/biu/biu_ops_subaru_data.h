@@ -17,10 +17,10 @@ class BiuOpsSubaruData : public QWidget
     Q_OBJECT
 
   public:
-    explicit BiuOpsSubaruData(QStringList *data_result, QWidget *parent = nullptr);
+    explicit BiuOpsSubaruData(QStringList *dataResult, QWidget *parent = nullptr);
     ~BiuOpsSubaruData();
 
-    void update_data_results(QStringList *data_result);
+    void update_data_results(QStringList *dataResult);
 
   private:
     QStringList *data_result_;

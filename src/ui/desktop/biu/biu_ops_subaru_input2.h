@@ -20,8 +20,7 @@ class BiuOpsSubaruInput2 : public QWidget
     Q_OBJECT
 
   public:
-    explicit BiuOpsSubaruInput2(QStringList *biu_option_names, QByteArray *biu_option_result,
-                                QWidget *parent = nullptr);
+    explicit BiuOpsSubaruInput2(QStringList *biuOptionNames, QByteArray *biuOptionResult, QWidget *parent = nullptr);
     ~BiuOpsSubaruInput2();
 
   private:

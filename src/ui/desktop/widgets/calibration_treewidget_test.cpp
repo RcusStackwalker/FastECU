@@ -87,11 +87,11 @@ TEST(CalibrationTreeWidgetTest, dataTreeMatchesLegacyRules)
     builder.buildCalibrationDataTree(&data, session, view);
 
     ASSERT_EQ(data.topLevelItemCount(), 4);
-    QTreeWidgetItem *rom_info = data.topLevelItem(0);
-    ASSERT_EQ(rom_info->text(0), QString("ROM Info"));
-    ASSERT_TRUE(rom_info->isExpanded());
-    ASSERT_EQ(rom_info->childCount(), 16);
-    ASSERT_EQ(rom_info->child(0)->text(0), QString("XML ID: TREE"));
+    QTreeWidgetItem *romInfo = data.topLevelItem(0);
+    ASSERT_EQ(romInfo->text(0), QString("ROM Info"));
+    ASSERT_TRUE(romInfo->isExpanded());
+    ASSERT_EQ(romInfo->childCount(), 16);
+    ASSERT_EQ(romInfo->child(0)->text(0), QString("XML ID: TREE"));
 
     ASSERT_EQ(data.topLevelItem(1)->text(0), QString("Idle"));
     ASSERT_TRUE(!data.topLevelItem(1)->isExpanded());

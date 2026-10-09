@@ -3,66 +3,66 @@
 
 #include <cstddef>
 
-BiuOpsSubaruInput2::BiuOpsSubaruInput2(QStringList *biu_option_names, QByteArray *biu_option_result, QWidget *parent)
+BiuOpsSubaruInput2::BiuOpsSubaruInput2(QStringList *biuOptionNames, QByteArray *biuOptionResult, QWidget *parent)
     : QWidget(parent), ui_{std::make_unique<Ui::BiuOpsSubaruInput2Window>()}
 {
     ui_->setupUi(this);
 
-    this->biu_option_names_ = biu_option_names;
-    this->biu_option_result_ = biu_option_result;
+    this->biu_option_names_ = biuOptionNames;
+    this->biu_option_result_ = biuOptionResult;
 
     QLabel *label;
-    QRadioButton *radio_button;
-    QButtonGroup *button_group;
-    QPushButton *send_setting;
+    QRadioButton *radioButton;
+    QButtonGroup *buttonGroup;
+    QPushButton *sendSetting;
     unsigned bitmask;
-    int i, current_value;
+    int i, currentValue;
 
-    for (int byte_counter = 0; byte_counter < biu_option_result->length(); byte_counter++)
+    for (int byteCounter = 0; byteCounter < biuOptionResult->length(); byteCounter++)
     {
         bitmask = 1U;
 
-        for (int bit_counter = 0; bit_counter < 8; bit_counter++)
+        for (int bitCounter = 0; bitCounter < 8; bitCounter++)
         {
-            i = byte_counter * 8 + bit_counter;
+            i = byteCounter * 8 + bitCounter;
 
-            current_value = static_cast<int>(static_cast<unsigned char>(biu_option_result->at(byte_counter)) & bitmask);
+            currentValue = static_cast<int>(static_cast<unsigned char>(biuOptionResult->at(byteCounter)) & bitmask);
             bitmask = bitmask << 1U;
 
             label = new QLabel();
             label->setObjectName("Name" + QString::number(i));
-            label->setText(biu_option_names->at(3 * static_cast<qsizetype>(i)));
+            label->setText(biuOptionNames->at(3 * static_cast<qsizetype>(i)));
             ui_->gridLayout->addWidget(label, i, 0);
 
-            button_group = new QButtonGroup();
-            button_group->setObjectName("Name GROUP" + QString::number(i));
+            buttonGroup = new QButtonGroup();
+            buttonGroup->setObjectName("Name GROUP" + QString::number(i));
 
-            radio_button = new QRadioButton();
-            radio_button->setObjectName("Name ON" + QString::number(i));
-            radio_button->setText(biu_option_names->at(3 * i + 1));
-            if (current_value != 0)
+            radioButton = new QRadioButton();
+            radioButton->setObjectName("Name ON" + QString::number(i));
+            radioButton->setText(biuOptionNames->at(3 * i + 1));
+            if (currentValue != 0)
             {
-                radio_button->setChecked(true);
+                radioButton->setChecked(true);
             }
-            button_group->addButton(radio_button, 1);
-            ui_->gridLayout->addWidget(radio_button, i, 1);
+            buttonGroup->addButton(radioButton, 1);
+            ui_->gridLayout->addWidget(radioButton, i, 1);
 
-            radio_button = new QRadioButton();
-            radio_button->setObjectName("Name OFF" + QString::number(i));
-            radio_button->setText(biu_option_names->at(3 * i + 2));
-            if (current_value == 0)
+            radioButton = new QRadioButton();
+            radioButton->setObjectName("Name OFF" + QString::number(i));
+            radioButton->setText(biuOptionNames->at(3 * i + 2));
+            if (currentValue == 0)
             {
-                radio_button->setChecked(true);
+                radioButton->setChecked(true);
             }
-            button_group->addButton(radio_button, 0);
-            ui_->gridLayout->addWidget(radio_button, i, 2);
+            buttonGroup->addButton(radioButton, 0);
+            ui_->gridLayout->addWidget(radioButton, i, 2);
         }
     }
 
-    send_setting = new QPushButton();
-    send_setting->setObjectName("Name Send");
-    send_setting->setText("Send to BIU");
-    ui_->gridLayout->addWidget(send_setting, static_cast<int>(biu_option_result->length() * 8 + 1), 2);
+    sendSetting = new QPushButton();
+    sendSetting->setObjectName("Name Send");
+    sendSetting->setText("Send to BIU");
+    ui_->gridLayout->addWidget(sendSetting, static_cast<int>(biuOptionResult->length() * 8 + 1), 2);
 
     connect(ui_->gridLayoutWidget->findChild<QPushButton *>("Name Send"), SIGNAL(clicked(bool)), this,
             SLOT(prepare_biu_setting2()));
@@ -75,21 +75,21 @@ BiuOpsSubaruInput2::~BiuOpsSubaruInput2()
 void BiuOpsSubaruInput2::prepare_biu_setting2()
 {
     QByteArray output;
-    QRadioButton *current_button;
+    QRadioButton *currentButton;
     int i;
     unsigned bitmask;
 
-    for (int byte_counter = 0; byte_counter < biu_option_result_->length(); byte_counter++)
+    for (int byteCounter = 0; byteCounter < biu_option_result_->length(); byteCounter++)
     {
         bitmask = 1U;
 
-        for (int bit_counter = 0; bit_counter < 8; bit_counter++)
+        for (int bitCounter = 0; bitCounter < 8; bitCounter++)
         {
-            i = byte_counter * 8 + bit_counter;
-            current_button = ui_->gridLayoutWidget->findChild<QRadioButton *>("Name ON" + QString::number(i));
-            if (current_button != nullptr && current_button->isChecked())
+            i = byteCounter * 8 + bitCounter;
+            currentButton = ui_->gridLayoutWidget->findChild<QRadioButton *>("Name ON" + QString::number(i));
+            if (currentButton != nullptr && currentButton->isChecked())
             {
-                output[byte_counter] = static_cast<char>(static_cast<unsigned char>(output[byte_counter]) | bitmask);
+                output[byteCounter] = static_cast<char>(static_cast<unsigned char>(output[byteCounter]) | bitmask);
             }
             bitmask = bitmask << 1U;
         }

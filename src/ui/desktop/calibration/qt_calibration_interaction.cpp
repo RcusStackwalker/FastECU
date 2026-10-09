@@ -31,17 +31,17 @@ bool QtCalibrationInteraction::confirm_write_without_checksum()
     return msgBox.exec() != QMessageBox::Cancel;
 }
 
-ChecksumCorrectionResult QtCalibrationInteraction::correct_checksums(bytes::ByteView image, bool has_definition,
+ChecksumCorrectionResult QtCalibrationInteraction::correct_checksums(bytes::ByteView image, bool hasDefinition,
                                                                      const checksum::ChecksumSelection& selection)
 {
-    return checksum_command_.run(image, has_definition, selection, parent_);
+    return checksum_command_.run(image, hasDefinition, selection, parent_);
 }
 
-std::optional<std::string> QtCalibrationInteraction::choose_save_path(std::string_view suggested_path)
+std::optional<std::string> QtCalibrationInteraction::choose_save_path(std::string_view suggestedPath)
 {
     const QString path = QFileDialog::getSaveFileName(
         parent_, main_window_text("Save calibration file"),
-        QString::fromUtf8(suggested_path.data(), static_cast<qsizetype>(suggested_path.size())),
+        QString::fromUtf8(suggestedPath.data(), static_cast<qsizetype>(suggestedPath.size())),
         main_window_text("Calibration file (*.bin)"));
     if (path.isEmpty())
     {

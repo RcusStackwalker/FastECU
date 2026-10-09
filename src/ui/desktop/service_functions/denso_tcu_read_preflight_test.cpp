@@ -74,16 +74,16 @@ class ChooserDriver final : public QObject
     {
         for (QWidget *widget : QApplication::topLevelWidgets())
         {
-            auto *message_box = qobject_cast<QMessageBox *>(widget);
-            if (message_box == nullptr || message_box->text() != kChooserText)
+            auto *messageBox = qobject_cast<QMessageBox *>(widget);
+            if (messageBox == nullptr || messageBox->text() != kChooserText)
             {
                 continue;
             }
 
             saw_chooser_ = true;
-            text_ = message_box->text();
-            information_ = message_box->informativeText();
-            for (QAbstractButton *button : message_box->buttons())
+            text_ = messageBox->text();
+            information_ = messageBox->informativeText();
+            for (QAbstractButton *button : messageBox->buttons())
             {
                 button_labels_.push_back(button->text());
             }
@@ -91,10 +91,10 @@ class ChooserDriver final : public QObject
 
             if (choice_.isEmpty())
             {
-                message_box->reject();
+                messageBox->reject();
                 return;
             }
-            for (QAbstractButton *button : message_box->buttons())
+            for (QAbstractButton *button : messageBox->buttons())
             {
                 if (button->text() == choice_)
                 {
@@ -132,7 +132,7 @@ class ServiceActionDriver final : public QObject
 {
 
   public:
-    explicit ServiceActionDriver(bool accept_ignition) : accept_ignition_(accept_ignition)
+    explicit ServiceActionDriver(bool acceptIgnition) : accept_ignition_(acceptIgnition)
     {
         timer_.setInterval(5);
         connect(&timer_, &QTimer::timeout, this, &ServiceActionDriver::drive);
@@ -179,14 +179,14 @@ class ServiceActionDriver final : public QObject
     {
         for (QWidget *widget : QApplication::topLevelWidgets())
         {
-            if (auto *message_box = qobject_cast<QMessageBox *>(widget);
-                message_box != nullptr && message_box->text() == kIgnitionText)
+            if (auto *messageBox = qobject_cast<QMessageBox *>(widget);
+                messageBox != nullptr && messageBox->text() == kIgnitionText)
             {
                 ++ignition_count_;
-                ignition_icon_ = message_box->icon();
-                ignition_text_ = message_box->text();
-                ignition_buttons_ = message_box->standardButtons();
-                message_box->done(accept_ignition_ ? QMessageBox::Ok : QMessageBox::Cancel);
+                ignition_icon_ = messageBox->icon();
+                ignition_text_ = messageBox->text();
+                ignition_buttons_ = messageBox->standardButtons();
+                messageBox->done(accept_ignition_ ? QMessageBox::Ok : QMessageBox::Cancel);
                 return;
             }
             if (auto *dialog = qobject_cast<ServiceFunctionDialog *>(widget); dialog != nullptr)
@@ -264,7 +264,7 @@ INSTANTIATE_TEST_SUITE_P(
 TEST_P(ChooserReturnsTheActionNamedByEachLegacyButtonParameters, chooserReturnsTheActionNamedByEachLegacyButton)
 {
     const QString choice = GetParam().choice;
-    const int expected_action = GetParam().expected_action;
+    const int expectedAction = GetParam().expected_action;
 
     ChooserDriver driver{choice};
     driver.start();
@@ -275,7 +275,7 @@ TEST_P(ChooserReturnsTheActionNamedByEachLegacyButtonParameters, chooserReturnsT
     ASSERT_EQ(driver.text(), QString(kChooserText));
     ASSERT_EQ(driver.information(), QString(kChooserInformation));
     ASSERT_EQ(driver.buttonLabels(), QStringList({"Dump", "Read Param", "Relearn", "Set Param"}));
-    ASSERT_EQ(static_cast<int>(action), expected_action);
+    ASSERT_EQ(static_cast<int>(action), expectedAction);
 }
 
 TEST(DensoTcuReadPreflightTest, dismissingChooserReturnsCancelled)

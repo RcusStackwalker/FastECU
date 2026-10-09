@@ -17,9 +17,9 @@ ConnectionCoordinator::~ConnectionCoordinator()
     launcher_.set_completion_handler({});
 }
 
-void ConnectionCoordinator::begin(const diagnostics::SsmIdentifyRequest& request, std::function<void(bool)> on_done)
+void ConnectionCoordinator::begin(const diagnostics::SsmIdentifyRequest& request, std::function<void(bool)> onDone)
 {
-    pending_ = std::move(on_done);
+    pending_ = std::move(onDone);
     running_ = true;
     presentation_.set_controls_locked(true);
     launcher_.start(request, ++generation_);

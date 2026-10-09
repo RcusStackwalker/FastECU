@@ -247,7 +247,7 @@ CalibrationMaps::~CalibrationMaps()
 {
 }
 
-void CalibrationMaps::setMapTableWidgetSize(int maxWidth, int maxHeight, int xSize_arg)
+void CalibrationMaps::setMapTableWidgetSize(int maxWidth, int maxHeight, int xSizeArg)
 {
     int w = 0;
     int h = 0;
@@ -327,7 +327,7 @@ void CalibrationMaps::refresh()
                 setMapTableWidgetSize(mdi_area_size_.width() - 15, mdi_area_size_.height() - 15, x_size);
             }
         });
-    const QSignalBlocker table_blocker(ui_->mapDataTableWidget);
+    const QSignalBlocker tableBlocker(ui_->mapDataTableWidget);
     QFont font = ui_->mapDataTableWidget->font();
     font.setPointSize(cell_font_size);
     font.setFamily("Franklin Gothic");
@@ -424,24 +424,24 @@ void CalibrationMaps::refresh()
         item->setText(value.text);
         item->setToolTip(value.diagnostic);
     };
-    const bool static_x = map.x_type == "Static Y Axis" || map.x_type == "Static X Axis";
-    const auto axis_cell = [](const std::optional<std::vector<fastecu::ui::PresentedCell>>& axis, int index)
+    const bool staticX = map.x_type == "Static Y Axis" || map.x_type == "Static X Axis";
+    const auto axisCell = [](const std::optional<std::vector<fastecu::ui::PresentedCell>>& axis, int index)
     {
         return axis.has_value() ? axis->at(static_cast<std::size_t>(index))
                                 : fastecu::ui::PresentedCell{.text = QString::number(index)};
     };
     if (map.type != "1D")
     {
-        if (map.y_size > 1 && (map.x_size <= 1 || !static_x))
+        if (map.y_size > 1 && (map.x_size <= 1 || !staticX))
         {
             for (int i = 0; i < map.y_size; ++i)
             {
-                cell(i + y_size_offset, 0, axis_cell(map.y_axis, i), Qt::white);
+                cell(i + y_size_offset, 0, axisCell(map.y_axis, i), Qt::white);
             }
         }
         for (int i = 0; i < map.x_size; ++i)
         {
-            const auto value = axis_cell(map.x_axis, i);
+            const auto value = axisCell(map.x_axis, i);
             cell(0, i + x_size_offset, value, Qt::white);
             const int width = QFontMetrics(font).horizontalAdvance(value.text) + 20;
             ui_->mapDataTableWidget->horizontalHeader()->resizeSection(i + x_size_offset, width);

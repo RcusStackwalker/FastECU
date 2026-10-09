@@ -17,7 +17,7 @@ class BiuOpsSubaruInput1 : public QWidget
     Q_OBJECT
 
   public:
-    explicit BiuOpsSubaruInput1(QByteArray *biu_tt_result, QWidget *parent = nullptr);
+    explicit BiuOpsSubaruInput1(QByteArray *biuTtResult, QWidget *parent = nullptr);
     ~BiuOpsSubaruInput1();
 
   private:

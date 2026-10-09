@@ -30,7 +30,7 @@ class ConnectionCoordinator
     // of cancel() goes on to use the serial facade. on_done must therefore not
     // start a connection or otherwise touch the facade synchronously; defer any
     // such work to the event loop.
-    void begin(const diagnostics::SsmIdentifyRequest& request, std::function<void(bool)> on_done);
+    void begin(const diagnostics::SsmIdentifyRequest& request, std::function<void(bool)> onDone);
 
     // Stops and joins a running identification, unlocks the controls and the
     // port selector, and tells a waiting caller the connect did not complete.

@@ -3,13 +3,13 @@
 #include "src/platform/desktop/common/bytes/qt_bytes.h"
 #include "src/ui/desktop/config_fields.h"
 
-void MainWindow::parse_log_value_list(QByteArray received, const QString& protocol_arg)
+void MainWindow::parse_log_value_list(QByteArray received, const QString& protocolArg)
 {
     received.remove(0, 5);
-    logger_model_->apply_capabilities(protocol_arg.toStdString(), bytes::view(received));
+    logger_model_->apply_capabilities(protocolArg.toStdString(), bytes::view(received));
     for (const auto& p : logger_model_->definition().parameters)
     {
-        if (p.protocol != protocol_arg.toStdString() || !logger_model_->parameter_supported(p.protocol, p.id))
+        if (p.protocol != protocolArg.toStdString() || !logger_model_->parameter_supported(p.protocol, p.id))
         {
             continue;
         }
@@ -26,7 +26,7 @@ void MainWindow::parse_log_value_list(QByteArray received, const QString& protoc
     }
     load_logger_selection();
 
-    update_logboxes(protocol_arg);
+    update_logboxes(protocolArg);
 }
 
 void MainWindow::log_to_file()
@@ -38,14 +38,14 @@ void MainWindow::log_to_file()
             QDateTime dateTime = dateTime.currentDateTime();
             QString dateTimeString = dateTime.toString("yyyy-MM-dd_hh'h'mm'm'ss's'");
 
-            QString log_file_name = fastecu::ui::qs(config_session_->effective_paths().datalog_files_directory);
-            if (!log_file_name.endsWith('/'))
+            QString logFileName = fastecu::ui::qs(config_session_->effective_paths().datalog_files_directory);
+            if (!logFileName.endsWith('/'))
             {
-                log_file_name.append("/");
+                logFileName.append("/");
             }
-            log_file_name.append("fastecu_" + dateTimeString + ".csv");
+            logFileName.append("fastecu_" + dateTimeString + ".csv");
 
-            datalog_file_.setFileName(log_file_name);
+            datalog_file_.setFileName(logFileName);
             if (!datalog_file_.open(QIODevice::WriteOnly))
             {
                 QMessageBox::information(this, tr("Unable to open file"), datalog_file_.errorString());

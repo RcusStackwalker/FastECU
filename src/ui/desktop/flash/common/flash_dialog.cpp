@@ -158,15 +158,15 @@ ProgrammingVoltageNotice FlashDialog::programmingVoltageNotice(const FlashPrompt
         }
         return std::string{};
     };
-    const bool external_vpp = arg("external_vpp") == "yes";
+    const bool externalVpp = arg("external_vpp") == "yes";
     const bool succeeded = arg("outcome") == "succeeded";
-    const bool power_off_advice = arg("power_off_advice") != "no";
+    const bool powerOffAdvice = arg("power_off_advice") != "no";
     QStringList paragraphs;
-    if (external_vpp)
+    if (externalVpp)
     {
         paragraphs << QObject::tr("Remove VPP voltage from the ECU, then press OK.");
     }
-    if (!succeeded && power_off_advice)
+    if (!succeeded && powerOffAdvice)
     {
         paragraphs << QObject::tr("The write did not complete. If the ECU entered flash mode, do not power it off: the "
                                   "flash kernel is still running and you can try flashing again.");
@@ -176,12 +176,12 @@ ProgrammingVoltageNotice FlashDialog::programmingVoltageNotice(const FlashPrompt
         // Legacy bootmode dialog: "ECU operation failed, press OK to exit and try again".
         paragraphs << QObject::tr("The write did not complete. Press OK to exit and try again.");
     }
-    else if (!power_off_advice)
+    else if (!powerOffAdvice)
     {
         // Legacy bootmode write_mem() :581.
         paragraphs << QObject::tr("Power cycle the ECU and request SSM Init to confirm the write.");
     }
-    return {external_vpp ? QObject::tr("Programming voltage") : QObject::tr("ECU operation"),
+    return {externalVpp ? QObject::tr("Programming voltage") : QObject::tr("ECU operation"),
             paragraphs.join(QStringLiteral("\n\n"))};
 }
 

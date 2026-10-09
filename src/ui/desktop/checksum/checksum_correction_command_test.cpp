@@ -35,10 +35,10 @@ class TestableChecksumCommand : public ChecksumCorrectionCommand
     {
         return cancel_without_module_answer;
     }
-    void showFamilyResultDialog(const ChecksumResult& family_result) override
+    void showFamilyResultDialog(const ChecksumResult& familyResult) override
     {
         ++family_result_dialog_count;
-        last_family_result = family_result;
+        last_family_result = familyResult;
     }
 };
 

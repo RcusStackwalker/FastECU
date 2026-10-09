@@ -3,46 +3,46 @@
 
 #include <cstddef>
 
-BiuOpsSubaruSwitches::BiuOpsSubaruSwitches(QStringList *switch_result, QWidget *parent)
+BiuOpsSubaruSwitches::BiuOpsSubaruSwitches(QStringList *switchResult, QWidget *parent)
     : QWidget(parent), ui_{std::make_unique<Ui::BiuOpsSubaruSwitchesWindow>()}
 {
     ui_->setupUi(this);
     // this->setParent(parent);
 
-    this->switch_result_ = switch_result;
+    this->switch_result_ = switchResult;
 
-    QFont custom_font("Courier New", 7);
+    QFont customFont("Courier New", 7);
 
     QLabel *label;
 
-    int row_num, col_num;
+    int rowNum, colNum;
 
-    col_num = 0;
-    row_num = 0;
+    colNum = 0;
+    rowNum = 0;
 
-    for (int i = 0; i < (switch_result->length() / 2); i++)
+    for (int i = 0; i < (switchResult->length() / 2); i++)
     {
         if ((i == 40) || (i == 72))
         {
-            col_num += 2;
-            row_num = 0;
+            colNum += 2;
+            rowNum = 0;
         }
         label = new QLabel();
         label->setObjectName("Name" + QString::number(i));
-        label->setFont(custom_font);
-        label->setText(switch_result->at(2 * static_cast<qsizetype>(i)));
-        ui_->gridLayout->addWidget(label, row_num, col_num);
+        label->setFont(customFont);
+        label->setText(switchResult->at(2 * static_cast<qsizetype>(i)));
+        ui_->gridLayout->addWidget(label, rowNum, colNum);
 
         label = new QLabel();
         label->setObjectName("Result" + QString::number(i));
-        label->setFont(custom_font);
-        label->setText(switch_result->at(2 * i + 1));
+        label->setFont(customFont);
+        label->setText(switchResult->at(2 * i + 1));
         label->setAlignment(Qt::AlignCenter);
-        if (switch_result->at(2 * i + 1) == "ON" || switch_result->at(2 * i + 1) == "YES")
+        if (switchResult->at(2 * i + 1) == "ON" || switchResult->at(2 * i + 1) == "YES")
         {
             label->setStyleSheet("QLabel { background-color : green; color : white;}");
         }
-        else if (switch_result->at(2 * i + 1) == "OFF" || switch_result->at(2 * i + 1) == "NO")
+        else if (switchResult->at(2 * i + 1) == "OFF" || switchResult->at(2 * i + 1) == "NO")
         {
             label->setStyleSheet("QLabel { background-color : red; color : white;}");
         }
@@ -50,9 +50,9 @@ BiuOpsSubaruSwitches::BiuOpsSubaruSwitches(QStringList *switch_result, QWidget *
         {
             label->setStyleSheet("QLabel { background-color : grey; color : white;}");
         }
-        ui_->gridLayout->addWidget(label, row_num, col_num + 1);
+        ui_->gridLayout->addWidget(label, rowNum, colNum + 1);
 
-        row_num++;
+        rowNum++;
     }
 }
 
@@ -60,30 +60,30 @@ BiuOpsSubaruSwitches::~BiuOpsSubaruSwitches()
 {
 }
 
-void BiuOpsSubaruSwitches::update_switch_results(QStringList *switch_result)
+void BiuOpsSubaruSwitches::update_switch_results(QStringList *switchResult)
 {
 
-    QLabel *current_label;
+    QLabel *currentLabel;
 
-    for (int i = 0; i < (switch_result->length() / 2); i++)
+    for (int i = 0; i < (switchResult->length() / 2); i++)
     {
 
-        current_label = ui_->gridLayoutWidget->findChild<QLabel *>("Result" + QString::number(i));
+        currentLabel = ui_->gridLayoutWidget->findChild<QLabel *>("Result" + QString::number(i));
 
-        if (current_label)
+        if (currentLabel)
         {
-            current_label->setText(switch_result->at(2 * i + 1));
-            if (switch_result->at(2 * i + 1) == "ON" || switch_result->at(2 * i + 1) == "YES")
+            currentLabel->setText(switchResult->at(2 * i + 1));
+            if (switchResult->at(2 * i + 1) == "ON" || switchResult->at(2 * i + 1) == "YES")
             {
-                current_label->setStyleSheet("QLabel { background-color : green; color : white;}");
+                currentLabel->setStyleSheet("QLabel { background-color : green; color : white;}");
             }
-            else if (switch_result->at(2 * i + 1) == "OFF" || switch_result->at(2 * i + 1) == "NO")
+            else if (switchResult->at(2 * i + 1) == "OFF" || switchResult->at(2 * i + 1) == "NO")
             {
-                current_label->setStyleSheet("QLabel { background-color : red; color : white;}");
+                currentLabel->setStyleSheet("QLabel { background-color : red; color : white;}");
             }
             else
             {
-                current_label->setStyleSheet("QLabel { background-color : grey; color : white;}");
+                currentLabel->setStyleSheet("QLabel { background-color : grey; color : white;}");
             }
             // current_label->repaint();
         }

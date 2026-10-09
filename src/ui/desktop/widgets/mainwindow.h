@@ -174,7 +174,7 @@ class MainWindow : public QMainWindow
     fastecu::calibration::CalibrationWorkspace *calibration_workspace_ = nullptr;
 
     fastecu::calibration::CalibrationSession *calibration(fastecu::calibration::SessionId id);
-    std::optional<fastecu::calibration::SessionId> session_of(const QTreeWidgetItem *files_item) const;
+    std::optional<fastecu::calibration::SessionId> session_of(const QTreeWidgetItem *filesItem) const;
     fastecu::calibration::CalibrationSession *selected_calibration();
     OpenCalibration *open_calibration(fastecu::calibration::SessionId id);
     OpenCalibration *selected_open_calibration();
@@ -203,7 +203,7 @@ class MainWindow : public QMainWindow
 
     // open_serial_port's bookkeeping once a port opened: forget the ECU when
     // the port changed, and remember the port for the next launch.
-    void remember_opened_port(const QString& port, const QString& opened_port);
+    void remember_opened_port(const QString& port, const QString& openedPort);
 
     int ecu_protocols_list_length_ = 6;
     QString current_car_model_ = "";
@@ -293,27 +293,27 @@ class MainWindow : public QMainWindow
     void prompt_for_missing_definition(fastecu::calibration::SessionId id);
     void save_calibration_file();
     void save_calibration_file_as();
-    void set_map_selection(fastecu::calibration::SessionId id, int map_index, const QString& item);
-    void set_map_switch(fastecu::calibration::SessionId id, int map_index, int state);
+    void set_map_selection(fastecu::calibration::SessionId id, int mapIndex, const QString& item);
+    void set_map_switch(fastecu::calibration::SessionId id, int mapIndex, int state);
     QStringList parse_stringlist_from_expression_string(QString expression, QString x);
     float calculate_value_from_expression(QStringList expression);
 
     // log_operations
-    void parse_log_value_list(QByteArray received, const QString& protocol_arg);
+    void parse_log_value_list(QByteArray received, const QString& protocolArg);
     void log_to_file();
 
     void setupLoggingEngine();
     void restoreLoggingUiState();
 
     // logvalues.c
-    void change_log_values(int tabIndex, const QString& protocol_arg);
+    void change_log_values(int tabIndex, const QString& protocolArg);
 
     // mainwindow.c
     // Connect signals for any flash class and execute ::run() method
     template <typename FlashClass> FlashClass *connect_signals_and_run_module(FlashClass *object);
     void SetComboBoxItemEnabled(QComboBox *comboBox, int index, bool enabled);
     void set_flash_arrow_state();
-    void update_protocol_info(const QString& flash_method);
+    void update_protocol_info(const QString& flashMethod);
     // The session's selected vehicle; always valid once constructed.
     const fastecu::config::VehicleSpec& selected_vehicle() const;
     // Saves the session's settings, logging a failure.
@@ -323,7 +323,7 @@ class MainWindow : public QMainWindow
     // Apply a finished dialog's tentative choice: only an accepted one
     // reaches the session. Both then run the matching *_finished slot.
     void apply_vehicle_choice(int result, std::optional<std::size_t> row);
-    void apply_protocol_choice(int result, std::optional<std::string> protocol_name);
+    void apply_protocol_choice(int result, std::optional<std::string> protocolName);
     QStringList create_flash_transports_list();
     QStringList create_log_transports_list();
     // QString check_kernel(QString flash_method);
@@ -350,7 +350,7 @@ class MainWindow : public QMainWindow
     // synchronously. on_done must therefore not start a connection or otherwise
     // touch the facade synchronously; defer any such work to the event loop.
     // See ConnectionCoordinator::begin.
-    void connect_to_ecu(std::function<void(bool)> on_done = {});
+    void connect_to_ecu(std::function<void(bool)> onDone = {});
     void continue_start_logging();
 
     // What a connection attempt shows and changes in this window. Methods are
@@ -422,14 +422,14 @@ class MainWindow : public QMainWindow
     void flash_transport_changed();
     void check_serial_ports();
     void open_serial_port();
-    int start_ecu_operations(const QString& cmd_type);
+    int start_ecu_operations(const QString& cmdType);
     void close_calibration();
     void close_calibration_map(QObject *obj);
     void change_gauge_values();
     void change_digital_values();
     void change_switch_values();
-    void update_logboxes(const QString& protocol_arg);
-    void update_logbox_values(const QString& protocol_arg);
+    void update_logboxes(const QString& protocolArg);
+    void update_logbox_values(const QString& protocolArg);
     void add_new_ecu_definition_file();
     void remove_ecu_definition_file();
     void add_new_logger_definition_file();

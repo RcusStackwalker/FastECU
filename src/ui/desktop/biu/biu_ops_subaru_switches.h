@@ -28,10 +28,10 @@ class BiuOpsSubaruSwitches : public QWidget
     Q_OBJECT
 
   public:
-    explicit BiuOpsSubaruSwitches(QStringList *switch_result, QWidget *parent = nullptr);
+    explicit BiuOpsSubaruSwitches(QStringList *switchResult, QWidget *parent = nullptr);
     ~BiuOpsSubaruSwitches();
 
-    void update_switch_results(QStringList *switch_result);
+    void update_switch_results(QStringList *switchResult);
 
   private:
     // QGroupBox *gridGroupBox;

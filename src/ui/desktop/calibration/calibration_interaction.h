@@ -27,10 +27,10 @@ class ICalibrationInteraction
 
     // True to proceed with the write despite the missing checksum module.
     virtual bool confirm_write_without_checksum() = 0;
-    virtual ChecksumCorrectionResult correct_checksums(bytes::ByteView image, bool has_definition,
+    virtual ChecksumCorrectionResult correct_checksums(bytes::ByteView image, bool hasDefinition,
                                                        const checksum::ChecksumSelection& selection) = 0;
     // nullopt when the user dismissed the picker.
-    virtual std::optional<std::string> choose_save_path(std::string_view suggested_path) = 0;
+    virtual std::optional<std::string> choose_save_path(std::string_view suggestedPath) = 0;
     virtual void show_notice(CalibrationNotice notice) = 0;
 };
 

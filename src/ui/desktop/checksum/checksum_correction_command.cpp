@@ -49,16 +49,16 @@ bool ChecksumCorrectionCommand::confirmProceedWithoutChecksumModule()
     return msgBox.clickedButton() == cancelButton;
 }
 
-void ChecksumCorrectionCommand::showFamilyResultDialog(const ChecksumResult& family_result)
+void ChecksumCorrectionCommand::showFamilyResultDialog(const ChecksumResult& familyResult)
 {
-    const QString message = QString::fromStdString(family_result.message);
-    if (family_result.changed())
+    const QString message = QString::fromStdString(familyResult.message);
+    if (familyResult.changed())
     {
         QMessageBox::information(nullptr, QObject::tr("Checksum Correction"),
                                  QObject::tr("Checksums corrected:\n\n%1").arg(message));
         return;
     }
-    switch (family_result.status)
+    switch (familyResult.status)
     {
     case ChecksumResult::Status::kDisabled:
         QMessageBox::information(nullptr, QObject::tr("32-bit checksum"), message);
@@ -74,7 +74,7 @@ void ChecksumCorrectionCommand::showFamilyResultDialog(const ChecksumResult& fam
     }
 }
 
-ChecksumCorrectionResult ChecksumCorrectionCommand::run(bytes::ByteView rom_data, bool has_definition,
+ChecksumCorrectionResult ChecksumCorrectionCommand::run(bytes::ByteView romData, bool hasDefinition,
                                                         const fastecu::checksum::ChecksumSelection& selection,
                                                         QWidget *parent)
 {
@@ -89,7 +89,7 @@ ChecksumCorrectionResult ChecksumCorrectionCommand::run(bytes::ByteView rom_data
         return result;
     }
 
-    if (!has_definition)
+    if (!hasDefinition)
     {
         if (!confirmProceedWithoutDefinition(parent))
         {
@@ -97,7 +97,7 @@ ChecksumCorrectionResult ChecksumCorrectionCommand::run(bytes::ByteView rom_data
         }
     }
 
-    switch (const ChecksumCorrectionOutcome outcome = fastecu::checksum::apply_checksum_correction(rom_data, selection);
+    switch (const ChecksumCorrectionOutcome outcome = fastecu::checksum::apply_checksum_correction(romData, selection);
             outcome.status)
     {
     case ChecksumCorrectionOutcome::Status::kUnknownMcuType:

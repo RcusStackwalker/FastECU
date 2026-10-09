@@ -23,7 +23,7 @@ class CalibrationTreeWidget : public QWidget
   public:
     CalibrationTreeWidget();
 
-    QTreeWidget *buildCalibrationFilesTree(fastecu::calibration::SessionId session_id, QTreeWidget *filesTreeWidget,
+    QTreeWidget *buildCalibrationFilesTree(fastecu::calibration::SessionId sessionId, QTreeWidget *filesTreeWidget,
                                            const fastecu::calibration::CalibrationSession& session);
     QTreeWidget *buildCalibrationDataTree(QTreeWidget *dataTreeWidget,
                                           const fastecu::calibration::CalibrationSession& session,

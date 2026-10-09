@@ -65,15 +65,15 @@ TEST(DefinitionAuthoringDialogTest, ConstructsAndExposesTheFourLogSignals)
 {
     QWidget parent;
     fastecu::InMemoryFileRepository repository;
-    QtFileSystem file_system;
-    QtResourceBundle resource_bundle;
-    QtFileRepository config_repository;
+    QtFileSystem fileSystem;
+    QtResourceBundle resourceBundle;
+    QtFileRepository configRepository;
     QtAtomicFileWriter writer;
     fastecu::NullEventSink events;
     fastecu::config::testing::ConfigSessionFixture config;
     ASSERT_TRUE(config.initialize().has_value());
-    fastecu::definition::DefinitionService service(file_system, config_repository, writer);
-    fastecu::definition::DefinitionCatalogSession catalogs(service, config.session, file_system, events);
+    fastecu::definition::DefinitionService service(fileSystem, configRepository, writer);
+    fastecu::definition::DefinitionCatalogSession catalogs(service, config.session, fileSystem, events);
 
     DefinitionAuthoringDialog dialog(catalogs, config.session, repository, &parent);
 
@@ -130,8 +130,8 @@ TEST(DefinitionAuthoringDialogTest, HeaderEditorsStayReadableWhileTheCallerOwnsT
     // of scope without having to read freed memory to prove it.
     QPointer<QLineEdit> tracked;
     {
-        QDialog scoped_dialog;
-        tracked = populate_header_dialog(scoped_dialog, draft).xml_id;
+        QDialog scopedDialog;
+        tracked = populate_header_dialog(scopedDialog, draft).xml_id;
         ASSERT_FALSE(tracked.isNull());
     }
     EXPECT_TRUE(tracked.isNull());
@@ -243,8 +243,8 @@ TEST_F(DefinitionAuthoringFlow, MalformedImportReportsErrorWithoutOpeningAnEdita
     source.write("<rom><romid>");
     source.close();
     config_.file_repository.files[path.toStdString()] = {'<', 'r', 'o', 'm', '>', '<', 'r', 'o', 'm', 'i', 'd', '>'};
-    bool header_opened = false;
-    bool error_shown = false;
+    bool headerOpened = false;
+    bool errorShown = false;
     QTimer driver;
     QObject::connect(&driver, &QTimer::timeout,
                      [&]
@@ -256,19 +256,19 @@ TEST_F(DefinitionAuthoringFlow, MalformedImportReportsErrorWithoutOpeningAnEdita
                          }
                          else if (auto *message = qobject_cast<QMessageBox *>(QApplication::activeModalWidget()))
                          {
-                             error_shown = true;
+                             errorShown = true;
                              message->accept();
                          }
                          else if (auto *header = qobject_cast<QDialog *>(QApplication::activeModalWidget()))
                          {
-                             header_opened = true;
+                             headerOpened = true;
                              header->reject();
                          }
                      });
     driver.start(1);
     EXPECT_FALSE(dialog_.use_existing_definition());
-    EXPECT_TRUE(error_shown);
-    EXPECT_FALSE(header_opened);
+    EXPECT_TRUE(errorShown);
+    EXPECT_FALSE(headerOpened);
     EXPECT_THAT(writer_.replace_calls, testing::IsEmpty());
 }
 
@@ -288,9 +288,9 @@ TEST_F(DefinitionAuthoringFlow, Utf16ImportOpensDecodedHeaderBeforeAnyWrite)
     source.write(reinterpret_cast<const char *>(bytes.data()), static_cast<qint64>(bytes.size()));
     source.close();
     config_.file_repository.files[path.toStdString()] = bytes;
-    bool header_opened = false;
-    bool error_shown = false;
-    QString imported_id;
+    bool headerOpened = false;
+    bool errorShown = false;
+    QString importedId;
     QTimer driver;
     QObject::connect(&driver, &QTimer::timeout,
                      [&]
@@ -302,25 +302,25 @@ TEST_F(DefinitionAuthoringFlow, Utf16ImportOpensDecodedHeaderBeforeAnyWrite)
                          }
                          else if (auto *message = qobject_cast<QMessageBox *>(QApplication::activeModalWidget()))
                          {
-                             error_shown = true;
+                             errorShown = true;
                              message->accept();
                          }
                          else if (auto *header = qobject_cast<QDialog *>(QApplication::activeModalWidget()))
                          {
-                             header_opened = true;
+                             headerOpened = true;
                              const auto *editor = header->findChild<QLineEdit *>("xmlid");
                              if (editor)
                              {
-                                 imported_id = editor->text();
+                                 importedId = editor->text();
                              }
                              header->reject();
                          }
                      });
     driver.start(1);
     EXPECT_TRUE(dialog_.use_existing_definition());
-    EXPECT_TRUE(header_opened);
-    EXPECT_FALSE(error_shown);
-    EXPECT_EQ(imported_id, QString::fromUtf8("CAF\xc3\xa9"));
+    EXPECT_TRUE(headerOpened);
+    EXPECT_FALSE(errorShown);
+    EXPECT_EQ(importedId, QString::fromUtf8("CAF\xc3\xa9"));
     EXPECT_THAT(writer_.replace_calls, testing::IsEmpty());
 }
 } // namespace

@@ -1,27 +1,27 @@
 #include "biu_ops_subaru_input1.h"
 #include <ui_biu_ops_subaru_input1.h>
 
-BiuOpsSubaruInput1::BiuOpsSubaruInput1(QByteArray *biu_tt_result, QWidget *parent)
+BiuOpsSubaruInput1::BiuOpsSubaruInput1(QByteArray *biuTtResult, QWidget *parent)
     : QWidget(parent), ui_{std::make_unique<Ui::BiuOpsSubaruInput1Window>()}
 {
     ui_->setupUi(this);
 
-    this->biu_tt_result_ = biu_tt_result;
+    this->biu_tt_result_ = biuTtResult;
 
     ui_->light_delay_combo->addItem("Normal");
     ui_->light_delay_combo->addItem("Off");
     ui_->light_delay_combo->addItem("Short");
     ui_->light_delay_combo->addItem("Long");
-    ui_->light_delay_combo->setCurrentIndex(biu_tt_result->at(0));
+    ui_->light_delay_combo->setCurrentIndex(biuTtResult->at(0));
 
     ui_->autolock_combo->addItem("20");
     ui_->autolock_combo->addItem("30");
     ui_->autolock_combo->addItem("40");
     ui_->autolock_combo->addItem("50");
     ui_->autolock_combo->addItem("60");
-    ui_->autolock_combo->setCurrentIndex(biu_tt_result->at(1) - 2);
+    ui_->autolock_combo->setCurrentIndex(biuTtResult->at(1) - 2);
 
-    if (biu_tt_result->length() == 3)
+    if (biuTtResult->length() == 3)
     {
         ui_->outtemp_combo->addItem("0.0");
         ui_->outtemp_combo->addItem("0.5");
@@ -31,7 +31,7 @@ BiuOpsSubaruInput1::BiuOpsSubaruInput1(QByteArray *biu_tt_result, QWidget *paren
         ui_->outtemp_combo->addItem("-1.5");
         ui_->outtemp_combo->addItem("-1.0");
         ui_->outtemp_combo->addItem("-0.5");
-        ui_->outtemp_combo->setCurrentIndex(biu_tt_result->at(2));
+        ui_->outtemp_combo->setCurrentIndex(biuTtResult->at(2));
     }
     else
     {

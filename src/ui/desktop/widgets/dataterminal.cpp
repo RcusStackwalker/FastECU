@@ -13,12 +13,12 @@
 #include <variant>
 #include <vector>
 
-DataTerminal::DataTerminal(fastecu::diagnostics::IDiagnosticLink& link_arg, QWidget *parent)
+DataTerminal::DataTerminal(fastecu::diagnostics::IDiagnosticLink& linkArg, QWidget *parent)
     : QDialog(parent), ui_{std::make_unique<Ui::DataTerminalWindow>()}
 {
     ui_->setupUi(this);
 
-    this->link_ = &link_arg;
+    this->link_ = &linkArg;
 
     // Set initial values
     ui_->klineProtocol->addItem("SSM");
@@ -152,21 +152,21 @@ void DataTerminal::sendToInterface()
     else
     {
         emit LOG_D("Read message from file", true, true);
-        QFile file_local(msg);
-        if (!file_local.open(QIODevice::ReadOnly))
+        QFile fileLocal(msg);
+        if (!fileLocal.open(QIODevice::ReadOnly))
         {
-            emit LOG_E("Unable to open datastream file '" + file_local.fileName() + "' for reading", true, true);
+            emit LOG_E("Unable to open datastream file '" + fileLocal.fileName() + "' for reading", true, true);
             QMessageBox::warning(this, tr("Data terminal"),
-                                 "Unable to open datastream file '" + file_local.fileName() + "' for reading");
+                                 "Unable to open datastream file '" + fileLocal.fileName() + "' for reading");
             return;
         }
-        QTextStream in(&file_local);
+        QTextStream in(&fileLocal);
         while (!in.atEnd())
         {
             QString line = in.readLine();
             scriptLines.push_back(line.toStdString());
         }
-        file_local.close();
+        fileLocal.close();
     }
 
     const auto script = fastecu::diagnostics::parse_terminal_script(scriptLines);
@@ -301,7 +301,7 @@ void DataTerminal::sendToInterface()
         }
 
         QByteArray received;
-        const unsigned int can_tester_id = ui_->canTesterId->text().toUInt(&ok, 16);
+        const unsigned int canTesterId = ui_->canTesterId->text().toUInt(&ok, 16);
         for (const auto& step : *script)
         {
             if (const auto *pause = std::get_if<fastecu::diagnostics::TerminalDelayStep>(&step))
@@ -320,7 +320,7 @@ void DataTerminal::sendToInterface()
             QByteArray output;
             for (const unsigned int shift : {24U, 16U, 8U, 0U})
             {
-                output.append(static_cast<char>((can_tester_id >> shift) & 0xffU));
+                output.append(static_cast<char>((canTesterId >> shift) & 0xffU));
             }
             output.append(bytes::toQByteArray(payload));
             emit LOG_I("Sent: " + parse_message_to_hex(output), true, true);
@@ -338,18 +338,18 @@ void DataTerminal::sendToInterface()
  *
  * @return parsed message
  */
-QByteArray DataTerminal::add_ssm_header(QByteArray output, uint8_t tester_id, uint8_t target_id, bool dec_0x100)
+QByteArray DataTerminal::add_ssm_header(QByteArray output, uint8_t testerId, uint8_t targetId, bool dec0x100)
 {
     uint8_t length = output.length();
 
     emit LOG_D("Append SSM header for message: " + parse_message_to_hex(output) + " length: " + QString::number(length),
                true, true);
     output.insert(0, static_cast<char>(0x80));
-    output.insert(1, static_cast<char>(target_id));
-    output.insert(2, static_cast<char>(tester_id));
+    output.insert(1, static_cast<char>(targetId));
+    output.insert(2, static_cast<char>(testerId));
     output.insert(3, static_cast<char>(length));
 
-    output.append(static_cast<char>(calculate_checksum(output, dec_0x100)));
+    output.append(static_cast<char>(calculate_checksum(output, dec0x100)));
 
     emit LOG_D("Constructed SSM message: " + parse_message_to_hex(output), true, true);
     return output;
@@ -360,7 +360,7 @@ QByteArray DataTerminal::add_ssm_header(QByteArray output, uint8_t tester_id, ui
  *
  * @return 8-bit checksum
  */
-uint8_t DataTerminal::calculate_checksum(const QByteArray& output, bool dec_0x100)
+uint8_t DataTerminal::calculate_checksum(const QByteArray& output, bool dec0x100)
 {
     uint8_t checksum = 0;
 
@@ -369,7 +369,7 @@ uint8_t DataTerminal::calculate_checksum(const QByteArray& output, bool dec_0x10
         checksum += (uint8_t)output.at(i);
     }
 
-    if (dec_0x100)
+    if (dec0x100)
     {
         checksum = (uint8_t)(0x100 - checksum);
     }

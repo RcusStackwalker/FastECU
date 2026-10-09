@@ -134,7 +134,7 @@ INSTANTIATE_TEST_SUITE_P(
 TEST_P(RemovingDefinitionsPreservesOrderAndPersistsEmptyListParameters,
        removingDefinitionsPreservesOrderAndPersistsEmptyList)
 {
-    const bool remove_all = GetParam().remove_all;
+    const bool removeAll = GetParam().remove_all;
     QTemporaryDir root;
     ASSERT_TRUE(root.isValid());
     SessionOnDisk disk{root.path()};
@@ -170,7 +170,7 @@ TEST_P(RemovingDefinitionsPreservesOrderAndPersistsEmptyListParameters,
         remove->click();
         ASSERT_EQ(disk.session.settings().romraider_definition_files,
                   (std::vector<std::string>{"/first.xml", "/last.xml"}));
-        if (remove_all)
+        if (removeAll)
         {
             while (list->count() > 0)
             {
@@ -193,14 +193,14 @@ TEST(SettingsTest, closingSettingsSavesThroughTheSession)
     ASSERT_TRUE(root.isValid());
     SessionOnDisk disk{root.path()};
     ASSERT_TRUE(disk.status.has_value());
-    const QString config_file = QString::fromStdString(disk.session.provisioned_paths().config_file);
-    ASSERT_TRUE(QFile::remove(config_file));
+    const QString configFile = QString::fromStdString(disk.session.provisioned_paths().config_file);
+    ASSERT_TRUE(QFile::remove(configFile));
 
     {
         Settings settings{disk.session};
     }
 
-    ASSERT_TRUE(QFile::exists(config_file));
+    ASSERT_TRUE(QFile::exists(configFile));
 }
 
 TEST(SettingsTest, editsReachTheSessionLive)
@@ -223,20 +223,20 @@ TEST(SettingsTest, destructionRetriesPersistenceAfterClose)
     ASSERT_TRUE(root.isValid());
     SessionOnDisk disk{root.path()};
     ASSERT_TRUE(disk.status.has_value());
-    const QString config_file = QString::fromStdString(disk.session.provisioned_paths().config_file);
-    ASSERT_TRUE(QFile::remove(config_file));
-    ASSERT_TRUE(QDir().mkpath(config_file));
+    const QString configFile = QString::fromStdString(disk.session.provisioned_paths().config_file);
+    ASSERT_TRUE(QFile::remove(configFile));
+    ASSERT_TRUE(QDir().mkpath(configFile));
     ModalCollector boxes;
     {
         Settings settings{disk.session};
         settings.close();
         ASSERT_EQ(boxes.texts().size(), 1);
-        ASSERT_TRUE(QDir().rmdir(config_file));
+        ASSERT_TRUE(QDir().rmdir(configFile));
         ASSERT_TRUE(QMetaObject::invokeMethod(&settings, "toolbar_iconsize_value_changed", Qt::DirectConnection,
                                               Q_ARG(int, 48)));
     }
     ASSERT_EQ(boxes.texts().size(), 1);
-    QFile saved{config_file};
+    QFile saved{configFile};
     ASSERT_TRUE(saved.open(QIODevice::ReadOnly));
     ASSERT_TRUE(saved.readAll().contains(R"(data="48")"));
 }
@@ -247,9 +247,9 @@ TEST(SettingsTest, failedSaveKeepsEditsAndWarnsTheOperator)
     ASSERT_TRUE(root.isValid());
     SessionOnDisk disk{root.path()};
     ASSERT_TRUE(disk.status.has_value());
-    const QString config_file = QString::fromStdString(disk.session.provisioned_paths().config_file);
-    ASSERT_TRUE(QFile::remove(config_file));
-    ASSERT_TRUE(QDir().mkpath(config_file)); // a directory where the file goes: every write fails
+    const QString configFile = QString::fromStdString(disk.session.provisioned_paths().config_file);
+    ASSERT_TRUE(QFile::remove(configFile));
+    ASSERT_TRUE(QDir().mkpath(configFile)); // a directory where the file goes: every write fails
 
     ModalCollector boxes;
     {
@@ -261,7 +261,7 @@ TEST(SettingsTest, failedSaveKeepsEditsAndWarnsTheOperator)
 
     ASSERT_EQ(disk.session.settings().toolbar_iconsize, std::string("40"));
     ASSERT_EQ(boxes.texts().size(), 1);
-    ASSERT_TRUE(boxes.texts().front().contains(config_file));
+    ASSERT_TRUE(boxes.texts().front().contains(configFile));
 }
 
 namespace

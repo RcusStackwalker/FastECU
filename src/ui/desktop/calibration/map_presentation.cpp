@@ -61,22 +61,22 @@ Result<MapPresentation> present_map(const calibration::CalibrationSession& sessi
     const auto& definition = session.definition()->definition;
     const auto& map = definition.maps[index];
     const auto *scaling = definition::find_scaling(definition, map.scaling_name);
-    const auto *x_scaling = definition::find_scaling(definition, map.x_axis.scaling_name);
-    const auto *y_scaling = definition::find_scaling(definition, map.y_axis.scaling_name);
-    const bool x_present = !map.x_axis.type.empty();
-    const bool y_present = !map.y_axis.type.empty();
+    const auto *xScaling = definition::find_scaling(definition, map.x_axis.scaling_name);
+    const auto *yScaling = definition::find_scaling(definition, map.y_axis.scaling_name);
+    const bool xPresent = !map.x_axis.type.empty();
+    const bool yPresent = !map.y_axis.type.empty();
     MapPresentation result{
         .name = text(map.name),
         .type = text(map.type),
         .units = scaling != nullptr ? text(scaling->units) : QString(" "),
         .format = scaling != nullptr ? text(scaling->format) : QString(" "),
         .x_type = text(map.x_axis.type),
-        .x_name = x_present ? text(map.x_axis.name) : QString(" "),
-        .x_units = x_present ? text(map.x_axis.units) : QString(" "),
-        .x_format = x_present && x_scaling != nullptr ? text(x_scaling->format) : QString(" "),
-        .y_name = y_present ? text(map.y_axis.name) : QString(" "),
-        .y_units = y_present ? text(map.y_axis.units) : QString(" "),
-        .y_format = y_present && y_scaling != nullptr ? text(y_scaling->format) : QString(" "),
+        .x_name = xPresent ? text(map.x_axis.name) : QString(" "),
+        .x_units = xPresent ? text(map.x_axis.units) : QString(" "),
+        .x_format = xPresent && xScaling != nullptr ? text(xScaling->format) : QString(" "),
+        .y_name = yPresent ? text(map.y_axis.name) : QString(" "),
+        .y_units = yPresent ? text(map.y_axis.units) : QString(" "),
+        .y_format = yPresent && yScaling != nullptr ? text(yScaling->format) : QString(" "),
         .x_size = static_cast<int>(map.x_size),
         .y_size = static_cast<int>(map.y_size),
     };

@@ -64,9 +64,9 @@ TEST(MapPresentation, ColorBoundsStayAtOpeningValuesAfterEdit)
     ASSERT_THAT(shown, fastecu::testing::IsOk());
     EXPECT_EQ(shown->body[0].text, "20.00");
     EXPECT_EQ(map_cell_color(20, *bounds), map_cell_color(4, *bounds));
-    const auto new_bounds = opening_color_bounds(*shown);
-    ASSERT_TRUE(new_bounds.has_value());
-    EXPECT_EQ(new_bounds->maximum, 20.0);
+    const auto newBounds = opening_color_bounds(*shown);
+    ASSERT_TRUE(newBounds.has_value());
+    EXPECT_EQ(newBounds->maximum, 20.0);
 }
 
 TEST(MapPresentation, ExcludesInvalidCellsFromColorBounds)
