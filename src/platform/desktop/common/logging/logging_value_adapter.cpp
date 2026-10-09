@@ -2,6 +2,8 @@
 
 #include <utility>
 
+#include "src/backend/logging/logging_sample_resolution.h"
+
 namespace fastecu::desktop::logging
 {
 void DesktopLoggerValues::Initialize(const fastecu::logging::LoggerModel& model)
@@ -44,17 +46,17 @@ QString FormatLoggingValue(double value, int precision)
 fastecu::Status ApplyLogSample(const DesktopLoggingSnapshot& snapshot, const fastecu::logging::LogSample& sample,
                                DesktopLoggerValues& values)
 {
-    const auto *channel = snapshot.Session().FindChannel(sample.channel_id);
-    if (channel == nullptr)
+    const auto resolved = fastecu::logging::ResolveLogSample(snapshot, sample);
+    if (!resolved.has_value())
     {
-        return fastecu::Fail(fastecu::ErrorKind::kInternal, "logging sample id is not in the run snapshot");
+        return std::unexpected(resolved.error());
     }
-    if (!snapshot.ChannelEnabled(sample.channel_id))
+    if (!resolved->has_value())
     {
         return {};
     }
-    const fastecu::logging::LoggerIdentity identity{snapshot.ProtocolKey(), channel->id};
-    if (!values.SetParameterValue(identity, FormatLoggingValue(sample.numeric_value, channel->decimal_precision)))
+    const auto& value = **resolved;
+    if (!values.SetParameterValue(value.identity, FormatLoggingValue(value.numeric_value, value.decimal_precision)))
     {
         return fastecu::Fail(fastecu::ErrorKind::kInternal, "logging sample identity is not in the desktop values");
     }

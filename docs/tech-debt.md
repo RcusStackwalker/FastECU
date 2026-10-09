@@ -19,9 +19,6 @@ alone does not make a presentation flow backend policy.
 
 Remaining actions from the backend migration roadmap:
 
-- Finish moving logging snapshot/channel preparation and sample validation from
-  desktop adapters into backend logging; reuse the existing portable preparation
-  rather than starting a second policy implementation.
 - Extract logger configuration/model installation and selection persistence
   orchestration from `MainWindow` into backend use cases.
 - Move CSV column resolution and serialization from UI code into backend logging.

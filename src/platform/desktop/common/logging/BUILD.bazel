@@ -30,6 +30,7 @@ cc_library(
         "logging_value_adapter.h",
     ],
     copts = COMMON_COPTS,
+    implementation_deps = ["//src/backend/logging:logging_sample_resolution"],
     visibility = UI_FACING_VISIBILITY,
     deps = [
         "//bazel/qt:core",
