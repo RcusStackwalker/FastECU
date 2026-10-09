@@ -76,10 +76,10 @@ inline constexpr int kRestartCode = 1000;
 
 #include <functional>
 
-extern void log_error(const QString& message, bool timestamp, bool linefeed);
-extern void log_warning(const QString& message, bool timestamp, bool linefeed);
-extern void log_info(const QString& message, bool timestamp, bool linefeed);
-extern void log_debug(const QString& message, bool timestamp, bool linefeed);
+extern void logError(const QString& message, bool timestamp, bool linefeed);
+extern void logWarning(const QString& message, bool timestamp, bool linefeed);
+extern void logInfo(const QString& message, bool timestamp, bool linefeed);
+extern void logDebug(const QString& message, bool timestamp, bool linefeed);
 
 namespace fastecu::ui
 {
@@ -158,10 +158,10 @@ class MainWindow : public QMainWindow
     fastecu::ui::DefinitionAuthoringDialog *definition_authoring_dialog_ = nullptr;
     fastecu::logging::LoggerModel *logger_model_;
     fastecu::desktop::logging::DesktopLoggerValues logger_values_;
-    void load_logger_definition();
-    void load_logger_selection();
-    void save_logger_selection();
-    void write_logger_csv_cells(bool header);
+    void loadLoggerDefinition();
+    void loadLoggerSelection();
+    void saveLoggerSelection();
+    void writeLoggerCsvCells(bool header);
     fastecu::config::ConfigSession *config_session_ = nullptr;
     std::optional<fastecu::Error> last_settings_save_error_;
     // Desktop owns only identity and presentation; the workspace owns ROM data.
@@ -174,13 +174,13 @@ class MainWindow : public QMainWindow
     fastecu::calibration::CalibrationWorkspace *calibration_workspace_ = nullptr;
 
     fastecu::calibration::CalibrationSession *calibration(fastecu::calibration::SessionId id);
-    std::optional<fastecu::calibration::SessionId> session_of(const QTreeWidgetItem *filesItem) const;
-    fastecu::calibration::CalibrationSession *selected_calibration();
-    OpenCalibration *open_calibration(fastecu::calibration::SessionId id);
-    OpenCalibration *selected_open_calibration();
-    void set_category_expanded(QTreeWidgetItem *item, bool expanded);
-    QTreeWidgetItem *files_tree_item(fastecu::calibration::SessionId id) const;
-    bool add_calibration(fastecu::calibration::SessionId id);
+    std::optional<fastecu::calibration::SessionId> sessionOf(const QTreeWidgetItem *filesItem) const;
+    fastecu::calibration::CalibrationSession *selectedCalibration();
+    OpenCalibration *openCalibration(fastecu::calibration::SessionId id);
+    OpenCalibration *selectedOpenCalibration();
+    void setCategoryExpanded(QTreeWidgetItem *item, bool expanded);
+    QTreeWidgetItem *filesTreeItem(fastecu::calibration::SessionId id) const;
+    bool addCalibration(fastecu::calibration::SessionId id);
 
     fastecu::desktop::connection::AdapterConnection *connection_ = nullptr;
     // QTimer *serial_poll_timer;
@@ -196,14 +196,14 @@ class MainWindow : public QMainWindow
 
     // The port chosen in the toolbar, or empty when there is none. Inline so
     // tests reaching it through `#define private public` link on MSVC too.
-    QString selected_serial_port() const
+    QString selectedSerialPort() const
     {
         return serial_ports_.value(serial_port_list_->currentIndex());
     }
 
     // open_serial_port's bookkeeping once a port opened: forget the ECU when
     // the port changed, and remember the port for the next launch.
-    void remember_opened_port(const QString& port, const QString& openedPort);
+    void rememberOpenedPort(const QString& port, const QString& openedPort);
 
     int ecu_protocols_list_length_ = 6;
     QString current_car_model_ = "";
@@ -289,56 +289,56 @@ class MainWindow : public QMainWindow
     bool eventFilter(QObject *target, QEvent *event);
 
     // fileactions.c
-    bool open_calibration_file(QString filename);
-    void prompt_for_missing_definition(fastecu::calibration::SessionId id);
-    void save_calibration_file();
-    void save_calibration_file_as();
-    void set_map_selection(fastecu::calibration::SessionId id, int mapIndex, const QString& item);
-    void set_map_switch(fastecu::calibration::SessionId id, int mapIndex, int state);
-    QStringList parse_stringlist_from_expression_string(QString expression, QString x);
-    float calculate_value_from_expression(QStringList expression);
+    bool openCalibrationFile(QString filename);
+    void promptForMissingDefinition(fastecu::calibration::SessionId id);
+    void saveCalibrationFile();
+    void saveCalibrationFileAs();
+    void setMapSelection(fastecu::calibration::SessionId id, int mapIndex, const QString& item);
+    void setMapSwitch(fastecu::calibration::SessionId id, int mapIndex, int state);
+    QStringList parseStringlistFromExpressionString(QString expression, QString x);
+    float calculateValueFromExpression(QStringList expression);
 
     // log_operations
-    void parse_log_value_list(QByteArray received, const QString& protocolArg);
-    void log_to_file();
+    void parseLogValueList(QByteArray received, const QString& protocolArg);
+    void logToFile();
 
     void setupLoggingEngine();
     void restoreLoggingUiState();
 
     // logvalues.c
-    void change_log_values(int tabIndex, const QString& protocolArg);
+    void changeLogValues(int tabIndex, const QString& protocolArg);
 
     // mainwindow.c
     // Connect signals for any flash class and execute ::run() method
-    template <typename FlashClass> FlashClass *connect_signals_and_run_module(FlashClass *object);
-    void SetComboBoxItemEnabled(QComboBox *comboBox, int index, bool enabled);
-    void set_flash_arrow_state();
-    void update_protocol_info(const QString& flashMethod);
+    template <typename FlashClass> FlashClass *connectSignalsAndRunModule(FlashClass *object);
+    void setComboBoxItemEnabled(QComboBox *comboBox, int index, bool enabled);
+    void setFlashArrowState();
+    void updateProtocolInfo(const QString& flashMethod);
     // The session's selected vehicle; always valid once constructed.
-    const fastecu::config::VehicleSpec& selected_vehicle() const;
+    const fastecu::config::VehicleSpec& selectedVehicle() const;
     // Saves the session's settings, logging a failure.
-    void save_settings();
+    void saveSettings();
     // Emits the LOG_* signal for `level`, with timestamp and linefeed.
-    void emit_log_line(fastecu::LogLevel level, const QString& message);
+    void emitLogLine(fastecu::LogLevel level, const QString& message);
     // Apply a finished dialog's tentative choice: only an accepted one
     // reaches the session. Both then run the matching *_finished slot.
-    void apply_vehicle_choice(int result, std::optional<std::size_t> row);
-    void apply_protocol_choice(int result, std::optional<std::string> protocolName);
-    QStringList create_flash_transports_list();
-    QStringList create_log_transports_list();
+    void applyVehicleChoice(int result, std::optional<std::size_t> row);
+    void applyProtocolChoice(int result, std::optional<std::string> protocolName);
+    QStringList createFlashTransportsList();
+    QStringList createLogTransportsList();
     // QString check_kernel(QString flash_method);
     QTextEdit *iterateWidgetChild(QObjectList children);
-    bool write_syslog(QString msg);
+    bool writeSyslog(QString msg);
 
     // menuactions.c
-    void connect_menu_actions();
-    void apply_standard_shortcuts();
-    void show_about_dialog();
-    void inc_dec_value(fastecu::calibration::IncrementStep step);
-    void set_value();
-    void interpolate_value(fastecu::calibration::InterpolationMode mode);
-    void copy_value();
-    void paste_value();
+    void connectMenuActions();
+    void applyStandardShortcuts();
+    void showAboutDialog();
+    void incDecValue(fastecu::calibration::IncrementStep step);
+    void setValue();
+    void interpolateValue(fastecu::calibration::InterpolationMode mode);
+    void copyValue();
+    void pasteValue();
     // Opens the port and, for Subaru, identifies the ECU on a worker thread.
     // on_done(false) means the port did not open or identification was
     // stopped; on_done(true) means the port opened, whether or not the ECU
@@ -350,8 +350,8 @@ class MainWindow : public QMainWindow
     // synchronously. on_done must therefore not start a connection or otherwise
     // touch the facade synchronously; defer any such work to the event loop.
     // See ConnectionCoordinator::begin.
-    void connect_to_ecu(std::function<void(bool)> onDone = {});
-    void continue_start_logging();
+    void connectToEcu(std::function<void(bool)> onDone = {});
+    void continueStartLogging();
 
     // What a connection attempt shows and changes in this window. Methods are
     // defined in menu_actions.cpp.
@@ -362,10 +362,10 @@ class MainWindow : public QMainWindow
         {
         }
 
-        void set_controls_locked(bool locked) override;
-        void set_port_selector_enabled(bool enabled) override;
+        void setControlsLocked(bool locked) override;
+        void setPortSelectorEnabled(bool enabled) override;
         void identified(const fastecu::ui::IdentifyOutcome& outcome) override;
-        void identification_failed(const fastecu::ui::IdentifyOutcome& outcome) override;
+        void identificationFailed(const fastecu::ui::IdentifyOutcome& outcome) override;
 
       private:
         MainWindow& window_;
@@ -376,21 +376,21 @@ class MainWindow : public QMainWindow
     ConnectionPresentation connection_presentation_{*this};
     std::unique_ptr<fastecu::ui::QtIdentifyLauncher> identify_launcher_;
     std::unique_ptr<fastecu::ui::ConnectionCoordinator> connection_coordinator_;
-    void disconnect_from_ecu();
-    void ecu_definition_manager();
-    void logger_definition_manager();
-    void winols_csv_to_romraider_xml();
-    void set_realtime_state(bool state);
-    void toggle_realtime();
-    void toggle_log_to_file();
-    void set_maptablewidget_items();
-    void show_preferences_window();
+    void disconnectFromEcu();
+    void ecuDefinitionManager();
+    void loggerDefinitionManager();
+    void winolsCsvToRomraiderXml();
+    void setRealtimeState(bool state);
+    void toggleRealtime();
+    void toggleLogToFile();
+    void setMaptablewidgetItems();
+    void showPreferencesWindow();
 
-    void show_dtc_window();
-    void show_hex_editor();
-    void show_subaru_biu_window();
-    void show_terminal_window();
-    void show_subaru_get_key_window();
+    void showDtcWindow();
+    void showHexEditor();
+    void showSubaruBiuWindow();
+    void showTerminalWindow();
+    void showSubaruGetKeyWindow();
 
   protected:
     void closeEvent(QCloseEvent *event);
@@ -399,71 +399,71 @@ class MainWindow : public QMainWindow
 
   private slots:
     // External logger slot for string messages
-    void external_logger(const QString& message);
+    void externalLogger(const QString& message);
     // External progress bar slot
-    void external_logger_set_progressbar_value(int value);
+    void externalLoggerSetProgressbarValue(int value);
 
     // calibrationtreewidget.c
-    void calibration_files_treewidget_item_selected(QTreeWidgetItem *item);
-    void calibration_data_treewidget_item_selected(QTreeWidgetItem *item);
-    void calibration_data_treewidget_item_expanded(QTreeWidgetItem *item);
-    void calibration_data_treewidget_item_collapsed(QTreeWidgetItem *item);
+    void calibrationFilesTreewidgetItemSelected(QTreeWidgetItem *item);
+    void calibrationDataTreewidgetItemSelected(QTreeWidgetItem *item);
+    void calibrationDataTreewidgetItemExpanded(QTreeWidgetItem *item);
+    void calibrationDataTreewidgetItemCollapsed(QTreeWidgetItem *item);
 
     // log_operations.c
     void handleLoggingValuesUpdated(const QVector<fastecu::logging::LogSample>& samples);
     void handleLoggingSessionEnded(fastecu::desktop::logging::SessionEndReason reason, const QString& message);
 
     // mainwindow.c
-    void select_protocol();
-    void select_protocol_finished(int result);
-    void select_vehicle();
-    void select_vehicle_finished(int result);
-    void log_transport_changed();
-    void flash_transport_changed();
-    void check_serial_ports();
-    void open_serial_port();
-    int start_ecu_operations(const QString& cmdType);
-    void close_calibration();
-    void close_calibration_map(QObject *obj);
-    void change_gauge_values();
-    void change_digital_values();
-    void change_switch_values();
-    void update_logboxes(const QString& protocolArg);
-    void update_logbox_values(const QString& protocolArg);
-    void add_new_ecu_definition_file();
-    void remove_ecu_definition_file();
-    void add_new_logger_definition_file();
-    void remove_logger_definition_file();
-    QString parse_message_to_hex(const QByteArray& received);
-    void set_status_bar_label(bool serialConnectionState, bool ecuConnectionState, const QString& romId);
-    void custom_menu_requested(QPoint pos);
-    void selectable_combobox_item_changed(const QString& item);
-    void checkbox_state_changed(int state);
-    void close_app();
+    void selectProtocol();
+    void selectProtocolFinished(int result);
+    void selectVehicle();
+    void selectVehicleFinished(int result);
+    void logTransportChanged();
+    void flashTransportChanged();
+    void checkSerialPorts();
+    void openSerialPort();
+    int startEcuOperations(const QString& cmdType);
+    void closeCalibration();
+    void closeCalibrationMap(QObject *obj);
+    void changeGaugeValues();
+    void changeDigitalValues();
+    void changeSwitchValues();
+    void updateLogboxes(const QString& protocolArg);
+    void updateLogboxValues(const QString& protocolArg);
+    void addNewEcuDefinitionFile();
+    void removeEcuDefinitionFile();
+    void addNewLoggerDefinitionFile();
+    void removeLoggerDefinitionFile();
+    QString parseMessageToHex(const QByteArray& received);
+    void setStatusBarLabel(bool serialConnectionState, bool ecuConnectionState, const QString& romId);
+    void customMenuRequested(QPoint pos);
+    void selectableComboboxItemChanged(const QString& item);
+    void checkboxStateChanged(int state);
+    void closeApp();
     // Logger
     // void logger(int log_level, QString message, bool timestamp, bool linefeed);
     // void logger(QString message, bool timestamp, bool linefeed);
     // void sendMsgToLogWindow(QWidget* parent, QString msg);
-    void send_message_to_log_window(const QString& msg);
-    void network_state_changed(QRemoteObjectReplica::State state, QRemoteObjectReplica::State oldState);
+    void sendMessageToLogWindow(const QString& msg);
+    void networkStateChanged(QRemoteObjectReplica::State state, QRemoteObjectReplica::State oldState);
 
     // logvalues.c
-    void change_log_gauge_value(int index);
-    void change_log_digital_value(int index);
-    void change_log_switch_value(int index);
+    void changeLogGaugeValue(int index);
+    void changeLogDigitalValue(int index);
+    void changeLogSwitchValue(int index);
 
-    void update_vbatt();
+    void updateVbatt();
 
   signals:
-    void check_serial_port();
-    void send_serial_data(QByteArray output);
-    void LOG_E(QString message, bool timestamp, bool linefeed);
-    void LOG_W(QString message, bool timestamp, bool linefeed);
-    void LOG_I(QString message, bool timestamp, bool linefeed);
-    void LOG_D(QString message, bool timestamp, bool linefeed);
+    void checkSerialPort();
+    void sendSerialData(QByteArray output);
+    void logE(QString message, bool timestamp, bool linefeed);
+    void logW(QString message, bool timestamp, bool linefeed);
+    void logI(QString message, bool timestamp, bool linefeed);
+    void logD(QString message, bool timestamp, bool linefeed);
     // void syslog(int logType, bool write_syslog_to_file, QString message, bool timestamp, bool linefeed);
     void syslog(QString message, bool timestamp, bool linefeed);
-    void enable_log_write_to_file(bool enable);
+    void enableLogWriteToFile(bool enable);
 
   private:
     std::unique_ptr<Ui::MainWindow> ui_;

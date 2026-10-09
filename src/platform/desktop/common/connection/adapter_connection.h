@@ -61,7 +61,9 @@ class AdapterConnection final : public QObject
     SerialPortActions& Facade();
 
   signals:
+    // NOLINTBEGIN(readability-identifier-naming): Qt signals keep Qt's camelBack names
     void stateChanged(QRemoteObjectReplica::State state, QRemoteObjectReplica::State old_state);
+    // NOLINTEND(readability-identifier-naming)
 
   private:
     SerialPortActions& facade_;

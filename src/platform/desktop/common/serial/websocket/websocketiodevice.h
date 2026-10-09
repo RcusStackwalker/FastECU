@@ -15,7 +15,9 @@ class WebSocketIoDevice : public QIODevice
     WebSocketIoDevice(QWebSocket *web_socket, QObject *parent = nullptr);
 
   signals:
+    // NOLINTBEGIN(readability-identifier-naming): Qt signals keep Qt's camelBack names
     void disconnected();
+    // NOLINTEND(readability-identifier-naming)
 
     // QIODevice interface
   public:

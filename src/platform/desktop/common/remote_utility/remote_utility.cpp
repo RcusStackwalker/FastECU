@@ -37,7 +37,7 @@ void RemoteUtility::StartOverNetwok()
     ssl_configuration.setPeerVerifyMode(QSslSocket::VerifyNone);
     web_socket_->setSslConfiguration(ssl_configuration);
     // Start node when Web Socket will be up
-    QObject::connect(web_socket_, &QWebSocket::connected, this, &RemoteUtility::websocket_connected);
+    QObject::connect(web_socket_, &QWebSocket::connected, this, &RemoteUtility::websocketConnected);
     node_.setHeartbeatInterval(kHeartbeatInterval);
     QObject::connect(web_socket_, &QWebSocket::errorOccurred, this, [this](QAbstractSocket::SocketError error)
                      { qDebug() << this->metaObject()->className() << "startOverNetwok QWebSocket error:" << error; });
@@ -54,7 +54,7 @@ void RemoteUtility::StartOverNetwok()
     // Don't wait for replication here, it should be done from outside
 }
 
-void RemoteUtility::websocket_connected(void)
+void RemoteUtility::websocketConnected(void)
 {
     node_.addClientSideConnection(socket_);
     SendAutoDiscoveryMessage();
@@ -78,12 +78,12 @@ void RemoteUtility::SendAutoDiscoveryMessage()
     }
 }
 
-bool RemoteUtility::send_log_window_message(QString message)
+bool RemoteUtility::sendLogWindowMessage(QString message)
 {
     return qtrohelper::SlotSync(remote_utility_->send_log_window_message(std::move(message)));
 }
 
-bool RemoteUtility::set_progressbar_value(int value)
+bool RemoteUtility::setProgressbarValue(int value)
 {
     return qtrohelper::SlotSync(remote_utility_->set_progressbar_value(value));
 }

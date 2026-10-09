@@ -23,31 +23,31 @@ FlashOperationOutcome FlashOperationController::run(const FlashOperationInput& i
     if (input.operation == FlashOperation::kRead && IsDensoTcuProtocol(input.protocol.name))
     {
         using fastecu::service_functions::DensoTcuReadAction;
-        const DensoTcuReadAction action = fastecu::service_functions::choose_denso_tcu_read_action(dialog_parent_);
+        const DensoTcuReadAction action = fastecu::service_functions::chooseDensoTcuReadAction(dialog_parent_);
         switch (action)
         {
         case DensoTcuReadAction::kDump:
-            emit LOG_I(
+            emit logI(
                 "Read memory with flashmethod '" +
                     QString::fromUtf8(input.protocol.name.data(), static_cast<qsizetype>(input.protocol.name.size())) +
                     "' and kernel '" + QString::fromStdString(input.kernel_path) + "'",
                 true, true);
             break;
         case DensoTcuReadAction::kRelearn:
-            emit LOG_I("Attempting TCU relearn", true, true);
+            emit logI("Attempting TCU relearn", true, true);
             break;
         case DensoTcuReadAction::kReadParameters:
-            emit LOG_I("Attempting to read TCU parameters", true, true);
+            emit logI("Attempting to read TCU parameters", true, true);
             break;
         case DensoTcuReadAction::kSetParameters:
-            emit LOG_I("Attempting to set TCU parameters", true, true);
+            emit logI("Attempting to set TCU parameters", true, true);
             break;
         case DensoTcuReadAction::kCancelled:
-            emit LOG_I("No option selected", true, true);
+            emit logI("No option selected", true, true);
             break;
         }
-        if (fastecu::service_functions::run_denso_tcu_service_action(action, &serial_, std::string(input.protocol.name),
-                                                                     dialog_parent_))
+        if (fastecu::service_functions::runDensoTcuServiceAction(action, &serial_, std::string(input.protocol.name),
+                                                                 dialog_parent_))
         {
             return {.status = FlashOperationStatus::kServiceActionHandled};
         }
@@ -73,14 +73,14 @@ FlashOperationOutcome FlashOperationController::run(const FlashOperationInput& i
 
     FlashDialog flashModule(std::move(workflow), input.operation, QString::fromStdString(input.display_filename),
                             dialog_parent_);
-    QObject::connect<void (FlashDialog::*)(QString)>(&flashModule, &FlashDialog::external_logger, this,
-                                                     qOverload<QString>(&FlashOperationController::external_logger));
-    QObject::connect<void (FlashDialog::*)(int)>(&flashModule, &FlashDialog::external_logger, this,
-                                                 qOverload<int>(&FlashOperationController::external_logger));
-    QObject::connect(&flashModule, &FlashDialog::LOG_E, this, &FlashOperationController::LOG_E);
-    QObject::connect(&flashModule, &FlashDialog::LOG_W, this, &FlashOperationController::LOG_W);
-    QObject::connect(&flashModule, &FlashDialog::LOG_I, this, &FlashOperationController::LOG_I);
-    QObject::connect(&flashModule, &FlashDialog::LOG_D, this, &FlashOperationController::LOG_D);
+    QObject::connect<void (FlashDialog::*)(QString)>(&flashModule, &FlashDialog::externalLogger, this,
+                                                     qOverload<QString>(&FlashOperationController::externalLogger));
+    QObject::connect<void (FlashDialog::*)(int)>(&flashModule, &FlashDialog::externalLogger, this,
+                                                 qOverload<int>(&FlashOperationController::externalLogger));
+    QObject::connect(&flashModule, &FlashDialog::logE, this, &FlashOperationController::logE);
+    QObject::connect(&flashModule, &FlashDialog::logW, this, &FlashOperationController::logW);
+    QObject::connect(&flashModule, &FlashDialog::logI, this, &FlashOperationController::logI);
+    QObject::connect(&flashModule, &FlashDialog::logD, this, &FlashOperationController::logD);
 
     FlashDialogResult result = flashModule.run();
     return {

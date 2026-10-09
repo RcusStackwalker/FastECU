@@ -11,8 +11,10 @@ class RecordingLogSink : public QObject
     QStringList messages;
 
   public slots:
-    void log_messages(const QString& message, bool /*timestamp*/, bool /*linefeed*/)
+    // NOLINTBEGIN(readability-identifier-naming): Qt slots keep Qt's camelBack names
+    void logMessages(const QString& message, bool /*timestamp*/, bool /*linefeed*/)
     {
         messages << message;
     }
+    // NOLINTEND(readability-identifier-naming)
 };

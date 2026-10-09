@@ -268,7 +268,7 @@ TEST_P(ChooserReturnsTheActionNamedByEachLegacyButtonParameters, chooserReturnsT
 
     ChooserDriver driver{choice};
     driver.start();
-    const DensoTcuReadAction action = choose_denso_tcu_read_action(nullptr);
+    const DensoTcuReadAction action = chooseDensoTcuReadAction(nullptr);
 
     ASSERT_TRUE(driver.sawChooser());
     ASSERT_TRUE(!driver.timedOut());
@@ -283,7 +283,7 @@ TEST(DensoTcuReadPreflightTest, dismissingChooserReturnsCancelled)
     ChooserDriver driver{{}};
     driver.start();
 
-    ASSERT_EQ(choose_denso_tcu_read_action(nullptr), DensoTcuReadAction::kCancelled);
+    ASSERT_EQ(chooseDensoTcuReadAction(nullptr), DensoTcuReadAction::kCancelled);
     ASSERT_TRUE(driver.sawChooser());
     ASSERT_TRUE(!driver.timedOut());
 }
@@ -322,9 +322,9 @@ TEST_P(DumpAndCancelledReturnWithoutIgnitionOrSerialCallsParameters, dumpAndCanc
 
     ServiceActionDriver driver{false};
     driver.start();
-    ASSERT_EQ(run_denso_tcu_service_action(static_cast<DensoTcuReadAction>(action), &serial, "sub_tcu_denso_sh7058_can",
-                                           nullptr),
-              handled);
+    ASSERT_EQ(
+        runDensoTcuServiceAction(static_cast<DensoTcuReadAction>(action), &serial, "sub_tcu_denso_sh7058_can", nullptr),
+        handled);
     fastecu::testing::ProcessEventsFor(std::chrono::milliseconds(20));
 
     ASSERT_EQ(driver.ignitionCount(), 0);
@@ -366,8 +366,8 @@ TEST_P(DecliningIgnitionSkipsEveryServiceDialogAndSerialCallParameters,
 
     ServiceActionDriver driver{false};
     driver.start();
-    ASSERT_TRUE(run_denso_tcu_service_action(static_cast<DensoTcuReadAction>(action), &serial,
-                                             "sub_tcu_denso_sh7058_can", nullptr));
+    ASSERT_TRUE(runDensoTcuServiceAction(static_cast<DensoTcuReadAction>(action), &serial, "sub_tcu_denso_sh7058_can",
+                                         nullptr));
 
     ASSERT_TRUE(!driver.timedOut());
     ASSERT_EQ(driver.ignitionCount(), 1);
@@ -413,8 +413,8 @@ TEST_P(AcceptingIgnitionOpensTheMatchingRealServiceDialogParameters, acceptingIg
 
     ServiceActionDriver driver{true};
     driver.start();
-    ASSERT_TRUE(run_denso_tcu_service_action(static_cast<DensoTcuReadAction>(action), &serial,
-                                             "sub_tcu_denso_sh7058_can", nullptr));
+    ASSERT_TRUE(runDensoTcuServiceAction(static_cast<DensoTcuReadAction>(action), &serial, "sub_tcu_denso_sh7058_can",
+                                         nullptr));
 
     ASSERT_TRUE(!driver.timedOut());
     ASSERT_EQ(driver.ignitionCount(), 1);

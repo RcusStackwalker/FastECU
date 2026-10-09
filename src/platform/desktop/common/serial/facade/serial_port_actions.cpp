@@ -42,10 +42,10 @@ void SerialPortActions::EnsureBackendStarted()
     m_backend_ = m_host_->CreateBackend(backend_factory_);
 
     QObject *b = m_backend_->Qobject();
-    connect(b, SIGNAL(LOG_E(QString, bool, bool)), this, SIGNAL(LOG_E(QString, bool, bool)));
-    connect(b, SIGNAL(LOG_W(QString, bool, bool)), this, SIGNAL(LOG_W(QString, bool, bool)));
-    connect(b, SIGNAL(LOG_I(QString, bool, bool)), this, SIGNAL(LOG_I(QString, bool, bool)));
-    connect(b, SIGNAL(LOG_D(QString, bool, bool)), this, SIGNAL(LOG_D(QString, bool, bool)));
+    connect(b, SIGNAL(logE(QString, bool, bool)), this, SIGNAL(logE(QString, bool, bool)));
+    connect(b, SIGNAL(logW(QString, bool, bool)), this, SIGNAL(logW(QString, bool, bool)));
+    connect(b, SIGNAL(logI(QString, bool, bool)), this, SIGNAL(logI(QString, bool, bool)));
+    connect(b, SIGNAL(logD(QString, bool, bool)), this, SIGNAL(logD(QString, bool, bool)));
     if (b->metaObject()->indexOfSignal(QMetaObject::normalizedSignature(
             "stateChanged(QRemoteObjectReplica::State,QRemoteObjectReplica::State)")) >= 0)
     {
@@ -349,7 +349,7 @@ QString SerialPortActions::GetSerialPortBaudrate(void)
 }
 bool SerialPortActions::SetSerialPortBaudrate(const QString& value)
 {
-    emit LOG_D("Setting serialport baudrate in SerialPortActions", true, true);
+    emit logD("Setting serialport baudrate in SerialPortActions", true, true);
     return RunOnBackend([this, value] { return m_backend_->SetSerialPortBaudrate(value); });
 }
 QString SerialPortActions::GetSerialPortLinux(void)
@@ -530,7 +530,7 @@ QByteArray SerialPortActions::ReadSerialObdData(uint16_t timeout)
 {
     CallGuard guard(m_active_calls_);
     QByteArray response = RunOnBackend([this, timeout] { return m_backend_->ReadSerialObdData(timeout); });
-    emit LOG_D("Response: " + ParseMessageToHex(response.mid(0, 20)), true, true);
+    emit logD("Response: " + ParseMessageToHex(response.mid(0, 20)), true, true);
     SetCommBusy(false);
     return response;
 }
@@ -549,7 +549,7 @@ QByteArray SerialPortActions::ReadSerialData(uint16_t timeout)
             }
             return r;
         });
-    emit LOG_D("Response: " + ParseMessageToHex(response.mid(0, 20)), true, true);
+    emit logD("Response: " + ParseMessageToHex(response.mid(0, 20)), true, true);
     SetCommBusy(false);
     return response;
 }
@@ -557,14 +557,14 @@ QByteArray SerialPortActions::ReadSerialData(uint16_t timeout)
 QByteArray SerialPortActions::WriteSerialData(const QByteArray& output)
 {
     SetCommBusy(true);
-    emit LOG_D("Sent: " + ParseMessageToHex(output.mid(0, 20)), true, true);
+    emit logD("Sent: " + ParseMessageToHex(output.mid(0, 20)), true, true);
     return RunOnBackend([this, output] { return m_backend_->WriteSerialData(output); });
 }
 
 QByteArray SerialPortActions::WriteSerialDataEchoCheck(const QByteArray& output)
 {
     SetCommBusy(true);
-    emit LOG_D("Sent: " + ParseMessageToHex(output.mid(0, 20)), true, true);
+    emit logD("Sent: " + ParseMessageToHex(output.mid(0, 20)), true, true);
     return RunOnBackend([this, output] { return m_backend_->WriteSerialDataEchoCheck(output); });
 }
 

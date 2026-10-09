@@ -19,7 +19,7 @@ class FakeIdentifyLauncher final : public IIdentifyLauncher
     {
     }
 
-    void set_completion_handler(CompletionHandler handler) override
+    void setCompletionHandler(CompletionHandler handler) override
     {
         handler_ = std::move(handler);
     }
@@ -31,7 +31,7 @@ class FakeIdentifyLauncher final : public IIdentifyLauncher
         started_generations.push_back(generation);
     }
 
-    void stop_and_join() override
+    void stopAndJoin() override
     {
         log_.push_back("stop_and_join");
     }
@@ -42,7 +42,7 @@ class FakeIdentifyLauncher final : public IIdentifyLauncher
         handler_(generation, std::move(outcome));
     }
 
-    bool has_handler() const
+    bool hasHandler() const
     {
         return static_cast<bool>(handler_);
     }
@@ -62,12 +62,12 @@ class FakeConnectionPresentation final : public IConnectionPresentation
     {
     }
 
-    void set_controls_locked(bool locked) override
+    void setControlsLocked(bool locked) override
     {
         log_.push_back(std::string("controls_locked=") + (locked ? "1" : "0"));
     }
 
-    void set_port_selector_enabled(bool enabled) override
+    void setPortSelectorEnabled(bool enabled) override
     {
         log_.push_back(std::string("port_selector=") + (enabled ? "1" : "0"));
     }
@@ -81,7 +81,7 @@ class FakeConnectionPresentation final : public IConnectionPresentation
         }
     }
 
-    void identification_failed(const IdentifyOutcome& outcome) override
+    void identificationFailed(const IdentifyOutcome& outcome) override
     {
         log_.push_back("failed " + outcome.error_detail);
         if (on_failed)

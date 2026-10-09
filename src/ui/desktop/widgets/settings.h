@@ -50,23 +50,23 @@ class Settings : public QDialog
 
     QListWidget *romraider_definition_files_list_{};
 
-    QVBoxLayout *create_files_config_page();
-    QVBoxLayout *create_ui_config_page();
-    void create_list_icons();
-    void change_page(QListWidgetItem *current, QListWidgetItem *previous);
-    void set_ecuflash_def_dir();
-    void set_romraider_logger_file();
-    void set_ecu_cal_dir();
-    void set_log_files_dir();
-    void add_definition_files();
-    void remove_definition_files();
+    QVBoxLayout *createFilesConfigPage();
+    QVBoxLayout *createUiConfigPage();
+    void createListIcons();
+    void changePage(QListWidgetItem *current, QListWidgetItem *previous);
+    void setEcuflashDefDir();
+    void setRomraiderLoggerFile();
+    void setEcuCalDir();
+    void setLogFilesDir();
+    void addDefinitionFiles();
+    void removeDefinitionFiles();
 
   private slots:
-    void ecuflash_defs_enabled_checkbox(int state);
-    void romraider_defs_enabled_checkbox(int state);
-    void romraider_as_primary_def_base_checkbox(int state);
-    void toolbar_iconsize_value_changed(int value);
-    int save_config_file();
+    void ecuflashDefsEnabledCheckbox(int state);
+    void romraiderDefsEnabledCheckbox(int state);
+    void romraiderAsPrimaryDefBaseCheckbox(int state);
+    void toolbarIconsizeValueChanged(int value);
+    int saveConfigFile();
 
   private:
     std::unique_ptr<Ui::Settings> ui_;

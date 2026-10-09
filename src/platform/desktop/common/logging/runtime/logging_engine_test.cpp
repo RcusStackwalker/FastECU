@@ -197,7 +197,7 @@ TEST_P(StartRejectionsParameters, start_rejections)
 
     LoggingEngine engine;
     fastecu::testing::SignalRecorder ended_spy(&engine, &LoggingEngine::sessionEnded);
-    fastecu::testing::SignalRecorder error_spy(&engine, &LoggingEngine::LOG_E);
+    fastecu::testing::SignalRecorder error_spy(&engine, &LoggingEngine::logE);
 
     BlockingFailureProtocol *active_protocol = nullptr;
     if (source == 0)
@@ -278,7 +278,7 @@ TEST(TestLoggingEngine, user_stop_publishes_joined_completion_exactly_once)
                                 return std::unique_ptr<LoggingProtocol>(protocol);
                             });
     fastecu::testing::SignalRecorder ended_spy(&engine, &LoggingEngine::sessionEnded);
-    fastecu::testing::SignalRecorder error_spy(&engine, &LoggingEngine::LOG_E);
+    fastecu::testing::SignalRecorder error_spy(&engine, &LoggingEngine::logE);
 
     ASSERT_TRUE(engine.Start(LogSessionConfig{.protocol_id = "TEST"}, Snapshot()));
     ASSERT_TRUE(protocol->WaitUntilPollEntered(std::chrono::milliseconds(500)));
@@ -480,7 +480,7 @@ TEST(TestLoggingEngine, start_error_preserves_handshake_failure_ui_path)
     engine.RegisterProtocol("TEST", [protocol](const DesktopLoggingSnapshot&)
                             { return std::unique_ptr<LoggingProtocol>(protocol); });
     fastecu::testing::SignalRecorder ended_spy(&engine, &LoggingEngine::sessionEnded);
-    fastecu::testing::SignalRecorder error_spy(&engine, &LoggingEngine::LOG_E);
+    fastecu::testing::SignalRecorder error_spy(&engine, &LoggingEngine::logE);
 
     ASSERT_TRUE(engine.Start(LogSessionConfig{.protocol_id = "TEST"}, Snapshot()));
     ASSERT_TRUE(fastecu::testing::WaitUntil([&] { return ended_spy.Count() != 0; }, std::chrono::milliseconds(2000)));
@@ -518,7 +518,7 @@ TEST(TestLoggingEngine, post_start_failure_is_not_reported_as_handshake_failure)
     engine.RegisterProtocol("TEST", [protocol](const DesktopLoggingSnapshot&)
                             { return std::unique_ptr<LoggingProtocol>(protocol); });
     fastecu::testing::SignalRecorder ended_spy(&engine, &LoggingEngine::sessionEnded);
-    fastecu::testing::SignalRecorder error_spy(&engine, &LoggingEngine::LOG_E);
+    fastecu::testing::SignalRecorder error_spy(&engine, &LoggingEngine::logE);
 
     ASSERT_TRUE(engine.Start(LogSessionConfig{.protocol_id = "TEST"}, Snapshot()));
     ASSERT_TRUE(fastecu::testing::WaitUntil([&] { return ended_spy.Count() != 0; }, std::chrono::milliseconds(2000)));
@@ -536,7 +536,7 @@ TEST(TestLoggingEngine, unexpected_cancelled_outcome_is_reported_as_runtime_fail
     engine.RegisterProtocol("TEST", [protocol](const DesktopLoggingSnapshot&)
                             { return std::unique_ptr<LoggingProtocol>(protocol); });
     fastecu::testing::SignalRecorder ended_spy(&engine, &LoggingEngine::sessionEnded);
-    fastecu::testing::SignalRecorder error_spy(&engine, &LoggingEngine::LOG_E);
+    fastecu::testing::SignalRecorder error_spy(&engine, &LoggingEngine::logE);
 
     ASSERT_TRUE(engine.Start(LogSessionConfig{.protocol_id = "TEST"}, Snapshot()));
     ASSERT_TRUE(fastecu::testing::WaitUntil([&] { return ended_spy.Count() != 0; }, std::chrono::milliseconds(2000)));
@@ -552,7 +552,7 @@ TEST(TestLoggingEngine, unexpected_cancelled_outcome_is_reported_as_runtime_fail
 TEST(TestLoggingEngine, diagnostic_slot_forwards_error_level_with_timestamp_and_linefeed)
 {
     LoggingEngine engine;
-    fastecu::testing::SignalRecorder error_spy(&engine, &LoggingEngine::LOG_E);
+    fastecu::testing::SignalRecorder error_spy(&engine, &LoggingEngine::logE);
 
     ASSERT_TRUE(QMetaObject::invokeMethod(&engine, "handleDiagnostic", Qt::DirectConnection,
                                           Q_ARG(int, static_cast<int>(fastecu::LogLevel::kError)),
@@ -567,7 +567,7 @@ TEST(TestLoggingEngine, diagnostic_slot_forwards_error_level_with_timestamp_and_
 TEST(TestLoggingEngine, diagnostic_slot_forwards_warning_level_with_timestamp_and_linefeed)
 {
     LoggingEngine engine;
-    fastecu::testing::SignalRecorder warning_spy(&engine, &LoggingEngine::LOG_W);
+    fastecu::testing::SignalRecorder warning_spy(&engine, &LoggingEngine::logW);
 
     ASSERT_TRUE(QMetaObject::invokeMethod(&engine, "handleDiagnostic", Qt::DirectConnection,
                                           Q_ARG(int, static_cast<int>(fastecu::LogLevel::kWarning)),
@@ -582,7 +582,7 @@ TEST(TestLoggingEngine, diagnostic_slot_forwards_warning_level_with_timestamp_an
 TEST(TestLoggingEngine, diagnostic_slot_forwards_info_level_with_timestamp_and_linefeed)
 {
     LoggingEngine engine;
-    fastecu::testing::SignalRecorder info_spy(&engine, &LoggingEngine::LOG_I);
+    fastecu::testing::SignalRecorder info_spy(&engine, &LoggingEngine::logI);
 
     ASSERT_TRUE(QMetaObject::invokeMethod(&engine, "handleDiagnostic", Qt::DirectConnection,
                                           Q_ARG(int, static_cast<int>(fastecu::LogLevel::kInfo)),
@@ -597,7 +597,7 @@ TEST(TestLoggingEngine, diagnostic_slot_forwards_info_level_with_timestamp_and_l
 TEST(TestLoggingEngine, diagnostic_slot_forwards_debug_level_with_timestamp_and_linefeed)
 {
     LoggingEngine engine;
-    fastecu::testing::SignalRecorder debug_spy(&engine, &LoggingEngine::LOG_D);
+    fastecu::testing::SignalRecorder debug_spy(&engine, &LoggingEngine::logD);
 
     ASSERT_TRUE(QMetaObject::invokeMethod(&engine, "handleDiagnostic", Qt::DirectConnection,
                                           Q_ARG(int, static_cast<int>(fastecu::LogLevel::kDebug)),

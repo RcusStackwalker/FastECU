@@ -18,8 +18,10 @@ class QtEventSink : public QObject, public fastecu::IEventSink
     void Notice(std::string_view message) override;
 
   signals:
+    // NOLINTBEGIN(readability-identifier-naming): Qt signals keep Qt's camelBack names
     void logged(int level, QString message);
     void progressed(int done, int total);
     void phaseProgressed(QString phase_name, int phase_index, int phase_count, int done, int total);
     void noticed(QString message);
+    // NOLINTEND(readability-identifier-naming)
 };

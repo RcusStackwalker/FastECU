@@ -30,9 +30,9 @@ TEST(ProtocolSelectTest, choosingRecordsTheProtocolName)
     dialog.ui_->treeWidget->setCurrentItem(items.front());
     items.front()->setSelected(true);
 
-    ASSERT_TRUE(QMetaObject::invokeMethod(&dialog, "car_model_selected", Qt::DirectConnection));
+    ASSERT_TRUE(QMetaObject::invokeMethod(&dialog, "carModelSelected", Qt::DirectConnection));
 
-    ASSERT_EQ(dialog.chosen_protocol_name(), std::optional<std::string>("proto_b"));
+    ASSERT_EQ(dialog.acceptedProtocolName(), std::optional<std::string>("proto_b"));
     ASSERT_TRUE(f.session.Settings() == before);
 }
 
@@ -42,7 +42,7 @@ TEST(ProtocolSelectTest, rejectingLeavesNoChoice)
     ASSERT_TRUE(f.Initialize().has_value());
     ProtocolSelect dialog{f.session};
     dialog.reject();
-    ASSERT_TRUE(!dialog.chosen_protocol_name().has_value());
+    ASSERT_TRUE(!dialog.acceptedProtocolName().has_value());
 }
 
 namespace

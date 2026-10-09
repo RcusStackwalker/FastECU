@@ -3,32 +3,32 @@
 namespace fastecu::ui
 {
 
-QString protocol_field(const config::VehicleSpec& vehicle, std::string_view config::ProtocolSpec::*field)
+QString protocolField(const config::VehicleSpec& vehicle, std::string_view config::ProtocolSpec::*field)
 {
     return qs(vehicle.protocol->*field);
 }
 
-QString protocol_flag(const config::VehicleSpec& vehicle, bool config::ProtocolSpec::*capability)
+QString protocolFlag(const config::VehicleSpec& vehicle, bool config::ProtocolSpec::*capability)
 {
-    return protocol_capability(vehicle, capability) ? QStringLiteral("yes") : QStringLiteral("no");
+    return protocolCapability(vehicle, capability) ? QStringLiteral("yes") : QStringLiteral("no");
 }
 
-bool protocol_capability(const config::VehicleSpec& vehicle, bool config::ProtocolSpec::*capability)
+bool protocolCapability(const config::VehicleSpec& vehicle, bool config::ProtocolSpec::*capability)
 {
     return vehicle.protocol->*capability;
 }
 
-QString checksum_field(const config::VehicleSpec& vehicle)
+QString checksumField(const config::VehicleSpec& vehicle)
 {
     return qs(config::ChecksumFlag(vehicle.protocol->checksum));
 }
 
-QString kernel_address_field(const config::VehicleSpec& vehicle)
+QString kernelAddressField(const config::VehicleSpec& vehicle)
 {
     return QString::fromStdString(config::KernelLoadAddressText(*vehicle.protocol));
 }
 
-QStringList qstring_list(const std::vector<std::string>& items)
+QStringList qstringList(const std::vector<std::string>& items)
 {
     QStringList out;
     out.reserve(static_cast<qsizetype>(items.size()));
@@ -39,7 +39,7 @@ QStringList qstring_list(const std::vector<std::string>& items)
     return out;
 }
 
-std::vector<std::string> string_vector(const QStringList& items)
+std::vector<std::string> stringVector(const QStringList& items)
 {
     std::vector<std::string> out;
     out.reserve(static_cast<std::size_t>(items.size()));

@@ -1,7 +1,20 @@
-# Qt-facing code keeps Qt's camelBack spelling for parameters and locals.
+# Qt-facing code keeps Qt's camelBack spelling for parameters, locals, functions
+# and methods.
 InheritParentConfig: true
 CheckOptions:
   - key: readability-identifier-naming.ParameterCase
     value: camelBack
   - key: readability-identifier-naming.LocalVariableCase
     value: camelBack
+  - key: readability-identifier-naming.FunctionCase
+    value: camelBack
+  - key: readability-identifier-naming.MethodCase
+    value: camelBack
+  # Qt auto-connects slots by name (QMetaObject::connectSlotsByName in the uic
+  # output): on_<widget>_<signal> must keep that exact spelling to stay connected.
+  - key: readability-identifier-naming.MethodIgnoredRegexp
+    value: '^on_[A-Za-z0-9]+_[a-z][A-Za-z0-9]*$'
+  # gtest finds a user-defined printer by calling PrintTo(value, std::ostream*)
+  # through ADL; the spelling is part of googletest's customization contract.
+  - key: readability-identifier-naming.FunctionIgnoredRegexp
+    value: '^PrintTo$'

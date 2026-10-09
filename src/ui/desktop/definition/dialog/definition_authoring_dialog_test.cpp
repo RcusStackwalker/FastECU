@@ -32,7 +32,7 @@
 
 using fastecu::ui::DefinitionAuthoringDialog;
 using fastecu::ui::HeaderFormEditors;
-using fastecu::ui::populate_header_dialog;
+using fastecu::ui::populateHeaderDialog;
 using ::testing::ElementsAre;
 
 namespace
@@ -77,10 +77,10 @@ TEST(DefinitionAuthoringDialogTest, ConstructsAndExposesTheFourLogSignals)
 
     DefinitionAuthoringDialog dialog(catalogs, config.session, repository, &parent);
 
-    EXPECT_TRUE(fastecu::testing::SignalRecorder(&dialog, &DefinitionAuthoringDialog::LOG_E).IsValid());
-    EXPECT_TRUE(fastecu::testing::SignalRecorder(&dialog, &DefinitionAuthoringDialog::LOG_W).IsValid());
-    EXPECT_TRUE(fastecu::testing::SignalRecorder(&dialog, &DefinitionAuthoringDialog::LOG_I).IsValid());
-    EXPECT_TRUE(fastecu::testing::SignalRecorder(&dialog, &DefinitionAuthoringDialog::LOG_D).IsValid());
+    EXPECT_TRUE(fastecu::testing::SignalRecorder(&dialog, &DefinitionAuthoringDialog::logE).IsValid());
+    EXPECT_TRUE(fastecu::testing::SignalRecorder(&dialog, &DefinitionAuthoringDialog::logW).IsValid());
+    EXPECT_TRUE(fastecu::testing::SignalRecorder(&dialog, &DefinitionAuthoringDialog::logI).IsValid());
+    EXPECT_TRUE(fastecu::testing::SignalRecorder(&dialog, &DefinitionAuthoringDialog::logD).IsValid());
 }
 
 // Regression test for the use-after-free this package shipped with: the form
@@ -95,7 +95,7 @@ TEST(DefinitionAuthoringDialogTest, HeaderEditorsStayReadableWhileTheCallerOwnsT
     const fastecu::definition::DefinitionHeaderDraft draft{
         .xml_id = "3352a403", .ecu_id = "39670016", .notes = "bench only"};
 
-    const HeaderFormEditors editors = populate_header_dialog(dialog, draft);
+    const HeaderFormEditors editors = populateHeaderDialog(dialog, draft);
 
     // Churn the Qt heap the way the real flow does (a QFileDialog is built
     // and destroyed between the header dialog closing and these reads), so a
@@ -119,7 +119,7 @@ TEST(DefinitionAuthoringDialogTest, HeaderEditorsStayReadableWhileTheCallerOwnsT
     EXPECT_EQ(editors.notes->parentWidget(), &dialog);
 
     // And the mapping the wizards perform on those editors still resolves.
-    const auto input = fastecu::ui::definition_header_input(editors);
+    const auto input = fastecu::ui::definitionHeaderInput(editors);
     ASSERT_TRUE(input.has_value());
     EXPECT_EQ(input->xml_id, "3352a403");
     EXPECT_EQ(input->ecu_id, "39670016");
@@ -131,7 +131,7 @@ TEST(DefinitionAuthoringDialogTest, HeaderEditorsStayReadableWhileTheCallerOwnsT
     QPointer<QLineEdit> tracked;
     {
         QDialog scopedDialog;
-        tracked = populate_header_dialog(scopedDialog, draft).xml_id;
+        tracked = populateHeaderDialog(scopedDialog, draft).xml_id;
         ASSERT_FALSE(tracked.isNull());
     }
     EXPECT_TRUE(tracked.isNull());
@@ -140,10 +140,10 @@ TEST(DefinitionAuthoringDialogTest, HeaderEditorsStayReadableWhileTheCallerOwnsT
 TEST(DefinitionAuthoringDialog, FormInputRegistersTypedLookupAfterSuccessfulSubmission)
 {
     QDialog dialog;
-    const HeaderFormEditors editors = populate_header_dialog(
+    const HeaderFormEditors editors = populateHeaderDialog(
         dialog,
         {.xml_id = "3352a403", .internal_id = "CAL_ID", .ecu_id = "39670016", .internal_id_address_text = "7ffc"});
-    auto input = fastecu::ui::definition_header_input(editors);
+    auto input = fastecu::ui::definitionHeaderInput(editors);
     ASSERT_THAT(input, fastecu::testing::IsOk());
     fastecu::config::testing::ConfigSessionFixture config;
     ASSERT_THAT(config.Initialize(), fastecu::testing::IsOk());
@@ -191,7 +191,7 @@ TEST_F(DefinitionAuthoringFlow, CancelledCreateDoesNotWriteOrRegister)
                                modal->reject();
                            }
                        });
-    EXPECT_TRUE(dialog_.create_new_definition());
+    EXPECT_TRUE(dialog_.createNewDefinition());
     EXPECT_THAT(writer_.replace_calls, testing::IsEmpty());
     EXPECT_EQ(catalogs_.IndexedSource(fastecu::definition::DefinitionFormat::kEcuFlash, "NEW_XML"), std::nullopt);
 }
@@ -208,7 +208,7 @@ TEST_F(DefinitionAuthoringFlow, CancelledImportAndRetryDoesNotWriteOrRegister)
                          }
                      });
     driver.start(1);
-    EXPECT_TRUE(dialog_.use_existing_definition());
+    EXPECT_TRUE(dialog_.useExistingDefinition());
     EXPECT_THAT(writer_.replace_calls, testing::IsEmpty());
     EXPECT_EQ(catalogs_.IndexedSource(fastecu::definition::DefinitionFormat::kEcuFlash, "NEW_XML"), std::nullopt);
 }
@@ -230,7 +230,7 @@ TEST_F(DefinitionAuthoringFlow, InvalidHeaderDoesNotWriteOrRegister)
                          }
                      });
     driver.start(1);
-    EXPECT_FALSE(dialog_.create_new_definition());
+    EXPECT_FALSE(dialog_.createNewDefinition());
     EXPECT_THAT(writer_.replace_calls, testing::IsEmpty());
     EXPECT_EQ(catalogs_.IndexedSource(fastecu::definition::DefinitionFormat::kEcuFlash, ""), std::nullopt);
 }
@@ -266,7 +266,7 @@ TEST_F(DefinitionAuthoringFlow, MalformedImportReportsErrorWithoutOpeningAnEdita
                          }
                      });
     driver.start(1);
-    EXPECT_FALSE(dialog_.use_existing_definition());
+    EXPECT_FALSE(dialog_.useExistingDefinition());
     EXPECT_TRUE(errorShown);
     EXPECT_FALSE(headerOpened);
     EXPECT_THAT(writer_.replace_calls, testing::IsEmpty());
@@ -317,7 +317,7 @@ TEST_F(DefinitionAuthoringFlow, Utf16ImportOpensDecodedHeaderBeforeAnyWrite)
                          }
                      });
     driver.start(1);
-    EXPECT_TRUE(dialog_.use_existing_definition());
+    EXPECT_TRUE(dialog_.useExistingDefinition());
     EXPECT_TRUE(headerOpened);
     EXPECT_FALSE(errorShown);
     EXPECT_EQ(importedId, QString::fromUtf8("CAF\xc3\xa9"));

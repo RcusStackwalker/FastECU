@@ -362,7 +362,7 @@ TEST_F(DesktopCompositionTest, waitRequestIsWiredToTheRemoteUtility)
     // checks the wiring without invoking it: isSignalConnected is
     // protected, so disconnect-and-report-whether-anything-was-there
     // is the public way to observe the same fact.
-    ASSERT_TRUE(QObject::disconnect(&composition.services().remote, &RemotePeer::wait_requested, nullptr, nullptr));
+    ASSERT_TRUE(QObject::disconnect(&composition.services().remote, &RemotePeer::waitRequested, nullptr, nullptr));
 }
 
 TEST_F(DesktopCompositionTest, remoteStateChangesReachThePeer)
@@ -390,7 +390,7 @@ TEST_F(DesktopCompositionTest, mirroringWithoutAPeerReturnsPromptly)
 
     QElapsedTimer elapsed;
     elapsed.start();
-    emit remote.log_window_message("mirrored line");
+    emit remote.logWindowMessage("mirrored line");
     emit remote.progress(42);
     ASSERT_TRUE(elapsed.elapsed() < 1000) << "mirroring without a peer blocked";
 }
@@ -401,11 +401,11 @@ TEST_F(DesktopCompositionTest, channelLevelsReachTheLogWindowWithTheirPrefix)
     ASSERT_TRUE(root.isValid());
     DesktopComposition composition{{}, {}, root.path()};
     LogChannel& log = composition.services().log;
-    fastecu::testing::SignalRecorder window{&log, &LogChannel::log_window_message};
+    fastecu::testing::SignalRecorder window{&log, &LogChannel::logWindowMessage};
 
-    emit log.LOG_E("error line", true, false);
-    emit log.LOG_W("warning line", true, false);
-    emit log.LOG_I("info line", true, false);
+    emit log.logE("error line", true, false);
+    emit log.logW("warning line", true, false);
+    emit log.logI("info line", true, false);
 
     // Match by content: the logger's own "SystemLogger started..." line
     // can reach the window too.
@@ -421,10 +421,10 @@ TEST_F(DesktopCompositionTest, debugLinesStayOutOfTheLogWindow)
     ASSERT_TRUE(root.isValid());
     DesktopComposition composition{{}, {}, root.path()};
     LogChannel& log = composition.services().log;
-    fastecu::testing::SignalRecorder window{&log, &LogChannel::log_window_message};
+    fastecu::testing::SignalRecorder window{&log, &LogChannel::logWindowMessage};
 
-    emit log.LOG_D("debug line", true, false);
-    emit log.LOG_I("sentinel", false, false);
+    emit log.logD("debug line", true, false);
+    emit log.logI("sentinel", false, false);
 
     ASSERT_TRUE(fastecu::testing::WaitUntil([&] { return HasLineEndingWith(window, "sentinel"); },
                                             std::chrono::milliseconds(5000)));
@@ -440,21 +440,21 @@ TEST_F(DesktopCompositionTest, relayedLineSurvivesItsSenderButADirectOneDoesNot)
     ASSERT_TRUE(root.isValid());
     DesktopComposition composition{{}, {}, root.path()};
     LogChannel& log = composition.services().log;
-    fastecu::testing::SignalRecorder window{&log, &LogChannel::log_window_message};
+    fastecu::testing::SignalRecorder window{&log, &LogChannel::logWindowMessage};
 
     {
         SyslogGate gate{*SysloggerOf(composition)};
         auto relayed = std::make_unique<LogChannel>();
-        QObject::connect(relayed.get(), &LogChannel::LOG_I, &log, &LogChannel::LOG_I);
+        QObject::connect(relayed.get(), &LogChannel::logI, &log, &LogChannel::logI);
         auto direct = std::make_unique<LogChannel>();
-        QObject::connect(direct.get(), &LogChannel::LOG_I, SysloggerOf(composition).get(), &SystemLogger::log_messages);
+        QObject::connect(direct.get(), &LogChannel::logI, SysloggerOf(composition).get(), &SystemLogger::logMessages);
 
-        emit relayed->LOG_I("relayed line", false, false);
-        emit direct->LOG_I("direct line", false, false);
+        emit relayed->logI("relayed line", false, false);
+        emit direct->logI("direct line", false, false);
         relayed.reset();
         direct.reset();
     }
-    emit log.LOG_I("sentinel", false, false);
+    emit log.logI("sentinel", false, false);
 
     ASSERT_TRUE(fastecu::testing::WaitUntil([&] { return HasLineEndingWith(window, "sentinel"); },
                                             std::chrono::milliseconds(5000)));
@@ -472,14 +472,14 @@ TEST_F(DesktopCompositionTest, enablingFileLoggingWritesASyslogFile)
     ASSERT_TRUE(!syslog_dir.isEmpty());
     ASSERT_TRUE(QDir().mkpath(syslog_dir));
     LogChannel& log = composition.services().log;
-    fastecu::testing::SignalRecorder window{&log, &LogChannel::log_window_message};
+    fastecu::testing::SignalRecorder window{&log, &LogChannel::logWindowMessage};
 
-    emit log.enable_log_write_to_file(true);
-    emit log.LOG_I("to file", false, true);
-    emit log.LOG_D("debug to file", false, true);
+    emit log.enableLogWriteToFile(true);
+    emit log.logI("to file", false, true);
+    emit log.logD("debug to file", false, true);
     // log_messages signals the window before it writes the file; the
     // sentinel's window line proves the earlier write has finished.
-    emit log.LOG_I("sentinel", false, false);
+    emit log.logI("sentinel", false, false);
 
     ASSERT_TRUE(fastecu::testing::WaitUntil([&] { return HasLineEndingWith(window, "sentinel"); },
                                             std::chrono::milliseconds(5000)));

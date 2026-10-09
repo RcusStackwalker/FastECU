@@ -14,10 +14,10 @@ TEST(VehicleSelectTest, choosingRecordsTheRowWithoutTouchingTheSession)
     const auto before = f.session.Settings();
 
     VehicleSelect dialog{f.session}; // opens on the session's row (Subaru Forester)
-    ASSERT_TRUE(QMetaObject::invokeMethod(&dialog, "car_model_selected", Qt::DirectConnection));
+    ASSERT_TRUE(QMetaObject::invokeMethod(&dialog, "carModelSelected", Qt::DirectConnection));
 
     ASSERT_EQ(dialog.result(), int(QDialog::Accepted));
-    ASSERT_EQ(dialog.chosen_row(), std::optional<std::size_t>(2));
+    ASSERT_EQ(dialog.chosenRow(), std::optional<std::size_t>(2));
     ASSERT_TRUE(f.session.Settings() == before);
 }
 
@@ -27,7 +27,7 @@ TEST(VehicleSelectTest, rejectingLeavesNoChoice)
     ASSERT_TRUE(f.Initialize().has_value());
     VehicleSelect dialog{f.session};
     dialog.reject();
-    ASSERT_TRUE(!dialog.chosen_row().has_value());
+    ASSERT_TRUE(!dialog.chosenRow().has_value());
 }
 
 // The startup vehicle gate opens the dialog on a session with no vehicle.
@@ -38,9 +38,9 @@ TEST(VehicleSelectTest, withNoSelectionItOpensOnTheFirstMakeModelAndVersion)
     ASSERT_TRUE(f.session.SelectedVehicle() == nullptr);
 
     VehicleSelect dialog{f.session}; // Mitsubishi sorts first; its only vehicle is the Colt
-    ASSERT_TRUE(QMetaObject::invokeMethod(&dialog, "car_model_selected", Qt::DirectConnection));
+    ASSERT_TRUE(QMetaObject::invokeMethod(&dialog, "carModelSelected", Qt::DirectConnection));
 
-    ASSERT_EQ(dialog.chosen_row(), std::optional<std::size_t>(1));
+    ASSERT_EQ(dialog.chosenRow(), std::optional<std::size_t>(1));
 }
 
 namespace

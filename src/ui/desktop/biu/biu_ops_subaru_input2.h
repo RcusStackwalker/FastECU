@@ -28,10 +28,10 @@ class BiuOpsSubaruInput2 : public QWidget
     QStringList *biu_option_names_;
 
   private slots:
-    void prepare_biu_setting2();
+    void prepareBiuSetting2();
 
   signals:
-    void send_biu_setting2(QByteArray output);
+    void sendBiuSetting2(QByteArray output);
 
   private:
     std::unique_ptr<Ui::BiuOpsSubaruInput2Window> ui_;

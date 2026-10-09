@@ -19,11 +19,11 @@ class QtCalibrationInteraction final : public ICalibrationInteraction
   public:
     explicit QtCalibrationInteraction(QWidget *parent);
 
-    bool confirm_write_without_checksum() override;
-    ChecksumCorrectionResult correct_checksums(bytes::ByteView image, bool hasDefinition,
-                                               const checksum::ChecksumSelection& selection) override;
-    std::optional<std::string> choose_save_path(std::string_view suggestedPath) override;
-    void show_notice(CalibrationNotice notice) override;
+    bool confirmWriteWithoutChecksum() override;
+    ChecksumCorrectionResult correctChecksums(bytes::ByteView image, bool hasDefinition,
+                                              const checksum::ChecksumSelection& selection) override;
+    std::optional<std::string> chooseSavePath(std::string_view suggestedPath) override;
+    void showNotice(CalibrationNotice notice) override;
 
   private:
     QWidget *parent_;

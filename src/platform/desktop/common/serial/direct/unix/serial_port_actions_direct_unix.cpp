@@ -7,10 +7,10 @@
 
 void SerialPortActionsDirect::ConnectJ2534Logs()
 {
-    QObject::connect(j2534_, &J2534::LOG_E, this, &SerialPortActionsDirect::LOG_E);
-    QObject::connect(j2534_, &J2534::LOG_W, this, &SerialPortActionsDirect::LOG_W);
-    QObject::connect(j2534_, &J2534::LOG_I, this, &SerialPortActionsDirect::LOG_I);
-    QObject::connect(j2534_, &J2534::LOG_D, this, &SerialPortActionsDirect::LOG_D);
+    QObject::connect(j2534_, &J2534::logE, this, &SerialPortActionsDirect::logE);
+    QObject::connect(j2534_, &J2534::logW, this, &SerialPortActionsDirect::logW);
+    QObject::connect(j2534_, &J2534::logI, this, &SerialPortActionsDirect::logI);
+    QObject::connect(j2534_, &J2534::logD, this, &SerialPortActionsDirect::logD);
 }
 
 void SerialPortActionsDirect::SettleAfterProgrammingVoltage()
@@ -46,7 +46,7 @@ void SerialPortActionsDirect::CloseJ2534Transport()
 
 void SerialPortActionsDirect::LogJ2534Opened()
 {
-    emit LOG_D("INIT: J2534 opened with devID: " + QString::number(dev_id_), true, true);
+    emit logD("INIT: J2534 opened with devID: " + QString::number(dev_id_), true, true);
 }
 
 void SerialPortActionsDirect::AdoptJ2534ChannelId()

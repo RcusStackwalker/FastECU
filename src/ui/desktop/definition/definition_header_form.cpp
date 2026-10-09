@@ -5,7 +5,7 @@
 namespace fastecu::ui
 {
 
-HeaderFormEditors build_header_form(QGridLayout *grid, const definition::DefinitionHeaderDraft& draft)
+HeaderFormEditors buildHeaderForm(QGridLayout *grid, const definition::DefinitionHeaderDraft& draft)
 {
     int row = 0;
     const auto addLine = [&](const char *label, const char *name, const std::string& value)
@@ -40,7 +40,7 @@ HeaderFormEditors build_header_form(QGridLayout *grid, const definition::Definit
     return editors;
 }
 
-definition::DefinitionHeaderDraft read_header_form(const HeaderFormEditors& editors)
+definition::DefinitionHeaderDraft readHeaderForm(const HeaderFormEditors& editors)
 {
     return {.xml_id = editors.xml_id->text().toStdString(),
             .internal_id = editors.internal_id->text().toStdString(),
@@ -59,12 +59,12 @@ definition::DefinitionHeaderDraft read_header_form(const HeaderFormEditors& edit
             .notes = editors.notes->toPlainText().toStdString()};
 }
 
-Result<definition::DefinitionHeaderInput> definition_header_input(const HeaderFormEditors& editors)
+Result<definition::DefinitionHeaderInput> definitionHeaderInput(const HeaderFormEditors& editors)
 {
-    return definition::BuildDefinitionHeaderInput(read_header_form(editors));
+    return definition::BuildDefinitionHeaderInput(readHeaderForm(editors));
 }
 
-QString normalize_xml_suffix(QString filename)
+QString normalizeXmlSuffix(QString filename)
 {
     if (filename.endsWith(QString(".")))
     {

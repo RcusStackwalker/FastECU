@@ -20,14 +20,18 @@ class RemoteUtility : public QObject
     bool IsValid(void);
 
   public slots:
-    bool send_log_window_message(QString message);
-    bool set_progressbar_value(int value);
+    // NOLINTBEGIN(readability-identifier-naming): Qt slots keep Qt's camelBack names
+    bool sendLogWindowMessage(QString message);
+    bool setProgressbarValue(int value);
     void ping(QString message);
-    void websocket_connected(void);
+    void websocketConnected(void);
     void waitForSource(void);
+    // NOLINTEND(readability-identifier-naming)
 
   signals:
+    // NOLINTBEGIN(readability-identifier-naming): Qt signals keep Qt's camelBack names
     void stateChanged(QRemoteObjectReplica::State state, QRemoteObjectReplica::State old_state);
+    // NOLINTEND(readability-identifier-naming)
 
   private:
     QString peer_address_;
@@ -55,5 +59,7 @@ class RemoteUtility : public QObject
     static constexpr int kPingsSequentlyMissedLimit{5};
 
   private slots:
+    // NOLINTBEGIN(readability-identifier-naming): Qt slots keep Qt's camelBack names
     void utilityRemoteStateChanged(QRemoteObjectReplica::State state, QRemoteObjectReplica::State old_state);
+    // NOLINTEND(readability-identifier-naming)
 };

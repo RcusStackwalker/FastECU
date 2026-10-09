@@ -17,14 +17,14 @@ class RemotePeer final : public QObject
   public:
     // Blocks until the peer's source is available. wait_requested is
     // direct-connected, so the wait runs inside this call.
-    void wait_for_source()
+    void waitForSource()
     {
-        emit wait_requested();
+        emit waitRequested();
     }
 
   signals:
-    void wait_requested();
-    void log_window_message(QString message);
+    void waitRequested();
+    void logWindowMessage(QString message);
     void progress(int value);
     void stateChanged(QRemoteObjectReplica::State state, QRemoteObjectReplica::State oldState);
 };

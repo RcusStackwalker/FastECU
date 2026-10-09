@@ -26,11 +26,13 @@ class SerialPortActions : public QObject
     Q_OBJECT
 
   signals:
+    // NOLINTBEGIN(readability-identifier-naming): Qt signals keep Qt's camelBack names
     void stateChanged(QRemoteObjectReplica::State state, QRemoteObjectReplica::State old_state);
-    void LOG_E(QString message, bool timestamp, bool linefeed);
-    void LOG_W(QString message, bool timestamp, bool linefeed);
-    void LOG_I(QString message, bool timestamp, bool linefeed);
-    void LOG_D(QString message, bool timestamp, bool linefeed);
+    void logE(QString message, bool timestamp, bool linefeed);
+    void logW(QString message, bool timestamp, bool linefeed);
+    void logI(QString message, bool timestamp, bool linefeed);
+    void logD(QString message, bool timestamp, bool linefeed);
+    // NOLINTEND(readability-identifier-naming)
 
   public:
     // backend_factory builds the backend this facade drives; it is called
@@ -181,7 +183,9 @@ class SerialPortActions : public QObject
     unsigned long ReadVbatt();
 
   public slots:
+    // NOLINTBEGIN(readability-identifier-naming): Qt slots keep Qt's camelBack names
     void waitForSource(void);
+    // NOLINTEND(readability-identifier-naming)
 
   private:
     void EnsureBackendStarted();

@@ -31,10 +31,12 @@ class SerialPortActionsDirect : public QObject, public SerialBackend
     Q_OBJECT
 
   signals:
-    void LOG_E(QString message, bool timestamp, bool linefeed);
-    void LOG_W(QString message, bool timestamp, bool linefeed);
-    void LOG_I(QString message, bool timestamp, bool linefeed);
-    void LOG_D(QString message, bool timestamp, bool linefeed);
+    // NOLINTBEGIN(readability-identifier-naming): Qt signals keep Qt's camelBack names
+    void logE(QString message, bool timestamp, bool linefeed);
+    void logW(QString message, bool timestamp, bool linefeed);
+    void logI(QString message, bool timestamp, bool linefeed);
+    void logD(QString message, bool timestamp, bool linefeed);
+    // NOLINTEND(readability-identifier-naming)
 
   public:
     explicit SerialPortActionsDirect(QObject *parent = nullptr);
@@ -684,9 +686,11 @@ class SerialPortActionsDirect : public QObject, public SerialBackend
 
   private slots:
 
-    void close_serial_port();
-    void handle_error(QSerialPort::SerialPortError error);
-    void accurate_delay(double timeout_arg);
-    void fast_delay(int timeout_arg);
+    // NOLINTBEGIN(readability-identifier-naming): Qt slots keep Qt's camelBack names
+    void closeSerialPort();
+    void handleError(QSerialPort::SerialPortError error);
+    void accurateDelay(double timeout_arg);
+    void fastDelay(int timeout_arg);
     void delay(int timeout_arg);
+    // NOLINTEND(readability-identifier-naming)
 };

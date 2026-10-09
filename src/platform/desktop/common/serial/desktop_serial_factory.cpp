@@ -40,14 +40,14 @@ OwnedSerialPortActions MakeSerialPortActions(const SerialConnection& connection,
     // SystemLogger::log_messages reads sender()'s signal to pick the level,
     // which a direct signal-to-slot connection preserves.
     const auto log_signals = std::to_array<const char *>({
-        SIGNAL(LOG_E(QString, bool, bool)),
-        SIGNAL(LOG_W(QString, bool, bool)),
-        SIGNAL(LOG_I(QString, bool, bool)),
-        SIGNAL(LOG_D(QString, bool, bool)),
+        SIGNAL(logE(QString, bool, bool)),
+        SIGNAL(logW(QString, bool, bool)),
+        SIGNAL(logI(QString, bool, bool)),
+        SIGNAL(logD(QString, bool, bool)),
     });
     for (const char *signal : log_signals)
     {
-        QObject::connect(serial.get(), signal, &log_sink, SLOT(log_messages(QString, bool, bool)));
+        QObject::connect(serial.get(), signal, &log_sink, SLOT(logMessages(QString, bool, bool)));
     }
     return OwnedSerialPortActions{serial.release()};
 }

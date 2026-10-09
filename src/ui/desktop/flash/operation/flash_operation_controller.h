@@ -53,12 +53,12 @@ class FlashOperationController : public QObject
     FlashOperationOutcome run(const FlashOperationInput& input);
 
   signals:
-    void LOG_E(QString message, bool timestamp, bool linefeed);
-    void LOG_W(QString message, bool timestamp, bool linefeed);
-    void LOG_I(QString message, bool timestamp, bool linefeed);
-    void LOG_D(QString message, bool timestamp, bool linefeed);
-    void external_logger(QString message);
-    void external_logger(int value);
+    void logE(QString message, bool timestamp, bool linefeed);
+    void logW(QString message, bool timestamp, bool linefeed);
+    void logI(QString message, bool timestamp, bool linefeed);
+    void logD(QString message, bool timestamp, bool linefeed);
+    void externalLogger(QString message);
+    void externalLogger(int value);
 
   private:
     SerialPortActions& serial_;

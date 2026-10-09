@@ -70,8 +70,8 @@ class CalibrationOperationCoordinator
     // nullopt when no session is selected or the operator cancels the
     // missing-checksum-module warning. Declining checksum correction still
     // prepares the uncorrected image.
-    std::optional<PreparedWrite> prepare_write(calibration::CalibrationSession *session,
-                                               std::string_view kernelDirectory);
+    std::optional<PreparedWrite> prepareWrite(calibration::CalibrationSession *session,
+                                              std::string_view kernelDirectory);
 
     // Persists a copy of the session bytes, checksum-corrected when correction
     // produced bytes, through RomSaveUseCase, which alone updates the saved
@@ -82,9 +82,9 @@ class CalibrationOperationCoordinator
     SaveOutcome save(calibration::CalibrationSession *session, SaveMode mode);
 
   private:
-    void refresh_write_metadata(calibration::CalibrationSession& session, std::string_view kernelDirectory);
-    void correct_operation_image(const calibration::CalibrationSession& session, bytes::Bytes& image);
-    std::optional<std::string> choose_save_as_path(const calibration::CalibrationSession& session);
+    void refreshWriteMetadata(calibration::CalibrationSession& session, std::string_view kernelDirectory);
+    void correctOperationImage(const calibration::CalibrationSession& session, bytes::Bytes& image);
+    std::optional<std::string> chooseSaveAsPath(const calibration::CalibrationSession& session);
 
     config::ConfigSession& config_;
     calibration::RomSaveUseCase& saver_;

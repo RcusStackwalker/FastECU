@@ -67,14 +67,14 @@ struct DescriptionEvent
     calibration::RomProtocolInfo session_protocol;
 };
 
-calibration::ResolvedDefinition header_only_definition()
+calibration::ResolvedDefinition headerOnlyDefinition()
 {
     return calibration::ResolvedDefinition{.id = "HEADER"};
 }
 
 // An ECU read of {1, 2, 3}; open_session() dirties it to {9, 2, 3}.
-calibration::CalibrationSession ecu_read(std::optional<calibration::ResolvedDefinition> definition,
-                                         std::string flashMethod)
+calibration::CalibrationSession ecuRead(std::optional<calibration::ResolvedDefinition> definition,
+                                        std::string flashMethod)
 {
     return calibration::CalibrationSession{
         calibration::SessionId{1},
@@ -95,7 +95,7 @@ template <typename TestBase> class CoordinatorHarness : public TestBase
     void SetUp() override
     {
         ASSERT_NO_FATAL_FAILURE(start(config::testing::kStandardCatalog));
-        ASSERT_NO_FATAL_FAILURE(open_session(std::nullopt, {}));
+        ASSERT_NO_FATAL_FAILURE(openSession(std::nullopt, {}));
     }
 
     // Initializes the configuration over `catalog`, selects row 0, and drops
@@ -111,17 +111,17 @@ template <typename TestBase> class CoordinatorHarness : public TestBase
         cfg_.events.notices.clear();
     }
 
-    void open_session(std::optional<calibration::ResolvedDefinition> definition, std::string flashMethod)
+    void openSession(std::optional<calibration::ResolvedDefinition> definition, std::string flashMethod)
     {
-        session_ = ecu_read(std::move(definition), std::move(flashMethod));
+        session_ = ecuRead(std::move(definition), std::move(flashMethod));
         ASSERT_THAT(session_.WriteBytes(0, bytes::Bytes{9}), IsOk());
     }
 
     // Scripts one checksum interaction returning `result`, recording its
     // arguments and its place in the callback trace.
-    void expect_checksum(ChecksumCorrectionResult result)
+    void expectChecksum(ChecksumCorrectionResult result)
     {
-        EXPECT_CALL(interaction_, correct_checksums(_, _, _))
+        EXPECT_CALL(interaction_, correctChecksums(_, _, _))
             .WillOnce(
                 [this, result](bytes::ByteView image, bool hasDefinition, const checksum::ChecksumSelection& selection)
                 {
@@ -136,9 +136,9 @@ template <typename TestBase> class CoordinatorHarness : public TestBase
     // Scripts one Save As picker returning `chosen`, recording the suggested
     // path, how many logs preceded it, and its place in the callback trace.
     // Nothing may reach the repository before a destination is chosen.
-    void expect_choose(std::optional<std::string> chosen)
+    void expectChoose(std::optional<std::string> chosen)
     {
-        EXPECT_CALL(interaction_, choose_save_path(_))
+        EXPECT_CALL(interaction_, chooseSavePath(_))
             .WillOnce(
                 [this, chosen](std::string_view suggested)
                 {
@@ -152,13 +152,13 @@ template <typename TestBase> class CoordinatorHarness : public TestBase
 
     // Where a save in `mode` persists: the session's own path for Save, or
     // `chosen` from a scripted picker for Save As.
-    std::string expect_destination(SaveMode mode, const std::string& chosen = "/cal/saved.bin")
+    std::string expectDestination(SaveMode mode, const std::string& chosen = "/cal/saved.bin")
     {
         if (mode == SaveMode::kSave)
         {
             return session_.Source().path;
         }
-        expect_choose(chosen);
+        expectChoose(chosen);
         return chosen;
     }
 
@@ -174,7 +174,7 @@ template <typename TestBase> class CoordinatorHarness : public TestBase
     config::testing::ConfigSessionFixture cfg_;
     calibration::RomSaveUseCase saver_{cfg_.file_repository, cfg_.events};
     StrictMock<MockCalibrationInteraction> interaction_;
-    calibration::CalibrationSession session_ = ecu_read(std::nullopt, {});
+    calibration::CalibrationSession session_ = ecuRead(std::nullopt, {});
     ui::CalibrationOperationCoordinator coordinator_{
         cfg_.session, saver_, interaction_,
         ui::CalibrationPresentationCallbacks{
@@ -194,9 +194,9 @@ class CalibrationOperationCoordinator : public CoordinatorHarness<::testing::Tes
 
 TEST_F(CalibrationOperationCoordinator, MissingWriteSelection)
 {
-    EXPECT_CALL(interaction_, show_notice(CalibrationNotice::kNoCalibrationToWrite));
+    EXPECT_CALL(interaction_, showNotice(CalibrationNotice::kNoCalibrationToWrite));
 
-    EXPECT_EQ(coordinator_.prepare_write(nullptr, "/kernels/"), std::nullopt);
+    EXPECT_EQ(coordinator_.prepareWrite(nullptr, "/kernels/"), std::nullopt);
 
     EXPECT_THAT(logs_, IsEmpty());
     EXPECT_THAT(descriptions_, IsEmpty());
@@ -206,9 +206,9 @@ TEST_F(CalibrationOperationCoordinator, CancelledWriteWarning)
 {
     ASSERT_THAT(cfg_.session.SelectRow(1), IsOk()); // proto_b: checksum n/a
     const calibration::RomProtocolInfo protocolBefore = session_.Protocol();
-    EXPECT_CALL(interaction_, confirm_write_without_checksum()).WillOnce(Return(false));
+    EXPECT_CALL(interaction_, confirmWriteWithoutChecksum()).WillOnce(Return(false));
 
-    EXPECT_EQ(coordinator_.prepare_write(&session_, "/kernels/"), std::nullopt);
+    EXPECT_EQ(coordinator_.prepareWrite(&session_, "/kernels/"), std::nullopt);
 
     // The refresh would have filled the MCU and kernel fields.
     EXPECT_EQ(session_.Protocol(), protocolBefore);
@@ -219,9 +219,9 @@ TEST_F(CalibrationOperationCoordinator, CancelledWriteWarning)
 TEST_F(CalibrationOperationCoordinator, AcceptedWriteWarningSkipsCorrection)
 {
     ASSERT_THAT(cfg_.session.SelectRow(1), IsOk()); // proto_b: checksum n/a
-    EXPECT_CALL(interaction_, confirm_write_without_checksum()).WillOnce(Return(true));
+    EXPECT_CALL(interaction_, confirmWriteWithoutChecksum()).WillOnce(Return(true));
 
-    const std::optional<PreparedWrite> prepared = coordinator_.prepare_write(&session_, "/kernels/");
+    const std::optional<PreparedWrite> prepared = coordinator_.prepareWrite(&session_, "/kernels/");
 
     ASSERT_TRUE(prepared.has_value());
     EXPECT_THAT(prepared->image, ElementsAre(9, 2, 3));
@@ -235,9 +235,9 @@ TEST_F(CalibrationOperationCoordinator, AcceptedWriteWarningSkipsCorrection)
 
 TEST_F(CalibrationOperationCoordinator, CorrectedWriteUsesOnlyOperationBytes)
 {
-    expect_checksum({.corrected_rom_data = bytes::Bytes{4, 5, 6}});
+    expectChecksum({.corrected_rom_data = bytes::Bytes{4, 5, 6}});
 
-    const std::optional<PreparedWrite> prepared = coordinator_.prepare_write(&session_, "/kernels/");
+    const std::optional<PreparedWrite> prepared = coordinator_.prepareWrite(&session_, "/kernels/");
 
     ASSERT_TRUE(prepared.has_value());
     EXPECT_THAT(checksum_image_, ElementsAre(9, 2, 3));
@@ -259,9 +259,9 @@ TEST_F(CalibrationOperationCoordinator, ChecksumLogsKeepLegacyTextAndOrder)
     // QString::number(n, 16) produced.
     session_ = calibration::CalibrationSession{calibration::SessionId{2},
                                                calibration::SessionContents{.rom = bytes::Bytes(0x1a, 0)}};
-    expect_checksum({.canceled_due_to_missing_module = true});
+    expectChecksum({.canceled_due_to_missing_module = true});
 
-    ASSERT_TRUE(coordinator_.prepare_write(&session_, "/kernels/").has_value());
+    ASSERT_TRUE(coordinator_.prepareWrite(&session_, "/kernels/").has_value());
 
     EXPECT_THAT(logs_, ElementsAre(Pair(LogLevel::kDebug, "Protocol: proto_a"), Pair(LogLevel::kDebug, "Make: Subaru"),
                                    Pair(LogLevel::kDebug, "Checksum: yes"),
@@ -287,10 +287,10 @@ TEST_F(CalibrationOperationCoordinator, EmptyDefinedMethodReselectsBeforeChecksu
     // Row 2 is the last proto_a row; making it a Nissan shows that the
     // checksum request reads the reselected vehicle, not row 0.
     ASSERT_NO_FATAL_FAILURE(start(kNissanForesterCatalog));
-    ASSERT_NO_FATAL_FAILURE(open_session(header_only_definition(), {}));
-    expect_checksum({});
+    ASSERT_NO_FATAL_FAILURE(openSession(headerOnlyDefinition(), {}));
+    expectChecksum({});
 
-    const std::optional<PreparedWrite> prepared = coordinator_.prepare_write(&session_, "/kernels/");
+    const std::optional<PreparedWrite> prepared = coordinator_.prepareWrite(&session_, "/kernels/");
 
     ASSERT_TRUE(prepared.has_value());
     ASSERT_THAT(cfg_.session.SelectedRow(), IsOk());
@@ -337,7 +337,7 @@ void PrintTo(const UncorrectedCase& param, std::ostream *os)
     *os << param.name;
 }
 
-std::vector<UncorrectedCase> uncorrected_cases()
+std::vector<UncorrectedCase> uncorrectedCases()
 {
     return {UncorrectedCase{"NoCorrectedBytes", {}, false, false},
             UncorrectedCase{"DeclinedMissingModule", {.canceled_due_to_missing_module = true}, true, false},
@@ -358,9 +358,9 @@ class UncorrectedWriteStillPrepares : public CoordinatorHarness<::testing::TestW
 
 TEST_P(UncorrectedWriteStillPrepares, WithOriginalBytes)
 {
-    expect_checksum(GetParam().result);
+    expectChecksum(GetParam().result);
 
-    const std::optional<PreparedWrite> prepared = coordinator_.prepare_write(&session_, "/kernels/");
+    const std::optional<PreparedWrite> prepared = coordinator_.prepareWrite(&session_, "/kernels/");
 
     ASSERT_TRUE(prepared.has_value());
     EXPECT_THAT(prepared->image, ElementsAre(9, 2, 3));
@@ -372,7 +372,7 @@ TEST_P(UncorrectedWriteStillPrepares, WithOriginalBytes)
         logs_, Contains(Pair(LogLevel::kError, "Unknown MCU type: SH7058")).Times(GetParam().logs_unknown_mcu ? 1 : 0));
 }
 
-INSTANTIATE_TEST_SUITE_P(Outcomes, UncorrectedWriteStillPrepares, ::testing::ValuesIn(uncorrected_cases()),
+INSTANTIATE_TEST_SUITE_P(Outcomes, UncorrectedWriteStillPrepares, ::testing::ValuesIn(uncorrectedCases()),
                          [](const ::testing::TestParamInfo<UncorrectedCase>& info)
                          { return std::string{info.param.name}; });
 
@@ -395,11 +395,11 @@ class DefinitionlessOrNonemptyMethodDoesNotReselect
 
 TEST_P(DefinitionlessOrNonemptyMethodDoesNotReselect, ButRefreshesKernelAndMcu)
 {
-    ASSERT_NO_FATAL_FAILURE(open_session(
-        GetParam().has_definition ? std::optional{header_only_definition()} : std::nullopt, GetParam().flash_method));
-    expect_checksum({});
+    ASSERT_NO_FATAL_FAILURE(openSession(
+        GetParam().has_definition ? std::optional{headerOnlyDefinition()} : std::nullopt, GetParam().flash_method));
+    expectChecksum({});
 
-    const std::optional<PreparedWrite> prepared = coordinator_.prepare_write(&session_, "/kernels/");
+    const std::optional<PreparedWrite> prepared = coordinator_.prepareWrite(&session_, "/kernels/");
 
     ASSERT_TRUE(prepared.has_value());
     EXPECT_EQ(session_.Protocol().flash_method, GetParam().flash_method);
@@ -440,9 +440,9 @@ class KernelDirectoryJoining : public CoordinatorHarness<::testing::TestWithPara
 
 TEST_P(KernelDirectoryJoining, MatchesFlashKernelPath)
 {
-    expect_checksum({});
+    expectChecksum({});
 
-    const std::optional<PreparedWrite> prepared = coordinator_.prepare_write(&session_, GetParam().directory);
+    const std::optional<PreparedWrite> prepared = coordinator_.prepareWrite(&session_, GetParam().directory);
 
     ASSERT_TRUE(prepared.has_value());
     EXPECT_EQ(session_.Protocol().kernel_path, GetParam().expected_path);
@@ -456,14 +456,14 @@ INSTANTIATE_TEST_SUITE_P(Directories, KernelDirectoryJoining,
                          [](const ::testing::TestParamInfo<KernelDirectoryCase>& info)
                          { return std::string{info.param.name}; });
 
-std::string_view mode_name(SaveMode mode)
+std::string_view modeName(SaveMode mode)
 {
     return mode == SaveMode::kSave ? "Save" : "SaveAs";
 }
 
-std::string mode_param_name(const ::testing::TestParamInfo<SaveMode>& info)
+std::string modeParamName(const ::testing::TestParamInfo<SaveMode>& info)
 {
-    return std::string{mode_name(info.param)};
+    return std::string{modeName(info.param)};
 }
 
 class MissingSaveSelection : public CoordinatorHarness<::testing::TestWithParam<SaveMode>>
@@ -472,7 +472,7 @@ class MissingSaveSelection : public CoordinatorHarness<::testing::TestWithParam<
 
 TEST_P(MissingSaveSelection, OnlyNotifies)
 {
-    EXPECT_CALL(interaction_, show_notice(CalibrationNotice::kNoCalibrationToSave));
+    EXPECT_CALL(interaction_, showNotice(CalibrationNotice::kNoCalibrationToSave));
 
     EXPECT_EQ(coordinator_.save(nullptr, GetParam()), SaveOutcome::kNoSelection);
 
@@ -482,11 +482,11 @@ TEST_P(MissingSaveSelection, OnlyNotifies)
 }
 
 INSTANTIATE_TEST_SUITE_P(Modes, MissingSaveSelection, ::testing::Values(SaveMode::kSave, SaveMode::kSaveAs),
-                         mode_param_name);
+                         modeParamName);
 
 TEST_F(CalibrationOperationCoordinator, SavePersistsCorrectedCopy)
 {
-    expect_checksum({.corrected_rom_data = bytes::Bytes{4, 5, 6}});
+    expectChecksum({.corrected_rom_data = bytes::Bytes{4, 5, 6}});
 
     EXPECT_EQ(coordinator_.save(&session_, SaveMode::kSave), SaveOutcome::kSaved);
     EXPECT_THAT(cfg_.file_repository.files.at("/old/read.bin"), ElementsAre(4, 5, 6));
@@ -512,8 +512,8 @@ class UncorrectedSaveStillPersists : public CoordinatorHarness<::testing::TestWi
 TEST_P(UncorrectedSaveStillPersists, WithOriginalBytes)
 {
     const auto& [outcome, mode] = GetParam();
-    expect_checksum(outcome.result);
-    const std::string destination = expect_destination(mode);
+    expectChecksum(outcome.result);
+    const std::string destination = expectDestination(mode);
 
     EXPECT_EQ(coordinator_.save(&session_, mode), SaveOutcome::kSaved);
 
@@ -529,9 +529,9 @@ TEST_P(UncorrectedSaveStillPersists, WithOriginalBytes)
 
 INSTANTIATE_TEST_SUITE_P(
     Outcomes, UncorrectedSaveStillPersists,
-    ::testing::Combine(::testing::ValuesIn(uncorrected_cases()), ::testing::Values(SaveMode::kSave, SaveMode::kSaveAs)),
+    ::testing::Combine(::testing::ValuesIn(uncorrectedCases()), ::testing::Values(SaveMode::kSave, SaveMode::kSaveAs)),
     [](const ::testing::TestParamInfo<UncorrectedSaveParam>& info)
-    { return std::format("{}_{}", std::get<0>(info.param).name, mode_name(std::get<1>(info.param))); });
+    { return std::format("{}_{}", std::get<0>(info.param).name, modeName(std::get<1>(info.param))); });
 
 class SaveDoesNotRefreshWriteMetadata : public CoordinatorHarness<::testing::TestWithParam<SaveMode>>
 {
@@ -540,10 +540,10 @@ class SaveDoesNotRefreshWriteMetadata : public CoordinatorHarness<::testing::Tes
 TEST_P(SaveDoesNotRefreshWriteMetadata, EvenForEmptyDefinedMethod)
 {
     // A write would fill this empty method and reselect row 2 by it.
-    ASSERT_NO_FATAL_FAILURE(open_session(header_only_definition(), {}));
+    ASSERT_NO_FATAL_FAILURE(openSession(headerOnlyDefinition(), {}));
     const calibration::RomProtocolInfo protocolBefore = session_.Protocol();
-    expect_checksum({});
-    expect_destination(GetParam());
+    expectChecksum({});
+    expectDestination(GetParam());
 
     EXPECT_EQ(coordinator_.save(&session_, GetParam()), SaveOutcome::kSaved);
 
@@ -556,7 +556,7 @@ TEST_P(SaveDoesNotRefreshWriteMetadata, EvenForEmptyDefinedMethod)
 }
 
 INSTANTIATE_TEST_SUITE_P(Modes, SaveDoesNotRefreshWriteMetadata, ::testing::Values(SaveMode::kSave, SaveMode::kSaveAs),
-                         mode_param_name);
+                         modeParamName);
 
 TEST_F(CalibrationOperationCoordinator, SaveAsCorrectsBeforeChoosingPath)
 {
@@ -565,8 +565,8 @@ TEST_F(CalibrationOperationCoordinator, SaveAsCorrectsBeforeChoosingPath)
     cfg_.PutSettings(config::testing::Setting("calibration_files_directory", "/cal"));
     ASSERT_NO_FATAL_FAILURE(start(config::testing::kStandardCatalog));
     ASSERT_NE(cfg_.paths.calibration_files_directory, "/cal/");
-    expect_checksum({.corrected_rom_data = bytes::Bytes{4, 5, 6}});
-    expect_choose("/cal/saved.bin");
+    expectChecksum({.corrected_rom_data = bytes::Bytes{4, 5, 6}});
+    expectChoose("/cal/saved.bin");
 
     EXPECT_EQ(coordinator_.save(&session_, SaveMode::kSaveAs), SaveOutcome::kSaved);
 
@@ -605,9 +605,9 @@ class SaveAsCancelledAfterCorrection : public CoordinatorHarness<::testing::Test
 TEST_P(SaveAsCancelledAfterCorrection, WritesNothing)
 {
     const calibration::RomSource sourceBefore = session_.Source();
-    expect_checksum({.corrected_rom_data = bytes::Bytes{4, 5, 6}});
-    expect_choose(GetParam().chosen);
-    EXPECT_CALL(interaction_, show_notice(CalibrationNotice::kNoSaveFilename))
+    expectChecksum({.corrected_rom_data = bytes::Bytes{4, 5, 6}});
+    expectChoose(GetParam().chosen);
+    EXPECT_CALL(interaction_, showNotice(CalibrationNotice::kNoSaveFilename))
         .WillOnce([this] { trace_.emplace_back("notice"); });
 
     EXPECT_EQ(coordinator_.save(&session_, SaveMode::kSaveAs), SaveOutcome::kCancelled);
@@ -649,8 +649,8 @@ TEST_P(SaveAsFilenameCompatibility, PersistsLegacySuffix)
 {
     const std::string& expectedPath = GetParam().expected_path;
     const std::string& expectedBasename = GetParam().expected_basename;
-    expect_checksum({.corrected_rom_data = bytes::Bytes{4, 5, 6}});
-    expect_choose(GetParam().selected);
+    expectChecksum({.corrected_rom_data = bytes::Bytes{4, 5, 6}});
+    expectChoose(GetParam().selected);
 
     EXPECT_EQ(coordinator_.save(&session_, SaveMode::kSaveAs), SaveOutcome::kSaved);
     EXPECT_EQ(session_.Source().path, expectedPath);
@@ -688,18 +688,18 @@ TEST_P(FailedSavePreservesState, AndReportsOnce)
     const auto [mode, initiallyDirty] = GetParam();
     if (!initiallyDirty)
     {
-        session_ = ecu_read(std::nullopt, {});
+        session_ = ecuRead(std::nullopt, {});
     }
     // Save As names the normalized destination, not the picker's text.
     const std::string target = mode == SaveMode::kSave ? "/old/read.bin" : "/cal/fail.bin";
     if (mode == SaveMode::kSaveAs)
     {
-        expect_choose("/cal/fail");
+        expectChoose("/cal/fail");
     }
     cfg_.file_repository.write_errors[target] = Error{ErrorKind::kInternal, "disk full"};
     const calibration::RomSource sourceBefore = session_.Source();
     const bytes::Bytes romBefore(session_.Rom().begin(), session_.Rom().end());
-    expect_checksum({.corrected_rom_data = bytes::Bytes{4, 5, 6}});
+    expectChecksum({.corrected_rom_data = bytes::Bytes{4, 5, 6}});
 
     EXPECT_EQ(coordinator_.save(&session_, mode), SaveOutcome::kFailed);
 
@@ -719,7 +719,7 @@ INSTANTIATE_TEST_SUITE_P(States, FailedSavePreservesState,
                          ::testing::Combine(::testing::Values(SaveMode::kSave, SaveMode::kSaveAs), ::testing::Bool()),
                          [](const ::testing::TestParamInfo<FailedSaveParam>& info)
                          {
-                             return std::format("{}_{}", mode_name(std::get<0>(info.param)),
+                             return std::format("{}_{}", modeName(std::get<0>(info.param)),
                                                 std::get<1>(info.param) ? "Dirty" : "Clean");
                          });
 

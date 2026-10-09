@@ -617,7 +617,7 @@ template <KernelFreePlanBuilder Build> class EagerPlan
     {
     }
 
-    Result<FlashPlan>& plan(const FlashWorkflowRequest&)
+    Result<FlashPlan>& Plan(const FlashWorkflowRequest&)
     {
         return plan_;
     }
@@ -638,7 +638,7 @@ template <PlanPreparation Prepare> class LazyPlan
     {
     }
 
-    Result<FlashPlan>& plan(FlashWorkflowRequest& request)
+    Result<FlashPlan>& Plan(FlashWorkflowRequest& request)
     {
         if (!plan_.has_value())
         {
@@ -653,7 +653,7 @@ template <PlanPreparation Prepare> class LazyPlan
 
 // A kernel-backed family: the protocol's kernel file is read, then the family
 // builder runs.
-template <KernelBackedPlanBuilder Build> Result<FlashPlan> prepareKernelBacked(FlashWorkflowRequest& request)
+template <KernelBackedPlanBuilder Build> Result<FlashPlan> PrepareKernelBacked(FlashWorkflowRequest& request)
 {
     QtFileRepository repository;
     Result<KernelImage> kernel = ResolveKernel(request, repository);
@@ -695,7 +695,7 @@ Result<FlashPlan> PrepareMc68(FlashWorkflowRequest& request)
 // MC68HC16Y5 BDM: only Write reads the kernel file -- its "write" uploads and
 // starts the protocol's kernel. The operator's ROM (request.image) is never
 // forwarded: BDM never writes the ROM.
-Result<FlashPlan> prepareBdm(FlashWorkflowRequest& request)
+Result<FlashPlan> PrepareBdm(FlashWorkflowRequest& request)
 {
     if (request.operation != FlashOperation::kWrite)
     {
@@ -712,9 +712,9 @@ Result<FlashPlan> prepareBdm(FlashWorkflowRequest& request)
                                                std::nullopt, std::move(*kernel));
 }
 
-template <KernelBackedPlanBuilder Build> using CachedKernelPlan = LazyPlan<&prepareKernelBacked<Build>>;
+template <KernelBackedPlanBuilder Build> using CachedKernelPlan = LazyPlan<&PrepareKernelBacked<Build>>;
 using Mc68KernelPlan = LazyPlan<&PrepareMc68>;
-using BdmKernelPlan = LazyPlan<&prepareBdm>;
+using BdmKernelPlan = LazyPlan<&PrepareBdm>;
 
 // The control flow shared by every family whose operation is one attempt:
 // preflight, Begin, the plan's confirmations in order, the attempt, then its
@@ -733,7 +733,7 @@ class SingleAttemptFlashWorkflow final : public FlashWorkflow
 
     FlashWorkflowStep Next() override
     {
-        Result<FlashPlan>& plan = preparation_.plan(request_);
+        Result<FlashPlan>& plan = preparation_.Plan(request_);
         if (!plan.has_value())
         {
             return FlashFailureStep{plan.error()};

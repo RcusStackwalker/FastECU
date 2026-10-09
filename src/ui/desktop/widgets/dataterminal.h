@@ -37,10 +37,10 @@ class DataTerminal : public QDialog
     Q_OBJECT
 
   signals:
-    void LOG_E(QString message, bool timestamp, bool linefeed);
-    void LOG_W(QString message, bool timestamp, bool linefeed);
-    void LOG_I(QString message, bool timestamp, bool linefeed);
-    void LOG_D(QString message, bool timestamp, bool linefeed);
+    void logE(QString message, bool timestamp, bool linefeed);
+    void logW(QString message, bool timestamp, bool linefeed);
+    void logI(QString message, bool timestamp, bool linefeed);
+    void logD(QString message, bool timestamp, bool linefeed);
 
   public:
     explicit DataTerminal(fastecu::diagnostics::IDiagnosticLink& link, QWidget *parent = nullptr);
@@ -56,9 +56,9 @@ class DataTerminal : public QDialog
 
     QVBoxLayout *v_box_layout_{};
 
-    uint8_t calculate_checksum(const QByteArray& output, bool dec0x100);
-    QByteArray add_ssm_header(QByteArray output, uint8_t testerId, uint8_t targetId, bool dec0x100);
-    QString parse_message_to_hex(const QByteArray& received);
+    uint8_t calculateChecksum(const QByteArray& output, bool dec0x100);
+    QByteArray addSsmHeader(QByteArray output, uint8_t testerId, uint8_t targetId, bool dec0x100);
+    QString parseMessageToHex(const QByteArray& received);
     void delay(int timeout);
 
     fastecu::diagnostics::IDiagnosticLink *link_ = nullptr;

@@ -22,16 +22,16 @@ TEST(MockCalibrationInteraction, DispatchesScriptedRepliesThroughInterface)
 
     ChecksumCorrectionResult correctedResult;
     correctedResult.corrected_rom_data = bytes::Bytes{4, 5, 6};
-    EXPECT_CALL(mock, confirm_write_without_checksum()).WillOnce(Return(false));
-    EXPECT_CALL(mock, correct_checksums(_, true, _)).WillOnce(Return(correctedResult));
-    EXPECT_CALL(mock, choose_save_path(std::string_view("/old/read.bin")))
+    EXPECT_CALL(mock, confirmWriteWithoutChecksum()).WillOnce(Return(false));
+    EXPECT_CALL(mock, correctChecksums(_, true, _)).WillOnce(Return(correctedResult));
+    EXPECT_CALL(mock, chooseSavePath(std::string_view("/old/read.bin")))
         .WillOnce(Return(std::optional<std::string>("/cal/new.bin")));
-    EXPECT_CALL(mock, show_notice(CalibrationNotice::kNoSaveFilename)).Times(1);
+    EXPECT_CALL(mock, showNotice(CalibrationNotice::kNoSaveFilename)).Times(1);
 
-    EXPECT_FALSE(port.confirm_write_without_checksum());
-    const auto corrected = port.correct_checksums(image, true, selection);
+    EXPECT_FALSE(port.confirmWriteWithoutChecksum());
+    const auto corrected = port.correctChecksums(image, true, selection);
     ASSERT_TRUE(corrected.corrected_rom_data.has_value());
     EXPECT_THAT(*corrected.corrected_rom_data, ElementsAre(4, 5, 6));
-    EXPECT_EQ(port.choose_save_path("/old/read.bin"), "/cal/new.bin");
-    port.show_notice(CalibrationNotice::kNoSaveFilename);
+    EXPECT_EQ(port.chooseSavePath("/old/read.bin"), "/cal/new.bin");
+    port.showNotice(CalibrationNotice::kNoSaveFilename);
 }

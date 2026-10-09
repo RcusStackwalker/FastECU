@@ -17,11 +17,11 @@ enum class DensoTcuReadAction
     kCancelled,
 };
 
-DensoTcuReadAction choose_denso_tcu_read_action(QWidget *parent);
+DensoTcuReadAction chooseDensoTcuReadAction(QWidget *parent);
 
 // Returns false only when the caller must continue into the ROM-dump flash
 // workflow. Every other result is fully handled here and stops flash routing.
-bool run_denso_tcu_service_action(DensoTcuReadAction action, SerialPortActions *serial, std::string protocol,
-                                  QWidget *parent);
+bool runDensoTcuServiceAction(DensoTcuReadAction action, SerialPortActions *serial, std::string protocol,
+                              QWidget *parent);
 
 } // namespace fastecu::service_functions

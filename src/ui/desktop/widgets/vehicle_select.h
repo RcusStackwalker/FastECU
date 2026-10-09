@@ -32,7 +32,7 @@ class VehicleSelect : public QDialog
 
     // The accepted row; empty until the operator chooses one. The session
     // itself is never changed here: the caller applies an accepted choice.
-    std::optional<std::size_t> chosen_row() const;
+    std::optional<std::size_t> chosenRow() const;
 
   private:
     QFont font_;
@@ -68,10 +68,10 @@ class VehicleSelect : public QDialog
     std::optional<std::size_t> chosen_row_;
 
   private slots:
-    void car_model_selected();
-    void car_make_treewidget_item_selected();
-    void car_model_treewidget_item_selected();
-    void car_version_treewidget_item_selected();
+    void carModelSelected();
+    void carMakeTreewidgetItemSelected();
+    void carModelTreewidgetItemSelected();
+    void carVersionTreewidgetItemSelected();
 
   private:
     std::unique_ptr<Ui::VehicleSelect> ui_;

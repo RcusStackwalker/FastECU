@@ -13,9 +13,9 @@
 #include "src/backend/ports/testing/result_matchers.h"
 
 using fastecu::definition::DefinitionHeaderDraft;
-using fastecu::ui::build_header_form;
-using fastecu::ui::definition_header_input;
-using fastecu::ui::normalize_xml_suffix;
+using fastecu::ui::buildHeaderForm;
+using fastecu::ui::definitionHeaderInput;
+using fastecu::ui::normalizeXmlSuffix;
 
 namespace
 {
@@ -61,7 +61,7 @@ TEST(BuildHeaderFormTest, MapsTypedValuesAndEditsBackIntoTheDomainHeader)
                                                    .checksum_module = "Checksum"},
                                       .include = "Parent",
                                       .notes = "Notes"};
-    const auto editors = build_header_form(grid, draft);
+    const auto editors = buildHeaderForm(grid, draft);
     EXPECT_EQ(editors.xml_id->text(), "XML");
     EXPECT_EQ(editors.internal_id_address->text(), "2f8000");
     EXPECT_EQ(editors.internal_id->text(), "INTERNAL");
@@ -78,7 +78,7 @@ TEST(BuildHeaderFormTest, MapsTypedValuesAndEditsBackIntoTheDomainHeader)
     EXPECT_EQ(editors.include->text(), "Parent");
     EXPECT_EQ(editors.notes->toPlainText(), "Notes");
     editors.ecu_id->setText("Changed ECU");
-    const auto input = definition_header_input(editors);
+    const auto input = definitionHeaderInput(editors);
     ASSERT_THAT(input, fastecu::testing::IsOk());
     EXPECT_EQ(input->xml_id, "XML");
     EXPECT_EQ(input->internal_id, "INTERNAL");
@@ -93,7 +93,7 @@ TEST(BuildHeaderFormTest, PreservesFieldLabelsAndPlacement)
 {
     QWidget host;
     auto *grid = new QGridLayout(&host);
-    const auto editors = build_header_form(grid);
+    const auto editors = buildHeaderForm(grid);
     const auto labels = std::to_array<const char *>(
         {"XML ID", "Internal ID Address", "Internal ID String", "ECU ID", "Make", "Market", "Model", "Submodel",
          "Transmission", "Year", "Flash Method", "Memory Model", "Checksum Module", "Include", "Notes"});
@@ -113,9 +113,9 @@ TEST(DefinitionHeaderInputTest, WidgetObjectNamesDoNotDetermineDomainFieldMappin
 {
     QWidget host;
     auto *grid = new QGridLayout(&host);
-    const auto editors = build_header_form(grid, {.xml_id = "ID", .ecu_id = "ECU"});
+    const auto editors = buildHeaderForm(grid, {.xml_id = "ID", .ecu_id = "ECU"});
     editors.ecu_id->setObjectName("presentation-only");
-    const auto input = definition_header_input(editors);
+    const auto input = definitionHeaderInput(editors);
     ASSERT_THAT(input, fastecu::testing::IsOk());
     EXPECT_EQ(input->ecu_id, "ECU");
 }
@@ -125,23 +125,23 @@ TEST(DefinitionHeaderInputTest, NormalizesScalarsAndValidatesEditedAddress)
     QWidget host;
     auto *grid = new QGridLayout(&host);
     const auto editors =
-        build_header_form(grid, {.xml_id = "  CAL123  ", .ecu_id = "  ECU  ", .internal_id_address_text = "   "});
-    auto input = definition_header_input(editors);
+        buildHeaderForm(grid, {.xml_id = "  CAL123  ", .ecu_id = "  ECU  ", .internal_id_address_text = "   "});
+    auto input = definitionHeaderInput(editors);
     ASSERT_THAT(input, fastecu::testing::IsOk());
     EXPECT_EQ(input->xml_id, "CAL123");
     EXPECT_EQ(input->ecu_id, "ECU");
     EXPECT_EQ(input->internal_id_address, std::nullopt);
     editors.internal_id_address->setText("not-hex");
-    EXPECT_THAT(definition_header_input(editors), fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
+    EXPECT_THAT(definitionHeaderInput(editors), fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
 }
 
 TEST(NormalizeXmlSuffixTest, StripsOneTrailingDotThenAppendsXml)
 {
-    EXPECT_EQ(normalize_xml_suffix("foo"), "foo.xml");
-    EXPECT_EQ(normalize_xml_suffix("foo."), "foo.xml");
-    EXPECT_EQ(normalize_xml_suffix("foo.xml"), "foo.xml");
-    EXPECT_EQ(normalize_xml_suffix("foo.bar"), "foo.bar.xml");
-    EXPECT_EQ(normalize_xml_suffix("/tmp/a b/def."), "/tmp/a b/def.xml");
+    EXPECT_EQ(normalizeXmlSuffix("foo"), "foo.xml");
+    EXPECT_EQ(normalizeXmlSuffix("foo."), "foo.xml");
+    EXPECT_EQ(normalizeXmlSuffix("foo.xml"), "foo.xml");
+    EXPECT_EQ(normalizeXmlSuffix("foo.bar"), "foo.bar.xml");
+    EXPECT_EQ(normalizeXmlSuffix("/tmp/a b/def."), "/tmp/a b/def.xml");
 }
 
 TEST(ImportedHeaderFieldsTest, LiteralMarkupNotesSurviveExtractionFormAndWriting)
@@ -152,8 +152,8 @@ TEST(ImportedHeaderFieldsTest, LiteralMarkupNotesSurviveExtractionFormAndWriting
     ASSERT_THAT(draft, fastecu::testing::IsOk());
     QWidget host;
     auto *grid = new QGridLayout(&host);
-    const auto editors = build_header_form(grid, *draft);
-    const auto input = definition_header_input(editors);
+    const auto editors = buildHeaderForm(grid, *draft);
+    const auto input = definitionHeaderInput(editors);
     ASSERT_THAT(input, fastecu::testing::IsOk());
     EXPECT_EQ(input->notes, " \n<b>literal note</b>\n ");
     const auto written = fastecu::definition::CreateEcuflashXml(*input);

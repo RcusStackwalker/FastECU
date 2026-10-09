@@ -54,18 +54,22 @@ class LoggingEngine final : public QObject
     bool IsRunning() const;
 
   signals:
+    // NOLINTBEGIN(readability-identifier-naming): Qt signals keep Qt's camelBack names
     void valuesUpdated(QVector<fastecu::logging::LogSample> samples);
     void statusChanged(LoggingStatus status);
     void sessionEnded(SessionEndReason reason, QString message);
-    void LOG_E(QString message, bool timestamp, bool linefeed);
-    void LOG_W(QString message, bool timestamp, bool linefeed);
-    void LOG_I(QString message, bool timestamp, bool linefeed);
-    void LOG_D(QString message, bool timestamp, bool linefeed);
+    void logE(QString message, bool timestamp, bool linefeed);
+    void logW(QString message, bool timestamp, bool linefeed);
+    void logI(QString message, bool timestamp, bool linefeed);
+    void logD(QString message, bool timestamp, bool linefeed);
+    // NOLINTEND(readability-identifier-naming): end of Qt block
 
   private slots:
+    // NOLINTBEGIN(readability-identifier-naming): Qt slots keep Qt's camelBack names
     void handleWorkerStateChanged(fastecu::logging::LoggingState state);
     void handleWorkerSessionFinished(fastecu::Status result);
     void handleDiagnostic(int level, QString message);
+    // NOLINTEND(readability-identifier-naming): end of Qt block
 
   private:
     void FinishActiveRun(SessionEndReason reason, QString detail, bool publish);

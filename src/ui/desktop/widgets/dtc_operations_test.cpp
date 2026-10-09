@@ -21,7 +21,7 @@ TEST(DtcOperationsTest, aFailedRunLogsOnceAndReenablesTheButtons)
 {
     FakeDiagnosticLink link; // five-baud answers nothing -> fails before any sleep
     DtcOperations dialog(link);
-    fastecu::testing::SignalRecorder errors(&dialog, &DtcOperations::LOG_E);
+    fastecu::testing::SignalRecorder errors(&dialog, &DtcOperations::logE);
     auto *read = dialog.findChild<QPushButton *>("readDtcButton");
     ASSERT_TRUE(read != nullptr);
     read->click();

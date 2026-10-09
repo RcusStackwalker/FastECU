@@ -84,7 +84,7 @@ class Sh72543rExecutor : public ::testing::Test
         EXPECT_THAT(p, fastecu::testing::IsOk());
         return std::move(*p);
     }
-    Result<FlashExecutionResult> Run()
+    Result<FlashExecutionResult> ExecutePlan()
     {
         return executor_.Execute(Plan(), transport_, clock_, cancel_, events_);
     }
@@ -185,7 +185,7 @@ TEST_F(Sh72543rExecutor, CompleteReadPinsBytesTimingAndKernelShortcut)
     Access();
     auto expected = Pages();
     Stop();
-    auto result = Run();
+    auto result = ExecutePlan();
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(result->read_bytes, expected);
     EXPECT_FALSE(result->rom_id);
@@ -222,7 +222,7 @@ TEST_F(Sh72543rExecutor, PartialIdentityDoesNotReadPastReply)
     Access();
     auto expected = Pages();
     Stop(true);
-    auto result = Run();
+    auto result = ExecutePlan();
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(result->rom_id, "CAL_");
     EXPECT_EQ(result->read_bytes, expected);
@@ -236,7 +236,7 @@ TEST_F(Sh72543rExecutor, ToleratedSessionAndMissingIdentityStillRead)
     Key();
     auto expected = Pages();
     Stop();
-    auto result = Run();
+    auto result = ExecutePlan();
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_FALSE(result->rom_id);
     EXPECT_EQ(result->read_bytes, expected);
@@ -263,7 +263,7 @@ TEST_F(Sh72543rExecutor, WrongKeyStopsBeforePage)
     Session();
     Seed();
     Key({0x67, 3});
-    EXPECT_THAT(Run(), fastecu::testing::IsErr(ErrorKind::kBadResponse));
+    EXPECT_THAT(ExecutePlan(), fastecu::testing::IsErr(ErrorKind::kBadResponse));
     EXPECT_TRUE(transport_.ScriptConsumed());
 }
 TEST_F(Sh72543rExecutor, RejectsMalformedPagesWithoutPartialSuccess)
@@ -288,7 +288,7 @@ TEST_F(Sh72543rExecutor, WrongPageServiceIsRejected)
     Alive();
     Access();
     X(PageRequest(0), Bytes(0x401, 0xf7));
-    EXPECT_THAT(Run(), fastecu::testing::IsErr(ErrorKind::kBadResponse));
+    EXPECT_THAT(ExecutePlan(), fastecu::testing::IsErr(ErrorKind::kBadResponse));
     EXPECT_TRUE(transport_.ScriptConsumed());
 }
 TEST_F(Sh72543rExecutor, RequiredPageTimeoutIsFatal)
@@ -297,7 +297,7 @@ TEST_F(Sh72543rExecutor, RequiredPageTimeoutIsFatal)
     Access();
     transport_.ExpectWrite(Req(PageRequest(0)));
     transport_.QueueNoFrame();
-    EXPECT_THAT(Run(), fastecu::testing::IsErr(ErrorKind::kTimeout));
+    EXPECT_THAT(ExecutePlan(), fastecu::testing::IsErr(ErrorKind::kTimeout));
     EXPECT_TRUE(transport_.ScriptConsumed());
 }
 TEST_F(Sh72543rExecutor, CancellationAfterReadStopsNextCommand)
@@ -311,22 +311,22 @@ TEST_F(Sh72543rExecutor, CancellationAfterReadStopsNextCommand)
             cancel_.Cancel();
         }
     };
-    EXPECT_THAT(Run(), fastecu::testing::IsErr(ErrorKind::kCancelled));
+    EXPECT_THAT(ExecutePlan(), fastecu::testing::IsErr(ErrorKind::kCancelled));
     EXPECT_EQ(transport_.writes, 4U);
 }
 TEST_F(Sh72543rExecutor, DisconnectAndFailedWritesAreFatal)
 {
     transport_.fail_write = 0;
-    EXPECT_THAT(Run(), fastecu::testing::IsErr(ErrorKind::kDisconnected));
+    EXPECT_THAT(ExecutePlan(), fastecu::testing::IsErr(ErrorKind::kDisconnected));
     transport_.fail_write.reset();
     transport_.fail_read = 0;
     Alive();
-    EXPECT_THAT(Run(), fastecu::testing::IsErr(ErrorKind::kDisconnected));
+    EXPECT_THAT(ExecutePlan(), fastecu::testing::IsErr(ErrorKind::kDisconnected));
 }
 TEST_F(Sh72543rExecutor, CancelledBeforeStartDoesNoIo)
 {
     cancel_.Cancel();
-    EXPECT_THAT(Run(), fastecu::testing::IsErr(ErrorKind::kCancelled));
+    EXPECT_THAT(ExecutePlan(), fastecu::testing::IsErr(ErrorKind::kCancelled));
     EXPECT_EQ(transport_.writes, 0U);
 }
 TEST_F(Sh72543rExecutor, CancellationDuringPagesDoesNotPublishPartialImage)
@@ -342,7 +342,7 @@ TEST_F(Sh72543rExecutor, CancellationDuringPagesDoesNotPublishPartialImage)
             cancel_.Cancel();
         }
     };
-    EXPECT_THAT(Run(), fastecu::testing::IsErr(ErrorKind::kCancelled));
+    EXPECT_THAT(ExecutePlan(), fastecu::testing::IsErr(ErrorKind::kCancelled));
     EXPECT_EQ(transport_.writes, 101U);
     EXPECT_LT(events_.phase_progress_calls.back().done, events_.phase_progress_calls.back().total);
 }
@@ -352,7 +352,7 @@ TEST_F(Sh72543rExecutor, EcuOnlyIdentityAndExplicitOptionalTimeoutArePreserved)
     Access();
     Pages();
     Stop();
-    auto result = Run();
+    auto result = ExecutePlan();
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(result->rom_id, "1122334455_");
 }
@@ -365,7 +365,7 @@ TEST_F(Sh72543rExecutor, ExplicitTimeoutDuringOptionalSessionIsTolerated)
     Key();
     Pages();
     Stop();
-    EXPECT_THAT(Run(), fastecu::testing::IsOk());
+    EXPECT_THAT(ExecutePlan(), fastecu::testing::IsOk());
 }
 TEST_F(Sh72543rExecutor, ForgedDryRunAndWireChangesAreRejectedBeforeIo)
 {
@@ -677,7 +677,7 @@ TEST_F(Sh72543rWrite, ReusedExecutorDoesNotLeakReadMetadataIntoWrite)
     Access();
     Pages();
     Stop();
-    auto read = Run();
+    auto read = ExecutePlan();
     ASSERT_THAT(read, fastecu::testing::IsOk());
     EXPECT_EQ(read->rom_id, "CAL_1122334455_");
     ScriptSetup();

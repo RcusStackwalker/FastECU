@@ -95,14 +95,14 @@ struct MapFixture
 constexpr auto kXAxis = R"(<table type="X Axis" name="Speed" address="40" elements="2" scaling="Raw"/>)";
 constexpr auto kYAxis = R"(<table type="Y Axis" name="Load" address="50" elements="2" scaling="Raw"/>)";
 
-std::string numeric_table(std::string_view type, int x, int y, std::string_view axes = {})
+std::string numericTable(std::string_view type, int x, int y, std::string_view axes = {})
 {
     return "<table name=\"Timing\" type=\"" + std::string(type) + "\" address=\"20\" scaling=\"Raw\" sizex=\"" +
            std::to_string(x) + "\" sizey=\"" + std::to_string(y) + "\">" + std::string(axes) + "</table>";
 }
 
-void replace_definition(fastecu::calibration::CalibrationSession& session,
-                        fastecu::calibration::ResolvedDefinition definition)
+void replaceDefinition(fastecu::calibration::CalibrationSession& session,
+                       fastecu::calibration::ResolvedDefinition definition)
 {
     const auto rom = session.Rom();
     fastecu::calibration::SessionContents contents{.source = session.Source(),
@@ -112,7 +112,7 @@ void replace_definition(fastecu::calibration::CalibrationSession& session,
     session = fastecu::calibration::CalibrationSession(session.Id(), std::move(contents));
 }
 
-QTableWidget *table_of(CalibrationMaps& map)
+QTableWidget *tableOf(CalibrationMaps& map)
 {
     return map.findChild<QTableWidget *>();
 }
@@ -151,8 +151,8 @@ TEST_P(LayoutsAndRefreshParameters, layoutsAndRefresh)
     const int bodyCol = GetParam().body_col;
     MapFixture fixture;
     const auto id = fixture.open(
-        numeric_table(type.toStdString(), x, y,
-                      (x > 1 ? std::string(kXAxis) : std::string{}) + (y > 1 ? std::string(kYAxis) : std::string{})));
+        numericTable(type.toStdString(), x, y,
+                     (x > 1 ? std::string(kXAxis) : std::string{}) + (y > 1 ? std::string(kYAxis) : std::string{})));
     ASSERT_TRUE(id.has_value());
     if (type == "2D" && y > 1)
     {
@@ -165,10 +165,10 @@ TEST_P(LayoutsAndRefreshParameters, layoutsAndRefresh)
         typedMap.y_size = 2;
         typedMap.y_axis = typedMap.x_axis;
         typedMap.x_axis = {};
-        replace_definition(*session, std::move(definition));
+        replaceDefinition(*session, std::move(definition));
     }
     CalibrationMaps map(fixture.workspace, *id, 0, QRect(0, 0, 800, 600));
-    auto *table = table_of(map);
+    auto *table = tableOf(map);
     ASSERT_TRUE(table != nullptr);
     ASSERT_EQ(table->rowCount(), rows);
     ASSERT_EQ(table->columnCount(), cols);
@@ -216,7 +216,7 @@ TEST_P(StaticAxisLabelsParameters, staticAxisLabels)
     MapFixture fixture;
     const std::string axis = "<table type=\"" + std::string("Static X Axis") +
                              "\" name=\"Labels\" elements=\"2\"><data>Low</data><data>High</data></table>";
-    const auto id = fixture.open(numeric_table("2D", 2, 1, axis));
+    const auto id = fixture.open(numericTable("2D", 2, 1, axis));
     ASSERT_TRUE(id.has_value());
     if (axisType == "Static Y Axis")
     {
@@ -226,10 +226,10 @@ TEST_P(StaticAxisLabelsParameters, staticAxisLabels)
         auto *session = fixture.workspace.Find(*id);
         auto definition = *session->Definition();
         definition.definition.maps[0].x_axis.type = "Static Y Axis";
-        replace_definition(*session, std::move(definition));
+        replaceDefinition(*session, std::move(definition));
     }
     CalibrationMaps map(fixture.workspace, *id, 0, QRect(0, 0, 800, 600));
-    auto *table = table_of(map);
+    auto *table = tableOf(map);
     ASSERT_EQ(table->rowCount(), 2);
     ASSERT_EQ(table->columnCount(), 2);
     ASSERT_EQ(table->item(0, 0)->text(), "Low");
@@ -244,10 +244,10 @@ TEST_P(StaticAxisLabelsParameters, staticAxisLabels)
 TEST(CalibrationMapsTest, absentAxisUsesSequentialFallback)
 {
     MapFixture fixture;
-    const auto id = fixture.open(numeric_table("2D", 2, 1));
+    const auto id = fixture.open(numericTable("2D", 2, 1));
     ASSERT_TRUE(id.has_value());
     CalibrationMaps map(fixture.workspace, *id, 0, QRect(0, 0, 800, 600));
-    auto *table = table_of(map);
+    auto *table = tableOf(map);
     ASSERT_EQ(table->item(0, 0)->text(), "0");
     ASSERT_EQ(table->item(0, 1)->text(), "1");
     map.refresh();
@@ -261,14 +261,14 @@ TEST(CalibrationMapsTest, selectableReflectsBlobBytesWithoutEmittingEditSignal)
     const auto id = fixture.open(R"(<table name="Mode" type="Selectable" address="60" scaling="Modes"/>)");
     ASSERT_TRUE(id.has_value());
     CalibrationMaps map(fixture.workspace, *id, 0, QRect(0, 0, 800, 600));
-    auto *table = table_of(map);
+    auto *table = tableOf(map);
     auto *combo = qobject_cast<QComboBox *>(table->cellWidget(0, 0));
     ASSERT_TRUE(combo != nullptr);
     ASSERT_EQ(table->rowCount(), 1);
     ASSERT_EQ(table->columnCount(), 1);
     ASSERT_EQ(combo->count(), 2);
     ASSERT_EQ(combo->currentText(), "On");
-    fastecu::testing::SignalRecorder edits(&map, &CalibrationMaps::selectable_combobox_item_changed);
+    fastecu::testing::SignalRecorder edits(&map, &CalibrationMaps::selectableComboboxItemChanged);
     fastecu::testing::SignalRecorder changes(combo, &QComboBox::currentTextChanged);
     const std::array<std::uint8_t, 2> off{0, 0};
     ASSERT_TRUE(fixture.workspace.Find(*id)->WriteBytes(96, off).has_value());
@@ -282,7 +282,7 @@ TEST(CalibrationMapsTest, selectableReflectsBlobBytesWithoutEmittingEditSignal)
 TEST(CalibrationMapsTest, retainedMultiSelectableGeometryKeepsLegacyNumericCell)
 {
     MapFixture fixture;
-    const auto id = fixture.open(numeric_table("1D", 1, 1));
+    const auto id = fixture.open(numericTable("1D", 1, 1));
     ASSERT_TRUE(id.has_value());
     auto *session = fixture.workspace.Find(*id);
     auto definition = *session->Definition();
@@ -291,9 +291,9 @@ TEST(CalibrationMapsTest, retainedMultiSelectableGeometryKeepsLegacyNumericCell)
     typedMap.y_axis.type = "Y Axis";
     typedMap.y_axis.name = "Labels";
     typedMap.y_axis.units = "Label";
-    replace_definition(*session, std::move(definition));
+    replaceDefinition(*session, std::move(definition));
     CalibrationMaps map(fixture.workspace, *id, 0, QRect(0, 0, 800, 600));
-    auto *table = table_of(map);
+    auto *table = tableOf(map);
     ASSERT_EQ(table->rowCount(), 1);
     ASSERT_EQ(table->columnCount(), 1);
     ASSERT_TRUE(table->item(0, 0) != nullptr);
@@ -309,20 +309,20 @@ TEST(CalibrationMapsTest, retainedMultiSelectableGeometryKeepsLegacyNumericCell)
 TEST(CalibrationMapsTest, retainedSwitchRefreshKeepsUncheckedControlWithoutEmittingEdits)
 {
     MapFixture fixture;
-    const auto id = fixture.open(numeric_table("1D", 1, 1));
+    const auto id = fixture.open(numericTable("1D", 1, 1));
     ASSERT_TRUE(id.has_value());
     auto *session = fixture.workspace.Find(*id);
     auto definition = *session->Definition();
     definition.definition.maps[0].type = "Switch";
-    replace_definition(*session, std::move(definition));
+    replaceDefinition(*session, std::move(definition));
     CalibrationMaps map(fixture.workspace, *id, 0, QRect(0, 0, 800, 600));
-    auto *table = table_of(map);
+    auto *table = tableOf(map);
     ASSERT_EQ(table->rowCount(), 1);
     ASSERT_EQ(table->columnCount(), 1);
     auto *checkbox = qobject_cast<QCheckBox *>(table->cellWidget(0, 0));
     ASSERT_TRUE(checkbox != nullptr);
     ASSERT_TRUE(!checkbox->isChecked());
-    fastecu::testing::SignalRecorder edits(&map, &CalibrationMaps::checkbox_state_changed);
+    fastecu::testing::SignalRecorder edits(&map, &CalibrationMaps::checkboxStateChanged);
     checkbox->setChecked(true);
     ASSERT_EQ(edits.Count(), 1U);
     const auto editsBeforeRefresh = edits.Count();
@@ -336,16 +336,16 @@ TEST(CalibrationMapsTest, retainedSwitchRefreshKeepsUncheckedControlWithoutEmitt
 TEST(CalibrationMapsTest, switchCheckboxEmitsQtCheckStateValues)
 {
     MapFixture fixture;
-    const auto id = fixture.open(numeric_table("1D", 1, 1));
+    const auto id = fixture.open(numericTable("1D", 1, 1));
     ASSERT_TRUE(id.has_value());
     auto *session = fixture.workspace.Find(*id);
     auto definition = *session->Definition();
     definition.definition.maps[0].type = "Switch";
-    replace_definition(*session, std::move(definition));
+    replaceDefinition(*session, std::move(definition));
     CalibrationMaps map(fixture.workspace, *id, 0, QRect(0, 0, 800, 600));
-    auto *checkbox = qobject_cast<QCheckBox *>(table_of(map)->cellWidget(0, 0));
+    auto *checkbox = qobject_cast<QCheckBox *>(tableOf(map)->cellWidget(0, 0));
     ASSERT_TRUE(checkbox != nullptr);
-    fastecu::testing::SignalRecorder edits(&map, &CalibrationMaps::checkbox_state_changed);
+    fastecu::testing::SignalRecorder edits(&map, &CalibrationMaps::checkboxStateChanged);
     checkbox->setChecked(true);
     checkbox->setChecked(false);
     ASSERT_EQ(edits.Count(), 2U);
@@ -356,10 +356,10 @@ TEST(CalibrationMapsTest, switchCheckboxEmitsQtCheckStateValues)
 TEST(CalibrationMapsTest, colorsKeepOpeningBoundsDuringRefreshAndReopenUsesCurrentValues)
 {
     MapFixture fixture;
-    const auto id = fixture.open(numeric_table("2D", 2, 1, kXAxis));
+    const auto id = fixture.open(numericTable("2D", 2, 1, kXAxis));
     ASSERT_TRUE(id.has_value());
     CalibrationMaps map(fixture.workspace, *id, 0, QRect(0, 0, 800, 600));
-    auto *table = table_of(map);
+    auto *table = tableOf(map);
     const auto minimumColor = table->item(1, 0)->background().color();
     const auto maximumColor = table->item(1, 1)->background().color();
     ASSERT_TRUE(minimumColor != maximumColor);
@@ -369,7 +369,7 @@ TEST(CalibrationMapsTest, colorsKeepOpeningBoundsDuringRefreshAndReopenUsesCurre
     ASSERT_EQ(table->item(1, 0)->background().color(), maximumColor);
     ASSERT_EQ(table->item(1, 1)->background().color(), maximumColor);
     CalibrationMaps reopened(fixture.workspace, *id, 0, QRect(0, 0, 800, 600));
-    auto *reopenedTable = table_of(reopened);
+    auto *reopenedTable = tableOf(reopened);
     ASSERT_EQ(reopenedTable->item(1, 0)->background().color(), maximumColor);
     ASSERT_EQ(reopenedTable->item(1, 1)->background().color(), minimumColor);
     // Reopening must not alter the already open window's color bounds.
@@ -380,10 +380,10 @@ TEST(CalibrationMapsTest, colorsKeepOpeningBoundsDuringRefreshAndReopenUsesCurre
 TEST(CalibrationMapsTest, constantMapHasFiniteStableColors)
 {
     MapFixture fixture;
-    const auto id = fixture.open(numeric_table("2D", 2, 1, kXAxis), true);
+    const auto id = fixture.open(numericTable("2D", 2, 1, kXAxis), true);
     ASSERT_TRUE(id.has_value());
     CalibrationMaps map(fixture.workspace, *id, 0, QRect(0, 0, 800, 600));
-    auto *table = table_of(map);
+    auto *table = tableOf(map);
     const auto color = table->item(1, 0)->background().color();
     ASSERT_TRUE(color.isValid());
     ASSERT_EQ(table->item(1, 1)->background().color(), color);
@@ -392,16 +392,16 @@ TEST(CalibrationMapsTest, constantMapHasFiniteStableColors)
     map.refresh();
     ASSERT_EQ(table->item(1, 0)->background().color(), color);
     CalibrationMaps reopened(fixture.workspace, *id, 0, QRect(0, 0, 800, 600));
-    ASSERT_EQ(table_of(reopened)->item(1, 1)->background().color(), color);
+    ASSERT_EQ(tableOf(reopened)->item(1, 1)->background().color(), color);
 }
 
 TEST(CalibrationMapsTest, closedSessionRefreshIsInertAfterAnotherSessionOpens)
 {
     MapFixture fixture;
-    const auto id = fixture.open(numeric_table("1D", 1, 1));
+    const auto id = fixture.open(numericTable("1D", 1, 1));
     ASSERT_TRUE(id.has_value());
     CalibrationMaps map(fixture.workspace, *id, 0, QRect(0, 0, 800, 600));
-    auto *table = table_of(map);
+    auto *table = tableOf(map);
     fastecu::testing::SignalRecorder changed(table, &QTableWidget::cellChanged);
     ASSERT_TRUE(fixture.workspace.Close(*id).has_value());
     const auto replacement = fixture.workspace.OpenFile("/cal/maps.bin");
@@ -423,7 +423,7 @@ const auto *const kApplicationEnvironment =
 TEST(CalibrationMaps, InvalidNumericCellShowsNanAndDiagnostic)
 {
     MapFixture fixture;
-    const auto id = fixture.open(numeric_table("1D", 1, 1));
+    const auto id = fixture.open(numericTable("1D", 1, 1));
     ASSERT_THAT(id, fastecu::testing::IsOk());
     auto *session = fixture.workspace.Find(*id);
     auto definition = *session->Definition();
@@ -434,9 +434,9 @@ TEST(CalibrationMaps, InvalidNumericCellShowsNanAndDiagnostic)
             scaling.from_byte = "1/(x-10)";
         }
     }
-    replace_definition(*session, std::move(definition));
+    replaceDefinition(*session, std::move(definition));
     CalibrationMaps map(fixture.workspace, *id, 0, QRect(0, 0, 800, 600));
-    auto *item = table_of(map)->item(0, 0);
+    auto *item = tableOf(map)->item(0, 0);
     ASSERT_NE(item, nullptr);
     EXPECT_EQ(item->text(), "NaN");
     EXPECT_FALSE(item->toolTip().isEmpty());
@@ -446,16 +446,16 @@ TEST(CalibrationMaps, InvalidNumericCellShowsNanAndDiagnostic)
 TEST(CalibrationMaps, StructuralRefreshFailureClearsStaleValuesAndRecovers)
 {
     MapFixture fixture;
-    const auto id = fixture.open(numeric_table("1D", 1, 1));
+    const auto id = fixture.open(numericTable("1D", 1, 1));
     ASSERT_THAT(id, fastecu::testing::IsOk());
     CalibrationMaps map(fixture.workspace, *id, 0, QRect(0, 0, 800, 600));
-    auto *table = table_of(map);
+    auto *table = tableOf(map);
     ASSERT_NE(table->item(0, 0), nullptr);
     auto *session = fixture.workspace.Find(*id);
     const auto validDefinition = *session->Definition();
     auto broken = validDefinition;
     broken.definition.maps[0].address = 1000;
-    replace_definition(*session, std::move(broken));
+    replaceDefinition(*session, std::move(broken));
     map.refresh();
     EXPECT_FALSE(table->isEnabled());
     EXPECT_EQ(table->rowCount(), 0);
@@ -463,7 +463,7 @@ TEST(CalibrationMaps, StructuralRefreshFailureClearsStaleValuesAndRecovers)
     ASSERT_NE(error, nullptr);
     EXPECT_FALSE(error->text().isEmpty());
     EXPECT_FALSE(error->isHidden());
-    replace_definition(*session, validDefinition);
+    replaceDefinition(*session, validDefinition);
     map.refresh();
     EXPECT_TRUE(table->isEnabled());
     ASSERT_NE(table->item(0, 0), nullptr);
@@ -477,35 +477,35 @@ TEST(CalibrationMaps, StructuralRefreshFailureClearsStaleValuesAndRecovers)
 TEST(CalibrationMaps, EditTargetResolvesThroughMdiWindowAfterOpeningFailureRecovers)
 {
     MapFixture fixture;
-    const auto id = fixture.open(numeric_table("1D", 1, 1));
+    const auto id = fixture.open(numericTable("1D", 1, 1));
     ASSERT_THAT(id, fastecu::testing::IsOk());
     auto *session = fixture.workspace.Find(*id);
     const auto validDefinition = *session->Definition();
     auto broken = validDefinition;
     broken.definition.maps[0].address = 1000;
-    replace_definition(*session, std::move(broken));
+    replaceDefinition(*session, std::move(broken));
     auto *map = new CalibrationMaps(fixture.workspace, *id, 0, QRect(0, 0, 800, 600));
     QMdiSubWindow window;
     window.setWidget(map);
     window.setObjectName(map->objectName());
-    replace_definition(*session, validDefinition);
+    replaceDefinition(*session, validDefinition);
     map->refresh();
     ASSERT_NE(window.objectName(), map->objectName());
-    auto *table = table_of(*map);
+    auto *table = tableOf(*map);
     table->setRangeSelected(QTableWidgetSelectionRange(table->rowCount() - 1, table->columnCount() - 1,
                                                        table->rowCount() - 1, table->columnCount() - 1),
                             true);
 
-    EXPECT_TRUE(fastecu::ui::selected_numeric_target(&window, *session, 0).has_value());
+    EXPECT_TRUE(fastecu::ui::selectedNumericTarget(&window, *session, 0).has_value());
 }
 
 TEST(CalibrationMaps, SelectAllSelectsTheBodyAndLeavesTheAxesOut)
 {
     MapFixture fixture;
-    const auto id = fixture.open(numeric_table("3D", 2, 2, std::string(kXAxis) + std::string(kYAxis)));
+    const auto id = fixture.open(numericTable("3D", 2, 2, std::string(kXAxis) + std::string(kYAxis)));
     ASSERT_THAT(id, fastecu::testing::IsOk());
     CalibrationMaps map(fixture.workspace, *id, 0, QRect(0, 0, 800, 600));
-    auto *table = table_of(map);
+    auto *table = tableOf(map);
     table->setRangeSelected(QTableWidgetSelectionRange(0, 0, 0, 0), true);
 
     QKeyEvent selectAll(QEvent::KeyPress, Qt::Key_A, Qt::ControlModifier);
@@ -522,14 +522,14 @@ TEST(CalibrationMaps, SelectAllSelectsTheBodyAndLeavesTheAxesOut)
 TEST(CalibrationMaps, StructuralFailureAtOpeningShowsError)
 {
     MapFixture fixture;
-    const auto id = fixture.open(numeric_table("1D", 1, 1));
+    const auto id = fixture.open(numericTable("1D", 1, 1));
     ASSERT_THAT(id, fastecu::testing::IsOk());
     auto *session = fixture.workspace.Find(*id);
     auto broken = *session->Definition();
     broken.definition.maps[0].address = 1000;
-    replace_definition(*session, std::move(broken));
+    replaceDefinition(*session, std::move(broken));
     CalibrationMaps map(fixture.workspace, *id, 0, QRect(0, 0, 800, 600));
-    EXPECT_FALSE(table_of(map)->isEnabled());
+    EXPECT_FALSE(tableOf(map)->isEnabled());
     const auto *error = map.findChild<QLabel *>("mapDecodeError");
     ASSERT_NE(error, nullptr);
     EXPECT_FALSE(error->text().isEmpty());
@@ -540,9 +540,9 @@ TEST(CalibrationMaps, StaticLabelContainingCommaRemainsOneLabel)
     MapFixture fixture;
     const std::string axis =
         R"(<table type="Static X Axis" name="Labels" elements="2"><data>Low, load</data><data>High</data></table>)";
-    const auto id = fixture.open(numeric_table("2D", 2, 1, axis));
+    const auto id = fixture.open(numericTable("2D", 2, 1, axis));
     ASSERT_THAT(id, fastecu::testing::IsOk());
     CalibrationMaps map(fixture.workspace, *id, 0, QRect(0, 0, 800, 600));
-    EXPECT_EQ(table_of(map)->item(0, 0)->text(), "Low, load");
-    EXPECT_EQ(table_of(map)->item(0, 1)->text(), "High");
+    EXPECT_EQ(tableOf(map)->item(0, 0)->text(), "Low, load");
+    EXPECT_EQ(tableOf(map)->item(0, 1)->text(), "High");
 }

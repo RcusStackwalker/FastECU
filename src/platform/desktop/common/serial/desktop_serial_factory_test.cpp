@@ -36,10 +36,10 @@ TEST(DesktopSerialFactoryTest, everyLogLevelReachesTheSink)
     ASSERT_TRUE(serial != nullptr);
     sink.messages.clear();
 
-    emit serial->LOG_E("error", false, false);
-    emit serial->LOG_W("warning", false, false);
-    emit serial->LOG_I("info", false, false);
-    emit serial->LOG_D("debug", false, false);
+    emit serial->logE("error", false, false);
+    emit serial->logW("warning", false, false);
+    emit serial->logI("info", false, false);
+    emit serial->logD("debug", false, false);
 
     ASSERT_EQ(sink.messages, (QStringList{"error", "warning", "info", "debug"}));
 }

@@ -14,7 +14,7 @@ QString text(const std::string& value)
     return value.empty() ? QString(" ") : QString::fromStdString(value);
 }
 
-std::vector<PresentedCell> present_numeric(const calibration::NumericRun& run, const QString& format)
+std::vector<PresentedCell> presentNumeric(const calibration::NumericRun& run, const QString& format)
 {
     std::vector<PresentedCell> cells;
     cells.reserve(run.cells.size());
@@ -22,7 +22,7 @@ std::vector<PresentedCell> present_numeric(const calibration::NumericRun& run, c
     {
         if (cell.has_value())
         {
-            cells.push_back({.text = format_map_value(*cell, format), .numeric_value = *cell});
+            cells.push_back({.text = formatMapValue(*cell, format), .numeric_value = *cell});
         }
         else
         {
@@ -32,11 +32,11 @@ std::vector<PresentedCell> present_numeric(const calibration::NumericRun& run, c
     return cells;
 }
 
-std::optional<std::vector<PresentedCell>> present_axis(const calibration::AxisValue& axis, const QString& format)
+std::optional<std::vector<PresentedCell>> presentAxis(const calibration::AxisValue& axis, const QString& format)
 {
     if (const auto *numeric = std::get_if<calibration::NumericRun>(&axis))
     {
-        return present_numeric(*numeric, format);
+        return presentNumeric(*numeric, format);
     }
     if (const auto *labels = std::get_if<calibration::StaticAxis>(&axis))
     {
@@ -51,7 +51,7 @@ std::optional<std::vector<PresentedCell>> present_axis(const calibration::AxisVa
 }
 } // namespace
 
-Result<MapPresentation> present_map(const calibration::CalibrationSession& session, std::size_t index)
+Result<MapPresentation> presentMap(const calibration::CalibrationSession& session, std::size_t index)
 {
     const auto decoded = session.DecodeMap(index);
     if (!decoded.has_value())
@@ -82,15 +82,15 @@ Result<MapPresentation> present_map(const calibration::CalibrationSession& sessi
     };
     if (const auto *numeric = std::get_if<calibration::NumericRun>(&decoded->body))
     {
-        result.body = present_numeric(*numeric, result.format);
+        result.body = presentNumeric(*numeric, result.format);
     }
     else
     {
         result.blob = std::get<calibration::BlobValue>(decoded->body).data;
         result.body.push_back({.text = QString::fromStdString(bytes::ToHex(*result.blob, "{:02x}"))});
     }
-    result.x_axis = present_axis(decoded->x_axis, result.x_format);
-    result.y_axis = present_axis(decoded->y_axis, result.y_format);
+    result.x_axis = presentAxis(decoded->x_axis, result.x_format);
+    result.y_axis = presentAxis(decoded->y_axis, result.y_format);
     if (scaling != nullptr)
     {
         for (const auto& [name, value] : scaling->selections)
@@ -102,7 +102,7 @@ Result<MapPresentation> present_map(const calibration::CalibrationSession& sessi
     return result;
 }
 
-int selection_index(const PresentedCell& cell)
+int selectionIndex(const PresentedCell& cell)
 {
     if (!cell.numeric_value.has_value())
     {
@@ -117,13 +117,13 @@ int selection_index(const PresentedCell& cell)
     return static_cast<int>(value);
 }
 
-QString format_map_value(double value, const QString& format)
+QString formatMapValue(double value, const QString& format)
 {
     const auto decimals = static_cast<int>(format.contains('.') ? format.split('.').at(1).count(QLatin1Char('0')) : 0);
     return QString::number(value, 'f', decimals);
 }
 
-std::optional<MapColorBounds> opening_color_bounds(const MapPresentation& map)
+std::optional<MapColorBounds> openingColorBounds(const MapPresentation& map)
 {
     std::optional<MapColorBounds> bounds;
     for (const auto& cell : map.body)
@@ -145,7 +145,7 @@ std::optional<MapColorBounds> opening_color_bounds(const MapPresentation& map)
     return bounds;
 }
 
-QColor map_cell_color(double value, MapColorBounds bounds)
+QColor mapCellColor(double value, MapColorBounds bounds)
 {
     constexpr double kScale = 210.0 / 360.0;
     double fraction = 0.0;

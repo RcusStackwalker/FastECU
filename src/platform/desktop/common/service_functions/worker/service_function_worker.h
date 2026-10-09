@@ -57,11 +57,13 @@ class ServiceFunctionWorker final : public QThread
     void AnswerGate(int gate_id, bool accepted);
 
   signals:
+    // NOLINTBEGIN(readability-identifier-naming): Qt signals keep Qt's camelBack names
     void logEvent(int level, QString message);
     void progressChanged(int done, int total);
     void gateRequested(int gate_id);
     // Emitted exactly once per run(), always from this worker's own thread.
     void finished(fastecu::service_functions::ServiceFunctionWorkerResult result);
+    // NOLINTEND(readability-identifier-naming)
 
   protected:
     void run() override;

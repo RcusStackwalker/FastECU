@@ -23,10 +23,12 @@ class J2534 : public QObject
     Q_OBJECT
 
   signals:
-    void LOG_E(QString message, bool timestamp, bool linefeed);
-    void LOG_W(QString message, bool timestamp, bool linefeed);
-    void LOG_I(QString message, bool timestamp, bool linefeed);
-    void LOG_D(QString message, bool timestamp, bool linefeed);
+    // NOLINTBEGIN(readability-identifier-naming): Qt signals keep Qt's camelBack names
+    void logE(QString message, bool timestamp, bool linefeed);
+    void logW(QString message, bool timestamp, bool linefeed);
+    void logI(QString message, bool timestamp, bool linefeed);
+    void logD(QString message, bool timestamp, bool linefeed);
+    // NOLINTEND(readability-identifier-naming)
 
   public:
     explicit J2534();
@@ -133,5 +135,7 @@ class J2534 : public QObject
     void Delay(int n);
 
   private slots:
-    void handle_error(QSerialPort::SerialPortError error);
+    // NOLINTBEGIN(readability-identifier-naming): Qt slots keep Qt's camelBack names
+    void handleError(QSerialPort::SerialPortError error);
+    // NOLINTEND(readability-identifier-naming)
 };

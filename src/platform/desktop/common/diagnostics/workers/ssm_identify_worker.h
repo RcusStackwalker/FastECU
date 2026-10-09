@@ -47,9 +47,11 @@ class SsmIdentifyWorker final : public QThread
     void RequestStop();
 
   signals:
+    // NOLINTBEGIN(readability-identifier-naming): Qt signals keep Qt's camelBack names
     void logEvent(int level, QString message);
     // Emitted exactly once per run(), from the worker thread.
     void completed(fastecu::diagnostics::SsmIdentifyWorkerResult result);
+    // NOLINTEND(readability-identifier-naming)
 
   protected:
     void run() override;

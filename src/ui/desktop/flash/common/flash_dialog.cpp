@@ -98,16 +98,16 @@ void FlashDialog::startAttempt(FlashAttempt attempt)
                 switch (static_cast<LogLevel>(level))
                 {
                 case kError:
-                    emit LOG_E(message, true, true);
+                    emit logE(message, true, true);
                     break;
                 case kWarning:
-                    emit LOG_W(message, true, true);
+                    emit logW(message, true, true);
                     break;
                 case kInfo:
-                    emit LOG_I(message, true, true);
+                    emit logI(message, true, true);
                     break;
                 case kDebug:
-                    emit LOG_D(message, true, true);
+                    emit logD(message, true, true);
                     break;
                 }
             });
@@ -139,7 +139,7 @@ void FlashDialog::startAttempt(FlashAttempt attempt)
 void FlashDialog::workerFinished(FlashWorkerResult result)
 {
     worker_.reset();
-    emit external_logger("Finished");
+    emit externalLogger("Finished");
     workflow_->Submit(FlashAttemptResult{result.success, result.error_kind, result.error_detail.toStdString(),
                                          std::move(result.read_bytes), std::move(result.rom_id)});
     advance();
@@ -328,9 +328,9 @@ void FlashDialog::showFailure(const Error& error)
         return;
     }
     QMessageBox::warning(this, tr("ECU Operation"), text);
-    emit LOG_E(QString("ECU operation failed (%1): %2")
-                   .arg(QString::fromUtf8(ToString(error.kind)), QString::fromStdString(error.detail)),
-               true, true);
+    emit logE(QString("ECU operation failed (%1): %2")
+                  .arg(QString::fromUtf8(ToString(error.kind)), QString::fromStdString(error.detail)),
+              true, true);
 }
 
 void FlashDialog::closeEvent(QCloseEvent *event)
@@ -379,7 +379,7 @@ void FlashDialog::setProgress(int done, int total)
         {
             ui_->progressbar->setValue(value);
         }
-        emit external_logger(value);
+        emit externalLogger(value);
     }
 }
 

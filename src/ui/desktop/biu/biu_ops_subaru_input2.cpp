@@ -65,14 +65,14 @@ BiuOpsSubaruInput2::BiuOpsSubaruInput2(QStringList *biuOptionNames, QByteArray *
     ui_->gridLayout->addWidget(sendSetting, static_cast<int>(biuOptionResult->length() * 8 + 1), 2);
 
     connect(ui_->gridLayoutWidget->findChild<QPushButton *>("Name Send"), SIGNAL(clicked(bool)), this,
-            SLOT(prepare_biu_setting2()));
+            SLOT(prepareBiuSetting2()));
 }
 
 BiuOpsSubaruInput2::~BiuOpsSubaruInput2()
 {
 }
 
-void BiuOpsSubaruInput2::prepare_biu_setting2()
+void BiuOpsSubaruInput2::prepareBiuSetting2()
 {
     QByteArray output;
     QRadioButton *currentButton;
@@ -95,5 +95,5 @@ void BiuOpsSubaruInput2::prepare_biu_setting2()
         }
     }
 
-    emit send_biu_setting2(output);
+    emit sendBiuSetting2(output);
 }

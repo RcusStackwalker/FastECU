@@ -26,11 +26,13 @@ class RemoteSerialBackend : public QObject, public SerialBackend
     Q_OBJECT
 
   signals:
+    // NOLINTBEGIN(readability-identifier-naming): Qt signals keep Qt's camelBack names
     void stateChanged(QRemoteObjectReplica::State state, QRemoteObjectReplica::State old_state);
-    void LOG_E(QString message, bool timestamp, bool linefeed);
-    void LOG_W(QString message, bool timestamp, bool linefeed);
-    void LOG_I(QString message, bool timestamp, bool linefeed);
-    void LOG_D(QString message, bool timestamp, bool linefeed);
+    void logE(QString message, bool timestamp, bool linefeed);
+    void logW(QString message, bool timestamp, bool linefeed);
+    void logI(QString message, bool timestamp, bool linefeed);
+    void logD(QString message, bool timestamp, bool linefeed);
+    // NOLINTEND(readability-identifier-naming)
 
   public:
     explicit RemoteSerialBackend(QString peer_address, QString password, QWebSocket *external_socket = nullptr,
@@ -184,6 +186,8 @@ class RemoteSerialBackend : public QObject, public SerialBackend
     void SendAutoDiscoveryMessage();
 
   private slots:
-    void websocket_connected();
+    // NOLINTBEGIN(readability-identifier-naming): Qt slots keep Qt's camelBack names
+    void websocketConnected();
     void serialRemoteStateChanged(QRemoteObjectReplica::State state, QRemoteObjectReplica::State old_state);
+    // NOLINTEND(readability-identifier-naming)
 };

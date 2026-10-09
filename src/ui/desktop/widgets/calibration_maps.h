@@ -53,8 +53,8 @@ class CalibrationMaps : public QWidget
     bool eventFilter(QObject *watched, QEvent *event) override;
 
   private:
-    void initialize_view(const fastecu::ui::MapPresentation& map, const fastecu::calibration::RomSource& source);
-    void show_map_error(const fastecu::Error& error);
+    void initializeView(const fastecu::ui::MapPresentation& map, const fastecu::calibration::RomSource& source);
+    void showMapError(const fastecu::Error& error);
     void setMapTableWidgetSize(int maxWidth, int maxHeight, int sizeX);
 
   public:
@@ -70,8 +70,8 @@ class CalibrationMaps : public QWidget
   signals:
     void fetchFromEcuButtonClicked();
     void storeToEcuButtonClicked();
-    void selectable_combobox_item_changed(QString);
-    void checkbox_state_changed(int);
+    void selectableComboboxItemChanged(QString);
+    void checkboxStateChanged(int);
 
   private:
     fastecu::calibration::CalibrationWorkspace& workspace_;

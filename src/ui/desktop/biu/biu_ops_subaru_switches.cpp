@@ -60,7 +60,7 @@ BiuOpsSubaruSwitches::~BiuOpsSubaruSwitches()
 {
 }
 
-void BiuOpsSubaruSwitches::update_switch_results(QStringList *switchResult)
+void BiuOpsSubaruSwitches::updateSwitchResults(QStringList *switchResult)
 {
 
     QLabel *currentLabel;

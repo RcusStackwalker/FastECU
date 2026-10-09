@@ -40,12 +40,12 @@ class FlashDialog : public QDialog
     static ProgrammingVoltageNotice programmingVoltageNotice(const FlashPromptStep& prompt);
 
   signals:
-    void external_logger(QString message);
-    void external_logger(int value);
-    void LOG_E(QString message, bool timestamp, bool linefeed);
-    void LOG_W(QString message, bool timestamp, bool linefeed);
-    void LOG_I(QString message, bool timestamp, bool linefeed);
-    void LOG_D(QString message, bool timestamp, bool linefeed);
+    void externalLogger(QString message);
+    void externalLogger(int value);
+    void logE(QString message, bool timestamp, bool linefeed);
+    void logW(QString message, bool timestamp, bool linefeed);
+    void logI(QString message, bool timestamp, bool linefeed);
+    void logD(QString message, bool timestamp, bool linefeed);
 
   protected:
     virtual FlashPromptResponse presentPrompt(const FlashPromptStep& prompt);

@@ -12,9 +12,9 @@ RemoteSerialBackend::RemoteSerialBackend(QString peer_address, QString password,
 {
     if (external_socket && external_socket->thread() != thread())
     {
-        emit LOG_W("RemoteSerialBackend: external websocket has foreign thread "
-                   "affinity, creating own socket instead",
-                   true, true);
+        emit logW("RemoteSerialBackend: external websocket has foreign thread "
+                  "affinity, creating own socket instead",
+                  true, true);
         external_socket = nullptr;
     }
     web_socket_ = external_socket ? external_socket : new QWebSocket("", QWebSocketProtocol::VersionLatest, this);
@@ -32,7 +32,7 @@ void RemoteSerialBackend::WaitForSource()
     {
         SendAutoDiscoveryMessage();
         QThread::msleep(50);
-        emit LOG_D("RemoteSerialBackend: Waiting for remote peer...", true, true);
+        emit logD("RemoteSerialBackend: Waiting for remote peer...", true, true);
     }
 }
 
@@ -56,14 +56,14 @@ void RemoteSerialBackend::StartOverNetwork()
     ssl_configuration.setPeerVerifyMode(QSslSocket::VerifyNone);
     web_socket_->setSslConfiguration(ssl_configuration);
     // Start node when Web Socket will be up
-    QObject::connect(web_socket_, &QWebSocket::connected, this, &RemoteSerialBackend::websocket_connected);
+    QObject::connect(web_socket_, &QWebSocket::connected, this, &RemoteSerialBackend::websocketConnected);
     node_.setHeartbeatInterval(heartbeat_interval_);
     QObject::connect(web_socket_, &QWebSocket::errorOccurred, this,
                      [this](QAbstractSocket::SocketError error)
                      {
-                         emit LOG_D(QString(this->metaObject()->className()) + " startOverNetwork QWebSocket error: " +
-                                        QMetaEnum::fromType<QAbstractSocket::SocketError>().valueToKey(error),
-                                    true, true);
+                         emit logD(QString(this->metaObject()->className()) + " startOverNetwork QWebSocket error: " +
+                                       QMetaEnum::fromType<QAbstractSocket::SocketError>().valueToKey(error),
+                                   true, true);
                      });
     // WebSocket over SSL
     QUrl url("wss://" + peer_address_);
@@ -93,7 +93,7 @@ void RemoteSerialBackend::SendAutoDiscoveryMessage()
     }
 }
 
-void RemoteSerialBackend::websocket_connected()
+void RemoteSerialBackend::websocketConnected()
 {
     // Run client node after socket is up
     node_.addClientSideConnection(socket_);
@@ -106,11 +106,11 @@ void RemoteSerialBackend::serialRemoteStateChanged(QRemoteObjectReplica::State s
     emit stateChanged(state, old_state);
     if (state == QRemoteObjectReplica::Valid)
     {
-        emit LOG_D("RemoteSerialBackend remote connection established", true, true);
+        emit logD("RemoteSerialBackend remote connection established", true, true);
     }
     else if (old_state == QRemoteObjectReplica::Valid)
     {
-        emit LOG_D("RemoteSerialBackend remote connection lost", true, true);
+        emit logD("RemoteSerialBackend remote connection lost", true, true);
     }
 }
 
@@ -396,7 +396,7 @@ QString RemoteSerialBackend::GetSerialPortBaudrate()
 }
 bool RemoteSerialBackend::SetSerialPortBaudrate(QString value)
 {
-    emit LOG_D("Setting serialport baudrate in RemoteSerialBackend", true, true);
+    emit logD("Setting serialport baudrate in RemoteSerialBackend", true, true);
     return qtrohelper::SlotSync(serial_remote_->set_serial_port_baudrate(value));
 }
 QString RemoteSerialBackend::GetSerialPortLinux()

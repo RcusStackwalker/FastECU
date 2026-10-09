@@ -212,7 +212,7 @@ TEST(SettingsTest, editsReachTheSessionLive)
     Settings settings{disk.session};
 
     ASSERT_TRUE(
-        QMetaObject::invokeMethod(&settings, "toolbar_iconsize_value_changed", Qt::DirectConnection, Q_ARG(int, 40)));
+        QMetaObject::invokeMethod(&settings, "toolbarIconsizeValueChanged", Qt::DirectConnection, Q_ARG(int, 40)));
 
     ASSERT_EQ(disk.session.Settings().toolbar_iconsize, std::string("40"));
 }
@@ -232,8 +232,8 @@ TEST(SettingsTest, destructionRetriesPersistenceAfterClose)
         settings.close();
         ASSERT_EQ(boxes.texts().size(), 1);
         ASSERT_TRUE(QDir().rmdir(configFile));
-        ASSERT_TRUE(QMetaObject::invokeMethod(&settings, "toolbar_iconsize_value_changed", Qt::DirectConnection,
-                                              Q_ARG(int, 48)));
+        ASSERT_TRUE(
+            QMetaObject::invokeMethod(&settings, "toolbarIconsizeValueChanged", Qt::DirectConnection, Q_ARG(int, 48)));
     }
     ASSERT_EQ(boxes.texts().size(), 1);
     QFile saved{configFile};
@@ -254,8 +254,8 @@ TEST(SettingsTest, failedSaveKeepsEditsAndWarnsTheOperator)
     ModalCollector boxes;
     {
         Settings settings{disk.session};
-        ASSERT_TRUE(QMetaObject::invokeMethod(&settings, "toolbar_iconsize_value_changed", Qt::DirectConnection,
-                                              Q_ARG(int, 40)));
+        ASSERT_TRUE(
+            QMetaObject::invokeMethod(&settings, "toolbarIconsizeValueChanged", Qt::DirectConnection, Q_ARG(int, 40)));
         settings.close();
     }
 
