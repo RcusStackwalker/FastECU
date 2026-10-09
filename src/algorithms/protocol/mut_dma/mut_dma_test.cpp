@@ -28,22 +28,22 @@ TEST(MutDmaPortable, BuildIdListFrameEncodesChannelsAndTrailer)
     EXPECT_EQ(f[1], bytes::Byte(2));    // count
     // descriptors: ch0=2B->1 at bits[7:6], ch1=1B->0 at bits[5:4] => 0b01000000 = 0x40
     EXPECT_EQ(f[2], bytes::Byte(0x40));
-    // ids start at offset 2 + ceil(N/4) = 2 + 1 = 3, big-endian u16
-    EXPECT_EQ(f[3], bytes::Byte(0x80));
-    EXPECT_EQ(f[4], bytes::Byte(0x00));
-    EXPECT_EQ(f[5], bytes::Byte(0x80));
-    EXPECT_EQ(f[6], bytes::Byte(0x04));
+    // ids start at offset 2 + ceil(N/4) = 2 + 1 = 3, little-endian u16
+    EXPECT_EQ(f[3], bytes::Byte(0x00));
+    EXPECT_EQ(f[4], bytes::Byte(0x80));
+    EXPECT_EQ(f[5], bytes::Byte(0x04));
+    EXPECT_EQ(f[6], bytes::Byte(0x80));
     EXPECT_EQ(f[f.size() - 2], Sum8(f, 0, f.size() - 2));
     EXPECT_EQ(f[f.size() - 1], kTrailerStd);
 }
 
 // Mirrors tests/test_freeform.cpp's TestFreeform.decode_stream_values -- same
-// three-channel, 7-byte big-endian payload, expressed with std::vector.
+// three-channel, 7-byte little-endian payload, expressed with std::vector.
 TEST(MutDmaPortable, DecodeStreamValuesRoundTripsChannelSizes)
 {
     const std::vector<Channel> ch = {{0x8000, 2}, {0x8004, 1}, {0x8008, 4}};
     EXPECT_EQ(ResponseDataLength(ch), std::size_t{2 + 1 + 4});            // 7
-    const bytes::Bytes data = {0x12, 0x34, 0x56, 0x89, 0xAB, 0xCD, 0xEF}; // BE per channel
+    const bytes::Bytes data = {0x34, 0x12, 0x56, 0xEF, 0xCD, 0xAB, 0x89}; // LE per channel
     const std::vector<std::uint32_t> v = DecodeStreamValues(ch, data);
     ASSERT_EQ(v.size(), std::size_t(3));
     EXPECT_EQ(v.at(0), std::uint32_t(0x1234));
