@@ -1133,8 +1133,8 @@ TEST(SubaruDensoSh705xKlineExecutor, WriteLogsTheLegacyStrings)
     {
         write_body.emplace_back(L::kDebug, "Data written to flash buffer");
         // FakeClock does not advance: 1ms per chunk, 0x200 * 1000 B/s, ~1 s.
-        write_body.emplace_back(L::kInfo, std::format("Write flash buffer: 0x{:08X} ({}% - 512000 B/s, ~ 1 s remain)",
-                                                      address, 100U * address / 0x1000U));
+        write_body.emplace_back(L::kInfo, std::format("Write flash buffer: 0x{:08X} ({}% - 512000 B/s, ~ 1 s)", address,
+                                                      100U * address / 0x1000U));
     }
     write_body.insert(write_body.end(),
                       {

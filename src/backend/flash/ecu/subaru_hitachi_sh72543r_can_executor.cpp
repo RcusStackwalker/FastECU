@@ -1,8 +1,9 @@
 #include "src/backend/flash/ecu/subaru_hitachi_sh72543r_can_executor.h"
-#include "src/backend/flash/ecu/subaru_hitachi_sh72543r_can_plan.h"
-#include "src/backend/flash/ecu/flash_phase_progress.h"
-#include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
 #include "src/algorithms/protocol/bytes_compose.h"
+#include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
+#include "src/backend/flash/ecu/flash_phase_progress.h"
+#include "src/backend/flash/ecu/subaru_hitachi_sh72543r_can_plan.h"
+#include "src/backend/flash/transfer_progress.h"
 
 #include <algorithm>
 #include <array>
@@ -284,10 +285,9 @@ class Session
             const auto now = clock_.Now();
             const auto elapsed =
                 std::max<std::int64_t>(1, std::chrono::duration_cast<std::chrono::milliseconds>(now - last).count());
-            const auto speed = std::max<std::int64_t>(1, static_cast<long long>(0x400 * 1000) / elapsed);
-            events_.Log(LogLevel::kInfo,
-                        std::format("Kernel read addr:  0x{:08X}  length:  0x00000400,  {:6}  B/s {:6} s", address,
-                                    speed, (0x200000 - address) / speed + 1));
+            const TransferRate rate =
+                ComputeTransferRate(0x400, static_cast<std::uint64_t>(elapsed), 0x200000 - address);
+            events_.Log(LogLevel::kInfo, FormatReadProgress(address, 0x400, rate));
             last = now;
             progress.Update(static_cast<int>(image.size()));
         }
@@ -399,10 +399,11 @@ class Session
             const auto now = clock_.Now();
             const auto elapsed =
                 std::max<std::int64_t>(1, std::chrono::duration_cast<std::chrono::milliseconds>(now - last).count());
-            const auto speed = std::max<std::int64_t>(1, static_cast<long long>(0x100 * 1000) / elapsed);
+            const TransferRate rate =
+                ComputeTransferRate(0x100, static_cast<std::uint64_t>(elapsed), 0x200000 - address - 0x100);
             events_.Log(LogLevel::kInfo,
-                        std::format("Kernel write addr: 0x{:08x} length: 0x00000100, {:6} B/s {:6} s remain", address,
-                                    speed, std::min<std::int64_t>(9999, (0x200000 - address - 0x100) / speed) + 1));
+                        std::format("Kernel write addr: 0x{:08X} length: 0x00000100, {:>6} B/s {:>6} s remain", address,
+                                    rate.speed, rate.eta_s));
             last = now;
             progress.Update(static_cast<int>(address + 0x100 - 0x6000));
         }

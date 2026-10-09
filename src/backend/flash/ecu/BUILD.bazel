@@ -236,6 +236,7 @@ cc_library(
         "//src/algorithms/protocol/uds",
         "//src/algorithms/protocol/uds:uds_service_ids",
         "//src/backend/flash:can_flash_uds_channel",
+        "//src/backend/flash:transfer_progress",
         "//src/backend/protocol/uds:uds_client",
     ],
     deps = ["//src/backend/flash:flash_executor"],
@@ -418,6 +419,7 @@ cc_library(
         "//src/algorithms/protocol/uds",
         "//src/algorithms/protocol/uds:uds_service_ids",
         "//src/backend/flash:can_flash_uds_channel",
+        "//src/backend/flash:transfer_progress",
         "//src/backend/protocol/uds:uds_client",
     ],
     deps = ["//src/backend/flash:flash_executor"],
@@ -439,6 +441,7 @@ cc_library(
         "//src/algorithms/protocol/uds",
         "//src/algorithms/protocol/uds:uds_service_ids",
         "//src/backend/flash:can_flash_uds_channel",
+        "//src/backend/flash:transfer_progress",
         "//src/backend/protocol/uds:uds_client",
     ],
     deps = ["//src/backend/flash:flash_executor"],
@@ -453,6 +456,7 @@ cc_library(
         "//src/algorithms/checksum",
         "//src/algorithms/protocol",
         "//src/backend/flash:flash_device_lookup",
+        "//src/backend/flash:transfer_progress",
         "//src/backend/flash/kernel:memory_models",
     ],
     deps = [
@@ -1051,6 +1055,7 @@ cc_library(
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/ssm",
         "//src/backend/flash:flash_device_lookup",
+        "//src/backend/flash:transfer_progress",
         "//src/backend/flash/kernel:memory_models",
     ],
     deps = [
@@ -1798,6 +1803,7 @@ cc_library(
         ":subaru_hitachi_sh72543r_can_plan",
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/ssm",
+        "//src/backend/flash:transfer_progress",
     ],
     deps = ["//src/backend/flash:flash_executor"],
 )

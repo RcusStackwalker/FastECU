@@ -10,9 +10,10 @@
 #include "src/algorithms/checksum/checksum_primitives.h"
 #include "src/algorithms/protocol/bytes.h"
 #include "src/algorithms/protocol/bytes_compose.h"
-#include "src/backend/flash/kernel/kernelmemorymodels.h"
 #include "src/backend/flash/ecu/flash_phase_progress.h"
 #include "src/backend/flash/flash_device_lookup.h"
+#include "src/backend/flash/kernel/kernelmemorymodels.h"
+#include "src/backend/flash/transfer_progress.h"
 
 namespace fastecu::flash
 {
@@ -516,14 +517,8 @@ Result<bytes::Bytes> ReadMem(IMixedCanFlashTransport& transport, const MemoryReg
         }
         const bytes::ByteView raw_page(**received);
         const std::uint64_t elapsed_ms = ElapsedMilliseconds(loop_started, clock.Now());
-        unsigned curspeed = static_cast<unsigned>(kReadPageSize * (1000.0F / static_cast<float>(elapsed_ms)));
-        if (curspeed == 0)
-        {
-            curspeed = 1;
-        }
-        const unsigned tleft = static_cast<unsigned>(((region.length - offset) / curspeed) % 9999U) + 1U;
-        events.Log(LogLevel::kInfo, std::format("Kernel read addr: 0x{:08X} length: 0x{:08X}, {:>6} B/s {:>6} s",
-                                                address, kReadPageSize, curspeed, tleft));
+        const TransferRate rate = ComputeTransferRate(kReadPageSize, elapsed_ms, region.length - offset);
+        events.Log(LogLevel::kInfo, FormatReadProgress(address, kReadPageSize, rate));
         rom.insert(rom.end(), raw_page.begin() + 9, raw_page.begin() + 9 + kReadPageSize);
         const int done = static_cast<int>(offset + kReadPageSize);
         events.Progress(done, static_cast<int>(region.length));
@@ -731,22 +726,10 @@ Status FlashBlock(IMixedCanFlashTransport& transport, bytes::ByteView image, con
             return valid;
         }
         const std::uint64_t elapsed_ms = ElapsedMilliseconds(loop_started, clock.Now());
-        unsigned curspeed = static_cast<unsigned>(kWriteChunkSize * (1000.0F / static_cast<float>(elapsed_ms)));
-        if (curspeed == 0)
-        {
-            curspeed = 1;
-        }
         const std::uint32_t bytes_after = flashbytesindex + kWriteChunkSize;
-        unsigned tleft =
-            static_cast<unsigned>((static_cast<float>(flashbytescount - bytes_after)) / static_cast<float>(curspeed));
-        if (tleft > 9999U)
-        {
-            tleft = 9999U;
-        }
-        ++tleft;
+        const TransferRate rate = ComputeTransferRate(kWriteChunkSize, elapsed_ms, flashbytescount - bytes_after);
         events.Log(LogLevel::kDebug, "Data written to flash buffer");
-        events.Log(LogLevel::kInfo, std::format("Write flash buffer: 0x{:08X} ({}% - {} B/s, ~ {} s)", address,
-                                                (100U * offset) / block.length, curspeed, tleft));
+        events.Log(LogLevel::kInfo, FormatWriteProgress(address, (100U * offset) / block.length, rate));
         flashbytesindex = bytes_after;
         phase.Update(static_cast<int>(flashbytesindex));
 
