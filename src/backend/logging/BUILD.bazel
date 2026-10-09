@@ -247,3 +247,27 @@ fastecu_portable_gtest(
         "@googletest//:gtest",
     ],
 )
+
+fastecu_portable_gtest(
+    name = "logging_sample_resolution_test",
+    srcs = ["logging_sample_resolution_test.cpp"],
+    deps = [
+        ":logger_model",
+        ":logging_run_snapshot",
+        ":logging_sample_resolution",
+        "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
+    ],
+)
+
+cc_library(
+    name = "logging_sample_resolution",
+    srcs = ["logging_sample_resolution.cpp"],
+    hdrs = ["logging_sample_resolution.h"],
+    implementation_deps = [":logging_run_snapshot"],
+    deps = [
+        ":logger_model",
+        ":logging_types",
+        "//src/backend/ports",
+    ],
+)
