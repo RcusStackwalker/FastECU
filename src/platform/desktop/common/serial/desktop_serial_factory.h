@@ -35,11 +35,11 @@ struct RemoteSerial
 using SerialConnection = std::variant<DirectSerial, RemoteSerial>;
 
 // The backend factory for a connection. The facade calls it once, lazily, on
-// its I/O thread; separate from make_serial_port_actions so the choice can be
+// its I/O thread; separate from MakeSerialPortActions so the choice can be
 // tested without starting that thread.
 std::function<SerialBackend *()> MakeSerialBackendFactory(const SerialConnection& connection);
 
 // Builds the facade over the connection's backend and routes its
-// LOG_E/LOG_W/LOG_I/LOG_D signals to log_sink's
-// log_messages(QString, bool, bool) slot.
+// logE/logW/logI/logD signals to log_sink's
+// logMessages(QString, bool, bool) slot.
 OwnedSerialPortActions MakeSerialPortActions(const SerialConnection& connection, QObject& log_sink);

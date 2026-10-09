@@ -65,7 +65,7 @@ pre-construction callback for application attributes.
 Record signals with the typed `SignalRecorder`; inspect copied tuples from
 `snapshot()` after checking `count()`. Worker emissions are captured directly
 under synchronization. Keep thread joins and gates that establish completion.
-Use `wait_until` for queued events and `process_events_for` when checking that
+Use `WaitUntil` for queued events and `ProcessEventsFor` when checking that
 something remains absent for a deadline. Assert on the returned condition at
 the call site, and use `ASSERT_NO_FATAL_FAILURE` when a helper's fatal failure
 must stop dependent operations.
@@ -85,8 +85,8 @@ bazel test --config=release //src/platform/desktop/common/serial/testing:fake_ba
 
 ## Scripted cancellation and boundary probes
 
-`FakeCancellationToken::cancel_on_check(n)` counts all cancellation queries,
-including queries in `FakeClock::sleep()` and scripted transport reads. Trace
+`FakeCancellationToken::CancelOnCheck(n)` counts all cancellation queries,
+including queries in `FakeClock::Sleep()` and scripted transport reads. Trace
 helper calls when choosing a checkpoint; a mistaken checkpoint does not justify
 changing production cancellation order.
 

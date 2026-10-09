@@ -142,6 +142,6 @@ Signals retain the names `logE`, `logW`, `logI`, and `logD`: the logger reads
 the delivering signal's name to choose level. UI signals relay signal-to-signal
 through the long-lived channel so logs survive destruction of short-lived dialogs.
 
-`RemotePeer::wait_for_source` connects to the remote utility with
+`RemotePeer::waitForSource` connects to the remote utility with
 `Qt::DirectConnection`, retaining its blocking behavior. Headless composition
 tests verify the connection, not completion of a wait requiring a live peer.
