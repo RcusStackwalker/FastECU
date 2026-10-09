@@ -27,13 +27,13 @@ void copyCString(std::span<char> out, std::string_view text)
 
 J2534::J2534()
 {
-    hDLL = nullptr;
+    h_dll_ = nullptr;
     is_library_initialized_ = false;
     // default to the Openport 2.0 J2534 DLL
 #if defined(_WIN32) || defined(WIN32) || defined(_WIN64) || defined(WIN64)
     copyCString(dll_name_, "j2534.dll");
 #else
-    copyCString(dllName, "op20pt32.dylib");
+    copyCString(dll_name_, "op20pt32.dylib");
 #endif
 }
 
@@ -44,16 +44,16 @@ void J2534::setDllName(const char *name)
 
 void J2534::getDllName(char *name)
 {
-    // `name` must hold dllName.size() chars, as the one caller's buffer does.
+    // `name` must hold dll_name_.size() chars, as the one caller's buffer does.
     copyCString(std::span(name, dll_name_.size()), dll_name_.data());
 }
 
 void J2534::disable()
 {
-    if (hDLL)
+    if (h_dll_)
     {
-        FreeLibrary(hDLL);
-        hDLL = nullptr;
+        FreeLibrary(h_dll_);
+        h_dll_ = nullptr;
     }
     if (bridge_client_)
     {
@@ -73,22 +73,22 @@ bool J2534::valid()
     {
         return bridge_client_->isRunning();
     }
-    return hDLL != nullptr;
+    return h_dll_ != nullptr;
 }
 
 J2534::~J2534()
 {
 #if defined(OP20PT32_USE_LIB)
-    //	if (hDLL)
+    //	if (h_dll_)
     //		::OP20PT32_Stop();
     // #else
 
 #if defined(_WIN32) || defined(WIN32) || defined(_WIN64) || defined(WIN64)
-    if (hDLL)
-        FreeLibrary(hDLL);
+    if (h_dll_)
+        FreeLibrary(h_dll_);
 #else
-    if (hDLL)
-        dlclose(hDLL);
+    if (h_dll_)
+        dlclose(h_dll_);
 #endif
 #endif
 }
@@ -100,7 +100,7 @@ J2534::~J2534()
 #define getPTfn(name)                                                                                                  \
     do                                                                                                                 \
     {                                                                                                                  \
-        pf##name = (Pf##name *)GetProcAddress(hDLL, "" #name);                                                         \
+        pf##name = (Pf##name *)GetProcAddress(h_dll_, "" #name);                                                       \
         if (!pf##name)                                                                                                 \
         {                                                                                                              \
             return false;                                                                                              \
@@ -114,7 +114,7 @@ J2534::~J2534()
 #define getPTfn(name)                                                                                                  \
     do                                                                                                                 \
     {                                                                                                                  \
-        pf##name = (Pf##name *)dlsym(hDLL, "" #name);                                                                  \
+        pf##name = (Pf##name *)dlsym(h_dll_, "" #name);                                                                \
         if (!pf##name)                                                                                                 \
         {                                                                                                              \
             return false;                                                                                              \
@@ -125,7 +125,7 @@ J2534::~J2534()
 
 bool J2534::getPTfns()
 {
-    if (!hDLL)
+    if (!h_dll_)
     {
         return false;
     }
@@ -152,12 +152,12 @@ long J2534::LoadJ2534DLL(const char *szDLL)
 {
 #if defined(OP20PT32_USE_LIB)
 //    szDLL; // unused
-//	if (!hDLL)
+//	if (!h_dll_)
 //		::OP20PT32_Start();
 #if defined(_WIN32) || defined(WIN32) || defined(_WIN64) || defined(WIN64)
-    hDLL = (HINSTANCE)1;
+    h_dll_ = (HINSTANCE)1;
 #else
-    hDLL = (void *)1;
+    h_dll_ = (void *)1;
 #endif
     getPTfns();
 #else
@@ -167,12 +167,12 @@ long J2534::LoadJ2534DLL(const char *szDLL)
         return (1);
     }
 
-    FreeLibrary(hDLL);
-    hDLL = nullptr;
+    FreeLibrary(h_dll_);
+    h_dll_ = nullptr;
 
 #if defined(_WIN32) || defined(WIN32) || defined(_WIN64) || defined(WIN64)
-    hDLL = LoadLibraryA(szDLL);
-    if (!hDLL)
+    h_dll_ = LoadLibraryA(szDLL);
+    if (!h_dll_)
     {
         copyCString(last_error_, "error loading J2534 DLL");
         return false;
@@ -180,8 +180,8 @@ long J2534::LoadJ2534DLL(const char *szDLL)
     else if (!getPTfns())
     {
         // assume unusable if we don't have everything we need
-        FreeLibrary(hDLL);
-        hDLL = nullptr;
+        FreeLibrary(h_dll_);
+        h_dll_ = nullptr;
         copyCString(last_error_, "error loading J2534 DLL function pointers");
         return false;
     }
@@ -203,19 +203,19 @@ long J2534::LoadJ2534DLL(const char *szDLL)
     CFRelease(appUrlRef);
     CFRelease(macPath);
 
-    if (!(hDLL = dlopen(libPath, RTLD_LOCAL|RTLD_LAZY)))
+    if (!(h_dll_ = dlopen(libPath, RTLD_LOCAL|RTLD_LAZY)))
     {
-        strcpy(lastError.data(), "error loading ");
-        strcat(lastError.data(), libPath);
+        strcpy(last_error_.data(), "error loading ");
+        strcat(last_error_.data(), libPath);
         chdir(oldPath);
         return false;
     }
     else if (!getPTfns())
     {
         // assume unusable if we don't have everything we need
-        dlclose(hDLL);
-        hDLL = nullptr;
-        strcpy(lastError.data(), "error loading J2534 dylib function pointers");
+        dlclose(h_dll_);
+        h_dll_ = nullptr;
+        strcpy(last_error_.data(), "error loading J2534 dylib function pointers");
         chdir(oldPath);
         return false;
     }
@@ -232,7 +232,7 @@ bool J2534::checkDLL()
     {
         return bridge_client_->isRunning();
     }
-    if (hDLL)
+    if (h_dll_)
     {
         return true;
     }
@@ -252,7 +252,7 @@ bool J2534::checkDLL()
     }
 
     LoadJ2534DLL(dll_name_.data());
-    return (hDLL != nullptr);
+    return (h_dll_ != nullptr);
 }
 
 bool J2534::is_serial_port_open()

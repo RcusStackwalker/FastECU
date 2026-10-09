@@ -82,7 +82,7 @@ class J2534
 #if defined(_WIN32) || defined(WIN32) || defined(_WIN64) || defined(WIN64)
     HINSTANCE h_dll_; // Handle to DLL
 #else
-    void *hDLL;
+    void *h_dll_;
 #endif
 
     std::unique_ptr<J2534BridgeClient> bridge_client_;
