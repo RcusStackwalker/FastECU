@@ -12,7 +12,7 @@ fastecu::Result<std::size_t> FastEcuCanTransport::Write(std::uint32_t can_id, by
 {
     try
     {
-        if (!serial_ || !serial_->is_serial_port_open())
+        if (!serial_ || !serial_->IsSerialPortOpen())
         {
             return fastecu::Fail(fastecu::ErrorKind::kDisconnected, "CAN adapter disconnected before write");
         }
@@ -20,8 +20,8 @@ fastecu::Result<std::size_t> FastEcuCanTransport::Write(std::uint32_t can_id, by
         frame.reserve(payload.size() + 4);
         bytes::AppendU32Be(frame, can_id);
         frame.insert(frame.end(), payload.begin(), payload.end());
-        serial_->write_serial_data_echo_check(bytes::toQByteArray(frame));
-        if (!serial_->is_serial_port_open())
+        serial_->WriteSerialDataEchoCheck(bytes::ToQByteArray(frame));
+        if (!serial_->IsSerialPortOpen())
         {
             return fastecu::Fail(fastecu::ErrorKind::kDisconnected, "CAN adapter disconnected during write");
         }
@@ -47,17 +47,17 @@ fastecu::Result<std::optional<CanFrame>> FastEcuCanTransport::Read(std::chrono::
 
     try
     {
-        if (!serial_ || !serial_->is_serial_port_open())
+        if (!serial_ || !serial_->IsSerialPortOpen())
         {
             return fastecu::Fail(fastecu::ErrorKind::kDisconnected, "CAN adapter disconnected before read");
         }
         const bytes::Bytes raw =
-            bytes::fromQByteArray(serial_->read_serial_data(fastecu::SaturatingMs<quint16>(timeout)));
+            bytes::FromQByteArray(serial_->ReadSerialData(fastecu::SaturatingMs<quint16>(timeout)));
         if (cancellation.Cancelled())
         {
             return fastecu::Fail(fastecu::ErrorKind::kCancelled, "CAN read cancelled");
         }
-        if (!serial_->is_serial_port_open())
+        if (!serial_->IsSerialPortOpen())
         {
             return fastecu::Fail(fastecu::ErrorKind::kDisconnected, "CAN adapter disconnected during read");
         }
@@ -93,7 +93,7 @@ bool FastEcuCanTransport::IsOpen() const
 {
     try
     {
-        return serial_ && serial_->is_serial_port_open();
+        return serial_ && serial_->IsSerialPortOpen();
     }
     catch (...)
     {

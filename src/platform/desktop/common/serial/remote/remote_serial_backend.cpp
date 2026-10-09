@@ -19,38 +19,38 @@ RemoteSerialBackend::RemoteSerialBackend(QString peer_address, QString password,
     }
     web_socket_ = external_socket ? external_socket : new QWebSocket("", QWebSocketProtocol::VersionLatest, this);
     socket_ = new WebSocketIoDevice(web_socket_, web_socket_);
-    startRemote();
+    StartRemote();
 }
 
 RemoteSerialBackend::~RemoteSerialBackend()
 {
 }
 
-void RemoteSerialBackend::waitForSource()
+void RemoteSerialBackend::WaitForSource()
 {
     while (!serial_remote_->waitForSource(10000))
     {
-        sendAutoDiscoveryMessage();
+        SendAutoDiscoveryMessage();
         QThread::msleep(50);
         emit LOG_D("RemoteSerialBackend: Waiting for remote peer...", true, true);
     }
 }
 
-void RemoteSerialBackend::startRemote()
+void RemoteSerialBackend::StartRemote()
 {
     if (peer_address_.startsWith("local:"))
     {
-        startLocal();
+        StartLocal();
     }
     else
     {
-        startOverNetwork();
+        StartOverNetwork();
     }
     QObject::connect(serial_remote_, &SerialPortActionsRemoteReplica::stateChanged, this,
                      &RemoteSerialBackend::serialRemoteStateChanged);
 }
 
-void RemoteSerialBackend::startOverNetwork()
+void RemoteSerialBackend::StartOverNetwork()
 {
     QSslConfiguration ssl_configuration;
     ssl_configuration.setPeerVerifyMode(QSslSocket::VerifyNone);
@@ -79,13 +79,13 @@ void RemoteSerialBackend::startOverNetwork()
     // Don't wait for replication here, it should be done from outside
 }
 
-void RemoteSerialBackend::startLocal()
+void RemoteSerialBackend::StartLocal()
 {
     node_.connectToNode(QUrl(peer_address_));
     serial_remote_ = node_.acquire<SerialPortActionsRemoteReplica>(remote_object_name_);
 }
 
-void RemoteSerialBackend::sendAutoDiscoveryMessage()
+void RemoteSerialBackend::SendAutoDiscoveryMessage()
 {
     if (web_socket_->isValid())
     {
@@ -97,7 +97,7 @@ void RemoteSerialBackend::websocket_connected()
 {
     // Run client node after socket is up
     node_.addClientSideConnection(socket_);
-    sendAutoDiscoveryMessage();
+    SendAutoDiscoveryMessage();
 }
 
 void RemoteSerialBackend::serialRemoteStateChanged(QRemoteObjectReplica::State state,
@@ -116,427 +116,427 @@ void RemoteSerialBackend::serialRemoteStateChanged(QRemoteObjectReplica::State s
 
 // -- config get/set pairs (44) ------------------------------------------
 
-bool RemoteSerialBackend::get_serialPortAvailable()
+bool RemoteSerialBackend::GetSerialPortAvailable()
 {
-    return qtrohelper::slot_sync(serial_remote_->get_serialPortAvailable());
+    return qtrohelper::SlotSync(serial_remote_->get_serialPortAvailable());
 }
-bool RemoteSerialBackend::set_serialPortAvailable(bool value)
+bool RemoteSerialBackend::SetSerialPortAvailable(bool value)
 {
-    return qtrohelper::slot_sync(serial_remote_->set_serialPortAvailable(value));
+    return qtrohelper::SlotSync(serial_remote_->set_serialPortAvailable(value));
 }
-bool RemoteSerialBackend::get_setRequestToSend()
+bool RemoteSerialBackend::GetSetRequestToSend()
 {
-    return qtrohelper::slot_sync(serial_remote_->get_setRequestToSend());
+    return qtrohelper::SlotSync(serial_remote_->get_setRequestToSend());
 }
-bool RemoteSerialBackend::set_setRequestToSend(bool value)
+bool RemoteSerialBackend::SetSetRequestToSend(bool value)
 {
-    return qtrohelper::slot_sync(serial_remote_->set_setRequestToSend(value));
+    return qtrohelper::SlotSync(serial_remote_->set_setRequestToSend(value));
 }
-bool RemoteSerialBackend::get_setDataTerminalReady()
+bool RemoteSerialBackend::GetSetDataTerminalReady()
 {
-    return qtrohelper::slot_sync(serial_remote_->get_setDataTerminalReady());
+    return qtrohelper::SlotSync(serial_remote_->get_setDataTerminalReady());
 }
-bool RemoteSerialBackend::set_setDataTerminalReady(bool value)
+bool RemoteSerialBackend::SetSetDataTerminalReady(bool value)
 {
-    return qtrohelper::slot_sync(serial_remote_->set_setDataTerminalReady(value));
-}
-
-bool RemoteSerialBackend::get_add_ssm_header()
-{
-    return qtrohelper::slot_sync(serial_remote_->get_add_ssm_header());
-}
-bool RemoteSerialBackend::set_add_ssm_header(bool value)
-{
-    return qtrohelper::slot_sync(serial_remote_->set_add_ssm_header(value));
+    return qtrohelper::SlotSync(serial_remote_->set_setDataTerminalReady(value));
 }
 
-bool RemoteSerialBackend::get_add_iso9141_header()
+bool RemoteSerialBackend::GetAddSsmHeader()
 {
-    return qtrohelper::slot_sync(serial_remote_->get_add_iso9141_header());
+    return qtrohelper::SlotSync(serial_remote_->get_add_ssm_header());
 }
-bool RemoteSerialBackend::set_add_iso9141_header(bool value)
+bool RemoteSerialBackend::SetAddSsmHeader(bool value)
 {
-    return qtrohelper::slot_sync(serial_remote_->set_add_iso9141_header(value));
-}
-
-bool RemoteSerialBackend::get_add_iso14230_header()
-{
-    return qtrohelper::slot_sync(serial_remote_->get_add_iso14230_header());
-}
-bool RemoteSerialBackend::set_add_iso14230_header(bool value)
-{
-    return qtrohelper::slot_sync(serial_remote_->set_add_iso14230_header(value));
-}
-bool RemoteSerialBackend::get_is_iso14230_connection()
-{
-    return qtrohelper::slot_sync(serial_remote_->get_is_iso14230_connection());
-}
-bool RemoteSerialBackend::set_is_iso14230_connection(bool value)
-{
-    return qtrohelper::slot_sync(serial_remote_->set_is_iso14230_connection(value));
-}
-bool RemoteSerialBackend::get_is_can_connection()
-{
-    return qtrohelper::slot_sync(serial_remote_->get_is_can_connection());
-}
-bool RemoteSerialBackend::set_is_can_connection(bool value)
-{
-    return qtrohelper::slot_sync(serial_remote_->set_is_can_connection(value));
-}
-bool RemoteSerialBackend::get_is_iso15765_connection()
-{
-    return qtrohelper::slot_sync(serial_remote_->get_is_iso15765_connection());
-}
-bool RemoteSerialBackend::set_is_iso15765_connection(bool value)
-{
-    return qtrohelper::slot_sync(serial_remote_->set_is_iso15765_connection(value));
-}
-bool RemoteSerialBackend::get_is_29_bit_id()
-{
-    return qtrohelper::slot_sync(serial_remote_->get_is_29_bit_id());
-}
-bool RemoteSerialBackend::set_is_29_bit_id(bool value)
-{
-    return qtrohelper::slot_sync(serial_remote_->set_is_29_bit_id(value));
+    return qtrohelper::SlotSync(serial_remote_->set_add_ssm_header(value));
 }
 
-bool RemoteSerialBackend::get_use_openport2_adapter()
+bool RemoteSerialBackend::GetAddIso9141Header()
 {
-    return qtrohelper::slot_sync(serial_remote_->get_use_openport2_adapter());
+    return qtrohelper::SlotSync(serial_remote_->get_add_iso9141_header());
 }
-bool RemoteSerialBackend::set_use_openport2_adapter(bool value)
+bool RemoteSerialBackend::SetAddIso9141Header(bool value)
 {
-    return qtrohelper::slot_sync(serial_remote_->set_use_openport2_adapter(value));
-}
-
-int RemoteSerialBackend::get_requestToSendEnabled()
-{
-    return qtrohelper::slot_sync(serial_remote_->get_requestToSendEnabled());
-}
-bool RemoteSerialBackend::set_requestToSendEnabled(int value)
-{
-    return qtrohelper::slot_sync(serial_remote_->set_requestToSendEnabled(value));
-}
-int RemoteSerialBackend::get_requestToSendDisabled()
-{
-    return qtrohelper::slot_sync(serial_remote_->get_requestToSendDisabled());
-}
-bool RemoteSerialBackend::set_requestToSendDisabled(int value)
-{
-    return qtrohelper::slot_sync(serial_remote_->set_requestToSendDisabled(value));
-}
-int RemoteSerialBackend::get_dataTerminalEnabled()
-{
-    return qtrohelper::slot_sync(serial_remote_->get_dataTerminalEnabled());
-}
-bool RemoteSerialBackend::set_dataTerminalEnabled(int value)
-{
-    return qtrohelper::slot_sync(serial_remote_->set_dataTerminalEnabled(value));
-}
-int RemoteSerialBackend::get_dataTerminalDisabled()
-{
-    return qtrohelper::slot_sync(serial_remote_->get_dataTerminalDisabled());
-}
-bool RemoteSerialBackend::set_dataTerminalDisabled(int value)
-{
-    return qtrohelper::slot_sync(serial_remote_->set_dataTerminalDisabled(value));
+    return qtrohelper::SlotSync(serial_remote_->set_add_iso9141_header(value));
 }
 
-uint8_t RemoteSerialBackend::get_kline_startbyte()
+bool RemoteSerialBackend::GetAddIso14230Header()
 {
-    return qtrohelper::slot_sync(serial_remote_->get_kline_startbyte());
+    return qtrohelper::SlotSync(serial_remote_->get_add_iso14230_header());
 }
-bool RemoteSerialBackend::set_kline_startbyte(uint8_t value)
+bool RemoteSerialBackend::SetAddIso14230Header(bool value)
 {
-    return qtrohelper::slot_sync(serial_remote_->set_kline_startbyte(value));
+    return qtrohelper::SlotSync(serial_remote_->set_add_iso14230_header(value));
 }
-uint8_t RemoteSerialBackend::get_kline_tester_id()
+bool RemoteSerialBackend::GetIsIso14230Connection()
 {
-    return qtrohelper::slot_sync(serial_remote_->get_kline_tester_id());
+    return qtrohelper::SlotSync(serial_remote_->get_is_iso14230_connection());
 }
-bool RemoteSerialBackend::set_kline_tester_id(uint8_t value)
+bool RemoteSerialBackend::SetIsIso14230Connection(bool value)
 {
-    return qtrohelper::slot_sync(serial_remote_->set_kline_tester_id(value));
+    return qtrohelper::SlotSync(serial_remote_->set_is_iso14230_connection(value));
 }
-uint8_t RemoteSerialBackend::get_kline_target_id()
+bool RemoteSerialBackend::GetIsCanConnection()
 {
-    return qtrohelper::slot_sync(serial_remote_->get_kline_target_id());
+    return qtrohelper::SlotSync(serial_remote_->get_is_can_connection());
 }
-bool RemoteSerialBackend::set_kline_target_id(uint8_t value)
+bool RemoteSerialBackend::SetIsCanConnection(bool value)
 {
-    return qtrohelper::slot_sync(serial_remote_->set_kline_target_id(value));
+    return qtrohelper::SlotSync(serial_remote_->set_is_can_connection(value));
 }
-
-QByteArray RemoteSerialBackend::get_ssm_receive_header_start()
+bool RemoteSerialBackend::GetIsIso15765Connection()
 {
-    return qtrohelper::slot_sync(serial_remote_->get_ssm_receive_header_start());
+    return qtrohelper::SlotSync(serial_remote_->get_is_iso15765_connection());
 }
-bool RemoteSerialBackend::set_ssm_receive_header_start(QByteArray value)
+bool RemoteSerialBackend::SetIsIso15765Connection(bool value)
 {
-    return qtrohelper::slot_sync(serial_remote_->set_ssm_receive_header_start(value));
+    return qtrohelper::SlotSync(serial_remote_->set_is_iso15765_connection(value));
 }
-
-QStringList RemoteSerialBackend::get_serial_port_list()
+bool RemoteSerialBackend::GetIs29BitId()
 {
-    return qtrohelper::slot_sync(serial_remote_->get_serial_port_list());
+    return qtrohelper::SlotSync(serial_remote_->get_is_29_bit_id());
 }
-bool RemoteSerialBackend::set_serial_port_list(QStringList value)
+bool RemoteSerialBackend::SetIs29BitId(bool value)
 {
-    return qtrohelper::slot_sync(serial_remote_->set_serial_port_list(value));
-}
-QString RemoteSerialBackend::get_openedSerialPort()
-{
-    return qtrohelper::slot_sync(serial_remote_->get_openedSerialPort());
-}
-bool RemoteSerialBackend::set_openedSerialPort(QString value)
-{
-    return qtrohelper::slot_sync(serial_remote_->set_openedSerialPort(value));
-}
-QString RemoteSerialBackend::get_subaru_02_16bit_bootloader_baudrate()
-{
-    return qtrohelper::slot_sync(serial_remote_->get_subaru_02_16bit_bootloader_baudrate());
-}
-bool RemoteSerialBackend::set_subaru_02_16bit_bootloader_baudrate(QString value)
-{
-    return qtrohelper::slot_sync(serial_remote_->set_subaru_02_16bit_bootloader_baudrate(value));
-}
-QString RemoteSerialBackend::get_subaru_04_16bit_bootloader_baudrate()
-{
-    return qtrohelper::slot_sync(serial_remote_->get_subaru_04_16bit_bootloader_baudrate());
-}
-bool RemoteSerialBackend::set_subaru_04_16bit_bootloader_baudrate(QString value)
-{
-    return qtrohelper::slot_sync(serial_remote_->set_subaru_04_16bit_bootloader_baudrate(value));
-}
-QString RemoteSerialBackend::get_subaru_02_32bit_bootloader_baudrate()
-{
-    return qtrohelper::slot_sync(serial_remote_->get_subaru_02_32bit_bootloader_baudrate());
-}
-bool RemoteSerialBackend::set_subaru_02_32bit_bootloader_baudrate(QString value)
-{
-    return qtrohelper::slot_sync(serial_remote_->set_subaru_02_32bit_bootloader_baudrate(value));
-}
-QString RemoteSerialBackend::get_subaru_04_32bit_bootloader_baudrate()
-{
-    return qtrohelper::slot_sync(serial_remote_->get_subaru_04_32bit_bootloader_baudrate());
-}
-bool RemoteSerialBackend::set_subaru_04_32bit_bootloader_baudrate(QString value)
-{
-    return qtrohelper::slot_sync(serial_remote_->set_subaru_04_32bit_bootloader_baudrate(value));
-}
-QString RemoteSerialBackend::get_subaru_05_32bit_bootloader_baudrate()
-{
-    return qtrohelper::slot_sync(serial_remote_->get_subaru_05_32bit_bootloader_baudrate());
-}
-bool RemoteSerialBackend::set_subaru_05_32bit_bootloader_baudrate(QString value)
-{
-    return qtrohelper::slot_sync(serial_remote_->set_subaru_05_32bit_bootloader_baudrate(value));
+    return qtrohelper::SlotSync(serial_remote_->set_is_29_bit_id(value));
 }
 
-QString RemoteSerialBackend::get_subaru_02_16bit_kernel_baudrate()
+bool RemoteSerialBackend::GetUseOpenport2Adapter()
 {
-    return qtrohelper::slot_sync(serial_remote_->get_subaru_02_16bit_kernel_baudrate());
+    return qtrohelper::SlotSync(serial_remote_->get_use_openport2_adapter());
 }
-bool RemoteSerialBackend::set_subaru_02_16bit_kernel_baudrate(QString value)
+bool RemoteSerialBackend::SetUseOpenport2Adapter(bool value)
 {
-    return qtrohelper::slot_sync(serial_remote_->set_subaru_02_16bit_kernel_baudrate(value));
-}
-QString RemoteSerialBackend::get_subaru_04_16bit_kernel_baudrate()
-{
-    return qtrohelper::slot_sync(serial_remote_->get_subaru_04_16bit_kernel_baudrate());
-}
-bool RemoteSerialBackend::set_subaru_04_16bit_kernel_baudrate(QString value)
-{
-    return qtrohelper::slot_sync(serial_remote_->set_subaru_04_16bit_kernel_baudrate(value));
-}
-QString RemoteSerialBackend::get_subaru_02_32bit_kernel_baudrate()
-{
-    return qtrohelper::slot_sync(serial_remote_->get_subaru_02_32bit_kernel_baudrate());
-}
-bool RemoteSerialBackend::set_subaru_02_32bit_kernel_baudrate(QString value)
-{
-    return qtrohelper::slot_sync(serial_remote_->set_subaru_02_32bit_kernel_baudrate(value));
-}
-QString RemoteSerialBackend::get_subaru_04_32bit_kernel_baudrate()
-{
-    return qtrohelper::slot_sync(serial_remote_->get_subaru_04_32bit_kernel_baudrate());
-}
-bool RemoteSerialBackend::set_subaru_04_32bit_kernel_baudrate(QString value)
-{
-    return qtrohelper::slot_sync(serial_remote_->set_subaru_04_32bit_kernel_baudrate(value));
-}
-QString RemoteSerialBackend::get_subaru_05_32bit_kernel_baudrate()
-{
-    return qtrohelper::slot_sync(serial_remote_->get_subaru_05_32bit_kernel_baudrate());
-}
-bool RemoteSerialBackend::set_subaru_05_32bit_kernel_baudrate(QString value)
-{
-    return qtrohelper::slot_sync(serial_remote_->set_subaru_05_32bit_kernel_baudrate(value));
+    return qtrohelper::SlotSync(serial_remote_->set_use_openport2_adapter(value));
 }
 
-QString RemoteSerialBackend::get_can_speed()
+int RemoteSerialBackend::GetRequestToSendEnabled()
 {
-    return qtrohelper::slot_sync(serial_remote_->get_can_speed());
+    return qtrohelper::SlotSync(serial_remote_->get_requestToSendEnabled());
 }
-bool RemoteSerialBackend::set_can_speed(QString value)
+bool RemoteSerialBackend::SetRequestToSendEnabled(int value)
 {
-    return qtrohelper::slot_sync(serial_remote_->set_can_speed(value));
+    return qtrohelper::SlotSync(serial_remote_->set_requestToSendEnabled(value));
 }
-uint8_t RemoteSerialBackend::get_serial_port_parity()
+int RemoteSerialBackend::GetRequestToSendDisabled()
 {
-    return qtrohelper::slot_sync(serial_remote_->get_serial_port_parity());
+    return qtrohelper::SlotSync(serial_remote_->get_requestToSendDisabled());
 }
-bool RemoteSerialBackend::set_serial_port_parity(uint8_t parity)
+bool RemoteSerialBackend::SetRequestToSendDisabled(int value)
 {
-    return qtrohelper::slot_sync(serial_remote_->set_serial_port_parity(parity));
+    return qtrohelper::SlotSync(serial_remote_->set_requestToSendDisabled(value));
 }
-QString RemoteSerialBackend::get_serial_port_baudrate()
+int RemoteSerialBackend::GetDataTerminalEnabled()
 {
-    return qtrohelper::slot_sync(serial_remote_->get_serial_port_baudrate());
+    return qtrohelper::SlotSync(serial_remote_->get_dataTerminalEnabled());
 }
-bool RemoteSerialBackend::set_serial_port_baudrate(QString value)
+bool RemoteSerialBackend::SetDataTerminalEnabled(int value)
+{
+    return qtrohelper::SlotSync(serial_remote_->set_dataTerminalEnabled(value));
+}
+int RemoteSerialBackend::GetDataTerminalDisabled()
+{
+    return qtrohelper::SlotSync(serial_remote_->get_dataTerminalDisabled());
+}
+bool RemoteSerialBackend::SetDataTerminalDisabled(int value)
+{
+    return qtrohelper::SlotSync(serial_remote_->set_dataTerminalDisabled(value));
+}
+
+uint8_t RemoteSerialBackend::GetKlineStartbyte()
+{
+    return qtrohelper::SlotSync(serial_remote_->get_kline_startbyte());
+}
+bool RemoteSerialBackend::SetKlineStartbyte(uint8_t value)
+{
+    return qtrohelper::SlotSync(serial_remote_->set_kline_startbyte(value));
+}
+uint8_t RemoteSerialBackend::GetKlineTesterId()
+{
+    return qtrohelper::SlotSync(serial_remote_->get_kline_tester_id());
+}
+bool RemoteSerialBackend::SetKlineTesterId(uint8_t value)
+{
+    return qtrohelper::SlotSync(serial_remote_->set_kline_tester_id(value));
+}
+uint8_t RemoteSerialBackend::GetKlineTargetId()
+{
+    return qtrohelper::SlotSync(serial_remote_->get_kline_target_id());
+}
+bool RemoteSerialBackend::SetKlineTargetId(uint8_t value)
+{
+    return qtrohelper::SlotSync(serial_remote_->set_kline_target_id(value));
+}
+
+QByteArray RemoteSerialBackend::GetSsmReceiveHeaderStart()
+{
+    return qtrohelper::SlotSync(serial_remote_->get_ssm_receive_header_start());
+}
+bool RemoteSerialBackend::SetSsmReceiveHeaderStart(QByteArray value)
+{
+    return qtrohelper::SlotSync(serial_remote_->set_ssm_receive_header_start(value));
+}
+
+QStringList RemoteSerialBackend::GetSerialPortList()
+{
+    return qtrohelper::SlotSync(serial_remote_->get_serial_port_list());
+}
+bool RemoteSerialBackend::SetSerialPortList(QStringList value)
+{
+    return qtrohelper::SlotSync(serial_remote_->set_serial_port_list(value));
+}
+QString RemoteSerialBackend::GetOpenedSerialPort()
+{
+    return qtrohelper::SlotSync(serial_remote_->get_openedSerialPort());
+}
+bool RemoteSerialBackend::SetOpenedSerialPort(QString value)
+{
+    return qtrohelper::SlotSync(serial_remote_->set_openedSerialPort(value));
+}
+QString RemoteSerialBackend::GetSubaru0216bitBootloaderBaudrate()
+{
+    return qtrohelper::SlotSync(serial_remote_->get_subaru_02_16bit_bootloader_baudrate());
+}
+bool RemoteSerialBackend::SetSubaru0216bitBootloaderBaudrate(QString value)
+{
+    return qtrohelper::SlotSync(serial_remote_->set_subaru_02_16bit_bootloader_baudrate(value));
+}
+QString RemoteSerialBackend::GetSubaru0416bitBootloaderBaudrate()
+{
+    return qtrohelper::SlotSync(serial_remote_->get_subaru_04_16bit_bootloader_baudrate());
+}
+bool RemoteSerialBackend::SetSubaru0416bitBootloaderBaudrate(QString value)
+{
+    return qtrohelper::SlotSync(serial_remote_->set_subaru_04_16bit_bootloader_baudrate(value));
+}
+QString RemoteSerialBackend::GetSubaru0232bitBootloaderBaudrate()
+{
+    return qtrohelper::SlotSync(serial_remote_->get_subaru_02_32bit_bootloader_baudrate());
+}
+bool RemoteSerialBackend::SetSubaru0232bitBootloaderBaudrate(QString value)
+{
+    return qtrohelper::SlotSync(serial_remote_->set_subaru_02_32bit_bootloader_baudrate(value));
+}
+QString RemoteSerialBackend::GetSubaru0432bitBootloaderBaudrate()
+{
+    return qtrohelper::SlotSync(serial_remote_->get_subaru_04_32bit_bootloader_baudrate());
+}
+bool RemoteSerialBackend::SetSubaru0432bitBootloaderBaudrate(QString value)
+{
+    return qtrohelper::SlotSync(serial_remote_->set_subaru_04_32bit_bootloader_baudrate(value));
+}
+QString RemoteSerialBackend::GetSubaru0532bitBootloaderBaudrate()
+{
+    return qtrohelper::SlotSync(serial_remote_->get_subaru_05_32bit_bootloader_baudrate());
+}
+bool RemoteSerialBackend::SetSubaru0532bitBootloaderBaudrate(QString value)
+{
+    return qtrohelper::SlotSync(serial_remote_->set_subaru_05_32bit_bootloader_baudrate(value));
+}
+
+QString RemoteSerialBackend::GetSubaru0216bitKernelBaudrate()
+{
+    return qtrohelper::SlotSync(serial_remote_->get_subaru_02_16bit_kernel_baudrate());
+}
+bool RemoteSerialBackend::SetSubaru0216bitKernelBaudrate(QString value)
+{
+    return qtrohelper::SlotSync(serial_remote_->set_subaru_02_16bit_kernel_baudrate(value));
+}
+QString RemoteSerialBackend::GetSubaru0416bitKernelBaudrate()
+{
+    return qtrohelper::SlotSync(serial_remote_->get_subaru_04_16bit_kernel_baudrate());
+}
+bool RemoteSerialBackend::SetSubaru0416bitKernelBaudrate(QString value)
+{
+    return qtrohelper::SlotSync(serial_remote_->set_subaru_04_16bit_kernel_baudrate(value));
+}
+QString RemoteSerialBackend::GetSubaru0232bitKernelBaudrate()
+{
+    return qtrohelper::SlotSync(serial_remote_->get_subaru_02_32bit_kernel_baudrate());
+}
+bool RemoteSerialBackend::SetSubaru0232bitKernelBaudrate(QString value)
+{
+    return qtrohelper::SlotSync(serial_remote_->set_subaru_02_32bit_kernel_baudrate(value));
+}
+QString RemoteSerialBackend::GetSubaru0432bitKernelBaudrate()
+{
+    return qtrohelper::SlotSync(serial_remote_->get_subaru_04_32bit_kernel_baudrate());
+}
+bool RemoteSerialBackend::SetSubaru0432bitKernelBaudrate(QString value)
+{
+    return qtrohelper::SlotSync(serial_remote_->set_subaru_04_32bit_kernel_baudrate(value));
+}
+QString RemoteSerialBackend::GetSubaru0532bitKernelBaudrate()
+{
+    return qtrohelper::SlotSync(serial_remote_->get_subaru_05_32bit_kernel_baudrate());
+}
+bool RemoteSerialBackend::SetSubaru0532bitKernelBaudrate(QString value)
+{
+    return qtrohelper::SlotSync(serial_remote_->set_subaru_05_32bit_kernel_baudrate(value));
+}
+
+QString RemoteSerialBackend::GetCanSpeed()
+{
+    return qtrohelper::SlotSync(serial_remote_->get_can_speed());
+}
+bool RemoteSerialBackend::SetCanSpeed(QString value)
+{
+    return qtrohelper::SlotSync(serial_remote_->set_can_speed(value));
+}
+uint8_t RemoteSerialBackend::GetSerialPortParity()
+{
+    return qtrohelper::SlotSync(serial_remote_->get_serial_port_parity());
+}
+bool RemoteSerialBackend::SetSerialPortParity(uint8_t parity)
+{
+    return qtrohelper::SlotSync(serial_remote_->set_serial_port_parity(parity));
+}
+QString RemoteSerialBackend::GetSerialPortBaudrate()
+{
+    return qtrohelper::SlotSync(serial_remote_->get_serial_port_baudrate());
+}
+bool RemoteSerialBackend::SetSerialPortBaudrate(QString value)
 {
     emit LOG_D("Setting serialport baudrate in RemoteSerialBackend", true, true);
-    return qtrohelper::slot_sync(serial_remote_->set_serial_port_baudrate(value));
+    return qtrohelper::SlotSync(serial_remote_->set_serial_port_baudrate(value));
 }
-QString RemoteSerialBackend::get_serial_port_linux()
+QString RemoteSerialBackend::GetSerialPortLinux()
 {
-    return qtrohelper::slot_sync(serial_remote_->get_serial_port_linux());
+    return qtrohelper::SlotSync(serial_remote_->get_serial_port_linux());
 }
-bool RemoteSerialBackend::set_serial_port_linux(QString value)
+bool RemoteSerialBackend::SetSerialPortLinux(QString value)
 {
-    return qtrohelper::slot_sync(serial_remote_->set_serial_port_linux(value));
+    return qtrohelper::SlotSync(serial_remote_->set_serial_port_linux(value));
 }
-QString RemoteSerialBackend::get_serial_port_windows()
+QString RemoteSerialBackend::GetSerialPortWindows()
 {
-    return qtrohelper::slot_sync(serial_remote_->get_serial_port_windows());
+    return qtrohelper::SlotSync(serial_remote_->get_serial_port_windows());
 }
-bool RemoteSerialBackend::set_serial_port_windows(QString value)
+bool RemoteSerialBackend::SetSerialPortWindows(QString value)
 {
-    return qtrohelper::slot_sync(serial_remote_->set_serial_port_windows(value));
+    return qtrohelper::SlotSync(serial_remote_->set_serial_port_windows(value));
 }
-QString RemoteSerialBackend::get_serial_port()
+QString RemoteSerialBackend::GetSerialPort()
 {
-    return qtrohelper::slot_sync(serial_remote_->get_serial_port());
+    return qtrohelper::SlotSync(serial_remote_->get_serial_port());
 }
-bool RemoteSerialBackend::set_serial_port(QString value)
+bool RemoteSerialBackend::SetSerialPort(QString value)
 {
-    return qtrohelper::slot_sync(serial_remote_->set_serial_port(value));
+    return qtrohelper::SlotSync(serial_remote_->set_serial_port(value));
 }
-QString RemoteSerialBackend::get_serial_port_prefix()
+QString RemoteSerialBackend::GetSerialPortPrefix()
 {
-    return qtrohelper::slot_sync(serial_remote_->get_serial_port_prefix());
+    return qtrohelper::SlotSync(serial_remote_->get_serial_port_prefix());
 }
-bool RemoteSerialBackend::set_serial_port_prefix(QString value)
+bool RemoteSerialBackend::SetSerialPortPrefix(QString value)
 {
-    return qtrohelper::slot_sync(serial_remote_->set_serial_port_prefix(value));
+    return qtrohelper::SlotSync(serial_remote_->set_serial_port_prefix(value));
 }
-QString RemoteSerialBackend::get_serial_port_prefix_linux()
+QString RemoteSerialBackend::GetSerialPortPrefixLinux()
 {
-    return qtrohelper::slot_sync(serial_remote_->get_serial_port_prefix_linux());
+    return qtrohelper::SlotSync(serial_remote_->get_serial_port_prefix_linux());
 }
-bool RemoteSerialBackend::set_serial_port_prefix_linux(QString value)
+bool RemoteSerialBackend::SetSerialPortPrefixLinux(QString value)
 {
-    return qtrohelper::slot_sync(serial_remote_->set_serial_port_prefix_linux(value));
+    return qtrohelper::SlotSync(serial_remote_->set_serial_port_prefix_linux(value));
 }
-QString RemoteSerialBackend::get_serial_port_prefix_win()
+QString RemoteSerialBackend::GetSerialPortPrefixWin()
 {
-    return qtrohelper::slot_sync(serial_remote_->get_serial_port_prefix_win());
+    return qtrohelper::SlotSync(serial_remote_->get_serial_port_prefix_win());
 }
-bool RemoteSerialBackend::set_serial_port_prefix_win(QString value)
+bool RemoteSerialBackend::SetSerialPortPrefixWin(QString value)
 {
-    return qtrohelper::slot_sync(serial_remote_->set_serial_port_prefix_win(value));
+    return qtrohelper::SlotSync(serial_remote_->set_serial_port_prefix_win(value));
 }
 
-uint32_t RemoteSerialBackend::get_can_source_address()
+uint32_t RemoteSerialBackend::GetCanSourceAddress()
 {
-    return qtrohelper::slot_sync(serial_remote_->get_can_source_address());
+    return qtrohelper::SlotSync(serial_remote_->get_can_source_address());
 }
-bool RemoteSerialBackend::set_can_source_address(uint32_t value)
+bool RemoteSerialBackend::SetCanSourceAddress(uint32_t value)
 {
-    return qtrohelper::slot_sync(serial_remote_->set_can_source_address(value));
+    return qtrohelper::SlotSync(serial_remote_->set_can_source_address(value));
 }
-uint32_t RemoteSerialBackend::get_can_destination_address()
+uint32_t RemoteSerialBackend::GetCanDestinationAddress()
 {
-    return qtrohelper::slot_sync(serial_remote_->get_can_destination_address());
+    return qtrohelper::SlotSync(serial_remote_->get_can_destination_address());
 }
-bool RemoteSerialBackend::set_can_destination_address(uint32_t value)
+bool RemoteSerialBackend::SetCanDestinationAddress(uint32_t value)
 {
-    return qtrohelper::slot_sync(serial_remote_->set_can_destination_address(value));
+    return qtrohelper::SlotSync(serial_remote_->set_can_destination_address(value));
 }
-uint32_t RemoteSerialBackend::get_iso15765_source_address()
+uint32_t RemoteSerialBackend::GetIso15765SourceAddress()
 {
-    return qtrohelper::slot_sync(serial_remote_->get_iso15765_source_address());
+    return qtrohelper::SlotSync(serial_remote_->get_iso15765_source_address());
 }
-bool RemoteSerialBackend::set_iso15765_source_address(uint32_t value)
+bool RemoteSerialBackend::SetIso15765SourceAddress(uint32_t value)
 {
-    return qtrohelper::slot_sync(serial_remote_->set_iso15765_source_address(value));
+    return qtrohelper::SlotSync(serial_remote_->set_iso15765_source_address(value));
 }
-uint32_t RemoteSerialBackend::get_iso15765_destination_address()
+uint32_t RemoteSerialBackend::GetIso15765DestinationAddress()
 {
-    return qtrohelper::slot_sync(serial_remote_->get_iso15765_destination_address());
+    return qtrohelper::SlotSync(serial_remote_->get_iso15765_destination_address());
 }
-bool RemoteSerialBackend::set_iso15765_destination_address(uint32_t value)
+bool RemoteSerialBackend::SetIso15765DestinationAddress(uint32_t value)
 {
-    return qtrohelper::slot_sync(serial_remote_->set_iso15765_destination_address(value));
+    return qtrohelper::SlotSync(serial_remote_->set_iso15765_destination_address(value));
 }
 
 // -- operations -----------------------------------------------------------
 
-bool RemoteSerialBackend::is_serial_port_open()
+bool RemoteSerialBackend::IsSerialPortOpen()
 {
-    return qtrohelper::slot_sync(serial_remote_->is_serial_port_open());
+    return qtrohelper::SlotSync(serial_remote_->is_serial_port_open());
 }
 
-int RemoteSerialBackend::change_port_speed(QString port_speed)
+int RemoteSerialBackend::ChangePortSpeed(QString port_speed)
 {
-    return qtrohelper::slot_sync(serial_remote_->change_port_speed(port_speed));
+    return qtrohelper::SlotSync(serial_remote_->change_port_speed(port_speed));
 }
 
 // NOTE: pinned quirk, preserved verbatim from the old facade (serial_port_actions.cpp
 // set_kline_timings, lines 885-891): the remote branch never forwarded this call to
 // serial_remote at all (only the direct branch did anything), and the facade always
 // returned STATUS_SUCCESS (true) regardless. Not a bug this task is chartered to fix.
-bool RemoteSerialBackend::set_kline_timings(uint32_t parameter, int value)
+bool RemoteSerialBackend::SetKlineTimings(uint32_t parameter, int value)
 {
     Q_UNUSED(parameter);
     Q_UNUSED(value);
     return true;
 }
 
-int RemoteSerialBackend::set_j2534_ioctl(uint32_t parameter, int value)
+int RemoteSerialBackend::SetJ2534Ioctl(uint32_t parameter, int value)
 {
-    return qtrohelper::slot_sync(serial_remote_->set_j2534_ioctl(parameter, value));
+    return qtrohelper::SlotSync(serial_remote_->set_j2534_ioctl(parameter, value));
 }
 
-QByteArray RemoteSerialBackend::five_baud_init(QByteArray output)
+QByteArray RemoteSerialBackend::FiveBaudInit(QByteArray output)
 {
-    return qtrohelper::slot_sync(serial_remote_->five_baud_init(output));
+    return qtrohelper::SlotSync(serial_remote_->five_baud_init(output));
 }
 
-int RemoteSerialBackend::fast_init(QByteArray output)
+int RemoteSerialBackend::FastInit(QByteArray output)
 {
-    return qtrohelper::slot_sync(serial_remote_->fast_init(output));
+    return qtrohelper::SlotSync(serial_remote_->fast_init(output));
 }
 
-int RemoteSerialBackend::set_lec_lines(int lec1, int lec2)
+int RemoteSerialBackend::SetLecLines(int lec1, int lec2)
 {
-    return qtrohelper::slot_sync(serial_remote_->set_lec_lines(lec1, lec2));
+    return qtrohelper::SlotSync(serial_remote_->set_lec_lines(lec1, lec2));
 }
 
-int RemoteSerialBackend::pulse_lec_1_line(int timeout)
+int RemoteSerialBackend::PulseLec1Line(int timeout)
 {
-    return qtrohelper::slot_sync(serial_remote_->pulse_lec_1_line(timeout));
+    return qtrohelper::SlotSync(serial_remote_->pulse_lec_1_line(timeout));
 }
 
-int RemoteSerialBackend::pulse_lec_2_line(int timeout)
+int RemoteSerialBackend::PulseLec2Line(int timeout)
 {
-    return qtrohelper::slot_sync(serial_remote_->pulse_lec_2_line(timeout));
+    return qtrohelper::SlotSync(serial_remote_->pulse_lec_2_line(timeout));
 }
 
-void RemoteSerialBackend::reset_connection()
+void RemoteSerialBackend::ResetConnection()
 {
-    qtrohelper::slot_sync(serial_remote_->reset_connection()); // bool result discarded
+    qtrohelper::SlotSync(serial_remote_->reset_connection()); // bool result discarded
 }
 
 // NOTE: pinned quirk, preserved verbatim from the old facade (serial_port_actions.cpp
@@ -548,25 +548,25 @@ void RemoteSerialBackend::reset_connection()
 // omission in the old code rather than an intentional no-op, but this task's mandate
 // is a mechanical, behavior-preserving move -- not a bugfix -- so the omission is
 // pinned here rather than "fixed" by wiring in the call.
-QByteArray RemoteSerialBackend::read_serial_obd_data(uint16_t timeout)
+QByteArray RemoteSerialBackend::ReadSerialObdData(uint16_t timeout)
 {
     Q_UNUSED(timeout);
     return QByteArray();
 }
 
-QByteArray RemoteSerialBackend::read_serial_data(uint16_t timeout)
+QByteArray RemoteSerialBackend::ReadSerialData(uint16_t timeout)
 {
-    return qtrohelper::slot_sync(serial_remote_->read_serial_data(timeout));
+    return qtrohelper::SlotSync(serial_remote_->read_serial_data(timeout));
 }
 
-QByteArray RemoteSerialBackend::write_serial_data(QByteArray output)
+QByteArray RemoteSerialBackend::WriteSerialData(QByteArray output)
 {
-    return qtrohelper::slot_sync(serial_remote_->write_serial_data(output));
+    return qtrohelper::SlotSync(serial_remote_->write_serial_data(output));
 }
 
-QByteArray RemoteSerialBackend::write_serial_data_echo_check(QByteArray output)
+QByteArray RemoteSerialBackend::WriteSerialDataEchoCheck(QByteArray output)
 {
-    return qtrohelper::slot_sync(serial_remote_->write_serial_data_echo_check(output));
+    return qtrohelper::SlotSync(serial_remote_->write_serial_data_echo_check(output));
 }
 
 // NOTE: pinned quirk, preserved from the old facade (serial_port_actions.cpp
@@ -574,42 +574,42 @@ QByteArray RemoteSerialBackend::write_serial_data_echo_check(QByteArray output)
 // non-void function fell off the end on the remote path -- undefined behavior. There
 // is no safe value to "recover" from the original, so this pins a safe default: report
 // tx done so callers relying on this to gate further sends don't spin/deadlock.
-bool RemoteSerialBackend::get_is_tx_done()
+bool RemoteSerialBackend::GetIsTxDone()
 {
     return true;
 }
 
-int RemoteSerialBackend::clear_rx_buffer()
+int RemoteSerialBackend::ClearRxBuffer()
 {
-    return qtrohelper::slot_sync(serial_remote_->clear_rx_buffer());
+    return qtrohelper::SlotSync(serial_remote_->clear_rx_buffer());
 }
 
-int RemoteSerialBackend::clear_tx_buffer()
+int RemoteSerialBackend::ClearTxBuffer()
 {
-    return qtrohelper::slot_sync(serial_remote_->clear_tx_buffer());
+    return qtrohelper::SlotSync(serial_remote_->clear_tx_buffer());
 }
 
-int RemoteSerialBackend::send_periodic_j2534_data(QByteArray output, int timeout)
+int RemoteSerialBackend::SendPeriodicJ2534Data(QByteArray output, int timeout)
 {
-    return qtrohelper::slot_sync(serial_remote_->send_periodic_j2534_data(output, timeout));
+    return qtrohelper::SlotSync(serial_remote_->send_periodic_j2534_data(output, timeout));
 }
 
-int RemoteSerialBackend::stop_periodic_j2534_data()
+int RemoteSerialBackend::StopPeriodicJ2534Data()
 {
-    return qtrohelper::slot_sync(serial_remote_->stop_periodic_j2534_data());
+    return qtrohelper::SlotSync(serial_remote_->stop_periodic_j2534_data());
 }
 
-QStringList RemoteSerialBackend::check_serial_ports()
+QStringList RemoteSerialBackend::CheckSerialPorts()
 {
-    return qtrohelper::slot_sync(serial_remote_->check_serial_ports());
+    return qtrohelper::SlotSync(serial_remote_->check_serial_ports());
 }
 
-QString RemoteSerialBackend::open_serial_port()
+QString RemoteSerialBackend::OpenSerialPort()
 {
-    return qtrohelper::slot_sync(serial_remote_->open_serial_port());
+    return qtrohelper::SlotSync(serial_remote_->open_serial_port());
 }
 
-unsigned long RemoteSerialBackend::read_vbatt()
+unsigned long RemoteSerialBackend::ReadVbatt()
 {
-    return qtrohelper::slot_sync(serial_remote_->read_vbatt());
+    return qtrohelper::SlotSync(serial_remote_->read_vbatt());
 }

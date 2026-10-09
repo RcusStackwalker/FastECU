@@ -11,8 +11,8 @@ class J2534BridgeClient
     J2534BridgeClient(std::string host_exe_path, std::string vendor_dll_path);
     ~J2534BridgeClient();
 
-    bool start();
-    bool isRunning() const
+    bool Start();
+    bool IsRunning() const
     {
         return running_;
     }
@@ -49,5 +49,5 @@ class J2534BridgeClient
     HANDLE job_object_ = nullptr;
     PROCESS_INFORMATION process_info_{};
 
-    void stop();
+    void Stop();
 };

@@ -21,12 +21,12 @@ TEST(J2534BridgeProtocol, round_trip_small_payload)
     PassThruCloseRequest req{};
     req.device_id = 42;
 
-    bool wrote = writeFrame(write_end, Function::kPassThruClose, &req, sizeof(req));
+    bool wrote = WriteFrame(write_end, Function::kPassThruClose, &req, sizeof(req));
     ASSERT_TRUE(wrote && "writeFrame failed");
 
     FrameHeader header{};
     PassThruCloseRequest received{};
-    bool read = readFrame(read_end, header, &received, sizeof(received));
+    bool read = ReadFrame(read_end, header, &received, sizeof(received));
     ASSERT_TRUE(read && "readFrame failed");
     ASSERT_TRUE(header.function == Function::kPassThruClose);
     ASSERT_TRUE(header.payload_size == sizeof(req));
@@ -47,7 +47,7 @@ TEST(J2534BridgeProtocol, read_fails_on_closed_pipe)
 
     FrameHeader header{};
     std::array<char, 16> buf{};
-    bool read = readFrame(read_end, header, buf.data(), static_cast<std::uint32_t>(buf.size()));
+    bool read = ReadFrame(read_end, header, buf.data(), static_cast<std::uint32_t>(buf.size()));
     ASSERT_TRUE(!read && "readFrame should fail on a broken pipe");
 
     std::printf("test_read_fails_on_closed_pipe: PASS\n");

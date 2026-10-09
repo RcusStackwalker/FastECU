@@ -12,7 +12,7 @@
 // never fire carries no action -- Times(0) combined with WillRepeatedly() makes
 // Google Mock log "Too many actions specified" for every such line, which
 // buries real diagnostics in the same output.
-template <typename Expectation> void expectSetterAt(Expectation& expectation, int position, int failing_index)
+template <typename Expectation> void ExpectSetterAt(Expectation& expectation, int position, int failing_index)
 {
     if (failing_index >= position)
     {

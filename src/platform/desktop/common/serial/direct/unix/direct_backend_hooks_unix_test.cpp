@@ -7,14 +7,14 @@
 class HookProbe : public SerialPortActionsDirect
 {
   public:
-    using SerialPortActionsDirect::append_j2534_interfaces;
-    using SerialPortActionsDirect::resolve_port;
+    using SerialPortActionsDirect::AppendJ2534Interfaces;
+    using SerialPortActionsDirect::ResolvePort;
 };
 
 TEST(TestDirectBackendHooksUnix, resolvePort_prefixesAndSplitsAnAdapterEntry)
 {
     HookProbe probe;
-    const auto resolved = probe.resolve_port("cu.usbmodem0 - OpenPort 2.0");
+    const auto resolved = probe.ResolvePort("cu.usbmodem0 - OpenPort 2.0");
     ASSERT_EQ(resolved.port, QString("/dev/cu.usbmodem0"));
     ASSERT_TRUE(resolved.is_j2534);
 }
@@ -23,10 +23,10 @@ TEST(TestDirectBackendHooksUnix, resolvePort_prefixesAndSplitsAnAdapterEntry)
 TEST(TestDirectBackendHooksUnix, resolvePort_plainSerialEntryIsNotJ2534)
 {
     HookProbe probe;
-    const auto bluetooth = probe.resolve_port("cu.Bluetooth-Incoming-Port - ");
+    const auto bluetooth = probe.ResolvePort("cu.Bluetooth-Incoming-Port - ");
     ASSERT_EQ(bluetooth.port, QString("/dev/cu.Bluetooth-Incoming-Port"));
     ASSERT_TRUE(!bluetooth.is_j2534);
-    const auto usb = probe.resolve_port("ttyUSB0 - USB Serial");
+    const auto usb = probe.ResolvePort("ttyUSB0 - USB Serial");
     ASSERT_EQ(usb.port, QString("/dev/ttyUSB0"));
     ASSERT_TRUE(!usb.is_j2534);
 }
@@ -35,7 +35,7 @@ TEST(TestDirectBackendHooksUnix, appendJ2534Interfaces_leavesTheListUntouched)
 {
     HookProbe probe;
     QStringList ports{"cu.usbmodem0 - OpenPort 2.0"};
-    probe.append_j2534_interfaces(ports);
+    probe.AppendJ2534Interfaces(ports);
     ASSERT_EQ(ports, QStringList{"cu.usbmodem0 - OpenPort 2.0"});
 }
 

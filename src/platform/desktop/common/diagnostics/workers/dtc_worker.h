@@ -36,7 +36,7 @@ class DtcWorker final : public QThread
     DtcWorker& operator=(const DtcWorker&) = delete;
 
     // Safe from any thread, any number of times, before or after start().
-    void requestStop();
+    void RequestStop();
 
   signals:
     void logEvent(int level, QString message);

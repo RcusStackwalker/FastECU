@@ -43,7 +43,7 @@ class TransportReads : public ::testing::TestWithParam<ReadPath>
         ASSERT_TRUE(mixed_.Configure({}).has_value());
     }
 
-    ReadResult read(std::chrono::milliseconds timeout, const ICancellationToken& cancellation)
+    ReadResult Read(std::chrono::milliseconds timeout, const ICancellationToken& cancellation)
     {
         switch (GetParam())
         {
@@ -63,26 +63,26 @@ class TransportReads : public ::testing::TestWithParam<ReadPath>
         return fastecu::Fail(ErrorKind::kInternal, "unknown test read path");
     }
 
-    void expect_read(std::uint16_t timeout, std::function<QByteArray(std::uint16_t)> action)
+    void ExpectRead(std::uint16_t timeout, std::function<QByteArray(std::uint16_t)> action)
     {
         if (GetParam() == ReadPath::kKlineRaw)
         {
-            EXPECT_CALL(serial_.fake(), read_serial_data(::testing::_)).Times(0);
-            EXPECT_CALL(serial_.fake(), read_serial_obd_data(timeout)).WillOnce(std::move(action));
+            EXPECT_CALL(serial_.Fake(), ReadSerialData(::testing::_)).Times(0);
+            EXPECT_CALL(serial_.Fake(), ReadSerialObdData(timeout)).WillOnce(std::move(action));
         }
         else
         {
-            EXPECT_CALL(serial_.fake(), read_serial_obd_data(::testing::_)).Times(0);
-            EXPECT_CALL(serial_.fake(), read_serial_data(timeout)).WillOnce(std::move(action));
+            EXPECT_CALL(serial_.Fake(), ReadSerialObdData(::testing::_)).Times(0);
+            EXPECT_CALL(serial_.Fake(), ReadSerialData(timeout)).WillOnce(std::move(action));
         }
     }
 
-    bool has_unblock() const
+    bool HasUnblock() const
     {
         return GetParam() != ReadPath::kKline && GetParam() != ReadPath::kSsm;
     }
 
-    void unblock()
+    void Unblock()
     {
         kline_flash_.RequestUnblock();
         can_flash_.RequestUnblock();
@@ -90,11 +90,11 @@ class TransportReads : public ::testing::TestWithParam<ReadPath>
     }
 
     FakeBackedSerial<> serial_;
-    mutdma::FastEcuKlineTransport kline_{serial_.get()};
-    FastEcuSsmTransport ssm_{serial_.get()};
-    fastecu::flash::DesktopKlineFlashTransport kline_flash_{serial_.get()};
-    fastecu::flash::DesktopCanFlashTransport can_flash_{serial_.get()};
-    fastecu::flash::DesktopMixedCanFlashTransport mixed_{serial_.get()};
+    mutdma::FastEcuKlineTransport kline_{serial_.Get()};
+    FastEcuSsmTransport ssm_{serial_.Get()};
+    fastecu::flash::DesktopKlineFlashTransport kline_flash_{serial_.Get()};
+    fastecu::flash::DesktopCanFlashTransport can_flash_{serial_.Get()};
+    fastecu::flash::DesktopMixedCanFlashTransport mixed_{serial_.Get()};
     FakeCancellationToken cancellation_;
 };
 
@@ -109,19 +109,19 @@ TEST_P(TransportReads, SaturatesTimeoutAndPreservesBytes)
                              Case{std::chrono::milliseconds::max(), 65535}})
     {
         SCOPED_TRACE(test.timeout.count());
-        expect_read(test.expected, [](std::uint16_t) { return QByteArray("\x00\x80\xff", 3); });
-        const auto result = read(test.timeout, cancellation_);
+        ExpectRead(test.expected, [](std::uint16_t) { return QByteArray("\x00\x80\xff", 3); });
+        const auto result = Read(test.timeout, cancellation_);
         ASSERT_TRUE(result.has_value());
         ASSERT_TRUE(result->has_value());
         EXPECT_EQ(result->value(), (bytes::Bytes{0x00, 0x80, 0xff}));
-        ::testing::Mock::VerifyAndClearExpectations(&serial_.fake());
+        ::testing::Mock::VerifyAndClearExpectations(&serial_.Fake());
     }
 }
 
 TEST_P(TransportReads, SilenceIsAnEmptyOptional)
 {
-    expect_read(10, [](std::uint16_t) { return QByteArray{}; });
-    const auto result = read(10ms, cancellation_);
+    ExpectRead(10, [](std::uint16_t) { return QByteArray{}; });
+    const auto result = Read(10ms, cancellation_);
     ASSERT_TRUE(result.has_value());
     EXPECT_FALSE(result->has_value());
 }
@@ -129,65 +129,65 @@ TEST_P(TransportReads, SilenceIsAnEmptyOptional)
 TEST_P(TransportReads, CancellationPrecedesDisconnectAndSkipsDriver)
 {
     cancellation_.SetCancelled(true);
-    EXPECT_CALL(serial_.fake(), is_serial_port_open()).Times(0);
-    EXPECT_CALL(serial_.fake(), read_serial_data(::testing::_)).Times(0);
-    EXPECT_CALL(serial_.fake(), read_serial_obd_data(::testing::_)).Times(0);
-    const auto result = read(10ms, cancellation_);
+    EXPECT_CALL(serial_.Fake(), IsSerialPortOpen()).Times(0);
+    EXPECT_CALL(serial_.Fake(), ReadSerialData(::testing::_)).Times(0);
+    EXPECT_CALL(serial_.Fake(), ReadSerialObdData(::testing::_)).Times(0);
+    const auto result = Read(10ms, cancellation_);
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::kCancelled);
 }
 
 TEST_P(TransportReads, DisconnectionBeforeReadSkipsDriver)
 {
-    EXPECT_CALL(serial_.fake(), is_serial_port_open()).WillOnce(::testing::Return(false));
-    EXPECT_CALL(serial_.fake(), read_serial_data(::testing::_)).Times(0);
-    EXPECT_CALL(serial_.fake(), read_serial_obd_data(::testing::_)).Times(0);
-    const auto result = read(10ms, cancellation_);
+    EXPECT_CALL(serial_.Fake(), IsSerialPortOpen()).WillOnce(::testing::Return(false));
+    EXPECT_CALL(serial_.Fake(), ReadSerialData(::testing::_)).Times(0);
+    EXPECT_CALL(serial_.Fake(), ReadSerialObdData(::testing::_)).Times(0);
+    const auto result = Read(10ms, cancellation_);
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::kDisconnected);
 }
 
 TEST_P(TransportReads, DisconnectionAfterReadDiscardsBytes)
 {
-    EXPECT_CALL(serial_.fake(), is_serial_port_open())
+    EXPECT_CALL(serial_.Fake(), IsSerialPortOpen())
         .WillOnce(::testing::Return(true))
         .WillOnce(::testing::Return(false));
-    expect_read(10, [](std::uint16_t) { return QByteArray("\xaa", 1); });
-    const auto result = read(10ms, cancellation_);
+    ExpectRead(10, [](std::uint16_t) { return QByteArray("\xaa", 1); });
+    const auto result = Read(10ms, cancellation_);
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::kDisconnected);
 }
 
 TEST_P(TransportReads, PostReadCancellationPrecedesDisconnect)
 {
-    EXPECT_CALL(serial_.fake(), is_serial_port_open()).WillOnce(::testing::Return(true));
-    expect_read(10,
-                [this](std::uint16_t)
-                {
-                    cancellation_.SetCancelled(true);
-                    return QByteArray("\xaa", 1);
-                });
-    const auto result = read(10ms, cancellation_);
+    EXPECT_CALL(serial_.Fake(), IsSerialPortOpen()).WillOnce(::testing::Return(true));
+    ExpectRead(10,
+               [this](std::uint16_t)
+               {
+                   cancellation_.SetCancelled(true);
+                   return QByteArray("\xaa", 1);
+               });
+    const auto result = Read(10ms, cancellation_);
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::kCancelled);
 }
 
 TEST_P(TransportReads, StandardExceptionPreservesDiagnostic)
 {
-    expect_read(10, [](std::uint16_t) -> QByteArray { throw std::runtime_error("read failed"); });
-    const auto result = read(10ms, cancellation_);
+    ExpectRead(10, [](std::uint16_t) -> QByteArray { throw std::runtime_error("read failed"); });
+    const auto result = Read(10ms, cancellation_);
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), (fastecu::Error{ErrorKind::kInternal, "read failed"}));
 }
 
 TEST_P(TransportReads, NonstandardExceptionIsContained)
 {
-    expect_read(10,
-                [](std::uint16_t) -> QByteArray
-                {
-                    throw FakeBackendNonStandardFailure{}; // NOLINT(bugprone-std-exception-baseclass): catch-all probe.
-                });
-    const auto result = read(10ms, cancellation_);
+    ExpectRead(10,
+               [](std::uint16_t) -> QByteArray
+               {
+                   throw FakeBackendNonStandardFailure{}; // NOLINT(bugprone-std-exception-baseclass): catch-all probe.
+               });
+    const auto result = Read(10ms, cancellation_);
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::kInternal);
     EXPECT_EQ(result.error().detail, "serial driver read exception");
@@ -195,50 +195,50 @@ TEST_P(TransportReads, NonstandardExceptionIsContained)
 
 TEST_P(TransportReads, CancellationPrecedesStandardException)
 {
-    expect_read(10,
-                [this](std::uint16_t) -> QByteArray
-                {
-                    cancellation_.SetCancelled(true);
-                    throw std::runtime_error("read failed");
-                });
-    const auto result = read(10ms, cancellation_);
+    ExpectRead(10,
+               [this](std::uint16_t) -> QByteArray
+               {
+                   cancellation_.SetCancelled(true);
+                   throw std::runtime_error("read failed");
+               });
+    const auto result = Read(10ms, cancellation_);
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::kCancelled);
 }
 
 TEST_P(TransportReads, CancellationPrecedesNonstandardException)
 {
-    expect_read(10,
-                [this](std::uint16_t) -> QByteArray
-                {
-                    cancellation_.SetCancelled(true);
-                    throw FakeBackendNonStandardFailure{}; // NOLINT(bugprone-std-exception-baseclass): catch-all probe.
-                });
-    const auto result = read(10ms, cancellation_);
+    ExpectRead(10,
+               [this](std::uint16_t) -> QByteArray
+               {
+                   cancellation_.SetCancelled(true);
+                   throw FakeBackendNonStandardFailure{}; // NOLINT(bugprone-std-exception-baseclass): catch-all probe.
+               });
+    const auto result = Read(10ms, cancellation_);
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::kCancelled);
 }
 
 TEST_P(TransportReads, UnblockPreservesInflightBytesAndSuppressesNextRead)
 {
-    if (!has_unblock())
+    if (!HasUnblock())
     {
         GTEST_SKIP() << "logging adapters have no unblock contract";
     }
-    expect_read(10,
-                [this](std::uint16_t)
-                {
-                    unblock();
-                    return QByteArray("\xaa", 1);
-                });
-    const auto inflight = read(10ms, cancellation_);
+    ExpectRead(10,
+               [this](std::uint16_t)
+               {
+                   Unblock();
+                   return QByteArray("\xaa", 1);
+               });
+    const auto inflight = Read(10ms, cancellation_);
     ASSERT_TRUE(inflight.has_value());
     ASSERT_TRUE(inflight->has_value());
     EXPECT_EQ(inflight->value(), bytes::Bytes{0xaa});
-    ::testing::Mock::VerifyAndClearExpectations(&serial_.fake());
-    EXPECT_CALL(serial_.fake(), read_serial_data(::testing::_)).Times(0);
-    EXPECT_CALL(serial_.fake(), read_serial_obd_data(::testing::_)).Times(0);
-    const auto subsequent = read(10ms, cancellation_);
+    ::testing::Mock::VerifyAndClearExpectations(&serial_.Fake());
+    EXPECT_CALL(serial_.Fake(), ReadSerialData(::testing::_)).Times(0);
+    EXPECT_CALL(serial_.Fake(), ReadSerialObdData(::testing::_)).Times(0);
+    const auto subsequent = Read(10ms, cancellation_);
     ASSERT_FALSE(subsequent.has_value());
     EXPECT_EQ(subsequent.error().kind, ErrorKind::kCancelled);
 }

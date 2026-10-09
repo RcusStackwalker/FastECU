@@ -53,10 +53,10 @@ DesktopComposition::DesktopComposition(const QString& peer_address, const QStrin
                      &SystemLogger::enable_log_write_to_file);
     QObject::connect(syslogger_.get(), &SystemLogger::send_message_to_log_window, &log_channel_,
                      &LogChannel::log_window_message);
-    QObject::connect(syslog_thread_.get(), &QThread::started, syslogger_.get(), &SystemLogger::run);
+    QObject::connect(syslog_thread_.get(), &QThread::started, syslogger_.get(), &SystemLogger::Run);
     syslog_thread_->start();
 
-    serial_ = make_serial_port_actions(serial_connection_from_args(peer_address, peer_password), *syslogger_);
+    serial_ = MakeSerialPortActions(serial_connection_from_args(peer_address, peer_password), *syslogger_);
     connection_ = std::make_unique<fastecu::desktop::connection::AdapterConnection>(*serial_);
     remote_utility_ = std::make_unique<RemoteUtility>(peer_address, peer_password, nullptr, nullptr);
 
@@ -68,7 +68,7 @@ DesktopComposition::DesktopComposition(const QString& peer_address, const QStrin
     QObject::connect(&remote_peer_, &RemotePeer::log_window_message, remote_utility_.get(),
                      [utility = remote_utility_.get()](const QString& message)
                      {
-                         if (utility->isValid())
+                         if (utility->IsValid())
                          {
                              utility->send_log_window_message(message);
                          }
@@ -76,7 +76,7 @@ DesktopComposition::DesktopComposition(const QString& peer_address, const QStrin
     QObject::connect(&remote_peer_, &RemotePeer::progress, remote_utility_.get(),
                      [utility = remote_utility_.get()](int value)
                      {
-                         if (utility->isValid())
+                         if (utility->IsValid())
                          {
                              utility->set_progressbar_value(value);
                          }
@@ -89,7 +89,7 @@ DesktopComposition::DesktopComposition(const QString& peer_address, const QStrin
     QObject::connect(logging_engine_.get(), &LoggingEngine::LOG_W, syslogger_.get(), &SystemLogger::log_messages);
     QObject::connect(logging_engine_.get(), &LoggingEngine::LOG_I, syslogger_.get(), &SystemLogger::log_messages);
     QObject::connect(logging_engine_.get(), &LoggingEngine::LOG_D, syslogger_.get(), &SystemLogger::log_messages);
-    fastecu::desktop::logging::register_desktop_logging_protocols(*logging_engine_, *serial_, logging_clock_);
+    fastecu::desktop::logging::RegisterDesktopLoggingProtocols(*logging_engine_, *serial_, logging_clock_);
 }
 
 DesktopComposition::~DesktopComposition()

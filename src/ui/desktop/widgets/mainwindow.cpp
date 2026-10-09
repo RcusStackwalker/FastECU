@@ -112,7 +112,7 @@ MainWindow::MainWindow(MainWindowServices services, const QString& peerAddress, 
         });
 
     identify_launcher_ = std::make_unique<fastecu::ui::QtIdentifyLauncher>(
-        [this] { return std::make_unique<fastecu::diagnostics::SerialDiagnosticLink>(&connection_->facade()); },
+        [this] { return std::make_unique<fastecu::diagnostics::SerialDiagnosticLink>(&connection_->Facade()); },
         services_.make_clock,
         [this](fastecu::LogLevel level, const QString& message)
         {
@@ -308,7 +308,7 @@ MainWindow::MainWindow(MainWindowServices services, const QString& peerAddress, 
     {
         netSplashProgressBar->setValue(0);
         netSplashProgressBar->setFormat("Connecting to J2534 and serial devices...");
-        connection_->wait_for_source();
+        connection_->WaitForSource();
         netSplashProgressBar->setValue(1);
         netSplashProgressBar->setFormat("Connecting to utility functions...");
         remote_peer_->wait_for_source();
@@ -398,7 +398,7 @@ MainWindow::MainWindow(MainWindowServices services, const QString& peerAddress, 
     serial_port_list_->setFixedHeight(toolbar_item_size_.height());
     serial_port_list_->setFixedWidth(180);
     serial_port_list_->setObjectName("serial_port_list");
-    serial_ports_ = connection_->available_ports();
+    serial_ports_ = connection_->AvailablePorts();
     for (int i = 0; i < serial_ports_.length(); i++)
     {
         serial_port_list_->addItem(serial_ports_.at(i));
@@ -419,7 +419,7 @@ MainWindow::MainWindow(MainWindowServices services, const QString& peerAddress, 
 
     logger_model_ = &services_.logger_model;
     load_logger_definition();
-    logger_values_.initialize(*logger_model_);
+    logger_values_.Initialize(*logger_model_);
     log_boxes_ = new LogBox();
 
     if (logger_model_ != nullptr)
@@ -429,7 +429,7 @@ MainWindow::MainWindow(MainWindowServices services, const QString& peerAddress, 
 
     serial_port_ = serial_port_prefix_ + qs(config_session_->Settings().serial_port);
     serial_port_baudrate_ = default_serial_port_baudrate_;
-    connection_->set_initial_port(serial_port_, serial_port_baudrate_);
+    connection_->SetInitialPort(serial_port_, serial_port_baudrate_);
     /*
         serial_poll_timer = new QTimer(this);
         serial_poll_timer->setInterval(serial_poll_timer_timeout);
@@ -483,7 +483,7 @@ MainWindow::~MainWindow()
     connection_coordinator_->shutdown();
     if (logging_state_)
     {
-        logging_engine_->stop();
+        logging_engine_->Stop();
     }
 }
 
@@ -778,9 +778,8 @@ void MainWindow::log_transport_changed()
     // emit LOG_D("Change log transport";
     QComboBox *logTransportList = ui_->toolBar->findChild<QComboBox *>("log_transport_list");
 
-    connection_->apply_log_transport(
-        fastecu::desktop::connection::log_transport_from_text(logTransportList->currentText()),
-        config_session_->Settings().selected_log_protocol == "SSM");
+    connection_->ApplyLogTransport(fastecu::desktop::connection::LogTransportFromText(logTransportList->currentText()),
+                                   config_session_->Settings().selected_log_protocol == "SSM");
 
     protocol_ = qs(config_session_->Settings().selected_log_protocol);
     config_session_->Settings().selected_log_transport = logTransportList->currentText().toStdString();
@@ -810,7 +809,7 @@ void MainWindow::check_serial_ports()
     // serial_poll_timer->stop();
     // ssm_init_poll_timer->stop();
 
-    connection_->clear_link_flags();
+    connection_->ClearLinkFlags();
     ecuid_.clear();
     ecu_init_complete_ = false;
     emit log_transport_list_->currentIndexChanged(log_transport_list_->currentIndex());
@@ -818,7 +817,7 @@ void MainWindow::check_serial_ports()
     // QStringList j2534_list = serial->getAvailableJ2534Libs();
     // emit LOG_D("J2534 Vehicle PassThru Interfaces:" << j2534_list;
 
-    serial_ports_ = connection_->available_ports();
+    serial_ports_ = connection_->AvailablePorts();
     serialPortList->clear();
 
     for (int i = 0; i < serial_ports_.length(); i++)
@@ -844,8 +843,8 @@ void MainWindow::open_serial_port()
     {
         return;
     }
-    connection_->select_port(port);
-    QString openedSerialPort = connection_->open();
+    connection_->SelectPort(port);
+    QString openedSerialPort = connection_->Open();
     if (openedSerialPort != "")
     {
         remember_opened_port(port, openedSerialPort);
@@ -895,7 +894,7 @@ int MainWindow::start_ecu_operations(const QString& cmdType)
         return 0;
     }
 
-    connection_->select_port(selected_serial_port());
+    connection_->SelectPort(selected_serial_port());
 
     // A local copy: the provisioned kernel directory is never rewritten.
     QString kernelDir = qs(config_session_->EffectivePaths().kernel_files_directory);
@@ -911,16 +910,16 @@ int MainWindow::start_ecu_operations(const QString& cmdType)
         [this]
         {
             vbatt_timer_->stop();
-            fastecu::desktop::serial::reset_serial_to_idle(connection_->facade());
+            fastecu::desktop::serial::ResetSerialToIdle(connection_->Facade());
             ecuid_.clear();
             ecu_init_complete_ = false;
             emit log_transport_list_->currentIndexChanged(log_transport_list_->currentIndex());
-            connection_->set_port_speed(4800);
+            connection_->SetPortSpeed(4800);
         });
 
     if (selected_vehicle().make == "Subaru" || selected_vehicle().make == "Mitsubishi")
     {
-        fastecu::desktop::serial::reset_serial_to_idle(connection_->facade());
+        fastecu::desktop::serial::ResetSerialToIdle(connection_->Facade());
         ecuid_.clear();
         ecu_init_complete_ = false;
 
@@ -955,7 +954,7 @@ int MainWindow::start_ecu_operations(const QString& cmdType)
         const fastecu::flash::FlashOperation operation =
             fastecu::flash::FlashOperationFromCommand(cmdType.toStdString());
 
-        fastecu::flash::FlashOperationController controller{connection_->facade(), this};
+        fastecu::flash::FlashOperationController controller{connection_->Facade(), this};
         // Relay through MainWindow's own LOG_* signals, like every UI logger;
         // see LogChannel for why lines go through a long-lived sender.
         QObject::connect(&controller, &fastecu::flash::FlashOperationController::LOG_E, this, &MainWindow::LOG_E);
@@ -971,7 +970,7 @@ int MainWindow::start_ecu_operations(const QString& cmdType)
             .operation = operation,
             .protocol = preparedWrite.has_value() ? preparedWrite->protocol : *selected_vehicle().protocol,
             .kernel_path = preparedWrite.has_value() ? preparedWrite->kernel_path : readKernelPath.toStdString(),
-            .image = fastecu::flash::portableImageForOperation(
+            .image = fastecu::flash::PortableImageForOperation(
                 operation, preparedWrite.has_value() ? bytes::ByteView{preparedWrite->image} : bytes::ByteView{}),
             .paths = config_session_->EffectivePaths(),
             .display_filename = preparedWrite.has_value() ? preparedWrite->display_filename : std::string{},
@@ -1479,7 +1478,7 @@ void MainWindow::update_logboxes(const QString& protocolArg)
         }
         const auto name = qs(item->name);
         auto *box = log_boxes_->drawLogBoxes("switch", static_cast<int>(slot), switchBoxCount, name, name,
-                                             logger_values_.switch_value(key, id));
+                                             logger_values_.SwitchValue(key, id));
         box->setAttribute(Qt::WA_TransparentForMouseEvents);
         ui_->switchBoxLayout->addWidget(box);
     }
@@ -1493,7 +1492,7 @@ void MainWindow::update_logboxes(const QString& protocolArg)
         }
         const auto unit = item->conversions.empty() ? QString{} : qs(item->conversions.front().units);
         auto *box = log_boxes_->drawLogBoxes("log", static_cast<int>(slot), logBoxCount, qs(item->name), unit,
-                                             logger_values_.parameter_value(key, id));
+                                             logger_values_.ParameterValue(key, id));
         box->setAttribute(Qt::WA_TransparentForMouseEvents);
         ui_->logBoxLayout->addWidget(box);
     }
@@ -1518,7 +1517,7 @@ void MainWindow::update_logbox_values(const QString& protocolArg)
             continue;
         }
         const auto unit = item->conversions.empty() ? QString{} : qs(item->conversions.front().units);
-        const auto text = logger_values_.parameter_value(key, ids[slot]);
+        const auto text = logger_values_.ParameterValue(key, ids[slot]);
         label->setAlignment(Qt::AlignRight);
         label->setText(text + " <font size=1px color=grey>" + unit + "</font>");
         const auto size = QGuiApplication::primaryScreen()->geometry();
@@ -1855,7 +1854,7 @@ void MainWindow::update_vbatt()
     {
         return;
     }
-    const std::optional<unsigned long> reading = connection_->battery_millivolts();
+    const std::optional<unsigned long> reading = connection_->BatteryMillivolts();
     if (!reading.has_value())
     {
         return;
@@ -1940,7 +1939,7 @@ void MainWindow::handleLoggingValuesUpdated(const QVector<fastecu::logging::LogS
             return;
         }
         const auto applied =
-            fastecu::desktop::logging::apply_log_sample(*active_logging_snapshot_, sample, logger_values_);
+            fastecu::desktop::logging::ApplyLogSample(*active_logging_snapshot_, sample, logger_values_);
         if (!applied)
         {
             emit LOG_E(QString::fromStdString(applied.error().detail), true, true);

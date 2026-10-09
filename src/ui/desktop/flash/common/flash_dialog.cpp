@@ -47,10 +47,10 @@ void FlashDialog::advance()
 {
     while (true)
     {
-        FlashWorkflowStep step = workflow_->next();
+        FlashWorkflowStep step = workflow_->Next();
         if (auto *prompt = std::get_if<FlashPromptStep>(&step))
         {
-            workflow_->submit(presentPrompt(*prompt));
+            workflow_->Submit(presentPrompt(*prompt));
             continue;
         }
         if (auto *attempt = std::get_if<FlashAttempt>(&step))
@@ -140,7 +140,7 @@ void FlashDialog::workerFinished(FlashWorkerResult result)
 {
     worker_.reset();
     emit external_logger("Finished");
-    workflow_->submit(FlashAttemptResult{result.success, result.error_kind, result.error_detail.toStdString(),
+    workflow_->Submit(FlashAttemptResult{result.success, result.error_kind, result.error_detail.toStdString(),
                                          std::move(result.read_bytes), std::move(result.rom_id)});
     advance();
 }
@@ -337,7 +337,7 @@ void FlashDialog::closeEvent(QCloseEvent *event)
 {
     if (worker_)
     {
-        worker_->requestStop();
+        worker_->RequestStop();
         worker_.reset();
         result_.outcome = FlashWorkflowOutcome::kCancelled;
         finishCancelledAttempt();
@@ -356,17 +356,17 @@ void FlashDialog::closeEvent(QCloseEvent *event)
 // workflow then reaches stays silent -- the operator already chose to stop.
 void FlashDialog::finishCancelledAttempt()
 {
-    workflow_->submit(
+    workflow_->Submit(
         FlashAttemptResult{false, ErrorKind::kCancelled, "cancelled: dialog closed", std::nullopt, std::nullopt});
     while (true)
     {
-        FlashWorkflowStep step = workflow_->next();
+        FlashWorkflowStep step = workflow_->Next();
         auto *prompt = std::get_if<FlashPromptStep>(&step);
         if (prompt == nullptr)
         {
             return;
         }
-        workflow_->submit(presentPrompt(*prompt));
+        workflow_->Submit(presentPrompt(*prompt));
     }
 }
 

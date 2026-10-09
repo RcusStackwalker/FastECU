@@ -67,7 +67,7 @@ constexpr auto kCatalogKernels = std::to_array<CatalogKernel>({
 });
 
 // `protocol` must outlive the request: pass a literal.
-FlashWorkflowRequest request(std::string_view protocol, FlashOperation operation = FlashOperation::kRead)
+FlashWorkflowRequest Request(std::string_view protocol, FlashOperation operation = FlashOperation::kRead)
 {
     config::ProtocolSpec spec{.name = protocol, .mcu = "M32R_384KB_1block"};
     if (const auto kernel = std::ranges::find(kCatalogKernels, protocol, &CatalogKernel::protocol);
@@ -84,29 +84,29 @@ FlashWorkflowRequest request(std::string_view protocol, FlashOperation operation
             .serial = nullptr};
 }
 
-FlashWorkflowRequest unisiaM32rWrite()
+FlashWorkflowRequest UnisiaM32rWrite()
 {
-    auto input = request("sub_ecu_unisia_jecs_20", FlashOperation::kWrite);
+    auto input = Request("sub_ecu_unisia_jecs_20", FlashOperation::kWrite);
     input.protocol.mcu = "M32R_128KB";
     input.image = bytes::Bytes(0x20000, 0xff);
     return input;
 }
 
 // Begin -> ApplyProgrammingVoltage -> attempt, all accepted.
-std::unique_ptr<FlashWorkflow> unisiaM32rWriteAtAttempt()
+std::unique_ptr<FlashWorkflow> UnisiaM32rWriteAtAttempt()
 {
-    auto workflow = FlashWorkflowFactory::tryCreate(unisiaM32rWrite());
-    if (workflow == nullptr || std::get<FlashPromptStep>(workflow->next()).kind != FlashPromptKind::kBegin)
+    auto workflow = FlashWorkflowFactory::TryCreate(UnisiaM32rWrite());
+    if (workflow == nullptr || std::get<FlashPromptStep>(workflow->Next()).kind != FlashPromptKind::kBegin)
     {
         return nullptr;
     }
-    workflow->submit(FlashPromptResponse::kAccept);
-    if (std::get<FlashPromptStep>(workflow->next()).kind != FlashPromptKind::kApplyProgrammingVoltage)
+    workflow->Submit(FlashPromptResponse::kAccept);
+    if (std::get<FlashPromptStep>(workflow->Next()).kind != FlashPromptKind::kApplyProgrammingVoltage)
     {
         return nullptr;
     }
-    workflow->submit(FlashPromptResponse::kAccept);
-    if (!std::holds_alternative<FlashAttempt>(workflow->next()))
+    workflow->Submit(FlashPromptResponse::kAccept);
+    if (!std::holds_alternative<FlashAttempt>(workflow->Next()))
     {
         return nullptr;
     }
@@ -115,9 +115,9 @@ std::unique_ptr<FlashWorkflow> unisiaM32rWriteAtAttempt()
 
 using PromptArguments = std::vector<std::pair<std::string, std::string>>;
 
-FlashWorkflowRequest unisiaBootmodeWrite(const config::ConfigPaths& paths)
+FlashWorkflowRequest UnisiaBootmodeWrite(const config::ConfigPaths& paths)
 {
-    auto input = request("sub_ecu_unisia_jecs_20_bootmode", FlashOperation::kWrite);
+    auto input = Request("sub_ecu_unisia_jecs_20_bootmode", FlashOperation::kWrite);
     input.protocol.mcu = "M32R_128KB";
     input.image = bytes::Bytes(0x20000, 0xa5);
     input.paths = paths;
@@ -125,38 +125,38 @@ FlashWorkflowRequest unisiaBootmodeWrite(const config::ConfigPaths& paths)
 }
 
 // Begin -> ApplyBootModeVoltages -> kernel attempt, all accepted.
-std::unique_ptr<FlashWorkflow> unisiaBootmodeAtKernelAttempt(const config::ConfigPaths& paths)
+std::unique_ptr<FlashWorkflow> UnisiaBootmodeAtKernelAttempt(const config::ConfigPaths& paths)
 {
-    auto workflow = FlashWorkflowFactory::tryCreate(unisiaBootmodeWrite(paths));
-    if (workflow == nullptr || std::get<FlashPromptStep>(workflow->next()).kind != FlashPromptKind::kBegin)
+    auto workflow = FlashWorkflowFactory::TryCreate(UnisiaBootmodeWrite(paths));
+    if (workflow == nullptr || std::get<FlashPromptStep>(workflow->Next()).kind != FlashPromptKind::kBegin)
     {
         return nullptr;
     }
-    workflow->submit(FlashPromptResponse::kAccept);
-    if (std::get<FlashPromptStep>(workflow->next()).kind != FlashPromptKind::kApplyBootModeVoltages)
+    workflow->Submit(FlashPromptResponse::kAccept);
+    if (std::get<FlashPromptStep>(workflow->Next()).kind != FlashPromptKind::kApplyBootModeVoltages)
     {
         return nullptr;
     }
-    workflow->submit(FlashPromptResponse::kAccept);
-    if (!std::holds_alternative<FlashAttempt>(workflow->next()))
+    workflow->Submit(FlashPromptResponse::kAccept);
+    if (!std::holds_alternative<FlashAttempt>(workflow->Next()))
     {
         return nullptr;
     }
     return workflow;
 }
 
-PromptArguments bootmodeNotice(std::string outcome)
+PromptArguments BootmodeNotice(std::string outcome)
 {
     return {{"outcome", std::move(outcome)}, {"external_vpp", "yes"}, {"power_off_advice", "no"}};
 }
 
-bool writeFile(const QString& path, const QByteArray& contents)
+bool WriteFile(const QString& path, const QByteArray& contents)
 {
     QFile file(path);
     return file.open(QIODevice::WriteOnly) && file.write(contents) == contents.size();
 }
 
-std::optional<config::ConfigPaths> catalogPaths(const QTemporaryDir& directory, bool include_kernel_files = true)
+std::optional<config::ConfigPaths> CatalogPaths(const QTemporaryDir& directory, bool include_kernel_files = true)
 {
     const QString kernel_directory = directory.filePath("kernels");
     if (!QDir().mkpath(kernel_directory))
@@ -165,19 +165,19 @@ std::optional<config::ConfigPaths> catalogPaths(const QTemporaryDir& directory, 
     }
     if (include_kernel_files)
     {
-        if (!writeFile(kernel_directory + "/catalog_mc68.bin", QByteArray::fromHex("112233")) ||
-            !writeFile(kernel_directory + "/catalog_tpu.bin", QByteArray::fromHex("445566")) ||
-            !writeFile(kernel_directory + "/catalog_sh7055.bin", QByteArray::fromHex("aabbccdd")) ||
-            !writeFile(kernel_directory + "/catalog_densocan.bin", QByteArray::fromHex("aabbccdd")) ||
-            !writeFile(kernel_directory + "/catalog_tcu_sh7055.bin", QByteArray::fromHex("10203040")) ||
-            !writeFile(kernel_directory + "/catalog_tcu_sh7058.bin", QByteArray::fromHex("50607080")) ||
-            !writeFile(kernel_directory + "/catalog_petrol_sh7058.bin", QByteArray::fromHex("90a0b0c0")) ||
-            !writeFile(kernel_directory + "/catalog_diesel_sh7058.bin", QByteArray::fromHex("d0e0f001")) ||
-            !writeFile(kernel_directory + "/catalog_diesel_sh7059.bin", QByteArray::fromHex("d0e0f002")) ||
-            !writeFile(kernel_directory + "/catalog_kline_sh7055.bin", QByteArray::fromHex("aabbccdd")) ||
-            !writeFile(kernel_directory + "/catalog_kline_sh7058.bin", QByteArray::fromHex("01020304")) ||
-            !writeFile(kernel_directory + "/catalog_uj20_bootmode.bin", QByteArray::fromHex("0102030405")) ||
-            !writeFile(kernel_directory + "/catalog_uj30_bootmode.bin", QByteArray::fromHex("0607")))
+        if (!WriteFile(kernel_directory + "/catalog_mc68.bin", QByteArray::fromHex("112233")) ||
+            !WriteFile(kernel_directory + "/catalog_tpu.bin", QByteArray::fromHex("445566")) ||
+            !WriteFile(kernel_directory + "/catalog_sh7055.bin", QByteArray::fromHex("aabbccdd")) ||
+            !WriteFile(kernel_directory + "/catalog_densocan.bin", QByteArray::fromHex("aabbccdd")) ||
+            !WriteFile(kernel_directory + "/catalog_tcu_sh7055.bin", QByteArray::fromHex("10203040")) ||
+            !WriteFile(kernel_directory + "/catalog_tcu_sh7058.bin", QByteArray::fromHex("50607080")) ||
+            !WriteFile(kernel_directory + "/catalog_petrol_sh7058.bin", QByteArray::fromHex("90a0b0c0")) ||
+            !WriteFile(kernel_directory + "/catalog_diesel_sh7058.bin", QByteArray::fromHex("d0e0f001")) ||
+            !WriteFile(kernel_directory + "/catalog_diesel_sh7059.bin", QByteArray::fromHex("d0e0f002")) ||
+            !WriteFile(kernel_directory + "/catalog_kline_sh7055.bin", QByteArray::fromHex("aabbccdd")) ||
+            !WriteFile(kernel_directory + "/catalog_kline_sh7058.bin", QByteArray::fromHex("01020304")) ||
+            !WriteFile(kernel_directory + "/catalog_uj20_bootmode.bin", QByteArray::fromHex("0102030405")) ||
+            !WriteFile(kernel_directory + "/catalog_uj30_bootmode.bin", QByteArray::fromHex("0607")))
         {
             return std::nullopt;
         }
@@ -187,7 +187,7 @@ std::optional<config::ConfigPaths> catalogPaths(const QTemporaryDir& directory, 
     return paths;
 }
 
-std::unique_ptr<SerialPortActions> recordingSerial(FakeBackend **fake)
+std::unique_ptr<SerialPortActions> RecordingSerial(FakeBackend **fake)
 {
     auto serial = std::make_unique<SerialPortActions>(
         [fake]() -> SerialBackend *
@@ -195,43 +195,43 @@ std::unique_ptr<SerialPortActions> recordingSerial(FakeBackend **fake)
             *fake = new NiceFakeBackend;
             return *fake;
         });
-    if (!serial->set_add_ssm_header(false) || *fake == nullptr)
+    if (!serial->SetAddSsmHeader(false) || *fake == nullptr)
     {
         return nullptr;
     }
     return serial;
 }
 
-void expectCanTransportSetup(FakeBackend& fake, bool reset, std::uint32_t source, std::uint32_t destination)
+void ExpectCanTransportSetup(FakeBackend& fake, bool reset, std::uint32_t source, std::uint32_t destination)
 {
     ::testing::InSequence sequence;
     if (reset)
     {
-        EXPECT_CALL(fake, reset_connection()).WillOnce(::testing::Return());
+        EXPECT_CALL(fake, ResetConnection()).WillOnce(::testing::Return());
     }
-    EXPECT_CALL(fake, set_is_iso15765_connection(true)).WillOnce(::testing::Return(true));
-    EXPECT_CALL(fake, set_is_can_connection(false)).WillOnce(::testing::Return(true));
-    EXPECT_CALL(fake, set_is_iso14230_connection(false)).WillOnce(::testing::Return(true));
-    EXPECT_CALL(fake, set_is_29_bit_id(false)).WillOnce(::testing::Return(true));
-    EXPECT_CALL(fake, set_can_speed(QStringLiteral("500000"))).WillOnce(::testing::Return(true));
-    EXPECT_CALL(fake, set_can_source_address(source)).WillOnce(::testing::Return(true));
-    EXPECT_CALL(fake, set_can_destination_address(destination)).WillOnce(::testing::Return(true));
-    EXPECT_CALL(fake, set_iso15765_source_address(source)).WillOnce(::testing::Return(true));
-    EXPECT_CALL(fake, set_iso15765_destination_address(destination)).WillOnce(::testing::Return(true));
-    EXPECT_CALL(fake, set_add_iso14230_header(false)).WillOnce(::testing::Return(true));
-    EXPECT_CALL(fake, open_serial_port()).WillOnce(::testing::Return(QStringLiteral("COM3")));
+    EXPECT_CALL(fake, SetIsIso15765Connection(true)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(fake, SetIsCanConnection(false)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(fake, SetIsIso14230Connection(false)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(fake, SetIs29BitId(false)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(fake, SetCanSpeed(QStringLiteral("500000"))).WillOnce(::testing::Return(true));
+    EXPECT_CALL(fake, SetCanSourceAddress(source)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(fake, SetCanDestinationAddress(destination)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(fake, SetIso15765SourceAddress(source)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(fake, SetIso15765DestinationAddress(destination)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(fake, SetAddIso14230Header(false)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(fake, OpenSerialPort()).WillOnce(::testing::Return(QStringLiteral("COM3")));
 }
 
-void expectNoBackendIo(FakeBackend& fake)
+void ExpectNoBackendIo(FakeBackend& fake)
 {
-    EXPECT_CALL(fake, is_serial_port_open()).Times(0);
-    EXPECT_CALL(fake, reset_connection()).Times(0);
-    EXPECT_CALL(fake, change_port_speed(::testing::_)).Times(0);
-    EXPECT_CALL(fake, open_serial_port()).Times(0);
-    EXPECT_CALL(fake, read_serial_data(::testing::_)).Times(0);
-    EXPECT_CALL(fake, write_serial_data(::testing::_)).Times(0);
-    EXPECT_CALL(fake, write_serial_data_echo_check(::testing::_)).Times(0);
-    EXPECT_CALL(fake, read_vbatt()).Times(0);
+    EXPECT_CALL(fake, IsSerialPortOpen()).Times(0);
+    EXPECT_CALL(fake, ResetConnection()).Times(0);
+    EXPECT_CALL(fake, ChangePortSpeed(::testing::_)).Times(0);
+    EXPECT_CALL(fake, OpenSerialPort()).Times(0);
+    EXPECT_CALL(fake, ReadSerialData(::testing::_)).Times(0);
+    EXPECT_CALL(fake, WriteSerialData(::testing::_)).Times(0);
+    EXPECT_CALL(fake, WriteSerialDataEchoCheck(::testing::_)).Times(0);
+    EXPECT_CALL(fake, ReadVbatt()).Times(0);
 }
 
 TEST(FlashWorkflowTest, recognizesEveryPortableFamilyPrefixAndLeavesLegacyAlone)
@@ -270,41 +270,41 @@ TEST(FlashWorkflowTest, recognizesEveryPortableFamilyPrefixAndLeavesLegacyAlone)
                                                                    "sub_ecu_unisia_jecs_70"});
     for (const char *protocol : kPortable)
     {
-        ASSERT_TRUE(FlashWorkflowFactory::tryCreate(request(protocol)) != nullptr) << protocol;
+        ASSERT_TRUE(FlashWorkflowFactory::TryCreate(Request(protocol)) != nullptr) << protocol;
     }
 }
 
 TEST(FlashWorkflowTest, invalidColtSuffixIsRecognizedButFailsPreflight)
 {
-    auto workflow = FlashWorkflowFactory::tryCreate(request("mitsu_ecu_m32r_can_typo"));
+    auto workflow = FlashWorkflowFactory::TryCreate(Request("mitsu_ecu_m32r_can_typo"));
     ASSERT_TRUE(workflow != nullptr);
-    auto step = workflow->next();
+    auto step = workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashFailureStep>(step));
     ASSERT_EQ(std::get<FlashFailureStep>(step).error.kind, ErrorKind::kInvalidConfig);
 }
 
 TEST(FlashWorkflowTest, preflightPrecedesPromptsAndDeclineCancels)
 {
-    auto invalid = request("mitsu_ecu_m32r_can", FlashOperation::kTestWrite);
-    auto workflow = FlashWorkflowFactory::tryCreate(std::move(invalid));
-    ASSERT_TRUE(std::holds_alternative<FlashFailureStep>(workflow->next()));
+    auto invalid = Request("mitsu_ecu_m32r_can", FlashOperation::kTestWrite);
+    auto workflow = FlashWorkflowFactory::TryCreate(std::move(invalid));
+    ASSERT_TRUE(std::holds_alternative<FlashFailureStep>(workflow->Next()));
 
-    workflow = FlashWorkflowFactory::tryCreate(request("mitsu_ecu_m32r_can"));
-    ASSERT_EQ(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::kBegin);
-    workflow->submit(FlashPromptResponse::kDecline);
-    const auto done = workflow->next();
+    workflow = FlashWorkflowFactory::TryCreate(Request("mitsu_ecu_m32r_can"));
+    ASSERT_EQ(std::get<FlashPromptStep>(workflow->Next()).kind, FlashPromptKind::kBegin);
+    workflow->Submit(FlashPromptResponse::kDecline);
+    const auto done = workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashCompletedStep>(done));
     ASSERT_EQ(std::get<FlashCompletedStep>(done).outcome, FlashWorkflowOutcome::kCancelled);
 }
 
 TEST(FlashWorkflowTest, successfulReadBytesAreAcceptedAutomatically)
 {
-    auto workflow = FlashWorkflowFactory::tryCreate(request("mitsu_ecu_m32r_can"));
-    std::ignore = workflow->next();
-    workflow->submit(FlashPromptResponse::kAccept);
-    ASSERT_TRUE(std::holds_alternative<FlashAttempt>(workflow->next()));
-    workflow->submit(FlashAttemptResult{.success = true, .read_bytes = bytes::Bytes{1, 2, 3}});
-    auto done = workflow->next();
+    auto workflow = FlashWorkflowFactory::TryCreate(Request("mitsu_ecu_m32r_can"));
+    std::ignore = workflow->Next();
+    workflow->Submit(FlashPromptResponse::kAccept);
+    ASSERT_TRUE(std::holds_alternative<FlashAttempt>(workflow->Next()));
+    workflow->Submit(FlashAttemptResult{.success = true, .read_bytes = bytes::Bytes{1, 2, 3}});
+    auto done = workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashCompletedStep>(done));
     ASSERT_EQ(std::get<FlashCompletedStep>(done).accepted_read_bytes, bytes::Bytes({1, 2, 3}));
 }
@@ -318,13 +318,13 @@ TEST(FlashWorkflowTest, unisiaJecsRoutesOnlyExactProtocolMcuPairs)
 
     for (const auto& [protocol, mcu] : kPairs)
     {
-        auto input = request(protocol);
+        auto input = Request(protocol);
         input.protocol.mcu = mcu;
-        auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+        auto workflow = FlashWorkflowFactory::TryCreate(std::move(input));
         ASSERT_TRUE(workflow != nullptr) << protocol;
-        ASSERT_EQ(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::kBegin);
-        workflow->submit(FlashPromptResponse::kAccept);
-        auto step = workflow->next();
+        ASSERT_EQ(std::get<FlashPromptStep>(workflow->Next()).kind, FlashPromptKind::kBegin);
+        workflow->Submit(FlashPromptResponse::kAccept);
+        auto step = workflow->Next();
         ASSERT_TRUE(std::holds_alternative<FlashAttempt>(step));
         const auto& plan = std::get<FlashAttempt>(step).attempt->Plan();
         ASSERT_EQ(plan.Family(), FlashFamily::kSubaruUnisiaJecs);
@@ -333,8 +333,8 @@ TEST(FlashWorkflowTest, unisiaJecsRoutesOnlyExactProtocolMcuPairs)
         ASSERT_EQ(plan.McuName(), mcu);
     }
 
-    ASSERT_TRUE(FlashWorkflowFactory::tryCreate(request("sub_ecu_unisia_jecs_m3779x_suffix")) == nullptr);
-    ASSERT_TRUE(FlashWorkflowFactory::tryCreate(request("sub_ecu_unisia_jecs_m3775x_suffix")) == nullptr);
+    ASSERT_TRUE(FlashWorkflowFactory::TryCreate(Request("sub_ecu_unisia_jecs_m3779x_suffix")) == nullptr);
+    ASSERT_TRUE(FlashWorkflowFactory::TryCreate(Request("sub_ecu_unisia_jecs_m3775x_suffix")) == nullptr);
 }
 
 TEST(FlashWorkflowTest, unisiaJecsCrossPairsFailBeforeAttempt)
@@ -346,11 +346,11 @@ TEST(FlashWorkflowTest, unisiaJecsCrossPairsFailBeforeAttempt)
 
     for (const auto& [protocol, mcu] : kCrossPairs)
     {
-        auto input = request(protocol);
+        auto input = Request(protocol);
         input.protocol.mcu = mcu;
-        auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+        auto workflow = FlashWorkflowFactory::TryCreate(std::move(input));
         ASSERT_TRUE(workflow != nullptr) << protocol;
-        auto step = workflow->next();
+        auto step = workflow->Next();
         ASSERT_TRUE(std::holds_alternative<FlashFailureStep>(step));
         ASSERT_EQ(std::get<FlashFailureStep>(step).error.kind, ErrorKind::kInvalidConfig);
     }
@@ -358,15 +358,15 @@ TEST(FlashWorkflowTest, unisiaJecsCrossPairsFailBeforeAttempt)
 
 TEST(FlashWorkflowTest, subaruMitsuPropagatesRomId)
 {
-    auto input = request("sub_ecu_mitsu_m32r_kline");
+    auto input = Request("sub_ecu_mitsu_m32r_kline");
     input.protocol.mcu = "M32R_512KB_4blocks";
-    auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
-    ASSERT_EQ(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::kBegin);
-    workflow->submit(FlashPromptResponse::kAccept);
-    ASSERT_TRUE(std::holds_alternative<FlashAttempt>(workflow->next()));
-    workflow->submit(
+    auto workflow = FlashWorkflowFactory::TryCreate(std::move(input));
+    ASSERT_EQ(std::get<FlashPromptStep>(workflow->Next()).kind, FlashPromptKind::kBegin);
+    workflow->Submit(FlashPromptResponse::kAccept);
+    ASSERT_TRUE(std::holds_alternative<FlashAttempt>(workflow->Next()));
+    workflow->Submit(
         FlashAttemptResult{.success = true, .read_bytes = bytes::Bytes{0xff, 0x12}, .rom_id = "123456789A_"});
-    auto done = workflow->next();
+    auto done = workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashCompletedStep>(done));
     ASSERT_EQ(std::get<FlashCompletedStep>(done).rom_id, std::string("123456789A_"));
 }
@@ -375,16 +375,16 @@ TEST(FlashWorkflowTest, subaruHitachiRoutesBothModesAndPropagatesReadResult)
 {
     for (const char *protocol : {"sub_ecu_hitachi_m32r_kline", "sub_ecu_hitachi_m32r_kline_recovery"})
     {
-        auto input = request(protocol);
+        auto input = Request(protocol);
         input.protocol.mcu = "M32R_512KB_1block";
-        auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+        auto workflow = FlashWorkflowFactory::TryCreate(std::move(input));
         ASSERT_TRUE(workflow != nullptr);
-        ASSERT_EQ(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::kBegin);
-        workflow->submit(FlashPromptResponse::kAccept);
-        ASSERT_TRUE(std::holds_alternative<FlashAttempt>(workflow->next()));
-        workflow->submit(
+        ASSERT_EQ(std::get<FlashPromptStep>(workflow->Next()).kind, FlashPromptKind::kBegin);
+        workflow->Submit(FlashPromptResponse::kAccept);
+        ASSERT_TRUE(std::holds_alternative<FlashAttempt>(workflow->Next()));
+        workflow->Submit(
             FlashAttemptResult{.success = true, .read_bytes = bytes::Bytes{0x5a}, .rom_id = "123456789A_"});
-        auto done = workflow->next();
+        auto done = workflow->Next();
         ASSERT_TRUE(std::holds_alternative<FlashCompletedStep>(done));
         ASSERT_EQ(std::get<FlashCompletedStep>(done).accepted_read_bytes, bytes::Bytes({0x5a}));
         ASSERT_EQ(std::get<FlashCompletedStep>(done).rom_id, std::string("123456789A_"));
@@ -393,15 +393,15 @@ TEST(FlashWorkflowTest, subaruHitachiRoutesBothModesAndPropagatesReadResult)
 
 TEST(FlashWorkflowTest, routesTcuHitachiM32rKlineReadOnly)
 {
-    auto input = request("sub_tcu_hitachi_m32r_kline");
+    auto input = Request("sub_tcu_hitachi_m32r_kline");
     input.protocol.mcu = "M32R_512KB";
-    auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+    auto workflow = FlashWorkflowFactory::TryCreate(std::move(input));
     ASSERT_TRUE(workflow != nullptr);
-    ASSERT_EQ(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::kBegin);
-    workflow->submit(FlashPromptResponse::kAccept);
-    ASSERT_TRUE(std::holds_alternative<FlashAttempt>(workflow->next()));
-    workflow->submit(FlashAttemptResult{.success = true, .read_bytes = bytes::Bytes{0x5a}, .rom_id = "123456789A_"});
-    const auto done = workflow->next();
+    ASSERT_EQ(std::get<FlashPromptStep>(workflow->Next()).kind, FlashPromptKind::kBegin);
+    workflow->Submit(FlashPromptResponse::kAccept);
+    ASSERT_TRUE(std::holds_alternative<FlashAttempt>(workflow->Next()));
+    workflow->Submit(FlashAttemptResult{.success = true, .read_bytes = bytes::Bytes{0x5a}, .rom_id = "123456789A_"});
+    const auto done = workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashCompletedStep>(done));
     ASSERT_EQ(std::get<FlashCompletedStep>(done).accepted_read_bytes, bytes::Bytes({0x5a}));
     ASSERT_EQ(std::get<FlashCompletedStep>(done).rom_id, std::string("123456789A_"));
@@ -409,13 +409,13 @@ TEST(FlashWorkflowTest, routesTcuHitachiM32rKlineReadOnly)
     // Write is rejected by the plan builder (the family is read-only), so the
     // workflow's very first step must be a failure rather than a prompt or an
     // attempt -- the legacy path silently "succeeded" while writing nothing.
-    auto write_request = request("sub_tcu_hitachi_m32r_kline");
+    auto write_request = Request("sub_tcu_hitachi_m32r_kline");
     write_request.protocol.mcu = "M32R_512KB";
     write_request.operation = FlashOperation::kWrite;
     write_request.image = bytes::Bytes(0x80000, 0x00);
-    auto write_workflow = FlashWorkflowFactory::tryCreate(std::move(write_request));
+    auto write_workflow = FlashWorkflowFactory::TryCreate(std::move(write_request));
     ASSERT_TRUE(write_workflow != nullptr);
-    const auto write_step = write_workflow->next();
+    const auto write_step = write_workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashFailureStep>(write_step));
     ASSERT_EQ(std::get<FlashFailureStep>(write_step).error.kind, ErrorKind::kUnsupported);
 }
@@ -435,20 +435,20 @@ TEST(FlashWorkflowTest, routesTcuHitachiM32rCanReadAndWriteRejectsTestWrite)
 
     // Read routes to an attempt bound to the CAN executor and transport, and
     // a successful attempt result is propagated through to completion.
-    auto read_input = request(kProtocol);
+    auto read_input = Request(kProtocol);
     read_input.protocol.mcu = kMcu;
-    auto read_workflow = FlashWorkflowFactory::tryCreate(std::move(read_input));
+    auto read_workflow = FlashWorkflowFactory::TryCreate(std::move(read_input));
     ASSERT_TRUE(read_workflow != nullptr);
-    ASSERT_EQ(std::get<FlashPromptStep>(read_workflow->next()).kind, FlashPromptKind::kBegin);
-    read_workflow->submit(FlashPromptResponse::kAccept);
-    const auto read_step = read_workflow->next();
+    ASSERT_EQ(std::get<FlashPromptStep>(read_workflow->Next()).kind, FlashPromptKind::kBegin);
+    read_workflow->Submit(FlashPromptResponse::kAccept);
+    const auto read_step = read_workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashAttempt>(read_step));
     const FlashPlan& read_plan = std::get<FlashAttempt>(read_step).attempt->Plan();
     ASSERT_EQ(read_plan.TargetId(), std::string_view(kProtocol));
     ASSERT_TRUE(read_plan.Operation() == FlashOperation::kRead);
     ASSERT_EQ(read_plan.Transport(), TransportKind::kCanIso15765);
-    read_workflow->submit(FlashAttemptResult{.success = true, .read_bytes = bytes::Bytes{0x5a}});
-    const auto read_done = read_workflow->next();
+    read_workflow->Submit(FlashAttemptResult{.success = true, .read_bytes = bytes::Bytes{0x5a}});
+    const auto read_done = read_workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashCompletedStep>(read_done));
     ASSERT_EQ(std::get<FlashCompletedStep>(read_done).outcome, FlashWorkflowOutcome::kSucceeded);
     ASSERT_EQ(std::get<FlashCompletedStep>(read_done).accepted_read_bytes, bytes::Bytes({0x5a}));
@@ -462,25 +462,25 @@ TEST(FlashWorkflowTest, routesTcuHitachiM32rCanReadAndWriteRejectsTestWrite)
     // points are consumers of those two, not additional checks of their own.
     // The workflow's very first step must be a failure, not a prompt -- the
     // legacy path silently "succeeded" while performing a real write.
-    auto test_write_input = request(kProtocol, FlashOperation::kTestWrite);
+    auto test_write_input = Request(kProtocol, FlashOperation::kTestWrite);
     test_write_input.protocol.mcu = kMcu;
     test_write_input.image = bytes::Bytes(0x80000, 0xa5);
-    auto test_write_workflow = FlashWorkflowFactory::tryCreate(std::move(test_write_input));
+    auto test_write_workflow = FlashWorkflowFactory::TryCreate(std::move(test_write_input));
     ASSERT_TRUE(test_write_workflow != nullptr);
-    const auto test_write_step = test_write_workflow->next();
+    const auto test_write_step = test_write_workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashFailureStep>(test_write_step));
     ASSERT_EQ(std::get<FlashFailureStep>(test_write_step).error.kind, ErrorKind::kUnsupported);
 
     // Write, unlike the K-Line sibling, is supported by this family and
     // routes all the way to an attempt bound to the CAN executor/transport.
-    auto write_input = request(kProtocol, FlashOperation::kWrite);
+    auto write_input = Request(kProtocol, FlashOperation::kWrite);
     write_input.protocol.mcu = kMcu;
     write_input.image = bytes::Bytes(0x80000, 0xa5);
-    auto write_workflow = FlashWorkflowFactory::tryCreate(std::move(write_input));
+    auto write_workflow = FlashWorkflowFactory::TryCreate(std::move(write_input));
     ASSERT_TRUE(write_workflow != nullptr);
-    ASSERT_EQ(std::get<FlashPromptStep>(write_workflow->next()).kind, FlashPromptKind::kBegin);
-    write_workflow->submit(FlashPromptResponse::kAccept);
-    const auto write_step = write_workflow->next();
+    ASSERT_EQ(std::get<FlashPromptStep>(write_workflow->Next()).kind, FlashPromptKind::kBegin);
+    write_workflow->Submit(FlashPromptResponse::kAccept);
+    const auto write_step = write_workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashAttempt>(write_step));
     const FlashPlan& write_plan = std::get<FlashAttempt>(write_step).attempt->Plan();
     ASSERT_EQ(write_plan.TargetId(), std::string_view(kProtocol));
@@ -494,17 +494,17 @@ TEST(FlashWorkflowTest, routesSh72543rAliasesAndPreservesImageAndIdentity)
     {
         for (auto operation : {FlashOperation::kRead, FlashOperation::kWrite})
         {
-            auto input = request(protocol, operation);
+            auto input = Request(protocol, operation);
             input.protocol.mcu = "SH72543R";
             if (operation == FlashOperation::kWrite)
             {
                 input.image = bytes::Bytes(0x200000, 0xa5);
             }
-            auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+            auto workflow = FlashWorkflowFactory::TryCreate(std::move(input));
             ASSERT_TRUE(workflow);
-            ASSERT_EQ(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::kBegin);
-            workflow->submit(FlashPromptResponse::kAccept);
-            auto step = workflow->next();
+            ASSERT_EQ(std::get<FlashPromptStep>(workflow->Next()).kind, FlashPromptKind::kBegin);
+            workflow->Submit(FlashPromptResponse::kAccept);
+            auto step = workflow->Next();
             ASSERT_TRUE(std::holds_alternative<FlashAttempt>(step));
             const auto& plan = std::get<FlashAttempt>(step).attempt->Plan();
             ASSERT_EQ(plan.Family(), FlashFamily::kSubaruHitachiSh72543rCan);
@@ -515,12 +515,12 @@ TEST(FlashWorkflowTest, routesSh72543rAliasesAndPreservesImageAndIdentity)
             {
                 ASSERT_EQ(plan.Image(), bytes::Bytes(0x200000, 0xa5));
             }
-            workflow->submit(FlashAttemptResult{
+            workflow->Submit(FlashAttemptResult{
                 .success = true,
                 .read_bytes = operation == FlashOperation::kRead ? std::optional{bytes::Bytes{1, 2, 3}} : std::nullopt,
                 .rom_id =
                     operation == FlashOperation::kRead ? std::optional<std::string>{"CAL_1122334455_"} : std::nullopt});
-            auto done = std::get<FlashCompletedStep>(workflow->next());
+            auto done = std::get<FlashCompletedStep>(workflow->Next());
             ASSERT_EQ(done.outcome, FlashWorkflowOutcome::kSucceeded);
             if (operation == FlashOperation::kRead)
             {
@@ -534,42 +534,42 @@ TEST(FlashWorkflowTest, routesSh72543rAliasesAndPreservesImageAndIdentity)
             }
         }
     }
-    ASSERT_TRUE(!FlashWorkflowFactory::tryCreate(request("sub_ecu_hitachi_sh72543r_can_recovery_typo")));
-    ASSERT_TRUE(!FlashWorkflowFactory::tryCreate(request("sub_ecu_hitachi_sh72543r_can_typo")));
+    ASSERT_TRUE(!FlashWorkflowFactory::TryCreate(Request("sub_ecu_hitachi_sh72543r_can_recovery_typo")));
+    ASSERT_TRUE(!FlashWorkflowFactory::TryCreate(Request("sub_ecu_hitachi_sh72543r_can_typo")));
 }
 TEST(FlashWorkflowTest, routesSh7058ReadAndWriteWithPreTransportPrompts)
 {
-    ASSERT_TRUE(!FlashWorkflowFactory::tryCreate(request("sub_ecu_hitachi_sh7058_can_extra")));
+    ASSERT_TRUE(!FlashWorkflowFactory::TryCreate(Request("sub_ecu_hitachi_sh7058_can_extra")));
     for (const auto operation : {FlashOperation::kRead, FlashOperation::kWrite})
     {
-        auto input = request("sub_ecu_hitachi_sh7058_can", operation);
+        auto input = Request("sub_ecu_hitachi_sh7058_can", operation);
         input.protocol.mcu = "SH7058_1block";
         if (operation == FlashOperation::kWrite)
         {
             input.image = bytes::Bytes(0x100000, 0x5a);
         }
-        auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+        auto workflow = FlashWorkflowFactory::TryCreate(std::move(input));
         ASSERT_TRUE(workflow);
-        ASSERT_EQ(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::kBegin);
-        workflow->submit(FlashPromptResponse::kAccept);
+        ASSERT_EQ(std::get<FlashPromptStep>(workflow->Next()).kind, FlashPromptKind::kBegin);
+        workflow->Submit(FlashPromptResponse::kAccept);
         if (operation == FlashOperation::kRead)
         {
-            ASSERT_EQ(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::kConfirmSh7058Read);
-            workflow->submit(FlashPromptResponse::kAccept);
+            ASSERT_EQ(std::get<FlashPromptStep>(workflow->Next()).kind, FlashPromptKind::kConfirmSh7058Read);
+            workflow->Submit(FlashPromptResponse::kAccept);
         }
-        auto step = workflow->next();
+        auto step = workflow->Next();
         ASSERT_TRUE(std::holds_alternative<FlashAttempt>(step));
         const auto& plan = std::get<FlashAttempt>(step).attempt->Plan();
         ASSERT_EQ(plan.Family(), FlashFamily::kSubaruHitachiSh7058);
         ASSERT_EQ(plan.Transport(),
                   operation == FlashOperation::kRead ? TransportKind::kKline : TransportKind::kCanIso15765);
     }
-    auto input = request("sub_ecu_hitachi_sh7058_can");
+    auto input = Request("sub_ecu_hitachi_sh7058_can");
     input.protocol.mcu = "SH7058_1block";
-    auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
-    workflow->submit(FlashPromptResponse::kAccept);
-    workflow->submit(FlashPromptResponse::kDecline);
-    ASSERT_EQ(std::get<FlashCompletedStep>(workflow->next()).outcome, FlashWorkflowOutcome::kCancelled);
+    auto workflow = FlashWorkflowFactory::TryCreate(std::move(input));
+    workflow->Submit(FlashPromptResponse::kAccept);
+    workflow->Submit(FlashPromptResponse::kDecline);
+    ASSERT_EQ(std::get<FlashCompletedStep>(workflow->Next()).outcome, FlashWorkflowOutcome::kCancelled);
 }
 TEST(FlashWorkflowTest, sh72543rRejectsPreflightAndDeclinedBegin)
 {
@@ -577,23 +577,23 @@ TEST(FlashWorkflowTest, sh72543rRejectsPreflightAndDeclinedBegin)
     {
         for (int fault = 0; fault < 3; ++fault)
         {
-            auto input = request(protocol, fault == 0 ? FlashOperation::kTestWrite : FlashOperation::kWrite);
+            auto input = Request(protocol, fault == 0 ? FlashOperation::kTestWrite : FlashOperation::kWrite);
             input.protocol.mcu = fault == 1 ? "SH72543d" : "SH72543R";
             input.image = bytes::Bytes(fault == 2 ? 16 : 0x200000);
-            auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+            auto workflow = FlashWorkflowFactory::TryCreate(std::move(input));
             ASSERT_TRUE(workflow);
-            auto step = workflow->next();
+            auto step = workflow->Next();
             ASSERT_TRUE(std::holds_alternative<FlashFailureStep>(step));
             ASSERT_EQ(std::get<FlashFailureStep>(step).error.kind,
                       fault == 0 ? ErrorKind::kUnsupported : ErrorKind::kInvalidConfig);
         }
-        auto input = request(protocol);
+        auto input = Request(protocol);
         input.protocol.mcu = "SH72543R";
-        auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+        auto workflow = FlashWorkflowFactory::TryCreate(std::move(input));
         ASSERT_TRUE(workflow);
-        ASSERT_TRUE(std::holds_alternative<FlashPromptStep>(workflow->next()));
-        workflow->submit(FlashPromptResponse::kDecline);
-        auto done = std::get<FlashCompletedStep>(workflow->next());
+        ASSERT_TRUE(std::holds_alternative<FlashPromptStep>(workflow->Next()));
+        workflow->Submit(FlashPromptResponse::kDecline);
+        auto done = std::get<FlashCompletedStep>(workflow->Next());
         ASSERT_EQ(done.outcome, FlashWorkflowOutcome::kCancelled);
         ASSERT_TRUE(!done.accepted_read_bytes);
     }
@@ -602,18 +602,18 @@ TEST(FlashWorkflowTest, sh72543rPropagatesFailureAndAbsentIdentity)
 {
     for (int outcome = 0; outcome < 3; ++outcome)
     {
-        auto input = request("sub_ecu_hitachi_sh72543r_can");
+        auto input = Request("sub_ecu_hitachi_sh72543r_can");
         input.protocol.mcu = "SH72543R";
-        auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+        auto workflow = FlashWorkflowFactory::TryCreate(std::move(input));
         ASSERT_TRUE(workflow);
-        workflow->submit(FlashPromptResponse::kAccept);
-        ASSERT_TRUE(std::holds_alternative<FlashAttempt>(workflow->next()));
-        workflow->submit(
+        workflow->Submit(FlashPromptResponse::kAccept);
+        ASSERT_TRUE(std::holds_alternative<FlashAttempt>(workflow->Next()));
+        workflow->Submit(
             FlashAttemptResult{.success = outcome == 0,
                                .error_kind = outcome == 1 ? ErrorKind::kDisconnected : ErrorKind::kCancelled,
                                .error_detail = "lost adapter",
                                .read_bytes = outcome == 0 ? std::optional{bytes::Bytes{4, 5}} : std::nullopt});
-        auto step = workflow->next();
+        auto step = workflow->Next();
         if (outcome == 1)
         {
             ASSERT_TRUE(std::holds_alternative<FlashFailureStep>(step));
@@ -630,24 +630,24 @@ TEST(FlashWorkflowTest, sh72543rPropagatesFailureAndAbsentIdentity)
 
 TEST(FlashWorkflowTest, coltWriteUsesColtSpecificSafetyPrompts)
 {
-    auto write = request("mitsu_ecu_m32r_can", FlashOperation::kWrite);
+    auto write = Request("mitsu_ecu_m32r_can", FlashOperation::kWrite);
     write.image = bytes::Bytes(0x60000);
-    auto workflow = FlashWorkflowFactory::tryCreate(std::move(write));
+    auto workflow = FlashWorkflowFactory::TryCreate(std::move(write));
 
-    ASSERT_EQ(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::kBegin);
-    workflow->submit(FlashPromptResponse::kAccept);
-    ASSERT_EQ(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::kColtEraseTrigger);
+    ASSERT_EQ(std::get<FlashPromptStep>(workflow->Next()).kind, FlashPromptKind::kBegin);
+    workflow->Submit(FlashPromptResponse::kAccept);
+    ASSERT_EQ(std::get<FlashPromptStep>(workflow->Next()).kind, FlashPromptKind::kColtEraseTrigger);
 }
 
 TEST(FlashWorkflowTest, mc68BdmReadRoutesThroughBeginToAttempt)
 {
-    auto input = request("sub_ecu_denso_mc68hc16y5_02_bdm");
+    auto input = Request("sub_ecu_denso_mc68hc16y5_02_bdm");
     input.protocol.mcu = "MC68HC16Y5";
-    auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+    auto workflow = FlashWorkflowFactory::TryCreate(std::move(input));
     ASSERT_TRUE(workflow != nullptr);
-    ASSERT_EQ(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::kBegin);
-    workflow->submit(FlashPromptResponse::kAccept);
-    auto step = workflow->next();
+    ASSERT_EQ(std::get<FlashPromptStep>(workflow->Next()).kind, FlashPromptKind::kBegin);
+    workflow->Submit(FlashPromptResponse::kAccept);
+    auto step = workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashAttempt>(step));
     const auto& plan = std::get<FlashAttempt>(step).attempt->Plan();
     ASSERT_EQ(plan.Family(), FlashFamily::kSubaruDensoMc68hc16y502Bdm);
@@ -660,25 +660,25 @@ TEST(FlashWorkflowTest, mc68BdmWriteBootstrapsTheCatalogKernelNotTheRom)
 {
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
-    auto input = request("sub_ecu_denso_mc68hc16y5_02_bdm", FlashOperation::kWrite);
+    auto input = Request("sub_ecu_denso_mc68hc16y5_02_bdm", FlashOperation::kWrite);
     input.protocol.mcu = "MC68HC16Y5";
-    const auto paths = catalogPaths(directory);
+    const auto paths = CatalogPaths(directory);
     ASSERT_TRUE(paths.has_value());
     input.paths = *paths;
     input.image = bytes::Bytes(0x30000, 0x5a);
-    auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+    auto workflow = FlashWorkflowFactory::TryCreate(std::move(input));
     ASSERT_TRUE(workflow != nullptr);
 
-    auto step = workflow->next();
+    auto step = workflow->Next();
     if (const auto *failure = std::get_if<FlashFailureStep>(&step))
     {
         FAIL() << failure->error.detail.c_str();
     }
     ASSERT_EQ(std::get<FlashPromptStep>(step).kind, FlashPromptKind::kBegin);
-    workflow->submit(FlashPromptResponse::kAccept);
-    ASSERT_EQ(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::kConfirmBdmKernelBootstrap);
-    workflow->submit(FlashPromptResponse::kAccept);
-    step = workflow->next();
+    workflow->Submit(FlashPromptResponse::kAccept);
+    ASSERT_EQ(std::get<FlashPromptStep>(workflow->Next()).kind, FlashPromptKind::kConfirmBdmKernelBootstrap);
+    workflow->Submit(FlashPromptResponse::kAccept);
+    step = workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashAttempt>(step));
     const auto& plan = std::get<FlashAttempt>(step).attempt->Plan();
     bytes::Bytes expected(0x20, 0x00);
@@ -694,79 +694,79 @@ TEST(FlashWorkflowTest, mc68BdmDeclinedBootstrapConfirmationCancels)
 {
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
-    auto input = request("sub_ecu_denso_mc68hc16y5_02_bdm", FlashOperation::kWrite);
+    auto input = Request("sub_ecu_denso_mc68hc16y5_02_bdm", FlashOperation::kWrite);
     input.protocol.mcu = "MC68HC16Y5";
-    const auto paths = catalogPaths(directory);
+    const auto paths = CatalogPaths(directory);
     ASSERT_TRUE(paths.has_value());
     input.paths = *paths;
-    auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
-    ASSERT_EQ(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::kBegin);
-    workflow->submit(FlashPromptResponse::kAccept);
-    ASSERT_EQ(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::kConfirmBdmKernelBootstrap);
-    workflow->submit(FlashPromptResponse::kDecline);
-    const auto done = workflow->next();
+    auto workflow = FlashWorkflowFactory::TryCreate(std::move(input));
+    ASSERT_EQ(std::get<FlashPromptStep>(workflow->Next()).kind, FlashPromptKind::kBegin);
+    workflow->Submit(FlashPromptResponse::kAccept);
+    ASSERT_EQ(std::get<FlashPromptStep>(workflow->Next()).kind, FlashPromptKind::kConfirmBdmKernelBootstrap);
+    workflow->Submit(FlashPromptResponse::kDecline);
+    const auto done = workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashCompletedStep>(done));
     ASSERT_EQ(std::get<FlashCompletedStep>(done).outcome, FlashWorkflowOutcome::kCancelled);
 }
 
 TEST(FlashWorkflowTest, mc68BdmDeclinedBeginCancels)
 {
-    auto input = request("sub_ecu_denso_mc68hc16y5_02_bdm");
+    auto input = Request("sub_ecu_denso_mc68hc16y5_02_bdm");
     input.protocol.mcu = "MC68HC16Y5";
-    auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+    auto workflow = FlashWorkflowFactory::TryCreate(std::move(input));
     ASSERT_TRUE(workflow != nullptr);
-    ASSERT_EQ(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::kBegin);
-    workflow->submit(FlashPromptResponse::kDecline);
-    const auto done = workflow->next();
+    ASSERT_EQ(std::get<FlashPromptStep>(workflow->Next()).kind, FlashPromptKind::kBegin);
+    workflow->Submit(FlashPromptResponse::kDecline);
+    const auto done = workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashCompletedStep>(done));
     ASSERT_EQ(std::get<FlashCompletedStep>(done).outcome, FlashWorkflowOutcome::kCancelled);
 }
 
 TEST(FlashWorkflowTest, mc68BdmTestWriteFailsBeforeAnyPrompt)
 {
-    auto input = request("sub_ecu_denso_mc68hc16y5_02_bdm", FlashOperation::kTestWrite);
+    auto input = Request("sub_ecu_denso_mc68hc16y5_02_bdm", FlashOperation::kTestWrite);
     input.protocol.mcu = "MC68HC16Y5";
     input.image = bytes::Bytes(0x30000, 0x5a);
-    auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+    auto workflow = FlashWorkflowFactory::TryCreate(std::move(input));
     ASSERT_TRUE(workflow != nullptr);
-    const auto step = workflow->next();
+    const auto step = workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashFailureStep>(step));
     ASSERT_EQ(std::get<FlashFailureStep>(step).error.kind, ErrorKind::kUnsupported);
 }
 
 TEST(FlashWorkflowTest, mc68BdmPrefixLookalikeStaysOffTheKlineFamily)
 {
-    auto input = request("sub_ecu_denso_mc68hc16y5_02_bdm_x");
+    auto input = Request("sub_ecu_denso_mc68hc16y5_02_bdm_x");
     input.protocol.mcu = "MC68HC16Y5";
-    auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+    auto workflow = FlashWorkflowFactory::TryCreate(std::move(input));
     ASSERT_TRUE(workflow != nullptr);
-    const auto step = workflow->next();
+    const auto step = workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashFailureStep>(step));
     ASSERT_EQ(std::get<FlashFailureStep>(step).error.kind, ErrorKind::kInvalidConfig);
 }
 
 TEST(FlashWorkflowTest, mc68TpuProtocolIsClaimedByPortableRoute)
 {
-    auto input = request("sub_ecu_denso_mc68hc16y5_02_tpu");
+    auto input = Request("sub_ecu_denso_mc68hc16y5_02_tpu");
     input.protocol.mcu = "MC68HC16Y5_TPU";
-    ASSERT_TRUE(FlashWorkflowFactory::tryCreate(std::move(input)) != nullptr);
+    ASSERT_TRUE(FlashWorkflowFactory::TryCreate(std::move(input)) != nullptr);
 }
 
 TEST(FlashWorkflowTest, mc68Revision04HasNoRoute)
 {
     for (const char *protocol : {"sub_ecu_denso_mc68hc16y5_04", "sub_ecu_denso_mc68hc16y5_04_ecutek"})
     {
-        auto input = request(protocol);
+        auto input = Request(protocol);
         input.protocol.mcu = "MC68HC16Y5";
-        ASSERT_TRUE(FlashWorkflowFactory::tryCreate(std::move(input)) == nullptr) << protocol;
+        ASSERT_TRUE(FlashWorkflowFactory::TryCreate(std::move(input)) == nullptr) << protocol;
     }
 }
 
 TEST(FlashWorkflowTest, sh7055ProtocolIsClaimedByPortableRoute)
 {
-    auto input = request("sub_ecu_denso_sh7055_02");
+    auto input = Request("sub_ecu_denso_sh7055_02");
     input.protocol.mcu = "SH7055";
-    ASSERT_TRUE(FlashWorkflowFactory::tryCreate(std::move(input)) != nullptr);
+    ASSERT_TRUE(FlashWorkflowFactory::TryCreate(std::move(input)) != nullptr);
 }
 
 TEST(FlashWorkflowTest, densoCanRoutesOnlyTheFiveExactProtocols)
@@ -780,11 +780,11 @@ TEST(FlashWorkflowTest, densoCanRoutesOnlyTheFiveExactProtocols)
     });
     for (const char *protocol : kProtocols)
     {
-        ASSERT_TRUE(FlashWorkflowFactory::tryCreate(request(protocol)) != nullptr) << protocol;
+        ASSERT_TRUE(FlashWorkflowFactory::TryCreate(Request(protocol)) != nullptr) << protocol;
     }
     for (const char *near_miss : {"sub_ecu_denso_sh7058_densocan_extra", "future_densocan"})
     {
-        ASSERT_TRUE(FlashWorkflowFactory::tryCreate(request(near_miss)) == nullptr) << near_miss;
+        ASSERT_TRUE(FlashWorkflowFactory::TryCreate(Request(near_miss)) == nullptr) << near_miss;
     }
 }
 
@@ -792,32 +792,32 @@ TEST(FlashWorkflowTest, densoCanResolvesKernelPromptsAndPropagatesAttemptResult)
 {
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
-    auto input = request("sub_ecu_denso_sh7055_densocan");
+    auto input = Request("sub_ecu_denso_sh7055_densocan");
     input.protocol.mcu = "SH7055";
-    const auto paths = catalogPaths(directory);
+    const auto paths = CatalogPaths(directory);
     ASSERT_TRUE(paths.has_value());
     input.paths = *paths;
-    auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+    auto workflow = FlashWorkflowFactory::TryCreate(std::move(input));
     ASSERT_TRUE(workflow != nullptr);
 
-    auto step = workflow->next();
+    auto step = workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashPromptStep>(step));
     ASSERT_EQ(std::get<FlashPromptStep>(step).kind, FlashPromptKind::kBegin);
     ASSERT_TRUE(QFile::remove(directory.filePath("kernels/catalog_densocan.bin")));
-    workflow->submit(FlashPromptResponse::kAccept);
-    step = workflow->next();
+    workflow->Submit(FlashPromptResponse::kAccept);
+    step = workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashPromptStep>(step));
     ASSERT_EQ(std::get<FlashPromptStep>(step).kind, FlashPromptKind::kCycleIgnition);
-    workflow->submit(FlashPromptResponse::kAccept);
-    step = workflow->next();
+    workflow->Submit(FlashPromptResponse::kAccept);
+    step = workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashAttempt>(step));
     const auto& plan = std::get<FlashAttempt>(step).attempt->Plan();
     ASSERT_EQ(plan.Transport(), TransportKind::kCanRawIso15765);
     ASSERT_TRUE(plan.Kernel().has_value());
     ASSERT_EQ(plan.Kernel()->bytes, bytes::Bytes({0xaa, 0xbb, 0xcc, 0xdd}));
 
-    workflow->submit(FlashAttemptResult{.success = true, .read_bytes = bytes::Bytes{0x5a}, .rom_id = "123456789A_"});
-    step = workflow->next();
+    workflow->Submit(FlashAttemptResult{.success = true, .read_bytes = bytes::Bytes{0x5a}, .rom_id = "123456789A_"});
+    step = workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashCompletedStep>(step));
     const auto& done = std::get<FlashCompletedStep>(step);
     ASSERT_EQ(done.outcome, FlashWorkflowOutcome::kSucceeded);
@@ -829,16 +829,16 @@ TEST(FlashWorkflowTest, densoCanMissingKernelAddressFailsBeforeAnyPromptOrAttemp
 {
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
-    const auto paths = catalogPaths(directory);
+    const auto paths = CatalogPaths(directory);
     ASSERT_TRUE(paths.has_value());
-    auto input = request("sub_ecu_denso_sh7055_densocan");
+    auto input = Request("sub_ecu_denso_sh7055_densocan");
     input.protocol.mcu = "SH7055";
     input.paths = *paths;
     input.protocol.kernel_load_address.reset();
 
-    auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+    auto workflow = FlashWorkflowFactory::TryCreate(std::move(input));
     ASSERT_NE(workflow, nullptr);
-    const auto step = workflow->next();
+    const auto step = workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashFailureStep>(step));
     const auto& error = std::get<FlashFailureStep>(step).error;
     EXPECT_EQ(error.kind, ErrorKind::kInvalidConfig);
@@ -847,35 +847,35 @@ TEST(FlashWorkflowTest, densoCanMissingKernelAddressFailsBeforeAnyPromptOrAttemp
 
 TEST(FlashWorkflowTest, densoCanPreflightAndDeclinedPromptsStopBeforeAttempt)
 {
-    auto missing_kernel = request("sub_ecu_denso_sh7055_densocan");
+    auto missing_kernel = Request("sub_ecu_denso_sh7055_densocan");
     missing_kernel.protocol.mcu = "SH7055";
-    auto workflow = FlashWorkflowFactory::tryCreate(std::move(missing_kernel));
+    auto workflow = FlashWorkflowFactory::TryCreate(std::move(missing_kernel));
     ASSERT_TRUE(workflow != nullptr);
-    ASSERT_TRUE(std::holds_alternative<FlashFailureStep>(workflow->next()));
+    ASSERT_TRUE(std::holds_alternative<FlashFailureStep>(workflow->Next()));
 
     for (const bool decline_begin : {true, false})
     {
         QTemporaryDir directory;
         ASSERT_TRUE(directory.isValid());
-        auto input = request("sub_ecu_denso_sh7055_densocan");
+        auto input = Request("sub_ecu_denso_sh7055_densocan");
         input.protocol.mcu = "SH7055";
-        const auto paths = catalogPaths(directory);
+        const auto paths = CatalogPaths(directory);
         ASSERT_TRUE(paths.has_value());
         input.paths = *paths;
-        workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+        workflow = FlashWorkflowFactory::TryCreate(std::move(input));
         ASSERT_TRUE(workflow != nullptr);
-        ASSERT_EQ(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::kBegin);
+        ASSERT_EQ(std::get<FlashPromptStep>(workflow->Next()).kind, FlashPromptKind::kBegin);
         if (decline_begin)
         {
-            workflow->submit(FlashPromptResponse::kDecline);
+            workflow->Submit(FlashPromptResponse::kDecline);
         }
         else
         {
-            workflow->submit(FlashPromptResponse::kAccept);
-            ASSERT_EQ(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::kCycleIgnition);
-            workflow->submit(FlashPromptResponse::kDecline);
+            workflow->Submit(FlashPromptResponse::kAccept);
+            ASSERT_EQ(std::get<FlashPromptStep>(workflow->Next()).kind, FlashPromptKind::kCycleIgnition);
+            workflow->Submit(FlashPromptResponse::kDecline);
         }
-        const auto done = workflow->next();
+        const auto done = workflow->Next();
         ASSERT_TRUE(std::holds_alternative<FlashCompletedStep>(done));
         ASSERT_EQ(std::get<FlashCompletedStep>(done).outcome, FlashWorkflowOutcome::kCancelled);
     }
@@ -892,7 +892,7 @@ TEST(FlashWorkflowTest, petrolRoutesOnlyTheFiveExactProtocols)
     });
     for (const char *protocol : kProtocols)
     {
-        ASSERT_TRUE(FlashWorkflowFactory::tryCreate(request(protocol)) != nullptr) << protocol;
+        ASSERT_TRUE(FlashWorkflowFactory::TryCreate(Request(protocol)) != nullptr) << protocol;
     }
     for (const char *near_miss : {
              "sub_ecu_denso_sh7058_can_future",
@@ -900,7 +900,7 @@ TEST(FlashWorkflowTest, petrolRoutesOnlyTheFiveExactProtocols)
              "sub_ecu_denso_sh7058_can_cobb_typo",
          })
     {
-        ASSERT_TRUE(FlashWorkflowFactory::tryCreate(request(near_miss)) == nullptr) << near_miss;
+        ASSERT_TRUE(FlashWorkflowFactory::TryCreate(Request(near_miss)) == nullptr) << near_miss;
     }
 }
 
@@ -923,30 +923,30 @@ TEST(FlashWorkflowTest, petrolSupportedOperationsResolveSecurityAndCatalogKernel
 
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
-    const auto paths = catalogPaths(directory);
+    const auto paths = CatalogPaths(directory);
     ASSERT_TRUE(paths.has_value());
 
     for (const Case& test : cases)
     {
-        auto input = request(test.protocol, test.operation);
+        auto input = Request(test.protocol, test.operation);
         input.protocol.mcu = "SH7058";
         input.paths = *paths;
         if (test.operation != FlashOperation::kRead)
         {
             input.image = bytes::Bytes(0x00100000, bytes::Byte{0xA5});
         }
-        auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+        auto workflow = FlashWorkflowFactory::TryCreate(std::move(input));
         ASSERT_TRUE(workflow != nullptr) << test.protocol;
 
-        auto step = workflow->next();
+        auto step = workflow->Next();
         if (const auto *failure = std::get_if<FlashFailureStep>(&step))
         {
             FAIL() << failure->error.detail.c_str();
         }
         ASSERT_TRUE(std::holds_alternative<FlashPromptStep>(step));
         ASSERT_EQ(std::get<FlashPromptStep>(step).kind, FlashPromptKind::kBegin);
-        workflow->submit(FlashPromptResponse::kAccept);
-        step = workflow->next();
+        workflow->Submit(FlashPromptResponse::kAccept);
+        step = workflow->Next();
         ASSERT_TRUE(std::holds_alternative<FlashAttempt>(step));
         const FlashPlan& plan = std::get<FlashAttempt>(step).attempt->Plan();
         ASSERT_EQ(plan.Family(), FlashFamily::kSubaruDensoSh7058Can);
@@ -972,20 +972,20 @@ TEST(FlashWorkflowTest, petrolSuccessfulReadPropagatesBytesAndRomId)
 {
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
-    auto input = request("sub_ecu_denso_sh7058_can");
+    auto input = Request("sub_ecu_denso_sh7058_can");
     input.protocol.mcu = "SH7058";
-    const auto paths = catalogPaths(directory);
+    const auto paths = CatalogPaths(directory);
     ASSERT_TRUE(paths.has_value());
     input.paths = *paths;
-    auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+    auto workflow = FlashWorkflowFactory::TryCreate(std::move(input));
     ASSERT_TRUE(workflow != nullptr);
 
-    ASSERT_EQ(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::kBegin);
-    workflow->submit(FlashPromptResponse::kAccept);
-    ASSERT_TRUE(std::holds_alternative<FlashAttempt>(workflow->next()));
-    workflow->submit(
+    ASSERT_EQ(std::get<FlashPromptStep>(workflow->Next()).kind, FlashPromptKind::kBegin);
+    workflow->Submit(FlashPromptResponse::kAccept);
+    ASSERT_TRUE(std::holds_alternative<FlashAttempt>(workflow->Next()));
+    workflow->Submit(
         FlashAttemptResult{.success = true, .read_bytes = bytes::Bytes{0x5A, 0xA5}, .rom_id = "CALID_123456789A_"});
-    const auto done = workflow->next();
+    const auto done = workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashCompletedStep>(done));
     ASSERT_EQ(std::get<FlashCompletedStep>(done).outcome, FlashWorkflowOutcome::kSucceeded);
     ASSERT_EQ(std::get<FlashCompletedStep>(done).accepted_read_bytes, bytes::Bytes({0x5A, 0xA5}));
@@ -996,29 +996,29 @@ TEST(FlashWorkflowTest, petrolReadResolvesKernelBeforeBeginAndBindsDesktopCanTra
 {
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
-    const auto paths = catalogPaths(directory);
+    const auto paths = CatalogPaths(directory);
     ASSERT_TRUE(paths.has_value());
     FakeBackend *fake = nullptr;
-    auto serial = recordingSerial(&fake);
+    auto serial = RecordingSerial(&fake);
     ASSERT_TRUE(serial != nullptr);
-    expectCanTransportSetup(*fake, true, 2016, 2024);
+    ExpectCanTransportSetup(*fake, true, 2016, 2024);
 
-    auto input = request("sub_ecu_denso_sh7058_can");
+    auto input = Request("sub_ecu_denso_sh7058_can");
     input.protocol.mcu = "SH7058";
     input.paths = *paths;
     input.serial = serial.get();
-    auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+    auto workflow = FlashWorkflowFactory::TryCreate(std::move(input));
     ASSERT_TRUE(workflow != nullptr);
 
-    auto step = workflow->next();
+    auto step = workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashPromptStep>(step));
     ASSERT_EQ(std::get<FlashPromptStep>(step).kind, FlashPromptKind::kBegin);
     // Resolution happened before Begin; removing the kernel now must not
     // affect the already-bound attempt.
     ASSERT_TRUE(QFile::remove(directory.filePath("kernels/catalog_petrol_sh7058.bin")));
 
-    workflow->submit(FlashPromptResponse::kAccept);
-    step = workflow->next();
+    workflow->Submit(FlashPromptResponse::kAccept);
+    step = workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashAttempt>(step));
     const auto& attempt = std::get<FlashAttempt>(step);
     const FlashPlan& plan = attempt.attempt->Plan();
@@ -1040,12 +1040,12 @@ TEST(FlashWorkflowTest, dieselRoutesOnlyTheTwoExactProtocols)
 {
     for (const char *protocol : {"sub_ecu_denso_sh7058_can_diesel", "sub_ecu_denso_sh7059_can_diesel"})
     {
-        ASSERT_TRUE(FlashWorkflowFactory::tryCreate(request(protocol)) != nullptr) << protocol;
+        ASSERT_TRUE(FlashWorkflowFactory::TryCreate(Request(protocol)) != nullptr) << protocol;
     }
     for (const char *near_miss : {"sub_ecu_denso_sh7058_can_diesel_future", "sub_ecu_denso_sh7059_can_diesel_extra",
                                   "sub_ecu_denso_sh7058_can_diesel_typo", "sub_ecu_denso_sh7058_can_diesel_ecutek"})
     {
-        ASSERT_TRUE(FlashWorkflowFactory::tryCreate(request(near_miss)) == nullptr) << near_miss;
+        ASSERT_TRUE(FlashWorkflowFactory::TryCreate(Request(near_miss)) == nullptr) << near_miss;
     }
 }
 
@@ -1077,28 +1077,28 @@ TEST(FlashWorkflowTest, dieselSupportedOperationsResolveGenerationCatalogKernels
 
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
-    const auto paths = catalogPaths(directory);
+    const auto paths = CatalogPaths(directory);
     ASSERT_TRUE(paths.has_value());
     for (const Case& test : cases)
     {
-        auto input = request(test.protocol, test.operation);
+        auto input = Request(test.protocol, test.operation);
         input.protocol.mcu = test.mcu;
         input.paths = *paths;
         if (test.operation != FlashOperation::kRead)
         {
             input.image = bytes::Bytes(test.rom_size, bytes::Byte{0xA5});
         }
-        auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+        auto workflow = FlashWorkflowFactory::TryCreate(std::move(input));
         ASSERT_TRUE(workflow != nullptr) << test.protocol;
-        auto step = workflow->next();
+        auto step = workflow->Next();
         if (const auto *failure = std::get_if<FlashFailureStep>(&step))
         {
             FAIL() << failure->error.detail.c_str();
         }
         ASSERT_TRUE(std::holds_alternative<FlashPromptStep>(step));
         ASSERT_EQ(std::get<FlashPromptStep>(step).kind, FlashPromptKind::kBegin);
-        workflow->submit(FlashPromptResponse::kAccept);
-        step = workflow->next();
+        workflow->Submit(FlashPromptResponse::kAccept);
+        step = workflow->Next();
         ASSERT_TRUE(std::holds_alternative<FlashAttempt>(step));
         const FlashPlan& plan = std::get<FlashAttempt>(step).attempt->Plan();
         ASSERT_EQ(plan.Family(), FlashFamily::kSubaruDensoSh7058CanDiesel);
@@ -1126,27 +1126,27 @@ TEST(FlashWorkflowTest, dieselSuccessfulReadPropagatesKernelSnapshotBytesAndRomI
 {
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
-    auto input = request("sub_ecu_denso_sh7059_can_diesel");
+    auto input = Request("sub_ecu_denso_sh7059_can_diesel");
     input.protocol.mcu = "SH7059d";
-    const auto paths = catalogPaths(directory);
+    const auto paths = CatalogPaths(directory);
     ASSERT_TRUE(paths.has_value());
     input.paths = *paths;
-    auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+    auto workflow = FlashWorkflowFactory::TryCreate(std::move(input));
     ASSERT_TRUE(workflow != nullptr);
 
-    ASSERT_EQ(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::kBegin);
+    ASSERT_EQ(std::get<FlashPromptStep>(workflow->Next()).kind, FlashPromptKind::kBegin);
     ASSERT_TRUE(QFile::remove(directory.filePath("kernels/catalog_diesel_sh7059.bin")));
-    workflow->submit(FlashPromptResponse::kAccept);
-    const auto attempt_step = workflow->next();
+    workflow->Submit(FlashPromptResponse::kAccept);
+    const auto attempt_step = workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashAttempt>(attempt_step));
     const FlashPlan& snapshot = std::get<FlashAttempt>(attempt_step).attempt->Plan();
     ASSERT_TRUE(snapshot.Kernel().has_value());
     ASSERT_EQ(snapshot.Kernel()->load_address, 0xFFFEE000U);
     ASSERT_EQ(snapshot.Kernel()->bytes, bytes::Bytes({0xD0, 0xE0, 0xF0, 0x02}));
 
-    workflow->submit(
+    workflow->Submit(
         FlashAttemptResult{.success = true, .read_bytes = bytes::Bytes{0xD1, 0xE5}, .rom_id = "DIESEL_CAL_ECU_"});
-    const auto done = workflow->next();
+    const auto done = workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashCompletedStep>(done));
     ASSERT_EQ(std::get<FlashCompletedStep>(done).outcome, FlashWorkflowOutcome::kSucceeded);
     ASSERT_EQ(std::get<FlashCompletedStep>(done).accepted_read_bytes, bytes::Bytes({0xD1, 0xE5}));
@@ -1157,20 +1157,20 @@ TEST(FlashWorkflowTest, dieselReadResolvesKernelBeforeBeginAndBindsDesktopCanTra
 {
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
-    const auto paths = catalogPaths(directory);
+    const auto paths = CatalogPaths(directory);
     ASSERT_TRUE(paths.has_value());
     FakeBackend *fake = nullptr;
-    auto serial = recordingSerial(&fake);
+    auto serial = RecordingSerial(&fake);
     ASSERT_TRUE(serial != nullptr);
-    expectCanTransportSetup(*fake, true, 2016, 2024);
+    ExpectCanTransportSetup(*fake, true, 2016, 2024);
 
-    auto input = request("sub_ecu_denso_sh7059_can_diesel");
+    auto input = Request("sub_ecu_denso_sh7059_can_diesel");
     input.protocol.mcu = "SH7059d";
     input.paths = *paths;
     input.serial = serial.get();
-    auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+    auto workflow = FlashWorkflowFactory::TryCreate(std::move(input));
     ASSERT_TRUE(workflow != nullptr);
-    auto step = workflow->next();
+    auto step = workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashPromptStep>(step));
     ASSERT_EQ(std::get<FlashPromptStep>(step).kind, FlashPromptKind::kBegin);
 
@@ -1178,8 +1178,8 @@ TEST(FlashWorkflowTest, dieselReadResolvesKernelBeforeBeginAndBindsDesktopCanTra
     // the Diesel route is a real DesktopCan attempt rather than a legacy
     // MainWindow branch.
     ASSERT_TRUE(QFile::remove(directory.filePath("kernels/catalog_diesel_sh7059.bin")));
-    workflow->submit(FlashPromptResponse::kAccept);
-    step = workflow->next();
+    workflow->Submit(FlashPromptResponse::kAccept);
+    step = workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashAttempt>(step));
     const auto& attempt = std::get<FlashAttempt>(step);
     const FlashPlan& plan = attempt.attempt->Plan();
@@ -1203,12 +1203,12 @@ TEST(FlashWorkflowTest, tcuRoutesOnlyTheTwoExactProtocols)
 {
     for (const char *protocol : {"sub_tcu_denso_sh7055_can", "sub_tcu_denso_sh7058_can"})
     {
-        ASSERT_TRUE(FlashWorkflowFactory::tryCreate(request(protocol)) != nullptr) << protocol;
+        ASSERT_TRUE(FlashWorkflowFactory::TryCreate(Request(protocol)) != nullptr) << protocol;
     }
     for (const char *near_miss :
          {"sub_tcu_denso_sh7055_can_future", "sub_tcu_denso_sh7058_can_typo", "sub_tcu_denso_sh7058_can_extra"})
     {
-        ASSERT_TRUE(FlashWorkflowFactory::tryCreate(request(near_miss)) == nullptr) << near_miss;
+        ASSERT_TRUE(FlashWorkflowFactory::TryCreate(Request(near_miss)) == nullptr) << near_miss;
     }
 }
 
@@ -1236,30 +1236,30 @@ TEST(FlashWorkflowTest, tcuSupportedOperationsResolveTheirCatalogKernelAndReachA
 
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
-    const auto paths = catalogPaths(directory);
+    const auto paths = CatalogPaths(directory);
     ASSERT_TRUE(paths.has_value());
 
     for (const Case& test : cases)
     {
-        auto input = request(test.protocol, test.operation);
+        auto input = Request(test.protocol, test.operation);
         input.protocol.mcu = test.mcu;
         input.paths = *paths;
         if (test.image_size != 0)
         {
             input.image = bytes::Bytes(test.image_size, 0xa5);
         }
-        auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+        auto workflow = FlashWorkflowFactory::TryCreate(std::move(input));
         ASSERT_TRUE(workflow != nullptr) << test.protocol;
 
-        auto step = workflow->next();
+        auto step = workflow->Next();
         if (const auto *failure = std::get_if<FlashFailureStep>(&step))
         {
             FAIL() << failure->error.detail.c_str();
         }
         ASSERT_TRUE(std::holds_alternative<FlashPromptStep>(step));
         ASSERT_EQ(std::get<FlashPromptStep>(step).kind, FlashPromptKind::kBegin);
-        workflow->submit(FlashPromptResponse::kAccept);
-        step = workflow->next();
+        workflow->Submit(FlashPromptResponse::kAccept);
+        step = workflow->Next();
         ASSERT_TRUE(std::holds_alternative<FlashAttempt>(step));
         const FlashPlan& plan = std::get<FlashAttempt>(step).attempt->Plan();
         ASSERT_EQ(plan.TargetId(), std::string_view(test.protocol));
@@ -1288,24 +1288,24 @@ TEST(FlashWorkflowTest, tcuUnsupportedOperationsFailBeforeTransportIo)
 
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
-    const auto paths = catalogPaths(directory);
+    const auto paths = CatalogPaths(directory);
     ASSERT_TRUE(paths.has_value());
     FakeBackend *fake = nullptr;
-    auto serial = recordingSerial(&fake);
+    auto serial = RecordingSerial(&fake);
     ASSERT_TRUE(serial != nullptr);
-    expectNoBackendIo(*fake);
+    ExpectNoBackendIo(*fake);
 
     for (const Case& test : kCases)
     {
-        auto input = request(test.protocol, test.operation);
+        auto input = Request(test.protocol, test.operation);
         input.protocol.mcu = test.mcu;
         input.paths = *paths;
         input.image = bytes::Bytes(test.image_size, 0xa5);
         input.serial = serial.get();
-        auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+        auto workflow = FlashWorkflowFactory::TryCreate(std::move(input));
         ASSERT_TRUE(workflow != nullptr) << test.protocol;
 
-        const auto step = workflow->next();
+        const auto step = workflow->Next();
         ASSERT_TRUE(std::holds_alternative<FlashFailureStep>(step));
         ASSERT_EQ(std::get<FlashFailureStep>(step).error.kind, ErrorKind::kUnsupported);
     }
@@ -1315,27 +1315,27 @@ TEST(FlashWorkflowTest, tcuReadResolvesKernelBeforeBeginAndBindsDesktopCanTransp
 {
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
-    const auto paths = catalogPaths(directory);
+    const auto paths = CatalogPaths(directory);
     ASSERT_TRUE(paths.has_value());
     FakeBackend *fake = nullptr;
-    auto serial = recordingSerial(&fake);
+    auto serial = RecordingSerial(&fake);
     ASSERT_TRUE(serial != nullptr);
-    expectCanTransportSetup(*fake, false, 2017, 2025);
+    ExpectCanTransportSetup(*fake, false, 2017, 2025);
 
-    auto input = request("sub_tcu_denso_sh7055_can");
+    auto input = Request("sub_tcu_denso_sh7055_can");
     input.protocol.mcu = "SH7055";
     input.paths = *paths;
     input.serial = serial.get();
-    auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+    auto workflow = FlashWorkflowFactory::TryCreate(std::move(input));
     ASSERT_TRUE(workflow != nullptr);
 
-    auto step = workflow->next();
+    auto step = workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashPromptStep>(step));
     ASSERT_EQ(std::get<FlashPromptStep>(step).kind, FlashPromptKind::kBegin);
     ASSERT_TRUE(QFile::remove(directory.filePath("kernels/catalog_tcu_sh7055.bin")));
 
-    workflow->submit(FlashPromptResponse::kAccept);
-    step = workflow->next();
+    workflow->Submit(FlashPromptResponse::kAccept);
+    step = workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashAttempt>(step));
     auto& attempt = std::get<FlashAttempt>(step);
     const FlashPlan& plan = attempt.attempt->Plan();
@@ -1355,20 +1355,20 @@ TEST(FlashWorkflowTest, tcuSuccessfulReadPropagatesBytesAndRomId)
 {
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
-    const auto paths = catalogPaths(directory);
+    const auto paths = CatalogPaths(directory);
     ASSERT_TRUE(paths.has_value());
-    auto input = request("sub_tcu_denso_sh7058_can");
+    auto input = Request("sub_tcu_denso_sh7058_can");
     input.protocol.mcu = "SH7058";
     input.paths = *paths;
-    auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+    auto workflow = FlashWorkflowFactory::TryCreate(std::move(input));
     ASSERT_TRUE(workflow != nullptr);
 
-    ASSERT_EQ(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::kBegin);
-    workflow->submit(FlashPromptResponse::kAccept);
-    ASSERT_TRUE(std::holds_alternative<FlashAttempt>(workflow->next()));
-    workflow->submit(
+    ASSERT_EQ(std::get<FlashPromptStep>(workflow->Next()).kind, FlashPromptKind::kBegin);
+    workflow->Submit(FlashPromptResponse::kAccept);
+    ASSERT_TRUE(std::holds_alternative<FlashAttempt>(workflow->Next()));
+    workflow->Submit(
         FlashAttemptResult{.success = true, .read_bytes = bytes::Bytes{0x5a, 0xa5}, .rom_id = "123456789A_"});
-    const auto done = workflow->next();
+    const auto done = workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashCompletedStep>(done));
     ASSERT_EQ(std::get<FlashCompletedStep>(done).outcome, FlashWorkflowOutcome::kSucceeded);
     ASSERT_EQ(std::get<FlashCompletedStep>(done).accepted_read_bytes, bytes::Bytes({0x5a, 0xa5}));
@@ -1379,24 +1379,24 @@ TEST(FlashWorkflowTest, mc68ResolvesKernelThroughCatalogBeforePromptAndAttempt)
 {
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
-    auto input = request("sub_ecu_denso_mc68hc16y5_02");
+    auto input = Request("sub_ecu_denso_mc68hc16y5_02");
     input.protocol.mcu = "MC68HC16Y5";
-    const auto paths = catalogPaths(directory);
+    const auto paths = CatalogPaths(directory);
     ASSERT_TRUE(paths.has_value());
     input.paths = *paths;
-    auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+    auto workflow = FlashWorkflowFactory::TryCreate(std::move(input));
     ASSERT_TRUE(workflow != nullptr);
 
-    auto step = workflow->next();
+    auto step = workflow->Next();
     if (const auto *failure = std::get_if<FlashFailureStep>(&step))
     {
         FAIL() << failure->error.detail.c_str();
     }
     ASSERT_TRUE(std::holds_alternative<FlashPromptStep>(step));
     ASSERT_EQ(std::get<FlashPromptStep>(step).kind, FlashPromptKind::kBegin);
-    workflow->submit(FlashPromptResponse::kAccept);
+    workflow->Submit(FlashPromptResponse::kAccept);
 
-    step = workflow->next();
+    step = workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashAttempt>(step));
     const auto& plan = std::get<FlashAttempt>(step).attempt->Plan();
     ASSERT_TRUE(plan.Kernel().has_value());
@@ -1408,15 +1408,15 @@ TEST(FlashWorkflowTest, missingCatalogKernelFailsBeforePrompt)
 {
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
-    auto input = request("sub_ecu_denso_mc68hc16y5_02");
+    auto input = Request("sub_ecu_denso_mc68hc16y5_02");
     input.protocol.mcu = "MC68HC16Y5";
-    const auto paths = catalogPaths(directory, false);
+    const auto paths = CatalogPaths(directory, false);
     ASSERT_TRUE(paths.has_value());
     input.paths = *paths;
-    auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+    auto workflow = FlashWorkflowFactory::TryCreate(std::move(input));
     ASSERT_TRUE(workflow != nullptr);
 
-    const auto step = workflow->next();
+    const auto step = workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashFailureStep>(step));
     ASSERT_EQ(std::get<FlashFailureStep>(step).error.kind, ErrorKind::kInvalidConfig);
 }
@@ -1425,32 +1425,32 @@ TEST(FlashWorkflowTest, sh7055IteratesConfirmationsAndPropagatesAttemptResult)
 {
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
-    auto input = request("sub_ecu_denso_sh7055_02");
+    auto input = Request("sub_ecu_denso_sh7055_02");
     input.protocol.mcu = "SH7055";
-    const auto paths = catalogPaths(directory);
+    const auto paths = CatalogPaths(directory);
     ASSERT_TRUE(paths.has_value());
     input.paths = *paths;
-    auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+    auto workflow = FlashWorkflowFactory::TryCreate(std::move(input));
     ASSERT_TRUE(workflow != nullptr);
 
-    auto step = workflow->next();
+    auto step = workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashPromptStep>(step));
     ASSERT_EQ(std::get<FlashPromptStep>(step).kind, FlashPromptKind::kBegin);
-    workflow->submit(FlashPromptResponse::kAccept);
-    step = workflow->next();
+    workflow->Submit(FlashPromptResponse::kAccept);
+    step = workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashPromptStep>(step));
     ASSERT_EQ(std::get<FlashPromptStep>(step).kind, FlashPromptKind::kCycleIgnition);
-    workflow->submit(FlashPromptResponse::kAccept);
+    workflow->Submit(FlashPromptResponse::kAccept);
 
-    step = workflow->next();
+    step = workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashAttempt>(step));
     const auto& plan = std::get<FlashAttempt>(step).attempt->Plan();
     ASSERT_TRUE(plan.Kernel().has_value());
     ASSERT_EQ(plan.Kernel()->load_address, 0xFFFF6004U);
     ASSERT_EQ(plan.Kernel()->bytes, bytes::Bytes({0xaa, 0xbb, 0xcc, 0xdd}));
 
-    workflow->submit(FlashAttemptResult{.success = true, .read_bytes = bytes::Bytes{0x5a}, .rom_id = "123456789A_"});
-    step = workflow->next();
+    workflow->Submit(FlashAttemptResult{.success = true, .read_bytes = bytes::Bytes{0x5a}, .rom_id = "123456789A_"});
+    step = workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashCompletedStep>(step));
     const auto& done = std::get<FlashCompletedStep>(step);
     ASSERT_EQ(done.outcome, FlashWorkflowOutcome::kSucceeded);
@@ -1462,22 +1462,22 @@ TEST(FlashWorkflowTest, sh7055EcutekResolvesWithoutCarModelReference)
 {
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
-    auto input = request("sub_ecu_denso_sh7055_02_ecutek");
+    auto input = Request("sub_ecu_denso_sh7055_02_ecutek");
     input.protocol.mcu = "SH7055";
-    const auto paths = catalogPaths(directory);
+    const auto paths = CatalogPaths(directory);
     ASSERT_TRUE(paths.has_value());
     input.paths = *paths;
-    auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+    auto workflow = FlashWorkflowFactory::TryCreate(std::move(input));
     ASSERT_TRUE(workflow != nullptr);
 
-    auto step = workflow->next();
+    auto step = workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashPromptStep>(step));
     ASSERT_EQ(std::get<FlashPromptStep>(step).kind, FlashPromptKind::kBegin);
-    workflow->submit(FlashPromptResponse::kAccept);
-    step = workflow->next();
+    workflow->Submit(FlashPromptResponse::kAccept);
+    step = workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashPromptStep>(step));
-    workflow->submit(FlashPromptResponse::kAccept);
-    step = workflow->next();
+    workflow->Submit(FlashPromptResponse::kAccept);
+    step = workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashAttempt>(step));
     const auto& plan = std::get<FlashAttempt>(step).attempt->Plan();
     ASSERT_EQ(plan.TargetId(), std::string_view("sub_ecu_denso_sh7055_02_ecutek"));
@@ -1488,28 +1488,28 @@ TEST(FlashWorkflowTest, sh7055EcutekResolvesWithoutCarModelReference)
 TEST(FlashWorkflowTest, portableImageCopiesRomForEveryNonReadOperation)
 {
     const bytes::Bytes rom{0x11, 0x22};
-    ASSERT_TRUE(!portableImageForOperation(FlashOperation::kRead, rom).has_value());
-    ASSERT_EQ(portableImageForOperation(FlashOperation::kWrite, rom), rom);
-    ASSERT_EQ(portableImageForOperation(FlashOperation::kTestWrite, rom), rom);
+    ASSERT_TRUE(!PortableImageForOperation(FlashOperation::kRead, rom).has_value());
+    ASSERT_EQ(PortableImageForOperation(FlashOperation::kWrite, rom), rom);
+    ASSERT_EQ(PortableImageForOperation(FlashOperation::kTestWrite, rom), rom);
 }
 
 TEST(FlashWorkflowTest, mc68TestWriteWithPortableImageReachesAttempt)
 {
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
-    auto input = request("sub_ecu_denso_mc68hc16y5_02", FlashOperation::kTestWrite);
+    auto input = Request("sub_ecu_denso_mc68hc16y5_02", FlashOperation::kTestWrite);
     input.protocol.mcu = "MC68HC16Y5";
-    const auto paths = catalogPaths(directory);
+    const auto paths = CatalogPaths(directory);
     ASSERT_TRUE(paths.has_value());
     input.paths = *paths;
     const bytes::Bytes packed_image(0x28000, 0x5a);
-    input.image = portableImageForOperation(input.operation, packed_image);
-    auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+    input.image = PortableImageForOperation(input.operation, packed_image);
+    auto workflow = FlashWorkflowFactory::TryCreate(std::move(input));
     ASSERT_TRUE(workflow != nullptr);
 
-    ASSERT_EQ(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::kBegin);
-    workflow->submit(FlashPromptResponse::kAccept);
-    auto step = workflow->next();
+    ASSERT_EQ(std::get<FlashPromptStep>(workflow->Next()).kind, FlashPromptKind::kBegin);
+    workflow->Submit(FlashPromptResponse::kAccept);
+    auto step = workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashAttempt>(step));
     ASSERT_EQ(std::get<FlashAttempt>(step).attempt->Plan().Image(), packed_image);
 }
@@ -1518,9 +1518,9 @@ TEST(FlashWorkflowTest, mc68PhysicalImageIsPackedAtWorkflowBoundary)
 {
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
-    auto input = request("sub_ecu_denso_mc68hc16y5_02", FlashOperation::kWrite);
+    auto input = Request("sub_ecu_denso_mc68hc16y5_02", FlashOperation::kWrite);
     input.protocol.mcu = "MC68HC16Y5";
-    const auto paths = catalogPaths(directory);
+    const auto paths = CatalogPaths(directory);
     ASSERT_TRUE(paths.has_value());
     input.paths = *paths;
 
@@ -1528,17 +1528,17 @@ TEST(FlashWorkflowTest, mc68PhysicalImageIsPackedAtWorkflowBoundary)
     std::fill_n(physical_image.begin(), 0x20000, 0x11);
     std::fill(physical_image.begin() + 0x28000, physical_image.end(), 0x22);
     input.image = physical_image;
-    auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+    auto workflow = FlashWorkflowFactory::TryCreate(std::move(input));
     ASSERT_TRUE(workflow != nullptr);
 
-    auto step = workflow->next();
+    auto step = workflow->Next();
     if (const auto *failure = std::get_if<FlashFailureStep>(&step))
     {
         FAIL() << failure->error.detail.c_str();
     }
     ASSERT_EQ(std::get<FlashPromptStep>(step).kind, FlashPromptKind::kBegin);
-    workflow->submit(FlashPromptResponse::kAccept);
-    step = workflow->next();
+    workflow->Submit(FlashPromptResponse::kAccept);
+    step = workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashAttempt>(step));
     const auto& packed = std::get<FlashAttempt>(step).attempt->Plan().Image();
     ASSERT_TRUE(packed.has_value());
@@ -1552,9 +1552,9 @@ TEST(FlashWorkflowTest, mc68CalibrationPaddingRoundTripsToPackedWriteImage)
 {
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
-    auto input = request("sub_ecu_denso_mc68hc16y5_02", FlashOperation::kTestWrite);
+    auto input = Request("sub_ecu_denso_mc68hc16y5_02", FlashOperation::kTestWrite);
     input.protocol.mcu = "MC68HC16Y5";
-    const auto paths = catalogPaths(directory);
+    const auto paths = CatalogPaths(directory);
     ASSERT_TRUE(paths.has_value());
     input.paths = *paths;
 
@@ -1566,11 +1566,11 @@ TEST(FlashWorkflowTest, mc68CalibrationPaddingRoundTripsToPackedWriteImage)
     input.image = calibration::ApplyFlashMethodPadding(packed_image, "sub_ecu_denso_mc68hc16y5_02");
     ASSERT_EQ(input.image->size(), std::size_t{0x30000});
 
-    auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+    auto workflow = FlashWorkflowFactory::TryCreate(std::move(input));
     ASSERT_TRUE(workflow != nullptr);
-    ASSERT_EQ(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::kBegin);
-    workflow->submit(FlashPromptResponse::kAccept);
-    auto step = workflow->next();
+    ASSERT_EQ(std::get<FlashPromptStep>(workflow->Next()).kind, FlashPromptKind::kBegin);
+    workflow->Submit(FlashPromptResponse::kAccept);
+    auto step = workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashAttempt>(step));
     ASSERT_EQ(std::get<FlashAttempt>(step).attempt->Plan().Image(), packed_image);
 }
@@ -1579,37 +1579,37 @@ TEST(FlashWorkflowTest, sh7055TestWriteWithPortableImageReachesPromptsAndAttempt
 {
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
-    auto input = request("sub_ecu_denso_sh7055_02", FlashOperation::kTestWrite);
+    auto input = Request("sub_ecu_denso_sh7055_02", FlashOperation::kTestWrite);
     input.protocol.mcu = "SH7055";
-    const auto paths = catalogPaths(directory);
+    const auto paths = CatalogPaths(directory);
     ASSERT_TRUE(paths.has_value());
     input.paths = *paths;
-    input.image = portableImageForOperation(input.operation, bytes::Bytes(0x80000, 0xa5));
-    auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+    input.image = PortableImageForOperation(input.operation, bytes::Bytes(0x80000, 0xa5));
+    auto workflow = FlashWorkflowFactory::TryCreate(std::move(input));
     ASSERT_TRUE(workflow != nullptr);
 
-    ASSERT_EQ(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::kBegin);
-    workflow->submit(FlashPromptResponse::kAccept);
-    ASSERT_EQ(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::kCycleIgnition);
-    workflow->submit(FlashPromptResponse::kAccept);
-    ASSERT_TRUE(std::holds_alternative<FlashAttempt>(workflow->next()));
+    ASSERT_EQ(std::get<FlashPromptStep>(workflow->Next()).kind, FlashPromptKind::kBegin);
+    workflow->Submit(FlashPromptResponse::kAccept);
+    ASSERT_EQ(std::get<FlashPromptStep>(workflow->Next()).kind, FlashPromptKind::kCycleIgnition);
+    workflow->Submit(FlashPromptResponse::kAccept);
+    ASSERT_TRUE(std::holds_alternative<FlashAttempt>(workflow->Next()));
 }
 
 TEST(FlashWorkflowTest, mc68TpuReadResolvesCatalogAndReachesAttempt)
 {
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
-    auto input = request("sub_ecu_denso_mc68hc16y5_02_tpu");
+    auto input = Request("sub_ecu_denso_mc68hc16y5_02_tpu");
     input.protocol.mcu = "MC68HC16Y5_TPU";
-    const auto paths = catalogPaths(directory);
+    const auto paths = CatalogPaths(directory);
     ASSERT_TRUE(paths.has_value());
     input.paths = *paths;
-    auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+    auto workflow = FlashWorkflowFactory::TryCreate(std::move(input));
     ASSERT_TRUE(workflow != nullptr);
 
-    ASSERT_EQ(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::kBegin);
-    workflow->submit(FlashPromptResponse::kAccept);
-    auto step = workflow->next();
+    ASSERT_EQ(std::get<FlashPromptStep>(workflow->Next()).kind, FlashPromptKind::kBegin);
+    workflow->Submit(FlashPromptResponse::kAccept);
+    auto step = workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashAttempt>(step));
     const auto& kernel = std::get<FlashAttempt>(step).attempt->Plan().Kernel();
     ASSERT_TRUE(kernel.has_value());
@@ -1648,21 +1648,21 @@ TEST(FlashWorkflowTest, densoSh705xKlineRoutesExactProtocolsThroughBeginToAttemp
     {
         QTemporaryDir directory;
         ASSERT_TRUE(directory.isValid());
-        const auto paths = catalogPaths(directory);
+        const auto paths = CatalogPaths(directory);
         ASSERT_TRUE(paths.has_value());
-        auto input = request(c.protocol, c.operation);
+        auto input = Request(c.protocol, c.operation);
         input.protocol.mcu = c.mcu;
         input.paths = *paths;
         if (c.operation != FlashOperation::kRead)
         {
             input.image = bytes::Bytes(std::size_t{1024} * 1024, 0xff);
         }
-        auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+        auto workflow = FlashWorkflowFactory::TryCreate(std::move(input));
         ASSERT_TRUE(workflow != nullptr) << c.protocol;
 
-        ASSERT_EQ(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::kBegin);
-        workflow->submit(FlashPromptResponse::kAccept);
-        auto step = workflow->next();
+        ASSERT_EQ(std::get<FlashPromptStep>(workflow->Next()).kind, FlashPromptKind::kBegin);
+        workflow->Submit(FlashPromptResponse::kAccept);
+        auto step = workflow->Next();
         ASSERT_TRUE(std::holds_alternative<FlashAttempt>(step)) << c.protocol;
         const auto& plan = std::get<FlashAttempt>(step).attempt->Plan();
         ASSERT_EQ(plan.Family(), FlashFamily::kSubaruDensoSh705xKline);
@@ -1677,14 +1677,14 @@ TEST(FlashWorkflowTest, densoSh705xKlineCobbReadFailsBeforeAttempt)
 {
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
-    const auto paths = catalogPaths(directory);
+    const auto paths = CatalogPaths(directory);
     ASSERT_TRUE(paths.has_value());
-    auto input = request("sub_ecu_denso_sh7058_cobb");
+    auto input = Request("sub_ecu_denso_sh7058_cobb");
     input.protocol.mcu = "SH7058";
     input.paths = *paths;
-    auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+    auto workflow = FlashWorkflowFactory::TryCreate(std::move(input));
     ASSERT_TRUE(workflow != nullptr);
-    auto step = workflow->next();
+    auto step = workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashFailureStep>(step));
     ASSERT_EQ(std::get<FlashFailureStep>(step).error.kind, ErrorKind::kUnsupported);
 }
@@ -1694,7 +1694,7 @@ TEST(FlashWorkflowTest, densoSh705xKlineIgnoresPrefixLookalikes)
     for (const char *near_miss :
          {"sub_ecu_denso_sh7055_04_future", "sub_ecu_denso_sh7058_extra", "sub_ecu_denso_sh7058_ecutek_racerom"})
     {
-        ASSERT_TRUE(FlashWorkflowFactory::tryCreate(request(near_miss)) == nullptr) << near_miss;
+        ASSERT_TRUE(FlashWorkflowFactory::TryCreate(Request(near_miss)) == nullptr) << near_miss;
     }
 }
 
@@ -1713,13 +1713,13 @@ TEST(FlashWorkflowTest, unisiaJecsM32rRoutesTheFourExactProtocols)
              {"sub_ecu_unisia_jecs_70", "M32R_512KB", 0x80000},
          }))
     {
-        auto input = request(variant.protocol);
+        auto input = Request(variant.protocol);
         input.protocol.mcu = variant.mcu;
-        auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+        auto workflow = FlashWorkflowFactory::TryCreate(std::move(input));
         ASSERT_TRUE(workflow != nullptr) << variant.protocol;
-        ASSERT_EQ(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::kBegin);
-        workflow->submit(FlashPromptResponse::kAccept);
-        auto step = workflow->next();
+        ASSERT_EQ(std::get<FlashPromptStep>(workflow->Next()).kind, FlashPromptKind::kBegin);
+        workflow->Submit(FlashPromptResponse::kAccept);
+        auto step = workflow->Next();
         ASSERT_TRUE(std::holds_alternative<FlashAttempt>(step)) << variant.protocol;
         const auto& plan = std::get<FlashAttempt>(step).attempt->Plan();
         ASSERT_EQ(plan.Family(), FlashFamily::kSubaruUnisiaJecsM32rKline);
@@ -1732,7 +1732,7 @@ TEST(FlashWorkflowTest, unisiaJecsM32rLookalikesStayUnrouted)
     for (const char *protocol : {"sub_ecu_unisia_jecs_20x", "sub_ecu_unisia_jecs_7", "sub_ecu_unisia_jecs_20_bootmodex",
                                  "sub_ecu_unisia_jecs_40_bootmode"})
     {
-        ASSERT_TRUE(FlashWorkflowFactory::tryCreate(request(protocol)) == nullptr) << protocol;
+        ASSERT_TRUE(FlashWorkflowFactory::TryCreate(Request(protocol)) == nullptr) << protocol;
     }
 }
 
@@ -1749,21 +1749,21 @@ TEST(FlashWorkflowTest, unisiaBootmodeReadUsesTheKlineReadFamily)
              {"sub_ecu_unisia_jecs_30_bootmode", "M32R_256KB", 0x40000},
          }))
     {
-        auto input = request(variant.protocol);
+        auto input = Request(variant.protocol);
         input.protocol.mcu = variant.mcu;
-        auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+        auto workflow = FlashWorkflowFactory::TryCreate(std::move(input));
         ASSERT_TRUE(workflow != nullptr) << variant.protocol;
-        ASSERT_EQ(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::kBegin);
-        workflow->submit(FlashPromptResponse::kAccept);
-        auto step = workflow->next();
+        ASSERT_EQ(std::get<FlashPromptStep>(workflow->Next()).kind, FlashPromptKind::kBegin);
+        workflow->Submit(FlashPromptResponse::kAccept);
+        auto step = workflow->Next();
         ASSERT_TRUE(std::holds_alternative<FlashAttempt>(step)) << variant.protocol;
         const auto& plan = std::get<FlashAttempt>(step).attempt->Plan();
         ASSERT_EQ(plan.Family(), FlashFamily::kSubaruUnisiaJecsM32rKline);
         ASSERT_EQ(plan.TransferRegion(), (MemoryRegion{0x100000, variant.rom_size}));
         ASSERT_TRUE(plan.Confirmations().empty());
-        workflow->submit(
+        workflow->Submit(
             FlashAttemptResult{.success = true, .read_bytes = bytes::Bytes{1}, .rom_id = std::string("123456789A_")});
-        const auto done = workflow->next();
+        const auto done = workflow->Next();
         ASSERT_TRUE(std::holds_alternative<FlashCompletedStep>(done));
         ASSERT_TRUE(std::get<FlashCompletedStep>(done).rom_id == std::optional<std::string>("123456789A_"));
     }
@@ -1772,45 +1772,45 @@ TEST(FlashWorkflowTest, unisiaBootmodeReadUsesTheKlineReadFamily)
 TEST(FlashWorkflowTest, unisiaBootmodeWriteRunsKernelThenMod1ThenProgram)
 {
     QTemporaryDir directory;
-    const auto paths = catalogPaths(directory);
+    const auto paths = CatalogPaths(directory);
     ASSERT_TRUE(paths.has_value());
-    auto workflow = FlashWorkflowFactory::tryCreate(unisiaBootmodeWrite(*paths));
+    auto workflow = FlashWorkflowFactory::TryCreate(UnisiaBootmodeWrite(*paths));
     ASSERT_TRUE(workflow != nullptr);
 
-    auto step = workflow->next();
+    auto step = workflow->Next();
     if (const auto *failure = std::get_if<FlashFailureStep>(&step))
     {
         FAIL() << failure->error.detail.c_str();
     }
     ASSERT_EQ(std::get<FlashPromptStep>(step).kind, FlashPromptKind::kBegin);
-    workflow->submit(FlashPromptResponse::kAccept);
-    ASSERT_EQ(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::kApplyBootModeVoltages);
-    workflow->submit(FlashPromptResponse::kAccept);
+    workflow->Submit(FlashPromptResponse::kAccept);
+    ASSERT_EQ(std::get<FlashPromptStep>(workflow->Next()).kind, FlashPromptKind::kApplyBootModeVoltages);
+    workflow->Submit(FlashPromptResponse::kAccept);
 
-    step = workflow->next();
+    step = workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashAttempt>(step));
     const auto& kernel = std::get<FlashAttempt>(step).attempt->Plan();
     ASSERT_EQ(kernel.Family(), FlashFamily::kSubaruUnisiaJecsM32rBootModeKernel);
     bytes::Bytes padded{0x01, 0x02, 0x03, 0x04, 0x05};
     padded.resize(0x80, 0x00);
     ASSERT_EQ(kernel.Image(), std::optional<bytes::Bytes>(padded));
-    workflow->submit(FlashAttemptResult{.success = true});
+    workflow->Submit(FlashAttemptResult{.success = true});
 
-    ASSERT_EQ(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::kRemoveMod1);
-    workflow->submit(FlashPromptResponse::kAccept);
+    ASSERT_EQ(std::get<FlashPromptStep>(workflow->Next()).kind, FlashPromptKind::kRemoveMod1);
+    workflow->Submit(FlashPromptResponse::kAccept);
 
-    step = workflow->next();
+    step = workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashAttempt>(step));
     const auto& program = std::get<FlashAttempt>(step).attempt->Plan();
     ASSERT_EQ(program.Family(), FlashFamily::kSubaruUnisiaJecsM32rBootModeProgram);
     ASSERT_EQ(program.Image(), std::optional<bytes::Bytes>(bytes::Bytes(0x20000, 0xa5)));
-    workflow->submit(FlashAttemptResult{.success = true});
+    workflow->Submit(FlashAttemptResult{.success = true});
 
-    const auto notice = std::get<FlashPromptStep>(workflow->next());
+    const auto notice = std::get<FlashPromptStep>(workflow->Next());
     ASSERT_EQ(notice.kind, FlashPromptKind::kRemoveProgrammingVoltage);
-    ASSERT_TRUE(notice.arguments == bootmodeNotice("succeeded"));
-    workflow->submit(FlashPromptResponse::kAccept);
-    const auto done = workflow->next();
+    ASSERT_TRUE(notice.arguments == BootmodeNotice("succeeded"));
+    workflow->Submit(FlashPromptResponse::kAccept);
+    const auto done = workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashCompletedStep>(done));
     ASSERT_EQ(std::get<FlashCompletedStep>(done).outcome, FlashWorkflowOutcome::kSucceeded);
 }
@@ -1818,17 +1818,17 @@ TEST(FlashWorkflowTest, unisiaBootmodeWriteRunsKernelThenMod1ThenProgram)
 TEST(FlashWorkflowTest, unisiaBootmodeKernelFailureSkipsMod1AndProgram)
 {
     QTemporaryDir directory;
-    const auto paths = catalogPaths(directory);
+    const auto paths = CatalogPaths(directory);
     ASSERT_TRUE(paths.has_value());
-    auto workflow = unisiaBootmodeAtKernelAttempt(*paths);
+    auto workflow = UnisiaBootmodeAtKernelAttempt(*paths);
     ASSERT_TRUE(workflow != nullptr);
-    workflow->submit(
+    workflow->Submit(
         FlashAttemptResult{.success = false, .error_kind = ErrorKind::kInvalidConfig, .error_detail = "baud"});
-    const auto notice = std::get<FlashPromptStep>(workflow->next());
+    const auto notice = std::get<FlashPromptStep>(workflow->Next());
     ASSERT_EQ(notice.kind, FlashPromptKind::kRemoveProgrammingVoltage);
-    ASSERT_TRUE(notice.arguments == bootmodeNotice("failed"));
-    workflow->submit(FlashPromptResponse::kAccept);
-    const auto failure = workflow->next();
+    ASSERT_TRUE(notice.arguments == BootmodeNotice("failed"));
+    workflow->Submit(FlashPromptResponse::kAccept);
+    const auto failure = workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashFailureStep>(failure));
     ASSERT_EQ(std::get<FlashFailureStep>(failure).error.kind, ErrorKind::kInvalidConfig);
 }
@@ -1836,16 +1836,16 @@ TEST(FlashWorkflowTest, unisiaBootmodeKernelFailureSkipsMod1AndProgram)
 TEST(FlashWorkflowTest, unisiaBootmodeKernelCancelledShowsNotice)
 {
     QTemporaryDir directory;
-    const auto paths = catalogPaths(directory);
+    const auto paths = CatalogPaths(directory);
     ASSERT_TRUE(paths.has_value());
-    auto workflow = unisiaBootmodeAtKernelAttempt(*paths);
+    auto workflow = UnisiaBootmodeAtKernelAttempt(*paths);
     ASSERT_TRUE(workflow != nullptr);
-    workflow->submit(FlashAttemptResult{.success = false, .error_kind = ErrorKind::kCancelled});
-    const auto notice = std::get<FlashPromptStep>(workflow->next());
+    workflow->Submit(FlashAttemptResult{.success = false, .error_kind = ErrorKind::kCancelled});
+    const auto notice = std::get<FlashPromptStep>(workflow->Next());
     ASSERT_EQ(notice.kind, FlashPromptKind::kRemoveProgrammingVoltage);
-    ASSERT_TRUE(notice.arguments == bootmodeNotice("cancelled"));
-    workflow->submit(FlashPromptResponse::kAccept);
-    const auto done = workflow->next();
+    ASSERT_TRUE(notice.arguments == BootmodeNotice("cancelled"));
+    workflow->Submit(FlashPromptResponse::kAccept);
+    const auto done = workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashCompletedStep>(done));
     ASSERT_EQ(std::get<FlashCompletedStep>(done).outcome, FlashWorkflowOutcome::kCancelled);
 }
@@ -1853,18 +1853,18 @@ TEST(FlashWorkflowTest, unisiaBootmodeKernelCancelledShowsNotice)
 TEST(FlashWorkflowTest, unisiaBootmodeDeclinedMod1CancelsWithNotice)
 {
     QTemporaryDir directory;
-    const auto paths = catalogPaths(directory);
+    const auto paths = CatalogPaths(directory);
     ASSERT_TRUE(paths.has_value());
-    auto workflow = unisiaBootmodeAtKernelAttempt(*paths);
+    auto workflow = UnisiaBootmodeAtKernelAttempt(*paths);
     ASSERT_TRUE(workflow != nullptr);
-    workflow->submit(FlashAttemptResult{.success = true});
-    ASSERT_EQ(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::kRemoveMod1);
-    workflow->submit(FlashPromptResponse::kDecline);
-    const auto notice = std::get<FlashPromptStep>(workflow->next());
+    workflow->Submit(FlashAttemptResult{.success = true});
+    ASSERT_EQ(std::get<FlashPromptStep>(workflow->Next()).kind, FlashPromptKind::kRemoveMod1);
+    workflow->Submit(FlashPromptResponse::kDecline);
+    const auto notice = std::get<FlashPromptStep>(workflow->Next());
     ASSERT_EQ(notice.kind, FlashPromptKind::kRemoveProgrammingVoltage);
-    ASSERT_TRUE(notice.arguments == bootmodeNotice("cancelled"));
-    workflow->submit(FlashPromptResponse::kAccept);
-    const auto done = workflow->next();
+    ASSERT_TRUE(notice.arguments == BootmodeNotice("cancelled"));
+    workflow->Submit(FlashPromptResponse::kAccept);
+    const auto done = workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashCompletedStep>(done));
     ASSERT_EQ(std::get<FlashCompletedStep>(done).outcome, FlashWorkflowOutcome::kCancelled);
 }
@@ -1872,19 +1872,19 @@ TEST(FlashWorkflowTest, unisiaBootmodeDeclinedMod1CancelsWithNotice)
 TEST(FlashWorkflowTest, unisiaBootmodeProgramFailureShowsNoticeThenFailure)
 {
     QTemporaryDir directory;
-    const auto paths = catalogPaths(directory);
+    const auto paths = CatalogPaths(directory);
     ASSERT_TRUE(paths.has_value());
-    auto workflow = unisiaBootmodeAtKernelAttempt(*paths);
+    auto workflow = UnisiaBootmodeAtKernelAttempt(*paths);
     ASSERT_TRUE(workflow != nullptr);
-    workflow->submit(FlashAttemptResult{.success = true});
-    workflow->next(); // RemoveMod1
-    workflow->submit(FlashPromptResponse::kAccept);
-    ASSERT_TRUE(std::holds_alternative<FlashAttempt>(workflow->next()));
-    workflow->submit(FlashAttemptResult{.success = false, .error_kind = ErrorKind::kBadResponse, .error_detail = "x"});
-    const auto notice = std::get<FlashPromptStep>(workflow->next());
-    ASSERT_TRUE(notice.arguments == bootmodeNotice("failed"));
-    workflow->submit(FlashPromptResponse::kAccept);
-    const auto failure = workflow->next();
+    workflow->Submit(FlashAttemptResult{.success = true});
+    workflow->Next(); // RemoveMod1
+    workflow->Submit(FlashPromptResponse::kAccept);
+    ASSERT_TRUE(std::holds_alternative<FlashAttempt>(workflow->Next()));
+    workflow->Submit(FlashAttemptResult{.success = false, .error_kind = ErrorKind::kBadResponse, .error_detail = "x"});
+    const auto notice = std::get<FlashPromptStep>(workflow->Next());
+    ASSERT_TRUE(notice.arguments == BootmodeNotice("failed"));
+    workflow->Submit(FlashPromptResponse::kAccept);
+    const auto failure = workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashFailureStep>(failure));
     ASSERT_EQ(std::get<FlashFailureStep>(failure).error.kind, ErrorKind::kBadResponse);
 }
@@ -1892,14 +1892,14 @@ TEST(FlashWorkflowTest, unisiaBootmodeProgramFailureShowsNoticeThenFailure)
 TEST(FlashWorkflowTest, unisiaBootmodeDeclinedVoltagesCancelsBeforeAnyAttempt)
 {
     QTemporaryDir directory;
-    const auto paths = catalogPaths(directory);
+    const auto paths = CatalogPaths(directory);
     ASSERT_TRUE(paths.has_value());
-    auto workflow = FlashWorkflowFactory::tryCreate(unisiaBootmodeWrite(*paths));
-    ASSERT_EQ(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::kBegin);
-    workflow->submit(FlashPromptResponse::kAccept);
-    ASSERT_EQ(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::kApplyBootModeVoltages);
-    workflow->submit(FlashPromptResponse::kDecline);
-    const auto done = workflow->next();
+    auto workflow = FlashWorkflowFactory::TryCreate(UnisiaBootmodeWrite(*paths));
+    ASSERT_EQ(std::get<FlashPromptStep>(workflow->Next()).kind, FlashPromptKind::kBegin);
+    workflow->Submit(FlashPromptResponse::kAccept);
+    ASSERT_EQ(std::get<FlashPromptStep>(workflow->Next()).kind, FlashPromptKind::kApplyBootModeVoltages);
+    workflow->Submit(FlashPromptResponse::kDecline);
+    const auto done = workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashCompletedStep>(done));
     ASSERT_EQ(std::get<FlashCompletedStep>(done).outcome, FlashWorkflowOutcome::kCancelled);
 }
@@ -1907,12 +1907,12 @@ TEST(FlashWorkflowTest, unisiaBootmodeDeclinedVoltagesCancelsBeforeAnyAttempt)
 TEST(FlashWorkflowTest, unisiaBootmodeWrongImageSizeFailsBeforeAnyPrompt)
 {
     QTemporaryDir directory;
-    const auto paths = catalogPaths(directory);
+    const auto paths = CatalogPaths(directory);
     ASSERT_TRUE(paths.has_value());
-    auto input = unisiaBootmodeWrite(*paths);
+    auto input = UnisiaBootmodeWrite(*paths);
     input.image = bytes::Bytes(0x20001, 0xa5);
-    auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
-    const auto step = workflow->next();
+    auto workflow = FlashWorkflowFactory::TryCreate(std::move(input));
+    const auto step = workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashFailureStep>(step));
     ASSERT_EQ(std::get<FlashFailureStep>(step).error.kind, ErrorKind::kInvalidConfig);
 }
@@ -1920,10 +1920,10 @@ TEST(FlashWorkflowTest, unisiaBootmodeWrongImageSizeFailsBeforeAnyPrompt)
 TEST(FlashWorkflowTest, unisiaBootmodeMissingKernelFailsBeforeAnyPrompt)
 {
     QTemporaryDir directory;
-    const auto paths = catalogPaths(directory, false);
+    const auto paths = CatalogPaths(directory, false);
     ASSERT_TRUE(paths.has_value());
-    auto workflow = FlashWorkflowFactory::tryCreate(unisiaBootmodeWrite(*paths));
-    const auto step = workflow->next();
+    auto workflow = FlashWorkflowFactory::TryCreate(UnisiaBootmodeWrite(*paths));
+    const auto step = workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashFailureStep>(step));
     ASSERT_TRUE(std::get<FlashFailureStep>(step).error.detail.find("catalog_uj20_bootmode.bin") != std::string::npos);
 }
@@ -1931,11 +1931,11 @@ TEST(FlashWorkflowTest, unisiaBootmodeMissingKernelFailsBeforeAnyPrompt)
 TEST(FlashWorkflowTest, unisiaBootmodeEmptyKernelFailsBeforeAnyPrompt)
 {
     QTemporaryDir directory;
-    const auto paths = catalogPaths(directory);
+    const auto paths = CatalogPaths(directory);
     ASSERT_TRUE(paths.has_value());
-    ASSERT_TRUE(writeFile(directory.filePath("kernels/catalog_uj20_bootmode.bin"), QByteArray()));
-    auto workflow = FlashWorkflowFactory::tryCreate(unisiaBootmodeWrite(*paths));
-    const auto step = workflow->next();
+    ASSERT_TRUE(WriteFile(directory.filePath("kernels/catalog_uj20_bootmode.bin"), QByteArray()));
+    auto workflow = FlashWorkflowFactory::TryCreate(UnisiaBootmodeWrite(*paths));
+    const auto step = workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashFailureStep>(step));
     ASSERT_EQ(std::get<FlashFailureStep>(step).error.kind, ErrorKind::kInvalidConfig);
 }
@@ -1943,12 +1943,12 @@ TEST(FlashWorkflowTest, unisiaBootmodeEmptyKernelFailsBeforeAnyPrompt)
 TEST(FlashWorkflowTest, unisiaBootmodeTestWriteIsUnsupported)
 {
     QTemporaryDir directory;
-    const auto paths = catalogPaths(directory);
+    const auto paths = CatalogPaths(directory);
     ASSERT_TRUE(paths.has_value());
-    auto input = unisiaBootmodeWrite(*paths);
+    auto input = UnisiaBootmodeWrite(*paths);
     input.operation = FlashOperation::kTestWrite;
-    auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
-    const auto step = workflow->next();
+    auto workflow = FlashWorkflowFactory::TryCreate(std::move(input));
+    const auto step = workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashFailureStep>(step));
     ASSERT_EQ(std::get<FlashFailureStep>(step).error.kind, ErrorKind::kUnsupported);
 }
@@ -1956,65 +1956,65 @@ TEST(FlashWorkflowTest, unisiaBootmodeTestWriteIsUnsupported)
 TEST(FlashWorkflowTest, unisiaJecsM32rWriteWithoutAdapterVppPromptsBeforeAndAfter)
 {
     // request() carries a null serial: no adapter information means prompting.
-    auto workflow = FlashWorkflowFactory::tryCreate(unisiaM32rWrite());
+    auto workflow = FlashWorkflowFactory::TryCreate(UnisiaM32rWrite());
     ASSERT_TRUE(workflow != nullptr);
-    ASSERT_EQ(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::kBegin);
-    workflow->submit(FlashPromptResponse::kAccept);
-    ASSERT_EQ(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::kApplyProgrammingVoltage);
-    workflow->submit(FlashPromptResponse::kAccept);
-    auto step = workflow->next();
+    ASSERT_EQ(std::get<FlashPromptStep>(workflow->Next()).kind, FlashPromptKind::kBegin);
+    workflow->Submit(FlashPromptResponse::kAccept);
+    ASSERT_EQ(std::get<FlashPromptStep>(workflow->Next()).kind, FlashPromptKind::kApplyProgrammingVoltage);
+    workflow->Submit(FlashPromptResponse::kAccept);
+    auto step = workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashAttempt>(step));
     const auto& plan = std::get<FlashAttempt>(step).attempt->Plan();
     ASSERT_EQ(plan.Confirmations().size(), std::size_t{1});
     ASSERT_EQ(plan.Confirmations()[0].id, ConfirmationSpec::Id::kApplyProgrammingVoltage);
 
-    workflow->submit(FlashAttemptResult{.success = true});
-    const auto reminder = std::get<FlashPromptStep>(workflow->next());
+    workflow->Submit(FlashAttemptResult{.success = true});
+    const auto reminder = std::get<FlashPromptStep>(workflow->Next());
     ASSERT_EQ(reminder.kind, FlashPromptKind::kRemoveProgrammingVoltage);
     ASSERT_TRUE(reminder.arguments == (PromptArguments{{"outcome", "succeeded"}, {"external_vpp", "yes"}}));
-    workflow->submit(FlashPromptResponse::kAccept);
-    const auto done = workflow->next();
+    workflow->Submit(FlashPromptResponse::kAccept);
+    const auto done = workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashCompletedStep>(done));
     ASSERT_EQ(std::get<FlashCompletedStep>(done).outcome, FlashWorkflowOutcome::kSucceeded);
 }
 
 TEST(FlashWorkflowTest, unisiaJecsM32rFailedWriteRemindsBeforeReportingTheFailure)
 {
-    auto workflow = unisiaM32rWriteAtAttempt();
+    auto workflow = UnisiaM32rWriteAtAttempt();
     ASSERT_TRUE(workflow != nullptr);
-    workflow->submit(FlashAttemptResult{.success = false, .error_kind = ErrorKind::kBadResponse, .error_detail = "x"});
-    const auto reminder = std::get<FlashPromptStep>(workflow->next());
+    workflow->Submit(FlashAttemptResult{.success = false, .error_kind = ErrorKind::kBadResponse, .error_detail = "x"});
+    const auto reminder = std::get<FlashPromptStep>(workflow->Next());
     ASSERT_EQ(reminder.kind, FlashPromptKind::kRemoveProgrammingVoltage);
     ASSERT_TRUE(reminder.arguments == (PromptArguments{{"outcome", "failed"}, {"external_vpp", "yes"}}));
-    workflow->submit(FlashPromptResponse::kAccept);
-    const auto failure = workflow->next();
+    workflow->Submit(FlashPromptResponse::kAccept);
+    const auto failure = workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashFailureStep>(failure));
     ASSERT_EQ(std::get<FlashFailureStep>(failure).error.kind, ErrorKind::kBadResponse);
 }
 
 TEST(FlashWorkflowTest, unisiaJecsM32rCancelledWriteReminds)
 {
-    auto workflow = unisiaM32rWriteAtAttempt();
+    auto workflow = UnisiaM32rWriteAtAttempt();
     ASSERT_TRUE(workflow != nullptr);
-    workflow->submit(FlashAttemptResult{.success = false, .error_kind = ErrorKind::kCancelled});
-    const auto reminder = std::get<FlashPromptStep>(workflow->next());
+    workflow->Submit(FlashAttemptResult{.success = false, .error_kind = ErrorKind::kCancelled});
+    const auto reminder = std::get<FlashPromptStep>(workflow->Next());
     ASSERT_EQ(reminder.kind, FlashPromptKind::kRemoveProgrammingVoltage);
     ASSERT_TRUE(reminder.arguments == (PromptArguments{{"outcome", "cancelled"}, {"external_vpp", "yes"}}));
-    workflow->submit(FlashPromptResponse::kDecline); // OK-only notice; any answer continues
-    const auto done = workflow->next();
+    workflow->Submit(FlashPromptResponse::kDecline); // OK-only notice; any answer continues
+    const auto done = workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashCompletedStep>(done));
     ASSERT_EQ(std::get<FlashCompletedStep>(done).outcome, FlashWorkflowOutcome::kCancelled);
 }
 
 TEST(FlashWorkflowTest, unisiaJecsM32rDeclinedVppPromptCancelsBeforeAttempt)
 {
-    auto workflow = FlashWorkflowFactory::tryCreate(unisiaM32rWrite());
+    auto workflow = FlashWorkflowFactory::TryCreate(UnisiaM32rWrite());
     ASSERT_TRUE(workflow != nullptr);
-    ASSERT_EQ(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::kBegin);
-    workflow->submit(FlashPromptResponse::kAccept);
-    ASSERT_EQ(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::kApplyProgrammingVoltage);
-    workflow->submit(FlashPromptResponse::kDecline);
-    const auto done = workflow->next();
+    ASSERT_EQ(std::get<FlashPromptStep>(workflow->Next()).kind, FlashPromptKind::kBegin);
+    workflow->Submit(FlashPromptResponse::kAccept);
+    ASSERT_EQ(std::get<FlashPromptStep>(workflow->Next()).kind, FlashPromptKind::kApplyProgrammingVoltage);
+    workflow->Submit(FlashPromptResponse::kDecline);
+    const auto done = workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashCompletedStep>(done));
     ASSERT_EQ(std::get<FlashCompletedStep>(done).outcome, FlashWorkflowOutcome::kCancelled);
 }
@@ -2022,42 +2022,42 @@ TEST(FlashWorkflowTest, unisiaJecsM32rDeclinedVppPromptCancelsBeforeAttempt)
 TEST(FlashWorkflowTest, unisiaJecsM32rAdapterSuppliedVppSkipsBothPrompts)
 {
     FakeBackend *fake = nullptr;
-    auto serial = recordingSerial(&fake);
+    auto serial = RecordingSerial(&fake);
     ASSERT_TRUE(serial != nullptr);
-    ASSERT_TRUE(serial->set_use_openport2_adapter(true));
-    auto input = unisiaM32rWrite();
+    ASSERT_TRUE(serial->SetUseOpenport2Adapter(true));
+    auto input = UnisiaM32rWrite();
     input.serial = serial.get();
-    auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
-    ASSERT_EQ(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::kBegin);
-    workflow->submit(FlashPromptResponse::kAccept);
-    auto step = workflow->next();
+    auto workflow = FlashWorkflowFactory::TryCreate(std::move(input));
+    ASSERT_EQ(std::get<FlashPromptStep>(workflow->Next()).kind, FlashPromptKind::kBegin);
+    workflow->Submit(FlashPromptResponse::kAccept);
+    auto step = workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashAttempt>(step));
     ASSERT_TRUE(std::get<FlashAttempt>(step).attempt->Plan().Confirmations().empty());
-    workflow->submit(FlashAttemptResult{.success = true});
-    const auto done = workflow->next();
+    workflow->Submit(FlashAttemptResult{.success = true});
+    const auto done = workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashCompletedStep>(done));
     ASSERT_EQ(std::get<FlashCompletedStep>(done).outcome, FlashWorkflowOutcome::kSucceeded);
 }
 
 // OpenPort 2.0 supplies VPP, so no remove-VPP sentence is due; legacy still
 // warned on every failed write not to power off the ECU.
-std::unique_ptr<FlashWorkflow> unisiaM32rOpenPort2WriteAtAttempt(std::unique_ptr<SerialPortActions>& serial,
+std::unique_ptr<FlashWorkflow> UnisiaM32rOpenPort2WriteAtAttempt(std::unique_ptr<SerialPortActions>& serial,
                                                                  FakeBackend **fake)
 {
-    serial = recordingSerial(fake);
-    if (serial == nullptr || !serial->set_use_openport2_adapter(true))
+    serial = RecordingSerial(fake);
+    if (serial == nullptr || !serial->SetUseOpenport2Adapter(true))
     {
         return nullptr;
     }
-    auto input = unisiaM32rWrite();
+    auto input = UnisiaM32rWrite();
     input.serial = serial.get();
-    auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
-    if (workflow == nullptr || std::get<FlashPromptStep>(workflow->next()).kind != FlashPromptKind::kBegin)
+    auto workflow = FlashWorkflowFactory::TryCreate(std::move(input));
+    if (workflow == nullptr || std::get<FlashPromptStep>(workflow->Next()).kind != FlashPromptKind::kBegin)
     {
         return nullptr;
     }
-    workflow->submit(FlashPromptResponse::kAccept);
-    if (!std::holds_alternative<FlashAttempt>(workflow->next()))
+    workflow->Submit(FlashPromptResponse::kAccept);
+    if (!std::holds_alternative<FlashAttempt>(workflow->Next()))
     {
         return nullptr;
     }
@@ -2068,16 +2068,16 @@ TEST(FlashWorkflowTest, unisiaJecsM32rAdapterSuppliedVppFailedWriteWarnsNotToPow
 {
     FakeBackend *fake = nullptr;
     std::unique_ptr<SerialPortActions> serial;
-    auto workflow = unisiaM32rOpenPort2WriteAtAttempt(serial, &fake);
+    auto workflow = UnisiaM32rOpenPort2WriteAtAttempt(serial, &fake);
     ASSERT_TRUE(workflow != nullptr);
-    workflow->submit(FlashAttemptResult{.success = false, .error_kind = ErrorKind::kTimeout, .error_detail = "x"});
-    const auto notice_step = workflow->next();
+    workflow->Submit(FlashAttemptResult{.success = false, .error_kind = ErrorKind::kTimeout, .error_detail = "x"});
+    const auto notice_step = workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashPromptStep>(notice_step));
     const auto& notice = std::get<FlashPromptStep>(notice_step);
     ASSERT_EQ(notice.kind, FlashPromptKind::kRemoveProgrammingVoltage);
     ASSERT_TRUE(notice.arguments == (PromptArguments{{"outcome", "failed"}, {"external_vpp", "no"}}));
-    workflow->submit(FlashPromptResponse::kAccept);
-    const auto failure = workflow->next();
+    workflow->Submit(FlashPromptResponse::kAccept);
+    const auto failure = workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashFailureStep>(failure));
     ASSERT_EQ(std::get<FlashFailureStep>(failure).error.kind, ErrorKind::kTimeout);
 }
@@ -2086,31 +2086,31 @@ TEST(FlashWorkflowTest, unisiaJecsM32rAdapterSuppliedVppCancelledWriteWarnsNotTo
 {
     FakeBackend *fake = nullptr;
     std::unique_ptr<SerialPortActions> serial;
-    auto workflow = unisiaM32rOpenPort2WriteAtAttempt(serial, &fake);
+    auto workflow = UnisiaM32rOpenPort2WriteAtAttempt(serial, &fake);
     ASSERT_TRUE(workflow != nullptr);
-    workflow->submit(FlashAttemptResult{.success = false, .error_kind = ErrorKind::kCancelled});
-    const auto notice_step = workflow->next();
+    workflow->Submit(FlashAttemptResult{.success = false, .error_kind = ErrorKind::kCancelled});
+    const auto notice_step = workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashPromptStep>(notice_step));
     const auto& notice = std::get<FlashPromptStep>(notice_step);
     ASSERT_EQ(notice.kind, FlashPromptKind::kRemoveProgrammingVoltage);
     ASSERT_TRUE(notice.arguments == (PromptArguments{{"outcome", "cancelled"}, {"external_vpp", "no"}}));
-    workflow->submit(FlashPromptResponse::kAccept);
-    const auto done = workflow->next();
+    workflow->Submit(FlashPromptResponse::kAccept);
+    const auto done = workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashCompletedStep>(done));
     ASSERT_EQ(std::get<FlashCompletedStep>(done).outcome, FlashWorkflowOutcome::kCancelled);
 }
 
 TEST(FlashWorkflowTest, unisiaJecsM32rReadPropagatesRomIdWithoutVppPrompts)
 {
-    auto input = request("sub_ecu_unisia_jecs_30");
+    auto input = Request("sub_ecu_unisia_jecs_30");
     input.protocol.mcu = "M32R_256KB";
-    auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
-    ASSERT_EQ(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::kBegin);
-    workflow->submit(FlashPromptResponse::kAccept);
-    ASSERT_TRUE(std::holds_alternative<FlashAttempt>(workflow->next()));
-    workflow->submit(
+    auto workflow = FlashWorkflowFactory::TryCreate(std::move(input));
+    ASSERT_EQ(std::get<FlashPromptStep>(workflow->Next()).kind, FlashPromptKind::kBegin);
+    workflow->Submit(FlashPromptResponse::kAccept);
+    ASSERT_TRUE(std::holds_alternative<FlashAttempt>(workflow->Next()));
+    workflow->Submit(
         FlashAttemptResult{.success = true, .read_bytes = bytes::Bytes{1, 2}, .rom_id = std::string("123456789A_")});
-    const auto done = workflow->next();
+    const auto done = workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashCompletedStep>(done));
     ASSERT_TRUE(std::get<FlashCompletedStep>(done).rom_id == std::optional<std::string>("123456789A_"));
     ASSERT_TRUE(std::get<FlashCompletedStep>(done).accepted_read_bytes ==
@@ -2119,27 +2119,27 @@ TEST(FlashWorkflowTest, unisiaJecsM32rReadPropagatesRomIdWithoutVppPrompts)
 
 TEST(FlashWorkflowTest, unisiaJecsM32rFailedReadReportsWithoutNotice)
 {
-    auto input = request("sub_ecu_unisia_jecs_30");
+    auto input = Request("sub_ecu_unisia_jecs_30");
     input.protocol.mcu = "M32R_256KB";
-    auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+    auto workflow = FlashWorkflowFactory::TryCreate(std::move(input));
     ASSERT_TRUE(workflow != nullptr);
-    ASSERT_EQ(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::kBegin);
-    workflow->submit(FlashPromptResponse::kAccept);
-    ASSERT_TRUE(std::holds_alternative<FlashAttempt>(workflow->next()));
-    workflow->submit(FlashAttemptResult{.success = false, .error_kind = ErrorKind::kTimeout, .error_detail = "x"});
-    const auto failure = workflow->next();
+    ASSERT_EQ(std::get<FlashPromptStep>(workflow->Next()).kind, FlashPromptKind::kBegin);
+    workflow->Submit(FlashPromptResponse::kAccept);
+    ASSERT_TRUE(std::holds_alternative<FlashAttempt>(workflow->Next()));
+    workflow->Submit(FlashAttemptResult{.success = false, .error_kind = ErrorKind::kTimeout, .error_detail = "x"});
+    const auto failure = workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashFailureStep>(failure));
     ASSERT_EQ(std::get<FlashFailureStep>(failure).error.kind, ErrorKind::kTimeout);
 }
 
 TEST(FlashWorkflowTest, unisiaJecsM32rWriteOnReadOnlyVariantFailsBeforeAnyPrompt)
 {
-    auto input = request("sub_ecu_unisia_jecs_40", FlashOperation::kWrite);
+    auto input = Request("sub_ecu_unisia_jecs_40", FlashOperation::kWrite);
     input.protocol.mcu = "M32R_384KB";
     input.image = bytes::Bytes(0x60000, 0xff);
-    auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+    auto workflow = FlashWorkflowFactory::TryCreate(std::move(input));
     ASSERT_TRUE(workflow != nullptr);
-    const auto step = workflow->next();
+    const auto step = workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashFailureStep>(step));
     ASSERT_EQ(std::get<FlashFailureStep>(step).error.kind, ErrorKind::kUnsupported);
 }
@@ -2162,13 +2162,13 @@ struct SingleAttemptCase
     std::vector<FlashPromptKind> confirmations;
 };
 
-KernelImage catalogKernel(std::string_view protocol, std::uint32_t load_address, bytes::Bytes bytes)
+KernelImage CatalogKernel(std::string_view protocol, std::uint32_t load_address, bytes::Bytes bytes)
 {
     return KernelImage{
         .id = std::format("{}-kernel", protocol), .load_address = load_address, .bytes = std::move(bytes)};
 }
 
-std::vector<SingleAttemptCase> singleAttemptCases()
+std::vector<SingleAttemptCase> SingleAttemptCases()
 {
     using enum FlashFamily;
     using enum TransportKind;
@@ -2199,63 +2199,63 @@ std::vector<SingleAttemptCase> singleAttemptCases()
          "SH7055",
          kSubaruDensoSh705xDensoCan,
          kCanRawIso15765,
-         catalogKernel("sub_ecu_denso_sh7055_densocan", 0xFFFF6004, {0xaa, 0xbb, 0xcc, 0xdd}),
+         CatalogKernel("sub_ecu_denso_sh7055_densocan", 0xFFFF6004, {0xaa, 0xbb, 0xcc, 0xdd}),
          {FlashPromptKind::kCycleIgnition}},
         {"sub_tcu_denso_sh7055_can",
          "SH7055",
          kSubaruTcuDensoSh705xCan,
          kCanIso15765,
-         catalogKernel("sub_tcu_denso_sh7055_can", 0xFFFF9000, {0x10, 0x20, 0x30, 0x40}),
+         CatalogKernel("sub_tcu_denso_sh7055_can", 0xFFFF9000, {0x10, 0x20, 0x30, 0x40}),
          {}},
         {"sub_ecu_denso_sh7058_can",
          "SH7058",
          kSubaruDensoSh7058Can,
          kCanIso15765,
-         catalogKernel("sub_ecu_denso_sh7058_can", 0xFFFF3000, {0x90, 0xa0, 0xb0, 0xc0}),
+         CatalogKernel("sub_ecu_denso_sh7058_can", 0xFFFF3000, {0x90, 0xa0, 0xb0, 0xc0}),
          {}},
         {"sub_ecu_denso_sh7058_can_diesel",
          "SH7058d",
          kSubaruDensoSh7058CanDiesel,
          kCanIso15765,
-         catalogKernel("sub_ecu_denso_sh7058_can_diesel", 0xFFFF4000, {0xd0, 0xe0, 0xf0, 0x01}),
+         CatalogKernel("sub_ecu_denso_sh7058_can_diesel", 0xFFFF4000, {0xd0, 0xe0, 0xf0, 0x01}),
          {}},
         {"sub_ecu_denso_sh7055_04",
          "SH7055",
          kSubaruDensoSh705xKline,
          kKline,
-         catalogKernel("sub_ecu_denso_sh7055_04", 0xFFFF6004, {0xaa, 0xbb, 0xcc, 0xdd}),
+         CatalogKernel("sub_ecu_denso_sh7055_04", 0xFFFF6004, {0xaa, 0xbb, 0xcc, 0xdd}),
          {}},
         {"sub_ecu_denso_sh7055_02",
          "SH7055",
          kSubaruDensoSh705502,
          kKline,
-         catalogKernel("sub_ecu_denso_sh7055_02", 0xFFFF6004, {0xaa, 0xbb, 0xcc, 0xdd}),
+         CatalogKernel("sub_ecu_denso_sh7055_02", 0xFFFF6004, {0xaa, 0xbb, 0xcc, 0xdd}),
          {FlashPromptKind::kCycleIgnition}},
         {"sub_ecu_denso_mc68hc16y5_02",
          "MC68HC16Y5",
          kSubaruDensoMc68hc16y502,
          kKline,
-         catalogKernel("sub_ecu_denso_mc68hc16y5_02", 0x20000, {0x11, 0x22, 0x33}),
+         CatalogKernel("sub_ecu_denso_mc68hc16y5_02", 0x20000, {0x11, 0x22, 0x33}),
          {}},
     };
 }
 
-FlashWorkflowRequest singleAttemptRead(const SingleAttemptCase& test, const config::ConfigPaths& paths)
+FlashWorkflowRequest SingleAttemptRead(const SingleAttemptCase& test, const config::ConfigPaths& paths)
 {
-    auto input = request(test.protocol);
+    auto input = Request(test.protocol);
     input.protocol.mcu = test.mcu;
     input.paths = paths;
     return input;
 }
 
-std::vector<FlashPromptKind> promptKinds(const std::vector<FlashPromptStep>& prompts)
+std::vector<FlashPromptKind> PromptKinds(const std::vector<FlashPromptStep>& prompts)
 {
     std::vector<FlashPromptKind> kinds;
     std::ranges::transform(prompts, std::back_inserter(kinds), &FlashPromptStep::kind);
     return kinds;
 }
 
-std::vector<FlashPromptKind> withBegin(const std::vector<FlashPromptKind>& confirmations)
+std::vector<FlashPromptKind> WithBegin(const std::vector<FlashPromptKind>& confirmations)
 {
     std::vector<FlashPromptKind> kinds{FlashPromptKind::kBegin};
     kinds.insert(kinds.end(), confirmations.begin(), confirmations.end());
@@ -2265,23 +2265,23 @@ std::vector<FlashPromptKind> withBegin(const std::vector<FlashPromptKind>& confi
 // Accepts every prompt, recording it, and returns the first step that is not
 // a prompt. The bound keeps a workflow that never stops prompting from
 // hanging the suite.
-FlashWorkflowStep acceptEveryPrompt(FlashWorkflow& workflow, std::vector<FlashPromptStep>& prompts)
+FlashWorkflowStep AcceptEveryPrompt(FlashWorkflow& workflow, std::vector<FlashPromptStep>& prompts)
 {
     for (int bound = 0; bound < 8; ++bound)
     {
-        FlashWorkflowStep step = workflow.next();
+        FlashWorkflowStep step = workflow.Next();
         const auto *prompt = std::get_if<FlashPromptStep>(&step);
         if (prompt == nullptr)
         {
             return step;
         }
         prompts.push_back(*prompt);
-        workflow.submit(FlashPromptResponse::kAccept);
+        workflow.Submit(FlashPromptResponse::kAccept);
     }
     return FlashFailureStep{Error{ErrorKind::kInternal, "workflow kept prompting"}};
 }
 
-std::string failureDetail(const FlashWorkflowStep& step)
+std::string FailureDetail(const FlashWorkflowStep& step)
 {
     const auto *failure = std::get_if<FlashFailureStep>(&step);
     return failure == nullptr ? std::string() : failure->error.detail;
@@ -2291,19 +2291,19 @@ TEST(FlashWorkflowTest, singleAttemptFamiliesPromptInOrderAndBindTheirExecutorOn
 {
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
-    const auto paths = catalogPaths(directory);
+    const auto paths = CatalogPaths(directory);
     ASSERT_TRUE(paths.has_value());
 
-    for (const SingleAttemptCase& test : singleAttemptCases())
+    for (const SingleAttemptCase& test : SingleAttemptCases())
     {
         SCOPED_TRACE(test.protocol);
-        auto workflow = FlashWorkflowFactory::tryCreate(singleAttemptRead(test, *paths));
+        auto workflow = FlashWorkflowFactory::TryCreate(SingleAttemptRead(test, *paths));
         ASSERT_TRUE(workflow != nullptr);
 
         std::vector<FlashPromptStep> prompts;
-        auto step = acceptEveryPrompt(*workflow, prompts);
-        ASSERT_TRUE(std::holds_alternative<FlashAttempt>(step)) << failureDetail(step);
-        EXPECT_THAT(promptKinds(prompts), ::testing::ElementsAreArray(withBegin(test.confirmations)));
+        auto step = AcceptEveryPrompt(*workflow, prompts);
+        ASSERT_TRUE(std::holds_alternative<FlashAttempt>(step)) << FailureDetail(step);
+        EXPECT_THAT(PromptKinds(prompts), ::testing::ElementsAreArray(WithBegin(test.confirmations)));
         EXPECT_THAT(prompts, ::testing::Each(::testing::Field(&FlashPromptStep::arguments, ::testing::IsEmpty())));
 
         auto& attempt = std::get<FlashAttempt>(step);
@@ -2327,10 +2327,10 @@ TEST(FlashWorkflowTest, singleAttemptFamiliesPromptInOrderAndBindTheirExecutorOn
 
         // Exactly one attempt: neither the pending nor the finished workflow
         // hands out a second one.
-        EXPECT_FALSE(std::holds_alternative<FlashAttempt>(workflow->next()));
-        workflow->submit(FlashAttemptResult{.success = true});
-        EXPECT_FALSE(std::holds_alternative<FlashAttempt>(workflow->next()));
-        EXPECT_FALSE(std::holds_alternative<FlashAttempt>(workflow->next()));
+        EXPECT_FALSE(std::holds_alternative<FlashAttempt>(workflow->Next()));
+        workflow->Submit(FlashAttemptResult{.success = true});
+        EXPECT_FALSE(std::holds_alternative<FlashAttempt>(workflow->Next()));
+        EXPECT_FALSE(std::holds_alternative<FlashAttempt>(workflow->Next()));
     }
 }
 
@@ -2338,28 +2338,28 @@ TEST(FlashWorkflowTest, singleAttemptFamiliesCancelWhenAnyPromptIsDeclined)
 {
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
-    const auto paths = catalogPaths(directory);
+    const auto paths = CatalogPaths(directory);
     ASSERT_TRUE(paths.has_value());
 
-    for (const SingleAttemptCase& test : singleAttemptCases())
+    for (const SingleAttemptCase& test : SingleAttemptCases())
     {
-        const std::vector<FlashPromptKind> sequence = withBegin(test.confirmations);
+        const std::vector<FlashPromptKind> sequence = WithBegin(test.confirmations);
         for (std::size_t declined = 0; declined < sequence.size(); ++declined)
         {
             SCOPED_TRACE(std::format("{} declining prompt {}", test.protocol, declined));
-            auto workflow = FlashWorkflowFactory::tryCreate(singleAttemptRead(test, *paths));
+            auto workflow = FlashWorkflowFactory::TryCreate(SingleAttemptRead(test, *paths));
             ASSERT_TRUE(workflow != nullptr);
             for (std::size_t accepted = 0; accepted < declined; ++accepted)
             {
-                ASSERT_EQ(std::get<FlashPromptStep>(workflow->next()).kind, sequence[accepted]);
-                workflow->submit(FlashPromptResponse::kAccept);
+                ASSERT_EQ(std::get<FlashPromptStep>(workflow->Next()).kind, sequence[accepted]);
+                workflow->Submit(FlashPromptResponse::kAccept);
             }
-            ASSERT_EQ(std::get<FlashPromptStep>(workflow->next()).kind, sequence[declined]);
-            workflow->submit(FlashPromptResponse::kDecline);
+            ASSERT_EQ(std::get<FlashPromptStep>(workflow->Next()).kind, sequence[declined]);
+            workflow->Submit(FlashPromptResponse::kDecline);
 
             for (int repeat = 0; repeat < 2; ++repeat)
             {
-                const auto step = workflow->next();
+                const auto step = workflow->Next();
                 ASSERT_TRUE(std::holds_alternative<FlashCompletedStep>(step));
                 const auto& done = std::get<FlashCompletedStep>(step);
                 EXPECT_EQ(done.outcome, FlashWorkflowOutcome::kCancelled);
@@ -2374,30 +2374,30 @@ TEST(FlashWorkflowTest, singleAttemptFamiliesTreatEveryNonAcceptResponseAsDeclin
 {
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
-    const auto paths = catalogPaths(directory);
+    const auto paths = CatalogPaths(directory);
     ASSERT_TRUE(paths.has_value());
 
-    for (const SingleAttemptCase& test : singleAttemptCases())
+    for (const SingleAttemptCase& test : SingleAttemptCases())
     {
         for (const auto response : {FlashPromptResponse::kSave, FlashPromptResponse::kDiscard})
         {
             SCOPED_TRACE(std::format("{} response {}", test.protocol, static_cast<int>(response)));
-            auto workflow = FlashWorkflowFactory::tryCreate(singleAttemptRead(test, *paths));
+            auto workflow = FlashWorkflowFactory::TryCreate(SingleAttemptRead(test, *paths));
             ASSERT_TRUE(workflow != nullptr);
-            ASSERT_EQ(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::kBegin);
-            workflow->submit(response);
-            const auto step = workflow->next();
+            ASSERT_EQ(std::get<FlashPromptStep>(workflow->Next()).kind, FlashPromptKind::kBegin);
+            workflow->Submit(response);
+            const auto step = workflow->Next();
             ASSERT_TRUE(std::holds_alternative<FlashCompletedStep>(step));
             EXPECT_EQ(std::get<FlashCompletedStep>(step).outcome, FlashWorkflowOutcome::kCancelled);
         }
     }
 }
 
-std::unique_ptr<FlashWorkflow> singleAttemptAtAttempt(const SingleAttemptCase& test, const config::ConfigPaths& paths)
+std::unique_ptr<FlashWorkflow> SingleAttemptAtAttempt(const SingleAttemptCase& test, const config::ConfigPaths& paths)
 {
-    auto workflow = FlashWorkflowFactory::tryCreate(singleAttemptRead(test, paths));
+    auto workflow = FlashWorkflowFactory::TryCreate(SingleAttemptRead(test, paths));
     std::vector<FlashPromptStep> prompts;
-    if (workflow == nullptr || !std::holds_alternative<FlashAttempt>(acceptEveryPrompt(*workflow, prompts)))
+    if (workflow == nullptr || !std::holds_alternative<FlashAttempt>(AcceptEveryPrompt(*workflow, prompts)))
     {
         return nullptr;
     }
@@ -2408,50 +2408,50 @@ TEST(FlashWorkflowTest, singleAttemptFamiliesReportEveryAttemptOutcome)
 {
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
-    const auto paths = catalogPaths(directory);
+    const auto paths = CatalogPaths(directory);
     ASSERT_TRUE(paths.has_value());
 
-    for (const SingleAttemptCase& test : singleAttemptCases())
+    for (const SingleAttemptCase& test : SingleAttemptCases())
     {
         SCOPED_TRACE(test.protocol);
 
-        auto with_identity = singleAttemptAtAttempt(test, *paths);
+        auto with_identity = SingleAttemptAtAttempt(test, *paths);
         ASSERT_TRUE(with_identity != nullptr);
-        with_identity->submit(
+        with_identity->Submit(
             FlashAttemptResult{.success = true, .read_bytes = bytes::Bytes{0x5a, 0xa5}, .rom_id = "CAL_123456789A_"});
-        auto step = with_identity->next();
+        auto step = with_identity->Next();
         ASSERT_TRUE(std::holds_alternative<FlashCompletedStep>(step));
         EXPECT_EQ(std::get<FlashCompletedStep>(step).outcome, FlashWorkflowOutcome::kSucceeded);
         EXPECT_EQ(std::get<FlashCompletedStep>(step).accepted_read_bytes, bytes::Bytes({0x5a, 0xa5}));
         EXPECT_EQ(std::get<FlashCompletedStep>(step).rom_id, std::string("CAL_123456789A_"));
 
-        auto without_identity = singleAttemptAtAttempt(test, *paths);
+        auto without_identity = SingleAttemptAtAttempt(test, *paths);
         ASSERT_TRUE(without_identity != nullptr);
-        without_identity->submit(FlashAttemptResult{.success = true, .read_bytes = bytes::Bytes{0x01}});
-        step = without_identity->next();
+        without_identity->Submit(FlashAttemptResult{.success = true, .read_bytes = bytes::Bytes{0x01}});
+        step = without_identity->Next();
         ASSERT_TRUE(std::holds_alternative<FlashCompletedStep>(step));
         EXPECT_EQ(std::get<FlashCompletedStep>(step).outcome, FlashWorkflowOutcome::kSucceeded);
         EXPECT_EQ(std::get<FlashCompletedStep>(step).accepted_read_bytes, bytes::Bytes({0x01}));
         EXPECT_FALSE(std::get<FlashCompletedStep>(step).rom_id.has_value());
 
-        auto failed = singleAttemptAtAttempt(test, *paths);
+        auto failed = SingleAttemptAtAttempt(test, *paths);
         ASSERT_TRUE(failed != nullptr);
-        failed->submit(FlashAttemptResult{.success = false,
+        failed->Submit(FlashAttemptResult{.success = false,
                                           .error_kind = ErrorKind::kTimeout,
                                           .error_detail = "no reply to 0x34",
                                           .read_bytes = bytes::Bytes{0x02},
                                           .rom_id = "IGNORED"});
-        step = failed->next();
+        step = failed->Next();
         ASSERT_TRUE(std::holds_alternative<FlashFailureStep>(step));
         EXPECT_EQ(std::get<FlashFailureStep>(step).error, (Error{ErrorKind::kTimeout, "no reply to 0x34"}));
 
-        auto cancelled = singleAttemptAtAttempt(test, *paths);
+        auto cancelled = SingleAttemptAtAttempt(test, *paths);
         ASSERT_TRUE(cancelled != nullptr);
-        cancelled->submit(FlashAttemptResult{.success = false,
+        cancelled->Submit(FlashAttemptResult{.success = false,
                                              .error_kind = ErrorKind::kCancelled,
                                              .error_detail = "cancelled: dialog closed",
                                              .read_bytes = bytes::Bytes{0x03}});
-        step = cancelled->next();
+        step = cancelled->Next();
         ASSERT_TRUE(std::holds_alternative<FlashCompletedStep>(step));
         EXPECT_EQ(std::get<FlashCompletedStep>(step).outcome, FlashWorkflowOutcome::kCancelled);
         EXPECT_FALSE(std::get<FlashCompletedStep>(step).accepted_read_bytes.has_value());
@@ -2463,24 +2463,24 @@ TEST(FlashWorkflowTest, singleAttemptFamiliesRejectInvalidConfigurationBeforeAny
 {
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
-    const auto paths = catalogPaths(directory);
+    const auto paths = CatalogPaths(directory);
     ASSERT_TRUE(paths.has_value());
     FakeBackend *fake = nullptr;
-    auto serial = recordingSerial(&fake);
+    auto serial = RecordingSerial(&fake);
     ASSERT_TRUE(serial != nullptr);
-    expectNoBackendIo(*fake);
+    ExpectNoBackendIo(*fake);
 
-    for (const SingleAttemptCase& test : singleAttemptCases())
+    for (const SingleAttemptCase& test : SingleAttemptCases())
     {
         SCOPED_TRACE(test.protocol);
-        auto input = singleAttemptRead(test, *paths);
+        auto input = SingleAttemptRead(test, *paths);
         input.protocol.mcu = "NOT_A_KNOWN_MCU";
         input.serial = serial.get();
-        auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+        auto workflow = FlashWorkflowFactory::TryCreate(std::move(input));
         ASSERT_TRUE(workflow != nullptr);
         for (int repeat = 0; repeat < 2; ++repeat)
         {
-            const auto step = workflow->next();
+            const auto step = workflow->Next();
             ASSERT_TRUE(std::holds_alternative<FlashFailureStep>(step));
             EXPECT_EQ(std::get<FlashFailureStep>(step).error.kind, ErrorKind::kInvalidConfig);
         }
@@ -2491,14 +2491,14 @@ TEST(FlashWorkflowTest, kernelBackedFamiliesFailBeforeAnyPromptOrIoWithoutTheirK
 {
     QTemporaryDir without_kernels;
     ASSERT_TRUE(without_kernels.isValid());
-    const auto catalog_only = catalogPaths(without_kernels, false);
+    const auto catalog_only = CatalogPaths(without_kernels, false);
     ASSERT_TRUE(catalog_only.has_value());
     FakeBackend *fake = nullptr;
-    auto serial = recordingSerial(&fake);
+    auto serial = RecordingSerial(&fake);
     ASSERT_TRUE(serial != nullptr);
-    expectNoBackendIo(*fake);
+    ExpectNoBackendIo(*fake);
 
-    for (const SingleAttemptCase& test : singleAttemptCases())
+    for (const SingleAttemptCase& test : SingleAttemptCases())
     {
         if (!test.kernel.has_value())
         {
@@ -2507,13 +2507,13 @@ TEST(FlashWorkflowTest, kernelBackedFamiliesFailBeforeAnyPromptOrIoWithoutTheirK
         for (const bool has_catalog : {true, false})
         {
             SCOPED_TRACE(std::format("{} with{} catalog", test.protocol, has_catalog ? "" : "out"));
-            auto input = singleAttemptRead(test, has_catalog ? *catalog_only : config::ConfigPaths{});
+            auto input = SingleAttemptRead(test, has_catalog ? *catalog_only : config::ConfigPaths{});
             input.serial = serial.get();
-            auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+            auto workflow = FlashWorkflowFactory::TryCreate(std::move(input));
             ASSERT_TRUE(workflow != nullptr);
             for (int repeat = 0; repeat < 2; ++repeat)
             {
-                const auto step = workflow->next();
+                const auto step = workflow->Next();
                 ASSERT_TRUE(std::holds_alternative<FlashFailureStep>(step));
                 EXPECT_EQ(std::get<FlashFailureStep>(step).error.kind, ErrorKind::kInvalidConfig);
             }
@@ -2523,7 +2523,7 @@ TEST(FlashWorkflowTest, kernelBackedFamiliesFailBeforeAnyPromptOrIoWithoutTheirK
 
 TEST(FlashWorkflowTest, kernelBackedFamiliesKeepTheirKernelSnapshotAfterFilesAreRemoved)
 {
-    for (const SingleAttemptCase& test : singleAttemptCases())
+    for (const SingleAttemptCase& test : SingleAttemptCases())
     {
         if (!test.kernel.has_value())
         {
@@ -2532,20 +2532,20 @@ TEST(FlashWorkflowTest, kernelBackedFamiliesKeepTheirKernelSnapshotAfterFilesAre
         SCOPED_TRACE(test.protocol);
         QTemporaryDir directory;
         ASSERT_TRUE(directory.isValid());
-        const auto paths = catalogPaths(directory);
+        const auto paths = CatalogPaths(directory);
         ASSERT_TRUE(paths.has_value());
-        auto workflow = FlashWorkflowFactory::tryCreate(singleAttemptRead(test, *paths));
+        auto workflow = FlashWorkflowFactory::TryCreate(SingleAttemptRead(test, *paths));
         ASSERT_TRUE(workflow != nullptr);
 
         // The kernel is loaded before Begin; nothing on disk is read afterward.
-        ASSERT_EQ(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::kBegin);
+        ASSERT_EQ(std::get<FlashPromptStep>(workflow->Next()).kind, FlashPromptKind::kBegin);
         ASSERT_TRUE(QDir(directory.filePath("kernels")).removeRecursively());
-        workflow->submit(FlashPromptResponse::kAccept);
+        workflow->Submit(FlashPromptResponse::kAccept);
 
         std::vector<FlashPromptStep> prompts;
-        auto step = acceptEveryPrompt(*workflow, prompts);
-        ASSERT_TRUE(std::holds_alternative<FlashAttempt>(step)) << failureDetail(step);
-        EXPECT_THAT(promptKinds(prompts), ::testing::ElementsAreArray(test.confirmations));
+        auto step = AcceptEveryPrompt(*workflow, prompts);
+        ASSERT_TRUE(std::holds_alternative<FlashAttempt>(step)) << FailureDetail(step);
+        EXPECT_THAT(PromptKinds(prompts), ::testing::ElementsAreArray(test.confirmations));
         const auto& kernel = std::get<FlashAttempt>(step).attempt->Plan().Kernel();
         ASSERT_TRUE(kernel.has_value());
         EXPECT_EQ(kernel->id, test.kernel->id);
@@ -2556,9 +2556,9 @@ TEST(FlashWorkflowTest, kernelBackedFamiliesKeepTheirKernelSnapshotAfterFilesAre
 
 // Hitachi SH7058 Write runs over CAN with Begin as its only prompt; its Read
 // side (K-Line) is in singleAttemptCases().
-FlashWorkflowRequest sh7058Write()
+FlashWorkflowRequest Sh7058Write()
 {
-    auto input = request("sub_ecu_hitachi_sh7058_can", FlashOperation::kWrite);
+    auto input = Request("sub_ecu_hitachi_sh7058_can", FlashOperation::kWrite);
     input.protocol.mcu = "SH7058_1block";
     input.image = bytes::Bytes(0x100000, 0x5a);
     return input;
@@ -2566,13 +2566,13 @@ FlashWorkflowRequest sh7058Write()
 
 TEST(FlashWorkflowTest, sh7058WriteBindsTheCanExecutorAfterBeginAlone)
 {
-    auto workflow = FlashWorkflowFactory::tryCreate(sh7058Write());
+    auto workflow = FlashWorkflowFactory::TryCreate(Sh7058Write());
     ASSERT_TRUE(workflow != nullptr);
 
     std::vector<FlashPromptStep> prompts;
-    auto step = acceptEveryPrompt(*workflow, prompts);
-    ASSERT_TRUE(std::holds_alternative<FlashAttempt>(step)) << failureDetail(step);
-    EXPECT_THAT(promptKinds(prompts), ::testing::ElementsAre(FlashPromptKind::kBegin));
+    auto step = AcceptEveryPrompt(*workflow, prompts);
+    ASSERT_TRUE(std::holds_alternative<FlashAttempt>(step)) << FailureDetail(step);
+    EXPECT_THAT(PromptKinds(prompts), ::testing::ElementsAre(FlashPromptKind::kBegin));
 
     auto& attempt = std::get<FlashAttempt>(step);
     const FlashPlan& plan = attempt.attempt->Plan();
@@ -2590,22 +2590,22 @@ TEST(FlashWorkflowTest, sh7058WriteBindsTheCanExecutorAfterBeginAlone)
     EXPECT_THAT(attempt.attempt->Run(*attempt.clock, cancelled, events),
                 fastecu::testing::IsErrWith(ErrorKind::kCancelled, ::testing::HasSubstr("before configure")));
 
-    workflow->submit(
+    workflow->Submit(
         FlashAttemptResult{.success = false, .error_kind = ErrorKind::kTimeout, .error_detail = "no reply to 0x34"});
-    step = workflow->next();
+    step = workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashFailureStep>(step));
     EXPECT_EQ(std::get<FlashFailureStep>(step).error, (Error{ErrorKind::kTimeout, "no reply to 0x34"}));
 }
 
 TEST(FlashWorkflowTest, sh7058WriteCancelsWhenBeginIsDeclined)
 {
-    auto workflow = FlashWorkflowFactory::tryCreate(sh7058Write());
+    auto workflow = FlashWorkflowFactory::TryCreate(Sh7058Write());
     ASSERT_TRUE(workflow != nullptr);
-    ASSERT_EQ(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::kBegin);
-    workflow->submit(FlashPromptResponse::kDecline);
+    ASSERT_EQ(std::get<FlashPromptStep>(workflow->Next()).kind, FlashPromptKind::kBegin);
+    workflow->Submit(FlashPromptResponse::kDecline);
     for (int repeat = 0; repeat < 2; ++repeat)
     {
-        const auto step = workflow->next();
+        const auto step = workflow->Next();
         ASSERT_TRUE(std::holds_alternative<FlashCompletedStep>(step));
         EXPECT_EQ(std::get<FlashCompletedStep>(step).outcome, FlashWorkflowOutcome::kCancelled);
     }
@@ -2614,9 +2614,9 @@ TEST(FlashWorkflowTest, sh7058WriteCancelsWhenBeginIsDeclined)
 TEST(FlashWorkflowTest, sh7058WriteRejectsInvalidInputBeforeAnyPromptOrIo)
 {
     FakeBackend *fake = nullptr;
-    auto serial = recordingSerial(&fake);
+    auto serial = RecordingSerial(&fake);
     ASSERT_TRUE(serial != nullptr);
-    expectNoBackendIo(*fake);
+    ExpectNoBackendIo(*fake);
 
     struct Case
     {
@@ -2631,15 +2631,15 @@ TEST(FlashWorkflowTest, sh7058WriteRejectsInvalidInputBeforeAnyPromptOrIo)
          }))
     {
         SCOPED_TRACE(test.name);
-        auto input = sh7058Write();
+        auto input = Sh7058Write();
         input.operation = test.operation;
         input.image = bytes::Bytes(test.image_size, 0x5a);
         input.serial = serial.get();
-        auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+        auto workflow = FlashWorkflowFactory::TryCreate(std::move(input));
         ASSERT_TRUE(workflow != nullptr);
         for (int repeat = 0; repeat < 2; ++repeat)
         {
-            const auto step = workflow->next();
+            const auto step = workflow->Next();
             ASSERT_TRUE(std::holds_alternative<FlashFailureStep>(step));
             EXPECT_EQ(std::get<FlashFailureStep>(step).error.kind, test.expected);
         }
@@ -2648,9 +2648,9 @@ TEST(FlashWorkflowTest, sh7058WriteRejectsInvalidInputBeforeAnyPromptOrIo)
 
 // Denso MC68HC16Y5 BDM Write uploads the catalog kernel to RAM and starts it.
 // The desktop hands every Write the operator's ROM; BDM must drop it.
-FlashWorkflowRequest bdmWrite(const config::ConfigPaths& paths)
+FlashWorkflowRequest BdmWrite(const config::ConfigPaths& paths)
 {
-    auto input = request("sub_ecu_denso_mc68hc16y5_02_bdm", FlashOperation::kWrite);
+    auto input = Request("sub_ecu_denso_mc68hc16y5_02_bdm", FlashOperation::kWrite);
     input.protocol.mcu = "MC68HC16Y5";
     input.paths = paths;
     input.image = bytes::Bytes(0x30000, 0x5a);
@@ -2658,7 +2658,7 @@ FlashWorkflowRequest bdmWrite(const config::ConfigPaths& paths)
 }
 
 // catalog_mc68.bin (11 22 33) zero-padded to the 0x20-byte upload chunk.
-bytes::Bytes bdmCatalogKernelImage()
+bytes::Bytes BdmCatalogKernelImage()
 {
     bytes::Bytes image(0x20, 0x00);
     image[0] = 0x11;
@@ -2671,19 +2671,19 @@ TEST(FlashWorkflowTest, mc68BdmWriteBindsItsExecutorAndReportsEveryOutcome)
 {
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
-    const auto paths = catalogPaths(directory);
+    const auto paths = CatalogPaths(directory);
     ASSERT_TRUE(paths.has_value());
 
     for (const bool succeeded : {true, false})
     {
         SCOPED_TRACE(succeeded ? "succeeded" : "failed");
-        auto workflow = FlashWorkflowFactory::tryCreate(bdmWrite(*paths));
+        auto workflow = FlashWorkflowFactory::TryCreate(BdmWrite(*paths));
         ASSERT_TRUE(workflow != nullptr);
 
         std::vector<FlashPromptStep> prompts;
-        auto step = acceptEveryPrompt(*workflow, prompts);
-        ASSERT_TRUE(std::holds_alternative<FlashAttempt>(step)) << failureDetail(step);
-        EXPECT_THAT(promptKinds(prompts),
+        auto step = AcceptEveryPrompt(*workflow, prompts);
+        ASSERT_TRUE(std::holds_alternative<FlashAttempt>(step)) << FailureDetail(step);
+        EXPECT_THAT(PromptKinds(prompts),
                     ::testing::ElementsAre(FlashPromptKind::kBegin, FlashPromptKind::kConfirmBdmKernelBootstrap));
         EXPECT_THAT(prompts, ::testing::Each(::testing::Field(&FlashPromptStep::arguments, ::testing::IsEmpty())));
 
@@ -2692,7 +2692,7 @@ TEST(FlashWorkflowTest, mc68BdmWriteBindsItsExecutorAndReportsEveryOutcome)
         EXPECT_EQ(plan.Family(), FlashFamily::kSubaruDensoMc68hc16y502Bdm);
         EXPECT_EQ(plan.Transport(), TransportKind::kKline);
         EXPECT_EQ(plan.Operation(), FlashOperation::kWrite);
-        EXPECT_EQ(plan.Image(), std::optional<bytes::Bytes>(bdmCatalogKernelImage()));
+        EXPECT_EQ(plan.Image(), std::optional<bytes::Bytes>(BdmCatalogKernelImage()));
         EXPECT_EQ(plan.TransferRegion(), (MemoryRegion{0x20000, 0x20}));
         EXPECT_FALSE(plan.Kernel().has_value());
 
@@ -2702,21 +2702,21 @@ TEST(FlashWorkflowTest, mc68BdmWriteBindsItsExecutorAndReportsEveryOutcome)
         NullEventSink events;
         EXPECT_THAT(attempt.attempt->Run(*attempt.clock, cancelled, events),
                     fastecu::testing::IsErrWith(ErrorKind::kCancelled, ::testing::HasSubstr("before configure")));
-        EXPECT_FALSE(std::holds_alternative<FlashAttempt>(workflow->next()));
+        EXPECT_FALSE(std::holds_alternative<FlashAttempt>(workflow->Next()));
 
         if (succeeded)
         {
-            workflow->submit(FlashAttemptResult{.success = true});
-            step = workflow->next();
+            workflow->Submit(FlashAttemptResult{.success = true});
+            step = workflow->Next();
             ASSERT_TRUE(std::holds_alternative<FlashCompletedStep>(step));
             EXPECT_EQ(std::get<FlashCompletedStep>(step).outcome, FlashWorkflowOutcome::kSucceeded);
             EXPECT_FALSE(std::get<FlashCompletedStep>(step).accepted_read_bytes.has_value());
         }
         else
         {
-            workflow->submit(FlashAttemptResult{
+            workflow->Submit(FlashAttemptResult{
                 .success = false, .error_kind = ErrorKind::kDisconnected, .error_detail = "adapter removed"});
-            step = workflow->next();
+            step = workflow->Next();
             ASSERT_TRUE(std::holds_alternative<FlashFailureStep>(step));
             EXPECT_EQ(std::get<FlashFailureStep>(step).error, (Error{ErrorKind::kDisconnected, "adapter removed"}));
         }
@@ -2727,25 +2727,25 @@ TEST(FlashWorkflowTest, mc68BdmWriteCancelsWhenEitherPromptIsDeclined)
 {
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
-    const auto paths = catalogPaths(directory);
+    const auto paths = CatalogPaths(directory);
     ASSERT_TRUE(paths.has_value());
     const std::vector<FlashPromptKind> sequence{FlashPromptKind::kBegin, FlashPromptKind::kConfirmBdmKernelBootstrap};
 
     for (std::size_t declined = 0; declined < sequence.size(); ++declined)
     {
         SCOPED_TRACE(std::format("declining prompt {}", declined));
-        auto workflow = FlashWorkflowFactory::tryCreate(bdmWrite(*paths));
+        auto workflow = FlashWorkflowFactory::TryCreate(BdmWrite(*paths));
         ASSERT_TRUE(workflow != nullptr);
         for (std::size_t accepted = 0; accepted < declined; ++accepted)
         {
-            ASSERT_EQ(std::get<FlashPromptStep>(workflow->next()).kind, sequence[accepted]);
-            workflow->submit(FlashPromptResponse::kAccept);
+            ASSERT_EQ(std::get<FlashPromptStep>(workflow->Next()).kind, sequence[accepted]);
+            workflow->Submit(FlashPromptResponse::kAccept);
         }
-        ASSERT_EQ(std::get<FlashPromptStep>(workflow->next()).kind, sequence[declined]);
-        workflow->submit(FlashPromptResponse::kDecline);
+        ASSERT_EQ(std::get<FlashPromptStep>(workflow->Next()).kind, sequence[declined]);
+        workflow->Submit(FlashPromptResponse::kDecline);
         for (int repeat = 0; repeat < 2; ++repeat)
         {
-            const auto step = workflow->next();
+            const auto step = workflow->Next();
             ASSERT_TRUE(std::holds_alternative<FlashCompletedStep>(step));
             EXPECT_EQ(std::get<FlashCompletedStep>(step).outcome, FlashWorkflowOutcome::kCancelled);
         }
@@ -2756,23 +2756,23 @@ TEST(FlashWorkflowTest, mc68BdmWriteWithoutItsKernelFailsBeforeAnyPromptOrIo)
 {
     QTemporaryDir without_kernels;
     ASSERT_TRUE(without_kernels.isValid());
-    const auto catalog_only = catalogPaths(without_kernels, false);
+    const auto catalog_only = CatalogPaths(without_kernels, false);
     ASSERT_TRUE(catalog_only.has_value());
     FakeBackend *fake = nullptr;
-    auto serial = recordingSerial(&fake);
+    auto serial = RecordingSerial(&fake);
     ASSERT_TRUE(serial != nullptr);
-    expectNoBackendIo(*fake);
+    ExpectNoBackendIo(*fake);
 
     for (const bool has_catalog : {true, false})
     {
         SCOPED_TRACE(has_catalog ? "with catalog" : "without catalog");
-        auto input = bdmWrite(has_catalog ? *catalog_only : config::ConfigPaths{});
+        auto input = BdmWrite(has_catalog ? *catalog_only : config::ConfigPaths{});
         input.serial = serial.get();
-        auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+        auto workflow = FlashWorkflowFactory::TryCreate(std::move(input));
         ASSERT_TRUE(workflow != nullptr);
         for (int repeat = 0; repeat < 2; ++repeat)
         {
-            const auto step = workflow->next();
+            const auto step = workflow->Next();
             ASSERT_TRUE(std::holds_alternative<FlashFailureStep>(step));
             EXPECT_EQ(std::get<FlashFailureStep>(step).error.kind, ErrorKind::kInvalidConfig);
         }
@@ -2783,22 +2783,22 @@ TEST(FlashWorkflowTest, mc68BdmWriteKeepsItsKernelSnapshotAfterFilesAreRemoved)
 {
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
-    const auto paths = catalogPaths(directory);
+    const auto paths = CatalogPaths(directory);
     ASSERT_TRUE(paths.has_value());
-    auto workflow = FlashWorkflowFactory::tryCreate(bdmWrite(*paths));
+    auto workflow = FlashWorkflowFactory::TryCreate(BdmWrite(*paths));
     ASSERT_TRUE(workflow != nullptr);
 
     // The kernel is loaded before Begin; nothing on disk is read afterward.
-    ASSERT_EQ(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::kBegin);
+    ASSERT_EQ(std::get<FlashPromptStep>(workflow->Next()).kind, FlashPromptKind::kBegin);
     ASSERT_TRUE(QDir(directory.filePath("kernels")).removeRecursively());
-    workflow->submit(FlashPromptResponse::kAccept);
+    workflow->Submit(FlashPromptResponse::kAccept);
 
     std::vector<FlashPromptStep> prompts;
-    auto step = acceptEveryPrompt(*workflow, prompts);
-    ASSERT_TRUE(std::holds_alternative<FlashAttempt>(step)) << failureDetail(step);
-    EXPECT_THAT(promptKinds(prompts), ::testing::ElementsAre(FlashPromptKind::kConfirmBdmKernelBootstrap));
+    auto step = AcceptEveryPrompt(*workflow, prompts);
+    ASSERT_TRUE(std::holds_alternative<FlashAttempt>(step)) << FailureDetail(step);
+    EXPECT_THAT(PromptKinds(prompts), ::testing::ElementsAre(FlashPromptKind::kConfirmBdmKernelBootstrap));
     EXPECT_EQ(std::get<FlashAttempt>(step).attempt->Plan().Image(),
-              std::optional<bytes::Bytes>(bdmCatalogKernelImage()));
+              std::optional<bytes::Bytes>(BdmCatalogKernelImage()));
 }
 
 struct ColtWriteCase
@@ -2809,7 +2809,7 @@ struct ColtWriteCase
     std::vector<FlashPromptStep> prompts;
 };
 
-std::vector<ColtWriteCase> coltWriteCases()
+std::vector<ColtWriteCase> ColtWriteCases()
 {
     return {
         {"mitsu_ecu_m32r_can",
@@ -2829,9 +2829,9 @@ std::vector<ColtWriteCase> coltWriteCases()
     };
 }
 
-FlashWorkflowRequest coltWrite(const ColtWriteCase& test)
+FlashWorkflowRequest ColtWrite(const ColtWriteCase& test)
 {
-    auto input = request(test.protocol, FlashOperation::kWrite);
+    auto input = Request(test.protocol, FlashOperation::kWrite);
     input.protocol.mcu = test.mcu;
     input.image = bytes::Bytes(test.capacity, 0x5a);
     return input;
@@ -2844,15 +2844,15 @@ MATCHER_P(IsPrompt, expected, "")
 
 TEST(FlashWorkflowTest, coltWritePromptsCarryTheirCapacityArgumentsInOrder)
 {
-    for (const ColtWriteCase& test : coltWriteCases())
+    for (const ColtWriteCase& test : ColtWriteCases())
     {
         SCOPED_TRACE(test.protocol);
-        auto workflow = FlashWorkflowFactory::tryCreate(coltWrite(test));
+        auto workflow = FlashWorkflowFactory::TryCreate(ColtWrite(test));
         ASSERT_TRUE(workflow != nullptr);
 
         std::vector<FlashPromptStep> prompts;
-        auto step = acceptEveryPrompt(*workflow, prompts);
-        ASSERT_TRUE(std::holds_alternative<FlashAttempt>(step)) << failureDetail(step);
+        auto step = AcceptEveryPrompt(*workflow, prompts);
+        ASSERT_TRUE(std::holds_alternative<FlashAttempt>(step)) << FailureDetail(step);
         ASSERT_EQ(prompts.size(), test.prompts.size());
         for (std::size_t index = 0; index < prompts.size(); ++index)
         {
@@ -2873,8 +2873,8 @@ TEST(FlashWorkflowTest, coltWritePromptsCarryTheirCapacityArgumentsInOrder)
         EXPECT_THAT(attempt.attempt->Run(*attempt.clock, cancelled, events),
                     fastecu::testing::IsErrWith(ErrorKind::kCancelled, ::testing::HasSubstr("before configure")));
 
-        workflow->submit(FlashAttemptResult{.success = true});
-        step = workflow->next();
+        workflow->Submit(FlashAttemptResult{.success = true});
+        step = workflow->Next();
         ASSERT_TRUE(std::holds_alternative<FlashCompletedStep>(step));
         EXPECT_EQ(std::get<FlashCompletedStep>(step).outcome, FlashWorkflowOutcome::kSucceeded);
         EXPECT_FALSE(std::get<FlashCompletedStep>(step).accepted_read_bytes.has_value());
@@ -2884,23 +2884,23 @@ TEST(FlashWorkflowTest, coltWritePromptsCarryTheirCapacityArgumentsInOrder)
 
 TEST(FlashWorkflowTest, coltWriteCancelsWhenAnyPromptIsDeclined)
 {
-    for (const ColtWriteCase& test : coltWriteCases())
+    for (const ColtWriteCase& test : ColtWriteCases())
     {
         for (std::size_t declined = 0; declined < test.prompts.size(); ++declined)
         {
             SCOPED_TRACE(std::format("{} declining prompt {}", test.protocol, declined));
-            auto workflow = FlashWorkflowFactory::tryCreate(coltWrite(test));
+            auto workflow = FlashWorkflowFactory::TryCreate(ColtWrite(test));
             ASSERT_TRUE(workflow != nullptr);
             for (std::size_t accepted = 0; accepted < declined; ++accepted)
             {
-                ASSERT_THAT(std::get<FlashPromptStep>(workflow->next()), IsPrompt(test.prompts[accepted]));
-                workflow->submit(FlashPromptResponse::kAccept);
+                ASSERT_THAT(std::get<FlashPromptStep>(workflow->Next()), IsPrompt(test.prompts[accepted]));
+                workflow->Submit(FlashPromptResponse::kAccept);
             }
-            ASSERT_THAT(std::get<FlashPromptStep>(workflow->next()), IsPrompt(test.prompts[declined]));
-            workflow->submit(FlashPromptResponse::kDecline);
+            ASSERT_THAT(std::get<FlashPromptStep>(workflow->Next()), IsPrompt(test.prompts[declined]));
+            workflow->Submit(FlashPromptResponse::kDecline);
             for (int repeat = 0; repeat < 2; ++repeat)
             {
-                const auto step = workflow->next();
+                const auto step = workflow->Next();
                 ASSERT_TRUE(std::holds_alternative<FlashCompletedStep>(step));
                 EXPECT_EQ(std::get<FlashCompletedStep>(step).outcome, FlashWorkflowOutcome::kCancelled);
             }
@@ -2911,19 +2911,19 @@ TEST(FlashWorkflowTest, coltWriteCancelsWhenAnyPromptIsDeclined)
 TEST(FlashWorkflowTest, coltWriteWithWrongImageSizeFailsBeforeAnyPromptOrIo)
 {
     FakeBackend *fake = nullptr;
-    auto serial = recordingSerial(&fake);
+    auto serial = RecordingSerial(&fake);
     ASSERT_TRUE(serial != nullptr);
-    expectNoBackendIo(*fake);
+    ExpectNoBackendIo(*fake);
 
-    for (const ColtWriteCase& test : coltWriteCases())
+    for (const ColtWriteCase& test : ColtWriteCases())
     {
         SCOPED_TRACE(test.protocol);
-        auto input = coltWrite(test);
+        auto input = ColtWrite(test);
         input.image = bytes::Bytes(test.capacity + 1, 0x5a);
         input.serial = serial.get();
-        auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+        auto workflow = FlashWorkflowFactory::TryCreate(std::move(input));
         ASSERT_TRUE(workflow != nullptr);
-        const auto step = workflow->next();
+        const auto step = workflow->Next();
         ASSERT_TRUE(std::holds_alternative<FlashFailureStep>(step));
         EXPECT_EQ(std::get<FlashFailureStep>(step).error.kind, ErrorKind::kInvalidConfig);
     }

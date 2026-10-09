@@ -61,7 +61,7 @@ class FlashWorker final : public QThread
     // still-blocked transport call), and request_unblock() alone doesn't
     // tell the executor the interruption means "stop", not "retry". Safe to
     // call from any thread, any number of times, before or after start().
-    void requestStop();
+    void RequestStop();
 
   signals:
     void logEvent(int level, QString message);

@@ -14,16 +14,16 @@ namespace fastecu::desktop::logging
 class DesktopLoggerValues
 {
   public:
-    void initialize(const fastecu::logging::LoggerModel& model);
-    QString parameter_value(std::string_view protocol, std::string_view id) const;
-    QString switch_value(std::string_view protocol, std::string_view id) const;
-    bool set_parameter_value(const fastecu::logging::LoggerIdentity& identity, QString value);
+    void Initialize(const fastecu::logging::LoggerModel& model);
+    QString ParameterValue(std::string_view protocol, std::string_view id) const;
+    QString SwitchValue(std::string_view protocol, std::string_view id) const;
+    bool SetParameterValue(const fastecu::logging::LoggerIdentity& identity, QString value);
 
   private:
     std::map<fastecu::logging::LoggerIdentity, QString> parameters_;
     std::map<fastecu::logging::LoggerIdentity, QString> switches_;
 };
-QString format_logging_value(double value, int precision);
-fastecu::Status apply_log_sample(const DesktopLoggingSnapshot& snapshot, const fastecu::logging::LogSample& sample,
-                                 DesktopLoggerValues& values);
+QString FormatLoggingValue(double value, int precision);
+fastecu::Status ApplyLogSample(const DesktopLoggingSnapshot& snapshot, const fastecu::logging::LogSample& sample,
+                               DesktopLoggerValues& values);
 } // namespace fastecu::desktop::logging

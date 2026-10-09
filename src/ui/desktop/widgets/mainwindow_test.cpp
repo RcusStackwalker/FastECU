@@ -371,7 +371,7 @@ using LogLine = std::tuple<std::string, bool, bool>;
 template <typename Recorder> std::vector<LogLine> logLines(const Recorder& recorder)
 {
     std::vector<LogLine> lines;
-    for (const auto& [message, timestamp, linefeed] : recorder.snapshot())
+    for (const auto& [message, timestamp, linefeed] : recorder.Snapshot())
     {
         lines.emplace_back(message.toStdString(), timestamp, linefeed);
     }
@@ -627,7 +627,7 @@ struct TestServices
             .config_repository = file_repository,
             .file_action_events = events,
             .log = log_channel,
-            .connection = adapter.connection(),
+            .connection = adapter.Connection(),
             .remote = remote_peer,
             .logging_engine = logging_engine,
             .make_clock = make_clock,
@@ -652,7 +652,7 @@ struct TestServices
     fastecu::logging::LoggerDefinitionService logger_definitions{file_repository, resource_bundle, file_writer};
     fastecu::ui::LogChannel log_channel;
     fastecu::desktop::connection::testing::AdapterConnectionHarness adapter;
-    FakeBackend *fake = adapter.fake(); // null if the fake backend failed to start
+    FakeBackend *fake = adapter.Fake(); // null if the fake backend failed to start
     fastecu::ui::RemotePeer remote_peer;
     fastecu::desktop::logging::LoggingEngine logging_engine;
     std::function<std::unique_ptr<fastecu::IClock>()> make_clock{[]() -> std::unique_ptr<fastecu::IClock>
@@ -739,7 +739,7 @@ class MainWindowTest : public ::testing::Test
         ASSERT_NO_FATAL_FAILURE(selectMake(window, make));
         window.config_session_->Settings().selected_log_transport = transport.toStdString();
         window.config_session_->Settings().selected_log_protocol = "SSM";
-        ON_CALL(fake, open_serial_port()).WillByDefault(::testing::Return(QString("ttyUSB0")));
+        ON_CALL(fake, OpenSerialPort()).WillByDefault(::testing::Return(QString("ttyUSB0")));
     }
 
     // The logging setup loggingCapturesTargetForEachRun and
@@ -751,7 +751,7 @@ class MainWindowTest : public ::testing::Test
         *window.logger_model_ = fastecu::logging::LoggerModel{};
         window.logger_model_->InstallDefinition(std::move(definition));
         window.logger_model_->SetSelection(std::move(selection));
-        window.logger_values_.initialize(*window.logger_model_);
+        window.logger_values_.Initialize(*window.logger_model_);
     }
 
     // Runs Save As on the window's selection and drives its file picker once:
@@ -1053,7 +1053,7 @@ void MainWindowTest::check_directSessionStartupNeverWaitsForARemoteSource()
     TestServices services{config_root_->path()};
     ASSERT_TRUE(services.config_status.has_value());
     ASSERT_TRUE(services.fake != nullptr);
-    EXPECT_CALL(*services.fake, waitForSource()).Times(0);
+    EXPECT_CALL(*services.fake, WaitForSource()).Times(0);
     MainWindow window{services.services()};
     constructorDriver.stop();
 }
@@ -1075,10 +1075,10 @@ void MainWindowTest::check_windowLogLinesReachTheLogChannel()
 
     emit window.LOG_I("probe line", true, false);
 
-    ASSERT_EQ(lines.count(), 1U);
-    ASSERT_EQ(std::get<0>(lines.snapshot().at(0)), QString("probe line"));
-    ASSERT_EQ(std::get<1>(lines.snapshot().at(0)), true);
-    ASSERT_EQ(std::get<2>(lines.snapshot().at(0)), false);
+    ASSERT_EQ(lines.Count(), 1U);
+    ASSERT_EQ(std::get<0>(lines.Snapshot().at(0)), QString("probe line"));
+    ASSERT_EQ(std::get<1>(lines.Snapshot().at(0)), true);
+    ASSERT_EQ(std::get<2>(lines.Snapshot().at(0)), false);
 }
 
 TEST_F(MainWindowTest, windowLogLinesReachTheLogChannel)
@@ -1096,7 +1096,7 @@ void MainWindowTest::check_windowEnablesFileLoggingThroughTheChannel()
     MainWindow window{services.services()};
     constructorDriver.stop();
 
-    ASSERT_TRUE(std::ranges::any_of(enables.snapshot(), [](const auto& arguments) { return std::get<0>(arguments); }));
+    ASSERT_TRUE(std::ranges::any_of(enables.Snapshot(), [](const auto& arguments) { return std::get<0>(arguments); }));
 }
 
 TEST_F(MainWindowTest, windowEnablesFileLoggingThroughTheChannel)
@@ -1114,7 +1114,7 @@ void MainWindowTest::check_directSessionStartupNeverRequestsTheRemoteWait()
     MainWindow window{services.services()};
     constructorDriver.stop();
 
-    ASSERT_EQ(waits.count(), 0U);
+    ASSERT_EQ(waits.Count(), 0U);
 }
 
 TEST_F(MainWindowTest, directSessionStartupNeverRequestsTheRemoteWait)
@@ -1140,10 +1140,10 @@ void MainWindowTest::check_externalLoggerMirrorsToTheRemotePeer()
     ASSERT_TRUE(QMetaObject::invokeMethod(&window, "external_logger_set_progressbar_value", Qt::DirectConnection,
                                           Q_ARG(int, 42)));
 
-    ASSERT_EQ(lines.count(), 1U);
-    ASSERT_EQ(std::get<0>(lines.snapshot().at(0)), QString("mirrored line"));
-    ASSERT_EQ(progress.count(), 1U);
-    ASSERT_EQ(std::get<0>(progress.snapshot().at(0)), 42);
+    ASSERT_EQ(lines.Count(), 1U);
+    ASSERT_EQ(std::get<0>(lines.Snapshot().at(0)), QString("mirrored line"));
+    ASSERT_EQ(progress.Count(), 1U);
+    ASSERT_EQ(std::get<0>(progress.Snapshot().at(0)), 42);
 }
 
 TEST_F(MainWindowTest, externalLoggerMirrorsToTheRemotePeer)
@@ -1163,7 +1163,7 @@ void MainWindowTest::check_peerStateChangesReachTheWindow()
 
     emit services.remote_peer.stateChanged(QRemoteObjectReplica::Valid, QRemoteObjectReplica::Default);
 
-    ASSERT_TRUE(std::ranges::any_of(debugLines.snapshot(), [](const auto& arguments)
+    ASSERT_TRUE(std::ranges::any_of(debugLines.Snapshot(), [](const auto& arguments)
                                     { return std::get<0>(arguments) == "Network connection established"; }));
 }
 
@@ -1223,14 +1223,14 @@ void MainWindowTest::check_handledDensoTcuReadChoicesRunMainWindowCleanupAndStop
     constructorDriver.stop();
 
     FakeBackend *fake = services.fake;
-    EXPECT_CALL(*fake, open_serial_port()).Times(0);
-    EXPECT_CALL(*fake, write_serial_data(::testing::_)).Times(0);
-    EXPECT_CALL(*fake, write_serial_data_echo_check(::testing::_)).Times(0);
-    EXPECT_CALL(*fake, read_serial_data(::testing::_)).Times(0);
+    EXPECT_CALL(*fake, OpenSerialPort()).Times(0);
+    EXPECT_CALL(*fake, WriteSerialData(::testing::_)).Times(0);
+    EXPECT_CALL(*fake, WriteSerialDataEchoCheck(::testing::_)).Times(0);
+    EXPECT_CALL(*fake, ReadSerialData(::testing::_)).Times(0);
     // Characterization: the call counts observed on master (before step
     // 6d) for both rows, pinned so the dispatch refactor cannot change them.
-    EXPECT_CALL(*fake, reset_connection()).Times(3);
-    EXPECT_CALL(*fake, change_port_speed(QStringLiteral("4800"))).Times(2);
+    EXPECT_CALL(*fake, ResetConnection()).Times(3);
+    EXPECT_CALL(*fake, ChangePortSpeed(QStringLiteral("4800"))).Times(2);
 
     // A short poll period keeps the "timer stays stopped" check below quick.
     window.vbatt_timer_->setInterval(10);
@@ -1251,12 +1251,12 @@ void MainWindowTest::check_handledDensoTcuReadChoicesRunMainWindowCleanupAndStop
     ASSERT_TRUE(!operationDriver.timedOut());
     ASSERT_EQ(operationDriver.unexpectedFlashDialogCount(), 0);
 
-    fastecu::testing::process_events_for(std::chrono::milliseconds(window.vbatt_timer_->interval() + 100));
+    fastecu::testing::ProcessEventsFor(std::chrono::milliseconds(window.vbatt_timer_->interval() + 100));
     ASSERT_TRUE(!window.vbatt_timer_->isActive());
     ASSERT_TRUE(window.calibrations_.empty());
     ASSERT_TRUE(services.calibrations.Ids().empty());
     const QString expectedLine = choice.isEmpty() ? "No option selected" : "Attempting TCU relearn";
-    ASSERT_TRUE(std::ranges::any_of(infoLines.snapshot(),
+    ASSERT_TRUE(std::ranges::any_of(infoLines.Snapshot(),
                                     [&](const auto& arguments) { return std::get<0>(arguments) == expectedLine; }));
 }
 
@@ -1316,10 +1316,10 @@ void MainWindowTest::check_futureDensoSuffixesDoNotInstantiateKlineOrPerformEcuI
     constructorDriver.stop();
 
     FakeBackend *fake = services.fake;
-    EXPECT_CALL(*fake, open_serial_port()).Times(0);
-    EXPECT_CALL(*fake, write_serial_data(::testing::_)).Times(0);
-    EXPECT_CALL(*fake, write_serial_data_echo_check(::testing::_)).Times(0);
-    EXPECT_CALL(*fake, read_serial_data(::testing::_)).Times(0);
+    EXPECT_CALL(*fake, OpenSerialPort()).Times(0);
+    EXPECT_CALL(*fake, WriteSerialData(::testing::_)).Times(0);
+    EXPECT_CALL(*fake, WriteSerialDataEchoCheck(::testing::_)).Times(0);
+    EXPECT_CALL(*fake, ReadSerialData(::testing::_)).Times(0);
     window.serial_ports_ = {"OpenPort 2.0"};
     window.serial_port_list_->clear();
     window.serial_port_list_->addItem("OpenPort 2.0");
@@ -1399,10 +1399,10 @@ void MainWindowTest::check_representativePortableRoutesReachFactoryBeforeLegacyF
     constructorDriver.stop();
 
     FakeBackend *fake = services.fake;
-    EXPECT_CALL(*fake, open_serial_port()).Times(0);
-    EXPECT_CALL(*fake, write_serial_data(::testing::_)).Times(0);
-    EXPECT_CALL(*fake, write_serial_data_echo_check(::testing::_)).Times(0);
-    EXPECT_CALL(*fake, read_serial_data(::testing::_)).Times(0);
+    EXPECT_CALL(*fake, OpenSerialPort()).Times(0);
+    EXPECT_CALL(*fake, WriteSerialData(::testing::_)).Times(0);
+    EXPECT_CALL(*fake, WriteSerialDataEchoCheck(::testing::_)).Times(0);
+    EXPECT_CALL(*fake, ReadSerialData(::testing::_)).Times(0);
     window.serial_ports_ = {"OpenPort 2.0"};
     window.serial_port_list_->clear();
     window.serial_port_list_->addItem("OpenPort 2.0");
@@ -1459,9 +1459,9 @@ void MainWindowTest::check_writeWithoutASelectedCalibrationStopsVoltagePolling(Q
     constructorDriver.stop();
 
     FakeBackend *fake = services.fake;
-    EXPECT_CALL(*fake, open_serial_port()).Times(0);
-    EXPECT_CALL(*fake, write_serial_data(::testing::_)).Times(0);
-    EXPECT_CALL(*fake, change_port_speed(QStringLiteral("4800"))).Times(::testing::AtLeast(1));
+    EXPECT_CALL(*fake, OpenSerialPort()).Times(0);
+    EXPECT_CALL(*fake, WriteSerialData(::testing::_)).Times(0);
+    EXPECT_CALL(*fake, ChangePortSpeed(QStringLiteral("4800"))).Times(::testing::AtLeast(1));
     window.serial_ports_ = {"OpenPort 2.0"};
     window.serial_port_list_->clear();
     window.serial_port_list_->addItem("OpenPort 2.0");
@@ -1495,8 +1495,8 @@ void MainWindowTest::check_otherMakesSkipDispatchButStillRunCleanup()
     constructorDriver.stop();
 
     FakeBackend *fake = services.fake;
-    EXPECT_CALL(*fake, open_serial_port()).Times(0);
-    EXPECT_CALL(*fake, change_port_speed(QStringLiteral("4800"))).Times(::testing::AtLeast(1));
+    EXPECT_CALL(*fake, OpenSerialPort()).Times(0);
+    EXPECT_CALL(*fake, ChangePortSpeed(QStringLiteral("4800"))).Times(::testing::AtLeast(1));
     window.serial_ports_ = {"OpenPort 2.0"};
     window.serial_port_list_->clear();
     window.serial_port_list_->addItem("OpenPort 2.0");
@@ -1568,9 +1568,9 @@ void MainWindowTest::check_cancellingTheChecksumWarningStopsVoltagePolling(QStri
     constructorDriver.stop();
 
     FakeBackend *fake = services.fake;
-    EXPECT_CALL(*fake, open_serial_port()).Times(0);
-    EXPECT_CALL(*fake, write_serial_data(::testing::_)).Times(0);
-    EXPECT_CALL(*fake, change_port_speed(QStringLiteral("4800"))).Times(::testing::AtLeast(1));
+    EXPECT_CALL(*fake, OpenSerialPort()).Times(0);
+    EXPECT_CALL(*fake, WriteSerialData(::testing::_)).Times(0);
+    EXPECT_CALL(*fake, ChangePortSpeed(QStringLiteral("4800"))).Times(::testing::AtLeast(1));
     window.serial_ports_ = {"OpenPort 2.0"};
     window.serial_port_list_->clear();
     window.serial_port_list_->addItem("OpenPort 2.0");
@@ -2228,7 +2228,7 @@ void MainWindowTest::check_failedMapDecodeKeepsAnErrorView()
     EXPECT_FALSE(view->findChild<QTableWidget *>()->isEnabled());
     ASSERT_EQ(window.calibrations_.front().view.open_maps.size(), 1U);
     ASSERT_EQ(item->checkState(0), Qt::Checked);
-    ASSERT_TRUE(!errors.snapshot().empty());
+    ASSERT_TRUE(!errors.Snapshot().empty());
 }
 
 TEST_F(MainWindowTest, failedMapDecodeKeepsAnErrorView)
@@ -2244,7 +2244,7 @@ void MainWindowTest::check_windowPreservesInjectedLoggingFactory()
     ASSERT_TRUE(services.config_status.has_value());
     ASSERT_TRUE(services.fake != nullptr);
     bool called = false;
-    services.logging_engine.registerProtocol(
+    services.logging_engine.RegisterProtocol(
         "SSM",
         [&called](const fastecu::desktop::logging::DesktopLoggingSnapshot& snapshot)
         {
@@ -2272,9 +2272,9 @@ void MainWindowTest::check_windowPreservesInjectedLoggingFactory()
                                               .reconnect_attempt_threshold = 100,
                                               .reconnect_retry_period = 20});
     ASSERT_TRUE(session);
-    ASSERT_TRUE(services.logging_engine.start(
+    ASSERT_TRUE(services.logging_engine.Start(
         {.protocol_id = "SSM"}, {.session = std::move(*session), .response_offsets = {0}, .target_is_ecu = false}));
-    services.logging_engine.stop();
+    services.logging_engine.Stop();
     ASSERT_TRUE(called);
 }
 
@@ -2295,7 +2295,7 @@ void MainWindowTest::check_loggingCapturesTargetForEachRun()
     window.config_session_->Settings().selected_log_protocol = "SSM";
     QAction *action = prepareLogging(window, "SSM");
     std::vector<bool> targets;
-    services.logging_engine.registerProtocol(
+    services.logging_engine.RegisterProtocol(
         "SSM",
         [&targets](const fastecu::desktop::logging::DesktopLoggingSnapshot& snapshot)
         {
@@ -2315,7 +2315,7 @@ void MainWindowTest::check_loggingCapturesTargetForEachRun()
         ASSERT_TRUE(action->isChecked());
         ASSERT_TRUE(window.active_logging_snapshot_.has_value());
         ASSERT_EQ(window.active_logging_snapshot_->target_is_ecu, target);
-        services.logging_engine.stop();
+        services.logging_engine.Stop();
     }
     ASSERT_EQ(targets, (std::vector<bool>{true, false}));
 }
@@ -2898,7 +2898,7 @@ void MainWindowTest::check_loggingUsesTheSessionLogProtocol()
     MainWindow window{services.services()};
     constructorDriver.stop();
     prepareLogging(window, "CDBG");
-    services.logging_engine.registerProtocol("CDBG",
+    services.logging_engine.RegisterProtocol("CDBG",
                                              [](const fastecu::desktop::logging::DesktopLoggingSnapshot&)
                                              {
                                                  auto protocol = std::make_unique<ScriptedLoggingProtocol>();
@@ -2911,7 +2911,7 @@ void MainWindowTest::check_loggingUsesTheSessionLogProtocol()
     driver.start();
     window.continue_start_logging();
     driver.stop();
-    services.logging_engine.stop();
+    services.logging_engine.Stop();
 
     ASSERT_EQ(window.active_log_value_protocol_filter_, QString("CDBG"));
 }
@@ -2954,7 +2954,7 @@ void MainWindowTest::check_dtcWindowWithoutAPortWarnsInsteadOfCrashing()
     constructorDriver.stop();
     window.serial_ports_.clear();
     window.serial_port_list_->clear();
-    EXPECT_CALL(*services.fake, set_serial_port_list(::testing::_)).Times(0);
+    EXPECT_CALL(*services.fake, SetSerialPortList(::testing::_)).Times(0);
     ModalDriver driver{QString()};
     driver.start();
     for (const ActionName& command : {kDtcWindow, kBiuCommunication, kTerminal})
@@ -2991,13 +2991,13 @@ void MainWindowTest::check_repeatedSaveFailuresLogOnceUntilASuccess()
     window.save_settings();
     window.save_settings();
     window.save_settings();
-    ASSERT_EQ(errors.count(), 1U);
-    ASSERT_TRUE(std::get<0>(errors.snapshot().front()).contains(configFile));
+    ASSERT_EQ(errors.Count(), 1U);
+    ASSERT_TRUE(std::get<0>(errors.Snapshot().front()).contains(configFile));
     ASSERT_EQ(services.config.Settings().toolbar_iconsize, std::string("48"));
 
     ASSERT_TRUE(QDir().rmdir(configFile));
     window.save_settings();
-    ASSERT_EQ(errors.count(), 1U);
+    ASSERT_EQ(errors.Count(), 1U);
     QFile saved{configFile};
     ASSERT_TRUE(saved.open(QIODevice::ReadOnly));
     ASSERT_TRUE(saved.readAll().contains(R"(data="48")"));
@@ -3005,7 +3005,7 @@ void MainWindowTest::check_repeatedSaveFailuresLogOnceUntilASuccess()
     ASSERT_TRUE(QFile::remove(configFile));
     ASSERT_TRUE(QDir().mkpath(configFile));
     window.save_settings();
-    ASSERT_EQ(errors.count(), 2U);
+    ASSERT_EQ(errors.Count(), 2U);
 }
 
 TEST_F(MainWindowTest, repeatedSaveFailuresLogOnceUntilASuccess)
@@ -3023,7 +3023,7 @@ void MainWindowTest::check_biuWindowRemembersTheOpenedPort()
     MainWindow window{services.services()};
     constructorDriver.stop();
     ASSERT_NO_FATAL_FAILURE(prepareConnect(window, *services.fake, "Subaru", "K-Line"));
-    ON_CALL(*services.fake, get_openedSerialPort()).WillByDefault(::testing::Return(QString("ttyUSB0")));
+    ON_CALL(*services.fake, GetOpenedSerialPort()).WillByDefault(::testing::Return(QString("ttyUSB0")));
     window.previous_serial_port_.clear();
     window.config_session_->Settings().serial_port = "none";
     window.save_settings();
@@ -3060,11 +3060,11 @@ void MainWindowTest::check_disconnectReturnsTheAdapterToIdle()
     constructorDriver.stop();
     {
         ::testing::InSequence order;
-        EXPECT_CALL(*services.fake, reset_connection());
-        EXPECT_CALL(*services.fake, set_serial_port_baudrate(QString("4800")));
-        EXPECT_CALL(*services.fake, set_serial_port_parity(0));
+        EXPECT_CALL(*services.fake, ResetConnection());
+        EXPECT_CALL(*services.fake, SetSerialPortBaudrate(QString("4800")));
+        EXPECT_CALL(*services.fake, SetSerialPortParity(0));
     }
-    EXPECT_CALL(*services.fake, set_is_can_connection(::testing::_)).Times(0);
+    EXPECT_CALL(*services.fake, SetIsCanConnection(::testing::_)).Times(0);
     ASSERT_TRUE(triggerMenu(window, kDisconnectFromEcu));
     // Check now, so facade teardown cannot over-saturate the expectations.
     ASSERT_TRUE(::testing::Mock::VerifyAndClearExpectations(services.fake));
@@ -3086,8 +3086,8 @@ void MainWindowTest::check_connectOnAnotherMakeDisconnectsWithoutIdentifying()
     MainWindow window{services.services()};
     constructorDriver.stop();
     ASSERT_NO_FATAL_FAILURE(prepareConnect(window, *services.fake, "Mitsubishi", "K-Line"));
-    EXPECT_CALL(*services.fake, write_serial_data_echo_check(::testing::_)).Times(0);
-    EXPECT_CALL(*services.fake, set_serial_port_parity(0)).Times(::testing::AtLeast(1));
+    EXPECT_CALL(*services.fake, WriteSerialDataEchoCheck(::testing::_)).Times(0);
+    EXPECT_CALL(*services.fake, SetSerialPortParity(0)).Times(::testing::AtLeast(1));
 
     QElapsedTimer elapsed;
     elapsed.start();
@@ -3114,7 +3114,7 @@ void MainWindowTest::check_subaruKlineConnectIdentifiesOffTheUiThread()
     constructorDriver.stop();
     ASSERT_NO_FATAL_FAILURE(prepareConnect(window, *services.fake, "Subaru", "K-Line"));
     std::atomic<bool> readOffUiThread = false;
-    EXPECT_CALL(*services.fake, read_serial_data(::testing::_))
+    EXPECT_CALL(*services.fake, ReadSerialData(::testing::_))
         .WillOnce(
             [&window, &readOffUiThread](std::uint16_t)
             {
@@ -3129,8 +3129,8 @@ void MainWindowTest::check_subaruKlineConnectIdentifiesOffTheUiThread()
     ASSERT_TRUE(!window.serial_port_list_->isEnabled());
 
     constructorDriver.start();
-    ASSERT_TRUE(fastecu::testing::wait_until([&] { return !window.connection_coordinator_->identifying(); },
-                                             std::chrono::milliseconds(5000)));
+    ASSERT_TRUE(fastecu::testing::WaitUntil([&] { return !window.connection_coordinator_->identifying(); },
+                                            std::chrono::milliseconds(5000)));
     constructorDriver.stop();
     ASSERT_TRUE(window.ecu_init_complete_);
     ASSERT_EQ(window.ecuid_, QString("3152584006"));
@@ -3164,8 +3164,8 @@ void MainWindowTest::check_subaruConnectThatNeverAnswersDisconnectsAndRestoresCo
     ASSERT_NO_FATAL_FAILURE(prepareConnect(window, *services.fake, "Subaru", "K-Line"));
 
     ASSERT_TRUE(triggerMenu(window, kConnectToEcu));
-    ASSERT_TRUE(fastecu::testing::wait_until([&] { return !window.connection_coordinator_->identifying(); },
-                                             std::chrono::milliseconds(15000)));
+    ASSERT_TRUE(fastecu::testing::WaitUntil([&] { return !window.connection_coordinator_->identifying(); },
+                                            std::chrono::milliseconds(15000)));
     ASSERT_TRUE(!window.ecu_init_complete_);
     ASSERT_TRUE(window.log_transport_list_->isEnabled());
     ASSERT_TRUE(window.serial_port_list_->isEnabled());
@@ -3189,7 +3189,7 @@ void MainWindowTest::check_disconnectDuringIdentificationCancelsAndDropsTheResul
     constructorDriver.stop();
     ASSERT_NO_FATAL_FAILURE(prepareConnect(window, *services.fake, "Subaru", "K-Line"));
 
-    EXPECT_CALL(*services.fake, read_serial_data(::testing::_)).WillOnce(::testing::Return(kEcuInit));
+    EXPECT_CALL(*services.fake, ReadSerialData(::testing::_)).WillOnce(::testing::Return(kEcuInit));
     ASSERT_TRUE(triggerMenu(window, kConnectToEcu));
     ASSERT_TRUE(window.connection_coordinator_->identifying());
     // Leave a successful completion queued on the UI thread before cancelling.
@@ -3200,8 +3200,7 @@ void MainWindowTest::check_disconnectDuringIdentificationCancelsAndDropsTheResul
     ASSERT_TRUE(window.serial_port_list_->isEnabled());
     ASSERT_TRUE(window.ecu_radio_button_->isEnabled());
     ASSERT_TRUE(window.tcu_radio_button_->isEnabled());
-    fastecu::testing::process_events_for(
-        std::chrono::milliseconds(200)); // any completion already queued must be dropped
+    fastecu::testing::ProcessEventsFor(std::chrono::milliseconds(200)); // any completion already queued must be dropped
     ASSERT_TRUE(!window.ecu_init_complete_);
 }
 
@@ -3303,7 +3302,7 @@ void MainWindowTest::check_unresolvedDisplaySlotsAreSkippedAndUpdateTheirOrigina
                           {.protocol = "SSM", .lower_panel_ids = {"unresolved", "rpm", "another-unresolved"}});
     window.update_logboxes("SSM");
     ASSERT_EQ(window.ui_->logBoxLayout->count(), 1);
-    ASSERT_TRUE(window.logger_values_.set_parameter_value({"SSM", "rpm"}, "123.00"));
+    ASSERT_TRUE(window.logger_values_.SetParameterValue({"SSM", "rpm"}, "123.00"));
     window.update_logbox_values("SSM");
     const auto *label = window.findChild<QLabel *>("log_label1");
     ASSERT_TRUE(label != nullptr);
@@ -3428,9 +3427,9 @@ void MainWindowTest::check_csvSharedIdProtocolIdentity()
                            .gauge_ids = {"missing"},
                            .lower_panel_ids = {"rpm", "unresolved"},
                            .switch_ids = {"missing-switch"}});
-    ASSERT_TRUE(window.logger_values_.set_parameter_value({"SSM", "rpm"}, "11.00"));
-    ASSERT_TRUE(window.logger_values_.set_parameter_value({"CDBG", "rpm"}, "22.00"));
-    auto snapshot = fastecu::desktop::logging::make_desktop_logging_snapshot(
+    ASSERT_TRUE(window.logger_values_.SetParameterValue({"SSM", "rpm"}, "11.00"));
+    ASSERT_TRUE(window.logger_values_.SetParameterValue({"CDBG", "rpm"}, "22.00"));
+    auto snapshot = fastecu::desktop::logging::MakeDesktopLoggingSnapshot(
         *window.logger_model_, fastecu::logging::LoggingProtocolId::kCdbg, "CDBG",
         {.poll_timeout = std::chrono::milliseconds{50},
          .car_silence_miss_threshold = 20,
@@ -3507,8 +3506,8 @@ void MainWindowTest::check_loggingStartWaitsForIdentification(bool targetIsEcu)
     window.protocol_ = "SSM";
     (targetIsEcu ? window.ecu_radio_button_ : window.tcu_radio_button_)->setChecked(true);
     EXPECT_CALL(*services.fake,
-                write_serial_data_echo_check(frame({0x00, 0x00, 0x07, targetIsEcu ? 0xE0 : 0xE1, 0x22, 0xF1, 0x82})));
-    EXPECT_CALL(*services.fake, read_serial_data(::testing::_))
+                WriteSerialDataEchoCheck(frame({0x00, 0x00, 0x07, targetIsEcu ? 0xE0 : 0xE1, 0x22, 0xF1, 0x82})));
+    EXPECT_CALL(*services.fake, ReadSerialData(::testing::_))
         .WillOnce(
             [&responseGate](std::uint16_t)
             {
@@ -3531,7 +3530,7 @@ void MainWindowTest::check_loggingStartWaitsForIdentification(bool targetIsEcu)
                                            .conversions = {{"rpm", "x", "0", "0", "100", "1"}}}}},
                           {.protocol = std::string("SSM"), .lower_panel_ids = {"rpm"}});
     bool targetFrozenInContinuation = false;
-    services.logging_engine.registerProtocol(
+    services.logging_engine.RegisterProtocol(
         "SSM",
         [&window, &targetFrozenInContinuation](const fastecu::desktop::logging::DesktopLoggingSnapshot&)
         {
@@ -3550,8 +3549,8 @@ void MainWindowTest::check_loggingStartWaitsForIdentification(bool targetIsEcu)
     ASSERT_TRUE(!window.active_logging_snapshot_.has_value()); // still identifying
     (targetIsEcu ? window.tcu_radio_button_ : window.ecu_radio_button_)->click();
     responseGate.release();
-    ASSERT_TRUE(fastecu::testing::wait_until([&] { return window.active_logging_snapshot_.has_value(); },
-                                             std::chrono::milliseconds(5000)));
+    ASSERT_TRUE(fastecu::testing::WaitUntil([&] { return window.active_logging_snapshot_.has_value(); },
+                                            std::chrono::milliseconds(5000)));
     ASSERT_EQ(window.ecuid_, QString("123456789A"));
     ASSERT_TRUE(window.logger_model_->ParameterSupported("SSM", "rpm"));
     ASSERT_TRUE(window.active_logging_snapshot_.has_value());
@@ -3559,7 +3558,7 @@ void MainWindowTest::check_loggingStartWaitsForIdentification(bool targetIsEcu)
     ASSERT_TRUE(targetFrozenInContinuation);
     ASSERT_TRUE(window.ecu_radio_button_->isEnabled());
     ASSERT_TRUE(window.tcu_radio_button_->isEnabled());
-    services.logging_engine.stop();
+    services.logging_engine.Stop();
 }
 
 TEST_P(LoggingStartWaitsForIdentificationParameters, loggingStartWaitsForIdentification)
@@ -3577,7 +3576,7 @@ void MainWindowTest::check_batterySamplingDoesNotUseTheFacadeDuringIdentificatio
     constructorDriver.stop();
     ASSERT_NO_FATAL_FAILURE(prepareConnect(window, *services.fake, "Subaru", "K-Line"));
     ASSERT_TRUE(triggerMenu(window, kConnectToEcu));
-    EXPECT_CALL(*services.fake, get_use_openport2_adapter()).Times(0);
+    EXPECT_CALL(*services.fake, GetUseOpenport2Adapter()).Times(0);
     window.update_vbatt();
     ASSERT_TRUE(window.connection_coordinator_->identifying());
     ASSERT_TRUE(::testing::Mock::VerifyAndClearExpectations(services.fake));
@@ -3601,7 +3600,7 @@ void MainWindowTest::check_windowDestructionJoinsIdentificationWithoutContinuing
     window->connect_to_ecu([&continued](bool) { continued = true; });
     ASSERT_TRUE(window->connection_coordinator_->identifying());
     window.reset();
-    fastecu::testing::process_events_for(std::chrono::milliseconds(200));
+    fastecu::testing::ProcessEventsFor(std::chrono::milliseconds(200));
     ASSERT_TRUE(!continued);
 }
 
@@ -3619,7 +3618,7 @@ void MainWindowTest::check_connectStopsAnActiveLoggingWorkerBeforeIdentification
     MainWindow window{services.services()};
     constructorDriver.stop();
     ASSERT_NO_FATAL_FAILURE(prepareConnect(window, *services.fake, "Subaru", "K-Line"));
-    services.logging_engine.registerProtocol("SSM",
+    services.logging_engine.RegisterProtocol("SSM",
                                              [](const fastecu::desktop::logging::DesktopLoggingSnapshot&)
                                              {
                                                  auto protocol = std::make_unique<ScriptedLoggingProtocol>();
@@ -3641,13 +3640,13 @@ void MainWindowTest::check_connectStopsAnActiveLoggingWorkerBeforeIdentification
                                               .reconnect_retry_period = 20});
     ASSERT_TRUE(session.has_value());
     fastecu::desktop::logging::DesktopLoggingSnapshot snapshot{.session = std::move(*session)};
-    ASSERT_TRUE(services.logging_engine.start({"SSM"}, std::move(snapshot)).has_value());
-    ASSERT_TRUE(fastecu::testing::wait_until([&] { return services.logging_engine.isRunning(); },
-                                             std::chrono::milliseconds(5000)));
+    ASSERT_TRUE(services.logging_engine.Start({"SSM"}, std::move(snapshot)).has_value());
+    ASSERT_TRUE(fastecu::testing::WaitUntil([&] { return services.logging_engine.IsRunning(); },
+                                            std::chrono::milliseconds(5000)));
     window.logging_state_ = true;
     ASSERT_TRUE(triggerMenu(window, kConnectToEcu));
     ASSERT_TRUE(window.connection_coordinator_->identifying());
-    ASSERT_TRUE(!services.logging_engine.isRunning());
+    ASSERT_TRUE(!services.logging_engine.IsRunning());
     ASSERT_TRUE(!window.logging_state_);
 }
 
@@ -3743,7 +3742,7 @@ void MainWindowTest::check_connectionEntryPointsStopIdentification(QString entry
     // selector unlocks as it does after Disconnect.
     ASSERT_TRUE(window.serial_port_list_->isEnabled());
     ASSERT_TRUE(window.refresh_serial_port_list_->isEnabled());
-    fastecu::testing::process_events_for(std::chrono::milliseconds(200));
+    fastecu::testing::ProcessEventsFor(std::chrono::milliseconds(200));
     ASSERT_TRUE(!window.ecu_init_complete_);
 }
 
@@ -3761,7 +3760,7 @@ void MainWindowTest::check_nestedConnectDuringCapabilityNoticeKeepsEachContinuat
     MainWindow window{services.services()};
     constructorDriver.stop();
     ASSERT_NO_FATAL_FAILURE(prepareConnect(window, *services.fake, "Subaru", "K-Line"));
-    EXPECT_CALL(*services.fake, read_serial_data(::testing::_))
+    EXPECT_CALL(*services.fake, ReadSerialData(::testing::_))
         .WillOnce(::testing::Return(kEcuInit))
         .WillRepeatedly(::testing::Return(QByteArray{}));
     std::optional<bool> firstResult;

@@ -13,8 +13,8 @@ namespace fastecu::desktop::logging
 namespace
 {
 
-fastecu::Result<QString> effective_protocol_filter(fastecu::logging::LoggingProtocolId protocol,
-                                                   const QString& protocol_filter)
+fastecu::Result<QString> EffectiveProtocolFilter(fastecu::logging::LoggingProtocolId protocol,
+                                                 const QString& protocol_filter)
 {
     switch (protocol)
     {
@@ -33,7 +33,7 @@ fastecu::Result<QString> effective_protocol_filter(fastecu::logging::LoggingProt
 }
 
 fastecu::Result<fastecu::logging::LoggingChannel>
-channel_from_parameter(const fastecu::logging::LoggerParameter& parameter, fastecu::logging::LoggingProtocolId protocol)
+ChannelFromParameter(const fastecu::logging::LoggerParameter& parameter, fastecu::logging::LoggingProtocolId protocol)
 {
     const auto& conversions = parameter.conversions;
     if (conversions.empty() || conversions.at(0).units.empty() || conversions.at(0).expr.empty() ||
@@ -73,12 +73,12 @@ channel_from_parameter(const fastecu::logging::LoggerParameter& parameter, faste
 
 } // namespace
 
-fastecu::Result<DesktopLoggingSnapshot> make_desktop_logging_snapshot(const fastecu::logging::LoggerModel& model,
-                                                                      fastecu::logging::LoggingProtocolId protocol,
-                                                                      const QString& protocol_filter,
-                                                                      fastecu::logging::LoggingPolicy policy)
+fastecu::Result<DesktopLoggingSnapshot> MakeDesktopLoggingSnapshot(const fastecu::logging::LoggerModel& model,
+                                                                   fastecu::logging::LoggingProtocolId protocol,
+                                                                   const QString& protocol_filter,
+                                                                   fastecu::logging::LoggingPolicy policy)
 {
-    const auto filter = effective_protocol_filter(protocol, protocol_filter);
+    const auto filter = EffectiveProtocolFilter(protocol, protocol_filter);
     if (!filter.has_value())
     {
         return std::unexpected(filter.error());
@@ -111,7 +111,7 @@ fastecu::Result<DesktopLoggingSnapshot> make_desktop_logging_snapshot(const fast
         {
             continue;
         }
-        auto channel = channel_from_parameter(*selected, protocol);
+        auto channel = ChannelFromParameter(*selected, protocol);
         if (!channel.has_value())
         {
             return std::unexpected(channel.error());

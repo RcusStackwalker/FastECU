@@ -16,8 +16,8 @@
 using fastecu::ErrorKind;
 using fastecu::flash::DesktopCanTransportConfig;
 using fastecu::flash::Iso15765Config;
-using fastecu::flash::list_desktop_serial_ports;
-using fastecu::flash::open_desktop_can_flash_transport;
+using fastecu::flash::ListDesktopSerialPorts;
+using fastecu::flash::OpenDesktopCanFlashTransport;
 
 namespace
 {
@@ -30,14 +30,14 @@ const QString kOpenPort0 = "cu.usbmodem0 - OpenPort 2.0";
 const QString kOpenPort1 = "cu.usbmodem1 - OpenPort 2.0";
 const QString kBluetoothPort = "cu.Bluetooth-Incoming-Port - ";
 
-DesktopCanTransportConfig configWith(FakeBackend **captured, QStringList ports, QString open_result)
+DesktopCanTransportConfig ConfigWith(FakeBackend **captured, QStringList ports, QString open_result)
 {
     DesktopCanTransportConfig config;
     config.backend_factory = [captured, ports, open_result]() -> SerialBackend *
     {
         auto *fake = new NiceFakeBackend();
-        EXPECT_CALL(*fake, check_serial_ports()).WillRepeatedly(::testing::Return(ports));
-        EXPECT_CALL(*fake, open_serial_port()).WillRepeatedly(::testing::Return(open_result));
+        EXPECT_CALL(*fake, CheckSerialPorts()).WillRepeatedly(::testing::Return(ports));
+        EXPECT_CALL(*fake, OpenSerialPort()).WillRepeatedly(::testing::Return(open_result));
         *captured = fake;
         return fake;
     };
@@ -48,7 +48,7 @@ DesktopCanTransportConfig configWith(FakeBackend **captured, QStringList ports, 
 TEST(TestDesktopTransportFactory, listsEveryDetectedPort)
 {
     FakeBackend *fake = nullptr;
-    const auto ports = list_desktop_serial_ports(configWith(&fake, {kOpenPort0, kOpenPort1}, ""));
+    const auto ports = ListDesktopSerialPorts(ConfigWith(&fake, {kOpenPort0, kOpenPort1}, ""));
 
     ASSERT_TRUE(ports.has_value());
     ASSERT_EQ(ports->size(), 2U);
@@ -58,7 +58,7 @@ TEST(TestDesktopTransportFactory, listsEveryDetectedPort)
 TEST(TestDesktopTransportFactory, refusesToOpenWhenNoDeviceIsDetected)
 {
     FakeBackend *fake = nullptr;
-    const auto transport = open_desktop_can_flash_transport(configWith(&fake, {}, kOpenPort0), kColtCan);
+    const auto transport = OpenDesktopCanFlashTransport(ConfigWith(&fake, {}, kOpenPort0), kColtCan);
 
     ASSERT_TRUE(!transport.has_value());
     ASSERT_EQ(transport.error().kind, ErrorKind::kDisconnected);
@@ -67,9 +67,9 @@ TEST(TestDesktopTransportFactory, refusesToOpenWhenNoDeviceIsDetected)
 TEST(TestDesktopTransportFactory, refusesToOpenWhenTheNamedDeviceIsAbsent)
 {
     FakeBackend *fake = nullptr;
-    auto config = configWith(&fake, {kOpenPort0}, kOpenPort0);
+    auto config = ConfigWith(&fake, {kOpenPort0}, kOpenPort0);
     config.port_name = "cu.usbmodem7 - OpenPort 2.0";
-    const auto transport = open_desktop_can_flash_transport(config, kColtCan);
+    const auto transport = OpenDesktopCanFlashTransport(config, kColtCan);
 
     ASSERT_TRUE(!transport.has_value());
     ASSERT_EQ(transport.error().kind, ErrorKind::kInvalidConfig);
@@ -79,10 +79,10 @@ TEST(TestDesktopTransportFactory, selectsTheFirstJ2534DeviceWhenNoNameIsGiven)
 {
     FakeBackend *fake = nullptr;
     const auto transport =
-        open_desktop_can_flash_transport(configWith(&fake, {kOpenPort0, kOpenPort1}, kOpenPort0), kColtCan);
+        OpenDesktopCanFlashTransport(ConfigWith(&fake, {kOpenPort0, kOpenPort1}, kOpenPort0), kColtCan);
 
     ASSERT_TRUE(transport.has_value());
-    ASSERT_EQ(fake->get_serial_port_list(), QStringList({kOpenPort0}));
+    ASSERT_EQ(fake->GetSerialPortList(), QStringList({kOpenPort0}));
 }
 
 // Regression (issue #243): QSerialPortInfo sorts
@@ -94,16 +94,16 @@ TEST(TestDesktopTransportFactory, skipsNonJ2534PortsWhenNoNameIsGiven)
 {
     FakeBackend *fake = nullptr;
     const auto transport =
-        open_desktop_can_flash_transport(configWith(&fake, {kBluetoothPort, kOpenPort0}, kOpenPort0), kColtCan);
+        OpenDesktopCanFlashTransport(ConfigWith(&fake, {kBluetoothPort, kOpenPort0}, kOpenPort0), kColtCan);
 
     ASSERT_TRUE(transport.has_value());
 #if defined(Q_OS_UNIX)
-    ASSERT_EQ(fake->get_serial_port_list(), QStringList({kOpenPort0}));
+    ASSERT_EQ(fake->GetSerialPortList(), QStringList({kOpenPort0}));
 #else
     // Windows entries come from the J2534 driver registry rather than the
     // serial-port list, so every one of them is adapter-capable and the
     // first is still the right choice.
-    ASSERT_EQ(fake->get_serial_port_list(), QStringList({kBluetoothPort}));
+    ASSERT_EQ(fake->GetSerialPortList(), QStringList({kBluetoothPort}));
 #endif
 }
 
@@ -114,8 +114,7 @@ TEST(TestDesktopTransportFactory, skipsNonJ2534PortsWhenNoNameIsGiven)
 TEST(TestDesktopTransportFactory, refusesToOpenWhenNoDetectedPortIsAJ2534Adapter)
 {
     FakeBackend *fake = nullptr;
-    const auto transport =
-        open_desktop_can_flash_transport(configWith(&fake, {kBluetoothPort}, kBluetoothPort), kColtCan);
+    const auto transport = OpenDesktopCanFlashTransport(ConfigWith(&fake, {kBluetoothPort}, kBluetoothPort), kColtCan);
 
 #if defined(Q_OS_UNIX)
     ASSERT_TRUE(!transport.has_value());
@@ -131,9 +130,9 @@ TEST(TestDesktopTransportFactory, refusesToOpenWhenNoDetectedPortIsAJ2534Adapter
 TEST(TestDesktopTransportFactory, refusesToOpenWhenTheNamedDeviceIsNotAJ2534Adapter)
 {
     FakeBackend *fake = nullptr;
-    auto config = configWith(&fake, {kBluetoothPort, kOpenPort0}, kBluetoothPort);
+    auto config = ConfigWith(&fake, {kBluetoothPort, kOpenPort0}, kBluetoothPort);
     config.port_name = kBluetoothPort.toStdString();
-    const auto transport = open_desktop_can_flash_transport(config, kColtCan);
+    const auto transport = OpenDesktopCanFlashTransport(config, kColtCan);
 
 #if defined(Q_OS_UNIX)
     ASSERT_TRUE(!transport.has_value());
@@ -146,7 +145,7 @@ TEST(TestDesktopTransportFactory, refusesToOpenWhenTheNamedDeviceIsNotAJ2534Adap
 TEST(TestDesktopTransportFactory, reportsDisconnectedWhenTheOpenFails)
 {
     FakeBackend *fake = nullptr;
-    const auto transport = open_desktop_can_flash_transport(configWith(&fake, {kOpenPort0}, ""), kColtCan);
+    const auto transport = OpenDesktopCanFlashTransport(ConfigWith(&fake, {kOpenPort0}, ""), kColtCan);
 
     ASSERT_TRUE(!transport.has_value());
     ASSERT_EQ(transport.error().kind, ErrorKind::kDisconnected);
@@ -156,11 +155,11 @@ TEST(TestDesktopTransportFactory, refusesAConfigWithoutABackendFactory)
 {
     const DesktopCanTransportConfig config;
 
-    const auto ports = list_desktop_serial_ports(config);
+    const auto ports = ListDesktopSerialPorts(config);
     ASSERT_TRUE(!ports.has_value());
     ASSERT_EQ(ports.error().kind, ErrorKind::kInvalidConfig);
 
-    const auto transport = open_desktop_can_flash_transport(config, kColtCan);
+    const auto transport = OpenDesktopCanFlashTransport(config, kColtCan);
     ASSERT_TRUE(!transport.has_value());
     ASSERT_EQ(transport.error().kind, ErrorKind::kInvalidConfig);
 }

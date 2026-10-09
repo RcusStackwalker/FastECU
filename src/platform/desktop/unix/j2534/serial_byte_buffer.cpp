@@ -8,7 +8,7 @@ SerialByteBuffer::SerialByteBuffer(PollFn poll, WaitFn wait, NowFn now)
 {
 }
 
-QByteArray SerialByteBuffer::take(std::uint32_t n, std::uint16_t timeout_ms)
+QByteArray SerialByteBuffer::Take(std::uint32_t n, std::uint16_t timeout_ms)
 {
     std::uint64_t deadline = now_() + timeout_ms;
     while (buffer_.size() - offset_ < static_cast<qsizetype>(n))
@@ -50,13 +50,13 @@ QByteArray SerialByteBuffer::take(std::uint32_t n, std::uint16_t timeout_ms)
     return out;
 }
 
-void SerialByteBuffer::clear()
+void SerialByteBuffer::Clear()
 {
     buffer_.clear();
     offset_ = 0;
 }
 
-std::size_t SerialByteBuffer::buffered() const
+std::size_t SerialByteBuffer::Buffered() const
 {
     return static_cast<std::size_t>(buffer_.size() - offset_);
 }

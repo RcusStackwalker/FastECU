@@ -14,7 +14,7 @@ class SystemLogger : public QObject
     SystemLogger(QString file_path, QString sw_name, QString sw_ver, QObject *parent = nullptr);
     ~SystemLogger();
 
-    void run();
+    void Run();
 
   private:
     QString file_path_;
@@ -28,7 +28,7 @@ class SystemLogger : public QObject
     QFile syslog_file_;
     QTextStream syslog_file_outstream_;
 
-    bool write_syslog(const QString& msg);
+    bool WriteSyslog(const QString& msg);
 
   signals:
     void send_message_to_log_window(QString msg);

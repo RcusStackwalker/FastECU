@@ -237,7 +237,7 @@ void DataTerminal::sendToInterface()
                 delay(static_cast<int>(pause->duration.count()));
                 continue;
             }
-            QByteArray output = bytes::toQByteArray(std::get<fastecu::diagnostics::TerminalMessageStep>(step).payload);
+            QByteArray output = bytes::ToQByteArray(std::get<fastecu::diagnostics::TerminalMessageStep>(step).payload);
             if (ui_->klineProtocol->currentText() == "SSM")
             {
                 output = add_ssm_header(output, ui_->klineTesterId->text().toUInt(&ok, 16),
@@ -322,7 +322,7 @@ void DataTerminal::sendToInterface()
             {
                 output.append(static_cast<char>((canTesterId >> shift) & 0xffU));
             }
-            output.append(bytes::toQByteArray(payload));
+            output.append(bytes::ToQByteArray(payload));
             emit LOG_I("Sent: " + parse_message_to_hex(output), true, true);
             diagnostic_link_io::write(*link_, output);
             delay(10);

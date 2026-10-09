@@ -20,7 +20,7 @@ class LoggingWorker final : public QThread
                   fastecu::IEventSink& diagnostics, QObject *parent = nullptr);
     ~LoggingWorker() override;
 
-    void requestStop();
+    void RequestStop();
 
   signals:
     void stateChanged(fastecu::logging::LoggingState state);

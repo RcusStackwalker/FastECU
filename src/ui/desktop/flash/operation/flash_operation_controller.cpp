@@ -53,7 +53,7 @@ FlashOperationOutcome FlashOperationController::run(const FlashOperationInput& i
         }
     }
 
-    auto workflow = FlashWorkflowFactory::tryCreate({
+    auto workflow = FlashWorkflowFactory::TryCreate({
         .operation = input.operation,
         .protocol = input.protocol,
         .image = input.image,

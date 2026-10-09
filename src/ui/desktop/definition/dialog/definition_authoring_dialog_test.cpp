@@ -77,10 +77,10 @@ TEST(DefinitionAuthoringDialogTest, ConstructsAndExposesTheFourLogSignals)
 
     DefinitionAuthoringDialog dialog(catalogs, config.session, repository, &parent);
 
-    EXPECT_TRUE(fastecu::testing::SignalRecorder(&dialog, &DefinitionAuthoringDialog::LOG_E).is_valid());
-    EXPECT_TRUE(fastecu::testing::SignalRecorder(&dialog, &DefinitionAuthoringDialog::LOG_W).is_valid());
-    EXPECT_TRUE(fastecu::testing::SignalRecorder(&dialog, &DefinitionAuthoringDialog::LOG_I).is_valid());
-    EXPECT_TRUE(fastecu::testing::SignalRecorder(&dialog, &DefinitionAuthoringDialog::LOG_D).is_valid());
+    EXPECT_TRUE(fastecu::testing::SignalRecorder(&dialog, &DefinitionAuthoringDialog::LOG_E).IsValid());
+    EXPECT_TRUE(fastecu::testing::SignalRecorder(&dialog, &DefinitionAuthoringDialog::LOG_W).IsValid());
+    EXPECT_TRUE(fastecu::testing::SignalRecorder(&dialog, &DefinitionAuthoringDialog::LOG_I).IsValid());
+    EXPECT_TRUE(fastecu::testing::SignalRecorder(&dialog, &DefinitionAuthoringDialog::LOG_D).IsValid());
 }
 
 // Regression test for the use-after-free this package shipped with: the form

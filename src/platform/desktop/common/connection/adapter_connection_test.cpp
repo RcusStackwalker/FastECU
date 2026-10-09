@@ -16,27 +16,27 @@
 #include "src/platform/desktop/common/serial/testing/fake_backed_serial.h"
 
 using fastecu::desktop::connection::AdapterConnection;
-using fastecu::desktop::connection::log_transport_from_text;
 using fastecu::desktop::connection::LogTransport;
+using fastecu::desktop::connection::LogTransportFromText;
 using ::testing::_;
 using ::testing::InSequence;
 using ::testing::Return;
 
 TEST(TestAdapterConnection, parsesTheToolbarTransportText)
 {
-    ASSERT_EQ(log_transport_from_text("CAN"), LogTransport::kCan);
-    ASSERT_EQ(log_transport_from_text("iso15765"), LogTransport::kIso15765);
-    ASSERT_EQ(log_transport_from_text("K-Line"), LogTransport::kKLine);
-    ASSERT_EQ(log_transport_from_text("SSM"), LogTransport::kSsm);
-    ASSERT_EQ(log_transport_from_text(""), LogTransport::kOther);
+    ASSERT_EQ(LogTransportFromText("CAN"), LogTransport::kCan);
+    ASSERT_EQ(LogTransportFromText("iso15765"), LogTransport::kIso15765);
+    ASSERT_EQ(LogTransportFromText("K-Line"), LogTransport::kKLine);
+    ASSERT_EQ(LogTransportFromText("SSM"), LogTransport::kSsm);
+    ASSERT_EQ(LogTransportFromText(""), LogTransport::kOther);
 }
 
 TEST(TestAdapterConnection, listsPortsFromTheFacade)
 {
     FakeBackedSerial serial;
-    EXPECT_CALL(serial.fake(), check_serial_ports()).WillOnce(Return(QStringList{"ttyUSB0 - FT232"}));
+    EXPECT_CALL(serial.Fake(), CheckSerialPorts()).WillOnce(Return(QStringList{"ttyUSB0 - FT232"}));
     AdapterConnection connection(*serial);
-    ASSERT_EQ(connection.available_ports(), QStringList{"ttyUSB0 - FT232"});
+    ASSERT_EQ(connection.AvailablePorts(), QStringList{"ttyUSB0 - FT232"});
 }
 
 TEST(TestAdapterConnection, setInitialPortSetsTheBaudThenThePort)
@@ -44,37 +44,37 @@ TEST(TestAdapterConnection, setInitialPortSetsTheBaudThenThePort)
     FakeBackedSerial serial;
     {
         InSequence order;
-        EXPECT_CALL(serial.fake(), set_serial_port_baudrate(QString("4800"))).WillOnce(Return(true));
-        EXPECT_CALL(serial.fake(), set_serial_port(QString("/dev/ttyUSB0"))).WillOnce(Return(true));
+        EXPECT_CALL(serial.Fake(), SetSerialPortBaudrate(QString("4800"))).WillOnce(Return(true));
+        EXPECT_CALL(serial.Fake(), SetSerialPort(QString("/dev/ttyUSB0"))).WillOnce(Return(true));
     }
     AdapterConnection connection(*serial);
-    connection.set_initial_port("/dev/ttyUSB0", "4800");
+    connection.SetInitialPort("/dev/ttyUSB0", "4800");
 }
 
 TEST(TestAdapterConnection, selectPortReplacesThePortList)
 {
     FakeBackedSerial serial;
-    EXPECT_CALL(serial.fake(), set_serial_port_list(QStringList{"ttyUSB0"})).WillOnce(Return(true));
+    EXPECT_CALL(serial.Fake(), SetSerialPortList(QStringList{"ttyUSB0"})).WillOnce(Return(true));
     AdapterConnection connection(*serial);
-    connection.select_port("ttyUSB0");
+    connection.SelectPort("ttyUSB0");
 }
 
 TEST(TestAdapterConnection, openAndIsOpenAskTheFacade)
 {
     FakeBackedSerial serial;
-    EXPECT_CALL(serial.fake(), open_serial_port()).WillOnce(Return(QString("ttyUSB0")));
-    EXPECT_CALL(serial.fake(), is_serial_port_open()).WillOnce(Return(false));
+    EXPECT_CALL(serial.Fake(), OpenSerialPort()).WillOnce(Return(QString("ttyUSB0")));
+    EXPECT_CALL(serial.Fake(), IsSerialPortOpen()).WillOnce(Return(false));
     AdapterConnection connection(*serial);
-    ASSERT_EQ(connection.open(), QString("ttyUSB0"));
-    ASSERT_TRUE(!connection.is_open());
+    ASSERT_EQ(connection.Open(), QString("ttyUSB0"));
+    ASSERT_TRUE(!connection.IsOpen());
 }
 
 TEST(TestAdapterConnection, openedPortAsksTheFacade)
 {
     FakeBackedSerial serial;
-    EXPECT_CALL(serial.fake(), get_openedSerialPort()).WillOnce(Return(QString("ttyUSB0")));
+    EXPECT_CALL(serial.Fake(), GetOpenedSerialPort()).WillOnce(Return(QString("ttyUSB0")));
     AdapterConnection connection(*serial);
-    ASSERT_EQ(connection.opened_port(), QString("ttyUSB0"));
+    ASSERT_EQ(connection.OpenedPort(), QString("ttyUSB0"));
 }
 
 TEST(TestAdapterConnection, canTransportIsRawCanElevenBit)
@@ -82,16 +82,16 @@ TEST(TestAdapterConnection, canTransportIsRawCanElevenBit)
     FakeBackedSerial serial;
     {
         InSequence order;
-        EXPECT_CALL(serial.fake(), set_is_can_connection(false)).WillOnce(Return(true));
-        EXPECT_CALL(serial.fake(), set_is_iso15765_connection(false)).WillOnce(Return(true));
-        EXPECT_CALL(serial.fake(), set_is_can_connection(true)).WillOnce(Return(true));
-        EXPECT_CALL(serial.fake(), set_is_iso15765_connection(false)).WillOnce(Return(true));
-        EXPECT_CALL(serial.fake(), set_is_29_bit_id(false)).WillOnce(Return(true));
-        EXPECT_CALL(serial.fake(), set_can_speed(QString("500000"))).WillOnce(Return(true));
-        EXPECT_CALL(serial.fake(), reset_connection());
+        EXPECT_CALL(serial.Fake(), SetIsCanConnection(false)).WillOnce(Return(true));
+        EXPECT_CALL(serial.Fake(), SetIsIso15765Connection(false)).WillOnce(Return(true));
+        EXPECT_CALL(serial.Fake(), SetIsCanConnection(true)).WillOnce(Return(true));
+        EXPECT_CALL(serial.Fake(), SetIsIso15765Connection(false)).WillOnce(Return(true));
+        EXPECT_CALL(serial.Fake(), SetIs29BitId(false)).WillOnce(Return(true));
+        EXPECT_CALL(serial.Fake(), SetCanSpeed(QString("500000"))).WillOnce(Return(true));
+        EXPECT_CALL(serial.Fake(), ResetConnection());
     }
     AdapterConnection connection(*serial);
-    connection.apply_log_transport(LogTransport::kCan, false);
+    connection.ApplyLogTransport(LogTransport::kCan, false);
 }
 
 // Pinned: log_transport_changed set 29-bit identifiers for iso15765.
@@ -100,16 +100,16 @@ TEST(TestAdapterConnection, iso15765TransportIsTwentyNineBit)
     FakeBackedSerial serial;
     {
         InSequence order;
-        EXPECT_CALL(serial.fake(), set_is_can_connection(false)).WillOnce(Return(true));
-        EXPECT_CALL(serial.fake(), set_is_iso15765_connection(false)).WillOnce(Return(true));
-        EXPECT_CALL(serial.fake(), set_is_can_connection(false)).WillOnce(Return(true));
-        EXPECT_CALL(serial.fake(), set_is_iso15765_connection(true)).WillOnce(Return(true));
-        EXPECT_CALL(serial.fake(), set_is_29_bit_id(true)).WillOnce(Return(true));
-        EXPECT_CALL(serial.fake(), set_can_speed(QString("500000"))).WillOnce(Return(true));
-        EXPECT_CALL(serial.fake(), reset_connection());
+        EXPECT_CALL(serial.Fake(), SetIsCanConnection(false)).WillOnce(Return(true));
+        EXPECT_CALL(serial.Fake(), SetIsIso15765Connection(false)).WillOnce(Return(true));
+        EXPECT_CALL(serial.Fake(), SetIsCanConnection(false)).WillOnce(Return(true));
+        EXPECT_CALL(serial.Fake(), SetIsIso15765Connection(true)).WillOnce(Return(true));
+        EXPECT_CALL(serial.Fake(), SetIs29BitId(true)).WillOnce(Return(true));
+        EXPECT_CALL(serial.Fake(), SetCanSpeed(QString("500000"))).WillOnce(Return(true));
+        EXPECT_CALL(serial.Fake(), ResetConnection());
     }
     AdapterConnection connection(*serial);
-    connection.apply_log_transport(LogTransport::kIso15765, false);
+    connection.ApplyLogTransport(LogTransport::kIso15765, false);
 }
 
 TEST(TestAdapterConnection, klineWithSsmRunsAtFourThousandEightHundred)
@@ -117,22 +117,22 @@ TEST(TestAdapterConnection, klineWithSsmRunsAtFourThousandEightHundred)
     FakeBackedSerial serial;
     {
         InSequence order;
-        EXPECT_CALL(serial.fake(), set_is_can_connection(false)).WillOnce(Return(true));
-        EXPECT_CALL(serial.fake(), set_is_iso15765_connection(false)).WillOnce(Return(true));
-        EXPECT_CALL(serial.fake(), change_port_speed(QString("4800"))).WillOnce(Return(0));
-        EXPECT_CALL(serial.fake(), reset_connection());
+        EXPECT_CALL(serial.Fake(), SetIsCanConnection(false)).WillOnce(Return(true));
+        EXPECT_CALL(serial.Fake(), SetIsIso15765Connection(false)).WillOnce(Return(true));
+        EXPECT_CALL(serial.Fake(), ChangePortSpeed(QString("4800"))).WillOnce(Return(0));
+        EXPECT_CALL(serial.Fake(), ResetConnection());
     }
     AdapterConnection connection(*serial);
-    connection.apply_log_transport(LogTransport::kKLine, true);
+    connection.ApplyLogTransport(LogTransport::kKLine, true);
 }
 
 TEST(TestAdapterConnection, klineWithoutSsmLeavesTheSpeedAlone)
 {
     FakeBackedSerial serial;
-    EXPECT_CALL(serial.fake(), change_port_speed(_)).Times(0);
-    EXPECT_CALL(serial.fake(), reset_connection());
+    EXPECT_CALL(serial.Fake(), ChangePortSpeed(_)).Times(0);
+    EXPECT_CALL(serial.Fake(), ResetConnection());
     AdapterConnection connection(*serial);
-    connection.apply_log_transport(LogTransport::kKLine, false);
+    connection.ApplyLogTransport(LogTransport::kKLine, false);
 }
 
 TEST(TestAdapterConnection, clearLinkFlagsClearsEveryFlagAndKeepsParity)
@@ -140,17 +140,17 @@ TEST(TestAdapterConnection, clearLinkFlagsClearsEveryFlagAndKeepsParity)
     FakeBackedSerial serial;
     {
         InSequence order;
-        EXPECT_CALL(serial.fake(), reset_connection());
-        EXPECT_CALL(serial.fake(), set_is_iso14230_connection(false)).WillOnce(Return(true));
-        EXPECT_CALL(serial.fake(), set_is_29_bit_id(false)).WillOnce(Return(true));
-        EXPECT_CALL(serial.fake(), set_add_iso14230_header(false)).WillOnce(Return(true));
-        EXPECT_CALL(serial.fake(), set_is_can_connection(false)).WillOnce(Return(true));
-        EXPECT_CALL(serial.fake(), set_is_iso15765_connection(false)).WillOnce(Return(true));
-        EXPECT_CALL(serial.fake(), set_serial_port_baudrate(QString("4800"))).WillOnce(Return(true));
+        EXPECT_CALL(serial.Fake(), ResetConnection());
+        EXPECT_CALL(serial.Fake(), SetIsIso14230Connection(false)).WillOnce(Return(true));
+        EXPECT_CALL(serial.Fake(), SetIs29BitId(false)).WillOnce(Return(true));
+        EXPECT_CALL(serial.Fake(), SetAddIso14230Header(false)).WillOnce(Return(true));
+        EXPECT_CALL(serial.Fake(), SetIsCanConnection(false)).WillOnce(Return(true));
+        EXPECT_CALL(serial.Fake(), SetIsIso15765Connection(false)).WillOnce(Return(true));
+        EXPECT_CALL(serial.Fake(), SetSerialPortBaudrate(QString("4800"))).WillOnce(Return(true));
     }
-    EXPECT_CALL(serial.fake(), set_serial_port_parity(_)).Times(0);
+    EXPECT_CALL(serial.Fake(), SetSerialPortParity(_)).Times(0);
     AdapterConnection connection(*serial);
-    connection.clear_link_flags();
+    connection.ClearLinkFlags();
 }
 
 TEST(TestAdapterConnection, returnToIdleResetsBaudAndParityAndKeepsTheFlags)
@@ -158,36 +158,36 @@ TEST(TestAdapterConnection, returnToIdleResetsBaudAndParityAndKeepsTheFlags)
     FakeBackedSerial serial;
     {
         InSequence order;
-        EXPECT_CALL(serial.fake(), reset_connection());
-        EXPECT_CALL(serial.fake(), set_serial_port_baudrate(QString("4800"))).WillOnce(Return(true));
-        EXPECT_CALL(serial.fake(), set_serial_port_parity(static_cast<std::uint8_t>(QSerialPort::NoParity)))
+        EXPECT_CALL(serial.Fake(), ResetConnection());
+        EXPECT_CALL(serial.Fake(), SetSerialPortBaudrate(QString("4800"))).WillOnce(Return(true));
+        EXPECT_CALL(serial.Fake(), SetSerialPortParity(static_cast<std::uint8_t>(QSerialPort::NoParity)))
             .WillOnce(Return(true));
     }
-    EXPECT_CALL(serial.fake(), set_is_iso14230_connection(_)).Times(0);
-    EXPECT_CALL(serial.fake(), set_is_29_bit_id(_)).Times(0);
-    EXPECT_CALL(serial.fake(), set_add_iso14230_header(_)).Times(0);
-    EXPECT_CALL(serial.fake(), set_is_can_connection(_)).Times(0);
-    EXPECT_CALL(serial.fake(), set_is_iso15765_connection(_)).Times(0);
+    EXPECT_CALL(serial.Fake(), SetIsIso14230Connection(_)).Times(0);
+    EXPECT_CALL(serial.Fake(), SetIs29BitId(_)).Times(0);
+    EXPECT_CALL(serial.Fake(), SetAddIso14230Header(_)).Times(0);
+    EXPECT_CALL(serial.Fake(), SetIsCanConnection(_)).Times(0);
+    EXPECT_CALL(serial.Fake(), SetIsIso15765Connection(_)).Times(0);
     AdapterConnection connection(*serial);
-    connection.return_to_idle();
+    connection.ReturnToIdle();
 }
 
 TEST(TestAdapterConnection, setPortSpeedPassesTheBaudAsText)
 {
     FakeBackedSerial serial;
-    EXPECT_CALL(serial.fake(), change_port_speed(QString("4800"))).WillOnce(Return(0));
+    EXPECT_CALL(serial.Fake(), ChangePortSpeed(QString("4800"))).WillOnce(Return(0));
     AdapterConnection connection(*serial);
-    connection.set_port_speed(4800);
+    connection.SetPortSpeed(4800);
 }
 
 TEST(TestAdapterConnection, batteryIsReadOnlyFromAnOpenPort)
 {
     FakeBackedSerial serial;
-    EXPECT_CALL(serial.fake(), get_use_openport2_adapter()).WillOnce(Return(false)).WillOnce(Return(true));
-    EXPECT_CALL(serial.fake(), read_vbatt()).WillOnce(Return(12500UL));
+    EXPECT_CALL(serial.Fake(), GetUseOpenport2Adapter()).WillOnce(Return(false)).WillOnce(Return(true));
+    EXPECT_CALL(serial.Fake(), ReadVbatt()).WillOnce(Return(12500UL));
     AdapterConnection connection(*serial);
-    ASSERT_TRUE(!connection.battery_millivolts().has_value());
-    const std::optional<unsigned long> reading = connection.battery_millivolts();
+    ASSERT_TRUE(!connection.BatteryMillivolts().has_value());
+    const std::optional<unsigned long> reading = connection.BatteryMillivolts();
     ASSERT_TRUE(reading.has_value());
     ASSERT_EQ(*reading, 12500UL);
 }
@@ -195,9 +195,9 @@ TEST(TestAdapterConnection, batteryIsReadOnlyFromAnOpenPort)
 TEST(TestAdapterConnection, waitForSourceWaitsOnTheFacade)
 {
     FakeBackedSerial serial;
-    EXPECT_CALL(serial.fake(), waitForSource());
+    EXPECT_CALL(serial.Fake(), WaitForSource());
     AdapterConnection connection(*serial);
-    connection.wait_for_source();
+    connection.WaitForSource();
 }
 
 TEST(TestAdapterConnection, forwardsFacadeStateChanges)
@@ -206,14 +206,14 @@ TEST(TestAdapterConnection, forwardsFacadeStateChanges)
     AdapterConnection connection(*serial);
     fastecu::testing::SignalRecorder spy(&connection, &AdapterConnection::stateChanged);
     emit serial->stateChanged(QRemoteObjectReplica::Valid, QRemoteObjectReplica::Default);
-    ASSERT_EQ(spy.count(), 1U);
+    ASSERT_EQ(spy.Count(), 1U);
 }
 
 TEST(TestAdapterConnection, exposesTheSameFacade)
 {
     FakeBackedSerial serial;
     AdapterConnection connection(*serial);
-    ASSERT_EQ(&connection.facade(), serial.get());
+    ASSERT_EQ(&connection.Facade(), serial.Get());
 }
 
 namespace

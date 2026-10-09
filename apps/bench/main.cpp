@@ -35,7 +35,7 @@ using fastecu::bench::TrafficEvidence;
 fastecu::flash::DesktopCanTransportConfig DirectTransportConfig()
 {
     fastecu::flash::DesktopCanTransportConfig config;
-    config.backend_factory = make_serial_backend_factory(DirectSerial{});
+    config.backend_factory = MakeSerialBackendFactory(DirectSerial{});
     return config;
 }
 
@@ -64,7 +64,7 @@ class DesktopBenchEnvironment final : public IBenchEnvironment
 
     Result<std::vector<std::string>> list_ports(const GlobalOptions&) override
     {
-        return fastecu::flash::list_desktop_serial_ports(DirectTransportConfig());
+        return fastecu::flash::ListDesktopSerialPorts(DirectTransportConfig());
     }
 
     Result<std::reference_wrapper<IBenchSession>> session(const GlobalOptions& options,
@@ -81,7 +81,7 @@ class DesktopBenchEnvironment final : public IBenchEnvironment
         constexpr fastecu::flash::Iso15765Config kCanConfig{
             .bitrate = 500000, .request_id = 0x7E0, .response_id = 0x7E8, .extended_id = false};
         Result<std::unique_ptr<fastecu::flash::ICanFlashTransport>> transport =
-            fastecu::flash::open_desktop_can_flash_transport(transport_config, kCanConfig);
+            fastecu::flash::OpenDesktopCanFlashTransport(transport_config, kCanConfig);
         if (!transport.has_value())
         {
             return std::unexpected(transport.error());

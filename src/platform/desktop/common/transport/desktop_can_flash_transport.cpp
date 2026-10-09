@@ -31,7 +31,7 @@ Status DesktopCanFlashTransport::ResetConnection()
         // true;` -- it cannot report failure through its return value, so
         // this branch is unreachable today and only the surrounding catch
         // blocks below can produce an Internal error here.
-        if (!serial_->reset_connection())
+        if (!serial_->ResetConnection())
         {
             return Fail(ErrorKind::kInternal, "reset_connection failed");
         }
@@ -67,43 +67,43 @@ Status DesktopCanFlashTransport::Configure(const Iso15765Config& config)
         // bitrate, request/response CAN IDs, then ISO-15765 source/
         // destination IDs, then clears any ISO-14230 auto-header state that
         // may survive from a previous K-Line session on the shared facade.
-        if (!serial_->set_is_iso15765_connection(true))
+        if (!serial_->SetIsIso15765Connection(true))
         {
             return Fail(ErrorKind::kInvalidConfig, "set_is_iso15765_connection failed");
         }
-        if (!serial_->set_is_can_connection(false))
+        if (!serial_->SetIsCanConnection(false))
         {
             return Fail(ErrorKind::kInvalidConfig, "set_is_can_connection failed");
         }
-        if (!serial_->set_is_iso14230_connection(false))
+        if (!serial_->SetIsIso14230Connection(false))
         {
             return Fail(ErrorKind::kInvalidConfig, "set_is_iso14230_connection failed");
         }
-        if (!serial_->set_is_29_bit_id(config.extended_id))
+        if (!serial_->SetIs29BitId(config.extended_id))
         {
             return Fail(ErrorKind::kInvalidConfig, "set_is_29_bit_id failed");
         }
-        if (!serial_->set_can_speed(QString::number(config.bitrate)))
+        if (!serial_->SetCanSpeed(QString::number(config.bitrate)))
         {
             return Fail(ErrorKind::kInvalidConfig, "set_can_speed failed");
         }
-        if (!serial_->set_can_source_address(config.request_id))
+        if (!serial_->SetCanSourceAddress(config.request_id))
         {
             return Fail(ErrorKind::kInvalidConfig, "set_can_source_address failed");
         }
-        if (!serial_->set_can_destination_address(config.response_id))
+        if (!serial_->SetCanDestinationAddress(config.response_id))
         {
             return Fail(ErrorKind::kInvalidConfig, "set_can_destination_address failed");
         }
-        if (!serial_->set_iso15765_source_address(config.request_id))
+        if (!serial_->SetIso15765SourceAddress(config.request_id))
         {
             return Fail(ErrorKind::kInvalidConfig, "set_iso15765_source_address failed");
         }
-        if (!serial_->set_iso15765_destination_address(config.response_id))
+        if (!serial_->SetIso15765DestinationAddress(config.response_id))
         {
             return Fail(ErrorKind::kInvalidConfig, "set_iso15765_destination_address failed");
         }
-        if (!serial_->set_add_iso14230_header(false))
+        if (!serial_->SetAddIso14230Header(false))
         {
             return Fail(ErrorKind::kInvalidConfig, "set_add_iso14230_header failed");
         }
@@ -133,7 +133,7 @@ Status DesktopCanFlashTransport::Open()
         // (serial_port_actions_direct.cpp:519-644) returns `openedSerialPort`
         // (non-empty) on every success path and `{}` (an empty/null QString)
         // on every failure path.
-        const QString open_result = serial_->open_serial_port();
+        const QString open_result = serial_->OpenSerialPort();
         if (open_result.isEmpty())
         {
             return Fail(ErrorKind::kDisconnected, "open_serial_port failed");
@@ -186,7 +186,7 @@ Status DesktopCanFlashTransport::Write(bytes::ByteView data, const ICancellation
 
     try
     {
-        if (!serial_->is_serial_port_open())
+        if (!serial_->IsSerialPortOpen())
         {
             return Fail(ErrorKind::kDisconnected, "CAN adapter disconnected before write");
         }
@@ -199,8 +199,8 @@ Status DesktopCanFlashTransport::Write(bytes::ByteView data, const ICancellation
         // afterward. is_serial_port_open() is the only reliable
         // post-condition, matching FastEcuCanTransport::write() in this
         // same package (which wraps the identical call).
-        serial_->write_serial_data_echo_check(bytes::toQByteArray(data));
-        if (!serial_->is_serial_port_open())
+        serial_->WriteSerialDataEchoCheck(bytes::ToQByteArray(data));
+        if (!serial_->IsSerialPortOpen())
         {
             return Fail(ErrorKind::kDisconnected, "CAN adapter disconnected during write");
         }
@@ -228,8 +228,8 @@ Result<std::optional<bytes::Bytes>> DesktopCanFlashTransport::Read(std::chrono::
         return Fail(ErrorKind::kDisconnected, "read() called after close()");
     }
 
-    return fastecu::desktop::detail::read_serial(serial_, timeout, cancellation, [this](std::uint16_t driver_timeout)
-                                                 { return serial_->read_serial_data(driver_timeout); });
+    return fastecu::desktop::detail::ReadSerial(serial_, timeout, cancellation, [this](std::uint16_t driver_timeout)
+                                                { return serial_->ReadSerialData(driver_timeout); });
 }
 
 } // namespace fastecu::flash

@@ -26,8 +26,8 @@ TEST(DtcOperationsTest, aFailedRunLogsOnceAndReenablesTheButtons)
     ASSERT_TRUE(read != nullptr);
     read->click();
     ASSERT_TRUE(!read->isEnabled());
-    ASSERT_TRUE(fastecu::testing::wait_until([&] { return read->isEnabled(); }, std::chrono::milliseconds(5000)));
-    const auto records = errors.snapshot();
+    ASSERT_TRUE(fastecu::testing::WaitUntil([&] { return read->isEnabled(); }, std::chrono::milliseconds(5000)));
+    const auto records = errors.Snapshot();
     const bool logged = std::any_of(records.begin(), records.end(), [](const auto& args)
                                     { return std::get<0>(args).startsWith("DTC operation failed: "); });
     ASSERT_TRUE(logged);
@@ -39,7 +39,7 @@ TEST(DtcOperationsTest, closeDuringARunStopsTheWorkerAndResets)
     link.QueueFiveBaud(bytes::Bytes{0x55, 0x08, 0x08}); // accepted -> 500 ms sleep follows
     auto *dialog = new DtcOperations(link);
     dialog->findChild<QPushButton *>("readDtcButton")->click();
-    fastecu::testing::process_events_for(std::chrono::milliseconds(50));
+    fastecu::testing::ProcessEventsFor(std::chrono::milliseconds(50));
     QElapsedTimer timer;
     timer.start();
     dialog->close();
@@ -58,7 +58,7 @@ TEST(DtcOperationsTest, escapeDuringARunStopsTheWorkerAndResets)
     link.QueueFiveBaud(bytes::Bytes{0x55, 0x08, 0x08}); // accepted -> 500 ms sleep follows
     auto *dialog = new DtcOperations(link);
     dialog->findChild<QPushButton *>("readDtcButton")->click();
-    fastecu::testing::process_events_for(std::chrono::milliseconds(50));
+    fastecu::testing::ProcessEventsFor(std::chrono::milliseconds(50));
     QElapsedTimer timer;
     timer.start();
     QKeyEvent press(QEvent::KeyPress, Qt::Key_Escape, Qt::NoModifier);

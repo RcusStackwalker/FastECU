@@ -43,149 +43,149 @@ class SerialPortActions : public QObject
     // are drained before ~SerialPortActions() joins the I/O thread.
     ~SerialPortActions();
 
-    bool get_serialPortAvailable();
-    bool set_serialPortAvailable(bool value);
-    bool get_setRequestToSend();
-    bool set_setRequestToSend(bool value);
-    bool get_setDataTerminalReady();
-    bool set_setDataTerminalReady(bool value);
+    bool GetSerialPortAvailable();
+    bool SetSerialPortAvailable(bool value);
+    bool GetSetRequestToSend();
+    bool SetSetRequestToSend(bool value);
+    bool GetSetDataTerminalReady();
+    bool SetSetDataTerminalReady(bool value);
 
-    bool get_add_ssm_header();
-    bool set_add_ssm_header(bool value);
-    bool get_add_iso9141_header();
-    bool set_add_iso9141_header(bool value);
-    bool get_add_iso14230_header();
-    bool set_add_iso14230_header(bool value);
-    bool get_is_iso14230_connection();
-    bool set_is_iso14230_connection(bool value);
-    bool get_is_can_connection();
-    bool set_is_can_connection(bool value);
-    bool get_is_iso15765_connection();
-    bool set_is_iso15765_connection(bool value);
-    bool get_is_29_bit_id();
-    bool set_is_29_bit_id(bool value);
+    bool GetAddSsmHeader();
+    bool SetAddSsmHeader(bool value);
+    bool GetAddIso9141Header();
+    bool SetAddIso9141Header(bool value);
+    bool GetAddIso14230Header();
+    bool SetAddIso14230Header(bool value);
+    bool GetIsIso14230Connection();
+    bool SetIsIso14230Connection(bool value);
+    bool GetIsCanConnection();
+    bool SetIsCanConnection(bool value);
+    bool GetIsIso15765Connection();
+    bool SetIsIso15765Connection(bool value);
+    bool GetIs29BitId();
+    bool SetIs29BitId(bool value);
 
-    bool get_use_openport2_adapter();
-    bool set_use_openport2_adapter(bool value);
+    bool GetUseOpenport2Adapter();
+    bool SetUseOpenport2Adapter(bool value);
 
-    int get_requestToSendEnabled();
-    bool set_requestToSendEnabled(int value);
-    int get_requestToSendDisabled();
-    bool set_requestToSendDisabled(int value);
-    int get_dataTerminalEnabled();
-    bool set_dataTerminalEnabled(int value);
-    int get_dataTerminalDisabled();
-    bool set_dataTerminalDisabled(int value);
+    int GetRequestToSendEnabled();
+    bool SetRequestToSendEnabled(int value);
+    int GetRequestToSendDisabled();
+    bool SetRequestToSendDisabled(int value);
+    int GetDataTerminalEnabled();
+    bool SetDataTerminalEnabled(int value);
+    int GetDataTerminalDisabled();
+    bool SetDataTerminalDisabled(int value);
 
-    bool get_is_comm_busy();
-    void set_comm_busy(bool value);
-    bool get_read_vbatt();
-    void set_read_vbatt(bool value);
+    bool GetIsCommBusy();
+    void SetCommBusy(bool value);
+    bool GetReadVbatt();
+    void SetReadVbatt(bool value);
 
-    uint8_t get_kline_startbyte();
-    bool set_kline_startbyte(uint8_t value);
-    uint8_t get_kline_tester_id();
-    bool set_kline_tester_id(uint8_t value);
-    uint8_t get_kline_target_id();
-    bool set_kline_target_id(uint8_t value);
+    uint8_t GetKlineStartbyte();
+    bool SetKlineStartbyte(uint8_t value);
+    uint8_t GetKlineTesterId();
+    bool SetKlineTesterId(uint8_t value);
+    uint8_t GetKlineTargetId();
+    bool SetKlineTargetId(uint8_t value);
 
-    QByteArray get_ssm_receive_header_start();
-    bool set_ssm_receive_header_start(const QByteArray& value);
+    QByteArray GetSsmReceiveHeaderStart();
+    bool SetSsmReceiveHeaderStart(const QByteArray& value);
 
-    QStringList get_serial_port_list();
-    bool set_serial_port_list(const QStringList& value);
-    QString get_openedSerialPort();
-    bool set_openedSerialPort(const QString& value);
-    QString get_subaru_02_16bit_bootloader_baudrate();
-    bool set_subaru_02_16bit_bootloader_baudrate(const QString& value);
-    QString get_subaru_04_16bit_bootloader_baudrate();
-    bool set_subaru_04_16bit_bootloader_baudrate(const QString& value);
-    QString get_subaru_02_32bit_bootloader_baudrate();
-    bool set_subaru_02_32bit_bootloader_baudrate(const QString& value);
-    QString get_subaru_04_32bit_bootloader_baudrate();
-    bool set_subaru_04_32bit_bootloader_baudrate(const QString& value);
-    QString get_subaru_05_32bit_bootloader_baudrate();
-    bool set_subaru_05_32bit_bootloader_baudrate(const QString& value);
+    QStringList GetSerialPortList();
+    bool SetSerialPortList(const QStringList& value);
+    QString GetOpenedSerialPort();
+    bool SetOpenedSerialPort(const QString& value);
+    QString GetSubaru0216bitBootloaderBaudrate();
+    bool SetSubaru0216bitBootloaderBaudrate(const QString& value);
+    QString GetSubaru0416bitBootloaderBaudrate();
+    bool SetSubaru0416bitBootloaderBaudrate(const QString& value);
+    QString GetSubaru0232bitBootloaderBaudrate();
+    bool SetSubaru0232bitBootloaderBaudrate(const QString& value);
+    QString GetSubaru0432bitBootloaderBaudrate();
+    bool SetSubaru0432bitBootloaderBaudrate(const QString& value);
+    QString GetSubaru0532bitBootloaderBaudrate();
+    bool SetSubaru0532bitBootloaderBaudrate(const QString& value);
 
-    QString get_subaru_02_16bit_kernel_baudrate();
-    bool set_subaru_02_16bit_kernel_baudrate(const QString& value);
-    QString get_subaru_04_16bit_kernel_baudrate();
-    bool set_subaru_04_16bit_kernel_baudrate(const QString& value);
-    QString get_subaru_02_32bit_kernel_baudrate();
-    bool set_subaru_02_32bit_kernel_baudrate(const QString& value);
-    QString get_subaru_04_32bit_kernel_baudrate();
-    bool set_subaru_04_32bit_kernel_baudrate(const QString& value);
-    QString get_subaru_05_32bit_kernel_baudrate();
-    bool set_subaru_05_32bit_kernel_baudrate(const QString& value);
+    QString GetSubaru0216bitKernelBaudrate();
+    bool SetSubaru0216bitKernelBaudrate(const QString& value);
+    QString GetSubaru0416bitKernelBaudrate();
+    bool SetSubaru0416bitKernelBaudrate(const QString& value);
+    QString GetSubaru0232bitKernelBaudrate();
+    bool SetSubaru0232bitKernelBaudrate(const QString& value);
+    QString GetSubaru0432bitKernelBaudrate();
+    bool SetSubaru0432bitKernelBaudrate(const QString& value);
+    QString GetSubaru0532bitKernelBaudrate();
+    bool SetSubaru0532bitKernelBaudrate(const QString& value);
 
-    QString get_can_speed();
-    bool set_can_speed(const QString& value);
+    QString GetCanSpeed();
+    bool SetCanSpeed(const QString& value);
 
-    uint8_t get_serial_port_parity();
-    bool set_serial_port_parity(uint8_t parity);
-    QString get_serial_port_baudrate();
-    bool set_serial_port_baudrate(const QString& value);
-    QString get_serial_port_linux();
-    bool set_serial_port_linux(const QString& value);
-    QString get_serial_port_windows();
-    bool set_serial_port_windows(const QString& value);
-    QString get_serial_port();
-    bool set_serial_port(const QString& value);
-    QString get_serial_port_prefix();
-    bool set_serial_port_prefix(const QString& value);
-    QString get_serial_port_prefix_linux();
-    bool set_serial_port_prefix_linux(const QString& value);
-    QString get_serial_port_prefix_win();
-    bool set_serial_port_prefix_win(const QString& value);
+    uint8_t GetSerialPortParity();
+    bool SetSerialPortParity(uint8_t parity);
+    QString GetSerialPortBaudrate();
+    bool SetSerialPortBaudrate(const QString& value);
+    QString GetSerialPortLinux();
+    bool SetSerialPortLinux(const QString& value);
+    QString GetSerialPortWindows();
+    bool SetSerialPortWindows(const QString& value);
+    QString GetSerialPort();
+    bool SetSerialPort(const QString& value);
+    QString GetSerialPortPrefix();
+    bool SetSerialPortPrefix(const QString& value);
+    QString GetSerialPortPrefixLinux();
+    bool SetSerialPortPrefixLinux(const QString& value);
+    QString GetSerialPortPrefixWin();
+    bool SetSerialPortPrefixWin(const QString& value);
 
-    uint32_t get_can_source_address();
-    bool set_can_source_address(uint32_t value);
-    uint32_t get_can_destination_address();
-    bool set_can_destination_address(uint32_t value);
-    uint32_t get_iso15765_source_address();
-    bool set_iso15765_source_address(uint32_t value);
-    uint32_t get_iso15765_destination_address();
-    bool set_iso15765_destination_address(uint32_t value);
+    uint32_t GetCanSourceAddress();
+    bool SetCanSourceAddress(uint32_t value);
+    uint32_t GetCanDestinationAddress();
+    bool SetCanDestinationAddress(uint32_t value);
+    uint32_t GetIso15765SourceAddress();
+    bool SetIso15765SourceAddress(uint32_t value);
+    uint32_t GetIso15765DestinationAddress();
+    bool SetIso15765DestinationAddress(uint32_t value);
 
-    bool set_kline_timings(uint32_t parameter, int value);
+    bool SetKlineTimings(uint32_t parameter, int value);
 
-    int set_j2534_ioctl(uint32_t parameter, int value);
+    int SetJ2534Ioctl(uint32_t parameter, int value);
 
-    bool is_serial_port_open(void);
-    int change_port_speed(const QString& port_speed);
-    QByteArray five_baud_init(const QByteArray& output);
-    int fast_init(const QByteArray& output);
-    int set_lec_lines(int lec1, int lec2);
-    int pulse_lec_1_line(int timeout);
-    int pulse_lec_2_line(int timeout);
-    bool get_is_tx_done();
+    bool IsSerialPortOpen(void);
+    int ChangePortSpeed(const QString& port_speed);
+    QByteArray FiveBaudInit(const QByteArray& output);
+    int FastInit(const QByteArray& output);
+    int SetLecLines(int lec1, int lec2);
+    int PulseLec1Line(int timeout);
+    int PulseLec2Line(int timeout);
+    bool GetIsTxDone();
 
-    bool reset_connection(void);
+    bool ResetConnection(void);
 
-    QByteArray read_serial_obd_data(uint16_t timeout);
-    QByteArray read_serial_data(uint16_t timeout);
-    QByteArray write_serial_data(const QByteArray& output);
-    QByteArray write_serial_data_echo_check(const QByteArray& output);
+    QByteArray ReadSerialObdData(uint16_t timeout);
+    QByteArray ReadSerialData(uint16_t timeout);
+    QByteArray WriteSerialData(const QByteArray& output);
+    QByteArray WriteSerialDataEchoCheck(const QByteArray& output);
 
-    int clear_rx_buffer(void);
-    int clear_tx_buffer(void);
+    int ClearRxBuffer(void);
+    int ClearTxBuffer(void);
 
-    int send_periodic_j2534_data(const QByteArray& output, int timeout);
-    int stop_periodic_j2534_data(void);
+    int SendPeriodicJ2534Data(const QByteArray& output, int timeout);
+    int StopPeriodicJ2534Data(void);
 
-    QStringList check_serial_ports(void);
-    QString open_serial_port(void);
+    QStringList CheckSerialPorts(void);
+    QString OpenSerialPort(void);
 
-    QString parse_message_to_hex(const QByteArray& received);
+    QString ParseMessageToHex(const QByteArray& received);
 
-    unsigned long read_vbatt();
+    unsigned long ReadVbatt();
 
   public slots:
     void waitForSource(void);
 
   private:
-    void ensureBackendStarted();
-    void waitForDone(const std::shared_ptr<QSemaphore>& done);
+    void EnsureBackendStarted();
+    void WaitForDone(const std::shared_ptr<QSemaphore>& done);
 
     // RAII marker for a public call that still touches `this` after its
     // runOnBackend() call returns (e.g. read_serial_data()'s LOG_D emit and
@@ -216,10 +216,10 @@ class SerialPortActions : public QObject
 
     // Marshal `fn` onto the I/O thread and block until it completes. `fn`
     // runs with m_backend valid and is the ONLY code that touches it.
-    template <typename Fn> auto runOnBackend(const Fn& fn)
+    template <typename Fn> auto RunOnBackend(const Fn& fn)
     {
         using Ret = std::invoke_result_t<const Fn&>;
-        ensureBackendStarted();
+        EnsureBackendStarted();
         if (QThread::currentThread() == m_io_thread_)
         {
             return fn(); // already on the I/O thread (backend-side callback)
@@ -250,7 +250,7 @@ class SerialPortActions : public QObject
             };
             static_assert(std::is_invocable_v<const decltype(invoke)&>);
             QMetaObject::invokeMethod(m_io_context_, invoke, Qt::QueuedConnection);
-            waitForDone(done);
+            WaitForDone(done);
             if (failure)
             {
                 std::rethrow_exception(failure);
@@ -281,7 +281,7 @@ class SerialPortActions : public QObject
             };
             static_assert(std::is_invocable_v<const decltype(invoke)&>);
             QMetaObject::invokeMethod(m_io_context_, invoke, Qt::QueuedConnection);
-            waitForDone(done);
+            WaitForDone(done);
             if (failure)
             {
                 std::rethrow_exception(failure);

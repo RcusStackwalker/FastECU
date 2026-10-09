@@ -116,7 +116,7 @@ void DtcOperations::stopWorker()
 {
     if (worker_)
     {
-        worker_->requestStop();
+        worker_->RequestStop();
         worker_->wait();
         worker_.reset();
     }

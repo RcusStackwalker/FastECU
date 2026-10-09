@@ -84,7 +84,7 @@ class FakeBoundAttempt final : public fastecu::flash::BoundFlashAttempt
 // accept outright -- see src/backend/flash/eeprom/denso_sh705x_eeprom_
 // common.cpp's resolve_mcu_bounds("SH7055") for the eeprom/kernel-RAM bounds
 // this must satisfy (eeprom = {0, 0x100}, kernel RAM = {0xFFFF6004, 0x6000}).
-DensoSh705xEepromInput validInput(FlashFamily family)
+DensoSh705xEepromInput ValidInput(FlashFamily family)
 {
     return DensoSh705xEepromInput{
         .operation = FlashOperation::kRead,
@@ -108,7 +108,7 @@ DensoSh705xEepromInput validInput(FlashFamily family)
 // at all -- otherwise the unscripted write itself fails with
 // ErrorKind::kInternal before the blocking read is ever attempted, which
 // would prove nothing about unblock/cancellation.
-bytes::Bytes requestKernelIdRequest()
+bytes::Bytes RequestKernelIdRequest()
 {
     bytes::Bytes out{
         static_cast<bytes::Byte>((0xbeefU >> 8U) & 0xFFU), static_cast<bytes::Byte>(0xbeefU & 0xFFU), 0x00, 0x01, 0x01,
@@ -121,7 +121,7 @@ bytes::Bytes requestKernelIdRequest()
 
 TEST(TestFlashWorker, closingWhileReadIsBlocked_cancelsUnblocksAndJoinsWithoutWallClockSleep)
 {
-    auto plan = fastecu::flash::BuildDensoSh705xEepromPlan(validInput(FlashFamily::kDensoSh705xEepromKline));
+    auto plan = fastecu::flash::BuildDensoSh705xEepromPlan(ValidInput(FlashFamily::kDensoSh705xEepromKline));
     ASSERT_TRUE(plan.has_value());
 
     auto transport = std::make_unique<ScriptedKlineFlashTransport>();
@@ -129,7 +129,7 @@ TEST(TestFlashWorker, closingWhileReadIsBlocked_cancelsUnblocksAndJoinsWithoutWa
     // connect_bootloader()'s initial kernel-alive probe: the write must
     // be scripted so it succeeds, so the ensuing read() is the one that
     // actually blocks.
-    raw_transport->ExpectWrite(requestKernelIdRequest());
+    raw_transport->ExpectWrite(RequestKernelIdRequest());
     raw_transport->QueueBlockingRead();
 
     FlashWorker worker(FlashAttempt{fastecu::flash::BindFlashAttempt(std::move(*plan),
@@ -143,7 +143,7 @@ TEST(TestFlashWorker, closingWhileReadIsBlocked_cancelsUnblocksAndJoinsWithoutWa
     // requestStop() must land while read() is genuinely blocked for this
     // test to prove anything about unblocking.
     ASSERT_TRUE(raw_transport->WaitUntilBlockingReadEntered(std::chrono::milliseconds(2000)));
-    worker.requestStop();
+    worker.RequestStop();
 
     QElapsedTimer timer;
     timer.start();
@@ -161,8 +161,8 @@ TEST(TestFlashWorker, closingWhileReadIsBlocked_cancelsUnblocksAndJoinsWithoutWa
     // completes in well under the 2000ms test timeout budget.
     ASSERT_TRUE(timer.elapsed() < 500);
 
-    ASSERT_EQ(finished_spy.count(), 1U);
-    auto result = std::get<0>(finished_spy.snapshot().at(0));
+    ASSERT_EQ(finished_spy.Count(), 1U);
+    auto result = std::get<0>(finished_spy.Snapshot().at(0));
     ASSERT_TRUE(!result.success);
     ASSERT_EQ(result.error_kind, ErrorKind::kCancelled);
     ASSERT_EQ(raw_transport->close_call_count, 1);
@@ -174,7 +174,7 @@ TEST(TestFlashWorker, oneAndOnlyOneTerminalResultIsEmitted)
     // rejects it before any I/O (zero writes/reads
     // scripted below, on purpose -- reaching the transport at all here
     // would itself be a bug).
-    auto plan = fastecu::flash::BuildDensoSh705xEepromPlan(validInput(FlashFamily::kDensoSh705xEepromCan));
+    auto plan = fastecu::flash::BuildDensoSh705xEepromPlan(ValidInput(FlashFamily::kDensoSh705xEepromCan));
     ASSERT_TRUE(plan.has_value());
 
     auto transport = std::make_unique<ScriptedKlineFlashTransport>();
@@ -192,17 +192,17 @@ TEST(TestFlashWorker, oneAndOnlyOneTerminalResultIsEmitted)
     ASSERT_TRUE(worker.wait(2000));
     // Give any (bug-induced) second emission from another path a chance to
     // arrive before asserting there is exactly one.
-    fastecu::testing::process_events_for(std::chrono::milliseconds(50));
+    fastecu::testing::ProcessEventsFor(std::chrono::milliseconds(50));
 
-    ASSERT_EQ(finished_spy.count(), 1U);
-    auto result = std::get<0>(finished_spy.snapshot().at(0));
+    ASSERT_EQ(finished_spy.Count(), 1U);
+    auto result = std::get<0>(finished_spy.Snapshot().at(0));
     ASSERT_TRUE(!result.success);
     ASSERT_EQ(result.error_kind, ErrorKind::kInvalidConfig);
 }
 
 TEST(TestFlashWorker, phaseProgressIsForwardedAlongsideLegacyProgress)
 {
-    auto plan = fastecu::flash::BuildDensoSh705xEepromPlan(validInput(FlashFamily::kDensoSh705xEepromKline));
+    auto plan = fastecu::flash::BuildDensoSh705xEepromPlan(ValidInput(FlashFamily::kDensoSh705xEepromKline));
     ASSERT_TRUE(plan.has_value());
 
     auto attempt = std::make_unique<FakeBoundAttempt>(std::move(*plan));
@@ -214,15 +214,15 @@ TEST(TestFlashWorker, phaseProgressIsForwardedAlongsideLegacyProgress)
     ASSERT_TRUE(worker.wait(2000));
     QCoreApplication::processEvents();
 
-    ASSERT_EQ(legacy_spy.count(), 1U);
-    ASSERT_EQ(std::get<0>(legacy_spy.snapshot().at(0)), 1);
-    ASSERT_EQ(std::get<1>(legacy_spy.snapshot().at(0)), 1);
-    ASSERT_EQ(phase_spy.count(), 1U);
-    ASSERT_EQ(std::get<0>(phase_spy.snapshot().at(0)), QString("Connect to ECU"));
-    ASSERT_EQ(std::get<1>(phase_spy.snapshot().at(0)), 1);
-    ASSERT_EQ(std::get<2>(phase_spy.snapshot().at(0)), 2);
-    ASSERT_EQ(std::get<3>(phase_spy.snapshot().at(0)), 1);
-    ASSERT_EQ(std::get<4>(phase_spy.snapshot().at(0)), 1);
+    ASSERT_EQ(legacy_spy.Count(), 1U);
+    ASSERT_EQ(std::get<0>(legacy_spy.Snapshot().at(0)), 1);
+    ASSERT_EQ(std::get<1>(legacy_spy.Snapshot().at(0)), 1);
+    ASSERT_EQ(phase_spy.Count(), 1U);
+    ASSERT_EQ(std::get<0>(phase_spy.Snapshot().at(0)), QString("Connect to ECU"));
+    ASSERT_EQ(std::get<1>(phase_spy.Snapshot().at(0)), 1);
+    ASSERT_EQ(std::get<2>(phase_spy.Snapshot().at(0)), 2);
+    ASSERT_EQ(std::get<3>(phase_spy.Snapshot().at(0)), 1);
+    ASSERT_EQ(std::get<4>(phase_spy.Snapshot().at(0)), 1);
 }
 
 namespace

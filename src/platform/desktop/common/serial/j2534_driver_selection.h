@@ -18,9 +18,9 @@
 // getAllJ2534DriversNames() and carry no description; open_serial_port()
 // already treats every one of them as J2534-capable, so this must stay true
 // there or it regresses Windows.
-bool isJ2534CapableEntry(QStringView entry);
+bool IsJ2534CapableEntry(QStringView entry);
 
-inline QString resolveJ2534DllForConnection(const QString& selected_vendor, const QString& installed_dll_name,
+inline QString ResolveJ2534DllForConnection(const QString& selected_vendor, const QString& installed_dll_name,
                                             const QStringList& detected_drivers)
 {
     return detected_drivers.contains(selected_vendor) ? installed_dll_name : QString();
@@ -30,7 +30,7 @@ inline QString resolveJ2534DllForConnection(const QString& selected_vendor, cons
 // overwrite earlier values on vendor-name collision, matching the production
 // Registry32Format base + Registry64Format overlay order.
 template <typename... RegistryViews>
-inline QMap<QString, QString> mergeJ2534DriverViews(QMap<QString, QString> first_view, RegistryViews... registry_views)
+inline QMap<QString, QString> MergeJ2534DriverViews(QMap<QString, QString> first_view, RegistryViews... registry_views)
 {
     QMap<QString, QString> merged = std::move(first_view);
     const auto overlay = [&merged](QMap<QString, QString>& view)

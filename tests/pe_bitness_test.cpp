@@ -25,13 +25,13 @@ TEST_F(PeBitness, DetectsBothArchitecturesAndRejectsMissingFile)
     ASSERT_NE(x64_path_, nullptr) << "set PE_BITNESS_X64_FIXTURE";
 
     bool is32 = false;
-    ASSERT_TRUE(isDll32Bit(x86_path_, is32)) << "isDll32Bit should succeed on a valid PE file";
+    ASSERT_TRUE(IsDll32Bit(x86_path_, is32)) << "isDll32Bit should succeed on a valid PE file";
     EXPECT_TRUE(is32) << "x86 fixture should be detected as 32-bit";
 
     bool is32b = true;
-    ASSERT_TRUE(isDll32Bit(x64_path_, is32b)) << "isDll32Bit should succeed on a valid PE file";
+    ASSERT_TRUE(IsDll32Bit(x64_path_, is32b)) << "isDll32Bit should succeed on a valid PE file";
     EXPECT_FALSE(is32b) << "x64 fixture should be detected as 64-bit";
 
     bool unused = false;
-    EXPECT_FALSE(isDll32Bit("Z:\\does\\not\\exist.dll", unused)) << "missing file should fail cleanly";
+    EXPECT_FALSE(IsDll32Bit("Z:\\does\\not\\exist.dll", unused)) << "missing file should fail cleanly";
 }

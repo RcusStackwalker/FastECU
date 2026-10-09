@@ -7,7 +7,7 @@
 namespace fastecu::desktop::logging
 {
 
-fastecu::Status configure_cdbg_serial(const CdbgSerialSetupActions& actions)
+fastecu::Status ConfigureCdbgSerial(const CdbgSerialSetupActions& actions)
 {
     const std::array<std::pair<std::string_view, const std::function<bool()> *>, 7> steps{{
         {"disable ISO 14230 mode", &actions.disable_iso14230},

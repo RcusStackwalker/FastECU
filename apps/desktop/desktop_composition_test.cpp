@@ -100,13 +100,13 @@ class SyslogGate
 
 bool HasLineEndingWith(const auto& spy, const QString& suffix)
 {
-    return std::ranges::any_of(spy.snapshot(),
+    return std::ranges::any_of(spy.Snapshot(),
                                [&](const auto& arguments) { return std::get<0>(arguments).endsWith(suffix); });
 }
 
 bool HasLineContaining(const auto& spy, const QString& text)
 {
-    return std::ranges::any_of(spy.snapshot(),
+    return std::ranges::any_of(spy.Snapshot(),
                                [&](const auto& arguments) { return std::get<0>(arguments).contains(text); });
 }
 
@@ -374,9 +374,9 @@ TEST_F(DesktopCompositionTest, remoteStateChangesReachThePeer)
 
     emit RemoteUtilityOf(composition)->stateChanged(QRemoteObjectReplica::Suspect, QRemoteObjectReplica::Valid);
 
-    ASSERT_EQ(changes.count(), 1U);
-    ASSERT_EQ(std::get<0>(changes.snapshot().at(0)), QRemoteObjectReplica::Suspect);
-    ASSERT_EQ(std::get<1>(changes.snapshot().at(0)), QRemoteObjectReplica::Valid);
+    ASSERT_EQ(changes.Count(), 1U);
+    ASSERT_EQ(std::get<0>(changes.Snapshot().at(0)), QRemoteObjectReplica::Suspect);
+    ASSERT_EQ(std::get<1>(changes.Snapshot().at(0)), QRemoteObjectReplica::Valid);
 }
 
 // No --host: the replica never becomes valid, so the mirror drops both.
@@ -386,7 +386,7 @@ TEST_F(DesktopCompositionTest, mirroringWithoutAPeerReturnsPromptly)
     ASSERT_TRUE(root.isValid());
     DesktopComposition composition{{}, {}, root.path()};
     RemotePeer& remote = composition.services().remote;
-    ASSERT_TRUE(!RemoteUtilityOf(composition)->isValid());
+    ASSERT_TRUE(!RemoteUtilityOf(composition)->IsValid());
 
     QElapsedTimer elapsed;
     elapsed.start();
@@ -409,8 +409,8 @@ TEST_F(DesktopCompositionTest, channelLevelsReachTheLogWindowWithTheirPrefix)
 
     // Match by content: the logger's own "SystemLogger started..." line
     // can reach the window too.
-    ASSERT_TRUE(fastecu::testing::wait_until([&] { return HasLineEndingWith(window, "(II) info line"); },
-                                             std::chrono::milliseconds(5000)));
+    ASSERT_TRUE(fastecu::testing::WaitUntil([&] { return HasLineEndingWith(window, "(II) info line"); },
+                                            std::chrono::milliseconds(5000)));
     ASSERT_TRUE(HasLineEndingWith(window, "(EE) error line"));
     ASSERT_TRUE(HasLineEndingWith(window, "(WW) warning line"));
 }
@@ -426,8 +426,8 @@ TEST_F(DesktopCompositionTest, debugLinesStayOutOfTheLogWindow)
     emit log.LOG_D("debug line", true, false);
     emit log.LOG_I("sentinel", false, false);
 
-    ASSERT_TRUE(fastecu::testing::wait_until([&] { return HasLineEndingWith(window, "sentinel"); },
-                                             std::chrono::milliseconds(5000)));
+    ASSERT_TRUE(fastecu::testing::WaitUntil([&] { return HasLineEndingWith(window, "sentinel"); },
+                                            std::chrono::milliseconds(5000)));
     ASSERT_TRUE(!HasLineContaining(window, "debug line"));
 }
 
@@ -456,8 +456,8 @@ TEST_F(DesktopCompositionTest, relayedLineSurvivesItsSenderButADirectOneDoesNot)
     }
     emit log.LOG_I("sentinel", false, false);
 
-    ASSERT_TRUE(fastecu::testing::wait_until([&] { return HasLineEndingWith(window, "sentinel"); },
-                                             std::chrono::milliseconds(5000)));
+    ASSERT_TRUE(fastecu::testing::WaitUntil([&] { return HasLineEndingWith(window, "sentinel"); },
+                                            std::chrono::milliseconds(5000)));
     ASSERT_TRUE(HasLineEndingWith(window, "relayed line"));
     ASSERT_TRUE(!HasLineContaining(window, "direct line"));
 }
@@ -481,8 +481,8 @@ TEST_F(DesktopCompositionTest, enablingFileLoggingWritesASyslogFile)
     // sentinel's window line proves the earlier write has finished.
     emit log.LOG_I("sentinel", false, false);
 
-    ASSERT_TRUE(fastecu::testing::wait_until([&] { return HasLineEndingWith(window, "sentinel"); },
-                                             std::chrono::milliseconds(5000)));
+    ASSERT_TRUE(fastecu::testing::WaitUntil([&] { return HasLineEndingWith(window, "sentinel"); },
+                                            std::chrono::milliseconds(5000)));
     const QStringList files = QDir(syslog_dir).entryList({"log_fastecu_*.txt"}, QDir::Files);
     ASSERT_EQ(files.size(), 1U);
     QFile file{QDir(syslog_dir).filePath(files.first())};

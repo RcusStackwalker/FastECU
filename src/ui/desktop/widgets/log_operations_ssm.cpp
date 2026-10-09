@@ -6,7 +6,7 @@
 void MainWindow::parse_log_value_list(QByteArray received, const QString& protocolArg)
 {
     received.remove(0, 5);
-    logger_model_->ApplyCapabilities(protocolArg.toStdString(), bytes::view(received));
+    logger_model_->ApplyCapabilities(protocolArg.toStdString(), bytes::View(received));
     for (const auto& p : logger_model_->Definition().parameters)
     {
         if (p.protocol != protocolArg.toStdString() || !logger_model_->ParameterSupported(p.protocol, p.id))
@@ -83,7 +83,7 @@ void MainWindow::write_logger_csv_cells(bool header)
             const auto *item = logger_model_->Parameter(key, id);
             datalog_file_outstream_ << (item == nullptr ? QString{}
                                         : header        ? fastecu::ui::qs(item->name)
-                                                        : logger_values_.parameter_value(key, id))
+                                                        : logger_values_.ParameterValue(key, id))
                                     << ",";
         }
     };
@@ -94,7 +94,7 @@ void MainWindow::write_logger_csv_cells(bool header)
         const auto *item = logger_model_->SwitchDefinition(key, id);
         datalog_file_outstream_ << (item == nullptr ? QString{}
                                     : header        ? fastecu::ui::qs(item->name)
-                                                    : logger_values_.switch_value(key, id))
+                                                    : logger_values_.SwitchValue(key, id))
                                 << ",";
     }
 }

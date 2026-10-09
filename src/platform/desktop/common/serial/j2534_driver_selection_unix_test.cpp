@@ -7,15 +7,15 @@
 // description tells an adapter from a Bluetooth or debug-console port (#243).
 TEST(TestJ2534DriverSelectionUnix, capableEntry_matchesOnlyTheAdapterDescription)
 {
-    ASSERT_TRUE(isJ2534CapableEntry(u"cu.usbmodemTApU_RJO1 - OpenPort 2.0"));
-    ASSERT_TRUE(isJ2534CapableEntry(u"cu.usbmodem0 - openport 2.0")); // case-insensitive
+    ASSERT_TRUE(IsJ2534CapableEntry(u"cu.usbmodemTApU_RJO1 - OpenPort 2.0"));
+    ASSERT_TRUE(IsJ2534CapableEntry(u"cu.usbmodem0 - openport 2.0")); // case-insensitive
     // macOS enumerates these ahead of the adapter; driving ISO-15765 over one
     // yields a timeout per exchange, never a response.
-    ASSERT_TRUE(!isJ2534CapableEntry(u"cu.Bluetooth-Incoming-Port - "));
-    ASSERT_TRUE(!isJ2534CapableEntry(u"cu.debug-console - "));
-    ASSERT_TRUE(!isJ2534CapableEntry(u"ttyUSB0 - USB Serial"));
-    ASSERT_TRUE(!isJ2534CapableEntry(u"ttyUSB0")); // no separator at all
-    ASSERT_TRUE(!isJ2534CapableEntry(u""));
+    ASSERT_TRUE(!IsJ2534CapableEntry(u"cu.Bluetooth-Incoming-Port - "));
+    ASSERT_TRUE(!IsJ2534CapableEntry(u"cu.debug-console - "));
+    ASSERT_TRUE(!IsJ2534CapableEntry(u"ttyUSB0 - USB Serial"));
+    ASSERT_TRUE(!IsJ2534CapableEntry(u"ttyUSB0")); // no separator at all
+    ASSERT_TRUE(!IsJ2534CapableEntry(u""));
 }
 
 namespace

@@ -9,12 +9,12 @@ fastecu::Result<std::size_t> FastEcuSsmTransport::Write(bytes::ByteView data)
 {
     try
     {
-        if (!serial_ || !serial_->is_serial_port_open())
+        if (!serial_ || !serial_->IsSerialPortOpen())
         {
             return fastecu::Fail(fastecu::ErrorKind::kDisconnected, "SSM adapter disconnected before write");
         }
-        serial_->write_serial_data_echo_check(bytes::toQByteArray(data));
-        if (!serial_->is_serial_port_open())
+        serial_->WriteSerialDataEchoCheck(bytes::ToQByteArray(data));
+        if (!serial_->IsSerialPortOpen())
         {
             return fastecu::Fail(fastecu::ErrorKind::kDisconnected, "SSM adapter disconnected during write");
         }
@@ -38,15 +38,15 @@ FastEcuSsmTransport::Read(std::chrono::milliseconds timeout, const fastecu::ICan
         return fastecu::Fail(fastecu::ErrorKind::kCancelled, "SSM read cancelled before driver call");
     }
 
-    return fastecu::desktop::detail::read_serial(serial_, timeout, cancellation, [this](std::uint16_t driver_timeout)
-                                                 { return serial_->read_serial_data(driver_timeout); });
+    return fastecu::desktop::detail::ReadSerial(serial_, timeout, cancellation, [this](std::uint16_t driver_timeout)
+                                                { return serial_->ReadSerialData(driver_timeout); });
 }
 
 bool FastEcuSsmTransport::IsOpen() const
 {
     try
     {
-        return serial_ && serial_->is_serial_port_open();
+        return serial_ && serial_->IsSerialPortOpen();
     }
     catch (...)
     {

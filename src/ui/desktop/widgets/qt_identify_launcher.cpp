@@ -15,7 +15,7 @@ IdentifyOutcome to_outcome(const diagnostics::SsmIdentifyWorkerResult& result)
     IdentifyOutcome outcome;
     outcome.success = result.success;
     outcome.ecu_id = result.ecu_id.toStdString();
-    outcome.init_response = bytes::fromQByteArray(result.init_response);
+    outcome.init_response = bytes::FromQByteArray(result.init_response);
     outcome.error_detail = result.error_detail.toStdString();
     return outcome;
 }
@@ -67,7 +67,7 @@ void QtIdentifyLauncher::stop_and_join()
     {
         return;
     }
-    worker_->requestStop();
+    worker_->RequestStop();
     worker_->wait();
     worker_.reset();
     link_.reset();

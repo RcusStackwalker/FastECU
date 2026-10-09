@@ -17,12 +17,12 @@ SsmIdentifyWorker::SsmIdentifyWorker(SsmIdentifyRequest request, IDiagnosticLink
 
 SsmIdentifyWorker::~SsmIdentifyWorker()
 {
-    requestStop();
+    RequestStop();
     // run() uses owned members; join fully before they are destroyed.
     wait();
 }
 
-void SsmIdentifyWorker::requestStop()
+void SsmIdentifyWorker::RequestStop()
 {
     cancellation_.Cancel();
 }
@@ -56,7 +56,7 @@ void SsmIdentifyWorker::run()
     if (outcome.has_value())
     {
         result.ecu_id = QString::fromStdString(outcome->ecu_id);
-        result.init_response = bytes::toQByteArray(outcome->init_response);
+        result.init_response = bytes::ToQByteArray(outcome->init_response);
     }
     else
     {

@@ -25,8 +25,8 @@ TEST(J2534BridgeClient, OpensConnectsAndReadsThroughBridge)
     }
 
     J2534BridgeClient client(host_exe, dll_path);
-    ASSERT_TRUE(client.start() && "client failed to spawn the bridge host");
-    ASSERT_TRUE(client.isRunning());
+    ASSERT_TRUE(client.Start() && "client failed to spawn the bridge host");
+    ASSERT_TRUE(client.IsRunning());
 
     unsigned long device_id = 0;
     long result = client.PassThruOpen(nullptr, &device_id);

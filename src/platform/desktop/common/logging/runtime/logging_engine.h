@@ -48,10 +48,10 @@ class LoggingEngine final : public QObject
     explicit LoggingEngine(QObject *parent = nullptr);
     ~LoggingEngine() override;
 
-    void registerProtocol(const QString& protocol_id, const LoggingProtocolFactory& factory);
-    fastecu::Status start(const LogSessionConfig& config, DesktopLoggingSnapshot snapshot);
-    void stop();
-    bool isRunning() const;
+    void RegisterProtocol(const QString& protocol_id, const LoggingProtocolFactory& factory);
+    fastecu::Status Start(const LogSessionConfig& config, DesktopLoggingSnapshot snapshot);
+    void Stop();
+    bool IsRunning() const;
 
   signals:
     void valuesUpdated(QVector<fastecu::logging::LogSample> samples);
@@ -68,10 +68,10 @@ class LoggingEngine final : public QObject
     void handleDiagnostic(int level, QString message);
 
   private:
-    void finishActiveRun(SessionEndReason reason, QString detail, bool publish);
-    void joinAndReleaseActiveRun();
-    void publishCompletionOnce(SessionEndReason reason, QString detail);
-    void reportStartError(const fastecu::Error& error);
+    void FinishActiveRun(SessionEndReason reason, QString detail, bool publish);
+    void JoinAndReleaseActiveRun();
+    void PublishCompletionOnce(SessionEndReason reason, QString detail);
+    void ReportStartError(const fastecu::Error& error);
 
     // Private, but desktop_logging_protocol_registration_test.cpp and
     // desktop_composition_test.cpp compile this header under `#define private

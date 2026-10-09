@@ -36,30 +36,30 @@ Status DesktopKlineFlashTransport::Configure(const KlineConfig& config)
         // every failure here is InvalidConfig, never Disconnected. open(),
         // below, is the one call in this adapter that actually touches
         // hardware and maps failure to Disconnected.
-        if (!serial_->set_is_iso14230_connection(config.iso14230))
+        if (!serial_->SetIsIso14230Connection(config.iso14230))
         {
             return Fail(ErrorKind::kInvalidConfig, "set_is_iso14230_connection failed");
         }
-        if (!serial_->set_is_can_connection(false))
+        if (!serial_->SetIsCanConnection(false))
         {
             return Fail(ErrorKind::kInvalidConfig, "set_is_can_connection failed");
         }
-        if (!serial_->set_is_iso15765_connection(false))
+        if (!serial_->SetIsIso15765Connection(false))
         {
             return Fail(ErrorKind::kInvalidConfig, "set_is_iso15765_connection failed");
         }
-        if (!serial_->set_is_29_bit_id(false))
+        if (!serial_->SetIs29BitId(false))
         {
             return Fail(ErrorKind::kInvalidConfig, "set_is_29_bit_id failed");
         }
-        if (!serial_->set_serial_port_baudrate(QString::number(config.baud)))
+        if (!serial_->SetSerialPortBaudrate(QString::number(config.baud)))
         {
             return Fail(ErrorKind::kInvalidConfig, "set_serial_port_baudrate failed");
         }
         const auto parity = config.parity == KlineParity::kEven  ? QSerialPort::EvenParity
                             : config.parity == KlineParity::kOdd ? QSerialPort::OddParity
                                                                  : QSerialPort::NoParity;
-        if (!serial_->set_serial_port_parity(static_cast<std::uint8_t>(parity)))
+        if (!serial_->SetSerialPortParity(static_cast<std::uint8_t>(parity)))
         {
             return Fail(ErrorKind::kInvalidConfig, "set_serial_port_parity failed");
         }
@@ -91,7 +91,7 @@ Status DesktopKlineFlashTransport::Open()
         // on every failure path -- the brief's original guess of "empty
         // QString means failure" happened to be correct here (unlike
         // change_port_speed()'s sentinel below in setBaud()).
-        const QString open_result = serial_->open_serial_port();
+        const QString open_result = serial_->OpenSerialPort();
         if (open_result.isEmpty())
         {
             return Fail(ErrorKind::kDisconnected, "open_serial_port failed");
@@ -133,7 +133,7 @@ Status DesktopKlineFlashTransport::ResetConnection()
         // true;` -- it cannot report failure through its return value, so
         // this branch is unreachable today and only the surrounding catch
         // blocks below can produce an Internal error here.
-        if (!serial_->reset_connection())
+        if (!serial_->ResetConnection())
         {
             return Fail(ErrorKind::kInternal, "reset_connection failed");
         }
@@ -157,7 +157,7 @@ Status DesktopKlineFlashTransport::DisableLecLines()
     }
     try
     {
-        if (serial_->set_lec_lines(serial_->get_requestToSendDisabled(), serial_->get_dataTerminalDisabled()) != 0)
+        if (serial_->SetLecLines(serial_->GetRequestToSendDisabled(), serial_->GetDataTerminalDisabled()) != 0)
         {
             return Fail(ErrorKind::kInternal, "set_lec_lines disabled failed");
         }
@@ -181,7 +181,7 @@ Status DesktopKlineFlashTransport::PulseLec2Line(std::chrono::milliseconds timeo
     }
     try
     {
-        if (serial_->pulse_lec_2_line(fastecu::SaturatingMs<int>(timeout)) != 0)
+        if (serial_->PulseLec2Line(fastecu::SaturatingMs<int>(timeout)) != 0)
         {
             return Fail(ErrorKind::kInternal, "pulse_lec_2_line failed");
         }
@@ -206,7 +206,7 @@ Status DesktopKlineFlashTransport::EnableProgrammingVoltageLine()
     try
     {
         // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:513.
-        if (serial_->set_lec_lines(serial_->get_requestToSendEnabled(), serial_->get_dataTerminalDisabled()) != 0)
+        if (serial_->SetLecLines(serial_->GetRequestToSendEnabled(), serial_->GetDataTerminalDisabled()) != 0)
         {
             return Fail(ErrorKind::kInternal, "set_lec_lines programming state failed");
         }
@@ -231,7 +231,7 @@ Status DesktopKlineFlashTransport::EnableBootModeLines()
     try
     {
         // Legacy flash_ecu_subaru_unisia_jecs_m32r_bootmode_operation.cpp:66.
-        if (serial_->set_lec_lines(serial_->get_requestToSendEnabled(), serial_->get_dataTerminalEnabled()) != 0)
+        if (serial_->SetLecLines(serial_->GetRequestToSendEnabled(), serial_->GetDataTerminalEnabled()) != 0)
         {
             return Fail(ErrorKind::kInternal, "set_lec_lines boot mode state failed");
         }
@@ -250,7 +250,7 @@ Status DesktopKlineFlashTransport::EnableBootModeLines()
 bool DesktopKlineFlashTransport::RequiresPostKernelUploadDelay() const
 {
 #if defined(Q_OS_UNIX)
-    return serial_ != nullptr && serial_->get_use_openport2_adapter();
+    return serial_ != nullptr && serial_->GetUseOpenport2Adapter();
 #else
     return false;
 #endif
@@ -270,7 +270,7 @@ Status DesktopKlineFlashTransport::SetAddIso14230Header(bool add_header)
         // just assigns a member and unconditionally `return true` -- it
         // cannot plausibly report "adapter gone", so any failure here is
         // InvalidConfig, never Disconnected.
-        if (!serial_->set_add_iso14230_header(add_header))
+        if (!serial_->SetAddIso14230Header(add_header))
         {
             return Fail(ErrorKind::kInvalidConfig, "set_add_iso14230_header failed");
         }
@@ -309,7 +309,7 @@ Status DesktopKlineFlashTransport::SetBaud(int baud)
 
     try
     {
-        if (!serial_->is_serial_port_open())
+        if (!serial_->IsSerialPortOpen())
         {
             return Fail(ErrorKind::kDisconnected, "K-Line adapter disconnected before baud change");
         }
@@ -320,11 +320,11 @@ Status DesktopKlineFlashTransport::SetBaud(int baud)
         // value, never negative -- on every failure path. The brief's
         // original draft guessed `< 0`, which would have silently treated
         // every real failure as success.
-        if (serial_->change_port_speed(QString::number(baud)) == 0)
+        if (serial_->ChangePortSpeed(QString::number(baud)) == 0)
         {
             return {};
         }
-        if (!serial_->is_serial_port_open())
+        if (!serial_->IsSerialPortOpen())
         {
             return Fail(ErrorKind::kDisconnected, "K-Line adapter disconnected during baud change");
         }
@@ -359,7 +359,7 @@ Result<std::size_t> DesktopKlineFlashTransport::Write(bytes::ByteView data)
 
     try
     {
-        if (!serial_->is_serial_port_open())
+        if (!serial_->IsSerialPortOpen())
         {
             return Fail(ErrorKind::kDisconnected, "K-Line adapter disconnected before write");
         }
@@ -374,8 +374,8 @@ Result<std::size_t> DesktopKlineFlashTransport::Write(bytes::ByteView data)
         // reason. is_serial_port_open() is the only reliable
         // post-condition, matching FastEcuCanTransport::write() in this
         // same package (which wraps the same call for the CDBG protocol).
-        serial_->write_serial_data_echo_check(bytes::toQByteArray(data));
-        if (!serial_->is_serial_port_open())
+        serial_->WriteSerialDataEchoCheck(bytes::ToQByteArray(data));
+        if (!serial_->IsSerialPortOpen())
         {
             return Fail(ErrorKind::kDisconnected, "K-Line adapter disconnected during write");
         }
@@ -403,8 +403,8 @@ DesktopKlineFlashTransport::Read(std::chrono::milliseconds timeout, const ICance
         return Fail(ErrorKind::kDisconnected, "read() called after close()");
     }
 
-    return fastecu::desktop::detail::read_serial(serial_, timeout, cancellation, [this](std::uint16_t driver_timeout)
-                                                 { return serial_->read_serial_data(driver_timeout); });
+    return fastecu::desktop::detail::ReadSerial(serial_, timeout, cancellation, [this](std::uint16_t driver_timeout)
+                                                { return serial_->ReadSerialData(driver_timeout); });
 }
 
 Result<std::size_t> DesktopKlineFlashTransport::WriteRaw(bytes::ByteView data)
@@ -420,7 +420,7 @@ Result<std::size_t> DesktopKlineFlashTransport::WriteRaw(bytes::ByteView data)
 
     try
     {
-        if (!serial_->is_serial_port_open())
+        if (!serial_->IsSerialPortOpen())
         {
             return Fail(ErrorKind::kDisconnected, "K-Line adapter disconnected before write");
         }
@@ -435,8 +435,8 @@ Result<std::size_t> DesktopKlineFlashTransport::WriteRaw(bytes::ByteView data)
         // reason. is_serial_port_open() is the only reliable
         // post-condition, matching FastEcuCanTransport::write_raw() in this
         // same package (which wraps the same call for the CDBG protocol).
-        serial_->write_serial_data(bytes::toQByteArray(data));
-        if (!serial_->is_serial_port_open())
+        serial_->WriteSerialData(bytes::ToQByteArray(data));
+        if (!serial_->IsSerialPortOpen())
         {
             return Fail(ErrorKind::kDisconnected, "K-Line adapter disconnected during write");
         }
@@ -464,15 +464,15 @@ DesktopKlineFlashTransport::ReadRaw(std::chrono::milliseconds timeout, const ICa
         return Fail(ErrorKind::kDisconnected, "read_raw() called after close()");
     }
 
-    return fastecu::desktop::detail::read_serial(serial_, timeout, cancellation, [this](std::uint16_t driver_timeout)
-                                                 { return serial_->read_serial_obd_data(driver_timeout); });
+    return fastecu::desktop::detail::ReadSerial(serial_, timeout, cancellation, [this](std::uint16_t driver_timeout)
+                                                { return serial_->ReadSerialObdData(driver_timeout); });
 }
 
 bool DesktopKlineFlashTransport::IsOpen() const
 {
     try
     {
-        return serial_ && serial_->is_serial_port_open();
+        return serial_ && serial_->IsSerialPortOpen();
     }
     catch (...)
     {
@@ -480,9 +480,9 @@ bool DesktopKlineFlashTransport::IsOpen() const
     }
 }
 
-bool adapter_supplies_programming_voltage(SerialPortActions *serial)
+bool AdapterSuppliesProgrammingVoltage(SerialPortActions *serial)
 {
-    return serial != nullptr && serial->get_use_openport2_adapter();
+    return serial != nullptr && serial->GetUseOpenport2Adapter();
 }
 
 } // namespace fastecu::flash

@@ -32,7 +32,7 @@ class NullDiagnostics final : public fastecu::IEventSink
     }
 };
 
-LoggingSession session(LoggingPolicy policy = {.poll_timeout = 5ms,
+LoggingSession Session(LoggingPolicy policy = {.poll_timeout = 5ms,
                                                .car_silence_miss_threshold = 2,
                                                .reconnect_attempt_threshold = 1000,
                                                .reconnect_retry_period = 0})
@@ -61,7 +61,7 @@ TEST(TestLoggingWorker, forwards_portable_states_samples_and_cancelled_result)
     protocol.QueuePollResult(
         PollData{.responded = true, .samples = {ProtocolSample{.channel_id = "rpm", .raw_value = "1234"}}});
     NullDiagnostics diagnostics;
-    LoggingWorker worker(session(), &protocol, diagnostics);
+    LoggingWorker worker(Session(), &protocol, diagnostics);
     fastecu::testing::SignalRecorder state_spy(&worker, &LoggingWorker::stateChanged);
     fastecu::testing::SignalRecorder samples_spy(&worker, &LoggingWorker::samplesReady);
     fastecu::testing::SignalRecorder finished_spy(&worker, &LoggingWorker::sessionFinished);
@@ -74,19 +74,19 @@ TEST(TestLoggingWorker, forwards_portable_states_samples_and_cancelled_result)
     // count, so an emission that lands first makes it burn its whole
     // timeout and return false. Joining is what makes the spies final.
     ASSERT_TRUE(protocol.WaitUntilQueuedPollResultsConsumed(std::chrono::milliseconds(2000)));
-    worker.requestStop();
+    worker.RequestStop();
     ASSERT_TRUE(worker.wait(2000));
 
-    ASSERT_TRUE(state_spy.count() >= 3);
-    ASSERT_EQ(std::get<0>(state_spy.snapshot().at(0)), LoggingState::kRunning);
-    ASSERT_EQ(std::get<0>(state_spy.snapshot().at(1)), LoggingState::kCarNotResponding);
-    ASSERT_EQ(std::get<0>(state_spy.snapshot().at(2)), LoggingState::kRunning);
-    const auto samples = std::get<0>(samples_spy.snapshot().at(0));
+    ASSERT_TRUE(state_spy.Count() >= 3);
+    ASSERT_EQ(std::get<0>(state_spy.Snapshot().at(0)), LoggingState::kRunning);
+    ASSERT_EQ(std::get<0>(state_spy.Snapshot().at(1)), LoggingState::kCarNotResponding);
+    ASSERT_EQ(std::get<0>(state_spy.Snapshot().at(2)), LoggingState::kRunning);
+    const auto samples = std::get<0>(samples_spy.Snapshot().at(0));
     ASSERT_EQ(samples.size(), 1U);
     ASSERT_EQ(samples.at(0).channel_id, std::string("rpm"));
     ASSERT_EQ(samples.at(0).numeric_value, 1234.0);
-    ASSERT_EQ(finished_spy.count(), 1U);
-    const auto result = std::get<0>(finished_spy.snapshot().at(0));
+    ASSERT_EQ(finished_spy.Count(), 1U);
+    const auto result = std::get<0>(finished_spy.Snapshot().at(0));
     ASSERT_TRUE(!result.has_value());
     ASSERT_EQ(result.error().kind, fastecu::ErrorKind::kCancelled);
     ASSERT_TRUE(protocol.StopCalled());
@@ -97,7 +97,7 @@ TEST(TestLoggingWorker, forwards_final_start_error_without_policy_mapping)
     ScriptedLoggingProtocol protocol;
     protocol.QueueStartResult(fastecu::Fail(fastecu::ErrorKind::kBadResponse, "handshake rejected"));
     NullDiagnostics diagnostics;
-    LoggingWorker worker(session(), &protocol, diagnostics);
+    LoggingWorker worker(Session(), &protocol, diagnostics);
     fastecu::testing::SignalRecorder finished_spy(&worker, &LoggingWorker::sessionFinished);
 
     worker.start();
@@ -106,7 +106,7 @@ TEST(TestLoggingWorker, forwards_final_start_error_without_policy_mapping)
     // signal recorder::wait() is the wrong tool here.
     ASSERT_TRUE(worker.wait(2000));
 
-    const auto result = std::get<0>(finished_spy.snapshot().at(0));
+    const auto result = std::get<0>(finished_spy.Snapshot().at(0));
     ASSERT_TRUE(!result.has_value());
     ASSERT_EQ(result.error().kind, fastecu::ErrorKind::kBadResponse);
     ASSERT_EQ(result.error().detail, std::string("handshake rejected"));
@@ -121,7 +121,7 @@ TEST(TestLoggingWorker, destruction_cancels_and_joins_a_blocked_poll)
     QElapsedTimer elapsed;
     elapsed.start();
     {
-        LoggingWorker worker(session(), &protocol, diagnostics);
+        LoggingWorker worker(Session(), &protocol, diagnostics);
         worker.start();
         ASSERT_TRUE(protocol.WaitUntilPollEntered(std::chrono::milliseconds(500)));
     }

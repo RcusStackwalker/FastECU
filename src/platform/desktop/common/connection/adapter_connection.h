@@ -22,7 +22,7 @@ enum class LogTransport
     kOther,
 };
 
-LogTransport log_transport_from_text(const QString& text);
+LogTransport LogTransportFromText(const QString& text);
 
 // MainWindow's view of the adapter: the port list, opening and resetting,
 // the log-transport flag profile, the two idle resets, and battery voltage.
@@ -35,30 +35,30 @@ class AdapterConnection final : public QObject
   public:
     explicit AdapterConnection(SerialPortActions& facade, QObject *parent = nullptr);
 
-    QStringList available_ports();
-    void set_initial_port(const QString& port, const QString& baud);
-    void select_port(const QString& port);
+    QStringList AvailablePorts();
+    void SetInitialPort(const QString& port, const QString& baud);
+    void SelectPort(const QString& port);
     // The opened port's name; empty when nothing opened.
-    QString open();
+    QString Open();
     // The name open() last returned, as the facade still holds it; for a
     // caller that opened the port through the diagnostic link instead.
-    QString opened_port();
-    bool is_open();
-    void reset();
-    void apply_log_transport(LogTransport transport, bool ssm_protocol);
+    QString OpenedPort();
+    bool IsOpen();
+    void Reset();
+    void ApplyLogTransport(LogTransport transport, bool ssm_protocol);
     // check_serial_ports' reset: every link flag cleared, 4800 baud. Parity
     // is left alone.
-    void clear_link_flags();
+    void ClearLinkFlags();
     // disconnect_from_ecu's reset: 4800 baud, no parity. The link flags are
     // left alone, because connect_to_ecu does not reapply them.
-    void return_to_idle();
-    void set_port_speed(int baud);
+    void ReturnToIdle();
+    void SetPortSpeed(int baud);
     // Empty unless the adapter is an OpenPort, the only one that reports it.
-    std::optional<unsigned long> battery_millivolts();
-    void wait_for_source();
+    std::optional<unsigned long> BatteryMillivolts();
+    void WaitForSource();
     // For the handoffs that still take the facade: the flash controller, the
     // diagnostic link, and reset_serial_to_idle.
-    SerialPortActions& facade();
+    SerialPortActions& Facade();
 
   signals:
     void stateChanged(QRemoteObjectReplica::State state, QRemoteObjectReplica::State old_state);

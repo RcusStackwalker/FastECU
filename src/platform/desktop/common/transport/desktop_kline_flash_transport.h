@@ -77,6 +77,6 @@ class DesktopKlineFlashTransport final : public IKlineFlashTransport
 // (OpenPort 2.0), so the operator need not apply it. Unlike
 // requires_post_kernel_upload_delay(), this holds on every platform. A null
 // serial answers false: without adapter information the caller prompts.
-bool adapter_supplies_programming_voltage(SerialPortActions *serial);
+bool AdapterSuppliesProgrammingVoltage(SerialPortActions *serial);
 
 } // namespace fastecu::flash

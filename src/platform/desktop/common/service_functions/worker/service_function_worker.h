@@ -50,11 +50,11 @@ class ServiceFunctionWorker final : public QThread
     // thread, any number of times, before or after start(). Destruction calls
     // this and then joins without a timeout so owned dependencies outlive
     // every active resume() call.
-    void requestStop();
+    void RequestStop();
 
     // Answers the matching outstanding gate. Stale IDs and duplicate answers
     // are ignored. Safe from any thread.
-    void answerGate(int gate_id, bool accepted);
+    void AnswerGate(int gate_id, bool accepted);
 
   signals:
     void logEvent(int level, QString message);
@@ -68,7 +68,7 @@ class ServiceFunctionWorker final : public QThread
 
   private:
     // Blocks until answerGate() or requestStop(). Returns nullopt on stop.
-    std::optional<GateResponse> waitForGate();
+    std::optional<GateResponse> WaitForGate();
 
     std::unique_ptr<ServiceFunctionSession> session_;
     std::unique_ptr<ISsmTransport> transport_;

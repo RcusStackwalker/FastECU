@@ -7,7 +7,7 @@
 
 namespace
 {
-QString to_qstring(std::string_view s)
+QString ToQstring(std::string_view s)
 {
     return QString::fromUtf8(s.data(), static_cast<int>(s.size()));
 }
@@ -15,12 +15,12 @@ QString to_qstring(std::string_view s)
 
 bool QtFileSystem::Exists(std::string_view path)
 {
-    return QFileInfo::exists(to_qstring(path));
+    return QFileInfo::exists(ToQstring(path));
 }
 
 fastecu::Status QtFileSystem::CreateDirectory(std::string_view path)
 {
-    if (!QDir().mkpath(to_qstring(path)))
+    if (!QDir().mkpath(ToQstring(path)))
     {
         return fastecu::Fail(fastecu::ErrorKind::kInternal, "mkpath failed");
     }
@@ -29,7 +29,7 @@ fastecu::Status QtFileSystem::CreateDirectory(std::string_view path)
 
 fastecu::Status QtFileSystem::CopyFile(std::string_view src, std::string_view dst, bool overwrite)
 {
-    const QString qdst = to_qstring(dst);
+    const QString qdst = ToQstring(dst);
     if (overwrite && QFileInfo::exists(qdst))
     {
         QFile::remove(qdst);
@@ -38,7 +38,7 @@ fastecu::Status QtFileSystem::CopyFile(std::string_view src, std::string_view ds
     {
         return fastecu::Fail(fastecu::ErrorKind::kInternal, "destination exists");
     }
-    if (!QFile::copy(to_qstring(src), qdst))
+    if (!QFile::copy(ToQstring(src), qdst))
     {
         return fastecu::Fail(fastecu::ErrorKind::kInternal, "copy failed");
     }
@@ -47,7 +47,7 @@ fastecu::Status QtFileSystem::CopyFile(std::string_view src, std::string_view ds
 
 fastecu::Status QtFileSystem::RemoveFile(std::string_view path)
 {
-    if (!QFile::remove(to_qstring(path)))
+    if (!QFile::remove(ToQstring(path)))
     {
         return fastecu::Fail(fastecu::ErrorKind::kInternal, "remove failed");
     }
@@ -56,7 +56,7 @@ fastecu::Status QtFileSystem::RemoveFile(std::string_view path)
 
 fastecu::Result<std::vector<fastecu::DirEntry>> QtFileSystem::ListDirectory(std::string_view path)
 {
-    QDir dir(to_qstring(path));
+    QDir dir(ToQstring(path));
     if (!dir.exists())
     {
         return fastecu::Fail(fastecu::ErrorKind::kInternal, "directory does not exist");

@@ -155,12 +155,12 @@ TEST(QtEventSinkTest, LogEmitsLoggedWithConvertedArgs)
 {
     QtEventSink sink;
     fastecu::testing::SignalRecorder spy(&sink, &QtEventSink::logged);
-    ASSERT_TRUE(spy.is_valid());
+    ASSERT_TRUE(spy.IsValid());
 
     sink.Log(LogLevel::kWarning, "msg");
 
-    ASSERT_EQ(spy.count(), 1U);
-    const auto args = spy.snapshot().front();
+    ASSERT_EQ(spy.Count(), 1U);
+    const auto args = spy.Snapshot().front();
     EXPECT_EQ(std::get<0>(args), static_cast<int>(LogLevel::kWarning));
     EXPECT_EQ(std::get<1>(args), QString("msg"));
 }
@@ -169,12 +169,12 @@ TEST(QtEventSinkTest, ProgressEmitsProgressedWithDoneAndTotal)
 {
     QtEventSink sink;
     fastecu::testing::SignalRecorder spy(&sink, &QtEventSink::progressed);
-    ASSERT_TRUE(spy.is_valid());
+    ASSERT_TRUE(spy.IsValid());
 
     sink.Progress(3, 10);
 
-    ASSERT_EQ(spy.count(), 1U);
-    const auto args = spy.snapshot().front();
+    ASSERT_EQ(spy.Count(), 1U);
+    const auto args = spy.Snapshot().front();
     EXPECT_EQ(std::get<0>(args), 3);
     EXPECT_EQ(std::get<1>(args), 10);
 }
@@ -184,31 +184,31 @@ TEST(QtEventSinkTest, PhaseProgressPreservesLegacyProgressAndConvertsPhaseName)
     QtEventSink sink;
     fastecu::testing::SignalRecorder legacy_spy(&sink, &QtEventSink::progressed);
     fastecu::testing::SignalRecorder phase_spy(&sink, &QtEventSink::phaseProgressed);
-    ASSERT_TRUE(legacy_spy.is_valid());
-    ASSERT_TRUE(phase_spy.is_valid());
+    ASSERT_TRUE(legacy_spy.IsValid());
+    ASSERT_TRUE(phase_spy.IsValid());
 
     sink.PhaseProgress({.phase_name = "Write userspace", .phase_index = 4, .phase_count = 6, .done = 3, .total = 10});
 
-    ASSERT_EQ(legacy_spy.count(), 1U);
-    EXPECT_EQ(std::get<0>(legacy_spy.snapshot().at(0)), 3);
-    EXPECT_EQ(std::get<1>(legacy_spy.snapshot().at(0)), 10);
-    ASSERT_EQ(phase_spy.count(), 1U);
-    EXPECT_EQ(std::get<0>(phase_spy.snapshot().at(0)), QString("Write userspace"));
-    EXPECT_EQ(std::get<1>(phase_spy.snapshot().at(0)), 4);
-    EXPECT_EQ(std::get<2>(phase_spy.snapshot().at(0)), 6);
-    EXPECT_EQ(std::get<3>(phase_spy.snapshot().at(0)), 3);
-    EXPECT_EQ(std::get<4>(phase_spy.snapshot().at(0)), 10);
+    ASSERT_EQ(legacy_spy.Count(), 1U);
+    EXPECT_EQ(std::get<0>(legacy_spy.Snapshot().at(0)), 3);
+    EXPECT_EQ(std::get<1>(legacy_spy.Snapshot().at(0)), 10);
+    ASSERT_EQ(phase_spy.Count(), 1U);
+    EXPECT_EQ(std::get<0>(phase_spy.Snapshot().at(0)), QString("Write userspace"));
+    EXPECT_EQ(std::get<1>(phase_spy.Snapshot().at(0)), 4);
+    EXPECT_EQ(std::get<2>(phase_spy.Snapshot().at(0)), 6);
+    EXPECT_EQ(std::get<3>(phase_spy.Snapshot().at(0)), 3);
+    EXPECT_EQ(std::get<4>(phase_spy.Snapshot().at(0)), 10);
 }
 
 TEST(QtEventSinkTest, NoticeEmitsNoticedWithMessage)
 {
     QtEventSink sink;
     fastecu::testing::SignalRecorder spy(&sink, &QtEventSink::noticed);
-    ASSERT_TRUE(spy.is_valid());
+    ASSERT_TRUE(spy.IsValid());
 
     sink.Notice("done");
 
-    ASSERT_EQ(spy.count(), 1U);
-    const auto args = spy.snapshot().front();
+    ASSERT_EQ(spy.Count(), 1U);
+    const auto args = spy.Snapshot().front();
     EXPECT_EQ(std::get<0>(args), QString("done"));
 }

@@ -5,4 +5,4 @@
 // Returns false if the file can't be opened or isn't a valid PE/COFF image --
 // callers should fall through to their normal load path in that case rather
 // than treating detection failure as a new error mode.
-bool isDll32Bit(const char *dll_path, bool& out32_bit);
+bool IsDll32Bit(const char *dll_path, bool& out32_bit);

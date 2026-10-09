@@ -64,7 +64,7 @@ namespace
 // The real local backend, as the desktop app's DirectSerial connection builds it.
 std::function<SerialBackend *()> DirectBackend()
 {
-    return [] { return make_direct_serial_backend().release(); };
+    return [] { return MakeDirectSerialBackend().release(); };
 }
 } // namespace
 
@@ -255,14 +255,14 @@ class MutDmaIntegrationTest : public ::testing::Test
     // PTY whose slave is `name`. Returns the opened-port string ("" on failure).
     static QString ConnectFacade(SerialPortActions& spad, const QString& name)
     {
-        spad.set_serial_port_prefix_linux(""); // PTY name is already absolute
-        spad.set_add_ssm_header(false);
-        spad.set_add_iso9141_header(false);
-        spad.set_add_iso14230_header(false);
+        spad.SetSerialPortPrefixLinux(""); // PTY name is already absolute
+        spad.SetAddSsmHeader(false);
+        spad.SetAddIso9141Header(false);
+        spad.SetAddIso14230Header(false);
         // open_serial_port() only takes the Openport/J2534 branch when the port
         // description contains "OpenPort 2.0" (J2534_unix.cpp), so tag it as such.
-        spad.set_serial_port_list(QStringList() << (name + " - OpenPort 2.0"));
-        return spad.open_serial_port();
+        spad.SetSerialPortList(QStringList() << (name + " - OpenPort 2.0"));
+        return spad.OpenSerialPort();
     }
 };
 
@@ -278,8 +278,8 @@ TEST_F(MutDmaIntegrationTest, connectsOverMockPty_facadeReportsOpen)
         const QString opened = ConnectFacade(spad, QString::fromLocal8Bit(name.data()));
 
         ASSERT_TRUE(!opened.isEmpty()) << "facade open_serial_port() returned empty";
-        ASSERT_TRUE(spad.is_serial_port_open());
-        ASSERT_TRUE(spad.get_use_openport2_adapter());
+        ASSERT_TRUE(spad.IsSerialPortOpen());
+        ASSERT_TRUE(spad.GetUseOpenport2Adapter());
     }
     ::close(master);
 }
@@ -331,21 +331,20 @@ TEST_F(MutDmaIntegrationTest, write_throughAdapter_putsExactFrameOnWire)
         payload.append(char(0x03)); // sub-cmd 3
         payload.append(char(0x12));
         payload.append(char(0x34)); // addr16 (l_command word)
-        const QByteArray frame = bytes::toQByteArray(BuildCommandFrame(0x87, bytes::view(payload), kTrailerStd));
+        const QByteArray frame = bytes::ToQByteArray(BuildCommandFrame(0x87, bytes::View(payload), kTrailerStd));
         ASSERT_EQ(frame.size(), kFrameLen);
-        ASSERT_TRUE(VerifyFrame(bytes::view(frame)));
+        ASSERT_TRUE(VerifyFrame(bytes::View(frame)));
 
-        fastecu::testing::process_events_for(
+        fastecu::testing::ProcessEventsFor(
             std::chrono::milliseconds(100)); // let all connect-handshake bytes reach the mock
         mock.ResetParser();                  // then start capture from a clean buffer
 
-        const auto written = tr.Write(bytes::view(frame));
+        const auto written = tr.Write(bytes::View(frame));
         ASSERT_TRUE(written);
         ASSERT_EQ(*written, static_cast<std::size_t>(frame.size()));
 
         // Pump the event loop so the mock's QSocketNotifier drains and captures it.
-        ASSERT_TRUE(
-            fastecu::testing::wait_until([&] { return bool(mock.saw_write); }, std::chrono::milliseconds(1000)));
+        ASSERT_TRUE(fastecu::testing::WaitUntil([&] { return bool(mock.saw_write); }, std::chrono::milliseconds(1000)));
         ASSERT_EQ(mock.last_write, frame); // exact bytes, including the 0x0D trailer
     }
     ::close(master);
@@ -378,7 +377,7 @@ TEST_F(MutDmaIntegrationTest, read_throughAdapter_returnsEcuReplyBytes)
         const auto read = tr.Read(500ms, cancellation);
         ASSERT_TRUE(read);
         ASSERT_TRUE(read->has_value());
-        ASSERT_EQ(bytes::toQByteArray(read->value()), reply);
+        ASSERT_EQ(bytes::ToQByteArray(read->value()), reply);
     }
     ::close(master);
 }
@@ -413,7 +412,7 @@ TEST_F(MutDmaIntegrationTest, driverPollOnce_throughAdapter_decodesStreamFrameFr
         QByteArray frame;
         frame.append(char(log_id));
         frame.append(data);
-        frame.append(char(Sum8(bytes::view(frame))));
+        frame.append(char(Sum8(bytes::View(frame))));
         frame.append(char(kTrailerStd));
 
         std::ignore = tr.Read(60ms, cancellation); // drain residual

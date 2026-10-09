@@ -38,16 +38,16 @@ class J2534
     // must each point at a buffer of at least this many bytes.
     static constexpr std::size_t kVersionBufferSize = 256;
 
-    bool is_serial_port_open();
-    bool init()
+    bool IsSerialPortOpen();
+    bool Init()
     {
-        return checkDLL();
+        return CheckDll();
     };
-    void disable();
-    void setDllName(const char *name);
-    void getDllName(char *name);
-    bool valid();
-    char *getLastError();
+    void Disable();
+    void SetDllName(const char *name);
+    void GetDllName(char *name);
+    bool Valid();
+    char *GetLastError();
 
     long PassThruOpen(const void *p_name, unsigned long *p_device_id);
     long PassThruClose(unsigned long device_id);
@@ -72,10 +72,10 @@ class J2534
     long PassThruIoctl(unsigned long channel_id, unsigned long ioctl_id, const void *p_input, void *p_output);
 
   private:
-    bool getPTfns();
+    bool GetPTfns();
     long LoadJ2534DLL(const char *sz_dll);
-    bool checkDLL();
-    int is_valid_sconfig_param(SCONFIG s);
+    bool CheckDll();
+    int IsValidSconfigParam(SCONFIG s);
 
     std::array<char, 256> last_error_;
     std::array<char, 256> dll_name_;

@@ -26,7 +26,7 @@ namespace
 {
 using namespace std::chrono_literals;
 
-constexpr MixedCanConfig config()
+constexpr MixedCanConfig Config()
 {
     return MixedCanConfig{
         .kernel = Iso15765Config{.bitrate = 500000, .request_id = 2016, .response_id = 2024, .extended_id = false},
@@ -34,7 +34,7 @@ constexpr MixedCanConfig config()
     };
 }
 
-std::unique_ptr<SerialPortActions> make_serial(FakeBackend *& fake)
+std::unique_ptr<SerialPortActions> MakeSerial(FakeBackend *& fake)
 {
     auto serial = std::make_unique<SerialPortActions>(
         [&fake]() -> SerialBackend *
@@ -42,14 +42,14 @@ std::unique_ptr<SerialPortActions> make_serial(FakeBackend *& fake)
             fake = new NiceFakeBackend();
             return fake;
         });
-    serial->set_add_ssm_header(false);
-    EXPECT_CALL(*fake, open_serial_port()).WillRepeatedly(::testing::Return(QStringLiteral("fake-adapter")));
+    serial->SetAddSsmHeader(false);
+    EXPECT_CALL(*fake, OpenSerialPort()).WillRepeatedly(::testing::Return(QStringLiteral("fake-adapter")));
     return serial;
 }
 
-void configure_and_open(DesktopMixedCanFlashTransport& transport)
+void ConfigureAndOpen(DesktopMixedCanFlashTransport& transport)
 {
-    ASSERT_TRUE(transport.Configure(config()).has_value());
+    ASSERT_TRUE(transport.Configure(Config()).has_value());
     ASSERT_TRUE(transport.Open().has_value());
 }
 
@@ -58,12 +58,12 @@ void configure_and_open(DesktopMixedCanFlashTransport& transport)
 TEST(TestDesktopMixedCanFlashTransport, initialResetReachesBackendAndReturnsFailure)
 {
     FakeBackend *fake = nullptr;
-    DesktopMixedCanFlashTransport transport(make_serial(fake));
-    EXPECT_CALL(*fake, reset_connection()).WillOnce(::testing::Return());
+    DesktopMixedCanFlashTransport transport(MakeSerial(fake));
+    EXPECT_CALL(*fake, ResetConnection()).WillOnce(::testing::Return());
 
     ASSERT_TRUE(transport.ResetConnection().has_value());
 
-    EXPECT_CALL(*fake, reset_connection())
+    EXPECT_CALL(*fake, ResetConnection())
         .WillOnce(::testing::Throw(std::runtime_error("scripted backend reset failure")));
     const auto failed = transport.ResetConnection();
     ASSERT_TRUE(!failed.has_value());
@@ -73,7 +73,7 @@ TEST(TestDesktopMixedCanFlashTransport, initialResetReachesBackendAndReturnsFail
 TEST(TestDesktopMixedCanFlashTransport, initialResetAfterCloseReturnsDisconnected)
 {
     FakeBackend *fake = nullptr;
-    DesktopMixedCanFlashTransport transport(make_serial(fake));
+    DesktopMixedCanFlashTransport transport(MakeSerial(fake));
     ASSERT_TRUE(transport.Close().has_value());
 
     const auto result = transport.ResetConnection();
@@ -85,44 +85,44 @@ TEST(TestDesktopMixedCanFlashTransport, initialResetAfterCloseReturnsDisconnecte
 TEST(TestDesktopMixedCanFlashTransport, configuresIsoThenTransitionsRawAndBack)
 {
     FakeBackend *fake = nullptr;
-    DesktopMixedCanFlashTransport transport(make_serial(fake));
+    DesktopMixedCanFlashTransport transport(MakeSerial(fake));
 
     ::testing::InSequence sequence;
-    EXPECT_CALL(*fake, set_is_iso14230_connection(false)).WillOnce(::testing::Return(true));
-    EXPECT_CALL(*fake, set_is_can_connection(false)).WillOnce(::testing::Return(true));
-    EXPECT_CALL(*fake, set_is_iso15765_connection(true)).WillOnce(::testing::Return(true));
-    EXPECT_CALL(*fake, set_is_29_bit_id(false)).WillOnce(::testing::Return(true));
-    EXPECT_CALL(*fake, set_can_speed(QStringLiteral("500000"))).WillOnce(::testing::Return(true));
-    EXPECT_CALL(*fake, set_can_source_address(1048574)).WillOnce(::testing::Return(true));
-    EXPECT_CALL(*fake, set_can_destination_address(33)).WillOnce(::testing::Return(true));
-    EXPECT_CALL(*fake, set_iso15765_source_address(2016)).WillOnce(::testing::Return(true));
-    EXPECT_CALL(*fake, set_iso15765_destination_address(2024)).WillOnce(::testing::Return(true));
-    EXPECT_CALL(*fake, set_add_iso14230_header(false)).WillOnce(::testing::Return(true));
-    EXPECT_CALL(*fake, open_serial_port()).WillOnce(::testing::Return(QStringLiteral("fake-adapter")));
-    EXPECT_CALL(*fake, reset_connection()).WillOnce(::testing::Return());
-    EXPECT_CALL(*fake, set_is_iso14230_connection(false)).WillOnce(::testing::Return(true));
-    EXPECT_CALL(*fake, set_is_can_connection(true)).WillOnce(::testing::Return(true));
-    EXPECT_CALL(*fake, set_is_iso15765_connection(false)).WillOnce(::testing::Return(true));
-    EXPECT_CALL(*fake, set_is_29_bit_id(true)).WillOnce(::testing::Return(true));
-    EXPECT_CALL(*fake, set_can_speed(QStringLiteral("500000"))).WillOnce(::testing::Return(true));
-    EXPECT_CALL(*fake, set_can_source_address(1048574)).WillOnce(::testing::Return(true));
-    EXPECT_CALL(*fake, set_can_destination_address(33)).WillOnce(::testing::Return(true));
-    EXPECT_CALL(*fake, set_add_iso14230_header(false)).WillOnce(::testing::Return(true));
-    EXPECT_CALL(*fake, open_serial_port()).WillOnce(::testing::Return(QStringLiteral("fake-adapter")));
-    EXPECT_CALL(*fake, reset_connection()).WillOnce(::testing::Return());
-    EXPECT_CALL(*fake, set_is_iso14230_connection(false)).WillOnce(::testing::Return(true));
-    EXPECT_CALL(*fake, set_is_can_connection(false)).WillOnce(::testing::Return(true));
-    EXPECT_CALL(*fake, set_is_iso15765_connection(true)).WillOnce(::testing::Return(true));
-    EXPECT_CALL(*fake, set_is_29_bit_id(false)).WillOnce(::testing::Return(true));
-    EXPECT_CALL(*fake, set_can_speed(QStringLiteral("500000"))).WillOnce(::testing::Return(true));
-    EXPECT_CALL(*fake, set_can_source_address(1048574)).WillOnce(::testing::Return(true));
-    EXPECT_CALL(*fake, set_can_destination_address(33)).WillOnce(::testing::Return(true));
-    EXPECT_CALL(*fake, set_iso15765_source_address(2016)).WillOnce(::testing::Return(true));
-    EXPECT_CALL(*fake, set_iso15765_destination_address(2024)).WillOnce(::testing::Return(true));
-    EXPECT_CALL(*fake, set_add_iso14230_header(false)).WillOnce(::testing::Return(true));
-    EXPECT_CALL(*fake, open_serial_port()).WillOnce(::testing::Return(QStringLiteral("fake-adapter")));
+    EXPECT_CALL(*fake, SetIsIso14230Connection(false)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(*fake, SetIsCanConnection(false)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(*fake, SetIsIso15765Connection(true)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(*fake, SetIs29BitId(false)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(*fake, SetCanSpeed(QStringLiteral("500000"))).WillOnce(::testing::Return(true));
+    EXPECT_CALL(*fake, SetCanSourceAddress(1048574)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(*fake, SetCanDestinationAddress(33)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(*fake, SetIso15765SourceAddress(2016)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(*fake, SetIso15765DestinationAddress(2024)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(*fake, SetAddIso14230Header(false)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(*fake, OpenSerialPort()).WillOnce(::testing::Return(QStringLiteral("fake-adapter")));
+    EXPECT_CALL(*fake, ResetConnection()).WillOnce(::testing::Return());
+    EXPECT_CALL(*fake, SetIsIso14230Connection(false)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(*fake, SetIsCanConnection(true)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(*fake, SetIsIso15765Connection(false)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(*fake, SetIs29BitId(true)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(*fake, SetCanSpeed(QStringLiteral("500000"))).WillOnce(::testing::Return(true));
+    EXPECT_CALL(*fake, SetCanSourceAddress(1048574)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(*fake, SetCanDestinationAddress(33)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(*fake, SetAddIso14230Header(false)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(*fake, OpenSerialPort()).WillOnce(::testing::Return(QStringLiteral("fake-adapter")));
+    EXPECT_CALL(*fake, ResetConnection()).WillOnce(::testing::Return());
+    EXPECT_CALL(*fake, SetIsIso14230Connection(false)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(*fake, SetIsCanConnection(false)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(*fake, SetIsIso15765Connection(true)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(*fake, SetIs29BitId(false)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(*fake, SetCanSpeed(QStringLiteral("500000"))).WillOnce(::testing::Return(true));
+    EXPECT_CALL(*fake, SetCanSourceAddress(1048574)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(*fake, SetCanDestinationAddress(33)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(*fake, SetIso15765SourceAddress(2016)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(*fake, SetIso15765DestinationAddress(2024)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(*fake, SetAddIso14230Header(false)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(*fake, OpenSerialPort()).WillOnce(::testing::Return(QStringLiteral("fake-adapter")));
 
-    ASSERT_TRUE(transport.Configure(config()).has_value());
+    ASSERT_TRUE(transport.Configure(Config()).has_value());
     ASSERT_TRUE(transport.Open().has_value());
     ASSERT_TRUE(transport.EnterRawBootloaderMode().has_value());
     ASSERT_TRUE(transport.EnterIso15765KernelMode().has_value());
@@ -131,31 +131,31 @@ TEST(TestDesktopMixedCanFlashTransport, configuresIsoThenTransitionsRawAndBack)
 TEST(TestDesktopMixedCanFlashTransport, everyModeConfigurationClearsStickyIso14230HeaderState)
 {
     FakeBackend *fake = nullptr;
-    auto serial = make_serial(fake);
+    auto serial = MakeSerial(fake);
     SerialPortActions *observed = serial.get();
-    ASSERT_TRUE(observed->set_add_iso14230_header(true));
+    ASSERT_TRUE(observed->SetAddIso14230Header(true));
     DesktopMixedCanFlashTransport transport(std::move(serial));
 
-    ASSERT_TRUE(transport.Configure(config()).has_value());
-    ASSERT_EQ(observed->get_add_iso14230_header(), false);
+    ASSERT_TRUE(transport.Configure(Config()).has_value());
+    ASSERT_EQ(observed->GetAddIso14230Header(), false);
     ASSERT_TRUE(transport.Open().has_value());
 
-    ASSERT_TRUE(observed->set_add_iso14230_header(true));
+    ASSERT_TRUE(observed->SetAddIso14230Header(true));
     ASSERT_TRUE(transport.EnterRawBootloaderMode().has_value());
-    ASSERT_EQ(observed->get_add_iso14230_header(), false);
+    ASSERT_EQ(observed->GetAddIso14230Header(), false);
 
-    ASSERT_TRUE(observed->set_add_iso14230_header(true));
+    ASSERT_TRUE(observed->SetAddIso14230Header(true));
     ASSERT_TRUE(transport.EnterIso15765KernelMode().has_value());
-    ASSERT_EQ(observed->get_add_iso14230_header(), false);
+    ASSERT_EQ(observed->GetAddIso14230Header(), false);
 }
 
 TEST(TestDesktopMixedCanFlashTransport, preservesExtendedIsoIdDuringInitialConfigurationAndReturnTransition)
 {
     FakeBackend *fake = nullptr;
-    DesktopMixedCanFlashTransport transport(make_serial(fake));
-    MixedCanConfig extended = config();
+    DesktopMixedCanFlashTransport transport(MakeSerial(fake));
+    MixedCanConfig extended = Config();
     extended.kernel.extended_id = true;
-    EXPECT_CALL(*fake, set_is_29_bit_id(true)).Times(3);
+    EXPECT_CALL(*fake, SetIs29BitId(true)).Times(3);
 
     ASSERT_TRUE(transport.Configure(extended).has_value());
     ASSERT_TRUE(transport.Open().has_value());
@@ -166,16 +166,16 @@ TEST(TestDesktopMixedCanFlashTransport, preservesExtendedIsoIdDuringInitialConfi
 TEST(TestDesktopMixedCanFlashTransport, rawFrameAddsAndParsesBigEndianId)
 {
     FakeBackend *fake = nullptr;
-    DesktopMixedCanFlashTransport transport(make_serial(fake));
+    DesktopMixedCanFlashTransport transport(MakeSerial(fake));
     FakeCancellationToken cancellation;
-    ASSERT_NO_FATAL_FAILURE(configure_and_open(transport));
+    ASSERT_NO_FATAL_FAILURE(ConfigureAndOpen(transport));
     ASSERT_TRUE(transport.EnterRawBootloaderMode().has_value());
 
     const QByteArray expected_write = QByteArray::fromHex("000ffffe7a90000000000000");
-    EXPECT_CALL(*fake, write_serial_data_echo_check(expected_write)).WillOnce(::testing::Return(QByteArray{}));
+    EXPECT_CALL(*fake, WriteSerialDataEchoCheck(expected_write)).WillOnce(::testing::Return(QByteArray{}));
     ASSERT_TRUE(transport.WriteRaw({0x000ffffe, {0x7a, 0x90, 0, 0, 0, 0, 0, 0}}, cancellation).has_value());
 
-    EXPECT_CALL(*fake, read_serial_data(::testing::_))
+    EXPECT_CALL(*fake, ReadSerialData(::testing::_))
         .WillOnce(::testing::Return(QByteArray::fromHex("000000217a96000000000000")));
     const auto frame = transport.ReadRaw(800ms, cancellation);
     ASSERT_TRUE(frame.has_value());
@@ -187,29 +187,27 @@ TEST(TestDesktopMixedCanFlashTransport, rawFrameAddsAndParsesBigEndianId)
 TEST(TestDesktopMixedCanFlashTransport, configureFailsAtEverySetter)
 {
     const std::array<std::function<void(FakeBackend&)>, 10> failures{
+        [](FakeBackend& fake) { EXPECT_CALL(fake, SetIsIso14230Connection(false)).WillOnce(::testing::Return(false)); },
+        [](FakeBackend& fake) { EXPECT_CALL(fake, SetIsCanConnection(false)).WillOnce(::testing::Return(false)); },
+        [](FakeBackend& fake) { EXPECT_CALL(fake, SetIsIso15765Connection(true)).WillOnce(::testing::Return(false)); },
+        [](FakeBackend& fake) { EXPECT_CALL(fake, SetIs29BitId(false)).WillOnce(::testing::Return(false)); },
+        [](FakeBackend& fake) { EXPECT_CALL(fake, SetCanSpeed(::testing::_)).WillOnce(::testing::Return(false)); },
         [](FakeBackend& fake)
-        { EXPECT_CALL(fake, set_is_iso14230_connection(false)).WillOnce(::testing::Return(false)); },
-        [](FakeBackend& fake) { EXPECT_CALL(fake, set_is_can_connection(false)).WillOnce(::testing::Return(false)); },
+        { EXPECT_CALL(fake, SetCanSourceAddress(::testing::_)).WillOnce(::testing::Return(false)); },
         [](FakeBackend& fake)
-        { EXPECT_CALL(fake, set_is_iso15765_connection(true)).WillOnce(::testing::Return(false)); },
-        [](FakeBackend& fake) { EXPECT_CALL(fake, set_is_29_bit_id(false)).WillOnce(::testing::Return(false)); },
-        [](FakeBackend& fake) { EXPECT_CALL(fake, set_can_speed(::testing::_)).WillOnce(::testing::Return(false)); },
+        { EXPECT_CALL(fake, SetCanDestinationAddress(::testing::_)).WillOnce(::testing::Return(false)); },
         [](FakeBackend& fake)
-        { EXPECT_CALL(fake, set_can_source_address(::testing::_)).WillOnce(::testing::Return(false)); },
+        { EXPECT_CALL(fake, SetIso15765SourceAddress(::testing::_)).WillOnce(::testing::Return(false)); },
         [](FakeBackend& fake)
-        { EXPECT_CALL(fake, set_can_destination_address(::testing::_)).WillOnce(::testing::Return(false)); },
-        [](FakeBackend& fake)
-        { EXPECT_CALL(fake, set_iso15765_source_address(::testing::_)).WillOnce(::testing::Return(false)); },
-        [](FakeBackend& fake)
-        { EXPECT_CALL(fake, set_iso15765_destination_address(::testing::_)).WillOnce(::testing::Return(false)); },
-        [](FakeBackend& fake) { EXPECT_CALL(fake, set_add_iso14230_header(false)).WillOnce(::testing::Return(false)); },
+        { EXPECT_CALL(fake, SetIso15765DestinationAddress(::testing::_)).WillOnce(::testing::Return(false)); },
+        [](FakeBackend& fake) { EXPECT_CALL(fake, SetAddIso14230Header(false)).WillOnce(::testing::Return(false)); },
     };
     for (const auto& set_failure : failures)
     {
         FakeBackend *fake = nullptr;
-        DesktopMixedCanFlashTransport transport(make_serial(fake));
+        DesktopMixedCanFlashTransport transport(MakeSerial(fake));
         set_failure(*fake);
-        const auto result = transport.Configure(config());
+        const auto result = transport.Configure(Config());
         ASSERT_TRUE(!result.has_value());
         ASSERT_EQ(result.error().kind, ErrorKind::kInvalidConfig);
     }
@@ -218,10 +216,10 @@ TEST(TestDesktopMixedCanFlashTransport, configureFailsAtEverySetter)
 TEST(TestDesktopMixedCanFlashTransport, configureRejectsReconfigureWhileAlreadyConfigured)
 {
     FakeBackend *fake = nullptr;
-    DesktopMixedCanFlashTransport transport(make_serial(fake));
-    ASSERT_NO_FATAL_FAILURE(configure_and_open(transport));
+    DesktopMixedCanFlashTransport transport(MakeSerial(fake));
+    ASSERT_NO_FATAL_FAILURE(ConfigureAndOpen(transport));
 
-    const auto reconfigure = transport.Configure(config());
+    const auto reconfigure = transport.Configure(Config());
 
     ASSERT_TRUE(!reconfigure.has_value());
     ASSERT_EQ(reconfigure.error().kind, ErrorKind::kInvalidConfig);
@@ -230,9 +228,9 @@ TEST(TestDesktopMixedCanFlashTransport, configureRejectsReconfigureWhileAlreadyC
 TEST(TestDesktopMixedCanFlashTransport, poisonedTransitionMakesConfigureAndOpenSurfaceTheStaleErrorEvenAfterClose)
 {
     FakeBackend *fake = nullptr;
-    DesktopMixedCanFlashTransport transport(make_serial(fake));
-    ASSERT_NO_FATAL_FAILURE(configure_and_open(transport));
-    EXPECT_CALL(*fake, open_serial_port()).WillOnce(::testing::Return(QString{}));
+    DesktopMixedCanFlashTransport transport(MakeSerial(fake));
+    ASSERT_NO_FATAL_FAILURE(ConfigureAndOpen(transport));
+    EXPECT_CALL(*fake, OpenSerialPort()).WillOnce(::testing::Return(QString{}));
 
     const auto transition = transport.EnterRawBootloaderMode();
     ASSERT_TRUE(!transition.has_value());
@@ -241,7 +239,7 @@ TEST(TestDesktopMixedCanFlashTransport, poisonedTransitionMakesConfigureAndOpenS
     // close() must not clear the poison: it only tears down the live handle.
     ASSERT_TRUE(transport.Close().has_value());
 
-    const auto reconfigure = transport.Configure(config());
+    const auto reconfigure = transport.Configure(Config());
     ASSERT_TRUE(!reconfigure.has_value());
     ASSERT_EQ(reconfigure.error().kind, ErrorKind::kDisconnected);
 
@@ -253,31 +251,29 @@ TEST(TestDesktopMixedCanFlashTransport, poisonedTransitionMakesConfigureAndOpenS
 TEST(TestDesktopMixedCanFlashTransport, rawTransitionFailsAtEverySetterAndMakesIoTerminal)
 {
     const std::array<std::function<void(FakeBackend&)>, 8> failures{
+        [](FakeBackend& fake) { EXPECT_CALL(fake, SetIsIso14230Connection(false)).WillOnce(::testing::Return(false)); },
+        [](FakeBackend& fake) { EXPECT_CALL(fake, SetIsCanConnection(true)).WillOnce(::testing::Return(false)); },
+        [](FakeBackend& fake) { EXPECT_CALL(fake, SetIsIso15765Connection(false)).WillOnce(::testing::Return(false)); },
+        [](FakeBackend& fake) { EXPECT_CALL(fake, SetIs29BitId(true)).WillOnce(::testing::Return(false)); },
+        [](FakeBackend& fake) { EXPECT_CALL(fake, SetCanSpeed(::testing::_)).WillOnce(::testing::Return(false)); },
         [](FakeBackend& fake)
-        { EXPECT_CALL(fake, set_is_iso14230_connection(false)).WillOnce(::testing::Return(false)); },
-        [](FakeBackend& fake) { EXPECT_CALL(fake, set_is_can_connection(true)).WillOnce(::testing::Return(false)); },
+        { EXPECT_CALL(fake, SetCanSourceAddress(::testing::_)).WillOnce(::testing::Return(false)); },
         [](FakeBackend& fake)
-        { EXPECT_CALL(fake, set_is_iso15765_connection(false)).WillOnce(::testing::Return(false)); },
-        [](FakeBackend& fake) { EXPECT_CALL(fake, set_is_29_bit_id(true)).WillOnce(::testing::Return(false)); },
-        [](FakeBackend& fake) { EXPECT_CALL(fake, set_can_speed(::testing::_)).WillOnce(::testing::Return(false)); },
-        [](FakeBackend& fake)
-        { EXPECT_CALL(fake, set_can_source_address(::testing::_)).WillOnce(::testing::Return(false)); },
-        [](FakeBackend& fake)
-        { EXPECT_CALL(fake, set_can_destination_address(::testing::_)).WillOnce(::testing::Return(false)); },
-        [](FakeBackend& fake) { EXPECT_CALL(fake, set_add_iso14230_header(false)).WillOnce(::testing::Return(false)); },
+        { EXPECT_CALL(fake, SetCanDestinationAddress(::testing::_)).WillOnce(::testing::Return(false)); },
+        [](FakeBackend& fake) { EXPECT_CALL(fake, SetAddIso14230Header(false)).WillOnce(::testing::Return(false)); },
     };
     for (const auto& set_failure : failures)
     {
         FakeBackend *fake = nullptr;
-        DesktopMixedCanFlashTransport transport(make_serial(fake));
+        DesktopMixedCanFlashTransport transport(MakeSerial(fake));
         FakeCancellationToken cancellation;
-        ASSERT_NO_FATAL_FAILURE(configure_and_open(transport));
+        ASSERT_NO_FATAL_FAILURE(ConfigureAndOpen(transport));
         set_failure(*fake);
 
         const auto transition = transport.EnterRawBootloaderMode();
         ASSERT_TRUE(!transition.has_value());
         ASSERT_EQ(transition.error().kind, ErrorKind::kInvalidConfig);
-        EXPECT_CALL(*fake, write_serial_data_echo_check(::testing::_)).Times(0);
+        EXPECT_CALL(*fake, WriteSerialDataEchoCheck(::testing::_)).Times(0);
         const auto write = transport.WriteIso15765(bytes::Bytes{0x01}, cancellation);
         ASSERT_TRUE(!write.has_value());
         ASSERT_EQ(write.error().kind, ErrorKind::kInvalidConfig);
@@ -287,15 +283,15 @@ TEST(TestDesktopMixedCanFlashTransport, rawTransitionFailsAtEverySetterAndMakesI
 TEST(TestDesktopMixedCanFlashTransport, failedReopenMakesFollowingIoTerminal)
 {
     FakeBackend *fake = nullptr;
-    DesktopMixedCanFlashTransport transport(make_serial(fake));
+    DesktopMixedCanFlashTransport transport(MakeSerial(fake));
     FakeCancellationToken cancellation;
-    ASSERT_NO_FATAL_FAILURE(configure_and_open(transport));
-    EXPECT_CALL(*fake, open_serial_port()).WillOnce(::testing::Return(QString{}));
+    ASSERT_NO_FATAL_FAILURE(ConfigureAndOpen(transport));
+    EXPECT_CALL(*fake, OpenSerialPort()).WillOnce(::testing::Return(QString{}));
 
     const auto transition = transport.EnterRawBootloaderMode();
     ASSERT_TRUE(!transition.has_value());
     ASSERT_EQ(transition.error().kind, ErrorKind::kDisconnected);
-    EXPECT_CALL(*fake, write_serial_data_echo_check(::testing::_)).Times(0);
+    EXPECT_CALL(*fake, WriteSerialDataEchoCheck(::testing::_)).Times(0);
     const auto write = transport.WriteRaw({0x000ffffe, {0x7a}}, cancellation);
     ASSERT_TRUE(!write.has_value());
     ASSERT_EQ(write.error().kind, ErrorKind::kDisconnected);
@@ -304,17 +300,17 @@ TEST(TestDesktopMixedCanFlashTransport, failedReopenMakesFollowingIoTerminal)
 TEST(TestDesktopMixedCanFlashTransport, rawReadRejectsShortFrameAndWrongReceiveId)
 {
     FakeBackend *fake = nullptr;
-    DesktopMixedCanFlashTransport transport(make_serial(fake));
+    DesktopMixedCanFlashTransport transport(MakeSerial(fake));
     FakeCancellationToken cancellation;
-    ASSERT_NO_FATAL_FAILURE(configure_and_open(transport));
+    ASSERT_NO_FATAL_FAILURE(ConfigureAndOpen(transport));
     ASSERT_TRUE(transport.EnterRawBootloaderMode().has_value());
 
-    EXPECT_CALL(*fake, read_serial_data(::testing::_)).WillOnce(::testing::Return(QByteArray::fromHex("000021")));
+    EXPECT_CALL(*fake, ReadSerialData(::testing::_)).WillOnce(::testing::Return(QByteArray::fromHex("000021")));
     const auto short_frame = transport.ReadRaw(10ms, cancellation);
     ASSERT_TRUE(!short_frame.has_value());
     ASSERT_EQ(short_frame.error().kind, ErrorKind::kBadResponse);
 
-    EXPECT_CALL(*fake, read_serial_data(::testing::_)).WillOnce(::testing::Return(QByteArray::fromHex("000000227a96")));
+    EXPECT_CALL(*fake, ReadSerialData(::testing::_)).WillOnce(::testing::Return(QByteArray::fromHex("000000227a96")));
     const auto wrong_id = transport.ReadRaw(10ms, cancellation);
     ASSERT_TRUE(!wrong_id.has_value());
     ASSERT_EQ(wrong_id.error().kind, ErrorKind::kBadResponse);
@@ -323,10 +319,10 @@ TEST(TestDesktopMixedCanFlashTransport, rawReadRejectsShortFrameAndWrongReceiveI
 TEST(TestDesktopMixedCanFlashTransport, clearReceiveBufferRejectsBackendFailure)
 {
     FakeBackend *fake = nullptr;
-    DesktopMixedCanFlashTransport transport(make_serial(fake));
-    ASSERT_NO_FATAL_FAILURE(configure_and_open(transport));
+    DesktopMixedCanFlashTransport transport(MakeSerial(fake));
+    ASSERT_NO_FATAL_FAILURE(ConfigureAndOpen(transport));
     ASSERT_TRUE(transport.EnterRawBootloaderMode().has_value());
-    EXPECT_CALL(*fake, clear_rx_buffer()).WillOnce(::testing::Return(kSerialError));
+    EXPECT_CALL(*fake, ClearRxBuffer()).WillOnce(::testing::Return(kSerialError));
 
     const auto result = transport.ClearReceiveBuffer();
     ASSERT_TRUE(!result.has_value());
@@ -337,18 +333,18 @@ TEST(TestDesktopMixedCanFlashTransport, detectsDisconnectionBeforeAndDuringIo)
 {
     ::testing::InSequence sequence;
     FakeBackend *fake = nullptr;
-    DesktopMixedCanFlashTransport transport(make_serial(fake));
+    DesktopMixedCanFlashTransport transport(MakeSerial(fake));
     FakeCancellationToken cancellation;
-    ASSERT_NO_FATAL_FAILURE(configure_and_open(transport));
+    ASSERT_NO_FATAL_FAILURE(ConfigureAndOpen(transport));
 
-    EXPECT_CALL(*fake, is_serial_port_open()).WillOnce(::testing::Return(false));
+    EXPECT_CALL(*fake, IsSerialPortOpen()).WillOnce(::testing::Return(false));
     const auto before_write = transport.WriteIso15765(bytes::Bytes{0x01}, cancellation);
     ASSERT_TRUE(!before_write.has_value());
     ASSERT_EQ(before_write.error().kind, ErrorKind::kDisconnected);
 
-    EXPECT_CALL(*fake, is_serial_port_open()).WillOnce(::testing::Return(true));
-    EXPECT_CALL(*fake, read_serial_data(::testing::_)).WillOnce(::testing::Return(QByteArray("\x01", 1)));
-    EXPECT_CALL(*fake, is_serial_port_open()).WillOnce(::testing::Return(false));
+    EXPECT_CALL(*fake, IsSerialPortOpen()).WillOnce(::testing::Return(true));
+    EXPECT_CALL(*fake, ReadSerialData(::testing::_)).WillOnce(::testing::Return(QByteArray("\x01", 1)));
+    EXPECT_CALL(*fake, IsSerialPortOpen()).WillOnce(::testing::Return(false));
     const auto during_read = transport.ReadIso15765(10ms, cancellation);
     ASSERT_TRUE(!during_read.has_value());
     ASSERT_EQ(during_read.error().kind, ErrorKind::kDisconnected);
@@ -357,17 +353,17 @@ TEST(TestDesktopMixedCanFlashTransport, detectsDisconnectionBeforeAndDuringIo)
 TEST(TestDesktopMixedCanFlashTransport, catchesStandardAndNonstandardBackendExceptions)
 {
     FakeBackend *fake = nullptr;
-    DesktopMixedCanFlashTransport transport(make_serial(fake));
+    DesktopMixedCanFlashTransport transport(MakeSerial(fake));
     FakeCancellationToken cancellation;
-    ASSERT_NO_FATAL_FAILURE(configure_and_open(transport));
+    ASSERT_NO_FATAL_FAILURE(ConfigureAndOpen(transport));
 
-    EXPECT_CALL(*fake, write_serial_data_echo_check(::testing::_))
+    EXPECT_CALL(*fake, WriteSerialDataEchoCheck(::testing::_))
         .WillOnce(::testing::Throw(std::runtime_error("scripted backend write failure")));
     const auto standard = transport.WriteIso15765(bytes::Bytes{0x01}, cancellation);
     ASSERT_TRUE(!standard.has_value());
     ASSERT_EQ(standard.error().kind, ErrorKind::kInternal);
 
-    EXPECT_CALL(*fake, write_serial_data_echo_check(::testing::_)).WillOnce(ThrowNonStandardBackendFailure());
+    EXPECT_CALL(*fake, WriteSerialDataEchoCheck(::testing::_)).WillOnce(ThrowNonStandardBackendFailure());
     const auto nonstandard = transport.WriteIso15765(bytes::Bytes{0x01}, cancellation);
     ASSERT_TRUE(!nonstandard.has_value());
     ASSERT_EQ(nonstandard.error().kind, ErrorKind::kInternal);
@@ -376,10 +372,10 @@ TEST(TestDesktopMixedCanFlashTransport, catchesStandardAndNonstandardBackendExce
 TEST(TestDesktopMixedCanFlashTransport, cancellationAndUnblockSuppressSubsequentIo)
 {
     FakeBackend *fake = nullptr;
-    DesktopMixedCanFlashTransport transport(make_serial(fake));
+    DesktopMixedCanFlashTransport transport(MakeSerial(fake));
     FakeCancellationToken cancelled(true);
-    ASSERT_NO_FATAL_FAILURE(configure_and_open(transport));
-    EXPECT_CALL(*fake, write_serial_data_echo_check(::testing::_)).Times(0);
+    ASSERT_NO_FATAL_FAILURE(ConfigureAndOpen(transport));
+    EXPECT_CALL(*fake, WriteSerialDataEchoCheck(::testing::_)).Times(0);
 
     const auto cancelled_write = transport.WriteIso15765(bytes::Bytes{0x01}, cancelled);
     ASSERT_TRUE(!cancelled_write.has_value());
@@ -387,7 +383,7 @@ TEST(TestDesktopMixedCanFlashTransport, cancellationAndUnblockSuppressSubsequent
 
     FakeCancellationToken cancellation;
     transport.RequestUnblock();
-    EXPECT_CALL(*fake, read_serial_data(::testing::_)).Times(0);
+    EXPECT_CALL(*fake, ReadSerialData(::testing::_)).Times(0);
     const auto unblocked_read = transport.ReadIso15765(10ms, cancellation);
     ASSERT_TRUE(!unblocked_read.has_value());
     ASSERT_EQ(unblocked_read.error().kind, ErrorKind::kCancelled);
@@ -396,14 +392,14 @@ TEST(TestDesktopMixedCanFlashTransport, cancellationAndUnblockSuppressSubsequent
 TEST(TestDesktopMixedCanFlashTransport, nonOwningCloseDoesNotDestroyCallerSerial)
 {
     FakeBackend *fake = nullptr;
-    auto serial = make_serial(fake);
+    auto serial = MakeSerial(fake);
     bool destroyed = false;
     fake->destroyed = &destroyed;
 
     DesktopMixedCanFlashTransport transport(serial.get());
     ASSERT_TRUE(transport.Close().has_value());
     ASSERT_TRUE(!destroyed);
-    const bool still_callable = serial->is_serial_port_open();
+    const bool still_callable = serial->IsSerialPortOpen();
     Q_UNUSED(still_callable);
     serial.reset();
     ASSERT_TRUE(destroyed);

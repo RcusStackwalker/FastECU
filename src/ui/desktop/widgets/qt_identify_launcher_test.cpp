@@ -55,8 +55,8 @@ class QtIdentifyLauncherTest : public ::testing::Test
 
     bool wait_for_completions(std::size_t count)
     {
-        return fastecu::testing::wait_until([&] { return completions_.size() >= count; },
-                                            std::chrono::milliseconds(5000));
+        return fastecu::testing::WaitUntil([&] { return completions_.size() >= count; },
+                                           std::chrono::milliseconds(5000));
     }
 
     bool answer_ecu_ = true;

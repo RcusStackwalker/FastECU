@@ -43,15 +43,15 @@ class J2534 : public QObject
     bool serial_port_protocol_iso14230 = false;
     bool j2534_init_ok = false;
 
-    bool is_serial_port_open();
+    bool IsSerialPortOpen();
 
-    bool init()
+    bool Init()
     {
         return true;
     };
-    void setDllName(const char * /*name*/) {}; // For Win/Linux compatibility only
-    void getDllName(char * /*name*/) {};       // For Win/Linux compatibility only
-    void debug(bool enable)
+    void SetDllName(const char * /*name*/) {}; // For Win/Linux compatibility only
+    void GetDllName(char * /*name*/) {};       // For Win/Linux compatibility only
+    void Debug(bool enable)
     {
         debug_mode_ = enable;
     };
@@ -78,14 +78,14 @@ class J2534 : public QObject
     long PassThruGetLastError(char *p_error_description);
     long PassThruIoctl(unsigned long channel_id, unsigned long ioctl_id, const void *p_input, void *p_output);
 
-    QString open_serial_port(const QString& serial_port);
-    void close_serial_port();
-    QByteArray read_serial_data(std::uint32_t datalen, std::uint16_t timeout);
-    int write_serial_data(const QByteArray& output);
-    QByteArray write_serial_iso14230_data(QByteArray output);
-    QString parseMessageToHex(const QByteArray& received);
-    std::uint32_t parse_ts(const char *data);
-    bool get_is_tx_done();
+    QString OpenSerialPort(const QString& serial_port);
+    void CloseSerialPort();
+    QByteArray ReadSerialData(std::uint32_t datalen, std::uint16_t timeout);
+    int WriteSerialData(const QByteArray& output);
+    QByteArray WriteSerialIso14230Data(QByteArray output);
+    QString ParseMessageToHex(const QByteArray& received);
+    std::uint32_t ParseTs(const char *data);
+    bool GetIsTxDone();
 
   private:
     bool debug_mode_{};
@@ -126,11 +126,11 @@ class J2534 : public QObject
         kTxLbStartInd = 0xA0,
     };
 
-    int is_valid_sconfig_param(SCONFIG s);
-    void dump_sbyte_array(const SByteArray *s);
-    void dump_sconfig_param(SCONFIG s);
+    int IsValidSconfigParam(SCONFIG s);
+    void DumpSbyteArray(const SByteArray *s);
+    void DumpSconfigParam(SCONFIG s);
 
-    void delay(int n);
+    void Delay(int n);
 
   private slots:
     void handle_error(QSerialPort::SerialPortError error);

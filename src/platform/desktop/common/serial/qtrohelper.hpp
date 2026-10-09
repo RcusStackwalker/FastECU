@@ -9,51 +9,51 @@
 namespace qtrohelper
 {
 // Convert QVariant to scalar templates
-template <typename T> T qvariant_to_scalar(QVariant v);
+template <typename T> T QvariantToScalar(QVariant v);
 
-template <> inline long qvariant_to_scalar<long>(QVariant v)
+template <> inline long QvariantToScalar<long>(QVariant v)
 {
     // QVariant stores integers as 64 bits; long is 32 bits on Windows. The
     // value was a long on the sending side, so it round-trips.
     return static_cast<long>(v.toLongLong());
 }
 
-template <> inline unsigned long qvariant_to_scalar<unsigned long>(QVariant v)
+template <> inline unsigned long QvariantToScalar<unsigned long>(QVariant v)
 {
     return v.toULongLong();
 }
 
-template <> inline int qvariant_to_scalar<int>(QVariant v)
+template <> inline int QvariantToScalar<int>(QVariant v)
 {
     return v.toInt();
 }
 
-template <> inline unsigned int qvariant_to_scalar<unsigned int>(QVariant v)
+template <> inline unsigned int QvariantToScalar<unsigned int>(QVariant v)
 {
     return v.toUInt();
 }
 
-template <> inline unsigned char qvariant_to_scalar<unsigned char>(QVariant v)
+template <> inline unsigned char QvariantToScalar<unsigned char>(QVariant v)
 {
     return v.toInt();
 }
 
-template <> inline bool qvariant_to_scalar<bool>(QVariant v)
+template <> inline bool QvariantToScalar<bool>(QVariant v)
 {
     return v.toBool();
 }
 
-template <> inline QString qvariant_to_scalar<QString>(QVariant v)
+template <> inline QString QvariantToScalar<QString>(QVariant v)
 {
     return v.toString();
 }
 
-template <> inline QByteArray qvariant_to_scalar<QByteArray>(QVariant v)
+template <> inline QByteArray QvariantToScalar<QByteArray>(QVariant v)
 {
     return v.toByteArray();
 }
 
-template <> inline QStringList qvariant_to_scalar<QStringList>(QVariant v)
+template <> inline QStringList QvariantToScalar<QStringList>(QVariant v)
 {
     return v.toStringList();
 }
@@ -88,7 +88,7 @@ template <> inline QStringList qvariant_to_scalar<QStringList>(QVariant v)
  *   slot_sync<QRemoteObjectPendingReply<long>, long>(qtro_remote->someFunc("text"))
  */
 template <template <typename> typename QRemoteObjectPendingReply, typename RetType>
-RetType slot_sync(const QRemoteObjectPendingReply<RetType>& slot)
+RetType SlotSync(const QRemoteObjectPendingReply<RetType>& slot)
 {
     QVariant r;
     QScopedPointer<QRemoteObjectPendingCallWatcher> watcher{new QRemoteObjectPendingCallWatcher(slot)};
@@ -96,7 +96,7 @@ RetType slot_sync(const QRemoteObjectPendingReply<RetType>& slot)
         watcher.data(), &QRemoteObjectPendingCallWatcher::finished, watcher.data(),
         [&](QRemoteObjectPendingCallWatcher *watch) { r = watch->returnValue(); }, Qt::DirectConnection);
     watcher->waitForFinished();
-    return qvariant_to_scalar<RetType>(r);
+    return QvariantToScalar<RetType>(r);
 }
 
 } // namespace qtrohelper

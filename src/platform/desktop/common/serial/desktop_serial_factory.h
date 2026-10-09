@@ -37,9 +37,9 @@ using SerialConnection = std::variant<DirectSerial, RemoteSerial>;
 // The backend factory for a connection. The facade calls it once, lazily, on
 // its I/O thread; separate from make_serial_port_actions so the choice can be
 // tested without starting that thread.
-std::function<SerialBackend *()> make_serial_backend_factory(const SerialConnection& connection);
+std::function<SerialBackend *()> MakeSerialBackendFactory(const SerialConnection& connection);
 
 // Builds the facade over the connection's backend and routes its
 // LOG_E/LOG_W/LOG_I/LOG_D signals to log_sink's
 // log_messages(QString, bool, bool) slot.
-OwnedSerialPortActions make_serial_port_actions(const SerialConnection& connection, QObject& log_sink);
+OwnedSerialPortActions MakeSerialPortActions(const SerialConnection& connection, QObject& log_sink);

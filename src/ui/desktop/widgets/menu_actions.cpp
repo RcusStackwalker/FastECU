@@ -315,19 +315,19 @@ void MainWindow::paste_value()
 void MainWindow::connect_to_ecu(std::function<void(bool)> onDone)
 {
     connection_coordinator_->cancel();
-    if (logging_engine_->isRunning())
+    if (logging_engine_->IsRunning())
     {
-        logging_engine_->stop();
+        logging_engine_->Stop();
         restoreLoggingUiState();
     }
     ecuid_.clear();
     ecu_init_complete_ = false;
     set_status_bar_label(false, false, "");
-    connection_->reset();
+    connection_->Reset();
 
     qDebug() << "Opening interface, please wait...";
     open_serial_port();
-    if (!connection_->is_open())
+    if (!connection_->IsOpen())
     {
         QMessageBox::warning(this, tr("Serial port"), "Could not open interface!");
         if (onDone)
@@ -386,7 +386,7 @@ void MainWindow::ConnectionPresentation::identified(const fastecu::ui::IdentifyO
     window_.set_status_bar_label(true, !window_.ecuid_.isEmpty(), window_.ecuid_);
     if (!outcome.init_response.empty())
     {
-        window_.parse_log_value_list(bytes::toQByteArray(outcome.init_response), "SSM");
+        window_.parse_log_value_list(bytes::ToQByteArray(outcome.init_response), "SSM");
     }
 }
 
@@ -403,7 +403,7 @@ void MainWindow::disconnect_from_ecu()
     ecuid_.clear();
     ecu_init_complete_ = false;
     set_status_bar_label(false, false, "");
-    connection_->return_to_idle();
+    connection_->ReturnToIdle();
 
     serial_port_list_->setEnabled(true);
     refresh_serial_port_list_->setEnabled(true);
@@ -497,7 +497,7 @@ void MainWindow::toggle_realtime()
             datalog_file_.close();
         }
 
-        logging_engine_->stop();
+        logging_engine_->Stop();
 
         // disconnect_from_ecu();
     }
@@ -543,7 +543,7 @@ void MainWindow::continue_start_logging()
                          .reconnect_retry_period = 10};
     }
 
-    auto snapshot = fastecu::desktop::logging::make_desktop_logging_snapshot(
+    auto snapshot = fastecu::desktop::logging::MakeDesktopLoggingSnapshot(
         *logger_model_, protocolId, active_log_value_protocol_filter_, loggingPolicy);
     if (!snapshot.has_value())
     {
@@ -555,7 +555,7 @@ void MainWindow::continue_start_logging()
 
     snapshot->target_is_ecu = ecu_radio_button_->isChecked();
     active_logging_snapshot_.emplace(*snapshot);
-    const auto started = logging_engine_->start(config, std::move(*snapshot));
+    const auto started = logging_engine_->Start(config, std::move(*snapshot));
     if (!started.has_value())
     {
         restoreLoggingUiState();
@@ -587,14 +587,14 @@ void MainWindow::show_dtc_window()
         QMessageBox::warning(this, tr("Serial port"), "No serial port selected!");
         return;
     }
-    connection_->reset();
+    connection_->Reset();
     ecuid_.clear();
     ecu_init_complete_ = false;
-    connection_->select_port(port);
+    connection_->SelectPort(port);
 
     emit LOG_D("Starting DTC operations", true, true);
 
-    fastecu::diagnostics::SerialDiagnosticLink link(&connection_->facade());
+    fastecu::diagnostics::SerialDiagnosticLink link(&connection_->Facade());
     DtcOperations dtcOperations(link, this);
     QObject::connect(&dtcOperations, &DtcOperations::LOG_E, log_channel_, &fastecu::ui::LogChannel::LOG_E);
     QObject::connect(&dtcOperations, &DtcOperations::LOG_W, log_channel_, &fastecu::ui::LogChannel::LOG_W);
@@ -619,7 +619,7 @@ void MainWindow::show_hex_editor()
     // copy of the image, so it may outlive the ROM it was opened from.
     if (auto *session = selected_calibration(); session != nullptr)
     {
-        HexEdit *hexEdit = new HexEdit(bytes::toQByteArray(session->Rom()),
+        HexEdit *hexEdit = new HexEdit(bytes::ToQByteArray(session->Rom()),
                                        QString::fromStdString(session->Source().display_name), this);
         hexEdit->setAttribute(Qt::WA_DeleteOnClose);
     }
@@ -642,16 +642,16 @@ void MainWindow::show_subaru_biu_window()
     }
     ecuid_.clear();
     ecu_init_complete_ = false;
-    connection_->select_port(port);
+    connection_->SelectPort(port);
 
-    fastecu::diagnostics::SerialDiagnosticLink link(&connection_->facade());
+    fastecu::diagnostics::SerialDiagnosticLink link(&connection_->Facade());
     const auto opened = link.Open(fastecu::diagnostics::KlineLinkConfig{
         .header = fastecu::diagnostics::KlineHeader::kNone, .iso14230_connection = true, .baud = 10400});
     if (opened.has_value())
     {
         // The legacy BIU path opened through open_serial_port, which also
         // remembered the port; keep that.
-        remember_opened_port(port, connection_->opened_port());
+        remember_opened_port(port, connection_->OpenedPort());
     }
     set_status_bar_label(opened.has_value(), false, "");
     if (!opened.has_value())
@@ -681,8 +681,8 @@ void MainWindow::show_terminal_window()
         QMessageBox::warning(this, tr("Serial port"), "No serial port selected!");
         return;
     }
-    connection_->select_port(port);
-    fastecu::diagnostics::SerialDiagnosticLink link(&connection_->facade());
+    connection_->SelectPort(port);
+    fastecu::diagnostics::SerialDiagnosticLink link(&connection_->Facade());
     DataTerminal hexCommander(link, this);
     QObject::connect(&hexCommander, &DataTerminal::LOG_E, log_channel_, &fastecu::ui::LogChannel::LOG_E);
     QObject::connect(&hexCommander, &DataTerminal::LOG_W, log_channel_, &fastecu::ui::LogChannel::LOG_W);

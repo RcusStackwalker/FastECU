@@ -46,11 +46,11 @@ LoggingWorker::LoggingWorker(fastecu::logging::LoggingSession session, fastecu::
 
 LoggingWorker::~LoggingWorker()
 {
-    requestStop();
+    RequestStop();
     wait();
 }
 
-void LoggingWorker::requestStop()
+void LoggingWorker::RequestStop()
 {
     cancellation_.Cancel();
 }

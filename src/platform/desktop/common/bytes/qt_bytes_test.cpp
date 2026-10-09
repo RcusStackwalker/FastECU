@@ -116,57 +116,57 @@ TEST(TestBytes, writeBe_outOfBoundsIsNoOp)
 TEST(TestBytes, qByteArrayAppendU32Be_matchesSpanVersion)
 {
     QByteArray out;
-    bytes::appendU32Be(out, 0x12345678);
+    bytes::AppendU32Be(out, 0x12345678);
     ASSERT_EQ(out, QByteArray::fromHex("12345678"));
 }
 
 TEST(TestBytes, qByteArrayAppendU32Le_matchesSpanVersion)
 {
     QByteArray out;
-    bytes::appendU32Le(out, 0x12345678);
+    bytes::AppendU32Le(out, 0x12345678);
     ASSERT_EQ(out, QByteArray::fromHex("78563412"));
 }
 
 TEST(TestBytes, qByteArrayWriteU16Be_writesAtOffset)
 {
     QByteArray out = QByteArray::fromHex("aaaaaaaa");
-    bytes::writeU16Be(out, 1, 0x1234);
+    bytes::WriteU16Be(out, 1, 0x1234);
     ASSERT_EQ(out, QByteArray::fromHex("aa1234aa"));
 }
 
 TEST(TestBytes, qByteArrayWriteU32Le_writesLittleEndianBytes)
 {
     QByteArray out(4, '\0');
-    bytes::writeU32Le(out, 0, 0x12345678);
+    bytes::WriteU32Le(out, 0, 0x12345678);
     ASSERT_EQ(out, QByteArray::fromHex("78563412"));
 }
 
 TEST(TestBytes, qByteArrayToHex_preservesTrailingSpaceFormat)
 {
-    ASSERT_EQ(bytes::toHex(QByteArray::fromHex("800102ff")), QString("80 01 02 ff "));
-    ASSERT_EQ(bytes::toHex(QByteArray()), QString());
+    ASSERT_EQ(bytes::ToHex(QByteArray::fromHex("800102ff")), QString("80 01 02 ff "));
+    ASSERT_EQ(bytes::ToHex(QByteArray()), QString());
 }
 
 TEST(TestBytes, emptyConversions)
 {
     const QByteArray empty;
-    EXPECT_TRUE(bytes::view(empty).empty());
-    EXPECT_TRUE(bytes::fromQByteArray(empty).empty());
-    EXPECT_TRUE(bytes::toQByteArray(bytes::ByteView{}).isEmpty());
+    EXPECT_TRUE(bytes::View(empty).empty());
+    EXPECT_TRUE(bytes::FromQByteArray(empty).empty());
+    EXPECT_TRUE(bytes::ToQByteArray(bytes::ByteView{}).isEmpty());
 }
 
 TEST(TestBytes, ownedRoundTripPreservesBinaryBytes)
 {
     const QByteArray original = QByteArray::fromHex("00ff7f");
-    const bytes::Bytes owned = bytes::fromQByteArray(original);
+    const bytes::Bytes owned = bytes::FromQByteArray(original);
     ASSERT_THAT(owned, ElementsAre(0x00, 0xFF, 0x7F));
-    EXPECT_EQ(bytes::toQByteArray(owned), original);
+    EXPECT_EQ(bytes::ToQByteArray(owned), original);
 }
 
 TEST(TestBytes, mutableViewAliasesSource)
 {
     QByteArray original = QByteArray::fromHex("001122");
-    auto borrowed = bytes::mutableView(original);
+    auto borrowed = bytes::MutableView(original);
     borrowed[1] = 0xFF;
     EXPECT_EQ(original, QByteArray::fromHex("00ff22"));
 }
@@ -174,7 +174,7 @@ TEST(TestBytes, mutableViewAliasesSource)
 TEST(TestBytes, fromQByteArrayCopiesSource)
 {
     QByteArray original = QByteArray::fromHex("00ff");
-    const bytes::Bytes owned = bytes::fromQByteArray(original);
+    const bytes::Bytes owned = bytes::FromQByteArray(original);
     original[0] = '\x7f';
     EXPECT_THAT(owned, ElementsAre(0x00, 0xFF));
 }
@@ -182,6 +182,6 @@ TEST(TestBytes, fromQByteArrayCopiesSource)
 TEST(TestBytes, shortQByteArrayWriteIsNoOp)
 {
     QByteArray original = QByteArray::fromHex("aabb");
-    bytes::writeU32Be(original, 0, 0x12345678);
+    bytes::WriteU32Be(original, 0, 0x12345678);
     EXPECT_EQ(original, QByteArray::fromHex("aabb"));
 }

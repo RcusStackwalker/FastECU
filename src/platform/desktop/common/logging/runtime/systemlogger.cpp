@@ -20,7 +20,7 @@ SystemLogger::~SystemLogger()
     }
 }
 
-void SystemLogger::run()
+void SystemLogger::Run()
 {
     emit LOG_I("SystemLogger started...", true, true);
 }
@@ -90,11 +90,11 @@ void SystemLogger::log_messages(const QString& message, bool timestamp, bool lin
 
     if (write_syslog_to_file_)
     {
-        write_syslog(msg);
+        WriteSyslog(msg);
     }
 }
 
-bool SystemLogger::write_syslog(const QString& msg)
+bool SystemLogger::WriteSyslog(const QString& msg)
 {
     // Open file for writing if needed
     if (!syslog_file_open_)

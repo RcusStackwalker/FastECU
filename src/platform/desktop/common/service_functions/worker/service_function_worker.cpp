@@ -10,7 +10,7 @@ namespace fastecu::service_functions
 {
 namespace
 {
-ServiceFunctionWorkerResult failureResult(const Error& error)
+ServiceFunctionWorkerResult FailureResult(const Error& error)
 {
     return ServiceFunctionWorkerResult{
         .success = false,
@@ -32,14 +32,14 @@ ServiceFunctionWorker::ServiceFunctionWorker(std::unique_ptr<ServiceFunctionSess
 
 ServiceFunctionWorker::~ServiceFunctionWorker()
 {
-    requestStop();
+    RequestStop();
     // Dependencies below are owned members used by run(). A timed wait that
     // expires would destroy them underneath an active session, so teardown
     // does not return until the worker thread has actually joined.
     wait();
 }
 
-void ServiceFunctionWorker::requestStop()
+void ServiceFunctionWorker::RequestStop()
 {
     cancellation_.Cancel();
     const QMutexLocker lock(&gate_mutex_);
@@ -47,7 +47,7 @@ void ServiceFunctionWorker::requestStop()
     gate_answered_.wakeAll();
 }
 
-void ServiceFunctionWorker::answerGate(int gate_id, bool accepted)
+void ServiceFunctionWorker::AnswerGate(int gate_id, bool accepted)
 {
     const QMutexLocker lock(&gate_mutex_);
     if (!gate_pending_ || gate_id != pending_gate_id_ || gate_response_.has_value())
@@ -58,7 +58,7 @@ void ServiceFunctionWorker::answerGate(int gate_id, bool accepted)
     gate_answered_.wakeAll();
 }
 
-std::optional<GateResponse> ServiceFunctionWorker::waitForGate()
+std::optional<GateResponse> ServiceFunctionWorker::WaitForGate()
 {
     QMutexLocker lock(&gate_mutex_);
     while (!stopping_ && !gate_response_.has_value())
@@ -80,13 +80,13 @@ void ServiceFunctionWorker::run()
     const Result<SsmTransportConfig> setup = session_->TransportSetup();
     if (!setup.has_value())
     {
-        emit finished(failureResult(setup.error()));
+        emit finished(FailureResult(setup.error()));
         return;
     }
 
-    if (const Status configured = configurator_->apply(*setup); !configured.has_value())
+    if (const Status configured = configurator_->Apply(*setup); !configured.has_value())
     {
-        emit finished(failureResult(configured.error()));
+        emit finished(FailureResult(configured.error()));
         return;
     }
 
@@ -109,12 +109,12 @@ void ServiceFunctionWorker::run()
                 gate_response_.reset();
             }
             emit gateRequested(static_cast<int>(gate->id));
-            if (const std::optional<GateResponse> response = waitForGate(); response.has_value())
+            if (const std::optional<GateResponse> response = WaitForGate(); response.has_value())
             {
                 session_->Submit(*response);
                 continue;
             }
-            emit finished(failureResult(Error{ErrorKind::kCancelled, "cancelled while waiting for operator gate"}));
+            emit finished(FailureResult(Error{ErrorKind::kCancelled, "cancelled while waiting for operator gate"}));
             return;
         }
         if (auto *completed = std::get_if<CompletedStep>(&step); completed != nullptr)
@@ -126,7 +126,7 @@ void ServiceFunctionWorker::run()
             return;
         }
 
-        emit finished(failureResult(std::get<FailedStep>(step).error));
+        emit finished(FailureResult(std::get<FailedStep>(step).error));
         return;
     }
 }

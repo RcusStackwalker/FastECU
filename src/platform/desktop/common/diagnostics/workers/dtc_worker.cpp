@@ -15,12 +15,12 @@ DtcWorker::DtcWorker(DtcRequest request, IDiagnosticLink& link, std::unique_ptr<
 
 DtcWorker::~DtcWorker()
 {
-    requestStop();
+    RequestStop();
     // run() uses owned members; join fully before they are destroyed.
     wait();
 }
 
-void DtcWorker::requestStop()
+void DtcWorker::RequestStop()
 {
     cancellation_.Cancel();
 }

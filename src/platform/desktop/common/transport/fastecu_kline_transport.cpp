@@ -11,15 +11,15 @@ fastecu::Status FastEcuKlineTransport::SetBaud(int baud)
 {
     try
     {
-        if (!serial_ || !serial_->is_serial_port_open())
+        if (!serial_ || !serial_->IsSerialPortOpen())
         {
             return fastecu::Fail(fastecu::ErrorKind::kDisconnected, "K-Line adapter disconnected before baud change");
         }
-        if (serial_->change_port_speed(QString::number(baud)) == 0)
+        if (serial_->ChangePortSpeed(QString::number(baud)) == 0)
         {
             return {};
         }
-        if (!serial_->is_serial_port_open())
+        if (!serial_->IsSerialPortOpen())
         {
             return fastecu::Fail(fastecu::ErrorKind::kDisconnected, "K-Line adapter disconnected during baud change");
         }
@@ -39,12 +39,12 @@ fastecu::Result<std::size_t> FastEcuKlineTransport::Write(bytes::ByteView data)
 {
     try
     {
-        if (!serial_ || !serial_->is_serial_port_open())
+        if (!serial_ || !serial_->IsSerialPortOpen())
         {
             return fastecu::Fail(fastecu::ErrorKind::kDisconnected, "K-Line adapter disconnected before write");
         }
-        serial_->write_serial_data(bytes::toQByteArray(data));
-        if (!serial_->is_serial_port_open())
+        serial_->WriteSerialData(bytes::ToQByteArray(data));
+        if (!serial_->IsSerialPortOpen())
         {
             return fastecu::Fail(fastecu::ErrorKind::kDisconnected, "K-Line adapter disconnected during write");
         }
@@ -68,14 +68,14 @@ FastEcuKlineTransport::Read(std::chrono::milliseconds timeout, const fastecu::IC
         return fastecu::Fail(fastecu::ErrorKind::kCancelled, "K-Line read cancelled before driver call");
     }
 
-    return fastecu::desktop::detail::read_serial(serial_, timeout, cancellation, [this](std::uint16_t driver_timeout)
-                                                 { return serial_->read_serial_data(driver_timeout); });
+    return fastecu::desktop::detail::ReadSerial(serial_, timeout, cancellation, [this](std::uint16_t driver_timeout)
+                                                { return serial_->ReadSerialData(driver_timeout); });
 }
 bool FastEcuKlineTransport::IsOpen() const
 {
     try
     {
-        return serial_ && serial_->is_serial_port_open();
+        return serial_ && serial_->IsSerialPortOpen();
     }
     catch (...)
     {

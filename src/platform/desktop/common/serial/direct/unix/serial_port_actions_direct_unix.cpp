@@ -5,7 +5,7 @@
 
 #include "src/platform/desktop/common/serial/j2534_driver_selection.h"
 
-void SerialPortActionsDirect::connect_j2534_logs()
+void SerialPortActionsDirect::ConnectJ2534Logs()
 {
     QObject::connect(j2534_, &J2534::LOG_E, this, &SerialPortActionsDirect::LOG_E);
     QObject::connect(j2534_, &J2534::LOG_W, this, &SerialPortActionsDirect::LOG_W);
@@ -13,48 +13,48 @@ void SerialPortActionsDirect::connect_j2534_logs()
     QObject::connect(j2534_, &J2534::LOG_D, this, &SerialPortActionsDirect::LOG_D);
 }
 
-void SerialPortActionsDirect::settle_after_programming_voltage()
+void SerialPortActionsDirect::SettleAfterProgrammingVoltage()
 {
     delay(1);
 }
 
-void SerialPortActionsDirect::append_j2534_interfaces(QStringList& /*serial_ports*/)
+void SerialPortActionsDirect::AppendJ2534Interfaces(QStringList& /*serial_ports*/)
 {
     // A Unix adapter enumerates as a serial port; there is no driver registry.
 }
 
-SerialPortActionsDirect::ResolvedPort SerialPortActionsDirect::resolve_port(const QString& entry) const
+SerialPortActionsDirect::ResolvedPort SerialPortActionsDirect::ResolvePort(const QString& entry) const
 {
     const QString prefixed = serial_port_prefix_linux + entry;
-    return {.port = prefixed.split(" - ").at(0), .is_j2534 = isJ2534CapableEntry(prefixed)};
+    return {.port = prefixed.split(" - ").at(0), .is_j2534 = IsJ2534CapableEntry(prefixed)};
 }
 
-void SerialPortActionsDirect::select_j2534_dll()
+void SerialPortActionsDirect::SelectJ2534Dll()
 {
     // The Unix J2534 drives the adapter's serial port; there is no DLL to pick.
 }
 
-bool SerialPortActionsDirect::open_j2534_transport()
+bool SerialPortActionsDirect::OpenJ2534Transport()
 {
-    return j2534_->open_serial_port(serial_port) == serial_port;
+    return j2534_->OpenSerialPort(serial_port) == serial_port;
 }
 
-void SerialPortActionsDirect::close_j2534_transport()
+void SerialPortActionsDirect::CloseJ2534Transport()
 {
-    j2534_->close_serial_port();
+    j2534_->CloseSerialPort();
 }
 
-void SerialPortActionsDirect::log_j2534_opened()
+void SerialPortActionsDirect::LogJ2534Opened()
 {
     emit LOG_D("INIT: J2534 opened with devID: " + QString::number(dev_id_), true, true);
 }
 
-void SerialPortActionsDirect::adopt_j2534_channel_id()
+void SerialPortActionsDirect::AdoptJ2534ChannelId()
 {
     chan_id_ = protocol_;
 }
 
-bool SerialPortActionsDirect::j2534_tx_done()
+bool SerialPortActionsDirect::J2534TxDone()
 {
-    return j2534_->get_is_tx_done();
+    return j2534_->GetIsTxDone();
 }

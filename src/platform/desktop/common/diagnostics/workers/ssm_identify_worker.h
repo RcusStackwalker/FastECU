@@ -44,7 +44,7 @@ class SsmIdentifyWorker final : public QThread
     SsmIdentifyWorker& operator=(const SsmIdentifyWorker&) = delete;
 
     // Safe from any thread, any number of times, before or after start().
-    void requestStop();
+    void RequestStop();
 
   signals:
     void logEvent(int level, QString message);

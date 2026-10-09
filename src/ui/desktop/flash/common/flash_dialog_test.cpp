@@ -19,7 +19,7 @@ namespace
 class ScriptedWorkflow final : public FlashWorkflow
 {
   public:
-    FlashWorkflowStep next() override
+    FlashWorkflowStep Next() override
     {
         if (!answered_)
         {
@@ -28,11 +28,11 @@ class ScriptedWorkflow final : public FlashWorkflow
         return FlashCompletedStep{FlashWorkflowOutcome::kSucceeded, bytes::Bytes{0x12, 0x34},
                                   std::string("123456789A_")};
     }
-    void submit(FlashPromptResponse response) override
+    void Submit(FlashPromptResponse response) override
     {
         answered_ = response == FlashPromptResponse::kAccept;
     }
-    void submit(FlashAttemptResult) override
+    void Submit(FlashAttemptResult) override
     {
     }
 
@@ -109,7 +109,7 @@ class BlockingAttempt final : public BoundFlashAttempt
 class CancellableWorkflow final : public FlashWorkflow
 {
   public:
-    FlashWorkflowStep next() override
+    FlashWorkflowStep Next() override
     {
         if (!begun_)
         {
@@ -135,7 +135,7 @@ class CancellableWorkflow final : public FlashWorkflow
         }
         return FlashCompletedStep{FlashWorkflowOutcome::kCancelled, std::nullopt, std::nullopt};
     }
-    void submit(FlashPromptResponse) override
+    void Submit(FlashPromptResponse) override
     {
         if (begun_)
         {
@@ -143,7 +143,7 @@ class CancellableWorkflow final : public FlashWorkflow
         }
         begun_ = true;
     }
-    void submit(FlashAttemptResult result) override
+    void Submit(FlashAttemptResult result) override
     {
         attempt_results.push_back(result.error_kind);
         notice_due_ = !result.success && result.error_kind == ErrorKind::kCancelled;
@@ -162,7 +162,7 @@ class CancellableWorkflow final : public FlashWorkflow
 class TwoAttemptWorkflow final : public FlashWorkflow
 {
   public:
-    FlashWorkflowStep next() override
+    FlashWorkflowStep Next() override
     {
         if (step_ == 0)
         {
@@ -185,11 +185,11 @@ class TwoAttemptWorkflow final : public FlashWorkflow
         }
         return FlashCompletedStep{FlashWorkflowOutcome::kSucceeded, std::nullopt, std::nullopt};
     }
-    void submit(FlashPromptResponse) override
+    void Submit(FlashPromptResponse) override
     {
         ++step_;
     }
-    void submit(FlashAttemptResult result) override
+    void Submit(FlashAttemptResult result) override
     {
         attempts.push_back(result.success);
     }

@@ -26,11 +26,11 @@ FlashWorker::FlashWorker(FlashAttempt attempt, QObject *parent)
 
 FlashWorker::~FlashWorker()
 {
-    requestStop();
+    RequestStop();
     wait(kTeardownWaitMs);
 }
 
-void FlashWorker::requestStop()
+void FlashWorker::RequestStop()
 {
     cancellation_.Cancel();
     attempt_->RequestUnblock();

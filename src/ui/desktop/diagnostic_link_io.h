@@ -23,12 +23,12 @@ inline QByteArray read_or_empty(fastecu::diagnostics::IDiagnosticLink& link, std
     {
         return {};
     }
-    return bytes::toQByteArray(**frame);
+    return bytes::ToQByteArray(**frame);
 }
 
 inline void write(fastecu::diagnostics::IDiagnosticLink& link, const QByteArray& data)
 {
-    std::ignore = link.Write(bytes::view(data));
+    std::ignore = link.Write(bytes::View(data));
 }
 
 } // namespace diagnostic_link_io

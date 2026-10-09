@@ -11,14 +11,14 @@ using namespace std::chrono_literals;
 
 namespace
 {
-logging::LoggingPolicy policy()
+logging::LoggingPolicy Policy()
 {
     return {.poll_timeout = 100ms,
             .car_silence_miss_threshold = 3,
             .reconnect_attempt_threshold = 5,
             .reconnect_retry_period = 10};
 }
-logging::LoggerParameter parameter(std::string id, std::string protocol = "SSM", bool enabled = true)
+logging::LoggerParameter Parameter(std::string id, std::string protocol = "SSM", bool enabled = true)
 {
     return {.protocol = std::move(protocol),
             .id = std::move(id),
@@ -27,7 +27,7 @@ logging::LoggerParameter parameter(std::string id, std::string protocol = "SSM",
             .enabled = enabled,
             .conversions = {{"rpm", "x", "0.00", "0", "100", "1"}}};
 }
-logging::LoggerModel model(logging::LoggerDefinition def, std::vector<std::string> ids)
+logging::LoggerModel Model(logging::LoggerDefinition def, std::vector<std::string> ids)
 {
     logging::LoggerModel result;
     result.InstallDefinition(std::move(def));
@@ -37,35 +37,34 @@ logging::LoggerModel model(logging::LoggerDefinition def, std::vector<std::strin
 TEST(DesktopLoggingSnapshotAdapterTest, StableIdentitySurvivesSelectionEditsAndDefinitionReordering)
 {
     auto values =
-        model({.parameters = {parameter("coolant"), parameter("rpm"), parameter("rpm", "CDBG")}}, {"rpm", "coolant"});
-    auto snapshot = desktop::make_desktop_logging_snapshot(values, logging::LoggingProtocolId::kSsm, "SSM", policy());
+        Model({.parameters = {Parameter("coolant"), Parameter("rpm"), Parameter("rpm", "CDBG")}}, {"rpm", "coolant"});
+    auto snapshot = desktop::MakeDesktopLoggingSnapshot(values, logging::LoggingProtocolId::kSsm, "SSM", Policy());
     ASSERT_THAT(snapshot, fastecu::testing::IsOk());
     EXPECT_EQ(snapshot->protocol, "SSM");
     EXPECT_EQ(snapshot->identities_by_id.at("rpm"), (logging::LoggerIdentity{"SSM", "rpm"}));
     values.SetSelection({.protocol = "CDBG", .lower_panel_ids = {"rpm"}});
     EXPECT_EQ(snapshot->selection.lower_panel_ids, (std::vector<std::string>{"rpm", "coolant"}));
     auto reordered =
-        model({.parameters = {parameter("rpm", "CDBG"), parameter("rpm"), parameter("coolant")}}, {"coolant"});
+        Model({.parameters = {Parameter("rpm", "CDBG"), Parameter("rpm"), Parameter("coolant")}}, {"coolant"});
     desktop::DesktopLoggerValues cache;
-    cache.initialize(reordered);
-    ASSERT_THAT(desktop::apply_log_sample(*snapshot, {.channel_id = "rpm", .numeric_value = 1234.5}, cache),
+    cache.Initialize(reordered);
+    ASSERT_THAT(desktop::ApplyLogSample(*snapshot, {.channel_id = "rpm", .numeric_value = 1234.5}, cache),
                 fastecu::testing::IsOk());
-    EXPECT_EQ(cache.parameter_value("SSM", "rpm"), "1234.50");
-    EXPECT_EQ(cache.parameter_value("CDBG", "rpm"), "0.00");
-    EXPECT_EQ(cache.parameter_value("SSM", "coolant"), "0.00");
+    EXPECT_EQ(cache.ParameterValue("SSM", "rpm"), "1234.50");
+    EXPECT_EQ(cache.ParameterValue("CDBG", "rpm"), "0.00");
+    EXPECT_EQ(cache.ParameterValue("SSM", "coolant"), "0.00");
 }
 TEST(DesktopLoggingSnapshotAdapterTest, PreservesProtocolSelectionAndDisabledSsmOffsets)
 {
-    auto values = model({.parameters = {parameter("other", "OTHER"), parameter("off", "CAR_SSM", false),
-                                        parameter("on", "CAR_SSM"), parameter("mut-off", "MUT_DMA", false),
-                                        parameter("mut-on", "MUT_DMA"), parameter("cdbg-off", "CDBG", false)}},
+    auto values = Model({.parameters = {Parameter("other", "OTHER"), Parameter("off", "CAR_SSM", false),
+                                        Parameter("on", "CAR_SSM"), Parameter("mut-off", "MUT_DMA", false),
+                                        Parameter("mut-on", "MUT_DMA"), Parameter("cdbg-off", "CDBG", false)}},
                         {"other", "missing", "off", "on", "mut-off", "mut-on", "cdbg-off"});
-    const auto ssm =
-        desktop::make_desktop_logging_snapshot(values, logging::LoggingProtocolId::kSsm, "CAR_SSM", policy());
+    const auto ssm = desktop::MakeDesktopLoggingSnapshot(values, logging::LoggingProtocolId::kSsm, "CAR_SSM", Policy());
     const auto mut =
-        desktop::make_desktop_logging_snapshot(values, logging::LoggingProtocolId::kMutDma, "ignored", policy());
+        desktop::MakeDesktopLoggingSnapshot(values, logging::LoggingProtocolId::kMutDma, "ignored", Policy());
     const auto cdbg =
-        desktop::make_desktop_logging_snapshot(values, logging::LoggingProtocolId::kCdbg, "ignored", policy());
+        desktop::MakeDesktopLoggingSnapshot(values, logging::LoggingProtocolId::kCdbg, "ignored", Policy());
     ASSERT_THAT(ssm, fastecu::testing::IsOk());
     ASSERT_THAT(mut, fastecu::testing::IsOk());
     ASSERT_THAT(cdbg, fastecu::testing::IsOk());
@@ -78,47 +77,47 @@ TEST(DesktopLoggingSnapshotAdapterTest, PreservesProtocolSelectionAndDisabledSsm
     EXPECT_EQ(mut->session.Channels().at(0).raw_assembly, logging::RawAssembly::kUnsignedIntegerDecimal);
     EXPECT_EQ(cdbg->session.Channels().at(0).id, "cdbg-off");
     desktop::DesktopLoggerValues cache;
-    cache.initialize(values);
-    ASSERT_THAT(desktop::apply_log_sample(*ssm, {.channel_id = "off", .numeric_value = 9}, cache),
+    cache.Initialize(values);
+    ASSERT_THAT(desktop::ApplyLogSample(*ssm, {.channel_id = "off", .numeric_value = 9}, cache),
                 fastecu::testing::IsOk());
-    ASSERT_THAT(desktop::apply_log_sample(*ssm, {.channel_id = "on", .numeric_value = 2}, cache),
+    ASSERT_THAT(desktop::ApplyLogSample(*ssm, {.channel_id = "on", .numeric_value = 2}, cache),
                 fastecu::testing::IsOk());
-    EXPECT_EQ(cache.parameter_value("CAR_SSM", "off"), "0.00");
-    EXPECT_EQ(cache.parameter_value("CAR_SSM", "on"), "2.00");
+    EXPECT_EQ(cache.ParameterValue("CAR_SSM", "off"), "0.00");
+    EXPECT_EQ(cache.ParameterValue("CAR_SSM", "on"), "2.00");
 }
 TEST(DesktopLoggingValueAdapterTest, UnknownSamplesAndMissingCacheEntriesDoNotUpdateOtherIdentities)
 {
-    const auto values = model({.parameters = {parameter("rpm")}}, {"rpm"});
+    const auto values = Model({.parameters = {Parameter("rpm")}}, {"rpm"});
     const auto snapshot =
-        desktop::make_desktop_logging_snapshot(values, logging::LoggingProtocolId::kSsm, "SSM", policy());
+        desktop::MakeDesktopLoggingSnapshot(values, logging::LoggingProtocolId::kSsm, "SSM", Policy());
     ASSERT_THAT(snapshot, fastecu::testing::IsOk());
     desktop::DesktopLoggerValues cache;
-    cache.initialize(values);
-    EXPECT_THAT(desktop::apply_log_sample(*snapshot, {.channel_id = "unknown", .numeric_value = 8}, cache),
+    cache.Initialize(values);
+    EXPECT_THAT(desktop::ApplyLogSample(*snapshot, {.channel_id = "unknown", .numeric_value = 8}, cache),
                 fastecu::testing::IsErr(fastecu::ErrorKind::kInternal));
-    EXPECT_EQ(cache.parameter_value("SSM", "rpm"), "0.00");
+    EXPECT_EQ(cache.ParameterValue("SSM", "rpm"), "0.00");
     desktop::DesktopLoggerValues empty;
-    EXPECT_THAT(desktop::apply_log_sample(*snapshot, {.channel_id = "rpm", .numeric_value = 8}, empty),
+    EXPECT_THAT(desktop::ApplyLogSample(*snapshot, {.channel_id = "rpm", .numeric_value = 8}, empty),
                 fastecu::testing::IsErr(fastecu::ErrorKind::kInternal));
 }
 TEST(DesktopLoggingValueAdapterTest, CacheNamespacesAndFixedDecimalFormatting)
 {
     const auto values =
-        model({.parameters = {parameter("rpm")}, .switches = {{.protocol = "SSM", .id = "rpm"}}}, {"rpm"});
+        Model({.parameters = {Parameter("rpm")}, .switches = {{.protocol = "SSM", .id = "rpm"}}}, {"rpm"});
     desktop::DesktopLoggerValues cache;
-    cache.initialize(values);
-    EXPECT_EQ(cache.parameter_value("SSM", "rpm"), "0.00");
-    EXPECT_EQ(cache.switch_value("SSM", "rpm"), "0");
-    EXPECT_EQ(desktop::format_logging_value(2.0, 0), "2");
-    EXPECT_EQ(desktop::format_logging_value(-1.25, 2), "-1.25");
-    EXPECT_EQ(desktop::format_logging_value(1.2, 3), "1.200");
+    cache.Initialize(values);
+    EXPECT_EQ(cache.ParameterValue("SSM", "rpm"), "0.00");
+    EXPECT_EQ(cache.SwitchValue("SSM", "rpm"), "0");
+    EXPECT_EQ(desktop::FormatLoggingValue(2.0, 0), "2");
+    EXPECT_EQ(desktop::FormatLoggingValue(-1.25, 2), "-1.25");
+    EXPECT_EQ(desktop::FormatLoggingValue(1.2, 3), "1.200");
 }
 TEST(DesktopLoggingSnapshotAdapterTest, FirstConversionAndTargetAreCapturedByValue)
 {
-    auto p = parameter("rpm");
+    auto p = Parameter("rpm");
     p.conversions.push_back({"wrong", "x*2", "0.000", "0", "100", "1"});
-    auto values = model({.parameters = {p}}, {"rpm"});
-    auto snapshot = desktop::make_desktop_logging_snapshot(values, logging::LoggingProtocolId::kSsm, "SSM", policy());
+    auto values = Model({.parameters = {p}}, {"rpm"});
+    auto snapshot = desktop::MakeDesktopLoggingSnapshot(values, logging::LoggingProtocolId::kSsm, "SSM", Policy());
     ASSERT_THAT(snapshot, fastecu::testing::IsOk());
     EXPECT_EQ(snapshot->session.Channels().at(0).decimal_precision, 2);
     EXPECT_EQ(snapshot->session.Channels().at(0).from_byte_expression, "x");
@@ -134,7 +133,7 @@ TEST(DesktopLoggingSnapshotAdapterTest, RejectsMalformedChannelsAndDuplicateIds)
 {
     for (int problem = 0; problem < 10; ++problem)
     {
-        auto p = parameter("rpm");
+        auto p = Parameter("rpm");
         std::vector<std::string> ids{"rpm"};
         auto protocol = logging::LoggingProtocolId::kSsm;
         QString filter = "SSM";
@@ -176,8 +175,8 @@ TEST(DesktopLoggingSnapshotAdapterTest, RejectsMalformedChannelsAndDuplicateIds)
             return;
         }
         def.parameters.push_back(p);
-        const auto values = model(std::move(def), std::move(ids));
-        EXPECT_THAT(desktop::make_desktop_logging_snapshot(values, protocol, filter, policy()),
+        const auto values = Model(std::move(def), std::move(ids));
+        EXPECT_THAT(desktop::MakeDesktopLoggingSnapshot(values, protocol, filter, Policy()),
                     fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig))
             << problem;
     }

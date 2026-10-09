@@ -5,7 +5,7 @@
 
 namespace
 {
-fastecu::Result<QString> prefix_for(std::string_view bundle_id)
+fastecu::Result<QString> PrefixFor(std::string_view bundle_id)
 {
     if (bundle_id == "config")
     {
@@ -21,7 +21,7 @@ fastecu::Result<QString> prefix_for(std::string_view bundle_id)
 
 fastecu::Result<std::vector<std::string>> QtResourceBundle::List(std::string_view bundle_id)
 {
-    fastecu::Result<QString> prefix = prefix_for(bundle_id);
+    fastecu::Result<QString> prefix = PrefixFor(bundle_id);
     if (!prefix.has_value())
     {
         return std::unexpected(prefix.error());
@@ -39,7 +39,7 @@ fastecu::Result<std::vector<std::string>> QtResourceBundle::List(std::string_vie
 
 fastecu::Result<std::vector<std::uint8_t>> QtResourceBundle::Read(std::string_view bundle_id, std::string_view name)
 {
-    fastecu::Result<QString> prefix = prefix_for(bundle_id);
+    fastecu::Result<QString> prefix = PrefixFor(bundle_id);
     if (!prefix.has_value())
     {
         return std::unexpected(prefix.error());

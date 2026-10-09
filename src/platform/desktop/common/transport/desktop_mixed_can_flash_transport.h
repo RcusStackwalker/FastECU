@@ -44,13 +44,13 @@ class DesktopMixedCanFlashTransport final : public IMixedCanFlashTransport
         kClosed,
     };
 
-    Status configure_iso(const MixedCanConfig& config);
-    Status configure_raw(const RawCanConfig& config);
-    Status transition_failure(Status status);
-    Status io_ready(Mode required_mode, std::string_view operation) const;
-    Status write_serial(bytes::ByteView data, const ICancellationToken& cancellation);
-    Result<std::optional<bytes::Bytes>> read_serial(std::chrono::milliseconds timeout,
-                                                    const ICancellationToken& cancellation);
+    Status ConfigureIso(const MixedCanConfig& config);
+    Status ConfigureRaw(const RawCanConfig& config);
+    Status TransitionFailure(Status status);
+    Status IoReady(Mode required_mode, std::string_view operation) const;
+    Status WriteSerial(bytes::ByteView data, const ICancellationToken& cancellation);
+    Result<std::optional<bytes::Bytes>> ReadSerial(std::chrono::milliseconds timeout,
+                                                   const ICancellationToken& cancellation);
 
     std::unique_ptr<SerialPortActions> owned_serial_;
     SerialPortActions *serial_ = nullptr;
