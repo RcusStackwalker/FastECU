@@ -14,7 +14,7 @@ using IndexTransformation = std::span<const std::uint8_t, 32>;
 
 // The index transformation calculateSeedKey and calculatePayload take.
 //
-// This is an SsmProtocol-level constant, not a per-family one: the same 32
+// This is an ssm_protocol-level constant, not a per-family one: the same 32
 // entries drive every Subaru seed-key and payload transform in the tree. It
 // was previously spelled out as an inline 32-entry literal at fourteen
 // production call sites across src/backend/flash/ecu and
