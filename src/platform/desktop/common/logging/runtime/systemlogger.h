@@ -14,7 +14,7 @@ class SystemLogger : public QObject
     SystemLogger(QString file_path, QString sw_name, QString sw_ver, QObject *parent = nullptr);
     ~SystemLogger();
 
-    void run();
+    void Run();
 
   private:
     QString file_path_;
@@ -28,18 +28,22 @@ class SystemLogger : public QObject
     QFile syslog_file_;
     QTextStream syslog_file_outstream_;
 
-    bool write_syslog(const QString& msg);
+    bool WriteSyslog(const QString& msg);
 
   signals:
-    void send_message_to_log_window(QString msg);
+    // NOLINTBEGIN(readability-identifier-naming): Qt signals keep Qt's camelBack names
+    void sendMessageToLogWindow(QString msg);
     void finished();
     void error(QString err);
-    void LOG_E(QString message, bool timestamp, bool linefeed);
-    void LOG_W(QString message, bool timestamp, bool linefeed);
-    void LOG_I(QString message, bool timestamp, bool linefeed);
-    void LOG_D(QString message, bool timestamp, bool linefeed);
+    void logE(QString message, bool timestamp, bool linefeed);
+    void logW(QString message, bool timestamp, bool linefeed);
+    void logI(QString message, bool timestamp, bool linefeed);
+    void logD(QString message, bool timestamp, bool linefeed);
+    // NOLINTEND(readability-identifier-naming)
 
   public slots:
-    void enable_log_write_to_file(bool enable);
-    void log_messages(const QString& message, bool timestamp, bool linefeed);
+    // NOLINTBEGIN(readability-identifier-naming): Qt slots keep Qt's camelBack names
+    void enableLogWriteToFile(bool enable);
+    void logMessages(const QString& message, bool timestamp, bool linefeed);
+    // NOLINTEND(readability-identifier-naming)
 };

@@ -21,20 +21,20 @@ constexpr bytes::Byte kListCmd = 0xA1;
 constexpr std::chrono::milliseconds kPollTimeout{50};
 } // namespace
 
-fastecu::Status write_memory(IKlineTransport& transport, std::uint16_t addr, bytes::ByteView data,
-                             const fastecu::ICancellationToken& cancellation)
+fastecu::Status WriteMemory(IKlineTransport& transport, std::uint16_t addr, bytes::ByteView data,
+                            const fastecu::ICancellationToken& cancellation)
 {
     if (addr < kWritableLow || addr > kWritableHigh)
     {
-        return fastecu::fail(fastecu::ErrorKind::kInvalidConfig, "MUT/DMA: refusing write outside 0x4000-0xBFFF");
+        return fastecu::Fail(fastecu::ErrorKind::kInvalidConfig, "MUT/DMA: refusing write outside 0x4000-0xBFFF");
     }
     AlreadyInMode init(kMutBaud);
     MutDmaDriver driver(transport, init);
-    return driver.writeMemory(addr, data, cancellation);
+    return driver.WriteMemory(addr, data, cancellation);
 }
 
-fastecu::Result<bytes::Bytes> read_memory(IKlineTransport& transport, std::uint16_t addr, std::size_t len,
-                                          const fastecu::ICancellationToken& cancellation)
+fastecu::Result<bytes::Bytes> ReadMemory(IKlineTransport& transport, std::uint16_t addr, std::size_t len,
+                                         const fastecu::ICancellationToken& cancellation)
 {
     AlreadyInMode init(kMutBaud);
     MutDmaDriver driver(transport, init);
@@ -43,8 +43,8 @@ fastecu::Result<bytes::Bytes> read_memory(IKlineTransport& transport, std::uint1
     {
         const std::size_t chunk = std::min(kReadChunk, len - off);
         const std::vector<Channel> channels =
-            planReadChannels(static_cast<std::uint16_t>(addr + off), static_cast<int>(chunk));
-        if (auto started = driver.startFreeFormLog(channels, kSetupCmd, kListCmd, cancellation); !started.has_value())
+            PlanReadChannels(static_cast<std::uint16_t>(addr + off), static_cast<int>(chunk));
+        if (auto started = driver.StartFreeFormLog(channels, kSetupCmd, kListCmd, cancellation); !started.has_value())
         {
             if (off == 0)
             {
@@ -52,7 +52,7 @@ fastecu::Result<bytes::Bytes> read_memory(IKlineTransport& transport, std::uint1
             }
             break;
         }
-        auto values = driver.pollOnce(kPollTimeout, cancellation);
+        auto values = driver.PollOnce(kPollTimeout, cancellation);
         if (!values.has_value())
         {
             if (off == 0)
@@ -61,7 +61,7 @@ fastecu::Result<bytes::Bytes> read_memory(IKlineTransport& transport, std::uint1
             }
             break;
         }
-        const bytes::Bytes piece = reassembleRead(*values);
+        const bytes::Bytes piece = ReassembleRead(*values);
         out.insert(out.end(), piece.begin(), piece.end());
     }
     return out;

@@ -3,7 +3,7 @@
 namespace fastecu::flash
 {
 
-int find_flash_device_index(std::string_view mcu_type)
+int FindFlashDeviceIndex(std::string_view mcu_type)
 {
     for (int i = 0; kFlashDevices[i].name != nullptr; ++i)
     {
@@ -15,9 +15,9 @@ int find_flash_device_index(std::string_view mcu_type)
     return -1;
 }
 
-const FlashDevice *find_flash_device(std::string_view mcu_type)
+const FlashDevice *FindFlashDevice(std::string_view mcu_type)
 {
-    const int index = find_flash_device_index(mcu_type);
+    const int index = FindFlashDeviceIndex(mcu_type);
     if (index < 0)
     {
         return nullptr;

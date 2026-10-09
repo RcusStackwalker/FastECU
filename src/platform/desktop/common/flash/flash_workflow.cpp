@@ -75,7 +75,7 @@ namespace fastecu::flash
 namespace
 {
 
-FlashCompletedStep completed(FlashWorkflowOutcome outcome, std::optional<bytes::Bytes> bytes = std::nullopt,
+FlashCompletedStep Completed(FlashWorkflowOutcome outcome, std::optional<bytes::Bytes> bytes = std::nullopt,
                              std::optional<std::string> rom_id = std::nullopt)
 {
     return {outcome, std::move(bytes), std::move(rom_id)};
@@ -89,24 +89,24 @@ FlashCompletedStep completed(FlashWorkflowOutcome outcome, std::optional<bytes::
 class FlashAttemptOutcome
 {
   public:
-    void succeed(std::optional<bytes::Bytes> bytes = std::nullopt, std::optional<std::string> rom_id = std::nullopt)
+    void Succeed(std::optional<bytes::Bytes> bytes = std::nullopt, std::optional<std::string> rom_id = std::nullopt)
     {
         terminal_ = true;
         outcome_ = FlashWorkflowOutcome::kSucceeded;
         bytes_ = std::move(bytes);
         rom_id_ = std::move(rom_id);
     }
-    void cancel()
+    void Cancel()
     {
         terminal_ = true;
         outcome_ = FlashWorkflowOutcome::kCancelled;
     }
-    void discard()
+    void Discard()
     {
         terminal_ = true;
         outcome_ = FlashWorkflowOutcome::kDiscarded;
     }
-    void fail(Error error)
+    void Fail(Error error)
     {
         terminal_ = true;
         outcome_ = FlashWorkflowOutcome::kFailed;
@@ -115,28 +115,28 @@ class FlashAttemptOutcome
 
     // The success/cancelled/failed mapping shared by every workflow whose
     // attempt result finalizes the outcome directly.
-    void record(FlashAttemptResult result)
+    void Record(FlashAttemptResult result)
     {
         if (result.success)
         {
-            succeed(std::move(result.read_bytes), std::move(result.rom_id));
+            Succeed(std::move(result.read_bytes), std::move(result.rom_id));
         }
         else if (result.error_kind == ErrorKind::kCancelled)
         {
-            cancel();
+            Cancel();
         }
         else
         {
-            fail(Error{result.error_kind, std::move(result.error_detail)});
+            Fail(Error{result.error_kind, std::move(result.error_detail)});
         }
     }
 
-    bool terminal() const
+    bool Terminal() const
     {
         return terminal_;
     }
     // The recorded failure, moved out; empty if the workflow has not failed.
-    std::optional<FlashFailureStep> takeFailure()
+    std::optional<FlashFailureStep> TakeFailure()
     {
         if (!failure_.has_value())
         {
@@ -144,9 +144,9 @@ class FlashAttemptOutcome
         }
         return FlashFailureStep{std::move(*failure_)};
     }
-    FlashCompletedStep completedStep()
+    FlashCompletedStep CompletedStep()
     {
-        return completed(outcome_, std::move(bytes_), std::move(rom_id_));
+        return Completed(outcome_, std::move(bytes_), std::move(rom_id_));
     }
 
   private:
@@ -157,15 +157,15 @@ class FlashAttemptOutcome
     std::optional<Error> failure_;
 };
 
-Result<KernelImage> resolveKernel(const FlashWorkflowRequest& request, IFileRepository& repository)
+Result<KernelImage> ResolveKernel(const FlashWorkflowRequest& request, IFileRepository& repository)
 {
     if (!request.protocol.kernel_load_address.has_value())
     {
-        return fail(ErrorKind::kInvalidConfig,
+        return Fail(ErrorKind::kInvalidConfig,
                     std::format("protocol '{}' declares no kernel load address", request.protocol.name));
     }
     Result<std::vector<std::uint8_t>> kernel_bytes =
-        repository.read(request.paths.kernel_files_directory + std::string(request.protocol.kernel));
+        repository.Read(request.paths.kernel_files_directory + std::string(request.protocol.kernel));
     if (!kernel_bytes.has_value())
     {
         return std::unexpected(kernel_bytes.error());
@@ -177,25 +177,25 @@ Result<KernelImage> resolveKernel(const FlashWorkflowRequest& request, IFileRepo
 
 // The kernel file alone. The Unisia Jecs M32R _bootmode entries declare no
 // kernel load address: the M32R boot ROM places the kernel itself.
-Result<bytes::Bytes> resolveKernelBytes(const FlashWorkflowRequest& request, IFileRepository& repository)
+Result<bytes::Bytes> ResolveKernelBytes(const FlashWorkflowRequest& request, IFileRepository& repository)
 {
     Result<std::vector<std::uint8_t>> kernel_bytes =
-        repository.read(request.paths.kernel_files_directory + std::string(request.protocol.kernel));
+        repository.Read(request.paths.kernel_files_directory + std::string(request.protocol.kernel));
     if (!kernel_bytes.has_value())
     {
         const Error& error = kernel_bytes.error();
-        return fail(error.kind, std::format("kernel file '{}': {}", request.protocol.kernel, error.detail));
+        return Fail(error.kind, std::format("kernel file '{}': {}", request.protocol.kernel, error.detail));
     }
     return bytes::Bytes(kernel_bytes->begin(), kernel_bytes->end());
 }
 
-std::optional<bytes::Bytes> normalizeMc68Image(std::optional<bytes::Bytes> image, std::string_view mcu_name)
+std::optional<bytes::Bytes> NormalizeMc68Image(std::optional<bytes::Bytes> image, std::string_view mcu_name)
 {
     if (!image.has_value())
     {
         return std::nullopt;
     }
-    const FlashDevice *device = find_flash_device(mcu_name);
+    const FlashDevice *device = FindFlashDevice(mcu_name);
     if (device == nullptr || image->size() == device->romsize)
     {
         return image;
@@ -233,18 +233,18 @@ class SubaruUnisiaJecsM32rKlineWorkflow final : public FlashWorkflow
   public:
     explicit SubaruUnisiaJecsM32rKlineWorkflow(FlashWorkflowRequest request)
         : request_(std::move(request)),
-          plan_(build_subaru_unisia_jecs_m32r_kline_plan(request_.operation, request_.protocol.name,
-                                                         request_.protocol.mcu, std::move(request_.image),
-                                                         adapter_supplies_programming_voltage(request_.serial)))
+          plan_(BuildSubaruUnisiaJecsM32rKlinePlan(request_.operation, request_.protocol.name, request_.protocol.mcu,
+                                                   std::move(request_.image),
+                                                   AdapterSuppliesProgrammingVoltage(request_.serial)))
     {
         if (plan_.has_value())
         {
-            needs_vpp_ = std::ranges::any_of(plan_->confirmations(), [](const ConfirmationSpec& spec)
+            needs_vpp_ = std::ranges::any_of(plan_->Confirmations(), [](const ConfirmationSpec& spec)
                                              { return spec.id == ConfirmationSpec::Id::kApplyProgrammingVoltage; });
         }
     }
 
-    FlashWorkflowStep next() override
+    FlashWorkflowStep Next() override
     {
         if (!plan_.has_value())
         {
@@ -256,13 +256,13 @@ class SubaruUnisiaJecsM32rKlineWorkflow final : public FlashWorkflow
             return FlashPromptStep{FlashPromptKind::kRemoveProgrammingVoltage,
                                    {{"outcome", attempt_outcome_}, {"external_vpp", needs_vpp_ ? "yes" : "no"}}};
         }
-        if (auto failure = outcome_.takeFailure(); failure.has_value())
+        if (auto failure = outcome_.TakeFailure(); failure.has_value())
         {
             return std::move(*failure);
         }
-        if (outcome_.terminal())
+        if (outcome_.Terminal())
         {
-            return outcome_.completedStep();
+            return outcome_.CompletedStep();
         }
         if (stage_ == Stage::kBegin)
         {
@@ -276,15 +276,15 @@ class SubaruUnisiaJecsM32rKlineWorkflow final : public FlashWorkflow
         {
             stage_ = Stage::kDone;
             return FlashWorkflowStep{std::in_place_type<FlashAttempt>,
-                                     bind_flash_attempt(std::move(*plan_),
-                                                        std::make_unique<SubaruUnisiaJecsM32rKlineExecutor>(),
-                                                        std::make_unique<DesktopKlineFlashTransport>(request_.serial)),
+                                     BindFlashAttempt(std::move(*plan_),
+                                                      std::make_unique<SubaruUnisiaJecsM32rKlineExecutor>(),
+                                                      std::make_unique<DesktopKlineFlashTransport>(request_.serial)),
                                      std::make_unique<QtClock>()};
         }
-        return outcome_.completedStep();
+        return outcome_.CompletedStep();
     }
 
-    void submit(FlashPromptResponse response) override
+    void Submit(FlashPromptResponse response) override
     {
         switch (stage_)
         {
@@ -292,7 +292,7 @@ class SubaruUnisiaJecsM32rKlineWorkflow final : public FlashWorkflow
         case Stage::kApplyVpp:
             if (response != FlashPromptResponse::kAccept)
             {
-                outcome_.cancel();
+                outcome_.Cancel();
                 return;
             }
             stage_ = stage_ == Stage::kBegin && needs_vpp_ ? Stage::kApplyVpp : Stage::kAttempt;
@@ -306,7 +306,7 @@ class SubaruUnisiaJecsM32rKlineWorkflow final : public FlashWorkflow
         }
     }
 
-    void submit(FlashAttemptResult result) override
+    void Submit(FlashAttemptResult result) override
     {
         // Legacy warned after every failed write, whatever the adapter, not to
         // power off the ECU; the remove-VPP sentence is due only when the
@@ -318,7 +318,7 @@ class SubaruUnisiaJecsM32rKlineWorkflow final : public FlashWorkflow
                                                                             : "failed";
             stage_ = Stage::kRemoveVpp;
         }
-        outcome_.record(std::move(result));
+        outcome_.Record(std::move(result));
     }
 
   private:
@@ -352,11 +352,11 @@ class SubaruUnisiaJecsM32rBootModeWorkflow final : public FlashWorkflow
     {
     }
 
-    FlashWorkflowStep next() override
+    FlashWorkflowStep Next() override
     {
         if (!built_.has_value())
         {
-            built_ = buildPlans();
+            built_ = BuildPlans();
         }
         if (!built_->has_value())
         {
@@ -368,13 +368,13 @@ class SubaruUnisiaJecsM32rBootModeWorkflow final : public FlashWorkflow
             return FlashPromptStep{FlashPromptKind::kRemoveProgrammingVoltage,
                                    {{"outcome", notice_outcome_}, {"external_vpp", "yes"}, {"power_off_advice", "no"}}};
         }
-        if (auto failure = outcome_.takeFailure(); failure.has_value())
+        if (auto failure = outcome_.TakeFailure(); failure.has_value())
         {
             return std::move(*failure);
         }
-        if (outcome_.terminal())
+        if (outcome_.Terminal())
         {
-            return outcome_.completedStep();
+            return outcome_.CompletedStep();
         }
         switch (stage_)
         {
@@ -384,7 +384,7 @@ class SubaruUnisiaJecsM32rBootModeWorkflow final : public FlashWorkflow
             return FlashPromptStep{FlashPromptKind::kApplyBootModeVoltages, {}};
         case Stage::kFirstAttempt:
             stage_ = Stage::kAwaitFirst;
-            return firstAttempt();
+            return FirstAttempt();
         case Stage::kRemoveMod1:
             return FlashPromptStep{FlashPromptKind::kRemoveMod1, {}};
         case Stage::kProgramAttempt:
@@ -395,7 +395,7 @@ class SubaruUnisiaJecsM32rBootModeWorkflow final : public FlashWorkflow
                 return FlashFailureStep{Error{ErrorKind::kInternal, "the Unisia JECS program plan was not built"}};
             }
             stage_ = Stage::kAwaitProgram;
-            return attempt(std::move(*program), std::make_unique<SubaruUnisiaJecsM32rBootModeProgramExecutor>());
+            return Attempt(std::move(*program), std::make_unique<SubaruUnisiaJecsM32rBootModeProgramExecutor>());
         }
         case Stage::kAwaitFirst:
         case Stage::kAwaitProgram:
@@ -403,10 +403,10 @@ class SubaruUnisiaJecsM32rBootModeWorkflow final : public FlashWorkflow
         case Stage::kDone:
             break;
         }
-        return outcome_.completedStep();
+        return outcome_.CompletedStep();
     }
 
-    void submit(FlashPromptResponse response) override
+    void Submit(FlashPromptResponse response) override
     {
         switch (stage_)
         {
@@ -414,10 +414,10 @@ class SubaruUnisiaJecsM32rBootModeWorkflow final : public FlashWorkflow
         case Stage::kApplyVoltages:
             if (response != FlashPromptResponse::kAccept)
             {
-                outcome_.cancel();
+                outcome_.Cancel();
                 return;
             }
-            stage_ = stage_ == Stage::kBegin && is_write() ? Stage::kApplyVoltages : Stage::kFirstAttempt;
+            stage_ = stage_ == Stage::kBegin && IsWrite() ? Stage::kApplyVoltages : Stage::kFirstAttempt;
             return;
         case Stage::kRemoveMod1:
             if (response != FlashPromptResponse::kAccept)
@@ -425,7 +425,7 @@ class SubaruUnisiaJecsM32rBootModeWorkflow final : public FlashWorkflow
                 // The kernel runs and nothing is erased; still ask for VPP removal.
                 notice_outcome_ = "cancelled";
                 stage_ = Stage::kNotice;
-                outcome_.cancel();
+                outcome_.Cancel();
                 return;
             }
             stage_ = Stage::kProgramAttempt;
@@ -442,11 +442,11 @@ class SubaruUnisiaJecsM32rBootModeWorkflow final : public FlashWorkflow
         }
     }
 
-    void submit(FlashAttemptResult result) override
+    void Submit(FlashAttemptResult result) override
     {
-        if (!is_write())
+        if (!IsWrite())
         {
-            outcome_.record(std::move(result));
+            outcome_.Record(std::move(result));
             return;
         }
         // A successful kernel upload is not an outcome yet: RemoveMod1 follows.
@@ -459,7 +459,7 @@ class SubaruUnisiaJecsM32rBootModeWorkflow final : public FlashWorkflow
                           : result.error_kind == ErrorKind::kCancelled ? "cancelled"
                                                                        : "failed";
         stage_ = Stage::kNotice;
-        outcome_.record(std::move(result));
+        outcome_.Record(std::move(result));
     }
 
   private:
@@ -482,18 +482,18 @@ class SubaruUnisiaJecsM32rBootModeWorkflow final : public FlashWorkflow
         std::optional<FlashPlan> program; // Write only
     };
 
-    bool is_write() const
+    bool IsWrite() const
     {
         return request_.operation != FlashOperation::kRead;
     }
 
-    Result<Plans> buildPlans()
+    Result<Plans> BuildPlans()
     {
-        if (!is_write())
+        if (!IsWrite())
         {
             // adapter_supplies_programming_voltage is irrelevant to Read.
-            auto read = build_subaru_unisia_jecs_m32r_kline_plan(FlashOperation::kRead, request_.protocol.name,
-                                                                 request_.protocol.mcu, std::nullopt, true);
+            auto read = BuildSubaruUnisiaJecsM32rKlinePlan(FlashOperation::kRead, request_.protocol.name,
+                                                           request_.protocol.mcu, std::nullopt, true);
             if (!read.has_value())
             {
                 return std::unexpected(read.error());
@@ -502,20 +502,20 @@ class SubaruUnisiaJecsM32rBootModeWorkflow final : public FlashWorkflow
         }
         // Program first: it needs no I/O and rejects TestWrite and a wrong
         // image before the kernel file is read.
-        auto program = build_subaru_unisia_jecs_m32r_bootmode_program_plan(
-            request_.operation, request_.protocol.name, request_.protocol.mcu, std::move(request_.image));
+        auto program = BuildSubaruUnisiaJecsM32rBootmodeProgramPlan(request_.operation, request_.protocol.name,
+                                                                    request_.protocol.mcu, std::move(request_.image));
         if (!program.has_value())
         {
             return std::unexpected(program.error());
         }
         QtFileRepository repository;
-        Result<bytes::Bytes> kernel_bytes = resolveKernelBytes(request_, repository);
+        Result<bytes::Bytes> kernel_bytes = ResolveKernelBytes(request_, repository);
         if (!kernel_bytes.has_value())
         {
             return std::unexpected(kernel_bytes.error());
         }
-        auto kernel = build_subaru_unisia_jecs_m32r_bootmode_kernel_plan(
-            request_.operation, request_.protocol.name, request_.protocol.mcu, std::move(*kernel_bytes));
+        auto kernel = BuildSubaruUnisiaJecsM32rBootmodeKernelPlan(request_.operation, request_.protocol.name,
+                                                                  request_.protocol.mcu, std::move(*kernel_bytes));
         if (!kernel.has_value())
         {
             return std::unexpected(kernel.error());
@@ -523,7 +523,7 @@ class SubaruUnisiaJecsM32rBootModeWorkflow final : public FlashWorkflow
         return Plans{std::move(*kernel), std::move(*program)};
     }
 
-    FlashWorkflowStep firstAttempt()
+    FlashWorkflowStep FirstAttempt()
     {
         if (!built_.has_value() || !built_->has_value())
         {
@@ -535,18 +535,18 @@ class SubaruUnisiaJecsM32rBootModeWorkflow final : public FlashWorkflow
             return FlashFailureStep{Error{ErrorKind::kInternal, "the Unisia JECS first-stage plan was not built"}};
         }
         FlashPlan plan = std::move(*first);
-        if (!is_write())
+        if (!IsWrite())
         {
-            return attempt(std::move(plan), std::make_unique<SubaruUnisiaJecsM32rKlineExecutor>());
+            return Attempt(std::move(plan), std::make_unique<SubaruUnisiaJecsM32rKlineExecutor>());
         }
-        return attempt(std::move(plan), std::make_unique<SubaruUnisiaJecsM32rBootModeKernelExecutor>());
+        return Attempt(std::move(plan), std::make_unique<SubaruUnisiaJecsM32rBootModeKernelExecutor>());
     }
 
-    template <typename Executor> FlashWorkflowStep attempt(FlashPlan plan, std::unique_ptr<Executor> executor)
+    template <typename Executor> FlashWorkflowStep Attempt(FlashPlan plan, std::unique_ptr<Executor> executor)
     {
         return FlashWorkflowStep{std::in_place_type<FlashAttempt>,
-                                 bind_flash_attempt(std::move(plan), std::move(executor),
-                                                    std::make_unique<DesktopKlineFlashTransport>(request_.serial)),
+                                 BindFlashAttempt(std::move(plan), std::move(executor),
+                                                  std::make_unique<DesktopKlineFlashTransport>(request_.serial)),
                                  std::make_unique<QtClock>()};
     }
 
@@ -561,7 +561,7 @@ class SubaruUnisiaJecsM32rBootModeWorkflow final : public FlashWorkflow
 // arguments unchanged. The other ids belong to workflows with their own
 // staging; meeting one here is a routing defect, reported before any prompt
 // or hardware access.
-Result<FlashPromptStep> confirmationPrompt(const ConfirmationSpec& confirmation)
+Result<FlashPromptStep> ConfirmationPrompt(const ConfirmationSpec& confirmation)
 {
     using enum ConfirmationSpec::Id;
     switch (confirmation.id)
@@ -582,17 +582,17 @@ Result<FlashPromptStep> confirmationPrompt(const ConfirmationSpec& confirmation)
     case kApplyBootModeVoltages:
         break;
     }
-    return fail(ErrorKind::kInternal,
+    return Fail(ErrorKind::kInternal,
                 std::format("confirmation {} has no single-attempt prompt", static_cast<int>(confirmation.id)));
 }
 
 // Begin, then one prompt per plan confirmation, in plan order.
-Result<std::vector<FlashPromptStep>> promptSequence(const FlashPlan& plan)
+Result<std::vector<FlashPromptStep>> PromptSequence(const FlashPlan& plan)
 {
     std::vector<FlashPromptStep> prompts{FlashPromptStep{FlashPromptKind::kBegin, {}}};
-    for (const ConfirmationSpec& confirmation : plan.confirmations())
+    for (const ConfirmationSpec& confirmation : plan.Confirmations())
     {
-        Result<FlashPromptStep> prompt = confirmationPrompt(confirmation);
+        Result<FlashPromptStep> prompt = ConfirmationPrompt(confirmation);
         if (!prompt.has_value())
         {
             return std::unexpected(prompt.error());
@@ -617,7 +617,7 @@ template <KernelFreePlanBuilder Build> class EagerPlan
     {
     }
 
-    Result<FlashPlan>& plan(const FlashWorkflowRequest&)
+    Result<FlashPlan>& Plan(const FlashWorkflowRequest&)
     {
         return plan_;
     }
@@ -638,7 +638,7 @@ template <PlanPreparation Prepare> class LazyPlan
     {
     }
 
-    Result<FlashPlan>& plan(FlashWorkflowRequest& request)
+    Result<FlashPlan>& Plan(FlashWorkflowRequest& request)
     {
         if (!plan_.has_value())
         {
@@ -653,10 +653,10 @@ template <PlanPreparation Prepare> class LazyPlan
 
 // A kernel-backed family: the protocol's kernel file is read, then the family
 // builder runs.
-template <KernelBackedPlanBuilder Build> Result<FlashPlan> prepareKernelBacked(FlashWorkflowRequest& request)
+template <KernelBackedPlanBuilder Build> Result<FlashPlan> PrepareKernelBacked(FlashWorkflowRequest& request)
 {
     QtFileRepository repository;
-    Result<KernelImage> kernel = resolveKernel(request, repository);
+    Result<KernelImage> kernel = ResolveKernel(request, repository);
     if (!kernel.has_value())
     {
         return std::unexpected(kernel.error());
@@ -667,15 +667,15 @@ template <KernelBackedPlanBuilder Build> Result<FlashPlan> prepareKernelBacked(F
 
 // MC68HC16Y5_02: prepareKernelBacked with two family steps before the kernel
 // is read.
-Result<FlashPlan> prepareMc68(FlashWorkflowRequest& request)
+Result<FlashPlan> PrepareMc68(FlashWorkflowRequest& request)
 {
     // Desktop FullRomData is physically addressed after the legacy
     // calibration adapter inserts the 0x20000-0x27fff RAM/kernel hole.
     // Portable MC plans and executors use the packed flash-block image.
-    request.image = normalizeMc68Image(std::move(request.image), request.protocol.mcu);
+    request.image = NormalizeMc68Image(std::move(request.image), request.protocol.mcu);
     // Run the family builder first so a protocol or MCU the family rejects
     // fails before the kernel file is read.
-    Result<FlashPlan> preflight = build_subaru_denso_mc68hc16y5_02_plan(
+    Result<FlashPlan> preflight = BuildSubaruDensoMc68hc16y502Plan(
         request.operation, request.protocol.name, request.protocol.mcu, request.image,
         KernelImage{.id = std::format("{}-kernel", request.protocol.name), .load_address = 0x20000, .bytes = {0}});
     if (!preflight.has_value())
@@ -683,38 +683,38 @@ Result<FlashPlan> prepareMc68(FlashWorkflowRequest& request)
         return std::unexpected(preflight.error());
     }
     QtFileRepository repository;
-    Result<KernelImage> kernel = resolveKernel(request, repository);
+    Result<KernelImage> kernel = ResolveKernel(request, repository);
     if (!kernel.has_value())
     {
         return std::unexpected(kernel.error());
     }
-    return build_subaru_denso_mc68hc16y5_02_plan(request.operation, request.protocol.name, request.protocol.mcu,
-                                                 std::move(request.image), std::move(*kernel));
+    return BuildSubaruDensoMc68hc16y502Plan(request.operation, request.protocol.name, request.protocol.mcu,
+                                            std::move(request.image), std::move(*kernel));
 }
 
 // MC68HC16Y5 BDM: only Write reads the kernel file -- its "write" uploads and
 // starts the protocol's kernel. The operator's ROM (request.image) is never
 // forwarded: BDM never writes the ROM.
-Result<FlashPlan> prepareBdm(FlashWorkflowRequest& request)
+Result<FlashPlan> PrepareBdm(FlashWorkflowRequest& request)
 {
     if (request.operation != FlashOperation::kWrite)
     {
-        return build_subaru_denso_mc68hc16y5_02_bdm_plan(request.operation, request.protocol.name, request.protocol.mcu,
-                                                         std::nullopt, std::nullopt);
+        return BuildSubaruDensoMc68hc16y502BdmPlan(request.operation, request.protocol.name, request.protocol.mcu,
+                                                   std::nullopt, std::nullopt);
     }
     QtFileRepository repository;
-    Result<KernelImage> kernel = resolveKernel(request, repository);
+    Result<KernelImage> kernel = ResolveKernel(request, repository);
     if (!kernel.has_value())
     {
         return std::unexpected(kernel.error());
     }
-    return build_subaru_denso_mc68hc16y5_02_bdm_plan(request.operation, request.protocol.name, request.protocol.mcu,
-                                                     std::nullopt, std::move(*kernel));
+    return BuildSubaruDensoMc68hc16y502BdmPlan(request.operation, request.protocol.name, request.protocol.mcu,
+                                               std::nullopt, std::move(*kernel));
 }
 
-template <KernelBackedPlanBuilder Build> using CachedKernelPlan = LazyPlan<&prepareKernelBacked<Build>>;
-using Mc68KernelPlan = LazyPlan<&prepareMc68>;
-using BdmKernelPlan = LazyPlan<&prepareBdm>;
+template <KernelBackedPlanBuilder Build> using CachedKernelPlan = LazyPlan<&PrepareKernelBacked<Build>>;
+using Mc68KernelPlan = LazyPlan<&PrepareMc68>;
+using BdmKernelPlan = LazyPlan<&PrepareBdm>;
 
 // The control flow shared by every family whose operation is one attempt:
 // preflight, Begin, the plan's confirmations in order, the attempt, then its
@@ -731,28 +731,28 @@ class SingleAttemptFlashWorkflow final : public FlashWorkflow
     {
     }
 
-    FlashWorkflowStep next() override
+    FlashWorkflowStep Next() override
     {
-        Result<FlashPlan>& plan = preparation_.plan(request_);
+        Result<FlashPlan>& plan = preparation_.Plan(request_);
         if (!plan.has_value())
         {
             return FlashFailureStep{plan.error()};
         }
         if (!prompts_.has_value())
         {
-            prompts_ = promptSequence(*plan);
+            prompts_ = PromptSequence(*plan);
         }
         if (!prompts_->has_value())
         {
             return FlashFailureStep{prompts_->error()};
         }
-        if (auto failure = outcome_.takeFailure(); failure.has_value())
+        if (auto failure = outcome_.TakeFailure(); failure.has_value())
         {
             return std::move(*failure);
         }
-        if (outcome_.terminal())
+        if (outcome_.Terminal())
         {
-            return outcome_.completedStep();
+            return outcome_.CompletedStep();
         }
         if (const std::vector<FlashPromptStep>& prompts = **prompts_; accepted_ < prompts.size())
         {
@@ -762,26 +762,26 @@ class SingleAttemptFlashWorkflow final : public FlashWorkflow
         {
             attempted_ = true;
             return FlashWorkflowStep{std::in_place_type<FlashAttempt>,
-                                     bind_flash_attempt(std::move(*plan), std::make_unique<Executor>(),
-                                                        std::make_unique<Transport>(request_.serial)),
+                                     BindFlashAttempt(std::move(*plan), std::make_unique<Executor>(),
+                                                      std::make_unique<Transport>(request_.serial)),
                                      std::make_unique<QtClock>()};
         }
-        return outcome_.completedStep();
+        return outcome_.CompletedStep();
     }
 
-    void submit(FlashPromptResponse response) override
+    void Submit(FlashPromptResponse response) override
     {
         if (response != FlashPromptResponse::kAccept)
         {
-            outcome_.cancel();
+            outcome_.Cancel();
             return;
         }
         ++accepted_;
     }
 
-    void submit(FlashAttemptResult result) override
+    void Submit(FlashAttemptResult result) override
     {
-        outcome_.record(std::move(result));
+        outcome_.Record(std::move(result));
     }
 
   private:
@@ -807,68 +807,68 @@ using KernelBackedWorkflow = SingleAttemptFlashWorkflow<Executor, Transport, Cac
 
 // Colt write plans carry EraseTrigger, and the 512 KiB variants also
 // TopRegionBootstrap; read plans carry neither.
-using ColtWorkflow = KernelFreeCanWorkflow<MitsuColtM32rCanExecutor, &build_mitsu_colt_m32r_can_plan>;
+using ColtWorkflow = KernelFreeCanWorkflow<MitsuColtM32rCanExecutor, &BuildMitsuColtM32rCanPlan>;
 using SubaruHitachiM32rCanWorkflow =
-    KernelFreeCanWorkflow<SubaruHitachiM32rCanExecutor, &build_subaru_hitachi_m32r_can_plan>;
+    KernelFreeCanWorkflow<SubaruHitachiM32rCanExecutor, &BuildSubaruHitachiM32rCanPlan>;
 using SubaruTcuCvtHitachiM32rCanWorkflow =
-    KernelFreeCanWorkflow<SubaruTcuCvtHitachiM32rCanExecutor, &build_subaru_tcu_cvt_hitachi_m32r_can_plan>;
+    KernelFreeCanWorkflow<SubaruTcuCvtHitachiM32rCanExecutor, &BuildSubaruTcuCvtHitachiM32rCanPlan>;
 using SubaruTcuCvtMitsuMh8111CanWorkflow =
-    KernelFreeCanWorkflow<SubaruTcuCvtMitsuMh8111CanExecutor, &build_subaru_tcu_cvt_mitsu_mh8111_can_plan>;
+    KernelFreeCanWorkflow<SubaruTcuCvtMitsuMh8111CanExecutor, &BuildSubaruTcuCvtMitsuMh8111CanPlan>;
 using SubaruTcuCvtMitsuMh8104CanWorkflow =
-    KernelFreeCanWorkflow<SubaruTcuCvtMitsuMh8104CanExecutor, &build_subaru_tcu_cvt_mitsu_mh8104_can_plan>;
+    KernelFreeCanWorkflow<SubaruTcuCvtMitsuMh8104CanExecutor, &BuildSubaruTcuCvtMitsuMh8104CanPlan>;
 using SubaruDenso1n83m_1_5mCanWorkflow =
-    KernelFreeCanWorkflow<SubaruDenso1n83m_1_5mCanExecutor, &build_subaru_denso_1n83m_1_5m_can_plan>;
+    KernelFreeCanWorkflow<SubaruDenso1n83m_1_5mCanExecutor, &BuildSubaruDenso1n83m15mCanPlan>;
 using SubaruDensoSh72531CanWorkflow =
-    KernelFreeCanWorkflow<SubaruDensoSh72531CanExecutor, &build_subaru_denso_sh72531_can_plan>;
+    KernelFreeCanWorkflow<SubaruDensoSh72531CanExecutor, &BuildSubaruDensoSh72531CanPlan>;
 using SubaruDensoSh72543CanDieselWorkflow =
-    KernelFreeCanWorkflow<SubaruDensoSh72543CanDieselExecutor, &build_subaru_denso_sh72543_can_diesel_plan>;
+    KernelFreeCanWorkflow<SubaruDensoSh72543CanDieselExecutor, &BuildSubaruDensoSh72543CanDieselPlan>;
 using SubaruDenso1n83m_4mCanWorkflow =
-    KernelFreeCanWorkflow<SubaruDenso1n83m_4mCanExecutor, &build_subaru_denso_1n83m_4m_can_plan>;
+    KernelFreeCanWorkflow<SubaruDenso1n83m_4mCanExecutor, &BuildSubaruDenso1n83m4mCanPlan>;
 // Supports Read and Write. TestWrite is rejected by the plan builder: the
 // legacy reflash_block ignored its test_write_arg and erased and wrote for
 // real, so there is no dry run to route to.
 using SubaruTcuHitachiM32rCanWorkflow =
-    KernelFreeCanWorkflow<SubaruTcuHitachiM32rCanExecutor, &build_subaru_tcu_hitachi_m32r_can_plan>;
+    KernelFreeCanWorkflow<SubaruTcuHitachiM32rCanExecutor, &BuildSubaruTcuHitachiM32rCanPlan>;
 using SubaruHitachiSh72543rCanWorkflow =
-    KernelFreeCanWorkflow<SubaruHitachiSh72543rCanExecutor, &build_subaru_hitachi_sh72543r_can_plan>;
+    KernelFreeCanWorkflow<SubaruHitachiSh72543rCanExecutor, &BuildSubaruHitachiSh72543rCanPlan>;
 
 using SubaruMitsuM32rKlineWorkflow =
-    KernelFreeKlineWorkflow<SubaruMitsuM32rKlineExecutor, &build_subaru_mitsu_m32r_kline_plan>;
+    KernelFreeKlineWorkflow<SubaruMitsuM32rKlineExecutor, &BuildSubaruMitsuM32rKlinePlan>;
 using SubaruHitachiM32rKlineWorkflow =
-    KernelFreeKlineWorkflow<SubaruHitachiM32rKlineExecutor, &build_subaru_hitachi_m32r_kline_plan>;
+    KernelFreeKlineWorkflow<SubaruHitachiM32rKlineExecutor, &BuildSubaruHitachiM32rKlinePlan>;
 using SubaruTcuHitachiM32rKlineWorkflow =
-    KernelFreeKlineWorkflow<SubaruTcuHitachiM32rKlineExecutor, &build_subaru_tcu_hitachi_m32r_kline_plan>;
-using SubaruUnisiaJecsWorkflow = KernelFreeKlineWorkflow<SubaruUnisiaJecsExecutor, &build_subaru_unisia_jecs_plan>;
+    KernelFreeKlineWorkflow<SubaruTcuHitachiM32rKlineExecutor, &BuildSubaruTcuHitachiM32rKlinePlan>;
+using SubaruUnisiaJecsWorkflow = KernelFreeKlineWorkflow<SubaruUnisiaJecsExecutor, &BuildSubaruUnisiaJecsPlan>;
 
 // DensoCAN plans carry exactly one CycleIgnition confirmation; the other
 // kernel-backed plans carry none.
 using SubaruDensoSh705xDensoCanWorkflow =
     KernelBackedWorkflow<SubaruDensoSh705xDensoCanExecutor, DesktopMixedCanFlashTransport,
-                         &build_subaru_denso_sh705x_densocan_plan>;
-using SubaruTcuDensoSh705xCanWorkflow = KernelBackedWorkflow<SubaruTcuDensoSh705xCanExecutor, DesktopCanFlashTransport,
-                                                             &build_subaru_tcu_denso_sh705x_can_plan>;
+                         &BuildSubaruDensoSh705xDensocanPlan>;
+using SubaruTcuDensoSh705xCanWorkflow =
+    KernelBackedWorkflow<SubaruTcuDensoSh705xCanExecutor, DesktopCanFlashTransport, &BuildSubaruTcuDensoSh705xCanPlan>;
 using SubaruDensoSh7058CanWorkflow =
-    KernelBackedWorkflow<SubaruDensoSh7058CanExecutor, DesktopCanFlashTransport, &build_subaru_denso_sh7058_can_plan>;
+    KernelBackedWorkflow<SubaruDensoSh7058CanExecutor, DesktopCanFlashTransport, &BuildSubaruDensoSh7058CanPlan>;
 using SubaruDensoSh7058CanDieselWorkflow =
     KernelBackedWorkflow<SubaruDensoSh7058CanDieselExecutor, DesktopCanFlashTransport,
-                         &build_subaru_denso_sh7058_can_diesel_plan>;
+                         &BuildSubaruDensoSh7058CanDieselPlan>;
 // The sequence is the kernel resolved on the first step, the shared
 // Begin prompt -- the legacy dialog's only prompt, "Turn ignition ON" -- then
 // the attempt.
-using SubaruDensoSh705xKlineWorkflow = KernelBackedWorkflow<SubaruDensoSh705xKlineExecutor, DesktopKlineFlashTransport,
-                                                            &build_subaru_denso_sh705x_kline_plan>;
+using SubaruDensoSh705xKlineWorkflow =
+    KernelBackedWorkflow<SubaruDensoSh705xKlineExecutor, DesktopKlineFlashTransport, &BuildSubaruDensoSh705xKlinePlan>;
 // SH7055_02 plans carry exactly one CycleIgnition confirmation.
 using SubaruDensoSh7055_02Workflow =
-    KernelBackedWorkflow<SubaruDensoSh7055_02Executor, DesktopKlineFlashTransport, &build_subaru_denso_sh7055_02_plan>;
+    KernelBackedWorkflow<SubaruDensoSh7055_02Executor, DesktopKlineFlashTransport, &BuildSubaruDensoSh705502Plan>;
 using SubaruDensoMc68hc16y5_02Workflow =
     SingleAttemptFlashWorkflow<SubaruDensoMc68hc16y5_02Executor, DesktopKlineFlashTransport, Mc68KernelPlan>;
 // Hitachi SH7058 Read runs over K-Line and Write over CAN: the plan builder
 // chooses the transport by operation and the factory the matching executor.
 // Read plans carry StartKlineRead; write plans carry nothing.
 using SubaruHitachiSh7058KlineWorkflow =
-    KernelFreeKlineWorkflow<SubaruHitachiSh7058KlineExecutor, &build_subaru_hitachi_sh7058_plan>;
+    KernelFreeKlineWorkflow<SubaruHitachiSh7058KlineExecutor, &BuildSubaruHitachiSh7058Plan>;
 using SubaruHitachiSh7058CanWorkflow =
-    KernelFreeCanWorkflow<SubaruHitachiSh7058CanExecutor, &build_subaru_hitachi_sh7058_plan>;
+    KernelFreeCanWorkflow<SubaruHitachiSh7058CanExecutor, &BuildSubaruHitachiSh7058Plan>;
 // Write plans carry KernelBootstrap; read plans carry nothing.
 using SubaruDensoMc68hc16y5_02BdmWorkflow =
     SingleAttemptFlashWorkflow<SubaruDensoMc68hc16y5_02BdmExecutor, DesktopKlineFlashTransport, BdmKernelPlan>;
@@ -880,19 +880,19 @@ class EepromWorkflow final : public FlashWorkflow
     {
     }
 
-    FlashWorkflowStep next() override
+    FlashWorkflowStep Next() override
     {
         if (request_.operation != FlashOperation::kRead)
         {
             return FlashFailureStep{Error{ErrorKind::kUnsupported, "EEPROM workflows support read operations only"}};
         }
-        if (auto failure = outcome_.takeFailure(); failure.has_value())
+        if (auto failure = outcome_.TakeFailure(); failure.has_value())
         {
             return std::move(*failure);
         }
-        if (outcome_.terminal())
+        if (outcome_.Terminal())
         {
-            return outcome_.completedStep();
+            return outcome_.CompletedStep();
         }
         if (!begun_)
         {
@@ -908,26 +908,26 @@ class EepromWorkflow final : public FlashWorkflow
         }
 
         QtFileRepository repository;
-        auto plan = build_eeprom_read_plan(request_.paths, request_.protocol, mode_, repository);
+        auto plan = BuildEepromReadPlan(request_.paths, request_.protocol, mode_, repository);
         if (!plan)
         {
             return FlashFailureStep{plan.error()};
         }
-        if (plan->transport() == TransportKind::kKline)
+        if (plan->Transport() == TransportKind::kKline)
         {
             return FlashWorkflowStep{std::in_place_type<FlashAttempt>,
-                                     bind_flash_attempt(std::move(*plan),
-                                                        std::make_unique<DensoSh705xEepromKlineExecutor>(),
-                                                        std::make_unique<DesktopKlineFlashTransport>(request_.serial)),
+                                     BindFlashAttempt(std::move(*plan),
+                                                      std::make_unique<DensoSh705xEepromKlineExecutor>(),
+                                                      std::make_unique<DesktopKlineFlashTransport>(request_.serial)),
                                      std::make_unique<QtClock>()};
         }
         return FlashWorkflowStep{std::in_place_type<FlashAttempt>,
-                                 bind_flash_attempt(std::move(*plan), std::make_unique<DensoSh705xEepromCanExecutor>(),
-                                                    std::make_unique<DesktopCanFlashTransport>(request_.serial)),
+                                 BindFlashAttempt(std::move(*plan), std::make_unique<DensoSh705xEepromCanExecutor>(),
+                                                  std::make_unique<DesktopCanFlashTransport>(request_.serial)),
                                  std::make_unique<QtClock>()};
     }
 
-    void submit(FlashPromptResponse response) override
+    void Submit(FlashPromptResponse response) override
     {
         if (!begun_)
         {
@@ -937,7 +937,7 @@ class EepromWorkflow final : public FlashWorkflow
             }
             else
             {
-                outcome_.cancel();
+                outcome_.Cancel();
             }
             return;
         }
@@ -946,7 +946,7 @@ class EepromWorkflow final : public FlashWorkflow
             need_cycle_ = false;
             if (response != FlashPromptResponse::kAccept)
             {
-                outcome_.cancel();
+                outcome_.Cancel();
             }
             return;
         }
@@ -955,22 +955,22 @@ class EepromWorkflow final : public FlashWorkflow
             inspect_ = false;
             if (response == FlashPromptResponse::kSave)
             {
-                outcome_.succeed(std::move(pending_));
+                outcome_.Succeed(std::move(pending_));
             }
             else if (mode_ == EepromReadMode::kMode4)
             {
-                outcome_.discard();
+                outcome_.Discard();
             }
             else
             {
-                advance();
+                Advance();
                 need_cycle_ = true;
                 pending_.reset();
             }
         }
     }
 
-    void submit(FlashAttemptResult result) override
+    void Submit(FlashAttemptResult result) override
     {
         if (result.success)
         {
@@ -979,20 +979,20 @@ class EepromWorkflow final : public FlashWorkflow
         }
         else if (result.error_kind == ErrorKind::kCancelled)
         {
-            outcome_.cancel();
+            outcome_.Cancel();
         }
         else if (mode_ != EepromReadMode::kMode4)
         {
-            advance();
+            Advance();
         }
         else
         {
-            outcome_.fail(Error{result.error_kind, std::move(result.error_detail)});
+            outcome_.Fail(Error{result.error_kind, std::move(result.error_detail)});
         }
     }
 
   private:
-    void advance()
+    void Advance()
     {
         using enum EepromReadMode;
         mode_ = mode_ == kMode2 ? kMode3 : kMode4;
@@ -1119,7 +1119,7 @@ constexpr auto kRoutes = std::to_array<Route>({
 
 } // namespace
 
-std::optional<bytes::Bytes> portableImageForOperation(FlashOperation operation, bytes::ByteView rom)
+std::optional<bytes::Bytes> PortableImageForOperation(FlashOperation operation, bytes::ByteView rom)
 {
     if (operation == FlashOperation::kRead)
     {
@@ -1128,7 +1128,7 @@ std::optional<bytes::Bytes> portableImageForOperation(FlashOperation operation, 
     return bytes::Bytes(rom.begin(), rom.end());
 }
 
-std::unique_ptr<FlashWorkflow> FlashWorkflowFactory::tryCreate(FlashWorkflowRequest request)
+std::unique_ptr<FlashWorkflow> FlashWorkflowFactory::TryCreate(FlashWorkflowRequest request)
 {
     const auto route = std::ranges::find_if(kRoutes,
                                             [&request](const Route& candidate)

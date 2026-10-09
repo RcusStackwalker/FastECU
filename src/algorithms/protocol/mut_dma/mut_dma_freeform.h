@@ -13,17 +13,17 @@ struct Channel
     bytes::Byte len;  // element size in bytes: 1, 2, or 4
 };
 // Setup frame: [setupCmd (0xA0/0xB0)][channelCount][pad][sum8][0x0A], 51 bytes.
-MutDmaFrame buildSetupFrame(bytes::Byte setup_cmd, bytes::Byte channel_count);
+MutDmaFrame BuildSetupFrame(bytes::Byte setup_cmd, bytes::Byte channel_count);
 // 0 for 1 byte, 1 for 2 bytes, 2 for 4 bytes. Returns 0 for unexpected sizes.
-bytes::Byte sizeToDescriptor(bytes::Byte len);
+bytes::Byte SizeToDescriptor(bytes::Byte len);
 // reqLen = ceil(N/4) + N*2 + 0x1c   (header+descriptors+ids+overhead+csum+trailer)
-std::size_t reqLen(std::size_t channel_count);
+std::size_t ReqLen(std::size_t channel_count);
 // Id-list (host reply to ACK-1): [listCmd 0xA1..0xA4][N][2-bit size descriptors,
 // ceil(N/4) bytes, channel i at bits[(3-(i%4))*2]][N x u16 ids big-endian][zero pad]
 // [sum8(0..len-3)][0x0D]. Total length == reqLen(N). listCmd selects the rate slot.
-bytes::Bytes buildIdListFrame(bytes::Byte list_cmd, const std::vector<Channel>& channels);
+bytes::Bytes BuildIdListFrame(bytes::Byte list_cmd, const std::vector<Channel>& channels);
 // Sum of element sizes = number of data bytes a stream frame carries for these channels.
-std::size_t responseDataLength(const std::vector<Channel>& channels);
+std::size_t ResponseDataLength(const std::vector<Channel>& channels);
 // Decode the stream data payload into one big-endian value per channel, in order.
-std::vector<std::uint32_t> decodeStreamValues(const std::vector<Channel>& channels, bytes::ByteView data);
+std::vector<std::uint32_t> DecodeStreamValues(const std::vector<Channel>& channels, bytes::ByteView data);
 } // namespace mutdma

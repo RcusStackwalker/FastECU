@@ -39,7 +39,7 @@ constexpr std::array kSingletonChildren{
 };
 } // namespace
 
-std::string trim_copy(std::string_view value)
+std::string TrimCopy(std::string_view value)
 {
     std::size_t first = 0;
     while (first < value.size() && std::isspace(static_cast<unsigned char>(value[first])))
@@ -55,7 +55,7 @@ std::string trim_copy(std::string_view value)
     return std::string(value.substr(first, last - first));
 }
 
-std::string detail_prefix(std::string_view source, std::string_view definition_id)
+std::string DetailPrefix(std::string_view source, std::string_view definition_id)
 {
     std::string detail = std::format("EcuFlash/RomRaider source '{}'", source);
     if (!definition_id.empty())
@@ -65,14 +65,14 @@ std::string detail_prefix(std::string_view source, std::string_view definition_i
     return detail + ": ";
 }
 
-std::unexpected<Error> invalid(std::string_view source, std::string context, std::string message,
+std::unexpected<Error> Invalid(std::string_view source, std::string context, std::string message,
                                std::string_view definition_id)
 {
-    return fail(ErrorKind::kInvalidConfig,
-                std::format("{}{}: {}", detail_prefix(source, definition_id), context, message));
+    return Fail(ErrorKind::kInvalidConfig,
+                std::format("{}{}: {}", DetailPrefix(source, definition_id), context, message));
 }
 
-std::string read_element_text(pugi::xml_node element)
+std::string ReadElementText(pugi::xml_node element)
 {
     std::string text;
     for (const auto child : element.children())
@@ -85,13 +85,13 @@ std::string read_element_text(pugi::xml_node element)
     return text;
 }
 
-std::string header_child_text(pugi::xml_node parent, std::string_view name)
+std::string HeaderChildText(pugi::xml_node parent, std::string_view name)
 {
-    const auto text = read_element_text(parent.child(name));
-    return name == "notes" ? text : std::string{trim_header_text(text)};
+    const auto text = ReadElementText(parent.child(name));
+    return name == "notes" ? text : std::string{TrimHeaderText(text)};
 }
 
-Status validate_header_structure(pugi::xml_node rom, std::string_view source)
+Status ValidateHeaderStructure(pugi::xml_node rom, std::string_view source)
 {
     const auto validate_fields = [source](pugi::xml_node parent, std::span<const char *const> names) -> Status
     {
@@ -102,7 +102,7 @@ Status validate_header_structure(pugi::xml_node rom, std::string_view source)
                 if (std::ranges::any_of(element.children(),
                                         [](auto child) { return child.type() == pugi::node_element; }))
                 {
-                    return invalid(source, std::format("element <{}> child <{}>", parent.name(), name),
+                    return Invalid(source, std::format("element <{}> child <{}>", parent.name(), name),
                                    "nested elements are not allowed in header text");
                 }
             }
@@ -117,10 +117,10 @@ Status validate_header_structure(pugi::xml_node rom, std::string_view source)
     return validate_fields(rom, kRootFields);
 }
 
-Result<std::optional<std::uint64_t>> parse_header_address(std::string_view text, std::string_view source,
-                                                          std::string_view definition_id)
+Result<std::optional<std::uint64_t>> ParseHeaderAddress(std::string_view text, std::string_view source,
+                                                        std::string_view definition_id)
 {
-    text = trim_header_text(text);
+    text = TrimHeaderText(text);
     if (text.empty())
     {
         return std::optional<std::uint64_t>{};
@@ -129,26 +129,26 @@ Result<std::optional<std::uint64_t>> parse_header_address(std::string_view text,
     {
         text.remove_prefix(1);
     }
-    const auto parsed = trim_header_text(text) == text ? parse_hex_value(text) : std::nullopt;
+    const auto parsed = TrimHeaderText(text) == text ? ParseHexValue(text) : std::nullopt;
     if (!parsed.has_value())
     {
-        return invalid(source, "element <romid> child <internalidaddress>",
+        return Invalid(source, "element <romid> child <internalidaddress>",
                        std::format("invalid hexadecimal unsigned value '{}'", text), definition_id);
     }
     return parsed;
 }
 
-std::string table_element_text(pugi::xml_node element)
+std::string TableElementText(pugi::xml_node element)
 {
     for (const auto child : element.children())
     {
         if (child.type() == pugi::node_cdata)
         {
-            return trim_copy(child.value());
+            return TrimCopy(child.value());
         }
         if (child.type() == pugi::node_pcdata)
         {
-            auto text = trim_copy(child.value());
+            auto text = TrimCopy(child.value());
             if (!text.empty())
             {
                 return text;
@@ -158,25 +158,25 @@ std::string table_element_text(pugi::xml_node element)
     return {};
 }
 
-std::string child_text(pugi::xml_node parent, std::string_view child_name)
+std::string ChildText(pugi::xml_node parent, std::string_view child_name)
 {
-    return table_element_text(parent.child(child_name));
+    return TableElementText(parent.child(child_name));
 }
 
-Result<pugi::xml_node> identity_element(pugi::xml_node rom, std::string_view source)
+Result<pugi::xml_node> IdentityElement(pugi::xml_node rom, std::string_view source)
 {
-    if (auto status = validate_header_structure(rom, source); !status.has_value())
+    if (auto status = ValidateHeaderStructure(rom, source); !status.has_value())
     {
         return std::unexpected(status.error());
     }
     const pugi::xml_node rom_id = rom.child("romid");
     if (!rom_id)
     {
-        return invalid(source, "element <rom> child <romid>", "missing required identity element");
+        return Invalid(source, "element <rom> child <romid>", "missing required identity element");
     }
     if (rom_id.next_sibling("romid"))
     {
-        return invalid(source, "element <rom> child <romid>", "duplicate singleton identity element");
+        return Invalid(source, "element <rom> child <romid>", "duplicate singleton identity element");
     }
 
     for (const char *child_name : kSingletonChildren)
@@ -184,44 +184,44 @@ Result<pugi::xml_node> identity_element(pugi::xml_node rom, std::string_view sou
         const pugi::xml_node child = rom_id.child(child_name);
         if (child && child.next_sibling(child_name))
         {
-            return invalid(source, std::format("element <romid> child <{}>", child_name),
+            return Invalid(source, std::format("element <romid> child <{}>", child_name),
                            "duplicate singleton identity element");
         }
     }
     return rom_id;
 }
 
-Result<std::string> required_child_text(pugi::xml_node parent, std::string_view parent_name,
-                                        std::string_view child_name, std::string_view source)
+Result<std::string> RequiredChildText(pugi::xml_node parent, std::string_view parent_name, std::string_view child_name,
+                                      std::string_view source)
 {
-    const std::string value = header_child_text(parent, child_name);
+    const std::string value = HeaderChildText(parent, child_name);
     if (value.empty())
     {
-        return invalid(source, std::format("element <{}> child <{}>", parent_name, child_name),
+        return Invalid(source, std::format("element <{}> child <{}>", parent_name, child_name),
                        "missing or empty required text");
     }
     return value;
 }
 
-Result<std::string> definition_id_for_rom(pugi::xml_node rom, std::string_view source)
+Result<std::string> DefinitionIdForRom(pugi::xml_node rom, std::string_view source)
 {
-    auto rom_id = identity_element(rom, source);
+    auto rom_id = IdentityElement(rom, source);
     if (!rom_id)
     {
         return std::unexpected(rom_id.error());
     }
-    return required_child_text(*rom_id, "romid", "xmlid", source);
+    return RequiredChildText(*rom_id, "romid", "xmlid", source);
 }
 
-Result<ParsedRomHeader> parse_rom_header(pugi::xml_node rom, std::string_view source)
+Result<ParsedRomHeader> ParseRomHeader(pugi::xml_node rom, std::string_view source)
 {
-    auto definition_id = definition_id_for_rom(rom, source);
+    auto definition_id = DefinitionIdForRom(rom, source);
     if (!definition_id.has_value())
     {
         return std::unexpected(definition_id.error());
     }
     const auto rom_id = rom.child("romid");
-    auto address = parse_header_address(read_element_text(rom_id.child("internalidaddress")), source, *definition_id);
+    auto address = ParseHeaderAddress(ReadElementText(rom_id.child("internalidaddress")), source, *definition_id);
     if (!address.has_value())
     {
         return std::unexpected(address.error());
@@ -229,44 +229,44 @@ Result<ParsedRomHeader> parse_rom_header(pugi::xml_node rom, std::string_view so
     return ParsedRomHeader{
         .rom = rom,
         .identity = RomIdentity{.xml_id = std::move(*definition_id),
-                                .internal_id = header_child_text(rom_id, "internalidstring"),
-                                .ecu_id = header_child_text(rom_id, "ecuid"),
+                                .internal_id = HeaderChildText(rom_id, "internalidstring"),
+                                .ecu_id = HeaderChildText(rom_id, "ecuid"),
                                 .internal_id_address = *address},
     };
 }
 
-RomMetadata parse_metadata(pugi::xml_node rom_id)
+RomMetadata ParseMetadata(pugi::xml_node rom_id)
 {
     RomMetadata metadata;
     for (const auto& field : kEditableMetadataFields)
     {
-        metadata.*field.member = header_child_text(rom_id, field.xml_name);
+        metadata.*field.member = HeaderChildText(rom_id, field.xml_name);
     }
-    metadata.file_size = header_child_text(rom_id, "filesize");
-    metadata.notes = header_child_text(rom_id, "notes");
+    metadata.file_size = HeaderChildText(rom_id, "filesize");
+    metadata.notes = HeaderChildText(rom_id, "notes");
     return metadata;
 }
 
-Result<pugi::xml_node> parse_document_root(pugi::xml_document& document, std::span<const std::uint8_t> xml,
-                                           std::string_view source, pugi::xml_encoding encoding)
+Result<pugi::xml_node> ParseDocumentRoot(pugi::xml_document& document, std::span<const std::uint8_t> xml,
+                                         std::string_view source, pugi::xml_encoding encoding)
 {
     if (const pugi::xml_parse_result parsed =
             document.load_buffer(xml.data(), xml.size(), pugi::parse_default | pugi::parse_ws_pcdata, encoding);
         !parsed)
     {
-        return invalid(source, "XML document", std::format("malformed XML: {}", parsed.description()));
+        return Invalid(source, "XML document", std::format("malformed XML: {}", parsed.description()));
     }
     if (std::ranges::count_if(document.children(), [](auto node) { return node.type() == pugi::node_element; }) != 1)
     {
-        return invalid(source, "XML document", "expected one document root");
+        return Invalid(source, "XML document", "expected one document root");
     }
     return document.document_element();
 }
 
-Result<pugi::xml_node> parse_root(pugi::xml_document& document, std::span<const std::uint8_t> xml,
-                                  std::string_view source, std::string_view root_name)
+Result<pugi::xml_node> ParseRoot(pugi::xml_document& document, std::span<const std::uint8_t> xml,
+                                 std::string_view source, std::string_view root_name)
 {
-    const auto parsed = parse_document_root(document, xml, source, pugi::encoding_auto);
+    const auto parsed = ParseDocumentRoot(document, xml, source, pugi::encoding_auto);
     if (!parsed.has_value())
     {
         return std::unexpected(parsed.error());
@@ -275,29 +275,29 @@ Result<pugi::xml_node> parse_root(pugi::xml_document& document, std::span<const 
     if (!root || root.name() != root_name)
     {
         const std::string actual = root ? std::format("<{}>", root.name()) : "no root element";
-        return invalid(source, std::format("root element <{}>", root_name),
+        return Invalid(source, std::format("root element <{}>", root_name),
                        std::format("wrong root; found {}", actual));
     }
     return root;
 }
 
-Result<std::uint64_t> parse_hex_unsigned(std::string_view value, std::string_view source, std::string context,
-                                         std::string_view definition_id)
+Result<std::uint64_t> ParseHexUnsigned(std::string_view value, std::string_view source, std::string context,
+                                       std::string_view definition_id)
 {
-    if (const std::optional<std::uint64_t> parsed = parse_hex_value(value); parsed.has_value())
+    if (const std::optional<std::uint64_t> parsed = ParseHexValue(value); parsed.has_value())
     {
         return *parsed;
     }
-    return invalid(source, std::move(context), std::format("invalid hexadecimal unsigned value '{}'", trim_copy(value)),
+    return Invalid(source, std::move(context), std::format("invalid hexadecimal unsigned value '{}'", TrimCopy(value)),
                    definition_id);
 }
 
-std::string value_or_empty(pugi::xml_attribute attribute)
+std::string ValueOrEmpty(pugi::xml_attribute attribute)
 {
-    return trim_copy(attribute.value());
+    return TrimCopy(attribute.value());
 }
 
-std::string selection_name(std::string name)
+std::string SelectionName(std::string name)
 {
     if (name == "on")
     {
@@ -310,8 +310,8 @@ std::string selection_name(std::string name)
     return name;
 }
 
-Result<std::optional<std::uint64_t>> optional_hex_attribute(pugi::xml_node node, std::string_view attribute_name,
-                                                            std::string_view source, std::string_view definition_id)
+Result<std::optional<std::uint64_t>> OptionalHexAttribute(pugi::xml_node node, std::string_view attribute_name,
+                                                          std::string_view source, std::string_view definition_id)
 {
     const pugi::xml_attribute attribute = node.attribute(attribute_name);
     if (!attribute)
@@ -320,8 +320,8 @@ Result<std::optional<std::uint64_t>> optional_hex_attribute(pugi::xml_node node,
     }
 
     auto parsed =
-        parse_hex_unsigned(attribute.value(), source,
-                           std::format("element <{}> attribute '{}'", node.name(), attribute_name), definition_id);
+        ParseHexUnsigned(attribute.value(), source,
+                         std::format("element <{}> attribute '{}'", node.name(), attribute_name), definition_id);
     if (!parsed.has_value())
     {
         return std::unexpected(parsed.error());
@@ -329,19 +329,19 @@ Result<std::optional<std::uint64_t>> optional_hex_attribute(pugi::xml_node node,
     return std::optional<std::uint64_t>{*parsed};
 }
 
-Result<std::optional<std::uint64_t>> optional_address(pugi::xml_node node, std::string_view source,
-                                                      std::string_view definition_id)
+Result<std::optional<std::uint64_t>> OptionalAddress(pugi::xml_node node, std::string_view source,
+                                                     std::string_view definition_id)
 {
     if (node.attribute("address"))
     {
-        return optional_hex_attribute(node, "address", source, definition_id);
+        return OptionalHexAttribute(node, "address", source, definition_id);
     }
-    return optional_hex_attribute(node, "storageaddress", source, definition_id);
+    return OptionalHexAttribute(node, "storageaddress", source, definition_id);
 }
 
-Result<std::uint32_t> dimension_attribute(pugi::xml_node node, std::string_view attribute_name,
-                                          std::uint32_t default_value, std::string_view source,
-                                          std::string_view definition_id)
+Result<std::uint32_t> DimensionAttribute(pugi::xml_node node, std::string_view attribute_name,
+                                         std::uint32_t default_value, std::string_view source,
+                                         std::string_view definition_id)
 {
     const pugi::xml_attribute attribute = node.attribute(attribute_name);
     if (!attribute)
@@ -349,22 +349,22 @@ Result<std::uint32_t> dimension_attribute(pugi::xml_node node, std::string_view 
         return default_value;
     }
 
-    const std::string value = trim_copy(attribute.value());
+    const std::string value = TrimCopy(attribute.value());
     std::uint64_t parsed = 0;
     const auto [end, error] = std::from_chars(value.data(), value.data() + value.size(), parsed, 10);
     if (value.empty() || error != std::errc{} || end != value.data() + value.size() || parsed == 0 ||
         parsed > std::numeric_limits<std::uint32_t>::max())
     {
-        return invalid(source, std::format("element <{}> attribute '{}'", node.name(), attribute_name),
+        return Invalid(source, std::format("element <{}> attribute '{}'", node.name(), attribute_name),
                        std::format("invalid positive dimension '{}'", value), definition_id);
     }
     return static_cast<std::uint32_t>(parsed);
 }
 
-Result<std::optional<std::uint32_t>> optional_hex_attribute32(pugi::xml_node node, std::string_view attribute_name,
-                                                              std::string_view source, std::string_view definition_id)
+Result<std::optional<std::uint32_t>> OptionalHexAttribute32(pugi::xml_node node, std::string_view attribute_name,
+                                                            std::string_view source, std::string_view definition_id)
 {
-    auto parsed = optional_hex_attribute(node, attribute_name, source, definition_id);
+    auto parsed = OptionalHexAttribute(node, attribute_name, source, definition_id);
     if (!parsed.has_value())
     {
         return std::unexpected(parsed.error());
@@ -375,37 +375,36 @@ Result<std::optional<std::uint32_t>> optional_hex_attribute32(pugi::xml_node nod
     }
     if (**parsed > std::numeric_limits<std::uint32_t>::max())
     {
-        return invalid(source, std::format("element <{}> attribute '{}'", node.name(), attribute_name),
+        return Invalid(source, std::format("element <{}> attribute '{}'", node.name(), attribute_name),
                        std::format("hexadecimal value '{}' does not fit in 32 bits", **parsed), definition_id);
     }
     return std::optional<std::uint32_t>{static_cast<std::uint32_t>(**parsed)};
 }
 
-Result<std::optional<StorageType>> optional_storage_type_attribute(pugi::xml_node node, std::string_view attribute_name,
-                                                                   std::string_view source,
-                                                                   std::string_view definition_id)
+Result<std::optional<StorageType>> OptionalStorageTypeAttribute(pugi::xml_node node, std::string_view attribute_name,
+                                                                std::string_view source, std::string_view definition_id)
 {
     const pugi::xml_attribute attribute = node.attribute(attribute_name);
     if (!attribute)
     {
         return std::optional<StorageType>{};
     }
-    const std::string text = trim_copy(attribute.value());
+    const std::string text = TrimCopy(attribute.value());
     if (text.empty())
     {
         return std::optional<StorageType>{};
     }
-    auto parsed = storage_type_from_text(text);
+    auto parsed = StorageTypeFromText(text);
     if (!parsed.has_value())
     {
-        return invalid(source, std::format("element <{}> attribute '{}'", node.name(), attribute_name),
+        return Invalid(source, std::format("element <{}> attribute '{}'", node.name(), attribute_name),
                        std::format("unrecognized storage type '{}'", text), definition_id);
     }
     return parsed;
 }
 
-Result<bool> strict_boolean_attribute(pugi::xml_node node, std::string_view attribute_name, std::string_view source,
-                                      std::string_view definition_id)
+Result<bool> StrictBooleanAttribute(pugi::xml_node node, std::string_view attribute_name, std::string_view source,
+                                    std::string_view definition_id)
 {
     const pugi::xml_attribute attribute = node.attribute(attribute_name);
     if (!attribute)
@@ -422,49 +421,49 @@ Result<bool> strict_boolean_attribute(pugi::xml_node node, std::string_view attr
     {
         return false;
     }
-    return invalid(source, std::format("element <{}> attribute '{}'", node.name(), attribute_name),
+    return Invalid(source, std::format("element <{}> attribute '{}'", node.name(), attribute_name),
                    std::format("invalid strict boolean '{}'; expected 'true' or 'false'", value), definition_id);
 }
 
-Status populate_common_axis_attributes(pugi::xml_node table, UnresolvedAxisDefinition& axis, std::string_view source,
-                                       std::string_view definition_id)
+Status PopulateCommonAxisAttributes(pugi::xml_node table, UnresolvedAxisDefinition& axis, std::string_view source,
+                                    std::string_view definition_id)
 {
-    axis.type = value_or_empty(table.attribute("type"));
-    axis.name = value_or_empty(table.attribute("name"));
-    auto storage_type = optional_storage_type_attribute(table, "storagetype", source, definition_id);
+    axis.type = ValueOrEmpty(table.attribute("type"));
+    axis.name = ValueOrEmpty(table.attribute("name"));
+    auto storage_type = OptionalStorageTypeAttribute(table, "storagetype", source, definition_id);
     if (!storage_type.has_value())
     {
         return std::unexpected(storage_type.error());
     }
     axis.storage_type = *storage_type;
-    axis.endian = value_or_empty(table.attribute("endian"));
-    if (auto status = populate_optional_hex_dimension(table, "startpos", axis.start_position, source, definition_id);
+    axis.endian = ValueOrEmpty(table.attribute("endian"));
+    if (auto status = PopulateOptionalHexDimension(table, "startpos", axis.start_position, source, definition_id);
         !status.has_value())
     {
         return std::unexpected(status.error());
     }
-    if (auto status = populate_optional_hex_dimension(table, "interval", axis.interval, source, definition_id);
+    if (auto status = PopulateOptionalHexDimension(table, "interval", axis.interval, source, definition_id);
         !status.has_value())
     {
         return std::unexpected(status.error());
     }
     if (const auto log_parameter = table.attribute("logparam"))
     {
-        axis.log_parameter = value_or_empty(log_parameter);
+        axis.log_parameter = ValueOrEmpty(log_parameter);
     }
     if (table.child("data"))
     {
         std::vector<std::string> values;
         for (pugi::xml_node data : table.children("data"))
         {
-            values.push_back(table_element_text(data));
+            values.push_back(TableElementText(data));
         }
         axis.static_data = std::move(values);
     }
     return {};
 }
 
-void apply_scaling_to_axis(const UnresolvedScaling& scaling, UnresolvedAxisDefinition& axis)
+void ApplyScalingToAxis(const UnresolvedScaling& scaling, UnresolvedAxisDefinition& axis)
 {
     axis.scaling_name = scaling.name;
     axis.units = scaling.units;
@@ -484,57 +483,57 @@ void apply_scaling_to_axis(const UnresolvedScaling& scaling, UnresolvedAxisDefin
     }
 }
 
-Status populate_common_map_attributes(pugi::xml_node table, UnresolvedCalibrationMap& map, std::string_view source,
-                                      std::string_view definition_id)
+Status PopulateCommonMapAttributes(pugi::xml_node table, UnresolvedCalibrationMap& map, std::string_view source,
+                                   std::string_view definition_id)
 {
     if (const auto id = table.attribute("id"))
     {
-        map.id = value_or_empty(id);
+        map.id = ValueOrEmpty(id);
     }
-    map.name = value_or_empty(table.attribute("name"));
-    map.type = value_or_empty(table.attribute("type"));
-    map.category = value_or_empty(table.attribute("category"));
-    map.subcategory = value_or_empty(table.attribute("subcategory"));
-    map.description = value_or_empty(table.attribute("description"));
+    map.name = ValueOrEmpty(table.attribute("name"));
+    map.type = ValueOrEmpty(table.attribute("type"));
+    map.category = ValueOrEmpty(table.attribute("category"));
+    map.subcategory = ValueOrEmpty(table.attribute("subcategory"));
+    map.description = ValueOrEmpty(table.attribute("description"));
     if (map.description.empty())
     {
-        map.description = child_text(table, "description");
+        map.description = ChildText(table, "description");
     }
-    map.level = value_or_empty(table.attribute("level"));
-    map.user_level = value_or_empty(table.attribute("userlevel"));
-    auto storage_type = optional_storage_type_attribute(table, "storagetype", source, definition_id);
+    map.level = ValueOrEmpty(table.attribute("level"));
+    map.user_level = ValueOrEmpty(table.attribute("userlevel"));
+    auto storage_type = OptionalStorageTypeAttribute(table, "storagetype", source, definition_id);
     if (!storage_type.has_value())
     {
         return std::unexpected(storage_type.error());
     }
     map.storage_type = *storage_type;
-    map.endian = value_or_empty(table.attribute("endian"));
-    if (auto status = populate_optional_hex_dimension(table, "startpos", map.start_position, source, definition_id);
+    map.endian = ValueOrEmpty(table.attribute("endian"));
+    if (auto status = PopulateOptionalHexDimension(table, "startpos", map.start_position, source, definition_id);
         !status.has_value())
     {
         return std::unexpected(status.error());
     }
-    if (auto status = populate_optional_hex_dimension(table, "interval", map.interval, source, definition_id);
+    if (auto status = PopulateOptionalHexDimension(table, "interval", map.interval, source, definition_id);
         !status.has_value())
     {
         return std::unexpected(status.error());
     }
     if (const auto log_parameter = table.attribute("logparam"))
     {
-        map.log_parameter = value_or_empty(log_parameter);
+        map.log_parameter = ValueOrEmpty(log_parameter);
     }
     return {};
 }
 
-Status populate_optional_dimension(pugi::xml_node table, std::string_view attribute_name,
-                                   std::optional<std::uint32_t>& destination, std::string_view source,
-                                   std::string_view definition_id)
+Status PopulateOptionalDimension(pugi::xml_node table, std::string_view attribute_name,
+                                 std::optional<std::uint32_t>& destination, std::string_view source,
+                                 std::string_view definition_id)
 {
     if (!table.attribute(attribute_name))
     {
         return {};
     }
-    auto dimension = dimension_attribute(table, attribute_name, 1, source, definition_id);
+    auto dimension = DimensionAttribute(table, attribute_name, 1, source, definition_id);
     if (!dimension)
     {
         return std::unexpected(dimension.error());
@@ -543,11 +542,11 @@ Status populate_optional_dimension(pugi::xml_node table, std::string_view attrib
     return {};
 }
 
-Status populate_optional_hex_dimension(pugi::xml_node table, std::string_view attribute_name,
-                                       std::optional<std::uint32_t>& destination, std::string_view source,
-                                       std::string_view definition_id)
+Status PopulateOptionalHexDimension(pugi::xml_node table, std::string_view attribute_name,
+                                    std::optional<std::uint32_t>& destination, std::string_view source,
+                                    std::string_view definition_id)
 {
-    auto dimension = optional_hex_attribute32(table, attribute_name, source, definition_id);
+    auto dimension = OptionalHexAttribute32(table, attribute_name, source, definition_id);
     if (!dimension.has_value())
     {
         return std::unexpected(dimension.error());
@@ -559,15 +558,14 @@ Status populate_optional_hex_dimension(pugi::xml_node table, std::string_view at
     return {};
 }
 
-Status populate_optional_boolean(pugi::xml_node table, std::string_view attribute_name,
-                                 std::optional<bool>& destination, std::string_view source,
-                                 std::string_view definition_id)
+Status PopulateOptionalBoolean(pugi::xml_node table, std::string_view attribute_name, std::optional<bool>& destination,
+                               std::string_view source, std::string_view definition_id)
 {
     if (!table.attribute(attribute_name))
     {
         return {};
     }
-    auto value = strict_boolean_attribute(table, attribute_name, source, definition_id);
+    auto value = StrictBooleanAttribute(table, attribute_name, source, definition_id);
     if (!value)
     {
         return std::unexpected(value.error());
@@ -576,18 +574,18 @@ Status populate_optional_boolean(pugi::xml_node table, std::string_view attribut
     return {};
 }
 
-Status populate_map_header(pugi::xml_node table, UnresolvedCalibrationMap& map, std::string_view source,
-                           std::string_view definition_id)
+Status PopulateMapHeader(pugi::xml_node table, UnresolvedCalibrationMap& map, std::string_view source,
+                         std::string_view definition_id)
 {
-    if (auto status = populate_common_map_attributes(table, map, source, definition_id); !status.has_value())
+    if (auto status = PopulateCommonMapAttributes(table, map, source, definition_id); !status.has_value())
     {
         return std::unexpected(status.error());
     }
     if (map.name.empty())
     {
-        return invalid(source, "element <table> attribute 'name'", "missing or empty map name", definition_id);
+        return Invalid(source, "element <table> attribute 'name'", "missing or empty map name", definition_id);
     }
-    auto address = optional_address(table, source, definition_id);
+    auto address = OptionalAddress(table, source, definition_id);
     if (!address.has_value())
     {
         return std::unexpected(address.error());
@@ -596,38 +594,36 @@ Status populate_map_header(pugi::xml_node table, UnresolvedCalibrationMap& map, 
     return {};
 }
 
-Status populate_map_size(pugi::xml_node table, UnresolvedCalibrationMap& map, std::string_view source,
-                         std::string_view definition_id)
+Status PopulateMapSize(pugi::xml_node table, UnresolvedCalibrationMap& map, std::string_view source,
+                       std::string_view definition_id)
 {
-    if (auto status = populate_optional_dimension(table, "sizex", map.x_size, source, definition_id);
-        !status.has_value())
+    if (auto status = PopulateOptionalDimension(table, "sizex", map.x_size, source, definition_id); !status.has_value())
     {
         return std::unexpected(status.error());
     }
-    return populate_optional_dimension(table, "sizey", map.y_size, source, definition_id);
+    return PopulateOptionalDimension(table, "sizey", map.y_size, source, definition_id);
 }
 
-Status populate_map_orientation(pugi::xml_node table, UnresolvedCalibrationMap& map, std::string_view source,
-                                std::string_view definition_id)
+Status PopulateMapOrientation(pugi::xml_node table, UnresolvedCalibrationMap& map, std::string_view source,
+                              std::string_view definition_id)
 {
-    if (auto status = populate_optional_boolean(table, "swapxy", map.swap_xy, source, definition_id);
-        !status.has_value())
+    if (auto status = PopulateOptionalBoolean(table, "swapxy", map.swap_xy, source, definition_id); !status.has_value())
     {
         return std::unexpected(status.error());
     }
-    if (auto status = populate_optional_boolean(table, "flipx", map.flip_x, source, definition_id); !status.has_value())
+    if (auto status = PopulateOptionalBoolean(table, "flipx", map.flip_x, source, definition_id); !status.has_value())
     {
         return std::unexpected(status.error());
     }
-    return populate_optional_boolean(table, "flipy", map.flip_y, source, definition_id);
+    return PopulateOptionalBoolean(table, "flipy", map.flip_y, source, definition_id);
 }
 
-std::string map_scaling_fallback_name(const UnresolvedCalibrationMap& map)
+std::string MapScalingFallbackName(const UnresolvedCalibrationMap& map)
 {
     return map.scaling_name.empty() ? map.id.value_or(map.name) : map.scaling_name;
 }
 
-void adopt_inline_scaling(const UnresolvedScaling& scaling, UnresolvedCalibrationMap& map)
+void AdoptInlineScaling(const UnresolvedScaling& scaling, UnresolvedCalibrationMap& map)
 {
     map.scaling_name = scaling.name;
     if (!map.storage_type)

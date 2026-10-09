@@ -62,9 +62,9 @@ using namespace std::chrono_literals;
 namespace
 {
 // The real local backend, as the desktop app's DirectSerial connection builds it.
-std::function<SerialBackend *()> directBackend()
+std::function<SerialBackend *()> DirectBackend()
 {
-    return [] { return make_direct_serial_backend().release(); };
+    return [] { return MakeDirectSerialBackend().release(); };
 }
 } // namespace
 
@@ -86,7 +86,7 @@ class MockOpenPort final : public QObject
     explicit MockOpenPort(int master_fd, QObject *parent = nullptr)
         : QObject(parent), fd_(master_fd), notifier_(new QSocketNotifier(master_fd, QSocketNotifier::Read, this))
     {
-        connect(notifier_, &QSocketNotifier::activated, this, &MockOpenPort::onReadable);
+        connect(notifier_, &QSocketNotifier::activated, this, &MockOpenPort::OnReadable);
     }
 
     // The exact payload bytes of the last host data write ("att" message body).
@@ -98,7 +98,7 @@ class MockOpenPort final : public QObject
     // Drop any buffered/partial input left over from the connect handshake (the
     // ISO9141 filter writes trail un-terminated mask/pattern bytes), so a
     // subsequent "att" data write is parsed from a clean buffer.
-    void resetParser()
+    void ResetParser()
     {
         rx_.clear();
         last_write.clear();
@@ -108,7 +108,7 @@ class MockOpenPort final : public QObject
 
     // Push a dongle->host data delivery carrying `payload` (a streamed MUT frame),
     // framed as an 'ar5' NORM_MSG so J2534::read_j2534_data returns exactly `payload`.
-    void injectDataFrame(const QByteArray& payload)
+    void InjectDataFrame(const QByteArray& payload)
     {
         QByteArray f;
         f.append('a');
@@ -122,7 +122,7 @@ class MockOpenPort final : public QObject
     }
 
   private:
-    void onReadable()
+    void OnReadable()
     {
         std::array<char, 512> buf{};
         const ssize_t n = ::read(fd_, buf.data(), buf.size());
@@ -131,11 +131,11 @@ class MockOpenPort final : public QObject
             return;
         }
         rx_.append(buf.data(), static_cast<int>(n));
-        process();
+        Process();
     }
 
   private:
-    void process()
+    void Process()
     {
         for (;;)
         {
@@ -167,11 +167,11 @@ class MockOpenPort final : public QObject
             {
                 continue;
             }
-            handleLine(line);
+            HandleLine(line);
         }
     }
 
-    void handleLine(const QByteArray& line)
+    void HandleLine(const QByteArray& line)
     {
         if (line.startsWith("att"))
         {
@@ -184,19 +184,19 @@ class MockOpenPort final : public QObject
         }
         if (line.startsWith("ati"))
         {
-            reply("ari 1.17.4877\r\n");
+            Reply("ari 1.17.4877\r\n");
         }
         else if (line.startsWith("ata"))
         {
-            reply("ari\r\n");
+            Reply("ari\r\n");
         }
         else
         {
-            reply("aro\r\n"); // generic ack
+            Reply("aro\r\n"); // generic ack
         }
     }
 
-    void reply(const char *s)
+    void Reply(const char *s)
     {
         const auto length = static_cast<ssize_t>(qstrlen(s));
         EXPECT_EQ(::write(fd_, s, qstrlen(s)), length);
@@ -253,16 +253,16 @@ class MutDmaIntegrationTest : public ::testing::Test
   protected:
     // Build a SerialPortActions facade (direct mode) connected to `mock` over the
     // PTY whose slave is `name`. Returns the opened-port string ("" on failure).
-    static QString connectFacade(SerialPortActions& spad, const QString& name)
+    static QString ConnectFacade(SerialPortActions& spad, const QString& name)
     {
-        spad.set_serial_port_prefix_linux(""); // PTY name is already absolute
-        spad.set_add_ssm_header(false);
-        spad.set_add_iso9141_header(false);
-        spad.set_add_iso14230_header(false);
+        spad.SetSerialPortPrefixLinux(""); // PTY name is already absolute
+        spad.SetAddSsmHeader(false);
+        spad.SetAddIso9141Header(false);
+        spad.SetAddIso14230Header(false);
         // open_serial_port() only takes the Openport/J2534 branch when the port
         // description contains "OpenPort 2.0" (J2534_unix.cpp), so tag it as such.
-        spad.set_serial_port_list(QStringList() << (name + " - OpenPort 2.0"));
-        return spad.open_serial_port();
+        spad.SetSerialPortList(QStringList() << (name + " - OpenPort 2.0"));
+        return spad.OpenSerialPort();
     }
 };
 
@@ -274,22 +274,22 @@ TEST_F(MutDmaIntegrationTest, connectsOverMockPty_facadeReportsOpen)
     {
         MockOpenPortThread mock_thread(master);
 
-        SerialPortActions spad{directBackend()}; // the real direct backend
-        const QString opened = connectFacade(spad, QString::fromLocal8Bit(name.data()));
+        SerialPortActions spad{DirectBackend()}; // the real direct backend
+        const QString opened = ConnectFacade(spad, QString::fromLocal8Bit(name.data()));
 
         ASSERT_TRUE(!opened.isEmpty()) << "facade open_serial_port() returned empty";
-        ASSERT_TRUE(spad.is_serial_port_open());
-        ASSERT_TRUE(spad.get_use_openport2_adapter());
+        ASSERT_TRUE(spad.IsSerialPortOpen());
+        ASSERT_TRUE(spad.GetUseOpenport2Adapter());
     }
     ::close(master);
 }
 
 TEST_F(MutDmaIntegrationTest, setBaud_throughAdapter_trueWhenConnected_falseWhenClosed)
 {
-    SerialPortActions closed{directBackend()}; // never opened
+    SerialPortActions closed{DirectBackend()}; // never opened
     FastEcuKlineTransport closed_tr(&closed);
     // change_port_speed returns STATUS_ERROR when the port is not open -> false.
-    const auto closed_result = closed_tr.setBaud(15625);
+    const auto closed_result = closed_tr.SetBaud(15625);
     ASSERT_TRUE(!closed_result);
     ASSERT_EQ(closed_result.error().kind, fastecu::ErrorKind::kDisconnected);
 
@@ -299,14 +299,14 @@ TEST_F(MutDmaIntegrationTest, setBaud_throughAdapter_trueWhenConnected_falseWhen
     {
         MockOpenPortThread mock_thread(master);
 
-        SerialPortActions spad{directBackend()};
-        ASSERT_TRUE(!connectFacade(spad, QString::fromLocal8Bit(name.data())).isEmpty()) << "connect failed";
+        SerialPortActions spad{DirectBackend()};
+        ASSERT_TRUE(!ConnectFacade(spad, QString::fromLocal8Bit(name.data())).isEmpty()) << "connect failed";
 
         FastEcuKlineTransport tr(&spad);
         // Connected + Openport branch -> change_port_speed routes to SET_CONFIG ioctl
         // and returns STATUS_SUCCESS -> adapter setBaud() == true.
-        ASSERT_TRUE(tr.setBaud(15625));
-        ASSERT_TRUE(tr.setBaud(62500));
+        ASSERT_TRUE(tr.SetBaud(15625));
+        ASSERT_TRUE(tr.SetBaud(62500));
     }
     ::close(master);
 }
@@ -320,8 +320,8 @@ TEST_F(MutDmaIntegrationTest, write_throughAdapter_putsExactFrameOnWire)
         MockOpenPortThread mock_thread(master);
         MockOpenPort& mock = *mock_thread.mock;
 
-        SerialPortActions spad{directBackend()};
-        ASSERT_TRUE(!connectFacade(spad, QString::fromLocal8Bit(name.data())).isEmpty()) << "connect failed";
+        SerialPortActions spad{DirectBackend()};
+        ASSERT_TRUE(!ConnectFacade(spad, QString::fromLocal8Bit(name.data())).isEmpty()) << "connect failed";
 
         FastEcuKlineTransport tr(&spad);
 
@@ -331,21 +331,20 @@ TEST_F(MutDmaIntegrationTest, write_throughAdapter_putsExactFrameOnWire)
         payload.append(char(0x03)); // sub-cmd 3
         payload.append(char(0x12));
         payload.append(char(0x34)); // addr16 (l_command word)
-        const QByteArray frame = bytes::toQByteArray(buildCommandFrame(0x87, bytes::view(payload), kTrailerStd));
+        const QByteArray frame = bytes::ToQByteArray(BuildCommandFrame(0x87, bytes::View(payload), kTrailerStd));
         ASSERT_EQ(frame.size(), kFrameLen);
-        ASSERT_TRUE(verifyFrame(bytes::view(frame)));
+        ASSERT_TRUE(VerifyFrame(bytes::View(frame)));
 
-        fastecu::testing::process_events_for(
+        fastecu::testing::ProcessEventsFor(
             std::chrono::milliseconds(100)); // let all connect-handshake bytes reach the mock
-        mock.resetParser();                  // then start capture from a clean buffer
+        mock.ResetParser();                  // then start capture from a clean buffer
 
-        const auto written = tr.write(bytes::view(frame));
+        const auto written = tr.Write(bytes::View(frame));
         ASSERT_TRUE(written);
         ASSERT_EQ(*written, static_cast<std::size_t>(frame.size()));
 
         // Pump the event loop so the mock's QSocketNotifier drains and captures it.
-        ASSERT_TRUE(
-            fastecu::testing::wait_until([&] { return bool(mock.saw_write); }, std::chrono::milliseconds(1000)));
+        ASSERT_TRUE(fastecu::testing::WaitUntil([&] { return bool(mock.saw_write); }, std::chrono::milliseconds(1000)));
         ASSERT_EQ(mock.last_write, frame); // exact bytes, including the 0x0D trailer
     }
     ::close(master);
@@ -360,12 +359,12 @@ TEST_F(MutDmaIntegrationTest, read_throughAdapter_returnsEcuReplyBytes)
         MockOpenPortThread mock_thread(master);
         MockOpenPort& mock = *mock_thread.mock;
 
-        SerialPortActions spad{directBackend()};
-        ASSERT_TRUE(!connectFacade(spad, QString::fromLocal8Bit(name.data())).isEmpty()) << "connect failed";
+        SerialPortActions spad{DirectBackend()};
+        ASSERT_TRUE(!ConnectFacade(spad, QString::fromLocal8Bit(name.data())).isEmpty()) << "connect failed";
 
         FastEcuKlineTransport tr(&spad);
         fastecu::FakeCancellationToken cancellation;
-        std::ignore = tr.read(60ms, cancellation); // drain any residual init acks before the scripted exchange
+        std::ignore = tr.Read(60ms, cancellation); // drain any residual init acks before the scripted exchange
 
         QByteArray reply;
         reply.append(char(0x05));
@@ -373,12 +372,12 @@ TEST_F(MutDmaIntegrationTest, read_throughAdapter_returnsEcuReplyBytes)
         reply.append(char(0xBB));
         reply.append(char(0xCC));
         reply.append(char(0xDD));
-        mock.injectDataFrame(reply);
+        mock.InjectDataFrame(reply);
 
-        const auto read = tr.read(500ms, cancellation);
+        const auto read = tr.Read(500ms, cancellation);
         ASSERT_TRUE(read);
         ASSERT_TRUE(read->has_value());
-        ASSERT_EQ(bytes::toQByteArray(read->value()), reply);
+        ASSERT_EQ(bytes::ToQByteArray(read->value()), reply);
     }
     ::close(master);
 }
@@ -392,8 +391,8 @@ TEST_F(MutDmaIntegrationTest, driverPollOnce_throughAdapter_decodesStreamFrameFr
         MockOpenPortThread mock_thread(master);
         MockOpenPort& mock = *mock_thread.mock;
 
-        SerialPortActions spad{directBackend()};
-        ASSERT_TRUE(!connectFacade(spad, QString::fromLocal8Bit(name.data())).isEmpty()) << "connect failed";
+        SerialPortActions spad{DirectBackend()};
+        ASSERT_TRUE(!ConnectFacade(spad, QString::fromLocal8Bit(name.data())).isEmpty()) << "connect failed";
 
         FastEcuKlineTransport tr(&spad);
         fastecu::FakeCancellationToken cancellation;
@@ -402,7 +401,7 @@ TEST_F(MutDmaIntegrationTest, driverPollOnce_throughAdapter_decodesStreamFrameFr
 
         // Two channels: one 1-byte, one 2-byte, big-endian.
         std::vector<Channel> channels{{0x1234, 1}, {0x5678, 2}};
-        driver.setChannelsForTest(channels);
+        driver.SetChannelsForTest(channels);
 
         // Streamed frame: [logId][data...][sum8(0..len-3)][0x0D].
         const bytes::Byte log_id = 0x00;
@@ -413,13 +412,13 @@ TEST_F(MutDmaIntegrationTest, driverPollOnce_throughAdapter_decodesStreamFrameFr
         QByteArray frame;
         frame.append(char(log_id));
         frame.append(data);
-        frame.append(char(sum8(bytes::view(frame))));
+        frame.append(char(Sum8(bytes::View(frame))));
         frame.append(char(kTrailerStd));
 
-        std::ignore = tr.read(60ms, cancellation); // drain residual
-        mock.injectDataFrame(frame);
+        std::ignore = tr.Read(60ms, cancellation); // drain residual
+        mock.InjectDataFrame(frame);
 
-        const auto values = driver.pollOnce(500ms, cancellation);
+        const auto values = driver.PollOnce(500ms, cancellation);
         ASSERT_TRUE(values);
         ASSERT_EQ(values->size(), std::size_t(2));
         ASSERT_EQ(values->at(0), std::uint32_t(0x42));

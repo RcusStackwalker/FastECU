@@ -15,13 +15,13 @@ namespace mutdma
 
 // Refuses addresses outside the writable RAM window 0x4000-0xBFFF with
 // InvalidConfig before any I/O. Do not relax the window.
-fastecu::Status write_memory(IKlineTransport& transport, std::uint16_t addr, bytes::ByteView data,
-                             const fastecu::ICancellationToken& cancellation);
+fastecu::Status WriteMemory(IKlineTransport& transport, std::uint16_t addr, bytes::ByteView data,
+                            const fastecu::ICancellationToken& cancellation);
 
 // Reads in chunks of up to 40 bytes. Returns what was read before the first
 // failed chunk; fails only if the first chunk fails. A chunk whose poll yields
 // no frame contributes nothing and the read continues.
-fastecu::Result<bytes::Bytes> read_memory(IKlineTransport& transport, std::uint16_t addr, std::size_t len,
-                                          const fastecu::ICancellationToken& cancellation);
+fastecu::Result<bytes::Bytes> ReadMemory(IKlineTransport& transport, std::uint16_t addr, std::size_t len,
+                                         const fastecu::ICancellationToken& cancellation);
 
 } // namespace mutdma

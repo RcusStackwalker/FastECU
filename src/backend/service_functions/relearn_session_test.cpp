@@ -21,12 +21,12 @@ const bytes::Bytes kStepTwo{0x00, 0x00, 0x07, 0xe1, 0xb8, 0x00, 0x01, 0xfd, 0x09
 // writes indices 9-11 past the end of the 9-byte step-two buffer.
 const bytes::Bytes kPoll{0x00, 0x00, 0x07, 0xe1, 0xa8, 0x00, 0x00, 0x01, 0xfc, 0x00, 0x01, 0xfd};
 
-bytes::Bytes writeAck()
+bytes::Bytes WriteAck()
 {
     return {0x00, 0x00, 0x07, 0xe9, 0xf8, 0x00};
 }
 
-bytes::Bytes pollReply(bytes::Byte first, bytes::Byte second)
+bytes::Bytes PollReply(bytes::Byte first, bytes::Byte second)
 {
     return {0x00, 0x00, 0x07, 0xe9, 0xe8, first, second};
 }
@@ -39,16 +39,16 @@ struct Fixture
     NullEventSink events;
     RelearnSession session{"sub_tcu_denso_sh7058_can"};
 
-    ServiceFunctionStep step()
+    ServiceFunctionStep Step()
     {
-        return session.resume(transport, clock, cancellation, events);
+        return session.Resume(transport, clock, cancellation, events);
     }
 };
 
 TEST(RelearnSession, RequiresTheIso15765TcuPair)
 {
     const Fixture fixture;
-    const auto setup = fixture.session.transport_setup();
+    const auto setup = fixture.session.TransportSetup();
     ASSERT_THAT(setup, fastecu::testing::IsOk());
     EXPECT_EQ(setup->framing, SsmTransportConfig::Framing::kIso15765);
     EXPECT_EQ(setup->request_id, 0x7e1U);
@@ -57,17 +57,17 @@ TEST(RelearnSession, RequiresTheIso15765TcuPair)
 TEST(RelearnSession, RejectsAnUnknownProtocolBeforeAnyIo)
 {
     const RelearnSession session{"sub_ecu_denso_sh7058_can"};
-    ASSERT_THAT(session.transport_setup(), fastecu::testing::IsErr(ErrorKind::kUnsupported));
+    ASSERT_THAT(session.TransportSetup(), fastecu::testing::IsErr(ErrorKind::kUnsupported));
 }
 
 TEST(RelearnSession, AsksForTheStaticSetupGateBeforeAnyIo)
 {
     Fixture fixture;
-    const auto step = fixture.step();
+    const auto step = fixture.Step();
 
     ASSERT_TRUE(std::holds_alternative<GateStep>(step));
     EXPECT_EQ(std::get<GateStep>(step).id, OperatorGateId::kRelearnStaticSetup);
-    EXPECT_TRUE(fixture.transport.scriptConsumed()); // nothing written yet
+    EXPECT_TRUE(fixture.transport.ScriptConsumed()); // nothing written yet
 }
 
 TEST(RelearnSession, AsksForTheEngineRunningGateOnlyAfterStepTwoIsAccepted)
@@ -76,87 +76,87 @@ TEST(RelearnSession, AsksForTheEngineRunningGateOnlyAfterStepTwoIsAccepted)
     // the instruction after the TCU accepts step two, so it cannot be
     // pre-collected the way ConfirmationSpec requires.
     Fixture fixture;
-    ASSERT_TRUE(std::holds_alternative<GateStep>(fixture.step()));
-    fixture.session.submit(GateResponse::kAccept);
+    ASSERT_TRUE(std::holds_alternative<GateStep>(fixture.Step()));
+    fixture.session.Submit(GateResponse::kAccept);
 
-    fixture.transport.expectWrite(kStepOne);
-    fixture.transport.queueRead(writeAck());
-    fixture.transport.expectWrite(kStepTwo);
-    fixture.transport.queueRead(writeAck());
+    fixture.transport.ExpectWrite(kStepOne);
+    fixture.transport.QueueRead(WriteAck());
+    fixture.transport.ExpectWrite(kStepTwo);
+    fixture.transport.QueueRead(WriteAck());
 
-    const auto step = fixture.step();
+    const auto step = fixture.Step();
     ASSERT_TRUE(std::holds_alternative<GateStep>(step));
     EXPECT_EQ(std::get<GateStep>(step).id, OperatorGateId::kRelearnEngineRunning);
-    EXPECT_TRUE(fixture.transport.ok());
-    EXPECT_TRUE(fixture.transport.scriptConsumed());
+    EXPECT_TRUE(fixture.transport.Ok());
+    EXPECT_TRUE(fixture.transport.ScriptConsumed());
 }
 
 TEST(RelearnSession, CancellationBetweenWriteStepsPreventsStepTwoFromBeingSent)
 {
     Fixture fixture;
-    ASSERT_TRUE(std::holds_alternative<GateStep>(fixture.step()));
-    fixture.session.submit(GateResponse::kAccept);
+    ASSERT_TRUE(std::holds_alternative<GateStep>(fixture.Step()));
+    fixture.session.Submit(GateResponse::kAccept);
 
-    fixture.transport.expectWrite(kStepOne);
-    fixture.transport.queueRead(writeAck());
+    fixture.transport.ExpectWrite(kStepOne);
+    fixture.transport.QueueRead(WriteAck());
     // Checks 1-4 are the first gate, the resumed stage, the step-one write,
     // and its read. Check 5 is immediately before the step-two write.
-    fixture.cancellation.cancel_on_check(5);
+    fixture.cancellation.CancelOnCheck(5);
 
-    const auto step = fixture.step();
+    const auto step = fixture.Step();
 
     ASSERT_TRUE(std::holds_alternative<FailedStep>(step));
     EXPECT_EQ(std::get<FailedStep>(step).error.kind, ErrorKind::kCancelled);
-    EXPECT_TRUE(fixture.transport.ok());
-    EXPECT_TRUE(fixture.transport.scriptConsumed()); // no step-two write
+    EXPECT_TRUE(fixture.transport.Ok());
+    EXPECT_TRUE(fixture.transport.ScriptConsumed()); // no step-two write
 }
 
 TEST(RelearnSession, PollsWithTheTwelveByteFrameTheLegacyCannotBuild)
 {
     Fixture fixture;
-    ASSERT_TRUE(std::holds_alternative<GateStep>(fixture.step()));
-    fixture.session.submit(GateResponse::kAccept);
+    ASSERT_TRUE(std::holds_alternative<GateStep>(fixture.Step()));
+    fixture.session.Submit(GateResponse::kAccept);
 
-    fixture.transport.expectWrite(kStepOne);
-    fixture.transport.queueRead(writeAck());
-    fixture.transport.expectWrite(kStepTwo);
-    fixture.transport.queueRead(writeAck());
-    ASSERT_TRUE(std::holds_alternative<GateStep>(fixture.step()));
-    fixture.session.submit(GateResponse::kAccept);
+    fixture.transport.ExpectWrite(kStepOne);
+    fixture.transport.QueueRead(WriteAck());
+    fixture.transport.ExpectWrite(kStepTwo);
+    fixture.transport.QueueRead(WriteAck());
+    ASSERT_TRUE(std::holds_alternative<GateStep>(fixture.Step()));
+    fixture.session.Submit(GateResponse::kAccept);
 
     for (int poll = 0; poll < 200; ++poll)
     {
-        fixture.transport.expectWrite(kPoll);
-        fixture.transport.queueRead(pollReply(0x01, 0x02));
+        fixture.transport.ExpectWrite(kPoll);
+        fixture.transport.QueueRead(PollReply(0x01, 0x02));
     }
 
-    const auto step = fixture.step();
+    const auto step = fixture.Step();
     ASSERT_TRUE(std::holds_alternative<CompletedStep>(step));
     const auto& outcome = std::get<RelearnOutcome>(std::get<CompletedStep>(step).outcome);
     EXPECT_EQ(outcome.polls_performed, 200);
-    EXPECT_EQ(outcome.last_status_frame, pollReply(0x01, 0x02));
-    EXPECT_TRUE(fixture.transport.ok());
+    EXPECT_EQ(outcome.last_status_frame, PollReply(0x01, 0x02));
+    EXPECT_TRUE(fixture.transport.Ok());
 }
 
 TEST(RelearnSession, ReportsSuccessWhereTheLegacyAlwaysReportedFailure)
 {
     // legacy :786 -- the function's last statement is return STATUS_ERROR.
     Fixture fixture;
-    ASSERT_TRUE(std::holds_alternative<GateStep>(fixture.step()));
-    fixture.session.submit(GateResponse::kAccept);
-    fixture.transport.expectWrite(kStepOne);
-    fixture.transport.queueRead(writeAck());
-    fixture.transport.expectWrite(kStepTwo);
-    fixture.transport.queueRead(writeAck());
-    ASSERT_TRUE(std::holds_alternative<GateStep>(fixture.step()));
-    fixture.session.submit(GateResponse::kAccept);
+    ASSERT_TRUE(std::holds_alternative<GateStep>(fixture.Step()));
+    fixture.session.Submit(GateResponse::kAccept);
+    fixture.transport.ExpectWrite(kStepOne);
+    fixture.transport.QueueRead(WriteAck());
+    fixture.transport.ExpectWrite(kStepTwo);
+    fixture.transport.QueueRead(WriteAck());
+    ASSERT_TRUE(std::holds_alternative<GateStep>(fixture.Step()));
+    fixture.session.Submit(GateResponse::kAccept);
     for (int poll = 0; poll < 200; ++poll)
     {
-        fixture.transport.expectWrite(kPoll);
-        fixture.transport.queueRead(pollReply(0x00, 0x00));
+        fixture.transport.ExpectWrite(kPoll);
+        fixture.transport.QueueRead(PollReply(0x00, 0x00));
     }
 
-    EXPECT_TRUE(std::holds_alternative<CompletedStep>(fixture.step()));
+    EXPECT_TRUE(std::holds_alternative<CompletedStep>(fixture.Step()));
 }
 
 TEST(RelearnSession, ToleratesABadStepOneResponseAndContinues)
@@ -164,18 +164,18 @@ TEST(RelearnSession, ToleratesABadStepOneResponseAndContinues)
     // legacy :688 and :694 -- both returns are commented out, so the legacy
     // logs and proceeds. Tolerance is real behavior and is preserved.
     Fixture fixture;
-    ASSERT_TRUE(std::holds_alternative<GateStep>(fixture.step()));
-    fixture.session.submit(GateResponse::kAccept);
+    ASSERT_TRUE(std::holds_alternative<GateStep>(fixture.Step()));
+    fixture.session.Submit(GateResponse::kAccept);
 
     for (int attempt = 0; attempt < 6; ++attempt)
     {
-        fixture.transport.expectWrite(kStepOne);
-        fixture.transport.queueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xe9, 0x7f, 0xb8, 0x11});
+        fixture.transport.ExpectWrite(kStepOne);
+        fixture.transport.QueueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xe9, 0x7f, 0xb8, 0x11});
     }
-    fixture.transport.expectWrite(kStepTwo);
-    fixture.transport.queueRead(writeAck());
+    fixture.transport.ExpectWrite(kStepTwo);
+    fixture.transport.QueueRead(WriteAck());
 
-    const auto step = fixture.step();
+    const auto step = fixture.Step();
     ASSERT_TRUE(std::holds_alternative<GateStep>(step));
     EXPECT_EQ(std::get<GateStep>(step).id, OperatorGateId::kRelearnEngineRunning);
 }
@@ -184,41 +184,41 @@ TEST(RelearnSession, RetriesEachWriteStepUpToSixTimes)
 {
     // legacy :702 -- while (try_count < 6 && !responseOK).
     Fixture fixture;
-    ASSERT_TRUE(std::holds_alternative<GateStep>(fixture.step()));
-    fixture.session.submit(GateResponse::kAccept);
+    ASSERT_TRUE(std::holds_alternative<GateStep>(fixture.Step()));
+    fixture.session.Submit(GateResponse::kAccept);
 
     for (int attempt = 0; attempt < 5; ++attempt)
     {
-        fixture.transport.expectWrite(kStepOne);
-        fixture.transport.queue_no_frame();
+        fixture.transport.ExpectWrite(kStepOne);
+        fixture.transport.QueueNoFrame();
     }
-    fixture.transport.expectWrite(kStepOne);
-    fixture.transport.queueRead(writeAck());
-    fixture.transport.expectWrite(kStepTwo);
-    fixture.transport.queueRead(writeAck());
+    fixture.transport.ExpectWrite(kStepOne);
+    fixture.transport.QueueRead(WriteAck());
+    fixture.transport.ExpectWrite(kStepTwo);
+    fixture.transport.QueueRead(WriteAck());
 
-    EXPECT_TRUE(std::holds_alternative<GateStep>(fixture.step()));
-    EXPECT_TRUE(fixture.transport.scriptConsumed());
+    EXPECT_TRUE(std::holds_alternative<GateStep>(fixture.Step()));
+    EXPECT_TRUE(fixture.transport.ScriptConsumed());
 }
 
 TEST(RelearnSession, ADeclinedGateEndsTheSessionAsCancelledNotFailed)
 {
     Fixture fixture;
-    ASSERT_TRUE(std::holds_alternative<GateStep>(fixture.step()));
-    fixture.session.submit(GateResponse::kDecline);
+    ASSERT_TRUE(std::holds_alternative<GateStep>(fixture.Step()));
+    fixture.session.Submit(GateResponse::kDecline);
 
-    const auto step = fixture.step();
+    const auto step = fixture.Step();
     ASSERT_TRUE(std::holds_alternative<FailedStep>(step));
     EXPECT_EQ(std::get<FailedStep>(step).error.kind, ErrorKind::kCancelled);
-    EXPECT_TRUE(fixture.transport.scriptConsumed()); // declined before any I/O
+    EXPECT_TRUE(fixture.transport.ScriptConsumed()); // declined before any I/O
 }
 
 TEST(RelearnSession, ResumeWithAGateOutstandingIsInternal)
 {
     Fixture fixture;
-    ASSERT_TRUE(std::holds_alternative<GateStep>(fixture.step()));
+    ASSERT_TRUE(std::holds_alternative<GateStep>(fixture.Step()));
 
-    const auto step = fixture.step(); // no submit() in between
+    const auto step = fixture.Step(); // no submit() in between
     ASSERT_TRUE(std::holds_alternative<FailedStep>(step));
     EXPECT_EQ(std::get<FailedStep>(step).error.kind, ErrorKind::kInternal);
 }
@@ -226,12 +226,12 @@ TEST(RelearnSession, ResumeWithAGateOutstandingIsInternal)
 TEST(RelearnSession, ReportsADroppedTransportAsDisconnected)
 {
     Fixture fixture;
-    ASSERT_TRUE(std::holds_alternative<GateStep>(fixture.step()));
-    fixture.session.submit(GateResponse::kAccept);
-    fixture.transport.expectWrite(kStepOne);
-    fixture.transport.queue_error(ErrorKind::kDisconnected, "adapter gone");
+    ASSERT_TRUE(std::holds_alternative<GateStep>(fixture.Step()));
+    fixture.session.Submit(GateResponse::kAccept);
+    fixture.transport.ExpectWrite(kStepOne);
+    fixture.transport.QueueError(ErrorKind::kDisconnected, "adapter gone");
 
-    const auto step = fixture.step();
+    const auto step = fixture.Step();
     ASSERT_TRUE(std::holds_alternative<FailedStep>(step));
     EXPECT_EQ(std::get<FailedStep>(step).error.kind, ErrorKind::kDisconnected);
 }
@@ -239,9 +239,9 @@ TEST(RelearnSession, ReportsADroppedTransportAsDisconnected)
 TEST(RelearnSession, ObservesCancellationAtTheFirstGate)
 {
     Fixture fixture;
-    fixture.cancellation.set_cancelled(true);
+    fixture.cancellation.SetCancelled(true);
 
-    const auto step = fixture.step();
+    const auto step = fixture.Step();
     ASSERT_TRUE(std::holds_alternative<FailedStep>(step));
     EXPECT_EQ(std::get<FailedStep>(step).error.kind, ErrorKind::kCancelled);
 }

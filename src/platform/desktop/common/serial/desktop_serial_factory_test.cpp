@@ -13,7 +13,7 @@
 
 TEST(DesktopSerialFactoryTest, directConnectionBuildsTheDirectBackend)
 {
-    const auto factory = make_serial_backend_factory(DirectSerial{});
+    const auto factory = MakeSerialBackendFactory(DirectSerial{});
     ASSERT_TRUE(factory);
     const std::unique_ptr<SerialBackend> backend{factory()};
     ASSERT_TRUE(dynamic_cast<SerialPortActionsDirect *>(backend.get()) != nullptr);
@@ -23,7 +23,7 @@ TEST(DesktopSerialFactoryTest, directConnectionBuildsTheDirectBackend)
 // on it (see remote_backend_smoke_test.cpp).
 TEST(DesktopSerialFactoryTest, remoteConnectionBuildsTheRemoteBackend)
 {
-    const auto factory = make_serial_backend_factory(RemoteSerial{"local:fastecu-test-nonexistent", "pw"});
+    const auto factory = MakeSerialBackendFactory(RemoteSerial{"local:fastecu-test-nonexistent", "pw"});
     ASSERT_TRUE(factory);
     const std::unique_ptr<SerialBackend> backend{factory()};
     ASSERT_TRUE(dynamic_cast<RemoteSerialBackend *>(backend.get()) != nullptr);
@@ -32,14 +32,14 @@ TEST(DesktopSerialFactoryTest, remoteConnectionBuildsTheRemoteBackend)
 TEST(DesktopSerialFactoryTest, everyLogLevelReachesTheSink)
 {
     RecordingLogSink sink;
-    const OwnedSerialPortActions serial = make_serial_port_actions(DirectSerial{}, sink);
+    const OwnedSerialPortActions serial = MakeSerialPortActions(DirectSerial{}, sink);
     ASSERT_TRUE(serial != nullptr);
     sink.messages.clear();
 
-    emit serial->LOG_E("error", false, false);
-    emit serial->LOG_W("warning", false, false);
-    emit serial->LOG_I("info", false, false);
-    emit serial->LOG_D("debug", false, false);
+    emit serial->logE("error", false, false);
+    emit serial->logW("warning", false, false);
+    emit serial->logI("info", false, false);
+    emit serial->logD("debug", false, false);
 
     ASSERT_EQ(sink.messages, (QStringList{"error", "warning", "info", "debug"}));
 }

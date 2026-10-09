@@ -9,7 +9,7 @@
 namespace
 {
 
-bool fileExists(const char *path)
+bool FileExists(const char *path)
 {
     return GetFileAttributesA(path) != INVALID_FILE_ATTRIBUTES;
 }
@@ -21,14 +21,14 @@ bool fileExists(const char *path)
 // j2534_bridge_host.exe lives in a separate --platforms=windows_x86 build
 // output tree (see J2534_BRIDGE_HOST_EXE), stage a copy next to this test
 // binary under that exact name before exercising any PassThru* call.
-void ensureBridgeHostStaged()
+void EnsureBridgeHostStaged()
 {
     const char *host_src = std::getenv("J2534_BRIDGE_HOST_EXE");
     if (!host_src)
     {
         return;
     }
-    if (fileExists("j2534_bridge_host.exe"))
+    if (FileExists("j2534_bridge_host.exe"))
     {
         return;
     }
@@ -41,7 +41,7 @@ void ensureBridgeHostStaged()
 
 TEST(J2534WinBridge, OpensConnectsAndReadsThroughBridge)
 {
-    ASSERT_NO_FATAL_FAILURE(ensureBridgeHostStaged());
+    ASSERT_NO_FATAL_FAILURE(EnsureBridgeHostStaged());
 
     const char *dll_path = std::getenv("FAKE_J2534_DLL_PATH");
     if (!dll_path)
@@ -50,7 +50,7 @@ TEST(J2534WinBridge, OpensConnectsAndReadsThroughBridge)
     }
 
     J2534 j2534;
-    j2534.setDllName(dll_path);
+    j2534.SetDllName(dll_path);
 
     unsigned long device_id = 0;
     long result = j2534.PassThruOpen(nullptr, &device_id);

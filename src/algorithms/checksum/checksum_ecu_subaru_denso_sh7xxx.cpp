@@ -2,9 +2,9 @@
 
 #include "denso_checksum_table.h"
 
-ChecksumResult ChecksumEcuSubaruDensoSH7xxx::calculate_checksum_result(bytes::ByteView rom_data,
-                                                                       uint32_t checksum_area_start,
-                                                                       uint32_t checksum_area_length, int32_t offset)
+ChecksumResult ChecksumEcuSubaruDensoSH7xxx::CalculateChecksumResult(bytes::ByteView rom_data,
+                                                                     uint32_t checksum_area_start,
+                                                                     uint32_t checksum_area_length, int32_t offset)
 {
     ChecksumResult result;
     result.rom_data.assign(rom_data.begin(), rom_data.end());
@@ -15,7 +15,7 @@ ChecksumResult ChecksumEcuSubaruDensoSH7xxx::calculate_checksum_result(bytes::By
     };
 
     using Outcome = fastecu::checksum::internal::DensoTableOutcome;
-    switch (fastecu::checksum::internal::correctDensoTable(result.rom_data, spec))
+    switch (fastecu::checksum::internal::CorrectDensoTable(result.rom_data, spec))
     {
     case Outcome::kUnchanged:
         result.status = ChecksumResult::Status::kUnchanged;

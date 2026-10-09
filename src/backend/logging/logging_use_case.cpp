@@ -22,10 +22,10 @@ class StopGuard
 
     ~StopGuard()
     {
-        const fastecu::Status stop_result = protocol_.stop();
+        const fastecu::Status stop_result = protocol_.Stop();
         if (!stop_result)
         {
-            diagnostics_.log(fastecu::LogLevel::kError, stop_result.error().detail);
+            diagnostics_.Log(fastecu::LogLevel::kError, stop_result.error().detail);
         }
     }
 
@@ -34,7 +34,7 @@ class StopGuard
     fastecu::IEventSink& diagnostics_;
 };
 
-bool reconnect_due(const LoggingPolicy& policy, int consecutive_misses)
+bool ReconnectDue(const LoggingPolicy& policy, int consecutive_misses)
 {
     return policy.reconnect_retry_period > 0 && consecutive_misses >= policy.reconnect_attempt_threshold &&
            (consecutive_misses - policy.reconnect_attempt_threshold) % policy.reconnect_retry_period == 0;
@@ -42,28 +42,28 @@ bool reconnect_due(const LoggingPolicy& policy, int consecutive_misses)
 
 } // namespace
 
-fastecu::Status LoggingUseCase::run(const LoggingSession& session, LoggingProtocol& protocol,
+fastecu::Status LoggingUseCase::Run(const LoggingSession& session, LoggingProtocol& protocol,
                                     const fastecu::ICancellationToken& cancellation, ILoggingEventSink& events,
                                     fastecu::IEventSink& diagnostics) const
 {
-    if (cancellation.cancelled())
+    if (cancellation.Cancelled())
     {
-        return fastecu::fail(fastecu::ErrorKind::kCancelled, "logging cancelled");
+        return fastecu::Fail(fastecu::ErrorKind::kCancelled, "logging cancelled");
     }
 
     StopGuard stop_guard(protocol, diagnostics);
-    if (const fastecu::Status started = protocol.start(cancellation); !started)
+    if (const fastecu::Status started = protocol.Start(cancellation); !started)
     {
         return std::unexpected(started.error());
     }
 
-    events.state_changed(LoggingState::kRunning);
+    events.StateChanged(LoggingState::kRunning);
     LoggingState last_state = LoggingState::kRunning;
     int consecutive_misses = 0;
 
-    while (!cancellation.cancelled())
+    while (!cancellation.Cancelled())
     {
-        auto poll_result = protocol.poll(session.policy().poll_timeout, cancellation);
+        auto poll_result = protocol.Poll(session.Policy().poll_timeout, cancellation);
         if (!poll_result)
         {
             if (poll_result.error().kind == fastecu::ErrorKind::kBadResponse)
@@ -79,37 +79,37 @@ fastecu::Status LoggingUseCase::run(const LoggingSession& session, LoggingProtoc
             if (last_state != LoggingState::kRunning)
             {
                 last_state = LoggingState::kRunning;
-                events.state_changed(LoggingState::kRunning);
+                events.StateChanged(LoggingState::kRunning);
             }
 
             std::vector<LogSample> converted;
             converted.reserve(poll_result->samples.size());
             for (const ProtocolSample& raw : poll_result->samples)
             {
-                auto sample = convert_sample(session, raw);
+                auto sample = ConvertSample(session, raw);
                 if (!sample)
                 {
                     return std::unexpected(sample.error());
                 }
                 converted.push_back(std::move(*sample));
             }
-            events.samples(converted);
+            events.Samples(converted);
             continue;
         }
 
         ++consecutive_misses;
-        if (consecutive_misses == session.policy().car_silence_miss_threshold)
+        if (consecutive_misses == session.Policy().car_silence_miss_threshold)
         {
             last_state = LoggingState::kCarNotResponding;
-            events.state_changed(LoggingState::kCarNotResponding);
+            events.StateChanged(LoggingState::kCarNotResponding);
         }
 
-        if (!reconnect_due(session.policy(), consecutive_misses))
+        if (!ReconnectDue(session.Policy(), consecutive_misses))
         {
             continue;
         }
 
-        if (const fastecu::Status reconnected = protocol.start(cancellation); !reconnected)
+        if (const fastecu::Status reconnected = protocol.Start(cancellation); !reconnected)
         {
             if (reconnected.error().kind != fastecu::ErrorKind::kBadResponse)
             {
@@ -120,10 +120,10 @@ fastecu::Status LoggingUseCase::run(const LoggingSession& session, LoggingProtoc
 
         consecutive_misses = 0;
         last_state = LoggingState::kRunning;
-        events.state_changed(LoggingState::kRunning);
+        events.StateChanged(LoggingState::kRunning);
     }
 
-    return fastecu::fail(fastecu::ErrorKind::kCancelled, "logging cancelled");
+    return fastecu::Fail(fastecu::ErrorKind::kCancelled, "logging cancelled");
 }
 
 } // namespace fastecu::logging

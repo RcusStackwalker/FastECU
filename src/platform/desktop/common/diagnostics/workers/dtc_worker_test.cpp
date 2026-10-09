@@ -21,29 +21,29 @@ using fastecu::diagnostics::ObdProtocol;
 TEST(DtcWorkerTest, reportsTheSessionOutcomeAndForwardsLogLines)
 {
     FakeDiagnosticLink link;
-    link.queue_five_baud(bytes::Bytes{0x55, 0x00, 0x00}); // rejected
+    link.QueueFiveBaud(bytes::Bytes{0x55, 0x00, 0x00}); // rejected
     DtcWorker worker(DtcRequest{ObdProtocol::kIso9141, DtcOperation::kRead}, link, std::make_unique<FakeClock>());
     fastecu::testing::SignalRecorder logs(&worker, &DtcWorker::logEvent);
     fastecu::testing::SignalRecorder done(&worker, &DtcWorker::completed);
     worker.start();
-    ASSERT_TRUE(fastecu::testing::wait_until([&] { return done.count() != 0; }, std::chrono::milliseconds(5000)));
-    ASSERT_EQ(done.count(), 1U);
-    const auto result = std::get<0>(done.snapshot().at(0));
+    ASSERT_TRUE(fastecu::testing::WaitUntil([&] { return done.Count() != 0; }, std::chrono::milliseconds(5000)));
+    ASSERT_EQ(done.Count(), 1U);
+    const auto result = std::get<0>(done.Snapshot().at(0));
     ASSERT_TRUE(!result.success);
     ASSERT_EQ(result.error_kind, ErrorKind::kBadResponse);
-    ASSERT_TRUE(logs.count() >= 2); // "Testing ..." and "iso9141 five baud init failed."
+    ASSERT_TRUE(logs.Count() >= 2); // "Testing ..." and "iso9141 five baud init failed."
 }
 
 TEST(DtcWorkerTest, stopBeforeStartCancelsTheRun)
 {
     FakeDiagnosticLink link;
-    link.queue_five_baud(bytes::Bytes{0x55, 0x08, 0x08});
+    link.QueueFiveBaud(bytes::Bytes{0x55, 0x08, 0x08});
     DtcWorker worker(DtcRequest{ObdProtocol::kIso9141, DtcOperation::kRead}, link, std::make_unique<FakeClock>());
     fastecu::testing::SignalRecorder done(&worker, &DtcWorker::completed);
-    worker.requestStop();
+    worker.RequestStop();
     worker.start();
-    ASSERT_TRUE(fastecu::testing::wait_until([&] { return done.count() != 0; }, std::chrono::milliseconds(5000)));
-    ASSERT_EQ(std::get<0>(done.snapshot().at(0)).error_kind, ErrorKind::kCancelled);
+    ASSERT_TRUE(fastecu::testing::WaitUntil([&] { return done.Count() != 0; }, std::chrono::milliseconds(5000)));
+    ASSERT_EQ(std::get<0>(done.Snapshot().at(0)).error_kind, ErrorKind::kCancelled);
     ASSERT_EQ(link.calls.back(), std::string("reset"));
 }
 

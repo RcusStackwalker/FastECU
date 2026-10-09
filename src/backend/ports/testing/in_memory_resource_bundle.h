@@ -12,12 +12,12 @@ namespace fastecu
 class InMemoryResourceBundle : public IResourceBundle
 {
   public:
-    Result<std::vector<std::string>> list(std::string_view bundle_id) override
+    Result<std::vector<std::string>> List(std::string_view bundle_id) override
     {
         auto it = bundles.find(std::string(bundle_id));
         if (it == bundles.end())
         {
-            return fastecu::fail(ErrorKind::kInvalidConfig, "no such bundle");
+            return fastecu::Fail(ErrorKind::kInvalidConfig, "no such bundle");
         }
         std::vector<std::string> names;
         for (auto& [name, bytes] : it->second)
@@ -26,17 +26,17 @@ class InMemoryResourceBundle : public IResourceBundle
         }
         return names;
     }
-    Result<std::vector<std::uint8_t>> read(std::string_view bundle_id, std::string_view name) override
+    Result<std::vector<std::uint8_t>> Read(std::string_view bundle_id, std::string_view name) override
     {
         auto bundle_it = bundles.find(std::string(bundle_id));
         if (bundle_it == bundles.end())
         {
-            return fastecu::fail(ErrorKind::kInvalidConfig, "no such bundle");
+            return fastecu::Fail(ErrorKind::kInvalidConfig, "no such bundle");
         }
         auto file_it = bundle_it->second.find(std::string(name));
         if (file_it == bundle_it->second.end())
         {
-            return fastecu::fail(ErrorKind::kInvalidConfig, "no such file");
+            return fastecu::Fail(ErrorKind::kInvalidConfig, "no such file");
         }
         return file_it->second;
     }

@@ -1,20 +1,20 @@
 #include "src/platform/desktop/common/ports/event_sink/qt_event_sink.h"
 
-void QtEventSink::log(fastecu::LogLevel lvl, std::string_view message)
+void QtEventSink::Log(fastecu::LogLevel lvl, std::string_view message)
 {
     emit logged(static_cast<int>(lvl), QString::fromUtf8(message.data(), static_cast<int>(message.size())));
 }
-void QtEventSink::progress(int done, int total)
+void QtEventSink::Progress(int done, int total)
 {
     emit progressed(done, total);
 }
-void QtEventSink::phase_progress(const fastecu::PhaseProgressEvent& event)
+void QtEventSink::PhaseProgress(const fastecu::PhaseProgressEvent& event)
 {
-    progress(event.done, event.total);
+    Progress(event.done, event.total);
     emit phaseProgressed(QString::fromUtf8(event.phase_name.data(), static_cast<int>(event.phase_name.size())),
                          event.phase_index, event.phase_count, event.done, event.total);
 }
-void QtEventSink::notice(std::string_view message)
+void QtEventSink::Notice(std::string_view message)
 {
     emit noticed(QString::fromUtf8(message.data(), static_cast<int>(message.size())));
 }

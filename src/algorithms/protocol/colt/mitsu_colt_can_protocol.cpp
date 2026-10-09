@@ -8,8 +8,8 @@
 
 namespace mitsu_colt_can
 {
-using bytes::composeBe;
-using bytes::u24;
+using bytes::ComposeBe;
+using bytes::U24;
 using namespace bytes::literals;
 
 const std::array<bytes::Byte, kEraseRoutineSize> kErasePageRoutine = {
@@ -60,22 +60,22 @@ const std::array<bytes::Byte, kWriteRoutineSize> kWriteRedirectRoutine = {
     0x21, 0x91, 0xF0, 0x00, 0x81, 0xC1, 0x00, 0x01, 0xB0, 0x91, 0x00, 0x03, 0x48, 0xFF, 0xF0, 0x00, 0xB0, 0x98,
     0xFF, 0xF9, 0x60, 0x01, 0xF0, 0x00, 0xB0, 0x98, 0x00, 0x02, 0x60, 0x00, 0xF0, 0x00};
 
-std::uint16_t seedKeyWord(std::uint16_t seed_word)
+std::uint16_t SeedKeyWord(std::uint16_t seed_word)
 {
     return static_cast<std::uint16_t>(std::uint32_t(seed_word) * 135 + 1542);
 }
 
-bytes::Bytes seedKey(bytes::ByteView seed)
+bytes::Bytes SeedKey(bytes::ByteView seed)
 {
     assert(seed.size() == 4);
-    const std::uint16_t pk1 = bytes::readU16Be(seed, 0);
-    const std::uint16_t pk2 = bytes::readU16Be(seed, 2);
-    const std::uint16_t sk1 = seedKeyWord(pk1);
-    const std::uint16_t sk2 = seedKeyWord(pk2);
-    return composeBe(sk1, sk2);
+    const std::uint16_t pk1 = bytes::ReadU16Be(seed, 0);
+    const std::uint16_t pk2 = bytes::ReadU16Be(seed, 2);
+    const std::uint16_t sk1 = SeedKeyWord(pk1);
+    const std::uint16_t sk2 = SeedKeyWord(pk2);
+    return ComposeBe(sk1, sk2);
 }
 
-std::uint16_t checksum(bytes::ByteView data)
+std::uint16_t Checksum(bytes::ByteView data)
 {
     std::uint16_t sum = 0;
     for (bytes::Byte byte : data)
@@ -85,7 +85,7 @@ std::uint16_t checksum(bytes::ByteView data)
     return sum;
 }
 
-bool isDestructiveRequest(bytes::ByteView pdu)
+bool IsDestructiveRequest(bytes::ByteView pdu)
 {
     if (pdu.empty())
     {
@@ -98,33 +98,33 @@ bool isDestructiveRequest(bytes::ByteView pdu)
     return pdu.size() >= 2 && pdu[0] == kServiceRoutineControl && pdu[1] == kRoutineErase;
 }
 
-bytes::Bytes buildRequestDownload(std::uint32_t start, std::uint32_t size)
+bytes::Bytes BuildRequestDownload(std::uint32_t start, std::uint32_t size)
 {
-    return uds::buildRequest(kServiceRequestDownload, composeBe(u24(start), 0x00_b, u24(size)));
+    return uds::BuildRequest(kServiceRequestDownload, ComposeBe(U24(start), 0x00_b, U24(size)));
 }
 
-std::vector<bytes::Bytes> buildTransferDataFrames(bytes::ByteView payload)
+std::vector<bytes::Bytes> BuildTransferDataFrames(bytes::ByteView payload)
 {
     std::vector<bytes::Bytes> frames;
     for (std::size_t offset = 0; offset < payload.size(); offset += kTransferChunkSize)
     {
         const std::size_t chunk_size = std::min<std::size_t>(kTransferChunkSize, payload.size() - offset);
-        frames.push_back(uds::buildRequest(kServiceTransferData, payload.subspan(offset, chunk_size)));
+        frames.push_back(uds::BuildRequest(kServiceTransferData, payload.subspan(offset, chunk_size)));
     }
     return frames;
 }
 
-bytes::Bytes buildRoutineCheckCrc(std::uint32_t target_start)
+bytes::Bytes BuildRoutineCheckCrc(std::uint32_t target_start)
 {
-    return uds::buildRequest(kServiceRoutineControl, kRoutineCheckCrc, composeBe(target_start < 0x800000 ? 2_b : 1_b));
+    return uds::BuildRequest(kServiceRoutineControl, kRoutineCheckCrc, ComposeBe(target_start < 0x800000 ? 2_b : 1_b));
 }
 
-bytes::Bytes buildRoutineErase()
+bytes::Bytes BuildRoutineErase()
 {
-    return uds::buildRequest(kServiceRoutineControl, kRoutineErase);
+    return uds::BuildRequest(kServiceRoutineControl, kRoutineErase);
 }
 
-bytes::Bytes buildRequestReflashUnlock()
+bytes::Bytes BuildRequestReflashUnlock()
 {
     // The SID moved into uds::buildRequest below; the remaining 11 bytes are
     // the tail of the 12-byte literal in
@@ -132,28 +132,28 @@ bytes::Bytes buildRequestReflashUnlock()
     // frame this builds is still that literal byte for byte. Original author's
     // comment: "caused bootloader lockup". See header doc.
     static constexpr std::array<bytes::Byte, 11> kData{154, 1, 1, 'R', 'c', 'u', 's', '0', '0', 0, 1};
-    return uds::buildRequest(kServiceRequestReflash, bytes::ByteView(kData));
+    return uds::BuildRequest(kServiceRequestReflash, bytes::ByteView(kData));
 }
 
-bytes::Bytes buildReadMemoryByAddress(std::uint32_t addr, bytes::Byte len)
+bytes::Bytes BuildReadMemoryByAddress(std::uint32_t addr, bytes::Byte len)
 {
-    return uds::buildRequest(kServiceReadMemoryByAddress, composeBe(u24(addr), len));
+    return uds::BuildRequest(kServiceReadMemoryByAddress, ComposeBe(U24(addr), len));
 }
 
-bytes::Bytes buildDiagnosticSession(bytes::Byte session_id)
+bytes::Bytes BuildDiagnosticSession(bytes::Byte session_id)
 {
-    return uds::buildRequest(kServiceDiagnosticSession, session_id);
+    return uds::BuildRequest(kServiceDiagnosticSession, session_id);
 }
 
-bytes::Bytes buildSecurityAccessSeedRequest()
+bytes::Bytes BuildSecurityAccessSeedRequest()
 {
-    return uds::buildRequest(kServiceSecurityAccess, 0x05_b);
+    return uds::BuildRequest(kServiceSecurityAccess, 0x05_b);
 }
 
-bytes::Bytes buildSecurityAccessKey(bytes::ByteView key)
+bytes::Bytes BuildSecurityAccessKey(bytes::ByteView key)
 {
     assert(key.size() == 4);
-    return uds::buildRequest(kServiceSecurityAccess, 0x06_b, key);
+    return uds::BuildRequest(kServiceSecurityAccess, 0x06_b, key);
 }
 
 } // namespace mitsu_colt_can

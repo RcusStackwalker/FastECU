@@ -42,21 +42,21 @@ class QtIdentifyLauncherTest : public ::testing::Test
                   auto link = std::make_unique<FakeDiagnosticLink>();
                   if (answer_ecu_)
                   {
-                      link->queue_read(kShortEcuInit);
+                      link->QueueRead(kShortEcuInit);
                   }
                   return link;
               },
               [] { return std::make_unique<FakeClock>(); },
               [this](LogLevel, const QString& message) { logs_.push_back(message); })
     {
-        launcher_.set_completion_handler([this](IdentifyGeneration generation, IdentifyOutcome outcome)
-                                         { completions_.push_back({generation, std::move(outcome)}); });
+        launcher_.setCompletionHandler([this](IdentifyGeneration generation, IdentifyOutcome outcome)
+                                       { completions_.push_back({generation, std::move(outcome)}); });
     }
 
-    bool wait_for_completions(std::size_t count)
+    bool waitForCompletions(std::size_t count)
     {
-        return fastecu::testing::wait_until([&] { return completions_.size() >= count; },
-                                            std::chrono::milliseconds(5000));
+        return fastecu::testing::WaitUntil([&] { return completions_.size() >= count; },
+                                           std::chrono::milliseconds(5000));
     }
 
     bool answer_ecu_ = true;
@@ -68,7 +68,7 @@ class QtIdentifyLauncherTest : public ::testing::Test
 TEST_F(QtIdentifyLauncherTest, ForwardsTheOutcomeTaggedWithTheStartGeneration)
 {
     launcher_.start(SsmIdentifyRequest{}, 7);
-    ASSERT_TRUE(wait_for_completions(1));
+    ASSERT_TRUE(waitForCompletions(1));
 
     EXPECT_EQ(completions_.at(0).generation, 7U);
     EXPECT_TRUE(completions_.at(0).outcome.success);
@@ -80,7 +80,7 @@ TEST_F(QtIdentifyLauncherTest, ReportsAFailureWithItsDetail)
 {
     answer_ecu_ = false;
     launcher_.start(SsmIdentifyRequest{}, 1);
-    ASSERT_TRUE(wait_for_completions(1));
+    ASSERT_TRUE(waitForCompletions(1));
 
     EXPECT_FALSE(completions_.at(0).outcome.success);
     EXPECT_FALSE(completions_.at(0).outcome.error_detail.empty());
@@ -92,10 +92,10 @@ TEST_F(QtIdentifyLauncherTest, ReportsAFailureWithItsDetail)
 TEST_F(QtIdentifyLauncherTest, AJoinedWorkersCompletionKeepsItsOwnGeneration)
 {
     launcher_.start(SsmIdentifyRequest{}, 7);
-    ASSERT_TRUE(launcher_.wait_for_worker(std::chrono::milliseconds(5000)));
-    launcher_.stop_and_join();
+    ASSERT_TRUE(launcher_.waitForWorker(std::chrono::milliseconds(5000)));
+    launcher_.stopAndJoin();
     launcher_.start(SsmIdentifyRequest{}, 8);
-    ASSERT_TRUE(wait_for_completions(2));
+    ASSERT_TRUE(waitForCompletions(2));
 
     EXPECT_EQ(completions_.at(0).generation, 7U);
     EXPECT_EQ(completions_.at(1).generation, 8U);
@@ -103,8 +103,8 @@ TEST_F(QtIdentifyLauncherTest, AJoinedWorkersCompletionKeepsItsOwnGeneration)
 
 TEST_F(QtIdentifyLauncherTest, StopAndJoinWithoutARunIsANoOp)
 {
-    launcher_.stop_and_join();
-    EXPECT_TRUE(launcher_.wait_for_worker(std::chrono::milliseconds(1)));
+    launcher_.stopAndJoin();
+    EXPECT_TRUE(launcher_.waitForWorker(std::chrono::milliseconds(1)));
     EXPECT_TRUE(completions_.empty());
 }
 

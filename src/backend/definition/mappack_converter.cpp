@@ -17,21 +17,21 @@ namespace
 {
 using Row = std::vector<std::string>;
 
-bool contains_xml_control(std::string_view text)
+bool ContainsXmlControl(std::string_view text)
 {
     return std::ranges::any_of(text,
                                [](unsigned char ch) { return ch < 0x20 && ch != '\t' && ch != '\n' && ch != '\r'; });
 }
 
-std::unexpected<Error> invalid(std::size_t row, std::string_view column, std::string_view reason)
+std::unexpected<Error> Invalid(std::size_t row, std::string_view column, std::string_view reason)
 {
-    return fail(ErrorKind::kInvalidConfig, std::format("CSV row {}, column {}: {}", row, column, reason));
+    return Fail(ErrorKind::kInvalidConfig, std::format("CSV row {}, column {}: {}", row, column, reason));
 }
 
 // Consume one field, leaving the record separator for the caller.
-Result<std::string> parse_field(std::string_view& csv, std::size_t row, std::size_t column)
+Result<std::string> ParseField(std::string_view& csv, std::size_t row, std::size_t column)
 {
-    const auto error = [&](std::string_view reason) { return invalid(row, std::to_string(column), reason); };
+    const auto error = [&](std::string_view reason) { return Invalid(row, std::to_string(column), reason); };
     if (!csv.starts_with('"'))
     {
         const auto end = csv.find_first_of(";\r\n");
@@ -69,20 +69,20 @@ Result<std::string> parse_field(std::string_view& csv, std::size_t row, std::siz
     return error("unterminated quoted field");
 }
 
-Result<std::vector<Row>> parse_csv(std::string_view csv)
+Result<std::vector<Row>> ParseCsv(std::string_view csv)
 {
     std::vector<Row> rows;
     Row row;
     while (!csv.empty())
     {
-        auto field = parse_field(csv, rows.size() + 1, row.size() + 1);
+        auto field = ParseField(csv, rows.size() + 1, row.size() + 1);
         if (!field.has_value())
         {
             return std::unexpected(field.error());
         }
-        if (contains_xml_control(*field))
+        if (ContainsXmlControl(*field))
         {
-            return invalid(rows.size() + 1, std::to_string(row.size() + 1), "XML-invalid control character");
+            return Invalid(rows.size() + 1, std::to_string(row.size() + 1), "XML-invalid control character");
         }
         row.push_back(std::move(*field));
         if (csv.empty())
@@ -113,7 +113,7 @@ Result<std::vector<Row>> parse_csv(std::string_view csv)
     return rows;
 }
 
-template <typename T> bool parse_number(std::string_view text, T& value, int base = 10)
+template <typename T> bool ParseNumber(std::string_view text, T& value, int base = 10)
 {
     if (text.empty())
     {
@@ -123,18 +123,18 @@ template <typename T> bool parse_number(std::string_view text, T& value, int bas
     return parsed.ec == std::errc{} && parsed.ptr == text.data() + text.size();
 }
 
-std::string decimal(std::string value)
+std::string Decimal(std::string value)
 {
     std::ranges::replace(value, ',', '.');
     return value;
 }
 
-void attribute(pugi::xml_node node, const char *name, std::string_view value)
+void Attribute(pugi::xml_node node, const char *name, std::string_view value)
 {
     node.append_attribute(name).set_value(value.data(), value.size());
 }
 
-void storage(pugi::xml_node node, std::string_view org)
+void Storage(pugi::xml_node node, std::string_view org)
 {
     const char *type = "uint8";
     if (org == "eHiLo")
@@ -145,23 +145,23 @@ void storage(pugi::xml_node node, std::string_view org)
     {
         type = "uint32";
     }
-    attribute(node, "storagetype", type);
-    attribute(node, "endian", "big");
+    Attribute(node, "storagetype", type);
+    Attribute(node, "endian", "big");
 }
 
-void scaling(pugi::xml_node table, std::string_view units, std::string factor, int precision)
+void Scaling(pugi::xml_node table, std::string_view units, std::string factor, int precision)
 {
     auto node = table.append_child("scaling");
-    attribute(node, "units", units);
-    factor = decimal(std::move(factor));
-    attribute(node, "expression", "x*" + factor);
-    attribute(node, "to_byte", "x/" + factor);
-    attribute(node, "format", precision == 0 ? "#" : "#0." + std::string(precision, '0'));
-    attribute(node, "fineincrement", "1");
-    attribute(node, "coarseincrement", "1");
+    Attribute(node, "units", units);
+    factor = Decimal(std::move(factor));
+    Attribute(node, "expression", "x*" + factor);
+    Attribute(node, "to_byte", "x/" + factor);
+    Attribute(node, "format", precision == 0 ? "#" : "#0." + std::string(precision, '0'));
+    Attribute(node, "fineincrement", "1");
+    Attribute(node, "coarseincrement", "1");
 }
 
-pugi::xml_node rom_id(pugi::xml_node rom, std::string_view id)
+pugi::xml_node RomId(pugi::xml_node rom, std::string_view id)
 {
     auto node = rom.append_child("romid");
     node.append_child("xmlid").text().set(std::string(id).c_str());
@@ -174,7 +174,7 @@ pugi::xml_node rom_id(pugi::xml_node rom, std::string_view id)
 }
 using Columns = std::map<std::string, std::size_t, std::less<>>;
 
-Result<Columns> parse_columns(Row& header)
+Result<Columns> ParseColumns(Row& header)
 {
     // MapPack exports may terminate each record with an extra semicolon.
     if (header.back().empty())
@@ -186,7 +186,7 @@ Result<Columns> parse_columns(Row& header)
     {
         if (!columns.try_emplace(header[i], i).second)
         {
-            return invalid(1, header[i], "duplicate header");
+            return Invalid(1, header[i], "duplicate header");
         }
     }
     for (const auto *name : {"Name", "FolderName", "DataOrg", "Columns", "Rows", "Fieldvalues.Name", "Fieldvalues.Unit",
@@ -194,7 +194,7 @@ Result<Columns> parse_columns(Row& header)
     {
         if (!columns.contains(name))
         {
-            return invalid(1, name, "missing required header");
+            return Invalid(1, name, "missing required header");
         }
     }
     return columns;
@@ -206,32 +206,32 @@ struct MapRow
     const Columns& columns;
     std::size_t number;
 
-    const std::string& get(std::string_view name) const
+    const std::string& Get(std::string_view name) const
     {
         return fields.at(columns.find(name)->second);
     }
 };
 
-Result<int> scaling_precision(const MapRow& row, std::string_view factor_name, std::string_view precision_name)
+Result<int> ScalingPrecision(const MapRow& row, std::string_view factor_name, std::string_view precision_name)
 {
     double factor = 0;
-    const auto text = decimal(row.get(factor_name));
+    const auto text = Decimal(row.Get(factor_name));
     if (const auto result = std::from_chars(text.data(), text.data() + text.size(), factor);
         result.ec != std::errc{} || result.ptr != text.data() + text.size() || !std::isfinite(factor) || factor == 0)
     {
-        return invalid(row.number, factor_name, "expected finite nonzero factor");
+        return Invalid(row.number, factor_name, "expected finite nonzero factor");
     }
     int precision = 0;
-    if (!parse_number(row.get(precision_name), precision) || precision < 0 || precision > 100)
+    if (!ParseNumber(row.Get(precision_name), precision) || precision < 0 || precision > 100)
     {
-        return invalid(row.number, precision_name, "expected precision between 0 and 100");
+        return Invalid(row.number, precision_name, "expected precision between 0 and 100");
     }
     return precision;
 }
 
-Result<std::string> storage_address(const MapRow& row, std::string_view name)
+Result<std::string> StorageAddress(const MapRow& row, std::string_view name)
 {
-    std::string_view text = row.get(name);
+    std::string_view text = row.Get(name);
     if (text.starts_with('$'))
     {
         text.remove_prefix(1);
@@ -240,15 +240,15 @@ Result<std::string> storage_address(const MapRow& row, std::string_view name)
     {
         text.remove_prefix(2);
     }
-    if (std::uint64_t value = 0; !parse_number(text, value, 16))
+    if (std::uint64_t value = 0; !ParseNumber(text, value, 16))
     {
-        return invalid(row.number, name, "expected hexadecimal address");
+        return Invalid(row.number, name, "expected hexadecimal address");
     }
     return "0x" + std::string(text);
 }
 
-Status append_axis(pugi::xml_node table, pugi::xml_node located, const MapRow& row, const std::string& prefix,
-                   std::string_view type, int size)
+Status AppendAxis(pugi::xml_node table, pugi::xml_node located, const MapRow& row, const std::string& prefix,
+                  std::string_view type, int size)
 {
     // DataHeader controls address emission independently of axis size in legacy exports.
     if (size <= 1 && !row.columns.contains(prefix + "DataHeader"))
@@ -259,79 +259,79 @@ Status append_axis(pugi::xml_node table, pugi::xml_node located, const MapRow& r
     {
         if (!row.columns.contains(prefix + suffix))
         {
-            return invalid(1, prefix + suffix, "missing required axis header");
+            return Invalid(1, prefix + suffix, "missing required axis header");
         }
     }
     int data_header = 0;
-    const auto& header = row.get(prefix + "DataHeader");
-    if ((!header.empty() && !parse_number(header, data_header)) || data_header < 0)
+    const auto& header = row.Get(prefix + "DataHeader");
+    if ((!header.empty() && !ParseNumber(header, data_header)) || data_header < 0)
     {
-        return invalid(row.number, prefix + "DataHeader", "expected nonnegative integer");
+        return Invalid(row.number, prefix + "DataHeader", "expected nonnegative integer");
     }
     if (size > 1)
     {
-        const auto precision = scaling_precision(row, prefix + "Factor", prefix + "Precision");
+        const auto precision = ScalingPrecision(row, prefix + "Factor", prefix + "Precision");
         if (!precision.has_value())
         {
             return std::unexpected(precision.error());
         }
         auto axis = table.append_child("table");
-        attribute(axis, "type", type);
-        attribute(axis, "name", row.get(prefix + "Name"));
-        storage(axis, row.get(prefix + "DataOrg"));
-        scaling(axis, row.get(prefix + "Unit"), row.get(prefix + "Factor"), *precision);
+        Attribute(axis, "type", type);
+        Attribute(axis, "name", row.Get(prefix + "Name"));
+        Storage(axis, row.Get(prefix + "DataOrg"));
+        Scaling(axis, row.Get(prefix + "Unit"), row.Get(prefix + "Factor"), *precision);
     }
     if (data_header > 0)
     {
-        const auto address = storage_address(row, prefix + "DataAddr");
+        const auto address = StorageAddress(row, prefix + "DataAddr");
         if (!address.has_value())
         {
             return std::unexpected(address.error());
         }
         auto axis = located.append_child("table");
-        attribute(axis, "type", type);
-        attribute(axis, "storageaddress", *address);
+        Attribute(axis, "type", type);
+        Attribute(axis, "storageaddress", *address);
     }
     return {};
 }
 
-Status append_map(pugi::xml_node base, pugi::xml_node rom, const MapRow& row)
+Status AppendMap(pugi::xml_node base, pugi::xml_node rom, const MapRow& row)
 {
     int sizex = 0;
     int sizey = 0;
     for (const auto& [name, size] : {std::pair{"Columns", &sizex}, std::pair{"Rows", &sizey}})
     {
-        if (!parse_number(row.get(name), *size) || *size < 1)
+        if (!ParseNumber(row.Get(name), *size) || *size < 1)
         {
-            return invalid(row.number, name, "expected positive dimension");
+            return Invalid(row.number, name, "expected positive dimension");
         }
     }
-    const auto precision = scaling_precision(row, "Fieldvalues.Factor", "Precision");
+    const auto precision = ScalingPrecision(row, "Fieldvalues.Factor", "Precision");
     if (!precision.has_value())
     {
         return std::unexpected(precision.error());
     }
-    const auto address = storage_address(row, "Fieldvalues.StartAddr");
+    const auto address = StorageAddress(row, "Fieldvalues.StartAddr");
     if (!address.has_value())
     {
         return std::unexpected(address.error());
     }
     auto table = base.append_child("table");
-    attribute(table, "type", sizex == 1 || sizey == 1 ? "2D" : "3D");
-    attribute(table, "name", row.get("Name"));
-    attribute(table, "category", row.get("FolderName"));
-    storage(table, row.get("DataOrg"));
-    attribute(table, "sizex", row.get("Columns"));
-    attribute(table, "sizey", row.get("Rows"));
-    scaling(table, row.get("Fieldvalues.Name") + " (" + row.get("Fieldvalues.Unit") + ")",
-            row.get("Fieldvalues.Factor"), *precision);
+    Attribute(table, "type", sizex == 1 || sizey == 1 ? "2D" : "3D");
+    Attribute(table, "name", row.Get("Name"));
+    Attribute(table, "category", row.Get("FolderName"));
+    Storage(table, row.Get("DataOrg"));
+    Attribute(table, "sizex", row.Get("Columns"));
+    Attribute(table, "sizey", row.Get("Rows"));
+    Scaling(table, row.Get("Fieldvalues.Name") + " (" + row.Get("Fieldvalues.Unit") + ")",
+            row.Get("Fieldvalues.Factor"), *precision);
     auto located = rom.append_child("table");
-    attribute(located, "name", row.get("Name"));
-    attribute(located, "storageaddress", *address);
+    Attribute(located, "name", row.Get("Name"));
+    Attribute(located, "storageaddress", *address);
     for (const auto& [prefix, type, size] :
          {std::tuple{"AxisX.", "X Axis", sizex}, std::tuple{"AxisY.", "Y Axis", sizey}})
     {
-        if (auto result = append_axis(table, located, row, prefix, type, size); !result.has_value())
+        if (auto result = AppendAxis(table, located, row, prefix, type, size); !result.has_value())
         {
             return result;
         }
@@ -339,23 +339,23 @@ Status append_map(pugi::xml_node base, pugi::xml_node rom, const MapRow& row)
     if (sizex == 1 && sizey == 1)
     {
         auto axis = table.append_child("table");
-        attribute(axis, "type", "Static Y Axis");
-        attribute(axis, "name", " ");
-        attribute(axis, "sizey", "1");
+        Attribute(axis, "type", "Static Y Axis");
+        Attribute(axis, "name", " ");
+        Attribute(axis, "sizey", "1");
         axis.append_child("data").text().set("#");
     }
-    table.append_child("description").text().set(row.get("Comment").c_str());
+    table.append_child("description").text().set(row.Get("Comment").c_str());
     return {};
 }
 } // namespace
 
-Result<std::string> convert_mappack_csv(std::string_view csv, std::string_view ecu_id)
+Result<std::string> ConvertMappackCsv(std::string_view csv, std::string_view ecu_id)
 {
-    if (contains_xml_control(ecu_id))
+    if (ContainsXmlControl(ecu_id))
     {
-        return invalid(1, "ecu_id", "XML-invalid control character");
+        return Invalid(1, "ecu_id", "XML-invalid control character");
     }
-    auto parsed = parse_csv(csv);
+    auto parsed = ParseCsv(csv);
     if (!parsed.has_value())
     {
         return std::unexpected(parsed.error());
@@ -363,9 +363,9 @@ Result<std::string> convert_mappack_csv(std::string_view csv, std::string_view e
     auto& rows = *parsed;
     if (rows.size() < 2)
     {
-        return invalid(1, "header", "expected header and map rows");
+        return Invalid(1, "header", "expected header and map rows");
     }
-    const auto columns = parse_columns(rows.front());
+    const auto columns = ParseColumns(rows.front());
     if (!columns.has_value())
     {
         return std::unexpected(columns.error());
@@ -373,10 +373,10 @@ Result<std::string> convert_mappack_csv(std::string_view csv, std::string_view e
     pugi::xml_document doc;
     auto roms = doc.append_child("roms");
     auto base = roms.append_child("rom");
-    rom_id(base, "BASE");
+    RomId(base, "BASE");
     auto rom = roms.append_child("rom");
-    attribute(rom, "base", "BASE");
-    auto id = rom_id(rom, ecu_id);
+    Attribute(rom, "base", "BASE");
+    auto id = RomId(rom, ecu_id);
     id.child("ecuid").text().set(std::string(ecu_id).c_str());
     id.child("internalidaddress").text().set("0x50");
     id.child("internalidstring").text().set("1037369411P321/C51");
@@ -389,9 +389,9 @@ Result<std::string> convert_mappack_csv(std::string_view csv, std::string_view e
         }
         if (row.size() != columns->size())
         {
-            return invalid(r + 1, "record", "field count differs from header");
+            return Invalid(r + 1, "record", "field count differs from header");
         }
-        if (auto result = append_map(base, rom, {row, *columns, r + 1}); !result.has_value())
+        if (auto result = AppendMap(base, rom, {row, *columns, r + 1}); !result.has_value())
         {
             return std::unexpected(result.error());
         }

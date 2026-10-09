@@ -10,11 +10,11 @@ RemoteUtility::RemoteUtility(const QString& peer_address, QString password, QWeb
 {
     if (peer_address.startsWith("local:"))
     {
-        startLocal();
+        StartLocal();
     }
     else
     {
-        startOverNetwok();
+        StartOverNetwok();
     }
     QObject::connect(remote_utility_, &RemoteUtilityReplica::stateChanged, this,
                      &RemoteUtility::utilityRemoteStateChanged);
@@ -24,20 +24,20 @@ RemoteUtility::~RemoteUtility()
 {
 }
 
-void RemoteUtility::startLocal(void)
+void RemoteUtility::StartLocal(void)
 {
     QString p = peer_address_ + remote_object_name_utility_;
     node_.connectToNode(QUrl(p));
     remote_utility_ = node_.acquire<RemoteUtilityReplica>(remote_object_name_utility_);
 }
 
-void RemoteUtility::startOverNetwok()
+void RemoteUtility::StartOverNetwok()
 {
     QSslConfiguration ssl_configuration;
     ssl_configuration.setPeerVerifyMode(QSslSocket::VerifyNone);
     web_socket_->setSslConfiguration(ssl_configuration);
     // Start node when Web Socket will be up
-    QObject::connect(web_socket_, &QWebSocket::connected, this, &RemoteUtility::websocket_connected);
+    QObject::connect(web_socket_, &QWebSocket::connected, this, &RemoteUtility::websocketConnected);
     node_.setHeartbeatInterval(kHeartbeatInterval);
     QObject::connect(web_socket_, &QWebSocket::errorOccurred, this, [this](QAbstractSocket::SocketError error)
                      { qDebug() << this->metaObject()->className() << "startOverNetwok QWebSocket error:" << error; });
@@ -54,10 +54,10 @@ void RemoteUtility::startOverNetwok()
     // Don't wait for replication here, it should be done from outside
 }
 
-void RemoteUtility::websocket_connected(void)
+void RemoteUtility::websocketConnected(void)
 {
     node_.addClientSideConnection(socket_);
-    sendAutoDiscoveryMessage();
+    SendAutoDiscoveryMessage();
 }
 
 void RemoteUtility::waitForSource(void)
@@ -65,12 +65,12 @@ void RemoteUtility::waitForSource(void)
     // Wait for replication
     while (!remote_utility_->waitForSource(1000))
     {
-        sendAutoDiscoveryMessage();
+        SendAutoDiscoveryMessage();
         qDebug() << "RemoteUtility: Waiting for remote peer...";
     }
 }
 
-void RemoteUtility::sendAutoDiscoveryMessage()
+void RemoteUtility::SendAutoDiscoveryMessage()
 {
     if (web_socket_->isValid())
     {
@@ -78,17 +78,17 @@ void RemoteUtility::sendAutoDiscoveryMessage()
     }
 }
 
-bool RemoteUtility::send_log_window_message(QString message)
+bool RemoteUtility::sendLogWindowMessage(QString message)
 {
-    return qtrohelper::slot_sync(remote_utility_->send_log_window_message(std::move(message)));
+    return qtrohelper::SlotSync(remote_utility_->send_log_window_message(std::move(message)));
 }
 
-bool RemoteUtility::set_progressbar_value(int value)
+bool RemoteUtility::setProgressbarValue(int value)
 {
-    return qtrohelper::slot_sync(remote_utility_->set_progressbar_value(value));
+    return qtrohelper::SlotSync(remote_utility_->set_progressbar_value(value));
 }
 
-QRemoteObjectReplica::State RemoteUtility::state(void) const
+QRemoteObjectReplica::State RemoteUtility::State(void) const
 {
     return remote_utility_->state();
 }
@@ -110,13 +110,13 @@ void RemoteUtility::ping(QString message)
         Qt::QueuedConnection);
 }
 
-void RemoteUtility::start_keepalive(void)
+void RemoteUtility::StartKeepalive(void)
 {
-    connect(keepalive_timer_, &QTimer::timeout, this, &RemoteUtility::send_keepalive);
+    connect(keepalive_timer_, &QTimer::timeout, this, &RemoteUtility::SendKeepalive);
     keepalive_timer_->start(kKeepaliveInterval);
 }
 
-void RemoteUtility::send_keepalive(void)
+void RemoteUtility::SendKeepalive(void)
 {
     if (pings_sequently_missed_ == kPingsSequentlyMissedLimit)
     {
@@ -128,12 +128,12 @@ void RemoteUtility::send_keepalive(void)
     pings_sequently_missed_++;
 }
 
-void RemoteUtility::stop_keepalive(void)
+void RemoteUtility::StopKeepalive(void)
 {
     keepalive_timer_->stop();
 }
 
-bool RemoteUtility::isValid(void)
+bool RemoteUtility::IsValid(void)
 {
     return remote_utility_->state() == QRemoteObjectReplica::Valid;
 }
@@ -146,7 +146,7 @@ void RemoteUtility::utilityRemoteStateChanged(QRemoteObjectReplica::State state,
         qDebug() << "RemoteUtility remote connection established";
         if (!peer_address_.startsWith("local:"))
         {
-            start_keepalive();
+            StartKeepalive();
             qDebug() << "RemoteUtility keepalive started";
         }
     }
@@ -155,7 +155,7 @@ void RemoteUtility::utilityRemoteStateChanged(QRemoteObjectReplica::State state,
         qDebug() << "RemoteUtility remote connection lost";
         if (keepalive_timer_->isActive())
         {
-            stop_keepalive();
+            StopKeepalive();
             qDebug() << "RemoteUtility keepalive stopped";
         }
     }

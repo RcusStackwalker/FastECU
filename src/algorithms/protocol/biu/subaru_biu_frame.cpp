@@ -15,16 +15,16 @@ constexpr bytes::Byte kTesterPresent = 0x3E;
 
 } // namespace
 
-bytes::Bytes buildRequest(bytes::ByteView payload)
+bytes::Bytes BuildRequest(bytes::ByteView payload)
 {
-    return bytes::composeBeWithChecksum(bytes::sum8, static_cast<bytes::Byte>(kFormatBase | payload.size()), kTarget,
+    return bytes::ComposeBeWithChecksum(bytes::Sum8, static_cast<bytes::Byte>(kFormatBase | payload.size()), kTarget,
                                         kSource, payload);
 }
 
-bytes::Bytes keepAliveRequest()
+bytes::Bytes KeepAliveRequest()
 {
     const bytes::Bytes payload{kTesterPresent};
-    return buildRequest(payload);
+    return BuildRequest(payload);
 }
 
 } // namespace biu_subaru

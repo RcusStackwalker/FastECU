@@ -13,8 +13,8 @@ namespace fastecu::flash
 class DensoSh705xEepromKlineExecutor final : public IKlineFlashExecutor
 {
   public:
-    Result<KlineConfig> transport_setup(const FlashPlan& plan) const override;
-    Result<FlashExecutionResult> execute(const FlashPlan& plan, IKlineFlashTransport& transport, IClock& clock,
+    Result<KlineConfig> TransportSetup(const FlashPlan& plan) const override;
+    Result<FlashExecutionResult> Execute(const FlashPlan& plan, IKlineFlashTransport& transport, IClock& clock,
                                          const ICancellationToken& cancellation, IEventSink& events) override;
 
   private:
@@ -24,15 +24,14 @@ class DensoSh705xEepromKlineExecutor final : public IKlineFlashExecutor
     // as connect_bootloader(). Both values are family constants (0xf0/0x10)
     // today, but reading them from the plan rather than hardcoding keeps the
     // two functions symmetric and avoids a second source of truth.
-    Status connect_bootloader(IKlineFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
-                              IEventSink& events, const DensoSh705xEepromKlinePlan& kline_plan,
-                              bool& kernel_alive) const;
-    Status upload_kernel(IKlineFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
-                         IEventSink& events, const DensoSh705xEepromKlinePlan& kline_plan,
-                         const KernelImage& kernel) const;
-    Result<bytes::Bytes> read_mem(IKlineFlashTransport& transport, IClock& clock,
-                                  const ICancellationToken& cancellation, IEventSink& events,
-                                  const MemoryRegion& region, EepromReadMode mode) const;
+    Status ConnectBootloader(IKlineFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
+                             IEventSink& events, const DensoSh705xEepromKlinePlan& kline_plan,
+                             bool& kernel_alive) const;
+    Status UploadKernel(IKlineFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
+                        IEventSink& events, const DensoSh705xEepromKlinePlan& kline_plan,
+                        const KernelImage& kernel) const;
+    Result<bytes::Bytes> ReadMem(IKlineFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
+                                 IEventSink& events, const MemoryRegion& region, EepromReadMode mode) const;
 };
 
 } // namespace fastecu::flash

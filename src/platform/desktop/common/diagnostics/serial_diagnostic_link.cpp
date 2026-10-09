@@ -29,19 +29,19 @@ struct Setter
 // Setters only record state (serial_port_actions_direct.h), so a false return
 // is a configuration problem, never a lost adapter. Stops at the first
 // failure so later setters are not reached.
-Status run_setters(std::initializer_list<Setter> setters)
+Status RunSetters(std::initializer_list<Setter> setters)
 {
     for (const Setter& setter : setters)
     {
         if (!setter.call())
         {
-            return fail(ErrorKind::kInvalidConfig, std::string(setter.name) + " failed");
+            return Fail(ErrorKind::kInvalidConfig, std::string(setter.name) + " failed");
         }
     }
     return {};
 }
 
-template <class F> auto guarded(F&& body) -> decltype(body())
+template <class F> auto Guarded(F&& body) -> decltype(body())
 {
     try
     {
@@ -49,248 +49,246 @@ template <class F> auto guarded(F&& body) -> decltype(body())
     }
     catch (const std::exception& error)
     {
-        return fail(ErrorKind::kInternal, error.what());
+        return Fail(ErrorKind::kInternal, error.what());
     }
     catch (...)
     {
-        return fail(ErrorKind::kInternal, "diagnostic link driver exception");
+        return Fail(ErrorKind::kInternal, "diagnostic link driver exception");
     }
 }
 
-Status no_facade()
+Status NoFacade()
 {
-    return fail(ErrorKind::kDisconnected, "no serial facade");
+    return Fail(ErrorKind::kDisconnected, "no serial facade");
 }
 
 } // namespace
 
-Status SerialDiagnosticLink::open(const KlineLinkConfig& c)
+Status SerialDiagnosticLink::Open(const KlineLinkConfig& c)
 {
     if (serial_ == nullptr)
     {
-        return no_facade();
+        return NoFacade();
     }
-    return guarded(
+    return Guarded(
         [&]() -> Status
         {
-            serial_->reset_connection();
-            if (auto applied = run_setters({
+            serial_->ResetConnection();
+            if (auto applied = RunSetters({
                     {"set_is_iso14230_connection",
-                     [&] { return serial_->set_is_iso14230_connection(c.iso14230_connection); }},
-                    {"set_add_ssm_header", [&] { return serial_->set_add_ssm_header(c.header == KlineHeader::kSsm); }},
+                     [&] { return serial_->SetIsIso14230Connection(c.iso14230_connection); }},
+                    {"set_add_ssm_header", [&] { return serial_->SetAddSsmHeader(c.header == KlineHeader::kSsm); }},
                     {"set_add_iso9141_header",
-                     [&] { return serial_->set_add_iso9141_header(c.header == KlineHeader::kIso9141); }},
+                     [&] { return serial_->SetAddIso9141Header(c.header == KlineHeader::kIso9141); }},
                     {"set_add_iso14230_header",
-                     [&] { return serial_->set_add_iso14230_header(c.header == KlineHeader::kIso14230); }},
+                     [&] { return serial_->SetAddIso14230Header(c.header == KlineHeader::kIso14230); }},
                     {"set_serial_port_baudrate",
-                     [&] { return serial_->set_serial_port_baudrate(QString::number(c.baud)); }},
+                     [&] { return serial_->SetSerialPortBaudrate(QString::number(c.baud)); }},
                     {"set_serial_port_parity",
                      [&]
                      {
-                         return serial_->set_serial_port_parity(static_cast<std::uint8_t>(
+                         return serial_->SetSerialPortParity(static_cast<std::uint8_t>(
                              c.parity == Parity::kEven ? QSerialPort::EvenParity : QSerialPort::NoParity));
                      }},
-                    {"set_kline_startbyte", [&] { return serial_->set_kline_startbyte(c.start_byte); }},
-                    {"set_kline_tester_id", [&] { return serial_->set_kline_tester_id(c.tester_id); }},
-                    {"set_kline_target_id", [&] { return serial_->set_kline_target_id(c.target_id); }},
-                    {"set_is_can_connection", [&] { return serial_->set_is_can_connection(false); }},
-                    {"set_is_iso15765_connection", [&] { return serial_->set_is_iso15765_connection(false); }},
-                    {"set_is_29_bit_id", [&] { return serial_->set_is_29_bit_id(false); }},
+                    {"set_kline_startbyte", [&] { return serial_->SetKlineStartbyte(c.start_byte); }},
+                    {"set_kline_tester_id", [&] { return serial_->SetKlineTesterId(c.tester_id); }},
+                    {"set_kline_target_id", [&] { return serial_->SetKlineTargetId(c.target_id); }},
+                    {"set_is_can_connection", [&] { return serial_->SetIsCanConnection(false); }},
+                    {"set_is_iso15765_connection", [&] { return serial_->SetIsIso15765Connection(false); }},
+                    {"set_is_29_bit_id", [&] { return serial_->SetIs29BitId(false); }},
                 });
                 !applied.has_value())
             {
                 return applied;
             }
-            if (serial_->open_serial_port().isEmpty())
+            if (serial_->OpenSerialPort().isEmpty())
             {
-                return fail(ErrorKind::kDisconnected, "adapter did not open a port");
+                return Fail(ErrorKind::kDisconnected, "adapter did not open a port");
             }
             return {};
         });
 }
 
-Status SerialDiagnosticLink::open(const CanLinkConfig& c)
+Status SerialDiagnosticLink::Open(const CanLinkConfig& c)
 {
     if (serial_ == nullptr)
     {
-        return no_facade();
+        return NoFacade();
     }
-    return guarded(
+    return Guarded(
         [&]() -> Status
         {
-            serial_->reset_connection();
-            if (auto applied = run_setters({
-                    {"set_is_iso14230_connection", [&] { return serial_->set_is_iso14230_connection(false); }},
-                    {"set_add_ssm_header", [&] { return serial_->set_add_ssm_header(false); }},
-                    {"set_add_iso9141_header", [&] { return serial_->set_add_iso9141_header(false); }},
-                    {"set_add_iso14230_header", [&] { return serial_->set_add_iso14230_header(false); }},
-                    {"set_is_can_connection", [&] { return serial_->set_is_can_connection(!c.iso15765); }},
-                    {"set_is_iso15765_connection", [&] { return serial_->set_is_iso15765_connection(c.iso15765); }},
-                    {"set_is_29_bit_id", [&] { return serial_->set_is_29_bit_id(c.extended_id); }},
-                    {"set_can_speed", [&] { return serial_->set_can_speed(QString::number(c.bitrate)); }},
-                    {"set_iso15765_source_address", [&] { return serial_->set_iso15765_source_address(c.source_id); }},
+            serial_->ResetConnection();
+            if (auto applied = RunSetters({
+                    {"set_is_iso14230_connection", [&] { return serial_->SetIsIso14230Connection(false); }},
+                    {"set_add_ssm_header", [&] { return serial_->SetAddSsmHeader(false); }},
+                    {"set_add_iso9141_header", [&] { return serial_->SetAddIso9141Header(false); }},
+                    {"set_add_iso14230_header", [&] { return serial_->SetAddIso14230Header(false); }},
+                    {"set_is_can_connection", [&] { return serial_->SetIsCanConnection(!c.iso15765); }},
+                    {"set_is_iso15765_connection", [&] { return serial_->SetIsIso15765Connection(c.iso15765); }},
+                    {"set_is_29_bit_id", [&] { return serial_->SetIs29BitId(c.extended_id); }},
+                    {"set_can_speed", [&] { return serial_->SetCanSpeed(QString::number(c.bitrate)); }},
+                    {"set_iso15765_source_address", [&] { return serial_->SetIso15765SourceAddress(c.source_id); }},
                     {"set_iso15765_destination_address",
-                     [&] { return serial_->set_iso15765_destination_address(c.destination_id); }},
+                     [&] { return serial_->SetIso15765DestinationAddress(c.destination_id); }},
                 });
                 !applied.has_value())
             {
                 return applied;
             }
-            if (serial_->open_serial_port().isEmpty())
+            if (serial_->OpenSerialPort().isEmpty())
             {
-                return fail(ErrorKind::kDisconnected, "adapter did not open a port");
+                return Fail(ErrorKind::kDisconnected, "adapter did not open a port");
             }
             return {};
         });
 }
 
-Status SerialDiagnosticLink::reset()
+Status SerialDiagnosticLink::Reset()
 {
     if (serial_ == nullptr)
     {
-        return no_facade();
+        return NoFacade();
     }
-    return guarded(
+    return Guarded(
         [&]() -> Status
         {
-            serial_->reset_connection();
+            serial_->ResetConnection();
             return {};
         });
 }
 
-Status SerialDiagnosticLink::set_header(KlineHeader header)
+Status SerialDiagnosticLink::SetHeader(KlineHeader header)
 {
     if (serial_ == nullptr)
     {
-        return no_facade();
+        return NoFacade();
     }
-    return guarded(
+    return Guarded(
         [&]() -> Status
         {
-            return run_setters({
-                {"set_add_ssm_header", [&] { return serial_->set_add_ssm_header(header == KlineHeader::kSsm); }},
+            return RunSetters({
+                {"set_add_ssm_header", [&] { return serial_->SetAddSsmHeader(header == KlineHeader::kSsm); }},
                 {"set_add_iso9141_header",
-                 [&] { return serial_->set_add_iso9141_header(header == KlineHeader::kIso9141); }},
+                 [&] { return serial_->SetAddIso9141Header(header == KlineHeader::kIso9141); }},
                 {"set_add_iso14230_header",
-                 [&] { return serial_->set_add_iso14230_header(header == KlineHeader::kIso14230); }},
+                 [&] { return serial_->SetAddIso14230Header(header == KlineHeader::kIso14230); }},
             });
         });
 }
 
-Status SerialDiagnosticLink::set_p1_max(std::chrono::milliseconds p1_max)
+Status SerialDiagnosticLink::SetP1Max(std::chrono::milliseconds p1_max)
 {
     if (serial_ == nullptr)
     {
-        return no_facade();
+        return NoFacade();
     }
-    return guarded(
+    return Guarded(
         [&]() -> Status
         {
-            const int value = saturating_ms<int>(p1_max);
-            if (serial_->get_use_openport2_adapter())
+            const int value = SaturatingMs<int>(p1_max);
+            if (serial_->GetUseOpenport2Adapter())
             {
-                if (serial_->set_j2534_ioctl(kJ2534P1Max, value) != kSerialSuccess)
+                if (serial_->SetJ2534Ioctl(kJ2534P1Max, value) != kSerialSuccess)
                 {
-                    return fail(ErrorKind::kDisconnected, "set_j2534_ioctl(P1_MAX) failed");
+                    return Fail(ErrorKind::kDisconnected, "set_j2534_ioctl(P1_MAX) failed");
                 }
                 return {};
             }
-            if (!serial_->set_kline_timings(kSerialP1Max, value))
+            if (!serial_->SetKlineTimings(kSerialP1Max, value))
             {
-                return fail(ErrorKind::kInvalidConfig, "set_kline_timings(P1_MAX) failed");
+                return Fail(ErrorKind::kInvalidConfig, "set_kline_timings(P1_MAX) failed");
             }
             return {};
         });
 }
 
-Result<bytes::Bytes> SerialDiagnosticLink::five_baud_init(std::uint8_t address)
+Result<bytes::Bytes> SerialDiagnosticLink::FiveBaudInit(std::uint8_t address)
 {
     if (serial_ == nullptr)
     {
-        return fail(ErrorKind::kDisconnected, "no serial facade");
+        return Fail(ErrorKind::kDisconnected, "no serial facade");
     }
-    return guarded(
-        [&]() -> Result<bytes::Bytes>
-        { return bytes::fromQByteArray(serial_->five_baud_init(QByteArray(1, static_cast<char>(address)))); });
+    return Guarded([&]() -> Result<bytes::Bytes>
+                   { return bytes::FromQByteArray(serial_->FiveBaudInit(QByteArray(1, static_cast<char>(address)))); });
 }
 
-Status SerialDiagnosticLink::fast_init(bytes::ByteView wakeup)
+Status SerialDiagnosticLink::FastInit(bytes::ByteView wakeup)
 {
     if (serial_ == nullptr)
     {
-        return no_facade();
+        return NoFacade();
     }
-    return guarded(
+    return Guarded(
         [&]() -> Status
         {
-            if (serial_->fast_init(bytes::toQByteArray(wakeup)) != kSerialSuccess)
+            if (serial_->FastInit(bytes::ToQByteArray(wakeup)) != kSerialSuccess)
             {
-                return fail(ErrorKind::kDisconnected, "fast_init failed");
+                return Fail(ErrorKind::kDisconnected, "fast_init failed");
             }
             return {};
         });
 }
 
-Result<bytes::Bytes> SerialDiagnosticLink::write(bytes::ByteView data)
+Result<bytes::Bytes> SerialDiagnosticLink::Write(bytes::ByteView data)
 {
     if (serial_ == nullptr)
     {
-        return fail(ErrorKind::kDisconnected, "no serial facade");
+        return Fail(ErrorKind::kDisconnected, "no serial facade");
     }
-    return guarded([&]() -> Result<bytes::Bytes>
-                   { return bytes::fromQByteArray(serial_->write_serial_data_echo_check(bytes::toQByteArray(data))); });
+    return Guarded([&]() -> Result<bytes::Bytes>
+                   { return bytes::FromQByteArray(serial_->WriteSerialDataEchoCheck(bytes::ToQByteArray(data))); });
 }
 
 namespace
 {
 template <class ReadCall>
-Result<IDiagnosticLink::OptionalBytes> guarded_read(SerialPortActions *serial, const ICancellationToken& cancellation,
-                                                    ReadCall read_call)
+Result<IDiagnosticLink::OptionalBytes> GuardedRead(SerialPortActions *serial, const ICancellationToken& cancellation,
+                                                   ReadCall read_call)
 {
-    if (cancellation.cancelled())
+    if (cancellation.Cancelled())
     {
-        return fail(ErrorKind::kCancelled, "diagnostic read cancelled before driver call");
+        return Fail(ErrorKind::kCancelled, "diagnostic read cancelled before driver call");
     }
     if (serial == nullptr)
     {
-        return fail(ErrorKind::kDisconnected, "no serial facade");
+        return Fail(ErrorKind::kDisconnected, "no serial facade");
     }
-    return guarded(
+    return Guarded(
         [&]() -> Result<IDiagnosticLink::OptionalBytes>
         {
             const QByteArray raw = read_call();
-            if (cancellation.cancelled())
+            if (cancellation.Cancelled())
             {
-                return fail(ErrorKind::kCancelled, "diagnostic read cancelled");
+                return Fail(ErrorKind::kCancelled, "diagnostic read cancelled");
             }
             if (raw.isEmpty())
             {
                 return IDiagnosticLink::OptionalBytes{};
             }
-            return IDiagnosticLink::OptionalBytes{bytes::fromQByteArray(raw)};
+            return IDiagnosticLink::OptionalBytes{bytes::FromQByteArray(raw)};
         });
 }
 } // namespace
 
-Result<IDiagnosticLink::OptionalBytes> SerialDiagnosticLink::read(std::chrono::milliseconds timeout,
+Result<IDiagnosticLink::OptionalBytes> SerialDiagnosticLink::Read(std::chrono::milliseconds timeout,
                                                                   const ICancellationToken& cancellation)
 {
-    return guarded_read(serial_, cancellation,
-                        [&] { return serial_->read_serial_data(saturating_ms<quint16>(timeout)); });
+    return GuardedRead(serial_, cancellation, [&] { return serial_->ReadSerialData(SaturatingMs<quint16>(timeout)); });
 }
 
-Result<IDiagnosticLink::OptionalBytes> SerialDiagnosticLink::read_obd(std::chrono::milliseconds timeout,
-                                                                      const ICancellationToken& cancellation)
+Result<IDiagnosticLink::OptionalBytes> SerialDiagnosticLink::ReadObd(std::chrono::milliseconds timeout,
+                                                                     const ICancellationToken& cancellation)
 {
-    return guarded_read(serial_, cancellation,
-                        [&] { return serial_->read_serial_obd_data(saturating_ms<quint16>(timeout)); });
+    return GuardedRead(serial_, cancellation,
+                       [&] { return serial_->ReadSerialObdData(SaturatingMs<quint16>(timeout)); });
 }
 
-bool SerialDiagnosticLink::uses_j2534() const
+bool SerialDiagnosticLink::UsesJ2534() const
 {
     try
     {
-        return serial_ != nullptr && serial_->get_use_openport2_adapter();
+        return serial_ != nullptr && serial_->GetUseOpenport2Adapter();
     }
     catch (...)
     {

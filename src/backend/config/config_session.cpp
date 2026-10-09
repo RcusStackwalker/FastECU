@@ -12,7 +12,7 @@ namespace fastecu::config
 namespace
 {
 
-void default_if_empty(std::string& field, std::string_view fallback)
+void DefaultIfEmpty(std::string& field, std::string_view fallback)
 {
     if (field.empty())
     {
@@ -23,21 +23,21 @@ void default_if_empty(std::string& field, std::string_view fallback)
 // The compiled-in defaults the legacy configuration struct carried. A
 // nonempty loaded value wins; AppConfig itself keeps "" as its not-present
 // value.
-AppConfig with_defaults(AppConfig settings, const ConfigPaths& paths)
+AppConfig WithDefaults(AppConfig settings, const ConfigPaths& paths)
 {
-    default_if_empty(settings.window_width, "default");
-    default_if_empty(settings.window_height, "default");
-    default_if_empty(settings.toolbar_iconsize, "32");
-    default_if_empty(settings.serial_port, "ttyUSB0");
-    default_if_empty(settings.primary_definition_base, "ecuflash");
-    default_if_empty(settings.use_romraider_definitions, "disabled");
-    default_if_empty(settings.use_ecuflash_definitions, "disabled");
-    default_if_empty(settings.calibration_files_directory, paths.calibration_files_directory);
-    default_if_empty(settings.datalog_files_directory, paths.datalog_files_directory);
+    DefaultIfEmpty(settings.window_width, "default");
+    DefaultIfEmpty(settings.window_height, "default");
+    DefaultIfEmpty(settings.toolbar_iconsize, "32");
+    DefaultIfEmpty(settings.serial_port, "ttyUSB0");
+    DefaultIfEmpty(settings.primary_definition_base, "ecuflash");
+    DefaultIfEmpty(settings.use_romraider_definitions, "disabled");
+    DefaultIfEmpty(settings.use_ecuflash_definitions, "disabled");
+    DefaultIfEmpty(settings.calibration_files_directory, paths.calibration_files_directory);
+    DefaultIfEmpty(settings.datalog_files_directory, paths.datalog_files_directory);
     return settings;
 }
 
-std::unexpected<Error> failed(const Error& error, std::string_view what, std::string_view path)
+std::unexpected<Error> Failed(const Error& error, std::string_view what, std::string_view path)
 {
     return std::unexpected(Error{error.kind, std::format("{} {}: {}", what, path, error.detail)});
 }
@@ -51,42 +51,42 @@ ConfigSession::ConfigSession(const Catalog& catalog, IFileSystem& file_system, I
 {
 }
 
-Status ConfigSession::initialize(std::string_view app_root, std::string_view version)
+Status ConfigSession::Initialize(std::string_view app_root, std::string_view version)
 {
     initialized_ = false;
     provisioned_ = {};
     settings_ = {};
 
-    const ConfigPaths paths = resolve_config_paths(app_root, version);
+    const ConfigPaths paths = ResolveConfigPaths(app_root, version);
     if (Status provisioned =
-            provision_config_directories(paths, file_system_, resource_bundle_, file_repository_, events_);
+            ProvisionConfigDirectories(paths, file_system_, resource_bundle_, file_repository_, events_);
         !provisioned.has_value())
     {
         return std::unexpected(Error{provisioned.error().kind,
                                      std::format("Unable to provision configuration: {}", provisioned.error().detail)});
     }
 
-    Result<AppConfig> parsed = parse_app_config(paths, file_repository_);
+    Result<AppConfig> parsed = ParseAppConfig(paths, file_repository_);
     if (!parsed.has_value())
     {
-        return failed(parsed.error(), "Unable to load settings", paths.config_file);
+        return Failed(parsed.error(), "Unable to load settings", paths.config_file);
     }
-    AppConfig settings = with_defaults(std::move(*parsed), paths);
+    AppConfig settings = WithDefaults(std::move(*parsed), paths);
     // The legacy loader rewrote the file on every load and ignored the
     // result. Keep the rewrite, but observe it: a failure is nonfatal.
-    if (Result<AppConfig> rewritten = save_app_config(settings, paths, file_repository_); rewritten.has_value())
+    if (Result<AppConfig> rewritten = SaveAppConfig(settings, paths, file_repository_); rewritten.has_value())
     {
         settings = std::move(*rewritten);
     }
     else
     {
-        events_.log(LogLevel::kWarning,
+        events_.Log(LogLevel::kWarning,
                     std::format("Unable to save settings {}: {}", paths.config_file, rewritten.error().detail));
     }
 
     // An id this catalog does not know -- a retired vehicle, or none saved
     // yet -- selects nothing, and the startup gate asks for a vehicle.
-    if (!catalog_.find_vehicle(settings.selected_vehicle_id).has_value())
+    if (!catalog_.FindVehicle(settings.selected_vehicle_id).has_value())
     {
         settings.selected_vehicle_id.clear();
     }
@@ -97,42 +97,42 @@ Status ConfigSession::initialize(std::string_view app_root, std::string_view ver
     return {};
 }
 
-bool ConfigSession::initialized() const
+bool ConfigSession::Initialized() const
 {
     return initialized_;
 }
 
-Status ConfigSession::save()
+Status ConfigSession::Save()
 {
     if (!initialized_)
     {
-        return fail(ErrorKind::kInternal, "configuration session is not initialized");
+        return Fail(ErrorKind::kInternal, "configuration session is not initialized");
     }
-    Result<AppConfig> saved = save_app_config(settings_, provisioned_, file_repository_);
+    Result<AppConfig> saved = SaveAppConfig(settings_, provisioned_, file_repository_);
     if (!saved.has_value())
     {
-        return failed(saved.error(), "Unable to save settings", provisioned_.config_file);
+        return Failed(saved.error(), "Unable to save settings", provisioned_.config_file);
     }
     settings_ = std::move(*saved);
     return {};
 }
 
-AppConfig& ConfigSession::settings()
+AppConfig& ConfigSession::Settings()
 {
     return settings_;
 }
 
-const AppConfig& ConfigSession::settings() const
+const AppConfig& ConfigSession::Settings() const
 {
     return settings_;
 }
 
-ConfigPaths ConfigSession::provisioned_paths() const
+ConfigPaths ConfigSession::ProvisionedPaths() const
 {
     return provisioned_;
 }
 
-ConfigPaths ConfigSession::effective_paths() const
+ConfigPaths ConfigSession::EffectivePaths() const
 {
     ConfigPaths paths = provisioned_;
     if (!settings_.calibration_files_directory.empty())
@@ -146,41 +146,41 @@ ConfigPaths ConfigSession::effective_paths() const
     return paths;
 }
 
-std::span<const VehicleSpec> ConfigSession::vehicles() const
+std::span<const VehicleSpec> ConfigSession::Vehicles() const
 {
-    return initialized_ ? catalog_.vehicles() : std::span<const VehicleSpec>{};
+    return initialized_ ? catalog_.Vehicles() : std::span<const VehicleSpec>{};
 }
 
-Result<std::size_t> ConfigSession::selected_row() const
+Result<std::size_t> ConfigSession::SelectedRow() const
 {
     if (!initialized_)
     {
-        return fail(ErrorKind::kInternal, "configuration session is not initialized");
+        return Fail(ErrorKind::kInternal, "configuration session is not initialized");
     }
-    const std::optional<std::size_t> row = catalog_.find_vehicle(settings_.selected_vehicle_id);
+    const std::optional<std::size_t> row = catalog_.FindVehicle(settings_.selected_vehicle_id);
     if (!row.has_value())
     {
-        return fail(ErrorKind::kInvalidConfig, "no vehicle is selected");
+        return Fail(ErrorKind::kInvalidConfig, "no vehicle is selected");
     }
     return *row;
 }
 
-const VehicleSpec *ConfigSession::selected_vehicle() const
+const VehicleSpec *ConfigSession::SelectedVehicle() const
 {
-    const Result<std::size_t> row = selected_row();
-    return row.has_value() ? &catalog_.vehicles()[*row] : nullptr;
+    const Result<std::size_t> row = SelectedRow();
+    return row.has_value() ? &catalog_.Vehicles()[*row] : nullptr;
 }
 
-Status ConfigSession::select_row(std::size_t row)
+Status ConfigSession::SelectRow(std::size_t row)
 {
     if (!initialized_)
     {
-        return fail(ErrorKind::kInternal, "configuration session is not initialized");
+        return Fail(ErrorKind::kInternal, "configuration session is not initialized");
     }
-    const std::span<const VehicleSpec> vehicles = catalog_.vehicles();
+    const std::span<const VehicleSpec> vehicles = catalog_.Vehicles();
     if (row >= vehicles.size())
     {
-        return fail(ErrorKind::kInvalidConfig,
+        return Fail(ErrorKind::kInvalidConfig,
                     std::format("vehicle row {} is out of range ({} rows)", row, vehicles.size()));
     }
     settings_.selected_vehicle_id = std::string(vehicles[row].id);
@@ -188,19 +188,19 @@ Status ConfigSession::select_row(std::size_t row)
     return {};
 }
 
-bool ConfigSession::select_by_protocol_name(std::string_view protocol_name)
+bool ConfigSession::SelectByProtocolName(std::string_view protocol_name)
 {
     if (!initialized_)
     {
         return false;
     }
-    const std::optional<std::size_t> row = catalog_.last_vehicle_for_protocol(protocol_name);
-    return row.has_value() && select_row(*row).has_value();
+    const std::optional<std::size_t> row = catalog_.LastVehicleForProtocol(protocol_name);
+    return row.has_value() && SelectRow(*row).has_value();
 }
 
-const VehicleSpec *ConfigSession::vehicle_for_alias(std::string_view flash_method) const
+const VehicleSpec *ConfigSession::VehicleForAlias(std::string_view flash_method) const
 {
-    return initialized_ ? catalog_.first_vehicle_for_alias(flash_method) : nullptr;
+    return initialized_ ? catalog_.FirstVehicleForAlias(flash_method) : nullptr;
 }
 
 } // namespace fastecu::config

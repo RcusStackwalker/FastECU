@@ -17,7 +17,7 @@ namespace
 using fastecu::testing::IsErr;
 using fastecu::testing::IsOk;
 
-definition::RomDefinition fuel_definition()
+definition::RomDefinition FuelDefinition()
 {
     definition::RomDefinition rom{.format = definition::DefinitionFormat::kEcuFlash};
     rom.scalings.push_back(definition::Scaling{.name = "Raw", .from_byte = "x"});
@@ -33,37 +33,37 @@ definition::RomDefinition fuel_definition()
     return rom;
 }
 
-SessionContents contents_with_definition()
+SessionContents ContentsWithDefinition()
 {
     return SessionContents{
         .source = {.display_name = "a.bin", .path = "/cal/a.bin", .origin = RomOrigin::kFile},
         .rom = {0, 0, 5, 6, 7, 0},
         .definition = ResolvedDefinition{.format = definition::DefinitionFormat::kEcuFlash,
                                          .id = "TEST",
-                                         .definition = fuel_definition()},
+                                         .definition = FuelDefinition()},
         .protocol = {.flash_method = "proto_a"},
     };
 }
 
 TEST(CalibrationSessionTest, ExposesWhatItWasBuiltFrom)
 {
-    const CalibrationSession session(SessionId{7}, contents_with_definition());
+    const CalibrationSession session(SessionId{7}, ContentsWithDefinition());
 
-    EXPECT_EQ(session.id(), SessionId{7});
-    EXPECT_EQ(session.source().display_name, "a.bin");
-    EXPECT_EQ(session.source().origin, RomOrigin::kFile);
-    EXPECT_EQ(session.rom().size(), 6U);
-    ASSERT_NE(session.definition(), nullptr);
-    EXPECT_EQ(session.definition()->id, "TEST");
-    EXPECT_EQ(session.protocol().flash_method, "proto_a");
-    EXPECT_FALSE(session.dirty());
+    EXPECT_EQ(session.Id(), SessionId{7});
+    EXPECT_EQ(session.Source().display_name, "a.bin");
+    EXPECT_EQ(session.Source().origin, RomOrigin::kFile);
+    EXPECT_EQ(session.Rom().size(), 6U);
+    ASSERT_NE(session.Definition(), nullptr);
+    EXPECT_EQ(session.Definition()->id, "TEST");
+    EXPECT_EQ(session.Protocol().flash_method, "proto_a");
+    EXPECT_FALSE(session.Dirty());
 }
 
 TEST(CalibrationSessionTest, DecodesAMapFromTheCurrentBytes)
 {
-    const CalibrationSession session(SessionId{1}, contents_with_definition());
+    const CalibrationSession session(SessionId{1}, ContentsWithDefinition());
 
-    const auto values = session.decode_map(0);
+    const auto values = session.DecodeMap(0);
 
     ASSERT_THAT(values, IsOk());
     EXPECT_THAT(std::get<NumericRun>(values->body).cells,
@@ -75,30 +75,30 @@ TEST(CalibrationSessionTest, DecodesAMapFromTheCurrentBytes)
 
 TEST(CalibrationSessionTest, DecodeRejectsAnOutOfRangeIndex)
 {
-    const CalibrationSession session(SessionId{1}, contents_with_definition());
+    const CalibrationSession session(SessionId{1}, ContentsWithDefinition());
 
-    EXPECT_THAT(session.decode_map(1), IsErr(ErrorKind::kInvalidConfig));
+    EXPECT_THAT(session.DecodeMap(1), IsErr(ErrorKind::kInvalidConfig));
 }
 
 TEST(CalibrationSessionTest, DecodeWithoutADefinitionFails)
 {
-    SessionContents contents = contents_with_definition();
+    SessionContents contents = ContentsWithDefinition();
     contents.definition.reset();
     const CalibrationSession session(SessionId{1}, std::move(contents));
 
-    EXPECT_EQ(session.definition(), nullptr);
-    EXPECT_THAT(session.decode_map(0), IsErr(ErrorKind::kInvalidConfig));
+    EXPECT_EQ(session.Definition(), nullptr);
+    EXPECT_THAT(session.DecodeMap(0), IsErr(ErrorKind::kInvalidConfig));
 }
 
 TEST(CalibrationSessionTest, WrittenBytesAreWhatTheNextDecodeSees)
 {
-    CalibrationSession session(SessionId{1}, contents_with_definition());
+    CalibrationSession session(SessionId{1}, ContentsWithDefinition());
     const std::vector<std::uint8_t> patch{9, 8};
 
-    ASSERT_THAT(session.write_bytes(3, patch), IsOk());
+    ASSERT_THAT(session.WriteBytes(3, patch), IsOk());
 
-    EXPECT_TRUE(session.dirty());
-    const auto decoded = session.decode_map(0);
+    EXPECT_TRUE(session.Dirty());
+    const auto decoded = session.DecodeMap(0);
     ASSERT_THAT(decoded, IsOk());
     EXPECT_THAT(std::get<NumericRun>(decoded->body).cells,
                 ::testing::ElementsAre(fastecu::testing::IsOkAnd(5), fastecu::testing::IsOkAnd(9),
@@ -107,36 +107,35 @@ TEST(CalibrationSessionTest, WrittenBytesAreWhatTheNextDecodeSees)
 
 TEST(CalibrationSessionTest, WriteReachingTheLastByteSucceeds)
 {
-    CalibrationSession session(SessionId{1}, contents_with_definition());
+    CalibrationSession session(SessionId{1}, ContentsWithDefinition());
     const std::vector<std::uint8_t> patch{0xAA};
 
-    ASSERT_THAT(session.write_bytes(5, patch), IsOk());
-    EXPECT_EQ(session.rom()[5], 0xAA);
+    ASSERT_THAT(session.WriteBytes(5, patch), IsOk());
+    EXPECT_EQ(session.Rom()[5], 0xAA);
 }
 
 TEST(CalibrationSessionTest, WritePastTheEndChangesNothing)
 {
-    CalibrationSession session(SessionId{1}, contents_with_definition());
-    const std::vector<std::uint8_t> before(session.rom().begin(), session.rom().end());
+    CalibrationSession session(SessionId{1}, ContentsWithDefinition());
+    const std::vector<std::uint8_t> before(session.Rom().begin(), session.Rom().end());
     const std::vector<std::uint8_t> patch{1, 2};
 
-    EXPECT_THAT(session.write_bytes(5, patch), IsErr(ErrorKind::kInvalidConfig));
-    EXPECT_THAT(session.write_bytes(std::numeric_limits<std::uint64_t>::max(), patch),
-                IsErr(ErrorKind::kInvalidConfig));
+    EXPECT_THAT(session.WriteBytes(5, patch), IsErr(ErrorKind::kInvalidConfig));
+    EXPECT_THAT(session.WriteBytes(std::numeric_limits<std::uint64_t>::max(), patch), IsErr(ErrorKind::kInvalidConfig));
 
-    EXPECT_EQ(std::vector<std::uint8_t>(session.rom().begin(), session.rom().end()), before);
-    EXPECT_FALSE(session.dirty());
+    EXPECT_EQ(std::vector<std::uint8_t>(session.Rom().begin(), session.Rom().end()), before);
+    EXPECT_FALSE(session.Dirty());
 }
 
 TEST(CalibrationSessionTest, ProtocolInfoCanBeReplaced)
 {
-    CalibrationSession session(SessionId{1}, contents_with_definition());
+    CalibrationSession session(SessionId{1}, ContentsWithDefinition());
 
-    session.set_protocol(RomProtocolInfo{.flash_method = "proto_b", .kernel_path = "/k/b.bin"});
+    session.SetProtocol(RomProtocolInfo{.flash_method = "proto_b", .kernel_path = "/k/b.bin"});
 
-    EXPECT_EQ(session.protocol().flash_method, "proto_b");
-    EXPECT_EQ(session.protocol().kernel_path, "/k/b.bin");
-    EXPECT_FALSE(session.dirty());
+    EXPECT_EQ(session.Protocol().flash_method, "proto_b");
+    EXPECT_EQ(session.Protocol().kernel_path, "/k/b.bin");
+    EXPECT_FALSE(session.Dirty());
 }
 
 } // namespace

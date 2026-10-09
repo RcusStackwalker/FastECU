@@ -83,22 +83,22 @@ inline constexpr std::array<std::uint16_t, 4> kDensoIso15765DecryptTable{0x92A0,
 // they are pure table-to-algorithm adapters with no protocol sequence in them.
 
 // generate_can_seed_key().
-inline bytes::Bytes denso_seed_key(bytes::ByteView seed)
+inline bytes::Bytes DensoSeedKey(bytes::ByteView seed)
 {
-    return ssm_protocol::calculateSeedKey(seed, kDensoIso15765SeedKeyTable, ssm_protocol::kIndexTransformationStock);
+    return ssm_protocol::CalculateSeedKey(seed, kDensoIso15765SeedKeyTable, ssm_protocol::kIndexTransformationStock);
 }
 
 // encrypt_payload(), run once over the whole image before a flash write.
-inline bytes::Bytes denso_encrypt_rom(bytes::ByteView image)
+inline bytes::Bytes DensoEncryptRom(bytes::ByteView image)
 {
-    return ssm_protocol::calculatePayload(image, static_cast<std::uint32_t>(image.size()), kDensoIso15765EncryptTable,
+    return ssm_protocol::CalculatePayload(image, static_cast<std::uint32_t>(image.size()), kDensoIso15765EncryptTable,
                                           ssm_protocol::kIndexTransformationStock);
 }
 
 // decrypt_payload(), run per 256-byte page as a dump arrives.
-inline bytes::Bytes denso_decrypt_page(bytes::ByteView page)
+inline bytes::Bytes DensoDecryptPage(bytes::ByteView page)
 {
-    return ssm_protocol::calculatePayload(page, static_cast<std::uint32_t>(page.size()), kDensoIso15765DecryptTable,
+    return ssm_protocol::CalculatePayload(page, static_cast<std::uint32_t>(page.size()), kDensoIso15765DecryptTable,
                                           ssm_protocol::kIndexTransformationStock);
 }
 
@@ -115,16 +115,16 @@ inline bytes::Bytes denso_decrypt_page(bytes::ByteView page)
 //
 // Not specific to this cluster in principle, but shared here because these
 // four are the families that provably share it.
-Result<bytes::Bytes> tolerant_probe(const CanExecutorContext& ctx, bytes::ByteView pdu, bytes::Byte expected_service,
-                                    bytes::Byte expected_subfunction, std::chrono::milliseconds timeout,
-                                    std::string_view rejection_prefix, std::string_view subject);
+Result<bytes::Bytes> TolerantProbe(const CanExecutorContext& ctx, bytes::ByteView pdu, bytes::Byte expected_service,
+                                   bytes::Byte expected_subfunction, std::chrono::milliseconds timeout,
+                                   std::string_view rejection_prefix, std::string_view subject);
 
 // Sends `pdu` to `request_id` and reads one reply only to discard it: the
 // in-car arm's opening run of session/DTC/communication-control exchanges
 // whose answers legacy never inspects. The reply is read from `can` directly,
 // so the channel's response id is never consulted.
-Status fire_and_forget(const CanExecutorContext& ctx, ICanFlashTransport& can, std::uint32_t request_id,
-                       bytes::ByteView pdu, std::chrono::milliseconds timeout);
+Status FireAndForget(const CanExecutorContext& ctx, ICanFlashTransport& can, std::uint32_t request_id,
+                     bytes::ByteView pdu, std::chrono::milliseconds timeout);
 
 // The bootloader dialect's SecurityAccess exchange: request the level-0x61 seed, derive the
 // key from its four payload bytes with denso_seed_key, send it at level 0x62.
@@ -132,7 +132,7 @@ Status fire_and_forget(const CanExecutorContext& ctx, ICanFlashTransport& can, s
 // seed reply with fewer than four seed bytes fails before any key is sent.
 // Both read with a single 2000 ms read_timeout; pending replies keep the UDS
 // client's own pending timeout and are re-read, never re-sent.
-Status denso_security_access(const CanExecutorContext& ctx);
+Status DensoSecurityAccess(const CanExecutorContext& ctx);
 
 // The bootloader dialect's flash erase: RequestDownload with `request_download_setup_pdu`
 // (the executor builds it, since it also builds the read-path setup), then the
@@ -141,13 +141,13 @@ Status denso_security_access(const CanExecutorContext& ctx);
 // reply must start 20 01 05 or the trigger is never sent. Setup and polling
 // both read at 500 ms, with a 500 ms sleep after the trigger and after each
 // unsuccessful poll.
-Status denso_iso15765_erase(const CanExecutorContext& ctx, bytes::ByteView request_download_setup_pdu);
+Status DensoIso15765Erase(const CanExecutorContext& ctx, bytes::ByteView request_download_setup_pdu);
 
 // The N83M 1.5M and 4M in-car arms' opening run of ten session, DTC and
 // communication-control requests across 0x7A2, 0x7E0, 0x7DF, 0x7E1 and 0x7B0,
 // each read at 200 ms and discarded. Its 0x7E1 request asks for session 0x63;
 // the SH72531 and SH72543 diesel in-car arms send 0x03 there and keep their own
 // runs.
-Status n83m_in_car_fire_and_forget(const CanExecutorContext& ctx, ICanFlashTransport& can);
+Status N83mInCarFireAndForget(const CanExecutorContext& ctx, ICanFlashTransport& can);
 
 } // namespace fastecu::flash

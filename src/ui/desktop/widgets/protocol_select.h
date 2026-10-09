@@ -32,7 +32,7 @@ class ProtocolSelect : public QDialog
     // The accepted protocol name; empty until the operator chooses one. The
     // session itself is never changed here: the caller applies an accepted
     // choice.
-    std::optional<std::string> chosen_protocol_name() const;
+    std::optional<std::string> acceptedProtocolName() const;
 
   private:
     // Private, but protocol_select_test.cpp compiles this header under
@@ -50,8 +50,8 @@ class ProtocolSelect : public QDialog
     std::optional<std::string> chosenProtocolName;
 
   private slots:
-    void car_model_selected();
-    void protocol_treewidget_item_selected();
+    void carModelSelected();
+    void protocolTreewidgetItemSelected();
 
   private:
     std::unique_ptr<Ui::ProtocolSelect> ui_;

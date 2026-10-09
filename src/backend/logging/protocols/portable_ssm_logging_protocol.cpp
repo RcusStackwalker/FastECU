@@ -15,32 +15,32 @@ using namespace std::chrono_literals;
 
 constexpr std::chrono::milliseconds kStartTimeout{1000};
 
-fastecu::Status checkCancellation(const fastecu::ICancellationToken& cancellation)
+fastecu::Status CheckCancellation(const fastecu::ICancellationToken& cancellation)
 {
-    if (cancellation.cancelled())
+    if (cancellation.Cancelled())
     {
-        return fastecu::fail(fastecu::ErrorKind::kCancelled, "SSM logging cancelled");
+        return fastecu::Fail(fastecu::ErrorKind::kCancelled, "SSM logging cancelled");
     }
     return {};
 }
 
-void appendBytes(bytes::Bytes& target, bytes::Bytes chunk)
+void AppendBytes(bytes::Bytes& target, bytes::Bytes chunk)
 {
     target.insert(target.end(), chunk.begin(), chunk.end());
 }
 
-bytes::Bytes buildPollRequest(const std::vector<LoggingChannel>& channels)
+bytes::Bytes BuildPollRequest(const std::vector<LoggingChannel>& channels)
 {
     bytes::Bytes output{0xA8, 0x01};
     output.reserve(output.size() + channels.size() * 3);
     for (const LoggingChannel& channel : channels)
     {
-        bytes::appendU24Be(output, channel.address);
+        bytes::AppendU24Be(output, channel.address);
     }
     return output;
 }
 
-std::vector<std::size_t> sequentialOffsets(std::size_t count)
+std::vector<std::size_t> SequentialOffsets(std::size_t count)
 {
     std::vector<std::size_t> offsets;
     offsets.reserve(count);
@@ -56,7 +56,7 @@ SsmLoggingProtocol::SsmLoggingProtocol(fastecu::IClock& clock, std::unique_ptr<I
                                        std::vector<LoggingChannel> channels, bool target_is_ecu,
                                        bool use_openport2_adapter)
     : clock_(clock), transport_(std::move(transport)), channels_(std::move(channels)),
-      response_offsets_(sequentialOffsets(channels_.size())), target_is_ecu_(target_is_ecu),
+      response_offsets_(SequentialOffsets(channels_.size())), target_is_ecu_(target_is_ecu),
       use_openport2_adapter_(use_openport2_adapter)
 {
 }
@@ -70,31 +70,31 @@ SsmLoggingProtocol::SsmLoggingProtocol(fastecu::IClock& clock, std::unique_ptr<I
 {
 }
 
-bytes::Bytes SsmLoggingProtocol::buildSsmHeader(bytes::ByteView output) const
+bytes::Bytes SsmLoggingProtocol::BuildSsmHeader(bytes::ByteView output) const
 {
-    return ssm_protocol::addHeader(output, 0xF0, target_is_ecu_ ? 0x10 : 0x18);
+    return ssm_protocol::AddHeader(output, 0xF0, target_is_ecu_ ? 0x10 : 0x18);
 }
 
-fastecu::Result<bytes::Bytes> SsmLoggingProtocol::readFramedResponse(std::chrono::milliseconds timeout,
+fastecu::Result<bytes::Bytes> SsmLoggingProtocol::ReadFramedResponse(std::chrono::milliseconds timeout,
                                                                      const fastecu::ICancellationToken& cancellation)
 {
     bytes::Bytes received;
-    const auto deadline = clock_.now() + timeout;
+    const auto deadline = clock_.Now() + timeout;
 
     const auto read_and_append = [&](std::chrono::milliseconds read_timeout) -> fastecu::Status
     {
-        if (auto status = checkCancellation(cancellation); !status)
+        if (auto status = CheckCancellation(cancellation); !status)
         {
             return status;
         }
-        auto chunk = transport_->read(read_timeout, cancellation);
+        auto chunk = transport_->Read(read_timeout, cancellation);
         if (!chunk)
         {
             return std::unexpected(chunk.error());
         }
         if (chunk->has_value())
         {
-            appendBytes(received, std::move(chunk->value()));
+            AppendBytes(received, std::move(chunk->value()));
         }
         return {};
     };
@@ -108,7 +108,7 @@ fastecu::Result<bytes::Bytes> SsmLoggingProtocol::readFramedResponse(std::chrono
         return received;
     }
 
-    while (received.size() < 3 && clock_.now() < deadline)
+    while (received.size() < 3 && clock_.Now() < deadline)
     {
         if (auto status = read_and_append(10ms); !status)
         {
@@ -117,7 +117,7 @@ fastecu::Result<bytes::Bytes> SsmLoggingProtocol::readFramedResponse(std::chrono
     }
 
     while (received.size() >= 3 && (received[0] != 0x80 || received[1] != 0xf0 || received[2] != 0x10) &&
-           clock_.now() < deadline)
+           clock_.Now() < deadline)
     {
         received.erase(received.begin());
         if (auto status = read_and_append(10ms); !status)
@@ -126,7 +126,7 @@ fastecu::Result<bytes::Bytes> SsmLoggingProtocol::readFramedResponse(std::chrono
         }
     }
 
-    if (const auto remaining = deadline - clock_.now(); remaining > 0ms)
+    if (const auto remaining = deadline - clock_.Now(); remaining > 0ms)
     {
         if (auto status = read_and_append(std::chrono::duration_cast<std::chrono::milliseconds>(remaining)); !status)
         {
@@ -137,53 +137,53 @@ fastecu::Result<bytes::Bytes> SsmLoggingProtocol::readFramedResponse(std::chrono
     return received;
 }
 
-fastecu::Status SsmLoggingProtocol::start(const fastecu::ICancellationToken& cancellation)
+fastecu::Status SsmLoggingProtocol::Start(const fastecu::ICancellationToken& cancellation)
 {
-    if (auto status = checkCancellation(cancellation); !status)
+    if (auto status = CheckCancellation(cancellation); !status)
     {
         return status;
     }
-    if (!transport_->isOpen())
+    if (!transport_->IsOpen())
     {
-        return fastecu::fail(fastecu::ErrorKind::kDisconnected, "adapter disconnected");
+        return fastecu::Fail(fastecu::ErrorKind::kDisconnected, "adapter disconnected");
     }
 
     const bytes::Bytes output{0xA8, 0x00, 0x00, 0x00, 0x07};
-    if (auto write_result = transport_->write(buildSsmHeader(output)); !write_result)
+    if (auto write_result = transport_->Write(BuildSsmHeader(output)); !write_result)
     {
         return std::unexpected(write_result.error());
     }
 
-    auto received = readFramedResponse(kStartTimeout, cancellation);
+    auto received = ReadFramedResponse(kStartTimeout, cancellation);
     if (!received)
     {
         return std::unexpected(received.error());
     }
     if (received->size() <= 6 || received->at(4) != 0xe8)
     {
-        return fastecu::fail(fastecu::ErrorKind::kBadResponse, "no response to logging start request");
+        return fastecu::Fail(fastecu::ErrorKind::kBadResponse, "no response to logging start request");
     }
     return {};
 }
 
-fastecu::Result<PollData> SsmLoggingProtocol::poll(std::chrono::milliseconds timeout,
+fastecu::Result<PollData> SsmLoggingProtocol::Poll(std::chrono::milliseconds timeout,
                                                    const fastecu::ICancellationToken& cancellation)
 {
-    if (auto status = checkCancellation(cancellation); !status)
+    if (auto status = CheckCancellation(cancellation); !status)
     {
         return std::unexpected(status.error());
     }
-    if (!transport_->isOpen())
+    if (!transport_->IsOpen())
     {
-        return fastecu::fail(fastecu::ErrorKind::kDisconnected, "adapter disconnected");
+        return fastecu::Fail(fastecu::ErrorKind::kDisconnected, "adapter disconnected");
     }
 
-    if (auto write_result = transport_->write(buildSsmHeader(buildPollRequest(channels_))); !write_result)
+    if (auto write_result = transport_->Write(BuildSsmHeader(BuildPollRequest(channels_))); !write_result)
     {
         return std::unexpected(write_result.error());
     }
 
-    auto received = readFramedResponse(timeout, cancellation);
+    auto received = ReadFramedResponse(timeout, cancellation);
     if (!received)
     {
         return std::unexpected(received.error());
@@ -221,7 +221,7 @@ fastecu::Result<PollData> SsmLoggingProtocol::poll(std::chrono::milliseconds tim
     return data;
 }
 
-fastecu::Status SsmLoggingProtocol::stop()
+fastecu::Status SsmLoggingProtocol::Stop()
 {
     return {};
 }

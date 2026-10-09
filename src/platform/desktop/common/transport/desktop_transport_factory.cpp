@@ -16,47 +16,47 @@ namespace fastecu::flash
 namespace
 {
 
-Result<std::unique_ptr<SerialPortActions>> make_serial(const DesktopCanTransportConfig& config)
+Result<std::unique_ptr<SerialPortActions>> MakeSerial(const DesktopCanTransportConfig& config)
 {
     if (!config.backend_factory)
     {
-        return fail(ErrorKind::kInvalidConfig, "no serial backend factory");
+        return Fail(ErrorKind::kInvalidConfig, "no serial backend factory");
     }
     return std::make_unique<SerialPortActions>(config.backend_factory);
 }
 
 } // namespace
 
-Result<std::vector<std::string>> list_desktop_serial_ports(const DesktopCanTransportConfig& config)
+Result<std::vector<std::string>> ListDesktopSerialPorts(const DesktopCanTransportConfig& config)
 {
-    auto made = make_serial(config);
+    auto made = MakeSerial(config);
     if (!made.has_value())
     {
         return std::unexpected(made.error());
     }
     std::unique_ptr<SerialPortActions> serial = std::move(*made);
     std::vector<std::string> ports;
-    for (const QString& port : serial->check_serial_ports())
+    for (const QString& port : serial->CheckSerialPorts())
     {
         ports.push_back(port.toStdString());
     }
     return ports;
 }
 
-Result<std::unique_ptr<ICanFlashTransport>> open_desktop_can_flash_transport(const DesktopCanTransportConfig& config,
-                                                                             const Iso15765Config& can)
+Result<std::unique_ptr<ICanFlashTransport>> OpenDesktopCanFlashTransport(const DesktopCanTransportConfig& config,
+                                                                         const Iso15765Config& can)
 {
-    auto made = make_serial(config);
+    auto made = MakeSerial(config);
     if (!made.has_value())
     {
         return std::unexpected(made.error());
     }
     std::unique_ptr<SerialPortActions> serial = std::move(*made);
 
-    const QStringList detected = serial->check_serial_ports();
+    const QStringList detected = serial->CheckSerialPorts();
     if (detected.isEmpty())
     {
-        return fail(ErrorKind::kDisconnected, "no serial ports detected");
+        return Fail(ErrorKind::kDisconnected, "no serial ports detected");
     }
 
     QString wanted;
@@ -67,13 +67,13 @@ Result<std::unique_ptr<ICanFlashTransport>> open_desktop_can_flash_transport(con
         // cu.Bluetooth-Incoming-Port. open_serial_port() would then degrade
         // it to a plain serial port and report success, and every ISO-15765
         // exchange would time out against a port with no ECU behind it.
-        const auto adapter = std::ranges::find_if(detected, isJ2534CapableEntry);
+        const auto adapter = std::ranges::find_if(detected, IsJ2534CapableEntry);
         if (adapter == detected.end())
         {
             // Distinct from the empty-list case above: ports were found, none
             // of them is an adapter. Different user action -- plug the adapter
             // in, rather than check the cable.
-            return fail(ErrorKind::kDisconnected,
+            return Fail(ErrorKind::kDisconnected,
                         std::format("no J2534 adapter among {} detected serial ports", detected.size()));
         }
         wanted = *adapter;
@@ -87,31 +87,31 @@ Result<std::unique_ptr<ICanFlashTransport>> open_desktop_can_flash_transport(con
         wanted = QString::fromStdString(config.port_name);
         if (!detected.contains(wanted))
         {
-            return fail(ErrorKind::kInvalidConfig,
+            return Fail(ErrorKind::kInvalidConfig,
                         std::format("no such device: {} (detected {})", wanted.toStdString(), detected.size()));
         }
         // Accepting a named non-J2534 port only buys one read timeout per
         // exchange: ISO-15765 cannot run over a plain serial port.
-        if (!isJ2534CapableEntry(wanted))
+        if (!IsJ2534CapableEntry(wanted))
         {
-            return fail(ErrorKind::kInvalidConfig, std::format("not a J2534 adapter: {}", wanted.toStdString()));
+            return Fail(ErrorKind::kInvalidConfig, std::format("not a J2534 adapter: {}", wanted.toStdString()));
         }
     }
     // open_serial_port() consumes the selected UI-style entry from
     // serial_port_list.at(0), including the adapter description used to select
     // the J2534 path. set_serial_port() only updates a separate scalar and
     // leaves that list empty, which makes the direct backend assert on open.
-    if (!serial->set_serial_port_list(QStringList{wanted}))
+    if (!serial->SetSerialPortList(QStringList{wanted}))
     {
-        return fail(ErrorKind::kInvalidConfig, std::format("set_serial_port_list({}) failed", wanted.toStdString()));
+        return Fail(ErrorKind::kInvalidConfig, std::format("set_serial_port_list({}) failed", wanted.toStdString()));
     }
 
     auto transport = std::make_unique<DesktopCanFlashTransport>(std::move(serial));
-    if (const Status configured = transport->configure(can); !configured.has_value())
+    if (const Status configured = transport->Configure(can); !configured.has_value())
     {
         return std::unexpected(configured.error());
     }
-    if (const Status opened = transport->open(); !opened.has_value())
+    if (const Status opened = transport->Open(); !opened.has_value())
     {
         return std::unexpected(opened.error());
     }

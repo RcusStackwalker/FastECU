@@ -20,120 +20,119 @@ namespace fastecu::definition
 {
 
 // Returned nodes borrow the caller-owned document. Root/format policy remains with the caller.
-Result<pugi::xml_node> parse_document_root(pugi::xml_document& document, std::span<const std::uint8_t> xml,
-                                           std::string_view source, pugi::xml_encoding encoding);
+Result<pugi::xml_node> ParseDocumentRoot(pugi::xml_document& document, std::span<const std::uint8_t> xml,
+                                         std::string_view source, pugi::xml_encoding encoding);
 // Concatenate direct text/CDATA children; never traverse nested elements.
-std::string read_element_text(pugi::xml_node element);
-std::string header_child_text(pugi::xml_node parent, std::string_view name);
-Status validate_header_structure(pugi::xml_node rom, std::string_view source);
-Result<std::optional<std::uint64_t>> parse_header_address(std::string_view text, std::string_view source,
-                                                          std::string_view definition_id = {});
+std::string ReadElementText(pugi::xml_node element);
+std::string HeaderChildText(pugi::xml_node parent, std::string_view name);
+Status ValidateHeaderStructure(pugi::xml_node rom, std::string_view source);
+Result<std::optional<std::uint64_t>> ParseHeaderAddress(std::string_view text, std::string_view source,
+                                                        std::string_view definition_id = {});
 
 struct ParsedRomHeader
 {
     pugi::xml_node rom;   // Borrowed ROM node; its romid child has been validated.
     RomIdentity identity; // Owns its strings.
 };
-Result<ParsedRomHeader> parse_rom_header(pugi::xml_node rom, std::string_view source);
+Result<ParsedRomHeader> ParseRomHeader(pugi::xml_node rom, std::string_view source);
 
-std::string trim_copy(std::string_view value);
-std::string detail_prefix(std::string_view source, std::string_view definition_id = {});
-std::unexpected<Error> invalid(std::string_view source, std::string context, std::string message,
+std::string TrimCopy(std::string_view value);
+std::string DetailPrefix(std::string_view source, std::string_view definition_id = {});
+std::unexpected<Error> Invalid(std::string_view source, std::string context, std::string message,
                                std::string_view definition_id = {});
 // First table text value, skipping whitespace-only PCDATA introduced by header whitespace preservation.
-std::string table_element_text(pugi::xml_node element);
-std::string child_text(pugi::xml_node parent, std::string_view child_name);
-Result<pugi::xml_node> identity_element(pugi::xml_node rom, std::string_view source);
-Result<std::string> required_child_text(pugi::xml_node parent, std::string_view parent_name,
-                                        std::string_view child_name, std::string_view source);
-Result<std::string> definition_id_for_rom(pugi::xml_node rom, std::string_view source);
-RomMetadata parse_metadata(pugi::xml_node rom_id);
-Result<pugi::xml_node> parse_root(pugi::xml_document& document, std::span<const std::uint8_t> xml,
-                                  std::string_view source, std::string_view root_name);
-Result<std::uint64_t> parse_hex_unsigned(std::string_view value, std::string_view source, std::string context,
+std::string TableElementText(pugi::xml_node element);
+std::string ChildText(pugi::xml_node parent, std::string_view child_name);
+Result<pugi::xml_node> IdentityElement(pugi::xml_node rom, std::string_view source);
+Result<std::string> RequiredChildText(pugi::xml_node parent, std::string_view parent_name, std::string_view child_name,
+                                      std::string_view source);
+Result<std::string> DefinitionIdForRom(pugi::xml_node rom, std::string_view source);
+RomMetadata ParseMetadata(pugi::xml_node rom_id);
+Result<pugi::xml_node> ParseRoot(pugi::xml_document& document, std::span<const std::uint8_t> xml,
+                                 std::string_view source, std::string_view root_name);
+Result<std::uint64_t> ParseHexUnsigned(std::string_view value, std::string_view source, std::string context,
+                                       std::string_view definition_id);
+std::string ValueOrEmpty(pugi::xml_attribute attribute);
+std::string SelectionName(std::string name);
+Result<std::optional<std::uint64_t>> OptionalHexAttribute(pugi::xml_node node, std::string_view attribute_name,
+                                                          std::string_view source, std::string_view definition_id);
+Result<std::optional<std::uint64_t>> OptionalAddress(pugi::xml_node node, std::string_view source,
+                                                     std::string_view definition_id);
+Result<std::uint32_t> DimensionAttribute(pugi::xml_node node, std::string_view attribute_name,
+                                         std::uint32_t default_value, std::string_view source,
                                          std::string_view definition_id);
-std::string value_or_empty(pugi::xml_attribute attribute);
-std::string selection_name(std::string name);
-Result<std::optional<std::uint64_t>> optional_hex_attribute(pugi::xml_node node, std::string_view attribute_name,
+Result<bool> StrictBooleanAttribute(pugi::xml_node node, std::string_view attribute_name, std::string_view source,
+                                    std::string_view definition_id);
+Result<std::optional<std::uint32_t>> OptionalHexAttribute32(pugi::xml_node node, std::string_view attribute_name,
                                                             std::string_view source, std::string_view definition_id);
-Result<std::optional<std::uint64_t>> optional_address(pugi::xml_node node, std::string_view source,
-                                                      std::string_view definition_id);
-Result<std::uint32_t> dimension_attribute(pugi::xml_node node, std::string_view attribute_name,
-                                          std::uint32_t default_value, std::string_view source,
-                                          std::string_view definition_id);
-Result<bool> strict_boolean_attribute(pugi::xml_node node, std::string_view attribute_name, std::string_view source,
-                                      std::string_view definition_id);
-Result<std::optional<std::uint32_t>> optional_hex_attribute32(pugi::xml_node node, std::string_view attribute_name,
-                                                              std::string_view source, std::string_view definition_id);
-Status populate_optional_hex_dimension(pugi::xml_node table, std::string_view attribute_name,
-                                       std::optional<std::uint32_t>& destination, std::string_view source,
-                                       std::string_view definition_id);
-Result<std::optional<StorageType>> optional_storage_type_attribute(pugi::xml_node node, std::string_view attribute_name,
-                                                                   std::string_view source,
-                                                                   std::string_view definition_id);
-Status populate_common_axis_attributes(pugi::xml_node table, UnresolvedAxisDefinition& axis, std::string_view source,
-                                       std::string_view definition_id);
-void apply_scaling_to_axis(const UnresolvedScaling& scaling, UnresolvedAxisDefinition& axis);
-Status populate_common_map_attributes(pugi::xml_node table, UnresolvedCalibrationMap& map, std::string_view source,
-                                      std::string_view definition_id);
-Status populate_optional_dimension(pugi::xml_node table, std::string_view attribute_name,
-                                   std::optional<std::uint32_t>& destination, std::string_view source,
+Status PopulateOptionalHexDimension(pugi::xml_node table, std::string_view attribute_name,
+                                    std::optional<std::uint32_t>& destination, std::string_view source,
+                                    std::string_view definition_id);
+Result<std::optional<StorageType>> OptionalStorageTypeAttribute(pugi::xml_node node, std::string_view attribute_name,
+                                                                std::string_view source,
+                                                                std::string_view definition_id);
+Status PopulateCommonAxisAttributes(pugi::xml_node table, UnresolvedAxisDefinition& axis, std::string_view source,
+                                    std::string_view definition_id);
+void ApplyScalingToAxis(const UnresolvedScaling& scaling, UnresolvedAxisDefinition& axis);
+Status PopulateCommonMapAttributes(pugi::xml_node table, UnresolvedCalibrationMap& map, std::string_view source,
                                    std::string_view definition_id);
-Status populate_optional_boolean(pugi::xml_node table, std::string_view attribute_name,
-                                 std::optional<bool>& destination, std::string_view source,
+Status PopulateOptionalDimension(pugi::xml_node table, std::string_view attribute_name,
+                                 std::optional<std::uint32_t>& destination, std::string_view source,
                                  std::string_view definition_id);
+Status PopulateOptionalBoolean(pugi::xml_node table, std::string_view attribute_name, std::optional<bool>& destination,
+                               std::string_view source, std::string_view definition_id);
 
 // The <table> attributes and checks both definition formats read the same way. Each parser
 // keeps its own parse_table / parse_axis and composes these with its format-specific rules.
-Status populate_map_header(pugi::xml_node table, UnresolvedCalibrationMap& map, std::string_view source,
-                           std::string_view definition_id);
-Status populate_map_size(pugi::xml_node table, UnresolvedCalibrationMap& map, std::string_view source,
+Status PopulateMapHeader(pugi::xml_node table, UnresolvedCalibrationMap& map, std::string_view source,
                          std::string_view definition_id);
-Status populate_map_orientation(pugi::xml_node table, UnresolvedCalibrationMap& map, std::string_view source,
-                                std::string_view definition_id);
-std::string map_scaling_fallback_name(const UnresolvedCalibrationMap& map);
-void adopt_inline_scaling(const UnresolvedScaling& scaling, UnresolvedCalibrationMap& map);
+Status PopulateMapSize(pugi::xml_node table, UnresolvedCalibrationMap& map, std::string_view source,
+                       std::string_view definition_id);
+Status PopulateMapOrientation(pugi::xml_node table, UnresolvedCalibrationMap& map, std::string_view source,
+                              std::string_view definition_id);
+std::string MapScalingFallbackName(const UnresolvedCalibrationMap& map);
+void AdoptInlineScaling(const UnresolvedScaling& scaling, UnresolvedCalibrationMap& map);
 
 // Reads the map's scaling reference and parses its inline <scaling> child, if any, into the map.
 // The scaling is returned rather than stored so the caller can apply format rules before keeping it.
 // ParseScaling: Result<UnresolvedScaling>(pugi::xml_node scaling_node, std::string fallback_name).
 template <typename ParseScaling>
-Result<std::optional<UnresolvedScaling>> parse_map_scaling(pugi::xml_node table, UnresolvedCalibrationMap& map,
-                                                           ParseScaling parse_scaling)
+Result<std::optional<UnresolvedScaling>> ParseMapScaling(pugi::xml_node table, UnresolvedCalibrationMap& map,
+                                                         ParseScaling parse_scaling)
 {
-    map.scaling_name = value_or_empty(table.attribute("scaling"));
+    map.scaling_name = ValueOrEmpty(table.attribute("scaling"));
     const pugi::xml_node scaling_node = table.child("scaling");
     if (!scaling_node)
     {
         return std::optional<UnresolvedScaling>{};
     }
-    auto scaling = parse_scaling(scaling_node, map_scaling_fallback_name(map));
+    auto scaling = parse_scaling(scaling_node, MapScalingFallbackName(map));
     if (!scaling.has_value())
     {
         return std::unexpected(scaling.error());
     }
-    adopt_inline_scaling(*scaling, map);
+    AdoptInlineScaling(*scaling, map);
     return std::optional<UnresolvedScaling>{std::move(*scaling)};
 }
 
 // ParseScaling: as for parse_map_scaling.
 template <typename ParseScaling>
-Result<UnresolvedAxisDefinition> parse_axis_definition(pugi::xml_node table, std::uint32_t default_size,
-                                                       std::string_view source, std::string_view definition_id,
-                                                       std::vector<UnresolvedScaling>& scalings,
-                                                       ParseScaling parse_scaling)
+Result<UnresolvedAxisDefinition> ParseAxisDefinition(pugi::xml_node table, std::uint32_t default_size,
+                                                     std::string_view source, std::string_view definition_id,
+                                                     std::vector<UnresolvedScaling>& scalings,
+                                                     ParseScaling parse_scaling)
 {
     UnresolvedAxisDefinition axis;
-    if (auto status = populate_common_axis_attributes(table, axis, source, definition_id); !status.has_value())
+    if (auto status = PopulateCommonAxisAttributes(table, axis, source, definition_id); !status.has_value())
     {
         return std::unexpected(status.error());
     }
     if (axis.name.empty())
     {
-        return invalid(source, std::format("element <table> type '{}' attribute 'name'", axis.type),
+        return Invalid(source, std::format("element <table> type '{}' attribute 'name'", axis.type),
                        "missing or empty axis name", definition_id);
     }
-    auto address = optional_address(table, source, definition_id);
+    auto address = OptionalAddress(table, source, definition_id);
     if (!address.has_value())
     {
         return std::unexpected(address.error());
@@ -144,14 +143,14 @@ Result<UnresolvedAxisDefinition> parse_axis_definition(pugi::xml_node table, std
             table.attribute("elements") ? "elements" : (table.attribute("size") ? "size" : nullptr);
         size_attribute)
     {
-        auto size = dimension_attribute(table, size_attribute, default_size, source, definition_id);
+        auto size = DimensionAttribute(table, size_attribute, default_size, source, definition_id);
         if (!size.has_value())
         {
             return std::unexpected(size.error());
         }
         axis.size = *size;
     }
-    axis.scaling_name = value_or_empty(table.attribute("scaling"));
+    axis.scaling_name = ValueOrEmpty(table.attribute("scaling"));
     if (const pugi::xml_node scaling_node = table.child("scaling"))
     {
         auto scaling = parse_scaling(scaling_node, axis.scaling_name.empty() ? axis.name : axis.scaling_name);
@@ -159,27 +158,27 @@ Result<UnresolvedAxisDefinition> parse_axis_definition(pugi::xml_node table, std
         {
             return std::unexpected(scaling.error());
         }
-        apply_scaling_to_axis(*scaling, axis);
+        ApplyScalingToAxis(*scaling, axis);
         scalings.push_back(std::move(*scaling));
     }
     return axis;
 }
 
 template <typename ParseAxis>
-Status populate_axes(pugi::xml_node table, UnresolvedCalibrationMap& map, std::string_view source,
-                     std::string_view definition_id, std::vector<UnresolvedScaling>& scalings, ParseAxis parse_axis)
+Status PopulateAxes(pugi::xml_node table, UnresolvedCalibrationMap& map, std::string_view source,
+                    std::string_view definition_id, std::vector<UnresolvedScaling>& scalings, ParseAxis parse_axis)
 {
     bool x_axis_populated = false;
     bool y_axis_populated = false;
     for (pugi::xml_node axis_table : table.children("table"))
     {
-        const std::string type = value_or_empty(axis_table.attribute("type"));
+        const std::string type = ValueOrEmpty(axis_table.attribute("type"));
         if (type == "X Axis" || type == "Static X Axis" || type == "Static Y Axis" ||
             (type == "Y Axis" && map.type == "2D"))
         {
             if (x_axis_populated)
             {
-                return invalid(source, std::format("element <table> child <table> type '{}'", type),
+                return Invalid(source, std::format("element <table> child <table> type '{}'", type),
                                "second axis targets already-populated X axis slot", definition_id);
             }
             x_axis_populated = true;
@@ -207,7 +206,7 @@ Status populate_axes(pugi::xml_node table, UnresolvedCalibrationMap& map, std::s
         {
             if (y_axis_populated)
             {
-                return invalid(source, std::format("element <table> child <table> type '{}'", type),
+                return Invalid(source, std::format("element <table> child <table> type '{}'", type),
                                "second axis targets already-populated Y axis slot", definition_id);
             }
             y_axis_populated = true;

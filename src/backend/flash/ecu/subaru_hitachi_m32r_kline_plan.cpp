@@ -19,21 +19,21 @@ constexpr MemoryRegion kRom{0, 0x80000};
 // The session mode is not a free parameter: it is decided by which of the two
 // protocol names the caller used, so a plan whose mode disagrees with its own
 // target_id is malformed.
-constexpr HitachiM32rKlineSessionMode mode_for(std::string_view protocol)
+constexpr HitachiM32rKlineSessionMode ModeFor(std::string_view protocol)
 {
     return protocol == kRecovery ? HitachiM32rKlineSessionMode::kRecovery : HitachiM32rKlineSessionMode::kNormal;
 }
 
-bool geometry_ok(const FlashDevice& device)
+bool GeometryOk(const FlashDevice& device)
 {
     return device.romsize == kRom.length && device.numblocks == 1 && device.fblocks[0].start == kRom.start &&
            device.fblocks[0].len == kRom.length;
 }
 
-bool wire_params_ok(const FlashPlan& plan)
+bool WireParamsOk(const FlashPlan& plan)
 {
-    const auto *p = std::get_if<SubaruHitachiM32rKlinePlan>(&plan.family_plan());
-    return p != nullptr && p->session_mode == mode_for(plan.target_id()) && p->tester_id == 0xf0 &&
+    const auto *p = std::get_if<SubaruHitachiM32rKlinePlan>(&plan.FamilyPlan());
+    return p != nullptr && p->session_mode == ModeFor(plan.TargetId()) && p->tester_id == 0xf0 &&
            p->target_id == 0x10 && p->initial_baud == 4800 && p->write_baud == 15625 && p->read_baud == 38400 &&
            p->chunk_size == 128 && p->read_address_bias == 0x100000;
 }
@@ -47,21 +47,21 @@ constexpr SingleWindowPlanSpec kSpec{
     .read_region = kRom,
     .write_region = kRom,
     .image_size = kRom.length,
-    .geometry_ok = geometry_ok,
-    .wire_params_ok = wire_params_ok,
+    .geometry_ok = GeometryOk,
+    .wire_params_ok = WireParamsOk,
 };
 } // namespace
 
-Status validate_subaru_hitachi_m32r_kline_plan(const FlashPlan& plan)
+Status ValidateSubaruHitachiM32rKlinePlan(const FlashPlan& plan)
 {
-    return validate_single_window_plan(kSpec, plan);
+    return ValidateSingleWindowPlan(kSpec, plan);
 }
 
-Result<FlashPlan> build_subaru_hitachi_m32r_kline_plan(FlashOperation operation, std::string_view protocol_name,
-                                                       std::string_view mcu_type, std::optional<bytes::Bytes> image)
+Result<FlashPlan> BuildSubaruHitachiM32rKlinePlan(FlashOperation operation, std::string_view protocol_name,
+                                                  std::string_view mcu_type, std::optional<bytes::Bytes> image)
 {
-    return build_single_window_plan(
+    return BuildSingleWindowPlan(
         kSpec, operation, protocol_name, mcu_type, std::move(image),
-        SubaruHitachiM32rKlinePlan{mode_for(protocol_name), 0xf0, 0x10, 4800, 15625, 38400, 128, 0x100000});
+        SubaruHitachiM32rKlinePlan{ModeFor(protocol_name), 0xf0, 0x10, 4800, 15625, 38400, 128, 0x100000});
 }
 } // namespace fastecu::flash

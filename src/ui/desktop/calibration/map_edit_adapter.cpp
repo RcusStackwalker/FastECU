@@ -15,7 +15,7 @@ namespace fastecu::ui
 namespace
 {
 
-std::optional<calibration::NumericTarget> to_numeric_target(calibration::EditTargetKind kind)
+std::optional<calibration::NumericTarget> toNumericTarget(calibration::EditTargetKind kind)
 {
     switch (kind)
     {
@@ -33,7 +33,7 @@ std::optional<calibration::NumericTarget> to_numeric_target(calibration::EditTar
 
 } // namespace
 
-std::optional<MapWindowId> parse_map_window_id(QMdiSubWindow *window)
+std::optional<MapWindowId> parseMapWindowId(QMdiSubWindow *window)
 {
     if (!window)
     {
@@ -44,7 +44,7 @@ std::optional<MapWindowId> parse_map_window_id(QMdiSubWindow *window)
     {
         return std::nullopt;
     }
-    const std::optional<calibration::SessionId> session = parse_session_key(parts.at(0));
+    const std::optional<calibration::SessionId> session = parseSessionKey(parts.at(0));
     if (!session.has_value())
     {
         return std::nullopt;
@@ -53,7 +53,7 @@ std::optional<MapWindowId> parse_map_window_id(QMdiSubWindow *window)
 }
 
 std::optional<calibration::NumericSelection>
-selected_numeric_target(QMdiSubWindow *window, const calibration::CalibrationSession& session, int mapNumber)
+selectedNumericTarget(QMdiSubWindow *window, const calibration::CalibrationSession& session, int mapNumber)
 {
     if (!window)
     {
@@ -69,19 +69,19 @@ selected_numeric_target(QMdiSubWindow *window, const calibration::CalibrationSes
     {
         return std::nullopt;
     }
-    if (!session.definition() || mapNumber < 0 ||
-        static_cast<std::size_t>(mapNumber) >= session.definition()->definition.maps.size())
+    if (!session.Definition() || mapNumber < 0 ||
+        static_cast<std::size_t>(mapNumber) >= session.Definition()->definition.maps.size())
     {
         return std::nullopt;
     }
     const auto& first = selected.first();
-    const auto& map = session.definition()->definition.maps[static_cast<std::size_t>(mapNumber)];
-    const auto target = calibration::resolve_edit_target({.first_row = first.topRow(),
-                                                          .first_col = first.leftColumn(),
-                                                          .last_row = first.bottomRow(),
-                                                          .last_col = first.rightColumn()},
-                                                         {.x_size = map.x_size, .y_size = map.y_size}, map.x_axis.type);
-    const auto numericTarget = to_numeric_target(target.kind);
+    const auto& map = session.Definition()->definition.maps[static_cast<std::size_t>(mapNumber)];
+    const auto target = calibration::ResolveEditTarget({.first_row = first.topRow(),
+                                                        .first_col = first.leftColumn(),
+                                                        .last_row = first.bottomRow(),
+                                                        .last_col = first.rightColumn()},
+                                                       {.x_size = map.x_size, .y_size = map.y_size}, map.x_axis.type);
+    const auto numericTarget = toNumericTarget(target.kind);
     if (!numericTarget.has_value())
     {
         return std::nullopt;
@@ -89,20 +89,20 @@ selected_numeric_target(QMdiSubWindow *window, const calibration::CalibrationSes
     return calibration::NumericSelection{.target = *numericTarget, .elements = target.range};
 }
 
-std::optional<calibration::SelectionRange> body_widget_range(const calibration::CalibrationSession& session,
-                                                             int mapNumber, int rows, int columns)
+std::optional<calibration::SelectionRange> bodyWidgetRange(const calibration::CalibrationSession& session,
+                                                           int mapNumber, int rows, int columns)
 {
-    if (!session.definition() || mapNumber < 0 ||
-        static_cast<std::size_t>(mapNumber) >= session.definition()->definition.maps.size())
+    if (!session.Definition() || mapNumber < 0 ||
+        static_cast<std::size_t>(mapNumber) >= session.Definition()->definition.maps.size())
     {
         return std::nullopt;
     }
-    const auto& map = session.definition()->definition.maps[static_cast<std::size_t>(mapNumber)];
+    const auto& map = session.Definition()->definition.maps[static_cast<std::size_t>(mapNumber)];
     const auto isBody = [&](int row, int col)
     {
         const auto target =
-            calibration::resolve_edit_target({.first_row = row, .first_col = col, .last_row = row, .last_col = col},
-                                             {.x_size = map.x_size, .y_size = map.y_size}, map.x_axis.type);
+            calibration::ResolveEditTarget({.first_row = row, .first_col = col, .last_row = row, .last_col = col},
+                                           {.x_size = map.x_size, .y_size = map.y_size}, map.x_axis.type);
         return target.kind == calibration::EditTargetKind::kMapBody;
     };
     for (int row = 0; row < rows; ++row)
@@ -119,7 +119,7 @@ std::optional<calibration::SelectionRange> body_widget_range(const calibration::
     return std::nullopt;
 }
 
-std::vector<std::vector<std::string>> split_paste_rows(const QString& text)
+std::vector<std::vector<std::string>> splitPasteRows(const QString& text)
 {
     QStringList rows = text.split('\n');
     // A terminal record delimiter does not create another numeric row.

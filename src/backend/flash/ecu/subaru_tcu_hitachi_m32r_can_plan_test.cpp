@@ -23,7 +23,7 @@ constexpr std::string_view kMcuName = "M32R_512KB";
 constexpr MemoryRegion kWindow{.start = 0x8000, .length = 0x78000};
 constexpr std::uint32_t kImageSize = 0x80000;
 
-FlashPlanFields valid_fields(FlashOperation operation = FlashOperation::kWrite)
+FlashPlanFields ValidFields(FlashOperation operation = FlashOperation::kWrite)
 {
     return {
         .operation = operation,
@@ -47,7 +47,7 @@ FlashPlanFields valid_fields(FlashOperation operation = FlashOperation::kWrite)
 }
 constexpr SingleWindowPlanCase kCase{
     .name = "SubaruTcuHitachiM32rCan",
-    .build = &build_subaru_tcu_hitachi_m32r_can_plan,
+    .build = &BuildSubaruTcuHitachiM32rCanPlan,
     .protocol = "sub_tcu_hitachi_m32r_can",
     .mcu = "M32R_512KB",
     .foreign_protocol = "sub_tcu_hitachi_m32r_can_typo",
@@ -62,16 +62,16 @@ constexpr SingleWindowPlanCase kCase{
     .image_size = 0x80000,
 };
 
-INSTANTIATE_TEST_SUITE_P(SubaruTcuHitachiM32rCan, SingleWindowPlanContract, ::testing::Values(kCase), caseName);
+INSTANTIATE_TEST_SUITE_P(SubaruTcuHitachiM32rCan, SingleWindowPlanContract, ::testing::Values(kCase), CaseName);
 
 // The wire parameters are this family's own; they do not generalize.
 TEST(SubaruTcuHitachiM32rCanPlan, ReadPlanCarriesThisFamilysWireParameters)
 {
-    const auto plan = build_subaru_tcu_hitachi_m32r_can_plan(FlashOperation::kRead, "sub_tcu_hitachi_m32r_can",
-                                                             "M32R_512KB", std::nullopt);
+    const auto plan =
+        BuildSubaruTcuHitachiM32rCanPlan(FlashOperation::kRead, "sub_tcu_hitachi_m32r_can", "M32R_512KB", std::nullopt);
 
     ASSERT_THAT(plan, fastecu::testing::IsOk());
-    const auto& family = std::get<SubaruTcuHitachiM32rCanPlan>(plan->family_plan());
+    const auto& family = std::get<SubaruTcuHitachiM32rCanPlan>(plan->FamilyPlan());
     EXPECT_EQ(family.request_id, 0x7E1U);
     EXPECT_EQ(family.response_id, 0x7E9U);
     EXPECT_EQ(family.bitrate, 500000);
@@ -90,8 +90,8 @@ TEST(SubaruTcuHitachiM32rCanPlan, ReadPlanCarriesThisFamilysWireParameters)
 // it directly because it is the requirement the whole task exists to meet.
 TEST(SubaruTcuHitachiM32rCanPlan, RejectsTestWriteAsUnsupported)
 {
-    const auto plan = build_subaru_tcu_hitachi_m32r_can_plan(FlashOperation::kTestWrite, "sub_tcu_hitachi_m32r_can",
-                                                             "M32R_512KB", bytes::Bytes(0x80000, 0x00));
+    const auto plan = BuildSubaruTcuHitachiM32rCanPlan(FlashOperation::kTestWrite, "sub_tcu_hitachi_m32r_can",
+                                                       "M32R_512KB", bytes::Bytes(0x80000, 0x00));
     EXPECT_THAT(plan, fastecu::testing::IsErr(ErrorKind::kUnsupported));
 }
 
@@ -105,10 +105,10 @@ TEST(SubaruTcuHitachiM32rCanPlan, RejectsTestWriteAsUnsupported)
 // TestWrite policy of its own and is expected to succeed) to prove that.
 TEST(SubaruTcuHitachiM32rCanPlan, ValidatorRejectsTestWriteDirectlyConstructed)
 {
-    auto fields = valid_fields(FlashOperation::kTestWrite);
-    auto built = validate_and_build(std::move(fields));
+    auto fields = ValidFields(FlashOperation::kTestWrite);
+    auto built = ValidateAndBuild(std::move(fields));
     ASSERT_THAT(built, fastecu::testing::IsOk());
-    EXPECT_THAT(validate_subaru_tcu_hitachi_m32r_can_plan(*built), fastecu::testing::IsErr(ErrorKind::kUnsupported));
+    EXPECT_THAT(ValidateSubaruTcuHitachiM32rCanPlan(*built), fastecu::testing::IsErr(ErrorKind::kUnsupported));
 }
 
 // Direct-construction mutations proving the validator's own checks are
@@ -119,7 +119,7 @@ TEST(SubaruTcuHitachiM32rCanPlan, ValidatorRejectsWireRegionAndImageDrift)
 {
     for (int mutation = 0; mutation < 5; ++mutation)
     {
-        auto fields = valid_fields();
+        auto fields = ValidFields();
         auto& wire = std::get<SubaruTcuHitachiM32rCanPlan>(fields.family_plan);
         switch (mutation)
         {
@@ -142,9 +142,9 @@ TEST(SubaruTcuHitachiM32rCanPlan, ValidatorRejectsWireRegionAndImageDrift)
         default:
             FAIL() << "unexpected validator mutation " << mutation;
         }
-        auto built = validate_and_build(std::move(fields));
+        auto built = ValidateAndBuild(std::move(fields));
         ASSERT_THAT(built, fastecu::testing::IsOk()) << mutation;
-        auto valid = validate_subaru_tcu_hitachi_m32r_can_plan(*built);
+        auto valid = ValidateSubaruTcuHitachiM32rCanPlan(*built);
         EXPECT_THAT(valid, fastecu::testing::IsErr(ErrorKind::kInvalidConfig)) << mutation;
     }
 }

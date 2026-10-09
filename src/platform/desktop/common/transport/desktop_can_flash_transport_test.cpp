@@ -46,20 +46,20 @@ TEST(TestDesktopCanFlashTransport, configureChecksEveryBooleanSetterInOrderAndSt
     // nothing after the failure (source/destination CAN and ISO-15765
     // IDs, open()) ran.
     ::testing::InSequence sequence;
-    EXPECT_CALL(serial.fake(), set_is_iso15765_connection(true)).WillOnce(::testing::Return(true));
-    EXPECT_CALL(serial.fake(), set_is_can_connection(false)).WillOnce(::testing::Return(true));
-    EXPECT_CALL(serial.fake(), set_is_iso14230_connection(false)).WillOnce(::testing::Return(true));
-    EXPECT_CALL(serial.fake(), set_is_29_bit_id(false)).WillOnce(::testing::Return(true));
-    EXPECT_CALL(serial.fake(), set_can_speed(QStringLiteral("500000"))).WillOnce(::testing::Return(false));
-    EXPECT_CALL(serial.fake(), set_can_source_address(::testing::_)).Times(0);
-    EXPECT_CALL(serial.fake(), set_can_destination_address(::testing::_)).Times(0);
-    EXPECT_CALL(serial.fake(), set_iso15765_source_address(::testing::_)).Times(0);
-    EXPECT_CALL(serial.fake(), set_iso15765_destination_address(::testing::_)).Times(0);
-    EXPECT_CALL(serial.fake(), set_add_iso14230_header(::testing::_)).Times(0);
-    EXPECT_CALL(serial.fake(), open_serial_port()).Times(0);
+    EXPECT_CALL(serial.Fake(), SetIsIso15765Connection(true)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(serial.Fake(), SetIsCanConnection(false)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(serial.Fake(), SetIsIso14230Connection(false)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(serial.Fake(), SetIs29BitId(false)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(serial.Fake(), SetCanSpeed(QStringLiteral("500000"))).WillOnce(::testing::Return(false));
+    EXPECT_CALL(serial.Fake(), SetCanSourceAddress(::testing::_)).Times(0);
+    EXPECT_CALL(serial.Fake(), SetCanDestinationAddress(::testing::_)).Times(0);
+    EXPECT_CALL(serial.Fake(), SetIso15765SourceAddress(::testing::_)).Times(0);
+    EXPECT_CALL(serial.Fake(), SetIso15765DestinationAddress(::testing::_)).Times(0);
+    EXPECT_CALL(serial.Fake(), SetAddIso14230Header(::testing::_)).Times(0);
+    EXPECT_CALL(serial.Fake(), OpenSerialPort()).Times(0);
 
-    DesktopCanFlashTransport transport(serial.release());
-    const auto result = transport.configure(
+    DesktopCanFlashTransport transport(serial.Release());
+    const auto result = transport.Configure(
         Iso15765Config{.bitrate = 500000, .request_id = 0x7E0, .response_id = 0x7E8, .extended_id = false});
 
     ASSERT_TRUE(!result.has_value());
@@ -102,20 +102,20 @@ TEST_P(ConfigureFailsAtEachRemainingSetterInTurnParameters, configureFailsAtEach
     FakeBackedSerial serial;
 
     ::testing::InSequence sequence;
-    expectSetterAt(EXPECT_CALL(serial.fake(), set_is_iso15765_connection(true)), 0, setter_index);
-    expectSetterAt(EXPECT_CALL(serial.fake(), set_is_can_connection(false)), 1, setter_index);
-    expectSetterAt(EXPECT_CALL(serial.fake(), set_is_iso14230_connection(false)), 2, setter_index);
-    expectSetterAt(EXPECT_CALL(serial.fake(), set_is_29_bit_id(false)), 3, setter_index);
-    expectSetterAt(EXPECT_CALL(serial.fake(), set_can_speed(QStringLiteral("500000"))), 4, setter_index);
-    expectSetterAt(EXPECT_CALL(serial.fake(), set_can_source_address(2016)), 5, setter_index);
-    expectSetterAt(EXPECT_CALL(serial.fake(), set_can_destination_address(2024)), 6, setter_index);
-    expectSetterAt(EXPECT_CALL(serial.fake(), set_iso15765_source_address(2016)), 7, setter_index);
-    expectSetterAt(EXPECT_CALL(serial.fake(), set_iso15765_destination_address(2024)), 8, setter_index);
-    expectSetterAt(EXPECT_CALL(serial.fake(), set_add_iso14230_header(false)), 9, setter_index);
-    EXPECT_CALL(serial.fake(), open_serial_port()).Times(0);
+    ExpectSetterAt(EXPECT_CALL(serial.Fake(), SetIsIso15765Connection(true)), 0, setter_index);
+    ExpectSetterAt(EXPECT_CALL(serial.Fake(), SetIsCanConnection(false)), 1, setter_index);
+    ExpectSetterAt(EXPECT_CALL(serial.Fake(), SetIsIso14230Connection(false)), 2, setter_index);
+    ExpectSetterAt(EXPECT_CALL(serial.Fake(), SetIs29BitId(false)), 3, setter_index);
+    ExpectSetterAt(EXPECT_CALL(serial.Fake(), SetCanSpeed(QStringLiteral("500000"))), 4, setter_index);
+    ExpectSetterAt(EXPECT_CALL(serial.Fake(), SetCanSourceAddress(2016)), 5, setter_index);
+    ExpectSetterAt(EXPECT_CALL(serial.Fake(), SetCanDestinationAddress(2024)), 6, setter_index);
+    ExpectSetterAt(EXPECT_CALL(serial.Fake(), SetIso15765SourceAddress(2016)), 7, setter_index);
+    ExpectSetterAt(EXPECT_CALL(serial.Fake(), SetIso15765DestinationAddress(2024)), 8, setter_index);
+    ExpectSetterAt(EXPECT_CALL(serial.Fake(), SetAddIso14230Header(false)), 9, setter_index);
+    EXPECT_CALL(serial.Fake(), OpenSerialPort()).Times(0);
 
-    DesktopCanFlashTransport transport(serial.release());
-    const auto result = transport.configure(
+    DesktopCanFlashTransport transport(serial.Release());
+    const auto result = transport.Configure(
         Iso15765Config{.bitrate = 500000, .request_id = 0x7E0, .response_id = 0x7E8, .extended_id = false});
 
     ASSERT_TRUE(!result.has_value());
@@ -125,11 +125,11 @@ TEST_P(ConfigureFailsAtEachRemainingSetterInTurnParameters, configureFailsAtEach
 TEST(TestDesktopCanFlashTransport, openFailureReturnsDisconnectedWithoutAnyWrite)
 {
     FakeBackedSerial serial;
-    EXPECT_CALL(serial.fake(), open_serial_port()).WillOnce(::testing::Return(QString{}));
-    EXPECT_CALL(serial.fake(), write_serial_data_echo_check(::testing::_)).Times(0);
+    EXPECT_CALL(serial.Fake(), OpenSerialPort()).WillOnce(::testing::Return(QString{}));
+    EXPECT_CALL(serial.Fake(), WriteSerialDataEchoCheck(::testing::_)).Times(0);
 
-    DesktopCanFlashTransport transport(serial.release());
-    const auto result = transport.open();
+    DesktopCanFlashTransport transport(serial.Release());
+    const auto result = transport.Open();
 
     ASSERT_TRUE(!result.has_value());
     ASSERT_EQ(result.error().kind, ErrorKind::kDisconnected);
@@ -142,19 +142,19 @@ TEST(TestDesktopCanFlashTransport, configureSucceedsWhenEverySetterSucceeds)
 {
     FakeBackedSerial serial;
     ::testing::InSequence sequence;
-    EXPECT_CALL(serial.fake(), set_is_iso15765_connection(true)).WillOnce(::testing::Return(true));
-    EXPECT_CALL(serial.fake(), set_is_can_connection(false)).WillOnce(::testing::Return(true));
-    EXPECT_CALL(serial.fake(), set_is_iso14230_connection(false)).WillOnce(::testing::Return(true));
-    EXPECT_CALL(serial.fake(), set_is_29_bit_id(false)).WillOnce(::testing::Return(true));
-    EXPECT_CALL(serial.fake(), set_can_speed(QStringLiteral("500000"))).WillOnce(::testing::Return(true));
-    EXPECT_CALL(serial.fake(), set_can_source_address(2016)).WillOnce(::testing::Return(true));
-    EXPECT_CALL(serial.fake(), set_can_destination_address(2024)).WillOnce(::testing::Return(true));
-    EXPECT_CALL(serial.fake(), set_iso15765_source_address(2016)).WillOnce(::testing::Return(true));
-    EXPECT_CALL(serial.fake(), set_iso15765_destination_address(2024)).WillOnce(::testing::Return(true));
-    EXPECT_CALL(serial.fake(), set_add_iso14230_header(false)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(serial.Fake(), SetIsIso15765Connection(true)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(serial.Fake(), SetIsCanConnection(false)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(serial.Fake(), SetIsIso14230Connection(false)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(serial.Fake(), SetIs29BitId(false)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(serial.Fake(), SetCanSpeed(QStringLiteral("500000"))).WillOnce(::testing::Return(true));
+    EXPECT_CALL(serial.Fake(), SetCanSourceAddress(2016)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(serial.Fake(), SetCanDestinationAddress(2024)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(serial.Fake(), SetIso15765SourceAddress(2016)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(serial.Fake(), SetIso15765DestinationAddress(2024)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(serial.Fake(), SetAddIso14230Header(false)).WillOnce(::testing::Return(true));
 
-    DesktopCanFlashTransport transport(serial.release());
-    const auto result = transport.configure(
+    DesktopCanFlashTransport transport(serial.Release());
+    const auto result = transport.Configure(
         Iso15765Config{.bitrate = 500000, .request_id = 0x7E0, .response_id = 0x7E8, .extended_id = false});
 
     ASSERT_TRUE(result.has_value());
@@ -166,25 +166,25 @@ TEST(TestDesktopCanFlashTransport, configureSucceedsWhenEverySetterSucceeds)
 TEST(TestDesktopCanFlashTransport, configureClearsStickyIso14230HeaderState)
 {
     FakeBackedSerial serial;
-    ASSERT_TRUE(serial->set_add_iso14230_header(true));
-    SerialPortActions *observed = serial.get();
+    ASSERT_TRUE(serial->SetAddIso14230Header(true));
+    SerialPortActions *observed = serial.Get();
 
-    DesktopCanFlashTransport transport(serial.release());
-    const auto result = transport.configure(
+    DesktopCanFlashTransport transport(serial.Release());
+    const auto result = transport.Configure(
         Iso15765Config{.bitrate = 500000, .request_id = 0x7E0, .response_id = 0x7E8, .extended_id = false});
 
     ASSERT_TRUE(result.has_value());
-    ASSERT_EQ(observed->get_add_iso14230_header(), false);
+    ASSERT_EQ(observed->GetAddIso14230Header(), false);
 }
 
 // Success mirror of openFailureReturnsDisconnectedWithoutAnyWrite().
 TEST(TestDesktopCanFlashTransport, openSucceedsWhenBackendReturnsANonEmptyPortName)
 {
     FakeBackedSerial serial;
-    EXPECT_CALL(serial.fake(), open_serial_port()).WillOnce(::testing::Return(QStringLiteral("COM3")));
+    EXPECT_CALL(serial.Fake(), OpenSerialPort()).WillOnce(::testing::Return(QStringLiteral("COM3")));
 
-    DesktopCanFlashTransport transport(serial.release());
-    const auto result = transport.open();
+    DesktopCanFlashTransport transport(serial.Release());
+    const auto result = transport.Open();
 
     ASSERT_TRUE(result.has_value());
 }
@@ -195,10 +195,10 @@ TEST(TestDesktopCanFlashTransport, openSucceedsWhenBackendReturnsANonEmptyPortNa
 TEST(TestDesktopCanFlashTransport, resetConnectionSucceedsAndReachesTheAdapter)
 {
     FakeBackedSerial serial;
-    EXPECT_CALL(serial.fake(), reset_connection()).WillOnce(::testing::Return());
+    EXPECT_CALL(serial.Fake(), ResetConnection()).WillOnce(::testing::Return());
 
-    DesktopCanFlashTransport transport(serial.release());
-    const auto result = transport.reset_connection();
+    DesktopCanFlashTransport transport(serial.Release());
+    const auto result = transport.ResetConnection();
 
     ASSERT_TRUE(result.has_value());
 }
@@ -207,22 +207,22 @@ TEST(TestDesktopCanFlashTransport, restartIso15765ResetsConfiguresAndReopensInOr
 {
     FakeBackedSerial serial;
     ::testing::InSequence sequence;
-    EXPECT_CALL(serial.fake(), reset_connection()).WillOnce(::testing::Return());
-    EXPECT_CALL(serial.fake(), set_is_iso15765_connection(true)).WillOnce(::testing::Return(true));
-    EXPECT_CALL(serial.fake(), set_is_can_connection(false)).WillOnce(::testing::Return(true));
-    EXPECT_CALL(serial.fake(), set_is_iso14230_connection(false)).WillOnce(::testing::Return(true));
-    EXPECT_CALL(serial.fake(), set_is_29_bit_id(false)).WillOnce(::testing::Return(true));
-    EXPECT_CALL(serial.fake(), set_can_speed(QStringLiteral("500000"))).WillOnce(::testing::Return(true));
-    EXPECT_CALL(serial.fake(), set_can_source_address(2017)).WillOnce(::testing::Return(true));
-    EXPECT_CALL(serial.fake(), set_can_destination_address(2025)).WillOnce(::testing::Return(true));
-    EXPECT_CALL(serial.fake(), set_iso15765_source_address(2017)).WillOnce(::testing::Return(true));
-    EXPECT_CALL(serial.fake(), set_iso15765_destination_address(2025)).WillOnce(::testing::Return(true));
-    EXPECT_CALL(serial.fake(), set_add_iso14230_header(false)).WillOnce(::testing::Return(true));
-    EXPECT_CALL(serial.fake(), open_serial_port()).WillOnce(::testing::Return(QStringLiteral("COM3")));
+    EXPECT_CALL(serial.Fake(), ResetConnection()).WillOnce(::testing::Return());
+    EXPECT_CALL(serial.Fake(), SetIsIso15765Connection(true)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(serial.Fake(), SetIsCanConnection(false)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(serial.Fake(), SetIsIso14230Connection(false)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(serial.Fake(), SetIs29BitId(false)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(serial.Fake(), SetCanSpeed(QStringLiteral("500000"))).WillOnce(::testing::Return(true));
+    EXPECT_CALL(serial.Fake(), SetCanSourceAddress(2017)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(serial.Fake(), SetCanDestinationAddress(2025)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(serial.Fake(), SetIso15765SourceAddress(2017)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(serial.Fake(), SetIso15765DestinationAddress(2025)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(serial.Fake(), SetAddIso14230Header(false)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(serial.Fake(), OpenSerialPort()).WillOnce(::testing::Return(QStringLiteral("COM3")));
 
-    DesktopCanFlashTransport transport(serial.release());
+    DesktopCanFlashTransport transport(serial.Release());
     FakeCancellationToken cancellation;
-    const auto result = transport.restart_iso15765(
+    const auto result = transport.RestartIso15765(
         {.bitrate = 500000, .request_id = 0x7e1, .response_id = 0x7e9, .extended_id = false}, cancellation);
 
     ASSERT_TRUE(result.has_value());
@@ -231,22 +231,22 @@ TEST(TestDesktopCanFlashTransport, restartIso15765ResetsConfiguresAndReopensInOr
 TEST(TestDesktopCanFlashTransport, restartIso15765CancellationBeforeResetTouchesNoBackendOperation)
 {
     FakeBackedSerial serial;
-    EXPECT_CALL(serial.fake(), reset_connection()).Times(0);
-    EXPECT_CALL(serial.fake(), set_is_iso15765_connection(::testing::_)).Times(0);
-    EXPECT_CALL(serial.fake(), set_is_can_connection(::testing::_)).Times(0);
-    EXPECT_CALL(serial.fake(), set_is_iso14230_connection(::testing::_)).Times(0);
-    EXPECT_CALL(serial.fake(), set_is_29_bit_id(::testing::_)).Times(0);
-    EXPECT_CALL(serial.fake(), set_can_speed(::testing::_)).Times(0);
-    EXPECT_CALL(serial.fake(), set_can_source_address(::testing::_)).Times(0);
-    EXPECT_CALL(serial.fake(), set_can_destination_address(::testing::_)).Times(0);
-    EXPECT_CALL(serial.fake(), set_iso15765_source_address(::testing::_)).Times(0);
-    EXPECT_CALL(serial.fake(), set_iso15765_destination_address(::testing::_)).Times(0);
-    EXPECT_CALL(serial.fake(), set_add_iso14230_header(::testing::_)).Times(0);
-    EXPECT_CALL(serial.fake(), open_serial_port()).Times(0);
+    EXPECT_CALL(serial.Fake(), ResetConnection()).Times(0);
+    EXPECT_CALL(serial.Fake(), SetIsIso15765Connection(::testing::_)).Times(0);
+    EXPECT_CALL(serial.Fake(), SetIsCanConnection(::testing::_)).Times(0);
+    EXPECT_CALL(serial.Fake(), SetIsIso14230Connection(::testing::_)).Times(0);
+    EXPECT_CALL(serial.Fake(), SetIs29BitId(::testing::_)).Times(0);
+    EXPECT_CALL(serial.Fake(), SetCanSpeed(::testing::_)).Times(0);
+    EXPECT_CALL(serial.Fake(), SetCanSourceAddress(::testing::_)).Times(0);
+    EXPECT_CALL(serial.Fake(), SetCanDestinationAddress(::testing::_)).Times(0);
+    EXPECT_CALL(serial.Fake(), SetIso15765SourceAddress(::testing::_)).Times(0);
+    EXPECT_CALL(serial.Fake(), SetIso15765DestinationAddress(::testing::_)).Times(0);
+    EXPECT_CALL(serial.Fake(), SetAddIso14230Header(::testing::_)).Times(0);
+    EXPECT_CALL(serial.Fake(), OpenSerialPort()).Times(0);
 
-    DesktopCanFlashTransport transport(serial.release());
+    DesktopCanFlashTransport transport(serial.Release());
     FakeCancellationToken cancellation(true);
-    const auto result = transport.restart_iso15765(
+    const auto result = transport.RestartIso15765(
         {.bitrate = 500000, .request_id = 0x7e1, .response_id = 0x7e9, .extended_id = false}, cancellation);
 
     ASSERT_TRUE(!result.has_value());
@@ -256,14 +256,14 @@ TEST(TestDesktopCanFlashTransport, restartIso15765CancellationBeforeResetTouches
 TEST(TestDesktopCanFlashTransport, restartIso15765ResetFailureStopsBeforeConfigurationOrOpen)
 {
     FakeBackedSerial serial;
-    EXPECT_CALL(serial.fake(), reset_connection())
+    EXPECT_CALL(serial.Fake(), ResetConnection())
         .WillOnce(::testing::Throw(std::runtime_error("scripted backend reset failure")));
-    EXPECT_CALL(serial.fake(), set_is_iso15765_connection(::testing::_)).Times(0);
-    EXPECT_CALL(serial.fake(), open_serial_port()).Times(0);
+    EXPECT_CALL(serial.Fake(), SetIsIso15765Connection(::testing::_)).Times(0);
+    EXPECT_CALL(serial.Fake(), OpenSerialPort()).Times(0);
 
-    DesktopCanFlashTransport transport(serial.release());
+    DesktopCanFlashTransport transport(serial.Release());
     FakeCancellationToken cancellation;
-    const auto result = transport.restart_iso15765(
+    const auto result = transport.RestartIso15765(
         {.bitrate = 500000, .request_id = 0x7e1, .response_id = 0x7e9, .extended_id = false}, cancellation);
 
     ASSERT_TRUE(!result.has_value());
@@ -274,17 +274,17 @@ TEST(TestDesktopCanFlashTransport, restartIso15765ConfigureFailureStopsBeforeOpe
 {
     FakeBackedSerial serial;
     ::testing::InSequence sequence;
-    EXPECT_CALL(serial.fake(), reset_connection()).WillOnce(::testing::Return());
-    EXPECT_CALL(serial.fake(), set_is_iso15765_connection(true)).WillOnce(::testing::Return(true));
-    EXPECT_CALL(serial.fake(), set_is_can_connection(false)).WillOnce(::testing::Return(true));
-    EXPECT_CALL(serial.fake(), set_is_iso14230_connection(false)).WillOnce(::testing::Return(true));
-    EXPECT_CALL(serial.fake(), set_is_29_bit_id(false)).WillOnce(::testing::Return(true));
-    EXPECT_CALL(serial.fake(), set_can_speed(QStringLiteral("500000"))).WillOnce(::testing::Return(false));
-    EXPECT_CALL(serial.fake(), open_serial_port()).Times(0);
+    EXPECT_CALL(serial.Fake(), ResetConnection()).WillOnce(::testing::Return());
+    EXPECT_CALL(serial.Fake(), SetIsIso15765Connection(true)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(serial.Fake(), SetIsCanConnection(false)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(serial.Fake(), SetIsIso14230Connection(false)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(serial.Fake(), SetIs29BitId(false)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(serial.Fake(), SetCanSpeed(QStringLiteral("500000"))).WillOnce(::testing::Return(false));
+    EXPECT_CALL(serial.Fake(), OpenSerialPort()).Times(0);
 
-    DesktopCanFlashTransport transport(serial.release());
+    DesktopCanFlashTransport transport(serial.Release());
     FakeCancellationToken cancellation;
-    const auto result = transport.restart_iso15765(
+    const auto result = transport.RestartIso15765(
         {.bitrate = 500000, .request_id = 0x7e1, .response_id = 0x7e9, .extended_id = false}, cancellation);
 
     ASSERT_TRUE(!result.has_value());
@@ -295,22 +295,22 @@ TEST(TestDesktopCanFlashTransport, restartIso15765OpenFailurePropagatesAfterExac
 {
     FakeBackedSerial serial;
     ::testing::InSequence sequence;
-    EXPECT_CALL(serial.fake(), reset_connection()).WillOnce(::testing::Return());
-    EXPECT_CALL(serial.fake(), set_is_iso15765_connection(true)).WillOnce(::testing::Return(true));
-    EXPECT_CALL(serial.fake(), set_is_can_connection(false)).WillOnce(::testing::Return(true));
-    EXPECT_CALL(serial.fake(), set_is_iso14230_connection(false)).WillOnce(::testing::Return(true));
-    EXPECT_CALL(serial.fake(), set_is_29_bit_id(false)).WillOnce(::testing::Return(true));
-    EXPECT_CALL(serial.fake(), set_can_speed(QStringLiteral("500000"))).WillOnce(::testing::Return(true));
-    EXPECT_CALL(serial.fake(), set_can_source_address(2017)).WillOnce(::testing::Return(true));
-    EXPECT_CALL(serial.fake(), set_can_destination_address(2025)).WillOnce(::testing::Return(true));
-    EXPECT_CALL(serial.fake(), set_iso15765_source_address(2017)).WillOnce(::testing::Return(true));
-    EXPECT_CALL(serial.fake(), set_iso15765_destination_address(2025)).WillOnce(::testing::Return(true));
-    EXPECT_CALL(serial.fake(), set_add_iso14230_header(false)).WillOnce(::testing::Return(true));
-    EXPECT_CALL(serial.fake(), open_serial_port()).WillOnce(::testing::Return(QString{}));
+    EXPECT_CALL(serial.Fake(), ResetConnection()).WillOnce(::testing::Return());
+    EXPECT_CALL(serial.Fake(), SetIsIso15765Connection(true)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(serial.Fake(), SetIsCanConnection(false)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(serial.Fake(), SetIsIso14230Connection(false)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(serial.Fake(), SetIs29BitId(false)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(serial.Fake(), SetCanSpeed(QStringLiteral("500000"))).WillOnce(::testing::Return(true));
+    EXPECT_CALL(serial.Fake(), SetCanSourceAddress(2017)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(serial.Fake(), SetCanDestinationAddress(2025)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(serial.Fake(), SetIso15765SourceAddress(2017)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(serial.Fake(), SetIso15765DestinationAddress(2025)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(serial.Fake(), SetAddIso14230Header(false)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(serial.Fake(), OpenSerialPort()).WillOnce(::testing::Return(QString{}));
 
-    DesktopCanFlashTransport transport(serial.release());
+    DesktopCanFlashTransport transport(serial.Release());
     FakeCancellationToken cancellation;
-    const auto result = transport.restart_iso15765(
+    const auto result = transport.RestartIso15765(
         {.bitrate = 500000, .request_id = 0x7e1, .response_id = 0x7e9, .extended_id = false}, cancellation);
 
     ASSERT_TRUE(!result.has_value());
@@ -321,9 +321,9 @@ TEST(TestDesktopCanFlashTransport, resetConnectionReturnsDisconnectedAfterClose)
 {
     FakeBackedSerial serial;
 
-    DesktopCanFlashTransport transport(serial.get()); // non-owning
-    ASSERT_TRUE(transport.close().has_value());
-    const auto result = transport.reset_connection();
+    DesktopCanFlashTransport transport(serial.Get()); // non-owning
+    ASSERT_TRUE(transport.Close().has_value());
+    const auto result = transport.ResetConnection();
 
     ASSERT_TRUE(!result.has_value());
     ASSERT_EQ(result.error().kind, ErrorKind::kDisconnected);
@@ -332,11 +332,11 @@ TEST(TestDesktopCanFlashTransport, resetConnectionReturnsDisconnectedAfterClose)
 TEST(TestDesktopCanFlashTransport, resetConnectionMapsStandardDriverExceptionsToInternal)
 {
     FakeBackedSerial serial;
-    EXPECT_CALL(serial.fake(), reset_connection())
+    EXPECT_CALL(serial.Fake(), ResetConnection())
         .WillOnce(::testing::Throw(std::runtime_error("scripted backend reset failure")));
 
-    DesktopCanFlashTransport transport(serial.release());
-    const auto result = transport.reset_connection();
+    DesktopCanFlashTransport transport(serial.Release());
+    const auto result = transport.ResetConnection();
 
     ASSERT_TRUE(!result.has_value());
     ASSERT_EQ(result.error().kind, ErrorKind::kInternal);
@@ -345,10 +345,10 @@ TEST(TestDesktopCanFlashTransport, resetConnectionMapsStandardDriverExceptionsTo
 TEST(TestDesktopCanFlashTransport, resetConnectionMapsNonStandardDriverExceptionsToInternal)
 {
     FakeBackedSerial serial;
-    EXPECT_CALL(serial.fake(), reset_connection()).WillOnce(ThrowNonStandardBackendFailure());
+    EXPECT_CALL(serial.Fake(), ResetConnection()).WillOnce(ThrowNonStandardBackendFailure());
 
-    DesktopCanFlashTransport transport(serial.release());
-    const auto result = transport.reset_connection();
+    DesktopCanFlashTransport transport(serial.Release());
+    const auto result = transport.ResetConnection();
 
     ASSERT_TRUE(!result.has_value());
     ASSERT_EQ(result.error().kind, ErrorKind::kInternal);
@@ -359,15 +359,15 @@ TEST(TestDesktopCanFlashTransport, writeSucceedsWhenPortStaysOpenThroughout)
 {
     FakeBackedSerial serial;
     ::testing::InSequence sequence;
-    EXPECT_CALL(serial.fake(), is_serial_port_open()).WillOnce(::testing::Return(true));
-    EXPECT_CALL(serial.fake(), write_serial_data_echo_check(QByteArray::fromHex("010203")))
+    EXPECT_CALL(serial.Fake(), IsSerialPortOpen()).WillOnce(::testing::Return(true));
+    EXPECT_CALL(serial.Fake(), WriteSerialDataEchoCheck(QByteArray::fromHex("010203")))
         .WillOnce(::testing::Return(QByteArray{}));
-    EXPECT_CALL(serial.fake(), is_serial_port_open()).WillOnce(::testing::Return(true));
+    EXPECT_CALL(serial.Fake(), IsSerialPortOpen()).WillOnce(::testing::Return(true));
 
-    DesktopCanFlashTransport transport(serial.release());
+    DesktopCanFlashTransport transport(serial.Release());
     FakeCancellationToken cancellation;
     const bytes::Bytes data{0x01, 0x02, 0x03};
-    const auto result = transport.write(bytes::ByteView(data), cancellation);
+    const auto result = transport.Write(bytes::ByteView(data), cancellation);
 
     ASSERT_TRUE(result.has_value());
 }
@@ -378,12 +378,12 @@ TEST(TestDesktopCanFlashTransport, writeSucceedsWhenPortStaysOpenThroughout)
 TEST(TestDesktopCanFlashTransport, writeReturnsCancelledWhenCancellationIsAlreadyObservedBeforeIssuingWrite)
 {
     FakeBackedSerial serial;
-    EXPECT_CALL(serial.fake(), write_serial_data_echo_check(::testing::_)).Times(0);
+    EXPECT_CALL(serial.Fake(), WriteSerialDataEchoCheck(::testing::_)).Times(0);
 
-    DesktopCanFlashTransport transport(serial.release());
+    DesktopCanFlashTransport transport(serial.Release());
     FakeCancellationToken cancellation(true);
     const bytes::Bytes data{0xAA};
-    const auto result = transport.write(bytes::ByteView(data), cancellation);
+    const auto result = transport.Write(bytes::ByteView(data), cancellation);
 
     ASSERT_TRUE(!result.has_value());
     ASSERT_EQ(result.error().kind, ErrorKind::kCancelled);
@@ -397,14 +397,14 @@ TEST(TestDesktopCanFlashTransport, writeFailsWithDisconnectedWhenPortClosesDurin
 {
     FakeBackedSerial serial;
     ::testing::InSequence sequence;
-    EXPECT_CALL(serial.fake(), is_serial_port_open()).WillOnce(::testing::Return(true));
-    EXPECT_CALL(serial.fake(), write_serial_data_echo_check(::testing::_)).WillOnce(::testing::Return(QByteArray{}));
-    EXPECT_CALL(serial.fake(), is_serial_port_open()).WillOnce(::testing::Return(false));
+    EXPECT_CALL(serial.Fake(), IsSerialPortOpen()).WillOnce(::testing::Return(true));
+    EXPECT_CALL(serial.Fake(), WriteSerialDataEchoCheck(::testing::_)).WillOnce(::testing::Return(QByteArray{}));
+    EXPECT_CALL(serial.Fake(), IsSerialPortOpen()).WillOnce(::testing::Return(false));
 
-    DesktopCanFlashTransport transport(serial.release());
+    DesktopCanFlashTransport transport(serial.Release());
     FakeCancellationToken cancellation;
     const bytes::Bytes data{0xAA};
-    const auto result = transport.write(bytes::ByteView(data), cancellation);
+    const auto result = transport.Write(bytes::ByteView(data), cancellation);
 
     ASSERT_TRUE(!result.has_value());
     ASSERT_EQ(result.error().kind, ErrorKind::kDisconnected);
@@ -416,13 +416,13 @@ TEST(TestDesktopCanFlashTransport, writeFailsWithDisconnectedWhenPortClosesDurin
 TEST(TestDesktopCanFlashTransport, writeFailsWithDisconnectedWhenPortAlreadyClosedBeforeWrite)
 {
     FakeBackedSerial serial;
-    EXPECT_CALL(serial.fake(), is_serial_port_open()).WillOnce(::testing::Return(false));
-    EXPECT_CALL(serial.fake(), write_serial_data_echo_check(::testing::_)).Times(0);
+    EXPECT_CALL(serial.Fake(), IsSerialPortOpen()).WillOnce(::testing::Return(false));
+    EXPECT_CALL(serial.Fake(), WriteSerialDataEchoCheck(::testing::_)).Times(0);
 
-    DesktopCanFlashTransport transport(serial.release());
+    DesktopCanFlashTransport transport(serial.Release());
     FakeCancellationToken cancellation;
     const bytes::Bytes data{0xAA};
-    const auto result = transport.write(bytes::ByteView(data), cancellation);
+    const auto result = transport.Write(bytes::ByteView(data), cancellation);
 
     ASSERT_TRUE(!result.has_value());
     ASSERT_EQ(result.error().kind, ErrorKind::kDisconnected);
@@ -434,13 +434,13 @@ TEST(TestDesktopCanFlashTransport, readReturnsScriptedBytesOnSuccess)
 {
     FakeBackedSerial serial;
     ::testing::InSequence sequence;
-    EXPECT_CALL(serial.fake(), is_serial_port_open()).WillOnce(::testing::Return(true));
-    EXPECT_CALL(serial.fake(), read_serial_data(50)).WillOnce(::testing::Return(QByteArray("\x01\x02", 2)));
-    EXPECT_CALL(serial.fake(), is_serial_port_open()).WillOnce(::testing::Return(true));
+    EXPECT_CALL(serial.Fake(), IsSerialPortOpen()).WillOnce(::testing::Return(true));
+    EXPECT_CALL(serial.Fake(), ReadSerialData(50)).WillOnce(::testing::Return(QByteArray("\x01\x02", 2)));
+    EXPECT_CALL(serial.Fake(), IsSerialPortOpen()).WillOnce(::testing::Return(true));
 
-    DesktopCanFlashTransport transport(serial.release());
+    DesktopCanFlashTransport transport(serial.Release());
     FakeCancellationToken cancellation;
-    const auto result = transport.read(50ms, cancellation);
+    const auto result = transport.Read(50ms, cancellation);
 
     ASSERT_TRUE(result.has_value());
     ASSERT_TRUE(result->has_value());
@@ -452,11 +452,11 @@ TEST(TestDesktopCanFlashTransport, readReturnsScriptedBytesOnSuccess)
 TEST(TestDesktopCanFlashTransport, readReturnsCancelledWhenCancellationIsAlreadyObservedBeforeIssuingRead)
 {
     FakeBackedSerial serial;
-    EXPECT_CALL(serial.fake(), read_serial_data(::testing::_)).Times(0);
+    EXPECT_CALL(serial.Fake(), ReadSerialData(::testing::_)).Times(0);
 
-    DesktopCanFlashTransport transport(serial.release());
+    DesktopCanFlashTransport transport(serial.Release());
     FakeCancellationToken cancellation(true);
-    const auto result = transport.read(50ms, cancellation);
+    const auto result = transport.Read(50ms, cancellation);
 
     ASSERT_TRUE(!result.has_value());
     ASSERT_EQ(result.error().kind, ErrorKind::kCancelled);
@@ -467,12 +467,12 @@ TEST(TestDesktopCanFlashTransport, readReturnsCancelledWhenCancellationIsAlready
 TEST(TestDesktopCanFlashTransport, readReturnsDisconnectedWhenPortAlreadyClosedBeforeRead)
 {
     FakeBackedSerial serial;
-    EXPECT_CALL(serial.fake(), is_serial_port_open()).WillOnce(::testing::Return(false));
-    EXPECT_CALL(serial.fake(), read_serial_data(::testing::_)).Times(0);
+    EXPECT_CALL(serial.Fake(), IsSerialPortOpen()).WillOnce(::testing::Return(false));
+    EXPECT_CALL(serial.Fake(), ReadSerialData(::testing::_)).Times(0);
 
-    DesktopCanFlashTransport transport(serial.release());
+    DesktopCanFlashTransport transport(serial.Release());
     FakeCancellationToken cancellation;
-    const auto result = transport.read(50ms, cancellation);
+    const auto result = transport.Read(50ms, cancellation);
 
     ASSERT_TRUE(!result.has_value());
     ASSERT_EQ(result.error().kind, ErrorKind::kDisconnected);
@@ -484,13 +484,13 @@ TEST(TestDesktopCanFlashTransport, readReturnsDisconnectedWhenPortClosesDuringRe
 {
     FakeBackedSerial serial;
     ::testing::InSequence sequence;
-    EXPECT_CALL(serial.fake(), is_serial_port_open()).WillOnce(::testing::Return(true));
-    EXPECT_CALL(serial.fake(), read_serial_data(50)).WillOnce(::testing::Return(QByteArray("\xAA", 1)));
-    EXPECT_CALL(serial.fake(), is_serial_port_open()).WillOnce(::testing::Return(false));
+    EXPECT_CALL(serial.Fake(), IsSerialPortOpen()).WillOnce(::testing::Return(true));
+    EXPECT_CALL(serial.Fake(), ReadSerialData(50)).WillOnce(::testing::Return(QByteArray("\xAA", 1)));
+    EXPECT_CALL(serial.Fake(), IsSerialPortOpen()).WillOnce(::testing::Return(false));
 
-    DesktopCanFlashTransport transport(serial.release());
+    DesktopCanFlashTransport transport(serial.Release());
     FakeCancellationToken cancellation;
-    const auto result = transport.read(50ms, cancellation);
+    const auto result = transport.Read(50ms, cancellation);
 
     ASSERT_TRUE(!result.has_value());
     ASSERT_EQ(result.error().kind, ErrorKind::kDisconnected);
@@ -503,26 +503,26 @@ TEST(TestDesktopCanFlashTransport, everyMethodFailsWithDisconnectedAfterClose)
 {
     FakeBackedSerial serial;
 
-    DesktopCanFlashTransport transport(serial.get()); // non-owning: keep `serial` alive
-    auto close_result = transport.close();
+    DesktopCanFlashTransport transport(serial.Get()); // non-owning: keep `serial` alive
+    auto close_result = transport.Close();
     ASSERT_TRUE(close_result.has_value());
 
     FakeCancellationToken cancellation;
-    const auto configure_result = transport.configure(
+    const auto configure_result = transport.Configure(
         Iso15765Config{.bitrate = 500000, .request_id = 0x7E0, .response_id = 0x7E8, .extended_id = false});
     ASSERT_TRUE(!configure_result.has_value());
     ASSERT_EQ(configure_result.error().kind, ErrorKind::kDisconnected);
 
-    const auto open_result = transport.open();
+    const auto open_result = transport.Open();
     ASSERT_TRUE(!open_result.has_value());
     ASSERT_EQ(open_result.error().kind, ErrorKind::kDisconnected);
 
     const bytes::Bytes data{0xAA};
-    const auto write_result = transport.write(bytes::ByteView(data), cancellation);
+    const auto write_result = transport.Write(bytes::ByteView(data), cancellation);
     ASSERT_TRUE(!write_result.has_value());
     ASSERT_EQ(write_result.error().kind, ErrorKind::kDisconnected);
 
-    const auto read_result = transport.read(50ms, cancellation);
+    const auto read_result = transport.Read(50ms, cancellation);
     ASSERT_TRUE(!read_result.has_value());
     ASSERT_EQ(read_result.error().kind, ErrorKind::kDisconnected);
 }
@@ -533,13 +533,13 @@ TEST(TestDesktopCanFlashTransport, writeIsSkippedWithCancelledAfterRequestUnbloc
 {
     FakeBackedSerial serial;
 
-    DesktopCanFlashTransport transport(serial.release());
-    transport.request_unblock();
-    EXPECT_CALL(serial.fake(), write_serial_data_echo_check(::testing::_)).Times(0);
+    DesktopCanFlashTransport transport(serial.Release());
+    transport.RequestUnblock();
+    EXPECT_CALL(serial.Fake(), WriteSerialDataEchoCheck(::testing::_)).Times(0);
 
     FakeCancellationToken cancellation;
     const bytes::Bytes data{0xAA};
-    const auto result = transport.write(bytes::ByteView(data), cancellation);
+    const auto result = transport.Write(bytes::ByteView(data), cancellation);
 
     ASSERT_TRUE(!result.has_value());
     ASSERT_EQ(result.error().kind, ErrorKind::kCancelled);
@@ -552,13 +552,13 @@ TEST(TestDesktopCanFlashTransport, readReturnsEmptyOptionalWhenBackendReturnsNoB
 {
     FakeBackedSerial serial;
     ::testing::InSequence sequence;
-    EXPECT_CALL(serial.fake(), is_serial_port_open()).WillOnce(::testing::Return(true));
-    EXPECT_CALL(serial.fake(), read_serial_data(50)).WillOnce(::testing::Return(QByteArray{}));
-    EXPECT_CALL(serial.fake(), is_serial_port_open()).WillOnce(::testing::Return(true));
+    EXPECT_CALL(serial.Fake(), IsSerialPortOpen()).WillOnce(::testing::Return(true));
+    EXPECT_CALL(serial.Fake(), ReadSerialData(50)).WillOnce(::testing::Return(QByteArray{}));
+    EXPECT_CALL(serial.Fake(), IsSerialPortOpen()).WillOnce(::testing::Return(true));
 
-    DesktopCanFlashTransport transport(serial.release());
+    DesktopCanFlashTransport transport(serial.Release());
     FakeCancellationToken cancellation;
-    const auto result = transport.read(50ms, cancellation);
+    const auto result = transport.Read(50ms, cancellation);
 
     ASSERT_TRUE(result.has_value());
     ASSERT_TRUE(!result->has_value());
@@ -568,14 +568,14 @@ TEST(TestDesktopCanFlashTransport, readReturnsEmptyOptionalWhenBackendReturnsNoB
 TEST(TestDesktopCanFlashTransport, writeFailsWithInternalWhenDriverThrowsStandardException)
 {
     FakeBackedSerial serial;
-    EXPECT_CALL(serial.fake(), is_serial_port_open()).WillOnce(::testing::Return(true));
-    EXPECT_CALL(serial.fake(), write_serial_data_echo_check(::testing::_))
+    EXPECT_CALL(serial.Fake(), IsSerialPortOpen()).WillOnce(::testing::Return(true));
+    EXPECT_CALL(serial.Fake(), WriteSerialDataEchoCheck(::testing::_))
         .WillOnce(::testing::Throw(std::runtime_error("scripted backend write failure")));
 
-    DesktopCanFlashTransport transport(serial.release());
+    DesktopCanFlashTransport transport(serial.Release());
     FakeCancellationToken cancellation;
     const bytes::Bytes data{0xAA};
-    const auto result = transport.write(bytes::ByteView(data), cancellation);
+    const auto result = transport.Write(bytes::ByteView(data), cancellation);
 
     ASSERT_TRUE(!result.has_value());
     ASSERT_EQ(result.error().kind, ErrorKind::kInternal);
@@ -585,13 +585,13 @@ TEST(TestDesktopCanFlashTransport, writeFailsWithInternalWhenDriverThrowsStandar
 TEST(TestDesktopCanFlashTransport, writeFailsWithInternalWhenDriverThrowsNonStandardException)
 {
     FakeBackedSerial serial;
-    EXPECT_CALL(serial.fake(), is_serial_port_open()).WillOnce(::testing::Return(true));
-    EXPECT_CALL(serial.fake(), write_serial_data_echo_check(::testing::_)).WillOnce(ThrowNonStandardBackendFailure());
+    EXPECT_CALL(serial.Fake(), IsSerialPortOpen()).WillOnce(::testing::Return(true));
+    EXPECT_CALL(serial.Fake(), WriteSerialDataEchoCheck(::testing::_)).WillOnce(ThrowNonStandardBackendFailure());
 
-    DesktopCanFlashTransport transport(serial.release());
+    DesktopCanFlashTransport transport(serial.Release());
     FakeCancellationToken cancellation;
     const bytes::Bytes data{0xAA};
-    const auto result = transport.write(bytes::ByteView(data), cancellation);
+    const auto result = transport.Write(bytes::ByteView(data), cancellation);
 
     ASSERT_TRUE(!result.has_value());
     ASSERT_EQ(result.error().kind, ErrorKind::kInternal);
@@ -602,13 +602,13 @@ TEST(TestDesktopCanFlashTransport, writeFailsWithInternalWhenDriverThrowsNonStan
 TEST(TestDesktopCanFlashTransport, readFailsWithInternalWhenDriverThrowsStandardExceptionAndNotCancelled)
 {
     FakeBackedSerial serial;
-    EXPECT_CALL(serial.fake(), is_serial_port_open()).WillOnce(::testing::Return(true));
-    EXPECT_CALL(serial.fake(), read_serial_data(50))
+    EXPECT_CALL(serial.Fake(), IsSerialPortOpen()).WillOnce(::testing::Return(true));
+    EXPECT_CALL(serial.Fake(), ReadSerialData(50))
         .WillOnce(::testing::Throw(std::runtime_error("scripted backend read failure")));
 
-    DesktopCanFlashTransport transport(serial.release());
+    DesktopCanFlashTransport transport(serial.Release());
     FakeCancellationToken cancellation;
-    const auto result = transport.read(50ms, cancellation);
+    const auto result = transport.Read(50ms, cancellation);
 
     ASSERT_TRUE(!result.has_value());
     ASSERT_EQ(result.error().kind, ErrorKind::kInternal);
@@ -618,12 +618,12 @@ TEST(TestDesktopCanFlashTransport, readFailsWithInternalWhenDriverThrowsStandard
 TEST(TestDesktopCanFlashTransport, readFailsWithInternalWhenDriverThrowsNonStandardExceptionAndNotCancelled)
 {
     FakeBackedSerial serial;
-    EXPECT_CALL(serial.fake(), is_serial_port_open()).WillOnce(::testing::Return(true));
-    EXPECT_CALL(serial.fake(), read_serial_data(50)).WillOnce(ThrowNonStandardBackendFailure());
+    EXPECT_CALL(serial.Fake(), IsSerialPortOpen()).WillOnce(::testing::Return(true));
+    EXPECT_CALL(serial.Fake(), ReadSerialData(50)).WillOnce(ThrowNonStandardBackendFailure());
 
-    DesktopCanFlashTransport transport(serial.release());
+    DesktopCanFlashTransport transport(serial.Release());
     FakeCancellationToken cancellation;
-    const auto result = transport.read(50ms, cancellation);
+    const auto result = transport.Read(50ms, cancellation);
 
     ASSERT_TRUE(!result.has_value());
     ASSERT_EQ(result.error().kind, ErrorKind::kInternal);
@@ -636,13 +636,13 @@ TEST(TestDesktopCanFlashTransport, readFailsWithInternalWhenDriverThrowsNonStand
 TEST(TestDesktopCanFlashTransport, readReturnsCancelledWhenCancellationBecomesObservedAfterASuccessfulRead)
 {
     FakeBackedSerial serial;
-    EXPECT_CALL(serial.fake(), is_serial_port_open()).WillOnce(::testing::Return(true));
-    EXPECT_CALL(serial.fake(), read_serial_data(50)).WillOnce(::testing::Return(QByteArray("\xAA", 1)));
+    EXPECT_CALL(serial.Fake(), IsSerialPortOpen()).WillOnce(::testing::Return(true));
+    EXPECT_CALL(serial.Fake(), ReadSerialData(50)).WillOnce(::testing::Return(QByteArray("\xAA", 1)));
 
-    DesktopCanFlashTransport transport(serial.release());
+    DesktopCanFlashTransport transport(serial.Release());
     FakeCancellationToken cancellation;
-    cancellation.cancel_on_check(2);
-    const auto result = transport.read(50ms, cancellation);
+    cancellation.CancelOnCheck(2);
+    const auto result = transport.Read(50ms, cancellation);
 
     ASSERT_TRUE(!result.has_value());
     ASSERT_EQ(result.error().kind, ErrorKind::kCancelled);
@@ -654,14 +654,14 @@ TEST(TestDesktopCanFlashTransport, readReturnsCancelledWhenCancellationBecomesOb
 TEST(TestDesktopCanFlashTransport, readReturnsCancelledWhenCancellationBecomesObservedDuringAStandardExceptionThrow)
 {
     FakeBackedSerial serial;
-    EXPECT_CALL(serial.fake(), is_serial_port_open()).WillOnce(::testing::Return(true));
-    EXPECT_CALL(serial.fake(), read_serial_data(50))
+    EXPECT_CALL(serial.Fake(), IsSerialPortOpen()).WillOnce(::testing::Return(true));
+    EXPECT_CALL(serial.Fake(), ReadSerialData(50))
         .WillOnce(::testing::Throw(std::runtime_error("scripted backend read failure")));
 
-    DesktopCanFlashTransport transport(serial.release());
+    DesktopCanFlashTransport transport(serial.Release());
     FakeCancellationToken cancellation;
-    cancellation.cancel_on_check(2);
-    const auto result = transport.read(50ms, cancellation);
+    cancellation.CancelOnCheck(2);
+    const auto result = transport.Read(50ms, cancellation);
 
     ASSERT_TRUE(!result.has_value());
     ASSERT_EQ(result.error().kind, ErrorKind::kCancelled);
@@ -671,13 +671,13 @@ TEST(TestDesktopCanFlashTransport, readReturnsCancelledWhenCancellationBecomesOb
 TEST(TestDesktopCanFlashTransport, readReturnsCancelledWhenCancellationBecomesObservedDuringANonStandardExceptionThrow)
 {
     FakeBackedSerial serial;
-    EXPECT_CALL(serial.fake(), is_serial_port_open()).WillOnce(::testing::Return(true));
-    EXPECT_CALL(serial.fake(), read_serial_data(50)).WillOnce(ThrowNonStandardBackendFailure());
+    EXPECT_CALL(serial.Fake(), IsSerialPortOpen()).WillOnce(::testing::Return(true));
+    EXPECT_CALL(serial.Fake(), ReadSerialData(50)).WillOnce(ThrowNonStandardBackendFailure());
 
-    DesktopCanFlashTransport transport(serial.release());
+    DesktopCanFlashTransport transport(serial.Release());
     FakeCancellationToken cancellation;
-    cancellation.cancel_on_check(2);
-    const auto result = transport.read(50ms, cancellation);
+    cancellation.CancelOnCheck(2);
+    const auto result = transport.Read(50ms, cancellation);
 
     ASSERT_TRUE(!result.has_value());
     ASSERT_EQ(result.error().kind, ErrorKind::kCancelled);
@@ -688,10 +688,10 @@ TEST(TestDesktopCanFlashTransport, closeIsIdempotentAndDestroysTheOwnedSerialPor
     bool destroyed = false;
     FakeBackedSerial serial{[&destroyed](auto& fake) { fake.destroyed = &destroyed; }};
 
-    DesktopCanFlashTransport transport(serial.release());
+    DesktopCanFlashTransport transport(serial.Release());
     ASSERT_TRUE(!destroyed);
 
-    auto close_result = transport.close();
+    auto close_result = transport.Close();
     ASSERT_TRUE(close_result.has_value());
     // ~SerialPortActions() deletes its backend via a
     // Qt::BlockingQueuedConnection (serial_backend_host.cpp), so by the
@@ -699,7 +699,7 @@ TEST(TestDesktopCanFlashTransport, closeIsIdempotentAndDestroysTheOwnedSerialPor
     ASSERT_TRUE(destroyed);
 
     // Idempotent: calling again with an already-null serial_ must not crash.
-    close_result = transport.close();
+    close_result = transport.Close();
     ASSERT_TRUE(close_result.has_value());
 }
 
@@ -714,10 +714,10 @@ TEST(TestDesktopCanFlashTransport, closeOnANonOwningSerialPortActionsDoesNotDest
     FakeBackedSerial serial{[&destroyed](auto& fake) { fake.destroyed = &destroyed; }};
 
     {
-        DesktopCanFlashTransport transport(serial.get()); // non-owning
+        DesktopCanFlashTransport transport(serial.Get()); // non-owning
         ASSERT_TRUE(!destroyed);
 
-        auto close_result = transport.close();
+        auto close_result = transport.Close();
         ASSERT_TRUE(close_result.has_value());
         // The proof this test exists for: close() on a non-owning
         // transport must NOT destroy the externally-owned
@@ -725,15 +725,15 @@ TEST(TestDesktopCanFlashTransport, closeOnANonOwningSerialPortActionsDoesNotDest
         ASSERT_TRUE(!destroyed);
 
         // Idempotent, same as the owning path.
-        close_result = transport.close();
+        close_result = transport.Close();
         ASSERT_TRUE(close_result.has_value());
         ASSERT_TRUE(!destroyed);
     }
     // transport is gone now; `serial` must still be alive and usable.
     ASSERT_TRUE(!destroyed);
-    const bool still_callable = serial->is_serial_port_open(); // must not crash
+    const bool still_callable = serial->IsSerialPortOpen(); // must not crash
     Q_UNUSED(still_callable);
-    serial.reset(); // only now does the real teardown happen
+    serial.Reset(); // only now does the real teardown happen
     ASSERT_TRUE(destroyed);
 }
 
@@ -752,10 +752,8 @@ TEST(TestDesktopCanFlashTransport, requestUnblockCausesAPendingReadToReturnPromp
 
     QSemaphore read_entered;
     QSemaphore continue_read;
-    EXPECT_CALL(serial.fake(), is_serial_port_open())
-        .WillOnce(::testing::Return(true))
-        .WillOnce(::testing::Return(true));
-    EXPECT_CALL(serial.fake(), read_serial_data(50))
+    EXPECT_CALL(serial.Fake(), IsSerialPortOpen()).WillOnce(::testing::Return(true)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(serial.Fake(), ReadSerialData(50))
         .WillOnce(
             [&read_entered, &continue_read](std::uint16_t)
             {
@@ -764,7 +762,7 @@ TEST(TestDesktopCanFlashTransport, requestUnblockCausesAPendingReadToReturnPromp
                 return QByteArray("\xAA", 1);
             });
 
-    DesktopCanFlashTransport transport(serial.release());
+    DesktopCanFlashTransport transport(serial.Release());
     FakeCancellationToken cancellation;
 
     fastecu::Result<std::optional<bytes::Bytes>> in_flight_result;
@@ -772,13 +770,13 @@ TEST(TestDesktopCanFlashTransport, requestUnblockCausesAPendingReadToReturnPromp
     std::thread reader(
         [&]
         {
-            in_flight_result = transport.read(50ms, cancellation);
+            in_flight_result = transport.Read(50ms, cancellation);
             reader_finished.store(true);
         });
     ASSERT_TRUE(read_entered.tryAcquire(1, 1000)) << "backend read did not start";
 
-    transport.request_unblock();
-    fastecu::testing::process_events_for(std::chrono::milliseconds(50));
+    transport.RequestUnblock();
+    fastecu::testing::ProcessEventsFor(std::chrono::milliseconds(50));
     ASSERT_TRUE(!reader_finished.load()) << "request_unblock() must not interrupt an already in-flight read";
 
     continue_read.release(); // simulates the backend's own bounded timeout firing
@@ -791,8 +789,8 @@ TEST(TestDesktopCanFlashTransport, requestUnblockCausesAPendingReadToReturnPromp
 
     // Second half of the contract: the *next* read must not reach the
     // backend at all.
-    EXPECT_CALL(serial.fake(), read_serial_data(::testing::_)).Times(0);
-    const auto second_result = transport.read(50ms, cancellation);
+    EXPECT_CALL(serial.Fake(), ReadSerialData(::testing::_)).Times(0);
+    const auto second_result = transport.Read(50ms, cancellation);
     ASSERT_TRUE(!second_result.has_value());
     ASSERT_EQ(second_result.error().kind, ErrorKind::kCancelled);
 }
@@ -800,16 +798,16 @@ TEST(TestDesktopCanFlashTransport, requestUnblockCausesAPendingReadToReturnPromp
 TEST(TestDesktopCanFlashTransport, fakeBackendReportsScriptedPortListAndBattery)
 {
     FakeBackedSerial serial;
-    EXPECT_CALL(serial.fake(), check_serial_ports()).WillOnce(::testing::Return(QStringList{"op2-0", "op2-1"}));
+    EXPECT_CALL(serial.Fake(), CheckSerialPorts()).WillOnce(::testing::Return(QStringList{"op2-0", "op2-1"}));
     // DoDefault() rather than Return(true): the selected port must actually
     // reach the backend's configuration state, which Return(true) would skip.
-    EXPECT_CALL(serial.fake(), set_serial_port(QStringLiteral("op2-1"))).WillOnce(::testing::DoDefault());
-    EXPECT_CALL(serial.fake(), read_vbatt()).WillOnce(::testing::Return(11676UL));
+    EXPECT_CALL(serial.Fake(), SetSerialPort(QStringLiteral("op2-1"))).WillOnce(::testing::DoDefault());
+    EXPECT_CALL(serial.Fake(), ReadVbatt()).WillOnce(::testing::Return(11676UL));
 
-    ASSERT_EQ(serial->check_serial_ports(), QStringList({"op2-0", "op2-1"}));
-    ASSERT_TRUE(serial->set_serial_port("op2-1"));
-    ASSERT_EQ(serial->get_serial_port(), QStringLiteral("op2-1"));
-    ASSERT_EQ(serial->read_vbatt(), 11676UL);
+    ASSERT_EQ(serial->CheckSerialPorts(), QStringList({"op2-0", "op2-1"}));
+    ASSERT_TRUE(serial->SetSerialPort("op2-1"));
+    ASSERT_EQ(serial->GetSerialPort(), QStringLiteral("op2-1"));
+    ASSERT_EQ(serial->ReadVbatt(), 11676UL);
 }
 
 namespace

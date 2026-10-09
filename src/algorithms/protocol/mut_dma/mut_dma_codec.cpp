@@ -5,35 +5,35 @@
 namespace mutdma
 {
 
-bytes::Byte sum8(bytes::ByteView bytes, std::size_t from, std::size_t len)
+bytes::Byte Sum8(bytes::ByteView bytes, std::size_t from, std::size_t len)
 {
-    return bytes::sum8Range(bytes, from, len);
+    return bytes::Sum8Range(bytes, from, len);
 }
 
-bytes::Byte sum8(bytes::ByteView bytes)
+bytes::Byte Sum8(bytes::ByteView bytes)
 {
-    return bytes::sum8(bytes);
+    return bytes::Sum8(bytes);
 }
 
-MutDmaFrame buildCommandFrame(bytes::Byte cmd, bytes::ByteView payload, bytes::Byte trailer)
+MutDmaFrame BuildCommandFrame(bytes::Byte cmd, bytes::ByteView payload, bytes::Byte trailer)
 {
     MutDmaFrame f{};
     f[0] = cmd;
     const std::size_t n =
         std::min(payload.size(), static_cast<std::size_t>(kChecksumOffset - 1)); // bytes 1..48 = 48 max
     std::copy_n(payload.begin(), n, f.begin() + 1);
-    f[kChecksumOffset] = sum8(bytes::ByteView{f}.first(kChecksumOffset));
+    f[kChecksumOffset] = Sum8(bytes::ByteView{f}.first(kChecksumOffset));
     f[kTrailerOffset] = trailer;
     return f;
 }
 
-bool verifyFrame(bytes::ByteView frame)
+bool VerifyFrame(bytes::ByteView frame)
 {
     if (frame.size() != kFrameLen)
     {
         return false;
     }
-    if (frame[kChecksumOffset] != sum8(frame, 0, kChecksumOffset))
+    if (frame[kChecksumOffset] != Sum8(frame, 0, kChecksumOffset))
     {
         return false;
     }
@@ -41,7 +41,7 @@ bool verifyFrame(bytes::ByteView frame)
     return t == kTrailerStd || t == kTrailerFreeform;
 }
 
-StreamFrame parseStreamFrame(bytes::ByteView frame)
+StreamFrame ParseStreamFrame(bytes::ByteView frame)
 {
     StreamFrame s;
     if (frame.size() < 3)
@@ -53,7 +53,7 @@ StreamFrame parseStreamFrame(bytes::ByteView frame)
         return s;
     }
     const std::size_t csum_idx = frame.size() - 2;
-    if (frame[csum_idx] != sum8(frame, 0, csum_idx))
+    if (frame[csum_idx] != Sum8(frame, 0, csum_idx))
     {
         return s;
     }

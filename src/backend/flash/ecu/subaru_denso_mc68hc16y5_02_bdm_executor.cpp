@@ -30,7 +30,7 @@ constexpr std::uint32_t kRamStart = 0x20000;
 constexpr std::uint32_t kRamEnd = 0x28000;
 constexpr std::size_t kUnbounded = std::numeric_limits<std::size_t>::max();
 
-bytes::Bytes ascii(std::string_view text)
+bytes::Bytes Ascii(std::string_view text)
 {
     bytes::Bytes out;
     out.reserve(text.size());
@@ -41,19 +41,19 @@ bytes::Bytes ascii(std::string_view text)
     return out;
 }
 
-Status cancelled_if_requested(const ICancellationToken& cancellation)
+Status CancelledIfRequested(const ICancellationToken& cancellation)
 {
-    return cancellation.cancelled() ? fail(ErrorKind::kCancelled, "MC68HC16Y5 BDM operation cancelled") : Status{};
+    return cancellation.Cancelled() ? Fail(ErrorKind::kCancelled, "MC68HC16Y5 BDM operation cancelled") : Status{};
 }
 
-Status write_exact(IKlineFlashTransport& transport, bytes::ByteView request)
+Status WriteExact(IKlineFlashTransport& transport, bytes::ByteView request)
 {
-    auto written = transport.write_raw(request);
+    auto written = transport.WriteRaw(request);
     if (!written.has_value())
     {
         return std::unexpected(written.error());
     }
-    return *written == request.size() ? Status{} : fail(ErrorKind::kDisconnected, "short BDM write");
+    return *written == request.size() ? Status{} : Fail(ErrorKind::kDisconnected, "short BDM write");
 }
 
 // Reads until `want` bytes have arrived, `budget` has elapsed, or a read
@@ -61,24 +61,24 @@ Status write_exact(IKlineFlashTransport& transport, bytes::ByteView request)
 // timeout it was given, so an empty read means the window is spent. Legacy
 // read_serial_data() instead ran every reply through the K-Line frame parser,
 // which cannot pass ASCII or 1 KiB pages (spec: deliberate corrections).
-Result<bytes::Bytes> accumulate(IKlineFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
+Result<bytes::Bytes> Accumulate(IKlineFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
                                 std::size_t want, std::chrono::milliseconds budget)
 {
-    const auto deadline = clock.now() + budget;
+    const auto deadline = clock.Now() + budget;
     bytes::Bytes received;
     while (received.size() < want)
     {
-        if (auto cancelled = cancelled_if_requested(cancellation); !cancelled.has_value())
+        if (auto cancelled = CancelledIfRequested(cancellation); !cancelled.has_value())
         {
             return std::unexpected(cancelled.error());
         }
-        const auto now = clock.now();
+        const auto now = clock.Now();
         if (now >= deadline)
         {
             break;
         }
         const auto remaining = std::chrono::ceil<std::chrono::milliseconds>(deadline - now);
-        auto chunk = transport.read_raw(remaining, cancellation);
+        auto chunk = transport.ReadRaw(remaining, cancellation);
         if (!chunk.has_value())
         {
             return std::unexpected(chunk.error());
@@ -92,51 +92,51 @@ Result<bytes::Bytes> accumulate(IKlineFlashTransport& transport, IClock& clock, 
     return received;
 }
 
-Status discard(IKlineFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
+Status Discard(IKlineFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
                IEventSink& events, std::chrono::milliseconds budget)
 {
-    auto drained = accumulate(transport, clock, cancellation, kUnbounded, budget);
+    auto drained = Accumulate(transport, clock, cancellation, kUnbounded, budget);
     if (!drained.has_value())
     {
         return std::unexpected(drained.error());
     }
     if (!drained->empty())
     {
-        events.log(LogLevel::kDebug, std::format("BDM discarded: {}", bytes::toHex(*drained)));
+        events.Log(LogLevel::kDebug, std::format("BDM discarded: {}", bytes::ToHex(*drained)));
     }
     return {};
 }
 
 // Legacy compares the whole reply with the token (flash_block() :394,
 // write_mem() :268, :286); the accumulated reply must equal it exactly.
-Status expect_ack(IKlineFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
-                  std::string_view token, std::chrono::milliseconds budget)
+Status ExpectAck(IKlineFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
+                 std::string_view token, std::chrono::milliseconds budget)
 {
-    auto received = accumulate(transport, clock, cancellation, token.size(), budget);
+    auto received = Accumulate(transport, clock, cancellation, token.size(), budget);
     if (!received.has_value())
     {
         return std::unexpected(received.error());
     }
-    if (*received == ascii(token))
+    if (*received == Ascii(token))
     {
         return {};
     }
     if (received->size() < token.size())
     {
-        return fail(ErrorKind::kTimeout,
-                    std::format("BDM bridge did not send {} (received {})", token, bytes::toHex(*received)));
+        return Fail(ErrorKind::kTimeout,
+                    std::format("BDM bridge did not send {} (received {})", token, bytes::ToHex(*received)));
     }
-    return fail(ErrorKind::kBadResponse,
-                std::format("BDM bridge sent {} instead of {}", bytes::toHex(*received), token));
+    return Fail(ErrorKind::kBadResponse,
+                std::format("BDM bridge sent {} instead of {}", bytes::ToHex(*received), token));
 }
 
 // read_mem() :146-175. Legacy replaced its buffer on every poll and appended
 // any non-empty remainder; the page now accumulates across polls and must be
 // exactly 0x400 bytes (spec: deliberate corrections).
-Result<bytes::Bytes> read_page(std::uint32_t address, IKlineFlashTransport& transport, IClock& clock,
-                               const ICancellationToken& cancellation)
+Result<bytes::Bytes> ReadPage(std::uint32_t address, IKlineFlashTransport& transport, IClock& clock,
+                              const ICancellationToken& cancellation)
 {
-    if (auto written = write_exact(transport, ascii(std::format("rpmem 0x{:08X} 0x{:08X}", address, kPageSize)));
+    if (auto written = WriteExact(transport, Ascii(std::format("rpmem 0x{:08X} 0x{:08X}", address, kPageSize)));
         !written.has_value())
     {
         return std::unexpected(written.error());
@@ -144,7 +144,7 @@ Result<bytes::Bytes> read_page(std::uint32_t address, IKlineFlashTransport& tran
     bytes::Bytes page;
     for (unsigned poll = 0; poll < kPagePolls && page.size() < kPageSize; ++poll)
     {
-        auto chunk = accumulate(transport, clock, cancellation, kPageSize - page.size(), kShortTimeout);
+        auto chunk = Accumulate(transport, clock, cancellation, kPageSize - page.size(), kShortTimeout);
         if (!chunk.has_value())
         {
             return std::unexpected(chunk.error());
@@ -152,32 +152,32 @@ Result<bytes::Bytes> read_page(std::uint32_t address, IKlineFlashTransport& tran
         page.insert(page.end(), chunk->begin(), chunk->end());
         if (page.size() > kPageSize)
         {
-            return fail(ErrorKind::kBadResponse, std::format("BDM page at 0x{:08X} returned {} bytes, expected {}",
+            return Fail(ErrorKind::kBadResponse, std::format("BDM page at 0x{:08X} returned {} bytes, expected {}",
                                                              address, page.size(), kPageSize));
         }
-        if (auto slept = clock.sleep(kPagePollDelay, cancellation); !slept.has_value())
+        if (auto slept = clock.Sleep(kPagePollDelay, cancellation); !slept.has_value())
         {
             return std::unexpected(slept.error());
         }
     }
     if (page.size() != kPageSize)
     {
-        return fail(ErrorKind::kTimeout,
+        return Fail(ErrorKind::kTimeout,
                     std::format("BDM page at 0x{:08X} returned {} of {} bytes", address, page.size(), kPageSize));
     }
     return page;
 }
 
 // read_mem() :82-215.
-Result<bytes::Bytes> read_image(const FlashPlan& plan, IKlineFlashTransport& transport, IClock& clock,
-                                const ICancellationToken& cancellation, IEventSink& events)
+Result<bytes::Bytes> ReadImage(const FlashPlan& plan, IKlineFlashTransport& transport, IClock& clock,
+                               const ICancellationToken& cancellation, IEventSink& events)
 {
-    events.log(LogLevel::kInfo, "Reading ROM from Subaru Denso MC68HC16 with BDM");
-    if (auto cleared = discard(transport, clock, cancellation, events, kShortTimeout); !cleared.has_value())
+    events.Log(LogLevel::kInfo, "Reading ROM from Subaru Denso MC68HC16 with BDM");
+    if (auto cleared = Discard(transport, clock, cancellation, events, kShortTimeout); !cleared.has_value())
     {
         return std::unexpected(cleared.error());
     }
-    const MemoryRegion region = plan.transfer_region();
+    const MemoryRegion region = plan.TransferRegion();
     const std::uint32_t end = region.start + region.length;
     const int total_pages = static_cast<int>((region.length - (kRamEnd - kRamStart)) / kPageSize);
     int pages_done = 0;
@@ -192,19 +192,19 @@ Result<bytes::Bytes> read_image(const FlashPlan& plan, IKlineFlashTransport& tra
             address = kRamEnd;
             continue;
         }
-        if (auto cancelled = cancelled_if_requested(cancellation); !cancelled.has_value())
+        if (auto cancelled = CancelledIfRequested(cancellation); !cancelled.has_value())
         {
             return std::unexpected(cancelled.error());
         }
-        auto page = read_page(address, transport, clock, cancellation);
+        auto page = ReadPage(address, transport, clock, cancellation);
         if (!page.has_value())
         {
             return std::unexpected(page.error());
         }
         image.insert(image.end(), page->begin(), page->end());
-        events.log(LogLevel::kInfo, std::format("BDM read addr: 0x{:08X} length: 0x{:08X}", address, kPageSize));
-        events.progress(++pages_done, total_pages);
-        if (auto slept = clock.sleep(kInterPageDelay, cancellation); !slept.has_value())
+        events.Log(LogLevel::kInfo, std::format("BDM read addr: 0x{:08X} length: 0x{:08X}", address, kPageSize));
+        events.Progress(++pages_done, total_pages);
+        if (auto slept = clock.Sleep(kInterPageDelay, cancellation); !slept.has_value())
         {
             return std::unexpected(slept.error());
         }
@@ -219,46 +219,46 @@ constexpr std::size_t kUploadChunk = kSubaruDensoMc68hc16y5_02BdmUploadChunk;
 constexpr std::string_view kAckCommand = "ACK_CMD_WDMEM";
 constexpr std::string_view kAckWrite = "ACK_WR";
 
-Status send_and_ack(IKlineFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
-                    bytes::ByteView request, std::string_view token, std::chrono::milliseconds budget)
+Status SendAndAck(IKlineFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
+                  bytes::ByteView request, std::string_view token, std::chrono::milliseconds budget)
 {
-    if (auto written = write_exact(transport, request); !written.has_value())
+    if (auto written = WriteExact(transport, request); !written.has_value())
     {
         return written;
     }
-    return expect_ack(transport, clock, cancellation, token, budget);
+    return ExpectAck(transport, clock, cancellation, token, budget);
 }
 
 // write_mem() :296-305 reads and logs these replies without checking them;
 // the bridge's replies are unknown, so they stay ungated (spec appendix).
-Status log_reply(std::string_view command, IKlineFlashTransport& transport, IClock& clock,
-                 const ICancellationToken& cancellation, IEventSink& events)
+Status LogReply(std::string_view command, IKlineFlashTransport& transport, IClock& clock,
+                const ICancellationToken& cancellation, IEventSink& events)
 {
-    auto reply = accumulate(transport, clock, cancellation, kUnbounded, kLongTimeout);
+    auto reply = Accumulate(transport, clock, cancellation, kUnbounded, kLongTimeout);
     if (!reply.has_value())
     {
         return std::unexpected(reply.error());
     }
-    events.log(LogLevel::kInfo, std::format("BDM {} reply: {}", command, bytes::toHex(*reply)));
+    events.Log(LogLevel::kInfo, std::format("BDM {} reply: {}", command, bytes::ToHex(*reply)));
     return {};
 }
 
 // write_mem() :217-350 and flash_block() :352-474. Uploads the padded kernel to
 // RAM, enables SCIB, sets PC/SP and starts the kernel. The ROM is not written.
-Status bootstrap_kernel(bytes::ByteView kernel, IKlineFlashTransport& transport, IClock& clock,
-                        const ICancellationToken& cancellation, IEventSink& events)
+Status BootstrapKernel(bytes::ByteView kernel, IKlineFlashTransport& transport, IClock& clock,
+                       const ICancellationToken& cancellation, IEventSink& events)
 {
-    events.log(LogLevel::kInfo, "Uploading kernel to Subaru Denso MC68HC16 RAM with BDM");
+    events.Log(LogLevel::kInfo, "Uploading kernel to Subaru Denso MC68HC16 RAM with BDM");
     // write_mem() :226.
-    if (auto cleared = discard(transport, clock, cancellation, events, kShortTimeout); !cleared.has_value())
+    if (auto cleared = Discard(transport, clock, cancellation, events, kShortTimeout); !cleared.has_value())
     {
         return cleared;
     }
     // flash_block() :378-399.
-    events.log(LogLevel::kInfo, std::format("Writing block: 00 at address 0x{:08X}", kRamStart));
-    if (auto started = send_and_ack(transport, clock, cancellation,
-                                    ascii(std::format("wdmem 0x{:08X} 0x{:08X}", kRamStart, kernel.size())),
-                                    kAckCommand, kExtraLongTimeout);
+    events.Log(LogLevel::kInfo, std::format("Writing block: 00 at address 0x{:08X}", kRamStart));
+    if (auto started = SendAndAck(transport, clock, cancellation,
+                                  Ascii(std::format("wdmem 0x{:08X} 0x{:08X}", kRamStart, kernel.size())), kAckCommand,
+                                  kExtraLongTimeout);
         !started.has_value())
     {
         return started;
@@ -267,115 +267,115 @@ Status bootstrap_kernel(bytes::ByteView kernel, IKlineFlashTransport& transport,
     const std::size_t chunks = kernel.size() / kUploadChunk;
     for (std::size_t index = 0; index < chunks; ++index)
     {
-        if (auto cancelled = cancelled_if_requested(cancellation); !cancelled.has_value())
+        if (auto cancelled = CancelledIfRequested(cancellation); !cancelled.has_value())
         {
             return cancelled;
         }
-        if (auto acked = send_and_ack(transport, clock, cancellation,
-                                      kernel.subspan(index * kUploadChunk, kUploadChunk), kAckWrite, kLongTimeout);
+        if (auto acked = SendAndAck(transport, clock, cancellation, kernel.subspan(index * kUploadChunk, kUploadChunk),
+                                    kAckWrite, kLongTimeout);
             !acked.has_value())
         {
             return acked;
         }
-        events.progress(static_cast<int>(index + 1), static_cast<int>(chunks));
+        events.Progress(static_cast<int>(index + 1), static_cast<int>(chunks));
     }
-    events.log(LogLevel::kInfo, "Block write complete.");
+    events.Log(LogLevel::kInfo, "Block write complete.");
     // flash_block() :470.
-    if (auto cleared = discard(transport, clock, cancellation, events, kShortTimeout); !cleared.has_value())
+    if (auto cleared = Discard(transport, clock, cancellation, events, kShortTimeout); !cleared.has_value())
     {
         return cleared;
     }
     // write_mem() :258-275: enable SCIB (the kernel sets 62500 baud itself).
     if (auto scib =
-            send_and_ack(transport, clock, cancellation, ascii("wdmem 0xFFC28 0x4"), kAckCommand, kExtraLongTimeout);
+            SendAndAck(transport, clock, cancellation, Ascii("wdmem 0xFFC28 0x4"), kAckCommand, kExtraLongTimeout);
         !scib.has_value())
     {
         return scib;
     }
-    if (auto cleared = discard(transport, clock, cancellation, events, kLongTimeout); !cleared.has_value())
+    if (auto cleared = Discard(transport, clock, cancellation, events, kLongTimeout); !cleared.has_value())
     {
         return cleared;
     }
     // write_mem() :277-294.
     if (auto scib =
-            send_and_ack(transport, clock, cancellation, bytes::Bytes{0x00, 0x0d, 0x00, 0x0c}, kAckWrite, kLongTimeout);
+            SendAndAck(transport, clock, cancellation, bytes::Bytes{0x00, 0x0d, 0x00, 0x0c}, kAckWrite, kLongTimeout);
         !scib.has_value())
     {
         return scib;
     }
-    if (auto cleared = discard(transport, clock, cancellation, events, kShortTimeout); !cleared.has_value())
+    if (auto cleared = Discard(transport, clock, cancellation, events, kShortTimeout); !cleared.has_value())
     {
         return cleared;
     }
     // write_mem() :296-305.
-    if (auto written = write_exact(transport, ascii("wpcsp")); !written.has_value())
+    if (auto written = WriteExact(transport, Ascii("wpcsp")); !written.has_value())
     {
         return written;
     }
     for (int reply = 0; reply < 2; ++reply)
     {
-        if (auto logged = log_reply("wpcsp", transport, clock, cancellation, events); !logged.has_value())
+        if (auto logged = LogReply("wpcsp", transport, clock, cancellation, events); !logged.has_value())
         {
             return logged;
         }
     }
     // write_mem() :317-323. Once `go` is sent the kernel is running: nothing
     // after it can fail or cancel the operation.
-    if (auto cancelled = cancelled_if_requested(cancellation); !cancelled.has_value())
+    if (auto cancelled = CancelledIfRequested(cancellation); !cancelled.has_value())
     {
         return cancelled;
     }
-    if (auto written = write_exact(transport, ascii("go")); !written.has_value())
+    if (auto written = WriteExact(transport, Ascii("go")); !written.has_value())
     {
         return written;
     }
-    if (auto reply = accumulate(transport, clock, cancellation, kUnbounded, kLongTimeout); reply.has_value())
+    if (auto reply = Accumulate(transport, clock, cancellation, kUnbounded, kLongTimeout); reply.has_value())
     {
-        events.log(LogLevel::kInfo, std::format("BDM go reply: {}", bytes::toHex(*reply)));
+        events.Log(LogLevel::kInfo, std::format("BDM go reply: {}", bytes::ToHex(*reply)));
     }
     else
     {
-        events.log(LogLevel::kWarning, std::format("BDM go reply not read: {}", reply.error().detail));
+        events.Log(LogLevel::kWarning, std::format("BDM go reply not read: {}", reply.error().detail));
     }
     return {};
 }
 } // namespace
 
-Result<KlineConfig> SubaruDensoMc68hc16y5_02BdmExecutor::transport_setup(const FlashPlan& plan) const
+Result<KlineConfig> SubaruDensoMc68hc16y5_02BdmExecutor::TransportSetup(const FlashPlan& plan) const
 {
-    if (auto valid = validate_subaru_denso_mc68hc16y5_02_bdm_plan(plan); !valid.has_value())
+    if (auto valid = ValidateSubaruDensoMc68hc16y502BdmPlan(plan); !valid.has_value())
     {
         return std::unexpected(valid.error());
     }
-    const auto& wire = std::get<SubaruDensoMc68hc16y5_02BdmPlan>(plan.family_plan());
+    const auto& wire = std::get<SubaruDensoMc68hc16y5_02BdmPlan>(plan.FamilyPlan());
     // execute() :50-54.
     return KlineConfig{
         .baud = wire.baud, .iso14230 = false, .tester_id = 0, .target_id = 0, .parity = KlineParity::kNone};
 }
 
-Status SubaruDensoMc68hc16y5_02BdmExecutor::before_transport_configure(IKlineFlashTransport& transport, IClock&,
-                                                                       const ICancellationToken&) const
+Status SubaruDensoMc68hc16y5_02BdmExecutor::BeforeTransportConfigure(IKlineFlashTransport& transport, IClock&,
+                                                                     const ICancellationToken&) const
 {
     // Legacy never cleared the header; a session that left ISO-14230 framing
     // on would wrap every ASCII command (spec: deliberate corrections).
-    return transport.set_add_iso14230_header(false);
+    return transport.SetAddIso14230Header(false);
 }
 
 Result<FlashExecutionResult>
-SubaruDensoMc68hc16y5_02BdmExecutor::execute(const FlashPlan& plan, IKlineFlashTransport& transport, IClock& clock,
+SubaruDensoMc68hc16y5_02BdmExecutor::Execute(const FlashPlan& plan, IKlineFlashTransport& transport, IClock& clock,
                                              const ICancellationToken& cancellation, IEventSink& events)
 {
-    if (auto valid = validate_subaru_denso_mc68hc16y5_02_bdm_plan(plan); !valid.has_value())
+    if (auto valid = ValidateSubaruDensoMc68hc16y502BdmPlan(plan); !valid.has_value())
     {
         return std::unexpected(valid.error());
     }
-    if (auto cancelled = cancelled_if_requested(cancellation); !cancelled.has_value())
+    if (auto cancelled = CancelledIfRequested(cancellation); !cancelled.has_value())
     {
         return std::unexpected(cancelled.error());
     }
-    if (plan.operation() == FlashOperation::kRead)
+    if (plan.Operation() == FlashOperation::kRead)
     {
-        auto image = read_image(plan, transport, clock, cancellation, events);
+        auto image = ReadImage(plan, transport, clock, cancellation, events);
         if (!image.has_value())
         {
             return std::unexpected(image.error());
@@ -383,8 +383,7 @@ SubaruDensoMc68hc16y5_02BdmExecutor::execute(const FlashPlan& plan, IKlineFlashT
         return FlashExecutionResult{
             .operation = FlashOperation::kRead, .read_bytes = std::move(*image), .rom_id = std::nullopt};
     }
-    if (auto booted = bootstrap_kernel(plan.image_or_empty(), transport, clock, cancellation, events);
-        !booted.has_value())
+    if (auto booted = BootstrapKernel(plan.ImageOrEmpty(), transport, clock, cancellation, events); !booted.has_value())
     {
         return std::unexpected(booted.error());
     }

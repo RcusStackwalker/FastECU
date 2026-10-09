@@ -28,14 +28,14 @@ class ExpressionValidator
     {
     }
 
-    bool valid()
+    bool Valid()
     {
-        skip_spaces();
-        if (const ParsedValue value = parse_expression(); !value.valid)
+        SkipSpaces();
+        if (const ParsedValue value = ParseExpression(); !value.valid)
         {
             return false;
         }
-        skip_spaces();
+        SkipSpaces();
         return position_ == expression_.size();
     }
 
@@ -47,9 +47,9 @@ class ExpressionValidator
         double value = 0.0;
     };
 
-    ParsedValue parse_expression()
+    ParsedValue ParseExpression()
     {
-        ParsedValue left = parse_term();
+        ParsedValue left = ParseTerm();
         if (!left.valid)
         {
             return {};
@@ -57,11 +57,11 @@ class ExpressionValidator
         while (true)
         {
             char operation = '\0';
-            if (consume('+'))
+            if (Consume('+'))
             {
                 operation = '+';
             }
-            else if (consume('-'))
+            else if (Consume('-'))
             {
                 operation = '-';
             }
@@ -70,12 +70,12 @@ class ExpressionValidator
                 return left;
             }
 
-            ParsedValue right = parse_term();
+            ParsedValue right = ParseTerm();
             if (!right.valid)
             {
                 return {};
             }
-            left = combine(left, right, operation);
+            left = Combine(left, right, operation);
             if (!left.valid)
             {
                 return {};
@@ -83,9 +83,9 @@ class ExpressionValidator
         }
     }
 
-    ParsedValue parse_term()
+    ParsedValue ParseTerm()
     {
-        ParsedValue left = parse_factor();
+        ParsedValue left = ParseFactor();
         if (!left.valid)
         {
             return {};
@@ -93,11 +93,11 @@ class ExpressionValidator
         while (true)
         {
             char operation = '\0';
-            if (consume('*'))
+            if (Consume('*'))
             {
                 operation = '*';
             }
-            else if (consume('/'))
+            else if (Consume('/'))
             {
                 operation = '/';
             }
@@ -106,12 +106,12 @@ class ExpressionValidator
                 return left;
             }
 
-            ParsedValue right = parse_factor();
+            ParsedValue right = ParseFactor();
             if (!right.valid)
             {
                 return {};
             }
-            left = combine(left, right, operation);
+            left = Combine(left, right, operation);
             if (!left.valid)
             {
                 return {};
@@ -119,40 +119,40 @@ class ExpressionValidator
         }
     }
 
-    ParsedValue parse_factor()
+    ParsedValue ParseFactor()
     {
-        if (consume('-'))
+        if (Consume('-'))
         {
-            if (consume('x'))
+            if (Consume('x'))
             {
                 return {.valid = true, .depends_on_x = true};
             }
-            ParsedValue number = parse_number();
+            ParsedValue number = ParseNumber();
             if (number.valid)
             {
                 number.value = -number.value;
             }
             return number;
         }
-        if (consume('x'))
+        if (Consume('x'))
         {
             return {.valid = true, .depends_on_x = true};
         }
-        if (consume('('))
+        if (Consume('('))
         {
-            ParsedValue nested = parse_expression();
-            if (!nested.valid || !consume(')'))
+            ParsedValue nested = ParseExpression();
+            if (!nested.valid || !Consume(')'))
             {
                 return {};
             }
             return nested;
         }
-        return parse_number();
+        return ParseNumber();
     }
 
-    ParsedValue parse_number()
+    ParsedValue ParseNumber()
     {
-        skip_spaces();
+        SkipSpaces();
         const std::size_t start = position_;
         bool saw_digit = false;
         bool saw_decimal_point = false;
@@ -190,7 +190,7 @@ class ExpressionValidator
         }
     }
 
-    ParsedValue combine(ParsedValue left, ParsedValue right, char operation) const
+    ParsedValue Combine(ParsedValue left, ParsedValue right, char operation) const
     {
         if (operation == '/' && !right.depends_on_x && right.value == 0.0)
         {
@@ -221,9 +221,9 @@ class ExpressionValidator
         return std::isfinite(left.value) ? left : ParsedValue{};
     }
 
-    bool consume(char expected)
+    bool Consume(char expected)
     {
-        skip_spaces();
+        SkipSpaces();
         if (position_ == expression_.size() || expression_[position_] != expected)
         {
             return false;
@@ -232,7 +232,7 @@ class ExpressionValidator
         return true;
     }
 
-    void skip_spaces()
+    void SkipSpaces()
     {
         while (position_ < expression_.size() && std::isspace(static_cast<unsigned char>(expression_[position_])))
         {
@@ -244,22 +244,22 @@ class ExpressionValidator
     std::size_t position_ = 0;
 };
 
-bool valid_expression(const LoggingChannel& channel)
+bool ValidExpression(const LoggingChannel& channel)
 {
-    if (channel.from_byte_expression.empty() || !ExpressionValidator(channel.from_byte_expression).valid())
+    if (channel.from_byte_expression.empty() || !ExpressionValidator(channel.from_byte_expression).Valid())
     {
         return false;
     }
     const auto is_finite = [&channel](const std::string_view& probe)
     {
         return std::isfinite(
-            expression_evaluate(channel.from_byte_expression, probe, static_cast<int>(channel.decimal_precision)));
+            ExpressionEvaluate(channel.from_byte_expression, probe, static_cast<int>(channel.decimal_precision)));
     };
     constexpr std::array<std::string_view, 3> kProbes{"1", "16", "1616"};
     return std::ranges::any_of(kProbes, is_finite);
 }
 
-bool valid_address(LoggingProtocolId protocol, std::uint32_t address)
+bool ValidAddress(LoggingProtocolId protocol, std::uint32_t address)
 {
     switch (protocol)
     {
@@ -273,19 +273,19 @@ bool valid_address(LoggingProtocolId protocol, std::uint32_t address)
     return false;
 }
 
-bool valid_protocol(LoggingProtocolId protocol)
+bool ValidProtocol(LoggingProtocolId protocol)
 {
     return protocol == LoggingProtocolId::kSsm || protocol == LoggingProtocolId::kMutDma ||
            protocol == LoggingProtocolId::kCdbg;
 }
 
-bool valid_raw_assembly(RawAssembly raw_assembly)
+bool ValidRawAssembly(RawAssembly raw_assembly)
 {
     return raw_assembly == RawAssembly::kDecimalBytesConcatenated ||
            raw_assembly == RawAssembly::kUnsignedIntegerDecimal;
 }
 
-bool valid_wire_shape(LoggingProtocolId protocol, const std::vector<LoggingChannel>& channels)
+bool ValidWireShape(LoggingProtocolId protocol, const std::vector<LoggingChannel>& channels)
 {
     switch (protocol)
     {
@@ -313,7 +313,7 @@ bool valid_wire_shape(LoggingProtocolId protocol, const std::vector<LoggingChann
             wire_channels.push_back({channel.address, static_cast<bytes::Byte>(channel.length)});
         }
         std::vector<std::vector<mitsu_colt_can_cdbg::CdbgChannel>> frames;
-        return mitsu_colt_can_cdbg::batchChannelsIntoFrames(wire_channels, frames);
+        return mitsu_colt_can_cdbg::BatchChannelsIntoFrames(wire_channels, frames);
     }
     }
     return false;
@@ -326,22 +326,22 @@ LoggingSession::LoggingSession(LoggingProtocolId protocol, std::vector<LoggingCh
 {
 }
 
-LoggingProtocolId LoggingSession::protocol() const
+LoggingProtocolId LoggingSession::Protocol() const
 {
     return protocol_;
 }
 
-const std::vector<LoggingChannel>& LoggingSession::channels() const
+const std::vector<LoggingChannel>& LoggingSession::Channels() const
 {
     return channels_;
 }
 
-const LoggingPolicy& LoggingSession::policy() const
+const LoggingPolicy& LoggingSession::Policy() const
 {
     return policy_;
 }
 
-const LoggingChannel *LoggingSession::find_channel(std::string_view id) const
+const LoggingChannel *LoggingSession::FindChannel(std::string_view id) const
 {
     for (const LoggingChannel& channel : channels_)
     {
@@ -353,33 +353,33 @@ const LoggingChannel *LoggingSession::find_channel(std::string_view id) const
     return nullptr;
 }
 
-fastecu::Result<LoggingSession> make_logging_session(LoggingProtocolId protocol, std::vector<LoggingChannel> channels,
-                                                     LoggingPolicy policy)
+fastecu::Result<LoggingSession> MakeLoggingSession(LoggingProtocolId protocol, std::vector<LoggingChannel> channels,
+                                                   LoggingPolicy policy)
 {
-    if (!valid_protocol(protocol) || policy.poll_timeout <= 0ms || policy.car_silence_miss_threshold <= 0 ||
+    if (!ValidProtocol(protocol) || policy.poll_timeout <= 0ms || policy.car_silence_miss_threshold <= 0 ||
         policy.reconnect_attempt_threshold <= 0 || policy.reconnect_retry_period < 0)
     {
-        return fastecu::fail(fastecu::ErrorKind::kInvalidConfig, "invalid logging policy");
+        return fastecu::Fail(fastecu::ErrorKind::kInvalidConfig, "invalid logging policy");
     }
     if (protocol == LoggingProtocolId::kCdbg && channels.empty())
     {
-        return fastecu::fail(fastecu::ErrorKind::kInvalidConfig, "no CDBG log parameters selected");
+        return fastecu::Fail(fastecu::ErrorKind::kInvalidConfig, "no CDBG log parameters selected");
     }
 
     std::unordered_set<std::string> ids;
     for (const LoggingChannel& channel : channels)
     {
         if (channel.id.empty() || !ids.insert(channel.id).second || channel.length == 0 || channel.length > 255 ||
-            !valid_address(protocol, channel.address) || !valid_raw_assembly(channel.raw_assembly) ||
-            channel.decimal_precision > 15 || !valid_expression(channel))
+            !ValidAddress(protocol, channel.address) || !ValidRawAssembly(channel.raw_assembly) ||
+            channel.decimal_precision > 15 || !ValidExpression(channel))
         {
-            return fastecu::fail(fastecu::ErrorKind::kInvalidConfig, "invalid logging channel");
+            return fastecu::Fail(fastecu::ErrorKind::kInvalidConfig, "invalid logging channel");
         }
     }
 
-    if (!valid_wire_shape(protocol, channels))
+    if (!ValidWireShape(protocol, channels))
     {
-        return fastecu::fail(fastecu::ErrorKind::kInvalidConfig, "logging channels do not fit the selected protocol");
+        return fastecu::Fail(fastecu::ErrorKind::kInvalidConfig, "logging channels do not fit the selected protocol");
     }
 
     return LoggingSession(protocol, std::move(channels), policy);

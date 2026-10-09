@@ -16,7 +16,7 @@ using namespace std::literals::string_view_literals;
 namespace
 {
 
-void append_trailing_slash_if_missing(std::string& path)
+void AppendTrailingSlashIfMissing(std::string& path)
 {
     if (!path.empty() && path.back() != '/' && path.back() != '\\')
     {
@@ -26,9 +26,9 @@ void append_trailing_slash_if_missing(std::string& path)
 
 } // namespace
 
-Result<AppConfig> parse_app_config(const ConfigPaths& paths, IFileRepository& file_repository)
+Result<AppConfig> ParseAppConfig(const ConfigPaths& paths, IFileRepository& file_repository)
 {
-    Result<std::vector<std::uint8_t>> bytes = file_repository.read(paths.config_file);
+    Result<std::vector<std::uint8_t>> bytes = file_repository.Read(paths.config_file);
     if (!bytes.has_value())
     {
         return std::unexpected(bytes.error());
@@ -37,7 +37,7 @@ Result<AppConfig> parse_app_config(const ConfigPaths& paths, IFileRepository& fi
     pugi::xml_document doc;
     if (pugi::xml_parse_result parsed = doc.load_buffer(bytes->data(), bytes->size()); !parsed)
     {
-        return fail(ErrorKind::kInvalidConfig, std::format("config parse error: {}", parsed.description()));
+        return Fail(ErrorKind::kInvalidConfig, std::format("config parse error: {}", parsed.description()));
     }
 
     AppConfig config;
@@ -146,9 +146,9 @@ Result<AppConfig> parse_app_config(const ConfigPaths& paths, IFileRepository& fi
     return config;
 }
 
-Result<AppConfig> load_app_config(const ConfigPaths& paths, IFileRepository& file_repository)
+Result<AppConfig> LoadAppConfig(const ConfigPaths& paths, IFileRepository& file_repository)
 {
-    Result<AppConfig> config = parse_app_config(paths, file_repository);
+    Result<AppConfig> config = ParseAppConfig(paths, file_repository);
     if (!config.has_value())
     {
         return config;
@@ -157,15 +157,15 @@ Result<AppConfig> load_app_config(const ConfigPaths& paths, IFileRepository& fil
     // which rewrites the config file on every load. The save's result is
     // fire-and-forget; callers needing to observe it use parse_app_config
     // and save_app_config themselves (ConfigSession does).
-    std::ignore = save_app_config(*config, paths, file_repository);
+    std::ignore = SaveAppConfig(*config, paths, file_repository);
     return config;
 }
 
-Result<AppConfig> save_app_config(AppConfig config, const ConfigPaths& paths, IFileRepository& file_repository)
+Result<AppConfig> SaveAppConfig(AppConfig config, const ConfigPaths& paths, IFileRepository& file_repository)
 {
-    append_trailing_slash_if_missing(config.calibration_files_directory);
-    append_trailing_slash_if_missing(config.ecuflash_definition_files_directory);
-    append_trailing_slash_if_missing(config.datalog_files_directory);
+    AppendTrailingSlashIfMissing(config.calibration_files_directory);
+    AppendTrailingSlashIfMissing(config.ecuflash_definition_files_directory);
+    AppendTrailingSlashIfMissing(config.datalog_files_directory);
 
     pugi::xml_document doc;
     pugi::xml_node config_node = doc.append_child("config");
@@ -215,7 +215,7 @@ Result<AppConfig> save_app_config(AppConfig config, const ConfigPaths& paths, IF
     std::ostringstream stream;
     doc.save(stream, "    ");
     const std::string serialized = stream.str();
-    if (Status write_result = file_repository.write(
+    if (Status write_result = file_repository.Write(
             paths.config_file, std::span<const std::uint8_t>(reinterpret_cast<const std::uint8_t *>(serialized.data()),
                                                              serialized.size()));
         !write_result.has_value())

@@ -8,7 +8,7 @@ namespace
 {
 constexpr SingleWindowPlanCase kCase{
     .name = "SubaruDenso1n83m_4mCan",
-    .build = &build_subaru_denso_1n83m_4m_can_plan,
+    .build = &BuildSubaruDenso1n83m4mCanPlan,
     .protocol = "sub_ecu_denso_1n83m_4m_can",
     .mcu = "N83M_4MB",
     // "sub_ecu_denso_1n83m_1_5m_can" is the sibling family whose MCU
@@ -21,16 +21,16 @@ constexpr SingleWindowPlanCase kCase{
     .image_size = 0x3E4000,
 };
 
-INSTANTIATE_TEST_SUITE_P(SubaruDenso1n83m_4mCan, SingleWindowPlanContract, ::testing::Values(kCase), caseName);
+INSTANTIATE_TEST_SUITE_P(SubaruDenso1n83m_4mCan, SingleWindowPlanContract, ::testing::Values(kCase), CaseName);
 
 // The wire parameters are this family's own; they do not generalize.
 TEST(SubaruDenso1n83m_4mCanPlan, ReadPlanCarriesThisFamilysWireParameters)
 {
-    const auto plan = build_subaru_denso_1n83m_4m_can_plan(FlashOperation::kRead, "sub_ecu_denso_1n83m_4m_can",
-                                                           "N83M_4MB", std::nullopt);
+    const auto plan =
+        BuildSubaruDenso1n83m4mCanPlan(FlashOperation::kRead, "sub_ecu_denso_1n83m_4m_can", "N83M_4MB", std::nullopt);
 
     ASSERT_THAT(plan, fastecu::testing::IsOk());
-    const auto& family = std::get<SubaruDenso1n83m_4mCanPlan>(plan->family_plan());
+    const auto& family = std::get<SubaruDenso1n83m_4mCanPlan>(plan->FamilyPlan());
     EXPECT_EQ(family.request_id, 0x7e0U);
     EXPECT_EQ(family.response_id, 0x7e8U);
     EXPECT_EQ(family.bitrate, 500000);

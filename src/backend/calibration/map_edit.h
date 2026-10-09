@@ -51,7 +51,7 @@ enum class NumericTarget
     kYAxis,
 };
 
-EditTarget resolve_edit_target(const SelectionRange& selection, MapDimensions dims, std::string_view x_scale_type);
+EditTarget ResolveEditTarget(const SelectionRange& selection, MapDimensions dims, std::string_view x_scale_type);
 
 // Borrowed metadata for one element run. Keep its owning definition-field
 // snapshot alive for the whole call; do not store this view. Limit text comes
@@ -80,15 +80,15 @@ struct MapElementSpec
 
 // Checked layout arithmetic returns a sentinel on overflow. The independently
 // evidence-gated wrx02 read/write predicates remain distinct and pinned in tests.
-std::uint64_t element_byte_address(const MapElementSpec& spec, std::uint32_t index, bool for_write);
+std::uint64_t ElementByteAddress(const MapElementSpec& spec, std::uint32_t index, bool for_write);
 
 // Float reads return IEEE-754 bits, not a scaled numeric value. All integer
 // widths respect declared byte order; float storage remains big-endian.
-Result<std::int64_t> read_raw_element(bytes::ByteView rom_data, const MapElementSpec& spec, std::uint32_t index);
+Result<std::int64_t> ReadRawElement(bytes::ByteView rom_data, const MapElementSpec& spec, std::uint32_t index);
 
 // Packs already-encoded raw values. Numeric encoding checks range before
 // calling this primitive. Float raw values carry the stored bit pattern.
-Result<bytes::Bytes> write_raw_element(const MapElementSpec& spec, std::int64_t raw);
+Result<bytes::Bytes> WriteRawElement(const MapElementSpec& spec, std::int64_t raw);
 
 enum class IncrementStep
 {

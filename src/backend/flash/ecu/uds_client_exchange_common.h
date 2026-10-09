@@ -33,8 +33,8 @@ namespace fastecu::flash
 // power-cycle the unit. Cancellation therefore gets its own operator-facing
 // line instead. `operation` names what was being asked, phrased to read
 // after "during": "the erase trigger", "TransferData to 0x8000".
-Error report_exchange_failure(IEventSink& events, const Error& failure, std::string_view rejection_prefix,
-                              std::string_view operation);
+Error ReportExchangeFailure(IEventSink& events, const Error& failure, std::string_view rejection_prefix,
+                            std::string_view operation);
 
 // The context the CAN executors in this package thread through their
 // protocol routines: the ports they need plus the UDS client and the raw
@@ -68,19 +68,19 @@ concept WithEventSink = requires(const C& ctx) {
 // The three log shorthands every CAN executor in this package defined
 // identically. Templates rather than overloads on CanExecutorContext so the
 // three families with their own context shape use them unchanged.
-template <WithEventSink C> void info(const C& ctx, std::string_view message)
+template <WithEventSink C> void LogInfo(const C& ctx, std::string_view message)
 {
-    ctx.events.log(LogLevel::kInfo, message);
+    ctx.events.Log(LogLevel::kInfo, message);
 }
 
-template <WithEventSink C> void error(const C& ctx, std::string_view message)
+template <WithEventSink C> void LogError(const C& ctx, std::string_view message)
 {
-    ctx.events.log(LogLevel::kError, message);
+    ctx.events.Log(LogLevel::kError, message);
 }
 
-template <WithEventSink C> void debug(const C& ctx, std::string_view message)
+template <WithEventSink C> void LogDebug(const C& ctx, std::string_view message)
 {
-    ctx.events.log(LogLevel::kDebug, message);
+    ctx.events.Log(LogLevel::kDebug, message);
 }
 
 // The pieces every UdsClient-backed exchange below needs, bundled so call
@@ -97,7 +97,7 @@ struct UdsExchangeContext
 
 // Builds the UdsExchangeContext for one exchange. Every CAN executor in this
 // package repeated this four-member aggregate at each call.
-inline UdsExchangeContext exchange_context(const CanExecutorContext& ctx, const uds::ExchangePolicy& policy)
+inline UdsExchangeContext ExchangeContext(const CanExecutorContext& ctx, const uds::ExchangePolicy& policy)
 {
     return UdsExchangeContext{ctx.uds, policy, ctx.cancellation, ctx.events};
 }
@@ -107,16 +107,15 @@ inline UdsExchangeContext exchange_context(const CanExecutorContext& ctx, const 
 // error. The shape every fatal exchange uses except any whose expected
 // reply does not follow the standard SID+0x40 convention UdsClient itself
 // enforces (those go through uds::IUdsChannel directly).
-Result<bytes::Bytes> fatal_request(const UdsExchangeContext& ctx, bytes::ByteView pdu,
-                                   std::string_view rejection_prefix, std::string_view operation);
+Result<bytes::Bytes> FatalRequest(const UdsExchangeContext& ctx, bytes::ByteView pdu, std::string_view rejection_prefix,
+                                  std::string_view operation);
 
 // Sends `pdu` through `ctx.client`; on a mismatch or exchange failure, logs
 // and returns without halting the caller -- legacy's non-fatal identity-query
 // blocks (ECU/TCU ID, VIN, CAL ID, CVN, ...) never return early on these.
 // `label` names the field for the success log line ("ECU ID", "VIN", ...).
-void non_fatal_query(const UdsExchangeContext& ctx, bytes::ByteView pdu,
-                     std::optional<bytes::Byte> expected_subfunction, std::string_view rejection_prefix,
-                     std::string_view label);
+void NonFatalQuery(const UdsExchangeContext& ctx, bytes::ByteView pdu, std::optional<bytes::Byte> expected_subfunction,
+                   std::string_view rejection_prefix, std::string_view label);
 
 // The fatal counterpart to non_fatal_query: sends `pdu` via fatal_request,
 // then requires the response payload (uds::payload of the reply, i.e.
@@ -136,8 +135,8 @@ void non_fatal_query(const UdsExchangeContext& ctx, bytes::ByteView pdu,
 // BadResponse's detail. Callers that need the legacy-exact wording on any of
 // those three still have fatal_request plus their own hand-written check
 // available.
-Result<bytes::Bytes> fatal_query(const UdsExchangeContext& ctx, bytes::ByteView pdu, bytes::ByteView expected_prefix,
-                                 std::string_view rejection_prefix, std::string_view subject,
-                                 std::optional<std::size_t> min_payload_size = std::nullopt);
+Result<bytes::Bytes> FatalQuery(const UdsExchangeContext& ctx, bytes::ByteView pdu, bytes::ByteView expected_prefix,
+                                std::string_view rejection_prefix, std::string_view subject,
+                                std::optional<std::size_t> min_payload_size = std::nullopt);
 
 } // namespace fastecu::flash

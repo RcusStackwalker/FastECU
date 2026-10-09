@@ -38,82 +38,82 @@ constexpr SubaruUnisiaJecsM32rBootModeKernelPlan kKernelWire{
 constexpr SubaruUnisiaJecsM32rBootModeProgramPlan kProgramWire{
     .initial_baud = 19200, .tester_id = 0xf0, .target_id = 0x10};
 
-Result<Variant> find_variant(std::string_view protocol, std::string_view mcu)
+Result<Variant> FindVariant(std::string_view protocol, std::string_view mcu)
 {
     const auto variant = std::ranges::find(kVariants, protocol, &Variant::protocol);
     if (variant == kVariants.end() || variant->mcu != mcu)
     {
-        return fail(ErrorKind::kInvalidConfig,
+        return Fail(ErrorKind::kInvalidConfig,
                     std::format("Unisia Jecs M32R bootmode protocol '{}' does not match MCU '{}'", protocol, mcu));
     }
-    const FlashDevice *device = find_flash_device(mcu);
+    const FlashDevice *device = FindFlashDevice(mcu);
     if (device == nullptr || device->romsize != variant->rom_size)
     {
-        return fail(ErrorKind::kInvalidConfig, "Unisia Jecs M32R bootmode memory map is invalid");
+        return Fail(ErrorKind::kInvalidConfig, "Unisia Jecs M32R bootmode memory map is invalid");
     }
     return *variant;
 }
 
-Status check_operation(FlashOperation operation)
+Status CheckOperation(FlashOperation operation)
 {
     if (operation != FlashOperation::kWrite)
     {
-        return fail(ErrorKind::kUnsupported, "Unisia Jecs M32R bootmode supports only Write here");
+        return Fail(ErrorKind::kUnsupported, "Unisia Jecs M32R bootmode supports only Write here");
     }
     return {};
 }
 
-std::vector<ConfirmationSpec> voltage_confirmation()
+std::vector<ConfirmationSpec> VoltageConfirmation()
 {
     return {ConfirmationSpec{ConfirmationSpec::Id::kApplyBootModeVoltages, {}}};
 }
 
-bool has_only_voltage_confirmation(const FlashPlan& plan)
+bool HasOnlyVoltageConfirmation(const FlashPlan& plan)
 {
-    const auto& confirmations = plan.confirmations();
+    const auto& confirmations = plan.Confirmations();
     return confirmations.size() == 1 && confirmations[0].id == ConfirmationSpec::Id::kApplyBootModeVoltages;
 }
 
-template <typename Wire> bool wire_matches(const Wire& wire, const Wire& expected)
+template <typename Wire> bool WireMatches(const Wire& wire, const Wire& expected)
 {
     return wire.initial_baud == expected.initial_baud && wire.tester_id == expected.tester_id &&
            wire.target_id == expected.target_id;
 }
 
-Status validate_kernel(const FlashPlan& plan)
+Status ValidateKernel(const FlashPlan& plan)
 {
-    const auto *wire = std::get_if<SubaruUnisiaJecsM32rBootModeKernelPlan>(&plan.family_plan());
-    if (wire == nullptr || !wire_matches(*wire, kKernelWire))
+    const auto *wire = std::get_if<SubaruUnisiaJecsM32rBootModeKernelPlan>(&plan.FamilyPlan());
+    if (wire == nullptr || !WireMatches(*wire, kKernelWire))
     {
-        return fail(ErrorKind::kInvalidConfig, "Unisia Jecs M32R bootmode kernel wire parameters are invalid");
+        return Fail(ErrorKind::kInvalidConfig, "Unisia Jecs M32R bootmode kernel wire parameters are invalid");
     }
-    if (!plan.image().has_value() || plan.image()->empty() || plan.image()->size() % kChunk != 0 ||
-        plan.transfer_region() != MemoryRegion{0, static_cast<std::uint32_t>(plan.image()->size())})
+    if (!plan.Image().has_value() || plan.Image()->empty() || plan.Image()->size() % kChunk != 0 ||
+        plan.TransferRegion() != MemoryRegion{0, static_cast<std::uint32_t>(plan.Image()->size())})
     {
-        return fail(ErrorKind::kInvalidConfig, "Unisia Jecs M32R bootmode kernel image shape is invalid");
+        return Fail(ErrorKind::kInvalidConfig, "Unisia Jecs M32R bootmode kernel image shape is invalid");
     }
     return {};
 }
 
-Status validate_program(const FlashPlan& plan, const Variant& variant)
+Status ValidateProgram(const FlashPlan& plan, const Variant& variant)
 {
-    const auto *wire = std::get_if<SubaruUnisiaJecsM32rBootModeProgramPlan>(&plan.family_plan());
-    if (wire == nullptr || !wire_matches(*wire, kProgramWire))
+    const auto *wire = std::get_if<SubaruUnisiaJecsM32rBootModeProgramPlan>(&plan.FamilyPlan());
+    if (wire == nullptr || !WireMatches(*wire, kProgramWire))
     {
-        return fail(ErrorKind::kInvalidConfig, "Unisia Jecs M32R bootmode program wire parameters are invalid");
+        return Fail(ErrorKind::kInvalidConfig, "Unisia Jecs M32R bootmode program wire parameters are invalid");
     }
-    if (!plan.image().has_value() || plan.image()->size() != variant.rom_size ||
-        plan.transfer_region() != MemoryRegion{0, variant.rom_size})
+    if (!plan.Image().has_value() || plan.Image()->size() != variant.rom_size ||
+        plan.TransferRegion() != MemoryRegion{0, variant.rom_size})
     {
-        return fail(ErrorKind::kInvalidConfig, "Unisia Jecs M32R bootmode write image must be exactly the ROM size");
+        return Fail(ErrorKind::kInvalidConfig, "Unisia Jecs M32R bootmode write image must be exactly the ROM size");
     }
     return {};
 }
 
-Result<FlashPlan> build(FlashFamily family, const Variant& variant, bytes::Bytes image, FamilyPlan wire)
+Result<FlashPlan> Build(FlashFamily family, const Variant& variant, bytes::Bytes image, FamilyPlan wire)
 {
     const auto length = static_cast<std::uint32_t>(image.size());
-    auto plan = validate_and_build(FlashPlanFields{
+    auto plan = ValidateAndBuild(FlashPlanFields{
         .operation = FlashOperation::kWrite,
         .family = family,
         .transport = TransportKind::kKline,
@@ -124,13 +124,13 @@ Result<FlashPlan> build(FlashFamily family, const Variant& variant, bytes::Bytes
         .image = std::move(image),
         .kernel = std::nullopt,
         .family_plan = std::move(wire),
-        .confirmations = voltage_confirmation(),
+        .confirmations = VoltageConfirmation(),
     });
     if (!plan.has_value())
     {
         return std::unexpected(plan.error());
     }
-    if (Status valid = validate_subaru_unisia_jecs_m32r_bootmode_plan(*plan); !valid.has_value())
+    if (Status valid = ValidateSubaruUnisiaJecsM32rBootmodePlan(*plan); !valid.has_value())
     {
         return std::unexpected(valid.error());
     }
@@ -138,72 +138,70 @@ Result<FlashPlan> build(FlashFamily family, const Variant& variant, bytes::Bytes
 }
 } // namespace
 
-Status validate_subaru_unisia_jecs_m32r_bootmode_plan(const FlashPlan& plan)
+Status ValidateSubaruUnisiaJecsM32rBootmodePlan(const FlashPlan& plan)
 {
-    const bool kernel = plan.family() == FlashFamily::kSubaruUnisiaJecsM32rBootModeKernel;
-    if ((!kernel && plan.family() != FlashFamily::kSubaruUnisiaJecsM32rBootModeProgram) ||
-        plan.transport() != TransportKind::kKline)
+    const bool kernel = plan.Family() == FlashFamily::kSubaruUnisiaJecsM32rBootModeKernel;
+    if ((!kernel && plan.Family() != FlashFamily::kSubaruUnisiaJecsM32rBootModeProgram) ||
+        plan.Transport() != TransportKind::kKline)
     {
-        return fail(ErrorKind::kInvalidConfig, "plan is not for Subaru Unisia Jecs M32R bootmode");
+        return Fail(ErrorKind::kInvalidConfig, "plan is not for Subaru Unisia Jecs M32R bootmode");
     }
-    const auto variant = find_variant(plan.target_id(), plan.mcu_name());
+    const auto variant = FindVariant(plan.TargetId(), plan.McuName());
     if (!variant.has_value())
     {
         return std::unexpected(variant.error());
     }
-    if (Status operation = check_operation(plan.operation()); !operation.has_value())
+    if (Status operation = CheckOperation(plan.Operation()); !operation.has_value())
     {
         return operation;
     }
-    if (!plan.erase_regions().empty() || plan.kernel().has_value() || !has_only_voltage_confirmation(plan))
+    if (!plan.EraseRegions().empty() || plan.Kernel().has_value() || !HasOnlyVoltageConfirmation(plan))
     {
-        return fail(ErrorKind::kInvalidConfig, "Unisia Jecs M32R bootmode plan shape is invalid");
+        return Fail(ErrorKind::kInvalidConfig, "Unisia Jecs M32R bootmode plan shape is invalid");
     }
-    return kernel ? validate_kernel(plan) : validate_program(plan, *variant);
+    return kernel ? ValidateKernel(plan) : ValidateProgram(plan, *variant);
 }
 
-Result<FlashPlan> build_subaru_unisia_jecs_m32r_bootmode_kernel_plan(FlashOperation operation,
-                                                                     std::string_view protocol_name,
-                                                                     std::string_view mcu_type, bytes::Bytes kernel)
+Result<FlashPlan> BuildSubaruUnisiaJecsM32rBootmodeKernelPlan(FlashOperation operation, std::string_view protocol_name,
+                                                              std::string_view mcu_type, bytes::Bytes kernel)
 {
-    const auto variant = find_variant(protocol_name, mcu_type);
+    const auto variant = FindVariant(protocol_name, mcu_type);
     if (!variant.has_value())
     {
         return std::unexpected(variant.error());
     }
-    if (Status checked = check_operation(operation); !checked.has_value())
+    if (Status checked = CheckOperation(operation); !checked.has_value())
     {
         return std::unexpected(checked.error());
     }
     if (kernel.empty())
     {
-        return fail(ErrorKind::kInvalidConfig, "Unisia Jecs M32R bootmode kernel file is empty");
+        return Fail(ErrorKind::kInvalidConfig, "Unisia Jecs M32R bootmode kernel file is empty");
     }
     // upload_kernel() :312-315: zero-pad to whole 128-byte chunks.
     kernel.resize((kernel.size() + kChunk - 1) / kChunk * kChunk, 0x00);
-    return build(FlashFamily::kSubaruUnisiaJecsM32rBootModeKernel, *variant, std::move(kernel), kKernelWire);
+    return Build(FlashFamily::kSubaruUnisiaJecsM32rBootModeKernel, *variant, std::move(kernel), kKernelWire);
 }
 
-Result<FlashPlan> build_subaru_unisia_jecs_m32r_bootmode_program_plan(FlashOperation operation,
-                                                                      std::string_view protocol_name,
-                                                                      std::string_view mcu_type,
-                                                                      std::optional<bytes::Bytes> image)
+Result<FlashPlan> BuildSubaruUnisiaJecsM32rBootmodeProgramPlan(FlashOperation operation, std::string_view protocol_name,
+                                                               std::string_view mcu_type,
+                                                               std::optional<bytes::Bytes> image)
 {
-    const auto variant = find_variant(protocol_name, mcu_type);
+    const auto variant = FindVariant(protocol_name, mcu_type);
     if (!variant.has_value())
     {
         return std::unexpected(variant.error());
     }
-    if (Status checked = check_operation(operation); !checked.has_value())
+    if (Status checked = CheckOperation(operation); !checked.has_value())
     {
         return std::unexpected(checked.error());
     }
     if (!image.has_value() || image->size() != variant->rom_size)
     {
-        return fail(ErrorKind::kInvalidConfig,
+        return Fail(ErrorKind::kInvalidConfig,
                     std::format("{} write image must be exactly {} bytes, not {}", variant->protocol, variant->rom_size,
                                 image.has_value() ? image->size() : 0));
     }
-    return build(FlashFamily::kSubaruUnisiaJecsM32rBootModeProgram, *variant, std::move(*image), kProgramWire);
+    return Build(FlashFamily::kSubaruUnisiaJecsM32rBootModeProgram, *variant, std::move(*image), kProgramWire);
 }
 } // namespace fastecu::flash

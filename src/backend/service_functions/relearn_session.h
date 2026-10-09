@@ -26,10 +26,10 @@ class RelearnSession final : public ServiceFunctionSession
   public:
     explicit RelearnSession(std::string protocol);
 
-    Result<SsmTransportConfig> transport_setup() const override;
-    ServiceFunctionStep resume(ISsmTransport& transport, IClock& clock, const ICancellationToken& cancellation,
+    Result<SsmTransportConfig> TransportSetup() const override;
+    ServiceFunctionStep Resume(ISsmTransport& transport, IClock& clock, const ICancellationToken& cancellation,
                                IEventSink& events) override;
-    void submit(GateResponse response) override;
+    void Submit(GateResponse response) override;
 
   private:
     enum class Stage

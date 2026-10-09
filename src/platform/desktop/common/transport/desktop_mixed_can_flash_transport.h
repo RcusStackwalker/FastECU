@@ -20,20 +20,20 @@ class DesktopMixedCanFlashTransport final : public IMixedCanFlashTransport
     explicit DesktopMixedCanFlashTransport(SerialPortActions *serial);
     ~DesktopMixedCanFlashTransport() override;
 
-    Status reset_connection() override;
-    Status configure(const MixedCanConfig& config) override;
-    Status open() override;
-    Status close() override;
-    Status enter_raw_bootloader_mode() override;
-    Status clear_receive_buffer() override;
-    Status enter_iso15765_kernel_mode() override;
-    Status write_iso15765(bytes::ByteView data, const ICancellationToken& cancellation) override;
-    Result<std::optional<bytes::Bytes>> read_iso15765(std::chrono::milliseconds timeout,
-                                                      const ICancellationToken& cancellation) override;
-    Status write_raw(const cdbg::CanFrame& frame, const ICancellationToken& cancellation) override;
-    Result<std::optional<cdbg::CanFrame>> read_raw(std::chrono::milliseconds timeout,
-                                                   const ICancellationToken& cancellation) override;
-    void request_unblock() noexcept override;
+    Status ResetConnection() override;
+    Status Configure(const MixedCanConfig& config) override;
+    Status Open() override;
+    Status Close() override;
+    Status EnterRawBootloaderMode() override;
+    Status ClearReceiveBuffer() override;
+    Status EnterIso15765KernelMode() override;
+    Status WriteIso15765(bytes::ByteView data, const ICancellationToken& cancellation) override;
+    Result<std::optional<bytes::Bytes>> ReadIso15765(std::chrono::milliseconds timeout,
+                                                     const ICancellationToken& cancellation) override;
+    Status WriteRaw(const cdbg::CanFrame& frame, const ICancellationToken& cancellation) override;
+    Result<std::optional<cdbg::CanFrame>> ReadRaw(std::chrono::milliseconds timeout,
+                                                  const ICancellationToken& cancellation) override;
+    void RequestUnblock() noexcept override;
 
   private:
     enum class Mode
@@ -44,13 +44,13 @@ class DesktopMixedCanFlashTransport final : public IMixedCanFlashTransport
         kClosed,
     };
 
-    Status configure_iso(const MixedCanConfig& config);
-    Status configure_raw(const RawCanConfig& config);
-    Status transition_failure(Status status);
-    Status io_ready(Mode required_mode, std::string_view operation) const;
-    Status write_serial(bytes::ByteView data, const ICancellationToken& cancellation);
-    Result<std::optional<bytes::Bytes>> read_serial(std::chrono::milliseconds timeout,
-                                                    const ICancellationToken& cancellation);
+    Status ConfigureIso(const MixedCanConfig& config);
+    Status ConfigureRaw(const RawCanConfig& config);
+    Status TransitionFailure(Status status);
+    Status IoReady(Mode required_mode, std::string_view operation) const;
+    Status WriteSerial(bytes::ByteView data, const ICancellationToken& cancellation);
+    Result<std::optional<bytes::Bytes>> ReadSerial(std::chrono::milliseconds timeout,
+                                                   const ICancellationToken& cancellation);
 
     std::unique_ptr<SerialPortActions> owned_serial_;
     SerialPortActions *serial_ = nullptr;

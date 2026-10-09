@@ -7,30 +7,30 @@ using namespace mutdma;
 TEST(TestCodec, sum8_wraps)
 {
     const bytes::Bytes b = {0x01, 0x02, 0x03, 0x04};
-    ASSERT_EQ(sum8(b), bytes::Byte(0x0A));
+    ASSERT_EQ(Sum8(b), bytes::Byte(0x0A));
     const bytes::Bytes big = {0xFF, 0xFF, 0xFF}; // 0x2FD -> 0xFD
-    ASSERT_EQ(sum8(big), bytes::Byte(0xFD));
+    ASSERT_EQ(Sum8(big), bytes::Byte(0xFD));
 }
 
 TEST(TestCodec, command_frame_layout)
 {
     const bytes::Bytes payload = {0xAA, 0xBB};
-    const MutDmaFrame f = buildCommandFrame(0x81, payload, kTrailerStd);
+    const MutDmaFrame f = BuildCommandFrame(0x81, payload, kTrailerStd);
     ASSERT_EQ(static_cast<int>(f.size()), kFrameLen); // 51
     ASSERT_EQ(f[0], bytes::Byte(0x81));               // cmd
     ASSERT_EQ(f[1], bytes::Byte(0xAA));               // payload
     ASSERT_EQ(f[2], bytes::Byte(0xBB));
     ASSERT_EQ(f[3], bytes::Byte(0x00)); // zero pad
-    ASSERT_EQ(f[49], sum8(f, 0, 49));   // checksum over bytes 0..48
+    ASSERT_EQ(f[49], Sum8(f, 0, 49));   // checksum over bytes 0..48
     ASSERT_EQ(f[50], kTrailerStd);
 }
 
 TEST(TestCodec, verify_accepts_built_frame)
 {
-    MutDmaFrame f = buildCommandFrame(0xA0, bytes::Bytes{0x04}, kTrailerFreeform);
-    ASSERT_TRUE(verifyFrame(f));
+    MutDmaFrame f = BuildCommandFrame(0xA0, bytes::Bytes{0x04}, kTrailerFreeform);
+    ASSERT_TRUE(VerifyFrame(f));
     f[49] = static_cast<bytes::Byte>(f[49] ^ 0xFFU); // corrupt checksum
-    ASSERT_FALSE(verifyFrame(f));
+    ASSERT_FALSE(VerifyFrame(f));
 }
 
 TEST(TestCodec, stream_frame_parse)
@@ -39,26 +39,26 @@ TEST(TestCodec, stream_frame_parse)
     const bytes::Bytes data = {0x12, 0x34, 0x00, 0x56};
     bytes::Bytes f = {0x51};
     f.insert(f.end(), data.begin(), data.end());
-    f.push_back(sum8(f));
+    f.push_back(Sum8(f));
     f.push_back(kTrailerStd);
-    StreamFrame s = parseStreamFrame(f);
+    StreamFrame s = ParseStreamFrame(f);
     ASSERT_TRUE(s.ok);
     ASSERT_EQ(s.log_id, bytes::Byte(0x51));
     ASSERT_TRUE(s.data == data);
     f[f.size() - 2] = static_cast<bytes::Byte>(f[f.size() - 2] ^ 0xFFU); // corrupt checksum
-    ASSERT_FALSE(parseStreamFrame(f).ok);
+    ASSERT_FALSE(ParseStreamFrame(f).ok);
 }
 
 TEST(TestCodec, verify_rejectsWrongLengthAndTrailer)
 {
-    ASSERT_FALSE(verifyFrame(bytes::Bytes{}));
-    MutDmaFrame frame = buildCommandFrame(0x81, bytes::Bytes{}, kTrailerStd);
+    ASSERT_FALSE(VerifyFrame(bytes::Bytes{}));
+    MutDmaFrame frame = BuildCommandFrame(0x81, bytes::Bytes{}, kTrailerStd);
     frame[kTrailerOffset] = 0x00;
-    ASSERT_FALSE(verifyFrame(frame));
+    ASSERT_FALSE(VerifyFrame(frame));
 }
 
 TEST(TestCodec, stream_frame_rejectsTruncatedAndWrongTrailer)
 {
-    ASSERT_FALSE(parseStreamFrame(bytes::Bytes{0x51, 0x51}).ok);
-    ASSERT_FALSE(parseStreamFrame(bytes::Bytes{0x51, 0x51, 0x00}).ok);
+    ASSERT_FALSE(ParseStreamFrame(bytes::Bytes{0x51, 0x51}).ok);
+    ASSERT_FALSE(ParseStreamFrame(bytes::Bytes{0x51, 0x51, 0x00}).ok);
 }

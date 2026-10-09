@@ -46,10 +46,10 @@ struct MapColorBounds
     double maximum{0};
 };
 
-Result<MapPresentation> present_map(const calibration::CalibrationSession& session, std::size_t index);
-QString format_map_value(double value, const QString& format);
-int selection_index(const PresentedCell& cell);
-std::optional<MapColorBounds> opening_color_bounds(const MapPresentation& map);
-QColor map_cell_color(double value, MapColorBounds bounds);
+Result<MapPresentation> presentMap(const calibration::CalibrationSession& session, std::size_t index);
+QString formatMapValue(double value, const QString& format);
+int selectionIndex(const PresentedCell& cell);
+std::optional<MapColorBounds> openingColorBounds(const MapPresentation& map);
+QColor mapCellColor(double value, MapColorBounds bounds);
 
 } // namespace fastecu::ui

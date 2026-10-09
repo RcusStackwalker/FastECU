@@ -35,7 +35,7 @@ class ScopedSigintHandler
 
 volatile std::sig_atomic_t g_previous_handler_calls = 0;
 
-extern "C" void record_previous_handler(int /*signal*/)
+extern "C" void RecordPreviousHandler(int /*signal*/)
 {
     g_previous_handler_calls = 1;
 }
@@ -45,18 +45,18 @@ TEST(SigintCancellationToken, SigintRequestsCancellation)
     const ScopedSigintHandler ignore_sigint(SIG_IGN);
     SigintCancellationToken cancellation;
 
-    EXPECT_FALSE(cancellation.cancelled());
+    EXPECT_FALSE(cancellation.Cancelled());
     ASSERT_EQ(std::raise(SIGINT), 0);
-    EXPECT_TRUE(cancellation.cancelled());
+    EXPECT_TRUE(cancellation.Cancelled());
 }
 
 TEST(SigintCancellationToken, DestructionRestoresThePreviousHandler)
 {
     g_previous_handler_calls = 0;
-    const ScopedSigintHandler record_sigint(record_previous_handler);
+    const ScopedSigintHandler record_sigint(RecordPreviousHandler);
     {
         SigintCancellationToken cancellation;
-        EXPECT_FALSE(cancellation.cancelled());
+        EXPECT_FALSE(cancellation.Cancelled());
     }
 
     ASSERT_EQ(std::raise(SIGINT), 0);

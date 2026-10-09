@@ -36,13 +36,15 @@ class DtcWorker final : public QThread
     DtcWorker& operator=(const DtcWorker&) = delete;
 
     // Safe from any thread, any number of times, before or after start().
-    void requestStop();
+    void RequestStop();
 
   signals:
+    // NOLINTBEGIN(readability-identifier-naming): Qt signals keep Qt's camelBack names
     void logEvent(int level, QString message);
     // Emitted exactly once per run(), from the worker thread. Named
     // `completed` so it does not overload QThread::finished().
     void completed(fastecu::diagnostics::DtcWorkerResult result);
+    // NOLINTEND(readability-identifier-naming)
 
   protected:
     void run() override;

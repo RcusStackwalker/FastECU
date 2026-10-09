@@ -81,26 +81,26 @@ class CalibrationSession
   public:
     CalibrationSession(SessionId id, SessionContents contents);
 
-    SessionId id() const;
-    const RomSource& source() const;
-    bytes::ByteView rom() const;
-    const ResolvedDefinition *definition() const;
-    const RomProtocolInfo& protocol() const;
-    void set_protocol(RomProtocolInfo protocol);
+    SessionId Id() const;
+    const RomSource& Source() const;
+    bytes::ByteView Rom() const;
+    const ResolvedDefinition *Definition() const;
+    const RomProtocolInfo& Protocol() const;
+    void SetProtocol(RomProtocolInfo protocol);
     // True once any write_bytes succeeded since the last save.
-    bool dirty() const;
+    bool Dirty() const;
     // Updates the saved path and basename, clears dirty, and preserves origin.
-    void mark_saved(std::string_view path);
+    void MarkSaved(std::string_view path);
 
     // Cells and axes of definition()->definition.maps[map_index], decoded from
     // the current bytes. InvalidConfig for an index past the last map or a
     // session without a definition or unusable layout. Computation errors are
     // retained per numeric cell in the typed snapshot.
-    Result<DecodedMap> decode_map(std::size_t map_index) const;
+    Result<DecodedMap> DecodeMap(std::size_t map_index) const;
 
     // The only mutation of the bytes. The whole of `data` must land inside the
     // image; a write that would not is rejected and changes nothing.
-    Status write_bytes(std::uint64_t offset, bytes::ByteView data);
+    Status WriteBytes(std::uint64_t offset, bytes::ByteView data);
 
   private:
     SessionId id_;

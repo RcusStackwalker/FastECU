@@ -5,12 +5,12 @@ using namespace mitsu_colt_can_cdbg;
 TEST(TestMitsuColtCanCdbgProtocol, init_frame_layout)
 {
     const CdbgFrame expected{0x01, 0x01, 0, 0, 0, 0, 0, 0};
-    ASSERT_TRUE(buildInitFrame() == expected);
+    ASSERT_TRUE(BuildInitFrame() == expected);
 }
 TEST(TestMitsuColtCanCdbgProtocol, security_seed_request_frame_layout)
 {
     const CdbgFrame expected{0x12, 0, 0x02, 0, 0, 0, 0, 0};
-    ASSERT_TRUE(buildSecuritySeedRequestFrame() == expected);
+    ASSERT_TRUE(BuildSecuritySeedRequestFrame() == expected);
 }
 TEST(TestMitsuColtCanCdbgProtocol, seed_to_key_matches_known_vectors_across_all_parity_branches)
 {
@@ -18,65 +18,65 @@ TEST(TestMitsuColtCanCdbgProtocol, seed_to_key_matches_known_vectors_across_all_
     // (per-byte increment keyed on low 2 bits, 8-bit rotate-left-3, then a
     // parity-keyed byte permutation, then two 16-bit multiply-accumulates).
     // Each case below exercises a different parity (0-4) branch.
-    ASSERT_EQ(seedToKey(0x00000000), std::uint32_t(0xAA04C31C)); // parity 0
-    ASSERT_EQ(seedToKey(0x00000009), std::uint32_t(0x2104C31C)); // parity 1
-    ASSERT_EQ(seedToKey(0x12345678), std::uint32_t(0x8C536B33)); // parity 2
-    ASSERT_EQ(seedToKey(0x00090914), std::uint32_t(0x1E0C3241)); // parity 3
-    ASSERT_EQ(seedToKey(0x09090909), std::uint32_t(0x1B632D75)); // parity 4 (default branch)
-    ASSERT_EQ(seedToKey(0xD61B2EEA), std::uint32_t(0xBA80A2C1)); // live ECU log sample
+    ASSERT_EQ(SeedToKey(0x00000000), std::uint32_t(0xAA04C31C)); // parity 0
+    ASSERT_EQ(SeedToKey(0x00000009), std::uint32_t(0x2104C31C)); // parity 1
+    ASSERT_EQ(SeedToKey(0x12345678), std::uint32_t(0x8C536B33)); // parity 2
+    ASSERT_EQ(SeedToKey(0x00090914), std::uint32_t(0x1E0C3241)); // parity 3
+    ASSERT_EQ(SeedToKey(0x09090909), std::uint32_t(0x1B632D75)); // parity 4 (default branch)
+    ASSERT_EQ(SeedToKey(0xD61B2EEA), std::uint32_t(0xBA80A2C1)); // live ECU log sample
 }
 TEST(TestMitsuColtCanCdbgProtocol, extract_seed_reads_big_endian_bytes_4_to_7)
 {
     const CdbgFrame reply{0, 0, 0, 0, 0x12, 0x34, 0x56, 0x78};
-    ASSERT_EQ(extractSeed(reply), std::uint32_t(0x12345678));
+    ASSERT_EQ(ExtractSeed(reply), std::uint32_t(0x12345678));
 }
 TEST(TestMitsuColtCanCdbgProtocol, extract_seed_returns_zero_for_short_reply)
 {
     const bytes::Bytes reply{0x00, 0x11, 0x22};
-    ASSERT_EQ(extractSeed(reply), std::uint32_t(0));
+    ASSERT_EQ(ExtractSeed(reply), std::uint32_t(0));
 }
 TEST(TestMitsuColtCanCdbgProtocol, security_key_frame_layout)
 {
     const CdbgFrame expected{0x13, 0, 0x8C, 0x53, 0x6B, 0x33, 0, 0};
-    ASSERT_TRUE(buildSecurityKeyFrame(0x8C536B33) == expected);
+    ASSERT_TRUE(BuildSecurityKeyFrame(0x8C536B33) == expected);
 }
 TEST(TestMitsuColtCanCdbgProtocol, security_granted_checks_byte_3)
 {
     const CdbgFrame granted{0, 0, 0, 1, 0, 0, 0, 0};
     const CdbgFrame live_granted{0xFF, 0, 0, 2, 0xD6, 0x1B, 0x2E, 0xEA};
     const CdbgFrame denied{0, 0, 0, 0, 0, 0, 0, 0};
-    ASSERT_TRUE(securityGranted(granted));
-    ASSERT_TRUE(securityGranted(live_granted));
-    ASSERT_TRUE(!securityGranted(denied));
+    ASSERT_TRUE(SecurityGranted(granted));
+    ASSERT_TRUE(SecurityGranted(live_granted));
+    ASSERT_TRUE(!SecurityGranted(denied));
 }
 TEST(TestMitsuColtCanCdbgProtocol, security_granted_false_for_short_reply)
 {
     const bytes::Bytes reply{0x00, 0x11};
-    ASSERT_TRUE(!securityGranted(reply));
+    ASSERT_TRUE(!SecurityGranted(reply));
 }
 TEST(TestMitsuColtCanCdbgProtocol, log_reset_frame_layout)
 {
     const CdbgFrame instance0{0x14, 0, 0, 0, 0, 0, 0x06, 0x31};
     const CdbgFrame instance2{0x14, 0, 2, 0, 0, 0, 0x06, 0x31};
-    ASSERT_TRUE(buildLogResetFrame(0) == instance0);
-    ASSERT_TRUE(buildLogResetFrame(2) == instance2);
+    ASSERT_TRUE(BuildLogResetFrame(0) == instance0);
+    ASSERT_TRUE(BuildLogResetFrame(2) == instance2);
 }
 TEST(TestMitsuColtCanCdbgProtocol, log_start_frame_uses_milliseconds_when_it_fits_in_16_bits)
 {
     const CdbgFrame expected{0x06, 0, 1, 0, 1, 0, 0, 0x0A};
-    ASSERT_TRUE(buildLogStartFrame(0, 1, 10) == expected);
+    ASSERT_TRUE(BuildLogStartFrame(0, 1, 10) == expected);
 }
 TEST(TestMitsuColtCanCdbgProtocol, log_start_frame_switches_to_tens_of_ms_above_65535)
 {
     // 100000 ms > 65535, so unit flag = 1 and the field carries 100000/10 = 10000 = 0x2710.
     const CdbgFrame expected{0x06, 0, 1, 0, 3, 1, 0x27, 0x10};
-    ASSERT_TRUE(buildLogStartFrame(0, 3, 100000) == expected);
+    ASSERT_TRUE(BuildLogStartFrame(0, 3, 100000) == expected);
 }
 TEST(TestMitsuColtCanCdbgProtocol, batching_packs_channels_into_one_frame_when_they_fit)
 {
     std::vector<CdbgChannel> channels = {{0x804FBF, 1}, {0x804DF2, 2}};
     std::vector<std::vector<CdbgChannel>> frames;
-    ASSERT_TRUE(batchChannelsIntoFrames(channels, frames));
+    ASSERT_TRUE(BatchChannelsIntoFrames(channels, frames));
     ASSERT_EQ(frames.size(), 1U);
     ASSERT_EQ(frames.at(0).size(), 2U);
 }
@@ -88,7 +88,7 @@ TEST(TestMitsuColtCanCdbgProtocol, batching_starts_a_new_frame_when_the_next_cha
     // along with the following 2-byte channel (5+2=7 <= 8).
     std::vector<CdbgChannel> channels = {{0x804FBF, 4}, {0x804DF2, 4}, {0x8054AC, 2}};
     std::vector<std::vector<CdbgChannel>> frames;
-    ASSERT_TRUE(batchChannelsIntoFrames(channels, frames));
+    ASSERT_TRUE(BatchChannelsIntoFrames(channels, frames));
     ASSERT_EQ(frames.size(), 2U);
     ASSERT_EQ(frames.at(0).size(), 1U);
     ASSERT_EQ(frames.at(1).size(), 2U);
@@ -97,7 +97,7 @@ TEST(TestMitsuColtCanCdbgProtocol, batching_rejects_empty_channel_list)
 {
     std::vector<CdbgChannel> channels;
     std::vector<std::vector<CdbgChannel>> frames;
-    ASSERT_TRUE(!batchChannelsIntoFrames(channels, frames));
+    ASSERT_TRUE(!BatchChannelsIntoFrames(channels, frames));
 }
 TEST(TestMitsuColtCanCdbgProtocol, batching_rejects_more_than_kMaxFrames_frames)
 {
@@ -110,12 +110,12 @@ TEST(TestMitsuColtCanCdbgProtocol, batching_rejects_more_than_kMaxFrames_frames)
         channels.push_back(CdbgChannel{std::uint32_t(0x800000 + i), 4});
     }
     std::vector<std::vector<CdbgChannel>> frames;
-    ASSERT_TRUE(!batchChannelsIntoFrames(channels, frames));
+    ASSERT_TRUE(!BatchChannelsIntoFrames(channels, frames));
 }
 TEST(TestMitsuColtCanCdbgProtocol, frame_init_frames_layout_for_two_items)
 {
     std::vector<CdbgChannel> frame_items = {{0x804FBF, 1}, {0x804DF2, 2}};
-    const std::vector<CdbgFrame> cmds = buildFrameInitFrames(0, 0, frame_items);
+    const std::vector<CdbgFrame> cmds = BuildFrameInitFrames(0, 0, frame_items);
     ASSERT_EQ(cmds.size(), std::size_t(4));
     const CdbgFrame select0{0x15, 0, 0, 0, 0, 0, 0, 0};
     const CdbgFrame pointer0{0x16, 0, 1, 0, 0, 0x80, 0x4F, 0xBF};
@@ -130,7 +130,7 @@ TEST(TestMitsuColtCanCdbgProtocol, decode_frame_reads_big_endian_values_at_the_r
 {
     std::vector<CdbgChannel> frame_items = {{0x804FBF, 1}, {0x804DF2, 2}};
     const CdbgFrame frame{0, 0x2A, 0x12, 0x34, 0, 0, 0, 0};
-    std::vector<std::uint32_t> values = decodeFrame(0, frame_items, frame);
+    std::vector<std::uint32_t> values = DecodeFrame(0, frame_items, frame);
     ASSERT_EQ(values.size(), 2U);
     ASSERT_EQ(values.at(0), std::uint32_t(0x2A));
     ASSERT_EQ(values.at(1), std::uint32_t(0x1234));
@@ -139,11 +139,11 @@ TEST(TestMitsuColtCanCdbgProtocol, decode_frame_rejects_mismatched_frame_index)
 {
     std::vector<CdbgChannel> frame_items = {{0x804FBF, 1}};
     const CdbgFrame frame{1, 0x2A, 0, 0, 0, 0, 0, 0}; // index byte is 1, not 0
-    ASSERT_TRUE(decodeFrame(0, frame_items, frame).empty());
+    ASSERT_TRUE(DecodeFrame(0, frame_items, frame).empty());
 }
 TEST(TestMitsuColtCanCdbgProtocol, decode_frame_rejects_too_short_frame)
 {
     std::vector<CdbgChannel> frame_items = {{0x804FBF, 4}};
     const bytes::Bytes frame{0x00, 0x11}; // needs 1+4=5 bytes, only has 2
-    ASSERT_TRUE(decodeFrame(0, frame_items, frame).empty());
+    ASSERT_TRUE(DecodeFrame(0, frame_items, frame).empty());
 }

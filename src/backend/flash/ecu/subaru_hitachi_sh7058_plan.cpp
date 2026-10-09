@@ -15,82 +15,82 @@ constexpr std::string_view kMcu = "SH7058_1block";
 constexpr std::uint32_t kSize = 0x100000;
 } // namespace
 
-Status validate_subaru_hitachi_sh7058_plan(const FlashPlan& plan)
+Status ValidateSubaruHitachiSh7058Plan(const FlashPlan& plan)
 {
-    if (plan.family() != FlashFamily::kSubaruHitachiSh7058 || plan.target_id() != kProtocol || plan.mcu_name() != kMcu)
+    if (plan.Family() != FlashFamily::kSubaruHitachiSh7058 || plan.TargetId() != kProtocol || plan.McuName() != kMcu)
     {
-        return fail(ErrorKind::kInvalidConfig, "invalid SH7058 identity");
+        return Fail(ErrorKind::kInvalidConfig, "invalid SH7058 identity");
     }
-    if (plan.operation() == FlashOperation::kTestWrite)
+    if (plan.Operation() == FlashOperation::kTestWrite)
     {
-        return fail(ErrorKind::kUnsupported, "SH7058 test write performs a live erase and is unsupported");
+        return Fail(ErrorKind::kUnsupported, "SH7058 test write performs a live erase and is unsupported");
     }
-    const bool read = plan.operation() == FlashOperation::kRead;
-    if (read ? (plan.transport() != TransportKind::kKline ||
-                !std::holds_alternative<SubaruHitachiSh7058KlinePlan>(plan.family_plan()))
-             : (plan.transport() != TransportKind::kCanIso15765 ||
-                !std::holds_alternative<SubaruHitachiSh7058CanPlan>(plan.family_plan())))
+    const bool read = plan.Operation() == FlashOperation::kRead;
+    if (read ? (plan.Transport() != TransportKind::kKline ||
+                !std::holds_alternative<SubaruHitachiSh7058KlinePlan>(plan.FamilyPlan()))
+             : (plan.Transport() != TransportKind::kCanIso15765 ||
+                !std::holds_alternative<SubaruHitachiSh7058CanPlan>(plan.FamilyPlan())))
     {
-        return fail(ErrorKind::kInvalidConfig, "invalid SH7058 transport variant");
+        return Fail(ErrorKind::kInvalidConfig, "invalid SH7058 transport variant");
     }
     if (read)
     {
-        const auto& p = std::get<SubaruHitachiSh7058KlinePlan>(plan.family_plan());
+        const auto& p = std::get<SubaruHitachiSh7058KlinePlan>(plan.FamilyPlan());
         if (p.initial_baud != 4800 || p.tester_id != 0xf0 || p.target_id != 0x10 || p.page_size != 0x80)
         {
-            return fail(ErrorKind::kInvalidConfig, "invalid SH7058 K-Line parameters");
+            return Fail(ErrorKind::kInvalidConfig, "invalid SH7058 K-Line parameters");
         }
     }
     else
     {
-        const auto& p = std::get<SubaruHitachiSh7058CanPlan>(plan.family_plan());
+        const auto& p = std::get<SubaruHitachiSh7058CanPlan>(plan.FamilyPlan());
         if (p.bitrate != 500000 || p.request_id != 0x7e0 || p.response_id != 0x7e8 || p.extended_id ||
             p.frame_size != 0x100)
         {
-            return fail(ErrorKind::kInvalidConfig, "invalid SH7058 CAN parameters");
+            return Fail(ErrorKind::kInvalidConfig, "invalid SH7058 CAN parameters");
         }
     }
-    if (plan.transfer_region().start != (read ? kSize : 0) || plan.transfer_region().length != kSize ||
-        plan.image().has_value() != !read || (!read && plan.image()->size() != kSize) || plan.kernel().has_value() ||
-        (!read && (plan.erase_regions().size() != 1 || plan.erase_regions()[0].start != 0 ||
-                   plan.erase_regions()[0].length != kSize)) ||
-        (read && !plan.erase_regions().empty()))
+    if (plan.TransferRegion().start != (read ? kSize : 0) || plan.TransferRegion().length != kSize ||
+        plan.Image().has_value() != !read || (!read && plan.Image()->size() != kSize) || plan.Kernel().has_value() ||
+        (!read && (plan.EraseRegions().size() != 1 || plan.EraseRegions()[0].start != 0 ||
+                   plan.EraseRegions()[0].length != kSize)) ||
+        (read && !plan.EraseRegions().empty()))
     {
-        return fail(ErrorKind::kInvalidConfig, "invalid SH7058 flash geometry");
+        return Fail(ErrorKind::kInvalidConfig, "invalid SH7058 flash geometry");
     }
-    const auto confirmations = plan.confirmations();
+    const auto confirmations = plan.Confirmations();
     const bool exactly_start_read = confirmations.size() == 1 &&
                                     confirmations.front().id == ConfirmationSpec::Id::kStartKlineRead &&
                                     confirmations.front().arguments.empty();
     if (read ? !exactly_start_read : !confirmations.empty())
     {
-        return fail(ErrorKind::kInvalidConfig,
+        return Fail(ErrorKind::kInvalidConfig,
                     "SH7058 Read requires exactly the StartKlineRead confirmation; Write requires none");
     }
     return {};
 }
 
-Result<FlashPlan> build_subaru_hitachi_sh7058_plan(FlashOperation operation, std::string_view protocol,
-                                                   std::string_view mcu, std::optional<bytes::Bytes> image)
+Result<FlashPlan> BuildSubaruHitachiSh7058Plan(FlashOperation operation, std::string_view protocol,
+                                               std::string_view mcu, std::optional<bytes::Bytes> image)
 {
     if (protocol != kProtocol || mcu != kMcu)
     {
-        return fail(ErrorKind::kInvalidConfig, "unsupported SH7058 protocol or MCU");
+        return Fail(ErrorKind::kInvalidConfig, "unsupported SH7058 protocol or MCU");
     }
-    const FlashDevice *device = find_flash_device(kMcu);
+    const FlashDevice *device = FindFlashDevice(kMcu);
     if (device == nullptr || device->romsize != kSize || device->numblocks != 1 || device->fblocks == nullptr ||
         device->fblocks[0].start != 0 || device->fblocks[0].len != kSize)
     {
-        return fail(ErrorKind::kInvalidConfig, "invalid SH7058 device geometry");
+        return Fail(ErrorKind::kInvalidConfig, "invalid SH7058 device geometry");
     }
     if (operation == FlashOperation::kTestWrite)
     {
-        return fail(ErrorKind::kUnsupported, "SH7058 test write performs a live erase and is unsupported");
+        return Fail(ErrorKind::kUnsupported, "SH7058 test write performs a live erase and is unsupported");
     }
     const bool read = operation == FlashOperation::kRead;
     if (read ? image.has_value() : (!image.has_value() || image->size() != kSize))
     {
-        return fail(ErrorKind::kInvalidConfig, "SH7058 ROM image must be exactly 1 MiB for write");
+        return Fail(ErrorKind::kInvalidConfig, "SH7058 ROM image must be exactly 1 MiB for write");
     }
     FlashPlanFields fields{
         .operation = operation,
@@ -107,12 +107,12 @@ Result<FlashPlan> build_subaru_hitachi_sh7058_plan(FlashOperation operation, std
             read ? std::vector<ConfirmationSpec>{ConfirmationSpec{.id = ConfirmationSpec::Id::kStartKlineRead}}
                  : std::vector<ConfirmationSpec>{},
     };
-    auto plan = validate_and_build(std::move(fields));
+    auto plan = ValidateAndBuild(std::move(fields));
     if (!plan.has_value())
     {
         return std::unexpected(plan.error());
     }
-    if (auto valid = validate_subaru_hitachi_sh7058_plan(*plan); !valid.has_value())
+    if (auto valid = ValidateSubaruHitachiSh7058Plan(*plan); !valid.has_value())
     {
         return std::unexpected(valid.error());
     }

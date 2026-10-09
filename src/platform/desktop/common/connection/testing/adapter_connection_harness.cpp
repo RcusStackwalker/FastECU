@@ -16,7 +16,7 @@ AdapterConnectionHarness::AdapterConnectionHarness()
 {
     // The facade creates its backend on the first marshaled call; this one
     // is otherwise inert.
-    if (!serial_->set_add_ssm_header(false))
+    if (!serial_->SetAddSsmHeader(false))
     {
         fake_ = nullptr;
     }

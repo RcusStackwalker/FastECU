@@ -25,9 +25,9 @@ struct DesktopLoggingSnapshot
     bool target_is_ecu = true;
 };
 
-fastecu::Result<DesktopLoggingSnapshot> make_desktop_logging_snapshot(const fastecu::logging::LoggerModel& model,
-                                                                      fastecu::logging::LoggingProtocolId protocol,
-                                                                      const QString& protocol_filter,
-                                                                      fastecu::logging::LoggingPolicy policy);
+fastecu::Result<DesktopLoggingSnapshot> MakeDesktopLoggingSnapshot(const fastecu::logging::LoggerModel& model,
+                                                                   fastecu::logging::LoggingProtocolId protocol,
+                                                                   const QString& protocol_filter,
+                                                                   fastecu::logging::LoggingPolicy policy);
 
 } // namespace fastecu::desktop::logging

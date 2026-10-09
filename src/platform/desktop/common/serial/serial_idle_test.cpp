@@ -20,22 +20,22 @@ TEST(SerialIdleTest, resetsTheConnectionThenRestoresTheIdleLineSettingsInOrder)
                                  fake = new NiceFakeBackend;
                                  return fake;
                              }};
-    ASSERT_TRUE(serial.set_add_ssm_header(false)); // forces the backend into existence
+    ASSERT_TRUE(serial.SetAddSsmHeader(false)); // forces the backend into existence
     ASSERT_TRUE(fake != nullptr);
 
     {
         ::testing::InSequence sequence;
-        EXPECT_CALL(*fake, reset_connection());
-        EXPECT_CALL(*fake, set_is_iso14230_connection(false));
-        EXPECT_CALL(*fake, set_is_29_bit_id(false));
-        EXPECT_CALL(*fake, set_add_iso14230_header(false));
-        EXPECT_CALL(*fake, set_is_can_connection(false));
-        EXPECT_CALL(*fake, set_is_iso15765_connection(false));
-        EXPECT_CALL(*fake, set_serial_port_parity(static_cast<std::uint8_t>(QSerialPort::NoParity)));
-        EXPECT_CALL(*fake, set_serial_port_baudrate(QStringLiteral("4800")));
+        EXPECT_CALL(*fake, ResetConnection());
+        EXPECT_CALL(*fake, SetIsIso14230Connection(false));
+        EXPECT_CALL(*fake, SetIs29BitId(false));
+        EXPECT_CALL(*fake, SetAddIso14230Header(false));
+        EXPECT_CALL(*fake, SetIsCanConnection(false));
+        EXPECT_CALL(*fake, SetIsIso15765Connection(false));
+        EXPECT_CALL(*fake, SetSerialPortParity(static_cast<std::uint8_t>(QSerialPort::NoParity)));
+        EXPECT_CALL(*fake, SetSerialPortBaudrate(QStringLiteral("4800")));
     }
 
-    fastecu::desktop::serial::reset_serial_to_idle(serial);
+    fastecu::desktop::serial::ResetSerialToIdle(serial);
 }
 
 namespace

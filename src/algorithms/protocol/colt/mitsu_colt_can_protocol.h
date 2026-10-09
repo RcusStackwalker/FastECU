@@ -79,34 +79,34 @@ extern const std::array<bytes::Byte, kWriteRoutineSize> kWriteRedirectRoutine;
 // externals/livemonitor/obdengine.cpp. Different from (and not compatible
 // with) the table-based algorithms used by the Subaru-targeted modules in
 // this codebase.
-std::uint16_t seedKeyWord(std::uint16_t seed_word);
+std::uint16_t SeedKeyWord(std::uint16_t seed_word);
 
 // Applies seedKeyWord() to both 16-bit halves of a 4-byte seed (big-endian
 // in, big-endian out): seed = [pk1_hi, pk1_lo, pk2_hi, pk2_lo].
-bytes::Bytes seedKey(bytes::ByteView seed);
+bytes::Bytes SeedKey(bytes::ByteView seed);
 
 // 16-bit running sum of every raw byte, with natural wraparound. Matches
 // get_crc() in externals/livemonitor/obdengine.cpp — not a real CRC.
-std::uint16_t checksum(bytes::ByteView data);
+std::uint16_t Checksum(bytes::ByteView data);
 
 // SID 0x34: [SID][start>>16][start>>8][start][0x00][size>>16][size>>8][size].
-bytes::Bytes buildRequestDownload(std::uint32_t start, std::uint32_t size);
+bytes::Bytes BuildRequestDownload(std::uint32_t start, std::uint32_t size);
 
 // True for a request that erases or writes flash: RequestReflash, RequestDownload,
 // TransferData, or RoutineControl 224 (erase). Callers that gate raw PDU entry
 // against the named destructive commands share this one definition, so a service
 // added here closes every such gate at once.
-bool isDestructiveRequest(bytes::ByteView pdu);
+bool IsDestructiveRequest(bytes::ByteView pdu);
 
 // SID 0x36, chunked at kTransferChunkSize bytes per frame: [SID][up to 256 payload bytes].
-std::vector<bytes::Bytes> buildTransferDataFrames(bytes::ByteView payload);
+std::vector<bytes::Bytes> BuildTransferDataFrames(bytes::ByteView payload);
 
 // SID 0x31/225: [SID][225][selector]. selector = 2 if targetStart < 0x800000
 // ("flash"), else 1 ("memory") — matches obdengine.cpp's "flash/memory fun".
-bytes::Bytes buildRoutineCheckCrc(std::uint32_t target_start);
+bytes::Bytes BuildRoutineCheckCrc(std::uint32_t target_start);
 
 // SID 0x31/224, bare 2 bytes, no selector byte. Source comment: "causes reflash".
-bytes::Bytes buildRoutineErase();
+bytes::Bytes BuildRoutineErase();
 
 // SID 0x3B, 12-byte payload ported verbatim from
 // externals/livemonitor/obdsessionwidget.cpp:180-181. KNOWN RISK: the
@@ -114,18 +114,18 @@ bytes::Bytes buildRoutineErase();
 // lockup" during their own testing. Treat any call site as the highest-risk
 // step in this protocol; never send without an explicit confirmation gate
 // on a bench/spare ECU.
-bytes::Bytes buildRequestReflashUnlock();
+bytes::Bytes BuildRequestReflashUnlock();
 
 // SID 0x23: [SID][addr>>16][addr>>8][addr][len].
-bytes::Bytes buildReadMemoryByAddress(std::uint32_t addr, bytes::Byte len);
+bytes::Bytes BuildReadMemoryByAddress(std::uint32_t addr, bytes::Byte len);
 
 // SID 0x10: [SID][sessionId].
-bytes::Bytes buildDiagnosticSession(bytes::Byte session_id);
+bytes::Bytes BuildDiagnosticSession(bytes::Byte session_id);
 
 // SID 0x27/5 (seed request): [SID][0x05].
-bytes::Bytes buildSecurityAccessSeedRequest();
+bytes::Bytes BuildSecurityAccessSeedRequest();
 
 // SID 0x27/6 (key answer): [SID][0x06][4-byte key].
-bytes::Bytes buildSecurityAccessKey(bytes::ByteView key);
+bytes::Bytes BuildSecurityAccessKey(bytes::ByteView key);
 
 } // namespace mitsu_colt_can

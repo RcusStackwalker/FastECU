@@ -16,18 +16,22 @@ class RemoteUtility : public QObject
                            QObject *parent = nullptr);
     ~RemoteUtility();
 
-    QRemoteObjectReplica::State state(void) const;
-    bool isValid(void);
+    QRemoteObjectReplica::State State(void) const;
+    bool IsValid(void);
 
   public slots:
-    bool send_log_window_message(QString message);
-    bool set_progressbar_value(int value);
+    // NOLINTBEGIN(readability-identifier-naming): Qt slots keep Qt's camelBack names
+    bool sendLogWindowMessage(QString message);
+    bool setProgressbarValue(int value);
     void ping(QString message);
-    void websocket_connected(void);
+    void websocketConnected(void);
     void waitForSource(void);
+    // NOLINTEND(readability-identifier-naming)
 
   signals:
+    // NOLINTBEGIN(readability-identifier-naming): Qt signals keep Qt's camelBack names
     void stateChanged(QRemoteObjectReplica::State state, QRemoteObjectReplica::State old_state);
+    // NOLINTEND(readability-identifier-naming)
 
   private:
     QString peer_address_;
@@ -42,18 +46,20 @@ class RemoteUtility : public QObject
     QRemoteObjectNode node_;
     QTimer *keepalive_timer_;
     int pings_sequently_missed_ = 0;
-    void start_keepalive(void);
-    void stop_keepalive(void);
-    void startRemote(void);
-    void startOverNetwok(void);
-    void startLocal(void);
-    void send_keepalive(void);
-    void sendAutoDiscoveryMessage();
+    void StartKeepalive(void);
+    void StopKeepalive(void);
+    void StartRemote(void);
+    void StartOverNetwok(void);
+    void StartLocal(void);
+    void SendKeepalive(void);
+    void SendAutoDiscoveryMessage();
 
     static constexpr int kHeartbeatInterval{0};
     static constexpr int kKeepaliveInterval{7000};
     static constexpr int kPingsSequentlyMissedLimit{5};
 
   private slots:
+    // NOLINTBEGIN(readability-identifier-naming): Qt slots keep Qt's camelBack names
     void utilityRemoteStateChanged(QRemoteObjectReplica::State state, QRemoteObjectReplica::State old_state);
+    // NOLINTEND(readability-identifier-naming)
 };

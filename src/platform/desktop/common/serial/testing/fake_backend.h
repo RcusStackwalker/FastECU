@@ -28,7 +28,7 @@ class FakeBackend : public SerialPortActionsDirect
   public:
     FakeBackend()
     {
-        installDefaultActions();
+        InstallDefaultActions();
     }
 
     ~FakeBackend() override
@@ -41,352 +41,347 @@ class FakeBackend : public SerialPortActionsDirect
 
     bool *destroyed = nullptr;
 
-    MOCK_METHOD(bool, get_serialPortAvailable, (), (override));
-    MOCK_METHOD(bool, set_serialPortAvailable, (bool value), (override));
-    MOCK_METHOD(bool, get_setRequestToSend, (), (override));
-    MOCK_METHOD(bool, set_setRequestToSend, (bool value), (override));
-    MOCK_METHOD(bool, get_setDataTerminalReady, (), (override));
-    MOCK_METHOD(bool, set_setDataTerminalReady, (bool value), (override));
-    MOCK_METHOD(bool, get_add_ssm_header, (), (override));
-    MOCK_METHOD(bool, set_add_ssm_header, (bool value), (override));
-    MOCK_METHOD(bool, get_add_iso9141_header, (), (override));
-    MOCK_METHOD(bool, set_add_iso9141_header, (bool value), (override));
-    MOCK_METHOD(bool, get_add_iso14230_header, (), (override));
-    MOCK_METHOD(bool, set_add_iso14230_header, (bool value), (override));
-    MOCK_METHOD(bool, get_is_iso14230_connection, (), (override));
-    MOCK_METHOD(bool, set_is_iso14230_connection, (bool value), (override));
-    MOCK_METHOD(bool, get_is_can_connection, (), (override));
-    MOCK_METHOD(bool, set_is_can_connection, (bool value), (override));
-    MOCK_METHOD(bool, get_is_iso15765_connection, (), (override));
-    MOCK_METHOD(bool, set_is_iso15765_connection, (bool value), (override));
-    MOCK_METHOD(bool, get_is_29_bit_id, (), (override));
-    MOCK_METHOD(bool, set_is_29_bit_id, (bool value), (override));
-    MOCK_METHOD(bool, get_use_openport2_adapter, (), (override));
-    MOCK_METHOD(bool, set_use_openport2_adapter, (bool value), (override));
+    MOCK_METHOD(bool, GetSerialPortAvailable, (), (override));
+    MOCK_METHOD(bool, SetSerialPortAvailable, (bool value), (override));
+    MOCK_METHOD(bool, GetSetRequestToSend, (), (override));
+    MOCK_METHOD(bool, SetSetRequestToSend, (bool value), (override));
+    MOCK_METHOD(bool, GetSetDataTerminalReady, (), (override));
+    MOCK_METHOD(bool, SetSetDataTerminalReady, (bool value), (override));
+    MOCK_METHOD(bool, GetAddSsmHeader, (), (override));
+    MOCK_METHOD(bool, SetAddSsmHeader, (bool value), (override));
+    MOCK_METHOD(bool, GetAddIso9141Header, (), (override));
+    MOCK_METHOD(bool, SetAddIso9141Header, (bool value), (override));
+    MOCK_METHOD(bool, GetAddIso14230Header, (), (override));
+    MOCK_METHOD(bool, SetAddIso14230Header, (bool value), (override));
+    MOCK_METHOD(bool, GetIsIso14230Connection, (), (override));
+    MOCK_METHOD(bool, SetIsIso14230Connection, (bool value), (override));
+    MOCK_METHOD(bool, GetIsCanConnection, (), (override));
+    MOCK_METHOD(bool, SetIsCanConnection, (bool value), (override));
+    MOCK_METHOD(bool, GetIsIso15765Connection, (), (override));
+    MOCK_METHOD(bool, SetIsIso15765Connection, (bool value), (override));
+    MOCK_METHOD(bool, GetIs29BitId, (), (override));
+    MOCK_METHOD(bool, SetIs29BitId, (bool value), (override));
+    MOCK_METHOD(bool, GetUseOpenport2Adapter, (), (override));
+    MOCK_METHOD(bool, SetUseOpenport2Adapter, (bool value), (override));
 
-    MOCK_METHOD(int, get_requestToSendEnabled, (), (override));
-    MOCK_METHOD(bool, set_requestToSendEnabled, (int value), (override));
-    MOCK_METHOD(int, get_requestToSendDisabled, (), (override));
-    MOCK_METHOD(bool, set_requestToSendDisabled, (int value), (override));
-    MOCK_METHOD(int, get_dataTerminalEnabled, (), (override));
-    MOCK_METHOD(bool, set_dataTerminalEnabled, (int value), (override));
-    MOCK_METHOD(int, get_dataTerminalDisabled, (), (override));
-    MOCK_METHOD(bool, set_dataTerminalDisabled, (int value), (override));
+    MOCK_METHOD(int, GetRequestToSendEnabled, (), (override));
+    MOCK_METHOD(bool, SetRequestToSendEnabled, (int value), (override));
+    MOCK_METHOD(int, GetRequestToSendDisabled, (), (override));
+    MOCK_METHOD(bool, SetRequestToSendDisabled, (int value), (override));
+    MOCK_METHOD(int, GetDataTerminalEnabled, (), (override));
+    MOCK_METHOD(bool, SetDataTerminalEnabled, (int value), (override));
+    MOCK_METHOD(int, GetDataTerminalDisabled, (), (override));
+    MOCK_METHOD(bool, SetDataTerminalDisabled, (int value), (override));
 
-    MOCK_METHOD(std::uint8_t, get_kline_startbyte, (), (override));
-    MOCK_METHOD(bool, set_kline_startbyte, (std::uint8_t value), (override));
-    MOCK_METHOD(std::uint8_t, get_kline_tester_id, (), (override));
-    MOCK_METHOD(bool, set_kline_tester_id, (std::uint8_t value), (override));
-    MOCK_METHOD(std::uint8_t, get_kline_target_id, (), (override));
-    MOCK_METHOD(bool, set_kline_target_id, (std::uint8_t value), (override));
-    MOCK_METHOD(std::uint8_t, get_serial_port_parity, (), (override));
-    MOCK_METHOD(bool, set_serial_port_parity, (std::uint8_t parity), (override));
+    MOCK_METHOD(std::uint8_t, GetKlineStartbyte, (), (override));
+    MOCK_METHOD(bool, SetKlineStartbyte, (std::uint8_t value), (override));
+    MOCK_METHOD(std::uint8_t, GetKlineTesterId, (), (override));
+    MOCK_METHOD(bool, SetKlineTesterId, (std::uint8_t value), (override));
+    MOCK_METHOD(std::uint8_t, GetKlineTargetId, (), (override));
+    MOCK_METHOD(bool, SetKlineTargetId, (std::uint8_t value), (override));
+    MOCK_METHOD(std::uint8_t, GetSerialPortParity, (), (override));
+    MOCK_METHOD(bool, SetSerialPortParity, (std::uint8_t parity), (override));
 
-    MOCK_METHOD(QByteArray, get_ssm_receive_header_start, (), (override));
-    MOCK_METHOD(bool, set_ssm_receive_header_start, (QByteArray value), (override));
+    MOCK_METHOD(QByteArray, GetSsmReceiveHeaderStart, (), (override));
+    MOCK_METHOD(bool, SetSsmReceiveHeaderStart, (QByteArray value), (override));
 
-    MOCK_METHOD(QStringList, get_serial_port_list, (), (override));
-    MOCK_METHOD(bool, set_serial_port_list, (QStringList value), (override));
+    MOCK_METHOD(QStringList, GetSerialPortList, (), (override));
+    MOCK_METHOD(bool, SetSerialPortList, (QStringList value), (override));
 
-    MOCK_METHOD(QString, get_openedSerialPort, (), (override));
-    MOCK_METHOD(bool, set_openedSerialPort, (QString value), (override));
-    MOCK_METHOD(QString, get_subaru_02_16bit_bootloader_baudrate, (), (override));
-    MOCK_METHOD(bool, set_subaru_02_16bit_bootloader_baudrate, (QString value), (override));
-    MOCK_METHOD(QString, get_subaru_04_16bit_bootloader_baudrate, (), (override));
-    MOCK_METHOD(bool, set_subaru_04_16bit_bootloader_baudrate, (QString value), (override));
-    MOCK_METHOD(QString, get_subaru_02_32bit_bootloader_baudrate, (), (override));
-    MOCK_METHOD(bool, set_subaru_02_32bit_bootloader_baudrate, (QString value), (override));
-    MOCK_METHOD(QString, get_subaru_04_32bit_bootloader_baudrate, (), (override));
-    MOCK_METHOD(bool, set_subaru_04_32bit_bootloader_baudrate, (QString value), (override));
-    MOCK_METHOD(QString, get_subaru_05_32bit_bootloader_baudrate, (), (override));
-    MOCK_METHOD(bool, set_subaru_05_32bit_bootloader_baudrate, (QString value), (override));
-    MOCK_METHOD(QString, get_subaru_02_16bit_kernel_baudrate, (), (override));
-    MOCK_METHOD(bool, set_subaru_02_16bit_kernel_baudrate, (QString value), (override));
-    MOCK_METHOD(QString, get_subaru_04_16bit_kernel_baudrate, (), (override));
-    MOCK_METHOD(bool, set_subaru_04_16bit_kernel_baudrate, (QString value), (override));
-    MOCK_METHOD(QString, get_subaru_02_32bit_kernel_baudrate, (), (override));
-    MOCK_METHOD(bool, set_subaru_02_32bit_kernel_baudrate, (QString value), (override));
-    MOCK_METHOD(QString, get_subaru_04_32bit_kernel_baudrate, (), (override));
-    MOCK_METHOD(bool, set_subaru_04_32bit_kernel_baudrate, (QString value), (override));
-    MOCK_METHOD(QString, get_subaru_05_32bit_kernel_baudrate, (), (override));
-    MOCK_METHOD(bool, set_subaru_05_32bit_kernel_baudrate, (QString value), (override));
-    MOCK_METHOD(QString, get_can_speed, (), (override));
-    MOCK_METHOD(bool, set_can_speed, (QString value), (override));
-    MOCK_METHOD(QString, get_serial_port_baudrate, (), (override));
-    MOCK_METHOD(bool, set_serial_port_baudrate, (QString value), (override));
-    MOCK_METHOD(QString, get_serial_port_linux, (), (override));
-    MOCK_METHOD(bool, set_serial_port_linux, (QString value), (override));
-    MOCK_METHOD(QString, get_serial_port_windows, (), (override));
-    MOCK_METHOD(bool, set_serial_port_windows, (QString value), (override));
-    MOCK_METHOD(QString, get_serial_port, (), (override));
-    MOCK_METHOD(bool, set_serial_port, (QString value), (override));
-    MOCK_METHOD(QString, get_serial_port_prefix, (), (override));
-    MOCK_METHOD(bool, set_serial_port_prefix, (QString value), (override));
-    MOCK_METHOD(QString, get_serial_port_prefix_linux, (), (override));
-    MOCK_METHOD(bool, set_serial_port_prefix_linux, (QString value), (override));
-    MOCK_METHOD(QString, get_serial_port_prefix_win, (), (override));
-    MOCK_METHOD(bool, set_serial_port_prefix_win, (QString value), (override));
+    MOCK_METHOD(QString, GetOpenedSerialPort, (), (override));
+    MOCK_METHOD(bool, SetOpenedSerialPort, (QString value), (override));
+    MOCK_METHOD(QString, GetSubaru0216bitBootloaderBaudrate, (), (override));
+    MOCK_METHOD(bool, SetSubaru0216bitBootloaderBaudrate, (QString value), (override));
+    MOCK_METHOD(QString, GetSubaru0416bitBootloaderBaudrate, (), (override));
+    MOCK_METHOD(bool, SetSubaru0416bitBootloaderBaudrate, (QString value), (override));
+    MOCK_METHOD(QString, GetSubaru0232bitBootloaderBaudrate, (), (override));
+    MOCK_METHOD(bool, SetSubaru0232bitBootloaderBaudrate, (QString value), (override));
+    MOCK_METHOD(QString, GetSubaru0432bitBootloaderBaudrate, (), (override));
+    MOCK_METHOD(bool, SetSubaru0432bitBootloaderBaudrate, (QString value), (override));
+    MOCK_METHOD(QString, GetSubaru0532bitBootloaderBaudrate, (), (override));
+    MOCK_METHOD(bool, SetSubaru0532bitBootloaderBaudrate, (QString value), (override));
+    MOCK_METHOD(QString, GetSubaru0216bitKernelBaudrate, (), (override));
+    MOCK_METHOD(bool, SetSubaru0216bitKernelBaudrate, (QString value), (override));
+    MOCK_METHOD(QString, GetSubaru0416bitKernelBaudrate, (), (override));
+    MOCK_METHOD(bool, SetSubaru0416bitKernelBaudrate, (QString value), (override));
+    MOCK_METHOD(QString, GetSubaru0232bitKernelBaudrate, (), (override));
+    MOCK_METHOD(bool, SetSubaru0232bitKernelBaudrate, (QString value), (override));
+    MOCK_METHOD(QString, GetSubaru0432bitKernelBaudrate, (), (override));
+    MOCK_METHOD(bool, SetSubaru0432bitKernelBaudrate, (QString value), (override));
+    MOCK_METHOD(QString, GetSubaru0532bitKernelBaudrate, (), (override));
+    MOCK_METHOD(bool, SetSubaru0532bitKernelBaudrate, (QString value), (override));
+    MOCK_METHOD(QString, GetCanSpeed, (), (override));
+    MOCK_METHOD(bool, SetCanSpeed, (QString value), (override));
+    MOCK_METHOD(QString, GetSerialPortBaudrate, (), (override));
+    MOCK_METHOD(bool, SetSerialPortBaudrate, (QString value), (override));
+    MOCK_METHOD(QString, GetSerialPortLinux, (), (override));
+    MOCK_METHOD(bool, SetSerialPortLinux, (QString value), (override));
+    MOCK_METHOD(QString, GetSerialPortWindows, (), (override));
+    MOCK_METHOD(bool, SetSerialPortWindows, (QString value), (override));
+    MOCK_METHOD(QString, GetSerialPort, (), (override));
+    MOCK_METHOD(bool, SetSerialPort, (QString value), (override));
+    MOCK_METHOD(QString, GetSerialPortPrefix, (), (override));
+    MOCK_METHOD(bool, SetSerialPortPrefix, (QString value), (override));
+    MOCK_METHOD(QString, GetSerialPortPrefixLinux, (), (override));
+    MOCK_METHOD(bool, SetSerialPortPrefixLinux, (QString value), (override));
+    MOCK_METHOD(QString, GetSerialPortPrefixWin, (), (override));
+    MOCK_METHOD(bool, SetSerialPortPrefixWin, (QString value), (override));
 
-    MOCK_METHOD(std::uint32_t, get_can_source_address, (), (override));
-    MOCK_METHOD(bool, set_can_source_address, (std::uint32_t value), (override));
-    MOCK_METHOD(std::uint32_t, get_can_destination_address, (), (override));
-    MOCK_METHOD(bool, set_can_destination_address, (std::uint32_t value), (override));
-    MOCK_METHOD(std::uint32_t, get_iso15765_source_address, (), (override));
-    MOCK_METHOD(bool, set_iso15765_source_address, (std::uint32_t value), (override));
-    MOCK_METHOD(std::uint32_t, get_iso15765_destination_address, (), (override));
-    MOCK_METHOD(bool, set_iso15765_destination_address, (std::uint32_t value), (override));
+    MOCK_METHOD(std::uint32_t, GetCanSourceAddress, (), (override));
+    MOCK_METHOD(bool, SetCanSourceAddress, (std::uint32_t value), (override));
+    MOCK_METHOD(std::uint32_t, GetCanDestinationAddress, (), (override));
+    MOCK_METHOD(bool, SetCanDestinationAddress, (std::uint32_t value), (override));
+    MOCK_METHOD(std::uint32_t, GetIso15765SourceAddress, (), (override));
+    MOCK_METHOD(bool, SetIso15765SourceAddress, (std::uint32_t value), (override));
+    MOCK_METHOD(std::uint32_t, GetIso15765DestinationAddress, (), (override));
+    MOCK_METHOD(bool, SetIso15765DestinationAddress, (std::uint32_t value), (override));
 
-    MOCK_METHOD(bool, is_serial_port_open, (), (override));
-    MOCK_METHOD(int, change_port_speed, (QString port_speed), (override));
-    MOCK_METHOD(bool, set_kline_timings, (std::uint32_t parameter, int value), (override));
-    MOCK_METHOD(int, set_j2534_ioctl, (std::uint32_t parameter, int value), (override));
-    MOCK_METHOD(QByteArray, five_baud_init, (QByteArray output), (override));
-    MOCK_METHOD(int, fast_init, (QByteArray output), (override));
-    MOCK_METHOD(int, set_lec_lines, (int lec1, int lec2), (override));
-    MOCK_METHOD(int, pulse_lec_1_line, (int timeout), (override));
-    MOCK_METHOD(int, pulse_lec_2_line, (int timeout), (override));
-    MOCK_METHOD(void, reset_connection, (), (override));
-    MOCK_METHOD(QByteArray, read_serial_obd_data, (std::uint16_t timeout), (override));
-    MOCK_METHOD(QByteArray, read_serial_data, (std::uint16_t timeout), (override));
-    MOCK_METHOD(QByteArray, write_serial_data, (QByteArray output), (override));
-    MOCK_METHOD(QByteArray, write_serial_data_echo_check, (QByteArray output), (override));
-    MOCK_METHOD(bool, get_is_tx_done, (), (override));
-    MOCK_METHOD(int, clear_rx_buffer, (), (override));
-    MOCK_METHOD(int, clear_tx_buffer, (), (override));
-    MOCK_METHOD(int, send_periodic_j2534_data, (QByteArray output, int timeout), (override));
-    MOCK_METHOD(int, stop_periodic_j2534_data, (), (override));
-    MOCK_METHOD(QStringList, check_serial_ports, (), (override));
-    MOCK_METHOD(QString, open_serial_port, (), (override));
-    MOCK_METHOD(unsigned long, read_vbatt, (), (override));
-    MOCK_METHOD(void, waitForSource, (), (override));
+    MOCK_METHOD(bool, IsSerialPortOpen, (), (override));
+    MOCK_METHOD(int, ChangePortSpeed, (QString port_speed), (override));
+    MOCK_METHOD(bool, SetKlineTimings, (std::uint32_t parameter, int value), (override));
+    MOCK_METHOD(int, SetJ2534Ioctl, (std::uint32_t parameter, int value), (override));
+    MOCK_METHOD(QByteArray, FiveBaudInit, (QByteArray output), (override));
+    MOCK_METHOD(int, FastInit, (QByteArray output), (override));
+    MOCK_METHOD(int, SetLecLines, (int lec1, int lec2), (override));
+    MOCK_METHOD(int, PulseLec1Line, (int timeout), (override));
+    MOCK_METHOD(int, PulseLec2Line, (int timeout), (override));
+    MOCK_METHOD(void, ResetConnection, (), (override));
+    MOCK_METHOD(QByteArray, ReadSerialObdData, (std::uint16_t timeout), (override));
+    MOCK_METHOD(QByteArray, ReadSerialData, (std::uint16_t timeout), (override));
+    MOCK_METHOD(QByteArray, WriteSerialData, (QByteArray output), (override));
+    MOCK_METHOD(QByteArray, WriteSerialDataEchoCheck, (QByteArray output), (override));
+    MOCK_METHOD(bool, GetIsTxDone, (), (override));
+    MOCK_METHOD(int, ClearRxBuffer, (), (override));
+    MOCK_METHOD(int, ClearTxBuffer, (), (override));
+    MOCK_METHOD(int, SendPeriodicJ2534Data, (QByteArray output, int timeout), (override));
+    MOCK_METHOD(int, StopPeriodicJ2534Data, (), (override));
+    MOCK_METHOD(QStringList, CheckSerialPorts, (), (override));
+    MOCK_METHOD(QString, OpenSerialPort, (), (override));
+    MOCK_METHOD(unsigned long, ReadVbatt, (), (override));
+    MOCK_METHOD(void, WaitForSource, (), (override));
 
   private:
-    void installDefaultActions()
+    void InstallDefaultActions()
     {
-        ON_CALL(*this, get_serialPortAvailable())
-            .WillByDefault([this] { return SerialPortActionsDirect::get_serialPortAvailable(); });
-        ON_CALL(*this, set_serialPortAvailable(::testing::_))
-            .WillByDefault([this](bool value) { return SerialPortActionsDirect::set_serialPortAvailable(value); });
-        ON_CALL(*this, get_setRequestToSend())
-            .WillByDefault([this] { return SerialPortActionsDirect::get_setRequestToSend(); });
-        ON_CALL(*this, set_setRequestToSend(::testing::_))
-            .WillByDefault([this](bool value) { return SerialPortActionsDirect::set_setRequestToSend(value); });
-        ON_CALL(*this, get_setDataTerminalReady())
-            .WillByDefault([this] { return SerialPortActionsDirect::get_setDataTerminalReady(); });
-        ON_CALL(*this, set_setDataTerminalReady(::testing::_))
-            .WillByDefault([this](bool value) { return SerialPortActionsDirect::set_setDataTerminalReady(value); });
-        ON_CALL(*this, get_add_ssm_header())
-            .WillByDefault([this] { return SerialPortActionsDirect::get_add_ssm_header(); });
-        ON_CALL(*this, set_add_ssm_header(::testing::_))
-            .WillByDefault([this](bool value) { return SerialPortActionsDirect::set_add_ssm_header(value); });
-        ON_CALL(*this, get_add_iso9141_header())
-            .WillByDefault([this] { return SerialPortActionsDirect::get_add_iso9141_header(); });
-        ON_CALL(*this, set_add_iso9141_header(::testing::_))
-            .WillByDefault([this](bool value) { return SerialPortActionsDirect::set_add_iso9141_header(value); });
-        ON_CALL(*this, get_add_iso14230_header())
-            .WillByDefault([this] { return SerialPortActionsDirect::get_add_iso14230_header(); });
-        ON_CALL(*this, set_add_iso14230_header(::testing::_))
-            .WillByDefault([this](bool value) { return SerialPortActionsDirect::set_add_iso14230_header(value); });
-        ON_CALL(*this, get_is_iso14230_connection())
-            .WillByDefault([this] { return SerialPortActionsDirect::get_is_iso14230_connection(); });
-        ON_CALL(*this, set_is_iso14230_connection(::testing::_))
-            .WillByDefault([this](bool value) { return SerialPortActionsDirect::set_is_iso14230_connection(value); });
-        ON_CALL(*this, get_is_can_connection())
-            .WillByDefault([this] { return SerialPortActionsDirect::get_is_can_connection(); });
-        ON_CALL(*this, set_is_can_connection(::testing::_))
-            .WillByDefault([this](bool value) { return SerialPortActionsDirect::set_is_can_connection(value); });
-        ON_CALL(*this, get_is_iso15765_connection())
-            .WillByDefault([this] { return SerialPortActionsDirect::get_is_iso15765_connection(); });
-        ON_CALL(*this, set_is_iso15765_connection(::testing::_))
-            .WillByDefault([this](bool value) { return SerialPortActionsDirect::set_is_iso15765_connection(value); });
-        ON_CALL(*this, get_is_29_bit_id())
-            .WillByDefault([this] { return SerialPortActionsDirect::get_is_29_bit_id(); });
-        ON_CALL(*this, set_is_29_bit_id(::testing::_))
-            .WillByDefault([this](bool value) { return SerialPortActionsDirect::set_is_29_bit_id(value); });
-        ON_CALL(*this, get_use_openport2_adapter())
-            .WillByDefault([this] { return SerialPortActionsDirect::get_use_openport2_adapter(); });
-        ON_CALL(*this, set_use_openport2_adapter(::testing::_))
-            .WillByDefault([this](bool value) { return SerialPortActionsDirect::set_use_openport2_adapter(value); });
+        ON_CALL(*this, GetSerialPortAvailable())
+            .WillByDefault([this] { return SerialPortActionsDirect::GetSerialPortAvailable(); });
+        ON_CALL(*this, SetSerialPortAvailable(::testing::_))
+            .WillByDefault([this](bool value) { return SerialPortActionsDirect::SetSerialPortAvailable(value); });
+        ON_CALL(*this, GetSetRequestToSend())
+            .WillByDefault([this] { return SerialPortActionsDirect::GetSetRequestToSend(); });
+        ON_CALL(*this, SetSetRequestToSend(::testing::_))
+            .WillByDefault([this](bool value) { return SerialPortActionsDirect::SetSetRequestToSend(value); });
+        ON_CALL(*this, GetSetDataTerminalReady())
+            .WillByDefault([this] { return SerialPortActionsDirect::GetSetDataTerminalReady(); });
+        ON_CALL(*this, SetSetDataTerminalReady(::testing::_))
+            .WillByDefault([this](bool value) { return SerialPortActionsDirect::SetSetDataTerminalReady(value); });
+        ON_CALL(*this, GetAddSsmHeader()).WillByDefault([this] { return SerialPortActionsDirect::GetAddSsmHeader(); });
+        ON_CALL(*this, SetAddSsmHeader(::testing::_))
+            .WillByDefault([this](bool value) { return SerialPortActionsDirect::SetAddSsmHeader(value); });
+        ON_CALL(*this, GetAddIso9141Header())
+            .WillByDefault([this] { return SerialPortActionsDirect::GetAddIso9141Header(); });
+        ON_CALL(*this, SetAddIso9141Header(::testing::_))
+            .WillByDefault([this](bool value) { return SerialPortActionsDirect::SetAddIso9141Header(value); });
+        ON_CALL(*this, GetAddIso14230Header())
+            .WillByDefault([this] { return SerialPortActionsDirect::GetAddIso14230Header(); });
+        ON_CALL(*this, SetAddIso14230Header(::testing::_))
+            .WillByDefault([this](bool value) { return SerialPortActionsDirect::SetAddIso14230Header(value); });
+        ON_CALL(*this, GetIsIso14230Connection())
+            .WillByDefault([this] { return SerialPortActionsDirect::GetIsIso14230Connection(); });
+        ON_CALL(*this, SetIsIso14230Connection(::testing::_))
+            .WillByDefault([this](bool value) { return SerialPortActionsDirect::SetIsIso14230Connection(value); });
+        ON_CALL(*this, GetIsCanConnection())
+            .WillByDefault([this] { return SerialPortActionsDirect::GetIsCanConnection(); });
+        ON_CALL(*this, SetIsCanConnection(::testing::_))
+            .WillByDefault([this](bool value) { return SerialPortActionsDirect::SetIsCanConnection(value); });
+        ON_CALL(*this, GetIsIso15765Connection())
+            .WillByDefault([this] { return SerialPortActionsDirect::GetIsIso15765Connection(); });
+        ON_CALL(*this, SetIsIso15765Connection(::testing::_))
+            .WillByDefault([this](bool value) { return SerialPortActionsDirect::SetIsIso15765Connection(value); });
+        ON_CALL(*this, GetIs29BitId()).WillByDefault([this] { return SerialPortActionsDirect::GetIs29BitId(); });
+        ON_CALL(*this, SetIs29BitId(::testing::_))
+            .WillByDefault([this](bool value) { return SerialPortActionsDirect::SetIs29BitId(value); });
+        ON_CALL(*this, GetUseOpenport2Adapter())
+            .WillByDefault([this] { return SerialPortActionsDirect::GetUseOpenport2Adapter(); });
+        ON_CALL(*this, SetUseOpenport2Adapter(::testing::_))
+            .WillByDefault([this](bool value) { return SerialPortActionsDirect::SetUseOpenport2Adapter(value); });
 
-        ON_CALL(*this, get_requestToSendEnabled())
-            .WillByDefault([this] { return SerialPortActionsDirect::get_requestToSendEnabled(); });
-        ON_CALL(*this, set_requestToSendEnabled(::testing::_))
-            .WillByDefault([this](int value) { return SerialPortActionsDirect::set_requestToSendEnabled(value); });
-        ON_CALL(*this, get_requestToSendDisabled())
-            .WillByDefault([this] { return SerialPortActionsDirect::get_requestToSendDisabled(); });
-        ON_CALL(*this, set_requestToSendDisabled(::testing::_))
-            .WillByDefault([this](int value) { return SerialPortActionsDirect::set_requestToSendDisabled(value); });
-        ON_CALL(*this, get_dataTerminalEnabled())
-            .WillByDefault([this] { return SerialPortActionsDirect::get_dataTerminalEnabled(); });
-        ON_CALL(*this, set_dataTerminalEnabled(::testing::_))
-            .WillByDefault([this](int value) { return SerialPortActionsDirect::set_dataTerminalEnabled(value); });
-        ON_CALL(*this, get_dataTerminalDisabled())
-            .WillByDefault([this] { return SerialPortActionsDirect::get_dataTerminalDisabled(); });
-        ON_CALL(*this, set_dataTerminalDisabled(::testing::_))
-            .WillByDefault([this](int value) { return SerialPortActionsDirect::set_dataTerminalDisabled(value); });
+        ON_CALL(*this, GetRequestToSendEnabled())
+            .WillByDefault([this] { return SerialPortActionsDirect::GetRequestToSendEnabled(); });
+        ON_CALL(*this, SetRequestToSendEnabled(::testing::_))
+            .WillByDefault([this](int value) { return SerialPortActionsDirect::SetRequestToSendEnabled(value); });
+        ON_CALL(*this, GetRequestToSendDisabled())
+            .WillByDefault([this] { return SerialPortActionsDirect::GetRequestToSendDisabled(); });
+        ON_CALL(*this, SetRequestToSendDisabled(::testing::_))
+            .WillByDefault([this](int value) { return SerialPortActionsDirect::SetRequestToSendDisabled(value); });
+        ON_CALL(*this, GetDataTerminalEnabled())
+            .WillByDefault([this] { return SerialPortActionsDirect::GetDataTerminalEnabled(); });
+        ON_CALL(*this, SetDataTerminalEnabled(::testing::_))
+            .WillByDefault([this](int value) { return SerialPortActionsDirect::SetDataTerminalEnabled(value); });
+        ON_CALL(*this, GetDataTerminalDisabled())
+            .WillByDefault([this] { return SerialPortActionsDirect::GetDataTerminalDisabled(); });
+        ON_CALL(*this, SetDataTerminalDisabled(::testing::_))
+            .WillByDefault([this](int value) { return SerialPortActionsDirect::SetDataTerminalDisabled(value); });
 
-        ON_CALL(*this, get_kline_startbyte())
-            .WillByDefault([this] { return SerialPortActionsDirect::get_kline_startbyte(); });
-        ON_CALL(*this, set_kline_startbyte(::testing::_))
-            .WillByDefault([this](std::uint8_t value) { return SerialPortActionsDirect::set_kline_startbyte(value); });
-        ON_CALL(*this, get_kline_tester_id())
-            .WillByDefault([this] { return SerialPortActionsDirect::get_kline_tester_id(); });
-        ON_CALL(*this, set_kline_tester_id(::testing::_))
-            .WillByDefault([this](std::uint8_t value) { return SerialPortActionsDirect::set_kline_tester_id(value); });
-        ON_CALL(*this, get_kline_target_id())
-            .WillByDefault([this] { return SerialPortActionsDirect::get_kline_target_id(); });
-        ON_CALL(*this, set_kline_target_id(::testing::_))
-            .WillByDefault([this](std::uint8_t value) { return SerialPortActionsDirect::set_kline_target_id(value); });
-        ON_CALL(*this, get_serial_port_parity())
-            .WillByDefault([this] { return SerialPortActionsDirect::get_serial_port_parity(); });
-        ON_CALL(*this, set_serial_port_parity(::testing::_))
+        ON_CALL(*this, GetKlineStartbyte())
+            .WillByDefault([this] { return SerialPortActionsDirect::GetKlineStartbyte(); });
+        ON_CALL(*this, SetKlineStartbyte(::testing::_))
+            .WillByDefault([this](std::uint8_t value) { return SerialPortActionsDirect::SetKlineStartbyte(value); });
+        ON_CALL(*this, GetKlineTesterId())
+            .WillByDefault([this] { return SerialPortActionsDirect::GetKlineTesterId(); });
+        ON_CALL(*this, SetKlineTesterId(::testing::_))
+            .WillByDefault([this](std::uint8_t value) { return SerialPortActionsDirect::SetKlineTesterId(value); });
+        ON_CALL(*this, GetKlineTargetId())
+            .WillByDefault([this] { return SerialPortActionsDirect::GetKlineTargetId(); });
+        ON_CALL(*this, SetKlineTargetId(::testing::_))
+            .WillByDefault([this](std::uint8_t value) { return SerialPortActionsDirect::SetKlineTargetId(value); });
+        ON_CALL(*this, GetSerialPortParity())
+            .WillByDefault([this] { return SerialPortActionsDirect::GetSerialPortParity(); });
+        ON_CALL(*this, SetSerialPortParity(::testing::_))
             .WillByDefault([this](std::uint8_t parity)
-                           { return SerialPortActionsDirect::set_serial_port_parity(parity); });
+                           { return SerialPortActionsDirect::SetSerialPortParity(parity); });
 
-        ON_CALL(*this, get_ssm_receive_header_start())
-            .WillByDefault([this] { return SerialPortActionsDirect::get_ssm_receive_header_start(); });
-        ON_CALL(*this, set_ssm_receive_header_start(::testing::_))
+        ON_CALL(*this, GetSsmReceiveHeaderStart())
+            .WillByDefault([this] { return SerialPortActionsDirect::GetSsmReceiveHeaderStart(); });
+        ON_CALL(*this, SetSsmReceiveHeaderStart(::testing::_))
             .WillByDefault([this](QByteArray value)
-                           { return SerialPortActionsDirect::set_ssm_receive_header_start(value); });
-        ON_CALL(*this, get_serial_port_list())
-            .WillByDefault([this] { return SerialPortActionsDirect::get_serial_port_list(); });
-        ON_CALL(*this, set_serial_port_list(::testing::_))
-            .WillByDefault([this](QStringList value) { return SerialPortActionsDirect::set_serial_port_list(value); });
+                           { return SerialPortActionsDirect::SetSsmReceiveHeaderStart(value); });
+        ON_CALL(*this, GetSerialPortList())
+            .WillByDefault([this] { return SerialPortActionsDirect::GetSerialPortList(); });
+        ON_CALL(*this, SetSerialPortList(::testing::_))
+            .WillByDefault([this](QStringList value) { return SerialPortActionsDirect::SetSerialPortList(value); });
 
-        ON_CALL(*this, get_openedSerialPort())
-            .WillByDefault([this] { return SerialPortActionsDirect::get_openedSerialPort(); });
-        ON_CALL(*this, set_openedSerialPort(::testing::_))
-            .WillByDefault([this](QString value) { return SerialPortActionsDirect::set_openedSerialPort(value); });
-        ON_CALL(*this, get_subaru_02_16bit_bootloader_baudrate())
-            .WillByDefault([this] { return SerialPortActionsDirect::get_subaru_02_16bit_bootloader_baudrate(); });
-        ON_CALL(*this, set_subaru_02_16bit_bootloader_baudrate(::testing::_))
+        ON_CALL(*this, GetOpenedSerialPort())
+            .WillByDefault([this] { return SerialPortActionsDirect::GetOpenedSerialPort(); });
+        ON_CALL(*this, SetOpenedSerialPort(::testing::_))
+            .WillByDefault([this](QString value) { return SerialPortActionsDirect::SetOpenedSerialPort(value); });
+        ON_CALL(*this, GetSubaru0216bitBootloaderBaudrate())
+            .WillByDefault([this] { return SerialPortActionsDirect::GetSubaru0216bitBootloaderBaudrate(); });
+        ON_CALL(*this, SetSubaru0216bitBootloaderBaudrate(::testing::_))
             .WillByDefault([this](QString value)
-                           { return SerialPortActionsDirect::set_subaru_02_16bit_bootloader_baudrate(value); });
-        ON_CALL(*this, get_subaru_04_16bit_bootloader_baudrate())
-            .WillByDefault([this] { return SerialPortActionsDirect::get_subaru_04_16bit_bootloader_baudrate(); });
-        ON_CALL(*this, set_subaru_04_16bit_bootloader_baudrate(::testing::_))
+                           { return SerialPortActionsDirect::SetSubaru0216bitBootloaderBaudrate(value); });
+        ON_CALL(*this, GetSubaru0416bitBootloaderBaudrate())
+            .WillByDefault([this] { return SerialPortActionsDirect::GetSubaru0416bitBootloaderBaudrate(); });
+        ON_CALL(*this, SetSubaru0416bitBootloaderBaudrate(::testing::_))
             .WillByDefault([this](QString value)
-                           { return SerialPortActionsDirect::set_subaru_04_16bit_bootloader_baudrate(value); });
-        ON_CALL(*this, get_subaru_02_32bit_bootloader_baudrate())
-            .WillByDefault([this] { return SerialPortActionsDirect::get_subaru_02_32bit_bootloader_baudrate(); });
-        ON_CALL(*this, set_subaru_02_32bit_bootloader_baudrate(::testing::_))
+                           { return SerialPortActionsDirect::SetSubaru0416bitBootloaderBaudrate(value); });
+        ON_CALL(*this, GetSubaru0232bitBootloaderBaudrate())
+            .WillByDefault([this] { return SerialPortActionsDirect::GetSubaru0232bitBootloaderBaudrate(); });
+        ON_CALL(*this, SetSubaru0232bitBootloaderBaudrate(::testing::_))
             .WillByDefault([this](QString value)
-                           { return SerialPortActionsDirect::set_subaru_02_32bit_bootloader_baudrate(value); });
-        ON_CALL(*this, get_subaru_04_32bit_bootloader_baudrate())
-            .WillByDefault([this] { return SerialPortActionsDirect::get_subaru_04_32bit_bootloader_baudrate(); });
-        ON_CALL(*this, set_subaru_04_32bit_bootloader_baudrate(::testing::_))
+                           { return SerialPortActionsDirect::SetSubaru0232bitBootloaderBaudrate(value); });
+        ON_CALL(*this, GetSubaru0432bitBootloaderBaudrate())
+            .WillByDefault([this] { return SerialPortActionsDirect::GetSubaru0432bitBootloaderBaudrate(); });
+        ON_CALL(*this, SetSubaru0432bitBootloaderBaudrate(::testing::_))
             .WillByDefault([this](QString value)
-                           { return SerialPortActionsDirect::set_subaru_04_32bit_bootloader_baudrate(value); });
-        ON_CALL(*this, get_subaru_05_32bit_bootloader_baudrate())
-            .WillByDefault([this] { return SerialPortActionsDirect::get_subaru_05_32bit_bootloader_baudrate(); });
-        ON_CALL(*this, set_subaru_05_32bit_bootloader_baudrate(::testing::_))
+                           { return SerialPortActionsDirect::SetSubaru0432bitBootloaderBaudrate(value); });
+        ON_CALL(*this, GetSubaru0532bitBootloaderBaudrate())
+            .WillByDefault([this] { return SerialPortActionsDirect::GetSubaru0532bitBootloaderBaudrate(); });
+        ON_CALL(*this, SetSubaru0532bitBootloaderBaudrate(::testing::_))
             .WillByDefault([this](QString value)
-                           { return SerialPortActionsDirect::set_subaru_05_32bit_bootloader_baudrate(value); });
-        ON_CALL(*this, get_subaru_02_16bit_kernel_baudrate())
-            .WillByDefault([this] { return SerialPortActionsDirect::get_subaru_02_16bit_kernel_baudrate(); });
-        ON_CALL(*this, set_subaru_02_16bit_kernel_baudrate(::testing::_))
+                           { return SerialPortActionsDirect::SetSubaru0532bitBootloaderBaudrate(value); });
+        ON_CALL(*this, GetSubaru0216bitKernelBaudrate())
+            .WillByDefault([this] { return SerialPortActionsDirect::GetSubaru0216bitKernelBaudrate(); });
+        ON_CALL(*this, SetSubaru0216bitKernelBaudrate(::testing::_))
             .WillByDefault([this](QString value)
-                           { return SerialPortActionsDirect::set_subaru_02_16bit_kernel_baudrate(value); });
-        ON_CALL(*this, get_subaru_04_16bit_kernel_baudrate())
-            .WillByDefault([this] { return SerialPortActionsDirect::get_subaru_04_16bit_kernel_baudrate(); });
-        ON_CALL(*this, set_subaru_04_16bit_kernel_baudrate(::testing::_))
+                           { return SerialPortActionsDirect::SetSubaru0216bitKernelBaudrate(value); });
+        ON_CALL(*this, GetSubaru0416bitKernelBaudrate())
+            .WillByDefault([this] { return SerialPortActionsDirect::GetSubaru0416bitKernelBaudrate(); });
+        ON_CALL(*this, SetSubaru0416bitKernelBaudrate(::testing::_))
             .WillByDefault([this](QString value)
-                           { return SerialPortActionsDirect::set_subaru_04_16bit_kernel_baudrate(value); });
-        ON_CALL(*this, get_subaru_02_32bit_kernel_baudrate())
-            .WillByDefault([this] { return SerialPortActionsDirect::get_subaru_02_32bit_kernel_baudrate(); });
-        ON_CALL(*this, set_subaru_02_32bit_kernel_baudrate(::testing::_))
+                           { return SerialPortActionsDirect::SetSubaru0416bitKernelBaudrate(value); });
+        ON_CALL(*this, GetSubaru0232bitKernelBaudrate())
+            .WillByDefault([this] { return SerialPortActionsDirect::GetSubaru0232bitKernelBaudrate(); });
+        ON_CALL(*this, SetSubaru0232bitKernelBaudrate(::testing::_))
             .WillByDefault([this](QString value)
-                           { return SerialPortActionsDirect::set_subaru_02_32bit_kernel_baudrate(value); });
-        ON_CALL(*this, get_subaru_04_32bit_kernel_baudrate())
-            .WillByDefault([this] { return SerialPortActionsDirect::get_subaru_04_32bit_kernel_baudrate(); });
-        ON_CALL(*this, set_subaru_04_32bit_kernel_baudrate(::testing::_))
+                           { return SerialPortActionsDirect::SetSubaru0232bitKernelBaudrate(value); });
+        ON_CALL(*this, GetSubaru0432bitKernelBaudrate())
+            .WillByDefault([this] { return SerialPortActionsDirect::GetSubaru0432bitKernelBaudrate(); });
+        ON_CALL(*this, SetSubaru0432bitKernelBaudrate(::testing::_))
             .WillByDefault([this](QString value)
-                           { return SerialPortActionsDirect::set_subaru_04_32bit_kernel_baudrate(value); });
-        ON_CALL(*this, get_subaru_05_32bit_kernel_baudrate())
-            .WillByDefault([this] { return SerialPortActionsDirect::get_subaru_05_32bit_kernel_baudrate(); });
-        ON_CALL(*this, set_subaru_05_32bit_kernel_baudrate(::testing::_))
+                           { return SerialPortActionsDirect::SetSubaru0432bitKernelBaudrate(value); });
+        ON_CALL(*this, GetSubaru0532bitKernelBaudrate())
+            .WillByDefault([this] { return SerialPortActionsDirect::GetSubaru0532bitKernelBaudrate(); });
+        ON_CALL(*this, SetSubaru0532bitKernelBaudrate(::testing::_))
             .WillByDefault([this](QString value)
-                           { return SerialPortActionsDirect::set_subaru_05_32bit_kernel_baudrate(value); });
-        ON_CALL(*this, get_can_speed()).WillByDefault([this] { return SerialPortActionsDirect::get_can_speed(); });
-        ON_CALL(*this, set_can_speed(::testing::_))
-            .WillByDefault([this](QString value) { return SerialPortActionsDirect::set_can_speed(value); });
-        ON_CALL(*this, get_serial_port_baudrate())
-            .WillByDefault([this] { return SerialPortActionsDirect::get_serial_port_baudrate(); });
-        ON_CALL(*this, set_serial_port_baudrate(::testing::_))
-            .WillByDefault([this](QString value) { return SerialPortActionsDirect::set_serial_port_baudrate(value); });
-        ON_CALL(*this, get_serial_port_linux())
-            .WillByDefault([this] { return SerialPortActionsDirect::get_serial_port_linux(); });
-        ON_CALL(*this, set_serial_port_linux(::testing::_))
-            .WillByDefault([this](QString value) { return SerialPortActionsDirect::set_serial_port_linux(value); });
-        ON_CALL(*this, get_serial_port_windows())
-            .WillByDefault([this] { return SerialPortActionsDirect::get_serial_port_windows(); });
-        ON_CALL(*this, set_serial_port_windows(::testing::_))
-            .WillByDefault([this](QString value) { return SerialPortActionsDirect::set_serial_port_windows(value); });
-        ON_CALL(*this, get_serial_port()).WillByDefault([this] { return SerialPortActionsDirect::get_serial_port(); });
-        ON_CALL(*this, set_serial_port(::testing::_))
-            .WillByDefault([this](QString value) { return SerialPortActionsDirect::set_serial_port(value); });
-        ON_CALL(*this, get_serial_port_prefix())
-            .WillByDefault([this] { return SerialPortActionsDirect::get_serial_port_prefix(); });
-        ON_CALL(*this, set_serial_port_prefix(::testing::_))
-            .WillByDefault([this](QString value) { return SerialPortActionsDirect::set_serial_port_prefix(value); });
-        ON_CALL(*this, get_serial_port_prefix_linux())
-            .WillByDefault([this] { return SerialPortActionsDirect::get_serial_port_prefix_linux(); });
-        ON_CALL(*this, set_serial_port_prefix_linux(::testing::_))
-            .WillByDefault([this](QString value)
-                           { return SerialPortActionsDirect::set_serial_port_prefix_linux(value); });
-        ON_CALL(*this, get_serial_port_prefix_win())
-            .WillByDefault([this] { return SerialPortActionsDirect::get_serial_port_prefix_win(); });
-        ON_CALL(*this, set_serial_port_prefix_win(::testing::_))
-            .WillByDefault([this](QString value)
-                           { return SerialPortActionsDirect::set_serial_port_prefix_win(value); });
+                           { return SerialPortActionsDirect::SetSubaru0532bitKernelBaudrate(value); });
+        ON_CALL(*this, GetCanSpeed()).WillByDefault([this] { return SerialPortActionsDirect::GetCanSpeed(); });
+        ON_CALL(*this, SetCanSpeed(::testing::_))
+            .WillByDefault([this](QString value) { return SerialPortActionsDirect::SetCanSpeed(value); });
+        ON_CALL(*this, GetSerialPortBaudrate())
+            .WillByDefault([this] { return SerialPortActionsDirect::GetSerialPortBaudrate(); });
+        ON_CALL(*this, SetSerialPortBaudrate(::testing::_))
+            .WillByDefault([this](QString value) { return SerialPortActionsDirect::SetSerialPortBaudrate(value); });
+        ON_CALL(*this, GetSerialPortLinux())
+            .WillByDefault([this] { return SerialPortActionsDirect::GetSerialPortLinux(); });
+        ON_CALL(*this, SetSerialPortLinux(::testing::_))
+            .WillByDefault([this](QString value) { return SerialPortActionsDirect::SetSerialPortLinux(value); });
+        ON_CALL(*this, GetSerialPortWindows())
+            .WillByDefault([this] { return SerialPortActionsDirect::GetSerialPortWindows(); });
+        ON_CALL(*this, SetSerialPortWindows(::testing::_))
+            .WillByDefault([this](QString value) { return SerialPortActionsDirect::SetSerialPortWindows(value); });
+        ON_CALL(*this, GetSerialPort()).WillByDefault([this] { return SerialPortActionsDirect::GetSerialPort(); });
+        ON_CALL(*this, SetSerialPort(::testing::_))
+            .WillByDefault([this](QString value) { return SerialPortActionsDirect::SetSerialPort(value); });
+        ON_CALL(*this, GetSerialPortPrefix())
+            .WillByDefault([this] { return SerialPortActionsDirect::GetSerialPortPrefix(); });
+        ON_CALL(*this, SetSerialPortPrefix(::testing::_))
+            .WillByDefault([this](QString value) { return SerialPortActionsDirect::SetSerialPortPrefix(value); });
+        ON_CALL(*this, GetSerialPortPrefixLinux())
+            .WillByDefault([this] { return SerialPortActionsDirect::GetSerialPortPrefixLinux(); });
+        ON_CALL(*this, SetSerialPortPrefixLinux(::testing::_))
+            .WillByDefault([this](QString value) { return SerialPortActionsDirect::SetSerialPortPrefixLinux(value); });
+        ON_CALL(*this, GetSerialPortPrefixWin())
+            .WillByDefault([this] { return SerialPortActionsDirect::GetSerialPortPrefixWin(); });
+        ON_CALL(*this, SetSerialPortPrefixWin(::testing::_))
+            .WillByDefault([this](QString value) { return SerialPortActionsDirect::SetSerialPortPrefixWin(value); });
 
-        ON_CALL(*this, get_can_source_address())
-            .WillByDefault([this] { return SerialPortActionsDirect::get_can_source_address(); });
-        ON_CALL(*this, set_can_source_address(::testing::_))
+        ON_CALL(*this, GetCanSourceAddress())
+            .WillByDefault([this] { return SerialPortActionsDirect::GetCanSourceAddress(); });
+        ON_CALL(*this, SetCanSourceAddress(::testing::_))
+            .WillByDefault([this](std::uint32_t value) { return SerialPortActionsDirect::SetCanSourceAddress(value); });
+        ON_CALL(*this, GetCanDestinationAddress())
+            .WillByDefault([this] { return SerialPortActionsDirect::GetCanDestinationAddress(); });
+        ON_CALL(*this, SetCanDestinationAddress(::testing::_))
             .WillByDefault([this](std::uint32_t value)
-                           { return SerialPortActionsDirect::set_can_source_address(value); });
-        ON_CALL(*this, get_can_destination_address())
-            .WillByDefault([this] { return SerialPortActionsDirect::get_can_destination_address(); });
-        ON_CALL(*this, set_can_destination_address(::testing::_))
+                           { return SerialPortActionsDirect::SetCanDestinationAddress(value); });
+        ON_CALL(*this, GetIso15765SourceAddress())
+            .WillByDefault([this] { return SerialPortActionsDirect::GetIso15765SourceAddress(); });
+        ON_CALL(*this, SetIso15765SourceAddress(::testing::_))
             .WillByDefault([this](std::uint32_t value)
-                           { return SerialPortActionsDirect::set_can_destination_address(value); });
-        ON_CALL(*this, get_iso15765_source_address())
-            .WillByDefault([this] { return SerialPortActionsDirect::get_iso15765_source_address(); });
-        ON_CALL(*this, set_iso15765_source_address(::testing::_))
+                           { return SerialPortActionsDirect::SetIso15765SourceAddress(value); });
+        ON_CALL(*this, GetIso15765DestinationAddress())
+            .WillByDefault([this] { return SerialPortActionsDirect::GetIso15765DestinationAddress(); });
+        ON_CALL(*this, SetIso15765DestinationAddress(::testing::_))
             .WillByDefault([this](std::uint32_t value)
-                           { return SerialPortActionsDirect::set_iso15765_source_address(value); });
-        ON_CALL(*this, get_iso15765_destination_address())
-            .WillByDefault([this] { return SerialPortActionsDirect::get_iso15765_destination_address(); });
-        ON_CALL(*this, set_iso15765_destination_address(::testing::_))
-            .WillByDefault([this](std::uint32_t value)
-                           { return SerialPortActionsDirect::set_iso15765_destination_address(value); });
+                           { return SerialPortActionsDirect::SetIso15765DestinationAddress(value); });
 
-        ON_CALL(*this, is_serial_port_open()).WillByDefault(::testing::Return(true));
-        ON_CALL(*this, change_port_speed(::testing::_)).WillByDefault(::testing::Return(kSerialSuccess));
-        ON_CALL(*this, set_kline_timings(::testing::_, ::testing::_))
+        ON_CALL(*this, IsSerialPortOpen()).WillByDefault(::testing::Return(true));
+        ON_CALL(*this, ChangePortSpeed(::testing::_)).WillByDefault(::testing::Return(kSerialSuccess));
+        ON_CALL(*this, SetKlineTimings(::testing::_, ::testing::_))
             .WillByDefault([this](std::uint32_t parameter, int value)
-                           { return SerialPortActionsDirect::set_kline_timings(parameter, value); });
-        ON_CALL(*this, set_j2534_ioctl(::testing::_, ::testing::_)).WillByDefault(::testing::Return(kSerialSuccess));
-        ON_CALL(*this, five_baud_init(::testing::_)).WillByDefault(::testing::Return(QByteArray{}));
-        ON_CALL(*this, fast_init(::testing::_)).WillByDefault(::testing::Return(kSerialSuccess));
-        ON_CALL(*this, set_lec_lines(::testing::_, ::testing::_)).WillByDefault(::testing::Return(kSerialSuccess));
-        ON_CALL(*this, pulse_lec_1_line(::testing::_)).WillByDefault(::testing::Return(kSerialSuccess));
-        ON_CALL(*this, pulse_lec_2_line(::testing::_)).WillByDefault(::testing::Return(kSerialSuccess));
-        ON_CALL(*this, reset_connection()).WillByDefault([] {});
-        ON_CALL(*this, read_serial_obd_data(::testing::_)).WillByDefault(::testing::Return(QByteArray{}));
-        ON_CALL(*this, read_serial_data(::testing::_)).WillByDefault(::testing::Return(QByteArray{}));
-        ON_CALL(*this, write_serial_data(::testing::_)).WillByDefault(::testing::Return(QByteArray{}));
-        ON_CALL(*this, write_serial_data_echo_check(::testing::_)).WillByDefault(::testing::Return(QByteArray{}));
-        ON_CALL(*this, get_is_tx_done()).WillByDefault(::testing::Return(true));
-        ON_CALL(*this, clear_rx_buffer()).WillByDefault(::testing::Return(kSerialSuccess));
-        ON_CALL(*this, clear_tx_buffer()).WillByDefault(::testing::Return(kSerialSuccess));
-        ON_CALL(*this, send_periodic_j2534_data(::testing::_, ::testing::_))
+                           { return SerialPortActionsDirect::SetKlineTimings(parameter, value); });
+        ON_CALL(*this, SetJ2534Ioctl(::testing::_, ::testing::_)).WillByDefault(::testing::Return(kSerialSuccess));
+        ON_CALL(*this, FiveBaudInit(::testing::_)).WillByDefault(::testing::Return(QByteArray{}));
+        ON_CALL(*this, FastInit(::testing::_)).WillByDefault(::testing::Return(kSerialSuccess));
+        ON_CALL(*this, SetLecLines(::testing::_, ::testing::_)).WillByDefault(::testing::Return(kSerialSuccess));
+        ON_CALL(*this, PulseLec1Line(::testing::_)).WillByDefault(::testing::Return(kSerialSuccess));
+        ON_CALL(*this, PulseLec2Line(::testing::_)).WillByDefault(::testing::Return(kSerialSuccess));
+        ON_CALL(*this, ResetConnection()).WillByDefault([] {});
+        ON_CALL(*this, ReadSerialObdData(::testing::_)).WillByDefault(::testing::Return(QByteArray{}));
+        ON_CALL(*this, ReadSerialData(::testing::_)).WillByDefault(::testing::Return(QByteArray{}));
+        ON_CALL(*this, WriteSerialData(::testing::_)).WillByDefault(::testing::Return(QByteArray{}));
+        ON_CALL(*this, WriteSerialDataEchoCheck(::testing::_)).WillByDefault(::testing::Return(QByteArray{}));
+        ON_CALL(*this, GetIsTxDone()).WillByDefault(::testing::Return(true));
+        ON_CALL(*this, ClearRxBuffer()).WillByDefault(::testing::Return(kSerialSuccess));
+        ON_CALL(*this, ClearTxBuffer()).WillByDefault(::testing::Return(kSerialSuccess));
+        ON_CALL(*this, SendPeriodicJ2534Data(::testing::_, ::testing::_))
             .WillByDefault(::testing::Return(kSerialSuccess));
-        ON_CALL(*this, stop_periodic_j2534_data()).WillByDefault(::testing::Return(kSerialSuccess));
-        ON_CALL(*this, check_serial_ports()).WillByDefault(::testing::Return(QStringList{}));
-        ON_CALL(*this, open_serial_port()).WillByDefault(::testing::Return(QString{}));
-        ON_CALL(*this, read_vbatt()).WillByDefault(::testing::Return(0UL));
-        ON_CALL(*this, waitForSource()).WillByDefault([] {});
+        ON_CALL(*this, StopPeriodicJ2534Data()).WillByDefault(::testing::Return(kSerialSuccess));
+        ON_CALL(*this, CheckSerialPorts()).WillByDefault(::testing::Return(QStringList{}));
+        ON_CALL(*this, OpenSerialPort()).WillByDefault(::testing::Return(QString{}));
+        ON_CALL(*this, ReadVbatt()).WillByDefault(::testing::Return(0UL));
+        ON_CALL(*this, WaitForSource()).WillByDefault([] {});
     }
 };
 

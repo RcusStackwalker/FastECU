@@ -24,10 +24,10 @@ namespace
 // pass that guard and silently leave the tail of resp at its zero-init
 // value. Catching a wrong tag turns that class of protocol/version-skew
 // bug into a clean ERR_FAILED instead of quietly-wrong data.
-template <typename Resp> bool readAndValidateResponse(HANDLE pipe, Function expected_function, Resp& resp)
+template <typename Resp> bool ReadAndValidateResponse(HANDLE pipe, Function expected_function, Resp& resp)
 {
     FrameHeader header{};
-    if (!readFrame(pipe, header, &resp, sizeof(resp)))
+    if (!ReadFrame(pipe, header, &resp, sizeof(resp)))
     {
         return false;
     }
@@ -43,10 +43,10 @@ J2534BridgeClient::J2534BridgeClient(std::string host_exe_path, std::string vend
 
 J2534BridgeClient::~J2534BridgeClient()
 {
-    stop();
+    Stop();
 }
 
-bool J2534BridgeClient::start()
+bool J2534BridgeClient::Start()
 {
     HANDLE child_stdin_read, child_stdin_write, child_stdout_read, child_stdout_write;
     SECURITY_ATTRIBUTES sa{sizeof(sa), nullptr, TRUE};
@@ -104,13 +104,13 @@ bool J2534BridgeClient::start()
     return true;
 }
 
-void J2534BridgeClient::stop()
+void J2534BridgeClient::Stop()
 {
     if (!running_)
     {
         return;
     }
-    writeFrame(to_child_write_, Function::kShutdown, nullptr, 0);
+    WriteFrame(to_child_write_, Function::kShutdown, nullptr, 0);
     WaitForSingleObject(process_info_.hProcess, 2000);
     CloseHandle(to_child_write_);
     CloseHandle(from_child_read_);
@@ -131,15 +131,15 @@ long J2534BridgeClient::PassThruOpen(const void *p_name, unsigned long *p_device
         req.has_name = true;
         strncpy_s(req.name.data(), req.name.size(), static_cast<const char *>(p_name), req.name.size() - 1);
     }
-    if (!writeFrame(to_child_write_, Function::kPassThruOpen, &req, sizeof(req)))
+    if (!WriteFrame(to_child_write_, Function::kPassThruOpen, &req, sizeof(req)))
     {
-        stop();
+        Stop();
         return kJ2534ErrFailed;
     }
     PassThruOpenResponse resp{};
-    if (!readAndValidateResponse(from_child_read_, Function::kPassThruOpen, resp))
+    if (!ReadAndValidateResponse(from_child_read_, Function::kPassThruOpen, resp))
     {
-        stop();
+        Stop();
         return kJ2534ErrFailed;
     }
     *p_device_id = resp.device_id;
@@ -149,15 +149,15 @@ long J2534BridgeClient::PassThruOpen(const void *p_name, unsigned long *p_device
 long J2534BridgeClient::PassThruClose(unsigned long device_id)
 {
     PassThruCloseRequest req{device_id};
-    if (!writeFrame(to_child_write_, Function::kPassThruClose, &req, sizeof(req)))
+    if (!WriteFrame(to_child_write_, Function::kPassThruClose, &req, sizeof(req)))
     {
-        stop();
+        Stop();
         return kJ2534ErrFailed;
     }
     PassThruCloseResponse resp{};
-    if (!readAndValidateResponse(from_child_read_, Function::kPassThruClose, resp))
+    if (!ReadAndValidateResponse(from_child_read_, Function::kPassThruClose, resp))
     {
-        stop();
+        Stop();
         return kJ2534ErrFailed;
     }
     return resp.result;
@@ -167,15 +167,15 @@ long J2534BridgeClient::PassThruConnect(unsigned long device_id, unsigned long p
                                         unsigned long baudrate, unsigned long *p_channel_id)
 {
     PassThruConnectRequest req{device_id, protocol_id, flags, baudrate};
-    if (!writeFrame(to_child_write_, Function::kPassThruConnect, &req, sizeof(req)))
+    if (!WriteFrame(to_child_write_, Function::kPassThruConnect, &req, sizeof(req)))
     {
-        stop();
+        Stop();
         return kJ2534ErrFailed;
     }
     PassThruConnectResponse resp{};
-    if (!readAndValidateResponse(from_child_read_, Function::kPassThruConnect, resp))
+    if (!ReadAndValidateResponse(from_child_read_, Function::kPassThruConnect, resp))
     {
-        stop();
+        Stop();
         return kJ2534ErrFailed;
     }
     *p_channel_id = resp.channel_id;
@@ -185,15 +185,15 @@ long J2534BridgeClient::PassThruConnect(unsigned long device_id, unsigned long p
 long J2534BridgeClient::PassThruDisconnect(unsigned long channel_id)
 {
     PassThruDisconnectRequest req{channel_id};
-    if (!writeFrame(to_child_write_, Function::kPassThruDisconnect, &req, sizeof(req)))
+    if (!WriteFrame(to_child_write_, Function::kPassThruDisconnect, &req, sizeof(req)))
     {
-        stop();
+        Stop();
         return kJ2534ErrFailed;
     }
     PassThruDisconnectResponse resp{};
-    if (!readAndValidateResponse(from_child_read_, Function::kPassThruDisconnect, resp))
+    if (!ReadAndValidateResponse(from_child_read_, Function::kPassThruDisconnect, resp))
     {
-        stop();
+        Stop();
         return kJ2534ErrFailed;
     }
     return resp.result;
@@ -203,15 +203,15 @@ long J2534BridgeClient::PassThruReadMsgs(unsigned long channel_id, PassThruMsg *
                                          unsigned long timeout)
 {
     PassThruReadMsgsRequest req{channel_id, timeout};
-    if (!writeFrame(to_child_write_, Function::kPassThruReadMsgs, &req, sizeof(req)))
+    if (!WriteFrame(to_child_write_, Function::kPassThruReadMsgs, &req, sizeof(req)))
     {
-        stop();
+        Stop();
         return kJ2534ErrFailed;
     }
     PassThruReadMsgsResponse resp{};
-    if (!readAndValidateResponse(from_child_read_, Function::kPassThruReadMsgs, resp))
+    if (!ReadAndValidateResponse(from_child_read_, Function::kPassThruReadMsgs, resp))
     {
-        stop();
+        Stop();
         return kJ2534ErrFailed;
     }
     *p_msg = resp.msg;
@@ -229,15 +229,15 @@ long J2534BridgeClient::PassThruWriteMsgs(unsigned long channel_id, const PassTh
     {
         req.msg = *p_msg;
     }
-    if (!writeFrame(to_child_write_, Function::kPassThruWriteMsgs, &req, sizeof(req)))
+    if (!WriteFrame(to_child_write_, Function::kPassThruWriteMsgs, &req, sizeof(req)))
     {
-        stop();
+        Stop();
         return kJ2534ErrFailed;
     }
     PassThruWriteMsgsResponse resp{};
-    if (!readAndValidateResponse(from_child_read_, Function::kPassThruWriteMsgs, resp))
+    if (!ReadAndValidateResponse(from_child_read_, Function::kPassThruWriteMsgs, resp))
     {
-        stop();
+        Stop();
         return kJ2534ErrFailed;
     }
     if (p_num_msgs)
@@ -257,15 +257,15 @@ long J2534BridgeClient::PassThruStartPeriodicMsg(unsigned long channel_id, const
     {
         req.msg = *p_msg;
     }
-    if (!writeFrame(to_child_write_, Function::kPassThruStartPeriodicMsg, &req, sizeof(req)))
+    if (!WriteFrame(to_child_write_, Function::kPassThruStartPeriodicMsg, &req, sizeof(req)))
     {
-        stop();
+        Stop();
         return kJ2534ErrFailed;
     }
     PassThruStartPeriodicMsgResponse resp{};
-    if (!readAndValidateResponse(from_child_read_, Function::kPassThruStartPeriodicMsg, resp))
+    if (!ReadAndValidateResponse(from_child_read_, Function::kPassThruStartPeriodicMsg, resp))
     {
-        stop();
+        Stop();
         return kJ2534ErrFailed;
     }
     *p_msg_id = resp.msg_id;
@@ -275,15 +275,15 @@ long J2534BridgeClient::PassThruStartPeriodicMsg(unsigned long channel_id, const
 long J2534BridgeClient::PassThruStopPeriodicMsg(unsigned long channel_id, unsigned long msg_id)
 {
     PassThruStopPeriodicMsgRequest req{channel_id, msg_id};
-    if (!writeFrame(to_child_write_, Function::kPassThruStopPeriodicMsg, &req, sizeof(req)))
+    if (!WriteFrame(to_child_write_, Function::kPassThruStopPeriodicMsg, &req, sizeof(req)))
     {
-        stop();
+        Stop();
         return kJ2534ErrFailed;
     }
     PassThruStopPeriodicMsgResponse resp{};
-    if (!readAndValidateResponse(from_child_read_, Function::kPassThruStopPeriodicMsg, resp))
+    if (!ReadAndValidateResponse(from_child_read_, Function::kPassThruStopPeriodicMsg, resp))
     {
-        stop();
+        Stop();
         return kJ2534ErrFailed;
     }
     return resp.result;
@@ -309,15 +309,15 @@ long J2534BridgeClient::PassThruStartMsgFilter(unsigned long channel_id, unsigne
     {
         req.flow_control_msg = *p_flow_control_msg;
     }
-    if (!writeFrame(to_child_write_, Function::kPassThruStartMsgFilter, &req, sizeof(req)))
+    if (!WriteFrame(to_child_write_, Function::kPassThruStartMsgFilter, &req, sizeof(req)))
     {
-        stop();
+        Stop();
         return kJ2534ErrFailed;
     }
     PassThruStartMsgFilterResponse resp{};
-    if (!readAndValidateResponse(from_child_read_, Function::kPassThruStartMsgFilter, resp))
+    if (!ReadAndValidateResponse(from_child_read_, Function::kPassThruStartMsgFilter, resp))
     {
-        stop();
+        Stop();
         return kJ2534ErrFailed;
     }
     *p_msg_id = resp.msg_id;
@@ -327,15 +327,15 @@ long J2534BridgeClient::PassThruStartMsgFilter(unsigned long channel_id, unsigne
 long J2534BridgeClient::PassThruStopMsgFilter(unsigned long channel_id, unsigned long msg_id)
 {
     PassThruStopMsgFilterRequest req{channel_id, msg_id};
-    if (!writeFrame(to_child_write_, Function::kPassThruStopMsgFilter, &req, sizeof(req)))
+    if (!WriteFrame(to_child_write_, Function::kPassThruStopMsgFilter, &req, sizeof(req)))
     {
-        stop();
+        Stop();
         return kJ2534ErrFailed;
     }
     PassThruStopMsgFilterResponse resp{};
-    if (!readAndValidateResponse(from_child_read_, Function::kPassThruStopMsgFilter, resp))
+    if (!ReadAndValidateResponse(from_child_read_, Function::kPassThruStopMsgFilter, resp))
     {
-        stop();
+        Stop();
         return kJ2534ErrFailed;
     }
     return resp.result;
@@ -344,15 +344,15 @@ long J2534BridgeClient::PassThruStopMsgFilter(unsigned long channel_id, unsigned
 long J2534BridgeClient::PassThruSetProgrammingVoltage(unsigned long device_id, unsigned long pin, unsigned long voltage)
 {
     PassThruSetProgrammingVoltageRequest req{device_id, pin, voltage};
-    if (!writeFrame(to_child_write_, Function::kPassThruSetProgrammingVoltage, &req, sizeof(req)))
+    if (!WriteFrame(to_child_write_, Function::kPassThruSetProgrammingVoltage, &req, sizeof(req)))
     {
-        stop();
+        Stop();
         return kJ2534ErrFailed;
     }
     PassThruSetProgrammingVoltageResponse resp{};
-    if (!readAndValidateResponse(from_child_read_, Function::kPassThruSetProgrammingVoltage, resp))
+    if (!ReadAndValidateResponse(from_child_read_, Function::kPassThruSetProgrammingVoltage, resp))
     {
-        stop();
+        Stop();
         return kJ2534ErrFailed;
     }
     return resp.result;
@@ -362,15 +362,15 @@ long J2534BridgeClient::PassThruReadVersion(char *p_api_version, char *p_dll_ver
                                             unsigned long device_id)
 {
     PassThruReadVersionRequest req{device_id};
-    if (!writeFrame(to_child_write_, Function::kPassThruReadVersion, &req, sizeof(req)))
+    if (!WriteFrame(to_child_write_, Function::kPassThruReadVersion, &req, sizeof(req)))
     {
-        stop();
+        Stop();
         return kJ2534ErrFailed;
     }
     PassThruReadVersionResponse resp{};
-    if (!readAndValidateResponse(from_child_read_, Function::kPassThruReadVersion, resp))
+    if (!ReadAndValidateResponse(from_child_read_, Function::kPassThruReadVersion, resp))
     {
-        stop();
+        Stop();
         return kJ2534ErrFailed;
     }
     // The vendor DLLs behind this bridge fill these as fixed-size,
@@ -394,15 +394,15 @@ long J2534BridgeClient::PassThruReadVersion(char *p_api_version, char *p_dll_ver
 long J2534BridgeClient::PassThruGetLastError(char *p_error_description)
 {
     PassThruGetLastErrorRequest req{};
-    if (!writeFrame(to_child_write_, Function::kPassThruGetLastError, &req, sizeof(req)))
+    if (!WriteFrame(to_child_write_, Function::kPassThruGetLastError, &req, sizeof(req)))
     {
-        stop();
+        Stop();
         return kJ2534ErrFailed;
     }
     PassThruGetLastErrorResponse resp{};
-    if (!readAndValidateResponse(from_child_read_, Function::kPassThruGetLastError, resp))
+    if (!ReadAndValidateResponse(from_child_read_, Function::kPassThruGetLastError, resp))
     {
-        stop();
+        Stop();
         return kJ2534ErrFailed;
     }
     if (p_error_description)
@@ -468,16 +468,16 @@ long J2534BridgeClient::PassThruIoctl(unsigned long channel_id, unsigned long io
         break;
     }
 
-    if (!writeFrame(to_child_write_, Function::kPassThruIoctl, &req, sizeof(req)))
+    if (!WriteFrame(to_child_write_, Function::kPassThruIoctl, &req, sizeof(req)))
     {
-        stop();
+        Stop();
         return kJ2534ErrFailed;
     }
 
     PassThruIoctlResponse resp{};
-    if (!readAndValidateResponse(from_child_read_, Function::kPassThruIoctl, resp))
+    if (!ReadAndValidateResponse(from_child_read_, Function::kPassThruIoctl, resp))
     {
-        stop();
+        Stop();
         return kJ2534ErrFailed;
     }
 

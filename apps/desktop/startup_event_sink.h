@@ -12,18 +12,18 @@
 class StartupEventSink : public fastecu::IEventSink
 {
   public:
-    void log(fastecu::LogLevel level, std::string_view message) override
+    void Log(fastecu::LogLevel level, std::string_view message) override
     {
         if (level == fastecu::LogLevel::kWarning || level == fastecu::LogLevel::kError)
         {
             warnings_.append(QString::fromUtf8(message.data(), static_cast<qsizetype>(message.size())));
         }
     }
-    void progress(int, int) override
+    void Progress(int, int) override
     {
         // Configuration startup has no progress consumer; this sink collects diagnostics for the presenter.
     }
-    void notice(std::string_view message) override
+    void Notice(std::string_view message) override
     {
         warnings_.append(QString::fromUtf8(message.data(), static_cast<qsizetype>(message.size())));
     }

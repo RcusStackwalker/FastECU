@@ -206,16 +206,16 @@ struct PassThruIoctlResponse
     unsigned long vbatt;                        // READ_VBATT / READ_PROG_VOLTAGE only
 };
 
-bool writeFrame(HANDLE pipe, Function function, const void *payload, std::uint32_t payload_size);
+bool WriteFrame(HANDLE pipe, Function function, const void *payload, std::uint32_t payload_size);
 
 // Split out of readFrame so callers that don't yet know which *Request struct
 // to decode (e.g. the bridge host's dispatch loop) can read the fixed-size
 // header first and only then read the payload once the Function tag is known.
-bool readFrameHeader(HANDLE pipe, FrameHeader& out_header);
-bool readFramePayload(HANDLE pipe, void *payload, std::uint32_t payload_size);
+bool ReadFrameHeader(HANDLE pipe, FrameHeader& out_header);
+bool ReadFramePayload(HANDLE pipe, void *payload, std::uint32_t payload_size);
 
 // Convenience wrapper for callers that already know their expected payload
 // type up front (e.g. the protocol test): reads the header, then the payload.
-bool readFrame(HANDLE pipe, FrameHeader& out_header, void *payload, std::uint32_t payload_capacity);
+bool ReadFrame(HANDLE pipe, FrameHeader& out_header, void *payload, std::uint32_t payload_capacity);
 
 } // namespace j2534_bridge

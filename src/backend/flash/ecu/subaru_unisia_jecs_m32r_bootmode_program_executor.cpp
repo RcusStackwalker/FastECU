@@ -16,8 +16,8 @@ namespace fastecu::flash
 {
 namespace
 {
-using bytes::composeBe;
-using bytes::u24;
+using bytes::ComposeBe;
+using bytes::U24;
 using namespace bytes::literals;
 using namespace std::chrono_literals;
 
@@ -41,61 +41,61 @@ struct Session
     const SubaruUnisiaJecsM32rBootModeProgramPlan& wire;
 };
 
-Status cancelled_if_requested(const ICancellationToken& cancellation, std::string_view where)
+Status CancelledIfRequested(const ICancellationToken& cancellation, std::string_view where)
 {
-    if (cancellation.cancelled())
+    if (cancellation.Cancelled())
     {
-        return fail(ErrorKind::kCancelled, std::format("cancelled {}", where));
+        return Fail(ErrorKind::kCancelled, std::format("cancelled {}", where));
     }
     return {};
 }
 
-Status send(Session& s, bytes::ByteView payload)
+Status Send(Session& s, bytes::ByteView payload)
 {
-    if (Status cancelled = cancelled_if_requested(s.cancellation, "before write"); !cancelled.has_value())
+    if (Status cancelled = CancelledIfRequested(s.cancellation, "before write"); !cancelled.has_value())
     {
         return cancelled;
     }
-    const bytes::Bytes request = ssm_protocol::addHeader(payload, s.wire.tester_id, s.wire.target_id);
-    auto written = s.transport.write(request);
+    const bytes::Bytes request = ssm_protocol::AddHeader(payload, s.wire.tester_id, s.wire.target_id);
+    auto written = s.transport.Write(request);
     if (!written.has_value())
     {
         return std::unexpected(written.error());
     }
     if (*written != request.size())
     {
-        return fail(ErrorKind::kDisconnected, "short K-Line write");
+        return Fail(ErrorKind::kDisconnected, "short K-Line write");
     }
     return {};
 }
 
-Result<std::optional<bytes::Bytes>> receive(Session& s, std::chrono::milliseconds timeout)
+Result<std::optional<bytes::Bytes>> Receive(Session& s, std::chrono::milliseconds timeout)
 {
-    auto response = s.transport.read(timeout, s.cancellation);
+    auto response = s.transport.Read(timeout, s.cancellation);
     if (!response.has_value())
     {
         return std::unexpected(response.error());
     }
-    if (Status cancelled = cancelled_if_requested(s.cancellation, "after read"); !cancelled.has_value())
+    if (Status cancelled = CancelledIfRequested(s.cancellation, "after read"); !cancelled.has_value())
     {
         return std::unexpected(cancelled.error());
     }
     return std::move(*response);
 }
 
-bool is_status_reply(bytes::ByteView frame, const SubaruUnisiaJecsM32rBootModeProgramPlan& wire)
+bool IsStatusReply(bytes::ByteView frame, const SubaruUnisiaJecsM32rBootModeProgramPlan& wire)
 {
-    return ssm_protocol::hasValidFrame(frame, wire.tester_id, wire.target_id) && frame[3] == 2 && frame[4] == 0xef;
+    return ssm_protocol::HasValidFrame(frame, wire.tester_id, wire.target_id) && frame[3] == 2 && frame[4] == 0xef;
 }
 
-bool is_status(bytes::ByteView frame, const SubaruUnisiaJecsM32rBootModeProgramPlan& wire, bytes::Byte status)
+bool IsStatus(bytes::ByteView frame, const SubaruUnisiaJecsM32rBootModeProgramPlan& wire, bytes::Byte status)
 {
-    return is_status_reply(frame, wire) && frame[5] == status;
+    return IsStatusReply(frame, wire) && frame[5] == status;
 }
 
 // write_mem() :346-353 documents these as error codes; success replies are
 // EF 42 and EF 52, so they are read as the status byte after EF.
-std::string_view status_meaning(bytes::Byte status)
+std::string_view StatusMeaning(bytes::Byte status)
 {
     switch (status)
     {
@@ -116,94 +116,94 @@ std::string_view status_meaning(bytes::Byte status)
     }
 }
 
-std::string describe(bytes::ByteView frame, const SubaruUnisiaJecsM32rBootModeProgramPlan& wire)
+std::string Describe(bytes::ByteView frame, const SubaruUnisiaJecsM32rBootModeProgramPlan& wire)
 {
-    if (is_status_reply(frame, wire))
+    if (IsStatusReply(frame, wire))
     {
-        return std::format("{} (status {:02X}: {})", bytes::toHex(frame), frame[5], status_meaning(frame[5]));
+        return std::format("{} (status {:02X}: {})", bytes::ToHex(frame), frame[5], StatusMeaning(frame[5]));
     }
-    return bytes::toHex(frame);
+    return bytes::ToHex(frame);
 }
 
 // write_mem() :393-463. read() returns whole frames: an empty read continues
 // the poll, and any frame must be EF <status>. Legacy's first poll fell
 // through on one to six bytes and its second never failed.
-Status poll_for(Session& s, bytes::Byte status, std::chrono::milliseconds sleep, std::string_view what)
+Status PollFor(Session& s, bytes::Byte status, std::chrono::milliseconds sleep, std::string_view what)
 {
     for (int round = 0; round < kEraseRounds; ++round)
     {
-        auto response = receive(s, kPollRead);
+        auto response = Receive(s, kPollRead);
         if (!response.has_value())
         {
             return std::unexpected(response.error());
         }
         if (response->has_value())
         {
-            if (!is_status(**response, s.wire, status))
+            if (!IsStatus(**response, s.wire, status))
             {
-                return fail(ErrorKind::kBadResponse, std::format("{} failed: {}", what, describe(**response, s.wire)));
+                return Fail(ErrorKind::kBadResponse, std::format("{} failed: {}", what, Describe(**response, s.wire)));
             }
             return {};
         }
-        if (Status slept = s.clock.sleep(sleep, s.cancellation); !slept.has_value())
+        if (Status slept = s.clock.Sleep(sleep, s.cancellation); !slept.has_value())
         {
             return slept;
         }
     }
-    return fail(ErrorKind::kTimeout, std::format("no {} response after {} polls", what, kEraseRounds));
+    return Fail(ErrorKind::kTimeout, std::format("no {} response after {} polls", what, kEraseRounds));
 }
 
-Status program(Session& s, const FlashPlan& plan)
+Status Program(Session& s, const FlashPlan& plan)
 {
-    if (Status cancelled = cancelled_if_requested(s.cancellation, "before programming voltage"); !cancelled.has_value())
+    if (Status cancelled = CancelledIfRequested(s.cancellation, "before programming voltage"); !cancelled.has_value())
     {
         return cancelled;
     }
     // write_mem() :366: VPP stays, MOD1 drops. The operator removed MOD1
     // before this attempt started (the workflow's RemoveMod1 prompt).
-    s.events.log(LogLevel::kDebug, "Set programming voltage +12v to Line End Check 1");
-    if (Status raised = s.transport.enable_programming_voltage_line(); !raised.has_value())
+    s.events.Log(LogLevel::kDebug, "Set programming voltage +12v to Line End Check 1");
+    if (Status raised = s.transport.EnableProgrammingVoltageLine(); !raised.has_value())
     {
         return raised;
     }
 
-    s.events.log(LogLevel::kInfo, "Requesting flash erase, please wait...");
-    if (Status sent = send(s, composeBe(0xaf_b, 0x31_b)); !sent.has_value())
+    s.events.Log(LogLevel::kInfo, "Requesting flash erase, please wait...");
+    if (Status sent = Send(s, ComposeBe(0xaf_b, 0x31_b)); !sent.has_value())
     {
         return sent;
     }
-    if (Status settled = s.clock.sleep(kEraseSettle, s.cancellation); !settled.has_value())
+    if (Status settled = s.clock.Sleep(kEraseSettle, s.cancellation); !settled.has_value())
     {
         return settled;
     }
-    if (Status started = poll_for(s, 0x42, kEraseStartSleep, "flash erase start"); !started.has_value())
+    if (Status started = PollFor(s, 0x42, kEraseStartSleep, "flash erase start"); !started.has_value())
     {
         return started;
     }
-    s.events.log(LogLevel::kInfo, "Flash erase in progress, please wait...");
-    if (Status erased = poll_for(s, 0x52, kEraseDoneSleep, "flash erase"); !erased.has_value())
+    s.events.Log(LogLevel::kInfo, "Flash erase in progress, please wait...");
+    if (Status erased = PollFor(s, 0x52, kEraseDoneSleep, "flash erase"); !erased.has_value())
     {
         return erased;
     }
-    s.events.log(LogLevel::kInfo, "Flash erased!");
-    if (Status settled = s.clock.sleep(kPostErase, s.cancellation); !settled.has_value())
+    s.events.Log(LogLevel::kInfo, "Flash erased!");
+    if (Status settled = s.clock.Sleep(kPostErase, s.cancellation); !settled.has_value())
     {
         return settled;
     }
 
     // write_mem() :467-578. Data goes as-is; unlike 6c-3 there is no XOR.
-    const bytes::Bytes& image = plan.image_or_empty();
+    const bytes::Bytes& image = plan.ImageOrEmpty();
     const auto blocks = static_cast<int>(image.size() / kBlock);
     for (int block = 0; block < blocks; ++block)
     {
         const std::uint32_t address = static_cast<std::uint32_t>(block) * kBlock;
         const bool last = block == blocks - 1;
         const bytes::ByteView data = bytes::ByteView(image).subspan(address, kBlock);
-        if (Status sent = send(s, composeBe(0xaf_b, last ? 0x69_b : 0x61_b, u24(address), data)); !sent.has_value())
+        if (Status sent = Send(s, ComposeBe(0xaf_b, last ? 0x69_b : 0x61_b, U24(address), data)); !sent.has_value())
         {
             return sent;
         }
-        auto response = receive(s, kBlockTimeout);
+        auto response = Receive(s, kBlockTimeout);
         if (!response.has_value())
         {
             return std::unexpected(response.error());
@@ -212,76 +212,76 @@ Status program(Session& s, const FlashPlan& plan)
         {
             if (!last)
             {
-                return fail(ErrorKind::kTimeout, std::format("no response to block write at 0x{:06X}", address));
+                return Fail(ErrorKind::kTimeout, std::format("no response to block write at 0x{:06X}", address));
             }
             // Legacy never read a reply to AF 69 (:517); its shape is unknown.
-            s.events.log(LogLevel::kWarning, "No reply to the final block; treating the write as complete");
+            s.events.Log(LogLevel::kWarning, "No reply to the final block; treating the write as complete");
         }
-        else if (!is_status(**response, s.wire, 0x52))
+        else if (!IsStatus(**response, s.wire, 0x52))
         {
-            return fail(ErrorKind::kBadResponse,
-                        std::format("block write at 0x{:06X} failed: {}", address, describe(**response, s.wire)));
+            return Fail(ErrorKind::kBadResponse,
+                        std::format("block write at 0x{:06X} failed: {}", address, Describe(**response, s.wire)));
         }
-        s.events.progress(block + 1, blocks);
+        s.events.Progress(block + 1, blocks);
         if (!last)
         {
-            if (Status paced = s.clock.sleep(kBlockPacing, s.cancellation); !paced.has_value())
+            if (Status paced = s.clock.Sleep(kBlockPacing, s.cancellation); !paced.has_value())
             {
                 return paced;
             }
         }
     }
-    s.events.log(LogLevel::kInfo, "ROM written to flash.");
+    s.events.Log(LogLevel::kInfo, "ROM written to flash.");
     // write_mem() :581.
-    s.events.log(LogLevel::kInfo, "Please remove VPP voltage, power cycle ECU and request SSM Init to confirm.");
+    s.events.Log(LogLevel::kInfo, "Please remove VPP voltage, power cycle ECU and request SSM Init to confirm.");
     return {};
 }
 } // namespace
 
-Result<KlineConfig> SubaruUnisiaJecsM32rBootModeProgramExecutor::transport_setup(const FlashPlan& plan) const
+Result<KlineConfig> SubaruUnisiaJecsM32rBootModeProgramExecutor::TransportSetup(const FlashPlan& plan) const
 {
-    if (Status match = check_family(plan, FlashFamily::kSubaruUnisiaJecsM32rBootModeProgram); !match.has_value())
+    if (Status match = CheckFamily(plan, FlashFamily::kSubaruUnisiaJecsM32rBootModeProgram); !match.has_value())
     {
         return std::unexpected(match.error());
     }
-    if (Status valid = validate_subaru_unisia_jecs_m32r_bootmode_plan(plan); !valid.has_value())
+    if (Status valid = ValidateSubaruUnisiaJecsM32rBootmodePlan(plan); !valid.has_value())
     {
         return std::unexpected(valid.error());
     }
     // write_mem() :361-364: no parity, 19200 baud.
-    return non_iso14230_kline_config_from(std::get<SubaruUnisiaJecsM32rBootModeProgramPlan>(plan.family_plan()));
+    return NonIso14230KlineConfigFrom(std::get<SubaruUnisiaJecsM32rBootModeProgramPlan>(plan.FamilyPlan()));
 }
 
-Status SubaruUnisiaJecsM32rBootModeProgramExecutor::before_transport_configure(IKlineFlashTransport& transport, IClock&,
-                                                                               const ICancellationToken&) const
+Status SubaruUnisiaJecsM32rBootModeProgramExecutor::BeforeTransportConfigure(IKlineFlashTransport& transport, IClock&,
+                                                                             const ICancellationToken&) const
 {
     // write_mem() :361.
-    if (Status reset = transport.reset_connection(); !reset.has_value())
+    if (Status reset = transport.ResetConnection(); !reset.has_value())
     {
         return reset;
     }
-    return transport.set_add_iso14230_header(false);
+    return transport.SetAddIso14230Header(false);
 }
 
 Result<FlashExecutionResult>
-SubaruUnisiaJecsM32rBootModeProgramExecutor::execute(const FlashPlan& plan, IKlineFlashTransport& transport,
+SubaruUnisiaJecsM32rBootModeProgramExecutor::Execute(const FlashPlan& plan, IKlineFlashTransport& transport,
                                                      IClock& clock, const ICancellationToken& cancellation,
                                                      IEventSink& events)
 {
-    if (Status match = check_family(plan, FlashFamily::kSubaruUnisiaJecsM32rBootModeProgram); !match.has_value())
+    if (Status match = CheckFamily(plan, FlashFamily::kSubaruUnisiaJecsM32rBootModeProgram); !match.has_value())
     {
         return std::unexpected(match.error());
     }
-    if (Status valid = validate_subaru_unisia_jecs_m32r_bootmode_plan(plan); !valid.has_value())
+    if (Status valid = ValidateSubaruUnisiaJecsM32rBootmodePlan(plan); !valid.has_value())
     {
         return std::unexpected(valid.error());
     }
     Session session{transport, clock, cancellation, events,
-                    std::get<SubaruUnisiaJecsM32rBootModeProgramPlan>(plan.family_plan())};
-    const Status written = program(session, plan);
+                    std::get<SubaruUnisiaJecsM32rBootModeProgramPlan>(plan.FamilyPlan())};
+    const Status written = Program(session, plan);
     // execute() :85, :89: legacy dropped the lines after write_mem().
-    events.log(LogLevel::kDebug, "Removing programming voltage +12v from Line End Check 1");
-    const Status dropped = transport.disable_lec_lines();
+    events.Log(LogLevel::kDebug, "Removing programming voltage +12v from Line End Check 1");
+    const Status dropped = transport.DisableLecLines();
     if (!written.has_value())
     {
         return std::unexpected(written.error());

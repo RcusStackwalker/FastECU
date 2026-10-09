@@ -22,14 +22,14 @@ class SsmLoggingProtocol final : public LoggingProtocol
                        std::vector<LoggingChannel> channels, std::vector<std::size_t> response_offsets,
                        bool target_is_ecu, bool use_openport2_adapter);
 
-    fastecu::Status start(const fastecu::ICancellationToken& cancellation) override;
-    fastecu::Result<PollData> poll(std::chrono::milliseconds timeout,
+    fastecu::Status Start(const fastecu::ICancellationToken& cancellation) override;
+    fastecu::Result<PollData> Poll(std::chrono::milliseconds timeout,
                                    const fastecu::ICancellationToken& cancellation) override;
-    fastecu::Status stop() override;
+    fastecu::Status Stop() override;
 
   private:
-    bytes::Bytes buildSsmHeader(bytes::ByteView output) const;
-    fastecu::Result<bytes::Bytes> readFramedResponse(std::chrono::milliseconds timeout,
+    bytes::Bytes BuildSsmHeader(bytes::ByteView output) const;
+    fastecu::Result<bytes::Bytes> ReadFramedResponse(std::chrono::milliseconds timeout,
                                                      const fastecu::ICancellationToken& cancellation);
 
     fastecu::IClock& clock_;

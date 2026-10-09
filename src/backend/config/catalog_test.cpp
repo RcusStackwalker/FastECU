@@ -11,12 +11,12 @@ namespace
 {
 
 using fastecu::config::Catalog;
-using fastecu::config::catalog_problems;
-using fastecu::config::catalog_references_resolve;
-using fastecu::config::checksum_flag;
+using fastecu::config::CatalogProblems;
+using fastecu::config::CatalogReferencesResolve;
+using fastecu::config::ChecksumFlag;
 using fastecu::config::ChecksumSupport;
-using fastecu::config::kernel_load_address_text;
-using fastecu::config::protocol_in;
+using fastecu::config::KernelLoadAddressText;
+using fastecu::config::ProtocolIn;
 using fastecu::config::ProtocolSpec;
 using fastecu::config::VehicleSpec;
 using ::testing::IsEmpty;
@@ -37,70 +37,70 @@ constexpr auto kProtocols = std::to_array<ProtocolSpec>({
 // Rows 0 and 2 share proto_a. "shared" is the alias of proto_b and proto_c;
 // proto_c's vehicle (row 1) comes before proto_b's (row 3).
 constexpr auto kVehicles = std::to_array<VehicleSpec>({
-    {.id = "subaru-impreza", .make = "Subaru", .model = "Impreza", .protocol = protocol_in(kProtocols, "proto_a")},
-    {.id = "mitsubishi-colt", .make = "Mitsubishi", .model = "Colt", .protocol = protocol_in(kProtocols, "proto_c")},
-    {.id = "subaru-forester", .make = "Subaru", .model = "Forester", .protocol = protocol_in(kProtocols, "proto_a")},
-    {.id = "subaru-legacy", .make = "Subaru", .model = "Legacy", .protocol = protocol_in(kProtocols, "proto_b")},
+    {.id = "subaru-impreza", .make = "Subaru", .model = "Impreza", .protocol = ProtocolIn(kProtocols, "proto_a")},
+    {.id = "mitsubishi-colt", .make = "Mitsubishi", .model = "Colt", .protocol = ProtocolIn(kProtocols, "proto_c")},
+    {.id = "subaru-forester", .make = "Subaru", .model = "Forester", .protocol = ProtocolIn(kProtocols, "proto_a")},
+    {.id = "subaru-legacy", .make = "Subaru", .model = "Legacy", .protocol = ProtocolIn(kProtocols, "proto_b")},
 });
 
 constexpr Catalog kCatalog{kProtocols, kVehicles};
 
-static_assert(protocol_in(kProtocols, "proto_b") == &kProtocols[1]);
-static_assert(protocol_in(kProtocols, "absent") == nullptr);
-static_assert(catalog_references_resolve(kProtocols, kVehicles));
+static_assert(ProtocolIn(kProtocols, "proto_b") == &kProtocols[1]);
+static_assert(ProtocolIn(kProtocols, "absent") == nullptr);
+static_assert(CatalogReferencesResolve(kProtocols, kVehicles));
 
 TEST(ChecksumFlag, SpellsTheLegacyFlagText)
 {
-    EXPECT_EQ(checksum_flag(ChecksumSupport::kCorrected), "yes");
-    EXPECT_EQ(checksum_flag(ChecksumSupport::kMissing), "n/a");
-    EXPECT_EQ(checksum_flag(ChecksumSupport::kNone), "no");
+    EXPECT_EQ(ChecksumFlag(ChecksumSupport::kCorrected), "yes");
+    EXPECT_EQ(ChecksumFlag(ChecksumSupport::kMissing), "n/a");
+    EXPECT_EQ(ChecksumFlag(ChecksumSupport::kNone), "no");
 }
 
 TEST(KernelLoadAddressText, IsUnpaddedUppercaseHexOrEmpty)
 {
-    EXPECT_EQ(kernel_load_address_text(kProtocols[0]), "0xFFFF3000");
-    EXPECT_EQ(kernel_load_address_text(ProtocolSpec{.kernel_load_address = 0x20000U}), "0x20000");
-    EXPECT_EQ(kernel_load_address_text(kProtocols[1]), "");
+    EXPECT_EQ(KernelLoadAddressText(kProtocols[0]), "0xFFFF3000");
+    EXPECT_EQ(KernelLoadAddressText(ProtocolSpec{.kernel_load_address = 0x20000U}), "0x20000");
+    EXPECT_EQ(KernelLoadAddressText(kProtocols[1]), "");
 }
 
 TEST(Catalog, FindsAProtocolByName)
 {
-    EXPECT_EQ(kCatalog.find_protocol("proto_c"), &kProtocols[2]);
-    EXPECT_EQ(kCatalog.find_protocol("absent"), nullptr);
+    EXPECT_EQ(kCatalog.FindProtocol("proto_c"), &kProtocols[2]);
+    EXPECT_EQ(kCatalog.FindProtocol("absent"), nullptr);
 }
 
 TEST(Catalog, FindsAVehicleRowById)
 {
-    EXPECT_EQ(kCatalog.find_vehicle("subaru-forester"), std::optional<std::size_t>(2));
-    EXPECT_EQ(kCatalog.find_vehicle("absent"), std::nullopt);
-    EXPECT_EQ(kCatalog.find_vehicle(""), std::nullopt);
+    EXPECT_EQ(kCatalog.FindVehicle("subaru-forester"), std::optional<std::size_t>(2));
+    EXPECT_EQ(kCatalog.FindVehicle("absent"), std::nullopt);
+    EXPECT_EQ(kCatalog.FindVehicle(""), std::nullopt);
 }
 
 TEST(Catalog, ProtocolLookupTakesTheLastMatchingRow)
 {
-    EXPECT_EQ(kCatalog.last_vehicle_for_protocol("proto_a"), std::optional<std::size_t>(2));
-    EXPECT_EQ(kCatalog.last_vehicle_for_protocol("proto_b"), std::optional<std::size_t>(3));
-    EXPECT_EQ(kCatalog.last_vehicle_for_protocol("absent"), std::nullopt);
+    EXPECT_EQ(kCatalog.LastVehicleForProtocol("proto_a"), std::optional<std::size_t>(2));
+    EXPECT_EQ(kCatalog.LastVehicleForProtocol("proto_b"), std::optional<std::size_t>(3));
+    EXPECT_EQ(kCatalog.LastVehicleForProtocol("absent"), std::nullopt);
 }
 
 TEST(Catalog, AliasLookupTakesTheFirstMatchingVehicle)
 {
-    EXPECT_EQ(kCatalog.first_vehicle_for_alias("shared"), &kVehicles[1]);
-    EXPECT_EQ(kCatalog.first_vehicle_for_alias("alias_a"), &kVehicles[0]);
-    EXPECT_EQ(kCatalog.first_vehicle_for_alias("absent"), nullptr);
+    EXPECT_EQ(kCatalog.FirstVehicleForAlias("shared"), &kVehicles[1]);
+    EXPECT_EQ(kCatalog.FirstVehicleForAlias("alias_a"), &kVehicles[0]);
+    EXPECT_EQ(kCatalog.FirstVehicleForAlias("absent"), nullptr);
 }
 
 TEST(Catalog, AnEmptyFlashMethodMatchesNoAlias)
 {
     static constexpr auto kUnaliased = std::to_array<ProtocolSpec>({{.name = "plain"}});
     static constexpr auto kOne =
-        std::to_array<VehicleSpec>({{.id = "one", .protocol = protocol_in(kUnaliased, "plain")}});
-    EXPECT_EQ((Catalog{kUnaliased, kOne}.first_vehicle_for_alias("")), nullptr);
+        std::to_array<VehicleSpec>({{.id = "one", .protocol = ProtocolIn(kUnaliased, "plain")}});
+    EXPECT_EQ((Catalog{kUnaliased, kOne}.FirstVehicleForAlias("")), nullptr);
 }
 
 TEST(CatalogProblems, AConsistentCatalogHasNone)
 {
-    EXPECT_THAT(catalog_problems(kCatalog), IsEmpty());
+    EXPECT_THAT(CatalogProblems(kCatalog), IsEmpty());
 }
 
 constexpr auto kBrokenProtocols = std::to_array<ProtocolSpec>({
@@ -120,8 +120,8 @@ constexpr auto kBrokenVehicles = std::to_array<VehicleSpec>({
 
 TEST(CatalogProblems, ReportsEachInconsistencyOnce)
 {
-    EXPECT_FALSE(catalog_references_resolve(kBrokenProtocols, kBrokenVehicles));
-    EXPECT_THAT(catalog_problems(Catalog{kBrokenProtocols, kBrokenVehicles}),
+    EXPECT_FALSE(CatalogReferencesResolve(kBrokenProtocols, kBrokenVehicles));
+    EXPECT_THAT(CatalogProblems(Catalog{kBrokenProtocols, kBrokenVehicles}),
                 UnorderedElementsAre(
                     "duplicate protocol name 'dup'", "protocol name is empty",
                     "protocol 'lonely' alias 'a,b' contains ','",

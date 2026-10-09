@@ -14,7 +14,7 @@ const std::string kHeader =
     "DataAddr;"
     "AxisY.Name;AxisY.DataOrg;AxisY.Unit;AxisY.Factor;AxisY.Precision;AxisY.DataHeader;AxisY.DataAddr;Comment\n";
 
-std::string csv(std::string dimensions = "2;3", std::string comment = "\"a;quoted \"\"description\"\"\"")
+std::string Csv(std::string dimensions = "2;3", std::string comment = "\"a;quoted \"\"description\"\"\"")
 {
     return kHeader + "Boost;Engine;eHiLo;" + dimensions +
            ";Pressure;bar;0,01;2;$1234;RPM;eHiLoHiLo;rpm;2;0;1;$2000;Load;eByte;%;0,5;1;1;$3000;" + comment;
@@ -22,7 +22,7 @@ std::string csv(std::string dimensions = "2;3", std::string comment = "\"a;quote
 
 TEST(MapPackConverterTest, ConvertsTablesScalingAndRomAddresses)
 {
-    auto result = convert_mappack_csv(csv(), "ECU123");
+    auto result = ConvertMappackCsv(Csv(), "ECU123");
     ASSERT_TRUE(result.has_value());
     pugi::xml_document doc;
     ASSERT_TRUE(doc.load_string(result->c_str()));
@@ -55,7 +55,7 @@ TEST(MapPackConverterTest, ConvertsScalarsAndOneDimensionalMaps)
 {
     for (const auto *dimensions : {"1;1", "1;3", "2;1"})
     {
-        auto result = convert_mappack_csv(csv(dimensions, "last field"), "ECU");
+        auto result = ConvertMappackCsv(Csv(dimensions, "last field"), "ECU");
         ASSERT_TRUE(result.has_value());
         pugi::xml_document doc;
         ASSERT_TRUE(doc.load_string(result->c_str()));
@@ -71,9 +71,9 @@ TEST(MapPackConverterTest, ConvertsScalarsAndOneDimensionalMaps)
 
 TEST(MapPackConverterTest, AcceptsCrLfTrailingDelimiterAndMultilineQuotedFields)
 {
-    auto input = csv("2;3", "\"first\nsecond\";") + "\r\n";
+    auto input = Csv("2;3", "\"first\nsecond\";") + "\r\n";
     input.replace(input.find('\n'), 1, "\r\n");
-    auto result = convert_mappack_csv(input, "ECU");
+    auto result = ConvertMappackCsv(input, "ECU");
     ASSERT_TRUE(result.has_value());
     pugi::xml_document doc;
     ASSERT_TRUE(doc.load_string(result->c_str()));
@@ -82,33 +82,33 @@ TEST(MapPackConverterTest, AcceptsCrLfTrailingDelimiterAndMultilineQuotedFields)
 
 TEST(MapPackConverterTest, RejectsMalformedInputWithContext)
 {
-    for (auto input : {std::string{}, std::string("Name\nBoost"), kHeader + "short", csv("0;3"), csv("two;3"),
-                       csv("2;3", "\"unterminated")})
+    for (auto input : {std::string{}, std::string("Name\nBoost"), kHeader + "short", Csv("0;3"), Csv("two;3"),
+                       Csv("2;3", "\"unterminated")})
     {
-        auto result = convert_mappack_csv(input, "ECU");
+        auto result = ConvertMappackCsv(input, "ECU");
         ASSERT_FALSE(result.has_value());
         EXPECT_EQ(result.error().kind, ErrorKind::kInvalidConfig);
         EXPECT_NE(result.error().detail.find("row"), std::string::npos);
         EXPECT_NE(result.error().detail.find("column"), std::string::npos);
     }
-    auto input = csv();
+    auto input = Csv();
     input.replace(input.find("0,01"), 4, "0");
-    EXPECT_FALSE(convert_mappack_csv(input, "ECU").has_value());
-    input = csv();
+    EXPECT_FALSE(ConvertMappackCsv(input, "ECU").has_value());
+    input = Csv();
     input.replace(input.find("$1234"), 5, "$oops");
-    EXPECT_FALSE(convert_mappack_csv(input, "ECU").has_value());
+    EXPECT_FALSE(ConvertMappackCsv(input, "ECU").has_value());
 }
 TEST(MapPackConverterTest, AllowsUnusedAxisFieldsToBeEmptyForScalars)
 {
     const auto input = kHeader + "Value;Engine;eByte;1;1;Value;unit;1;0;$1234;;;;;;;;;;;;;;;scalar";
-    auto result = convert_mappack_csv(input, "ECU");
+    auto result = ConvertMappackCsv(input, "ECU");
     ASSERT_TRUE(result.has_value()) << result.error().detail;
 }
 
 TEST(MapPackConverterTest, ConvertsMultipleRowsWithoutSharingDimensions)
 {
-    const auto input = csv("2;3", "first") + "\n" + csv("1;1", "second").substr(kHeader.size());
-    auto result = convert_mappack_csv(input, "ECU");
+    const auto input = Csv("2;3", "first") + "\n" + Csv("1;1", "second").substr(kHeader.size());
+    auto result = ConvertMappackCsv(input, "ECU");
     ASSERT_TRUE(result.has_value());
     pugi::xml_document doc;
     ASSERT_TRUE(doc.load_string(result->c_str()));
@@ -121,9 +121,9 @@ TEST(MapPackConverterTest, ConvertsMultipleRowsWithoutSharingDimensions)
 
 TEST(MapPackConverterTest, PreservesAxisAddressRulesAndLegacyMetadata)
 {
-    auto input = csv();
+    auto input = Csv();
     input.replace(input.find(";1;$2000"), 8, ";0;$2000");
-    auto result = convert_mappack_csv(input, "ECU");
+    auto result = ConvertMappackCsv(input, "ECU");
     ASSERT_TRUE(result.has_value());
     pugi::xml_document doc;
     ASSERT_TRUE(doc.load_string(result->c_str()));
@@ -136,7 +136,7 @@ TEST(MapPackConverterTest, PreservesAxisAddressRulesAndLegacyMetadata)
     EXPECT_TRUE(rom.child("romid").child("model"));
     EXPECT_STREQ(rom.child("romid").child("model").text().get(), "");
 
-    result = convert_mappack_csv(csv("1;1"), "ECU");
+    result = ConvertMappackCsv(Csv("1;1"), "ECU");
     ASSERT_TRUE(result.has_value());
     ASSERT_TRUE(doc.load_string(result->c_str()));
     rom = doc.child("roms").child("rom").next_sibling("rom");
@@ -145,9 +145,9 @@ TEST(MapPackConverterTest, PreservesAxisAddressRulesAndLegacyMetadata)
 
 TEST(MapPackConverterTest, RejectsXmlControlCharactersInsteadOfTruncatingValues)
 {
-    EXPECT_FALSE(convert_mappack_csv(csv("1;1", std::string("nul\0text", 8)), "ECU").has_value());
-    EXPECT_FALSE(convert_mappack_csv(csv(), std::string("ECU\0ID", 6)).has_value());
-    EXPECT_FALSE(convert_mappack_csv(csv("1;1", std::string(1, '\x01')), "ECU").has_value());
+    EXPECT_FALSE(ConvertMappackCsv(Csv("1;1", std::string("nul\0text", 8)), "ECU").has_value());
+    EXPECT_FALSE(ConvertMappackCsv(Csv(), std::string("ECU\0ID", 6)).has_value());
+    EXPECT_FALSE(ConvertMappackCsv(Csv("1;1", std::string(1, '\x01')), "ECU").has_value());
 }
 
 } // namespace

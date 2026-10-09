@@ -31,33 +31,33 @@ class MockClock : public IClock
   public:
     MockClock()
     {
-        ON_CALL(*this, now()).WillByDefault([this] { return fake_.now(); });
-        ON_CALL(*this, sleep).WillByDefault(sleep_on_fake());
-        EXPECT_CALL(*this, now()).Times(::testing::AnyNumber());
-        EXPECT_CALL(*this, sleep).Times(::testing::AnyNumber());
+        ON_CALL(*this, Now()).WillByDefault([this] { return fake_.Now(); });
+        ON_CALL(*this, Sleep).WillByDefault(SleepOnFake());
+        EXPECT_CALL(*this, Now()).Times(::testing::AnyNumber());
+        EXPECT_CALL(*this, Sleep).Times(::testing::AnyNumber());
     }
 
-    MOCK_METHOD(std::chrono::steady_clock::time_point, now, (), (const, override));
-    MOCK_METHOD(Status, sleep, (std::chrono::milliseconds, const ICancellationToken&), (override));
+    MOCK_METHOD(std::chrono::steady_clock::time_point, Now, (), (const, override));
+    MOCK_METHOD(Status, Sleep, (std::chrono::milliseconds, const ICancellationToken&), (override));
 
     // The default sleep as an action. DoDefault() cannot appear inside
     // DoAll(), so compose with this instead; DoAll returns its last action's
     // result, so put it last.
-    ::testing::Action<Status(std::chrono::milliseconds, const ICancellationToken&)> sleep_on_fake()
+    ::testing::Action<Status(std::chrono::milliseconds, const ICancellationToken&)> SleepOnFake()
     {
         return [this](std::chrono::milliseconds duration, const ICancellationToken& cancellation)
-        { return fake_.sleep(duration, cancellation); };
+        { return fake_.Sleep(duration, cancellation); };
     }
 
-    std::chrono::milliseconds elapsed() const
+    std::chrono::milliseconds Elapsed() const
     {
-        return fake_.elapsed();
+        return fake_.Elapsed();
     }
 
     // The embedded time model, for an action that must act *after* the real
     // sleep and still return its result -- which DoAll(), returning its last
     // action's value, cannot express.
-    FakeClock& fake()
+    FakeClock& Fake()
     {
         return fake_;
     }

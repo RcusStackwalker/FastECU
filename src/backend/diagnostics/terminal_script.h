@@ -36,6 +36,6 @@ using TerminalStep = std::variant<TerminalMessageStep, TerminalDelayStep>;
 // `delay(<milliseconds>)`. Blank lines are skipped. The whole script is
 // validated before any step is returned, so a caller never runs part of one.
 // Errors are InvalidConfig and name the offending 1-based line.
-Result<std::vector<TerminalStep>> parse_terminal_script(std::span<const std::string> lines);
+Result<std::vector<TerminalStep>> ParseTerminalScript(std::span<const std::string> lines);
 
 } // namespace fastecu::diagnostics

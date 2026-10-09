@@ -16,17 +16,17 @@ class SerialDiagnosticLink final : public IDiagnosticLink
     {
     }
 
-    Status open(const KlineLinkConfig& config) override;
-    Status open(const CanLinkConfig& config) override;
-    Status reset() override;
-    Status set_header(KlineHeader header) override;
-    Status set_p1_max(std::chrono::milliseconds p1_max) override;
-    Result<bytes::Bytes> five_baud_init(std::uint8_t address) override;
-    Status fast_init(bytes::ByteView wakeup) override;
-    Result<bytes::Bytes> write(bytes::ByteView data) override;
-    Result<OptionalBytes> read(std::chrono::milliseconds timeout, const ICancellationToken& cancellation) override;
-    Result<OptionalBytes> read_obd(std::chrono::milliseconds timeout, const ICancellationToken& cancellation) override;
-    bool uses_j2534() const override;
+    Status Open(const KlineLinkConfig& config) override;
+    Status Open(const CanLinkConfig& config) override;
+    Status Reset() override;
+    Status SetHeader(KlineHeader header) override;
+    Status SetP1Max(std::chrono::milliseconds p1_max) override;
+    Result<bytes::Bytes> FiveBaudInit(std::uint8_t address) override;
+    Status FastInit(bytes::ByteView wakeup) override;
+    Result<bytes::Bytes> Write(bytes::ByteView data) override;
+    Result<OptionalBytes> Read(std::chrono::milliseconds timeout, const ICancellationToken& cancellation) override;
+    Result<OptionalBytes> ReadObd(std::chrono::milliseconds timeout, const ICancellationToken& cancellation) override;
+    bool UsesJ2534() const override;
 
   private:
     SerialPortActions *serial_;

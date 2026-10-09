@@ -18,45 +18,45 @@ namespace fastecu::desktop::detail
 // subsequent I/O and must never discard an already in-flight result.
 // The reader explicitly selects ordinary versus raw OBD serial reads.
 template <typename Reader>
-Result<std::optional<bytes::Bytes>> read_serial(SerialPortActions *serial, std::chrono::milliseconds timeout,
-                                                const ICancellationToken& cancellation, Reader reader)
+Result<std::optional<bytes::Bytes>> ReadSerial(SerialPortActions *serial, std::chrono::milliseconds timeout,
+                                               const ICancellationToken& cancellation, Reader reader)
 {
     try
     {
-        if (!serial || !serial->is_serial_port_open())
+        if (!serial || !serial->IsSerialPortOpen())
         {
-            return fail(ErrorKind::kDisconnected, "serial adapter disconnected before read");
+            return Fail(ErrorKind::kDisconnected, "serial adapter disconnected before read");
         }
-        const QByteArray raw = reader(saturating_ms<std::uint16_t>(timeout));
-        if (cancellation.cancelled())
+        const QByteArray raw = reader(SaturatingMs<std::uint16_t>(timeout));
+        if (cancellation.Cancelled())
         {
-            return fail(ErrorKind::kCancelled, "serial read cancelled");
+            return Fail(ErrorKind::kCancelled, "serial read cancelled");
         }
-        if (!serial->is_serial_port_open())
+        if (!serial->IsSerialPortOpen())
         {
-            return fail(ErrorKind::kDisconnected, "serial adapter disconnected during read");
+            return Fail(ErrorKind::kDisconnected, "serial adapter disconnected during read");
         }
         if (raw.isEmpty())
         {
             return std::optional<bytes::Bytes>{};
         }
-        return std::optional<bytes::Bytes>{bytes::fromQByteArray(raw)};
+        return std::optional<bytes::Bytes>{bytes::FromQByteArray(raw)};
     }
     catch (const std::exception& error)
     {
-        if (cancellation.cancelled())
+        if (cancellation.Cancelled())
         {
-            return fail(ErrorKind::kCancelled, "serial read cancelled");
+            return Fail(ErrorKind::kCancelled, "serial read cancelled");
         }
-        return fail(ErrorKind::kInternal, error.what());
+        return Fail(ErrorKind::kInternal, error.what());
     }
     catch (...)
     {
-        if (cancellation.cancelled())
+        if (cancellation.Cancelled())
         {
-            return fail(ErrorKind::kCancelled, "serial read cancelled");
+            return Fail(ErrorKind::kCancelled, "serial read cancelled");
         }
-        return fail(ErrorKind::kInternal, "serial driver read exception");
+        return Fail(ErrorKind::kInternal, "serial driver read exception");
     }
 }
 } // namespace fastecu::desktop::detail

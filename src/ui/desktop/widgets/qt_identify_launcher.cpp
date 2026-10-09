@@ -10,12 +10,12 @@ namespace fastecu::ui
 namespace
 {
 
-IdentifyOutcome to_outcome(const diagnostics::SsmIdentifyWorkerResult& result)
+IdentifyOutcome toOutcome(const diagnostics::SsmIdentifyWorkerResult& result)
 {
     IdentifyOutcome outcome;
     outcome.success = result.success;
     outcome.ecu_id = result.ecu_id.toStdString();
-    outcome.init_response = bytes::fromQByteArray(result.init_response);
+    outcome.init_response = bytes::FromQByteArray(result.init_response);
     outcome.error_detail = result.error_detail.toStdString();
     return outcome;
 }
@@ -29,7 +29,7 @@ QtIdentifyLauncher::QtIdentifyLauncher(LinkFactory makeLink, ClockFactory makeCl
 
 QtIdentifyLauncher::~QtIdentifyLauncher() = default;
 
-void QtIdentifyLauncher::set_completion_handler(CompletionHandler handler)
+void QtIdentifyLauncher::setCompletionHandler(CompletionHandler handler)
 {
     handler_ = std::move(handler);
 }
@@ -54,26 +54,26 @@ void QtIdentifyLauncher::start(const diagnostics::SsmIdentifyRequest& request, I
         {
             if (handler_)
             {
-                handler_(generation, to_outcome(result));
+                handler_(generation, toOutcome(result));
             }
         },
         Qt::QueuedConnection);
     worker_->start();
 }
 
-void QtIdentifyLauncher::stop_and_join()
+void QtIdentifyLauncher::stopAndJoin()
 {
     if (!worker_)
     {
         return;
     }
-    worker_->requestStop();
+    worker_->RequestStop();
     worker_->wait();
     worker_.reset();
     link_.reset();
 }
 
-bool QtIdentifyLauncher::wait_for_worker(std::chrono::milliseconds timeout)
+bool QtIdentifyLauncher::waitForWorker(std::chrono::milliseconds timeout)
 {
     return !worker_ || worker_->wait(static_cast<unsigned long>(timeout.count()));
 }

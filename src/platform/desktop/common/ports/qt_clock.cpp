@@ -5,7 +5,7 @@
 
 using namespace std::chrono_literals;
 
-std::chrono::steady_clock::time_point QtClock::now() const
+std::chrono::steady_clock::time_point QtClock::Now() const
 {
     static QElapsedTimer base = []
     {
@@ -16,18 +16,18 @@ std::chrono::steady_clock::time_point QtClock::now() const
     return std::chrono::steady_clock::time_point{} + std::chrono::milliseconds{base.elapsed()};
 }
 
-fastecu::Status QtClock::sleep(std::chrono::milliseconds duration, const fastecu::ICancellationToken& t)
+fastecu::Status QtClock::Sleep(std::chrono::milliseconds duration, const fastecu::ICancellationToken& t)
 {
     constexpr auto kSlice = 10ms;
     auto remaining = duration;
     while (remaining > 0ms)
     {
-        if (t.cancelled())
+        if (t.Cancelled())
         {
-            return fastecu::fail(fastecu::ErrorKind::kCancelled);
+            return fastecu::Fail(fastecu::ErrorKind::kCancelled);
         }
         const auto step = remaining < kSlice ? remaining : kSlice;
-        QThread::msleep(fastecu::saturating_ms<unsigned long>(step));
+        QThread::msleep(fastecu::SaturatingMs<unsigned long>(step));
         remaining -= step;
     }
     return {};

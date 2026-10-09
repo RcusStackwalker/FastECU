@@ -14,7 +14,7 @@ namespace fastecu::bench
 namespace
 {
 
-std::string packedHex(bytes::ByteView data)
+std::string PackedHex(bytes::ByteView data)
 {
     std::string out;
     out.reserve(data.size() * 2);
@@ -25,7 +25,7 @@ std::string packedHex(bytes::ByteView data)
     return out;
 }
 
-std::string jsonEscaped(std::string_view text)
+std::string JsonEscaped(std::string_view text)
 {
     std::string out;
     out.reserve(text.size());
@@ -73,7 +73,7 @@ std::string jsonEscaped(std::string_view text)
     return out;
 }
 
-std::optional<double> bytesPerSecond(const CommandOutcome& outcome)
+std::optional<double> BytesPerSecond(const CommandOutcome& outcome)
 {
     if (outcome.data.empty() || outcome.elapsed_ms == 0)
     {
@@ -82,7 +82,7 @@ std::optional<double> bytesPerSecond(const CommandOutcome& outcome)
     return static_cast<double>(outcome.data.size()) * 1000.0 / static_cast<double>(outcome.elapsed_ms);
 }
 
-std::optional<double> msPerExchange(const CommandOutcome& outcome)
+std::optional<double> MsPerExchange(const CommandOutcome& outcome)
 {
     if (outcome.exchange_count == 0)
     {
@@ -100,14 +100,14 @@ std::string format_text(const CommandOutcome& outcome, bool stats)
                        outcome.exchange_count == 1 ? "exchange" : "exchanges", outcome.elapsed_ms);
     if (outcome.exchange_count > 0)
     {
-        out += std::format("  TX first {}\n", bytes::toHex(outcome.tx));
-        out += std::format("  RX first {}\n", bytes::toHex(outcome.rx));
-        out += std::format("  TX last {}\n", bytes::toHex(outcome.last_tx));
-        out += std::format("  RX last {}\n", bytes::toHex(outcome.last_rx));
+        out += std::format("  TX first {}\n", bytes::ToHex(outcome.tx));
+        out += std::format("  RX first {}\n", bytes::ToHex(outcome.rx));
+        out += std::format("  TX last {}\n", bytes::ToHex(outcome.last_tx));
+        out += std::format("  RX last {}\n", bytes::ToHex(outcome.last_rx));
     }
     if (!outcome.data.empty())
     {
-        out += std::format("  DATA {}\n", bytes::toHex(outcome.data));
+        out += std::format("  DATA {}\n", bytes::ToHex(outcome.data));
     }
     if (!outcome.note.empty())
     {
@@ -120,11 +120,11 @@ std::string format_text(const CommandOutcome& outcome, bool stats)
     if (stats)
     {
         std::vector<std::string> figures;
-        if (const std::optional<double> rate = bytesPerSecond(outcome); rate.has_value())
+        if (const std::optional<double> rate = BytesPerSecond(outcome); rate.has_value())
         {
             figures.push_back(std::format("{:.1f} bytes/s", *rate));
         }
-        if (const std::optional<double> per_exchange = msPerExchange(outcome); per_exchange.has_value())
+        if (const std::optional<double> per_exchange = MsPerExchange(outcome); per_exchange.has_value())
         {
             figures.push_back(std::format("{:.1f} ms/exchange", *per_exchange));
         }
@@ -136,7 +136,7 @@ std::string format_text(const CommandOutcome& outcome, bool stats)
     }
     out += outcome.ok ? std::format("  ok ({} ms)\n", outcome.elapsed_ms)
                       : std::format("  FAIL ({}) {}\n",
-                                    outcome.error_kind.has_value() ? to_string(*outcome.error_kind) : "Internal",
+                                    outcome.error_kind.has_value() ? ToString(*outcome.error_kind) : "Internal",
                                     outcome.error_detail);
     return out;
 }
@@ -145,8 +145,8 @@ std::string format_json(const CommandOutcome& outcome, bool stats)
 {
     std::string out = std::format(
         R"({{"step":"{}","exchanges":{},"tx":"{}","rx":"{}","last_tx":"{}","last_rx":"{}","data":"{}","ms":{},"ok":{})",
-        jsonEscaped(outcome.step), outcome.exchange_count, packedHex(outcome.tx), packedHex(outcome.rx),
-        packedHex(outcome.last_tx), packedHex(outcome.last_rx), packedHex(outcome.data), outcome.elapsed_ms,
+        JsonEscaped(outcome.step), outcome.exchange_count, PackedHex(outcome.tx), PackedHex(outcome.rx),
+        PackedHex(outcome.last_tx), PackedHex(outcome.last_rx), PackedHex(outcome.data), outcome.elapsed_ms,
         outcome.ok ? "true" : "false");
     if (outcome.vbatt.has_value() && std::isfinite(*outcome.vbatt))
     {
@@ -154,20 +154,20 @@ std::string format_json(const CommandOutcome& outcome, bool stats)
     }
     if (!outcome.note.empty())
     {
-        out += std::format(R"(,"note":"{}")", jsonEscaped(outcome.note));
+        out += std::format(R"(,"note":"{}")", JsonEscaped(outcome.note));
     }
     if (outcome.error_kind.has_value())
     {
-        out += std::format(R"(,"error_kind":"{}","error_detail":"{}")", to_string(*outcome.error_kind),
-                           jsonEscaped(outcome.error_detail));
+        out += std::format(R"(,"error_kind":"{}","error_detail":"{}")", ToString(*outcome.error_kind),
+                           JsonEscaped(outcome.error_detail));
     }
     if (stats)
     {
-        if (const std::optional<double> rate = bytesPerSecond(outcome); rate.has_value())
+        if (const std::optional<double> rate = BytesPerSecond(outcome); rate.has_value())
         {
             out += std::format(R"(,"bytes_per_s":{:.1f})", *rate);
         }
-        if (const std::optional<double> per_exchange = msPerExchange(outcome); per_exchange.has_value())
+        if (const std::optional<double> per_exchange = MsPerExchange(outcome); per_exchange.has_value())
         {
             out += std::format(R"(,"ms_per_exchange":{:.1f})", *per_exchange);
         }

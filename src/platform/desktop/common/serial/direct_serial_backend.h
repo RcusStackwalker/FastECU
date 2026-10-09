@@ -8,4 +8,4 @@ class SerialBackend;
 // outside the direct backend's target obtains one only through this
 // function, so it never names SerialPortActionsDirect or includes a J2534
 // header.
-std::unique_ptr<SerialBackend> make_direct_serial_backend();
+std::unique_ptr<SerialBackend> MakeDirectSerialBackend();

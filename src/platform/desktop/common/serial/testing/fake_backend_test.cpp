@@ -10,15 +10,15 @@
 TEST(FakeBackendTest, defaultActionsPreserveConfigurationThroughFacade)
 {
     SerialPortActions serial([]() -> SerialBackend * { return new NiceFakeBackend; });
-    ASSERT_TRUE(serial.set_add_iso14230_header(true));
-    ASSERT_TRUE(serial.set_can_source_address(0x7E1));
-    ASSERT_TRUE(serial.set_serial_port_baudrate("10400"));
-    ASSERT_EQ(serial.get_add_iso14230_header(), true);
-    ASSERT_EQ(serial.get_can_source_address(), std::uint32_t{0x7E1});
-    ASSERT_EQ(serial.get_serial_port_baudrate(), QStringLiteral("10400"));
+    ASSERT_TRUE(serial.SetAddIso14230Header(true));
+    ASSERT_TRUE(serial.SetCanSourceAddress(0x7E1));
+    ASSERT_TRUE(serial.SetSerialPortBaudrate("10400"));
+    ASSERT_EQ(serial.GetAddIso14230Header(), true);
+    ASSERT_EQ(serial.GetCanSourceAddress(), std::uint32_t{0x7E1});
+    ASSERT_EQ(serial.GetSerialPortBaudrate(), QStringLiteral("10400"));
     // Hardware operations have inert defaults, even without a selected port.
-    ASSERT_EQ(serial.open_serial_port(), QString{});
-    ASSERT_EQ(serial.read_serial_data(10), QByteArray{});
+    ASSERT_EQ(serial.OpenSerialPort(), QString{});
+    ASSERT_EQ(serial.ReadSerialData(10), QByteArray{});
 }
 
 TEST(FakeBackendTest, expectationsScriptFacadeIoInOrder)
@@ -30,12 +30,12 @@ TEST(FakeBackendTest, expectationsScriptFacadeIoInOrder)
             fake = new NiceFakeBackend;
             return fake;
         });
-    ASSERT_TRUE(serial.set_add_ssm_header(false)); // create backend before expectations
+    ASSERT_TRUE(serial.SetAddSsmHeader(false)); // create backend before expectations
     ::testing::InSequence sequence;
-    EXPECT_CALL(*fake, write_serial_data(QByteArray("request"))).WillOnce(::testing::Return(QByteArray("request")));
-    EXPECT_CALL(*fake, read_serial_data(50)).WillOnce(::testing::Return(QByteArray("reply")));
-    ASSERT_EQ(serial.write_serial_data("request"), QByteArray("request"));
-    ASSERT_EQ(serial.read_serial_data(50), QByteArray("reply"));
+    EXPECT_CALL(*fake, WriteSerialData(QByteArray("request"))).WillOnce(::testing::Return(QByteArray("request")));
+    EXPECT_CALL(*fake, ReadSerialData(50)).WillOnce(::testing::Return(QByteArray("reply")));
+    ASSERT_EQ(serial.WriteSerialData("request"), QByteArray("request"));
+    ASSERT_EQ(serial.ReadSerialData(50), QByteArray("reply"));
 }
 
 TEST(FakeBackendTest, expectationFailuresProduceNonzeroExit)
@@ -50,20 +50,20 @@ TEST(FakeBackendTest, expectationFailuresProduceNonzeroExit)
                 fake = new NiceFakeBackend;
                 return fake;
             });
-        ASSERT_TRUE(serial.set_add_ssm_header(false));
+        ASSERT_TRUE(serial.SetAddSsmHeader(false));
         if (mode == "unmet")
         {
-            EXPECT_CALL(*fake, read_serial_data(50)).Times(1);
+            EXPECT_CALL(*fake, ReadSerialData(50)).Times(1);
         }
         else if (mode == "forbidden")
         {
-            EXPECT_CALL(*fake, read_serial_data(::testing::_)).Times(0);
-            serial.read_serial_data(50);
+            EXPECT_CALL(*fake, ReadSerialData(::testing::_)).Times(0);
+            serial.ReadSerialData(50);
         }
         else
         {
-            EXPECT_CALL(*fake, read_serial_data(50)).Times(1);
-            serial.read_serial_data(60);
+            EXPECT_CALL(*fake, ReadSerialData(50)).Times(1);
+            serial.ReadSerialData(60);
         }
         return; // mock destruction verifies expectations on the facade's I/O thread
     }
@@ -91,7 +91,7 @@ TEST(FakeBackendTest, expectationFailuresProduceNonzeroExit)
         // rather than that some incidental text was printed.
         const QByteArray diagnostics = child.readAll();
         ASSERT_TRUE(diagnostics.contains("Failure") || diagnostics.contains("error: ")) << diagnostics.constData();
-        ASSERT_TRUE(diagnostics.contains("read_serial_data")) << diagnostics.constData();
+        ASSERT_TRUE(diagnostics.contains("ReadSerialData")) << diagnostics.constData();
     }
 }
 

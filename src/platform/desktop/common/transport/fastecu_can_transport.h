@@ -13,10 +13,10 @@ class FastEcuCanTransport : public ICanTransport
     explicit FastEcuCanTransport(SerialPortActions *serial) : serial_(serial)
     {
     }
-    fastecu::Result<std::size_t> write(std::uint32_t can_id, bytes::ByteView payload) override;
-    fastecu::Result<std::optional<CanFrame>> read(std::chrono::milliseconds timeout,
+    fastecu::Result<std::size_t> Write(std::uint32_t can_id, bytes::ByteView payload) override;
+    fastecu::Result<std::optional<CanFrame>> Read(std::chrono::milliseconds timeout,
                                                   const fastecu::ICancellationToken& cancellation) override;
-    bool isOpen() const override;
+    bool IsOpen() const override;
 
   private:
     SerialPortActions *serial_;

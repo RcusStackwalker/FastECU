@@ -11,7 +11,7 @@ constexpr std::uint16_t kImageFileMachineI386 = 0x14C;
 
 }
 
-bool isDll32Bit(const char *dll_path, bool& out32_bit)
+bool IsDll32Bit(const char *dll_path, bool& out32_bit)
 {
     std::FILE *f = std::fopen(dll_path, "rb");
     if (!f)

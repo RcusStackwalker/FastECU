@@ -448,6 +448,17 @@ static constexpr auto kCells = std::to_array<std::string_view>({"10", "20"});
 - An underscore may separate words only next to a digit (`kFlashBlocksSH7058_1block`).
 - Under `src/ui/desktop`, methods, functions, parameters and locals are
   `camelBack` to match Qt.
+- Functions and methods are `CamelCase` everywhere else (`ReadMemory`,
+  `ValidateAndBuild`). Overrides are not checked: they take the name of the
+  virtual they override, including Qt's (`closeEvent`, `readData`). Qt signals
+  and slots of Qt-derived classes outside `src/ui/desktop` keep Qt's `camelBack`
+  names (`logE`, `stateChanged`) inside a `NOLINTBEGIN/NOLINTEND` block that says
+  so. Qt `on_<widget>_<signal>` slots keep their spelling (they are connected by
+  name) through `MethodIgnoredRegexp` in `src/ui/desktop/.clang-tidy`. A
+  function must not take the CamelCase spelling of a type it can hide
+  (`Error()` next to `struct Error`, `DefinitionHeaderInput()` next to the
+  struct it returns), nor of a member of a gtest base (`Run`, `Setup`): pick a
+  verb-led name (`LogError`, `BuildDefinitionHeaderInput`).
 - Outside `src/ui/desktop`, parameters and local variables are `lower_case`. A
   non-`constexpr` local never carries the `k` prefix (`kIndex` becomes `index`);
   only `constexpr` variables do.

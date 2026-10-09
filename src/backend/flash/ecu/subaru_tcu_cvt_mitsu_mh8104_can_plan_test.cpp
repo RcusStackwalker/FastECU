@@ -8,7 +8,7 @@ namespace
 {
 constexpr SingleWindowPlanCase kCase{
     .name = "SubaruTcuCvtMitsuMh8104Can",
-    .build = &build_subaru_tcu_cvt_mitsu_mh8104_can_plan,
+    .build = &BuildSubaruTcuCvtMitsuMh8104CanPlan,
     .protocol = "sub_tcu_cvt_mitsu_mh8104_can",
     .mcu = "MH8104",
     .foreign_protocol = "sub_tcu_cvt_mitsu_mh8104_can_typo",
@@ -25,16 +25,16 @@ constexpr SingleWindowPlanCase kCase{
     .image_size = 0x80000,
 };
 
-INSTANTIATE_TEST_SUITE_P(SubaruTcuCvtMitsuMh8104Can, SingleWindowPlanContract, ::testing::Values(kCase), caseName);
+INSTANTIATE_TEST_SUITE_P(SubaruTcuCvtMitsuMh8104Can, SingleWindowPlanContract, ::testing::Values(kCase), CaseName);
 
 // The wire parameters are this family's own; they do not generalize.
 TEST(SubaruTcuCvtMitsuMh8104CanPlan, ReadPlanCarriesThisFamilysWireParameters)
 {
-    const auto plan = build_subaru_tcu_cvt_mitsu_mh8104_can_plan(FlashOperation::kRead, "sub_tcu_cvt_mitsu_mh8104_can",
-                                                                 "MH8104", std::nullopt);
+    const auto plan = BuildSubaruTcuCvtMitsuMh8104CanPlan(FlashOperation::kRead, "sub_tcu_cvt_mitsu_mh8104_can",
+                                                          "MH8104", std::nullopt);
 
     ASSERT_THAT(plan, fastecu::testing::IsOk());
-    const auto& family = std::get<SubaruTcuCvtMitsuMh8104CanPlan>(plan->family_plan());
+    const auto& family = std::get<SubaruTcuCvtMitsuMh8104CanPlan>(plan->FamilyPlan());
     EXPECT_EQ(family.request_id, 0x7e1U);
     EXPECT_EQ(family.response_id, 0x7e9U);
     EXPECT_EQ(family.bitrate, 500000);

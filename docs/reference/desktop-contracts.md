@@ -138,7 +138,7 @@ Qualification is recorded in the [diagnostics checklist](../checklists/diagnosti
 
 UI-owned `LogChannel` and `RemotePeer` expose signals; composition wires platform
 services to them. Timestamp/linefeed flags remain part of the desktop log contract.
-Signals retain the names `LOG_E`, `LOG_W`, `LOG_I`, and `LOG_D`: the logger reads
+Signals retain the names `logE`, `logW`, `logI`, and `logD`: the logger reads
 the delivering signal's name to choose level. UI signals relay signal-to-signal
 through the long-lived channel so logs survive destruction of short-lived dialogs.
 

@@ -15,29 +15,29 @@ namespace
 
 // Provisioning errors reach the operator at startup, so each names the path
 // it failed on; the port's own detail is only the reason.
-std::unexpected<Error> at_path(const Error& error, std::string_view path)
+std::unexpected<Error> AtPath(const Error& error, std::string_view path)
 {
     return std::unexpected(Error{error.kind, std::format("{}: {}", path, error.detail)});
 }
 
-Status ensure_directory(IFileSystem& fs, const std::string& path, IEventSink& events)
+Status EnsureDirectory(IFileSystem& fs, const std::string& path, IEventSink& events)
 {
-    if (fs.exists(path))
+    if (fs.Exists(path))
     {
         return {};
     }
-    if (Status result = fs.create_directory(path); !result.has_value())
+    if (Status result = fs.MakeDirectory(path); !result.has_value())
     {
-        events.log(LogLevel::kError, std::format("Unable to create directory: {}", path));
-        return at_path(result.error(), path);
+        events.Log(LogLevel::kError, std::format("Unable to create directory: {}", path));
+        return AtPath(result.error(), path);
     }
     return {};
 }
 
-Status copy_bundle_if_absent(IFileSystem& fs, IResourceBundle& bundle, IFileRepository& file_repository,
-                             const std::string& bundle_id, const std::string& target_directory, IEventSink& events)
+Status CopyBundleIfAbsent(IFileSystem& fs, IResourceBundle& bundle, IFileRepository& file_repository,
+                          const std::string& bundle_id, const std::string& target_directory, IEventSink& events)
 {
-    Result<std::vector<std::string>> names = bundle.list(bundle_id);
+    Result<std::vector<std::string>> names = bundle.List(bundle_id);
     if (!names.has_value())
     {
         return {};
@@ -45,26 +45,26 @@ Status copy_bundle_if_absent(IFileSystem& fs, IResourceBundle& bundle, IFileRepo
     for (const std::string& name : *names)
     {
         const std::string target = target_directory + name;
-        if (fs.exists(target))
+        if (fs.Exists(target))
         {
             continue;
         }
-        events.log(LogLevel::kDebug, std::format("Provisioning default file: {}", target));
+        events.Log(LogLevel::kDebug, std::format("Provisioning default file: {}", target));
         // The bytes come from the bundle port itself: the bundle's files are
         // compiled-in resources (Qt ":/..." in production) that no file path
         // the filesystem port understands reaches. Any failure past the
         // already-provisioned check above is a genuine error and stops the
         // sequence.
-        Result<std::vector<std::uint8_t>> bytes = bundle.read(bundle_id, name);
+        Result<std::vector<std::uint8_t>> bytes = bundle.Read(bundle_id, name);
         if (!bytes.has_value())
         {
-            events.log(LogLevel::kError, std::format("Unable to provision default file: {}", target));
-            return at_path(bytes.error(), target);
+            events.Log(LogLevel::kError, std::format("Unable to provision default file: {}", target));
+            return AtPath(bytes.error(), target);
         }
-        if (Status written = file_repository.write(target, *bytes); !written.has_value())
+        if (Status written = file_repository.Write(target, *bytes); !written.has_value())
         {
-            events.log(LogLevel::kError, std::format("Unable to provision default file: {}", target));
-            return at_path(written.error(), target);
+            events.Log(LogLevel::kError, std::format("Unable to provision default file: {}", target));
+            return AtPath(written.error(), target);
         }
     }
     return {};
@@ -72,16 +72,16 @@ Status copy_bundle_if_absent(IFileSystem& fs, IResourceBundle& bundle, IFileRepo
 
 } // namespace
 
-Status provision_config_directories(const ConfigPaths& paths, IFileSystem& fs, IResourceBundle& resource_bundle,
-                                    IFileRepository& file_repository, IEventSink& events)
+Status ProvisionConfigDirectories(const ConfigPaths& paths, IFileSystem& fs, IResourceBundle& resource_bundle,
+                                  IFileRepository& file_repository, IEventSink& events)
 {
-    if (Status r = ensure_directory(fs, paths.base_config_directory, events); !r.has_value())
+    if (Status r = EnsureDirectory(fs, paths.base_config_directory, events); !r.has_value())
     {
         return r;
     }
 
     if (const bool has_version_subdirectory = paths.version_config_directory != paths.base_config_directory;
-        has_version_subdirectory && !fs.exists(paths.version_config_directory))
+        has_version_subdirectory && !fs.Exists(paths.version_config_directory))
     {
         // Find the newest previous-version sibling directory (if any) before
         // touching the filesystem, since discovering it needs the
@@ -89,7 +89,7 @@ Status provision_config_directories(const ConfigPaths& paths, IFileSystem& fs, I
         // what's there today.
         std::string previous_config_file;
         bool has_previous_config_file = false;
-        if (Result<std::vector<DirEntry>> siblings = fs.list_directory(paths.base_config_directory);
+        if (Result<std::vector<DirEntry>> siblings = fs.ListDirectory(paths.base_config_directory);
             siblings.has_value() && !siblings->empty())
         {
             std::vector<DirEntry> dirs;
@@ -111,11 +111,11 @@ Status provision_config_directories(const ConfigPaths& paths, IFileSystem& fs, I
         // (matches QFile::copy), so doing this in the other order would
         // make the migration copy always target a directory tree that
         // doesn't exist yet, permanently defeating it.
-        if (Status r = ensure_directory(fs, paths.version_config_directory, events); !r.has_value())
+        if (Status r = EnsureDirectory(fs, paths.version_config_directory, events); !r.has_value())
         {
             return r;
         }
-        if (Status r = ensure_directory(fs, paths.config_files_directory, events); !r.has_value())
+        if (Status r = EnsureDirectory(fs, paths.config_files_directory, events); !r.has_value())
         {
             return r;
         }
@@ -124,7 +124,7 @@ Status provision_config_directories(const ConfigPaths& paths, IFileSystem& fs, I
         {
             // A missing previous config is not an error for this step;
             // matches QFile::copy's legacy silent-failure behavior.
-            std::ignore = fs.copy_file(previous_config_file, paths.config_files_directory + "fastecu.cfg", false);
+            std::ignore = fs.CopyFileTo(previous_config_file, paths.config_files_directory + "fastecu.cfg", false);
         }
     }
 
@@ -132,26 +132,26 @@ Status provision_config_directories(const ConfigPaths& paths, IFileSystem& fs, I
          {paths.calibration_files_directory, paths.config_files_directory, paths.definition_files_directory,
           paths.kernel_files_directory, paths.datalog_files_directory, paths.syslog_files_directory})
     {
-        if (Status r = ensure_directory(fs, dir, events); !r.has_value())
+        if (Status r = EnsureDirectory(fs, dir, events); !r.has_value())
         {
             return r;
         }
     }
 
     if (Status r =
-            copy_bundle_if_absent(fs, resource_bundle, file_repository, "config", paths.config_files_directory, events);
+            CopyBundleIfAbsent(fs, resource_bundle, file_repository, "config", paths.config_files_directory, events);
         !r.has_value())
     {
         return r;
     }
-    if (Status r = copy_bundle_if_absent(fs, resource_bundle, file_repository, "kernels", paths.kernel_files_directory,
-                                         events);
+    if (Status r =
+            CopyBundleIfAbsent(fs, resource_bundle, file_repository, "kernels", paths.kernel_files_directory, events);
         !r.has_value())
     {
         return r;
     }
 
-    if (Result<std::vector<DirEntry>> syslogs = fs.list_directory(paths.syslog_files_directory); syslogs.has_value())
+    if (Result<std::vector<DirEntry>> syslogs = fs.ListDirectory(paths.syslog_files_directory); syslogs.has_value())
     {
         std::vector<DirEntry> files;
         std::copy_if(syslogs->begin(), syslogs->end(), std::back_inserter(files),
@@ -160,10 +160,10 @@ Status provision_config_directories(const ConfigPaths& paths, IFileSystem& fs, I
                   { return a.modified_time_epoch_seconds > b.modified_time_epoch_seconds; });
         for (std::size_t i = 20; i < files.size(); ++i)
         {
-            Status r = fs.remove_file(paths.syslog_files_directory + files[i].name);
+            Status r = fs.RemoveFile(paths.syslog_files_directory + files[i].name);
             if (!r.has_value())
             {
-                return at_path(r.error(), paths.syslog_files_directory + files[i].name);
+                return AtPath(r.error(), paths.syslog_files_directory + files[i].name);
             }
         }
     }

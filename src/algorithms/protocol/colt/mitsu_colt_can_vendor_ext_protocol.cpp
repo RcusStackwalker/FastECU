@@ -8,7 +8,7 @@
 
 namespace mitsu_colt_can_vendor_ext
 {
-using bytes::composeBe;
+using bytes::ComposeBe;
 
 namespace
 {
@@ -16,14 +16,14 @@ namespace
 // Bit permutation used at the start of every round. Confirmed to partition
 // all 32 bits with zero overlap — see the design doc for the derivation.
 // It is its own inverse (a permutation built purely of 2-cycles).
-std::uint32_t permuteBits(std::uint32_t x)
+std::uint32_t PermuteBits(std::uint32_t x)
 {
     return ((x & 0x15555555U) << 3) | ((x & 0xaaaaaaa8U) >> 3) | ((x & 0x40000000U) >> 29) | ((x & 0x00000002U) << 29);
 }
 
 // Nibble swap within each byte. Also its own inverse: applying it twice is
 // a no-op.
-std::uint32_t swapNibbles(std::uint32_t x)
+std::uint32_t SwapNibbles(std::uint32_t x)
 {
     return ((x & 0x0f0f0f0fU) << 4) | ((x & 0xf0f0f0f0U) >> 4);
 }
@@ -40,47 +40,47 @@ constexpr std::array<std::uint32_t, 4> kRoundConstants{
 
 } // namespace
 
-std::uint32_t challengeTransform(std::uint32_t secret)
+std::uint32_t ChallengeTransform(std::uint32_t secret)
 {
     std::uint32_t x = secret;
     for (int i = 0; i < 4; ++i)
     {
-        x = swapNibbles(permuteBits(x) + kRoundConstants[i]);
+        x = SwapNibbles(PermuteBits(x) + kRoundConstants[i]);
     }
     return x;
 }
 
-std::uint32_t challengeInverseTransform(std::uint32_t seed)
+std::uint32_t ChallengeInverseTransform(std::uint32_t seed)
 {
     std::uint32_t x = seed;
     for (int i = 3; i >= 0; --i)
     {
-        x = permuteBits(swapNibbles(x) - kRoundConstants[i]);
+        x = PermuteBits(SwapNibbles(x) - kRoundConstants[i]);
     }
     return x;
 }
 
-std::uint32_t bytesToSeed(bytes::ByteView seed_bytes)
+std::uint32_t BytesToSeed(bytes::ByteView seed_bytes)
 {
     assert(seed_bytes.size() == 4);
-    return bytes::readU32Be(seed_bytes);
+    return bytes::ReadU32Be(seed_bytes);
 }
 
-bytes::Bytes keyBytes(std::uint32_t key)
+bytes::Bytes KeyBytes(std::uint32_t key)
 {
-    return composeBe(key);
+    return ComposeBe(key);
 }
 
-bytes::Bytes buildChallengeSeedRequest()
+bytes::Bytes BuildChallengeSeedRequest()
 {
-    return uds::buildRequest(kServiceReadMemoryByAddress,
-                             composeBe(kVendorChallengeSelector, kVendorChallengeSeedSubfunction));
+    return uds::BuildRequest(kServiceReadMemoryByAddress,
+                             ComposeBe(kVendorChallengeSelector, kVendorChallengeSeedSubfunction));
 }
 
-bytes::Bytes buildChallengeKey(std::uint32_t key)
+bytes::Bytes BuildChallengeKey(std::uint32_t key)
 {
-    return uds::buildRequest(kServiceReadMemoryByAddress,
-                             composeBe(kVendorChallengeSelector, kVendorChallengeKeySubfunction, key));
+    return uds::BuildRequest(kServiceReadMemoryByAddress,
+                             ComposeBe(kVendorChallengeSelector, kVendorChallengeKeySubfunction, key));
 }
 
 } // namespace mitsu_colt_can_vendor_ext

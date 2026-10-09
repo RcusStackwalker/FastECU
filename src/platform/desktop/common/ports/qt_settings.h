@@ -10,8 +10,8 @@ class QtSettings : public fastecu::ISettings
   public:
     QtSettings();
     ~QtSettings() override;
-    std::optional<std::string> get(std::string_view key) const override;
-    void set(std::string_view key, std::string_view value) override;
+    std::optional<std::string> Get(std::string_view key) const override;
+    void Set(std::string_view key, std::string_view value) override;
 
   private:
     std::unique_ptr<QSettings> settings_;

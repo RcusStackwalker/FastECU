@@ -39,6 +39,7 @@ class MockOpenPort : public QObject
     std::atomic<bool> answer_read_vbatt{true};
 
   private slots:
+    // NOLINTNEXTLINE(readability-identifier-naming): Qt slot keeps Qt's camelBack name
     void onReadable()
     {
         std::array<char, 256> buf{};

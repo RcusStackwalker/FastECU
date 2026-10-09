@@ -40,7 +40,7 @@ class CheckedArithmetic : public ::testing::TestWithParam<ArithmeticCase>
 TEST_P(CheckedArithmetic, EvaluatesWithoutTextRounding)
 {
     const auto& example = GetParam();
-    EXPECT_THAT(evaluate_checked(example.expression, example.input), ValueIs(::testing::DoubleEq(example.expected)));
+    EXPECT_THAT(EvaluateChecked(example.expression, example.input), ValueIs(::testing::DoubleEq(example.expected)));
 }
 
 INSTANTIATE_TEST_SUITE_P(Grammar, CheckedArithmetic,
@@ -57,7 +57,7 @@ class InvalidExpression : public ::testing::TestWithParam<std::string_view>
 
 TEST_P(InvalidExpression, RejectsWithDiagnostic)
 {
-    EXPECT_THAT(evaluate_checked(GetParam(), 2), HasError());
+    EXPECT_THAT(EvaluateChecked(GetParam(), 2), HasError());
 }
 
 INSTANTIATE_TEST_SUITE_P(Grammar, InvalidExpression,
@@ -66,16 +66,16 @@ INSTANTIATE_TEST_SUITE_P(Grammar, InvalidExpression,
 
 TEST(CheckedExpression, RejectsNonFiniteInputs)
 {
-    EXPECT_THAT(evaluate_checked("x", std::numeric_limits<double>::infinity()), HasError());
-    EXPECT_THAT(evaluate_checked("1", std::numeric_limits<double>::quiet_NaN()), HasError());
+    EXPECT_THAT(EvaluateChecked("x", std::numeric_limits<double>::infinity()), HasError());
+    EXPECT_THAT(EvaluateChecked("1", std::numeric_limits<double>::quiet_NaN()), HasError());
 }
 
 TEST(CheckedExpression, ParsesEntireFiniteLiteral)
 {
-    EXPECT_THAT(parse_finite_number("  -1.25e-2 \n"), ValueIs(::testing::DoubleEq(-0.0125)));
-    EXPECT_THAT(parse_finite_number("+20"), ValueIs(20));
-    EXPECT_THAT(parse_finite_number("1."), ValueIs(1));
-    EXPECT_THAT(parse_finite_number(".5"), ValueIs(0.5));
+    EXPECT_THAT(ParseFiniteNumber("  -1.25e-2 \n"), ValueIs(::testing::DoubleEq(-0.0125)));
+    EXPECT_THAT(ParseFiniteNumber("+20"), ValueIs(20));
+    EXPECT_THAT(ParseFiniteNumber("1."), ValueIs(1));
+    EXPECT_THAT(ParseFiniteNumber(".5"), ValueIs(0.5));
 }
 
 TEST(CheckedExpression, RejectsIncompleteOrNonFiniteLiterals)
@@ -84,14 +84,14 @@ TEST(CheckedExpression, RejectsIncompleteOrNonFiniteLiterals)
          std::to_array<std::string_view>({"", " ", "2junk", "nan", "inf", "1e309", "1+2", "0x10", "+-2"}))
     {
         SCOPED_TRACE(text);
-        EXPECT_THAT(parse_finite_number(text), HasError());
+        EXPECT_THAT(ParseFiniteNumber(text), HasError());
     }
 }
 
 TEST(CheckedExpression, RejectsExcessiveParenthesisNesting)
 {
     const std::string text = std::string(512, '(') + "1" + std::string(512, ')');
-    EXPECT_THAT(evaluate_checked(text, 0), HasError());
+    EXPECT_THAT(EvaluateChecked(text, 0), HasError());
 }
 } // namespace
 } // namespace fastecu::expression

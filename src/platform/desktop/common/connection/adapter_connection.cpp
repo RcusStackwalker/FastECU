@@ -9,7 +9,7 @@
 namespace fastecu::desktop::connection
 {
 
-LogTransport log_transport_from_text(const QString& text)
+LogTransport LogTransportFromText(const QString& text)
 {
     if (text == "CAN")
     {
@@ -35,111 +35,111 @@ AdapterConnection::AdapterConnection(SerialPortActions& facade, QObject *parent)
     connect(&facade_, &SerialPortActions::stateChanged, this, &AdapterConnection::stateChanged, Qt::DirectConnection);
 }
 
-QStringList AdapterConnection::available_ports()
+QStringList AdapterConnection::AvailablePorts()
 {
-    return facade_.check_serial_ports();
+    return facade_.CheckSerialPorts();
 }
 
-void AdapterConnection::set_initial_port(const QString& port, const QString& baud)
+void AdapterConnection::SetInitialPort(const QString& port, const QString& baud)
 {
-    facade_.set_serial_port_baudrate(baud);
-    facade_.set_serial_port(port);
+    facade_.SetSerialPortBaudrate(baud);
+    facade_.SetSerialPort(port);
 }
 
-void AdapterConnection::select_port(const QString& port)
+void AdapterConnection::SelectPort(const QString& port)
 {
-    facade_.set_serial_port_list(QStringList{port});
+    facade_.SetSerialPortList(QStringList{port});
 }
 
-QString AdapterConnection::open()
+QString AdapterConnection::Open()
 {
-    return facade_.open_serial_port();
+    return facade_.OpenSerialPort();
 }
 
-QString AdapterConnection::opened_port()
+QString AdapterConnection::OpenedPort()
 {
-    return facade_.get_openedSerialPort();
+    return facade_.GetOpenedSerialPort();
 }
 
-bool AdapterConnection::is_open()
+bool AdapterConnection::IsOpen()
 {
-    return facade_.is_serial_port_open();
+    return facade_.IsSerialPortOpen();
 }
 
-void AdapterConnection::reset()
+void AdapterConnection::Reset()
 {
-    facade_.reset_connection();
+    facade_.ResetConnection();
 }
 
-void AdapterConnection::apply_log_transport(LogTransport transport, bool ssm_protocol)
+void AdapterConnection::ApplyLogTransport(LogTransport transport, bool ssm_protocol)
 {
-    facade_.set_is_can_connection(false);
-    facade_.set_is_iso15765_connection(false);
+    facade_.SetIsCanConnection(false);
+    facade_.SetIsIso15765Connection(false);
     switch (transport)
     {
     case LogTransport::kCan:
-        facade_.set_is_can_connection(true);
-        facade_.set_is_iso15765_connection(false);
-        facade_.set_is_29_bit_id(false);
-        facade_.set_can_speed("500000");
+        facade_.SetIsCanConnection(true);
+        facade_.SetIsIso15765Connection(false);
+        facade_.SetIs29BitId(false);
+        facade_.SetCanSpeed("500000");
         break;
     case LogTransport::kIso15765:
-        facade_.set_is_can_connection(false);
-        facade_.set_is_iso15765_connection(true);
-        facade_.set_is_29_bit_id(true);
-        facade_.set_can_speed("500000");
+        facade_.SetIsCanConnection(false);
+        facade_.SetIsIso15765Connection(true);
+        facade_.SetIs29BitId(true);
+        facade_.SetCanSpeed("500000");
         break;
     case LogTransport::kKLine:
         if (ssm_protocol)
         {
-            facade_.change_port_speed("4800");
+            facade_.ChangePortSpeed("4800");
         }
         break;
     case LogTransport::kSsm:
     case LogTransport::kOther:
         break;
     }
-    facade_.reset_connection();
+    facade_.ResetConnection();
 }
 
-void AdapterConnection::clear_link_flags()
+void AdapterConnection::ClearLinkFlags()
 {
-    facade_.reset_connection();
-    facade_.set_is_iso14230_connection(false);
-    facade_.set_is_29_bit_id(false);
-    facade_.set_add_iso14230_header(false);
-    facade_.set_is_can_connection(false);
-    facade_.set_is_iso15765_connection(false);
-    facade_.set_serial_port_baudrate("4800");
+    facade_.ResetConnection();
+    facade_.SetIsIso14230Connection(false);
+    facade_.SetIs29BitId(false);
+    facade_.SetAddIso14230Header(false);
+    facade_.SetIsCanConnection(false);
+    facade_.SetIsIso15765Connection(false);
+    facade_.SetSerialPortBaudrate("4800");
 }
 
-void AdapterConnection::return_to_idle()
+void AdapterConnection::ReturnToIdle()
 {
-    facade_.reset_connection();
-    facade_.set_serial_port_baudrate("4800");
-    facade_.set_serial_port_parity(static_cast<std::uint8_t>(QSerialPort::NoParity));
+    facade_.ResetConnection();
+    facade_.SetSerialPortBaudrate("4800");
+    facade_.SetSerialPortParity(static_cast<std::uint8_t>(QSerialPort::NoParity));
 }
 
-void AdapterConnection::set_port_speed(int baud)
+void AdapterConnection::SetPortSpeed(int baud)
 {
-    facade_.change_port_speed(QString::number(baud));
+    facade_.ChangePortSpeed(QString::number(baud));
 }
 
-std::optional<unsigned long> AdapterConnection::battery_millivolts()
+std::optional<unsigned long> AdapterConnection::BatteryMillivolts()
 {
-    if (!facade_.get_use_openport2_adapter())
+    if (!facade_.GetUseOpenport2Adapter())
     {
         return std::nullopt;
     }
-    return facade_.read_vbatt();
+    return facade_.ReadVbatt();
 }
 
-void AdapterConnection::wait_for_source()
+void AdapterConnection::WaitForSource()
 {
     facade_.waitForSource();
 }
 
-SerialPortActions& AdapterConnection::facade()
+SerialPortActions& AdapterConnection::Facade()
 {
     return facade_;
 }

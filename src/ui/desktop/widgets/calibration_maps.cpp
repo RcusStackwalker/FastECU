@@ -19,7 +19,7 @@ CalibrationMaps::CalibrationMaps(fastecu::calibration::CalibrationWorkspace& wor
 {
     ui_->setupUi(this);
     ui_->mapDataTableWidget->installEventFilter(this);
-    this->setObjectName(fastecu::ui::session_key_text(session_) + "," + QString::number(map_index_) + ",,");
+    this->setObjectName(fastecu::ui::sessionKeyText(session_) + "," + QString::number(map_index_) + ",,");
     this->setAttribute(Qt::WA_DeleteOnClose);
     ui_->mapNameLabel->clear();
     ui_->xScaleUnitsLabel->clear();
@@ -30,24 +30,24 @@ CalibrationMaps::CalibrationMaps(fastecu::calibration::CalibrationWorkspace& wor
     map_error_label_->setWordWrap(true);
     map_error_label_->hide();
     ui_->verticalLayout->addWidget(map_error_label_);
-    const auto *rom = workspace_.find(session_);
-    if (rom != nullptr && rom->definition() != nullptr && map_index_ >= 0 &&
-        static_cast<std::size_t>(map_index_) < rom->definition()->definition.maps.size())
+    const auto *rom = workspace_.Find(session_);
+    if (rom != nullptr && rom->Definition() != nullptr && map_index_ >= 0 &&
+        static_cast<std::size_t>(map_index_) < rom->Definition()->definition.maps.size())
     {
-        const auto& name = rom->definition()->definition.maps[static_cast<std::size_t>(map_index_)].name;
-        setObjectName(fastecu::ui::session_key_text(session_) + "," + QString::number(map_index_) + "," +
+        const auto& name = rom->Definition()->definition.maps[static_cast<std::size_t>(map_index_)].name;
+        setObjectName(fastecu::ui::sessionKeyText(session_) + "," + QString::number(map_index_) + "," +
                       QString::fromStdString(name));
-        setWindowTitle(QString::fromStdString(name) + " - " + QString::fromStdString(rom->source().display_name));
+        setWindowTitle(QString::fromStdString(name) + " - " + QString::fromStdString(rom->Source().display_name));
         ui_->mapNameLabel->setText(QString::fromStdString(name));
     }
     refresh();
 }
 
-void CalibrationMaps::initialize_view(const fastecu::ui::MapPresentation& map,
-                                      const fastecu::calibration::RomSource& source)
+void CalibrationMaps::initializeView(const fastecu::ui::MapPresentation& map,
+                                     const fastecu::calibration::RomSource& source)
 {
     QString mapWindowObjectName =
-        fastecu::ui::session_key_text(session_) + "," + QString::number(map_index_) + "," + map.name;
+        fastecu::ui::sessionKeyText(session_) + "," + QString::number(map_index_) + "," + map.name;
 
     this->setObjectName(mapWindowObjectName);
     this->setWindowTitle(map.name + " - " + QString::fromStdString(source.display_name));
@@ -210,7 +210,7 @@ void CalibrationMaps::initialize_view(const fastecu::ui::MapPresentation& map,
     view_initialized_ = true;
 }
 
-void CalibrationMaps::show_map_error(const fastecu::Error& error)
+void CalibrationMaps::showMapError(const fastecu::Error& error)
 {
     const QSignalBlocker blocker(ui_->mapDataTableWidget);
     ui_->mapDataTableWidget->clear();
@@ -227,11 +227,11 @@ bool CalibrationMaps::eventFilter(QObject *watched, QEvent *event)
     if (watched == ui_->mapDataTableWidget && event->type() == QEvent::KeyPress && numeric_body_ &&
         static_cast<QKeyEvent *>(event)->matches(QKeySequence::SelectAll))
     {
-        const auto *rom = workspace_.find(session_);
+        const auto *rom = workspace_.Find(session_);
         const auto range = rom == nullptr
                                ? std::nullopt
-                               : fastecu::ui::body_widget_range(*rom, map_index_, ui_->mapDataTableWidget->rowCount(),
-                                                                ui_->mapDataTableWidget->columnCount());
+                               : fastecu::ui::bodyWidgetRange(*rom, map_index_, ui_->mapDataTableWidget->rowCount(),
+                                                              ui_->mapDataTableWidget->columnCount());
         if (range.has_value())
         {
             ui_->mapDataTableWidget->clearSelection();
@@ -294,15 +294,15 @@ void CalibrationMaps::setMapTableWidgetSize(int maxWidth, int maxHeight, int xSi
 
 void CalibrationMaps::refresh()
 {
-    const auto *rom = workspace_.find(session_);
+    const auto *rom = workspace_.Find(session_);
     if (rom == nullptr)
     {
         return;
     }
-    const auto shown = fastecu::ui::present_map(*rom, static_cast<std::size_t>(map_index_));
+    const auto shown = fastecu::ui::presentMap(*rom, static_cast<std::size_t>(map_index_));
     if (!shown.has_value())
     {
-        show_map_error(shown.error());
+        showMapError(shown.error());
         return;
     }
     const auto& map = *shown;
@@ -311,11 +311,11 @@ void CalibrationMaps::refresh()
     const bool initialized = !view_initialized_;
     if (initialized)
     {
-        initialize_view(map, rom->source());
+        initializeView(map, rom->Source());
     }
     if (!color_bounds_.has_value())
     {
-        color_bounds_ = fastecu::ui::opening_color_bounds(map);
+        color_bounds_ = fastecu::ui::openingColorBounds(map);
     }
     const auto resize = qScopeGuard(
         [this, initialized]
@@ -343,7 +343,7 @@ void CalibrationMaps::refresh()
             checkbox = new QCheckBox("On/Off");
             ui_->mapDataTableWidget->setCellWidget(0, 0, checkbox);
             connect(checkbox, &QCheckBox::checkStateChanged, this,
-                    [this](Qt::CheckState state) { emit checkbox_state_changed(static_cast<int>(state)); });
+                    [this](Qt::CheckState state) { emit checkboxStateChanged(static_cast<int>(state)); });
         }
         const QSignalBlocker blocker(checkbox);
         checkbox->setChecked(false);
@@ -384,11 +384,10 @@ void CalibrationMaps::refresh()
                     combo->addItem(map.selection_names.isEmpty() ? " " : "");
                 }
                 ui_->mapDataTableWidget->setCellWidget(row, col, combo);
-                connect(combo, &QComboBox::currentTextChanged, this,
-                        &CalibrationMaps::selectable_combobox_item_changed);
+                connect(combo, &QComboBox::currentTextChanged, this, &CalibrationMaps::selectableComboboxItemChanged);
             }
             const QSignalBlocker blocker(combo);
-            int current = multi && !map.body.empty() ? fastecu::ui::selection_index(map.body.front()) : 0;
+            int current = multi && !map.body.empty() ? fastecu::ui::selectionIndex(map.body.front()) : 0;
             if (!multi)
             {
                 for (std::size_t i = 0; i < map.selection_values.size(); ++i)
@@ -453,7 +452,7 @@ void CalibrationMaps::refresh()
         const int col = i % map.x_size + x_size_offset;
         const auto& value = map.body.at(static_cast<std::size_t>(i));
         const auto background = map.type != "1D" && value.numeric_value.has_value() && color_bounds_.has_value()
-                                    ? fastecu::ui::map_cell_color(*value.numeric_value, *color_bounds_)
+                                    ? fastecu::ui::mapCellColor(*value.numeric_value, *color_bounds_)
                                     : QColor(Qt::white);
         cell(row, col, value, background);
     }

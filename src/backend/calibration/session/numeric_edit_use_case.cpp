@@ -15,12 +15,12 @@ namespace fastecu::calibration
 namespace
 {
 
-NumericEditOutcome not_applicable(NotApplicableReason reason)
+NumericEditOutcome NotApplicable(NotApplicableReason reason)
 {
     return NumericEditNotApplicable{.reason = reason};
 }
 
-const NumericRun *target_cells(const DecodedMap& values, NumericTarget target)
+const NumericRun *TargetCells(const DecodedMap& values, NumericTarget target)
 {
     switch (target)
     {
@@ -35,19 +35,19 @@ const NumericRun *target_cells(const DecodedMap& values, NumericTarget target)
 }
 
 // A Y axis is one column; a body or X axis is as wide as the map.
-std::uint32_t run_width(const MapElementSpec& spec, NumericTarget target)
+std::uint32_t RunWidth(const MapElementSpec& spec, NumericTarget target)
 {
     return target == NumericTarget::kYAxis ? 1U : spec.x_size;
 }
 
 // An X axis is one row; a body or Y axis is as tall as the map.
-std::uint32_t run_height(const MapElementSpec& spec, NumericTarget target)
+std::uint32_t RunHeight(const MapElementSpec& spec, NumericTarget target)
 {
     return target == NumericTarget::kXAxis ? 1U : spec.y_size;
 }
 
 // Validates every supplied cell, including those clipping will discard.
-Result<std::vector<std::vector<double>>> parse_paste(const PasteEdit& paste)
+Result<std::vector<std::vector<double>>> ParsePaste(const PasteEdit& paste)
 {
     std::vector<std::vector<double>> rows;
     rows.reserve(paste.rows.size());
@@ -57,10 +57,10 @@ Result<std::vector<std::vector<double>>> parse_paste(const PasteEdit& paste)
         values.reserve(row.size());
         for (const auto& text : row)
         {
-            const auto number = expression::parse_finite_number(text);
+            const auto number = expression::ParseFiniteNumber(text);
             if (!number.has_value())
             {
-                return fail(ErrorKind::kInvalidConfig, number.error().detail);
+                return Fail(ErrorKind::kInvalidConfig, number.error().detail);
             }
             values.push_back(*number);
         }
@@ -69,36 +69,35 @@ Result<std::vector<std::vector<double>>> parse_paste(const PasteEdit& paste)
     return rows;
 }
 
-Result<NumericEditResult> calculate(bytes::ByteView rom, const MapElementSpec& spec, const NumericSelection& selection,
+Result<NumericEditResult> Calculate(bytes::ByteView rom, const MapElementSpec& spec, const NumericSelection& selection,
                                     std::span<const NumericCell> cells, const NumericEditOperation& operation)
 {
-    const auto width = run_width(spec, selection.target);
+    const auto width = RunWidth(spec, selection.target);
     return std::visit(
         [&](const auto& edit) -> Result<NumericEditResult>
         {
             using Edit = std::decay_t<decltype(edit)>;
             if constexpr (std::is_same_v<Edit, IncrementEdit>)
             {
-                return calculate_increment(rom, spec, width, cells, selection.elements, edit.step);
+                return CalculateIncrement(rom, spec, width, cells, selection.elements, edit.step);
             }
             else if constexpr (std::is_same_v<Edit, AssignmentEdit>)
             {
-                return calculate_assignment(rom, spec, width, cells, selection.elements, edit.expression);
+                return CalculateAssignment(rom, spec, width, cells, selection.elements, edit.expression);
             }
             else if constexpr (std::is_same_v<Edit, InterpolationEdit>)
             {
-                return calculate_interpolation(rom, spec, width, cells, selection.elements, edit.mode);
+                return CalculateInterpolation(rom, spec, width, cells, selection.elements, edit.mode);
             }
             else
             {
                 static_assert(std::is_same_v<Edit, PasteEdit>);
-                const auto values = parse_paste(edit);
+                const auto values = ParsePaste(edit);
                 if (!values.has_value())
                 {
                     return std::unexpected(values.error());
                 }
-                return calculate_paste(rom, spec, width, run_height(spec, selection.target), selection.elements,
-                                       *values);
+                return CalculatePaste(rom, spec, width, RunHeight(spec, selection.target), selection.elements, *values);
             }
         },
         operation);
@@ -107,31 +106,31 @@ Result<NumericEditResult> calculate(bytes::ByteView rom, const MapElementSpec& s
 // Validates every write against the target run before any byte changes, so
 // one bad cell rejects the whole edit. Byte-identical writes are skipped,
 // preserving clean state.
-Status write_patch(CalibrationSession& session, const MapElementSpec& spec, std::size_t cell_count,
-                   const NumericEditPatch& patch)
+Status WritePatch(CalibrationSession& session, const MapElementSpec& spec, std::size_t cell_count,
+                  const NumericEditPatch& patch)
 {
-    const auto width = definition::storage_byte_size(spec.storage_type);
-    const auto size = session.rom().size();
+    const auto width = definition::StorageByteSize(spec.storage_type);
+    const auto size = session.Rom().size();
     for (const auto& cell : patch)
     {
         if (cell.index >= cell_count || cell.bytes.size() != width ||
-            cell.byte_address != element_byte_address(spec, cell.index, true))
+            cell.byte_address != ElementByteAddress(spec, cell.index, true))
         {
-            return fail(ErrorKind::kInvalidConfig, "map edit index, address, or byte width does not match its target");
+            return Fail(ErrorKind::kInvalidConfig, "map edit index, address, or byte width does not match its target");
         }
         if (cell.byte_address > size || cell.bytes.size() > size - cell.byte_address)
         {
-            return fail(ErrorKind::kInvalidConfig, "map edit byte range is outside the ROM image");
+            return Fail(ErrorKind::kInvalidConfig, "map edit byte range is outside the ROM image");
         }
     }
     for (const auto& cell : patch)
     {
-        const auto current = session.rom().subspan(static_cast<std::size_t>(cell.byte_address), cell.bytes.size());
+        const auto current = session.Rom().subspan(static_cast<std::size_t>(cell.byte_address), cell.bytes.size());
         if (std::ranges::equal(current, cell.bytes))
         {
             continue;
         }
-        const auto written = session.write_bytes(cell.byte_address, cell.bytes);
+        const auto written = session.WriteBytes(cell.byte_address, cell.bytes);
         if (!written.has_value())
         {
             return written;
@@ -142,34 +141,34 @@ Status write_patch(CalibrationSession& session, const MapElementSpec& spec, std:
 
 } // namespace
 
-Result<NumericEditOutcome> apply_numeric_edit(CalibrationWorkspace& workspace, const NumericEditRequest& request)
+Result<NumericEditOutcome> ApplyNumericEdit(CalibrationWorkspace& workspace, const NumericEditRequest& request)
 {
-    CalibrationSession *session = workspace.find(request.session);
+    CalibrationSession *session = workspace.Find(request.session);
     if (session == nullptr)
     {
-        return not_applicable(NotApplicableReason::kClosedSession);
+        return NotApplicable(NotApplicableReason::kClosedSession);
     }
-    if (session->definition() == nullptr)
+    if (session->Definition() == nullptr)
     {
-        return not_applicable(NotApplicableReason::kNoDefinition);
+        return NotApplicable(NotApplicableReason::kNoDefinition);
     }
-    if (request.map_index >= session->definition()->definition.maps.size())
+    if (request.map_index >= session->Definition()->definition.maps.size())
     {
-        return not_applicable(NotApplicableReason::kUnavailableTarget);
+        return NotApplicable(NotApplicableReason::kUnavailableTarget);
     }
-    const auto decoded = session->decode_map(request.map_index);
+    const auto decoded = session->DecodeMap(request.map_index);
     if (!decoded.has_value())
     {
-        return not_applicable(NotApplicableReason::kUnavailableTarget);
+        return NotApplicable(NotApplicableReason::kUnavailableTarget);
     }
-    const NumericRun *run = target_cells(*decoded, request.selection.target);
+    const NumericRun *run = TargetCells(*decoded, request.selection.target);
     if (run == nullptr)
     {
-        return not_applicable(NotApplicableReason::kUnavailableTarget);
+        return NotApplicable(NotApplicableReason::kUnavailableTarget);
     }
-    const auto fields = collect_map_element_fields(*session, request.map_index, request.selection.target);
-    const auto spec = fields.spec();
-    const auto calculated = calculate(session->rom(), spec, request.selection, run->cells, request.operation);
+    const auto fields = CollectMapElementFields(*session, request.map_index, request.selection.target);
+    const auto spec = fields.Spec();
+    const auto calculated = Calculate(session->Rom(), spec, request.selection, run->cells, request.operation);
     if (!calculated.has_value())
     {
         return std::unexpected(calculated.error());
@@ -178,7 +177,7 @@ Result<NumericEditOutcome> apply_numeric_edit(CalibrationWorkspace& workspace, c
     {
         return NumericEditOutcome{NumericEditUnchanged{.reason = calculated->no_change}};
     }
-    const auto written = write_patch(*session, spec, run->cells.size(), calculated->writes);
+    const auto written = WritePatch(*session, spec, run->cells.size(), calculated->writes);
     if (!written.has_value())
     {
         return std::unexpected(written.error());

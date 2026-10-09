@@ -10,28 +10,28 @@
 namespace
 {
 using fastecu::ErrorKind;
-using fastecu::flash::build_single_window_plan;
+using fastecu::flash::BuildSingleWindowPlan;
 using fastecu::flash::FlashFamily;
 using fastecu::flash::FlashOperation;
 using fastecu::flash::MemoryRegion;
 using fastecu::flash::SingleWindowPlanSpec;
 using fastecu::flash::SubaruDensoSh72531CanPlan;
 using fastecu::flash::TransportKind;
-using fastecu::flash::validate_single_window_plan;
+using fastecu::flash::ValidateSingleWindowPlan;
 using testing::HasSubstr;
 using testing::IsEmpty;
 
 constexpr std::array kProtocols{std::string_view{"sub_ecu_denso_sh72531_can"}};
 constexpr MemoryRegion kBlock{0x00008000, 0x00137F00};
 
-bool geometry_ok(const FlashDevice& device)
+bool GeometryOk(const FlashDevice& device)
 {
     return device.numblocks == 3;
 }
 
-bool wire_params_ok(const fastecu::flash::FlashPlan& plan)
+bool WireParamsOk(const fastecu::flash::FlashPlan& plan)
 {
-    const auto *p = std::get_if<SubaruDensoSh72531CanPlan>(&plan.family_plan());
+    const auto *p = std::get_if<SubaruDensoSh72531CanPlan>(&plan.FamilyPlan());
     return p != nullptr && p->request_id == 0x7e0U;
 }
 
@@ -44,58 +44,57 @@ constexpr SingleWindowPlanSpec kSpec{
     .read_region = kBlock,
     .write_region = kBlock,
     .image_size = 0x140000,
-    .geometry_ok = geometry_ok,
-    .wire_params_ok = wire_params_ok,
+    .geometry_ok = GeometryOk,
+    .wire_params_ok = WireParamsOk,
 };
 
-fastecu::flash::FamilyPlan wire()
+fastecu::flash::FamilyPlan Wire()
 {
     return SubaruDensoSh72531CanPlan{0x7e0, 0x7e8, 500000, false, 0x8000, 0x100};
 }
 
 TEST(SingleWindowPlan, ReadPlanCarriesReadRegionAndNoErase)
 {
-    auto plan = build_single_window_plan(kSpec, FlashOperation::kRead, "sub_ecu_denso_sh72531_can", "SH72531",
-                                         std::nullopt, wire());
+    auto plan = BuildSingleWindowPlan(kSpec, FlashOperation::kRead, "sub_ecu_denso_sh72531_can", "SH72531",
+                                      std::nullopt, Wire());
     ASSERT_THAT(plan, fastecu::testing::IsOk());
-    EXPECT_EQ(plan->transfer_region().start, 0x00008000U);
-    EXPECT_EQ(plan->transfer_region().length, 0x00137F00U);
-    EXPECT_THAT(plan->erase_regions(), IsEmpty());
-    EXPECT_FALSE(plan->kernel().has_value());
+    EXPECT_EQ(plan->TransferRegion().start, 0x00008000U);
+    EXPECT_EQ(plan->TransferRegion().length, 0x00137F00U);
+    EXPECT_THAT(plan->EraseRegions(), IsEmpty());
+    EXPECT_FALSE(plan->Kernel().has_value());
 }
 
 TEST(SingleWindowPlan, WritePlanCarriesImageAndOneEraseRegion)
 {
-    auto plan = build_single_window_plan(kSpec, FlashOperation::kWrite, "sub_ecu_denso_sh72531_can", "SH72531",
-                                         bytes::Bytes(0x140000, 0x00), wire());
+    auto plan = BuildSingleWindowPlan(kSpec, FlashOperation::kWrite, "sub_ecu_denso_sh72531_can", "SH72531",
+                                      bytes::Bytes(0x140000, 0x00), Wire());
     ASSERT_THAT(plan, fastecu::testing::IsOk());
-    ASSERT_EQ(plan->erase_regions().size(), 1U);
-    EXPECT_EQ(plan->erase_regions()[0].start, 0x00008000U);
-    EXPECT_EQ(plan->erase_regions()[0].length, 0x00137F00U);
-    ASSERT_TRUE(plan->image().has_value());
-    EXPECT_EQ(plan->image()->size(), 0x140000U);
+    ASSERT_EQ(plan->EraseRegions().size(), 1U);
+    EXPECT_EQ(plan->EraseRegions()[0].start, 0x00008000U);
+    EXPECT_EQ(plan->EraseRegions()[0].length, 0x00137F00U);
+    ASSERT_TRUE(plan->Image().has_value());
+    EXPECT_EQ(plan->Image()->size(), 0x140000U);
 }
 
 TEST(SingleWindowPlan, UnknownProtocolIsRejectedWithTheDisplayName)
 {
-    auto plan =
-        build_single_window_plan(kSpec, FlashOperation::kRead, "not_a_protocol", "SH72531", std::nullopt, wire());
+    auto plan = BuildSingleWindowPlan(kSpec, FlashOperation::kRead, "not_a_protocol", "SH72531", std::nullopt, Wire());
     ASSERT_THAT(plan, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     EXPECT_THAT(plan.error().detail, HasSubstr("Test Single Window Family"));
 }
 
 TEST(SingleWindowPlan, UnknownMcuIsRejected)
 {
-    auto plan = build_single_window_plan(kSpec, FlashOperation::kRead, "sub_ecu_denso_sh72531_can", "NOT_AN_MCU",
-                                         std::nullopt, wire());
+    auto plan = BuildSingleWindowPlan(kSpec, FlashOperation::kRead, "sub_ecu_denso_sh72531_can", "NOT_AN_MCU",
+                                      std::nullopt, Wire());
     ASSERT_THAT(plan, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     EXPECT_THAT(plan.error().detail, HasSubstr("Unknown MCU type"));
 }
 
 TEST(SingleWindowPlan, KnownButWrongMcuIsRejected)
 {
-    auto plan = build_single_window_plan(kSpec, FlashOperation::kRead, "sub_ecu_denso_sh72531_can", "N83M_1_5MB",
-                                         std::nullopt, wire());
+    auto plan = BuildSingleWindowPlan(kSpec, FlashOperation::kRead, "sub_ecu_denso_sh72531_can", "N83M_1_5MB",
+                                      std::nullopt, Wire());
     ASSERT_THAT(plan, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     EXPECT_THAT(plan.error().detail, HasSubstr("expects MCU"));
 }
@@ -112,32 +111,32 @@ TEST(SingleWindowPlan, FailingGeometryPredicateIsReportedAgainstTheMcuName)
         .write_region = kBlock,
         .image_size = 0x140000,
         .geometry_ok = [](const FlashDevice&) { return false; },
-        .wire_params_ok = wire_params_ok,
+        .wire_params_ok = WireParamsOk,
     };
-    auto plan = build_single_window_plan(kBadGeometry, FlashOperation::kRead, "sub_ecu_denso_sh72531_can", "SH72531",
-                                         std::nullopt, wire());
+    auto plan = BuildSingleWindowPlan(kBadGeometry, FlashOperation::kRead, "sub_ecu_denso_sh72531_can", "SH72531",
+                                      std::nullopt, Wire());
     ASSERT_THAT(plan, ::testing::Not(fastecu::testing::IsOk()));
     EXPECT_THAT(plan.error().detail, HasSubstr("SH72531 flash geometry is invalid"));
 }
 
 TEST(SingleWindowPlan, TestWriteIsRejectedAsUnsupported)
 {
-    ASSERT_THAT(build_single_window_plan(kSpec, FlashOperation::kTestWrite, "sub_ecu_denso_sh72531_can", "SH72531",
-                                         std::nullopt, wire()),
+    ASSERT_THAT(BuildSingleWindowPlan(kSpec, FlashOperation::kTestWrite, "sub_ecu_denso_sh72531_can", "SH72531",
+                                      std::nullopt, Wire()),
                 fastecu::testing::IsErr(ErrorKind::kUnsupported));
 }
 
 TEST(SingleWindowPlan, WriteWithNoImageIsRejected)
 {
-    ASSERT_THAT(build_single_window_plan(kSpec, FlashOperation::kWrite, "sub_ecu_denso_sh72531_can", "SH72531",
-                                         std::nullopt, wire()),
+    ASSERT_THAT(BuildSingleWindowPlan(kSpec, FlashOperation::kWrite, "sub_ecu_denso_sh72531_can", "SH72531",
+                                      std::nullopt, Wire()),
                 fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
 TEST(SingleWindowPlan, WriteWithWrongImageSizeReportsUppercaseHexAndTheActualSize)
 {
-    auto plan = build_single_window_plan(kSpec, FlashOperation::kWrite, "sub_ecu_denso_sh72531_can", "SH72531",
-                                         bytes::Bytes(0x10, 0x00), wire());
+    auto plan = BuildSingleWindowPlan(kSpec, FlashOperation::kWrite, "sub_ecu_denso_sh72531_can", "SH72531",
+                                      bytes::Bytes(0x10, 0x00), Wire());
     ASSERT_THAT(plan, ::testing::Not(fastecu::testing::IsOk()));
     EXPECT_THAT(plan.error().detail, HasSubstr("0x140000"));
     EXPECT_THAT(plan.error().detail, HasSubstr("got 0x10 bytes"));
@@ -146,18 +145,18 @@ TEST(SingleWindowPlan, WriteWithWrongImageSizeReportsUppercaseHexAndTheActualSiz
 TEST(SingleWindowPlan, WrongWireParametersAreRejected)
 {
     auto plan =
-        build_single_window_plan(kSpec, FlashOperation::kRead, "sub_ecu_denso_sh72531_can", "SH72531", std::nullopt,
-                                 SubaruDensoSh72531CanPlan{0x123, 0x7e8, 500000, false, 0x8000, 0x100});
+        BuildSingleWindowPlan(kSpec, FlashOperation::kRead, "sub_ecu_denso_sh72531_can", "SH72531", std::nullopt,
+                              SubaruDensoSh72531CanPlan{0x123, 0x7e8, 500000, false, 0x8000, 0x100});
     ASSERT_THAT(plan, ::testing::Not(fastecu::testing::IsOk()));
     EXPECT_THAT(plan.error().detail, HasSubstr("wire parameters are invalid"));
 }
 
 TEST(SingleWindowPlan, ValidateAcceptsAPlanTheBuilderProduced)
 {
-    auto plan = build_single_window_plan(kSpec, FlashOperation::kRead, "sub_ecu_denso_sh72531_can", "SH72531",
-                                         std::nullopt, wire());
+    auto plan = BuildSingleWindowPlan(kSpec, FlashOperation::kRead, "sub_ecu_denso_sh72531_can", "SH72531",
+                                      std::nullopt, Wire());
     ASSERT_THAT(plan, fastecu::testing::IsOk());
-    EXPECT_THAT(validate_single_window_plan(kSpec, *plan), fastecu::testing::IsOk());
+    EXPECT_THAT(ValidateSingleWindowPlan(kSpec, *plan), fastecu::testing::IsOk());
 }
 
 TEST(SingleWindowPlan, SupportsWriteDefaultsToTrue)
@@ -178,19 +177,19 @@ TEST(SingleWindowPlan, DistinctReadAndWriteWindowsAreHonoured)
         .read_region = kRead,
         .write_region = kWrite,
         .image_size = 0x180000,
-        .geometry_ok = geometry_ok,
-        .wire_params_ok = wire_params_ok,
+        .geometry_ok = GeometryOk,
+        .wire_params_ok = WireParamsOk,
     };
-    auto read = build_single_window_plan(kSplit, FlashOperation::kRead, "sub_ecu_denso_sh72531_can", "SH72531",
-                                         std::nullopt, wire());
+    auto read = BuildSingleWindowPlan(kSplit, FlashOperation::kRead, "sub_ecu_denso_sh72531_can", "SH72531",
+                                      std::nullopt, Wire());
     ASSERT_THAT(read, fastecu::testing::IsOk());
-    EXPECT_EQ(read->transfer_region().start, 0x8000U);
+    EXPECT_EQ(read->TransferRegion().start, 0x8000U);
 
-    auto write = build_single_window_plan(kSplit, FlashOperation::kWrite, "sub_ecu_denso_sh72531_can", "SH72531",
-                                          bytes::Bytes(0x180000, 0x00), wire());
+    auto write = BuildSingleWindowPlan(kSplit, FlashOperation::kWrite, "sub_ecu_denso_sh72531_can", "SH72531",
+                                       bytes::Bytes(0x180000, 0x00), Wire());
     ASSERT_THAT(write, fastecu::testing::IsOk());
-    EXPECT_EQ(write->transfer_region().start, 0x80000U);
-    ASSERT_EQ(write->erase_regions().size(), 1U);
-    EXPECT_EQ(write->erase_regions()[0].start, 0x80000U);
+    EXPECT_EQ(write->TransferRegion().start, 0x80000U);
+    ASSERT_EQ(write->EraseRegions().size(), 1U);
+    EXPECT_EQ(write->EraseRegions()[0].start, 0x80000U);
 }
 } // namespace

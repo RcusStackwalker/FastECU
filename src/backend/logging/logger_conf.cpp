@@ -23,7 +23,7 @@ constexpr std::size_t kGaugeCap = 15;
 constexpr std::size_t kLowerPanelCap = 12;
 constexpr std::size_t kSwitchCap = 20;
 
-Status load(pugi::xml_document& document, bytes::ByteView conf, std::string_view source)
+Status Load(pugi::xml_document& document, bytes::ByteView conf, std::string_view source)
 {
     // parse_default excludes comments, processing instructions, DOCTYPE and
     // the XML declaration. A user who hand-annotated their conf file with an
@@ -37,20 +37,20 @@ Status load(pugi::xml_document& document, bytes::ByteView conf, std::string_view
                                      pugi::parse_declaration);
         !parsed)
     {
-        return fail(ErrorKind::kInvalidConfig,
+        return Fail(ErrorKind::kInvalidConfig,
                     std::format("{}: {} at offset {}", source, parsed.description(), parsed.offset));
     }
     return {};
 }
 
-pugi::xml_node find_ecu(pugi::xml_node logger, std::string_view ecu_id)
+pugi::xml_node FindEcu(pugi::xml_node logger, std::string_view ecu_id)
 {
     const auto ecus = logger.children("ecu");
     const auto it = std::ranges::find(ecus, ecu_id, [](pugi::xml_node n) { return n.attribute("id"sv).value(); });
     return it != ecus.end() ? *it : pugi::xml_node{};
 }
 
-void append_ids(pugi::xml_node parent, std::string_view element_name, const std::vector<std::string>& ids)
+void AppendIds(pugi::xml_node parent, std::string_view element_name, const std::vector<std::string>& ids)
 {
     for (const std::string& id : ids)
     {
@@ -61,7 +61,7 @@ void append_ids(pugi::xml_node parent, std::string_view element_name, const std:
 }
 
 /* element_name has to be const char* because xml_node::children doesn't accept string_view*/
-std::vector<std::string> collect_ids(pugi::xml_node parent, const char *element_name)
+std::vector<std::string> CollectIds(pugi::xml_node parent, const char *element_name)
 {
     return parent.children(element_name) |
            std::views::transform([](pugi::xml_node node)
@@ -69,7 +69,7 @@ std::vector<std::string> collect_ids(pugi::xml_node parent, const char *element_
            std::ranges::to<std::vector>();
 }
 
-LoggerSelection walk(const LoggerDefinition& definition, bool enabled_only)
+LoggerSelection Walk(const LoggerDefinition& definition, bool enabled_only)
 {
     LoggerSelection selection;
     if (!definition.parameters.empty())
@@ -112,16 +112,16 @@ LoggerSelection walk(const LoggerDefinition& definition, bool enabled_only)
 
 } // namespace
 
-Result<std::optional<LoggerSelection>> read_selection(bytes::ByteView conf, std::string_view ecu_id,
-                                                      std::string_view source)
+Result<std::optional<LoggerSelection>> ReadSelection(bytes::ByteView conf, std::string_view ecu_id,
+                                                     std::string_view source)
 {
     pugi::xml_document document;
-    if (auto loaded = load(document, conf, source); !loaded)
+    if (auto loaded = Load(document, conf, source); !loaded)
     {
         return std::unexpected(loaded.error());
     }
 
-    const pugi::xml_node ecu = find_ecu(document.child("config").child("logger"), ecu_id);
+    const pugi::xml_node ecu = FindEcu(document.child("config").child("logger"), ecu_id);
     if (!ecu)
     {
         return std::optional<LoggerSelection>{};
@@ -131,17 +131,17 @@ Result<std::optional<LoggerSelection>> read_selection(bytes::ByteView conf, std:
     const pugi::xml_node protocol = ecu.child("protocol");
     selection.protocol = protocol.attribute("id").as_string("No id");
     const pugi::xml_node parameters = protocol.child("parameters");
-    selection.gauge_ids = collect_ids(parameters.child("gauges"), "parameter");
-    selection.lower_panel_ids = collect_ids(parameters.child("lower_panel"), "parameter");
-    selection.switch_ids = collect_ids(protocol.child("switches"), "switch");
+    selection.gauge_ids = CollectIds(parameters.child("gauges"), "parameter");
+    selection.lower_panel_ids = CollectIds(parameters.child("lower_panel"), "parameter");
+    selection.switch_ids = CollectIds(protocol.child("switches"), "switch");
     return std::optional<LoggerSelection>{std::move(selection)};
 }
 
-Result<bytes::Bytes> write_selection(bytes::ByteView conf, std::string_view ecu_id, const LoggerSelection& selection,
-                                     std::string_view source)
+Result<bytes::Bytes> WriteSelection(bytes::ByteView conf, std::string_view ecu_id, const LoggerSelection& selection,
+                                    std::string_view source)
 {
     pugi::xml_document document;
-    if (auto loaded = load(document, conf, source); !loaded)
+    if (auto loaded = Load(document, conf, source); !loaded)
     {
         return std::unexpected(loaded.error());
     }
@@ -156,7 +156,7 @@ Result<bytes::Bytes> write_selection(bytes::ByteView conf, std::string_view ecu_
         // non-well-formed XML that every conformant parser refuses
         // to re-read even though pugixml is lenient enough to load it back.
         // Refuse rather than corrupt it.
-        return fail(ErrorKind::kInvalidConfig, std::format("{}: root element is <{}>, expected <config>", source,
+        return Fail(ErrorKind::kInvalidConfig, std::format("{}: root element is <{}>, expected <config>", source,
                                                            document.document_element().name()));
     }
     pugi::xml_node logger = config.child("logger");
@@ -168,7 +168,7 @@ Result<bytes::Bytes> write_selection(bytes::ByteView conf, std::string_view ecu_
     // Rebuild rather than patch attributes by index. The legacy writer walked
     // existing elements and set their `id` positionally, which silently
     // dropped ids when the selection was longer than the stored subtree.
-    pugi::xml_node ecu = find_ecu(logger, ecu_id);
+    pugi::xml_node ecu = FindEcu(logger, ecu_id);
     if (ecu)
     {
         // Reinsert the rebuilt element where the old one sat. document.save()
@@ -189,9 +189,9 @@ Result<bytes::Bytes> write_selection(bytes::ByteView conf, std::string_view ecu_
     pugi::xml_node protocol = ecu.append_child("protocol");
     protocol.append_attribute("id") = selection.protocol;
     pugi::xml_node parameters = protocol.append_child("parameters");
-    append_ids(parameters.append_child("gauges"), "parameter", selection.gauge_ids);
-    append_ids(parameters.append_child("lower_panel"), "parameter", selection.lower_panel_ids);
-    append_ids(protocol.append_child("switches"), "switch", selection.switch_ids);
+    AppendIds(parameters.append_child("gauges"), "parameter", selection.gauge_ids);
+    AppendIds(parameters.append_child("lower_panel"), "parameter", selection.lower_panel_ids);
+    AppendIds(protocol.append_child("switches"), "switch", selection.switch_ids);
 
     std::ostringstream output;
     // An existing <?xml ...?> declaration is preserved and one is never
@@ -209,14 +209,14 @@ Result<bytes::Bytes> write_selection(bytes::ByteView conf, std::string_view ecu_
     return bytes::Bytes(xml.begin(), xml.end());
 }
 
-LoggerSelection initial_selection(const LoggerDefinition& definition)
+LoggerSelection InitialSelection(const LoggerDefinition& definition)
 {
-    return walk(definition, /*enabled_only=*/false);
+    return Walk(definition, /*enabled_only=*/false);
 }
 
-LoggerSelection default_selection(const LoggerDefinition& definition)
+LoggerSelection DefaultSelection(const LoggerDefinition& definition)
 {
-    return walk(definition, /*enabled_only=*/true);
+    return Walk(definition, /*enabled_only=*/true);
 }
 
 } // namespace fastecu::logging

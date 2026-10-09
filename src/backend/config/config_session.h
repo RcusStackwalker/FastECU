@@ -35,40 +35,40 @@ class ConfigSession
     // selects nothing. A failed rewrite of the loaded settings is a warning
     // event, not a failure. Any other failure leaves the session
     // uninitialized, holding nothing.
-    Status initialize(std::string_view app_root, std::string_view version);
-    bool initialized() const;
+    Status Initialize(std::string_view app_root, std::string_view version);
+    bool Initialized() const;
 
     // Writes the settings. On success the in-memory settings become the
     // normalized result; on failure they are left exactly as edited.
-    Status save();
+    Status Save();
 
-    AppConfig& settings();
-    const AppConfig& settings() const;
+    AppConfig& Settings();
+    const AppConfig& Settings() const;
 
     // Where initialize() put things. Never moved by settings edits.
-    ConfigPaths provisioned_paths() const;
+    ConfigPaths ProvisionedPaths() const;
     // The provisioned paths with the calibration and datalog directories
     // taken from settings (provisioned ones when a setting is empty).
-    ConfigPaths effective_paths() const;
+    ConfigPaths EffectivePaths() const;
 
     // Catalog order. Empty until initialized.
-    std::span<const VehicleSpec> vehicles() const;
-    Result<std::size_t> selected_row() const;
+    std::span<const VehicleSpec> Vehicles() const;
+    Result<std::size_t> SelectedRow() const;
     // nullptr unless selected_row() has a value.
-    const VehicleSpec *selected_vehicle() const;
+    const VehicleSpec *SelectedVehicle() const;
 
     // Makes `row`'s vehicle id the saved selection and sets the logging
     // protocol from its protocol. Transports are untouched, and nothing is written until
     // save(). An invalid row changes nothing.
-    Status select_row(std::size_t row);
+    Status SelectRow(std::size_t row);
     // select_row() on the LAST row whose protocol is named `protocol_name`, as
     // the legacy ROM-open scan did. Returns false, changing nothing, if none do.
-    bool select_by_protocol_name(std::string_view protocol_name);
+    bool SelectByProtocolName(std::string_view protocol_name);
 
     // The first vehicle whose protocol's alias is `flash_method`, which is how
     // a definition's flash method resolves; nullptr when none matches or the
     // session is not initialized.
-    const VehicleSpec *vehicle_for_alias(std::string_view flash_method) const;
+    const VehicleSpec *VehicleForAlias(std::string_view flash_method) const;
 
   private:
     const Catalog& catalog_;

@@ -8,42 +8,42 @@
 namespace bytes
 {
 
-inline ByteView view(const QByteArray& bytes)
+inline ByteView View(const QByteArray& bytes)
 {
     return ByteView(reinterpret_cast<const Byte *>(bytes.constData()), static_cast<std::size_t>(bytes.size()));
 }
 
-inline Bytes fromQByteArray(const QByteArray& bytes)
+inline Bytes FromQByteArray(const QByteArray& bytes)
 {
-    const auto byte_view = view(bytes);
+    const auto byte_view = View(bytes);
     return Bytes(byte_view.begin(), byte_view.end());
 }
 
-inline QByteArray toQByteArray(ByteView bytes)
+inline QByteArray ToQByteArray(ByteView bytes)
 {
     return QByteArray(reinterpret_cast<const char *>(bytes.data()), static_cast<qsizetype>(bytes.size()));
 }
 
-inline MutableByteView mutableView(QByteArray& bytes)
+inline MutableByteView MutableView(QByteArray& bytes)
 {
     return MutableByteView(reinterpret_cast<Byte *>(bytes.data()), static_cast<std::size_t>(bytes.size()));
 }
 
-inline void appendU16Be(QByteArray& out, std::uint16_t value)
+inline void AppendU16Be(QByteArray& out, std::uint16_t value)
 {
     const auto v = static_cast<unsigned>(value);
     out.append(static_cast<char>((v >> 8U) & 0xFFU));
     out.append(static_cast<char>(v & 0xFFU));
 }
 
-inline void appendU24Be(QByteArray& out, std::uint32_t value)
+inline void AppendU24Be(QByteArray& out, std::uint32_t value)
 {
     out.append(static_cast<char>((value >> 16U) & 0xFFU));
     out.append(static_cast<char>((value >> 8U) & 0xFFU));
     out.append(static_cast<char>(value & 0xFFU));
 }
 
-inline void appendU32Be(QByteArray& out, std::uint32_t value)
+inline void AppendU32Be(QByteArray& out, std::uint32_t value)
 {
     out.append(static_cast<char>((value >> 24U) & 0xFFU));
     out.append(static_cast<char>((value >> 16U) & 0xFFU));
@@ -51,21 +51,21 @@ inline void appendU32Be(QByteArray& out, std::uint32_t value)
     out.append(static_cast<char>(value & 0xFFU));
 }
 
-inline void appendU16Le(QByteArray& out, std::uint16_t value)
+inline void AppendU16Le(QByteArray& out, std::uint16_t value)
 {
     const auto v = static_cast<unsigned>(value);
     out.append(static_cast<char>(v & 0xFFU));
     out.append(static_cast<char>((v >> 8U) & 0xFFU));
 }
 
-inline void appendU24Le(QByteArray& out, std::uint32_t value)
+inline void AppendU24Le(QByteArray& out, std::uint32_t value)
 {
     out.append(static_cast<char>(value & 0xFFU));
     out.append(static_cast<char>((value >> 8U) & 0xFFU));
     out.append(static_cast<char>((value >> 16U) & 0xFFU));
 }
 
-inline void appendU32Le(QByteArray& out, std::uint32_t value)
+inline void AppendU32Le(QByteArray& out, std::uint32_t value)
 {
     out.append(static_cast<char>(value & 0xFFU));
     out.append(static_cast<char>((value >> 8U) & 0xFFU));
@@ -73,39 +73,39 @@ inline void appendU32Le(QByteArray& out, std::uint32_t value)
     out.append(static_cast<char>((value >> 24U) & 0xFFU));
 }
 
-inline void writeU16Be(QByteArray& out, std::size_t offset, std::uint16_t value)
+inline void WriteU16Be(QByteArray& out, std::size_t offset, std::uint16_t value)
 {
-    writeU16Be(mutableView(out), offset, value);
+    WriteU16Be(MutableView(out), offset, value);
 }
 
-inline void writeU24Be(QByteArray& out, std::size_t offset, std::uint32_t value)
+inline void WriteU24Be(QByteArray& out, std::size_t offset, std::uint32_t value)
 {
-    writeU24Be(mutableView(out), offset, value);
+    WriteU24Be(MutableView(out), offset, value);
 }
 
-inline void writeU32Be(QByteArray& out, std::size_t offset, std::uint32_t value)
+inline void WriteU32Be(QByteArray& out, std::size_t offset, std::uint32_t value)
 {
-    writeU32Be(mutableView(out), offset, value);
+    WriteU32Be(MutableView(out), offset, value);
 }
 
-inline void writeU16Le(QByteArray& out, std::size_t offset, std::uint16_t value)
+inline void WriteU16Le(QByteArray& out, std::size_t offset, std::uint16_t value)
 {
-    writeU16Le(mutableView(out), offset, value);
+    WriteU16Le(MutableView(out), offset, value);
 }
 
-inline void writeU24Le(QByteArray& out, std::size_t offset, std::uint32_t value)
+inline void WriteU24Le(QByteArray& out, std::size_t offset, std::uint32_t value)
 {
-    writeU24Le(mutableView(out), offset, value);
+    WriteU24Le(MutableView(out), offset, value);
 }
 
-inline void writeU32Le(QByteArray& out, std::size_t offset, std::uint32_t value)
+inline void WriteU32Le(QByteArray& out, std::size_t offset, std::uint32_t value)
 {
-    writeU32Le(mutableView(out), offset, value);
+    WriteU32Le(MutableView(out), offset, value);
 }
 
-inline QString toHex(const QByteArray& data)
+inline QString ToHex(const QByteArray& data)
 {
-    return QString::fromStdString(toHex(view(data)));
+    return QString::fromStdString(ToHex(View(data)));
 }
 
 } // namespace bytes

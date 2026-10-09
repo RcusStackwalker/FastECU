@@ -21,23 +21,23 @@ namespace fastecu::definition
 namespace
 {
 
-std::vector<std::uint8_t> bytes(std::string_view text)
+std::vector<std::uint8_t> Bytes(std::string_view text)
 {
     return {text.begin(), text.end()};
 }
 
-std::vector<std::uint8_t> romraider_xml(std::string_view id)
+std::vector<std::uint8_t> RomraiderXml(std::string_view id)
 {
-    return bytes("<roms><rom><romid><xmlid>" + std::string(id) + "</xmlid></romid></rom></roms>");
+    return Bytes("<roms><rom><romid><xmlid>" + std::string(id) + "</xmlid></romid></rom></roms>");
 }
 
-std::vector<std::uint8_t> ecuflash_xml(std::string_view id)
+std::vector<std::uint8_t> EcuflashXml(std::string_view id)
 {
-    return bytes("<rom><romid><xmlid>" + std::string(id) + "</xmlid></romid></rom>");
+    return Bytes("<rom><romid><xmlid>" + std::string(id) + "</xmlid></romid></rom>");
 }
 
-DefinitionIndexEntry index_entry(std::string id, std::string internal_id, std::optional<std::uint64_t> address,
-                                 IdEncoding encoding = IdEncoding::kAscii)
+DefinitionIndexEntry IndexEntry(std::string id, std::string internal_id, std::optional<std::uint64_t> address,
+                                IdEncoding encoding = IdEncoding::kAscii)
 {
     return DefinitionIndexEntry{
         .format = DefinitionFormat::kRomRaider,
@@ -49,9 +49,9 @@ DefinitionIndexEntry index_entry(std::string id, std::string internal_id, std::o
     };
 }
 
-DefinitionIndexEntry load_entry(DefinitionFormat format, std::string id, std::string source)
+DefinitionIndexEntry LoadEntry(DefinitionFormat format, std::string id, std::string source)
 {
-    DefinitionIndexEntry entry = index_entry(std::move(id), "", std::nullopt);
+    DefinitionIndexEntry entry = IndexEntry(std::move(id), "", std::nullopt);
     entry.format = format;
     entry.source = std::move(source);
     return entry;
@@ -66,7 +66,7 @@ class DefinitionServiceTest : public ::testing::Test
     DefinitionService service_{file_system_, repository_, writer_};
 };
 
-DefinitionHeaderInput valid_header_input()
+DefinitionHeaderInput ValidHeaderInput()
 {
     return DefinitionHeaderInput{
         .xml_id = "NEW",
@@ -100,22 +100,22 @@ TEST_F(DefinitionServiceTest, DiscoversEcuFlashXmlRecursivelyInLexicalFullPathOr
     file_system_.directory_entries["defs/pretend.xml"] = {
         DirEntry{.name = "ignored.bin", .is_directory = false},
     };
-    repository_.files["defs/z.xml"] = ecuflash_xml("Z");
-    repository_.files["defs/nested/b.XML"] = ecuflash_xml("B");
-    repository_.files["defs/nested/a.Xml"] = ecuflash_xml("A");
+    repository_.files["defs/z.xml"] = EcuflashXml("Z");
+    repository_.files["defs/nested/b.XML"] = EcuflashXml("B");
+    repository_.files["defs/nested/a.Xml"] = EcuflashXml("A");
 
-    auto result = service_.build_ecuflash_catalog("defs");
+    auto result = service_.BuildEcuflashCatalog("defs");
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
-    ASSERT_EQ(result->entries().size(), 3U);
-    EXPECT_EQ(result->entries()[0].definition_id, "A");
-    EXPECT_EQ(result->entries()[1].definition_id, "B");
-    EXPECT_EQ(result->entries()[2].definition_id, "Z");
-    EXPECT_EQ(repository_.read_count("defs/nested/a.Xml"), 1);
-    EXPECT_EQ(repository_.read_count("defs/nested/b.XML"), 1);
-    EXPECT_EQ(repository_.read_count("defs/z.xml"), 1);
-    EXPECT_FALSE(repository_.read_count("defs/notes.txt") != 0);
-    EXPECT_FALSE(repository_.read_count("defs/pretend.xml") != 0);
+    ASSERT_EQ(result->Entries().size(), 3U);
+    EXPECT_EQ(result->Entries()[0].definition_id, "A");
+    EXPECT_EQ(result->Entries()[1].definition_id, "B");
+    EXPECT_EQ(result->Entries()[2].definition_id, "Z");
+    EXPECT_EQ(repository_.ReadCount("defs/nested/a.Xml"), 1);
+    EXPECT_EQ(repository_.ReadCount("defs/nested/b.XML"), 1);
+    EXPECT_EQ(repository_.ReadCount("defs/z.xml"), 1);
+    EXPECT_FALSE(repository_.ReadCount("defs/notes.txt") != 0);
+    EXPECT_FALSE(repository_.ReadCount("defs/pretend.xml") != 0);
 }
 
 TEST_F(DefinitionServiceTest, SkipsSymlinkDirectoriesWhileDiscoveringOrdinaryNestedXml)
@@ -131,15 +131,15 @@ TEST_F(DefinitionServiceTest, SkipsSymlinkDirectoriesWhileDiscoveringOrdinaryNes
             .is_symlink = true,
         },
     };
-    repository_.files["defs/nested/definition.xml"] = ecuflash_xml("NESTED");
+    repository_.files["defs/nested/definition.xml"] = EcuflashXml("NESTED");
 
-    auto result = service_.build_ecuflash_catalog("defs");
+    auto result = service_.BuildEcuflashCatalog("defs");
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
-    ASSERT_EQ(result->entries().size(), 1U);
-    EXPECT_EQ(result->entries()[0].definition_id, "NESTED");
-    EXPECT_EQ(result->entries()[0].source, "defs/nested/definition.xml");
-    EXPECT_FALSE(repository_.read_count("defs/nested/loop") != 0);
+    ASSERT_EQ(result->Entries().size(), 1U);
+    EXPECT_EQ(result->Entries()[0].definition_id, "NESTED");
+    EXPECT_EQ(result->Entries()[0].source, "defs/nested/definition.xml");
+    EXPECT_FALSE(repository_.ReadCount("defs/nested/loop") != 0);
 }
 
 TEST_F(DefinitionServiceTest, MergesExplicitEcuFlashHandlesDeterministicallyAndReadsEachSourceOnce)
@@ -147,9 +147,9 @@ TEST_F(DefinitionServiceTest, MergesExplicitEcuFlashHandlesDeterministicallyAndR
     file_system_.directory_entries["defs"] = {
         DirEntry{.name = "z.xml", .is_directory = false},
     };
-    repository_.files["defs/z.xml"] = ecuflash_xml("Z");
-    repository_.files["external/a.xml"] = ecuflash_xml("A");
-    repository_.files["external/b.xml"] = ecuflash_xml("B");
+    repository_.files["defs/z.xml"] = EcuflashXml("Z");
+    repository_.files["external/a.xml"] = EcuflashXml("A");
+    repository_.files["external/b.xml"] = EcuflashXml("B");
     const std::vector<std::string> explicit_handles{
         "external/b.xml",
         "defs/z.xml",
@@ -157,60 +157,60 @@ TEST_F(DefinitionServiceTest, MergesExplicitEcuFlashHandlesDeterministicallyAndR
         "external/b.xml",
     };
 
-    auto result = service_.build_ecuflash_catalog("defs", explicit_handles);
+    auto result = service_.BuildEcuflashCatalog("defs", explicit_handles);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
-    ASSERT_EQ(result->entries().size(), 3U);
-    EXPECT_EQ(result->entries()[0].definition_id, "Z");
-    EXPECT_EQ(result->entries()[0].source, "defs/z.xml");
-    EXPECT_EQ(result->entries()[1].definition_id, "A");
-    EXPECT_EQ(result->entries()[1].source, "external/a.xml");
-    EXPECT_EQ(result->entries()[2].definition_id, "B");
-    EXPECT_EQ(result->entries()[2].source, "external/b.xml");
-    EXPECT_EQ(repository_.read_count("defs/z.xml"), 1);
-    EXPECT_EQ(repository_.read_count("external/a.xml"), 1);
-    EXPECT_EQ(repository_.read_count("external/b.xml"), 1);
+    ASSERT_EQ(result->Entries().size(), 3U);
+    EXPECT_EQ(result->Entries()[0].definition_id, "Z");
+    EXPECT_EQ(result->Entries()[0].source, "defs/z.xml");
+    EXPECT_EQ(result->Entries()[1].definition_id, "A");
+    EXPECT_EQ(result->Entries()[1].source, "external/a.xml");
+    EXPECT_EQ(result->Entries()[2].definition_id, "B");
+    EXPECT_EQ(result->Entries()[2].source, "external/b.xml");
+    EXPECT_EQ(repository_.ReadCount("defs/z.xml"), 1);
+    EXPECT_EQ(repository_.ReadCount("external/a.xml"), 1);
+    EXPECT_EQ(repository_.ReadCount("external/b.xml"), 1);
 }
 
 TEST_F(DefinitionServiceTest, BuildsEcuFlashCatalogFromExplicitHandlesWithoutConfiguredDirectory)
 {
-    repository_.files["external/definition.xml"] = bytes(R"xml(
+    repository_.files["external/definition.xml"] = Bytes(R"xml(
       <rom><romid><xmlid>XML_ID</xmlid><internalidaddress>0</internalidaddress>
       <internalidstring>INTERNAL_ID</internalidstring></romid></rom>)xml");
     const std::vector<std::string> explicit_handles{
         "external/definition.xml",
     };
 
-    auto result = service_.build_ecuflash_catalog({}, explicit_handles);
+    auto result = service_.BuildEcuflashCatalog({}, explicit_handles);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
-    ASSERT_EQ(result->entries().size(), 1U);
-    EXPECT_EQ(result->entries()[0].definition_id, "XML_ID");
-    EXPECT_EQ(result->entries()[0].internal_id, "INTERNAL_ID");
-    EXPECT_EQ(result->entries()[0].source, "external/definition.xml");
+    ASSERT_EQ(result->Entries().size(), 1U);
+    EXPECT_EQ(result->Entries()[0].definition_id, "XML_ID");
+    EXPECT_EQ(result->Entries()[0].internal_id, "INTERNAL_ID");
+    EXPECT_EQ(result->Entries()[0].source, "external/definition.xml");
 }
 
 TEST_F(DefinitionServiceTest, PreservesConfiguredRomRaiderHandleOrderingAndReadsEachOnce)
 {
-    repository_.files["second.xml"] = romraider_xml("SECOND");
-    repository_.files["first.xml"] = romraider_xml("FIRST");
+    repository_.files["second.xml"] = RomraiderXml("SECOND");
+    repository_.files["first.xml"] = RomraiderXml("FIRST");
     const std::vector<std::string> handles{"second.xml", "first.xml"};
 
-    auto result = service_.build_romraider_catalog(handles);
+    auto result = service_.BuildRomraiderCatalog(handles);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
-    ASSERT_EQ(result->entries().size(), 2U);
-    EXPECT_EQ(result->entries()[0].definition_id, "SECOND");
-    EXPECT_EQ(result->entries()[1].definition_id, "FIRST");
-    EXPECT_EQ(repository_.read_count("second.xml"), 1);
-    EXPECT_EQ(repository_.read_count("first.xml"), 1);
+    ASSERT_EQ(result->Entries().size(), 2U);
+    EXPECT_EQ(result->Entries()[0].definition_id, "SECOND");
+    EXPECT_EQ(result->Entries()[1].definition_id, "FIRST");
+    EXPECT_EQ(repository_.ReadCount("second.xml"), 1);
+    EXPECT_EQ(repository_.ReadCount("first.xml"), 1);
 }
 
 TEST_F(DefinitionServiceTest, PropagatesDiscoveryFailureWithoutReadingFiles)
 {
     file_system_.list_directory_errors["defs"] = Error{ErrorKind::kDisconnected, "catalog directory unavailable"};
 
-    auto result = service_.build_ecuflash_catalog("defs");
+    auto result = service_.BuildEcuflashCatalog("defs");
 
     ASSERT_THAT(result, ::testing::Not(fastecu::testing::IsOk()));
     EXPECT_EQ(result.error(), (Error{ErrorKind::kDisconnected, "catalog directory unavailable"}));
@@ -221,15 +221,15 @@ TEST_F(DefinitionServiceTest, SkipsHandleThatFailsToReadAndKeepsRemainingEntries
 {
     const std::vector<std::string> handles{"bad.xml", "good.xml"};
     repository_.read_errors["bad.xml"] = Error{ErrorKind::kDisconnected, "read failed"};
-    repository_.files["good.xml"] = romraider_xml("GOOD");
+    repository_.files["good.xml"] = RomraiderXml("GOOD");
 
-    auto result = service_.build_romraider_catalog(handles);
+    auto result = service_.BuildRomraiderCatalog(handles);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
-    ASSERT_EQ(result->entries().size(), 1U);
-    EXPECT_EQ(result->entries()[0].definition_id, "GOOD");
-    EXPECT_EQ(repository_.read_count("bad.xml"), 1);
-    EXPECT_EQ(repository_.read_count("good.xml"), 1);
+    ASSERT_EQ(result->Entries().size(), 1U);
+    EXPECT_EQ(result->Entries()[0].definition_id, "GOOD");
+    EXPECT_EQ(repository_.ReadCount("bad.xml"), 1);
+    EXPECT_EQ(repository_.ReadCount("good.xml"), 1);
 }
 
 TEST_F(DefinitionServiceTest, SkipsUnparsableFileAfterOneReadAndKeepsRemainingEntries)
@@ -238,16 +238,16 @@ TEST_F(DefinitionServiceTest, SkipsUnparsableFileAfterOneReadAndKeepsRemainingEn
         DirEntry{.name = "bad.xml", .is_directory = false},
         DirEntry{.name = "good.xml", .is_directory = false},
     };
-    repository_.files["defs/bad.xml"] = bytes("<not-rom/>");
-    repository_.files["defs/good.xml"] = ecuflash_xml("GOOD");
+    repository_.files["defs/bad.xml"] = Bytes("<not-rom/>");
+    repository_.files["defs/good.xml"] = EcuflashXml("GOOD");
 
-    auto result = service_.build_ecuflash_catalog("defs");
+    auto result = service_.BuildEcuflashCatalog("defs");
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
-    ASSERT_EQ(result->entries().size(), 1U);
-    EXPECT_EQ(result->entries()[0].definition_id, "GOOD");
-    EXPECT_EQ(repository_.read_count("defs/bad.xml"), 1);
-    EXPECT_EQ(repository_.read_count("defs/good.xml"), 1);
+    ASSERT_EQ(result->Entries().size(), 1U);
+    EXPECT_EQ(result->Entries()[0].definition_id, "GOOD");
+    EXPECT_EQ(repository_.ReadCount("defs/bad.xml"), 1);
+    EXPECT_EQ(repository_.ReadCount("defs/good.xml"), 1);
 }
 
 TEST_F(DefinitionServiceTest, SkipsEveryUnusableHandleAndSucceedsWithAnEmptyCatalog)
@@ -255,19 +255,19 @@ TEST_F(DefinitionServiceTest, SkipsEveryUnusableHandleAndSucceedsWithAnEmptyCata
     const std::vector<std::string> handles{"bad.xml"};
     repository_.read_errors["bad.xml"] = Error{ErrorKind::kDisconnected, "read failed"};
 
-    auto result = service_.build_romraider_catalog(handles);
+    auto result = service_.BuildRomraiderCatalog(handles);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
-    EXPECT_TRUE(result->entries().empty());
+    EXPECT_TRUE(result->Entries().empty());
 }
 
 TEST_F(DefinitionServiceTest, MatchesAsciiIdentifierEndingExactlyAtRomEnd)
 {
-    auto catalog = DefinitionCatalog::create({index_entry("EXACT", "AB", 1U)});
+    auto catalog = DefinitionCatalog::Create({IndexEntry("EXACT", "AB", 1U)});
     ASSERT_THAT(catalog, fastecu::testing::IsOk());
     const std::vector<std::uint8_t> rom{'x', 'A', 'B'};
 
-    auto result = service_.match_rom(*catalog, rom);
+    auto result = service_.MatchRom(*catalog, rom);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(result->definition_id, "EXACT");
@@ -275,23 +275,23 @@ TEST_F(DefinitionServiceTest, MatchesAsciiIdentifierEndingExactlyAtRomEnd)
 
 TEST_F(DefinitionServiceTest, RejectsIdentifierWhenRomIsOneByteShort)
 {
-    auto catalog = DefinitionCatalog::create({index_entry("SHORT", "AB", 1U)});
+    auto catalog = DefinitionCatalog::Create({IndexEntry("SHORT", "AB", 1U)});
     ASSERT_THAT(catalog, fastecu::testing::IsOk());
     const std::vector<std::uint8_t> rom{'x', 'A'};
 
-    ASSERT_THAT(service_.match_rom(*catalog, rom), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
+    ASSERT_THAT(service_.MatchRom(*catalog, rom), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
 TEST_F(DefinitionServiceTest, MatchesUpperAndLowerCaseHexText)
 {
-    auto lower_catalog = DefinitionCatalog::create({index_entry("LOWER", "ab10", 0U, IdEncoding::kHex)});
-    auto upper_catalog = DefinitionCatalog::create({index_entry("UPPER", "AB10", 0U, IdEncoding::kHex)});
+    auto lower_catalog = DefinitionCatalog::Create({IndexEntry("LOWER", "ab10", 0U, IdEncoding::kHex)});
+    auto upper_catalog = DefinitionCatalog::Create({IndexEntry("UPPER", "AB10", 0U, IdEncoding::kHex)});
     ASSERT_THAT(lower_catalog, fastecu::testing::IsOk());
     ASSERT_THAT(upper_catalog, fastecu::testing::IsOk());
     const std::vector<std::uint8_t> rom{0xAB, 0x10};
 
-    auto lower = service_.match_rom(*lower_catalog, rom);
-    auto upper = service_.match_rom(*upper_catalog, rom);
+    auto lower = service_.MatchRom(*lower_catalog, rom);
+    auto upper = service_.MatchRom(*upper_catalog, rom);
 
     ASSERT_THAT(lower, fastecu::testing::IsOk());
     ASSERT_THAT(upper, fastecu::testing::IsOk());
@@ -301,15 +301,15 @@ TEST_F(DefinitionServiceTest, MatchesUpperAndLowerCaseHexText)
 
 TEST_F(DefinitionServiceTest, MatchesEitherAsciiOrHexForLegacyCompatibleEntry)
 {
-    auto ascii_catalog = DefinitionCatalog::create({index_entry("ASCII", "AB10", 0U, IdEncoding::kAsciiOrHex)});
-    auto hex_catalog = DefinitionCatalog::create({index_entry("HEX", "AB10", 0U, IdEncoding::kAsciiOrHex)});
+    auto ascii_catalog = DefinitionCatalog::Create({IndexEntry("ASCII", "AB10", 0U, IdEncoding::kAsciiOrHex)});
+    auto hex_catalog = DefinitionCatalog::Create({IndexEntry("HEX", "AB10", 0U, IdEncoding::kAsciiOrHex)});
     ASSERT_THAT(ascii_catalog, fastecu::testing::IsOk());
     ASSERT_THAT(hex_catalog, fastecu::testing::IsOk());
     const std::vector<std::uint8_t> ascii_rom{'A', 'B', '1', '0'};
     const std::vector<std::uint8_t> hex_rom{0xAB, 0x10};
 
-    auto ascii = service_.match_rom(*ascii_catalog, ascii_rom);
-    auto hex = service_.match_rom(*hex_catalog, hex_rom);
+    auto ascii = service_.MatchRom(*ascii_catalog, ascii_rom);
+    auto hex = service_.MatchRom(*hex_catalog, hex_rom);
 
     ASSERT_THAT(ascii, fastecu::testing::IsOk());
     ASSERT_THAT(hex, fastecu::testing::IsOk());
@@ -319,14 +319,14 @@ TEST_F(DefinitionServiceTest, MatchesEitherAsciiOrHexForLegacyCompatibleEntry)
 
 TEST_F(DefinitionServiceTest, SkipsOddLengthHexIdentifierAndMatchesLaterEntry)
 {
-    auto catalog = DefinitionCatalog::create({
-        index_entry("ODD", "ABC", 0U, IdEncoding::kHex),
-        index_entry("VALID", "AB", 0U, IdEncoding::kHex),
+    auto catalog = DefinitionCatalog::Create({
+        IndexEntry("ODD", "ABC", 0U, IdEncoding::kHex),
+        IndexEntry("VALID", "AB", 0U, IdEncoding::kHex),
     });
     ASSERT_THAT(catalog, fastecu::testing::IsOk());
     const std::vector<std::uint8_t> rom{0xAB};
 
-    auto result = service_.match_rom(*catalog, rom);
+    auto result = service_.MatchRom(*catalog, rom);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(result->definition_id, "VALID");
@@ -334,14 +334,14 @@ TEST_F(DefinitionServiceTest, SkipsOddLengthHexIdentifierAndMatchesLaterEntry)
 
 TEST_F(DefinitionServiceTest, SkipsInvalidHexDigitAndMatchesLaterEntry)
 {
-    auto catalog = DefinitionCatalog::create({
-        index_entry("INVALID_HEX", "AG", 0U, IdEncoding::kHex),
-        index_entry("VALID", "41", 0U, IdEncoding::kHex),
+    auto catalog = DefinitionCatalog::Create({
+        IndexEntry("INVALID_HEX", "AG", 0U, IdEncoding::kHex),
+        IndexEntry("VALID", "41", 0U, IdEncoding::kHex),
     });
     ASSERT_THAT(catalog, fastecu::testing::IsOk());
     const std::vector<std::uint8_t> rom{'A'};
 
-    auto result = service_.match_rom(*catalog, rom);
+    auto result = service_.MatchRom(*catalog, rom);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(result->definition_id, "VALID");
@@ -349,14 +349,14 @@ TEST_F(DefinitionServiceTest, SkipsInvalidHexDigitAndMatchesLaterEntry)
 
 TEST_F(DefinitionServiceTest, SkipsMissingAddressAndMatchesLaterEntry)
 {
-    auto catalog = DefinitionCatalog::create({
-        index_entry("NO_ADDRESS", "A", std::nullopt),
-        index_entry("VALID", "A", 0U),
+    auto catalog = DefinitionCatalog::Create({
+        IndexEntry("NO_ADDRESS", "A", std::nullopt),
+        IndexEntry("VALID", "A", 0U),
     });
     ASSERT_THAT(catalog, fastecu::testing::IsOk());
     const std::vector<std::uint8_t> rom{'A'};
 
-    auto result = service_.match_rom(*catalog, rom);
+    auto result = service_.MatchRom(*catalog, rom);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(result->definition_id, "VALID");
@@ -364,14 +364,14 @@ TEST_F(DefinitionServiceTest, SkipsMissingAddressAndMatchesLaterEntry)
 
 TEST_F(DefinitionServiceTest, SkipsAddressBeyondRomBoundsAndMatchesLaterEntry)
 {
-    auto catalog = DefinitionCatalog::create({
-        index_entry("OUT_OF_RANGE", "A", 2U),
-        index_entry("VALID", "A", 0U),
+    auto catalog = DefinitionCatalog::Create({
+        IndexEntry("OUT_OF_RANGE", "A", 2U),
+        IndexEntry("VALID", "A", 0U),
     });
     ASSERT_THAT(catalog, fastecu::testing::IsOk());
     const std::vector<std::uint8_t> rom{'A'};
 
-    auto result = service_.match_rom(*catalog, rom);
+    auto result = service_.MatchRom(*catalog, rom);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(result->definition_id, "VALID");
@@ -379,14 +379,14 @@ TEST_F(DefinitionServiceTest, SkipsAddressBeyondRomBoundsAndMatchesLaterEntry)
 
 TEST_F(DefinitionServiceTest, ReturnsFirstCatalogEntryWhenMatchesAreAmbiguous)
 {
-    auto catalog = DefinitionCatalog::create({
-        index_entry("FIRST", "A", 0U),
-        index_entry("SECOND", "A", 0U),
+    auto catalog = DefinitionCatalog::Create({
+        IndexEntry("FIRST", "A", 0U),
+        IndexEntry("SECOND", "A", 0U),
     });
     ASSERT_THAT(catalog, fastecu::testing::IsOk());
     const std::vector<std::uint8_t> rom{'A'};
 
-    auto result = service_.match_rom(*catalog, rom);
+    auto result = service_.MatchRom(*catalog, rom);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(result->definition_id, "FIRST");
@@ -394,79 +394,79 @@ TEST_F(DefinitionServiceTest, ReturnsFirstCatalogEntryWhenMatchesAreAmbiguous)
 
 TEST_F(DefinitionServiceTest, EmptyIdentifierDoesNotMatch)
 {
-    auto catalog = DefinitionCatalog::create({index_entry("EMPTY", "", 0U)});
+    auto catalog = DefinitionCatalog::Create({IndexEntry("EMPTY", "", 0U)});
     ASSERT_THAT(catalog, fastecu::testing::IsOk());
 
-    ASSERT_THAT(service_.match_rom(*catalog, {}), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
+    ASSERT_THAT(service_.MatchRom(*catalog, {}), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
 TEST_F(DefinitionServiceTest, ReturnsInvalidConfigWhenNoIdentifierMatches)
 {
-    auto catalog = DefinitionCatalog::create({index_entry("OTHER", "B", 0U)});
+    auto catalog = DefinitionCatalog::Create({IndexEntry("OTHER", "B", 0U)});
     ASSERT_THAT(catalog, fastecu::testing::IsOk());
     const std::vector<std::uint8_t> rom{'A'};
 
-    ASSERT_THAT(service_.match_rom(*catalog, rom), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
+    ASSERT_THAT(service_.MatchRom(*catalog, rom), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
 TEST_F(DefinitionServiceTest, LoadsAndResolvesRomRaiderChildAndBaseFiles)
 {
-    repository_.files["child.xml"] = bytes(R"xml(
+    repository_.files["child.xml"] = Bytes(R"xml(
       <roms><rom base="BASE"><romid><xmlid>CHILD</xmlid></romid></rom></roms>)xml");
-    repository_.files["base.xml"] = romraider_xml("BASE");
-    auto catalog = DefinitionCatalog::create({
-        load_entry(DefinitionFormat::kRomRaider, "CHILD", "child.xml"),
-        load_entry(DefinitionFormat::kRomRaider, "BASE", "base.xml"),
+    repository_.files["base.xml"] = RomraiderXml("BASE");
+    auto catalog = DefinitionCatalog::Create({
+        LoadEntry(DefinitionFormat::kRomRaider, "CHILD", "child.xml"),
+        LoadEntry(DefinitionFormat::kRomRaider, "BASE", "base.xml"),
     });
     ASSERT_THAT(catalog, fastecu::testing::IsOk());
 
-    auto result = service_.load(*catalog, DefinitionFormat::kRomRaider, "CHILD");
+    auto result = service_.Load(*catalog, DefinitionFormat::kRomRaider, "CHILD");
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(result->identity.xml_id, "CHILD");
     EXPECT_EQ(result->resolved_sources, (std::vector<std::string>{"base.xml", "child.xml"}));
-    EXPECT_EQ(repository_.read_count("child.xml"), 1);
-    EXPECT_EQ(repository_.read_count("base.xml"), 1);
+    EXPECT_EQ(repository_.ReadCount("child.xml"), 1);
+    EXPECT_EQ(repository_.ReadCount("base.xml"), 1);
 }
 
 TEST_F(DefinitionServiceTest, MemoizesRepeatedEcuFlashParentOncePerLoadCall)
 {
-    repository_.files["root.xml"] = bytes(R"xml(
+    repository_.files["root.xml"] = Bytes(R"xml(
       <rom><romid><xmlid>ROOT</xmlid></romid>
       <include>LEFT</include><include>RIGHT</include></rom>)xml");
-    repository_.files["left.xml"] = bytes(R"xml(
+    repository_.files["left.xml"] = Bytes(R"xml(
       <rom><romid><xmlid>LEFT</xmlid></romid><include>BASE</include></rom>)xml");
-    repository_.files["right.xml"] = bytes(R"xml(
+    repository_.files["right.xml"] = Bytes(R"xml(
       <rom><romid><xmlid>RIGHT</xmlid></romid><include>BASE</include></rom>)xml");
-    repository_.files["base.xml"] = ecuflash_xml("BASE");
-    auto catalog = DefinitionCatalog::create({
-        load_entry(DefinitionFormat::kEcuFlash, "ROOT", "root.xml"),
-        load_entry(DefinitionFormat::kEcuFlash, "LEFT", "left.xml"),
-        load_entry(DefinitionFormat::kEcuFlash, "RIGHT", "right.xml"),
-        load_entry(DefinitionFormat::kEcuFlash, "BASE", "base.xml"),
+    repository_.files["base.xml"] = EcuflashXml("BASE");
+    auto catalog = DefinitionCatalog::Create({
+        LoadEntry(DefinitionFormat::kEcuFlash, "ROOT", "root.xml"),
+        LoadEntry(DefinitionFormat::kEcuFlash, "LEFT", "left.xml"),
+        LoadEntry(DefinitionFormat::kEcuFlash, "RIGHT", "right.xml"),
+        LoadEntry(DefinitionFormat::kEcuFlash, "BASE", "base.xml"),
     });
     ASSERT_THAT(catalog, fastecu::testing::IsOk());
 
-    auto first = service_.load(*catalog, DefinitionFormat::kEcuFlash, "ROOT");
-    auto second = service_.load(*catalog, DefinitionFormat::kEcuFlash, "ROOT");
+    auto first = service_.Load(*catalog, DefinitionFormat::kEcuFlash, "ROOT");
+    auto second = service_.Load(*catalog, DefinitionFormat::kEcuFlash, "ROOT");
 
     ASSERT_THAT(first, fastecu::testing::IsOk());
     ASSERT_THAT(second, fastecu::testing::IsOk());
     EXPECT_EQ(first->identity.xml_id, "ROOT");
     EXPECT_EQ(second->identity.xml_id, "ROOT");
-    EXPECT_EQ(repository_.read_count("root.xml"), 2);
-    EXPECT_EQ(repository_.read_count("left.xml"), 2);
-    EXPECT_EQ(repository_.read_count("right.xml"), 2);
-    EXPECT_EQ(repository_.read_count("base.xml"), 2);
+    EXPECT_EQ(repository_.ReadCount("root.xml"), 2);
+    EXPECT_EQ(repository_.ReadCount("left.xml"), 2);
+    EXPECT_EQ(repository_.ReadCount("right.xml"), 2);
+    EXPECT_EQ(repository_.ReadCount("base.xml"), 2);
 }
 
 TEST_F(DefinitionServiceTest, LoadPropagatesRepositoryFailure)
 {
-    auto catalog = DefinitionCatalog::create({load_entry(DefinitionFormat::kEcuFlash, "BROKEN", "broken.xml")});
+    auto catalog = DefinitionCatalog::Create({LoadEntry(DefinitionFormat::kEcuFlash, "BROKEN", "broken.xml")});
     ASSERT_THAT(catalog, fastecu::testing::IsOk());
     repository_.read_errors["broken.xml"] = Error{ErrorKind::kDisconnected, "definition read failed"};
 
-    auto result = service_.load(*catalog, DefinitionFormat::kEcuFlash, "BROKEN");
+    auto result = service_.Load(*catalog, DefinitionFormat::kEcuFlash, "BROKEN");
 
     ASSERT_THAT(result, ::testing::Not(fastecu::testing::IsOk()));
     EXPECT_EQ(result.error(), (Error{ErrorKind::kDisconnected, "definition read failed"}));
@@ -474,40 +474,40 @@ TEST_F(DefinitionServiceTest, LoadPropagatesRepositoryFailure)
 
 TEST_F(DefinitionServiceTest, LoadPropagatesParentRepositoryFailureUnchanged)
 {
-    repository_.files["child.xml"] = bytes(R"xml(
+    repository_.files["child.xml"] = Bytes(R"xml(
       <rom><romid><xmlid>CHILD</xmlid></romid><include>BASE</include></rom>)xml");
     repository_.read_errors["base.xml"] = Error{ErrorKind::kInvalidConfig, "parent definition read failed"};
-    auto catalog = DefinitionCatalog::create({
-        load_entry(DefinitionFormat::kEcuFlash, "CHILD", "child.xml"),
-        load_entry(DefinitionFormat::kEcuFlash, "BASE", "base.xml"),
+    auto catalog = DefinitionCatalog::Create({
+        LoadEntry(DefinitionFormat::kEcuFlash, "CHILD", "child.xml"),
+        LoadEntry(DefinitionFormat::kEcuFlash, "BASE", "base.xml"),
     });
     ASSERT_THAT(catalog, fastecu::testing::IsOk());
 
-    auto result = service_.load(*catalog, DefinitionFormat::kEcuFlash, "CHILD");
+    auto result = service_.Load(*catalog, DefinitionFormat::kEcuFlash, "CHILD");
 
     ASSERT_THAT(result, ::testing::Not(fastecu::testing::IsOk()));
     EXPECT_EQ(result.error(), (Error{ErrorKind::kInvalidConfig, "parent definition read failed"}));
-    EXPECT_EQ(repository_.read_count("child.xml"), 1);
-    EXPECT_EQ(repository_.read_count("base.xml"), 1);
+    EXPECT_EQ(repository_.ReadCount("child.xml"), 1);
+    EXPECT_EQ(repository_.ReadCount("base.xml"), 1);
 }
 
 TEST_F(DefinitionServiceTest, LoadRejectsMissingCatalogIdWithoutReading)
 {
-    auto catalog = DefinitionCatalog::create({load_entry(DefinitionFormat::kEcuFlash, "KNOWN", "known.xml")});
+    auto catalog = DefinitionCatalog::Create({LoadEntry(DefinitionFormat::kEcuFlash, "KNOWN", "known.xml")});
     ASSERT_THAT(catalog, fastecu::testing::IsOk());
 
-    ASSERT_THAT(service_.load(*catalog, DefinitionFormat::kEcuFlash, "UNKNOWN"),
+    ASSERT_THAT(service_.Load(*catalog, DefinitionFormat::kEcuFlash, "UNKNOWN"),
                 fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     EXPECT_TRUE(repository_.read_handles.empty());
 }
 
 TEST_F(DefinitionServiceTest, LoadRejectsEcuFlashIdentityThatDoesNotMatchCatalogId)
 {
-    auto catalog = DefinitionCatalog::create({load_entry(DefinitionFormat::kEcuFlash, "EXPECTED", "stale.xml")});
+    auto catalog = DefinitionCatalog::Create({LoadEntry(DefinitionFormat::kEcuFlash, "EXPECTED", "stale.xml")});
     ASSERT_THAT(catalog, fastecu::testing::IsOk());
-    repository_.files["stale.xml"] = ecuflash_xml("OTHER");
+    repository_.files["stale.xml"] = EcuflashXml("OTHER");
 
-    auto result = service_.load(*catalog, DefinitionFormat::kEcuFlash, "EXPECTED");
+    auto result = service_.Load(*catalog, DefinitionFormat::kEcuFlash, "EXPECTED");
 
     ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     EXPECT_THAT(result.error().detail, ::testing::HasSubstr("EXPECTED"));
@@ -517,36 +517,36 @@ TEST_F(DefinitionServiceTest, LoadRejectsEcuFlashIdentityThatDoesNotMatchCatalog
 
 TEST_F(DefinitionServiceTest, LoadPropagatesDefinitionParseFailure)
 {
-    auto catalog = DefinitionCatalog::create({load_entry(DefinitionFormat::kRomRaider, "BROKEN", "broken.xml")});
+    auto catalog = DefinitionCatalog::Create({LoadEntry(DefinitionFormat::kRomRaider, "BROKEN", "broken.xml")});
     ASSERT_THAT(catalog, fastecu::testing::IsOk());
-    repository_.files["broken.xml"] = bytes("<not-roms/>");
+    repository_.files["broken.xml"] = Bytes("<not-roms/>");
 
-    ASSERT_THAT(service_.load(*catalog, DefinitionFormat::kRomRaider, "BROKEN"),
+    ASSERT_THAT(service_.Load(*catalog, DefinitionFormat::kRomRaider, "BROKEN"),
                 fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
-    EXPECT_EQ(repository_.read_count("broken.xml"), 1);
+    EXPECT_EQ(repository_.ReadCount("broken.xml"), 1);
 }
 
 TEST_F(DefinitionServiceTest, LoadPropagatesResolutionFailure)
 {
-    auto catalog = DefinitionCatalog::create({load_entry(DefinitionFormat::kEcuFlash, "CHILD", "child.xml")});
+    auto catalog = DefinitionCatalog::Create({LoadEntry(DefinitionFormat::kEcuFlash, "CHILD", "child.xml")});
     ASSERT_THAT(catalog, fastecu::testing::IsOk());
-    repository_.files["child.xml"] = bytes(R"xml(
+    repository_.files["child.xml"] = Bytes(R"xml(
       <rom><romid><xmlid>CHILD</xmlid></romid><include>MISSING</include></rom>)xml");
 
-    auto result = service_.load(*catalog, DefinitionFormat::kEcuFlash, "CHILD");
+    auto result = service_.Load(*catalog, DefinitionFormat::kEcuFlash, "CHILD");
 
     ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     EXPECT_THAT(result.error().detail, ::testing::HasSubstr("MISSING"));
-    EXPECT_EQ(repository_.read_count("child.xml"), 1);
+    EXPECT_EQ(repository_.ReadCount("child.xml"), 1);
 }
 
 TEST_F(DefinitionServiceTest, CreatesDefinitionWithOneExactAtomicReplacement)
 {
-    const DefinitionHeaderInput input = valid_header_input();
-    auto expected = create_ecuflash_xml(input);
+    const DefinitionHeaderInput input = ValidHeaderInput();
+    auto expected = CreateEcuflashXml(input);
     ASSERT_THAT(expected, fastecu::testing::IsOk());
 
-    ASSERT_THAT(service_.create_definition("created.xml", input), fastecu::testing::IsOk());
+    ASSERT_THAT(service_.CreateDefinition("created.xml", input), fastecu::testing::IsOk());
     ASSERT_EQ(writer_.replace_calls.size(), 1U);
     EXPECT_EQ(writer_.replace_calls.front().handle, "created.xml");
     EXPECT_EQ(writer_.replace_calls.front().data, *expected);
@@ -554,10 +554,10 @@ TEST_F(DefinitionServiceTest, CreatesDefinitionWithOneExactAtomicReplacement)
 
 TEST_F(DefinitionServiceTest, RejectsCreationWhenDestinationAlreadyExists)
 {
-    const DefinitionHeaderInput input = valid_header_input();
-    file_system_.files["existing.xml"] = bytes("<rom><romid><xmlid>EXISTING</xmlid></romid></rom>");
+    const DefinitionHeaderInput input = ValidHeaderInput();
+    file_system_.files["existing.xml"] = Bytes("<rom><romid><xmlid>EXISTING</xmlid></romid></rom>");
 
-    auto result = service_.create_definition("existing.xml", input);
+    auto result = service_.CreateDefinition("existing.xml", input);
 
     ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     EXPECT_THAT(result.error().detail, ::testing::HasSubstr("existing.xml"));
@@ -566,28 +566,28 @@ TEST_F(DefinitionServiceTest, RejectsCreationWhenDestinationAlreadyExists)
 
 TEST_F(DefinitionServiceTest, RejectsInvalidCreationInputBeforeAtomicReplacement)
 {
-    DefinitionHeaderInput input = valid_header_input();
+    DefinitionHeaderInput input = ValidHeaderInput();
     input.internal_id = " \t ";
 
-    ASSERT_THAT(service_.create_definition("untouched.xml", input), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
+    ASSERT_THAT(service_.CreateDefinition("untouched.xml", input), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     EXPECT_TRUE(writer_.replace_calls.empty());
 }
 
 TEST_F(DefinitionServiceTest, ImportsDefinitionWithOneExactAtomicReplacement)
 {
-    const DefinitionHeaderInput input = valid_header_input();
-    repository_.files["source.xml"] = bytes(R"xml(
+    const DefinitionHeaderInput input = ValidHeaderInput();
+    repository_.files["source.xml"] = Bytes(R"xml(
 <rom>
   <!-- preserved -->
   <romid><xmlid>OLD</xmlid></romid>
   <include>OLD_BASE</include>
   <vendor-extension/>
 </rom>)xml");
-    auto expected = rewrite_ecuflash_xml(repository_.files["source.xml"], input);
+    auto expected = RewriteEcuflashXml(repository_.files["source.xml"], input);
     ASSERT_THAT(expected, fastecu::testing::IsOk());
 
-    ASSERT_THAT(service_.import_definition("source.xml", "imported.xml", input), fastecu::testing::IsOk());
-    EXPECT_EQ(repository_.read_count("source.xml"), 1);
+    ASSERT_THAT(service_.ImportDefinition("source.xml", "imported.xml", input), fastecu::testing::IsOk());
+    EXPECT_EQ(repository_.ReadCount("source.xml"), 1);
     ASSERT_EQ(writer_.replace_calls.size(), 1U);
     EXPECT_EQ(writer_.replace_calls.front().handle, "imported.xml");
     EXPECT_EQ(writer_.replace_calls.front().data, *expected);
@@ -597,7 +597,7 @@ TEST_F(DefinitionServiceTest, ImportPropagatesSourceReadFailureBeforeAtomicRepla
 {
     repository_.read_errors["source.xml"] = Error{ErrorKind::kDisconnected, "source vanished"};
 
-    auto result = service_.import_definition("source.xml", "untouched.xml", valid_header_input());
+    auto result = service_.ImportDefinition("source.xml", "untouched.xml", ValidHeaderInput());
 
     ASSERT_THAT(result, ::testing::Not(fastecu::testing::IsOk()));
     EXPECT_EQ(result.error(), (Error{ErrorKind::kDisconnected, "source vanished"}));
@@ -606,16 +606,16 @@ TEST_F(DefinitionServiceTest, ImportPropagatesSourceReadFailureBeforeAtomicRepla
 
 TEST_F(DefinitionServiceTest, ImportRejectsMalformedSourceBeforeAtomicReplacement)
 {
-    repository_.files["source.xml"] = bytes("<rom><romid>");
+    repository_.files["source.xml"] = Bytes("<rom><romid>");
 
-    ASSERT_THAT(service_.import_definition("source.xml", "untouched.xml", valid_header_input()),
+    ASSERT_THAT(service_.ImportDefinition("source.xml", "untouched.xml", ValidHeaderInput()),
                 fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     EXPECT_TRUE(writer_.replace_calls.empty());
 }
 
 TEST_F(DefinitionServiceTest, ImportRejectsInvalidTransformedTreeBeforeAtomicReplacement)
 {
-    repository_.files["source.xml"] = bytes(R"xml(
+    repository_.files["source.xml"] = Bytes(R"xml(
 <rom>
   <romid><xmlid>OLD</xmlid></romid>
   <table name="Fuel" address="100">
@@ -623,20 +623,20 @@ TEST_F(DefinitionServiceTest, ImportRejectsInvalidTransformedTreeBeforeAtomicRep
   </table>
 </rom>)xml");
 
-    ASSERT_THAT(service_.import_definition("source.xml", "untouched.xml", valid_header_input()),
+    ASSERT_THAT(service_.ImportDefinition("source.xml", "untouched.xml", ValidHeaderInput()),
                 fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     EXPECT_TRUE(writer_.replace_calls.empty());
 }
 
 TEST_F(DefinitionServiceTest, ImportRejectsDuplicateRomIdBeforeAtomicReplacement)
 {
-    repository_.files["source.xml"] = bytes(R"xml(
+    repository_.files["source.xml"] = Bytes(R"xml(
 <rom>
   <romid><xmlid>FIRST</xmlid></romid>
   <romid><xmlid>SECOND</xmlid></romid>
 </rom>)xml");
 
-    auto result = service_.import_definition("source.xml", "untouched.xml", valid_header_input());
+    auto result = service_.ImportDefinition("source.xml", "untouched.xml", ValidHeaderInput());
 
     ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     EXPECT_THAT(result.error().detail, ::testing::HasSubstr("<romid>"));
@@ -647,7 +647,7 @@ TEST_F(DefinitionServiceTest, PropagatesAtomicReplacementFailureUnchanged)
 {
     writer_.replace_error = Error{ErrorKind::kInternal, "atomic commit failed"};
 
-    auto result = service_.create_definition("destination.xml", valid_header_input());
+    auto result = service_.CreateDefinition("destination.xml", ValidHeaderInput());
 
     ASSERT_THAT(result, ::testing::Not(fastecu::testing::IsOk()));
     EXPECT_EQ(result.error(), (Error{ErrorKind::kInternal, "atomic commit failed"}));

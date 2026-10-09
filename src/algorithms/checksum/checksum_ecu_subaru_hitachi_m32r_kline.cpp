@@ -2,7 +2,7 @@
 #include "checksum_primitives.h"
 #include "src/algorithms/protocol/bytes.h"
 
-ChecksumResult ChecksumEcuSubaruHitachiM32rKline::calculate_checksum_result(bytes::ByteView rom_view)
+ChecksumResult ChecksumEcuSubaruHitachiM32rKline::CalculateChecksumResult(bytes::ByteView rom_view)
 {
     // Fixed 512 KiB layout: the balance field is at 0x7FFFA.
     if (rom_view.size() != 0x80000)
@@ -70,14 +70,14 @@ ChecksumResult ChecksumEcuSubaruHitachiM32rKline::calculate_checksum_result(byte
     {
         if (i < 0x8100 || i > 0x8103)
         {
-            checksum_3_value_calculated += bytes::readU32Be(rom_data, static_cast<std::size_t>(i));
+            checksum_3_value_calculated += bytes::ReadU32Be(rom_data, static_cast<std::size_t>(i));
         }
     }
     if (checksum_3_value_calculated != 0x5aa5)
     {
         checksum_ok = false;
 
-        fastecu::checksum::internal::rebalanceU16Be(rom_data, checksum_3_balance_value_address,
+        fastecu::checksum::internal::RebalanceU16Be(rom_data, checksum_3_balance_value_address,
                                                     checksum_3_value_calculated, 0x5aa5);
     }
 

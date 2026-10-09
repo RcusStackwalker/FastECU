@@ -5,20 +5,20 @@
 TEST(ManualCancellationToken, StartsNotCancelled)
 {
     fastecu::ManualCancellationToken token;
-    EXPECT_FALSE(token.cancelled());
+    EXPECT_FALSE(token.Cancelled());
 }
 
 TEST(ManualCancellationToken, CancelSetsFlag)
 {
     fastecu::ManualCancellationToken token;
-    token.cancel();
-    EXPECT_TRUE(token.cancelled());
+    token.Cancel();
+    EXPECT_TRUE(token.Cancelled());
 }
 
 TEST(ManualCancellationToken, CancelIsIdempotent)
 {
     fastecu::ManualCancellationToken token;
-    token.cancel();
-    token.cancel();
-    EXPECT_TRUE(token.cancelled());
+    token.Cancel();
+    token.Cancel();
+    EXPECT_TRUE(token.Cancelled());
 }

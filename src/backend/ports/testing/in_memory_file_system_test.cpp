@@ -10,9 +10,9 @@ using fastecu::InMemoryFileSystem;
 TEST(FileSystem, CreateThenExists)
 {
     InMemoryFileSystem fs;
-    EXPECT_FALSE(fs.exists("/a"));
-    ASSERT_THAT(fs.create_directory("/a"), fastecu::testing::IsOk());
-    EXPECT_TRUE(fs.exists("/a"));
+    EXPECT_FALSE(fs.Exists("/a"));
+    ASSERT_THAT(fs.MakeDirectory("/a"), fastecu::testing::IsOk());
+    EXPECT_TRUE(fs.Exists("/a"));
 }
 
 TEST(InMemoryFileSystem, ConfiguredCreateDirectoryFailureIsReturned)
@@ -21,17 +21,17 @@ TEST(InMemoryFileSystem, ConfiguredCreateDirectoryFailureIsReturned)
     const Error injected{ErrorKind::kInternal, "mkdir failed"};
     fs.create_directory_error = injected;
 
-    auto result = fs.create_directory("/config/");
+    auto result = fs.MakeDirectory("/config/");
 
     ASSERT_THAT(result, ::testing::Not(fastecu::testing::IsOk()));
     EXPECT_EQ(result.error(), injected);
-    EXPECT_FALSE(fs.exists("/config/"));
+    EXPECT_FALSE(fs.Exists("/config/"));
 }
 
 TEST(FileSystem, CopyFailsWhenSourceMissing)
 {
     InMemoryFileSystem fs;
-    ASSERT_THAT(fs.copy_file("/missing", "/dst", false), fastecu::testing::IsErr(ErrorKind::kInternal));
+    ASSERT_THAT(fs.CopyFileTo("/missing", "/dst", false), fastecu::testing::IsErr(ErrorKind::kInternal));
 }
 
 TEST(FileSystem, CopyRespectsOverwriteFlag)
@@ -51,9 +51,9 @@ TEST(FileSystem, CopyRespectsOverwriteFlag)
 TEST(FileSystem, RemoveThenNotExists)
 {
     InMemoryFileSystem fs;
-    ASSERT_THAT(fs.create_directory("/a"), fastecu::testing::IsOk());
-    ASSERT_THAT(fs.remove_file("/a"), fastecu::testing::IsOk());
-    EXPECT_FALSE(fs.exists("/a"));
+    ASSERT_THAT(fs.MakeDirectory("/a"), fastecu::testing::IsOk());
+    ASSERT_THAT(fs.RemoveFile("/a"), fastecu::testing::IsOk());
+    EXPECT_FALSE(fs.Exists("/a"));
 }
 
 TEST(InMemoryFileSystem, ListsConfiguredEntriesInOrderWithSymlinkMetadata)
@@ -69,7 +69,7 @@ TEST(InMemoryFileSystem, ListsConfiguredEntriesInOrderWithSymlinkMetadata)
         },
     };
 
-    auto result = fs.list_directory("/definitions");
+    auto result = fs.ListDirectory("/definitions");
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_EQ(result->size(), 2U);
@@ -86,7 +86,7 @@ TEST(InMemoryFileSystem, ConfiguredListDirectoryFailureIsReturned)
     fs.directory_entries["/definitions"] = {};
     fs.list_directory_errors.insert_or_assign("/definitions", Error{ErrorKind::kInternal, "listing failed"});
 
-    auto result = fs.list_directory("/definitions");
+    auto result = fs.ListDirectory("/definitions");
 
     ASSERT_THAT(result, ::testing::Not(fastecu::testing::IsOk()));
     EXPECT_EQ(result.error(), fs.list_directory_errors.at("/definitions"));
@@ -98,7 +98,7 @@ TEST(InMemoryFileSystem, LegacyDirectoryFixturesRemainSupported)
     fs.subdirectories_by_parent["/definitions"] = {{"nested", 10}};
     fs.files_by_parent["/definitions"] = {{"base.xml", 20}};
 
-    auto result = fs.list_directory("/definitions");
+    auto result = fs.ListDirectory("/definitions");
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_EQ(result->size(), 2U);
@@ -115,7 +115,7 @@ TEST(InMemoryFileSystem, EmptyLegacyDirectoryFixtureReturnsEmptySuccess)
     InMemoryFileSystem fs;
     fs.files_by_parent["/empty"] = {};
 
-    auto result = fs.list_directory("/empty");
+    auto result = fs.ListDirectory("/empty");
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_TRUE(result->empty());
@@ -125,5 +125,5 @@ TEST(InMemoryFileSystem, RejectsUnknownDirectory)
 {
     InMemoryFileSystem fs;
 
-    ASSERT_THAT(fs.list_directory("/unknown"), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
+    ASSERT_THAT(fs.ListDirectory("/unknown"), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }

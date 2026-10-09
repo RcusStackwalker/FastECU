@@ -49,7 +49,7 @@ class ConnectionCoordinator
     }
 
   private:
-    void on_completed(IdentifyGeneration generation, IdentifyOutcome outcome);
+    void onCompleted(IdentifyGeneration generation, IdentifyOutcome outcome);
 
     IIdentifyLauncher& launcher_;
     IConnectionPresentation& presentation_;

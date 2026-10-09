@@ -31,9 +31,9 @@ TEST(PhaseReporterTest, UpdateEmitsOnlyWhenTheClampedValueChanges)
     RecordingEventSink events;
     PhaseReporter reporter(events, "Write", 1, 1, 10);
 
-    reporter.update(3);
-    reporter.update(3);
-    reporter.update(5);
+    reporter.Update(3);
+    reporter.Update(3);
+    reporter.Update(5);
 
     ASSERT_THAT(events.phase_progress_calls,
                 ElementsAre(Field(&RecordedPhaseProgress::done, 0), Field(&RecordedPhaseProgress::done, 3),
@@ -45,7 +45,7 @@ TEST(PhaseReporterTest, UpdateClampsToTotalMinusOneSoOnlyCompleteReachesTotal)
     RecordingEventSink events;
     PhaseReporter reporter(events, "Write", 1, 1, 10);
 
-    reporter.update(10);
+    reporter.Update(10);
 
     ASSERT_THAT(events.phase_progress_calls,
                 ElementsAre(Field(&RecordedPhaseProgress::done, 0), Field(&RecordedPhaseProgress::done, 9)));
@@ -56,8 +56,8 @@ TEST(PhaseReporterTest, UpdateNeverMovesDoneBackward)
     RecordingEventSink events;
     PhaseReporter reporter(events, "Write", 1, 1, 10);
 
-    reporter.update(6);
-    reporter.update(2);
+    reporter.Update(6);
+    reporter.Update(2);
 
     ASSERT_THAT(events.phase_progress_calls,
                 ElementsAre(Field(&RecordedPhaseProgress::done, 0), Field(&RecordedPhaseProgress::done, 6)));
@@ -68,8 +68,8 @@ TEST(PhaseReporterTest, CompleteEmitsTotalOnce)
     RecordingEventSink events;
     PhaseReporter reporter(events, "Write", 1, 1, 10);
 
-    reporter.complete();
-    reporter.complete();
+    reporter.Complete();
+    reporter.Complete();
 
     ASSERT_THAT(events.phase_progress_calls,
                 ElementsAre(Field(&RecordedPhaseProgress::done, 0), Field(&RecordedPhaseProgress::done, 10)));
@@ -80,8 +80,8 @@ TEST(PhaseReporterTest, CompleteAfterUpdateReachingTotalMinusOneStillEmitsTotal)
     RecordingEventSink events;
     PhaseReporter reporter(events, "Write", 1, 1, 10);
 
-    reporter.update(9);
-    reporter.complete();
+    reporter.Update(9);
+    reporter.Complete();
 
     ASSERT_THAT(events.phase_progress_calls,
                 ElementsAre(Field(&RecordedPhaseProgress::done, 0), Field(&RecordedPhaseProgress::done, 9),
@@ -93,9 +93,9 @@ TEST(PhaseSequenceTest, StartNumbersPhasesInCallOrder)
     RecordingEventSink events;
     PhaseSequence phases(events, 3);
 
-    [[maybe_unused]] PhaseReporter first = phases.start("Connect", 1);
-    [[maybe_unused]] PhaseReporter second = phases.start("Erase", 1);
-    [[maybe_unused]] PhaseReporter third = phases.start("Write", 5);
+    [[maybe_unused]] PhaseReporter first = phases.Start("Connect", 1);
+    [[maybe_unused]] PhaseReporter second = phases.Start("Erase", 1);
+    [[maybe_unused]] PhaseReporter third = phases.Start("Write", 5);
 
     ASSERT_EQ(events.phase_progress_calls.size(), 3U);
     EXPECT_EQ(events.phase_progress_calls[0].phase_index, 1);

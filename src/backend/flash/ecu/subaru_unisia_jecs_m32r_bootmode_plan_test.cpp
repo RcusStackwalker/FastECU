@@ -31,42 +31,42 @@ constexpr auto kVariants = std::to_array<Variant>({
     {"sub_ecu_unisia_jecs_30_bootmode", "M32R_256KB", 0x40000},
 });
 
-bool carries_only_voltage_confirmation(const FlashPlan& plan)
+bool CarriesOnlyVoltageConfirmation(const FlashPlan& plan)
 {
-    return plan.confirmations().size() == 1 &&
-           plan.confirmations()[0].id == ConfirmationSpec::Id::kApplyBootModeVoltages;
+    return plan.Confirmations().size() == 1 &&
+           plan.Confirmations()[0].id == ConfirmationSpec::Id::kApplyBootModeVoltages;
 }
 
 TEST(SubaruUnisiaJecsM32rBootModePlan, KernelPlanPadsToWholeChunks)
 {
     for (const Variant& variant : kVariants)
     {
-        const auto plan = build_subaru_unisia_jecs_m32r_bootmode_kernel_plan(FlashOperation::kWrite, variant.protocol,
-                                                                             variant.mcu, bytes::Bytes(200, 0x5a));
+        const auto plan = BuildSubaruUnisiaJecsM32rBootmodeKernelPlan(FlashOperation::kWrite, variant.protocol,
+                                                                      variant.mcu, bytes::Bytes(200, 0x5a));
         ASSERT_THAT(plan, IsOk()) << variant.protocol;
         bytes::Bytes expected(256, 0x00); // upload_kernel() :312-315 pads to 256
         std::fill_n(expected.begin(), 200, bytes::Byte{0x5a});
-        EXPECT_EQ(plan->image(), std::optional<bytes::Bytes>(expected));
-        EXPECT_EQ(plan->transfer_region(), (MemoryRegion{0, 256}));
-        EXPECT_EQ(plan->family(), FlashFamily::kSubaruUnisiaJecsM32rBootModeKernel);
-        EXPECT_FALSE(plan->kernel().has_value());
-        EXPECT_TRUE(carries_only_voltage_confirmation(*plan));
-        EXPECT_THAT(validate_subaru_unisia_jecs_m32r_bootmode_plan(*plan), IsOk());
+        EXPECT_EQ(plan->Image(), std::optional<bytes::Bytes>(expected));
+        EXPECT_EQ(plan->TransferRegion(), (MemoryRegion{0, 256}));
+        EXPECT_EQ(plan->Family(), FlashFamily::kSubaruUnisiaJecsM32rBootModeKernel);
+        EXPECT_FALSE(plan->Kernel().has_value());
+        EXPECT_TRUE(CarriesOnlyVoltageConfirmation(*plan));
+        EXPECT_THAT(ValidateSubaruUnisiaJecsM32rBootmodePlan(*plan), IsOk());
     }
 }
 
 TEST(SubaruUnisiaJecsM32rBootModePlan, KernelAlreadyAlignedIsNotPadded)
 {
-    const auto plan = build_subaru_unisia_jecs_m32r_bootmode_kernel_plan(
+    const auto plan = BuildSubaruUnisiaJecsM32rBootmodeKernelPlan(
         FlashOperation::kWrite, "sub_ecu_unisia_jecs_20_bootmode", "M32R_128KB", bytes::Bytes(0x100, 0x11));
     ASSERT_THAT(plan, IsOk());
-    EXPECT_EQ(plan->image_or_empty().size(), 0x100U);
+    EXPECT_EQ(plan->ImageOrEmpty().size(), 0x100U);
 }
 
 TEST(SubaruUnisiaJecsM32rBootModePlan, EmptyKernelIsRejected)
 {
-    EXPECT_THAT(build_subaru_unisia_jecs_m32r_bootmode_kernel_plan(FlashOperation::kWrite,
-                                                                   "sub_ecu_unisia_jecs_20_bootmode", "M32R_128KB", {}),
+    EXPECT_THAT(BuildSubaruUnisiaJecsM32rBootmodeKernelPlan(FlashOperation::kWrite, "sub_ecu_unisia_jecs_20_bootmode",
+                                                            "M32R_128KB", {}),
                 IsErr(ErrorKind::kInvalidConfig));
 }
 
@@ -74,23 +74,23 @@ TEST(SubaruUnisiaJecsM32rBootModePlan, ProgramPlanTakesExactlyTheRomSize)
 {
     for (const Variant& variant : kVariants)
     {
-        const auto plan = build_subaru_unisia_jecs_m32r_bootmode_program_plan(
+        const auto plan = BuildSubaruUnisiaJecsM32rBootmodeProgramPlan(
             FlashOperation::kWrite, variant.protocol, variant.mcu, bytes::Bytes(variant.rom_size, 0x5a));
         ASSERT_THAT(plan, IsOk()) << variant.protocol;
-        EXPECT_EQ(plan->transfer_region(), (MemoryRegion{0, variant.rom_size}));
-        EXPECT_EQ(plan->family(), FlashFamily::kSubaruUnisiaJecsM32rBootModeProgram);
-        EXPECT_TRUE(carries_only_voltage_confirmation(*plan));
-        EXPECT_THAT(validate_subaru_unisia_jecs_m32r_bootmode_plan(*plan), IsOk());
+        EXPECT_EQ(plan->TransferRegion(), (MemoryRegion{0, variant.rom_size}));
+        EXPECT_EQ(plan->Family(), FlashFamily::kSubaruUnisiaJecsM32rBootModeProgram);
+        EXPECT_TRUE(CarriesOnlyVoltageConfirmation(*plan));
+        EXPECT_THAT(ValidateSubaruUnisiaJecsM32rBootmodePlan(*plan), IsOk());
 
         for (const std::uint32_t size : {variant.rom_size - 1, variant.rom_size + 1, variant.rom_size - 0x40})
         {
-            EXPECT_THAT(build_subaru_unisia_jecs_m32r_bootmode_program_plan(FlashOperation::kWrite, variant.protocol,
-                                                                            variant.mcu, bytes::Bytes(size, 0x5a)),
+            EXPECT_THAT(BuildSubaruUnisiaJecsM32rBootmodeProgramPlan(FlashOperation::kWrite, variant.protocol,
+                                                                     variant.mcu, bytes::Bytes(size, 0x5a)),
                         IsErr(ErrorKind::kInvalidConfig))
                 << variant.protocol << " size " << size;
         }
-        EXPECT_THAT(build_subaru_unisia_jecs_m32r_bootmode_program_plan(FlashOperation::kWrite, variant.protocol,
-                                                                        variant.mcu, std::nullopt),
+        EXPECT_THAT(BuildSubaruUnisiaJecsM32rBootmodeProgramPlan(FlashOperation::kWrite, variant.protocol, variant.mcu,
+                                                                 std::nullopt),
                     IsErr(ErrorKind::kInvalidConfig));
     }
 }
@@ -99,11 +99,11 @@ TEST(SubaruUnisiaJecsM32rBootModePlan, RejectsReadAndTestWrite)
 {
     for (const FlashOperation operation : {FlashOperation::kRead, FlashOperation::kTestWrite})
     {
-        EXPECT_THAT(build_subaru_unisia_jecs_m32r_bootmode_kernel_plan(operation, "sub_ecu_unisia_jecs_20_bootmode",
-                                                                       "M32R_128KB", bytes::Bytes(1, 0x00)),
+        EXPECT_THAT(BuildSubaruUnisiaJecsM32rBootmodeKernelPlan(operation, "sub_ecu_unisia_jecs_20_bootmode",
+                                                                "M32R_128KB", bytes::Bytes(1, 0x00)),
                     IsErr(ErrorKind::kUnsupported));
-        EXPECT_THAT(build_subaru_unisia_jecs_m32r_bootmode_program_plan(operation, "sub_ecu_unisia_jecs_20_bootmode",
-                                                                        "M32R_128KB", bytes::Bytes(0x20000, 0x00)),
+        EXPECT_THAT(BuildSubaruUnisiaJecsM32rBootmodeProgramPlan(operation, "sub_ecu_unisia_jecs_20_bootmode",
+                                                                 "M32R_128KB", bytes::Bytes(0x20000, 0x00)),
                     IsErr(ErrorKind::kUnsupported));
     }
 }
@@ -117,9 +117,9 @@ TEST(SubaruUnisiaJecsM32rBootModePlan, RejectsEveryOtherIdentity)
              {"sub_ecu_unisia_jecs_40_bootmode", "M32R_384KB"},
          }))
     {
-        EXPECT_THAT(build_subaru_unisia_jecs_m32r_bootmode_kernel_plan(FlashOperation::kWrite, protocol, mcu,
-                                                                       bytes::Bytes(1, 0x00)),
-                    IsErr(ErrorKind::kInvalidConfig))
+        EXPECT_THAT(
+            BuildSubaruUnisiaJecsM32rBootmodeKernelPlan(FlashOperation::kWrite, protocol, mcu, bytes::Bytes(1, 0x00)),
+            IsErr(ErrorKind::kInvalidConfig))
             << protocol << " / " << mcu;
     }
 }
@@ -128,7 +128,7 @@ TEST(SubaruUnisiaJecsM32rBootModePlan, RejectsEveryOtherIdentity)
 // through the builders) must not validate, so no executor raises the lines.
 TEST(SubaruUnisiaJecsM32rBootModePlan, ValidatorRejectsAPlanWithoutTheVoltageConfirmation)
 {
-    auto plan = validate_and_build(FlashPlanFields{
+    auto plan = ValidateAndBuild(FlashPlanFields{
         .operation = FlashOperation::kWrite,
         .family = FlashFamily::kSubaruUnisiaJecsM32rBootModeKernel,
         .transport = TransportKind::kKline,
@@ -143,7 +143,7 @@ TEST(SubaruUnisiaJecsM32rBootModePlan, ValidatorRejectsAPlanWithoutTheVoltageCon
         .confirmations = {},
     });
     ASSERT_THAT(plan, IsOk());
-    EXPECT_THAT(validate_subaru_unisia_jecs_m32r_bootmode_plan(*plan), IsErr(ErrorKind::kInvalidConfig));
+    EXPECT_THAT(ValidateSubaruUnisiaJecsM32rBootmodePlan(*plan), IsErr(ErrorKind::kInvalidConfig));
 }
 } // namespace
 } // namespace fastecu::flash

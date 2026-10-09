@@ -71,12 +71,12 @@ class ScriptedKlineFlashTransport : public IKlineFlashTransport
         std::string previous_;
     };
 
-    [[nodiscard]] ScriptSection section(std::string_view label)
+    [[nodiscard]] ScriptSection Section(std::string_view label)
     {
         return ScriptSection(*this, label);
     }
 
-    void exchange(bytes::ByteView request, bytes::ByteView response)
+    void Exchange(bytes::ByteView request, bytes::ByteView response)
     {
         expected_.emplace_back(request.begin(), request.end());
         sections_.emplace_back(current_section_);
@@ -84,43 +84,43 @@ class ScriptedKlineFlashTransport : public IKlineFlashTransport
         reads_.emplace_back(OptionalBytes{bytes::Bytes(response.begin(), response.end())});
     }
 
-    void exchange(bytes::ByteView request)
+    void Exchange(bytes::ByteView request)
     {
         expected_.emplace_back(request.begin(), request.end());
         sections_.emplace_back(current_section_);
     }
 
-    void expectWrite(bytes::ByteView b)
+    void ExpectWrite(bytes::ByteView b)
     {
         expected_.emplace_back(b.begin(), b.end());
         sections_.emplace_back(current_section_);
     }
-    void expectRawWrite(bytes::ByteView b)
+    void ExpectRawWrite(bytes::ByteView b)
     {
-        expectWrite(b);
+        ExpectWrite(b);
         raw_writes_.push_back(expected_.size() - 1);
     }
-    void queueRawRead(bytes::ByteView b)
+    void QueueRawRead(bytes::ByteView b)
     {
         raw_reads_.push_back(reads_queued_++);
         reads_.emplace_back(OptionalBytes{bytes::Bytes(b.begin(), b.end())});
     }
-    void queueRead(bytes::ByteView b)
+    void QueueRead(bytes::ByteView b)
     {
         ++reads_queued_;
         reads_.emplace_back(OptionalBytes{bytes::Bytes(b.begin(), b.end())});
     }
-    void queue_no_frame()
+    void QueueNoFrame()
     {
         ++reads_queued_;
         reads_.emplace_back(OptionalBytes{});
     }
-    void queue_error(ErrorKind kind, std::string detail = {})
+    void QueueError(ErrorKind kind, std::string detail = {})
     {
         ++reads_queued_;
-        reads_.emplace_back(fail(kind, std::move(detail)));
+        reads_.emplace_back(Fail(kind, std::move(detail)));
     }
-    void queueBlockingRead()
+    void QueueBlockingRead()
     {
         std::lock_guard lock(mutex_);
         blocking_read_pending_ = true;
@@ -131,21 +131,21 @@ class ScriptedKlineFlashTransport : public IKlineFlashTransport
     // they prove about unblocking does not depend on the worker thread
     // winning a race against a fixed sleep. Mirrors
     // ScriptedLoggingProtocol::waitUntilPollEntered.
-    bool waitUntilBlockingReadEntered(std::chrono::milliseconds timeout)
+    bool WaitUntilBlockingReadEntered(std::chrono::milliseconds timeout)
     {
         std::unique_lock lock(mutex_);
         return blocking_read_entered_cv_.wait_for(lock, timeout, [this] { return blocking_read_entered_; });
     }
-    bool scriptConsumed() const
+    bool ScriptConsumed() const
     {
         return w_idx_ == expected_.size() && reads_.empty() && !blocking_read_pending_;
     }
-    std::size_t writesConsumed() const
+    std::size_t WritesConsumed() const
     {
         return w_idx_;
     }
 
-    Status reset_connection() override
+    Status ResetConnection() override
     {
         lifecycle_calls.push_back("reset_connection");
         ++reset_call_count;
@@ -153,123 +153,123 @@ class ScriptedKlineFlashTransport : public IKlineFlashTransport
         return reset_result;
     }
 
-    Status configure(const KlineConfig& config) override
+    Status Configure(const KlineConfig& config) override
     {
         lifecycle_calls.push_back("configure");
         last_config = config;
         return configure_result;
     }
-    Status open() override
+    Status Open() override
     {
         lifecycle_calls.push_back("open");
         open_ = true;
         return open_result;
     }
-    Status close() override
+    Status Close() override
     {
         lifecycle_calls.push_back("close");
         ++close_call_count;
         open_ = false;
         return close_result;
     }
-    Status disable_lec_lines() override
+    Status DisableLecLines() override
     {
         control_line_trace.push_back(ControlLineAction::kDisableLecLines);
         operation_trace.push_back(Operation::kDisableLecLines);
         return disable_lec_lines_result;
     }
-    Status pulse_lec_2_line(std::chrono::milliseconds timeout) override
+    Status PulseLec2Line(std::chrono::milliseconds timeout) override
     {
         control_line_trace.push_back(ControlLineAction::kPulseLec2);
         operation_trace.push_back(Operation::kPulseLec2);
         lec_2_pulse_timeouts.push_back(timeout);
         return pulse_lec_2_line_result;
     }
-    Status enable_programming_voltage_line() override
+    Status EnableProgrammingVoltageLine() override
     {
         programming_voltage_line_write_index = w_idx_;
         control_line_trace.push_back(ControlLineAction::kEnableProgrammingVoltageLine);
         operation_trace.push_back(Operation::kEnableProgrammingVoltageLine);
         return enable_programming_voltage_line_result;
     }
-    Status enable_boot_mode_lines() override
+    Status EnableBootModeLines() override
     {
         control_line_trace.push_back(ControlLineAction::kEnableBootModeLines);
         operation_trace.push_back(Operation::kEnableBootModeLines);
         return enable_boot_mode_lines_result;
     }
-    bool requires_post_kernel_upload_delay() const override
+    bool RequiresPostKernelUploadDelay() const override
     {
         return post_kernel_upload_delay_required;
     }
-    Status set_add_iso14230_header(bool add_header) override
+    Status SetAddIso14230Header(bool add_header) override
     {
         header_mode_calls.push_back(add_header);
         return set_add_iso14230_header_result;
     }
-    void request_unblock() noexcept override
+    void RequestUnblock() noexcept override
     {
         std::lock_guard lock(mutex_);
         unblock_requested_ = true;
         cv_.notify_all();
     }
-    bool isOpen() const override
+    bool IsOpen() const override
     {
         return open_;
     }
-    Status setBaud(int baud) override
+    Status SetBaud(int baud) override
     {
         baud_calls.push_back(baud);
         return set_baud_result;
     }
-    Result<std::size_t> write(bytes::ByteView data) override
+    Result<std::size_t> Write(bytes::ByteView data) override
     {
         const bytes::Bytes actual(data.begin(), data.end());
         if (w_idx_ >= expected_.size())
         {
-            return fail(ErrorKind::kInternal,
+            return Fail(ErrorKind::kInternal,
                         std::format("scripted K-Line write ran past the end of the script ({} exchanges); wrote {}",
-                                    expected_.size(), bytes::toHex(actual)));
+                                    expected_.size(), bytes::ToHex(actual)));
         }
         if (expected_.at(w_idx_) != actual)
         {
-            return fail(ErrorKind::kInternal, describeDivergence(w_idx_, actual));
+            return Fail(ErrorKind::kInternal, DescribeDivergence(w_idx_, actual));
         }
         if (std::find(raw_writes_.begin(), raw_writes_.end(), w_idx_) != raw_writes_.end())
         {
-            return fail(ErrorKind::kInternal, "expected raw K-Line write");
+            return Fail(ErrorKind::kInternal, "expected raw K-Line write");
         }
         ++w_idx_;
         return data.size();
     }
-    Result<std::size_t> write_raw(bytes::ByteView data) override
+    Result<std::size_t> WriteRaw(bytes::ByteView data) override
     {
         const bytes::Bytes actual(data.begin(), data.end());
         if (w_idx_ >= expected_.size() || expected_[w_idx_] != actual ||
             std::find(raw_writes_.begin(), raw_writes_.end(), w_idx_) == raw_writes_.end())
         {
-            return fail(ErrorKind::kInternal, "unexpected raw K-Line write");
+            return Fail(ErrorKind::kInternal, "unexpected raw K-Line write");
         }
         ++w_idx_;
         return data.size();
     }
-    Result<OptionalBytes> read_raw(std::chrono::milliseconds timeout, const ICancellationToken& cancellation) override
+    Result<OptionalBytes> ReadRaw(std::chrono::milliseconds timeout, const ICancellationToken& cancellation) override
     {
         if (std::find(raw_reads_.begin(), raw_reads_.end(), reads_consumed_) == raw_reads_.end())
         {
-            return fail(ErrorKind::kInternal, "unexpected raw K-Line read");
+            return Fail(ErrorKind::kInternal, "unexpected raw K-Line read");
         }
-        return read_impl(timeout, cancellation);
+        return ReadImpl(timeout, cancellation);
     }
-    Result<OptionalBytes> read(std::chrono::milliseconds timeout, const ICancellationToken& cancellation) override
+    Result<OptionalBytes> Read(std::chrono::milliseconds timeout, const ICancellationToken& cancellation) override
     {
         if (std::find(raw_reads_.begin(), raw_reads_.end(), reads_consumed_) != raw_reads_.end())
         {
-            return fail(ErrorKind::kInternal, "expected raw K-Line read");
+            return Fail(ErrorKind::kInternal, "expected raw K-Line read");
         }
-        return read_impl(timeout, cancellation);
+        return ReadImpl(timeout, cancellation);
     }
-    Result<OptionalBytes> read_impl(std::chrono::milliseconds timeout, const ICancellationToken& cancellation)
+    Result<OptionalBytes> ReadImpl(std::chrono::milliseconds timeout, const ICancellationToken& cancellation)
     {
         read_timeouts.push_back(timeout);
         if (timeout == std::chrono::milliseconds{10})
@@ -284,16 +284,16 @@ class ScriptedKlineFlashTransport : public IKlineFlashTransport
                 blocking_read_entered_cv_.notify_all();
                 cv_.wait(lock, [this] { return unblock_requested_; });
                 blocking_read_pending_ = false;
-                return fail(ErrorKind::kCancelled, "scripted K-Line read unblocked");
+                return Fail(ErrorKind::kCancelled, "scripted K-Line read unblocked");
             }
         }
-        if (cancellation.cancelled())
+        if (cancellation.Cancelled())
         {
-            return fail(ErrorKind::kCancelled, "scripted K-Line read cancelled");
+            return Fail(ErrorKind::kCancelled, "scripted K-Line read cancelled");
         }
         if (reads_.empty())
         {
-            return fail(ErrorKind::kInternal, "no scripted K-Line read outcome");
+            return Fail(ErrorKind::kInternal, "no scripted K-Line read outcome");
         }
         auto result = std::move(reads_.front());
         reads_.pop_front();
@@ -332,14 +332,14 @@ class ScriptedKlineFlashTransport : public IKlineFlashTransport
     Status set_baud_result;
 
   private:
-    std::string describeDivergence(std::size_t index, const bytes::Bytes& actual) const
+    std::string DescribeDivergence(std::size_t index, const bytes::Bytes& actual) const
     {
         const std::string& label = sections_.at(index);
         const std::string where = label.empty()
                                       ? std::format("scripted K-Line exchange #{}", index + 1)
                                       : std::format("scripted K-Line exchange #{} (\"{}\")", index + 1, label);
-        return std::format("{} diverged\n  expected: {}\n  actual:   {}", where, bytes::toHex(expected_.at(index)),
-                           bytes::toHex(actual));
+        return std::format("{} diverged\n  expected: {}\n  actual:   {}", where, bytes::ToHex(expected_.at(index)),
+                           bytes::ToHex(actual));
     }
 
     std::vector<std::size_t> raw_writes_;

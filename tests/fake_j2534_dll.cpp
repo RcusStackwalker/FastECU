@@ -10,7 +10,7 @@ namespace
 // SAE J2534-1 sizes every version and error-description buffer at 80 chars.
 constexpr std::size_t kJ2534TextBufferSize = 80;
 
-void copyJ2534Text(char *out, std::string_view text)
+void CopyJ2534Text(char *out, std::string_view text)
 {
     const std::size_t length = std::min(text.size(), kJ2534TextBufferSize - 1);
     std::ranges::copy(text.substr(0, length), out);
@@ -100,15 +100,15 @@ extern "C"
     __declspec(dllexport) long PT_CALL PassThruReadVersion(unsigned long /*DeviceID*/, char *p_api_version,
                                                            char *p_dll_version, char *p_firmware_version)
     {
-        copyJ2534Text(p_api_version, "04.04");
-        copyJ2534Text(p_dll_version, "1.0.0-fake");
-        copyJ2534Text(p_firmware_version, "0.0.0-fake");
+        CopyJ2534Text(p_api_version, "04.04");
+        CopyJ2534Text(p_dll_version, "1.0.0-fake");
+        CopyJ2534Text(p_firmware_version, "0.0.0-fake");
         return kJ2534StatusNoerror;
     }
 
     __declspec(dllexport) long PT_CALL PassThruGetLastError(char *p_error_description)
     {
-        copyJ2534Text(p_error_description, "fake DLL error");
+        CopyJ2534Text(p_error_description, "fake DLL error");
         return kJ2534StatusNoerror;
     }
 

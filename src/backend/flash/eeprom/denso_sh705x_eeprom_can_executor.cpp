@@ -14,8 +14,8 @@ namespace fastecu::flash
 {
 namespace
 {
-using bytes::composeBe;
-using bytes::u24;
+using bytes::ComposeBe;
+using bytes::U24;
 using namespace bytes::literals;
 using namespace std::chrono_literals;
 
@@ -61,48 +61,48 @@ constexpr int kInterPageDelayMs = 1;      // read_mem():1117 delay(1)
 // silently keep using 0x7e0.
 // ---------------------------------------------------------------------
 
-bytes::Bytes can_frame(std::uint32_t request_id, bytes::ByteView payload)
+bytes::Bytes CanFrame(std::uint32_t request_id, bytes::ByteView payload)
 {
-    return composeBe(request_id, payload);
+    return ComposeBe(request_id, payload);
 }
 
-bytes::Bytes init_connection_request(std::uint32_t request_id)
+bytes::Bytes InitConnectionRequest(std::uint32_t request_id)
 {
-    return can_frame(request_id, bytes::Bytes{0x01, 0x00});
+    return CanFrame(request_id, bytes::Bytes{0x01, 0x00});
 }
-bytes::Bytes ecu_id_request(std::uint32_t request_id)
+bytes::Bytes EcuIdRequest(std::uint32_t request_id)
 {
-    return can_frame(request_id, bytes::Bytes{0xAA});
+    return CanFrame(request_id, bytes::Bytes{0xAA});
 }
-bytes::Bytes vin_request(std::uint32_t request_id)
+bytes::Bytes VinRequest(std::uint32_t request_id)
 {
-    return can_frame(request_id, bytes::Bytes{0x09, 0x02});
+    return CanFrame(request_id, bytes::Bytes{0x09, 0x02});
 }
-bytes::Bytes cal_id_request(std::uint32_t request_id)
+bytes::Bytes CalIdRequest(std::uint32_t request_id)
 {
-    return can_frame(request_id, bytes::Bytes{0x09, 0x04});
+    return CanFrame(request_id, bytes::Bytes{0x09, 0x04});
 }
-bytes::Bytes cvn_request(std::uint32_t request_id)
+bytes::Bytes CvnRequest(std::uint32_t request_id)
 {
-    return can_frame(request_id, bytes::Bytes{0x09, 0x06});
+    return CanFrame(request_id, bytes::Bytes{0x09, 0x06});
 }
-bytes::Bytes session_mode_request(std::uint32_t request_id, std::uint8_t mode)
+bytes::Bytes SessionModeRequest(std::uint32_t request_id, std::uint8_t mode)
 {
-    return can_frame(request_id, bytes::Bytes{0x10, static_cast<bytes::Byte>(mode)});
+    return CanFrame(request_id, bytes::Bytes{0x10, static_cast<bytes::Byte>(mode)});
 }
-bytes::Bytes seed_request(std::uint32_t request_id)
+bytes::Bytes SeedRequest(std::uint32_t request_id)
 {
-    return can_frame(request_id, bytes::Bytes{0x27, 0x01});
+    return CanFrame(request_id, bytes::Bytes{0x27, 0x01});
 }
-bytes::Bytes seed_key_send_request(std::uint32_t request_id, bytes::ByteView key)
+bytes::Bytes SeedKeySendRequest(std::uint32_t request_id, bytes::ByteView key)
 {
-    return can_frame(request_id, composeBe(0x27_b, 0x02_b, key));
+    return CanFrame(request_id, ComposeBe(0x27_b, 0x02_b, key));
 }
 // lines 586-602: [0x10] with 0x02 appended iff req_10_03_connected, then 0x42
 // appended iff req_10_43_connected. Computed dynamically, not hardcoded to
 // "both true" -- the two prior session-mode checks (586-602) never hard-fail
 // on mismatch, so either flag can legitimately end up false.
-bytes::Bytes session_set_request(std::uint32_t request_id, bool req_10_03_connected, bool req_10_43_connected)
+bytes::Bytes SessionSetRequest(std::uint32_t request_id, bool req_10_03_connected, bool req_10_43_connected)
 {
     bytes::Bytes payload{0x10};
     if (req_10_03_connected)
@@ -113,52 +113,50 @@ bytes::Bytes session_set_request(std::uint32_t request_id, bool req_10_03_connec
     {
         payload.push_back(0x42);
     }
-    return can_frame(request_id, payload);
+    return CanFrame(request_id, payload);
 }
 // request_kernel_id(), lines 1355-1390: UNLIKE the K-Line sibling's
 // request_kernel_id(), this one has NO trailing checksum byte.
-bytes::Bytes request_kernel_id_frame(std::uint32_t request_id)
+bytes::Bytes RequestKernelIdFrame(std::uint32_t request_id)
 {
     // Trailing 3 zero bytes (0x00,0x00,0x00) are NOT checksum -- see the
     // comment above this function -- they're literal payload padding present
     // in the legacy frame; composeBe can't infer them from kSubKernelId's
     // type, so they're spelled out explicitly to keep the 8-byte payload
     // length exact.
-    return can_frame(request_id,
-                     composeBe(kSubKernelStartComm, std::uint16_t{1}, kSubKernelId, 0x00_b, 0x00_b, 0x00_b));
+    return CanFrame(request_id, ComposeBe(kSubKernelStartComm, std::uint16_t{1}, kSubKernelId, 0x00_b, 0x00_b, 0x00_b));
 }
-bytes::Bytes sid34_request(std::uint32_t request_id, std::uint32_t addr, std::uint32_t data_len)
+bytes::Bytes Sid34Request(std::uint32_t request_id, std::uint32_t addr, std::uint32_t data_len)
 {
-    return can_frame(request_id, composeBe(0x34_b, 0x04_b, 0x33_b, u24(addr), u24(data_len)));
+    return CanFrame(request_id, ComposeBe(0x34_b, 0x04_b, 0x33_b, U24(addr), U24(data_len)));
 }
-bytes::Bytes sid_b6_request(std::uint32_t request_id, std::uint32_t block_addr, bytes::ByteView chunk)
+bytes::Bytes SidB6Request(std::uint32_t request_id, std::uint32_t block_addr, bytes::ByteView chunk)
 {
-    return can_frame(request_id, composeBe(0xB6_b, u24(block_addr), chunk));
+    return CanFrame(request_id, ComposeBe(0xB6_b, U24(block_addr), chunk));
 }
-bytes::Bytes sid37_request(std::uint32_t request_id)
+bytes::Bytes Sid37Request(std::uint32_t request_id)
 {
-    return can_frame(request_id, bytes::Bytes{0x37});
+    return CanFrame(request_id, bytes::Bytes{0x37});
 }
-bytes::Bytes sid31_request(std::uint32_t request_id)
+bytes::Bytes Sid31Request(std::uint32_t request_id)
 {
-    return can_frame(request_id, bytes::Bytes{0x31, 0x01, 0x02, 0x02, 0x02});
+    return CanFrame(request_id, bytes::Bytes{0x31, 0x01, 0x02, 0x02, 0x02});
 }
 // read_mem(), lines 987-1004 (template) + 1029-1033 (per-iteration overwrite):
 // datalen==6 hardcoded.
-bytes::Bytes read_eeprom_request(std::uint32_t request_id, std::uint8_t mode, std::uint32_t addr,
-                                 std::uint32_t pagesize)
+bytes::Bytes ReadEepromRequest(std::uint32_t request_id, std::uint8_t mode, std::uint32_t addr, std::uint32_t pagesize)
 {
     constexpr std::uint32_t kDatalen = 6;
-    return can_frame(request_id, composeBe(kSubKernelStartComm, std::uint16_t(kDatalen + 1), kSubKernelReadEeprom, mode,
-                                           u24(addr), std::uint16_t(pagesize)));
+    return CanFrame(request_id, ComposeBe(kSubKernelStartComm, std::uint16_t(kDatalen + 1), kSubKernelReadEeprom, mode,
+                                          U24(addr), std::uint16_t(pagesize)));
 }
 
 // request_kernel_id()'s / upload_kernel()'s post-upload poll's "kernel alive"
 // marker check, lines 176,934: received[4..5] == SUB_KERNEL_START_COMM
 // big-endian, received[8] == SUB_KERNEL_ID | 0x40.
-bool looks_kernel_alive(bytes::ByteView received)
+bool LooksKernelAlive(bytes::ByteView received)
 {
-    return received.size() > 8 && bytes::readU16Be(received, 4) == kSubKernelStartComm &&
+    return received.size() > 8 && bytes::ReadU16Be(received, 4) == kSubKernelStartComm &&
            received[8] == static_cast<bytes::Byte>(kSubKernelId | 0x40U);
 }
 
@@ -171,12 +169,12 @@ bool looks_kernel_alive(bytes::ByteView received)
 // ---------------------------------------------------------------------
 
 // generate_seed_key(), lines 1146-1172 (Stock).
-bytes::Bytes generate_stock_seed_key(bytes::ByteView seed)
+bytes::Bytes GenerateStockSeedKey(bytes::ByteView seed)
 {
     static constexpr std::array<std::uint16_t, 16> kIndex{0x78B1, 0x4625, 0x201C, 0x9EA5, 0xAD6B, 0x35F4,
                                                           0xFD21, 0x5E71, 0xB046, 0x7F4A, 0x4B75, 0x93F9,
                                                           0x1895, 0x8961, 0x3ECC, 0x862B};
-    return ssm_protocol::calculateSeedKey(seed, kIndex, ssm_protocol::kIndexTransformationStock);
+    return ssm_protocol::CalculateSeedKey(seed, kIndex, ssm_protocol::kIndexTransformationStock);
 }
 
 // generate_ecutek_seed_key(), lines 1224-1269 (base calculateSeedKey() call
@@ -185,27 +183,27 @@ bytes::Bytes generate_stock_seed_key(bytes::ByteView seed)
 // resolution comment above connect_bootloader() below). The same
 // keytogenerateindex_1 as Stock, paired with the ECUTEK index
 // transformation.
-bytes::Bytes generate_ecutek_seed_key(bytes::ByteView seed)
+bytes::Bytes GenerateEcutekSeedKey(bytes::ByteView seed)
 {
     static constexpr std::array<std::uint16_t, 16> kIndex{0x78B1, 0x4625, 0x201C, 0x9EA5, 0xAD6B, 0x35F4,
                                                           0xFD21, 0x5E71, 0xB046, 0x7F4A, 0x4B75, 0x93F9,
                                                           0x1895, 0x8961, 0x3ECC, 0x862B};
-    return ssm_protocol::calculateSeedKey(seed, kIndex, ssm_protocol::kIndexTransformationEcutek);
+    return ssm_protocol::CalculateSeedKey(seed, kIndex, ssm_protocol::kIndexTransformationEcutek);
 }
 
 // generate_cobb_seed_key(), lines 1274-1302 ("2017 VA model" table -- the one
 // actually passed to calculateSeedKey()).
-bytes::Bytes generate_cobb_seed_key(bytes::ByteView seed)
+bytes::Bytes GenerateCobbSeedKey(bytes::ByteView seed)
 {
     static constexpr std::array<std::uint16_t, 16> kIndex{0x9DDB, 0x9CFB, 0x9B9A, 0x6136, 0x59E1, 0xBA03,
                                                           0xD683, 0x7092, 0x9E05, 0x8723, 0xF998, 0x15BB,
                                                           0xB8D5, 0xFF0C, 0x9D91, 0x24B9};
-    return ssm_protocol::calculateSeedKey(seed, kIndex, ssm_protocol::kIndexTransformationStock);
+    return ssm_protocol::CalculateSeedKey(seed, kIndex, ssm_protocol::kIndexTransformationStock);
 }
 
 // decrypt_racerom_seed(), lines 1175-1189: plain modular exponentiation
 // (square-and-multiply) -- no SsmProtocol equivalent, replicated verbatim.
-std::uint64_t decrypt_racerom_seed(std::uint64_t base, std::uint64_t exponent, std::uint64_t modulus)
+std::uint64_t DecryptRaceromSeed(std::uint64_t base, std::uint64_t exponent, std::uint64_t modulus)
 {
     std::uint64_t result = 1;
     base = base % modulus;
@@ -224,22 +222,22 @@ std::uint64_t decrypt_racerom_seed(std::uint64_t base, std::uint64_t exponent, s
 // generate_ecutek_racerom_can_seed_key(), lines 1191-1217: seed packed
 // big-endian into a uint32, RSA-decrypted with hardcoded d/n, re-emitted
 // big-endian as the 4-byte key.
-bytes::Bytes generate_ecutek_racerom_can_seed_key(bytes::ByteView seed)
+bytes::Bytes GenerateEcutekRaceromCanSeedKey(bytes::ByteView seed)
 {
-    const std::uint32_t seed_word = bytes::readU32Be(seed, 0);
+    const std::uint32_t seed_word = bytes::ReadU32Be(seed, 0);
     constexpr std::uint64_t kD = 0x0A863281ULL;
     constexpr std::uint64_t kN = 0x0fda9293ULL;
-    const std::uint32_t decrypted = static_cast<std::uint32_t>(decrypt_racerom_seed(seed_word, kD, kN));
-    return composeBe(decrypted);
+    const std::uint32_t decrypted = static_cast<std::uint32_t>(DecryptRaceromSeed(seed_word, kD, kN));
+    return ComposeBe(decrypted);
 }
 
 // encrypt_payload(), lines 1314-1330: this class's OWN key table --
 // {0xC85B, 0x32C0, 0xE282, 0x92A0} -- distinct from the K-Line sibling's
 // ({0x7856, 0xCE22, 0xF513, 0x6E86}).
-bytes::Bytes encrypt_can_kernel_payload(bytes::ByteView buf, std::uint32_t len)
+bytes::Bytes EncryptCanKernelPayload(bytes::ByteView buf, std::uint32_t len)
 {
     static constexpr std::array<std::uint16_t, 4> kIndex{0xC85B, 0x32C0, 0xE282, 0x92A0};
-    return ssm_protocol::calculatePayload(buf, len, kIndex, ssm_protocol::kIndexTransformationStock);
+    return ssm_protocol::CalculatePayload(buf, len, kIndex, ssm_protocol::kIndexTransformationStock);
 }
 
 // ---------------------------------------------------------------------
@@ -254,41 +252,41 @@ bytes::Bytes encrypt_can_kernel_payload(bytes::ByteView buf, std::uint32_t len)
 // nullopt case) is returned as-is for the caller to interpret -- see the two
 // call-site wrappers below, since legacy's own tolerance for "no frame" vs.
 // "must have gotten something" differs per call site.
-Result<std::optional<bytes::Bytes>> can_raw_exchange(ICanFlashTransport& transport, IClock& clock,
-                                                     const ICancellationToken& cancellation, bytes::ByteView request,
-                                                     int delay_ms, std::chrono::milliseconds timeout)
+Result<std::optional<bytes::Bytes>> CanRawExchange(ICanFlashTransport& transport, IClock& clock,
+                                                   const ICancellationToken& cancellation, bytes::ByteView request,
+                                                   int delay_ms, std::chrono::milliseconds timeout)
 {
-    if (cancellation.cancelled())
+    if (cancellation.Cancelled())
     {
-        return fail(ErrorKind::kCancelled, "cancelled before write");
+        return Fail(ErrorKind::kCancelled, "cancelled before write");
     }
-    if (Status written = transport.write(request, cancellation); !written.has_value())
+    if (Status written = transport.Write(request, cancellation); !written.has_value())
     {
         return std::unexpected(written.error());
     }
-    if (cancellation.cancelled())
+    if (cancellation.Cancelled())
     {
-        return fail(ErrorKind::kCancelled, "cancelled after write");
+        return Fail(ErrorKind::kCancelled, "cancelled after write");
     }
     if (delay_ms > 0)
     {
-        if (Status slept = clock.sleep(std::chrono::milliseconds{delay_ms}, cancellation); !slept.has_value())
+        if (Status slept = clock.Sleep(std::chrono::milliseconds{delay_ms}, cancellation); !slept.has_value())
         {
             return std::unexpected(slept.error());
         }
-        if (cancellation.cancelled())
+        if (cancellation.Cancelled())
         {
-            return fail(ErrorKind::kCancelled, "cancelled after delay");
+            return Fail(ErrorKind::kCancelled, "cancelled after delay");
         }
     }
-    auto received = transport.read(timeout, cancellation);
+    auto received = transport.Read(timeout, cancellation);
     if (!received.has_value())
     {
         return std::unexpected(received.error());
     }
-    if (cancellation.cancelled())
+    if (cancellation.Cancelled())
     {
-        return fail(ErrorKind::kCancelled, "cancelled after read");
+        return Fail(ErrorKind::kCancelled, "cancelled after read");
     }
     return std::move(*received);
 }
@@ -298,19 +296,19 @@ Result<std::optional<bytes::Bytes>> can_raw_exchange(ICanFlashTransport& transpo
 // session set) and upload_kernel()'s SID34/0x37/0x31 acks -- exactly the
 // sites where legacy's own `if (received.length() > N) {...} else { return
 // STATUS_ERROR; }` shape means a short-or-absent response is a hard failure.
-Result<bytes::Bytes> can_exchange_gated(ICanFlashTransport& transport, IClock& clock,
-                                        const ICancellationToken& cancellation, bytes::ByteView request, int delay_ms,
-                                        std::chrono::milliseconds timeout)
+Result<bytes::Bytes> CanExchangeGated(ICanFlashTransport& transport, IClock& clock,
+                                      const ICancellationToken& cancellation, bytes::ByteView request, int delay_ms,
+                                      std::chrono::milliseconds timeout)
 {
     Result<std::optional<bytes::Bytes>> raw =
-        can_raw_exchange(transport, clock, cancellation, request, delay_ms, timeout);
+        CanRawExchange(transport, clock, cancellation, request, delay_ms, timeout);
     if (!raw.has_value())
     {
         return std::unexpected(raw.error());
     }
     if (!raw->has_value())
     {
-        return fail(ErrorKind::kTimeout, "no response from ECU");
+        return Fail(ErrorKind::kTimeout, "no response from ECU");
     }
     return std::move(**raw);
 }
@@ -320,44 +318,44 @@ Result<bytes::Bytes> can_exchange_gated(ICanFlashTransport& transport, IClock& c
 // error -- it's the normal "kernel not (yet) running" signal that both
 // connect_bootloader()'s initial probe and upload_kernel()'s single
 // post-upload poll interpret themselves.
-Result<std::optional<bytes::Bytes>> request_kernel_id(ICanFlashTransport& transport, IClock& clock,
-                                                      const ICancellationToken& cancellation, std::uint32_t request_id)
+Result<std::optional<bytes::Bytes>> RequestKernelId(ICanFlashTransport& transport, IClock& clock,
+                                                    const ICancellationToken& cancellation, std::uint32_t request_id)
 {
-    return can_raw_exchange(transport, clock, cancellation, request_kernel_id_frame(request_id),
-                            kKernelIdRequestDelayMs, kKernelIdReadTimeout);
+    return CanRawExchange(transport, clock, cancellation, RequestKernelIdFrame(request_id), kKernelIdRequestDelayMs,
+                          kKernelIdReadTimeout);
 }
 
 } // namespace
 
-Result<Iso15765Config> DensoSh705xEepromCanExecutor::transport_setup(const FlashPlan& plan) const
+Result<Iso15765Config> DensoSh705xEepromCanExecutor::TransportSetup(const FlashPlan& plan) const
 {
-    if (Status match = check_family(plan, FlashFamily::kDensoSh705xEepromCan); !match.has_value())
+    if (Status match = CheckFamily(plan, FlashFamily::kDensoSh705xEepromCan); !match.has_value())
     {
         return std::unexpected(match.error());
     }
 
-    const auto& can_plan = std::get<DensoSh705xEepromCanPlan>(plan.family_plan());
-    return iso15765_config_from(can_plan);
+    const auto& can_plan = std::get<DensoSh705xEepromCanPlan>(plan.FamilyPlan());
+    return Iso15765ConfigFrom(can_plan);
 }
 
-Result<FlashExecutionResult> DensoSh705xEepromCanExecutor::execute(const FlashPlan& plan, ICanFlashTransport& transport,
+Result<FlashExecutionResult> DensoSh705xEepromCanExecutor::Execute(const FlashPlan& plan, ICanFlashTransport& transport,
                                                                    IClock& clock,
                                                                    const ICancellationToken& cancellation,
                                                                    IEventSink& events)
 {
-    if (Status match = check_family(plan, FlashFamily::kDensoSh705xEepromCan); !match.has_value())
+    if (Status match = CheckFamily(plan, FlashFamily::kDensoSh705xEepromCan); !match.has_value())
     {
         return std::unexpected(match.error());
     }
-    if (cancellation.cancelled())
+    if (cancellation.Cancelled())
     {
-        return fail(ErrorKind::kCancelled, "cancelled before setup");
+        return Fail(ErrorKind::kCancelled, "cancelled before setup");
     }
 
-    const auto& can_plan = std::get<DensoSh705xEepromCanPlan>(plan.family_plan());
+    const auto& can_plan = std::get<DensoSh705xEepromCanPlan>(plan.FamilyPlan());
     ICanFlashTransport& can_transport = transport;
     bool kernel_alive = false;
-    if (Status connected = connect_bootloader(can_transport, clock, cancellation, events, can_plan, kernel_alive);
+    if (Status connected = ConnectBootloader(can_transport, clock, cancellation, events, can_plan, kernel_alive);
         !connected.has_value())
     {
         return std::unexpected(connected.error());
@@ -371,23 +369,22 @@ Result<FlashExecutionResult> DensoSh705xEepromCanExecutor::execute(const FlashPl
         // "family requires a kernel image"). check_family above confirms
         // the family; it does not itself
         // guarantee a kernel -- validate_and_build is what does.
-        if (Status uploaded =
-                upload_kernel(can_transport, clock, cancellation, events, can_plan, plan.kernel_or_empty());
+        if (Status uploaded = UploadKernel(can_transport, clock, cancellation, events, can_plan, plan.KernelOrEmpty());
             !uploaded.has_value())
         {
             return std::unexpected(uploaded.error());
         }
     }
 
-    Result<bytes::Bytes> read_result = read_mem(can_transport, clock, cancellation, events, plan.transfer_region(),
-                                                can_plan.mode, can_plan.request_id);
+    Result<bytes::Bytes> read_result =
+        ReadMem(can_transport, clock, cancellation, events, plan.TransferRegion(), can_plan.mode, can_plan.request_id);
 
     if (!read_result.has_value())
     {
         return std::unexpected(read_result.error());
     }
     return FlashExecutionResult{
-        .operation = plan.operation(),
+        .operation = plan.Operation(),
         .read_bytes = std::move(*read_result),
     };
 }
@@ -441,45 +438,45 @@ Result<FlashExecutionResult> DensoSh705xEepromCanExecutor::execute(const FlashPl
 // ---------------------------------------------------------------------
 
 // connect_bootloader(), lines 152-635.
-Status DensoSh705xEepromCanExecutor::connect_bootloader(ICanFlashTransport& transport, IClock& clock,
-                                                        const ICancellationToken& cancellation, IEventSink& events,
-                                                        const DensoSh705xEepromCanPlan& can_plan,
-                                                        bool& kernel_alive) const
+Status DensoSh705xEepromCanExecutor::ConnectBootloader(ICanFlashTransport& transport, IClock& clock,
+                                                       const ICancellationToken& cancellation, IEventSink& events,
+                                                       const DensoSh705xEepromCanPlan& can_plan,
+                                                       bool& kernel_alive) const
 {
-    if (cancellation.cancelled())
+    if (cancellation.Cancelled())
     {
-        return fail(ErrorKind::kCancelled, "cancelled before connect");
+        return Fail(ErrorKind::kCancelled, "cancelled before connect");
     }
 
     const std::uint32_t request_id = can_plan.request_id;
 
-    events.log(LogLevel::kInfo, "Checking if kernel is already running...");
-    Result<std::optional<bytes::Bytes>> probe = request_kernel_id(transport, clock, cancellation, request_id);
+    events.Log(LogLevel::kInfo, "Checking if kernel is already running...");
+    Result<std::optional<bytes::Bytes>> probe = RequestKernelId(transport, clock, cancellation, request_id);
     if (!probe.has_value())
     {
         return std::unexpected(probe.error());
     }
-    if (probe->has_value() && looks_kernel_alive(**probe))
+    if (probe->has_value() && LooksKernelAlive(**probe))
     {
         // lines 174-187: a well-formed alive response short-circuits the
         // rest of connect_bootloader() -- upload_kernel() is skipped too.
         kernel_alive = true;
-        events.log(LogLevel::kInfo, "Kernel already running");
+        events.Log(LogLevel::kInfo, "Kernel already running");
         return {};
     }
     // lines 174-191: BOTH "no frame at all" and "frame present but markers
     // wrong" fall through to the full init sequence below -- neither is a
     // hard failure at this point (same shape as the K-Line sibling's own
     // initial probe).
-    events.log(LogLevel::kWarning, "No response from kernel, initialising ECU...");
+    events.Log(LogLevel::kWarning, "No response from kernel, initialising ECU...");
 
     // NOT IMPLEMENTED: the legacy "_ecutek_racerom_alt" branch (lines
     // 195-234) -- see the OPEN QUESTION resolution comment above this
     // function.
 
-    events.log(LogLevel::kInfo, "Initializing connection...");
-    if (Result<std::optional<bytes::Bytes>> init_resp = can_raw_exchange(
-            transport, clock, cancellation, init_connection_request(request_id), kHandshakeDelayMs, kHandshakeTimeout);
+    events.Log(LogLevel::kInfo, "Initializing connection...");
+    if (Result<std::optional<bytes::Bytes>> init_resp = CanRawExchange(
+            transport, clock, cancellation, InitConnectionRequest(request_id), kHandshakeDelayMs, kHandshakeTimeout);
         !init_resp.has_value())
     {
         return std::unexpected(init_resp.error());
@@ -490,42 +487,42 @@ Status DensoSh705xEepromCanExecutor::connect_bootloader(ICanFlashTransport& tran
     // closing: only a genuine transport-level failure (handled above)
     // propagates.
 
-    events.log(LogLevel::kInfo, "Requesting ECU ID");
-    if (Result<std::optional<bytes::Bytes>> ecuid_resp = can_raw_exchange(
-            transport, clock, cancellation, ecu_id_request(request_id), kHandshakeDelayMs, kHandshakeTimeout);
+    events.Log(LogLevel::kInfo, "Requesting ECU ID");
+    if (Result<std::optional<bytes::Bytes>> ecuid_resp = CanRawExchange(
+            transport, clock, cancellation, EcuIdRequest(request_id), kHandshakeDelayMs, kHandshakeTimeout);
         !ecuid_resp.has_value())
     {
         return std::unexpected(ecuid_resp.error());
     }
 
-    events.log(LogLevel::kInfo, "Requesting VIN");
-    if (Result<std::optional<bytes::Bytes>> vin_resp = can_raw_exchange(
-            transport, clock, cancellation, vin_request(request_id), kHandshakeDelayMs, kHandshakeTimeout);
+    events.Log(LogLevel::kInfo, "Requesting VIN");
+    if (Result<std::optional<bytes::Bytes>> vin_resp = CanRawExchange(
+            transport, clock, cancellation, VinRequest(request_id), kHandshakeDelayMs, kHandshakeTimeout);
         !vin_resp.has_value())
     {
         return std::unexpected(vin_resp.error());
     }
 
-    events.log(LogLevel::kInfo, "Requesting CAL ID");
-    if (Result<std::optional<bytes::Bytes>> cal_resp = can_raw_exchange(
-            transport, clock, cancellation, cal_id_request(request_id), kHandshakeDelayMs, kHandshakeTimeout);
+    events.Log(LogLevel::kInfo, "Requesting CAL ID");
+    if (Result<std::optional<bytes::Bytes>> cal_resp = CanRawExchange(
+            transport, clock, cancellation, CalIdRequest(request_id), kHandshakeDelayMs, kHandshakeTimeout);
         !cal_resp.has_value())
     {
         return std::unexpected(cal_resp.error());
     }
 
-    events.log(LogLevel::kInfo, "Requesting CVN");
-    if (Result<std::optional<bytes::Bytes>> cvn_resp = can_raw_exchange(
-            transport, clock, cancellation, cvn_request(request_id), kHandshakeDelayMs, kHandshakeTimeout);
+    events.Log(LogLevel::kInfo, "Requesting CVN");
+    if (Result<std::optional<bytes::Bytes>> cvn_resp = CanRawExchange(
+            transport, clock, cancellation, CvnRequest(request_id), kHandshakeDelayMs, kHandshakeTimeout);
         !cvn_resp.has_value())
     {
         return std::unexpected(cvn_resp.error());
     }
 
-    events.log(LogLevel::kInfo, "Requesting session mode");
+    events.Log(LogLevel::kInfo, "Requesting session mode");
     bool req_10_03_connected = false;
-    Result<std::optional<bytes::Bytes>> s03_resp = can_raw_exchange(
-        transport, clock, cancellation, session_mode_request(request_id, 0x03), kHandshakeDelayMs, kHandshakeTimeout);
+    Result<std::optional<bytes::Bytes>> s03_resp = CanRawExchange(
+        transport, clock, cancellation, SessionModeRequest(request_id, 0x03), kHandshakeDelayMs, kHandshakeTimeout);
     if (!s03_resp.has_value())
     {
         return std::unexpected(s03_resp.error());
@@ -536,8 +533,8 @@ Status DensoSh705xEepromCanExecutor::connect_bootloader(ICanFlashTransport& tran
     }
 
     bool req_10_43_connected = false;
-    Result<std::optional<bytes::Bytes>> s43_resp = can_raw_exchange(
-        transport, clock, cancellation, session_mode_request(request_id, 0x43), kHandshakeDelayMs, kHandshakeTimeout);
+    Result<std::optional<bytes::Bytes>> s43_resp = CanRawExchange(
+        transport, clock, cancellation, SessionModeRequest(request_id, 0x43), kHandshakeDelayMs, kHandshakeTimeout);
     if (!s43_resp.has_value())
     {
         return std::unexpected(s43_resp.error());
@@ -547,20 +544,20 @@ Status DensoSh705xEepromCanExecutor::connect_bootloader(ICanFlashTransport& tran
         req_10_43_connected = true;
     }
 
-    events.log(LogLevel::kInfo, "Requesting seed");
-    Result<bytes::Bytes> seed_resp = can_exchange_gated(transport, clock, cancellation, seed_request(request_id),
-                                                        kHandshakeDelayMs, kHandshakeTimeout);
+    events.Log(LogLevel::kInfo, "Requesting seed");
+    Result<bytes::Bytes> seed_resp =
+        CanExchangeGated(transport, clock, cancellation, SeedRequest(request_id), kHandshakeDelayMs, kHandshakeTimeout);
     if (!seed_resp.has_value())
     {
         return std::unexpected(seed_resp.error());
     }
     if (seed_resp->size() <= 5 || (*seed_resp)[4] != 0x67 || (*seed_resp)[5] != 0x01)
     {
-        return fail(ErrorKind::kBadResponse, "seed request rejected");
+        return Fail(ErrorKind::kBadResponse, "seed request rejected");
     }
     if (seed_resp->size() < 10)
     {
-        return fail(ErrorKind::kBadResponse, "seed response too short to contain a 4-byte seed");
+        return Fail(ErrorKind::kBadResponse, "seed response too short to contain a 4-byte seed");
     }
     const bytes::Bytes seed(seed_resp->begin() + 6, seed_resp->begin() + 10);
 
@@ -570,35 +567,34 @@ Status DensoSh705xEepromCanExecutor::connect_bootloader(ICanFlashTransport& tran
     switch (can_plan.security)
     {
     case DensoSecurityVariant::kStock:
-        seed_key = generate_stock_seed_key(seed);
+        seed_key = GenerateStockSeedKey(seed);
         break;
     case DensoSecurityVariant::kEcuTek:
-        seed_key = generate_ecutek_seed_key(seed);
+        seed_key = GenerateEcutekSeedKey(seed);
         break;
     case DensoSecurityVariant::kCobb:
-        seed_key = generate_cobb_seed_key(seed);
+        seed_key = GenerateCobbSeedKey(seed);
         break;
     case DensoSecurityVariant::kEcuTekRaceRom:
-        seed_key = generate_ecutek_racerom_can_seed_key(seed);
+        seed_key = GenerateEcutekRaceromCanSeedKey(seed);
         break;
     }
 
-    events.log(LogLevel::kInfo, "Sending seed key");
-    Result<bytes::Bytes> key_resp =
-        can_exchange_gated(transport, clock, cancellation, seed_key_send_request(request_id, seed_key),
-                           kHandshakeDelayMs, kHandshakeTimeout);
+    events.Log(LogLevel::kInfo, "Sending seed key");
+    Result<bytes::Bytes> key_resp = CanExchangeGated(
+        transport, clock, cancellation, SeedKeySendRequest(request_id, seed_key), kHandshakeDelayMs, kHandshakeTimeout);
     if (!key_resp.has_value())
     {
         return std::unexpected(key_resp.error());
     }
     if (key_resp->size() <= 5 || (*key_resp)[4] != 0x67 || (*key_resp)[5] != 0x02)
     {
-        return fail(ErrorKind::kBadResponse, "seed key send rejected");
+        return Fail(ErrorKind::kBadResponse, "seed key send rejected");
     }
 
-    events.log(LogLevel::kInfo, "Set session mode");
-    Result<bytes::Bytes> set_resp = can_exchange_gated(
-        transport, clock, cancellation, session_set_request(request_id, req_10_03_connected, req_10_43_connected),
+    events.Log(LogLevel::kInfo, "Set session mode");
+    Result<bytes::Bytes> set_resp = CanExchangeGated(
+        transport, clock, cancellation, SessionSetRequest(request_id, req_10_03_connected, req_10_43_connected),
         kHandshakeDelayMs, kHandshakeTimeout);
     if (!set_resp.has_value())
     {
@@ -606,32 +602,32 @@ Status DensoSh705xEepromCanExecutor::connect_bootloader(ICanFlashTransport& tran
     }
     if (set_resp->size() <= 5 || (*set_resp)[4] != 0x50 || ((*set_resp)[5] != 0x02 && (*set_resp)[5] != 0x42))
     {
-        return fail(ErrorKind::kBadResponse, "session set rejected");
+        return Fail(ErrorKind::kBadResponse, "session set rejected");
     }
 
-    events.log(LogLevel::kInfo, "Successfully set to programming session");
+    events.Log(LogLevel::kInfo, "Successfully set to programming session");
     return {};
 }
 
 // upload_kernel(), lines 701-956.
-Status DensoSh705xEepromCanExecutor::upload_kernel(ICanFlashTransport& transport, IClock& clock,
-                                                   const ICancellationToken& cancellation, IEventSink& events,
-                                                   const DensoSh705xEepromCanPlan& can_plan,
-                                                   const KernelImage& kernel) const
+Status DensoSh705xEepromCanExecutor::UploadKernel(ICanFlashTransport& transport, IClock& clock,
+                                                  const ICancellationToken& cancellation, IEventSink& events,
+                                                  const DensoSh705xEepromCanPlan& can_plan,
+                                                  const KernelImage& kernel) const
 {
-    if (cancellation.cancelled())
+    if (cancellation.Cancelled())
     {
-        return fail(ErrorKind::kCancelled, "cancelled before kernel upload");
+        return Fail(ErrorKind::kCancelled, "cancelled before kernel upload");
     }
     if (kernel.bytes.empty())
     {
-        return fail(ErrorKind::kInvalidConfig, "kernel image is empty");
+        return Fail(ErrorKind::kInvalidConfig, "kernel image is empty");
     }
 
     const std::uint32_t request_id = can_plan.request_id;
     const std::uint32_t start_address = kernel.load_address;
     Result<DensoSh705xEepromUploadSizes> upload_sizes =
-        denso_sh705x_eeprom_upload_sizes(FlashFamily::kDensoSh705xEepromCan, kernel.bytes.size());
+        ComputeDensoSh705xEepromUploadSizes(FlashFamily::kDensoSh705xEepromCan, kernel.bytes.size());
     if (!upload_sizes.has_value())
     {
         return std::unexpected(upload_sizes.error());
@@ -652,32 +648,32 @@ Status DensoSh705xEepromCanExecutor::upload_kernel(ICanFlashTransport& transport
     std::uint32_t chk_sum = 0;
     for (std::size_t i = 0; i < buf.size(); i += 4)
     {
-        chk_sum += bytes::readU32Be(buf, i);
+        chk_sum += bytes::ReadU32Be(buf, i);
     }
     chk_sum = 0x5aa5a55aU - chk_sum;
-    bytes::appendU32Be(buf, chk_sum);
-    const bytes::Bytes encrypted = encrypt_can_kernel_payload(buf, static_cast<std::uint32_t>(buf.size()));
+    bytes::AppendU32Be(buf, chk_sum);
+    const bytes::Bytes encrypted = EncryptCanKernelPayload(buf, static_cast<std::uint32_t>(buf.size()));
 
-    events.log(LogLevel::kInfo, "Initialize kernel upload");
+    events.Log(LogLevel::kInfo, "Initialize kernel upload");
     Result<bytes::Bytes> download_resp =
-        can_exchange_gated(transport, clock, cancellation, sid34_request(request_id, start_address, data_len),
-                           kHandshakeDelayMs, kQuickAckTimeout);
+        CanExchangeGated(transport, clock, cancellation, Sid34Request(request_id, start_address, data_len),
+                         kHandshakeDelayMs, kQuickAckTimeout);
     if (!download_resp.has_value())
     {
         return std::unexpected(download_resp.error());
     }
     if (download_resp->size() <= 5 || (*download_resp)[4] != 0x74 || (*download_resp)[5] != 0x20)
     {
-        return fail(ErrorKind::kBadResponse, "kernel upload request rejected");
+        return Fail(ErrorKind::kBadResponse, "kernel upload request rejected");
     }
 
-    events.log(LogLevel::kInfo, "Uploading kernel, please wait...");
+    events.Log(LogLevel::kInfo, "Uploading kernel, please wait...");
     const bytes::ByteView encrypted_view(encrypted);
     for (std::uint32_t blockno = 0; blockno <= max_blocks; ++blockno)
     {
-        if (cancellation.cancelled())
+        if (cancellation.Cancelled())
         {
-            return fail(ErrorKind::kCancelled, "cancelled between kernel transfer chunks");
+            return Fail(ErrorKind::kCancelled, "cancelled between kernel transfer chunks");
         }
 
         const std::uint32_t block_addr = start_address + blockno * kUploadChunkBytes;
@@ -695,92 +691,92 @@ Status DensoSh705xEepromCanExecutor::upload_kernel(ICanFlashTransport& transport
                 ? encrypted_view.subspan(static_cast<std::size_t>(blockno) * kUploadChunkBytes, kUploadChunkBytes)
                 : bytes::ByteView{};
 
-        if (Status written = transport.write(sid_b6_request(request_id, block_addr, chunk), cancellation);
+        if (Status written = transport.Write(SidB6Request(request_id, block_addr, chunk), cancellation);
             !written.has_value())
         {
             return std::unexpected(written.error());
         }
-        if (cancellation.cancelled())
+        if (cancellation.Cancelled())
         {
-            return fail(ErrorKind::kCancelled, "cancelled after kernel chunk write");
+            return Fail(ErrorKind::kCancelled, "cancelled after kernel chunk write");
         }
         // No delay() call between this write and its read (legacy line
         // 852-853).
-        if (auto block_resp = transport.read(kBlockAckTimeout, cancellation); !block_resp.has_value())
+        if (auto block_resp = transport.Read(kBlockAckTimeout, cancellation); !block_resp.has_value())
         {
             return std::unexpected(block_resp.error());
         }
-        if (cancellation.cancelled())
+        if (cancellation.Cancelled())
         {
-            return fail(ErrorKind::kCancelled, "cancelled after kernel chunk read");
+            return Fail(ErrorKind::kCancelled, "cancelled after kernel chunk read");
         }
         // Response content is never inspected here (legacy line 853 just
         // discards it) -- reading it anyway keeps the wire exchange in
         // lockstep with a real ECU.
 
-        events.progress(static_cast<int>(blockno), static_cast<int>(max_blocks));
+        events.Progress(static_cast<int>(blockno), static_cast<int>(max_blocks));
     }
 
-    events.log(LogLevel::kInfo, "Kernel uploaded, starting...");
-    Result<bytes::Bytes> start_resp = can_exchange_gated(transport, clock, cancellation, sid37_request(request_id),
-                                                         kHandshakeDelayMs, kQuickAckTimeout);
+    events.Log(LogLevel::kInfo, "Kernel uploaded, starting...");
+    Result<bytes::Bytes> start_resp =
+        CanExchangeGated(transport, clock, cancellation, Sid37Request(request_id), kHandshakeDelayMs, kQuickAckTimeout);
     if (!start_resp.has_value())
     {
         return std::unexpected(start_resp.error());
     }
     if (start_resp->size() <= 4 || (*start_resp)[4] != 0x77)
     {
-        return fail(ErrorKind::kBadResponse, "kernel start ack rejected");
+        return Fail(ErrorKind::kBadResponse, "kernel start ack rejected");
     }
 
-    if (Status slept = clock.sleep(std::chrono::milliseconds{kPostUploadSettleDelayMs}, cancellation);
+    if (Status slept = clock.Sleep(std::chrono::milliseconds{kPostUploadSettleDelayMs}, cancellation);
         !slept.has_value())
     {
         return std::unexpected(slept.error());
     }
-    if (cancellation.cancelled())
+    if (cancellation.Cancelled())
     {
-        return fail(ErrorKind::kCancelled, "cancelled before start routine");
+        return Fail(ErrorKind::kCancelled, "cancelled before start routine");
     }
 
-    Result<bytes::Bytes> routine_resp = can_exchange_gated(transport, clock, cancellation, sid31_request(request_id),
-                                                           kHandshakeDelayMs, kQuickAckTimeout);
+    Result<bytes::Bytes> routine_resp =
+        CanExchangeGated(transport, clock, cancellation, Sid31Request(request_id), kHandshakeDelayMs, kQuickAckTimeout);
     if (!routine_resp.has_value())
     {
         return std::unexpected(routine_resp.error());
     }
     if (routine_resp->size() <= 4 || (*routine_resp)[4] != 0x71)
     {
-        return fail(ErrorKind::kBadResponse, "kernel start routine rejected");
+        return Fail(ErrorKind::kBadResponse, "kernel start routine rejected");
     }
 
-    events.log(LogLevel::kInfo, "Kernel requesting kernel ID...");
+    events.Log(LogLevel::kInfo, "Kernel requesting kernel ID...");
     // Unlike the K-Line sibling's up-to-10-iteration poll loop, this is a
     // SINGLE attempt -- legacy lines 930-953 `return STATUS_ERROR`
     // immediately on a non-alive response here, with no retry.
-    Result<std::optional<bytes::Bytes>> poll = request_kernel_id(transport, clock, cancellation, request_id);
+    Result<std::optional<bytes::Bytes>> poll = RequestKernelId(transport, clock, cancellation, request_id);
     if (!poll.has_value())
     {
         return std::unexpected(poll.error());
     }
     if (!poll->has_value())
     {
-        return fail(ErrorKind::kTimeout, "kernel did not respond after upload");
+        return Fail(ErrorKind::kTimeout, "kernel did not respond after upload");
     }
-    if (!looks_kernel_alive(**poll))
+    if (!LooksKernelAlive(**poll))
     {
-        return fail(ErrorKind::kBadResponse, "kernel did not report a valid ID after upload");
+        return Fail(ErrorKind::kBadResponse, "kernel did not report a valid ID after upload");
     }
 
-    events.log(LogLevel::kInfo, "Kernel is alive");
+    events.Log(LogLevel::kInfo, "Kernel is alive");
     return {};
 }
 
 // read_mem(), lines 963-1139 ("BEEF/READ_EEPROM" combined-request protocol).
-Result<bytes::Bytes> DensoSh705xEepromCanExecutor::read_mem(ICanFlashTransport& transport, IClock& clock,
-                                                            const ICancellationToken& cancellation, IEventSink& events,
-                                                            const MemoryRegion& region, EepromReadMode mode,
-                                                            std::uint32_t request_id) const
+Result<bytes::Bytes> DensoSh705xEepromCanExecutor::ReadMem(ICanFlashTransport& transport, IClock& clock,
+                                                           const ICancellationToken& cancellation, IEventSink& events,
+                                                           const MemoryRegion& region, EepromReadMode mode,
+                                                           std::uint32_t request_id) const
 {
     const std::uint32_t start_addr = region.start;
     const std::uint32_t length = region.length;
@@ -797,47 +793,47 @@ Result<bytes::Bytes> DensoSh705xEepromCanExecutor::read_mem(ICanFlashTransport& 
     std::uint32_t len_done = 0;
 
     bytes::Bytes mapdata;
-    events.progress(0, static_cast<int>(length));
+    events.Progress(0, static_cast<int>(length));
 
     while (willget != 0)
     {
-        if (cancellation.cancelled())
+        if (cancellation.Cancelled())
         {
-            return fail(ErrorKind::kCancelled, "cancelled during EEPROM read");
+            return Fail(ErrorKind::kCancelled, "cancelled during EEPROM read");
         }
 
         constexpr std::uint32_t kNumBlocks = 1; // legacy hardcodes this per outer iteration
 
-        if (Status written = transport.write(
-                read_eeprom_request(request_id, static_cast<std::uint8_t>(mode), addr, pagesize), cancellation);
+        if (Status written = transport.Write(
+                ReadEepromRequest(request_id, static_cast<std::uint8_t>(mode), addr, pagesize), cancellation);
             !written.has_value())
         {
             return std::unexpected(written.error());
         }
-        if (cancellation.cancelled())
+        if (cancellation.Cancelled())
         {
-            return fail(ErrorKind::kCancelled, "cancelled after EEPROM read request");
+            return Fail(ErrorKind::kCancelled, "cancelled after EEPROM read request");
         }
 
         // No delay() call between this write and the header-ack read (legacy
         // line 1036 has it commented out).
-        auto header = transport.read(kPageHeaderTimeout, cancellation);
+        auto header = transport.Read(kPageHeaderTimeout, cancellation);
         if (!header.has_value())
         {
             return std::unexpected(header.error());
         }
-        if (cancellation.cancelled())
+        if (cancellation.Cancelled())
         {
-            return fail(ErrorKind::kCancelled, "cancelled after EEPROM header ack");
+            return Fail(ErrorKind::kCancelled, "cancelled after EEPROM header ack");
         }
         if (!header->has_value())
         {
-            return fail(ErrorKind::kTimeout, "no response to EEPROM read request");
+            return Fail(ErrorKind::kTimeout, "no response to EEPROM read request");
         }
         const bytes::Bytes& hdr = **header;
         if (hdr.size() <= 8)
         {
-            return fail(ErrorKind::kBadResponse, "EEPROM read header ack too short");
+            return Fail(ErrorKind::kBadResponse, "EEPROM read header ack too short");
         }
         if (hdr[4] == 0xBE && hdr[5] == 0xEF && hdr[8] == static_cast<bytes::Byte>(kSubKernelReadArea | 0x40U))
         {
@@ -851,18 +847,18 @@ Result<bytes::Bytes> DensoSh705xEepromCanExecutor::read_mem(ICanFlashTransport& 
         int attempts = 0;
         while (pagedata.size() < pagesize && attempts < kMaxPagedataAttempts)
         {
-            if (cancellation.cancelled())
+            if (cancellation.Cancelled())
             {
-                return fail(ErrorKind::kCancelled, "cancelled during EEPROM page read");
+                return Fail(ErrorKind::kCancelled, "cancelled during EEPROM page read");
             }
-            auto chunk = transport.read(kPagedataPollTimeout, cancellation);
+            auto chunk = transport.Read(kPagedataPollTimeout, cancellation);
             if (!chunk.has_value())
             {
                 return std::unexpected(chunk.error());
             }
-            if (cancellation.cancelled())
+            if (cancellation.Cancelled())
             {
-                return fail(ErrorKind::kCancelled, "cancelled during EEPROM page read");
+                return Fail(ErrorKind::kCancelled, "cancelled during EEPROM page read");
             }
             if (chunk->has_value() && !(*chunk)->empty())
             {
@@ -889,7 +885,7 @@ Result<bytes::Bytes> DensoSh705xEepromCanExecutor::read_mem(ICanFlashTransport& 
         std::uint32_t cplen = kNumBlocks * pagesize - skip_start;
         skip_start = 0;
 
-        if (Status slept = clock.sleep(std::chrono::milliseconds{kInterPageDelayMs}, cancellation); !slept.has_value())
+        if (Status slept = clock.Sleep(std::chrono::milliseconds{kInterPageDelayMs}, cancellation); !slept.has_value())
         {
             return std::unexpected(slept.error());
         }
@@ -902,10 +898,10 @@ Result<bytes::Bytes> DensoSh705xEepromCanExecutor::read_mem(ICanFlashTransport& 
         addr += kNumBlocks * pagesize;
         willget -= kNumBlocks * pagesize;
 
-        events.progress(static_cast<int>(len_done), static_cast<int>(length));
+        events.Progress(static_cast<int>(len_done), static_cast<int>(length));
     }
 
-    events.progress(static_cast<int>(length), static_cast<int>(length));
+    events.Progress(static_cast<int>(length), static_cast<int>(length));
     return mapdata;
 }
 

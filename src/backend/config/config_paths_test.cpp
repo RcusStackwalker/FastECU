@@ -2,11 +2,11 @@
 #include <gtest/gtest.h>
 
 using fastecu::config::ConfigPaths;
-using fastecu::config::resolve_config_paths;
+using fastecu::config::ResolveConfigPaths;
 
 TEST(ResolveConfigPaths, PathsContainingBuildStillNestUnderVersionDirectory)
 {
-    ConfigPaths paths = resolve_config_paths("/home/user/project/build", "0.1.0-beta.5");
+    ConfigPaths paths = ResolveConfigPaths("/home/user/project/build", "0.1.0-beta.5");
 
     EXPECT_EQ(paths.base_config_directory, "/home/user/project/build");
     EXPECT_EQ(paths.version_config_directory, "/home/user/project/build/0.1.0-beta.5/");
@@ -22,7 +22,7 @@ TEST(ResolveConfigPaths, PathsContainingBuildStillNestUnderVersionDirectory)
 
 TEST(ResolveConfigPaths, InstalledPathNestsUnderVersionDirectory)
 {
-    ConfigPaths paths = resolve_config_paths("/home/user/.config/FastECU", "0.1.0-beta.5");
+    ConfigPaths paths = ResolveConfigPaths("/home/user/.config/FastECU", "0.1.0-beta.5");
 
     EXPECT_EQ(paths.base_config_directory, "/home/user/.config/FastECU");
     EXPECT_EQ(paths.version_config_directory, "/home/user/.config/FastECU/0.1.0-beta.5/");

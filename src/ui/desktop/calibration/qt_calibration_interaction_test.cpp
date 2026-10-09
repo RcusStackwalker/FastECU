@@ -96,7 +96,7 @@ template <typename T> class DialogDriver
     QElapsedTimer deadline_;
 };
 
-BoxObservation observe_box(QMessageBox *box)
+BoxObservation observeBox(QMessageBox *box)
 {
     BoxObservation observed;
     observed.seen = true;
@@ -152,12 +152,12 @@ TEST_P(WriteWarningChoices, MapsOnlyCancelToDeclined)
     DialogDriver<QMessageBox> driver(
         [&](QMessageBox *box)
         {
-            observed = observe_box(box);
+            observed = observeBox(box);
             box->done(answer);
         },
         &timedOut);
 
-    const bool proceed = interaction.confirm_write_without_checksum();
+    const bool proceed = interaction.confirmWriteWithoutChecksum();
 
     ASSERT_FALSE(timedOut);
     ASSERT_TRUE(observed.seen);
@@ -197,12 +197,12 @@ TEST_P(NoticeRendering, ShowsExpectedBoxOnParent)
     DialogDriver<QMessageBox> driver(
         [&](QMessageBox *box)
         {
-            observed = observe_box(box);
+            observed = observeBox(box);
             box->accept();
         },
         &timedOut);
 
-    interaction.show_notice(expected.notice);
+    interaction.showNotice(expected.notice);
 
     ASSERT_FALSE(timedOut);
     ASSERT_TRUE(observed.seen);
@@ -253,7 +253,7 @@ TEST(QtCalibrationInteraction, SavePathRoundTrip)
         },
         &timedOut);
 
-    const auto path = interaction.choose_save_path(suggested);
+    const auto path = interaction.chooseSavePath(suggested);
 
     ASSERT_FALSE(timedOut);
     ASSERT_TRUE(observed.seen);
@@ -272,7 +272,7 @@ TEST(QtCalibrationInteraction, CancellingSavePathReturnsNoPath)
     bool timedOut = false;
     DialogDriver<QFileDialog> driver([](QFileDialog *dialog) { dialog->reject(); }, &timedOut);
 
-    const auto path = interaction.choose_save_path((directory.path() + "/read.bin").toStdString());
+    const auto path = interaction.chooseSavePath((directory.path() + "/read.bin").toStdString());
 
     ASSERT_FALSE(timedOut);
     EXPECT_EQ(path, std::nullopt);
@@ -302,7 +302,7 @@ TEST(QtCalibrationInteraction, UnknownMcuDelegatesToChecksumCommand)
                      });
     counter.start();
 
-    const auto result = interaction.correct_checksums(image, true, selection);
+    const auto result = interaction.correctChecksums(image, true, selection);
     QCoreApplication::processEvents();
 
     EXPECT_TRUE(result.unknown_mcu_type);
@@ -348,17 +348,17 @@ TEST(QtCalibrationInteraction, MigratedTranslationsUseMainWindowContext)
                 dialog->reject();
             },
             &timedOut);
-        std::ignore = interaction.choose_save_path((directory.path() + "/read.bin").toStdString());
+        std::ignore = interaction.chooseSavePath((directory.path() + "/read.bin").toStdString());
     }
     {
         DialogDriver<QMessageBox> driver(
             [&](QMessageBox *notice)
             {
-                box = observe_box(notice);
+                box = observeBox(notice);
                 notice->accept();
             },
             &timedOut);
-        interaction.show_notice(CalibrationNotice::kNoCalibrationToWrite);
+        interaction.showNotice(CalibrationNotice::kNoCalibrationToWrite);
     }
     QCoreApplication::removeTranslator(&translator);
 

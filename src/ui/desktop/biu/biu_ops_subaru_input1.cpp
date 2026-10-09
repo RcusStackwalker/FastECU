@@ -39,14 +39,14 @@ BiuOpsSubaruInput1::BiuOpsSubaruInput1(QByteArray *biuTtResult, QWidget *parent)
         ui_->label_3->hide();
     }
 
-    connect(ui_->send_setting, SIGNAL(clicked(bool)), this, SLOT(prepare_biu_setting1()));
+    connect(ui_->send_setting, SIGNAL(clicked(bool)), this, SLOT(prepareBiuSetting1()));
 }
 
 BiuOpsSubaruInput1::~BiuOpsSubaruInput1()
 {
 }
 
-void BiuOpsSubaruInput1::prepare_biu_setting1()
+void BiuOpsSubaruInput1::prepareBiuSetting1()
 {
     QByteArray output;
 
@@ -57,5 +57,5 @@ void BiuOpsSubaruInput1::prepare_biu_setting1()
         output.append(static_cast<char>(ui_->outtemp_combo->currentIndex()));
     }
 
-    emit send_biu_setting1(output);
+    emit sendBiuSetting1(output);
 }

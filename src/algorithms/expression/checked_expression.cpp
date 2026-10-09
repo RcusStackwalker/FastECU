@@ -10,26 +10,26 @@ namespace
 {
 using EvaluationResult = std::expected<double, EvaluationError>;
 
-bool whitespace(char character)
+bool Whitespace(char character)
 {
     return character == ' ' || character == '\t' || character == '\n' || character == '\r' || character == '\f' ||
            character == '\v';
 }
 
-std::string_view trimmed(std::string_view text)
+std::string_view Trimmed(std::string_view text)
 {
-    while (!text.empty() && whitespace(text.front()))
+    while (!text.empty() && Whitespace(text.front()))
     {
         text.remove_prefix(1);
     }
-    while (!text.empty() && whitespace(text.back()))
+    while (!text.empty() && Whitespace(text.back()))
     {
         text.remove_suffix(1);
     }
     return text;
 }
 
-EvaluationResult finite(double value)
+EvaluationResult Finite(double value)
 {
     if (!std::isfinite(value))
     {
@@ -45,38 +45,38 @@ class Parser
     {
     }
 
-    EvaluationResult evaluate()
+    EvaluationResult Evaluate()
     {
-        auto value = sum();
+        auto value = Sum();
         if (!value.has_value())
         {
             return value;
         }
-        skip_whitespace();
+        SkipWhitespace();
         if (position_ != text_.size())
         {
-            return error("unexpected token");
+            return Error("unexpected token");
         }
         return value;
     }
 
   private:
-    EvaluationResult error(std::string_view detail) const
+    EvaluationResult Error(std::string_view detail) const
     {
         return std::unexpected(EvaluationError{std::format("{} at position {}", detail, position_)});
     }
 
-    void skip_whitespace()
+    void SkipWhitespace()
     {
-        while (position_ < text_.size() && whitespace(text_[position_]))
+        while (position_ < text_.size() && Whitespace(text_[position_]))
         {
             ++position_;
         }
     }
 
-    bool consume(char token)
+    bool Consume(char token)
     {
-        skip_whitespace();
+        SkipWhitespace();
         if (position_ == text_.size() || text_[position_] != token)
         {
             return false;
@@ -85,67 +85,67 @@ class Parser
         return true;
     }
 
-    EvaluationResult sum()
+    EvaluationResult Sum()
     {
-        auto left = product();
+        auto left = Product();
         while (left.has_value())
         {
-            skip_whitespace();
+            SkipWhitespace();
             if (position_ == text_.size() || (text_[position_] != '+' && text_[position_] != '-'))
             {
                 break;
             }
             const char operation = text_[position_++];
-            const auto right = product();
+            const auto right = Product();
             if (!right.has_value())
             {
                 return right;
             }
-            left = finite(operation == '+' ? *left + *right : *left - *right);
+            left = Finite(operation == '+' ? *left + *right : *left - *right);
         }
         return left;
     }
 
-    EvaluationResult product()
+    EvaluationResult Product()
     {
-        auto left = unary();
+        auto left = Unary();
         while (left.has_value())
         {
-            skip_whitespace();
+            SkipWhitespace();
             if (position_ == text_.size() || (text_[position_] != '*' && text_[position_] != '/'))
             {
                 break;
             }
             const char operation = text_[position_++];
-            const auto right = unary();
+            const auto right = Unary();
             if (!right.has_value())
             {
                 return right;
             }
             if (operation == '/' && *right == 0.0)
             {
-                return error("cannot divide by zero");
+                return Error("cannot divide by zero");
             }
-            left = finite(operation == '*' ? *left * *right : *left / *right);
+            left = Finite(operation == '*' ? *left * *right : *left / *right);
         }
         return left;
     }
 
-    EvaluationResult unary()
+    EvaluationResult Unary()
     {
         bool negative = false;
         for (;;)
         {
-            if (consume('-'))
+            if (Consume('-'))
             {
                 negative = !negative;
             }
-            else if (!consume('+'))
+            else if (!Consume('+'))
             {
                 break;
             }
         }
-        auto value = primary();
+        auto value = Primary();
         if (value.has_value() && negative)
         {
             *value = -*value;
@@ -153,37 +153,37 @@ class Parser
         return value;
     }
 
-    EvaluationResult primary()
+    EvaluationResult Primary()
     {
-        if (consume('('))
+        if (Consume('('))
         {
             constexpr std::size_t kMaximumNesting = 128;
             if (nesting_ >= kMaximumNesting)
             {
-                return error("expression nesting is too deep");
+                return Error("expression nesting is too deep");
             }
             ++nesting_;
-            auto value = sum();
+            auto value = Sum();
             --nesting_;
             if (!value.has_value())
             {
                 return value;
             }
-            if (!consume(')'))
+            if (!Consume(')'))
             {
-                return error("missing closing parenthesis");
+                return Error("missing closing parenthesis");
             }
             return value;
         }
-        if (consume('x'))
+        if (Consume('x'))
         {
             return input_;
         }
-        skip_whitespace();
+        SkipWhitespace();
         if (position_ == text_.size() ||
             (text_[position_] != '.' && (text_[position_] < '0' || text_[position_] > '9')))
         {
-            return error("expected a number, x, or parenthesized expression");
+            return Error("expected a number, x, or parenthesized expression");
         }
         double value = 0.0;
         const char *begin = text_.data() + position_;
@@ -191,10 +191,10 @@ class Parser
         const auto parsed = std::from_chars(begin, end, value, std::chars_format::general);
         if (parsed.ec != std::errc{})
         {
-            return error("invalid numeric literal");
+            return Error("invalid numeric literal");
         }
         position_ = static_cast<std::size_t>(parsed.ptr - text_.data());
-        return finite(value);
+        return Finite(value);
     }
 
     std::string_view text_;
@@ -204,9 +204,9 @@ class Parser
 };
 } // namespace
 
-std::expected<double, EvaluationError> parse_finite_number(std::string_view text)
+std::expected<double, EvaluationError> ParseFiniteNumber(std::string_view text)
 {
-    text = trimmed(text);
+    text = Trimmed(text);
     if (!text.empty() && text.front() == '+')
     {
         text.remove_prefix(1);
@@ -225,21 +225,21 @@ std::expected<double, EvaluationError> parse_finite_number(std::string_view text
     {
         return std::unexpected(EvaluationError{"invalid numeric literal"});
     }
-    return finite(value);
+    return Finite(value);
 }
 
-std::expected<double, EvaluationError> evaluate_checked(std::string_view expression, double x)
+std::expected<double, EvaluationError> EvaluateChecked(std::string_view expression, double x)
 {
-    const auto input = finite(x);
+    const auto input = Finite(x);
     if (!input.has_value())
     {
         return input;
     }
-    expression = trimmed(expression);
+    expression = Trimmed(expression);
     if (expression.empty())
     {
         return x;
     }
-    return Parser(expression, x).evaluate();
+    return Parser(expression, x).Evaluate();
 }
 } // namespace fastecu::expression

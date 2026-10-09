@@ -10,17 +10,17 @@ constexpr std::array<std::uint16_t, 4> kEncryptTable{0x7bf2, 0xa8b4, 0x4492, 0x6
 constexpr std::array<std::uint16_t, 4> kDecryptTable{0x6587, 0x4492, 0xa8b4, 0x7bf2};
 } // namespace
 
-const std::array<std::uint16_t, 16>& tcuCvtMitsuSeedKeyTable()
+const std::array<std::uint16_t, 16>& TcuCvtMitsuSeedKeyTable()
 {
     return kSeedKeyTable;
 }
 
-const std::array<std::uint16_t, 4>& tcuCvtMitsuEncryptTable()
+const std::array<std::uint16_t, 4>& TcuCvtMitsuEncryptTable()
 {
     return kEncryptTable;
 }
 
-const std::array<std::uint16_t, 4>& tcuCvtMitsuDecryptTable()
+const std::array<std::uint16_t, 4>& TcuCvtMitsuDecryptTable()
 {
     return kDecryptTable;
 }

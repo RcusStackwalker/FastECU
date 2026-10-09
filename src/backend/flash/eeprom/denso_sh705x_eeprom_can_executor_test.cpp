@@ -35,8 +35,8 @@ namespace fastecu::flash
 {
 namespace
 {
-using bytes::composeBe;
-using bytes::u24;
+using bytes::ComposeBe;
+using bytes::U24;
 using namespace bytes::literals;
 
 // eeprom_ecu_subaru_denso_sh705x_can_operation.cpp's serial->set_can_source_
@@ -58,67 +58,67 @@ constexpr std::uint32_t kKernelStartAddr = 0xFFFF6004;
 // verify the executor derives it correctly from the plan rather than also
 // hardcoding it.
 
-bytes::Bytes initConnectionRequest()
+bytes::Bytes InitConnectionRequest()
 {
     return {0x00, 0x00, 0x07, 0xE0, 0x01, 0x00};
 }
-bytes::Bytes ecuIdRequest()
+bytes::Bytes EcuIdRequest()
 {
     return {0x00, 0x00, 0x07, 0xE0, 0xAA};
 }
-bytes::Bytes vinRequest()
+bytes::Bytes VinRequest()
 {
     return {0x00, 0x00, 0x07, 0xE0, 0x09, 0x02};
 }
-bytes::Bytes calIdRequest()
+bytes::Bytes CalIdRequest()
 {
     return {0x00, 0x00, 0x07, 0xE0, 0x09, 0x04};
 }
-bytes::Bytes cvnRequest()
+bytes::Bytes CvnRequest()
 {
     return {0x00, 0x00, 0x07, 0xE0, 0x09, 0x06};
 }
-bytes::Bytes sessionMode03Request()
+bytes::Bytes SessionMode03Request()
 {
     return {0x00, 0x00, 0x07, 0xE0, 0x10, 0x03};
 }
-bytes::Bytes sessionMode43Request()
+bytes::Bytes SessionMode43Request()
 {
     return {0x00, 0x00, 0x07, 0xE0, 0x10, 0x43};
 }
-bytes::Bytes seedRequestFrame()
+bytes::Bytes SeedRequestFrame()
 {
     return {0x00, 0x00, 0x07, 0xE0, 0x27, 0x01};
 }
-bytes::Bytes seedKeySendRequest(bytes::ByteView key)
+bytes::Bytes SeedKeySendRequest(bytes::ByteView key)
 {
-    return composeBe(bytes::Bytes{0x00, 0x00, 0x07, 0xE0}, 0x27_b, 0x02_b, key);
+    return ComposeBe(bytes::Bytes{0x00, 0x00, 0x07, 0xE0}, 0x27_b, 0x02_b, key);
 }
 // Every fixture below gives positive responses to both prior session-mode
 // requests, so both flags are true and both bytes are appended.
-bytes::Bytes sessionSetRequestBothConnected()
+bytes::Bytes SessionSetRequestBothConnected()
 {
     return {0x00, 0x00, 0x07, 0xE0, 0x10, 0x02, 0x42};
 }
 // request_kernel_id(), lines 1355-1390: UNLIKE the K-Line sibling's
 // request_kernel_id(), NOT checksum-terminated.
-bytes::Bytes requestKernelIdRequest()
+bytes::Bytes RequestKernelIdRequest()
 {
     return {0x00, 0x00, 0x07, 0xE0, 0xBE, 0xEF, 0x00, 0x01, 0x01, 0x00, 0x00, 0x00};
 }
-bytes::Bytes sid34RequestDownloadRequest(std::uint32_t start_address, std::uint32_t data_len)
+bytes::Bytes Sid34RequestDownloadRequest(std::uint32_t start_address, std::uint32_t data_len)
 {
-    return composeBe(bytes::Bytes{0x00, 0x00, 0x07, 0xE0}, 0x34_b, 0x04_b, 0x33_b, u24(start_address), u24(data_len));
+    return ComposeBe(bytes::Bytes{0x00, 0x00, 0x07, 0xE0}, 0x34_b, 0x04_b, 0x33_b, U24(start_address), U24(data_len));
 }
-bytes::Bytes sidB6TransferBlockRequest(std::uint32_t block_addr, bytes::ByteView payload)
+bytes::Bytes SidB6TransferBlockRequest(std::uint32_t block_addr, bytes::ByteView payload)
 {
-    return composeBe(bytes::Bytes{0x00, 0x00, 0x07, 0xE0}, 0xB6_b, u24(block_addr), payload);
+    return ComposeBe(bytes::Bytes{0x00, 0x00, 0x07, 0xE0}, 0xB6_b, U24(block_addr), payload);
 }
-bytes::Bytes sid37StartKernelRequest()
+bytes::Bytes Sid37StartKernelRequest()
 {
     return {0x00, 0x00, 0x07, 0xE0, 0x37};
 }
-bytes::Bytes sid31StartRoutineRequest()
+bytes::Bytes Sid31StartRoutineRequest()
 {
     return {0x00, 0x00, 0x07, 0xE0, 0x31, 0x01, 0x02, 0x02, 0x02};
 }
@@ -135,7 +135,7 @@ bytes::Bytes sid31StartRoutineRequest()
 // seedKeySendRequest({0x33, 0x44}): payload = [0x27, 0x02, 0x33, 0x44].
 TEST(DensoSh705xEepromCanExecutorTest, SeedKeySendRequestMatchesHardcodedWireBytes)
 {
-    EXPECT_THAT(seedKeySendRequest(bytes::Bytes{0x33, 0x44}),
+    EXPECT_THAT(SeedKeySendRequest(bytes::Bytes{0x33, 0x44}),
                 ElementsAre(0x00, 0x00, 0x07, 0xE0, 0x27, 0x02, 0x33, 0x44));
 }
 
@@ -144,7 +144,7 @@ TEST(DensoSh705xEepromCanExecutorTest, SeedKeySendRequestMatchesHardcodedWireByt
 //         = [0x34, 0x04, 0x33, 0x00, 0x20, 0x00, 0x00, 0x00, 0x40].
 TEST(DensoSh705xEepromCanExecutorTest, Sid34RequestDownloadRequestMatchesHardcodedWireBytes)
 {
-    EXPECT_THAT(sid34RequestDownloadRequest(0x002000, 0x000040),
+    EXPECT_THAT(Sid34RequestDownloadRequest(0x002000, 0x000040),
                 ElementsAre(0x00, 0x00, 0x07, 0xE0, 0x34, 0x04, 0x33, 0x00, 0x20, 0x00, 0x00, 0x00, 0x40));
 }
 
@@ -153,12 +153,12 @@ TEST(DensoSh705xEepromCanExecutorTest, Sid34RequestDownloadRequestMatchesHardcod
 //         = [0xB6, 0x00, 0x30, 0x00, 0x55, 0x66, 0x77].
 TEST(DensoSh705xEepromCanExecutorTest, SidB6TransferBlockRequestMatchesHardcodedWireBytes)
 {
-    EXPECT_THAT(sidB6TransferBlockRequest(0x003000, bytes::Bytes{0x55, 0x66, 0x77}),
+    EXPECT_THAT(SidB6TransferBlockRequest(0x003000, bytes::Bytes{0x55, 0x66, 0x77}),
                 ElementsAre(0x00, 0x00, 0x07, 0xE0, 0xB6, 0x00, 0x30, 0x00, 0x55, 0x66, 0x77));
 }
 // read_mem(), for McuType "SH7055" (kEepromBlocksSH7055[0] == {start=0,
 // len=0x100}): reduces to a single request with addr=0, pagesize=0x100.
-bytes::Bytes sidReadEepromRequestForSh7055(std::uint8_t eeprom_mode)
+bytes::Bytes SidReadEepromRequestForSh7055(std::uint8_t eeprom_mode)
 {
     return {
         0x00,        0x00, 0x07, 0xe0, 0xBE, 0xEF, 0x00, 0x07,
@@ -174,7 +174,7 @@ bytes::Bytes sidReadEepromRequestForSh7055(std::uint8_t eeprom_mode)
 
 // ---- Seed-key algorithms: TRANSCRIBE of each generate_*_seed_key() --------
 
-bytes::Bytes generateSeedKeyStock(bytes::ByteView seed)
+bytes::Bytes GenerateSeedKeyStock(bytes::ByteView seed)
 {
     static constexpr auto kIndex =
         std::to_array<std::uint16_t>({0x78B1, 0x4625, 0x201C, 0x9EA5, 0xAD6B, 0x35F4, 0xFD21, 0x5E71, 0xB046, 0x7F4A,
@@ -182,9 +182,9 @@ bytes::Bytes generateSeedKeyStock(bytes::ByteView seed)
     static constexpr auto kTransform =
         std::to_array<std::uint8_t>({0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8, 0xA, 0xD, 0x2, 0xB, 0xF, 0x4, 0x0, 0x3,
                                      0xB, 0x4, 0x6, 0x0, 0xF, 0x2, 0xD, 0x9, 0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8});
-    return ssm_protocol::calculateSeedKey(seed, kIndex, kTransform);
+    return ssm_protocol::CalculateSeedKey(seed, kIndex, kTransform);
 }
-bytes::Bytes generateEcutekSeedKeyPlain(bytes::ByteView seed)
+bytes::Bytes GenerateEcutekSeedKeyPlain(bytes::ByteView seed)
 {
     static constexpr auto kIndex =
         std::to_array<std::uint16_t>({0x78B1, 0x4625, 0x201C, 0x9EA5, 0xAD6B, 0x35F4, 0xFD21, 0x5E71, 0xB046, 0x7F4A,
@@ -192,9 +192,9 @@ bytes::Bytes generateEcutekSeedKeyPlain(bytes::ByteView seed)
     static constexpr auto kTransform =
         std::to_array<std::uint8_t>({0x4, 0x2, 0x5, 0x1, 0x8, 0xC, 0xD, 0x8, 0xA, 0xD, 0x2, 0xB, 0xF, 0x4, 0x0, 0x3,
                                      0xB, 0x4, 0x6, 0x0, 0xF, 0x2, 0xD, 0x9, 0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8});
-    return ssm_protocol::calculateSeedKey(seed, kIndex, kTransform);
+    return ssm_protocol::CalculateSeedKey(seed, kIndex, kTransform);
 }
-bytes::Bytes generateCobbSeedKey(bytes::ByteView seed)
+bytes::Bytes GenerateCobbSeedKey(bytes::ByteView seed)
 {
     static constexpr auto kIndex =
         std::to_array<std::uint16_t>({0x9DDB, 0x9CFB, 0x9B9A, 0x6136, 0x59E1, 0xBA03, 0xD683, 0x7092, 0x9E05, 0x8723,
@@ -202,9 +202,9 @@ bytes::Bytes generateCobbSeedKey(bytes::ByteView seed)
     static constexpr auto kTransform =
         std::to_array<std::uint8_t>({0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8, 0xA, 0xD, 0x2, 0xB, 0xF, 0x4, 0x0, 0x3,
                                      0xB, 0x4, 0x6, 0x0, 0xF, 0x2, 0xD, 0x9, 0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8});
-    return ssm_protocol::calculateSeedKey(seed, kIndex, kTransform);
+    return ssm_protocol::CalculateSeedKey(seed, kIndex, kTransform);
 }
-std::uint64_t decryptRaceromSeed(std::uint64_t base, std::uint64_t exponent, std::uint64_t modulus)
+std::uint64_t DecryptRaceromSeed(std::uint64_t base, std::uint64_t exponent, std::uint64_t modulus)
 {
     std::uint64_t result = 1;
     base = base % modulus;
@@ -219,25 +219,25 @@ std::uint64_t decryptRaceromSeed(std::uint64_t base, std::uint64_t exponent, std
     }
     return result;
 }
-bytes::Bytes generateEcutekRacecomCanSeedKey(bytes::ByteView seed)
+bytes::Bytes GenerateEcutekRacecomCanSeedKey(bytes::ByteView seed)
 {
     const std::uint32_t seed_word = (static_cast<std::uint32_t>(seed[0]) << 24) |
                                     (static_cast<std::uint32_t>(seed[1]) << 16) |
                                     (static_cast<std::uint32_t>(seed[2]) << 8) | static_cast<std::uint32_t>(seed[3]);
     constexpr std::uint64_t kD = 0x0A863281ULL;
     constexpr std::uint64_t kN = 0x0fda9293ULL;
-    const std::uint32_t decrypted = static_cast<std::uint32_t>(decryptRaceromSeed(seed_word, kD, kN));
-    return composeBe(decrypted);
+    const std::uint32_t decrypted = static_cast<std::uint32_t>(DecryptRaceromSeed(seed_word, kD, kN));
+    return ComposeBe(decrypted);
 }
 // encrypt_payload(), this class's OWN key table, distinct from the K-Line
 // sibling's.
-bytes::Bytes encryptPayloadCan(bytes::ByteView buf, std::uint32_t len)
+bytes::Bytes EncryptPayloadCan(bytes::ByteView buf, std::uint32_t len)
 {
     static constexpr auto kIndex = std::to_array<std::uint16_t>({0xC85B, 0x32C0, 0xE282, 0x92A0});
     static constexpr auto kTransform =
         std::to_array<std::uint8_t>({0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8, 0xA, 0xD, 0x2, 0xB, 0xF, 0x4, 0x0, 0x3,
                                      0xB, 0x4, 0x6, 0x0, 0xF, 0x2, 0xD, 0x9, 0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8});
-    return ssm_protocol::calculatePayload(buf, len, kIndex, kTransform);
+    return ssm_protocol::CalculatePayload(buf, len, kIndex, kTransform);
 }
 
 // ---- Kernel-upload framing: TRANSCRIBE of upload_kernel()'s padding/-------
@@ -250,7 +250,7 @@ struct KernelUploadPlan
     bytes::Bytes encrypted_payload; // length == dataLen
 };
 
-KernelUploadPlan computeKernelUploadPlan(bytes::ByteView kernel_bytes)
+KernelUploadPlan ComputeKernelUploadPlan(bytes::ByteView kernel_bytes)
 {
     KernelUploadPlan plan;
     const std::uint32_t file_len = static_cast<std::uint32_t>(kernel_bytes.size());
@@ -275,72 +275,72 @@ KernelUploadPlan computeKernelUploadPlan(bytes::ByteView kernel_bytes)
     }
     chk_sum = 0x5aa5a55aU - chk_sum;
 
-    bytes::appendU32Be(pl_encr, chk_sum);
+    bytes::AppendU32Be(pl_encr, chk_sum);
 
-    plan.encrypted_payload = encryptPayloadCan(pl_encr, static_cast<std::uint32_t>(pl_encr.size()));
+    plan.encrypted_payload = EncryptPayloadCan(pl_encr, static_cast<std::uint32_t>(pl_encr.size()));
     return plan;
 }
 
 // ---- Response fixtures ----------------------------------------------------
 
-bytes::Bytes kernelAliveResponse()
+bytes::Bytes KernelAliveResponse()
 {
     bytes::Bytes out(9, 0);
     out[4] = 0xBE;
     out[5] = 0xEF;
     out[8] = 0x41; // SUB_KERNEL_ID | 0x40
-    out = composeBe(out, std::string_view{"KERN2"});
+    out = ComposeBe(out, std::string_view{"KERN2"});
     return out; // 14 bytes
 }
-bytes::Bytes initConnResponse()
+bytes::Bytes InitConnResponse()
 {
     bytes::Bytes out(6, 0);
     out[4] = 0x41;
     out[5] = 0x00;
     return out;
 }
-bytes::Bytes ecuIdResponse()
+bytes::Bytes EcuIdResponse()
 {
     bytes::Bytes out(13, 0);
     out[4] = 0xEA;
     return out;
 }
-bytes::Bytes vinResponse()
+bytes::Bytes VinResponse()
 {
     bytes::Bytes out(6, 0);
     out[4] = 0x49;
     out[5] = 0x02;
     return out;
 }
-bytes::Bytes calIdResponse()
+bytes::Bytes CalIdResponse()
 {
     bytes::Bytes out(6, 0);
     out[4] = 0x49;
     out[5] = 0x04;
     return out;
 }
-bytes::Bytes cvnResponse()
+bytes::Bytes CvnResponse()
 {
     bytes::Bytes out(6, 0);
     out[4] = 0x49;
     out[5] = 0x06;
     return out;
 }
-bytes::Bytes session03Response()
+bytes::Bytes Session03Response()
 {
     bytes::Bytes out(6, 0);
     out[4] = 0x50;
     out[5] = 0x03;
     return out;
 }
-bytes::Bytes session43Response()
+bytes::Bytes Session43Response()
 {
     bytes::Bytes out(6, 0);
     out[4] = 0x50;
     out[5] = 0x43;
     return out;
 }
-bytes::Bytes seedResponse(bytes::ByteView seed)
+bytes::Bytes SeedResponse(bytes::ByteView seed)
 {
     bytes::Bytes out(10, 0);
     out[4] = 0x67;
@@ -351,40 +351,40 @@ bytes::Bytes seedResponse(bytes::ByteView seed)
     out[9] = seed[3];
     return out;
 }
-bytes::Bytes seedKeyAckResponse()
+bytes::Bytes SeedKeyAckResponse()
 {
     bytes::Bytes out(6, 0);
     out[4] = 0x67;
     out[5] = 0x02;
     return out;
 }
-bytes::Bytes sessionSetResponse()
+bytes::Bytes SessionSetResponse()
 {
     bytes::Bytes out(6, 0);
     out[4] = 0x50;
     out[5] = 0x02;
     return out;
 }
-bytes::Bytes sid34DownloadAckResponse()
+bytes::Bytes Sid34DownloadAckResponse()
 {
     bytes::Bytes out(6, 0);
     out[4] = 0x74;
     out[5] = 0x20;
     return out;
 }
-bytes::Bytes sid37StartAckResponse()
+bytes::Bytes Sid37StartAckResponse()
 {
     bytes::Bytes out(5, 0);
     out[4] = 0x77;
     return out;
 }
-bytes::Bytes sid31RoutineAckResponse()
+bytes::Bytes Sid31RoutineAckResponse()
 {
     bytes::Bytes out(5, 0);
     out[4] = 0x71;
     return out;
 }
-bytes::Bytes eepromHeaderAckResponse()
+bytes::Bytes EepromHeaderAckResponse()
 {
     bytes::Bytes out(9, 0);
     out[4] = 0xBE;
@@ -393,7 +393,7 @@ bytes::Bytes eepromHeaderAckResponse()
     return out;
 }
 // 8 leading bytes (stripped, unchecked) + a 0x00..0xFF ramp.
-bytes::Bytes eepromPagedataResponse264Bytes()
+bytes::Bytes EepromPagedataResponse264Bytes()
 {
     bytes::Bytes out(8, 0xEE);
     for (int i = 0; i < 256; ++i)
@@ -402,7 +402,7 @@ bytes::Bytes eepromPagedataResponse264Bytes()
     }
     return out; // 264 bytes
 }
-bytes::Bytes expectedDecodedEeprom256Bytes()
+bytes::Bytes ExpectedDecodedEeprom256Bytes()
 {
     bytes::Bytes out;
     for (int i = 0; i < 256; ++i)
@@ -415,7 +415,7 @@ bytes::Bytes expectedDecodedEeprom256Bytes()
 // upload_kernel() pads pl_encr to exactly data_len before encrypting, so
 // (unlike the K-Line sibling) there is no OOB-read risk to exercise here;
 // 16 bytes is used purely for parity/readability with the K-Line test.
-bytes::Bytes kernelFixtureBytes()
+bytes::Bytes KernelFixtureBytes()
 {
     bytes::Bytes out;
     for (int i = 0; i < 16; ++i)
@@ -427,53 +427,53 @@ bytes::Bytes kernelFixtureBytes()
 
 // Enqueues the exact write/read sequence for one full "kernel not yet
 // running" connect_bootloader() round using the Stock seed-key algorithm.
-void enqueueConnectBootloaderFullInit(ScriptedCanFlashTransport& transport, bytes::ByteView seed)
+void EnqueueConnectBootloaderFullInit(ScriptedCanFlashTransport& transport, bytes::ByteView seed)
 {
-    transport.expectWrite(requestKernelIdRequest());
-    transport.queue_no_frame(); // kernel not (yet) alive
+    transport.ExpectWrite(RequestKernelIdRequest());
+    transport.QueueNoFrame(); // kernel not (yet) alive
 
-    transport.expectWrite(initConnectionRequest());
-    transport.queueRead(initConnResponse());
+    transport.ExpectWrite(InitConnectionRequest());
+    transport.QueueRead(InitConnResponse());
 
-    transport.expectWrite(ecuIdRequest());
-    transport.queueRead(ecuIdResponse());
+    transport.ExpectWrite(EcuIdRequest());
+    transport.QueueRead(EcuIdResponse());
 
-    transport.expectWrite(vinRequest());
-    transport.queueRead(vinResponse());
+    transport.ExpectWrite(VinRequest());
+    transport.QueueRead(VinResponse());
 
-    transport.expectWrite(calIdRequest());
-    transport.queueRead(calIdResponse());
+    transport.ExpectWrite(CalIdRequest());
+    transport.QueueRead(CalIdResponse());
 
-    transport.expectWrite(cvnRequest());
-    transport.queueRead(cvnResponse());
+    transport.ExpectWrite(CvnRequest());
+    transport.QueueRead(CvnResponse());
 
-    transport.expectWrite(sessionMode03Request());
-    transport.queueRead(session03Response());
+    transport.ExpectWrite(SessionMode03Request());
+    transport.QueueRead(Session03Response());
 
-    transport.expectWrite(sessionMode43Request());
-    transport.queueRead(session43Response());
+    transport.ExpectWrite(SessionMode43Request());
+    transport.QueueRead(Session43Response());
 
-    transport.expectWrite(seedRequestFrame());
-    transport.queueRead(seedResponse(seed));
+    transport.ExpectWrite(SeedRequestFrame());
+    transport.QueueRead(SeedResponse(seed));
 
-    const bytes::Bytes seed_key = generateSeedKeyStock(seed);
-    transport.expectWrite(seedKeySendRequest(seed_key));
-    transport.queueRead(seedKeyAckResponse());
+    const bytes::Bytes seed_key = GenerateSeedKeyStock(seed);
+    transport.ExpectWrite(SeedKeySendRequest(seed_key));
+    transport.QueueRead(SeedKeyAckResponse());
 
-    transport.expectWrite(sessionSetRequestBothConnected());
-    transport.queueRead(sessionSetResponse());
+    transport.ExpectWrite(SessionSetRequestBothConnected());
+    transport.QueueRead(SessionSetResponse());
 }
 
 // Enqueues the exact write/read sequence one upload_kernel() round produces
 // for a given kernel fixture: SID34, one 0xB6 frame per block (the last one
 // empty -- see sidB6TransferBlockRequest()'s call site comment below), 0x37,
 // 0x31, then the post-upload single-attempt request_kernel_id() poll.
-void enqueueUploadKernel(ScriptedCanFlashTransport& transport, bytes::ByteView kernel_bytes,
+void EnqueueUploadKernel(ScriptedCanFlashTransport& transport, bytes::ByteView kernel_bytes,
                          std::uint32_t kernel_start_addr)
 {
-    const KernelUploadPlan plan = computeKernelUploadPlan(kernel_bytes);
-    transport.expectWrite(sid34RequestDownloadRequest(kernel_start_addr, plan.data_len));
-    transport.queueRead(sid34DownloadAckResponse());
+    const KernelUploadPlan plan = ComputeKernelUploadPlan(kernel_bytes);
+    transport.ExpectWrite(Sid34RequestDownloadRequest(kernel_start_addr, plan.data_len));
+    transport.QueueRead(Sid34DownloadAckResponse());
 
     // lines 816-857: blockno runs 0..maxBlocks INCLUSIVE. Since dataLen ==
     // maxBlocks*128 exactly, the final (blockno==maxBlocks) iteration's chunk
@@ -485,33 +485,33 @@ void enqueueUploadKernel(ScriptedCanFlashTransport& transport, bytes::ByteView k
             blockno < plan.max_blocks
                 ? bytes::ByteView(plan.encrypted_payload).subspan(static_cast<std::size_t>(blockno) * 128, 128)
                 : bytes::ByteView{};
-        transport.expectWrite(sidB6TransferBlockRequest(block_addr, chunk));
-        transport.queue_no_frame(); // response content is never inspected
+        transport.ExpectWrite(SidB6TransferBlockRequest(block_addr, chunk));
+        transport.QueueNoFrame(); // response content is never inspected
     }
 
-    transport.expectWrite(sid37StartKernelRequest());
-    transport.queueRead(sid37StartAckResponse());
+    transport.ExpectWrite(Sid37StartKernelRequest());
+    transport.QueueRead(Sid37StartAckResponse());
 
-    transport.expectWrite(sid31StartRoutineRequest());
-    transport.queueRead(sid31RoutineAckResponse());
+    transport.ExpectWrite(Sid31StartRoutineRequest());
+    transport.QueueRead(Sid31RoutineAckResponse());
 
-    transport.expectWrite(requestKernelIdRequest());
-    transport.queueRead(kernelAliveResponse());
+    transport.ExpectWrite(RequestKernelIdRequest());
+    transport.QueueRead(KernelAliveResponse());
 }
 
 // Enqueues the exact write/read sequence one read_mem() page (SH7055's
 // single page) consumes.
-void enqueueReadMem(ScriptedCanFlashTransport& transport, std::uint8_t eeprom_mode)
+void EnqueueReadMem(ScriptedCanFlashTransport& transport, std::uint8_t eeprom_mode)
 {
-    transport.expectWrite(sidReadEepromRequestForSh7055(eeprom_mode));
-    transport.queueRead(eepromHeaderAckResponse());
-    transport.queueRead(eepromPagedataResponse264Bytes());
+    transport.ExpectWrite(SidReadEepromRequestForSh7055(eeprom_mode));
+    transport.QueueRead(EepromHeaderAckResponse());
+    transport.QueueRead(EepromPagedataResponse264Bytes());
 }
 
-Result<FlashPlan> makeCanPlan(DensoSecurityVariant security, EepromReadMode mode, bytes::Bytes kernel_bytes,
+Result<FlashPlan> MakeCanPlan(DensoSecurityVariant security, EepromReadMode mode, bytes::Bytes kernel_bytes,
                               std::uint32_t kernel_addr)
 {
-    return build_denso_sh705x_eeprom_plan(DensoSh705xEepromInput{
+    return BuildDensoSh705xEepromPlan(DensoSh705xEepromInput{
         .operation = FlashOperation::kRead,
         .family = FlashFamily::kDensoSh705xEepromCan,
         .target_id = "sub_ecu_eeprom_denso_sh7055_densocan",
@@ -524,9 +524,9 @@ Result<FlashPlan> makeCanPlan(DensoSecurityVariant security, EepromReadMode mode
     });
 }
 
-Result<FlashPlan> valid_can_plan(EepromReadMode mode = EepromReadMode::kMode2)
+Result<FlashPlan> ValidCanPlan(EepromReadMode mode = EepromReadMode::kMode2)
 {
-    return makeCanPlan(DensoSecurityVariant::kStock, mode, kernelFixtureBytes(), kKernelStartAddr);
+    return MakeCanPlan(DensoSecurityVariant::kStock, mode, KernelFixtureBytes(), kKernelStartAddr);
 }
 
 static_assert(kRequestId == 0x7e0, "kernel-id/handshake frame literals above assume request_id == 0x7e0");
@@ -535,11 +535,11 @@ static_assert(kRequestId == 0x7e0, "kernel-id/handshake frame literals above ass
 
 TEST(DensoSh705xEepromCanExecutorTest, TransportSetupReturnsThePlansWireParameters)
 {
-    auto plan = valid_can_plan();
+    auto plan = ValidCanPlan();
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
     DensoSh705xEepromCanExecutor executor;
-    const auto setup = executor.transport_setup(*plan);
+    const auto setup = executor.TransportSetup(*plan);
 
     ASSERT_THAT(setup, fastecu::testing::IsOk());
     EXPECT_EQ(setup->bitrate, 500000);
@@ -550,7 +550,7 @@ TEST(DensoSh705xEepromCanExecutorTest, TransportSetupReturnsThePlansWireParamete
 
 TEST(DensoSh705xEepromCanExecutorTest, WrongFamilyPlanIsRejectedWithNoTransportCalls)
 {
-    auto plan = build_denso_sh705x_eeprom_plan(DensoSh705xEepromInput{
+    auto plan = BuildDensoSh705xEepromPlan(DensoSh705xEepromInput{
         .operation = FlashOperation::kRead,
         .family = FlashFamily::kDensoSh705xEepromKline,
         .target_id = "sub_ecu_eeprom_denso_sh7055_kline",
@@ -569,58 +569,58 @@ TEST(DensoSh705xEepromCanExecutorTest, WrongFamilyPlanIsRejectedWithNoTransportC
     FakeCancellationToken cancellation;
     RecordingEventSink events;
 
-    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
+    ASSERT_THAT(executor.Execute(*plan, transport, clock, cancellation, events),
                 fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
-    EXPECT_TRUE(transport.scriptConsumed()); // nothing was ever queued or consumed
+    EXPECT_TRUE(transport.ScriptConsumed()); // nothing was ever queued or consumed
 }
 
 TEST(DensoSh705xEepromCanExecutorTest, KernelAlreadyRunningSkipsBootloaderMatchesLegacyTrace)
 {
-    auto plan = valid_can_plan(EepromReadMode::kMode2);
+    auto plan = ValidCanPlan(EepromReadMode::kMode2);
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
     ScriptedCanFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::kOpen};
-    transport.expectWrite(requestKernelIdRequest());
-    transport.queueRead(kernelAliveResponse());
-    enqueueReadMem(transport, 2);
+    transport.ExpectWrite(RequestKernelIdRequest());
+    transport.QueueRead(KernelAliveResponse());
+    EnqueueReadMem(transport, 2);
 
     DensoSh705xEepromCanExecutor executor;
     FakeClock clock;
     FakeCancellationToken cancellation;
     RecordingEventSink events;
 
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
+    auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(result->operation, FlashOperation::kRead);
     ASSERT_TRUE(result->read_bytes.has_value());
-    EXPECT_EQ(*result->read_bytes, expectedDecodedEeprom256Bytes());
-    EXPECT_TRUE(transport.scriptConsumed());
+    EXPECT_EQ(*result->read_bytes, ExpectedDecodedEeprom256Bytes());
+    EXPECT_TRUE(transport.ScriptConsumed());
 }
 
 TEST(DensoSh705xEepromCanExecutorTest, FullBootloaderStockSecurityMode2MatchesLegacyTrace)
 {
-    auto plan = valid_can_plan(EepromReadMode::kMode2);
+    auto plan = ValidCanPlan(EepromReadMode::kMode2);
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
     ScriptedCanFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::kOpen};
     const bytes::Bytes seed{0x11, 0x22, 0x33, 0x44};
-    enqueueConnectBootloaderFullInit(transport, seed);
-    enqueueUploadKernel(transport, kernelFixtureBytes(), kKernelStartAddr);
-    enqueueReadMem(transport, 2);
+    EnqueueConnectBootloaderFullInit(transport, seed);
+    EnqueueUploadKernel(transport, KernelFixtureBytes(), kKernelStartAddr);
+    EnqueueReadMem(transport, 2);
 
     DensoSh705xEepromCanExecutor executor;
     FakeClock clock;
     FakeCancellationToken cancellation;
     RecordingEventSink events;
 
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
+    auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(result->operation, FlashOperation::kRead);
     ASSERT_TRUE(result->read_bytes.has_value());
-    EXPECT_EQ(*result->read_bytes, expectedDecodedEeprom256Bytes());
-    EXPECT_TRUE(transport.scriptConsumed());
+    EXPECT_EQ(*result->read_bytes, ExpectedDecodedEeprom256Bytes());
+    EXPECT_TRUE(transport.ScriptConsumed());
 }
 
 // Pins that connect_bootloader()'s security-variant dispatch really does
@@ -642,28 +642,28 @@ TEST(DensoSh705xEepromCanExecutorTest, AllFourSecurityVariantsProduceDistinctSee
 
     for (DensoSecurityVariant security : kVariants)
     {
-        auto plan = makeCanPlan(security, EepromReadMode::kMode2, kernelFixtureBytes(), kKernelStartAddr);
+        auto plan = MakeCanPlan(security, EepromReadMode::kMode2, KernelFixtureBytes(), kKernelStartAddr);
         ASSERT_THAT(plan, fastecu::testing::IsOk());
 
         ScriptedCanFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::kOpen};
-        transport.expectWrite(requestKernelIdRequest());
-        transport.queue_no_frame();
-        transport.expectWrite(initConnectionRequest());
-        transport.queueRead(initConnResponse());
-        transport.expectWrite(ecuIdRequest());
-        transport.queueRead(ecuIdResponse());
-        transport.expectWrite(vinRequest());
-        transport.queueRead(vinResponse());
-        transport.expectWrite(calIdRequest());
-        transport.queueRead(calIdResponse());
-        transport.expectWrite(cvnRequest());
-        transport.queueRead(cvnResponse());
-        transport.expectWrite(sessionMode03Request());
-        transport.queueRead(session03Response());
-        transport.expectWrite(sessionMode43Request());
-        transport.queueRead(session43Response());
-        transport.expectWrite(seedRequestFrame());
-        transport.queueRead(seedResponse(seed));
+        transport.ExpectWrite(RequestKernelIdRequest());
+        transport.QueueNoFrame();
+        transport.ExpectWrite(InitConnectionRequest());
+        transport.QueueRead(InitConnResponse());
+        transport.ExpectWrite(EcuIdRequest());
+        transport.QueueRead(EcuIdResponse());
+        transport.ExpectWrite(VinRequest());
+        transport.QueueRead(VinResponse());
+        transport.ExpectWrite(CalIdRequest());
+        transport.QueueRead(CalIdResponse());
+        transport.ExpectWrite(CvnRequest());
+        transport.QueueRead(CvnResponse());
+        transport.ExpectWrite(SessionMode03Request());
+        transport.QueueRead(Session03Response());
+        transport.ExpectWrite(SessionMode43Request());
+        transport.QueueRead(Session43Response());
+        transport.ExpectWrite(SeedRequestFrame());
+        transport.QueueRead(SeedResponse(seed));
         // The seed-key-send frame itself is captured via expectWrite() below
         // (whichever bytes the executor sends must match, or the write fails
         // with ErrorKind::kInternal) -- we don't know its expected content
@@ -675,30 +675,30 @@ TEST(DensoSh705xEepromCanExecutorTest, AllFourSecurityVariantsProduceDistinctSee
             switch (security)
             {
             case DensoSecurityVariant::kStock:
-                return generateSeedKeyStock(seed);
+                return GenerateSeedKeyStock(seed);
             case DensoSecurityVariant::kEcuTek:
-                return generateEcutekSeedKeyPlain(seed);
+                return GenerateEcutekSeedKeyPlain(seed);
             case DensoSecurityVariant::kCobb:
-                return generateCobbSeedKey(seed);
+                return GenerateCobbSeedKey(seed);
             case DensoSecurityVariant::kEcuTekRaceRom:
-                return generateEcutekRacecomCanSeedKey(seed);
+                return GenerateEcutekRacecomCanSeedKey(seed);
             }
             return {};
         }();
-        transport.expectWrite(seedKeySendRequest(expected_key));
-        transport.queue_no_frame(); // no response at all -> Timeout, stopping the round here
+        transport.ExpectWrite(SeedKeySendRequest(expected_key));
+        transport.QueueNoFrame(); // no response at all -> Timeout, stopping the round here
 
         DensoSh705xEepromCanExecutor executor;
         FakeClock clock;
         FakeCancellationToken cancellation;
         RecordingEventSink events;
 
-        ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
+        ASSERT_THAT(executor.Execute(*plan, transport, clock, cancellation, events),
                     fastecu::testing::IsErr(ErrorKind::kTimeout));
-        EXPECT_EQ(transport.writesConsumed(), 10U); // kernel-id probe + 9 handshake writes
-        EXPECT_TRUE(transport.scriptConsumed());
+        EXPECT_EQ(transport.WritesConsumed(), 10U); // kernel-id probe + 9 handshake writes
+        EXPECT_TRUE(transport.ScriptConsumed());
 
-        seed_key_frames.push_back(seedKeySendRequest(expected_key));
+        seed_key_frames.push_back(SeedKeySendRequest(expected_key));
     }
 
     for (std::size_t i = 0; i < seed_key_frames.size(); ++i)
@@ -713,85 +713,85 @@ TEST(DensoSh705xEepromCanExecutorTest, AllFourSecurityVariantsProduceDistinctSee
 
 TEST(DensoSh705xEepromCanExecutorTest, NoResponseAtSeedRequestReturnsTimeout)
 {
-    auto plan = valid_can_plan(EepromReadMode::kMode2);
+    auto plan = ValidCanPlan(EepromReadMode::kMode2);
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
     ScriptedCanFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::kOpen};
-    transport.expectWrite(requestKernelIdRequest());
-    transport.queue_no_frame();
-    transport.expectWrite(initConnectionRequest());
-    transport.queueRead(initConnResponse());
-    transport.expectWrite(ecuIdRequest());
-    transport.queueRead(ecuIdResponse());
-    transport.expectWrite(vinRequest());
-    transport.queueRead(vinResponse());
-    transport.expectWrite(calIdRequest());
-    transport.queueRead(calIdResponse());
-    transport.expectWrite(cvnRequest());
-    transport.queueRead(cvnResponse());
-    transport.expectWrite(sessionMode03Request());
-    transport.queueRead(session03Response());
-    transport.expectWrite(sessionMode43Request());
-    transport.queueRead(session43Response());
-    transport.expectWrite(seedRequestFrame());
-    transport.queue_no_frame(); // no response at all -> Timeout
+    transport.ExpectWrite(RequestKernelIdRequest());
+    transport.QueueNoFrame();
+    transport.ExpectWrite(InitConnectionRequest());
+    transport.QueueRead(InitConnResponse());
+    transport.ExpectWrite(EcuIdRequest());
+    transport.QueueRead(EcuIdResponse());
+    transport.ExpectWrite(VinRequest());
+    transport.QueueRead(VinResponse());
+    transport.ExpectWrite(CalIdRequest());
+    transport.QueueRead(CalIdResponse());
+    transport.ExpectWrite(CvnRequest());
+    transport.QueueRead(CvnResponse());
+    transport.ExpectWrite(SessionMode03Request());
+    transport.QueueRead(Session03Response());
+    transport.ExpectWrite(SessionMode43Request());
+    transport.QueueRead(Session43Response());
+    transport.ExpectWrite(SeedRequestFrame());
+    transport.QueueNoFrame(); // no response at all -> Timeout
 
     DensoSh705xEepromCanExecutor executor;
     FakeClock clock;
     FakeCancellationToken cancellation;
     RecordingEventSink events;
 
-    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
+    ASSERT_THAT(executor.Execute(*plan, transport, clock, cancellation, events),
                 fastecu::testing::IsErr(ErrorKind::kTimeout));
 }
 
 TEST(DensoSh705xEepromCanExecutorTest, MalformedSeedResponseReturnsBadResponse)
 {
-    auto plan = valid_can_plan(EepromReadMode::kMode2);
+    auto plan = ValidCanPlan(EepromReadMode::kMode2);
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
     ScriptedCanFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::kOpen};
-    transport.expectWrite(requestKernelIdRequest());
-    transport.queue_no_frame();
-    transport.expectWrite(initConnectionRequest());
-    transport.queueRead(initConnResponse());
-    transport.expectWrite(ecuIdRequest());
-    transport.queueRead(ecuIdResponse());
-    transport.expectWrite(vinRequest());
-    transport.queueRead(vinResponse());
-    transport.expectWrite(calIdRequest());
-    transport.queueRead(calIdResponse());
-    transport.expectWrite(cvnRequest());
-    transport.queueRead(cvnResponse());
-    transport.expectWrite(sessionMode03Request());
-    transport.queueRead(session03Response());
-    transport.expectWrite(sessionMode43Request());
-    transport.queueRead(session43Response());
-    transport.expectWrite(seedRequestFrame());
+    transport.ExpectWrite(RequestKernelIdRequest());
+    transport.QueueNoFrame();
+    transport.ExpectWrite(InitConnectionRequest());
+    transport.QueueRead(InitConnResponse());
+    transport.ExpectWrite(EcuIdRequest());
+    transport.QueueRead(EcuIdResponse());
+    transport.ExpectWrite(VinRequest());
+    transport.QueueRead(VinResponse());
+    transport.ExpectWrite(CalIdRequest());
+    transport.QueueRead(CalIdResponse());
+    transport.ExpectWrite(CvnRequest());
+    transport.QueueRead(CvnResponse());
+    transport.ExpectWrite(SessionMode03Request());
+    transport.QueueRead(Session03Response());
+    transport.ExpectWrite(SessionMode43Request());
+    transport.QueueRead(Session43Response());
+    transport.ExpectWrite(SeedRequestFrame());
     bytes::Bytes malformed(6, 0);
     malformed[4] = 0x00; // should be 0x67
     malformed[5] = 0x00; // should be 0x01
-    transport.queueRead(malformed);
+    transport.QueueRead(malformed);
 
     DensoSh705xEepromCanExecutor executor;
     FakeClock clock;
     FakeCancellationToken cancellation;
     RecordingEventSink events;
 
-    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
+    ASSERT_THAT(executor.Execute(*plan, transport, clock, cancellation, events),
                 fastecu::testing::IsErr(ErrorKind::kBadResponse));
 }
 
 TEST(DensoSh705xEepromCanExecutorTest, CancellationDuringKernelUploadReturnsCancelled)
 {
-    auto plan = valid_can_plan(EepromReadMode::kMode2);
+    auto plan = ValidCanPlan(EepromReadMode::kMode2);
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
     ScriptedCanFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::kOpen};
     const bytes::Bytes seed{0x11, 0x22, 0x33, 0x44};
-    enqueueConnectBootloaderFullInit(transport, seed);
-    enqueueUploadKernel(transport, kernelFixtureBytes(), kKernelStartAddr);
-    enqueueReadMem(transport, 2);
+    EnqueueConnectBootloaderFullInit(transport, seed);
+    EnqueueUploadKernel(transport, KernelFixtureBytes(), kKernelStartAddr);
+    EnqueueReadMem(transport, 2);
 
     DensoSh705xEepromCanExecutor executor;
     FakeClock clock;
@@ -803,12 +803,12 @@ TEST(DensoSh705xEepromCanExecutorTest, CancellationDuringKernelUploadReturnsCanc
     // (what would be write #12) is never written. N tuned empirically against
     // this exact trace's total cancellation.cancelled() call count.
     FakeCancellationToken cancellation;
-    cancellation.cancel_on_check(75);
+    cancellation.CancelOnCheck(75);
     RecordingEventSink events;
 
-    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
+    ASSERT_THAT(executor.Execute(*plan, transport, clock, cancellation, events),
                 fastecu::testing::IsErr(ErrorKind::kCancelled));
-    EXPECT_EQ(transport.writesConsumed(), 11U);
+    EXPECT_EQ(transport.WritesConsumed(), 11U);
 }
 
 } // namespace fastecu::flash

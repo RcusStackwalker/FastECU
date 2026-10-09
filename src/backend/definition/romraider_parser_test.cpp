@@ -15,13 +15,13 @@ namespace fastecu::definition
 namespace
 {
 
-std::vector<std::uint8_t> bytes(std::string_view text)
+std::vector<std::uint8_t> Bytes(std::string_view text)
 {
     return {text.begin(), text.end()};
 }
 
-void expect_invalid_with_context(const Result<UnresolvedDefinition>& result, std::string_view source_context,
-                                 std::string_view xml_context)
+void ExpectInvalidWithContext(const Result<UnresolvedDefinition>& result, std::string_view source_context,
+                              std::string_view xml_context)
 {
     ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     EXPECT_THAT(result.error().detail, ::testing::HasSubstr(source_context));
@@ -30,7 +30,7 @@ void expect_invalid_with_context(const Result<UnresolvedDefinition>& result, std
 
 TEST(RomRaiderParserTest, IndexesMultipleDefinitionsAndRecordsParentReferences)
 {
-    const auto xml = bytes(R"xml(
+    const auto xml = Bytes(R"xml(
       <roms>
         <rom>
           <romid><xmlid>BASE</xmlid><internalidstring>BASE-ID</internalidstring></romid>
@@ -43,7 +43,7 @@ TEST(RomRaiderParserTest, IndexesMultipleDefinitionsAndRecordsParentReferences)
         </rom>
       </roms>)xml");
 
-    auto result = parse_romraider_index(xml, "rr.xml");
+    auto result = ParseRomraiderIndex(xml, "rr.xml");
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_EQ(result->size(), 2U);
@@ -61,7 +61,7 @@ TEST(RomRaiderParserTest, IndexesMultipleDefinitionsAndRecordsParentReferences)
 
 TEST(RomRaiderParserTest, ParsesChildWithoutResolvingItsBase)
 {
-    const auto xml = bytes(R"xml(
+    const auto xml = Bytes(R"xml(
       <roms><rom base="BASE"><romid><xmlid>CHILD</xmlid>
       <internalidaddress>100</internalidaddress>
       <internalidstring>ABCD</internalidstring><ecuid>ECU-A</ecuid>
@@ -91,7 +91,7 @@ TEST(RomRaiderParserTest, ParsesChildWithoutResolvingItsBase)
         </table>
       </table></rom></roms>)xml");
 
-    auto result = parse_romraider_definition(xml, "rr.xml", "CHILD");
+    auto result = ParseRomraiderDefinition(xml, "rr.xml", "CHILD");
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(result->format, DefinitionFormat::kRomRaider);
@@ -173,13 +173,13 @@ TEST(RomRaiderParserTest, ParsesChildWithoutResolvingItsBase)
 
 TEST(RomRaiderParserTest, ConvertsSwitchStatesToSelectableScaling)
 {
-    const auto xml = bytes(R"xml(
+    const auto xml = Bytes(R"xml(
       <roms><rom><romid><xmlid>SWITCHES</xmlid></romid>
       <table name="Feature Switch" storageaddress="2A" type="Switch">
         <state name="off" data="00"/><state name="on" data="01"/>
       </table></rom></roms>)xml");
 
-    auto result = parse_romraider_definition(xml, "switches.xml", "SWITCHES");
+    auto result = ParseRomraiderDefinition(xml, "switches.xml", "SWITCHES");
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_EQ(result->maps.size(), 1U);
@@ -197,14 +197,14 @@ TEST(RomRaiderParserTest, ConvertsSwitchStatesToSelectableScaling)
 
 TEST(RomRaiderParserTest, SwitchWithInlineScalingAppendsTableStatesAfterScalingData)
 {
-    const auto xml = bytes(R"xml(
+    const auto xml = Bytes(R"xml(
       <roms><rom><romid><xmlid>SWITCHES</xmlid></romid>
       <table name="Feature Switch" storageaddress="2A" type="Switch">
         <scaling name="switch-scale" storagetype="uint8"><data name="auto" value="02"/></scaling>
         <state name="off" data="00"/><state name="on" data="01"/>
       </table></rom></roms>)xml");
 
-    auto result = parse_romraider_definition(xml, "switches.xml", "SWITCHES");
+    auto result = ParseRomraiderDefinition(xml, "switches.xml", "SWITCHES");
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_EQ(result->maps.size(), 1U);
@@ -222,7 +222,7 @@ TEST(RomRaiderParserTest, SwitchWithInlineScalingAppendsTableStatesAfterScalingD
 
 TEST(RomRaiderParserTest, AxisScalingFallsBackToTheAxisTableAttributes)
 {
-    const auto xml = bytes(R"xml(
+    const auto xml = Bytes(R"xml(
       <roms><rom><romid><xmlid>FALLBACK</xmlid></romid>
       <table name="Fuel" type="2D" sizey="2">
         <table type="Y Axis" name="Load" elements="2" storagetype="uint8" endian="little"
@@ -231,7 +231,7 @@ TEST(RomRaiderParserTest, AxisScalingFallsBackToTheAxisTableAttributes)
         </table>
       </table></rom></roms>)xml");
 
-    auto result = parse_romraider_definition(xml, "fallback.xml", "FALLBACK");
+    auto result = ParseRomraiderDefinition(xml, "fallback.xml", "FALLBACK");
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_EQ(result->scalings.size(), 1U);
@@ -245,22 +245,22 @@ TEST(RomRaiderParserTest, AxisScalingFallsBackToTheAxisTableAttributes)
 
 TEST(RomRaiderParserTest, AxisWithoutANameIsInvalidConfigNamingTheAxisType)
 {
-    auto result = parse_romraider_definition(bytes(R"xml(
+    auto result = ParseRomraiderDefinition(Bytes(R"xml(
       <roms><rom><romid><xmlid>A</xmlid></romid><table name="Fuel" type="3D">
       <table type="X Axis"/></table></rom></roms>)xml"),
-                                             "bad-axis.xml", "A");
-    expect_invalid_with_context(result, "bad-axis.xml", "type 'X Axis'");
+                                           "bad-axis.xml", "A");
+    ExpectInvalidWithContext(result, "bad-axis.xml", "type 'X Axis'");
 }
 
 TEST(RomRaiderParserTest, NormalizesLegacyTwoDimensionalYAxisDimensions)
 {
-    const auto xml = bytes(R"xml(
+    const auto xml = Bytes(R"xml(
       <roms><rom><romid><xmlid>CURVE</xmlid></romid>
       <table name="Curve" type="2D" sizey="4">
         <table type="Y Axis" name="Curve Points" storageaddress="80"/>
       </table></rom></roms>)xml");
 
-    auto result = parse_romraider_definition(xml, "curve.xml", "CURVE");
+    auto result = ParseRomraiderDefinition(xml, "curve.xml", "CURVE");
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_EQ(result->maps.size(), 1U);
@@ -275,13 +275,13 @@ TEST(RomRaiderParserTest, NormalizesLegacyTwoDimensionalYAxisDimensions)
 
 TEST(RomRaiderParserTest, NormalizesLegacyStaticYAxisDimensions)
 {
-    const auto xml = bytes(R"xml(
+    const auto xml = Bytes(R"xml(
       <roms><rom><romid><xmlid>STATIC_CURVE</xmlid></romid>
       <table name="Static Curve" type="3D" sizey="5">
         <table type="Static Y Axis" name="Static Points"/>
       </table></rom></roms>)xml");
 
-    auto result = parse_romraider_definition(xml, "static-curve.xml", "STATIC_CURVE");
+    auto result = ParseRomraiderDefinition(xml, "static-curve.xml", "STATIC_CURVE");
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_EQ(result->maps.size(), 1U);
@@ -295,12 +295,12 @@ TEST(RomRaiderParserTest, NormalizesLegacyStaticYAxisDimensions)
 
 TEST(RomRaiderParserTest, UsesAddressBeforeStorageAddressAndPreservesAbsentOptionalFields)
 {
-    const auto xml = bytes(R"xml(
+    const auto xml = Bytes(R"xml(
       <roms><rom base=""><romid><xmlid>MINIMAL</xmlid></romid>
       <table name="Minimal Map" address="20" storageaddress="30"/>
       </rom></roms>)xml");
 
-    auto result = parse_romraider_definition(xml, "minimal.xml", "MINIMAL");
+    auto result = ParseRomraiderDefinition(xml, "minimal.xml", "MINIMAL");
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_TRUE(result->parents.empty());
@@ -317,30 +317,30 @@ TEST(RomRaiderParserTest, UsesAddressBeforeStorageAddressAndPreservesAbsentOptio
 
 TEST(RomRaiderParserTest, MalformedXmlIsInvalidConfigWithSourceAndDocumentContext)
 {
-    const auto xml = bytes("<roms><rom>");
+    const auto xml = Bytes("<roms><rom>");
 
-    auto result = parse_romraider_definition(xml, "broken.xml", "A");
+    auto result = ParseRomraiderDefinition(xml, "broken.xml", "A");
 
-    expect_invalid_with_context(result, "broken.xml", "XML document");
+    ExpectInvalidWithContext(result, "broken.xml", "XML document");
 }
 
 TEST(RomRaiderParserTest, MissingXmlIdIsInvalidConfigWithElementContext)
 {
-    const auto xml = bytes("<roms><rom><romid><ecuid>E</ecuid></romid></rom></roms>");
+    const auto xml = Bytes("<roms><rom><romid><ecuid>E</ecuid></romid></rom></roms>");
 
-    auto result = parse_romraider_definition(xml, "missing-id.xml", "A");
+    auto result = ParseRomraiderDefinition(xml, "missing-id.xml", "A");
 
-    expect_invalid_with_context(result, "missing-id.xml", "<xmlid>");
+    ExpectInvalidWithContext(result, "missing-id.xml", "<xmlid>");
 }
 
 TEST(RomRaiderParserTest, InvalidAddressIsInvalidConfigWithAttributeContext)
 {
-    const auto xml = bytes("<roms><rom><romid><xmlid>A</xmlid></romid>"
+    const auto xml = Bytes("<roms><rom><romid><xmlid>A</xmlid></romid>"
                            "<table name=\"Fuel\" storageaddress=\"not-hex\"/></rom></roms>");
 
-    auto result = parse_romraider_definition(xml, "bad-address.xml", "A");
+    auto result = ParseRomraiderDefinition(xml, "bad-address.xml", "A");
 
-    expect_invalid_with_context(result, "bad-address.xml", "storageaddress");
+    ExpectInvalidWithContext(result, "bad-address.xml", "storageaddress");
 }
 
 TEST(RomRaiderParserTest, InvalidStartPositionOrIntervalIsInvalidConfigWithAttributeContext)
@@ -351,87 +351,87 @@ TEST(RomRaiderParserTest, InvalidStartPositionOrIntervalIsInvalidConfigWithAttri
                                             "<table name=\"Fuel\" ") +
                                 attribute + "=\"not-hex\"/></rom></roms>";
 
-        auto result = parse_romraider_definition(bytes(xml), "bad-hex-dimension.xml", "A");
+        auto result = ParseRomraiderDefinition(Bytes(xml), "bad-hex-dimension.xml", "A");
 
-        expect_invalid_with_context(result, "bad-hex-dimension.xml", attribute);
+        ExpectInvalidWithContext(result, "bad-hex-dimension.xml", attribute);
     }
 }
 
 TEST(RomRaiderParserTest, UnrecognizedStorageTypeIsInvalidConfigWithAttributeContext)
 {
-    const auto xml = bytes("<roms><rom><romid><xmlid>A</xmlid></romid>"
+    const auto xml = Bytes("<roms><rom><romid><xmlid>A</xmlid></romid>"
                            "<table name=\"Fuel\" storagetype=\"nibble\"/></rom></roms>");
 
-    auto result = parse_romraider_definition(xml, "bad-storagetype.xml", "A");
+    auto result = ParseRomraiderDefinition(xml, "bad-storagetype.xml", "A");
 
-    expect_invalid_with_context(result, "bad-storagetype.xml", "storagetype");
+    ExpectInvalidWithContext(result, "bad-storagetype.xml", "storagetype");
 }
 
 TEST(RomRaiderParserTest, InvalidBooleanIsInvalidConfigWithAttributeContext)
 {
-    const auto xml = bytes("<roms><rom><romid><xmlid>A</xmlid></romid>"
+    const auto xml = Bytes("<roms><rom><romid><xmlid>A</xmlid></romid>"
                            "<table name=\"Fuel\" flipx=\"yes\"/></rom></roms>");
 
-    auto result = parse_romraider_definition(xml, "bad-bool.xml", "A");
+    auto result = ParseRomraiderDefinition(xml, "bad-bool.xml", "A");
 
-    expect_invalid_with_context(result, "bad-bool.xml", "flipx");
+    ExpectInvalidWithContext(result, "bad-bool.xml", "flipx");
 }
 
 TEST(RomRaiderParserTest, DuplicateMapIdentityIsInvalidConfigWithTableContext)
 {
-    const auto xml = bytes("<roms><rom><romid><xmlid>A</xmlid></romid>"
+    const auto xml = Bytes("<roms><rom><romid><xmlid>A</xmlid></romid>"
                            "<table name=\"Fuel\"/><table name=\"Fuel\"/></rom></roms>");
 
-    auto result = parse_romraider_definition(xml, "duplicate.xml", "A");
+    auto result = ParseRomraiderDefinition(xml, "duplicate.xml", "A");
 
-    expect_invalid_with_context(result, "duplicate.xml", "<table>");
+    ExpectInvalidWithContext(result, "duplicate.xml", "<table>");
 }
 
 TEST(RomRaiderParserTest, RejectsSecondAxisTargetingAnOccupiedSemanticSlot)
 {
-    auto duplicate_x = parse_romraider_definition(bytes(R"xml(
+    auto duplicate_x = ParseRomraiderDefinition(Bytes(R"xml(
       <roms><rom><romid><xmlid>X_DUPLICATE</xmlid></romid>
       <table name="Fuel" type="3D" sizex="2" sizey="2">
         <table type="X Axis" name="First X"/>
         <table type="Static X Axis" name="Second X"/>
         <table type="Y Axis" name="Only Y"/>
       </table></rom></roms>)xml"),
-                                                  "duplicate-x-axis.xml", "X_DUPLICATE");
-    expect_invalid_with_context(duplicate_x, "duplicate-x-axis.xml", "X axis");
+                                                "duplicate-x-axis.xml", "X_DUPLICATE");
+    ExpectInvalidWithContext(duplicate_x, "duplicate-x-axis.xml", "X axis");
 
-    auto duplicate_y = parse_romraider_definition(bytes(R"xml(
+    auto duplicate_y = ParseRomraiderDefinition(Bytes(R"xml(
       <roms><rom><romid><xmlid>Y_DUPLICATE</xmlid></romid>
       <table name="Fuel" type="3D" sizex="2" sizey="2">
         <table type="X Axis" name="Only X"/>
         <table type="Y Axis" name="First Y"/>
         <table type="Y Axis" name="Second Y"/>
       </table></rom></roms>)xml"),
-                                                  "duplicate-y-axis.xml", "Y_DUPLICATE");
-    expect_invalid_with_context(duplicate_y, "duplicate-y-axis.xml", "Y axis");
+                                                "duplicate-y-axis.xml", "Y_DUPLICATE");
+    ExpectInvalidWithContext(duplicate_y, "duplicate-y-axis.xml", "Y axis");
 }
 
 TEST(RomRaiderParserTest, WrongRootIsInvalidConfigWithExpectedRootContext)
 {
-    const auto xml = bytes("<rom><romid><xmlid>A</xmlid></romid></rom>");
+    const auto xml = Bytes("<rom><romid><xmlid>A</xmlid></romid></rom>");
 
-    auto result = parse_romraider_definition(xml, "wrong-root.xml", "A");
+    auto result = ParseRomraiderDefinition(xml, "wrong-root.xml", "A");
 
-    expect_invalid_with_context(result, "wrong-root.xml", "<roms>");
+    ExpectInvalidWithContext(result, "wrong-root.xml", "<roms>");
 }
 
 TEST(RomRaiderParserTest, UnselectedInvalidAddressDoesNotBlockRequestedDefinitionButFailsIndexing)
 {
-    const auto xml = bytes("<roms><rom><romid><xmlid>OTHER</xmlid>"
+    const auto xml = Bytes("<roms><rom><romid><xmlid>OTHER</xmlid>"
                            "<internalidaddress>invalid</internalidaddress></romid></rom>"
                            "<rom base=\"BASE\"><romid><xmlid>SELECTED</xmlid>"
                            "<internalidaddress>20</internalidaddress></romid></rom></roms>");
-    const auto definition = parse_romraider_definition(xml, "selection.xml", "SELECTED");
+    const auto definition = ParseRomraiderDefinition(xml, "selection.xml", "SELECTED");
     ASSERT_THAT(definition, fastecu::testing::IsOk());
     EXPECT_EQ(definition->identity.xml_id, "SELECTED");
     EXPECT_EQ(definition->identity.internal_id_address, 0x20U);
     EXPECT_EQ(definition->parents, (std::vector<std::string>{"BASE"}));
 
-    const auto index = parse_romraider_index(xml, "selection.xml");
+    const auto index = ParseRomraiderIndex(xml, "selection.xml");
     ASSERT_THAT(index, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     EXPECT_THAT(index.error().detail, ::testing::HasSubstr("definition 'OTHER'"));
     EXPECT_THAT(index.error().detail, ::testing::HasSubstr("internalidaddress"));
@@ -439,10 +439,10 @@ TEST(RomRaiderParserTest, UnselectedInvalidAddressDoesNotBlockRequestedDefinitio
 
 TEST(RomRaiderParserTest, DuplicateRequestedIdentityIsReportedBeforeParsingItsAddress)
 {
-    const auto xml = bytes("<roms><rom><romid><xmlid>SELECTED</xmlid>"
+    const auto xml = Bytes("<roms><rom><romid><xmlid>SELECTED</xmlid>"
                            "<internalidaddress>invalid</internalidaddress></romid></rom>"
                            "<rom><romid><xmlid>SELECTED</xmlid></romid></rom></roms>");
-    const auto definition = parse_romraider_definition(xml, "duplicate-id.xml", "SELECTED");
+    const auto definition = ParseRomraiderDefinition(xml, "duplicate-id.xml", "SELECTED");
     ASSERT_THAT(definition, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     EXPECT_THAT(definition.error().detail, ::testing::HasSubstr("definition 'SELECTED'"));
     EXPECT_THAT(definition.error().detail, ::testing::HasSubstr("duplicate definition identity"));
@@ -450,9 +450,9 @@ TEST(RomRaiderParserTest, DuplicateRequestedIdentityIsReportedBeforeParsingItsAd
 
 TEST(RomRaiderParserTest, UnknownIdentityIsReportedWithoutParsingOtherRecordAddresses)
 {
-    const auto xml = bytes("<roms><rom><romid><xmlid>OTHER</xmlid>"
+    const auto xml = Bytes("<roms><rom><romid><xmlid>OTHER</xmlid>"
                            "<internalidaddress>invalid</internalidaddress></romid></rom></roms>");
-    const auto definition = parse_romraider_definition(xml, "unknown-id.xml", "MISSING");
+    const auto definition = ParseRomraiderDefinition(xml, "unknown-id.xml", "MISSING");
     ASSERT_THAT(definition, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     EXPECT_THAT(definition.error().detail, ::testing::HasSubstr("definition 'MISSING'"));
     EXPECT_THAT(definition.error().detail, ::testing::HasSubstr("definition ID not found"));
@@ -460,13 +460,13 @@ TEST(RomRaiderParserTest, UnknownIdentityIsReportedWithoutParsingOtherRecordAddr
 
 TEST(RomRaiderParserTest, HeaderWhitespacePreservationDoesNotHideTableDescriptionOrStaticData)
 {
-    const auto xml = bytes(R"xml(<roms><rom><romid><xmlid>ID</xmlid><notes>  </notes></romid>
+    const auto xml = Bytes(R"xml(<roms><rom><romid><xmlid>ID</xmlid><notes>  </notes></romid>
       <table name="Fuel" address="100"><description> <!-- split -->description</description>
         <table type="Static X Axis" name="RPM" elements="1"><data> <![CDATA[1000]]></data></table>
       </table>
       <table name="Inline" address="200"><data> <![CDATA[2000]]></data></table>
     </rom></roms>)xml");
-    const auto result = parse_romraider_definition(xml, "whitespace.xml", "ID");
+    const auto result = ParseRomraiderDefinition(xml, "whitespace.xml", "ID");
     ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_EQ(result->maps.size(), 2U);
     EXPECT_EQ(result->maps[0].description, "description");

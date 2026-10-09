@@ -86,7 +86,7 @@ int main(int argc, char *argv[])
         {
             VehicleSelect chooser(config);
             chooser.exec();
-            return chooser.chosen_row();
+            return chooser.chosenRow();
         };
         const auto report_save_failure = [](const fastecu::Error& error)
         {

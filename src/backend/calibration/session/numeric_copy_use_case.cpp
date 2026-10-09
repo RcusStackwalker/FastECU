@@ -11,12 +11,12 @@ namespace fastecu::calibration
 namespace
 {
 
-NumericCopyOutcome not_applicable(NotApplicableReason reason)
+NumericCopyOutcome NotApplicable(NotApplicableReason reason)
 {
     return NumericEditNotApplicable{.reason = reason};
 }
 
-const NumericRun *target_cells(const DecodedMap& values, NumericTarget target)
+const NumericRun *TargetCells(const DecodedMap& values, NumericTarget target)
 {
     switch (target)
     {
@@ -31,20 +31,20 @@ const NumericRun *target_cells(const DecodedMap& values, NumericTarget target)
 }
 
 // A Y axis is one column; a body or X axis is as wide as the map.
-std::int64_t run_width(const MapDimensions& map, NumericTarget target)
+std::int64_t RunWidth(const MapDimensions& map, NumericTarget target)
 {
     return target == NumericTarget::kYAxis ? 1 : map.x_size;
 }
 
 // An X axis is one row; a body or Y axis is as tall as the map.
-std::int64_t run_height(const MapDimensions& map, NumericTarget target)
+std::int64_t RunHeight(const MapDimensions& map, NumericTarget target)
 {
     return target == NumericTarget::kXAxis ? 1 : map.y_size;
 }
 
 // Shortest decimal that parses back to the same double. Fixed notation keeps
 // the text acceptable to the dot-decimal paste parser.
-std::string format_value(double value)
+std::string FormatValue(double value)
 {
     std::array<char, 400> buffer{};
     const auto written = std::to_chars(buffer.data(), buffer.data() + buffer.size(), value, std::chars_format::fixed);
@@ -53,42 +53,42 @@ std::string format_value(double value)
 
 } // namespace
 
-Result<NumericCopyOutcome> copy_numeric_values(CalibrationWorkspace& workspace, const NumericCopyRequest& request)
+Result<NumericCopyOutcome> CopyNumericValues(CalibrationWorkspace& workspace, const NumericCopyRequest& request)
 {
-    CalibrationSession *session = workspace.find(request.session);
+    CalibrationSession *session = workspace.Find(request.session);
     if (session == nullptr)
     {
-        return not_applicable(NotApplicableReason::kClosedSession);
+        return NotApplicable(NotApplicableReason::kClosedSession);
     }
-    if (session->definition() == nullptr)
+    if (session->Definition() == nullptr)
     {
-        return not_applicable(NotApplicableReason::kNoDefinition);
+        return NotApplicable(NotApplicableReason::kNoDefinition);
     }
-    const auto& maps = session->definition()->definition.maps;
+    const auto& maps = session->Definition()->definition.maps;
     if (request.map_index >= maps.size())
     {
-        return not_applicable(NotApplicableReason::kUnavailableTarget);
+        return NotApplicable(NotApplicableReason::kUnavailableTarget);
     }
-    const auto decoded = session->decode_map(request.map_index);
+    const auto decoded = session->DecodeMap(request.map_index);
     if (!decoded.has_value())
     {
-        return not_applicable(NotApplicableReason::kUnavailableTarget);
+        return NotApplicable(NotApplicableReason::kUnavailableTarget);
     }
-    const NumericRun *run = target_cells(*decoded, request.selection.target);
+    const NumericRun *run = TargetCells(*decoded, request.selection.target);
     if (run == nullptr)
     {
-        return not_applicable(NotApplicableReason::kUnavailableTarget);
+        return NotApplicable(NotApplicableReason::kUnavailableTarget);
     }
     const auto& map = maps[request.map_index];
     const MapDimensions dimensions{.x_size = map.x_size, .y_size = map.y_size};
-    const auto width = run_width(dimensions, request.selection.target);
-    const auto height = run_height(dimensions, request.selection.target);
+    const auto width = RunWidth(dimensions, request.selection.target);
+    const auto height = RunHeight(dimensions, request.selection.target);
     const auto& range = request.selection.elements;
     if (range.first_row < 0 || range.first_col < 0 || range.first_row > range.last_row ||
         range.first_col > range.last_col || range.last_row >= height || range.last_col >= width ||
         static_cast<std::int64_t>(run->cells.size()) != width * height)
     {
-        return fail(ErrorKind::kInvalidConfig, "copy selection lies outside the target run");
+        return Fail(ErrorKind::kInvalidConfig, "copy selection lies outside the target run");
     }
 
     std::string text;
@@ -110,7 +110,7 @@ Result<NumericCopyOutcome> copy_numeric_values(CalibrationWorkspace& workspace, 
                 return NumericCopyOutcome{
                     NumericCopyInvalidCell{.row = row, .col = col, .detail = cell.error().detail}};
             }
-            text += format_value(*cell);
+            text += FormatValue(*cell);
         }
     }
     return NumericCopyOutcome{NumericCopyText{.text = std::move(text)}};

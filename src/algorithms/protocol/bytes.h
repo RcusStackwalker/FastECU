@@ -17,21 +17,21 @@ using Byte = std::uint8_t;
 using Bytes = std::vector<Byte>;
 using ByteView = std::span<const Byte>;
 
-inline void appendU16Be(Bytes& out, std::uint16_t value)
+inline void AppendU16Be(Bytes& out, std::uint16_t value)
 {
     const auto v = static_cast<unsigned>(value);
     out.push_back(static_cast<Byte>((v >> 8U) & 0xFFU));
     out.push_back(static_cast<Byte>(v & 0xFFU));
 }
 
-inline void appendU24Be(Bytes& out, std::uint32_t value)
+inline void AppendU24Be(Bytes& out, std::uint32_t value)
 {
     out.push_back(static_cast<Byte>((value >> 16U) & 0xFFU));
     out.push_back(static_cast<Byte>((value >> 8U) & 0xFFU));
     out.push_back(static_cast<Byte>(value & 0xFFU));
 }
 
-inline void appendU32Be(Bytes& out, std::uint32_t value)
+inline void AppendU32Be(Bytes& out, std::uint32_t value)
 {
     out.push_back(static_cast<Byte>((value >> 24U) & 0xFFU));
     out.push_back(static_cast<Byte>((value >> 16U) & 0xFFU));
@@ -39,21 +39,21 @@ inline void appendU32Be(Bytes& out, std::uint32_t value)
     out.push_back(static_cast<Byte>(value & 0xFFU));
 }
 
-inline void appendU16Le(Bytes& out, std::uint16_t value)
+inline void AppendU16Le(Bytes& out, std::uint16_t value)
 {
     const auto v = static_cast<unsigned>(value);
     out.push_back(static_cast<Byte>(v & 0xFFU));
     out.push_back(static_cast<Byte>((v >> 8U) & 0xFFU));
 }
 
-inline void appendU24Le(Bytes& out, std::uint32_t value)
+inline void AppendU24Le(Bytes& out, std::uint32_t value)
 {
     out.push_back(static_cast<Byte>(value & 0xFFU));
     out.push_back(static_cast<Byte>((value >> 8U) & 0xFFU));
     out.push_back(static_cast<Byte>((value >> 16U) & 0xFFU));
 }
 
-inline void appendU32Le(Bytes& out, std::uint32_t value)
+inline void AppendU32Le(Bytes& out, std::uint32_t value)
 {
     out.push_back(static_cast<Byte>(value & 0xFFU));
     out.push_back(static_cast<Byte>((value >> 8U) & 0xFFU));
@@ -61,7 +61,7 @@ inline void appendU32Le(Bytes& out, std::uint32_t value)
     out.push_back(static_cast<Byte>((value >> 24U) & 0xFFU));
 }
 
-inline std::uint16_t readU16Be(ByteView bytes, std::size_t offset = 0)
+inline std::uint16_t ReadU16Be(ByteView bytes, std::size_t offset = 0)
 {
     if (offset > bytes.size() || 2 > bytes.size() - offset)
     {
@@ -71,7 +71,7 @@ inline std::uint16_t readU16Be(ByteView bytes, std::size_t offset = 0)
                                       static_cast<unsigned>(bytes[offset + 1]));
 }
 
-inline std::uint32_t readU24Be(ByteView bytes, std::size_t offset = 0)
+inline std::uint32_t ReadU24Be(ByteView bytes, std::size_t offset = 0)
 {
     if (offset > bytes.size() || 3 > bytes.size() - offset)
     {
@@ -81,7 +81,7 @@ inline std::uint32_t readU24Be(ByteView bytes, std::size_t offset = 0)
            std::uint32_t(bytes[offset + 2]);
 }
 
-inline std::uint32_t readU32Be(ByteView bytes, std::size_t offset = 0)
+inline std::uint32_t ReadU32Be(ByteView bytes, std::size_t offset = 0)
 {
     if (offset > bytes.size() || 4 > bytes.size() - offset)
     {
@@ -91,7 +91,7 @@ inline std::uint32_t readU32Be(ByteView bytes, std::size_t offset = 0)
            (std::uint32_t(bytes[offset + 2]) << 8U) | std::uint32_t(bytes[offset + 3]);
 }
 
-inline std::uint16_t readU16Le(ByteView bytes, std::size_t offset = 0)
+inline std::uint16_t ReadU16Le(ByteView bytes, std::size_t offset = 0)
 {
     if (offset > bytes.size() || 2 > bytes.size() - offset)
     {
@@ -101,7 +101,7 @@ inline std::uint16_t readU16Le(ByteView bytes, std::size_t offset = 0)
                                       (static_cast<unsigned>(bytes[offset + 1]) << 8U));
 }
 
-inline std::uint32_t readU24Le(ByteView bytes, std::size_t offset = 0)
+inline std::uint32_t ReadU24Le(ByteView bytes, std::size_t offset = 0)
 {
     if (offset > bytes.size() || 3 > bytes.size() - offset)
     {
@@ -111,7 +111,7 @@ inline std::uint32_t readU24Le(ByteView bytes, std::size_t offset = 0)
            (std::uint32_t(bytes[offset + 2]) << 16U);
 }
 
-inline std::uint32_t readU32Le(ByteView bytes, std::size_t offset = 0)
+inline std::uint32_t ReadU32Le(ByteView bytes, std::size_t offset = 0)
 {
     if (offset > bytes.size() || 4 > bytes.size() - offset)
     {
@@ -128,36 +128,36 @@ inline std::uint32_t readU32Le(ByteView bytes, std::size_t offset = 0)
 // Exists because callers that pick their width at runtime from a definition's
 // storage type (src/backend/calibration/calibration_service.cpp) would
 // otherwise hand-roll endian normalization and MSB-first assembly themselves.
-inline std::uint32_t readUBe(ByteView bytes, std::size_t offset, std::uint32_t width)
+inline std::uint32_t ReadUBe(ByteView bytes, std::size_t offset, std::uint32_t width)
 {
     switch (width)
     {
     case 1:
         return offset < bytes.size() ? std::uint32_t(bytes[offset]) : 0U;
     case 2:
-        return readU16Be(bytes, offset);
+        return ReadU16Be(bytes, offset);
     case 3:
-        return readU24Be(bytes, offset);
+        return ReadU24Be(bytes, offset);
     case 4:
-        return readU32Be(bytes, offset);
+        return ReadU32Be(bytes, offset);
     default:
         return 0U;
     }
 }
 
 // Least-significant byte first. See readUBe.
-inline std::uint32_t readULe(ByteView bytes, std::size_t offset, std::uint32_t width)
+inline std::uint32_t ReadULe(ByteView bytes, std::size_t offset, std::uint32_t width)
 {
     switch (width)
     {
     case 1:
         return offset < bytes.size() ? std::uint32_t(bytes[offset]) : 0U;
     case 2:
-        return readU16Le(bytes, offset);
+        return ReadU16Le(bytes, offset);
     case 3:
-        return readU24Le(bytes, offset);
+        return ReadU24Le(bytes, offset);
     case 4:
-        return readU32Le(bytes, offset);
+        return ReadU32Le(bytes, offset);
     default:
         return 0U;
     }
@@ -165,7 +165,7 @@ inline std::uint32_t readULe(ByteView bytes, std::size_t offset, std::uint32_t w
 
 using MutableByteView = std::span<Byte>;
 
-inline void overwriteAt(MutableByteView out, std::size_t offset, ByteView payload)
+inline void OverwriteAt(MutableByteView out, std::size_t offset, ByteView payload)
 {
     if (offset >= out.size())
     {
@@ -175,7 +175,7 @@ inline void overwriteAt(MutableByteView out, std::size_t offset, ByteView payloa
     std::copy_n(payload.begin(), count, out.begin() + static_cast<std::ptrdiff_t>(offset));
 }
 
-inline void writeU16Be(MutableByteView out, std::size_t offset, std::uint16_t value)
+inline void WriteU16Be(MutableByteView out, std::size_t offset, std::uint16_t value)
 {
     if (offset > out.size() || 2 > out.size() - offset)
     {
@@ -186,7 +186,7 @@ inline void writeU16Be(MutableByteView out, std::size_t offset, std::uint16_t va
     out[offset + 1] = static_cast<Byte>(v & 0xFFU);
 }
 
-inline void writeU24Be(MutableByteView out, std::size_t offset, std::uint32_t value)
+inline void WriteU24Be(MutableByteView out, std::size_t offset, std::uint32_t value)
 {
     if (offset > out.size() || 3 > out.size() - offset)
     {
@@ -197,7 +197,7 @@ inline void writeU24Be(MutableByteView out, std::size_t offset, std::uint32_t va
     out[offset + 2] = static_cast<Byte>(value & 0xFFU);
 }
 
-inline void writeU32Be(MutableByteView out, std::size_t offset, std::uint32_t value)
+inline void WriteU32Be(MutableByteView out, std::size_t offset, std::uint32_t value)
 {
     if (offset > out.size() || 4 > out.size() - offset)
     {
@@ -209,7 +209,7 @@ inline void writeU32Be(MutableByteView out, std::size_t offset, std::uint32_t va
     out[offset + 3] = static_cast<Byte>(value & 0xFFU);
 }
 
-inline void writeU16Le(MutableByteView out, std::size_t offset, std::uint16_t value)
+inline void WriteU16Le(MutableByteView out, std::size_t offset, std::uint16_t value)
 {
     if (offset > out.size() || 2 > out.size() - offset)
     {
@@ -220,7 +220,7 @@ inline void writeU16Le(MutableByteView out, std::size_t offset, std::uint16_t va
     out[offset + 1] = static_cast<Byte>((v >> 8U) & 0xFFU);
 }
 
-inline void writeU24Le(MutableByteView out, std::size_t offset, std::uint32_t value)
+inline void WriteU24Le(MutableByteView out, std::size_t offset, std::uint32_t value)
 {
     if (offset > out.size() || 3 > out.size() - offset)
     {
@@ -231,7 +231,7 @@ inline void writeU24Le(MutableByteView out, std::size_t offset, std::uint32_t va
     out[offset + 2] = static_cast<Byte>((value >> 16U) & 0xFFU);
 }
 
-inline void writeU32Le(MutableByteView out, std::size_t offset, std::uint32_t value)
+inline void WriteU32Le(MutableByteView out, std::size_t offset, std::uint32_t value)
 {
     if (offset > out.size() || 4 > out.size() - offset)
     {
@@ -247,7 +247,7 @@ inline void writeU32Le(MutableByteView out, std::size_t offset, std::uint32_t va
 // Named distinctly from sum8(ByteView) so that sum8 remains a single
 // function and can therefore be passed as a callable (see
 // composeBeWithChecksum in bytes_compose.h).
-inline Byte sum8Range(ByteView bytes, std::size_t from, std::size_t len)
+inline Byte Sum8Range(ByteView bytes, std::size_t from, std::size_t len)
 {
     if (from >= bytes.size())
     {
@@ -258,14 +258,14 @@ inline Byte sum8Range(ByteView bytes, std::size_t from, std::size_t len)
     return static_cast<Byte>(sum & 0xFFU);
 }
 
-inline Byte sum8(ByteView bytes)
+inline Byte Sum8(ByteView bytes)
 {
-    return sum8Range(bytes, 0, bytes.size());
+    return Sum8Range(bytes, 0, bytes.size());
 }
 
 // By default, renders each byte as two lowercase hex digits followed by a space
 // (e.g. "80 01 02 ff "). Callers can supply a format for each byte.
-inline std::string toHex(ByteView bytes, std::format_string<Byte> byte_format = "{:02x} ")
+inline std::string ToHex(ByteView bytes, std::format_string<Byte> byte_format = "{:02x} ")
 {
     std::string msg;
     msg.reserve(bytes.size() * 3);

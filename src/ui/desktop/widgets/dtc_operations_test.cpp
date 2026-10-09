@@ -21,13 +21,13 @@ TEST(DtcOperationsTest, aFailedRunLogsOnceAndReenablesTheButtons)
 {
     FakeDiagnosticLink link; // five-baud answers nothing -> fails before any sleep
     DtcOperations dialog(link);
-    fastecu::testing::SignalRecorder errors(&dialog, &DtcOperations::LOG_E);
+    fastecu::testing::SignalRecorder errors(&dialog, &DtcOperations::logE);
     auto *read = dialog.findChild<QPushButton *>("readDtcButton");
     ASSERT_TRUE(read != nullptr);
     read->click();
     ASSERT_TRUE(!read->isEnabled());
-    ASSERT_TRUE(fastecu::testing::wait_until([&] { return read->isEnabled(); }, std::chrono::milliseconds(5000)));
-    const auto records = errors.snapshot();
+    ASSERT_TRUE(fastecu::testing::WaitUntil([&] { return read->isEnabled(); }, std::chrono::milliseconds(5000)));
+    const auto records = errors.Snapshot();
     const bool logged = std::any_of(records.begin(), records.end(), [](const auto& args)
                                     { return std::get<0>(args).startsWith("DTC operation failed: "); });
     ASSERT_TRUE(logged);
@@ -36,10 +36,10 @@ TEST(DtcOperationsTest, aFailedRunLogsOnceAndReenablesTheButtons)
 TEST(DtcOperationsTest, closeDuringARunStopsTheWorkerAndResets)
 {
     FakeDiagnosticLink link;
-    link.queue_five_baud(bytes::Bytes{0x55, 0x08, 0x08}); // accepted -> 500 ms sleep follows
+    link.QueueFiveBaud(bytes::Bytes{0x55, 0x08, 0x08}); // accepted -> 500 ms sleep follows
     auto *dialog = new DtcOperations(link);
     dialog->findChild<QPushButton *>("readDtcButton")->click();
-    fastecu::testing::process_events_for(std::chrono::milliseconds(50));
+    fastecu::testing::ProcessEventsFor(std::chrono::milliseconds(50));
     QElapsedTimer timer;
     timer.start();
     dialog->close();
@@ -55,10 +55,10 @@ TEST(DtcOperationsTest, closeDuringARunStopsTheWorkerAndResets)
 TEST(DtcOperationsTest, escapeDuringARunStopsTheWorkerAndResets)
 {
     FakeDiagnosticLink link;
-    link.queue_five_baud(bytes::Bytes{0x55, 0x08, 0x08}); // accepted -> 500 ms sleep follows
+    link.QueueFiveBaud(bytes::Bytes{0x55, 0x08, 0x08}); // accepted -> 500 ms sleep follows
     auto *dialog = new DtcOperations(link);
     dialog->findChild<QPushButton *>("readDtcButton")->click();
-    fastecu::testing::process_events_for(std::chrono::milliseconds(50));
+    fastecu::testing::ProcessEventsFor(std::chrono::milliseconds(50));
     QElapsedTimer timer;
     timer.start();
     QKeyEvent press(QEvent::KeyPress, Qt::Key_Escape, Qt::NoModifier);

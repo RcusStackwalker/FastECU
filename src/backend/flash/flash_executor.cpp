@@ -2,11 +2,11 @@
 
 namespace fastecu::flash
 {
-Status check_family(const FlashPlan& plan, FlashFamily expected_family)
+Status CheckFamily(const FlashPlan& plan, FlashFamily expected_family)
 {
-    if (plan.family() != expected_family)
+    if (plan.Family() != expected_family)
     {
-        return fail(ErrorKind::kInvalidConfig, "plan family does not match this executor");
+        return Fail(ErrorKind::kInvalidConfig, "plan family does not match this executor");
     }
     return {};
 }

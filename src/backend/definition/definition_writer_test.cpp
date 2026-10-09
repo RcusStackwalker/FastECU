@@ -23,17 +23,17 @@ namespace
 using ::testing::HasSubstr;
 using ::testing::Not;
 
-std::vector<std::uint8_t> bytes(std::string_view text)
+std::vector<std::uint8_t> Bytes(std::string_view text)
 {
     return {text.begin(), text.end()};
 }
 
-std::string text(std::span<const std::uint8_t> value)
+std::string Text(std::span<const std::uint8_t> value)
 {
     return {value.begin(), value.end()};
 }
 
-DefinitionHeaderInput complete_input()
+DefinitionHeaderInput CompleteInput()
 {
     return DefinitionHeaderInput{
         .xml_id = "NEW_XML",
@@ -61,12 +61,12 @@ DefinitionHeaderInput complete_input()
 
 TEST(DefinitionWriterTest, CreatesSemanticEcuFlashDefinitionWithDeterministicUtf8Layout)
 {
-    const DefinitionHeaderInput input = complete_input();
+    const DefinitionHeaderInput input = CompleteInput();
 
-    auto result = create_ecuflash_xml(input);
+    auto result = CreateEcuflashXml(input);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
-    auto parsed = parse_ecuflash_definition(*result, "created.xml");
+    auto parsed = ParseEcuflashDefinition(*result, "created.xml");
     ASSERT_THAT(parsed, fastecu::testing::IsOk());
     EXPECT_EQ(parsed->identity, (RomIdentity{
                                     .xml_id = input.xml_id,
@@ -77,7 +77,7 @@ TEST(DefinitionWriterTest, CreatesSemanticEcuFlashDefinitionWithDeterministicUtf
     EXPECT_EQ(parsed->metadata, input.metadata);
     EXPECT_EQ(parsed->parents, std::vector<std::string>{input.include});
 
-    const std::string xml = text(*result);
+    const std::string xml = Text(*result);
     EXPECT_TRUE(xml.starts_with("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"));
     EXPECT_THAT(xml, HasSubstr("\n  <romid>\n    <xmlid>NEW_XML</xmlid>"));
     EXPECT_THAT(xml, HasSubstr("<notes>Réglage Ω</notes>"));
@@ -88,23 +88,23 @@ TEST(DefinitionWriterTest, CreatesSemanticEcuFlashDefinitionWithDeterministicUtf
 
 TEST(DefinitionWriterTest, OmitsAddressElementWhenNotProvided)
 {
-    DefinitionHeaderInput input = complete_input();
+    DefinitionHeaderInput input = CompleteInput();
     input.internal_id_address = std::nullopt;
 
-    auto result = create_ecuflash_xml(input);
+    auto result = CreateEcuflashXml(input);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
-    auto parsed = parse_ecuflash_definition(*result, "created.xml");
+    auto parsed = ParseEcuflashDefinition(*result, "created.xml");
     ASSERT_THAT(parsed, fastecu::testing::IsOk());
     EXPECT_EQ(parsed->identity.internal_id_address, std::nullopt);
 
-    const std::string xml = text(*result);
+    const std::string xml = Text(*result);
     EXPECT_THAT(xml, Not(HasSubstr("internalidaddress")));
 }
 
 TEST(DefinitionWriterTest, ClearsExistingAddressOnRewriteWhenNotProvided)
 {
-    const auto source = bytes(R"xml(<?xml version="1.0" encoding="UTF-8"?>
+    const auto source = Bytes(R"xml(<?xml version="1.0" encoding="UTF-8"?>
 <rom>
   <romid>
     <xmlid>OLD_XML</xmlid>
@@ -114,23 +114,23 @@ TEST(DefinitionWriterTest, ClearsExistingAddressOnRewriteWhenNotProvided)
   </romid>
 </rom>
 )xml");
-    DefinitionHeaderInput input = complete_input();
+    DefinitionHeaderInput input = CompleteInput();
     input.internal_id_address = std::nullopt;
 
-    auto result = rewrite_ecuflash_xml(source, input);
+    auto result = RewriteEcuflashXml(source, input);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
-    auto parsed = parse_ecuflash_definition(*result, "rewritten.xml");
+    auto parsed = ParseEcuflashDefinition(*result, "rewritten.xml");
     ASSERT_THAT(parsed, fastecu::testing::IsOk());
     EXPECT_EQ(parsed->identity.internal_id_address, std::nullopt);
 
-    const std::string xml = text(*result);
+    const std::string xml = Text(*result);
     EXPECT_THAT(xml, Not(HasSubstr("internalidaddress")));
 }
 
 TEST(DefinitionWriterTest, ReplacesStaleNestedContentInsteadOfAppendingToIt)
 {
-    const auto source = bytes(R"xml(<?xml version="1.0" encoding="UTF-8"?>
+    const auto source = Bytes(R"xml(<?xml version="1.0" encoding="UTF-8"?>
 <rom>
   <romid>
     <xmlid><stale attr="1">junk</stale></xmlid>
@@ -139,16 +139,16 @@ TEST(DefinitionWriterTest, ReplacesStaleNestedContentInsteadOfAppendingToIt)
   </romid>
 </rom>
 )xml");
-    const DefinitionHeaderInput input = complete_input();
+    const DefinitionHeaderInput input = CompleteInput();
 
-    auto result = rewrite_ecuflash_xml(source, input);
+    auto result = RewriteEcuflashXml(source, input);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
-    auto parsed = parse_ecuflash_definition(*result, "rewritten.xml");
+    auto parsed = ParseEcuflashDefinition(*result, "rewritten.xml");
     ASSERT_THAT(parsed, fastecu::testing::IsOk());
     EXPECT_EQ(parsed->identity.xml_id, input.xml_id);
 
-    const std::string xml = text(*result);
+    const std::string xml = Text(*result);
     EXPECT_THAT(xml, Not(HasSubstr("stale")));
     EXPECT_THAT(xml, Not(HasSubstr("junk")));
     EXPECT_THAT(xml, HasSubstr(std::format("<xmlid>{}</xmlid>", input.xml_id)));
@@ -158,7 +158,7 @@ TEST(DefinitionWriterTest, RejectsEachEmptyRequiredIdentity)
 {
     for (const std::string_view field : {"xml_id", "internal_id", "ecu_id"})
     {
-        DefinitionHeaderInput input = complete_input();
+        DefinitionHeaderInput input = CompleteInput();
         if (field == "xml_id")
         {
             input.xml_id.clear();
@@ -172,13 +172,13 @@ TEST(DefinitionWriterTest, RejectsEachEmptyRequiredIdentity)
             input.ecu_id.clear();
         }
 
-        ASSERT_THAT(create_ecuflash_xml(input), fastecu::testing::IsErr(ErrorKind::kInvalidConfig)) << field;
+        ASSERT_THAT(CreateEcuflashXml(input), fastecu::testing::IsErr(ErrorKind::kInvalidConfig)) << field;
     }
 }
 
 TEST(DefinitionWriterTest, RewritesHeaderAndPreservesUnrelatedTreeContent)
 {
-    const auto source = bytes(R"xml(<?xml version="1.0" encoding="UTF-8"?>
+    const auto source = Bytes(R"xml(<?xml version="1.0" encoding="UTF-8"?>
 <rom custom="keep">
   <!-- root comment -->
   <romid>
@@ -202,12 +202,12 @@ TEST(DefinitionWriterTest, RewritesHeaderAndPreservesUnrelatedTreeContent)
   <vendor-extension answer="42"><child/></vendor-extension>
 </rom>
 )xml");
-    const DefinitionHeaderInput input = complete_input();
+    const DefinitionHeaderInput input = CompleteInput();
 
-    auto result = rewrite_ecuflash_xml(source, input);
+    auto result = RewriteEcuflashXml(source, input);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
-    auto parsed = parse_ecuflash_definition(*result, "rewritten.xml");
+    auto parsed = ParseEcuflashDefinition(*result, "rewritten.xml");
     ASSERT_THAT(parsed, fastecu::testing::IsOk());
     EXPECT_EQ(parsed->identity.xml_id, input.xml_id);
     EXPECT_EQ(parsed->identity.internal_id, input.internal_id);
@@ -220,7 +220,7 @@ TEST(DefinitionWriterTest, RewritesHeaderAndPreservesUnrelatedTreeContent)
     ASSERT_EQ(parsed->maps.size(), 1U);
     EXPECT_EQ(parsed->maps.front().name, "Fuel");
 
-    const std::string xml = text(*result);
+    const std::string xml = Text(*result);
     EXPECT_THAT(xml, HasSubstr("<!-- root comment -->"));
     EXPECT_THAT(xml, HasSubstr("<!-- identity comment -->"));
     EXPECT_THAT(xml, HasSubstr("<vendor-field flag=\"yes\">keep me</vendor-field>"));
@@ -238,19 +238,19 @@ TEST(DefinitionWriterTest, RewritesHeaderAndPreservesUnrelatedTreeContent)
 
 TEST(DefinitionWriterTest, RejectsMalformedImportBeforeProducingBytes)
 {
-    ASSERT_THAT(rewrite_ecuflash_xml(bytes("<rom><romid>"), complete_input()),
+    ASSERT_THAT(RewriteEcuflashXml(Bytes("<rom><romid>"), CompleteInput()),
                 fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
 TEST(DefinitionWriterTest, RejectsDuplicateTopLevelRomIdContainers)
 {
-    const auto source = bytes(R"xml(
+    const auto source = Bytes(R"xml(
 <rom>
   <romid><xmlid>FIRST</xmlid></romid>
   <romid><xmlid>SECOND</xmlid><vendor-field>keep</vendor-field></romid>
 </rom>)xml");
 
-    auto result = rewrite_ecuflash_xml(source, complete_input());
+    auto result = RewriteEcuflashXml(source, CompleteInput());
 
     ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     EXPECT_THAT(result.error().detail, HasSubstr("<romid>"));
@@ -259,7 +259,7 @@ TEST(DefinitionWriterTest, RejectsDuplicateTopLevelRomIdContainers)
 
 TEST(DefinitionWriterTest, CanonicalizesDirectCreateAndRewriteInputsWithoutChangingNotes)
 {
-    auto input = complete_input();
+    auto input = CompleteInput();
     input.xml_id = "\xc2\xa0"
                    "CAL123\xe3\x80\x80";
     input.internal_id = " INTERNAL ID ";
@@ -271,13 +271,13 @@ TEST(DefinitionWriterTest, CanonicalizesDirectCreateAndRewriteInputsWithoutChang
     input.metadata.notes = " \n identity notes \n ";
     input.notes = " \n document notes \n ";
     input.internal_id_address = std::numeric_limits<std::uint64_t>::max();
-    const auto created = create_ecuflash_xml(input);
+    const auto created = CreateEcuflashXml(input);
     const auto rewritten =
-        rewrite_ecuflash_xml(bytes("<rom><romid><xmlid>OLD</xmlid></romid><!-- keep --></rom>"), input);
+        RewriteEcuflashXml(Bytes("<rom><romid><xmlid>OLD</xmlid></romid><!-- keep --></rom>"), input);
     for (const auto *result : {&created, &rewritten})
     {
         ASSERT_THAT(*result, fastecu::testing::IsOk());
-        const auto xml = text(**result);
+        const auto xml = Text(**result);
         EXPECT_THAT(xml, HasSubstr("<xmlid>CAL123</xmlid>"));
         EXPECT_THAT(xml, HasSubstr("<internalidstring>INTERNAL ID</internalidstring>"));
         EXPECT_THAT(xml, HasSubstr("<ecuid>ECU</ecuid>"));
@@ -288,7 +288,7 @@ TEST(DefinitionWriterTest, CanonicalizesDirectCreateAndRewriteInputsWithoutChang
         EXPECT_THAT(xml, HasSubstr("<internalidaddress>0xffffffffffffffff</internalidaddress>"));
         EXPECT_THAT(xml, HasSubstr("<notes> \n identity notes \n </notes>"));
         EXPECT_THAT(xml, HasSubstr("<notes> \n document notes \n </notes>"));
-        const auto parsed = parse_ecuflash_definition(**result, "canonical.xml");
+        const auto parsed = ParseEcuflashDefinition(**result, "canonical.xml");
         ASSERT_THAT(parsed, fastecu::testing::IsOk());
         EXPECT_EQ(parsed->identity.xml_id, "CAL123");
         EXPECT_EQ(parsed->identity.internal_id, "INTERNAL ID");
@@ -296,9 +296,9 @@ TEST(DefinitionWriterTest, CanonicalizesDirectCreateAndRewriteInputsWithoutChang
         EXPECT_EQ(parsed->metadata.notes, " \n identity notes \n ");
     }
     ASSERT_THAT(rewritten, fastecu::testing::IsOk());
-    EXPECT_THAT(text(*rewritten), HasSubstr("<!-- keep -->"));
+    EXPECT_THAT(Text(*rewritten), HasSubstr("<!-- keep -->"));
     ASSERT_THAT(created, fastecu::testing::IsOk());
-    const auto second_write = rewrite_ecuflash_xml(*created, input);
+    const auto second_write = RewriteEcuflashXml(*created, input);
     ASSERT_THAT(second_write, fastecu::testing::IsOk());
     EXPECT_EQ(*second_write, *created);
     EXPECT_EQ(input.ecu_id, " ECU ");
@@ -309,10 +309,10 @@ TEST(DefinitionWriterTest, RejectsUnicodeWhitespaceOnlyRequiredFieldsForEveryCal
     for (const auto member :
          {&DefinitionHeaderInput::xml_id, &DefinitionHeaderInput::internal_id, &DefinitionHeaderInput::ecu_id})
     {
-        auto input = complete_input();
+        auto input = CompleteInput();
         input.*member = "\xc2\xa0\xe2\x80\x83\xe3\x80\x80";
-        EXPECT_THAT(create_ecuflash_xml(input), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
-        EXPECT_THAT(rewrite_ecuflash_xml(bytes("<rom/>"), input), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
+        EXPECT_THAT(CreateEcuflashXml(input), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
+        EXPECT_THAT(RewriteEcuflashXml(Bytes("<rom/>"), input), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     }
 }
 

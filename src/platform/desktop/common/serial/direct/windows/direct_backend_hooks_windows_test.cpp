@@ -7,15 +7,15 @@
 class HookProbe : public SerialPortActionsDirect
 {
   public:
-    using SerialPortActionsDirect::j2534_tx_done;
-    using SerialPortActionsDirect::resolve_port;
+    using SerialPortActionsDirect::J2534TxDone;
+    using SerialPortActionsDirect::ResolvePort;
 };
 
 // Windows entries are J2534 vendor names: no split, every non-empty one is J2534.
 TEST(TestDirectBackendHooksWindows, resolvePort_keepsTheVendorNameWhole)
 {
     HookProbe probe;
-    const auto resolved = probe.resolve_port("Tactrix Inc. - OpenPort 2.0 J2534 DLL");
+    const auto resolved = probe.ResolvePort("Tactrix Inc. - OpenPort 2.0 J2534 DLL");
     ASSERT_EQ(resolved.port, QString("Tactrix Inc. - OpenPort 2.0 J2534 DLL"));
     ASSERT_TRUE(resolved.is_j2534);
 }
@@ -23,13 +23,13 @@ TEST(TestDirectBackendHooksWindows, resolvePort_keepsTheVendorNameWhole)
 TEST(TestDirectBackendHooksWindows, resolvePort_emptyEntryIsNotJ2534)
 {
     HookProbe probe;
-    ASSERT_TRUE(!probe.resolve_port("").is_j2534);
+    ASSERT_TRUE(!probe.ResolvePort("").is_j2534);
 }
 
 TEST(TestDirectBackendHooksWindows, txDone_isAlwaysTrue)
 {
     HookProbe probe;
-    ASSERT_TRUE(probe.j2534_tx_done());
+    ASSERT_TRUE(probe.J2534TxDone());
 }
 
 namespace

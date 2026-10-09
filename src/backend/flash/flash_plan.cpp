@@ -3,19 +3,19 @@
 namespace fastecu::flash
 {
 
-const bytes::Bytes& FlashPlan::image_or_empty() const
+const bytes::Bytes& FlashPlan::ImageOrEmpty() const
 {
     static const bytes::Bytes no_image;
     return fields_.image.has_value() ? *fields_.image : no_image;
 }
 
-const KernelImage& FlashPlan::kernel_or_empty() const
+const KernelImage& FlashPlan::KernelOrEmpty() const
 {
     static const KernelImage no_kernel{};
     return fields_.kernel.has_value() ? *fields_.kernel : no_kernel;
 }
 
-std::string_view FlashPlan::experimental_family_id() const
+std::string_view FlashPlan::ExperimentalFamilyId() const
 {
     switch (fields_.family)
     {

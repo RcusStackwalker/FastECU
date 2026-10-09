@@ -46,13 +46,13 @@ class SerialByteBuffer
     // adapter.
     //
     // A short return (including empty) is a normal timeout, not an error.
-    QByteArray take(std::uint32_t n, std::uint16_t timeout_ms);
+    QByteArray Take(std::uint32_t n, std::uint16_t timeout_ms);
 
     // Drops retained bytes. Call across an open/close so stale bytes from a
     // previous connection cannot be parsed as a new message.
-    void clear();
+    void Clear();
 
-    std::size_t buffered() const;
+    std::size_t Buffered() const;
 
   private:
     PollFn poll_;

@@ -37,16 +37,16 @@ constexpr std::uint32_t kImageSize = 0x80000;
 
 // Check block 0 (full-table sanity) and block 3 specifically -- block 3 is
 // both this family's read window AND the block it writes.
-bool geometry_ok(const FlashDevice& device)
+bool GeometryOk(const FlashDevice& device)
 {
     return device.romsize == kImageSize && device.numblocks == 4 && device.fblocks[0].start == 0 &&
            device.fblocks[0].len == 0x4000 && device.fblocks[3].start == kWriteRegion.start &&
            device.fblocks[3].len == kWriteRegion.length;
 }
 
-bool wire_params_ok(const FlashPlan& plan)
+bool WireParamsOk(const FlashPlan& plan)
 {
-    const auto *p = std::get_if<SubaruTcuCvtMitsuMh8104CanPlan>(&plan.family_plan());
+    const auto *p = std::get_if<SubaruTcuCvtMitsuMh8104CanPlan>(&plan.FamilyPlan());
     return p != nullptr && p->request_id == 0x7e1 && p->response_id == 0x7e9 && p->bitrate == 500000 && !p->extended_id;
 }
 
@@ -59,21 +59,20 @@ constexpr SingleWindowPlanSpec kSpec{
     .read_region = kReadRegion,
     .write_region = kWriteRegion,
     .image_size = kImageSize,
-    .geometry_ok = geometry_ok,
-    .wire_params_ok = wire_params_ok,
+    .geometry_ok = GeometryOk,
+    .wire_params_ok = WireParamsOk,
 };
 } // namespace
 
-Status validate_subaru_tcu_cvt_mitsu_mh8104_can_plan(const FlashPlan& plan)
+Status ValidateSubaruTcuCvtMitsuMh8104CanPlan(const FlashPlan& plan)
 {
-    return validate_single_window_plan(kSpec, plan);
+    return ValidateSingleWindowPlan(kSpec, plan);
 }
 
-Result<FlashPlan> build_subaru_tcu_cvt_mitsu_mh8104_can_plan(FlashOperation operation, std::string_view protocol_name,
-                                                             std::string_view mcu_type,
-                                                             std::optional<bytes::Bytes> image)
+Result<FlashPlan> BuildSubaruTcuCvtMitsuMh8104CanPlan(FlashOperation operation, std::string_view protocol_name,
+                                                      std::string_view mcu_type, std::optional<bytes::Bytes> image)
 {
-    return build_single_window_plan(kSpec, operation, protocol_name, mcu_type, std::move(image),
-                                    SubaruTcuCvtMitsuMh8104CanPlan{0x7e1, 0x7e9, 500000, false});
+    return BuildSingleWindowPlan(kSpec, operation, protocol_name, mcu_type, std::move(image),
+                                 SubaruTcuCvtMitsuMh8104CanPlan{0x7e1, 0x7e9, 500000, false});
 }
 } // namespace fastecu::flash

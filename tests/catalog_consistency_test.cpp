@@ -16,14 +16,14 @@
 namespace
 {
 
-using fastecu::config::builtin_catalog;
+using fastecu::config::BuiltinCatalog;
 using fastecu::config::ChecksumSupport;
 
 TEST(CatalogConsistency, ChecksumFlagAgreesWithChecksumRouting)
 {
-    for (const auto& vehicle : builtin_catalog().vehicles())
+    for (const auto& vehicle : BuiltinCatalog().Vehicles())
     {
-        const bool routed = fastecu::checksum::has_route(vehicle.make, vehicle.protocol->name);
+        const bool routed = fastecu::checksum::HasRoute(vehicle.make, vehicle.protocol->name);
         EXPECT_EQ(vehicle.protocol->checksum == ChecksumSupport::kCorrected, routed)
             << vehicle.id << " (" << vehicle.protocol->name << ")";
     }
@@ -32,7 +32,7 @@ TEST(CatalogConsistency, ChecksumFlagAgreesWithChecksumRouting)
 // File names exactly as Bazel bundles them, from
 // $(locations //resources/shared:kernel_files): compared as strings, so a
 // case-insensitive filesystem cannot hide a mismatch.
-std::set<std::string> bundled_kernel_names()
+std::set<std::string> BundledKernelNames()
 {
     std::set<std::string> names;
     const char *paths = std::getenv("KERNEL_FILES");
@@ -50,9 +50,9 @@ std::set<std::string> bundled_kernel_names()
 
 TEST(CatalogConsistency, EveryKernelNameIsABundledFileSpelledExactly)
 {
-    const std::set<std::string> bundled = bundled_kernel_names();
+    const std::set<std::string> bundled = BundledKernelNames();
     ASSERT_FALSE(bundled.empty());
-    for (const auto& protocol : builtin_catalog().protocols())
+    for (const auto& protocol : BuiltinCatalog().Protocols())
     {
         if (!protocol.kernel.empty())
         {
@@ -63,9 +63,9 @@ TEST(CatalogConsistency, EveryKernelNameIsABundledFileSpelledExactly)
 
 TEST(CatalogConsistency, EveryBundledKernelIsUsed)
 {
-    for (const std::string& name : bundled_kernel_names())
+    for (const std::string& name : BundledKernelNames())
     {
-        EXPECT_TRUE(std::ranges::any_of(builtin_catalog().protocols(),
+        EXPECT_TRUE(std::ranges::any_of(BuiltinCatalog().Protocols(),
                                         [&name](const auto& protocol) { return protocol.kernel == name; }))
             << name;
     }
@@ -75,12 +75,11 @@ TEST(CatalogConsistency, EveryBundledKernelIsUsed)
 // that protocol offers no flash operation.
 TEST(CatalogConsistency, EveryFlashCapableProtocolNamesAKnownMcu)
 {
-    for (const auto& protocol : builtin_catalog().protocols())
+    for (const auto& protocol : BuiltinCatalog().Protocols())
     {
         if (protocol.read || protocol.test_write || protocol.write)
         {
-            EXPECT_NE(fastecu::flash::find_flash_device(protocol.mcu), nullptr)
-                << protocol.name << ": " << protocol.mcu;
+            EXPECT_NE(fastecu::flash::FindFlashDevice(protocol.mcu), nullptr) << protocol.name << ": " << protocol.mcu;
         }
     }
 }

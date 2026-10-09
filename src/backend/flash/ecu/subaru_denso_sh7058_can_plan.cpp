@@ -36,7 +36,7 @@ constexpr std::string_view kMcu = "SH7058";
 constexpr std::uint32_t kRomSize = 0x00100000;
 constexpr std::uint32_t kKernelLoadAddress = 0xFFFF3000;
 
-const CatalogEntry *find_catalog(std::string_view protocol)
+const CatalogEntry *FindCatalog(std::string_view protocol)
 {
     for (const CatalogEntry& entry : kCatalog)
     {
@@ -48,26 +48,26 @@ const CatalogEntry *find_catalog(std::string_view protocol)
     return nullptr;
 }
 
-Status validate_identity(std::string_view protocol, std::string_view mcu, const CatalogEntry *& entry)
+Status ValidateIdentity(std::string_view protocol, std::string_view mcu, const CatalogEntry *& entry)
 {
-    entry = find_catalog(protocol);
+    entry = FindCatalog(protocol);
     if (entry == nullptr)
     {
-        return fail(ErrorKind::kInvalidConfig,
+        return Fail(ErrorKind::kInvalidConfig,
                     std::format("Unsupported Subaru Denso SH7058 petrol CAN protocol: {}", protocol));
     }
     if (mcu != kMcu)
     {
-        return fail(
+        return Fail(
             ErrorKind::kInvalidConfig,
             std::format("Subaru Denso SH7058 petrol CAN protocol {} requires MCU SH7058, not {}", protocol, mcu));
     }
     return {};
 }
 
-const FlashDevice *checked_device()
+const FlashDevice *CheckedDevice()
 {
-    const FlashDevice *device = find_flash_device(kMcu);
+    const FlashDevice *device = FindFlashDevice(kMcu);
     if (device == nullptr || device->romsize != kRomSize || device->numblocks != 16 || device->fblocks == nullptr ||
         device->kblocks == nullptr)
     {
@@ -76,86 +76,86 @@ const FlashDevice *checked_device()
     return device;
 }
 
-bool wire_parameters_match(const SubaruDensoSh7058CanPlan& wire, const CatalogEntry& entry)
+bool WireParametersMatch(const SubaruDensoSh7058CanPlan& wire, const CatalogEntry& entry)
 {
     return wire.request_id == 0x7E0 && wire.response_id == 0x7E8 && wire.bitrate == 500000 && !wire.extended_id &&
            wire.security == entry.security;
 }
 
-Status validate_image(const FlashPlan& plan, const FlashDevice& device)
+Status ValidateImage(const FlashPlan& plan, const FlashDevice& device)
 {
-    if (plan.operation() == FlashOperation::kRead)
+    if (plan.Operation() == FlashOperation::kRead)
     {
-        return plan.image().has_value() ? fail(ErrorKind::kInvalidConfig, "petrol SH7058 read plan carries a ROM image")
+        return plan.Image().has_value() ? Fail(ErrorKind::kInvalidConfig, "petrol SH7058 read plan carries a ROM image")
                                         : Status{};
     }
-    if (!plan.image().has_value() || plan.image()->size() != device.romsize)
+    if (!plan.Image().has_value() || plan.Image()->size() != device.romsize)
     {
-        return fail(ErrorKind::kInvalidConfig, std::format("ROM file must be exactly 0x{:x} bytes", device.romsize));
+        return Fail(ErrorKind::kInvalidConfig, std::format("ROM file must be exactly 0x{:x} bytes", device.romsize));
     }
     return {};
 }
 
 } // namespace
 
-Status validate_subaru_denso_sh7058_can_plan(const FlashPlan& plan)
+Status ValidateSubaruDensoSh7058CanPlan(const FlashPlan& plan)
 {
-    if (plan.family() != FlashFamily::kSubaruDensoSh7058Can || plan.transport() != TransportKind::kCanIso15765)
+    if (plan.Family() != FlashFamily::kSubaruDensoSh7058Can || plan.Transport() != TransportKind::kCanIso15765)
     {
-        return fail(ErrorKind::kInvalidConfig, "plan is not for Subaru Denso SH7058 petrol CAN");
+        return Fail(ErrorKind::kInvalidConfig, "plan is not for Subaru Denso SH7058 petrol CAN");
     }
     const CatalogEntry *entry = nullptr;
-    if (Status identity = validate_identity(plan.target_id(), plan.mcu_name(), entry); !identity.has_value())
+    if (Status identity = ValidateIdentity(plan.TargetId(), plan.McuName(), entry); !identity.has_value())
     {
         return identity;
     }
-    const auto *wire = std::get_if<SubaruDensoSh7058CanPlan>(&plan.family_plan());
-    if (wire == nullptr || !wire_parameters_match(*wire, *entry))
+    const auto *wire = std::get_if<SubaruDensoSh7058CanPlan>(&plan.FamilyPlan());
+    if (wire == nullptr || !WireParametersMatch(*wire, *entry))
     {
-        return fail(ErrorKind::kInvalidConfig, "petrol SH7058 CAN wire/security parameters are invalid");
+        return Fail(ErrorKind::kInvalidConfig, "petrol SH7058 CAN wire/security parameters are invalid");
     }
-    const FlashDevice *device = checked_device();
+    const FlashDevice *device = CheckedDevice();
     if (device == nullptr)
     {
-        return fail(ErrorKind::kInvalidConfig, "petrol SH7058 catalog does not match the flash device table");
+        return Fail(ErrorKind::kInvalidConfig, "petrol SH7058 catalog does not match the flash device table");
     }
-    if (!plan.kernel().has_value())
+    if (!plan.Kernel().has_value())
     {
-        return fail(ErrorKind::kInvalidConfig, "petrol SH7058 requires a kernel image");
+        return Fail(ErrorKind::kInvalidConfig, "petrol SH7058 requires a kernel image");
     }
-    if (Status kernel = detail::validate_kernel_upload<128>(plan.kernel()->bytes.size(), plan.kernel()->load_address,
-                                                            kKernelLoadAddress, device->kblocks[0]);
+    if (Status kernel = detail::ValidateKernelUpload<128>(plan.Kernel()->bytes.size(), plan.Kernel()->load_address,
+                                                          kKernelLoadAddress, device->kblocks[0]);
         !kernel.has_value())
     {
         return kernel;
     }
-    if (!plan.confirmations().empty())
+    if (!plan.Confirmations().empty())
     {
-        return fail(ErrorKind::kInvalidConfig, "petrol SH7058 plans must not declare extra confirmations");
+        return Fail(ErrorKind::kInvalidConfig, "petrol SH7058 plans must not declare extra confirmations");
     }
-    if (Status regions = detail::validate_regions(plan, *device); !regions.has_value())
+    if (Status regions = detail::ValidateRegions(plan, *device); !regions.has_value())
     {
         return regions;
     }
-    return validate_image(plan, *device);
+    return ValidateImage(plan, *device);
 }
 
-Result<FlashPlan> build_subaru_denso_sh7058_can_plan(FlashOperation operation, std::string_view protocol_name,
-                                                     std::string_view mcu_type, std::optional<bytes::Bytes> image,
-                                                     KernelImage kernel)
+Result<FlashPlan> BuildSubaruDensoSh7058CanPlan(FlashOperation operation, std::string_view protocol_name,
+                                                std::string_view mcu_type, std::optional<bytes::Bytes> image,
+                                                KernelImage kernel)
 {
     const CatalogEntry *entry = nullptr;
-    if (Status identity = validate_identity(protocol_name, mcu_type, entry); !identity.has_value())
+    if (Status identity = ValidateIdentity(protocol_name, mcu_type, entry); !identity.has_value())
     {
         return std::unexpected(identity.error());
     }
-    const FlashDevice *device = checked_device();
+    const FlashDevice *device = CheckedDevice();
     if (device == nullptr)
     {
-        return fail(ErrorKind::kInvalidConfig, "petrol SH7058 catalog does not match the flash device table");
+        return Fail(ErrorKind::kInvalidConfig, "petrol SH7058 catalog does not match the flash device table");
     }
-    if (Status upload = detail::validate_kernel_upload<128>(kernel.bytes.size(), kernel.load_address,
-                                                            kKernelLoadAddress, device->kblocks[0]);
+    if (Status upload = detail::ValidateKernelUpload<128>(kernel.bytes.size(), kernel.load_address, kKernelLoadAddress,
+                                                          device->kblocks[0]);
         !upload.has_value())
     {
         return std::unexpected(upload.error());
@@ -164,18 +164,18 @@ Result<FlashPlan> build_subaru_denso_sh7058_can_plan(FlashOperation operation, s
     {
         if (image.has_value())
         {
-            return fail(ErrorKind::kInvalidConfig, "petrol SH7058 read plans must not carry an image");
+            return Fail(ErrorKind::kInvalidConfig, "petrol SH7058 read plans must not carry an image");
         }
     }
     else if (!image.has_value() || image->size() != device->romsize)
     {
-        return fail(ErrorKind::kInvalidConfig, std::format("ROM file must be exactly 0x{:x} bytes", device->romsize));
+        return Fail(ErrorKind::kInvalidConfig, std::format("ROM file must be exactly 0x{:x} bytes", device->romsize));
     }
 
     std::vector<MemoryRegion> erase_regions;
     if (operation != FlashOperation::kRead)
     {
-        erase_regions = detail::make_erase_regions(*device);
+        erase_regions = detail::MakeEraseRegions(*device);
     }
 
     FlashPlanFields fields{
@@ -191,12 +191,12 @@ Result<FlashPlan> build_subaru_denso_sh7058_can_plan(FlashOperation operation, s
         .family_plan = SubaruDensoSh7058CanPlan{.security = entry->security},
         .confirmations = {},
     };
-    Result<FlashPlan> plan = validate_and_build(std::move(fields));
+    Result<FlashPlan> plan = ValidateAndBuild(std::move(fields));
     if (!plan.has_value())
     {
         return std::unexpected(plan.error());
     }
-    if (Status valid = validate_subaru_denso_sh7058_can_plan(*plan); !valid.has_value())
+    if (Status valid = ValidateSubaruDensoSh7058CanPlan(*plan); !valid.has_value())
     {
         return std::unexpected(valid.error());
     }

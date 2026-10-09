@@ -27,34 +27,34 @@ class Session
         : transport_(transport), clock_(clock), cancel_(cancel), events_(events)
     {
     }
-    Status checkpoint() const
+    Status Checkpoint() const
     {
-        return cancel_.cancelled() ? fail(ErrorKind::kCancelled, "SH7058 write cancelled") : Status{};
+        return cancel_.Cancelled() ? Fail(ErrorKind::kCancelled, "SH7058 write cancelled") : Status{};
     }
-    Result<std::optional<Bytes>> exchange(bytes::ByteView payload, std::chrono::milliseconds delay = 0ms,
+    Result<std::optional<Bytes>> Exchange(bytes::ByteView payload, std::chrono::milliseconds delay = 0ms,
                                           std::chrono::milliseconds timeout = 200ms, std::uint32_t id = 0x7e0)
     {
-        if (auto status = checkpoint(); !status.has_value())
+        if (auto status = Checkpoint(); !status.has_value())
         {
             return std::unexpected(status.error());
         }
-        Bytes frame = bytes::composeBe(id, payload);
-        if (auto sent = transport_.write(frame, cancel_); !sent.has_value())
+        Bytes frame = bytes::ComposeBe(id, payload);
+        if (auto sent = transport_.Write(frame, cancel_); !sent.has_value())
         {
             return std::unexpected(sent.error());
         }
         if (delay > 0ms)
         {
-            if (auto slept = clock_.sleep(delay, cancel_); !slept.has_value())
+            if (auto slept = clock_.Sleep(delay, cancel_); !slept.has_value())
             {
                 return std::unexpected(slept.error());
             }
         }
-        if (auto status = checkpoint(); !status.has_value())
+        if (auto status = Checkpoint(); !status.has_value())
         {
             return std::unexpected(status.error());
         }
-        auto reply = transport_.read(timeout, cancel_);
+        auto reply = transport_.Read(timeout, cancel_);
         if (!reply.has_value())
         {
             if (reply.error().kind == ErrorKind::kTimeout)
@@ -63,116 +63,116 @@ class Session
             }
             return std::unexpected(reply.error());
         }
-        if (auto status = checkpoint(); !status.has_value())
+        if (auto status = Checkpoint(); !status.has_value())
         {
             return std::unexpected(status.error());
         }
         return std::move(*reply);
     }
-    static bool prefix(const std::optional<Bytes>& reply, std::initializer_list<bytes::Byte> expected)
+    static bool Prefix(const std::optional<Bytes>& reply, std::initializer_list<bytes::Byte> expected)
     {
         return reply.has_value() && reply->size() >= expected.size() + 4 && (*reply)[0] == 0 && (*reply)[1] == 0 &&
                (*reply)[2] == 7 && (*reply)[3] == 0xe8 &&
                std::equal(expected.begin(), expected.end(), reply->begin() + 4);
     }
-    Status require(bytes::ByteView payload, std::initializer_list<bytes::Byte> expected,
+    Status Require(bytes::ByteView payload, std::initializer_list<bytes::Byte> expected,
                    std::chrono::milliseconds delay = 200ms, std::uint32_t id = 0x7e0)
     {
-        auto reply = exchange(payload, delay, 200ms, id);
+        auto reply = Exchange(payload, delay, 200ms, id);
         if (!reply.has_value())
         {
             return std::unexpected(reply.error());
         }
-        return prefix(*reply, expected) ? Status{} : fail(ErrorKind::kBadResponse, "unexpected SH7058 CAN reply");
+        return Prefix(*reply, expected) ? Status{} : Fail(ErrorKind::kBadResponse, "unexpected SH7058 CAN reply");
     }
-    Status present(bytes::ByteView payload, std::uint32_t id = 0x7e0)
+    Status Present(bytes::ByteView payload, std::uint32_t id = 0x7e0)
     {
-        auto reply = exchange(payload, 0ms, 200ms, id);
+        auto reply = Exchange(payload, 0ms, 200ms, id);
         if (!reply.has_value())
         {
             return std::unexpected(reply.error());
         }
         return reply->has_value() && (*reply)->size() > 4 && (**reply)[4] != 0x7f
                    ? Status{}
-                   : fail(ErrorKind::kBadResponse, "missing SH7058 CAN reply");
+                   : Fail(ErrorKind::kBadResponse, "missing SH7058 CAN reply");
     }
-    Status security()
+    Status Security()
     {
-        auto seed = exchange(Bytes{0x27, 0x01}, 200ms);
+        auto seed = Exchange(Bytes{0x27, 0x01}, 200ms);
         if (!seed.has_value())
         {
             return std::unexpected(seed.error());
         }
         const std::optional<Bytes>& reply = *seed;
-        if (!reply.has_value() || !prefix(reply, {0x67, 0x01}) || reply->size() < 10)
+        if (!reply.has_value() || !Prefix(reply, {0x67, 0x01}) || reply->size() < 10)
         {
-            return fail(ErrorKind::kBadResponse, "invalid SH7058 seed");
+            return Fail(ErrorKind::kBadResponse, "invalid SH7058 seed");
         }
-        Bytes key = ssm_protocol::calculateSeedKey(bytes::ByteView{*reply}.subspan(6, 4), kSeedTable,
+        Bytes key = ssm_protocol::CalculateSeedKey(bytes::ByteView{*reply}.subspan(6, 4), kSeedTable,
                                                    ssm_protocol::kIndexTransformationStock);
         Bytes request{0x27, 0x02};
         request.insert(request.end(), key.begin(), key.end());
-        return require(request, {0x67, 0x02});
+        return Require(request, {0x67, 0x02});
     }
-    Status connect()
+    Status Connect()
     {
-        auto active = exchange(Bytes{0xb7}, 50ms);
+        auto active = Exchange(Bytes{0xb7}, 50ms);
         if (!active.has_value())
         {
             return std::unexpected(active.error());
         }
         if (!active->has_value())
         {
-            return fail(ErrorKind::kTimeout, "SH7058 kernel probe timed out");
+            return Fail(ErrorKind::kTimeout, "SH7058 kernel probe timed out");
         }
-        if (prefix(*active, {0x7f, 0xb7, 0x13}))
+        if (Prefix(*active, {0x7f, 0xb7, 0x13}))
         {
             return {};
         }
         if ((*active)->size() < 5)
         {
-            return fail(ErrorKind::kBadResponse, "invalid SH7058 kernel probe");
+            return Fail(ErrorKind::kBadResponse, "invalid SH7058 kernel probe");
         }
-        if (auto status = require(Bytes{0xaa}, {0xea}, 50ms); !status.has_value())
+        if (auto status = Require(Bytes{0xaa}, {0xea}, 50ms); !status.has_value())
         {
             return status;
         }
-        if (auto status = require(Bytes{0x09, 0x02}, {0x49, 0x02}, 50ms); !status.has_value())
+        if (auto status = Require(Bytes{0x09, 0x02}, {0x49, 0x02}, 50ms); !status.has_value())
         {
             return status;
         }
-        if (auto status = require(Bytes{0x09, 0x04}, {0x49, 0x04}, 50ms); !status.has_value())
+        if (auto status = Require(Bytes{0x09, 0x04}, {0x49, 0x04}, 50ms); !status.has_value())
         {
             return status;
         }
-        if (auto status = require(Bytes{0x09, 0x06}, {0x49, 0x06}, 50ms); !status.has_value())
+        if (auto status = Require(Bytes{0x09, 0x06}, {0x49, 0x06}, 50ms); !status.has_value())
         {
             return status;
         }
-        auto mode = exchange(Bytes{0xa8, 0, 0, 0, 0xd7});
+        auto mode = Exchange(Bytes{0xa8, 0, 0, 0, 0xd7});
         if (!mode.has_value())
         {
             return std::unexpected(mode.error());
         }
         if (!mode->has_value() || (*mode)->size() < 6)
         {
-            return fail(ErrorKind::kBadResponse, "SH7058 programming mode absent");
+            return Fail(ErrorKind::kBadResponse, "SH7058 programming mode absent");
         }
-        if (auto slept = clock_.sleep(777ms, cancel_); !slept.has_value())
+        if (auto slept = clock_.Sleep(777ms, cancel_); !slept.has_value())
         {
             return slept;
         }
         if ((**mode)[5] == 0xa0 || (**mode)[5] == 0x20)
         {
-            if (auto status = require(Bytes{0x10, 0x43}, {0x50, 0x43}); !status.has_value())
+            if (auto status = Require(Bytes{0x10, 0x43}, {0x50, 0x43}); !status.has_value())
             {
                 return status;
             }
-            if (auto status = security(); !status.has_value())
+            if (auto status = Security(); !status.has_value())
             {
                 return status;
             }
-            if (auto status = require(Bytes{0x10, 0x42}, {0x50, 0x42}); !status.has_value())
+            if (auto status = Require(Bytes{0x10, 0x42}, {0x50, 0x42}); !status.has_value())
             {
                 return status;
             }
@@ -197,106 +197,106 @@ class Session
             }};
             for (const auto& step : access)
             {
-                if (auto status = present(step.request, step.id); !status.has_value())
+                if (auto status = Present(step.request, step.id); !status.has_value())
                 {
                     return status;
                 }
             }
-            if (auto status = security(); !status.has_value())
+            if (auto status = Security(); !status.has_value())
             {
                 return status;
             }
             for (const Bytes& request : {Bytes{0xa8, 0, 0, 0, 0xd5}, Bytes{0xa8, 0, 0, 1, 0x3b},
                                          Bytes{0xa8, 0, 0, 0, 0x1c}, Bytes{0xa8, 0, 0, 0, 0x0e, 0, 0, 0x0f}})
             {
-                if (auto status = present(request); !status.has_value())
+                if (auto status = Present(request); !status.has_value())
                 {
                     return status;
                 }
             }
-            if (auto status = require(Bytes{0x10, 0x02}, {0x50, 0x02}); !status.has_value())
+            if (auto status = Require(Bytes{0x10, 0x02}, {0x50, 0x02}); !status.has_value())
             {
                 return status;
             }
         }
-        return require(Bytes{0x34, 0x04, 0x33, 0, 0, 0, 0x10, 0, 0}, {0x74, 0x20, 0x01, 0x04});
+        return Require(Bytes{0x34, 0x04, 0x33, 0, 0, 0, 0x10, 0, 0}, {0x74, 0x20, 0x01, 0x04});
     }
-    Status erase()
+    Status Erase()
     {
-        auto reply = exchange(Bytes{0x31, 0x01, 0x02, 0x01, 0x0f, 0xff, 0xff, 0xff});
+        auto reply = Exchange(Bytes{0x31, 0x01, 0x02, 0x01, 0x0f, 0xff, 0xff, 0xff});
         if (!reply.has_value())
         {
             return std::unexpected(reply.error());
         }
-        if (prefix(*reply, {0x71, 0x01, 0x02}))
+        if (Prefix(*reply, {0x71, 0x01, 0x02}))
         {
             return {};
         }
         for (int count = 0; count < 20; ++count)
         {
-            if (auto status = checkpoint(); !status.has_value())
+            if (auto status = Checkpoint(); !status.has_value())
             {
                 return status;
             }
-            reply = transport_.read(800ms, cancel_);
+            reply = transport_.Read(800ms, cancel_);
             if (!reply.has_value())
             {
                 return std::unexpected(reply.error());
             }
-            if (prefix(*reply, {0x71, 0x01, 0x02}))
+            if (Prefix(*reply, {0x71, 0x01, 0x02}))
             {
                 return {};
             }
         }
-        return fail(ErrorKind::kBadResponse, "SH7058 erase was not acknowledged");
+        return Fail(ErrorKind::kBadResponse, "SH7058 erase was not acknowledged");
     }
-    Status retry(bytes::ByteView request, std::initializer_list<bytes::Byte> expected, int attempts)
+    Status Retry(bytes::ByteView request, std::initializer_list<bytes::Byte> expected, int attempts)
     {
         for (int count = 0; count < attempts; ++count)
         {
-            auto reply = exchange(request, 0ms, 800ms);
+            auto reply = Exchange(request, 0ms, 800ms);
             if (!reply.has_value())
             {
                 return std::unexpected(reply.error());
             }
-            if (prefix(*reply, expected))
+            if (Prefix(*reply, expected))
             {
                 return {};
             }
         }
-        return fail(ErrorKind::kBadResponse, "SH7058 retry limit exceeded");
+        return Fail(ErrorKind::kBadResponse, "SH7058 retry limit exceeded");
     }
-    Status program(bytes::ByteView encrypted)
+    Status Program(bytes::ByteView encrypted)
     {
         const Bytes window{0x34, 0x04, 0x33, 0, 0, 0, 0x10, 0, 0};
-        if (auto status = retry(window, {0x74}, 6); !status.has_value())
+        if (auto status = Retry(window, {0x74}, 6); !status.has_value())
         {
             return status;
         }
         for (std::uint32_t address = 0; address < 0x100000; address += 0x100)
         {
             const Bytes request =
-                bytes::composeBe(bytes::Byte{0xb6}, bytes::u24(address), encrypted.subspan(address, 0x100));
-            auto reply = exchange(request, 0ms, 5000ms);
+                bytes::ComposeBe(bytes::Byte{0xb6}, bytes::U24(address), encrypted.subspan(address, 0x100));
+            auto reply = Exchange(request, 0ms, 5000ms);
             if (!reply.has_value())
             {
                 return std::unexpected(reply.error());
             }
-            if (!prefix(*reply, {0xf6}))
+            if (!Prefix(*reply, {0xf6}))
             {
-                return fail(ErrorKind::kBadResponse, "SH7058 write frame rejected");
+                return Fail(ErrorKind::kBadResponse, "SH7058 write frame rejected");
             }
-            events_.progress(static_cast<int>(address + 0x100), 0x100000);
+            events_.Progress(static_cast<int>(address + 0x100), 0x100000);
         }
-        if (auto status = retry(Bytes{0x37}, {0x77}, 20); !status.has_value())
+        if (auto status = Retry(Bytes{0x37}, {0x77}, 20); !status.has_value())
         {
             return status;
         }
-        if (auto slept = clock_.sleep(100ms, cancel_); !slept.has_value())
+        if (auto slept = clock_.Sleep(100ms, cancel_); !slept.has_value())
         {
             return slept;
         }
-        return retry(Bytes{0x31, 0x01, 0x02, 0x02, 0x01}, {0x71, 0x01, 0x02}, 20);
+        return Retry(Bytes{0x31, 0x01, 0x02, 0x02, 0x01}, {0x71, 0x01, 0x02}, 20);
     }
 
   private:
@@ -306,40 +306,40 @@ class Session
     IEventSink& events_;
 };
 } // namespace
-Result<Iso15765Config> SubaruHitachiSh7058CanExecutor::transport_setup(const FlashPlan& plan) const
+Result<Iso15765Config> SubaruHitachiSh7058CanExecutor::TransportSetup(const FlashPlan& plan) const
 {
-    if (auto valid = validate_subaru_hitachi_sh7058_plan(plan); !valid.has_value())
+    if (auto valid = ValidateSubaruHitachiSh7058Plan(plan); !valid.has_value())
     {
         return std::unexpected(valid.error());
     }
-    if (plan.operation() != FlashOperation::kWrite)
+    if (plan.Operation() != FlashOperation::kWrite)
     {
-        return fail(ErrorKind::kUnsupported, "SH7058 CAN supports write only");
+        return Fail(ErrorKind::kUnsupported, "SH7058 CAN supports write only");
     }
-    return iso15765_config_from(std::get<SubaruHitachiSh7058CanPlan>(plan.family_plan()));
+    return Iso15765ConfigFrom(std::get<SubaruHitachiSh7058CanPlan>(plan.FamilyPlan()));
 }
 
-Result<FlashExecutionResult> SubaruHitachiSh7058CanExecutor::execute(const FlashPlan& plan,
+Result<FlashExecutionResult> SubaruHitachiSh7058CanExecutor::Execute(const FlashPlan& plan,
                                                                      ICanFlashTransport& transport, IClock& clock,
                                                                      const ICancellationToken& cancel,
                                                                      IEventSink& events)
 {
-    if (auto setup = transport_setup(plan); !setup.has_value())
+    if (auto setup = TransportSetup(plan); !setup.has_value())
     {
         return std::unexpected(setup.error());
     }
     Session session(transport, clock, cancel, events);
-    if (auto status = session.connect(); !status.has_value())
+    if (auto status = session.Connect(); !status.has_value())
     {
         return std::unexpected(status.error());
     }
-    const Bytes encrypted = ssm_protocol::calculatePayload(plan.image_or_empty(), 0x100000, kPayloadTable,
+    const Bytes encrypted = ssm_protocol::CalculatePayload(plan.ImageOrEmpty(), 0x100000, kPayloadTable,
                                                            ssm_protocol::kIndexTransformationStock);
-    if (auto status = session.erase(); !status.has_value())
+    if (auto status = session.Erase(); !status.has_value())
     {
         return std::unexpected(status.error());
     }
-    if (auto status = session.program(encrypted); !status.has_value())
+    if (auto status = session.Program(encrypted); !status.has_value())
     {
         return std::unexpected(status.error());
     }

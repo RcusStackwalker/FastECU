@@ -6,10 +6,10 @@ SystemLogger::SystemLogger(QString file_path, QString software_name, QString sof
     : QObject(parent), file_path_(std::move(file_path)), software_name_(std::move(software_name)),
       software_version_(std::move(software_version))
 {
-    QObject::connect(this, &SystemLogger::LOG_E, this, &SystemLogger::log_messages);
-    QObject::connect(this, &SystemLogger::LOG_W, this, &SystemLogger::log_messages);
-    QObject::connect(this, &SystemLogger::LOG_I, this, &SystemLogger::log_messages);
-    QObject::connect(this, &SystemLogger::LOG_D, this, &SystemLogger::log_messages);
+    QObject::connect(this, &SystemLogger::logE, this, &SystemLogger::logMessages);
+    QObject::connect(this, &SystemLogger::logW, this, &SystemLogger::logMessages);
+    QObject::connect(this, &SystemLogger::logI, this, &SystemLogger::logMessages);
+    QObject::connect(this, &SystemLogger::logD, this, &SystemLogger::logMessages);
 }
 
 SystemLogger::~SystemLogger()
@@ -20,17 +20,17 @@ SystemLogger::~SystemLogger()
     }
 }
 
-void SystemLogger::run()
+void SystemLogger::Run()
 {
-    emit LOG_I("SystemLogger started...", true, true);
+    emit logI("SystemLogger started...", true, true);
 }
 
-void SystemLogger::enable_log_write_to_file(bool enable)
+void SystemLogger::enableLogWriteToFile(bool enable)
 {
     write_syslog_to_file_ = enable;
 }
 
-void SystemLogger::log_messages(const QString& message, bool timestamp, bool linefeed)
+void SystemLogger::logMessages(const QString& message, bool timestamp, bool linefeed)
 {
     QString msg;
 
@@ -56,19 +56,19 @@ void SystemLogger::log_messages(const QString& message, bool timestamp, bool lin
         msg += date_time_string;
 
         // Check log type
-        if (meta_method.name() == "LOG_E")
+        if (meta_method.name() == "logE")
         {
             msg += "(EE) ";
         }
-        else if (meta_method.name() == "LOG_W")
+        else if (meta_method.name() == "logW")
         {
             msg += "(WW) ";
         }
-        else if (meta_method.name() == "LOG_I")
+        else if (meta_method.name() == "logI")
         {
             msg += "(II) ";
         }
-        else if (meta_method.name() == "LOG_D")
+        else if (meta_method.name() == "logD")
         {
             msg += "(DD) ";
         }
@@ -83,18 +83,18 @@ void SystemLogger::log_messages(const QString& message, bool timestamp, bool lin
         msg += "\n";
     }
 
-    if (meta_method.name() != "LOG_D")
+    if (meta_method.name() != "logD")
     {
-        emit send_message_to_log_window(msg);
+        emit sendMessageToLogWindow(msg);
     }
 
     if (write_syslog_to_file_)
     {
-        write_syslog(msg);
+        WriteSyslog(msg);
     }
 }
 
-bool SystemLogger::write_syslog(const QString& msg)
+bool SystemLogger::WriteSyslog(const QString& msg)
 {
     // Open file for writing if needed
     if (!syslog_file_open_)

@@ -20,7 +20,7 @@ namespace fastecu::flash
 
 // Read workflows do not consume a ROM image. Both write modes do, and must
 // receive the same current calibration bytes from desktop request construction.
-std::optional<bytes::Bytes> portableImageForOperation(FlashOperation operation, bytes::ByteView rom);
+std::optional<bytes::Bytes> PortableImageForOperation(FlashOperation operation, bytes::ByteView rom);
 
 struct FlashWorkflowRequest
 {
@@ -113,9 +113,9 @@ class FlashWorkflow
 {
   public:
     virtual ~FlashWorkflow() = default;
-    virtual FlashWorkflowStep next() = 0;
-    virtual void submit(FlashPromptResponse response) = 0;
-    virtual void submit(FlashAttemptResult result) = 0;
+    virtual FlashWorkflowStep Next() = 0;
+    virtual void Submit(FlashPromptResponse response) = 0;
+    virtual void Submit(FlashAttemptResult result) = 0;
 };
 
 class FlashWorkflowFactory
@@ -123,7 +123,7 @@ class FlashWorkflowFactory
   public:
     // A null result means only that no portable family owns this protocol.
     // Recognized families return a workflow even when preflight will fail.
-    static std::unique_ptr<FlashWorkflow> tryCreate(FlashWorkflowRequest request);
+    static std::unique_ptr<FlashWorkflow> TryCreate(FlashWorkflowRequest request);
 };
 
 } // namespace fastecu::flash

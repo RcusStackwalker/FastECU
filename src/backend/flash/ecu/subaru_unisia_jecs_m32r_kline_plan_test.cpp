@@ -36,7 +36,7 @@ constexpr auto kVariants = std::to_array<Variant>({
 
 constexpr SubaruUnisiaJecsM32rKlinePlan kWire{.initial_baud = 4800, .tester_id = 0xf0, .target_id = 0x10};
 
-FlashPlanFields read_fields()
+FlashPlanFields ReadFields()
 {
     return FlashPlanFields{
         .operation = FlashOperation::kRead,
@@ -53,9 +53,9 @@ FlashPlanFields read_fields()
     };
 }
 
-FlashPlanFields write_fields()
+FlashPlanFields WriteFields()
 {
-    FlashPlanFields fields = read_fields();
+    FlashPlanFields fields = ReadFields();
     fields.operation = FlashOperation::kWrite;
     fields.transfer_region = MemoryRegion{0, 0x20000};
     fields.image = bytes::Bytes(0x20000, 0xab);
@@ -66,16 +66,16 @@ TEST(SubaruUnisiaJecsM32rKlinePlan, ReadCoversEachVariantFromTheReadBase)
 {
     for (const Variant& variant : kVariants)
     {
-        const auto plan = build_subaru_unisia_jecs_m32r_kline_plan(FlashOperation::kRead, variant.protocol, variant.mcu,
-                                                                   std::nullopt, false);
+        const auto plan = BuildSubaruUnisiaJecsM32rKlinePlan(FlashOperation::kRead, variant.protocol, variant.mcu,
+                                                             std::nullopt, false);
         ASSERT_THAT(plan, IsOk()) << variant.protocol;
-        EXPECT_EQ(plan->family(), FlashFamily::kSubaruUnisiaJecsM32rKline);
-        EXPECT_EQ(plan->transport(), TransportKind::kKline);
-        EXPECT_EQ(plan->transfer_region(), (MemoryRegion{0x100000, variant.rom_size})) << variant.protocol;
-        EXPECT_FALSE(plan->image().has_value());
-        EXPECT_FALSE(plan->kernel().has_value());
-        EXPECT_TRUE(plan->confirmations().empty()) << "Read never raises programming voltage";
-        const auto& wire = std::get<SubaruUnisiaJecsM32rKlinePlan>(plan->family_plan());
+        EXPECT_EQ(plan->Family(), FlashFamily::kSubaruUnisiaJecsM32rKline);
+        EXPECT_EQ(plan->Transport(), TransportKind::kKline);
+        EXPECT_EQ(plan->TransferRegion(), (MemoryRegion{0x100000, variant.rom_size})) << variant.protocol;
+        EXPECT_FALSE(plan->Image().has_value());
+        EXPECT_FALSE(plan->Kernel().has_value());
+        EXPECT_TRUE(plan->Confirmations().empty()) << "Read never raises programming voltage";
+        const auto& wire = std::get<SubaruUnisiaJecsM32rKlinePlan>(plan->FamilyPlan());
         EXPECT_EQ(wire.initial_baud, 4800);
         EXPECT_EQ(wire.tester_id, 0xf0);
         EXPECT_EQ(wire.target_id, 0x10);
@@ -90,18 +90,18 @@ TEST(SubaruUnisiaJecsM32rKlinePlan, WriteCarriesTheImageAndAsksForVppOnlyWithout
         {
             continue;
         }
-        const auto prompted = build_subaru_unisia_jecs_m32r_kline_plan(
-            FlashOperation::kWrite, variant.protocol, variant.mcu, bytes::Bytes(variant.rom_size, 0x5a), false);
+        const auto prompted = BuildSubaruUnisiaJecsM32rKlinePlan(FlashOperation::kWrite, variant.protocol, variant.mcu,
+                                                                 bytes::Bytes(variant.rom_size, 0x5a), false);
         ASSERT_THAT(prompted, IsOk()) << variant.protocol;
-        EXPECT_EQ(prompted->transfer_region(), (MemoryRegion{0, variant.rom_size}));
-        EXPECT_EQ(prompted->image(), std::optional<bytes::Bytes>(bytes::Bytes(variant.rom_size, 0x5a)));
-        ASSERT_EQ(prompted->confirmations().size(), 1U);
-        EXPECT_EQ(prompted->confirmations()[0].id, ConfirmationSpec::Id::kApplyProgrammingVoltage);
+        EXPECT_EQ(prompted->TransferRegion(), (MemoryRegion{0, variant.rom_size}));
+        EXPECT_EQ(prompted->Image(), std::optional<bytes::Bytes>(bytes::Bytes(variant.rom_size, 0x5a)));
+        ASSERT_EQ(prompted->Confirmations().size(), 1U);
+        EXPECT_EQ(prompted->Confirmations()[0].id, ConfirmationSpec::Id::kApplyProgrammingVoltage);
 
-        const auto supplied = build_subaru_unisia_jecs_m32r_kline_plan(
-            FlashOperation::kWrite, variant.protocol, variant.mcu, bytes::Bytes(variant.rom_size, 0x5a), true);
+        const auto supplied = BuildSubaruUnisiaJecsM32rKlinePlan(FlashOperation::kWrite, variant.protocol, variant.mcu,
+                                                                 bytes::Bytes(variant.rom_size, 0x5a), true);
         ASSERT_THAT(supplied, IsOk()) << variant.protocol;
-        EXPECT_TRUE(supplied->confirmations().empty());
+        EXPECT_TRUE(supplied->Confirmations().empty());
     }
 }
 
@@ -116,7 +116,7 @@ TEST(SubaruUnisiaJecsM32rKlinePlan, RejectsEveryOtherIdentity)
              {"sub_ecu_unisia_jecs_m3779x", "M3779x"},
          }))
     {
-        EXPECT_THAT(build_subaru_unisia_jecs_m32r_kline_plan(FlashOperation::kRead, protocol, mcu, std::nullopt, false),
+        EXPECT_THAT(BuildSubaruUnisiaJecsM32rKlinePlan(FlashOperation::kRead, protocol, mcu, std::nullopt, false),
                     IsErr(ErrorKind::kInvalidConfig))
             << protocol << " / " << mcu;
     }
@@ -138,17 +138,17 @@ TEST(SubaruUnisiaJecsM32rKlinePlan, AcceptsBootmodeProtocolsForReadOnly)
              {"sub_ecu_unisia_jecs_30_bootmode", "M32R_256KB", 0x40000},
          }))
     {
-        const auto read = build_subaru_unisia_jecs_m32r_kline_plan(FlashOperation::kRead, variant.protocol, variant.mcu,
-                                                                   std::nullopt, false);
+        const auto read = BuildSubaruUnisiaJecsM32rKlinePlan(FlashOperation::kRead, variant.protocol, variant.mcu,
+                                                             std::nullopt, false);
         ASSERT_THAT(read, IsOk()) << variant.protocol;
-        EXPECT_EQ(read->transfer_region(), (MemoryRegion{0x100000, variant.rom_size}));
-        EXPECT_TRUE(read->confirmations().empty());
-        EXPECT_THAT(validate_subaru_unisia_jecs_m32r_kline_plan(*read), IsOk());
+        EXPECT_EQ(read->TransferRegion(), (MemoryRegion{0x100000, variant.rom_size}));
+        EXPECT_TRUE(read->Confirmations().empty());
+        EXPECT_THAT(ValidateSubaruUnisiaJecsM32rKlinePlan(*read), IsOk());
 
         for (const FlashOperation operation : {FlashOperation::kWrite, FlashOperation::kTestWrite})
         {
-            EXPECT_THAT(build_subaru_unisia_jecs_m32r_kline_plan(operation, variant.protocol, variant.mcu,
-                                                                 bytes::Bytes(variant.rom_size, 0x00), false),
+            EXPECT_THAT(BuildSubaruUnisiaJecsM32rKlinePlan(operation, variant.protocol, variant.mcu,
+                                                           bytes::Bytes(variant.rom_size, 0x00), false),
                         IsErr(ErrorKind::kUnsupported))
                 << variant.protocol;
         }
@@ -159,14 +159,14 @@ TEST(SubaruUnisiaJecsM32rKlinePlan, RejectsTestWriteEverywhereAndWriteOnReadOnly
 {
     for (const Variant& variant : kVariants)
     {
-        EXPECT_THAT(build_subaru_unisia_jecs_m32r_kline_plan(FlashOperation::kTestWrite, variant.protocol, variant.mcu,
-                                                             bytes::Bytes(variant.rom_size, 0x00), false),
+        EXPECT_THAT(BuildSubaruUnisiaJecsM32rKlinePlan(FlashOperation::kTestWrite, variant.protocol, variant.mcu,
+                                                       bytes::Bytes(variant.rom_size, 0x00), false),
                     IsErr(ErrorKind::kUnsupported))
             << variant.protocol;
         if (!variant.writable)
         {
-            EXPECT_THAT(build_subaru_unisia_jecs_m32r_kline_plan(FlashOperation::kWrite, variant.protocol, variant.mcu,
-                                                                 bytes::Bytes(variant.rom_size, 0x00), false),
+            EXPECT_THAT(BuildSubaruUnisiaJecsM32rKlinePlan(FlashOperation::kWrite, variant.protocol, variant.mcu,
+                                                           bytes::Bytes(variant.rom_size, 0x00), false),
                         IsErr(ErrorKind::kUnsupported))
                 << variant.protocol;
         }
@@ -181,16 +181,16 @@ TEST(SubaruUnisiaJecsM32rKlinePlan, WriteImageMustBeExactlyTheRomSize)
     // dropped any tail; one byte over is exactly that trailing partial block.
     for (const std::size_t size : {std::size_t{0x20000 - 1}, std::size_t{0x20000 + 1}, std::size_t{0x10000}})
     {
-        EXPECT_THAT(build_subaru_unisia_jecs_m32r_kline_plan(FlashOperation::kWrite, kProtocol, kMcu,
-                                                             bytes::Bytes(size, 0x00), false),
+        EXPECT_THAT(BuildSubaruUnisiaJecsM32rKlinePlan(FlashOperation::kWrite, kProtocol, kMcu,
+                                                       bytes::Bytes(size, 0x00), false),
                     IsErr(ErrorKind::kInvalidConfig))
             << size;
     }
-    EXPECT_THAT(build_subaru_unisia_jecs_m32r_kline_plan(FlashOperation::kWrite, kProtocol, kMcu, std::nullopt, false),
+    EXPECT_THAT(BuildSubaruUnisiaJecsM32rKlinePlan(FlashOperation::kWrite, kProtocol, kMcu, std::nullopt, false),
                 IsErr(ErrorKind::kInvalidConfig));
-    EXPECT_THAT(build_subaru_unisia_jecs_m32r_kline_plan(FlashOperation::kRead, kProtocol, kMcu,
-                                                         bytes::Bytes(0x20000, 0x00), false),
-                IsErr(ErrorKind::kInvalidConfig));
+    EXPECT_THAT(
+        BuildSubaruUnisiaJecsM32rKlinePlan(FlashOperation::kRead, kProtocol, kMcu, bytes::Bytes(0x20000, 0x00), false),
+        IsErr(ErrorKind::kInvalidConfig));
 }
 
 TEST(SubaruUnisiaJecsM32rKlinePlan, ValidatorRejectsHandBuiltShapes)
@@ -203,57 +203,57 @@ TEST(SubaruUnisiaJecsM32rKlinePlan, ValidatorRejectsHandBuiltShapes)
     };
     std::vector<Case> cases;
     {
-        auto fields = read_fields();
+        auto fields = ReadFields();
         fields.family_plan = SubaruUnisiaJecsM32rKlinePlan{.initial_baud = 9600, .tester_id = 0xf0, .target_id = 0x10};
         cases.push_back({"wrong baud", std::move(fields), ErrorKind::kInvalidConfig});
     }
     {
-        auto fields = read_fields();
+        auto fields = ReadFields();
         fields.family_plan = SubaruUnisiaJecsM32rKlinePlan{.initial_baud = 4800, .tester_id = 0xf1, .target_id = 0x10};
         cases.push_back({"wrong tester id", std::move(fields), ErrorKind::kInvalidConfig});
     }
     {
-        auto fields = read_fields();
+        auto fields = ReadFields();
         fields.transfer_region = MemoryRegion{0, 0x20000};
         cases.push_back({"read region at flash address", std::move(fields), ErrorKind::kInvalidConfig});
     }
     {
-        auto fields = read_fields();
+        auto fields = ReadFields();
         fields.confirmations = {ConfirmationSpec{ConfirmationSpec::Id::kApplyProgrammingVoltage, {}}};
         cases.push_back({"read with VPP confirmation", std::move(fields), ErrorKind::kInvalidConfig});
     }
     {
-        auto fields = read_fields();
+        auto fields = ReadFields();
         fields.kernel = KernelImage{.id = "k", .load_address = 0, .bytes = bytes::Bytes{1}};
         cases.push_back({"kernel", std::move(fields), ErrorKind::kInvalidConfig});
     }
     {
-        auto fields = write_fields();
+        auto fields = WriteFields();
         fields.transfer_region = MemoryRegion{0x100000, 0x20000};
         cases.push_back({"write region at read address", std::move(fields), ErrorKind::kInvalidConfig});
     }
     {
-        auto fields = write_fields();
+        auto fields = WriteFields();
         fields.image = bytes::Bytes(0x1ff80, 0xab);
         cases.push_back({"short image", std::move(fields), ErrorKind::kInvalidConfig});
     }
     {
-        auto fields = write_fields();
+        auto fields = WriteFields();
         fields.erase_regions = {MemoryRegion{0, 0x20000}};
         cases.push_back({"erase regions", std::move(fields), ErrorKind::kInvalidConfig});
     }
     {
-        auto fields = write_fields();
+        auto fields = WriteFields();
         fields.confirmations = {ConfirmationSpec{ConfirmationSpec::Id::kEraseTrigger, {}}};
         cases.push_back({"foreign confirmation", std::move(fields), ErrorKind::kInvalidConfig});
     }
     {
-        auto fields = write_fields();
+        auto fields = WriteFields();
         fields.operation = FlashOperation::kTestWrite;
         cases.push_back({"test write", std::move(fields), ErrorKind::kUnsupported});
     }
     {
-        auto fields = write_fields();
+        auto fields = WriteFields();
         fields.target_id = "sub_ecu_unisia_jecs_40";
         fields.mcu_name = "M32R_384KB";
         fields.transfer_region = MemoryRegion{0, 0x60000};
@@ -263,9 +263,9 @@ TEST(SubaruUnisiaJecsM32rKlinePlan, ValidatorRejectsHandBuiltShapes)
 
     for (auto& test_case : cases)
     {
-        auto plan = validate_and_build(std::move(test_case.fields));
+        auto plan = ValidateAndBuild(std::move(test_case.fields));
         ASSERT_THAT(plan, IsOk()) << test_case.name;
-        EXPECT_THAT(validate_subaru_unisia_jecs_m32r_kline_plan(*plan), IsErr(test_case.expected)) << test_case.name;
+        EXPECT_THAT(ValidateSubaruUnisiaJecsM32rKlinePlan(*plan), IsErr(test_case.expected)) << test_case.name;
     }
 }
 } // namespace

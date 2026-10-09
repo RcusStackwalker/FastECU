@@ -9,46 +9,46 @@
 TEST(FakeCancellationToken, SupportsFixedMutableAndCheckCountBehavior)
 {
     fastecu::FakeCancellationToken token;
-    EXPECT_FALSE(token.cancelled());
-    token.set_cancelled(true);
-    EXPECT_TRUE(token.cancelled());
+    EXPECT_FALSE(token.Cancelled());
+    token.SetCancelled(true);
+    EXPECT_TRUE(token.Cancelled());
 
     fastecu::FakeCancellationToken counted;
-    counted.cancel_on_check(3);
-    EXPECT_FALSE(counted.cancelled());
-    EXPECT_FALSE(counted.cancelled());
-    EXPECT_TRUE(counted.cancelled());
-    EXPECT_EQ(counted.check_count(), 3U);
+    counted.CancelOnCheck(3);
+    EXPECT_FALSE(counted.Cancelled());
+    EXPECT_FALSE(counted.Cancelled());
+    EXPECT_TRUE(counted.Cancelled());
+    EXPECT_EQ(counted.CheckCount(), 3U);
 }
 
 TEST(FakeCancellationToken, PredicateCanObserveAnotherDouble)
 {
     int polls = 0;
     fastecu::FakeCancellationToken token;
-    token.set_predicate([&polls] { return polls >= 2; });
-    EXPECT_FALSE(token.cancelled());
+    token.SetPredicate([&polls] { return polls >= 2; });
+    EXPECT_FALSE(token.Cancelled());
     polls = 2;
-    EXPECT_TRUE(token.cancelled());
+    EXPECT_TRUE(token.Cancelled());
 }
 
 TEST(FakeCancellationToken, PredicateThenCheckThresholdThenFixedStateTakePrecedence)
 {
     fastecu::FakeCancellationToken all_modes(true);
-    all_modes.cancel_on_check(1);
-    all_modes.set_predicate([] { return false; });
+    all_modes.CancelOnCheck(1);
+    all_modes.SetPredicate([] { return false; });
 
-    EXPECT_FALSE(all_modes.cancelled());
+    EXPECT_FALSE(all_modes.Cancelled());
 
-    all_modes.set_predicate({});
-    EXPECT_TRUE(all_modes.cancelled());
+    all_modes.SetPredicate({});
+    EXPECT_TRUE(all_modes.Cancelled());
 
     fastecu::FakeCancellationToken threshold_over_fixed(true);
-    threshold_over_fixed.cancel_on_check(2);
-    EXPECT_FALSE(threshold_over_fixed.cancelled());
-    EXPECT_TRUE(threshold_over_fixed.cancelled());
+    threshold_over_fixed.CancelOnCheck(2);
+    EXPECT_FALSE(threshold_over_fixed.Cancelled());
+    EXPECT_TRUE(threshold_over_fixed.Cancelled());
 
     fastecu::FakeCancellationToken fixed_state(true);
-    EXPECT_TRUE(fixed_state.cancelled());
+    EXPECT_TRUE(fixed_state.Cancelled());
 }
 
 TEST(FakeCancellationToken, ConcurrentChecksAreCountedExactly)
@@ -66,7 +66,7 @@ TEST(FakeCancellationToken, ConcurrentChecksAreCountedExactly)
             {
                 for (std::size_t check = 0; check < kChecksPerThread; ++check)
                 {
-                    std::ignore = token.cancelled();
+                    std::ignore = token.Cancelled();
                 }
             });
     }
@@ -75,5 +75,5 @@ TEST(FakeCancellationToken, ConcurrentChecksAreCountedExactly)
         thread.join();
     }
 
-    EXPECT_EQ(token.check_count(), kThreadCount * kChecksPerThread);
+    EXPECT_EQ(token.CheckCount(), kThreadCount * kChecksPerThread);
 }

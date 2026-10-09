@@ -215,7 +215,7 @@ void ServiceFunctionDialog::handleGate(int gateId)
     const bool accepted = askGate(static_cast<OperatorGateId>(gateId));
     if (worker_ != nullptr)
     {
-        worker_->answerGate(gateId, accepted);
+        worker_->AnswerGate(gateId, accepted);
     }
 }
 
@@ -243,7 +243,7 @@ void ServiceFunctionDialog::closeEvent(QCloseEvent *event)
 {
     if (worker_ != nullptr)
     {
-        worker_->requestStop();
+        worker_->RequestStop();
     }
     QDialog::closeEvent(event);
 }

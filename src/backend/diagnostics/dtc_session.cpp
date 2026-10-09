@@ -37,12 +37,12 @@ struct KlineIds
     std::uint8_t target_id;
 };
 
-constexpr KlineIds ids_for(ObdProtocol protocol)
+constexpr KlineIds IdsFor(ObdProtocol protocol)
 {
     return protocol == ObdProtocol::kIso9141 ? KlineIds{0x68, 0xF1, 0x6A} : KlineIds{0xC0, 0xF1, 0x33};
 }
 
-std::string as_text(const bytes::Bytes& data)
+std::string AsText(const bytes::Bytes& data)
 {
     return std::string(data.begin(), data.end());
 }
@@ -56,12 +56,12 @@ class DtcRun
     {
     }
 
-    Result<DtcReport> execute()
+    Result<DtcReport> Execute()
     {
-        const Status outcome = body();
+        const Status outcome = Body();
         // Today's select_operation epilogue; its results were never checked.
-        std::ignore = link_.set_header(KlineHeader::kNone);
-        std::ignore = link_.reset();
+        std::ignore = link_.SetHeader(KlineHeader::kNone);
+        std::ignore = link_.Reset();
         if (!outcome.has_value())
         {
             return std::unexpected(outcome.error());
@@ -70,42 +70,42 @@ class DtcRun
     }
 
   private:
-    Status body()
+    Status Body()
     {
-        if (auto initialised = init(); !initialised.has_value())
+        if (auto initialised = Init(); !initialised.has_value())
         {
             return initialised;
         }
-        if (auto info = vehicle_info(); !info.has_value())
+        if (auto info = VehicleInfo(); !info.has_value())
         {
             return info;
         }
-        return request_.operation == DtcOperation::kRead ? read_dtcs() : clear_dtcs();
+        return request_.operation == DtcOperation::kRead ? ReadDtcs() : ClearDtcs();
     }
 
-    Status init()
+    Status Init()
     {
         switch (request_.protocol)
         {
         case ObdProtocol::kIso9141:
-            return five_baud(ObdProtocol::kIso9141);
+            return FiveBaud(ObdProtocol::kIso9141);
         case ObdProtocol::kIso14230:
-            if (auto fast = fast_init(); fast.has_value() || fast.error().kind == ErrorKind::kCancelled)
+            if (auto fast = FastInit(); fast.has_value() || fast.error().kind == ErrorKind::kCancelled)
             {
                 return fast;
             }
-            return five_baud(ObdProtocol::kIso14230);
+            return FiveBaud(ObdProtocol::kIso14230);
         case ObdProtocol::kIso15765:
-            return can_init();
+            return CanInit();
         }
-        return fail(ErrorKind::kInternal, "unknown OBD protocol");
+        return Fail(ErrorKind::kInternal, "unknown OBD protocol");
     }
 
-    Status five_baud(ObdProtocol requested)
+    Status FiveBaud(ObdProtocol requested)
     {
-        const std::string name(protocol_name(requested));
-        const KlineIds ids = ids_for(requested);
-        if (auto opened = link_.open(KlineLinkConfig{.header = KlineHeader::kNone,
+        const std::string name(ProtocolName(requested));
+        const KlineIds ids = IdsFor(requested);
+        if (auto opened = link_.Open(KlineLinkConfig{.header = KlineHeader::kNone,
                                                      .iso14230_connection = false,
                                                      .baud = 10400,
                                                      .start_byte = ids.start_byte,
@@ -115,34 +115,34 @@ class DtcRun
         {
             return opened;
         }
-        info("Testing " + name + " five baud init, please wait...");
-        std::ignore = link_.set_p1_max(35ms); // result never checked today
-        auto response = link_.five_baud_init(kFiveBaudAddress);
+        Info("Testing " + name + " five baud init, please wait...");
+        std::ignore = link_.SetP1Max(35ms); // result never checked today
+        auto response = link_.FiveBaudInit(kFiveBaudAddress);
         if (!response.has_value())
         {
             return std::unexpected(response.error());
         }
-        info("Init response: " + format_hex(*response));
-        const bool j2534 = link_.uses_j2534();
-        const std::optional<KlineHeader> header = five_baud_header(requested, *response, j2534);
+        Info("Init response: " + FormatHex(*response));
+        const bool j2534 = link_.UsesJ2534();
+        const std::optional<KlineHeader> header = FiveBaudHeader(requested, *response, j2534);
         if (!j2534)
         {
-            std::ignore = link_.set_p1_max(25ms);
+            std::ignore = link_.SetP1Max(25ms);
         }
         if (!header.has_value())
         {
-            error(name + " five baud init failed.");
-            return fail(ErrorKind::kBadResponse, name + " five baud init failed");
+            Error(name + " five baud init failed.");
+            return Fail(ErrorKind::kBadResponse, name + " five baud init failed");
         }
-        std::ignore = link_.set_header(*header);
-        info(name + " five baud init succesfully completed.");
+        std::ignore = link_.SetHeader(*header);
+        Info(name + " five baud init succesfully completed.");
         return {};
     }
 
-    Status fast_init()
+    Status FastInit()
     {
-        const KlineIds ids = ids_for(ObdProtocol::kIso14230);
-        if (auto opened = link_.open(KlineLinkConfig{.header = KlineHeader::kIso14230,
+        const KlineIds ids = IdsFor(ObdProtocol::kIso14230);
+        if (auto opened = link_.Open(KlineLinkConfig{.header = KlineHeader::kIso14230,
                                                      .iso14230_connection = true,
                                                      .baud = 10400,
                                                      .start_byte = ids.start_byte,
@@ -152,28 +152,28 @@ class DtcRun
         {
             return opened;
         }
-        info("Initialising iso14230 fast init K-Line communications, please wait...");
-        if (auto woke = link_.fast_init(bytes::Bytes{kFastInitWakeup}); !woke.has_value())
+        Info("Initialising iso14230 fast init K-Line communications, please wait...");
+        if (auto woke = link_.FastInit(bytes::Bytes{kFastInitWakeup}); !woke.has_value())
         {
             return woke; // silent, as today; the caller falls back to five-baud
         }
-        auto frame = read_frame(kShortRead);
+        auto frame = ReadFrame(kShortRead);
         if (!frame.has_value())
         {
             return std::unexpected(frame.error());
         }
-        if (!frame->has_value() || !fast_init_accepted(**frame))
+        if (!frame->has_value() || !FastInitAccepted(**frame))
         {
-            error("iso14230 fast init mode failed.");
-            return fail(ErrorKind::kBadResponse, "iso14230 fast init mode failed");
+            Error("iso14230 fast init mode failed.");
+            return Fail(ErrorKind::kBadResponse, "iso14230 fast init mode failed");
         }
-        info("iso14230 fast init mode succesfully completed.");
+        Info("iso14230 fast init mode succesfully completed.");
         return {};
     }
 
-    Status can_init()
+    Status CanInit()
     {
-        if (auto opened = link_.open(CanLinkConfig{.iso15765 = true,
+        if (auto opened = link_.Open(CanLinkConfig{.iso15765 = true,
                                                    .bitrate = 500000,
                                                    .extended_id = false,
                                                    .source_id = kCanSource,
@@ -182,13 +182,13 @@ class DtcRun
         {
             return opened;
         }
-        info("Initialising iso15765 CAN communications, please wait...");
-        const bytes::Bytes probe = build_request(ObdProtocol::kIso15765, kCanSource, bytes::Bytes{kLiveData, 0x00});
-        if (auto written = link_.write(probe); !written.has_value())
+        Info("Initialising iso15765 CAN communications, please wait...");
+        const bytes::Bytes probe = BuildRequest(ObdProtocol::kIso15765, kCanSource, bytes::Bytes{kLiveData, 0x00});
+        if (auto written = link_.Write(probe); !written.has_value())
         {
             return std::unexpected(written.error());
         }
-        auto frame = link_.read(kCanInitRead, cancellation_);
+        auto frame = link_.Read(kCanInitRead, cancellation_);
         if (!frame.has_value())
         {
             return std::unexpected(frame.error());
@@ -196,44 +196,44 @@ class DtcRun
         const bytes::Bytes f = frame->value_or(bytes::Bytes{});
         if (f.size() <= 4)
         {
-            return fail(ErrorKind::kBadResponse, "no iso15765 init response");
+            return Fail(ErrorKind::kBadResponse, "no iso15765 init response");
         }
         if (f[4] == 0x7F)
         {
             // Today's code describes the NRC from offset 3, not 4.
-            error("Wrong response from ECU: " + nrc_description(bytes::ByteView(f).subspan(3)));
-            return fail(ErrorKind::kBadResponse, "iso15765 init rejected");
+            Error("Wrong response from ECU: " + NrcDescription(bytes::ByteView(f).subspan(3)));
+            return Fail(ErrorKind::kBadResponse, "iso15765 init rejected");
         }
         if (f[4] != 0x41)
         {
-            error("Wrong response from ECU: " + format_hex(f));
-            return fail(ErrorKind::kBadResponse, "iso15765 init wrong response");
+            Error("Wrong response from ECU: " + FormatHex(f));
+            return Fail(ErrorKind::kBadResponse, "iso15765 init wrong response");
         }
-        info("iso15765 init mode succesfully completed.");
+        Info("iso15765 init mode succesfully completed.");
         return {};
     }
 
-    Status vehicle_info()
+    Status VehicleInfo()
     {
-        info("Requesting vehicle info, please wait...");
-        if (auto slept = clock_.sleep(kBeforeVehicleInfo, cancellation_); !slept.has_value())
+        Info("Requesting vehicle info, please wait...");
+        if (auto slept = clock_.Sleep(kBeforeVehicleInfo, cancellation_); !slept.has_value())
         {
             return slept;
         }
         for (std::size_t page = 0; page < kSupportPages.size(); ++page)
         {
-            auto response = request(kLiveData, kSupportPages.at(page), false);
+            auto response = Request(kLiveData, kSupportPages.at(page), false);
             if (!response.has_value())
             {
                 return std::unexpected(response.error());
             }
             if (!response->empty())
             {
-                info(format_pid_page_label(page, *response));
-                info("Supported PIDs: " + format_supported_pids(page, *response));
+                Info(FormatPidPageLabel(page, *response));
+                Info("Supported PIDs: " + FormatSupportedPids(page, *response));
                 report_.supported_pids.push_back(SupportedPidPage{page, *response});
             }
-            if (auto slept = clock_.sleep(kBetweenRequests, cancellation_); !slept.has_value())
+            if (auto slept = clock_.Sleep(kBetweenRequests, cancellation_); !slept.has_value())
             {
                 return slept;
             }
@@ -257,21 +257,21 @@ class DtcRun
         }};
         for (const Item& item : kItems)
         {
-            auto response = request(item.mode, item.pid, false);
+            auto response = Request(item.mode, item.pid, false);
             if (!response.has_value())
             {
                 return std::unexpected(response.error());
             }
             if (!response->empty())
             {
-                info(std::string(item.label) + format_hex(*response));
+                Info(std::string(item.label) + FormatHex(*response));
                 if (item.also_text)
                 {
-                    info(std::string(item.label) + as_text(*response));
+                    Info(std::string(item.label) + AsText(*response));
                 }
                 report_.*item.field = *response;
             }
-            if (auto slept = clock_.sleep(kBetweenRequests, cancellation_); !slept.has_value())
+            if (auto slept = clock_.Sleep(kBetweenRequests, cancellation_); !slept.has_value())
             {
                 return slept;
             }
@@ -279,7 +279,7 @@ class DtcRun
         return {};
     }
 
-    Status read_dtcs()
+    Status ReadDtcs()
     {
         struct List
         {
@@ -294,38 +294,38 @@ class DtcRun
         }};
         for (const List& list : kLists)
         {
-            auto response = request(list.mode, std::nullopt, true);
+            auto response = Request(list.mode, std::nullopt, true);
             if (!response.has_value())
             {
                 return std::unexpected(response.error());
             }
             if (response->empty())
             {
-                return fail(ErrorKind::kBadResponse, list.missing);
+                return Fail(ErrorKind::kBadResponse, list.missing);
             }
-            info(std::string(list.label) + format_hex(*response));
-            report_.*list.field = decode_dtcs(*response);
+            Info(std::string(list.label) + FormatHex(*response));
+            report_.*list.field = DecodeDtcs(*response);
             for (const std::uint16_t code : report_.*list.field)
             {
-                info("DTC: " + dtc_description(code));
+                Info("DTC: " + DtcDescription(code));
             }
-            if (auto slept = clock_.sleep(kBetweenRequests, cancellation_); !slept.has_value())
+            if (auto slept = clock_.Sleep(kBetweenRequests, cancellation_); !slept.has_value())
             {
                 return slept;
             }
         }
-        info("Diagnostic trouble codes succesfully read!");
+        Info("Diagnostic trouble codes succesfully read!");
         return {};
     }
 
-    Status clear_dtcs()
+    Status ClearDtcs()
     {
-        if (auto read = read_dtcs(); !read.has_value())
+        if (auto read = ReadDtcs(); !read.has_value())
         {
             return read;
         }
-        const std::size_t index = response_index(request_.protocol);
-        if (auto written = link_.write(build_request(request_.protocol, kCanSource, bytes::Bytes{kClearDtcs}));
+        const std::size_t index = ResponseIndex(request_.protocol);
+        if (auto written = link_.Write(BuildRequest(request_.protocol, kCanSource, bytes::Bytes{kClearDtcs}));
             !written.has_value())
         {
             return std::unexpected(written.error());
@@ -333,7 +333,7 @@ class DtcRun
         bool cleared = false;
         while (true)
         {
-            auto frame = read_frame(kShortRead);
+            auto frame = ReadFrame(kShortRead);
             if (!frame.has_value())
             {
                 return std::unexpected(frame.error());
@@ -349,12 +349,12 @@ class DtcRun
             }
             if (f[index] == 0x7F)
             {
-                error("Wrong response from ECU: " + nrc_description(bytes::ByteView(f).subspan(index)));
+                Error("Wrong response from ECU: " + NrcDescription(bytes::ByteView(f).subspan(index)));
                 break;
             }
             if (f[index] != (kClearDtcs | 0x40U))
             {
-                error("Wrong response from ECU: " + format_hex(f));
+                Error("Wrong response from ECU: " + FormatHex(f));
                 break;
             }
             cleared = true;
@@ -362,30 +362,30 @@ class DtcRun
         }
         if (!cleared)
         {
-            return fail(ErrorKind::kBadResponse, "clear DTCs not acknowledged");
+            return Fail(ErrorKind::kBadResponse, "clear DTCs not acknowledged");
         }
         report_.cleared = true;
-        info("Diagnostic trouble codes succesfully cleared!");
+        Info("Diagnostic trouble codes succesfully cleared!");
         return {};
     }
 
     // Writes one request and collects frames until an empty read. An NRC or
     // wrong response is logged and ends collection with what was gathered.
-    Result<bytes::Bytes> request(std::uint8_t mode, std::optional<std::uint8_t> pid, bool dtc_list)
+    Result<bytes::Bytes> Request(std::uint8_t mode, std::optional<std::uint8_t> pid, bool dtc_list)
     {
         bytes::Bytes payload{mode};
         if (pid.has_value())
         {
             payload.push_back(*pid);
         }
-        if (auto written = link_.write(build_request(request_.protocol, kCanSource, payload)); !written.has_value())
+        if (auto written = link_.Write(BuildRequest(request_.protocol, kCanSource, payload)); !written.has_value())
         {
             return std::unexpected(written.error());
         }
         bytes::Bytes response;
         while (true)
         {
-            auto frame = read_frame(kShortRead);
+            auto frame = ReadFrame(kShortRead);
             if (!frame.has_value())
             {
                 return std::unexpected(frame.error());
@@ -395,37 +395,37 @@ class DtcRun
                 break;
             }
             const bytes::Bytes& f = **frame;
-            const ResponseCheck check = check_response(request_.protocol, f, mode, pid);
+            const ResponseCheck check = CheckResponse(request_.protocol, f, mode, pid);
             if (check == ResponseCheck::kNrc)
             {
-                error("Wrong response from ECU: " +
-                      nrc_description(bytes::ByteView(f).subspan(response_index(request_.protocol))));
+                Error("Wrong response from ECU: " +
+                      NrcDescription(bytes::ByteView(f).subspan(ResponseIndex(request_.protocol))));
                 break;
             }
             if (check == ResponseCheck::kWrongId)
             {
-                error("Wrong response from ECU: " + format_hex(f));
+                Error("Wrong response from ECU: " + FormatHex(f));
                 break;
             }
-            const bytes::Bytes data = dtc_list ? unframe_dtc_list_response(request_.protocol, f)
-                                               : unframe_data_response(request_.protocol, f);
+            const bytes::Bytes data =
+                dtc_list ? UnframeDtcListResponse(request_.protocol, f) : UnframeDataResponse(request_.protocol, f);
             response.insert(response.end(), data.begin(), data.end());
         }
         return response;
     }
 
-    Result<IDiagnosticLink::OptionalBytes> read_frame(std::chrono::milliseconds timeout)
+    Result<IDiagnosticLink::OptionalBytes> ReadFrame(std::chrono::milliseconds timeout)
     {
-        return link_.uses_j2534() ? link_.read(timeout, cancellation_) : link_.read_obd(timeout, cancellation_);
+        return link_.UsesJ2534() ? link_.Read(timeout, cancellation_) : link_.ReadObd(timeout, cancellation_);
     }
 
-    void info(const std::string& message)
+    void Info(const std::string& message)
     {
-        events_.log(LogLevel::kInfo, message);
+        events_.Log(LogLevel::kInfo, message);
     }
-    void error(const std::string& message)
+    void Error(const std::string& message)
     {
-        events_.log(LogLevel::kError, message);
+        events_.Log(LogLevel::kError, message);
     }
 
     DtcRequest request_;
@@ -438,10 +438,10 @@ class DtcRun
 
 } // namespace
 
-Result<DtcReport> run_dtc_session(const DtcRequest& request, IDiagnosticLink& link, IClock& clock,
-                                  const ICancellationToken& cancellation, IEventSink& events)
+Result<DtcReport> RunDtcSession(const DtcRequest& request, IDiagnosticLink& link, IClock& clock,
+                                const ICancellationToken& cancellation, IEventSink& events)
 {
-    return DtcRun(request, link, clock, cancellation, events).execute();
+    return DtcRun(request, link, clock, cancellation, events).Execute();
 }
 
 } // namespace fastecu::diagnostics

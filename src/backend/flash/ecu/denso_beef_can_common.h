@@ -45,17 +45,17 @@ inline constexpr std::uint32_t kKernelStartComm = 0xBEEF;
 
 // Frames a kernel-protocol request: marker, big-endian length covering the
 // opcode plus payload, opcode, payload.
-inline bytes::Bytes beef_request(bytes::Byte opcode, bytes::ByteView payload = {})
+inline bytes::Bytes BeefRequest(bytes::Byte opcode, bytes::ByteView payload = {})
 {
-    return bytes::composeBe(std::uint16_t{kKernelStartComm}, static_cast<std::uint16_t>(payload.size() + 1), opcode,
+    return bytes::ComposeBe(std::uint16_t{kKernelStartComm}, static_cast<std::uint16_t>(payload.size() + 1), opcode,
                             payload);
 }
 
 // The padded kernel-upload payload transform. A one-line adapter onto the
 // shared table in denso_iso15765_can_common.h.
-inline bytes::Bytes encrypt_payload(bytes::ByteView payload)
+inline bytes::Bytes EncryptPayload(bytes::ByteView payload)
 {
-    return denso_encrypt_rom(payload);
+    return DensoEncryptRom(payload);
 }
 
 // Any executor context carrying a cancellation token.
@@ -64,19 +64,19 @@ concept WithCancellation = requires(const C& ctx) {
     { ctx.cancellation } -> std::convertible_to<const ICancellationToken&>;
 };
 
-template <WithCancellation C> Status cancelled_if_requested(const C& ctx, std::string_view detail)
+template <WithCancellation C> Status CancelledIfRequested(const C& ctx, std::string_view detail)
 {
-    if (ctx.cancellation.cancelled())
+    if (ctx.cancellation.Cancelled())
     {
-        return fail(ErrorKind::kCancelled, std::string(detail));
+        return Fail(ErrorKind::kCancelled, std::string(detail));
     }
     return {};
 }
 
 // Legacy reported a floor of one millisecond for any completed transfer, so a
 // sub-millisecond phase never renders as "0 ms".
-inline std::uint64_t elapsed_milliseconds(std::chrono::steady_clock::time_point start,
-                                          std::chrono::steady_clock::time_point end)
+inline std::uint64_t ElapsedMilliseconds(std::chrono::steady_clock::time_point start,
+                                         std::chrono::steady_clock::time_point end)
 {
     const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
     return elapsed > 0 ? static_cast<std::uint64_t>(elapsed) : 1U;
@@ -87,25 +87,25 @@ inline std::uint64_t elapsed_milliseconds(std::chrono::steady_clock::time_point 
 // family's channel member has its own type.
 template <class C>
 Result<std::optional<bytes::Bytes>>
-channel_request_optional(C& ctx, bytes::ByteView pdu, std::chrono::milliseconds timeout,
-                         std::chrono::milliseconds delay = std::chrono::milliseconds{0})
+ChannelRequestOptional(C& ctx, bytes::ByteView pdu, std::chrono::milliseconds timeout,
+                       std::chrono::milliseconds delay = std::chrono::milliseconds{0})
 {
-    if (const Status checkpoint = cancelled_if_requested(ctx, "cancelled before CAN request"); !checkpoint.has_value())
+    if (const Status checkpoint = CancelledIfRequested(ctx, "cancelled before CAN request"); !checkpoint.has_value())
     {
         return std::unexpected(checkpoint.error());
     }
-    if (const Status sent = ctx.channel.send(pdu, ctx.cancellation); !sent.has_value())
+    if (const Status sent = ctx.channel.Send(pdu, ctx.cancellation); !sent.has_value())
     {
         return std::unexpected(sent.error());
     }
     if (delay > std::chrono::milliseconds{0})
     {
-        if (const Status slept = ctx.clock.sleep(delay, ctx.cancellation); !slept.has_value())
+        if (const Status slept = ctx.clock.Sleep(delay, ctx.cancellation); !slept.has_value())
         {
             return std::unexpected(slept.error());
         }
     }
-    return ctx.channel.receive(timeout, ctx.cancellation);
+    return ctx.channel.Receive(timeout, ctx.cancellation);
 }
 
 } // namespace fastecu::flash

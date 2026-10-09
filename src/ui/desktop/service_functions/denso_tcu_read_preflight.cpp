@@ -15,7 +15,7 @@ namespace fastecu::service_functions
 namespace
 {
 
-std::optional<ServiceFunctionKind> to_service_kind(DensoTcuReadAction action)
+std::optional<ServiceFunctionKind> toServiceKind(DensoTcuReadAction action)
 {
     switch (action)
     {
@@ -32,7 +32,7 @@ std::optional<ServiceFunctionKind> to_service_kind(DensoTcuReadAction action)
     return std::nullopt;
 }
 
-bool confirm_tcu_ignition(QWidget *parent)
+bool confirmTcuIgnition(QWidget *parent)
 {
     QMessageBox messageBox{QMessageBox::Warning, QObject::tr("Connecting to TCU"),
                            QObject::tr("Turn ignition ON and press OK to start initializing connection to TCU"),
@@ -43,7 +43,7 @@ bool confirm_tcu_ignition(QWidget *parent)
 
 } // namespace
 
-DensoTcuReadAction choose_denso_tcu_read_action(QWidget *parent)
+DensoTcuReadAction chooseDensoTcuReadAction(QWidget *parent)
 {
     QMessageBox messageBox{parent};
     messageBox.setText("Choose which option");
@@ -75,8 +75,8 @@ DensoTcuReadAction choose_denso_tcu_read_action(QWidget *parent)
     return DensoTcuReadAction::kCancelled;
 }
 
-bool run_denso_tcu_service_action(DensoTcuReadAction action, SerialPortActions *serial, std::string protocol,
-                                  QWidget *parent)
+bool runDensoTcuServiceAction(DensoTcuReadAction action, SerialPortActions *serial, std::string protocol,
+                              QWidget *parent)
 {
     if (action == DensoTcuReadAction::kDump)
     {
@@ -86,12 +86,12 @@ bool run_denso_tcu_service_action(DensoTcuReadAction action, SerialPortActions *
     {
         return true;
     }
-    if (!confirm_tcu_ignition(parent))
+    if (!confirmTcuIgnition(parent))
     {
         return true;
     }
 
-    const std::optional<ServiceFunctionKind> serviceKind = to_service_kind(action);
+    const std::optional<ServiceFunctionKind> serviceKind = toServiceKind(action);
     if (!serviceKind.has_value())
     {
         return true;

@@ -26,14 +26,14 @@ FlashWorker::FlashWorker(FlashAttempt attempt, QObject *parent)
 
 FlashWorker::~FlashWorker()
 {
-    requestStop();
+    RequestStop();
     wait(kTeardownWaitMs);
 }
 
-void FlashWorker::requestStop()
+void FlashWorker::RequestStop()
 {
-    cancellation_.cancel();
-    attempt_->request_unblock();
+    cancellation_.Cancel();
+    attempt_->RequestUnblock();
 }
 
 void FlashWorker::run()
@@ -60,7 +60,7 @@ void FlashWorker::run()
         &events, &QtEventSink::noticed, this, [this](QString message)
         { emit logEvent(static_cast<int>(LogLevel::kInfo), std::move(message)); }, Qt::DirectConnection);
 
-    Result<FlashExecutionResult> result = attempt_->run(*clock_, cancellation_, events);
+    Result<FlashExecutionResult> result = attempt_->Run(*clock_, cancellation_, events);
 
     FlashWorkerResult worker_result;
     if (result.has_value())

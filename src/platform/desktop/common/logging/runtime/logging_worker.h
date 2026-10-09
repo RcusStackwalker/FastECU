@@ -20,12 +20,14 @@ class LoggingWorker final : public QThread
                   fastecu::IEventSink& diagnostics, QObject *parent = nullptr);
     ~LoggingWorker() override;
 
-    void requestStop();
+    void RequestStop();
 
   signals:
+    // NOLINTBEGIN(readability-identifier-naming): Qt signals keep Qt's camelBack names
     void stateChanged(fastecu::logging::LoggingState state);
     void samplesReady(QVector<fastecu::logging::LogSample> samples);
     void sessionFinished(fastecu::Status result);
+    // NOLINTEND(readability-identifier-naming)
 
   protected:
     void run() override;

@@ -224,14 +224,14 @@ class ServiceActionDriver final : public QObject
 
 void expectNoBackendIo(FakeBackend& fake)
 {
-    EXPECT_CALL(fake, is_serial_port_open()).Times(0);
-    EXPECT_CALL(fake, reset_connection()).Times(0);
-    EXPECT_CALL(fake, change_port_speed(::testing::_)).Times(0);
-    EXPECT_CALL(fake, open_serial_port()).Times(0);
-    EXPECT_CALL(fake, read_serial_data(::testing::_)).Times(0);
-    EXPECT_CALL(fake, write_serial_data(::testing::_)).Times(0);
-    EXPECT_CALL(fake, write_serial_data_echo_check(::testing::_)).Times(0);
-    EXPECT_CALL(fake, read_vbatt()).Times(0);
+    EXPECT_CALL(fake, IsSerialPortOpen()).Times(0);
+    EXPECT_CALL(fake, ResetConnection()).Times(0);
+    EXPECT_CALL(fake, ChangePortSpeed(::testing::_)).Times(0);
+    EXPECT_CALL(fake, OpenSerialPort()).Times(0);
+    EXPECT_CALL(fake, ReadSerialData(::testing::_)).Times(0);
+    EXPECT_CALL(fake, WriteSerialData(::testing::_)).Times(0);
+    EXPECT_CALL(fake, WriteSerialDataEchoCheck(::testing::_)).Times(0);
+    EXPECT_CALL(fake, ReadVbatt()).Times(0);
 }
 
 } // namespace
@@ -268,7 +268,7 @@ TEST_P(ChooserReturnsTheActionNamedByEachLegacyButtonParameters, chooserReturnsT
 
     ChooserDriver driver{choice};
     driver.start();
-    const DensoTcuReadAction action = choose_denso_tcu_read_action(nullptr);
+    const DensoTcuReadAction action = chooseDensoTcuReadAction(nullptr);
 
     ASSERT_TRUE(driver.sawChooser());
     ASSERT_TRUE(!driver.timedOut());
@@ -283,7 +283,7 @@ TEST(DensoTcuReadPreflightTest, dismissingChooserReturnsCancelled)
     ChooserDriver driver{{}};
     driver.start();
 
-    ASSERT_EQ(choose_denso_tcu_read_action(nullptr), DensoTcuReadAction::kCancelled);
+    ASSERT_EQ(chooseDensoTcuReadAction(nullptr), DensoTcuReadAction::kCancelled);
     ASSERT_TRUE(driver.sawChooser());
     ASSERT_TRUE(!driver.timedOut());
 }
@@ -315,17 +315,17 @@ TEST_P(DumpAndCancelledReturnWithoutIgnitionOrSerialCallsParameters, dumpAndCanc
     const int action = GetParam().action;
     const bool handled = GetParam().handled;
     fastecu::desktop::connection::testing::AdapterConnectionHarness adapter;
-    FakeBackend *fake = adapter.fake();
+    FakeBackend *fake = adapter.Fake();
     ASSERT_TRUE(fake != nullptr);
-    SerialPortActions& serial = adapter.connection().facade();
+    SerialPortActions& serial = adapter.Connection().Facade();
     expectNoBackendIo(*fake);
 
     ServiceActionDriver driver{false};
     driver.start();
-    ASSERT_EQ(run_denso_tcu_service_action(static_cast<DensoTcuReadAction>(action), &serial, "sub_tcu_denso_sh7058_can",
-                                           nullptr),
-              handled);
-    fastecu::testing::process_events_for(std::chrono::milliseconds(20));
+    ASSERT_EQ(
+        runDensoTcuServiceAction(static_cast<DensoTcuReadAction>(action), &serial, "sub_tcu_denso_sh7058_can", nullptr),
+        handled);
+    fastecu::testing::ProcessEventsFor(std::chrono::milliseconds(20));
 
     ASSERT_EQ(driver.ignitionCount(), 0);
     ASSERT_TRUE(driver.serviceDialogTitles().isEmpty());
@@ -359,15 +359,15 @@ TEST_P(DecliningIgnitionSkipsEveryServiceDialogAndSerialCallParameters,
 {
     const int action = GetParam().action;
     fastecu::desktop::connection::testing::AdapterConnectionHarness adapter;
-    FakeBackend *fake = adapter.fake();
+    FakeBackend *fake = adapter.Fake();
     ASSERT_TRUE(fake != nullptr);
-    SerialPortActions& serial = adapter.connection().facade();
+    SerialPortActions& serial = adapter.Connection().Facade();
     expectNoBackendIo(*fake);
 
     ServiceActionDriver driver{false};
     driver.start();
-    ASSERT_TRUE(run_denso_tcu_service_action(static_cast<DensoTcuReadAction>(action), &serial,
-                                             "sub_tcu_denso_sh7058_can", nullptr));
+    ASSERT_TRUE(runDensoTcuServiceAction(static_cast<DensoTcuReadAction>(action), &serial, "sub_tcu_denso_sh7058_can",
+                                         nullptr));
 
     ASSERT_TRUE(!driver.timedOut());
     ASSERT_EQ(driver.ignitionCount(), 1);
@@ -406,15 +406,15 @@ TEST_P(AcceptingIgnitionOpensTheMatchingRealServiceDialogParameters, acceptingIg
     const int action = GetParam().action;
     const QString title = GetParam().title;
     fastecu::desktop::connection::testing::AdapterConnectionHarness adapter;
-    FakeBackend *fake = adapter.fake();
+    FakeBackend *fake = adapter.Fake();
     ASSERT_TRUE(fake != nullptr);
-    SerialPortActions& serial = adapter.connection().facade();
+    SerialPortActions& serial = adapter.Connection().Facade();
     expectNoBackendIo(*fake);
 
     ServiceActionDriver driver{true};
     driver.start();
-    ASSERT_TRUE(run_denso_tcu_service_action(static_cast<DensoTcuReadAction>(action), &serial,
-                                             "sub_tcu_denso_sh7058_can", nullptr));
+    ASSERT_TRUE(runDensoTcuServiceAction(static_cast<DensoTcuReadAction>(action), &serial, "sub_tcu_denso_sh7058_can",
+                                         nullptr));
 
     ASSERT_TRUE(!driver.timedOut());
     ASSERT_EQ(driver.ignitionCount(), 1);

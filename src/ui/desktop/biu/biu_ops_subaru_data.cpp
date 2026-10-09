@@ -26,7 +26,7 @@ BiuOpsSubaruData::~BiuOpsSubaruData()
 {
 }
 
-void BiuOpsSubaruData::update_data_results(QStringList *dataResult)
+void BiuOpsSubaruData::updateDataResults(QStringList *dataResult)
 {
 
     QLabel *currentLabel;

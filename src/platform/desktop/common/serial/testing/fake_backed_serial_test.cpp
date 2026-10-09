@@ -19,9 +19,9 @@ TEST(TestFakeBackedSerial, theBackendIsLiveAsSoonAsTheFixtureIsConstructed)
 {
     FakeBackedSerial serial;
 
-    EXPECT_CALL(serial.fake(), read_vbatt()).WillOnce(::testing::Return(11676UL));
+    EXPECT_CALL(serial.Fake(), ReadVbatt()).WillOnce(::testing::Return(11676UL));
 
-    ASSERT_EQ(serial->read_vbatt(), 11676UL);
+    ASSERT_EQ(serial->ReadVbatt(), 11676UL);
 }
 
 // arrange() must run before the fixture's own forcing call reaches the
@@ -32,11 +32,11 @@ TEST(TestFakeBackedSerial, arrangeRunsBeforeTheFixtureTouchesTheBackend)
     FakeBackedSerial<::testing::StrictMock<FakeBackend>> serial{
         [](auto& fake)
         {
-            EXPECT_CALL(fake, set_add_ssm_header(false)).WillOnce(::testing::DoDefault());
-            EXPECT_CALL(fake, read_vbatt()).WillOnce(::testing::Return(9000UL));
+            EXPECT_CALL(fake, SetAddSsmHeader(false)).WillOnce(::testing::DoDefault());
+            EXPECT_CALL(fake, ReadVbatt()).WillOnce(::testing::Return(9000UL));
         }};
 
-    ASSERT_EQ(serial->read_vbatt(), 9000UL);
+    ASSERT_EQ(serial->ReadVbatt(), 9000UL);
 }
 
 // release() hands the facade to a consumer (a transport, in the real
@@ -47,12 +47,12 @@ TEST(TestFakeBackedSerial, releaseTransfersTheFacadeAndLeavesTheFakeReachable)
     bool destroyed = false;
     {
         FakeBackedSerial serial{[&destroyed](auto& fake) { fake.destroyed = &destroyed; }};
-        std::unique_ptr<SerialPortActions> owned = serial.release();
+        std::unique_ptr<SerialPortActions> owned = serial.Release();
         ASSERT_TRUE(owned != nullptr);
         ASSERT_TRUE(!destroyed);
 
-        EXPECT_CALL(serial.fake(), read_vbatt()).WillOnce(::testing::Return(7UL));
-        ASSERT_EQ(owned->read_vbatt(), 7UL);
+        EXPECT_CALL(serial.Fake(), ReadVbatt()).WillOnce(::testing::Return(7UL));
+        ASSERT_EQ(owned->ReadVbatt(), 7UL);
     }
     ASSERT_TRUE(destroyed);
 }

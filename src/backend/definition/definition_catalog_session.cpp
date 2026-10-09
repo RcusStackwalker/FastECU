@@ -16,26 +16,25 @@ DefinitionCatalogSession::DefinitionCatalogSession(fastecu::definition::Definiti
 {
 }
 
-Result<DefinitionCatalog> DefinitionCatalogSession::catalog(DefinitionFormat format)
+Result<DefinitionCatalog> DefinitionCatalogSession::Catalog(DefinitionFormat format)
 {
-    const auto& settings = config_.settings();
+    const auto& settings = config_.Settings();
     if (format == DefinitionFormat::kRomRaider)
     {
-        return definitions_.build_romraider_catalog(settings.romraider_definition_files);
+        return definitions_.BuildRomraiderCatalog(settings.romraider_definition_files);
     }
-    return definitions_.build_ecuflash_catalog(settings.ecuflash_definition_files_directory,
-                                               submitted_ecuflash_handles_);
+    return definitions_.BuildEcuflashCatalog(settings.ecuflash_definition_files_directory, submitted_ecuflash_handles_);
 }
 
-std::vector<DefinitionCatalogSession::IndexedSource>& DefinitionCatalogSession::index(DefinitionFormat format)
+std::vector<DefinitionCatalogSession::IndexEntry>& DefinitionCatalogSession::Index(DefinitionFormat format)
 {
     return format == DefinitionFormat::kRomRaider ? romraider_index_ : ecuflash_index_;
 }
 
-std::optional<std::string> DefinitionCatalogSession::indexed_source(DefinitionFormat format, std::string_view id)
+std::optional<std::string> DefinitionCatalogSession::IndexedSource(DefinitionFormat format, std::string_view id)
 {
-    const auto& records = index(format);
-    if (auto found = std::ranges::find(records, id, &IndexedSource::definition_id);
+    const auto& records = Index(format);
+    if (auto found = std::ranges::find(records, id, &IndexEntry::definition_id);
         found != records.end() && !found->source.empty())
     {
         return found->source;
@@ -43,19 +42,19 @@ std::optional<std::string> DefinitionCatalogSession::indexed_source(DefinitionFo
     return std::nullopt;
 }
 
-void DefinitionCatalogSession::log_error(std::string_view operation, const Error& error)
+void DefinitionCatalogSession::LogError(std::string_view operation, const Error& error)
 {
-    events_.log(LogLevel::kError, std::format("{} [{}]: {}", operation, to_string(error.kind), error.detail));
+    events_.Log(LogLevel::kError, std::format("{} [{}]: {}", operation, ToString(error.kind), error.detail));
 }
 
-Status DefinitionCatalogSession::refresh_index(DefinitionFormat format)
+Status DefinitionCatalogSession::RefreshIndex(DefinitionFormat format)
 {
-    const auto& settings = config_.settings();
+    const auto& settings = config_.Settings();
     const bool romraider = format == DefinitionFormat::kRomRaider;
     const std::string_view name = romraider ? "RomRaider" : "EcuFlash";
     if (romraider ? settings.romraider_definition_files.empty() : settings.ecuflash_definition_files_directory.empty())
     {
-        events_.log(LogLevel::kDebug,
+        events_.Log(LogLevel::kDebug,
                     romraider ? "No RomRaider definition files" : "No EcuFlash definition files directory");
         return {};
     }
@@ -63,21 +62,21 @@ Status DefinitionCatalogSession::refresh_index(DefinitionFormat format)
     {
         for (const auto& handle : settings.romraider_definition_files)
         {
-            events_.log(LogLevel::kDebug, std::format("Reading RomRaider ID's from file: {}", handle));
+            events_.Log(LogLevel::kDebug, std::format("Reading RomRaider ID's from file: {}", handle));
         }
     }
 
-    auto scanned = catalog(format);
+    auto scanned = Catalog(format);
     if (!scanned.has_value())
     {
-        log_error(std::format("Unable to build {} definition catalog", name), scanned.error());
+        LogError(std::format("Unable to build {} definition catalog", name), scanned.error());
         if (romraider)
         {
             for (const auto& handle : settings.romraider_definition_files)
             {
-                if (!file_system_.exists(handle))
+                if (!file_system_.Exists(handle))
                 {
-                    events_.notice(std::format(
+                    events_.Notice(std::format(
                         "Ecu definition file: Unable to open romraider definition file {} for reading", handle));
                     break;
                 }
@@ -86,9 +85,9 @@ Status DefinitionCatalogSession::refresh_index(DefinitionFormat format)
         return std::unexpected(scanned.error());
     }
 
-    std::vector<IndexedSource> replacement;
+    std::vector<IndexEntry> replacement;
     std::set<std::string> sources;
-    for (const auto& entry : scanned->entries())
+    for (const auto& entry : scanned->Entries())
     {
         if (entry.format == format)
         {
@@ -96,17 +95,17 @@ Status DefinitionCatalogSession::refresh_index(DefinitionFormat format)
             sources.insert(entry.source);
         }
     }
-    index(format) = std::move(replacement);
-    events_.log(LogLevel::kDebug,
+    Index(format) = std::move(replacement);
+    events_.Log(LogLevel::kDebug,
                 std::format("{} {} definition files found",
                             romraider ? settings.romraider_definition_files.size() : sources.size(), name));
-    events_.log(LogLevel::kDebug, std::format("{} {} ecu id's found", index(format).size(), name));
+    events_.Log(LogLevel::kDebug, std::format("{} {} ecu id's found", Index(format).size(), name));
     return {};
 }
 
-void DefinitionCatalogSession::remember_submission(std::string_view destination, std::string_view id)
+void DefinitionCatalogSession::RememberSubmission(std::string_view destination, std::string_view id)
 {
-    id = trim_header_text(id);
+    id = TrimHeaderText(id);
     const auto position = std::ranges::lower_bound(submitted_ecuflash_handles_, destination);
     if (position == submitted_ecuflash_handles_.end() || *position != destination)
     {
@@ -115,33 +114,33 @@ void DefinitionCatalogSession::remember_submission(std::string_view destination,
     ecuflash_index_.push_back({std::string{id}, std::string{destination}});
 }
 
-Status DefinitionCatalogSession::submit_new_definition(std::string_view destination,
-                                                       const fastecu::definition::DefinitionHeaderInput& input,
-                                                       bool allow_overwrite)
+Status DefinitionCatalogSession::SubmitNewDefinition(std::string_view destination,
+                                                     const fastecu::definition::DefinitionHeaderInput& input,
+                                                     bool allow_overwrite)
 {
-    Status status = definitions_.create_definition(destination, input, allow_overwrite);
+    Status status = definitions_.CreateDefinition(destination, input, allow_overwrite);
     if (!status.has_value())
     {
-        log_error("Unable to create definition", status.error());
+        LogError("Unable to create definition", status.error());
     }
     else
     {
-        remember_submission(destination, input.xml_id);
+        RememberSubmission(destination, input.xml_id);
     }
     return status;
 }
 
-Status DefinitionCatalogSession::submit_imported_definition(std::string_view source, std::string_view destination,
-                                                            const fastecu::definition::DefinitionHeaderInput& input)
+Status DefinitionCatalogSession::SubmitImportedDefinition(std::string_view source, std::string_view destination,
+                                                          const fastecu::definition::DefinitionHeaderInput& input)
 {
-    Status status = definitions_.import_definition(source, destination, input);
+    Status status = definitions_.ImportDefinition(source, destination, input);
     if (!status.has_value())
     {
-        log_error("Unable to import definition", status.error());
+        LogError("Unable to import definition", status.error());
     }
     else
     {
-        remember_submission(destination, input.xml_id);
+        RememberSubmission(destination, input.xml_id);
     }
     return status;
 }

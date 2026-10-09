@@ -10,10 +10,10 @@ namespace fastecu::flash
 class SubaruDensoSh705xKlineExecutor final : public IKlineFlashExecutor
 {
   public:
-    Result<KlineConfig> transport_setup(const FlashPlan& plan) const override;
-    Status before_transport_configure(IKlineFlashTransport& transport, IClock& clock,
-                                      const ICancellationToken& cancellation) const override;
-    Result<FlashExecutionResult> execute(const FlashPlan& plan, IKlineFlashTransport& transport, IClock& clock,
+    Result<KlineConfig> TransportSetup(const FlashPlan& plan) const override;
+    Status BeforeTransportConfigure(IKlineFlashTransport& transport, IClock& clock,
+                                    const ICancellationToken& cancellation) const override;
+    Result<FlashExecutionResult> Execute(const FlashPlan& plan, IKlineFlashTransport& transport, IClock& clock,
                                          const ICancellationToken& cancellation, IEventSink& events) override;
 };
 
@@ -22,6 +22,6 @@ class SubaruDensoSh705xKlineExecutor final : public IKlineFlashExecutor
 // big-endian 32-bit words, mod 2^16). Legacy summed words with QByteArray::at()
 // two bytes past the end, where the truncated padding still reads as zero;
 // this treats those bytes as zero explicitly. Exposed for its golden test.
-bytes::Bytes denso_sh705x_kline_balanced_kernel(bytes::ByteView kernel);
+bytes::Bytes DensoSh705xKlineBalancedKernel(bytes::ByteView kernel);
 
 } // namespace fastecu::flash

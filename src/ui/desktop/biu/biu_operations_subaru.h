@@ -34,10 +34,10 @@ class BiuOperationsSubaru : public QDialog
     Q_OBJECT
 
   signals:
-    void LOG_E(QString message, bool timestamp, bool linefeed);
-    void LOG_W(QString message, bool timestamp, bool linefeed);
-    void LOG_I(QString message, bool timestamp, bool linefeed);
-    void LOG_D(QString message, bool timestamp, bool linefeed);
+    void logE(QString message, bool timestamp, bool linefeed);
+    void logW(QString message, bool timestamp, bool linefeed);
+    void logI(QString message, bool timestamp, bool linefeed);
+    void logD(QString message, bool timestamp, bool linefeed);
 
   public:
     explicit BiuOperationsSubaru(fastecu::diagnostics::IDiagnosticLink& link, QWidget *parent = nullptr);
@@ -303,12 +303,12 @@ class BiuOperationsSubaru : public QDialog
 
     QTimer *keep_alive_timer_;
 
-    void parse_biu_message(const QByteArray& message);
-    QString parse_message_to_hex(const QByteArray& received);
+    void parseBiuMessage(const QByteArray& message);
+    QString parseMessageToHex(const QByteArray& received);
     void delay(int timeout);
-    BiuOpsSubaruSwitches *update_biu_ops_subaru_switches_window(BiuOpsSubaruSwitches *biuOpsSubaruSwitches);
-    BiuOpsSubaruData *update_biu_ops_subaru_data_window(BiuOpsSubaruData *biuOpsSubaruData);
-    void close_results_windows();
+    BiuOpsSubaruSwitches *updateBiuOpsSubaruSwitchesWindow(BiuOpsSubaruSwitches *biuOpsSubaruSwitches);
+    BiuOpsSubaruData *updateBiuOpsSubaruDataWindow(BiuOpsSubaruData *biuOpsSubaruData);
+    void closeResultsWindows();
     void closeEvent(QCloseEvent *event);
 
     fastecu::diagnostics::IDiagnosticLink *link_ = nullptr;
@@ -337,11 +337,11 @@ class BiuOperationsSubaru : public QDialog
     ConnectionState connection_state_;
 
   private slots:
-    void keep_alive();
-    void parse_biu_cmd();
-    void prepare_biu_set_cmd(const QByteArray& cmdSettings);
-    void prepare_biu_msg();
-    void send_biu_msg();
+    void keepAlive();
+    void parseBiuCmd();
+    void prepareBiuSetCmd(const QByteArray& cmdSettings);
+    void prepareBiuMsg();
+    void sendBiuMsg();
 
   private:
     std::unique_ptr<Ui::BiuOperationsSubaruWindow> ui_;

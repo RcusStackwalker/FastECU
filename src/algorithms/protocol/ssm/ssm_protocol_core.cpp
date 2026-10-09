@@ -11,7 +11,7 @@ namespace
 {
 
 template <std::size_t Rounds>
-uint32_t transformWord(uint32_t word, std::span<const std::uint16_t, Rounds> keytogenerateindex,
+uint32_t TransformWord(uint32_t word, std::span<const std::uint16_t, Rounds> keytogenerateindex,
                        IndexTransformation indextransformation, bool reverse)
 {
     for (std::size_t r = 0; r < Rounds; ++r)
@@ -37,7 +37,7 @@ uint32_t transformWord(uint32_t word, std::span<const std::uint16_t, Rounds> key
 
 } // namespace
 
-bytes::Bytes calculateSeedKey(bytes::ByteView seed, SeedKeyToGenerateIndex keytogenerateindex,
+bytes::Bytes CalculateSeedKey(bytes::ByteView seed, SeedKeyToGenerateIndex keytogenerateindex,
                               IndexTransformation indextransformation)
 {
     bytes::Bytes key;
@@ -46,11 +46,11 @@ bytes::Bytes calculateSeedKey(bytes::ByteView seed, SeedKeyToGenerateIndex keyto
         return key;
     }
 
-    bytes::appendU32Be(key, transformWord(bytes::readU32Be(seed, 0), keytogenerateindex, indextransformation, true));
+    bytes::AppendU32Be(key, TransformWord(bytes::ReadU32Be(seed, 0), keytogenerateindex, indextransformation, true));
     return key;
 }
 
-bytes::Bytes calculatePayload(bytes::ByteView buf, uint32_t len, KeyToGenerateIndex keytogenerateindex,
+bytes::Bytes CalculatePayload(bytes::ByteView buf, uint32_t len, KeyToGenerateIndex keytogenerateindex,
                               IndexTransformation indextransformation)
 {
     bytes::Bytes encrypted;
@@ -67,20 +67,20 @@ bytes::Bytes calculatePayload(bytes::ByteView buf, uint32_t len, KeyToGenerateIn
 
     for (uint32_t i = 0; i < len; i += 4)
     {
-        bytes::appendU32Be(encrypted,
-                           transformWord(bytes::readU32Be(buf, i), keytogenerateindex, indextransformation, false));
+        bytes::AppendU32Be(encrypted,
+                           TransformWord(bytes::ReadU32Be(buf, i), keytogenerateindex, indextransformation, false));
     }
 
     return encrypted;
 }
 
-bytes::Bytes addHeader(bytes::ByteView output, bytes::Byte tester_id, bytes::Byte target_id)
+bytes::Bytes AddHeader(bytes::ByteView output, bytes::Byte tester_id, bytes::Byte target_id)
 {
     using namespace bytes::literals;
-    return bytes::composeBeWithChecksum(bytes::sum8, 0x80_b, target_id, tester_id, bytes::Byte(output.size()), output);
+    return bytes::ComposeBeWithChecksum(bytes::Sum8, 0x80_b, target_id, tester_id, bytes::Byte(output.size()), output);
 }
 
-bool hasValidFrame(bytes::ByteView frame, bytes::Byte receiver_id, bytes::Byte sender_id)
+bool HasValidFrame(bytes::ByteView frame, bytes::Byte receiver_id, bytes::Byte sender_id)
 {
     constexpr std::size_t kHeaderLength = 4;
     constexpr std::size_t kChecksumLength = 1;
@@ -99,12 +99,12 @@ bool hasValidFrame(bytes::ByteView frame, bytes::Byte receiver_id, bytes::Byte s
         return false;
     }
 
-    return bytes::sum8(frame.first(frame.size() - kChecksumLength)) == frame[frame.size() - kChecksumLength];
+    return bytes::Sum8(frame.first(frame.size() - kChecksumLength)) == frame[frame.size() - kChecksumLength];
 }
 
-bool hasPayloadPrefix(bytes::ByteView frame, bytes::ByteView prefix, bytes::Byte receiver_id, bytes::Byte sender_id)
+bool HasPayloadPrefix(bytes::ByteView frame, bytes::ByteView prefix, bytes::Byte receiver_id, bytes::Byte sender_id)
 {
-    if (!hasValidFrame(frame, receiver_id, sender_id))
+    if (!HasValidFrame(frame, receiver_id, sender_id))
     {
         return false;
     }

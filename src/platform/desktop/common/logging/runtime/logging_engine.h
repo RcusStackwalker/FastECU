@@ -48,30 +48,34 @@ class LoggingEngine final : public QObject
     explicit LoggingEngine(QObject *parent = nullptr);
     ~LoggingEngine() override;
 
-    void registerProtocol(const QString& protocol_id, const LoggingProtocolFactory& factory);
-    fastecu::Status start(const LogSessionConfig& config, DesktopLoggingSnapshot snapshot);
-    void stop();
-    bool isRunning() const;
+    void RegisterProtocol(const QString& protocol_id, const LoggingProtocolFactory& factory);
+    fastecu::Status Start(const LogSessionConfig& config, DesktopLoggingSnapshot snapshot);
+    void Stop();
+    bool IsRunning() const;
 
   signals:
+    // NOLINTBEGIN(readability-identifier-naming): Qt signals keep Qt's camelBack names
     void valuesUpdated(QVector<fastecu::logging::LogSample> samples);
     void statusChanged(LoggingStatus status);
     void sessionEnded(SessionEndReason reason, QString message);
-    void LOG_E(QString message, bool timestamp, bool linefeed);
-    void LOG_W(QString message, bool timestamp, bool linefeed);
-    void LOG_I(QString message, bool timestamp, bool linefeed);
-    void LOG_D(QString message, bool timestamp, bool linefeed);
+    void logE(QString message, bool timestamp, bool linefeed);
+    void logW(QString message, bool timestamp, bool linefeed);
+    void logI(QString message, bool timestamp, bool linefeed);
+    void logD(QString message, bool timestamp, bool linefeed);
+    // NOLINTEND(readability-identifier-naming): end of Qt block
 
   private slots:
+    // NOLINTBEGIN(readability-identifier-naming): Qt slots keep Qt's camelBack names
     void handleWorkerStateChanged(fastecu::logging::LoggingState state);
     void handleWorkerSessionFinished(fastecu::Status result);
     void handleDiagnostic(int level, QString message);
+    // NOLINTEND(readability-identifier-naming): end of Qt block
 
   private:
-    void finishActiveRun(SessionEndReason reason, QString detail, bool publish);
-    void joinAndReleaseActiveRun();
-    void publishCompletionOnce(SessionEndReason reason, QString detail);
-    void reportStartError(const fastecu::Error& error);
+    void FinishActiveRun(SessionEndReason reason, QString detail, bool publish);
+    void JoinAndReleaseActiveRun();
+    void PublishCompletionOnce(SessionEndReason reason, QString detail);
+    void ReportStartError(const fastecu::Error& error);
 
     // Private, but desktop_logging_protocol_registration_test.cpp and
     // desktop_composition_test.cpp compile this header under `#define private

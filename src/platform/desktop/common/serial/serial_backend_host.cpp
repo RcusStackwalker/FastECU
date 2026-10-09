@@ -25,7 +25,7 @@ SerialBackendHost::~SerialBackendHost()
     delete m_context_; // safe: its thread has finished
 }
 
-SerialBackend *SerialBackendHost::createBackend(const std::function<SerialBackend *()>& factory)
+SerialBackend *SerialBackendHost::CreateBackend(const std::function<SerialBackend *()>& factory)
 {
     QMetaObject::invokeMethod(m_context_, [this, &factory] { m_backend_ = factory(); }, Qt::BlockingQueuedConnection);
     return m_backend_;

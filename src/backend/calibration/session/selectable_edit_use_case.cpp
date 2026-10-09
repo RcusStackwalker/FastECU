@@ -15,57 +15,56 @@ namespace fastecu::calibration
 namespace
 {
 
-SelectableEditOutcome not_applicable(SelectableNotApplicableReason reason)
+SelectableEditOutcome NotApplicable(SelectableNotApplicableReason reason)
 {
     return SelectableEditNotApplicable{.reason = reason};
 }
 
 } // namespace
 
-Result<SelectableEditOutcome> apply_selectable_edit(CalibrationWorkspace& workspace,
-                                                    const SelectableEditRequest& request)
+Result<SelectableEditOutcome> ApplySelectableEdit(CalibrationWorkspace& workspace, const SelectableEditRequest& request)
 {
-    CalibrationSession *session = workspace.find(request.session);
+    CalibrationSession *session = workspace.Find(request.session);
     if (session == nullptr)
     {
-        return not_applicable(SelectableNotApplicableReason::kClosedSession);
+        return NotApplicable(SelectableNotApplicableReason::kClosedSession);
     }
-    if (session->definition() == nullptr)
+    if (session->Definition() == nullptr)
     {
-        return not_applicable(SelectableNotApplicableReason::kNoDefinition);
+        return NotApplicable(SelectableNotApplicableReason::kNoDefinition);
     }
-    const auto& definition = session->definition()->definition;
+    const auto& definition = session->Definition()->definition;
     if (request.map_index >= definition.maps.size())
     {
-        return not_applicable(SelectableNotApplicableReason::kUnknownMap);
+        return NotApplicable(SelectableNotApplicableReason::kUnknownMap);
     }
     const auto& map = definition.maps[request.map_index];
-    const auto *scaling = definition::find_scaling(definition, map.scaling_name);
+    const auto *scaling = definition::FindScaling(definition, map.scaling_name);
     const auto storage = map.storage_type.has_value() ? map.storage_type
                          : scaling != nullptr         ? scaling->storage_type
                                                       : std::nullopt;
     if (scaling == nullptr || scaling->selections.empty() || storage != definition::StorageType::kBloblist)
     {
-        return not_applicable(SelectableNotApplicableReason::kNotBloblist);
+        return NotApplicable(SelectableNotApplicableReason::kNotBloblist);
     }
     const auto selected = std::ranges::find(scaling->selections, request.selection, &definition::Selection::name);
     if (selected == scaling->selections.end())
     {
-        return not_applicable(SelectableNotApplicableReason::kUnknownSelection);
+        return NotApplicable(SelectableNotApplicableReason::kUnknownSelection);
     }
     const auto& data = selected->value;
-    if (data.size() != element_byte_size(storage, scaling))
+    if (data.size() != ElementByteSize(storage, scaling))
     {
-        return fail(ErrorKind::kInvalidConfig, "selection value width differs from the blob width");
+        return Fail(ErrorKind::kInvalidConfig, "selection value width differs from the blob width");
     }
     const auto offset = map.address.value_or(0);
-    const auto image = session->rom();
+    const auto image = session->Rom();
     if (offset <= image.size() && data.size() <= image.size() - offset &&
         std::ranges::equal(data, image.subspan(static_cast<std::size_t>(offset), data.size())))
     {
         return SelectableEditOutcome{SelectableEditUnchanged{}};
     }
-    const auto written = session->write_bytes(offset, data);
+    const auto written = session->WriteBytes(offset, data);
     if (!written.has_value())
     {
         return std::unexpected(written.error());

@@ -122,7 +122,7 @@ TEST(ChecksumCorrectionCommand, DisabledDieselChecksumPreservesRomData)
 {
     TestableChecksumCommand command;
     bytes::Bytes rom(1024UZ * 1024, 0);
-    bytes::writeU32Be(rom, 0x0FFB88, 0x5AA5A55A);
+    bytes::WriteU32Be(rom, 0x0FFB88, 0x5AA5A55A);
 
     const ChecksumCorrectionResult result = command.run(rom, true, subaruDensoSh7058DieselSelection(), nullptr);
 

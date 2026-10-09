@@ -45,7 +45,7 @@ struct VendorApi
     PfPassThruIoctl ioctl = nullptr;
 };
 
-bool loadVendorApi(const char *dll_path, VendorApi& api)
+bool LoadVendorApi(const char *dll_path, VendorApi& api)
 {
     api.module = LoadLibraryA(dll_path);
     if (!api.module)
@@ -92,14 +92,14 @@ bool loadVendorApi(const char *dll_path, VendorApi& api)
 // used to resync the stream after a payload-size mismatch, so the next
 // readFrameHeader() call sees a real header instead of leftover payload
 // bytes from the frame that didn't match.
-bool drainPayload(HANDLE pipe, std::uint32_t size)
+bool DrainPayload(HANDLE pipe, std::uint32_t size)
 {
     if (size == 0)
     {
         return true;
     }
     std::vector<char> discard(size);
-    return readFramePayload(pipe, discard.data(), size);
+    return ReadFramePayload(pipe, discard.data(), size);
 }
 
 // Reads a fixed-size Req payload following an already-read FrameHeader. On a
@@ -109,27 +109,27 @@ bool drainPayload(HANDLE pipe, std::uint32_t size)
 // or response is possible -- just returns false. On success, req is
 // populated and this returns true.
 template <typename Req, typename Resp>
-bool readTypedRequest(HANDLE in, HANDLE out, const FrameHeader& header, Function respond_as, Req& req)
+bool ReadTypedRequest(HANDLE in, HANDLE out, const FrameHeader& header, Function respond_as, Req& req)
 {
     if (header.payload_size != sizeof(req))
     {
-        drainPayload(in, header.payload_size);
+        DrainPayload(in, header.payload_size);
         Resp err_resp{};
         err_resp.result = kJ2534ErrFailed;
-        writeFrame(out, respond_as, &err_resp, sizeof(err_resp));
+        WriteFrame(out, respond_as, &err_resp, sizeof(err_resp));
         return false;
     }
-    if (!readFramePayload(in, &req, sizeof(req)))
+    if (!ReadFramePayload(in, &req, sizeof(req)))
     {
         return false;
     }
     return true;
 }
 
-void handlePassThruOpen(const VendorApi& api, HANDLE in, HANDLE out, const FrameHeader& header)
+void HandlePassThruOpen(const VendorApi& api, HANDLE in, HANDLE out, const FrameHeader& header)
 {
     PassThruOpenRequest req{};
-    if (!readTypedRequest<PassThruOpenRequest, PassThruOpenResponse>(in, out, header, Function::kPassThruOpen, req))
+    if (!ReadTypedRequest<PassThruOpenRequest, PassThruOpenResponse>(in, out, header, Function::kPassThruOpen, req))
     {
         return;
     }
@@ -137,25 +137,25 @@ void handlePassThruOpen(const VendorApi& api, HANDLE in, HANDLE out, const Frame
     unsigned long device_id = 0;
     resp.result = api.open(req.has_name ? req.name.data() : nullptr, &device_id);
     resp.device_id = device_id;
-    writeFrame(out, Function::kPassThruOpen, &resp, sizeof(resp));
+    WriteFrame(out, Function::kPassThruOpen, &resp, sizeof(resp));
 }
 
-void handlePassThruClose(const VendorApi& api, HANDLE in, HANDLE out, const FrameHeader& header)
+void HandlePassThruClose(const VendorApi& api, HANDLE in, HANDLE out, const FrameHeader& header)
 {
     PassThruCloseRequest req{};
-    if (!readTypedRequest<PassThruCloseRequest, PassThruCloseResponse>(in, out, header, Function::kPassThruClose, req))
+    if (!ReadTypedRequest<PassThruCloseRequest, PassThruCloseResponse>(in, out, header, Function::kPassThruClose, req))
     {
         return;
     }
     PassThruCloseResponse resp{};
     resp.result = api.close(req.device_id);
-    writeFrame(out, Function::kPassThruClose, &resp, sizeof(resp));
+    WriteFrame(out, Function::kPassThruClose, &resp, sizeof(resp));
 }
 
-void handlePassThruConnect(const VendorApi& api, HANDLE in, HANDLE out, const FrameHeader& header)
+void HandlePassThruConnect(const VendorApi& api, HANDLE in, HANDLE out, const FrameHeader& header)
 {
     PassThruConnectRequest req{};
-    if (!readTypedRequest<PassThruConnectRequest, PassThruConnectResponse>(in, out, header, Function::kPassThruConnect,
+    if (!ReadTypedRequest<PassThruConnectRequest, PassThruConnectResponse>(in, out, header, Function::kPassThruConnect,
                                                                            req))
     {
         return;
@@ -164,26 +164,26 @@ void handlePassThruConnect(const VendorApi& api, HANDLE in, HANDLE out, const Fr
     unsigned long channel_id = 0;
     resp.result = api.connect(req.device_id, req.protocol_id, req.flags, req.baudrate, &channel_id);
     resp.channel_id = channel_id;
-    writeFrame(out, Function::kPassThruConnect, &resp, sizeof(resp));
+    WriteFrame(out, Function::kPassThruConnect, &resp, sizeof(resp));
 }
 
-void handlePassThruDisconnect(const VendorApi& api, HANDLE in, HANDLE out, const FrameHeader& header)
+void HandlePassThruDisconnect(const VendorApi& api, HANDLE in, HANDLE out, const FrameHeader& header)
 {
     PassThruDisconnectRequest req{};
-    if (!readTypedRequest<PassThruDisconnectRequest, PassThruDisconnectResponse>(in, out, header,
+    if (!ReadTypedRequest<PassThruDisconnectRequest, PassThruDisconnectResponse>(in, out, header,
                                                                                  Function::kPassThruDisconnect, req))
     {
         return;
     }
     PassThruDisconnectResponse resp{};
     resp.result = api.disconnect(req.channel_id);
-    writeFrame(out, Function::kPassThruDisconnect, &resp, sizeof(resp));
+    WriteFrame(out, Function::kPassThruDisconnect, &resp, sizeof(resp));
 }
 
-void handlePassThruReadMsgs(const VendorApi& api, HANDLE in, HANDLE out, const FrameHeader& header)
+void HandlePassThruReadMsgs(const VendorApi& api, HANDLE in, HANDLE out, const FrameHeader& header)
 {
     PassThruReadMsgsRequest req{};
-    if (!readTypedRequest<PassThruReadMsgsRequest, PassThruReadMsgsResponse>(in, out, header,
+    if (!ReadTypedRequest<PassThruReadMsgsRequest, PassThruReadMsgsResponse>(in, out, header,
                                                                              Function::kPassThruReadMsgs, req))
     {
         return;
@@ -192,13 +192,13 @@ void handlePassThruReadMsgs(const VendorApi& api, HANDLE in, HANDLE out, const F
     unsigned long num_msgs = 1;
     resp.result = api.read_msgs(req.channel_id, &resp.msg, &num_msgs, req.timeout);
     resp.num_msgs = num_msgs;
-    writeFrame(out, Function::kPassThruReadMsgs, &resp, sizeof(resp));
+    WriteFrame(out, Function::kPassThruReadMsgs, &resp, sizeof(resp));
 }
 
-void handlePassThruWriteMsgs(const VendorApi& api, HANDLE in, HANDLE out, const FrameHeader& header)
+void HandlePassThruWriteMsgs(const VendorApi& api, HANDLE in, HANDLE out, const FrameHeader& header)
 {
     PassThruWriteMsgsRequest req{};
-    if (!readTypedRequest<PassThruWriteMsgsRequest, PassThruWriteMsgsResponse>(in, out, header,
+    if (!ReadTypedRequest<PassThruWriteMsgsRequest, PassThruWriteMsgsResponse>(in, out, header,
                                                                                Function::kPassThruWriteMsgs, req))
     {
         return;
@@ -207,13 +207,13 @@ void handlePassThruWriteMsgs(const VendorApi& api, HANDLE in, HANDLE out, const 
     unsigned long num_msgs = 1;
     resp.result = api.write_msgs(req.channel_id, &req.msg, &num_msgs, req.timeout);
     resp.num_msgs = num_msgs;
-    writeFrame(out, Function::kPassThruWriteMsgs, &resp, sizeof(resp));
+    WriteFrame(out, Function::kPassThruWriteMsgs, &resp, sizeof(resp));
 }
 
-void handlePassThruStartPeriodicMsg(const VendorApi& api, HANDLE in, HANDLE out, const FrameHeader& header)
+void HandlePassThruStartPeriodicMsg(const VendorApi& api, HANDLE in, HANDLE out, const FrameHeader& header)
 {
     PassThruStartPeriodicMsgRequest req{};
-    if (!readTypedRequest<PassThruStartPeriodicMsgRequest, PassThruStartPeriodicMsgResponse>(
+    if (!ReadTypedRequest<PassThruStartPeriodicMsgRequest, PassThruStartPeriodicMsgResponse>(
             in, out, header, Function::kPassThruStartPeriodicMsg, req))
     {
         return;
@@ -222,26 +222,26 @@ void handlePassThruStartPeriodicMsg(const VendorApi& api, HANDLE in, HANDLE out,
     unsigned long msg_id = 0;
     resp.result = api.start_periodic_msg(req.channel_id, &req.msg, &msg_id, req.time_interval);
     resp.msg_id = msg_id;
-    writeFrame(out, Function::kPassThruStartPeriodicMsg, &resp, sizeof(resp));
+    WriteFrame(out, Function::kPassThruStartPeriodicMsg, &resp, sizeof(resp));
 }
 
-void handlePassThruStopPeriodicMsg(const VendorApi& api, HANDLE in, HANDLE out, const FrameHeader& header)
+void HandlePassThruStopPeriodicMsg(const VendorApi& api, HANDLE in, HANDLE out, const FrameHeader& header)
 {
     PassThruStopPeriodicMsgRequest req{};
-    if (!readTypedRequest<PassThruStopPeriodicMsgRequest, PassThruStopPeriodicMsgResponse>(
+    if (!ReadTypedRequest<PassThruStopPeriodicMsgRequest, PassThruStopPeriodicMsgResponse>(
             in, out, header, Function::kPassThruStopPeriodicMsg, req))
     {
         return;
     }
     PassThruStopPeriodicMsgResponse resp{};
     resp.result = api.stop_periodic_msg(req.channel_id, req.msg_id);
-    writeFrame(out, Function::kPassThruStopPeriodicMsg, &resp, sizeof(resp));
+    WriteFrame(out, Function::kPassThruStopPeriodicMsg, &resp, sizeof(resp));
 }
 
-void handlePassThruStartMsgFilter(const VendorApi& api, HANDLE in, HANDLE out, const FrameHeader& header)
+void HandlePassThruStartMsgFilter(const VendorApi& api, HANDLE in, HANDLE out, const FrameHeader& header)
 {
     PassThruStartMsgFilterRequest req{};
-    if (!readTypedRequest<PassThruStartMsgFilterRequest, PassThruStartMsgFilterResponse>(
+    if (!ReadTypedRequest<PassThruStartMsgFilterRequest, PassThruStartMsgFilterResponse>(
             in, out, header, Function::kPassThruStartMsgFilter, req))
     {
         return;
@@ -251,39 +251,39 @@ void handlePassThruStartMsgFilter(const VendorApi& api, HANDLE in, HANDLE out, c
     resp.result = api.start_msg_filter(req.channel_id, req.filter_type, &req.mask_msg, &req.pattern_msg,
                                        req.has_flow_control_msg ? &req.flow_control_msg : nullptr, &msg_id);
     resp.msg_id = msg_id;
-    writeFrame(out, Function::kPassThruStartMsgFilter, &resp, sizeof(resp));
+    WriteFrame(out, Function::kPassThruStartMsgFilter, &resp, sizeof(resp));
 }
 
-void handlePassThruStopMsgFilter(const VendorApi& api, HANDLE in, HANDLE out, const FrameHeader& header)
+void HandlePassThruStopMsgFilter(const VendorApi& api, HANDLE in, HANDLE out, const FrameHeader& header)
 {
     PassThruStopMsgFilterRequest req{};
-    if (!readTypedRequest<PassThruStopMsgFilterRequest, PassThruStopMsgFilterResponse>(
+    if (!ReadTypedRequest<PassThruStopMsgFilterRequest, PassThruStopMsgFilterResponse>(
             in, out, header, Function::kPassThruStopMsgFilter, req))
     {
         return;
     }
     PassThruStopMsgFilterResponse resp{};
     resp.result = api.stop_msg_filter(req.channel_id, req.msg_id);
-    writeFrame(out, Function::kPassThruStopMsgFilter, &resp, sizeof(resp));
+    WriteFrame(out, Function::kPassThruStopMsgFilter, &resp, sizeof(resp));
 }
 
-void handlePassThruSetProgrammingVoltage(const VendorApi& api, HANDLE in, HANDLE out, const FrameHeader& header)
+void HandlePassThruSetProgrammingVoltage(const VendorApi& api, HANDLE in, HANDLE out, const FrameHeader& header)
 {
     PassThruSetProgrammingVoltageRequest req{};
-    if (!readTypedRequest<PassThruSetProgrammingVoltageRequest, PassThruSetProgrammingVoltageResponse>(
+    if (!ReadTypedRequest<PassThruSetProgrammingVoltageRequest, PassThruSetProgrammingVoltageResponse>(
             in, out, header, Function::kPassThruSetProgrammingVoltage, req))
     {
         return;
     }
     PassThruSetProgrammingVoltageResponse resp{};
     resp.result = api.set_programming_voltage(req.device_id, req.pin, req.voltage);
-    writeFrame(out, Function::kPassThruSetProgrammingVoltage, &resp, sizeof(resp));
+    WriteFrame(out, Function::kPassThruSetProgrammingVoltage, &resp, sizeof(resp));
 }
 
-void handlePassThruReadVersion(const VendorApi& api, HANDLE in, HANDLE out, const FrameHeader& header)
+void HandlePassThruReadVersion(const VendorApi& api, HANDLE in, HANDLE out, const FrameHeader& header)
 {
     PassThruReadVersionRequest req{};
-    if (!readTypedRequest<PassThruReadVersionRequest, PassThruReadVersionResponse>(in, out, header,
+    if (!ReadTypedRequest<PassThruReadVersionRequest, PassThruReadVersionResponse>(in, out, header,
                                                                                    Function::kPassThruReadVersion, req))
     {
         return;
@@ -291,26 +291,26 @@ void handlePassThruReadVersion(const VendorApi& api, HANDLE in, HANDLE out, cons
     PassThruReadVersionResponse resp{};
     resp.result =
         api.read_version(req.device_id, resp.api_version.data(), resp.dll_version.data(), resp.firmware_version.data());
-    writeFrame(out, Function::kPassThruReadVersion, &resp, sizeof(resp));
+    WriteFrame(out, Function::kPassThruReadVersion, &resp, sizeof(resp));
 }
 
-void handlePassThruGetLastError(const VendorApi& api, HANDLE in, HANDLE out, const FrameHeader& header)
+void HandlePassThruGetLastError(const VendorApi& api, HANDLE in, HANDLE out, const FrameHeader& header)
 {
     PassThruGetLastErrorRequest req{};
-    if (!readTypedRequest<PassThruGetLastErrorRequest, PassThruGetLastErrorResponse>(
+    if (!ReadTypedRequest<PassThruGetLastErrorRequest, PassThruGetLastErrorResponse>(
             in, out, header, Function::kPassThruGetLastError, req))
     {
         return;
     }
     PassThruGetLastErrorResponse resp{};
     resp.result = api.get_last_error(resp.error_description.data());
-    writeFrame(out, Function::kPassThruGetLastError, &resp, sizeof(resp));
+    WriteFrame(out, Function::kPassThruGetLastError, &resp, sizeof(resp));
 }
 
-void handlePassThruIoctl(const VendorApi& api, HANDLE in, HANDLE out, const FrameHeader& header)
+void HandlePassThruIoctl(const VendorApi& api, HANDLE in, HANDLE out, const FrameHeader& header)
 {
     PassThruIoctlRequest req{};
-    if (!readTypedRequest<PassThruIoctlRequest, PassThruIoctlResponse>(in, out, header, Function::kPassThruIoctl, req))
+    if (!ReadTypedRequest<PassThruIoctlRequest, PassThruIoctlResponse>(in, out, header, Function::kPassThruIoctl, req))
     {
         return;
     }
@@ -352,14 +352,14 @@ void handlePassThruIoctl(const VendorApi& api, HANDLE in, HANDLE out, const Fram
         break;
     }
 
-    writeFrame(out, Function::kPassThruIoctl, &resp, sizeof(resp));
+    WriteFrame(out, Function::kPassThruIoctl, &resp, sizeof(resp));
 }
 
 // runLoop() reads the fixed-size FrameHeader first via readFrameHeader (the
 // header alone is enough to know the Function tag; the payload's shape isn't
 // known until then), then dispatches on it. Each handle*() reads its own
 // payload via readFramePayload once its Request type is known.
-bool runLoop(const VendorApi& api)
+bool RunLoop(const VendorApi& api)
 {
     HANDLE in = GetStdHandle(STD_INPUT_HANDLE);
     HANDLE out = GetStdHandle(STD_OUTPUT_HANDLE);
@@ -367,7 +367,7 @@ bool runLoop(const VendorApi& api)
     for (;;)
     {
         FrameHeader header{};
-        if (!readFrameHeader(in, header))
+        if (!ReadFrameHeader(in, header))
         {
             return true; // pipe closed (parent exited) -- exit cleanly, not an error
         }
@@ -375,46 +375,46 @@ bool runLoop(const VendorApi& api)
         switch (header.function)
         {
         case Function::kPassThruOpen:
-            handlePassThruOpen(api, in, out, header);
+            HandlePassThruOpen(api, in, out, header);
             break;
         case Function::kPassThruClose:
-            handlePassThruClose(api, in, out, header);
+            HandlePassThruClose(api, in, out, header);
             break;
         case Function::kPassThruConnect:
-            handlePassThruConnect(api, in, out, header);
+            HandlePassThruConnect(api, in, out, header);
             break;
         case Function::kPassThruDisconnect:
-            handlePassThruDisconnect(api, in, out, header);
+            HandlePassThruDisconnect(api, in, out, header);
             break;
         case Function::kPassThruReadMsgs:
-            handlePassThruReadMsgs(api, in, out, header);
+            HandlePassThruReadMsgs(api, in, out, header);
             break;
         case Function::kPassThruWriteMsgs:
-            handlePassThruWriteMsgs(api, in, out, header);
+            HandlePassThruWriteMsgs(api, in, out, header);
             break;
         case Function::kPassThruStartPeriodicMsg:
-            handlePassThruStartPeriodicMsg(api, in, out, header);
+            HandlePassThruStartPeriodicMsg(api, in, out, header);
             break;
         case Function::kPassThruStopPeriodicMsg:
-            handlePassThruStopPeriodicMsg(api, in, out, header);
+            HandlePassThruStopPeriodicMsg(api, in, out, header);
             break;
         case Function::kPassThruStartMsgFilter:
-            handlePassThruStartMsgFilter(api, in, out, header);
+            HandlePassThruStartMsgFilter(api, in, out, header);
             break;
         case Function::kPassThruStopMsgFilter:
-            handlePassThruStopMsgFilter(api, in, out, header);
+            HandlePassThruStopMsgFilter(api, in, out, header);
             break;
         case Function::kPassThruSetProgrammingVoltage:
-            handlePassThruSetProgrammingVoltage(api, in, out, header);
+            HandlePassThruSetProgrammingVoltage(api, in, out, header);
             break;
         case Function::kPassThruReadVersion:
-            handlePassThruReadVersion(api, in, out, header);
+            HandlePassThruReadVersion(api, in, out, header);
             break;
         case Function::kPassThruGetLastError:
-            handlePassThruGetLastError(api, in, out, header);
+            HandlePassThruGetLastError(api, in, out, header);
             break;
         case Function::kPassThruIoctl:
-            handlePassThruIoctl(api, in, out, header);
+            HandlePassThruIoctl(api, in, out, header);
             break;
         case Function::kShutdown:
             return true;
@@ -435,14 +435,14 @@ int main(int argc, char **argv)
     }
 
     VendorApi api;
-    if (!loadVendorApi(argv[1], api))
+    if (!LoadVendorApi(argv[1], api))
     {
         PassThruOpenResponse error_resp{};
         error_resp.result = kJ2534ErrDeviceNotConnected;
         HANDLE out = GetStdHandle(STD_OUTPUT_HANDLE);
-        writeFrame(out, Function::kPassThruOpen, &error_resp, sizeof(error_resp));
+        WriteFrame(out, Function::kPassThruOpen, &error_resp, sizeof(error_resp));
         return 1;
     }
 
-    return runLoop(api) ? 0 : 1;
+    return RunLoop(api) ? 0 : 1;
 }

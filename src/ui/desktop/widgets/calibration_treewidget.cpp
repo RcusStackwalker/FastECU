@@ -9,7 +9,7 @@ CalibrationTreeWidget::CalibrationTreeWidget()
 namespace
 {
 
-QString legacy_value(const std::string& value)
+QString legacyValue(const std::string& value)
 {
     return value.empty() ? QString(" ") : QString::fromStdString(value);
 }
@@ -28,15 +28,15 @@ QTreeWidget *CalibrationTreeWidget::buildCalibrationFilesTree(fastecu::calibrati
     calFilesTree->setFont(filesItemFont);
 
     QTreeWidgetItem *topLevelFilesTreeItem = new QTreeWidgetItem();
-    topLevelFilesTreeItem->setText(2, fastecu::ui::session_key_text(sessionId));
+    topLevelFilesTreeItem->setText(2, fastecu::ui::sessionKeyText(sessionId));
     topLevelFilesTreeItem->setCheckState(0, Qt::Unchecked);
     topLevelFilesTreeItem->setFirstColumnSpanned(true);
     calFilesTree->addTopLevelItem(topLevelFilesTreeItem);
 
-    topLevelFilesTreeItem->setText(0, QString::fromStdString(session.source().display_name));
-    if (const auto *resolved = session.definition(); resolved != nullptr && !resolved->definition.maps.empty())
+    topLevelFilesTreeItem->setText(0, QString::fromStdString(session.Source().display_name));
+    if (const auto *resolved = session.Definition(); resolved != nullptr && !resolved->definition.maps.empty())
     {
-        topLevelFilesTreeItem->setText(1, legacy_value(resolved->definition.maps.front().id));
+        topLevelFilesTreeItem->setText(1, legacyValue(resolved->definition.maps.front().id));
     }
     calFilesTree->expandItem(topLevelFilesTreeItem);
 
@@ -64,8 +64,8 @@ QTreeWidget *CalibrationTreeWidget::buildCalibrationDataTree(QTreeWidget *dataTr
     dataItemFont.setPixelSize(12);
     calDataTree->setFont(dataItemFont);
 
-    const QStringList labels = fastecu::ui::rom_info_labels();
-    const QStringList values = fastecu::ui::rom_info_values(session, view.missing_definition_make);
+    const QStringList labels = fastecu::ui::romInfoLabels();
+    const QStringList values = fastecu::ui::romInfoValues(session, view.missing_definition_make);
     QTreeWidgetItem *romInfoItem = new QTreeWidgetItem();
     romInfoItem->setText(0, "ROM Info");
     calDataTree->addTopLevelItem(romInfoItem);
@@ -75,19 +75,19 @@ QTreeWidget *CalibrationTreeWidget::buildCalibrationDataTree(QTreeWidget *dataTr
     }
     for (int i = 0; i < values.length(); i++)
     {
-        emit LOG_D("Set " + labels.at(i) + ": " + values.at(i), true, true);
+        emit logD("Set " + labels.at(i) + ": " + values.at(i), true, true);
         QTreeWidgetItem *item = new QTreeWidgetItem();
         item->setText(0, labels.at(i) + ": " + values.at(i));
         calDataTree->topLevelItem(0)->addChild(item);
     }
 
-    const fastecu::calibration::ResolvedDefinition *resolved = session.definition();
+    const fastecu::calibration::ResolvedDefinition *resolved = session.Definition();
     const std::size_t mapCount = resolved != nullptr ? resolved->definition.maps.size() : 0;
     for (std::size_t j = 0; j < mapCount; j++)
     {
         const fastecu::definition::CalibrationMap& map = resolved->definition.maps[j];
-        const QString category = legacy_value(map.category);
-        const QString name = legacy_value(map.name);
+        const QString category = legacyValue(map.category);
+        const QString name = legacyValue(map.name);
         if (category == " " || name == " ")
         {
             continue;
@@ -110,7 +110,7 @@ QTreeWidget *CalibrationTreeWidget::buildCalibrationDataTree(QTreeWidget *dataTr
                 categoryItem->setExpanded(true);
             }
         }
-        const QString type = legacy_value(map.type);
+        const QString type = legacyValue(map.type);
         for (int i = 0; i < calDataTree->topLevelItemCount(); i++)
         {
             if (calDataTree->topLevelItem(i)->text(0) != category)
@@ -134,7 +134,7 @@ QTreeWidget *CalibrationTreeWidget::buildCalibrationDataTree(QTreeWidget *dataTr
             item->setText(0, name);
             item->setText(1, QString::number(j));
             calDataTree->topLevelItem(i)->addChild(item);
-            item->setToolTip(0, name + legacy_value(map.description));
+            item->setToolTip(0, name + legacyValue(map.description));
         }
     }
 

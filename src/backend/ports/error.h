@@ -23,7 +23,7 @@ struct Error
     bool operator==(const Error&) const = default;
 };
 
-inline const char *to_string(ErrorKind k)
+inline const char *ToString(ErrorKind k)
 {
     switch (k)
     {

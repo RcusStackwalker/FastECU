@@ -20,11 +20,11 @@ struct ChecksumResult
     bytes::Bytes rom_data;
     std::string message;
 
-    bool changed() const
+    bool Changed() const
     {
         return status == Status::kCorrected;
     }
-    bool ok() const
+    bool Ok() const
     {
         return status == Status::kUnchanged || status == Status::kCorrected || status == Status::kDisabled;
     }

@@ -80,19 +80,19 @@ void DtcOperations::forwardLog(int level, const QString& message)
 {
     if (level == static_cast<int>(fastecu::LogLevel::kError))
     {
-        emit LOG_E(message, true, true);
+        emit logE(message, true, true);
     }
     else if (level == static_cast<int>(fastecu::LogLevel::kWarning))
     {
-        emit LOG_W(message, true, true);
+        emit logW(message, true, true);
     }
     else if (level == static_cast<int>(fastecu::LogLevel::kDebug))
     {
-        emit LOG_D(message, true, true);
+        emit logD(message, true, true);
     }
     else
     {
-        emit LOG_I(message, true, true);
+        emit logI(message, true, true);
     }
 }
 
@@ -100,7 +100,7 @@ void DtcOperations::finish(const DtcWorkerResult& result)
 {
     if (!result.success)
     {
-        emit LOG_E("DTC operation failed: " + result.error_detail, true, true);
+        emit logE("DTC operation failed: " + result.error_detail, true, true);
     }
     worker_.reset(); // joins; run() has already returned or is returning
     setButtonsEnabled(true);
@@ -116,13 +116,13 @@ void DtcOperations::stopWorker()
 {
     if (worker_)
     {
-        worker_->requestStop();
+        worker_->RequestStop();
         worker_->wait();
         worker_.reset();
     }
     // Today's closeEvent reset the facade; the session epilogue already reset
     // after a run, and a second reset is harmless.
-    std::ignore = link_.reset();
+    std::ignore = link_.Reset();
 }
 
 void DtcOperations::closeEvent(QCloseEvent *event)

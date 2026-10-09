@@ -7,13 +7,13 @@
 #include <string_view>
 #include <tuple>
 
-using fastecu::checksum::apply_checksum_correction;
+using fastecu::checksum::ApplyChecksumCorrection;
 using fastecu::checksum::ChecksumSelection;
 using Status = fastecu::checksum::ChecksumCorrectionOutcome::Status;
 
 namespace
 {
-ChecksumSelection subaruSelection(std::string flash_method, std::string mcu_type, std::string rom_id = "39670016")
+ChecksumSelection SubaruSelection(std::string flash_method, std::string mcu_type, std::string rom_id = "39670016")
 {
     ChecksumSelection s;
     s.make = "Subaru";
@@ -28,7 +28,7 @@ ChecksumSelection subaruSelection(std::string flash_method, std::string mcu_type
 TEST(ApplyChecksumCorrection, DensoSh7xxxRoutesForPlainSh7055)
 {
     const bytes::Bytes rom(524288, 0); // SH7055 romsize, 0x07FB80 + 204 in bounds
-    const auto outcome = apply_checksum_correction(rom, subaruSelection("sub_ecu_denso_sh7055", "SH7055"));
+    const auto outcome = ApplyChecksumCorrection(rom, SubaruSelection("sub_ecu_denso_sh7055", "SH7055"));
 
     ASSERT_EQ(outcome.status, Status::kFamilyRan);
     ASSERT_TRUE(outcome.family_result.has_value());
@@ -39,7 +39,7 @@ TEST(ApplyChecksumCorrection, DensoSh7xxxRoutesForPlainSh7055)
 TEST(ApplyChecksumCorrection, Sh705xDieselTakesPriorityOverPlainSh7058Prefix)
 {
     const bytes::Bytes rom(1024UZ * 1024, 0); // SH7058 romsize, 0x0FFB80 + 204 in bounds
-    const auto outcome = apply_checksum_correction(rom, subaruSelection("sub_ecu_denso_sh7058_can_diesel", "SH7058"));
+    const auto outcome = ApplyChecksumCorrection(rom, SubaruSelection("sub_ecu_denso_sh7058_can_diesel", "SH7058"));
 
     ASSERT_EQ(outcome.status, Status::kFamilyRan);
     ASSERT_TRUE(outcome.family_result.has_value());
@@ -52,7 +52,7 @@ TEST(ApplyChecksumCorrection, PrefixRoutesAlsoAcceptFlashMethodSuffixes)
 {
     const bytes::Bytes rom(1024UZ * 1024, 0);
     const auto outcome =
-        apply_checksum_correction(rom, subaruSelection("sub_ecu_denso_sh7058_can_diesel_variant", "SH7058"));
+        ApplyChecksumCorrection(rom, SubaruSelection("sub_ecu_denso_sh7058_can_diesel_variant", "SH7058"));
 
     ASSERT_EQ(outcome.status, Status::kFamilyRan);
     ASSERT_TRUE(outcome.family_result.has_value());
@@ -63,7 +63,7 @@ TEST(ApplyChecksumCorrection, HitachiM32rKline_RomIdStartingWith3RoutesToKlineFa
 {
     const bytes::Bytes rom(524288, 0); // M32R_512KB romsize
     const auto outcome =
-        apply_checksum_correction(rom, subaruSelection("sub_ecu_hitachi_m32r_kline", "M32R_512KB", "39670016"));
+        ApplyChecksumCorrection(rom, SubaruSelection("sub_ecu_hitachi_m32r_kline", "M32R_512KB", "39670016"));
 
     ASSERT_EQ(outcome.status, Status::kFamilyRan);
     ASSERT_TRUE(outcome.family_result.has_value());
@@ -74,7 +74,7 @@ TEST(ApplyChecksumCorrection, HitachiM32rKline_RomIdStartingWith4RoutesToCanFami
 {
     const bytes::Bytes rom(524288, 0);
     const auto outcome =
-        apply_checksum_correction(rom, subaruSelection("sub_ecu_hitachi_m32r_kline", "M32R_512KB", "47110032"));
+        ApplyChecksumCorrection(rom, SubaruSelection("sub_ecu_hitachi_m32r_kline", "M32R_512KB", "47110032"));
 
     ASSERT_EQ(outcome.status, Status::kFamilyRan);
     ASSERT_TRUE(outcome.family_result.has_value());
@@ -85,7 +85,7 @@ TEST(ApplyChecksumCorrection, HitachiM32rKline_RomIdStartingWith6RoutesToCanFami
 {
     const bytes::Bytes rom(524288, 0);
     const auto outcome =
-        apply_checksum_correction(rom, subaruSelection("sub_ecu_hitachi_m32r_kline", "M32R_512KB", "63520003"));
+        ApplyChecksumCorrection(rom, SubaruSelection("sub_ecu_hitachi_m32r_kline", "M32R_512KB", "63520003"));
 
     ASSERT_EQ(outcome.status, Status::kFamilyRan);
     ASSERT_TRUE(outcome.family_result.has_value());
@@ -96,7 +96,7 @@ TEST(ApplyChecksumCorrection, HitachiM32rKline_UnrecognizedRomIdIsANoOpWithModul
 {
     const bytes::Bytes rom(524288, 0);
     const auto outcome =
-        apply_checksum_correction(rom, subaruSelection("sub_ecu_hitachi_m32r_kline", "M32R_512KB", "51234567"));
+        ApplyChecksumCorrection(rom, SubaruSelection("sub_ecu_hitachi_m32r_kline", "M32R_512KB", "51234567"));
 
     // FamilyRan (module "available", no warning dialog), but no family
     // actually ran -- matches legacy checksum_correction exactly.
@@ -107,7 +107,7 @@ TEST(ApplyChecksumCorrection, HitachiM32rKline_UnrecognizedRomIdIsANoOpWithModul
 TEST(ApplyChecksumCorrection, HitachiM32rCanRoutesForPlainFlashMethod)
 {
     const bytes::Bytes rom(524288, 0);
-    const auto outcome = apply_checksum_correction(rom, subaruSelection("sub_ecu_hitachi_m32r_can", "M32R_512KB"));
+    const auto outcome = ApplyChecksumCorrection(rom, SubaruSelection("sub_ecu_hitachi_m32r_can", "M32R_512KB"));
 
     ASSERT_EQ(outcome.status, Status::kFamilyRan);
     ASSERT_TRUE(outcome.family_result.has_value());
@@ -117,7 +117,7 @@ TEST(ApplyChecksumCorrection, HitachiM32rCanRoutesForPlainFlashMethod)
 TEST(ApplyChecksumCorrection, HitachiSh7058RoutesCorrectly)
 {
     const bytes::Bytes rom(1024UZ * 1024, 0);
-    const auto outcome = apply_checksum_correction(rom, subaruSelection("sub_ecu_hitachi_sh7058_can", "SH7058"));
+    const auto outcome = ApplyChecksumCorrection(rom, SubaruSelection("sub_ecu_hitachi_sh7058_can", "SH7058"));
 
     ASSERT_EQ(outcome.status, Status::kFamilyRan);
     ASSERT_TRUE(outcome.family_result.has_value());
@@ -127,7 +127,7 @@ TEST(ApplyChecksumCorrection, HitachiSh7058RoutesCorrectly)
 TEST(ApplyChecksumCorrection, HitachiSh72543rRoutesCorrectly)
 {
     const bytes::Bytes rom(2UZ * 1024 * 1024, 0);
-    const auto outcome = apply_checksum_correction(rom, subaruSelection("sub_ecu_hitachi_sh72543r", "SH72543R"));
+    const auto outcome = ApplyChecksumCorrection(rom, SubaruSelection("sub_ecu_hitachi_sh72543r", "SH72543R"));
 
     ASSERT_EQ(outcome.status, Status::kFamilyRan);
     ASSERT_TRUE(outcome.family_result.has_value());
@@ -137,7 +137,7 @@ TEST(ApplyChecksumCorrection, HitachiSh72543rRoutesCorrectly)
 TEST(ApplyChecksumCorrection, TcuDensoSh7055RoutesCorrectly)
 {
     const bytes::Bytes rom(524288, 0);
-    const auto outcome = apply_checksum_correction(rom, subaruSelection("sub_tcu_denso_sh7055_can", "SH7055"));
+    const auto outcome = ApplyChecksumCorrection(rom, SubaruSelection("sub_tcu_denso_sh7055_can", "SH7055"));
 
     ASSERT_EQ(outcome.status, Status::kFamilyRan);
     ASSERT_TRUE(outcome.family_result.has_value());
@@ -147,7 +147,7 @@ TEST(ApplyChecksumCorrection, TcuDensoSh7055RoutesCorrectly)
 TEST(ApplyChecksumCorrection, TcuHitachiM32rCanRoutesForCanFlashMethod)
 {
     const bytes::Bytes rom(65536, 0); // M3779x romsize
-    const auto outcome = apply_checksum_correction(rom, subaruSelection("sub_tcu_hitachi_m32r_can", "M3779x"));
+    const auto outcome = ApplyChecksumCorrection(rom, SubaruSelection("sub_tcu_hitachi_m32r_can", "M3779x"));
 
     ASSERT_EQ(outcome.status, Status::kFamilyRan);
     ASSERT_TRUE(outcome.family_result.has_value());
@@ -160,7 +160,7 @@ TEST(ApplyChecksumCorrection, TcuHitachiM32rCanRoutesForKlineFlashMethodToo)
     // "sub_tcu_hitachi_m32r_kline" to the same family class
     // (file_actions.cpp:2311-2321) -- not a typo, preserved verbatim.
     const bytes::Bytes rom(65536, 0);
-    const auto outcome = apply_checksum_correction(rom, subaruSelection("sub_tcu_hitachi_m32r_kline", "M3779x"));
+    const auto outcome = ApplyChecksumCorrection(rom, SubaruSelection("sub_tcu_hitachi_m32r_kline", "M3779x"));
 
     ASSERT_EQ(outcome.status, Status::kFamilyRan);
     ASSERT_TRUE(outcome.family_result.has_value());
@@ -170,7 +170,7 @@ TEST(ApplyChecksumCorrection, TcuHitachiM32rCanRoutesForKlineFlashMethodToo)
 TEST(ApplyChecksumCorrection, TcuMitsuMh8104RoutesCorrectly)
 {
     const bytes::Bytes rom(524288, 0); // MH8104 romsize
-    const auto outcome = apply_checksum_correction(rom, subaruSelection("sub_tcu_cvt_mitsu_mh8104_can", "MH8104"));
+    const auto outcome = ApplyChecksumCorrection(rom, SubaruSelection("sub_tcu_cvt_mitsu_mh8104_can", "MH8104"));
 
     ASSERT_EQ(outcome.status, Status::kFamilyRan);
     ASSERT_TRUE(outcome.family_result.has_value());
@@ -180,7 +180,7 @@ TEST(ApplyChecksumCorrection, TcuMitsuMh8104RoutesCorrectly)
 TEST(ApplyChecksumCorrection, UnknownMcuTypeReturnsUnknownMcuTypeStatus)
 {
     const bytes::Bytes rom(100, 0);
-    const auto outcome = apply_checksum_correction(rom, subaruSelection("sub_ecu_hitachi_m32r_can", "M32170"));
+    const auto outcome = ApplyChecksumCorrection(rom, SubaruSelection("sub_ecu_hitachi_m32r_can", "M32170"));
 
     EXPECT_EQ(outcome.status, Status::kUnknownMcuType);
     EXPECT_FALSE(outcome.family_result.has_value());
@@ -189,7 +189,7 @@ TEST(ApplyChecksumCorrection, UnknownMcuTypeReturnsUnknownMcuTypeStatus)
 TEST(ApplyChecksumCorrection, BadRomSizeReturnsBadRomSizeStatus)
 {
     const bytes::Bytes rom(100, 0); // wrong size for M32R_512KB
-    const auto outcome = apply_checksum_correction(rom, subaruSelection("sub_ecu_hitachi_m32r_can", "M32R_512KB"));
+    const auto outcome = ApplyChecksumCorrection(rom, SubaruSelection("sub_ecu_hitachi_m32r_can", "M32R_512KB"));
 
     EXPECT_EQ(outcome.status, Status::kBadRomSize);
     EXPECT_FALSE(outcome.family_result.has_value());
@@ -198,9 +198,9 @@ TEST(ApplyChecksumCorrection, BadRomSizeReturnsBadRomSizeStatus)
 TEST(ApplyChecksumCorrection, NonSubaruMakeReturnsNoModuleForProtocol)
 {
     const bytes::Bytes rom(524288, 0);
-    ChecksumSelection selection = subaruSelection("sub_ecu_hitachi_m32r_can", "M32R_512KB");
+    ChecksumSelection selection = SubaruSelection("sub_ecu_hitachi_m32r_can", "M32R_512KB");
     selection.make = "Mitsubishi";
-    const auto outcome = apply_checksum_correction(rom, selection);
+    const auto outcome = ApplyChecksumCorrection(rom, selection);
 
     EXPECT_EQ(outcome.status, Status::kNoModuleForProtocol);
 }
@@ -208,9 +208,9 @@ TEST(ApplyChecksumCorrection, NonSubaruMakeReturnsNoModuleForProtocol)
 TEST(ApplyChecksumCorrection, ChecksumFlagNoReturnsNoModuleForProtocol)
 {
     const bytes::Bytes rom(524288, 0);
-    ChecksumSelection selection = subaruSelection("sub_ecu_hitachi_m32r_can", "M32R_512KB");
+    ChecksumSelection selection = SubaruSelection("sub_ecu_hitachi_m32r_can", "M32R_512KB");
     selection.checksum_flag = "no";
-    const auto outcome = apply_checksum_correction(rom, selection);
+    const auto outcome = ApplyChecksumCorrection(rom, selection);
 
     EXPECT_EQ(outcome.status, Status::kNoModuleForProtocol);
 }
@@ -221,9 +221,9 @@ TEST(ApplyChecksumCorrection, ChecksumFlagNaReturnsNoModuleForProtocol)
     // no-vs-n/a distinction that changes whether the warning dialog fires is
     // an adapter-level decision (Task 3), not this function's concern.
     const bytes::Bytes rom(524288, 0);
-    ChecksumSelection selection = subaruSelection("sub_ecu_hitachi_m32r_can", "M32R_512KB");
+    ChecksumSelection selection = SubaruSelection("sub_ecu_hitachi_m32r_can", "M32R_512KB");
     selection.checksum_flag = "n/a";
-    const auto outcome = apply_checksum_correction(rom, selection);
+    const auto outcome = ApplyChecksumCorrection(rom, selection);
 
     EXPECT_EQ(outcome.status, Status::kNoModuleForProtocol);
 }
@@ -231,7 +231,7 @@ TEST(ApplyChecksumCorrection, ChecksumFlagNaReturnsNoModuleForProtocol)
 TEST(ApplyChecksumCorrection, UnmatchedFlashMethodReturnsNoModuleForProtocol)
 {
     const bytes::Bytes rom(524288, 0);
-    const auto outcome = apply_checksum_correction(rom, subaruSelection("does_not_exist", "M32R_512KB"));
+    const auto outcome = ApplyChecksumCorrection(rom, SubaruSelection("does_not_exist", "M32R_512KB"));
 
     EXPECT_EQ(outcome.status, Status::kNoModuleForProtocol);
 }
@@ -247,7 +247,7 @@ TEST(ApplyChecksumCorrection, Sh7058sDieselDensocanRoutesToSh705xDiesel)
 {
     const bytes::Bytes rom(1024UZ * 1024, 0); // SH7058 romsize, 0x0FFB80 + 204 in bounds
     const auto outcome =
-        apply_checksum_correction(rom, subaruSelection("sub_ecu_denso_sh7058s_diesel_densocan", "SH7058"));
+        ApplyChecksumCorrection(rom, SubaruSelection("sub_ecu_denso_sh7058s_diesel_densocan", "SH7058"));
 
     ASSERT_EQ(outcome.status, Status::kFamilyRan);
     ASSERT_TRUE(outcome.family_result.has_value());
@@ -257,7 +257,7 @@ TEST(ApplyChecksumCorrection, Sh7058sDieselDensocanRoutesToSh705xDiesel)
 TEST(ApplyChecksumCorrection, PlainSh7058RoutesToSh7xxx)
 {
     const bytes::Bytes rom(1024UZ * 1024, 0); // SH7058 romsize, 0x0FFB80 + 204 in bounds
-    const auto outcome = apply_checksum_correction(rom, subaruSelection("sub_ecu_denso_sh7058", "SH7058"));
+    const auto outcome = ApplyChecksumCorrection(rom, SubaruSelection("sub_ecu_denso_sh7058", "SH7058"));
 
     ASSERT_EQ(outcome.status, Status::kFamilyRan);
     ASSERT_TRUE(outcome.family_result.has_value());
@@ -267,7 +267,7 @@ TEST(ApplyChecksumCorrection, PlainSh7058RoutesToSh7xxx)
 TEST(ApplyChecksumCorrection, Sh72531CanRoutesToSh7xxx)
 {
     const bytes::Bytes rom(1280UZ * 1024, 0); // SH72531 romsize, 0x13F500 + 204 in bounds
-    const auto outcome = apply_checksum_correction(rom, subaruSelection("sub_ecu_denso_sh72531_can", "SH72531"));
+    const auto outcome = ApplyChecksumCorrection(rom, SubaruSelection("sub_ecu_denso_sh72531_can", "SH72531"));
 
     ASSERT_EQ(outcome.status, Status::kFamilyRan);
     ASSERT_TRUE(outcome.family_result.has_value());
@@ -277,7 +277,7 @@ TEST(ApplyChecksumCorrection, Sh72531CanRoutesToSh7xxx)
 TEST(ApplyChecksumCorrection, N83m4mCanRoutesToSh7xxxWithNegativeOffset)
 {
     const bytes::Bytes rom(3984UZ * 1024, 0); // N83M_4MB romsize, 0x3E3E00 + 204 in bounds
-    const auto outcome = apply_checksum_correction(rom, subaruSelection("sub_ecu_denso_1n83m_4m_can", "N83M_4MB"));
+    const auto outcome = ApplyChecksumCorrection(rom, SubaruSelection("sub_ecu_denso_1n83m_4m_can", "N83M_4MB"));
 
     ASSERT_EQ(outcome.status, Status::kFamilyRan);
     ASSERT_TRUE(outcome.family_result.has_value());
@@ -292,7 +292,7 @@ TEST(ApplyChecksumCorrection, N83m1_5mCanRoutesToSh7xxxWithNegativeOffset)
     // legacy quirk this port preserves verbatim, not something to fix here.
     // N83M_4MB is large enough to prove routing without hitting that quirk.
     const bytes::Bytes rom(3984UZ * 1024, 0);
-    const auto outcome = apply_checksum_correction(rom, subaruSelection("sub_ecu_denso_1n83m_1_5m_can", "N83M_4MB"));
+    const auto outcome = ApplyChecksumCorrection(rom, SubaruSelection("sub_ecu_denso_1n83m_1_5m_can", "N83M_4MB"));
 
     ASSERT_EQ(outcome.status, Status::kFamilyRan);
     ASSERT_TRUE(outcome.family_result.has_value());
@@ -302,7 +302,7 @@ TEST(ApplyChecksumCorrection, N83m1_5mCanRoutesToSh7xxxWithNegativeOffset)
 TEST(ApplyChecksumCorrection, Sh7059CanDieselRoutesToSh705xDiesel)
 {
     const bytes::Bytes rom(1536UZ * 1024, 0); // SH7059d romsize, 0x17FB80 + 204 in bounds
-    const auto outcome = apply_checksum_correction(rom, subaruSelection("sub_ecu_denso_sh7059_can_diesel", "SH7059d"));
+    const auto outcome = ApplyChecksumCorrection(rom, SubaruSelection("sub_ecu_denso_sh7059_can_diesel", "SH7059d"));
 
     ASSERT_EQ(outcome.status, Status::kFamilyRan);
     ASSERT_TRUE(outcome.family_result.has_value());
@@ -313,7 +313,7 @@ TEST(ApplyChecksumCorrection, Sh7059DieselDensocanRoutesToSh705xDiesel)
 {
     const bytes::Bytes rom(1536UZ * 1024, 0); // SH7059d romsize, 0x17FB80 + 204 in bounds
     const auto outcome =
-        apply_checksum_correction(rom, subaruSelection("sub_ecu_denso_sh7059_diesel_densocan", "SH7059d"));
+        ApplyChecksumCorrection(rom, SubaruSelection("sub_ecu_denso_sh7059_diesel_densocan", "SH7059d"));
 
     ASSERT_EQ(outcome.status, Status::kFamilyRan);
     ASSERT_TRUE(outcome.family_result.has_value());
@@ -323,8 +323,7 @@ TEST(ApplyChecksumCorrection, Sh7059DieselDensocanRoutesToSh705xDiesel)
 TEST(ApplyChecksumCorrection, Sh72543CanDieselRoutesToSh705xDiesel)
 {
     const bytes::Bytes rom(2UZ * 1024 * 1024, 0); // SH72543d romsize, 0x1FF800 + 204 in bounds
-    const auto outcome =
-        apply_checksum_correction(rom, subaruSelection("sub_ecu_denso_sh72543_can_diesel", "SH72543d"));
+    const auto outcome = ApplyChecksumCorrection(rom, SubaruSelection("sub_ecu_denso_sh72543_can_diesel", "SH72543d"));
 
     ASSERT_EQ(outcome.status, Status::kFamilyRan);
     ASSERT_TRUE(outcome.family_result.has_value());
@@ -334,7 +333,7 @@ TEST(ApplyChecksumCorrection, Sh72543CanDieselRoutesToSh705xDiesel)
 TEST(ApplyChecksumCorrection, TcuDensoSh7058CanRoutesToSh7xxx)
 {
     const bytes::Bytes rom(1024UZ * 1024, 0); // SH7058 romsize, 0x0FFB80 + 204 in bounds
-    const auto outcome = apply_checksum_correction(rom, subaruSelection("sub_tcu_denso_sh7058_can", "SH7058"));
+    const auto outcome = ApplyChecksumCorrection(rom, SubaruSelection("sub_tcu_denso_sh7058_can", "SH7058"));
 
     ASSERT_EQ(outcome.status, Status::kFamilyRan);
     ASSERT_TRUE(outcome.family_result.has_value());
@@ -346,7 +345,7 @@ namespace
 // M32R_384KB_1block romsize, shaped enough that the Colt module recognises
 // the layout: 0xC2 selects the 384 KiB sweep and flash5013e_u8 is set the way
 // stock 47110032 ships it.
-bytes::Bytes coltRom(std::size_t size = 0x60000)
+bytes::Bytes ColtRom(std::size_t size = 0x60000)
 {
     bytes::Bytes rom(size, 0x00);
     rom[0x3FFCB] = 0xC2;
@@ -354,7 +353,7 @@ bytes::Bytes coltRom(std::size_t size = 0x60000)
     return rom;
 }
 
-ChecksumSelection coltSelection(std::string flash_method, std::string mcu_type = "M32R_384KB_1block")
+ChecksumSelection ColtSelection(std::string flash_method, std::string mcu_type = "M32R_384KB_1block")
 {
     ChecksumSelection s;
     s.make = "Mitsubishi";
@@ -377,7 +376,7 @@ TEST(ApplyChecksumCorrection, AllFourColtCanProtocolsRouteToTheMitsuM32rCanFamil
          }))
     {
         const auto outcome =
-            apply_checksum_correction(coltRom(size), coltSelection(std::string(flash_method), std::string(mcu_type)));
+            ApplyChecksumCorrection(ColtRom(size), ColtSelection(std::string(flash_method), std::string(mcu_type)));
 
         ASSERT_EQ(outcome.status, Status::kFamilyRan) << flash_method;
         ASSERT_TRUE(outcome.family_result.has_value()) << flash_method;
@@ -387,10 +386,10 @@ TEST(ApplyChecksumCorrection, AllFourColtCanProtocolsRouteToTheMitsuM32rCanFamil
 
 TEST(ApplyChecksumCorrection, ColtFlashMethodUnderSubaruMakeFindsNoModule)
 {
-    ChecksumSelection selection = coltSelection("mitsu_ecu_m32r_can");
+    ChecksumSelection selection = ColtSelection("mitsu_ecu_m32r_can");
     selection.make = "Subaru";
 
-    const auto outcome = apply_checksum_correction(coltRom(), selection);
+    const auto outcome = ApplyChecksumCorrection(ColtRom(), selection);
 
     EXPECT_EQ(outcome.status, Status::kNoModuleForProtocol);
 }
@@ -398,17 +397,17 @@ TEST(ApplyChecksumCorrection, ColtFlashMethodUnderSubaruMakeFindsNoModule)
 TEST(ApplyChecksumCorrection, MitsubishiMakeDoesNotOpenTheKlineMutDmaProtocol)
 {
     // Adding a Mitsubishi route must not make every mitsu_* protocol eligible.
-    const auto outcome = apply_checksum_correction(coltRom(), coltSelection("mitsu_ecu_m32r_kline_mut_dma"));
+    const auto outcome = ApplyChecksumCorrection(ColtRom(), ColtSelection("mitsu_ecu_m32r_kline_mut_dma"));
 
     EXPECT_EQ(outcome.status, Status::kNoModuleForProtocol);
 }
 
 TEST(HasRoute, MatchesExactlyTheRoutesCorrectionDispatches)
 {
-    EXPECT_TRUE(fastecu::checksum::has_route("Subaru", "sub_ecu_denso_sh7058_can"));
-    EXPECT_TRUE(fastecu::checksum::has_route("Subaru", "sub_ecu_denso_sh7058_can_cobb")); // prefix routes take suffixes
-    EXPECT_TRUE(fastecu::checksum::has_route("Mitsubishi", "mitsu_ecu_m32r_can_512kb"));
-    EXPECT_FALSE(fastecu::checksum::has_route("Mitsubishi", "sub_ecu_denso_sh7058_can")); // a route belongs to one make
-    EXPECT_FALSE(fastecu::checksum::has_route("Subaru", "sub_ecu_mitsu_m32r_kline"));
-    EXPECT_FALSE(fastecu::checksum::has_route("Mitsubishi", "mitsu_ecu_m32r_kline_mut_dma"));
+    EXPECT_TRUE(fastecu::checksum::HasRoute("Subaru", "sub_ecu_denso_sh7058_can"));
+    EXPECT_TRUE(fastecu::checksum::HasRoute("Subaru", "sub_ecu_denso_sh7058_can_cobb")); // prefix routes take suffixes
+    EXPECT_TRUE(fastecu::checksum::HasRoute("Mitsubishi", "mitsu_ecu_m32r_can_512kb"));
+    EXPECT_FALSE(fastecu::checksum::HasRoute("Mitsubishi", "sub_ecu_denso_sh7058_can")); // a route belongs to one make
+    EXPECT_FALSE(fastecu::checksum::HasRoute("Subaru", "sub_ecu_mitsu_m32r_kline"));
+    EXPECT_FALSE(fastecu::checksum::HasRoute("Mitsubishi", "mitsu_ecu_m32r_kline_mut_dma"));
 }

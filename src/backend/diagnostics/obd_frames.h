@@ -21,7 +21,7 @@ enum class ObdProtocol
     kIso15765,
 };
 
-constexpr std::string_view protocol_name(ObdProtocol protocol) noexcept
+constexpr std::string_view ProtocolName(ObdProtocol protocol) noexcept
 {
     switch (protocol)
     {
@@ -36,12 +36,12 @@ constexpr std::string_view protocol_name(ObdProtocol protocol) noexcept
 }
 
 // Index of the service-response byte in a received frame.
-constexpr std::size_t response_index(ObdProtocol protocol) noexcept
+constexpr std::size_t ResponseIndex(ObdProtocol protocol) noexcept
 {
     return protocol == ObdProtocol::kIso15765 ? 4 : 3;
 }
 
-bytes::Bytes build_request(ObdProtocol protocol, std::uint32_t source_id, bytes::ByteView payload);
+bytes::Bytes BuildRequest(ObdProtocol protocol, std::uint32_t source_id, bytes::ByteView payload);
 
 enum class ResponseCheck
 {
@@ -51,20 +51,20 @@ enum class ResponseCheck
     kWrongId, // mode or PID echo does not match, or the PID echo is missing
 };
 
-ResponseCheck check_response(ObdProtocol protocol, bytes::ByteView frame, std::uint8_t mode,
-                             std::optional<std::uint8_t> pid);
+ResponseCheck CheckResponse(ObdProtocol protocol, bytes::ByteView frame, std::uint8_t mode,
+                            std::optional<std::uint8_t> pid);
 
-bytes::Bytes unframe_data_response(ObdProtocol protocol, bytes::ByteView frame);
-bytes::Bytes unframe_dtc_list_response(ObdProtocol protocol, bytes::ByteView frame);
+bytes::Bytes UnframeDataResponse(ObdProtocol protocol, bytes::ByteView frame);
+bytes::Bytes UnframeDtcListResponse(ObdProtocol protocol, bytes::ByteView frame);
 
 // The header to set after a five-baud init, or nullopt when rejected.
-std::optional<KlineHeader> five_baud_header(ObdProtocol requested, bytes::ByteView response, bool uses_j2534);
-bool fast_init_accepted(bytes::ByteView response);
+std::optional<KlineHeader> FiveBaudHeader(ObdProtocol requested, bytes::ByteView response, bool uses_j2534);
+bool FastInitAccepted(bytes::ByteView response);
 
 // "%02x " per byte, as the dialog's parse_message_to_hex did.
-std::string format_hex(bytes::ByteView data);
-std::string format_pid_page_label(std::size_t page, bytes::ByteView bitmap);
-std::string format_supported_pids(std::size_t page, bytes::ByteView bitmap);
-std::vector<std::uint16_t> decode_dtcs(bytes::ByteView data);
+std::string FormatHex(bytes::ByteView data);
+std::string FormatPidPageLabel(std::size_t page, bytes::ByteView bitmap);
+std::string FormatSupportedPids(std::size_t page, bytes::ByteView bitmap);
+std::vector<std::uint16_t> DecodeDtcs(bytes::ByteView data);
 
 } // namespace fastecu::diagnostics

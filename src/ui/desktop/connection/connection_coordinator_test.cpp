@@ -135,9 +135,9 @@ TEST(ConnectionCoordinatorLifetimeTest, DestructorDetachesFromTheLauncher)
     FakeConnectionPresentation presentation{events};
     {
         ConnectionCoordinator coordinator{launcher, presentation};
-        EXPECT_TRUE(launcher.has_handler());
+        EXPECT_TRUE(launcher.hasHandler());
     }
-    EXPECT_FALSE(launcher.has_handler());
+    EXPECT_FALSE(launcher.hasHandler());
 }
 
 // Capability parsing can open a notice whose nested event loop starts another

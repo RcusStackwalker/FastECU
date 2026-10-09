@@ -47,10 +47,10 @@ void FlashDialog::advance()
 {
     while (true)
     {
-        FlashWorkflowStep step = workflow_->next();
+        FlashWorkflowStep step = workflow_->Next();
         if (auto *prompt = std::get_if<FlashPromptStep>(&step))
         {
-            workflow_->submit(presentPrompt(*prompt));
+            workflow_->Submit(presentPrompt(*prompt));
             continue;
         }
         if (auto *attempt = std::get_if<FlashAttempt>(&step))
@@ -98,16 +98,16 @@ void FlashDialog::startAttempt(FlashAttempt attempt)
                 switch (static_cast<LogLevel>(level))
                 {
                 case kError:
-                    emit LOG_E(message, true, true);
+                    emit logE(message, true, true);
                     break;
                 case kWarning:
-                    emit LOG_W(message, true, true);
+                    emit logW(message, true, true);
                     break;
                 case kInfo:
-                    emit LOG_I(message, true, true);
+                    emit logI(message, true, true);
                     break;
                 case kDebug:
-                    emit LOG_D(message, true, true);
+                    emit logD(message, true, true);
                     break;
                 }
             });
@@ -139,8 +139,8 @@ void FlashDialog::startAttempt(FlashAttempt attempt)
 void FlashDialog::workerFinished(FlashWorkerResult result)
 {
     worker_.reset();
-    emit external_logger("Finished");
-    workflow_->submit(FlashAttemptResult{result.success, result.error_kind, result.error_detail.toStdString(),
+    emit externalLogger("Finished");
+    workflow_->Submit(FlashAttemptResult{result.success, result.error_kind, result.error_detail.toStdString(),
                                          std::move(result.read_bytes), std::move(result.rom_id)});
     advance();
 }
@@ -328,16 +328,16 @@ void FlashDialog::showFailure(const Error& error)
         return;
     }
     QMessageBox::warning(this, tr("ECU Operation"), text);
-    emit LOG_E(QString("ECU operation failed (%1): %2")
-                   .arg(QString::fromUtf8(to_string(error.kind)), QString::fromStdString(error.detail)),
-               true, true);
+    emit logE(QString("ECU operation failed (%1): %2")
+                  .arg(QString::fromUtf8(ToString(error.kind)), QString::fromStdString(error.detail)),
+              true, true);
 }
 
 void FlashDialog::closeEvent(QCloseEvent *event)
 {
     if (worker_)
     {
-        worker_->requestStop();
+        worker_->RequestStop();
         worker_.reset();
         result_.outcome = FlashWorkflowOutcome::kCancelled;
         finishCancelledAttempt();
@@ -356,17 +356,17 @@ void FlashDialog::closeEvent(QCloseEvent *event)
 // workflow then reaches stays silent -- the operator already chose to stop.
 void FlashDialog::finishCancelledAttempt()
 {
-    workflow_->submit(
+    workflow_->Submit(
         FlashAttemptResult{false, ErrorKind::kCancelled, "cancelled: dialog closed", std::nullopt, std::nullopt});
     while (true)
     {
-        FlashWorkflowStep step = workflow_->next();
+        FlashWorkflowStep step = workflow_->Next();
         auto *prompt = std::get_if<FlashPromptStep>(&step);
         if (prompt == nullptr)
         {
             return;
         }
-        workflow_->submit(presentPrompt(*prompt));
+        workflow_->Submit(presentPrompt(*prompt));
     }
 }
 
@@ -379,7 +379,7 @@ void FlashDialog::setProgress(int done, int total)
         {
             ui_->progressbar->setValue(value);
         }
-        emit external_logger(value);
+        emit externalLogger(value);
     }
 }
 

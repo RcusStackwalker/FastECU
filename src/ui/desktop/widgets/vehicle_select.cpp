@@ -8,9 +8,9 @@
 
 using fastecu::config::ProtocolSpec;
 using fastecu::config::VehicleSpec;
-using fastecu::ui::checksum_field;
-using fastecu::ui::protocol_field;
-using fastecu::ui::protocol_flag;
+using fastecu::ui::checksumField;
+using fastecu::ui::protocolField;
+using fastecu::ui::protocolFlag;
 using fastecu::ui::qs;
 
 VehicleSelect::VehicleSelect(const fastecu::config::ConfigSession& config, QWidget *parent)
@@ -58,14 +58,14 @@ VehicleSelect::VehicleSelect(const fastecu::config::ConfigSession& config, QWidg
     ui_->car_model_tree_widget->setFont(font_);
     ui_->car_version_tree_widget->setFont(font_);
 
-    const VehicleSpec *selected = config.selected_vehicle();
+    const VehicleSpec *selected = config.SelectedVehicle();
     const QString selectedMake = selected != nullptr ? qs(selected->make) : QString();
 
     QStringList carMakes;
     QStringList carMakesSorted;
     bool carMakeChangedSaved = false;
 
-    for (const VehicleSpec& vehicle : config.vehicles())
+    for (const VehicleSpec& vehicle : config.Vehicles())
     {
         if (!carMakes.contains(qs(vehicle.make)))
         {
@@ -96,14 +96,14 @@ VehicleSelect::VehicleSelect(const fastecu::config::ConfigSession& config, QWidg
     }
 
     connect(ui_->car_make_tree_widget, &QTreeWidget::itemSelectionChanged, this,
-            &VehicleSelect::car_make_treewidget_item_selected);
+            &VehicleSelect::carMakeTreewidgetItemSelected);
     connect(ui_->car_model_tree_widget, &QTreeWidget::itemSelectionChanged, this,
-            &VehicleSelect::car_model_treewidget_item_selected);
+            &VehicleSelect::carModelTreewidgetItemSelected);
     connect(ui_->car_version_tree_widget, &QTreeWidget::itemSelectionChanged, this,
-            &VehicleSelect::car_version_treewidget_item_selected);
-    connect(ui_->car_version_tree_widget, &QTreeWidget::itemDoubleClicked, this, &VehicleSelect::car_model_selected);
+            &VehicleSelect::carVersionTreewidgetItemSelected);
+    connect(ui_->car_version_tree_widget, &QTreeWidget::itemDoubleClicked, this, &VehicleSelect::carModelSelected);
     connect(ui_->cancel_button, &QPushButton::clicked, this, &QDialog::close);
-    connect(ui_->select_button, &QPushButton::clicked, this, &VehicleSelect::car_model_selected);
+    connect(ui_->select_button, &QPushButton::clicked, this, &VehicleSelect::carModelSelected);
 
     const QModelIndex makeIndex = ui_->car_make_tree_widget->selectionModel()->currentIndex();
     ui_->car_make_tree_widget->setCurrentIndex(makeIndex);
@@ -125,7 +125,7 @@ VehicleSelect::~VehicleSelect()
 {
 }
 
-void VehicleSelect::car_model_selected()
+void VehicleSelect::carModelSelected()
 {
     // Tentative: the caller applies an accepted choice to the session.
     bool parsed = false;
@@ -139,12 +139,12 @@ void VehicleSelect::car_model_selected()
     close();
 }
 
-std::optional<std::size_t> VehicleSelect::chosen_row() const
+std::optional<std::size_t> VehicleSelect::chosenRow() const
 {
     return chosen_row_;
 }
 
-void VehicleSelect::car_make_treewidget_item_selected()
+void VehicleSelect::carMakeTreewidgetItemSelected()
 {
     qDebug() << "Car make selection changed";
     QTreeWidgetItem *item = ui_->car_make_tree_widget->selectedItems().at(0);
@@ -176,10 +176,10 @@ void VehicleSelect::car_make_treewidget_item_selected()
         }
         // Connect itemSelectionChanged() signal again
         connect(ui_->car_model_tree_widget, &QTreeWidget::itemSelectionChanged, this,
-                &VehicleSelect::car_model_treewidget_item_selected);
+                &VehicleSelect::carModelTreewidgetItemSelected);
 
         qDebug() << "Add models data based on selected make";
-        for (const VehicleSpec& vehicle : config_.vehicles())
+        for (const VehicleSpec& vehicle : config_.Vehicles())
         {
             const QString model = qs(vehicle.model);
             if (!carModels.contains(model) && qs(vehicle.make) == carMake && !model.isEmpty())
@@ -198,7 +198,7 @@ void VehicleSelect::car_make_treewidget_item_selected()
             itemLocal->setText(0, carModelsSorted.at(i));
             itemLocal->setFirstColumnSpanned(true);
             ui_->car_model_tree_widget->addTopLevelItem(itemLocal);
-            if (config_.selected_vehicle() != nullptr && carModelsSorted.at(i) == qs(config_.selected_vehicle()->model))
+            if (config_.SelectedVehicle() != nullptr && carModelsSorted.at(i) == qs(config_.SelectedVehicle()->model))
             {
                 qDebug() << "Car model changed to saved model";
                 carModelChangedSaved = true;
@@ -215,7 +215,7 @@ void VehicleSelect::car_make_treewidget_item_selected()
     qDebug() << "Car make selection applied";
 }
 
-void VehicleSelect::car_model_treewidget_item_selected()
+void VehicleSelect::carModelTreewidgetItemSelected()
 {
     qDebug() << "Car model selection changed";
     QTreeWidgetItem *item = ui_->car_model_tree_widget->selectedItems().at(0);
@@ -262,10 +262,10 @@ void VehicleSelect::car_model_treewidget_item_selected()
         }
         // Connect itemSelectionChanged() signal again
         connect(ui_->car_version_tree_widget, &QTreeWidget::itemSelectionChanged, this,
-                &VehicleSelect::car_version_treewidget_item_selected);
+                &VehicleSelect::carVersionTreewidgetItemSelected);
 
         qDebug() << "Add versions data based on selected model";
-        const auto vehicles = config_.vehicles();
+        const auto vehicles = config_.Vehicles();
         for (std::size_t i = 0; i < vehicles.size(); i++)
         {
             const VehicleSpec& vehicle = vehicles[i];
@@ -279,19 +279,19 @@ void VehicleSelect::car_model_treewidget_item_selected()
                 hp.append(qs(vehicle.hp));
                 fuel.append(qs(vehicle.fuel));
                 year.append(qs(vehicle.year));
-                ecu.append(protocol_field(vehicle, &ProtocolSpec::ecu));
-                mcu.append(protocol_field(vehicle, &ProtocolSpec::mcu));
-                mode.append(protocol_field(vehicle, &ProtocolSpec::mode));
-                checksum.append(checksum_field(vehicle));
-                read.append(protocol_flag(vehicle, &ProtocolSpec::read));
-                write.append(protocol_flag(vehicle, &ProtocolSpec::write));
+                ecu.append(protocolField(vehicle, &ProtocolSpec::ecu));
+                mcu.append(protocolField(vehicle, &ProtocolSpec::mcu));
+                mode.append(protocolField(vehicle, &ProtocolSpec::mode));
+                checksum.append(checksumField(vehicle));
+                read.append(protocolFlag(vehicle, &ProtocolSpec::read));
+                write.append(protocolFlag(vehicle, &ProtocolSpec::write));
                 family.append(qs(vehicle.protocol->name));
-                description.append(protocol_field(vehicle, &ProtocolSpec::description));
+                description.append(protocolField(vehicle, &ProtocolSpec::description));
             }
         }
 
         qDebug() << "Add versions data items to select";
-        const fastecu::Result<std::size_t> saved = config_.selected_row();
+        const fastecu::Result<std::size_t> saved = config_.SelectedRow();
         for (int i = 0; i < version.length(); i++)
         {
             QTreeWidgetItem *itemLocal = new QTreeWidgetItem();
@@ -364,7 +364,7 @@ void VehicleSelect::car_model_treewidget_item_selected()
     qDebug() << "Car model selection applied";
 }
 
-void VehicleSelect::car_version_treewidget_item_selected()
+void VehicleSelect::carVersionTreewidgetItemSelected()
 {
     QTreeWidgetItem *item = ui_->car_version_tree_widget->selectedItems().at(0);
     if (item)

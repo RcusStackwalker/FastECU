@@ -29,7 +29,7 @@ class TestDirectBackendPty : public ::testing::Test
     static void SetUpTestSuite();
 
   protected:
-    int openPtyBackend(SerialPortActionsDirect& backend);
+    int OpenPtyBackend(SerialPortActionsDirect& backend);
 };
 
 void TestDirectBackendPty::SetUpTestSuite()
@@ -37,7 +37,7 @@ void TestDirectBackendPty::SetUpTestSuite()
     ASSERT_TRUE(QCoreApplication::instance());
 }
 
-int TestDirectBackendPty::openPtyBackend(SerialPortActionsDirect& backend)
+int TestDirectBackendPty::OpenPtyBackend(SerialPortActionsDirect& backend)
 {
     int master = -1, slave = -1;
     std::array<char, 256> name{};
@@ -47,7 +47,7 @@ int TestDirectBackendPty::openPtyBackend(SerialPortActionsDirect& backend)
     }
     backend.serial_port_prefix_linux = "";
     backend.serial_port_list = QStringList() << QString::fromLocal8Bit(name.data());
-    if (backend.open_serial_port() != QString::fromLocal8Bit(name.data()))
+    if (backend.OpenSerialPort() != QString::fromLocal8Bit(name.data()))
     {
         return -1;
     }
@@ -57,7 +57,7 @@ int TestDirectBackendPty::openPtyBackend(SerialPortActionsDirect& backend)
 TEST_F(TestDirectBackendPty, ptyRead_reassemblesFragmentedFrame)
 {
     SerialPortActionsDirect direct;
-    const int master = openPtyBackend(direct);
+    const int master = OpenPtyBackend(direct);
     ASSERT_TRUE(master >= 0);
 
     // The "ECU" delivers one framed message in two fragments with a gap:
@@ -69,7 +69,7 @@ TEST_F(TestDirectBackendPty, ptyRead_reassemblesFragmentedFrame)
             QThread::msleep(30);
             EXPECT_EQ(::write(master, "\xaa\xbb\xcc", 3), 3);
         });
-    const QByteArray got = direct.read_serial_data(500);
+    const QByteArray got = direct.ReadSerialData(500);
     responder.join();
     ASSERT_EQ(got, QByteArray("\x80\xf0\x10\x02\xaa\xbb\xcc", 7));
     ::close(master);
@@ -78,12 +78,12 @@ TEST_F(TestDirectBackendPty, ptyRead_reassemblesFragmentedFrame)
 TEST_F(TestDirectBackendPty, ptyRead_timesOutCleanOnSilence)
 {
     SerialPortActionsDirect direct;
-    const int master = openPtyBackend(direct);
+    const int master = OpenPtyBackend(direct);
     ASSERT_TRUE(master >= 0);
 
     QElapsedTimer t;
     t.start();
-    ASSERT_EQ(direct.read_serial_data(150), QByteArray());
+    ASSERT_EQ(direct.ReadSerialData(150), QByteArray());
     const qint64 elapsed = t.elapsed();
     ASSERT_TRUE(elapsed >= 140 && elapsed < 1000) << qPrintable(QString("timeout took %1 ms").arg(elapsed));
     ::close(master);
@@ -92,52 +92,52 @@ TEST_F(TestDirectBackendPty, ptyRead_timesOutCleanOnSilence)
 TEST_F(TestDirectBackendPty, ptyClearRxBuffer_discardsPendingBytes)
 {
     SerialPortActionsDirect direct;
-    const int master = openPtyBackend(direct);
+    const int master = OpenPtyBackend(direct);
     ASSERT_TRUE(master >= 0);
 
     ASSERT_EQ(::write(master, "\x11\x22\x33", 3), 3); // junk arrives...
     QThread::msleep(50);                              // ...and lands in the buffer
-    direct.clear_rx_buffer();                         // must discard it
-    ASSERT_EQ(direct.read_serial_data(100), QByteArray());
+    direct.ClearRxBuffer();                           // must discard it
+    ASSERT_EQ(direct.ReadSerialData(100), QByteArray());
     ::close(master);
 }
 
 TEST_F(TestDirectBackendPty, ptyAdapterVanish_readReturnsCleanly)
 {
     SerialPortActionsDirect direct;
-    const int master = openPtyBackend(direct);
+    const int master = OpenPtyBackend(direct);
     ASSERT_TRUE(master >= 0);
 
     ::close(master); // the adapter disappears
     // The read must come back empty (possibly via handle_error ->
     // reset_connection) without crashing or hanging.
-    ASSERT_EQ(direct.read_serial_data(100), QByteArray());
+    ASSERT_EQ(direct.ReadSerialData(100), QByteArray());
 }
 
 TEST_F(TestDirectBackendPty, ptyParityChangesWhileOpen)
 {
     SerialPortActionsDirect direct;
-    const int master = openPtyBackend(direct);
+    const int master = OpenPtyBackend(direct);
     ASSERT_TRUE(master >= 0);
-    ASSERT_TRUE(direct.set_serial_port_parity(static_cast<std::uint8_t>(QSerialPort::NoParity)));
-    ASSERT_EQ(direct.get_serial_port_parity(), static_cast<std::uint8_t>(QSerialPort::NoParity));
+    ASSERT_TRUE(direct.SetSerialPortParity(static_cast<std::uint8_t>(QSerialPort::NoParity)));
+    ASSERT_EQ(direct.GetSerialPortParity(), static_cast<std::uint8_t>(QSerialPort::NoParity));
 
-    const bool even_parity_set = direct.set_serial_port_parity(static_cast<std::uint8_t>(QSerialPort::EvenParity));
+    const bool even_parity_set = direct.SetSerialPortParity(static_cast<std::uint8_t>(QSerialPort::EvenParity));
 #if defined(__linux__)
     // Linux PTYs have no parity hardware and may reject PARENB. Keep testing
     // the open-port NoParity path when this PTY cannot accept even parity.
     if (!even_parity_set)
     {
-        ASSERT_TRUE(direct.set_serial_port_parity(static_cast<std::uint8_t>(QSerialPort::NoParity)));
-        ASSERT_EQ(direct.get_serial_port_parity(), static_cast<std::uint8_t>(QSerialPort::NoParity));
+        ASSERT_TRUE(direct.SetSerialPortParity(static_cast<std::uint8_t>(QSerialPort::NoParity)));
+        ASSERT_EQ(direct.GetSerialPortParity(), static_cast<std::uint8_t>(QSerialPort::NoParity));
         ::close(master);
         return;
     }
 #endif
     ASSERT_TRUE(even_parity_set);
-    ASSERT_EQ(direct.get_serial_port_parity(), static_cast<std::uint8_t>(QSerialPort::EvenParity));
-    ASSERT_TRUE(direct.set_serial_port_parity(static_cast<std::uint8_t>(QSerialPort::NoParity)));
-    ASSERT_EQ(direct.get_serial_port_parity(), static_cast<std::uint8_t>(QSerialPort::NoParity));
+    ASSERT_EQ(direct.GetSerialPortParity(), static_cast<std::uint8_t>(QSerialPort::EvenParity));
+    ASSERT_TRUE(direct.SetSerialPortParity(static_cast<std::uint8_t>(QSerialPort::NoParity)));
+    ASSERT_EQ(direct.GetSerialPortParity(), static_cast<std::uint8_t>(QSerialPort::NoParity));
     ::close(master);
 }
 
@@ -146,7 +146,7 @@ namespace
 // Collects what the backend wrote to the PTY until `count` bytes arrive or
 // the deadline passes. QSerialPort flushes from the event loop, so events are
 // pumped while waiting.
-QByteArray readFromMaster(int master, qsizetype count)
+QByteArray ReadFromMaster(int master, qsizetype count)
 {
     QByteArray got;
     QElapsedTimer t;
@@ -174,17 +174,17 @@ QByteArray readFromMaster(int master, qsizetype count)
 TEST_F(TestDirectBackendPty, ptyIso14230Write_foldsShortLengthIntoFormatByte)
 {
     SerialPortActionsDirect direct;
-    const int master = openPtyBackend(direct);
+    const int master = OpenPtyBackend(direct);
     ASSERT_TRUE(master >= 0);
-    direct.set_add_iso14230_header(true);
-    direct.set_kline_startbyte(0x80);
-    direct.set_kline_target_id(0x10);
-    direct.set_kline_tester_id(0xf1);
+    direct.SetAddIso14230Header(true);
+    direct.SetKlineStartbyte(0x80);
+    direct.SetKlineTargetId(0x10);
+    direct.SetKlineTesterId(0xf1);
 
-    direct.write_serial_data(QByteArray("\x21\x81", 2));
+    direct.WriteSerialData(QByteArray("\x21\x81", 2));
 
     // Checksum: 0x82 + 0x10 + 0xf1 + 0x21 + 0x81 = 0x225 -> 0x25.
-    ASSERT_EQ(readFromMaster(master, 6), QByteArray("\x82\x10\xf1\x21\x81\x25", 6));
+    ASSERT_EQ(ReadFromMaster(master, 6), QByteArray("\x82\x10\xf1\x21\x81\x25", 6));
     ::close(master);
 }
 
@@ -194,12 +194,12 @@ TEST_F(TestDirectBackendPty, ptyIso14230Write_foldsShortLengthIntoFormatByte)
 TEST_F(TestDirectBackendPty, ptyIso14230Read_takesLengthFromFormatByte)
 {
     SerialPortActionsDirect direct;
-    const int master = openPtyBackend(direct);
+    const int master = OpenPtyBackend(direct);
     ASSERT_TRUE(master >= 0);
-    direct.set_is_iso14230_connection(true);
+    direct.SetIsIso14230Connection(true);
 
     ASSERT_EQ(::write(master, "\x82\x10\xf1\xaa\xbb\xcc\xdd", 7), 7);
-    ASSERT_EQ(direct.read_serial_data(500), QByteArray("\x82\x10\xf1\xaa\xbb\xcc", 6));
+    ASSERT_EQ(direct.ReadSerialData(500), QByteArray("\x82\x10\xf1\xaa\xbb\xcc", 6));
     ::close(master);
 }
 

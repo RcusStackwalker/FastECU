@@ -7,32 +7,32 @@ using namespace mutdma;
 
 TEST(TestFreeform, size_descriptor_mapping)
 {
-    ASSERT_EQ(sizeToDescriptor(1), bytes::Byte(0));
-    ASSERT_EQ(sizeToDescriptor(2), bytes::Byte(1));
-    ASSERT_EQ(sizeToDescriptor(4), bytes::Byte(2));
+    ASSERT_EQ(SizeToDescriptor(1), bytes::Byte(0));
+    ASSERT_EQ(SizeToDescriptor(2), bytes::Byte(1));
+    ASSERT_EQ(SizeToDescriptor(4), bytes::Byte(2));
 }
 
 TEST(TestFreeform, setup_frame)
 {
-    const MutDmaFrame f = buildSetupFrame(0xA0, 3);
+    const MutDmaFrame f = BuildSetupFrame(0xA0, 3);
     ASSERT_EQ(static_cast<int>(f.size()), kFrameLen);
     ASSERT_EQ(f[0], bytes::Byte(0xA0));
     ASSERT_EQ(f[1], bytes::Byte(3)); // channel count
     ASSERT_EQ(f[kTrailerOffset], kTrailerFreeform);
-    ASSERT_TRUE(verifyFrame(f));
+    ASSERT_TRUE(VerifyFrame(f));
 }
 
 TEST(TestFreeform, reqlen_formula)
 {
-    ASSERT_EQ(reqLen(1), std::size_t{((1U + 3U) >> 2U) + 1U * 2U + 0x1cU}); // 1 + 2 + 28 = 31
-    ASSERT_EQ(reqLen(4), std::size_t{((4U + 3U) >> 2U) + 4U * 2U + 0x1cU}); // 1 + 8 + 28 = 37
+    ASSERT_EQ(ReqLen(1), std::size_t{((1U + 3U) >> 2U) + 1U * 2U + 0x1cU}); // 1 + 2 + 28 = 31
+    ASSERT_EQ(ReqLen(4), std::size_t{((4U + 3U) >> 2U) + 4U * 2U + 0x1cU}); // 1 + 8 + 28 = 37
 }
 
 TEST(TestFreeform, id_list_frame)
 {
     std::vector<Channel> ch = {{0x8000, 2}, {0x8004, 1}}; // N=2
-    const bytes::Bytes f = buildIdListFrame(0xA1, ch);
-    ASSERT_EQ(f.size(), reqLen(2));     // ((2+3)>>2)+4+28 = 1+4+28 = 33
+    const bytes::Bytes f = BuildIdListFrame(0xA1, ch);
+    ASSERT_EQ(f.size(), ReqLen(2));     // ((2+3)>>2)+4+28 = 1+4+28 = 33
     ASSERT_EQ(f[0], bytes::Byte(0xA1)); // rate selector
     ASSERT_EQ(f[1], bytes::Byte(2));    // count
     // descriptors: ch0=2B->1 at bits[7:6], ch1=1B->0 at bits[5:4] => 0b01000000 = 0x40
@@ -43,16 +43,16 @@ TEST(TestFreeform, id_list_frame)
     ASSERT_EQ(f[5], bytes::Byte(0x80));
     ASSERT_EQ(f[6], bytes::Byte(0x04));
     // checksum at reqLen-2 over bytes [0..reqLen-3]; trailer 0x0D at reqLen-1
-    ASSERT_EQ(f[f.size() - 2], sum8(f, 0, f.size() - 2));
+    ASSERT_EQ(f[f.size() - 2], Sum8(f, 0, f.size() - 2));
     ASSERT_EQ(f[f.size() - 1], kTrailerStd);
 }
 
 TEST(TestFreeform, decode_stream_values)
 {
     std::vector<Channel> ch = {{0x8000, 2}, {0x8004, 1}, {0x8008, 4}};
-    ASSERT_EQ(responseDataLength(ch), std::size_t{2 + 1 + 4});            // 7
+    ASSERT_EQ(ResponseDataLength(ch), std::size_t{2 + 1 + 4});            // 7
     const bytes::Bytes data = {0x12, 0x34, 0x56, 0x89, 0xAB, 0xCD, 0xEF}; // BE per channel
-    std::vector<std::uint32_t> v = decodeStreamValues(ch, data);
+    std::vector<std::uint32_t> v = DecodeStreamValues(ch, data);
     ASSERT_EQ(v.size(), 3U);
     ASSERT_EQ(v.at(0), std::uint32_t(0x1234));
     ASSERT_EQ(v.at(1), std::uint32_t(0x56));
@@ -62,11 +62,11 @@ TEST(TestFreeform, decode_stream_values)
 TEST(TestFreeform, decode_stream_values_rejects_incomplete_payload)
 {
     const std::vector<Channel> channels = {{0x8000, 2}, {0x8004, 1}};
-    EXPECT_TRUE(decodeStreamValues(channels, bytes::Bytes{0x12}).empty());
+    EXPECT_TRUE(DecodeStreamValues(channels, bytes::Bytes{0x12}).empty());
 }
 
 TEST(TestFreeform, decode_stream_values_rejects_extra_payload)
 {
     const std::vector<Channel> channels = {{0x8000, 2}};
-    EXPECT_TRUE(decodeStreamValues(channels, bytes::Bytes{0x12, 0x34, 0x56}).empty());
+    EXPECT_TRUE(DecodeStreamValues(channels, bytes::Bytes{0x12, 0x34, 0x56}).empty());
 }

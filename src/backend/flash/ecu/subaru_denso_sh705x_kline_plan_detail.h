@@ -7,5 +7,5 @@
 // branches are reachable only with a synthetic FlashDevice.
 namespace fastecu::flash::detail
 {
-Status validate_subaru_denso_sh705x_kline_geometry(const FlashDevice& device);
+Status ValidateSubaruDensoSh705xKlineGeometry(const FlashDevice& device);
 } // namespace fastecu::flash::detail

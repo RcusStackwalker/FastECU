@@ -15,7 +15,7 @@ class ISerialFacadeConfigurator
 {
   public:
     virtual ~ISerialFacadeConfigurator() = default;
-    virtual Status apply(const SsmTransportConfig& config) = 0;
+    virtual Status Apply(const SsmTransportConfig& config) = 0;
 };
 
 class SerialPortActionsConfigurator final : public ISerialFacadeConfigurator
@@ -25,7 +25,7 @@ class SerialPortActionsConfigurator final : public ISerialFacadeConfigurator
     {
     }
 
-    Status apply(const SsmTransportConfig& config) override;
+    Status Apply(const SsmTransportConfig& config) override;
 
   private:
     SerialPortActions *serial_;

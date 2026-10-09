@@ -26,10 +26,10 @@ struct DefinitionHeaderDraft
 // Read a partial rom header or the first direct rom inside roms, without parsing tables.
 // Scalar values are normalized; notes and editable address spelling are preserved.
 // Source bytes use XML encoding autodetection; decoded text is explicitly UTF-8.
-Result<DefinitionHeaderDraft> read_definition_header(std::span<const std::uint8_t> xml);
-Result<DefinitionHeaderDraft> read_definition_header(std::string_view xml);
+Result<DefinitionHeaderDraft> ReadDefinitionHeader(std::span<const std::uint8_t> xml);
+Result<DefinitionHeaderDraft> ReadDefinitionHeader(std::string_view xml);
 
 // Convert a draft for submission: blank addresses are absent, invalid uint64 hex fails.
-Result<DefinitionHeaderInput> definition_header_input(const DefinitionHeaderDraft& draft);
+Result<DefinitionHeaderInput> BuildDefinitionHeaderInput(const DefinitionHeaderDraft& draft);
 
 } // namespace fastecu::definition

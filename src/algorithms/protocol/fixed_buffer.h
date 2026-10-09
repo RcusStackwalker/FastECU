@@ -17,7 +17,7 @@ namespace bytes
 
 // Contents up to the first NUL, or the whole buffer if it has none. The view
 // aliases the caller's buffer and does not outlive it.
-[[nodiscard]] inline std::string_view fromFixedBuffer(std::span<const char> buffer) noexcept
+[[nodiscard]] inline std::string_view FromFixedBuffer(std::span<const char> buffer) noexcept
 {
     const auto terminator = std::ranges::find(buffer, '\0');
     return {buffer.data(), static_cast<std::size_t>(terminator - buffer.begin())};
@@ -25,9 +25,9 @@ namespace bytes
 
 // Same, minus the final character: the J2534 version strings carry a trailing
 // byte callers do not want to display. Empty in, empty out.
-[[nodiscard]] inline std::string_view fromFixedBufferDroppingLast(std::span<const char> buffer) noexcept
+[[nodiscard]] inline std::string_view FromFixedBufferDroppingLast(std::span<const char> buffer) noexcept
 {
-    std::string_view text = fromFixedBuffer(buffer);
+    std::string_view text = FromFixedBuffer(buffer);
     if (!text.empty())
     {
         text.remove_suffix(1);

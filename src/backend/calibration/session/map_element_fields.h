@@ -22,11 +22,11 @@ namespace fastecu::calibration
 class MapElementFields
 {
   public:
-    MapElementSpec spec() const&;
+    MapElementSpec Spec() const&;
     MapElementSpec spec() const&& = delete;
 
   private:
-    friend MapElementFields collect_map_element_fields(const CalibrationSession&, std::size_t, NumericTarget);
+    friend MapElementFields CollectMapElementFields(const CalibrationSession&, std::size_t, NumericTarget);
 
     MapElementFields() = default;
 
@@ -50,7 +50,7 @@ class MapElementFields
 // Resolves definition and protocol fields for one element run. Body storage
 // and endian use map fields before scaling defaults; axes use their resolved
 // axis fields. Requires a definition with a map at `map_index`.
-MapElementFields collect_map_element_fields(const CalibrationSession& session, std::size_t map_index,
-                                            NumericTarget target);
+MapElementFields CollectMapElementFields(const CalibrationSession& session, std::size_t map_index,
+                                         NumericTarget target);
 
 } // namespace fastecu::calibration

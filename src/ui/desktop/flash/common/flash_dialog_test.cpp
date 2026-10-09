@@ -19,7 +19,7 @@ namespace
 class ScriptedWorkflow final : public FlashWorkflow
 {
   public:
-    FlashWorkflowStep next() override
+    FlashWorkflowStep Next() override
     {
         if (!answered_)
         {
@@ -28,11 +28,11 @@ class ScriptedWorkflow final : public FlashWorkflow
         return FlashCompletedStep{FlashWorkflowOutcome::kSucceeded, bytes::Bytes{0x12, 0x34},
                                   std::string("123456789A_")};
     }
-    void submit(FlashPromptResponse response) override
+    void Submit(FlashPromptResponse response) override
     {
         answered_ = response == FlashPromptResponse::kAccept;
     }
-    void submit(FlashAttemptResult) override
+    void Submit(FlashAttemptResult) override
     {
     }
 
@@ -47,16 +47,16 @@ class InstantAttempt final : public BoundFlashAttempt
     explicit InstantAttempt(FlashPlan plan) : plan_(std::move(plan))
     {
     }
-    const FlashPlan& plan() const noexcept override
+    const FlashPlan& Plan() const noexcept override
     {
         return plan_;
     }
-    Result<FlashExecutionResult> run(IClock&, const ICancellationToken&, IEventSink&) override
+    Result<FlashExecutionResult> Run(IClock&, const ICancellationToken&, IEventSink&) override
     {
         return FlashExecutionResult{
             .operation = FlashOperation::kWrite, .read_bytes = std::nullopt, .rom_id = std::nullopt};
     }
-    void request_unblock() noexcept override
+    void RequestUnblock() noexcept override
     {
     }
 
@@ -72,19 +72,19 @@ class BlockingAttempt final : public BoundFlashAttempt
     explicit BlockingAttempt(FlashPlan plan) : plan_(std::move(plan))
     {
     }
-    const FlashPlan& plan() const noexcept override
+    const FlashPlan& Plan() const noexcept override
     {
         return plan_;
     }
-    Result<FlashExecutionResult> run(IClock&, const ICancellationToken&, IEventSink&) override
+    Result<FlashExecutionResult> Run(IClock&, const ICancellationToken&, IEventSink&) override
     {
         std::unique_lock lock(mutex_);
         started_ = true;
         changed_.notify_all();
         changed_.wait(lock, [this] { return unblocked_; });
-        return fail(ErrorKind::kCancelled, "unblocked");
+        return Fail(ErrorKind::kCancelled, "unblocked");
     }
-    void request_unblock() noexcept override
+    void RequestUnblock() noexcept override
     {
         const std::scoped_lock lock(mutex_);
         unblocked_ = true;
@@ -109,7 +109,7 @@ class BlockingAttempt final : public BoundFlashAttempt
 class CancellableWorkflow final : public FlashWorkflow
 {
   public:
-    FlashWorkflowStep next() override
+    FlashWorkflowStep Next() override
     {
         if (!begun_)
         {
@@ -118,8 +118,8 @@ class CancellableWorkflow final : public FlashWorkflow
         if (!attempted_)
         {
             attempted_ = true;
-            auto plan = build_subaru_unisia_jecs_m32r_kline_plan(FlashOperation::kRead, "sub_ecu_unisia_jecs_20",
-                                                                 "M32R_128KB", std::nullopt, true);
+            auto plan = BuildSubaruUnisiaJecsM32rKlinePlan(FlashOperation::kRead, "sub_ecu_unisia_jecs_20",
+                                                           "M32R_128KB", std::nullopt, true);
             if (!plan.has_value())
             {
                 return FlashFailureStep{plan.error()};
@@ -135,7 +135,7 @@ class CancellableWorkflow final : public FlashWorkflow
         }
         return FlashCompletedStep{FlashWorkflowOutcome::kCancelled, std::nullopt, std::nullopt};
     }
-    void submit(FlashPromptResponse) override
+    void Submit(FlashPromptResponse) override
     {
         if (begun_)
         {
@@ -143,7 +143,7 @@ class CancellableWorkflow final : public FlashWorkflow
         }
         begun_ = true;
     }
-    void submit(FlashAttemptResult result) override
+    void Submit(FlashAttemptResult result) override
     {
         attempt_results.push_back(result.error_kind);
         notice_due_ = !result.success && result.error_kind == ErrorKind::kCancelled;
@@ -162,7 +162,7 @@ class CancellableWorkflow final : public FlashWorkflow
 class TwoAttemptWorkflow final : public FlashWorkflow
 {
   public:
-    FlashWorkflowStep next() override
+    FlashWorkflowStep Next() override
     {
         if (step_ == 0)
         {
@@ -175,8 +175,8 @@ class TwoAttemptWorkflow final : public FlashWorkflow
         if (step_ == 1 || step_ == 3)
         {
             ++step_;
-            auto plan = build_subaru_unisia_jecs_m32r_kline_plan(FlashOperation::kRead, "sub_ecu_unisia_jecs_20",
-                                                                 "M32R_128KB", std::nullopt, true);
+            auto plan = BuildSubaruUnisiaJecsM32rKlinePlan(FlashOperation::kRead, "sub_ecu_unisia_jecs_20",
+                                                           "M32R_128KB", std::nullopt, true);
             if (!plan.has_value())
             {
                 return FlashFailureStep{plan.error()};
@@ -185,11 +185,11 @@ class TwoAttemptWorkflow final : public FlashWorkflow
         }
         return FlashCompletedStep{FlashWorkflowOutcome::kSucceeded, std::nullopt, std::nullopt};
     }
-    void submit(FlashPromptResponse) override
+    void Submit(FlashPromptResponse) override
     {
         ++step_;
     }
-    void submit(FlashAttemptResult result) override
+    void Submit(FlashAttemptResult result) override
     {
         attempts.push_back(result.success);
     }

@@ -14,61 +14,61 @@ namespace fastecu::flash
 {
 TEST(SubaruHitachiSh7058KlineExecutor, RejectsMissingInitializationBeforeReadPages)
 {
-    auto plan = build_subaru_hitachi_sh7058_plan(FlashOperation::kRead, "sub_ecu_hitachi_sh7058_can", "SH7058_1block",
-                                                 std::nullopt);
+    auto plan = BuildSubaruHitachiSh7058Plan(FlashOperation::kRead, "sub_ecu_hitachi_sh7058_can", "SH7058_1block",
+                                             std::nullopt);
     ASSERT_TRUE(plan.has_value());
     SubaruHitachiSh7058KlineExecutor executor;
     ScriptedKlineFlashTransport transport;
-    transport.expectWrite(bytes::Bytes{0x80, 0x10, 0xf0, 0x01, 0xbf, 0x40});
-    transport.queue_no_frame();
+    transport.ExpectWrite(bytes::Bytes{0x80, 0x10, 0xf0, 0x01, 0xbf, 0x40});
+    transport.QueueNoFrame();
     FakeClock clock;
     FakeCancellationToken cancel;
     RecordingEventSink events;
-    auto result = executor.execute(*plan, transport, clock, cancel, events);
+    auto result = executor.Execute(*plan, transport, clock, cancel, events);
     EXPECT_FALSE(result.has_value());
-    EXPECT_EQ(transport.writesConsumed(), 1U);
+    EXPECT_EQ(transport.WritesConsumed(), 1U);
 }
 
 TEST(SubaruHitachiSh7058KlineExecutor, ReadsEveryPhysicalPageBeforeReturningRom)
 {
     for (const bool already_active : {true, false})
     {
-        auto plan = build_subaru_hitachi_sh7058_plan(FlashOperation::kRead, "sub_ecu_hitachi_sh7058_can",
-                                                     "SH7058_1block", std::nullopt);
+        auto plan = BuildSubaruHitachiSh7058Plan(FlashOperation::kRead, "sub_ecu_hitachi_sh7058_can", "SH7058_1block",
+                                                 std::nullopt);
         ASSERT_TRUE(plan.has_value());
         ScriptedKlineFlashTransport transport;
         const auto frame = [](bytes::ByteView payload, bool response)
         {
-            return response ? ssm_protocol::addHeader(payload, 0x10, 0xf0)
-                            : ssm_protocol::addHeader(payload, 0xf0, 0x10);
+            return response ? ssm_protocol::AddHeader(payload, 0x10, 0xf0)
+                            : ssm_protocol::AddHeader(payload, 0xf0, 0x10);
         };
         if (already_active)
         {
-            transport.exchange(frame(bytes::Bytes{0xbf}, false), frame(bytes::Bytes{0xff}, true));
+            transport.Exchange(frame(bytes::Bytes{0xbf}, false), frame(bytes::Bytes{0xff}, true));
         }
         else
         {
-            transport.expectWrite(frame(bytes::Bytes{0xbf}, false));
-            transport.queue_no_frame();
-            transport.exchange(frame(bytes::Bytes{0xbf}, false),
+            transport.ExpectWrite(frame(bytes::Bytes{0xbf}, false));
+            transport.QueueNoFrame();
+            transport.Exchange(frame(bytes::Bytes{0xbf}, false),
                                frame(bytes::Bytes{0xff, 0, 0, 0, 0, 1, 2, 3, 4}, true));
-            transport.exchange(frame(bytes::Bytes{0xb8, 0, 0, 0, 0x75}, false), frame(bytes::Bytes{0xf8}, true));
-            transport.exchange(frame(bytes::Bytes{0xbf}, false), frame(bytes::Bytes{0xff}, true));
+            transport.Exchange(frame(bytes::Bytes{0xb8, 0, 0, 0, 0x75}, false), frame(bytes::Bytes{0xf8}, true));
+            transport.Exchange(frame(bytes::Bytes{0xbf}, false), frame(bytes::Bytes{0xff}, true));
         }
         for (std::uint32_t offset = 0; offset < 0x100000; offset += 0x80)
         {
             const std::uint32_t address = 0x100000 + offset;
             const bytes::Bytes request =
-                bytes::composeBe(bytes::Byte{0xa0}, bytes::Byte{0}, bytes::u24(address), bytes::Byte{0x7f});
+                bytes::ComposeBe(bytes::Byte{0xa0}, bytes::Byte{0}, bytes::U24(address), bytes::Byte{0x7f});
             bytes::Bytes response(129, static_cast<bytes::Byte>(offset / 0x80));
             response[0] = 0xe0;
-            transport.exchange(frame(request, false), frame(response, true));
+            transport.Exchange(frame(request, false), frame(response, true));
         }
         SubaruHitachiSh7058KlineExecutor executor;
         FakeClock clock;
         FakeCancellationToken cancel;
         RecordingEventSink events;
-        auto result = executor.execute(*plan, transport, clock, cancel, events);
+        auto result = executor.Execute(*plan, transport, clock, cancel, events);
         ASSERT_TRUE(result.has_value());
         ASSERT_TRUE(result->read_bytes.has_value());
         EXPECT_EQ(result->read_bytes->size(), 0x100000U);
@@ -76,7 +76,7 @@ TEST(SubaruHitachiSh7058KlineExecutor, ReadsEveryPhysicalPageBeforeReturningRom)
         {
             EXPECT_EQ(result->rom_id, std::optional<std::string>("0001020304_"));
         }
-        EXPECT_TRUE(transport.scriptConsumed());
+        EXPECT_TRUE(transport.ScriptConsumed());
     }
 }
 
@@ -84,35 +84,35 @@ TEST(SubaruHitachiSh7058KlineExecutor, RejectsShortWrongServiceAndBadChecksumPag
 {
     for (int fault = 0; fault < 3; ++fault)
     {
-        auto plan = build_subaru_hitachi_sh7058_plan(FlashOperation::kRead, "sub_ecu_hitachi_sh7058_can",
-                                                     "SH7058_1block", std::nullopt);
+        auto plan = BuildSubaruHitachiSh7058Plan(FlashOperation::kRead, "sub_ecu_hitachi_sh7058_can", "SH7058_1block",
+                                                 std::nullopt);
         ASSERT_TRUE(plan.has_value());
         ScriptedKlineFlashTransport transport;
-        transport.exchange(ssm_protocol::addHeader(bytes::Bytes{0xbf}, 0xf0, 0x10),
-                           ssm_protocol::addHeader(bytes::Bytes{0xff}, 0x10, 0xf0));
+        transport.Exchange(ssm_protocol::AddHeader(bytes::Bytes{0xbf}, 0xf0, 0x10),
+                           ssm_protocol::AddHeader(bytes::Bytes{0xff}, 0x10, 0xf0));
         bytes::Bytes payload(fault == 0 ? 128 : 129, 0);
         payload[0] = fault == 1 ? 0xe1 : 0xe0;
-        auto response = ssm_protocol::addHeader(payload, 0x10, 0xf0);
+        auto response = ssm_protocol::AddHeader(payload, 0x10, 0xf0);
         if (fault == 2)
         {
             response.back() ^= 0x01U;
         }
-        transport.exchange(ssm_protocol::addHeader(bytes::Bytes{0xa0, 0, 0x10, 0, 0, 0x7f}, 0xf0, 0x10), response);
+        transport.Exchange(ssm_protocol::AddHeader(bytes::Bytes{0xa0, 0, 0x10, 0, 0, 0x7f}, 0xf0, 0x10), response);
         SubaruHitachiSh7058KlineExecutor executor;
         FakeClock clock;
         FakeCancellationToken cancel;
         RecordingEventSink events;
-        auto result = executor.execute(*plan, transport, clock, cancel, events);
+        auto result = executor.Execute(*plan, transport, clock, cancel, events);
         ASSERT_FALSE(result.has_value());
         EXPECT_EQ(result.error().kind, ErrorKind::kBadResponse);
-        EXPECT_TRUE(transport.scriptConsumed());
+        EXPECT_TRUE(transport.ScriptConsumed());
     }
 }
 
 TEST(SubaruHitachiSh7058KlineExecutor, CancellationAndBaudFailureStopBeforeAnyRequest)
 {
-    auto plan = build_subaru_hitachi_sh7058_plan(FlashOperation::kRead, "sub_ecu_hitachi_sh7058_can", "SH7058_1block",
-                                                 std::nullopt);
+    auto plan = BuildSubaruHitachiSh7058Plan(FlashOperation::kRead, "sub_ecu_hitachi_sh7058_can", "SH7058_1block",
+                                             std::nullopt);
     ASSERT_TRUE(plan.has_value());
     SubaruHitachiSh7058KlineExecutor executor;
     for (const bool cancel_first : {true, false})
@@ -120,35 +120,35 @@ TEST(SubaruHitachiSh7058KlineExecutor, CancellationAndBaudFailureStopBeforeAnyRe
         ScriptedKlineFlashTransport transport;
         if (!cancel_first)
         {
-            transport.set_baud_result = fail(ErrorKind::kDisconnected, "baud failed");
+            transport.set_baud_result = Fail(ErrorKind::kDisconnected, "baud failed");
         }
         FakeClock clock;
         FakeCancellationToken cancel(cancel_first);
         RecordingEventSink events;
-        auto result = executor.execute(*plan, transport, clock, cancel, events);
+        auto result = executor.Execute(*plan, transport, clock, cancel, events);
         ASSERT_FALSE(result.has_value());
         EXPECT_EQ(result.error().kind, cancel_first ? ErrorKind::kCancelled : ErrorKind::kDisconnected);
-        EXPECT_EQ(transport.writesConsumed(), 0U);
+        EXPECT_EQ(transport.WritesConsumed(), 0U);
     }
 }
 
 TEST(SubaruHitachiSh7058KlineExecutor, RejectsMalformedIdentityBeforeBaudSwitch)
 {
-    auto plan = build_subaru_hitachi_sh7058_plan(FlashOperation::kRead, "sub_ecu_hitachi_sh7058_can", "SH7058_1block",
-                                                 std::nullopt);
+    auto plan = BuildSubaruHitachiSh7058Plan(FlashOperation::kRead, "sub_ecu_hitachi_sh7058_can", "SH7058_1block",
+                                             std::nullopt);
     ASSERT_TRUE(plan.has_value());
     ScriptedKlineFlashTransport transport;
-    const auto request = ssm_protocol::addHeader(bytes::Bytes{0xbf}, 0xf0, 0x10);
-    transport.expectWrite(request);
-    transport.queue_no_frame();
-    transport.exchange(request, ssm_protocol::addHeader(bytes::Bytes{0xfe}, 0x10, 0xf0));
+    const auto request = ssm_protocol::AddHeader(bytes::Bytes{0xbf}, 0xf0, 0x10);
+    transport.ExpectWrite(request);
+    transport.QueueNoFrame();
+    transport.Exchange(request, ssm_protocol::AddHeader(bytes::Bytes{0xfe}, 0x10, 0xf0));
     SubaruHitachiSh7058KlineExecutor executor;
     FakeClock clock;
     FakeCancellationToken cancel;
     RecordingEventSink events;
-    auto result = executor.execute(*plan, transport, clock, cancel, events);
+    auto result = executor.Execute(*plan, transport, clock, cancel, events);
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::kBadResponse);
-    EXPECT_TRUE(transport.scriptConsumed());
+    EXPECT_TRUE(transport.ScriptConsumed());
 }
 } // namespace fastecu::flash

@@ -31,24 +31,24 @@ TEST(DensoSh705xKlineCommon, TablesMatchTheLegacyLiterals)
 
 TEST(DensoSh705xKlineCommon, StockSeedKeyUsesTheStockTransformation)
 {
-    EXPECT_EQ(denso_sh705x_kline_stock_seed_key(kSeed),
-              ssm_protocol::calculateSeedKey(kSeed, kLegacyKeyTable, ssm_protocol::kIndexTransformationStock));
+    EXPECT_EQ(DensoSh705xKlineStockSeedKey(kSeed),
+              ssm_protocol::CalculateSeedKey(kSeed, kLegacyKeyTable, ssm_protocol::kIndexTransformationStock));
 }
 
 TEST(DensoSh705xKlineCommon, EcutekSeedKeyUsesTheEcutekTransformation)
 {
-    const bytes::Bytes stock = denso_sh705x_kline_stock_seed_key(kSeed);
-    const bytes::Bytes ecutek = denso_sh705x_kline_ecutek_seed_key(kSeed);
+    const bytes::Bytes stock = DensoSh705xKlineStockSeedKey(kSeed);
+    const bytes::Bytes ecutek = DensoSh705xKlineEcutekSeedKey(kSeed);
 
-    EXPECT_EQ(ecutek, ssm_protocol::calculateSeedKey(kSeed, kLegacyKeyTable, ssm_protocol::kIndexTransformationEcutek));
+    EXPECT_EQ(ecutek, ssm_protocol::CalculateSeedKey(kSeed, kLegacyKeyTable, ssm_protocol::kIndexTransformationEcutek));
     EXPECT_NE(ecutek, stock);
 }
 
 TEST(DensoSh705xKlineCommon, EncryptPayloadUsesTheKlineTableAndStockTransformation)
 {
     const bytes::Bytes payload{0xAA, 0xBB, 0xCC, 0xDD, 0x00, 0x00, 0x8D, 0xC8};
-    EXPECT_EQ(denso_sh705x_kline_encrypt_payload(payload, 8),
-              ssm_protocol::calculatePayload(payload, 8, kLegacyEncryptTable, ssm_protocol::kIndexTransformationStock));
+    EXPECT_EQ(DensoSh705xKlineEncryptPayload(payload, 8),
+              ssm_protocol::CalculatePayload(payload, 8, kLegacyEncryptTable, ssm_protocol::kIndexTransformationStock));
 }
 
 } // namespace

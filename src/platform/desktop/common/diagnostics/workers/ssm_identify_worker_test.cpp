@@ -31,7 +31,7 @@ namespace
 {
 const bytes::Bytes kShortEcuInit{0x80, 0xF0, 0x10, 0x09, 0xFF, 0xA2, 0x10, 0x11, 0x31, 0x52, 0x58, 0x40, 0x06, 0x6C};
 
-int opens(const FakeDiagnosticLink& link)
+int Opens(const FakeDiagnosticLink& link)
 {
     return static_cast<int>(std::count_if(link.calls.begin(), link.calls.end(),
                                           [](const std::string& call) { return call.starts_with("open kline"); }));
@@ -42,19 +42,19 @@ int opens(const FakeDiagnosticLink& link)
 class BlockingClock final : public IClock
 {
   public:
-    std::chrono::steady_clock::time_point now() const override
+    std::chrono::steady_clock::time_point Now() const override
     {
         return std::chrono::steady_clock::now();
     }
 
-    Status sleep(std::chrono::milliseconds /*duration*/, const fastecu::ICancellationToken& token) override
+    Status Sleep(std::chrono::milliseconds /*duration*/, const fastecu::ICancellationToken& token) override
     {
         entered = true;
-        while (!token.cancelled())
+        while (!token.Cancelled())
         {
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
         }
-        return fastecu::fail(ErrorKind::kCancelled);
+        return fastecu::Fail(ErrorKind::kCancelled);
     }
 
     std::atomic<bool> entered{false};
@@ -64,19 +64,19 @@ class BlockingClock final : public IClock
 TEST(SsmIdentifyWorkerTest, stopsAtTheFirstSuccess)
 {
     FakeDiagnosticLink link;
-    link.queue_read(kShortEcuInit);
+    link.QueueRead(kShortEcuInit);
     auto clock = std::make_unique<FakeClock>();
     SsmIdentifyWorker worker(SsmIdentifyRequest{SsmVariant::kKlineSsm2, SsmTarget::kEcu}, link, std::move(clock));
     fastecu::testing::SignalRecorder done(&worker, &SsmIdentifyWorker::completed);
     worker.start();
-    ASSERT_TRUE(fastecu::testing::wait_until([&] { return done.count() != 0; }, std::chrono::milliseconds(5000)));
+    ASSERT_TRUE(fastecu::testing::WaitUntil([&] { return done.Count() != 0; }, std::chrono::milliseconds(5000)));
     worker.wait();
-    ASSERT_EQ(done.count(), 1U);
-    const auto result = std::get<0>(done.snapshot().at(0));
+    ASSERT_EQ(done.Count(), 1U);
+    const auto result = std::get<0>(done.Snapshot().at(0));
     ASSERT_TRUE(result.success);
     ASSERT_EQ(result.ecu_id, QString("3152584006"));
     ASSERT_EQ(result.init_response.size(), qsizetype{14});
-    ASSERT_EQ(opens(link), 1);
+    ASSERT_EQ(Opens(link), 1);
 }
 
 TEST(SsmIdentifyWorkerTest, retriesFiveTimesThenReportsTheLastError)
@@ -88,16 +88,16 @@ TEST(SsmIdentifyWorkerTest, retriesFiveTimesThenReportsTheLastError)
     fastecu::testing::SignalRecorder logs(&worker, &SsmIdentifyWorker::logEvent);
     fastecu::testing::SignalRecorder done(&worker, &SsmIdentifyWorker::completed);
     worker.start();
-    ASSERT_TRUE(fastecu::testing::wait_until([&] { return done.count() != 0; }, std::chrono::milliseconds(5000)));
+    ASSERT_TRUE(fastecu::testing::WaitUntil([&] { return done.Count() != 0; }, std::chrono::milliseconds(5000)));
     worker.wait();
-    const auto result = std::get<0>(done.snapshot().at(0));
+    const auto result = std::get<0>(done.Snapshot().at(0));
     ASSERT_TRUE(!result.success);
     ASSERT_EQ(result.error_kind, ErrorKind::kTimeout);
-    ASSERT_EQ(opens(link), 5);
-    ASSERT_EQ(logs.count(), 5U);
+    ASSERT_EQ(Opens(link), 5);
+    ASSERT_EQ(logs.Count(), 5U);
     // Five 200 ms settle sleeps inside the attempts and four 500 ms gaps
     // between them; no sleep after the last attempt.
-    ASSERT_EQ(clock_view->elapsed().count(), 3000);
+    ASSERT_EQ(clock_view->Elapsed().count(), 3000);
 }
 
 TEST(SsmIdentifyWorkerTest, stopBeforeStartCancelsAfterOneAttempt)
@@ -106,12 +106,12 @@ TEST(SsmIdentifyWorkerTest, stopBeforeStartCancelsAfterOneAttempt)
     SsmIdentifyWorker worker(SsmIdentifyRequest{SsmVariant::kKlineSsm2, SsmTarget::kEcu}, link,
                              std::make_unique<FakeClock>());
     fastecu::testing::SignalRecorder done(&worker, &SsmIdentifyWorker::completed);
-    worker.requestStop();
+    worker.RequestStop();
     worker.start();
-    ASSERT_TRUE(fastecu::testing::wait_until([&] { return done.count() != 0; }, std::chrono::milliseconds(5000)));
+    ASSERT_TRUE(fastecu::testing::WaitUntil([&] { return done.Count() != 0; }, std::chrono::milliseconds(5000)));
     worker.wait();
-    ASSERT_EQ(std::get<0>(done.snapshot().at(0)).error_kind, ErrorKind::kCancelled);
-    ASSERT_EQ(opens(link), 1);
+    ASSERT_EQ(std::get<0>(done.Snapshot().at(0)).error_kind, ErrorKind::kCancelled);
+    ASSERT_EQ(Opens(link), 1);
 }
 
 TEST(SsmIdentifyWorkerTest, destroyingARunningWorkerJoinsIt)
@@ -125,15 +125,15 @@ TEST(SsmIdentifyWorkerTest, destroyingARunningWorkerJoinsIt)
         worker.start();
         // Spin until the worker enters sleep(), proving run() is executing.
         ASSERT_TRUE(
-            fastecu::testing::wait_until([&] { return clock_view->entered.load(); }, std::chrono::milliseconds(5000)));
+            fastecu::testing::WaitUntil([&] { return clock_view->entered.load(); }, std::chrono::milliseconds(5000)));
     }
     // The destructor returned, so the thread has stopped touching the link.
     // The destructor called requestStop() which cancelled the sleep,
     // and called wait() which joined the thread.
     const auto calls_after = link.calls.size();
-    fastecu::testing::process_events_for(std::chrono::milliseconds(50));
+    fastecu::testing::ProcessEventsFor(std::chrono::milliseconds(50));
     ASSERT_EQ(link.calls.size(), calls_after);
-    ASSERT_EQ(opens(link), 1); // Exactly one attempt started.
+    ASSERT_EQ(Opens(link), 1); // Exactly one attempt started.
 }
 
 namespace

@@ -26,22 +26,22 @@ const bytes::Bytes kPoll{0x00, 0x00, 0x07, 0xe1, 0xa8, 0x00, 0x00, 0x01, 0xfc, 0
 // Sends `frame` up to six times, accepting `expected` at index 4. Returns the
 // last frame seen. A bad or absent response is tolerated by the caller, which
 // is what legacy :688/:694/:722/:733 do with their commented-out returns.
-Result<bytes::Bytes> exchangeTolerantly(ISsmTransport& transport, const ICancellationToken& cancellation,
+Result<bytes::Bytes> ExchangeTolerantly(ISsmTransport& transport, const ICancellationToken& cancellation,
                                         bytes::ByteView frame, bytes::Byte expected)
 {
     bytes::Bytes last;
     for (int attempt = 0; attempt < kWriteAttempts; ++attempt)
     {
-        if (cancellation.cancelled())
+        if (cancellation.Cancelled())
         {
-            return fail(ErrorKind::kCancelled, "cancelled before a TCU relearn write");
+            return Fail(ErrorKind::kCancelled, "cancelled before a TCU relearn write");
         }
-        if (const auto sent = transport.write(frame); !sent.has_value())
+        if (const auto sent = transport.Write(frame); !sent.has_value())
         {
             return std::unexpected(sent.error());
         }
 
-        const auto received = transport.read(kReadTimeout, cancellation);
+        const auto received = transport.Read(kReadTimeout, cancellation);
         if (!received.has_value())
         {
             return std::unexpected(received.error());
@@ -66,23 +66,23 @@ RelearnSession::RelearnSession(std::string protocol) : protocol_(std::move(proto
 {
 }
 
-Result<SsmTransportConfig> RelearnSession::transport_setup() const
+Result<SsmTransportConfig> RelearnSession::TransportSetup() const
 {
     if (protocol_ != "sub_tcu_denso_sh7055_can" && protocol_ != "sub_tcu_denso_sh7058_can")
     {
-        return fail(ErrorKind::kUnsupported, std::format("not a Subaru Denso SH705x TCU protocol: {}", protocol_));
+        return Fail(ErrorKind::kUnsupported, std::format("not a Subaru Denso SH705x TCU protocol: {}", protocol_));
     }
     // legacy :70 -- configureIso15765Can(serial, "500000", 0x7E1, 0x7E9).
     return SsmTransportConfig{};
 }
 
-void RelearnSession::submit(GateResponse response)
+void RelearnSession::Submit(GateResponse response)
 {
     gate_outstanding_ = false;
     declined_ = response == GateResponse::kDecline;
 }
 
-ServiceFunctionStep RelearnSession::resume(ISsmTransport& transport, IClock&, const ICancellationToken& cancellation,
+ServiceFunctionStep RelearnSession::Resume(ISsmTransport& transport, IClock&, const ICancellationToken& cancellation,
                                            IEventSink& events)
 {
     if (gate_outstanding_)
@@ -93,7 +93,7 @@ ServiceFunctionStep RelearnSession::resume(ISsmTransport& transport, IClock&, co
     {
         return FailedStep{Error{ErrorKind::kCancelled, "operator declined a relearn gate"}};
     }
-    if (cancellation.cancelled())
+    if (cancellation.Cancelled())
     {
         return FailedStep{Error{ErrorKind::kCancelled, "cancelled during TCU relearn"}};
     }
@@ -109,8 +109,8 @@ ServiceFunctionStep RelearnSession::resume(ISsmTransport& transport, IClock&, co
 
     case Stage::kWriteSteps:
     {
-        events.log(LogLevel::kInfo, "Initialising TCU relearn, step 1...");
-        const auto first = exchangeTolerantly(transport, cancellation, kStepOne, kWriteAck);
+        events.Log(LogLevel::kInfo, "Initialising TCU relearn, step 1...");
+        const auto first = ExchangeTolerantly(transport, cancellation, kStepOne, kWriteAck);
         if (!first.has_value())
         {
             return FailedStep{first.error()};
@@ -118,11 +118,11 @@ ServiceFunctionStep RelearnSession::resume(ISsmTransport& transport, IClock&, co
         if (first->size() <= 4 || (*first)[4] != kWriteAck)
         {
             // legacy :688/:694 -- logged, not fatal.
-            events.log(LogLevel::kError, "Wrong response from TCU on relearn step 1; continuing");
+            events.Log(LogLevel::kError, "Wrong response from TCU on relearn step 1; continuing");
         }
 
-        events.log(LogLevel::kInfo, "Initialising TCU relearn, step 2...");
-        const auto second = exchangeTolerantly(transport, cancellation, kStepTwo, kWriteAck);
+        events.Log(LogLevel::kInfo, "Initialising TCU relearn, step 2...");
+        const auto second = ExchangeTolerantly(transport, cancellation, kStepTwo, kWriteAck);
         if (!second.has_value())
         {
             return FailedStep{second.error()};
@@ -130,7 +130,7 @@ ServiceFunctionStep RelearnSession::resume(ISsmTransport& transport, IClock&, co
         if (second->size() <= 4 || (*second)[4] != kWriteAck)
         {
             // legacy :722/:733 -- logged, not fatal.
-            events.log(LogLevel::kError, "Wrong response from TCU on relearn step 2; continuing");
+            events.Log(LogLevel::kError, "Wrong response from TCU on relearn step 2; continuing");
         }
 
         // legacy :735 -- the gate that cannot be pre-collected.
@@ -141,35 +141,35 @@ ServiceFunctionStep RelearnSession::resume(ISsmTransport& transport, IClock&, co
 
     case Stage::kPoll:
     {
-        events.log(LogLevel::kInfo, "Tracking relearn status...");
+        events.Log(LogLevel::kInfo, "Tracking relearn status...");
         RelearnOutcome outcome;
         for (int poll = 0; poll < kPollIterations; ++poll)
         {
-            if (cancellation.cancelled())
+            if (cancellation.Cancelled())
             {
                 return FailedStep{Error{ErrorKind::kCancelled, "cancelled while tracking relearn status"}};
             }
 
-            if (const auto sent = transport.write(kPoll); !sent.has_value())
+            if (const auto sent = transport.Write(kPoll); !sent.has_value())
             {
                 return FailedStep{sent.error()};
             }
 
-            const auto received = transport.read(kReadTimeout, cancellation);
+            const auto received = transport.Read(kReadTimeout, cancellation);
             if (!received.has_value())
             {
                 return FailedStep{received.error()};
             }
 
             ++outcome.polls_performed;
-            events.progress(outcome.polls_performed, kPollIterations);
+            events.Progress(outcome.polls_performed, kPollIterations);
             if (received->has_value())
             {
                 outcome.last_status_frame = **received;
                 if (outcome.last_status_frame.size() > 4 && outcome.last_status_frame[4] != kReadAck)
                 {
                     // legacy :771/:777 -- logged, not fatal.
-                    events.log(LogLevel::kError, "Unexpected relearn status response; continuing");
+                    events.Log(LogLevel::kError, "Unexpected relearn status response; continuing");
                 }
             }
         }

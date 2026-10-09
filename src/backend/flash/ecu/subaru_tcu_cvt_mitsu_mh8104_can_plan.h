@@ -3,8 +3,7 @@
 
 namespace fastecu::flash
 {
-Result<FlashPlan> build_subaru_tcu_cvt_mitsu_mh8104_can_plan(FlashOperation operation, std::string_view protocol_name,
-                                                             std::string_view mcu_type,
-                                                             std::optional<bytes::Bytes> image);
-Status validate_subaru_tcu_cvt_mitsu_mh8104_can_plan(const FlashPlan& plan);
+Result<FlashPlan> BuildSubaruTcuCvtMitsuMh8104CanPlan(FlashOperation operation, std::string_view protocol_name,
+                                                      std::string_view mcu_type, std::optional<bytes::Bytes> image);
+Status ValidateSubaruTcuCvtMitsuMh8104CanPlan(const FlashPlan& plan);
 } // namespace fastecu::flash

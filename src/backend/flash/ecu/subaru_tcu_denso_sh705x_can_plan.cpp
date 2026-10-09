@@ -32,7 +32,7 @@ constexpr std::array<CatalogEntry, 2> kCatalog{{
     {"sub_tcu_denso_sh7058_can", "SH7058", 0x00100000, 0xFFFF3000, true},
 }};
 
-const CatalogEntry *find_catalog(std::string_view protocol)
+const CatalogEntry *FindCatalog(std::string_view protocol)
 {
     for (const CatalogEntry& entry : kCatalog)
     {
@@ -44,24 +44,24 @@ const CatalogEntry *find_catalog(std::string_view protocol)
     return nullptr;
 }
 
-Status validate_identity(std::string_view protocol, std::string_view mcu, const CatalogEntry *& entry)
+Status ValidateIdentity(std::string_view protocol, std::string_view mcu, const CatalogEntry *& entry)
 {
-    entry = find_catalog(protocol);
+    entry = FindCatalog(protocol);
     if (entry == nullptr)
     {
-        return fail(ErrorKind::kInvalidConfig, std::format("Unsupported Denso SH705x TCU CAN protocol: {}", protocol));
+        return Fail(ErrorKind::kInvalidConfig, std::format("Unsupported Denso SH705x TCU CAN protocol: {}", protocol));
     }
     if (mcu != entry->mcu)
     {
-        return fail(ErrorKind::kInvalidConfig,
+        return Fail(ErrorKind::kInvalidConfig,
                     std::format("Denso SH705x TCU CAN protocol {} requires MCU {}, not {}", protocol, entry->mcu, mcu));
     }
     return {};
 }
 
-const FlashDevice *checked_device(const CatalogEntry& entry)
+const FlashDevice *CheckedDevice(const CatalogEntry& entry)
 {
-    const FlashDevice *device = find_flash_device(entry.mcu);
+    const FlashDevice *device = FindFlashDevice(entry.mcu);
     if (device == nullptr || device->romsize != entry.rom_size || device->numblocks != 16 ||
         device->fblocks == nullptr || device->kblocks == nullptr)
     {
@@ -70,93 +70,93 @@ const FlashDevice *checked_device(const CatalogEntry& entry)
     return device;
 }
 
-SubaruTcuDensoSh705xCanPlan wire_parameters()
+SubaruTcuDensoSh705xCanPlan WireParameters()
 {
     return {};
 }
 
-bool wire_parameters_match(const SubaruTcuDensoSh705xCanPlan& wire)
+bool WireParametersMatch(const SubaruTcuDensoSh705xCanPlan& wire)
 {
     return wire.request_id == 0x7E1 && wire.response_id == 0x7E9 && wire.bitrate == 500000 && !wire.extended_id;
 }
 
-Status validate_image(const FlashPlan& plan, const FlashDevice& device)
+Status ValidateImage(const FlashPlan& plan, const FlashDevice& device)
 {
-    if (plan.operation() == FlashOperation::kRead)
+    if (plan.Operation() == FlashOperation::kRead)
     {
-        return plan.image().has_value() ? fail(ErrorKind::kInvalidConfig, "TCU read plan carries an image") : Status{};
+        return plan.Image().has_value() ? Fail(ErrorKind::kInvalidConfig, "TCU read plan carries an image") : Status{};
     }
-    if (!plan.image().has_value() || plan.image()->size() != device.romsize)
+    if (!plan.Image().has_value() || plan.Image()->size() != device.romsize)
     {
-        return fail(ErrorKind::kInvalidConfig, std::format("ROM file must be exactly 0x{:x} bytes", device.romsize));
+        return Fail(ErrorKind::kInvalidConfig, std::format("ROM file must be exactly 0x{:x} bytes", device.romsize));
     }
     return {};
 }
 
-Status validate_capability(const FlashPlan& plan, const CatalogEntry& entry)
+Status ValidateCapability(const FlashPlan& plan, const CatalogEntry& entry)
 {
-    if (plan.operation() == FlashOperation::kTestWrite ||
-        (plan.operation() == FlashOperation::kWrite && !entry.supports_write))
+    if (plan.Operation() == FlashOperation::kTestWrite ||
+        (plan.Operation() == FlashOperation::kWrite && !entry.supports_write))
     {
-        return fail(ErrorKind::kUnsupported, "operation is not supported by the selected Denso SH705x TCU");
+        return Fail(ErrorKind::kUnsupported, "operation is not supported by the selected Denso SH705x TCU");
     }
     return {};
 }
 
 } // namespace
 
-Status validate_subaru_tcu_denso_sh705x_can_plan(const FlashPlan& plan)
+Status ValidateSubaruTcuDensoSh705xCanPlan(const FlashPlan& plan)
 {
-    if (plan.family() != FlashFamily::kSubaruTcuDensoSh705xCan || plan.transport() != TransportKind::kCanIso15765)
+    if (plan.Family() != FlashFamily::kSubaruTcuDensoSh705xCan || plan.Transport() != TransportKind::kCanIso15765)
     {
-        return fail(ErrorKind::kInvalidConfig, "plan is not for Subaru Denso SH705x TCU CAN");
+        return Fail(ErrorKind::kInvalidConfig, "plan is not for Subaru Denso SH705x TCU CAN");
     }
-    const auto *wire = std::get_if<SubaruTcuDensoSh705xCanPlan>(&plan.family_plan());
-    if (wire == nullptr || !wire_parameters_match(*wire))
+    const auto *wire = std::get_if<SubaruTcuDensoSh705xCanPlan>(&plan.FamilyPlan());
+    if (wire == nullptr || !WireParametersMatch(*wire))
     {
-        return fail(ErrorKind::kInvalidConfig, "TCU CAN wire parameters are invalid");
+        return Fail(ErrorKind::kInvalidConfig, "TCU CAN wire parameters are invalid");
     }
     const CatalogEntry *entry = nullptr;
-    if (Status identity = validate_identity(plan.target_id(), plan.mcu_name(), entry); !identity.has_value())
+    if (Status identity = ValidateIdentity(plan.TargetId(), plan.McuName(), entry); !identity.has_value())
     {
         return identity;
     }
-    if (Status capability = validate_capability(plan, *entry); !capability.has_value())
+    if (Status capability = ValidateCapability(plan, *entry); !capability.has_value())
     {
         return capability;
     }
-    const FlashDevice *device = checked_device(*entry);
+    const FlashDevice *device = CheckedDevice(*entry);
     if (device == nullptr)
     {
-        return fail(ErrorKind::kInvalidConfig, "TCU catalog does not match the flash device table");
+        return Fail(ErrorKind::kInvalidConfig, "TCU catalog does not match the flash device table");
     }
-    if (!plan.kernel().has_value())
+    if (!plan.Kernel().has_value())
     {
-        return fail(ErrorKind::kInvalidConfig, "TCU requires a kernel image");
+        return Fail(ErrorKind::kInvalidConfig, "TCU requires a kernel image");
     }
-    if (Status kernel = detail::validate_kernel_upload<128>(plan.kernel()->bytes.size(), plan.kernel()->load_address,
-                                                            entry->kernel_load_address, device->kblocks[0]);
+    if (Status kernel = detail::ValidateKernelUpload<128>(plan.Kernel()->bytes.size(), plan.Kernel()->load_address,
+                                                          entry->kernel_load_address, device->kblocks[0]);
         !kernel.has_value())
     {
         return kernel;
     }
-    if (!plan.confirmations().empty())
+    if (!plan.Confirmations().empty())
     {
-        return fail(ErrorKind::kInvalidConfig, "TCU plans must not declare extra confirmations");
+        return Fail(ErrorKind::kInvalidConfig, "TCU plans must not declare extra confirmations");
     }
-    if (Status regions = detail::validate_regions(plan, *device); !regions.has_value())
+    if (Status regions = detail::ValidateRegions(plan, *device); !regions.has_value())
     {
         return regions;
     }
-    return validate_image(plan, *device);
+    return ValidateImage(plan, *device);
 }
 
-Result<FlashPlan> build_subaru_tcu_denso_sh705x_can_plan(FlashOperation operation, std::string_view protocol_name,
-                                                         std::string_view mcu_type, std::optional<bytes::Bytes> image,
-                                                         KernelImage kernel)
+Result<FlashPlan> BuildSubaruTcuDensoSh705xCanPlan(FlashOperation operation, std::string_view protocol_name,
+                                                   std::string_view mcu_type, std::optional<bytes::Bytes> image,
+                                                   KernelImage kernel)
 {
     const CatalogEntry *entry = nullptr;
-    if (Status identity = validate_identity(protocol_name, mcu_type, entry); !identity.has_value())
+    if (Status identity = ValidateIdentity(protocol_name, mcu_type, entry); !identity.has_value())
     {
         return std::unexpected(identity.error());
     }
@@ -164,15 +164,15 @@ Result<FlashPlan> build_subaru_tcu_denso_sh705x_can_plan(FlashOperation operatio
     // SH7055 write and all test-write rejections before any hardware path.
     if (operation == FlashOperation::kTestWrite || (operation == FlashOperation::kWrite && !entry->supports_write))
     {
-        return fail(ErrorKind::kUnsupported, "operation is not supported by the selected Denso SH705x TCU");
+        return Fail(ErrorKind::kUnsupported, "operation is not supported by the selected Denso SH705x TCU");
     }
-    const FlashDevice *device = checked_device(*entry);
+    const FlashDevice *device = CheckedDevice(*entry);
     if (device == nullptr)
     {
-        return fail(ErrorKind::kInvalidConfig, "TCU catalog does not match the flash device table");
+        return Fail(ErrorKind::kInvalidConfig, "TCU catalog does not match the flash device table");
     }
-    if (Status upload = detail::validate_kernel_upload<128>(kernel.bytes.size(), kernel.load_address,
-                                                            entry->kernel_load_address, device->kblocks[0]);
+    if (Status upload = detail::ValidateKernelUpload<128>(kernel.bytes.size(), kernel.load_address,
+                                                          entry->kernel_load_address, device->kblocks[0]);
         !upload.has_value())
     {
         return std::unexpected(upload.error());
@@ -181,18 +181,18 @@ Result<FlashPlan> build_subaru_tcu_denso_sh705x_can_plan(FlashOperation operatio
     {
         if (image.has_value())
         {
-            return fail(ErrorKind::kInvalidConfig, "TCU read plans must not carry an image");
+            return Fail(ErrorKind::kInvalidConfig, "TCU read plans must not carry an image");
         }
     }
     else if (!image.has_value() || image->size() != device->romsize)
     {
-        return fail(ErrorKind::kInvalidConfig, std::format("ROM file must be exactly 0x{:x} bytes", device->romsize));
+        return Fail(ErrorKind::kInvalidConfig, std::format("ROM file must be exactly 0x{:x} bytes", device->romsize));
     }
 
     std::vector<MemoryRegion> erase_regions;
     if (operation == FlashOperation::kWrite)
     {
-        erase_regions = detail::make_erase_regions(*device);
+        erase_regions = detail::MakeEraseRegions(*device);
     }
 
     FlashPlanFields fields{
@@ -205,15 +205,15 @@ Result<FlashPlan> build_subaru_tcu_denso_sh705x_can_plan(FlashOperation operatio
         .erase_regions = std::move(erase_regions),
         .image = operation == FlashOperation::kRead ? std::nullopt : std::move(image),
         .kernel = std::move(kernel),
-        .family_plan = wire_parameters(),
+        .family_plan = WireParameters(),
         .confirmations = {},
     };
-    Result<FlashPlan> plan = validate_and_build(std::move(fields));
+    Result<FlashPlan> plan = ValidateAndBuild(std::move(fields));
     if (!plan.has_value())
     {
         return std::unexpected(plan.error());
     }
-    if (Status valid = validate_subaru_tcu_denso_sh705x_can_plan(*plan); !valid.has_value())
+    if (Status valid = ValidateSubaruTcuDensoSh705xCanPlan(*plan); !valid.has_value())
     {
         return std::unexpected(valid.error());
     }

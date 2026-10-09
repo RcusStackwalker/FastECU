@@ -8,7 +8,7 @@ TEST(ResourceBundle, ListReturnsAllNames)
     fastecu::InMemoryResourceBundle bundle;
     bundle.bundles["config"]["fastecu.cfg"] = {'a'};
     bundle.bundles["config"]["menu.cfg"] = {'b'};
-    auto names = bundle.list("config");
+    auto names = bundle.List("config");
     ASSERT_THAT(names, fastecu::testing::IsOk());
     EXPECT_EQ(names->size(), 2U);
 }
@@ -16,12 +16,12 @@ TEST(ResourceBundle, ListReturnsAllNames)
 TEST(ResourceBundle, ReadUnknownBundleIsInvalidConfig)
 {
     fastecu::InMemoryResourceBundle bundle;
-    ASSERT_THAT(bundle.read("kernels", "missing.bin"), fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
+    ASSERT_THAT(bundle.Read("kernels", "missing.bin"), fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
 }
 
 TEST(ResourceBundle, ReadKnownFileRoundTrips)
 {
     fastecu::InMemoryResourceBundle bundle;
     bundle.bundles["kernels"]["k.bin"] = {1, 2, 3};
-    ASSERT_THAT(bundle.read("kernels", "k.bin"), fastecu::testing::IsOkAnd((std::vector<std::uint8_t>{1, 2, 3})));
+    ASSERT_THAT(bundle.Read("kernels", "k.bin"), fastecu::testing::IsOkAnd((std::vector<std::uint8_t>{1, 2, 3})));
 }

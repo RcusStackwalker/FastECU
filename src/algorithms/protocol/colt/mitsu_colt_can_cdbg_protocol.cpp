@@ -5,20 +5,20 @@
 namespace mitsu_colt_can_cdbg
 {
 
-CdbgFrame buildInitFrame()
+CdbgFrame BuildInitFrame()
 {
     return CdbgFrame{kCmdInit, 1, 0, 0, 0, 0, 0, 0};
 }
 
-CdbgFrame buildSecuritySeedRequestFrame()
+CdbgFrame BuildSecuritySeedRequestFrame()
 {
     return CdbgFrame{kCmdSecuritySeed, 0, kSecurityLogAccess, 0, 0, 0, 0, 0};
 }
 
-std::uint32_t seedToKey(std::uint32_t seed)
+std::uint32_t SeedToKey(std::uint32_t seed)
 {
     std::array<bytes::Byte, 4> data = {};
-    bytes::writeU32Be(data, 0, seed);
+    bytes::WriteU32Be(data, 0, seed);
 
     for (int i = 0; i < 4; ++i)
     {
@@ -86,23 +86,23 @@ std::uint32_t seedToKey(std::uint32_t seed)
            (std::uint32_t(word1 >> 8U) << 8U) | std::uint32_t(word1 & 0xFFU);
 }
 
-std::uint32_t extractSeed(bytes::ByteView reply)
+std::uint32_t ExtractSeed(bytes::ByteView reply)
 {
     if (reply.size() < 8)
     {
         return 0;
     }
-    return bytes::readU32Be(reply, 4);
+    return bytes::ReadU32Be(reply, 4);
 }
 
-CdbgFrame buildSecurityKeyFrame(std::uint32_t key)
+CdbgFrame BuildSecurityKeyFrame(std::uint32_t key)
 {
     CdbgFrame frame{kCmdSecurityKey, 0, 0, 0, 0, 0, 0, 0};
-    bytes::writeU32Be(frame, 2, key);
+    bytes::WriteU32Be(frame, 2, key);
     return frame;
 }
 
-bool securityGranted(bytes::ByteView reply)
+bool SecurityGranted(bytes::ByteView reply)
 {
     if (reply.size() < 4)
     {
@@ -111,12 +111,12 @@ bool securityGranted(bytes::ByteView reply)
     return reply[3] != 0;
 }
 
-CdbgFrame buildLogResetFrame(bytes::Byte instance)
+CdbgFrame BuildLogResetFrame(bytes::Byte instance)
 {
     return CdbgFrame{kCmdLogReset, 0, instance, 0, 0, 0, 0x06, 0x31};
 }
 
-CdbgFrame buildLogStartFrame(bytes::Byte instance, bytes::Byte frame_count, std::uint32_t interval_ms)
+CdbgFrame BuildLogStartFrame(bytes::Byte instance, bytes::Byte frame_count, std::uint32_t interval_ms)
 {
     bytes::Byte unit_flag;
     std::uint16_t encoded;
@@ -132,11 +132,11 @@ CdbgFrame buildLogStartFrame(bytes::Byte instance, bytes::Byte frame_count, std:
     }
 
     CdbgFrame frame{kCmdLogStart, 0, 1, instance, frame_count, unit_flag, 0, 0};
-    bytes::writeU16Be(frame, 6, encoded);
+    bytes::WriteU16Be(frame, 6, encoded);
     return frame;
 }
 
-bool batchChannelsIntoFrames(const std::vector<CdbgChannel>& channels,
+bool BatchChannelsIntoFrames(const std::vector<CdbgChannel>& channels,
                              std::vector<std::vector<CdbgChannel>>& out_frames)
 {
     if (channels.empty())
@@ -173,7 +173,7 @@ bool batchChannelsIntoFrames(const std::vector<CdbgChannel>& channels,
     return true;
 }
 
-std::vector<CdbgFrame> buildFrameInitFrames(bytes::Byte instance, bytes::Byte frame_index,
+std::vector<CdbgFrame> BuildFrameInitFrames(bytes::Byte instance, bytes::Byte frame_index,
                                             const std::vector<CdbgChannel>& frame_items)
 {
     std::vector<CdbgFrame> out;
@@ -184,13 +184,13 @@ std::vector<CdbgFrame> buildFrameInitFrames(bytes::Byte instance, bytes::Byte fr
 
         const CdbgChannel& ch = frame_items.at(i);
         CdbgFrame pointer_frame{kCmdLogSetPointer, 0, ch.size, 0, 0, 0, 0, 0};
-        bytes::writeU32Be(pointer_frame, 4, ch.pointer);
+        bytes::WriteU32Be(pointer_frame, 4, ch.pointer);
         out.push_back(pointer_frame);
     }
     return out;
 }
 
-std::vector<std::uint32_t> decodeFrame(bytes::Byte expected_frame_index, const std::vector<CdbgChannel>& frame_items,
+std::vector<std::uint32_t> DecodeFrame(bytes::Byte expected_frame_index, const std::vector<CdbgChannel>& frame_items,
                                        bytes::ByteView frame)
 {
     if (frame.empty() || frame[0] != expected_frame_index)
@@ -212,7 +212,7 @@ std::vector<std::uint32_t> decodeFrame(bytes::Byte expected_frame_index, const s
     int offset = 1;
     for (const CdbgChannel& ch : frame_items)
     {
-        out.push_back(bytes::readUBe(frame, static_cast<std::size_t>(offset), ch.size));
+        out.push_back(bytes::ReadUBe(frame, static_cast<std::size_t>(offset), ch.size));
         offset += ch.size;
     }
     return out;

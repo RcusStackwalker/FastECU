@@ -24,15 +24,15 @@ class ServiceFunctionSession
     // Pure: validates the request and returns the transport configuration this
     // session requires. Performs no I/O, so an unusable request is rejected
     // before the caller touches hardware.
-    virtual Result<SsmTransportConfig> transport_setup() const = 0;
+    virtual Result<SsmTransportConfig> TransportSetup() const = 0;
 
     // Runs I/O until the next operator gate, completion, or failure. After a
     // GateStep the caller must submit() an answer before calling resume()
     // again; calling it with a gate outstanding is ErrorKind::kInternal.
-    virtual ServiceFunctionStep resume(ISsmTransport& transport, IClock& clock, const ICancellationToken& cancellation,
+    virtual ServiceFunctionStep Resume(ISsmTransport& transport, IClock& clock, const ICancellationToken& cancellation,
                                        IEventSink& events) = 0;
 
-    virtual void submit(GateResponse response) = 0;
+    virtual void Submit(GateResponse response) = 0;
 };
 
 } // namespace fastecu::service_functions

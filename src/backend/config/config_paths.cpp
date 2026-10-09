@@ -5,7 +5,7 @@
 namespace fastecu::config
 {
 
-ConfigPaths resolve_config_paths(std::string_view app_root_path, std::string_view version)
+ConfigPaths ResolveConfigPaths(std::string_view app_root_path, std::string_view version)
 {
     ConfigPaths paths;
     paths.base_config_directory = app_root_path;

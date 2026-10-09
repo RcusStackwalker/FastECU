@@ -24,58 +24,58 @@ namespace uds
 class ScriptedUdsChannel final : public IUdsChannel
 {
   public:
-    void expectSend(bytes::ByteView pdu)
+    void ExpectSend(bytes::ByteView pdu)
     {
         expected_.emplace_back(pdu.begin(), pdu.end());
     }
-    void queueReceive(bytes::ByteView pdu)
+    void QueueReceive(bytes::ByteView pdu)
     {
         receives_.emplace_back(std::optional<bytes::Bytes>{bytes::Bytes(pdu.begin(), pdu.end())});
     }
-    void queueNoFrame()
+    void QueueNoFrame()
     {
         receives_.emplace_back(std::optional<bytes::Bytes>{});
     }
-    void queueError(fastecu::ErrorKind kind, std::string detail = {})
+    void QueueError(fastecu::ErrorKind kind, std::string detail = {})
     {
-        receives_.emplace_back(fastecu::fail(kind, std::move(detail)));
+        receives_.emplace_back(fastecu::Fail(kind, std::move(detail)));
     }
 
-    std::size_t sendsConsumed() const
+    std::size_t SendsConsumed() const
     {
         return send_index_;
     }
-    bool scriptConsumed() const
+    bool ScriptConsumed() const
     {
         return send_index_ == expected_.size() && receives_.empty();
     }
 
-    fastecu::Status send(bytes::ByteView pdu, const fastecu::ICancellationToken& cancellation) override
+    fastecu::Status Send(bytes::ByteView pdu, const fastecu::ICancellationToken& cancellation) override
     {
-        if (cancellation.cancelled())
+        if (cancellation.Cancelled())
         {
-            return fastecu::fail(fastecu::ErrorKind::kCancelled, "scripted UDS send cancelled");
+            return fastecu::Fail(fastecu::ErrorKind::kCancelled, "scripted UDS send cancelled");
         }
         if (send_index_ >= expected_.size() || expected_.at(send_index_) != bytes::Bytes(pdu.begin(), pdu.end()))
         {
-            return fastecu::fail(fastecu::ErrorKind::kInternal, "unexpected scripted UDS send");
+            return fastecu::Fail(fastecu::ErrorKind::kInternal, "unexpected scripted UDS send");
         }
         ++send_index_;
         return {};
     }
 
-    fastecu::Result<std::optional<bytes::Bytes>> receive(std::chrono::milliseconds timeout,
+    fastecu::Result<std::optional<bytes::Bytes>> Receive(std::chrono::milliseconds timeout,
                                                          const fastecu::ICancellationToken& cancellation) override
     {
         last_timeout = timeout;
         timeouts.push_back(timeout);
-        if (cancellation.cancelled())
+        if (cancellation.Cancelled())
         {
-            return fastecu::fail(fastecu::ErrorKind::kCancelled, "scripted UDS receive cancelled");
+            return fastecu::Fail(fastecu::ErrorKind::kCancelled, "scripted UDS receive cancelled");
         }
         if (receives_.empty())
         {
-            return fastecu::fail(fastecu::ErrorKind::kInternal, "no scripted UDS receive outcome");
+            return fastecu::Fail(fastecu::ErrorKind::kInternal, "no scripted UDS receive outcome");
         }
         auto result = std::move(receives_.front());
         receives_.pop_front();

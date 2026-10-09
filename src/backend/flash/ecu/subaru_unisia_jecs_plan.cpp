@@ -26,67 +26,67 @@ constexpr auto kIdentities = std::to_array<Identity>({
 constexpr MemoryRegion kRom{0, 0x10000};
 constexpr int kInitialBaud = 1953;
 
-Status validate_identity(std::string_view protocol, std::string_view mcu)
+Status ValidateIdentity(std::string_view protocol, std::string_view mcu)
 {
     const auto identity = std::ranges::find(kIdentities, protocol, &Identity::protocol);
     if (identity == kIdentities.end() || identity->mcu != mcu)
     {
-        return fail(ErrorKind::kInvalidConfig,
+        return Fail(ErrorKind::kInvalidConfig,
                     std::format("Unisia Jecs protocol '{}' does not match MCU '{}'", protocol, mcu));
     }
-    const FlashDevice *device = find_flash_device(mcu);
+    const FlashDevice *device = FindFlashDevice(mcu);
     if (device == nullptr || device->romsize != kRom.length)
     {
-        return fail(ErrorKind::kInvalidConfig, "Unisia Jecs flash geometry is invalid");
+        return Fail(ErrorKind::kInvalidConfig, "Unisia Jecs flash geometry is invalid");
     }
     return {};
 }
 } // namespace
 
-Status validate_subaru_unisia_jecs_plan(const FlashPlan& plan)
+Status ValidateSubaruUnisiaJecsPlan(const FlashPlan& plan)
 {
-    if (plan.family() != FlashFamily::kSubaruUnisiaJecs || plan.transport() != TransportKind::kKline)
+    if (plan.Family() != FlashFamily::kSubaruUnisiaJecs || plan.Transport() != TransportKind::kKline)
     {
-        return fail(ErrorKind::kInvalidConfig, "plan is not for Subaru Unisia Jecs");
+        return Fail(ErrorKind::kInvalidConfig, "plan is not for Subaru Unisia Jecs");
     }
-    if (auto identity = validate_identity(plan.target_id(), plan.mcu_name()); !identity.has_value())
+    if (auto identity = ValidateIdentity(plan.TargetId(), plan.McuName()); !identity.has_value())
     {
         return identity;
     }
-    if (plan.operation() != FlashOperation::kRead)
+    if (plan.Operation() != FlashOperation::kRead)
     {
-        return fail(ErrorKind::kUnsupported, "Unisia Jecs is read-only");
+        return Fail(ErrorKind::kUnsupported, "Unisia Jecs is read-only");
     }
-    const auto *wire = std::get_if<SubaruUnisiaJecsPlan>(&plan.family_plan());
+    const auto *wire = std::get_if<SubaruUnisiaJecsPlan>(&plan.FamilyPlan());
     if (wire == nullptr || wire->initial_baud != kInitialBaud || !wire->even_parity)
     {
-        return fail(ErrorKind::kInvalidConfig, "Unisia Jecs wire parameters are invalid");
+        return Fail(ErrorKind::kInvalidConfig, "Unisia Jecs wire parameters are invalid");
     }
-    if (plan.transfer_region().start != kRom.start || plan.transfer_region().length != kRom.length ||
-        !plan.erase_regions().empty() || plan.image().has_value() || plan.kernel().has_value() ||
-        !plan.confirmations().empty())
+    if (plan.TransferRegion().start != kRom.start || plan.TransferRegion().length != kRom.length ||
+        !plan.EraseRegions().empty() || plan.Image().has_value() || plan.Kernel().has_value() ||
+        !plan.Confirmations().empty())
     {
-        return fail(ErrorKind::kInvalidConfig, "Unisia Jecs read-plan shape is invalid");
+        return Fail(ErrorKind::kInvalidConfig, "Unisia Jecs read-plan shape is invalid");
     }
     return {};
 }
 
-Result<FlashPlan> build_subaru_unisia_jecs_plan(FlashOperation operation, std::string_view protocol_name,
-                                                std::string_view mcu_type, std::optional<bytes::Bytes> image)
+Result<FlashPlan> BuildSubaruUnisiaJecsPlan(FlashOperation operation, std::string_view protocol_name,
+                                            std::string_view mcu_type, std::optional<bytes::Bytes> image)
 {
-    if (auto identity = validate_identity(protocol_name, mcu_type); !identity.has_value())
+    if (auto identity = ValidateIdentity(protocol_name, mcu_type); !identity.has_value())
     {
         return std::unexpected(identity.error());
     }
     if (operation != FlashOperation::kRead)
     {
-        return fail(ErrorKind::kUnsupported, "Unisia Jecs is read-only");
+        return Fail(ErrorKind::kUnsupported, "Unisia Jecs is read-only");
     }
     if (image.has_value())
     {
-        return fail(ErrorKind::kInvalidConfig, "Unisia Jecs read plans must not carry an image");
+        return Fail(ErrorKind::kInvalidConfig, "Unisia Jecs read plans must not carry an image");
     }
-    auto plan = validate_and_build(FlashPlanFields{
+    auto plan = ValidateAndBuild(FlashPlanFields{
         .operation = operation,
         .family = FlashFamily::kSubaruUnisiaJecs,
         .transport = TransportKind::kKline,
@@ -103,7 +103,7 @@ Result<FlashPlan> build_subaru_unisia_jecs_plan(FlashOperation operation, std::s
     {
         return std::unexpected(plan.error());
     }
-    if (auto valid = validate_subaru_unisia_jecs_plan(*plan); !valid.has_value())
+    if (auto valid = ValidateSubaruUnisiaJecsPlan(*plan); !valid.has_value())
     {
         return std::unexpected(valid.error());
     }

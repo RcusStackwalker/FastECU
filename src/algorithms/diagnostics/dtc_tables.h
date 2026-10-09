@@ -14,8 +14,8 @@
 // the former error_codes.h, which this slice deleted -- there is no
 // regeneration path, and no input one could run against. Add new entries by
 // editing dtc_tables.cpp directly and carefully.
-const std::unordered_map<int, std::string>& nrc_codes();
-const std::unordered_map<int, std::string>& dtc_p_codes();
-const std::unordered_map<int, std::string>& dtc_b_codes();
-const std::unordered_map<int, std::string>& dtc_c_codes();
-const std::unordered_map<int, std::string>& dtc_u_codes();
+const std::unordered_map<int, std::string>& NrcCodes();
+const std::unordered_map<int, std::string>& DtcPCodes();
+const std::unordered_map<int, std::string>& DtcBCodes();
+const std::unordered_map<int, std::string>& DtcCCodes();
+const std::unordered_map<int, std::string>& DtcUCodes();

@@ -16,11 +16,11 @@ namespace fastecu::ui
 class MockCalibrationInteraction : public ICalibrationInteraction
 {
   public:
-    MOCK_METHOD(bool, confirm_write_without_checksum, (), (override));
-    MOCK_METHOD(ChecksumCorrectionResult, correct_checksums,
+    MOCK_METHOD(bool, confirmWriteWithoutChecksum, (), (override));
+    MOCK_METHOD(ChecksumCorrectionResult, correctChecksums,
                 (bytes::ByteView image, bool hasDefinition, const checksum::ChecksumSelection& selection), (override));
-    MOCK_METHOD(std::optional<std::string>, choose_save_path, (std::string_view suggestedPath), (override));
-    MOCK_METHOD(void, show_notice, (CalibrationNotice notice), (override));
+    MOCK_METHOD(std::optional<std::string>, chooseSavePath, (std::string_view suggestedPath), (override));
+    MOCK_METHOD(void, showNotice, (CalibrationNotice notice), (override));
 };
 
 } // namespace fastecu::ui

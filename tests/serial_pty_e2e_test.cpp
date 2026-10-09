@@ -20,9 +20,9 @@
 namespace
 {
 // The real local backend, as the desktop app's DirectSerial connection builds it.
-std::function<SerialBackend *()> directBackend()
+std::function<SerialBackend *()> DirectBackend()
 {
-    return [] { return make_direct_serial_backend().release(); };
+    return [] { return MakeDirectSerialBackend().release(); };
 }
 } // namespace
 
@@ -87,17 +87,17 @@ TEST(TestPtyE2e, workerThread_writeRead_overPty_deliversFramedMessage)
             }
         });
 
-    SerialPortActions serial{directBackend()}; // the real direct backend
+    SerialPortActions serial{DirectBackend()}; // the real direct backend
     QByteArray response;
     QString opened;
     std::thread worker(
         [&]
         {
-            serial.set_serial_port_prefix_linux("");
-            serial.set_serial_port_list(QStringList() << QString::fromLocal8Bit(name.data()));
-            opened = serial.open_serial_port();
-            serial.write_serial_data(QByteArray("\x01\x02\x03", 3));
-            response = serial.read_serial_data(2000);
+            serial.SetSerialPortPrefixLinux("");
+            serial.SetSerialPortList(QStringList() << QString::fromLocal8Bit(name.data()));
+            opened = serial.OpenSerialPort();
+            serial.WriteSerialData(QByteArray("\x01\x02\x03", 3));
+            response = serial.ReadSerialData(2000);
         });
     worker.join();
     stop.store(true);

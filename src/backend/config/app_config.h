@@ -34,16 +34,16 @@ struct AppConfig
 // Reads and parses fastecu.cfg without writing anything back. Absent
 // settings stay "" and directory values are returned as written in the
 // file (unnormalized) -- the contract load_app_config has always had.
-Result<AppConfig> parse_app_config(const ConfigPaths& paths, IFileRepository& file_repository);
+Result<AppConfig> ParseAppConfig(const ConfigPaths& paths, IFileRepository& file_repository);
 
 // Replaces FileActions::read_config_file.
-Result<AppConfig> load_app_config(const ConfigPaths& paths, IFileRepository& file_repository);
+Result<AppConfig> LoadAppConfig(const ConfigPaths& paths, IFileRepository& file_repository);
 
 // Replaces FileActions::save_config_file. Returns the normalized config
 // (trailing slash appended to calibration_files_directory/
 // ecuflash_definition_files_directory/datalog_files_directory when non-empty
 // and not already present) so the caller can keep its in-memory copy in
 // sync with what was actually written.
-Result<AppConfig> save_app_config(AppConfig config, const ConfigPaths& paths, IFileRepository& file_repository);
+Result<AppConfig> SaveAppConfig(AppConfig config, const ConfigPaths& paths, IFileRepository& file_repository);
 
 } // namespace fastecu::config

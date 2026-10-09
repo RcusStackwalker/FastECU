@@ -8,20 +8,20 @@ namespace fastecu::ui
 ConnectionCoordinator::ConnectionCoordinator(IIdentifyLauncher& launcher, IConnectionPresentation& presentation)
     : launcher_(launcher), presentation_(presentation)
 {
-    launcher_.set_completion_handler([this](IdentifyGeneration generation, IdentifyOutcome outcome)
-                                     { on_completed(generation, std::move(outcome)); });
+    launcher_.setCompletionHandler([this](IdentifyGeneration generation, IdentifyOutcome outcome)
+                                   { onCompleted(generation, std::move(outcome)); });
 }
 
 ConnectionCoordinator::~ConnectionCoordinator()
 {
-    launcher_.set_completion_handler({});
+    launcher_.setCompletionHandler({});
 }
 
 void ConnectionCoordinator::begin(const diagnostics::SsmIdentifyRequest& request, std::function<void(bool)> onDone)
 {
     pending_ = std::move(onDone);
     running_ = true;
-    presentation_.set_controls_locked(true);
+    presentation_.setControlsLocked(true);
     launcher_.start(request, ++generation_);
 }
 
@@ -32,13 +32,13 @@ void ConnectionCoordinator::cancel()
     {
         return;
     }
-    launcher_.stop_and_join();
+    launcher_.stopAndJoin();
     running_ = false;
-    presentation_.set_controls_locked(false);
+    presentation_.setControlsLocked(false);
     // begin()'s caller locked the port selector once the port opened. A
     // cancelled identification leaves no ECU connected, so release it here,
     // whichever entry point cancelled.
-    presentation_.set_port_selector_enabled(true);
+    presentation_.setPortSelectorEnabled(true);
     if (auto done = std::exchange(pending_, {}); done)
     {
         done(false);
@@ -51,7 +51,7 @@ void ConnectionCoordinator::shutdown()
     cancel();
 }
 
-void ConnectionCoordinator::on_completed(IdentifyGeneration generation, IdentifyOutcome outcome)
+void ConnectionCoordinator::onCompleted(IdentifyGeneration generation, IdentifyOutcome outcome)
 {
     // Qt still delivers an event posted by a worker that was stopped, so a
     // completion tagged with an older generation is dropped. A completion for
@@ -64,7 +64,7 @@ void ConnectionCoordinator::on_completed(IdentifyGeneration generation, Identify
     // connection flow. Take this attempt's continuation now so a nested
     // connection cannot clobber it.
     auto done = std::exchange(pending_, {});
-    launcher_.stop_and_join();
+    launcher_.stopAndJoin();
     running_ = false;
     if (outcome.success)
     {
@@ -72,7 +72,7 @@ void ConnectionCoordinator::on_completed(IdentifyGeneration generation, Identify
     }
     else
     {
-        presentation_.identification_failed(outcome);
+        presentation_.identificationFailed(outcome);
     }
     // A port that opened counts as connected even when identification failed.
     // A nested start or cancel during identified() moved the generation, which
@@ -85,7 +85,7 @@ void ConnectionCoordinator::on_completed(IdentifyGeneration generation, Identify
     // completion must not unlock a newer attempt.
     if (!running_)
     {
-        presentation_.set_controls_locked(false);
+        presentation_.setControlsLocked(false);
     }
 }
 

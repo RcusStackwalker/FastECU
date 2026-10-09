@@ -18,10 +18,10 @@ class GetKeyOperationsSubaru : public QDialog
     Q_OBJECT
 
   signals:
-    void LOG_E(QString message, bool timestamp, bool linefeed);
-    void LOG_W(QString message, bool timestamp, bool linefeed);
-    void LOG_I(QString message, bool timestamp, bool linefeed);
-    void LOG_D(QString message, bool timestamp, bool linefeed);
+    void logE(QString message, bool timestamp, bool linefeed);
+    void logW(QString message, bool timestamp, bool linefeed);
+    void logI(QString message, bool timestamp, bool linefeed);
+    void logD(QString message, bool timestamp, bool linefeed);
 
   public:
     explicit GetKeyOperationsSubaru(QWidget *parent = nullptr);
@@ -32,7 +32,7 @@ class GetKeyOperationsSubaru : public QDialog
 
     bool kill_process_ = false;
 
-    int load_and_apply_linear_approx();
+    int loadAndApplyLinearApprox();
 
   private:
     std::unique_ptr<Ui::EcuOperationsWindow> ui_;

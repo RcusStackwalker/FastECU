@@ -18,43 +18,43 @@ namespace fastecu::definition
 namespace
 {
 
-std::string format_name(DefinitionFormat format)
+std::string FormatName(DefinitionFormat format)
 {
     return format == DefinitionFormat::kRomRaider ? "RomRaider" : "EcuFlash";
 }
 
 // The map's id when it is non-empty (the only kind usable as a stable key), else null.
-const std::string *stable_map_id(const UnresolvedCalibrationMap& map)
+const std::string *StableMapId(const UnresolvedCalibrationMap& map)
 {
     return map.id.has_value() && !map.id->empty() ? &*map.id : nullptr;
 }
 
-bool has_stable_map_id(const UnresolvedCalibrationMap& map)
+bool HasStableMapId(const UnresolvedCalibrationMap& map)
 {
-    return stable_map_id(map) != nullptr;
+    return StableMapId(map) != nullptr;
 }
 
-std::string map_key(const UnresolvedCalibrationMap& map)
+std::string MapKey(const UnresolvedCalibrationMap& map)
 {
-    const std::string *id = stable_map_id(map);
+    const std::string *id = StableMapId(map);
     return id != nullptr ? *id : map.name;
 }
 
-bool maps_match(const UnresolvedCalibrationMap& left, const UnresolvedCalibrationMap& right)
+bool MapsMatch(const UnresolvedCalibrationMap& left, const UnresolvedCalibrationMap& right)
 {
-    if (has_stable_map_id(left) && has_stable_map_id(right))
+    if (HasStableMapId(left) && HasStableMapId(right))
     {
         return left.id == right.id;
     }
     return left.name == right.name;
 }
 
-std::string map_key(const CalibrationMap& map)
+std::string MapKey(const CalibrationMap& map)
 {
     return !map.id.empty() ? map.id : map.name;
 }
 
-bool maps_match(const CalibrationMap& left, const CalibrationMap& right)
+bool MapsMatch(const CalibrationMap& left, const CalibrationMap& right)
 {
     if (!left.id.empty() && !right.id.empty())
     {
@@ -63,7 +63,7 @@ bool maps_match(const CalibrationMap& left, const CalibrationMap& right)
     return left.name == right.name;
 }
 
-void overlay_string(std::string& value, std::string_view supplied)
+void OverlayString(std::string& value, std::string_view supplied)
 {
     if (!supplied.empty())
     {
@@ -71,7 +71,7 @@ void overlay_string(std::string& value, std::string_view supplied)
     }
 }
 
-template <typename Value> void overlay_optional(Value& value, const Value& supplied)
+template <typename Value> void OverlayOptional(Value& value, const Value& supplied)
 {
     if (supplied)
     {
@@ -79,82 +79,82 @@ template <typename Value> void overlay_optional(Value& value, const Value& suppl
     }
 }
 
-void overlay_identity(RomIdentity& value, const RomIdentity& supplied)
+void OverlayIdentity(RomIdentity& value, const RomIdentity& supplied)
 {
     value.xml_id = supplied.xml_id;
-    overlay_string(value.internal_id, supplied.internal_id);
-    overlay_string(value.ecu_id, supplied.ecu_id);
-    overlay_optional(value.internal_id_address, supplied.internal_id_address);
+    OverlayString(value.internal_id, supplied.internal_id);
+    OverlayString(value.ecu_id, supplied.ecu_id);
+    OverlayOptional(value.internal_id_address, supplied.internal_id_address);
 }
 
-void overlay_metadata(RomMetadata& value, const RomMetadata& supplied)
+void OverlayMetadata(RomMetadata& value, const RomMetadata& supplied)
 {
-    overlay_string(value.make, supplied.make);
-    overlay_string(value.market, supplied.market);
-    overlay_string(value.model, supplied.model);
-    overlay_string(value.submodel, supplied.submodel);
-    overlay_string(value.transmission, supplied.transmission);
-    overlay_string(value.year, supplied.year);
-    overlay_string(value.flash_method, supplied.flash_method);
-    overlay_string(value.memory_model, supplied.memory_model);
-    overlay_string(value.checksum_module, supplied.checksum_module);
-    overlay_string(value.file_size, supplied.file_size);
-    overlay_string(value.notes, supplied.notes);
+    OverlayString(value.make, supplied.make);
+    OverlayString(value.market, supplied.market);
+    OverlayString(value.model, supplied.model);
+    OverlayString(value.submodel, supplied.submodel);
+    OverlayString(value.transmission, supplied.transmission);
+    OverlayString(value.year, supplied.year);
+    OverlayString(value.flash_method, supplied.flash_method);
+    OverlayString(value.memory_model, supplied.memory_model);
+    OverlayString(value.checksum_module, supplied.checksum_module);
+    OverlayString(value.file_size, supplied.file_size);
+    OverlayString(value.notes, supplied.notes);
 }
 
-void overlay_axis(UnresolvedAxisDefinition& value, const UnresolvedAxisDefinition& supplied)
+void OverlayAxis(UnresolvedAxisDefinition& value, const UnresolvedAxisDefinition& supplied)
 {
     if (supplied == UnresolvedAxisDefinition{})
     {
         return;
     }
-    overlay_string(value.type, supplied.type);
-    overlay_string(value.name, supplied.name);
-    overlay_string(value.units, supplied.units);
-    overlay_string(value.format, supplied.format);
-    overlay_optional(value.storage_type, supplied.storage_type);
-    overlay_string(value.endian, supplied.endian);
-    overlay_optional(value.address, supplied.address);
-    overlay_optional(value.size, supplied.size);
-    overlay_optional(value.from_byte, supplied.from_byte);
-    overlay_optional(value.to_byte, supplied.to_byte);
-    overlay_string(value.scaling_name, supplied.scaling_name);
-    overlay_optional(value.start_position, supplied.start_position);
-    overlay_optional(value.interval, supplied.interval);
-    overlay_optional(value.log_parameter, supplied.log_parameter);
-    overlay_optional(value.static_data, supplied.static_data);
+    OverlayString(value.type, supplied.type);
+    OverlayString(value.name, supplied.name);
+    OverlayString(value.units, supplied.units);
+    OverlayString(value.format, supplied.format);
+    OverlayOptional(value.storage_type, supplied.storage_type);
+    OverlayString(value.endian, supplied.endian);
+    OverlayOptional(value.address, supplied.address);
+    OverlayOptional(value.size, supplied.size);
+    OverlayOptional(value.from_byte, supplied.from_byte);
+    OverlayOptional(value.to_byte, supplied.to_byte);
+    OverlayString(value.scaling_name, supplied.scaling_name);
+    OverlayOptional(value.start_position, supplied.start_position);
+    OverlayOptional(value.interval, supplied.interval);
+    OverlayOptional(value.log_parameter, supplied.log_parameter);
+    OverlayOptional(value.static_data, supplied.static_data);
 }
 
-void overlay_map(UnresolvedCalibrationMap& value, const UnresolvedCalibrationMap& supplied)
+void OverlayMap(UnresolvedCalibrationMap& value, const UnresolvedCalibrationMap& supplied)
 {
-    if (has_stable_map_id(supplied))
+    if (HasStableMapId(supplied))
     {
         value.id = supplied.id;
     }
-    overlay_string(value.name, supplied.name);
-    overlay_string(value.type, supplied.type);
-    overlay_string(value.category, supplied.category);
-    overlay_string(value.subcategory, supplied.subcategory);
-    overlay_string(value.description, supplied.description);
-    overlay_optional(value.address, supplied.address);
-    overlay_optional(value.x_size, supplied.x_size);
-    overlay_optional(value.y_size, supplied.y_size);
-    overlay_optional(value.swap_xy, supplied.swap_xy);
-    overlay_optional(value.flip_x, supplied.flip_x);
-    overlay_optional(value.flip_y, supplied.flip_y);
-    overlay_string(value.level, supplied.level);
-    overlay_string(value.user_level, supplied.user_level);
-    overlay_string(value.scaling_name, supplied.scaling_name);
-    overlay_optional(value.storage_type, supplied.storage_type);
-    overlay_string(value.endian, supplied.endian);
-    overlay_optional(value.start_position, supplied.start_position);
-    overlay_optional(value.interval, supplied.interval);
-    overlay_optional(value.log_parameter, supplied.log_parameter);
-    overlay_axis(value.x_axis, supplied.x_axis);
-    overlay_axis(value.y_axis, supplied.y_axis);
+    OverlayString(value.name, supplied.name);
+    OverlayString(value.type, supplied.type);
+    OverlayString(value.category, supplied.category);
+    OverlayString(value.subcategory, supplied.subcategory);
+    OverlayString(value.description, supplied.description);
+    OverlayOptional(value.address, supplied.address);
+    OverlayOptional(value.x_size, supplied.x_size);
+    OverlayOptional(value.y_size, supplied.y_size);
+    OverlayOptional(value.swap_xy, supplied.swap_xy);
+    OverlayOptional(value.flip_x, supplied.flip_x);
+    OverlayOptional(value.flip_y, supplied.flip_y);
+    OverlayString(value.level, supplied.level);
+    OverlayString(value.user_level, supplied.user_level);
+    OverlayString(value.scaling_name, supplied.scaling_name);
+    OverlayOptional(value.storage_type, supplied.storage_type);
+    OverlayString(value.endian, supplied.endian);
+    OverlayOptional(value.start_position, supplied.start_position);
+    OverlayOptional(value.interval, supplied.interval);
+    OverlayOptional(value.log_parameter, supplied.log_parameter);
+    OverlayAxis(value.x_axis, supplied.x_axis);
+    OverlayAxis(value.y_axis, supplied.y_axis);
 }
 
-void append_unique(std::vector<std::string>& destination, const std::vector<std::string>& values)
+void AppendUnique(std::vector<std::string>& destination, const std::vector<std::string>& values)
 {
     for (const std::string& value : values)
     {
@@ -165,27 +165,27 @@ void append_unique(std::vector<std::string>& destination, const std::vector<std:
     }
 }
 
-Result<void> validate_local(const UnresolvedDefinition& definition)
+Result<void> ValidateLocal(const UnresolvedDefinition& definition)
 {
     if (definition.identity.xml_id.empty())
     {
-        return fail(ErrorKind::kInvalidConfig, std::format("{} definition from '{}' has an empty definition identity",
-                                                           format_name(definition.format), definition.source));
+        return Fail(ErrorKind::kInvalidConfig, std::format("{} definition from '{}' has an empty definition identity",
+                                                           FormatName(definition.format), definition.source));
     }
     if (definition.source.empty())
     {
-        return fail(ErrorKind::kInvalidConfig, std::format("{} definition '{}' has no source",
-                                                           format_name(definition.format), definition.identity.xml_id));
+        return Fail(ErrorKind::kInvalidConfig, std::format("{} definition '{}' has no source",
+                                                           FormatName(definition.format), definition.identity.xml_id));
     }
 
     std::vector<const UnresolvedCalibrationMap *> maps;
     for (const UnresolvedCalibrationMap& map : definition.maps)
     {
         const bool duplicate = std::ranges::any_of(maps, [&map](const UnresolvedCalibrationMap *candidate)
-                                                   { return maps_match(*candidate, map); });
-        if (const auto& key = map_key(map); !key.empty() && duplicate)
+                                                   { return MapsMatch(*candidate, map); });
+        if (const auto& key = MapKey(map); !key.empty() && duplicate)
         {
-            return fail(ErrorKind::kInvalidConfig, std::format("duplicate map key '{}' in definition '{}' from '{}'",
+            return Fail(ErrorKind::kInvalidConfig, std::format("duplicate map key '{}' in definition '{}' from '{}'",
                                                                key, definition.identity.xml_id, definition.source));
         }
         maps.push_back(&map);
@@ -196,14 +196,14 @@ Result<void> validate_local(const UnresolvedDefinition& definition)
     {
         if (scaling.name.empty())
         {
-            return fail(ErrorKind::kInvalidConfig,
+            return Fail(ErrorKind::kInvalidConfig,
                         std::format("scaling with an empty name in definition '{}' from '{}'",
                                     definition.identity.xml_id, definition.source));
         }
         auto [existing, inserted] = scalings.try_emplace(scaling.name, &scaling);
         if (!inserted && *existing->second != scaling)
         {
-            return fail(ErrorKind::kInvalidConfig,
+            return Fail(ErrorKind::kInvalidConfig,
                         std::format("conflicting duplicate scaling '{}' in definition '{}' from '{}'", scaling.name,
                                     definition.identity.xml_id, definition.source));
         }
@@ -220,31 +220,31 @@ Result<void> validate_local(const UnresolvedDefinition& definition)
 class MapIndex
 {
   public:
-    void add(const UnresolvedCalibrationMap& map, std::size_t index)
+    void Add(const UnresolvedCalibrationMap& map, std::size_t index)
     {
         by_name_[map.name].push_back(index);
-        if (const std::string *id = stable_map_id(map))
+        if (const std::string *id = StableMapId(map))
         {
             by_id_[*id].push_back(index);
         }
     }
 
-    std::vector<std::size_t> candidates(const UnresolvedCalibrationMap& map) const
+    std::vector<std::size_t> Candidates(const UnresolvedCalibrationMap& map) const
     {
         std::vector<std::size_t> result;
-        if (const std::string *id = stable_map_id(map))
+        if (const std::string *id = StableMapId(map))
         {
-            append_bucket(by_id_, *id, result);
+            AppendBucket(by_id_, *id, result);
         }
-        append_bucket(by_name_, map.name, result);
+        AppendBucket(by_name_, map.name, result);
         std::ranges::sort(result);
         result.erase(std::ranges::unique(result).begin(), result.end());
         return result;
     }
 
   private:
-    static void append_bucket(const std::unordered_map<std::string, std::vector<std::size_t>>& buckets,
-                              const std::string& key, std::vector<std::size_t>& result)
+    static void AppendBucket(const std::unordered_map<std::string, std::vector<std::size_t>>& buckets,
+                             const std::string& key, std::vector<std::size_t>& result)
     {
         if (auto bucket = buckets.find(key); bucket != buckets.end())
         {
@@ -256,32 +256,32 @@ class MapIndex
     std::unordered_map<std::string, std::vector<std::size_t>> by_name_;
 };
 
-Result<void> overlay_definition(UnresolvedDefinition& value, const UnresolvedDefinition& supplied)
+Result<void> OverlayDefinition(UnresolvedDefinition& value, const UnresolvedDefinition& supplied)
 {
     value.format = supplied.format;
     value.source = supplied.source;
-    overlay_identity(value.identity, supplied.identity);
-    overlay_metadata(value.metadata, supplied.metadata);
+    OverlayIdentity(value.identity, supplied.identity);
+    OverlayMetadata(value.metadata, supplied.metadata);
     value.parents = supplied.parents;
 
     MapIndex index;
     for (std::size_t i = 0; i < value.maps.size(); ++i)
     {
-        index.add(value.maps[i], i);
+        index.Add(value.maps[i], i);
     }
 
     for (const UnresolvedCalibrationMap& map : supplied.maps)
     {
         std::optional<std::size_t> existing;
-        for (std::size_t candidate : index.candidates(map))
+        for (std::size_t candidate : index.Candidates(map))
         {
-            if (!maps_match(value.maps[candidate], map))
+            if (!MapsMatch(value.maps[candidate], map))
             {
                 continue;
             }
             if (existing.has_value())
             {
-                return fail(ErrorKind::kInvalidConfig,
+                return Fail(ErrorKind::kInvalidConfig,
                             std::format("ambiguous map name fallback '{}' while resolving definition '{}' from '{}'",
                                         map.name, supplied.identity.xml_id, supplied.source));
             }
@@ -290,12 +290,12 @@ Result<void> overlay_definition(UnresolvedDefinition& value, const UnresolvedDef
         if (!existing.has_value())
         {
             value.maps.push_back(map);
-            index.add(value.maps.back(), value.maps.size() - 1);
+            index.Add(value.maps.back(), value.maps.size() - 1);
         }
         else
         {
-            overlay_map(value.maps[*existing], map);
-            index.add(value.maps[*existing], *existing);
+            OverlayMap(value.maps[*existing], map);
+            index.Add(value.maps[*existing], *existing);
         }
     }
 
@@ -308,7 +308,7 @@ Result<void> overlay_definition(UnresolvedDefinition& value, const UnresolvedDef
         }
         else if (*existing != scaling)
         {
-            return fail(ErrorKind::kInvalidConfig,
+            return Fail(ErrorKind::kInvalidConfig,
                         std::format("conflicting duplicate scaling '{}' while resolving definition '{}' from '{}'",
                                     scaling.name, supplied.identity.xml_id, supplied.source));
         }
@@ -316,12 +316,12 @@ Result<void> overlay_definition(UnresolvedDefinition& value, const UnresolvedDef
     return {};
 }
 
-bool axis_is_present(const AxisDefinition& axis)
+bool AxisIsPresent(const AxisDefinition& axis)
 {
     return axis != AxisDefinition{};
 }
 
-AxisDefinition resolve_axis(const UnresolvedAxisDefinition& value, std::uint32_t default_size)
+AxisDefinition ResolveAxis(const UnresolvedAxisDefinition& value, std::uint32_t default_size)
 {
     if (value == UnresolvedAxisDefinition{})
     {
@@ -346,7 +346,7 @@ AxisDefinition resolve_axis(const UnresolvedAxisDefinition& value, std::uint32_t
     };
 }
 
-CalibrationMap resolve_map(const UnresolvedCalibrationMap& value)
+CalibrationMap ResolveMap(const UnresolvedCalibrationMap& value)
 {
     return CalibrationMap{
         .id = value.id.value_or(value.name),
@@ -369,25 +369,25 @@ CalibrationMap resolve_map(const UnresolvedCalibrationMap& value)
         .start_position = value.start_position.value_or(1),
         .interval = value.interval.value_or(1),
         .log_parameter = value.log_parameter.value_or(""),
-        .x_axis = resolve_axis(value.x_axis, value.x_size.value_or(1)),
-        .y_axis = resolve_axis(value.y_axis, value.y_size.value_or(1)),
+        .x_axis = ResolveAxis(value.x_axis, value.x_size.value_or(1)),
+        .y_axis = ResolveAxis(value.y_axis, value.y_size.value_or(1)),
     };
 }
 
-Result<void> validate_scaling(const Scaling& scaling)
+Result<void> ValidateScaling(const Scaling& scaling)
 {
     if (scaling.selections.empty())
     {
         if (scaling.storage_type == StorageType::kBloblist)
         {
-            return fail(ErrorKind::kInvalidConfig,
+            return Fail(ErrorKind::kInvalidConfig,
                         std::format("scaling '{}' uses bloblist storage without selections", scaling.name));
         }
         return {};
     }
     if (scaling.storage_type != StorageType::kBloblist)
     {
-        return fail(ErrorKind::kInvalidConfig,
+        return Fail(ErrorKind::kInvalidConfig,
                     std::format("scaling '{}' has selections but storage type is not bloblist", scaling.name));
     }
 
@@ -397,26 +397,26 @@ Result<void> validate_scaling(const Scaling& scaling)
     {
         if (name.empty() || value.empty())
         {
-            return fail(ErrorKind::kInvalidConfig,
+            return Fail(ErrorKind::kInvalidConfig,
                         std::format("scaling '{}' has an incomplete selection", scaling.name));
         }
         if (value.size() != width)
         {
-            return fail(ErrorKind::kInvalidConfig,
+            return Fail(ErrorKind::kInvalidConfig,
                         std::format("scaling '{}' has selection '{}' whose width differs from the "
                                     "first selection's",
                                     scaling.name, name));
         }
         if (!names.insert(name).second)
         {
-            return fail(ErrorKind::kInvalidConfig,
+            return Fail(ErrorKind::kInvalidConfig,
                         std::format("scaling '{}' has duplicate selection '{}'", scaling.name, name));
         }
     }
     return {};
 }
 
-Result<Scaling> resolve_scaling(const UnresolvedScaling& value)
+Result<Scaling> ResolveScaling(const UnresolvedScaling& value)
 {
     Scaling result{
         .name = value.name,
@@ -434,23 +434,23 @@ Result<Scaling> resolve_scaling(const UnresolvedScaling& value)
     result.selections.reserve(value.selections.size());
     for (const auto& [name, hex] : value.selections)
     {
-        auto bytes = parse_hex_bytes(hex);
+        auto bytes = ParseHexBytes(hex);
         if (!bytes.has_value())
         {
-            return fail(ErrorKind::kInvalidConfig,
+            return Fail(ErrorKind::kInvalidConfig,
                         std::format("scaling '{}' has selection '{}' whose value is not whole hexadecimal bytes",
                                     value.name, name));
         }
         result.selections.push_back({.name = name, .value = std::move(*bytes)});
     }
-    if (auto valid = validate_scaling(result); !valid.has_value())
+    if (auto valid = ValidateScaling(result); !valid.has_value())
     {
         return std::unexpected(valid.error());
     }
     return result;
 }
 
-Result<RomDefinition> materialize(const UnresolvedDefinition& value)
+Result<RomDefinition> Materialize(const UnresolvedDefinition& value)
 {
     RomDefinition result{
         .format = value.format,
@@ -460,11 +460,11 @@ Result<RomDefinition> materialize(const UnresolvedDefinition& value)
         .parents = value.parents,
     };
     result.maps.reserve(value.maps.size());
-    std::ranges::transform(value.maps, std::back_inserter(result.maps), resolve_map);
+    std::ranges::transform(value.maps, std::back_inserter(result.maps), ResolveMap);
     result.scalings.reserve(value.scalings.size());
     for (const UnresolvedScaling& scaling : value.scalings)
     {
-        auto resolved = resolve_scaling(scaling);
+        auto resolved = ResolveScaling(scaling);
         if (!resolved.has_value())
         {
             return std::unexpected(resolved.error());
@@ -474,8 +474,8 @@ Result<RomDefinition> materialize(const UnresolvedDefinition& value)
     return result;
 }
 
-Result<void> apply_axis_scaling(AxisDefinition& axis, std::string_view axis_context,
-                                const std::unordered_map<std::string, const UnresolvedScaling *>& scalings)
+Result<void> ApplyAxisScaling(AxisDefinition& axis, std::string_view axis_context,
+                              const std::unordered_map<std::string, const UnresolvedScaling *>& scalings)
 {
     if (axis.scaling_name.empty())
     {
@@ -484,33 +484,33 @@ Result<void> apply_axis_scaling(AxisDefinition& axis, std::string_view axis_cont
     auto scaling = scalings.find(axis.scaling_name);
     if (scaling == scalings.end())
     {
-        return fail(ErrorKind::kInvalidConfig,
+        return Fail(ErrorKind::kInvalidConfig,
                     std::format("unresolved scaling '{}' for {}", axis.scaling_name, axis_context));
     }
     if (!scaling->second->selections.empty())
     {
-        return fail(ErrorKind::kInvalidConfig,
+        return Fail(ErrorKind::kInvalidConfig,
                     std::format("{} cannot use selectable scaling '{}'", axis_context, axis.scaling_name));
     }
     if (axis.storage_type.has_value() && scaling->second->storage_type.has_value() &&
         axis.storage_type != scaling->second->storage_type)
     {
-        return fail(ErrorKind::kInvalidConfig,
+        return Fail(ErrorKind::kInvalidConfig,
                     std::format("contradictory storage type for {} scaling '{}'", axis_context, axis.scaling_name));
     }
     if (!axis.endian.empty() && !scaling->second->endian.empty() && axis.endian != scaling->second->endian)
     {
-        return fail(ErrorKind::kInvalidConfig,
+        return Fail(ErrorKind::kInvalidConfig,
                     std::format("contradictory endian for {} scaling '{}'", axis_context, axis.scaling_name));
     }
 
-    overlay_string(axis.units, scaling->second->units);
+    OverlayString(axis.units, scaling->second->units);
     if (scaling->second->format || axis.format.empty())
     {
         axis.format = scaling->second->format.value_or("");
     }
-    overlay_optional(axis.storage_type, scaling->second->storage_type);
-    overlay_string(axis.endian, scaling->second->endian);
+    OverlayOptional(axis.storage_type, scaling->second->storage_type);
+    OverlayString(axis.endian, scaling->second->endian);
     if (scaling->second->from_byte || axis.from_byte == "x")
     {
         axis.from_byte = scaling->second->from_byte.value_or("x");
@@ -522,51 +522,51 @@ Result<void> apply_axis_scaling(AxisDefinition& axis, std::string_view axis_cont
     return {};
 }
 
-Result<void> validate_axis(AxisDefinition& axis, std::string_view axis_context, std::uint32_t required_size,
-                           bool supports_static_data,
-                           const std::unordered_map<std::string, const UnresolvedScaling *>& scalings)
+Result<void> ValidateAxis(AxisDefinition& axis, std::string_view axis_context, std::uint32_t required_size,
+                          bool supports_static_data,
+                          const std::unordered_map<std::string, const UnresolvedScaling *>& scalings)
 {
-    if (!axis_is_present(axis))
+    if (!AxisIsPresent(axis))
     {
         return {};
     }
     if (axis.type.empty() || (axis.name.empty() && axis.static_data.empty()))
     {
-        return fail(ErrorKind::kInvalidConfig, std::format("incomplete {}", axis_context));
+        return Fail(ErrorKind::kInvalidConfig, std::format("incomplete {}", axis_context));
     }
     if (axis.size == 0)
     {
-        return fail(ErrorKind::kInvalidConfig, std::format("zero dimension for {}", axis_context));
+        return Fail(ErrorKind::kInvalidConfig, std::format("zero dimension for {}", axis_context));
     }
     if (axis.start_position == 0)
     {
-        return fail(ErrorKind::kInvalidConfig, std::format("zero start position for {}", axis_context));
+        return Fail(ErrorKind::kInvalidConfig, std::format("zero start position for {}", axis_context));
     }
     if (axis.size != required_size)
     {
-        return fail(ErrorKind::kInvalidConfig, std::format("inconsistent dimension for {}", axis_context));
+        return Fail(ErrorKind::kInvalidConfig, std::format("inconsistent dimension for {}", axis_context));
     }
     const bool is_static_axis = axis.type == "Static X Axis";
     if (is_static_axis && !supports_static_data)
     {
-        return fail(ErrorKind::kInvalidConfig, std::format("static data is not supported for {}", axis_context));
+        return Fail(ErrorKind::kInvalidConfig, std::format("static data is not supported for {}", axis_context));
     }
     if (is_static_axis)
     {
         if (axis.static_data.size() != axis.size || std::ranges::any_of(axis.static_data, &std::string::empty))
         {
-            return fail(ErrorKind::kInvalidConfig,
+            return Fail(ErrorKind::kInvalidConfig,
                         std::format("static data count for {} does not match its size", axis_context));
         }
     }
     else if (!axis.static_data.empty())
     {
-        return fail(ErrorKind::kInvalidConfig, std::format("static data on non-static {}", axis_context));
+        return Fail(ErrorKind::kInvalidConfig, std::format("static data on non-static {}", axis_context));
     }
-    return apply_axis_scaling(axis, axis_context, scalings);
+    return ApplyAxisScaling(axis, axis_context, scalings);
 }
 
-Result<void> validate_and_resolve_maps(RomDefinition& definition, const UnresolvedDefinition& unresolved)
+Result<void> ValidateAndResolveMaps(RomDefinition& definition, const UnresolvedDefinition& unresolved)
 {
     std::unordered_map<std::string, const UnresolvedScaling *> scalings;
     for (const UnresolvedScaling& scaling : unresolved.scalings)
@@ -577,25 +577,25 @@ Result<void> validate_and_resolve_maps(RomDefinition& definition, const Unresolv
     std::vector<const CalibrationMap *> maps;
     for (CalibrationMap& map : definition.maps)
     {
-        const std::string key = map_key(map);
+        const std::string key = MapKey(map);
         if (key.empty() || map.name.empty())
         {
-            return fail(ErrorKind::kInvalidConfig, "incomplete map identity");
+            return Fail(ErrorKind::kInvalidConfig, "incomplete map identity");
         }
         if (const bool duplicate = std::ranges::any_of(maps, [&map](const CalibrationMap *candidate)
-                                                       { return maps_match(*candidate, map); });
+                                                       { return MapsMatch(*candidate, map); });
             duplicate)
         {
-            return fail(ErrorKind::kInvalidConfig, std::format("duplicate map key '{}'", key));
+            return Fail(ErrorKind::kInvalidConfig, std::format("duplicate map key '{}'", key));
         }
         maps.push_back(&map);
         if (map.x_size == 0 || map.y_size == 0)
         {
-            return fail(ErrorKind::kInvalidConfig, std::format("zero required dimension for map '{}'", key));
+            return Fail(ErrorKind::kInvalidConfig, std::format("zero required dimension for map '{}'", key));
         }
         if (map.start_position == 0)
         {
-            return fail(ErrorKind::kInvalidConfig, std::format("zero start position for map '{}'", key));
+            return Fail(ErrorKind::kInvalidConfig, std::format("zero start position for map '{}'", key));
         }
 
         bool has_selection_scaling = false;
@@ -604,23 +604,23 @@ Result<void> validate_and_resolve_maps(RomDefinition& definition, const Unresolv
             auto scaling = scalings.find(map.scaling_name);
             if (scaling == scalings.end())
             {
-                return fail(ErrorKind::kInvalidConfig,
+                return Fail(ErrorKind::kInvalidConfig,
                             std::format("unresolved scaling '{}' for map '{}'", map.scaling_name, key));
             }
             if (map.storage_type.has_value() && scaling->second->storage_type.has_value() &&
                 map.storage_type != scaling->second->storage_type)
             {
-                return fail(
+                return Fail(
                     ErrorKind::kInvalidConfig,
                     std::format("contradictory storage type for map '{}' and scaling '{}'", key, map.scaling_name));
             }
             if (!map.endian.empty() && !scaling->second->endian.empty() && map.endian != scaling->second->endian)
             {
-                return fail(ErrorKind::kInvalidConfig,
+                return Fail(ErrorKind::kInvalidConfig,
                             std::format("contradictory endian for map '{}' and scaling '{}'", key, map.scaling_name));
             }
-            overlay_optional(map.storage_type, scaling->second->storage_type);
-            overlay_string(map.endian, scaling->second->endian);
+            OverlayOptional(map.storage_type, scaling->second->storage_type);
+            OverlayString(map.endian, scaling->second->endian);
             if (!scaling->second->selections.empty())
             {
                 map.type = "Selectable";
@@ -630,23 +630,22 @@ Result<void> validate_and_resolve_maps(RomDefinition& definition, const Unresolv
 
         if (map.type == "Selectable" && (map.storage_type != StorageType::kBloblist || !has_selection_scaling))
         {
-            return fail(ErrorKind::kInvalidConfig,
+            return Fail(ErrorKind::kInvalidConfig,
                         std::format("selectable map '{}' requires a bloblist selection scaling", key));
         }
         if (map.storage_type == StorageType::kBloblist && map.type != "Selectable")
         {
-            return fail(ErrorKind::kInvalidConfig, std::format("bloblist map '{}' must be selectable", key));
+            return Fail(ErrorKind::kInvalidConfig, std::format("bloblist map '{}' must be selectable", key));
         }
 
-        if (auto x_axis =
-                validate_axis(map.x_axis, std::format("x axis for map '{}'", key), map.x_size, true, scalings);
+        if (auto x_axis = ValidateAxis(map.x_axis, std::format("x axis for map '{}'", key), map.x_size, true, scalings);
             !x_axis.has_value())
         {
             return std::unexpected(x_axis.error());
         }
 
         if (auto y_axis =
-                validate_axis(map.y_axis, std::format("y axis for map '{}'", key), map.y_size, false, scalings);
+                ValidateAxis(map.y_axis, std::format("y axis for map '{}'", key), map.y_size, false, scalings);
             !y_axis.has_value())
         {
             return std::unexpected(y_axis.error());
@@ -655,7 +654,7 @@ Result<void> validate_and_resolve_maps(RomDefinition& definition, const Unresolv
     return {};
 }
 
-std::string chain_text(const std::vector<std::string>& stack, std::string_view tail = {})
+std::string ChainText(const std::vector<std::string>& stack, std::string_view tail = {})
 {
     std::string result;
     for (const std::string& id : stack)
@@ -716,43 +715,43 @@ class ResolverState
     {
     }
 
-    Result<RomDefinition> resolve_root(UnresolvedDefinition root)
+    Result<RomDefinition> ResolveRoot(UnresolvedDefinition root)
     {
         const auto context =
-            std::format("{} definitions '{}' from '{}': ", format_name(root.format), root.identity.xml_id, root.source);
-        auto resolved = resolve(std::move(root));
+            std::format("{} definitions '{}' from '{}': ", FormatName(root.format), root.identity.xml_id, root.source);
+        auto resolved = Resolve(std::move(root));
         if (!resolved.has_value())
         {
-            return fail(resolved.error().kind, std::format("{}{}", context, resolved.error().detail));
+            return Fail(resolved.error().kind, std::format("{}{}", context, resolved.error().detail));
         }
-        auto materialized = materialize(resolved->definition);
+        auto materialized = Materialize(resolved->definition);
         if (!materialized.has_value())
         {
-            return fail(materialized.error().kind, std::format("{}{}", context, materialized.error().detail));
+            return Fail(materialized.error().kind, std::format("{}{}", context, materialized.error().detail));
         }
         RomDefinition result = std::move(*materialized);
         result.resolved_sources = std::move(resolved->sources);
         result.resolved_definition_ids = std::move(resolved->ids);
-        if (auto valid = validate_and_resolve_maps(result, resolved->definition); !valid.has_value())
+        if (auto valid = ValidateAndResolveMaps(result, resolved->definition); !valid.has_value())
         {
-            return fail(valid.error().kind, std::format("{}{}", context, valid.error().detail));
+            return Fail(valid.error().kind, std::format("{}{}", context, valid.error().detail));
         }
         return result;
     }
 
   private:
-    Result<Resolved> resolve(UnresolvedDefinition definition)
+    Result<Resolved> Resolve(UnresolvedDefinition definition)
     {
         const std::string id = definition.identity.xml_id;
         if (id.empty())
         {
-            return fail(ErrorKind::kInvalidConfig,
+            return Fail(ErrorKind::kInvalidConfig,
                         std::format("{} definition from '{}' has an empty definition identity",
-                                    format_name(definition.format), definition.source));
+                                    FormatName(definition.format), definition.source));
         }
         if (visiting_.contains(id))
         {
-            return fail(ErrorKind::kInvalidConfig, std::format("inheritance cycle: {}", chain_text(stack_, id)));
+            return Fail(ErrorKind::kInvalidConfig, std::format("inheritance cycle: {}", ChainText(stack_, id)));
         }
 
         if (auto memoized = resolved_by_id_.find(id); memoized != resolved_by_id_.end())
@@ -762,18 +761,18 @@ class ResolverState
 
         if (stack_.size() >= kMaxInheritanceDepth)
         {
-            return fail(ErrorKind::kInvalidConfig, std::format("inheritance chain exceeds maximum depth ({}): {}",
-                                                               kMaxInheritanceDepth, chain_text(stack_, id)));
+            return Fail(ErrorKind::kInvalidConfig, std::format("inheritance chain exceeds maximum depth ({}): {}",
+                                                               kMaxInheritanceDepth, ChainText(stack_, id)));
         }
 
         visiting_.insert(id);
         stack_.push_back(id);
         const ChainGuard guard{visiting_, stack_, id};
 
-        if (auto locally_valid = validate_local(definition); !locally_valid.has_value())
+        if (auto locally_valid = ValidateLocal(definition); !locally_valid.has_value())
         {
-            return fail(locally_valid.error().kind,
-                        std::format("{} in inheritance chain {}", locally_valid.error().detail, chain_text(stack_)));
+            return Fail(locally_valid.error().kind,
+                        std::format("{} in inheritance chain {}", locally_valid.error().detail, ChainText(stack_)));
         }
 
         Resolved resolved;
@@ -783,8 +782,8 @@ class ResolverState
         {
             if (visiting_.contains(parent_id))
             {
-                return fail(ErrorKind::kInvalidConfig,
-                            std::format("inheritance cycle: {}", chain_text(stack_, parent_id)));
+                return Fail(ErrorKind::kInvalidConfig,
+                            std::format("inheritance cycle: {}", ChainText(stack_, parent_id)));
             }
 
             auto parent = resolved_by_id_.find(parent_id);
@@ -793,24 +792,24 @@ class ResolverState
                 auto loaded = loader_(format_, parent_id);
                 if (!loaded)
                 {
-                    return fail(loaded.error().kind,
+                    return Fail(loaded.error().kind,
                                 std::format("failed to load parent '{}' in inheritance chain {}: {}", parent_id,
-                                            chain_text(stack_, parent_id), loaded.error().detail));
+                                            ChainText(stack_, parent_id), loaded.error().detail));
                 }
                 if (loaded->format != format_)
                 {
-                    return fail(ErrorKind::kInvalidConfig,
+                    return Fail(ErrorKind::kInvalidConfig,
                                 std::format("cross-format parent '{}' in inheritance chain {}", parent_id,
-                                            chain_text(stack_, parent_id)));
+                                            ChainText(stack_, parent_id)));
                 }
                 if (loaded->identity.xml_id != parent_id)
                 {
-                    return fail(ErrorKind::kInvalidConfig,
+                    return Fail(ErrorKind::kInvalidConfig,
                                 std::format("parent reference '{}' loaded definition '{}' in inheritance chain {}",
-                                            parent_id, loaded->identity.xml_id, chain_text(stack_, parent_id)));
+                                            parent_id, loaded->identity.xml_id, ChainText(stack_, parent_id)));
                 }
 
-                if (auto parent_result = resolve(std::move(*loaded)); !parent_result.has_value())
+                if (auto parent_result = Resolve(std::move(*loaded)); !parent_result.has_value())
                 {
                     return std::unexpected(parent_result.error());
                 }
@@ -822,23 +821,23 @@ class ResolverState
                 resolved = parent->second;
                 has_parent = true;
             }
-            else if (auto merged = overlay_definition(resolved.definition, parent->second.definition);
+            else if (auto merged = OverlayDefinition(resolved.definition, parent->second.definition);
                      !merged.has_value())
             {
-                return fail(merged.error().kind,
-                            std::format("{} in inheritance chain {}", merged.error().detail, chain_text(stack_)));
+                return Fail(merged.error().kind,
+                            std::format("{} in inheritance chain {}", merged.error().detail, ChainText(stack_)));
             }
-            append_unique(resolved.sources, parent->second.sources);
-            append_unique(resolved.ids, parent->second.ids);
+            AppendUnique(resolved.sources, parent->second.sources);
+            AppendUnique(resolved.ids, parent->second.ids);
         }
 
-        if (auto merged = overlay_definition(resolved.definition, definition); !merged.has_value())
+        if (auto merged = OverlayDefinition(resolved.definition, definition); !merged.has_value())
         {
-            return fail(merged.error().kind,
-                        std::format("{} in inheritance chain {}", merged.error().detail, chain_text(stack_)));
+            return Fail(merged.error().kind,
+                        std::format("{} in inheritance chain {}", merged.error().detail, ChainText(stack_)));
         }
-        append_unique(resolved.sources, {resolved.definition.source});
-        append_unique(resolved.ids, {resolved.definition.identity.xml_id});
+        AppendUnique(resolved.sources, {resolved.definition.source});
+        AppendUnique(resolved.ids, {resolved.definition.identity.xml_id});
 
         auto [stored, inserted] = resolved_by_id_.try_emplace(id, std::move(resolved));
         return stored->second;
@@ -853,10 +852,10 @@ class ResolverState
 
 } // namespace
 
-Result<RomDefinition> resolve_definition(UnresolvedDefinition root, const DefinitionLoader& loader)
+Result<RomDefinition> ResolveDefinition(UnresolvedDefinition root, const DefinitionLoader& loader)
 {
     ResolverState state(root.format, loader);
-    return state.resolve_root(std::move(root));
+    return state.ResolveRoot(std::move(root));
 }
 
 } // namespace fastecu::definition

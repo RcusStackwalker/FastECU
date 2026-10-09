@@ -13,7 +13,7 @@ J2534::J2534()
     : rx_buffer_(
           [this]
           {
-              if (!is_serial_port_open())
+              if (!IsSerialPortOpen())
               {
                   return QByteArray{};
               }
@@ -22,7 +22,7 @@ J2534::J2534()
           },
           [this](int ms)
           {
-              if (is_serial_port_open())
+              if (IsSerialPortOpen())
               {
                   serial_->waitForReadyRead(ms);
               }
@@ -33,7 +33,7 @@ J2534::J2534()
                   // take() loop calls this every iteration until its own
                   // deadline), instead of busy-spinning at 100% CPU for the
                   // whole timeout with no actual wait happening.
-                  delay(ms);
+                  Delay(ms);
               }
           },
           []
@@ -49,7 +49,7 @@ J2534::~J2534()
 {
 }
 
-QString J2534::open_serial_port(const QString& serial_port)
+QString J2534::OpenSerialPort(const QString& serial_port)
 {
     if (opened_serial_port_ != serial_port)
     {
@@ -69,26 +69,26 @@ QString J2534::open_serial_port(const QString& serial_port)
                 serial_->clearError();
                 serial_->clear();
                 serial_->flush();
-                rx_buffer_.clear();
+                rx_buffer_.Clear();
                 opened_serial_port_ = serial_port;
                 // connect(serial, SIGNAL(readyRead()), this, SLOT(ReadSerialDataSlot()), Qt::DirectConnection);
                 qRegisterMetaType<QSerialPort::SerialPortError>();
                 connect(serial_, SIGNAL(errorOccurred(QSerialPort::SerialPortError)), this,
-                        SLOT(handle_error(QSerialPort::SerialPortError)));
+                        SLOT(handleError(QSerialPort::SerialPortError)));
 
-                emit LOG_D("Linux j2534 serial port '" + serial_port + "' is open at baudrate " + serial_port_baudrate_,
-                           true, true);
+                emit logD("Linux j2534 serial port '" + serial_port + "' is open at baudrate " + serial_port_baudrate_,
+                          true, true);
                 return opened_serial_port_;
             }
             else
             {
-                emit LOG_D("Couldn't open Linux j2534 serial port '" + serial_port + "'", true, true);
+                emit logD("Couldn't open Linux j2534 serial port '" + serial_port + "'", true, true);
                 return {};
             }
         }
         else
         {
-            emit LOG_D("Linux j2534 serial port '" + serial_port + "' is already opened", true, true);
+            emit logD("Linux j2534 serial port '" + serial_port + "' is already opened", true, true);
             return opened_serial_port_;
         }
     }
@@ -96,18 +96,18 @@ QString J2534::open_serial_port(const QString& serial_port)
     return opened_serial_port_;
 }
 
-void J2534::close_serial_port()
+void J2534::CloseSerialPort()
 {
-    if (is_serial_port_open())
+    if (IsSerialPortOpen())
     {
         serial_->close();
-        rx_buffer_.clear();
-        delay(100);
+        rx_buffer_.Clear();
+        Delay(100);
     }
     opened_serial_port_ = "";
 }
 
-bool J2534::is_serial_port_open()
+bool J2534::IsSerialPortOpen()
 {
     // Guard the pointer: the serial port can be torn down (reset/reconnect)
     // while a read is in flight. Dereferencing a null `serial` here is the
@@ -115,14 +115,14 @@ bool J2534::is_serial_port_open()
     return serial_ && serial_->isOpen();
 }
 
-QByteArray J2534::read_serial_data(uint32_t datalen, uint16_t timeout)
+QByteArray J2534::ReadSerialData(uint32_t datalen, uint16_t timeout)
 {
-    return rx_buffer_.take(datalen, timeout);
+    return rx_buffer_.Take(datalen, timeout);
 }
 
-int J2534::write_serial_data(const QByteArray& output)
+int J2534::WriteSerialData(const QByteArray& output)
 {
-    if (!is_serial_port_open())
+    if (!IsSerialPortOpen())
     {
         return 1;
     }
@@ -141,7 +141,7 @@ int J2534::write_serial_data(const QByteArray& output)
     return kJ2534StatusNoerror;
 }
 
-QByteArray J2534::write_serial_iso14230_data(QByteArray output)
+QByteArray J2534::WriteSerialIso14230Data(QByteArray output)
 {
     uint8_t chk_sum = 0;
     uint8_t msglength = output.length();
@@ -160,12 +160,12 @@ QByteArray J2534::write_serial_iso14230_data(QByteArray output)
     return output;
 }
 
-bool J2534::get_is_tx_done()
+bool J2534::GetIsTxDone()
 {
     return is_tx_done_;
 }
 
-QString J2534::parseMessageToHex(const QByteArray& received)
+QString J2534::ParseMessageToHex(const QByteArray& received)
 {
     QByteArray msg;
 
@@ -177,7 +177,7 @@ QString J2534::parseMessageToHex(const QByteArray& received)
     return msg;
 }
 
-uint32_t J2534::parse_ts(const char *data)
+uint32_t J2534::ParseTs(const char *data)
 {
     uint32_t timestamp = 0;
     memcpy(&timestamp, data, 4);
@@ -196,21 +196,21 @@ long J2534::PassThruOpen(const void *p_name, unsigned long *p_device_id)
     long result = kJ2534ErrNotSupported;
 
     p_device_id = 0;
-    emit LOG_D("Open J2534 device " + name + " with ID: " + QString::number(*dev_id), true, true);
+    emit logD("Open J2534 device " + name + " with ID: " + QString::number(*dev_id), true, true);
 
     output = "ata\r\n";
-    emit LOG_D("Send data: " + parseMessageToHex(output), true, true);
-    write_serial_data(output);
-    received = read_serial_data(7, 50);
-    emit LOG_D("Result check against " + check_result + ": " + parseMessageToHex(received), true, true);
+    emit logD("Send data: " + ParseMessageToHex(output), true, true);
+    WriteSerialData(output);
+    received = ReadSerialData(7, 50);
+    emit logD("Result check against " + check_result + ": " + ParseMessageToHex(received), true, true);
     if (received.startsWith(check_result))
     {
-        emit LOG_D("Result check OK", true, true);
+        emit logD("Result check OK", true, true);
         result = kJ2534StatusNoerror;
     }
     else
     {
-        emit LOG_D("Result check failed, not maybe an j2534 interface!", true, true);
+        emit logD("Result check failed, not maybe an j2534 interface!", true, true);
     }
 
     return result;
@@ -226,10 +226,10 @@ long J2534::PassThruClose(unsigned long device_id)
 
     output = "atz\r\n";
     // emit LOG_D("Send data:" << output;
-    write_serial_data(output);
-    received = read_serial_data(8, 50);
+    WriteSerialData(output);
+    received = ReadSerialData(8, 50);
     // emit LOG_D("Received:" << received;
-    close_serial_port();
+    CloseSerialPort();
 
     return result;
 }
@@ -259,10 +259,10 @@ long J2534::PassThruConnect(unsigned long device_id, unsigned long protocol_id, 
                   QString::number(baudrate) + " " + QString::number(protocol_id) + "\r\n";
     output.append(str.toUtf8());
     // emit LOG_D("Send data:" << output;
-    write_serial_data(output);
-    received = read_serial_data(100, 50);
-    emit LOG_D("Connect received: " + parseMessageToHex(received) + " " + received + " " + QString::number(chan_id),
-               true, true);
+    WriteSerialData(output);
+    received = ReadSerialData(100, 50);
+    emit logD("Connect received: " + ParseMessageToHex(received) + " " + received + " " + QString::number(chan_id),
+              true, true);
 
     return result;
 }
@@ -279,8 +279,8 @@ long J2534::PassThruDisconnect(unsigned long channel_id)
     QString str = "atc" + QString::number(channel_id) + "\r\n";
     output.append(str.toUtf8());
     // emit LOG_D("Send data:" << output;
-    write_serial_data(output);
-    received = read_serial_data(100, 50);
+    WriteSerialData(output);
+    received = ReadSerialData(100, 50);
     // emit LOG_D("Received:" << received;
 
     return result;
@@ -300,16 +300,16 @@ long J2534::PassThruReadMsgs(unsigned long channel_id, PassThruMsg *p_msg, unsig
     unsigned long msg_byte_cnt = 0;
     bool stop_reading = false;
 
-    received = read_serial_data(3, timeout);
+    received = ReadSerialData(3, timeout);
     // emit LOG_D("Recieved data: " + parseMessageToHex(received), true, true);
-    while (received.length() > 0 && is_serial_port_open())
+    while (received.length() > 0 && IsSerialPortOpen())
     {
         // emit LOG_D("Message header: " + parseMessageToHex(received), true, true);
         if (received.at(0) == 0x61 && received.at(1) == 0x72)
         {
             if (received.at(2) == 'o') // ACK 0x6f
             {
-                read_serial_data(2, timeout);
+                ReadSerialData(2, timeout);
                 // emit LOG_D("Sent msg ACK: " + parseMessageToHex(received), true, true);
                 received.clear();
                 msg_ack_ = true;
@@ -318,28 +318,28 @@ long J2534::PassThruReadMsgs(unsigned long channel_id, PassThruMsg *p_msg, unsig
             {
                 while ((uint8_t)received.at(received.length() - 1) == 0x0d)
                 {
-                    received.append(read_serial_data(1, timeout));
+                    received.append(ReadSerialData(1, timeout));
                 }
                 // emit LOG_D("Error sending message: " + parseMessageToHex(received), true, true);
                 received.clear();
             }
             else if (received.at(2) == 'm') // 0x6d
             {
-                received.append(read_serial_data(2, timeout));
+                received.append(ReadSerialData(2, timeout));
                 msg.clear();
                 while ((uint8_t)msg[msg.length() - 1] != 0x20)
                 {
-                    msg.append(read_serial_data(1, timeout));
+                    msg.append(ReadSerialData(1, timeout));
                 }
                 received.append(msg);
                 periodic_msg_id_ = msg.remove(msg.length() - 1, 1).toULong();
 
                 while ((uint8_t)msg[msg.length() - 1] != 0x0a)
                 {
-                    msg.append(read_serial_data(1, timeout));
+                    msg.append(ReadSerialData(1, timeout));
                 }
                 received.append(msg);
-                msg = read_serial_data(msg_byte_cnt, timeout);
+                msg = ReadSerialData(msg_byte_cnt, timeout);
                 received.append(msg);
 
                 msg_index = 0;
@@ -349,7 +349,7 @@ long J2534::PassThruReadMsgs(unsigned long channel_id, PassThruMsg *p_msg, unsig
             {
                 while ((uint8_t)received.at(received.length() - 1) != 0x0a)
                 {
-                    received.append(read_serial_data(1, timeout));
+                    received.append(ReadSerialData(1, timeout));
                 }
                 for (int i = 0; i < received.length(); i++)
                 {
@@ -364,7 +364,7 @@ long J2534::PassThruReadMsgs(unsigned long channel_id, PassThruMsg *p_msg, unsig
             {
                 while ((uint8_t)received.at(received.length() - 1) != 0x0a)
                 {
-                    received.append(read_serial_data(1, timeout));
+                    received.append(ReadSerialData(1, timeout));
                 }
                 for (int i = 0; i < received.length(); i++)
                 {
@@ -377,21 +377,21 @@ long J2534::PassThruReadMsgs(unsigned long channel_id, PassThruMsg *p_msg, unsig
             }
             else if (received.at(2) == 'y') // 0x79
             {
-                received.append(read_serial_data(2, timeout));
+                received.append(ReadSerialData(2, timeout));
                 msg.clear();
                 while ((uint8_t)msg[msg.length() - 1] != 0x20)
                 {
-                    msg.append(read_serial_data(1, timeout));
+                    msg.append(ReadSerialData(1, timeout));
                 }
                 received.append(msg);
                 msg_byte_cnt = msg.remove(msg.length() - 1, 1).toInt();
 
                 while ((uint8_t)msg[msg.length() - 1] != 0x0a)
                 {
-                    msg.append(read_serial_data(1, timeout));
+                    msg.append(ReadSerialData(1, timeout));
                 }
                 received.append(msg);
-                msg = read_serial_data(msg_byte_cnt, timeout);
+                msg = ReadSerialData(msg_byte_cnt, timeout);
                 received.append(msg);
 
                 msg_index = 0;
@@ -407,7 +407,7 @@ long J2534::PassThruReadMsgs(unsigned long channel_id, PassThruMsg *p_msg, unsig
             }
             else if (received.at(2) == '3' || received.at(2) == '4' || received.at(2) == '5' || received.at(2) == '6')
             {
-                received.append(read_serial_data(2, timeout));
+                received.append(ReadSerialData(2, timeout));
                 msg_byte_cnt = received.at(3) - 1;
                 msg_type = received.at(4);
                 switch (msg_type)
@@ -457,7 +457,7 @@ long J2534::PassThruReadMsgs(unsigned long channel_id, PassThruMsg *p_msg, unsig
                 if (msg_type == kTxDoneMsg)
                 {
                     p_msg->rx_status = kTxDoneMsg;
-                    received.append(read_serial_data(msg_byte_cnt, timeout));
+                    received.append(ReadSerialData(msg_byte_cnt, timeout));
                     msg_index = 0;
                     msg_cnt = 0;
                     // emit LOG_D("TX_DONE_MSG: " + parseMessageToHex(received), true, true);
@@ -467,7 +467,7 @@ long J2534::PassThruReadMsgs(unsigned long channel_id, PassThruMsg *p_msg, unsig
                 if (msg_type == kTxLbStartInd)
                 {
                     p_msg->rx_status = kTxLbStartInd;
-                    received.append(read_serial_data(msg_byte_cnt, timeout));
+                    received.append(ReadSerialData(msg_byte_cnt, timeout));
                     msg_index = 0;
                     msg_cnt = 0;
                     // emit LOG_D("TX_LB_START_IND: " + parseMessageToHex(received), true, true);
@@ -476,7 +476,7 @@ long J2534::PassThruReadMsgs(unsigned long channel_id, PassThruMsg *p_msg, unsig
                 if (msg_type == kTxLbMsg)
                 {
                     p_msg->rx_status = kTxLbMsg;
-                    received.append(read_serial_data(msg_byte_cnt, timeout));
+                    received.append(ReadSerialData(msg_byte_cnt, timeout));
                     msg_index = 0;
                     msg_cnt = 0;
                     // emit LOG_D("TX_LB_MSG: " + parseMessageToHex(received), true, true);
@@ -485,7 +485,7 @@ long J2534::PassThruReadMsgs(unsigned long channel_id, PassThruMsg *p_msg, unsig
                 if (msg_type == kLbMsgEndInd)
                 {
                     p_msg->rx_status = kLbMsgEndInd;
-                    received.append(read_serial_data(msg_byte_cnt, timeout));
+                    received.append(ReadSerialData(msg_byte_cnt, timeout));
                     msg_index = 0;
                     msg_cnt = 0;
                     // emit LOG_D("LB_MSG_END_IND: " + parseMessageToHex(received), true, true);
@@ -494,7 +494,7 @@ long J2534::PassThruReadMsgs(unsigned long channel_id, PassThruMsg *p_msg, unsig
                 if (msg_type == kNormMsgStartInd)
                 {
                     p_msg->rx_status = kNormMsgStartInd;
-                    received.append(read_serial_data(msg_byte_cnt, timeout));
+                    received.append(ReadSerialData(msg_byte_cnt, timeout));
 
                     msg_index = 0;
                     msg_cnt++;
@@ -507,7 +507,7 @@ long J2534::PassThruReadMsgs(unsigned long channel_id, PassThruMsg *p_msg, unsig
                 {
                     p_msg->rx_status = kNormMsg;
 
-                    received.append(read_serial_data(msg_byte_cnt, timeout));
+                    received.append(ReadSerialData(msg_byte_cnt, timeout));
                     // emit LOG_D("NORM_MSG: " + parseMessageToHex(received), true, true);
 
                     if (received.at(2) == '5' || received.at(2) == '6')
@@ -546,7 +546,7 @@ long J2534::PassThruReadMsgs(unsigned long channel_id, PassThruMsg *p_msg, unsig
                         data[1] = received.at(7);
                         data[2] = received.at(6);
                         data[3] = received.at(5);
-                        p_msg->timestamp = parse_ts(data.data());
+                        p_msg->timestamp = ParseTs(data.data());
                         p_msg->data_size = msg_index;
                         msg_cnt++;
                         stop_reading = true;
@@ -557,7 +557,7 @@ long J2534::PassThruReadMsgs(unsigned long channel_id, PassThruMsg *p_msg, unsig
                 {
                     p_msg->rx_status = kRxMsgEndInd;
 
-                    received.append(read_serial_data(msg_byte_cnt, timeout));
+                    received.append(ReadSerialData(msg_byte_cnt, timeout));
 
                     if (received.at(2) == '6')
                     {
@@ -583,7 +583,7 @@ long J2534::PassThruReadMsgs(unsigned long channel_id, PassThruMsg *p_msg, unsig
                     data[1] = received.at(7);
                     data[2] = received.at(6);
                     data[3] = received.at(5);
-                    p_msg->timestamp = parse_ts(data.data());
+                    p_msg->timestamp = ParseTs(data.data());
                     p_msg->data_size = msg_index;
                     msg_cnt++;
 
@@ -594,7 +594,7 @@ long J2534::PassThruReadMsgs(unsigned long channel_id, PassThruMsg *p_msg, unsig
         }
         if (!stop_reading)
         {
-            QByteArray response = read_serial_data(3, timeout);
+            QByteArray response = ReadSerialData(3, timeout);
             if (response.length() > 0)
             {
                 // emit LOG_D("Added response: " + parseMessageToHex(response), true, true);
@@ -630,7 +630,7 @@ long J2534::PassThruWriteMsgs(unsigned long channel_id, const PassThruMsg *p_msg
         {
             output.append(static_cast<char>(p_msg->data[i]));
         }
-        write_serial_data(output);
+        WriteSerialData(output);
         p_msg++;
         is_tx_done_ = false;
     }
@@ -653,7 +653,7 @@ long J2534::PassThruStartPeriodicMsg(unsigned long channel_id, const PassThruMsg
         output.append(static_cast<char>(p_msg->data[i]));
     }
 
-    write_serial_data(output);
+    WriteSerialData(output);
     // PassThruReadMsgs(ChannelID, &rxmsg, &numRxMsg, timeout);
 
     *p_msg_id = periodic_msg_id_;
@@ -669,7 +669,7 @@ long J2534::PassThruStopPeriodicMsg(unsigned long channel_id, unsigned long msg_
     QString str = "atn" + QString::number(channel_id) + " " + QString::number(msg_id) + "\r\n";
     output.append(str.toUtf8());
 
-    write_serial_data(output);
+    WriteSerialData(output);
 
     return result;
 }
@@ -704,8 +704,8 @@ long J2534::PassThruStartMsgFilter(unsigned long channel_id, unsigned long filte
         }
     }
     // emit LOG_D("Send data:" << parseMessageToHex(output);
-    write_serial_data(output);
-    received = read_serial_data(100, 50);
+    WriteSerialData(output);
+    received = ReadSerialData(100, 50);
     // emit LOG_D("Received:" << received;
 
     return result;
@@ -727,7 +727,7 @@ long J2534::PassThruSetProgrammingVoltage(unsigned long device_id, unsigned long
     output.clear();
     QString str = "atv" + QString::number(pin) + " " + QString::number(voltage) + "\r\n";
     output.append(str.toUtf8());
-    write_serial_data(output);
+    WriteSerialData(output);
     // received = read_serial_data(5, 50);
 
     return result;
@@ -749,11 +749,11 @@ long J2534::PassThruReadVersion(char *p_api_version, char *p_dll_version, char *
     // strncpy(pFirmwareVersion, fw_version, strlen(fw_version));
 
     output = "\r\n\r\nati\r\n";
-    emit LOG_D("Sent: " + parseMessageToHex(output), true, true);
-    write_serial_data(output);
-    delay(50);
-    received = read_serial_data(50, 100);
-    emit LOG_D("Response: " + parseMessageToHex(received), true, true);
+    emit logD("Sent: " + ParseMessageToHex(output), true, true);
+    WriteSerialData(output);
+    Delay(50);
+    received = ReadSerialData(50, 100);
+    emit logD("Response: " + ParseMessageToHex(received), true, true);
     QString response = QString::fromUtf8(received);
     QStringList fw_ver = response.split("ari ");
     fw_ver = fw_ver.at(fw_ver.length() - 1).split("\r\n");
@@ -775,7 +775,7 @@ long J2534::PassThruGetLastError(char *p_error_description)
     return result;
 }
 
-int J2534::is_valid_sconfig_param(SCONFIG s)
+int J2534::IsValidSconfigParam(SCONFIG s)
 {
     switch (s.parameter)
     {
@@ -789,14 +789,14 @@ int J2534::is_valid_sconfig_param(SCONFIG s)
     }
 }
 
-void J2534::dump_sbyte_array(const SByteArray *s)
+void J2534::DumpSbyteArray(const SByteArray *s)
 {
     // emit LOG_D("SByteArray size =" << s->NumOfBytes;
     // DBGPRINT(("SByteArray size=%u\n",s->NumOfBytes));
     // DBGDUMP((s->BytePtr,s->NumOfBytes,0));
 }
 
-void J2534::dump_sconfig_param(SCONFIG s)
+void J2534::DumpSconfigParam(SCONFIG s)
 {
     std::string param_name;
 
@@ -1035,7 +1035,7 @@ long J2534::PassThruIoctl(unsigned long channel_id, unsigned long ioctl_id, cons
         scl = (SConfigList *)p_input;
         for (i = 0; i < scl->num_of_params; i++)
         {
-            dump_sconfig_param((scl->config_ptr)[i]);
+            DumpSconfigParam((scl->config_ptr)[i]);
         }
 
         // Enabling this could break some J2534 devices such as Denso DST-i
@@ -1055,10 +1055,10 @@ long J2534::PassThruIoctl(unsigned long channel_id, unsigned long ioctl_id, cons
             QString str = "ats" + QString::number(channel_id) + " " + QString::number(cfgitem_local->parameter) + " " +
                           QString::number(cfgitem_local->value) + "\r\n";
             output.append(str.toUtf8());
-            write_serial_data(output);
-            emit LOG_D("Sent: " + parseMessageToHex(output), true, true);
-            received = read_serial_data(100, 50);
-            emit LOG_D("Response: " + parseMessageToHex(received), true, true);
+            WriteSerialData(output);
+            emit logD("Sent: " + ParseMessageToHex(output), true, true);
+            received = ReadSerialData(100, 50);
+            emit logD("Response: " + ParseMessageToHex(received), true, true);
         }
     }
     if (ioctl_id == kJ2534ReadVbatt)
@@ -1074,7 +1074,7 @@ long J2534::PassThruIoctl(unsigned long channel_id, unsigned long ioctl_id, cons
         output.clear();
         QString str = "atr " + QString::number((int)pin) + "\r\n";
         output.append(str.toUtf8());
-        if (!is_serial_port_open())
+        if (!IsSerialPortOpen())
         {
             return result;
         }
@@ -1082,8 +1082,8 @@ long J2534::PassThruIoctl(unsigned long channel_id, unsigned long ioctl_id, cons
         {
             return result;
         }
-        write_serial_data(output);
-        emit LOG_D("Sent: " + parseMessageToHex(output), true, true);
+        WriteSerialData(output);
+        emit logD("Sent: " + ParseMessageToHex(output), true, true);
         result = PassThruReadMsgs(channel_id, &rxmsg, &num_rx_msg, serial_read_timeout_);
         if (result)
         {
@@ -1094,7 +1094,7 @@ long J2534::PassThruIoctl(unsigned long channel_id, unsigned long ioctl_id, cons
         {
             received_local.append(static_cast<char>(rxmsg.data[i_local]));
         }
-        emit LOG_D("Response: " + parseMessageToHex(received_local), true, true);
+        emit logD("Response: " + ParseMessageToHex(received_local), true, true);
         QString response = QString(received_local).split(" ").at(QString(received_local).split(" ").length() - 1);
         response = response.split("\r\n").at(0);
         // emit LOG_D("Pin 16 voltage: " + response + " mV", true, true);
@@ -1114,8 +1114,8 @@ long J2534::PassThruIoctl(unsigned long channel_id, unsigned long ioctl_id, cons
         output.clear();
         QString str = "atw" + QString::number(channel_id) + " " + QString::number(msg->byte_ptr[0]) + " 0\r\n";
         output.append(str.toUtf8());
-        write_serial_data(output);
-        emit LOG_D("Sent: " + parseMessageToHex(output), true, true);
+        WriteSerialData(output);
+        emit logD("Sent: " + ParseMessageToHex(output), true, true);
         memset(&rxmsg, 0, sizeof(rxmsg));
         result = PassThruReadMsgs(channel_id, &rxmsg, &num_rx_msg, serial_read_extra_long_timeout_);
         if (result)
@@ -1129,7 +1129,7 @@ long J2534::PassThruIoctl(unsigned long channel_id, unsigned long ioctl_id, cons
             received_local.append(static_cast<char>(rxmsg.data[i_local]));
         }
         response->num_of_bytes = rxmsg.data_size;
-        emit LOG_D("Response: " + parseMessageToHex(received_local), true, true);
+        emit logD("Response: " + ParseMessageToHex(received_local), true, true);
     }
 
     if (ioctl_id == kJ2534FastInit)
@@ -1143,14 +1143,14 @@ long J2534::PassThruIoctl(unsigned long channel_id, unsigned long ioctl_id, cons
         {
             output.append(static_cast<char>(msg->data[i]));
         }
-        write_serial_data(output);
-        emit LOG_D("Sent: " + parseMessageToHex(output), true, true);
+        WriteSerialData(output);
+        emit logD("Sent: " + ParseMessageToHex(output), true, true);
     }
 
     if (input_as_sa)
     {
         // emit LOG_D("Input", true, true);
-        dump_sbyte_array((SByteArray *)p_input);
+        DumpSbyteArray((SByteArray *)p_input);
     }
 
     // result = (*pfPassThruIoctl)(ChannelID,IoctlID,pInput,pOutput);
@@ -1158,18 +1158,18 @@ long J2534::PassThruIoctl(unsigned long channel_id, unsigned long ioctl_id, cons
     if (output_as_sa)
     {
         // emit LOG_D("Output", true, true);
-        dump_sbyte_array((SByteArray *)p_output);
+        DumpSbyteArray((SByteArray *)p_output);
     }
 
     return result;
 }
 
-void J2534::delay(int n)
+void J2534::Delay(int n)
 {
     QThread::msleep(n);
 }
 
-void J2534::handle_error(QSerialPort::SerialPortError error)
+void J2534::handleError(QSerialPort::SerialPortError error)
 {
     // emit LOG_D("Error:" << QString::number(error), true, true);
 
@@ -1182,7 +1182,7 @@ void J2534::handle_error(QSerialPort::SerialPortError error)
     case QSerialPort::ReadError:
     case QSerialPort::ResourceError:
     case QSerialPort::UnknownError:
-        close_serial_port();
+        CloseSerialPort();
         break;
     case QSerialPort::TimeoutError:
         // read_serial_data now polls via serial->waitForReadyRead(1) instead of

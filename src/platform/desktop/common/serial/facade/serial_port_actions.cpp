@@ -29,7 +29,7 @@ SerialPortActions::~SerialPortActions()
     }
 }
 
-void SerialPortActions::ensureBackendStarted()
+void SerialPortActions::EnsureBackendStarted()
 {
     QMutexLocker locker(&start_mutex_);
     if (m_backend_)
@@ -37,15 +37,15 @@ void SerialPortActions::ensureBackendStarted()
         return;
     }
     m_host_ = new SerialBackendHost();
-    m_io_context_ = m_host_->context();
-    m_io_thread_ = m_host_->ioThread();
-    m_backend_ = m_host_->createBackend(backend_factory_);
+    m_io_context_ = m_host_->Context();
+    m_io_thread_ = m_host_->IoThread();
+    m_backend_ = m_host_->CreateBackend(backend_factory_);
 
-    QObject *b = m_backend_->qobject();
-    connect(b, SIGNAL(LOG_E(QString, bool, bool)), this, SIGNAL(LOG_E(QString, bool, bool)));
-    connect(b, SIGNAL(LOG_W(QString, bool, bool)), this, SIGNAL(LOG_W(QString, bool, bool)));
-    connect(b, SIGNAL(LOG_I(QString, bool, bool)), this, SIGNAL(LOG_I(QString, bool, bool)));
-    connect(b, SIGNAL(LOG_D(QString, bool, bool)), this, SIGNAL(LOG_D(QString, bool, bool)));
+    QObject *b = m_backend_->Qobject();
+    connect(b, SIGNAL(logE(QString, bool, bool)), this, SIGNAL(logE(QString, bool, bool)));
+    connect(b, SIGNAL(logW(QString, bool, bool)), this, SIGNAL(logW(QString, bool, bool)));
+    connect(b, SIGNAL(logI(QString, bool, bool)), this, SIGNAL(logI(QString, bool, bool)));
+    connect(b, SIGNAL(logD(QString, bool, bool)), this, SIGNAL(logD(QString, bool, bool)));
     if (b->metaObject()->indexOfSignal(QMetaObject::normalizedSignature(
             "stateChanged(QRemoteObjectReplica::State,QRemoteObjectReplica::State)")) >= 0)
     {
@@ -54,7 +54,7 @@ void SerialPortActions::ensureBackendStarted()
     }
 }
 
-void SerialPortActions::waitForDone(const std::shared_ptr<QSemaphore>& done)
+void SerialPortActions::WaitForDone(const std::shared_ptr<QSemaphore>& done)
 {
     // No GUI-thread pump: every caller either runs on its own worker thread
     // (flash-module operations, LoggingWorker) or accepts a brief blocking
@@ -66,575 +66,574 @@ void SerialPortActions::waitForDone(const std::shared_ptr<QSemaphore>& done)
 
 void SerialPortActions::waitForSource(void)
 {
-    runOnBackend([this] { m_backend_->waitForSource(); });
+    RunOnBackend([this] { m_backend_->WaitForSource(); });
 }
 
 // -- config get/set pairs (44) ------------------------------------------
 
-bool SerialPortActions::get_serialPortAvailable(void)
+bool SerialPortActions::GetSerialPortAvailable(void)
 {
-    return runOnBackend([this] { return m_backend_->get_serialPortAvailable(); });
+    return RunOnBackend([this] { return m_backend_->GetSerialPortAvailable(); });
 }
-bool SerialPortActions::set_serialPortAvailable(bool value)
+bool SerialPortActions::SetSerialPortAvailable(bool value)
 {
-    return runOnBackend([this, value] { return m_backend_->set_serialPortAvailable(value); });
+    return RunOnBackend([this, value] { return m_backend_->SetSerialPortAvailable(value); });
 }
-bool SerialPortActions::get_setRequestToSend(void)
+bool SerialPortActions::GetSetRequestToSend(void)
 {
-    return runOnBackend([this] { return m_backend_->get_setRequestToSend(); });
+    return RunOnBackend([this] { return m_backend_->GetSetRequestToSend(); });
 }
-bool SerialPortActions::set_setRequestToSend(bool value)
+bool SerialPortActions::SetSetRequestToSend(bool value)
 {
-    return runOnBackend([this, value] { return m_backend_->set_setRequestToSend(value); });
+    return RunOnBackend([this, value] { return m_backend_->SetSetRequestToSend(value); });
 }
-bool SerialPortActions::get_setDataTerminalReady(void)
+bool SerialPortActions::GetSetDataTerminalReady(void)
 {
-    return runOnBackend([this] { return m_backend_->get_setDataTerminalReady(); });
+    return RunOnBackend([this] { return m_backend_->GetSetDataTerminalReady(); });
 }
-bool SerialPortActions::set_setDataTerminalReady(bool value)
+bool SerialPortActions::SetSetDataTerminalReady(bool value)
 {
-    return runOnBackend([this, value] { return m_backend_->set_setDataTerminalReady(value); });
-}
-
-bool SerialPortActions::get_add_ssm_header(void)
-{
-    return runOnBackend([this] { return m_backend_->get_add_ssm_header(); });
-}
-bool SerialPortActions::set_add_ssm_header(bool value)
-{
-    return runOnBackend([this, value] { return m_backend_->set_add_ssm_header(value); });
-}
-bool SerialPortActions::get_add_iso9141_header(void)
-{
-    return runOnBackend([this] { return m_backend_->get_add_iso9141_header(); });
-}
-bool SerialPortActions::set_add_iso9141_header(bool value)
-{
-    return runOnBackend([this, value] { return m_backend_->set_add_iso9141_header(value); });
-}
-bool SerialPortActions::get_add_iso14230_header(void)
-{
-    return runOnBackend([this] { return m_backend_->get_add_iso14230_header(); });
-}
-bool SerialPortActions::set_add_iso14230_header(bool value)
-{
-    return runOnBackend([this, value] { return m_backend_->set_add_iso14230_header(value); });
-}
-bool SerialPortActions::get_is_iso14230_connection(void)
-{
-    return runOnBackend([this] { return m_backend_->get_is_iso14230_connection(); });
-}
-bool SerialPortActions::set_is_iso14230_connection(bool value)
-{
-    return runOnBackend([this, value] { return m_backend_->set_is_iso14230_connection(value); });
-}
-bool SerialPortActions::get_is_can_connection(void)
-{
-    return runOnBackend([this] { return m_backend_->get_is_can_connection(); });
-}
-bool SerialPortActions::set_is_can_connection(bool value)
-{
-    return runOnBackend([this, value] { return m_backend_->set_is_can_connection(value); });
-}
-bool SerialPortActions::get_is_iso15765_connection(void)
-{
-    return runOnBackend([this] { return m_backend_->get_is_iso15765_connection(); });
-}
-bool SerialPortActions::set_is_iso15765_connection(bool value)
-{
-    return runOnBackend([this, value] { return m_backend_->set_is_iso15765_connection(value); });
-}
-bool SerialPortActions::get_is_29_bit_id(void)
-{
-    return runOnBackend([this] { return m_backend_->get_is_29_bit_id(); });
-}
-bool SerialPortActions::set_is_29_bit_id(bool value)
-{
-    return runOnBackend([this, value] { return m_backend_->set_is_29_bit_id(value); });
+    return RunOnBackend([this, value] { return m_backend_->SetSetDataTerminalReady(value); });
 }
 
-bool SerialPortActions::get_use_openport2_adapter(void)
+bool SerialPortActions::GetAddSsmHeader(void)
 {
-    return runOnBackend([this] { return m_backend_->get_use_openport2_adapter(); });
+    return RunOnBackend([this] { return m_backend_->GetAddSsmHeader(); });
 }
-bool SerialPortActions::set_use_openport2_adapter(bool value)
+bool SerialPortActions::SetAddSsmHeader(bool value)
 {
-    return runOnBackend([this, value] { return m_backend_->set_use_openport2_adapter(value); });
+    return RunOnBackend([this, value] { return m_backend_->SetAddSsmHeader(value); });
 }
-
-int SerialPortActions::get_requestToSendEnabled(void)
+bool SerialPortActions::GetAddIso9141Header(void)
 {
-    return runOnBackend([this] { return m_backend_->get_requestToSendEnabled(); });
+    return RunOnBackend([this] { return m_backend_->GetAddIso9141Header(); });
 }
-bool SerialPortActions::set_requestToSendEnabled(int value)
+bool SerialPortActions::SetAddIso9141Header(bool value)
 {
-    return runOnBackend([this, value] { return m_backend_->set_requestToSendEnabled(value); });
+    return RunOnBackend([this, value] { return m_backend_->SetAddIso9141Header(value); });
 }
-int SerialPortActions::get_requestToSendDisabled(void)
+bool SerialPortActions::GetAddIso14230Header(void)
 {
-    return runOnBackend([this] { return m_backend_->get_requestToSendDisabled(); });
+    return RunOnBackend([this] { return m_backend_->GetAddIso14230Header(); });
 }
-bool SerialPortActions::set_requestToSendDisabled(int value)
+bool SerialPortActions::SetAddIso14230Header(bool value)
 {
-    return runOnBackend([this, value] { return m_backend_->set_requestToSendDisabled(value); });
+    return RunOnBackend([this, value] { return m_backend_->SetAddIso14230Header(value); });
 }
-int SerialPortActions::get_dataTerminalEnabled(void)
+bool SerialPortActions::GetIsIso14230Connection(void)
 {
-    return runOnBackend([this] { return m_backend_->get_dataTerminalEnabled(); });
+    return RunOnBackend([this] { return m_backend_->GetIsIso14230Connection(); });
 }
-bool SerialPortActions::set_dataTerminalEnabled(int value)
+bool SerialPortActions::SetIsIso14230Connection(bool value)
 {
-    return runOnBackend([this, value] { return m_backend_->set_dataTerminalEnabled(value); });
+    return RunOnBackend([this, value] { return m_backend_->SetIsIso14230Connection(value); });
 }
-int SerialPortActions::get_dataTerminalDisabled(void)
+bool SerialPortActions::GetIsCanConnection(void)
 {
-    return runOnBackend([this] { return m_backend_->get_dataTerminalDisabled(); });
+    return RunOnBackend([this] { return m_backend_->GetIsCanConnection(); });
 }
-bool SerialPortActions::set_dataTerminalDisabled(int value)
+bool SerialPortActions::SetIsCanConnection(bool value)
 {
-    return runOnBackend([this, value] { return m_backend_->set_dataTerminalDisabled(value); });
+    return RunOnBackend([this, value] { return m_backend_->SetIsCanConnection(value); });
 }
-
-uint8_t SerialPortActions::get_kline_startbyte(void)
+bool SerialPortActions::GetIsIso15765Connection(void)
 {
-    return runOnBackend([this] { return m_backend_->get_kline_startbyte(); });
+    return RunOnBackend([this] { return m_backend_->GetIsIso15765Connection(); });
 }
-bool SerialPortActions::set_kline_startbyte(uint8_t value)
+bool SerialPortActions::SetIsIso15765Connection(bool value)
 {
-    return runOnBackend([this, value] { return m_backend_->set_kline_startbyte(value); });
+    return RunOnBackend([this, value] { return m_backend_->SetIsIso15765Connection(value); });
 }
-uint8_t SerialPortActions::get_kline_tester_id(void)
+bool SerialPortActions::GetIs29BitId(void)
 {
-    return runOnBackend([this] { return m_backend_->get_kline_tester_id(); });
+    return RunOnBackend([this] { return m_backend_->GetIs29BitId(); });
 }
-bool SerialPortActions::set_kline_tester_id(uint8_t value)
+bool SerialPortActions::SetIs29BitId(bool value)
 {
-    return runOnBackend([this, value] { return m_backend_->set_kline_tester_id(value); });
-}
-uint8_t SerialPortActions::get_kline_target_id(void)
-{
-    return runOnBackend([this] { return m_backend_->get_kline_target_id(); });
-}
-bool SerialPortActions::set_kline_target_id(uint8_t value)
-{
-    return runOnBackend([this, value] { return m_backend_->set_kline_target_id(value); });
+    return RunOnBackend([this, value] { return m_backend_->SetIs29BitId(value); });
 }
 
-QByteArray SerialPortActions::get_ssm_receive_header_start(void)
+bool SerialPortActions::GetUseOpenport2Adapter(void)
 {
-    return runOnBackend([this] { return m_backend_->get_ssm_receive_header_start(); });
+    return RunOnBackend([this] { return m_backend_->GetUseOpenport2Adapter(); });
 }
-bool SerialPortActions::set_ssm_receive_header_start(const QByteArray& value)
+bool SerialPortActions::SetUseOpenport2Adapter(bool value)
 {
-    return runOnBackend([this, value] { return m_backend_->set_ssm_receive_header_start(value); });
-}
-
-QStringList SerialPortActions::get_serial_port_list(void)
-{
-    return runOnBackend([this] { return m_backend_->get_serial_port_list(); });
-}
-bool SerialPortActions::set_serial_port_list(const QStringList& value)
-{
-    return runOnBackend([this, value] { return m_backend_->set_serial_port_list(value); });
-}
-QString SerialPortActions::get_openedSerialPort(void)
-{
-    return runOnBackend([this] { return m_backend_->get_openedSerialPort(); });
-}
-bool SerialPortActions::set_openedSerialPort(const QString& value)
-{
-    return runOnBackend([this, value] { return m_backend_->set_openedSerialPort(value); });
-}
-QString SerialPortActions::get_subaru_02_16bit_bootloader_baudrate(void)
-{
-    return runOnBackend([this] { return m_backend_->get_subaru_02_16bit_bootloader_baudrate(); });
-}
-bool SerialPortActions::set_subaru_02_16bit_bootloader_baudrate(const QString& value)
-{
-    return runOnBackend([this, value] { return m_backend_->set_subaru_02_16bit_bootloader_baudrate(value); });
-}
-QString SerialPortActions::get_subaru_04_16bit_bootloader_baudrate(void)
-{
-    return runOnBackend([this] { return m_backend_->get_subaru_04_16bit_bootloader_baudrate(); });
-}
-bool SerialPortActions::set_subaru_04_16bit_bootloader_baudrate(const QString& value)
-{
-    return runOnBackend([this, value] { return m_backend_->set_subaru_04_16bit_bootloader_baudrate(value); });
-}
-QString SerialPortActions::get_subaru_02_32bit_bootloader_baudrate(void)
-{
-    return runOnBackend([this] { return m_backend_->get_subaru_02_32bit_bootloader_baudrate(); });
-}
-bool SerialPortActions::set_subaru_02_32bit_bootloader_baudrate(const QString& value)
-{
-    return runOnBackend([this, value] { return m_backend_->set_subaru_02_32bit_bootloader_baudrate(value); });
-}
-QString SerialPortActions::get_subaru_04_32bit_bootloader_baudrate(void)
-{
-    return runOnBackend([this] { return m_backend_->get_subaru_04_32bit_bootloader_baudrate(); });
-}
-bool SerialPortActions::set_subaru_04_32bit_bootloader_baudrate(const QString& value)
-{
-    return runOnBackend([this, value] { return m_backend_->set_subaru_04_32bit_bootloader_baudrate(value); });
-}
-QString SerialPortActions::get_subaru_05_32bit_bootloader_baudrate(void)
-{
-    return runOnBackend([this] { return m_backend_->get_subaru_05_32bit_bootloader_baudrate(); });
-}
-bool SerialPortActions::set_subaru_05_32bit_bootloader_baudrate(const QString& value)
-{
-    return runOnBackend([this, value] { return m_backend_->set_subaru_05_32bit_bootloader_baudrate(value); });
+    return RunOnBackend([this, value] { return m_backend_->SetUseOpenport2Adapter(value); });
 }
 
-QString SerialPortActions::get_subaru_02_16bit_kernel_baudrate(void)
+int SerialPortActions::GetRequestToSendEnabled(void)
 {
-    return runOnBackend([this] { return m_backend_->get_subaru_02_16bit_kernel_baudrate(); });
+    return RunOnBackend([this] { return m_backend_->GetRequestToSendEnabled(); });
 }
-bool SerialPortActions::set_subaru_02_16bit_kernel_baudrate(const QString& value)
+bool SerialPortActions::SetRequestToSendEnabled(int value)
 {
-    return runOnBackend([this, value] { return m_backend_->set_subaru_02_16bit_kernel_baudrate(value); });
+    return RunOnBackend([this, value] { return m_backend_->SetRequestToSendEnabled(value); });
 }
-QString SerialPortActions::get_subaru_04_16bit_kernel_baudrate(void)
+int SerialPortActions::GetRequestToSendDisabled(void)
 {
-    return runOnBackend([this] { return m_backend_->get_subaru_04_16bit_kernel_baudrate(); });
+    return RunOnBackend([this] { return m_backend_->GetRequestToSendDisabled(); });
 }
-bool SerialPortActions::set_subaru_04_16bit_kernel_baudrate(const QString& value)
+bool SerialPortActions::SetRequestToSendDisabled(int value)
 {
-    return runOnBackend([this, value] { return m_backend_->set_subaru_04_16bit_kernel_baudrate(value); });
+    return RunOnBackend([this, value] { return m_backend_->SetRequestToSendDisabled(value); });
 }
-QString SerialPortActions::get_subaru_02_32bit_kernel_baudrate(void)
+int SerialPortActions::GetDataTerminalEnabled(void)
 {
-    return runOnBackend([this] { return m_backend_->get_subaru_02_32bit_kernel_baudrate(); });
+    return RunOnBackend([this] { return m_backend_->GetDataTerminalEnabled(); });
 }
-bool SerialPortActions::set_subaru_02_32bit_kernel_baudrate(const QString& value)
+bool SerialPortActions::SetDataTerminalEnabled(int value)
 {
-    return runOnBackend([this, value] { return m_backend_->set_subaru_02_32bit_kernel_baudrate(value); });
+    return RunOnBackend([this, value] { return m_backend_->SetDataTerminalEnabled(value); });
 }
-QString SerialPortActions::get_subaru_04_32bit_kernel_baudrate(void)
+int SerialPortActions::GetDataTerminalDisabled(void)
 {
-    return runOnBackend([this] { return m_backend_->get_subaru_04_32bit_kernel_baudrate(); });
+    return RunOnBackend([this] { return m_backend_->GetDataTerminalDisabled(); });
 }
-bool SerialPortActions::set_subaru_04_32bit_kernel_baudrate(const QString& value)
+bool SerialPortActions::SetDataTerminalDisabled(int value)
 {
-    return runOnBackend([this, value] { return m_backend_->set_subaru_04_32bit_kernel_baudrate(value); });
-}
-QString SerialPortActions::get_subaru_05_32bit_kernel_baudrate(void)
-{
-    return runOnBackend([this] { return m_backend_->get_subaru_05_32bit_kernel_baudrate(); });
-}
-bool SerialPortActions::set_subaru_05_32bit_kernel_baudrate(const QString& value)
-{
-    return runOnBackend([this, value] { return m_backend_->set_subaru_05_32bit_kernel_baudrate(value); });
+    return RunOnBackend([this, value] { return m_backend_->SetDataTerminalDisabled(value); });
 }
 
-QString SerialPortActions::get_can_speed(void)
+uint8_t SerialPortActions::GetKlineStartbyte(void)
 {
-    return runOnBackend([this] { return m_backend_->get_can_speed(); });
+    return RunOnBackend([this] { return m_backend_->GetKlineStartbyte(); });
 }
-bool SerialPortActions::set_can_speed(const QString& value)
+bool SerialPortActions::SetKlineStartbyte(uint8_t value)
 {
-    return runOnBackend([this, value] { return m_backend_->set_can_speed(value); });
+    return RunOnBackend([this, value] { return m_backend_->SetKlineStartbyte(value); });
 }
-uint8_t SerialPortActions::get_serial_port_parity(void)
+uint8_t SerialPortActions::GetKlineTesterId(void)
 {
-    return runOnBackend([this] { return m_backend_->get_serial_port_parity(); });
+    return RunOnBackend([this] { return m_backend_->GetKlineTesterId(); });
 }
-bool SerialPortActions::set_serial_port_parity(uint8_t parity)
+bool SerialPortActions::SetKlineTesterId(uint8_t value)
 {
-    return runOnBackend([this, parity] { return m_backend_->set_serial_port_parity(parity); });
+    return RunOnBackend([this, value] { return m_backend_->SetKlineTesterId(value); });
 }
-QString SerialPortActions::get_serial_port_baudrate(void)
+uint8_t SerialPortActions::GetKlineTargetId(void)
 {
-    return runOnBackend([this] { return m_backend_->get_serial_port_baudrate(); });
+    return RunOnBackend([this] { return m_backend_->GetKlineTargetId(); });
 }
-bool SerialPortActions::set_serial_port_baudrate(const QString& value)
+bool SerialPortActions::SetKlineTargetId(uint8_t value)
 {
-    emit LOG_D("Setting serialport baudrate in SerialPortActions", true, true);
-    return runOnBackend([this, value] { return m_backend_->set_serial_port_baudrate(value); });
-}
-QString SerialPortActions::get_serial_port_linux(void)
-{
-    return runOnBackend([this] { return m_backend_->get_serial_port_linux(); });
-}
-bool SerialPortActions::set_serial_port_linux(const QString& value)
-{
-    return runOnBackend([this, value] { return m_backend_->set_serial_port_linux(value); });
-}
-QString SerialPortActions::get_serial_port_windows(void)
-{
-    return runOnBackend([this] { return m_backend_->get_serial_port_windows(); });
-}
-bool SerialPortActions::set_serial_port_windows(const QString& value)
-{
-    return runOnBackend([this, value] { return m_backend_->set_serial_port_windows(value); });
-}
-QString SerialPortActions::get_serial_port(void)
-{
-    return runOnBackend([this] { return m_backend_->get_serial_port(); });
-}
-bool SerialPortActions::set_serial_port(const QString& value)
-{
-    return runOnBackend([this, value] { return m_backend_->set_serial_port(value); });
-}
-QString SerialPortActions::get_serial_port_prefix(void)
-{
-    return runOnBackend([this] { return m_backend_->get_serial_port_prefix(); });
-}
-bool SerialPortActions::set_serial_port_prefix(const QString& value)
-{
-    return runOnBackend([this, value] { return m_backend_->set_serial_port_prefix(value); });
-}
-QString SerialPortActions::get_serial_port_prefix_linux(void)
-{
-    return runOnBackend([this] { return m_backend_->get_serial_port_prefix_linux(); });
-}
-bool SerialPortActions::set_serial_port_prefix_linux(const QString& value)
-{
-    return runOnBackend([this, value] { return m_backend_->set_serial_port_prefix_linux(value); });
-}
-QString SerialPortActions::get_serial_port_prefix_win(void)
-{
-    return runOnBackend([this] { return m_backend_->get_serial_port_prefix_win(); });
-}
-bool SerialPortActions::set_serial_port_prefix_win(const QString& value)
-{
-    return runOnBackend([this, value] { return m_backend_->set_serial_port_prefix_win(value); });
+    return RunOnBackend([this, value] { return m_backend_->SetKlineTargetId(value); });
 }
 
-uint32_t SerialPortActions::get_can_source_address(void)
+QByteArray SerialPortActions::GetSsmReceiveHeaderStart(void)
 {
-    return runOnBackend([this] { return m_backend_->get_can_source_address(); });
+    return RunOnBackend([this] { return m_backend_->GetSsmReceiveHeaderStart(); });
 }
-bool SerialPortActions::set_can_source_address(uint32_t value)
+bool SerialPortActions::SetSsmReceiveHeaderStart(const QByteArray& value)
 {
-    return runOnBackend([this, value] { return m_backend_->set_can_source_address(value); });
+    return RunOnBackend([this, value] { return m_backend_->SetSsmReceiveHeaderStart(value); });
 }
-uint32_t SerialPortActions::get_can_destination_address(void)
+
+QStringList SerialPortActions::GetSerialPortList(void)
 {
-    return runOnBackend([this] { return m_backend_->get_can_destination_address(); });
+    return RunOnBackend([this] { return m_backend_->GetSerialPortList(); });
 }
-bool SerialPortActions::set_can_destination_address(uint32_t value)
+bool SerialPortActions::SetSerialPortList(const QStringList& value)
 {
-    return runOnBackend([this, value] { return m_backend_->set_can_destination_address(value); });
+    return RunOnBackend([this, value] { return m_backend_->SetSerialPortList(value); });
 }
-uint32_t SerialPortActions::get_iso15765_source_address(void)
+QString SerialPortActions::GetOpenedSerialPort(void)
 {
-    return runOnBackend([this] { return m_backend_->get_iso15765_source_address(); });
+    return RunOnBackend([this] { return m_backend_->GetOpenedSerialPort(); });
 }
-bool SerialPortActions::set_iso15765_source_address(uint32_t value)
+bool SerialPortActions::SetOpenedSerialPort(const QString& value)
 {
-    return runOnBackend([this, value] { return m_backend_->set_iso15765_source_address(value); });
+    return RunOnBackend([this, value] { return m_backend_->SetOpenedSerialPort(value); });
 }
-uint32_t SerialPortActions::get_iso15765_destination_address(void)
+QString SerialPortActions::GetSubaru0216bitBootloaderBaudrate(void)
 {
-    return runOnBackend([this] { return m_backend_->get_iso15765_destination_address(); });
+    return RunOnBackend([this] { return m_backend_->GetSubaru0216bitBootloaderBaudrate(); });
 }
-bool SerialPortActions::set_iso15765_destination_address(uint32_t value)
+bool SerialPortActions::SetSubaru0216bitBootloaderBaudrate(const QString& value)
 {
-    return runOnBackend([this, value] { return m_backend_->set_iso15765_destination_address(value); });
+    return RunOnBackend([this, value] { return m_backend_->SetSubaru0216bitBootloaderBaudrate(value); });
+}
+QString SerialPortActions::GetSubaru0416bitBootloaderBaudrate(void)
+{
+    return RunOnBackend([this] { return m_backend_->GetSubaru0416bitBootloaderBaudrate(); });
+}
+bool SerialPortActions::SetSubaru0416bitBootloaderBaudrate(const QString& value)
+{
+    return RunOnBackend([this, value] { return m_backend_->SetSubaru0416bitBootloaderBaudrate(value); });
+}
+QString SerialPortActions::GetSubaru0232bitBootloaderBaudrate(void)
+{
+    return RunOnBackend([this] { return m_backend_->GetSubaru0232bitBootloaderBaudrate(); });
+}
+bool SerialPortActions::SetSubaru0232bitBootloaderBaudrate(const QString& value)
+{
+    return RunOnBackend([this, value] { return m_backend_->SetSubaru0232bitBootloaderBaudrate(value); });
+}
+QString SerialPortActions::GetSubaru0432bitBootloaderBaudrate(void)
+{
+    return RunOnBackend([this] { return m_backend_->GetSubaru0432bitBootloaderBaudrate(); });
+}
+bool SerialPortActions::SetSubaru0432bitBootloaderBaudrate(const QString& value)
+{
+    return RunOnBackend([this, value] { return m_backend_->SetSubaru0432bitBootloaderBaudrate(value); });
+}
+QString SerialPortActions::GetSubaru0532bitBootloaderBaudrate(void)
+{
+    return RunOnBackend([this] { return m_backend_->GetSubaru0532bitBootloaderBaudrate(); });
+}
+bool SerialPortActions::SetSubaru0532bitBootloaderBaudrate(const QString& value)
+{
+    return RunOnBackend([this, value] { return m_backend_->SetSubaru0532bitBootloaderBaudrate(value); });
+}
+
+QString SerialPortActions::GetSubaru0216bitKernelBaudrate(void)
+{
+    return RunOnBackend([this] { return m_backend_->GetSubaru0216bitKernelBaudrate(); });
+}
+bool SerialPortActions::SetSubaru0216bitKernelBaudrate(const QString& value)
+{
+    return RunOnBackend([this, value] { return m_backend_->SetSubaru0216bitKernelBaudrate(value); });
+}
+QString SerialPortActions::GetSubaru0416bitKernelBaudrate(void)
+{
+    return RunOnBackend([this] { return m_backend_->GetSubaru0416bitKernelBaudrate(); });
+}
+bool SerialPortActions::SetSubaru0416bitKernelBaudrate(const QString& value)
+{
+    return RunOnBackend([this, value] { return m_backend_->SetSubaru0416bitKernelBaudrate(value); });
+}
+QString SerialPortActions::GetSubaru0232bitKernelBaudrate(void)
+{
+    return RunOnBackend([this] { return m_backend_->GetSubaru0232bitKernelBaudrate(); });
+}
+bool SerialPortActions::SetSubaru0232bitKernelBaudrate(const QString& value)
+{
+    return RunOnBackend([this, value] { return m_backend_->SetSubaru0232bitKernelBaudrate(value); });
+}
+QString SerialPortActions::GetSubaru0432bitKernelBaudrate(void)
+{
+    return RunOnBackend([this] { return m_backend_->GetSubaru0432bitKernelBaudrate(); });
+}
+bool SerialPortActions::SetSubaru0432bitKernelBaudrate(const QString& value)
+{
+    return RunOnBackend([this, value] { return m_backend_->SetSubaru0432bitKernelBaudrate(value); });
+}
+QString SerialPortActions::GetSubaru0532bitKernelBaudrate(void)
+{
+    return RunOnBackend([this] { return m_backend_->GetSubaru0532bitKernelBaudrate(); });
+}
+bool SerialPortActions::SetSubaru0532bitKernelBaudrate(const QString& value)
+{
+    return RunOnBackend([this, value] { return m_backend_->SetSubaru0532bitKernelBaudrate(value); });
+}
+
+QString SerialPortActions::GetCanSpeed(void)
+{
+    return RunOnBackend([this] { return m_backend_->GetCanSpeed(); });
+}
+bool SerialPortActions::SetCanSpeed(const QString& value)
+{
+    return RunOnBackend([this, value] { return m_backend_->SetCanSpeed(value); });
+}
+uint8_t SerialPortActions::GetSerialPortParity(void)
+{
+    return RunOnBackend([this] { return m_backend_->GetSerialPortParity(); });
+}
+bool SerialPortActions::SetSerialPortParity(uint8_t parity)
+{
+    return RunOnBackend([this, parity] { return m_backend_->SetSerialPortParity(parity); });
+}
+QString SerialPortActions::GetSerialPortBaudrate(void)
+{
+    return RunOnBackend([this] { return m_backend_->GetSerialPortBaudrate(); });
+}
+bool SerialPortActions::SetSerialPortBaudrate(const QString& value)
+{
+    emit logD("Setting serialport baudrate in SerialPortActions", true, true);
+    return RunOnBackend([this, value] { return m_backend_->SetSerialPortBaudrate(value); });
+}
+QString SerialPortActions::GetSerialPortLinux(void)
+{
+    return RunOnBackend([this] { return m_backend_->GetSerialPortLinux(); });
+}
+bool SerialPortActions::SetSerialPortLinux(const QString& value)
+{
+    return RunOnBackend([this, value] { return m_backend_->SetSerialPortLinux(value); });
+}
+QString SerialPortActions::GetSerialPortWindows(void)
+{
+    return RunOnBackend([this] { return m_backend_->GetSerialPortWindows(); });
+}
+bool SerialPortActions::SetSerialPortWindows(const QString& value)
+{
+    return RunOnBackend([this, value] { return m_backend_->SetSerialPortWindows(value); });
+}
+QString SerialPortActions::GetSerialPort(void)
+{
+    return RunOnBackend([this] { return m_backend_->GetSerialPort(); });
+}
+bool SerialPortActions::SetSerialPort(const QString& value)
+{
+    return RunOnBackend([this, value] { return m_backend_->SetSerialPort(value); });
+}
+QString SerialPortActions::GetSerialPortPrefix(void)
+{
+    return RunOnBackend([this] { return m_backend_->GetSerialPortPrefix(); });
+}
+bool SerialPortActions::SetSerialPortPrefix(const QString& value)
+{
+    return RunOnBackend([this, value] { return m_backend_->SetSerialPortPrefix(value); });
+}
+QString SerialPortActions::GetSerialPortPrefixLinux(void)
+{
+    return RunOnBackend([this] { return m_backend_->GetSerialPortPrefixLinux(); });
+}
+bool SerialPortActions::SetSerialPortPrefixLinux(const QString& value)
+{
+    return RunOnBackend([this, value] { return m_backend_->SetSerialPortPrefixLinux(value); });
+}
+QString SerialPortActions::GetSerialPortPrefixWin(void)
+{
+    return RunOnBackend([this] { return m_backend_->GetSerialPortPrefixWin(); });
+}
+bool SerialPortActions::SetSerialPortPrefixWin(const QString& value)
+{
+    return RunOnBackend([this, value] { return m_backend_->SetSerialPortPrefixWin(value); });
+}
+
+uint32_t SerialPortActions::GetCanSourceAddress(void)
+{
+    return RunOnBackend([this] { return m_backend_->GetCanSourceAddress(); });
+}
+bool SerialPortActions::SetCanSourceAddress(uint32_t value)
+{
+    return RunOnBackend([this, value] { return m_backend_->SetCanSourceAddress(value); });
+}
+uint32_t SerialPortActions::GetCanDestinationAddress(void)
+{
+    return RunOnBackend([this] { return m_backend_->GetCanDestinationAddress(); });
+}
+bool SerialPortActions::SetCanDestinationAddress(uint32_t value)
+{
+    return RunOnBackend([this, value] { return m_backend_->SetCanDestinationAddress(value); });
+}
+uint32_t SerialPortActions::GetIso15765SourceAddress(void)
+{
+    return RunOnBackend([this] { return m_backend_->GetIso15765SourceAddress(); });
+}
+bool SerialPortActions::SetIso15765SourceAddress(uint32_t value)
+{
+    return RunOnBackend([this, value] { return m_backend_->SetIso15765SourceAddress(value); });
+}
+uint32_t SerialPortActions::GetIso15765DestinationAddress(void)
+{
+    return RunOnBackend([this] { return m_backend_->GetIso15765DestinationAddress(); });
+}
+bool SerialPortActions::SetIso15765DestinationAddress(uint32_t value)
+{
+    return RunOnBackend([this, value] { return m_backend_->SetIso15765DestinationAddress(value); });
 }
 
 // -- operations ---------------------------------------------------------
 
-bool SerialPortActions::is_serial_port_open()
+bool SerialPortActions::IsSerialPortOpen()
 {
-    return runOnBackend([this] { return m_backend_->is_serial_port_open(); });
+    return RunOnBackend([this] { return m_backend_->IsSerialPortOpen(); });
 }
 
-int SerialPortActions::change_port_speed(const QString& port_speed)
+int SerialPortActions::ChangePortSpeed(const QString& port_speed)
 {
     CallGuard guard(m_active_calls_);
-    set_comm_busy(true);
-    int result = runOnBackend([this, port_speed] { return m_backend_->change_port_speed(port_speed); });
-    set_comm_busy(false);
+    SetCommBusy(true);
+    int result = RunOnBackend([this, port_speed] { return m_backend_->ChangePortSpeed(port_speed); });
+    SetCommBusy(false);
     return result;
 }
 
-bool SerialPortActions::set_kline_timings(uint32_t parameter, int value)
+bool SerialPortActions::SetKlineTimings(uint32_t parameter, int value)
 {
-    return runOnBackend([this, parameter, value] { return m_backend_->set_kline_timings(parameter, value); });
+    return RunOnBackend([this, parameter, value] { return m_backend_->SetKlineTimings(parameter, value); });
 }
 
-int SerialPortActions::set_j2534_ioctl(uint32_t parameter, int value)
+int SerialPortActions::SetJ2534Ioctl(uint32_t parameter, int value)
 {
-    set_comm_busy(true);
-    return runOnBackend([this, parameter, value] { return m_backend_->set_j2534_ioctl(parameter, value); });
+    SetCommBusy(true);
+    return RunOnBackend([this, parameter, value] { return m_backend_->SetJ2534Ioctl(parameter, value); });
 }
 
-QByteArray SerialPortActions::five_baud_init(const QByteArray& output)
+QByteArray SerialPortActions::FiveBaudInit(const QByteArray& output)
 {
-    set_comm_busy(true);
-    return runOnBackend([this, output] { return m_backend_->five_baud_init(output); });
+    SetCommBusy(true);
+    return RunOnBackend([this, output] { return m_backend_->FiveBaudInit(output); });
 }
 
-int SerialPortActions::fast_init(const QByteArray& output)
+int SerialPortActions::FastInit(const QByteArray& output)
 {
-    set_comm_busy(true);
-    return runOnBackend([this, output] { return m_backend_->fast_init(output); });
+    SetCommBusy(true);
+    return RunOnBackend([this, output] { return m_backend_->FastInit(output); });
 }
 
-int SerialPortActions::set_lec_lines(int lec1, int lec2)
+int SerialPortActions::SetLecLines(int lec1, int lec2)
 {
     CallGuard guard(m_active_calls_);
-    set_comm_busy(true);
-    int result = runOnBackend([this, lec1, lec2] { return m_backend_->set_lec_lines(lec1, lec2); });
-    set_comm_busy(false);
+    SetCommBusy(true);
+    int result = RunOnBackend([this, lec1, lec2] { return m_backend_->SetLecLines(lec1, lec2); });
+    SetCommBusy(false);
     return result;
 }
 
-int SerialPortActions::pulse_lec_1_line(int timeout)
+int SerialPortActions::PulseLec1Line(int timeout)
 {
     CallGuard guard(m_active_calls_);
-    set_comm_busy(true);
-    int result = runOnBackend([this, timeout] { return m_backend_->pulse_lec_1_line(timeout); });
-    set_comm_busy(false);
+    SetCommBusy(true);
+    int result = RunOnBackend([this, timeout] { return m_backend_->PulseLec1Line(timeout); });
+    SetCommBusy(false);
     return result;
 }
 
-int SerialPortActions::pulse_lec_2_line(int timeout)
+int SerialPortActions::PulseLec2Line(int timeout)
 {
     CallGuard guard(m_active_calls_);
-    set_comm_busy(true);
-    int result = runOnBackend([this, timeout] { return m_backend_->pulse_lec_2_line(timeout); });
-    set_comm_busy(false);
+    SetCommBusy(true);
+    int result = RunOnBackend([this, timeout] { return m_backend_->PulseLec2Line(timeout); });
+    SetCommBusy(false);
     return result;
 }
 
-bool SerialPortActions::get_is_comm_busy()
+bool SerialPortActions::GetIsCommBusy()
 {
     return is_comm_busy_;
 }
 
-void SerialPortActions::set_comm_busy(bool value)
+void SerialPortActions::SetCommBusy(bool value)
 {
     is_comm_busy_ = value;
 }
 
-bool SerialPortActions::get_read_vbatt()
+bool SerialPortActions::GetReadVbatt()
 {
     return is_read_vbatt_;
 }
 
-void SerialPortActions::set_read_vbatt(bool value)
+void SerialPortActions::SetReadVbatt(bool value)
 {
     is_read_vbatt_ = value;
 }
 
-bool SerialPortActions::reset_connection()
+bool SerialPortActions::ResetConnection()
 {
-    runOnBackend([this] { m_backend_->reset_connection(); });
+    RunOnBackend([this] { m_backend_->ResetConnection(); });
     return true;
 }
 
-QByteArray SerialPortActions::read_serial_obd_data(uint16_t timeout)
+QByteArray SerialPortActions::ReadSerialObdData(uint16_t timeout)
 {
     CallGuard guard(m_active_calls_);
-    QByteArray response = runOnBackend([this, timeout] { return m_backend_->read_serial_obd_data(timeout); });
-    emit LOG_D("Response: " + parse_message_to_hex(response.mid(0, 20)), true, true);
-    set_comm_busy(false);
+    QByteArray response = RunOnBackend([this, timeout] { return m_backend_->ReadSerialObdData(timeout); });
+    emit logD("Response: " + ParseMessageToHex(response.mid(0, 20)), true, true);
+    SetCommBusy(false);
     return response;
 }
 
-QByteArray SerialPortActions::read_serial_data(uint16_t timeout)
+QByteArray SerialPortActions::ReadSerialData(uint16_t timeout)
 {
     CallGuard guard(m_active_calls_);
-    QByteArray response = runOnBackend(
+    QByteArray response = RunOnBackend(
         [this, timeout]
         {
-            QByteArray r = m_backend_->read_serial_data(timeout);
-            if (get_read_vbatt())
+            QByteArray r = m_backend_->ReadSerialData(timeout);
+            if (GetReadVbatt())
             {
-                v_batt_.store(m_backend_->read_vbatt());
-                set_read_vbatt(false);
+                v_batt_.store(m_backend_->ReadVbatt());
+                SetReadVbatt(false);
             }
             return r;
         });
-    emit LOG_D("Response: " + parse_message_to_hex(response.mid(0, 20)), true, true);
-    set_comm_busy(false);
+    emit logD("Response: " + ParseMessageToHex(response.mid(0, 20)), true, true);
+    SetCommBusy(false);
     return response;
 }
 
-QByteArray SerialPortActions::write_serial_data(const QByteArray& output)
+QByteArray SerialPortActions::WriteSerialData(const QByteArray& output)
 {
-    set_comm_busy(true);
-    emit LOG_D("Sent: " + parse_message_to_hex(output.mid(0, 20)), true, true);
-    return runOnBackend([this, output] { return m_backend_->write_serial_data(output); });
+    SetCommBusy(true);
+    emit logD("Sent: " + ParseMessageToHex(output.mid(0, 20)), true, true);
+    return RunOnBackend([this, output] { return m_backend_->WriteSerialData(output); });
 }
 
-QByteArray SerialPortActions::write_serial_data_echo_check(const QByteArray& output)
+QByteArray SerialPortActions::WriteSerialDataEchoCheck(const QByteArray& output)
 {
-    set_comm_busy(true);
-    emit LOG_D("Sent: " + parse_message_to_hex(output.mid(0, 20)), true, true);
-    return runOnBackend([this, output] { return m_backend_->write_serial_data_echo_check(output); });
+    SetCommBusy(true);
+    emit logD("Sent: " + ParseMessageToHex(output.mid(0, 20)), true, true);
+    return RunOnBackend([this, output] { return m_backend_->WriteSerialDataEchoCheck(output); });
 }
 
-bool SerialPortActions::get_is_tx_done()
+bool SerialPortActions::GetIsTxDone()
 {
-    return runOnBackend([this] { return m_backend_->get_is_tx_done(); });
+    return RunOnBackend([this] { return m_backend_->GetIsTxDone(); });
 }
 
-int SerialPortActions::clear_rx_buffer()
+int SerialPortActions::ClearRxBuffer()
 {
     CallGuard guard(m_active_calls_);
-    set_comm_busy(true);
-    int result = runOnBackend([this] { return m_backend_->clear_rx_buffer(); });
-    set_comm_busy(false);
+    SetCommBusy(true);
+    int result = RunOnBackend([this] { return m_backend_->ClearRxBuffer(); });
+    SetCommBusy(false);
     return result;
 }
 
-int SerialPortActions::clear_tx_buffer()
+int SerialPortActions::ClearTxBuffer()
 {
     CallGuard guard(m_active_calls_);
-    set_comm_busy(true);
-    int result = runOnBackend([this] { return m_backend_->clear_tx_buffer(); });
-    set_comm_busy(false);
+    SetCommBusy(true);
+    int result = RunOnBackend([this] { return m_backend_->ClearTxBuffer(); });
+    SetCommBusy(false);
     return result;
 }
 
-int SerialPortActions::send_periodic_j2534_data(const QByteArray& output, int timeout)
+int SerialPortActions::SendPeriodicJ2534Data(const QByteArray& output, int timeout)
 {
     CallGuard guard(m_active_calls_);
-    set_comm_busy(true);
-    int result =
-        runOnBackend([this, output, timeout] { return m_backend_->send_periodic_j2534_data(output, timeout); });
-    set_comm_busy(false);
+    SetCommBusy(true);
+    int result = RunOnBackend([this, output, timeout] { return m_backend_->SendPeriodicJ2534Data(output, timeout); });
+    SetCommBusy(false);
     return result;
 }
 
-int SerialPortActions::stop_periodic_j2534_data()
+int SerialPortActions::StopPeriodicJ2534Data()
 {
     CallGuard guard(m_active_calls_);
-    set_comm_busy(true);
-    int result = runOnBackend([this] { return m_backend_->stop_periodic_j2534_data(); });
-    set_comm_busy(false);
+    SetCommBusy(true);
+    int result = RunOnBackend([this] { return m_backend_->StopPeriodicJ2534Data(); });
+    SetCommBusy(false);
     return result;
 }
 
-QStringList SerialPortActions::check_serial_ports()
+QStringList SerialPortActions::CheckSerialPorts()
 {
-    return runOnBackend([this] { return m_backend_->check_serial_ports(); });
+    return RunOnBackend([this] { return m_backend_->CheckSerialPorts(); });
 }
 
-QString SerialPortActions::open_serial_port()
+QString SerialPortActions::OpenSerialPort()
 {
-    return runOnBackend([this] { return m_backend_->open_serial_port(); });
+    return RunOnBackend([this] { return m_backend_->OpenSerialPort(); });
 }
 
-unsigned long SerialPortActions::read_vbatt()
+unsigned long SerialPortActions::ReadVbatt()
 {
     CallGuard guard(m_active_calls_);
-    if (!get_is_comm_busy() && !get_read_vbatt())
+    if (!GetIsCommBusy() && !GetReadVbatt())
     {
-        v_batt_.store(runOnBackend([this] { return m_backend_->read_vbatt(); }));
+        v_batt_.store(RunOnBackend([this] { return m_backend_->ReadVbatt(); }));
     }
     else
     {
-        set_read_vbatt(true);
+        SetReadVbatt(true);
     }
     return v_batt_.load();
 }
 
-QString SerialPortActions::parse_message_to_hex(const QByteArray& received)
+QString SerialPortActions::ParseMessageToHex(const QByteArray& received)
 {
     QString msg;
 

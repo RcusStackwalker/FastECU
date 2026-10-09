@@ -17,10 +17,10 @@ const ApplicationIdentity kApplication{.name = "FastECU", .title = "FastECU", .v
 
 DesktopComposition::DesktopComposition(const QString& peer_address, const QString& peer_password,
                                        const QString& config_root)
-    : config_(fastecu::config::builtin_catalog(), file_system_, resource_bundle_, file_repository_, startup_events_)
+    : config_(fastecu::config::BuiltinCatalog(), file_system_, resource_bundle_, file_repository_, startup_events_)
 {
     const QString root = config_root.isEmpty() ? default_config_root() : config_root;
-    if (fastecu::Status initialized = config_.initialize(root.toStdString(), kApplication.version);
+    if (fastecu::Status initialized = config_.Initialize(root.toStdString(), kApplication.version);
         !initialized.has_value())
     {
         // Required configuration is missing or broken: build nothing that
@@ -38,58 +38,58 @@ DesktopComposition::DesktopComposition(const QString& peer_address, const QStrin
     calibration_workspace_ = std::make_unique<fastecu::calibration::CalibrationWorkspace>(*rom_open_);
 
     syslog_thread_ = std::make_unique<QThread>();
-    syslogger_ = std::make_unique<SystemLogger>(
-        QString::fromStdString(config_.effective_paths().syslog_files_directory),
-        QString::fromStdString(kApplication.name), QString::fromStdString(kApplication.version));
+    syslogger_ = std::make_unique<SystemLogger>(QString::fromStdString(config_.EffectivePaths().syslog_files_directory),
+                                                QString::fromStdString(kApplication.name),
+                                                QString::fromStdString(kApplication.version));
     syslogger_->moveToThread(syslog_thread_.get());
     // The UI logs through the channel: the logger reads each line's level from
     // the channel's LOG_* signal name, and the channel outlives every sender.
     using fastecu::ui::LogChannel;
-    QObject::connect(&log_channel_, &LogChannel::LOG_E, syslogger_.get(), &SystemLogger::log_messages);
-    QObject::connect(&log_channel_, &LogChannel::LOG_W, syslogger_.get(), &SystemLogger::log_messages);
-    QObject::connect(&log_channel_, &LogChannel::LOG_I, syslogger_.get(), &SystemLogger::log_messages);
-    QObject::connect(&log_channel_, &LogChannel::LOG_D, syslogger_.get(), &SystemLogger::log_messages);
-    QObject::connect(&log_channel_, &LogChannel::enable_log_write_to_file, syslogger_.get(),
-                     &SystemLogger::enable_log_write_to_file);
-    QObject::connect(syslogger_.get(), &SystemLogger::send_message_to_log_window, &log_channel_,
-                     &LogChannel::log_window_message);
-    QObject::connect(syslog_thread_.get(), &QThread::started, syslogger_.get(), &SystemLogger::run);
+    QObject::connect(&log_channel_, &LogChannel::logE, syslogger_.get(), &SystemLogger::logMessages);
+    QObject::connect(&log_channel_, &LogChannel::logW, syslogger_.get(), &SystemLogger::logMessages);
+    QObject::connect(&log_channel_, &LogChannel::logI, syslogger_.get(), &SystemLogger::logMessages);
+    QObject::connect(&log_channel_, &LogChannel::logD, syslogger_.get(), &SystemLogger::logMessages);
+    QObject::connect(&log_channel_, &LogChannel::enableLogWriteToFile, syslogger_.get(),
+                     &SystemLogger::enableLogWriteToFile);
+    QObject::connect(syslogger_.get(), &SystemLogger::sendMessageToLogWindow, &log_channel_,
+                     &LogChannel::logWindowMessage);
+    QObject::connect(syslog_thread_.get(), &QThread::started, syslogger_.get(), &SystemLogger::Run);
     syslog_thread_->start();
 
-    serial_ = make_serial_port_actions(serial_connection_from_args(peer_address, peer_password), *syslogger_);
+    serial_ = MakeSerialPortActions(serial_connection_from_args(peer_address, peer_password), *syslogger_);
     connection_ = std::make_unique<fastecu::desktop::connection::AdapterConnection>(*serial_);
     remote_utility_ = std::make_unique<RemoteUtility>(peer_address, peer_password, nullptr, nullptr);
 
     // The UI reaches the remote utility only through the peer channel. The
     // mirror is dropped while the replica is not valid, as MainWindow did.
     using fastecu::ui::RemotePeer;
-    QObject::connect(&remote_peer_, &RemotePeer::wait_requested, remote_utility_.get(), &RemoteUtility::waitForSource,
+    QObject::connect(&remote_peer_, &RemotePeer::waitRequested, remote_utility_.get(), &RemoteUtility::waitForSource,
                      Qt::DirectConnection);
-    QObject::connect(&remote_peer_, &RemotePeer::log_window_message, remote_utility_.get(),
+    QObject::connect(&remote_peer_, &RemotePeer::logWindowMessage, remote_utility_.get(),
                      [utility = remote_utility_.get()](const QString& message)
                      {
-                         if (utility->isValid())
+                         if (utility->IsValid())
                          {
-                             utility->send_log_window_message(message);
+                             utility->sendLogWindowMessage(message);
                          }
                      });
     QObject::connect(&remote_peer_, &RemotePeer::progress, remote_utility_.get(),
                      [utility = remote_utility_.get()](int value)
                      {
-                         if (utility->isValid())
+                         if (utility->IsValid())
                          {
-                             utility->set_progressbar_value(value);
+                             utility->setProgressbarValue(value);
                          }
                      });
     QObject::connect(remote_utility_.get(), &RemoteUtility::stateChanged, &remote_peer_, &RemotePeer::stateChanged);
 
     using fastecu::desktop::logging::LoggingEngine;
     logging_engine_ = std::make_unique<LoggingEngine>();
-    QObject::connect(logging_engine_.get(), &LoggingEngine::LOG_E, syslogger_.get(), &SystemLogger::log_messages);
-    QObject::connect(logging_engine_.get(), &LoggingEngine::LOG_W, syslogger_.get(), &SystemLogger::log_messages);
-    QObject::connect(logging_engine_.get(), &LoggingEngine::LOG_I, syslogger_.get(), &SystemLogger::log_messages);
-    QObject::connect(logging_engine_.get(), &LoggingEngine::LOG_D, syslogger_.get(), &SystemLogger::log_messages);
-    fastecu::desktop::logging::register_desktop_logging_protocols(*logging_engine_, *serial_, logging_clock_);
+    QObject::connect(logging_engine_.get(), &LoggingEngine::logE, syslogger_.get(), &SystemLogger::logMessages);
+    QObject::connect(logging_engine_.get(), &LoggingEngine::logW, syslogger_.get(), &SystemLogger::logMessages);
+    QObject::connect(logging_engine_.get(), &LoggingEngine::logI, syslogger_.get(), &SystemLogger::logMessages);
+    QObject::connect(logging_engine_.get(), &LoggingEngine::logD, syslogger_.get(), &SystemLogger::logMessages);
+    fastecu::desktop::logging::RegisterDesktopLoggingProtocols(*logging_engine_, *serial_, logging_clock_);
 }
 
 DesktopComposition::~DesktopComposition()

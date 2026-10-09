@@ -24,10 +24,10 @@ class BiuOpsSubaruInput1 : public QWidget
     QByteArray *biu_tt_result_;
 
   private slots:
-    void prepare_biu_setting1();
+    void prepareBiuSetting1();
 
   signals:
-    void send_biu_setting1(QByteArray output);
+    void sendBiuSetting1(QByteArray output);
 
   private:
     std::unique_ptr<Ui::BiuOpsSubaruInput1Window> ui_;

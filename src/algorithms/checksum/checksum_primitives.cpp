@@ -5,7 +5,7 @@
 namespace
 {
 
-constexpr std::array<std::uint32_t, 256> makeCrcTable()
+constexpr std::array<std::uint32_t, 256> MakeCrcTable()
 {
     std::array<std::uint32_t, 256> t = {};
     constexpr std::uint32_t kPolynomial = 0x5AA5A55A;
@@ -33,23 +33,23 @@ constexpr std::array<std::uint32_t, 256> makeCrcTable()
     return t;
 }
 
-constexpr std::array<std::uint32_t, 256> kCrcTable = makeCrcTable();
+constexpr std::array<std::uint32_t, 256> kCrcTable = MakeCrcTable();
 
 } // namespace
 
 namespace fastecu::checksum::internal
 {
 
-void rebalanceU16Be(bytes::MutableByteView rom, std::size_t offset, std::uint16_t observed, std::uint16_t target)
+void RebalanceU16Be(bytes::MutableByteView rom, std::size_t offset, std::uint16_t observed, std::uint16_t target)
 {
-    const std::uint16_t stored = bytes::readU16Be(rom, offset);
-    bytes::writeU16Be(rom, offset, static_cast<std::uint16_t>(stored + target - observed));
+    const std::uint16_t stored = bytes::ReadU16Be(rom, offset);
+    bytes::WriteU16Be(rom, offset, static_cast<std::uint16_t>(stored + target - observed));
 }
 
-void rebalanceU32Be(bytes::MutableByteView rom, std::size_t offset, std::uint32_t observed, std::uint32_t target)
+void RebalanceU32Be(bytes::MutableByteView rom, std::size_t offset, std::uint32_t observed, std::uint32_t target)
 {
-    const std::uint32_t stored = bytes::readU32Be(rom, offset);
-    bytes::writeU32Be(rom, offset, stored + target - observed);
+    const std::uint32_t stored = bytes::ReadU32Be(rom, offset);
+    bytes::WriteU32Be(rom, offset, stored + target - observed);
 }
 
 } // namespace fastecu::checksum::internal
@@ -57,7 +57,7 @@ void rebalanceU32Be(bytes::MutableByteView rom, std::size_t offset, std::uint32_
 namespace fastecu::checksum
 {
 
-std::uint8_t cks_add8(std::span<const std::uint8_t> data)
+std::uint8_t CksAdd8(std::span<const std::uint8_t> data)
 {
     std::uint16_t sum = 0;
     for (std::uint8_t byte : data)
@@ -72,12 +72,12 @@ std::uint8_t cks_add8(std::span<const std::uint8_t> data)
     return static_cast<std::uint8_t>(sum);
 }
 
-std::uint8_t negatedSum8(bytes::ByteView data)
+std::uint8_t NegatedSum8(bytes::ByteView data)
 {
-    return static_cast<std::uint8_t>(0x100 - bytes::sum8(data));
+    return static_cast<std::uint8_t>(0x100 - bytes::Sum8(data));
 }
 
-std::uint32_t crc32(bytes::ByteView data)
+std::uint32_t Crc32(bytes::ByteView data)
 {
     std::uint32_t crc = 0xFFFFFFFF;
     for (const auto byte : data)
@@ -88,14 +88,14 @@ std::uint32_t crc32(bytes::ByteView data)
     return crc ^ 0xFFFFFFFF;
 }
 
-std::uint32_t crc32(const unsigned char *buf, std::uint32_t len)
+std::uint32_t Crc32(const unsigned char *buf, std::uint32_t len)
 {
     if (buf == nullptr)
     {
         return 0;
     }
 
-    return crc32(bytes::ByteView(reinterpret_cast<const bytes::Byte *>(buf), len));
+    return Crc32(bytes::ByteView(reinterpret_cast<const bytes::Byte *>(buf), len));
 }
 
 } // namespace fastecu::checksum

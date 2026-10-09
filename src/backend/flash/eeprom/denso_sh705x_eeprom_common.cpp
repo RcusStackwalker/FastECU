@@ -16,12 +16,12 @@ constexpr std::uint32_t kKlinePayloadAlignment = 4;
 constexpr std::uint32_t kKlineChecksumBypassBytes = 4;
 constexpr std::uint32_t kCanUploadBlockBytes = 128;
 
-Result<std::uint32_t> checked_align_up(std::size_t value, std::uint32_t alignment)
+Result<std::uint32_t> CheckedAlignUp(std::size_t value, std::uint32_t alignment)
 {
     if (constexpr std::uint32_t kMax = std::numeric_limits<std::uint32_t>::max();
         value > kMax || value > static_cast<std::size_t>(kMax - (alignment - 1)))
     {
-        return fail(ErrorKind::kInvalidConfig, "kernel upload size overflows uint32_t");
+        return Fail(ErrorKind::kInvalidConfig, "kernel upload size overflows uint32_t");
     }
 
     const auto narrowed = static_cast<std::uint32_t>(value);
@@ -30,18 +30,19 @@ Result<std::uint32_t> checked_align_up(std::size_t value, std::uint32_t alignmen
 
 } // namespace
 
-Result<DensoSh705xEepromUploadSizes> denso_sh705x_eeprom_upload_sizes(FlashFamily family, std::size_t raw_kernel_bytes)
+Result<DensoSh705xEepromUploadSizes> ComputeDensoSh705xEepromUploadSizes(FlashFamily family,
+                                                                         std::size_t raw_kernel_bytes)
 {
     if (family == FlashFamily::kDensoSh705xEepromKline)
     {
-        Result<std::uint32_t> payload = checked_align_up(raw_kernel_bytes, kKlinePayloadAlignment);
+        Result<std::uint32_t> payload = CheckedAlignUp(raw_kernel_bytes, kKlinePayloadAlignment);
         if (!payload.has_value())
         {
             return std::unexpected(payload.error());
         }
         if (*payload > std::numeric_limits<std::uint32_t>::max() - kKlineChecksumBypassBytes)
         {
-            return fail(ErrorKind::kInvalidConfig, "K-Line kernel upload footprint overflows uint32_t");
+            return Fail(ErrorKind::kInvalidConfig, "K-Line kernel upload footprint overflows uint32_t");
         }
         return DensoSh705xEepromUploadSizes{
             .payload_bytes = *payload,
@@ -50,7 +51,7 @@ Result<DensoSh705xEepromUploadSizes> denso_sh705x_eeprom_upload_sizes(FlashFamil
     }
     if (family == FlashFamily::kDensoSh705xEepromCan)
     {
-        Result<std::uint32_t> payload = checked_align_up(raw_kernel_bytes, kCanUploadBlockBytes);
+        Result<std::uint32_t> payload = CheckedAlignUp(raw_kernel_bytes, kCanUploadBlockBytes);
         if (!payload.has_value())
         {
             return std::unexpected(payload.error());
@@ -60,7 +61,7 @@ Result<DensoSh705xEepromUploadSizes> denso_sh705x_eeprom_upload_sizes(FlashFamil
             .ram_footprint_bytes = *payload,
         };
     }
-    return fail(ErrorKind::kInvalidConfig, "unsupported family for Denso SH705x EEPROM kernel upload");
+    return Fail(ErrorKind::kInvalidConfig, "unsupported family for Denso SH705x EEPROM kernel upload");
 }
 
 // Literal values transcribed from src/backend/flash/kernel/kernelmemorymodels.h
@@ -69,7 +70,7 @@ Result<DensoSh705xEepromUploadSizes> denso_sh705x_eeprom_upload_sizes(FlashFamil
 // truth both this function and resolve_mcu_bounds() below read from -- and
 // the only place these two literals are written (build_eeprom_read_plan calls
 // this function directly rather than keeping its own copy).
-Result<MemoryRegion> resolve_sh705x_eeprom_region(const std::string& mcu_name)
+Result<MemoryRegion> ResolveSh705xEepromRegion(const std::string& mcu_name)
 {
     if (mcu_name == "SH7055")
     {
@@ -81,7 +82,7 @@ Result<MemoryRegion> resolve_sh705x_eeprom_region(const std::string& mcu_name)
         return MemoryRegion{.start = /* kEepromBlocksSH7058[0].start */ 0x00000000,
                             .length = /* kEepromBlocksSH7058[0].len */ 0x00000100};
     }
-    return fail(ErrorKind::kInvalidConfig, std::format("unknown SH705x mcu_name: {}", mcu_name));
+    return Fail(ErrorKind::kInvalidConfig, std::format("unknown SH705x mcu_name: {}", mcu_name));
 }
 
 namespace
@@ -97,9 +98,9 @@ struct McuBounds
     MemoryRegion kernel_ram;
 };
 
-Result<McuBounds> resolve_mcu_bounds(const std::string& mcu_name)
+Result<McuBounds> ResolveMcuBounds(const std::string& mcu_name)
 {
-    Result<MemoryRegion> eeprom = resolve_sh705x_eeprom_region(mcu_name);
+    Result<MemoryRegion> eeprom = ResolveSh705xEepromRegion(mcu_name);
     if (!eeprom.has_value())
     {
         return std::unexpected(eeprom.error());
@@ -120,17 +121,17 @@ Result<McuBounds> resolve_mcu_bounds(const std::string& mcu_name)
                                        .length = /* kKernelBlocksSH7058[0].len */ 0x00009000},
         };
     }
-    return fail(ErrorKind::kInvalidConfig, std::format("unknown SH705x mcu_name: {}", mcu_name));
+    return Fail(ErrorKind::kInvalidConfig, std::format("unknown SH705x mcu_name: {}", mcu_name));
 }
 
-bool kline_supports(DensoSecurityVariant security)
+bool KlineSupports(DensoSecurityVariant security)
 {
     // The legacy K-Line operation only branches on flash_method.endsWith("_ecutek")
     // vs. everything else -- there is no Cobb or RaceRom K-Line path.
     return security == DensoSecurityVariant::kStock || security == DensoSecurityVariant::kEcuTek;
 }
 
-std::vector<ConfirmationSpec> confirmations_for_mode(EepromReadMode mode)
+std::vector<ConfirmationSpec> ConfirmationsForMode(EepromReadMode mode)
 {
     if (mode == EepromReadMode::kMode2)
     {
@@ -148,45 +149,45 @@ std::vector<ConfirmationSpec> confirmations_for_mode(EepromReadMode mode)
 
 } // namespace
 
-Result<void> validate_denso_sh705x_eeprom_preflight(const DensoSh705xEepromInput& input,
-                                                    std::optional<std::size_t> kernel_size)
+Result<void> ValidateDensoSh705xEepromPreflight(const DensoSh705xEepromInput& input,
+                                                std::optional<std::size_t> kernel_size)
 {
     if (input.family != FlashFamily::kDensoSh705xEepromKline && input.family != FlashFamily::kDensoSh705xEepromCan)
     {
-        return fail(ErrorKind::kInvalidConfig, "unsupported family for Denso SH705x EEPROM builder");
+        return Fail(ErrorKind::kInvalidConfig, "unsupported family for Denso SH705x EEPROM builder");
     }
     if (input.operation != FlashOperation::kRead)
     {
         // Matches the current, intentional legacy routing: write/test_write
         // for these two families reach an operation whose write call is
         // commented out. 5c does not legitimize that as portable flashing.
-        return fail(ErrorKind::kUnsupported, "Denso SH705x EEPROM write/test_write is not implemented");
+        return Fail(ErrorKind::kUnsupported, "Denso SH705x EEPROM write/test_write is not implemented");
     }
     if (input.mode != EepromReadMode::kMode2 && input.mode != EepromReadMode::kMode3 &&
         input.mode != EepromReadMode::kMode4)
     {
-        return fail(ErrorKind::kInvalidConfig, "EEPROM mode must be 2, 3, or 4");
+        return Fail(ErrorKind::kInvalidConfig, "EEPROM mode must be 2, 3, or 4");
     }
 
-    Result<McuBounds> bounds = resolve_mcu_bounds(input.mcu_name);
+    Result<McuBounds> bounds = ResolveMcuBounds(input.mcu_name);
     if (!bounds.has_value())
     {
         return std::unexpected(bounds.error());
     }
     if (input.eeprom_region.start != bounds->eeprom.start || input.eeprom_region.length != bounds->eeprom.length)
     {
-        return fail(ErrorKind::kInvalidConfig, "eeprom_region does not match the resolved MCU table entry");
+        return Fail(ErrorKind::kInvalidConfig, "eeprom_region does not match the resolved MCU table entry");
     }
     const std::uint64_t ram_end = static_cast<std::uint64_t>(bounds->kernel_ram.start) + bounds->kernel_ram.length;
     if (input.kernel.load_address < bounds->kernel_ram.start ||
         static_cast<std::uint64_t>(input.kernel.load_address) >= ram_end)
     {
-        return fail(ErrorKind::kInvalidConfig, "kernel load range is outside the SH705x RAM region");
+        return Fail(ErrorKind::kInvalidConfig, "kernel load range is outside the SH705x RAM region");
     }
     if (kernel_size.has_value())
     {
         Result<DensoSh705xEepromUploadSizes> upload_sizes =
-            denso_sh705x_eeprom_upload_sizes(input.family, *kernel_size);
+            ComputeDensoSh705xEepromUploadSizes(input.family, *kernel_size);
         if (!upload_sizes.has_value())
         {
             return std::unexpected(upload_sizes.error());
@@ -194,21 +195,21 @@ Result<void> validate_denso_sh705x_eeprom_preflight(const DensoSh705xEepromInput
         const std::uint64_t available = ram_end - static_cast<std::uint64_t>(input.kernel.load_address);
         if (upload_sizes->ram_footprint_bytes > available)
         {
-            return fail(ErrorKind::kInvalidConfig, "kernel upload footprint is outside the SH705x RAM region");
+            return Fail(ErrorKind::kInvalidConfig, "kernel upload footprint is outside the SH705x RAM region");
         }
     }
 
-    if (input.family == FlashFamily::kDensoSh705xEepromKline && !kline_supports(input.security))
+    if (input.family == FlashFamily::kDensoSh705xEepromKline && !KlineSupports(input.security))
     {
-        return fail(ErrorKind::kInvalidConfig, "security variant is not supported on the K-Line transport");
+        return Fail(ErrorKind::kInvalidConfig, "security variant is not supported on the K-Line transport");
     }
 
     return {};
 }
 
-Result<FlashPlan> build_denso_sh705x_eeprom_plan(DensoSh705xEepromInput input)
+Result<FlashPlan> BuildDensoSh705xEepromPlan(DensoSh705xEepromInput input)
 {
-    if (Result<void> preflight = validate_denso_sh705x_eeprom_preflight(input, input.kernel.bytes.size());
+    if (Result<void> preflight = ValidateDensoSh705xEepromPreflight(input, input.kernel.bytes.size());
         !preflight.has_value())
     {
         return std::unexpected(preflight.error());
@@ -279,9 +280,9 @@ Result<FlashPlan> build_denso_sh705x_eeprom_plan(DensoSh705xEepromInput input)
         .image = std::nullopt,
         .kernel = std::move(input.kernel),
         .family_plan = family_plan,
-        .confirmations = confirmations_for_mode(input.mode),
+        .confirmations = ConfirmationsForMode(input.mode),
     };
-    return validate_and_build(std::move(fields));
+    return ValidateAndBuild(std::move(fields));
 }
 
 } // namespace fastecu::flash

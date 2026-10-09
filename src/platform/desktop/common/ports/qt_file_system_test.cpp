@@ -16,9 +16,9 @@ TEST(QtFileSystemTest, CreateDirectoryThenExists)
     QtFileSystem fs;
     const std::string dir = (tmp.path() + "/child").toStdString();
 
-    EXPECT_FALSE(fs.exists(dir));
-    ASSERT_THAT(fs.create_directory(dir), fastecu::testing::IsOk());
-    EXPECT_TRUE(fs.exists(dir));
+    EXPECT_FALSE(fs.Exists(dir));
+    ASSERT_THAT(fs.MakeDirectory(dir), fastecu::testing::IsOk());
+    EXPECT_TRUE(fs.Exists(dir));
 }
 
 TEST(QtFileSystemTest, CopyThenRemove)
@@ -33,10 +33,10 @@ TEST(QtFileSystemTest, CopyThenRemove)
     f.write("hi");
     f.close();
 
-    ASSERT_THAT(fs.copy_file(src, dst, false), fastecu::testing::IsOk());
-    EXPECT_TRUE(fs.exists(dst));
-    ASSERT_THAT(fs.remove_file(dst), fastecu::testing::IsOk());
-    EXPECT_FALSE(fs.exists(dst));
+    ASSERT_THAT(fs.CopyFileTo(src, dst, false), fastecu::testing::IsOk());
+    EXPECT_TRUE(fs.Exists(dst));
+    ASSERT_THAT(fs.RemoveFile(dst), fastecu::testing::IsOk());
+    EXPECT_FALSE(fs.Exists(dst));
 }
 
 TEST(QtFileSystemTest, CopyWithoutOverwriteFailsWhenDestinationExists)
@@ -53,7 +53,7 @@ TEST(QtFileSystemTest, CopyWithoutOverwriteFailsWhenDestinationExists)
         f.write("x");
     }
 
-    ASSERT_THAT(fs.copy_file(src, dst, false), fastecu::testing::IsErr(ErrorKind::kInternal));
+    ASSERT_THAT(fs.CopyFileTo(src, dst, false), fastecu::testing::IsErr(ErrorKind::kInternal));
 }
 
 TEST(QtFileSystemTest, ListDirectoryReturnsEntriesWithModifiedTime)
@@ -67,7 +67,7 @@ TEST(QtFileSystemTest, ListDirectoryReturnsEntriesWithModifiedTime)
     f.write("x");
     f.close();
 
-    auto entries = fs.list_directory(tmp.path().toStdString());
+    auto entries = fs.ListDirectory(tmp.path().toStdString());
 
     ASSERT_THAT(entries, fastecu::testing::IsOk());
     EXPECT_EQ(entries->size(), 2U);
@@ -104,7 +104,7 @@ TEST(QtFileSystemTest, ListDirectoryIdentifiesDirectorySymlink)
     }
 
     QtFileSystem fs;
-    auto nested_entries = fs.list_directory(nested.toStdString());
+    auto nested_entries = fs.ListDirectory(nested.toStdString());
     ASSERT_THAT(nested_entries, fastecu::testing::IsOk());
     const auto loop_entry = std::find_if(nested_entries->begin(), nested_entries->end(),
                                          [](const fastecu::DirEntry& entry) { return entry.name == "loop"; });

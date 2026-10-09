@@ -18,6 +18,6 @@ struct CdbgSerialSetupActions
     std::function<bool()> select_reply_id;
 };
 
-fastecu::Status configure_cdbg_serial(const CdbgSerialSetupActions& actions);
+fastecu::Status ConfigureCdbgSerial(const CdbgSerialSetupActions& actions);
 
 } // namespace fastecu::desktop::logging

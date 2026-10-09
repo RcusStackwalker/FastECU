@@ -58,10 +58,10 @@ class BoxDriver final : public QObject
 
 void expectNoEcuIo(FakeBackend& fake)
 {
-    EXPECT_CALL(fake, open_serial_port()).Times(0);
-    EXPECT_CALL(fake, write_serial_data(::testing::_)).Times(0);
-    EXPECT_CALL(fake, write_serial_data_echo_check(::testing::_)).Times(0);
-    EXPECT_CALL(fake, read_serial_data(::testing::_)).Times(0);
+    EXPECT_CALL(fake, OpenSerialPort()).Times(0);
+    EXPECT_CALL(fake, WriteSerialData(::testing::_)).Times(0);
+    EXPECT_CALL(fake, WriteSerialDataEchoCheck(::testing::_)).Times(0);
+    EXPECT_CALL(fake, ReadSerialData(::testing::_)).Times(0);
 }
 
 } // namespace
@@ -69,9 +69,9 @@ void expectNoEcuIo(FakeBackend& fake)
 TEST(FlashOperationControllerTest, unknownProtocolIsUnsupportedAndWarnsWithoutSerialIo)
 {
     fastecu::desktop::connection::testing::AdapterConnectionHarness adapter;
-    FakeBackend *fake = adapter.fake();
+    FakeBackend *fake = adapter.Fake();
     ASSERT_TRUE(fake != nullptr);
-    SerialPortActions& serial = adapter.connection().facade();
+    SerialPortActions& serial = adapter.Connection().Facade();
     expectNoEcuIo(*fake);
     FlashOperationController controller{serial, nullptr};
     BoxDriver driver;
@@ -94,9 +94,9 @@ TEST(FlashOperationControllerTest, unknownProtocolIsUnsupportedAndWarnsWithoutSe
 TEST(FlashOperationControllerTest, cancelledDensoTcuChooserIsHandledWithoutSerialIo)
 {
     fastecu::desktop::connection::testing::AdapterConnectionHarness adapter;
-    FakeBackend *fake = adapter.fake();
+    FakeBackend *fake = adapter.Fake();
     ASSERT_TRUE(fake != nullptr);
-    SerialPortActions& serial = adapter.connection().facade();
+    SerialPortActions& serial = adapter.Connection().Facade();
     expectNoEcuIo(*fake);
     FlashOperationController controller{serial, nullptr};
     BoxDriver driver;

@@ -52,7 +52,7 @@ bool ChecksumCorrectionCommand::confirmProceedWithoutChecksumModule()
 void ChecksumCorrectionCommand::showFamilyResultDialog(const ChecksumResult& familyResult)
 {
     const QString message = QString::fromStdString(familyResult.message);
-    if (familyResult.changed())
+    if (familyResult.Changed())
     {
         QMessageBox::information(nullptr, QObject::tr("Checksum Correction"),
                                  QObject::tr("Checksums corrected:\n\n%1").arg(message));
@@ -83,7 +83,7 @@ ChecksumCorrectionResult ChecksumCorrectionCommand::run(bytes::ByteView romData,
     // Formerly FileActions::checksum_correction's own precheck, ahead of the
     // adapter call: an unregistered MCU returns the ROM untouched and shows
     // no dialog at all.
-    if (fastecu::flash::find_flash_device(selection.mcu_type) == nullptr)
+    if (fastecu::flash::FindFlashDevice(selection.mcu_type) == nullptr)
     {
         result.unknown_mcu_type = true;
         return result;
@@ -97,7 +97,7 @@ ChecksumCorrectionResult ChecksumCorrectionCommand::run(bytes::ByteView romData,
         }
     }
 
-    switch (const ChecksumCorrectionOutcome outcome = fastecu::checksum::apply_checksum_correction(romData, selection);
+    switch (const ChecksumCorrectionOutcome outcome = fastecu::checksum::ApplyChecksumCorrection(romData, selection);
             outcome.status)
     {
     case ChecksumCorrectionOutcome::Status::kUnknownMcuType:
@@ -116,7 +116,7 @@ ChecksumCorrectionResult ChecksumCorrectionCommand::run(bytes::ByteView romData,
     case ChecksumCorrectionOutcome::Status::kFamilyRan:
         if (outcome.family_result.has_value())
         {
-            if (outcome.family_result->ok())
+            if (outcome.family_result->Ok())
             {
                 result.corrected_rom_data = outcome.family_result->rom_data;
             }
