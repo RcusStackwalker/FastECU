@@ -30,7 +30,7 @@ constexpr std::uint32_t kTailPad = 0x100;
 
 // SH72543d's flash table has a single block: kFlashBlocksSH72543d[0] == {0x8000,
 // 0x1F7F00}, so it is checked here.
-bool geometry_ok(const flashdev_t& device)
+bool geometry_ok(const FlashDevice& device)
 {
     return device.numblocks == 1 && device.romsize == kImageSize && device.fblocks[0].start == kMainBlock.start &&
            device.fblocks[0].len == kMainBlock.length;

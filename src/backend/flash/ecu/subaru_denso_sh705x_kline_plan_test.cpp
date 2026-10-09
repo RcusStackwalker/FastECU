@@ -163,7 +163,7 @@ TEST(SubaruDensoSh705xKlinePlan, DeviceGeometrySatisfiesTheExecutorsChunking)
     // indexing the image by physical address; the plan relies on this.
     for (const std::string_view mcu : {"SH7055", "SH7058"})
     {
-        const flashdev_t *device = find_flash_device(mcu);
+        const FlashDevice *device = find_flash_device(mcu);
         ASSERT_NE(device, nullptr);
         EXPECT_EQ(device->fblocks[0].start, 0U);
         std::uint32_t total = 0;
@@ -258,20 +258,20 @@ TEST(SubaruDensoSh705xKlinePlan, ValidatorRejectsAHandBuiltCobbRead)
 TEST(SubaruDensoSh705xKlinePlan, GeometryCheckRejectsSyntheticTablesTheExecutorCannotChunk)
 {
     using detail::validate_subaru_denso_sh705x_kline_geometry;
-    const auto aligned = std::to_array<flashblock>({{0x0000, 0x1000}, {0x1000, 0x1000}});
-    const auto offset = std::to_array<flashblock>({{0x1000, 0x1000}});
-    const auto ragged = std::to_array<flashblock>({{0x0000, 0x1000}, {0x1000, 0x0200}});
+    const auto aligned = std::to_array<FlashBlock>({{0x0000, 0x1000}, {0x1000, 0x1000}});
+    const auto offset = std::to_array<FlashBlock>({{0x1000, 0x1000}});
+    const auto ragged = std::to_array<FlashBlock>({{0x0000, 0x1000}, {0x1000, 0x0200}});
 
-    const auto device = [](std::uint32_t size, unsigned count, const flashblock *blocks)
+    const auto device = [](std::uint32_t size, unsigned count, const FlashBlock *blocks)
     {
-        return flashdev_t{.name = "synthetic",
-                          .mcutype = find_flash_device("SH7055")->mcutype,
-                          .romsize = size,
-                          .numblocks = count,
-                          .fblocks = blocks,
-                          .rblocks = nullptr,
-                          .kblocks = nullptr,
-                          .eblocks = nullptr};
+        return FlashDevice{.name = "synthetic",
+                           .mcutype = find_flash_device("SH7055")->mcutype,
+                           .romsize = size,
+                           .numblocks = count,
+                           .fblocks = blocks,
+                           .rblocks = nullptr,
+                           .kblocks = nullptr,
+                           .eblocks = nullptr};
     };
     EXPECT_THAT(validate_subaru_denso_sh705x_kline_geometry(device(0x2000, 2, aligned.data())), IsOk());
     EXPECT_THAT(validate_subaru_denso_sh705x_kline_geometry(device(0x2000, 0, aligned.data())),

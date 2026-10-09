@@ -65,7 +65,7 @@ TEST(FindFlashDevice, ExposesRomsizeForSizeValidation)
 TEST(FindFlashDevice, IndexAndPointerAgree)
 {
     const int index = find_flash_device_index("M32R_384KB_1block");
-    const flashdev_t *device = find_flash_device("M32R_384KB_1block");
+    const FlashDevice *device = find_flash_device("M32R_384KB_1block");
 
     ASSERT_GE(index, 0);
     ASSERT_NE(device, nullptr);
@@ -117,13 +117,13 @@ TEST(FlashDeviceTable, MatchesExpectedSummariesAndNamedAnomalies)
 
     for (std::size_t deviceIndex = 0; deviceIndex < kCount; ++deviceIndex)
     {
-        const flashdev_t& actual = kFlashDevices[deviceIndex];
+        const FlashDevice& actual = kFlashDevices[deviceIndex];
         const FlashDeviceSummary& summary = kExpected[deviceIndex];
         EXPECT_STREQ(actual.name, summary.name);
         EXPECT_EQ(actual.romsize, summary.romsize);
         EXPECT_EQ(actual.numblocks, summary.numblocks);
         EXPECT_EQ(actual.fblocks[0].start, summary.firstBlockStart);
-        const flashblock& finalBlock = actual.fblocks[actual.numblocks - 1];
+        const FlashBlock& finalBlock = actual.fblocks[actual.numblocks - 1];
         EXPECT_EQ(finalBlock.start + finalBlock.len, summary.finalBlockEnd);
         for (unsigned blockIndex = 0; blockIndex < actual.numblocks; ++blockIndex)
         {
@@ -135,7 +135,7 @@ TEST(FlashDeviceTable, MatchesExpectedSummariesAndNamedAnomalies)
         }
     }
 
-    const flashdev_t& sentinel = kFlashDevices[kCount];
+    const FlashDevice& sentinel = kFlashDevices[kCount];
     EXPECT_EQ(sentinel.name, nullptr);
     EXPECT_EQ(sentinel.romsize, std::uint32_t(0));
     EXPECT_EQ(sentinel.numblocks, 0U);
@@ -144,10 +144,10 @@ TEST(FlashDeviceTable, MatchesExpectedSummariesAndNamedAnomalies)
     EXPECT_EQ(sentinel.kblocks, nullptr);
     EXPECT_EQ(sentinel.eblocks, nullptr);
 
-    const flashdev_t *sh72531 = find_flash_device("SH72531");
-    const flashdev_t *mc68 = find_flash_device("MC68HC16Y5");
-    const flashdev_t *n83 = find_flash_device("N83M_1_5MB");
-    const flashdev_t *tpu = find_flash_device("MC68HC16Y5_TPU");
+    const FlashDevice *sh72531 = find_flash_device("SH72531");
+    const FlashDevice *mc68 = find_flash_device("MC68HC16Y5");
+    const FlashDevice *n83 = find_flash_device("N83M_1_5MB");
+    const FlashDevice *tpu = find_flash_device("MC68HC16Y5_TPU");
     ASSERT_NE(sh72531, nullptr);
     ASSERT_NE(mc68, nullptr);
     ASSERT_NE(n83, nullptr);

@@ -1172,33 +1172,33 @@ TEST_F(MainWindowTest, peerStateChangesReachTheWindow)
     ASSERT_NO_FATAL_FAILURE(check_peerStateChangesReachTheWindow());
 }
 
-struct handledDensoTcuReadChoicesRunMainWindowCleanupAndStopVoltagePollingCase
+struct HandledDensoTcuReadChoicesRunMainWindowCleanupAndStopVoltagePollingCase
 {
     std::string name;
     QString choice;
     int expected_ignition_count;
 };
-std::vector<handledDensoTcuReadChoicesRunMainWindowCleanupAndStopVoltagePollingCase>
+std::vector<HandledDensoTcuReadChoicesRunMainWindowCleanupAndStopVoltagePollingCase>
 handledDensoTcuReadChoicesRunMainWindowCleanupAndStopVoltagePollingRows()
 {
-    std::vector<handledDensoTcuReadChoicesRunMainWindowCleanupAndStopVoltagePollingCase> rows;
+    std::vector<HandledDensoTcuReadChoicesRunMainWindowCleanupAndStopVoltagePollingCase> rows;
 
     rows.push_back(
-        handledDensoTcuReadChoicesRunMainWindowCleanupAndStopVoltagePollingCase{"chooser-cancelled", QString(), 0});
-    rows.push_back(handledDensoTcuReadChoicesRunMainWindowCleanupAndStopVoltagePollingCase{"relearn-declined",
+        HandledDensoTcuReadChoicesRunMainWindowCleanupAndStopVoltagePollingCase{"chooser-cancelled", QString(), 0});
+    rows.push_back(HandledDensoTcuReadChoicesRunMainWindowCleanupAndStopVoltagePollingCase{"relearn-declined",
                                                                                            QString("Relearn"), 1});
 
     return rows;
 }
-class handledDensoTcuReadChoicesRunMainWindowCleanupAndStopVoltagePollingParameters
+class HandledDensoTcuReadChoicesRunMainWindowCleanupAndStopVoltagePollingParameters
     : public MainWindowTest,
-      public ::testing::WithParamInterface<handledDensoTcuReadChoicesRunMainWindowCleanupAndStopVoltagePollingCase>
+      public ::testing::WithParamInterface<HandledDensoTcuReadChoicesRunMainWindowCleanupAndStopVoltagePollingCase>
 {
 };
 INSTANTIATE_TEST_SUITE_P(
-    Rows, handledDensoTcuReadChoicesRunMainWindowCleanupAndStopVoltagePollingParameters,
+    Rows, HandledDensoTcuReadChoicesRunMainWindowCleanupAndStopVoltagePollingParameters,
     ::testing::ValuesIn(handledDensoTcuReadChoicesRunMainWindowCleanupAndStopVoltagePollingRows()),
-    [](const ::testing::TestParamInfo<handledDensoTcuReadChoicesRunMainWindowCleanupAndStopVoltagePollingCase>& info)
+    [](const ::testing::TestParamInfo<HandledDensoTcuReadChoicesRunMainWindowCleanupAndStopVoltagePollingCase>& info)
     {
         auto name = info.param.name;
         for (char& c : name)
@@ -1260,39 +1260,39 @@ void MainWindowTest::check_handledDensoTcuReadChoicesRunMainWindowCleanupAndStop
                                     [&](const auto& arguments) { return std::get<0>(arguments) == expected_line; }));
 }
 
-TEST_P(handledDensoTcuReadChoicesRunMainWindowCleanupAndStopVoltagePollingParameters,
+TEST_P(HandledDensoTcuReadChoicesRunMainWindowCleanupAndStopVoltagePollingParameters,
        handledDensoTcuReadChoicesRunMainWindowCleanupAndStopVoltagePolling)
 {
     ASSERT_NO_FATAL_FAILURE(check_handledDensoTcuReadChoicesRunMainWindowCleanupAndStopVoltagePolling(
         GetParam().choice, GetParam().expected_ignition_count));
 }
 
-struct futureDensoSuffixesDoNotInstantiateKlineOrPerformEcuIoCase
+struct FutureDensoSuffixesDoNotInstantiateKlineOrPerformEcuIoCase
 {
     std::string name;
     QString protocol;
 };
-std::vector<futureDensoSuffixesDoNotInstantiateKlineOrPerformEcuIoCase>
+std::vector<FutureDensoSuffixesDoNotInstantiateKlineOrPerformEcuIoCase>
 futureDensoSuffixesDoNotInstantiateKlineOrPerformEcuIoRows()
 {
-    std::vector<futureDensoSuffixesDoNotInstantiateKlineOrPerformEcuIoCase> rows;
+    std::vector<FutureDensoSuffixesDoNotInstantiateKlineOrPerformEcuIoCase> rows;
 
-    rows.push_back(futureDensoSuffixesDoNotInstantiateKlineOrPerformEcuIoCase{
+    rows.push_back(FutureDensoSuffixesDoNotInstantiateKlineOrPerformEcuIoCase{
         "future-can", QString("sub_ecu_denso_sh7058_can_future")});
-    rows.push_back(futureDensoSuffixesDoNotInstantiateKlineOrPerformEcuIoCase{
+    rows.push_back(FutureDensoSuffixesDoNotInstantiateKlineOrPerformEcuIoCase{
         "extra-densocan", QString("sub_ecu_denso_sh7058_densocan_extra")});
 
     return rows;
 }
-class futureDensoSuffixesDoNotInstantiateKlineOrPerformEcuIoParameters
+class FutureDensoSuffixesDoNotInstantiateKlineOrPerformEcuIoParameters
     : public MainWindowTest,
-      public ::testing::WithParamInterface<futureDensoSuffixesDoNotInstantiateKlineOrPerformEcuIoCase>
+      public ::testing::WithParamInterface<FutureDensoSuffixesDoNotInstantiateKlineOrPerformEcuIoCase>
 {
 };
 INSTANTIATE_TEST_SUITE_P(
-    Rows, futureDensoSuffixesDoNotInstantiateKlineOrPerformEcuIoParameters,
+    Rows, FutureDensoSuffixesDoNotInstantiateKlineOrPerformEcuIoParameters,
     ::testing::ValuesIn(futureDensoSuffixesDoNotInstantiateKlineOrPerformEcuIoRows()),
-    [](const ::testing::TestParamInfo<futureDensoSuffixesDoNotInstantiateKlineOrPerformEcuIoCase>& info)
+    [](const ::testing::TestParamInfo<FutureDensoSuffixesDoNotInstantiateKlineOrPerformEcuIoCase>& info)
     {
         auto name = info.param.name;
         for (char& c : name)
@@ -1337,45 +1337,45 @@ void MainWindowTest::check_futureDensoSuffixesDoNotInstantiateKlineOrPerformEcuI
     ASSERT_EQ(operation_driver.unexpectedFlashDialogCount(), 0);
 }
 
-TEST_P(futureDensoSuffixesDoNotInstantiateKlineOrPerformEcuIoParameters,
+TEST_P(FutureDensoSuffixesDoNotInstantiateKlineOrPerformEcuIoParameters,
        futureDensoSuffixesDoNotInstantiateKlineOrPerformEcuIo)
 {
     ASSERT_NO_FATAL_FAILURE(check_futureDensoSuffixesDoNotInstantiateKlineOrPerformEcuIo(GetParam().protocol));
 }
 
-struct representativePortableRoutesReachFactoryBeforeLegacyFallbackCase
+struct RepresentativePortableRoutesReachFactoryBeforeLegacyFallbackCase
 {
     std::string name;
     QString protocol;
 };
-std::vector<representativePortableRoutesReachFactoryBeforeLegacyFallbackCase>
+std::vector<RepresentativePortableRoutesReachFactoryBeforeLegacyFallbackCase>
 representativePortableRoutesReachFactoryBeforeLegacyFallbackRows()
 {
-    std::vector<representativePortableRoutesReachFactoryBeforeLegacyFallbackCase> rows;
+    std::vector<RepresentativePortableRoutesReachFactoryBeforeLegacyFallbackCase> rows;
 
-    rows.push_back(representativePortableRoutesReachFactoryBeforeLegacyFallbackCase{
+    rows.push_back(RepresentativePortableRoutesReachFactoryBeforeLegacyFallbackCase{
         "petrol", QString("sub_ecu_denso_sh7058_can")});
-    rows.push_back(representativePortableRoutesReachFactoryBeforeLegacyFallbackCase{
+    rows.push_back(RepresentativePortableRoutesReachFactoryBeforeLegacyFallbackCase{
         "densocan", QString("sub_ecu_denso_sh7058_densocan")});
     // The Denso SH705x K-Line family (sub_ecu_denso_sh7055_04*
     // and sub_ecu_denso_sh7058*) moved off FlashEcuSubaruDensoSH705xKline
     // onto this same portable factory path; see
     // exactDensoKlineIdsStillDispatchToTheLegacyKlineDialog in prior
     // revisions of this file for the characterization test this replaces.
-    rows.push_back(representativePortableRoutesReachFactoryBeforeLegacyFallbackCase{"denso_sh705x_kline",
+    rows.push_back(RepresentativePortableRoutesReachFactoryBeforeLegacyFallbackCase{"denso_sh705x_kline",
                                                                                     QString("sub_ecu_denso_sh7058")});
 
     return rows;
 }
-class representativePortableRoutesReachFactoryBeforeLegacyFallbackParameters
+class RepresentativePortableRoutesReachFactoryBeforeLegacyFallbackParameters
     : public MainWindowTest,
-      public ::testing::WithParamInterface<representativePortableRoutesReachFactoryBeforeLegacyFallbackCase>
+      public ::testing::WithParamInterface<RepresentativePortableRoutesReachFactoryBeforeLegacyFallbackCase>
 {
 };
 INSTANTIATE_TEST_SUITE_P(
-    Rows, representativePortableRoutesReachFactoryBeforeLegacyFallbackParameters,
+    Rows, RepresentativePortableRoutesReachFactoryBeforeLegacyFallbackParameters,
     ::testing::ValuesIn(representativePortableRoutesReachFactoryBeforeLegacyFallbackRows()),
-    [](const ::testing::TestParamInfo<representativePortableRoutesReachFactoryBeforeLegacyFallbackCase>& info)
+    [](const ::testing::TestParamInfo<RepresentativePortableRoutesReachFactoryBeforeLegacyFallbackCase>& info)
     {
         auto name = info.param.name;
         for (char& c : name)
@@ -1419,7 +1419,7 @@ void MainWindowTest::check_representativePortableRoutesReachFactoryBeforeLegacyF
     ASSERT_EQ(operation_driver.portableEcuIgnitionCount(), 1);
 }
 
-TEST_P(representativePortableRoutesReachFactoryBeforeLegacyFallbackParameters,
+TEST_P(RepresentativePortableRoutesReachFactoryBeforeLegacyFallbackParameters,
        representativePortableRoutesReachFactoryBeforeLegacyFallback)
 {
     ASSERT_NO_FATAL_FAILURE(check_representativePortableRoutesReachFactoryBeforeLegacyFallback(GetParam().protocol));
@@ -1427,26 +1427,26 @@ TEST_P(representativePortableRoutesReachFactoryBeforeLegacyFallbackParameters,
 
 // Write and Test Write share one preflight, so each of its early returns is
 // pinned for both commands.
-struct writeCommandCase
+struct WriteCommandCase
 {
     std::string name;
     QString command;
 };
-std::vector<writeCommandCase> writeCommandRows()
+std::vector<WriteCommandCase> writeCommandRows()
 {
-    return {writeCommandCase{"write", "write"}, writeCommandCase{"test_write", "test_write"}};
+    return {WriteCommandCase{"write", "write"}, WriteCommandCase{"test_write", "test_write"}};
 }
-std::string writeCommandName(const ::testing::TestParamInfo<writeCommandCase>& info)
+std::string writeCommandName(const ::testing::TestParamInfo<WriteCommandCase>& info)
 {
     return info.param.name;
 }
 
-class writeWithoutASelectedCalibrationStopsVoltagePollingParameters
+class WriteWithoutASelectedCalibrationStopsVoltagePollingParameters
     : public MainWindowTest,
-      public ::testing::WithParamInterface<writeCommandCase>
+      public ::testing::WithParamInterface<WriteCommandCase>
 {
 };
-INSTANTIATE_TEST_SUITE_P(Rows, writeWithoutASelectedCalibrationStopsVoltagePollingParameters,
+INSTANTIATE_TEST_SUITE_P(Rows, WriteWithoutASelectedCalibrationStopsVoltagePollingParameters,
                          ::testing::ValuesIn(writeCommandRows()), writeCommandName);
 void MainWindowTest::check_writeWithoutASelectedCalibrationStopsVoltagePolling(QString command)
 {
@@ -1478,7 +1478,7 @@ void MainWindowTest::check_writeWithoutASelectedCalibrationStopsVoltagePolling(Q
     ASSERT_TRUE(!window.vbatt_timer->isActive());
 }
 
-TEST_P(writeWithoutASelectedCalibrationStopsVoltagePollingParameters,
+TEST_P(WriteWithoutASelectedCalibrationStopsVoltagePollingParameters,
        writeWithoutASelectedCalibrationStopsVoltagePolling)
 {
     ASSERT_NO_FATAL_FAILURE(check_writeWithoutASelectedCalibrationStopsVoltagePolling(GetParam().command));
@@ -1551,11 +1551,11 @@ TEST_F(MainWindowTest, readOfAnUnsupportedProtocolAddsNoCalibration)
     ASSERT_NO_FATAL_FAILURE(check_readOfAnUnsupportedProtocolAddsNoCalibration());
 }
 
-class cancellingTheChecksumWarningStopsVoltagePollingParameters : public MainWindowTest,
-                                                                  public ::testing::WithParamInterface<writeCommandCase>
+class CancellingTheChecksumWarningStopsVoltagePollingParameters : public MainWindowTest,
+                                                                  public ::testing::WithParamInterface<WriteCommandCase>
 {
 };
-INSTANTIATE_TEST_SUITE_P(Rows, cancellingTheChecksumWarningStopsVoltagePollingParameters,
+INSTANTIATE_TEST_SUITE_P(Rows, CancellingTheChecksumWarningStopsVoltagePollingParameters,
                          ::testing::ValuesIn(writeCommandRows()), writeCommandName);
 void MainWindowTest::check_cancellingTheChecksumWarningStopsVoltagePolling(QString command)
 {
@@ -1597,7 +1597,7 @@ void MainWindowTest::check_cancellingTheChecksumWarningStopsVoltagePolling(QStri
     ASSERT_TRUE(!window.vbatt_timer->isActive());
 }
 
-TEST_P(cancellingTheChecksumWarningStopsVoltagePollingParameters, cancellingTheChecksumWarningStopsVoltagePolling)
+TEST_P(CancellingTheChecksumWarningStopsVoltagePollingParameters, cancellingTheChecksumWarningStopsVoltagePolling)
 {
     ASSERT_NO_FATAL_FAILURE(check_cancellingTheChecksumWarningStopsVoltagePolling(GetParam().command));
 }
@@ -2325,33 +2325,33 @@ TEST_F(MainWindowTest, loggingCapturesTargetForEachRun)
     ASSERT_NO_FATAL_FAILURE(check_loggingCapturesTargetForEachRun());
 }
 
-struct chooserDialogsApplyAcceptedChoicesAndIgnoreCancellationCase
+struct ChooserDialogsApplyAcceptedChoicesAndIgnoreCancellationCase
 {
     std::string name;
     bool protocol;
     bool accept;
 };
-std::vector<chooserDialogsApplyAcceptedChoicesAndIgnoreCancellationCase>
+std::vector<ChooserDialogsApplyAcceptedChoicesAndIgnoreCancellationCase>
 chooserDialogsApplyAcceptedChoicesAndIgnoreCancellationRows()
 {
-    std::vector<chooserDialogsApplyAcceptedChoicesAndIgnoreCancellationCase> rows;
+    std::vector<ChooserDialogsApplyAcceptedChoicesAndIgnoreCancellationCase> rows;
 
-    rows.push_back(chooserDialogsApplyAcceptedChoicesAndIgnoreCancellationCase{"vehicle-accept", false, true});
-    rows.push_back(chooserDialogsApplyAcceptedChoicesAndIgnoreCancellationCase{"vehicle-cancel", false, false});
-    rows.push_back(chooserDialogsApplyAcceptedChoicesAndIgnoreCancellationCase{"protocol-accept", true, true});
-    rows.push_back(chooserDialogsApplyAcceptedChoicesAndIgnoreCancellationCase{"protocol-cancel", true, false});
+    rows.push_back(ChooserDialogsApplyAcceptedChoicesAndIgnoreCancellationCase{"vehicle-accept", false, true});
+    rows.push_back(ChooserDialogsApplyAcceptedChoicesAndIgnoreCancellationCase{"vehicle-cancel", false, false});
+    rows.push_back(ChooserDialogsApplyAcceptedChoicesAndIgnoreCancellationCase{"protocol-accept", true, true});
+    rows.push_back(ChooserDialogsApplyAcceptedChoicesAndIgnoreCancellationCase{"protocol-cancel", true, false});
 
     return rows;
 }
-class chooserDialogsApplyAcceptedChoicesAndIgnoreCancellationParameters
+class ChooserDialogsApplyAcceptedChoicesAndIgnoreCancellationParameters
     : public MainWindowTest,
-      public ::testing::WithParamInterface<chooserDialogsApplyAcceptedChoicesAndIgnoreCancellationCase>
+      public ::testing::WithParamInterface<ChooserDialogsApplyAcceptedChoicesAndIgnoreCancellationCase>
 {
 };
 INSTANTIATE_TEST_SUITE_P(
-    Rows, chooserDialogsApplyAcceptedChoicesAndIgnoreCancellationParameters,
+    Rows, ChooserDialogsApplyAcceptedChoicesAndIgnoreCancellationParameters,
     ::testing::ValuesIn(chooserDialogsApplyAcceptedChoicesAndIgnoreCancellationRows()),
-    [](const ::testing::TestParamInfo<chooserDialogsApplyAcceptedChoicesAndIgnoreCancellationCase>& info)
+    [](const ::testing::TestParamInfo<ChooserDialogsApplyAcceptedChoicesAndIgnoreCancellationCase>& info)
     {
         auto name = info.param.name;
         for (char& c : name)
@@ -2494,7 +2494,7 @@ void MainWindowTest::check_chooserDialogsApplyAcceptedChoicesAndIgnoreCancellati
     ASSERT_EQ(*reread.config.selected_row(), accept ? expected : std::size_t{0});
 }
 
-TEST_P(chooserDialogsApplyAcceptedChoicesAndIgnoreCancellationParameters,
+TEST_P(ChooserDialogsApplyAcceptedChoicesAndIgnoreCancellationParameters,
        chooserDialogsApplyAcceptedChoicesAndIgnoreCancellation)
 {
     ASSERT_NO_FATAL_FAILURE(
@@ -3318,29 +3318,29 @@ TEST_F(MainWindowTest, unresolvedDisplaySlotsAreSkippedAndUpdateTheirOriginalLab
     ASSERT_NO_FATAL_FAILURE(check_unresolvedDisplaySlotsAreSkippedAndUpdateTheirOriginalLabels());
 }
 
-struct chooserDuplicateLabelIdentityCase
+struct ChooserDuplicateLabelIdentityCase
 {
     std::string name;
     int tab;
     QString kind;
 };
-std::vector<chooserDuplicateLabelIdentityCase> chooserDuplicateLabelIdentityRows()
+std::vector<ChooserDuplicateLabelIdentityCase> chooserDuplicateLabelIdentityRows()
 {
-    std::vector<chooserDuplicateLabelIdentityCase> rows;
+    std::vector<ChooserDuplicateLabelIdentityCase> rows;
 
-    rows.push_back(chooserDuplicateLabelIdentityCase{"gauge", 0, QString("Gauge")});
-    rows.push_back(chooserDuplicateLabelIdentityCase{"digital", 1, QString("Digital")});
-    rows.push_back(chooserDuplicateLabelIdentityCase{"switch", 2, QString("Switch")});
+    rows.push_back(ChooserDuplicateLabelIdentityCase{"gauge", 0, QString("Gauge")});
+    rows.push_back(ChooserDuplicateLabelIdentityCase{"digital", 1, QString("Digital")});
+    rows.push_back(ChooserDuplicateLabelIdentityCase{"switch", 2, QString("Switch")});
 
     return rows;
 }
-class chooserDuplicateLabelIdentityParameters : public MainWindowTest,
-                                                public ::testing::WithParamInterface<chooserDuplicateLabelIdentityCase>
+class ChooserDuplicateLabelIdentityParameters : public MainWindowTest,
+                                                public ::testing::WithParamInterface<ChooserDuplicateLabelIdentityCase>
 {
 };
-INSTANTIATE_TEST_SUITE_P(Rows, chooserDuplicateLabelIdentityParameters,
+INSTANTIATE_TEST_SUITE_P(Rows, ChooserDuplicateLabelIdentityParameters,
                          ::testing::ValuesIn(chooserDuplicateLabelIdentityRows()),
-                         [](const ::testing::TestParamInfo<chooserDuplicateLabelIdentityCase>& info)
+                         [](const ::testing::TestParamInfo<ChooserDuplicateLabelIdentityCase>& info)
                          {
                              auto name = info.param.name;
                              for (char& c : name)
@@ -3397,7 +3397,7 @@ void MainWindowTest::check_chooserDuplicateLabelIdentity(int tab, QString kind)
     ASSERT_EQ(selected.protocol, std::string("SSM"));
 }
 
-TEST_P(chooserDuplicateLabelIdentityParameters, chooserDuplicateLabelIdentity)
+TEST_P(ChooserDuplicateLabelIdentityParameters, chooserDuplicateLabelIdentity)
 {
     ASSERT_NO_FATAL_FAILURE(check_chooserDuplicateLabelIdentity(GetParam().tab, GetParam().kind));
 }
@@ -3460,28 +3460,28 @@ TEST_F(MainWindowTest, csvSharedIdProtocolIdentity)
     ASSERT_NO_FATAL_FAILURE(check_csvSharedIdProtocolIdentity());
 }
 
-struct loggingStartWaitsForIdentificationCase
+struct LoggingStartWaitsForIdentificationCase
 {
     std::string name;
     bool target_is_ecu;
 };
-std::vector<loggingStartWaitsForIdentificationCase> loggingStartWaitsForIdentificationRows()
+std::vector<LoggingStartWaitsForIdentificationCase> loggingStartWaitsForIdentificationRows()
 {
-    std::vector<loggingStartWaitsForIdentificationCase> rows;
+    std::vector<LoggingStartWaitsForIdentificationCase> rows;
 
-    rows.push_back(loggingStartWaitsForIdentificationCase{"ECU", true});
-    rows.push_back(loggingStartWaitsForIdentificationCase{"TCU", false});
+    rows.push_back(LoggingStartWaitsForIdentificationCase{"ECU", true});
+    rows.push_back(LoggingStartWaitsForIdentificationCase{"TCU", false});
 
     return rows;
 }
-class loggingStartWaitsForIdentificationParameters
+class LoggingStartWaitsForIdentificationParameters
     : public MainWindowTest,
-      public ::testing::WithParamInterface<loggingStartWaitsForIdentificationCase>
+      public ::testing::WithParamInterface<LoggingStartWaitsForIdentificationCase>
 {
 };
-INSTANTIATE_TEST_SUITE_P(Rows, loggingStartWaitsForIdentificationParameters,
+INSTANTIATE_TEST_SUITE_P(Rows, LoggingStartWaitsForIdentificationParameters,
                          ::testing::ValuesIn(loggingStartWaitsForIdentificationRows()),
-                         [](const ::testing::TestParamInfo<loggingStartWaitsForIdentificationCase>& info)
+                         [](const ::testing::TestParamInfo<LoggingStartWaitsForIdentificationCase>& info)
                          {
                              auto name = info.param.name;
                              for (char& c : name)
@@ -3563,7 +3563,7 @@ void MainWindowTest::check_loggingStartWaitsForIdentification(bool target_is_ecu
     services.logging_engine.stop();
 }
 
-TEST_P(loggingStartWaitsForIdentificationParameters, loggingStartWaitsForIdentification)
+TEST_P(LoggingStartWaitsForIdentificationParameters, loggingStartWaitsForIdentification)
 {
     ASSERT_NO_FATAL_FAILURE(check_loggingStartWaitsForIdentification(GetParam().target_is_ecu));
 }
@@ -3657,31 +3657,31 @@ TEST_F(MainWindowTest, connectStopsAnActiveLoggingWorkerBeforeIdentification)
     ASSERT_NO_FATAL_FAILURE(check_connectStopsAnActiveLoggingWorkerBeforeIdentification());
 }
 
-struct connectionEntryPointsStopIdentificationCase
+struct ConnectionEntryPointsStopIdentificationCase
 {
     std::string name;
     QString entry_point;
 };
-std::vector<connectionEntryPointsStopIdentificationCase> connectionEntryPointsStopIdentificationRows()
+std::vector<ConnectionEntryPointsStopIdentificationCase> connectionEntryPointsStopIdentificationRows()
 {
-    std::vector<connectionEntryPointsStopIdentificationCase> rows;
+    std::vector<ConnectionEntryPointsStopIdentificationCase> rows;
 
     for (const char *name : {"log_transport_changed", "check_serial_ports", "open_serial_port", "show_dtc_window",
                              "show_subaru_biu_window", "show_terminal_window"})
     {
-        rows.push_back(connectionEntryPointsStopIdentificationCase{name, QString::fromLatin1(name)});
+        rows.push_back(ConnectionEntryPointsStopIdentificationCase{name, QString::fromLatin1(name)});
     }
 
     return rows;
 }
-class connectionEntryPointsStopIdentificationParameters
+class ConnectionEntryPointsStopIdentificationParameters
     : public MainWindowTest,
-      public ::testing::WithParamInterface<connectionEntryPointsStopIdentificationCase>
+      public ::testing::WithParamInterface<ConnectionEntryPointsStopIdentificationCase>
 {
 };
-INSTANTIATE_TEST_SUITE_P(Rows, connectionEntryPointsStopIdentificationParameters,
+INSTANTIATE_TEST_SUITE_P(Rows, ConnectionEntryPointsStopIdentificationParameters,
                          ::testing::ValuesIn(connectionEntryPointsStopIdentificationRows()),
-                         [](const ::testing::TestParamInfo<connectionEntryPointsStopIdentificationCase>& info)
+                         [](const ::testing::TestParamInfo<ConnectionEntryPointsStopIdentificationCase>& info)
                          {
                              auto name = info.param.name;
                              for (char& c : name)
@@ -3748,7 +3748,7 @@ void MainWindowTest::check_connectionEntryPointsStopIdentification(QString entry
     ASSERT_TRUE(!window.ecu_init_complete);
 }
 
-TEST_P(connectionEntryPointsStopIdentificationParameters, connectionEntryPointsStopIdentification)
+TEST_P(ConnectionEntryPointsStopIdentificationParameters, connectionEntryPointsStopIdentification)
 {
     ASSERT_NO_FATAL_FAILURE(check_connectionEntryPointsStopIdentification(GetParam().entry_point));
 }

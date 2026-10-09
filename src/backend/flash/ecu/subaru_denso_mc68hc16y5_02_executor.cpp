@@ -416,7 +416,7 @@ Result<bytes::Bytes> SubaruDensoMc68hc16y5_02Executor::read_mem(IKlineFlashTrans
     // Legacy lines 370-380 jump the wire address across the RAM/kernel hole
     // but pad desktop FullRomData with 0xff there. The portable boundary uses
     // a packed ROM instead, so concatenate real flash blocks and omit the hole.
-    const flashdev_t *device = find_flash_device(mcu_name);
+    const FlashDevice *device = find_flash_device(mcu_name);
     if (device == nullptr)
     {
         return fail(ErrorKind::InvalidConfig, "Unknown MCU type");
@@ -638,7 +638,7 @@ Status SubaruDensoMc68hc16y5_02Executor::write_mem(IKlineFlashTransport& transpo
                                                    bytes::ByteView image, const std::string& mcu_name,
                                                    bool test_write) const
 {
-    const flashdev_t *device = find_flash_device(mcu_name);
+    const FlashDevice *device = find_flash_device(mcu_name);
     if (device == nullptr)
     {
         return fail(ErrorKind::InvalidConfig, "Unknown MCU type");

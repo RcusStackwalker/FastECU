@@ -105,7 +105,7 @@ Status validate_image(FlashOperation operation, const std::optional<bytes::Bytes
 
 namespace detail
 {
-Status validate_subaru_denso_sh705x_kline_geometry(const flashdev_t& device)
+Status validate_subaru_denso_sh705x_kline_geometry(const FlashDevice& device)
 {
     using enum ErrorKind;
     // Correction: flash_block() loops `remain -= 0x200` and
@@ -170,7 +170,7 @@ Status validate_subaru_denso_sh705x_kline_plan(const FlashPlan& plan)
     {
         return valid;
     }
-    const flashdev_t *device = find_flash_device(plan.mcu_name());
+    const FlashDevice *device = find_flash_device(plan.mcu_name());
     if (device == nullptr)
     {
         return fail(InvalidConfig, "Unknown MCU type");
@@ -206,7 +206,7 @@ Result<FlashPlan> build_subaru_denso_sh705x_kline_plan(FlashOperation operation,
     {
         return std::unexpected(valid.error());
     }
-    const flashdev_t *device = find_flash_device(mcu_type);
+    const FlashDevice *device = find_flash_device(mcu_type);
     if (device == nullptr)
     {
         return fail(InvalidConfig, "Unknown MCU type");

@@ -54,7 +54,7 @@ std::optional<bytes::Bytes> imageFor(const config::ProtocolSpec& protocol, Flash
     {
         return std::nullopt;
     }
-    const flashdev_t *device = find_flash_device(protocol.mcu);
+    const FlashDevice *device = find_flash_device(protocol.mcu);
     return bytes::Bytes(device != nullptr ? device->romsize : 0U, 0xFF);
 }
 

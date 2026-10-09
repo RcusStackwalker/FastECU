@@ -172,24 +172,24 @@ TEST(TestDesktopKlineFlashTransport, configureChecksEveryBooleanSetterInOrderAnd
     ASSERT_EQ(result.error().kind, ErrorKind::InvalidConfig);
 }
 
-struct configureFailsAtEachRemainingSetterInTurnCase
+struct ConfigureFailsAtEachRemainingSetterInTurnCase
 {
     std::string name;
     int setterIndex;
 };
-class configureFailsAtEachRemainingSetterInTurnParameters
+class ConfigureFailsAtEachRemainingSetterInTurnParameters
     : public ::testing::Test,
-      public ::testing::WithParamInterface<configureFailsAtEachRemainingSetterInTurnCase>
+      public ::testing::WithParamInterface<ConfigureFailsAtEachRemainingSetterInTurnCase>
 {
 };
 
 INSTANTIATE_TEST_SUITE_P(
-    Rows, configureFailsAtEachRemainingSetterInTurnParameters,
-    ::testing::Values(configureFailsAtEachRemainingSetterInTurnCase{"set_is_iso14230_connection", 0},
-                      configureFailsAtEachRemainingSetterInTurnCase{"set_is_can_connection", 1},
-                      configureFailsAtEachRemainingSetterInTurnCase{"set_is_29_bit_id", 3},
-                      configureFailsAtEachRemainingSetterInTurnCase{"set_serial_port_baudrate", 4}),
-    [](const ::testing::TestParamInfo<configureFailsAtEachRemainingSetterInTurnCase>& info)
+    Rows, ConfigureFailsAtEachRemainingSetterInTurnParameters,
+    ::testing::Values(ConfigureFailsAtEachRemainingSetterInTurnCase{"set_is_iso14230_connection", 0},
+                      ConfigureFailsAtEachRemainingSetterInTurnCase{"set_is_can_connection", 1},
+                      ConfigureFailsAtEachRemainingSetterInTurnCase{"set_is_29_bit_id", 3},
+                      ConfigureFailsAtEachRemainingSetterInTurnCase{"set_serial_port_baudrate", 4}),
+    [](const ::testing::TestParamInfo<ConfigureFailsAtEachRemainingSetterInTurnCase>& info)
     { return info.param.name; });
 
 // Data-driven sibling of configureChecksEveryBooleanSetterInOrderAndStops-
@@ -198,7 +198,7 @@ INSTANTIATE_TEST_SUITE_P(
 // return path independently. (The third setter,
 // set_is_iso15765_connection, is already covered by that test above, so
 // it is intentionally omitted here.)
-TEST_P(configureFailsAtEachRemainingSetterInTurnParameters, configureFailsAtEachRemainingSetterInTurn)
+TEST_P(ConfigureFailsAtEachRemainingSetterInTurnParameters, configureFailsAtEachRemainingSetterInTurn)
 {
     const int setterIndex = GetParam().setterIndex;
 

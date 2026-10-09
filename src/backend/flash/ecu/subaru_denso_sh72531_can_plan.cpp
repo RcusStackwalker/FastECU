@@ -23,7 +23,7 @@ constexpr std::uint32_t kTailPad = 0x100;
 
 // Unlike its N83M_1_5MB sibling, SH72531's flash table is self-consistent:
 // romsize (1280 KiB) equals its own fblocks sum, so it is checked here.
-bool geometry_ok(const flashdev_t& device)
+bool geometry_ok(const FlashDevice& device)
 {
     return device.numblocks == 3 && device.romsize == kImageSize && device.fblocks[0].start == kImageStart &&
            device.fblocks[1].start == kMainBlock.start && device.fblocks[1].len == kMainBlock.length;

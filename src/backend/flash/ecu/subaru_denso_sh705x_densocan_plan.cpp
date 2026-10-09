@@ -61,9 +61,9 @@ Status validate_identity(std::string_view protocol, std::string_view mcu, const 
     return {};
 }
 
-const flashdev_t *checked_device(const CatalogEntry& entry)
+const FlashDevice *checked_device(const CatalogEntry& entry)
 {
-    const flashdev_t *device = find_flash_device(entry.mcu);
+    const FlashDevice *device = find_flash_device(entry.mcu);
     if (device == nullptr || device->romsize != entry.rom_size || device->numblocks != 16 ||
         device->fblocks == nullptr || device->kblocks == nullptr)
     {
@@ -83,7 +83,7 @@ bool wire_parameters_match(const SubaruDensoSh705xDensoCanPlan& wire)
            wire.raw_receive_id == 0x21 && wire.bitrate == 500000 && !wire.iso_extended_id && wire.raw_extended_id;
 }
 
-Status validate_image(const FlashPlan& plan, const flashdev_t& device)
+Status validate_image(const FlashPlan& plan, const FlashDevice& device)
 {
     if (plan.operation() == FlashOperation::Read)
     {
@@ -115,7 +115,7 @@ Status validate_subaru_denso_sh705x_densocan_plan(const FlashPlan& plan)
     {
         return identity;
     }
-    const flashdev_t *device = checked_device(*entry);
+    const FlashDevice *device = checked_device(*entry);
     if (device == nullptr)
     {
         return fail(ErrorKind::InvalidConfig, "DensoCAN catalog does not match the flash device table");
@@ -151,7 +151,7 @@ Result<FlashPlan> build_subaru_denso_sh705x_densocan_plan(FlashOperation operati
     {
         return std::unexpected(identity.error());
     }
-    const flashdev_t *device = checked_device(*entry);
+    const FlashDevice *device = checked_device(*entry);
     if (device == nullptr)
     {
         return fail(ErrorKind::InvalidConfig, "DensoCAN catalog does not match the flash device table");

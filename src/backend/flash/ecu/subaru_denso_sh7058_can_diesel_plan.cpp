@@ -63,9 +63,9 @@ Status validate_identity(std::string_view protocol, std::string_view mcu, const 
     return {};
 }
 
-const flashdev_t *checked_device(const CatalogEntry& entry)
+const FlashDevice *checked_device(const CatalogEntry& entry)
 {
-    const flashdev_t *device = find_flash_device(entry.mcu);
+    const FlashDevice *device = find_flash_device(entry.mcu);
     if (device == nullptr || device->romsize != entry.rom_size || device->numblocks != 16 ||
         device->fblocks == nullptr || device->kblocks == nullptr)
     {
@@ -79,7 +79,7 @@ bool wire_parameters_match(const SubaruDensoSh7058CanDieselPlan& wire)
     return wire.request_id == 0x7E0 && wire.response_id == 0x7E8 && wire.bitrate == 500000 && !wire.extended_id;
 }
 
-Status validate_image(const FlashPlan& plan, const flashdev_t& device)
+Status validate_image(const FlashPlan& plan, const FlashDevice& device)
 {
     if (plan.operation() == FlashOperation::Read)
     {
@@ -111,7 +111,7 @@ Status validate_subaru_denso_sh7058_can_diesel_plan(const FlashPlan& plan)
     {
         return fail(ErrorKind::InvalidConfig, "diesel CAN wire parameters are invalid");
     }
-    const flashdev_t *device = checked_device(*entry);
+    const FlashDevice *device = checked_device(*entry);
     if (device == nullptr)
     {
         return fail(ErrorKind::InvalidConfig, "diesel catalog does not match the flash device table");
@@ -146,7 +146,7 @@ Result<FlashPlan> build_subaru_denso_sh7058_can_diesel_plan(FlashOperation opera
     {
         return std::unexpected(identity.error());
     }
-    const flashdev_t *device = checked_device(*entry);
+    const FlashDevice *device = checked_device(*entry);
     if (device == nullptr)
     {
         return fail(ErrorKind::InvalidConfig, "diesel catalog does not match the flash device table");

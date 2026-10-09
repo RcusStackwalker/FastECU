@@ -167,7 +167,7 @@ void script_session(ScriptedKlineFlashTransport& t, bytes::ByteView key = {}, st
 }
 
 // check_romcrc():812-831 -- CRC [addr32, 00, len24] -> BE EF len 42 crc32 sum8.
-bytes::Bytes crc_request(const flashblock& block)
+bytes::Bytes crc_request(const FlashBlock& block)
 {
     return beef(0x02, composeBe(block.start, 0x00_b, u24(block.len)));
 }
@@ -801,10 +801,10 @@ void script_compare(ScriptedKlineFlashTransport& t, std::string_view mcu, const 
                     const std::vector<unsigned>& differing)
 {
     auto s = t.section("compare");
-    const flashdev_t *device = find_flash_device(mcu);
+    const FlashDevice *device = find_flash_device(mcu);
     for (unsigned i = 0; i < device->numblocks; ++i)
     {
-        const flashblock& block = device->fblocks[i];
+        const FlashBlock& block = device->fblocks[i];
         std::uint32_t crc = fastecu::checksum::crc32(bytes::ByteView(image).subspan(block.start, block.len));
         if (std::ranges::find(differing, i) != differing.end())
         {
@@ -824,7 +824,7 @@ void script_init(ScriptedKlineFlashTransport& t, std::uint8_t mode_opcode)
 }
 // reflash_block():1068-1105 PROG_VOLT, then flash_block():1155-1357 BLANK_PAGE,
 // 0x200-byte WRITE_FLASH_BUFFER chunks and a COMMIT/VALIDATE per 0x1000.
-void script_reflash(ScriptedKlineFlashTransport& t, const bytes::Bytes& image, const flashblock& block,
+void script_reflash(ScriptedKlineFlashTransport& t, const bytes::Bytes& image, const FlashBlock& block,
                     std::uint8_t commit_opcode)
 {
     auto s = t.section("reflash_block");
@@ -875,7 +875,7 @@ TEST(SubaruDensoSh705xKlineExecutor, WriteReflashesOnlyChangedBlocksWithCommit)
 {
     Harness h;
     const bytes::Bytes image = sh7055_image();
-    const flashdev_t *device = find_flash_device("SH7055");
+    const FlashDevice *device = find_flash_device("SH7055");
     script_session(h.transport);
     script_compare(h.transport, "SH7055", image, {1, 8});
     script_init(h.transport, 0x20);
@@ -897,7 +897,7 @@ TEST(SubaruDensoSh705xKlineExecutor, TestWriteUsesFlashDisableAndValidateNeverEn
 {
     Harness h;
     const bytes::Bytes image = sh7055_image();
-    const flashdev_t *device = find_flash_device("SH7055");
+    const FlashDevice *device = find_flash_device("SH7055");
     script_session(h.transport);
     script_compare(h.transport, "SH7055", image, {0});
     script_init(h.transport, 0x21);
@@ -935,7 +935,7 @@ TEST(SubaruDensoSh705xKlineExecutor, WriteThatStillDiffersAfterReflashFails)
     // Correction: legacy logged "ERROR IN FLASH PROCESS" and returned success.
     Harness h;
     const bytes::Bytes image = sh7055_image();
-    const flashdev_t *device = find_flash_device("SH7055");
+    const FlashDevice *device = find_flash_device("SH7055");
     script_session(h.transport);
     script_compare(h.transport, "SH7055", image, {2});
     script_init(h.transport, 0x20);
@@ -965,8 +965,8 @@ TEST(SubaruDensoSh705xKlineExecutor, ShortCrcReplyIsRejectedBeforeParsing)
 TEST(SubaruDensoSh705xKlineExecutor, EachRejectedWriteStepStopsLaterCommands)
 {
     // Reject PROG_VOLT, BLANK_PAGE, the first WRITE_FLASH_BUFFER, then COMMIT.
-    const flashdev_t *device = find_flash_device("SH7055");
-    const flashblock block = device->fblocks[0];
+    const FlashDevice *device = find_flash_device("SH7055");
+    const FlashBlock block = device->fblocks[0];
     const bytes::Bytes image = sh7055_image();
     const std::uint32_t crc0 = fastecu::checksum::crc32(bytes::ByteView(image).subspan(0, 0x1000));
     const std::vector<std::vector<std::pair<bytes::Bytes, bytes::Bytes>>> prefixes{

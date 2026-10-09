@@ -77,7 +77,7 @@ Result<FlashPlan> build_subaru_hitachi_sh7058_plan(FlashOperation operation, std
     {
         return fail(ErrorKind::InvalidConfig, "unsupported SH7058 protocol or MCU");
     }
-    const flashdev_t *device = find_flash_device(kMcu);
+    const FlashDevice *device = find_flash_device(kMcu);
     if (device == nullptr || device->romsize != kSize || device->numblocks != 1 || device->fblocks == nullptr ||
         device->fblocks[0].start != 0 || device->fblocks[0].len != kSize)
     {

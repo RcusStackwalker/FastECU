@@ -483,7 +483,7 @@ Status erase_flash(ICanFlashTransport& transport, IClock& clock, const ICancella
 
 // Legacy reflash_block (operation.cpp:712-923).
 Status reflash_block(ICanFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
-                     IEventSink& events, const SubaruTcuHitachiM32rCanPlan& plan, const flashblock& block,
+                     IEventSink& events, const SubaruTcuHitachiM32rCanPlan& plan, const FlashBlock& block,
                      bytes::ByteView encrypted, std::uint32_t& written, std::uint32_t total)
 {
     const std::uint32_t frame_size = plan.write_frame_size;
@@ -601,7 +601,7 @@ Status reflash_block(ICanFlashTransport& transport, IClock& clock, const ICancel
 Status write_rom(ICanFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
                  IEventSink& events, const SubaruTcuHitachiM32rCanPlan& plan, const FlashPlan& flash_plan)
 {
-    const flashdev_t *device = find_flash_device(flash_plan.mcu_name());
+    const FlashDevice *device = find_flash_device(flash_plan.mcu_name());
     if (device == nullptr || device->fblocks == nullptr)
     {
         return fail(ErrorKind::InvalidConfig, "Subaru TCU Hitachi M32R CAN flash geometry is invalid");

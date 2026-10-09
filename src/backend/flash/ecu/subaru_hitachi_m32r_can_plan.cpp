@@ -14,7 +14,7 @@ constexpr std::array kProtocols{std::string_view{"sub_ecu_hitachi_m32r_can"}};
 
 constexpr MemoryRegion kRom{0, 0x80000};
 
-bool geometry_ok(const flashdev_t& device)
+bool geometry_ok(const FlashDevice& device)
 {
     return device.romsize == kRom.length && device.numblocks == 1 && device.fblocks[0].start == kRom.start &&
            device.fblocks[0].len == kRom.length;

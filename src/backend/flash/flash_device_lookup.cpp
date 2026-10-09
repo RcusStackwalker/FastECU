@@ -15,7 +15,7 @@ int find_flash_device_index(std::string_view mcu_type)
     return -1;
 }
 
-const flashdev_t *find_flash_device(std::string_view mcu_type)
+const FlashDevice *find_flash_device(std::string_view mcu_type)
 {
     const int index = find_flash_device_index(mcu_type);
     if (index < 0)

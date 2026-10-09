@@ -162,34 +162,34 @@ void expect_start_error(fastecu::Status result, fastecu::ErrorKind kind, std::st
 
 } // namespace
 
-struct start_rejectionsCase
+struct StartRejectionsCase
 {
     std::string name;
     int source;
     int kind;
     QString detail;
 };
-class start_rejectionsParameters : public ::testing::Test, public ::testing::WithParamInterface<start_rejectionsCase>
+class StartRejectionsParameters : public ::testing::Test, public ::testing::WithParamInterface<StartRejectionsCase>
 {
 };
 
 INSTANTIATE_TEST_SUITE_P(
-    Rows, start_rejectionsParameters,
-    ::testing::Values(start_rejectionsCase{"active_run", 0, static_cast<int>(fastecu::ErrorKind::InvalidConfig),
-                                           QString("a logging run is already active")},
-                      start_rejectionsCase{"unknown_ID", 1, static_cast<int>(fastecu::ErrorKind::InvalidConfig),
-                                           QString("no logging protocol registered for 'NOPE'")},
-                      start_rejectionsCase{"null_factory_value", 2, static_cast<int>(fastecu::ErrorKind::Internal),
-                                           QString("protocol factory for 'TEST' returned null")},
-                      start_rejectionsCase{"returned_error", 3, static_cast<int>(fastecu::ErrorKind::Disconnected),
-                                           QString("open failed")},
-                      start_rejectionsCase{"std_exception", 4, static_cast<int>(fastecu::ErrorKind::Internal),
-                                           QString("driver setup exploded")},
-                      start_rejectionsCase{"unknown_exception", 5, static_cast<int>(fastecu::ErrorKind::Internal),
-                                           QString("protocol factory threw an unknown exception")}),
-    [](const ::testing::TestParamInfo<start_rejectionsCase>& info) { return info.param.name; });
+    Rows, StartRejectionsParameters,
+    ::testing::Values(StartRejectionsCase{"active_run", 0, static_cast<int>(fastecu::ErrorKind::InvalidConfig),
+                                          QString("a logging run is already active")},
+                      StartRejectionsCase{"unknown_ID", 1, static_cast<int>(fastecu::ErrorKind::InvalidConfig),
+                                          QString("no logging protocol registered for 'NOPE'")},
+                      StartRejectionsCase{"null_factory_value", 2, static_cast<int>(fastecu::ErrorKind::Internal),
+                                          QString("protocol factory for 'TEST' returned null")},
+                      StartRejectionsCase{"returned_error", 3, static_cast<int>(fastecu::ErrorKind::Disconnected),
+                                          QString("open failed")},
+                      StartRejectionsCase{"std_exception", 4, static_cast<int>(fastecu::ErrorKind::Internal),
+                                          QString("driver setup exploded")},
+                      StartRejectionsCase{"unknown_exception", 5, static_cast<int>(fastecu::ErrorKind::Internal),
+                                          QString("protocol factory threw an unknown exception")}),
+    [](const ::testing::TestParamInfo<StartRejectionsCase>& info) { return info.param.name; });
 
-TEST_P(start_rejectionsParameters, start_rejections)
+TEST_P(StartRejectionsParameters, start_rejections)
 {
     const int source = GetParam().source;
     const int kind = GetParam().kind;

@@ -167,7 +167,7 @@ bool has_route(std::string_view make, std::string_view flash_method)
 
 ChecksumCorrectionOutcome apply_checksum_correction(bytes::ByteView rom_data, const ChecksumSelection& selection)
 {
-    const flashdev_t *device = fastecu::flash::find_flash_device(selection.mcu_type);
+    const FlashDevice *device = fastecu::flash::find_flash_device(selection.mcu_type);
     if (device == nullptr)
     {
         return {.status = ChecksumCorrectionOutcome::Status::UnknownMcuType};

@@ -2,7 +2,7 @@
 
 namespace fastecu::flash::detail
 {
-Status validate_regions(const FlashPlan& plan, const flashdev_t& device)
+Status validate_regions(const FlashPlan& plan, const FlashDevice& device)
 {
     if (plan.transfer_region().start != device.fblocks[0].start || plan.transfer_region().length != device.romsize)
     {
@@ -21,7 +21,7 @@ Status validate_regions(const FlashPlan& plan, const flashdev_t& device)
     return {};
 }
 
-bool erase_geometry_matches(std::span<const MemoryRegion> regions, const flashdev_t& device)
+bool erase_geometry_matches(std::span<const MemoryRegion> regions, const FlashDevice& device)
 {
     if (regions.size() != device.numblocks)
     {
@@ -37,7 +37,7 @@ bool erase_geometry_matches(std::span<const MemoryRegion> regions, const flashde
     return true;
 }
 
-std::vector<MemoryRegion> make_erase_regions(const flashdev_t& device)
+std::vector<MemoryRegion> make_erase_regions(const FlashDevice& device)
 {
     std::vector<MemoryRegion> regions;
     regions.reserve(device.numblocks);

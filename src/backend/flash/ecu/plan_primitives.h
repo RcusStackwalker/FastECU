@@ -17,7 +17,7 @@ namespace fastecu::flash::detail
 // Callers validate the device table and reject empty kernels.
 template <std::uint64_t BlockSize>
 Status validate_kernel_upload(std::uint64_t size, std::uint32_t load_address, std::uint32_t expected_load_address,
-                              const kernelblock& region)
+                              const KernelBlock& region)
 {
     static_assert(BlockSize > 0);
     if (load_address != expected_load_address)
@@ -42,7 +42,7 @@ Status validate_kernel_upload(std::uint64_t size, std::uint32_t load_address, st
 
 // Callers validate the device table before comparing the block count and
 // ordered addresses and lengths.
-Status validate_regions(const FlashPlan& plan, const flashdev_t& device);
-bool erase_geometry_matches(std::span<const MemoryRegion> regions, const flashdev_t& device);
-std::vector<MemoryRegion> make_erase_regions(const flashdev_t& device);
+Status validate_regions(const FlashPlan& plan, const FlashDevice& device);
+bool erase_geometry_matches(std::span<const MemoryRegion> regions, const FlashDevice& device);
+std::vector<MemoryRegion> make_erase_regions(const FlashDevice& device);
 } // namespace fastecu::flash::detail

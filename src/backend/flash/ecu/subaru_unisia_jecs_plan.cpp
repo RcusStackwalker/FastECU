@@ -34,7 +34,7 @@ Status validate_identity(std::string_view protocol, std::string_view mcu)
         return fail(ErrorKind::InvalidConfig,
                     std::format("Unisia Jecs protocol '{}' does not match MCU '{}'", protocol, mcu));
     }
-    const flashdev_t *device = find_flash_device(mcu);
+    const FlashDevice *device = find_flash_device(mcu);
     if (device == nullptr || device->romsize != kRom.length)
     {
         return fail(ErrorKind::InvalidConfig, "Unisia Jecs flash geometry is invalid");

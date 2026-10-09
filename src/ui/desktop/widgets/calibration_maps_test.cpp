@@ -117,7 +117,7 @@ QTableWidget *table_of(CalibrationMaps& map)
 }
 } // namespace
 
-struct layoutsAndRefreshCase
+struct LayoutsAndRefreshCase
 {
     std::string name;
     QString type;
@@ -128,18 +128,18 @@ struct layoutsAndRefreshCase
     int bodyRow;
     int bodyCol;
 };
-class layoutsAndRefreshParameters : public ::testing::Test, public ::testing::WithParamInterface<layoutsAndRefreshCase>
+class LayoutsAndRefreshParameters : public ::testing::Test, public ::testing::WithParamInterface<LayoutsAndRefreshCase>
 {
 };
 
-INSTANTIATE_TEST_SUITE_P(Rows, layoutsAndRefreshParameters,
-                         ::testing::Values(layoutsAndRefreshCase{"1D", "1D", 1, 1, 1, 1, 0, 0},
-                                           layoutsAndRefreshCase{"X_2D", "2D", 2, 1, 2, 2, 1, 0},
-                                           layoutsAndRefreshCase{"Y_2D", "2D", 1, 2, 2, 2, 0, 1},
-                                           layoutsAndRefreshCase{"3D", "3D", 2, 2, 3, 3, 1, 1}),
-                         [](const ::testing::TestParamInfo<layoutsAndRefreshCase>& info) { return info.param.name; });
+INSTANTIATE_TEST_SUITE_P(Rows, LayoutsAndRefreshParameters,
+                         ::testing::Values(LayoutsAndRefreshCase{"1D", "1D", 1, 1, 1, 1, 0, 0},
+                                           LayoutsAndRefreshCase{"X_2D", "2D", 2, 1, 2, 2, 1, 0},
+                                           LayoutsAndRefreshCase{"Y_2D", "2D", 1, 2, 2, 2, 0, 1},
+                                           LayoutsAndRefreshCase{"3D", "3D", 2, 2, 3, 3, 1, 1}),
+                         [](const ::testing::TestParamInfo<LayoutsAndRefreshCase>& info) { return info.param.name; });
 
-TEST_P(layoutsAndRefreshParameters, layoutsAndRefresh)
+TEST_P(LayoutsAndRefreshParameters, layoutsAndRefresh)
 {
     const QString type = GetParam().type;
     const int x = GetParam().x;
@@ -195,21 +195,21 @@ TEST_P(layoutsAndRefreshParameters, layoutsAndRefresh)
     ASSERT_EQ(table->columnCount(), cols);
 }
 
-struct staticAxisLabelsCase
+struct StaticAxisLabelsCase
 {
     std::string name;
     QString axisType;
 };
-class staticAxisLabelsParameters : public ::testing::Test, public ::testing::WithParamInterface<staticAxisLabelsCase>
+class StaticAxisLabelsParameters : public ::testing::Test, public ::testing::WithParamInterface<StaticAxisLabelsCase>
 {
 };
 
-INSTANTIATE_TEST_SUITE_P(Rows, staticAxisLabelsParameters,
-                         ::testing::Values(staticAxisLabelsCase{"static_X", "Static X Axis"},
-                                           staticAxisLabelsCase{"static_Y", "Static Y Axis"}),
-                         [](const ::testing::TestParamInfo<staticAxisLabelsCase>& info) { return info.param.name; });
+INSTANTIATE_TEST_SUITE_P(Rows, StaticAxisLabelsParameters,
+                         ::testing::Values(StaticAxisLabelsCase{"static_X", "Static X Axis"},
+                                           StaticAxisLabelsCase{"static_Y", "Static Y Axis"}),
+                         [](const ::testing::TestParamInfo<StaticAxisLabelsCase>& info) { return info.param.name; });
 
-TEST_P(staticAxisLabelsParameters, staticAxisLabels)
+TEST_P(StaticAxisLabelsParameters, staticAxisLabels)
 {
     const QString axisType = GetParam().axisType;
     MapFixture fixture;

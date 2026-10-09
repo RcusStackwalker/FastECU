@@ -263,7 +263,7 @@ void script_write_connect_and_upload(ScriptedKlineFlashTransport& transport)
     script_upload(transport);
 }
 
-void script_crc_compare(ScriptedKlineFlashTransport& transport, const flashdev_t& device, bytes::ByteView image,
+void script_crc_compare(ScriptedKlineFlashTransport& transport, const FlashDevice& device, bytes::ByteView image,
                         std::optional<unsigned> differing_block)
 {
     const auto section = transport.section("crc compare");
@@ -305,7 +305,7 @@ void script_prog_volt(ScriptedKlineFlashTransport& transport)
     transport.exchange(framed(0x04), framed(0x44, bytes::Bytes{0x04, 0xB0}));
 }
 
-bytes::Bytes write_chunk_request(const flashdev_t& device, bytes::ByteView image, unsigned block_no,
+bytes::Bytes write_chunk_request(const FlashDevice& device, bytes::ByteView image, unsigned block_no,
                                  std::uint32_t offset)
 {
     constexpr std::uint32_t kChunkSize = 0x200;
@@ -320,7 +320,7 @@ bytes::Bytes write_chunk_request(const flashdev_t& device, bytes::ByteView image
     return framed(0x22, payload);
 }
 
-bytes::Bytes commit_request(const flashdev_t& device, bytes::ByteView image, unsigned block_no, std::uint32_t offset,
+bytes::Bytes commit_request(const FlashDevice& device, bytes::ByteView image, unsigned block_no, std::uint32_t offset,
                             bool test_write)
 {
     constexpr std::uint32_t kCommitSize = 0x1000;
@@ -334,7 +334,7 @@ bytes::Bytes commit_request(const flashdev_t& device, bytes::ByteView image, uns
     return framed(test_write ? 0x23 : 0x24, composeBe(address, 0x10_b, 0x00_b, crc));
 }
 
-void script_block_transfer(ScriptedKlineFlashTransport& transport, const flashdev_t& device, bytes::ByteView image,
+void script_block_transfer(ScriptedKlineFlashTransport& transport, const FlashDevice& device, bytes::ByteView image,
                            unsigned block_no, bool test_write)
 {
     const auto section = transport.section("block transfer");
@@ -359,7 +359,7 @@ void script_block_transfer(ScriptedKlineFlashTransport& transport, const flashde
     transport.queue_no_frame();
 }
 
-void script_write_prefix(ScriptedKlineFlashTransport& transport, const flashdev_t& device, bytes::ByteView image,
+void script_write_prefix(ScriptedKlineFlashTransport& transport, const FlashDevice& device, bytes::ByteView image,
                          unsigned block_no, bool test_write)
 {
     const auto section = transport.section("write prefix");
@@ -415,7 +415,7 @@ TEST(SubaruDensoSh7055_02Executor, KernelAlreadyAliveSkipsWrxInitEcuIdAndUpload)
 {
     auto plan = write_plan();
     ASSERT_THAT(plan, fastecu::testing::IsOk());
-    const flashdev_t *device = find_flash_device("SH7055");
+    const FlashDevice *device = find_flash_device("SH7055");
     ASSERT_NE(device, nullptr);
     ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     transport.queue_no_frame();
@@ -437,7 +437,7 @@ TEST(SubaruDensoSh7055_02Executor, KernelAliveReadReturnsNoRomId)
 {
     auto plan = read_plan();
     ASSERT_THAT(plan, fastecu::testing::IsOk());
-    const flashdev_t *device = find_flash_device("SH7055");
+    const FlashDevice *device = find_flash_device("SH7055");
     ASSERT_NE(device, nullptr);
     ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     transport.queue_no_frame();
@@ -684,7 +684,7 @@ TEST(SubaruDensoSh7055_02Executor, WritePathSkipsEcuIdRead)
 {
     auto plan = write_plan();
     ASSERT_THAT(plan, fastecu::testing::IsOk());
-    const flashdev_t *device = find_flash_device("SH7055");
+    const FlashDevice *device = find_flash_device("SH7055");
     ASSERT_NE(device, nullptr);
     ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     script_write_connect_and_upload(transport);
@@ -705,7 +705,7 @@ TEST(SubaruDensoSh7055_02Executor, WritePathSkipsEcuIdRead)
 
 TEST(SubaruDensoSh7055_02Executor, WriteSkipsWhenNoBlockDiffers)
 {
-    const flashdev_t *device = find_flash_device("SH7055");
+    const FlashDevice *device = find_flash_device("SH7055");
     ASSERT_NE(device, nullptr);
     bytes::Bytes image(device->romsize, 0x00);
     auto plan = write_plan(FlashOperation::Write, image);
@@ -731,7 +731,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteSkipsWhenNoBlockDiffers)
 
 TEST(SubaruDensoSh7055_02Executor, WriteReflashesOnlyDifferingBlocks)
 {
-    const flashdev_t *device = find_flash_device("SH7055");
+    const FlashDevice *device = find_flash_device("SH7055");
     ASSERT_NE(device, nullptr);
     constexpr unsigned kDifferingBlock = 8;
     ASSERT_LT(kDifferingBlock, device->numblocks);
@@ -773,7 +773,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteReflashesOnlyDifferingBlocks)
 
 TEST(SubaruDensoSh7055_02Executor, TestWriteSendsValidateNotCommit)
 {
-    const flashdev_t *device = find_flash_device("SH7055");
+    const FlashDevice *device = find_flash_device("SH7055");
     ASSERT_NE(device, nullptr);
     constexpr unsigned kDifferingBlock = 8;
     ASSERT_LT(kDifferingBlock, device->numblocks);
@@ -804,7 +804,7 @@ TEST(SubaruDensoSh7055_02Executor, TestWriteSendsValidateNotCommit)
 
 TEST(SubaruDensoSh7055_02Executor, WriteFailsOnRejectedEraseResponse)
 {
-    const flashdev_t *device = find_flash_device("SH7055");
+    const FlashDevice *device = find_flash_device("SH7055");
     ASSERT_NE(device, nullptr);
     constexpr unsigned kDifferingBlock = 8;
     bytes::Bytes image(device->romsize, 0x00);
@@ -831,7 +831,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteFailsOnRejectedEraseResponse)
 
 TEST(SubaruDensoSh7055_02Executor, WriteCancelsMidBlockTransfer)
 {
-    const flashdev_t *device = find_flash_device("SH7055");
+    const FlashDevice *device = find_flash_device("SH7055");
     ASSERT_NE(device, nullptr);
     constexpr unsigned kDifferingBlock = 8;
     bytes::Bytes image(device->romsize, 0x00);
@@ -857,7 +857,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteCancelsMidBlockTransfer)
 
 TEST(SubaruDensoSh7055_02Executor, WriteRejectsCrcResponseMarkedFailed)
 {
-    const flashdev_t *device = find_flash_device("SH7055");
+    const FlashDevice *device = find_flash_device("SH7055");
     ASSERT_NE(device, nullptr);
     bytes::Bytes image(device->romsize, 0x00);
     auto plan = write_plan(FlashOperation::Write, image);
@@ -880,7 +880,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteRejectsCrcResponseMarkedFailed)
 
 TEST(SubaruDensoSh7055_02Executor, WriteAcceptsFragmentedBlockCrcAndDrainsIt)
 {
-    const flashdev_t *device = find_flash_device("SH7055");
+    const FlashDevice *device = find_flash_device("SH7055");
     ASSERT_NE(device, nullptr);
     bytes::Bytes image(device->romsize, 0x00);
     auto plan = write_plan(FlashOperation::Write, image);
@@ -920,7 +920,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteAcceptsFragmentedBlockCrcAndDrainsIt)
 
 TEST(SubaruDensoSh7055_02Executor, WriteAcceptsBlockCrcAfterEmptyInitialRead)
 {
-    const flashdev_t *device = find_flash_device("SH7055");
+    const FlashDevice *device = find_flash_device("SH7055");
     ASSERT_NE(device, nullptr);
     bytes::Bytes image(device->romsize, 0x00);
     auto plan = write_plan(FlashOperation::Write, image);
@@ -953,7 +953,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteAcceptsBlockCrcAfterEmptyInitialRead)
 
 TEST(SubaruDensoSh7055_02Executor, WriteRejectsTruncatedBlockCrcAfterBoundedReads)
 {
-    const flashdev_t *device = find_flash_device("SH7055");
+    const FlashDevice *device = find_flash_device("SH7055");
     ASSERT_NE(device, nullptr);
     bytes::Bytes image(device->romsize, 0x00);
     auto plan = write_plan(FlashOperation::Write, image);
@@ -979,7 +979,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteRejectsTruncatedBlockCrcAfterBoundedRead
 
 TEST(SubaruDensoSh7055_02Executor, WriteRejectsNegativeBlockCrcResponse)
 {
-    const flashdev_t *device = find_flash_device("SH7055");
+    const FlashDevice *device = find_flash_device("SH7055");
     ASSERT_NE(device, nullptr);
     bytes::Bytes image(device->romsize, 0x00);
     auto plan = write_plan(FlashOperation::Write, image);
@@ -1000,7 +1000,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteRejectsNegativeBlockCrcResponse)
 
 TEST(SubaruDensoSh7055_02Executor, WritePropagatesBlockCrcDrainError)
 {
-    const flashdev_t *device = find_flash_device("SH7055");
+    const FlashDevice *device = find_flash_device("SH7055");
     ASSERT_NE(device, nullptr);
     bytes::Bytes image(device->romsize, 0x00);
     auto plan = write_plan(FlashOperation::Write, image);
@@ -1022,7 +1022,7 @@ TEST(SubaruDensoSh7055_02Executor, WritePropagatesBlockCrcDrainError)
 
 TEST(SubaruDensoSh7055_02Executor, WriteRejectsTruncatedFlashInitResponse)
 {
-    const flashdev_t *device = find_flash_device("SH7055");
+    const FlashDevice *device = find_flash_device("SH7055");
     ASSERT_NE(device, nullptr);
     constexpr unsigned kBlock = 8;
     bytes::Bytes image(device->romsize, 0x00);
@@ -1044,7 +1044,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteRejectsTruncatedFlashInitResponse)
 
 TEST(SubaruDensoSh7055_02Executor, WriteFailsOnRejectedProgVoltResponse)
 {
-    const flashdev_t *device = find_flash_device("SH7055");
+    const FlashDevice *device = find_flash_device("SH7055");
     ASSERT_NE(device, nullptr);
     constexpr unsigned kBlock = 8;
     bytes::Bytes image(device->romsize, 0x00);
@@ -1067,7 +1067,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteFailsOnRejectedProgVoltResponse)
 
 TEST(SubaruDensoSh7055_02Executor, WriteFailsOnRejectedFlashBufferResponse)
 {
-    const flashdev_t *device = find_flash_device("SH7055");
+    const FlashDevice *device = find_flash_device("SH7055");
     ASSERT_NE(device, nullptr);
     constexpr unsigned kBlock = 8;
     bytes::Bytes image(device->romsize, 0x00);
@@ -1088,7 +1088,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteFailsOnRejectedFlashBufferResponse)
 
 TEST(SubaruDensoSh7055_02Executor, WriteFailsOnRejectedCommitResponse)
 {
-    const flashdev_t *device = find_flash_device("SH7055");
+    const FlashDevice *device = find_flash_device("SH7055");
     ASSERT_NE(device, nullptr);
     constexpr unsigned kBlock = 8;
     bytes::Bytes image(device->romsize, 0x00);
@@ -1113,7 +1113,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteFailsOnRejectedCommitResponse)
 
 TEST(SubaruDensoSh7055_02Executor, TestWriteFailsOnRejectedValidateResponse)
 {
-    const flashdev_t *device = find_flash_device("SH7055");
+    const FlashDevice *device = find_flash_device("SH7055");
     ASSERT_NE(device, nullptr);
     constexpr unsigned kBlock = 8;
     bytes::Bytes image(device->romsize, 0x00);
@@ -1138,7 +1138,7 @@ TEST(SubaruDensoSh7055_02Executor, TestWriteFailsOnRejectedValidateResponse)
 
 TEST(SubaruDensoSh7055_02Executor, WriteLogsRemainingMismatchAfterVerification)
 {
-    const flashdev_t *device = find_flash_device("SH7055");
+    const FlashDevice *device = find_flash_device("SH7055");
     ASSERT_NE(device, nullptr);
     constexpr unsigned kBlock = 8;
     bytes::Bytes image(device->romsize, 0x00);

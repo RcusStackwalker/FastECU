@@ -710,7 +710,7 @@ Status SubaruDensoSh7055_02Executor::write_mem(IKlineFlashTransport& transport, 
                                                bytes::ByteView image, const std::string& mcu_name,
                                                bool test_write) const
 {
-    const flashdev_t *device = find_flash_device(mcu_name);
+    const FlashDevice *device = find_flash_device(mcu_name);
     if (device == nullptr)
     {
         return fail(ErrorKind::InvalidConfig, "Unknown MCU type");

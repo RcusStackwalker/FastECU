@@ -8,7 +8,7 @@ namespace fastecu::flash
 {
 
 // Returns the kFlashDevices[] entry whose name matches mcu_type, or nullptr.
-const flashdev_t *find_flash_device(std::string_view mcu_type);
+const FlashDevice *find_flash_device(std::string_view mcu_type);
 
 // Returns the kFlashDevices[] index whose name matches mcu_type, or -1.
 // Callers index the global table directly (kFlashDevices[i].fblocks[n].len

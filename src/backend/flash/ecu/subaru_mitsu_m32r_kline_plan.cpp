@@ -16,9 +16,9 @@ constexpr std::array kProtocols{std::string_view{"sub_ecu_mitsu_m32r_kline"}};
 constexpr MemoryRegion kUserspace{0x8000, 0x78000};
 constexpr std::uint32_t kImageSize = 0x80000;
 
-bool geometry_ok(const flashdev_t& device)
+bool geometry_ok(const FlashDevice& device)
 {
-    constexpr std::array<flashblock, 4> kExpected{{{0, 0x4000}, {0x4000, 0x2000}, {0x6000, 0x2000}, {0x8000, 0x78000}}};
+    constexpr std::array<FlashBlock, 4> kExpected{{{0, 0x4000}, {0x4000, 0x2000}, {0x6000, 0x2000}, {0x8000, 0x78000}}};
     if (device.romsize != kImageSize || device.numblocks != kExpected.size())
     {
         return false;

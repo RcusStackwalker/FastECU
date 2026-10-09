@@ -24,7 +24,7 @@ using testing::IsEmpty;
 constexpr std::array kProtocols{std::string_view{"sub_ecu_denso_sh72531_can"}};
 constexpr MemoryRegion kBlock{0x00008000, 0x00137F00};
 
-bool geometry_ok(const flashdev_t& device)
+bool geometry_ok(const FlashDevice& device)
 {
     return device.numblocks == 3;
 }
@@ -111,7 +111,7 @@ TEST(SingleWindowPlan, FailingGeometryPredicateIsReportedAgainstTheMcuName)
         .read_region = kBlock,
         .write_region = kBlock,
         .image_size = 0x140000,
-        .geometry_ok = [](const flashdev_t&) { return false; },
+        .geometry_ok = [](const FlashDevice&) { return false; },
         .wire_params_ok = wire_params_ok,
     };
     auto plan = build_single_window_plan(kBadGeometry, FlashOperation::Read, "sub_ecu_denso_sh72531_can", "SH72531",

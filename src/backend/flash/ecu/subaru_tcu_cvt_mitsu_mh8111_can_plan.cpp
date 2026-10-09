@@ -37,7 +37,7 @@ constexpr std::uint32_t kImageSize = 0x180000;
 // Check block 0 (full-table sanity) and block 3 specifically -- block 3,
 // not block 0, is the block this family actually writes (see
 // kWriteRegion above).
-bool geometry_ok(const flashdev_t& device)
+bool geometry_ok(const FlashDevice& device)
 {
     return device.romsize == kImageSize && device.numblocks == 4 && device.fblocks[0].start == 0 &&
            device.fblocks[0].len == 0x40000 && device.fblocks[3].start == kWriteRegion.start &&

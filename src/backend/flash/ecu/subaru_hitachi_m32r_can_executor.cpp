@@ -354,7 +354,7 @@ Status erase_memory(Ctx& ctx)
 }
 
 // Legacy reflash_block, lines 1056-1272, called once for the whole ROM
-// (numblocks == 1 for this family's flashdev_t).
+// (numblocks == 1 for this family's FlashDevice).
 Status unlock_and_reflash_block(Ctx& ctx, bytes::ByteView image, PhaseReporter& progress)
 {
     constexpr std::uint32_t kChunkSize = 256;

@@ -819,7 +819,7 @@ Status write_mem(IMixedCanFlashTransport& transport, const FlashPlan& plan, IClo
     {
         return fail(ErrorKind::InvalidConfig, "DensoCAN write requires a ROM image");
     }
-    const flashdev_t *device = find_flash_device(plan.mcu_name());
+    const FlashDevice *device = find_flash_device(plan.mcu_name());
     if (device == nullptr || device->numblocks != plan.erase_regions().size())
     {
         return fail(ErrorKind::InvalidConfig, "DensoCAN flash geometry is unavailable");

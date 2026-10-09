@@ -13,7 +13,7 @@ namespace
 
 FlashPlanFields valid_mc_fields()
 {
-    const flashdev_t *device = find_flash_device("MC68HC16Y5");
+    const FlashDevice *device = find_flash_device("MC68HC16Y5");
     return {
         .operation = FlashOperation::Read,
         .family = FlashFamily::SubaruDensoMc68hc16y5_02,
