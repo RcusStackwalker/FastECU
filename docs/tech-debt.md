@@ -51,6 +51,27 @@ coordinators retain their UI roles; see the relevant
   and event-log strings. Add missing scripted cases before changing those paths.
   The CAN-init NRC description uses offset 3 while other ISO-15765 NRCs use 4;
   reproduce it and distinguish a description fix from wire behavior changes.
+- **SSM logging byte requests and response mapping.** Current acquisition emits
+  one base address per parameter and decodes using Digital-slot offsets, even
+  for multi-byte parameters or unresolved selection gaps. SSM returns one data
+  byte per requested address; characterize and correct byte-address expansion,
+  ordered response mapping, and physical-entry capacity checks before extending
+  selection acquisition. Existing fixtures that return multiple bytes for one
+  requested address do not establish wire correctness. The
+  [SSM protocol evidence](reference/logging-contracts.md#ssm-protocol-evidence)
+  provides primary sources. Separate switch capability bits from sample bits and
+  normalize standard/legacy XML address forms when adding switch acquisition.
+- **MUT/DMA free-form capacity and request interpretation.** FastECU's 255-entry
+  limit establishes one-byte count representability, not ECU capacity. OEM static
+  analysis of ROM 33520003 finds fill-loop bounds of 96 elements and 96 output
+  bytes at flash `0x11600`, and request-code assembly at `0x1164c`–`0x11660` that
+  differs from the codec's big-endian ID encoding. Characterize the request layout,
+  width handling, and capacity against firmware and bench evidence before changing
+  them; do not generalize one ROM's limits to every MUT/DMA implementation. The
+  [logging evidence reference](reference/logging-contracts.md#mutdma-protocol-evidence)
+  identifies the parent OEM research. ACKs and XML enablement do not establish
+  per-measurement availability; requests can resolve through either a MUT table
+  entry or compact RAM mapping.
 - **MUT memory read integrity/write bounds.** The currently uncalled helpers can
   omit a timed-out read chunk and continue, returning a gapped buffer. The
   `0x4000`–`0xBFFF` write guard checks only the start, so data may extend beyond
@@ -148,6 +169,12 @@ flash-worker prompt/progress qualification.
 
 Remaining behavior and code gaps:
 
+- Add an in-app logger measurement editor for request ID/address code, width,
+  scaling, unit, and precision, with stable identities and definition persistence.
+  The current chooser selects existing IDs and cannot author definitions; use the
+  [XML workflow](../resources/shared/config/README.md) until this follow-up is
+  implemented. User-authored MUT measurements do not require a firmware-match
+  gate; portable field and request validation still applies.
 - `CarNotResponding` is logged without a live GUI indicator.
 - Live channel/interval/protocol reconfiguration requires an explicit path through
   session config and worker; current changes require stop/start.
