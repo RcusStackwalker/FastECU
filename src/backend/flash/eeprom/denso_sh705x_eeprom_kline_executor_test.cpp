@@ -49,39 +49,39 @@ constexpr std::uint32_t kKernelStartAddr = 0xFFFF6004;
 
 bytes::Bytes sidBfSsmInitRequest()
 {
-    return SsmProtocol::addHeader(bytes::Bytes{0xbf}, kTesterId, kTargetId);
+    return ssm_protocol::addHeader(bytes::Bytes{0xbf}, kTesterId, kTargetId);
 }
 bytes::Bytes sid81StartCommRequest()
 {
-    return SsmProtocol::addHeader(bytes::Bytes{0x81}, kTesterId, kTargetId);
+    return ssm_protocol::addHeader(bytes::Bytes{0x81}, kTesterId, kTargetId);
 }
 bytes::Bytes sid83TimingsRequest()
 {
-    return SsmProtocol::addHeader(bytes::Bytes{0x83, 0x00}, kTesterId, kTargetId);
+    return ssm_protocol::addHeader(bytes::Bytes{0x83, 0x00}, kTesterId, kTargetId);
 }
 bytes::Bytes sid27RequestSeedRequest()
 {
-    return SsmProtocol::addHeader(bytes::Bytes{0x27, 0x01}, kTesterId, kTargetId);
+    return ssm_protocol::addHeader(bytes::Bytes{0x27, 0x01}, kTesterId, kTargetId);
 }
 bytes::Bytes sid27SendKeyRequest(bytes::ByteView key)
 {
-    return SsmProtocol::addHeader(composeBe(0x27_b, 0x02_b, key), kTesterId, kTargetId);
+    return ssm_protocol::addHeader(composeBe(0x27_b, 0x02_b, key), kTesterId, kTargetId);
 }
 bytes::Bytes sid10StartDiagRequest()
 {
-    return SsmProtocol::addHeader(bytes::Bytes{0x10, 0x85, 0x02}, kTesterId, kTargetId);
+    return ssm_protocol::addHeader(bytes::Bytes{0x10, 0x85, 0x02}, kTesterId, kTargetId);
 }
 bytes::Bytes sid34RequestUploadRequest(std::uint32_t dataaddr, std::uint32_t datalen)
 {
-    return SsmProtocol::addHeader(composeBe(0x34_b, u24(dataaddr), 0x04_b, u24(datalen)), kTesterId, kTargetId);
+    return ssm_protocol::addHeader(composeBe(0x34_b, u24(dataaddr), 0x04_b, u24(datalen)), kTesterId, kTargetId);
 }
 bytes::Bytes sid36TransferDataRequest(std::uint32_t blockaddr, bytes::ByteView blockBytes)
 {
-    return SsmProtocol::addHeader(composeBe(0x36_b, u24(blockaddr), blockBytes), kTesterId, kTargetId);
+    return ssm_protocol::addHeader(composeBe(0x36_b, u24(blockaddr), blockBytes), kTesterId, kTargetId);
 }
 bytes::Bytes sid31StartRoutineRequest()
 {
-    return SsmProtocol::addHeader(bytes::Bytes{0x31, 0x01, 0x01}, kTesterId, kTargetId);
+    return ssm_protocol::addHeader(bytes::Bytes{0x31, 0x01, 0x01}, kTesterId, kTargetId);
 }
 
 // request_kernel_id(), lines 964-994: NOT addHeader-framed.
@@ -134,7 +134,7 @@ bytes::Bytes generateSeedKey(bytes::ByteView seed)
     static constexpr auto kTransform =
         std::to_array<std::uint8_t>({0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8, 0xA, 0xD, 0x2, 0xB, 0xF, 0x4, 0x0, 0x3,
                                      0xB, 0x4, 0x6, 0x0, 0xF, 0x2, 0xD, 0x9, 0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8});
-    return SsmProtocol::calculateSeedKey(seed, kIndex, kTransform);
+    return ssm_protocol::calculateSeedKey(seed, kIndex, kTransform);
 }
 
 // generate_ecutek_seed_key(), lines 886-911: the same key table as stock,
@@ -149,7 +149,7 @@ bytes::Bytes generateEcutekSeedKey(bytes::ByteView seed)
     static constexpr auto kTransform =
         std::to_array<std::uint8_t>({0x4, 0x2, 0x5, 0x1, 0x8, 0xC, 0xD, 0x8, 0xA, 0xD, 0x2, 0xB, 0xF, 0x4, 0x0, 0x3,
                                      0xB, 0x4, 0x6, 0x0, 0xF, 0x2, 0xD, 0x9, 0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8});
-    return SsmProtocol::calculateSeedKey(seed, kIndex, kTransform);
+    return ssm_protocol::calculateSeedKey(seed, kIndex, kTransform);
 }
 
 // encrypt_payload(), lines 923-939.
@@ -159,7 +159,7 @@ bytes::Bytes encryptPayload(bytes::ByteView buf, std::uint32_t len)
     static constexpr auto kTransform =
         std::to_array<std::uint8_t>({0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8, 0xA, 0xD, 0x2, 0xB, 0xF, 0x4, 0x0, 0x3,
                                      0xB, 0x4, 0x6, 0x0, 0xF, 0x2, 0xD, 0x9, 0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8});
-    return SsmProtocol::calculatePayload(buf, len, kIndex, kTransform);
+    return ssm_protocol::calculatePayload(buf, len, kIndex, kTransform);
 }
 
 // For McuType "SH7055", kEepromBlocksSH7055[0] == {start=0, len=0x100}
@@ -584,7 +584,7 @@ TEST(DensoSh705xEepromKlineExecutorTest, HeaderModeIsOffForBootloaderOnForReadTh
     // read_mem()'s raw SID_DUMP requests, false again afterward so a shared,
     // session-lifetime serial instance isn't left dirtied for the next
     // unrelated operation.
-    EXPECT_EQ(transport.header_mode_calls_, (std::vector<bool>{false, true, false}));
+    EXPECT_EQ(transport.header_mode_calls, (std::vector<bool>{false, true, false}));
 }
 
 // Same assertion on the "kernel already running" path (connect_bootloader()
@@ -607,7 +607,7 @@ TEST(DensoSh705xEepromKlineExecutorTest, HeaderModeSequenceHoldsWhenKernelAlread
     RecordingEventSink events;
 
     ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events), fastecu::testing::IsOk());
-    EXPECT_EQ(transport.header_mode_calls_, (std::vector<bool>{false, true, false}));
+    EXPECT_EQ(transport.header_mode_calls, (std::vector<bool>{false, true, false}));
 }
 
 // Proves the header is still forced back OFF even when read_mem() itself
@@ -633,7 +633,7 @@ TEST(DensoSh705xEepromKlineExecutorTest, HeaderModeResetToOffEvenWhenReadMemFail
 
     ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
                 fastecu::testing::IsErr(ErrorKind::Disconnected));
-    EXPECT_EQ(transport.header_mode_calls_, (std::vector<bool>{false, true, false}));
+    EXPECT_EQ(transport.header_mode_calls, (std::vector<bool>{false, true, false}));
 }
 
 // The stock and ECUTEK branches differ only in the index transformation they

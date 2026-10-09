@@ -16,7 +16,7 @@
 // ROMs and this project's own patches never touch it.
 //
 // Pure, hardware-independent functions only — no I/O here.
-namespace MitsuColtCanVendorExt
+namespace mitsu_colt_can_vendor_ext
 {
 
 constexpr bytes::Byte kServiceReadMemoryByAddress = 0x23;
@@ -47,4 +47,4 @@ bytes::Bytes buildChallengeSeedRequest();
 // SID 0x23 vendor extension key answer: [0x23][0x27][0x42][4-byte key].
 bytes::Bytes buildChallengeKey(std::uint32_t key);
 
-} // namespace MitsuColtCanVendorExt
+} // namespace mitsu_colt_can_vendor_ext

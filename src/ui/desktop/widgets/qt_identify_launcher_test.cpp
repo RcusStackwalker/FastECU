@@ -36,82 +36,82 @@ class QtIdentifyLauncherTest : public ::testing::Test
 {
   protected:
     QtIdentifyLauncherTest()
-        : launcher(
+        : launcher_(
               [this]
               {
                   auto link = std::make_unique<FakeDiagnosticLink>();
-                  if (answer_ecu)
+                  if (answer_ecu_)
                   {
                       link->queue_read(kShortEcuInit);
                   }
                   return link;
               },
               [] { return std::make_unique<FakeClock>(); },
-              [this](LogLevel, const QString& message) { logs.push_back(message); })
+              [this](LogLevel, const QString& message) { logs_.push_back(message); })
     {
-        launcher.set_completion_handler([this](IdentifyGeneration generation, IdentifyOutcome outcome)
-                                        { completions.push_back({generation, std::move(outcome)}); });
+        launcher_.set_completion_handler([this](IdentifyGeneration generation, IdentifyOutcome outcome)
+                                         { completions_.push_back({generation, std::move(outcome)}); });
     }
 
     bool wait_for_completions(std::size_t count)
     {
-        return fastecu::testing::wait_until([&] { return completions.size() >= count; },
+        return fastecu::testing::wait_until([&] { return completions_.size() >= count; },
                                             std::chrono::milliseconds(5000));
     }
 
-    bool answer_ecu = true;
-    std::vector<Completion> completions;
-    std::vector<QString> logs;
-    QtIdentifyLauncher launcher;
+    bool answer_ecu_ = true;
+    std::vector<Completion> completions_;
+    std::vector<QString> logs_;
+    QtIdentifyLauncher launcher_;
 };
 
 TEST_F(QtIdentifyLauncherTest, ForwardsTheOutcomeTaggedWithTheStartGeneration)
 {
-    launcher.start(SsmIdentifyRequest{}, 7);
+    launcher_.start(SsmIdentifyRequest{}, 7);
     ASSERT_TRUE(wait_for_completions(1));
 
-    EXPECT_EQ(completions.at(0).generation, 7U);
-    EXPECT_TRUE(completions.at(0).outcome.success);
-    EXPECT_EQ(completions.at(0).outcome.ecu_id, "3152584006");
-    EXPECT_EQ(completions.at(0).outcome.init_response.size(), 14U);
+    EXPECT_EQ(completions_.at(0).generation, 7U);
+    EXPECT_TRUE(completions_.at(0).outcome.success);
+    EXPECT_EQ(completions_.at(0).outcome.ecu_id, "3152584006");
+    EXPECT_EQ(completions_.at(0).outcome.init_response.size(), 14U);
 }
 
 TEST_F(QtIdentifyLauncherTest, ReportsAFailureWithItsDetail)
 {
-    answer_ecu = false;
-    launcher.start(SsmIdentifyRequest{}, 1);
+    answer_ecu_ = false;
+    launcher_.start(SsmIdentifyRequest{}, 1);
     ASSERT_TRUE(wait_for_completions(1));
 
-    EXPECT_FALSE(completions.at(0).outcome.success);
-    EXPECT_FALSE(completions.at(0).outcome.error_detail.empty());
-    EXPECT_FALSE(logs.empty()); // each failed attempt is logged
+    EXPECT_FALSE(completions_.at(0).outcome.success);
+    EXPECT_FALSE(completions_.at(0).outcome.error_detail.empty());
+    EXPECT_FALSE(logs_.empty()); // each failed attempt is logged
 }
 
 // The coordinator's fence depends on this: a completion queued before
 // stop_and_join() is still delivered afterwards, tagged with its own run.
 TEST_F(QtIdentifyLauncherTest, AJoinedWorkersCompletionKeepsItsOwnGeneration)
 {
-    launcher.start(SsmIdentifyRequest{}, 7);
-    ASSERT_TRUE(launcher.wait_for_worker(std::chrono::milliseconds(5000)));
-    launcher.stop_and_join();
-    launcher.start(SsmIdentifyRequest{}, 8);
+    launcher_.start(SsmIdentifyRequest{}, 7);
+    ASSERT_TRUE(launcher_.wait_for_worker(std::chrono::milliseconds(5000)));
+    launcher_.stop_and_join();
+    launcher_.start(SsmIdentifyRequest{}, 8);
     ASSERT_TRUE(wait_for_completions(2));
 
-    EXPECT_EQ(completions.at(0).generation, 7U);
-    EXPECT_EQ(completions.at(1).generation, 8U);
+    EXPECT_EQ(completions_.at(0).generation, 7U);
+    EXPECT_EQ(completions_.at(1).generation, 8U);
 }
 
 TEST_F(QtIdentifyLauncherTest, StopAndJoinWithoutARunIsANoOp)
 {
-    launcher.stop_and_join();
-    EXPECT_TRUE(launcher.wait_for_worker(std::chrono::milliseconds(1)));
-    EXPECT_TRUE(completions.empty());
+    launcher_.stop_and_join();
+    EXPECT_TRUE(launcher_.wait_for_worker(std::chrono::milliseconds(1)));
+    EXPECT_TRUE(completions_.empty());
 }
 
 } // namespace
 
 namespace
 {
-const auto *const application_environment =
+const auto *const kApplicationEnvironment =
     ::testing::AddGlobalTestEnvironment(new fastecu::testing::CoreApplicationEnvironment({}, /*use_96_dpi=*/true));
 }

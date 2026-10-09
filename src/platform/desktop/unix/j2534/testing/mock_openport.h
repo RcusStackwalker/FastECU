@@ -36,7 +36,7 @@ class MockOpenPort : public QObject
     // When false, the READ_VBATT command ("atr ...") gets no reply, so the
     // caller's read stays parked in read_serial_data's event-loop pump — used to
     // make the "reset while a read is in-flight" window deterministic.
-    std::atomic<bool> answerReadVbatt{true};
+    std::atomic<bool> answer_read_vbatt{true};
 
   private slots:
     void onReadable()
@@ -59,7 +59,7 @@ class MockOpenPort : public QObject
                 continue;
             }
 
-            if (line.contains("atr") && !answerReadVbatt)
+            if (line.contains("atr") && !answer_read_vbatt)
             {
                 continue; // withhold READ_VBATT reply: keep the caller's read parked
             }

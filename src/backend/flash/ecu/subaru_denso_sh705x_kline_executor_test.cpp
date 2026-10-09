@@ -116,16 +116,16 @@ void script_probe_alive(ScriptedKlineFlashTransport& t)
 
 bytes::Bytes stock_key(bytes::ByteView seed)
 {
-    return SsmProtocol::calculateSeedKey(seed, kKeyTable, SsmProtocol::kIndexTransformationStock);
+    return ssm_protocol::calculateSeedKey(seed, kKeyTable, ssm_protocol::kIndexTransformationStock);
 }
 bytes::Bytes ecutek_key(bytes::ByteView seed)
 {
-    return SsmProtocol::calculateSeedKey(seed, kKeyTable, SsmProtocol::kIndexTransformationEcutek);
+    return ssm_protocol::calculateSeedKey(seed, kKeyTable, ssm_protocol::kIndexTransformationEcutek);
 }
 bytes::Bytes encrypted_kernel(bytes::ByteView balanced)
 {
-    return SsmProtocol::calculatePayload(balanced, static_cast<std::uint32_t>(balanced.size()), kEncryptTable,
-                                         SsmProtocol::kIndexTransformationStock);
+    return ssm_protocol::calculatePayload(balanced, static_cast<std::uint32_t>(balanced.size()), kEncryptTable,
+                                          ssm_protocol::kIndexTransformationStock);
 }
 
 const bytes::Bytes kEcuIdPayload{0xFF, 0x00, 0x00, 0x00, 0x41, 0x42, 0x43, 0x44, 0x45};
@@ -245,7 +245,7 @@ TEST(SubaruDensoSh705xKlineExecutor, BoundAttemptResetsBeforeConfigure)
 {
     auto transport = std::make_unique<ScriptedKlineFlashTransport>();
     auto *observed = transport.get();
-    observed->set_baud_result_ = fail(ErrorKind::Disconnected, "stop after lifecycle");
+    observed->set_baud_result = fail(ErrorKind::Disconnected, "stop after lifecycle");
     auto attempt = bind_flash_attempt(make_plan(FlashOperation::Read),
                                       std::make_unique<SubaruDensoSh705xKlineExecutor>(), std::move(transport));
     FakeClock clock;
@@ -255,7 +255,7 @@ TEST(SubaruDensoSh705xKlineExecutor, BoundAttemptResetsBeforeConfigure)
     // The first setBaud (connect_bootloader():127, 62500) fails and stops execute().
     EXPECT_THAT(attempt->run(clock, cancellation, events), IsErr(ErrorKind::Disconnected));
     // execute():67 reset_connection() precedes every setter and open_serial_port().
-    EXPECT_THAT(observed->lifecycle_calls_, ::testing::ElementsAre("reset_connection", "configure", "open", "close"));
+    EXPECT_THAT(observed->lifecycle_calls, ::testing::ElementsAre("reset_connection", "configure", "open", "close"));
 }
 
 TEST(SubaruDensoSh705xKlineExecutor, CancellationAroundResetStopsBeforeConfigure)
@@ -270,14 +270,14 @@ TEST(SubaruDensoSh705xKlineExecutor, CancellationAroundResetStopsBeforeConfigure
         SubaruDensoSh705xKlineExecutor executor;
 
         EXPECT_THAT(executor.before_transport_configure(transport, clock, cancellation), IsErr(ErrorKind::Cancelled));
-        EXPECT_EQ(transport.reset_call_count_, check == 1 ? 0 : 1);
+        EXPECT_EQ(transport.reset_call_count, check == 1 ? 0 : 1);
     }
 }
 
 TEST(SubaruDensoSh705xKlineExecutor, ResetFailurePropagates)
 {
     ScriptedKlineFlashTransport transport;
-    transport.reset_result_ = fail(ErrorKind::Disconnected, "no adapter");
+    transport.reset_result = fail(ErrorKind::Disconnected, "no adapter");
     FakeClock clock;
     FakeCancellationToken cancellation;
     SubaruDensoSh705xKlineExecutor executor;
@@ -320,12 +320,12 @@ TEST(SubaruDensoSh705xKlineExecutor, FullSessionIsByteExactWithLegacyBaudsAndTim
     ASSERT_THAT(h.run(make_plan(FlashOperation::TestWrite)), IsErr(ErrorKind::Disconnected));
     EXPECT_TRUE(h.transport.scriptConsumed());
     // execute():68 -- the header flag is cleared once, before any frame.
-    EXPECT_EQ(h.transport.header_mode_calls_, std::vector<bool>{false});
-    EXPECT_THAT(h.transport.baud_calls_, ::testing::ElementsAre(62500, 4800, 15625, 62500));
+    EXPECT_EQ(h.transport.header_mode_calls, std::vector<bool>{false});
+    EXPECT_THAT(h.transport.baud_calls, ::testing::ElementsAre(62500, 4800, 15625, 62500));
     // probe 800, BF..10 six x 2000, 34 3000, 36 2000, 31 3000, kernel ID 800,
     // then the tail's block-0 CRC read at 3000 that stops the run.
-    EXPECT_THAT(h.transport.read_timeouts_, ::testing::ElementsAre(800ms, 2000ms, 2000ms, 2000ms, 2000ms, 2000ms,
-                                                                   2000ms, 3000ms, 2000ms, 3000ms, 800ms, 3000ms));
+    EXPECT_THAT(h.transport.read_timeouts, ::testing::ElementsAre(800ms, 2000ms, 2000ms, 2000ms, 2000ms, 2000ms, 2000ms,
+                                                                  3000ms, 2000ms, 3000ms, 800ms, 3000ms));
     // delay(100) after 62500, delay(200) in request_kernel_id(), delay(100)
     // after 4800, delay(100) after 31, delay(200) in request_kernel_id().
     EXPECT_EQ(h.clock.elapsed(), 700ms);
@@ -335,11 +335,11 @@ TEST(SubaruDensoSh705xKlineExecutor, HeaderFlagFailurePropagatesBeforeAnyWrite)
 {
     // execute():68 -- set_add_iso14230_header(false) precedes the first setBaud and write.
     Harness h;
-    h.transport.set_add_iso14230_header_result_ = fail(ErrorKind::Disconnected, "header flag");
+    h.transport.set_add_iso14230_header_result = fail(ErrorKind::Disconnected, "header flag");
 
     EXPECT_THAT(h.run(make_plan(FlashOperation::Read)), IsErr(ErrorKind::Disconnected));
-    EXPECT_EQ(h.transport.header_mode_calls_, std::vector<bool>{false});
-    EXPECT_TRUE(h.transport.baud_calls_.empty());
+    EXPECT_EQ(h.transport.header_mode_calls, std::vector<bool>{false});
+    EXPECT_TRUE(h.transport.baud_calls.empty());
     EXPECT_EQ(h.transport.writesConsumed(), 0U);
 }
 
@@ -474,7 +474,7 @@ TEST(SubaruDensoSh705xKlineExecutor, LiveKernelSkipsHandshakeAndUpload)
     script_stop_at_first_crc(h.transport);
     EXPECT_THAT(h.run(make_plan(FlashOperation::TestWrite)), IsErr(ErrorKind::Disconnected));
     EXPECT_TRUE(h.transport.scriptConsumed());
-    EXPECT_THAT(h.transport.baud_calls_, ::testing::ElementsAre(62500));
+    EXPECT_THAT(h.transport.baud_calls, ::testing::ElementsAre(62500));
     EXPECT_THAT(h.events.notices, ::testing::ElementsAre("Writing ROM, please wait..."));
 }
 
@@ -589,8 +589,8 @@ TEST(SubaruDensoSh705xKlineExecutor, FailedUploadBaudChangeStops)
         using ScriptedKlineFlashTransport::ScriptedKlineFlashTransport;
         Status setBaud(int baud) override
         {
-            baud_calls_.push_back(baud);
-            return baud_calls_.size() >= 3 ? fail(ErrorKind::Disconnected, "baud") : Status{};
+            baud_calls.push_back(baud);
+            return baud_calls.size() >= 3 ? fail(ErrorKind::Disconnected, "baud") : Status{};
         }
     };
     FailThirdBaud t{ScriptedTransportInitialState::Open};
@@ -613,8 +613,8 @@ TEST(SubaruDensoSh705xKlineExecutor, FinalBaudChangeFailureIsNowChecked)
         using ScriptedKlineFlashTransport::ScriptedKlineFlashTransport;
         Status setBaud(int baud) override
         {
-            baud_calls_.push_back(baud);
-            return baud_calls_.size() == 4 ? fail(ErrorKind::Disconnected, "baud") : Status{};
+            baud_calls.push_back(baud);
+            return baud_calls.size() == 4 ? fail(ErrorKind::Disconnected, "baud") : Status{};
         }
     };
     FailFourthBaud t{ScriptedTransportInitialState::Open};
@@ -1037,7 +1037,7 @@ TEST(SubaruDensoSh705xKlineExecutor, CompareUsesLegacyTimeoutsAndPacing)
         expected_reads.push_back(3000ms);
         expected_reads.push_back(200ms);
     }
-    EXPECT_EQ(transport.read_timeouts_, expected_reads);
+    EXPECT_EQ(transport.read_timeouts, expected_reads);
 }
 
 TEST(SubaruDensoSh705xKlineExecutor, WriteStepsUseLegacyTimeoutsWithoutSettleDelays)
@@ -1074,7 +1074,7 @@ TEST(SubaruDensoSh705xKlineExecutor, WriteStepsUseLegacyTimeoutsWithoutSettleDel
     expected_reads.insert(expected_reads.end(), {500ms, 500ms, 500ms, 500ms, 3000ms});
     expected_reads.insert(expected_reads.end(), 9, 3000ms); // 8 chunks + 1 commit
     expected_reads.insert(expected_reads.end(), compare_reads.begin(), compare_reads.end());
-    EXPECT_EQ(transport.read_timeouts_, expected_reads);
+    EXPECT_EQ(transport.read_timeouts, expected_reads);
 }
 
 TEST(SubaruDensoSh705xKlineExecutor, WriteLogsTheLegacyStrings)

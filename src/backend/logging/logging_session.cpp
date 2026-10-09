@@ -301,7 +301,7 @@ bool valid_wire_shape(LoggingProtocolId protocol, const std::vector<LoggingChann
                            { return channel.length == 1 || channel.length == 2 || channel.length == 4; });
     case LoggingProtocolId::Cdbg:
     {
-        std::vector<MitsuColtCanCdbg::CdbgChannel> wire_channels;
+        std::vector<mitsu_colt_can_cdbg::CdbgChannel> wire_channels;
         wire_channels.reserve(channels.size());
         for (const LoggingChannel& channel : channels)
         {
@@ -311,8 +311,8 @@ bool valid_wire_shape(LoggingProtocolId protocol, const std::vector<LoggingChann
             }
             wire_channels.push_back({channel.address, static_cast<bytes::Byte>(channel.length)});
         }
-        std::vector<std::vector<MitsuColtCanCdbg::CdbgChannel>> frames;
-        return MitsuColtCanCdbg::batchChannelsIntoFrames(wire_channels, frames);
+        std::vector<std::vector<mitsu_colt_can_cdbg::CdbgChannel>> frames;
+        return mitsu_colt_can_cdbg::batchChannelsIntoFrames(wire_channels, frames);
     }
     }
     return false;

@@ -16,18 +16,18 @@ using fastecu::testing::wait_until;
 
 namespace
 {
-QPointer<QCoreApplication> observed_application;
+QPointer<QCoreApplication> g_observed_application;
 class ApplicationTeardownObserver : public ::testing::Environment
 {
     void TearDown() override
     {
         EXPECT_EQ(QCoreApplication::instance(), nullptr);
-        EXPECT_TRUE(observed_application.isNull());
+        EXPECT_TRUE(g_observed_application.isNull());
     }
 };
 // Environments tear down in reverse registration order.
-const auto *const teardown_observer = ::testing::AddGlobalTestEnvironment(new ApplicationTeardownObserver);
-const auto *const environment = ::testing::AddGlobalTestEnvironment(new fastecu::testing::CoreApplicationEnvironment(
+const auto *const kTeardownObserver = ::testing::AddGlobalTestEnvironment(new ApplicationTeardownObserver);
+const auto *const kEnvironment = ::testing::AddGlobalTestEnvironment(new fastecu::testing::CoreApplicationEnvironment(
     []
     {
         EXPECT_EQ(QCoreApplication::instance(), nullptr);
@@ -38,7 +38,7 @@ const auto *const environment = ::testing::AddGlobalTestEnvironment(new fastecu:
 TEST(QtTestSupport, ApplicationLivesDuringFixtures)
 {
     ASSERT_NE(QCoreApplication::instance(), nullptr);
-    observed_application = QCoreApplication::instance();
+    g_observed_application = QCoreApplication::instance();
     EXPECT_EQ(QCoreApplication::arguments().front(), QString("fastecu-test"));
     EXPECT_TRUE(QCoreApplication::testAttribute(Qt::AA_ShareOpenGLContexts));
     EXPECT_TRUE(QCoreApplication::testAttribute(Qt::AA_Use96Dpi));

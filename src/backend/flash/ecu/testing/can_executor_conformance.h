@@ -112,7 +112,7 @@ TYPED_TEST_P(CanExecutorConformance, RejectsAPlanFromAnotherFamilyBeforeAnyIo)
                                                     ::testing::HasSubstr("does not match this executor")));
     EXPECT_THAT(events.logs, ::testing::IsEmpty());
     EXPECT_EQ(transport.writesConsumed(), 0U);
-    EXPECT_FALSE(transport.last_config_.has_value());
+    EXPECT_FALSE(transport.last_config.has_value());
 }
 
 TYPED_TEST_P(CanExecutorConformance, RefusesATestWritePlanRatherThanWritingForReal)
@@ -130,7 +130,7 @@ TYPED_TEST_P(CanExecutorConformance, RefusesATestWritePlanRatherThanWritingForRe
 
     ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::Unsupported));
     EXPECT_EQ(transport.writesConsumed(), 0U);
-    EXPECT_FALSE(transport.last_config_.has_value());
+    EXPECT_FALSE(transport.last_config.has_value());
     EXPECT_THAT(events.logs, ::testing::IsEmpty());
 }
 

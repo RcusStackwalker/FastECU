@@ -22,7 +22,7 @@ ConfigPaths test_paths()
 }
 
 // Exact content of resources/shared/config/fastecu.cfg as of this writing.
-const char *kShippedDefaultConfig = R"(<?xml version="1.0" encoding="UTF-8"?>
+constexpr const char *kShippedDefaultConfig = R"(<?xml version="1.0" encoding="UTF-8"?>
 <config name="FastECU" version="0.0-dev0">
     <software_settings>
         <setting name="window_size">

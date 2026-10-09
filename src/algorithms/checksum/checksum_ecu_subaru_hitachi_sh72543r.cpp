@@ -8,7 +8,7 @@ ChecksumResult ChecksumEcuSubaruHitachiSh72543r::calculate_checksum_result(bytes
     if (romView.size() != 0x200000)
     {
         return {.status = ChecksumResult::Status::InvalidSize,
-                .romData = bytes::Bytes(romView.begin(), romView.end()),
+                .rom_data = bytes::Bytes(romView.begin(), romView.end()),
                 .message = "ROM size does not match the checksum layout"};
     }
     /*******************
@@ -38,6 +38,6 @@ ChecksumResult ChecksumEcuSubaruHitachiSh72543r::calculate_checksum_result(bytes
     {
         result.status = ChecksumResult::Status::Unchanged;
     }
-    result.romData = romData;
+    result.rom_data = romData;
     return result;
 }

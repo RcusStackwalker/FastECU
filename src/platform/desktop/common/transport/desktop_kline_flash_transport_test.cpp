@@ -175,7 +175,7 @@ TEST(TestDesktopKlineFlashTransport, configureChecksEveryBooleanSetterInOrderAnd
 struct ConfigureFailsAtEachRemainingSetterInTurnCase
 {
     std::string name;
-    int setterIndex;
+    int setter_index;
 };
 class ConfigureFailsAtEachRemainingSetterInTurnParameters
     : public ::testing::Test,
@@ -200,7 +200,7 @@ INSTANTIATE_TEST_SUITE_P(
 // it is intentionally omitted here.)
 TEST_P(ConfigureFailsAtEachRemainingSetterInTurnParameters, configureFailsAtEachRemainingSetterInTurn)
 {
-    const int setterIndex = GetParam().setterIndex;
+    const int setterIndex = GetParam().setter_index;
 
     FakeBackedSerial serial;
 
@@ -887,6 +887,6 @@ TEST(TestDesktopKlineFlashTransport, requestUnblockCausesAPendingReadToReturnPro
 
 namespace
 {
-const auto *const application_environment =
+const auto *const kApplicationEnvironment =
     ::testing::AddGlobalTestEnvironment(new fastecu::testing::CoreApplicationEnvironment);
 }

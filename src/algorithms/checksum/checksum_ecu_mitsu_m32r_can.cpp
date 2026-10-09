@@ -51,7 +51,7 @@ constexpr std::size_t kLayoutEnd = kCorrectionWords + 2 + (kCorrectionWordCount 
 
 ChecksumResult unchangedWith(ChecksumResult::Status status, bytes::ByteView romView, std::string message)
 {
-    return {.status = status, .romData = bytes::Bytes(romView.begin(), romView.end()), .message = std::move(message)};
+    return {.status = status, .rom_data = bytes::Bytes(romView.begin(), romView.end()), .message = std::move(message)};
 }
 } // namespace
 
@@ -91,10 +91,10 @@ ChecksumResult ChecksumEcuMitsuM32rCan::calculate_checksum_result(bytes::ByteVie
     bytes::Bytes romData(romView.begin(), romView.end());
     if (checksum == kTargetChecksum)
     {
-        return {.status = ChecksumResult::Status::Unchanged, .romData = std::move(romData)};
+        return {.status = ChecksumResult::Status::Unchanged, .rom_data = std::move(romData)};
     }
     fastecu::checksum::internal::rebalanceU32Be(romData, kBalanceSlot, checksum, kTargetChecksum);
     return {.status = ChecksumResult::Status::Corrected,
-            .romData = std::move(romData),
+            .rom_data = std::move(romData),
             .message = "Mitsubishi M32R CAN ECU Checksum"};
 }

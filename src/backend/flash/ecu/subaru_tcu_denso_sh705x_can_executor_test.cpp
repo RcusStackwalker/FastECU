@@ -1506,7 +1506,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, RestartResetConfigureAndOpenFailuresPropag
         ASSERT_FALSE(result.has_value());
         EXPECT_EQ(result.error().kind, failure.kind);
         EXPECT_EQ(observed->lifecycle, failure.expected_lifecycle);
-        EXPECT_EQ(observed->scripted.close_call_count_, 1);
+        EXPECT_EQ(observed->scripted.close_call_count, 1);
         EXPECT_TRUE(observed->scripted.scriptConsumed());
     }
 }
@@ -1563,7 +1563,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, CancellationAfterKernelStartAndWithinResta
         ASSERT_FALSE(result.has_value());
         EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
         EXPECT_EQ(observed->lifecycle, test_case.expected_lifecycle);
-        EXPECT_EQ(observed->scripted.close_call_count_, 1);
+        EXPECT_EQ(observed->scripted.close_call_count, 1);
         EXPECT_TRUE(observed->scripted.scriptConsumed());
     }
 }
@@ -1601,7 +1601,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, CancellationDuringOrImmediatelyAfterRestar
 
         ASSERT_FALSE(result.has_value());
         EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
-        EXPECT_EQ(observed->scripted.close_call_count_, 1);
+        EXPECT_EQ(observed->scripted.close_call_count, 1);
         EXPECT_TRUE(observed->scripted.scriptConsumed());
         EXPECT_EQ(std::count_if(observed->writes.begin(), observed->writes.end(), [](const bytes::Bytes& write)
                                 { return write.size() > 8 && write[4] == 0x7a && write[8] == 0x00; }),
@@ -2097,7 +2097,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, BoundAttemptReturnsCloseErrorOnlyWhenExecu
     auto success_transport = std::make_unique<ScriptedCanFlashTransport>();
     script_kernel_alive(*success_transport);
     script_read_pages(*success_transport, kCases[0].rom_size);
-    success_transport->close_result_ = fail(ErrorKind::Disconnected, "close failed");
+    success_transport->close_result = fail(ErrorKind::Disconnected, "close failed");
     auto success_attempt =
         bind_flash_attempt(*plan, std::make_unique<SubaruTcuDensoSh705xCanExecutor>(), std::move(success_transport));
     FakeCancellationToken cancellation;
@@ -2113,7 +2113,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, BoundAttemptReturnsCloseErrorOnlyWhenExecu
     script_kernel_alive(*failing_transport);
     failing_transport->expectWrite(beef_request(0x03, composeBe(0x00_b, u24(0), std::uint16_t{kReadPageSize})));
     failing_transport->queue_no_frame();
-    failing_transport->close_result_ = fail(ErrorKind::Internal, "close also failed");
+    failing_transport->close_result = fail(ErrorKind::Internal, "close also failed");
     auto failing_attempt =
         bind_flash_attempt(*plan, std::make_unique<SubaruTcuDensoSh705xCanExecutor>(), std::move(failing_transport));
     RecordingEventSink failing_events;

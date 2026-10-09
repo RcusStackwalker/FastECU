@@ -205,7 +205,7 @@ TEST_F(TestDirectBackendPty, ptyIso14230Read_takesLengthFromFormatByte)
 
 namespace
 {
-const auto *const application_environment =
+const auto *const kApplicationEnvironment =
     ::testing::AddGlobalTestEnvironment(new fastecu::testing::CoreApplicationEnvironment(
         []
         {

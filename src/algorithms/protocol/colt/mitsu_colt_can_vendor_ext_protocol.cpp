@@ -6,7 +6,7 @@
 #include "src/algorithms/protocol/uds/uds_pdu.h"
 #include <array>
 
-namespace MitsuColtCanVendorExt
+namespace mitsu_colt_can_vendor_ext
 {
 using bytes::composeBe;
 
@@ -83,4 +83,4 @@ bytes::Bytes buildChallengeKey(std::uint32_t key)
                              composeBe(kVendorChallengeSelector, kVendorChallengeKeySubfunction, key));
 }
 
-} // namespace MitsuColtCanVendorExt
+} // namespace mitsu_colt_can_vendor_ext

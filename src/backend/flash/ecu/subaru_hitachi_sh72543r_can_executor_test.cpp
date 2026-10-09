@@ -71,11 +71,11 @@ class Transport : public ScriptedCanFlashTransport
 class Sh72543rExecutor : public ::testing::Test
 {
   protected:
-    Transport transport;
-    FakeClock clock;
-    ManualCancellationToken cancel;
-    RecordingEventSink events;
-    SubaruHitachiSh72543rCanExecutor executor;
+    Transport transport_;
+    FakeClock clock_;
+    ManualCancellationToken cancel_;
+    RecordingEventSink events_;
+    SubaruHitachiSh72543rCanExecutor executor_;
     FlashPlan plan(FlashOperation op = FlashOperation::Read, std::string_view protocol = "sub_ecu_hitachi_sh72543r_can")
     {
         auto p = build_subaru_hitachi_sh72543r_can_plan(
@@ -85,11 +85,11 @@ class Sh72543rExecutor : public ::testing::Test
     }
     Result<FlashExecutionResult> run()
     {
-        return executor.execute(plan(), transport, clock, cancel, events);
+        return executor_.execute(plan(), transport_, clock_, cancel_, events_);
     }
     void x(Bytes request, Bytes response)
     {
-        transport.exchange(req(request), reply(response));
+        transport_.exchange(req(request), reply(response));
     }
     void alive()
     {
@@ -140,14 +140,14 @@ class Sh72543rExecutor : public ::testing::Test
     {
         for (int i = 0; i < (silence ? 6 : 1); ++i)
         {
-            transport.expectWrite(req(Bytes{0x10, 1}));
+            transport_.expectWrite(req(Bytes{0x10, 1}));
             if (silence)
             {
-                transport.queue_no_frame();
+                transport_.queue_no_frame();
             }
             else
             {
-                transport.queueRead(reply(Bytes{0x50, 1}));
+                transport_.queueRead(reply(Bytes{0x50, 1}));
             }
         }
     }
@@ -164,7 +164,7 @@ class Sh72543rExecutor : public ::testing::Test
 };
 TEST_F(Sh72543rExecutor, SetupAndForeignPlanRejectBeforeIo)
 {
-    auto cfg = executor.transport_setup(plan());
+    auto cfg = executor_.transport_setup(plan());
     ASSERT_THAT(cfg, fastecu::testing::IsOk());
     EXPECT_EQ(cfg->request_id, 0x7e0U);
     EXPECT_EQ(cfg->response_id, 0x7e8U);
@@ -173,10 +173,10 @@ TEST_F(Sh72543rExecutor, SetupAndForeignPlanRejectBeforeIo)
     auto foreign = build_subaru_tcu_hitachi_m32r_can_plan(FlashOperation::Read, "sub_tcu_hitachi_m32r_can",
                                                           "M32R_512KB", std::nullopt);
     ASSERT_THAT(foreign, fastecu::testing::IsOk());
-    EXPECT_THAT(executor.transport_setup(*foreign), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
-    EXPECT_THAT(executor.execute(*foreign, transport, clock, cancel, events),
+    EXPECT_THAT(executor_.transport_setup(*foreign), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    EXPECT_THAT(executor_.execute(*foreign, transport_, clock_, cancel_, events_),
                 fastecu::testing::IsErr(ErrorKind::InvalidConfig));
-    EXPECT_EQ(transport.writes, 0U);
+    EXPECT_EQ(transport_.writes, 0U);
 }
 TEST_F(Sh72543rExecutor, CompleteReadPinsBytesTimingAndKernelShortcut)
 {
@@ -188,18 +188,18 @@ TEST_F(Sh72543rExecutor, CompleteReadPinsBytesTimingAndKernelShortcut)
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(result->read_bytes, expected);
     EXPECT_FALSE(result->rom_id);
-    EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_EQ(transport.writes, 2053U);
-    EXPECT_EQ(clock.elapsed(), 850ms);
-    ASSERT_EQ(transport.readTimeouts().size(), 2053U);
-    EXPECT_EQ(transport.readTimeouts().front(), 200ms);
-    EXPECT_EQ(transport.readTimeouts().back(), 800ms);
-    for (std::size_t i = 1; i + 1 < transport.readTimeouts().size(); ++i)
+    EXPECT_TRUE(transport_.scriptConsumed());
+    EXPECT_EQ(transport_.writes, 2053U);
+    EXPECT_EQ(clock_.elapsed(), 850ms);
+    ASSERT_EQ(transport_.readTimeouts().size(), 2053U);
+    EXPECT_EQ(transport_.readTimeouts().front(), 200ms);
+    EXPECT_EQ(transport_.readTimeouts().back(), 800ms);
+    for (std::size_t i = 1; i + 1 < transport_.readTimeouts().size(); ++i)
     {
-        EXPECT_EQ(transport.readTimeouts()[i], 2000ms);
+        EXPECT_EQ(transport_.readTimeouts()[i], 2000ms);
     }
-    ASSERT_FALSE(events.phase_progress_calls.empty());
-    EXPECT_EQ(events.phase_progress_calls.back().done, events.phase_progress_calls.back().total);
+    ASSERT_FALSE(events_.phase_progress_calls.empty());
+    EXPECT_EQ(events_.phase_progress_calls.back().done, events_.phase_progress_calls.back().total);
 }
 TEST_F(Sh72543rExecutor, FullInitializationReturnsIdentityAndRecoveryAlias)
 {
@@ -207,13 +207,13 @@ TEST_F(Sh72543rExecutor, FullInitializationReturnsIdentityAndRecoveryAlias)
     access();
     auto expected = pages();
     stop();
-    auto result = executor.execute(plan(FlashOperation::Read, "sub_ecu_hitachi_sh72543r_can_recovery"), transport,
-                                   clock, cancel, events);
+    auto result = executor_.execute(plan(FlashOperation::Read, "sub_ecu_hitachi_sh72543r_can_recovery"), transport_,
+                                    clock_, cancel_, events_);
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(result->rom_id, "CAL_1122334455_");
     EXPECT_EQ(result->read_bytes, expected);
-    EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_EQ(clock.elapsed(), 1450ms);
+    EXPECT_TRUE(transport_.scriptConsumed());
+    EXPECT_EQ(clock_.elapsed(), 1450ms);
 }
 TEST_F(Sh72543rExecutor, PartialIdentityDoesNotReadPastReply)
 {
@@ -225,7 +225,7 @@ TEST_F(Sh72543rExecutor, PartialIdentityDoesNotReadPastReply)
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(result->rom_id, "CAL_");
     EXPECT_EQ(result->read_bytes, expected);
-    EXPECT_TRUE(transport.scriptConsumed());
+    EXPECT_TRUE(transport_.scriptConsumed());
 }
 TEST_F(Sh72543rExecutor, ToleratedSessionAndMissingIdentityStillRead)
 {
@@ -250,7 +250,7 @@ TEST_F(Sh72543rExecutor, ShortSeedStopsBeforeKey)
         Bytes s{0x67, 1};
         s.resize(2 + count, 0xde);
         t.exchange(req(Bytes{0x27, 1}), reply(s));
-        EXPECT_THAT(executor.execute(plan(), t, clock, cancel, events),
+        EXPECT_THAT(executor_.execute(plan(), t, clock_, cancel_, events_),
                     fastecu::testing::IsErr(ErrorKind::BadResponse));
         EXPECT_TRUE(t.scriptConsumed());
         EXPECT_EQ(t.writes, 3U);
@@ -263,7 +263,7 @@ TEST_F(Sh72543rExecutor, WrongKeyStopsBeforePage)
     seed();
     key({0x67, 3});
     EXPECT_THAT(run(), fastecu::testing::IsErr(ErrorKind::BadResponse));
-    EXPECT_TRUE(transport.scriptConsumed());
+    EXPECT_TRUE(transport_.scriptConsumed());
 }
 TEST_F(Sh72543rExecutor, RejectsMalformedPagesWithoutPartialSuccess)
 {
@@ -276,7 +276,7 @@ TEST_F(Sh72543rExecutor, RejectsMalformedPagesWithoutPartialSuccess)
         t.exchange(req(Bytes{0x27, 2, 0xde, 0x44, 0x6f, 0xc3}), reply(Bytes{0x67, 2}));
         Bytes p(size, 0x63);
         t.exchange(req(pageRequest(0)), reply(p));
-        EXPECT_THAT(executor.execute(plan(), t, clock, cancel, events),
+        EXPECT_THAT(executor_.execute(plan(), t, clock_, cancel_, events_),
                     fastecu::testing::IsErr(ErrorKind::BadResponse));
         EXPECT_EQ(t.writes, 5U);
         EXPECT_TRUE(t.scriptConsumed());
@@ -288,45 +288,45 @@ TEST_F(Sh72543rExecutor, WrongPageServiceIsRejected)
     access();
     x(pageRequest(0), Bytes(0x401, 0xf7));
     EXPECT_THAT(run(), fastecu::testing::IsErr(ErrorKind::BadResponse));
-    EXPECT_TRUE(transport.scriptConsumed());
+    EXPECT_TRUE(transport_.scriptConsumed());
 }
 TEST_F(Sh72543rExecutor, RequiredPageTimeoutIsFatal)
 {
     alive();
     access();
-    transport.expectWrite(req(pageRequest(0)));
-    transport.queue_no_frame();
+    transport_.expectWrite(req(pageRequest(0)));
+    transport_.queue_no_frame();
     EXPECT_THAT(run(), fastecu::testing::IsErr(ErrorKind::Timeout));
-    EXPECT_TRUE(transport.scriptConsumed());
+    EXPECT_TRUE(transport_.scriptConsumed());
 }
 TEST_F(Sh72543rExecutor, CancellationAfterReadStopsNextCommand)
 {
     alive();
     access();
-    transport.after_read = [&](std::size_t n)
+    transport_.after_read = [&](std::size_t n)
     {
         if (n == 3)
         {
-            cancel.cancel();
+            cancel_.cancel();
         }
     };
     EXPECT_THAT(run(), fastecu::testing::IsErr(ErrorKind::Cancelled));
-    EXPECT_EQ(transport.writes, 4U);
+    EXPECT_EQ(transport_.writes, 4U);
 }
 TEST_F(Sh72543rExecutor, DisconnectAndFailedWritesAreFatal)
 {
-    transport.fail_write = 0;
+    transport_.fail_write = 0;
     EXPECT_THAT(run(), fastecu::testing::IsErr(ErrorKind::Disconnected));
-    transport.fail_write.reset();
-    transport.fail_read = 0;
+    transport_.fail_write.reset();
+    transport_.fail_read = 0;
     alive();
     EXPECT_THAT(run(), fastecu::testing::IsErr(ErrorKind::Disconnected));
 }
 TEST_F(Sh72543rExecutor, CancelledBeforeStartDoesNoIo)
 {
-    cancel.cancel();
+    cancel_.cancel();
     EXPECT_THAT(run(), fastecu::testing::IsErr(ErrorKind::Cancelled));
-    EXPECT_EQ(transport.writes, 0U);
+    EXPECT_EQ(transport_.writes, 0U);
 }
 TEST_F(Sh72543rExecutor, CancellationDuringPagesDoesNotPublishPartialImage)
 {
@@ -334,16 +334,16 @@ TEST_F(Sh72543rExecutor, CancellationDuringPagesDoesNotPublishPartialImage)
     access();
     pages();
     stop();
-    transport.after_read = [&](std::size_t n)
+    transport_.after_read = [&](std::size_t n)
     {
         if (n == 100)
         {
-            cancel.cancel();
+            cancel_.cancel();
         }
     };
     EXPECT_THAT(run(), fastecu::testing::IsErr(ErrorKind::Cancelled));
-    EXPECT_EQ(transport.writes, 101U);
-    EXPECT_LT(events.phase_progress_calls.back().done, events.phase_progress_calls.back().total);
+    EXPECT_EQ(transport_.writes, 101U);
+    EXPECT_LT(events_.phase_progress_calls.back().done, events_.phase_progress_calls.back().total);
 }
 TEST_F(Sh72543rExecutor, EcuOnlyIdentityAndExplicitOptionalTimeoutArePreserved)
 {
@@ -358,8 +358,8 @@ TEST_F(Sh72543rExecutor, EcuOnlyIdentityAndExplicitOptionalTimeoutArePreserved)
 TEST_F(Sh72543rExecutor, ExplicitTimeoutDuringOptionalSessionIsTolerated)
 {
     alive();
-    transport.expectWrite(req(Bytes{0x10, 3}));
-    transport.queue_error(ErrorKind::Timeout);
+    transport_.expectWrite(req(Bytes{0x10, 3}));
+    transport_.queue_error(ErrorKind::Timeout);
     seed();
     key();
     pages();
@@ -389,9 +389,9 @@ TEST_F(Sh72543rExecutor, ForgedDryRunAndWireChangesAreRejectedBeforeIo)
         auto built = validate_and_build(std::move(f));
         ASSERT_THAT(built, fastecu::testing::IsOk());
         auto error = mutation ? ErrorKind::InvalidConfig : ErrorKind::Unsupported;
-        EXPECT_THAT(executor.transport_setup(*built), fastecu::testing::IsErr(error));
-        EXPECT_THAT(executor.execute(*built, transport, clock, cancel, events), fastecu::testing::IsErr(error));
-        EXPECT_EQ(transport.writes, 0U);
+        EXPECT_THAT(executor_.transport_setup(*built), fastecu::testing::IsErr(error));
+        EXPECT_THAT(executor_.execute(*built, transport_, clock_, cancel_, events_), fastecu::testing::IsErr(error));
+        EXPECT_EQ(transport_.writes, 0U);
     }
 }
 
@@ -445,7 +445,7 @@ class Sh72543rWrite : public Sh72543rExecutor
         auto p = build_subaru_hitachi_sh72543r_can_plan(FlashOperation::Write, "sub_ecu_hitachi_sh72543r_can",
                                                         "SH72543R", image());
         EXPECT_THAT(p, fastecu::testing::IsOk());
-        return executor.execute(*p, transport, clock, cancel, events);
+        return executor_.execute(*p, transport_, clock_, cancel_, events_);
     }
     void setup()
     {
@@ -470,15 +470,15 @@ class Sh72543rWrite : public Sh72543rExecutor
                 bytes::appendU32Be(payload, referenceCipher(0xdeadbeefU ^ (a + offset)));
             }
             ASSERT_EQ(payload.size(), 260U);
-            transport.expectWrite(req(payload));
+            transport_.expectWrite(req(payload));
             // Legacy does not interpret this content, even negative responses.
             if (silent)
             {
-                transport.queue_no_frame();
+                transport_.queue_no_frame();
             }
             else
             {
-                transport.queueRead(reply(Bytes{0x7f, 0xb6, 0x22}));
+                transport_.queueRead(reply(Bytes{0x7f, 0xb6, 0x22}));
             }
         }
     }
@@ -499,14 +499,14 @@ TEST_F(Sh72543rWrite, CompleteWriteUsesAbsoluteOffsetsAndImmediateEraseReply)
     EXPECT_EQ(result->operation, FlashOperation::Write);
     EXPECT_FALSE(result->read_bytes);
     EXPECT_FALSE(result->rom_id);
-    EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_EQ(transport.writes, 8105U);
-    EXPECT_EQ(transport.reads, 8105U);
-    EXPECT_EQ(clock.elapsed(), 82210ms);
-    EXPECT_EQ(transport.readTimeouts()[8103], 800ms);
-    EXPECT_EQ(transport.readTimeouts()[8104], 2000ms);
+    EXPECT_TRUE(transport_.scriptConsumed());
+    EXPECT_EQ(transport_.writes, 8105U);
+    EXPECT_EQ(transport_.reads, 8105U);
+    EXPECT_EQ(clock_.elapsed(), 82210ms);
+    EXPECT_EQ(transport_.readTimeouts()[8103], 800ms);
+    EXPECT_EQ(transport_.readTimeouts()[8104], 2000ms);
     int previousPhase = 0, previousDone = 0;
-    for (const auto& p : events.phase_progress_calls)
+    for (const auto& p : events_.phase_progress_calls)
     {
         EXPECT_GE(p.phase_index, previousPhase);
         if (p.phase_index == previousPhase)
@@ -517,20 +517,20 @@ TEST_F(Sh72543rWrite, CompleteWriteUsesAbsoluteOffsetsAndImmediateEraseReply)
         previousPhase = p.phase_index;
         previousDone = p.done;
     }
-    EXPECT_EQ(events.phase_progress_calls.back().done, events.phase_progress_calls.back().total);
+    EXPECT_EQ(events_.phase_progress_calls.back().done, events_.phase_progress_calls.back().total);
 }
 TEST_F(Sh72543rWrite, DelayedEraseAndSilentDataRepliesStillRequireFinalVerification)
 {
     setup();
     erase({0x7f, 0x31, 0x78});
-    transport.queue_no_frame();
-    transport.queueRead(reply(Bytes{0x71, 1, 2}));
+    transport_.queue_no_frame();
+    transport_.queueRead(reply(Bytes{0x71, 1, 2}));
     data(true);
     finish();
     EXPECT_THAT(write(), fastecu::testing::IsOk());
-    EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_EQ(transport.reads, 8107U);
-    EXPECT_EQ(clock.elapsed(), 82710ms);
+    EXPECT_TRUE(transport_.scriptConsumed());
+    EXPECT_EQ(transport_.reads, 8107U);
+    EXPECT_EQ(clock_.elapsed(), 82710ms);
 }
 class Sh72543rWriteFault : public Sh72543rWrite, public ::testing::WithParamInterface<int>
 {
@@ -538,22 +538,22 @@ class Sh72543rWriteFault : public Sh72543rWrite, public ::testing::WithParamInte
 TEST_P(Sh72543rWriteFault, EraseExhaustionNeverSendsData)
 {
     setup();
-    transport.expectWrite(req(Bytes{0x31, 1, 2, 1, 0x0f, 0xff, 0xff, 0xff}));
+    transport_.expectWrite(req(Bytes{0x31, 1, 2, 1, 0x0f, 0xff, 0xff, 0xff}));
     for (int i = 0; i < 21; ++i)
     {
         if (GetParam())
         {
-            transport.queueRead(reply(Bytes{0x7f, 0x31, 0x78}));
+            transport_.queueRead(reply(Bytes{0x7f, 0x31, 0x78}));
         }
         else
         {
-            transport.queue_no_frame();
+            transport_.queue_no_frame();
         }
     }
     EXPECT_THAT(write(), fastecu::testing::IsErr(GetParam() ? ErrorKind::BadResponse : ErrorKind::Timeout));
-    EXPECT_EQ(transport.writes, 7U);
-    EXPECT_EQ(transport.reads, 27U);
-    EXPECT_TRUE(transport.scriptConsumed());
+    EXPECT_EQ(transport_.writes, 7U);
+    EXPECT_EQ(transport_.reads, 27U);
+    EXPECT_TRUE(transport_.scriptConsumed());
 }
 INSTANTIATE_TEST_SUITE_P(SilenceAndWrongReply, Sh72543rWriteFault, ::testing::Values(0, 1));
 class Sh72543rWriteCancel : public Sh72543rWrite, public ::testing::WithParamInterface<int>
@@ -565,16 +565,16 @@ TEST_P(Sh72543rWriteCancel, CancelAtEveryProgrammingPhaseStopsSubsequentIo)
     erase();
     data();
     finish();
-    transport.after_read = [&](std::size_t n)
+    transport_.after_read = [&](std::size_t n)
     {
         if (n == static_cast<std::size_t>(GetParam()))
         {
-            cancel.cancel();
+            cancel_.cancel();
         }
     };
     EXPECT_THAT(write(), fastecu::testing::IsErr(ErrorKind::Cancelled));
-    EXPECT_EQ(transport.writes, static_cast<std::size_t>(GetParam() + 1));
-    EXPECT_LT(events.phase_progress_calls.back().done, events.phase_progress_calls.back().total);
+    EXPECT_EQ(transport_.writes, static_cast<std::size_t>(GetParam() + 1));
+    EXPECT_LT(events_.phase_progress_calls.back().done, events_.phase_progress_calls.back().total);
 }
 // After erase, first/middle/last frame, close, and checksum respectively.
 INSTANTIATE_TEST_SUITE_P(Boundaries, Sh72543rWriteCancel, ::testing::Values(6, 7, 100, 8102, 8103, 8104));
@@ -582,24 +582,24 @@ TEST_F(Sh72543rWrite, CancelDuringErasePollingStopsBeforeData)
 {
     setup();
     erase({0x7f, 0x31, 0x78});
-    transport.queue_no_frame();
-    transport.after_read = [&](std::size_t n)
+    transport_.queue_no_frame();
+    transport_.after_read = [&](std::size_t n)
     {
         if (n == 7)
         {
-            cancel.cancel();
+            cancel_.cancel();
         }
     };
     EXPECT_THAT(write(), fastecu::testing::IsErr(ErrorKind::Cancelled));
-    EXPECT_EQ(transport.writes, 7U);
+    EXPECT_EQ(transport_.writes, 7U);
 }
 TEST_F(Sh72543rWrite, DisconnectDuringEraseStopsBeforeData)
 {
     setup();
     erase();
-    transport.fail_read = 6;
+    transport_.fail_read = 6;
     EXPECT_THAT(write(), fastecu::testing::IsErr(ErrorKind::Disconnected));
-    EXPECT_EQ(transport.writes, 7U);
+    EXPECT_EQ(transport_.writes, 7U);
 }
 TEST_F(Sh72543rWrite, FailedDataWriteStopsBeforeFinalization)
 {
@@ -607,9 +607,9 @@ TEST_F(Sh72543rWrite, FailedDataWriteStopsBeforeFinalization)
     erase();
     data();
     finish();
-    transport.fail_write = 7;
+    transport_.fail_write = 7;
     EXPECT_THAT(write(), fastecu::testing::IsErr(ErrorKind::Disconnected));
-    EXPECT_EQ(transport.writes, 8U);
+    EXPECT_EQ(transport_.writes, 8U);
 }
 TEST_F(Sh72543rWrite, DisconnectedDataReadStopsBeforeFinalization)
 {
@@ -617,9 +617,9 @@ TEST_F(Sh72543rWrite, DisconnectedDataReadStopsBeforeFinalization)
     erase();
     data();
     finish();
-    transport.fail_read = 7;
+    transport_.fail_read = 7;
     EXPECT_THAT(write(), fastecu::testing::IsErr(ErrorKind::Disconnected));
-    EXPECT_EQ(transport.writes, 8U);
+    EXPECT_EQ(transport_.writes, 8U);
 }
 class Sh72543rFinalizeFault : public Sh72543rWrite, public ::testing::WithParamInterface<int>
 {
@@ -636,19 +636,19 @@ TEST_P(Sh72543rFinalizeFault, BoundedFinalizationRetriesClassifyFailure)
     }
     for (int i = 0; i < 20; ++i)
     {
-        transport.expectWrite(req(checksum ? Bytes{0x31, 1, 2, 2, 1} : Bytes{0x37}));
+        transport_.expectWrite(req(checksum ? Bytes{0x31, 1, 2, 2, 1} : Bytes{0x37}));
         if (response)
         {
-            transport.queueRead(reply(Bytes{0x7f, 0x31, 0x78}));
+            transport_.queueRead(reply(Bytes{0x7f, 0x31, 0x78}));
         }
         else
         {
-            transport.queue_no_frame();
+            transport_.queue_no_frame();
         }
     }
     EXPECT_THAT(write(), fastecu::testing::IsErr(response ? ErrorKind::BadResponse : ErrorKind::Timeout));
-    EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_EQ(transport.writes, static_cast<std::size_t>(8103 + 20 + (checksum ? 1 : 0)));
+    EXPECT_TRUE(transport_.scriptConsumed());
+    EXPECT_EQ(transport_.writes, static_cast<std::size_t>(8103 + 20 + (checksum ? 1 : 0)));
 }
 INSTANTIATE_TEST_SUITE_P(CloseAndChecksum, Sh72543rFinalizeFault, ::testing::Values(0, 1, 2, 3));
 TEST_F(Sh72543rWrite, LastRetrySucceedsWithoutEarlyCompletion)
@@ -667,7 +667,7 @@ TEST_F(Sh72543rWrite, LastRetrySucceedsWithoutEarlyCompletion)
     }
     x({0x31, 1, 2, 2, 1}, {0x71, 1, 2});
     EXPECT_THAT(write(), fastecu::testing::IsOk());
-    EXPECT_TRUE(transport.scriptConsumed());
+    EXPECT_TRUE(transport_.scriptConsumed());
 }
 
 TEST_F(Sh72543rWrite, ReusedExecutorDoesNotLeakReadMetadataIntoWrite)
@@ -687,6 +687,6 @@ TEST_F(Sh72543rWrite, ReusedExecutorDoesNotLeakReadMetadataIntoWrite)
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_FALSE(result->read_bytes);
     EXPECT_FALSE(result->rom_id);
-    EXPECT_TRUE(transport.scriptConsumed());
+    EXPECT_TRUE(transport_.scriptConsumed());
 }
 } // namespace

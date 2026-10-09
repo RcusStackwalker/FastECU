@@ -29,7 +29,7 @@ constexpr std::uint32_t kBlockSize = 96;
 
 bytes::Bytes frame(bytes::Bytes payload)
 {
-    return SsmProtocol::addHeader(payload, 0xf0, 0x18);
+    return ssm_protocol::addHeader(payload, 0xf0, 0x18);
 }
 
 // The ROM byte the scripted TCU returns at `offset`. 31 is odd, so every
@@ -178,7 +178,7 @@ bytes::Bytes expectedSeedKey()
                                                              0x1794, 0x5C7B, 0xA7BF, 0x98E5, 0x0B63, 0xA1C9,
                                                              0x79BF, 0xF413, 0x82B1, 0xA895};
     const bytes::Bytes seed{0xde, 0xad, 0xbe, 0xef};
-    return SsmProtocol::calculateSeedKey(seed, kIndex, SsmProtocol::kIndexTransformationStock);
+    return ssm_protocol::calculateSeedKey(seed, kIndex, ssm_protocol::kIndexTransformationStock);
 }
 
 // The five legacy connect_bootloader() exchanges, byte-exact. Task 3 reuses

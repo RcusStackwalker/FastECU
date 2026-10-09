@@ -57,19 +57,19 @@ constexpr MemoryRegion kWriteRegion{0x80000, 0x100000};
 
 bytes::Bytes seed_key(bytes::ByteView seed)
 {
-    return SsmProtocol::calculateSeedKey(seed, tcuCvtMitsuSeedKeyTable(), SsmProtocol::kIndexTransformationStock);
+    return ssm_protocol::calculateSeedKey(seed, tcuCvtMitsuSeedKeyTable(), ssm_protocol::kIndexTransformationStock);
 }
 
 bytes::Bytes encrypt_rom(bytes::ByteView image)
 {
-    return SsmProtocol::calculatePayload(image, static_cast<std::uint32_t>(image.size()), tcuCvtMitsuEncryptTable(),
-                                         SsmProtocol::kIndexTransformationStock);
+    return ssm_protocol::calculatePayload(image, static_cast<std::uint32_t>(image.size()), tcuCvtMitsuEncryptTable(),
+                                          ssm_protocol::kIndexTransformationStock);
 }
 
 bytes::Bytes decrypt_page(bytes::ByteView page)
 {
-    return SsmProtocol::calculatePayload(page, static_cast<std::uint32_t>(page.size()), tcuCvtMitsuDecryptTable(),
-                                         SsmProtocol::kIndexTransformationStock);
+    return ssm_protocol::calculatePayload(page, static_cast<std::uint32_t>(page.size()), tcuCvtMitsuDecryptTable(),
+                                          ssm_protocol::kIndexTransformationStock);
 }
 
 // The five-field context this package shares; see uds_client_exchange_common.h.

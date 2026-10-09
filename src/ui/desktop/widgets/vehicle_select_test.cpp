@@ -45,6 +45,6 @@ TEST(VehicleSelectTest, withNoSelectionItOpensOnTheFirstMakeModelAndVersion)
 
 namespace
 {
-const auto *const application_environment =
+const auto *const kApplicationEnvironment =
     ::testing::AddGlobalTestEnvironment(new fastecu::testing::WidgetsApplicationEnvironment({}, /*use_96_dpi=*/true));
 }

@@ -102,33 +102,33 @@ template <typename TestBase> class CoordinatorHarness : public TestBase
     // what initialization recorded so a case sees only its own operation.
     void start(const config::Catalog& catalog)
     {
-        cfg.catalog = catalog;
-        ASSERT_THAT(cfg.initialize(), IsOk());
-        ASSERT_THAT(cfg.session.select_row(0), IsOk());
-        cfg.file_repository.read_handles.clear();
-        cfg.file_repository.write_calls.clear();
-        cfg.events.logs.clear();
-        cfg.events.notices.clear();
+        cfg_.catalog = catalog;
+        ASSERT_THAT(cfg_.initialize(), IsOk());
+        ASSERT_THAT(cfg_.session.select_row(0), IsOk());
+        cfg_.file_repository.read_handles.clear();
+        cfg_.file_repository.write_calls.clear();
+        cfg_.events.logs.clear();
+        cfg_.events.notices.clear();
     }
 
     void open_session(std::optional<calibration::ResolvedDefinition> definition, std::string flash_method)
     {
-        session = ecu_read(std::move(definition), std::move(flash_method));
-        ASSERT_THAT(session.write_bytes(0, bytes::Bytes{9}), IsOk());
+        session_ = ecu_read(std::move(definition), std::move(flash_method));
+        ASSERT_THAT(session_.write_bytes(0, bytes::Bytes{9}), IsOk());
     }
 
     // Scripts one checksum interaction returning `result`, recording its
     // arguments and its place in the callback trace.
     void expect_checksum(ChecksumCorrectionResult result)
     {
-        EXPECT_CALL(interaction, correct_checksums(_, _, _))
+        EXPECT_CALL(interaction_, correct_checksums(_, _, _))
             .WillOnce(
                 [this, result](bytes::ByteView image, bool has_definition, const checksum::ChecksumSelection& selection)
                 {
-                    checksum_image.assign(image.begin(), image.end());
-                    checksum_has_definition = has_definition;
-                    checksum_selection = selection;
-                    trace.emplace_back("checksum");
+                    checksum_image_.assign(image.begin(), image.end());
+                    checksum_has_definition_ = has_definition;
+                    checksum_selection_ = selection;
+                    trace_.emplace_back("checksum");
                     return result;
                 });
     }
@@ -138,14 +138,14 @@ template <typename TestBase> class CoordinatorHarness : public TestBase
     // Nothing may reach the repository before a destination is chosen.
     void expect_choose(std::optional<std::string> chosen)
     {
-        EXPECT_CALL(interaction, choose_save_path(_))
+        EXPECT_CALL(interaction_, choose_save_path(_))
             .WillOnce(
                 [this, chosen](std::string_view suggested)
                 {
-                    EXPECT_THAT(cfg.file_repository.write_calls, IsEmpty());
-                    suggested_path = suggested;
-                    logs_before_choose = logs.size();
-                    trace.emplace_back("choose");
+                    EXPECT_THAT(cfg_.file_repository.write_calls, IsEmpty());
+                    suggested_path_ = suggested;
+                    logs_before_choose_ = logs_.size();
+                    trace_.emplace_back("choose");
                     return chosen;
                 });
     }
@@ -156,34 +156,34 @@ template <typename TestBase> class CoordinatorHarness : public TestBase
     {
         if (mode == SaveMode::Save)
         {
-            return session.source().path;
+            return session_.source().path;
         }
         expect_choose(chosen);
         return chosen;
     }
 
-    std::vector<LogLine> logs;
-    std::vector<DescriptionEvent> descriptions;
-    std::vector<std::string> trace;
-    bytes::Bytes checksum_image;
-    bool checksum_has_definition = false;
-    checksum::ChecksumSelection checksum_selection;
-    std::string suggested_path;
-    std::size_t logs_before_choose = 0;
+    std::vector<LogLine> logs_;
+    std::vector<DescriptionEvent> descriptions_;
+    std::vector<std::string> trace_;
+    bytes::Bytes checksum_image_;
+    bool checksum_has_definition_ = false;
+    checksum::ChecksumSelection checksum_selection_;
+    std::string suggested_path_;
+    std::size_t logs_before_choose_ = 0;
 
-    config::testing::ConfigSessionFixture cfg;
-    calibration::RomSaveUseCase saver{cfg.file_repository, cfg.events};
-    StrictMock<MockCalibrationInteraction> interaction;
-    calibration::CalibrationSession session = ecu_read(std::nullopt, {});
-    ui::CalibrationOperationCoordinator coordinator{
-        cfg.session, saver, interaction,
+    config::testing::ConfigSessionFixture cfg_;
+    calibration::RomSaveUseCase saver_{cfg_.file_repository, cfg_.events};
+    StrictMock<MockCalibrationInteraction> interaction_;
+    calibration::CalibrationSession session_ = ecu_read(std::nullopt, {});
+    ui::CalibrationOperationCoordinator coordinator_{
+        cfg_.session, saver_, interaction_,
         ui::CalibrationPresentationCallbacks{
-            .log = [this](LogLevel level, std::string_view text) { logs.emplace_back(level, text); },
+            .log = [this](LogLevel level, std::string_view text) { logs_.emplace_back(level, text); },
             .protocol_description_changed =
                 [this](std::string_view description)
             {
-                descriptions.push_back({std::string{description}, logs.size(), session.protocol()});
-                trace.push_back(std::format("protocol:{}", description));
+                descriptions_.push_back({std::string{description}, logs_.size(), session_.protocol()});
+                trace_.push_back(std::format("protocol:{}", description));
             },
         }};
 };
@@ -194,34 +194,34 @@ class CalibrationOperationCoordinator : public CoordinatorHarness<::testing::Tes
 
 TEST_F(CalibrationOperationCoordinator, MissingWriteSelection)
 {
-    EXPECT_CALL(interaction, show_notice(CalibrationNotice::NoCalibrationToWrite));
+    EXPECT_CALL(interaction_, show_notice(CalibrationNotice::NoCalibrationToWrite));
 
-    EXPECT_EQ(coordinator.prepare_write(nullptr, "/kernels/"), std::nullopt);
+    EXPECT_EQ(coordinator_.prepare_write(nullptr, "/kernels/"), std::nullopt);
 
-    EXPECT_THAT(logs, IsEmpty());
-    EXPECT_THAT(descriptions, IsEmpty());
+    EXPECT_THAT(logs_, IsEmpty());
+    EXPECT_THAT(descriptions_, IsEmpty());
 }
 
 TEST_F(CalibrationOperationCoordinator, CancelledWriteWarning)
 {
-    ASSERT_THAT(cfg.session.select_row(1), IsOk()); // proto_b: checksum n/a
-    const calibration::RomProtocolInfo protocol_before = session.protocol();
-    EXPECT_CALL(interaction, confirm_write_without_checksum()).WillOnce(Return(false));
+    ASSERT_THAT(cfg_.session.select_row(1), IsOk()); // proto_b: checksum n/a
+    const calibration::RomProtocolInfo protocol_before = session_.protocol();
+    EXPECT_CALL(interaction_, confirm_write_without_checksum()).WillOnce(Return(false));
 
-    EXPECT_EQ(coordinator.prepare_write(&session, "/kernels/"), std::nullopt);
+    EXPECT_EQ(coordinator_.prepare_write(&session_, "/kernels/"), std::nullopt);
 
     // The refresh would have filled the MCU and kernel fields.
-    EXPECT_EQ(session.protocol(), protocol_before);
-    EXPECT_THAT(logs, Contains(Pair(LogLevel::Debug, "Write canceled!")));
-    EXPECT_THAT(descriptions, IsEmpty());
+    EXPECT_EQ(session_.protocol(), protocol_before);
+    EXPECT_THAT(logs_, Contains(Pair(LogLevel::Debug, "Write canceled!")));
+    EXPECT_THAT(descriptions_, IsEmpty());
 }
 
 TEST_F(CalibrationOperationCoordinator, AcceptedWriteWarningSkipsCorrection)
 {
-    ASSERT_THAT(cfg.session.select_row(1), IsOk()); // proto_b: checksum n/a
-    EXPECT_CALL(interaction, confirm_write_without_checksum()).WillOnce(Return(true));
+    ASSERT_THAT(cfg_.session.select_row(1), IsOk()); // proto_b: checksum n/a
+    EXPECT_CALL(interaction_, confirm_write_without_checksum()).WillOnce(Return(true));
 
-    const std::optional<PreparedWrite> prepared = coordinator.prepare_write(&session, "/kernels/");
+    const std::optional<PreparedWrite> prepared = coordinator_.prepare_write(&session_, "/kernels/");
 
     ASSERT_TRUE(prepared.has_value());
     EXPECT_THAT(prepared->image, ElementsAre(9, 2, 3));
@@ -229,45 +229,45 @@ TEST_F(CalibrationOperationCoordinator, AcceptedWriteWarningSkipsCorrection)
     EXPECT_EQ(prepared->protocol.mcu, "M32R");
     EXPECT_EQ(prepared->kernel_path, "/kernels/b.bin");
     EXPECT_EQ(prepared->display_filename, "read.bin");
-    EXPECT_EQ(session.protocol().mcu_type, "M32R");
-    EXPECT_THAT(logs, Not(Contains(Pair(LogLevel::Debug, "Write canceled!"))));
+    EXPECT_EQ(session_.protocol().mcu_type, "M32R");
+    EXPECT_THAT(logs_, Not(Contains(Pair(LogLevel::Debug, "Write canceled!"))));
 }
 
 TEST_F(CalibrationOperationCoordinator, CorrectedWriteUsesOnlyOperationBytes)
 {
     expect_checksum({.corrected_rom_data = bytes::Bytes{4, 5, 6}});
 
-    const std::optional<PreparedWrite> prepared = coordinator.prepare_write(&session, "/kernels/");
+    const std::optional<PreparedWrite> prepared = coordinator_.prepare_write(&session_, "/kernels/");
 
     ASSERT_TRUE(prepared.has_value());
-    EXPECT_THAT(checksum_image, ElementsAre(9, 2, 3));
-    EXPECT_FALSE(checksum_has_definition);
+    EXPECT_THAT(checksum_image_, ElementsAre(9, 2, 3));
+    EXPECT_FALSE(checksum_has_definition_);
     EXPECT_THAT(prepared->image, ElementsAre(4, 5, 6));
-    EXPECT_THAT(session.rom(), ElementsAre(9, 2, 3));
-    EXPECT_TRUE(session.dirty());
+    EXPECT_THAT(session_.rom(), ElementsAre(9, 2, 3));
+    EXPECT_TRUE(session_.dirty());
     EXPECT_EQ(prepared->protocol.name, "proto_a");
     EXPECT_EQ(prepared->protocol.mcu, "SH7058");
     EXPECT_EQ(prepared->kernel_path, "/kernels/a.bin");
     EXPECT_EQ(prepared->display_filename, "read.bin");
-    EXPECT_THAT(cfg.file_repository.write_calls, IsEmpty());
-    EXPECT_THAT(cfg.events.notices, IsEmpty());
+    EXPECT_THAT(cfg_.file_repository.write_calls, IsEmpty());
+    EXPECT_THAT(cfg_.events.notices, IsEmpty());
 }
 
 TEST_F(CalibrationOperationCoordinator, ChecksumLogsKeepLegacyTextAndOrder)
 {
     // 0x1a bytes, so the size line shows the lowercase hexadecimal legacy
     // QString::number(n, 16) produced.
-    session = calibration::CalibrationSession{calibration::SessionId{2},
-                                              calibration::SessionContents{.rom = bytes::Bytes(0x1a, 0)}};
+    session_ = calibration::CalibrationSession{calibration::SessionId{2},
+                                               calibration::SessionContents{.rom = bytes::Bytes(0x1a, 0)}};
     expect_checksum({.canceled_due_to_missing_module = true});
 
-    ASSERT_TRUE(coordinator.prepare_write(&session, "/kernels/").has_value());
+    ASSERT_TRUE(coordinator_.prepare_write(&session_, "/kernels/").has_value());
 
-    EXPECT_THAT(logs, ElementsAre(Pair(LogLevel::Debug, "Protocol: proto_a"), Pair(LogLevel::Debug, "Make: Subaru"),
-                                  Pair(LogLevel::Debug, "Checksum: yes"),
-                                  Pair(LogLevel::Debug, "ecuCalDef->McuType: SH7058 SH7058"),
-                                  Pair(LogLevel::Debug, "Size: 0x1a -> 0x100000"),
-                                  Pair(LogLevel::Debug, "Checksum calculation canceled!")));
+    EXPECT_THAT(logs_, ElementsAre(Pair(LogLevel::Debug, "Protocol: proto_a"), Pair(LogLevel::Debug, "Make: Subaru"),
+                                   Pair(LogLevel::Debug, "Checksum: yes"),
+                                   Pair(LogLevel::Debug, "ecuCalDef->McuType: SH7058 SH7058"),
+                                   Pair(LogLevel::Debug, "Size: 0x1a -> 0x100000"),
+                                   Pair(LogLevel::Debug, "Checksum calculation canceled!")));
 }
 
 // The standard catalog with row 2 made a Nissan.
@@ -290,32 +290,32 @@ TEST_F(CalibrationOperationCoordinator, EmptyDefinedMethodReselectsBeforeChecksu
     ASSERT_NO_FATAL_FAILURE(open_session(header_only_definition(), {}));
     expect_checksum({});
 
-    const std::optional<PreparedWrite> prepared = coordinator.prepare_write(&session, "/kernels/");
+    const std::optional<PreparedWrite> prepared = coordinator_.prepare_write(&session_, "/kernels/");
 
     ASSERT_TRUE(prepared.has_value());
-    ASSERT_THAT(cfg.session.selected_row(), IsOk());
-    EXPECT_EQ(*cfg.session.selected_row(), 2U);
-    EXPECT_EQ(session.protocol().flash_method, "proto_a");
-    EXPECT_EQ(session.protocol().mcu_type, "SH7058");
-    EXPECT_EQ(session.protocol().kernel_path, "/kernels/a.bin");
-    EXPECT_EQ(session.protocol().kernel_start_address, "0xFFFF3000");
-    EXPECT_EQ(checksum_selection.make, "Nissan");
-    EXPECT_EQ(checksum_selection.flash_method, "proto_a");
-    EXPECT_EQ(checksum_selection.checksum_flag, "yes");
-    EXPECT_EQ(checksum_selection.mcu_type, "SH7058");
-    EXPECT_EQ(checksum_selection.rom_id, "TEST");
-    EXPECT_TRUE(checksum_has_definition);
-    EXPECT_THAT(trace, ElementsAre("protocol:Protocol A", "checksum"));
+    ASSERT_THAT(cfg_.session.selected_row(), IsOk());
+    EXPECT_EQ(*cfg_.session.selected_row(), 2U);
+    EXPECT_EQ(session_.protocol().flash_method, "proto_a");
+    EXPECT_EQ(session_.protocol().mcu_type, "SH7058");
+    EXPECT_EQ(session_.protocol().kernel_path, "/kernels/a.bin");
+    EXPECT_EQ(session_.protocol().kernel_start_address, "0xFFFF3000");
+    EXPECT_EQ(checksum_selection_.make, "Nissan");
+    EXPECT_EQ(checksum_selection_.flash_method, "proto_a");
+    EXPECT_EQ(checksum_selection_.checksum_flag, "yes");
+    EXPECT_EQ(checksum_selection_.mcu_type, "SH7058");
+    EXPECT_EQ(checksum_selection_.rom_id, "TEST");
+    EXPECT_TRUE(checksum_has_definition_);
+    EXPECT_THAT(trace_, ElementsAre("protocol:Protocol A", "checksum"));
     EXPECT_EQ(prepared->protocol.name, "proto_a");
 
     // The description follows the two reselection logs and precedes the
     // kernel/MCU fill.
-    ASSERT_THAT(descriptions, SizeIs(1));
-    EXPECT_EQ(descriptions[0].logs_before, 2U);
-    EXPECT_EQ(descriptions[0].session_protocol.flash_method, "proto_a");
-    EXPECT_EQ(descriptions[0].session_protocol.mcu_type, "");
-    EXPECT_EQ(descriptions[0].session_protocol.kernel_path, "");
-    EXPECT_THAT(logs,
+    ASSERT_THAT(descriptions_, SizeIs(1));
+    EXPECT_EQ(descriptions_[0].logs_before, 2U);
+    EXPECT_EQ(descriptions_[0].session_protocol.flash_method, "proto_a");
+    EXPECT_EQ(descriptions_[0].session_protocol.mcu_type, "");
+    EXPECT_EQ(descriptions_[0].session_protocol.kernel_path, "");
+    EXPECT_THAT(logs_,
                 ElementsAre(Pair(LogLevel::Debug, "Update protocol info by selected ROM with FlashMethod: proto_a"),
                             Pair(LogLevel::Debug, "Protocol info for selected ROM updated"),
                             Pair(LogLevel::Debug, "Protocol: proto_a"), Pair(LogLevel::Debug, "Make: Nissan"),
@@ -360,15 +360,15 @@ TEST_P(UncorrectedWriteStillPrepares, WithOriginalBytes)
 {
     expect_checksum(GetParam().result);
 
-    const std::optional<PreparedWrite> prepared = coordinator.prepare_write(&session, "/kernels/");
+    const std::optional<PreparedWrite> prepared = coordinator_.prepare_write(&session_, "/kernels/");
 
     ASSERT_TRUE(prepared.has_value());
     EXPECT_THAT(prepared->image, ElementsAre(9, 2, 3));
-    EXPECT_THAT(session.rom(), ElementsAre(9, 2, 3));
+    EXPECT_THAT(session_.rom(), ElementsAre(9, 2, 3));
     EXPECT_THAT(
-        logs,
+        logs_,
         Contains(Pair(LogLevel::Debug, "Checksum calculation canceled!")).Times(GetParam().logs_cancellation ? 1 : 0));
-    EXPECT_THAT(logs,
+    EXPECT_THAT(logs_,
                 Contains(Pair(LogLevel::Error, "Unknown MCU type: SH7058")).Times(GetParam().logs_unknown_mcu ? 1 : 0));
 }
 
@@ -399,19 +399,19 @@ TEST_P(DefinitionlessOrNonemptyMethodDoesNotReselect, ButRefreshesKernelAndMcu)
         GetParam().has_definition ? std::optional{header_only_definition()} : std::nullopt, GetParam().flash_method));
     expect_checksum({});
 
-    const std::optional<PreparedWrite> prepared = coordinator.prepare_write(&session, "/kernels/");
+    const std::optional<PreparedWrite> prepared = coordinator_.prepare_write(&session_, "/kernels/");
 
     ASSERT_TRUE(prepared.has_value());
-    EXPECT_EQ(session.protocol().flash_method, GetParam().flash_method);
+    EXPECT_EQ(session_.protocol().flash_method, GetParam().flash_method);
     // A reselection by "proto_a" would have moved to row 2.
-    ASSERT_THAT(cfg.session.selected_row(), IsOk());
-    EXPECT_EQ(*cfg.session.selected_row(), 0U);
-    EXPECT_THAT(descriptions, IsEmpty());
-    EXPECT_EQ(session.protocol().mcu_type, "SH7058");
-    EXPECT_EQ(session.protocol().kernel_path, "/kernels/a.bin");
-    EXPECT_EQ(session.protocol().kernel_start_address, "0xFFFF3000");
-    EXPECT_EQ(checksum_has_definition, GetParam().has_definition);
-    EXPECT_EQ(checksum_selection.flash_method, "proto_a");
+    ASSERT_THAT(cfg_.session.selected_row(), IsOk());
+    EXPECT_EQ(*cfg_.session.selected_row(), 0U);
+    EXPECT_THAT(descriptions_, IsEmpty());
+    EXPECT_EQ(session_.protocol().mcu_type, "SH7058");
+    EXPECT_EQ(session_.protocol().kernel_path, "/kernels/a.bin");
+    EXPECT_EQ(session_.protocol().kernel_start_address, "0xFFFF3000");
+    EXPECT_EQ(checksum_has_definition_, GetParam().has_definition);
+    EXPECT_EQ(checksum_selection_.flash_method, "proto_a");
     EXPECT_EQ(prepared->protocol.name, "proto_a");
 }
 
@@ -442,10 +442,10 @@ TEST_P(KernelDirectoryJoining, MatchesFlashKernelPath)
 {
     expect_checksum({});
 
-    const std::optional<PreparedWrite> prepared = coordinator.prepare_write(&session, GetParam().directory);
+    const std::optional<PreparedWrite> prepared = coordinator_.prepare_write(&session_, GetParam().directory);
 
     ASSERT_TRUE(prepared.has_value());
-    EXPECT_EQ(session.protocol().kernel_path, GetParam().expected_path);
+    EXPECT_EQ(session_.protocol().kernel_path, GetParam().expected_path);
     EXPECT_EQ(prepared->kernel_path, GetParam().expected_path);
 }
 
@@ -472,13 +472,13 @@ class MissingSaveSelection : public CoordinatorHarness<::testing::TestWithParam<
 
 TEST_P(MissingSaveSelection, OnlyNotifies)
 {
-    EXPECT_CALL(interaction, show_notice(CalibrationNotice::NoCalibrationToSave));
+    EXPECT_CALL(interaction_, show_notice(CalibrationNotice::NoCalibrationToSave));
 
-    EXPECT_EQ(coordinator.save(nullptr, GetParam()), SaveOutcome::NoSelection);
+    EXPECT_EQ(coordinator_.save(nullptr, GetParam()), SaveOutcome::NoSelection);
 
-    EXPECT_THAT(logs, IsEmpty());
-    EXPECT_THAT(cfg.file_repository.write_calls, IsEmpty());
-    EXPECT_THAT(cfg.events.notices, IsEmpty());
+    EXPECT_THAT(logs_, IsEmpty());
+    EXPECT_THAT(cfg_.file_repository.write_calls, IsEmpty());
+    EXPECT_THAT(cfg_.events.notices, IsEmpty());
 }
 
 INSTANTIATE_TEST_SUITE_P(Modes, MissingSaveSelection, ::testing::Values(SaveMode::Save, SaveMode::SaveAs),
@@ -488,19 +488,19 @@ TEST_F(CalibrationOperationCoordinator, SavePersistsCorrectedCopy)
 {
     expect_checksum({.corrected_rom_data = bytes::Bytes{4, 5, 6}});
 
-    EXPECT_EQ(coordinator.save(&session, SaveMode::Save), SaveOutcome::Saved);
-    EXPECT_THAT(cfg.file_repository.files.at("/old/read.bin"), ElementsAre(4, 5, 6));
-    EXPECT_THAT(session.rom(), ElementsAre(9, 2, 3));
-    EXPECT_EQ(session.source().origin, calibration::RomOrigin::EcuRead);
-    EXPECT_FALSE(session.dirty());
-    EXPECT_THAT(logs, Contains(Pair(LogLevel::Debug, "ecuCalDef->FileName: read.bin")));
-    EXPECT_THAT(logs, Contains(Pair(LogLevel::Debug, "ecuCalDef->FullFileName: /old/read.bin")));
+    EXPECT_EQ(coordinator_.save(&session_, SaveMode::Save), SaveOutcome::Saved);
+    EXPECT_THAT(cfg_.file_repository.files.at("/old/read.bin"), ElementsAre(4, 5, 6));
+    EXPECT_THAT(session_.rom(), ElementsAre(9, 2, 3));
+    EXPECT_EQ(session_.source().origin, calibration::RomOrigin::EcuRead);
+    EXPECT_FALSE(session_.dirty());
+    EXPECT_THAT(logs_, Contains(Pair(LogLevel::Debug, "ecuCalDef->FileName: read.bin")));
+    EXPECT_THAT(logs_, Contains(Pair(LogLevel::Debug, "ecuCalDef->FullFileName: /old/read.bin")));
 
-    EXPECT_THAT(checksum_image, ElementsAre(9, 2, 3));
-    EXPECT_THAT(cfg.file_repository.write_calls, SizeIs(1));
+    EXPECT_THAT(checksum_image_, ElementsAre(9, 2, 3));
+    EXPECT_THAT(cfg_.file_repository.write_calls, SizeIs(1));
     // The Save As progress lines belong to the picker flow only.
-    EXPECT_THAT(logs, Not(Contains(Pair(_, StartsWith("Save as:")))));
-    EXPECT_THAT(cfg.events.notices, IsEmpty());
+    EXPECT_THAT(logs_, Not(Contains(Pair(_, StartsWith("Save as:")))));
+    EXPECT_THAT(cfg_.events.notices, IsEmpty());
 }
 
 using UncorrectedSaveParam = std::tuple<UncorrectedCase, SaveMode>;
@@ -515,16 +515,16 @@ TEST_P(UncorrectedSaveStillPersists, WithOriginalBytes)
     expect_checksum(outcome.result);
     const std::string destination = expect_destination(mode);
 
-    EXPECT_EQ(coordinator.save(&session, mode), SaveOutcome::Saved);
+    EXPECT_EQ(coordinator_.save(&session_, mode), SaveOutcome::Saved);
 
-    EXPECT_THAT(cfg.file_repository.files.at(destination), ElementsAre(9, 2, 3));
-    EXPECT_THAT(session.rom(), ElementsAre(9, 2, 3));
-    EXPECT_FALSE(session.dirty());
+    EXPECT_THAT(cfg_.file_repository.files.at(destination), ElementsAre(9, 2, 3));
+    EXPECT_THAT(session_.rom(), ElementsAre(9, 2, 3));
+    EXPECT_FALSE(session_.dirty());
     EXPECT_THAT(
-        logs,
+        logs_,
         Contains(Pair(LogLevel::Debug, "Checksum calculation canceled!")).Times(outcome.logs_cancellation ? 1 : 0));
     // Saving never refreshes the MCU, so the read session's empty one is named.
-    EXPECT_THAT(logs, Contains(Pair(LogLevel::Error, "Unknown MCU type: ")).Times(outcome.logs_unknown_mcu ? 1 : 0));
+    EXPECT_THAT(logs_, Contains(Pair(LogLevel::Error, "Unknown MCU type: ")).Times(outcome.logs_unknown_mcu ? 1 : 0));
 }
 
 INSTANTIATE_TEST_SUITE_P(
@@ -541,18 +541,18 @@ TEST_P(SaveDoesNotRefreshWriteMetadata, EvenForEmptyDefinedMethod)
 {
     // A write would fill this empty method and reselect row 2 by it.
     ASSERT_NO_FATAL_FAILURE(open_session(header_only_definition(), {}));
-    const calibration::RomProtocolInfo protocol_before = session.protocol();
+    const calibration::RomProtocolInfo protocol_before = session_.protocol();
     expect_checksum({});
     expect_destination(GetParam());
 
-    EXPECT_EQ(coordinator.save(&session, GetParam()), SaveOutcome::Saved);
+    EXPECT_EQ(coordinator_.save(&session_, GetParam()), SaveOutcome::Saved);
 
-    EXPECT_EQ(session.protocol(), protocol_before);
-    ASSERT_THAT(cfg.session.selected_row(), IsOk());
-    EXPECT_EQ(*cfg.session.selected_row(), 0U);
-    EXPECT_THAT(descriptions, IsEmpty());
-    EXPECT_TRUE(checksum_has_definition);
-    EXPECT_EQ(checksum_selection.mcu_type, "");
+    EXPECT_EQ(session_.protocol(), protocol_before);
+    ASSERT_THAT(cfg_.session.selected_row(), IsOk());
+    EXPECT_EQ(*cfg_.session.selected_row(), 0U);
+    EXPECT_THAT(descriptions_, IsEmpty());
+    EXPECT_TRUE(checksum_has_definition_);
+    EXPECT_EQ(checksum_selection_.mcu_type, "");
 }
 
 INSTANTIATE_TEST_SUITE_P(Modes, SaveDoesNotRefreshWriteMetadata, ::testing::Values(SaveMode::Save, SaveMode::SaveAs),
@@ -562,29 +562,29 @@ TEST_F(CalibrationOperationCoordinator, SaveAsCorrectsBeforeChoosingPath)
 {
     // A configured directory that differs from the provisioned one shows the
     // suggestion comes from the effective paths.
-    cfg.put_settings(config::testing::setting("calibration_files_directory", "/cal"));
+    cfg_.put_settings(config::testing::setting("calibration_files_directory", "/cal"));
     ASSERT_NO_FATAL_FAILURE(start(config::testing::kStandardCatalog));
-    ASSERT_NE(cfg.paths.calibration_files_directory, "/cal/");
+    ASSERT_NE(cfg_.paths.calibration_files_directory, "/cal/");
     expect_checksum({.corrected_rom_data = bytes::Bytes{4, 5, 6}});
     expect_choose("/cal/saved.bin");
 
-    EXPECT_EQ(coordinator.save(&session, SaveMode::SaveAs), SaveOutcome::Saved);
+    EXPECT_EQ(coordinator_.save(&session_, SaveMode::SaveAs), SaveOutcome::Saved);
 
-    EXPECT_THAT(trace, ElementsAre("checksum", "choose"));
-    EXPECT_EQ(suggested_path, cfg.session.effective_paths().calibration_files_directory + "read.bin");
-    EXPECT_EQ(suggested_path, "/cal/read.bin");
-    EXPECT_THAT(cfg.file_repository.files.at("/cal/saved.bin"), ElementsAre(4, 5, 6));
-    EXPECT_THAT(session.rom(), ElementsAre(9, 2, 3));
-    EXPECT_EQ(session.source().origin, calibration::RomOrigin::EcuRead);
+    EXPECT_THAT(trace_, ElementsAre("checksum", "choose"));
+    EXPECT_EQ(suggested_path_, cfg_.session.effective_paths().calibration_files_directory + "read.bin");
+    EXPECT_EQ(suggested_path_, "/cal/read.bin");
+    EXPECT_THAT(cfg_.file_repository.files.at("/cal/saved.bin"), ElementsAre(4, 5, 6));
+    EXPECT_THAT(session_.rom(), ElementsAre(9, 2, 3));
+    EXPECT_EQ(session_.source().origin, calibration::RomOrigin::EcuRead);
     // Each progress line precedes its step: the first the checksum logs, the
     // second the picker.
-    EXPECT_EQ(logs_before_choose, 5U);
-    EXPECT_THAT(logs, ElementsAre(Pair(LogLevel::Debug, "Save as: Check selected ROM number"),
-                                  Pair(LogLevel::Debug, "Protocol: proto_a"), Pair(LogLevel::Debug, "Make: Subaru"),
-                                  Pair(LogLevel::Debug, "Checksum: yes"),
-                                  Pair(LogLevel::Debug, "Save as: Check if OEM ECU file"),
-                                  Pair(LogLevel::Debug, "ecuCalDef->FileName: saved.bin"),
-                                  Pair(LogLevel::Debug, "ecuCalDef->FullFileName: /cal/saved.bin")));
+    EXPECT_EQ(logs_before_choose_, 5U);
+    EXPECT_THAT(logs_, ElementsAre(Pair(LogLevel::Debug, "Save as: Check selected ROM number"),
+                                   Pair(LogLevel::Debug, "Protocol: proto_a"), Pair(LogLevel::Debug, "Make: Subaru"),
+                                   Pair(LogLevel::Debug, "Checksum: yes"),
+                                   Pair(LogLevel::Debug, "Save as: Check if OEM ECU file"),
+                                   Pair(LogLevel::Debug, "ecuCalDef->FileName: saved.bin"),
+                                   Pair(LogLevel::Debug, "ecuCalDef->FullFileName: /cal/saved.bin")));
 }
 
 struct CancelledPickCase
@@ -604,22 +604,22 @@ class SaveAsCancelledAfterCorrection : public CoordinatorHarness<::testing::Test
 
 TEST_P(SaveAsCancelledAfterCorrection, WritesNothing)
 {
-    const calibration::RomSource source_before = session.source();
+    const calibration::RomSource source_before = session_.source();
     expect_checksum({.corrected_rom_data = bytes::Bytes{4, 5, 6}});
     expect_choose(GetParam().chosen);
-    EXPECT_CALL(interaction, show_notice(CalibrationNotice::NoSaveFilename))
-        .WillOnce([this] { trace.emplace_back("notice"); });
+    EXPECT_CALL(interaction_, show_notice(CalibrationNotice::NoSaveFilename))
+        .WillOnce([this] { trace_.emplace_back("notice"); });
 
-    EXPECT_EQ(coordinator.save(&session, SaveMode::SaveAs), SaveOutcome::Cancelled);
+    EXPECT_EQ(coordinator_.save(&session_, SaveMode::SaveAs), SaveOutcome::Cancelled);
 
-    EXPECT_THAT(trace, ElementsAre("checksum", "choose", "notice"));
-    EXPECT_EQ(session.source(), source_before);
-    EXPECT_TRUE(session.dirty());
-    EXPECT_THAT(session.rom(), ElementsAre(9, 2, 3));
-    EXPECT_THAT(cfg.file_repository.write_calls, IsEmpty());
-    EXPECT_THAT(cfg.events.notices, IsEmpty());
-    EXPECT_THAT(logs, Not(Contains(Pair(_, StartsWith("ecuCalDef->")))));
-    EXPECT_THAT(logs, Not(Contains(Pair(LogLevel::Error, _))));
+    EXPECT_THAT(trace_, ElementsAre("checksum", "choose", "notice"));
+    EXPECT_EQ(session_.source(), source_before);
+    EXPECT_TRUE(session_.dirty());
+    EXPECT_THAT(session_.rom(), ElementsAre(9, 2, 3));
+    EXPECT_THAT(cfg_.file_repository.write_calls, IsEmpty());
+    EXPECT_THAT(cfg_.events.notices, IsEmpty());
+    EXPECT_THAT(logs_, Not(Contains(Pair(_, StartsWith("ecuCalDef->")))));
+    EXPECT_THAT(logs_, Not(Contains(Pair(LogLevel::Error, _))));
 }
 
 INSTANTIATE_TEST_SUITE_P(Pickers, SaveAsCancelledAfterCorrection,
@@ -652,16 +652,16 @@ TEST_P(SaveAsFilenameCompatibility, PersistsLegacySuffix)
     expect_checksum({.corrected_rom_data = bytes::Bytes{4, 5, 6}});
     expect_choose(GetParam().selected);
 
-    EXPECT_EQ(coordinator.save(&session, SaveMode::SaveAs), SaveOutcome::Saved);
-    EXPECT_EQ(session.source().path, expected_path);
-    EXPECT_EQ(session.source().display_name, expected_basename);
-    EXPECT_FALSE(session.dirty());
-    EXPECT_THAT(cfg.file_repository.files.at(expected_path), ElementsAre(4, 5, 6));
-    EXPECT_THAT(trace, ElementsAre("checksum", "choose"));
+    EXPECT_EQ(coordinator_.save(&session_, SaveMode::SaveAs), SaveOutcome::Saved);
+    EXPECT_EQ(session_.source().path, expected_path);
+    EXPECT_EQ(session_.source().display_name, expected_basename);
+    EXPECT_FALSE(session_.dirty());
+    EXPECT_THAT(cfg_.file_repository.files.at(expected_path), ElementsAre(4, 5, 6));
+    EXPECT_THAT(trace_, ElementsAre("checksum", "choose"));
 
-    EXPECT_THAT(cfg.file_repository.write_calls, SizeIs(1));
-    EXPECT_EQ(session.source().origin, calibration::RomOrigin::EcuRead);
-    EXPECT_THAT(logs, Contains(Pair(LogLevel::Debug, "ecuCalDef->FullFileName: " + expected_path)));
+    EXPECT_THAT(cfg_.file_repository.write_calls, SizeIs(1));
+    EXPECT_EQ(session_.source().origin, calibration::RomOrigin::EcuRead);
+    EXPECT_THAT(logs_, Contains(Pair(LogLevel::Debug, "ecuCalDef->FullFileName: " + expected_path)));
 }
 
 // Selected path -> persisted path. Only one trailing dot is removed, and the
@@ -688,7 +688,7 @@ TEST_P(FailedSavePreservesState, AndReportsOnce)
     const auto [mode, initially_dirty] = GetParam();
     if (!initially_dirty)
     {
-        session = ecu_read(std::nullopt, {});
+        session_ = ecu_read(std::nullopt, {});
     }
     // Save As names the normalized destination, not the picker's text.
     const std::string target = mode == SaveMode::Save ? "/old/read.bin" : "/cal/fail.bin";
@@ -696,22 +696,22 @@ TEST_P(FailedSavePreservesState, AndReportsOnce)
     {
         expect_choose("/cal/fail");
     }
-    cfg.file_repository.write_errors[target] = Error{ErrorKind::Internal, "disk full"};
-    const calibration::RomSource source_before = session.source();
-    const bytes::Bytes rom_before(session.rom().begin(), session.rom().end());
+    cfg_.file_repository.write_errors[target] = Error{ErrorKind::Internal, "disk full"};
+    const calibration::RomSource source_before = session_.source();
+    const bytes::Bytes rom_before(session_.rom().begin(), session_.rom().end());
     expect_checksum({.corrected_rom_data = bytes::Bytes{4, 5, 6}});
 
-    EXPECT_EQ(coordinator.save(&session, mode), SaveOutcome::Failed);
+    EXPECT_EQ(coordinator_.save(&session_, mode), SaveOutcome::Failed);
 
-    EXPECT_EQ(session.source(), source_before);
-    EXPECT_THAT(session.rom(), ElementsAreArray(rom_before));
-    EXPECT_EQ(session.dirty(), initially_dirty);
-    EXPECT_THAT(cfg.file_repository.write_calls, IsEmpty());
-    EXPECT_THAT(logs, Not(Contains(Pair(_, StartsWith("ecuCalDef->")))));
-    EXPECT_THAT(cfg.events.logs, ElementsAre(Pair(LogLevel::Error, "Unable to open file " + target + " for writing")));
-    EXPECT_THAT(cfg.events.notices,
+    EXPECT_EQ(session_.source(), source_before);
+    EXPECT_THAT(session_.rom(), ElementsAreArray(rom_before));
+    EXPECT_EQ(session_.dirty(), initially_dirty);
+    EXPECT_THAT(cfg_.file_repository.write_calls, IsEmpty());
+    EXPECT_THAT(logs_, Not(Contains(Pair(_, StartsWith("ecuCalDef->")))));
+    EXPECT_THAT(cfg_.events.logs, ElementsAre(Pair(LogLevel::Error, "Unable to open file " + target + " for writing")));
+    EXPECT_THAT(cfg_.events.notices,
                 ElementsAre("Ecu calibration file: Unable to open file " + target + " for writing"));
-    EXPECT_THAT(logs, Contains(Pair(LogLevel::Error, "Calibration file not saved: " + target)).Times(1));
+    EXPECT_THAT(logs_, Contains(Pair(LogLevel::Error, "Calibration file not saved: " + target)).Times(1));
 }
 
 INSTANTIATE_TEST_SUITE_P(States, FailedSavePreservesState,

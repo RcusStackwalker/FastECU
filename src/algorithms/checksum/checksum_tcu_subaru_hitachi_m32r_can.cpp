@@ -9,7 +9,7 @@ ChecksumResult ChecksumTcuSubaruHitachiM32rCan::calculate_checksum_result(bytes:
     if (romView.size() != 0x10000)
     {
         return {.status = ChecksumResult::Status::InvalidSize,
-                .romData = bytes::Bytes(romView.begin(), romView.end()),
+                .rom_data = bytes::Bytes(romView.begin(), romView.end()),
                 .message = "ROM size does not match the checksum layout"};
     }
     bytes::Bytes romData(romView.begin(), romView.end());
@@ -74,7 +74,7 @@ ChecksumResult ChecksumTcuSubaruHitachiM32rCan::calculate_checksum_result(bytes:
         bytes::writeU32Be(romData, checksum_2_balance_value_address + 4, checksum_2_value_calculated);
     }
     ChecksumResult result;
-    result.romData = romData;
+    result.rom_data = romData;
     if (!checksum_ok)
     {
         result.status = ChecksumResult::Status::Corrected;

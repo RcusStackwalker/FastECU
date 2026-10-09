@@ -51,9 +51,9 @@ std::uint32_t ecuBlockSum(bytes::ByteView rom, std::size_t page)
 
 struct EcuCheckerPasses
 {
-    std::uint32_t finalized = 0;       // rom_crc_finalized after pass 1 wraps
-    std::uint32_t specialPagesCrc = 0; // guarded_rom_special_pages_crc.d
-    std::uint32_t secondPassCrc = 0;   // rom_check_crc2 after pass 2 wraps
+    std::uint32_t finalized = 0;         // rom_crc_finalized after pass 1 wraps
+    std::uint32_t special_pages_crc = 0; // guarded_rom_special_pages_crc.d
+    std::uint32_t second_pass_crc = 0;   // rom_check_crc2 after pass 2 wraps
 };
 
 EcuCheckerPasses runEcuRomCrcChecker(bytes::ByteView rom, std::size_t areaEnd)
@@ -73,7 +73,7 @@ EcuCheckerPasses runEcuRomCrcChecker(bytes::ByteView rom, std::size_t areaEnd)
         const std::uint32_t blockSum = excluded ? 0 : ecuBlockSum(rom, page);
         if (page >= 0x56000 && page < 0x5F0D0)
         {
-            passes.specialPagesCrc += blockSum;
+            passes.special_pages_crc += blockSum;
         }
         romCheckCrc += blockSum;
     }
@@ -94,7 +94,7 @@ EcuCheckerPasses runEcuRomCrcChecker(bytes::ByteView rom, std::size_t areaEnd)
     // 0x56000. rom_crc_finalized_check2() then requires the two agree.
     for (std::size_t page = 0x56000; page < 0x5F0D0; page += kPageSize)
     {
-        passes.secondPassCrc += ecuBlockSum(rom, page);
+        passes.second_pass_crc += ecuBlockSum(rom, page);
     }
 
     return passes;
@@ -106,7 +106,7 @@ EcuCheckerPasses runEcuRomCrcChecker(bytes::ByteView rom, std::size_t areaEnd)
 bool ecuAcceptsRom(bytes::ByteView rom, std::size_t areaEnd)
 {
     const EcuCheckerPasses passes = runEcuRomCrcChecker(rom, areaEnd);
-    return passes.finalized == kEcuTargetCrc && passes.secondPassCrc == passes.specialPagesCrc;
+    return passes.finalized == kEcuTargetCrc && passes.second_pass_crc == passes.special_pages_crc;
 }
 
 // A 384 KiB image shaped like a Colt CZT ROM: 0xC2 area code, the six
@@ -151,7 +151,7 @@ TEST(ChecksumEcuMitsuM32rCanTest, LeavesAnImageTheEcuAlreadyAcceptsUnchanged)
     const ChecksumResult result = ChecksumEcuMitsuM32rCan::calculate_checksum_result(rom);
 
     EXPECT_EQ(result.status, ChecksumResult::Status::Unchanged);
-    EXPECT_THAT(result.romData, test_bytes::BytesEq(rom));
+    EXPECT_THAT(result.rom_data, test_bytes::BytesEq(rom));
 }
 
 TEST(ChecksumEcuMitsuM32rCanTest, CorrectsAnImageTheEcuWouldRejectUntilItAccepts)
@@ -162,7 +162,7 @@ TEST(ChecksumEcuMitsuM32rCanTest, CorrectsAnImageTheEcuWouldRejectUntilItAccepts
     const ChecksumResult result = ChecksumEcuMitsuM32rCan::calculate_checksum_result(rom);
 
     EXPECT_EQ(result.status, ChecksumResult::Status::Corrected);
-    EXPECT_TRUE(ecuAcceptsRom(result.romData, 0x60000));
+    EXPECT_TRUE(ecuAcceptsRom(result.rom_data, 0x60000));
 }
 
 TEST(ChecksumEcuMitsuM32rCanTest, AreaCode0x50SumsTheFull512KiBTheEcuWalks)
@@ -173,7 +173,7 @@ TEST(ChecksumEcuMitsuM32rCanTest, AreaCode0x50SumsTheFull512KiBTheEcuWalks)
     const ChecksumResult result = ChecksumEcuMitsuM32rCan::calculate_checksum_result(rom);
 
     EXPECT_EQ(result.status, ChecksumResult::Status::Corrected);
-    EXPECT_TRUE(ecuAcceptsRom(result.romData, 0x80000));
+    EXPECT_TRUE(ecuAcceptsRom(result.rom_data, 0x80000));
 }
 
 TEST(ChecksumEcuMitsuM32rCanTest, UnrecognisedAreaCodeDisablesChecksumsAndTouchesNothing)
@@ -183,7 +183,7 @@ TEST(ChecksumEcuMitsuM32rCanTest, UnrecognisedAreaCodeDisablesChecksumsAndTouche
     const ChecksumResult result = ChecksumEcuMitsuM32rCan::calculate_checksum_result(rom);
 
     EXPECT_EQ(result.status, ChecksumResult::Status::Disabled);
-    EXPECT_THAT(result.romData, test_bytes::BytesEq(rom));
+    EXPECT_THAT(result.rom_data, test_bytes::BytesEq(rom));
 }
 
 TEST(ChecksumEcuMitsuM32rCanTest, AreaCodeLargerThanTheFileDisablesChecksumsAndTouchesNothing)
@@ -194,7 +194,7 @@ TEST(ChecksumEcuMitsuM32rCanTest, AreaCodeLargerThanTheFileDisablesChecksumsAndT
     const ChecksumResult result = ChecksumEcuMitsuM32rCan::calculate_checksum_result(rom);
 
     EXPECT_EQ(result.status, ChecksumResult::Status::Disabled);
-    EXPECT_THAT(result.romData, test_bytes::BytesEq(rom));
+    EXPECT_THAT(result.rom_data, test_bytes::BytesEq(rom));
 }
 
 TEST(ChecksumEcuMitsuM32rCanTest, ImageTooSmallToCarryTheLayoutIsRejectedAsInvalidSize)
@@ -204,7 +204,7 @@ TEST(ChecksumEcuMitsuM32rCanTest, ImageTooSmallToCarryTheLayoutIsRejectedAsInval
     const ChecksumResult result = ChecksumEcuMitsuM32rCan::calculate_checksum_result(rom);
 
     EXPECT_EQ(result.status, ChecksumResult::Status::InvalidSize);
-    EXPECT_THAT(result.romData, test_bytes::BytesEq(rom));
+    EXPECT_THAT(result.rom_data, test_bytes::BytesEq(rom));
 }
 
 TEST(ChecksumEcuMitsuM32rCanTest, CorrectionRewritesOnlyTheFourBytesOfTheBalanceSlot)
@@ -214,13 +214,13 @@ TEST(ChecksumEcuMitsuM32rCanTest, CorrectionRewritesOnlyTheFourBytesOfTheBalance
     const ChecksumResult result = ChecksumEcuMitsuM32rCan::calculate_checksum_result(rom);
 
     ASSERT_EQ(result.status, ChecksumResult::Status::Corrected);
-    ASSERT_EQ(result.romData.size(), rom.size());
+    ASSERT_EQ(result.rom_data.size(), rom.size());
     for (std::size_t offset = 0; offset < rom.size(); ++offset)
     {
         const bool inSlot = offset >= kBalanceSlot && offset < kBalanceSlot + 4;
         if (!inSlot)
         {
-            ASSERT_EQ(result.romData[offset], rom[offset]) << "byte 0x" << std::hex << offset << " moved";
+            ASSERT_EQ(result.rom_data[offset], rom[offset]) << "byte 0x" << std::hex << offset << " moved";
         }
     }
     // The slot sits inside the 0x08000-0x60000 window the Colt CAN protocols
@@ -235,8 +235,8 @@ TEST(ChecksumEcuMitsuM32rCanTest, CorrectingAnAlreadyCorrectedImageChangesNothin
     const ChecksumResult first = ChecksumEcuMitsuM32rCan::calculate_checksum_result(syntheticColtRom());
     ASSERT_EQ(first.status, ChecksumResult::Status::Corrected);
 
-    const ChecksumResult second = ChecksumEcuMitsuM32rCan::calculate_checksum_result(first.romData);
+    const ChecksumResult second = ChecksumEcuMitsuM32rCan::calculate_checksum_result(first.rom_data);
 
     EXPECT_EQ(second.status, ChecksumResult::Status::Unchanged);
-    EXPECT_THAT(second.romData, test_bytes::BytesEq(first.romData));
+    EXPECT_THAT(second.rom_data, test_bytes::BytesEq(first.rom_data));
 }

@@ -114,11 +114,11 @@ class DrainCancellingTransport final : public ScriptedKlineFlashTransport
 
     Result<std::size_t> write(bytes::ByteView data) override
     {
-        write_attempts_.emplace_back(data.begin(), data.end());
+        write_attempts.emplace_back(data.begin(), data.end());
         return ScriptedKlineFlashTransport::write(data);
     }
 
-    std::vector<bytes::Bytes> write_attempts_;
+    std::vector<bytes::Bytes> write_attempts;
 
   private:
     ToggleCancellation& cancellation_;
@@ -139,7 +139,7 @@ class CancelAfterEraseTransport final : public ScriptedKlineFlashTransport
             erase_response_pending_ = data[4] == 0x25;
             if (data[4] == 0x22)
             {
-                ++flash_buffer_write_attempts_;
+                ++flash_buffer_write_attempts;
             }
         }
         return ScriptedKlineFlashTransport::write(data);
@@ -156,7 +156,7 @@ class CancelAfterEraseTransport final : public ScriptedKlineFlashTransport
         return result;
     }
 
-    std::size_t flash_buffer_write_attempts_ = 0;
+    std::size_t flash_buffer_write_attempts = 0;
 
   private:
     ToggleCancellation& cancellation_;
@@ -421,9 +421,9 @@ TEST(SubaruDensoMc68hc16y5_02Executor, BoundAttemptPreservesConfigureToOpenCance
     RecordingEventSink events;
 
     ASSERT_THAT(attempt->run(clock, cancellation, events), fastecu::testing::IsErr(ErrorKind::Cancelled));
-    EXPECT_TRUE(observed_transport->last_config_.has_value());
-    EXPECT_EQ(observed_transport->close_call_count_, 0);
-    EXPECT_TRUE(observed_transport->control_line_trace_.empty());
+    EXPECT_TRUE(observed_transport->last_config.has_value());
+    EXPECT_EQ(observed_transport->close_call_count, 0);
+    EXPECT_TRUE(observed_transport->control_line_trace.empty());
 }
 
 TEST(SubaruDensoMc68hc16y5_02Executor, MalformedFamilyPlanFailsBeforeAnyIo)
@@ -458,9 +458,9 @@ TEST(SubaruDensoMc68hc16y5_02Executor, MalformedFamilyPlanFailsBeforeAnyIo)
 
     ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
                 fastecu::testing::IsErr(ErrorKind::InvalidConfig));
-    EXPECT_FALSE(transport.last_config_.has_value());
-    EXPECT_TRUE(transport.read_timeouts_.empty());
-    EXPECT_TRUE(transport.control_line_trace_.empty());
+    EXPECT_FALSE(transport.last_config.has_value());
+    EXPECT_TRUE(transport.read_timeouts.empty());
+    EXPECT_TRUE(transport.control_line_trace.empty());
 }
 
 TEST(SubaruDensoMc68hc16y5_02Executor, ConnectsViaWrx02InitAndUploadsPaddedKernel)
@@ -491,16 +491,16 @@ TEST(SubaruDensoMc68hc16y5_02Executor, ConnectsViaWrx02InitAndUploadsPaddedKerne
     SubaruDensoMc68hc16y5_02Executor executor;
     ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events), fastecu::testing::IsOk());
     EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_EQ(transport.control_line_trace_,
+    EXPECT_EQ(transport.control_line_trace,
               (std::vector<ScriptedKlineFlashTransport::ControlLineAction>{
                   ScriptedKlineFlashTransport::ControlLineAction::DisableLecLines,
                   ScriptedKlineFlashTransport::ControlLineAction::PulseLec2,
                   ScriptedKlineFlashTransport::ControlLineAction::EnableProgrammingVoltageLine,
               }));
-    EXPECT_EQ(transport.operation_trace_.front(), ScriptedKlineFlashTransport::Operation::DisableLecLines);
-    EXPECT_EQ(transport.operation_trace_.at(1), ScriptedKlineFlashTransport::Operation::Read10);
-    EXPECT_EQ(transport.lec_2_pulse_timeouts_, (std::vector<std::chrono::milliseconds>{200ms}));
-    EXPECT_EQ(std::count(transport.read_timeouts_.begin(), transport.read_timeouts_.end(), 200ms), 12);
+    EXPECT_EQ(transport.operation_trace.front(), ScriptedKlineFlashTransport::Operation::DisableLecLines);
+    EXPECT_EQ(transport.operation_trace.at(1), ScriptedKlineFlashTransport::Operation::Read10);
+    EXPECT_EQ(transport.lec_2_pulse_timeouts, (std::vector<std::chrono::milliseconds>{200ms}));
+    EXPECT_EQ(std::count(transport.read_timeouts.begin(), transport.read_timeouts.end(), 200ms), 12);
     // 200 + 200 + 50 + 1500 + 200 ms.
     EXPECT_EQ(clock.elapsed(), 2150ms);
 }
@@ -541,14 +541,14 @@ TEST(SubaruDensoMc68hc16y5_02Executor, ConnectFallsBackToKernelAlivePoll)
     SubaruDensoMc68hc16y5_02Executor executor;
     ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events), fastecu::testing::IsOk());
     EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_EQ(transport.control_line_trace_,
+    EXPECT_EQ(transport.control_line_trace,
               (std::vector<ScriptedKlineFlashTransport::ControlLineAction>{
                   ScriptedKlineFlashTransport::ControlLineAction::DisableLecLines,
                   ScriptedKlineFlashTransport::ControlLineAction::PulseLec2,
                   ScriptedKlineFlashTransport::ControlLineAction::DisableLecLines,
                   ScriptedKlineFlashTransport::ControlLineAction::EnableProgrammingVoltageLine,
               }));
-    EXPECT_EQ(std::count(transport.read_timeouts_.begin(), transport.read_timeouts_.end(), 200ms), 11);
+    EXPECT_EQ(std::count(transport.read_timeouts.begin(), transport.read_timeouts.end(), 200ms), 11);
     // 200 + 200 + 50 + 100 + 200 ms.
     EXPECT_EQ(clock.elapsed(), 750ms);
 }
@@ -574,7 +574,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, NoFrameBootInitFallsBackToKernelAlivePoll
     SubaruDensoMc68hc16y5_02Executor executor;
     ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events), fastecu::testing::IsOk());
     EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_EQ(transport.baud_calls_, (std::vector<int>{62500}));
+    EXPECT_EQ(transport.baud_calls, (std::vector<int>{62500}));
 }
 
 TEST(SubaruDensoMc68hc16y5_02Executor, EcutekUsesItsDistinctBootloaderAndKernelWireValues)
@@ -599,7 +599,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, EcutekUsesItsDistinctBootloaderAndKernelW
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
     ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events), fastecu::testing::IsOk());
-    EXPECT_EQ(transport.baud_calls_, (std::vector<int>{11700, 62500}));
+    EXPECT_EQ(transport.baud_calls, (std::vector<int>{11700, 62500}));
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
@@ -685,8 +685,8 @@ TEST(SubaruDensoMc68hc16y5_02Executor, CancellationAtInitialDrainStopsBeforeBoot
 
     ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
                 fastecu::testing::IsErr(ErrorKind::Cancelled));
-    EXPECT_TRUE(transport.write_attempts_.empty());
-    EXPECT_EQ(transport.read_timeouts_, (std::vector<std::chrono::milliseconds>{10ms}));
+    EXPECT_TRUE(transport.write_attempts.empty());
+    EXPECT_EQ(transport.read_timeouts, (std::vector<std::chrono::milliseconds>{10ms}));
 }
 
 TEST(SubaruDensoMc68hc16y5_02Executor, ReadReturnsAssembledPageBytes)
@@ -854,7 +854,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WriteSkipsWhenNoBlockDiffers)
     EXPECT_FALSE(result->read_bytes.has_value());
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_EQ(transport.writesConsumed(), 3U + device->numblocks);
-    EXPECT_EQ(transport.programming_voltage_line_write_index_, 3U + device->numblocks);
+    EXPECT_EQ(transport.programming_voltage_line_write_index, 3U + device->numblocks);
 }
 
 TEST(SubaruDensoMc68hc16y5_02Executor, WriteReflashesOnlyDifferingBlocks)
@@ -889,7 +889,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WriteReflashesOnlyDifferingBlocks)
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(result->operation, FlashOperation::Write);
     EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_EQ(transport.control_line_trace_.back(),
+    EXPECT_EQ(transport.control_line_trace.back(),
               ScriptedKlineFlashTransport::ControlLineAction::EnableProgrammingVoltageLine);
     EXPECT_EQ(clock.elapsed(), 4050ms);
 }
@@ -975,7 +975,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WriteCancelsMidBlockTransfer)
     ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
                 fastecu::testing::IsErr(ErrorKind::Cancelled));
     EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_EQ(transport.flash_buffer_write_attempts_, 0U);
+    EXPECT_EQ(transport.flash_buffer_write_attempts, 0U);
 }
 
 TEST(SubaruDensoMc68hc16y5_02Executor, WriteAcceptsFragmentedBlockCrcAndDrainsIt)
@@ -1017,7 +1017,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WriteAcceptsFragmentedBlockCrcAndDrainsIt
     SubaruDensoMc68hc16y5_02Executor executor;
     ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events), fastecu::testing::IsOk());
     EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_EQ(std::count(transport.read_timeouts_.begin(), transport.read_timeouts_.end(), 50ms), 1);
+    EXPECT_EQ(std::count(transport.read_timeouts.begin(), transport.read_timeouts.end(), 50ms), 1);
     EXPECT_EQ(clock.elapsed(), 2250ms);
 }
 
@@ -1056,7 +1056,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WriteAcceptsBlockCrcAfterEmptyInitialRead
     SubaruDensoMc68hc16y5_02Executor executor;
     ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events), fastecu::testing::IsOk());
     EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_EQ(std::count(transport.read_timeouts_.begin(), transport.read_timeouts_.end(), 50ms), 1);
+    EXPECT_EQ(std::count(transport.read_timeouts.begin(), transport.read_timeouts.end(), 50ms), 1);
     EXPECT_EQ(clock.elapsed(), 2250ms);
 }
 
@@ -1083,7 +1083,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WriteRejectsTruncatedBlockCrcAfterBounded
     ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
                 fastecu::testing::IsErr(ErrorKind::BadResponse));
     EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_EQ(std::count(transport.read_timeouts_.begin(), transport.read_timeouts_.end(), 50ms), 20);
+    EXPECT_EQ(std::count(transport.read_timeouts.begin(), transport.read_timeouts.end(), 50ms), 20);
 }
 
 TEST(SubaruDensoMc68hc16y5_02Executor, WriteRejectsNegativeBlockCrcResponse)

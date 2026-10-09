@@ -269,6 +269,6 @@ INSTANTIATE_TEST_SUITE_P(Adapters, TransportReads,
                          ::testing::Values(ReadPath::Kline, ReadPath::Ssm, ReadPath::KlineFlash, ReadPath::KlineRaw,
                                            ReadPath::CanFlash, ReadPath::MixedCan));
 
-const auto *const application_environment =
+const auto *const kApplicationEnvironment =
     ::testing::AddGlobalTestEnvironment(new fastecu::testing::CoreApplicationEnvironment);
 } // namespace

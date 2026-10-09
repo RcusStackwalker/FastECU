@@ -247,7 +247,7 @@ Result<bytes::Bytes> ssm_exchange(IKlineFlashTransport& transport, IClock& clock
 {
     Result<bytes::Bytes> reply =
         required_exchange(transport, clock, cancellation,
-                          SsmProtocol::addHeader(payload, plan.tester_id, plan.target_id), 0ms, timeout, what);
+                          ssm_protocol::addHeader(payload, plan.tester_id, plan.target_id), 0ms, timeout, what);
     if (!reply.has_value() && reply.error().kind == ErrorKind::Timeout)
     {
         events.log(LogLevel::Error, "No valid response from ECU");
@@ -408,8 +408,8 @@ Status transfer_kernel(IKlineFlashTransport& transport, IClock& clock, const ICa
         const std::uint32_t chunk = std::min(kUploadChunkBytes, length - offset);
         Result<bytes::Bytes> reply = required_exchange(
             transport, clock, cancellation,
-            SsmProtocol::addHeader(composeBe(0x36_b, u24(address + offset), encrypted.subspan(offset, chunk)),
-                                   plan.tester_id, plan.target_id),
+            ssm_protocol::addHeader(composeBe(0x36_b, u24(address + offset), encrypted.subspan(offset, chunk)),
+                                    plan.tester_id, plan.target_id),
             0ms, kReadTimeout, "kernel transfer");
         if (!reply.has_value())
         {

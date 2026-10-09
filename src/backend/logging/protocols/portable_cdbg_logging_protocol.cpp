@@ -8,13 +8,13 @@ namespace fastecu::logging
 {
 namespace
 {
-std::vector<MitsuColtCanCdbg::CdbgChannel> makeWireChannels(const std::vector<LoggingChannel>& channels)
+std::vector<mitsu_colt_can_cdbg::CdbgChannel> makeWireChannels(const std::vector<LoggingChannel>& channels)
 {
-    std::vector<MitsuColtCanCdbg::CdbgChannel> wire_channels;
+    std::vector<mitsu_colt_can_cdbg::CdbgChannel> wire_channels;
     wire_channels.reserve(channels.size());
     for (const LoggingChannel& channel : channels)
     {
-        wire_channels.push_back(MitsuColtCanCdbg::CdbgChannel{
+        wire_channels.push_back(mitsu_colt_can_cdbg::CdbgChannel{
             .pointer = channel.address,
             .size = static_cast<bytes::Byte>(channel.length),
         });

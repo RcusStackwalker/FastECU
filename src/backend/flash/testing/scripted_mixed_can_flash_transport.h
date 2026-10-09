@@ -119,17 +119,17 @@ class ScriptedMixedCanFlashTransport final : public IMixedCanFlashTransport
 
     Status reset_connection() override
     {
-        ++reset_connection_call_count_;
-        return reset_connection_result_;
+        ++reset_connection_call_count;
+        return reset_connection_result;
     }
 
     Status configure(const MixedCanConfig& config) override
     {
         ++configure_call_count_;
-        last_config_ = config;
-        if (!configure_result_.has_value())
+        last_config = config;
+        if (!configure_result.has_value())
         {
-            return configure_result_;
+            return configure_result;
         }
         configured_ = true;
         mode_ = ScriptedMixedCanMode::Unconfigured;
@@ -142,9 +142,9 @@ class ScriptedMixedCanFlashTransport final : public IMixedCanFlashTransport
         {
             return fail(ErrorKind::InvalidConfig, "scripted mixed CAN transport opened before configuration");
         }
-        if (!open_result_.has_value())
+        if (!open_result.has_value())
         {
-            return open_result_;
+            return open_result;
         }
         set_mode(ScriptedMixedCanMode::Iso15765Kernel);
         return {};
@@ -152,9 +152,9 @@ class ScriptedMixedCanFlashTransport final : public IMixedCanFlashTransport
     Status close() override
     {
         ++close_call_count_;
-        if (!close_result_.has_value())
+        if (!close_result.has_value())
         {
-            return close_result_;
+            return close_result;
         }
         set_mode(ScriptedMixedCanMode::Closed);
         return {};
@@ -178,7 +178,7 @@ class ScriptedMixedCanFlashTransport final : public IMixedCanFlashTransport
         {
             return wrong_mode("receive-buffer clear");
         }
-        ++clear_receive_buffer_call_count_;
+        ++clear_receive_buffer_call_count;
         return {};
     }
     Status enter_iso15765_kernel_mode() override
@@ -292,13 +292,13 @@ class ScriptedMixedCanFlashTransport final : public IMixedCanFlashTransport
         blocking_raw_read_cv_.notify_all();
     }
 
-    int reset_connection_call_count_ = 0;
-    Status reset_connection_result_;
-    Status configure_result_;
-    Status open_result_;
-    Status close_result_;
-    std::optional<MixedCanConfig> last_config_;
-    int clear_receive_buffer_call_count_ = 0;
+    int reset_connection_call_count = 0;
+    Status reset_connection_result;
+    Status configure_result;
+    Status open_result;
+    Status close_result;
+    std::optional<MixedCanConfig> last_config;
+    int clear_receive_buffer_call_count = 0;
 
   private:
     static bool same_frame(const cdbg::CanFrame& left, const cdbg::CanFrame& right)

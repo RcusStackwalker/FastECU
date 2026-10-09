@@ -43,7 +43,7 @@ TEST(ScriptedCanFlashTransport, DefaultsClosed)
     ScriptedCanFlashTransport transport;
 
     EXPECT_FALSE(transport.is_open());
-    EXPECT_EQ(transport.close_call_count_, 0);
+    EXPECT_EQ(transport.close_call_count, 0);
 }
 
 TEST(ScriptedCanFlashTransport, ExplicitOpenStateStartsOpenWithoutLifecycleCalls)
@@ -51,7 +51,7 @@ TEST(ScriptedCanFlashTransport, ExplicitOpenStateStartsOpenWithoutLifecycleCalls
     ScriptedCanFlashTransport transport{ScriptedTransportInitialState::Open};
 
     EXPECT_TRUE(transport.is_open());
-    EXPECT_EQ(transport.close_call_count_, 0);
+    EXPECT_EQ(transport.close_call_count, 0);
 }
 
 TEST(ScriptedCanFlashTransport, RestartUsesMandatoryResetThenExactConfigurationThenOpen)
@@ -64,12 +64,12 @@ TEST(ScriptedCanFlashTransport, RestartUsesMandatoryResetThenExactConfigurationT
     const auto result = transport.restart_iso15765(restart_config, cancellation);
 
     ASSERT_TRUE(result.has_value());
-    EXPECT_THAT(transport.lifecycle_calls_, testing::ElementsAre("reset_connection", "configure", "open"));
-    ASSERT_TRUE(transport.last_config_.has_value());
-    EXPECT_EQ(transport.last_config_->bitrate, 500000);
-    EXPECT_EQ(transport.last_config_->request_id, 0x7e1U);
-    EXPECT_EQ(transport.last_config_->response_id, 0x7e9U);
-    EXPECT_FALSE(transport.last_config_->extended_id);
+    EXPECT_THAT(transport.lifecycle_calls, testing::ElementsAre("reset_connection", "configure", "open"));
+    ASSERT_TRUE(transport.last_config.has_value());
+    EXPECT_EQ(transport.last_config->bitrate, 500000);
+    EXPECT_EQ(transport.last_config->request_id, 0x7e1U);
+    EXPECT_EQ(transport.last_config->response_id, 0x7e9U);
+    EXPECT_FALSE(transport.last_config->extended_id);
 }
 
 TEST(ScriptedCanFlashTransport, RestartStopsAtEachFailureAndPreservesTheExactError)
@@ -86,15 +86,15 @@ TEST(ScriptedCanFlashTransport, RestartStopsAtEachFailureAndPreservesTheExactErr
         FakeCancellationToken cancellation;
         if (stage == std::string_view{"reset"})
         {
-            transport.reset_result_ = fail(expected_kind, "reset marker");
+            transport.reset_result = fail(expected_kind, "reset marker");
         }
         else if (stage == std::string_view{"configure"})
         {
-            transport.configure_result_ = fail(expected_kind, "configure marker");
+            transport.configure_result = fail(expected_kind, "configure marker");
         }
         else
         {
-            transport.open_result_ = fail(expected_kind, "open marker");
+            transport.open_result = fail(expected_kind, "open marker");
         }
 
         const auto result = transport.restart_iso15765(
@@ -104,15 +104,15 @@ TEST(ScriptedCanFlashTransport, RestartStopsAtEachFailureAndPreservesTheExactErr
         EXPECT_EQ(result.error().kind, expected_kind);
         if (stage == std::string_view{"reset"})
         {
-            EXPECT_THAT(transport.lifecycle_calls_, testing::ElementsAre("reset_connection"));
+            EXPECT_THAT(transport.lifecycle_calls, testing::ElementsAre("reset_connection"));
         }
         else if (stage == std::string_view{"configure"})
         {
-            EXPECT_THAT(transport.lifecycle_calls_, testing::ElementsAre("reset_connection", "configure"));
+            EXPECT_THAT(transport.lifecycle_calls, testing::ElementsAre("reset_connection", "configure"));
         }
         else
         {
-            EXPECT_THAT(transport.lifecycle_calls_, testing::ElementsAre("reset_connection", "configure", "open"));
+            EXPECT_THAT(transport.lifecycle_calls, testing::ElementsAre("reset_connection", "configure", "open"));
         }
     }
 }
@@ -152,7 +152,7 @@ TEST(ScriptedCanFlashTransport, RestartChecksCancellationAtEveryLogicalBoundary)
 
         ASSERT_FALSE(result.has_value());
         EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
-        EXPECT_EQ(transport.lifecycle_calls_, expected_calls[boundary]);
+        EXPECT_EQ(transport.lifecycle_calls, expected_calls[boundary]);
     }
 }
 
@@ -161,7 +161,7 @@ TEST(ScriptedKlineFlashTransport, DefaultsClosed)
     ScriptedKlineFlashTransport transport;
 
     EXPECT_FALSE(transport.isOpen());
-    EXPECT_EQ(transport.close_call_count_, 0);
+    EXPECT_EQ(transport.close_call_count, 0);
 }
 
 TEST(ScriptedKlineFlashTransport, ExplicitOpenStateStartsOpenWithoutLifecycleCalls)
@@ -169,7 +169,7 @@ TEST(ScriptedKlineFlashTransport, ExplicitOpenStateStartsOpenWithoutLifecycleCal
     ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::Open};
 
     EXPECT_TRUE(transport.isOpen());
-    EXPECT_EQ(transport.close_call_count_, 0);
+    EXPECT_EQ(transport.close_call_count, 0);
 }
 
 TEST(ScriptedKlineFlashTransport, RecordsResetInLifecycleOrderAndClosesThePort)
@@ -183,14 +183,14 @@ TEST(ScriptedKlineFlashTransport, RecordsResetInLifecycleOrderAndClosesThePort)
     ASSERT_TRUE(transport.open().has_value());
     ASSERT_TRUE(transport.close().has_value());
 
-    EXPECT_EQ(transport.reset_call_count_, 1);
-    EXPECT_THAT(transport.lifecycle_calls_, ::testing::ElementsAre("reset_connection", "configure", "open", "close"));
+    EXPECT_EQ(transport.reset_call_count, 1);
+    EXPECT_THAT(transport.lifecycle_calls, ::testing::ElementsAre("reset_connection", "configure", "open", "close"));
 }
 
 TEST(ScriptedKlineFlashTransport, ResetReturnsItsScriptedFailure)
 {
     ScriptedKlineFlashTransport transport;
-    transport.reset_result_ = fail(ErrorKind::Disconnected, "scripted reset failure");
+    transport.reset_result = fail(ErrorKind::Disconnected, "scripted reset failure");
 
     const Status reset = transport.reset_connection();
 

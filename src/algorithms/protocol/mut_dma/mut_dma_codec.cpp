@@ -57,7 +57,7 @@ StreamFrame parseStreamFrame(bytes::ByteView frame)
     {
         return s;
     }
-    s.logId = frame[0];
+    s.log_id = frame[0];
     s.data.assign(frame.begin() + 1, frame.begin() + static_cast<std::ptrdiff_t>(csumIdx));
     s.ok = true;
     return s;

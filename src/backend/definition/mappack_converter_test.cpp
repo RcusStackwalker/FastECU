@@ -8,7 +8,7 @@ namespace fastecu::definition
 {
 namespace
 {
-const std::string header =
+const std::string kHeader =
     "Name;FolderName;DataOrg;Columns;Rows;Fieldvalues.Name;Fieldvalues.Unit;Fieldvalues.Factor;Precision;"
     "Fieldvalues.StartAddr;AxisX.Name;AxisX.DataOrg;AxisX.Unit;AxisX.Factor;AxisX.Precision;AxisX.DataHeader;AxisX."
     "DataAddr;"
@@ -16,7 +16,7 @@ const std::string header =
 
 std::string csv(std::string dimensions = "2;3", std::string comment = "\"a;quoted \"\"description\"\"\"")
 {
-    return header + "Boost;Engine;eHiLo;" + dimensions +
+    return kHeader + "Boost;Engine;eHiLo;" + dimensions +
            ";Pressure;bar;0,01;2;$1234;RPM;eHiLoHiLo;rpm;2;0;1;$2000;Load;eByte;%;0,5;1;1;$3000;" + comment;
 }
 
@@ -82,7 +82,7 @@ TEST(MapPackConverterTest, AcceptsCrLfTrailingDelimiterAndMultilineQuotedFields)
 
 TEST(MapPackConverterTest, RejectsMalformedInputWithContext)
 {
-    for (auto input : {std::string{}, std::string("Name\nBoost"), header + "short", csv("0;3"), csv("two;3"),
+    for (auto input : {std::string{}, std::string("Name\nBoost"), kHeader + "short", csv("0;3"), csv("two;3"),
                        csv("2;3", "\"unterminated")})
     {
         auto result = convert_mappack_csv(input, "ECU");
@@ -100,14 +100,14 @@ TEST(MapPackConverterTest, RejectsMalformedInputWithContext)
 }
 TEST(MapPackConverterTest, AllowsUnusedAxisFieldsToBeEmptyForScalars)
 {
-    const auto input = header + "Value;Engine;eByte;1;1;Value;unit;1;0;$1234;;;;;;;;;;;;;;;scalar";
+    const auto input = kHeader + "Value;Engine;eByte;1;1;Value;unit;1;0;$1234;;;;;;;;;;;;;;;scalar";
     auto result = convert_mappack_csv(input, "ECU");
     ASSERT_TRUE(result.has_value()) << result.error().detail;
 }
 
 TEST(MapPackConverterTest, ConvertsMultipleRowsWithoutSharingDimensions)
 {
-    const auto input = csv("2;3", "first") + "\n" + csv("1;1", "second").substr(header.size());
+    const auto input = csv("2;3", "first") + "\n" + csv("1;1", "second").substr(kHeader.size());
     auto result = convert_mappack_csv(input, "ECU");
     ASSERT_TRUE(result.has_value());
     pugi::xml_document doc;

@@ -118,9 +118,9 @@ void test_open_connect_and_read(BridgeProcess& bridge)
     ASSERT_TRUE(readFrame(bridge.fromChildRead, header, &readResp, sizeof(readResp)));
     ASSERT_TRUE(readResp.result == kJ2534StatusNoerror);
     ASSERT_TRUE(readResp.numMsgs == 1);
-    ASSERT_TRUE(readResp.msg.DataSize == 4);
-    ASSERT_TRUE(readResp.msg.Data[0] == 0xDE && readResp.msg.Data[1] == 0xAD && readResp.msg.Data[2] == 0xBE &&
-                readResp.msg.Data[3] == 0xEF);
+    ASSERT_TRUE(readResp.msg.data_size == 4);
+    ASSERT_TRUE(readResp.msg.data[0] == 0xDE && readResp.msg.data[1] == 0xAD && readResp.msg.data[2] == 0xBE &&
+                readResp.msg.data[3] == 0xEF);
 
     std::printf("test_open_connect_and_read: PASS\n");
 }
@@ -129,8 +129,8 @@ void test_write_msgs_success_and_failure(BridgeProcess& bridge)
 {
     PassThruWriteMsgsRequest goodReq{};
     goodReq.channelId = 3;
-    goodReq.msg.DataSize = 1;
-    goodReq.msg.Data[0] = 0x11;
+    goodReq.msg.data_size = 1;
+    goodReq.msg.data[0] = 0x11;
     writeFrame(bridge.toChildWrite, Function::PassThruWriteMsgs, &goodReq, sizeof(goodReq));
     FrameHeader header{};
     PassThruWriteMsgsResponse goodResp{};
@@ -138,7 +138,7 @@ void test_write_msgs_success_and_failure(BridgeProcess& bridge)
     ASSERT_TRUE(goodResp.result == kJ2534StatusNoerror);
 
     PassThruWriteMsgsRequest badReq = goodReq;
-    badReq.msg.Data[0] = 0x99;
+    badReq.msg.data[0] = 0x99;
     writeFrame(bridge.toChildWrite, Function::PassThruWriteMsgs, &badReq, sizeof(badReq));
     PassThruWriteMsgsResponse badResp{};
     ASSERT_TRUE(readFrame(bridge.fromChildRead, header, &badResp, sizeof(badResp)));

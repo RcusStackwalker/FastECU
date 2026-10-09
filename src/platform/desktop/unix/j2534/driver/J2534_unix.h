@@ -41,7 +41,7 @@ class J2534 : public QObject
     static constexpr std::size_t kVersionBufferSize = 256;
 
     bool serial_port_protocol_iso14230 = false;
-    bool J2534_init_ok = false;
+    bool j2534_init_ok = false;
 
     bool is_serial_port_open();
 
@@ -102,7 +102,7 @@ class J2534 : public QObject
   protected:
     // protected (not private) so tests can subclass J2534 and drive it into the
     // torn-down state (serial == nullptr) that the crash report exhibits.
-    QSerialPort *serial = new QSerialPort();
+    QSerialPort *serial_ = new QSerialPort();
 
   private:
     unsigned long periodic_msg_id{};

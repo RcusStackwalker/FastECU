@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 #include "src/algorithms/protocol/colt/mitsu_colt_can_vendor_ext_protocol.h"
 #include "src/algorithms/protocol/testing/byte_test_utils.h"
-using namespace MitsuColtCanVendorExt;
+using namespace mitsu_colt_can_vendor_ext;
 using test_bytes::bytesFromHex;
 
 TEST(TestMitsuColtCanVendorExtProtocol, challenge_transform_matches_known_vectors)

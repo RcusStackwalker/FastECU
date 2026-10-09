@@ -158,7 +158,7 @@ class Session
         }
         events_.log(LogLevel::Info, "Seed request ok");
         Bytes request{0x27, 2};
-        const auto key = SsmProtocol::calculateSeedKey(bytes::ByteView(*seed).subspan(6, 4), kSeedTable, kTransform);
+        const auto key = ssm_protocol::calculateSeedKey(bytes::ByteView(*seed).subspan(6, 4), kSeedTable, kTransform);
         request.insert(request.end(), key.begin(), key.end());
         events_.log(LogLevel::Info, "Sending seed key...");
         auto r = required(request, 200ms, {0x67, 2});
@@ -500,7 +500,7 @@ Result<FlashExecutionResult> SubaruHitachiSh72543rCanExecutor::execute(const Fla
         {
             return std::unexpected(status.error());
         }
-        const auto encrypted = SsmProtocol::calculatePayload(plan.image_or_empty(), 0x200000, kKeys, kTransform);
+        const auto encrypted = ssm_protocol::calculatePayload(plan.image_or_empty(), 0x200000, kKeys, kTransform);
         auto erasing = phases.start("Erasing", 1);
         if (auto status = session.erase(); !status.has_value())
         {

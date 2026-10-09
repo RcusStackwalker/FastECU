@@ -38,7 +38,7 @@ class DefinitionFormEnvironment final : public ::testing::Environment
     std::unique_ptr<QApplication> app_;
 };
 
-const auto *definition_form_environment = ::testing::AddGlobalTestEnvironment(new DefinitionFormEnvironment);
+const auto *const kDefinitionFormEnvironment = ::testing::AddGlobalTestEnvironment(new DefinitionFormEnvironment);
 
 } // namespace
 

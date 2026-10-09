@@ -8,7 +8,7 @@
 #include <cstdint>
 #include <vector>
 
-namespace MitsuColtCanCdbg
+namespace mitsu_colt_can_cdbg
 {
 
 class CdbgLogDriver
@@ -58,4 +58,4 @@ class CdbgLogDriver
     bool streaming_ = false;
 };
 
-} // namespace MitsuColtCanCdbg
+} // namespace mitsu_colt_can_cdbg

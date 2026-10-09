@@ -13,7 +13,7 @@ namespace
 struct ChecksumArea
 {
     uint32_t start;
-    uint32_t wordCount;
+    uint32_t word_count;
 };
 
 constexpr std::array<ChecksumArea, 12> kChecksumAreas{{
@@ -39,7 +39,7 @@ ChecksumResult ChecksumTcuSubaruDensoSH7055::calculate_checksum_result(bytes::By
     if (romView.size() != 0x80000)
     {
         return {.status = ChecksumResult::Status::InvalidSize,
-                .romData = bytes::Bytes(romView.begin(), romView.end()),
+                .rom_data = bytes::Bytes(romView.begin(), romView.end()),
                 .message = "ROM size does not match the checksum layout"};
     }
     /*******************
@@ -55,7 +55,7 @@ ChecksumResult ChecksumTcuSubaruDensoSH7055::calculate_checksum_result(bytes::By
     for (const ChecksumArea& area : kChecksumAreas)
     {
         const uint32_t area_start = area.start;
-        const uint32_t area_end = area_start + (2 * area.wordCount);
+        const uint32_t area_end = area_start + (2 * area.word_count);
 
         for (uint32_t j = area_start; j < area_end; j += 2)
         {
@@ -75,6 +75,6 @@ ChecksumResult ChecksumTcuSubaruDensoSH7055::calculate_checksum_result(bytes::By
     {
         result.status = ChecksumResult::Status::Unchanged;
     }
-    result.romData = romData;
+    result.rom_data = romData;
     return result;
 }

@@ -198,7 +198,7 @@ non_fatal_prefix(ICanFlashTransport& transport, IClock& clock, const ICancellati
 
 bytes::Bytes seed_key(bytes::ByteView seed)
 {
-    return SsmProtocol::calculateSeedKey(seed, kSeedKeyTable, SsmProtocol::kIndexTransformationStock);
+    return ssm_protocol::calculateSeedKey(seed, kSeedKeyTable, ssm_protocol::kIndexTransformationStock);
 }
 
 // Legacy composes ecuCalDef->RomId as "<CALID>_<TCUID>_" (operation.cpp:170,
@@ -441,8 +441,8 @@ Result<bytes::Bytes> read_rom(ICanFlashTransport& transport, IClock& clock, cons
     // default-constructed, empty QByteArray through padBytes[i] for i in
     // 0..0x7FFF (lines 605-609), which does not extend under Qt 6.
     bytes::Bytes image(region.start, bytes::Byte{0x00});
-    const bytes::Bytes decrypted = SsmProtocol::calculatePayload(dumped, static_cast<std::uint32_t>(dumped.size()),
-                                                                 kDecryptTable, SsmProtocol::kIndexTransformationStock);
+    const bytes::Bytes decrypted = ssm_protocol::calculatePayload(
+        dumped, static_cast<std::uint32_t>(dumped.size()), kDecryptTable, ssm_protocol::kIndexTransformationStock);
     image.insert(image.end(), decrypted.begin(), decrypted.end());
     return image;
 }
@@ -615,8 +615,8 @@ Status write_rom(ICanFlashTransport& transport, IClock& clock, const ICancellati
     // (operation.cpp:640) and then indexes it by absolute flash address
     // (operation.cpp:803, newdata[i + blockaddr] over fblocks[0].start == 0).
     const bytes::Bytes& image = *flash_plan.image();
-    const bytes::Bytes encrypted = SsmProtocol::calculatePayload(image, static_cast<std::uint32_t>(image.size()),
-                                                                 kEncryptTable, SsmProtocol::kIndexTransformationStock);
+    const bytes::Bytes encrypted = ssm_protocol::calculatePayload(
+        image, static_cast<std::uint32_t>(image.size()), kEncryptTable, ssm_protocol::kIndexTransformationStock);
     // A second defensive guard, same treatment as the one in reflash_block above:
     // no test pins this line, and it is unreachable on a correct build --
     // calculatePayload only ever truncates its output to a multiple of 4, and

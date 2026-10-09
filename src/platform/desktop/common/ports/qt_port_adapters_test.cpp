@@ -44,7 +44,7 @@ class QtPortEnvironment final : public ::testing::Environment
     std::unique_ptr<QCoreApplication> app_;
 };
 
-const auto *qt_port_environment = ::testing::AddGlobalTestEnvironment(new QtPortEnvironment);
+const auto *const kQtPortEnvironment = ::testing::AddGlobalTestEnvironment(new QtPortEnvironment);
 } // namespace
 
 // ---- QtClock ---------------------------------------------------------

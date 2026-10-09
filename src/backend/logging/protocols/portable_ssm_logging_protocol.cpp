@@ -72,7 +72,7 @@ SsmLoggingProtocol::SsmLoggingProtocol(fastecu::IClock& clock, std::unique_ptr<I
 
 bytes::Bytes SsmLoggingProtocol::buildSsmHeader(bytes::ByteView output) const
 {
-    return SsmProtocol::addHeader(output, 0xF0, target_is_ecu_ ? 0x10 : 0x18);
+    return ssm_protocol::addHeader(output, 0xF0, target_is_ecu_ ? 0x10 : 0x18);
 }
 
 fastecu::Result<bytes::Bytes> SsmLoggingProtocol::readFramedResponse(std::chrono::milliseconds timeout,

@@ -60,16 +60,16 @@ typedef void (*PF_StatusCallback)(const char *, int, int);
 
 typedef struct
 {
-    unsigned long ProtocolID;
-    unsigned long RxStatus;
-    unsigned long TxFlags;
-    unsigned long Timestamp;
-    unsigned long DataSize;
-    unsigned long ExtraDataIndex;
+    unsigned long protocol_id;
+    unsigned long rx_status;
+    unsigned long tx_flags;
+    unsigned long timestamp;
+    unsigned long data_size;
+    unsigned long extra_data_index;
     // The J2534 API defines this struct's layout; the vendor DLL reads and
     // writes it in place, so the trailing payload stays a C array.
     // NOLINTNEXTLINE(modernize-avoid-c-arrays)
-    unsigned char Data[kJ2534PassthruMsgDataSize];
+    unsigned char data[kJ2534PassthruMsgDataSize];
 } PassThruMsg;
 
 ////////////////
@@ -78,18 +78,18 @@ typedef struct
 
 typedef struct
 {
-    unsigned long Parameter;
-    unsigned long Value;
+    unsigned long parameter;
+    unsigned long value;
 } SCONFIG;
 
 typedef struct
 {
-    unsigned long NumOfParams;
-    SCONFIG *ConfigPtr;
+    unsigned long num_of_params;
+    SCONFIG *config_ptr;
 } SConfigList;
 
 typedef struct
 {
-    unsigned long NumOfBytes;
-    unsigned char *BytePtr;
+    unsigned long num_of_bytes;
+    unsigned char *byte_ptr;
 } SByteArray;

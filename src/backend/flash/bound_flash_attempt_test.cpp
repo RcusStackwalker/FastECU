@@ -224,11 +224,11 @@ TEST(BoundFlashAttemptTest, ConfiguresAndOpensBeforeExecuteAndClosesOnce)
     Harness h;
 
     ASSERT_THAT(h.run(), fastecu::testing::IsOk());
-    ASSERT_TRUE(h.transport->last_config_.has_value());
-    EXPECT_EQ(h.transport->last_config_->baud, kSetup.baud);
-    EXPECT_EQ(h.transport->last_config_->tester_id, kSetup.tester_id);
+    ASSERT_TRUE(h.transport->last_config.has_value());
+    EXPECT_EQ(h.transport->last_config->baud, kSetup.baud);
+    EXPECT_EQ(h.transport->last_config->tester_id, kSetup.tester_id);
     EXPECT_TRUE(h.executor->saw_open_transport);
-    EXPECT_EQ(h.transport->close_call_count_, 1);
+    EXPECT_EQ(h.transport->close_call_count, 1);
 }
 
 TEST(BoundFlashAttemptTest, InvalidPlanTouchesNoTransportCall)
@@ -237,29 +237,29 @@ TEST(BoundFlashAttemptTest, InvalidPlanTouchesNoTransportCall)
     h.executor->setup_ok = false;
 
     ASSERT_THAT(h.run(), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
-    EXPECT_FALSE(h.transport->last_config_.has_value());
-    EXPECT_EQ(h.transport->close_call_count_, 0);
+    EXPECT_FALSE(h.transport->last_config.has_value());
+    EXPECT_EQ(h.transport->close_call_count, 0);
     EXPECT_EQ(h.executor->execute_calls, 0);
 }
 
 TEST(BoundFlashAttemptTest, ConfigureFailureSkipsOpenAndExecuteAndClose)
 {
     Harness h;
-    h.transport->configure_result_ = fail(ErrorKind::Disconnected, "no port");
+    h.transport->configure_result = fail(ErrorKind::Disconnected, "no port");
 
     ASSERT_THAT(h.run(), fastecu::testing::IsErr(ErrorKind::Disconnected));
     EXPECT_EQ(h.executor->execute_calls, 0);
-    EXPECT_EQ(h.transport->close_call_count_, 0);
+    EXPECT_EQ(h.transport->close_call_count, 0);
 }
 
 TEST(BoundFlashAttemptTest, OpenFailureSkipsExecuteAndClose)
 {
     Harness h;
-    h.transport->open_result_ = fail(ErrorKind::Disconnected, "open failed");
+    h.transport->open_result = fail(ErrorKind::Disconnected, "open failed");
 
     ASSERT_THAT(h.run(), fastecu::testing::IsErr(ErrorKind::Disconnected));
     EXPECT_EQ(h.executor->execute_calls, 0);
-    EXPECT_EQ(h.transport->close_call_count_, 0);
+    EXPECT_EQ(h.transport->close_call_count, 0);
 }
 
 TEST(BoundFlashAttemptTest, CancelledBeforeConfigureDoesNotConfigure)
@@ -268,7 +268,7 @@ TEST(BoundFlashAttemptTest, CancelledBeforeConfigureDoesNotConfigure)
     h.cancellation.set_cancelled(true);
 
     ASSERT_THAT(h.run(), fastecu::testing::IsErr(ErrorKind::Cancelled));
-    EXPECT_FALSE(h.transport->last_config_.has_value());
+    EXPECT_FALSE(h.transport->last_config.has_value());
 }
 
 TEST(BoundFlashAttemptTest, CancellationIsNotUniversallyPolledBetweenConfigureAndOpen)
@@ -277,9 +277,9 @@ TEST(BoundFlashAttemptTest, CancellationIsNotUniversallyPolledBetweenConfigureAn
     h.cancellation.cancel_on_check(2);
 
     ASSERT_THAT(h.run(), fastecu::testing::IsOk());
-    EXPECT_TRUE(h.transport->last_config_.has_value());
+    EXPECT_TRUE(h.transport->last_config.has_value());
     EXPECT_EQ(h.executor->execute_calls, 1);
-    EXPECT_EQ(h.transport->close_call_count_, 1);
+    EXPECT_EQ(h.transport->close_call_count, 1);
 }
 
 TEST(BoundFlashAttemptTest, ExecuteErrorIsReturnedAndTransportStillClosesOnce)
@@ -288,26 +288,26 @@ TEST(BoundFlashAttemptTest, ExecuteErrorIsReturnedAndTransportStillClosesOnce)
     h.executor->execute_ok = false;
 
     ASSERT_THAT(h.run(), fastecu::testing::IsErr(ErrorKind::BadResponse));
-    EXPECT_EQ(h.transport->close_call_count_, 1);
+    EXPECT_EQ(h.transport->close_call_count, 1);
 }
 
 TEST(BoundFlashAttemptTest, CloseOnlyErrorIsReturned)
 {
     Harness h;
-    h.transport->close_result_ = fail(ErrorKind::Internal, "close failed");
+    h.transport->close_result = fail(ErrorKind::Internal, "close failed");
 
     ASSERT_THAT(h.run(), fastecu::testing::IsErr(ErrorKind::Internal));
-    EXPECT_EQ(h.transport->close_call_count_, 1);
+    EXPECT_EQ(h.transport->close_call_count, 1);
 }
 
 TEST(BoundFlashAttemptTest, ExecuteErrorWinsOverCloseErrorAndCloseIsLogged)
 {
     Harness h;
     h.executor->execute_ok = false;
-    h.transport->close_result_ = fail(ErrorKind::Internal, "close failed");
+    h.transport->close_result = fail(ErrorKind::Internal, "close failed");
 
     ASSERT_THAT(h.run(), fastecu::testing::IsErr(ErrorKind::BadResponse));
-    EXPECT_EQ(h.transport->close_call_count_, 1);
+    EXPECT_EQ(h.transport->close_call_count, 1);
     const bool warned =
         std::ranges::any_of(h.events.logs, [](const auto& entry) { return entry.first == LogLevel::Warning; });
     EXPECT_TRUE(warned);

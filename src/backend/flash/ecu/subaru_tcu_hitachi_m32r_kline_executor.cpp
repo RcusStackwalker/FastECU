@@ -37,7 +37,7 @@ constexpr int kBlockAttempts = 5;
 
 bytes::Bytes framed(bytes::ByteView payload, const SubaruTcuHitachiM32rKlinePlan& p)
 {
-    return SsmProtocol::addHeader(payload, p.tester_id, p.target_id);
+    return ssm_protocol::addHeader(payload, p.tester_id, p.target_id);
 }
 
 Result<std::optional<bytes::Bytes>> exchange_optional(IKlineFlashTransport& transport,
@@ -201,7 +201,7 @@ bytes::Bytes seed_key(bytes::ByteView seed)
     static constexpr std::array<std::uint16_t, 16> kIndex = {0x0FE9, 0xCA58, 0x5E90, 0xDFF1, 0x690B, 0xF591,
                                                              0x1794, 0x5C7B, 0xA7BF, 0x98E5, 0x0B63, 0xA1C9,
                                                              0x79BF, 0xF413, 0x82B1, 0xA895};
-    return SsmProtocol::calculateSeedKey(seed, kIndex, SsmProtocol::kIndexTransformationStock);
+    return ssm_protocol::calculateSeedKey(seed, kIndex, ssm_protocol::kIndexTransformationStock);
 }
 
 Result<std::string> connect_bootloader(IKlineFlashTransport& transport, IClock& clock,

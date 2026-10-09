@@ -73,8 +73,8 @@ Status validate_mitsu_colt_m32r_can_plan(const FlashPlan& plan)
     }
 
     const bool read = plan.operation() == FlashOperation::Read;
-    if (const MemoryRegion expected{read ? 0U : MitsuColtCan::kUserspaceStart,
-                                    (*variant)->capacity - (read ? 0U : MitsuColtCan::kUserspaceStart)};
+    if (const MemoryRegion expected{read ? 0U : mitsu_colt_can::kUserspaceStart,
+                                    (*variant)->capacity - (read ? 0U : mitsu_colt_can::kUserspaceStart)};
         plan.transfer_region().start != expected.start || plan.transfer_region().length != expected.length)
     {
         return fail(ErrorKind::InvalidConfig,
@@ -129,7 +129,7 @@ Result<FlashPlan> build_mitsu_colt_m32r_can_plan(FlashOperation operation, std::
         .bitrate = 500000,
         .extended_id = false,
         .use_vendor_challenge = (*variant)->vendor,
-        .session_id = MitsuColtCan::kSessionBootload,
+        .session_id = mitsu_colt_can::kSessionBootload,
     };
 
     if (operation == FlashOperation::Read)
@@ -148,16 +148,16 @@ Result<FlashPlan> build_mitsu_colt_m32r_can_plan(FlashOperation operation, std::
     else
     {
         fields.transfer_region =
-            MemoryRegion{MitsuColtCan::kUserspaceStart, (*variant)->capacity - MitsuColtCan::kUserspaceStart};
+            MemoryRegion{mitsu_colt_can::kUserspaceStart, (*variant)->capacity - mitsu_colt_can::kUserspaceStart};
         fields.image = std::move(image);
         const std::string capacity_kib = std::to_string((*variant)->capacity / 1024);
         const std::string rom_end = std::format("0x{:x}", (*variant)->capacity);
         fields.confirmations = {
             ConfirmationSpec{ConfirmationSpec::Id::EraseTrigger,
                              {{"capacity_kib", capacity_kib},
-                              {"writable_start_hex", std::format("0x{:x}", MitsuColtCan::kUserspaceStart)},
+                              {"writable_start_hex", std::format("0x{:x}", mitsu_colt_can::kUserspaceStart)},
                               {"rom_end_hex", rom_end}}}};
-        if ((*variant)->capacity == MitsuColtCan::kFullRomSize)
+        if ((*variant)->capacity == mitsu_colt_can::kFullRomSize)
         {
             fields.confirmations.push_back(
                 ConfirmationSpec{ConfirmationSpec::Id::TopRegionBootstrap,

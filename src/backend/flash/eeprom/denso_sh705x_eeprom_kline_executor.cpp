@@ -64,7 +64,7 @@ constexpr int kMaxReadMemInnerRetries = 5;                         // read_mem()
 
 bytes::Bytes frame(bytes::ByteView payload, std::uint8_t tester_id, std::uint8_t target_id)
 {
-    return SsmProtocol::addHeader(payload, tester_id, target_id);
+    return ssm_protocol::addHeader(payload, tester_id, target_id);
 }
 
 bytes::Bytes sid_bf_request()

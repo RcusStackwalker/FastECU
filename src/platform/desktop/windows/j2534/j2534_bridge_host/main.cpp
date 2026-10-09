@@ -329,7 +329,7 @@ void handlePassThruIoctl(const VendorApi& api, HANDLE in, HANDLE out, const Fram
         SByteArray inArr{req.inputByteCount, req.inputBytes.data()};
         SByteArray outArr{static_cast<unsigned long>(resp.outputBytes.size()), resp.outputBytes.data()};
         resp.result = api.ioctl(req.channelId, req.ioctlId, &inArr, &outArr);
-        resp.outputByteCount = outArr.NumOfBytes;
+        resp.outputByteCount = outArr.num_of_bytes;
         break;
     }
     case kJ2534ReadVbatt:

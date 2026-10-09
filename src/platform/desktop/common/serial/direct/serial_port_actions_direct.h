@@ -40,10 +40,10 @@ class SerialPortActionsDirect : public QObject, public SerialBackend
     explicit SerialPortActionsDirect(QObject *parent = nullptr);
     ~SerialPortActionsDirect();
 
-    bool serialPortAvailable = false;
-    bool setRequestToSend = true;
-    bool setDataTerminalReady = true;
-    bool signalToReadBattVoltage = false;
+    bool serial_port_available = false;
+    bool set_request_to_send = true;
+    bool set_data_terminal_ready = true;
+    bool signal_to_read_batt_voltage = false;
 
     bool add_ssm_header = false;
     bool add_iso9141_header = false;
@@ -55,12 +55,12 @@ class SerialPortActionsDirect : public QObject, public SerialBackend
 
     bool use_openport2_adapter = false;
 
-    unsigned long vBatt = 0;
+    unsigned long v_batt = 0;
 
-    int requestToSendEnabled = 0;
-    int requestToSendDisabled = 1;
-    int dataTerminalEnabled = 0;
-    int dataTerminalDisabled = 1;
+    int request_to_send_enabled = 0;
+    int request_to_send_disabled = 1;
+    int data_terminal_enabled = 0;
+    int data_terminal_disabled = 1;
 
     std::uint16_t echo_check_timout = 5000;
     std::uint16_t receive_timeout = 500;
@@ -78,7 +78,7 @@ class SerialPortActionsDirect : public QObject, public SerialBackend
     QByteArray ssm_receive_header_start = {"\x80\xf0\x10"};
 
     QStringList serial_port_list;
-    QString openedSerialPort;
+    QString opened_serial_port;
     QString subaru_02_16bit_bootloader_baudrate = "9600";
     QString subaru_04_16bit_bootloader_baudrate = "15625";
     QString subaru_02_32bit_bootloader_baudrate = "9600";
@@ -154,29 +154,29 @@ class SerialPortActionsDirect : public QObject, public SerialBackend
 
     bool get_serialPortAvailable() override
     {
-        return serialPortAvailable;
+        return serial_port_available;
     }
     bool set_serialPortAvailable(bool value) override
     {
-        serialPortAvailable = value;
+        serial_port_available = value;
         return true;
     }
     bool get_setRequestToSend() override
     {
-        return setRequestToSend;
+        return set_request_to_send;
     }
     bool set_setRequestToSend(bool value) override
     {
-        setRequestToSend = value;
+        set_request_to_send = value;
         return true;
     }
     bool get_setDataTerminalReady() override
     {
-        return setDataTerminalReady;
+        return set_data_terminal_ready;
     }
     bool set_setDataTerminalReady(bool value) override
     {
-        setDataTerminalReady = value;
+        set_data_terminal_ready = value;
         return true;
     }
     bool get_add_ssm_header() override
@@ -254,38 +254,38 @@ class SerialPortActionsDirect : public QObject, public SerialBackend
 
     int get_requestToSendEnabled() override
     {
-        return requestToSendEnabled;
+        return request_to_send_enabled;
     }
     bool set_requestToSendEnabled(int value) override
     {
-        requestToSendEnabled = value;
+        request_to_send_enabled = value;
         return true;
     }
     int get_requestToSendDisabled() override
     {
-        return requestToSendDisabled;
+        return request_to_send_disabled;
     }
     bool set_requestToSendDisabled(int value) override
     {
-        requestToSendDisabled = value;
+        request_to_send_disabled = value;
         return true;
     }
     int get_dataTerminalEnabled() override
     {
-        return dataTerminalEnabled;
+        return data_terminal_enabled;
     }
     bool set_dataTerminalEnabled(int value) override
     {
-        dataTerminalEnabled = value;
+        data_terminal_enabled = value;
         return true;
     }
     int get_dataTerminalDisabled() override
     {
-        return dataTerminalDisabled;
+        return data_terminal_disabled;
     }
     bool set_dataTerminalDisabled(int value) override
     {
-        dataTerminalDisabled = value;
+        data_terminal_disabled = value;
         return true;
     }
 
@@ -352,11 +352,11 @@ class SerialPortActionsDirect : public QObject, public SerialBackend
 
     QString get_openedSerialPort() override
     {
-        return openedSerialPort;
+        return opened_serial_port;
     }
     bool set_openedSerialPort(QString value) override
     {
-        openedSerialPort = value;
+        opened_serial_port = value;
         return true;
     }
     QString get_subaru_02_16bit_bootloader_baudrate() override
@@ -607,7 +607,7 @@ class SerialPortActionsDirect : public QObject, public SerialBackend
     // protected so tests can drive the J2534 lifetime (reset_connection
     // use-after-free reproduction) and the connect sequence over a mock serial.
     int init_j2534_connection();
-    J2534 *j2534;
+    J2534 *j2534_;
 
     // Per-OS hooks. Declared once here and defined in exactly one of
     // serial_port_actions_direct_unix.cpp / serial_port_actions_direct_windows.cpp,
@@ -653,7 +653,7 @@ class SerialPortActionsDirect : public QObject, public SerialBackend
 
     unsigned int protocol = kJ2534Iso9141;
 
-    bool J2534_init_ok = false;
+    bool j2534_init_ok = false;
     bool J2534_open_ok = false;
     bool J2534_connect_ok = false;
     bool J2534_get_version_ok = false;

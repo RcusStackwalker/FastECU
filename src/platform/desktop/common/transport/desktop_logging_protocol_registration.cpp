@@ -36,7 +36,7 @@ void register_desktop_logging_protocols(LoggingEngine& engine, SerialPortActions
                 .select_11_bit_ids = [&serial]() { return serial.set_is_29_bit_id(false); },
                 .select_500k_baud = [&serial]() { return serial.set_can_speed("500000"); },
                 .select_reply_id = [&serial]()
-                { return serial.set_can_destination_address(MitsuColtCanCdbg::kReplyCanId); },
+                { return serial.set_can_destination_address(mitsu_colt_can_cdbg::kReplyCanId); },
             });
             if (!configured)
             {

@@ -73,8 +73,8 @@ TEST(ScriptedUdsChannelTest, RecordsEveryReceiveTimeout)
     std::ignore = channel.receive(500ms, cancellation);
     std::ignore = channel.receive(3000ms, cancellation);
 
-    EXPECT_THAT(channel.timeouts_, ElementsAre(500ms, 3000ms));
-    EXPECT_EQ(channel.last_timeout_, 3000ms);
+    EXPECT_THAT(channel.timeouts, ElementsAre(500ms, 3000ms));
+    EXPECT_EQ(channel.last_timeout, 3000ms);
 }
 
 TEST(ScriptedUdsChannelTest, HonorsCancellation)

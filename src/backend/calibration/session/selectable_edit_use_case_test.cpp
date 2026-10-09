@@ -71,11 +71,11 @@ class SelectableEditUseCaseTest : public ::testing::Test
   protected:
     void SetUp() override
     {
-        ASSERT_THAT(cfg.initialize(), IsOk());
-        const auto opened = workspace.adopt_read_image(
+        ASSERT_THAT(cfg_.initialize(), IsOk());
+        const auto opened = workspace_.adopt_read_image(
             ReadImage{.rom = std::vector<std::uint8_t>(8, 0), .filename = "modes.bin", .protocol_name = "proto_b"});
         ASSERT_THAT(opened, IsOk());
-        id = opened->id;
+        id_ = opened->id;
         install(modes_definition());
     }
 
@@ -88,15 +88,15 @@ class SelectableEditUseCaseTest : public ::testing::Test
         {
             resolved = ResolvedDefinition{.definition = std::move(*def)};
         }
-        *workspace.find(id) = CalibrationSession(id, SessionContents{.source = {.display_name = "modes.bin"},
-                                                                     .rom = std::move(rom),
-                                                                     .definition = std::move(resolved),
-                                                                     .protocol = {}});
+        *workspace_.find(id_) = CalibrationSession(id_, SessionContents{.source = {.display_name = "modes.bin"},
+                                                                        .rom = std::move(rom),
+                                                                        .definition = std::move(resolved),
+                                                                        .protocol = {}});
     }
 
     CalibrationSession& session()
     {
-        return *workspace.find(id);
+        return *workspace_.find(id_);
     }
 
     std::vector<std::uint8_t> rom_bytes()
@@ -107,16 +107,16 @@ class SelectableEditUseCaseTest : public ::testing::Test
 
     Result<SelectableEditOutcome> select(const std::string& name, std::size_t map_index = 0)
     {
-        return apply_selectable_edit(workspace, {.session = id, .map_index = map_index, .selection = name});
+        return apply_selectable_edit(workspace_, {.session = id_, .map_index = map_index, .selection = name});
     }
 
-    config::testing::ConfigSessionFixture cfg;
-    InMemoryAtomicFileWriter writer;
-    definition::DefinitionService definitions{cfg.file_system, cfg.file_repository, writer};
-    testing::FakeDefinitionCatalogs catalogs;
-    RomOpenUseCase opener{catalogs, definitions, cfg.file_repository, cfg.file_system, cfg.events, cfg.session};
-    CalibrationWorkspace workspace{opener};
-    SessionId id{};
+    config::testing::ConfigSessionFixture cfg_;
+    InMemoryAtomicFileWriter writer_;
+    definition::DefinitionService definitions_{cfg_.file_system, cfg_.file_repository, writer_};
+    testing::FakeDefinitionCatalogs catalogs_;
+    RomOpenUseCase opener_{catalogs_, definitions_, cfg_.file_repository, cfg_.file_system, cfg_.events, cfg_.session};
+    CalibrationWorkspace workspace_{opener_};
+    SessionId id_{};
 };
 
 TEST_F(SelectableEditUseCaseTest, WritesTheNamedSelectionAtTheMapAddress)
@@ -188,11 +188,11 @@ TEST_F(SelectableEditUseCaseTest, AWriteOutsideTheImageIsRejectedWithoutChange)
 TEST_F(SelectableEditUseCaseTest, StaleSessionIdsAreNotApplicable)
 {
     const auto before = rom_bytes();
-    EXPECT_THAT(apply_selectable_edit(workspace, {.session = SessionId{999}, .map_index = 0, .selection = "low"}),
+    EXPECT_THAT(apply_selectable_edit(workspace_, {.session = SessionId{999}, .map_index = 0, .selection = "low"}),
                 not_applicable(SelectableNotApplicableReason::ClosedSession));
     EXPECT_EQ(rom_bytes(), before);
 
-    ASSERT_THAT(workspace.close(id), IsOk());
+    ASSERT_THAT(workspace_.close(id_), IsOk());
     EXPECT_THAT(select("low"), not_applicable(SelectableNotApplicableReason::ClosedSession));
 }
 

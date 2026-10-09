@@ -7,10 +7,10 @@
 
 void SerialPortActionsDirect::connect_j2534_logs()
 {
-    QObject::connect(j2534, &J2534::LOG_E, this, &SerialPortActionsDirect::LOG_E);
-    QObject::connect(j2534, &J2534::LOG_W, this, &SerialPortActionsDirect::LOG_W);
-    QObject::connect(j2534, &J2534::LOG_I, this, &SerialPortActionsDirect::LOG_I);
-    QObject::connect(j2534, &J2534::LOG_D, this, &SerialPortActionsDirect::LOG_D);
+    QObject::connect(j2534_, &J2534::LOG_E, this, &SerialPortActionsDirect::LOG_E);
+    QObject::connect(j2534_, &J2534::LOG_W, this, &SerialPortActionsDirect::LOG_W);
+    QObject::connect(j2534_, &J2534::LOG_I, this, &SerialPortActionsDirect::LOG_I);
+    QObject::connect(j2534_, &J2534::LOG_D, this, &SerialPortActionsDirect::LOG_D);
 }
 
 void SerialPortActionsDirect::settle_after_programming_voltage()
@@ -36,12 +36,12 @@ void SerialPortActionsDirect::select_j2534_dll()
 
 bool SerialPortActionsDirect::open_j2534_transport()
 {
-    return j2534->open_serial_port(serial_port) == serial_port;
+    return j2534_->open_serial_port(serial_port) == serial_port;
 }
 
 void SerialPortActionsDirect::close_j2534_transport()
 {
-    j2534->close_serial_port();
+    j2534_->close_serial_port();
 }
 
 void SerialPortActionsDirect::log_j2534_opened()
@@ -56,5 +56,5 @@ void SerialPortActionsDirect::adopt_j2534_channel_id()
 
 bool SerialPortActionsDirect::j2534_tx_done()
 {
-    return j2534->get_is_tx_done();
+    return j2534_->get_is_tx_done();
 }

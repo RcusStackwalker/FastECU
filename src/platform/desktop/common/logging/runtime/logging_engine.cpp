@@ -41,11 +41,11 @@ fastecu::Status LoggingEngine::start(const LogSessionConfig& config, DesktopLogg
         return std::unexpected(error);
     }
 
-    const auto registration = registrations_.constFind(config.protocolId);
+    const auto registration = registrations_.constFind(config.protocol_id);
     if (registration == registrations_.constEnd())
     {
         const fastecu::Error error{fastecu::ErrorKind::InvalidConfig,
-                                   "no logging protocol registered for '" + config.protocolId.toStdString() + "'"};
+                                   "no logging protocol registered for '" + config.protocol_id.toStdString() + "'"};
         reportStartError(error);
         return std::unexpected(error);
     }
@@ -75,7 +75,7 @@ fastecu::Status LoggingEngine::start(const LogSessionConfig& config, DesktopLogg
     if (!active_protocol_)
     {
         const fastecu::Error error{fastecu::ErrorKind::Internal,
-                                   "protocol factory for '" + config.protocolId.toStdString() + "' returned null"};
+                                   "protocol factory for '" + config.protocol_id.toStdString() + "' returned null"};
         active_snapshot_.reset();
         reportStartError(error);
         return std::unexpected(error);

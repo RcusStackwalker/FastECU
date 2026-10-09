@@ -24,8 +24,8 @@ class CdbgLoggingProtocol final : public LoggingProtocol
   private:
     std::unique_ptr<cdbg::ICanTransport> transport_;
     const std::vector<LoggingChannel> channels_;
-    const std::vector<MitsuColtCanCdbg::CdbgChannel> wire_channels_;
-    MitsuColtCanCdbg::CdbgLogDriver driver_;
+    const std::vector<mitsu_colt_can_cdbg::CdbgChannel> wire_channels_;
+    mitsu_colt_can_cdbg::CdbgLogDriver driver_;
 };
 
 } // namespace fastecu::logging

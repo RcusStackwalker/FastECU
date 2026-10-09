@@ -28,7 +28,7 @@ using fastecu::ui::QtCalibrationInteraction;
 namespace
 {
 
-const auto *const application_environment =
+const auto *const kApplicationEnvironment =
     ::testing::AddGlobalTestEnvironment(new fastecu::testing::WidgetsApplicationEnvironment);
 
 constexpr int kDeadlineMs = 3000;

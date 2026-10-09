@@ -432,14 +432,14 @@ long J2534BridgeClient::PassThruIoctl(unsigned long ChannelID, unsigned long Ioc
     {
         const auto *scl = static_cast<const SConfigList *>(pInput);
         constexpr unsigned long kMaxConfigParams = std::tuple_size_v<decltype(req.configParams)>;
-        if (!scl || scl->NumOfParams > kMaxConfigParams)
+        if (!scl || scl->num_of_params > kMaxConfigParams)
         {
             return kJ2534ErrFailed;
         }
-        req.numConfigParams = scl->NumOfParams;
-        for (unsigned long i = 0; i < scl->NumOfParams; ++i)
+        req.numConfigParams = scl->num_of_params;
+        for (unsigned long i = 0; i < scl->num_of_params; ++i)
         {
-            req.configParams[i] = scl->ConfigPtr[i];
+            req.configParams[i] = scl->config_ptr[i];
         }
         break;
     }
@@ -447,12 +447,12 @@ long J2534BridgeClient::PassThruIoctl(unsigned long ChannelID, unsigned long Ioc
     case kJ2534FastInit:
     {
         const auto *inArr = static_cast<const SByteArray *>(pInput);
-        if (!inArr || inArr->NumOfBytes > req.inputBytes.size())
+        if (!inArr || inArr->num_of_bytes > req.inputBytes.size())
         {
             return kJ2534ErrFailed;
         }
-        req.inputByteCount = inArr->NumOfBytes;
-        std::memcpy(req.inputBytes.data(), inArr->BytePtr, inArr->NumOfBytes);
+        req.inputByteCount = inArr->num_of_bytes;
+        std::memcpy(req.inputBytes.data(), inArr->byte_ptr, inArr->num_of_bytes);
         break;
     }
     case kJ2534ReadVbatt:
@@ -489,12 +489,12 @@ long J2534BridgeClient::PassThruIoctl(unsigned long ChannelID, unsigned long Ioc
         if (outArr)
         {
             unsigned long n = resp.outputByteCount;
-            if (n > outArr->NumOfBytes)
+            if (n > outArr->num_of_bytes)
             {
-                n = outArr->NumOfBytes; // never overflow the caller's buffer
+                n = outArr->num_of_bytes; // never overflow the caller's buffer
             }
-            std::memcpy(outArr->BytePtr, resp.outputBytes.data(), n);
-            outArr->NumOfBytes = n;
+            std::memcpy(outArr->byte_ptr, resp.outputBytes.data(), n);
+            outArr->num_of_bytes = n;
         }
         break;
     }

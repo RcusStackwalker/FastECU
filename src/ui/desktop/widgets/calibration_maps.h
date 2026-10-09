@@ -35,18 +35,18 @@ class CalibrationMaps : public QWidget
                              QWidget *parent = nullptr);
     ~CalibrationMaps();
 
-    int mapCellWidthSelectable = 240;
-    int mapCellWidth1D = 96;
-    int mapCellWidth = 54;
-    int mapCellHeight = 26;
-    int cellFontSize = static_cast<int>(mapCellHeight / 2.35);
+    int map_cell_width_selectable = 240;
+    int map_cell_width1_d = 96;
+    int map_cell_width = 54;
+    int map_cell_height = 26;
+    int cell_font_size = static_cast<int>(map_cell_height / 2.35);
 
-    int startCol = 0;
-    int startRow = 0;
-    int xSize = 0;
-    int ySize = 0;
-    int xSizeOffset = 0;
-    int ySizeOffset = 0;
+    int start_col = 0;
+    int start_row = 0;
+    int x_size = 0;
+    int y_size = 0;
+    int x_size_offset = 0;
+    int y_size_offset = 0;
 
   protected:
     // Select All on a numeric table selects the body, not the axes.

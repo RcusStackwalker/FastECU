@@ -44,7 +44,9 @@ class ProtocolSelect : public QDialog
     QString header_font_family = "Franklin Gothic";
 
     const fastecu::config::ConfigSession& config;
-    std::optional<std::string> chosenProtocolName;
+    // Private, but protocol_select_test.cpp compiles this header under
+    // `#define private public`, where clang-tidy would see it as a public member.
+    std::optional<std::string> chosenProtocolName; // NOLINT(readability-identifier-naming)
 
   private slots:
     void car_model_selected();

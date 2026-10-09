@@ -990,7 +990,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor, ProbeTimeoutTransitionsThroughRawUploadA
 
     ASSERT_TRUE(result.has_value()) << result.error().detail;
     EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_EQ(transport.clear_receive_buffer_call_count_, 1);
+    EXPECT_EQ(transport.clear_receive_buffer_call_count, 1);
     EXPECT_EQ(transport.modeChanges(), (std::vector<ScriptedMixedCanMode>{ScriptedMixedCanMode::Iso15765Kernel,
                                                                           ScriptedMixedCanMode::RawBootloader,
                                                                           ScriptedMixedCanMode::Iso15765Kernel}));
@@ -1873,7 +1873,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor, BoundedAttemptClosesOnceAndPreservesExec
     auto transport = std::make_unique<ScriptedMixedCanFlashTransport>();
     ScriptedMixedCanFlashTransport *raw_transport = transport.get();
     script_live_read(*raw_transport, test_case);
-    raw_transport->close_result_ = fail(ErrorKind::Internal, "close failed");
+    raw_transport->close_result = fail(ErrorKind::Internal, "close failed");
     auto attempt = bind_flash_attempt(std::move(*plan), std::move(executor), std::move(transport));
     FakeCancellationToken cancellation;
     FakeClock clock;
@@ -1893,7 +1893,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor, BoundedAttemptClosesOnceAndPreservesExec
     raw_failing_transport->expectIsoWrite(kernel_id_request());
     raw_failing_transport->queueNoIsoFrame();
     raw_failing_transport->failNextRawTransition();
-    raw_failing_transport->close_result_ = fail(ErrorKind::Timeout, "close timeout");
+    raw_failing_transport->close_result = fail(ErrorKind::Timeout, "close timeout");
     auto failing_attempt =
         bind_flash_attempt(std::move(*failing_plan), std::move(failing_executor), std::move(failing_transport));
 

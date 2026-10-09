@@ -56,7 +56,7 @@ Status send(Session& s, bytes::ByteView payload)
     {
         return cancelled;
     }
-    const bytes::Bytes request = SsmProtocol::addHeader(payload, s.wire.tester_id, s.wire.target_id);
+    const bytes::Bytes request = ssm_protocol::addHeader(payload, s.wire.tester_id, s.wire.target_id);
     auto written = s.transport.write(request);
     if (!written.has_value())
     {
@@ -85,7 +85,7 @@ Result<std::optional<bytes::Bytes>> receive(Session& s, std::chrono::millisecond
 
 bool is_status_reply(bytes::ByteView frame, const SubaruUnisiaJecsM32rBootModeProgramPlan& wire)
 {
-    return SsmProtocol::hasValidFrame(frame, wire.tester_id, wire.target_id) && frame[3] == 2 && frame[4] == 0xef;
+    return ssm_protocol::hasValidFrame(frame, wire.tester_id, wire.target_id) && frame[3] == 2 && frame[4] == 0xef;
 }
 
 bool is_status(bytes::ByteView frame, const SubaruUnisiaJecsM32rBootModeProgramPlan& wire, bytes::Byte status)

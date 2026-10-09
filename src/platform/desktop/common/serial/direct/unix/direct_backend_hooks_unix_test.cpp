@@ -41,6 +41,6 @@ TEST(TestDirectBackendHooksUnix, appendJ2534Interfaces_leavesTheListUntouched)
 
 namespace
 {
-const auto *const application_environment =
+const auto *const kApplicationEnvironment =
     ::testing::AddGlobalTestEnvironment(new fastecu::testing::CoreApplicationEnvironment({}, /*use_96_dpi=*/true));
 }
