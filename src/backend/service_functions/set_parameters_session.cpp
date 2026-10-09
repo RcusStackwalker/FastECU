@@ -16,7 +16,7 @@ constexpr bytes::Byte kTesterId = 0xf0;                   // legacy :151
 constexpr bytes::Byte kTargetId = 0x18;                   // legacy :152
 constexpr bytes::Byte kPositiveResponse = 0xf8;
 
-bytes::Bytes frameFor(const TcuParameterWrite& write)
+bytes::Bytes FrameFor(const TcuParameterWrite& write)
 {
     // legacy :210-215 -- SID 0xB8, 24-bit address, value, framed exactly once.
     bytes::Bytes payload{0xb8};
@@ -32,11 +32,11 @@ SetParametersSession::SetParametersSession(std::string protocol, TcuParameterVal
 {
 }
 
-Result<SsmTransportConfig> SetParametersSession::transport_setup() const
+Result<SsmTransportConfig> SetParametersSession::TransportSetup() const
 {
     if (protocol_ != "sub_tcu_denso_sh7055_can" && protocol_ != "sub_tcu_denso_sh7058_can")
     {
-        return fail(ErrorKind::kUnsupported, "not a Subaru Denso SH705x TCU protocol: " + protocol_);
+        return Fail(ErrorKind::kUnsupported, "not a Subaru Denso SH705x TCU protocol: " + protocol_);
     }
     // legacy :141-152 -- "CAN 0xb8 command is disabled, so switch to K-Line comms".
     return SsmTransportConfig{
@@ -50,12 +50,12 @@ Result<SsmTransportConfig> SetParametersSession::transport_setup() const
     };
 }
 
-void SetParametersSession::submit(GateResponse)
+void SetParametersSession::Submit(GateResponse)
 {
     misused_ = true;
 }
 
-ServiceFunctionStep SetParametersSession::resume(ISsmTransport& transport, IClock&,
+ServiceFunctionStep SetParametersSession::Resume(ISsmTransport& transport, IClock&,
                                                  const ICancellationToken& cancellation, IEventSink& events)
 {
     if (misused_)
@@ -63,25 +63,25 @@ ServiceFunctionStep SetParametersSession::resume(ISsmTransport& transport, ICloc
         return FailedStep{Error{ErrorKind::kInternal, "set parameters has no operator gate to answer"}};
     }
 
-    events.log(LogLevel::kInfo, "Setting TCU parameters...");
+    events.Log(LogLevel::kInfo, "Setting TCU parameters...");
 
-    const auto writes = tcu_parameter_writes(values_);
+    const auto writes = TcuParameterWrites(values_);
     int written_count = 0;
 
     for (const auto& write : writes)
     {
-        if (cancellation.cancelled())
+        if (cancellation.Cancelled())
         {
             return FailedStep{Error{ErrorKind::kCancelled, "cancelled while setting TCU parameters"}};
         }
 
-        const bytes::Bytes frame = frameFor(write);
-        if (const auto sent = transport.write(frame); !sent.has_value())
+        const bytes::Bytes frame = FrameFor(write);
+        if (const auto sent = transport.Write(frame); !sent.has_value())
         {
             return FailedStep{sent.error()};
         }
 
-        const auto received = transport.read(kReadTimeout, cancellation);
+        const auto received = transport.Read(kReadTimeout, cancellation);
         if (!received.has_value())
         {
             return FailedStep{received.error()};
@@ -101,7 +101,7 @@ ServiceFunctionStep SetParametersSession::resume(ISsmTransport& transport, ICloc
         }
 
         ++written_count;
-        events.progress(written_count, static_cast<int>(writes.size()));
+        events.Progress(written_count, static_cast<int>(writes.size()));
     }
 
     return CompletedStep{SetParametersOutcome{.frames_written = written_count}};

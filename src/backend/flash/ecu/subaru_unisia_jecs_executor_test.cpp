@@ -15,10 +15,10 @@ namespace fastecu::flash
 class SubaruUnisiaJecsExecutorTestPeer
 {
   public:
-    static Result<bytes::Bytes> read_range(std::uint32_t begin, std::uint32_t end, IKlineFlashTransport& transport,
-                                           IClock& clock, const ICancellationToken& cancellation, IEventSink& events)
+    static Result<bytes::Bytes> ReadRange(std::uint32_t begin, std::uint32_t end, IKlineFlashTransport& transport,
+                                          IClock& clock, const ICancellationToken& cancellation, IEventSink& events)
     {
-        return SubaruUnisiaJecsExecutor::read_range(begin, end, transport, clock, cancellation, events);
+        return SubaruUnisiaJecsExecutor::ReadRange(begin, end, transport, clock, cancellation, events);
     }
 };
 
@@ -31,15 +31,15 @@ class TracingRawTransport final : public ScriptedKlineFlashTransport
   public:
     using ScriptedKlineFlashTransport::ScriptedKlineFlashTransport;
 
-    Result<std::size_t> write_raw(bytes::ByteView data) override
+    Result<std::size_t> WriteRaw(bytes::ByteView data) override
     {
         trace.push_back('W');
-        return ScriptedKlineFlashTransport::write_raw(data);
+        return ScriptedKlineFlashTransport::WriteRaw(data);
     }
-    Result<OptionalBytes> read_raw(std::chrono::milliseconds timeout, const ICancellationToken& cancellation) override
+    Result<OptionalBytes> ReadRaw(std::chrono::milliseconds timeout, const ICancellationToken& cancellation) override
     {
         trace.push_back('R');
-        return ScriptedKlineFlashTransport::read_raw(timeout, cancellation);
+        return ScriptedKlineFlashTransport::ReadRaw(timeout, cancellation);
     }
 
     std::vector<char> trace;
@@ -63,75 +63,74 @@ class FaultingTransport final : public ScriptedKlineFlashTransport
     {
     }
 
-    Result<std::size_t> write(bytes::ByteView data) override
+    Result<std::size_t> Write(bytes::ByteView data) override
     {
         if (fault_ == Fault::kWakeError)
         {
-            return fail(ErrorKind::kDisconnected, "injected wake write failure");
+            return Fail(ErrorKind::kDisconnected, "injected wake write failure");
         }
         if (fault_ == Fault::kWakeShort)
         {
             return data.size() - 1U;
         }
-        return ScriptedKlineFlashTransport::write(data);
+        return ScriptedKlineFlashTransport::Write(data);
     }
-    Result<std::size_t> write_raw(bytes::ByteView data) override
+    Result<std::size_t> WriteRaw(bytes::ByteView data) override
     {
         if (fault_ == Fault::kRawWriteError)
         {
-            return fail(ErrorKind::kDisconnected, "injected raw write failure");
+            return Fail(ErrorKind::kDisconnected, "injected raw write failure");
         }
         if (fault_ == Fault::kRawWriteShort)
         {
             return data.size() - 1U;
         }
-        return ScriptedKlineFlashTransport::write_raw(data);
+        return ScriptedKlineFlashTransport::WriteRaw(data);
     }
-    Result<OptionalBytes> read_raw(std::chrono::milliseconds timeout, const ICancellationToken& cancellation) override
+    Result<OptionalBytes> ReadRaw(std::chrono::milliseconds timeout, const ICancellationToken& cancellation) override
     {
         if (fault_ == Fault::kRawReadError)
         {
-            return fail(ErrorKind::kTimeout, "injected raw read failure");
+            return Fail(ErrorKind::kTimeout, "injected raw read failure");
         }
-        return ScriptedKlineFlashTransport::read_raw(timeout, cancellation);
+        return ScriptedKlineFlashTransport::ReadRaw(timeout, cancellation);
     }
 
   private:
     Fault fault_;
 };
 
-void expect_raw(ScriptedKlineFlashTransport& transport, std::initializer_list<bytes::Byte> values)
+void ExpectRaw(ScriptedKlineFlashTransport& transport, std::initializer_list<bytes::Byte> values)
 {
-    transport.expectRawWrite(bytes::Bytes(values));
+    transport.ExpectRawWrite(bytes::Bytes(values));
 }
 
-void queue_raw(ScriptedKlineFlashTransport& transport, std::initializer_list<bytes::Byte> values)
+void QueueRaw(ScriptedKlineFlashTransport& transport, std::initializer_list<bytes::Byte> values)
 {
-    transport.queueRawRead(bytes::Bytes(values));
+    transport.QueueRawRead(bytes::Bytes(values));
 }
 
-FlashPlan read_plan()
+FlashPlan ReadPlan()
 {
-    auto plan =
-        build_subaru_unisia_jecs_plan(FlashOperation::kRead, "sub_ecu_unisia_jecs_m3779x", "M3779x", std::nullopt);
+    auto plan = BuildSubaruUnisiaJecsPlan(FlashOperation::kRead, "sub_ecu_unisia_jecs_m3779x", "M3779x", std::nullopt);
     EXPECT_THAT(plan, fastecu::testing::IsOk());
     return std::move(*plan);
 }
 
-void script_wakeup(ScriptedKlineFlashTransport& transport)
+void ScriptWakeup(ScriptedKlineFlashTransport& transport)
 {
-    transport.exchange(bytes::Bytes{0x78, 0x12, 0x34, 0x00}, bytes::Bytes{0xaa});
+    transport.Exchange(bytes::Bytes{0x78, 0x12, 0x34, 0x00}, bytes::Bytes{0xaa});
 }
 
-Result<FlashExecutionResult> execute_read(ScriptedKlineFlashTransport& transport, FakeClock& clock,
-                                          const ICancellationToken& cancellation, RecordingEventSink& events)
+Result<FlashExecutionResult> ExecuteRead(ScriptedKlineFlashTransport& transport, FakeClock& clock,
+                                         const ICancellationToken& cancellation, RecordingEventSink& events)
 {
-    return SubaruUnisiaJecsExecutor{}.execute(read_plan(), transport, clock, cancellation, events);
+    return SubaruUnisiaJecsExecutor{}.Execute(ReadPlan(), transport, clock, cancellation, events);
 }
 
 TEST(SubaruUnisiaJecsExecutor, TransportSetupRequests1953BaudEvenParity)
 {
-    const auto setup = SubaruUnisiaJecsExecutor{}.transport_setup(read_plan());
+    const auto setup = SubaruUnisiaJecsExecutor{}.TransportSetup(ReadPlan());
     ASSERT_THAT(setup, fastecu::testing::IsOk());
     EXPECT_EQ(setup->baud, 1953);
     EXPECT_FALSE(setup->iso14230);
@@ -143,93 +142,92 @@ TEST(SubaruUnisiaJecsExecutor, TransportSetupRequests1953BaudEvenParity)
 TEST(SubaruUnisiaJecsExecutor, ReadsEveryAddressThroughRawTransport)
 {
     ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::kOpen};
-    script_wakeup(transport);
+    ScriptWakeup(transport);
     for (std::uint32_t address = 0; address < 0x10000; ++address)
     {
-        expect_raw(transport, {0x78, static_cast<bytes::Byte>(address >> 8U), static_cast<bytes::Byte>(address), 0x00});
-        queue_raw(transport, {static_cast<bytes::Byte>(address >> 8U), static_cast<bytes::Byte>(address),
-                              static_cast<bytes::Byte>(address ^ (address >> 8U))});
+        ExpectRaw(transport, {0x78, static_cast<bytes::Byte>(address >> 8U), static_cast<bytes::Byte>(address), 0x00});
+        QueueRaw(transport, {static_cast<bytes::Byte>(address >> 8U), static_cast<bytes::Byte>(address),
+                             static_cast<bytes::Byte>(address ^ (address >> 8U))});
     }
     FakeClock clock;
     FakeCancellationToken cancellation;
     RecordingEventSink events;
-    const auto result = execute_read(transport, clock, cancellation, events);
+    const auto result = ExecuteRead(transport, clock, cancellation, events);
     ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_TRUE(result->read_bytes.has_value());
     ASSERT_EQ(result->read_bytes->size(), 0x10000U);
     EXPECT_EQ(result->read_bytes->at(0x00ff), 0xff);
     EXPECT_EQ(result->read_bytes->at(0x0100), 0x01);
     EXPECT_EQ(result->read_bytes->at(0xffff), 0x00);
-    EXPECT_EQ(clock.elapsed(), 500ms + 0x10000 * 46ms);
+    EXPECT_EQ(clock.Elapsed(), 500ms + 0x10000 * 46ms);
     EXPECT_EQ(events.progress_calls.front(), std::pair(1, 0x10000));
     EXPECT_EQ(events.progress_calls.back(), std::pair(0x10000, 0x10000));
-    EXPECT_TRUE(transport.scriptConsumed());
+    EXPECT_TRUE(transport.ScriptConsumed());
 }
 
 TEST(SubaruUnisiaJecsExecutor, PreservesSplitAndMultiTupleRawReadsAcrossAddresses)
 {
     ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::kOpen};
-    expect_raw(transport, {0x78, 0x00, 0x00, 0x00});
-    queue_raw(transport, {0x99, 0x00});
-    queue_raw(transport, {0x00, 0xaa, 0x00, 0x01, 0xbb});
-    expect_raw(transport, {0x78, 0x00, 0x01, 0x00});
+    ExpectRaw(transport, {0x78, 0x00, 0x00, 0x00});
+    QueueRaw(transport, {0x99, 0x00});
+    QueueRaw(transport, {0x00, 0xaa, 0x00, 0x01, 0xbb});
+    ExpectRaw(transport, {0x78, 0x00, 0x01, 0x00});
     FakeClock clock;
     FakeCancellationToken cancellation;
     RecordingEventSink events;
-    const auto bytes = SubaruUnisiaJecsExecutorTestPeer::read_range(0, 2, transport, clock, cancellation, events);
+    const auto bytes = SubaruUnisiaJecsExecutorTestPeer::ReadRange(0, 2, transport, clock, cancellation, events);
     ASSERT_THAT(bytes, fastecu::testing::IsOk());
     EXPECT_THAT(*bytes, ::testing::ElementsAre(0xaa, 0xbb));
-    EXPECT_TRUE(transport.scriptConsumed());
+    EXPECT_TRUE(transport.ScriptConsumed());
 }
 
 TEST(SubaruUnisiaJecsExecutor, EncodesAddressRolloverBigEndian)
 {
     ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::kOpen};
-    expect_raw(transport, {0x78, 0x00, 0xff, 0x00});
-    queue_raw(transport, {0x00, 0xff, 0xa5});
-    expect_raw(transport, {0x78, 0x01, 0x00, 0x00});
-    queue_raw(transport, {0x01, 0x00, 0x5a});
+    ExpectRaw(transport, {0x78, 0x00, 0xff, 0x00});
+    QueueRaw(transport, {0x00, 0xff, 0xa5});
+    ExpectRaw(transport, {0x78, 0x01, 0x00, 0x00});
+    QueueRaw(transport, {0x01, 0x00, 0x5a});
     FakeClock clock;
     FakeCancellationToken cancellation;
     RecordingEventSink events;
-    const auto bytes =
-        SubaruUnisiaJecsExecutorTestPeer::read_range(0xff, 0x101, transport, clock, cancellation, events);
+    const auto bytes = SubaruUnisiaJecsExecutorTestPeer::ReadRange(0xff, 0x101, transport, clock, cancellation, events);
     ASSERT_THAT(bytes, fastecu::testing::IsOk());
     EXPECT_THAT(*bytes, ::testing::ElementsAre(0xa5, 0x5a));
-    EXPECT_TRUE(transport.scriptConsumed());
+    EXPECT_TRUE(transport.ScriptConsumed());
 }
 
 TEST(SubaruUnisiaJecsExecutor, DiscardsWholeWrongTupleAfterSynchronization)
 {
     ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::kOpen};
-    expect_raw(transport, {0x78, 0x00, 0x00, 0x00});
-    queue_raw(transport, {0x00, 0x00, 0xaa});
-    expect_raw(transport, {0x78, 0x00, 0x01, 0x00});
-    queue_raw(transport, {0x99, 0x00, 0x01, 0x00, 0x01, 0xbb});
+    ExpectRaw(transport, {0x78, 0x00, 0x00, 0x00});
+    QueueRaw(transport, {0x00, 0x00, 0xaa});
+    ExpectRaw(transport, {0x78, 0x00, 0x01, 0x00});
+    QueueRaw(transport, {0x99, 0x00, 0x01, 0x00, 0x01, 0xbb});
     FakeClock clock;
     FakeCancellationToken cancellation;
     RecordingEventSink events;
-    const auto bytes = SubaruUnisiaJecsExecutorTestPeer::read_range(0, 2, transport, clock, cancellation, events);
+    const auto bytes = SubaruUnisiaJecsExecutorTestPeer::ReadRange(0, 2, transport, clock, cancellation, events);
     ASSERT_THAT(bytes, fastecu::testing::IsOk());
     EXPECT_THAT(*bytes, ::testing::ElementsAre(0xaa, 0xbb));
-    EXPECT_TRUE(transport.scriptConsumed());
+    EXPECT_TRUE(transport.ScriptConsumed());
 }
 
 TEST(SubaruUnisiaJecsExecutor, RetransmitsAfterOneHundredEmptyRawReads)
 {
     TracingRawTransport transport{ScriptedTransportInitialState::kOpen};
-    expect_raw(transport, {0x78, 0x12, 0x34, 0x00});
+    ExpectRaw(transport, {0x78, 0x12, 0x34, 0x00});
     for (int i = 0; i < 100; ++i)
     {
-        queue_raw(transport, {});
+        QueueRaw(transport, {});
     }
-    expect_raw(transport, {0x78, 0x12, 0x34, 0x00});
-    queue_raw(transport, {0x12, 0x34, 0xab});
+    ExpectRaw(transport, {0x78, 0x12, 0x34, 0x00});
+    QueueRaw(transport, {0x12, 0x34, 0xab});
     FakeClock clock;
     FakeCancellationToken cancellation;
     RecordingEventSink events;
     const auto bytes =
-        SubaruUnisiaJecsExecutorTestPeer::read_range(0x1234, 0x1235, transport, clock, cancellation, events);
+        SubaruUnisiaJecsExecutorTestPeer::ReadRange(0x1234, 0x1235, transport, clock, cancellation, events);
     ASSERT_THAT(bytes, fastecu::testing::IsOk());
     EXPECT_THAT(*bytes, ::testing::ElementsAre(0xab));
     std::vector<char> expected{'W'};
@@ -237,65 +235,64 @@ TEST(SubaruUnisiaJecsExecutor, RetransmitsAfterOneHundredEmptyRawReads)
     expected.push_back('W');
     expected.push_back('R');
     EXPECT_EQ(transport.trace, expected);
-    EXPECT_TRUE(transport.scriptConsumed());
+    EXPECT_TRUE(transport.ScriptConsumed());
 }
 
 TEST(SubaruUnisiaJecsExecutor, ParsesReplyOnHundredthReadBeforeRetransmitting)
 {
     TracingRawTransport transport{ScriptedTransportInitialState::kOpen};
-    expect_raw(transport, {0x78, 0x12, 0x34, 0x00});
+    ExpectRaw(transport, {0x78, 0x12, 0x34, 0x00});
     for (int i = 0; i < 99; ++i)
     {
-        queue_raw(transport, {});
+        QueueRaw(transport, {});
     }
-    queue_raw(transport, {0x12, 0x34, 0xab});
+    QueueRaw(transport, {0x12, 0x34, 0xab});
     FakeClock clock;
     FakeCancellationToken cancellation;
     RecordingEventSink events;
     const auto bytes =
-        SubaruUnisiaJecsExecutorTestPeer::read_range(0x1234, 0x1235, transport, clock, cancellation, events);
+        SubaruUnisiaJecsExecutorTestPeer::ReadRange(0x1234, 0x1235, transport, clock, cancellation, events);
     ASSERT_THAT(bytes, fastecu::testing::IsOk());
     EXPECT_THAT(*bytes, ::testing::ElementsAre(0xab));
     std::vector<char> expected{'W'};
     expected.insert(expected.end(), 100, 'R');
     EXPECT_EQ(transport.trace, expected);
-    EXPECT_TRUE(transport.scriptConsumed());
+    EXPECT_TRUE(transport.ScriptConsumed());
 }
 
 TEST(SubaruUnisiaJecsExecutor, FailureFromWakeWriteStopsBeforeAnyRead)
 {
     FaultingTransport transport{FaultingTransport::Fault::kWakeError};
-    transport.exchange(bytes::Bytes{0x78, 0x12, 0x34, 0x00}, bytes::Bytes{0xaa});
+    transport.Exchange(bytes::Bytes{0x78, 0x12, 0x34, 0x00}, bytes::Bytes{0xaa});
     FakeClock clock;
     FakeCancellationToken cancellation;
     RecordingEventSink events;
-    const auto result = execute_read(transport, clock, cancellation, events);
+    const auto result = ExecuteRead(transport, clock, cancellation, events);
     ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kDisconnected));
-    EXPECT_EQ(transport.writesConsumed(), 0U);
+    EXPECT_EQ(transport.WritesConsumed(), 0U);
     EXPECT_TRUE(events.progress_calls.empty());
 }
 
 TEST(SubaruUnisiaJecsExecutor, ShortWakeWriteIsDisconnected)
 {
     FaultingTransport transport{FaultingTransport::Fault::kWakeShort};
-    transport.exchange(bytes::Bytes{0x78, 0x12, 0x34, 0x00}, bytes::Bytes{0xaa});
+    transport.Exchange(bytes::Bytes{0x78, 0x12, 0x34, 0x00}, bytes::Bytes{0xaa});
     FakeClock clock;
     FakeCancellationToken cancellation;
     RecordingEventSink events;
-    EXPECT_THAT(execute_read(transport, clock, cancellation, events),
-                fastecu::testing::IsErr(ErrorKind::kDisconnected));
+    EXPECT_THAT(ExecuteRead(transport, clock, cancellation, events), fastecu::testing::IsErr(ErrorKind::kDisconnected));
     EXPECT_TRUE(events.progress_calls.empty());
 }
 
 TEST(SubaruUnisiaJecsExecutor, FailureFromWakeFlushReadPropagates)
 {
     ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::kOpen};
-    transport.expectWrite(bytes::Bytes{0x78, 0x12, 0x34, 0x00});
-    transport.queue_error(ErrorKind::kTimeout, "injected wake flush failure");
+    transport.ExpectWrite(bytes::Bytes{0x78, 0x12, 0x34, 0x00});
+    transport.QueueError(ErrorKind::kTimeout, "injected wake flush failure");
     FakeClock clock;
     FakeCancellationToken cancellation;
     RecordingEventSink events;
-    EXPECT_THAT(execute_read(transport, clock, cancellation, events), fastecu::testing::IsErr(ErrorKind::kTimeout));
+    EXPECT_THAT(ExecuteRead(transport, clock, cancellation, events), fastecu::testing::IsErr(ErrorKind::kTimeout));
     EXPECT_TRUE(events.progress_calls.empty());
 }
 
@@ -305,13 +302,13 @@ TEST(SubaruUnisiaJecsExecutor, RawWriteFailuresStopBeforeRawRead)
     {
         SCOPED_TRACE(static_cast<int>(fault));
         FaultingTransport transport{fault};
-        script_wakeup(transport);
-        expect_raw(transport, {0x78, 0x00, 0x00, 0x00});
-        queue_raw(transport, {0x00, 0x00, 0xaa});
+        ScriptWakeup(transport);
+        ExpectRaw(transport, {0x78, 0x00, 0x00, 0x00});
+        QueueRaw(transport, {0x00, 0x00, 0xaa});
         FakeClock clock;
         FakeCancellationToken cancellation;
         RecordingEventSink events;
-        EXPECT_THAT(execute_read(transport, clock, cancellation, events),
+        EXPECT_THAT(ExecuteRead(transport, clock, cancellation, events),
                     fastecu::testing::IsErr(ErrorKind::kDisconnected));
         EXPECT_TRUE(events.progress_calls.empty());
     }
@@ -320,57 +317,57 @@ TEST(SubaruUnisiaJecsExecutor, RawWriteFailuresStopBeforeRawRead)
 TEST(SubaruUnisiaJecsExecutor, FailureFromRawReadPropagates)
 {
     FaultingTransport transport{FaultingTransport::Fault::kRawReadError};
-    script_wakeup(transport);
-    expect_raw(transport, {0x78, 0x00, 0x00, 0x00});
+    ScriptWakeup(transport);
+    ExpectRaw(transport, {0x78, 0x00, 0x00, 0x00});
     FakeClock clock;
     FakeCancellationToken cancellation;
     RecordingEventSink events;
-    EXPECT_THAT(execute_read(transport, clock, cancellation, events), fastecu::testing::IsErr(ErrorKind::kTimeout));
+    EXPECT_THAT(ExecuteRead(transport, clock, cancellation, events), fastecu::testing::IsErr(ErrorKind::kTimeout));
     EXPECT_TRUE(events.progress_calls.empty());
 }
 
 TEST(SubaruUnisiaJecsExecutor, CancellationDuringWakeDelayStopsBeforeFlushRead)
 {
     ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::kOpen};
-    transport.exchange(bytes::Bytes{0x78, 0x12, 0x34, 0x00}, bytes::Bytes{0xaa});
+    transport.Exchange(bytes::Bytes{0x78, 0x12, 0x34, 0x00}, bytes::Bytes{0xaa});
     FakeClock clock;
     FakeCancellationToken cancellation;
-    cancellation.cancel_on_check(2);
+    cancellation.CancelOnCheck(2);
     RecordingEventSink events;
-    EXPECT_THAT(execute_read(transport, clock, cancellation, events), fastecu::testing::IsErr(ErrorKind::kCancelled));
-    EXPECT_EQ(transport.writesConsumed(), 1U);
+    EXPECT_THAT(ExecuteRead(transport, clock, cancellation, events), fastecu::testing::IsErr(ErrorKind::kCancelled));
+    EXPECT_EQ(transport.WritesConsumed(), 1U);
     EXPECT_TRUE(events.progress_calls.empty());
 }
 
 TEST(SubaruUnisiaJecsExecutor, CancellationDuringAddressDelayStopsBeforeRawRead)
 {
     ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::kOpen};
-    script_wakeup(transport);
-    expect_raw(transport, {0x78, 0x00, 0x00, 0x00});
-    queue_raw(transport, {0x00, 0x00, 0xaa});
+    ScriptWakeup(transport);
+    ExpectRaw(transport, {0x78, 0x00, 0x00, 0x00});
+    QueueRaw(transport, {0x00, 0x00, 0xaa});
     FakeClock clock;
     FakeCancellationToken cancellation;
-    cancellation.cancel_on_check(5);
+    cancellation.CancelOnCheck(5);
     RecordingEventSink events;
-    EXPECT_THAT(execute_read(transport, clock, cancellation, events), fastecu::testing::IsErr(ErrorKind::kCancelled));
-    EXPECT_EQ(transport.writesConsumed(), 2U);
+    EXPECT_THAT(ExecuteRead(transport, clock, cancellation, events), fastecu::testing::IsErr(ErrorKind::kCancelled));
+    EXPECT_EQ(transport.WritesConsumed(), 2U);
     EXPECT_TRUE(events.progress_calls.empty());
 }
 
 TEST(SubaruUnisiaJecsExecutor, CancellationBeforeRetryPreventsSecondWrite)
 {
     TracingRawTransport transport{ScriptedTransportInitialState::kOpen};
-    expect_raw(transport, {0x78, 0x12, 0x34, 0x00});
+    ExpectRaw(transport, {0x78, 0x12, 0x34, 0x00});
     for (int i = 0; i < 100; ++i)
     {
-        queue_raw(transport, {});
+        QueueRaw(transport, {});
     }
     FakeClock clock;
     FakeCancellationToken cancellation;
-    cancellation.set_predicate([&transport]
-                               { return static_cast<std::size_t>(std::ranges::count(transport.trace, 'R')) >= 100U; });
+    cancellation.SetPredicate([&transport]
+                              { return static_cast<std::size_t>(std::ranges::count(transport.trace, 'R')) >= 100U; });
     RecordingEventSink events;
-    EXPECT_THAT(SubaruUnisiaJecsExecutorTestPeer::read_range(0x1234, 0x1235, transport, clock, cancellation, events),
+    EXPECT_THAT(SubaruUnisiaJecsExecutorTestPeer::ReadRange(0x1234, 0x1235, transport, clock, cancellation, events),
                 fastecu::testing::IsErr(ErrorKind::kCancelled));
     EXPECT_EQ(std::ranges::count(transport.trace, 'W'), 1);
     EXPECT_TRUE(events.progress_calls.empty());
@@ -379,13 +376,13 @@ TEST(SubaruUnisiaJecsExecutor, CancellationBeforeRetryPreventsSecondWrite)
 TEST(SubaruUnisiaJecsExecutor, CancellationAfterOneBytePreventsNextAddressWrite)
 {
     TracingRawTransport transport{ScriptedTransportInitialState::kOpen};
-    expect_raw(transport, {0x78, 0x00, 0x00, 0x00});
-    queue_raw(transport, {0x00, 0x00, 0xaa});
+    ExpectRaw(transport, {0x78, 0x00, 0x00, 0x00});
+    QueueRaw(transport, {0x00, 0x00, 0xaa});
     FakeClock clock;
     FakeCancellationToken cancellation;
     RecordingEventSink events;
-    cancellation.set_predicate([&events] { return !events.progress_calls.empty(); });
-    EXPECT_THAT(SubaruUnisiaJecsExecutorTestPeer::read_range(0, 2, transport, clock, cancellation, events),
+    cancellation.SetPredicate([&events] { return !events.progress_calls.empty(); });
+    EXPECT_THAT(SubaruUnisiaJecsExecutorTestPeer::ReadRange(0, 2, transport, clock, cancellation, events),
                 fastecu::testing::IsErr(ErrorKind::kCancelled));
     EXPECT_EQ(std::ranges::count(transport.trace, 'W'), 1);
     ASSERT_EQ(events.progress_calls.size(), 1U);

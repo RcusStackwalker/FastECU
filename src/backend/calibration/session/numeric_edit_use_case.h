@@ -88,6 +88,6 @@ using NumericEditOutcome = std::variant<NumericEditChanged, NumericEditUnchanged
 // calculates the edit and applies it atomically before returning. Invalid
 // selections, expressions, values and encodings are InvalidConfig errors and
 // change nothing. Synchronous; the caller owns the execution context.
-Result<NumericEditOutcome> apply_numeric_edit(CalibrationWorkspace& workspace, const NumericEditRequest& request);
+Result<NumericEditOutcome> ApplyNumericEdit(CalibrationWorkspace& workspace, const NumericEditRequest& request);
 
 } // namespace fastecu::calibration

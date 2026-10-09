@@ -30,14 +30,14 @@ CalibrationMaps::CalibrationMaps(fastecu::calibration::CalibrationWorkspace& wor
     map_error_label_->setWordWrap(true);
     map_error_label_->hide();
     ui_->verticalLayout->addWidget(map_error_label_);
-    const auto *rom = workspace_.find(session_);
-    if (rom != nullptr && rom->definition() != nullptr && map_index_ >= 0 &&
-        static_cast<std::size_t>(map_index_) < rom->definition()->definition.maps.size())
+    const auto *rom = workspace_.Find(session_);
+    if (rom != nullptr && rom->Definition() != nullptr && map_index_ >= 0 &&
+        static_cast<std::size_t>(map_index_) < rom->Definition()->definition.maps.size())
     {
-        const auto& name = rom->definition()->definition.maps[static_cast<std::size_t>(map_index_)].name;
+        const auto& name = rom->Definition()->definition.maps[static_cast<std::size_t>(map_index_)].name;
         setObjectName(fastecu::ui::session_key_text(session_) + "," + QString::number(map_index_) + "," +
                       QString::fromStdString(name));
-        setWindowTitle(QString::fromStdString(name) + " - " + QString::fromStdString(rom->source().display_name));
+        setWindowTitle(QString::fromStdString(name) + " - " + QString::fromStdString(rom->Source().display_name));
         ui_->mapNameLabel->setText(QString::fromStdString(name));
     }
     refresh();
@@ -227,7 +227,7 @@ bool CalibrationMaps::eventFilter(QObject *watched, QEvent *event)
     if (watched == ui_->mapDataTableWidget && event->type() == QEvent::KeyPress && numeric_body_ &&
         static_cast<QKeyEvent *>(event)->matches(QKeySequence::SelectAll))
     {
-        const auto *rom = workspace_.find(session_);
+        const auto *rom = workspace_.Find(session_);
         const auto range = rom == nullptr
                                ? std::nullopt
                                : fastecu::ui::body_widget_range(*rom, map_index_, ui_->mapDataTableWidget->rowCount(),
@@ -294,7 +294,7 @@ void CalibrationMaps::setMapTableWidgetSize(int maxWidth, int maxHeight, int xSi
 
 void CalibrationMaps::refresh()
 {
-    const auto *rom = workspace_.find(session_);
+    const auto *rom = workspace_.Find(session_);
     if (rom == nullptr)
     {
         return;
@@ -311,7 +311,7 @@ void CalibrationMaps::refresh()
     const bool initialized = !view_initialized_;
     if (initialized)
     {
-        initialize_view(map, rom->source());
+        initialize_view(map, rom->Source());
     }
     if (!color_bounds_.has_value())
     {

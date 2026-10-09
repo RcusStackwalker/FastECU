@@ -52,10 +52,10 @@ struct SingleWindowPlanSpec
     bool supports_write = true;
 };
 
-Status validate_single_window_plan(const SingleWindowPlanSpec& spec, const FlashPlan& plan);
+Status ValidateSingleWindowPlan(const SingleWindowPlanSpec& spec, const FlashPlan& plan);
 
-Result<FlashPlan> build_single_window_plan(const SingleWindowPlanSpec& spec, FlashOperation operation,
-                                           std::string_view protocol_name, std::string_view mcu_type,
-                                           std::optional<bytes::Bytes> image, FamilyPlan family_plan);
+Result<FlashPlan> BuildSingleWindowPlan(const SingleWindowPlanSpec& spec, FlashOperation operation,
+                                        std::string_view protocol_name, std::string_view mcu_type,
+                                        std::optional<bytes::Bytes> image, FamilyPlan family_plan);
 
 } // namespace fastecu::flash

@@ -19,7 +19,7 @@ using fastecu::logging::LoggingChannel;
 using fastecu::logging::RawAssembly;
 using fastecu::logging::SsmLoggingProtocol;
 
-LoggingChannel channel(std::string id = "rpm", std::uint32_t address = 0x1000, std::size_t length = 1)
+LoggingChannel Channel(std::string id = "rpm", std::uint32_t address = 0x1000, std::size_t length = 1)
 {
     return LoggingChannel{
         .id = std::move(id),
@@ -32,12 +32,12 @@ LoggingChannel channel(std::string id = "rpm", std::uint32_t address = 0x1000, s
     };
 }
 
-bytes::Bytes buildRequest(bytes::ByteView payload, bool target_is_ecu = true)
+bytes::Bytes BuildRequest(bytes::ByteView payload, bool target_is_ecu = true)
 {
     return ssm_protocol::AddHeader(payload, 0xF0, target_is_ecu ? 0x10 : 0x18);
 }
 
-bytes::Bytes buildResponse(bytes::ByteView payload)
+bytes::Bytes BuildResponse(bytes::ByteView payload)
 {
     bytes::Bytes message = {0x80, 0xf0, 0x10, static_cast<bytes::Byte>(payload.size() + 1), 0xe8};
     message.insert(message.end(), payload.begin(), payload.end());
@@ -45,11 +45,11 @@ bytes::Bytes buildResponse(bytes::ByteView payload)
     return message;
 }
 
-void queueNoFrames(ScriptedSsmTransport& transport, int count)
+void QueueNoFrames(ScriptedSsmTransport& transport, int count)
 {
     for (int i = 0; i < count; ++i)
     {
-        transport.queue_no_frame();
+        transport.QueueNoFrame();
     }
 }
 } // namespace
@@ -57,91 +57,91 @@ void queueNoFrames(ScriptedSsmTransport& transport, int count)
 TEST(SsmLoggingProtocolTest, StartPreservesHistoricalRequestVector)
 {
     auto transport = std::make_unique<ScriptedSsmTransport>();
-    transport->expectWrite(buildRequest(bytes::Bytes{0xA8, 0x00, 0x00, 0x00, 0x07}));
-    transport->queueRead(buildResponse(bytes::Bytes{0, 0, 0}));
-    transport->queue_no_frame();
+    transport->ExpectWrite(BuildRequest(bytes::Bytes{0xA8, 0x00, 0x00, 0x00, 0x07}));
+    transport->QueueRead(BuildResponse(bytes::Bytes{0, 0, 0}));
+    transport->QueueNoFrame();
     auto *script = transport.get();
-    auto clock = fastecu::make_auto_advancing_clock(10ms);
+    auto clock = fastecu::MakeAutoAdvancingClock(10ms);
     fastecu::FakeCancellationToken cancellation;
-    SsmLoggingProtocol protocol(clock, std::move(transport), {channel()}, true, false);
+    SsmLoggingProtocol protocol(clock, std::move(transport), {Channel()}, true, false);
 
-    ASSERT_THAT(protocol.start(cancellation), fastecu::testing::IsOk());
-    EXPECT_TRUE(script->scriptConsumed());
-    EXPECT_TRUE(script->ok());
+    ASSERT_THAT(protocol.Start(cancellation), fastecu::testing::IsOk());
+    EXPECT_TRUE(script->ScriptConsumed());
+    EXPECT_TRUE(script->Ok());
 }
 
 TEST(SsmLoggingProtocolTest, StartReturnsBadResponseForShortReply)
 {
     auto transport = std::make_unique<ScriptedSsmTransport>();
-    transport->expectWrite(buildRequest(bytes::Bytes{0xA8, 0x00, 0x00, 0x00, 0x07}));
-    transport->queueRead(bytes::Bytes{});
-    auto clock = fastecu::make_auto_advancing_clock(10ms);
+    transport->ExpectWrite(BuildRequest(bytes::Bytes{0xA8, 0x00, 0x00, 0x00, 0x07}));
+    transport->QueueRead(bytes::Bytes{});
+    auto clock = fastecu::MakeAutoAdvancingClock(10ms);
     fastecu::FakeCancellationToken cancellation;
-    SsmLoggingProtocol protocol(clock, std::move(transport), {channel()}, true, true);
+    SsmLoggingProtocol protocol(clock, std::move(transport), {Channel()}, true, true);
 
-    ASSERT_THAT(protocol.start(cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::kBadResponse));
+    ASSERT_THAT(protocol.Start(cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::kBadResponse));
 }
 
 TEST(SsmLoggingProtocolTest, StartReturnsBadResponseForNegativeReply)
 {
     auto transport = std::make_unique<ScriptedSsmTransport>();
-    transport->expectWrite(buildRequest(bytes::Bytes{0xA8, 0x00, 0x00, 0x00, 0x07}));
-    auto response = buildResponse(bytes::Bytes{0, 0, 0});
+    transport->ExpectWrite(BuildRequest(bytes::Bytes{0xA8, 0x00, 0x00, 0x00, 0x07}));
+    auto response = BuildResponse(bytes::Bytes{0, 0, 0});
     response[4] = 0x7f;
-    transport->queueRead(response);
-    auto clock = fastecu::make_auto_advancing_clock(10ms);
+    transport->QueueRead(response);
+    auto clock = fastecu::MakeAutoAdvancingClock(10ms);
     fastecu::FakeCancellationToken cancellation;
-    SsmLoggingProtocol protocol(clock, std::move(transport), {channel()}, true, true);
+    SsmLoggingProtocol protocol(clock, std::move(transport), {Channel()}, true, true);
 
-    ASSERT_THAT(protocol.start(cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::kBadResponse));
+    ASSERT_THAT(protocol.Start(cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::kBadResponse));
 }
 
 TEST(SsmLoggingProtocolTest, StartFailsWhenAdapterIsClosed)
 {
     auto transport = std::make_unique<ScriptedSsmTransport>();
-    transport->setOpen(false);
-    auto clock = fastecu::make_auto_advancing_clock(10ms);
+    transport->SetOpen(false);
+    auto clock = fastecu::MakeAutoAdvancingClock(10ms);
     fastecu::FakeCancellationToken cancellation;
-    SsmLoggingProtocol protocol(clock, std::move(transport), {channel()}, true, false);
+    SsmLoggingProtocol protocol(clock, std::move(transport), {Channel()}, true, false);
 
-    ASSERT_THAT(protocol.start(cancellation),
+    ASSERT_THAT(protocol.Start(cancellation),
                 fastecu::testing::IsErrWith(fastecu::ErrorKind::kDisconnected, "adapter disconnected"));
 }
 
 TEST(SsmLoggingProtocolTest, PreservesDecimalByteConcatenation)
 {
     auto transport = std::make_unique<ScriptedSsmTransport>();
-    transport->expectWrite(buildRequest(bytes::Bytes{0xA8, 0x01, 0x00, 0x10, 0x00}));
-    transport->queueRead(buildResponse(bytes::Bytes{16, 16}));
-    transport->queue_no_frame();
+    transport->ExpectWrite(BuildRequest(bytes::Bytes{0xA8, 0x01, 0x00, 0x10, 0x00}));
+    transport->QueueRead(BuildResponse(bytes::Bytes{16, 16}));
+    transport->QueueNoFrame();
     auto *script = transport.get();
-    auto clock = fastecu::make_auto_advancing_clock(10ms);
+    auto clock = fastecu::MakeAutoAdvancingClock(10ms);
     fastecu::FakeCancellationToken cancellation;
-    SsmLoggingProtocol protocol(clock, std::move(transport), {channel("rpm", 0x1000, 2)}, true, false);
+    SsmLoggingProtocol protocol(clock, std::move(transport), {Channel("rpm", 0x1000, 2)}, true, false);
 
-    const auto result = protocol.poll(50ms, cancellation);
+    const auto result = protocol.Poll(50ms, cancellation);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_TRUE(result->responded);
     ASSERT_EQ(result->samples.size(), 1U);
     EXPECT_EQ(result->samples[0].channel_id, "rpm");
     EXPECT_EQ(result->samples[0].raw_value, "1616");
-    EXPECT_TRUE(script->scriptConsumed());
-    EXPECT_TRUE(script->ok());
+    EXPECT_TRUE(script->ScriptConsumed());
+    EXPECT_TRUE(script->Ok());
 }
 
 TEST(SsmLoggingProtocolTest, PollPreservesChannelRequestOrder)
 {
     auto transport = std::make_unique<ScriptedSsmTransport>();
-    transport->expectWrite(buildRequest(bytes::Bytes{0xA8, 0x01, 0x00, 0x10, 0x00, 0x00, 0x10, 0x03}));
-    transport->queueRead(buildResponse(bytes::Bytes{42, 99}));
-    transport->queue_no_frame();
-    auto clock = fastecu::make_auto_advancing_clock(10ms);
+    transport->ExpectWrite(BuildRequest(bytes::Bytes{0xA8, 0x01, 0x00, 0x10, 0x00, 0x00, 0x10, 0x03}));
+    transport->QueueRead(BuildResponse(bytes::Bytes{42, 99}));
+    transport->QueueNoFrame();
+    auto clock = fastecu::MakeAutoAdvancingClock(10ms);
     fastecu::FakeCancellationToken cancellation;
-    SsmLoggingProtocol protocol(clock, std::move(transport), {channel("first", 0x1000), channel("second", 0x1003)},
+    SsmLoggingProtocol protocol(clock, std::move(transport), {Channel("first", 0x1000), Channel("second", 0x1003)},
                                 true, false);
 
-    const auto result = protocol.poll(50ms, cancellation);
+    const auto result = protocol.Poll(50ms, cancellation);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_TRUE(result->responded);
@@ -155,15 +155,15 @@ TEST(SsmLoggingProtocolTest, PollPreservesChannelRequestOrder)
 TEST(SsmLoggingProtocolTest, PollHonorsSnapshottedHistoricalResponseOffsets)
 {
     auto transport = std::make_unique<ScriptedSsmTransport>();
-    transport->expectWrite(buildRequest(bytes::Bytes{0xA8, 0x01, 0x00, 0x10, 0x00, 0x00, 0x10, 0x03}));
-    transport->queueRead(buildResponse(bytes::Bytes{42, 77, 99}));
-    transport->queue_no_frame();
-    auto clock = fastecu::make_auto_advancing_clock(10ms);
+    transport->ExpectWrite(BuildRequest(bytes::Bytes{0xA8, 0x01, 0x00, 0x10, 0x00, 0x00, 0x10, 0x03}));
+    transport->QueueRead(BuildResponse(bytes::Bytes{42, 77, 99}));
+    transport->QueueNoFrame();
+    auto clock = fastecu::MakeAutoAdvancingClock(10ms);
     fastecu::FakeCancellationToken cancellation;
-    SsmLoggingProtocol protocol(clock, std::move(transport), {channel("first", 0x1000), channel("third", 0x1003)},
+    SsmLoggingProtocol protocol(clock, std::move(transport), {Channel("first", 0x1000), Channel("third", 0x1003)},
                                 std::vector<std::size_t>{0, 2}, true, false);
 
-    const auto result = protocol.poll(50ms, cancellation);
+    const auto result = protocol.Poll(50ms, cancellation);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_TRUE(result->responded);
@@ -175,13 +175,13 @@ TEST(SsmLoggingProtocolTest, PollHonorsSnapshottedHistoricalResponseOffsets)
 TEST(SsmLoggingProtocolTest, PollReturnsNoResponseOnDirectReadTimeout)
 {
     auto transport = std::make_unique<ScriptedSsmTransport>();
-    transport->expectWrite(buildRequest(bytes::Bytes{0xA8, 0x01, 0x00, 0x10, 0x00}));
-    transport->queue_no_frame();
-    auto clock = fastecu::make_auto_advancing_clock(10ms);
+    transport->ExpectWrite(BuildRequest(bytes::Bytes{0xA8, 0x01, 0x00, 0x10, 0x00}));
+    transport->QueueNoFrame();
+    auto clock = fastecu::MakeAutoAdvancingClock(10ms);
     fastecu::FakeCancellationToken cancellation;
-    SsmLoggingProtocol protocol(clock, std::move(transport), {channel()}, true, true);
+    SsmLoggingProtocol protocol(clock, std::move(transport), {Channel()}, true, true);
 
-    const auto result = protocol.poll(50ms, cancellation);
+    const auto result = protocol.Poll(50ms, cancellation);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_FALSE(result->responded);
@@ -191,14 +191,14 @@ TEST(SsmLoggingProtocolTest, PollReturnsNoResponseOnDirectReadTimeout)
 TEST(SsmLoggingProtocolTest, HeaderResynchronizationRemainsDeadlineBounded)
 {
     auto transport = std::make_unique<ScriptedSsmTransport>();
-    transport->expectWrite(buildRequest(bytes::Bytes{0xA8, 0x01, 0x00, 0x10, 0x00}));
-    transport->queueRead(bytes::Bytes(64, 0x01));
-    queueNoFrames(*transport, 8);
-    auto clock = fastecu::make_auto_advancing_clock(10ms);
+    transport->ExpectWrite(BuildRequest(bytes::Bytes{0xA8, 0x01, 0x00, 0x10, 0x00}));
+    transport->QueueRead(bytes::Bytes(64, 0x01));
+    QueueNoFrames(*transport, 8);
+    auto clock = fastecu::MakeAutoAdvancingClock(10ms);
     fastecu::FakeCancellationToken cancellation;
-    SsmLoggingProtocol protocol(clock, std::move(transport), {channel()}, true, false);
+    SsmLoggingProtocol protocol(clock, std::move(transport), {Channel()}, true, false);
 
-    const auto result = protocol.poll(100ms, cancellation);
+    const auto result = protocol.Poll(100ms, cancellation);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_FALSE(result->responded);
@@ -207,161 +207,161 @@ TEST(SsmLoggingProtocolTest, HeaderResynchronizationRemainsDeadlineBounded)
 TEST(SsmLoggingProtocolTest, CancellationDuringFramingReturnsCancelled)
 {
     auto transport = std::make_unique<ScriptedSsmTransport>();
-    transport->expectWrite(buildRequest(bytes::Bytes{0xA8, 0x01, 0x00, 0x10, 0x00}));
-    transport->queueRead(bytes::Bytes{0x80});
-    transport->queueRead(bytes::Bytes{0xf0, 0x10});
-    auto clock = fastecu::make_auto_advancing_clock(10ms);
+    transport->ExpectWrite(BuildRequest(bytes::Bytes{0xA8, 0x01, 0x00, 0x10, 0x00}));
+    transport->QueueRead(bytes::Bytes{0x80});
+    transport->QueueRead(bytes::Bytes{0xf0, 0x10});
+    auto clock = fastecu::MakeAutoAdvancingClock(10ms);
     fastecu::FakeCancellationToken cancellation;
-    cancellation.cancel_on_check(4);
-    SsmLoggingProtocol protocol(clock, std::move(transport), {channel()}, true, false);
+    cancellation.CancelOnCheck(4);
+    SsmLoggingProtocol protocol(clock, std::move(transport), {Channel()}, true, false);
 
-    ASSERT_THAT(protocol.poll(50ms, cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::kCancelled));
+    ASSERT_THAT(protocol.Poll(50ms, cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::kCancelled));
 }
 
 TEST(SsmLoggingProtocolTest, StartCancellationReturnsCancelledWithoutIo)
 {
-    auto clock = fastecu::make_auto_advancing_clock(10ms);
+    auto clock = fastecu::MakeAutoAdvancingClock(10ms);
     fastecu::FakeCancellationToken cancellation(true);
-    SsmLoggingProtocol protocol(clock, std::make_unique<ScriptedSsmTransport>(), {channel()}, true, false);
+    SsmLoggingProtocol protocol(clock, std::make_unique<ScriptedSsmTransport>(), {Channel()}, true, false);
 
-    ASSERT_THAT(protocol.start(cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::kCancelled));
+    ASSERT_THAT(protocol.Start(cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::kCancelled));
 }
 
 TEST(SsmLoggingProtocolTest, PollPropagatesTypedWriteFailure)
 {
     auto transport = std::make_unique<ScriptedSsmTransport>();
-    transport->expectWrite(buildRequest(bytes::Bytes{0xA8, 0x01, 0x00, 0x10, 0x00}));
-    transport->queue_write_error(fastecu::ErrorKind::kDisconnected, "sentinel SSM write disconnect");
-    auto clock = fastecu::make_auto_advancing_clock(10ms);
+    transport->ExpectWrite(BuildRequest(bytes::Bytes{0xA8, 0x01, 0x00, 0x10, 0x00}));
+    transport->QueueWriteError(fastecu::ErrorKind::kDisconnected, "sentinel SSM write disconnect");
+    auto clock = fastecu::MakeAutoAdvancingClock(10ms);
     fastecu::FakeCancellationToken cancellation;
-    SsmLoggingProtocol protocol(clock, std::move(transport), {channel()}, true, false);
+    SsmLoggingProtocol protocol(clock, std::move(transport), {Channel()}, true, false);
 
-    ASSERT_THAT(protocol.poll(50ms, cancellation),
+    ASSERT_THAT(protocol.Poll(50ms, cancellation),
                 fastecu::testing::IsErrWith(fastecu::ErrorKind::kDisconnected, "sentinel SSM write disconnect"));
 }
 
 TEST(SsmLoggingProtocolTest, PollPropagatesTypedReadFailure)
 {
     auto transport = std::make_unique<ScriptedSsmTransport>();
-    transport->expectWrite(buildRequest(bytes::Bytes{0xA8, 0x01, 0x00, 0x10, 0x00}));
-    transport->queue_error(fastecu::ErrorKind::kInternal, "sentinel SSM read failure");
-    auto clock = fastecu::make_auto_advancing_clock(10ms);
+    transport->ExpectWrite(BuildRequest(bytes::Bytes{0xA8, 0x01, 0x00, 0x10, 0x00}));
+    transport->QueueError(fastecu::ErrorKind::kInternal, "sentinel SSM read failure");
+    auto clock = fastecu::MakeAutoAdvancingClock(10ms);
     fastecu::FakeCancellationToken cancellation;
-    SsmLoggingProtocol protocol(clock, std::move(transport), {channel()}, true, false);
+    SsmLoggingProtocol protocol(clock, std::move(transport), {Channel()}, true, false);
 
-    ASSERT_THAT(protocol.poll(50ms, cancellation),
+    ASSERT_THAT(protocol.Poll(50ms, cancellation),
                 fastecu::testing::IsErrWith(fastecu::ErrorKind::kInternal, "sentinel SSM read failure"));
 }
 
 TEST(SsmLoggingProtocolTest, StartPropagatesTypedWriteFailure)
 {
     auto transport = std::make_unique<ScriptedSsmTransport>();
-    transport->expectWrite(buildRequest(bytes::Bytes{0xA8, 0x00, 0x00, 0x00, 0x07}));
-    transport->queue_write_error(fastecu::ErrorKind::kDisconnected, "sentinel SSM start write disconnect");
-    auto clock = fastecu::make_auto_advancing_clock(10ms);
+    transport->ExpectWrite(BuildRequest(bytes::Bytes{0xA8, 0x00, 0x00, 0x00, 0x07}));
+    transport->QueueWriteError(fastecu::ErrorKind::kDisconnected, "sentinel SSM start write disconnect");
+    auto clock = fastecu::MakeAutoAdvancingClock(10ms);
     fastecu::FakeCancellationToken cancellation;
-    SsmLoggingProtocol protocol(clock, std::move(transport), {channel()}, true, false);
+    SsmLoggingProtocol protocol(clock, std::move(transport), {Channel()}, true, false);
 
-    ASSERT_THAT(protocol.start(cancellation),
+    ASSERT_THAT(protocol.Start(cancellation),
                 fastecu::testing::IsErrWith(fastecu::ErrorKind::kDisconnected, "sentinel SSM start write disconnect"));
 }
 
 TEST(SsmLoggingProtocolTest, StartPropagatesTypedReadFailure)
 {
     auto transport = std::make_unique<ScriptedSsmTransport>();
-    transport->expectWrite(buildRequest(bytes::Bytes{0xA8, 0x00, 0x00, 0x00, 0x07}));
-    transport->queue_error(fastecu::ErrorKind::kInternal, "sentinel SSM start read failure");
-    auto clock = fastecu::make_auto_advancing_clock(10ms);
+    transport->ExpectWrite(BuildRequest(bytes::Bytes{0xA8, 0x00, 0x00, 0x00, 0x07}));
+    transport->QueueError(fastecu::ErrorKind::kInternal, "sentinel SSM start read failure");
+    auto clock = fastecu::MakeAutoAdvancingClock(10ms);
     fastecu::FakeCancellationToken cancellation;
-    SsmLoggingProtocol protocol(clock, std::move(transport), {channel()}, true, false);
+    SsmLoggingProtocol protocol(clock, std::move(transport), {Channel()}, true, false);
 
-    ASSERT_THAT(protocol.start(cancellation),
+    ASSERT_THAT(protocol.Start(cancellation),
                 fastecu::testing::IsErrWith(fastecu::ErrorKind::kInternal, "sentinel SSM start read failure"));
 }
 
 TEST(SsmLoggingProtocolTest, PollPropagatesOpenPort2DirectReadFailure)
 {
     auto transport = std::make_unique<ScriptedSsmTransport>();
-    transport->expectWrite(buildRequest(bytes::Bytes{0xA8, 0x01, 0x00, 0x10, 0x00}));
-    transport->queue_error(fastecu::ErrorKind::kDisconnected, "sentinel OpenPort2 direct read failure");
-    auto clock = fastecu::make_auto_advancing_clock(10ms);
+    transport->ExpectWrite(BuildRequest(bytes::Bytes{0xA8, 0x01, 0x00, 0x10, 0x00}));
+    transport->QueueError(fastecu::ErrorKind::kDisconnected, "sentinel OpenPort2 direct read failure");
+    auto clock = fastecu::MakeAutoAdvancingClock(10ms);
     fastecu::FakeCancellationToken cancellation;
-    SsmLoggingProtocol protocol(clock, std::move(transport), {channel()}, true, true);
+    SsmLoggingProtocol protocol(clock, std::move(transport), {Channel()}, true, true);
 
     ASSERT_THAT(
-        protocol.poll(50ms, cancellation),
+        protocol.Poll(50ms, cancellation),
         fastecu::testing::IsErrWith(fastecu::ErrorKind::kDisconnected, "sentinel OpenPort2 direct read failure"));
 }
 
 TEST(SsmLoggingProtocolTest, HeaderResynchronizationPropagatesReadFailure)
 {
     auto transport = std::make_unique<ScriptedSsmTransport>();
-    transport->expectWrite(buildRequest(bytes::Bytes{0xA8, 0x01, 0x00, 0x10, 0x00}));
+    transport->ExpectWrite(BuildRequest(bytes::Bytes{0xA8, 0x01, 0x00, 0x10, 0x00}));
     // Enough bytes to leave the initial accumulation loop, but not framed as
     // an SSM response (0x80 0xf0 0x10), so resynchronization must shift and
     // re-read -- and that re-read fails.
-    transport->queueRead(bytes::Bytes{0x01, 0x02, 0x03});
-    transport->queue_error(fastecu::ErrorKind::kInternal, "sentinel SSM resync read failure");
-    auto clock = fastecu::make_auto_advancing_clock(10ms);
+    transport->QueueRead(bytes::Bytes{0x01, 0x02, 0x03});
+    transport->QueueError(fastecu::ErrorKind::kInternal, "sentinel SSM resync read failure");
+    auto clock = fastecu::MakeAutoAdvancingClock(10ms);
     fastecu::FakeCancellationToken cancellation;
-    SsmLoggingProtocol protocol(clock, std::move(transport), {channel()}, true, false);
+    SsmLoggingProtocol protocol(clock, std::move(transport), {Channel()}, true, false);
 
-    ASSERT_THAT(protocol.poll(50ms, cancellation),
+    ASSERT_THAT(protocol.Poll(50ms, cancellation),
                 fastecu::testing::IsErrWith(fastecu::ErrorKind::kInternal, "sentinel SSM resync read failure"));
 }
 
 TEST(SsmLoggingProtocolTest, FinalReadAfterHeaderMatchPropagatesReadFailure)
 {
     auto transport = std::make_unique<ScriptedSsmTransport>();
-    transport->expectWrite(buildRequest(bytes::Bytes{0xA8, 0x01, 0x00, 0x10, 0x00}));
+    transport->ExpectWrite(BuildRequest(bytes::Bytes{0xA8, 0x01, 0x00, 0x10, 0x00}));
     // Exactly a matching header: the accumulation loop stops (size >= 3), the
     // resynchronization loop is a no-op (header already matches), so the
     // trailing "read remaining payload" call executes -- and that read fails.
-    transport->queueRead(bytes::Bytes{0x80, 0xf0, 0x10});
-    transport->queue_error(fastecu::ErrorKind::kInternal, "sentinel SSM final read failure");
-    auto clock = fastecu::make_auto_advancing_clock(10ms);
+    transport->QueueRead(bytes::Bytes{0x80, 0xf0, 0x10});
+    transport->QueueError(fastecu::ErrorKind::kInternal, "sentinel SSM final read failure");
+    auto clock = fastecu::MakeAutoAdvancingClock(10ms);
     fastecu::FakeCancellationToken cancellation;
-    SsmLoggingProtocol protocol(clock, std::move(transport), {channel()}, true, false);
+    SsmLoggingProtocol protocol(clock, std::move(transport), {Channel()}, true, false);
 
-    ASSERT_THAT(protocol.poll(50ms, cancellation),
+    ASSERT_THAT(protocol.Poll(50ms, cancellation),
                 fastecu::testing::IsErrWith(fastecu::ErrorKind::kInternal, "sentinel SSM final read failure"));
 }
 
 TEST(SsmLoggingProtocolTest, PollCancellationReturnsCancelledWithoutIo)
 {
-    auto clock = fastecu::make_auto_advancing_clock(10ms);
+    auto clock = fastecu::MakeAutoAdvancingClock(10ms);
     fastecu::FakeCancellationToken cancellation(true);
-    SsmLoggingProtocol protocol(clock, std::make_unique<ScriptedSsmTransport>(), {channel()}, true, false);
+    SsmLoggingProtocol protocol(clock, std::make_unique<ScriptedSsmTransport>(), {Channel()}, true, false);
 
-    ASSERT_THAT(protocol.poll(50ms, cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::kCancelled));
+    ASSERT_THAT(protocol.Poll(50ms, cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::kCancelled));
 }
 
 TEST(SsmLoggingProtocolTest, PollFailsWhenAdapterIsClosed)
 {
     auto transport = std::make_unique<ScriptedSsmTransport>();
-    transport->setOpen(false);
-    auto clock = fastecu::make_auto_advancing_clock(10ms);
+    transport->SetOpen(false);
+    auto clock = fastecu::MakeAutoAdvancingClock(10ms);
     fastecu::FakeCancellationToken cancellation;
-    SsmLoggingProtocol protocol(clock, std::move(transport), {channel()}, true, false);
+    SsmLoggingProtocol protocol(clock, std::move(transport), {Channel()}, true, false);
 
-    ASSERT_THAT(protocol.poll(50ms, cancellation),
+    ASSERT_THAT(protocol.Poll(50ms, cancellation),
                 fastecu::testing::IsErrWith(fastecu::ErrorKind::kDisconnected, "adapter disconnected"));
 }
 
 TEST(SsmLoggingProtocolTest, PollSkipsChannelWhenResponseOffsetBeyondPayload)
 {
     auto transport = std::make_unique<ScriptedSsmTransport>();
-    transport->expectWrite(buildRequest(bytes::Bytes{0xA8, 0x01, 0x00, 0x10, 0x00, 0x00, 0x10, 0x03}));
+    transport->ExpectWrite(BuildRequest(bytes::Bytes{0xA8, 0x01, 0x00, 0x10, 0x00, 0x00, 0x10, 0x03}));
     // Payload is only 2 bytes long; the "second" channel's offset (5) lies
     // beyond it and must be skipped entirely rather than read out of bounds.
-    transport->queueRead(buildResponse(bytes::Bytes{42, 99}));
-    transport->queue_no_frame();
-    auto clock = fastecu::make_auto_advancing_clock(10ms);
+    transport->QueueRead(BuildResponse(bytes::Bytes{42, 99}));
+    transport->QueueNoFrame();
+    auto clock = fastecu::MakeAutoAdvancingClock(10ms);
     fastecu::FakeCancellationToken cancellation;
-    SsmLoggingProtocol protocol(clock, std::move(transport), {channel("first", 0x1000), channel("second", 0x1003)},
+    SsmLoggingProtocol protocol(clock, std::move(transport), {Channel("first", 0x1000), Channel("second", 0x1003)},
                                 std::vector<std::size_t>{0, 5}, true, false);
 
-    const auto result = protocol.poll(50ms, cancellation);
+    const auto result = protocol.Poll(50ms, cancellation);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_TRUE(result->responded);
@@ -373,16 +373,16 @@ TEST(SsmLoggingProtocolTest, PollSkipsChannelWhenResponseOffsetBeyondPayload)
 TEST(SsmLoggingProtocolTest, PollTruncatesRawValueWhenLengthExtendsBeyondPayload)
 {
     auto transport = std::make_unique<ScriptedSsmTransport>();
-    transport->expectWrite(buildRequest(bytes::Bytes{0xA8, 0x01, 0x00, 0x10, 0x00}));
+    transport->ExpectWrite(BuildRequest(bytes::Bytes{0xA8, 0x01, 0x00, 0x10, 0x00}));
     // Channel wants 3 bytes starting at offset 0, but the payload is only 2
     // bytes long -- the raw value must be built from just what's available.
-    transport->queueRead(buildResponse(bytes::Bytes{7, 8}));
-    transport->queue_no_frame();
-    auto clock = fastecu::make_auto_advancing_clock(10ms);
+    transport->QueueRead(BuildResponse(bytes::Bytes{7, 8}));
+    transport->QueueNoFrame();
+    auto clock = fastecu::MakeAutoAdvancingClock(10ms);
     fastecu::FakeCancellationToken cancellation;
-    SsmLoggingProtocol protocol(clock, std::move(transport), {channel("rpm", 0x1000, 3)}, true, false);
+    SsmLoggingProtocol protocol(clock, std::move(transport), {Channel("rpm", 0x1000, 3)}, true, false);
 
-    const auto result = protocol.poll(50ms, cancellation);
+    const auto result = protocol.Poll(50ms, cancellation);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_TRUE(result->responded);
@@ -393,8 +393,8 @@ TEST(SsmLoggingProtocolTest, PollTruncatesRawValueWhenLengthExtendsBeyondPayload
 
 TEST(SsmLoggingProtocolTest, StopSucceeds)
 {
-    auto clock = fastecu::make_auto_advancing_clock(10ms);
-    SsmLoggingProtocol protocol(clock, std::make_unique<ScriptedSsmTransport>(), {channel()}, true, false);
+    auto clock = fastecu::MakeAutoAdvancingClock(10ms);
+    SsmLoggingProtocol protocol(clock, std::make_unique<ScriptedSsmTransport>(), {Channel()}, true, false);
 
-    EXPECT_THAT(protocol.stop(), fastecu::testing::IsOk());
+    EXPECT_THAT(protocol.Stop(), fastecu::testing::IsOk());
 }

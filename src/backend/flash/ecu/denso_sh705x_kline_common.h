@@ -22,18 +22,18 @@ inline constexpr std::array<std::uint16_t, 16> kDensoSh705xKlineSeedKeyTable{
 
 inline constexpr std::array<std::uint16_t, 4> kDensoSh705xKlineEncryptTable{0x7856, 0xCE22, 0xF513, 0x6E86};
 
-inline bytes::Bytes denso_sh705x_kline_stock_seed_key(bytes::ByteView seed)
+inline bytes::Bytes DensoSh705xKlineStockSeedKey(bytes::ByteView seed)
 {
     return ssm_protocol::CalculateSeedKey(seed, kDensoSh705xKlineSeedKeyTable, ssm_protocol::kIndexTransformationStock);
 }
 
-inline bytes::Bytes denso_sh705x_kline_ecutek_seed_key(bytes::ByteView seed)
+inline bytes::Bytes DensoSh705xKlineEcutekSeedKey(bytes::ByteView seed)
 {
     return ssm_protocol::CalculateSeedKey(seed, kDensoSh705xKlineSeedKeyTable,
                                           ssm_protocol::kIndexTransformationEcutek);
 }
 
-inline bytes::Bytes denso_sh705x_kline_encrypt_payload(bytes::ByteView buf, std::uint32_t len)
+inline bytes::Bytes DensoSh705xKlineEncryptPayload(bytes::ByteView buf, std::uint32_t len)
 {
     return ssm_protocol::CalculatePayload(buf, len, kDensoSh705xKlineEncryptTable,
                                           ssm_protocol::kIndexTransformationStock);

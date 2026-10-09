@@ -30,7 +30,7 @@ class IFlashTransport
 {
   public:
     virtual ~IFlashTransport() = default;
-    virtual void request_unblock() noexcept = 0;
+    virtual void RequestUnblock() noexcept = 0;
 };
 
 enum class KlineParity
@@ -79,7 +79,7 @@ concept Iso15765ConfigSource = requires(const Plan& plan) {
     { plan.extended_id } -> std::convertible_to<bool>;
 };
 
-template <Iso15765ConfigSource Plan> constexpr Iso15765Config iso15765_config_from(const Plan& plan) noexcept
+template <Iso15765ConfigSource Plan> constexpr Iso15765Config Iso15765ConfigFrom(const Plan& plan) noexcept
 {
     return Iso15765Config{
         .bitrate = plan.bitrate,
@@ -96,7 +96,7 @@ concept KlineConfigSource = requires(const Plan& plan) {
     { plan.target_id } -> std::convertible_to<std::uint8_t>;
 };
 
-template <KlineConfigSource Plan> constexpr KlineConfig non_iso14230_kline_config_from(const Plan& plan) noexcept
+template <KlineConfigSource Plan> constexpr KlineConfig NonIso14230KlineConfigFrom(const Plan& plan) noexcept
 {
     return KlineConfig{
         .baud = plan.initial_baud,
@@ -126,24 +126,24 @@ class IKlineFlashExecutor
     // Pure: validates `plan` and returns the configuration this executor
     // requires. Performs no I/O, so an invalid plan is rejected before the
     // caller touches hardware.
-    virtual Result<KlineConfig> transport_setup(const FlashPlan& plan) const = 0;
+    virtual Result<KlineConfig> TransportSetup(const FlashPlan& plan) const = 0;
 
     // Optional family-specific preparation before the caller configures the
     // adapter.  This is the narrow seam for protocols whose legacy startup
     // sequence performs a reset and a timed quiet period before setters.
-    virtual Status before_transport_configure(IKlineFlashTransport&, IClock&, const ICancellationToken&) const
+    virtual Status BeforeTransportConfigure(IKlineFlashTransport&, IClock&, const ICancellationToken&) const
     {
         return {};
     }
 
     // Family-specific cancellation checkpoint after configure() and before
     // open(). Most executors historically had no checkpoint in that interval.
-    virtual Status before_transport_open(const ICancellationToken&) const
+    virtual Status BeforeTransportOpen(const ICancellationToken&) const
     {
         return {};
     }
 
-    virtual Result<FlashExecutionResult> execute(const FlashPlan& plan, IKlineFlashTransport& transport, IClock& clock,
+    virtual Result<FlashExecutionResult> Execute(const FlashPlan& plan, IKlineFlashTransport& transport, IClock& clock,
                                                  const ICancellationToken& cancellation, IEventSink& events) = 0;
 };
 
@@ -156,28 +156,28 @@ class ICanFlashExecutor
 
     virtual ~ICanFlashExecutor() = default;
 
-    virtual Result<Iso15765Config> transport_setup(const FlashPlan& plan) const = 0;
+    virtual Result<Iso15765Config> TransportSetup(const FlashPlan& plan) const = 0;
 
     // Optional family-specific preparation before configure().  The default
     // keeps existing executors on the established lifecycle path.
-    virtual Status before_transport_configure(ICanFlashTransport&, IClock&, const ICancellationToken&) const
+    virtual Status BeforeTransportConfigure(ICanFlashTransport&, IClock&, const ICancellationToken&) const
     {
         return {};
     }
 
-    virtual Status before_transport_open(const ICancellationToken&) const
+    virtual Status BeforeTransportOpen(const ICancellationToken&) const
     {
         return {};
     }
 
-    virtual Result<FlashExecutionResult> execute(const FlashPlan& plan, ICanFlashTransport& transport, IClock& clock,
+    virtual Result<FlashExecutionResult> Execute(const FlashPlan& plan, ICanFlashTransport& transport, IClock& clock,
                                                  const ICancellationToken& cancellation, IEventSink& events) = 0;
 };
 
 // A constructed FlashPlan already has a transport kind and variant consistent
 // with its family (validated in flash_validation.cpp). Once this succeeds,
 // std::get<PlanT>(plan.family_plan()) cannot throw.
-Status check_family(const FlashPlan& plan, FlashFamily expected_family);
+Status CheckFamily(const FlashPlan& plan, FlashFamily expected_family);
 
 // Adds only configure/open/close/request_unblock to the already Result-based,
 // cancellation-aware mutdma::IKlineTransport merged in step 5b (PR #78,
@@ -187,35 +187,35 @@ class IKlineFlashTransport : public IFlashTransport, public mutdma::IKlineTransp
   public:
     // Raw serial calls bypass echo checking and framed reads. On J2534 the
     // two write paths coincide; on direct serial, write() drains local echo.
-    virtual Result<std::size_t> write_raw(bytes::ByteView) = 0;
-    virtual Result<OptionalBytes> read_raw(std::chrono::milliseconds, const ICancellationToken&) = 0;
-    virtual Status configure(const KlineConfig&) = 0;
-    virtual Status open() = 0;
-    virtual Status close() = 0;
+    virtual Result<std::size_t> WriteRaw(bytes::ByteView) = 0;
+    virtual Result<OptionalBytes> ReadRaw(std::chrono::milliseconds, const ICancellationToken&) = 0;
+    virtual Status Configure(const KlineConfig&) = 0;
+    virtual Status Open() = 0;
+    virtual Status Close() = 0;
 
     // Every K-Line transport must expose a real reset so protocol-owned
     // sequences cannot silently degrade into configure/open only. Mirrors
     // ICanFlashTransport::reset_connection(). Called only from an executor's
     // before_transport_configure(), never mid-session: the caller still owns
     // configure/open/close (ADR 0015).
-    virtual Status reset_connection() = 0;
+    virtual Status ResetConnection() = 0;
 
     // Hardware control-line operations used by bootloaders that require an
     // explicit LEC reset/pulse sequence before accepting K-Line traffic.
     // They are deliberately semantic rather than exposing the desktop
     // adapter's RTS/DTR integer states to portable executors.
-    virtual Status disable_lec_lines() = 0;
-    virtual Status pulse_lec_2_line(std::chrono::milliseconds timeout) = 0;
-    virtual Status enable_programming_voltage_line() = 0;
+    virtual Status DisableLecLines() = 0;
+    virtual Status PulseLec2Line(std::chrono::milliseconds timeout) = 0;
+    virtual Status EnableProgrammingVoltageLine() = 0;
 
     // Programming voltage on LEC1 and MOD1 on LEC2 together: the M32R
     // boot-mode entry state the Unisia Jecs bootmode kernel upload needs.
-    virtual Status enable_boot_mode_lines() = 0;
+    virtual Status EnableBootModeLines() = 0;
 
     // Some Unix J2534/OpenPort2 drivers need a quiet period after the raw
     // kernel upload write before the first response read. Portable
     // executors consume only this semantic capability, never adapter types.
-    virtual bool requires_post_kernel_upload_delay() const = 0;
+    virtual bool RequiresPostKernelUploadDelay() const = 0;
 
     // Controls the real serial driver's ISO14230 header auto-add behavior
     // (SerialPortActions::set_add_iso14230_header()), independently of
@@ -229,7 +229,7 @@ class IKlineFlashTransport : public IFlashTransport, public mutdma::IKlineTransp
     // 199/329, commented out) while read_mem()'s raw SID_DUMP request turns
     // it on (line 477). See DensoSh705xEepromKlineExecutor::execute() for the
     // portable equivalent.
-    virtual Status set_add_iso14230_header(bool add_header) = 0;
+    virtual Status SetAddIso14230Header(bool add_header) = 0;
 };
 
 // Distinct from cdbg::ICanTransport (raw CAN frames, used by CDBG logging):
@@ -241,10 +241,10 @@ class ICanFlashTransport : public IFlashTransport
     virtual ~ICanFlashTransport() = default;
     // Every CAN transport must expose a real reset so protocol-owned
     // sequences cannot silently degrade into configure/open only.
-    virtual Status reset_connection() = 0;
-    virtual Status configure(const Iso15765Config&) = 0;
-    virtual Status open() = 0;
-    virtual Status close() = 0;
+    virtual Status ResetConnection() = 0;
+    virtual Status Configure(const Iso15765Config&) = 0;
+    virtual Status Open() = 0;
+    virtual Status Close() = 0;
     // A protocol-owned in-session restart. This intentionally owns only
     // reset/reconfigure/reopen; BoundAttempt still owns initial setup and
     // final close.
@@ -257,40 +257,40 @@ class ICanFlashTransport : public IFlashTransport
     // transport exactly once on every exit path past its own open() (see its
     // comment above the close() call), so a restart-time Cancelled here still
     // gets torn down at the end of the attempt regardless of this port state.
-    virtual Status restart_iso15765(const Iso15765Config& config, const ICancellationToken& cancellation)
+    virtual Status RestartIso15765(const Iso15765Config& config, const ICancellationToken& cancellation)
     {
-        if (cancellation.cancelled())
+        if (cancellation.Cancelled())
         {
-            return fail(ErrorKind::kCancelled, "ISO-15765 restart cancelled before reset");
+            return Fail(ErrorKind::kCancelled, "ISO-15765 restart cancelled before reset");
         }
-        if (const Status reset = reset_connection(); !reset)
+        if (const Status reset = ResetConnection(); !reset)
         {
             return reset;
         }
-        if (cancellation.cancelled())
+        if (cancellation.Cancelled())
         {
-            return fail(ErrorKind::kCancelled, "ISO-15765 restart cancelled after reset");
+            return Fail(ErrorKind::kCancelled, "ISO-15765 restart cancelled after reset");
         }
-        if (const Status configured = configure(config); !configured)
+        if (const Status configured = Configure(config); !configured)
         {
             return configured;
         }
-        if (cancellation.cancelled())
+        if (cancellation.Cancelled())
         {
-            return fail(ErrorKind::kCancelled, "ISO-15765 restart cancelled after configure");
+            return Fail(ErrorKind::kCancelled, "ISO-15765 restart cancelled after configure");
         }
-        if (const Status opened = open(); !opened)
+        if (const Status opened = Open(); !opened)
         {
             return opened;
         }
-        if (cancellation.cancelled())
+        if (cancellation.Cancelled())
         {
-            return fail(ErrorKind::kCancelled, "ISO-15765 restart cancelled after open");
+            return Fail(ErrorKind::kCancelled, "ISO-15765 restart cancelled after open");
         }
         return {};
     }
-    virtual Status write(bytes::ByteView, const ICancellationToken&) = 0;
-    virtual Result<std::optional<bytes::Bytes>> read(std::chrono::milliseconds timeout, const ICancellationToken&) = 0;
+    virtual Status Write(bytes::ByteView, const ICancellationToken&) = 0;
+    virtual Result<std::optional<bytes::Bytes>> Read(std::chrono::milliseconds timeout, const ICancellationToken&) = 0;
 };
 
 // A transport for the DensoCAN family's two-phase flash sequence: a raw-CAN
@@ -316,17 +316,17 @@ class ICanFlashTransport : public IFlashTransport
 class IMixedCanFlashTransport : public IFlashTransport
 {
   public:
-    virtual Status reset_connection() = 0;
-    virtual Status configure(const MixedCanConfig&) = 0;
-    virtual Status open() = 0;
-    virtual Status close() = 0;
-    virtual Status enter_raw_bootloader_mode() = 0;
-    virtual Status clear_receive_buffer() = 0;
-    virtual Status enter_iso15765_kernel_mode() = 0;
-    virtual Status write_iso15765(bytes::ByteView, const ICancellationToken&) = 0;
-    virtual Result<std::optional<bytes::Bytes>> read_iso15765(std::chrono::milliseconds, const ICancellationToken&) = 0;
-    virtual Status write_raw(const cdbg::CanFrame&, const ICancellationToken&) = 0;
-    virtual Result<std::optional<cdbg::CanFrame>> read_raw(std::chrono::milliseconds, const ICancellationToken&) = 0;
+    virtual Status ResetConnection() = 0;
+    virtual Status Configure(const MixedCanConfig&) = 0;
+    virtual Status Open() = 0;
+    virtual Status Close() = 0;
+    virtual Status EnterRawBootloaderMode() = 0;
+    virtual Status ClearReceiveBuffer() = 0;
+    virtual Status EnterIso15765KernelMode() = 0;
+    virtual Status WriteIso15765(bytes::ByteView, const ICancellationToken&) = 0;
+    virtual Result<std::optional<bytes::Bytes>> ReadIso15765(std::chrono::milliseconds, const ICancellationToken&) = 0;
+    virtual Status WriteRaw(const cdbg::CanFrame&, const ICancellationToken&) = 0;
+    virtual Result<std::optional<cdbg::CanFrame>> ReadRaw(std::chrono::milliseconds, const ICancellationToken&) = 0;
 };
 
 // Mixed-CAN sibling of IKlineFlashExecutor/ICanFlashExecutor, paired with
@@ -340,16 +340,16 @@ class IMixedCanFlashExecutor
     using ConfigType = MixedCanConfig;
 
     virtual ~IMixedCanFlashExecutor() = default;
-    virtual Result<MixedCanConfig> transport_setup(const FlashPlan&) const = 0;
-    virtual Status before_transport_configure(IMixedCanFlashTransport&, IClock&, const ICancellationToken&) const
+    virtual Result<MixedCanConfig> TransportSetup(const FlashPlan&) const = 0;
+    virtual Status BeforeTransportConfigure(IMixedCanFlashTransport&, IClock&, const ICancellationToken&) const
     {
         return {};
     }
-    virtual Status before_transport_open(const ICancellationToken&) const
+    virtual Status BeforeTransportOpen(const ICancellationToken&) const
     {
         return {};
     }
-    virtual Result<FlashExecutionResult> execute(const FlashPlan&, IMixedCanFlashTransport&, IClock&,
+    virtual Result<FlashExecutionResult> Execute(const FlashPlan&, IMixedCanFlashTransport&, IClock&,
                                                  const ICancellationToken&, IEventSink&) = 0;
 };
 
@@ -361,10 +361,10 @@ class BoundFlashAttempt
 {
   public:
     virtual ~BoundFlashAttempt() = default;
-    virtual const FlashPlan& plan() const noexcept = 0;
-    virtual Result<FlashExecutionResult> run(IClock& clock, const ICancellationToken& cancellation,
+    virtual const FlashPlan& Plan() const noexcept = 0;
+    virtual Result<FlashExecutionResult> Run(IClock& clock, const ICancellationToken& cancellation,
                                              IEventSink& events) = 0;
-    virtual void request_unblock() noexcept = 0;
+    virtual void RequestUnblock() noexcept = 0;
 };
 
 template <class Executor, class Transport> class BoundAttempt final : public BoundFlashAttempt
@@ -375,53 +375,53 @@ template <class Executor, class Transport> class BoundAttempt final : public Bou
     {
     }
 
-    const FlashPlan& plan() const noexcept override
+    const FlashPlan& Plan() const noexcept override
     {
         return plan_;
     }
 
-    Result<FlashExecutionResult> run(IClock& clock, const ICancellationToken& cancellation, IEventSink& events) override
+    Result<FlashExecutionResult> Run(IClock& clock, const ICancellationToken& cancellation, IEventSink& events) override
     {
         // Pure: validates the plan and derives config, touching no hardware, so
         // a bad plan is rejected before the adapter is configured or opened.
-        Result<typename Executor::ConfigType> setup = executor_->transport_setup(plan_);
+        Result<typename Executor::ConfigType> setup = executor_->TransportSetup(plan_);
         if (!setup.has_value())
         {
             return std::unexpected(setup.error());
         }
-        if (cancellation.cancelled())
+        if (cancellation.Cancelled())
         {
-            return fail(ErrorKind::kCancelled, "cancelled before configure");
+            return Fail(ErrorKind::kCancelled, "cancelled before configure");
         }
-        if (const Status preparation = executor_->before_transport_configure(*transport_, clock, cancellation);
+        if (const Status preparation = executor_->BeforeTransportConfigure(*transport_, clock, cancellation);
             !preparation.has_value())
         {
             return std::unexpected(preparation.error());
         }
-        if (const Status configured = transport_->configure(*setup); !configured.has_value())
+        if (const Status configured = transport_->Configure(*setup); !configured.has_value())
         {
             return std::unexpected(configured.error());
         }
-        if (const Status checkpoint = executor_->before_transport_open(cancellation); !checkpoint.has_value())
+        if (const Status checkpoint = executor_->BeforeTransportOpen(cancellation); !checkpoint.has_value())
         {
             return std::unexpected(checkpoint.error());
         }
-        if (const Status opened = transport_->open(); !opened.has_value())
+        if (const Status opened = transport_->Open(); !opened.has_value())
         {
             return std::unexpected(opened.error());
         }
 
-        Result<FlashExecutionResult> outcome = executor_->execute(plan_, *transport_, clock, cancellation, events);
+        Result<FlashExecutionResult> outcome = executor_->Execute(plan_, *transport_, clock, cancellation, events);
 
         // Exactly once on every exit path past open(). Main error wins over a
         // close error; a close-only error is returned. This was step 5c's
         // EEPROM-family rule; here it is the universal one.
-        const Status closed = transport_->close();
+        const Status closed = transport_->Close();
         if (!outcome.has_value())
         {
             if (!closed.has_value())
             {
-                events.log(LogLevel::kWarning, "close failed after execution error");
+                events.Log(LogLevel::kWarning, "close failed after execution error");
             }
             return outcome;
         }
@@ -432,9 +432,9 @@ template <class Executor, class Transport> class BoundAttempt final : public Bou
         return outcome;
     }
 
-    void request_unblock() noexcept override
+    void RequestUnblock() noexcept override
     {
-        transport_->request_unblock();
+        transport_->RequestUnblock();
     }
 
   private:
@@ -445,8 +445,8 @@ template <class Executor, class Transport> class BoundAttempt final : public Bou
 
 template <class Executor, class Transport>
     requires std::derived_from<Transport, typename Executor::TransportType>
-std::unique_ptr<BoundFlashAttempt> bind_flash_attempt(FlashPlan plan, std::unique_ptr<Executor> executor,
-                                                      std::unique_ptr<Transport> transport)
+std::unique_ptr<BoundFlashAttempt> BindFlashAttempt(FlashPlan plan, std::unique_ptr<Executor> executor,
+                                                    std::unique_ptr<Transport> transport)
 {
     return std::make_unique<BoundAttempt<Executor, Transport>>(std::move(plan), std::move(executor),
                                                                std::move(transport));

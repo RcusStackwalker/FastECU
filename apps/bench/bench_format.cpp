@@ -136,7 +136,7 @@ std::string format_text(const CommandOutcome& outcome, bool stats)
     }
     out += outcome.ok ? std::format("  ok ({} ms)\n", outcome.elapsed_ms)
                       : std::format("  FAIL ({}) {}\n",
-                                    outcome.error_kind.has_value() ? to_string(*outcome.error_kind) : "Internal",
+                                    outcome.error_kind.has_value() ? ToString(*outcome.error_kind) : "Internal",
                                     outcome.error_detail);
     return out;
 }
@@ -158,7 +158,7 @@ std::string format_json(const CommandOutcome& outcome, bool stats)
     }
     if (outcome.error_kind.has_value())
     {
-        out += std::format(R"(,"error_kind":"{}","error_detail":"{}")", to_string(*outcome.error_kind),
+        out += std::format(R"(,"error_kind":"{}","error_detail":"{}")", ToString(*outcome.error_kind),
                            jsonEscaped(outcome.error_detail));
     }
     if (stats)

@@ -24,23 +24,23 @@ SsmIdentifyWorker::~SsmIdentifyWorker()
 
 void SsmIdentifyWorker::requestStop()
 {
-    cancellation_.cancel();
+    cancellation_.Cancel();
 }
 
 void SsmIdentifyWorker::run()
 {
-    Result<SsmIdentity> outcome = fail(ErrorKind::kInternal, "no identification attempt ran");
+    Result<SsmIdentity> outcome = Fail(ErrorKind::kInternal, "no identification attempt ran");
     for (int attempt = 1; attempt <= kMaxAttempts; ++attempt)
     {
         if (attempt > 1)
         {
-            if (auto slept = clock_->sleep(kRetryDelay, cancellation_); !slept.has_value())
+            if (auto slept = clock_->Sleep(kRetryDelay, cancellation_); !slept.has_value())
             {
                 outcome = std::unexpected(slept.error());
                 break;
             }
         }
-        outcome = identify_ssm_ecu(link_, *clock_, cancellation_, request_);
+        outcome = IdentifySsmEcu(link_, *clock_, cancellation_, request_);
         if (outcome.has_value() || outcome.error().kind == ErrorKind::kCancelled)
         {
             break;

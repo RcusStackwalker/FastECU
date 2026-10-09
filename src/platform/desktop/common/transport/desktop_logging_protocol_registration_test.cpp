@@ -31,18 +31,18 @@ namespace
 {
 DesktopLoggingSnapshot snapshot(LoggingProtocolId id, std::uint32_t address = 0x804000, std::size_t length = 1)
 {
-    auto session = make_logging_session(id,
-                                        {{.id = "load",
-                                          .address = address,
-                                          .length = length,
-                                          .raw_assembly = RawAssembly::kUnsignedIntegerDecimal,
-                                          .from_byte_expression = "x",
-                                          .unit = "%",
-                                          .decimal_precision = 0}},
-                                        {.poll_timeout = 50ms,
-                                         .car_silence_miss_threshold = 20,
-                                         .reconnect_attempt_threshold = 100,
-                                         .reconnect_retry_period = 20});
+    auto session = MakeLoggingSession(id,
+                                      {{.id = "load",
+                                        .address = address,
+                                        .length = length,
+                                        .raw_assembly = RawAssembly::kUnsignedIntegerDecimal,
+                                        .from_byte_expression = "x",
+                                        .unit = "%",
+                                        .decimal_precision = 0}},
+                                      {.poll_timeout = 50ms,
+                                       .car_silence_miss_threshold = 20,
+                                       .reconnect_attempt_threshold = 100,
+                                       .reconnect_retry_period = 20});
     Q_ASSERT(session);
     return {.session = std::move(*session),
             .response_offsets = {0},
@@ -176,7 +176,7 @@ TEST(DesktopLoggingProtocolRegistrationTest, cdbg_success_preserves_start_sequen
 TEST(DesktopLoggingProtocolRegistrationTest, ssm_target_and_adapter_are_per_run)
 {
     FakeBackedSerial serial;
-    auto clock = fastecu::make_auto_advancing_clock(10ms);
+    auto clock = fastecu::MakeAutoAdvancingClock(10ms);
     LoggingEngine engine;
     register_desktop_logging_protocols(engine, *serial, clock);
     fastecu::FakeCancellationToken cancellation;
@@ -202,8 +202,8 @@ TEST(DesktopLoggingProtocolRegistrationTest, ssm_target_and_adapter_are_per_run)
                     EXPECT_CALL(serial.fake(), read_serial_data(980)).WillOnce(Return(QByteArray{}));
                 }
             }
-            ASSERT_TRUE((*result)->start(cancellation));
-            ASSERT_TRUE((*result)->stop());
+            ASSERT_TRUE((*result)->Start(cancellation));
+            ASSERT_TRUE((*result)->Stop());
             ASSERT_TRUE(::testing::Mock::VerifyAndClearExpectations(&serial.fake()));
         }
     }
@@ -218,11 +218,11 @@ TEST(DesktopLoggingProtocolRegistrationTest, ssm_snapshot_offsets_reach_samples)
     EXPECT_CALL(serial.fake(), is_serial_port_open()).WillRepeatedly(Return(true));
     EXPECT_CALL(serial.fake(), get_use_openport2_adapter()).WillOnce(Return(true));
     auto data = snapshot(LoggingProtocolId::kSsm, 0x1000);
-    auto channels = data.session.channels();
+    auto channels = data.session.Channels();
     channels.push_back(channels.front());
     channels.back().id = "rpm";
     channels.back().address = 0x1001;
-    auto session = make_logging_session(LoggingProtocolId::kSsm, channels, data.session.policy());
+    auto session = MakeLoggingSession(LoggingProtocolId::kSsm, channels, data.session.Policy());
     ASSERT_TRUE(session);
     data.session = std::move(*session);
     data.response_offsets = {2, 0};
@@ -232,7 +232,7 @@ TEST(DesktopLoggingProtocolRegistrationTest, ssm_snapshot_offsets_reach_samples)
         .WillOnce(Return(QByteArray{}));
     EXPECT_CALL(serial.fake(), read_serial_data(50)).WillOnce(Return(QByteArray::fromHex("80f01004e8112233d2")));
     fastecu::FakeCancellationToken cancellation;
-    const auto samples = (*result)->poll(50ms, cancellation);
+    const auto samples = (*result)->Poll(50ms, cancellation);
     ASSERT_TRUE(samples);
     ASSERT_TRUE(samples->responded);
     ASSERT_EQ(samples->samples.size(), std::size_t{2});
@@ -268,13 +268,13 @@ TEST(DesktopLoggingProtocolRegistrationTest, mut_dma_preserves_initialization_an
         EXPECT_CALL(serial.fake(), read_serial_data(50)).WillOnce(Return(QByteArray::fromHex("011234470d")));
     }
     fastecu::FakeCancellationToken cancellation;
-    ASSERT_TRUE((*result)->start(cancellation));
-    const auto samples = (*result)->poll(50ms, cancellation);
+    ASSERT_TRUE((*result)->Start(cancellation));
+    const auto samples = (*result)->Poll(50ms, cancellation);
     ASSERT_TRUE(samples);
     ASSERT_EQ(samples->samples.size(), std::size_t{1});
     ASSERT_EQ(samples->samples[0].channel_id, std::string("load"));
     ASSERT_EQ(samples->samples[0].raw_value, std::string("4660"));
-    ASSERT_TRUE((*result)->stop());
+    ASSERT_TRUE((*result)->Stop());
 }
 
 namespace

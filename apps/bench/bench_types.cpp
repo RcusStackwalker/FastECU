@@ -47,14 +47,14 @@ Status validate_against_table(const CommandSpec& spec, const StepSpec& step)
 {
     if (step.args.size() < spec.min_args || (spec.max_args != kUnbounded && step.args.size() > spec.max_args))
     {
-        return fail(ErrorKind::kInvalidConfig,
+        return Fail(ErrorKind::kInvalidConfig,
                     std::format("{} takes {}..{} arguments, got {}", spec.name, spec.min_args,
                                 spec.max_args == kUnbounded ? std::string("*") : std::to_string(spec.max_args),
                                 step.args.size()));
     }
     if (spec.destructive && !step.destructive_ack)
     {
-        return fail(ErrorKind::kInvalidConfig, std::format("{} needs --destructive", spec.name));
+        return Fail(ErrorKind::kInvalidConfig, std::format("{} needs --destructive", spec.name));
     }
     return {};
 }

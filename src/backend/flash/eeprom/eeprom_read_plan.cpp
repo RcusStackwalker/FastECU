@@ -20,7 +20,7 @@ namespace
 // ever builds a plan for one of those two families, so a substring check on
 // "kline" (rather than reproducing every full protocol-name literal) is
 // sufficient and matches the legacy branch structure.
-FlashFamily family_for_protocol(std::string_view protocol_name)
+FlashFamily FamilyForProtocol(std::string_view protocol_name)
 {
     if (protocol_name.contains("kline"))
     {
@@ -44,11 +44,11 @@ FlashFamily family_for_protocol(std::string_view protocol_name)
 // protocol is added later. The `_ecutek_racerom_alt` variant is deliberately
 // rejected: its RAM preprocessing and crypto path are not representable by
 // DensoSecurityVariant or the portable CAN executor.
-Result<DensoSecurityVariant> security_for_protocol(std::string_view protocol_name)
+Result<DensoSecurityVariant> SecurityForProtocol(std::string_view protocol_name)
 {
     if (protocol_name.ends_with("_ecutek_racerom_alt"))
     {
-        return fail(ErrorKind::kInvalidConfig, "_ecutek_racerom_alt is not supported by the portable EEPROM path");
+        return Fail(ErrorKind::kInvalidConfig, "_ecutek_racerom_alt is not supported by the portable EEPROM path");
     }
     if (protocol_name.ends_with("_cobb"))
     {
@@ -67,23 +67,23 @@ Result<DensoSecurityVariant> security_for_protocol(std::string_view protocol_nam
 
 } // namespace
 
-Result<FlashPlan> build_eeprom_read_plan(const config::ConfigPaths& paths, const config::ProtocolSpec& protocol,
-                                         EepromReadMode mode, IFileRepository& file_repository)
+Result<FlashPlan> BuildEepromReadPlan(const config::ConfigPaths& paths, const config::ProtocolSpec& protocol,
+                                      EepromReadMode mode, IFileRepository& file_repository)
 {
     const std::string target_id(protocol.name);
 
     // Every fallible metadata-only validation runs before the kernel read below.
     if (!protocol.kernel_load_address.has_value())
     {
-        return fail(ErrorKind::kInvalidConfig,
+        return Fail(ErrorKind::kInvalidConfig,
                     std::format("protocol '{}' declares no kernel load address", protocol.name));
     }
-    Result<MemoryRegion> eeprom_region = resolve_sh705x_eeprom_region(std::string(protocol.mcu));
+    Result<MemoryRegion> eeprom_region = ResolveSh705xEepromRegion(std::string(protocol.mcu));
     if (!eeprom_region.has_value())
     {
         return std::unexpected(eeprom_region.error());
     }
-    Result<DensoSecurityVariant> security = security_for_protocol(protocol.name);
+    Result<DensoSecurityVariant> security = SecurityForProtocol(protocol.name);
     if (!security.has_value())
     {
         return std::unexpected(security.error());
@@ -91,7 +91,7 @@ Result<FlashPlan> build_eeprom_read_plan(const config::ConfigPaths& paths, const
 
     DensoSh705xEepromInput input{
         .operation = FlashOperation::kRead,
-        .family = family_for_protocol(protocol.name),
+        .family = FamilyForProtocol(protocol.name),
         .target_id = target_id,
         .mcu_name = std::string(protocol.mcu),
         .flash_method = target_id,
@@ -105,7 +105,7 @@ Result<FlashPlan> build_eeprom_read_plan(const config::ConfigPaths& paths, const
         .security = *security,
         .eeprom_region = *eeprom_region,
     };
-    if (Result<void> preflight = validate_denso_sh705x_eeprom_preflight(input, std::nullopt); !preflight.has_value())
+    if (Result<void> preflight = ValidateDensoSh705xEepromPreflight(input, std::nullopt); !preflight.has_value())
     {
         return std::unexpected(preflight.error());
     }
@@ -115,14 +115,14 @@ Result<FlashPlan> build_eeprom_read_plan(const config::ConfigPaths& paths, const
     // "/kernels/"), exactly as mainwindow.cpp:1137 concatenated it. Adding
     // one produces a doubled separator and a failed open.
     const std::string kernel_handle = paths.kernel_files_directory + std::string(protocol.kernel);
-    Result<std::vector<std::uint8_t>> kernel_bytes = file_repository.read(kernel_handle);
+    Result<std::vector<std::uint8_t>> kernel_bytes = file_repository.Read(kernel_handle);
     if (!kernel_bytes.has_value())
     {
         return std::unexpected(kernel_bytes.error());
     }
 
     input.kernel.bytes = std::move(*kernel_bytes);
-    return build_denso_sh705x_eeprom_plan(std::move(input));
+    return BuildDensoSh705xEepromPlan(std::move(input));
 }
 
 } // namespace fastecu::flash

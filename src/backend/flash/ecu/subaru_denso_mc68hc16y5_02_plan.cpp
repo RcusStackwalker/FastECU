@@ -16,35 +16,35 @@ namespace
 // reachable-but-quirky _02_tpu (see spec) all construct this class.
 // Revision 04, which declared no supported operation, was deleted with the
 // built-in catalog and is now an unknown name like any other.
-Status validate_identity(std::string_view protocol, std::string_view mcu)
+Status ValidateIdentity(std::string_view protocol, std::string_view mcu)
 {
     using enum ErrorKind;
     if (protocol != "sub_ecu_denso_mc68hc16y5_02" && protocol != "sub_ecu_denso_mc68hc16y5_02_ecutek" &&
         protocol != "sub_ecu_denso_mc68hc16y5_02_tpu")
     {
-        return fail(kInvalidConfig, std::format("Unsupported MC68HC16Y5_02 protocol: {}", protocol));
+        return Fail(kInvalidConfig, std::format("Unsupported MC68HC16Y5_02 protocol: {}", protocol));
     }
     if (const std::string_view expected_mcu =
             protocol == "sub_ecu_denso_mc68hc16y5_02_tpu" ? "MC68HC16Y5_TPU" : "MC68HC16Y5";
         mcu != expected_mcu)
     {
-        return fail(kInvalidConfig, std::format("protocol {} requires MCU {}, not {}", protocol, expected_mcu, mcu));
+        return Fail(kInvalidConfig, std::format("protocol {} requires MCU {}, not {}", protocol, expected_mcu, mcu));
     }
     return {};
 }
 
-Status validate_operation(std::string_view protocol, FlashOperation operation)
+Status ValidateOperation(std::string_view protocol, FlashOperation operation)
 {
     if (protocol == "sub_ecu_denso_mc68hc16y5_02_tpu" && operation != FlashOperation::kRead)
     {
-        return fail(
+        return Fail(
             ErrorKind::kUnsupported,
             "the built-in catalog declares no supported write or test_write operation for the MC68HC16Y5 TPU variant");
     }
     return {};
 }
 
-SubaruDensoMc68hc16y5_02Plan wire_params(std::string_view protocol)
+SubaruDensoMc68hc16y5_02Plan WireParams(std::string_view protocol)
 {
     // flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:126-137 (response
     // selection), 204-242 (baud/encryption/magic selection). Only "_ecutek"
@@ -65,7 +65,7 @@ SubaruDensoMc68hc16y5_02Plan wire_params(std::string_view protocol)
             .bootloader_ok = {0x4D, 0x00, 0xB3}};
 }
 
-Status validate_kernel_upload(const KernelImage& kernel)
+Status ValidateKernelUpload(const KernelImage& kernel)
 {
     // Legacy upload_kernel() serializes only address bits 23..8, so the low
     // byte is implicit zero. The catalog and shared device table both place
@@ -75,110 +75,109 @@ Status validate_kernel_upload(const KernelImage& kernel)
     constexpr std::uint64_t kMaxWireLength = 0x00ffffff;
     if (kernel.load_address != kKernelStart)
     {
-        return fail(ErrorKind::kInvalidConfig, "MC68HC16Y5_02 kernel address is not the canonical wire address");
+        return Fail(ErrorKind::kInvalidConfig, "MC68HC16Y5_02 kernel address is not the canonical wire address");
     }
     const std::uint64_t padded_size = (static_cast<std::uint64_t>(kernel.bytes.size()) + 0x0f) & ~0x0fULL;
     if (padded_size > kMaxWireLength)
     {
-        return fail(ErrorKind::kInvalidConfig, "MC68HC16Y5_02 padded kernel exceeds the 24-bit wire length");
+        return Fail(ErrorKind::kInvalidConfig, "MC68HC16Y5_02 padded kernel exceeds the 24-bit wire length");
     }
     if (padded_size > kKernelLength)
     {
-        return fail(ErrorKind::kInvalidConfig, "MC68HC16Y5_02 padded kernel is outside the model kernel region");
+        return Fail(ErrorKind::kInvalidConfig, "MC68HC16Y5_02 padded kernel is outside the model kernel region");
     }
     return {};
 }
 
 } // namespace
 
-Status validate_subaru_denso_mc68hc16y5_02_plan(const FlashPlan& plan)
+Status ValidateSubaruDensoMc68hc16y502Plan(const FlashPlan& plan)
 {
     using enum ErrorKind;
-    if (plan.family() != FlashFamily::kSubaruDensoMc68hc16y502 || plan.transport() != TransportKind::kKline)
+    if (plan.Family() != FlashFamily::kSubaruDensoMc68hc16y502 || plan.Transport() != TransportKind::kKline)
     {
-        return fail(kInvalidConfig, "plan is not for MC68HC16Y5_02");
+        return Fail(kInvalidConfig, "plan is not for MC68HC16Y5_02");
     }
-    const auto *family = std::get_if<SubaruDensoMc68hc16y5_02Plan>(&plan.family_plan());
+    const auto *family = std::get_if<SubaruDensoMc68hc16y5_02Plan>(&plan.FamilyPlan());
     if (family == nullptr)
     {
-        return fail(kInvalidConfig, "MC68HC16Y5_02 wire parameters are missing");
+        return Fail(kInvalidConfig, "MC68HC16Y5_02 wire parameters are missing");
     }
-    if (auto valid = validate_identity(plan.target_id(), plan.mcu_name()); !valid.has_value())
+    if (auto valid = ValidateIdentity(plan.TargetId(), plan.McuName()); !valid.has_value())
     {
         return valid;
     }
-    if (const SubaruDensoMc68hc16y5_02Plan expected = wire_params(plan.target_id());
+    if (const SubaruDensoMc68hc16y5_02Plan expected = WireParams(plan.TargetId());
         family->connect_baud != expected.connect_baud || family->kernel_baud != expected.kernel_baud ||
         family->encryption_xor != expected.encryption_xor || family->kernel_magic != expected.kernel_magic ||
         family->bootloader_ok != expected.bootloader_ok)
     {
-        return fail(kInvalidConfig, "MC68HC16Y5_02 wire parameters are invalid");
+        return Fail(kInvalidConfig, "MC68HC16Y5_02 wire parameters are invalid");
     }
-    if (!plan.kernel().has_value())
+    if (!plan.Kernel().has_value())
     {
-        return fail(kInvalidConfig, "MC68HC16Y5_02 requires a kernel image");
+        return Fail(kInvalidConfig, "MC68HC16Y5_02 requires a kernel image");
     }
-    if (auto valid = validate_kernel_upload(*plan.kernel()); !valid.has_value())
+    if (auto valid = ValidateKernelUpload(*plan.Kernel()); !valid.has_value())
     {
         return valid;
     }
-    if (!plan.erase_regions().empty())
+    if (!plan.EraseRegions().empty())
     {
-        return fail(kInvalidConfig, "MC68HC16Y5_02 plans must not declare erase regions");
+        return Fail(kInvalidConfig, "MC68HC16Y5_02 plans must not declare erase regions");
     }
-    if (!plan.confirmations().empty())
+    if (!plan.Confirmations().empty())
     {
-        return fail(kInvalidConfig, "MC68HC16Y5_02 plans must not declare confirmations");
+        return Fail(kInvalidConfig, "MC68HC16Y5_02 plans must not declare confirmations");
     }
-    const int index = find_flash_device_index(plan.mcu_name());
+    const int index = FindFlashDeviceIndex(plan.McuName());
     if (index < 0)
     {
-        return fail(kInvalidConfig, "Unknown MCU type");
+        return Fail(kInvalidConfig, "Unknown MCU type");
     }
     const std::uint32_t romsize = kFlashDevices[index].romsize;
-    if (plan.transfer_region().start != kFlashDevices[index].fblocks[0].start ||
-        plan.transfer_region().length != romsize)
+    if (plan.TransferRegion().start != kFlashDevices[index].fblocks[0].start || plan.TransferRegion().length != romsize)
     {
-        return fail(kInvalidConfig, "MC68HC16Y5_02 transfer region does not match the MCU");
+        return Fail(kInvalidConfig, "MC68HC16Y5_02 transfer region does not match the MCU");
     }
-    if (auto valid = validate_operation(plan.target_id(), plan.operation()); !valid.has_value())
+    if (auto valid = ValidateOperation(plan.TargetId(), plan.Operation()); !valid.has_value())
     {
         return valid;
     }
-    if ((plan.operation() == FlashOperation::kWrite || plan.operation() == FlashOperation::kTestWrite) &&
-        (!plan.image().has_value() || plan.image()->size() != romsize))
+    if ((plan.Operation() == FlashOperation::kWrite || plan.Operation() == FlashOperation::kTestWrite) &&
+        (!plan.Image().has_value() || plan.Image()->size() != romsize))
     {
-        return fail(kInvalidConfig, std::format("ROM file must be exactly 0x{:x} bytes", romsize));
+        return Fail(kInvalidConfig, std::format("ROM file must be exactly 0x{:x} bytes", romsize));
     }
     return {};
 }
 
-Result<FlashPlan> build_subaru_denso_mc68hc16y5_02_plan(FlashOperation operation, std::string_view protocol_name,
-                                                        std::string_view mcu_type, std::optional<bytes::Bytes> image,
-                                                        KernelImage kernel)
+Result<FlashPlan> BuildSubaruDensoMc68hc16y502Plan(FlashOperation operation, std::string_view protocol_name,
+                                                   std::string_view mcu_type, std::optional<bytes::Bytes> image,
+                                                   KernelImage kernel)
 {
-    if (auto valid = validate_identity(protocol_name, mcu_type); !valid.has_value())
+    if (auto valid = ValidateIdentity(protocol_name, mcu_type); !valid.has_value())
     {
         return std::unexpected(valid.error());
     }
-    if (auto valid = validate_operation(protocol_name, operation); !valid.has_value())
+    if (auto valid = ValidateOperation(protocol_name, operation); !valid.has_value())
     {
         return std::unexpected(valid.error());
     }
-    if (auto valid = validate_kernel_upload(kernel); !valid.has_value())
+    if (auto valid = ValidateKernelUpload(kernel); !valid.has_value())
     {
         return std::unexpected(valid.error());
     }
-    const int index = find_flash_device_index(mcu_type);
+    const int index = FindFlashDeviceIndex(mcu_type);
     if (index < 0)
     {
-        return fail(ErrorKind::kInvalidConfig, "Unknown MCU type");
+        return Fail(ErrorKind::kInvalidConfig, "Unknown MCU type");
     }
     const std::uint32_t romsize = kFlashDevices[index].romsize;
     if ((operation == FlashOperation::kWrite || operation == FlashOperation::kTestWrite) &&
         (!image.has_value() || image->size() != romsize))
     {
-        return fail(ErrorKind::kInvalidConfig, std::format("ROM file must be exactly 0x{:x} bytes", romsize));
+        return Fail(ErrorKind::kInvalidConfig, std::format("ROM file must be exactly 0x{:x} bytes", romsize));
     }
 
     FlashPlanFields fields{
@@ -193,14 +192,14 @@ Result<FlashPlan> build_subaru_denso_mc68hc16y5_02_plan(FlashOperation operation
                              // flash_block():950-992), not a fixed up-front set
         .image = operation == FlashOperation::kRead ? std::nullopt : std::move(image),
         .kernel = std::move(kernel),
-        .family_plan = wire_params(protocol_name),
+        .family_plan = WireParams(protocol_name),
     };
-    auto plan = validate_and_build(std::move(fields));
+    auto plan = ValidateAndBuild(std::move(fields));
     if (!plan.has_value())
     {
         return std::unexpected(plan.error());
     }
-    if (auto valid = validate_subaru_denso_mc68hc16y5_02_plan(*plan); !valid.has_value())
+    if (auto valid = ValidateSubaruDensoMc68hc16y502Plan(*plan); !valid.has_value())
     {
         return std::unexpected(valid.error());
     }

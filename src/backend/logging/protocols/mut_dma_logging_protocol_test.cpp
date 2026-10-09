@@ -18,7 +18,7 @@ using mutdma::Channel;
 using mutdma::ScriptedKlineTransport;
 using namespace std::chrono_literals;
 
-LoggingChannel channel()
+LoggingChannel MakeChannel()
 {
     return LoggingChannel{
         .id = "mut.rpm",
@@ -31,17 +31,17 @@ LoggingChannel channel()
     };
 }
 
-void scriptValidHandshake(ScriptedKlineTransport& transport)
+void ScriptValidHandshake(ScriptedKlineTransport& transport)
 {
     const std::vector<Channel> channels = {{0x8000, 2}};
-    transport.expectWrite(mutdma::BuildSetupFrame(0xA0, 1));
-    transport.queueRead(mutdma::BuildCommandFrame(0xA5, bytes::Bytes{}, mutdma::kTrailerStd));
-    transport.expectWrite(mutdma::BuildIdListFrame(0xA1, channels));
-    transport.queueRead(mutdma::BuildCommandFrame(0x05, bytes::Bytes{}, mutdma::kTrailerStd));
+    transport.ExpectWrite(mutdma::BuildSetupFrame(0xA0, 1));
+    transport.QueueRead(mutdma::BuildCommandFrame(0xA5, bytes::Bytes{}, mutdma::kTrailerStd));
+    transport.ExpectWrite(mutdma::BuildIdListFrame(0xA1, channels));
+    transport.QueueRead(mutdma::BuildCommandFrame(0x05, bytes::Bytes{}, mutdma::kTrailerStd));
 }
 
-std::unique_ptr<MutDmaLoggingProtocol> makeProtocol(std::unique_ptr<ScriptedKlineTransport> transport,
-                                                    std::vector<LoggingChannel> channels = {channel()})
+std::unique_ptr<MutDmaLoggingProtocol> MakeProtocol(std::unique_ptr<ScriptedKlineTransport> transport,
+                                                    std::vector<LoggingChannel> channels = {MakeChannel()})
 {
     return std::make_unique<MutDmaLoggingProtocol>(std::move(transport), std::make_unique<AlreadyInMode>(125000),
                                                    std::move(channels));
@@ -51,89 +51,89 @@ std::unique_ptr<MutDmaLoggingProtocol> makeProtocol(std::unique_ptr<ScriptedKlin
 TEST(MutDmaLoggingProtocolTest, StartReachesStreamingOnValidHandshake)
 {
     auto transport = std::make_unique<ScriptedKlineTransport>();
-    scriptValidHandshake(*transport);
+    ScriptValidHandshake(*transport);
     auto *script = transport.get();
-    auto protocol = makeProtocol(std::move(transport));
+    auto protocol = MakeProtocol(std::move(transport));
     fastecu::FakeCancellationToken cancellation;
 
-    ASSERT_THAT(protocol->start(cancellation), fastecu::testing::IsOk());
-    EXPECT_TRUE(script->scriptConsumed());
-    EXPECT_TRUE(script->ok());
+    ASSERT_THAT(protocol->Start(cancellation), fastecu::testing::IsOk());
+    EXPECT_TRUE(script->ScriptConsumed());
+    EXPECT_TRUE(script->Ok());
 }
 
 TEST(MutDmaLoggingProtocolTest, StartFailsWhenAdapterIsClosed)
 {
     auto transport = std::make_unique<ScriptedKlineTransport>();
-    transport->setOpen(false);
-    auto protocol = makeProtocol(std::move(transport));
+    transport->SetOpen(false);
+    auto protocol = MakeProtocol(std::move(transport));
     fastecu::FakeCancellationToken cancellation;
 
-    ASSERT_THAT(protocol->start(cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::kDisconnected));
+    ASSERT_THAT(protocol->Start(cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::kDisconnected));
 }
 
 TEST(MutDmaLoggingProtocolTest, StartFailurePinsBadResponseForInvalidHandshake)
 {
     auto transport = std::make_unique<ScriptedKlineTransport>();
-    transport->expectWrite(mutdma::BuildSetupFrame(0xA0, 1));
-    transport->queueRead(mutdma::BuildCommandFrame(0x00, bytes::Bytes{}, mutdma::kTrailerStd));
-    auto protocol = makeProtocol(std::move(transport));
+    transport->ExpectWrite(mutdma::BuildSetupFrame(0xA0, 1));
+    transport->QueueRead(mutdma::BuildCommandFrame(0x00, bytes::Bytes{}, mutdma::kTrailerStd));
+    auto protocol = MakeProtocol(std::move(transport));
     fastecu::FakeCancellationToken cancellation;
 
-    ASSERT_THAT(protocol->start(cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::kBadResponse));
+    ASSERT_THAT(protocol->Start(cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::kBadResponse));
 }
 
 TEST(MutDmaLoggingProtocolTest, StartPropagatesDisconnectedSetBaudErrorKindAndDetail)
 {
     auto transport = std::make_unique<ScriptedKlineTransport>();
-    transport->queue_set_baud_error(fastecu::ErrorKind::kDisconnected, "sentinel core set-baud disconnect");
-    auto protocol = makeProtocol(std::move(transport));
+    transport->QueueSetBaudError(fastecu::ErrorKind::kDisconnected, "sentinel core set-baud disconnect");
+    auto protocol = MakeProtocol(std::move(transport));
     fastecu::FakeCancellationToken cancellation;
 
-    ASSERT_THAT(protocol->start(cancellation),
+    ASSERT_THAT(protocol->Start(cancellation),
                 fastecu::testing::IsErrWith(fastecu::ErrorKind::kDisconnected, "sentinel core set-baud disconnect"));
 }
 
 TEST(MutDmaLoggingProtocolTest, StartPropagatesInternalSetBaudErrorKindAndDetail)
 {
     auto transport = std::make_unique<ScriptedKlineTransport>();
-    transport->queue_set_baud_error(fastecu::ErrorKind::kInternal, "sentinel core set-baud internal");
-    auto protocol = makeProtocol(std::move(transport));
+    transport->QueueSetBaudError(fastecu::ErrorKind::kInternal, "sentinel core set-baud internal");
+    auto protocol = MakeProtocol(std::move(transport));
     fastecu::FakeCancellationToken cancellation;
 
-    ASSERT_THAT(protocol->start(cancellation),
+    ASSERT_THAT(protocol->Start(cancellation),
                 fastecu::testing::IsErrWith(fastecu::ErrorKind::kInternal, "sentinel core set-baud internal"));
 }
 
 TEST(MutDmaLoggingProtocolTest, StartPropagatesQueuedWriteErrorKindAndDetail)
 {
     auto transport = std::make_unique<ScriptedKlineTransport>();
-    transport->expectWrite(mutdma::BuildSetupFrame(0xA0, 1));
-    transport->queue_write_error(fastecu::ErrorKind::kDisconnected, "sentinel core setup write disconnect");
-    auto protocol = makeProtocol(std::move(transport));
+    transport->ExpectWrite(mutdma::BuildSetupFrame(0xA0, 1));
+    transport->QueueWriteError(fastecu::ErrorKind::kDisconnected, "sentinel core setup write disconnect");
+    auto protocol = MakeProtocol(std::move(transport));
     fastecu::FakeCancellationToken cancellation;
 
-    ASSERT_THAT(protocol->start(cancellation),
+    ASSERT_THAT(protocol->Start(cancellation),
                 fastecu::testing::IsErrWith(fastecu::ErrorKind::kDisconnected, "sentinel core setup write disconnect"));
 }
 
 TEST(MutDmaLoggingProtocolTest, StartPropagatesQueuedReadErrorKindAndDetail)
 {
     auto transport = std::make_unique<ScriptedKlineTransport>();
-    transport->expectWrite(mutdma::BuildSetupFrame(0xA0, 1));
-    transport->queue_error(fastecu::ErrorKind::kInternal, "sentinel core setup read internal");
-    auto protocol = makeProtocol(std::move(transport));
+    transport->ExpectWrite(mutdma::BuildSetupFrame(0xA0, 1));
+    transport->QueueError(fastecu::ErrorKind::kInternal, "sentinel core setup read internal");
+    auto protocol = MakeProtocol(std::move(transport));
     fastecu::FakeCancellationToken cancellation;
 
-    ASSERT_THAT(protocol->start(cancellation),
+    ASSERT_THAT(protocol->Start(cancellation),
                 fastecu::testing::IsErrWith(fastecu::ErrorKind::kInternal, "sentinel core setup read internal"));
 }
 
 TEST(MutDmaLoggingProtocolTest, PollReturnsNoResponseBeforeStart)
 {
-    auto protocol = makeProtocol(std::make_unique<ScriptedKlineTransport>());
+    auto protocol = MakeProtocol(std::make_unique<ScriptedKlineTransport>());
     fastecu::FakeCancellationToken cancellation;
 
-    const auto result = protocol->poll(20ms, cancellation);
+    const auto result = protocol->Poll(20ms, cancellation);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_FALSE(result->responded);
@@ -143,31 +143,31 @@ TEST(MutDmaLoggingProtocolTest, PollReturnsNoResponseBeforeStart)
 TEST(MutDmaLoggingProtocolTest, PollReturnsTransportErrorWhenAdapterClosesMidSession)
 {
     auto transport = std::make_unique<ScriptedKlineTransport>();
-    scriptValidHandshake(*transport);
+    ScriptValidHandshake(*transport);
     auto *script = transport.get();
-    auto protocol = makeProtocol(std::move(transport));
+    auto protocol = MakeProtocol(std::move(transport));
     fastecu::FakeCancellationToken cancellation;
-    ASSERT_THAT(protocol->start(cancellation), fastecu::testing::IsOk());
-    script->setOpen(false);
+    ASSERT_THAT(protocol->Start(cancellation), fastecu::testing::IsOk());
+    script->SetOpen(false);
 
-    ASSERT_THAT(protocol->poll(20ms, cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::kDisconnected));
+    ASSERT_THAT(protocol->Poll(20ms, cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::kDisconnected));
 }
 
 TEST(MutDmaLoggingProtocolTest, PollReturnsStableIdAndRawDecimalString)
 {
     auto transport = std::make_unique<ScriptedKlineTransport>();
-    scriptValidHandshake(*transport);
+    ScriptValidHandshake(*transport);
     auto *script = transport.get();
-    auto protocol = makeProtocol(std::move(transport));
+    auto protocol = MakeProtocol(std::move(transport));
     fastecu::FakeCancellationToken cancellation;
-    ASSERT_THAT(protocol->start(cancellation), fastecu::testing::IsOk());
+    ASSERT_THAT(protocol->Start(cancellation), fastecu::testing::IsOk());
 
     bytes::Bytes frame = {0x51, 0x12, 0x34};
     frame.push_back(mutdma::Sum8(frame));
     frame.push_back(mutdma::kTrailerStd);
-    script->queueRead(frame);
+    script->QueueRead(frame);
 
-    const auto result = protocol->poll(50ms, cancellation);
+    const auto result = protocol->Poll(50ms, cancellation);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_TRUE(result->responded);
@@ -179,10 +179,10 @@ TEST(MutDmaLoggingProtocolTest, PollReturnsStableIdAndRawDecimalString)
 TEST(MutDmaLoggingProtocolTest, StartPropagatesCancellation)
 {
     auto transport = std::make_unique<ScriptedKlineTransport>();
-    auto protocol = makeProtocol(std::move(transport));
+    auto protocol = MakeProtocol(std::move(transport));
     fastecu::FakeCancellationToken cancellation(true);
 
-    ASSERT_THAT(protocol->start(cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::kCancelled));
+    ASSERT_THAT(protocol->Start(cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::kCancelled));
 }
 
 TEST(MutDmaLoggingProtocol, PollRejectsShortChecksummedPayloadAndAcceptsNextCompleteReply)

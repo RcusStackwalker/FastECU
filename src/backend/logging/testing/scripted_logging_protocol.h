@@ -16,7 +16,7 @@
 class ScriptedLoggingProtocol final : public fastecu::logging::LoggingProtocol
 {
   public:
-    void queueStartResult(fastecu::Status result)
+    void QueueStartResult(fastecu::Status result)
     {
         start_results_.push_back(std::move(result));
     }
@@ -25,18 +25,18 @@ class ScriptedLoggingProtocol final : public fastecu::logging::LoggingProtocol
     // worker thread; queueing itself still happens before start() in every
     // caller, but mixing locked and unlocked access to the same container is
     // not worth leaving as a trap.
-    void queuePollResult(fastecu::Result<fastecu::logging::PollData> result)
+    void QueuePollResult(fastecu::Result<fastecu::logging::PollData> result)
     {
         std::lock_guard lock(mutex_);
         poll_results_.push_back(std::move(result));
     }
 
-    void blockPollUntilCancelled()
+    void BlockPollUntilCancelled()
     {
         block_poll_.store(true, std::memory_order_relaxed);
     }
 
-    bool waitUntilPollEntered(std::chrono::milliseconds timeout)
+    bool WaitUntilPollEntered(std::chrono::milliseconds timeout)
     {
         std::unique_lock lock(mutex_);
         return poll_entered_cv_.wait_for(lock, timeout, [this] { return poll_entered_; });
@@ -48,23 +48,23 @@ class ScriptedLoggingProtocol final : public fastecu::logging::LoggingProtocol
     // worker emits on its own thread and QSignalSpy connects with
     // Qt::DirectConnection, so QSignalSpy::wait() misses emissions that land
     // before it snapshots its baseline count.
-    bool waitUntilQueuedPollResultsConsumed(std::chrono::milliseconds timeout)
+    bool WaitUntilQueuedPollResultsConsumed(std::chrono::milliseconds timeout)
     {
         std::unique_lock lock(mutex_);
         return poll_results_consumed_cv_.wait_for(lock, timeout, [this] { return poll_results_.empty(); });
     }
 
-    int startCallCount() const
+    int StartCallCount() const
     {
         return start_calls_.load(std::memory_order_relaxed);
     }
 
-    bool stopCalled() const
+    bool StopCalled() const
     {
         return stop_called_.load(std::memory_order_relaxed);
     }
 
-    fastecu::Status start(const fastecu::ICancellationToken&) override
+    fastecu::Status Start(const fastecu::ICancellationToken&) override
     {
         start_calls_.fetch_add(1, std::memory_order_relaxed);
         if (start_results_.empty())
@@ -76,7 +76,7 @@ class ScriptedLoggingProtocol final : public fastecu::logging::LoggingProtocol
         return result;
     }
 
-    fastecu::Result<fastecu::logging::PollData> poll(std::chrono::milliseconds,
+    fastecu::Result<fastecu::logging::PollData> Poll(std::chrono::milliseconds,
                                                      const fastecu::ICancellationToken& cancellation) override
     {
         if (block_poll_.load(std::memory_order_relaxed))
@@ -86,12 +86,12 @@ class ScriptedLoggingProtocol final : public fastecu::logging::LoggingProtocol
                 poll_entered_ = true;
             }
             poll_entered_cv_.notify_all();
-            while (!cancellation.cancelled())
+            while (!cancellation.Cancelled())
             {
                 std::unique_lock lock(mutex_);
                 cancellation_poll_cv_.wait_for(lock, std::chrono::milliseconds(1));
             }
-            return fastecu::fail(fastecu::ErrorKind::kCancelled, "scripted poll cancelled");
+            return fastecu::Fail(fastecu::ErrorKind::kCancelled, "scripted poll cancelled");
         }
 
         std::unique_lock lock(mutex_);
@@ -112,7 +112,7 @@ class ScriptedLoggingProtocol final : public fastecu::logging::LoggingProtocol
         return result;
     }
 
-    fastecu::Status stop() override
+    fastecu::Status Stop() override
     {
         stop_called_.store(true, std::memory_order_relaxed);
         return {};

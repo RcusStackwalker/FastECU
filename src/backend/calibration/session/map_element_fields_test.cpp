@@ -18,7 +18,7 @@ namespace
 // a requires-expression cannot observe a deleted overload, so no
 // static_assert pins it here.
 
-definition::RomDefinition two_by_two_definition()
+definition::RomDefinition TwoByTwoDefinition()
 {
     definition::RomDefinition def;
     definition::Scaling scaling;
@@ -52,7 +52,7 @@ definition::RomDefinition two_by_two_definition()
     return def;
 }
 
-CalibrationSession session_from(definition::RomDefinition def = two_by_two_definition())
+CalibrationSession SessionFrom(definition::RomDefinition def = TwoByTwoDefinition())
 {
     SessionContents contents;
     contents.rom.resize(128);
@@ -64,9 +64,9 @@ CalibrationSession session_from(definition::RomDefinition def = two_by_two_defin
 
 TEST(MapElementFields, PlucksTypedFieldsAndUnpaddedProtocolSize)
 {
-    const auto session = session_from();
-    const auto fields = collect_map_element_fields(session, 0, NumericTarget::kMapBody);
-    const auto spec = fields.spec();
+    const auto session = SessionFrom();
+    const auto fields = CollectMapElementFields(session, 0, NumericTarget::kMapBody);
+    const auto spec = fields.Spec();
     EXPECT_EQ(spec.address, 16U);
     EXPECT_EQ(spec.storage_type, definition::StorageType::kUint16);
     EXPECT_EQ(spec.from_byte, "x*2");
@@ -81,13 +81,13 @@ TEST(MapElementFields, PlucksTypedFieldsAndUnpaddedProtocolSize)
 
 TEST(MapElementFields, AxisUsesResolvedFieldsAndScalingBounds)
 {
-    auto def = two_by_two_definition();
+    auto def = TwoByTwoDefinition();
     def.maps[0].x_axis.scaling_name = "body";
     def.maps[0].x_axis.start_position = 4;
     def.maps[0].x_axis.interval = 5;
-    const auto session = session_from(std::move(def));
-    const auto fields = collect_map_element_fields(session, 0, NumericTarget::kXAxis);
-    const auto spec = fields.spec();
+    const auto session = SessionFrom(std::move(def));
+    const auto fields = CollectMapElementFields(session, 0, NumericTarget::kXAxis);
+    const auto spec = fields.Spec();
     EXPECT_EQ(spec.address, 64U);
     EXPECT_EQ(spec.storage_type, definition::StorageType::kUint8);
     EXPECT_EQ(spec.from_byte, "x*10");
@@ -99,41 +99,41 @@ TEST(MapElementFields, AxisUsesResolvedFieldsAndScalingBounds)
 
 TEST(MapElementFields, BodyStorageAndEndianFallBackToScalingButAxesUseResolvedStorage)
 {
-    auto def = two_by_two_definition();
+    auto def = TwoByTwoDefinition();
     def.maps[0].storage_type.reset();
     def.maps[0].endian.clear();
     def.scalings[0].storage_type = definition::StorageType::kFloat;
     def.scalings[0].endian = "little";
     def.maps[0].x_axis.scaling_name = "body";
-    const auto session = session_from(std::move(def));
-    const auto body = collect_map_element_fields(session, 0, NumericTarget::kMapBody);
-    EXPECT_EQ(body.spec().storage_type, definition::StorageType::kFloat);
-    EXPECT_EQ(body.spec().endian, "little");
-    const auto axis = collect_map_element_fields(session, 0, NumericTarget::kXAxis);
-    EXPECT_EQ(axis.spec().storage_type, definition::StorageType::kUint8);
-    EXPECT_EQ(axis.spec().endian, "");
+    const auto session = SessionFrom(std::move(def));
+    const auto body = CollectMapElementFields(session, 0, NumericTarget::kMapBody);
+    EXPECT_EQ(body.Spec().storage_type, definition::StorageType::kFloat);
+    EXPECT_EQ(body.Spec().endian, "little");
+    const auto axis = CollectMapElementFields(session, 0, NumericTarget::kXAxis);
+    EXPECT_EQ(axis.Spec().storage_type, definition::StorageType::kUint8);
+    EXPECT_EQ(axis.Spec().endian, "");
 }
 
 TEST(MapElementFields, MissingScalingAndAxisYieldEmptyFields)
 {
-    auto def = two_by_two_definition();
+    auto def = TwoByTwoDefinition();
     def.maps[0].scaling_name.clear();
     def.maps[0].x_axis = {};
-    const auto session = session_from(std::move(def));
-    const auto body = collect_map_element_fields(session, 0, NumericTarget::kMapBody);
-    EXPECT_EQ(body.spec().from_byte, "x");
-    const auto axis = collect_map_element_fields(session, 0, NumericTarget::kXAxis);
-    EXPECT_EQ(axis.spec().endian, "");
-    EXPECT_EQ(axis.spec().to_byte, "");
-    EXPECT_EQ(axis.spec().address, 0U);
-    EXPECT_EQ(axis.spec().start_position, 1U);
+    const auto session = SessionFrom(std::move(def));
+    const auto body = CollectMapElementFields(session, 0, NumericTarget::kMapBody);
+    EXPECT_EQ(body.Spec().from_byte, "x");
+    const auto axis = CollectMapElementFields(session, 0, NumericTarget::kXAxis);
+    EXPECT_EQ(axis.Spec().endian, "");
+    EXPECT_EQ(axis.Spec().to_byte, "");
+    EXPECT_EQ(axis.Spec().address, 0U);
+    EXPECT_EQ(axis.Spec().start_position, 1U);
 }
 
 TEST(MapElementFields, YAxisUsesItsOwnAxisDefinition)
 {
-    const auto session = session_from();
-    const auto fields = collect_map_element_fields(session, 0, NumericTarget::kYAxis);
-    const auto spec = fields.spec();
+    const auto session = SessionFrom();
+    const auto fields = CollectMapElementFields(session, 0, NumericTarget::kYAxis);
+    const auto spec = fields.Spec();
     EXPECT_EQ(spec.address, 80U);
     EXPECT_EQ(spec.storage_type, definition::StorageType::kInt16);
     EXPECT_EQ(spec.endian, "big");

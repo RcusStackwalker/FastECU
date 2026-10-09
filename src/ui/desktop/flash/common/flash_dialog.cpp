@@ -329,7 +329,7 @@ void FlashDialog::showFailure(const Error& error)
     }
     QMessageBox::warning(this, tr("ECU Operation"), text);
     emit LOG_E(QString("ECU operation failed (%1): %2")
-                   .arg(QString::fromUtf8(to_string(error.kind)), QString::fromStdString(error.detail)),
+                   .arg(QString::fromUtf8(ToString(error.kind)), QString::fromStdString(error.detail)),
                true, true);
 }
 

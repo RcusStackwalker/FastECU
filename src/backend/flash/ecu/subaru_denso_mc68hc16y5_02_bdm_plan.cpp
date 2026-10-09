@@ -25,94 +25,93 @@ constexpr std::uint32_t kRomSize = 0x28000;
 // chunk (:247-250); the executor uploads in chunks of the same size (:361).
 constexpr std::size_t kUploadChunk = kSubaruDensoMc68hc16y5_02BdmUploadChunk;
 
-Status validate_identity(std::string_view protocol, std::string_view mcu)
+Status ValidateIdentity(std::string_view protocol, std::string_view mcu)
 {
     if (protocol != kProtocol || mcu != kMcu)
     {
-        return fail(ErrorKind::kInvalidConfig,
+        return Fail(ErrorKind::kInvalidConfig,
                     std::format("MC68HC16Y5 BDM protocol '{}' does not match MCU '{}'", protocol, mcu));
     }
-    const FlashDevice *device = find_flash_device(mcu);
+    const FlashDevice *device = FindFlashDevice(mcu);
     if (device == nullptr || device->romsize != kRomSize || device->rblocks == nullptr ||
         device->rblocks[0].start != kRam.start || device->rblocks[0].len != kRam.length)
     {
-        return fail(ErrorKind::kInvalidConfig, "MC68HC16Y5 BDM memory map is invalid");
+        return Fail(ErrorKind::kInvalidConfig, "MC68HC16Y5 BDM memory map is invalid");
     }
     return {};
 }
 
-bytes::Bytes pad_kernel(bytes::Bytes kernel)
+bytes::Bytes PadKernel(bytes::Bytes kernel)
 {
     kernel.resize((kernel.size() + kUploadChunk - 1) / kUploadChunk * kUploadChunk, 0x00);
     return kernel;
 }
 } // namespace
 
-Status validate_subaru_denso_mc68hc16y5_02_bdm_plan(const FlashPlan& plan)
+Status ValidateSubaruDensoMc68hc16y502BdmPlan(const FlashPlan& plan)
 {
-    if (plan.family() != FlashFamily::kSubaruDensoMc68hc16y502Bdm || plan.transport() != TransportKind::kKline)
+    if (plan.Family() != FlashFamily::kSubaruDensoMc68hc16y502Bdm || plan.Transport() != TransportKind::kKline)
     {
-        return fail(ErrorKind::kInvalidConfig, "plan is not for Subaru Denso MC68HC16Y5 BDM");
+        return Fail(ErrorKind::kInvalidConfig, "plan is not for Subaru Denso MC68HC16Y5 BDM");
     }
-    if (auto identity = validate_identity(plan.target_id(), plan.mcu_name()); !identity.has_value())
+    if (auto identity = ValidateIdentity(plan.TargetId(), plan.McuName()); !identity.has_value())
     {
         return identity;
     }
-    if (plan.operation() == FlashOperation::kTestWrite)
+    if (plan.Operation() == FlashOperation::kTestWrite)
     {
-        return fail(ErrorKind::kUnsupported, "MC68HC16Y5 BDM has no test write");
+        return Fail(ErrorKind::kUnsupported, "MC68HC16Y5 BDM has no test write");
     }
-    const auto *wire = std::get_if<SubaruDensoMc68hc16y5_02BdmPlan>(&plan.family_plan());
+    const auto *wire = std::get_if<SubaruDensoMc68hc16y5_02BdmPlan>(&plan.FamilyPlan());
     if (wire == nullptr || wire->baud != kBaud)
     {
-        return fail(ErrorKind::kInvalidConfig, "MC68HC16Y5 BDM wire parameters are invalid");
+        return Fail(ErrorKind::kInvalidConfig, "MC68HC16Y5 BDM wire parameters are invalid");
     }
-    if (!plan.erase_regions().empty() || plan.kernel().has_value())
+    if (!plan.EraseRegions().empty() || plan.Kernel().has_value())
     {
-        return fail(ErrorKind::kInvalidConfig, "MC68HC16Y5 BDM plan shape is invalid");
+        return Fail(ErrorKind::kInvalidConfig, "MC68HC16Y5 BDM plan shape is invalid");
     }
-    const auto confirmations = plan.confirmations();
+    const auto confirmations = plan.Confirmations();
     const bool exactly_bootstrap = confirmations.size() == 1 &&
                                    confirmations.front().id == ConfirmationSpec::Id::kKernelBootstrap &&
                                    confirmations.front().arguments.empty();
-    if (plan.operation() == FlashOperation::kWrite ? !exactly_bootstrap : !confirmations.empty())
+    if (plan.Operation() == FlashOperation::kWrite ? !exactly_bootstrap : !confirmations.empty())
     {
-        return fail(ErrorKind::kInvalidConfig,
+        return Fail(ErrorKind::kInvalidConfig,
                     "MC68HC16Y5 BDM Write requires exactly the KernelBootstrap confirmation; Read requires none");
     }
-    if (plan.operation() == FlashOperation::kRead)
+    if (plan.Operation() == FlashOperation::kRead)
     {
-        if (plan.transfer_region() != kReadRegion || plan.image().has_value())
+        if (plan.TransferRegion() != kReadRegion || plan.Image().has_value())
         {
-            return fail(ErrorKind::kInvalidConfig, "MC68HC16Y5 BDM read-plan shape is invalid");
+            return Fail(ErrorKind::kInvalidConfig, "MC68HC16Y5 BDM read-plan shape is invalid");
         }
         return {};
     }
-    const auto& image = plan.image();
+    const auto& image = plan.Image();
     if (!image.has_value() || image->empty() || image->size() % kUploadChunk != 0 || image->size() > kRam.length ||
-        plan.transfer_region() != MemoryRegion{kRam.start, static_cast<std::uint32_t>(image->size())})
+        plan.TransferRegion() != MemoryRegion{kRam.start, static_cast<std::uint32_t>(image->size())})
     {
-        return fail(ErrorKind::kInvalidConfig, "MC68HC16Y5 BDM kernel-bootstrap plan shape is invalid");
+        return Fail(ErrorKind::kInvalidConfig, "MC68HC16Y5 BDM kernel-bootstrap plan shape is invalid");
     }
     return {};
 }
 
-Result<FlashPlan> build_subaru_denso_mc68hc16y5_02_bdm_plan(FlashOperation operation, std::string_view protocol_name,
-                                                            std::string_view mcu_type,
-                                                            std::optional<bytes::Bytes> rom_image,
-                                                            std::optional<KernelImage> kernel)
+Result<FlashPlan> BuildSubaruDensoMc68hc16y502BdmPlan(FlashOperation operation, std::string_view protocol_name,
+                                                      std::string_view mcu_type, std::optional<bytes::Bytes> rom_image,
+                                                      std::optional<KernelImage> kernel)
 {
-    if (auto identity = validate_identity(protocol_name, mcu_type); !identity.has_value())
+    if (auto identity = ValidateIdentity(protocol_name, mcu_type); !identity.has_value())
     {
         return std::unexpected(identity.error());
     }
     if (operation == FlashOperation::kTestWrite)
     {
-        return fail(ErrorKind::kUnsupported, "MC68HC16Y5 BDM has no test write");
+        return Fail(ErrorKind::kUnsupported, "MC68HC16Y5 BDM has no test write");
     }
     if (rom_image.has_value())
     {
-        return fail(ErrorKind::kInvalidConfig, "MC68HC16Y5 BDM plans never carry a ROM image");
+        return Fail(ErrorKind::kInvalidConfig, "MC68HC16Y5 BDM plans never carry a ROM image");
     }
 
     MemoryRegion region = kReadRegion;
@@ -121,28 +120,28 @@ Result<FlashPlan> build_subaru_denso_mc68hc16y5_02_bdm_plan(FlashOperation opera
     {
         if (kernel.has_value())
         {
-            return fail(ErrorKind::kInvalidConfig, "MC68HC16Y5 BDM read plans must not carry a kernel");
+            return Fail(ErrorKind::kInvalidConfig, "MC68HC16Y5 BDM read plans must not carry a kernel");
         }
     }
     else
     {
         if (!kernel.has_value())
         {
-            return fail(ErrorKind::kInvalidConfig, "MC68HC16Y5 BDM kernel bootstrap requires a kernel image");
+            return Fail(ErrorKind::kInvalidConfig, "MC68HC16Y5 BDM kernel bootstrap requires a kernel image");
         }
         if (kernel->load_address != kRam.start)
         {
-            return fail(ErrorKind::kInvalidConfig, std::format("MC68HC16Y5 BDM kernel must load at 0x{:X}, not 0x{:X}",
+            return Fail(ErrorKind::kInvalidConfig, std::format("MC68HC16Y5 BDM kernel must load at 0x{:X}, not 0x{:X}",
                                                                kRam.start, kernel->load_address));
         }
         if (kernel->bytes.empty())
         {
-            return fail(ErrorKind::kInvalidConfig, "MC68HC16Y5 BDM kernel image is empty");
+            return Fail(ErrorKind::kInvalidConfig, "MC68HC16Y5 BDM kernel image is empty");
         }
-        bytes::Bytes padded = pad_kernel(std::move(kernel->bytes));
+        bytes::Bytes padded = PadKernel(std::move(kernel->bytes));
         if (padded.size() > kRam.length)
         {
-            return fail(ErrorKind::kInvalidConfig,
+            return Fail(ErrorKind::kInvalidConfig,
                         std::format("MC68HC16Y5 BDM kernel ({} bytes padded) exceeds the 0x{:X}-byte RAM block",
                                     padded.size(), kRam.length));
         }
@@ -150,7 +149,7 @@ Result<FlashPlan> build_subaru_denso_mc68hc16y5_02_bdm_plan(FlashOperation opera
         image = std::move(padded);
     }
 
-    auto plan = validate_and_build(FlashPlanFields{
+    auto plan = ValidateAndBuild(FlashPlanFields{
         .operation = operation,
         .family = FlashFamily::kSubaruDensoMc68hc16y502Bdm,
         .transport = TransportKind::kKline,
@@ -169,7 +168,7 @@ Result<FlashPlan> build_subaru_denso_mc68hc16y5_02_bdm_plan(FlashOperation opera
     {
         return std::unexpected(plan.error());
     }
-    if (auto valid = validate_subaru_denso_mc68hc16y5_02_bdm_plan(*plan); !valid.has_value())
+    if (auto valid = ValidateSubaruDensoMc68hc16y502BdmPlan(*plan); !valid.has_value())
     {
         return std::unexpected(valid.error());
     }

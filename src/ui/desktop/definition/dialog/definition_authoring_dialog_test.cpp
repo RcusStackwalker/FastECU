@@ -71,7 +71,7 @@ TEST(DefinitionAuthoringDialogTest, ConstructsAndExposesTheFourLogSignals)
     QtAtomicFileWriter writer;
     fastecu::NullEventSink events;
     fastecu::config::testing::ConfigSessionFixture config;
-    ASSERT_TRUE(config.initialize().has_value());
+    ASSERT_TRUE(config.Initialize().has_value());
     fastecu::definition::DefinitionService service(fileSystem, configRepository, writer);
     fastecu::definition::DefinitionCatalogSession catalogs(service, config.session, fileSystem, events);
 
@@ -146,17 +146,17 @@ TEST(DefinitionAuthoringDialog, FormInputRegistersTypedLookupAfterSuccessfulSubm
     auto input = fastecu::ui::definition_header_input(editors);
     ASSERT_THAT(input, fastecu::testing::IsOk());
     fastecu::config::testing::ConfigSessionFixture config;
-    ASSERT_THAT(config.initialize(), fastecu::testing::IsOk());
+    ASSERT_THAT(config.Initialize(), fastecu::testing::IsOk());
     fastecu::InMemoryAtomicFileWriter writer;
     fastecu::definition::DefinitionService service(config.file_system, config.file_repository, writer);
     fastecu::definition::DefinitionCatalogSession catalogs(service, config.session, config.file_system, config.events);
-    ASSERT_THAT(catalogs.submit_new_definition("defs/colt.xml", *input, true), fastecu::testing::IsOk());
-    EXPECT_EQ(catalogs.indexed_source(fastecu::definition::DefinitionFormat::kEcuFlash, "3352a403"), "defs/colt.xml");
+    ASSERT_THAT(catalogs.SubmitNewDefinition("defs/colt.xml", *input, true), fastecu::testing::IsOk());
+    EXPECT_EQ(catalogs.IndexedSource(fastecu::definition::DefinitionFormat::kEcuFlash, "3352a403"), "defs/colt.xml");
     writer.replace_error = {fastecu::ErrorKind::kDisconnected, "unavailable"};
     input->xml_id = "FAILED";
-    EXPECT_THAT(catalogs.submit_new_definition("defs/failed.xml", *input, true),
+    EXPECT_THAT(catalogs.SubmitNewDefinition("defs/failed.xml", *input, true),
                 fastecu::testing::IsErr(fastecu::ErrorKind::kDisconnected));
-    EXPECT_EQ(catalogs.indexed_source(fastecu::definition::DefinitionFormat::kEcuFlash, "FAILED"), std::nullopt);
+    EXPECT_EQ(catalogs.IndexedSource(fastecu::definition::DefinitionFormat::kEcuFlash, "FAILED"), std::nullopt);
 }
 
 namespace
@@ -166,9 +166,9 @@ class DefinitionAuthoringFlow : public testing::Test
   protected:
     void SetUp() override
     {
-        ASSERT_THAT(config_.initialize(), fastecu::testing::IsOk());
+        ASSERT_THAT(config_.Initialize(), fastecu::testing::IsOk());
         ASSERT_TRUE(root_.isValid());
-        config_.session.settings().ecuflash_definition_files_directory = root_.path().toStdString();
+        config_.session.Settings().ecuflash_definition_files_directory = root_.path().toStdString();
     }
 
     QTemporaryDir root_;
@@ -193,7 +193,7 @@ TEST_F(DefinitionAuthoringFlow, CancelledCreateDoesNotWriteOrRegister)
                        });
     EXPECT_TRUE(dialog_.create_new_definition());
     EXPECT_THAT(writer_.replace_calls, testing::IsEmpty());
-    EXPECT_EQ(catalogs_.indexed_source(fastecu::definition::DefinitionFormat::kEcuFlash, "NEW_XML"), std::nullopt);
+    EXPECT_EQ(catalogs_.IndexedSource(fastecu::definition::DefinitionFormat::kEcuFlash, "NEW_XML"), std::nullopt);
 }
 
 TEST_F(DefinitionAuthoringFlow, CancelledImportAndRetryDoesNotWriteOrRegister)
@@ -210,7 +210,7 @@ TEST_F(DefinitionAuthoringFlow, CancelledImportAndRetryDoesNotWriteOrRegister)
     driver.start(1);
     EXPECT_TRUE(dialog_.use_existing_definition());
     EXPECT_THAT(writer_.replace_calls, testing::IsEmpty());
-    EXPECT_EQ(catalogs_.indexed_source(fastecu::definition::DefinitionFormat::kEcuFlash, "NEW_XML"), std::nullopt);
+    EXPECT_EQ(catalogs_.IndexedSource(fastecu::definition::DefinitionFormat::kEcuFlash, "NEW_XML"), std::nullopt);
 }
 
 TEST_F(DefinitionAuthoringFlow, InvalidHeaderDoesNotWriteOrRegister)
@@ -232,7 +232,7 @@ TEST_F(DefinitionAuthoringFlow, InvalidHeaderDoesNotWriteOrRegister)
     driver.start(1);
     EXPECT_FALSE(dialog_.create_new_definition());
     EXPECT_THAT(writer_.replace_calls, testing::IsEmpty());
-    EXPECT_EQ(catalogs_.indexed_source(fastecu::definition::DefinitionFormat::kEcuFlash, ""), std::nullopt);
+    EXPECT_EQ(catalogs_.IndexedSource(fastecu::definition::DefinitionFormat::kEcuFlash, ""), std::nullopt);
 }
 
 TEST_F(DefinitionAuthoringFlow, MalformedImportReportsErrorWithoutOpeningAnEditableHeader)

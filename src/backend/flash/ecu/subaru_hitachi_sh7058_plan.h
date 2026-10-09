@@ -7,7 +7,7 @@
 
 namespace fastecu::flash
 {
-Result<FlashPlan> build_subaru_hitachi_sh7058_plan(FlashOperation operation, std::string_view protocol,
-                                                   std::string_view mcu, std::optional<bytes::Bytes> image);
-Status validate_subaru_hitachi_sh7058_plan(const FlashPlan& plan);
+Result<FlashPlan> BuildSubaruHitachiSh7058Plan(FlashOperation operation, std::string_view protocol,
+                                               std::string_view mcu, std::optional<bytes::Bytes> image);
+Status ValidateSubaruHitachiSh7058Plan(const FlashPlan& plan);
 } // namespace fastecu::flash

@@ -86,7 +86,7 @@ void run_numeric_edit(QWidget *parent, const QString& title, fastecu::calibratio
     {
         return;
     }
-    const auto *session = workspace.find(id->session);
+    const auto *session = workspace.Find(id->session);
     if (session == nullptr)
     {
         return;
@@ -97,10 +97,10 @@ void run_numeric_edit(QWidget *parent, const QString& title, fastecu::calibratio
         return;
     }
     const auto outcome =
-        calibration::apply_numeric_edit(workspace, {.session = id->session,
-                                                    .map_index = static_cast<std::size_t>(id->map_number),
-                                                    .selection = *selection,
-                                                    .operation = std::move(operation)});
+        calibration::ApplyNumericEdit(workspace, {.session = id->session,
+                                                  .map_index = static_cast<std::size_t>(id->map_number),
+                                                  .selection = *selection,
+                                                  .operation = std::move(operation)});
     if (!outcome.has_value())
     {
         QMessageBox::warning(parent, title, QString::fromStdString(outcome.error().detail));
@@ -228,7 +228,7 @@ void MainWindow::set_value()
 {
     QMdiSubWindow *w = ui_->mdiArea->activeSubWindow();
     const auto id = fastecu::ui::parse_map_window_id(w);
-    if (!id || calibration_workspace_->find(id->session) == nullptr || w->findChild<QTableWidget *>() == nullptr)
+    if (!id || calibration_workspace_->Find(id->session) == nullptr || w->findChild<QTableWidget *>() == nullptr)
     {
         return;
     }
@@ -268,7 +268,7 @@ void MainWindow::copy_value()
     {
         return;
     }
-    const auto *session = calibration_workspace_->find(id->session);
+    const auto *session = calibration_workspace_->Find(id->session);
     if (session == nullptr)
     {
         return;
@@ -278,7 +278,7 @@ void MainWindow::copy_value()
     {
         return;
     }
-    const auto copied = calibration::copy_numeric_values(
+    const auto copied = calibration::CopyNumericValues(
         *calibration_workspace_,
         {.session = id->session, .map_index = static_cast<std::size_t>(id->map_number), .selection = *selection});
     if (!copied.has_value())
@@ -341,7 +341,7 @@ void MainWindow::connect_to_ecu(std::function<void(bool)> onDone)
 
     const std::optional<fastecu::diagnostics::SsmVariant> variant =
         selected_vehicle().make == "Subaru"
-            ? ssm_variant_for_transport(fastecu::ui::qs(config_session_->settings().selected_log_transport))
+            ? ssm_variant_for_transport(fastecu::ui::qs(config_session_->Settings().selected_log_transport))
             : std::nullopt;
     if (!variant.has_value())
     {
@@ -426,7 +426,7 @@ void MainWindow::ecu_definition_manager()
     QListWidget *definitionFiles = new QListWidget;
     definitionFiles->setObjectName("ecu_definition_files_list");
     definitionFiles->setSelectionMode(QAbstractItemView::ExtendedSelection);
-    for (const std::string& file : config_session_->settings().romraider_definition_files)
+    for (const std::string& file : config_session_->Settings().romraider_definition_files)
     {
         new QListWidgetItem(fastecu::ui::qs(file), definitionFiles);
     }
@@ -512,7 +512,7 @@ void MainWindow::continue_start_logging()
     fastecu::desktop::logging::LogSessionConfig config;
     fastecu::logging::LoggingProtocolId protocolId;
     fastecu::logging::LoggingPolicy loggingPolicy{};
-    if (config_session_->settings().selected_log_protocol == "MUT_DMA")
+    if (config_session_->Settings().selected_log_protocol == "MUT_DMA")
     {
         config.protocol_id = "MUT_DMA";
         active_log_value_protocol_filter_ = "MUT_DMA";
@@ -522,7 +522,7 @@ void MainWindow::continue_start_logging()
                          .reconnect_attempt_threshold = 100,
                          .reconnect_retry_period = 20};
     }
-    else if (config_session_->settings().selected_log_protocol == "CDBG")
+    else if (config_session_->Settings().selected_log_protocol == "CDBG")
     {
         config.protocol_id = "CDBG";
         active_log_value_protocol_filter_ = "CDBG";
@@ -619,8 +619,8 @@ void MainWindow::show_hex_editor()
     // copy of the image, so it may outlive the ROM it was opened from.
     if (auto *session = selected_calibration(); session != nullptr)
     {
-        HexEdit *hexEdit = new HexEdit(bytes::toQByteArray(session->rom()),
-                                       QString::fromStdString(session->source().display_name), this);
+        HexEdit *hexEdit = new HexEdit(bytes::toQByteArray(session->Rom()),
+                                       QString::fromStdString(session->Source().display_name), this);
         hexEdit->setAttribute(Qt::WA_DeleteOnClose);
     }
 }
@@ -645,7 +645,7 @@ void MainWindow::show_subaru_biu_window()
     connection_->select_port(port);
 
     fastecu::diagnostics::SerialDiagnosticLink link(&connection_->facade());
-    const auto opened = link.open(fastecu::diagnostics::KlineLinkConfig{
+    const auto opened = link.Open(fastecu::diagnostics::KlineLinkConfig{
         .header = fastecu::diagnostics::KlineHeader::kNone, .iso14230_connection = true, .baud = 10400});
     if (opened.has_value())
     {
@@ -669,7 +669,7 @@ void MainWindow::show_subaru_biu_window()
 
     emit LOG_D("BIU stopped", true, true);
 
-    std::ignore = link.set_header(fastecu::diagnostics::KlineHeader::kNone);
+    std::ignore = link.SetHeader(fastecu::diagnostics::KlineHeader::kNone);
 }
 
 void MainWindow::show_terminal_window()
@@ -720,8 +720,8 @@ void MainWindow::winols_csv_to_romraider_xml()
     }
     // Preserve the legacy filename convention: remove the four-character prefix.
     const auto ecuId = QFileInfo(source).fileName().section('.', 0, 0).mid(4).toUtf8();
-    const auto xml = fastecu::definition::convert_mappack_csv(std::string_view(csv.constData(), csv.size()),
-                                                              std::string_view(ecuId.constData(), ecuId.size()));
+    const auto xml = fastecu::definition::ConvertMappackCsv(std::string_view(csv.constData(), csv.size()),
+                                                            std::string_view(ecuId.constData(), ecuId.size()));
     if (!xml.has_value())
     {
         QMessageBox::warning(this, tr("MapPack CSV file"), QString::fromStdString(xml.error().detail));
@@ -750,7 +750,7 @@ void MainWindow::set_maptablewidget_items()
 {
     auto *window = ui_->mdiArea->activeSubWindow();
     const auto id = fastecu::ui::parse_map_window_id(window);
-    if (!id.has_value() || calibration_workspace_->find(id->session) == nullptr)
+    if (!id.has_value() || calibration_workspace_->Find(id->session) == nullptr)
     {
         return;
     }

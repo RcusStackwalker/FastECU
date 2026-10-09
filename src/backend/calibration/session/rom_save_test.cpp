@@ -22,7 +22,7 @@ class RomSaveTest : public ::testing::Test
   protected:
     void SetUp() override
     {
-        ASSERT_THAT(cfg_.initialize(), IsOk());
+        ASSERT_THAT(cfg_.Initialize(), IsOk());
     }
     CalibrationSession session_{
         SessionId{1},
@@ -37,38 +37,38 @@ class RomSaveTest : public ::testing::Test
 TEST_F(RomSaveTest, SavesEditedBytesAndReopensThem)
 {
     const bytes::Bytes patch{9};
-    ASSERT_THAT(session_.write_bytes(1, patch), IsOk());
-    ASSERT_TRUE(session_.dirty());
-    ASSERT_THAT(saver_.save(session_, "/cal/saved.bin", session_.rom()), IsOk());
-    EXPECT_EQ(session_.source(), (RomSource{"saved.bin", "/cal/saved.bin", RomOrigin::kEcuRead}));
-    EXPECT_FALSE(session_.dirty());
+    ASSERT_THAT(session_.WriteBytes(1, patch), IsOk());
+    ASSERT_TRUE(session_.Dirty());
+    ASSERT_THAT(saver_.Save(session_, "/cal/saved.bin", session_.Rom()), IsOk());
+    EXPECT_EQ(session_.Source(), (RomSource{"saved.bin", "/cal/saved.bin", RomOrigin::kEcuRead}));
+    EXPECT_FALSE(session_.Dirty());
 
     InMemoryAtomicFileWriter writer;
     definition::DefinitionService definitions{cfg_.file_system, cfg_.file_repository, writer};
     testing::FakeDefinitionCatalogs catalogs;
     RomOpenUseCase opener{catalogs, definitions, cfg_.file_repository, cfg_.file_system, cfg_.events, cfg_.session};
-    const auto reopened = opener.open_file("/cal/saved.bin");
+    const auto reopened = opener.OpenFile("/cal/saved.bin");
     ASSERT_THAT(reopened, IsOk());
     EXPECT_THAT(reopened->contents.rom, ElementsAre(1, 9, 3));
     EXPECT_EQ(reopened->contents.source.origin, RomOrigin::kFile);
-    ASSERT_THAT(session_.write_bytes(0, patch), IsOk());
-    EXPECT_TRUE(session_.dirty());
+    ASSERT_THAT(session_.WriteBytes(0, patch), IsOk());
+    EXPECT_TRUE(session_.Dirty());
 }
 
 TEST_F(RomSaveTest, FailurePreservesSourceAndDirtyBytes)
 {
     const bytes::Bytes patch{9};
-    ASSERT_THAT(session_.write_bytes(1, patch), IsOk());
-    const RomSource before = session_.source();
+    ASSERT_THAT(session_.WriteBytes(1, patch), IsOk());
+    const RomSource before = session_.Source();
     cfg_.file_repository.write_errors["/cal/fail.bin"] = Error{ErrorKind::kInternal, "disk full"};
     cfg_.events.logs.clear();
     cfg_.events.notices.clear();
-    const auto result = saver_.save(session_, "/cal/fail.bin", session_.rom());
+    const auto result = saver_.Save(session_, "/cal/fail.bin", session_.Rom());
     ASSERT_THAT(result, IsErr(ErrorKind::kInternal));
     EXPECT_EQ(result.error().detail, "disk full");
-    EXPECT_EQ(session_.source(), before);
-    EXPECT_TRUE(session_.dirty());
-    EXPECT_THAT(session_.rom(), ElementsAre(1, 9, 3));
+    EXPECT_EQ(session_.Source(), before);
+    EXPECT_TRUE(session_.Dirty());
+    EXPECT_THAT(session_.Rom(), ElementsAre(1, 9, 3));
     EXPECT_THAT(cfg_.events.logs,
                 ElementsAre(std::pair{LogLevel::kError, std::string{"Unable to open file /cal/fail.bin for writing"}}));
     EXPECT_THAT(cfg_.events.notices,
@@ -78,20 +78,20 @@ TEST_F(RomSaveTest, FailurePreservesSourceAndDirtyBytes)
 TEST_F(RomSaveTest, SavesOperationImageWithoutReplacingSessionBytes)
 {
     const bytes::Bytes corrected{4, 5, 6};
-    ASSERT_THAT(session_.write_bytes(0, bytes::Bytes{9}), IsOk());
-    ASSERT_THAT(saver_.save(session_, "corrected.bin", corrected), IsOk());
+    ASSERT_THAT(session_.WriteBytes(0, bytes::Bytes{9}), IsOk());
+    ASSERT_THAT(saver_.Save(session_, "corrected.bin", corrected), IsOk());
     EXPECT_THAT(cfg_.file_repository.files.at("corrected.bin"), ElementsAre(4, 5, 6));
-    EXPECT_THAT(session_.rom(), ElementsAre(9, 2, 3));
-    EXPECT_FALSE(session_.dirty());
+    EXPECT_THAT(session_.Rom(), ElementsAre(9, 2, 3));
+    EXPECT_FALSE(session_.Dirty());
 }
 
 TEST_F(RomSaveTest, FailureLeavesAnUneditedSessionClean)
 {
     cfg_.file_repository.write_errors["failed.bin"] = Error{ErrorKind::kInternal, "disk full"};
-    const RomSource before = session_.source();
-    EXPECT_THAT(saver_.save(session_, "failed.bin", session_.rom()), IsErr(ErrorKind::kInternal));
-    EXPECT_FALSE(session_.dirty());
-    EXPECT_EQ(session_.source(), before);
+    const RomSource before = session_.Source();
+    EXPECT_THAT(saver_.Save(session_, "failed.bin", session_.Rom()), IsErr(ErrorKind::kInternal));
+    EXPECT_FALSE(session_.Dirty());
+    EXPECT_EQ(session_.Source(), before);
 }
 
 TEST_F(RomSaveTest, SavingToTheCurrentPathPreservesFileOrigin)
@@ -101,18 +101,18 @@ TEST_F(RomSaveTest, SavingToTheCurrentPathPreservesFileOrigin)
                           .source = {.display_name = "a.bin", .path = "/cal/a.bin", .origin = RomOrigin::kFile},
                           .rom = {1, 2, 3},
                       }};
-    ASSERT_THAT(saver_.save(file_session, file_session.source().path, file_session.rom()), IsOk());
-    EXPECT_EQ(file_session.source(), (RomSource{"a.bin", "/cal/a.bin", RomOrigin::kFile}));
+    ASSERT_THAT(saver_.Save(file_session, file_session.Source().path, file_session.Rom()), IsOk());
+    EXPECT_EQ(file_session.Source(), (RomSource{"a.bin", "/cal/a.bin", RomOrigin::kFile}));
 }
 
 TEST_F(RomSaveTest, SavedPathWithoutBasenameUsesDefaultName)
 {
-    session_.mark_saved("/cal/");
-    EXPECT_EQ(session_.source(), (RomSource{"default.bin", "/cal/", RomOrigin::kEcuRead}));
-    session_.mark_saved("");
-    EXPECT_EQ(session_.source().display_name, "default.bin");
-    session_.mark_saved("plain.bin");
-    EXPECT_EQ(session_.source().display_name, "plain.bin");
+    session_.MarkSaved("/cal/");
+    EXPECT_EQ(session_.Source(), (RomSource{"default.bin", "/cal/", RomOrigin::kEcuRead}));
+    session_.MarkSaved("");
+    EXPECT_EQ(session_.Source().display_name, "default.bin");
+    session_.MarkSaved("plain.bin");
+    EXPECT_EQ(session_.Source().display_name, "plain.bin");
 }
 } // namespace
 } // namespace fastecu::calibration

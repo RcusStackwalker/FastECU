@@ -11,7 +11,7 @@ class IAtomicFileWriter
 {
   public:
     virtual ~IAtomicFileWriter() = default;
-    virtual Status replace(std::string_view handle, std::span<const std::uint8_t> data) = 0;
+    virtual Status Replace(std::string_view handle, std::span<const std::uint8_t> data) = 0;
 };
 
 } // namespace fastecu

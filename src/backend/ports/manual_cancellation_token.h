@@ -12,11 +12,11 @@ namespace fastecu
 class ManualCancellationToken final : public ICancellationToken
 {
   public:
-    bool cancelled() const override
+    bool Cancelled() const override
     {
         return flag_.load();
     }
-    void cancel()
+    void Cancel()
     {
         flag_.store(true);
     }

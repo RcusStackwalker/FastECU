@@ -20,7 +20,7 @@ const bytes::Bytes kRequest{
 };
 
 // Four envelope bytes, 0xE8, then the ten data bytes at 5..14.
-bytes::Bytes goodReply()
+bytes::Bytes GoodReply()
 {
     return {0x00, 0x00, 0x07, 0xe9, 0xe8, 0x11, 0x22, 0x33, 0x44, 0xbe, 0xef, 0x55, 0x66, 0x77, 0x88};
 }
@@ -37,7 +37,7 @@ struct Fixture
 TEST(ReadParametersSession, RequiresTheIso15765TcuPair)
 {
     const Fixture fixture;
-    const auto setup = fixture.session.transport_setup();
+    const auto setup = fixture.session.TransportSetup();
     ASSERT_THAT(setup, fastecu::testing::IsOk());
     EXPECT_EQ(setup->framing, SsmTransportConfig::Framing::kIso15765);
     EXPECT_EQ(setup->bitrate_or_baud, 500000);
@@ -48,16 +48,16 @@ TEST(ReadParametersSession, RequiresTheIso15765TcuPair)
 TEST(ReadParametersSession, RejectsAnUnknownProtocolBeforeAnyIo)
 {
     const ReadParametersSession session{"sub_ecu_denso_sh7058_can"};
-    ASSERT_THAT(session.transport_setup(), fastecu::testing::IsErr(ErrorKind::kUnsupported));
+    ASSERT_THAT(session.TransportSetup(), fastecu::testing::IsErr(ErrorKind::kUnsupported));
 }
 
 TEST(ReadParametersSession, DecodesTheNineValuesFromBytesFiveToFourteen)
 {
     Fixture fixture;
-    fixture.transport.expectWrite(kRequest);
-    fixture.transport.queueRead(goodReply());
+    fixture.transport.ExpectWrite(kRequest);
+    fixture.transport.QueueRead(GoodReply());
 
-    const auto step = fixture.session.resume(fixture.transport, fixture.clock, fixture.cancellation, fixture.events);
+    const auto step = fixture.session.Resume(fixture.transport, fixture.clock, fixture.cancellation, fixture.events);
 
     ASSERT_TRUE(std::holds_alternative<CompletedStep>(step));
     const auto& readout = std::get<TcuParameterReadout>(std::get<CompletedStep>(step).outcome);
@@ -70,8 +70,8 @@ TEST(ReadParametersSession, DecodesTheNineValuesFromBytesFiveToFourteen)
     EXPECT_EQ(readout.four_wheel_drive, 0x66);
     EXPECT_EQ(readout.line_pressure, 0x77);
     EXPECT_EQ(readout.temperature_basis, 0x88);
-    EXPECT_TRUE(fixture.transport.ok());
-    EXPECT_TRUE(fixture.transport.scriptConsumed());
+    EXPECT_TRUE(fixture.transport.Ok());
+    EXPECT_TRUE(fixture.transport.ScriptConsumed());
 }
 
 TEST(ReadParametersSession, AcceptsE8WhichTheLegacyRetryLoopNeverCould)
@@ -79,10 +79,10 @@ TEST(ReadParametersSession, AcceptsE8WhichTheLegacyRetryLoopNeverCould)
     // legacy :571-608 sets responseOK only on 0xF8 and then demands 0xE8, so
     // the legacy always returns STATUS_ERROR. This is the corrected path.
     Fixture fixture;
-    fixture.transport.expectWrite(kRequest);
-    fixture.transport.queueRead(goodReply());
+    fixture.transport.ExpectWrite(kRequest);
+    fixture.transport.QueueRead(GoodReply());
 
-    const auto step = fixture.session.resume(fixture.transport, fixture.clock, fixture.cancellation, fixture.events);
+    const auto step = fixture.session.Resume(fixture.transport, fixture.clock, fixture.cancellation, fixture.events);
     EXPECT_TRUE(std::holds_alternative<CompletedStep>(step));
 }
 
@@ -92,17 +92,17 @@ TEST(ReadParametersSession, RetriesUpToSixTimes)
     Fixture fixture;
     for (int attempt = 0; attempt < 6; ++attempt)
     {
-        fixture.transport.expectWrite(kRequest);
+        fixture.transport.ExpectWrite(kRequest);
     }
     for (int attempt = 0; attempt < 5; ++attempt)
     {
-        fixture.transport.queue_no_frame();
+        fixture.transport.QueueNoFrame();
     }
-    fixture.transport.queueRead(goodReply());
+    fixture.transport.QueueRead(GoodReply());
 
-    const auto step = fixture.session.resume(fixture.transport, fixture.clock, fixture.cancellation, fixture.events);
+    const auto step = fixture.session.Resume(fixture.transport, fixture.clock, fixture.cancellation, fixture.events);
     EXPECT_TRUE(std::holds_alternative<CompletedStep>(step));
-    EXPECT_TRUE(fixture.transport.scriptConsumed());
+    EXPECT_TRUE(fixture.transport.ScriptConsumed());
 }
 
 TEST(ReadParametersSession, TimesOutWhenAllSixAttemptsAreSilent)
@@ -110,11 +110,11 @@ TEST(ReadParametersSession, TimesOutWhenAllSixAttemptsAreSilent)
     Fixture fixture;
     for (int attempt = 0; attempt < 6; ++attempt)
     {
-        fixture.transport.expectWrite(kRequest);
-        fixture.transport.queue_no_frame();
+        fixture.transport.ExpectWrite(kRequest);
+        fixture.transport.QueueNoFrame();
     }
 
-    const auto step = fixture.session.resume(fixture.transport, fixture.clock, fixture.cancellation, fixture.events);
+    const auto step = fixture.session.Resume(fixture.transport, fixture.clock, fixture.cancellation, fixture.events);
     ASSERT_TRUE(std::holds_alternative<FailedStep>(step));
     EXPECT_EQ(std::get<FailedStep>(step).error.kind, ErrorKind::kTimeout);
 }
@@ -123,10 +123,10 @@ TEST(ReadParametersSession, RejectsAFrameShorterThanFifteenBytes)
 {
     // legacy :592 guards on length() > 10 but :624 indexes byte 14.
     Fixture fixture;
-    fixture.transport.expectWrite(kRequest);
-    fixture.transport.queueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xe9, 0xe8, 0x11, 0x22, 0x33, 0x44, 0xbe, 0xef, 0x55});
+    fixture.transport.ExpectWrite(kRequest);
+    fixture.transport.QueueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xe9, 0xe8, 0x11, 0x22, 0x33, 0x44, 0xbe, 0xef, 0x55});
 
-    const auto step = fixture.session.resume(fixture.transport, fixture.clock, fixture.cancellation, fixture.events);
+    const auto step = fixture.session.Resume(fixture.transport, fixture.clock, fixture.cancellation, fixture.events);
     ASSERT_TRUE(std::holds_alternative<FailedStep>(step));
     EXPECT_EQ(std::get<FailedStep>(step).error.kind, ErrorKind::kBadResponse);
 }
@@ -136,12 +136,12 @@ TEST(ReadParametersSession, ReportsANegativeResponseAsBadResponse)
     Fixture fixture;
     for (int attempt = 0; attempt < 6; ++attempt)
     {
-        fixture.transport.expectWrite(kRequest);
-        fixture.transport.queueRead(
+        fixture.transport.ExpectWrite(kRequest);
+        fixture.transport.QueueRead(
             bytes::Bytes{0x00, 0x00, 0x07, 0xe9, 0x7f, 0xa8, 0x11, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00});
     }
 
-    const auto step = fixture.session.resume(fixture.transport, fixture.clock, fixture.cancellation, fixture.events);
+    const auto step = fixture.session.Resume(fixture.transport, fixture.clock, fixture.cancellation, fixture.events);
     ASSERT_TRUE(std::holds_alternative<FailedStep>(step));
     EXPECT_EQ(std::get<FailedStep>(step).error.kind, ErrorKind::kBadResponse);
 }
@@ -149,10 +149,10 @@ TEST(ReadParametersSession, ReportsANegativeResponseAsBadResponse)
 TEST(ReadParametersSession, ReportsADroppedTransportAsDisconnected)
 {
     Fixture fixture;
-    fixture.transport.expectWrite(kRequest);
-    fixture.transport.queue_error(ErrorKind::kDisconnected, "adapter gone");
+    fixture.transport.ExpectWrite(kRequest);
+    fixture.transport.QueueError(ErrorKind::kDisconnected, "adapter gone");
 
-    const auto step = fixture.session.resume(fixture.transport, fixture.clock, fixture.cancellation, fixture.events);
+    const auto step = fixture.session.Resume(fixture.transport, fixture.clock, fixture.cancellation, fixture.events);
     ASSERT_TRUE(std::holds_alternative<FailedStep>(step));
     EXPECT_EQ(std::get<FailedStep>(step).error.kind, ErrorKind::kDisconnected);
 }
@@ -160,9 +160,9 @@ TEST(ReadParametersSession, ReportsADroppedTransportAsDisconnected)
 TEST(ReadParametersSession, ObservesCancellation)
 {
     Fixture fixture;
-    fixture.cancellation.set_cancelled(true);
+    fixture.cancellation.SetCancelled(true);
 
-    const auto step = fixture.session.resume(fixture.transport, fixture.clock, fixture.cancellation, fixture.events);
+    const auto step = fixture.session.Resume(fixture.transport, fixture.clock, fixture.cancellation, fixture.events);
     ASSERT_TRUE(std::holds_alternative<FailedStep>(step));
     EXPECT_EQ(std::get<FailedStep>(step).error.kind, ErrorKind::kCancelled);
 }
@@ -170,11 +170,11 @@ TEST(ReadParametersSession, ObservesCancellation)
 TEST(ReadParametersSession, SubmitIsInternalBecauseItHasNoGates)
 {
     Fixture fixture;
-    fixture.session.submit(GateResponse::kAccept);
-    fixture.transport.expectWrite(kRequest);
-    fixture.transport.queueRead(goodReply());
+    fixture.session.Submit(GateResponse::kAccept);
+    fixture.transport.ExpectWrite(kRequest);
+    fixture.transport.QueueRead(GoodReply());
 
-    const auto step = fixture.session.resume(fixture.transport, fixture.clock, fixture.cancellation, fixture.events);
+    const auto step = fixture.session.Resume(fixture.transport, fixture.clock, fixture.cancellation, fixture.events);
     ASSERT_TRUE(std::holds_alternative<FailedStep>(step));
     EXPECT_EQ(std::get<FailedStep>(step).error.kind, ErrorKind::kInternal);
 }

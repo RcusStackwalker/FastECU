@@ -15,13 +15,13 @@ namespace fastecu::definition
 namespace
 {
 
-std::vector<std::uint8_t> bytes(std::string_view text)
+std::vector<std::uint8_t> Bytes(std::string_view text)
 {
     return {text.begin(), text.end()};
 }
 
-void expect_invalid_with_context(const Result<UnresolvedDefinition>& result, std::string_view source_context,
-                                 std::string_view xml_context)
+void ExpectInvalidWithContext(const Result<UnresolvedDefinition>& result, std::string_view source_context,
+                              std::string_view xml_context)
 {
     ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     EXPECT_THAT(result.error().detail, ::testing::HasSubstr(source_context));
@@ -30,12 +30,12 @@ void expect_invalid_with_context(const Result<UnresolvedDefinition>& result, std
 
 TEST(EcuFlashParserTest, IndexesIdentityAndIncludeWithoutResolvingIt)
 {
-    const auto xml = bytes(R"xml(
+    const auto xml = Bytes(R"xml(
       <rom><romid><xmlid>CHILD</xmlid><internalidaddress>1A0</internalidaddress>
       <internalidstring>CHILD-ID</internalidstring><ecuid>ECU-1</ecuid></romid>
       <include>BASE</include></rom>)xml");
 
-    auto result = parse_ecuflash_index(xml, "ecuflash.xml");
+    auto result = ParseEcuflashIndex(xml, "ecuflash.xml");
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_EQ(result->size(), 1U);
@@ -51,7 +51,7 @@ TEST(EcuFlashParserTest, IndexesIdentityAndIncludeWithoutResolvingIt)
 
 TEST(EcuFlashParserTest, ParsesMetadataGlobalScalingsAndNestedAxes)
 {
-    const auto xml = bytes(R"xml(
+    const auto xml = Bytes(R"xml(
       <rom>
         <romid><xmlid>TEST</xmlid><internalidaddress>100</internalidaddress>
           <internalidstring>TEST-ID</internalidstring><ecuid>ECU-A</ecuid>
@@ -80,7 +80,7 @@ TEST(EcuFlashParserTest, ParsesMetadataGlobalScalingsAndNestedAxes)
         </table>
       </rom>)xml");
 
-    auto result = parse_ecuflash_definition(xml, "test.xml");
+    auto result = ParseEcuflashDefinition(xml, "test.xml");
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(result->format, DefinitionFormat::kEcuFlash);
@@ -158,14 +158,14 @@ TEST(EcuFlashParserTest, ParsesMetadataGlobalScalingsAndNestedAxes)
 
 TEST(EcuFlashParserTest, InlineBloblistScalingMakesTheMapSelectable)
 {
-    const auto xml = bytes(R"xml(
+    const auto xml = Bytes(R"xml(
       <rom><romid><xmlid>SELECT</xmlid></romid>
       <table name="Mode" address="40" type="1D">
         <scaling storagetype="bloblist" endian="little"><data name="off" value="00"/>
                  <data name="on" value="01"/></scaling>
       </table></rom>)xml");
 
-    auto result = parse_ecuflash_definition(xml, "select.xml");
+    auto result = ParseEcuflashDefinition(xml, "select.xml");
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_EQ(result->maps.size(), 1U);
@@ -182,11 +182,11 @@ TEST(EcuFlashParserTest, InlineBloblistScalingMakesTheMapSelectable)
 
 TEST(EcuFlashParserTest, PreservesStaticAxisDataWithoutAnExplicitSize)
 {
-    auto result = parse_ecuflash_definition(bytes(R"xml(
+    auto result = ParseEcuflashDefinition(Bytes(R"xml(
       <rom><romid><xmlid>STATIC</xmlid></romid>
       <table name="Static Curve"><data>10</data><data>20</data></table>
       </rom>)xml"),
-                                            "static.xml");
+                                          "static.xml");
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_EQ(result->maps.size(), 1U);
@@ -198,11 +198,11 @@ TEST(EcuFlashParserTest, PreservesStaticAxisDataWithoutAnExplicitSize)
 
 TEST(EcuFlashParserTest, AddressWinsAndStrictFlagsParse)
 {
-    auto result = parse_ecuflash_definition(bytes(R"xml(
+    auto result = ParseEcuflashDefinition(Bytes(R"xml(
       <rom><romid><xmlid>TEST</xmlid></romid>
       <table name="Fuel" address="1000" storageaddress="2000"
              swapxy="true" flipx="false" flipy="true"/></rom>)xml"),
-                                            "test.xml");
+                                          "test.xml");
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(result->maps.at(0).address, 0x1000);
     EXPECT_EQ(result->maps.at(0).swap_xy, true);
@@ -212,10 +212,10 @@ TEST(EcuFlashParserTest, AddressWinsAndStrictFlagsParse)
 
 TEST(EcuFlashParserTest, NormalizesTopLevelXAxisMapToTwoDimensional)
 {
-    auto result = parse_ecuflash_definition(bytes(R"xml(
+    auto result = ParseEcuflashDefinition(Bytes(R"xml(
       <rom><romid><xmlid>TEST</xmlid></romid>
       <table name="Engine Speed" type="X Axis" elements="4"/></rom>)xml"),
-                                            "test.xml");
+                                          "test.xml");
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_EQ(result->maps.size(), 1U);
@@ -226,10 +226,10 @@ TEST(EcuFlashParserTest, NormalizesTopLevelXAxisMapToTwoDimensional)
 
 TEST(EcuFlashParserTest, NormalizesTopLevelYAxisMapToTwoDimensional)
 {
-    auto result = parse_ecuflash_definition(bytes(R"xml(
+    auto result = ParseEcuflashDefinition(Bytes(R"xml(
       <rom><romid><xmlid>TEST</xmlid></romid>
       <table name="Load" type="Y Axis" elements="5"/></rom>)xml"),
-                                            "test.xml");
+                                          "test.xml");
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_EQ(result->maps.size(), 1U);
@@ -240,13 +240,13 @@ TEST(EcuFlashParserTest, NormalizesTopLevelYAxisMapToTwoDimensional)
 
 TEST(EcuFlashParserTest, KeepsInputBytesAndSymbolicScalingReferencesUnchanged)
 {
-    const auto xml = bytes(R"xml(
+    const auto xml = Bytes(R"xml(
       <rom><romid><xmlid>TEST</xmlid></romid>
       <scaling name="shared" format="%.0f"/>
       <table name="Fuel" scaling="shared"/></rom>)xml");
     const auto original = xml;
 
-    auto result = parse_ecuflash_definition(xml, "test.xml");
+    auto result = ParseEcuflashDefinition(xml, "test.xml");
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(xml, original);
@@ -257,11 +257,11 @@ TEST(EcuFlashParserTest, KeepsInputBytesAndSymbolicScalingReferencesUnchanged)
 
 TEST(EcuFlashParserTest, PreservesAbsentOptionalFields)
 {
-    auto result = parse_ecuflash_definition(bytes(R"xml(
+    auto result = ParseEcuflashDefinition(Bytes(R"xml(
       <rom><romid><xmlid>TEST</xmlid></romid>
       <scaling name="shared"/>
       <table name="Fuel" scaling="shared"/></rom>)xml"),
-                                            "test.xml");
+                                          "test.xml");
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_EQ(result->maps.size(), 1U);
@@ -279,10 +279,10 @@ TEST(EcuFlashParserTest, PreservesAbsentOptionalFields)
 
 TEST(EcuFlashParserTest, ConvertsAnyPositivePrintfPrecision)
 {
-    auto result = parse_ecuflash_definition(bytes(R"xml(
+    auto result = ParseEcuflashDefinition(Bytes(R"xml(
       <rom><romid><xmlid>TEST</xmlid></romid>
       <scaling name="precise" format="%.1001f"/></rom>)xml"),
-                                            "test.xml");
+                                          "test.xml");
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(result->scalings.front().format, std::string("0.") + std::string(1001, '0'));
@@ -290,26 +290,26 @@ TEST(EcuFlashParserTest, ConvertsAnyPositivePrintfPrecision)
 
 TEST(EcuFlashParserTest, RejectsMalformedXml)
 {
-    auto result = parse_ecuflash_definition(bytes("<rom><romid>"), "broken.xml");
-    expect_invalid_with_context(result, "broken.xml", "XML document");
+    auto result = ParseEcuflashDefinition(Bytes("<rom><romid>"), "broken.xml");
+    ExpectInvalidWithContext(result, "broken.xml", "XML document");
 }
 
 TEST(EcuFlashParserTest, RejectsMissingIdentity)
 {
-    auto result = parse_ecuflash_definition(bytes("<rom><romid><ecuid>E</ecuid></romid></rom>"), "missing-id.xml");
-    expect_invalid_with_context(result, "missing-id.xml", "<xmlid>");
+    auto result = ParseEcuflashDefinition(Bytes("<rom><romid><ecuid>E</ecuid></romid></rom>"), "missing-id.xml");
+    ExpectInvalidWithContext(result, "missing-id.xml", "<xmlid>");
 }
 
 TEST(EcuFlashParserTest, RejectsInvalidAddressAndDimension)
 {
-    auto address = parse_ecuflash_definition(
-        bytes("<rom><romid><xmlid>A</xmlid></romid><table name=\"Fuel\" address=\"not-hex\"/></rom>"),
+    auto address = ParseEcuflashDefinition(
+        Bytes("<rom><romid><xmlid>A</xmlid></romid><table name=\"Fuel\" address=\"not-hex\"/></rom>"),
         "bad-address.xml");
-    expect_invalid_with_context(address, "bad-address.xml", "address");
+    ExpectInvalidWithContext(address, "bad-address.xml", "address");
 
-    auto dimension = parse_ecuflash_definition(
-        bytes("<rom><romid><xmlid>A</xmlid></romid><table name=\"Fuel\" sizex=\"0\"/></rom>"), "bad-dimension.xml");
-    expect_invalid_with_context(dimension, "bad-dimension.xml", "sizex");
+    auto dimension = ParseEcuflashDefinition(
+        Bytes("<rom><romid><xmlid>A</xmlid></romid><table name=\"Fuel\" sizex=\"0\"/></rom>"), "bad-dimension.xml");
+    ExpectInvalidWithContext(dimension, "bad-dimension.xml", "sizex");
 }
 
 TEST(EcuFlashParserTest, RejectsInvalidStartPositionAndInterval)
@@ -318,17 +318,17 @@ TEST(EcuFlashParserTest, RejectsInvalidStartPositionAndInterval)
     {
         const std::string xml = std::string("<rom><romid><xmlid>A</xmlid></romid><table name=\"Fuel\" ") + attribute +
                                 "=\"not-hex\"/></rom>";
-        auto result = parse_ecuflash_definition(bytes(xml), "bad-hex-dimension.xml");
-        expect_invalid_with_context(result, "bad-hex-dimension.xml", attribute);
+        auto result = ParseEcuflashDefinition(Bytes(xml), "bad-hex-dimension.xml");
+        ExpectInvalidWithContext(result, "bad-hex-dimension.xml", attribute);
     }
 }
 
 TEST(EcuFlashParserTest, RejectsUnrecognizedStorageType)
 {
-    auto result = parse_ecuflash_definition(
-        bytes("<rom><romid><xmlid>A</xmlid></romid><table name=\"Fuel\" storagetype=\"nibble\"/></rom>"),
+    auto result = ParseEcuflashDefinition(
+        Bytes("<rom><romid><xmlid>A</xmlid></romid><table name=\"Fuel\" storagetype=\"nibble\"/></rom>"),
         "bad-storagetype.xml");
-    expect_invalid_with_context(result, "bad-storagetype.xml", "storagetype");
+    ExpectInvalidWithContext(result, "bad-storagetype.xml", "storagetype");
 }
 
 TEST(EcuFlashParserTest, RejectsInvalidStrictFlags)
@@ -337,62 +337,62 @@ TEST(EcuFlashParserTest, RejectsInvalidStrictFlags)
     {
         const std::string xml =
             std::string("<rom><romid><xmlid>A</xmlid></romid><table name=\"Fuel\" ") + attribute + "=\"yes\"/></rom>";
-        auto result = parse_ecuflash_definition(bytes(xml), "bad-bool.xml");
-        expect_invalid_with_context(result, "bad-bool.xml", attribute);
+        auto result = ParseEcuflashDefinition(Bytes(xml), "bad-bool.xml");
+        ExpectInvalidWithContext(result, "bad-bool.xml", attribute);
     }
 }
 
 TEST(EcuFlashParserTest, RejectsConflictingDuplicateGlobalScaling)
 {
-    auto result = parse_ecuflash_definition(bytes(R"xml(
+    auto result = ParseEcuflashDefinition(Bytes(R"xml(
       <rom><romid><xmlid>A</xmlid></romid>
       <scaling name="shared" toexpr="x"/><scaling name="shared" toexpr="x+1"/>
       </rom>)xml"),
-                                            "duplicate.xml");
-    expect_invalid_with_context(result, "duplicate.xml", "<scaling>");
+                                          "duplicate.xml");
+    ExpectInvalidWithContext(result, "duplicate.xml", "<scaling>");
 }
 
 TEST(EcuFlashParserTest, RejectsStructurallyIncompleteAxis)
 {
-    auto result = parse_ecuflash_definition(bytes(R"xml(
+    auto result = ParseEcuflashDefinition(Bytes(R"xml(
       <rom><romid><xmlid>A</xmlid></romid><table name="Fuel" type="3D">
       <table type="X Axis"/></table></rom>)xml"),
-                                            "bad-axis.xml");
-    expect_invalid_with_context(result, "bad-axis.xml", "X Axis");
+                                          "bad-axis.xml");
+    ExpectInvalidWithContext(result, "bad-axis.xml", "X Axis");
 }
 
 TEST(EcuFlashParserTest, RejectsSecondAxisTargetingAnOccupiedSemanticSlot)
 {
-    auto duplicate_x = parse_ecuflash_definition(bytes(R"xml(
+    auto duplicate_x = ParseEcuflashDefinition(Bytes(R"xml(
       <rom><romid><xmlid>X_DUPLICATE</xmlid></romid>
       <table name="Fuel" type="3D" sizex="2" sizey="2">
         <table type="X Axis" name="First X"/>
         <table type="Static X Axis" name="Second X"/>
         <table type="Y Axis" name="Only Y"/>
       </table></rom>)xml"),
-                                                 "duplicate-x-axis.xml");
-    expect_invalid_with_context(duplicate_x, "duplicate-x-axis.xml", "X axis");
+                                               "duplicate-x-axis.xml");
+    ExpectInvalidWithContext(duplicate_x, "duplicate-x-axis.xml", "X axis");
 
-    auto duplicate_y = parse_ecuflash_definition(bytes(R"xml(
+    auto duplicate_y = ParseEcuflashDefinition(Bytes(R"xml(
       <rom><romid><xmlid>Y_DUPLICATE</xmlid></romid>
       <table name="Fuel" type="3D" sizex="2" sizey="2">
         <table type="X Axis" name="Only X"/>
         <table type="Y Axis" name="First Y"/>
         <table type="Y Axis" name="Second Y"/>
       </table></rom>)xml"),
-                                                 "duplicate-y-axis.xml");
-    expect_invalid_with_context(duplicate_y, "duplicate-y-axis.xml", "Y axis");
+                                               "duplicate-y-axis.xml");
+    ExpectInvalidWithContext(duplicate_y, "duplicate-y-axis.xml", "Y axis");
 }
 
 TEST(EcuFlashParserTest, HeaderWhitespacePreservationDoesNotHideTableDescriptionOrStaticData)
 {
-    const auto xml = bytes(R"xml(<rom><romid><xmlid>ID</xmlid><notes>  </notes></romid>
+    const auto xml = Bytes(R"xml(<rom><romid><xmlid>ID</xmlid><notes>  </notes></romid>
       <table name="Fuel" address="100"><description> <!-- split -->description</description>
         <table type="Static X Axis" name="RPM" elements="1"><data> <![CDATA[1000]]></data></table>
       </table>
       <table name="Inline" address="200"><data> <![CDATA[2000]]></data></table>
     </rom>)xml");
-    const auto result = parse_ecuflash_definition(xml, "whitespace.xml");
+    const auto result = ParseEcuflashDefinition(xml, "whitespace.xml");
     ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_EQ(result->maps.size(), 2U);
     EXPECT_EQ(result->maps[0].description, "description");

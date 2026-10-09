@@ -8,7 +8,7 @@ using fastecu::ErrorKind;
 TEST(QtResourceBundleTest, ListsRealShippedConfigFiles)
 {
     QtResourceBundle bundle;
-    auto names = bundle.list("config");
+    auto names = bundle.List("config");
 
     ASSERT_THAT(names, fastecu::testing::IsOk());
     EXPECT_NE(std::find(names->begin(), names->end(), "fastecu.cfg"), names->end());
@@ -20,7 +20,7 @@ TEST(QtResourceBundleTest, ListsRealShippedConfigFiles)
 TEST(QtResourceBundleTest, ListsRealShippedKernelFiles)
 {
     QtResourceBundle bundle;
-    auto names = bundle.list("kernels");
+    auto names = bundle.List("kernels");
 
     ASSERT_THAT(names, fastecu::testing::IsOk());
     EXPECT_NE(std::find(names->begin(), names->end(), "ssmk_can_sh7055.bin"), names->end());
@@ -29,7 +29,7 @@ TEST(QtResourceBundleTest, ListsRealShippedKernelFiles)
 TEST(QtResourceBundleTest, ReadReturnsNonEmptyBytesForAKnownFile)
 {
     QtResourceBundle bundle;
-    auto bytes = bundle.read("config", "fastecu.cfg");
+    auto bytes = bundle.Read("config", "fastecu.cfg");
 
     ASSERT_THAT(bytes, fastecu::testing::IsOk());
     EXPECT_GT(bytes->size(), 0U);
@@ -38,5 +38,5 @@ TEST(QtResourceBundleTest, ReadReturnsNonEmptyBytesForAKnownFile)
 TEST(QtResourceBundleTest, UnknownBundleIdIsInvalidConfig)
 {
     QtResourceBundle bundle;
-    ASSERT_THAT(bundle.list("not-a-real-bundle"), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
+    ASSERT_THAT(bundle.List("not-a-real-bundle"), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }

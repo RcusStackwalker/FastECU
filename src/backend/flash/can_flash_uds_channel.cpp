@@ -14,16 +14,16 @@ CanFlashUdsChannel::CanFlashUdsChannel(ICanFlashTransport& transport, std::uint3
 {
 }
 
-Status CanFlashUdsChannel::send(bytes::ByteView pdu, const ICancellationToken& cancellation)
+Status CanFlashUdsChannel::Send(bytes::ByteView pdu, const ICancellationToken& cancellation)
 {
     last_received_frame_.reset();
-    return transport_.write(bytes::ComposeBe(request_id_, pdu), cancellation);
+    return transport_.Write(bytes::ComposeBe(request_id_, pdu), cancellation);
 }
 
-Result<std::optional<bytes::Bytes>> CanFlashUdsChannel::receive(std::chrono::milliseconds timeout,
+Result<std::optional<bytes::Bytes>> CanFlashUdsChannel::Receive(std::chrono::milliseconds timeout,
                                                                 const ICancellationToken& cancellation)
 {
-    Result<std::optional<bytes::Bytes>> frame = transport_.read(timeout, cancellation);
+    Result<std::optional<bytes::Bytes>> frame = transport_.Read(timeout, cancellation);
     if (!frame.has_value())
     {
         return std::unexpected(frame.error());
@@ -37,20 +37,20 @@ Result<std::optional<bytes::Bytes>> CanFlashUdsChannel::receive(std::chrono::mil
     last_received_frame_ = raw;
     if (raw.size() < kEnvelopeSize)
     {
-        return fail(ErrorKind::kBadResponse,
+        return Fail(ErrorKind::kBadResponse,
                     std::format("CAN frame of {} bytes is shorter than its 4-byte id envelope", raw.size()));
     }
 
     if (const std::uint32_t id = bytes::ReadU32Be(raw); id != response_id_)
     {
-        return fail(ErrorKind::kBadResponse, std::format("expected CAN reply id 0x{:x}, got 0x{:x}", response_id_, id));
+        return Fail(ErrorKind::kBadResponse, std::format("expected CAN reply id 0x{:x}, got 0x{:x}", response_id_, id));
     }
 
     return std::optional<bytes::Bytes>(
         bytes::Bytes(raw.begin() + static_cast<std::ptrdiff_t>(kEnvelopeSize), raw.end()));
 }
 
-const std::optional<bytes::Bytes>& CanFlashUdsChannel::last_received_frame() const noexcept
+const std::optional<bytes::Bytes>& CanFlashUdsChannel::LastReceivedFrame() const noexcept
 {
     return last_received_frame_;
 }

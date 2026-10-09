@@ -11,10 +11,10 @@ class FastEcuSsmTransport : public fastecu::ISsmTransport
     explicit FastEcuSsmTransport(SerialPortActions *serial) : serial_(serial)
     {
     }
-    fastecu::Result<std::size_t> write(bytes::ByteView data) override;
-    fastecu::Result<OptionalBytes> read(std::chrono::milliseconds timeout,
+    fastecu::Result<std::size_t> Write(bytes::ByteView data) override;
+    fastecu::Result<OptionalBytes> Read(std::chrono::milliseconds timeout,
                                         const fastecu::ICancellationToken& cancellation) override;
-    bool isOpen() const override;
+    bool IsOpen() const override;
 
   private:
     SerialPortActions *serial_;

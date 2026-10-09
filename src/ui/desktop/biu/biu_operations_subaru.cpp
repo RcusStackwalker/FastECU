@@ -339,11 +339,11 @@ void BiuOperationsSubaru::send_biu_msg()
 
     if (connection_state_ == kNotConnected && current_command_ == kConnect)
     {
-        std::ignore = link_->fast_init(output_);
+        std::ignore = link_->FastInit(output_);
     }
     else
     {
-        std::ignore = link_->write(output_);
+        std::ignore = link_->Write(output_);
     }
 
     received = diagnostic_link_io::read_or_empty(*link_, serial_read_long_timeout_);

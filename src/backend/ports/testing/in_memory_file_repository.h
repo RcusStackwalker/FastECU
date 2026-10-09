@@ -14,7 +14,7 @@ namespace fastecu
 class InMemoryFileRepository : public IFileRepository
 {
   public:
-    Result<std::vector<std::uint8_t>> read(std::string_view h) override
+    Result<std::vector<std::uint8_t>> Read(std::string_view h) override
     {
         read_handles.push_back(std::string(h));
         if (next_read_result)
@@ -31,15 +31,15 @@ class InMemoryFileRepository : public IFileRepository
         auto it = files.find(key);
         if (it == files.end())
         {
-            return fail(ErrorKind::kInvalidConfig, "no such handle");
+            return Fail(ErrorKind::kInvalidConfig, "no such handle");
         }
         return it->second;
     }
-    int read_count(std::string_view handle) const
+    int ReadCount(std::string_view handle) const
     {
         return static_cast<int>(std::count(read_handles.begin(), read_handles.end(), std::string(handle)));
     }
-    Status write(std::string_view h, std::span<const std::uint8_t> d) override
+    Status Write(std::string_view h, std::span<const std::uint8_t> d) override
     {
         if (auto error = write_errors.find(std::string(h)); error != write_errors.end())
         {

@@ -8,13 +8,13 @@ using fastecu::ErrorKind;
 using fastecu::InMemoryFileRepository;
 using fastecu::config::AppConfig;
 using fastecu::config::ConfigPaths;
-using fastecu::config::load_app_config;
-using fastecu::config::parse_app_config;
-using fastecu::config::save_app_config;
+using fastecu::config::LoadAppConfig;
+using fastecu::config::ParseAppConfig;
+using fastecu::config::SaveAppConfig;
 
 namespace
 {
-ConfigPaths test_paths()
+ConfigPaths TestPaths()
 {
     ConfigPaths p;
     p.config_file = "fastecu.cfg";
@@ -77,11 +77,11 @@ constexpr const char *kShippedDefaultConfig = R"(<?xml version="1.0" encoding="U
 TEST(LoadAppConfig, ParsesEveryShippedDefaultSetting)
 {
     InMemoryFileRepository repo;
-    ConfigPaths paths = test_paths();
+    ConfigPaths paths = TestPaths();
     repo.files[paths.config_file] =
         std::vector<std::uint8_t>(kShippedDefaultConfig, kShippedDefaultConfig + strlen(kShippedDefaultConfig));
 
-    auto config = load_app_config(paths, repo);
+    auto config = LoadAppConfig(paths, repo);
 
     ASSERT_THAT(config, fastecu::testing::IsOk());
     EXPECT_EQ(config->window_width, "maximized");
@@ -106,13 +106,13 @@ TEST(LoadAppConfig, ParsesEveryShippedDefaultSetting)
 TEST(LoadAppConfig, ALegacyProtocolIdIsNotRead)
 {
     InMemoryFileRepository repo;
-    const ConfigPaths paths = test_paths();
+    const ConfigPaths paths = TestPaths();
     const std::string text = R"(<config name="FastECU"><software_settings>)"
                              R"(<setting name="protocol_id"><value data="35"/></setting>)"
                              R"(</software_settings></config>)";
     repo.files[paths.config_file] = std::vector<std::uint8_t>(text.begin(), text.end());
 
-    auto config = load_app_config(paths, repo);
+    auto config = LoadAppConfig(paths, repo);
 
     ASSERT_THAT(config, fastecu::testing::IsOk());
     EXPECT_TRUE(config->selected_vehicle_id.empty());
@@ -121,13 +121,13 @@ TEST(LoadAppConfig, ALegacyProtocolIdIsNotRead)
 TEST(LoadAppConfig, InvalidPrimaryDefinitionBaseValueIsDiscarded)
 {
     InMemoryFileRepository repo;
-    ConfigPaths paths = test_paths();
+    ConfigPaths paths = TestPaths();
     std::string xml = R"(<?xml version="1.0"?><config name="FastECU" version="x"><software_settings>)"
                       R"(<setting name="primary_definition_base"><value data="not-a-real-base"/></setting>)"
                       R"(</software_settings></config>)";
     repo.files[paths.config_file] = std::vector<std::uint8_t>(xml.begin(), xml.end());
 
-    auto config = load_app_config(paths, repo);
+    auto config = LoadAppConfig(paths, repo);
 
     ASSERT_THAT(config, fastecu::testing::IsOk());
     EXPECT_EQ(config->primary_definition_base, ""); // default-constructed, not overwritten
@@ -140,13 +140,13 @@ TEST(LoadAppConfig, InvalidPrimaryDefinitionBaseValueIsDiscarded)
 TEST(LoadAppConfig, ConfigElementWithWrongNameAttributeIsNotParsed)
 {
     InMemoryFileRepository repo;
-    ConfigPaths paths = test_paths();
+    ConfigPaths paths = TestPaths();
     std::string xml = R"(<?xml version="1.0"?><config name="SomeOtherApp" version="x"><software_settings>)"
                       R"(<setting name="serial_port"><value data="COM7"/></setting>)"
                       R"(</software_settings></config>)";
     repo.files[paths.config_file] = std::vector<std::uint8_t>(xml.begin(), xml.end());
 
-    auto config = load_app_config(paths, repo);
+    auto config = LoadAppConfig(paths, repo);
 
     ASSERT_THAT(config, fastecu::testing::IsOk());
     EXPECT_EQ(config->serial_port, ""); // default-constructed, not "COM7"
@@ -155,21 +155,21 @@ TEST(LoadAppConfig, ConfigElementWithWrongNameAttributeIsNotParsed)
 TEST(LoadAppConfig, MissingFileIsPropagatedAsInvalidConfig)
 {
     InMemoryFileRepository repo;
-    ConfigPaths paths = test_paths();
+    ConfigPaths paths = TestPaths();
 
-    ASSERT_THAT(load_app_config(paths, repo), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
+    ASSERT_THAT(LoadAppConfig(paths, repo), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
 TEST(SaveAppConfig, NormalizesTrailingSlashesOnThreeDirectoryFields)
 {
     InMemoryFileRepository repo;
-    ConfigPaths paths = test_paths();
+    ConfigPaths paths = TestPaths();
     AppConfig config;
     config.calibration_files_directory = "calibrations";
     config.ecuflash_definition_files_directory = "ecuflash";
     config.datalog_files_directory = "datalogs";
 
-    auto saved = save_app_config(config, paths, repo);
+    auto saved = SaveAppConfig(config, paths, repo);
 
     ASSERT_THAT(saved, fastecu::testing::IsOk());
     EXPECT_EQ(saved->calibration_files_directory, "calibrations/");
@@ -180,12 +180,12 @@ TEST(SaveAppConfig, NormalizesTrailingSlashesOnThreeDirectoryFields)
 TEST(SaveAppConfigThenLoadAppConfig, DatalogDirectoryRoundTrips)
 {
     InMemoryFileRepository repo;
-    ConfigPaths paths = test_paths();
+    ConfigPaths paths = TestPaths();
     AppConfig config;
     config.datalog_files_directory = "custom_datalogs/";
 
-    ASSERT_THAT(save_app_config(config, paths, repo), fastecu::testing::IsOk());
-    auto reloaded = load_app_config(paths, repo);
+    ASSERT_THAT(SaveAppConfig(config, paths, repo), fastecu::testing::IsOk());
+    auto reloaded = LoadAppConfig(paths, repo);
 
     ASSERT_THAT(reloaded, fastecu::testing::IsOk());
     EXPECT_EQ(reloaded->datalog_files_directory, "custom_datalogs/");
@@ -194,7 +194,7 @@ TEST(SaveAppConfigThenLoadAppConfig, DatalogDirectoryRoundTrips)
 TEST(SaveAppConfigThenLoadAppConfig, EveryOtherFieldRoundTrips)
 {
     InMemoryFileRepository repo;
-    ConfigPaths paths = test_paths();
+    ConfigPaths paths = TestPaths();
     AppConfig config;
     config.window_width = "1024";
     config.window_height = "768";
@@ -213,8 +213,8 @@ TEST(SaveAppConfigThenLoadAppConfig, EveryOtherFieldRoundTrips)
     config.ecuflash_definition_files_directory = "ecu/";
     config.romraider_logger_definition_file = "logger.xml";
 
-    ASSERT_THAT(save_app_config(config, paths, repo), fastecu::testing::IsOk());
-    auto reloaded = load_app_config(paths, repo);
+    ASSERT_THAT(SaveAppConfig(config, paths, repo), fastecu::testing::IsOk());
+    auto reloaded = LoadAppConfig(paths, repo);
 
     ASSERT_THAT(reloaded, fastecu::testing::IsOk());
     EXPECT_EQ(reloaded->window_width, "1024");
@@ -237,7 +237,7 @@ TEST(SaveAppConfigThenLoadAppConfig, EveryOtherFieldRoundTrips)
 
 namespace
 {
-void put_text(InMemoryFileRepository& repo, const std::string& handle, std::string_view text)
+void PutText(InMemoryFileRepository& repo, const std::string& handle, std::string_view text)
 {
     repo.files[handle] = std::vector<std::uint8_t>(text.begin(), text.end());
 }
@@ -253,9 +253,9 @@ TEST(ParseAppConfig, ReadsWithoutWritingAndKeepsTheParserContract)
     InMemoryFileRepository repo;
     ConfigPaths paths;
     paths.config_file = "fastecu.cfg";
-    put_text(repo, paths.config_file, kUnnormalizedCalibrationDir);
+    PutText(repo, paths.config_file, kUnnormalizedCalibrationDir);
 
-    const auto parsed = parse_app_config(paths, repo);
+    const auto parsed = ParseAppConfig(paths, repo);
 
     ASSERT_TRUE(parsed.has_value());
     EXPECT_EQ(parsed->calibration_files_directory, "/cal"); // unnormalized
@@ -268,9 +268,9 @@ TEST(LoadAppConfig, StillRewritesTheFileOnLoad)
     InMemoryFileRepository repo;
     ConfigPaths paths;
     paths.config_file = "fastecu.cfg";
-    put_text(repo, paths.config_file, kUnnormalizedCalibrationDir);
+    PutText(repo, paths.config_file, kUnnormalizedCalibrationDir);
 
-    ASSERT_TRUE(load_app_config(paths, repo).has_value());
+    ASSERT_TRUE(LoadAppConfig(paths, repo).has_value());
 
     ASSERT_EQ(repo.write_calls.size(), 1U);
     EXPECT_EQ(repo.write_calls.front().first, "fastecu.cfg");
@@ -282,5 +282,5 @@ TEST(ParseAppConfig, MissingFileIsAnError)
     ConfigPaths paths;
     paths.config_file = "absent.cfg";
 
-    EXPECT_FALSE(parse_app_config(paths, repo).has_value());
+    EXPECT_FALSE(ParseAppConfig(paths, repo).has_value());
 }

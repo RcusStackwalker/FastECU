@@ -122,7 +122,7 @@ void DtcOperations::stopWorker()
     }
     // Today's closeEvent reset the facade; the session epilogue already reset
     // after a run, and a second reset is harmless.
-    std::ignore = link_.reset();
+    std::ignore = link_.Reset();
 }
 
 void DtcOperations::closeEvent(QCloseEvent *event)

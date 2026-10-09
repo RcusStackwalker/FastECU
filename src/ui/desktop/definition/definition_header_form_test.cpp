@@ -146,7 +146,7 @@ TEST(NormalizeXmlSuffixTest, StripsOneTrailingDotThenAppendsXml)
 
 TEST(ImportedHeaderFieldsTest, LiteralMarkupNotesSurviveExtractionFormAndWriting)
 {
-    const auto draft = fastecu::definition::read_definition_header(
+    const auto draft = fastecu::definition::ReadDefinitionHeader(
         "<rom><romid><xmlid>ID</xmlid><internalidstring>INTERNAL</internalidstring><ecuid>ECU</ecuid>"
         "</romid><notes><![CDATA[ \n<b>literal note</b>\n ]]></notes></rom>");
     ASSERT_THAT(draft, fastecu::testing::IsOk());
@@ -156,7 +156,7 @@ TEST(ImportedHeaderFieldsTest, LiteralMarkupNotesSurviveExtractionFormAndWriting
     const auto input = definition_header_input(editors);
     ASSERT_THAT(input, fastecu::testing::IsOk());
     EXPECT_EQ(input->notes, " \n<b>literal note</b>\n ");
-    const auto written = fastecu::definition::create_ecuflash_xml(*input);
+    const auto written = fastecu::definition::CreateEcuflashXml(*input);
     ASSERT_THAT(written, fastecu::testing::IsOk());
     EXPECT_THAT(std::string(written->begin(), written->end()),
                 testing::HasSubstr("<notes> \n&lt;b&gt;literal note&lt;/b&gt;\n </notes>"));

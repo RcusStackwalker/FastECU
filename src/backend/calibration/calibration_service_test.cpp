@@ -27,14 +27,14 @@ TEST(ReadRom, ReadsRequestedHandleThroughRepository)
     InMemoryFileRepository repo;
     repo.files["in.bin"] = {0xAA, 0xBB};
 
-    ASSERT_THAT(read_rom("in.bin", repo), fastecu::testing::IsOkAnd((std::vector<std::uint8_t>{0xAA, 0xBB})));
+    ASSERT_THAT(ReadRom("in.bin", repo), fastecu::testing::IsOkAnd((std::vector<std::uint8_t>{0xAA, 0xBB})));
 }
 
 TEST(ReadRom, ReadFailureIsPropagated)
 {
     InMemoryFileRepository repo;
 
-    ASSERT_THAT(read_rom("missing.bin", repo), ::testing::Not(fastecu::testing::IsOk()));
+    ASSERT_THAT(ReadRom("missing.bin", repo), ::testing::Not(fastecu::testing::IsOk()));
 }
 
 TEST(ReadRom, EmptyRomIsAValidResultNotAMissingOne)
@@ -46,7 +46,7 @@ TEST(ReadRom, EmptyRomIsAValidResultNotAMissingOne)
     InMemoryFileRepository repo;
     repo.files["empty.bin"] = {};
 
-    Result<std::vector<std::uint8_t>> result = read_rom("empty.bin", repo);
+    Result<std::vector<std::uint8_t>> result = ReadRom("empty.bin", repo);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_TRUE(result->empty());
@@ -57,10 +57,10 @@ TEST(BackupRom, WritesBytesToBackupHandle)
     InMemoryFileRepository repo;
     const std::vector<std::uint8_t> rom_data{0x01, 0x02, 0x03, 0x04};
 
-    backup_rom(rom_data, "backup.bin", repo);
+    BackupRom(rom_data, "backup.bin", repo);
 
     EXPECT_EQ(repo.files["backup.bin"], rom_data);
-    EXPECT_EQ(repo.read_count("backup.bin"), 0);
+    EXPECT_EQ(repo.ReadCount("backup.bin"), 0);
 }
 
 TEST(BackupRom, WriteFailureIsSwallowed)
@@ -71,33 +71,33 @@ TEST(BackupRom, WriteFailureIsSwallowed)
     class FailingBackupRepository : public InMemoryFileRepository
     {
       public:
-        Status write(std::string_view, std::span<const std::uint8_t>) override
+        Status Write(std::string_view, std::span<const std::uint8_t>) override
         {
-            return fastecu::fail(ErrorKind::kInternal, "backup failed");
+            return fastecu::Fail(ErrorKind::kInternal, "backup failed");
         }
     } repo;
     const std::vector<std::uint8_t> rom_data{0x01};
 
-    backup_rom(rom_data, "backup.bin", repo);
+    BackupRom(rom_data, "backup.bin", repo);
 
     EXPECT_TRUE(repo.files.find("backup.bin") == repo.files.end());
 }
 
 TEST(ElementByteSizeTest, DelegatesToStorageByteSizeWhenNotBloblist)
 {
-    EXPECT_EQ(element_byte_size(StorageType::kUint16, nullptr), 2U);
-    EXPECT_EQ(element_byte_size(std::optional<StorageType>{}, nullptr), 1U);
+    EXPECT_EQ(ElementByteSize(StorageType::kUint16, nullptr), 2U);
+    EXPECT_EQ(ElementByteSize(std::optional<StorageType>{}, nullptr), 1U);
 }
 
 TEST(ElementByteSizeTest, BloblistWithNoScalingFallsBackToOneByte)
 {
-    EXPECT_EQ(element_byte_size(StorageType::kBloblist, nullptr), 1U);
+    EXPECT_EQ(ElementByteSize(StorageType::kBloblist, nullptr), 1U);
 }
 
 TEST(ElementByteSizeTest, BloblistWithEmptySelectionsFallsBackToOneByte)
 {
     Scaling scaling;
-    EXPECT_EQ(element_byte_size(StorageType::kBloblist, &scaling), 1U);
+    EXPECT_EQ(ElementByteSize(StorageType::kBloblist, &scaling), 1U);
 }
 
 TEST(ElementByteSizeTest, BloblistWidthComesFromFirstSelectionLength)
@@ -105,7 +105,7 @@ TEST(ElementByteSizeTest, BloblistWidthComesFromFirstSelectionLength)
     Scaling scaling;
     scaling.selections = {{"disabled", {0x00, 0x00}}, {"enabled", {0x00, 0x01}}};
 
-    EXPECT_EQ(element_byte_size(StorageType::kBloblist, &scaling), 2U);
+    EXPECT_EQ(ElementByteSize(StorageType::kBloblist, &scaling), 2U);
 }
 
 TEST(ElementByteSizeTest, BloblistWidthMatchesLegacySingleByteSelections)
@@ -113,13 +113,13 @@ TEST(ElementByteSizeTest, BloblistWidthMatchesLegacySingleByteSelections)
     Scaling scaling;
     scaling.selections = {{"disabled", {0x00}}, {"enabled", {0x01}}};
 
-    EXPECT_EQ(element_byte_size(StorageType::kBloblist, &scaling), 1U);
+    EXPECT_EQ(ElementByteSize(StorageType::kBloblist, &scaling), 1U);
 }
 
 TEST(ElementRunEndTest, SingleElementIsAddressPlusWidth)
 {
-    EXPECT_EQ(element_run_end(0x1000, /*start_position=*/1, /*interval=*/1,
-                              /*element_width=*/4, /*count=*/1),
+    EXPECT_EQ(ElementRunEnd(0x1000, /*start_position=*/1, /*interval=*/1,
+                            /*element_width=*/4, /*count=*/1),
               0x1004U);
 }
 
@@ -127,7 +127,7 @@ TEST(ElementRunEndTest, ContiguousRunMatchesCountTimesWidth)
 {
     // address=0x100, start_position=1, interval=1, width=2, count=4:
     // elements at 0x100, 0x102, 0x104, 0x106; last occupies [0x106, 0x108).
-    EXPECT_EQ(element_run_end(0x100, 1, 1, 2, 4), 0x108U);
+    EXPECT_EQ(ElementRunEnd(0x100, 1, 1, 2, 4), 0x108U);
 }
 
 TEST(ElementRunEndTest, StridedRunMatchesLegacyPerCellAddressFormula)
@@ -135,7 +135,7 @@ TEST(ElementRunEndTest, StridedRunMatchesLegacyPerCellAddressFormula)
     // address=0x200, start_position=3, interval=2, width=1, count=3.
     // Legacy: addr(j) = address + (start_position-1)*width + j*width*interval.
     // addr(0)=0x202, addr(1)=0x204, addr(2)=0x206; last occupies [0x206, 0x207).
-    EXPECT_EQ(element_run_end(0x200, 3, 2, 1, 3), 0x207U);
+    EXPECT_EQ(ElementRunEnd(0x200, 3, 2, 1, 3), 0x207U);
 }
 
 TEST(ElementRunEndTest, ZeroStartPositionIsTreatedAsTheFirstPosition)
@@ -143,36 +143,36 @@ TEST(ElementRunEndTest, ZeroStartPositionIsTreatedAsTheFirstPosition)
     // start_position is 1-based and unvalidated upstream, so startpos="0"
     // reaches here. Computing 0 - 1 in uint32 would wrap to 0xFFFFFFFF and
     // put the run ~4 GB past `address`.
-    EXPECT_EQ(element_run_end(0x1000, /*start_position=*/0, /*interval=*/1,
-                              /*element_width=*/4, /*count=*/1),
-              element_run_end(0x1000, 1, 1, 4, 1));
-    EXPECT_EQ(element_run_end(0x1000, 0, 1, 4, 1), 0x1004U);
+    EXPECT_EQ(ElementRunEnd(0x1000, /*start_position=*/0, /*interval=*/1,
+                            /*element_width=*/4, /*count=*/1),
+              ElementRunEnd(0x1000, 1, 1, 4, 1));
+    EXPECT_EQ(ElementRunEnd(0x1000, 0, 1, 4, 1), 0x1004U);
 }
 
 TEST(ElementRunEndTest, ZeroStartPositionDoesNotWrapWithAMultiElementRun)
 {
-    EXPECT_EQ(element_run_end(0x100, /*start_position=*/0, /*interval=*/2,
-                              /*element_width=*/2, /*count=*/3),
+    EXPECT_EQ(ElementRunEnd(0x100, /*start_position=*/0, /*interval=*/2,
+                            /*element_width=*/2, /*count=*/3),
               0x10AU);
 }
 
 TEST(ElementRunEndTest, ZeroCountTouchesNothingPastTheAddress)
 {
     // count - 1 would wrap the same way. An empty run ends where it starts.
-    EXPECT_EQ(element_run_end(0x1000, /*start_position=*/1, /*interval=*/1,
-                              /*element_width=*/4, /*count=*/0),
+    EXPECT_EQ(ElementRunEnd(0x1000, /*start_position=*/1, /*interval=*/1,
+                            /*element_width=*/4, /*count=*/0),
               0x1000U);
-    EXPECT_EQ(element_run_end(0x1000, /*start_position=*/8, /*interval=*/3,
-                              /*element_width=*/4, /*count=*/0),
+    EXPECT_EQ(ElementRunEnd(0x1000, /*start_position=*/8, /*interval=*/3,
+                            /*element_width=*/4, /*count=*/0),
               0x1000U);
 }
 
 TEST(ElementRunEndTest, ZeroCountAndZeroStartPositionTogetherDoNotWrap)
 {
-    EXPECT_EQ(element_run_end(0x1000, 0, 1, 4, 0), 0x1000U);
+    EXPECT_EQ(ElementRunEnd(0x1000, 0, 1, 4, 0), 0x1000U);
 }
 
-RomDefinition definition_with_one_map(CalibrationMap map, std::vector<Scaling> scalings = {})
+RomDefinition DefinitionWithOneMap(CalibrationMap map, std::vector<Scaling> scalings = {})
 {
     RomDefinition definition;
     definition.maps.push_back(std::move(map));
@@ -187,7 +187,7 @@ TEST(ValidateRomSize, PassesWhenEveryAddressFitsWithinRomLength)
     map.x_axis.address = 0x100;
     map.y_axis.address = 0x200;
 
-    EXPECT_THAT(validate_rom_size(definition_with_one_map(map), 0x2000), fastecu::testing::IsOk());
+    EXPECT_THAT(ValidateRomSize(DefinitionWithOneMap(map), 0x2000), fastecu::testing::IsOk());
 }
 
 TEST(ValidateRomSize, FailsWhenMapAddressExceedsRomLength)
@@ -195,8 +195,7 @@ TEST(ValidateRomSize, FailsWhenMapAddressExceedsRomLength)
     CalibrationMap map;
     map.address = 0x3000;
 
-    ASSERT_THAT(validate_rom_size(definition_with_one_map(map), 0x2000),
-                fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
+    ASSERT_THAT(ValidateRomSize(DefinitionWithOneMap(map), 0x2000), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
 TEST(ValidateRomSize, FailsWhenXAxisAddressExceedsRomLength)
@@ -205,7 +204,7 @@ TEST(ValidateRomSize, FailsWhenXAxisAddressExceedsRomLength)
     map.address = 0x100;
     map.x_axis.address = 0x3000;
 
-    EXPECT_THAT(validate_rom_size(definition_with_one_map(map), 0x2000), ::testing::Not(fastecu::testing::IsOk()));
+    EXPECT_THAT(ValidateRomSize(DefinitionWithOneMap(map), 0x2000), ::testing::Not(fastecu::testing::IsOk()));
 }
 
 TEST(ValidateRomSize, FailsWhenYAxisAddressExceedsRomLength)
@@ -214,7 +213,7 @@ TEST(ValidateRomSize, FailsWhenYAxisAddressExceedsRomLength)
     map.address = 0x100;
     map.y_axis.address = 0x3000;
 
-    EXPECT_THAT(validate_rom_size(definition_with_one_map(map), 0x2000), ::testing::Not(fastecu::testing::IsOk()));
+    EXPECT_THAT(ValidateRomSize(DefinitionWithOneMap(map), 0x2000), ::testing::Not(fastecu::testing::IsOk()));
 }
 
 TEST(ValidateRomSize, AddressExactlyAtRomLengthFails)
@@ -224,21 +223,21 @@ TEST(ValidateRomSize, AddressExactlyAtRomLengthFails)
     CalibrationMap map;
     map.address = 0x2000;
 
-    EXPECT_THAT(validate_rom_size(definition_with_one_map(map), 0x2000), ::testing::Not(fastecu::testing::IsOk()));
+    EXPECT_THAT(ValidateRomSize(DefinitionWithOneMap(map), 0x2000), ::testing::Not(fastecu::testing::IsOk()));
 }
 
 TEST(ValidateRomSize, AbsentAddressesDoNotFail)
 {
     CalibrationMap map;
 
-    EXPECT_THAT(validate_rom_size(definition_with_one_map(map), 0), fastecu::testing::IsOk());
+    EXPECT_THAT(ValidateRomSize(DefinitionWithOneMap(map), 0), fastecu::testing::IsOk());
 }
 
 TEST(ValidateRomSize, EmptyMapsListPasses)
 {
     RomDefinition definition;
 
-    EXPECT_THAT(validate_rom_size(definition, 0), fastecu::testing::IsOk());
+    EXPECT_THAT(ValidateRomSize(definition, 0), fastecu::testing::IsOk());
 }
 
 TEST(ValidateRomSize, FailsWhenMapExtentOverflowsWithContiguousStride)
@@ -254,7 +253,7 @@ TEST(ValidateRomSize, FailsWhenMapExtentOverflowsWithContiguousStride)
     map.start_position = 1;
     map.interval = 1;
 
-    EXPECT_THAT(validate_rom_size(definition_with_one_map(map), 0x1005), ::testing::Not(fastecu::testing::IsOk()));
+    EXPECT_THAT(ValidateRomSize(DefinitionWithOneMap(map), 0x1005), ::testing::Not(fastecu::testing::IsOk()));
 }
 
 TEST(ValidateRomSize, FailsWhenMapExtentOverflowsWithNonContiguousStride)
@@ -270,7 +269,7 @@ TEST(ValidateRomSize, FailsWhenMapExtentOverflowsWithNonContiguousStride)
     map.start_position = 1;
     map.interval = 5;
 
-    EXPECT_THAT(validate_rom_size(definition_with_one_map(map), 0x1004), ::testing::Not(fastecu::testing::IsOk()));
+    EXPECT_THAT(ValidateRomSize(DefinitionWithOneMap(map), 0x1004), ::testing::Not(fastecu::testing::IsOk()));
 }
 
 TEST(ValidateRomSize, FailsWhenAxisExtentOverflowsWithNonContiguousStride)
@@ -283,7 +282,7 @@ TEST(ValidateRomSize, FailsWhenAxisExtentOverflowsWithNonContiguousStride)
     map.x_axis.start_position = 1;
     map.x_axis.interval = 5;
 
-    EXPECT_THAT(validate_rom_size(definition_with_one_map(map), 0x1004), ::testing::Not(fastecu::testing::IsOk()));
+    EXPECT_THAT(ValidateRomSize(DefinitionWithOneMap(map), 0x1004), ::testing::Not(fastecu::testing::IsOk()));
 }
 
 TEST(ValidateRomSize, BloblistExtentUsesWidthDerivedFromSelections)
@@ -300,7 +299,7 @@ TEST(ValidateRomSize, BloblistExtentUsesWidthDerivedFromSelections)
     scaling.name = "mode";
     scaling.selections = {{"disabled", {0x00, 0x00}}, {"enabled", {0x00, 0x01}}};
 
-    EXPECT_THAT(validate_rom_size(definition_with_one_map(map, {scaling}), 0x1000),
+    EXPECT_THAT(ValidateRomSize(DefinitionWithOneMap(map, {scaling}), 0x1000),
                 ::testing::Not(fastecu::testing::IsOk()));
 }
 
@@ -317,7 +316,7 @@ TEST(ValidateRomSize, ZeroStartPositionDoesNotSpuriouslyRejectTheRom)
     map.start_position = 0;
     map.interval = 1;
 
-    EXPECT_THAT(validate_rom_size(definition_with_one_map(map), 0x2000), fastecu::testing::IsOk());
+    EXPECT_THAT(ValidateRomSize(DefinitionWithOneMap(map), 0x2000), fastecu::testing::IsOk());
 }
 
 TEST(ValidateRomSize, NullStorageTypeStillGetsExtentCheckedWithOneByteDefault)
@@ -329,7 +328,7 @@ TEST(ValidateRomSize, NullStorageTypeStillGetsExtentCheckedWithOneByteDefault)
     map.x_size = 2;
     map.y_size = 1;
 
-    EXPECT_THAT(validate_rom_size(definition_with_one_map(map), 0x1000), ::testing::Not(fastecu::testing::IsOk()));
+    EXPECT_THAT(ValidateRomSize(DefinitionWithOneMap(map), 0x1000), ::testing::Not(fastecu::testing::IsOk()));
 }
 
 TEST(ApplyFlashMethodPadding, InsertsPaddingForMatchingShortRom)
@@ -337,7 +336,7 @@ TEST(ApplyFlashMethodPadding, InsertsPaddingForMatchingShortRom)
     std::vector<std::uint8_t> rom(0x2A000, 0xAA);
     const std::size_t original = rom.size();
 
-    rom = apply_flash_method_padding(std::move(rom), "sub_ecu_denso_mc68hc16y5_02");
+    rom = ApplyFlashMethodPadding(std::move(rom), "sub_ecu_denso_mc68hc16y5_02");
 
     EXPECT_EQ(rom.size(), original + 0x8000);
     // Bytes before the insertion point are untouched.
@@ -352,14 +351,14 @@ TEST(ApplyFlashMethodPadding, InsertsPaddingForMatchingShortRom)
 TEST(ApplyFlashMethodPadding, MatchesOnPrefixSoEcutekVariantAlsoPads)
 {
     std::vector<std::uint8_t> rom(0x2A000, 0xAA);
-    rom = apply_flash_method_padding(std::move(rom), "sub_ecu_denso_mc68hc16y5_02_ecutek");
+    rom = ApplyFlashMethodPadding(std::move(rom), "sub_ecu_denso_mc68hc16y5_02_ecutek");
     EXPECT_EQ(rom.size(), 0x2A000U + 0x8000U);
 }
 
 TEST(ApplyFlashMethodPadding, LeavesOtherFlashMethodsAlone)
 {
     std::vector<std::uint8_t> rom(0x30000, 0xAA);
-    rom = apply_flash_method_padding(std::move(rom), "sub_ecu_denso_sh7058");
+    rom = ApplyFlashMethodPadding(std::move(rom), "sub_ecu_denso_sh7058");
     EXPECT_EQ(rom.size(), 0x30000U);
 }
 
@@ -368,14 +367,14 @@ TEST(ApplyFlashMethodPadding, LeavesRomsAtOrAboveTheSizeThresholdAlone)
     // 190 * 1024 == 0x2F800; the guard is "< 190 * 1024", so exactly at the
     // threshold must not pad.
     std::vector<std::uint8_t> rom(190UZ * 1024, 0xAA);
-    rom = apply_flash_method_padding(std::move(rom), "sub_ecu_denso_mc68hc16y5_02");
+    rom = ApplyFlashMethodPadding(std::move(rom), "sub_ecu_denso_mc68hc16y5_02");
     EXPECT_EQ(rom.size(), static_cast<std::size_t>(190 * 1024));
 }
 
 TEST(ApplyFlashMethodPadding, ZeroExtendsRomShorterThanTheInsertionPoint)
 {
     std::vector<std::uint8_t> rom(0x100, 0xAA);
-    rom = apply_flash_method_padding(std::move(rom), "sub_ecu_denso_mc68hc16y5_02");
+    rom = ApplyFlashMethodPadding(std::move(rom), "sub_ecu_denso_mc68hc16y5_02");
 
     EXPECT_EQ(rom.size(), 0x20000U + 0x8000U);
     EXPECT_EQ(rom.at(0xFF), 0xAA);
@@ -389,7 +388,7 @@ TEST(ApplyFlashMethodPadding, ZeroExtendsRomShorterThanTheInsertionPoint)
 TEST(ApplyFlashMethodPadding, LeavesEmptyFlashMethodAlone)
 {
     std::vector<std::uint8_t> rom(0x100, 0xAA);
-    rom = apply_flash_method_padding(std::move(rom), "");
+    rom = ApplyFlashMethodPadding(std::move(rom), "");
     EXPECT_EQ(rom.size(), 0x100U);
 }
 
@@ -397,7 +396,7 @@ namespace
 {
 // A RomDefinition with one 3x1 uint8 map named "Fuel" at `address`, scaled by
 // `expression`.
-definition::RomDefinition one_map_definition(std::uint64_t address, std::string_view expression = "x")
+definition::RomDefinition OneMapDefinition(std::uint64_t address, std::string_view expression = "x")
 {
     definition::RomDefinition rom;
     rom.scalings.push_back(definition::Scaling{.name = "FuelScaling", .from_byte = std::string(expression)});
@@ -417,10 +416,10 @@ definition::RomDefinition one_map_definition(std::uint64_t address, std::string_
 
 TEST(DecodeCalibrationMap, HasExactExtentAndExplicitAbsentAxes)
 {
-    auto definition = one_map_definition(0);
+    auto definition = OneMapDefinition(0);
     definition.maps[0].x_size = 4;
     const bytes::Bytes rom{1, 2, 3, 4};
-    const auto decoded = decode_calibration_map(definition, definition.maps[0], rom);
+    const auto decoded = DecodeCalibrationMap(definition, definition.maps[0], rom);
     ASSERT_THAT(decoded, fastecu::testing::IsOk());
     EXPECT_THAT(std::get<NumericRun>(decoded->body).cells,
                 ::testing::ElementsAre(fastecu::testing::IsOkAnd(1), fastecu::testing::IsOkAnd(2),
@@ -431,11 +430,11 @@ TEST(DecodeCalibrationMap, HasExactExtentAndExplicitAbsentAxes)
 
 TEST(DecodeCalibrationMap, UsesIdentityWithoutScaling)
 {
-    auto definition = one_map_definition(0);
+    auto definition = OneMapDefinition(0);
     definition.scalings.clear();
     definition.maps[0].scaling_name.clear();
     const bytes::Bytes rom{5, 6, 7};
-    const auto decoded = decode_calibration_map(definition, definition.maps[0], rom);
+    const auto decoded = DecodeCalibrationMap(definition, definition.maps[0], rom);
     ASSERT_THAT(decoded, fastecu::testing::IsOk());
     EXPECT_THAT(std::get<NumericRun>(decoded->body).cells,
                 ::testing::ElementsAre(fastecu::testing::IsOkAnd(5), fastecu::testing::IsOkAnd(6),
@@ -444,33 +443,33 @@ TEST(DecodeCalibrationMap, UsesIdentityWithoutScaling)
 
 TEST(DecodeCalibrationMap, RetainsLabelsContainingCommas)
 {
-    auto definition = one_map_definition(0);
+    auto definition = OneMapDefinition(0);
     definition.maps[0].x_size = 2;
     definition.maps[0].x_axis.type = "Static X Axis";
     definition.maps[0].x_axis.static_data = {"Low, load", "High"};
     const bytes::Bytes rom{1, 2};
-    const auto decoded = decode_calibration_map(definition, definition.maps[0], rom);
+    const auto decoded = DecodeCalibrationMap(definition, definition.maps[0], rom);
     ASSERT_THAT(decoded, fastecu::testing::IsOk());
     EXPECT_THAT(std::get<StaticAxis>(decoded->x_axis).labels, ::testing::ElementsAre("Low, load", "High"));
 }
 
 TEST(DecodeCalibrationMap, RetainsBlobBytes)
 {
-    auto definition = one_map_definition(0);
+    auto definition = OneMapDefinition(0);
     definition.maps[0].storage_type = StorageType::kBloblist;
     definition.scalings[0].selections = {{"Choice", {0xcc, 0xdd}}};
     const bytes::Bytes rom{0xcc, 0xdd};
-    const auto decoded = decode_calibration_map(definition, definition.maps[0], rom);
+    const auto decoded = DecodeCalibrationMap(definition, definition.maps[0], rom);
     ASSERT_THAT(decoded, fastecu::testing::IsOk());
     EXPECT_THAT(std::get<BlobValue>(decoded->body).data, ::testing::ElementsAre(0xcc, 0xdd));
 }
 
 TEST(DecodeCalibrationMap, KeepsComputationFailureLocalToCell)
 {
-    auto definition = one_map_definition(0, "1/x");
+    auto definition = OneMapDefinition(0, "1/x");
     definition.maps[0].x_size = 2;
     const bytes::Bytes rom{0, 2};
-    const auto decoded = decode_calibration_map(definition, definition.maps[0], rom);
+    const auto decoded = DecodeCalibrationMap(definition, definition.maps[0], rom);
     ASSERT_THAT(decoded, fastecu::testing::IsOk());
     EXPECT_THAT(
         std::get<NumericRun>(decoded->body).cells,
@@ -479,21 +478,21 @@ TEST(DecodeCalibrationMap, KeepsComputationFailureLocalToCell)
 
 TEST(DecodeCalibrationMap, RejectsStructuralFailures)
 {
-    auto definition = one_map_definition(0);
+    auto definition = OneMapDefinition(0);
     const bytes::Bytes rom{1, 2, 3};
     auto& map = definition.maps[0];
     map.address.reset();
-    EXPECT_THAT(decode_calibration_map(definition, map, rom), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
+    EXPECT_THAT(DecodeCalibrationMap(definition, map, rom), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     map.address = 0;
     map.x_size = 0;
-    EXPECT_THAT(decode_calibration_map(definition, map, rom), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
+    EXPECT_THAT(DecodeCalibrationMap(definition, map, rom), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     map.x_size = std::numeric_limits<std::uint32_t>::max();
     map.y_size = 2;
-    EXPECT_THAT(decode_calibration_map(definition, map, rom), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
+    EXPECT_THAT(DecodeCalibrationMap(definition, map, rom), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     map.x_size = 3;
     map.y_size = 1;
     map.address = 1;
-    EXPECT_THAT(decode_calibration_map(definition, map, rom), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
+    EXPECT_THAT(DecodeCalibrationMap(definition, map, rom), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
 struct TypedStorageCase
@@ -512,7 +511,7 @@ TEST_P(DecodeNumericStorage, DecodesRawNumericRepresentation)
 {
     const auto& example = GetParam();
     const ElementRun run{.count = 1, .storage_type = example.storage, .endian = example.endian};
-    const auto decoded = decode_numeric_run(example.bytes, run);
+    const auto decoded = DecodeNumericRun(example.bytes, run);
     ASSERT_THAT(decoded, fastecu::testing::IsOk());
     EXPECT_THAT(decoded->cells, ::testing::ElementsAre(fastecu::testing::IsOkAnd(example.expected)));
 }
@@ -534,19 +533,19 @@ TEST(DecodeNumericRun, RejectsOverflowingLayoutsBeforeReading)
     const bytes::Bytes rom{42};
     ElementRun run{
         .address = std::numeric_limits<std::uint64_t>::max(), .count = 1, .storage_type = StorageType::kUint8};
-    EXPECT_FALSE(decode_numeric_run(rom, run).has_value());
+    EXPECT_FALSE(DecodeNumericRun(rom, run).has_value());
     run.start_position = 2;
-    EXPECT_FALSE(decode_numeric_run(rom, run).has_value());
+    EXPECT_FALSE(DecodeNumericRun(rom, run).has_value());
     run.address = std::numeric_limits<std::uint64_t>::max() - 3;
     run.start_position = 2;
     run.storage_type = StorageType::kUint32;
-    EXPECT_FALSE(decode_numeric_run(rom, run).has_value());
+    EXPECT_FALSE(DecodeNumericRun(rom, run).has_value());
 }
 
 TEST(ElementRunEndTest, RejectsOverflowingStrideProduct)
 {
     const auto maximum = std::numeric_limits<std::uint32_t>::max();
-    EXPECT_EQ(element_run_end(0, 1, maximum, 4, maximum), std::numeric_limits<std::uint64_t>::max());
+    EXPECT_EQ(ElementRunEnd(0, 1, maximum, 4, maximum), std::numeric_limits<std::uint64_t>::max());
 }
 
 TEST(DecodeNumericRun, PreservesStrideAndBlankIdentity)
@@ -554,7 +553,7 @@ TEST(DecodeNumericRun, PreservesStrideAndBlankIdentity)
     const bytes::Bytes rom{99, 2, 99, 4};
     const ElementRun run{
         .count = 2, .start_position = 2, .interval = 2, .storage_type = StorageType::kUint8, .from_byte = " "};
-    const auto decoded = decode_numeric_run(rom, run);
+    const auto decoded = DecodeNumericRun(rom, run);
     ASSERT_THAT(decoded, fastecu::testing::IsOk());
     EXPECT_THAT(decoded->cells, ::testing::ElementsAre(fastecu::testing::IsOkAnd(2), fastecu::testing::IsOkAnd(4)));
 }
@@ -563,14 +562,14 @@ TEST(DecodeNumericRun, RetainsNonFiniteStorageAsCellError)
 {
     const bytes::Bytes rom{0x7f, 0xc0, 0, 0};
     const ElementRun run{.count = 1, .storage_type = StorageType::kFloat};
-    const auto decoded = decode_numeric_run(rom, run);
+    const auto decoded = DecodeNumericRun(rom, run);
     ASSERT_THAT(decoded, fastecu::testing::IsOk());
     EXPECT_THAT(decoded->cells, ::testing::ElementsAre(fastecu::testing::IsErr(ErrorKind::kInvalidConfig)));
 }
 
 TEST(DecodeCalibrationMap, UsesMapThenScalingStoragePrecedence)
 {
-    auto definition = one_map_definition(0);
+    auto definition = OneMapDefinition(0);
     auto& map = definition.maps[0];
     map.x_size = 1;
     map.storage_type.reset();
@@ -578,18 +577,18 @@ TEST(DecodeCalibrationMap, UsesMapThenScalingStoragePrecedence)
     definition.scalings[0].storage_type = StorageType::kUint16;
     definition.scalings[0].endian = "little";
     const bytes::Bytes rom{0x34, 0x12};
-    const auto inherited = decode_calibration_map(definition, map, rom);
+    const auto inherited = DecodeCalibrationMap(definition, map, rom);
     ASSERT_THAT(inherited, fastecu::testing::IsOk());
     EXPECT_THAT(std::get<NumericRun>(inherited->body).cells, ::testing::ElementsAre(fastecu::testing::IsOkAnd(4660)));
     map.storage_type = StorageType::kUint8;
-    const auto overridden = decode_calibration_map(definition, map, rom);
+    const auto overridden = DecodeCalibrationMap(definition, map, rom);
     ASSERT_THAT(overridden, fastecu::testing::IsOk());
     EXPECT_THAT(std::get<NumericRun>(overridden->body).cells, ::testing::ElementsAre(fastecu::testing::IsOkAnd(52)));
 }
 
 TEST(DecodeCalibrationMap, DecodesNumericAxesWithResolvedExpressions)
 {
-    auto definition = one_map_definition(0);
+    auto definition = OneMapDefinition(0);
     auto& map = definition.maps[0];
     map.x_size = 2;
     map.y_size = 2;
@@ -598,7 +597,7 @@ TEST(DecodeCalibrationMap, DecodesNumericAxesWithResolvedExpressions)
     map.y_axis =
         AxisDefinition{.type = "Y Axis", .storage_type = StorageType::kUint8, .address = 6, .from_byte = "x/2"};
     const bytes::Bytes rom{1, 2, 3, 4, 5, 6, 8, 10};
-    const auto decoded = decode_calibration_map(definition, map, rom);
+    const auto decoded = DecodeCalibrationMap(definition, map, rom);
     ASSERT_THAT(decoded, fastecu::testing::IsOk());
     EXPECT_THAT(std::get<NumericRun>(decoded->x_axis).cells,
                 ::testing::ElementsAre(fastecu::testing::IsOkAnd(10), fastecu::testing::IsOkAnd(12)));
@@ -610,7 +609,7 @@ TEST(DecodeNumericRun, AppliesStrideInStorageBytes)
 {
     const bytes::Bytes rom{99, 99, 0x12, 0x34, 99, 99, 99, 99, 0x56, 0x78};
     const ElementRun run{.count = 2, .start_position = 2, .interval = 3, .storage_type = StorageType::kUint16};
-    const auto decoded = decode_numeric_run(rom, run);
+    const auto decoded = DecodeNumericRun(rom, run);
     ASSERT_THAT(decoded, fastecu::testing::IsOk());
     EXPECT_THAT(decoded->cells,
                 ::testing::ElementsAre(fastecu::testing::IsOkAnd(4660), fastecu::testing::IsOkAnd(22136)));

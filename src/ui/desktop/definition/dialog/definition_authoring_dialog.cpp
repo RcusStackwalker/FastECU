@@ -136,7 +136,7 @@ bool DefinitionAuthoringDialog::create_new_definition()
     }
 
     QString filename =
-        select_definition_path(parent_, qs(config_.settings().ecuflash_definition_files_directory), PathMode::kSave);
+        select_definition_path(parent_, qs(config_.Settings().ecuflash_definition_files_directory), PathMode::kSave);
     if (filename.isEmpty())
     {
         return true;
@@ -154,7 +154,7 @@ bool DefinitionAuthoringDialog::create_new_definition()
     log_header(form.editors);
 
     const fastecu::Status status =
-        catalogs_.submit_new_definition(filename.toStdString(), *input, /*allow_overwrite=*/true);
+        catalogs_.SubmitNewDefinition(filename.toStdString(), *input, /*allow_overwrite=*/true);
     if (!status.has_value())
     {
         QMessageBox::warning(parent_, tr("Definition file"),
@@ -169,20 +169,20 @@ bool DefinitionAuthoringDialog::create_new_definition()
 bool DefinitionAuthoringDialog::use_existing_definition()
 {
     const QString source =
-        select_definition_path(parent_, qs(config_.settings().ecuflash_definition_files_directory), PathMode::kOpen);
+        select_definition_path(parent_, qs(config_.Settings().ecuflash_definition_files_directory), PathMode::kOpen);
     if (source.isEmpty())
     {
         return true;
     }
 
-    const auto sourceContents = repository_.read(source.toStdString());
+    const auto sourceContents = repository_.Read(source.toStdString());
     if (!sourceContents.has_value())
     {
         emit LOG_E("Unable to import definition: " + QString::fromStdString(sourceContents.error().detail), true, true);
         QMessageBox::warning(parent_, tr("Definition file"), "Unable to open definition file for reading");
         return false;
     }
-    const auto draft = definition::read_definition_header(*sourceContents);
+    const auto draft = definition::ReadDefinitionHeader(*sourceContents);
     if (!draft.has_value())
     {
         const auto detail = "Unable to import definition: " + QString::fromStdString(draft.error().detail);
@@ -202,7 +202,7 @@ bool DefinitionAuthoringDialog::use_existing_definition()
     }
 
     QString filename =
-        select_definition_path(parent_, qs(config_.settings().ecuflash_definition_files_directory), PathMode::kSave);
+        select_definition_path(parent_, qs(config_.Settings().ecuflash_definition_files_directory), PathMode::kSave);
     if (filename.isEmpty())
     {
         return true;
@@ -221,7 +221,7 @@ bool DefinitionAuthoringDialog::use_existing_definition()
     log_header(form.editors);
 
     const fastecu::Status status =
-        catalogs_.submit_imported_definition(source.toStdString(), filename.toStdString(), *input);
+        catalogs_.SubmitImportedDefinition(source.toStdString(), filename.toStdString(), *input);
     if (!status.has_value())
     {
         QMessageBox::warning(parent_, tr("Definition file"),

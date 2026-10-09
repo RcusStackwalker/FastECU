@@ -11,62 +11,62 @@ CalibrationWorkspace::CalibrationWorkspace(RomOpenUseCase& opener) : opener_(ope
 {
 }
 
-Result<OpenedSession> CalibrationWorkspace::open_file(std::string_view path)
+Result<OpenedSession> CalibrationWorkspace::OpenFile(std::string_view path)
 {
-    Result<RomOpenOutcome> outcome = opener_.open_file(path);
+    Result<RomOpenOutcome> outcome = opener_.OpenFile(path);
     if (!outcome.has_value())
     {
         return std::unexpected(outcome.error());
     }
-    return insert(std::move(*outcome));
+    return Insert(std::move(*outcome));
 }
 
-Result<OpenedSession> CalibrationWorkspace::adopt_read_image(ReadImage image)
+Result<OpenedSession> CalibrationWorkspace::AdoptReadImage(ReadImage image)
 {
-    Result<RomOpenOutcome> outcome = opener_.adopt_read_image(std::move(image));
+    Result<RomOpenOutcome> outcome = opener_.AdoptReadImage(std::move(image));
     if (!outcome.has_value())
     {
         return std::unexpected(outcome.error());
     }
-    return insert(std::move(*outcome));
+    return Insert(std::move(*outcome));
 }
 
-Status CalibrationWorkspace::close(SessionId id)
+Status CalibrationWorkspace::Close(SessionId id)
 {
-    const auto found = std::ranges::find_if(sessions_, [id](const auto& session) { return session->id() == id; });
+    const auto found = std::ranges::find_if(sessions_, [id](const auto& session) { return session->Id() == id; });
     if (found == sessions_.end())
     {
-        return fail(ErrorKind::kInvalidConfig,
+        return Fail(ErrorKind::kInvalidConfig,
                     std::format("no open calibration session {}", static_cast<std::uint64_t>(id)));
     }
     sessions_.erase(found);
     return {};
 }
 
-CalibrationSession *CalibrationWorkspace::find(SessionId id)
+CalibrationSession *CalibrationWorkspace::Find(SessionId id)
 {
-    const auto found = std::ranges::find_if(sessions_, [id](const auto& session) { return session->id() == id; });
+    const auto found = std::ranges::find_if(sessions_, [id](const auto& session) { return session->Id() == id; });
     return found == sessions_.end() ? nullptr : found->get();
 }
 
-const CalibrationSession *CalibrationWorkspace::find(SessionId id) const
+const CalibrationSession *CalibrationWorkspace::Find(SessionId id) const
 {
-    const auto found = std::ranges::find_if(sessions_, [id](const auto& session) { return session->id() == id; });
+    const auto found = std::ranges::find_if(sessions_, [id](const auto& session) { return session->Id() == id; });
     return found == sessions_.end() ? nullptr : found->get();
 }
 
-std::vector<SessionId> CalibrationWorkspace::ids() const
+std::vector<SessionId> CalibrationWorkspace::Ids() const
 {
     std::vector<SessionId> result;
     result.reserve(sessions_.size());
     for (const auto& session : sessions_)
     {
-        result.push_back(session->id());
+        result.push_back(session->Id());
     }
     return result;
 }
 
-OpenedSession CalibrationWorkspace::insert(RomOpenOutcome outcome)
+OpenedSession CalibrationWorkspace::Insert(RomOpenOutcome outcome)
 {
     const SessionId id{next_id_++};
     sessions_.push_back(std::make_unique<CalibrationSession>(id, std::move(outcome.contents)));

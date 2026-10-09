@@ -5,9 +5,9 @@
 class QtFileSystem : public fastecu::IFileSystem
 {
   public:
-    bool exists(std::string_view path) override;
-    fastecu::Status create_directory(std::string_view path) override;
-    fastecu::Status copy_file(std::string_view src, std::string_view dst, bool overwrite) override;
-    fastecu::Status remove_file(std::string_view path) override;
-    fastecu::Result<std::vector<fastecu::DirEntry>> list_directory(std::string_view path) override;
+    bool Exists(std::string_view path) override;
+    fastecu::Status CreateDirectory(std::string_view path) override;
+    fastecu::Status CopyFile(std::string_view src, std::string_view dst, bool overwrite) override;
+    fastecu::Status RemoveFile(std::string_view path) override;
+    fastecu::Result<std::vector<fastecu::DirEntry>> ListDirectory(std::string_view path) override;
 };

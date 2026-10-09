@@ -69,18 +69,18 @@ selected_numeric_target(QMdiSubWindow *window, const calibration::CalibrationSes
     {
         return std::nullopt;
     }
-    if (!session.definition() || mapNumber < 0 ||
-        static_cast<std::size_t>(mapNumber) >= session.definition()->definition.maps.size())
+    if (!session.Definition() || mapNumber < 0 ||
+        static_cast<std::size_t>(mapNumber) >= session.Definition()->definition.maps.size())
     {
         return std::nullopt;
     }
     const auto& first = selected.first();
-    const auto& map = session.definition()->definition.maps[static_cast<std::size_t>(mapNumber)];
-    const auto target = calibration::resolve_edit_target({.first_row = first.topRow(),
-                                                          .first_col = first.leftColumn(),
-                                                          .last_row = first.bottomRow(),
-                                                          .last_col = first.rightColumn()},
-                                                         {.x_size = map.x_size, .y_size = map.y_size}, map.x_axis.type);
+    const auto& map = session.Definition()->definition.maps[static_cast<std::size_t>(mapNumber)];
+    const auto target = calibration::ResolveEditTarget({.first_row = first.topRow(),
+                                                        .first_col = first.leftColumn(),
+                                                        .last_row = first.bottomRow(),
+                                                        .last_col = first.rightColumn()},
+                                                       {.x_size = map.x_size, .y_size = map.y_size}, map.x_axis.type);
     const auto numericTarget = to_numeric_target(target.kind);
     if (!numericTarget.has_value())
     {
@@ -92,17 +92,17 @@ selected_numeric_target(QMdiSubWindow *window, const calibration::CalibrationSes
 std::optional<calibration::SelectionRange> body_widget_range(const calibration::CalibrationSession& session,
                                                              int mapNumber, int rows, int columns)
 {
-    if (!session.definition() || mapNumber < 0 ||
-        static_cast<std::size_t>(mapNumber) >= session.definition()->definition.maps.size())
+    if (!session.Definition() || mapNumber < 0 ||
+        static_cast<std::size_t>(mapNumber) >= session.Definition()->definition.maps.size())
     {
         return std::nullopt;
     }
-    const auto& map = session.definition()->definition.maps[static_cast<std::size_t>(mapNumber)];
+    const auto& map = session.Definition()->definition.maps[static_cast<std::size_t>(mapNumber)];
     const auto isBody = [&](int row, int col)
     {
         const auto target =
-            calibration::resolve_edit_target({.first_row = row, .first_col = col, .last_row = row, .last_col = col},
-                                             {.x_size = map.x_size, .y_size = map.y_size}, map.x_axis.type);
+            calibration::ResolveEditTarget({.first_row = row, .first_col = col, .last_row = row, .last_col = col},
+                                           {.x_size = map.x_size, .y_size = map.y_size}, map.x_axis.type);
         return target.kind == calibration::EditTargetKind::kMapBody;
     };
     for (int row = 0; row < rows; ++row)

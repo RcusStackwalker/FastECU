@@ -15,7 +15,7 @@ namespace
 using fastecu::Error;
 using fastecu::ErrorKind;
 using fastecu::config::testing::ConfigSessionFixture;
-using fastecu::config::testing::setting;
+using fastecu::config::testing::Setting;
 using ::testing::HasSubstr;
 
 // For the paths that never save.
@@ -27,8 +27,8 @@ void unexpected_save_failure(const Error& error)
 TEST(StartupVehicleGate, AnExistingSelectionDoesNotAsk)
 {
     ConfigSessionFixture f;
-    f.put_settings(setting("vehicle_id", "subaru-forester-v3"));
-    ASSERT_TRUE(f.initialize().has_value());
+    f.PutSettings(Setting("vehicle_id", "subaru-forester-v3"));
+    ASSERT_TRUE(f.Initialize().has_value());
     int asked = 0;
 
     EXPECT_EQ(startup_vehicle_gate(
@@ -46,7 +46,7 @@ TEST(StartupVehicleGate, AnExistingSelectionDoesNotAsk)
 TEST(StartupVehicleGate, AChosenVehicleIsSelectedSavedAndStartupContinues)
 {
     ConfigSessionFixture f;
-    ASSERT_TRUE(f.initialize().has_value());
+    ASSERT_TRUE(f.Initialize().has_value());
     int reported = 0;
 
     EXPECT_EQ(startup_vehicle_gate(
@@ -54,10 +54,10 @@ TEST(StartupVehicleGate, AChosenVehicleIsSelectedSavedAndStartupContinues)
               std::nullopt);
 
     EXPECT_EQ(reported, 0);
-    ASSERT_NE(f.session.selected_vehicle(), nullptr);
-    EXPECT_EQ(f.session.selected_vehicle()->id, "mitsubishi-colt-v2");
+    ASSERT_NE(f.session.SelectedVehicle(), nullptr);
+    EXPECT_EQ(f.session.SelectedVehicle()->id, "mitsubishi-colt-v2");
     // Saved: the session an in-app restart builds asks nothing.
-    ASSERT_TRUE(f.initialize().has_value());
+    ASSERT_TRUE(f.Initialize().has_value());
     int asked = 0;
     EXPECT_EQ(startup_vehicle_gate(
                   f.session,
@@ -74,7 +74,7 @@ TEST(StartupVehicleGate, AChosenVehicleIsSelectedSavedAndStartupContinues)
 TEST(StartupVehicleGate, AFailedSaveIsReportedAndStartupContinues)
 {
     ConfigSessionFixture f;
-    ASSERT_TRUE(f.initialize().has_value());
+    ASSERT_TRUE(f.Initialize().has_value());
     f.file_repository.write_errors[f.paths.config_file] = Error{ErrorKind::kInvalidConfig, "cannot open file"};
     std::vector<Error> reported;
 
@@ -88,28 +88,28 @@ TEST(StartupVehicleGate, AFailedSaveIsReportedAndStartupContinues)
     EXPECT_THAT(reported.front().detail, HasSubstr(f.paths.config_file));
     EXPECT_THAT(reported.front().detail, HasSubstr("cannot open file"));
     // The choice holds for this run...
-    ASSERT_NE(f.session.selected_vehicle(), nullptr);
-    EXPECT_EQ(f.session.selected_vehicle()->id, "mitsubishi-colt-v2");
+    ASSERT_NE(f.session.SelectedVehicle(), nullptr);
+    EXPECT_EQ(f.session.SelectedVehicle()->id, "mitsubishi-colt-v2");
     // ...and the next start asks again.
-    ASSERT_TRUE(f.initialize().has_value());
-    EXPECT_EQ(f.session.selected_vehicle(), nullptr);
+    ASSERT_TRUE(f.Initialize().has_value());
+    EXPECT_EQ(f.session.SelectedVehicle(), nullptr);
 }
 
 TEST(StartupVehicleGate, ACancelEndsStartupWithExitCodeZero)
 {
     ConfigSessionFixture f;
-    ASSERT_TRUE(f.initialize().has_value());
+    ASSERT_TRUE(f.Initialize().has_value());
 
     EXPECT_EQ(startup_vehicle_gate(
                   f.session, [] { return std::optional<std::size_t>{}; }, unexpected_save_failure),
               std::optional<int>(EXIT_SUCCESS));
-    EXPECT_EQ(f.session.selected_vehicle(), nullptr);
+    EXPECT_EQ(f.session.SelectedVehicle(), nullptr);
 }
 
 TEST(StartupVehicleGate, AnInvalidRowIsTreatedAsACancel)
 {
     ConfigSessionFixture f;
-    ASSERT_TRUE(f.initialize().has_value());
+    ASSERT_TRUE(f.Initialize().has_value());
 
     EXPECT_EQ(startup_vehicle_gate(
                   f.session, [] { return std::optional<std::size_t>{99}; }, unexpected_save_failure),

@@ -44,9 +44,9 @@ TEST(TestDesktopKlineFlashTransport, configureSetsAndResetsParityOnReusedFacade)
     DesktopKlineFlashTransport transport(serial.release());
     KlineConfig config{.baud = 1953, .iso14230 = false, .tester_id = 0, .target_id = 0};
     config.parity = KlineParity::kEven;
-    ASSERT_TRUE(transport.configure(config).has_value());
+    ASSERT_TRUE(transport.Configure(config).has_value());
     config.parity = KlineParity::kNone;
-    ASSERT_TRUE(transport.configure(config).has_value());
+    ASSERT_TRUE(transport.Configure(config).has_value());
 }
 
 TEST(TestDesktopKlineFlashTransport, configureReportsParitySetterFailure)
@@ -55,7 +55,7 @@ TEST(TestDesktopKlineFlashTransport, configureReportsParitySetterFailure)
     EXPECT_CALL(serial.fake(), set_serial_port_parity(static_cast<std::uint8_t>(QSerialPort::OddParity)))
         .WillOnce(::testing::Return(false));
     DesktopKlineFlashTransport transport(serial.release());
-    const auto result = transport.configure(
+    const auto result = transport.Configure(
         KlineConfig{.baud = 1953, .iso14230 = false, .tester_id = 0, .target_id = 0, .parity = KlineParity::kOdd});
     ASSERT_TRUE(!result.has_value());
     ASSERT_EQ(result.error().kind, ErrorKind::kInvalidConfig);
@@ -71,9 +71,9 @@ TEST(TestDesktopKlineFlashTransport, rawCallsUseRawSerialMethods)
     EXPECT_CALL(serial.fake(), read_serial_data(::testing::_)).Times(0);
     DesktopKlineFlashTransport transport(serial.release());
     const bytes::Bytes request{0xaa, 0xbb};
-    ASSERT_TRUE(transport.write_raw(request).has_value());
+    ASSERT_TRUE(transport.WriteRaw(request).has_value());
     FakeCancellationToken cancellation;
-    const auto result = transport.read_raw(10ms, cancellation);
+    const auto result = transport.ReadRaw(10ms, cancellation);
     ASSERT_TRUE(result.has_value());
     ASSERT_TRUE(result->has_value());
     ASSERT_EQ(result->value(), (bytes::Bytes{0x00, 0xff}));
@@ -85,10 +85,10 @@ TEST(TestDesktopKlineFlashTransport, postKernelUploadDelayCapabilityMirrorsOpenP
     SerialPortActions *serial_ptr = serial.get();
     DesktopKlineFlashTransport transport(serial.release());
 
-    ASSERT_TRUE(!transport.requires_post_kernel_upload_delay());
+    ASSERT_TRUE(!transport.RequiresPostKernelUploadDelay());
     ASSERT_TRUE(serial_ptr->set_use_openport2_adapter(true));
 #if defined(Q_OS_UNIX)
-    ASSERT_TRUE(transport.requires_post_kernel_upload_delay());
+    ASSERT_TRUE(transport.RequiresPostKernelUploadDelay());
 #else
     ASSERT_TRUE(!transport.requires_post_kernel_upload_delay());
 #endif
@@ -113,7 +113,7 @@ TEST(TestDesktopKlineFlashTransport, resetConnectionReachesTheAdapter)
 
     DesktopKlineFlashTransport transport(serial.release());
 
-    ASSERT_TRUE(transport.reset_connection().has_value());
+    ASSERT_TRUE(transport.ResetConnection().has_value());
 }
 
 TEST(TestDesktopKlineFlashTransport, resetConnectionAfterCloseIsDisconnectedAndTouchesNoBackend)
@@ -122,8 +122,8 @@ TEST(TestDesktopKlineFlashTransport, resetConnectionAfterCloseIsDisconnectedAndT
     EXPECT_CALL(serial.fake(), reset_connection()).Times(0);
 
     DesktopKlineFlashTransport transport(serial.get()); // non-owning: keep `serial` alive
-    ASSERT_TRUE(transport.close().has_value());
-    const auto result = transport.reset_connection();
+    ASSERT_TRUE(transport.Close().has_value());
+    const auto result = transport.ResetConnection();
 
     ASSERT_TRUE(!result.has_value());
     ASSERT_EQ(result.error().kind, ErrorKind::kDisconnected);
@@ -140,11 +140,11 @@ TEST(TestDesktopKlineFlashTransport, lecControlOperationsForwardToSerialBackend)
 
     DesktopKlineFlashTransport transport(serial.release());
 
-    ASSERT_TRUE(transport.disable_lec_lines().has_value());
-    ASSERT_TRUE(transport.pulse_lec_2_line(200ms).has_value());
-    ASSERT_TRUE(transport.enable_programming_voltage_line().has_value());
+    ASSERT_TRUE(transport.DisableLecLines().has_value());
+    ASSERT_TRUE(transport.PulseLec2Line(200ms).has_value());
+    ASSERT_TRUE(transport.EnableProgrammingVoltageLine().has_value());
     // Legacy bootmode execute() :66 -- VPP on LEC1 and MOD1 on LEC2.
-    ASSERT_TRUE(transport.enable_boot_mode_lines().has_value());
+    ASSERT_TRUE(transport.EnableBootModeLines().has_value());
 }
 
 TEST(TestDesktopKlineFlashTransport, configureChecksEveryBooleanSetterInOrderAndStopsAtFirstFailure)
@@ -166,7 +166,7 @@ TEST(TestDesktopKlineFlashTransport, configureChecksEveryBooleanSetterInOrderAnd
 
     DesktopKlineFlashTransport transport(serial.release());
     const auto result =
-        transport.configure(KlineConfig{.baud = 10400, .iso14230 = true, .tester_id = 0x10, .target_id = 0xf0});
+        transport.Configure(KlineConfig{.baud = 10400, .iso14230 = true, .tester_id = 0x10, .target_id = 0xf0});
 
     ASSERT_TRUE(!result.has_value());
     ASSERT_EQ(result.error().kind, ErrorKind::kInvalidConfig);
@@ -214,7 +214,7 @@ TEST_P(ConfigureFailsAtEachRemainingSetterInTurnParameters, configureFailsAtEach
 
     DesktopKlineFlashTransport transport(serial.release());
     const auto result =
-        transport.configure(KlineConfig{.baud = 10400, .iso14230 = true, .tester_id = 0x10, .target_id = 0xf0});
+        transport.Configure(KlineConfig{.baud = 10400, .iso14230 = true, .tester_id = 0x10, .target_id = 0xf0});
 
     ASSERT_TRUE(!result.has_value());
     ASSERT_EQ(result.error().kind, ErrorKind::kInvalidConfig);
@@ -227,7 +227,7 @@ TEST(TestDesktopKlineFlashTransport, openFailureReturnsDisconnectedWithoutAnyWri
     EXPECT_CALL(serial.fake(), write_serial_data_echo_check(::testing::_)).Times(0);
 
     DesktopKlineFlashTransport transport(serial.release());
-    const auto result = transport.open();
+    const auto result = transport.Open();
 
     ASSERT_TRUE(!result.has_value());
     ASSERT_EQ(result.error().kind, ErrorKind::kDisconnected);
@@ -248,7 +248,7 @@ TEST(TestDesktopKlineFlashTransport, configureSucceedsWhenEverySetterSucceeds)
 
     DesktopKlineFlashTransport transport(serial.release());
     const auto result =
-        transport.configure(KlineConfig{.baud = 10400, .iso14230 = true, .tester_id = 0x10, .target_id = 0xf0});
+        transport.Configure(KlineConfig{.baud = 10400, .iso14230 = true, .tester_id = 0x10, .target_id = 0xf0});
 
     ASSERT_TRUE(result.has_value());
 }
@@ -260,7 +260,7 @@ TEST(TestDesktopKlineFlashTransport, openSucceedsWhenBackendReturnsANonEmptyPort
     EXPECT_CALL(serial.fake(), open_serial_port()).WillOnce(::testing::Return(QStringLiteral("COM3")));
 
     DesktopKlineFlashTransport transport(serial.release());
-    const auto result = transport.open();
+    const auto result = transport.Open();
 
     ASSERT_TRUE(result.has_value());
 }
@@ -275,7 +275,7 @@ TEST(TestDesktopKlineFlashTransport, setBaudSucceedsWhenPortOpenAndDriverReturns
     EXPECT_CALL(serial.fake(), change_port_speed(QStringLiteral("4800"))).WillOnce(::testing::Return(kSerialSuccess));
 
     DesktopKlineFlashTransport transport(serial.release());
-    const auto result = transport.setBaud(4800);
+    const auto result = transport.SetBaud(4800);
 
     ASSERT_TRUE(result.has_value());
 }
@@ -293,7 +293,7 @@ TEST(TestDesktopKlineFlashTransport, setBaudFailsWithInternalWhenPortStaysOpenBu
     EXPECT_CALL(serial.fake(), is_serial_port_open()).WillOnce(::testing::Return(true));
 
     DesktopKlineFlashTransport transport(serial.release());
-    const auto result = transport.setBaud(4800);
+    const auto result = transport.SetBaud(4800);
 
     ASSERT_TRUE(!result.has_value());
     ASSERT_EQ(result.error().kind, ErrorKind::kInternal);
@@ -308,7 +308,7 @@ TEST(TestDesktopKlineFlashTransport, setBaudFailsWithDisconnectedWhenPortAlready
     EXPECT_CALL(serial.fake(), change_port_speed(::testing::_)).Times(0);
 
     DesktopKlineFlashTransport transport(serial.release());
-    const auto result = transport.setBaud(4800);
+    const auto result = transport.SetBaud(4800);
 
     ASSERT_TRUE(!result.has_value());
     ASSERT_EQ(result.error().kind, ErrorKind::kDisconnected);
@@ -327,7 +327,7 @@ TEST(TestDesktopKlineFlashTransport, setBaudFailsWithDisconnectedWhenPortClosesD
     EXPECT_CALL(serial.fake(), is_serial_port_open()).WillOnce(::testing::Return(false));
 
     DesktopKlineFlashTransport transport(serial.release());
-    const auto result = transport.setBaud(4800);
+    const auto result = transport.SetBaud(4800);
 
     ASSERT_TRUE(!result.has_value());
     ASSERT_EQ(result.error().kind, ErrorKind::kDisconnected);
@@ -348,7 +348,7 @@ TEST(TestDesktopKlineFlashTransport, writeSucceedsAndReturnsRequestedByteCount)
 
     DesktopKlineFlashTransport transport(serial.release());
     const bytes::Bytes data{0x01, 0x02, 0x03};
-    const auto result = transport.write(bytes::ByteView(data));
+    const auto result = transport.Write(bytes::ByteView(data));
 
     ASSERT_TRUE(result.has_value());
     ASSERT_EQ(*result, data.size());
@@ -369,7 +369,7 @@ TEST(TestDesktopKlineFlashTransport, writeFailsWithDisconnectedWhenPortClosesDur
 
     DesktopKlineFlashTransport transport(serial.release());
     const bytes::Bytes data{0xAA};
-    const auto result = transport.write(bytes::ByteView(data));
+    const auto result = transport.Write(bytes::ByteView(data));
 
     ASSERT_TRUE(!result.has_value());
     ASSERT_EQ(result.error().kind, ErrorKind::kDisconnected);
@@ -387,7 +387,7 @@ TEST(TestDesktopKlineFlashTransport, readReturnsScriptedBytesOnSuccess)
 
     DesktopKlineFlashTransport transport(serial.release());
     FakeCancellationToken cancellation;
-    const auto result = transport.read(50ms, cancellation);
+    const auto result = transport.Read(50ms, cancellation);
 
     ASSERT_TRUE(result.has_value());
     ASSERT_TRUE(result->has_value());
@@ -403,7 +403,7 @@ TEST(TestDesktopKlineFlashTransport, readReturnsCancelledWhenCancellationIsAlrea
 
     DesktopKlineFlashTransport transport(serial.release());
     FakeCancellationToken cancellation(true);
-    const auto result = transport.read(50ms, cancellation);
+    const auto result = transport.Read(50ms, cancellation);
 
     ASSERT_TRUE(!result.has_value());
     ASSERT_EQ(result.error().kind, ErrorKind::kCancelled);
@@ -419,7 +419,7 @@ TEST(TestDesktopKlineFlashTransport, readReturnsDisconnectedWhenPortAlreadyClose
 
     DesktopKlineFlashTransport transport(serial.release());
     FakeCancellationToken cancellation;
-    const auto result = transport.read(50ms, cancellation);
+    const auto result = transport.Read(50ms, cancellation);
 
     ASSERT_TRUE(!result.has_value());
     ASSERT_EQ(result.error().kind, ErrorKind::kDisconnected);
@@ -437,7 +437,7 @@ TEST(TestDesktopKlineFlashTransport, readReturnsDisconnectedWhenPortClosesDuring
 
     DesktopKlineFlashTransport transport(serial.release());
     FakeCancellationToken cancellation;
-    const auto result = transport.read(50ms, cancellation);
+    const auto result = transport.Read(50ms, cancellation);
 
     ASSERT_TRUE(!result.has_value());
     ASSERT_EQ(result.error().kind, ErrorKind::kDisconnected);
@@ -451,49 +451,49 @@ TEST(TestDesktopKlineFlashTransport, everyMethodFailsWithDisconnectedAfterClose)
     FakeBackedSerial serial;
 
     DesktopKlineFlashTransport transport(serial.get()); // non-owning: keep `serial` alive
-    auto close_result = transport.close();
+    auto close_result = transport.Close();
     ASSERT_TRUE(close_result.has_value());
 
     FakeCancellationToken cancellation;
     const auto configure_result =
-        transport.configure(KlineConfig{.baud = 10400, .iso14230 = true, .tester_id = 0x10, .target_id = 0xf0});
+        transport.Configure(KlineConfig{.baud = 10400, .iso14230 = true, .tester_id = 0x10, .target_id = 0xf0});
     ASSERT_TRUE(!configure_result.has_value());
     ASSERT_EQ(configure_result.error().kind, ErrorKind::kDisconnected);
 
-    const auto open_result = transport.open();
+    const auto open_result = transport.Open();
     ASSERT_TRUE(!open_result.has_value());
     ASSERT_EQ(open_result.error().kind, ErrorKind::kDisconnected);
 
-    const auto set_baud_result = transport.setBaud(4800);
+    const auto set_baud_result = transport.SetBaud(4800);
     ASSERT_TRUE(!set_baud_result.has_value());
     ASSERT_EQ(set_baud_result.error().kind, ErrorKind::kDisconnected);
 
     const bytes::Bytes data{0xAA};
-    const auto write_result = transport.write(bytes::ByteView(data));
+    const auto write_result = transport.Write(bytes::ByteView(data));
     ASSERT_TRUE(!write_result.has_value());
     ASSERT_EQ(write_result.error().kind, ErrorKind::kDisconnected);
 
-    const auto read_result = transport.read(50ms, cancellation);
+    const auto read_result = transport.Read(50ms, cancellation);
     ASSERT_TRUE(!read_result.has_value());
     ASSERT_EQ(read_result.error().kind, ErrorKind::kDisconnected);
 
-    const auto header_result = transport.set_add_iso14230_header(true);
+    const auto header_result = transport.SetAddIso14230Header(true);
     ASSERT_TRUE(!header_result.has_value());
     ASSERT_EQ(header_result.error().kind, ErrorKind::kDisconnected);
 
-    const auto disable_lec_result = transport.disable_lec_lines();
+    const auto disable_lec_result = transport.DisableLecLines();
     ASSERT_TRUE(!disable_lec_result.has_value());
     ASSERT_EQ(disable_lec_result.error().kind, ErrorKind::kDisconnected);
 
-    const auto pulse_lec_result = transport.pulse_lec_2_line(200ms);
+    const auto pulse_lec_result = transport.PulseLec2Line(200ms);
     ASSERT_TRUE(!pulse_lec_result.has_value());
     ASSERT_EQ(pulse_lec_result.error().kind, ErrorKind::kDisconnected);
 
-    const auto programming_line_result = transport.enable_programming_voltage_line();
+    const auto programming_line_result = transport.EnableProgrammingVoltageLine();
     ASSERT_TRUE(!programming_line_result.has_value());
     ASSERT_EQ(programming_line_result.error().kind, ErrorKind::kDisconnected);
 
-    const auto boot_mode_lines_result = transport.enable_boot_mode_lines();
+    const auto boot_mode_lines_result = transport.EnableBootModeLines();
     ASSERT_TRUE(!boot_mode_lines_result.has_value());
     ASSERT_EQ(boot_mode_lines_result.error().kind, ErrorKind::kDisconnected);
 }
@@ -512,11 +512,11 @@ TEST(TestDesktopKlineFlashTransport, setAddIso14230HeaderForwardsToSerialAndSucc
 
     DesktopKlineFlashTransport transport(serial.get()); // non-owning: query `serial` after
 
-    const auto on_result = transport.set_add_iso14230_header(true);
+    const auto on_result = transport.SetAddIso14230Header(true);
     ASSERT_TRUE(on_result.has_value());
     ASSERT_EQ(serial->get_add_iso14230_header(), true);
 
-    const auto off_result = transport.set_add_iso14230_header(false);
+    const auto off_result = transport.SetAddIso14230Header(false);
     ASSERT_TRUE(off_result.has_value());
     ASSERT_EQ(serial->get_add_iso14230_header(), false);
 }
@@ -528,11 +528,11 @@ TEST(TestDesktopKlineFlashTransport, writeIsSkippedWithCancelledAfterRequestUnbl
     FakeBackedSerial serial;
 
     DesktopKlineFlashTransport transport(serial.release());
-    transport.request_unblock();
+    transport.RequestUnblock();
     EXPECT_CALL(serial.fake(), write_serial_data_echo_check(::testing::_)).Times(0);
 
     const bytes::Bytes data{0xAA};
-    const auto result = transport.write(bytes::ByteView(data));
+    const auto result = transport.Write(bytes::ByteView(data));
 
     ASSERT_TRUE(!result.has_value());
     ASSERT_EQ(result.error().kind, ErrorKind::kCancelled);
@@ -549,7 +549,7 @@ TEST(TestDesktopKlineFlashTransport, writeFailsWithDisconnectedWhenPortAlreadyCl
 
     DesktopKlineFlashTransport transport(serial.release());
     const bytes::Bytes data{0xAA};
-    const auto result = transport.write(bytes::ByteView(data));
+    const auto result = transport.Write(bytes::ByteView(data));
 
     ASSERT_TRUE(!result.has_value());
     ASSERT_EQ(result.error().kind, ErrorKind::kDisconnected);
@@ -568,7 +568,7 @@ TEST(TestDesktopKlineFlashTransport, readReturnsEmptyOptionalWhenBackendReturnsN
 
     DesktopKlineFlashTransport transport(serial.release());
     FakeCancellationToken cancellation;
-    const auto result = transport.read(50ms, cancellation);
+    const auto result = transport.Read(50ms, cancellation);
 
     ASSERT_TRUE(result.has_value());
     ASSERT_TRUE(!result->has_value());
@@ -584,7 +584,7 @@ TEST(TestDesktopKlineFlashTransport, setBaudFailsWithInternalWhenDriverThrowsSta
         .WillOnce(::testing::Throw(std::runtime_error("scripted backend baud-change failure")));
 
     DesktopKlineFlashTransport transport(serial.release());
-    const auto result = transport.setBaud(4800);
+    const auto result = transport.SetBaud(4800);
 
     ASSERT_TRUE(!result.has_value());
     ASSERT_EQ(result.error().kind, ErrorKind::kInternal);
@@ -599,7 +599,7 @@ TEST(TestDesktopKlineFlashTransport, setBaudFailsWithInternalWhenDriverThrowsNon
     EXPECT_CALL(serial.fake(), change_port_speed(QStringLiteral("4800"))).WillOnce(ThrowNonStandardBackendFailure());
 
     DesktopKlineFlashTransport transport(serial.release());
-    const auto result = transport.setBaud(4800);
+    const auto result = transport.SetBaud(4800);
 
     ASSERT_TRUE(!result.has_value());
     ASSERT_EQ(result.error().kind, ErrorKind::kInternal);
@@ -615,7 +615,7 @@ TEST(TestDesktopKlineFlashTransport, writeFailsWithInternalWhenDriverThrowsStand
 
     DesktopKlineFlashTransport transport(serial.release());
     const bytes::Bytes data{0xAA};
-    const auto result = transport.write(bytes::ByteView(data));
+    const auto result = transport.Write(bytes::ByteView(data));
 
     ASSERT_TRUE(!result.has_value());
     ASSERT_EQ(result.error().kind, ErrorKind::kInternal);
@@ -630,7 +630,7 @@ TEST(TestDesktopKlineFlashTransport, writeFailsWithInternalWhenDriverThrowsNonSt
 
     DesktopKlineFlashTransport transport(serial.release());
     const bytes::Bytes data{0xAA};
-    const auto result = transport.write(bytes::ByteView(data));
+    const auto result = transport.Write(bytes::ByteView(data));
 
     ASSERT_TRUE(!result.has_value());
     ASSERT_EQ(result.error().kind, ErrorKind::kInternal);
@@ -647,7 +647,7 @@ TEST(TestDesktopKlineFlashTransport, readFailsWithInternalWhenDriverThrowsStanda
 
     DesktopKlineFlashTransport transport(serial.release());
     FakeCancellationToken cancellation;
-    const auto result = transport.read(50ms, cancellation);
+    const auto result = transport.Read(50ms, cancellation);
 
     ASSERT_TRUE(!result.has_value());
     ASSERT_EQ(result.error().kind, ErrorKind::kInternal);
@@ -662,7 +662,7 @@ TEST(TestDesktopKlineFlashTransport, readFailsWithInternalWhenDriverThrowsNonSta
 
     DesktopKlineFlashTransport transport(serial.release());
     FakeCancellationToken cancellation;
-    const auto result = transport.read(50ms, cancellation);
+    const auto result = transport.Read(50ms, cancellation);
 
     ASSERT_TRUE(!result.has_value());
     ASSERT_EQ(result.error().kind, ErrorKind::kInternal);
@@ -679,9 +679,9 @@ TEST(TestDesktopKlineFlashTransport, isOpenReflectsThePortsRealOpenState)
     EXPECT_CALL(serial.fake(), is_serial_port_open())
         .WillOnce(::testing::Return(true))
         .WillOnce(::testing::Return(false));
-    ASSERT_TRUE(transport.isOpen());
+    ASSERT_TRUE(transport.IsOpen());
 
-    ASSERT_TRUE(!transport.isOpen());
+    ASSERT_TRUE(!transport.IsOpen());
 }
 
 TEST(TestDesktopKlineFlashTransport, isOpenReturnsFalseWhenTheUnderlyingCheckThrows)
@@ -691,7 +691,7 @@ TEST(TestDesktopKlineFlashTransport, isOpenReturnsFalseWhenTheUnderlyingCheckThr
         .WillOnce(::testing::Throw(std::runtime_error("scripted backend open-state failure")));
 
     DesktopKlineFlashTransport transport(serial.release());
-    ASSERT_TRUE(!transport.isOpen());
+    ASSERT_TRUE(!transport.IsOpen());
 }
 
 TEST(TestDesktopKlineFlashTransport, isOpenReturnsFalseAfterClose)
@@ -699,11 +699,11 @@ TEST(TestDesktopKlineFlashTransport, isOpenReturnsFalseAfterClose)
     FakeBackedSerial serial;
 
     DesktopKlineFlashTransport transport(serial.release());
-    ASSERT_TRUE(transport.isOpen());
+    ASSERT_TRUE(transport.IsOpen());
 
-    const auto close_result = transport.close();
+    const auto close_result = transport.Close();
     ASSERT_TRUE(close_result.has_value());
-    ASSERT_TRUE(!transport.isOpen());
+    ASSERT_TRUE(!transport.IsOpen());
 }
 
 // read()'s post-read cancellation recheck (success path): cancellation
@@ -718,8 +718,8 @@ TEST(TestDesktopKlineFlashTransport, readReturnsCancelledWhenCancellationBecomes
 
     DesktopKlineFlashTransport transport(serial.release());
     FakeCancellationToken cancellation;
-    cancellation.cancel_on_check(2);
-    const auto result = transport.read(50ms, cancellation);
+    cancellation.CancelOnCheck(2);
+    const auto result = transport.Read(50ms, cancellation);
 
     ASSERT_TRUE(!result.has_value());
     ASSERT_EQ(result.error().kind, ErrorKind::kCancelled);
@@ -737,8 +737,8 @@ TEST(TestDesktopKlineFlashTransport, readReturnsCancelledWhenCancellationBecomes
 
     DesktopKlineFlashTransport transport(serial.release());
     FakeCancellationToken cancellation;
-    cancellation.cancel_on_check(2);
-    const auto result = transport.read(50ms, cancellation);
+    cancellation.CancelOnCheck(2);
+    const auto result = transport.Read(50ms, cancellation);
 
     ASSERT_TRUE(!result.has_value());
     ASSERT_EQ(result.error().kind, ErrorKind::kCancelled);
@@ -754,8 +754,8 @@ TEST(TestDesktopKlineFlashTransport,
 
     DesktopKlineFlashTransport transport(serial.release());
     FakeCancellationToken cancellation;
-    cancellation.cancel_on_check(2);
-    const auto result = transport.read(50ms, cancellation);
+    cancellation.CancelOnCheck(2);
+    const auto result = transport.Read(50ms, cancellation);
 
     ASSERT_TRUE(!result.has_value());
     ASSERT_EQ(result.error().kind, ErrorKind::kCancelled);
@@ -769,7 +769,7 @@ TEST(TestDesktopKlineFlashTransport, closeIsIdempotentAndDestroysTheOwnedSerialP
     DesktopKlineFlashTransport transport(serial.release());
     ASSERT_TRUE(!destroyed);
 
-    auto close_result = transport.close();
+    auto close_result = transport.Close();
     ASSERT_TRUE(close_result.has_value());
     // ~SerialPortActions() deletes its backend via a
     // Qt::BlockingQueuedConnection (serial_backend_host.cpp), so by the
@@ -777,7 +777,7 @@ TEST(TestDesktopKlineFlashTransport, closeIsIdempotentAndDestroysTheOwnedSerialP
     ASSERT_TRUE(destroyed);
 
     // Idempotent: calling again with an already-null serial_ must not crash.
-    close_result = transport.close();
+    close_result = transport.Close();
     ASSERT_TRUE(close_result.has_value());
 }
 
@@ -803,7 +803,7 @@ TEST(TestDesktopKlineFlashTransport, closeOnANonOwningSerialPortActionsDoesNotDe
         DesktopKlineFlashTransport transport(serial.get()); // non-owning
         ASSERT_TRUE(!destroyed);
 
-        auto close_result = transport.close();
+        auto close_result = transport.Close();
         ASSERT_TRUE(close_result.has_value());
         // The proof this test exists for: close() on a non-owning
         // transport must NOT destroy the externally-owned
@@ -811,7 +811,7 @@ TEST(TestDesktopKlineFlashTransport, closeOnANonOwningSerialPortActionsDoesNotDe
         ASSERT_TRUE(!destroyed);
 
         // Idempotent, same as the owning path.
-        close_result = transport.close();
+        close_result = transport.Close();
         ASSERT_TRUE(close_result.has_value());
         ASSERT_TRUE(!destroyed);
     }
@@ -860,12 +860,12 @@ TEST(TestDesktopKlineFlashTransport, requestUnblockCausesAPendingReadToReturnPro
     std::thread reader(
         [&]
         {
-            in_flight_result = transport.read(50ms, cancellation);
+            in_flight_result = transport.Read(50ms, cancellation);
             reader_finished.store(true);
         });
     ASSERT_TRUE(read_entered.tryAcquire(1, 1000)) << "backend read did not start";
 
-    transport.request_unblock();
+    transport.RequestUnblock();
     fastecu::testing::process_events_for(std::chrono::milliseconds(50));
     ASSERT_TRUE(!reader_finished.load()) << "request_unblock() must not interrupt an already in-flight read";
 
@@ -880,7 +880,7 @@ TEST(TestDesktopKlineFlashTransport, requestUnblockCausesAPendingReadToReturnPro
     // Second half of the contract: the *next* read must not reach the
     // backend at all.
     EXPECT_CALL(serial.fake(), read_serial_data(::testing::_)).Times(0);
-    const auto second_result = transport.read(50ms, cancellation);
+    const auto second_result = transport.Read(50ms, cancellation);
     ASSERT_TRUE(!second_result.has_value());
     ASSERT_EQ(second_result.error().kind, ErrorKind::kCancelled);
 }

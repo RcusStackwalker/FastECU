@@ -16,7 +16,7 @@ using fastecu::logging::RawAssembly;
 using mitsu_colt_can_cdbg::CdbgChannel;
 using namespace std::chrono_literals;
 
-LoggingChannel channel()
+LoggingChannel Channel()
 {
     return LoggingChannel{
         .id = "cdbg.load",
@@ -29,33 +29,33 @@ LoggingChannel channel()
     };
 }
 
-void scriptValidHandshake(cdbg::ScriptedCanTransport& transport)
+void ScriptValidHandshake(cdbg::ScriptedCanTransport& transport)
 {
     using namespace mitsu_colt_can_cdbg;
     const std::vector<CdbgChannel> channels = {{0x804000, 1}};
 
-    transport.expectWrite(kRequestCanId, BuildInitFrame());
-    transport.queueRead(kReplyCanId, test_bytes::BytesFromHex("0000000000000000"));
-    transport.expectWrite(kRequestCanId, BuildSecuritySeedRequestFrame());
-    transport.queueRead(kReplyCanId, test_bytes::BytesFromHex("0000000012345678"));
-    transport.expectWrite(kRequestCanId, BuildSecurityKeyFrame(0x8C536B33));
-    transport.queueRead(kReplyCanId, test_bytes::BytesFromHex("0000000100000000"));
-    transport.expectWrite(kRequestCanId, BuildLogResetFrame(0));
-    transport.queueRead(kReplyCanId, test_bytes::BytesFromHex("0000000000000000"));
+    transport.ExpectWrite(kRequestCanId, BuildInitFrame());
+    transport.QueueRead(kReplyCanId, test_bytes::BytesFromHex("0000000000000000"));
+    transport.ExpectWrite(kRequestCanId, BuildSecuritySeedRequestFrame());
+    transport.QueueRead(kReplyCanId, test_bytes::BytesFromHex("0000000012345678"));
+    transport.ExpectWrite(kRequestCanId, BuildSecurityKeyFrame(0x8C536B33));
+    transport.QueueRead(kReplyCanId, test_bytes::BytesFromHex("0000000100000000"));
+    transport.ExpectWrite(kRequestCanId, BuildLogResetFrame(0));
+    transport.QueueRead(kReplyCanId, test_bytes::BytesFromHex("0000000000000000"));
 
     std::vector<std::vector<CdbgChannel>> frames;
     ASSERT_TRUE(BatchChannelsIntoFrames(channels, frames));
     for (const auto& command : BuildFrameInitFrames(0, 0, frames.at(0)))
     {
-        transport.expectWrite(kRequestCanId, command);
-        transport.queueRead(kReplyCanId, test_bytes::BytesFromHex("0000000000000000"));
+        transport.ExpectWrite(kRequestCanId, command);
+        transport.QueueRead(kReplyCanId, test_bytes::BytesFromHex("0000000000000000"));
     }
-    transport.expectWrite(kRequestCanId, BuildLogStartFrame(0, 1, 10));
-    transport.queueRead(kReplyCanId, test_bytes::BytesFromHex("0000000000000000"));
+    transport.ExpectWrite(kRequestCanId, BuildLogStartFrame(0, 1, 10));
+    transport.QueueRead(kReplyCanId, test_bytes::BytesFromHex("0000000000000000"));
 }
 
-std::unique_ptr<CdbgLoggingProtocol> makeProtocol(std::unique_ptr<cdbg::ScriptedCanTransport> transport,
-                                                  std::vector<LoggingChannel> channels = {channel()})
+std::unique_ptr<CdbgLoggingProtocol> MakeProtocol(std::unique_ptr<cdbg::ScriptedCanTransport> transport,
+                                                  std::vector<LoggingChannel> channels = {Channel()})
 {
     return std::make_unique<CdbgLoggingProtocol>(std::move(transport), std::move(channels));
 }
@@ -64,51 +64,51 @@ std::unique_ptr<CdbgLoggingProtocol> makeProtocol(std::unique_ptr<cdbg::Scripted
 TEST(CdbgLoggingProtocolTest, StartReachesStreamingOnValidHandshake)
 {
     auto transport = std::make_unique<cdbg::ScriptedCanTransport>();
-    scriptValidHandshake(*transport);
+    ScriptValidHandshake(*transport);
     auto *script = transport.get();
-    auto protocol = makeProtocol(std::move(transport));
+    auto protocol = MakeProtocol(std::move(transport));
     fastecu::FakeCancellationToken cancellation;
 
-    ASSERT_THAT(protocol->start(cancellation), fastecu::testing::IsOk());
-    EXPECT_TRUE(script->scriptConsumed());
-    EXPECT_TRUE(script->ok());
+    ASSERT_THAT(protocol->Start(cancellation), fastecu::testing::IsOk());
+    EXPECT_TRUE(script->ScriptConsumed());
+    EXPECT_TRUE(script->Ok());
 }
 
 TEST(CdbgLoggingProtocolTest, StartFailurePinsInvalidConfigForEmptyChannels)
 {
-    auto protocol = makeProtocol(std::make_unique<cdbg::ScriptedCanTransport>(), {});
+    auto protocol = MakeProtocol(std::make_unique<cdbg::ScriptedCanTransport>(), {});
     fastecu::FakeCancellationToken cancellation;
 
-    ASSERT_THAT(protocol->start(cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
+    ASSERT_THAT(protocol->Start(cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
 }
 
 TEST(CdbgLoggingProtocolTest, StartFailurePinsBadResponseForMissingHandshakeReply)
 {
     auto transport = std::make_unique<cdbg::ScriptedCanTransport>();
-    transport->expectWrite(mitsu_colt_can_cdbg::kRequestCanId, mitsu_colt_can_cdbg::BuildInitFrame());
-    transport->queue_no_frame();
-    auto protocol = makeProtocol(std::move(transport));
+    transport->ExpectWrite(mitsu_colt_can_cdbg::kRequestCanId, mitsu_colt_can_cdbg::BuildInitFrame());
+    transport->QueueNoFrame();
+    auto protocol = MakeProtocol(std::move(transport));
     fastecu::FakeCancellationToken cancellation;
 
-    ASSERT_THAT(protocol->start(cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::kBadResponse));
+    ASSERT_THAT(protocol->Start(cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::kBadResponse));
 }
 
 TEST(CdbgLoggingProtocolTest, StartFailsWhenAdapterIsClosed)
 {
     auto transport = std::make_unique<cdbg::ScriptedCanTransport>();
-    transport->setOpen(false);
-    auto protocol = makeProtocol(std::move(transport));
+    transport->SetOpen(false);
+    auto protocol = MakeProtocol(std::move(transport));
     fastecu::FakeCancellationToken cancellation;
 
-    ASSERT_THAT(protocol->start(cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::kDisconnected));
+    ASSERT_THAT(protocol->Start(cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::kDisconnected));
 }
 
 TEST(CdbgLoggingProtocolTest, PollReturnsNoResponseBeforeStart)
 {
-    auto protocol = makeProtocol(std::make_unique<cdbg::ScriptedCanTransport>());
+    auto protocol = MakeProtocol(std::make_unique<cdbg::ScriptedCanTransport>());
     fastecu::FakeCancellationToken cancellation;
 
-    const auto result = protocol->poll(20ms, cancellation);
+    const auto result = protocol->Poll(20ms, cancellation);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_FALSE(result->responded);
@@ -118,24 +118,24 @@ TEST(CdbgLoggingProtocolTest, PollReturnsNoResponseBeforeStart)
 TEST(CdbgLoggingProtocolTest, PollReturnsTransportErrorWhenAdapterIsClosed)
 {
     auto transport = std::make_unique<cdbg::ScriptedCanTransport>();
-    transport->setOpen(false);
-    auto protocol = makeProtocol(std::move(transport));
+    transport->SetOpen(false);
+    auto protocol = MakeProtocol(std::move(transport));
     fastecu::FakeCancellationToken cancellation;
 
-    ASSERT_THAT(protocol->poll(20ms, cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::kDisconnected));
+    ASSERT_THAT(protocol->Poll(20ms, cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::kDisconnected));
 }
 
 TEST(CdbgLoggingProtocolTest, PollReturnsStableIdAndRawDecimalString)
 {
     auto transport = std::make_unique<cdbg::ScriptedCanTransport>();
-    scriptValidHandshake(*transport);
+    ScriptValidHandshake(*transport);
     auto *script = transport.get();
-    auto protocol = makeProtocol(std::move(transport));
+    auto protocol = MakeProtocol(std::move(transport));
     fastecu::FakeCancellationToken cancellation;
-    ASSERT_THAT(protocol->start(cancellation), fastecu::testing::IsOk());
-    script->queueRead(mitsu_colt_can_cdbg::kReplyCanId, test_bytes::BytesFromHex("002A000000000000"));
+    ASSERT_THAT(protocol->Start(cancellation), fastecu::testing::IsOk());
+    script->QueueRead(mitsu_colt_can_cdbg::kReplyCanId, test_bytes::BytesFromHex("002A000000000000"));
 
-    const auto result = protocol->poll(50ms, cancellation);
+    const auto result = protocol->Poll(50ms, cancellation);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_TRUE(result->responded);
@@ -147,14 +147,14 @@ TEST(CdbgLoggingProtocolTest, PollReturnsStableIdAndRawDecimalString)
 TEST(CdbgLoggingProtocolTest, PollReportsSilenceAfterStartWithoutCachedSamples)
 {
     auto transport = std::make_unique<cdbg::ScriptedCanTransport>();
-    scriptValidHandshake(*transport);
+    ScriptValidHandshake(*transport);
     auto *script = transport.get();
-    auto protocol = makeProtocol(std::move(transport));
+    auto protocol = MakeProtocol(std::move(transport));
     fastecu::FakeCancellationToken cancellation;
-    ASSERT_THAT(protocol->start(cancellation), fastecu::testing::IsOk());
-    script->queue_no_frame();
+    ASSERT_THAT(protocol->Start(cancellation), fastecu::testing::IsOk());
+    script->QueueNoFrame();
 
-    const auto result = protocol->poll(50ms, cancellation);
+    const auto result = protocol->Poll(50ms, cancellation);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_FALSE(result->responded);
@@ -163,8 +163,8 @@ TEST(CdbgLoggingProtocolTest, PollReportsSilenceAfterStartWithoutCachedSamples)
 
 TEST(CdbgLoggingProtocolTest, StartPropagatesCancellation)
 {
-    auto protocol = makeProtocol(std::make_unique<cdbg::ScriptedCanTransport>());
+    auto protocol = MakeProtocol(std::make_unique<cdbg::ScriptedCanTransport>());
     fastecu::FakeCancellationToken cancellation(true);
 
-    ASSERT_THAT(protocol->start(cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::kCancelled));
+    ASSERT_THAT(protocol->Start(cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::kCancelled));
 }

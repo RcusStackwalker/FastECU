@@ -49,9 +49,9 @@ QString rom_info_value(const QStringList& values, RomInfoRow row)
 QStringList rom_info_values(const calibration::CalibrationSession& session,
                             const std::optional<QString>& placeholderMake)
 {
-    const calibration::RomProtocolInfo& protocol = session.protocol();
+    const calibration::RomProtocolInfo& protocol = session.Protocol();
     QStringList values(kRomInfoRowCount, QString(" "));
-    if (const calibration::ResolvedDefinition *resolved = session.definition(); resolved != nullptr)
+    if (const calibration::ResolvedDefinition *resolved = session.Definition(); resolved != nullptr)
     {
         // populate_rom_info starts from empty strings, not the " " pre-fill.
         values = QStringList(kRomInfoRowCount, QString{});

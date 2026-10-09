@@ -38,7 +38,7 @@ ProtocolSelect::ProtocolSelect(const fastecu::config::ConfigSession& config, QWi
     int descriptionWidth = 0;
 
     // Vehicle-backed: one entry per distinct protocol any vehicle uses.
-    const auto vehicles = config.vehicles();
+    const auto vehicles = config.Vehicles();
     for (const VehicleSpec& vehicle : vehicles)
     {
         if (!protocols.contains(qs(vehicle.protocol->name)))
@@ -92,8 +92,8 @@ ProtocolSelect::ProtocolSelect(const fastecu::config::ConfigSession& config, QWi
         item->setText(1, descriptionsSorted.at(i));
         item->setFirstColumnSpanned(true);
         ui_->treeWidget->addTopLevelItem(item);
-        if (config.selected_vehicle() != nullptr &&
-            protocolsSorted.at(i) == qs(config.selected_vehicle()->protocol->name))
+        if (config.SelectedVehicle() != nullptr &&
+            protocolsSorted.at(i) == qs(config.SelectedVehicle()->protocol->name))
         {
             protocolChangedSaved = true;
             ui_->treeWidget->setCurrentItem(item);

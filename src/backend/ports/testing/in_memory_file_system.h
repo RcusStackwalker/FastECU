@@ -15,11 +15,11 @@ namespace fastecu
 class InMemoryFileSystem : public IFileSystem
 {
   public:
-    bool exists(std::string_view path) override
+    bool Exists(std::string_view path) override
     {
         return directories.count(std::string(path)) || files.count(std::string(path));
     }
-    Status create_directory(std::string_view path) override
+    Status CreateDirectory(std::string_view path) override
     {
         if (create_directory_error)
         {
@@ -28,11 +28,11 @@ class InMemoryFileSystem : public IFileSystem
         directories.insert(std::string(path));
         return {};
     }
-    Status copy_file(std::string_view src, std::string_view dst, bool overwrite) override
+    Status CopyFile(std::string_view src, std::string_view dst, bool overwrite) override
     {
         if (!files.count(std::string(src)))
         {
-            return fastecu::fail(ErrorKind::kInternal, "source missing");
+            return fastecu::Fail(ErrorKind::kInternal, "source missing");
         }
         std::string dst_str(dst);
         // Mirrors QFile::copy: no implicit mkpath. A destination whose parent
@@ -40,24 +40,24 @@ class InMemoryFileSystem : public IFileSystem
         auto slash = dst_str.find_last_of('/');
         if (slash != std::string::npos && !directories.count(dst_str.substr(0, slash + 1)))
         {
-            return fastecu::fail(ErrorKind::kInternal, "destination directory missing");
+            return fastecu::Fail(ErrorKind::kInternal, "destination directory missing");
         }
         if (!overwrite && files.count(dst_str))
         {
-            return fastecu::fail(ErrorKind::kInternal, "destination exists");
+            return fastecu::Fail(ErrorKind::kInternal, "destination exists");
         }
         files[dst_str] = files[std::string(src)];
         copy_calls.push_back({std::string(src), dst_str});
         return {};
     }
-    Status remove_file(std::string_view path) override
+    Status RemoveFile(std::string_view path) override
     {
         directories.erase(std::string(path));
         files.erase(std::string(path));
         removed.push_back(std::string(path));
         return {};
     }
-    Result<std::vector<DirEntry>> list_directory(std::string_view path) override
+    Result<std::vector<DirEntry>> ListDirectory(std::string_view path) override
     {
         const std::string key(path);
         if (auto error = list_directory_errors.find(key); error != list_directory_errors.end())
@@ -98,7 +98,7 @@ class InMemoryFileSystem : public IFileSystem
         {
             return entries;
         }
-        return fail(ErrorKind::kInvalidConfig, std::format("unknown directory: {}", key));
+        return Fail(ErrorKind::kInvalidConfig, std::format("unknown directory: {}", key));
     }
 
     std::set<std::string> directories;

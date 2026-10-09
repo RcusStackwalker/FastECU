@@ -28,13 +28,13 @@ class IEventSink
 {
   public:
     virtual ~IEventSink() = default;
-    virtual void log(LogLevel, std::string_view message) = 0;
-    virtual void progress(int done, int total) = 0;
-    virtual void phase_progress(const PhaseProgressEvent& event)
+    virtual void Log(LogLevel, std::string_view message) = 0;
+    virtual void Progress(int done, int total) = 0;
+    virtual void PhaseProgress(const PhaseProgressEvent& event)
     {
-        progress(event.done, event.total);
+        Progress(event.done, event.total);
     }
-    virtual void notice(std::string_view message) = 0;
+    virtual void Notice(std::string_view message) = 0;
 };
 
 // A no-op sink for call sites that do not yet have anywhere to route
@@ -42,13 +42,13 @@ class IEventSink
 class NullEventSink : public IEventSink
 {
   public:
-    void log(LogLevel, std::string_view) override
+    void Log(LogLevel, std::string_view) override
     {
     }
-    void progress(int, int) override
+    void Progress(int, int) override
     {
     }
-    void notice(std::string_view) override
+    void Notice(std::string_view) override
     {
     }
 };

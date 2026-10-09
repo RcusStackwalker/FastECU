@@ -61,7 +61,7 @@ definition::DefinitionHeaderDraft read_header_form(const HeaderFormEditors& edit
 
 Result<definition::DefinitionHeaderInput> definition_header_input(const HeaderFormEditors& editors)
 {
-    return definition::definition_header_input(read_header_form(editors));
+    return definition::BuildDefinitionHeaderInput(read_header_form(editors));
 }
 
 QString normalize_xml_suffix(QString filename)

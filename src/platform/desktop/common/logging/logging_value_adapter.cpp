@@ -8,11 +8,11 @@ void DesktopLoggerValues::initialize(const fastecu::logging::LoggerModel& model)
 {
     parameters_.clear();
     switches_.clear();
-    for (const auto& p : model.definition().parameters)
+    for (const auto& p : model.Definition().parameters)
     {
         parameters_.emplace(fastecu::logging::LoggerIdentity{p.protocol, p.id}, QStringLiteral("0.00"));
     }
-    for (const auto& p : model.definition().switches)
+    for (const auto& p : model.Definition().switches)
     {
         switches_.emplace(fastecu::logging::LoggerIdentity{p.protocol, p.id}, QStringLiteral("0"));
     }
@@ -47,13 +47,13 @@ fastecu::Status apply_log_sample(const DesktopLoggingSnapshot& snapshot, const f
     const auto identity = snapshot.identities_by_id.find(sample.channel_id);
     if (identity == snapshot.identities_by_id.end())
     {
-        return fastecu::fail(fastecu::ErrorKind::kInternal, "logging sample id is not in the desktop snapshot");
+        return fastecu::Fail(fastecu::ErrorKind::kInternal, "logging sample id is not in the desktop snapshot");
     }
-    const auto *channel = snapshot.session.find_channel(sample.channel_id);
+    const auto *channel = snapshot.session.FindChannel(sample.channel_id);
     if (channel == nullptr || identity->second.first != snapshot.protocol ||
         identity->second.second != sample.channel_id)
     {
-        return fastecu::fail(fastecu::ErrorKind::kInternal, "logging snapshot identities and session disagree");
+        return fastecu::Fail(fastecu::ErrorKind::kInternal, "logging snapshot identities and session disagree");
     }
     if (!snapshot.enabled_ids.contains(sample.channel_id))
     {
@@ -62,7 +62,7 @@ fastecu::Status apply_log_sample(const DesktopLoggingSnapshot& snapshot, const f
     if (!values.set_parameter_value(identity->second,
                                     format_logging_value(sample.numeric_value, channel->decimal_precision)))
     {
-        return fastecu::fail(fastecu::ErrorKind::kInternal, "logging sample identity is not in the desktop values");
+        return fastecu::Fail(fastecu::ErrorKind::kInternal, "logging sample identity is not in the desktop values");
     }
     return {};
 }

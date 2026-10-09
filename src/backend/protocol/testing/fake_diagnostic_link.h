@@ -19,65 +19,65 @@ class FakeDiagnosticLink final : public IDiagnosticLink
     std::vector<std::string> calls;
     bool j2534 = false;
 
-    void queue_open(Status outcome)
+    void QueueOpen(Status outcome)
     {
         opens_.push_back(std::move(outcome));
     }
-    void queue_five_baud(bytes::Bytes response)
+    void QueueFiveBaud(bytes::Bytes response)
     {
         five_bauds_.push_back(std::move(response));
     }
-    void queue_fast_init(Status outcome)
+    void QueueFastInit(Status outcome)
     {
         fast_inits_.push_back(std::move(outcome));
     }
-    void queue_read(bytes::Bytes frame)
+    void QueueRead(bytes::Bytes frame)
     {
         reads_.emplace_back(OptionalBytes{std::move(frame)});
     }
-    void queue_no_frame()
+    void QueueNoFrame()
     {
         reads_.emplace_back(OptionalBytes{});
     }
-    void queue_read_error(ErrorKind kind)
+    void QueueReadError(ErrorKind kind)
     {
-        reads_.emplace_back(fail(kind, "scripted read error"));
+        reads_.emplace_back(Fail(kind, "scripted read error"));
     }
-    bool script_consumed() const
+    bool ScriptConsumed() const
     {
         return opens_.empty() && five_bauds_.empty() && fast_inits_.empty() && reads_.empty();
     }
 
-    Status open(const KlineLinkConfig& c) override
+    Status Open(const KlineLinkConfig& c) override
     {
         calls.push_back(
             std::format("open kline header={} iso14230={} baud={} start={:02X} tester={:02X} target={:02X}{}",
-                        to_string(c.header), c.iso14230_connection, c.baud, c.start_byte, c.tester_id, c.target_id,
+                        ToString(c.header), c.iso14230_connection, c.baud, c.start_byte, c.tester_id, c.target_id,
                         c.parity == Parity::kEven ? " parity=Even" : ""));
-        return next(opens_);
+        return Next(opens_);
     }
-    Status open(const CanLinkConfig& c) override
+    Status Open(const CanLinkConfig& c) override
     {
         calls.push_back(std::format("open can iso15765={} bitrate={} extended={} source={:03X} destination={:03X}",
                                     c.iso15765, c.bitrate, c.extended_id, c.source_id, c.destination_id));
-        return next(opens_);
+        return Next(opens_);
     }
-    Status reset() override
+    Status Reset() override
     {
         calls.emplace_back("reset");
         return {};
     }
-    Status set_header(KlineHeader header) override
+    Status SetHeader(KlineHeader header) override
     {
-        calls.push_back(std::format("set_header {}", to_string(header)));
+        calls.push_back(std::format("set_header {}", ToString(header)));
         return {};
     }
-    Status set_p1_max(std::chrono::milliseconds p1_max) override
+    Status SetP1Max(std::chrono::milliseconds p1_max) override
     {
         calls.push_back(std::format("p1 {}", p1_max.count()));
         return {};
     }
-    Result<bytes::Bytes> five_baud_init(std::uint8_t address) override
+    Result<bytes::Bytes> FiveBaudInit(std::uint8_t address) override
     {
         calls.push_back(std::format("five_baud {:02X}", address));
         if (five_bauds_.empty())
@@ -88,36 +88,36 @@ class FakeDiagnosticLink final : public IDiagnosticLink
         five_bauds_.pop_front();
         return response;
     }
-    Status fast_init(bytes::ByteView wakeup) override
+    Status FastInit(bytes::ByteView wakeup) override
     {
-        calls.push_back("fast_init " + hex(wakeup));
-        return next(fast_inits_);
+        calls.push_back("fast_init " + Hex(wakeup));
+        return Next(fast_inits_);
     }
     // Echoes the input unconditionally. The real adapter instead returns the
     // facade's echo-check result (which can legitimately differ from what
     // was written), so callers must not rely on this return value to assert
     // anything beyond "write was called" -- assert on `calls` instead.
-    Result<bytes::Bytes> write(bytes::ByteView data) override
+    Result<bytes::Bytes> Write(bytes::ByteView data) override
     {
-        calls.push_back("write " + hex(data));
+        calls.push_back("write " + Hex(data));
         return bytes::Bytes(data.begin(), data.end());
     }
-    Result<OptionalBytes> read(std::chrono::milliseconds timeout, const ICancellationToken& cancellation) override
+    Result<OptionalBytes> Read(std::chrono::milliseconds timeout, const ICancellationToken& cancellation) override
     {
         calls.push_back(std::format("read {}", timeout.count()));
-        return next_read(cancellation);
+        return NextRead(cancellation);
     }
-    Result<OptionalBytes> read_obd(std::chrono::milliseconds timeout, const ICancellationToken& cancellation) override
+    Result<OptionalBytes> ReadObd(std::chrono::milliseconds timeout, const ICancellationToken& cancellation) override
     {
         calls.push_back(std::format("read_obd {}", timeout.count()));
-        return next_read(cancellation);
+        return NextRead(cancellation);
     }
-    bool uses_j2534() const override
+    bool UsesJ2534() const override
     {
         return j2534;
     }
 
-    static std::string hex(bytes::ByteView data)
+    static std::string Hex(bytes::ByteView data)
     {
         std::string out;
         for (const bytes::Byte b : data)
@@ -128,7 +128,7 @@ class FakeDiagnosticLink final : public IDiagnosticLink
     }
 
   private:
-    static Status next(std::deque<Status>& queue)
+    static Status Next(std::deque<Status>& queue)
     {
         if (queue.empty())
         {
@@ -138,11 +138,11 @@ class FakeDiagnosticLink final : public IDiagnosticLink
         queue.pop_front();
         return outcome;
     }
-    Result<OptionalBytes> next_read(const ICancellationToken& cancellation)
+    Result<OptionalBytes> NextRead(const ICancellationToken& cancellation)
     {
-        if (cancellation.cancelled())
+        if (cancellation.Cancelled())
         {
-            return fail(ErrorKind::kCancelled, "scripted read cancelled");
+            return Fail(ErrorKind::kCancelled, "scripted read cancelled");
         }
         if (reads_.empty())
         {

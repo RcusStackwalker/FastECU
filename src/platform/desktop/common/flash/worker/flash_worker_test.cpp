@@ -53,21 +53,21 @@ class FakeBoundAttempt final : public fastecu::flash::BoundFlashAttempt
     {
     }
 
-    const fastecu::flash::FlashPlan& plan() const noexcept override
+    const fastecu::flash::FlashPlan& Plan() const noexcept override
     {
         return plan_;
     }
 
-    fastecu::Result<fastecu::flash::FlashExecutionResult> run(fastecu::IClock&, const fastecu::ICancellationToken&,
+    fastecu::Result<fastecu::flash::FlashExecutionResult> Run(fastecu::IClock&, const fastecu::ICancellationToken&,
                                                               fastecu::IEventSink& events) override
     {
         ++run_calls;
-        events.phase_progress(
+        events.PhaseProgress(
             {.phase_name = "Connect to ECU", .phase_index = 1, .phase_count = 2, .done = 1, .total = 1});
         return fastecu::flash::FlashExecutionResult{};
     }
 
-    void request_unblock() noexcept override
+    void RequestUnblock() noexcept override
     {
         ++unblock_calls;
     }
@@ -121,7 +121,7 @@ bytes::Bytes requestKernelIdRequest()
 
 TEST(TestFlashWorker, closingWhileReadIsBlocked_cancelsUnblocksAndJoinsWithoutWallClockSleep)
 {
-    auto plan = fastecu::flash::build_denso_sh705x_eeprom_plan(validInput(FlashFamily::kDensoSh705xEepromKline));
+    auto plan = fastecu::flash::BuildDensoSh705xEepromPlan(validInput(FlashFamily::kDensoSh705xEepromKline));
     ASSERT_TRUE(plan.has_value());
 
     auto transport = std::make_unique<ScriptedKlineFlashTransport>();
@@ -129,20 +129,20 @@ TEST(TestFlashWorker, closingWhileReadIsBlocked_cancelsUnblocksAndJoinsWithoutWa
     // connect_bootloader()'s initial kernel-alive probe: the write must
     // be scripted so it succeeds, so the ensuing read() is the one that
     // actually blocks.
-    raw_transport->expectWrite(requestKernelIdRequest());
-    raw_transport->queueBlockingRead();
+    raw_transport->ExpectWrite(requestKernelIdRequest());
+    raw_transport->QueueBlockingRead();
 
-    FlashWorker worker(
-        FlashAttempt{fastecu::flash::bind_flash_attempt(
-                         std::move(*plan), std::make_unique<DensoSh705xEepromKlineExecutor>(), std::move(transport)),
-                     std::make_unique<FakeClock>()});
+    FlashWorker worker(FlashAttempt{fastecu::flash::BindFlashAttempt(std::move(*plan),
+                                                                     std::make_unique<DensoSh705xEepromKlineExecutor>(),
+                                                                     std::move(transport)),
+                                    std::make_unique<FakeClock>()});
     fastecu::testing::SignalRecorder finished_spy(&worker, &FlashWorker::finished);
 
     worker.start();
     // Wait on the transport's own condition variable, not a fixed sleep:
     // requestStop() must land while read() is genuinely blocked for this
     // test to prove anything about unblocking.
-    ASSERT_TRUE(raw_transport->waitUntilBlockingReadEntered(std::chrono::milliseconds(2000)));
+    ASSERT_TRUE(raw_transport->WaitUntilBlockingReadEntered(std::chrono::milliseconds(2000)));
     worker.requestStop();
 
     QElapsedTimer timer;
@@ -174,14 +174,14 @@ TEST(TestFlashWorker, oneAndOnlyOneTerminalResultIsEmitted)
     // rejects it before any I/O (zero writes/reads
     // scripted below, on purpose -- reaching the transport at all here
     // would itself be a bug).
-    auto plan = fastecu::flash::build_denso_sh705x_eeprom_plan(validInput(FlashFamily::kDensoSh705xEepromCan));
+    auto plan = fastecu::flash::BuildDensoSh705xEepromPlan(validInput(FlashFamily::kDensoSh705xEepromCan));
     ASSERT_TRUE(plan.has_value());
 
     auto transport = std::make_unique<ScriptedKlineFlashTransport>();
-    FlashWorker worker(
-        FlashAttempt{fastecu::flash::bind_flash_attempt(
-                         std::move(*plan), std::make_unique<DensoSh705xEepromKlineExecutor>(), std::move(transport)),
-                     std::make_unique<FakeClock>()});
+    FlashWorker worker(FlashAttempt{fastecu::flash::BindFlashAttempt(std::move(*plan),
+                                                                     std::make_unique<DensoSh705xEepromKlineExecutor>(),
+                                                                     std::move(transport)),
+                                    std::make_unique<FakeClock>()});
     fastecu::testing::SignalRecorder finished_spy(&worker, &FlashWorker::finished);
 
     worker.start();
@@ -202,7 +202,7 @@ TEST(TestFlashWorker, oneAndOnlyOneTerminalResultIsEmitted)
 
 TEST(TestFlashWorker, phaseProgressIsForwardedAlongsideLegacyProgress)
 {
-    auto plan = fastecu::flash::build_denso_sh705x_eeprom_plan(validInput(FlashFamily::kDensoSh705xEepromKline));
+    auto plan = fastecu::flash::BuildDensoSh705xEepromPlan(validInput(FlashFamily::kDensoSh705xEepromKline));
     ASSERT_TRUE(plan.has_value());
 
     auto attempt = std::make_unique<FakeBoundAttempt>(std::move(*plan));

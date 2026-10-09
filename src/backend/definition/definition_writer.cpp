@@ -24,24 +24,24 @@ namespace fastecu::definition
 namespace
 {
 
-Status validate_input(const DefinitionHeaderInput& input)
+Status ValidateInput(const DefinitionHeaderInput& input)
 {
     if (input.xml_id.empty())
     {
-        return fail(ErrorKind::kInvalidConfig, "definition XML ID is required");
+        return Fail(ErrorKind::kInvalidConfig, "definition XML ID is required");
     }
     if (input.internal_id.empty())
     {
-        return fail(ErrorKind::kInvalidConfig, "definition internal ID is required");
+        return Fail(ErrorKind::kInvalidConfig, "definition internal ID is required");
     }
     if (input.ecu_id.empty())
     {
-        return fail(ErrorKind::kInvalidConfig, "definition ECU ID is required");
+        return Fail(ErrorKind::kInvalidConfig, "definition ECU ID is required");
     }
     return {};
 }
 
-void set_unique_text(pugi::xml_node parent, const char *name, std::string_view value)
+void SetUniqueText(pugi::xml_node parent, const char *name, std::string_view value)
 {
     pugi::xml_node child = parent.child(name);
     if (!child)
@@ -67,11 +67,11 @@ void set_unique_text(pugi::xml_node parent, const char *name, std::string_view v
     }
 }
 
-void set_optional_hex(pugi::xml_node parent, const char *name, std::optional<std::uint64_t> value)
+void SetOptionalHex(pugi::xml_node parent, const char *name, std::optional<std::uint64_t> value)
 {
     if (value)
     {
-        set_unique_text(parent, name, hex_text(*value));
+        SetUniqueText(parent, name, HexText(*value));
         return;
     }
     // No known address: remove rather than write a placeholder, so an unset optional never
@@ -85,10 +85,10 @@ void set_optional_hex(pugi::xml_node parent, const char *name, std::optional<std
     }
 }
 
-Status update_header(pugi::xml_node root, const DefinitionHeaderInput& raw_input)
+Status UpdateHeader(pugi::xml_node root, const DefinitionHeaderInput& raw_input)
 {
-    const auto input = normalize_header_input(raw_input);
-    if (auto valid = validate_input(input); !valid.has_value())
+    const auto input = NormalizeHeaderInput(raw_input);
+    if (auto valid = ValidateInput(input); !valid.has_value())
     {
         return std::unexpected(valid.error());
     }
@@ -97,22 +97,22 @@ Status update_header(pugi::xml_node root, const DefinitionHeaderInput& raw_input
     {
         rom_id = root.prepend_child("romid");
     }
-    set_unique_text(rom_id, "xmlid", input.xml_id);
-    set_optional_hex(rom_id, "internalidaddress", input.internal_id_address);
-    set_unique_text(rom_id, "internalidstring", input.internal_id);
-    set_unique_text(rom_id, "ecuid", input.ecu_id);
+    SetUniqueText(rom_id, "xmlid", input.xml_id);
+    SetOptionalHex(rom_id, "internalidaddress", input.internal_id_address);
+    SetUniqueText(rom_id, "internalidstring", input.internal_id);
+    SetUniqueText(rom_id, "ecuid", input.ecu_id);
     for (const auto& field : kEditableMetadataFields)
     {
-        set_unique_text(rom_id, field.xml_name, input.metadata.*field.member);
+        SetUniqueText(rom_id, field.xml_name, input.metadata.*field.member);
     }
-    set_unique_text(rom_id, "filesize", input.metadata.file_size);
-    set_unique_text(rom_id, "notes", input.metadata.notes);
-    set_unique_text(root, "include", input.include);
-    set_unique_text(root, "notes", input.notes);
+    SetUniqueText(rom_id, "filesize", input.metadata.file_size);
+    SetUniqueText(rom_id, "notes", input.metadata.notes);
+    SetUniqueText(root, "include", input.include);
+    SetUniqueText(root, "notes", input.notes);
     return {};
 }
 
-void normalize_declaration(pugi::xml_document& document)
+void NormalizeDeclaration(pugi::xml_document& document)
 {
     for (pugi::xml_node node = document.first_child(); node;)
     {
@@ -128,9 +128,9 @@ void normalize_declaration(pugi::xml_document& document)
     declaration.append_attribute("encoding") = "UTF-8";
 }
 
-Result<std::vector<std::uint8_t>> serialize_and_validate(pugi::xml_document& document)
+Result<std::vector<std::uint8_t>> SerializeAndValidate(pugi::xml_document& document)
 {
-    normalize_declaration(document);
+    NormalizeDeclaration(document);
     std::ostringstream output;
     document.save(output, "  ", pugi::format_default, pugi::encoding_utf8);
     std::string xml = std::move(output).str();
@@ -140,47 +140,47 @@ Result<std::vector<std::uint8_t>> serialize_and_validate(pugi::xml_document& doc
     }
 
     std::vector<std::uint8_t> result(xml.begin(), xml.end());
-    if (auto parsed = parse_ecuflash_definition(result, "generated definition"); !parsed.has_value())
+    if (auto parsed = ParseEcuflashDefinition(result, "generated definition"); !parsed.has_value())
     {
         return std::unexpected(parsed.error());
     }
     return result;
 }
 
-pugi::xml_node create_root(pugi::xml_document& document)
+pugi::xml_node CreateRoot(pugi::xml_document& document)
 {
     return document.append_child("rom");
 }
 
 } // namespace
 
-DefinitionHeaderInput normalize_header_input(DefinitionHeaderInput input)
+DefinitionHeaderInput NormalizeHeaderInput(DefinitionHeaderInput input)
 {
     for (const auto member : {&DefinitionHeaderInput::xml_id, &DefinitionHeaderInput::internal_id,
                               &DefinitionHeaderInput::ecu_id, &DefinitionHeaderInput::include})
     {
-        input.*member = trim_header_text(input.*member);
+        input.*member = TrimHeaderText(input.*member);
     }
     for (const auto& field : kEditableMetadataFields)
     {
-        input.metadata.*field.member = trim_header_text(input.metadata.*field.member);
+        input.metadata.*field.member = TrimHeaderText(input.metadata.*field.member);
     }
-    input.metadata.file_size = trim_header_text(input.metadata.file_size);
+    input.metadata.file_size = TrimHeaderText(input.metadata.file_size);
     return input;
 }
 
-Result<std::vector<std::uint8_t>> create_ecuflash_xml(const DefinitionHeaderInput& input)
+Result<std::vector<std::uint8_t>> CreateEcuflashXml(const DefinitionHeaderInput& input)
 {
     pugi::xml_document document;
-    if (auto updated = update_header(create_root(document), input); !updated.has_value())
+    if (auto updated = UpdateHeader(CreateRoot(document), input); !updated.has_value())
     {
         return std::unexpected(updated.error());
     }
-    return serialize_and_validate(document);
+    return SerializeAndValidate(document);
 }
 
-Result<std::vector<std::uint8_t>> rewrite_ecuflash_xml(std::span<const std::uint8_t> source,
-                                                       const DefinitionHeaderInput& input)
+Result<std::vector<std::uint8_t>> RewriteEcuflashXml(std::span<const std::uint8_t> source,
+                                                     const DefinitionHeaderInput& input)
 {
     pugi::xml_document document;
     constexpr unsigned int kParseFlags =
@@ -189,24 +189,24 @@ Result<std::vector<std::uint8_t>> rewrite_ecuflash_xml(std::span<const std::uint
             document.load_buffer(source.data(), source.size(), kParseFlags, pugi::encoding_auto);
         !parsed)
     {
-        return fail(ErrorKind::kInvalidConfig,
+        return Fail(ErrorKind::kInvalidConfig,
                     std::format("EcuFlash source XML is malformed: {}", parsed.description()));
     }
 
     pugi::xml_node root = document.document_element();
     if (!root || root.name() != "rom"sv)
     {
-        return fail(ErrorKind::kInvalidConfig, "EcuFlash source root must be <rom>");
+        return Fail(ErrorKind::kInvalidConfig, "EcuFlash source root must be <rom>");
     }
     if (const auto rom_id = root.child("romid"); rom_id && rom_id.next_sibling("romid"))
     {
-        return fail(ErrorKind::kInvalidConfig, "EcuFlash source element <rom>: duplicate top-level <romid> elements");
+        return Fail(ErrorKind::kInvalidConfig, "EcuFlash source element <rom>: duplicate top-level <romid> elements");
     }
-    if (auto updated = update_header(root, input); !updated.has_value())
+    if (auto updated = UpdateHeader(root, input); !updated.has_value())
     {
         return std::unexpected(updated.error());
     }
-    return serialize_and_validate(document);
+    return SerializeAndValidate(document);
 }
 
 } // namespace fastecu::definition

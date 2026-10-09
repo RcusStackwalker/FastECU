@@ -18,10 +18,10 @@ class MutDmaLoggingProtocol final : public LoggingProtocol
     MutDmaLoggingProtocol(std::unique_ptr<mutdma::IKlineTransport> transport, std::unique_ptr<mutdma::IMutDmaInit> init,
                           std::vector<LoggingChannel> channels);
 
-    fastecu::Status start(const fastecu::ICancellationToken& cancellation) override;
-    fastecu::Result<PollData> poll(std::chrono::milliseconds timeout,
+    fastecu::Status Start(const fastecu::ICancellationToken& cancellation) override;
+    fastecu::Result<PollData> Poll(std::chrono::milliseconds timeout,
                                    const fastecu::ICancellationToken& cancellation) override;
-    fastecu::Status stop() override;
+    fastecu::Status Stop() override;
 
   private:
     std::unique_ptr<mutdma::IKlineTransport> transport_;

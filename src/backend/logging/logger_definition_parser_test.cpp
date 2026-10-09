@@ -10,13 +10,13 @@
 namespace
 {
 
-using fastecu::logging::parse_logger_definition;
+using fastecu::logging::ParseLoggerDefinition;
 using ::testing::ElementsAre;
 using ::testing::Field;
 using ::testing::IsEmpty;
 using ::testing::SizeIs;
 
-bytes::ByteView view(std::string_view text)
+bytes::ByteView View(std::string_view text)
 {
     return {reinterpret_cast<const bytes::Byte *>(text.data()), text.size()};
 }
@@ -39,7 +39,7 @@ constexpr std::string_view kWellFormed = R"(<logger><protocols><protocol id="SSM
 
 TEST(LoggerDefinitionParser, ParsesParametersSwitchesAndConversions)
 {
-    const auto result = parse_logger_definition(view(kWellFormed), "test.xml");
+    const auto result = ParseLoggerDefinition(View(kWellFormed), "test.xml");
     ASSERT_THAT(result, fastecu::testing::IsOk());
 
     ASSERT_THAT(result->parameters, SizeIs(1));
@@ -89,7 +89,7 @@ TEST(LoggerDefinitionParser, SubstitutesLegacyPlaceholderDefaults)
   </parameter>
 </parameters><switches><switch/></switches></protocol></protocols></logger>)";
 
-    const auto result = parse_logger_definition(view(kBare), "test.xml");
+    const auto result = ParseLoggerDefinition(View(kBare), "test.xml");
     ASSERT_THAT(result, fastecu::testing::IsOk());
 
     const auto& p = result->parameters.at(0);
@@ -133,7 +133,7 @@ TEST(LoggerDefinitionParser, RowsStayAlignedWhenOptionalChildrenAreMissing)
   <parameter id="P3"/>
 </parameters></protocol></protocols></logger>)";
 
-    const auto result = parse_logger_definition(view(kSparse), "test.xml");
+    const auto result = ParseLoggerDefinition(View(kSparse), "test.xml");
     ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_THAT(result->parameters, SizeIs(3));
 
@@ -153,7 +153,7 @@ TEST(LoggerDefinitionParser, CollectsParametersAcrossMultipleProtocols)
   <protocol id="CDBG"><parameters><parameter id="P2"/></parameters></protocol>
 </protocols></logger>)";
 
-    const auto result = parse_logger_definition(view(kTwo), "test.xml");
+    const auto result = ParseLoggerDefinition(View(kTwo), "test.xml");
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_THAT(result->parameters, ElementsAre(Field(&fastecu::logging::LoggerParameter::protocol, "SSM"),
                                                 Field(&fastecu::logging::LoggerParameter::protocol, "CDBG")));
@@ -161,20 +161,20 @@ TEST(LoggerDefinitionParser, CollectsParametersAcrossMultipleProtocols)
 
 TEST(LoggerDefinitionParser, RejectsMalformedXml)
 {
-    const auto result = parse_logger_definition(view("<logger><protocols>"), "broken.xml");
+    const auto result = ParseLoggerDefinition(View("<logger><protocols>"), "broken.xml");
     ASSERT_THAT(result, fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
     EXPECT_THAT(result.error().detail, ::testing::HasSubstr("broken.xml"));
 }
 
 TEST(LoggerDefinitionParser, RejectsWrongRootElement)
 {
-    ASSERT_THAT(parse_logger_definition(view("<config/>"), "wrong.xml"),
+    ASSERT_THAT(ParseLoggerDefinition(View("<config/>"), "wrong.xml"),
                 fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
 }
 
 TEST(LoggerDefinitionParser, AcceptsAnEmptyButWellFormedDocument)
 {
-    const auto result = parse_logger_definition(view("<logger/>"), "empty.xml");
+    const auto result = ParseLoggerDefinition(View("<logger/>"), "empty.xml");
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_THAT(result->parameters, IsEmpty());
     EXPECT_THAT(result->switches, IsEmpty());

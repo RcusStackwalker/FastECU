@@ -2,26 +2,26 @@
 
 namespace fastecu::flash::detail
 {
-Status validate_regions(const FlashPlan& plan, const FlashDevice& device)
+Status ValidateRegions(const FlashPlan& plan, const FlashDevice& device)
 {
-    if (plan.transfer_region().start != device.fblocks[0].start || plan.transfer_region().length != device.romsize)
+    if (plan.TransferRegion().start != device.fblocks[0].start || plan.TransferRegion().length != device.romsize)
     {
-        return fail(ErrorKind::kInvalidConfig, "transfer region does not match the MCU");
+        return Fail(ErrorKind::kInvalidConfig, "transfer region does not match the MCU");
     }
-    if (plan.operation() == FlashOperation::kRead)
+    if (plan.Operation() == FlashOperation::kRead)
     {
-        return plan.erase_regions().empty()
+        return plan.EraseRegions().empty()
                    ? Status{}
-                   : fail(ErrorKind::kInvalidConfig, "read plans must not declare erase regions");
+                   : Fail(ErrorKind::kInvalidConfig, "read plans must not declare erase regions");
     }
-    if (!erase_geometry_matches(plan.erase_regions(), device))
+    if (!EraseGeometryMatches(plan.EraseRegions(), device))
     {
-        return fail(ErrorKind::kInvalidConfig, "erase geometry does not match the MCU");
+        return Fail(ErrorKind::kInvalidConfig, "erase geometry does not match the MCU");
     }
     return {};
 }
 
-bool erase_geometry_matches(std::span<const MemoryRegion> regions, const FlashDevice& device)
+bool EraseGeometryMatches(std::span<const MemoryRegion> regions, const FlashDevice& device)
 {
     if (regions.size() != device.numblocks)
     {
@@ -37,7 +37,7 @@ bool erase_geometry_matches(std::span<const MemoryRegion> regions, const FlashDe
     return true;
 }
 
-std::vector<MemoryRegion> make_erase_regions(const FlashDevice& device)
+std::vector<MemoryRegion> MakeEraseRegions(const FlashDevice& device)
 {
     std::vector<MemoryRegion> regions;
     regions.reserve(device.numblocks);

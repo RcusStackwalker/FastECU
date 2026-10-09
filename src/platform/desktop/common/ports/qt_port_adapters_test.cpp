@@ -52,10 +52,10 @@ const auto *const kQtPortEnvironment = ::testing::AddGlobalTestEnvironment(new Q
 TEST(QtClockTest, NowMsIsMonotonicNonDecreasing)
 {
     QtClock clock;
-    auto first = clock.now();
+    auto first = clock.Now();
     ManualCancellationToken token;
-    ASSERT_THAT(clock.sleep(1ms, token), fastecu::testing::IsOk());
-    auto second = clock.now();
+    ASSERT_THAT(clock.Sleep(1ms, token), fastecu::testing::IsOk());
+    auto second = clock.Now();
     EXPECT_GE(second, first);
 }
 
@@ -63,15 +63,15 @@ TEST(QtClockTest, SleepZeroSucceeds)
 {
     QtClock clock;
     ManualCancellationToken token;
-    EXPECT_THAT(clock.sleep(0ms, token), fastecu::testing::IsOk());
+    EXPECT_THAT(clock.Sleep(0ms, token), fastecu::testing::IsOk());
 }
 
 TEST(QtClockTest, SleepReturnsCancelledWhenTokenAlreadyCancelled)
 {
     QtClock clock;
     ManualCancellationToken token;
-    token.cancel();
-    ASSERT_THAT(clock.sleep(50ms, token), fastecu::testing::IsErr(ErrorKind::kCancelled));
+    token.Cancel();
+    ASSERT_THAT(clock.Sleep(50ms, token), fastecu::testing::IsErr(ErrorKind::kCancelled));
 }
 
 // ---- QtFileRepository --------------------------------------------------
@@ -84,9 +84,9 @@ TEST(QtFileRepositoryTest, WriteThenReadRoundTripsBytes)
 
     QtFileRepository repo;
     std::vector<std::uint8_t> data{0x00, 0x01, 0x7f, 0x80, 0xff, 'h', 'i'};
-    ASSERT_THAT(repo.write(path, std::span<const std::uint8_t>(data)), fastecu::testing::IsOk());
+    ASSERT_THAT(repo.Write(path, std::span<const std::uint8_t>(data)), fastecu::testing::IsOk());
 
-    ASSERT_THAT(repo.read(path), fastecu::testing::IsOkAnd(data));
+    ASSERT_THAT(repo.Read(path), fastecu::testing::IsOkAnd(data));
 }
 
 TEST(QtFileRepositoryTest, WriteReportsSuccessOnlyOnceBytesAreOnDisk)
@@ -101,7 +101,7 @@ TEST(QtFileRepositoryTest, WriteReportsSuccessOnlyOnceBytesAreOnDisk)
 
     QtFileRepository repo;
     std::vector<std::uint8_t> data(4096, 0xA5);
-    ASSERT_THAT(repo.write(path.toStdString(), std::span<const std::uint8_t>(data)), fastecu::testing::IsOk());
+    ASSERT_THAT(repo.Write(path.toStdString(), std::span<const std::uint8_t>(data)), fastecu::testing::IsOk());
     EXPECT_EQ(QFileInfo(path).size(), static_cast<qint64>(data.size()));
 }
 
@@ -115,7 +115,7 @@ TEST(QtFileRepositoryTest, WriteToUnopenablePathFails)
 
     QtFileRepository repo;
     std::vector<std::uint8_t> data{0x01, 0x02, 0x03};
-    ASSERT_THAT(repo.write(path, std::span<const std::uint8_t>(data)),
+    ASSERT_THAT(repo.Write(path, std::span<const std::uint8_t>(data)),
                 fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
@@ -126,7 +126,7 @@ TEST(QtFileRepositoryTest, ReadOfMissingPathFails)
     std::string path = dir.filePath("does-not-exist.bin").toStdString();
 
     QtFileRepository repo;
-    ASSERT_THAT(repo.read(path), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
+    ASSERT_THAT(repo.Read(path), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
 // ---- QtSettings ---------------------------------------------------------
@@ -137,14 +137,14 @@ TEST(QtFileRepositoryTest, ReadOfMissingPathFails)
 TEST(QtSettingsTest, GetOfMissingKeyReturnsNullopt)
 {
     QtSettings settings;
-    EXPECT_EQ(settings.get("qt-port-adapters-test/missing-key"), std::nullopt);
+    EXPECT_EQ(settings.Get("qt-port-adapters-test/missing-key"), std::nullopt);
 }
 
 TEST(QtSettingsTest, SetThenGetRoundTrips)
 {
     QtSettings settings;
-    settings.set("qt-port-adapters-test/round-trip", "some-value");
-    std::optional<std::string> v = settings.get("qt-port-adapters-test/round-trip");
+    settings.Set("qt-port-adapters-test/round-trip", "some-value");
+    std::optional<std::string> v = settings.Get("qt-port-adapters-test/round-trip");
     ASSERT_TRUE(v.has_value());
     EXPECT_EQ(*v, "some-value");
 }
@@ -157,7 +157,7 @@ TEST(QtEventSinkTest, LogEmitsLoggedWithConvertedArgs)
     fastecu::testing::SignalRecorder spy(&sink, &QtEventSink::logged);
     ASSERT_TRUE(spy.is_valid());
 
-    sink.log(LogLevel::kWarning, "msg");
+    sink.Log(LogLevel::kWarning, "msg");
 
     ASSERT_EQ(spy.count(), 1U);
     const auto args = spy.snapshot().front();
@@ -171,7 +171,7 @@ TEST(QtEventSinkTest, ProgressEmitsProgressedWithDoneAndTotal)
     fastecu::testing::SignalRecorder spy(&sink, &QtEventSink::progressed);
     ASSERT_TRUE(spy.is_valid());
 
-    sink.progress(3, 10);
+    sink.Progress(3, 10);
 
     ASSERT_EQ(spy.count(), 1U);
     const auto args = spy.snapshot().front();
@@ -187,7 +187,7 @@ TEST(QtEventSinkTest, PhaseProgressPreservesLegacyProgressAndConvertsPhaseName)
     ASSERT_TRUE(legacy_spy.is_valid());
     ASSERT_TRUE(phase_spy.is_valid());
 
-    sink.phase_progress({.phase_name = "Write userspace", .phase_index = 4, .phase_count = 6, .done = 3, .total = 10});
+    sink.PhaseProgress({.phase_name = "Write userspace", .phase_index = 4, .phase_count = 6, .done = 3, .total = 10});
 
     ASSERT_EQ(legacy_spy.count(), 1U);
     EXPECT_EQ(std::get<0>(legacy_spy.snapshot().at(0)), 3);
@@ -206,7 +206,7 @@ TEST(QtEventSinkTest, NoticeEmitsNoticedWithMessage)
     fastecu::testing::SignalRecorder spy(&sink, &QtEventSink::noticed);
     ASSERT_TRUE(spy.is_valid());
 
-    sink.notice("done");
+    sink.Notice("done");
 
     ASSERT_EQ(spy.count(), 1U);
     const auto args = spy.snapshot().front();

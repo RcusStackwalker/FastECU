@@ -63,7 +63,7 @@ TEST(CalibrationTreeWidgetTest, filesTreeCarriesNameFirstMapIdAndSessionKey)
     CalibrationTreeWidget builder;
     const CalibrationSession session = session_with_maps();
 
-    builder.buildCalibrationFilesTree(session.id(), &files, session);
+    builder.buildCalibrationFilesTree(session.Id(), &files, session);
 
     ASSERT_EQ(files.topLevelItemCount(), 1);
     QTreeWidgetItem *item = files.topLevelItem(0);

@@ -31,7 +31,7 @@ SigintCancellationToken::~SigintCancellationToken()
     }
 }
 
-bool SigintCancellationToken::cancelled() const
+bool SigintCancellationToken::Cancelled() const
 {
     return g_sigint_requested != 0;
 }

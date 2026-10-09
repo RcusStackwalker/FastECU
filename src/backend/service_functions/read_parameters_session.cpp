@@ -22,7 +22,7 @@ constexpr bytes::Byte kPositiveResponse = 0xe8;
 constexpr std::array<std::uint16_t, 10> kAddresses{0x16c, 0x16d, 0x16e, 0x16f, 0x170,
                                                    0x171, 0x1bc, 0x1bd, 0x1be, 0x1bf};
 
-bytes::Bytes buildRequest()
+bytes::Bytes BuildRequest()
 {
     // legacy :534-539 -- 0x7E1 envelope, then SID 0xA8 and the "one time only"
     // response-mode byte.
@@ -34,7 +34,7 @@ bytes::Bytes buildRequest()
     return request;
 }
 
-TcuParameterReadout decode(bytes::ByteView frame)
+TcuParameterReadout Decode(bytes::ByteView frame)
 {
     // legacy :610-624 -- nine values across response bytes 5..14.
     return TcuParameterReadout{
@@ -56,46 +56,46 @@ ReadParametersSession::ReadParametersSession(std::string protocol) : protocol_(s
 {
 }
 
-Result<SsmTransportConfig> ReadParametersSession::transport_setup() const
+Result<SsmTransportConfig> ReadParametersSession::TransportSetup() const
 {
     if (protocol_ != "sub_tcu_denso_sh7055_can" && protocol_ != "sub_tcu_denso_sh7058_can")
     {
-        return fail(ErrorKind::kUnsupported, std::format("not a Subaru Denso SH705x TCU protocol: {}", protocol_));
+        return Fail(ErrorKind::kUnsupported, std::format("not a Subaru Denso SH705x TCU protocol: {}", protocol_));
     }
     // legacy :70 -- configureIso15765Can(serial, "500000", 0x7E1, 0x7E9).
     return SsmTransportConfig{};
 }
 
-void ReadParametersSession::submit(GateResponse)
+void ReadParametersSession::Submit(GateResponse)
 {
     misused_ = true;
 }
 
-ServiceFunctionStep ReadParametersSession::resume(ISsmTransport& transport, IClock&,
+ServiceFunctionStep ReadParametersSession::Resume(ISsmTransport& transport, IClock&,
                                                   const ICancellationToken& cancellation, IEventSink& events)
 {
     if (misused_)
     {
         return FailedStep{Error{ErrorKind::kInternal, "read parameters has no operator gate to answer"}};
     }
-    if (cancellation.cancelled())
+    if (cancellation.Cancelled())
     {
         return FailedStep{Error{ErrorKind::kCancelled, "cancelled before reading TCU parameters"}};
     }
 
-    events.log(LogLevel::kInfo, "Reading TCU parameters...");
+    events.Log(LogLevel::kInfo, "Reading TCU parameters...");
 
-    const bytes::Bytes request = buildRequest();
+    const bytes::Bytes request = BuildRequest();
     bytes::Bytes frame;
 
     for (int attempt = 0; attempt < kAttempts; ++attempt)
     {
-        if (const auto written = transport.write(request); !written.has_value())
+        if (const auto written = transport.Write(request); !written.has_value())
         {
             return FailedStep{written.error()};
         }
 
-        const auto received = transport.read(kReadTimeout, cancellation);
+        const auto received = transport.Read(kReadTimeout, cancellation);
         if (!received.has_value())
         {
             return FailedStep{received.error()};
@@ -114,7 +114,7 @@ ServiceFunctionStep ReadParametersSession::resume(ISsmTransport& transport, IClo
             {
                 return FailedStep{Error{ErrorKind::kBadResponse, "TCU parameter frame shorter than 15 bytes"}};
             }
-            return CompletedStep{decode(frame)};
+            return CompletedStep{Decode(frame)};
         }
     }
 

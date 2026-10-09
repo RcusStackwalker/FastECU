@@ -17,10 +17,10 @@ const ApplicationIdentity kApplication{.name = "FastECU", .title = "FastECU", .v
 
 DesktopComposition::DesktopComposition(const QString& peer_address, const QString& peer_password,
                                        const QString& config_root)
-    : config_(fastecu::config::builtin_catalog(), file_system_, resource_bundle_, file_repository_, startup_events_)
+    : config_(fastecu::config::BuiltinCatalog(), file_system_, resource_bundle_, file_repository_, startup_events_)
 {
     const QString root = config_root.isEmpty() ? default_config_root() : config_root;
-    if (fastecu::Status initialized = config_.initialize(root.toStdString(), kApplication.version);
+    if (fastecu::Status initialized = config_.Initialize(root.toStdString(), kApplication.version);
         !initialized.has_value())
     {
         // Required configuration is missing or broken: build nothing that
@@ -38,9 +38,9 @@ DesktopComposition::DesktopComposition(const QString& peer_address, const QStrin
     calibration_workspace_ = std::make_unique<fastecu::calibration::CalibrationWorkspace>(*rom_open_);
 
     syslog_thread_ = std::make_unique<QThread>();
-    syslogger_ = std::make_unique<SystemLogger>(
-        QString::fromStdString(config_.effective_paths().syslog_files_directory),
-        QString::fromStdString(kApplication.name), QString::fromStdString(kApplication.version));
+    syslogger_ = std::make_unique<SystemLogger>(QString::fromStdString(config_.EffectivePaths().syslog_files_directory),
+                                                QString::fromStdString(kApplication.name),
+                                                QString::fromStdString(kApplication.version));
     syslogger_->moveToThread(syslog_thread_.get());
     // The UI logs through the channel: the logger reads each line's level from
     // the channel's LOG_* signal name, and the channel outlives every sender.

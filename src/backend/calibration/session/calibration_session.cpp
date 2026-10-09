@@ -11,42 +11,42 @@ CalibrationSession::CalibrationSession(SessionId id, SessionContents contents) :
 {
 }
 
-SessionId CalibrationSession::id() const
+SessionId CalibrationSession::Id() const
 {
     return id_;
 }
 
-const RomSource& CalibrationSession::source() const
+const RomSource& CalibrationSession::Source() const
 {
     return contents_.source;
 }
 
-bytes::ByteView CalibrationSession::rom() const
+bytes::ByteView CalibrationSession::Rom() const
 {
     return contents_.rom;
 }
 
-const ResolvedDefinition *CalibrationSession::definition() const
+const ResolvedDefinition *CalibrationSession::Definition() const
 {
     return contents_.definition.has_value() ? &*contents_.definition : nullptr;
 }
 
-const RomProtocolInfo& CalibrationSession::protocol() const
+const RomProtocolInfo& CalibrationSession::Protocol() const
 {
     return contents_.protocol;
 }
 
-void CalibrationSession::set_protocol(RomProtocolInfo protocol)
+void CalibrationSession::SetProtocol(RomProtocolInfo protocol)
 {
     contents_.protocol = std::move(protocol);
 }
 
-bool CalibrationSession::dirty() const
+bool CalibrationSession::Dirty() const
 {
     return dirty_;
 }
 
-void CalibrationSession::mark_saved(std::string_view path)
+void CalibrationSession::MarkSaved(std::string_view path)
 {
     const std::size_t slash = path.find_last_of('/');
     const std::string_view name = slash == std::string_view::npos ? path : path.substr(slash + 1);
@@ -58,28 +58,28 @@ void CalibrationSession::mark_saved(std::string_view path)
     dirty_ = false;
 }
 
-Result<DecodedMap> CalibrationSession::decode_map(std::size_t map_index) const
+Result<DecodedMap> CalibrationSession::DecodeMap(std::size_t map_index) const
 {
     if (!contents_.definition.has_value())
     {
-        return fail(ErrorKind::kInvalidConfig, "calibration session has no definition");
+        return Fail(ErrorKind::kInvalidConfig, "calibration session has no definition");
     }
     const definition::RomDefinition& rom_definition = contents_.definition->definition;
     if (map_index >= rom_definition.maps.size())
     {
-        return fail(ErrorKind::kInvalidConfig, std::format("map index {} is past the definition's {} maps", map_index,
+        return Fail(ErrorKind::kInvalidConfig, std::format("map index {} is past the definition's {} maps", map_index,
                                                            rom_definition.maps.size()));
     }
-    return decode_calibration_map(rom_definition, rom_definition.maps[map_index], contents_.rom);
+    return DecodeCalibrationMap(rom_definition, rom_definition.maps[map_index], contents_.rom);
 }
 
-Status CalibrationSession::write_bytes(std::uint64_t offset, bytes::ByteView data)
+Status CalibrationSession::WriteBytes(std::uint64_t offset, bytes::ByteView data)
 {
     const std::uint64_t size = contents_.rom.size();
     // Written as two comparisons so a huge offset cannot wrap the sum.
     if (offset > size || data.size() > size - offset)
     {
-        return fail(ErrorKind::kInvalidConfig,
+        return Fail(ErrorKind::kInvalidConfig,
                     std::format("write of {} bytes at 0x{:x} is outside the {}-byte image", data.size(), offset, size));
     }
     std::ranges::copy(data, contents_.rom.begin() + static_cast<std::ptrdiff_t>(offset));

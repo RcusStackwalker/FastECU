@@ -127,14 +127,14 @@ TEST(StartupDiagnosticsTest, sinkRetainsBoundedUtf8DiagnosticsInOrder)
     StartupEventSink sink;
     const std::string bounded = "\xE8\xAD\xA6\xE5\x91\x8A suffix";
     const std::string_view warning{bounded.data(), std::size_t{6}};
-    sink.log(fastecu::LogLevel::kDebug, "debug");
-    sink.log(fastecu::LogLevel::kInfo, "info");
-    sink.log(fastecu::LogLevel::kWarning, warning);
-    sink.progress(0, 10);
-    sink.log(fastecu::LogLevel::kError, "\xC3\xA9"
+    sink.Log(fastecu::LogLevel::kDebug, "debug");
+    sink.Log(fastecu::LogLevel::kInfo, "info");
+    sink.Log(fastecu::LogLevel::kWarning, warning);
+    sink.Progress(0, 10);
+    sink.Log(fastecu::LogLevel::kError, "\xC3\xA9"
                                         "chec");
-    sink.notice(std::string_view{"notice ignored", 6});
-    sink.progress(10, 10);
+    sink.Notice(std::string_view{"notice ignored", 6});
+    sink.Progress(10, 10);
     ASSERT_EQ(sink.warnings(), (QStringList{QString::fromUtf8("\xE8\xAD\xA6\xE5\x91\x8A"),
                                             QString::fromUtf8("\xC3\xA9"
                                                               "chec"),

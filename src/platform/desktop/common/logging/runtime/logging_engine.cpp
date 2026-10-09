@@ -58,11 +58,11 @@ fastecu::Status LoggingEngine::start(const LogSessionConfig& config, DesktopLogg
     }
     catch (const std::exception& error)
     {
-        protocol_result = fastecu::fail(fastecu::ErrorKind::kInternal, error.what());
+        protocol_result = fastecu::Fail(fastecu::ErrorKind::kInternal, error.what());
     }
     catch (...)
     {
-        protocol_result = fastecu::fail(fastecu::ErrorKind::kInternal, "protocol factory threw an unknown exception");
+        protocol_result = fastecu::Fail(fastecu::ErrorKind::kInternal, "protocol factory threw an unknown exception");
     }
     if (!protocol_result)
     {

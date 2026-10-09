@@ -41,7 +41,7 @@ using namespace std::chrono_literals;
 using fastecu::ErrorKind;
 using fastecu::FakeClock;
 using fastecu::RecordingEventSink;
-using fastecu::flash::build_subaru_tcu_cvt_mitsu_mh8111_can_plan;
+using fastecu::flash::BuildSubaruTcuCvtMitsuMh8111CanPlan;
 using fastecu::flash::FlashOperation;
 using fastecu::flash::ScriptedCanFlashTransport;
 using fastecu::flash::SubaruTcuCvtMitsuMh8111CanExecutor;
@@ -64,37 +64,37 @@ constexpr std::uint32_t kImageSize = 0x180000;
 
 // This family's own request/reply envelope -- every exchange (unlike Task
 // 3's Hitachi CAN sibling) is sent on 0x7e1/0x7e9; there is no second id.
-bytes::Bytes request(bytes::ByteView payload)
+bytes::Bytes Request(bytes::ByteView payload)
 {
     bytes::Bytes out;
     bytes::AppendU32Be(out, 0x7e1);
     out.insert(out.end(), payload.begin(), payload.end());
     return out;
 }
-bytes::Bytes request(std::initializer_list<bytes::Byte> payload)
+bytes::Bytes Request(std::initializer_list<bytes::Byte> payload)
 {
-    return request(bytes::ByteView(payload.begin(), payload.size()));
+    return Request(bytes::ByteView(payload.begin(), payload.size()));
 }
-bytes::Bytes response(bytes::ByteView tail)
+bytes::Bytes Response(bytes::ByteView tail)
 {
     bytes::Bytes out;
     bytes::AppendU32Be(out, 0x7e9);
     out.insert(out.end(), tail.begin(), tail.end());
     return out;
 }
-bytes::Bytes response(std::initializer_list<bytes::Byte> tail)
+bytes::Bytes Response(std::initializer_list<bytes::Byte> tail)
 {
-    return response(bytes::ByteView(tail.begin(), tail.size()));
+    return Response(bytes::ByteView(tail.begin(), tail.size()));
 }
 
-fastecu::Result<fastecu::flash::FlashPlan> readPlan()
+fastecu::Result<fastecu::flash::FlashPlan> ReadPlan()
 {
-    return build_subaru_tcu_cvt_mitsu_mh8111_can_plan(FlashOperation::kRead, kProtocol, kMcu, std::nullopt);
+    return BuildSubaruTcuCvtMitsuMh8111CanPlan(FlashOperation::kRead, kProtocol, kMcu, std::nullopt);
 }
 
-fastecu::Result<fastecu::flash::FlashPlan> writePlan(bytes::Bytes rom)
+fastecu::Result<fastecu::flash::FlashPlan> WritePlan(bytes::Bytes rom)
 {
-    return build_subaru_tcu_cvt_mitsu_mh8111_can_plan(FlashOperation::kWrite, kProtocol, kMcu, std::move(rom));
+    return BuildSubaruTcuCvtMitsuMh8111CanPlan(FlashOperation::kWrite, kProtocol, kMcu, std::move(rom));
 }
 
 // Hand-built rather than produced by build_subaru_tcu_cvt_mitsu_mh8111_can_plan,
@@ -102,7 +102,7 @@ fastecu::Result<fastecu::flash::FlashPlan> writePlan(bytes::Bytes rom)
 // can still reach the executor -- proving the executor's own
 // validate_subaru_tcu_cvt_mitsu_mh8111_can_plan call rejects it before any
 // I/O, not just the builder.
-fastecu::Result<fastecu::flash::FlashPlan> handBuiltPlan(FlashOperation operation, std::size_t image_size)
+fastecu::Result<fastecu::flash::FlashPlan> HandBuiltPlan(FlashOperation operation, std::size_t image_size)
 {
     fastecu::flash::FlashPlanFields fields;
     fields.operation = operation;
@@ -114,7 +114,7 @@ fastecu::Result<fastecu::flash::FlashPlan> handBuiltPlan(FlashOperation operatio
     fields.erase_regions = {fastecu::flash::MemoryRegion{kWriteStart, kWriteLength}};
     fields.image = bytes::Bytes(image_size, 0x00);
     fields.family_plan = SubaruTcuCvtMitsuMh8111CanPlan{0x7e1, 0x7e9, 500000, false};
-    return fastecu::flash::validate_and_build(std::move(fields));
+    return fastecu::flash::ValidateAndBuild(std::move(fields));
 }
 
 // The seed/encrypt/decrypt tables, transcribed independently from the same
@@ -127,7 +127,7 @@ constexpr std::array<std::uint8_t, 32> kIndexTransformation{0x5, 0x6, 0x7, 0x1, 
                                                             0xB, 0xF, 0x4, 0x0, 0x3, 0xB, 0x4, 0x6, 0x0, 0xF, 0x2,
                                                             0xD, 0x9, 0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8};
 
-bytes::Bytes seedKey(bytes::ByteView seed)
+bytes::Bytes SeedKey(bytes::ByteView seed)
 {
     return ssm_protocol::CalculateSeedKey(seed, kSeedKeyTable, kIndexTransformation);
 }
@@ -137,7 +137,7 @@ bytes::Bytes seedKey(bytes::ByteView seed)
 // known plaintext into the wire bytes a scripted read reply must carry for
 // the executor's decrypt step to recover it, and (b) computes the wire
 // bytes a write must carry for a known plaintext image.
-bytes::Bytes toWire(bytes::ByteView plain)
+bytes::Bytes ToWire(bytes::ByteView plain)
 {
     return ssm_protocol::CalculatePayload(plain, static_cast<std::uint32_t>(plain.size()), kEncryptTable,
                                           kIndexTransformation);
@@ -147,100 +147,100 @@ const bytes::Bytes kSeed{0x11, 0x22, 0x33, 0x44};
 
 // TCU ID (0xAA) / CAL ID (0x09/0x04): both non-fatal, scripted with a valid-
 // if-uninteresting reply.
-void scriptIdentityQueries(ScriptedCanFlashTransport& transport)
+void ScriptIdentityQueries(ScriptedCanFlashTransport& transport)
 {
-    const auto section = transport.section("identity queries");
-    transport.exchange(request({0xAA}), response({0xEA, 0x00, 0x00, 0x00, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05}));
+    const auto section = transport.Section("identity queries");
+    transport.Exchange(Request({0xAA}), Response({0xEA, 0x00, 0x00, 0x00, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05}));
 
-    transport.exchange(request({0x09, 0x04}), response({0x49, 0x04, 'C', 'A', 'L'}));
+    transport.Exchange(Request({0x09, 0x04}), Response({0x49, 0x04, 'C', 'A', 'L'}));
 }
 
 // Session 0x10/0x43, non-fatal.
-void scriptSession(ScriptedCanFlashTransport& transport)
+void ScriptSession(ScriptedCanFlashTransport& transport)
 {
-    const auto section = transport.section("session");
-    transport.exchange(request({0x10, 0x43}), response({0x50, 0x43}));
+    const auto section = transport.Section("session");
+    transport.Exchange(Request({0x10, 0x43}), Response({0x50, 0x43}));
 }
 
 // Seed (0x27/0x01) and seed key (0x27/0x02), both fatal.
-void scriptSeedAndKey(ScriptedCanFlashTransport& transport, bytes::ByteView seed, bytes::ByteView key)
+void ScriptSeedAndKey(ScriptedCanFlashTransport& transport, bytes::ByteView seed, bytes::ByteView key)
 {
-    const auto section = transport.section("seed and key");
+    const auto section = transport.Section("seed and key");
     bytes::Bytes seed_response{0x67, 0x01};
     seed_response.insert(seed_response.end(), seed.begin(), seed.end());
-    transport.exchange(request({0x27, 0x01}), response(seed_response));
+    transport.Exchange(Request({0x27, 0x01}), Response(seed_response));
 
     bytes::Bytes key_request{0x27, 0x02};
     key_request.insert(key_request.end(), key.begin(), key.end());
-    transport.exchange(request(key_request), response({0x67, 0x02}));
+    transport.Exchange(Request(key_request), Response({0x67, 0x02}));
 }
 
 // Jump 0x10/0x42, fatal.
-void scriptJump(ScriptedCanFlashTransport& transport)
+void ScriptJump(ScriptedCanFlashTransport& transport)
 {
-    const auto section = transport.section("jump");
-    transport.exchange(request({0x10, 0x42}), response({0x50, 0x42}));
+    const auto section = transport.Section("jump");
+    transport.Exchange(Request({0x10, 0x42}), Response({0x50, 0x42}));
 }
 
 // Alive check: sent 0x34/0x04/0x33/0x00/0x00/0x00/0x08/0x00/ 0x00, checked
 // against a 0x71-prefixed reply -- a different service's SID+0x40, not this
 // PDU's own (0x74). Confirmed directly against the legacy source (re-read
 // twice); see the file header comment.
-void scriptAliveCheck(ScriptedCanFlashTransport& transport)
+void ScriptAliveCheck(ScriptedCanFlashTransport& transport)
 {
-    const auto section = transport.section("alive check");
-    transport.exchange(request({0x34, 0x04, 0x33, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00}),
-                       response({0x71, 0x02, 0x02, 0x03}));
+    const auto section = transport.Section("alive check");
+    transport.Exchange(Request({0x34, 0x04, 0x33, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00}),
+                       Response({0x71, 0x02, 0x02, 0x03}));
 }
 
 // Scripts the full 7-exchange connect_bootloader sequence -- there is no
 // kernel-alive pre-check shortcut for this family (unlike Task 3's Hitachi
 // CAN sibling), so this always runs in full.
-void scriptFullConnect(ScriptedCanFlashTransport& transport)
+void ScriptFullConnect(ScriptedCanFlashTransport& transport)
 {
-    const auto section = transport.section("full connect");
-    scriptIdentityQueries(transport);
-    scriptSession(transport);
-    const bytes::Bytes key = seedKey(kSeed);
-    scriptSeedAndKey(transport, kSeed, key);
-    scriptJump(transport);
-    scriptAliveCheck(transport);
+    const auto section = transport.Section("full connect");
+    ScriptIdentityQueries(transport);
+    ScriptSession(transport);
+    const bytes::Bytes key = SeedKey(kSeed);
+    ScriptSeedAndKey(transport, kSeed, key);
+    ScriptJump(transport);
+    ScriptAliveCheck(transport);
 }
 
 // Scripts the "Settting dump start & length..." exchange (legacy read_mem):
 // sent 0x35-prefixed, checked against a 0x74-prefixed reply -- again a service
 // mismatch, confirmed directly against source.
-void scriptDumpSetup(ScriptedCanFlashTransport& transport)
+void ScriptDumpSetup(ScriptedCanFlashTransport& transport)
 {
-    const auto section = transport.section("dump setup");
-    transport.exchange(request({0x35, 0x04, 0x33, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00}),
-                       response({0x74, 0x20, 0x01, 0x04}));
+    const auto section = transport.Section("dump setup");
+    transport.Exchange(Request({0x35, 0x04, 0x33, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00}),
+                       Response({0x74, 0x20, 0x01, 0x04}));
 }
 
 // Scripts the chunked 0xB7 dump sweep over [start, start+length) at
 // `pagesize`-byte pages, each page filled with `fill` (plaintext -- the
 // scripted wire bytes are toWire(fill-page), decrypted back by the
 // executor).
-void scriptFlashDump(ScriptedCanFlashTransport& transport, std::uint32_t start, std::uint32_t length,
+void ScriptFlashDump(ScriptedCanFlashTransport& transport, std::uint32_t start, std::uint32_t length,
                      std::uint32_t pagesize, bytes::Byte fill)
 {
-    const auto section = transport.section("flash dump");
+    const auto section = transport.Section("flash dump");
     const bytes::Bytes plain_page(pagesize, fill);
-    const bytes::Bytes wire_page = toWire(plain_page);
+    const bytes::Bytes wire_page = ToWire(plain_page);
     for (std::uint32_t addr = start; addr < start + length; addr += pagesize)
     {
-        bytes::Bytes reply = response({0xF7});
+        bytes::Bytes reply = Response({0xF7});
         reply.insert(reply.end(), wire_page.begin(), wire_page.end());
-        transport.exchange(request(bytes::ComposeBe(bytes::Byte(0xB7), bytes::U24(addr))), reply);
+        transport.Exchange(Request(bytes::ComposeBe(bytes::Byte(0xB7), bytes::U24(addr))), reply);
     }
 }
 
 // Scripts the "Sending stop command..." exchange (legacy read_mem): content-
 // blind, succeeding on the first non-empty reply.
-void scriptStopCommand(ScriptedCanFlashTransport& transport)
+void ScriptStopCommand(ScriptedCanFlashTransport& transport)
 {
-    const auto section = transport.section("stop command");
-    transport.exchange(request({0x37}), response({0x77}));
+    const auto section = transport.Section("stop command");
+    transport.Exchange(Request({0x37}), Response({0x77}));
 }
 
 // Identity queries, session, and the seed request, registered as an expected
@@ -259,52 +259,52 @@ void scriptStopCommand(ScriptedCanFlashTransport& transport)
 // contrast, goes through the standard fatal_query/UdsClient::request path,
 // which maps every one of these three failure modes exactly the way the
 // conformance suite expects, so it is the cut point used here instead.
-void scriptUpToFirstFatalRead(ScriptedCanFlashTransport& transport)
+void ScriptUpToFirstFatalRead(ScriptedCanFlashTransport& transport)
 {
-    scriptIdentityQueries(transport);
-    scriptSession(transport);
-    const auto section = transport.section("seed (first request only)");
-    transport.exchange(request({0x27, 0x01}));
+    ScriptIdentityQueries(transport);
+    ScriptSession(transport);
+    const auto section = transport.Section("seed (first request only)");
+    transport.Exchange(Request({0x27, 0x01}));
 }
 
 // Scripts erase_mem's single successful attempt (-- see the file header
 // comment on the evident retry-until-match intent this ports instead of the
 // literal always-failing loop).
-void scriptEraseMemory(ScriptedCanFlashTransport& transport)
+void ScriptEraseMemory(ScriptedCanFlashTransport& transport)
 {
-    const auto section = transport.section("erase memory");
-    transport.exchange(request({0x31, 0x01, 0x02, 0x01, 0x0f, 0xff, 0xff, 0xff}), response({0x71, 0x01, 0x02}));
+    const auto section = transport.Section("erase memory");
+    transport.Exchange(Request({0x31, 0x01, 0x02, 0x01, 0x0f, 0xff, 0xff, 0xff}), Response({0x71, 0x01, 0x02}));
 }
 
 // Scripts unlock_and_reflash_block's setup, 256-byte chunk sweep (content-
 // blind), close and checksum, each succeeding on the first attempt.
-void scriptWriteBlock(ScriptedCanFlashTransport& transport, bytes::ByteView block_plain)
+void ScriptWriteBlock(ScriptedCanFlashTransport& transport, bytes::ByteView block_plain)
 {
-    const auto section = transport.section("write block");
+    const auto section = transport.Section("write block");
     constexpr std::uint32_t kChunkSize = 256;
     // Legacy's own halved data_len bug (maxblocks*128 instead of *256, see
     // reflash_block's comment): kWriteLength/256 * 128 == kWriteLength/2.
     constexpr std::uint32_t kSetupDataLen = (kWriteLength / kChunkSize) * 128;
 
-    transport.exchange(request(bytes::ComposeBe(bytes::Byte(0x34), bytes::Byte(0x04), bytes::Byte(0x33), bytes::U24(0),
+    transport.Exchange(Request(bytes::ComposeBe(bytes::Byte(0x34), bytes::Byte(0x04), bytes::Byte(0x33), bytes::U24(0),
                                                 bytes::U24(kSetupDataLen))),
-                       response({0x74}));
+                       Response({0x74}));
 
-    const bytes::Bytes encrypted = toWire(block_plain);
+    const bytes::Bytes encrypted = ToWire(block_plain);
     for (std::uint32_t offset = 0; offset < kWriteLength; offset += kChunkSize)
     {
         const std::uint32_t addr = kWriteStart + offset;
         bytes::Bytes req = bytes::ComposeBe(bytes::Byte(0xB6), bytes::U24(addr),
                                             bytes::ByteView(encrypted).subspan(offset, kChunkSize));
-        transport.exchange(request(req), response({0xF6}));
+        transport.Exchange(Request(req), Response({0xF6}));
     }
 
-    transport.exchange(request({0x37}), response({0x77}));
+    transport.Exchange(Request({0x37}), Response({0x77}));
 
-    transport.exchange(request({0x31, 0x01, 0x02, 0x02, 0x01}), response({0x71, 0x01, 0x02}));
+    transport.Exchange(Request({0x31, 0x01, 0x02, 0x02, 0x01}), Response({0x71, 0x01, 0x02}));
 }
 
-bytes::Bytes writeRom()
+bytes::Bytes WriteRom()
 {
     bytes::Bytes rom(kImageSize, 0x00);
     for (std::size_t i = 0; i < rom.size(); ++i)
@@ -325,18 +325,18 @@ TEST(SubaruTcuCvtMitsuMh8111CanExecutor, ConnectFullSequenceEveryTime)
     RecordingEventSink events;
     fastecu::ManualCancellationToken cancellation;
     SubaruTcuCvtMitsuMh8111CanExecutor executor;
-    auto plan = readPlan();
+    auto plan = ReadPlan();
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
-    scriptFullConnect(transport);
-    scriptDumpSetup(transport);
-    scriptFlashDump(transport, kReadStart, kReadLength, 0x100, 0x5A);
-    scriptStopCommand(transport);
+    ScriptFullConnect(transport);
+    ScriptDumpSetup(transport);
+    ScriptFlashDump(transport, kReadStart, kReadLength, 0x100, 0x5A);
+    ScriptStopCommand(transport);
 
-    const auto result = executor.execute(*plan, transport, clock, cancellation, events);
+    const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
-    EXPECT_TRUE(transport.scriptConsumed());
+    EXPECT_TRUE(transport.ScriptConsumed());
 }
 
 TEST(SubaruTcuCvtMitsuMh8111CanExecutor, ReadReturnsTheLowerWindowPaddedWithFF)
@@ -346,15 +346,15 @@ TEST(SubaruTcuCvtMitsuMh8111CanExecutor, ReadReturnsTheLowerWindowPaddedWithFF)
     RecordingEventSink events;
     fastecu::ManualCancellationToken cancellation;
     SubaruTcuCvtMitsuMh8111CanExecutor executor;
-    auto plan = readPlan();
+    auto plan = ReadPlan();
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
-    scriptFullConnect(transport);
-    scriptDumpSetup(transport);
-    scriptFlashDump(transport, kReadStart, kReadLength, 0x100, 0x5A);
-    scriptStopCommand(transport);
+    ScriptFullConnect(transport);
+    ScriptDumpSetup(transport);
+    ScriptFlashDump(transport, kReadStart, kReadLength, 0x100, 0x5A);
+    ScriptStopCommand(transport);
 
-    const auto result = executor.execute(*plan, transport, clock, cancellation, events);
+    const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_TRUE(result->read_bytes.has_value());
@@ -365,7 +365,7 @@ TEST(SubaruTcuCvtMitsuMh8111CanExecutor, ReadReturnsTheLowerWindowPaddedWithFF)
                             [](bytes::Byte b) { return b == 0xFF; }));
     EXPECT_TRUE(std::all_of(result->read_bytes->begin() + kReadStart, result->read_bytes->end(),
                             [](bytes::Byte b) { return b == 0x5A; }));
-    EXPECT_TRUE(transport.scriptConsumed());
+    EXPECT_TRUE(transport.ScriptConsumed());
 }
 
 TEST(SubaruTcuCvtMitsuMh8111CanExecutor, ReadStopsWhenCancelled)
@@ -375,14 +375,14 @@ TEST(SubaruTcuCvtMitsuMh8111CanExecutor, ReadStopsWhenCancelled)
     RecordingEventSink events;
     fastecu::ManualCancellationToken cancellation;
     SubaruTcuCvtMitsuMh8111CanExecutor executor;
-    auto plan = readPlan();
+    auto plan = ReadPlan();
     ASSERT_THAT(plan, fastecu::testing::IsOk());
-    cancellation.cancel();
+    cancellation.Cancel();
 
-    const auto result = executor.execute(*plan, transport, clock, cancellation, events);
+    const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kCancelled));
-    EXPECT_EQ(transport.writesConsumed(), 0U);
+    EXPECT_EQ(transport.WritesConsumed(), 0U);
 }
 
 // Unlike ReadPropagatesADisconnectedTransport (can_executor_conformance.h),
@@ -403,18 +403,18 @@ TEST(SubaruTcuCvtMitsuMh8111CanExecutor, ReadDisconnectMidDumpLoopPropagates)
     RecordingEventSink events;
     fastecu::ManualCancellationToken cancellation;
     SubaruTcuCvtMitsuMh8111CanExecutor executor;
-    auto plan = readPlan();
+    auto plan = ReadPlan();
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
-    scriptFullConnect(transport);
-    scriptDumpSetup(transport);
-    transport.exchange(request(bytes::ComposeBe(bytes::Byte(0xB7), bytes::U24(kReadStart))));
-    transport.queue_error(ErrorKind::kDisconnected, "adapter gone");
+    ScriptFullConnect(transport);
+    ScriptDumpSetup(transport);
+    transport.Exchange(Request(bytes::ComposeBe(bytes::Byte(0xB7), bytes::U24(kReadStart))));
+    transport.QueueError(ErrorKind::kDisconnected, "adapter gone");
 
-    const auto result = executor.execute(*plan, transport, clock, cancellation, events);
+    const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kDisconnected));
-    EXPECT_TRUE(transport.scriptConsumed());
+    EXPECT_TRUE(transport.ScriptConsumed());
 }
 
 TEST(SubaruTcuCvtMitsuMh8111CanExecutor, WriteErasesThenFlashesTheUpperBlockAtAddressAbove0x80000)
@@ -424,18 +424,18 @@ TEST(SubaruTcuCvtMitsuMh8111CanExecutor, WriteErasesThenFlashesTheUpperBlockAtAd
     RecordingEventSink events;
     fastecu::ManualCancellationToken cancellation;
     SubaruTcuCvtMitsuMh8111CanExecutor executor;
-    const bytes::Bytes rom = writeRom();
-    auto plan = writePlan(rom);
+    const bytes::Bytes rom = WriteRom();
+    auto plan = WritePlan(rom);
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
-    scriptFullConnect(transport);
-    scriptEraseMemory(transport);
-    scriptWriteBlock(transport, bytes::ByteView(rom).subspan(kWriteStart, kWriteLength));
+    ScriptFullConnect(transport);
+    ScriptEraseMemory(transport);
+    ScriptWriteBlock(transport, bytes::ByteView(rom).subspan(kWriteStart, kWriteLength));
 
-    const auto result = executor.execute(*plan, transport, clock, cancellation, events);
+    const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
-    EXPECT_TRUE(transport.scriptConsumed());
+    EXPECT_TRUE(transport.ScriptConsumed());
     EXPECT_EQ(result->operation, FlashOperation::kWrite);
     EXPECT_FALSE(result->read_bytes.has_value());
     EXPECT_THAT(events.notices, testing::Contains("Writing ROM, please wait..."));
@@ -452,13 +452,13 @@ TEST(SubaruTcuCvtMitsuMh8111CanExecutor, WriteRefusesAnImageThatDoesNotMatchTheP
     // build_subaru_tcu_cvt_mitsu_mh8111_can_plan rejects this image, but
     // validate_and_build does not. The executor must still reject it before
     // it reaches the TCU handshake.
-    auto plan = handBuiltPlan(FlashOperation::kWrite, kImageSize - 1);
+    auto plan = HandBuiltPlan(FlashOperation::kWrite, kImageSize - 1);
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
-    const auto result = executor.execute(*plan, transport, clock, cancellation, events);
+    const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("0x180000")));
-    EXPECT_EQ(transport.writesConsumed(), 0U);
+    EXPECT_EQ(transport.WritesConsumed(), 0U);
     EXPECT_THAT(events.logs, IsEmpty());
 }
 
@@ -486,40 +486,40 @@ struct TcuCvtMitsuMh8111CanTraits
     // (kBlockLength / kPageSize == 1920).
     static constexpr int kProbeCount = 1928;
 
-    static fastecu::Result<fastecu::flash::FlashPlan> readPlan()
+    static fastecu::Result<fastecu::flash::FlashPlan> ReadPlan()
     {
-        return ::readPlan();
+        return ::ReadPlan();
     }
 
-    static fastecu::Result<fastecu::flash::FlashPlan> handBuiltPlan(FlashOperation operation)
+    static fastecu::Result<fastecu::flash::FlashPlan> HandBuiltPlan(FlashOperation operation)
     {
-        return ::handBuiltPlan(operation, kImageSize);
+        return ::HandBuiltPlan(operation, kImageSize);
     }
 
-    static void scriptBenchConnect(ScriptedCanFlashTransport& t)
+    static void ScriptBenchConnect(ScriptedCanFlashTransport& t)
     {
-        ::scriptFullConnect(t);
+        ::ScriptFullConnect(t);
     }
 
-    static void scriptReadSetup(ScriptedCanFlashTransport& t)
+    static void ScriptReadSetup(ScriptedCanFlashTransport& t)
     {
-        ::scriptDumpSetup(t);
+        ::ScriptDumpSetup(t);
     }
 
-    static void scriptFlashDump(ScriptedCanFlashTransport& t, std::uint32_t start, std::uint32_t length,
+    static void ScriptFlashDump(ScriptedCanFlashTransport& t, std::uint32_t start, std::uint32_t length,
                                 std::uint32_t pagesize, bytes::Byte fill)
     {
-        ::scriptFlashDump(t, start, length, pagesize, fill);
+        ::ScriptFlashDump(t, start, length, pagesize, fill);
     }
 
-    static void scriptStopCommand(ScriptedCanFlashTransport& t)
+    static void ScriptStopCommand(ScriptedCanFlashTransport& t)
     {
-        ::scriptStopCommand(t);
+        ::ScriptStopCommand(t);
     }
 
-    static void scriptUpToFirstFatalRead(ScriptedCanFlashTransport& t)
+    static void ScriptUpToFirstFatalRead(ScriptedCanFlashTransport& t)
     {
-        ::scriptUpToFirstFatalRead(t);
+        ::ScriptUpToFirstFatalRead(t);
     }
 };
 

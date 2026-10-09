@@ -42,10 +42,10 @@ TEST(RomInfo, DefinitionRowsUseProtocolMetadataAndDirectParent)
     EXPECT_EQ(rom_info_values(session),
               (QStringList{"ID", "10", "INT", "ECU", "Subaru", "EU", "Impreza", "WRX", "MT", "2002", "resolved",
                            "FLASH", "checksumresolved", "PARENT", "128kb", "/defs/id.xml"}));
-    auto protocol = session.protocol();
+    auto protocol = session.Protocol();
     protocol.flash_method = "updated";
     protocol.checksum_module = "updated checksum";
-    session.set_protocol(protocol);
+    session.SetProtocol(protocol);
     EXPECT_EQ(rom_info_value(rom_info_values(session), RomInfoRow::kFlashMethod), "updated");
     EXPECT_EQ(rom_info_value(rom_info_values(session), RomInfoRow::kChecksumModule), "updated checksum");
 }

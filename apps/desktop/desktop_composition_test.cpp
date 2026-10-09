@@ -235,14 +235,14 @@ TEST_F(DesktopCompositionTest, workspaceOpensARomFromDisk)
     ASSERT_EQ(rom.write(QByteArray(2048, '\x5A')), qint64{2048});
     rom.close();
 
-    const auto opened = calibration_workspace_of(composition)->open_file(rom_path.toStdString());
+    const auto opened = calibration_workspace_of(composition)->OpenFile(rom_path.toStdString());
 
     ASSERT_TRUE(opened.has_value());
-    const auto *session = calibration_workspace_of(composition)->find(opened->id);
+    const auto *session = calibration_workspace_of(composition)->Find(opened->id);
     ASSERT_TRUE(session != nullptr);
-    ASSERT_EQ(session->source().display_name, std::string("synthetic.bin"));
-    ASSERT_EQ(session->protocol().file_size_label, std::string("2kb"));
-    ASSERT_EQ(session->rom().size(), std::size_t{2048});
+    ASSERT_EQ(session->Source().display_name, std::string("synthetic.bin"));
+    ASSERT_EQ(session->Protocol().file_size_label, std::string("2kb"));
+    ASSERT_EQ(session->Rom().size(), std::size_t{2048});
 }
 
 TEST_F(DesktopCompositionTest, migrationLoadsPreviousVersionSettingsFromDisk)
@@ -261,7 +261,7 @@ TEST_F(DesktopCompositionTest, migrationLoadsPreviousVersionSettingsFromDisk)
     DesktopComposition composition{{}, {}, root.path()};
 
     ASSERT_TRUE(composition.started());
-    ASSERT_EQ(config_of(composition).settings().serial_port, std::string("ttyMIGRATED_UNIQUE"));
+    ASSERT_EQ(config_of(composition).Settings().serial_port, std::string("ttyMIGRATED_UNIQUE"));
     QFile saved{current_file};
     ASSERT_TRUE(saved.open(QIODevice::ReadOnly));
     ASSERT_TRUE(saved.readAll().contains("ttyMIGRATED_UNIQUE"));
@@ -280,7 +280,7 @@ TEST_F(DesktopCompositionTest, aPreviousVersionsSavedRowSelectsNoVehicle)
     DesktopComposition composition{{}, {}, root.path()};
 
     ASSERT_TRUE(composition.started());
-    ASSERT_TRUE(config_of(composition).selected_vehicle() == nullptr);
+    ASSERT_TRUE(config_of(composition).SelectedVehicle() == nullptr);
 }
 
 TEST_F(DesktopCompositionTest, malformedSettingsRejectStartup)
@@ -332,7 +332,7 @@ TEST_F(DesktopCompositionTest, servicesShareTheCompositionsSession)
     ASSERT_TRUE(composition.started());
     ASSERT_EQ(&composition.services().config, &config_of(composition));
     ASSERT_EQ(composition.services().application.version, std::string(kVersion));
-    ASSERT_EQ(QString::fromStdString(config_of(composition).provisioned_paths().base_config_directory), root.path());
+    ASSERT_EQ(QString::fromStdString(config_of(composition).ProvisionedPaths().base_config_directory), root.path());
 }
 
 TEST_F(DesktopCompositionTest, restartSeesSavedSettingsAndTheDatalogDirectory)
@@ -343,14 +343,14 @@ TEST_F(DesktopCompositionTest, restartSeesSavedSettingsAndTheDatalogDirectory)
     {
         DesktopComposition first{{}, {}, root.path()};
         ASSERT_TRUE(first.started());
-        config_of(first).settings().serial_port = "ttyRESTART";
-        config_of(first).settings().datalog_files_directory = datalogs;
-        ASSERT_TRUE(config_of(first).save().has_value());
+        config_of(first).Settings().serial_port = "ttyRESTART";
+        config_of(first).Settings().datalog_files_directory = datalogs;
+        ASSERT_TRUE(config_of(first).Save().has_value());
     }
     DesktopComposition second{{}, {}, root.path()};
     ASSERT_TRUE(second.started());
-    ASSERT_EQ(config_of(second).settings().serial_port, std::string("ttyRESTART"));
-    ASSERT_EQ(config_of(second).settings().datalog_files_directory, datalogs);
+    ASSERT_EQ(config_of(second).Settings().serial_port, std::string("ttyRESTART"));
+    ASSERT_EQ(config_of(second).Settings().datalog_files_directory, datalogs);
 }
 
 TEST_F(DesktopCompositionTest, waitRequestIsWiredToTheRemoteUtility)
@@ -469,7 +469,7 @@ TEST_F(DesktopCompositionTest, enablingFileLoggingWritesASyslogFile)
     ASSERT_TRUE(root.isValid());
     DesktopComposition composition{{}, {}, root.path()};
     const QString syslog_dir =
-        QString::fromStdString(composition.services().config.effective_paths().syslog_files_directory);
+        QString::fromStdString(composition.services().config.EffectivePaths().syslog_files_directory);
     ASSERT_TRUE(!syslog_dir.isEmpty());
     ASSERT_TRUE(QDir().mkpath(syslog_dir));
     LogChannel& log = composition.services().log;
@@ -515,7 +515,7 @@ TEST_F(DesktopCompositionTest, constructingTwiceInOneProcessSucceeds)
     {
         DesktopComposition composition{{}, {}, root.path()};
         ASSERT_TRUE(composition.started());
-        ASSERT_EQ(QString::fromStdString(composition.services().config.provisioned_paths().base_config_directory),
+        ASSERT_EQ(QString::fromStdString(composition.services().config.ProvisionedPaths().base_config_directory),
                   root.path());
     }
 }

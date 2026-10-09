@@ -10,7 +10,7 @@ namespace fastecu::calibration
 namespace
 {
 
-double increment_value(std::string_view text)
+double IncrementValue(std::string_view text)
 {
     if (text.find_first_not_of(" \t\r\n\f\v") == std::string_view::npos)
     {
@@ -24,7 +24,7 @@ double increment_value(std::string_view text)
 
 } // namespace
 
-MapElementSpec MapElementFields::spec() const&
+MapElementSpec MapElementFields::Spec() const&
 {
     MapElementSpec spec;
     spec.address = address_;
@@ -45,16 +45,15 @@ MapElementSpec MapElementFields::spec() const&
     return spec;
 }
 
-MapElementFields collect_map_element_fields(const CalibrationSession& session, std::size_t map_index,
-                                            NumericTarget target)
+MapElementFields CollectMapElementFields(const CalibrationSession& session, std::size_t map_index, NumericTarget target)
 {
     MapElementFields fields;
-    const auto& def = session.definition()->definition;
+    const auto& def = session.Definition()->definition;
     const auto& map = def.maps.at(map_index);
     const definition::Scaling *scaling = nullptr;
     if (target == NumericTarget::kMapBody)
     {
-        scaling = definition::find_scaling(def, map.scaling_name);
+        scaling = definition::FindScaling(def, map.scaling_name);
         fields.address_ = map.address.value_or(0);
         fields.storage_type_ = map.storage_type ? map.storage_type : scaling ? scaling->storage_type : std::nullopt;
         fields.endian_ = !map.endian.empty() ? map.endian : scaling ? scaling->endian : "";
@@ -67,7 +66,7 @@ MapElementFields collect_map_element_fields(const CalibrationSession& session, s
     {
         const auto& axis = target == NumericTarget::kXAxis ? map.x_axis : map.y_axis;
         const bool present = !axis.type.empty();
-        scaling = present ? definition::find_scaling(def, axis.scaling_name) : nullptr;
+        scaling = present ? definition::FindScaling(def, axis.scaling_name) : nullptr;
         fields.address_ = present ? axis.address.value_or(0) : 0;
         fields.storage_type_ = present ? axis.storage_type : std::nullopt;
         fields.endian_ = present ? axis.endian : "";
@@ -78,12 +77,12 @@ MapElementFields collect_map_element_fields(const CalibrationSession& session, s
     }
     fields.min_value_ = scaling ? scaling->minimum : "";
     fields.max_value_ = scaling ? scaling->maximum : "";
-    fields.coarse_increment_ = scaling ? increment_value(scaling->coarse_increment) : 0.0;
-    fields.fine_increment_ = scaling ? increment_value(scaling->fine_increment) : 0.0;
+    fields.coarse_increment_ = scaling ? IncrementValue(scaling->coarse_increment) : 0.0;
+    fields.fine_increment_ = scaling ? IncrementValue(scaling->fine_increment) : 0.0;
     fields.x_size_ = map.x_size;
     fields.y_size_ = map.y_size;
-    fields.flash_method_ = session.protocol().flash_method;
-    fields.rom_file_size_ = session.protocol().unpadded_size;
+    fields.flash_method_ = session.Protocol().flash_method;
+    fields.rom_file_size_ = session.Protocol().unpadded_size;
     return fields;
 }
 

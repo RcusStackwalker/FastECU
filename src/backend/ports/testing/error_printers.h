@@ -12,12 +12,12 @@ namespace fastecu
 // "4-byte object <01-00 00-00>" on both sides.
 inline void PrintTo(ErrorKind kind, std::ostream *os)
 {
-    *os << to_string(kind);
+    *os << ToString(kind);
 }
 
 inline void PrintTo(const Error& error, std::ostream *os)
 {
-    *os << to_string(error.kind);
+    *os << ToString(error.kind);
     if (!error.detail.empty())
     {
         *os << " (" << error.detail << ")";

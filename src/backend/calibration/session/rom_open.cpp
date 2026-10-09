@@ -13,7 +13,7 @@ namespace
 
 // QFileInfo::fileName() on the '/'-separated paths Qt's file dialogs return,
 // with legacy's fallback for a path that names no file.
-std::string display_name(std::string_view path)
+std::string DisplayName(std::string_view path)
 {
     const std::size_t slash = path.find_last_of('/');
     const std::string_view name = slash == std::string_view::npos ? path : path.substr(slash + 1);
@@ -21,12 +21,12 @@ std::string display_name(std::string_view path)
 }
 
 // Legacy: QString(flash_method).remove(0, 3).insert(0, "checksum").
-std::string checksum_module_for(const std::string& flash_method)
+std::string ChecksumModuleFor(const std::string& flash_method)
 {
     return "checksum" + (flash_method.size() > 3 ? flash_method.substr(3) : std::string{});
 }
 
-std::string_view format_name(definition::DefinitionFormat format)
+std::string_view FormatName(definition::DefinitionFormat format)
 {
     return format == definition::DefinitionFormat::kEcuFlash ? "EcuFlash" : "RomRaider";
 }
@@ -41,39 +41,39 @@ RomOpenUseCase::RomOpenUseCase(IDefinitionCatalogs& catalogs, definition::Defini
 {
 }
 
-Result<RomOpenOutcome> RomOpenUseCase::open_file(std::string_view path)
+Result<RomOpenOutcome> RomOpenUseCase::OpenFile(std::string_view path)
 {
     if (path.empty())
     {
-        return fail(ErrorKind::kInvalidConfig, "open_file called with no filename");
+        return Fail(ErrorKind::kInvalidConfig, "open_file called with no filename");
     }
-    Result<std::vector<std::uint8_t>> rom = read_rom(path, files_);
+    Result<std::vector<std::uint8_t>> rom = ReadRom(path, files_);
     if (!rom.has_value())
     {
-        log_error("Unable to open calibration file", rom.error());
-        events_.notice("Calibration file: Unable to open calibration file for reading");
+        LogError("Unable to open calibration file", rom.error());
+        events_.Notice("Calibration file: Unable to open calibration file for reading");
         return std::unexpected(rom.error());
     }
-    return finish(Seed{
-        .source = {.display_name = display_name(path), .path = std::string{path}, .origin = RomOrigin::kFile},
+    return Finish(Seed{
+        .source = {.display_name = DisplayName(path), .path = std::string{path}, .origin = RomOrigin::kFile},
         .rom = std::move(*rom),
     });
 }
 
-Result<RomOpenOutcome> RomOpenUseCase::adopt_read_image(ReadImage image)
+Result<RomOpenOutcome> RomOpenUseCase::AdoptReadImage(ReadImage image)
 {
     if (image.filename.empty())
     {
-        return fail(ErrorKind::kInvalidConfig, "adopt_read_image called with no filename");
+        return Fail(ErrorKind::kInvalidConfig, "adopt_read_image called with no filename");
     }
     if (image.rom.empty())
     {
-        return fail(ErrorKind::kInvalidConfig, "adopt_read_image called with an empty image");
+        return Fail(ErrorKind::kInvalidConfig, "adopt_read_image called with an empty image");
     }
     // Fire-and-forget, as legacy: a failed backup must not fail the open.
-    backup_rom(image.rom, config_.effective_paths().calibration_files_directory + "read.bin", files_);
-    return finish(Seed{
-        .source = {.display_name = display_name(image.filename), .path = image.filename, .origin = RomOrigin::kEcuRead},
+    BackupRom(image.rom, config_.EffectivePaths().calibration_files_directory + "read.bin", files_);
+    return Finish(Seed{
+        .source = {.display_name = DisplayName(image.filename), .path = image.filename, .origin = RomOrigin::kEcuRead},
         .rom = std::move(image.rom),
         .rom_id = std::move(image.rom_id),
         .flash_method = std::move(image.protocol_name),
@@ -82,11 +82,11 @@ Result<RomOpenOutcome> RomOpenUseCase::adopt_read_image(ReadImage image)
     });
 }
 
-RomOpenOutcome RomOpenUseCase::finish(Seed seed)
+RomOpenOutcome RomOpenUseCase::Finish(Seed seed)
 {
     RomOpenOutcome outcome;
     std::string rom_id = std::move(seed.rom_id);
-    std::optional<ResolvedDefinition> definition = find_definition(seed.rom, rom_id);
+    std::optional<ResolvedDefinition> definition = FindDefinition(seed.rom, rom_id);
 
     // A loaded definition replaces the seed's flash method and checksum
     // module, as legacy's wholesale RomInfo replacement did; only then is the
@@ -95,18 +95,18 @@ RomOpenOutcome RomOpenUseCase::finish(Seed seed)
     std::string checksum_module;
     if (definition.has_value())
     {
-        flash_method = resolve_alias(definition->definition.metadata.flash_method);
+        flash_method = ResolveAlias(definition->definition.metadata.flash_method);
         checksum_module = definition->definition.metadata.checksum_module;
     }
 
-    outcome.vehicle_selected = config_.select_by_protocol_name(flash_method);
-    const config::VehicleSpec *vehicle = config_.selected_vehicle();
+    outcome.vehicle_selected = config_.SelectByProtocolName(flash_method);
+    const config::VehicleSpec *vehicle = config_.SelectedVehicle();
     if (vehicle != nullptr)
     {
         switch (vehicle->protocol->checksum)
         {
         case config::ChecksumSupport::kCorrected:
-            checksum_module = checksum_module_for(flash_method);
+            checksum_module = ChecksumModuleFor(flash_method);
             break;
         case config::ChecksumSupport::kMissing:
             checksum_module = "Not implemented yet";
@@ -118,15 +118,15 @@ RomOpenOutcome RomOpenUseCase::finish(Seed seed)
     }
 
     const std::size_t unpadded_size = seed.rom.size();
-    std::vector<std::uint8_t> rom = apply_flash_method_padding(std::move(seed.rom), flash_method);
+    std::vector<std::uint8_t> rom = ApplyFlashMethodPadding(std::move(seed.rom), flash_method);
 
     if (definition.has_value())
     {
-        const Status size_ok = validate_rom_size(definition->definition, rom.size());
+        const Status size_ok = ValidateRomSize(definition->definition, rom.size());
         if (!size_ok.has_value())
         {
-            log_error("Error in expected ROM size", size_ok.error());
-            events_.notice("File size error: Error in expected ROM size!");
+            LogError("Error in expected ROM size", size_ok.error());
+            events_.Notice("File size error: Error in expected ROM size!");
             definition->definition.maps.clear();
             outcome.size_rejected = true;
         }
@@ -151,11 +151,10 @@ RomOpenOutcome RomOpenUseCase::finish(Seed seed)
     return outcome;
 }
 
-std::optional<ResolvedDefinition> RomOpenUseCase::find_definition(std::span<const std::uint8_t> rom,
-                                                                  std::string& rom_id)
+std::optional<ResolvedDefinition> RomOpenUseCase::FindDefinition(std::span<const std::uint8_t> rom, std::string& rom_id)
 {
     using definition::DefinitionFormat;
-    const config::AppConfig& settings = config_.settings();
+    const config::AppConfig& settings = config_.Settings();
     const bool ecuflash_enabled = settings.use_ecuflash_definitions == "enabled";
     const bool romraider_enabled = settings.use_romraider_definitions == "enabled";
 
@@ -165,49 +164,49 @@ std::optional<ResolvedDefinition> RomOpenUseCase::find_definition(std::span<cons
     {
         if (ecuflash_enabled)
         {
-            found = try_format(DefinitionFormat::kEcuFlash, rom, rom_id);
+            found = TryFormat(DefinitionFormat::kEcuFlash, rom, rom_id);
         }
         if (!found.has_value() && romraider_enabled)
         {
-            found = try_format(DefinitionFormat::kRomRaider, rom, rom_id);
+            found = TryFormat(DefinitionFormat::kRomRaider, rom, rom_id);
         }
     }
     else if (settings.primary_definition_base == "romraider" && !settings.romraider_definition_files.empty())
     {
         if (romraider_enabled)
         {
-            found = try_format(DefinitionFormat::kRomRaider, rom, rom_id);
+            found = TryFormat(DefinitionFormat::kRomRaider, rom, rom_id);
         }
         if (!found.has_value() && ecuflash_enabled)
         {
-            found = try_format(DefinitionFormat::kEcuFlash, rom, rom_id);
+            found = TryFormat(DefinitionFormat::kEcuFlash, rom, rom_id);
         }
     }
     return found;
 }
 
-std::optional<ResolvedDefinition> RomOpenUseCase::try_format(definition::DefinitionFormat format,
-                                                             std::span<const std::uint8_t> rom, std::string& rom_id)
+std::optional<ResolvedDefinition> RomOpenUseCase::TryFormat(definition::DefinitionFormat format,
+                                                            std::span<const std::uint8_t> rom, std::string& rom_id)
 {
-    const std::string match_operation = std::format("Unable to match {} definition", format_name(format));
-    Result<definition::DefinitionCatalog> catalog = catalogs_.catalog(format);
+    const std::string match_operation = std::format("Unable to match {} definition", FormatName(format));
+    Result<definition::DefinitionCatalog> catalog = catalogs_.Catalog(format);
     if (!catalog.has_value())
     {
-        log_error(match_operation, catalog.error());
+        LogError(match_operation, catalog.error());
         return std::nullopt;
     }
 
-    Result<definition::DefinitionIndexEntry> match = definitions_.match_rom(*catalog, rom);
+    Result<definition::DefinitionIndexEntry> match = definitions_.MatchRom(*catalog, rom);
     if (match.has_value())
     {
         rom_id = match->definition_id;
-        events_.log(LogLevel::kDebug, std::format("{} cal id {} found", format_name(format), rom_id));
+        events_.Log(LogLevel::kDebug, std::format("{} cal id {} found", FormatName(format), rom_id));
     }
     else
     {
         // Legacy keeps the previous ID -- for an ECU read, the one the ECU
         // reported -- and still tries to load it below.
-        log_error(match_operation, match.error());
+        LogError(match_operation, match.error());
     }
 
     if (rom_id.empty())
@@ -215,18 +214,18 @@ std::optional<ResolvedDefinition> RomOpenUseCase::try_format(definition::Definit
         return std::nullopt;
     }
     std::string source;
-    Result<definition::RomDefinition> loaded = fail(ErrorKind::kInvalidConfig, "definition is not in the catalog");
-    if (auto entry = catalog->find(format, rom_id); entry.has_value())
+    Result<definition::RomDefinition> loaded = Fail(ErrorKind::kInvalidConfig, "definition is not in the catalog");
+    if (auto entry = catalog->Find(format, rom_id); entry.has_value())
     {
         source = entry->get().source;
-        loaded = definitions_.load(*catalog, format, rom_id);
+        loaded = definitions_.Load(*catalog, format, rom_id);
     }
     else
     {
         // The fresh catalog skips files that became unreadable after the
         // sources were indexed. Legacy loaded from those indexes, so such a
         // definition still reached the load failure and its notice.
-        std::optional<std::string> indexed = catalogs_.indexed_source(format, rom_id);
+        std::optional<std::string> indexed = catalogs_.IndexedSource(format, rom_id);
         if (!indexed.has_value())
         {
             return std::nullopt;
@@ -235,10 +234,10 @@ std::optional<ResolvedDefinition> RomOpenUseCase::try_format(definition::Definit
     }
     if (!loaded.has_value())
     {
-        log_error(std::format("Unable to read {} definition {}", format_name(format), rom_id), loaded.error());
-        if (!source.empty() && !file_system_.exists(source))
+        LogError(std::format("Unable to read {} definition {}", FormatName(format), rom_id), loaded.error());
+        if (!source.empty() && !file_system_.Exists(source))
         {
-            events_.notice(
+            events_.Notice(
                 std::format("Ecu definitions file: Unable to open ECU definition file {} for reading", source));
         }
         return std::nullopt;
@@ -246,21 +245,21 @@ std::optional<ResolvedDefinition> RomOpenUseCase::try_format(definition::Definit
     return ResolvedDefinition{.format = format, .id = rom_id, .definition = std::move(*loaded)};
 }
 
-std::string RomOpenUseCase::resolve_alias(const std::string& flash_method)
+std::string RomOpenUseCase::ResolveAlias(const std::string& flash_method)
 {
-    const config::VehicleSpec *vehicle = config_.vehicle_for_alias(flash_method);
+    const config::VehicleSpec *vehicle = config_.VehicleForAlias(flash_method);
     if (vehicle == nullptr)
     {
         return flash_method;
     }
-    events_.log(LogLevel::kDebug, std::format("Alias: {}", flash_method));
-    events_.log(LogLevel::kDebug, std::format("Protocol: {}", vehicle->protocol->name));
+    events_.Log(LogLevel::kDebug, std::format("Alias: {}", flash_method));
+    events_.Log(LogLevel::kDebug, std::format("Protocol: {}", vehicle->protocol->name));
     return std::string(vehicle->protocol->name);
 }
 
-void RomOpenUseCase::log_error(std::string_view operation, const Error& error)
+void RomOpenUseCase::LogError(std::string_view operation, const Error& error)
 {
-    events_.log(LogLevel::kError, std::format("{} [{}]: {}", operation, to_string(error.kind), error.detail));
+    events_.Log(LogLevel::kError, std::format("{} [{}]: {}", operation, ToString(error.kind), error.detail));
 }
 
 } // namespace fastecu::calibration

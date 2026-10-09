@@ -58,14 +58,14 @@ VehicleSelect::VehicleSelect(const fastecu::config::ConfigSession& config, QWidg
     ui_->car_model_tree_widget->setFont(font_);
     ui_->car_version_tree_widget->setFont(font_);
 
-    const VehicleSpec *selected = config.selected_vehicle();
+    const VehicleSpec *selected = config.SelectedVehicle();
     const QString selectedMake = selected != nullptr ? qs(selected->make) : QString();
 
     QStringList carMakes;
     QStringList carMakesSorted;
     bool carMakeChangedSaved = false;
 
-    for (const VehicleSpec& vehicle : config.vehicles())
+    for (const VehicleSpec& vehicle : config.Vehicles())
     {
         if (!carMakes.contains(qs(vehicle.make)))
         {
@@ -179,7 +179,7 @@ void VehicleSelect::car_make_treewidget_item_selected()
                 &VehicleSelect::car_model_treewidget_item_selected);
 
         qDebug() << "Add models data based on selected make";
-        for (const VehicleSpec& vehicle : config_.vehicles())
+        for (const VehicleSpec& vehicle : config_.Vehicles())
         {
             const QString model = qs(vehicle.model);
             if (!carModels.contains(model) && qs(vehicle.make) == carMake && !model.isEmpty())
@@ -198,7 +198,7 @@ void VehicleSelect::car_make_treewidget_item_selected()
             itemLocal->setText(0, carModelsSorted.at(i));
             itemLocal->setFirstColumnSpanned(true);
             ui_->car_model_tree_widget->addTopLevelItem(itemLocal);
-            if (config_.selected_vehicle() != nullptr && carModelsSorted.at(i) == qs(config_.selected_vehicle()->model))
+            if (config_.SelectedVehicle() != nullptr && carModelsSorted.at(i) == qs(config_.SelectedVehicle()->model))
             {
                 qDebug() << "Car model changed to saved model";
                 carModelChangedSaved = true;
@@ -265,7 +265,7 @@ void VehicleSelect::car_model_treewidget_item_selected()
                 &VehicleSelect::car_version_treewidget_item_selected);
 
         qDebug() << "Add versions data based on selected model";
-        const auto vehicles = config_.vehicles();
+        const auto vehicles = config_.Vehicles();
         for (std::size_t i = 0; i < vehicles.size(); i++)
         {
             const VehicleSpec& vehicle = vehicles[i];
@@ -291,7 +291,7 @@ void VehicleSelect::car_model_treewidget_item_selected()
         }
 
         qDebug() << "Add versions data items to select";
-        const fastecu::Result<std::size_t> saved = config_.selected_row();
+        const fastecu::Result<std::size_t> saved = config_.SelectedRow();
         for (int i = 0; i < version.length(); i++)
         {
             QTreeWidgetItem *itemLocal = new QTreeWidgetItem();

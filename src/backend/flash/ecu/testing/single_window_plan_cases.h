@@ -36,7 +36,7 @@ struct SingleWindowPlanCase
     bool supports_write = true;
 };
 
-inline std::string caseName(const ::testing::TestParamInfo<SingleWindowPlanCase>& info)
+inline std::string CaseName(const ::testing::TestParamInfo<SingleWindowPlanCase>& info)
 {
     return std::string(info.param.name);
 }
@@ -62,10 +62,10 @@ TEST_P(SingleWindowPlanContract, ReadPlanCarriesTheTransferRegion)
     const auto plan = c.build(FlashOperation::kRead, c.protocol, c.mcu, std::nullopt);
 
     ASSERT_THAT(plan, fastecu::testing::IsOk());
-    EXPECT_THAT(plan->transfer_region(), RegionIs(c.read_region));
-    EXPECT_THAT(plan->erase_regions(), ::testing::IsEmpty());
-    EXPECT_FALSE(plan->kernel().has_value());
-    EXPECT_THAT(plan->confirmations(), ::testing::IsEmpty());
+    EXPECT_THAT(plan->TransferRegion(), RegionIs(c.read_region));
+    EXPECT_THAT(plan->EraseRegions(), ::testing::IsEmpty());
+    EXPECT_FALSE(plan->Kernel().has_value());
+    EXPECT_THAT(plan->Confirmations(), ::testing::IsEmpty());
 }
 
 TEST_P(SingleWindowPlanContract, TestWriteIsRejectedBeforeAnyIo)
@@ -104,7 +104,7 @@ TEST_P(SingleWindowPlanContract, WriteRequiresAFullStartAlignedImage)
     }
 
     ASSERT_THAT(ok, fastecu::testing::IsOk());
-    EXPECT_THAT(ok->erase_regions(), ::testing::ElementsAre(RegionIs(c.erase_region)));
+    EXPECT_THAT(ok->EraseRegions(), ::testing::ElementsAre(RegionIs(c.erase_region)));
 }
 
 TEST_P(SingleWindowPlanContract, AForeignProtocolOrMcuIsRejected)

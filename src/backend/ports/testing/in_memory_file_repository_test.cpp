@@ -7,22 +7,22 @@ TEST(InMemoryFileRepository, WriteThenReadRoundTrips)
 {
     fastecu::InMemoryFileRepository repo;
     std::vector<std::uint8_t> data = {1, 2, 3};
-    ASSERT_THAT(repo.write("rom", data), fastecu::testing::IsOk());
-    ASSERT_THAT(repo.read("rom"), fastecu::testing::IsOkAnd(data));
+    ASSERT_THAT(repo.Write("rom", data), fastecu::testing::IsOk());
+    ASSERT_THAT(repo.Read("rom"), fastecu::testing::IsOkAnd(data));
 }
 
 TEST(InMemoryFileRepository, MissingHandleIsInvalidConfig)
 {
     fastecu::InMemoryFileRepository repo;
-    ASSERT_THAT(repo.read("absent"), fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
+    ASSERT_THAT(repo.Read("absent"), fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
 }
 
 TEST(InMemoryFileRepository, RecordsAndCanOverrideNextRead)
 {
     fastecu::InMemoryFileRepository repository;
-    repository.next_read_result = fastecu::fail(fastecu::ErrorKind::kInternal, "disk error");
+    repository.next_read_result = fastecu::Fail(fastecu::ErrorKind::kInternal, "disk error");
 
-    ASSERT_THAT(repository.read("kernel"), ::testing::Not(fastecu::testing::IsOk()));
+    ASSERT_THAT(repository.Read("kernel"), ::testing::Not(fastecu::testing::IsOk()));
     EXPECT_EQ(repository.read_handles, std::vector<std::string>{"kernel"});
 }
 
@@ -30,10 +30,10 @@ TEST(InMemoryFileRepository, ReadOverrideIsConsumedAfterOneRead)
 {
     fastecu::InMemoryFileRepository repository;
     repository.files["kernel"] = {0xaa, 0xbb};
-    repository.next_read_result = fastecu::fail(fastecu::ErrorKind::kInternal, "disk error");
+    repository.next_read_result = fastecu::Fail(fastecu::ErrorKind::kInternal, "disk error");
 
-    ASSERT_THAT(repository.read("kernel"), ::testing::Not(fastecu::testing::IsOk()));
-    ASSERT_THAT(repository.read("kernel"), fastecu::testing::IsOkAnd((std::vector<std::uint8_t>{0xaa, 0xbb})));
+    ASSERT_THAT(repository.Read("kernel"), ::testing::Not(fastecu::testing::IsOk()));
+    ASSERT_THAT(repository.Read("kernel"), fastecu::testing::IsOkAnd((std::vector<std::uint8_t>{0xaa, 0xbb})));
     EXPECT_EQ(repository.read_handles, (std::vector<std::string>{"kernel", "kernel"}));
 }
 
@@ -43,8 +43,8 @@ TEST(InMemoryFileRepository, RecordsOrderedWritesAndStoresBothData)
     const std::vector<std::uint8_t> rom_data = {1, 2, 3};
     const std::vector<std::uint8_t> kernel_data = {4, 5, 6};
 
-    ASSERT_THAT(repository.write("rom", rom_data), fastecu::testing::IsOk());
-    ASSERT_THAT(repository.write("kernel", kernel_data), fastecu::testing::IsOk());
+    ASSERT_THAT(repository.Write("rom", rom_data), fastecu::testing::IsOk());
+    ASSERT_THAT(repository.Write("kernel", kernel_data), fastecu::testing::IsOk());
 
     EXPECT_EQ(repository.write_calls, (std::vector<std::pair<std::string, std::vector<std::uint8_t>>>{
                                           {"rom", {1, 2, 3}}, {"kernel", {4, 5, 6}}}));
@@ -60,11 +60,11 @@ TEST(InMemoryFileRepository, PersistentReadErrorAppliesAfterOneShotOverride)
                                             fastecu::Error{fastecu::ErrorKind::kInternal, "persistent error"});
     repository.next_read_result = std::vector<std::uint8_t>{0xbb};
 
-    ASSERT_THAT(repository.read("kernel"), fastecu::testing::IsOkAnd((std::vector<std::uint8_t>{0xbb})));
-    auto second = repository.read("kernel");
+    ASSERT_THAT(repository.Read("kernel"), fastecu::testing::IsOkAnd((std::vector<std::uint8_t>{0xbb})));
+    auto second = repository.Read("kernel");
     ASSERT_THAT(second, ::testing::Not(fastecu::testing::IsOk()));
     EXPECT_EQ(second.error(), repository.read_errors.at("kernel"));
-    EXPECT_EQ(repository.read_count("kernel"), 2);
+    EXPECT_EQ(repository.ReadCount("kernel"), 2);
 }
 
 TEST(InMemoryFileRepository, ReadCountIsPerHandleAndIncludesFailures)
@@ -72,12 +72,12 @@ TEST(InMemoryFileRepository, ReadCountIsPerHandleAndIncludesFailures)
     fastecu::InMemoryFileRepository repository;
     repository.read_errors.insert_or_assign("broken", fastecu::Error{fastecu::ErrorKind::kInternal, "broken"});
 
-    EXPECT_THAT(repository.read("broken"), ::testing::Not(fastecu::testing::IsOk()));
-    EXPECT_THAT(repository.read("missing"), ::testing::Not(fastecu::testing::IsOk()));
+    EXPECT_THAT(repository.Read("broken"), ::testing::Not(fastecu::testing::IsOk()));
+    EXPECT_THAT(repository.Read("missing"), ::testing::Not(fastecu::testing::IsOk()));
 
-    EXPECT_EQ(repository.read_count("broken"), 1);
-    EXPECT_EQ(repository.read_count("missing"), 1);
-    EXPECT_EQ(repository.read_count("unread"), 0);
+    EXPECT_EQ(repository.ReadCount("broken"), 1);
+    EXPECT_EQ(repository.ReadCount("missing"), 1);
+    EXPECT_EQ(repository.ReadCount("unread"), 0);
 }
 
 TEST(InMemoryFileRepository, WriteErrorIsReturnedAndNothingIsStored)
@@ -86,7 +86,7 @@ TEST(InMemoryFileRepository, WriteErrorIsReturnedAndNothingIsStored)
     repo.write_errors["a.cfg"] = fastecu::Error{fastecu::ErrorKind::kInternal, "read-only"};
     const std::vector<std::uint8_t> bytes{1, 2, 3};
 
-    const fastecu::Status written = repo.write("a.cfg", bytes);
+    const fastecu::Status written = repo.Write("a.cfg", bytes);
 
     ASSERT_FALSE(written.has_value());
     EXPECT_EQ(written.error().detail, "read-only");

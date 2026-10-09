@@ -9,6 +9,6 @@ TEST(TestInit, already_in_mode_just_sets_baud)
 {
     ScriptedKlineTransport t;
     AlreadyInMode init(125000);
-    ASSERT_TRUE(init.wake(t));
-    ASSERT_TRUE(t.scriptConsumed()); // no writes expected
+    ASSERT_TRUE(init.Wake(t));
+    ASSERT_TRUE(t.ScriptConsumed()); // no writes expected
 }

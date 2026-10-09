@@ -20,19 +20,19 @@ TEST(ScriptedUdsChannelTest, AcceptsAnExpectedSend)
     uds::ScriptedUdsChannel channel;
     FakeCancellationToken cancellation;
     const bytes::Bytes pdu{0x10, 0x03};
-    channel.expectSend(pdu);
+    channel.ExpectSend(pdu);
 
-    EXPECT_THAT(channel.send(pdu, cancellation), fastecu::testing::IsOk());
-    EXPECT_EQ(channel.sendsConsumed(), 1U);
+    EXPECT_THAT(channel.Send(pdu, cancellation), fastecu::testing::IsOk());
+    EXPECT_EQ(channel.SendsConsumed(), 1U);
 }
 
 TEST(ScriptedUdsChannelTest, RejectsAnUnexpectedSend)
 {
     uds::ScriptedUdsChannel channel;
     FakeCancellationToken cancellation;
-    channel.expectSend(bytes::Bytes{0x10, 0x03});
+    channel.ExpectSend(bytes::Bytes{0x10, 0x03});
 
-    ASSERT_THAT(channel.send(bytes::Bytes{0x10, 0x85}, cancellation), fastecu::testing::IsErr(ErrorKind::kInternal));
+    ASSERT_THAT(channel.Send(bytes::Bytes{0x10, 0x85}, cancellation), fastecu::testing::IsErr(ErrorKind::kInternal));
 }
 
 TEST(ScriptedUdsChannelTest, RejectsASendWithNoRemainingExpectation)
@@ -40,38 +40,38 @@ TEST(ScriptedUdsChannelTest, RejectsASendWithNoRemainingExpectation)
     uds::ScriptedUdsChannel channel;
     FakeCancellationToken cancellation;
 
-    ASSERT_THAT(channel.send(bytes::Bytes{0x3E}, cancellation), fastecu::testing::IsErr(ErrorKind::kInternal));
+    ASSERT_THAT(channel.Send(bytes::Bytes{0x3E}, cancellation), fastecu::testing::IsErr(ErrorKind::kInternal));
 }
 
 TEST(ScriptedUdsChannelTest, ReplaysQueuedReceivesInOrder)
 {
     uds::ScriptedUdsChannel channel;
     FakeCancellationToken cancellation;
-    channel.queueReceive(bytes::Bytes{0x50, 0x03});
-    channel.queueNoFrame();
-    channel.queueError(ErrorKind::kDisconnected, "gone");
+    channel.QueueReceive(bytes::Bytes{0x50, 0x03});
+    channel.QueueNoFrame();
+    channel.QueueError(ErrorKind::kDisconnected, "gone");
 
-    const auto first = channel.receive(100ms, cancellation);
+    const auto first = channel.Receive(100ms, cancellation);
     ASSERT_THAT(first, fastecu::testing::IsOk());
     ASSERT_TRUE(first->has_value());
     EXPECT_THAT(**first, ElementsAre(0x50, 0x03));
 
-    const auto second = channel.receive(100ms, cancellation);
+    const auto second = channel.Receive(100ms, cancellation);
     ASSERT_THAT(second, fastecu::testing::IsOk());
     EXPECT_FALSE(second->has_value());
 
-    ASSERT_THAT(channel.receive(100ms, cancellation), fastecu::testing::IsErr(ErrorKind::kDisconnected));
+    ASSERT_THAT(channel.Receive(100ms, cancellation), fastecu::testing::IsErr(ErrorKind::kDisconnected));
 }
 
 TEST(ScriptedUdsChannelTest, RecordsEveryReceiveTimeout)
 {
     uds::ScriptedUdsChannel channel;
     FakeCancellationToken cancellation;
-    channel.queueReceive(bytes::Bytes{0x50});
-    channel.queueReceive(bytes::Bytes{0x50});
+    channel.QueueReceive(bytes::Bytes{0x50});
+    channel.QueueReceive(bytes::Bytes{0x50});
 
-    std::ignore = channel.receive(500ms, cancellation);
-    std::ignore = channel.receive(3000ms, cancellation);
+    std::ignore = channel.Receive(500ms, cancellation);
+    std::ignore = channel.Receive(3000ms, cancellation);
 
     EXPECT_THAT(channel.timeouts, ElementsAre(500ms, 3000ms));
     EXPECT_EQ(channel.last_timeout, 3000ms);
@@ -81,25 +81,25 @@ TEST(ScriptedUdsChannelTest, HonorsCancellation)
 {
     uds::ScriptedUdsChannel channel;
     FakeCancellationToken cancellation;
-    cancellation.set_cancelled(true);
-    channel.expectSend(bytes::Bytes{0x3E});
+    cancellation.SetCancelled(true);
+    channel.ExpectSend(bytes::Bytes{0x3E});
 
-    ASSERT_THAT(channel.send(bytes::Bytes{0x3E}, cancellation), fastecu::testing::IsErr(ErrorKind::kCancelled));
-    ASSERT_THAT(channel.receive(100ms, cancellation), fastecu::testing::IsErr(ErrorKind::kCancelled));
+    ASSERT_THAT(channel.Send(bytes::Bytes{0x3E}, cancellation), fastecu::testing::IsErr(ErrorKind::kCancelled));
+    ASSERT_THAT(channel.Receive(100ms, cancellation), fastecu::testing::IsErr(ErrorKind::kCancelled));
 }
 
 TEST(ScriptedUdsChannelTest, ScriptConsumedReflectsRemainingWork)
 {
     uds::ScriptedUdsChannel channel;
     FakeCancellationToken cancellation;
-    channel.expectSend(bytes::Bytes{0x3E});
-    channel.queueReceive(bytes::Bytes{0x7E});
+    channel.ExpectSend(bytes::Bytes{0x3E});
+    channel.QueueReceive(bytes::Bytes{0x7E});
 
-    EXPECT_FALSE(channel.scriptConsumed());
-    std::ignore = channel.send(bytes::Bytes{0x3E}, cancellation);
-    EXPECT_FALSE(channel.scriptConsumed());
-    std::ignore = channel.receive(100ms, cancellation);
-    EXPECT_TRUE(channel.scriptConsumed());
+    EXPECT_FALSE(channel.ScriptConsumed());
+    std::ignore = channel.Send(bytes::Bytes{0x3E}, cancellation);
+    EXPECT_FALSE(channel.ScriptConsumed());
+    std::ignore = channel.Receive(100ms, cancellation);
+    EXPECT_TRUE(channel.ScriptConsumed());
 }
 
 } // namespace

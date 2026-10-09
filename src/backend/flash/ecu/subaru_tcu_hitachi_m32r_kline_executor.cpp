@@ -35,56 +35,56 @@ constexpr auto kBlockDelay = 100ms;
 // read_a0_rom retries a block up to five times before giving up.
 constexpr int kBlockAttempts = 5;
 
-bytes::Bytes framed(bytes::ByteView payload, const SubaruTcuHitachiM32rKlinePlan& p)
+bytes::Bytes Framed(bytes::ByteView payload, const SubaruTcuHitachiM32rKlinePlan& p)
 {
     return ssm_protocol::AddHeader(payload, p.tester_id, p.target_id);
 }
 
-Result<std::optional<bytes::Bytes>> exchange_optional(IKlineFlashTransport& transport,
-                                                      const ICancellationToken& cancellation, bytes::ByteView payload,
-                                                      const SubaruTcuHitachiM32rKlinePlan& p, int timeout)
+Result<std::optional<bytes::Bytes>> ExchangeOptional(IKlineFlashTransport& transport,
+                                                     const ICancellationToken& cancellation, bytes::ByteView payload,
+                                                     const SubaruTcuHitachiM32rKlinePlan& p, int timeout)
 {
-    if (cancellation.cancelled())
+    if (cancellation.Cancelled())
     {
-        return fail(ErrorKind::kCancelled, "cancelled before write");
+        return Fail(ErrorKind::kCancelled, "cancelled before write");
     }
-    const bytes::Bytes request = framed(payload, p);
-    auto written = transport.write(request);
+    const bytes::Bytes request = Framed(payload, p);
+    auto written = transport.Write(request);
     if (!written.has_value())
     {
         return std::unexpected(written.error());
     }
     if (*written != request.size())
     {
-        return fail(ErrorKind::kDisconnected, "short K-Line write");
+        return Fail(ErrorKind::kDisconnected, "short K-Line write");
     }
-    if (cancellation.cancelled())
+    if (cancellation.Cancelled())
     {
-        return fail(ErrorKind::kCancelled, "cancelled after write");
+        return Fail(ErrorKind::kCancelled, "cancelled after write");
     }
-    auto response = transport.read(std::chrono::milliseconds{timeout}, cancellation);
+    auto response = transport.Read(std::chrono::milliseconds{timeout}, cancellation);
     if (!response.has_value())
     {
         return std::unexpected(response.error());
     }
-    if (cancellation.cancelled())
+    if (cancellation.Cancelled())
     {
-        return fail(ErrorKind::kCancelled, "cancelled after read");
+        return Fail(ErrorKind::kCancelled, "cancelled after read");
     }
     return std::move(*response);
 }
 
-Result<bytes::Bytes> exchange(IKlineFlashTransport& transport, const ICancellationToken& cancellation,
+Result<bytes::Bytes> Exchange(IKlineFlashTransport& transport, const ICancellationToken& cancellation,
                               bytes::ByteView payload, const SubaruTcuHitachiM32rKlinePlan& p, int timeout)
 {
-    auto response = exchange_optional(transport, cancellation, payload, p, timeout);
+    auto response = ExchangeOptional(transport, cancellation, payload, p, timeout);
     if (!response.has_value())
     {
         return std::unexpected(response.error());
     }
     if (!response->has_value())
     {
-        return fail(ErrorKind::kTimeout, "no response from TCU");
+        return Fail(ErrorKind::kTimeout, "no response from TCU");
     }
     return std::move(**response);
 }
@@ -103,87 +103,87 @@ Result<bytes::Bytes> exchange(IKlineFlashTransport& transport, const ICancellati
 // five-attempt loop treated `received.length() == 0` exactly like any other
 // too-short response -- a spent attempt -- so read_rom must be able to retry
 // it. Transport errors and cancellation still come back as errors.
-Result<std::optional<bytes::Bytes>> exchange_block_read(IKlineFlashTransport& transport, IClock& clock,
-                                                        const ICancellationToken& cancellation, bytes::ByteView payload,
-                                                        const SubaruTcuHitachiM32rKlinePlan& p, int timeout)
+Result<std::optional<bytes::Bytes>> ExchangeBlockRead(IKlineFlashTransport& transport, IClock& clock,
+                                                      const ICancellationToken& cancellation, bytes::ByteView payload,
+                                                      const SubaruTcuHitachiM32rKlinePlan& p, int timeout)
 {
-    if (cancellation.cancelled())
+    if (cancellation.Cancelled())
     {
-        return fail(ErrorKind::kCancelled, "cancelled before write");
+        return Fail(ErrorKind::kCancelled, "cancelled before write");
     }
-    const bytes::Bytes request = framed(payload, p);
-    auto written = transport.write(request);
+    const bytes::Bytes request = Framed(payload, p);
+    auto written = transport.Write(request);
     if (!written.has_value())
     {
         return std::unexpected(written.error());
     }
     if (*written != request.size())
     {
-        return fail(ErrorKind::kDisconnected, "short K-Line write");
+        return Fail(ErrorKind::kDisconnected, "short K-Line write");
     }
-    if (cancellation.cancelled())
+    if (cancellation.Cancelled())
     {
-        return fail(ErrorKind::kCancelled, "cancelled after write");
+        return Fail(ErrorKind::kCancelled, "cancelled after write");
     }
-    if (auto slept = clock.sleep(kBlockDelay, cancellation); !slept.has_value())
+    if (auto slept = clock.Sleep(kBlockDelay, cancellation); !slept.has_value())
     {
         return std::unexpected(slept.error());
     }
-    auto response = transport.read(std::chrono::milliseconds{timeout}, cancellation);
+    auto response = transport.Read(std::chrono::milliseconds{timeout}, cancellation);
     if (!response.has_value())
     {
         return std::unexpected(response.error());
     }
-    if (cancellation.cancelled())
+    if (cancellation.Cancelled())
     {
-        return fail(ErrorKind::kCancelled, "cancelled after read");
+        return Fail(ErrorKind::kCancelled, "cancelled after read");
     }
-    if (auto slept = clock.sleep(kBlockDelay, cancellation); !slept.has_value())
+    if (auto slept = clock.Sleep(kBlockDelay, cancellation); !slept.has_value())
     {
         return std::unexpected(slept.error());
     }
     return std::move(*response);
 }
 
-Status expect_prefix(bytes::ByteView response, std::initializer_list<bytes::Byte> prefix)
+Status ExpectPrefix(bytes::ByteView response, std::initializer_list<bytes::Byte> prefix)
 {
     if (response.size() < 4 + prefix.size())
     {
-        return fail(ErrorKind::kBadResponse, "response is too short");
+        return Fail(ErrorKind::kBadResponse, "response is too short");
     }
     std::size_t i = 4;
     for (bytes::Byte value : prefix)
     {
         if (response[i++] != value)
         {
-            return fail(ErrorKind::kBadResponse, "wrong response from TCU");
+            return Fail(ErrorKind::kBadResponse, "wrong response from TCU");
         }
     }
     return {};
 }
 
-Status request_prefix(IKlineFlashTransport& transport, const ICancellationToken& cancellation, bytes::Bytes request,
-                      std::initializer_list<bytes::Byte> expected, const SubaruTcuHitachiM32rKlinePlan& p)
+Status RequestPrefix(IKlineFlashTransport& transport, const ICancellationToken& cancellation, bytes::Bytes request,
+                     std::initializer_list<bytes::Byte> expected, const SubaruTcuHitachiM32rKlinePlan& p)
 {
-    auto response = exchange(transport, cancellation, request, p, kConnectTimeoutMs);
+    auto response = Exchange(transport, cancellation, request, p, kConnectTimeoutMs);
     if (!response.has_value())
     {
         return std::unexpected(response.error());
     }
-    return expect_prefix(*response, expected);
+    return ExpectPrefix(*response, expected);
 }
 
 // Legacy: received.remove(0, 8); received.remove(5, ...) -- bytes 8..12 of the
 // 0xBF response, hex-encoded, with a trailing underscore.
-Result<std::string> parse_rom_id(bytes::ByteView response)
+Result<std::string> ParseRomId(bytes::ByteView response)
 {
-    if (auto valid = expect_prefix(response, {0xff}); !valid.has_value())
+    if (auto valid = ExpectPrefix(response, {0xff}); !valid.has_value())
     {
         return std::unexpected(valid.error());
     }
     if (response.size() < 13)
     {
-        return fail(ErrorKind::kBadResponse, "TCU ID response is too short");
+        return Fail(ErrorKind::kBadResponse, "TCU ID response is too short");
     }
     std::string id;
     for (std::size_t i = 8; i < 13; ++i)
@@ -196,7 +196,7 @@ Result<std::string> parse_rom_id(bytes::ByteView response)
 // This family's own 16-entry generation table. Its index transformation was
 // compared byte for byte against SsmProtocol::kIndexTransformationStock and is
 // identical, so only the generation table is family-specific.
-bytes::Bytes seed_key(bytes::ByteView seed)
+bytes::Bytes SeedKey(bytes::ByteView seed)
 {
     static constexpr std::array<std::uint16_t, 16> kIndex = {0x0FE9, 0xCA58, 0x5E90, 0xDFF1, 0x690B, 0xF591,
                                                              0x1794, 0x5C7B, 0xA7BF, 0x98E5, 0x0B63, 0xA1C9,
@@ -204,51 +204,50 @@ bytes::Bytes seed_key(bytes::ByteView seed)
     return ssm_protocol::CalculateSeedKey(seed, kIndex, ssm_protocol::kIndexTransformationStock);
 }
 
-Result<std::string> connect_bootloader(IKlineFlashTransport& transport, IClock& clock,
-                                       const ICancellationToken& cancellation, const SubaruTcuHitachiM32rKlinePlan& p)
+Result<std::string> ConnectBootloader(IKlineFlashTransport& transport, IClock& clock,
+                                      const ICancellationToken& cancellation, const SubaruTcuHitachiM32rKlinePlan& p)
 {
     // Legacy connect_bootloader()'s opening delay(100), kept ahead of the
     // first 0xBF write; clock.sleep() observes cancellation.
-    if (auto slept = clock.sleep(kConnectDelay, cancellation); !slept.has_value())
+    if (auto slept = clock.Sleep(kConnectDelay, cancellation); !slept.has_value())
     {
         return std::unexpected(slept.error());
     }
-    auto id_response = exchange(transport, cancellation, bytes::Bytes{0xbf}, p, kConnectTimeoutMs);
+    auto id_response = Exchange(transport, cancellation, bytes::Bytes{0xbf}, p, kConnectTimeoutMs);
     if (!id_response.has_value())
     {
         return std::unexpected(id_response.error());
     }
-    auto id = parse_rom_id(*id_response);
+    auto id = ParseRomId(*id_response);
     if (!id.has_value())
     {
         return std::unexpected(id.error());
     }
-    if (auto s = request_prefix(transport, cancellation, {0x81}, {0xc1}, p); !s.has_value())
+    if (auto s = RequestPrefix(transport, cancellation, {0x81}, {0xc1}, p); !s.has_value())
     {
         return std::unexpected(s.error());
     }
-    if (auto s = request_prefix(transport, cancellation, {0x83, 0x00}, {0xc3}, p); !s.has_value())
+    if (auto s = RequestPrefix(transport, cancellation, {0x83, 0x00}, {0xc3}, p); !s.has_value())
     {
         return std::unexpected(s.error());
     }
-    auto seed = exchange(transport, cancellation,
+    auto seed = Exchange(transport, cancellation,
                          bytes::Bytes{uds::kSidSecurityAccess, uds::kSecurityAccessRequestSeed}, p, kConnectTimeoutMs);
     if (!seed.has_value())
     {
         return std::unexpected(seed.error());
     }
-    if (auto s = expect_prefix(*seed, {0x67, uds::kSecurityAccessRequestSeed}); !s.has_value())
+    if (auto s = ExpectPrefix(*seed, {0x67, uds::kSecurityAccessRequestSeed}); !s.has_value())
     {
         return std::unexpected(s.error());
     }
     if (seed->size() < 10)
     {
-        return fail(ErrorKind::kBadResponse, "seed response is too short");
+        return Fail(ErrorKind::kBadResponse, "seed response is too short");
     }
     bytes::Bytes key_request =
-        ComposeBe(uds::kSidSecurityAccess, uds::kSecurityAccessSendKey, seed_key(bytes::ByteView{*seed}.subspan(6, 4)));
-    if (auto s =
-            request_prefix(transport, cancellation, std::move(key_request), {0x67, uds::kSecurityAccessSendKey}, p);
+        ComposeBe(uds::kSidSecurityAccess, uds::kSecurityAccessSendKey, SeedKey(bytes::ByteView{*seed}.subspan(6, 4)));
+    if (auto s = RequestPrefix(transport, cancellation, std::move(key_request), {0x67, uds::kSecurityAccessSendKey}, p);
         !s.has_value())
     {
         return std::unexpected(s.error());
@@ -256,21 +255,21 @@ Result<std::string> connect_bootloader(IKlineFlashTransport& transport, IClock& 
     return id;
 }
 
-Result<bytes::Bytes> read_rom(IKlineFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
-                              IEventSink& events, const SubaruTcuHitachiM32rKlinePlan& p);
+Result<bytes::Bytes> ReadRom(IKlineFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
+                             IEventSink& events, const SubaruTcuHitachiM32rKlinePlan& p);
 } // namespace
 
-Result<KlineConfig> SubaruTcuHitachiM32rKlineExecutor::transport_setup(const FlashPlan& plan) const
+Result<KlineConfig> SubaruTcuHitachiM32rKlineExecutor::TransportSetup(const FlashPlan& plan) const
 {
-    if (const Status match = check_family(plan, FlashFamily::kSubaruTcuHitachiM32rKline); !match.has_value())
+    if (const Status match = CheckFamily(plan, FlashFamily::kSubaruTcuHitachiM32rKline); !match.has_value())
     {
         return std::unexpected(match.error());
     }
-    if (const Status valid = validate_subaru_tcu_hitachi_m32r_kline_plan(plan); !valid.has_value())
+    if (const Status valid = ValidateSubaruTcuHitachiM32rKlinePlan(plan); !valid.has_value())
     {
         return std::unexpected(valid.error());
     }
-    const auto& p = std::get<SubaruTcuHitachiM32rKlinePlan>(plan.family_plan());
+    const auto& p = std::get<SubaruTcuHitachiM32rKlinePlan>(plan.FamilyPlan());
     // Unlike the ECU sibling, this family sets is_iso14230_connection(true),
     // so non_iso14230_kline_config_from() must not be used here.
     return KlineConfig{
@@ -281,38 +280,38 @@ Result<KlineConfig> SubaruTcuHitachiM32rKlineExecutor::transport_setup(const Fla
     };
 }
 
-Result<FlashExecutionResult> SubaruTcuHitachiM32rKlineExecutor::execute(const FlashPlan& plan,
+Result<FlashExecutionResult> SubaruTcuHitachiM32rKlineExecutor::Execute(const FlashPlan& plan,
                                                                         IKlineFlashTransport& transport, IClock& clock,
                                                                         const ICancellationToken& cancellation,
                                                                         IEventSink& events)
 {
-    if (const Status match = check_family(plan, FlashFamily::kSubaruTcuHitachiM32rKline); !match.has_value())
+    if (const Status match = CheckFamily(plan, FlashFamily::kSubaruTcuHitachiM32rKline); !match.has_value())
     {
         return std::unexpected(match.error());
     }
-    if (const Status valid = validate_subaru_tcu_hitachi_m32r_kline_plan(plan); !valid.has_value())
+    if (const Status valid = ValidateSubaruTcuHitachiM32rKlinePlan(plan); !valid.has_value())
     {
         return std::unexpected(valid.error());
     }
-    if (plan.operation() != FlashOperation::kRead)
+    if (plan.Operation() != FlashOperation::kRead)
     {
-        return fail(ErrorKind::kUnsupported, "Subaru TCU Hitachi M32R K-Line supports read only");
+        return Fail(ErrorKind::kUnsupported, "Subaru TCU Hitachi M32R K-Line supports read only");
     }
-    if (cancellation.cancelled())
+    if (cancellation.Cancelled())
     {
-        return fail(ErrorKind::kCancelled, "cancelled before setup");
+        return Fail(ErrorKind::kCancelled, "cancelled before setup");
     }
-    const auto& p = std::get<SubaruTcuHitachiM32rKlinePlan>(plan.family_plan());
-    if (auto header = transport.set_add_iso14230_header(false); !header.has_value())
+    const auto& p = std::get<SubaruTcuHitachiM32rKlinePlan>(plan.FamilyPlan());
+    if (auto header = transport.SetAddIso14230Header(false); !header.has_value())
     {
         return std::unexpected(header.error());
     }
-    auto id = connect_bootloader(transport, clock, cancellation, p);
+    auto id = ConnectBootloader(transport, clock, cancellation, p);
     if (!id.has_value())
     {
         return std::unexpected(id.error());
     }
-    auto rom = read_rom(transport, clock, cancellation, events, p);
+    auto rom = ReadRom(transport, clock, cancellation, events, p);
     if (!rom.has_value())
     {
         return std::unexpected(rom.error());
@@ -325,16 +324,16 @@ namespace
 // read_a0_rom's block-read loop: 96-byte blocks (the final block is whatever
 // remains, 32 bytes for the 0x80000 ROM), up to five attempts per block while
 // the response is too short to carry data (legacy: received.length() <= 5).
-Result<bytes::Bytes> read_rom(IKlineFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
-                              IEventSink& events, const SubaruTcuHitachiM32rKlinePlan& p)
+Result<bytes::Bytes> ReadRom(IKlineFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
+                             IEventSink& events, const SubaruTcuHitachiM32rKlinePlan& p)
 {
     bytes::Bytes rom;
     rom.reserve(kRomSize);
     for (std::uint32_t address = 0; address < kRomSize; address += p.block_size)
     {
-        if (cancellation.cancelled())
+        if (cancellation.Cancelled())
         {
-            return fail(ErrorKind::kCancelled, "cancelled during ROM read");
+            return Fail(ErrorKind::kCancelled, "cancelled during ROM read");
         }
         const std::uint32_t length = std::min(p.block_size, kRomSize - address);
         const bytes::Bytes request =
@@ -350,7 +349,7 @@ Result<bytes::Bytes> read_rom(IKlineFlashTransport& transport, IClock& clock, co
         std::optional<bytes::Bytes> block;
         for (int attempt = 0; attempt < kBlockAttempts; ++attempt)
         {
-            auto response = exchange_block_read(transport, clock, cancellation, request, p, kBlockTimeoutMs);
+            auto response = ExchangeBlockRead(transport, clock, cancellation, request, p, kBlockTimeoutMs);
             if (!response.has_value())
             {
                 return std::unexpected(response.error());
@@ -367,17 +366,17 @@ Result<bytes::Bytes> read_rom(IKlineFlashTransport& transport, IClock& clock, co
         }
         if (!block.has_value())
         {
-            return fail(ErrorKind::kBadResponse,
+            return Fail(ErrorKind::kBadResponse,
                         std::format("no block-read response at 0x{:06x} after {} attempts", address, kBlockAttempts));
         }
         // 5 header bytes, `length` data bytes, 1 checksum byte.
         if (block->size() != length + 6)
         {
-            return fail(ErrorKind::kBadResponse, std::format("block read at 0x{:06x} returned {} bytes, expected {}",
+            return Fail(ErrorKind::kBadResponse, std::format("block read at 0x{:06x} returned {} bytes, expected {}",
                                                              address, block->size(), length + 6));
         }
         rom.insert(rom.end(), block->begin() + 5, block->end() - 1);
-        events.progress(static_cast<int>(address + length), static_cast<int>(kRomSize));
+        events.Progress(static_cast<int>(address + length), static_cast<int>(kRomSize));
     }
     return rom;
 }

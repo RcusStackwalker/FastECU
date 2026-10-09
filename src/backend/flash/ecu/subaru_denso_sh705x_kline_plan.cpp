@@ -41,7 +41,7 @@ constexpr auto kVariants = std::to_array<Variant>({
 constexpr std::uint32_t kCommitBlockSize = 0x1000;   // flash_block() flashblocksize
 constexpr std::uint64_t kMaxWireLength = 0x00FFFFFF; // send_sid_34_request_upload() 24-bit length
 
-Result<const Variant *> find_variant(std::string_view protocol, std::string_view mcu)
+Result<const Variant *> FindVariant(std::string_view protocol, std::string_view mcu)
 {
     for (const Variant& variant : kVariants)
     {
@@ -49,45 +49,45 @@ Result<const Variant *> find_variant(std::string_view protocol, std::string_view
         {
             if (variant.mcu != mcu)
             {
-                return fail(kInvalidConfig, std::format("{} requires MCU {}, not {}", protocol, variant.mcu, mcu));
+                return Fail(kInvalidConfig, std::format("{} requires MCU {}, not {}", protocol, variant.mcu, mcu));
             }
             return &variant;
         }
     }
-    return fail(kInvalidConfig, std::format("Unsupported Denso SH705x K-Line protocol: {}", protocol));
+    return Fail(kInvalidConfig, std::format("Unsupported Denso SH705x K-Line protocol: {}", protocol));
 }
 
-Status validate_operation(const Variant& variant, FlashOperation operation)
+Status ValidateOperation(const Variant& variant, FlashOperation operation)
 {
     if (variant.test_write_only && operation != FlashOperation::kTestWrite)
     {
-        return fail(kUnsupported, std::format("{} supports test write only", variant.protocol));
+        return Fail(kUnsupported, std::format("{} supports test write only", variant.protocol));
     }
     return {};
 }
 
-Status validate_kernel(const Variant& variant, const KernelImage& kernel)
+Status ValidateKernel(const Variant& variant, const KernelImage& kernel)
 {
     if (kernel.bytes.empty())
     {
-        return fail(kInvalidConfig, "Denso SH705x K-Line kernel is empty");
+        return Fail(kInvalidConfig, "Denso SH705x K-Line kernel is empty");
     }
     // upload_kernel(): +2 bytes, padded to 4 -- the encrypted length must fit
     // send_sid_34_request_upload()'s 24-bit length field.
     const std::uint64_t padded = (static_cast<std::uint64_t>(kernel.bytes.size()) + 2 + 3) & ~3ULL;
     if (padded > kMaxWireLength)
     {
-        return fail(kInvalidConfig, "Denso SH705x K-Line kernel exceeds the 24-bit upload length");
+        return Fail(kInvalidConfig, "Denso SH705x K-Line kernel exceeds the 24-bit upload length");
     }
     if (kernel.load_address != variant.kernel_address)
     {
-        return fail(kInvalidConfig,
+        return Fail(kInvalidConfig,
                     std::format("Denso SH705x K-Line kernel address must be 0x{:08X}", variant.kernel_address));
     }
     return {};
 }
 
-Status validate_image(FlashOperation operation, const std::optional<bytes::Bytes>& image, std::uint32_t romsize)
+Status ValidateImage(FlashOperation operation, const std::optional<bytes::Bytes>& image, std::uint32_t romsize)
 {
     if (operation == FlashOperation::kRead)
     {
@@ -96,7 +96,7 @@ Status validate_image(FlashOperation operation, const std::optional<bytes::Bytes
     // Correction: legacy write_mem() indexed FullRomData unchecked.
     if (!image.has_value() || image->size() != romsize)
     {
-        return fail(kInvalidConfig, std::format("ROM file must be exactly 0x{:x} bytes", romsize));
+        return Fail(kInvalidConfig, std::format("ROM file must be exactly 0x{:x} bytes", romsize));
     }
     return {};
 }
@@ -105,7 +105,7 @@ Status validate_image(FlashOperation operation, const std::optional<bytes::Bytes
 
 namespace detail
 {
-Status validate_subaru_denso_sh705x_kline_geometry(const FlashDevice& device)
+Status ValidateSubaruDensoSh705xKlineGeometry(const FlashDevice& device)
 {
     using enum ErrorKind;
     // Correction: flash_block() loops `remain -= 0x200` and
@@ -113,109 +113,109 @@ Status validate_subaru_denso_sh705x_kline_geometry(const FlashDevice& device)
     // physical address from fblocks[0]. Reject a table that breaks either.
     if (device.numblocks == 0 || device.fblocks[0].start != 0)
     {
-        return fail(kInvalidConfig, "Denso SH705x K-Line flash blocks must start at address 0");
+        return Fail(kInvalidConfig, "Denso SH705x K-Line flash blocks must start at address 0");
     }
     std::uint64_t total = 0;
     for (unsigned i = 0; i < device.numblocks; ++i)
     {
         if (device.fblocks[i].len % kCommitBlockSize != 0)
         {
-            return fail(kInvalidConfig, "Denso SH705x K-Line flash block is not a multiple of 0x1000");
+            return Fail(kInvalidConfig, "Denso SH705x K-Line flash block is not a multiple of 0x1000");
         }
         total += device.fblocks[i].len;
     }
     if (total != device.romsize)
     {
-        return fail(kInvalidConfig, "Denso SH705x K-Line flash blocks do not cover the ROM");
+        return Fail(kInvalidConfig, "Denso SH705x K-Line flash blocks do not cover the ROM");
     }
     return {};
 }
 } // namespace detail
 
-Status validate_subaru_denso_sh705x_kline_plan(const FlashPlan& plan)
+Status ValidateSubaruDensoSh705xKlinePlan(const FlashPlan& plan)
 {
     // Ruling 2: this function is outside the
     // anonymous namespace above, so the `using enum ErrorKind;` there does
     // not reach here -- reintroduce it locally rather than qualifying every
     // use.
     using enum ErrorKind;
-    if (plan.family() != FlashFamily::kSubaruDensoSh705xKline || plan.transport() != TransportKind::kKline)
+    if (plan.Family() != FlashFamily::kSubaruDensoSh705xKline || plan.Transport() != TransportKind::kKline)
     {
-        return fail(kInvalidConfig, "plan is not for Denso SH705x K-Line");
+        return Fail(kInvalidConfig, "plan is not for Denso SH705x K-Line");
     }
-    Result<const Variant *> variant = find_variant(plan.target_id(), plan.mcu_name());
+    Result<const Variant *> variant = FindVariant(plan.TargetId(), plan.McuName());
     if (!variant.has_value())
     {
         return std::unexpected(variant.error());
     }
-    if (Status valid = validate_operation(**variant, plan.operation()); !valid.has_value())
+    if (Status valid = ValidateOperation(**variant, plan.Operation()); !valid.has_value())
     {
         return valid;
     }
-    const auto *family = std::get_if<SubaruDensoSh705xKlinePlan>(&plan.family_plan());
+    const auto *family = std::get_if<SubaruDensoSh705xKlinePlan>(&plan.FamilyPlan());
     if (family == nullptr || family->initial_baud != 4800 || family->tester_id != 0xF0 || family->target_id != 0x10 ||
         family->seed_key != (*variant)->seed_key)
     {
-        return fail(kInvalidConfig, "Denso SH705x K-Line wire parameters are invalid");
+        return Fail(kInvalidConfig, "Denso SH705x K-Line wire parameters are invalid");
     }
-    if (!plan.erase_regions().empty() || !plan.confirmations().empty())
+    if (!plan.EraseRegions().empty() || !plan.Confirmations().empty())
     {
-        return fail(kInvalidConfig, "Denso SH705x K-Line plans carry no erase regions or confirmations");
+        return Fail(kInvalidConfig, "Denso SH705x K-Line plans carry no erase regions or confirmations");
     }
-    if (!plan.kernel().has_value())
+    if (!plan.Kernel().has_value())
     {
-        return fail(kInvalidConfig, "Denso SH705x K-Line requires a kernel image");
+        return Fail(kInvalidConfig, "Denso SH705x K-Line requires a kernel image");
     }
-    if (Status valid = validate_kernel(**variant, *plan.kernel()); !valid.has_value())
+    if (Status valid = ValidateKernel(**variant, *plan.Kernel()); !valid.has_value())
     {
         return valid;
     }
-    const FlashDevice *device = find_flash_device(plan.mcu_name());
+    const FlashDevice *device = FindFlashDevice(plan.McuName());
     if (device == nullptr)
     {
-        return fail(kInvalidConfig, "Unknown MCU type");
+        return Fail(kInvalidConfig, "Unknown MCU type");
     }
-    if (Status valid = detail::validate_subaru_denso_sh705x_kline_geometry(*device); !valid.has_value())
+    if (Status valid = detail::ValidateSubaruDensoSh705xKlineGeometry(*device); !valid.has_value())
     {
         return valid;
     }
-    if (plan.transfer_region().start != 0 || plan.transfer_region().length != device->romsize)
+    if (plan.TransferRegion().start != 0 || plan.TransferRegion().length != device->romsize)
     {
-        return fail(kInvalidConfig, "Denso SH705x K-Line transfer region does not match the MCU");
+        return Fail(kInvalidConfig, "Denso SH705x K-Line transfer region does not match the MCU");
     }
-    return validate_image(plan.operation(), plan.image(), device->romsize);
+    return ValidateImage(plan.Operation(), plan.Image(), device->romsize);
 }
 
-Result<FlashPlan> build_subaru_denso_sh705x_kline_plan(FlashOperation operation, std::string_view protocol_name,
-                                                       std::string_view mcu_type, std::optional<bytes::Bytes> image,
-                                                       KernelImage kernel)
+Result<FlashPlan> BuildSubaruDensoSh705xKlinePlan(FlashOperation operation, std::string_view protocol_name,
+                                                  std::string_view mcu_type, std::optional<bytes::Bytes> image,
+                                                  KernelImage kernel)
 {
     // See the note in validate_subaru_denso_sh705x_kline_plan above: this
     // function is likewise outside the anonymous namespace.
     using enum ErrorKind;
-    Result<const Variant *> variant = find_variant(protocol_name, mcu_type);
+    Result<const Variant *> variant = FindVariant(protocol_name, mcu_type);
     if (!variant.has_value())
     {
         return std::unexpected(variant.error());
     }
-    if (Status valid = validate_operation(**variant, operation); !valid.has_value())
+    if (Status valid = ValidateOperation(**variant, operation); !valid.has_value())
     {
         return std::unexpected(valid.error());
     }
-    if (Status valid = validate_kernel(**variant, kernel); !valid.has_value())
+    if (Status valid = ValidateKernel(**variant, kernel); !valid.has_value())
     {
         return std::unexpected(valid.error());
     }
-    const FlashDevice *device = find_flash_device(mcu_type);
+    const FlashDevice *device = FindFlashDevice(mcu_type);
     if (device == nullptr)
     {
-        return fail(kInvalidConfig, "Unknown MCU type");
+        return Fail(kInvalidConfig, "Unknown MCU type");
     }
-    if (Status valid = detail::validate_subaru_denso_sh705x_kline_geometry(*device); !valid.has_value())
+    if (Status valid = detail::ValidateSubaruDensoSh705xKlineGeometry(*device); !valid.has_value())
     {
         return std::unexpected(valid.error());
     }
-    if (Status valid = validate_image(operation, image, device->romsize); !valid.has_value())
+    if (Status valid = ValidateImage(operation, image, device->romsize); !valid.has_value())
     {
         return std::unexpected(valid.error());
     }
@@ -235,12 +235,12 @@ Result<FlashPlan> build_subaru_denso_sh705x_kline_plan(FlashOperation operation,
                 .initial_baud = 4800, .tester_id = 0xF0, .target_id = 0x10, .seed_key = (*variant)->seed_key},
         .confirmations = {},
     };
-    auto plan = validate_and_build(std::move(fields));
+    auto plan = ValidateAndBuild(std::move(fields));
     if (!plan.has_value())
     {
         return std::unexpected(plan.error());
     }
-    if (Status valid = validate_subaru_denso_sh705x_kline_plan(*plan); !valid.has_value())
+    if (Status valid = ValidateSubaruDensoSh705xKlinePlan(*plan); !valid.has_value())
     {
         return std::unexpected(valid.error());
     }

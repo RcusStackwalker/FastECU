@@ -152,8 +152,8 @@ MainWindow::MainWindow(MainWindowServices services, const QString& peerAddress, 
 
     // Before this window was built, DesktopComposition initialized the session
     // and the startup vehicle gate made sure a vehicle is selected.
-    emit LOG_D("Vehicle ID: " + qs(config_session_->settings().selected_vehicle_id) + "/" +
-                   QString::number(config_session_->vehicles().size()),
+    emit LOG_D("Vehicle ID: " + qs(config_session_->Settings().selected_vehicle_id) + "/" +
+                   QString::number(config_session_->Vehicles().size()),
                true, true);
 
     emit LOG_D(qs(selected_vehicle().make), true, true);
@@ -163,14 +163,14 @@ MainWindow::MainWindow(MainWindowServices services, const QString& peerAddress, 
     emit LOG_D(qs(selected_vehicle().version), true, true);
     emit LOG_D(qs(selected_vehicle().protocol->name), true, true);
     emit LOG_D(protocol_field(selected_vehicle(), &ProtocolSpec::description), true, true);
-    emit LOG_D(qs(config_session_->settings().selected_flash_transport), true, true);
-    emit LOG_D(qs(config_session_->settings().selected_log_transport), true, true);
-    emit LOG_D(qs(config_session_->settings().selected_log_protocol), true, true);
+    emit LOG_D(qs(config_session_->Settings().selected_flash_transport), true, true);
+    emit LOG_D(qs(config_session_->Settings().selected_log_transport), true, true);
+    emit LOG_D(qs(config_session_->Settings().selected_log_protocol), true, true);
     emit LOG_D("ECU protocols set", true, true);
 
     QRect qrect = MainWindow::geometry();
 
-    if (const fastecu::config::AppConfig& windowSettings = config_session_->settings();
+    if (const fastecu::config::AppConfig& windowSettings = config_session_->Settings();
         windowSettings.window_width != "maximized" && windowSettings.window_height != "maximized")
     {
         this->setGeometry(qrect.x(), qrect.y(), qs(windowSettings.window_width).toInt(),
@@ -181,20 +181,20 @@ MainWindow::MainWindow(MainWindowServices services, const QString& peerAddress, 
         this->setWindowState(Qt::WindowMaximized);
     }
 
-    if (config_session_->settings().romraider_definition_files.empty() &&
-        config_session_->settings().ecuflash_definition_files_directory.empty())
+    if (config_session_->Settings().romraider_definition_files.empty() &&
+        config_session_->Settings().ecuflash_definition_files_directory.empty())
     {
         QMessageBox::warning(this, tr("Ecu definition file"),
                              "No definition file(s), use 'Settings' in 'Edit' menu to choose file(s)");
     }
 
     // Scan errors are nonfatal and already reported by the session.
-    std::ignore = services_.definition_catalogs.refresh_index(fastecu::definition::DefinitionFormat::kEcuFlash);
+    std::ignore = services_.definition_catalogs.RefreshIndex(fastecu::definition::DefinitionFormat::kEcuFlash);
 
     // Scan errors are nonfatal and already reported by the session.
-    std::ignore = services_.definition_catalogs.refresh_index(fastecu::definition::DefinitionFormat::kRomRaider);
+    std::ignore = services_.definition_catalogs.RefreshIndex(fastecu::definition::DefinitionFormat::kRomRaider);
 
-    if (const QString kernelDir = qs(config_session_->effective_paths().kernel_files_directory);
+    if (const QString kernelDir = qs(config_session_->EffectivePaths().kernel_files_directory);
         QDir(kernelDir).exists())
     {
         QDir dir(kernelDir);
@@ -329,8 +329,8 @@ MainWindow::MainWindow(MainWindowServices services, const QString& peerAddress, 
     vbatt_timer_->setInterval(vbatt_timer_timeout_);
     connect(vbatt_timer_, SIGNAL(timeout()), this, SLOT(update_vbatt()));
 
-    toolbar_item_size_.setWidth(qs(config_session_->settings().toolbar_iconsize).toInt());
-    toolbar_item_size_.setHeight(qs(config_session_->settings().toolbar_iconsize).toInt());
+    toolbar_item_size_.setWidth(qs(config_session_->Settings().toolbar_iconsize).toInt());
+    toolbar_item_size_.setHeight(qs(config_session_->Settings().toolbar_iconsize).toInt());
     ui_->toolBar->setIconSize(toolbar_item_size_);
 
     QWidget *spacer = new QWidget();
@@ -402,7 +402,7 @@ MainWindow::MainWindow(MainWindowServices services, const QString& peerAddress, 
     for (int i = 0; i < serial_ports_.length(); i++)
     {
         serial_port_list_->addItem(serial_ports_.at(i));
-        if (qs(config_session_->settings().serial_port) == serial_ports_.at(i).split(" - ").at(0))
+        if (qs(config_session_->Settings().serial_port) == serial_ports_.at(i).split(" - ").at(0))
         {
             serial_port_list_->setCurrentIndex(i);
         }
@@ -424,10 +424,10 @@ MainWindow::MainWindow(MainWindowServices services, const QString& peerAddress, 
 
     if (logger_model_ != nullptr)
     {
-        update_logboxes(qs(config_session_->settings().selected_log_protocol));
+        update_logboxes(qs(config_session_->Settings().selected_log_protocol));
     }
 
-    serial_port_ = serial_port_prefix_ + qs(config_session_->settings().serial_port);
+    serial_port_ = serial_port_prefix_ + qs(config_session_->Settings().serial_port);
     serial_port_baudrate_ = default_serial_port_baudrate_;
     connection_->set_initial_port(serial_port_, serial_port_baudrate_);
     /*
@@ -555,7 +555,7 @@ QStringList MainWindow::create_flash_transports_list()
     for (int i = 0; i < flashProtocols.length(); i++)
     {
         flash_transport_list_->addItem(flashProtocols.at(i));
-        if (qs(config_session_->settings().selected_flash_transport) == flashProtocols.at(i))
+        if (qs(config_session_->Settings().selected_flash_transport) == flashProtocols.at(i))
         {
             flash_transport_list_->setCurrentIndex(i);
         }
@@ -573,7 +573,7 @@ QStringList MainWindow::create_log_transports_list()
     for (int i = 0; i < logTransportsLocal.length(); i++)
     {
         log_transport_list_->addItem(logTransportsLocal.at(i));
-        if (qs(config_session_->settings().selected_flash_transport) == logTransportsLocal.at(i))
+        if (qs(config_session_->Settings().selected_flash_transport) == logTransportsLocal.at(i))
         {
             log_transport_list_->setCurrentIndex(i);
             protocol_ = "SSM";
@@ -590,12 +590,12 @@ const fastecu::config::VehicleSpec& MainWindow::selected_vehicle() const
 {
     // The startup vehicle gate selects a vehicle before MainWindow is built,
     // and a selection only ever changes to another valid row.
-    return *config_session_->selected_vehicle();
+    return *config_session_->SelectedVehicle();
 }
 
 void MainWindow::save_settings()
 {
-    if (const fastecu::Status saved = config_session_->save(); !saved.has_value())
+    if (const fastecu::Status saved = config_session_->Save(); !saved.has_value())
     {
         if (last_settings_save_error_ != saved.error())
         {
@@ -613,7 +613,7 @@ void MainWindow::apply_vehicle_choice(int result, std::optional<std::size_t> row
 {
     if (result == QDialog::Accepted && row.has_value())
     {
-        if (const fastecu::Status selected = config_session_->select_row(*row); !selected.has_value())
+        if (const fastecu::Status selected = config_session_->SelectRow(*row); !selected.has_value())
         {
             emit LOG_E(qs(selected.error().detail), true, true);
         }
@@ -625,7 +625,7 @@ void MainWindow::apply_protocol_choice(int result, std::optional<std::string> pr
 {
     if (result == QDialog::Accepted && protocolName.has_value())
     {
-        config_session_->select_by_protocol_name(*protocolName);
+        config_session_->SelectByProtocolName(*protocolName);
     }
     select_protocol_finished(result);
 }
@@ -635,7 +635,7 @@ void MainWindow::select_protocol()
     ProtocolSelect protocolSelect(*config_session_);
     const int result = protocolSelect.exec();
     apply_protocol_choice(result, protocolSelect.chosen_protocol_name());
-    emit LOG_D("Selected vehicle: " + qs(config_session_->settings().selected_vehicle_id), true, true);
+    emit LOG_D("Selected vehicle: " + qs(config_session_->Settings().selected_vehicle_id), true, true);
 }
 
 void MainWindow::select_protocol_finished(int result)
@@ -661,7 +661,7 @@ void MainWindow::select_vehicle()
     VehicleSelect vehicleSelect(*config_session_);
     const int result = vehicleSelect.exec();
     apply_vehicle_choice(result, vehicleSelect.chosen_row());
-    emit LOG_D("Selected vehicle: " + qs(config_session_->settings().selected_vehicle_id), true, true);
+    emit LOG_D("Selected vehicle: " + qs(config_session_->Settings().selected_vehicle_id), true, true);
 }
 
 void MainWindow::select_vehicle_finished(int result)
@@ -698,7 +698,7 @@ MainWindow::OpenCalibration *MainWindow::selected_open_calibration()
 fastecu::calibration::CalibrationSession *MainWindow::calibration(fastecu::calibration::SessionId id)
 {
     OpenCalibration *open = open_calibration(id);
-    return open != nullptr ? calibration_workspace_->find(open->id) : nullptr;
+    return open != nullptr ? calibration_workspace_->Find(open->id) : nullptr;
 }
 
 std::optional<fastecu::calibration::SessionId> MainWindow::session_of(const QTreeWidgetItem *filesItem) const
@@ -709,7 +709,7 @@ std::optional<fastecu::calibration::SessionId> MainWindow::session_of(const QTre
 fastecu::calibration::CalibrationSession *MainWindow::selected_calibration()
 {
     OpenCalibration *open = selected_open_calibration();
-    return open != nullptr ? calibration_workspace_->find(open->id) : nullptr;
+    return open != nullptr ? calibration_workspace_->Find(open->id) : nullptr;
 }
 
 QTreeWidgetItem *MainWindow::files_tree_item(fastecu::calibration::SessionId id) const
@@ -729,7 +729,7 @@ QTreeWidgetItem *MainWindow::files_tree_item(fastecu::calibration::SessionId id)
 // definition prompt, and both trees in the established order.
 bool MainWindow::add_calibration(fastecu::calibration::SessionId id)
 {
-    const fastecu::calibration::CalibrationSession *session = calibration_workspace_->find(id);
+    const fastecu::calibration::CalibrationSession *session = calibration_workspace_->Find(id);
     if (session == nullptr)
     {
         return false;
@@ -738,7 +738,7 @@ bool MainWindow::add_calibration(fastecu::calibration::SessionId id)
 
     update_protocol_info(
         fastecu::ui::rom_info_value(fastecu::ui::rom_info_values(*session), fastecu::ui::RomInfoRow::kFlashMethod));
-    if (session->definition() == nullptr)
+    if (session->Definition() == nullptr)
     {
         prompt_for_missing_definition(id);
     }
@@ -754,7 +754,7 @@ void MainWindow::update_protocol_info(const QString& flashMethod)
     emit LOG_D("Update protocol info by selected ROM with FlashMethod: " + flashMethod, true, true);
     // The last matching row wins, as the legacy scan did; no match changes
     // nothing.
-    if (const bool infoUpdated = config_session_->select_by_protocol_name(flashMethod.toStdString()); infoUpdated)
+    if (const bool infoUpdated = config_session_->SelectByProtocolName(flashMethod.toStdString()); infoUpdated)
     {
         emit LOG_D("Protocol info for selected ROM updated", true, true);
     }
@@ -780,10 +780,10 @@ void MainWindow::log_transport_changed()
 
     connection_->apply_log_transport(
         fastecu::desktop::connection::log_transport_from_text(logTransportList->currentText()),
-        config_session_->settings().selected_log_protocol == "SSM");
+        config_session_->Settings().selected_log_protocol == "SSM");
 
-    protocol_ = qs(config_session_->settings().selected_log_protocol);
-    config_session_->settings().selected_log_transport = logTransportList->currentText().toStdString();
+    protocol_ = qs(config_session_->Settings().selected_log_protocol);
+    config_session_->Settings().selected_log_transport = logTransportList->currentText().toStdString();
     save_settings();
 
     ecuid_.clear();
@@ -796,7 +796,7 @@ void MainWindow::flash_transport_changed()
     // emit LOG_D("Change flash transport";
     QComboBox *flashTransportList = ui_->toolBar->findChild<QComboBox *>("flash_transport_list");
 
-    config_session_->settings().selected_flash_transport = flashTransportList->currentText().toStdString();
+    config_session_->Settings().selected_flash_transport = flashTransportList->currentText().toStdString();
     save_settings();
 }
 
@@ -873,7 +873,7 @@ void MainWindow::remember_opened_port(const QString& port, const QString& opened
         ecu_init_complete_ = false;
     }
     previous_serial_port_ = openedPort;
-    config_session_->settings().serial_port = port.toStdString();
+    config_session_->Settings().serial_port = port.toStdString();
     save_settings();
 }
 
@@ -898,7 +898,7 @@ int MainWindow::start_ecu_operations(const QString& cmdType)
     connection_->select_port(selected_serial_port());
 
     // A local copy: the provisioned kernel directory is never rewritten.
-    QString kernelDir = qs(config_session_->effective_paths().kernel_files_directory);
+    QString kernelDir = qs(config_session_->EffectivePaths().kernel_files_directory);
     if (!kernelDir.endsWith('/'))
     {
         kernelDir.append("/");
@@ -946,14 +946,14 @@ int MainWindow::start_ecu_operations(const QString& cmdType)
             // a session only after it succeeded.
             update_protocol_info(qs(selected_vehicle().protocol->name));
             readKernelPath = QString::fromStdString(
-                fastecu::flash::kernel_path(kernelDir.toStdString(), selected_vehicle().protocol->kernel));
+                fastecu::flash::KernelPath(kernelDir.toStdString(), selected_vehicle().protocol->kernel));
             readKernelAddress = kernel_address_field(selected_vehicle());
         }
 
         emit LOG_D("Protocol to use: " + qs(selected_vehicle().protocol->name), true, true);
 
         const fastecu::flash::FlashOperation operation =
-            fastecu::flash::flash_operation_from_command(cmdType.toStdString());
+            fastecu::flash::FlashOperationFromCommand(cmdType.toStdString());
 
         fastecu::flash::FlashOperationController controller{connection_->facade(), this};
         // Relay through MainWindow's own LOG_* signals, like every UI logger;
@@ -973,7 +973,7 @@ int MainWindow::start_ecu_operations(const QString& cmdType)
             .kernel_path = preparedWrite.has_value() ? preparedWrite->kernel_path : readKernelPath.toStdString(),
             .image = fastecu::flash::portableImageForOperation(
                 operation, preparedWrite.has_value() ? bytes::ByteView{preparedWrite->image} : bytes::ByteView{}),
-            .paths = config_session_->effective_paths(),
+            .paths = config_session_->EffectivePaths(),
             .display_filename = preparedWrite.has_value() ? preparedWrite->display_filename : std::string{},
         });
 
@@ -988,9 +988,9 @@ int MainWindow::start_ecu_operations(const QString& cmdType)
             {
                 const QString dateTimeString = QDateTime::currentDateTime().toString("yyyy-MM-dd_hh'h'mm'm'ss's'");
                 const std::string romId = outcome.rom_id.value_or(std::string{});
-                const auto opened = calibration_workspace_->adopt_read_image(fastecu::calibration::ReadImage{
+                const auto opened = calibration_workspace_->AdoptReadImage(fastecu::calibration::ReadImage{
                     .rom = *outcome.read_bytes,
-                    .filename = fastecu::flash::read_image_filename(romId, dateTimeString.toStdString()),
+                    .filename = fastecu::flash::ReadImageFilename(romId, dateTimeString.toStdString()),
                     .rom_id = romId,
                     .protocol_name = std::string(selected_vehicle().protocol->name),
                     .kernel_path = readKernelPath.toStdString(),
@@ -1029,7 +1029,7 @@ bool MainWindow::open_calibration_file(QString filename)
         QFileDialog openDialog;
         openDialog.setDefaultSuffix("bin");
         filename = QFileDialog::getOpenFileName(this, tr("Open ROM file"),
-                                                qs(config_session_->effective_paths().calibration_files_directory),
+                                                qs(config_session_->EffectivePaths().calibration_files_directory),
                                                 tr("Calibration file (*.bin *.hex)"));
         if (filename.isEmpty())
         {
@@ -1039,7 +1039,7 @@ bool MainWindow::open_calibration_file(QString filename)
         }
     }
 
-    const auto opened = calibration_workspace_->open_file(filename.toStdString());
+    const auto opened = calibration_workspace_->OpenFile(filename.toStdString());
     if (!opened.has_value())
     {
         return 1;
@@ -1109,9 +1109,9 @@ void MainWindow::save_calibration_file_as()
     {
         return;
     }
-    if (QTreeWidgetItem *item = files_tree_item(session->id()); item != nullptr)
+    if (QTreeWidgetItem *item = files_tree_item(session->Id()); item != nullptr)
     {
-        item->setText(0, qs(session->source().display_name));
+        item->setText(0, qs(session->Source().display_name));
     }
 }
 
@@ -1130,7 +1130,7 @@ void MainWindow::set_map_selection(fastecu::calibration::SessionId id, int mapIn
     {
         return;
     }
-    const auto outcome = fastecu::calibration::apply_selectable_edit(
+    const auto outcome = fastecu::calibration::ApplySelectableEdit(
         *calibration_workspace_,
         {.session = id, .map_index = static_cast<std::size_t>(mapIndex), .selection = item.toStdString()});
     if (!outcome.has_value())
@@ -1171,7 +1171,7 @@ void MainWindow::set_map_switch(fastecu::calibration::SessionId id, int mapIndex
     // No retained definition format populated StateList. RomRaider switches
     // resolve to bloblist Selectable and use set_map_selection. Preserve the
     // empty legacy switch path without adding definition support.
-    if (calibration_workspace_->find(id) == nullptr)
+    if (calibration_workspace_->Find(id) == nullptr)
     {
         return;
     }
@@ -1196,7 +1196,7 @@ void MainWindow::calibration_files_treewidget_item_selected(QTreeWidgetItem *ite
 
     OpenCalibration *open = selected_open_calibration();
     const fastecu::calibration::CalibrationSession *session =
-        open != nullptr ? calibration_workspace_->find(open->id) : nullptr;
+        open != nullptr ? calibration_workspace_->Find(open->id) : nullptr;
     if (session == nullptr)
     {
         return;
@@ -1229,12 +1229,12 @@ void MainWindow::calibration_data_treewidget_item_selected(QTreeWidgetItem *item
         {
             return;
         }
-        const auto *rom = calibration_workspace_->find(*session);
-        if (rom == nullptr || rom->definition() == nullptr)
+        const auto *rom = calibration_workspace_->Find(*session);
+        if (rom == nullptr || rom->Definition() == nullptr)
         {
             return;
         }
-        const auto& maps = rom->definition()->definition.maps;
+        const auto& maps = rom->Definition()->definition.maps;
         int mapIndex = selectedDataTreeItem->text(1).toInt();
         for (int i = 0; i < static_cast<int>(maps.size()); i++)
         {
@@ -1271,7 +1271,7 @@ void MainWindow::calibration_data_treewidget_item_selected(QTreeWidgetItem *item
                     if (!shown.has_value())
                     {
                         emit LOG_E("Error decoding calibration map values [" +
-                                       QString(fastecu::to_string(shown.error().kind)) +
+                                       QString(fastecu::ToString(shown.error().kind)) +
                                        "]: " + qs(shown.error().detail),
                                    true, true);
                     }
@@ -1357,7 +1357,7 @@ void MainWindow::close_calibration()
     }
     delete ui_->calibrationFilesTreeWidget->takeTopLevelItem(romNumber);
     std::erase_if(calibrations_, [&id](const OpenCalibration& open) { return open.id == *id; });
-    std::ignore = calibration_workspace_->close(*id);
+    std::ignore = calibration_workspace_->Close(*id);
 
     if (ui_->calibrationFilesTreeWidget->topLevelItemCount() > 0)
     {
@@ -1468,11 +1468,11 @@ void MainWindow::update_logboxes(const QString& protocolArg)
     }
 
     const auto key = protocolArg.toStdString();
-    const auto& selection = logger_model_->selection();
+    const auto& selection = logger_model_->Selection();
     for (std::size_t slot = 0; slot < selection.switch_ids.size(); ++slot)
     {
         const auto& id = selection.switch_ids[slot];
-        const auto *item = logger_model_->switch_definition(key, id);
+        const auto *item = logger_model_->SwitchDefinition(key, id);
         if (item == nullptr)
         {
             continue;
@@ -1486,7 +1486,7 @@ void MainWindow::update_logboxes(const QString& protocolArg)
     for (std::size_t slot = 0; slot < selection.lower_panel_ids.size(); ++slot)
     {
         const auto& id = selection.lower_panel_ids[slot];
-        const auto *item = logger_model_->parameter(key, id);
+        const auto *item = logger_model_->Parameter(key, id);
         if (item == nullptr)
         {
             continue;
@@ -1502,12 +1502,12 @@ void MainWindow::update_logboxes(const QString& protocolArg)
 void MainWindow::update_logbox_values(const QString& protocolArg)
 {
     const auto key = protocolArg.toStdString();
-    const auto& ids = logger_model_->selection().lower_panel_ids;
+    const auto& ids = logger_model_->Selection().lower_panel_ids;
     // Layout positions can differ from selection slots when IDs are unresolved.
     // Labels keep the original slot in their object name.
     for (std::size_t slot = 0; slot < ids.size(); ++slot)
     {
-        const auto *item = logger_model_->parameter(key, ids[slot]);
+        const auto *item = logger_model_->Parameter(key, ids[slot]);
         if (item == nullptr)
         {
             continue;
@@ -1529,14 +1529,14 @@ void MainWindow::update_logbox_values(const QString& protocolArg)
 
 void MainWindow::load_logger_definition()
 {
-    auto& settings = config_session_->settings();
+    auto& settings = config_session_->Settings();
     auto& service = services_.logger_definitions;
     const auto handle =
-        service.resolve_definition_handle(settings.romraider_logger_definition_file, settings.selected_log_protocol,
-                                          config_session_->effective_paths().config_files_directory);
+        service.ResolveDefinitionHandle(settings.romraider_logger_definition_file, settings.selected_log_protocol,
+                                        config_session_->EffectivePaths().config_files_directory);
     if (!handle.has_value())
     {
-        services_.file_action_events.notice("Logger file: Unable to resolve logger definition file: " +
+        services_.file_action_events.Notice("Logger file: Unable to resolve logger definition file: " +
                                             handle.error().detail);
         return;
     }
@@ -1545,59 +1545,59 @@ void MainWindow::load_logger_definition()
         settings.romraider_logger_definition_file = *handle;
         emit LOG_D("Using bundled CDBG logger definition: " + qs(*handle), true, true);
     }
-    auto definition = service.load_definition(*handle);
+    auto definition = service.LoadDefinition(*handle);
     if (!definition.has_value())
     {
-        services_.file_action_events.notice("Logger file: Unable to open logger definition file '" + *handle +
+        services_.file_action_events.Notice("Logger file: Unable to open logger definition file '" + *handle +
                                             "' for reading: " + definition.error().detail);
         return;
     }
-    logger_model_->install_definition(std::move(*definition));
+    logger_model_->InstallDefinition(std::move(*definition));
 }
 
 void MainWindow::load_logger_selection()
 {
-    const auto& handle = config_session_->effective_paths().logger_file;
+    const auto& handle = config_session_->EffectivePaths().logger_file;
     auto& service = services_.logger_definitions;
-    const auto stored = service.load_selection(handle, ecuid_.toStdString());
+    const auto stored = service.LoadSelection(handle, ecuid_.toStdString());
     if (!stored.has_value())
     {
-        services_.file_action_events.notice("Logger file: Unable to open logger config file '" + handle +
+        services_.file_action_events.Notice("Logger file: Unable to open logger config file '" + handle +
                                             "' for reading");
         return;
     }
     // A successful read clears IDs even if no ECU entry or definition exists.
-    logger_model_->set_selection({.protocol = logger_model_->selection().protocol});
+    logger_model_->SetSelection({.protocol = logger_model_->Selection().protocol});
     if (stored->has_value())
     {
-        logger_model_->set_selection(**stored);
+        logger_model_->SetSelection(**stored);
         return;
     }
-    if (logger_model_->definition().parameters.empty())
+    if (logger_model_->Definition().parameters.empty())
     {
-        services_.file_action_events.notice("Logger definition file: No logger definition file selected, returning "
+        services_.file_action_events.Notice("Logger definition file: No logger definition file selected, returning "
                                             "without initializing log parameters!");
         return;
     }
     const auto selected =
-        service.load_or_initialize_selection(handle, ecuid_.toStdString(), logger_model_->default_selection());
+        service.LoadOrInitializeSelection(handle, ecuid_.toStdString(), logger_model_->DefaultSelection());
     if (!selected.has_value())
     {
-        services_.file_action_events.notice("Logger file: Unable to open logger config file '" + handle +
+        services_.file_action_events.Notice("Logger file: Unable to open logger config file '" + handle +
                                             "' for reading");
         return;
     }
-    logger_model_->set_selection(*selected);
+    logger_model_->SetSelection(*selected);
 }
 
 void MainWindow::save_logger_selection()
 {
-    const auto& handle = config_session_->effective_paths().logger_file;
+    const auto& handle = config_session_->EffectivePaths().logger_file;
     const auto saved =
-        services_.logger_definitions.save_selection(handle, ecuid_.toStdString(), logger_model_->selection());
+        services_.logger_definitions.SaveSelection(handle, ecuid_.toStdString(), logger_model_->Selection());
     if (!saved.has_value())
     {
-        services_.file_action_events.notice("Logger file: Unable to open logger config file '" + handle +
+        services_.file_action_events.Notice("Logger file: Unable to open logger config file '" + handle +
                                             "' for reading");
     }
 }
@@ -1607,7 +1607,7 @@ bool MainWindow::event(QEvent *event)
     // Events can arrive before the constructor has bound the session.
     if (config_session_ != nullptr && (event->type() == QEvent::WindowStateChange || event->type() == QEvent::Resize))
     {
-        fastecu::config::AppConfig& settings = config_session_->settings();
+        fastecu::config::AppConfig& settings = config_session_->Settings();
         if (isMaximized())
         {
             settings.window_width = "maximized";
@@ -1686,7 +1686,7 @@ void MainWindow::add_new_ecu_definition_file()
     QFileDialog openDialog;
     openDialog.setDefaultSuffix("xml");
     filename = QFileDialog::getOpenFileName(this, tr("Select definition file"),
-                                            qs(config_session_->effective_paths().definition_files_directory),
+                                            qs(config_session_->EffectivePaths().definition_files_directory),
                                             tr("ECU definition file (*.xml)"));
 
     if (filename.isEmpty())
@@ -1696,7 +1696,7 @@ void MainWindow::add_new_ecu_definition_file()
     else
     {
         definitionFiles->addItem(filename);
-        config_session_->settings().romraider_definition_files.push_back(filename.toStdString());
+        config_session_->Settings().romraider_definition_files.push_back(filename.toStdString());
         save_settings();
     }
 }
@@ -1712,7 +1712,7 @@ void MainWindow::remove_ecu_definition_file()
     {
         row = index.at(i).row();
         definitionFiles->model()->removeRow(row);
-        std::vector<std::string>& files = config_session_->settings().romraider_definition_files;
+        std::vector<std::string>& files = config_session_->Settings().romraider_definition_files;
         if (static_cast<std::size_t>(row) < files.size())
         {
             files.erase(files.begin() + row);

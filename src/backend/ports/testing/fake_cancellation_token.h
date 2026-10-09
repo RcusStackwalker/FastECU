@@ -18,31 +18,31 @@ class FakeCancellationToken final : public ICancellationToken
     {
     }
 
-    void set_cancelled(bool cancelled)
+    void SetCancelled(bool cancelled)
     {
         std::lock_guard lock(mutex_);
         cancelled_ = cancelled;
     }
 
-    void cancel_on_check(std::size_t one_based_check)
+    void CancelOnCheck(std::size_t one_based_check)
     {
         std::lock_guard lock(mutex_);
         cancel_on_check_ = one_based_check;
     }
 
-    void set_predicate(std::function<bool()> predicate)
+    void SetPredicate(std::function<bool()> predicate)
     {
         std::lock_guard lock(mutex_);
         predicate_ = std::move(predicate);
     }
 
-    std::size_t check_count() const
+    std::size_t CheckCount() const
     {
         std::lock_guard lock(mutex_);
         return check_count_;
     }
 
-    bool cancelled() const override
+    bool Cancelled() const override
     {
         std::function<bool()> predicate;
         std::optional<std::size_t> cancel_on_check;

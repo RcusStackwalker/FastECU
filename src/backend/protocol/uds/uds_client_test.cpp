@@ -29,7 +29,7 @@ struct Fixture
     RecordingEventSink events;
     FakeCancellationToken cancellation;
 
-    uds::UdsClient client()
+    uds::UdsClient Client()
     {
         return uds::UdsClient(channel, clock, events);
     }
@@ -42,30 +42,30 @@ TEST(UdsClientTest, ReturnsThePositiveResponsePdu)
 {
     Fixture f;
     const bytes::Bytes request{0x10, 0x03};
-    f.channel.expectSend(request);
-    f.channel.queueReceive(bytes::Bytes{0x50, 0x03});
+    f.channel.ExpectSend(request);
+    f.channel.QueueReceive(bytes::Bytes{0x50, 0x03});
 
-    uds::UdsClient client = f.client();
-    const auto received = client.request(request, kPolicy, f.cancellation);
+    uds::UdsClient client = f.Client();
+    const auto received = client.Request(request, kPolicy, f.cancellation);
 
     ASSERT_THAT(received, fastecu::testing::IsOk());
     EXPECT_THAT(*received, ElementsAre(0x50, 0x03));
-    EXPECT_TRUE(f.channel.scriptConsumed());
+    EXPECT_TRUE(f.channel.ScriptConsumed());
 }
 
 TEST(UdsClientTest, SleepsForThePreReadDelayBeforeTheFirstRead)
 {
     Fixture f;
     const bytes::Bytes request{0x10, 0x03};
-    f.channel.expectSend(request);
-    f.channel.queueReceive(bytes::Bytes{0x50, 0x03});
+    f.channel.ExpectSend(request);
+    f.channel.QueueReceive(bytes::Bytes{0x50, 0x03});
 
-    uds::UdsClient client = f.client();
-    std::ignore = client.request(request, kPolicy, f.cancellation);
+    uds::UdsClient client = f.Client();
+    std::ignore = client.Request(request, kPolicy, f.cancellation);
 
     // FakeClock::sleep advances elapsed() by the requested duration, so the
     // total is the only observable: one 50 ms pre-read delay and nothing else.
-    EXPECT_EQ(f.clock.elapsed(), 50ms);
+    EXPECT_EQ(f.clock.Elapsed(), 50ms);
     EXPECT_THAT(f.channel.timeouts, ElementsAre(500ms));
 }
 
@@ -73,17 +73,17 @@ TEST(UdsClientTest, AbsorbsOneResponsePendingAndReadsAgain)
 {
     Fixture f;
     const bytes::Bytes request{0x31, 0xE0};
-    f.channel.expectSend(request);
-    f.channel.queueReceive(bytes::Bytes{0x7F, 0x31, 0x78});
-    f.channel.queueReceive(bytes::Bytes{0x71, 0xE0});
+    f.channel.ExpectSend(request);
+    f.channel.QueueReceive(bytes::Bytes{0x7F, 0x31, 0x78});
+    f.channel.QueueReceive(bytes::Bytes{0x71, 0xE0});
 
-    uds::UdsClient client = f.client();
-    const auto received = client.request(request, kPolicy, f.cancellation);
+    uds::UdsClient client = f.Client();
+    const auto received = client.Request(request, kPolicy, f.cancellation);
 
     ASSERT_THAT(received, fastecu::testing::IsOk());
     EXPECT_THAT(*received, ElementsAre(0x71, 0xE0));
     // Absorbed by re-reading only: exactly one transmission.
-    EXPECT_EQ(f.channel.sendsConsumed(), 1U);
+    EXPECT_EQ(f.channel.SendsConsumed(), 1U);
     // The pending read uses the longer pending timeout.
     EXPECT_THAT(f.channel.timeouts, ElementsAre(500ms, 3000ms));
 }
@@ -97,33 +97,33 @@ TEST(UdsClientTest, AbsorbsRepeatedResponsePending)
 {
     Fixture f;
     const bytes::Bytes request{0x31, 0xE0};
-    f.channel.expectSend(request);
-    f.channel.queueReceive(bytes::Bytes{0x7F, 0x31, 0x78});
-    f.channel.queueReceive(bytes::Bytes{0x7F, 0x31, 0x78});
-    f.channel.queueReceive(bytes::Bytes{0x7F, 0x31, 0x78});
-    f.channel.queueReceive(bytes::Bytes{0x71, 0xE0});
+    f.channel.ExpectSend(request);
+    f.channel.QueueReceive(bytes::Bytes{0x7F, 0x31, 0x78});
+    f.channel.QueueReceive(bytes::Bytes{0x7F, 0x31, 0x78});
+    f.channel.QueueReceive(bytes::Bytes{0x7F, 0x31, 0x78});
+    f.channel.QueueReceive(bytes::Bytes{0x71, 0xE0});
 
-    uds::UdsClient client = f.client();
-    ASSERT_THAT(client.request(request, kPolicy, f.cancellation), fastecu::testing::IsOk());
-    EXPECT_EQ(f.channel.sendsConsumed(), 1U);
+    uds::UdsClient client = f.Client();
+    ASSERT_THAT(client.Request(request, kPolicy, f.cancellation), fastecu::testing::IsOk());
+    EXPECT_EQ(f.channel.SendsConsumed(), 1U);
 }
 
 TEST(UdsClientTest, GivesUpAfterMaxPendingRepeats)
 {
     Fixture f;
     const bytes::Bytes request{0x31, 0xE0};
-    f.channel.expectSend(request);
+    f.channel.ExpectSend(request);
     for (int i = 0; i < 4; ++i)
     {
-        f.channel.queueReceive(bytes::Bytes{0x7F, 0x31, 0x78});
+        f.channel.QueueReceive(bytes::Bytes{0x7F, 0x31, 0x78});
     }
 
-    uds::UdsClient client = f.client();
-    const auto received = client.request(request, kPolicy, f.cancellation);
+    uds::UdsClient client = f.Client();
+    const auto received = client.Request(request, kPolicy, f.cancellation);
 
     ASSERT_THAT(received, fastecu::testing::IsErr(ErrorKind::kTimeout));
     EXPECT_THAT(received.error().detail, HasSubstr("responsePending"));
-    EXPECT_EQ(f.channel.sendsConsumed(), 1U);
+    EXPECT_EQ(f.channel.SendsConsumed(), 1U);
 }
 
 TEST(UdsClientTest, DoesNotRetryBusyRepeatRequest)
@@ -133,24 +133,24 @@ TEST(UdsClientTest, DoesNotRetryBusyRepeatRequest)
     // ordinary negative response after exactly one send.
     Fixture f;
     const bytes::Bytes request{0x36, 0x01};
-    f.channel.expectSend(request);
-    f.channel.queueReceive(bytes::Bytes{0x7F, 0x36, 0x21});
+    f.channel.ExpectSend(request);
+    f.channel.QueueReceive(bytes::Bytes{0x7F, 0x36, 0x21});
 
-    uds::UdsClient client = f.client();
-    ASSERT_THAT(client.request(request, kPolicy, f.cancellation), fastecu::testing::IsErr(ErrorKind::kBadResponse));
-    EXPECT_EQ(f.channel.sendsConsumed(), 1U);
-    EXPECT_TRUE(f.channel.scriptConsumed());
+    uds::UdsClient client = f.Client();
+    ASSERT_THAT(client.Request(request, kPolicy, f.cancellation), fastecu::testing::IsErr(ErrorKind::kBadResponse));
+    EXPECT_EQ(f.channel.SendsConsumed(), 1U);
+    EXPECT_TRUE(f.channel.ScriptConsumed());
 }
 
 TEST(UdsClientTest, ReportsANegativeResponseWithItsNrcDescription)
 {
     Fixture f;
     const bytes::Bytes request{0x27, 0x06};
-    f.channel.expectSend(request);
-    f.channel.queueReceive(bytes::Bytes{0x7F, 0x27, 0x35});
+    f.channel.ExpectSend(request);
+    f.channel.QueueReceive(bytes::Bytes{0x7F, 0x27, 0x35});
 
-    uds::UdsClient client = f.client();
-    ASSERT_THAT(client.request(request, kPolicy, f.cancellation),
+    uds::UdsClient client = f.Client();
+    ASSERT_THAT(client.Request(request, kPolicy, f.cancellation),
                 fastecu::testing::IsErrWith(ErrorKind::kBadResponse, uds::Describe(bytes::Bytes{0x7F, 0x27, 0x35})));
 }
 
@@ -158,11 +158,11 @@ TEST(UdsClientTest, RejectsAResponseToADifferentService)
 {
     Fixture f;
     const bytes::Bytes request{0x27, 0x05};
-    f.channel.expectSend(request);
-    f.channel.queueReceive(bytes::Bytes{0x50, 0x03});
+    f.channel.ExpectSend(request);
+    f.channel.QueueReceive(bytes::Bytes{0x50, 0x03});
 
-    uds::UdsClient client = f.client();
-    const auto received = client.request(request, kPolicy, f.cancellation);
+    uds::UdsClient client = f.Client();
+    const auto received = client.Request(request, kPolicy, f.cancellation);
 
     ASSERT_THAT(received, fastecu::testing::IsErr(ErrorKind::kBadResponse));
     EXPECT_THAT(received.error().detail, HasSubstr("0x27"));
@@ -173,11 +173,11 @@ TEST(UdsClientTest, RejectsAMalformedResponse)
 {
     Fixture f;
     const bytes::Bytes request{0x10, 0x03};
-    f.channel.expectSend(request);
-    f.channel.queueReceive(bytes::Bytes{0x7F, 0x10});
+    f.channel.ExpectSend(request);
+    f.channel.QueueReceive(bytes::Bytes{0x7F, 0x10});
 
-    uds::UdsClient client = f.client();
-    const auto received = client.request(request, kPolicy, f.cancellation);
+    uds::UdsClient client = f.Client();
+    const auto received = client.Request(request, kPolicy, f.cancellation);
 
     ASSERT_THAT(received, fastecu::testing::IsErr(ErrorKind::kBadResponse));
     EXPECT_THAT(received.error().detail, HasSubstr("malformed"));
@@ -187,55 +187,55 @@ TEST(UdsClientTest, ReportsATimeoutWhenNothingArrives)
 {
     Fixture f;
     const bytes::Bytes request{0x10, 0x03};
-    f.channel.expectSend(request);
-    f.channel.queueNoFrame();
+    f.channel.ExpectSend(request);
+    f.channel.QueueNoFrame();
 
-    uds::UdsClient client = f.client();
-    ASSERT_THAT(client.request(request, kPolicy, f.cancellation), fastecu::testing::IsErr(ErrorKind::kTimeout));
+    uds::UdsClient client = f.Client();
+    ASSERT_THAT(client.Request(request, kPolicy, f.cancellation), fastecu::testing::IsErr(ErrorKind::kTimeout));
 }
 
 TEST(UdsClientTest, PropagatesAChannelErrorVerbatim)
 {
     Fixture f;
     const bytes::Bytes request{0x10, 0x03};
-    f.channel.expectSend(request);
-    f.channel.queueError(ErrorKind::kDisconnected, "adapter closed");
+    f.channel.ExpectSend(request);
+    f.channel.QueueError(ErrorKind::kDisconnected, "adapter closed");
 
-    uds::UdsClient client = f.client();
-    ASSERT_THAT(client.request(request, kPolicy, f.cancellation),
+    uds::UdsClient client = f.Client();
+    ASSERT_THAT(client.Request(request, kPolicy, f.cancellation),
                 fastecu::testing::IsErrWith(ErrorKind::kDisconnected, "adapter closed"));
 }
 
 TEST(UdsClientTest, RefusesToSendWhenAlreadyCancelled)
 {
     Fixture f;
-    f.cancellation.set_cancelled(true);
+    f.cancellation.SetCancelled(true);
 
-    uds::UdsClient client = f.client();
-    ASSERT_THAT(client.request(bytes::Bytes{0x10, 0x03}, kPolicy, f.cancellation),
+    uds::UdsClient client = f.Client();
+    ASSERT_THAT(client.Request(bytes::Bytes{0x10, 0x03}, kPolicy, f.cancellation),
                 fastecu::testing::IsErr(ErrorKind::kCancelled));
-    EXPECT_EQ(f.channel.sendsConsumed(), 0U);
+    EXPECT_EQ(f.channel.SendsConsumed(), 0U);
 }
 
 TEST(UdsClientTest, RejectsAnEmptyRequest)
 {
     Fixture f;
 
-    uds::UdsClient client = f.client();
-    ASSERT_THAT(client.request({}, kPolicy, f.cancellation), fastecu::testing::IsErr(ErrorKind::kInternal));
-    EXPECT_EQ(f.channel.sendsConsumed(), 0U);
+    uds::UdsClient client = f.Client();
+    ASSERT_THAT(client.Request({}, kPolicy, f.cancellation), fastecu::testing::IsErr(ErrorKind::kInternal));
+    EXPECT_EQ(f.channel.SendsConsumed(), 0U);
 }
 
 TEST(UdsClientTest, LogsOnceForEachAbsorbedPending)
 {
     Fixture f;
     const bytes::Bytes request{0x31, 0xE0};
-    f.channel.expectSend(request);
-    f.channel.queueReceive(bytes::Bytes{0x7F, 0x31, 0x78});
-    f.channel.queueReceive(bytes::Bytes{0x71, 0xE0});
+    f.channel.ExpectSend(request);
+    f.channel.QueueReceive(bytes::Bytes{0x7F, 0x31, 0x78});
+    f.channel.QueueReceive(bytes::Bytes{0x71, 0xE0});
 
-    uds::UdsClient client = f.client();
-    std::ignore = client.request(request, kPolicy, f.cancellation);
+    uds::UdsClient client = f.Client();
+    std::ignore = client.Request(request, kPolicy, f.cancellation);
 
     int pending_lines = 0;
     for (const auto& entry : f.events.logs)

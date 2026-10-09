@@ -16,35 +16,35 @@ namespace fastecu
 class FakeClock : public IClock
 {
   public:
-    std::chrono::steady_clock::time_point now() const override
+    std::chrono::steady_clock::time_point Now() const override
     {
         const auto value = elapsed_;
         elapsed_ += now_auto_advance_;
         return std::chrono::steady_clock::time_point{} + value;
     }
 
-    Status sleep(std::chrono::milliseconds duration, const ICancellationToken& t) override
+    Status Sleep(std::chrono::milliseconds duration, const ICancellationToken& t) override
     {
-        if (t.cancelled())
+        if (t.Cancelled())
         {
-            return fail(ErrorKind::kCancelled);
+            return Fail(ErrorKind::kCancelled);
         }
         elapsed_ += sleep_advance_.value_or(
             duration < std::chrono::milliseconds::zero() ? std::chrono::milliseconds::zero() : duration);
         return {};
     }
 
-    std::chrono::milliseconds elapsed() const
+    std::chrono::milliseconds Elapsed() const
     {
         return elapsed_;
     }
 
-    void set_now_auto_advance(std::chrono::milliseconds step)
+    void SetNowAutoAdvance(std::chrono::milliseconds step)
     {
         now_auto_advance_ = step;
     }
 
-    void set_sleep_advance(std::optional<std::chrono::milliseconds> step)
+    void SetSleepAdvance(std::optional<std::chrono::milliseconds> step)
     {
         sleep_advance_ = step;
     }
@@ -55,11 +55,11 @@ class FakeClock : public IClock
     std::optional<std::chrono::milliseconds> sleep_advance_;
 };
 
-inline FakeClock make_auto_advancing_clock(std::chrono::milliseconds step)
+inline FakeClock MakeAutoAdvancingClock(std::chrono::milliseconds step)
 {
     FakeClock clock;
-    clock.set_now_auto_advance(step);
-    clock.set_sleep_advance(step);
+    clock.SetNowAutoAdvance(step);
+    clock.SetSleepAdvance(step);
     return clock;
 }
 

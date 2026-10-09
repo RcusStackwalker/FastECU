@@ -15,14 +15,14 @@ constexpr std::array kProtocols{kProtocol};
 
 constexpr MemoryRegion kRom{0, 0x80000};
 
-bool geometry_ok(const FlashDevice& device)
+bool GeometryOk(const FlashDevice& device)
 {
     return device.romsize == kRom.length && device.fblocks[0].start == kRom.start;
 }
 
-bool wire_params_ok(const FlashPlan& plan)
+bool WireParamsOk(const FlashPlan& plan)
 {
-    const auto *p = std::get_if<SubaruTcuHitachiM32rKlinePlan>(&plan.family_plan());
+    const auto *p = std::get_if<SubaruTcuHitachiM32rKlinePlan>(&plan.FamilyPlan());
     return p != nullptr && p->tester_id == 0xf0 && p->target_id == 0x18 && p->baud == 4800 && p->block_size == 96;
 }
 
@@ -38,21 +38,21 @@ constexpr SingleWindowPlanSpec kSpec{
     .read_region = kRom,
     .write_region = kRom,
     .image_size = kRom.length,
-    .geometry_ok = geometry_ok,
-    .wire_params_ok = wire_params_ok,
+    .geometry_ok = GeometryOk,
+    .wire_params_ok = WireParamsOk,
     .supports_write = false,
 };
 } // namespace
 
-Status validate_subaru_tcu_hitachi_m32r_kline_plan(const FlashPlan& plan)
+Status ValidateSubaruTcuHitachiM32rKlinePlan(const FlashPlan& plan)
 {
-    return validate_single_window_plan(kSpec, plan);
+    return ValidateSingleWindowPlan(kSpec, plan);
 }
 
-Result<FlashPlan> build_subaru_tcu_hitachi_m32r_kline_plan(FlashOperation operation, std::string_view protocol_name,
-                                                           std::string_view mcu_type, std::optional<bytes::Bytes> image)
+Result<FlashPlan> BuildSubaruTcuHitachiM32rKlinePlan(FlashOperation operation, std::string_view protocol_name,
+                                                     std::string_view mcu_type, std::optional<bytes::Bytes> image)
 {
-    return build_single_window_plan(kSpec, operation, protocol_name, mcu_type, std::move(image),
-                                    SubaruTcuHitachiM32rKlinePlan{0xf0, 0x18, 4800, 96});
+    return BuildSingleWindowPlan(kSpec, operation, protocol_name, mcu_type, std::move(image),
+                                 SubaruTcuHitachiM32rKlinePlan{0xf0, 0x18, 4800, 96});
 }
 } // namespace fastecu::flash

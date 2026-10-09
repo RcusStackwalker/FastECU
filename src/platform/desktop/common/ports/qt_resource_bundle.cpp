@@ -15,11 +15,11 @@ fastecu::Result<QString> prefix_for(std::string_view bundle_id)
     {
         return QString(":/kernels/");
     }
-    return fastecu::fail(fastecu::ErrorKind::kInvalidConfig, "unknown resource bundle id");
+    return fastecu::Fail(fastecu::ErrorKind::kInvalidConfig, "unknown resource bundle id");
 }
 } // namespace
 
-fastecu::Result<std::vector<std::string>> QtResourceBundle::list(std::string_view bundle_id)
+fastecu::Result<std::vector<std::string>> QtResourceBundle::List(std::string_view bundle_id)
 {
     fastecu::Result<QString> prefix = prefix_for(bundle_id);
     if (!prefix.has_value())
@@ -37,7 +37,7 @@ fastecu::Result<std::vector<std::string>> QtResourceBundle::list(std::string_vie
     return names;
 }
 
-fastecu::Result<std::vector<std::uint8_t>> QtResourceBundle::read(std::string_view bundle_id, std::string_view name)
+fastecu::Result<std::vector<std::uint8_t>> QtResourceBundle::Read(std::string_view bundle_id, std::string_view name)
 {
     fastecu::Result<QString> prefix = prefix_for(bundle_id);
     if (!prefix.has_value())
@@ -48,7 +48,7 @@ fastecu::Result<std::vector<std::uint8_t>> QtResourceBundle::read(std::string_vi
     QFile file(*prefix + QString::fromUtf8(name.data(), static_cast<int>(name.size())));
     if (!file.open(QIODevice::ReadOnly))
     {
-        return fastecu::fail(fastecu::ErrorKind::kInvalidConfig, "no such resource file");
+        return fastecu::Fail(fastecu::ErrorKind::kInvalidConfig, "no such resource file");
     }
     QByteArray bytes = file.readAll();
     return std::vector<std::uint8_t>(bytes.begin(), bytes.end());

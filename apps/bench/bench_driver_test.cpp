@@ -241,7 +241,7 @@ TEST(BenchDriver, EveryGlobalOptionIsRejectedOnAScriptLine)
 TEST(BenchDriver, JsonConnectFailureIsAnOutcomeWithTraffic)
 {
     Harness harness;
-    harness.session.connect_result = fail(ErrorKind::kBadResponse, "bad key echo");
+    harness.session.connect_result = Fail(ErrorKind::kBadResponse, "bad key echo");
     harness.session.connect_traffic = TrafficEvidence{.exchange_count = 3,
                                                       .tx = {0x10, 0x85},
                                                       .rx = {0x50, 0x85},
@@ -386,7 +386,7 @@ TEST(BenchDriver, NamedEraseHelperAndUnlockPermitEraseInTheSameSession)
 TEST(BenchDriver, FailedEraseHelperUploadPreventsEraseUnderKeepGoing)
 {
     Harness harness;
-    harness.session.replies = {fail(ErrorKind::kBadResponse, "helper upload failed"), bytes::Bytes{0x7B, 0x00}};
+    harness.session.replies = {Fail(ErrorKind::kBadResponse, "helper upload failed"), bytes::Bytes{0x7B, 0x00}};
 
     const int code = harness.run({"--keep-going", "upload-routine", "erase-redirect", "--destructive", ":", "unlock",
                                   "--destructive", ":", "erase", "--destructive"});
@@ -401,7 +401,7 @@ TEST(BenchDriver, FailedUnlockPreventsEraseUnderKeepGoing)
 {
     Harness harness;
     harness.session.replies = successfulUploadReplies();
-    harness.session.replies.push_back(fail(ErrorKind::kBadResponse, "unlock failed"));
+    harness.session.replies.push_back(Fail(ErrorKind::kBadResponse, "unlock failed"));
 
     const int code = harness.run({"--keep-going", "upload-routine", "erase-page", "--destructive", ":", "unlock",
                                   "--destructive", ":", "erase", "--destructive"});
@@ -416,7 +416,7 @@ TEST(BenchDriver, FailedReadInvalidatesEraseEligibilityUnderKeepGoing)
 {
     Harness harness;
     harness.session.replies = successfulUploadReplies();
-    harness.session.replies.push_back(fail(ErrorKind::kBadResponse, "read failed"));
+    harness.session.replies.push_back(Fail(ErrorKind::kBadResponse, "read failed"));
     harness.session.replies.push_back(bytes::Bytes{0x7B, 0x00});
 
     const int code = harness.run({"--keep-going", "upload-routine", "erase-page", "--destructive", ":", "read", "0x200",

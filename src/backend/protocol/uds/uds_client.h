@@ -50,7 +50,7 @@ class UdsClient
     // honoring it means re-transmitting, which is unsafe for the
     // non-idempotent services this layer's callers send. It surfaces as an
     // ordinary negative response so the caller decides.
-    fastecu::Result<bytes::Bytes> request(bytes::ByteView pdu, const ExchangePolicy& policy,
+    fastecu::Result<bytes::Bytes> Request(bytes::ByteView pdu, const ExchangePolicy& policy,
                                           const fastecu::ICancellationToken& cancellation);
 
   private:

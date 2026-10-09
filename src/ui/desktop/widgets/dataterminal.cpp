@@ -169,7 +169,7 @@ void DataTerminal::sendToInterface()
         fileLocal.close();
     }
 
-    const auto script = fastecu::diagnostics::parse_terminal_script(scriptLines);
+    const auto script = fastecu::diagnostics::ParseTerminalScript(scriptLines);
     if (!script.has_value())
     {
         const QString detail = QString::fromStdString(script.error().detail);
@@ -214,7 +214,7 @@ void DataTerminal::sendToInterface()
         {
             emit LOG_D("All good, setting interface...", true, true);
             emit LOG_D("Opening interface...", true, true);
-            const auto opened = link_->open(fastecu::diagnostics::KlineLinkConfig{
+            const auto opened = link_->Open(fastecu::diagnostics::KlineLinkConfig{
                 .header = fastecu::diagnostics::KlineHeader::kNone,
                 .iso14230_connection = iso14230,
                 .baud = qRound(ui_->klineBaudRate->text().toDouble()),
@@ -250,7 +250,7 @@ void DataTerminal::sendToInterface()
             received = diagnostic_link_io::read_or_empty(*link_, serial_read_short_timeout_);
             emit LOG_I("Response: " + parse_message_to_hex(received), true, true);
         }
-        std::ignore = link_->reset();
+        std::ignore = link_->Reset();
     }
     else if (interfaceTypeName.startsWith("sendCanMessage"))
     {
@@ -287,7 +287,7 @@ void DataTerminal::sendToInterface()
         {
             emit LOG_D("All good, setting interface...", true, true);
             emit LOG_D("Opening interface...", true, true);
-            const auto opened = link_->open(fastecu::diagnostics::CanLinkConfig{
+            const auto opened = link_->Open(fastecu::diagnostics::CanLinkConfig{
                 .iso15765 = iso15765,
                 .bitrate = qRound(ui_->canBaudRate->text().toDouble()),
                 .extended_id = ui_->canIdLength->currentIndex() == 1,
@@ -329,7 +329,7 @@ void DataTerminal::sendToInterface()
             received = diagnostic_link_io::read_or_empty(*link_, serial_read_short_timeout_);
             emit LOG_I("Response: " + parse_message_to_hex(received), true, true);
         }
-        std::ignore = link_->reset();
+        std::ignore = link_->Reset();
     }
 }
 

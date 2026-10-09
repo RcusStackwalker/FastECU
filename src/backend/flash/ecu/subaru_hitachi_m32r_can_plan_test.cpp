@@ -8,7 +8,7 @@ namespace
 {
 constexpr SingleWindowPlanCase kCase{
     .name = "SubaruHitachiM32rCan",
-    .build = &build_subaru_hitachi_m32r_can_plan,
+    .build = &BuildSubaruHitachiM32rCanPlan,
     .protocol = "sub_ecu_hitachi_m32r_can",
     .mcu = "M32R_512KB_1block",
     .foreign_protocol = "sub_ecu_hitachi_m32r_can_typo",
@@ -18,16 +18,16 @@ constexpr SingleWindowPlanCase kCase{
     .image_size = 0x80000,
 };
 
-INSTANTIATE_TEST_SUITE_P(SubaruHitachiM32rCan, SingleWindowPlanContract, ::testing::Values(kCase), caseName);
+INSTANTIATE_TEST_SUITE_P(SubaruHitachiM32rCan, SingleWindowPlanContract, ::testing::Values(kCase), CaseName);
 
 // The wire parameters are this family's own; they do not generalize.
 TEST(SubaruHitachiM32rCanPlan, ReadPlanCarriesThisFamilysWireParameters)
 {
-    const auto plan = build_subaru_hitachi_m32r_can_plan(FlashOperation::kRead, "sub_ecu_hitachi_m32r_can",
-                                                         "M32R_512KB_1block", std::nullopt);
+    const auto plan = BuildSubaruHitachiM32rCanPlan(FlashOperation::kRead, "sub_ecu_hitachi_m32r_can",
+                                                    "M32R_512KB_1block", std::nullopt);
 
     ASSERT_THAT(plan, fastecu::testing::IsOk());
-    const auto& family = std::get<SubaruHitachiM32rCanPlan>(plan->family_plan());
+    const auto& family = std::get<SubaruHitachiM32rCanPlan>(plan->FamilyPlan());
     EXPECT_EQ(family.request_id, 0x7e0U);
     EXPECT_EQ(family.response_id, 0x7e8U);
     EXPECT_EQ(family.bitrate, 500000);

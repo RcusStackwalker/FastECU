@@ -30,8 +30,8 @@ logging::LoggerParameter parameter(std::string id, std::string protocol = "SSM",
 logging::LoggerModel model(logging::LoggerDefinition def, std::vector<std::string> ids)
 {
     logging::LoggerModel result;
-    result.install_definition(std::move(def));
-    result.set_selection({.protocol = "SSM", .lower_panel_ids = std::move(ids)});
+    result.InstallDefinition(std::move(def));
+    result.SetSelection({.protocol = "SSM", .lower_panel_ids = std::move(ids)});
     return result;
 }
 TEST(DesktopLoggingSnapshotAdapterTest, StableIdentitySurvivesSelectionEditsAndDefinitionReordering)
@@ -42,7 +42,7 @@ TEST(DesktopLoggingSnapshotAdapterTest, StableIdentitySurvivesSelectionEditsAndD
     ASSERT_THAT(snapshot, fastecu::testing::IsOk());
     EXPECT_EQ(snapshot->protocol, "SSM");
     EXPECT_EQ(snapshot->identities_by_id.at("rpm"), (logging::LoggerIdentity{"SSM", "rpm"}));
-    values.set_selection({.protocol = "CDBG", .lower_panel_ids = {"rpm"}});
+    values.SetSelection({.protocol = "CDBG", .lower_panel_ids = {"rpm"}});
     EXPECT_EQ(snapshot->selection.lower_panel_ids, (std::vector<std::string>{"rpm", "coolant"}));
     auto reordered =
         model({.parameters = {parameter("rpm", "CDBG"), parameter("rpm"), parameter("coolant")}}, {"coolant"});
@@ -72,11 +72,11 @@ TEST(DesktopLoggingSnapshotAdapterTest, PreservesProtocolSelectionAndDisabledSsm
     EXPECT_EQ(ssm->response_offsets, (std::vector<std::size_t>{2, 3}));
     EXPECT_FALSE(ssm->enabled_ids.contains("off"));
     EXPECT_TRUE(ssm->enabled_ids.contains("on"));
-    EXPECT_EQ(ssm->session.channels().at(0).raw_assembly, logging::RawAssembly::kDecimalBytesConcatenated);
-    EXPECT_EQ(mut->session.channels().size(), 1U);
-    EXPECT_EQ(mut->session.channels().at(0).id, "mut-on");
-    EXPECT_EQ(mut->session.channels().at(0).raw_assembly, logging::RawAssembly::kUnsignedIntegerDecimal);
-    EXPECT_EQ(cdbg->session.channels().at(0).id, "cdbg-off");
+    EXPECT_EQ(ssm->session.Channels().at(0).raw_assembly, logging::RawAssembly::kDecimalBytesConcatenated);
+    EXPECT_EQ(mut->session.Channels().size(), 1U);
+    EXPECT_EQ(mut->session.Channels().at(0).id, "mut-on");
+    EXPECT_EQ(mut->session.Channels().at(0).raw_assembly, logging::RawAssembly::kUnsignedIntegerDecimal);
+    EXPECT_EQ(cdbg->session.Channels().at(0).id, "cdbg-off");
     desktop::DesktopLoggerValues cache;
     cache.initialize(values);
     ASSERT_THAT(desktop::apply_log_sample(*ssm, {.channel_id = "off", .numeric_value = 9}, cache),
@@ -120,13 +120,13 @@ TEST(DesktopLoggingSnapshotAdapterTest, FirstConversionAndTargetAreCapturedByVal
     auto values = model({.parameters = {p}}, {"rpm"});
     auto snapshot = desktop::make_desktop_logging_snapshot(values, logging::LoggingProtocolId::kSsm, "SSM", policy());
     ASSERT_THAT(snapshot, fastecu::testing::IsOk());
-    EXPECT_EQ(snapshot->session.channels().at(0).decimal_precision, 2);
-    EXPECT_EQ(snapshot->session.channels().at(0).from_byte_expression, "x");
-    EXPECT_EQ(snapshot->session.channels().at(0).unit, "rpm");
+    EXPECT_EQ(snapshot->session.Channels().at(0).decimal_precision, 2);
+    EXPECT_EQ(snapshot->session.Channels().at(0).from_byte_expression, "x");
+    EXPECT_EQ(snapshot->session.Channels().at(0).unit, "rpm");
     snapshot->target_is_ecu = false;
     const auto copy = *snapshot;
     snapshot->target_is_ecu = true;
-    values.set_parameter_supported("SSM", "rpm", false);
+    values.SetParameterSupported("SSM", "rpm", false);
     EXPECT_FALSE(copy.target_is_ecu);
     EXPECT_TRUE(copy.enabled_ids.contains("rpm"));
 }

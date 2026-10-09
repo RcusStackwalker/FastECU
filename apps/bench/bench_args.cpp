@@ -18,7 +18,7 @@ Result<StepSpec> makeStep(const std::vector<std::string>& tokens)
 {
     if (tokens.empty())
     {
-        return fail(ErrorKind::kInvalidConfig, "empty step");
+        return Fail(ErrorKind::kInvalidConfig, "empty step");
     }
 
     std::vector<std::string> args;
@@ -39,7 +39,7 @@ Result<StepSpec> makeStep(const std::vector<std::string>& tokens)
     const CommandSpec *spec = find_command(tokens.front());
     if (spec == nullptr)
     {
-        return fail(ErrorKind::kInvalidConfig, std::format("unknown command: {}", tokens.front()));
+        return Fail(ErrorKind::kInvalidConfig, std::format("unknown command: {}", tokens.front()));
     }
     StepSpec step{.id = spec->id, .args = std::move(args), .destructive_ack = destructive_ack};
     // Validated here, at parse time, rather than at execution: a chain whose
@@ -51,7 +51,7 @@ Result<StepSpec> makeStep(const std::vector<std::string>& tokens)
     }
     if (!spec->destructive && destructive_ack)
     {
-        return fail(ErrorKind::kInvalidConfig, std::format("{} is not destructive", spec->name));
+        return Fail(ErrorKind::kInvalidConfig, std::format("{} is not destructive", spec->name));
     }
     if (spec->id == CommandId::Send || spec->id == CommandId::SendRaw)
     {
@@ -62,7 +62,7 @@ Result<StepSpec> makeStep(const std::vector<std::string>& tokens)
         }
         if (mitsu_colt_can::IsDestructiveRequest(*pdu))
         {
-            return fail(ErrorKind::kInvalidConfig,
+            return Fail(ErrorKind::kInvalidConfig,
                         std::format("{} cannot bypass a named destructive command", spec->name));
         }
     }
@@ -92,7 +92,7 @@ Status setTimeout(GlobalOptions& options, std::string_view value)
     }
     if (*timeout > std::numeric_limits<std::uint16_t>::max())
     {
-        return fail(ErrorKind::kInvalidConfig, "timeout must not exceed 65535 ms");
+        return Fail(ErrorKind::kInvalidConfig, "timeout must not exceed 65535 ms");
     }
     options.timeout_ms = static_cast<int>(*timeout);
     return {};
@@ -102,7 +102,7 @@ Status setScript(GlobalOptions& options, std::string_view value)
 {
     if (value != "-")
     {
-        return fail(ErrorKind::kInvalidConfig, "--script only accepts '-' (stdin)");
+        return Fail(ErrorKind::kInvalidConfig, "--script only accepts '-' (stdin)");
     }
     options.script_stdin = true;
     return {};
@@ -119,7 +119,7 @@ Result<std::string_view> globalOptionValue(const GlobalOptionSpec& option, std::
     }
     if (index + 1 >= args.size())
     {
-        return fail(ErrorKind::kInvalidConfig, std::format("{} needs a value", args[index]));
+        return Fail(ErrorKind::kInvalidConfig, std::format("{} needs a value", args[index]));
     }
     return args[++index];
 }
@@ -159,7 +159,7 @@ Result<std::uint32_t> parse_u32(std::string_view text)
     }
     if (text.empty())
     {
-        return fail(ErrorKind::kInvalidConfig, "empty number");
+        return Fail(ErrorKind::kInvalidConfig, "empty number");
     }
 
     std::uint64_t value = 0;
@@ -168,11 +168,11 @@ Result<std::uint32_t> parse_u32(std::string_view text)
     const auto [stopped, error] = std::from_chars(text.data(), end, value, base);
     if (error != std::errc{} || stopped != end)
     {
-        return fail(ErrorKind::kInvalidConfig, std::format("not a number: {}", text));
+        return Fail(ErrorKind::kInvalidConfig, std::format("not a number: {}", text));
     }
     if (value > 0xFFFFFFFFULL)
     {
-        return fail(ErrorKind::kInvalidConfig, std::format("does not fit in 32 bits: {}", text));
+        return Fail(ErrorKind::kInvalidConfig, std::format("does not fit in 32 bits: {}", text));
     }
     return static_cast<std::uint32_t>(value);
 }
@@ -185,14 +185,14 @@ Result<bytes::Bytes> parse_hex_bytes(std::span<const std::string> tokens)
     {
         if (token.size() != 2)
         {
-            return fail(ErrorKind::kInvalidConfig, std::format("not a hex byte: {}", token));
+            return Fail(ErrorKind::kInvalidConfig, std::format("not a hex byte: {}", token));
         }
         std::uint32_t value = 0;
         const auto *const end = token.data() + token.size();
         const auto [stopped, error] = std::from_chars(token.data(), end, value, 16);
         if (error != std::errc{} || stopped != end)
         {
-            return fail(ErrorKind::kInvalidConfig, std::format("not a hex byte: {}", token));
+            return Fail(ErrorKind::kInvalidConfig, std::format("not a hex byte: {}", token));
         }
         out.push_back(static_cast<bytes::Byte>(value));
     }
@@ -236,7 +236,7 @@ Result<ParsedCommandLine> parse_command_line(std::span<const std::string_view> a
         {
             if (!group.empty())
             {
-                return fail(ErrorKind::kInvalidConfig, "--script - takes no steps on the command line");
+                return Fail(ErrorKind::kInvalidConfig, "--script - takes no steps on the command line");
             }
         }
         return parsed;
@@ -253,7 +253,7 @@ Result<ParsedCommandLine> parse_command_line(std::span<const std::string_view> a
     }
     if (parsed.steps.empty())
     {
-        return fail(ErrorKind::kInvalidConfig, "no steps given");
+        return Fail(ErrorKind::kInvalidConfig, "no steps given");
     }
     // main.cpp handles `ports` before any transport exists, which only works
     // if it is the sole step: chaining it with a step that needs a session
@@ -262,7 +262,7 @@ Result<ParsedCommandLine> parse_command_line(std::span<const std::string_view> a
     if (parsed.steps.size() > 1 &&
         std::ranges::any_of(parsed.steps, [](const StepSpec& step) { return step.id == CommandId::Ports; }))
     {
-        return fail(ErrorKind::kInvalidConfig, "ports cannot be chained with other commands");
+        return Fail(ErrorKind::kInvalidConfig, "ports cannot be chained with other commands");
     }
     return parsed;
 }

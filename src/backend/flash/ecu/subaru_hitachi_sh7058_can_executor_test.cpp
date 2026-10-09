@@ -14,28 +14,28 @@ namespace fastecu::flash
 {
 namespace
 {
-bytes::Bytes request(bytes::ByteView payload, std::uint32_t id = 0x7e0)
+bytes::Bytes Request(bytes::ByteView payload, std::uint32_t id = 0x7e0)
 {
     return bytes::ComposeBe(id, payload);
 }
-bytes::Bytes response(bytes::ByteView payload)
+bytes::Bytes Response(bytes::ByteView payload)
 {
     bytes::Bytes frame{0, 0, 7, 0xe8};
     frame.insert(frame.end(), payload.begin(), payload.end());
     return frame;
 }
-void script_inactive_connect(ScriptedCanFlashTransport& transport, bool bench)
+void ScriptInactiveConnect(ScriptedCanFlashTransport& transport, bool bench)
 {
-    transport.exchange(request(bytes::Bytes{0xb7}), response(bytes::Bytes{0x7f, 0xb7, 0x11}));
-    transport.exchange(request(bytes::Bytes{0xaa}), response(bytes::Bytes{0xea}));
-    transport.exchange(request(bytes::Bytes{0x09, 0x02}), response(bytes::Bytes{0x49, 0x02}));
-    transport.exchange(request(bytes::Bytes{0x09, 0x04}), response(bytes::Bytes{0x49, 0x04}));
-    transport.exchange(request(bytes::Bytes{0x09, 0x06}), response(bytes::Bytes{0x49, 0x06}));
-    transport.exchange(request(bytes::Bytes{0xa8, 0, 0, 0, 0xd7}),
-                       response(bench ? bytes::Bytes{0, 0xa0} : bytes::Bytes{0, 0}));
+    transport.Exchange(Request(bytes::Bytes{0xb7}), Response(bytes::Bytes{0x7f, 0xb7, 0x11}));
+    transport.Exchange(Request(bytes::Bytes{0xaa}), Response(bytes::Bytes{0xea}));
+    transport.Exchange(Request(bytes::Bytes{0x09, 0x02}), Response(bytes::Bytes{0x49, 0x02}));
+    transport.Exchange(Request(bytes::Bytes{0x09, 0x04}), Response(bytes::Bytes{0x49, 0x04}));
+    transport.Exchange(Request(bytes::Bytes{0x09, 0x06}), Response(bytes::Bytes{0x49, 0x06}));
+    transport.Exchange(Request(bytes::Bytes{0xa8, 0, 0, 0, 0xd7}),
+                       Response(bench ? bytes::Bytes{0, 0xa0} : bytes::Bytes{0, 0}));
     if (bench)
     {
-        transport.exchange(request(bytes::Bytes{0x10, 0x43}), response(bytes::Bytes{0x50, 0x43}));
+        transport.Exchange(Request(bytes::Bytes{0x10, 0x43}), Response(bytes::Bytes{0x50, 0x43}));
     }
     else
     {
@@ -57,15 +57,15 @@ void script_inactive_connect(ScriptedCanFlashTransport& transport, bool bench)
         }};
         for (const auto& step : steps)
         {
-            transport.exchange(request(step.payload, step.id), response(bytes::Bytes{0x50}));
+            transport.Exchange(Request(step.payload, step.id), Response(bytes::Bytes{0x50}));
         }
     }
-    transport.exchange(request(bytes::Bytes{0x27, 0x01}), response(bytes::Bytes{0x67, 0x01, 0x11, 0x22, 0x33, 0x44}));
+    transport.Exchange(Request(bytes::Bytes{0x27, 0x01}), Response(bytes::Bytes{0x67, 0x01, 0x11, 0x22, 0x33, 0x44}));
     // Independent seed vector from the legacy SH7058 table: 11 22 33 44 -> 61 FB 90 90.
-    transport.exchange(request(bytes::Bytes{0x27, 0x02, 0x61, 0xfb, 0x90, 0x90}), response(bytes::Bytes{0x67, 0x02}));
+    transport.Exchange(Request(bytes::Bytes{0x27, 0x02, 0x61, 0xfb, 0x90, 0x90}), Response(bytes::Bytes{0x67, 0x02}));
     if (bench)
     {
-        transport.exchange(request(bytes::Bytes{0x10, 0x42}), response(bytes::Bytes{0x50, 0x42}));
+        transport.Exchange(Request(bytes::Bytes{0x10, 0x42}), Response(bytes::Bytes{0x50, 0x42}));
     }
     else
     {
@@ -73,36 +73,36 @@ void script_inactive_connect(ScriptedCanFlashTransport& transport, bool bench)
              {bytes::Bytes{0xa8, 0, 0, 0, 0xd5}, bytes::Bytes{0xa8, 0, 0, 1, 0x3b}, bytes::Bytes{0xa8, 0, 0, 0, 0x1c},
               bytes::Bytes{0xa8, 0, 0, 0, 0x0e, 0, 0, 0x0f}})
         {
-            transport.exchange(request(payload), response(bytes::Bytes{0x50}));
+            transport.Exchange(Request(payload), Response(bytes::Bytes{0x50}));
         }
-        transport.exchange(request(bytes::Bytes{0x10, 0x02}), response(bytes::Bytes{0x50, 0x02}));
+        transport.Exchange(Request(bytes::Bytes{0x10, 0x02}), Response(bytes::Bytes{0x50, 0x02}));
     }
-    transport.exchange(request(bytes::Bytes{0x34, 4, 0x33, 0, 0, 0, 0x10, 0, 0}),
-                       response(bytes::Bytes{0x74, 0x20, 0x01, 0x04}));
+    transport.Exchange(Request(bytes::Bytes{0x34, 4, 0x33, 0, 0, 0, 0x10, 0, 0}),
+                       Response(bytes::Bytes{0x74, 0x20, 0x01, 0x04}));
 }
 } // namespace
 TEST(SubaruHitachiSh7058CanExecutor, MissingProbeStopsBeforeErase)
 {
-    auto plan = build_subaru_hitachi_sh7058_plan(FlashOperation::kWrite, "sub_ecu_hitachi_sh7058_can", "SH7058_1block",
-                                                 bytes::Bytes(0x100000));
+    auto plan = BuildSubaruHitachiSh7058Plan(FlashOperation::kWrite, "sub_ecu_hitachi_sh7058_can", "SH7058_1block",
+                                             bytes::Bytes(0x100000));
     ASSERT_TRUE(plan.has_value());
     SubaruHitachiSh7058CanExecutor executor;
     ScriptedCanFlashTransport transport;
-    transport.expectWrite(bytes::Bytes{0, 0, 7, 0xe0, 0xb7});
-    transport.queue_no_frame();
+    transport.ExpectWrite(bytes::Bytes{0, 0, 7, 0xe0, 0xb7});
+    transport.QueueNoFrame();
     FakeClock clock;
     FakeCancellationToken cancel;
     RecordingEventSink events;
-    auto result = executor.execute(*plan, transport, clock, cancel, events);
+    auto result = executor.Execute(*plan, transport, clock, cancel, events);
     EXPECT_FALSE(result.has_value());
-    EXPECT_EQ(transport.writesConsumed(), 1U);
+    EXPECT_EQ(transport.WritesConsumed(), 1U);
 }
 
 TEST(SubaruHitachiSh7058CanExecutor, ActiveKernelWritesAll4096Frames)
 {
     bytes::Bytes image(0x100000, 0x5a);
     auto plan =
-        build_subaru_hitachi_sh7058_plan(FlashOperation::kWrite, "sub_ecu_hitachi_sh7058_can", "SH7058_1block", image);
+        BuildSubaruHitachiSh7058Plan(FlashOperation::kWrite, "sub_ecu_hitachi_sh7058_can", "SH7058_1block", image);
     ASSERT_TRUE(plan.has_value());
     constexpr std::array<std::uint16_t, 4> kKeys{0x14ca, 0x77f4, 0x973c, 0xf50e};
     const auto encrypted =
@@ -116,138 +116,138 @@ TEST(SubaruHitachiSh7058CanExecutor, ActiveKernelWritesAll4096Frames)
         return value;
     };
     ScriptedCanFlashTransport transport;
-    transport.exchange(frame(bytes::Bytes{0xb7}), bytes::Bytes{0, 0, 7, 0xe8, 0x7f, 0xb7, 0x13});
-    transport.exchange(frame(bytes::Bytes{0x31, 1, 2, 1, 0x0f, 0xff, 0xff, 0xff}),
+    transport.Exchange(frame(bytes::Bytes{0xb7}), bytes::Bytes{0, 0, 7, 0xe8, 0x7f, 0xb7, 0x13});
+    transport.Exchange(frame(bytes::Bytes{0x31, 1, 2, 1, 0x0f, 0xff, 0xff, 0xff}),
                        bytes::Bytes{0, 0, 7, 0xe8, 0x71, 1, 2});
-    transport.exchange(frame(bytes::Bytes{0x34, 4, 0x33, 0, 0, 0, 0x10, 0, 0}), bytes::Bytes{0, 0, 7, 0xe8, 0x74});
+    transport.Exchange(frame(bytes::Bytes{0x34, 4, 0x33, 0, 0, 0, 0x10, 0, 0}), bytes::Bytes{0, 0, 7, 0xe8, 0x74});
     for (std::uint32_t address = 0; address < 0x100000; address += 0x100)
     {
         bytes::Bytes request = bytes::ComposeBe(bytes::Byte{0xb6}, bytes::U24(address),
                                                 bytes::ByteView(encrypted).subspan(address, 0x100));
-        transport.exchange(frame(request), bytes::Bytes{0, 0, 7, 0xe8, 0xf6});
+        transport.Exchange(frame(request), bytes::Bytes{0, 0, 7, 0xe8, 0xf6});
     }
-    transport.exchange(frame(bytes::Bytes{0x37}), bytes::Bytes{0, 0, 7, 0xe8, 0x77});
-    transport.exchange(frame(bytes::Bytes{0x31, 1, 2, 2, 1}), bytes::Bytes{0, 0, 7, 0xe8, 0x71, 1, 2});
+    transport.Exchange(frame(bytes::Bytes{0x37}), bytes::Bytes{0, 0, 7, 0xe8, 0x77});
+    transport.Exchange(frame(bytes::Bytes{0x31, 1, 2, 2, 1}), bytes::Bytes{0, 0, 7, 0xe8, 0x71, 1, 2});
     SubaruHitachiSh7058CanExecutor executor;
     FakeClock clock;
     FakeCancellationToken cancel;
     RecordingEventSink events;
-    auto result = executor.execute(*plan, transport, clock, cancel, events);
+    auto result = executor.Execute(*plan, transport, clock, cancel, events);
     EXPECT_TRUE(result.has_value());
-    EXPECT_TRUE(transport.scriptConsumed());
+    EXPECT_TRUE(transport.ScriptConsumed());
 }
 
 TEST(SubaruHitachiSh7058CanExecutor, BenchAndInCarConnectStopOnEraseTransportFailure)
 {
     for (const bool bench : {true, false})
     {
-        auto plan = build_subaru_hitachi_sh7058_plan(FlashOperation::kWrite, "sub_ecu_hitachi_sh7058_can",
-                                                     "SH7058_1block", bytes::Bytes(0x100000));
+        auto plan = BuildSubaruHitachiSh7058Plan(FlashOperation::kWrite, "sub_ecu_hitachi_sh7058_can", "SH7058_1block",
+                                                 bytes::Bytes(0x100000));
         ASSERT_TRUE(plan.has_value());
         ScriptedCanFlashTransport transport;
-        script_inactive_connect(transport, bench);
-        transport.expectWrite(request(bytes::Bytes{0x31, 1, 2, 1, 0x0f, 0xff, 0xff, 0xff}));
-        transport.queue_error(ErrorKind::kDisconnected);
+        ScriptInactiveConnect(transport, bench);
+        transport.ExpectWrite(Request(bytes::Bytes{0x31, 1, 2, 1, 0x0f, 0xff, 0xff, 0xff}));
+        transport.QueueError(ErrorKind::kDisconnected);
         SubaruHitachiSh7058CanExecutor executor;
         FakeClock clock;
         FakeCancellationToken cancel;
         RecordingEventSink events;
-        auto result = executor.execute(*plan, transport, clock, cancel, events);
+        auto result = executor.Execute(*plan, transport, clock, cancel, events);
         ASSERT_FALSE(result.has_value());
         EXPECT_EQ(result.error().kind, ErrorKind::kDisconnected);
-        EXPECT_TRUE(transport.scriptConsumed());
+        EXPECT_TRUE(transport.ScriptConsumed());
     }
 }
 
 TEST(SubaruHitachiSh7058CanExecutor, RejectsMalformedSeedBeforeKernelJumpOrErase)
 {
-    auto plan = build_subaru_hitachi_sh7058_plan(FlashOperation::kWrite, "sub_ecu_hitachi_sh7058_can", "SH7058_1block",
-                                                 bytes::Bytes(0x100000));
+    auto plan = BuildSubaruHitachiSh7058Plan(FlashOperation::kWrite, "sub_ecu_hitachi_sh7058_can", "SH7058_1block",
+                                             bytes::Bytes(0x100000));
     ASSERT_TRUE(plan.has_value());
     ScriptedCanFlashTransport transport;
-    transport.exchange(request(bytes::Bytes{0xb7}), response(bytes::Bytes{0x7f, 0xb7, 0x11}));
-    transport.exchange(request(bytes::Bytes{0xaa}), response(bytes::Bytes{0xea}));
-    transport.exchange(request(bytes::Bytes{0x09, 0x02}), response(bytes::Bytes{0x49, 0x02}));
-    transport.exchange(request(bytes::Bytes{0x09, 0x04}), response(bytes::Bytes{0x49, 0x04}));
-    transport.exchange(request(bytes::Bytes{0x09, 0x06}), response(bytes::Bytes{0x49, 0x06}));
-    transport.exchange(request(bytes::Bytes{0xa8, 0, 0, 0, 0xd7}), response(bytes::Bytes{0, 0xa0}));
-    transport.exchange(request(bytes::Bytes{0x10, 0x43}), response(bytes::Bytes{0x50, 0x43}));
-    transport.exchange(request(bytes::Bytes{0x27, 0x01}), response(bytes::Bytes{0x67, 0x01, 0x11}));
+    transport.Exchange(Request(bytes::Bytes{0xb7}), Response(bytes::Bytes{0x7f, 0xb7, 0x11}));
+    transport.Exchange(Request(bytes::Bytes{0xaa}), Response(bytes::Bytes{0xea}));
+    transport.Exchange(Request(bytes::Bytes{0x09, 0x02}), Response(bytes::Bytes{0x49, 0x02}));
+    transport.Exchange(Request(bytes::Bytes{0x09, 0x04}), Response(bytes::Bytes{0x49, 0x04}));
+    transport.Exchange(Request(bytes::Bytes{0x09, 0x06}), Response(bytes::Bytes{0x49, 0x06}));
+    transport.Exchange(Request(bytes::Bytes{0xa8, 0, 0, 0, 0xd7}), Response(bytes::Bytes{0, 0xa0}));
+    transport.Exchange(Request(bytes::Bytes{0x10, 0x43}), Response(bytes::Bytes{0x50, 0x43}));
+    transport.Exchange(Request(bytes::Bytes{0x27, 0x01}), Response(bytes::Bytes{0x67, 0x01, 0x11}));
     SubaruHitachiSh7058CanExecutor executor;
     FakeClock clock;
     FakeCancellationToken cancel;
     RecordingEventSink events;
-    auto result = executor.execute(*plan, transport, clock, cancel, events);
+    auto result = executor.Execute(*plan, transport, clock, cancel, events);
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::kBadResponse);
-    EXPECT_TRUE(transport.scriptConsumed());
+    EXPECT_TRUE(transport.ScriptConsumed());
 }
 
 TEST(SubaruHitachiSh7058CanExecutor, RetriesTransferSetupSixTimesThenStopsBeforeFrameWrites)
 {
-    auto plan = build_subaru_hitachi_sh7058_plan(FlashOperation::kWrite, "sub_ecu_hitachi_sh7058_can", "SH7058_1block",
-                                                 bytes::Bytes(0x100000));
+    auto plan = BuildSubaruHitachiSh7058Plan(FlashOperation::kWrite, "sub_ecu_hitachi_sh7058_can", "SH7058_1block",
+                                             bytes::Bytes(0x100000));
     ASSERT_TRUE(plan.has_value());
     ScriptedCanFlashTransport transport;
-    transport.exchange(request(bytes::Bytes{0xb7}), response(bytes::Bytes{0x7f, 0xb7, 0x13}));
-    transport.exchange(request(bytes::Bytes{0x31, 1, 2, 1, 0x0f, 0xff, 0xff, 0xff}),
-                       response(bytes::Bytes{0x71, 1, 2}));
+    transport.Exchange(Request(bytes::Bytes{0xb7}), Response(bytes::Bytes{0x7f, 0xb7, 0x13}));
+    transport.Exchange(Request(bytes::Bytes{0x31, 1, 2, 1, 0x0f, 0xff, 0xff, 0xff}),
+                       Response(bytes::Bytes{0x71, 1, 2}));
     for (int attempt = 0; attempt < 6; ++attempt)
     {
-        transport.exchange(request(bytes::Bytes{0x34, 4, 0x33, 0, 0, 0, 0x10, 0, 0}),
-                           response(bytes::Bytes{0x7f, 0x34, 0x13}));
+        transport.Exchange(Request(bytes::Bytes{0x34, 4, 0x33, 0, 0, 0, 0x10, 0, 0}),
+                           Response(bytes::Bytes{0x7f, 0x34, 0x13}));
     }
     SubaruHitachiSh7058CanExecutor executor;
     FakeClock clock;
     FakeCancellationToken cancel;
     RecordingEventSink events;
-    auto result = executor.execute(*plan, transport, clock, cancel, events);
+    auto result = executor.Execute(*plan, transport, clock, cancel, events);
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::kBadResponse);
-    EXPECT_TRUE(transport.scriptConsumed());
+    EXPECT_TRUE(transport.ScriptConsumed());
 }
 
 TEST(SubaruHitachiSh7058CanExecutor, CancellationAfterFirstFramePreventsLaterProgrammingCommands)
 {
-    auto plan = build_subaru_hitachi_sh7058_plan(FlashOperation::kWrite, "sub_ecu_hitachi_sh7058_can", "SH7058_1block",
-                                                 bytes::Bytes(0x100000));
+    auto plan = BuildSubaruHitachiSh7058Plan(FlashOperation::kWrite, "sub_ecu_hitachi_sh7058_can", "SH7058_1block",
+                                             bytes::Bytes(0x100000));
     ASSERT_TRUE(plan.has_value());
     ScriptedCanFlashTransport transport;
-    transport.exchange(request(bytes::Bytes{0xb7}), response(bytes::Bytes{0x7f, 0xb7, 0x13}));
-    transport.exchange(request(bytes::Bytes{0x31, 1, 2, 1, 0x0f, 0xff, 0xff, 0xff}),
-                       response(bytes::Bytes{0x71, 1, 2}));
-    transport.exchange(request(bytes::Bytes{0x34, 4, 0x33, 0, 0, 0, 0x10, 0, 0}), response(bytes::Bytes{0x74}));
+    transport.Exchange(Request(bytes::Bytes{0xb7}), Response(bytes::Bytes{0x7f, 0xb7, 0x13}));
+    transport.Exchange(Request(bytes::Bytes{0x31, 1, 2, 1, 0x0f, 0xff, 0xff, 0xff}),
+                       Response(bytes::Bytes{0x71, 1, 2}));
+    transport.Exchange(Request(bytes::Bytes{0x34, 4, 0x33, 0, 0, 0, 0x10, 0, 0}), Response(bytes::Bytes{0x74}));
     FakeCancellationToken cancel;
-    cancel.set_predicate([&transport] { return transport.writesConsumed() >= 3; });
+    cancel.SetPredicate([&transport] { return transport.WritesConsumed() >= 3; });
     SubaruHitachiSh7058CanExecutor executor;
     FakeClock clock;
     RecordingEventSink events;
-    auto result = executor.execute(*plan, transport, clock, cancel, events);
+    auto result = executor.Execute(*plan, transport, clock, cancel, events);
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::kCancelled);
-    EXPECT_EQ(transport.writesConsumed(), 3U);
+    EXPECT_EQ(transport.WritesConsumed(), 3U);
 }
 
 TEST(SubaruHitachiSh7058CanExecutor, EraseAcknowledgementCanArriveOnLaterRead)
 {
-    auto plan = build_subaru_hitachi_sh7058_plan(FlashOperation::kWrite, "sub_ecu_hitachi_sh7058_can", "SH7058_1block",
-                                                 bytes::Bytes(0x100000));
+    auto plan = BuildSubaruHitachiSh7058Plan(FlashOperation::kWrite, "sub_ecu_hitachi_sh7058_can", "SH7058_1block",
+                                             bytes::Bytes(0x100000));
     ASSERT_TRUE(plan.has_value());
     ScriptedCanFlashTransport transport;
-    transport.exchange(request(bytes::Bytes{0xb7}), response(bytes::Bytes{0x7f, 0xb7, 0x13}));
-    transport.exchange(request(bytes::Bytes{0x31, 1, 2, 1, 0x0f, 0xff, 0xff, 0xff}),
-                       response(bytes::Bytes{0x7f, 0x31, 0x78}));
-    transport.queue_no_frame();
-    transport.queueRead(response(bytes::Bytes{0x71, 1, 2}));
-    transport.expectWrite(request(bytes::Bytes{0x34, 4, 0x33, 0, 0, 0, 0x10, 0, 0}));
-    transport.queue_error(ErrorKind::kDisconnected);
+    transport.Exchange(Request(bytes::Bytes{0xb7}), Response(bytes::Bytes{0x7f, 0xb7, 0x13}));
+    transport.Exchange(Request(bytes::Bytes{0x31, 1, 2, 1, 0x0f, 0xff, 0xff, 0xff}),
+                       Response(bytes::Bytes{0x7f, 0x31, 0x78}));
+    transport.QueueNoFrame();
+    transport.QueueRead(Response(bytes::Bytes{0x71, 1, 2}));
+    transport.ExpectWrite(Request(bytes::Bytes{0x34, 4, 0x33, 0, 0, 0, 0x10, 0, 0}));
+    transport.QueueError(ErrorKind::kDisconnected);
     SubaruHitachiSh7058CanExecutor executor;
     FakeClock clock;
     FakeCancellationToken cancel;
     RecordingEventSink events;
-    auto result = executor.execute(*plan, transport, clock, cancel, events);
+    auto result = executor.Execute(*plan, transport, clock, cancel, events);
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::kDisconnected);
-    EXPECT_TRUE(transport.scriptConsumed());
+    EXPECT_TRUE(transport.ScriptConsumed());
 }
 } // namespace fastecu::flash

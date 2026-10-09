@@ -39,24 +39,24 @@ class DesktopKlineFlashTransport final : public IKlineFlashTransport
     explicit DesktopKlineFlashTransport(SerialPortActions *serial);
     ~DesktopKlineFlashTransport() override;
 
-    Status configure(const KlineConfig& config) override;
-    Status open() override;
-    Status close() override;
-    Status reset_connection() override;
-    Status disable_lec_lines() override;
-    Status pulse_lec_2_line(std::chrono::milliseconds timeout) override;
-    Status enable_programming_voltage_line() override;
-    Status enable_boot_mode_lines() override;
-    bool requires_post_kernel_upload_delay() const override;
-    Status set_add_iso14230_header(bool add_header) override;
-    void request_unblock() noexcept override;
+    Status Configure(const KlineConfig& config) override;
+    Status Open() override;
+    Status Close() override;
+    Status ResetConnection() override;
+    Status DisableLecLines() override;
+    Status PulseLec2Line(std::chrono::milliseconds timeout) override;
+    Status EnableProgrammingVoltageLine() override;
+    Status EnableBootModeLines() override;
+    bool RequiresPostKernelUploadDelay() const override;
+    Status SetAddIso14230Header(bool add_header) override;
+    void RequestUnblock() noexcept override;
 
-    Status setBaud(int baud) override;
-    Result<std::size_t> write(bytes::ByteView data) override;
-    Result<std::size_t> write_raw(bytes::ByteView data) override;
-    Result<OptionalBytes> read_raw(std::chrono::milliseconds timeout, const ICancellationToken& cancellation) override;
-    Result<OptionalBytes> read(std::chrono::milliseconds timeout, const ICancellationToken& cancellation) override;
-    bool isOpen() const override;
+    Status SetBaud(int baud) override;
+    Result<std::size_t> Write(bytes::ByteView data) override;
+    Result<std::size_t> WriteRaw(bytes::ByteView data) override;
+    Result<OptionalBytes> ReadRaw(std::chrono::milliseconds timeout, const ICancellationToken& cancellation) override;
+    Result<OptionalBytes> Read(std::chrono::milliseconds timeout, const ICancellationToken& cancellation) override;
+    bool IsOpen() const override;
 
   private:
     // Null when constructed from the non-owning (raw pointer) constructor;

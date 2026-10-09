@@ -9,16 +9,16 @@ RomSaveUseCase::RomSaveUseCase(IFileRepository& files, IEventSink& events) : fil
 {
 }
 
-Status RomSaveUseCase::save(CalibrationSession& session, std::string_view path, bytes::ByteView image)
+Status RomSaveUseCase::Save(CalibrationSession& session, std::string_view path, bytes::ByteView image)
 {
-    const Status result = files_.write(path, image);
+    const Status result = files_.Write(path, image);
     if (!result.has_value())
     {
-        events_.log(LogLevel::kError, std::format("Unable to open file {} for writing", path));
-        events_.notice(std::format("Ecu calibration file: Unable to open file {} for writing", path));
+        events_.Log(LogLevel::kError, std::format("Unable to open file {} for writing", path));
+        events_.Notice(std::format("Ecu calibration file: Unable to open file {} for writing", path));
         return result;
     }
-    session.mark_saved(path);
+    session.MarkSaved(path);
     return {};
 }
 

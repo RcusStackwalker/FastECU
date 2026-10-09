@@ -21,7 +21,7 @@ using fastecu::diagnostics::ObdProtocol;
 TEST(DtcWorkerTest, reportsTheSessionOutcomeAndForwardsLogLines)
 {
     FakeDiagnosticLink link;
-    link.queue_five_baud(bytes::Bytes{0x55, 0x00, 0x00}); // rejected
+    link.QueueFiveBaud(bytes::Bytes{0x55, 0x00, 0x00}); // rejected
     DtcWorker worker(DtcRequest{ObdProtocol::kIso9141, DtcOperation::kRead}, link, std::make_unique<FakeClock>());
     fastecu::testing::SignalRecorder logs(&worker, &DtcWorker::logEvent);
     fastecu::testing::SignalRecorder done(&worker, &DtcWorker::completed);
@@ -37,7 +37,7 @@ TEST(DtcWorkerTest, reportsTheSessionOutcomeAndForwardsLogLines)
 TEST(DtcWorkerTest, stopBeforeStartCancelsTheRun)
 {
     FakeDiagnosticLink link;
-    link.queue_five_baud(bytes::Bytes{0x55, 0x08, 0x08});
+    link.QueueFiveBaud(bytes::Bytes{0x55, 0x08, 0x08});
     DtcWorker worker(DtcRequest{ObdProtocol::kIso9141, DtcOperation::kRead}, link, std::make_unique<FakeClock>());
     fastecu::testing::SignalRecorder done(&worker, &DtcWorker::completed);
     worker.requestStop();

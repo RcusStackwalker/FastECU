@@ -4,7 +4,7 @@
 
 using fastecu::Error;
 using fastecu::ErrorKind;
-using fastecu::fail;
+using fastecu::Fail;
 using fastecu::Result;
 using fastecu::Status;
 
@@ -17,7 +17,7 @@ TEST(Result, HoldsValue)
 
 TEST(Result, HoldsError)
 {
-    Result<int> r = fail(ErrorKind::kTimeout, "read deadline");
+    Result<int> r = Fail(ErrorKind::kTimeout, "read deadline");
     ASSERT_THAT(r, fastecu::testing::IsErr(ErrorKind::kTimeout));
     EXPECT_EQ(r.error().detail, "read deadline");
 }
@@ -26,20 +26,20 @@ TEST(Status, VoidSuccessAndFailure)
 {
     Status ok = {};
     EXPECT_TRUE(ok.has_value());
-    Status bad = fail(ErrorKind::kDisconnected);
+    Status bad = Fail(ErrorKind::kDisconnected);
     ASSERT_THAT(bad, fastecu::testing::IsErr(ErrorKind::kDisconnected));
     EXPECT_TRUE(bad.error().detail.empty());
 }
 
 TEST(ErrorKind, StableSpellings)
 {
-    EXPECT_STREQ(fastecu::to_string(ErrorKind::kInvalidConfig), "InvalidConfig");
-    EXPECT_STREQ(fastecu::to_string(ErrorKind::kTimeout), "Timeout");
-    EXPECT_STREQ(fastecu::to_string(ErrorKind::kDisconnected), "Disconnected");
-    EXPECT_STREQ(fastecu::to_string(ErrorKind::kBadResponse), "BadResponse");
-    EXPECT_STREQ(fastecu::to_string(ErrorKind::kCancelled), "Cancelled");
-    EXPECT_STREQ(fastecu::to_string(ErrorKind::kUnsupported), "Unsupported");
-    EXPECT_STREQ(fastecu::to_string(ErrorKind::kInternal), "Internal");
+    EXPECT_STREQ(fastecu::ToString(ErrorKind::kInvalidConfig), "InvalidConfig");
+    EXPECT_STREQ(fastecu::ToString(ErrorKind::kTimeout), "Timeout");
+    EXPECT_STREQ(fastecu::ToString(ErrorKind::kDisconnected), "Disconnected");
+    EXPECT_STREQ(fastecu::ToString(ErrorKind::kBadResponse), "BadResponse");
+    EXPECT_STREQ(fastecu::ToString(ErrorKind::kCancelled), "Cancelled");
+    EXPECT_STREQ(fastecu::ToString(ErrorKind::kUnsupported), "Unsupported");
+    EXPECT_STREQ(fastecu::ToString(ErrorKind::kInternal), "Internal");
 }
 
 TEST(Error, DefaultsToInternalKind)

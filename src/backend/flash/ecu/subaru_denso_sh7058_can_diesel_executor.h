@@ -8,12 +8,12 @@ namespace fastecu::flash
 class SubaruDensoSh7058CanDieselExecutor final : public ICanFlashExecutor
 {
   public:
-    Result<Iso15765Config> transport_setup(const FlashPlan& plan) const override;
+    Result<Iso15765Config> TransportSetup(const FlashPlan& plan) const override;
 
-    Status before_transport_configure(ICanFlashTransport& transport, IClock& clock,
-                                      const ICancellationToken& cancellation) const override;
+    Status BeforeTransportConfigure(ICanFlashTransport& transport, IClock& clock,
+                                    const ICancellationToken& cancellation) const override;
 
-    Result<FlashExecutionResult> execute(const FlashPlan& plan, ICanFlashTransport& transport, IClock& clock,
+    Result<FlashExecutionResult> Execute(const FlashPlan& plan, ICanFlashTransport& transport, IClock& clock,
                                          const ICancellationToken& cancellation, IEventSink& events) override;
 };
 

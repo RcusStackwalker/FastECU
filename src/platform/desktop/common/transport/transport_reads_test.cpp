@@ -40,7 +40,7 @@ class TransportReads : public ::testing::TestWithParam<ReadPath>
   protected:
     void SetUp() override
     {
-        ASSERT_TRUE(mixed_.configure({}).has_value());
+        ASSERT_TRUE(mixed_.Configure({}).has_value());
     }
 
     ReadResult read(std::chrono::milliseconds timeout, const ICancellationToken& cancellation)
@@ -48,19 +48,19 @@ class TransportReads : public ::testing::TestWithParam<ReadPath>
         switch (GetParam())
         {
         case ReadPath::kKline:
-            return kline_.read(timeout, cancellation);
+            return kline_.Read(timeout, cancellation);
         case ReadPath::kSsm:
-            return ssm_.read(timeout, cancellation);
+            return ssm_.Read(timeout, cancellation);
         case ReadPath::kKlineFlash:
-            return kline_flash_.read(timeout, cancellation);
+            return kline_flash_.Read(timeout, cancellation);
         case ReadPath::kKlineRaw:
-            return kline_flash_.read_raw(timeout, cancellation);
+            return kline_flash_.ReadRaw(timeout, cancellation);
         case ReadPath::kCanFlash:
-            return can_flash_.read(timeout, cancellation);
+            return can_flash_.Read(timeout, cancellation);
         case ReadPath::kMixedCan:
-            return mixed_.read_iso15765(timeout, cancellation);
+            return mixed_.ReadIso15765(timeout, cancellation);
         }
-        return fastecu::fail(ErrorKind::kInternal, "unknown test read path");
+        return fastecu::Fail(ErrorKind::kInternal, "unknown test read path");
     }
 
     void expect_read(std::uint16_t timeout, std::function<QByteArray(std::uint16_t)> action)
@@ -84,9 +84,9 @@ class TransportReads : public ::testing::TestWithParam<ReadPath>
 
     void unblock()
     {
-        kline_flash_.request_unblock();
-        can_flash_.request_unblock();
-        mixed_.request_unblock();
+        kline_flash_.RequestUnblock();
+        can_flash_.RequestUnblock();
+        mixed_.RequestUnblock();
     }
 
     FakeBackedSerial<> serial_;
@@ -128,7 +128,7 @@ TEST_P(TransportReads, SilenceIsAnEmptyOptional)
 
 TEST_P(TransportReads, CancellationPrecedesDisconnectAndSkipsDriver)
 {
-    cancellation_.set_cancelled(true);
+    cancellation_.SetCancelled(true);
     EXPECT_CALL(serial_.fake(), is_serial_port_open()).Times(0);
     EXPECT_CALL(serial_.fake(), read_serial_data(::testing::_)).Times(0);
     EXPECT_CALL(serial_.fake(), read_serial_obd_data(::testing::_)).Times(0);
@@ -164,7 +164,7 @@ TEST_P(TransportReads, PostReadCancellationPrecedesDisconnect)
     expect_read(10,
                 [this](std::uint16_t)
                 {
-                    cancellation_.set_cancelled(true);
+                    cancellation_.SetCancelled(true);
                     return QByteArray("\xaa", 1);
                 });
     const auto result = read(10ms, cancellation_);
@@ -198,7 +198,7 @@ TEST_P(TransportReads, CancellationPrecedesStandardException)
     expect_read(10,
                 [this](std::uint16_t) -> QByteArray
                 {
-                    cancellation_.set_cancelled(true);
+                    cancellation_.SetCancelled(true);
                     throw std::runtime_error("read failed");
                 });
     const auto result = read(10ms, cancellation_);
@@ -211,7 +211,7 @@ TEST_P(TransportReads, CancellationPrecedesNonstandardException)
     expect_read(10,
                 [this](std::uint16_t) -> QByteArray
                 {
-                    cancellation_.set_cancelled(true);
+                    cancellation_.SetCancelled(true);
                     throw FakeBackendNonStandardFailure{}; // NOLINT(bugprone-std-exception-baseclass): catch-all probe.
                 });
     const auto result = read(10ms, cancellation_);
@@ -249,18 +249,18 @@ TEST(TransportReadPrechecks, ClosedAdaptersKeepCancellationAndModePrecedence)
     fastecu::flash::DesktopKlineFlashTransport kline{nullptr};
     fastecu::flash::DesktopCanFlashTransport can{nullptr};
     fastecu::flash::DesktopMixedCanFlashTransport mixed{nullptr};
-    const auto raw = kline.read_raw(10ms, cancellation);
+    const auto raw = kline.ReadRaw(10ms, cancellation);
     ASSERT_FALSE(raw.has_value());
     EXPECT_EQ(raw.error(), (fastecu::Error{ErrorKind::kDisconnected, "read_raw() called after close()"}));
-    const auto can_closed = can.read(10ms, cancellation);
+    const auto can_closed = can.Read(10ms, cancellation);
     ASSERT_FALSE(can_closed.has_value());
     EXPECT_EQ(can_closed.error(), (fastecu::Error{ErrorKind::kDisconnected, "read() called after close()"}));
 
-    cancellation.set_cancelled(true);
-    EXPECT_EQ(kline.read_raw(10ms, cancellation).error().kind, ErrorKind::kCancelled);
-    EXPECT_EQ(can.read(10ms, cancellation).error().kind, ErrorKind::kCancelled);
+    cancellation.SetCancelled(true);
+    EXPECT_EQ(kline.ReadRaw(10ms, cancellation).error().kind, ErrorKind::kCancelled);
+    EXPECT_EQ(can.Read(10ms, cancellation).error().kind, ErrorKind::kCancelled);
     // Mixed CAN checks its lifecycle/mode before the serial-read precheck.
-    const auto mixed_closed = mixed.read_iso15765(10ms, cancellation);
+    const auto mixed_closed = mixed.ReadIso15765(10ms, cancellation);
     ASSERT_FALSE(mixed_closed.has_value());
     EXPECT_EQ(mixed_closed.error(), (fastecu::Error{ErrorKind::kDisconnected, "ISO-15765 read called after close()"}));
 }

@@ -20,12 +20,12 @@ bool protocol_capability(const config::VehicleSpec& vehicle, bool config::Protoc
 
 QString checksum_field(const config::VehicleSpec& vehicle)
 {
-    return qs(config::checksum_flag(vehicle.protocol->checksum));
+    return qs(config::ChecksumFlag(vehicle.protocol->checksum));
 }
 
 QString kernel_address_field(const config::VehicleSpec& vehicle)
 {
-    return QString::fromStdString(config::kernel_load_address_text(*vehicle.protocol));
+    return QString::fromStdString(config::KernelLoadAddressText(*vehicle.protocol));
 }
 
 QStringList qstring_list(const std::vector<std::string>& items)

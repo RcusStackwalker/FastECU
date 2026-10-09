@@ -12,10 +12,10 @@ namespace fastecu::logging
 class LoggingSession
 {
   public:
-    LoggingProtocolId protocol() const;
-    const std::vector<LoggingChannel>& channels() const;
-    const LoggingPolicy& policy() const;
-    const LoggingChannel *find_channel(std::string_view id) const;
+    LoggingProtocolId Protocol() const;
+    const std::vector<LoggingChannel>& Channels() const;
+    const LoggingPolicy& Policy() const;
+    const LoggingChannel *FindChannel(std::string_view id) const;
 
   private:
     LoggingSession(LoggingProtocolId protocol, std::vector<LoggingChannel> channels, LoggingPolicy policy);
@@ -25,10 +25,10 @@ class LoggingSession
     LoggingPolicy policy_;
 
     friend fastecu::Result<LoggingSession>
-    make_logging_session(LoggingProtocolId protocol, std::vector<LoggingChannel> channels, LoggingPolicy policy);
+    MakeLoggingSession(LoggingProtocolId protocol, std::vector<LoggingChannel> channels, LoggingPolicy policy);
 };
 
-fastecu::Result<LoggingSession> make_logging_session(LoggingProtocolId protocol, std::vector<LoggingChannel> channels,
-                                                     LoggingPolicy policy);
+fastecu::Result<LoggingSession> MakeLoggingSession(LoggingProtocolId protocol, std::vector<LoggingChannel> channels,
+                                                   LoggingPolicy policy);
 
 } // namespace fastecu::logging

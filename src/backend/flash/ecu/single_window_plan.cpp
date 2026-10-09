@@ -18,103 +18,103 @@ using enum ErrorKind;
 // Identity is checked in the same order every family checked it before the
 // extraction: protocol name, then that the MCU is known at all, then that it
 // is this family's MCU, then the family's own flash-table geometry.
-Status validate_identity(const SingleWindowPlanSpec& spec, std::string_view protocol, std::string_view mcu)
+Status ValidateIdentity(const SingleWindowPlanSpec& spec, std::string_view protocol, std::string_view mcu)
 {
     if (std::ranges::find(spec.protocols, protocol) == spec.protocols.end())
     {
-        return fail(kInvalidConfig, std::format("Unsupported {} protocol: {}", spec.display_name, protocol));
+        return Fail(kInvalidConfig, std::format("Unsupported {} protocol: {}", spec.display_name, protocol));
     }
-    const int index = find_flash_device_index(mcu);
+    const int index = FindFlashDeviceIndex(mcu);
     if (index < 0)
     {
-        return fail(kInvalidConfig, std::format("Unknown MCU type: {}", mcu));
+        return Fail(kInvalidConfig, std::format("Unknown MCU type: {}", mcu));
     }
     if (mcu != spec.mcu)
     {
-        return fail(kInvalidConfig, std::format("Protocol {} expects MCU {}; got {}", protocol, spec.mcu, mcu));
+        return Fail(kInvalidConfig, std::format("Protocol {} expects MCU {}; got {}", protocol, spec.mcu, mcu));
     }
     if (!spec.geometry_ok(kFlashDevices[index]))
     {
-        return fail(kInvalidConfig, std::format("{} flash geometry is invalid", spec.mcu));
+        return Fail(kInvalidConfig, std::format("{} flash geometry is invalid", spec.mcu));
     }
     return {};
 }
 } // namespace
 
-Status validate_single_window_plan(const SingleWindowPlanSpec& spec, const FlashPlan& plan)
+Status ValidateSingleWindowPlan(const SingleWindowPlanSpec& spec, const FlashPlan& plan)
 {
-    if (auto valid = validate_identity(spec, plan.target_id(), plan.mcu_name()); !valid.has_value())
+    if (auto valid = ValidateIdentity(spec, plan.TargetId(), plan.McuName()); !valid.has_value())
     {
         return valid;
     }
-    if (plan.family() != spec.family || plan.transport() != spec.transport)
+    if (plan.Family() != spec.family || plan.Transport() != spec.transport)
     {
-        return fail(kInvalidConfig, std::format("plan is not for {}", spec.display_name));
+        return Fail(kInvalidConfig, std::format("plan is not for {}", spec.display_name));
     }
     if (!spec.wire_params_ok(plan))
     {
-        return fail(kInvalidConfig, std::format("{} wire parameters are invalid", spec.display_name));
+        return Fail(kInvalidConfig, std::format("{} wire parameters are invalid", spec.display_name));
     }
-    if (const MemoryRegion& expected = plan.operation() == FlashOperation::kRead ? spec.read_region : spec.write_region;
-        plan.transfer_region().start != expected.start || plan.transfer_region().length != expected.length)
+    if (const MemoryRegion& expected = plan.Operation() == FlashOperation::kRead ? spec.read_region : spec.write_region;
+        plan.TransferRegion().start != expected.start || plan.TransferRegion().length != expected.length)
     {
-        return fail(kInvalidConfig, std::format("{} transfer region is invalid", spec.display_name));
+        return Fail(kInvalidConfig, std::format("{} transfer region is invalid", spec.display_name));
     }
-    if (plan.kernel())
+    if (plan.Kernel())
     {
-        return fail(kInvalidConfig, std::format("{} plans are kernel-free", spec.display_name));
+        return Fail(kInvalidConfig, std::format("{} plans are kernel-free", spec.display_name));
     }
-    if (plan.operation() == FlashOperation::kTestWrite)
+    if (plan.Operation() == FlashOperation::kTestWrite)
     {
-        return fail(kUnsupported, "test_write is not supported by this family");
+        return Fail(kUnsupported, "test_write is not supported by this family");
     }
-    if (!spec.supports_write && plan.operation() == FlashOperation::kWrite)
+    if (!spec.supports_write && plan.Operation() == FlashOperation::kWrite)
     {
-        return fail(kUnsupported, std::format("write is not supported by {}", spec.display_name));
+        return Fail(kUnsupported, std::format("write is not supported by {}", spec.display_name));
     }
-    if (plan.operation() == FlashOperation::kRead && !plan.erase_regions().empty())
+    if (plan.Operation() == FlashOperation::kRead && !plan.EraseRegions().empty())
     {
-        return fail(kInvalidConfig, "read plans must not erase memory");
+        return Fail(kInvalidConfig, "read plans must not erase memory");
     }
-    if (plan.operation() == FlashOperation::kWrite &&
-        (plan.erase_regions().size() != 1 || plan.erase_regions()[0].start != spec.write_region.start ||
-         plan.erase_regions()[0].length != spec.write_region.length))
+    if (plan.Operation() == FlashOperation::kWrite &&
+        (plan.EraseRegions().size() != 1 || plan.EraseRegions()[0].start != spec.write_region.start ||
+         plan.EraseRegions()[0].length != spec.write_region.length))
     {
-        return fail(kInvalidConfig, std::format("{} erase region is invalid", spec.display_name));
+        return Fail(kInvalidConfig, std::format("{} erase region is invalid", spec.display_name));
     }
-    if (plan.operation() == FlashOperation::kWrite &&
-        (!plan.image().has_value() || plan.image()->size() != spec.image_size))
+    if (plan.Operation() == FlashOperation::kWrite &&
+        (!plan.Image().has_value() || plan.Image()->size() != spec.image_size))
     {
-        return fail(kInvalidConfig, std::format("ROM file must be exactly 0x{:X} bytes", spec.image_size));
+        return Fail(kInvalidConfig, std::format("ROM file must be exactly 0x{:X} bytes", spec.image_size));
     }
     return {};
 }
 
-Result<FlashPlan> build_single_window_plan(const SingleWindowPlanSpec& spec, FlashOperation operation,
-                                           std::string_view protocol_name, std::string_view mcu_type,
-                                           std::optional<bytes::Bytes> image, FamilyPlan family_plan)
+Result<FlashPlan> BuildSingleWindowPlan(const SingleWindowPlanSpec& spec, FlashOperation operation,
+                                        std::string_view protocol_name, std::string_view mcu_type,
+                                        std::optional<bytes::Bytes> image, FamilyPlan family_plan)
 {
-    if (auto valid = validate_identity(spec, protocol_name, mcu_type); !valid.has_value())
+    if (auto valid = ValidateIdentity(spec, protocol_name, mcu_type); !valid.has_value())
     {
         return std::unexpected(valid.error());
     }
     if (operation == FlashOperation::kTestWrite)
     {
-        return fail(kUnsupported, "test_write is not supported by this family");
+        return Fail(kUnsupported, "test_write is not supported by this family");
     }
     if (!spec.supports_write && operation == FlashOperation::kWrite)
     {
-        return fail(kUnsupported, std::format("write is not supported by {}", spec.display_name));
+        return Fail(kUnsupported, std::format("write is not supported by {}", spec.display_name));
     }
     if (operation == FlashOperation::kWrite)
     {
         if (!image.has_value())
         {
-            return fail(kInvalidConfig, "Write plans must carry a ROM image");
+            return Fail(kInvalidConfig, "Write plans must carry a ROM image");
         }
         if (image->size() != spec.image_size)
         {
-            return fail(kInvalidConfig, std::format("ROM file must be exactly 0x{:X} bytes; got 0x{:x} bytes",
+            return Fail(kInvalidConfig, std::format("ROM file must be exactly 0x{:X} bytes; got 0x{:x} bytes",
                                                     spec.image_size, image->size()));
         }
     }
@@ -131,12 +131,12 @@ Result<FlashPlan> build_single_window_plan(const SingleWindowPlanSpec& spec, Fla
         .kernel = std::nullopt,
         .family_plan = std::move(family_plan),
     };
-    auto plan = validate_and_build(std::move(fields));
+    auto plan = ValidateAndBuild(std::move(fields));
     if (!plan.has_value())
     {
         return std::unexpected(plan.error());
     }
-    if (auto valid = validate_single_window_plan(spec, *plan); !valid.has_value())
+    if (auto valid = ValidateSingleWindowPlan(spec, *plan); !valid.has_value())
     {
         return std::unexpected(valid.error());
     }

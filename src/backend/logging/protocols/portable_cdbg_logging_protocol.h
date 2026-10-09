@@ -16,10 +16,10 @@ class CdbgLoggingProtocol final : public LoggingProtocol
   public:
     CdbgLoggingProtocol(std::unique_ptr<cdbg::ICanTransport> transport, std::vector<LoggingChannel> channels);
 
-    fastecu::Status start(const fastecu::ICancellationToken& cancellation) override;
-    fastecu::Result<PollData> poll(std::chrono::milliseconds timeout,
+    fastecu::Status Start(const fastecu::ICancellationToken& cancellation) override;
+    fastecu::Result<PollData> Poll(std::chrono::milliseconds timeout,
                                    const fastecu::ICancellationToken& cancellation) override;
-    fastecu::Status stop() override;
+    fastecu::Status Stop() override;
 
   private:
     std::unique_ptr<cdbg::ICanTransport> transport_;

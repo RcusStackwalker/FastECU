@@ -33,8 +33,8 @@ QTreeWidget *CalibrationTreeWidget::buildCalibrationFilesTree(fastecu::calibrati
     topLevelFilesTreeItem->setFirstColumnSpanned(true);
     calFilesTree->addTopLevelItem(topLevelFilesTreeItem);
 
-    topLevelFilesTreeItem->setText(0, QString::fromStdString(session.source().display_name));
-    if (const auto *resolved = session.definition(); resolved != nullptr && !resolved->definition.maps.empty())
+    topLevelFilesTreeItem->setText(0, QString::fromStdString(session.Source().display_name));
+    if (const auto *resolved = session.Definition(); resolved != nullptr && !resolved->definition.maps.empty())
     {
         topLevelFilesTreeItem->setText(1, legacy_value(resolved->definition.maps.front().id));
     }
@@ -81,7 +81,7 @@ QTreeWidget *CalibrationTreeWidget::buildCalibrationDataTree(QTreeWidget *dataTr
         calDataTree->topLevelItem(0)->addChild(item);
     }
 
-    const fastecu::calibration::ResolvedDefinition *resolved = session.definition();
+    const fastecu::calibration::ResolvedDefinition *resolved = session.Definition();
     const std::size_t mapCount = resolved != nullptr ? resolved->definition.maps.size() : 0;
     for (std::size_t j = 0; j < mapCount; j++)
     {

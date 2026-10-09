@@ -21,20 +21,20 @@ class MutDmaDriver
     }
     // Wake + run the free-form handshake for `channels`. setupCmd 0xA0/0xB0,
     // listCmd 0xA1..0xA4 (rate slot). Succeeds once streaming is established.
-    fastecu::Status startFreeFormLog(const std::vector<Channel>& channels, bytes::Byte setup_cmd, bytes::Byte list_cmd,
+    fastecu::Status StartFreeFormLog(const std::vector<Channel>& channels, bytes::Byte setup_cmd, bytes::Byte list_cmd,
                                      const fastecu::ICancellationToken& cancellation);
-    bool isStreaming() const
+    bool IsStreaming() const
     {
         return streaming_;
     }
     // Read one streamed frame (within timeout) and decode to per-channel values.
-    fastecu::Result<std::vector<std::uint32_t>> pollOnce(std::chrono::milliseconds timeout,
+    fastecu::Result<std::vector<std::uint32_t>> PollOnce(std::chrono::milliseconds timeout,
                                                          const fastecu::ICancellationToken& cancellation);
     // Write `bytes` to RAM at `addr` via 0x87 sub-cmd 3 (chunked). Succeeds if
     // every chunk gets a valid echo response. Caller must validate the address range.
-    fastecu::Status writeMemory(std::uint16_t addr, bytes::ByteView data,
+    fastecu::Status WriteMemory(std::uint16_t addr, bytes::ByteView data,
                                 const fastecu::ICancellationToken& cancellation);
-    void setChannelsForTest(std::vector<Channel> ch)
+    void SetChannelsForTest(std::vector<Channel> ch)
     {
         channels_ = std::move(ch);
         streaming_ = true;

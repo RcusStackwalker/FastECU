@@ -146,7 +146,7 @@ TEST(BenchFormat, EveryErrorKindGetsADistinctNonZeroExitCode)
     for (const ErrorKind kind : kKinds)
     {
         const int code = exit_code_for(kind);
-        EXPECT_NE(code, 0) << to_string(kind);
+        EXPECT_NE(code, 0) << ToString(kind);
         codes.push_back(code);
     }
     std::ranges::sort(codes);

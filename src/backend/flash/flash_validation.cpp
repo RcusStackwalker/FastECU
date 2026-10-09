@@ -28,7 +28,7 @@ namespace
 // sizes the image against it -- where 0x100000000 would wrap to 0 and collapse
 // the window. Accepting it here would relax an address-window guard. The
 // boundary is pinned by TransferRegionEndingExactlyAtTheTopOfTheAddressSpaceIsRejected.
-bool region_end_not_representable(const MemoryRegion& region)
+bool RegionEndNotRepresentable(const MemoryRegion& region)
 {
     return static_cast<std::uint64_t>(region.start) + region.length > static_cast<std::uint64_t>(0xffffffffU);
 }
@@ -36,7 +36,7 @@ bool region_end_not_representable(const MemoryRegion& region)
 // Each alternative's declared family and transport come from FamilyTraits in
 // flash_types.h, next to the variant itself, so this stays a single visit
 // rather than a switch that has to be kept in step with the variant by hand.
-bool family_matches_transport_variant(const FlashPlanFields& fields)
+bool FamilyMatchesTransportVariant(const FlashPlanFields& fields)
 {
     return std::visit(
         [&fields]<typename T>(const T&)
@@ -45,82 +45,82 @@ bool family_matches_transport_variant(const FlashPlanFields& fields)
 }
 } // namespace
 
-Result<FlashPlan> validate_and_build(FlashPlanFields fields)
+Result<FlashPlan> ValidateAndBuild(FlashPlanFields fields)
 {
     if (fields.target_id.empty())
     {
-        return fail(ErrorKind::kInvalidConfig, "target_id must not be empty");
+        return Fail(ErrorKind::kInvalidConfig, "target_id must not be empty");
     }
     if (fields.mcu_name.empty())
     {
-        return fail(ErrorKind::kInvalidConfig, "mcu_name must not be empty");
+        return Fail(ErrorKind::kInvalidConfig, "mcu_name must not be empty");
     }
     if (fields.transfer_region.length == 0)
     {
-        return fail(ErrorKind::kInvalidConfig, "transfer_region must not be empty");
+        return Fail(ErrorKind::kInvalidConfig, "transfer_region must not be empty");
     }
-    if (region_end_not_representable(fields.transfer_region))
+    if (RegionEndNotRepresentable(fields.transfer_region))
     {
-        return fail(ErrorKind::kInvalidConfig, "transfer_region end address does not fit in 32 bits");
+        return Fail(ErrorKind::kInvalidConfig, "transfer_region end address does not fit in 32 bits");
     }
     for (const MemoryRegion& erase : fields.erase_regions)
     {
-        if (region_end_not_representable(erase))
+        if (RegionEndNotRepresentable(erase))
         {
-            return fail(ErrorKind::kInvalidConfig, "erase region end address does not fit in 32 bits");
+            return Fail(ErrorKind::kInvalidConfig, "erase region end address does not fit in 32 bits");
         }
     }
     if (fields.operation == FlashOperation::kRead)
     {
         if (!fields.erase_regions.empty())
         {
-            return fail(ErrorKind::kInvalidConfig, "Read plans must not declare erase regions");
+            return Fail(ErrorKind::kInvalidConfig, "Read plans must not declare erase regions");
         }
         if (fields.image.has_value())
         {
-            return fail(ErrorKind::kInvalidConfig, "Read plans must not carry an image");
+            return Fail(ErrorKind::kInvalidConfig, "Read plans must not carry an image");
         }
     }
     else
     {
         if (!fields.image.has_value())
         {
-            return fail(ErrorKind::kInvalidConfig, "Write/TestWrite plans must carry an image");
+            return Fail(ErrorKind::kInvalidConfig, "Write/TestWrite plans must carry an image");
         }
     }
     if (const bool requires_kernel =
             std::visit([]<typename T>(const T&) { return kFamilyRequiresKernel<T>; }, fields.family_plan);
         requires_kernel && !fields.kernel.has_value())
     {
-        return fail(ErrorKind::kInvalidConfig, "family requires a kernel image");
+        return Fail(ErrorKind::kInvalidConfig, "family requires a kernel image");
     }
     if (fields.kernel.has_value())
     {
         if (fields.kernel->id.empty())
         {
-            return fail(ErrorKind::kInvalidConfig, "kernel id must not be empty");
+            return Fail(ErrorKind::kInvalidConfig, "kernel id must not be empty");
         }
         if (fields.kernel->bytes.empty())
         {
-            return fail(ErrorKind::kInvalidConfig, "kernel bytes must not be empty");
+            return Fail(ErrorKind::kInvalidConfig, "kernel bytes must not be empty");
         }
         const std::uint64_t kernel_end =
             static_cast<std::uint64_t>(fields.kernel->load_address) + fields.kernel->bytes.size();
         if (kernel_end > static_cast<std::uint64_t>(0xffffffffU))
         {
-            return fail(ErrorKind::kInvalidConfig, "kernel upload range overflows a 32-bit address space");
+            return Fail(ErrorKind::kInvalidConfig, "kernel upload range overflows a 32-bit address space");
         }
     }
-    if (!family_matches_transport_variant(fields))
+    if (!FamilyMatchesTransportVariant(fields))
     {
-        return fail(ErrorKind::kInvalidConfig, "family_plan variant does not match transport kind or declared family");
+        return Fail(ErrorKind::kInvalidConfig, "family_plan variant does not match transport kind or declared family");
     }
     std::unordered_set<ConfirmationSpec::Id> seen_ids;
     for (const ConfirmationSpec& confirmation : fields.confirmations)
     {
         if (!seen_ids.insert(confirmation.id).second)
         {
-            return fail(ErrorKind::kInvalidConfig, "duplicate confirmation id declared");
+            return Fail(ErrorKind::kInvalidConfig, "duplicate confirmation id declared");
         }
     }
 

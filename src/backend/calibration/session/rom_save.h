@@ -16,7 +16,7 @@ class RomSaveUseCase
 {
   public:
     RomSaveUseCase(IFileRepository& files, IEventSink& events);
-    Status save(CalibrationSession& session, std::string_view path, bytes::ByteView image);
+    Status Save(CalibrationSession& session, std::string_view path, bytes::ByteView image);
 
   private:
     IFileRepository& files_;

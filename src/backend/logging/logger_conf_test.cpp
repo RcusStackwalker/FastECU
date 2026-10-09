@@ -11,14 +11,14 @@
 namespace
 {
 
-using fastecu::logging::default_selection;
-using fastecu::logging::initial_selection;
+using fastecu::logging::DefaultSelection;
+using fastecu::logging::InitialSelection;
 using fastecu::logging::LoggerDefinition;
 using fastecu::logging::LoggerParameter;
 using fastecu::logging::LoggerSelection;
 using fastecu::logging::LoggerSwitch;
-using fastecu::logging::read_selection;
-using fastecu::logging::write_selection;
+using fastecu::logging::ReadSelection;
+using fastecu::logging::WriteSelection;
 using ::testing::ElementsAre;
 using ::testing::HasSubstr;
 using ::testing::IsEmpty;
@@ -26,17 +26,17 @@ using ::testing::Not;
 using ::testing::SizeIs;
 using ::testing::StartsWith;
 
-bytes::ByteView view(std::string_view text)
+bytes::ByteView View(std::string_view text)
 {
     return {reinterpret_cast<const bytes::Byte *>(text.data()), text.size()};
 }
 
-std::string text_of(bytes::ByteView data)
+std::string TextOf(bytes::ByteView data)
 {
     return std::string(reinterpret_cast<const char *>(data.data()), data.size());
 }
 
-LoggerDefinition make_definition(int parameters, int switches, bool all_enabled)
+LoggerDefinition MakeDefinition(int parameters, int switches, bool all_enabled)
 {
     LoggerDefinition definition;
     for (int i = 0; i < parameters; i++)
@@ -82,7 +82,7 @@ constexpr std::string_view kConfWithEcu = R"(<config>
 
 TEST(ReadSelection, ReturnsTheSelectionWhenTheEcuIsPresent)
 {
-    const auto result = read_selection(view(kConfWithEcu), "ECUID1", "conf.xml");
+    const auto result = ReadSelection(View(kConfWithEcu), "ECUID1", "conf.xml");
     ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_TRUE(result->has_value());
     EXPECT_EQ((*result)->protocol, "SSM");
@@ -93,14 +93,14 @@ TEST(ReadSelection, ReturnsTheSelectionWhenTheEcuIsPresent)
 
 TEST(ReadSelection, ReturnsNulloptWhenTheEcuIsAbsent)
 {
-    const auto result = read_selection(view(kConfWithEcu), "OTHER", "conf.xml");
+    const auto result = ReadSelection(View(kConfWithEcu), "OTHER", "conf.xml");
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_FALSE(result->has_value());
 }
 
 TEST(ReadSelection, RejectsMalformedXml)
 {
-    const auto result = read_selection(view("<config><logger>"), "ECUID1", "broken.xml");
+    const auto result = ReadSelection(View("<config><logger>"), "ECUID1", "broken.xml");
     ASSERT_THAT(result, fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
     EXPECT_THAT(result.error().detail, HasSubstr("broken.xml"));
 }
@@ -109,7 +109,7 @@ TEST(InitialSelection, TakesTheFirstEntriesIgnoringEnabled)
 {
     // Every parameter and switch disabled: initial_selection still fills to
     // the caps -- the first-N walk does not gate on `enabled` for either.
-    LoggerDefinition definition = make_definition(30, 30, false);
+    LoggerDefinition definition = MakeDefinition(30, 30, false);
     for (auto& p : definition.parameters)
     {
         p.enabled = false;
@@ -119,7 +119,7 @@ TEST(InitialSelection, TakesTheFirstEntriesIgnoringEnabled)
         s.enabled = false;
     }
 
-    const LoggerSelection selection = initial_selection(definition);
+    const LoggerSelection selection = InitialSelection(definition);
     EXPECT_EQ(selection.protocol, "SSM");
     EXPECT_THAT(selection.gauge_ids, SizeIs(15));
     EXPECT_THAT(selection.lower_panel_ids, SizeIs(12));
@@ -134,9 +134,9 @@ TEST(DefaultSelection, WalksOnlyEnabledEntriesAndRespectsTheCaps)
 {
     // make_definition enables even indices only when all_enabled is false --
     // for both parameters and switches.
-    const LoggerDefinition definition = make_definition(60, 5, false);
+    const LoggerDefinition definition = MakeDefinition(60, 5, false);
 
-    const LoggerSelection selection = default_selection(definition);
+    const LoggerSelection selection = DefaultSelection(definition);
     EXPECT_THAT(selection.gauge_ids, SizeIs(15));
     EXPECT_THAT(selection.lower_panel_ids, SizeIs(12));
     EXPECT_EQ(selection.gauge_ids.at(0), "P0");
@@ -148,7 +148,7 @@ TEST(DefaultSelection, WalksOnlyEnabledEntriesAndRespectsTheCaps)
 
 TEST(DefaultSelection, YieldsAnEmptyProtocolForAnEmptyDefinition)
 {
-    const LoggerSelection selection = default_selection(LoggerDefinition{});
+    const LoggerSelection selection = DefaultSelection(LoggerDefinition{});
     EXPECT_THAT(selection.protocol, IsEmpty());
     EXPECT_THAT(selection.gauge_ids, IsEmpty());
 }
@@ -161,10 +161,10 @@ TEST(WriteSelection, UpdatesAnExistingEcuElement)
     selection.lower_panel_ids = {"X3"};
     selection.switch_ids = {"X4"};
 
-    const auto written = write_selection(view(kConfWithEcu), "ECUID1", selection, "conf.xml");
+    const auto written = WriteSelection(View(kConfWithEcu), "ECUID1", selection, "conf.xml");
     ASSERT_THAT(written, fastecu::testing::IsOk());
 
-    const auto reread = read_selection(*written, "ECUID1", "conf.xml");
+    const auto reread = ReadSelection(*written, "ECUID1", "conf.xml");
     ASSERT_THAT(reread, fastecu::testing::IsOkAnd(::testing::Optional(::testing::_)));
     const auto& reread_selection = *reread;
     ASSERT_TRUE(reread_selection.has_value());
@@ -172,7 +172,7 @@ TEST(WriteSelection, UpdatesAnExistingEcuElement)
     EXPECT_THAT(reread_selection->lower_panel_ids, ElementsAre("X3"));
     EXPECT_THAT(reread_selection->switch_ids, ElementsAre("X4"));
     // Exactly one <ecu> -- an update must not append a duplicate.
-    EXPECT_EQ(text_of(*written).find("ECUID1"), text_of(*written).rfind("ECUID1"));
+    EXPECT_EQ(TextOf(*written).find("ECUID1"), TextOf(*written).rfind("ECUID1"));
 }
 
 TEST(WriteSelection, RejectsADocumentWhoseRootIsNotConfig)
@@ -185,7 +185,7 @@ TEST(WriteSelection, RejectsADocumentWhoseRootIsNotConfig)
     selection.gauge_ids = {"P1"};
 
     const auto written =
-        write_selection(view(R"(<notconfig><data id="keep"/></notconfig>)"), "ECUID1", selection, "conf.xml");
+        WriteSelection(View(R"(<notconfig><data id="keep"/></notconfig>)"), "ECUID1", selection, "conf.xml");
     ASSERT_THAT(written, fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
     EXPECT_THAT(written.error().detail, HasSubstr("conf.xml"));
     EXPECT_THAT(written.error().detail, HasSubstr("notconfig"));
@@ -199,11 +199,11 @@ TEST(WriteSelection, CreatesTheLoggerElementWhenConfigHasNone)
     selection.protocol = "SSM";
     selection.gauge_ids = {"P1"};
 
-    const auto written = write_selection(view(R"(<config name="FastECU"/>)"), "ECUID1", selection, "conf.xml");
+    const auto written = WriteSelection(View(R"(<config name="FastECU"/>)"), "ECUID1", selection, "conf.xml");
     ASSERT_THAT(written, fastecu::testing::IsOk());
-    EXPECT_THAT(text_of(*written), HasSubstr("name=\"FastECU\""));
+    EXPECT_THAT(TextOf(*written), HasSubstr("name=\"FastECU\""));
 
-    const auto reread = read_selection(*written, "ECUID1", "conf.xml");
+    const auto reread = ReadSelection(*written, "ECUID1", "conf.xml");
     ASSERT_THAT(reread, fastecu::testing::IsOkAnd(::testing::Optional(::testing::_)));
     const auto& reread_selection = *reread;
     ASSERT_TRUE(reread_selection.has_value());
@@ -217,7 +217,7 @@ TEST(WriteSelection, RejectsAnEmptyDocument)
     LoggerSelection selection;
     selection.protocol = "SSM";
 
-    ASSERT_THAT(write_selection(view(""), "ECUID1", selection, "conf.xml"),
+    ASSERT_THAT(WriteSelection(View(""), "ECUID1", selection, "conf.xml"),
                 fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
 }
 
@@ -227,16 +227,16 @@ TEST(WriteSelection, AppendsANewEcuElementAndKeepsTheExistingOne)
     selection.protocol = "CDBG";
     selection.gauge_ids = {"Y1"};
 
-    const auto written = write_selection(view(kConfWithEcu), "ECUID2", selection, "conf.xml");
+    const auto written = WriteSelection(View(kConfWithEcu), "ECUID2", selection, "conf.xml");
     ASSERT_THAT(written, fastecu::testing::IsOk());
 
-    const auto original = read_selection(*written, "ECUID1", "conf.xml");
+    const auto original = ReadSelection(*written, "ECUID1", "conf.xml");
     ASSERT_THAT(original, fastecu::testing::IsOkAnd(::testing::Optional(::testing::_)));
     const auto& original_selection = *original;
     ASSERT_TRUE(original_selection.has_value());
     EXPECT_THAT(original_selection->gauge_ids, ElementsAre("P1", "P2"));
 
-    const auto added = read_selection(*written, "ECUID2", "conf.xml");
+    const auto added = ReadSelection(*written, "ECUID2", "conf.xml");
     ASSERT_THAT(added, fastecu::testing::IsOkAnd(::testing::Optional(::testing::_)));
     const auto& added_selection = *added;
     ASSERT_TRUE(added_selection.has_value());
@@ -261,14 +261,14 @@ TEST(WriteSelection, PreservesAnExistingXmlDeclaration)
     selection.protocol = "SSM";
     selection.gauge_ids = {"P1"};
 
-    const auto written = write_selection(view(kConfWithDeclaration), "ECUID1", selection, "conf.xml");
+    const auto written = WriteSelection(View(kConfWithDeclaration), "ECUID1", selection, "conf.xml");
     ASSERT_THAT(written, fastecu::testing::IsOk());
 
     // pugixml re-emits attribute values with double quotes where the shipped
     // file uses single quotes. That is a cosmetic requoting of an equivalent
     // declaration, not data loss -- what matters is that the declaration is
     // still there, with the same version and encoding, ahead of <config>.
-    const std::string xml = text_of(*written);
+    const std::string xml = TextOf(*written);
     EXPECT_THAT(xml, StartsWith("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<config"));
 }
 
@@ -278,9 +278,9 @@ TEST(WriteSelection, DoesNotSynthesizeAnXmlDeclarationWhenTheInputHasNone)
     selection.protocol = "SSM";
     selection.gauge_ids = {"P1"};
 
-    const auto written = write_selection(view(kConfWithEcu), "ECUID1", selection, "conf.xml");
+    const auto written = WriteSelection(View(kConfWithEcu), "ECUID1", selection, "conf.xml");
     ASSERT_THAT(written, fastecu::testing::IsOk());
-    EXPECT_THAT(text_of(*written), Not(HasSubstr("<?xml")));
+    EXPECT_THAT(TextOf(*written), Not(HasSubstr("<?xml")));
 }
 
 // Rebuilding the <ecu> subtree must not relocate it: document.save()
@@ -307,22 +307,22 @@ TEST(WriteSelection, KeepsAnUpdatedEcuInItsOriginalPosition)
     selection.protocol = "SSM";
     selection.gauge_ids = {"P1"};
 
-    const auto first = write_selection(view(kThreeEcus), "FIRST", selection, "conf.xml");
+    const auto first = WriteSelection(View(kThreeEcus), "FIRST", selection, "conf.xml");
     ASSERT_THAT(first, fastecu::testing::IsOk());
-    const std::string first_xml = text_of(*first);
+    const std::string first_xml = TextOf(*first);
     EXPECT_LT(first_xml.find("FIRST"), first_xml.find("SECOND"));
     EXPECT_LT(first_xml.find("SECOND"), first_xml.find("THIRD"));
 
-    const auto middle = write_selection(view(kThreeEcus), "SECOND", selection, "conf.xml");
+    const auto middle = WriteSelection(View(kThreeEcus), "SECOND", selection, "conf.xml");
     ASSERT_THAT(middle, fastecu::testing::IsOk());
-    const std::string middle_xml = text_of(*middle);
+    const std::string middle_xml = TextOf(*middle);
     EXPECT_LT(middle_xml.find("FIRST"), middle_xml.find("SECOND"));
     EXPECT_LT(middle_xml.find("SECOND"), middle_xml.find("THIRD"));
 
     // A brand-new ECU still goes to the end.
-    const auto added = write_selection(view(kThreeEcus), "FOURTH", selection, "conf.xml");
+    const auto added = WriteSelection(View(kThreeEcus), "FOURTH", selection, "conf.xml");
     ASSERT_THAT(added, fastecu::testing::IsOk());
-    const std::string added_xml = text_of(*added);
+    const std::string added_xml = TextOf(*added);
     EXPECT_LT(added_xml.find("THIRD"), added_xml.find("FOURTH"));
 }
 
@@ -337,10 +337,10 @@ TEST(WriteSelection, WritesFourSpaceIndentedXmlThatReadsBack)
     selection.lower_panel_ids = {"P2"};
     selection.switch_ids = {"S1"};
 
-    const auto written = write_selection(view("<config><logger></logger></config>"), "ECUID1", selection, "conf.xml");
+    const auto written = WriteSelection(View("<config><logger></logger></config>"), "ECUID1", selection, "conf.xml");
     ASSERT_THAT(written, fastecu::testing::IsOk());
 
-    const std::string xml = text_of(*written);
+    const std::string xml = TextOf(*written);
     EXPECT_THAT(xml, StartsWith("<config>\n    <logger>\n        <ecu id=\"ECUID1\">\n"));
     EXPECT_THAT(xml, HasSubstr("\n                        <parameter id=\"P1\" name=\"\" />\n"));
     EXPECT_THAT(xml, Not(HasSubstr("\t")));
@@ -348,7 +348,7 @@ TEST(WriteSelection, WritesFourSpaceIndentedXmlThatReadsBack)
     EXPECT_TRUE(xml.ends_with("</config>\n"));
     EXPECT_FALSE(xml.ends_with("\n\n"));
 
-    const auto read = read_selection(*written, "ECUID1", "conf.xml");
+    const auto read = ReadSelection(*written, "ECUID1", "conf.xml");
     ASSERT_THAT(read, fastecu::testing::IsOk());
     ASSERT_TRUE(read->has_value());
     EXPECT_EQ(**read, selection);
@@ -361,11 +361,11 @@ TEST(WriteSelection, IsIdempotentWhenWritingTheSameSelectionTwice)
     selection.gauge_ids = {"P1"};
     selection.switch_ids = {"S1"};
 
-    const auto first = write_selection(view("<config><logger/></config>"), "ECUID1", selection, "conf.xml");
+    const auto first = WriteSelection(View("<config><logger/></config>"), "ECUID1", selection, "conf.xml");
     ASSERT_THAT(first, fastecu::testing::IsOk());
-    const auto second = write_selection(*first, "ECUID1", selection, "conf.xml");
+    const auto second = WriteSelection(*first, "ECUID1", selection, "conf.xml");
     ASSERT_THAT(second, fastecu::testing::IsOk());
-    EXPECT_EQ(text_of(*second), text_of(*first));
+    EXPECT_EQ(TextOf(*second), TextOf(*first));
 }
 
 // document.save() re-serializes the whole DOM, so an untouched sibling <ecu>
@@ -393,15 +393,15 @@ TEST(WriteSelection, KeepsAnUntouchedSiblingEcuReadable)
     selection.protocol = "SSM";
     selection.gauge_ids = {"Y1"};
 
-    const auto written = write_selection(view(kOneEcu), "ECUID2", selection, "conf.xml");
+    const auto written = WriteSelection(View(kOneEcu), "ECUID2", selection, "conf.xml");
     ASSERT_THAT(written, fastecu::testing::IsOk());
 
-    const auto sibling = read_selection(*written, "ECUID1", "conf.xml");
+    const auto sibling = ReadSelection(*written, "ECUID1", "conf.xml");
     ASSERT_THAT(sibling, fastecu::testing::IsOk());
     ASSERT_TRUE(sibling->has_value());
     EXPECT_THAT((*sibling)->gauge_ids, ElementsAre("Z9"));
 
-    const auto added = read_selection(*written, "ECUID2", "conf.xml");
+    const auto added = ReadSelection(*written, "ECUID2", "conf.xml");
     ASSERT_THAT(added, fastecu::testing::IsOk());
     ASSERT_TRUE(added->has_value());
     EXPECT_THAT((*added)->gauge_ids, ElementsAre("Y1"));
@@ -421,10 +421,10 @@ TEST(WriteSelection, PreservesAnExistingCommentThroughARoundTrip)
     selection.protocol = "SSM";
     selection.gauge_ids = {"P1"};
 
-    const auto written = write_selection(view(kConfWithComment), "ECUID1", selection, "conf.xml");
+    const auto written = WriteSelection(View(kConfWithComment), "ECUID1", selection, "conf.xml");
     ASSERT_THAT(written, fastecu::testing::IsOk());
 
-    EXPECT_THAT(text_of(*written), HasSubstr("<!-- user note: don't touch ECUID1 -->"));
+    EXPECT_THAT(TextOf(*written), HasSubstr("<!-- user note: don't touch ECUID1 -->"));
 }
 
 } // namespace

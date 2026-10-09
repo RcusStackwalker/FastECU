@@ -20,7 +20,7 @@ void register_desktop_logging_protocols(LoggingEngine& engine, SerialPortActions
                                 auto transport = std::make_unique<mutdma::FastEcuKlineTransport>(&serial);
                                 auto init = std::make_unique<mutdma::AlreadyInMode>(125000);
                                 return std::make_unique<fastecu::logging::MutDmaLoggingProtocol>(
-                                    std::move(transport), std::move(init), snapshot.session.channels());
+                                    std::move(transport), std::move(init), snapshot.session.Channels());
                             });
 
     engine.registerProtocol(
@@ -45,12 +45,12 @@ void register_desktop_logging_protocols(LoggingEngine& engine, SerialPortActions
             const QString opened_port = serial.open_serial_port();
             if (opened_port.isEmpty() || !serial.is_serial_port_open())
             {
-                return fastecu::fail(fastecu::ErrorKind::kDisconnected, "unable to open CAN adapter for CDBG logging");
+                return fastecu::Fail(fastecu::ErrorKind::kDisconnected, "unable to open CAN adapter for CDBG logging");
             }
             auto transport = std::make_unique<cdbg::FastEcuCanTransport>(&serial);
             return std::unique_ptr<fastecu::logging::LoggingProtocol>(
                 std::make_unique<fastecu::logging::CdbgLoggingProtocol>(std::move(transport),
-                                                                        snapshot.session.channels()));
+                                                                        snapshot.session.Channels()));
         });
 
     engine.registerProtocol("SSM",
@@ -60,7 +60,7 @@ void register_desktop_logging_protocols(LoggingEngine& engine, SerialPortActions
                                 bool target_is_ecu = snapshot.target_is_ecu;
                                 bool use_openport2_adapter = serial.get_use_openport2_adapter();
                                 return std::make_unique<fastecu::logging::SsmLoggingProtocol>(
-                                    clock, std::move(transport), snapshot.session.channels(), snapshot.response_offsets,
+                                    clock, std::move(transport), snapshot.session.Channels(), snapshot.response_offsets,
                                     target_is_ecu, use_openport2_adapter);
                             });
 }

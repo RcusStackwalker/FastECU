@@ -13,14 +13,14 @@ Status SerialPortActionsConfigurator::apply(const SsmTransportConfig& config)
 {
     if (serial_ == nullptr)
     {
-        return fail(ErrorKind::kDisconnected, "no serial facade");
+        return Fail(ErrorKind::kDisconnected, "no serial facade");
     }
 
     try
     {
         if (!serial_->reset_connection())
         {
-            return fail(ErrorKind::kInternal, "reset_connection failed");
+            return Fail(ErrorKind::kInternal, "reset_connection failed");
         }
         if (config.framing == SsmTransportConfig::Framing::kIso15765)
         {
@@ -30,52 +30,52 @@ Status SerialPortActionsConfigurator::apply(const SsmTransportConfig& config)
             // state cannot alter these sessions' self-framed requests.
             if (!serial_->set_is_iso14230_connection(false))
             {
-                return fail(ErrorKind::kInvalidConfig, "set_is_iso14230_connection failed");
+                return Fail(ErrorKind::kInvalidConfig, "set_is_iso14230_connection failed");
             }
             if (!serial_->set_is_can_connection(false))
             {
-                return fail(ErrorKind::kInvalidConfig, "set_is_can_connection failed");
+                return Fail(ErrorKind::kInvalidConfig, "set_is_can_connection failed");
             }
             if (!serial_->set_is_iso15765_connection(true))
             {
-                return fail(ErrorKind::kInvalidConfig, "set_is_iso15765_connection failed");
+                return Fail(ErrorKind::kInvalidConfig, "set_is_iso15765_connection failed");
             }
             if (!serial_->set_is_29_bit_id(false))
             {
-                return fail(ErrorKind::kInvalidConfig, "set_is_29_bit_id failed");
+                return Fail(ErrorKind::kInvalidConfig, "set_is_29_bit_id failed");
             }
             if (!serial_->set_add_iso14230_header(config.add_iso14230_header))
             {
-                return fail(ErrorKind::kInvalidConfig, "set_add_iso14230_header failed");
+                return Fail(ErrorKind::kInvalidConfig, "set_add_iso14230_header failed");
             }
             if (!serial_->set_can_speed(QString::number(config.bitrate_or_baud)))
             {
-                return fail(ErrorKind::kInvalidConfig, "set_can_speed failed");
+                return Fail(ErrorKind::kInvalidConfig, "set_can_speed failed");
             }
             if (!serial_->set_iso15765_source_address(config.request_id))
             {
-                return fail(ErrorKind::kInvalidConfig, "set_iso15765_source_address failed");
+                return Fail(ErrorKind::kInvalidConfig, "set_iso15765_source_address failed");
             }
             if (!serial_->set_iso15765_destination_address(config.response_id))
             {
-                return fail(ErrorKind::kInvalidConfig, "set_iso15765_destination_address failed");
+                return Fail(ErrorKind::kInvalidConfig, "set_iso15765_destination_address failed");
             }
             if (!serial_->set_can_source_address(config.request_id))
             {
-                return fail(ErrorKind::kInvalidConfig, "set_can_source_address failed");
+                return Fail(ErrorKind::kInvalidConfig, "set_can_source_address failed");
             }
             if (!serial_->set_can_destination_address(config.response_id))
             {
-                return fail(ErrorKind::kInvalidConfig, "set_can_destination_address failed");
+                return Fail(ErrorKind::kInvalidConfig, "set_can_destination_address failed");
             }
 
             if (serial_->open_serial_port().isEmpty())
             {
-                return fail(ErrorKind::kDisconnected, "serial port did not open");
+                return Fail(ErrorKind::kDisconnected, "serial port did not open");
             }
             if (!serial_->is_serial_port_open())
             {
-                return fail(ErrorKind::kDisconnected, "serial port is not open after ISO-15765 setup");
+                return Fail(ErrorKind::kDisconnected, "serial port is not open after ISO-15765 setup");
             }
             return {};
         }
@@ -86,47 +86,47 @@ Status SerialPortActionsConfigurator::apply(const SsmTransportConfig& config)
         // through into live service I/O.
         if (!serial_->set_is_can_connection(false))
         {
-            return fail(ErrorKind::kInvalidConfig, "set_is_can_connection failed");
+            return Fail(ErrorKind::kInvalidConfig, "set_is_can_connection failed");
         }
         if (!serial_->set_is_iso15765_connection(false))
         {
-            return fail(ErrorKind::kInvalidConfig, "set_is_iso15765_connection failed");
+            return Fail(ErrorKind::kInvalidConfig, "set_is_iso15765_connection failed");
         }
         if (!serial_->set_is_iso14230_connection(true))
         {
-            return fail(ErrorKind::kInvalidConfig, "set_is_iso14230_connection failed");
+            return Fail(ErrorKind::kInvalidConfig, "set_is_iso14230_connection failed");
         }
         if (serial_->open_serial_port().isEmpty())
         {
-            return fail(ErrorKind::kDisconnected, "serial port did not open");
+            return Fail(ErrorKind::kDisconnected, "serial port did not open");
         }
         if (!serial_->is_serial_port_open())
         {
-            return fail(ErrorKind::kDisconnected, "serial port is not open before K-Line baud change");
+            return Fail(ErrorKind::kDisconnected, "serial port is not open before K-Line baud change");
         }
 
         const int baud_result = serial_->change_port_speed(QString::number(config.bitrate_or_baud));
         if (!serial_->is_serial_port_open())
         {
-            return fail(ErrorKind::kDisconnected, "serial port closed during K-Line baud change");
+            return Fail(ErrorKind::kDisconnected, "serial port closed during K-Line baud change");
         }
         if (baud_result != 0)
         {
-            return fail(ErrorKind::kInternal, "K-Line driver rejected baud change");
+            return Fail(ErrorKind::kInternal, "K-Line driver rejected baud change");
         }
         if (!serial_->set_add_iso14230_header(config.add_iso14230_header))
         {
-            return fail(ErrorKind::kInvalidConfig, "set_add_iso14230_header failed");
+            return Fail(ErrorKind::kInvalidConfig, "set_add_iso14230_header failed");
         }
         return {};
     }
     catch (const std::exception& error)
     {
-        return fail(ErrorKind::kInternal, error.what());
+        return Fail(ErrorKind::kInternal, error.what());
     }
     catch (...)
     {
-        return fail(ErrorKind::kInternal, "serial facade configuration exception");
+        return Fail(ErrorKind::kInternal, "serial facade configuration exception");
     }
 }
 

@@ -26,37 +26,37 @@ TEST(CanFlashUdsChannelTest, PrependsTheRequestIdOnSend)
 {
     ScriptedCanFlashTransport transport;
     FakeCancellationToken cancellation;
-    transport.expectWrite(Bytes{0x00, 0x00, 0x07, 0xE0, 0x10, 0x03});
+    transport.ExpectWrite(Bytes{0x00, 0x00, 0x07, 0xE0, 0x10, 0x03});
 
     CanFlashUdsChannel channel(transport, kRequestId, kResponseId);
-    EXPECT_THAT(channel.send(Bytes{0x10, 0x03}, cancellation), fastecu::testing::IsOk());
-    EXPECT_EQ(transport.writesConsumed(), 1U);
+    EXPECT_THAT(channel.Send(Bytes{0x10, 0x03}, cancellation), fastecu::testing::IsOk());
+    EXPECT_EQ(transport.WritesConsumed(), 1U);
 }
 
 TEST(CanFlashUdsChannelTest, StripsTheReplyIdOnReceive)
 {
     ScriptedCanFlashTransport transport;
     FakeCancellationToken cancellation;
-    transport.queueRead(Bytes{0x00, 0x00, 0x07, 0xE8, 0x50, 0x03});
+    transport.QueueRead(Bytes{0x00, 0x00, 0x07, 0xE8, 0x50, 0x03});
 
     CanFlashUdsChannel channel(transport, kRequestId, kResponseId);
-    const auto received = channel.receive(500ms, cancellation);
+    const auto received = channel.Receive(500ms, cancellation);
 
     ASSERT_THAT(received, fastecu::testing::IsOk());
     ASSERT_TRUE(received->has_value());
     EXPECT_THAT(**received, ElementsAre(0x50, 0x03));
-    ASSERT_TRUE(channel.last_received_frame().has_value());
-    EXPECT_THAT(*channel.last_received_frame(), ElementsAre(0x00, 0x00, 0x07, 0xE8, 0x50, 0x03));
+    ASSERT_TRUE(channel.LastReceivedFrame().has_value());
+    EXPECT_THAT(*channel.LastReceivedFrame(), ElementsAre(0x00, 0x00, 0x07, 0xE8, 0x50, 0x03));
 }
 
 TEST(CanFlashUdsChannelTest, PassesATimeoutThroughAsAnEmptyOptional)
 {
     ScriptedCanFlashTransport transport;
     FakeCancellationToken cancellation;
-    transport.queue_no_frame();
+    transport.QueueNoFrame();
 
     CanFlashUdsChannel channel(transport, kRequestId, kResponseId);
-    const auto received = channel.receive(500ms, cancellation);
+    const auto received = channel.Receive(500ms, cancellation);
 
     ASSERT_THAT(received, fastecu::testing::IsOk());
     EXPECT_FALSE(received->has_value());
@@ -66,20 +66,20 @@ TEST(CanFlashUdsChannelTest, RejectsAFrameShorterThanTheEnvelope)
 {
     ScriptedCanFlashTransport transport;
     FakeCancellationToken cancellation;
-    transport.queueRead(Bytes{0x00, 0x00, 0x07});
+    transport.QueueRead(Bytes{0x00, 0x00, 0x07});
 
     CanFlashUdsChannel channel(transport, kRequestId, kResponseId);
-    ASSERT_THAT(channel.receive(500ms, cancellation), fastecu::testing::IsErr(ErrorKind::kBadResponse));
+    ASSERT_THAT(channel.Receive(500ms, cancellation), fastecu::testing::IsErr(ErrorKind::kBadResponse));
 }
 
 TEST(CanFlashUdsChannelTest, RejectsAFrameFromAnUnexpectedReplyId)
 {
     ScriptedCanFlashTransport transport;
     FakeCancellationToken cancellation;
-    transport.queueRead(Bytes{0x00, 0x00, 0x07, 0xE9, 0x50, 0x03});
+    transport.QueueRead(Bytes{0x00, 0x00, 0x07, 0xE9, 0x50, 0x03});
 
     CanFlashUdsChannel channel(transport, kRequestId, kResponseId);
-    const auto received = channel.receive(500ms, cancellation);
+    const auto received = channel.Receive(500ms, cancellation);
 
     ASSERT_THAT(received, fastecu::testing::IsErr(ErrorKind::kBadResponse));
     EXPECT_THAT(received.error().detail, HasSubstr("7e9"));
@@ -91,10 +91,10 @@ TEST(CanFlashUdsChannelTest, AcceptsAnEnvelopeOnlyFrameAsAnEmptyPdu)
     // client above classifies it as Malformed.
     ScriptedCanFlashTransport transport;
     FakeCancellationToken cancellation;
-    transport.queueRead(Bytes{0x00, 0x00, 0x07, 0xE8});
+    transport.QueueRead(Bytes{0x00, 0x00, 0x07, 0xE8});
 
     CanFlashUdsChannel channel(transport, kRequestId, kResponseId);
-    const auto received = channel.receive(500ms, cancellation);
+    const auto received = channel.Receive(500ms, cancellation);
 
     ASSERT_THAT(received, fastecu::testing::IsOk());
     ASSERT_TRUE(received->has_value());
@@ -105,10 +105,10 @@ TEST(CanFlashUdsChannelTest, PropagatesATransportError)
 {
     ScriptedCanFlashTransport transport;
     FakeCancellationToken cancellation;
-    transport.queue_error(ErrorKind::kDisconnected, "adapter closed");
+    transport.QueueError(ErrorKind::kDisconnected, "adapter closed");
 
     CanFlashUdsChannel channel(transport, kRequestId, kResponseId);
-    ASSERT_THAT(channel.receive(500ms, cancellation),
+    ASSERT_THAT(channel.Receive(500ms, cancellation),
                 fastecu::testing::IsErrWith(ErrorKind::kDisconnected, "adapter closed"));
 }
 

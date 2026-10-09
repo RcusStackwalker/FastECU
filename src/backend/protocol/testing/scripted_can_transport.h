@@ -13,46 +13,46 @@ namespace cdbg
 class ScriptedCanTransport : public ICanTransport
 {
   public:
-    void expectWrite(std::uint32_t id, bytes::ByteView payload)
+    void ExpectWrite(std::uint32_t id, bytes::ByteView payload)
     {
         expected_ids_.push_back(id);
         expected_payloads_.emplace_back(payload.begin(), payload.end());
     }
-    void queueRead(std::uint32_t id, bytes::ByteView payload)
+    void QueueRead(std::uint32_t id, bytes::ByteView payload)
     {
         reads_.emplace_back(std::optional<CanFrame>{CanFrame{id, bytes::Bytes(payload.begin(), payload.end())}});
     }
-    void queue_no_frame()
+    void QueueNoFrame()
     {
         reads_.emplace_back(std::optional<CanFrame>{});
     }
-    void queue_error(fastecu::ErrorKind kind, std::string detail = {})
+    void QueueError(fastecu::ErrorKind kind, std::string detail = {})
     {
-        reads_.emplace_back(fastecu::fail(kind, std::move(detail)));
+        reads_.emplace_back(fastecu::Fail(kind, std::move(detail)));
     }
-    bool scriptConsumed() const
+    bool ScriptConsumed() const
     {
         return w_idx_ == expected_ids_.size() && reads_.empty();
     }
-    bool ok() const
+    bool Ok() const
     {
         return ok_;
     }
-    void setOpen(bool open)
+    void SetOpen(bool open)
     {
         open_ = open;
     }
-    bool isOpen() const override
+    bool IsOpen() const override
     {
         return open_;
     }
-    fastecu::Result<std::size_t> write(std::uint32_t id, bytes::ByteView payload) override
+    fastecu::Result<std::size_t> Write(std::uint32_t id, bytes::ByteView payload) override
     {
         if (w_idx_ >= expected_ids_.size() || expected_ids_.at(w_idx_) != id ||
             expected_payloads_.at(w_idx_) != bytes::Bytes(payload.begin(), payload.end()))
         {
             ok_ = false;
-            return fastecu::fail(fastecu::ErrorKind::kInternal, "unexpected scripted CAN write");
+            return fastecu::Fail(fastecu::ErrorKind::kInternal, "unexpected scripted CAN write");
         }
         else
         {
@@ -60,16 +60,16 @@ class ScriptedCanTransport : public ICanTransport
         }
         return payload.size();
     }
-    fastecu::Result<std::optional<CanFrame>> read(std::chrono::milliseconds,
+    fastecu::Result<std::optional<CanFrame>> Read(std::chrono::milliseconds,
                                                   const fastecu::ICancellationToken& cancellation) override
     {
-        if (cancellation.cancelled())
+        if (cancellation.Cancelled())
         {
-            return fastecu::fail(fastecu::ErrorKind::kCancelled, "scripted CAN read cancelled");
+            return fastecu::Fail(fastecu::ErrorKind::kCancelled, "scripted CAN read cancelled");
         }
         if (reads_.empty())
         {
-            return fastecu::fail(fastecu::ErrorKind::kInternal, "no scripted CAN read outcome");
+            return fastecu::Fail(fastecu::ErrorKind::kInternal, "no scripted CAN read outcome");
         }
         auto result = std::move(reads_.front());
         reads_.pop_front();

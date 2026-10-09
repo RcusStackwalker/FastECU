@@ -59,7 +59,7 @@ TEST(MapPresentation, ColorBoundsStayAtOpeningValuesAfterEdit)
     ASSERT_TRUE(bounds.has_value());
     EXPECT_EQ(bounds->minimum, 1.0);
     EXPECT_EQ(bounds->maximum, 4.0);
-    ASSERT_THAT(rom.write_bytes(0, bytes::Bytes{20}), fastecu::testing::IsOk());
+    ASSERT_THAT(rom.WriteBytes(0, bytes::Bytes{20}), fastecu::testing::IsOk());
     shown = present_map(rom, 0);
     ASSERT_THAT(shown, fastecu::testing::IsOk());
     EXPECT_EQ(shown->body[0].text, "20.00");

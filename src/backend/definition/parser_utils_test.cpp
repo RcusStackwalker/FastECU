@@ -20,7 +20,7 @@ TEST(ParserUtilsTest, AdoptInlineScalingTakesTheNameAndFillsOnlyUnsetStorageAndE
     scaling.endian = "little";
 
     UnresolvedCalibrationMap unset;
-    adopt_inline_scaling(scaling, unset);
+    AdoptInlineScaling(scaling, unset);
     EXPECT_EQ(unset.scaling_name, "inline");
     EXPECT_EQ(unset.storage_type, StorageType::kUint8);
     EXPECT_EQ(unset.endian, "little");
@@ -29,7 +29,7 @@ TEST(ParserUtilsTest, AdoptInlineScalingTakesTheNameAndFillsOnlyUnsetStorageAndE
     set.scaling_name = "reference";
     set.storage_type = StorageType::kUint16;
     set.endian = "big";
-    adopt_inline_scaling(scaling, set);
+    AdoptInlineScaling(scaling, set);
     EXPECT_EQ(set.scaling_name, "inline");
     EXPECT_EQ(set.storage_type, StorageType::kUint16);
     EXPECT_EQ(set.endian, "big");
@@ -39,14 +39,14 @@ TEST(ParserUtilsTest, MapScalingFallbackNamePrefersReferenceThenIdThenName)
 {
     UnresolvedCalibrationMap map;
     map.name = "Fuel";
-    EXPECT_EQ(map_scaling_fallback_name(map), "Fuel");
+    EXPECT_EQ(MapScalingFallbackName(map), "Fuel");
     map.id = "fuel-primary";
-    EXPECT_EQ(map_scaling_fallback_name(map), "fuel-primary");
+    EXPECT_EQ(MapScalingFallbackName(map), "fuel-primary");
     map.scaling_name = "fuel-scale";
-    EXPECT_EQ(map_scaling_fallback_name(map), "fuel-scale");
+    EXPECT_EQ(MapScalingFallbackName(map), "fuel-scale");
 }
 
-std::span<const std::uint8_t> xml_bytes(std::string_view xml)
+std::span<const std::uint8_t> XmlBytes(std::string_view xml)
 {
     return {reinterpret_cast<const std::uint8_t *>(xml.data()), xml.size()};
 }
@@ -54,7 +54,7 @@ std::span<const std::uint8_t> xml_bytes(std::string_view xml)
 TEST(ParserUtilsTest, DocumentLoadingRetainsParseErrorSourceContext)
 {
     pugi::xml_document document;
-    const auto result = parse_document_root(document, xml_bytes("<rom><romid>"), "broken.xml", pugi::encoding_auto);
+    const auto result = ParseDocumentRoot(document, XmlBytes("<rom><romid>"), "broken.xml", pugi::encoding_auto);
     ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     EXPECT_NE(result.error().detail.find("source 'broken.xml': XML document: malformed XML:"), std::string::npos);
 }
@@ -69,23 +69,23 @@ TEST(ParserUtilsTest, DocumentEncodingDistinguishesFileBytesFromUtf8FormText)
         bytes.push_back(static_cast<std::uint8_t>(value >> 8));
     }
     pugi::xml_document file_document;
-    const auto file_root = parse_document_root(file_document, bytes, "encoded.xml", pugi::encoding_auto);
+    const auto file_root = ParseDocumentRoot(file_document, bytes, "encoded.xml", pugi::encoding_auto);
     ASSERT_THAT(file_root, fastecu::testing::IsOk());
-    EXPECT_EQ(child_text(file_root->child("romid"), "xmlid"), "Caf\xc3\xa9");
+    EXPECT_EQ(ChildText(file_root->child("romid"), "xmlid"), "Caf\xc3\xa9");
 
     pugi::xml_document form_document;
-    const auto form_root = parse_document_root(form_document,
-                                               xml_bytes("<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?>"
-                                                         "<rom><romid><xmlid>Caf\xc3\xa9</xmlid></romid></rom>"),
-                                               "form", pugi::encoding_utf8);
+    const auto form_root = ParseDocumentRoot(form_document,
+                                             XmlBytes("<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?>"
+                                                      "<rom><romid><xmlid>Caf\xc3\xa9</xmlid></romid></rom>"),
+                                             "form", pugi::encoding_utf8);
     ASSERT_THAT(form_root, fastecu::testing::IsOk());
-    EXPECT_EQ(child_text(form_root->child("romid"), "xmlid"), "Caf\xc3\xa9");
+    EXPECT_EQ(ChildText(form_root->child("romid"), "xmlid"), "Caf\xc3\xa9");
 }
 
 TEST(ParserUtilsTest, StrictRootSelectionDoesNotAcceptAuthoringContainerPolicy)
 {
     pugi::xml_document document;
-    const auto root = parse_root(document, xml_bytes("<roms><rom/></roms>"), "wrong-root.xml", "rom");
+    const auto root = ParseRoot(document, XmlBytes("<roms><rom/></roms>"), "wrong-root.xml", "rom");
     ASSERT_THAT(root, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     EXPECT_NE(root.error().detail.find("root element <rom>: wrong root; found <roms>"), std::string::npos);
 }
@@ -96,7 +96,7 @@ TEST(ParserUtilsTest, RomHeaderOwnsNormalizedIdentityAndBorrowsTheRomElement)
     ASSERT_TRUE(
         document.load_string("<rom><romid><xmlid> ID </xmlid><internalidstring> INTERNAL </internalidstring>"
                              "<ecuid> ECU </ecuid><internalidaddress> 0x20 </internalidaddress></romid></rom>"));
-    const auto header = parse_rom_header(document.document_element(), "identity.xml");
+    const auto header = ParseRomHeader(document.document_element(), "identity.xml");
     ASSERT_THAT(header, fastecu::testing::IsOk());
     EXPECT_EQ(header->rom, document.document_element());
     EXPECT_EQ(header->identity,
@@ -107,7 +107,7 @@ TEST(ParserUtilsTest, RomHeaderKeepsMissingAddressOptional)
 {
     pugi::xml_document document;
     ASSERT_TRUE(document.load_string("<rom><romid><xmlid>ID</xmlid></romid></rom>"));
-    const auto header = parse_rom_header(document.document_element(), "identity.xml");
+    const auto header = ParseRomHeader(document.document_element(), "identity.xml");
     ASSERT_THAT(header, fastecu::testing::IsOk());
     EXPECT_EQ(header->identity,
               (RomIdentity{.xml_id = "ID", .internal_id = "", .ecu_id = "", .internal_id_address = std::nullopt}));
@@ -126,7 +126,7 @@ TEST(ParserUtilsTest, RomHeaderRejectsMissingAndDuplicateIdentityElementsWithCon
         SCOPED_TRACE(xml);
         pugi::xml_document document;
         ASSERT_TRUE(document.load_buffer(xml.data(), xml.size()));
-        const auto header = parse_rom_header(document.document_element(), "identity.xml");
+        const auto header = ParseRomHeader(document.document_element(), "identity.xml");
         ASSERT_THAT(header, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
         EXPECT_NE(header.error().detail.find("source 'identity.xml'"), std::string::npos);
         EXPECT_NE(header.error().detail.find(context), std::string::npos);
@@ -142,7 +142,7 @@ TEST(ParserUtilsTest, RomHeaderRejectsInvalidAndOverflowingAddressesWithDefiniti
         const std::string xml =
             "<rom><romid><xmlid>ID</xmlid><internalidaddress>" + address + "</internalidaddress></romid></rom>";
         ASSERT_TRUE(document.load_string(xml.c_str()));
-        const auto header = parse_rom_header(document.document_element(), "identity.xml");
+        const auto header = ParseRomHeader(document.document_element(), "identity.xml");
         ASSERT_THAT(header, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
         EXPECT_NE(header.error().detail.find(
                       "source 'identity.xml', definition 'ID': element <romid> child <internalidaddress>"),
@@ -159,17 +159,17 @@ TEST(ParserUtilsTest, StrictMetadataNormalizesAllEditableFieldsAndKeepsRomIdExtr
         "<submodel> submodel </submodel><transmission> transmission </transmission><year> year </year>"
         "<flashmethod> flash </flashmethod><memmodel> memory </memmodel><checksummodule> checksum </checksummodule>"
         "<filesize> 1024 </filesize><notes> metadata notes </notes></romid><notes>root notes</notes></rom>"));
-    EXPECT_EQ(parse_metadata(document.document_element().child("romid")), (RomMetadata{.make = "make",
-                                                                                       .market = "market",
-                                                                                       .model = "model",
-                                                                                       .submodel = "submodel",
-                                                                                       .transmission = "transmission",
-                                                                                       .year = "year",
-                                                                                       .flash_method = "flash",
-                                                                                       .memory_model = "memory",
-                                                                                       .checksum_module = "checksum",
-                                                                                       .file_size = "1024",
-                                                                                       .notes = " metadata notes "}));
+    EXPECT_EQ(ParseMetadata(document.document_element().child("romid")), (RomMetadata{.make = "make",
+                                                                                      .market = "market",
+                                                                                      .model = "model",
+                                                                                      .submodel = "submodel",
+                                                                                      .transmission = "transmission",
+                                                                                      .year = "year",
+                                                                                      .flash_method = "flash",
+                                                                                      .memory_model = "memory",
+                                                                                      .checksum_module = "checksum",
+                                                                                      .file_size = "1024",
+                                                                                      .notes = " metadata notes "}));
 }
 
 } // namespace
@@ -183,11 +183,11 @@ TEST(ParserUtilsTest, HeaderReadsAllDirectTextAndNormalizesUnicodePadding)
                                      "<internalidaddress>\xc2\xa0+0X10\xe3\x80\x80</internalidaddress>"
                                      "<model> Mitsubishi Colt </model><notes> \nnotes \n </notes></romid></rom>",
                                      pugi::parse_default | pugi::parse_comments));
-    const auto header = parse_rom_header(document.document_element(), "header.xml");
+    const auto header = ParseRomHeader(document.document_element(), "header.xml");
     ASSERT_THAT(header, fastecu::testing::IsOk());
     EXPECT_EQ(header->identity.xml_id, "CAL123X");
     EXPECT_EQ(header->identity.internal_id_address, 16U);
-    const auto metadata = parse_metadata(header->rom.child("romid"));
+    const auto metadata = ParseMetadata(header->rom.child("romid"));
     EXPECT_EQ(metadata.model, "Mitsubishi Colt");
     EXPECT_EQ(metadata.notes, " \nnotes \n ");
 }
@@ -197,7 +197,7 @@ TEST(ParserUtilsTest, HeaderTreatsBlankAddressAsAbsent)
     pugi::xml_document document;
     ASSERT_TRUE(document.load_string("<rom><romid><xmlid>ID</xmlid>"
                                      "<internalidaddress>\xc2\xa0 </internalidaddress></romid></rom>"));
-    const auto header = parse_rom_header(document.document_element(), "header.xml");
+    const auto header = ParseRomHeader(document.document_element(), "header.xml");
     ASSERT_THAT(header, fastecu::testing::IsOk());
     EXPECT_EQ(header->identity.internal_id_address, std::nullopt);
 }
@@ -210,7 +210,7 @@ TEST(ParserUtilsTest, HeaderRejectsNestedScalarContentWithSourceContext)
         const std::string xml = "<rom><romid><" + field + ">A<b>B</b></" + field + ">" +
                                 (field == "xmlid" ? "" : "<xmlid>ID</xmlid>") + "</romid></rom>";
         ASSERT_TRUE(document.load_string(xml.c_str()));
-        const auto header = parse_rom_header(document.document_element(), "nested.xml");
+        const auto header = ParseRomHeader(document.document_element(), "nested.xml");
         ASSERT_THAT(header, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
         EXPECT_THAT(header.error().detail, ::testing::HasSubstr("nested.xml"));
         EXPECT_THAT(header.error().detail, ::testing::HasSubstr(field));
@@ -220,7 +220,7 @@ TEST(ParserUtilsTest, HeaderRejectsNestedScalarContentWithSourceContext)
 TEST(ParserUtilsTest, DocumentLoadingRejectsMultipleRootsForStrictLoadersToo)
 {
     pugi::xml_document document;
-    EXPECT_THAT(parse_document_root(document, xml_bytes("<rom/><rom/>"), "roots.xml", pugi::encoding_auto),
+    EXPECT_THAT(ParseDocumentRoot(document, XmlBytes("<rom/><rom/>"), "roots.xml", pugi::encoding_auto),
                 fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 

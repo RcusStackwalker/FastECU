@@ -208,7 +208,7 @@ TEST(BenchCommands, WrongPositiveReplyReturnsAFailureOutcomeWithTrafficEvidence)
 TEST(BenchCommands, SessionFailureAfterIoRetainsTheObservedResponse)
 {
     Harness harness;
-    harness.session.replies = {fail(ErrorKind::kBadResponse, "negative response")};
+    harness.session.replies = {Fail(ErrorKind::kBadResponse, "negative response")};
     harness.session.received_on_error = {bytes::Bytes{0x7F, 0x22, 0x31}};
 
     const CommandOutcome outcome = harness.run(destructiveStep(CommandId::Send, {"22", "f1", "90"}));

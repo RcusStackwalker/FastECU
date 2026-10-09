@@ -39,7 +39,7 @@ bytes::Bytes response(bytes::ByteView pdu)
 struct Harness
 {
     flash::ScriptedCanFlashTransport *transport = nullptr;
-    FakeClock clock = make_auto_advancing_clock(1ms);
+    FakeClock clock = MakeAutoAdvancingClock(1ms);
     RecordingEventSink events;
     FakeCancellationToken cancellation;
     std::unique_ptr<BenchSession> session;
@@ -54,32 +54,32 @@ struct Harness
 
     void expectSession(bytes::Byte echoed_session = mitsu_colt_can::kSessionBootload)
     {
-        transport->expectWrite(request(mitsu_colt_can::BuildDiagnosticSession(mitsu_colt_can::kSessionBootload)));
-        transport->queueRead(response(bytes::Bytes{0x50, echoed_session}));
+        transport->ExpectWrite(request(mitsu_colt_can::BuildDiagnosticSession(mitsu_colt_can::kSessionBootload)));
+        transport->QueueRead(response(bytes::Bytes{0x50, echoed_session}));
     }
 
     void expectSeed(bytes::Byte echoed_level = 0x05)
     {
-        transport->expectWrite(request(mitsu_colt_can::BuildSecurityAccessSeedRequest()));
-        transport->queueRead(response(bytes::ComposeBe(bytes::Byte{0x67}, echoed_level, kSeed)));
+        transport->ExpectWrite(request(mitsu_colt_can::BuildSecurityAccessSeedRequest()));
+        transport->QueueRead(response(bytes::ComposeBe(bytes::Byte{0x67}, echoed_level, kSeed)));
     }
 
     void expectKey(bytes::Byte echoed_level = 0x06)
     {
-        transport->expectWrite(request(mitsu_colt_can::BuildSecurityAccessKey(mitsu_colt_can::SeedKey(kSeed))));
-        transport->queueRead(response(bytes::Bytes{0x67, echoed_level}));
+        transport->ExpectWrite(request(mitsu_colt_can::BuildSecurityAccessKey(mitsu_colt_can::SeedKey(kSeed))));
+        transport->QueueRead(response(bytes::Bytes{0x67, echoed_level}));
     }
 
     void expectBasicSession(bytes::Byte echoed_session = mitsu_colt_can::kSessionBasic)
     {
-        transport->expectWrite(request(mitsu_colt_can::BuildDiagnosticSession(mitsu_colt_can::kSessionBasic)));
-        transport->queueRead(response(bytes::Bytes{0x50, echoed_session}));
+        transport->ExpectWrite(request(mitsu_colt_can::BuildDiagnosticSession(mitsu_colt_can::kSessionBasic)));
+        transport->QueueRead(response(bytes::Bytes{0x50, echoed_session}));
     }
 
     void expectVendorSeed()
     {
-        transport->expectWrite(request(mitsu_colt_can_vendor_ext::BuildChallengeSeedRequest()));
-        transport->queueRead(
+        transport->ExpectWrite(request(mitsu_colt_can_vendor_ext::BuildChallengeSeedRequest()));
+        transport->QueueRead(
             response(bytes::ComposeBe(bytes::Byte{0x63}, mitsu_colt_can_vendor_ext::kVendorChallengeSelector,
                                       mitsu_colt_can_vendor_ext::kVendorChallengeSeedSubfunction, kVendorSeed)));
     }
@@ -88,8 +88,8 @@ struct Harness
     {
         const std::uint32_t key =
             mitsu_colt_can_vendor_ext::ChallengeInverseTransform(mitsu_colt_can_vendor_ext::BytesToSeed(kVendorSeed));
-        transport->expectWrite(request(mitsu_colt_can_vendor_ext::BuildChallengeKey(key)));
-        transport->queueRead(
+        transport->ExpectWrite(request(mitsu_colt_can_vendor_ext::BuildChallengeKey(key)));
+        transport->QueueRead(
             response(bytes::Bytes{0x63, mitsu_colt_can_vendor_ext::kVendorChallengeSelector, accepted}));
     }
 };
@@ -102,7 +102,7 @@ TEST(BenchSession, ConnectSendsTheExactThreeHandshakePdusOnceAndRecordsEvidence)
     harness.expectKey();
 
     ASSERT_THAT(harness.session->connect(), fastecu::testing::IsOk());
-    EXPECT_TRUE(harness.transport->scriptConsumed());
+    EXPECT_TRUE(harness.transport->ScriptConsumed());
     const TrafficEvidence& traffic = harness.session->last_traffic();
     EXPECT_EQ(traffic.exchange_count, 3U);
     EXPECT_THAT(traffic.tx,
@@ -150,7 +150,7 @@ TEST(BenchSession, VendorChallengeIsSkippedWhenNotRequested)
     harness.expectKey();
 
     ASSERT_THAT(harness.session->connect(), fastecu::testing::IsOk());
-    EXPECT_TRUE(harness.transport->scriptConsumed());
+    EXPECT_TRUE(harness.transport->ScriptConsumed());
     EXPECT_EQ(harness.session->last_traffic().exchange_count, 3U);
 }
 
@@ -167,7 +167,7 @@ TEST(BenchSession, VendorChallengePrecedesTheBootloadSessionInOrder)
     ASSERT_THAT(harness.session->connect(), fastecu::testing::IsOk());
     // ScriptedCanFlashTransport rejects any write that does not match the next
     // expectation in order, so a green script IS the ordering assertion.
-    EXPECT_TRUE(harness.transport->scriptConsumed());
+    EXPECT_TRUE(harness.transport->ScriptConsumed());
     EXPECT_EQ(harness.session->last_traffic().exchange_count, 6U);
 }
 
@@ -190,10 +190,10 @@ TEST(BenchSession, VendorChallengeRejectsAKeyReplyThatOnlyEchoesAcceptance)
     harness.expectVendorSeed();
     const std::uint32_t key =
         mitsu_colt_can_vendor_ext::ChallengeInverseTransform(mitsu_colt_can_vendor_ext::BytesToSeed(kVendorSeed));
-    harness.transport->expectWrite(request(mitsu_colt_can_vendor_ext::BuildChallengeKey(key)));
+    harness.transport->ExpectWrite(request(mitsu_colt_can_vendor_ext::BuildChallengeKey(key)));
     // 0x00 in place of kVendorChallengeSelector: kVendorChallengeAccepted is
     // present, but byte 0 does not echo the selector back.
-    harness.transport->queueRead(
+    harness.transport->QueueRead(
         response(bytes::Bytes{0x63, 0x00, mitsu_colt_can_vendor_ext::kVendorChallengeAccepted}));
 
     ASSERT_THAT(harness.session->connect(), fastecu::testing::IsErr(ErrorKind::kBadResponse));
@@ -203,9 +203,9 @@ TEST(BenchSession, VendorChallengeRejectsAShortSeedReply)
 {
     Harness harness{true};
     harness.expectBasicSession();
-    harness.transport->expectWrite(request(mitsu_colt_can_vendor_ext::BuildChallengeSeedRequest()));
+    harness.transport->ExpectWrite(request(mitsu_colt_can_vendor_ext::BuildChallengeSeedRequest()));
     // Selector bytes present but only two seed bytes behind them.
-    harness.transport->queueRead(
+    harness.transport->QueueRead(
         response(bytes::Bytes{0x63, mitsu_colt_can_vendor_ext::kVendorChallengeSelector,
                               mitsu_colt_can_vendor_ext::kVendorChallengeSeedSubfunction, 0xDE, 0xAD}));
 

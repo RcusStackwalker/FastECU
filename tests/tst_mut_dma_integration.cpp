@@ -289,7 +289,7 @@ TEST_F(MutDmaIntegrationTest, setBaud_throughAdapter_trueWhenConnected_falseWhen
     SerialPortActions closed{directBackend()}; // never opened
     FastEcuKlineTransport closed_tr(&closed);
     // change_port_speed returns STATUS_ERROR when the port is not open -> false.
-    const auto closed_result = closed_tr.setBaud(15625);
+    const auto closed_result = closed_tr.SetBaud(15625);
     ASSERT_TRUE(!closed_result);
     ASSERT_EQ(closed_result.error().kind, fastecu::ErrorKind::kDisconnected);
 
@@ -305,8 +305,8 @@ TEST_F(MutDmaIntegrationTest, setBaud_throughAdapter_trueWhenConnected_falseWhen
         FastEcuKlineTransport tr(&spad);
         // Connected + Openport branch -> change_port_speed routes to SET_CONFIG ioctl
         // and returns STATUS_SUCCESS -> adapter setBaud() == true.
-        ASSERT_TRUE(tr.setBaud(15625));
-        ASSERT_TRUE(tr.setBaud(62500));
+        ASSERT_TRUE(tr.SetBaud(15625));
+        ASSERT_TRUE(tr.SetBaud(62500));
     }
     ::close(master);
 }
@@ -339,7 +339,7 @@ TEST_F(MutDmaIntegrationTest, write_throughAdapter_putsExactFrameOnWire)
             std::chrono::milliseconds(100)); // let all connect-handshake bytes reach the mock
         mock.resetParser();                  // then start capture from a clean buffer
 
-        const auto written = tr.write(bytes::view(frame));
+        const auto written = tr.Write(bytes::view(frame));
         ASSERT_TRUE(written);
         ASSERT_EQ(*written, static_cast<std::size_t>(frame.size()));
 
@@ -365,7 +365,7 @@ TEST_F(MutDmaIntegrationTest, read_throughAdapter_returnsEcuReplyBytes)
 
         FastEcuKlineTransport tr(&spad);
         fastecu::FakeCancellationToken cancellation;
-        std::ignore = tr.read(60ms, cancellation); // drain any residual init acks before the scripted exchange
+        std::ignore = tr.Read(60ms, cancellation); // drain any residual init acks before the scripted exchange
 
         QByteArray reply;
         reply.append(char(0x05));
@@ -375,7 +375,7 @@ TEST_F(MutDmaIntegrationTest, read_throughAdapter_returnsEcuReplyBytes)
         reply.append(char(0xDD));
         mock.injectDataFrame(reply);
 
-        const auto read = tr.read(500ms, cancellation);
+        const auto read = tr.Read(500ms, cancellation);
         ASSERT_TRUE(read);
         ASSERT_TRUE(read->has_value());
         ASSERT_EQ(bytes::toQByteArray(read->value()), reply);
@@ -402,7 +402,7 @@ TEST_F(MutDmaIntegrationTest, driverPollOnce_throughAdapter_decodesStreamFrameFr
 
         // Two channels: one 1-byte, one 2-byte, big-endian.
         std::vector<Channel> channels{{0x1234, 1}, {0x5678, 2}};
-        driver.setChannelsForTest(channels);
+        driver.SetChannelsForTest(channels);
 
         // Streamed frame: [logId][data...][sum8(0..len-3)][0x0D].
         const bytes::Byte log_id = 0x00;
@@ -416,10 +416,10 @@ TEST_F(MutDmaIntegrationTest, driverPollOnce_throughAdapter_decodesStreamFrameFr
         frame.append(char(Sum8(bytes::view(frame))));
         frame.append(char(kTrailerStd));
 
-        std::ignore = tr.read(60ms, cancellation); // drain residual
+        std::ignore = tr.Read(60ms, cancellation); // drain residual
         mock.injectDataFrame(frame);
 
-        const auto values = driver.pollOnce(500ms, cancellation);
+        const auto values = driver.PollOnce(500ms, cancellation);
         ASSERT_TRUE(values);
         ASSERT_EQ(values->size(), std::size_t(2));
         ASSERT_EQ(values->at(0), std::uint32_t(0x42));

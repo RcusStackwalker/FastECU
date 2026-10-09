@@ -10,7 +10,7 @@ namespace fastecu::flash
 namespace
 {
 constexpr auto kProtocol = "sub_ecu_hitachi_sh72543r_can";
-FlashPlanFields fields(FlashOperation op = FlashOperation::kWrite)
+FlashPlanFields Fields(FlashOperation op = FlashOperation::kWrite)
 {
     return {.operation = op,
             .family = FlashFamily::kSubaruHitachiSh72543rCan,
@@ -29,47 +29,47 @@ TEST(Sh72543rPlan, BothAliasesHaveDistinctReadAndWriteWindows)
 {
     for (auto protocol : {kProtocol, "sub_ecu_hitachi_sh72543r_can_recovery"})
     {
-        auto read = build_subaru_hitachi_sh72543r_can_plan(FlashOperation::kRead, protocol, "SH72543R", std::nullopt);
+        auto read = BuildSubaruHitachiSh72543rCanPlan(FlashOperation::kRead, protocol, "SH72543R", std::nullopt);
         ASSERT_THAT(read, fastecu::testing::IsOk());
-        EXPECT_EQ(read->transfer_region().start, 0U);
-        EXPECT_EQ(read->transfer_region().length, 0x200000U);
-        EXPECT_TRUE(read->erase_regions().empty());
-        EXPECT_FALSE(read->kernel());
-        auto write = build_subaru_hitachi_sh72543r_can_plan(FlashOperation::kWrite, protocol, "SH72543R",
-                                                            bytes::Bytes(0x200000, 0xa5));
+        EXPECT_EQ(read->TransferRegion().start, 0U);
+        EXPECT_EQ(read->TransferRegion().length, 0x200000U);
+        EXPECT_TRUE(read->EraseRegions().empty());
+        EXPECT_FALSE(read->Kernel());
+        auto write = BuildSubaruHitachiSh72543rCanPlan(FlashOperation::kWrite, protocol, "SH72543R",
+                                                       bytes::Bytes(0x200000, 0xa5));
         ASSERT_THAT(write, fastecu::testing::IsOk());
-        EXPECT_EQ(write->transfer_region().start, 0x6000U);
-        EXPECT_EQ(write->transfer_region().length, 0x1fa000U);
-        ASSERT_EQ(write->erase_regions().size(), 1U);
-        EXPECT_EQ(write->erase_regions()[0].start, 0x6000U);
-        EXPECT_EQ(write->erase_regions()[0].length, 0x1fa000U);
-        EXPECT_EQ(write->image_or_empty().size(), 0x200000U);
+        EXPECT_EQ(write->TransferRegion().start, 0x6000U);
+        EXPECT_EQ(write->TransferRegion().length, 0x1fa000U);
+        ASSERT_EQ(write->EraseRegions().size(), 1U);
+        EXPECT_EQ(write->EraseRegions()[0].start, 0x6000U);
+        EXPECT_EQ(write->EraseRegions()[0].length, 0x1fa000U);
+        EXPECT_EQ(write->ImageOrEmpty().size(), 0x200000U);
     }
 }
 TEST(Sh72543rPlan, RejectsUnsupportedOperationsWithoutImage)
 {
     constexpr auto kOp = FlashOperation::kTestWrite;
-    EXPECT_THAT(build_subaru_hitachi_sh72543r_can_plan(kOp, kProtocol, "SH72543R", std::nullopt),
+    EXPECT_THAT(BuildSubaruHitachiSh72543rCanPlan(kOp, kProtocol, "SH72543R", std::nullopt),
                 fastecu::testing::IsErr(ErrorKind::kUnsupported));
-    auto built = validate_and_build(fields(kOp));
+    auto built = ValidateAndBuild(Fields(kOp));
     ASSERT_THAT(built, fastecu::testing::IsOk());
-    EXPECT_THAT(validate_subaru_hitachi_sh72543r_can_plan(*built), fastecu::testing::IsErr(ErrorKind::kUnsupported));
+    EXPECT_THAT(ValidateSubaruHitachiSh72543rCanPlan(*built), fastecu::testing::IsErr(ErrorKind::kUnsupported));
 }
 TEST(Sh72543rPlan, RejectsIdentityAndImageErrors)
 {
-    EXPECT_THAT(build_subaru_hitachi_sh72543r_can_plan(
-                    FlashOperation::kRead, "sub_ecu_hitachi_sh72543r_can_recovery_typo", "SH72543R", std::nullopt),
+    EXPECT_THAT(BuildSubaruHitachiSh72543rCanPlan(FlashOperation::kRead, "sub_ecu_hitachi_sh72543r_can_recovery_typo",
+                                                  "SH72543R", std::nullopt),
                 fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
-    EXPECT_THAT(build_subaru_hitachi_sh72543r_can_plan(FlashOperation::kRead, kProtocol, "SH72543d", std::nullopt),
+    EXPECT_THAT(BuildSubaruHitachiSh72543rCanPlan(FlashOperation::kRead, kProtocol, "SH72543d", std::nullopt),
                 fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
-    EXPECT_THAT(build_subaru_hitachi_sh72543r_can_plan(FlashOperation::kRead, kProtocol, "SH72543R", bytes::Bytes{}),
+    EXPECT_THAT(BuildSubaruHitachiSh72543rCanPlan(FlashOperation::kRead, kProtocol, "SH72543R", bytes::Bytes{}),
                 fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
-    EXPECT_THAT(build_subaru_hitachi_sh72543r_can_plan(FlashOperation::kWrite, kProtocol, "SH72543R", std::nullopt),
+    EXPECT_THAT(BuildSubaruHitachiSh72543rCanPlan(FlashOperation::kWrite, kProtocol, "SH72543R", std::nullopt),
                 fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     for (auto size : {0U, 0x1fffffU, 0x200001U})
     {
         EXPECT_THAT(
-            build_subaru_hitachi_sh72543r_can_plan(FlashOperation::kWrite, kProtocol, "SH72543R", bytes::Bytes(size)),
+            BuildSubaruHitachiSh72543rCanPlan(FlashOperation::kWrite, kProtocol, "SH72543R", bytes::Bytes(size)),
             fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     }
 }
@@ -78,7 +78,7 @@ TEST(Sh72543rPlan, ForgedPlansCannotChangeWireOrGeometry)
     for (int mutation = 0; mutation < 16; ++mutation)
     {
         SCOPED_TRACE(mutation);
-        auto f = fields();
+        auto f = Fields();
         auto& wire = std::get<SubaruHitachiSh72543rCanPlan>(f.family_plan);
         switch (mutation)
         {
@@ -136,30 +136,29 @@ TEST(Sh72543rPlan, ForgedPlansCannotChangeWireOrGeometry)
             FAIL() << "unexpected mutation";
             break;
         }
-        auto built = validate_and_build(std::move(f));
+        auto built = ValidateAndBuild(std::move(f));
         ASSERT_THAT(built, fastecu::testing::IsOk());
-        EXPECT_THAT(validate_subaru_hitachi_sh72543r_can_plan(*built),
-                    fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
+        EXPECT_THAT(ValidateSubaruHitachiSh72543rCanPlan(*built), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     }
 }
 TEST(Sh72543rPlan, RejectsKernelAndReadWindowDrift)
 {
-    auto f = fields();
+    auto f = Fields();
     f.kernel = KernelImage{"unused", 0, bytes::Bytes{1}};
-    auto built = validate_and_build(std::move(f));
+    auto built = ValidateAndBuild(std::move(f));
     ASSERT_THAT(built, fastecu::testing::IsOk());
-    EXPECT_THAT(validate_subaru_hitachi_sh72543r_can_plan(*built), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
-    f = fields(FlashOperation::kRead);
+    EXPECT_THAT(ValidateSubaruHitachiSh72543rCanPlan(*built), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
+    f = Fields(FlashOperation::kRead);
     f.transfer_region = {0x6000, 0x1fa000};
-    built = validate_and_build(std::move(f));
+    built = ValidateAndBuild(std::move(f));
     ASSERT_THAT(built, fastecu::testing::IsOk());
-    EXPECT_THAT(validate_subaru_hitachi_sh72543r_can_plan(*built), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
+    EXPECT_THAT(ValidateSubaruHitachiSh72543rCanPlan(*built), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 TEST(Sh72543rPlan, CoreRejectsMismatchedFamilyTransportAndVariant)
 {
     for (int mutation = 0; mutation < 3; ++mutation)
     {
-        auto f = fields();
+        auto f = Fields();
         if (mutation == 0)
         {
             f.family = FlashFamily::kSubaruTcuHitachiM32rCan;
@@ -172,7 +171,7 @@ TEST(Sh72543rPlan, CoreRejectsMismatchedFamilyTransportAndVariant)
         {
             f.family_plan = SubaruTcuHitachiM32rCanPlan{};
         }
-        EXPECT_THAT(validate_and_build(std::move(f)), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
+        EXPECT_THAT(ValidateAndBuild(std::move(f)), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     }
 }
 } // namespace

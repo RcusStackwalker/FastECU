@@ -20,7 +20,7 @@ FlashOperationController::FlashOperationController(SerialPortActions& serial, QW
 
 FlashOperationOutcome FlashOperationController::run(const FlashOperationInput& input)
 {
-    if (input.operation == FlashOperation::kRead && is_denso_tcu_protocol(input.protocol.name))
+    if (input.operation == FlashOperation::kRead && IsDensoTcuProtocol(input.protocol.name))
     {
         using fastecu::service_functions::DensoTcuReadAction;
         const DensoTcuReadAction action = fastecu::service_functions::choose_denso_tcu_read_action(dialog_parent_);

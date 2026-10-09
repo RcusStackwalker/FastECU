@@ -15,7 +15,7 @@ namespace fastecu::flash
 namespace
 {
 
-FlashPlanFields valid_read_fields()
+FlashPlanFields ValidReadFields()
 {
     return FlashPlanFields{
         .operation = FlashOperation::kRead,
@@ -44,9 +44,9 @@ FlashPlanFields valid_read_fields()
     };
 }
 
-FlashPlanFields valid_can_read_fields()
+FlashPlanFields ValidCanReadFields()
 {
-    auto fields = valid_read_fields();
+    auto fields = ValidReadFields();
     fields.family = FlashFamily::kDensoSh705xEepromCan;
     fields.transport = TransportKind::kCanIso15765;
     fields.kernel = KernelImage{.id = "k", .load_address = 0xffff3000, .bytes = {0x01}};
@@ -69,7 +69,7 @@ struct FamilyCase
     std::string_view id;
 };
 
-const std::array<FamilyCase, 30>& family_cases()
+const std::array<FamilyCase, 30>& FamilyCases()
 {
     static const std::array<FamilyCase, 30> cases{{
         {FlashFamily::kDensoSh705xEepromKline, TransportKind::kKline,
@@ -234,68 +234,68 @@ const std::array<FamilyCase, 30>& family_cases()
     return cases;
 }
 
-static_assert(std::variant_size_v<FamilyPlan> == std::tuple_size_v<std::remove_reference_t<decltype(family_cases())>>);
+static_assert(std::variant_size_v<FamilyPlan> == std::tuple_size_v<std::remove_reference_t<decltype(FamilyCases())>>);
 
 TEST(FlashValidationTest, ValidReadFieldsProduceAPlan)
 {
-    auto plan = validate_and_build(valid_read_fields());
+    auto plan = ValidateAndBuild(ValidReadFields());
     ASSERT_THAT(plan, fastecu::testing::IsOk());
-    EXPECT_EQ(plan->total_transfer_bytes(), 0x1000U);
+    EXPECT_EQ(plan->TotalTransferBytes(), 0x1000U);
 }
 
 TEST(FlashValidationTest, ReadPlanHasNoImageButKeepsItsKernel)
 {
-    auto plan = validate_and_build(valid_read_fields());
+    auto plan = ValidateAndBuild(ValidReadFields());
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
-    EXPECT_TRUE(plan->image_or_empty().empty());
-    EXPECT_EQ(plan->kernel_or_empty().id, "k");
-    EXPECT_EQ(plan->kernel_or_empty().load_address, 0xffff2000U);
-    EXPECT_EQ(plan->kernel_or_empty().bytes, bytes::Bytes{0x01});
+    EXPECT_TRUE(plan->ImageOrEmpty().empty());
+    EXPECT_EQ(plan->KernelOrEmpty().id, "k");
+    EXPECT_EQ(plan->KernelOrEmpty().load_address, 0xffff2000U);
+    EXPECT_EQ(plan->KernelOrEmpty().bytes, bytes::Bytes{0x01});
 }
 
 TEST(FlashValidationTest, WritePlanExposesItsImage)
 {
-    auto fields = valid_read_fields();
+    auto fields = ValidReadFields();
     fields.operation = FlashOperation::kWrite;
     fields.image = bytes::Bytes(0x1000, 0xA5);
-    auto plan = validate_and_build(std::move(fields));
+    auto plan = ValidateAndBuild(std::move(fields));
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
-    EXPECT_EQ(plan->image_or_empty().size(), 0x1000U);
-    EXPECT_EQ(plan->image(), bytes::Bytes(0x1000, 0xA5));
+    EXPECT_EQ(plan->ImageOrEmpty().size(), 0x1000U);
+    EXPECT_EQ(plan->Image(), bytes::Bytes(0x1000, 0xA5));
 }
 
 TEST(FlashValidationTest, EmptyTargetIdIsRejected)
 {
-    auto fields = valid_read_fields();
+    auto fields = ValidReadFields();
     fields.target_id.clear();
 
-    ASSERT_THAT(validate_and_build(std::move(fields)), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
+    ASSERT_THAT(ValidateAndBuild(std::move(fields)), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
 TEST(FlashValidationTest, EmptyMcuNameIsRejected)
 {
-    auto fields = valid_read_fields();
+    auto fields = ValidReadFields();
     fields.mcu_name.clear();
 
-    ASSERT_THAT(validate_and_build(std::move(fields)), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
+    ASSERT_THAT(ValidateAndBuild(std::move(fields)), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
 TEST(FlashValidationTest, ZeroLengthTransferRegionIsRejected)
 {
-    auto fields = valid_read_fields();
+    auto fields = ValidReadFields();
     fields.transfer_region.length = 0;
 
-    ASSERT_THAT(validate_and_build(std::move(fields)), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
+    ASSERT_THAT(ValidateAndBuild(std::move(fields)), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
 TEST(FlashValidationTest, TransferRegionOverflowIsRejected)
 {
-    auto fields = valid_read_fields();
+    auto fields = ValidReadFields();
     fields.transfer_region = MemoryRegion{.start = 0xffffffff, .length = 0x10};
 
-    ASSERT_THAT(validate_and_build(std::move(fields)), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
+    ASSERT_THAT(ValidateAndBuild(std::move(fields)), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
 // A region whose last byte is 0xffffffff ends at 0x100000000, which is one
@@ -307,53 +307,53 @@ TEST(FlashValidationTest, TransferRegionOverflowIsRejected)
 // into an acceptance.
 TEST(FlashValidationTest, TransferRegionEndingExactlyAtTheTopOfTheAddressSpaceIsRejected)
 {
-    auto fields = valid_read_fields();
+    auto fields = ValidReadFields();
     fields.transfer_region = MemoryRegion{.start = 0xffffff00, .length = 0x100};
 
-    ASSERT_THAT(validate_and_build(std::move(fields)), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
+    ASSERT_THAT(ValidateAndBuild(std::move(fields)), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
 // The largest region this accepts, one byte short of the boundary above.
 TEST(FlashValidationTest, TransferRegionEndingOneByteBelowTheTopOfTheAddressSpaceIsAccepted)
 {
-    auto fields = valid_read_fields();
+    auto fields = ValidReadFields();
     fields.transfer_region = MemoryRegion{.start = 0xffffff00, .length = 0xff};
 
-    EXPECT_THAT(validate_and_build(std::move(fields)), fastecu::testing::IsOk());
+    EXPECT_THAT(ValidateAndBuild(std::move(fields)), fastecu::testing::IsOk());
 }
 
 TEST(FlashValidationTest, ReadWithNonEmptyEraseRegionsIsRejected)
 {
-    auto fields = valid_read_fields();
+    auto fields = ValidReadFields();
     fields.erase_regions.push_back(MemoryRegion{.start = 0, .length = 4});
 
-    ASSERT_THAT(validate_and_build(std::move(fields)), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
+    ASSERT_THAT(ValidateAndBuild(std::move(fields)), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
 TEST(FlashValidationTest, ReadWithImagePresentIsRejected)
 {
-    auto fields = valid_read_fields();
+    auto fields = ValidReadFields();
     fields.image = bytes::Bytes{0x00};
 
-    ASSERT_THAT(validate_and_build(std::move(fields)), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
+    ASSERT_THAT(ValidateAndBuild(std::move(fields)), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
 TEST(FlashValidationTest, EmptyKernelIdIsRejected)
 {
-    auto fields = valid_read_fields();
+    auto fields = ValidReadFields();
     ASSERT_TRUE(fields.kernel.has_value());
     fields.kernel->id.clear();
 
-    ASSERT_THAT(validate_and_build(std::move(fields)), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
+    ASSERT_THAT(ValidateAndBuild(std::move(fields)), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
 TEST(FlashValidationTest, EmptyKernelBytesIsRejected)
 {
-    auto fields = valid_read_fields();
+    auto fields = ValidReadFields();
     ASSERT_TRUE(fields.kernel.has_value());
     fields.kernel->bytes.clear();
 
-    ASSERT_THAT(validate_and_build(std::move(fields)), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
+    ASSERT_THAT(ValidateAndBuild(std::move(fields)), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
 // A family that isn't the kernel-less Mitsu Colt CAN family must still carry
@@ -362,10 +362,10 @@ TEST(FlashValidationTest, EmptyKernelBytesIsRejected)
 // blanket relaxation for every family.
 TEST(FlashValidationTest, MissingKernelIsRejectedForKlineFamilyByDefault)
 {
-    auto fields = valid_read_fields();
+    auto fields = ValidReadFields();
     fields.kernel = std::nullopt;
 
-    auto plan = validate_and_build(std::move(fields));
+    auto plan = ValidateAndBuild(std::move(fields));
 
     ASSERT_THAT(plan, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     EXPECT_THAT(plan.error().detail, ::testing::HasSubstr("kernel"));
@@ -373,10 +373,10 @@ TEST(FlashValidationTest, MissingKernelIsRejectedForKlineFamilyByDefault)
 
 TEST(FlashValidationTest, MissingKernelIsRejectedForCanFamilyByDefault)
 {
-    auto fields = valid_can_read_fields();
+    auto fields = ValidCanReadFields();
     fields.kernel = std::nullopt;
 
-    auto plan = validate_and_build(std::move(fields));
+    auto plan = ValidateAndBuild(std::move(fields));
 
     ASSERT_THAT(plan, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     EXPECT_THAT(plan.error().detail, ::testing::HasSubstr("kernel"));
@@ -384,7 +384,7 @@ TEST(FlashValidationTest, MissingKernelIsRejectedForCanFamilyByDefault)
 
 TEST(FlashValidationTest, FamilyPlanTagMismatchWithTransportIsRejected)
 {
-    auto fields = valid_read_fields();
+    auto fields = ValidReadFields();
     // Kline transport but a Can family_plan variant.
     fields.family_plan = DensoSh705xEepromCanPlan{
         .mode = EepromReadMode::kMode2,
@@ -395,22 +395,22 @@ TEST(FlashValidationTest, FamilyPlanTagMismatchWithTransportIsRejected)
         .extended_id = false,
     };
 
-    ASSERT_THAT(validate_and_build(std::move(fields)), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
+    ASSERT_THAT(ValidateAndBuild(std::move(fields)), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
 TEST(FlashValidationTest, FamilyAndVariantMustMatchExhaustively)
 {
-    for (std::size_t declared_index = 0; declared_index < family_cases().size(); ++declared_index)
+    for (std::size_t declared_index = 0; declared_index < FamilyCases().size(); ++declared_index)
     {
-        for (std::size_t variant_index = 0; variant_index < family_cases().size(); ++variant_index)
+        for (std::size_t variant_index = 0; variant_index < FamilyCases().size(); ++variant_index)
         {
-            auto fields = valid_read_fields();
-            const auto& declared = family_cases()[declared_index];
+            auto fields = ValidReadFields();
+            const auto& declared = FamilyCases()[declared_index];
             fields.family = declared.family;
             fields.transport = declared.transport;
-            fields.family_plan = family_cases()[variant_index].family_plan;
+            fields.family_plan = FamilyCases()[variant_index].family_plan;
 
-            const auto plan = validate_and_build(std::move(fields));
+            const auto plan = ValidateAndBuild(std::move(fields));
 
             EXPECT_EQ(plan.has_value(), declared_index == variant_index)
                 << "declared index " << declared_index << ", variant index " << variant_index;
@@ -420,21 +420,21 @@ TEST(FlashValidationTest, FamilyAndVariantMustMatchExhaustively)
 
 TEST(FlashValidationTest, ExperimentalFamilyIdsCoverEveryFamily)
 {
-    for (const auto& family_case : family_cases())
+    for (const auto& family_case : FamilyCases())
     {
-        auto fields = valid_read_fields();
+        auto fields = ValidReadFields();
         fields.family = family_case.family;
         fields.transport = family_case.transport;
         fields.family_plan = family_case.family_plan;
-        const auto plan = validate_and_build(std::move(fields));
+        const auto plan = ValidateAndBuild(std::move(fields));
         ASSERT_THAT(plan, fastecu::testing::IsOk());
-        EXPECT_EQ(plan->experimental_family_id(), family_case.id);
+        EXPECT_EQ(plan->ExperimentalFamilyId(), family_case.id);
     }
 }
 
 TEST(FlashValidationTest, Sh7055_02KlinePlanIsAccepted)
 {
-    auto fields = valid_read_fields();
+    auto fields = ValidReadFields();
     fields.family = FlashFamily::kSubaruDensoSh705502;
     fields.target_id = "sub_ecu_denso_sh7055_02";
     fields.family_plan = SubaruDensoSh7055_02Plan{
@@ -443,18 +443,18 @@ TEST(FlashValidationTest, Sh7055_02KlinePlanIsAccepted)
         .read_ecu_id = true,
     };
 
-    auto plan = validate_and_build(std::move(fields));
+    auto plan = ValidateAndBuild(std::move(fields));
 
     ASSERT_THAT(plan, fastecu::testing::IsOk());
-    EXPECT_EQ(plan->family(), FlashFamily::kSubaruDensoSh705502);
+    EXPECT_EQ(plan->Family(), FlashFamily::kSubaruDensoSh705502);
 }
 
 TEST(FlashValidationTest, DuplicateConfirmationIdsAreRejected)
 {
-    auto fields = valid_read_fields();
+    auto fields = ValidReadFields();
     fields.confirmations.push_back(ConfirmationSpec{.id = ConfirmationSpec::Id::kBeginEepromRead});
 
-    ASSERT_THAT(validate_and_build(std::move(fields)), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
+    ASSERT_THAT(ValidateAndBuild(std::move(fields)), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
 // The "at least one confirmation" floor was removed:
@@ -462,13 +462,13 @@ TEST(FlashValidationTest, DuplicateConfirmationIdsAreRejected)
 // able to build a plan with zero confirmations. This is no longer rejected.
 TEST(FlashValidationTest, ZeroConfirmationsIsNowAccepted)
 {
-    auto fields = valid_read_fields();
+    auto fields = ValidReadFields();
     fields.confirmations.clear();
 
-    auto plan = validate_and_build(std::move(fields));
+    auto plan = ValidateAndBuild(std::move(fields));
 
     ASSERT_THAT(plan, fastecu::testing::IsOk());
-    EXPECT_TRUE(plan->confirmations().empty());
+    EXPECT_TRUE(plan->Confirmations().empty());
 }
 
 } // namespace
@@ -479,7 +479,7 @@ namespace
 
 // Minimal fields for a family that uploads no kernel and prompts for
 // nothing -- the shape the Mitsu Colt CAN read plan produces.
-fastecu::flash::FlashPlanFields kernellessReadFields()
+fastecu::flash::FlashPlanFields KernellessReadFields()
 {
     using namespace fastecu::flash;
     FlashPlanFields fields;
@@ -505,20 +505,20 @@ fastecu::flash::FlashPlanFields kernellessReadFields()
 
 TEST(FlashValidation, AcceptsAPlanWithNoKernelAndNoConfirmations)
 {
-    const auto plan = fastecu::flash::validate_and_build(kernellessReadFields());
+    const auto plan = fastecu::flash::ValidateAndBuild(KernellessReadFields());
 
     ASSERT_THAT(plan, fastecu::testing::IsOk());
-    EXPECT_FALSE(plan->kernel().has_value());
-    EXPECT_TRUE(plan->confirmations().empty());
-    EXPECT_EQ(plan->experimental_family_id(), "MitsuColtM32rCan");
+    EXPECT_FALSE(plan->Kernel().has_value());
+    EXPECT_TRUE(plan->Confirmations().empty());
+    EXPECT_EQ(plan->ExperimentalFamilyId(), "MitsuColtM32rCan");
 }
 
 TEST(FlashValidation, RejectsAPresentKernelWithNoBytes)
 {
-    auto fields = kernellessReadFields();
+    auto fields = KernellessReadFields();
     fields.kernel = fastecu::flash::KernelImage{.id = "colt", .load_address = 0x800000, .bytes = {}};
 
-    const auto plan = fastecu::flash::validate_and_build(std::move(fields));
+    const auto plan = fastecu::flash::ValidateAndBuild(std::move(fields));
 
     ASSERT_THAT(plan, fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
     EXPECT_THAT(plan.error().detail, ::testing::HasSubstr("kernel bytes"));
@@ -526,10 +526,10 @@ TEST(FlashValidation, RejectsAPresentKernelWithNoBytes)
 
 TEST(FlashValidation, RejectsAPresentKernelWithNoId)
 {
-    auto fields = kernellessReadFields();
+    auto fields = KernellessReadFields();
     fields.kernel = fastecu::flash::KernelImage{.id = "", .load_address = 0x800000, .bytes = {0x01, 0x02}};
 
-    const auto plan = fastecu::flash::validate_and_build(std::move(fields));
+    const auto plan = fastecu::flash::ValidateAndBuild(std::move(fields));
 
     ASSERT_THAT(plan, fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
     EXPECT_THAT(plan.error().detail, ::testing::HasSubstr("kernel id"));
@@ -537,10 +537,10 @@ TEST(FlashValidation, RejectsAPresentKernelWithNoId)
 
 TEST(FlashValidation, RejectsAColtPlanOnAKlineTransport)
 {
-    auto fields = kernellessReadFields();
+    auto fields = KernellessReadFields();
     fields.transport = fastecu::flash::TransportKind::kKline;
 
-    const auto plan = fastecu::flash::validate_and_build(std::move(fields));
+    const auto plan = fastecu::flash::ValidateAndBuild(std::move(fields));
 
     ASSERT_THAT(plan, fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
     EXPECT_THAT(plan.error().detail, ::testing::HasSubstr("does not match transport kind"));
@@ -549,13 +549,13 @@ TEST(FlashValidation, RejectsAColtPlanOnAKlineTransport)
 TEST(FlashValidation, StillRejectsDuplicateConfirmationIds)
 {
     using fastecu::flash::ConfirmationSpec;
-    auto fields = kernellessReadFields();
+    auto fields = KernellessReadFields();
     fields.operation = fastecu::flash::FlashOperation::kWrite;
     fields.image = bytes::Bytes(0x80000, 0x00);
     fields.confirmations = {ConfirmationSpec{ConfirmationSpec::Id::kEraseTrigger, {}},
                             ConfirmationSpec{ConfirmationSpec::Id::kEraseTrigger, {}}};
 
-    const auto plan = fastecu::flash::validate_and_build(std::move(fields));
+    const auto plan = fastecu::flash::ValidateAndBuild(std::move(fields));
 
     ASSERT_THAT(plan, ::testing::Not(fastecu::testing::IsOk()));
     EXPECT_THAT(plan.error().detail, ::testing::HasSubstr("duplicate confirmation id"));
@@ -563,9 +563,9 @@ TEST(FlashValidation, StillRejectsDuplicateConfirmationIds)
 
 TEST(FlashValidation, KernellessPlanYieldsAnEmptyKernel)
 {
-    auto plan = fastecu::flash::validate_and_build(kernellessReadFields());
+    auto plan = fastecu::flash::ValidateAndBuild(KernellessReadFields());
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
-    EXPECT_TRUE(plan->kernel_or_empty().id.empty());
-    EXPECT_TRUE(plan->kernel_or_empty().bytes.empty());
+    EXPECT_TRUE(plan->KernelOrEmpty().id.empty());
+    EXPECT_TRUE(plan->KernelOrEmpty().bytes.empty());
 }

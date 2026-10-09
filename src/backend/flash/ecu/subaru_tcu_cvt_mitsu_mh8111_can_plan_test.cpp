@@ -8,7 +8,7 @@ namespace
 {
 constexpr SingleWindowPlanCase kCase{
     .name = "SubaruTcuCvtMitsuMh8111Can",
-    .build = &build_subaru_tcu_cvt_mitsu_mh8111_can_plan,
+    .build = &BuildSubaruTcuCvtMitsuMh8111CanPlan,
     .protocol = "sub_tcu_cvt_mitsu_mh8111_can",
     .mcu = "MH8111",
     .foreign_protocol = "sub_tcu_cvt_mitsu_mh8111_can_typo",
@@ -25,16 +25,16 @@ constexpr SingleWindowPlanCase kCase{
     .image_size = 0x180000,
 };
 
-INSTANTIATE_TEST_SUITE_P(SubaruTcuCvtMitsuMh8111Can, SingleWindowPlanContract, ::testing::Values(kCase), caseName);
+INSTANTIATE_TEST_SUITE_P(SubaruTcuCvtMitsuMh8111Can, SingleWindowPlanContract, ::testing::Values(kCase), CaseName);
 
 // The wire parameters are this family's own; they do not generalize.
 TEST(SubaruTcuCvtMitsuMh8111CanPlan, ReadPlanCarriesThisFamilysWireParameters)
 {
-    const auto plan = build_subaru_tcu_cvt_mitsu_mh8111_can_plan(FlashOperation::kRead, "sub_tcu_cvt_mitsu_mh8111_can",
-                                                                 "MH8111", std::nullopt);
+    const auto plan = BuildSubaruTcuCvtMitsuMh8111CanPlan(FlashOperation::kRead, "sub_tcu_cvt_mitsu_mh8111_can",
+                                                          "MH8111", std::nullopt);
 
     ASSERT_THAT(plan, fastecu::testing::IsOk());
-    const auto& family = std::get<SubaruTcuCvtMitsuMh8111CanPlan>(plan->family_plan());
+    const auto& family = std::get<SubaruTcuCvtMitsuMh8111CanPlan>(plan->FamilyPlan());
     EXPECT_EQ(family.request_id, 0x7e1U);
     EXPECT_EQ(family.response_id, 0x7e9U);
     EXPECT_EQ(family.bitrate, 500000);
@@ -46,16 +46,16 @@ TEST(SubaruTcuCvtMitsuMh8111CanPlan, ReadPlanCarriesThisFamilysWireParameters)
 // regions above -- it is a relationship between them.
 TEST(SubaruTcuCvtMitsuMh8111CanPlan, ReadCoversTheLowerWindowWriteCoversTheUpperBlock)
 {
-    const auto read_plan = build_subaru_tcu_cvt_mitsu_mh8111_can_plan(
-        FlashOperation::kRead, "sub_tcu_cvt_mitsu_mh8111_can", "MH8111", std::nullopt);
+    const auto read_plan = BuildSubaruTcuCvtMitsuMh8111CanPlan(FlashOperation::kRead, "sub_tcu_cvt_mitsu_mh8111_can",
+                                                               "MH8111", std::nullopt);
     ASSERT_THAT(read_plan, fastecu::testing::IsOk());
 
-    const auto write_plan = build_subaru_tcu_cvt_mitsu_mh8111_can_plan(
-        FlashOperation::kWrite, "sub_tcu_cvt_mitsu_mh8111_can", "MH8111", bytes::Bytes(0x180000, 0x00));
+    const auto write_plan = BuildSubaruTcuCvtMitsuMh8111CanPlan(FlashOperation::kWrite, "sub_tcu_cvt_mitsu_mh8111_can",
+                                                                "MH8111", bytes::Bytes(0x180000, 0x00));
     ASSERT_THAT(write_plan, fastecu::testing::IsOk());
 
-    EXPECT_EQ(read_plan->transfer_region().start + read_plan->transfer_region().length,
-              write_plan->transfer_region().start);
+    EXPECT_EQ(read_plan->TransferRegion().start + read_plan->TransferRegion().length,
+              write_plan->TransferRegion().start);
 }
 } // namespace
 } // namespace fastecu::flash::testing

@@ -11,8 +11,8 @@ class ILoggingEventSink
 {
   public:
     virtual ~ILoggingEventSink() = default;
-    virtual void state_changed(LoggingState state) = 0;
-    virtual void samples(std::span<const LogSample> samples) = 0;
+    virtual void StateChanged(LoggingState state) = 0;
+    virtual void Samples(std::span<const LogSample> samples) = 0;
 };
 
 } // namespace fastecu::logging

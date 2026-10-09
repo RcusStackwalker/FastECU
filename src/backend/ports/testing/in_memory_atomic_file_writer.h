@@ -21,7 +21,7 @@ struct ReplaceCall
 class InMemoryAtomicFileWriter : public IAtomicFileWriter
 {
   public:
-    Status replace(std::string_view handle, std::span<const std::uint8_t> data) override
+    Status Replace(std::string_view handle, std::span<const std::uint8_t> data) override
     {
         ReplaceCall call{
             .handle = std::string(handle),
@@ -36,7 +36,7 @@ class InMemoryAtomicFileWriter : public IAtomicFileWriter
         return {};
     }
 
-    void reset()
+    void Reset()
     {
         replace_calls.clear();
         files.clear();

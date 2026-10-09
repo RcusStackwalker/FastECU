@@ -28,9 +28,9 @@ void populate_parameter_choices(QComboBox& combo, const fastecu::logging::Logger
 {
     std::vector<LoggerChoice> choices;
     const auto key = protocol.toStdString();
-    for (const auto& p : model.definition().parameters)
+    for (const auto& p : model.Definition().parameters)
     {
-        if (p.protocol == key && model.parameter_supported(key, p.id))
+        if (p.protocol == key && model.ParameterSupported(key, p.id))
         {
             choices.push_back({QString::fromStdString(p.name), {protocol, QString::fromStdString(p.id)}});
         }
@@ -42,9 +42,9 @@ void populate_switch_choices(QComboBox& combo, const fastecu::logging::LoggerMod
 {
     std::vector<LoggerChoice> choices;
     const auto key = protocol.toStdString();
-    for (const auto& p : model.definition().switches)
+    for (const auto& p : model.Definition().switches)
     {
-        if (p.protocol == key && model.switch_supported(key, p.id))
+        if (p.protocol == key && model.SwitchSupported(key, p.id))
         {
             choices.push_back({QString::fromStdString(p.name), {protocol, QString::fromStdString(p.id)}});
         }
@@ -88,7 +88,7 @@ void MainWindow::change_log_values(int tabIndex, const QString& protocolArg)
             populate_parameter_choices(*combo, *logger_model_, protocolArg, ids[i]);
             auto *units = new QComboBox(page);
             units->setObjectName(kind + " unit " + QString::number(i));
-            if (const auto *p = logger_model_->parameter(protocolArg.toStdString(), ids[i]); p != nullptr)
+            if (const auto *p = logger_model_->Parameter(protocolArg.toStdString(), ids[i]); p != nullptr)
             {
                 for (const auto& conversion : p->conversions)
                 {
@@ -105,7 +105,7 @@ void MainWindow::change_log_values(int tabIndex, const QString& protocolArg)
         }
         tabs->addTab(page, title);
     };
-    const auto& selection = logger_model_->selection();
+    const auto& selection = logger_model_->Selection();
     addParameters(selection.gauge_ids, "Gauges", "Gauge", &MainWindow::change_log_gauge_value);
     addParameters(selection.lower_panel_ids, "Digital", "Digital", &MainWindow::change_log_digital_value);
     auto *switchPage = new QWidget(tabs);
@@ -134,33 +134,33 @@ void MainWindow::change_log_values(int tabIndex, const QString& protocolArg)
 
 void MainWindow::change_log_gauge_value(int index)
 {
-    auto selection = logger_model_->selection();
+    auto selection = logger_model_->Selection();
     if (apply_choice(selection, selection.gauge_ids, qobject_cast<QComboBox *>(sender()), index))
     {
         const auto protocol = QString::fromStdString(selection.protocol);
-        logger_model_->set_selection(std::move(selection));
+        logger_model_->SetSelection(std::move(selection));
         update_logboxes(protocol);
         save_logger_selection();
     }
 }
 void MainWindow::change_log_digital_value(int index)
 {
-    auto selection = logger_model_->selection();
+    auto selection = logger_model_->Selection();
     if (apply_choice(selection, selection.lower_panel_ids, qobject_cast<QComboBox *>(sender()), index))
     {
         const auto protocol = QString::fromStdString(selection.protocol);
-        logger_model_->set_selection(std::move(selection));
+        logger_model_->SetSelection(std::move(selection));
         update_logboxes(protocol);
         save_logger_selection();
     }
 }
 void MainWindow::change_log_switch_value(int index)
 {
-    auto selection = logger_model_->selection();
+    auto selection = logger_model_->Selection();
     if (apply_choice(selection, selection.switch_ids, qobject_cast<QComboBox *>(sender()), index))
     {
         const auto protocol = QString::fromStdString(selection.protocol);
-        logger_model_->set_selection(std::move(selection));
+        logger_model_->SetSelection(std::move(selection));
         update_logboxes(protocol);
         save_logger_selection();
     }

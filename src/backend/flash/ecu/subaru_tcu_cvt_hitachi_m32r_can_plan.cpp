@@ -31,15 +31,15 @@ constexpr std::uint32_t kImageSize = 0x80000;
 
 // Spot-check block 0 only, matching subaru_hitachi_m32r_kline_plan.cpp's
 // precedent -- not every one of M32R_512KB's 11 blocks.
-bool geometry_ok(const FlashDevice& device)
+bool GeometryOk(const FlashDevice& device)
 {
     return device.romsize == kImageSize && device.numblocks == 11 && device.fblocks[0].start == 0 &&
            device.fblocks[0].len == 0x4000;
 }
 
-bool wire_params_ok(const FlashPlan& plan)
+bool WireParamsOk(const FlashPlan& plan)
 {
-    const auto *p = std::get_if<SubaruTcuCvtHitachiM32rCanPlan>(&plan.family_plan());
+    const auto *p = std::get_if<SubaruTcuCvtHitachiM32rCanPlan>(&plan.FamilyPlan());
     return p != nullptr && p->request_id == 0x7e1 && p->response_id == 0x7e9 && p->bitrate == 500000 && !p->extended_id;
 }
 
@@ -52,21 +52,20 @@ constexpr SingleWindowPlanSpec kSpec{
     .read_region = kReadRegion,
     .write_region = kWriteRegion,
     .image_size = kImageSize,
-    .geometry_ok = geometry_ok,
-    .wire_params_ok = wire_params_ok,
+    .geometry_ok = GeometryOk,
+    .wire_params_ok = WireParamsOk,
 };
 } // namespace
 
-Status validate_subaru_tcu_cvt_hitachi_m32r_can_plan(const FlashPlan& plan)
+Status ValidateSubaruTcuCvtHitachiM32rCanPlan(const FlashPlan& plan)
 {
-    return validate_single_window_plan(kSpec, plan);
+    return ValidateSingleWindowPlan(kSpec, plan);
 }
 
-Result<FlashPlan> build_subaru_tcu_cvt_hitachi_m32r_can_plan(FlashOperation operation, std::string_view protocol_name,
-                                                             std::string_view mcu_type,
-                                                             std::optional<bytes::Bytes> image)
+Result<FlashPlan> BuildSubaruTcuCvtHitachiM32rCanPlan(FlashOperation operation, std::string_view protocol_name,
+                                                      std::string_view mcu_type, std::optional<bytes::Bytes> image)
 {
-    return build_single_window_plan(kSpec, operation, protocol_name, mcu_type, std::move(image),
-                                    SubaruTcuCvtHitachiM32rCanPlan{0x7e1, 0x7e9, 500000, false});
+    return BuildSingleWindowPlan(kSpec, operation, protocol_name, mcu_type, std::move(image),
+                                 SubaruTcuCvtHitachiM32rCanPlan{0x7e1, 0x7e9, 500000, false});
 }
 } // namespace fastecu::flash

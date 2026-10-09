@@ -7,7 +7,7 @@ namespace fastecu::service_functions
 namespace
 {
 
-TcuParameterValues sample()
+TcuParameterValues Sample()
 {
     return TcuParameterValues{
         .correction_1to2 = 0x11,
@@ -27,14 +27,14 @@ TEST(TcuParameterTable, WritesTwelveFramesNotNine)
     // Ten parameter writes (nine values; AWD torque spans two addresses) plus
     // the two-write commit. legacy :213-479.
     EXPECT_EQ(kTcuParameterWriteCount, 12U);
-    EXPECT_EQ(tcu_parameter_writes(sample()).size(), 12U);
+    EXPECT_EQ(TcuParameterWrites(Sample()).size(), 12U);
 }
 
 TEST(TcuParameterTable, PreservesTheLegacyWireOrderNotThePromptOrder)
 {
     // Prompts run 1->2, 2->3, 3->4, 4->5, ... (legacy :162-202). Writes run
     // 0x16c = 3->4, 0x16d = 2->3, 0x16e = 1->2, 0x16f = 4->5 (legacy :213-286).
-    const auto writes = tcu_parameter_writes(sample());
+    const auto writes = TcuParameterWrites(Sample());
 
     EXPECT_EQ(writes[0].address, 0x00016cU);
     EXPECT_EQ(writes[0].value, 0x33); // correction_3to4
@@ -49,7 +49,7 @@ TEST(TcuParameterTable, PreservesTheLegacyWireOrderNotThePromptOrder)
 TEST(TcuParameterTable, SplitsAwdTorqueAcrossTwoAddressesHighFirst)
 {
     // legacy :309-334.
-    const auto writes = tcu_parameter_writes(sample());
+    const auto writes = TcuParameterWrites(Sample());
 
     EXPECT_EQ(writes[4].address, 0x000170U);
     EXPECT_EQ(writes[4].value, 0xBE);
@@ -60,7 +60,7 @@ TEST(TcuParameterTable, SplitsAwdTorqueAcrossTwoAddressesHighFirst)
 TEST(TcuParameterTable, WritesTheRemainingFourCorrections)
 {
     // legacy :357-430.
-    const auto writes = tcu_parameter_writes(sample());
+    const auto writes = TcuParameterWrites(Sample());
 
     EXPECT_EQ(writes[6].address, 0x0001bcU);
     EXPECT_EQ(writes[6].value, 0x55); // forward brake
@@ -77,7 +77,7 @@ TEST(TcuParameterTable, EndsWithTheTwoWriteCommitToTheSameAddress)
     // legacy :453-479 forms B8 00 00 EC 55/AA. Not a parameter and not
     // prompted: a table keyed on the nine prompted values would drop it and
     // leave every write uncommitted.
-    const auto writes = tcu_parameter_writes(sample());
+    const auto writes = TcuParameterWrites(Sample());
 
     EXPECT_EQ(writes[10].address, 0x0000ecU);
     EXPECT_EQ(writes[10].value, 0x55);
@@ -87,9 +87,9 @@ TEST(TcuParameterTable, EndsWithTheTwoWriteCommitToTheSameAddress)
 
 TEST(TcuParameterTable, CommitValuesAreIndependentOfParameterValues)
 {
-    TcuParameterValues values = sample();
+    TcuParameterValues values = Sample();
     values.correction_forward_brake = 0xAA;
-    const auto writes = tcu_parameter_writes(values);
+    const auto writes = TcuParameterWrites(values);
 
     EXPECT_EQ(writes[10].value, 0x55);
     EXPECT_EQ(writes[11].value, 0xAA);

@@ -22,21 +22,21 @@ Status validateWireRange(std::uint32_t address, std::uint64_t length, std::strin
 {
     if (length == 0)
     {
-        return fail(ErrorKind::kInvalidConfig, std::format("{} length must not be zero", subject));
+        return Fail(ErrorKind::kInvalidConfig, std::format("{} length must not be zero", subject));
     }
     if (address > kMaxWireU24)
     {
-        return fail(ErrorKind::kInvalidConfig,
+        return Fail(ErrorKind::kInvalidConfig,
                     std::format("{} address 0x{:x} does not fit the 24-bit wire field", subject, address));
     }
     if (length > kMaxWireU24)
     {
-        return fail(ErrorKind::kInvalidConfig,
+        return Fail(ErrorKind::kInvalidConfig,
                     std::format("{} length {} does not fit the 24-bit wire field", subject, length));
     }
     if (const std::uint64_t last = static_cast<std::uint64_t>(address) + length - 1; last > kMaxWireU24)
     {
-        return fail(ErrorKind::kInvalidConfig,
+        return Fail(ErrorKind::kInvalidConfig,
                     std::format("{} range 0x{:x}..0x{:x} exceeds the 24-bit address space", subject, address, last));
     }
     return {};
@@ -97,7 +97,7 @@ Status readIntoOutcome(BenchContext& context, const PreparedStep& prepared, Comm
         const bytes::ByteView payload = uds::Payload(*reply);
         if (payload.size() < chunk_len)
         {
-            return fail(ErrorKind::kBadResponse,
+            return Fail(ErrorKind::kBadResponse,
                         std::format("short reply: expected {} bytes, got {}", chunk_len, payload.size()));
         }
         outcome.data.insert(outcome.data.end(), payload.begin(), payload.begin() + chunk_len);
@@ -139,7 +139,7 @@ Result<RoutineSlot> routine_slot(std::string_view name)
     {
         return RoutineSlot{name, kWriteRedirectRoutine, kWriteRoutineRamAddr};
     }
-    return fail(ErrorKind::kInvalidConfig, std::format("unknown routine: {}", name));
+    return Fail(ErrorKind::kInvalidConfig, std::format("unknown routine: {}", name));
 }
 
 // Shared by Download and UploadRoutine: RequestDownload, every TransferData
@@ -193,7 +193,7 @@ Status upload(BenchContext& context, CommandOutcome& outcome, std::uint32_t addr
     if (const bytes::ByteView crc_payload = uds::Payload(*crc_reply);
         crc_payload.size() < 2 || crc_payload[0] != mitsu_colt_can::kRoutineCheckCrc || crc_payload[1] != 0)
     {
-        return fail(ErrorKind::kBadResponse, decode_crc_reply(crc_payload));
+        return Fail(ErrorKind::kBadResponse, decode_crc_reply(crc_payload));
     }
     return {};
 }
@@ -215,7 +215,7 @@ Status routineWithStatus(BenchContext& context, CommandOutcome& outcome, bytes::
     outcome.note = decode(payload);
     if (payload.size() < 2 || payload[0] != routine || payload[1] != 0)
     {
-        return fail(ErrorKind::kBadResponse, outcome.note);
+        return Fail(ErrorKind::kBadResponse, outcome.note);
     }
     return {};
 }
@@ -279,7 +279,7 @@ Result<PreparedStep> prepare_step(IBenchFiles& files, const StepSpec& step)
     const CommandSpec *const spec = find_command(step.id);
     if (spec == nullptr)
     {
-        return fail(ErrorKind::kInternal, "step has no command spec");
+        return Fail(ErrorKind::kInternal, "step has no command spec");
     }
     if (const Status valid = validate_against_table(*spec, step); !valid.has_value())
     {
@@ -318,7 +318,7 @@ Result<PreparedStep> prepare_step(IBenchFiles& files, const StepSpec& step)
         }
         if (*address > kMaxWireU24)
         {
-            return fail(ErrorKind::kInvalidConfig,
+            return Fail(ErrorKind::kInvalidConfig,
                         std::format("CRC address 0x{:x} does not fit the 24-bit address space", *address));
         }
         prepared.address = *address;
@@ -334,7 +334,7 @@ Result<PreparedStep> prepare_step(IBenchFiles& files, const StepSpec& step)
         }
         if (mitsu_colt_can::IsDestructiveRequest(*pdu))
         {
-            return fail(ErrorKind::kInvalidConfig,
+            return Fail(ErrorKind::kInvalidConfig,
                         std::format("{} cannot bypass a named destructive command", spec->name));
         }
         prepared.pdu = std::move(*pdu);
@@ -373,7 +373,7 @@ Result<PreparedStep> prepare_step(IBenchFiles& files, const StepSpec& step)
         {
             if (step.args.size() != 3 || step.args[1] != "--from")
             {
-                return fail(ErrorKind::kInvalidConfig,
+                return Fail(ErrorKind::kInvalidConfig,
                             std::format("{}'s extra arguments must be --from <path>", spec->name));
             }
             Result<bytes::Bytes> loaded = files.load(step.args[2]);
@@ -401,7 +401,7 @@ Result<PreparedStep> prepare_step(IBenchFiles& files, const StepSpec& step)
     case CommandId::Erase:
         return prepared;
     }
-    return fail(ErrorKind::kInternal, "unhandled command during validation");
+    return Fail(ErrorKind::kInternal, "unhandled command during validation");
 }
 
 Status executeStep(BenchContext& context, const PreparedStep& prepared, CommandOutcome& outcome)
@@ -410,7 +410,7 @@ Status executeStep(BenchContext& context, const PreparedStep& prepared, CommandO
     const CommandSpec *const spec = find_command(step.id);
     if (spec == nullptr)
     {
-        return fail(ErrorKind::kInternal, "step has no command spec");
+        return Fail(ErrorKind::kInternal, "step has no command spec");
     }
     // bench_args gates this at parse time; repeated here so a StepSpec built
     // another way cannot reach the wire ungated.
@@ -443,7 +443,7 @@ Status executeStep(BenchContext& context, const PreparedStep& prepared, CommandO
         // address, but an address-window guard belongs at the last gate too.
         if (prepared.address > kMaxWireU24)
         {
-            return fail(ErrorKind::kInvalidConfig,
+            return Fail(ErrorKind::kInvalidConfig,
                         std::format("CRC address 0x{:x} does not fit the 24-bit address space", prepared.address));
         }
         return routineWithStatus(context, outcome, mitsu_colt_can::BuildRoutineCheckCrc(prepared.address),
@@ -456,7 +456,7 @@ Status executeStep(BenchContext& context, const PreparedStep& prepared, CommandO
         // reaches the wire without passing the one destructive predicate.
         if (mitsu_colt_can::IsDestructiveRequest(prepared.pdu))
         {
-            return fail(ErrorKind::kInvalidConfig,
+            return Fail(ErrorKind::kInvalidConfig,
                         std::format("{} cannot bypass a named destructive command", spec->name));
         }
         // exchange_raw bypasses SID/NRC validation entirely -- whatever comes
@@ -483,7 +483,7 @@ Status executeStep(BenchContext& context, const PreparedStep& prepared, CommandO
     }
     case CommandId::Ports:
         // main.cpp (Task 7) handles `ports` before any session exists.
-        return fail(ErrorKind::kUnsupported, "ports does not use a session");
+        return Fail(ErrorKind::kUnsupported, "ports does not use a session");
     case CommandId::Unlock:
     {
         const bytes::Bytes pdu = mitsu_colt_can::BuildRequestReflashUnlock();
@@ -501,7 +501,7 @@ Status executeStep(BenchContext& context, const PreparedStep& prepared, CommandO
     {
         if (!prepared.upload_payload.has_value())
         {
-            return fail(ErrorKind::kInternal, "prepared upload has no payload");
+            return Fail(ErrorKind::kInternal, "prepared upload has no payload");
         }
         if (const Status uploaded = upload(context, outcome, prepared.address, *prepared.upload_payload);
             !uploaded.has_value())

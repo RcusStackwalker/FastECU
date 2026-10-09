@@ -7,7 +7,7 @@ namespace
 {
 constexpr SingleWindowPlanCase kNormalCase{
     .name = "SubaruHitachiM32rKlineNormal",
-    .build = &build_subaru_hitachi_m32r_kline_plan,
+    .build = &BuildSubaruHitachiM32rKlinePlan,
     .protocol = "sub_ecu_hitachi_m32r_kline",
     .mcu = "M32R_512KB_1block",
     .foreign_protocol = "sub_ecu_hitachi_m32r_kline_typo",
@@ -19,7 +19,7 @@ constexpr SingleWindowPlanCase kNormalCase{
 
 constexpr SingleWindowPlanCase kRecoveryCase{
     .name = "SubaruHitachiM32rKlineRecovery",
-    .build = &build_subaru_hitachi_m32r_kline_plan,
+    .build = &BuildSubaruHitachiM32rKlinePlan,
     .protocol = "sub_ecu_hitachi_m32r_kline_recovery",
     .mcu = "M32R_512KB_1block",
     .foreign_protocol = "sub_ecu_hitachi_m32r_kline_typo",
@@ -32,9 +32,9 @@ constexpr SingleWindowPlanCase kRecoveryCase{
 // This family accepts two protocol names (Normal and Recovery session
 // modes), so it is instantiated twice with distinct prefixes.
 INSTANTIATE_TEST_SUITE_P(SubaruHitachiM32rKlineNormal, SingleWindowPlanContract, ::testing::Values(kNormalCase),
-                         caseName);
+                         CaseName);
 INSTANTIATE_TEST_SUITE_P(SubaruHitachiM32rKlineRecovery, SingleWindowPlanContract, ::testing::Values(kRecoveryCase),
-                         caseName);
+                         CaseName);
 
 // The session-mode mapping, transport/family identity, and wire parameters
 // are this family's own; they do not generalize.
@@ -46,12 +46,12 @@ TEST(SubaruHitachiM32rKlinePlan, MapsExactProtocolsToTheirSessionModeAndWirePara
          })
     {
         const auto plan =
-            build_subaru_hitachi_m32r_kline_plan(FlashOperation::kRead, protocol, "M32R_512KB_1block", std::nullopt);
+            BuildSubaruHitachiM32rKlinePlan(FlashOperation::kRead, protocol, "M32R_512KB_1block", std::nullopt);
         ASSERT_THAT(plan, fastecu::testing::IsOk());
-        EXPECT_EQ(plan->family(), FlashFamily::kSubaruHitachiM32rKline);
-        EXPECT_EQ(plan->transport(), TransportKind::kKline);
+        EXPECT_EQ(plan->Family(), FlashFamily::kSubaruHitachiM32rKline);
+        EXPECT_EQ(plan->Transport(), TransportKind::kKline);
 
-        const auto& family = std::get<SubaruHitachiM32rKlinePlan>(plan->family_plan());
+        const auto& family = std::get<SubaruHitachiM32rKlinePlan>(plan->FamilyPlan());
         EXPECT_EQ(family.session_mode, mode);
         EXPECT_EQ(family.tester_id, 0xf0);
         EXPECT_EQ(family.target_id, 0x10);

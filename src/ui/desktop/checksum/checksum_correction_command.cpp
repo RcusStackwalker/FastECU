@@ -83,7 +83,7 @@ ChecksumCorrectionResult ChecksumCorrectionCommand::run(bytes::ByteView romData,
     // Formerly FileActions::checksum_correction's own precheck, ahead of the
     // adapter call: an unregistered MCU returns the ROM untouched and shows
     // no dialog at all.
-    if (fastecu::flash::find_flash_device(selection.mcu_type) == nullptr)
+    if (fastecu::flash::FindFlashDevice(selection.mcu_type) == nullptr)
     {
         result.unknown_mcu_type = true;
         return result;
@@ -97,7 +97,7 @@ ChecksumCorrectionResult ChecksumCorrectionCommand::run(bytes::ByteView romData,
         }
     }
 
-    switch (const ChecksumCorrectionOutcome outcome = fastecu::checksum::apply_checksum_correction(romData, selection);
+    switch (const ChecksumCorrectionOutcome outcome = fastecu::checksum::ApplyChecksumCorrection(romData, selection);
             outcome.status)
     {
     case ChecksumCorrectionOutcome::Status::kUnknownMcuType:

@@ -54,7 +54,7 @@ struct SessionOnDisk
 {
     explicit SessionOnDisk(const QString& root)
     {
-        status = session.initialize(root.toStdString(), "0.1.0-beta.5");
+        status = session.Initialize(root.toStdString(), "0.1.0-beta.5");
     }
     QtFileSystem file_system;
     QtResourceBundle resource_bundle;
@@ -102,15 +102,15 @@ TEST_P(ProviderCheckboxesPersistBothDirectionsParameters, providerCheckboxesPers
             box->click();
             ASSERT_EQ(box->isChecked(), enabled);
         }
-        ASSERT_EQ(disk.session.settings().use_romraider_definitions, std::string(enabled ? "enabled" : "disabled"));
-        ASSERT_EQ(disk.session.settings().use_ecuflash_definitions, std::string(enabled ? "enabled" : "disabled"));
-        ASSERT_EQ(disk.session.settings().primary_definition_base, std::string(enabled ? "romraider" : "ecuflash"));
+        ASSERT_EQ(disk.session.Settings().use_romraider_definitions, std::string(enabled ? "enabled" : "disabled"));
+        ASSERT_EQ(disk.session.Settings().use_ecuflash_definitions, std::string(enabled ? "enabled" : "disabled"));
+        ASSERT_EQ(disk.session.Settings().primary_definition_base, std::string(enabled ? "romraider" : "ecuflash"));
     }
     SessionOnDisk reread{root.path()};
     ASSERT_TRUE(reread.status.has_value());
-    ASSERT_EQ(reread.session.settings().use_romraider_definitions, disk.session.settings().use_romraider_definitions);
-    ASSERT_EQ(reread.session.settings().use_ecuflash_definitions, disk.session.settings().use_ecuflash_definitions);
-    ASSERT_EQ(reread.session.settings().primary_definition_base, disk.session.settings().primary_definition_base);
+    ASSERT_EQ(reread.session.Settings().use_romraider_definitions, disk.session.Settings().use_romraider_definitions);
+    ASSERT_EQ(reread.session.Settings().use_ecuflash_definitions, disk.session.Settings().use_ecuflash_definitions);
+    ASSERT_EQ(reread.session.Settings().primary_definition_base, disk.session.Settings().primary_definition_base);
 }
 
 struct RemovingDefinitionsPreservesOrderAndPersistsEmptyListCase
@@ -139,7 +139,7 @@ TEST_P(RemovingDefinitionsPreservesOrderAndPersistsEmptyListParameters,
     ASSERT_TRUE(root.isValid());
     SessionOnDisk disk{root.path()};
     ASSERT_TRUE(disk.status.has_value());
-    disk.session.settings().romraider_definition_files = {"/first.xml", "/middle.xml", "/last.xml"};
+    disk.session.Settings().romraider_definition_files = {"/first.xml", "/middle.xml", "/last.xml"};
     {
         Settings settings{disk.session};
         QListWidget *list = nullptr;
@@ -164,11 +164,11 @@ TEST_P(RemovingDefinitionsPreservesOrderAndPersistsEmptyListParameters,
         ASSERT_TRUE(remove != nullptr);
         list->clearSelection();
         remove->click();
-        ASSERT_EQ(disk.session.settings().romraider_definition_files,
+        ASSERT_EQ(disk.session.Settings().romraider_definition_files,
                   (std::vector<std::string>{"/first.xml", "/middle.xml", "/last.xml"}));
         list->setCurrentRow(1);
         remove->click();
-        ASSERT_EQ(disk.session.settings().romraider_definition_files,
+        ASSERT_EQ(disk.session.Settings().romraider_definition_files,
                   (std::vector<std::string>{"/first.xml", "/last.xml"}));
         if (removeAll)
         {
@@ -177,14 +177,14 @@ TEST_P(RemovingDefinitionsPreservesOrderAndPersistsEmptyListParameters,
                 list->setCurrentRow(0);
                 remove->click();
             }
-            ASSERT_TRUE(disk.session.settings().romraider_definition_files.empty());
+            ASSERT_TRUE(disk.session.Settings().romraider_definition_files.empty());
             remove->click();
-            ASSERT_TRUE(disk.session.settings().romraider_definition_files.empty());
+            ASSERT_TRUE(disk.session.Settings().romraider_definition_files.empty());
         }
     }
     SessionOnDisk reread{root.path()};
     ASSERT_TRUE(reread.status.has_value());
-    ASSERT_EQ(reread.session.settings().romraider_definition_files, disk.session.settings().romraider_definition_files);
+    ASSERT_EQ(reread.session.Settings().romraider_definition_files, disk.session.Settings().romraider_definition_files);
 }
 
 TEST(SettingsTest, closingSettingsSavesThroughTheSession)
@@ -193,7 +193,7 @@ TEST(SettingsTest, closingSettingsSavesThroughTheSession)
     ASSERT_TRUE(root.isValid());
     SessionOnDisk disk{root.path()};
     ASSERT_TRUE(disk.status.has_value());
-    const QString configFile = QString::fromStdString(disk.session.provisioned_paths().config_file);
+    const QString configFile = QString::fromStdString(disk.session.ProvisionedPaths().config_file);
     ASSERT_TRUE(QFile::remove(configFile));
 
     {
@@ -214,7 +214,7 @@ TEST(SettingsTest, editsReachTheSessionLive)
     ASSERT_TRUE(
         QMetaObject::invokeMethod(&settings, "toolbar_iconsize_value_changed", Qt::DirectConnection, Q_ARG(int, 40)));
 
-    ASSERT_EQ(disk.session.settings().toolbar_iconsize, std::string("40"));
+    ASSERT_EQ(disk.session.Settings().toolbar_iconsize, std::string("40"));
 }
 
 TEST(SettingsTest, destructionRetriesPersistenceAfterClose)
@@ -223,7 +223,7 @@ TEST(SettingsTest, destructionRetriesPersistenceAfterClose)
     ASSERT_TRUE(root.isValid());
     SessionOnDisk disk{root.path()};
     ASSERT_TRUE(disk.status.has_value());
-    const QString configFile = QString::fromStdString(disk.session.provisioned_paths().config_file);
+    const QString configFile = QString::fromStdString(disk.session.ProvisionedPaths().config_file);
     ASSERT_TRUE(QFile::remove(configFile));
     ASSERT_TRUE(QDir().mkpath(configFile));
     ModalCollector boxes;
@@ -247,7 +247,7 @@ TEST(SettingsTest, failedSaveKeepsEditsAndWarnsTheOperator)
     ASSERT_TRUE(root.isValid());
     SessionOnDisk disk{root.path()};
     ASSERT_TRUE(disk.status.has_value());
-    const QString configFile = QString::fromStdString(disk.session.provisioned_paths().config_file);
+    const QString configFile = QString::fromStdString(disk.session.ProvisionedPaths().config_file);
     ASSERT_TRUE(QFile::remove(configFile));
     ASSERT_TRUE(QDir().mkpath(configFile)); // a directory where the file goes: every write fails
 
@@ -259,7 +259,7 @@ TEST(SettingsTest, failedSaveKeepsEditsAndWarnsTheOperator)
         settings.close();
     }
 
-    ASSERT_EQ(disk.session.settings().toolbar_iconsize, std::string("40"));
+    ASSERT_EQ(disk.session.Settings().toolbar_iconsize, std::string("40"));
     ASSERT_EQ(boxes.texts().size(), 1);
     ASSERT_TRUE(boxes.texts().front().contains(configFile));
 }

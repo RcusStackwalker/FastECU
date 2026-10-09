@@ -12,15 +12,15 @@ namespace fastecu::calibration::internal
 {
 
 // Sign-extends a `width`-byte raw value to a signed 32-bit value.
-std::int32_t sign_extend(std::uint32_t raw, std::uint32_t width);
+std::int32_t SignExtend(std::uint32_t raw, std::uint32_t width);
 
 // Overflow-checked arithmetic. Return false and leave `result` unspecified on
 // overflow rather than wrapping, so a bad definition cannot silently produce a
 // ~4 GB extent.
-bool checked_add(std::uint64_t lhs, std::uint64_t rhs, std::uint64_t& result);
-bool checked_multiply(std::uint64_t lhs, std::uint64_t rhs, std::uint64_t& result);
+bool CheckedAdd(std::uint64_t lhs, std::uint64_t rhs, std::uint64_t& result);
+bool CheckedMultiply(std::uint64_t lhs, std::uint64_t rhs, std::uint64_t& result);
 
 // True when [address, address + width) lies wholly inside `data`.
-bool byte_window_fits(bytes::ByteView data, std::uint64_t address, std::uint64_t width);
+bool ByteWindowFits(bytes::ByteView data, std::uint64_t address, std::uint64_t width);
 
 } // namespace fastecu::calibration::internal

@@ -25,12 +25,12 @@ namespace
 {
 constexpr std::uint32_t kDensoTableLength = 17 * 12;
 
-bool starts_with(std::string_view value, std::string_view prefix)
+bool StartsWith(std::string_view value, std::string_view prefix)
 {
     return value.substr(0, prefix.size()) == prefix;
 }
 
-ChecksumResult denso_sh7xxx(bytes::ByteView rom, std::uint32_t area_start, std::int32_t offset = 0)
+ChecksumResult DensoSh7xxx(bytes::ByteView rom, std::uint32_t area_start, std::int32_t offset = 0)
 {
     ChecksumResult result =
         ChecksumEcuSubaruDensoSH7xxx::CalculateChecksumResult(rom, area_start, kDensoTableLength, offset);
@@ -44,7 +44,7 @@ ChecksumResult denso_sh7xxx(bytes::ByteView rom, std::uint32_t area_start, std::
     return result;
 }
 
-ChecksumResult denso_sh705x_diesel(bytes::ByteView rom, std::uint32_t area_start)
+ChecksumResult DensoSh705xDiesel(bytes::ByteView rom, std::uint32_t area_start)
 {
     return ChecksumEcuSubaruDensoSH705xDiesel::CalculateChecksumResult(rom, area_start, kDensoTableLength);
 }
@@ -107,22 +107,22 @@ constexpr std::array kRoutes{
     RouteSpec{"mitsu_ecu_m32r_can", "Mitsubishi", Route::kMitsuColtM32rCan},
 };
 
-DispatchResult execute(const RouteSpec& spec, std::string_view rom_id, bytes::ByteView rom)
+DispatchResult Execute(const RouteSpec& spec, std::string_view rom_id, bytes::ByteView rom)
 {
     switch (spec.route)
     {
     case Route::kDensoSh7xxx:
-        return {true, denso_sh7xxx(rom, spec.table_offset, spec.address_offset)};
+        return {true, DensoSh7xxx(rom, spec.table_offset, spec.address_offset)};
     case Route::kDensoDiesel:
-        return {true, denso_sh705x_diesel(rom, spec.table_offset)};
+        return {true, DensoSh705xDiesel(rom, spec.table_offset)};
     case Route::kDensoTcuSh7055:
         return {true, ChecksumTcuSubaruDensoSH7055::CalculateChecksumResult(rom)};
     case Route::kM32rByRomId:
-        if (starts_with(rom_id, "3"))
+        if (StartsWith(rom_id, "3"))
         {
             return {true, ChecksumEcuSubaruHitachiM32rKline::CalculateChecksumResult(rom)};
         }
-        if (starts_with(rom_id, "4") || starts_with(rom_id, "6"))
+        if (StartsWith(rom_id, "4") || StartsWith(rom_id, "6"))
         {
             return {true, ChecksumEcuSubaruHitachiM32rCan::CalculateChecksumResult(rom)};
         }
@@ -145,29 +145,29 @@ DispatchResult execute(const RouteSpec& spec, std::string_view rom_id, bytes::By
     std::unreachable();
 }
 
-DispatchResult dispatch_family(std::string_view make, std::string_view flash_method, std::string_view rom_id,
-                               bytes::ByteView rom)
+DispatchResult DispatchFamily(std::string_view make, std::string_view flash_method, std::string_view rom_id,
+                              bytes::ByteView rom)
 {
     for (const RouteSpec& spec : kRoutes)
     {
-        if (spec.make == make && starts_with(flash_method, spec.prefix))
+        if (spec.make == make && StartsWith(flash_method, spec.prefix))
         {
-            return execute(spec, rom_id, rom);
+            return Execute(spec, rom_id, rom);
         }
     }
     return {false, std::nullopt};
 }
 } // namespace
 
-bool has_route(std::string_view make, std::string_view flash_method)
+bool HasRoute(std::string_view make, std::string_view flash_method)
 {
     return std::ranges::any_of(kRoutes, [&](const RouteSpec& spec)
-                               { return spec.make == make && starts_with(flash_method, spec.prefix); });
+                               { return spec.make == make && StartsWith(flash_method, spec.prefix); });
 }
 
-ChecksumCorrectionOutcome apply_checksum_correction(bytes::ByteView rom_data, const ChecksumSelection& selection)
+ChecksumCorrectionOutcome ApplyChecksumCorrection(bytes::ByteView rom_data, const ChecksumSelection& selection)
 {
-    const FlashDevice *device = fastecu::flash::find_flash_device(selection.mcu_type);
+    const FlashDevice *device = fastecu::flash::FindFlashDevice(selection.mcu_type);
     if (device == nullptr)
     {
         return {.status = ChecksumCorrectionOutcome::Status::kUnknownMcuType};
@@ -181,7 +181,7 @@ ChecksumCorrectionOutcome apply_checksum_correction(bytes::ByteView rom_data, co
         return {.status = ChecksumCorrectionOutcome::Status::kBadRomSize};
     }
 
-    const DispatchResult dispatch = dispatch_family(selection.make, selection.flash_method, selection.rom_id, rom_data);
+    const DispatchResult dispatch = DispatchFamily(selection.make, selection.flash_method, selection.rom_id, rom_data);
     if (!dispatch.module_available)
     {
         return {.status = ChecksumCorrectionOutcome::Status::kNoModuleForProtocol};

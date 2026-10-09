@@ -20,20 +20,20 @@ class DesktopMixedCanFlashTransport final : public IMixedCanFlashTransport
     explicit DesktopMixedCanFlashTransport(SerialPortActions *serial);
     ~DesktopMixedCanFlashTransport() override;
 
-    Status reset_connection() override;
-    Status configure(const MixedCanConfig& config) override;
-    Status open() override;
-    Status close() override;
-    Status enter_raw_bootloader_mode() override;
-    Status clear_receive_buffer() override;
-    Status enter_iso15765_kernel_mode() override;
-    Status write_iso15765(bytes::ByteView data, const ICancellationToken& cancellation) override;
-    Result<std::optional<bytes::Bytes>> read_iso15765(std::chrono::milliseconds timeout,
-                                                      const ICancellationToken& cancellation) override;
-    Status write_raw(const cdbg::CanFrame& frame, const ICancellationToken& cancellation) override;
-    Result<std::optional<cdbg::CanFrame>> read_raw(std::chrono::milliseconds timeout,
-                                                   const ICancellationToken& cancellation) override;
-    void request_unblock() noexcept override;
+    Status ResetConnection() override;
+    Status Configure(const MixedCanConfig& config) override;
+    Status Open() override;
+    Status Close() override;
+    Status EnterRawBootloaderMode() override;
+    Status ClearReceiveBuffer() override;
+    Status EnterIso15765KernelMode() override;
+    Status WriteIso15765(bytes::ByteView data, const ICancellationToken& cancellation) override;
+    Result<std::optional<bytes::Bytes>> ReadIso15765(std::chrono::milliseconds timeout,
+                                                     const ICancellationToken& cancellation) override;
+    Status WriteRaw(const cdbg::CanFrame& frame, const ICancellationToken& cancellation) override;
+    Result<std::optional<cdbg::CanFrame>> ReadRaw(std::chrono::milliseconds timeout,
+                                                  const ICancellationToken& cancellation) override;
+    void RequestUnblock() noexcept override;
 
   private:
     enum class Mode

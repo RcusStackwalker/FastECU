@@ -6,10 +6,10 @@
 void MainWindow::parse_log_value_list(QByteArray received, const QString& protocolArg)
 {
     received.remove(0, 5);
-    logger_model_->apply_capabilities(protocolArg.toStdString(), bytes::view(received));
-    for (const auto& p : logger_model_->definition().parameters)
+    logger_model_->ApplyCapabilities(protocolArg.toStdString(), bytes::view(received));
+    for (const auto& p : logger_model_->Definition().parameters)
     {
-        if (p.protocol != protocolArg.toStdString() || !logger_model_->parameter_supported(p.protocol, p.id))
+        if (p.protocol != protocolArg.toStdString() || !logger_model_->ParameterSupported(p.protocol, p.id))
         {
             continue;
         }
@@ -38,7 +38,7 @@ void MainWindow::log_to_file()
             QDateTime dateTime = dateTime.currentDateTime();
             QString dateTimeString = dateTime.toString("yyyy-MM-dd_hh'h'mm'm'ss's'");
 
-            QString logFileName = fastecu::ui::qs(config_session_->effective_paths().datalog_files_directory);
+            QString logFileName = fastecu::ui::qs(config_session_->EffectivePaths().datalog_files_directory);
             if (!logFileName.endsWith('/'))
             {
                 logFileName.append("/");
@@ -75,12 +75,12 @@ void MainWindow::log_to_file()
 void MainWindow::write_logger_csv_cells(bool header)
 {
     const auto key = active_logging_snapshot_ ? active_logging_snapshot_->protocol : protocol_.toStdString();
-    const auto& selection = logger_model_->selection();
+    const auto& selection = logger_model_->Selection();
     const auto parameters = [&](const auto& ids)
     {
         for (const auto& id : ids)
         {
-            const auto *item = logger_model_->parameter(key, id);
+            const auto *item = logger_model_->Parameter(key, id);
             datalog_file_outstream_ << (item == nullptr ? QString{}
                                         : header        ? fastecu::ui::qs(item->name)
                                                         : logger_values_.parameter_value(key, id))
@@ -91,7 +91,7 @@ void MainWindow::write_logger_csv_cells(bool header)
     parameters(selection.lower_panel_ids);
     for (const auto& id : selection.switch_ids)
     {
-        const auto *item = logger_model_->switch_definition(key, id);
+        const auto *item = logger_model_->SwitchDefinition(key, id);
         datalog_file_outstream_ << (item == nullptr ? QString{}
                                     : header        ? fastecu::ui::qs(item->name)
                                                     : logger_values_.switch_value(key, id))

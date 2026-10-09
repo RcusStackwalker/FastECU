@@ -49,8 +49,8 @@ std::unique_ptr<SerialPortActions> make_serial(FakeBackend *& fake)
 
 void configure_and_open(DesktopMixedCanFlashTransport& transport)
 {
-    ASSERT_TRUE(transport.configure(config()).has_value());
-    ASSERT_TRUE(transport.open().has_value());
+    ASSERT_TRUE(transport.Configure(config()).has_value());
+    ASSERT_TRUE(transport.Open().has_value());
 }
 
 } // namespace
@@ -61,11 +61,11 @@ TEST(TestDesktopMixedCanFlashTransport, initialResetReachesBackendAndReturnsFail
     DesktopMixedCanFlashTransport transport(make_serial(fake));
     EXPECT_CALL(*fake, reset_connection()).WillOnce(::testing::Return());
 
-    ASSERT_TRUE(transport.reset_connection().has_value());
+    ASSERT_TRUE(transport.ResetConnection().has_value());
 
     EXPECT_CALL(*fake, reset_connection())
         .WillOnce(::testing::Throw(std::runtime_error("scripted backend reset failure")));
-    const auto failed = transport.reset_connection();
+    const auto failed = transport.ResetConnection();
     ASSERT_TRUE(!failed.has_value());
     ASSERT_EQ(failed.error().kind, ErrorKind::kInternal);
 }
@@ -74,9 +74,9 @@ TEST(TestDesktopMixedCanFlashTransport, initialResetAfterCloseReturnsDisconnecte
 {
     FakeBackend *fake = nullptr;
     DesktopMixedCanFlashTransport transport(make_serial(fake));
-    ASSERT_TRUE(transport.close().has_value());
+    ASSERT_TRUE(transport.Close().has_value());
 
-    const auto result = transport.reset_connection();
+    const auto result = transport.ResetConnection();
 
     ASSERT_TRUE(!result.has_value());
     ASSERT_EQ(result.error().kind, ErrorKind::kDisconnected);
@@ -122,10 +122,10 @@ TEST(TestDesktopMixedCanFlashTransport, configuresIsoThenTransitionsRawAndBack)
     EXPECT_CALL(*fake, set_add_iso14230_header(false)).WillOnce(::testing::Return(true));
     EXPECT_CALL(*fake, open_serial_port()).WillOnce(::testing::Return(QStringLiteral("fake-adapter")));
 
-    ASSERT_TRUE(transport.configure(config()).has_value());
-    ASSERT_TRUE(transport.open().has_value());
-    ASSERT_TRUE(transport.enter_raw_bootloader_mode().has_value());
-    ASSERT_TRUE(transport.enter_iso15765_kernel_mode().has_value());
+    ASSERT_TRUE(transport.Configure(config()).has_value());
+    ASSERT_TRUE(transport.Open().has_value());
+    ASSERT_TRUE(transport.EnterRawBootloaderMode().has_value());
+    ASSERT_TRUE(transport.EnterIso15765KernelMode().has_value());
 }
 
 TEST(TestDesktopMixedCanFlashTransport, everyModeConfigurationClearsStickyIso14230HeaderState)
@@ -136,16 +136,16 @@ TEST(TestDesktopMixedCanFlashTransport, everyModeConfigurationClearsStickyIso142
     ASSERT_TRUE(observed->set_add_iso14230_header(true));
     DesktopMixedCanFlashTransport transport(std::move(serial));
 
-    ASSERT_TRUE(transport.configure(config()).has_value());
+    ASSERT_TRUE(transport.Configure(config()).has_value());
     ASSERT_EQ(observed->get_add_iso14230_header(), false);
-    ASSERT_TRUE(transport.open().has_value());
+    ASSERT_TRUE(transport.Open().has_value());
 
     ASSERT_TRUE(observed->set_add_iso14230_header(true));
-    ASSERT_TRUE(transport.enter_raw_bootloader_mode().has_value());
+    ASSERT_TRUE(transport.EnterRawBootloaderMode().has_value());
     ASSERT_EQ(observed->get_add_iso14230_header(), false);
 
     ASSERT_TRUE(observed->set_add_iso14230_header(true));
-    ASSERT_TRUE(transport.enter_iso15765_kernel_mode().has_value());
+    ASSERT_TRUE(transport.EnterIso15765KernelMode().has_value());
     ASSERT_EQ(observed->get_add_iso14230_header(), false);
 }
 
@@ -157,10 +157,10 @@ TEST(TestDesktopMixedCanFlashTransport, preservesExtendedIsoIdDuringInitialConfi
     extended.kernel.extended_id = true;
     EXPECT_CALL(*fake, set_is_29_bit_id(true)).Times(3);
 
-    ASSERT_TRUE(transport.configure(extended).has_value());
-    ASSERT_TRUE(transport.open().has_value());
-    ASSERT_TRUE(transport.enter_raw_bootloader_mode().has_value());
-    ASSERT_TRUE(transport.enter_iso15765_kernel_mode().has_value());
+    ASSERT_TRUE(transport.Configure(extended).has_value());
+    ASSERT_TRUE(transport.Open().has_value());
+    ASSERT_TRUE(transport.EnterRawBootloaderMode().has_value());
+    ASSERT_TRUE(transport.EnterIso15765KernelMode().has_value());
 }
 
 TEST(TestDesktopMixedCanFlashTransport, rawFrameAddsAndParsesBigEndianId)
@@ -169,15 +169,15 @@ TEST(TestDesktopMixedCanFlashTransport, rawFrameAddsAndParsesBigEndianId)
     DesktopMixedCanFlashTransport transport(make_serial(fake));
     FakeCancellationToken cancellation;
     ASSERT_NO_FATAL_FAILURE(configure_and_open(transport));
-    ASSERT_TRUE(transport.enter_raw_bootloader_mode().has_value());
+    ASSERT_TRUE(transport.EnterRawBootloaderMode().has_value());
 
     const QByteArray expected_write = QByteArray::fromHex("000ffffe7a90000000000000");
     EXPECT_CALL(*fake, write_serial_data_echo_check(expected_write)).WillOnce(::testing::Return(QByteArray{}));
-    ASSERT_TRUE(transport.write_raw({0x000ffffe, {0x7a, 0x90, 0, 0, 0, 0, 0, 0}}, cancellation).has_value());
+    ASSERT_TRUE(transport.WriteRaw({0x000ffffe, {0x7a, 0x90, 0, 0, 0, 0, 0, 0}}, cancellation).has_value());
 
     EXPECT_CALL(*fake, read_serial_data(::testing::_))
         .WillOnce(::testing::Return(QByteArray::fromHex("000000217a96000000000000")));
-    const auto frame = transport.read_raw(800ms, cancellation);
+    const auto frame = transport.ReadRaw(800ms, cancellation);
     ASSERT_TRUE(frame.has_value());
     ASSERT_TRUE(frame->has_value());
     ASSERT_EQ(frame->value().id, 0x21U);
@@ -209,7 +209,7 @@ TEST(TestDesktopMixedCanFlashTransport, configureFailsAtEverySetter)
         FakeBackend *fake = nullptr;
         DesktopMixedCanFlashTransport transport(make_serial(fake));
         set_failure(*fake);
-        const auto result = transport.configure(config());
+        const auto result = transport.Configure(config());
         ASSERT_TRUE(!result.has_value());
         ASSERT_EQ(result.error().kind, ErrorKind::kInvalidConfig);
     }
@@ -221,7 +221,7 @@ TEST(TestDesktopMixedCanFlashTransport, configureRejectsReconfigureWhileAlreadyC
     DesktopMixedCanFlashTransport transport(make_serial(fake));
     ASSERT_NO_FATAL_FAILURE(configure_and_open(transport));
 
-    const auto reconfigure = transport.configure(config());
+    const auto reconfigure = transport.Configure(config());
 
     ASSERT_TRUE(!reconfigure.has_value());
     ASSERT_EQ(reconfigure.error().kind, ErrorKind::kInvalidConfig);
@@ -234,18 +234,18 @@ TEST(TestDesktopMixedCanFlashTransport, poisonedTransitionMakesConfigureAndOpenS
     ASSERT_NO_FATAL_FAILURE(configure_and_open(transport));
     EXPECT_CALL(*fake, open_serial_port()).WillOnce(::testing::Return(QString{}));
 
-    const auto transition = transport.enter_raw_bootloader_mode();
+    const auto transition = transport.EnterRawBootloaderMode();
     ASSERT_TRUE(!transition.has_value());
     ASSERT_EQ(transition.error().kind, ErrorKind::kDisconnected);
 
     // close() must not clear the poison: it only tears down the live handle.
-    ASSERT_TRUE(transport.close().has_value());
+    ASSERT_TRUE(transport.Close().has_value());
 
-    const auto reconfigure = transport.configure(config());
+    const auto reconfigure = transport.Configure(config());
     ASSERT_TRUE(!reconfigure.has_value());
     ASSERT_EQ(reconfigure.error().kind, ErrorKind::kDisconnected);
 
-    const auto reopen = transport.open();
+    const auto reopen = transport.Open();
     ASSERT_TRUE(!reopen.has_value());
     ASSERT_EQ(reopen.error().kind, ErrorKind::kDisconnected);
 }
@@ -274,11 +274,11 @@ TEST(TestDesktopMixedCanFlashTransport, rawTransitionFailsAtEverySetterAndMakesI
         ASSERT_NO_FATAL_FAILURE(configure_and_open(transport));
         set_failure(*fake);
 
-        const auto transition = transport.enter_raw_bootloader_mode();
+        const auto transition = transport.EnterRawBootloaderMode();
         ASSERT_TRUE(!transition.has_value());
         ASSERT_EQ(transition.error().kind, ErrorKind::kInvalidConfig);
         EXPECT_CALL(*fake, write_serial_data_echo_check(::testing::_)).Times(0);
-        const auto write = transport.write_iso15765(bytes::Bytes{0x01}, cancellation);
+        const auto write = transport.WriteIso15765(bytes::Bytes{0x01}, cancellation);
         ASSERT_TRUE(!write.has_value());
         ASSERT_EQ(write.error().kind, ErrorKind::kInvalidConfig);
     }
@@ -292,11 +292,11 @@ TEST(TestDesktopMixedCanFlashTransport, failedReopenMakesFollowingIoTerminal)
     ASSERT_NO_FATAL_FAILURE(configure_and_open(transport));
     EXPECT_CALL(*fake, open_serial_port()).WillOnce(::testing::Return(QString{}));
 
-    const auto transition = transport.enter_raw_bootloader_mode();
+    const auto transition = transport.EnterRawBootloaderMode();
     ASSERT_TRUE(!transition.has_value());
     ASSERT_EQ(transition.error().kind, ErrorKind::kDisconnected);
     EXPECT_CALL(*fake, write_serial_data_echo_check(::testing::_)).Times(0);
-    const auto write = transport.write_raw({0x000ffffe, {0x7a}}, cancellation);
+    const auto write = transport.WriteRaw({0x000ffffe, {0x7a}}, cancellation);
     ASSERT_TRUE(!write.has_value());
     ASSERT_EQ(write.error().kind, ErrorKind::kDisconnected);
 }
@@ -307,15 +307,15 @@ TEST(TestDesktopMixedCanFlashTransport, rawReadRejectsShortFrameAndWrongReceiveI
     DesktopMixedCanFlashTransport transport(make_serial(fake));
     FakeCancellationToken cancellation;
     ASSERT_NO_FATAL_FAILURE(configure_and_open(transport));
-    ASSERT_TRUE(transport.enter_raw_bootloader_mode().has_value());
+    ASSERT_TRUE(transport.EnterRawBootloaderMode().has_value());
 
     EXPECT_CALL(*fake, read_serial_data(::testing::_)).WillOnce(::testing::Return(QByteArray::fromHex("000021")));
-    const auto short_frame = transport.read_raw(10ms, cancellation);
+    const auto short_frame = transport.ReadRaw(10ms, cancellation);
     ASSERT_TRUE(!short_frame.has_value());
     ASSERT_EQ(short_frame.error().kind, ErrorKind::kBadResponse);
 
     EXPECT_CALL(*fake, read_serial_data(::testing::_)).WillOnce(::testing::Return(QByteArray::fromHex("000000227a96")));
-    const auto wrong_id = transport.read_raw(10ms, cancellation);
+    const auto wrong_id = transport.ReadRaw(10ms, cancellation);
     ASSERT_TRUE(!wrong_id.has_value());
     ASSERT_EQ(wrong_id.error().kind, ErrorKind::kBadResponse);
 }
@@ -325,10 +325,10 @@ TEST(TestDesktopMixedCanFlashTransport, clearReceiveBufferRejectsBackendFailure)
     FakeBackend *fake = nullptr;
     DesktopMixedCanFlashTransport transport(make_serial(fake));
     ASSERT_NO_FATAL_FAILURE(configure_and_open(transport));
-    ASSERT_TRUE(transport.enter_raw_bootloader_mode().has_value());
+    ASSERT_TRUE(transport.EnterRawBootloaderMode().has_value());
     EXPECT_CALL(*fake, clear_rx_buffer()).WillOnce(::testing::Return(kSerialError));
 
-    const auto result = transport.clear_receive_buffer();
+    const auto result = transport.ClearReceiveBuffer();
     ASSERT_TRUE(!result.has_value());
     ASSERT_EQ(result.error().kind, ErrorKind::kInternal);
 }
@@ -342,14 +342,14 @@ TEST(TestDesktopMixedCanFlashTransport, detectsDisconnectionBeforeAndDuringIo)
     ASSERT_NO_FATAL_FAILURE(configure_and_open(transport));
 
     EXPECT_CALL(*fake, is_serial_port_open()).WillOnce(::testing::Return(false));
-    const auto before_write = transport.write_iso15765(bytes::Bytes{0x01}, cancellation);
+    const auto before_write = transport.WriteIso15765(bytes::Bytes{0x01}, cancellation);
     ASSERT_TRUE(!before_write.has_value());
     ASSERT_EQ(before_write.error().kind, ErrorKind::kDisconnected);
 
     EXPECT_CALL(*fake, is_serial_port_open()).WillOnce(::testing::Return(true));
     EXPECT_CALL(*fake, read_serial_data(::testing::_)).WillOnce(::testing::Return(QByteArray("\x01", 1)));
     EXPECT_CALL(*fake, is_serial_port_open()).WillOnce(::testing::Return(false));
-    const auto during_read = transport.read_iso15765(10ms, cancellation);
+    const auto during_read = transport.ReadIso15765(10ms, cancellation);
     ASSERT_TRUE(!during_read.has_value());
     ASSERT_EQ(during_read.error().kind, ErrorKind::kDisconnected);
 }
@@ -363,12 +363,12 @@ TEST(TestDesktopMixedCanFlashTransport, catchesStandardAndNonstandardBackendExce
 
     EXPECT_CALL(*fake, write_serial_data_echo_check(::testing::_))
         .WillOnce(::testing::Throw(std::runtime_error("scripted backend write failure")));
-    const auto standard = transport.write_iso15765(bytes::Bytes{0x01}, cancellation);
+    const auto standard = transport.WriteIso15765(bytes::Bytes{0x01}, cancellation);
     ASSERT_TRUE(!standard.has_value());
     ASSERT_EQ(standard.error().kind, ErrorKind::kInternal);
 
     EXPECT_CALL(*fake, write_serial_data_echo_check(::testing::_)).WillOnce(ThrowNonStandardBackendFailure());
-    const auto nonstandard = transport.write_iso15765(bytes::Bytes{0x01}, cancellation);
+    const auto nonstandard = transport.WriteIso15765(bytes::Bytes{0x01}, cancellation);
     ASSERT_TRUE(!nonstandard.has_value());
     ASSERT_EQ(nonstandard.error().kind, ErrorKind::kInternal);
 }
@@ -381,14 +381,14 @@ TEST(TestDesktopMixedCanFlashTransport, cancellationAndUnblockSuppressSubsequent
     ASSERT_NO_FATAL_FAILURE(configure_and_open(transport));
     EXPECT_CALL(*fake, write_serial_data_echo_check(::testing::_)).Times(0);
 
-    const auto cancelled_write = transport.write_iso15765(bytes::Bytes{0x01}, cancelled);
+    const auto cancelled_write = transport.WriteIso15765(bytes::Bytes{0x01}, cancelled);
     ASSERT_TRUE(!cancelled_write.has_value());
     ASSERT_EQ(cancelled_write.error().kind, ErrorKind::kCancelled);
 
     FakeCancellationToken cancellation;
-    transport.request_unblock();
+    transport.RequestUnblock();
     EXPECT_CALL(*fake, read_serial_data(::testing::_)).Times(0);
-    const auto unblocked_read = transport.read_iso15765(10ms, cancellation);
+    const auto unblocked_read = transport.ReadIso15765(10ms, cancellation);
     ASSERT_TRUE(!unblocked_read.has_value());
     ASSERT_EQ(unblocked_read.error().kind, ErrorKind::kCancelled);
 }
@@ -401,7 +401,7 @@ TEST(TestDesktopMixedCanFlashTransport, nonOwningCloseDoesNotDestroyCallerSerial
     fake->destroyed = &destroyed;
 
     DesktopMixedCanFlashTransport transport(serial.get());
-    ASSERT_TRUE(transport.close().has_value());
+    ASSERT_TRUE(transport.Close().has_value());
     ASSERT_TRUE(!destroyed);
     const bool still_callable = serial->is_serial_port_open();
     Q_UNUSED(still_callable);

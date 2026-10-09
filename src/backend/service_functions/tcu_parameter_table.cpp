@@ -3,7 +3,7 @@
 namespace fastecu::service_functions
 {
 
-std::array<TcuParameterWrite, kTcuParameterWriteCount> tcu_parameter_writes(const TcuParameterValues& values)
+std::array<TcuParameterWrite, kTcuParameterWriteCount> TcuParameterWrites(const TcuParameterValues& values)
 {
     return {{
         // legacy :213 -- IC correction, 3->4. First on the wire, third prompted.

@@ -25,7 +25,7 @@ TEST(FakeDiagnosticLink, RecordsEveryCallInOrder)
 {
     FakeDiagnosticLink link;
     FakeCancellationToken token;
-    ASSERT_THAT(link.open(KlineLinkConfig{.header = KlineHeader::kIso14230,
+    ASSERT_THAT(link.Open(KlineLinkConfig{.header = KlineHeader::kIso14230,
                                           .iso14230_connection = true,
                                           .baud = 10400,
                                           .start_byte = 0xC0,
@@ -33,17 +33,17 @@ TEST(FakeDiagnosticLink, RecordsEveryCallInOrder)
                                           .target_id = 0x33}),
                 IsOk());
     ASSERT_THAT(
-        link.open(CanLinkConfig{
+        link.Open(CanLinkConfig{
             .iso15765 = true, .bitrate = 500000, .extended_id = false, .source_id = 0x7E0, .destination_id = 0x7E8}),
         IsOk());
-    ASSERT_THAT(link.set_header(KlineHeader::kIso9141), IsOk());
-    ASSERT_THAT(link.set_p1_max(35ms), IsOk());
-    ASSERT_THAT(link.five_baud_init(0x33), IsOk());
-    ASSERT_THAT(link.fast_init(bytes::Bytes{0x81}), IsOk());
-    ASSERT_THAT(link.write(bytes::Bytes{0x01, 0x00}), IsOk());
-    ASSERT_THAT(link.read(200ms, token), IsOk());
-    ASSERT_THAT(link.read_obd(200ms, token), IsOk());
-    ASSERT_THAT(link.reset(), IsOk());
+    ASSERT_THAT(link.SetHeader(KlineHeader::kIso9141), IsOk());
+    ASSERT_THAT(link.SetP1Max(35ms), IsOk());
+    ASSERT_THAT(link.FiveBaudInit(0x33), IsOk());
+    ASSERT_THAT(link.FastInit(bytes::Bytes{0x81}), IsOk());
+    ASSERT_THAT(link.Write(bytes::Bytes{0x01, 0x00}), IsOk());
+    ASSERT_THAT(link.Read(200ms, token), IsOk());
+    ASSERT_THAT(link.ReadObd(200ms, token), IsOk());
+    ASSERT_THAT(link.Reset(), IsOk());
 
     EXPECT_THAT(link.calls,
                 ElementsAre("open kline header=Iso14230 iso14230=true baud=10400 start=C0 tester=F1 target=33",
@@ -56,36 +56,36 @@ TEST(FakeDiagnosticLink, ServesQueuedOutcomesThenNoFrame)
 {
     FakeDiagnosticLink link;
     FakeCancellationToken token;
-    link.queue_read(bytes::Bytes{0x41, 0x00});
-    link.queue_read_error(ErrorKind::kDisconnected);
-    link.queue_five_baud(bytes::Bytes{0x55, 0x08, 0x08});
-    link.queue_fast_init(fastecu::fail(ErrorKind::kDisconnected));
-    link.queue_open(fastecu::fail(ErrorKind::kDisconnected));
+    link.QueueRead(bytes::Bytes{0x41, 0x00});
+    link.QueueReadError(ErrorKind::kDisconnected);
+    link.QueueFiveBaud(bytes::Bytes{0x55, 0x08, 0x08});
+    link.QueueFastInit(fastecu::Fail(ErrorKind::kDisconnected));
+    link.QueueOpen(fastecu::Fail(ErrorKind::kDisconnected));
 
-    EXPECT_THAT(link.read(200ms, token), IsOkAnd(Optional(ElementsAre(0x41, 0x00))));
-    EXPECT_THAT(link.read_obd(200ms, token), IsErr(ErrorKind::kDisconnected));
-    EXPECT_THAT(link.read(200ms, token), IsOkAnd(std::nullopt));
-    EXPECT_THAT(link.five_baud_init(0x33), IsOkAnd(ElementsAre(0x55, 0x08, 0x08)));
-    EXPECT_THAT(link.five_baud_init(0x33), IsOkAnd(::testing::IsEmpty()));
-    EXPECT_THAT(link.fast_init(bytes::Bytes{0x81}), IsErr(ErrorKind::kDisconnected));
-    EXPECT_THAT(link.open(KlineLinkConfig{}), IsErr(ErrorKind::kDisconnected));
-    EXPECT_TRUE(link.script_consumed());
+    EXPECT_THAT(link.Read(200ms, token), IsOkAnd(Optional(ElementsAre(0x41, 0x00))));
+    EXPECT_THAT(link.ReadObd(200ms, token), IsErr(ErrorKind::kDisconnected));
+    EXPECT_THAT(link.Read(200ms, token), IsOkAnd(std::nullopt));
+    EXPECT_THAT(link.FiveBaudInit(0x33), IsOkAnd(ElementsAre(0x55, 0x08, 0x08)));
+    EXPECT_THAT(link.FiveBaudInit(0x33), IsOkAnd(::testing::IsEmpty()));
+    EXPECT_THAT(link.FastInit(bytes::Bytes{0x81}), IsErr(ErrorKind::kDisconnected));
+    EXPECT_THAT(link.Open(KlineLinkConfig{}), IsErr(ErrorKind::kDisconnected));
+    EXPECT_TRUE(link.ScriptConsumed());
 }
 
 TEST(FakeDiagnosticLink, ReadHonoursCancellation)
 {
     FakeDiagnosticLink link;
     FakeCancellationToken token(true);
-    link.queue_read(bytes::Bytes{0x41});
-    EXPECT_THAT(link.read(200ms, token), IsErr(ErrorKind::kCancelled));
-    EXPECT_FALSE(link.script_consumed());
+    link.QueueRead(bytes::Bytes{0x41});
+    EXPECT_THAT(link.Read(200ms, token), IsErr(ErrorKind::kCancelled));
+    EXPECT_FALSE(link.ScriptConsumed());
 }
 
 TEST(FakeDiagnosticLink, RecordsEvenParityAndStaysSilentForNone)
 {
     FakeDiagnosticLink link;
-    std::ignore = link.open(KlineLinkConfig{.baud = 1953, .parity = Parity::kEven});
-    std::ignore = link.open(KlineLinkConfig{.baud = 4800});
+    std::ignore = link.Open(KlineLinkConfig{.baud = 1953, .parity = Parity::kEven});
+    std::ignore = link.Open(KlineLinkConfig{.baud = 4800});
     EXPECT_EQ(link.calls.at(0),
               "open kline header=None iso14230=false baud=1953 start=00 tester=00 target=00 parity=Even");
     EXPECT_EQ(link.calls.at(1), "open kline header=None iso14230=false baud=4800 start=00 tester=00 target=00");

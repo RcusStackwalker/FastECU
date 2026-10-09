@@ -41,7 +41,7 @@ ServiceFunctionWorker::~ServiceFunctionWorker()
 
 void ServiceFunctionWorker::requestStop()
 {
-    cancellation_.cancel();
+    cancellation_.Cancel();
     const QMutexLocker lock(&gate_mutex_);
     stopping_ = true;
     gate_answered_.wakeAll();
@@ -77,7 +77,7 @@ std::optional<GateResponse> ServiceFunctionWorker::waitForGate()
 
 void ServiceFunctionWorker::run()
 {
-    const Result<SsmTransportConfig> setup = session_->transport_setup();
+    const Result<SsmTransportConfig> setup = session_->TransportSetup();
     if (!setup.has_value())
     {
         emit finished(failureResult(setup.error()));
@@ -99,7 +99,7 @@ void ServiceFunctionWorker::run()
 
     while (true)
     {
-        ServiceFunctionStep step = session_->resume(*transport_, *clock_, cancellation_, events);
+        ServiceFunctionStep step = session_->Resume(*transport_, *clock_, cancellation_, events);
         if (const auto *gate = std::get_if<GateStep>(&step); gate != nullptr)
         {
             {
@@ -111,7 +111,7 @@ void ServiceFunctionWorker::run()
             emit gateRequested(static_cast<int>(gate->id));
             if (const std::optional<GateResponse> response = waitForGate(); response.has_value())
             {
-                session_->submit(*response);
+                session_->Submit(*response);
                 continue;
             }
             emit finished(failureResult(Error{ErrorKind::kCancelled, "cancelled while waiting for operator gate"}));

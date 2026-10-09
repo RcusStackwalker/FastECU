@@ -55,8 +55,8 @@ class RomOpenUseCase
     RomOpenUseCase(IDefinitionCatalogs& catalogs, definition::DefinitionService& definitions, IFileRepository& files,
                    IFileSystem& file_system, IEventSink& events, config::ConfigSession& config);
 
-    Result<RomOpenOutcome> open_file(std::string_view path);
-    Result<RomOpenOutcome> adopt_read_image(ReadImage image);
+    Result<RomOpenOutcome> OpenFile(std::string_view path);
+    Result<RomOpenOutcome> AdoptReadImage(ReadImage image);
 
   private:
     struct Seed
@@ -69,12 +69,12 @@ class RomOpenUseCase
         std::string kernel_start_address;
     };
 
-    RomOpenOutcome finish(Seed seed);
-    std::optional<ResolvedDefinition> find_definition(std::span<const std::uint8_t> rom, std::string& rom_id);
-    std::optional<ResolvedDefinition> try_format(definition::DefinitionFormat format, std::span<const std::uint8_t> rom,
-                                                 std::string& rom_id);
-    std::string resolve_alias(const std::string& flash_method);
-    void log_error(std::string_view operation, const Error& error);
+    RomOpenOutcome Finish(Seed seed);
+    std::optional<ResolvedDefinition> FindDefinition(std::span<const std::uint8_t> rom, std::string& rom_id);
+    std::optional<ResolvedDefinition> TryFormat(definition::DefinitionFormat format, std::span<const std::uint8_t> rom,
+                                                std::string& rom_id);
+    std::string ResolveAlias(const std::string& flash_method);
+    void LogError(std::string_view operation, const Error& error);
 
     IDefinitionCatalogs& catalogs_;
     definition::DefinitionService& definitions_;

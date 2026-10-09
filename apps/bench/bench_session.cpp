@@ -20,11 +20,11 @@ Status validateEcho(bytes::ByteView reply, bytes::Byte expected, std::size_t min
     const bytes::ByteView payload = uds::Payload(reply);
     if (payload.size() < minimum_size)
     {
-        return fail(ErrorKind::kBadResponse, std::format("{} reply too short", subject));
+        return Fail(ErrorKind::kBadResponse, std::format("{} reply too short", subject));
     }
     if (payload[0] != expected)
     {
-        return fail(ErrorKind::kBadResponse,
+        return Fail(ErrorKind::kBadResponse,
                     std::format("{} echoed 0x{:02x}, expected 0x{:02x}", subject, payload[0], expected));
     }
     return {};
@@ -35,15 +35,15 @@ BenchSession::RecordingChannel::RecordingChannel(uds::IUdsChannel& inner) : inne
 {
 }
 
-Status BenchSession::RecordingChannel::send(bytes::ByteView pdu, const ICancellationToken& cancellation)
+Status BenchSession::RecordingChannel::Send(bytes::ByteView pdu, const ICancellationToken& cancellation)
 {
-    return inner_.send(pdu, cancellation);
+    return inner_.Send(pdu, cancellation);
 }
 
-Result<std::optional<bytes::Bytes>> BenchSession::RecordingChannel::receive(std::chrono::milliseconds timeout,
+Result<std::optional<bytes::Bytes>> BenchSession::RecordingChannel::Receive(std::chrono::milliseconds timeout,
                                                                             const ICancellationToken& cancellation)
 {
-    Result<std::optional<bytes::Bytes>> result = inner_.receive(timeout, cancellation);
+    Result<std::optional<bytes::Bytes>> result = inner_.Receive(timeout, cancellation);
     if (result.has_value() && result->has_value())
     {
         last_rx_ = **result;
@@ -73,9 +73,9 @@ BenchSession::BenchSession(std::unique_ptr<flash::ICanFlashTransport> transport,
 Result<bytes::Bytes> BenchSession::requestOnce(bytes::ByteView pdu, const uds::ExchangePolicy& policy)
 {
     recording_channel_.reset();
-    const auto started = clock_.now();
-    Result<bytes::Bytes> result = client_.request(pdu, policy, cancellation_);
-    const auto finished = clock_.now();
+    const auto started = clock_.Now();
+    Result<bytes::Bytes> result = client_.Request(pdu, policy, cancellation_);
+    const auto finished = clock_.Now();
     const bytes::Bytes tx(pdu.begin(), pdu.end());
     last_traffic_ =
         TrafficEvidence{.exchange_count = 1,
@@ -123,12 +123,12 @@ Status BenchSession::connect()
         const bytes::ByteView vendor_seed_payload = uds::Payload(*vendor_seed_reply);
         if (vendor_seed_payload.size() < 6)
         {
-            return fail(ErrorKind::kBadResponse, "vendor challenge seed reply too short");
+            return Fail(ErrorKind::kBadResponse, "vendor challenge seed reply too short");
         }
         if (vendor_seed_payload[0] != mitsu_colt_can_vendor_ext::kVendorChallengeSelector ||
             vendor_seed_payload[1] != mitsu_colt_can_vendor_ext::kVendorChallengeSeedSubfunction)
         {
-            return fail(ErrorKind::kBadResponse, std::format("vendor challenge seed reply carried 0x{:02x} 0x{:02x}",
+            return Fail(ErrorKind::kBadResponse, std::format("vendor challenge seed reply carried 0x{:02x} 0x{:02x}",
                                                              vendor_seed_payload[0], vendor_seed_payload[1]));
         }
 
@@ -143,7 +143,7 @@ Status BenchSession::connect()
         const bytes::ByteView vendor_key_payload = uds::Payload(*vendor_key_reply);
         if (vendor_key_payload.size() < 2)
         {
-            return fail(ErrorKind::kBadResponse, "vendor challenge key reply too short");
+            return Fail(ErrorKind::kBadResponse, "vendor challenge key reply too short");
         }
         // Mirrors connect_bootloader's fatal_query prefix check: the reply must
         // carry both the echoed selector and kVendorChallengeAccepted, not just
@@ -151,7 +151,7 @@ Status BenchSession::connect()
         if (vendor_key_payload[0] != mitsu_colt_can_vendor_ext::kVendorChallengeSelector ||
             vendor_key_payload[1] != mitsu_colt_can_vendor_ext::kVendorChallengeAccepted)
         {
-            return fail(ErrorKind::kBadResponse, std::format("vendor challenge key rejected: reply 0x{:02x} 0x{:02x}",
+            return Fail(ErrorKind::kBadResponse, std::format("vendor challenge key rejected: reply 0x{:02x} 0x{:02x}",
                                                              vendor_key_payload[0], vendor_key_payload[1]));
         }
     }
@@ -201,10 +201,10 @@ Result<bytes::Bytes> BenchSession::exchange(bytes::ByteView pdu, const uds::Exch
 Result<bytes::Bytes> BenchSession::exchange_raw(bytes::ByteView pdu, int timeout_ms)
 {
     recording_channel_.reset();
-    const auto started = clock_.now();
+    const auto started = clock_.Now();
     const auto finish = [&]
     {
-        const auto finished = clock_.now();
+        const auto finished = clock_.Now();
         const bytes::Bytes tx(pdu.begin(), pdu.end());
         last_traffic_ =
             TrafficEvidence{.exchange_count = 1,
@@ -215,13 +215,13 @@ Result<bytes::Bytes> BenchSession::exchange_raw(bytes::ByteView pdu, int timeout
                             .elapsed_ms = static_cast<std::uint64_t>(
                                 std::chrono::duration_cast<std::chrono::milliseconds>(finished - started).count())};
     };
-    if (const Status sent = recording_channel_.send(pdu, cancellation_); !sent.has_value())
+    if (const Status sent = recording_channel_.Send(pdu, cancellation_); !sent.has_value())
     {
         finish();
         return std::unexpected(sent.error());
     }
     Result<std::optional<bytes::Bytes>> received =
-        recording_channel_.receive(std::chrono::milliseconds{timeout_ms}, cancellation_);
+        recording_channel_.Receive(std::chrono::milliseconds{timeout_ms}, cancellation_);
     finish();
     if (!received.has_value())
     {
@@ -229,7 +229,7 @@ Result<bytes::Bytes> BenchSession::exchange_raw(bytes::ByteView pdu, int timeout
     }
     if (!received->has_value())
     {
-        return fail(ErrorKind::kTimeout, "no response within the read timeout");
+        return Fail(ErrorKind::kTimeout, "no response within the read timeout");
     }
     return std::move(**received);
 }
@@ -244,7 +244,7 @@ Result<double> BenchSession::vbatt()
     // ICanFlashTransport exposes no read_vbatt(); CommandOutcome::vbatt is
     // optional, so this degrades cleanly rather than widening the transport
     // interface to reach it. See Task 8's bench checklist.
-    return fail(ErrorKind::kUnsupported, "battery voltage needs the serial layer");
+    return Fail(ErrorKind::kUnsupported, "battery voltage needs the serial layer");
 }
 
 } // namespace fastecu::bench

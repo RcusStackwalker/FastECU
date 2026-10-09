@@ -54,7 +54,7 @@ std::optional<bytes::Bytes> imageFor(const config::ProtocolSpec& protocol, Flash
     {
         return std::nullopt;
     }
-    const FlashDevice *device = find_flash_device(protocol.mcu);
+    const FlashDevice *device = FindFlashDevice(protocol.mcu);
     return bytes::Bytes(device != nullptr ? device->romsize : 0U, 0xFF);
 }
 
@@ -69,7 +69,7 @@ TEST(BuiltinCatalogCapability, EveryOfferedOperationIsAcceptedAndEveryOtherIsUns
     const std::optional<config::ConfigPaths> paths = bundledKernelPaths(directory);
     ASSERT_TRUE(paths.has_value());
 
-    for (const config::ProtocolSpec& protocol : config::builtin_catalog().protocols())
+    for (const config::ProtocolSpec& protocol : config::BuiltinCatalog().Protocols())
     {
         if (!protocol.read && !protocol.test_write && !protocol.write)
         {

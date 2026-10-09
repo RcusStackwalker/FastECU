@@ -35,7 +35,7 @@ Status run_setters(std::initializer_list<Setter> setters)
     {
         if (!setter.call())
         {
-            return fail(ErrorKind::kInvalidConfig, std::string(setter.name) + " failed");
+            return Fail(ErrorKind::kInvalidConfig, std::string(setter.name) + " failed");
         }
     }
     return {};
@@ -49,22 +49,22 @@ template <class F> auto guarded(F&& body) -> decltype(body())
     }
     catch (const std::exception& error)
     {
-        return fail(ErrorKind::kInternal, error.what());
+        return Fail(ErrorKind::kInternal, error.what());
     }
     catch (...)
     {
-        return fail(ErrorKind::kInternal, "diagnostic link driver exception");
+        return Fail(ErrorKind::kInternal, "diagnostic link driver exception");
     }
 }
 
 Status no_facade()
 {
-    return fail(ErrorKind::kDisconnected, "no serial facade");
+    return Fail(ErrorKind::kDisconnected, "no serial facade");
 }
 
 } // namespace
 
-Status SerialDiagnosticLink::open(const KlineLinkConfig& c)
+Status SerialDiagnosticLink::Open(const KlineLinkConfig& c)
 {
     if (serial_ == nullptr)
     {
@@ -103,13 +103,13 @@ Status SerialDiagnosticLink::open(const KlineLinkConfig& c)
             }
             if (serial_->open_serial_port().isEmpty())
             {
-                return fail(ErrorKind::kDisconnected, "adapter did not open a port");
+                return Fail(ErrorKind::kDisconnected, "adapter did not open a port");
             }
             return {};
         });
 }
 
-Status SerialDiagnosticLink::open(const CanLinkConfig& c)
+Status SerialDiagnosticLink::Open(const CanLinkConfig& c)
 {
     if (serial_ == nullptr)
     {
@@ -138,13 +138,13 @@ Status SerialDiagnosticLink::open(const CanLinkConfig& c)
             }
             if (serial_->open_serial_port().isEmpty())
             {
-                return fail(ErrorKind::kDisconnected, "adapter did not open a port");
+                return Fail(ErrorKind::kDisconnected, "adapter did not open a port");
             }
             return {};
         });
 }
 
-Status SerialDiagnosticLink::reset()
+Status SerialDiagnosticLink::Reset()
 {
     if (serial_ == nullptr)
     {
@@ -158,7 +158,7 @@ Status SerialDiagnosticLink::reset()
         });
 }
 
-Status SerialDiagnosticLink::set_header(KlineHeader header)
+Status SerialDiagnosticLink::SetHeader(KlineHeader header)
 {
     if (serial_ == nullptr)
     {
@@ -177,7 +177,7 @@ Status SerialDiagnosticLink::set_header(KlineHeader header)
         });
 }
 
-Status SerialDiagnosticLink::set_p1_max(std::chrono::milliseconds p1_max)
+Status SerialDiagnosticLink::SetP1Max(std::chrono::milliseconds p1_max)
 {
     if (serial_ == nullptr)
     {
@@ -186,35 +186,35 @@ Status SerialDiagnosticLink::set_p1_max(std::chrono::milliseconds p1_max)
     return guarded(
         [&]() -> Status
         {
-            const int value = saturating_ms<int>(p1_max);
+            const int value = SaturatingMs<int>(p1_max);
             if (serial_->get_use_openport2_adapter())
             {
                 if (serial_->set_j2534_ioctl(kJ2534P1Max, value) != kSerialSuccess)
                 {
-                    return fail(ErrorKind::kDisconnected, "set_j2534_ioctl(P1_MAX) failed");
+                    return Fail(ErrorKind::kDisconnected, "set_j2534_ioctl(P1_MAX) failed");
                 }
                 return {};
             }
             if (!serial_->set_kline_timings(kSerialP1Max, value))
             {
-                return fail(ErrorKind::kInvalidConfig, "set_kline_timings(P1_MAX) failed");
+                return Fail(ErrorKind::kInvalidConfig, "set_kline_timings(P1_MAX) failed");
             }
             return {};
         });
 }
 
-Result<bytes::Bytes> SerialDiagnosticLink::five_baud_init(std::uint8_t address)
+Result<bytes::Bytes> SerialDiagnosticLink::FiveBaudInit(std::uint8_t address)
 {
     if (serial_ == nullptr)
     {
-        return fail(ErrorKind::kDisconnected, "no serial facade");
+        return Fail(ErrorKind::kDisconnected, "no serial facade");
     }
     return guarded(
         [&]() -> Result<bytes::Bytes>
         { return bytes::fromQByteArray(serial_->five_baud_init(QByteArray(1, static_cast<char>(address)))); });
 }
 
-Status SerialDiagnosticLink::fast_init(bytes::ByteView wakeup)
+Status SerialDiagnosticLink::FastInit(bytes::ByteView wakeup)
 {
     if (serial_ == nullptr)
     {
@@ -225,17 +225,17 @@ Status SerialDiagnosticLink::fast_init(bytes::ByteView wakeup)
         {
             if (serial_->fast_init(bytes::toQByteArray(wakeup)) != kSerialSuccess)
             {
-                return fail(ErrorKind::kDisconnected, "fast_init failed");
+                return Fail(ErrorKind::kDisconnected, "fast_init failed");
             }
             return {};
         });
 }
 
-Result<bytes::Bytes> SerialDiagnosticLink::write(bytes::ByteView data)
+Result<bytes::Bytes> SerialDiagnosticLink::Write(bytes::ByteView data)
 {
     if (serial_ == nullptr)
     {
-        return fail(ErrorKind::kDisconnected, "no serial facade");
+        return Fail(ErrorKind::kDisconnected, "no serial facade");
     }
     return guarded([&]() -> Result<bytes::Bytes>
                    { return bytes::fromQByteArray(serial_->write_serial_data_echo_check(bytes::toQByteArray(data))); });
@@ -247,21 +247,21 @@ template <class ReadCall>
 Result<IDiagnosticLink::OptionalBytes> guarded_read(SerialPortActions *serial, const ICancellationToken& cancellation,
                                                     ReadCall read_call)
 {
-    if (cancellation.cancelled())
+    if (cancellation.Cancelled())
     {
-        return fail(ErrorKind::kCancelled, "diagnostic read cancelled before driver call");
+        return Fail(ErrorKind::kCancelled, "diagnostic read cancelled before driver call");
     }
     if (serial == nullptr)
     {
-        return fail(ErrorKind::kDisconnected, "no serial facade");
+        return Fail(ErrorKind::kDisconnected, "no serial facade");
     }
     return guarded(
         [&]() -> Result<IDiagnosticLink::OptionalBytes>
         {
             const QByteArray raw = read_call();
-            if (cancellation.cancelled())
+            if (cancellation.Cancelled())
             {
-                return fail(ErrorKind::kCancelled, "diagnostic read cancelled");
+                return Fail(ErrorKind::kCancelled, "diagnostic read cancelled");
             }
             if (raw.isEmpty())
             {
@@ -272,21 +272,21 @@ Result<IDiagnosticLink::OptionalBytes> guarded_read(SerialPortActions *serial, c
 }
 } // namespace
 
-Result<IDiagnosticLink::OptionalBytes> SerialDiagnosticLink::read(std::chrono::milliseconds timeout,
+Result<IDiagnosticLink::OptionalBytes> SerialDiagnosticLink::Read(std::chrono::milliseconds timeout,
                                                                   const ICancellationToken& cancellation)
 {
     return guarded_read(serial_, cancellation,
-                        [&] { return serial_->read_serial_data(saturating_ms<quint16>(timeout)); });
+                        [&] { return serial_->read_serial_data(SaturatingMs<quint16>(timeout)); });
 }
 
-Result<IDiagnosticLink::OptionalBytes> SerialDiagnosticLink::read_obd(std::chrono::milliseconds timeout,
-                                                                      const ICancellationToken& cancellation)
+Result<IDiagnosticLink::OptionalBytes> SerialDiagnosticLink::ReadObd(std::chrono::milliseconds timeout,
+                                                                     const ICancellationToken& cancellation)
 {
     return guarded_read(serial_, cancellation,
-                        [&] { return serial_->read_serial_obd_data(saturating_ms<quint16>(timeout)); });
+                        [&] { return serial_->read_serial_obd_data(SaturatingMs<quint16>(timeout)); });
 }
 
-bool SerialDiagnosticLink::uses_j2534() const
+bool SerialDiagnosticLink::UsesJ2534() const
 {
     try
     {

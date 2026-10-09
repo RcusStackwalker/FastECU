@@ -28,39 +28,39 @@ struct RawReadState
     unsigned tuples_since_sync = 0;
 };
 
-Status cancelled_if_requested(const ICancellationToken& cancellation)
+Status CancelledIfRequested(const ICancellationToken& cancellation)
 {
-    return cancellation.cancelled() ? fail(ErrorKind::kCancelled, "cancelled while reading Unisia Jecs ROM") : Status{};
+    return cancellation.Cancelled() ? Fail(ErrorKind::kCancelled, "cancelled while reading Unisia Jecs ROM") : Status{};
 }
 
-bytes::Bytes request_for(std::uint16_t address)
+bytes::Bytes RequestFor(std::uint16_t address)
 {
     return {0x78, static_cast<bytes::Byte>(address >> 8U), static_cast<bytes::Byte>(address), 0x00};
 }
 
-Status write_exact(IKlineFlashTransport& transport, bytes::ByteView request, bool raw)
+Status WriteExact(IKlineFlashTransport& transport, bytes::ByteView request, bool raw)
 {
-    auto written = raw ? transport.write_raw(request) : transport.write(request);
+    auto written = raw ? transport.WriteRaw(request) : transport.Write(request);
     if (!written.has_value())
     {
         return std::unexpected(written.error());
     }
-    return *written == request.size() ? Status{} : fail(ErrorKind::kDisconnected, "short K-Line write");
+    return *written == request.size() ? Status{} : Fail(ErrorKind::kDisconnected, "short K-Line write");
 }
 
-Result<bytes::Byte> read_address(std::uint16_t address, RawReadState& state, IKlineFlashTransport& transport,
-                                 IClock& clock, const ICancellationToken& cancellation)
+Result<bytes::Byte> ReadAddress(std::uint16_t address, RawReadState& state, IKlineFlashTransport& transport,
+                                IClock& clock, const ICancellationToken& cancellation)
 {
-    const bytes::Bytes request = request_for(address);
-    if (auto cancelled = cancelled_if_requested(cancellation); !cancelled.has_value())
+    const bytes::Bytes request = RequestFor(address);
+    if (auto cancelled = CancelledIfRequested(cancellation); !cancelled.has_value())
     {
         return std::unexpected(cancelled.error());
     }
-    if (auto written = write_exact(transport, request, true); !written.has_value())
+    if (auto written = WriteExact(transport, request, true); !written.has_value())
     {
         return std::unexpected(written.error());
     }
-    if (auto slept = clock.sleep(kAddressDelay, cancellation); !slept.has_value())
+    if (auto slept = clock.Sleep(kAddressDelay, cancellation); !slept.has_value())
     {
         return std::unexpected(slept.error());
     }
@@ -70,7 +70,7 @@ Result<bytes::Byte> read_address(std::uint16_t address, RawReadState& state, IKl
     unsigned read_quanta = 0;
     while (true)
     {
-        if (auto cancelled = cancelled_if_requested(cancellation); !cancelled.has_value())
+        if (auto cancelled = CancelledIfRequested(cancellation); !cancelled.has_value())
         {
             return std::unexpected(cancelled.error());
         }
@@ -95,19 +95,19 @@ Result<bytes::Byte> read_address(std::uint16_t address, RawReadState& state, IKl
         }
         if (read_quanta == kReadsBeforeRetry)
         {
-            if (auto written = write_exact(transport, request, true); !written.has_value())
+            if (auto written = WriteExact(transport, request, true); !written.has_value())
             {
                 return std::unexpected(written.error());
             }
             read_quanta = 0;
         }
 
-        auto chunk = transport.read_raw(kRawReadTimeout, cancellation);
+        auto chunk = transport.ReadRaw(kRawReadTimeout, cancellation);
         if (!chunk.has_value())
         {
             return std::unexpected(chunk.error());
         }
-        if (auto cancelled = cancelled_if_requested(cancellation); !cancelled.has_value())
+        if (auto cancelled = CancelledIfRequested(cancellation); !cancelled.has_value())
         {
             return std::unexpected(cancelled.error());
         }
@@ -120,32 +120,32 @@ Result<bytes::Byte> read_address(std::uint16_t address, RawReadState& state, IKl
 }
 } // namespace
 
-Result<KlineConfig> SubaruUnisiaJecsExecutor::transport_setup(const FlashPlan& plan) const
+Result<KlineConfig> SubaruUnisiaJecsExecutor::TransportSetup(const FlashPlan& plan) const
 {
-    if (auto valid = validate_subaru_unisia_jecs_plan(plan); !valid.has_value())
+    if (auto valid = ValidateSubaruUnisiaJecsPlan(plan); !valid.has_value())
     {
         return std::unexpected(valid.error());
     }
     return KlineConfig{.baud = 1953, .iso14230 = false, .tester_id = 0, .target_id = 0, .parity = KlineParity::kEven};
 }
 
-Result<bytes::Bytes> SubaruUnisiaJecsExecutor::read_range(std::uint32_t begin, std::uint32_t end,
-                                                          IKlineFlashTransport& transport, IClock& clock,
-                                                          const ICancellationToken& cancellation, IEventSink& events)
+Result<bytes::Bytes> SubaruUnisiaJecsExecutor::ReadRange(std::uint32_t begin, std::uint32_t end,
+                                                         IKlineFlashTransport& transport, IClock& clock,
+                                                         const ICancellationToken& cancellation, IEventSink& events)
 {
     bytes::Bytes image;
     image.reserve(end - begin);
     RawReadState state;
     for (std::uint32_t address = begin; address < end; ++address)
     {
-        auto value = read_address(static_cast<std::uint16_t>(address), state, transport, clock, cancellation);
+        auto value = ReadAddress(static_cast<std::uint16_t>(address), state, transport, clock, cancellation);
         if (!value.has_value())
         {
             return std::unexpected(value.error());
         }
         image.push_back(*value);
-        events.progress(static_cast<int>(address - begin + 1U), static_cast<int>(end - begin));
-        if (auto slept = clock.sleep(kInterAddressDelay, cancellation); !slept.has_value())
+        events.Progress(static_cast<int>(address - begin + 1U), static_cast<int>(end - begin));
+        if (auto slept = clock.Sleep(kInterAddressDelay, cancellation); !slept.has_value())
         {
             return std::unexpected(slept.error());
         }
@@ -153,32 +153,32 @@ Result<bytes::Bytes> SubaruUnisiaJecsExecutor::read_range(std::uint32_t begin, s
     return image;
 }
 
-Result<FlashExecutionResult> SubaruUnisiaJecsExecutor::execute(const FlashPlan& plan, IKlineFlashTransport& transport,
+Result<FlashExecutionResult> SubaruUnisiaJecsExecutor::Execute(const FlashPlan& plan, IKlineFlashTransport& transport,
                                                                IClock& clock, const ICancellationToken& cancellation,
                                                                IEventSink& events)
 {
-    if (auto valid = validate_subaru_unisia_jecs_plan(plan); !valid.has_value())
+    if (auto valid = ValidateSubaruUnisiaJecsPlan(plan); !valid.has_value())
     {
         return std::unexpected(valid.error());
     }
-    if (auto cancelled = cancelled_if_requested(cancellation); !cancelled.has_value())
+    if (auto cancelled = CancelledIfRequested(cancellation); !cancelled.has_value())
     {
         return std::unexpected(cancelled.error());
     }
-    if (auto written = write_exact(transport, kWakeup, false); !written.has_value())
+    if (auto written = WriteExact(transport, kWakeup, false); !written.has_value())
     {
         return std::unexpected(written.error());
     }
-    if (auto slept = clock.sleep(kWakeupDelay, cancellation); !slept.has_value())
+    if (auto slept = clock.Sleep(kWakeupDelay, cancellation); !slept.has_value())
     {
         return std::unexpected(slept.error());
     }
-    auto flushed = transport.read(kWakeupFlushTimeout, cancellation);
+    auto flushed = transport.Read(kWakeupFlushTimeout, cancellation);
     if (!flushed.has_value())
     {
         return std::unexpected(flushed.error());
     }
-    auto image = read_range(0, kRomSize, transport, clock, cancellation, events);
+    auto image = ReadRange(0, kRomSize, transport, clock, cancellation, events);
     if (!image.has_value())
     {
         return std::unexpected(image.error());

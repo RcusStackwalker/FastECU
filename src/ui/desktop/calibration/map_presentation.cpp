@@ -53,16 +53,16 @@ std::optional<std::vector<PresentedCell>> present_axis(const calibration::AxisVa
 
 Result<MapPresentation> present_map(const calibration::CalibrationSession& session, std::size_t index)
 {
-    const auto decoded = session.decode_map(index);
+    const auto decoded = session.DecodeMap(index);
     if (!decoded.has_value())
     {
         return std::unexpected(decoded.error());
     }
-    const auto& definition = session.definition()->definition;
+    const auto& definition = session.Definition()->definition;
     const auto& map = definition.maps[index];
-    const auto *scaling = definition::find_scaling(definition, map.scaling_name);
-    const auto *xScaling = definition::find_scaling(definition, map.x_axis.scaling_name);
-    const auto *yScaling = definition::find_scaling(definition, map.y_axis.scaling_name);
+    const auto *scaling = definition::FindScaling(definition, map.scaling_name);
+    const auto *xScaling = definition::FindScaling(definition, map.x_axis.scaling_name);
+    const auto *yScaling = definition::FindScaling(definition, map.y_axis.scaling_name);
     const bool xPresent = !map.x_axis.type.empty();
     const bool yPresent = !map.y_axis.type.empty();
     MapPresentation result{

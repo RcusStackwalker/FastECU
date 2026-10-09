@@ -42,14 +42,14 @@ fastecu::flash::DesktopCanTransportConfig direct_transport_config()
 class StderrEventSink final : public fastecu::IEventSink
 {
   public:
-    void log(fastecu::LogLevel /*level*/, std::string_view message) override
+    void Log(fastecu::LogLevel /*level*/, std::string_view message) override
     {
         std::cerr << message << '\n';
     }
-    void progress(int /*done*/, int /*total*/) override
+    void Progress(int /*done*/, int /*total*/) override
     {
     }
-    void notice(std::string_view message) override
+    void Notice(std::string_view message) override
     {
         std::cerr << message << '\n';
     }

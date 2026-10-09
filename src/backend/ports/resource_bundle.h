@@ -14,8 +14,8 @@ class IResourceBundle
 {
   public:
     virtual ~IResourceBundle() = default;
-    virtual Result<std::vector<std::string>> list(std::string_view bundle_id) = 0;
-    virtual Result<std::vector<std::uint8_t>> read(std::string_view bundle_id, std::string_view name) = 0;
+    virtual Result<std::vector<std::string>> List(std::string_view bundle_id) = 0;
+    virtual Result<std::vector<std::uint8_t>> Read(std::string_view bundle_id, std::string_view name) = 0;
 };
 
 } // namespace fastecu

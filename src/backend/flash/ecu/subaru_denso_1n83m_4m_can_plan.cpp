@@ -28,15 +28,15 @@ constexpr std::uint32_t kTailPad = 0x100;
 // cannot check it. Nothing on either path consumes romsize -- read_memory
 // discards the length argument derived from it at line 836 -- so the check
 // guards the flash table, not the transfer.
-bool geometry_ok(const FlashDevice& device)
+bool GeometryOk(const FlashDevice& device)
 {
     return device.numblocks == 3 && device.romsize == kImageSize && device.fblocks[0].start == kImageStart &&
            device.fblocks[1].start == kMainBlock.start && device.fblocks[1].len == kMainBlock.length;
 }
 
-bool wire_params_ok(const FlashPlan& plan)
+bool WireParamsOk(const FlashPlan& plan)
 {
-    const auto *p = std::get_if<SubaruDenso1n83m_4mCanPlan>(&plan.family_plan());
+    const auto *p = std::get_if<SubaruDenso1n83m_4mCanPlan>(&plan.FamilyPlan());
     return p != nullptr && p->request_id == 0x7e0 && p->response_id == 0x7e8 && p->bitrate == 500000 &&
            !p->extended_id && p->lead_pad_len == kLeadPad && p->tail_pad_len == kTailPad;
 }
@@ -50,20 +50,20 @@ constexpr SingleWindowPlanSpec kSpec{
     .read_region = kMainBlock,
     .write_region = kMainBlock,
     .image_size = kImageSize,
-    .geometry_ok = geometry_ok,
-    .wire_params_ok = wire_params_ok,
+    .geometry_ok = GeometryOk,
+    .wire_params_ok = WireParamsOk,
 };
 } // namespace
 
-Status validate_subaru_denso_1n83m_4m_can_plan(const FlashPlan& plan)
+Status ValidateSubaruDenso1n83m4mCanPlan(const FlashPlan& plan)
 {
-    return validate_single_window_plan(kSpec, plan);
+    return ValidateSingleWindowPlan(kSpec, plan);
 }
 
-Result<FlashPlan> build_subaru_denso_1n83m_4m_can_plan(FlashOperation operation, std::string_view protocol_name,
-                                                       std::string_view mcu_type, std::optional<bytes::Bytes> image)
+Result<FlashPlan> BuildSubaruDenso1n83m4mCanPlan(FlashOperation operation, std::string_view protocol_name,
+                                                 std::string_view mcu_type, std::optional<bytes::Bytes> image)
 {
-    return build_single_window_plan(kSpec, operation, protocol_name, mcu_type, std::move(image),
-                                    SubaruDenso1n83m_4mCanPlan{0x7e0, 0x7e8, 500000, false, kLeadPad, kTailPad});
+    return BuildSingleWindowPlan(kSpec, operation, protocol_name, mcu_type, std::move(image),
+                                 SubaruDenso1n83m_4mCanPlan{0x7e0, 0x7e8, 500000, false, kLeadPad, kTailPad});
 }
 } // namespace fastecu::flash

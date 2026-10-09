@@ -10,11 +10,11 @@ class FastEcuKlineTransport : public IKlineTransport
     explicit FastEcuKlineTransport(SerialPortActions *serial) : serial_(serial)
     {
     }
-    fastecu::Status setBaud(int baud) override;
-    fastecu::Result<std::size_t> write(bytes::ByteView data) override;
-    fastecu::Result<OptionalBytes> read(std::chrono::milliseconds timeout,
+    fastecu::Status SetBaud(int baud) override;
+    fastecu::Result<std::size_t> Write(bytes::ByteView data) override;
+    fastecu::Result<OptionalBytes> Read(std::chrono::milliseconds timeout,
                                         const fastecu::ICancellationToken& cancellation) override;
-    bool isOpen() const override;
+    bool IsOpen() const override;
 
   private:
     SerialPortActions *serial_;

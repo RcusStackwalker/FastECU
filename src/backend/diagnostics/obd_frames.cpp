@@ -7,7 +7,7 @@
 namespace fastecu::diagnostics
 {
 
-bytes::Bytes build_request(ObdProtocol protocol, std::uint32_t source_id, bytes::ByteView payload)
+bytes::Bytes BuildRequest(ObdProtocol protocol, std::uint32_t source_id, bytes::ByteView payload)
 {
     bytes::Bytes out;
     if (protocol == ObdProtocol::kIso15765)
@@ -19,10 +19,10 @@ bytes::Bytes build_request(ObdProtocol protocol, std::uint32_t source_id, bytes:
     return out;
 }
 
-ResponseCheck check_response(ObdProtocol protocol, bytes::ByteView frame, std::uint8_t mode,
-                             std::optional<std::uint8_t> pid)
+ResponseCheck CheckResponse(ObdProtocol protocol, bytes::ByteView frame, std::uint8_t mode,
+                            std::optional<std::uint8_t> pid)
 {
-    const std::size_t index = response_index(protocol);
+    const std::size_t index = ResponseIndex(protocol);
     if (frame.size() <= index)
     {
         return ResponseCheck::kShort;
@@ -44,7 +44,7 @@ ResponseCheck check_response(ObdProtocol protocol, bytes::ByteView frame, std::u
 
 namespace
 {
-bytes::Bytes tail(bytes::ByteView data, std::size_t from)
+bytes::Bytes Tail(bytes::ByteView data, std::size_t from)
 {
     if (from >= data.size())
     {
@@ -54,49 +54,49 @@ bytes::Bytes tail(bytes::ByteView data, std::size_t from)
 }
 
 // K-Line: drop the checksum, then keep only the last byte of a short frame.
-bytes::ByteView without_checksum(bytes::ByteView frame)
+bytes::ByteView WithoutChecksum(bytes::ByteView frame)
 {
     return frame.empty() ? frame : frame.first(frame.size() - 1);
 }
 } // namespace
 
-bytes::Bytes unframe_data_response(ObdProtocol protocol, bytes::ByteView frame)
+bytes::Bytes UnframeDataResponse(ObdProtocol protocol, bytes::ByteView frame)
 {
     if (protocol == ObdProtocol::kIso15765)
     {
-        return tail(frame, response_index(protocol) + 3);
+        return Tail(frame, ResponseIndex(protocol) + 3);
     }
-    const bytes::ByteView body = without_checksum(frame);
+    const bytes::ByteView body = WithoutChecksum(frame);
     if (body.empty())
     {
         return {};
     }
     if (body.size() < 7)
     {
-        return tail(body, body.size() - 1);
+        return Tail(body, body.size() - 1);
     }
-    return tail(body, body.size() < 10 ? 5 : 6);
+    return Tail(body, body.size() < 10 ? 5 : 6);
 }
 
-bytes::Bytes unframe_dtc_list_response(ObdProtocol protocol, bytes::ByteView frame)
+bytes::Bytes UnframeDtcListResponse(ObdProtocol protocol, bytes::ByteView frame)
 {
     if (protocol == ObdProtocol::kIso15765)
     {
-        return tail(frame, response_index(protocol) + 2);
+        return Tail(frame, ResponseIndex(protocol) + 2);
     }
-    const bytes::ByteView body = without_checksum(frame);
+    const bytes::ByteView body = WithoutChecksum(frame);
     if (body.empty())
     {
         return {};
     }
     if (body.size() < 7)
     {
-        return tail(body, body.size() - 1);
+        return Tail(body, body.size() - 1);
     }
-    return tail(body, 4);
+    return Tail(body, 4);
 }
 
-std::optional<KlineHeader> five_baud_header(ObdProtocol requested, bytes::ByteView r, bool uses_j2534)
+std::optional<KlineHeader> FiveBaudHeader(ObdProtocol requested, bytes::ByteView r, bool uses_j2534)
 {
     if (uses_j2534)
     {
@@ -121,13 +121,13 @@ std::optional<KlineHeader> five_baud_header(ObdProtocol requested, bytes::ByteVi
     return std::nullopt;
 }
 
-bool fast_init_accepted(bytes::ByteView response)
+bool FastInitAccepted(bytes::ByteView response)
 {
     static constexpr std::array<bytes::Byte, 6> kExpected{0x83, 0xF1, 0x10, 0xC1, 0xE9, 0x8F};
     return response.size() >= kExpected.size() && std::equal(kExpected.begin(), kExpected.end(), response.begin());
 }
 
-std::string format_hex(bytes::ByteView data)
+std::string FormatHex(bytes::ByteView data)
 {
     std::string out;
     for (const bytes::Byte b : data)
@@ -137,13 +137,13 @@ std::string format_hex(bytes::ByteView data)
     return out;
 }
 
-std::string format_pid_page_label(std::size_t page, bytes::ByteView bitmap)
+std::string FormatPidPageLabel(std::size_t page, bytes::ByteView bitmap)
 {
     const std::size_t start = page * 0x20 + 1;
-    return std::format("Supported PIDs 0x{:x}-0x{:x}: ", start, start + 0x1F) + format_hex(bitmap);
+    return std::format("Supported PIDs 0x{:x}-0x{:x}: ", start, start + 0x1F) + FormatHex(bitmap);
 }
 
-std::string format_supported_pids(std::size_t page, bytes::ByteView bitmap)
+std::string FormatSupportedPids(std::size_t page, bytes::ByteView bitmap)
 {
     const std::size_t start = page * 0x20 + 1;
     std::string out;
@@ -158,7 +158,7 @@ std::string format_supported_pids(std::size_t page, bytes::ByteView bitmap)
     return out;
 }
 
-std::vector<std::uint16_t> decode_dtcs(bytes::ByteView data)
+std::vector<std::uint16_t> DecodeDtcs(bytes::ByteView data)
 {
     std::vector<std::uint16_t> codes;
     for (std::size_t i = 0; i < data.size(); i += 2)

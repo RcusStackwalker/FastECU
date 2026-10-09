@@ -118,7 +118,7 @@ using fastecu::RecordingClock;
 using fastecu::RecordingEventSink;
 using fastecu::Status;
 
-bytes::Bytes request(std::initializer_list<bytes::Byte> payload)
+bytes::Bytes Request(std::initializer_list<bytes::Byte> payload)
 {
     bytes::Bytes out;
     bytes::AppendU32Be(out, 0x7E0);
@@ -126,7 +126,7 @@ bytes::Bytes request(std::initializer_list<bytes::Byte> payload)
     return out;
 }
 
-bytes::Bytes response(std::initializer_list<bytes::Byte> payload)
+bytes::Bytes Response(std::initializer_list<bytes::Byte> payload)
 {
     bytes::Bytes out;
     bytes::AppendU32Be(out, 0x7E8);
@@ -142,12 +142,12 @@ class CancellingEventSink : public RecordingEventSink
     CancellingEventSink(ManualCancellationToken& token, std::string_view trigger) : token_(token), trigger_(trigger)
     {
     }
-    void log(LogLevel level, std::string_view message) override
+    void Log(LogLevel level, std::string_view message) override
     {
-        RecordingEventSink::log(level, message);
+        RecordingEventSink::Log(level, message);
         if (message == trigger_)
         {
-            token_.cancel();
+            token_.Cancel();
         }
     }
 
@@ -171,39 +171,39 @@ struct CommonFixture
 TEST(DensoIso15765CanCommonTest, SecurityAccessReadsLiteralSeedAndKeyAtTwoSeconds)
 {
     CommonFixture f;
-    f.transport.exchange(request({0x27, 0x61}), response({0x67, 0x61, 0x11, 0x22, 0x33, 0x44}));
-    f.transport.exchange(request({0x27, 0x62, 0x35, 0xB6, 0x83, 0xBF}), response({0x67, 0x62}));
+    f.transport.Exchange(Request({0x27, 0x61}), Response({0x67, 0x61, 0x11, 0x22, 0x33, 0x44}));
+    f.transport.Exchange(Request({0x27, 0x62, 0x35, 0xB6, 0x83, 0xBF}), Response({0x67, 0x62}));
 
-    EXPECT_THAT(denso_security_access(f.ctx), fastecu::testing::IsOk());
+    EXPECT_THAT(DensoSecurityAccess(f.ctx), fastecu::testing::IsOk());
 
-    EXPECT_TRUE(f.transport.scriptConsumed());
-    EXPECT_THAT(f.transport.readTimeouts(), ::testing::ElementsAre(2000ms, 2000ms));
+    EXPECT_TRUE(f.transport.ScriptConsumed());
+    EXPECT_THAT(f.transport.ReadTimeouts(), ::testing::ElementsAre(2000ms, 2000ms));
 }
 
 TEST(DensoIso15765CanCommonTest, SecurityAccessRereadsPendingReplyWithoutResending)
 {
     CommonFixture f;
-    f.transport.exchange(request({0x27, 0x61}), response({0x7F, 0x27, 0x78}));
-    f.transport.queueRead(response({0x7F, 0x27, 0x78}));
-    f.transport.queueRead(response({0x67, 0x61, 0x11, 0x22, 0x33, 0x44}));
-    f.transport.exchange(request({0x27, 0x62, 0x35, 0xB6, 0x83, 0xBF}), response({0x67, 0x62}));
+    f.transport.Exchange(Request({0x27, 0x61}), Response({0x7F, 0x27, 0x78}));
+    f.transport.QueueRead(Response({0x7F, 0x27, 0x78}));
+    f.transport.QueueRead(Response({0x67, 0x61, 0x11, 0x22, 0x33, 0x44}));
+    f.transport.Exchange(Request({0x27, 0x62, 0x35, 0xB6, 0x83, 0xBF}), Response({0x67, 0x62}));
 
-    EXPECT_THAT(denso_security_access(f.ctx), fastecu::testing::IsOk());
+    EXPECT_THAT(DensoSecurityAccess(f.ctx), fastecu::testing::IsOk());
 
-    EXPECT_TRUE(f.transport.scriptConsumed());
-    EXPECT_THAT(f.transport.readTimeouts(), ::testing::ElementsAre(2000ms, 3000ms, 3000ms, 2000ms));
+    EXPECT_TRUE(f.transport.ScriptConsumed());
+    EXPECT_THAT(f.transport.ReadTimeouts(), ::testing::ElementsAre(2000ms, 3000ms, 3000ms, 2000ms));
 }
 
 TEST(DensoIso15765CanCommonTest, SecurityAccessRejectsShortSeedWithoutSendingKey)
 {
     CommonFixture f;
-    f.transport.exchange(request({0x27, 0x61}), response({0x67, 0x61, 0x11, 0x22, 0x33}));
+    f.transport.Exchange(Request({0x27, 0x61}), Response({0x67, 0x61, 0x11, 0x22, 0x33}));
 
-    const Status result = denso_security_access(f.ctx);
+    const Status result = DensoSecurityAccess(f.ctx);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::kBadResponse);
-    EXPECT_EQ(f.transport.writesConsumed(), 1U);
+    EXPECT_EQ(f.transport.WritesConsumed(), 1U);
 }
 
 TEST(DensoIso15765CanCommonTest, SecurityAccessPropagatesCancellation)
@@ -212,54 +212,54 @@ TEST(DensoIso15765CanCommonTest, SecurityAccessPropagatesCancellation)
     CancellingEventSink events(f.cancellation, "Seed request ok");
     uds::UdsClient client(f.channel, f.clock, events);
     CanExecutorContext ctx{f.cancellation, events, f.clock, client, f.channel};
-    f.transport.exchange(request({0x27, 0x61}), response({0x67, 0x61, 0x11, 0x22, 0x33, 0x44}));
+    f.transport.Exchange(Request({0x27, 0x61}), Response({0x67, 0x61, 0x11, 0x22, 0x33, 0x44}));
 
-    const Status result = denso_security_access(ctx);
+    const Status result = DensoSecurityAccess(ctx);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::kCancelled);
-    EXPECT_EQ(f.transport.writesConsumed(), 1U);
+    EXPECT_EQ(f.transport.WritesConsumed(), 1U);
 }
 
 const bytes::Bytes kSetupPdu{0x34, 0x04, 0x44, 0x08, 0xFA, 0xC0, 0x00, 0x00, 0x17, 0x3F, 0x00};
 
-void scriptEraseSetup(ScriptedCanFlashTransport& transport)
+void ScriptEraseSetup(ScriptedCanFlashTransport& transport)
 {
-    transport.exchange(request({0x34, 0x04, 0x44, 0x08, 0xFA, 0xC0, 0x00, 0x00, 0x17, 0x3F, 0x00}),
-                       response({0x74, 0x20, 0x01, 0x05}));
+    transport.Exchange(Request({0x34, 0x04, 0x44, 0x08, 0xFA, 0xC0, 0x00, 0x00, 0x17, 0x3F, 0x00}),
+                       Response({0x74, 0x20, 0x01, 0x05}));
 }
 
-void scriptEraseTrigger(ScriptedCanFlashTransport& transport)
+void ScriptEraseTrigger(ScriptedCanFlashTransport& transport)
 {
-    transport.exchange(request({0x31, 0x01, 0x02, 0x01, 0xFF, 0xFF, 0xFF, 0xFF}));
+    transport.Exchange(Request({0x31, 0x01, 0x02, 0x01, 0xFF, 0xFF, 0xFF, 0xFF}));
 }
 
 TEST(DensoIso15765CanCommonTest, EraseSetupMismatchDoesNotSendTrigger)
 {
     CommonFixture f;
-    f.transport.exchange(request({0x34, 0x04, 0x44, 0x08, 0xFA, 0xC0, 0x00, 0x00, 0x17, 0x3F, 0x00}),
-                         response({0x74, 0x20, 0x01, 0x04}));
+    f.transport.Exchange(Request({0x34, 0x04, 0x44, 0x08, 0xFA, 0xC0, 0x00, 0x00, 0x17, 0x3F, 0x00}),
+                         Response({0x74, 0x20, 0x01, 0x04}));
 
-    const Status result = denso_iso15765_erase(f.ctx, kSetupPdu);
+    const Status result = DensoIso15765Erase(f.ctx, kSetupPdu);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::kBadResponse);
-    EXPECT_EQ(f.transport.writesConsumed(), 1U);
+    EXPECT_EQ(f.transport.WritesConsumed(), 1U);
 }
 
 TEST(DensoIso15765CanCommonTest, EraseAccepts71_01_02AfterPolling)
 {
     CommonFixture f;
-    scriptEraseSetup(f.transport);
-    scriptEraseTrigger(f.transport);
-    f.transport.queueRead(response({0x71, 0x01, 0x03}));
-    f.transport.queueRead(response({0x71, 0x01, 0x02, 0x00}));
+    ScriptEraseSetup(f.transport);
+    ScriptEraseTrigger(f.transport);
+    f.transport.QueueRead(Response({0x71, 0x01, 0x03}));
+    f.transport.QueueRead(Response({0x71, 0x01, 0x02, 0x00}));
 
-    EXPECT_THAT(denso_iso15765_erase(f.ctx, kSetupPdu), fastecu::testing::IsOk());
+    EXPECT_THAT(DensoIso15765Erase(f.ctx, kSetupPdu), fastecu::testing::IsOk());
 
-    EXPECT_TRUE(f.transport.scriptConsumed());
-    EXPECT_EQ(f.transport.writesConsumed(), 2U);
-    EXPECT_THAT(f.transport.readTimeouts(), ::testing::ElementsAre(500ms, 500ms, 500ms));
+    EXPECT_TRUE(f.transport.ScriptConsumed());
+    EXPECT_EQ(f.transport.WritesConsumed(), 2U);
+    EXPECT_THAT(f.transport.ReadTimeouts(), ::testing::ElementsAre(500ms, 500ms, 500ms));
     EXPECT_THAT(f.clock.sleep_calls, ::testing::ElementsAre(500ms, 500ms));
     EXPECT_THAT(f.events.logs,
                 ::testing::ElementsAre(
@@ -271,21 +271,21 @@ TEST(DensoIso15765CanCommonTest, EraseAccepts71_01_02AfterPolling)
 TEST(DensoIso15765CanCommonTest, ErasePollingStopsAfter20ReceivesAndNeverResendsTrigger)
 {
     CommonFixture f;
-    scriptEraseSetup(f.transport);
-    scriptEraseTrigger(f.transport);
+    ScriptEraseSetup(f.transport);
+    ScriptEraseTrigger(f.transport);
     for (int attempt = 0; attempt < 20; ++attempt)
     {
-        f.transport.queueRead(response({0x71, 0x01, 0x03}));
+        f.transport.QueueRead(Response({0x71, 0x01, 0x03}));
     }
 
-    const Status result = denso_iso15765_erase(f.ctx, kSetupPdu);
+    const Status result = DensoIso15765Erase(f.ctx, kSetupPdu);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::kBadResponse);
-    EXPECT_TRUE(f.transport.scriptConsumed());
-    EXPECT_EQ(f.transport.writesConsumed(), 2U);
-    EXPECT_THAT(f.transport.readTimeouts(), ::testing::Each(500ms));
-    EXPECT_EQ(f.transport.readTimeouts().size(), 21U);
+    EXPECT_TRUE(f.transport.ScriptConsumed());
+    EXPECT_EQ(f.transport.WritesConsumed(), 2U);
+    EXPECT_THAT(f.transport.ReadTimeouts(), ::testing::Each(500ms));
+    EXPECT_EQ(f.transport.ReadTimeouts().size(), 21U);
     EXPECT_THAT(f.clock.sleep_calls, ::testing::Each(500ms));
     EXPECT_EQ(f.clock.sleep_calls.size(), 21U);
     EXPECT_THAT(f.events.logs, ::testing::Contains(::testing::Pair(LogLevel::kError, "Flash area erase failed")));
@@ -296,21 +296,21 @@ TEST(DensoIso15765CanCommonTest, EraseCancellationAfterTriggerStopsPolling)
     CommonFixture f;
     // Stop the operator's token during the settle sleep that follows the trigger.
     ::testing::NiceMock<MockClock> clock;
-    EXPECT_CALL(clock, sleep).WillOnce(::testing::DoAll([&] { f.cancellation.cancel(); }, clock.sleep_on_fake()));
+    EXPECT_CALL(clock, Sleep).WillOnce(::testing::DoAll([&] { f.cancellation.Cancel(); }, clock.SleepOnFake()));
     uds::UdsClient client(f.channel, clock, f.events);
     CanExecutorContext ctx{f.cancellation, f.events, clock, client, f.channel};
-    scriptEraseSetup(f.transport);
-    scriptEraseTrigger(f.transport);
+    ScriptEraseSetup(f.transport);
+    ScriptEraseTrigger(f.transport);
 
-    const Status result = denso_iso15765_erase(ctx, kSetupPdu);
+    const Status result = DensoIso15765Erase(ctx, kSetupPdu);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::kCancelled);
-    EXPECT_EQ(f.transport.writesConsumed(), 2U);
-    EXPECT_EQ(f.transport.readTimeouts().size(), 1U);
+    EXPECT_EQ(f.transport.WritesConsumed(), 2U);
+    EXPECT_EQ(f.transport.ReadTimeouts().size(), 1U);
 }
 
-bytes::Bytes requestTo(std::uint32_t id, std::initializer_list<bytes::Byte> payload)
+bytes::Bytes RequestTo(std::uint32_t id, std::initializer_list<bytes::Byte> payload)
 {
     bytes::Bytes out;
     bytes::AppendU32Be(out, id);
@@ -324,22 +324,22 @@ bytes::Bytes requestTo(std::uint32_t id, std::initializer_list<bytes::Byte> payl
 TEST(DensoIso15765CanCommonTest, N83mInCarSequencePreservesBothFamilyTranscripts)
 {
     CommonFixture f;
-    const std::array<bytes::Bytes, 10> requests{requestTo(0x7A2, {0x10, 0xC0}), requestTo(0x7E0, {0x10, 0x63}),
-                                                requestTo(0x7DF, {0x10, 0x03}), requestTo(0x7E1, {0x10, 0x63}),
-                                                requestTo(0x7B0, {0x10, 0x03}), requestTo(0x7B0, {0x85, 0x02}),
-                                                requestTo(0x7DF, {0x85, 0x02}), requestTo(0x7B0, {0x85, 0x02}),
-                                                requestTo(0x7DF, {0x85, 0x02}), requestTo(0x7DF, {0x28, 0x03, 0x01})};
+    const std::array<bytes::Bytes, 10> requests{RequestTo(0x7A2, {0x10, 0xC0}), RequestTo(0x7E0, {0x10, 0x63}),
+                                                RequestTo(0x7DF, {0x10, 0x03}), RequestTo(0x7E1, {0x10, 0x63}),
+                                                RequestTo(0x7B0, {0x10, 0x03}), RequestTo(0x7B0, {0x85, 0x02}),
+                                                RequestTo(0x7DF, {0x85, 0x02}), RequestTo(0x7B0, {0x85, 0x02}),
+                                                RequestTo(0x7DF, {0x85, 0x02}), RequestTo(0x7DF, {0x28, 0x03, 0x01})};
     for (std::size_t i = 0; i < requests.size(); ++i)
     {
-        f.transport.exchange(requests[i], requestTo(0x123 + static_cast<std::uint32_t>(i), {0x7F, 0xEE, 0xEE}));
+        f.transport.Exchange(requests[i], RequestTo(0x123 + static_cast<std::uint32_t>(i), {0x7F, 0xEE, 0xEE}));
     }
 
-    EXPECT_THAT(n83m_in_car_fire_and_forget(f.ctx, f.transport), fastecu::testing::IsOk());
+    EXPECT_THAT(N83mInCarFireAndForget(f.ctx, f.transport), fastecu::testing::IsOk());
 
-    EXPECT_TRUE(f.transport.scriptConsumed());
-    EXPECT_EQ(f.transport.writesConsumed(), 10U);
-    EXPECT_EQ(f.transport.readTimeouts().size(), 10U);
-    EXPECT_THAT(f.transport.readTimeouts(), ::testing::Each(200ms));
+    EXPECT_TRUE(f.transport.ScriptConsumed());
+    EXPECT_EQ(f.transport.WritesConsumed(), 10U);
+    EXPECT_EQ(f.transport.ReadTimeouts().size(), 10U);
+    EXPECT_THAT(f.transport.ReadTimeouts(), ::testing::Each(200ms));
 }
 
 } // namespace

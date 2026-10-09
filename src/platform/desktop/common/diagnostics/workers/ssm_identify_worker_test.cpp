@@ -42,19 +42,19 @@ int opens(const FakeDiagnosticLink& link)
 class BlockingClock final : public IClock
 {
   public:
-    std::chrono::steady_clock::time_point now() const override
+    std::chrono::steady_clock::time_point Now() const override
     {
         return std::chrono::steady_clock::now();
     }
 
-    Status sleep(std::chrono::milliseconds /*duration*/, const fastecu::ICancellationToken& token) override
+    Status Sleep(std::chrono::milliseconds /*duration*/, const fastecu::ICancellationToken& token) override
     {
         entered = true;
-        while (!token.cancelled())
+        while (!token.Cancelled())
         {
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
         }
-        return fastecu::fail(ErrorKind::kCancelled);
+        return fastecu::Fail(ErrorKind::kCancelled);
     }
 
     std::atomic<bool> entered{false};
@@ -64,7 +64,7 @@ class BlockingClock final : public IClock
 TEST(SsmIdentifyWorkerTest, stopsAtTheFirstSuccess)
 {
     FakeDiagnosticLink link;
-    link.queue_read(kShortEcuInit);
+    link.QueueRead(kShortEcuInit);
     auto clock = std::make_unique<FakeClock>();
     SsmIdentifyWorker worker(SsmIdentifyRequest{SsmVariant::kKlineSsm2, SsmTarget::kEcu}, link, std::move(clock));
     fastecu::testing::SignalRecorder done(&worker, &SsmIdentifyWorker::completed);
@@ -97,7 +97,7 @@ TEST(SsmIdentifyWorkerTest, retriesFiveTimesThenReportsTheLastError)
     ASSERT_EQ(logs.count(), 5U);
     // Five 200 ms settle sleeps inside the attempts and four 500 ms gaps
     // between them; no sleep after the last attempt.
-    ASSERT_EQ(clock_view->elapsed().count(), 3000);
+    ASSERT_EQ(clock_view->Elapsed().count(), 3000);
 }
 
 TEST(SsmIdentifyWorkerTest, stopBeforeStartCancelsAfterOneAttempt)

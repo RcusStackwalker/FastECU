@@ -15,7 +15,7 @@ using ::testing::Not;
 TEST(ResultMatchers, IsOkAcceptsAValueAndRejectsAnError)
 {
     const Result<int> good = 7;
-    const Result<int> bad = fail(ErrorKind::kTimeout, "no reply");
+    const Result<int> bad = Fail(ErrorKind::kTimeout, "no reply");
 
     EXPECT_THAT(good, IsOk());
     EXPECT_THAT(bad, Not(IsOk()));
@@ -24,7 +24,7 @@ TEST(ResultMatchers, IsOkAcceptsAValueAndRejectsAnError)
 TEST(ResultMatchers, IsOkAcceptsAStatus)
 {
     const Status good{};
-    const Status bad = fail(ErrorKind::kDisconnected);
+    const Status bad = Fail(ErrorKind::kDisconnected);
 
     EXPECT_THAT(good, IsOk());
     EXPECT_THAT(bad, Not(IsOk()));
@@ -40,7 +40,7 @@ TEST(ResultMatchers, IsOkAndInspectsTheValue)
 
 TEST(ResultMatchers, IsErrRequiresTheExactKind)
 {
-    const Result<int> bad = fail(ErrorKind::kTimeout, "no reply");
+    const Result<int> bad = Fail(ErrorKind::kTimeout, "no reply");
 
     EXPECT_THAT(bad, IsErr(ErrorKind::kTimeout));
     EXPECT_THAT(bad, Not(IsErr(ErrorKind::kBadResponse)));
@@ -48,7 +48,7 @@ TEST(ResultMatchers, IsErrRequiresTheExactKind)
 
 TEST(ResultMatchers, IsErrWithAlsoMatchesTheDetail)
 {
-    const Result<int> bad = fail(ErrorKind::kInvalidConfig, "plan does not match this executor");
+    const Result<int> bad = Fail(ErrorKind::kInvalidConfig, "plan does not match this executor");
 
     EXPECT_THAT(bad, IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("does not match this executor")));
     EXPECT_THAT(bad, Not(IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("wrong MCU"))));
@@ -57,18 +57,18 @@ TEST(ResultMatchers, IsErrWithAlsoMatchesTheDetail)
 // The whole point of the matchers: a failure has to say what the error was.
 TEST(ResultMatchers, AFailedIsOkExplainsTheErrorItFound)
 {
-    const Result<int> bad = fail(ErrorKind::kTimeout, "no reply");
+    const Result<int> bad = Fail(ErrorKind::kTimeout, "no reply");
 
     EXPECT_THAT(::testing::DescribeMatcher<Result<int>>(IsOk()), HasSubstr("ok"));
-    EXPECT_THAT(explainMatch(IsOk(), bad), HasSubstr("Timeout"));
-    EXPECT_THAT(explainMatch(IsOk(), bad), HasSubstr("no reply"));
+    EXPECT_THAT(ExplainMatch(IsOk(), bad), HasSubstr("Timeout"));
+    EXPECT_THAT(ExplainMatch(IsOk(), bad), HasSubstr("no reply"));
 }
 
 TEST(ResultMatchers, AFailedIsErrExplainsTheKindItFoundInstead)
 {
-    const Result<int> bad = fail(ErrorKind::kTimeout, "no reply");
+    const Result<int> bad = Fail(ErrorKind::kTimeout, "no reply");
 
-    EXPECT_THAT(explainMatch(IsErr(ErrorKind::kBadResponse), bad), HasSubstr("Timeout"));
+    EXPECT_THAT(ExplainMatch(IsErr(ErrorKind::kBadResponse), bad), HasSubstr("Timeout"));
 }
 } // namespace
 } // namespace fastecu::testing

@@ -113,12 +113,12 @@ class BlockingLifetimeSession final : public ServiceFunctionSession
         state_->destroyed.store(true);
     }
 
-    fastecu::Result<SsmTransportConfig> transport_setup() const override
+    fastecu::Result<SsmTransportConfig> TransportSetup() const override
     {
         return SsmTransportConfig{};
     }
 
-    ServiceFunctionStep resume(fastecu::ISsmTransport&, fastecu::IClock&, const fastecu::ICancellationToken&,
+    ServiceFunctionStep Resume(fastecu::ISsmTransport&, fastecu::IClock&, const fastecu::ICancellationToken&,
                                fastecu::IEventSink&) override
     {
         const std::shared_ptr<BlockingLifetimeState> state = state_;
@@ -138,7 +138,7 @@ class BlockingLifetimeSession final : public ServiceFunctionSession
         return CompletedStep{SetParametersOutcome{}};
     }
 
-    void submit(GateResponse) override
+    void Submit(GateResponse) override
     {
     }
 
@@ -156,20 +156,20 @@ class ScriptedSession final : public ServiceFunctionSession
     {
     }
 
-    fastecu::Result<SsmTransportConfig> transport_setup() const override
+    fastecu::Result<SsmTransportConfig> TransportSetup() const override
     {
         if (setup_fails_)
         {
-            return fastecu::fail(ErrorKind::kUnsupported, "scripted setup failure");
+            return fastecu::Fail(ErrorKind::kUnsupported, "scripted setup failure");
         }
         return SsmTransportConfig{};
     }
 
-    ServiceFunctionStep resume(fastecu::ISsmTransport&, fastecu::IClock&,
+    ServiceFunctionStep Resume(fastecu::ISsmTransport&, fastecu::IClock&,
                                const fastecu::ICancellationToken& cancellation, fastecu::IEventSink&) override
     {
         ++resume_calls;
-        if (cancellation.cancelled())
+        if (cancellation.Cancelled())
         {
             return FailedStep{fastecu::Error{ErrorKind::kCancelled, "cancelled"}};
         }
@@ -180,7 +180,7 @@ class ScriptedSession final : public ServiceFunctionSession
         return steps_[next_++];
     }
 
-    void submit(GateResponse response) override
+    void Submit(GateResponse response) override
     {
         submitted.push_back(response);
     }

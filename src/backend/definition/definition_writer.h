@@ -24,10 +24,10 @@ struct DefinitionHeaderInput
 };
 
 // Normalize scalar header values; preserve internal spaces and both notes fields.
-DefinitionHeaderInput normalize_header_input(DefinitionHeaderInput input);
+DefinitionHeaderInput NormalizeHeaderInput(DefinitionHeaderInput input);
 
-Result<std::vector<std::uint8_t>> create_ecuflash_xml(const DefinitionHeaderInput&);
-Result<std::vector<std::uint8_t>> rewrite_ecuflash_xml(std::span<const std::uint8_t> source,
-                                                       const DefinitionHeaderInput&);
+Result<std::vector<std::uint8_t>> CreateEcuflashXml(const DefinitionHeaderInput&);
+Result<std::vector<std::uint8_t>> RewriteEcuflashXml(std::span<const std::uint8_t> source,
+                                                     const DefinitionHeaderInput&);
 
 } // namespace fastecu::definition

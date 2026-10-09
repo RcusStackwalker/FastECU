@@ -12,16 +12,16 @@
 
 namespace
 {
-using fastecu::definition::definition_header_input;
+using fastecu::definition::BuildDefinitionHeaderInput;
 using fastecu::definition::DefinitionHeaderDraft;
-using fastecu::definition::read_definition_header;
+using fastecu::definition::ReadDefinitionHeader;
 using fastecu::testing::IsErr;
 using fastecu::testing::IsOk;
 
 TEST(DefinitionHeaderFields, ReadsNamedValuesAndDefaultsAbsentFields)
 {
-    const auto draft = read_definition_header("<rom><romid><xmlid> BASE </xmlid>"
-                                              "<internalidaddress>0x2000</internalidaddress></romid></rom>");
+    const auto draft = ReadDefinitionHeader("<rom><romid><xmlid> BASE </xmlid>"
+                                            "<internalidaddress>0x2000</internalidaddress></romid></rom>");
     ASSERT_THAT(draft, IsOk());
     EXPECT_EQ(draft->xml_id, "BASE");
     EXPECT_EQ(draft->internal_id_address_text, "0x2000");
@@ -33,8 +33,8 @@ TEST(DefinitionHeaderFields, ReadsNamedValuesAndDefaultsAbsentFields)
 TEST(DefinitionHeaderFields, ReadsWrappedRomAndConcatenatesDirectText)
 {
     const auto draft =
-        read_definition_header("<roms><rom><romid><xmlid>BASE</xmlid></romid><include>OEM_BASE</include>"
-                               "<notes>Text &amp; <!-- split -->direct<![CDATA[ notes]]></notes></rom></roms>");
+        ReadDefinitionHeader("<roms><rom><romid><xmlid>BASE</xmlid></romid><include>OEM_BASE</include>"
+                             "<notes>Text &amp; <!-- split -->direct<![CDATA[ notes]]></notes></rom></roms>");
     ASSERT_THAT(draft, IsOk());
     EXPECT_EQ(draft->xml_id, "BASE");
     EXPECT_EQ(draft->include, "OEM_BASE");
@@ -43,14 +43,14 @@ TEST(DefinitionHeaderFields, ReadsWrappedRomAndConcatenatesDirectText)
 
 TEST(DefinitionHeaderFields, MalformedXmlReportsAnError)
 {
-    EXPECT_THAT(read_definition_header("<rom><romid>"), IsErr(fastecu::ErrorKind::kInvalidConfig));
+    EXPECT_THAT(ReadDefinitionHeader("<rom><romid>"), IsErr(fastecu::ErrorKind::kInvalidConfig));
 }
 
 TEST(DefinitionHeaderFields, SelectsFirstDirectRomInRomsContainer)
 {
     const auto draft =
-        read_definition_header("<roms><!-- comment --><metadata/><rom><romid><xmlid>FIRST</xmlid></romid></rom>"
-                               "<rom><romid><xmlid>SECOND</xmlid></romid></rom></roms>");
+        ReadDefinitionHeader("<roms><!-- comment --><metadata/><rom><romid><xmlid>FIRST</xmlid></romid></rom>"
+                             "<rom><romid><xmlid>SECOND</xmlid></romid></rom></roms>");
     ASSERT_THAT(draft, IsOk());
     EXPECT_EQ(draft->xml_id, "FIRST");
 }
@@ -62,20 +62,20 @@ TEST(DefinitionHeaderFields, DoesNotSearchArbitraryWrappersOrNestedRoms)
                                      "<wrapper><romid><xmlid>ID</xmlid></romid></wrapper>", "<roms/>"})
     {
         SCOPED_TRACE(source);
-        EXPECT_THAT(read_definition_header(source), IsErr(fastecu::ErrorKind::kInvalidConfig));
+        EXPECT_THAT(ReadDefinitionHeader(source), IsErr(fastecu::ErrorKind::kInvalidConfig));
     }
 }
 
 TEST(DefinitionHeaderFields, MapsEveryEditableField)
 {
-    const auto draft = read_definition_header(
+    const auto draft = ReadDefinitionHeader(
         "<rom><romid><xmlid> ID </xmlid><internalidaddress>2f8000</internalidaddress>"
         "<internalidstring> internal </internalidstring><ecuid> ECU </ecuid><make>make</make><market>market</market>"
         "<model>model</model><submodel>submodel</submodel><transmission>transmission</transmission><year>year</year>"
         "<flashmethod>flash</flashmethod><memmodel>memory</memmodel><checksummodule>checksum</checksummodule>"
         "</romid><include>parent</include><notes>note body</notes></rom>");
     ASSERT_THAT(draft, IsOk());
-    const auto input = definition_header_input(*draft);
+    const auto input = BuildDefinitionHeaderInput(*draft);
     ASSERT_THAT(input, IsOk());
     EXPECT_EQ(input->xml_id, "ID");
     EXPECT_EQ(input->internal_id, "internal");
@@ -96,7 +96,7 @@ TEST(DefinitionHeaderFields, MapsEveryEditableField)
 
 TEST(DefinitionHeaderFields, MissingFieldsAndBlankAddressRemainOptional)
 {
-    const auto input = definition_header_input(DefinitionHeaderDraft{.internal_id_address_text = " \t\r\n\v\f "});
+    const auto input = BuildDefinitionHeaderInput(DefinitionHeaderDraft{.internal_id_address_text = " \t\r\n\v\f "});
     ASSERT_THAT(input, IsOk());
     EXPECT_EQ(input->xml_id, "");
     EXPECT_EQ(input->internal_id, "");
@@ -109,7 +109,7 @@ TEST(DefinitionHeaderFields, AcceptsHexPrefixesPlusAndUint64Maximum)
     for (const std::string address : {"10", "0X10", "+0x10", "ffffffffffffffff"})
     {
         SCOPED_TRACE(address);
-        const auto input = definition_header_input(DefinitionHeaderDraft{.internal_id_address_text = address});
+        const auto input = BuildDefinitionHeaderInput(DefinitionHeaderDraft{.internal_id_address_text = address});
         ASSERT_THAT(input, IsOk());
         EXPECT_EQ(input->internal_id_address,
                   address == "ffffffffffffffff" ? std::numeric_limits<std::uint64_t>::max() : 16U);
@@ -121,18 +121,18 @@ TEST(DefinitionHeaderFields, RejectsInvalidTrailingJunkNegativeAndOverflowingAdd
     for (const std::string address : {"not-hex", "0x", "+", "+ 10", "-0", "10junk", "10000000000000000"})
     {
         SCOPED_TRACE(address);
-        EXPECT_THAT(definition_header_input(DefinitionHeaderDraft{.internal_id_address_text = address}),
+        EXPECT_THAT(BuildDefinitionHeaderInput(DefinitionHeaderDraft{.internal_id_address_text = address}),
                     IsErr(fastecu::ErrorKind::kInvalidConfig));
     }
 }
 
 TEST(DefinitionHeaderFields, NormalizesScalarFieldsAndPreservesNotes)
 {
-    const auto input = definition_header_input(DefinitionHeaderDraft{.xml_id = "\xe2\x80\x83ID\xc2\xa0",
-                                                                     .ecu_id = " ECU ",
-                                                                     .internal_id_address_text = "\xc2\xa0"
-                                                                                                 "10\xe3\x80\x80",
-                                                                     .notes = " notes "});
+    const auto input = BuildDefinitionHeaderInput(DefinitionHeaderDraft{.xml_id = "\xe2\x80\x83ID\xc2\xa0",
+                                                                        .ecu_id = " ECU ",
+                                                                        .internal_id_address_text = "\xc2\xa0"
+                                                                                                    "10\xe3\x80\x80",
+                                                                        .notes = " notes "});
     ASSERT_THAT(input, IsOk());
     EXPECT_EQ(input->xml_id, "ID");
     EXPECT_EQ(input->internal_id_address, 16U);
@@ -142,9 +142,9 @@ TEST(DefinitionHeaderFields, NormalizesScalarFieldsAndPreservesNotes)
 
 TEST(DefinitionHeaderFields, RejectsMultipleRootsAndKeepsDecodedTextUtf8DespiteDeclaration)
 {
-    EXPECT_THAT(read_definition_header("<rom/><rom/>"), IsErr(fastecu::ErrorKind::kInvalidConfig));
-    const auto draft = read_definition_header("<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?>"
-                                              "<rom><romid><xmlid>Caf\xc3\xa9</xmlid></romid></rom>");
+    EXPECT_THAT(ReadDefinitionHeader("<rom/><rom/>"), IsErr(fastecu::ErrorKind::kInvalidConfig));
+    const auto draft = ReadDefinitionHeader("<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?>"
+                                            "<rom><romid><xmlid>Caf\xc3\xa9</xmlid></romid></rom>");
     ASSERT_THAT(draft, IsOk());
     EXPECT_EQ(draft->xml_id, "Caf\xc3\xa9");
 }
@@ -152,20 +152,20 @@ TEST(DefinitionHeaderFields, RejectsMultipleRootsAndKeepsDecodedTextUtf8DespiteD
 TEST(DefinitionHeaderFields, EntityReferencesAndCdataKeepTheirTextSemantics)
 {
     const auto literal =
-        read_definition_header("<rom><!-- &undefined; --><notes><![CDATA[A&undefined;B]]></notes></rom>");
+        ReadDefinitionHeader("<rom><!-- &undefined; --><notes><![CDATA[A&undefined;B]]></notes></rom>");
     ASSERT_THAT(literal, IsOk());
     EXPECT_EQ(literal->notes, "A&undefined;B");
     const auto expanded =
-        read_definition_header("<!DOCTYPE rom><rom><notes>&lt; &gt; &amp; &apos; &quot; &#65; &#x42;</notes></rom>");
+        ReadDefinitionHeader("<!DOCTYPE rom><rom><notes>&lt; &gt; &amp; &apos; &quot; &#65; &#x42;</notes></rom>");
     ASSERT_THAT(expanded, IsOk());
     EXPECT_EQ(expanded->notes, "< > & ' \" A B");
 }
 
 TEST(DefinitionHeaderFields, EditableMetadataStaysSeparateFromParserExtras)
 {
-    const auto draft = read_definition_header("<rom><romid><make> make </make><model> model </model>"
-                                              "<filesize>1024</filesize><notes>metadata notes</notes></romid>"
-                                              "<notes> root notes </notes></rom>");
+    const auto draft = ReadDefinitionHeader("<rom><romid><make> make </make><model> model </model>"
+                                            "<filesize>1024</filesize><notes>metadata notes</notes></romid>"
+                                            "<notes> root notes </notes></rom>");
     ASSERT_THAT(draft, IsOk());
     EXPECT_EQ(draft->metadata.make, "make");
     EXPECT_EQ(draft->metadata.model, "model");
@@ -182,16 +182,16 @@ TEST(DefinitionHeaderFields, ImportAndBothLoadersAgreeOnNormalizedHeaderValues)
                             "<internalidaddress> +0X10 </internalidaddress><model> Mitsubishi Colt </model>"
                             "</romid><include>\xc2\xa0"
                             "BASE\xc2\xa0</include></rom>";
-    const auto draft = read_definition_header(rom);
+    const auto draft = ReadDefinitionHeader(rom);
     ASSERT_THAT(draft, IsOk());
-    const auto input = definition_header_input(*draft);
+    const auto input = BuildDefinitionHeaderInput(*draft);
     ASSERT_THAT(input, IsOk());
     const std::vector<std::uint8_t> ecuflash_bytes(rom.begin(), rom.end());
-    const auto ecuflash = fastecu::definition::parse_ecuflash_definition(ecuflash_bytes, "header.xml");
+    const auto ecuflash = fastecu::definition::ParseEcuflashDefinition(ecuflash_bytes, "header.xml");
     ASSERT_THAT(ecuflash, IsOk());
     const std::string wrapped = "<roms>" + rom + "</roms>";
     const std::vector<std::uint8_t> romraider_bytes(wrapped.begin(), wrapped.end());
-    const auto romraider = fastecu::definition::parse_romraider_definition(romraider_bytes, "header.xml", "ID");
+    const auto romraider = fastecu::definition::ParseRomraiderDefinition(romraider_bytes, "header.xml", "ID");
     ASSERT_THAT(romraider, IsOk());
     for (const auto *definition : {&*ecuflash, &*romraider})
     {
@@ -206,7 +206,7 @@ TEST(DefinitionHeaderFields, ImportAndBothLoadersAgreeOnNormalizedHeaderValues)
 
 TEST(DefinitionHeaderFields, PartialHeaderDoesNotRequireIdentityOrParseTables)
 {
-    const auto draft = read_definition_header("<rom><romid><model> Colt </model></romid><table/></rom>");
+    const auto draft = ReadDefinitionHeader("<rom><romid><model> Colt </model></romid><table/></rom>");
     ASSERT_THAT(draft, IsOk());
     EXPECT_EQ(draft->xml_id, "");
     EXPECT_EQ(draft->metadata.model, "Colt");
@@ -214,15 +214,15 @@ TEST(DefinitionHeaderFields, PartialHeaderDoesNotRequireIdentityOrParseTables)
 
 TEST(DefinitionHeaderFields, InvalidAddressTextRemainsEditableUntilSubmission)
 {
-    const auto draft = read_definition_header("<rom><romid><internalidaddress>+0x</internalidaddress></romid></rom>");
+    const auto draft = ReadDefinitionHeader("<rom><romid><internalidaddress>+0x</internalidaddress></romid></rom>");
     ASSERT_THAT(draft, IsOk());
     EXPECT_EQ(draft->internal_id_address_text, "+0x");
-    EXPECT_THAT(definition_header_input(*draft), IsErr(fastecu::ErrorKind::kInvalidConfig));
+    EXPECT_THAT(BuildDefinitionHeaderInput(*draft), IsErr(fastecu::ErrorKind::kInvalidConfig));
 }
 
 TEST(DefinitionHeaderFields, RejectsNestedScalarContentInsteadOfFlatteningIt)
 {
-    EXPECT_THAT(read_definition_header("<rom><romid><xmlid>A<b>B</b></xmlid></romid></rom>"),
+    EXPECT_THAT(ReadDefinitionHeader("<rom><romid><xmlid>A<b>B</b></xmlid></romid></rom>"),
                 IsErr(fastecu::ErrorKind::kInvalidConfig));
 }
 } // namespace

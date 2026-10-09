@@ -36,7 +36,7 @@ TEST(DtcOperationsTest, aFailedRunLogsOnceAndReenablesTheButtons)
 TEST(DtcOperationsTest, closeDuringARunStopsTheWorkerAndResets)
 {
     FakeDiagnosticLink link;
-    link.queue_five_baud(bytes::Bytes{0x55, 0x08, 0x08}); // accepted -> 500 ms sleep follows
+    link.QueueFiveBaud(bytes::Bytes{0x55, 0x08, 0x08}); // accepted -> 500 ms sleep follows
     auto *dialog = new DtcOperations(link);
     dialog->findChild<QPushButton *>("readDtcButton")->click();
     fastecu::testing::process_events_for(std::chrono::milliseconds(50));
@@ -55,7 +55,7 @@ TEST(DtcOperationsTest, closeDuringARunStopsTheWorkerAndResets)
 TEST(DtcOperationsTest, escapeDuringARunStopsTheWorkerAndResets)
 {
     FakeDiagnosticLink link;
-    link.queue_five_baud(bytes::Bytes{0x55, 0x08, 0x08}); // accepted -> 500 ms sleep follows
+    link.QueueFiveBaud(bytes::Bytes{0x55, 0x08, 0x08}); // accepted -> 500 ms sleep follows
     auto *dialog = new DtcOperations(link);
     dialog->findChild<QPushButton *>("readDtcButton")->click();
     fastecu::testing::process_events_for(std::chrono::milliseconds(50));

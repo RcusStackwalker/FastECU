@@ -47,6 +47,6 @@ inline constexpr std::size_t kTcuParameterWriteCount = 12;
 // byte and service ID, and re-frame an already-framed buffer). Composing each
 // payload from this table is the correction. The final two rows preserve the
 // legacy's distinct 0x0000ec commit address.
-std::array<TcuParameterWrite, kTcuParameterWriteCount> tcu_parameter_writes(const TcuParameterValues& values);
+std::array<TcuParameterWrite, kTcuParameterWriteCount> TcuParameterWrites(const TcuParameterValues& values);
 
 } // namespace fastecu::service_functions

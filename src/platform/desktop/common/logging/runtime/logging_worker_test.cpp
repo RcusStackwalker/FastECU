@@ -21,13 +21,13 @@ using namespace std::chrono_literals;
 class NullDiagnostics final : public fastecu::IEventSink
 {
   public:
-    void log(fastecu::LogLevel, std::string_view) override
+    void Log(fastecu::LogLevel, std::string_view) override
     {
     }
-    void progress(int, int) override
+    void Progress(int, int) override
     {
     }
-    void notice(std::string_view) override
+    void Notice(std::string_view) override
     {
     }
 };
@@ -37,15 +37,15 @@ LoggingSession session(LoggingPolicy policy = {.poll_timeout = 5ms,
                                                .reconnect_attempt_threshold = 1000,
                                                .reconnect_retry_period = 0})
 {
-    auto result = make_logging_session(LoggingProtocolId::kSsm,
-                                       {LoggingChannel{.id = "rpm",
-                                                       .address = 0x10,
-                                                       .length = 1,
-                                                       .raw_assembly = RawAssembly::kUnsignedIntegerDecimal,
-                                                       .from_byte_expression = "x",
-                                                       .unit = "rpm",
-                                                       .decimal_precision = 0}},
-                                       policy);
+    auto result = MakeLoggingSession(LoggingProtocolId::kSsm,
+                                     {LoggingChannel{.id = "rpm",
+                                                     .address = 0x10,
+                                                     .length = 1,
+                                                     .raw_assembly = RawAssembly::kUnsignedIntegerDecimal,
+                                                     .from_byte_expression = "x",
+                                                     .unit = "rpm",
+                                                     .decimal_precision = 0}},
+                                     policy);
     Q_ASSERT(result.has_value());
     return std::move(*result);
 }
@@ -55,10 +55,10 @@ LoggingSession session(LoggingPolicy policy = {.poll_timeout = 5ms,
 TEST(TestLoggingWorker, forwards_portable_states_samples_and_cancelled_result)
 {
     ScriptedLoggingProtocol protocol;
-    protocol.queueStartResult({});
-    protocol.queuePollResult(PollData{.responded = false});
-    protocol.queuePollResult(PollData{.responded = false});
-    protocol.queuePollResult(
+    protocol.QueueStartResult({});
+    protocol.QueuePollResult(PollData{.responded = false});
+    protocol.QueuePollResult(PollData{.responded = false});
+    protocol.QueuePollResult(
         PollData{.responded = true, .samples = {ProtocolSample{.channel_id = "rpm", .raw_value = "1234"}}});
     NullDiagnostics diagnostics;
     LoggingWorker worker(session(), &protocol, diagnostics);
@@ -73,7 +73,7 @@ TEST(TestLoggingWorker, forwards_portable_states_samples_and_cancelled_result)
     // and reports only emissions arriving after it snapshots its baseline
     // count, so an emission that lands first makes it burn its whole
     // timeout and return false. Joining is what makes the spies final.
-    ASSERT_TRUE(protocol.waitUntilQueuedPollResultsConsumed(std::chrono::milliseconds(2000)));
+    ASSERT_TRUE(protocol.WaitUntilQueuedPollResultsConsumed(std::chrono::milliseconds(2000)));
     worker.requestStop();
     ASSERT_TRUE(worker.wait(2000));
 
@@ -89,13 +89,13 @@ TEST(TestLoggingWorker, forwards_portable_states_samples_and_cancelled_result)
     const auto result = std::get<0>(finished_spy.snapshot().at(0));
     ASSERT_TRUE(!result.has_value());
     ASSERT_EQ(result.error().kind, fastecu::ErrorKind::kCancelled);
-    ASSERT_TRUE(protocol.stopCalled());
+    ASSERT_TRUE(protocol.StopCalled());
 }
 
 TEST(TestLoggingWorker, forwards_final_start_error_without_policy_mapping)
 {
     ScriptedLoggingProtocol protocol;
-    protocol.queueStartResult(fastecu::fail(fastecu::ErrorKind::kBadResponse, "handshake rejected"));
+    protocol.QueueStartResult(fastecu::Fail(fastecu::ErrorKind::kBadResponse, "handshake rejected"));
     NullDiagnostics diagnostics;
     LoggingWorker worker(session(), &protocol, diagnostics);
     fastecu::testing::SignalRecorder finished_spy(&worker, &LoggingWorker::sessionFinished);
@@ -115,19 +115,19 @@ TEST(TestLoggingWorker, forwards_final_start_error_without_policy_mapping)
 TEST(TestLoggingWorker, destruction_cancels_and_joins_a_blocked_poll)
 {
     ScriptedLoggingProtocol protocol;
-    protocol.queueStartResult({});
-    protocol.blockPollUntilCancelled();
+    protocol.QueueStartResult({});
+    protocol.BlockPollUntilCancelled();
     NullDiagnostics diagnostics;
     QElapsedTimer elapsed;
     elapsed.start();
     {
         LoggingWorker worker(session(), &protocol, diagnostics);
         worker.start();
-        ASSERT_TRUE(protocol.waitUntilPollEntered(std::chrono::milliseconds(500)));
+        ASSERT_TRUE(protocol.WaitUntilPollEntered(std::chrono::milliseconds(500)));
     }
 
     ASSERT_TRUE(elapsed.elapsed() < 500) << "worker destruction exceeded cancellation bound";
-    ASSERT_TRUE(protocol.stopCalled());
+    ASSERT_TRUE(protocol.StopCalled());
 }
 
 } // namespace fastecu::desktop::logging

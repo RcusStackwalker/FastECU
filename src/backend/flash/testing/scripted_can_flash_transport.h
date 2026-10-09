@@ -28,7 +28,7 @@ class ScriptedCanFlashTransport : public ICanFlashTransport
     {
     }
 
-    bool is_open() const noexcept
+    bool IsOpen() const noexcept
     {
         return open_;
     }
@@ -56,63 +56,63 @@ class ScriptedCanFlashTransport : public ICanFlashTransport
         std::string previous_;
     };
 
-    [[nodiscard]] ScriptSection section(std::string_view label)
+    [[nodiscard]] ScriptSection Section(std::string_view label)
     {
         return ScriptSection(*this, label);
     }
 
-    void exchange(bytes::ByteView request, bytes::ByteView response)
+    void Exchange(bytes::ByteView request, bytes::ByteView response)
     {
         expected_.emplace_back(request.begin(), request.end());
         sections_.emplace_back(current_section_);
         reads_.emplace_back(std::optional<bytes::Bytes>{bytes::Bytes(response.begin(), response.end())});
     }
 
-    void exchange(bytes::ByteView request)
+    void Exchange(bytes::ByteView request)
     {
         expected_.emplace_back(request.begin(), request.end());
         sections_.emplace_back(current_section_);
     }
 
-    void expectWrite(bytes::ByteView b)
+    void ExpectWrite(bytes::ByteView b)
     {
         expected_.emplace_back(b.begin(), b.end());
         sections_.emplace_back(current_section_);
     }
-    void queueRead(bytes::ByteView b)
+    void QueueRead(bytes::ByteView b)
     {
         reads_.emplace_back(std::optional<bytes::Bytes>{bytes::Bytes(b.begin(), b.end())});
     }
-    void queue_no_frame()
+    void QueueNoFrame()
     {
         reads_.emplace_back(std::optional<bytes::Bytes>{});
     }
-    void queue_error(ErrorKind kind, std::string detail = {})
+    void QueueError(ErrorKind kind, std::string detail = {})
     {
-        reads_.emplace_back(fail(kind, std::move(detail)));
+        reads_.emplace_back(Fail(kind, std::move(detail)));
     }
-    void queueBlockingRead()
+    void QueueBlockingRead()
     {
         std::lock_guard lock(mutex_);
         blocking_read_pending_ = true;
     }
-    bool scriptConsumed() const
+    bool ScriptConsumed() const
     {
         return w_idx_ == expected_.size() && reads_.empty() && !blocking_read_pending_;
     }
-    std::size_t writesConsumed() const
+    std::size_t WritesConsumed() const
     {
         return w_idx_;
     }
     // Every timeout read() was called with, in order. Lets a test pin a
     // family's wire timing, which otherwise leaves no trace in the script --
     // the four Denso ISO-15765 families deliberately differ here.
-    const std::vector<std::chrono::milliseconds>& readTimeouts() const
+    const std::vector<std::chrono::milliseconds>& ReadTimeouts() const
     {
         return read_timeouts_;
     }
 
-    Status reset_connection() override
+    Status ResetConnection() override
     {
         lifecycle_calls.push_back("reset_connection");
         ++reset_call_count;
@@ -120,54 +120,54 @@ class ScriptedCanFlashTransport : public ICanFlashTransport
         return reset_result;
     }
 
-    Status configure(const Iso15765Config& config) override
+    Status Configure(const Iso15765Config& config) override
     {
         lifecycle_calls.push_back("configure");
         ++configure_call_count;
         last_config = config;
         return configure_result;
     }
-    Status open() override
+    Status Open() override
     {
         lifecycle_calls.push_back("open");
         ++open_call_count;
         open_ = true;
         return open_result;
     }
-    Status close() override
+    Status Close() override
     {
         lifecycle_calls.push_back("close");
         ++close_call_count;
         open_ = false;
         return close_result;
     }
-    void request_unblock() noexcept override
+    void RequestUnblock() noexcept override
     {
         std::lock_guard lock(mutex_);
         unblock_requested_ = true;
         cv_.notify_all();
     }
-    Status write(bytes::ByteView data, const ICancellationToken& cancellation) override
+    Status Write(bytes::ByteView data, const ICancellationToken& cancellation) override
     {
-        if (cancellation.cancelled())
+        if (cancellation.Cancelled())
         {
-            return fail(ErrorKind::kCancelled, "scripted CAN write cancelled");
+            return Fail(ErrorKind::kCancelled, "scripted CAN write cancelled");
         }
         const bytes::Bytes actual(data.begin(), data.end());
         if (w_idx_ >= expected_.size())
         {
-            return fail(ErrorKind::kInternal,
+            return Fail(ErrorKind::kInternal,
                         std::format("scripted CAN write ran past the end of the script ({} exchanges); wrote {}",
                                     expected_.size(), bytes::ToHex(actual)));
         }
         if (expected_.at(w_idx_) != actual)
         {
-            return fail(ErrorKind::kInternal, describeDivergence(w_idx_, actual));
+            return Fail(ErrorKind::kInternal, DescribeDivergence(w_idx_, actual));
         }
         ++w_idx_;
         return {};
     }
-    Result<std::optional<bytes::Bytes>> read(std::chrono::milliseconds timeout,
+    Result<std::optional<bytes::Bytes>> Read(std::chrono::milliseconds timeout,
                                              const ICancellationToken& cancellation) override
     {
         read_timeouts_.push_back(timeout);
@@ -177,16 +177,16 @@ class ScriptedCanFlashTransport : public ICanFlashTransport
             {
                 cv_.wait(lock, [this] { return unblock_requested_; });
                 blocking_read_pending_ = false;
-                return fail(ErrorKind::kCancelled, "scripted CAN read unblocked");
+                return Fail(ErrorKind::kCancelled, "scripted CAN read unblocked");
             }
         }
-        if (cancellation.cancelled())
+        if (cancellation.Cancelled())
         {
-            return fail(ErrorKind::kCancelled, "scripted CAN read cancelled");
+            return Fail(ErrorKind::kCancelled, "scripted CAN read cancelled");
         }
         if (reads_.empty())
         {
-            return fail(ErrorKind::kInternal, "no scripted CAN read outcome");
+            return Fail(ErrorKind::kInternal, "no scripted CAN read outcome");
         }
         auto result = std::move(reads_.front());
         reads_.pop_front();
@@ -205,7 +205,7 @@ class ScriptedCanFlashTransport : public ICanFlashTransport
     std::optional<Iso15765Config> last_config;
 
   private:
-    std::string describeDivergence(std::size_t index, const bytes::Bytes& actual) const
+    std::string DescribeDivergence(std::size_t index, const bytes::Bytes& actual) const
     {
         const std::string& label = sections_.at(index);
         const std::string where = label.empty() ? std::format("scripted CAN exchange #{}", index + 1)

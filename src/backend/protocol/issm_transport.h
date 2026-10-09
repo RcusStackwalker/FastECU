@@ -21,12 +21,12 @@ class ISsmTransport
     virtual ~ISsmTransport() = default;
     // The desktop serial facade exposes success, not a measured driver count;
     // its successful result is therefore the requested data size.
-    virtual Result<std::size_t> write(bytes::ByteView data) = 0;
+    virtual Result<std::size_t> Write(bytes::ByteView data) = 0;
     // A normal logging deadline is a successful empty optional. Cancellation,
     // disconnection, and driver failures are errors.
-    virtual Result<OptionalBytes> read(std::chrono::milliseconds timeout, const ICancellationToken& cancellation) = 0;
+    virtual Result<OptionalBytes> Read(std::chrono::milliseconds timeout, const ICancellationToken& cancellation) = 0;
     // True if the underlying adapter connection is open.
-    virtual bool isOpen() const = 0;
+    virtual bool IsOpen() const = 0;
 };
 
 } // namespace fastecu

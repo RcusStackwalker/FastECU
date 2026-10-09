@@ -42,7 +42,7 @@ class QtIdentifyLauncherTest : public ::testing::Test
                   auto link = std::make_unique<FakeDiagnosticLink>();
                   if (answer_ecu_)
                   {
-                      link->queue_read(kShortEcuInit);
+                      link->QueueRead(kShortEcuInit);
                   }
                   return link;
               },

@@ -15,7 +15,7 @@ namespace fastecu::calibration::testing
 class FakeDefinitionCatalogs : public IDefinitionCatalogs
 {
   public:
-    Result<definition::DefinitionCatalog> catalog(definition::DefinitionFormat format) override
+    Result<definition::DefinitionCatalog> Catalog(definition::DefinitionFormat format) override
     {
         calls.push_back(format);
         if (auto error = errors.find(format); error != errors.end())
@@ -23,11 +23,11 @@ class FakeDefinitionCatalogs : public IDefinitionCatalogs
             return std::unexpected(error->second);
         }
         auto found = entries.find(format);
-        return definition::DefinitionCatalog::create(
+        return definition::DefinitionCatalog::Create(
             found == entries.end() ? std::vector<definition::DefinitionIndexEntry>{} : found->second);
     }
 
-    std::optional<std::string> indexed_source(definition::DefinitionFormat format, std::string_view id) override
+    std::optional<std::string> IndexedSource(definition::DefinitionFormat format, std::string_view id) override
     {
         auto found = indexed_sources.find({format, std::string{id}});
         return found == indexed_sources.end() ? std::nullopt : std::optional<std::string>{found->second};

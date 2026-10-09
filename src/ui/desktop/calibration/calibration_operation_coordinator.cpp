@@ -20,7 +20,7 @@ constexpr std::string_view kCalibrationSuffix = ".bin";
 const config::VehicleSpec& selected_vehicle(const config::ConfigSession& config)
 {
     // The desktop startup selection gate ensures a valid vehicle before this coordinator is used.
-    return *config.selected_vehicle();
+    return *config.SelectedVehicle();
 }
 
 const config::ProtocolSpec& selected_protocol(const config::ConfigSession& config)
@@ -62,7 +62,7 @@ std::optional<PreparedWrite> CalibrationOperationCoordinator::prepare_write(cali
         return std::nullopt;
     }
 
-    bytes::Bytes image(session->rom().begin(), session->rom().end());
+    bytes::Bytes image(session->Rom().begin(), session->Rom().end());
     if (selected_protocol(config_).checksum == config::ChecksumSupport::kMissing &&
         !interaction_.confirm_write_without_checksum())
     {
@@ -79,8 +79,8 @@ std::optional<PreparedWrite> CalibrationOperationCoordinator::prepare_write(cali
     return PreparedWrite{
         .image = std::move(image),
         .protocol = selected_protocol(config_),
-        .kernel_path = session->protocol().kernel_path,
-        .display_filename = session->source().display_name,
+        .kernel_path = session->Protocol().kernel_path,
+        .display_filename = session->Source().display_name,
     };
 }
 
@@ -95,24 +95,24 @@ SaveOutcome CalibrationOperationCoordinator::save(calibration::CalibrationSessio
     {
         callbacks_.log(LogLevel::kDebug, "Save as: Check selected ROM number");
     }
-    bytes::Bytes image(session->rom().begin(), session->rom().end());
+    bytes::Bytes image(session->Rom().begin(), session->Rom().end());
     correct_operation_image(*session, image);
 
     const std::optional<std::string> target =
-        mode == SaveMode::kSave ? std::optional{session->source().path} : choose_save_as_path(*session);
+        mode == SaveMode::kSave ? std::optional{session->Source().path} : choose_save_as_path(*session);
     if (!target.has_value())
     {
         return SaveOutcome::kCancelled;
     }
     // RomSaveUseCase logs and notices a repository failure itself; the
     // operator gets no second notice from here.
-    if (!saver_.save(*session, *target, image).has_value())
+    if (!saver_.Save(*session, *target, image).has_value())
     {
         callbacks_.log(LogLevel::kError, std::format("Calibration file not saved: {}", *target));
         return SaveOutcome::kFailed;
     }
-    callbacks_.log(LogLevel::kDebug, std::format("ecuCalDef->FileName: {}", session->source().display_name));
-    callbacks_.log(LogLevel::kDebug, std::format("ecuCalDef->FullFileName: {}", session->source().path));
+    callbacks_.log(LogLevel::kDebug, std::format("ecuCalDef->FileName: {}", session->Source().display_name));
+    callbacks_.log(LogLevel::kDebug, std::format("ecuCalDef->FullFileName: {}", session->Source().path));
     return SaveOutcome::kSaved;
 }
 
@@ -123,17 +123,17 @@ SaveOutcome CalibrationOperationCoordinator::save(calibration::CalibrationSessio
 void CalibrationOperationCoordinator::refresh_write_metadata(calibration::CalibrationSession& session,
                                                              std::string_view kernelDirectory)
 {
-    calibration::RomProtocolInfo protocol = session.protocol();
-    if (session.definition() != nullptr && protocol.flash_method.empty())
+    calibration::RomProtocolInfo protocol = session.Protocol();
+    if (session.Definition() != nullptr && protocol.flash_method.empty())
     {
         protocol.flash_method = std::string(selected_protocol(config_).name);
-        session.set_protocol(protocol);
+        session.SetProtocol(protocol);
         // Mirrored in MainWindow::update_protocol_info; keep the two in sync.
         callbacks_.log(LogLevel::kDebug,
                        std::format("Update protocol info by selected ROM with FlashMethod: {}", protocol.flash_method));
         // The last matching row wins, as the legacy scan did; no match changes
         // nothing.
-        if (config_.select_by_protocol_name(protocol.flash_method))
+        if (config_.SelectByProtocolName(protocol.flash_method))
         {
             callbacks_.log(LogLevel::kDebug, "Protocol info for selected ROM updated");
         }
@@ -143,10 +143,10 @@ void CalibrationOperationCoordinator::refresh_write_metadata(calibration::Calibr
         }
         callbacks_.protocol_description_changed(selected_protocol(config_).description);
     }
-    protocol.kernel_path = flash::kernel_path(kernelDirectory, selected_protocol(config_).kernel);
-    protocol.kernel_start_address = config::kernel_load_address_text(selected_protocol(config_));
+    protocol.kernel_path = flash::KernelPath(kernelDirectory, selected_protocol(config_).kernel);
+    protocol.kernel_start_address = config::KernelLoadAddressText(selected_protocol(config_));
     protocol.mcu_type = std::string(selected_protocol(config_).mcu);
-    session.set_protocol(protocol);
+    session.SetProtocol(protocol);
 }
 
 // Corrected bytes replace only the operation image, never the editable
@@ -158,25 +158,25 @@ void CalibrationOperationCoordinator::correct_operation_image(const calibration:
     const config::VehicleSpec& vehicle = selected_vehicle(config_);
     const checksum::ChecksumSelection selection{
         .make = std::string(vehicle.make),
-        .checksum_flag = std::string(config::checksum_flag(vehicle.protocol->checksum)),
+        .checksum_flag = std::string(config::ChecksumFlag(vehicle.protocol->checksum)),
         .flash_method = std::string(vehicle.protocol->name),
-        .mcu_type = session.protocol().mcu_type,
-        .rom_id = session.protocol().rom_id,
+        .mcu_type = session.Protocol().mcu_type,
+        .rom_id = session.Protocol().rom_id,
     };
     callbacks_.log(LogLevel::kDebug, std::format("Protocol: {}", selection.flash_method));
     callbacks_.log(LogLevel::kDebug, std::format("Make: {}", selection.make));
     callbacks_.log(LogLevel::kDebug, std::format("Checksum: {}", selection.checksum_flag));
-    if (const auto *device = flash::find_flash_device(selection.mcu_type); device != nullptr)
+    if (const auto *device = flash::FindFlashDevice(selection.mcu_type); device != nullptr)
     {
         callbacks_.log(LogLevel::kDebug,
-                       std::format("ecuCalDef->McuType: {} {}", session.protocol().mcu_type, vehicle.protocol->mcu));
+                       std::format("ecuCalDef->McuType: {} {}", session.Protocol().mcu_type, vehicle.protocol->mcu));
         callbacks_.log(LogLevel::kDebug, std::format("Size: 0x{:x} -> 0x{:x}", image.size(), device->romsize));
     }
     const ChecksumCorrectionResult result =
-        interaction_.correct_checksums(image, session.definition() != nullptr, selection);
+        interaction_.correct_checksums(image, session.Definition() != nullptr, selection);
     if (result.unknown_mcu_type)
     {
-        callbacks_.log(LogLevel::kError, std::format("Unknown MCU type: {}", session.protocol().mcu_type));
+        callbacks_.log(LogLevel::kError, std::format("Unknown MCU type: {}", session.Protocol().mcu_type));
         return;
     }
     if (result.canceled_due_to_missing_module)
@@ -197,7 +197,7 @@ CalibrationOperationCoordinator::choose_save_as_path(const calibration::Calibrat
 {
     callbacks_.log(LogLevel::kDebug, "Save as: Check if OEM ECU file");
     const std::optional<std::string> chosen = interaction_.choose_save_path(
-        config_.effective_paths().calibration_files_directory + session.source().display_name);
+        config_.EffectivePaths().calibration_files_directory + session.Source().display_name);
     if (!chosen.has_value() || chosen->empty())
     {
         interaction_.show_notice(CalibrationNotice::kNoSaveFilename);

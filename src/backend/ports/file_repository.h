@@ -14,8 +14,8 @@ class IFileRepository
 {
   public:
     virtual ~IFileRepository() = default;
-    virtual Result<std::vector<std::uint8_t>> read(std::string_view handle) = 0;
-    virtual Status write(std::string_view handle, std::span<const std::uint8_t>) = 0;
+    virtual Result<std::vector<std::uint8_t>> Read(std::string_view handle) = 0;
+    virtual Status Write(std::string_view handle, std::span<const std::uint8_t>) = 0;
 };
 
 } // namespace fastecu
