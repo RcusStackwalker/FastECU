@@ -29,6 +29,10 @@ retain empty cells in their original CSV positions.
 
 [Session preparation](../../src/backend/logging/logging_session.h) captures
 protocol, stable identities, support, conversion, and target as owned values.
+Failed desktop preparation logs the returned error detail and shows it in a
+plain-text Logging dialog. It restores the stopped UI state without starting
+a protocol factory or worker.
+
 Later selection edits do not change the worker's session. Only the first
 conversion is used, with fixed decimal display formatting.
 
