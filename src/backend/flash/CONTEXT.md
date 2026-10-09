@@ -49,3 +49,8 @@ The two programming branches of a bootloader flash family: the ECU powered on
 a bench harness versus installed in the vehicle with other modules on the bus.
 The in-car arm quiets those modules first.
 _Avoid_: Mode, variant
+
+**Transfer progress**:
+The speed (B/s) and estimated seconds remaining of a read or write loop,
+reported as one log line per page. The estimate is clamped to 9999 s.
+_Avoid_: Telemetry, throughput
