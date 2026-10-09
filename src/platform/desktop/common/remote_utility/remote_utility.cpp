@@ -3,12 +3,12 @@
 #include <utility>
 #include "rep_remote_utility_replica.h"
 
-RemoteUtility::RemoteUtility(const QString& peerAddress, QString password, QWebSocket *web_socket, QObject *parent)
-    : QObject{parent}, peer_address_(peerAddress), password_(std::move(password)),
+RemoteUtility::RemoteUtility(const QString& peer_address, QString password, QWebSocket *web_socket, QObject *parent)
+    : QObject{parent}, peer_address_(peer_address), password_(std::move(password)),
       web_socket_(web_socket == nullptr ? new QWebSocket("", QWebSocketProtocol::VersionLatest, this) : web_socket),
       socket_(new WebSocketIoDevice(web_socket_, web_socket_)), keepalive_timer_(new QTimer(this))
 {
-    if (peerAddress.startsWith("local:"))
+    if (peer_address.startsWith("local:"))
     {
         startLocal();
     }
@@ -33,9 +33,9 @@ void RemoteUtility::startLocal(void)
 
 void RemoteUtility::startOverNetwok()
 {
-    QSslConfiguration sslConfiguration;
-    sslConfiguration.setPeerVerifyMode(QSslSocket::VerifyNone);
-    web_socket_->setSslConfiguration(sslConfiguration);
+    QSslConfiguration ssl_configuration;
+    ssl_configuration.setPeerVerifyMode(QSslSocket::VerifyNone);
+    web_socket_->setSslConfiguration(ssl_configuration);
     // Start node when Web Socket will be up
     QObject::connect(web_socket_, &QWebSocket::connected, this, &RemoteUtility::websocket_connected);
     node_.setHeartbeatInterval(kHeartbeatInterval);
@@ -138,9 +138,9 @@ bool RemoteUtility::isValid(void)
     return remote_utility_->state() == QRemoteObjectReplica::Valid;
 }
 
-void RemoteUtility::utilityRemoteStateChanged(QRemoteObjectReplica::State state, QRemoteObjectReplica::State oldState)
+void RemoteUtility::utilityRemoteStateChanged(QRemoteObjectReplica::State state, QRemoteObjectReplica::State old_state)
 {
-    emit stateChanged(state, oldState);
+    emit stateChanged(state, old_state);
     if (state == QRemoteObjectReplica::Valid)
     {
         qDebug() << "RemoteUtility remote connection established";
@@ -150,7 +150,7 @@ void RemoteUtility::utilityRemoteStateChanged(QRemoteObjectReplica::State state,
             qDebug() << "RemoteUtility keepalive started";
         }
     }
-    else if (oldState == QRemoteObjectReplica::Valid)
+    else if (old_state == QRemoteObjectReplica::Valid)
     {
         qDebug() << "RemoteUtility remote connection lost";
         if (keepalive_timer_->isActive())

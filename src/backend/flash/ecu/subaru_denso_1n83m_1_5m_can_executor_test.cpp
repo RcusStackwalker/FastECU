@@ -149,16 +149,16 @@ bytes::Bytes toWire(bytes::ByteView plain)
 // The OBK probe miss, the four non-fatal identity queries, the access-method
 // probe and the branch selector. Byte 7 of the raw 0x22 0x10 0x1D reply frame
 // -- payload index 3 -- selects the programming branch.
-void scriptPreliminaries(ScriptedCanFlashTransport& t, bytes::Byte branchByte)
+void scriptPreliminaries(ScriptedCanFlashTransport& t, bytes::Byte branch_byte)
 {
     const auto section = t.section("preliminaries");
-    t.exchange(request({0x10, 0x5F}), response({0x50, 0x01}));                         // OBK probe, miss
-    t.exchange(request({0xAA}), response({0xEA, 0, 0, 0, 0, 1, 2, 3, 4, 5}));          // ECU ID
-    t.exchange(request({0x09, 0x02}), response({0x49, 0x02, 'V', 'I', 'N'}));          // VIN
-    t.exchange(request({0x09, 0x04}), response({0x49, 0x04, 'C', 'A', 'L'}));          // CAL ID
-    t.exchange(request({0x09, 0x06}), response({0x49, 0x06, 0xAA, 0xBB}));             // CVN
-    t.exchange(request({0x10, 0x5F}), response({0x50, 0x01}));                         // access method
-    t.exchange(request({0x22, 0x10, 0x1D}), response({0x62, 0x10, 0x1D, branchByte})); // branch selector
+    t.exchange(request({0x10, 0x5F}), response({0x50, 0x01}));                          // OBK probe, miss
+    t.exchange(request({0xAA}), response({0xEA, 0, 0, 0, 0, 1, 2, 3, 4, 5}));           // ECU ID
+    t.exchange(request({0x09, 0x02}), response({0x49, 0x02, 'V', 'I', 'N'}));           // VIN
+    t.exchange(request({0x09, 0x04}), response({0x49, 0x04, 'C', 'A', 'L'}));           // CAL ID
+    t.exchange(request({0x09, 0x06}), response({0x49, 0x06, 0xAA, 0xBB}));              // CVN
+    t.exchange(request({0x10, 0x5F}), response({0x50, 0x01}));                          // access method
+    t.exchange(request({0x22, 0x10, 0x1D}), response({0x62, 0x10, 0x1D, branch_byte})); // branch selector
 }
 
 // The bench arm.
@@ -188,11 +188,11 @@ void scriptFlashDump(ScriptedCanFlashTransport& t, std::uint32_t start, std::uin
                      bytes::Byte fill)
 {
     const auto section = t.section("flash dump");
-    const bytes::Bytes wirePage = toWire(bytes::Bytes(pagesize, fill));
+    const bytes::Bytes wire_page = toWire(bytes::Bytes(pagesize, fill));
     for (std::uint32_t addr = start; addr < start + length; addr += pagesize)
     {
         bytes::Bytes reply = response({0xF7});
-        reply.insert(reply.end(), wirePage.begin(), wirePage.end());
+        reply.insert(reply.end(), wire_page.begin(), wire_page.end());
         t.exchange(request(bytes::composeBe(bytes::Byte(0xB7), addr)), reply);
     }
 }

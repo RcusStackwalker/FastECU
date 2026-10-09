@@ -29,7 +29,7 @@ class QtIdentifyLauncher final : public QObject, public IIdentifyLauncher
     using ClockFactory = std::function<std::unique_ptr<IClock>()>;
     using LogHandler = std::function<void(LogLevel, const QString&)>;
 
-    QtIdentifyLauncher(LinkFactory make_link, ClockFactory make_clock, LogHandler log, QObject *parent = nullptr);
+    QtIdentifyLauncher(LinkFactory makeLink, ClockFactory makeClock, LogHandler log, QObject *parent = nullptr);
     ~QtIdentifyLauncher() override;
 
     void set_completion_handler(CompletionHandler handler) override;

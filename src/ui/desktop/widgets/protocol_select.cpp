@@ -18,8 +18,8 @@ ProtocolSelect::ProtocolSelect(const fastecu::config::ConfigSession& config, QWi
 
     // ui->select_button->setEnabled(false);
 
-    QStringList tree_widget_headers = {"Model", "Protocol"};
-    ui_->treeWidget->setHeaderLabels(tree_widget_headers);
+    QStringList treeWidgetHeaders = {"Model", "Protocol"};
+    ui_->treeWidget->setHeaderLabels(treeWidgetHeaders);
     ui_->treeWidget->setFont(font_);
 
     // QRect  screenGeometry = this->geometry();
@@ -29,13 +29,13 @@ ProtocolSelect::ProtocolSelect(const fastecu::config::ConfigSession& config, QWi
     // ui->treeWidget->setColumnWidth(1, 75);
 
     QStringList protocols;
-    QStringList protocols_sorted;
-    QStringList descriptions_sorted;
-    bool protocol_changed_saved = false;
+    QStringList protocolsSorted;
+    QStringList descriptionsSorted;
+    bool protocolChangedSaved = false;
     QFontMetrics fm(font_);
-    int text_width = 0;
-    int protocol_width = 0;
-    int description_width = 0;
+    int textWidth = 0;
+    int protocolWidth = 0;
+    int descriptionWidth = 0;
 
     // Vehicle-backed: one entry per distinct protocol any vehicle uses.
     const auto vehicles = config.vehicles();
@@ -47,59 +47,59 @@ ProtocolSelect::ProtocolSelect(const fastecu::config::ConfigSession& config, QWi
         }
     }
 
-    protocols_sorted = protocols;
-    std::sort(protocols_sorted.begin(), protocols_sorted.end(), std::less<QString>());
+    protocolsSorted = protocols;
+    std::sort(protocolsSorted.begin(), protocolsSorted.end(), std::less<QString>());
 
-    for (int i = 0; i < protocols_sorted.length(); i++)
+    for (int i = 0; i < protocolsSorted.length(); i++)
     {
         for (const VehicleSpec& vehicle : vehicles)
         {
-            if (protocols_sorted.at(i) == qs(vehicle.protocol->name))
+            if (protocolsSorted.at(i) == qs(vehicle.protocol->name))
             {
-                descriptions_sorted.append(protocol_field(vehicle, &ProtocolSpec::description));
-                text_width = fm.horizontalAdvance(descriptions_sorted.at(i));
-                if (text_width > description_width)
+                descriptionsSorted.append(protocol_field(vehicle, &ProtocolSpec::description));
+                textWidth = fm.horizontalAdvance(descriptionsSorted.at(i));
+                if (textWidth > descriptionWidth)
                 {
-                    description_width = text_width;
+                    descriptionWidth = textWidth;
                 }
 
                 break;
             }
         }
 
-        text_width = fm.horizontalAdvance(protocols_sorted.at(i));
-        if (text_width > protocol_width)
+        textWidth = fm.horizontalAdvance(protocolsSorted.at(i));
+        if (textWidth > protocolWidth)
         {
-            protocol_width = text_width;
+            protocolWidth = textWidth;
         }
     }
-    protocol_width += 20;
-    description_width += 20;
-    ui_->treeWidget->setColumnWidth(0, protocol_width);
-    ui_->treeWidget->setColumnWidth(1, description_width);
+    protocolWidth += 20;
+    descriptionWidth += 20;
+    ui_->treeWidget->setColumnWidth(0, protocolWidth);
+    ui_->treeWidget->setColumnWidth(1, descriptionWidth);
     /*
         QScreen *screen = QGuiApplication::primaryScreen();
         QRect  screenGeometry = screen->geometry();
         if (this->width() < screenGeometry.width() && this->height() < screenGeometry.height())
             this->showMaximized();
     */
-    ui_->treeWidget->setFixedWidth(protocol_width + description_width + 20);
+    ui_->treeWidget->setFixedWidth(protocolWidth + descriptionWidth + 20);
 
-    for (int i = 0; i < protocols_sorted.length(); i++)
+    for (int i = 0; i < protocolsSorted.length(); i++)
     {
         QTreeWidgetItem *item = new QTreeWidgetItem();
-        item->setText(0, protocols_sorted.at(i));
-        item->setText(1, descriptions_sorted.at(i));
+        item->setText(0, protocolsSorted.at(i));
+        item->setText(1, descriptionsSorted.at(i));
         item->setFirstColumnSpanned(true);
         ui_->treeWidget->addTopLevelItem(item);
         if (config.selected_vehicle() != nullptr &&
-            protocols_sorted.at(i) == qs(config.selected_vehicle()->protocol->name))
+            protocolsSorted.at(i) == qs(config.selected_vehicle()->protocol->name))
         {
-            protocol_changed_saved = true;
+            protocolChangedSaved = true;
             ui_->treeWidget->setCurrentItem(item);
         }
     }
-    if (!protocol_changed_saved)
+    if (!protocolChangedSaved)
     {
         qDebug() << "Protocol changed to first item, no protocol selected previously";
         QTreeWidgetItem *item = ui_->treeWidget->topLevelItem(0);
@@ -119,11 +119,11 @@ ProtocolSelect::~ProtocolSelect()
 
 void ProtocolSelect::car_model_selected()
 {
-    QString protocol_name = ui_->treeWidget->selectedItems().at(0)->text(0);
-    qDebug() << "Selected protocol:" << protocol_name;
+    QString protocolName = ui_->treeWidget->selectedItems().at(0)->text(0);
+    qDebug() << "Selected protocol:" << protocolName;
 
     // Tentative: the caller applies an accepted choice to the session.
-    chosenProtocolName = protocol_name.toStdString();
+    chosenProtocolName = protocolName.toStdString();
     accept();
 
     close();
@@ -139,8 +139,8 @@ void ProtocolSelect::protocol_treewidget_item_selected()
     QTreeWidgetItem *item = ui_->treeWidget->selectedItems().at(0);
     if (item)
     {
-        QTreeWidgetItem *item_local = ui_->treeWidget->selectedItems().at(0);
-        QString selected_text = item_local->text(0);
+        QTreeWidgetItem *itemLocal = ui_->treeWidget->selectedItems().at(0);
+        QString selectedText = itemLocal->text(0);
 
         // ui->select_button->setEnabled(true);
     }

@@ -3,14 +3,14 @@
 /*****************************************************************************/
 /* Public methods */
 /*****************************************************************************/
-HexEdit::HexEdit(const QByteArray& data, const QString& file_name, QWidget *parent) : QMainWindow(parent)
+HexEdit::HexEdit(const QByteArray& data, const QString& fileName, QWidget *parent) : QMainWindow(parent)
 {
     setAcceptDrops(true);
     init();
     setCurrentFile("");
 
     hex_edit_->setData(data);
-    setCurrentFile(file_name);
+    setCurrentFile(fileName);
 
     this->show();
 }

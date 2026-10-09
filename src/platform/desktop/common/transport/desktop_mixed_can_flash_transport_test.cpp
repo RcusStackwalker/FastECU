@@ -171,8 +171,8 @@ TEST(TestDesktopMixedCanFlashTransport, rawFrameAddsAndParsesBigEndianId)
     ASSERT_NO_FATAL_FAILURE(configure_and_open(transport));
     ASSERT_TRUE(transport.enter_raw_bootloader_mode().has_value());
 
-    const QByteArray expectedWrite = QByteArray::fromHex("000ffffe7a90000000000000");
-    EXPECT_CALL(*fake, write_serial_data_echo_check(expectedWrite)).WillOnce(::testing::Return(QByteArray{}));
+    const QByteArray expected_write = QByteArray::fromHex("000ffffe7a90000000000000");
+    EXPECT_CALL(*fake, write_serial_data_echo_check(expected_write)).WillOnce(::testing::Return(QByteArray{}));
     ASSERT_TRUE(transport.write_raw({0x000ffffe, {0x7a, 0x90, 0, 0, 0, 0, 0, 0}}, cancellation).has_value());
 
     EXPECT_CALL(*fake, read_serial_data(::testing::_))

@@ -54,7 +54,7 @@ CalibrationOperationCoordinator::CalibrationOperationCoordinator(config::ConfigS
 }
 
 std::optional<PreparedWrite> CalibrationOperationCoordinator::prepare_write(calibration::CalibrationSession *session,
-                                                                            std::string_view kernel_directory)
+                                                                            std::string_view kernelDirectory)
 {
     if (session == nullptr)
     {
@@ -69,7 +69,7 @@ std::optional<PreparedWrite> CalibrationOperationCoordinator::prepare_write(cali
         callbacks_.log(LogLevel::kDebug, "Write canceled!");
         return std::nullopt;
     }
-    refresh_write_metadata(*session, kernel_directory);
+    refresh_write_metadata(*session, kernelDirectory);
 
     // Read again: the refresh may have reselected the vehicle.
     if (selected_protocol(config_).checksum != config::ChecksumSupport::kMissing)
@@ -121,7 +121,7 @@ SaveOutcome CalibrationOperationCoordinator::save(calibration::CalibrationSessio
 // by that name before taking kernel and MCU from the selection. These values
 // reach the ECU.
 void CalibrationOperationCoordinator::refresh_write_metadata(calibration::CalibrationSession& session,
-                                                             std::string_view kernel_directory)
+                                                             std::string_view kernelDirectory)
 {
     calibration::RomProtocolInfo protocol = session.protocol();
     if (session.definition() != nullptr && protocol.flash_method.empty())
@@ -143,7 +143,7 @@ void CalibrationOperationCoordinator::refresh_write_metadata(calibration::Calibr
         }
         callbacks_.protocol_description_changed(selected_protocol(config_).description);
     }
-    protocol.kernel_path = flash::kernel_path(kernel_directory, selected_protocol(config_).kernel);
+    protocol.kernel_path = flash::kernel_path(kernelDirectory, selected_protocol(config_).kernel);
     protocol.kernel_start_address = config::kernel_load_address_text(selected_protocol(config_));
     protocol.mcu_type = std::string(selected_protocol(config_).mcu);
     session.set_protocol(protocol);

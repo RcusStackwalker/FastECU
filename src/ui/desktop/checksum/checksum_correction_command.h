@@ -23,7 +23,7 @@ class ChecksumCorrectionCommand
   public:
     virtual ~ChecksumCorrectionCommand() = default;
 
-    ChecksumCorrectionResult run(bytes::ByteView rom_data, bool has_definition,
+    ChecksumCorrectionResult run(bytes::ByteView romData, bool hasDefinition,
                                  const fastecu::checksum::ChecksumSelection& selection, QWidget *parent);
 
   protected:
@@ -36,7 +36,7 @@ class ChecksumCorrectionCommand
     // Returns true if the user chose Cancel (abort correction), false for OK.
     virtual bool confirmProceedWithoutChecksumModule();
 
-    virtual void showFamilyResultDialog(const ChecksumResult& family_result);
+    virtual void showFamilyResultDialog(const ChecksumResult& familyResult);
 };
 
 } // namespace fastecu::ui

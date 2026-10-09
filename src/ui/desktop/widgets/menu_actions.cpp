@@ -235,17 +235,17 @@ void MainWindow::set_value()
 
     // The dialog may outlive the window, its session, or the active
     // selection; only the original window's identity is carried across it.
-    const QPointer<QMdiSubWindow> original_window(w);
+    const QPointer<QMdiSubWindow> originalWindow(w);
     bool accepted = false;
     QString text =
         QInputDialog::getText(this, tr("QInputDialog::getText()"),
                               tr("Set value: 20 | -20 | x+20 | x-20 | x*20 | x/20"), QLineEdit::Normal, "", &accepted);
     text.replace(",", ".");
-    if (!accepted || text.isEmpty() || original_window.isNull())
+    if (!accepted || text.isEmpty() || originalWindow.isNull())
     {
         return;
     }
-    run_numeric_edit(this, tr("Set value"), *calibration_workspace_, original_window.data(),
+    run_numeric_edit(this, tr("Set value"), *calibration_workspace_, originalWindow.data(),
                      fastecu::calibration::AssignmentEdit{.expression = text.toStdString()});
 }
 
@@ -312,7 +312,7 @@ void MainWindow::paste_value()
         fastecu::calibration::PasteEdit{.rows = fastecu::ui::split_paste_rows(QApplication::clipboard()->text())});
 }
 
-void MainWindow::connect_to_ecu(std::function<void(bool)> on_done)
+void MainWindow::connect_to_ecu(std::function<void(bool)> onDone)
 {
     connection_coordinator_->cancel();
     if (logging_engine_->isRunning())
@@ -330,9 +330,9 @@ void MainWindow::connect_to_ecu(std::function<void(bool)> on_done)
     if (!connection_->is_open())
     {
         QMessageBox::warning(this, tr("Serial port"), "Could not open interface!");
-        if (on_done)
+        if (onDone)
         {
-            on_done(false);
+            onDone(false);
         }
         return;
     }
@@ -348,9 +348,9 @@ void MainWindow::connect_to_ecu(std::function<void(bool)> on_done)
         // ecu_init did nothing for other makes and for raw CAN; the legacy
         // loop spent 2.5 s on it and then disconnected.
         disconnect_from_ecu();
-        if (on_done)
+        if (onDone)
         {
-            on_done(true);
+            onDone(true);
         }
         return;
     }
@@ -360,7 +360,7 @@ void MainWindow::connect_to_ecu(std::function<void(bool)> on_done)
         fastecu::diagnostics::SsmIdentifyRequest{*variant, ecu_radio_button_->isChecked()
                                                                ? fastecu::diagnostics::SsmTarget::kEcu
                                                                : fastecu::diagnostics::SsmTarget::kTcu},
-        std::move(on_done));
+        std::move(onDone));
 }
 
 void MainWindow::ConnectionPresentation::set_controls_locked(bool locked)
@@ -411,46 +411,46 @@ void MainWindow::disconnect_from_ecu()
 
 void MainWindow::ecu_definition_manager()
 {
-    QDialog *definitions_manager_dialog = new QDialog;
-    definitions_manager_dialog->setObjectName("ecu_definition_manager_dialog");
-    definitions_manager_dialog->setFixedWidth(640);
-    definitions_manager_dialog->setFixedHeight(240);
-    definitions_manager_dialog->setWindowModality(Qt::ApplicationModal);
-    definitions_manager_dialog->resize(800, 600);
-    definitions_manager_dialog->setWindowTitle("ECU definition manager");
-    definitions_manager_dialog->setAttribute(Qt::WA_DeleteOnClose);
+    QDialog *definitionsManagerDialog = new QDialog;
+    definitionsManagerDialog->setObjectName("ecu_definition_manager_dialog");
+    definitionsManagerDialog->setFixedWidth(640);
+    definitionsManagerDialog->setFixedHeight(240);
+    definitionsManagerDialog->setWindowModality(Qt::ApplicationModal);
+    definitionsManagerDialog->resize(800, 600);
+    definitionsManagerDialog->setWindowTitle("ECU definition manager");
+    definitionsManagerDialog->setAttribute(Qt::WA_DeleteOnClose);
 
-    QVBoxLayout *definitions_manager_layout = new QVBoxLayout;
-    definitions_manager_dialog->setLayout(definitions_manager_layout);
+    QVBoxLayout *definitionsManagerLayout = new QVBoxLayout;
+    definitionsManagerDialog->setLayout(definitionsManagerLayout);
 
-    QListWidget *definition_files = new QListWidget;
-    definition_files->setObjectName("ecu_definition_files_list");
-    definition_files->setSelectionMode(QAbstractItemView::ExtendedSelection);
+    QListWidget *definitionFiles = new QListWidget;
+    definitionFiles->setObjectName("ecu_definition_files_list");
+    definitionFiles->setSelectionMode(QAbstractItemView::ExtendedSelection);
     for (const std::string& file : config_session_->settings().romraider_definition_files)
     {
-        new QListWidgetItem(fastecu::ui::qs(file), definition_files);
+        new QListWidgetItem(fastecu::ui::qs(file), definitionFiles);
     }
-    definitions_manager_layout->addWidget(definition_files);
+    definitionsManagerLayout->addWidget(definitionFiles);
 
-    QWidget *definitions_manager_widget = new QWidget;
-    QHBoxLayout *definitions_manager_buttons = new QHBoxLayout;
-    definitions_manager_layout->addWidget(definitions_manager_widget);
-    definitions_manager_widget->setLayout(definitions_manager_buttons);
+    QWidget *definitionsManagerWidget = new QWidget;
+    QHBoxLayout *definitionsManagerButtons = new QHBoxLayout;
+    definitionsManagerLayout->addWidget(definitionsManagerWidget);
+    definitionsManagerWidget->setLayout(definitionsManagerButtons);
 
-    QPushButton *add_new_file = new QPushButton("Add new file");
-    QPushButton *remove_file = new QPushButton("Remove file");
+    QPushButton *addNewFile = new QPushButton("Add new file");
+    QPushButton *removeFile = new QPushButton("Remove file");
     QPushButton *close = new QPushButton("Close");
     QSpacerItem *spacer = new QSpacerItem(20, 20, QSizePolicy::MinimumExpanding, QSizePolicy::Minimum);
 
-    definitions_manager_buttons->addWidget(add_new_file);
-    definitions_manager_buttons->addWidget(remove_file);
-    definitions_manager_buttons->addSpacerItem(spacer);
-    definitions_manager_buttons->addWidget(close);
+    definitionsManagerButtons->addWidget(addNewFile);
+    definitionsManagerButtons->addWidget(removeFile);
+    definitionsManagerButtons->addSpacerItem(spacer);
+    definitionsManagerButtons->addWidget(close);
 
-    connect(add_new_file, SIGNAL(clicked()), this, SLOT(add_new_ecu_definition_file()));
-    connect(remove_file, SIGNAL(clicked()), this, SLOT(remove_ecu_definition_file()));
-    connect(close, SIGNAL(clicked()), definitions_manager_dialog, SLOT(close()));
-    definitions_manager_dialog->exec();
+    connect(addNewFile, SIGNAL(clicked()), this, SLOT(add_new_ecu_definition_file()));
+    connect(removeFile, SIGNAL(clicked()), this, SLOT(remove_ecu_definition_file()));
+    connect(close, SIGNAL(clicked()), definitionsManagerDialog, SLOT(close()));
+    definitionsManagerDialog->exec();
 }
 
 void MainWindow::logger_definition_manager()
@@ -510,41 +510,41 @@ void MainWindow::continue_start_logging()
     logging_state_ = true;
 
     fastecu::desktop::logging::LogSessionConfig config;
-    fastecu::logging::LoggingProtocolId protocol_id;
-    fastecu::logging::LoggingPolicy logging_policy{};
+    fastecu::logging::LoggingProtocolId protocolId;
+    fastecu::logging::LoggingPolicy loggingPolicy{};
     if (config_session_->settings().selected_log_protocol == "MUT_DMA")
     {
         config.protocol_id = "MUT_DMA";
         active_log_value_protocol_filter_ = "MUT_DMA";
-        protocol_id = fastecu::logging::LoggingProtocolId::kMutDma;
-        logging_policy = {.poll_timeout = 50ms,
-                          .car_silence_miss_threshold = 20,
-                          .reconnect_attempt_threshold = 100,
-                          .reconnect_retry_period = 20};
+        protocolId = fastecu::logging::LoggingProtocolId::kMutDma;
+        loggingPolicy = {.poll_timeout = 50ms,
+                         .car_silence_miss_threshold = 20,
+                         .reconnect_attempt_threshold = 100,
+                         .reconnect_retry_period = 20};
     }
     else if (config_session_->settings().selected_log_protocol == "CDBG")
     {
         config.protocol_id = "CDBG";
         active_log_value_protocol_filter_ = "CDBG";
-        protocol_id = fastecu::logging::LoggingProtocolId::kCdbg;
-        logging_policy = {.poll_timeout = 50ms,
-                          .car_silence_miss_threshold = 20,
-                          .reconnect_attempt_threshold = 100,
-                          .reconnect_retry_period = 20};
+        protocolId = fastecu::logging::LoggingProtocolId::kCdbg;
+        loggingPolicy = {.poll_timeout = 50ms,
+                         .car_silence_miss_threshold = 20,
+                         .reconnect_attempt_threshold = 100,
+                         .reconnect_retry_period = 20};
     }
     else
     {
         config.protocol_id = "SSM";
         active_log_value_protocol_filter_ = protocol_;
-        protocol_id = fastecu::logging::LoggingProtocolId::kSsm;
-        logging_policy = {.poll_timeout = 300ms,
-                          .car_silence_miss_threshold = 10,
-                          .reconnect_attempt_threshold = 30,
-                          .reconnect_retry_period = 10};
+        protocolId = fastecu::logging::LoggingProtocolId::kSsm;
+        loggingPolicy = {.poll_timeout = 300ms,
+                         .car_silence_miss_threshold = 10,
+                         .reconnect_attempt_threshold = 30,
+                         .reconnect_retry_period = 10};
     }
 
     auto snapshot = fastecu::desktop::logging::make_desktop_logging_snapshot(
-        *logger_model_, protocol_id, active_log_value_protocol_filter_, logging_policy);
+        *logger_model_, protocolId, active_log_value_protocol_filter_, loggingPolicy);
     if (!snapshot.has_value())
     {
         emit LOG_E("Logging session failed to start: " + QString::fromStdString(snapshot.error().detail), true, true);
@@ -719,9 +719,9 @@ void MainWindow::winols_csv_to_romraider_xml()
         return;
     }
     // Preserve the legacy filename convention: remove the four-character prefix.
-    const auto ecu_id = QFileInfo(source).fileName().section('.', 0, 0).mid(4).toUtf8();
+    const auto ecuId = QFileInfo(source).fileName().section('.', 0, 0).mid(4).toUtf8();
     const auto xml = fastecu::definition::convert_mappack_csv(std::string_view(csv.constData(), csv.size()),
-                                                              std::string_view(ecu_id.constData(), ecu_id.size()));
+                                                              std::string_view(ecuId.constData(), ecuId.size()));
     if (!xml.has_value())
     {
         QMessageBox::warning(this, tr("MapPack CSV file"), QString::fromStdString(xml.error().detail));

@@ -97,21 +97,21 @@ INSTANTIATE_TEST_SUITE_P(
 // InvalidConfig return path independently.
 TEST_P(ConfigureFailsAtEachRemainingSetterInTurnParameters, configureFailsAtEachRemainingSetterInTurn)
 {
-    const int setterIndex = GetParam().setter_index;
+    const int setter_index = GetParam().setter_index;
 
     FakeBackedSerial serial;
 
     ::testing::InSequence sequence;
-    expectSetterAt(EXPECT_CALL(serial.fake(), set_is_iso15765_connection(true)), 0, setterIndex);
-    expectSetterAt(EXPECT_CALL(serial.fake(), set_is_can_connection(false)), 1, setterIndex);
-    expectSetterAt(EXPECT_CALL(serial.fake(), set_is_iso14230_connection(false)), 2, setterIndex);
-    expectSetterAt(EXPECT_CALL(serial.fake(), set_is_29_bit_id(false)), 3, setterIndex);
-    expectSetterAt(EXPECT_CALL(serial.fake(), set_can_speed(QStringLiteral("500000"))), 4, setterIndex);
-    expectSetterAt(EXPECT_CALL(serial.fake(), set_can_source_address(2016)), 5, setterIndex);
-    expectSetterAt(EXPECT_CALL(serial.fake(), set_can_destination_address(2024)), 6, setterIndex);
-    expectSetterAt(EXPECT_CALL(serial.fake(), set_iso15765_source_address(2016)), 7, setterIndex);
-    expectSetterAt(EXPECT_CALL(serial.fake(), set_iso15765_destination_address(2024)), 8, setterIndex);
-    expectSetterAt(EXPECT_CALL(serial.fake(), set_add_iso14230_header(false)), 9, setterIndex);
+    expectSetterAt(EXPECT_CALL(serial.fake(), set_is_iso15765_connection(true)), 0, setter_index);
+    expectSetterAt(EXPECT_CALL(serial.fake(), set_is_can_connection(false)), 1, setter_index);
+    expectSetterAt(EXPECT_CALL(serial.fake(), set_is_iso14230_connection(false)), 2, setter_index);
+    expectSetterAt(EXPECT_CALL(serial.fake(), set_is_29_bit_id(false)), 3, setter_index);
+    expectSetterAt(EXPECT_CALL(serial.fake(), set_can_speed(QStringLiteral("500000"))), 4, setter_index);
+    expectSetterAt(EXPECT_CALL(serial.fake(), set_can_source_address(2016)), 5, setter_index);
+    expectSetterAt(EXPECT_CALL(serial.fake(), set_can_destination_address(2024)), 6, setter_index);
+    expectSetterAt(EXPECT_CALL(serial.fake(), set_iso15765_source_address(2016)), 7, setter_index);
+    expectSetterAt(EXPECT_CALL(serial.fake(), set_iso15765_destination_address(2024)), 8, setter_index);
+    expectSetterAt(EXPECT_CALL(serial.fake(), set_add_iso14230_header(false)), 9, setter_index);
     EXPECT_CALL(serial.fake(), open_serial_port()).Times(0);
 
     DesktopCanFlashTransport transport(serial.release());
@@ -504,27 +504,27 @@ TEST(TestDesktopCanFlashTransport, everyMethodFailsWithDisconnectedAfterClose)
     FakeBackedSerial serial;
 
     DesktopCanFlashTransport transport(serial.get()); // non-owning: keep `serial` alive
-    auto closeResult = transport.close();
-    ASSERT_TRUE(closeResult.has_value());
+    auto close_result = transport.close();
+    ASSERT_TRUE(close_result.has_value());
 
     FakeCancellationToken cancellation;
-    const auto configureResult = transport.configure(
+    const auto configure_result = transport.configure(
         Iso15765Config{.bitrate = 500000, .request_id = 0x7E0, .response_id = 0x7E8, .extended_id = false});
-    ASSERT_TRUE(!configureResult.has_value());
-    ASSERT_EQ(configureResult.error().kind, ErrorKind::kDisconnected);
+    ASSERT_TRUE(!configure_result.has_value());
+    ASSERT_EQ(configure_result.error().kind, ErrorKind::kDisconnected);
 
-    const auto openResult = transport.open();
-    ASSERT_TRUE(!openResult.has_value());
-    ASSERT_EQ(openResult.error().kind, ErrorKind::kDisconnected);
+    const auto open_result = transport.open();
+    ASSERT_TRUE(!open_result.has_value());
+    ASSERT_EQ(open_result.error().kind, ErrorKind::kDisconnected);
 
     const bytes::Bytes data{0xAA};
-    const auto writeResult = transport.write(bytes::ByteView(data), cancellation);
-    ASSERT_TRUE(!writeResult.has_value());
-    ASSERT_EQ(writeResult.error().kind, ErrorKind::kDisconnected);
+    const auto write_result = transport.write(bytes::ByteView(data), cancellation);
+    ASSERT_TRUE(!write_result.has_value());
+    ASSERT_EQ(write_result.error().kind, ErrorKind::kDisconnected);
 
-    const auto readResult = transport.read(50ms, cancellation);
-    ASSERT_TRUE(!readResult.has_value());
-    ASSERT_EQ(readResult.error().kind, ErrorKind::kDisconnected);
+    const auto read_result = transport.read(50ms, cancellation);
+    ASSERT_TRUE(!read_result.has_value());
+    ASSERT_EQ(read_result.error().kind, ErrorKind::kDisconnected);
 }
 
 // write() must be skipped once request_unblock() has fired, exactly
@@ -691,16 +691,16 @@ TEST(TestDesktopCanFlashTransport, closeIsIdempotentAndDestroysTheOwnedSerialPor
     DesktopCanFlashTransport transport(serial.release());
     ASSERT_TRUE(!destroyed);
 
-    auto closeResult = transport.close();
-    ASSERT_TRUE(closeResult.has_value());
+    auto close_result = transport.close();
+    ASSERT_TRUE(close_result.has_value());
     // ~SerialPortActions() deletes its backend via a
     // Qt::BlockingQueuedConnection (serial_backend_host.cpp), so by the
     // time close() returns, the fake is already gone.
     ASSERT_TRUE(destroyed);
 
     // Idempotent: calling again with an already-null serial_ must not crash.
-    closeResult = transport.close();
-    ASSERT_TRUE(closeResult.has_value());
+    close_result = transport.close();
+    ASSERT_TRUE(close_result.has_value());
 }
 
 // Proves the non-owning constructor (step 5c, Task 17) -- see
@@ -717,22 +717,22 @@ TEST(TestDesktopCanFlashTransport, closeOnANonOwningSerialPortActionsDoesNotDest
         DesktopCanFlashTransport transport(serial.get()); // non-owning
         ASSERT_TRUE(!destroyed);
 
-        auto closeResult = transport.close();
-        ASSERT_TRUE(closeResult.has_value());
+        auto close_result = transport.close();
+        ASSERT_TRUE(close_result.has_value());
         // The proof this test exists for: close() on a non-owning
         // transport must NOT destroy the externally-owned
         // SerialPortActions.
         ASSERT_TRUE(!destroyed);
 
         // Idempotent, same as the owning path.
-        closeResult = transport.close();
-        ASSERT_TRUE(closeResult.has_value());
+        close_result = transport.close();
+        ASSERT_TRUE(close_result.has_value());
         ASSERT_TRUE(!destroyed);
     }
     // transport is gone now; `serial` must still be alive and usable.
     ASSERT_TRUE(!destroyed);
-    const bool stillCallable = serial->is_serial_port_open(); // must not crash
-    Q_UNUSED(stillCallable);
+    const bool still_callable = serial->is_serial_port_open(); // must not crash
+    Q_UNUSED(still_callable);
     serial.reset(); // only now does the real teardown happen
     ASSERT_TRUE(destroyed);
 }
@@ -750,51 +750,51 @@ TEST(TestDesktopCanFlashTransport, requestUnblockCausesAPendingReadToReturnPromp
 {
     FakeBackedSerial serial;
 
-    QSemaphore readEntered;
-    QSemaphore continueRead;
+    QSemaphore read_entered;
+    QSemaphore continue_read;
     EXPECT_CALL(serial.fake(), is_serial_port_open())
         .WillOnce(::testing::Return(true))
         .WillOnce(::testing::Return(true));
     EXPECT_CALL(serial.fake(), read_serial_data(50))
         .WillOnce(
-            [&readEntered, &continueRead](std::uint16_t)
+            [&read_entered, &continue_read](std::uint16_t)
             {
-                readEntered.release();
-                continueRead.acquire();
+                read_entered.release();
+                continue_read.acquire();
                 return QByteArray("\xAA", 1);
             });
 
     DesktopCanFlashTransport transport(serial.release());
     FakeCancellationToken cancellation;
 
-    fastecu::Result<std::optional<bytes::Bytes>> inFlightResult;
-    std::atomic<bool> readerFinished{false};
+    fastecu::Result<std::optional<bytes::Bytes>> in_flight_result;
+    std::atomic<bool> reader_finished{false};
     std::thread reader(
         [&]
         {
-            inFlightResult = transport.read(50ms, cancellation);
-            readerFinished.store(true);
+            in_flight_result = transport.read(50ms, cancellation);
+            reader_finished.store(true);
         });
-    ASSERT_TRUE(readEntered.tryAcquire(1, 1000)) << "backend read did not start";
+    ASSERT_TRUE(read_entered.tryAcquire(1, 1000)) << "backend read did not start";
 
     transport.request_unblock();
     fastecu::testing::process_events_for(std::chrono::milliseconds(50));
-    ASSERT_TRUE(!readerFinished.load()) << "request_unblock() must not interrupt an already in-flight read";
+    ASSERT_TRUE(!reader_finished.load()) << "request_unblock() must not interrupt an already in-flight read";
 
-    continueRead.release(); // simulates the backend's own bounded timeout firing
+    continue_read.release(); // simulates the backend's own bounded timeout firing
     reader.join();
 
-    ASSERT_TRUE(readerFinished.load());
-    ASSERT_TRUE(inFlightResult.has_value());
-    ASSERT_TRUE(inFlightResult->has_value());
-    ASSERT_TRUE(inFlightResult->value() == bytes::Bytes{0xAA});
+    ASSERT_TRUE(reader_finished.load());
+    ASSERT_TRUE(in_flight_result.has_value());
+    ASSERT_TRUE(in_flight_result->has_value());
+    ASSERT_TRUE(in_flight_result->value() == bytes::Bytes{0xAA});
 
     // Second half of the contract: the *next* read must not reach the
     // backend at all.
     EXPECT_CALL(serial.fake(), read_serial_data(::testing::_)).Times(0);
-    const auto secondResult = transport.read(50ms, cancellation);
-    ASSERT_TRUE(!secondResult.has_value());
-    ASSERT_EQ(secondResult.error().kind, ErrorKind::kCancelled);
+    const auto second_result = transport.read(50ms, cancellation);
+    ASSERT_TRUE(!second_result.has_value());
+    ASSERT_EQ(second_result.error().kind, ErrorKind::kCancelled);
 }
 
 TEST(TestDesktopCanFlashTransport, fakeBackendReportsScriptedPortListAndBattery)

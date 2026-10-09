@@ -13,7 +13,7 @@ using namespace std::chrono_literals;
 
 fastecu::Result<bytes::Bytes> sendAndReceive(cdbg::ICanTransport& transport, bytes::ByteView command,
                                              const fastecu::ICancellationToken& cancellation,
-                                             std::string_view failureDetail)
+                                             std::string_view failure_detail)
 {
     auto written = transport.write(kRequestCanId, command);
     if (!written)
@@ -31,14 +31,14 @@ fastecu::Result<bytes::Bytes> sendAndReceive(cdbg::ICanTransport& transport, byt
     }
     if (!reply->has_value() || reply->value().id != kReplyCanId || reply->value().payload.empty())
     {
-        return fastecu::fail(fastecu::ErrorKind::kBadResponse, std::string(failureDetail));
+        return fastecu::fail(fastecu::ErrorKind::kBadResponse, std::string(failure_detail));
     }
     return std::move(reply->value().payload);
 }
 } // namespace
 
 fastecu::Status CdbgLogDriver::startFreeFormLog(const std::vector<CdbgChannel>& channels, bytes::Byte instance,
-                                                std::uint32_t intervalMs,
+                                                std::uint32_t interval_ms,
                                                 const fastecu::ICancellationToken& cancellation)
 {
     streaming_ = false;
@@ -104,19 +104,19 @@ fastecu::Status CdbgLogDriver::startFreeFormLog(const std::vector<CdbgChannel>& 
         }
     }
 
-    reply = sendAndReceive(t_, buildLogStartFrame(instance, static_cast<bytes::Byte>(frames_.size()), intervalMs),
+    reply = sendAndReceive(t_, buildLogStartFrame(instance, static_cast<bytes::Byte>(frames_.size()), interval_ms),
                            cancellation, "CDBG log start failed");
     if (!reply)
     {
         return std::unexpected(reply.error());
     }
 
-    std::size_t totalChannels = 0;
+    std::size_t total_channels = 0;
     for (const auto& frame : frames_)
     {
-        totalChannels += frame.size();
+        total_channels += frame.size();
     }
-    last_values_.assign(totalChannels, 0);
+    last_values_.assign(total_channels, 0);
 
     streaming_ = true;
     return {};
@@ -139,15 +139,15 @@ fastecu::Result<CdbgLogDriver::PollResult> CdbgLogDriver::pollOnce(std::chrono::
     if (read->has_value() && read->value().id == kReplyCanId && !read->value().payload.empty())
     {
         const bytes::Bytes& frame = read->value().payload;
-        bytes::Byte frameIdx = frame.front();
-        if (frameIdx < static_cast<bytes::Byte>(frames_.size()))
+        bytes::Byte frame_idx = frame.front();
+        if (frame_idx < static_cast<bytes::Byte>(frames_.size()))
         {
-            std::vector<std::uint32_t> decoded = decodeFrame(frameIdx, frames_.at(frameIdx), frame);
+            std::vector<std::uint32_t> decoded = decodeFrame(frame_idx, frames_.at(frame_idx), frame);
             if (!decoded.empty())
             {
                 decoded_response = true;
                 std::size_t offset = 0;
-                for (std::size_t f = 0; f < frameIdx; ++f)
+                for (std::size_t f = 0; f < frame_idx; ++f)
                 {
                     offset += frames_.at(f).size();
                 }

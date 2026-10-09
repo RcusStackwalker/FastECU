@@ -339,7 +339,7 @@ class BiuOperationsSubaru : public QDialog
   private slots:
     void keep_alive();
     void parse_biu_cmd();
-    void prepare_biu_set_cmd(const QByteArray& cmd_settings);
+    void prepare_biu_set_cmd(const QByteArray& cmdSettings);
     void prepare_biu_msg();
     void send_biu_msg();
 

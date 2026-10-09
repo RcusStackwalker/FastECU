@@ -40,6 +40,6 @@ QString rom_info_value(const QStringList& values, RomInfoRow row);
 // normalize_definition_addresses), then the session's protocol info. A set
 // placeholder_make applies FileActions::apply_missing_definition_defaults.
 QStringList rom_info_values(const calibration::CalibrationSession& session,
-                            const std::optional<QString>& placeholder_make = std::nullopt);
+                            const std::optional<QString>& placeholderMake = std::nullopt);
 
 } // namespace fastecu::ui

@@ -19,16 +19,16 @@
 
 int main(int argc, char *argv[])
 {
-    QCommandLineParser cmdParser;
-    cmdParser.setApplicationDescription("FastECU - software to work on and modify ECUs");
-    cmdParser.addHelpOption();
-    QCommandLineOption cmdHost(QStringList() << "s" << "host",
-                               "Remote host address and port, for example 127.0.0.1:33314, local:33315", "host:port");
-    cmdParser.addOption(cmdHost);
-    QCommandLineOption cmdPassword(QStringList() << "p" << "password", "Remote host password", "password");
-    cmdParser.addOption(cmdPassword);
-    QCommandLineOption cmdDebug(QStringList() << "d" << "debug", "Enable console debug output");
-    cmdParser.addOption(cmdDebug);
+    QCommandLineParser cmd_parser;
+    cmd_parser.setApplicationDescription("FastECU - software to work on and modify ECUs");
+    cmd_parser.addHelpOption();
+    QCommandLineOption cmd_host(QStringList() << "s" << "host",
+                                "Remote host address and port, for example 127.0.0.1:33314, local:33315", "host:port");
+    cmd_parser.addOption(cmd_host);
+    QCommandLineOption cmd_password(QStringList() << "p" << "password", "Remote host password", "password");
+    cmd_parser.addOption(cmd_password);
+    QCommandLineOption cmd_debug(QStringList() << "d" << "debug", "Enable console debug output");
+    cmd_parser.addOption(cmd_debug);
 
     // Locate debug option before QCommandLineParser to open console properly
 #ifdef _WIN32
@@ -64,10 +64,10 @@ int main(int argc, char *argv[])
         QApplication a(argc, argv);
 
         // Parser works only after QApplication initialization
-        cmdParser.process(a);
+        cmd_parser.process(a);
 
-        QString addr = cmdParser.value(cmdHost);
-        QString password = cmdParser.value(cmdPassword);
+        QString addr = cmd_parser.value(cmd_host);
+        QString password = cmd_parser.value(cmd_password);
 
         // Declared before the window so it outlives it: MainWindow holds
         // references into the composition until it is destroyed.
@@ -103,8 +103,8 @@ int main(int argc, char *argv[])
         MainWindow w(composition.services(), addr);
 
         QScreen *screen = QGuiApplication::primaryScreen();
-        QRect screenGeometry = screen->geometry();
-        w.move(screenGeometry.center() - w.rect().center());
+        QRect screen_geometry = screen->geometry();
+        w.move(screen_geometry.center() - w.rect().center());
 
         w.show();
 

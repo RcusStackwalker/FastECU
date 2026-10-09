@@ -22,8 +22,8 @@ IdentifyOutcome to_outcome(const diagnostics::SsmIdentifyWorkerResult& result)
 
 } // namespace
 
-QtIdentifyLauncher::QtIdentifyLauncher(LinkFactory make_link, ClockFactory make_clock, LogHandler log, QObject *parent)
-    : QObject(parent), make_link_(std::move(make_link)), make_clock_(std::move(make_clock)), log_(std::move(log))
+QtIdentifyLauncher::QtIdentifyLauncher(LinkFactory makeLink, ClockFactory makeClock, LogHandler log, QObject *parent)
+    : QObject(parent), make_link_(std::move(makeLink)), make_clock_(std::move(makeClock)), log_(std::move(log))
 {
 }
 

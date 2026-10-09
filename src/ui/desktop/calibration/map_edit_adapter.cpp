@@ -53,7 +53,7 @@ std::optional<MapWindowId> parse_map_window_id(QMdiSubWindow *window)
 }
 
 std::optional<calibration::NumericSelection>
-selected_numeric_target(QMdiSubWindow *window, const calibration::CalibrationSession& session, int map_number)
+selected_numeric_target(QMdiSubWindow *window, const calibration::CalibrationSession& session, int mapNumber)
 {
     if (!window)
     {
@@ -69,36 +69,36 @@ selected_numeric_target(QMdiSubWindow *window, const calibration::CalibrationSes
     {
         return std::nullopt;
     }
-    if (!session.definition() || map_number < 0 ||
-        static_cast<std::size_t>(map_number) >= session.definition()->definition.maps.size())
+    if (!session.definition() || mapNumber < 0 ||
+        static_cast<std::size_t>(mapNumber) >= session.definition()->definition.maps.size())
     {
         return std::nullopt;
     }
     const auto& first = selected.first();
-    const auto& map = session.definition()->definition.maps[static_cast<std::size_t>(map_number)];
+    const auto& map = session.definition()->definition.maps[static_cast<std::size_t>(mapNumber)];
     const auto target = calibration::resolve_edit_target({.first_row = first.topRow(),
                                                           .first_col = first.leftColumn(),
                                                           .last_row = first.bottomRow(),
                                                           .last_col = first.rightColumn()},
                                                          {.x_size = map.x_size, .y_size = map.y_size}, map.x_axis.type);
-    const auto numeric_target = to_numeric_target(target.kind);
-    if (!numeric_target.has_value())
+    const auto numericTarget = to_numeric_target(target.kind);
+    if (!numericTarget.has_value())
     {
         return std::nullopt;
     }
-    return calibration::NumericSelection{.target = *numeric_target, .elements = target.range};
+    return calibration::NumericSelection{.target = *numericTarget, .elements = target.range};
 }
 
 std::optional<calibration::SelectionRange> body_widget_range(const calibration::CalibrationSession& session,
-                                                             int map_number, int rows, int columns)
+                                                             int mapNumber, int rows, int columns)
 {
-    if (!session.definition() || map_number < 0 ||
-        static_cast<std::size_t>(map_number) >= session.definition()->definition.maps.size())
+    if (!session.definition() || mapNumber < 0 ||
+        static_cast<std::size_t>(mapNumber) >= session.definition()->definition.maps.size())
     {
         return std::nullopt;
     }
-    const auto& map = session.definition()->definition.maps[static_cast<std::size_t>(map_number)];
-    const auto is_body = [&](int row, int col)
+    const auto& map = session.definition()->definition.maps[static_cast<std::size_t>(mapNumber)];
+    const auto isBody = [&](int row, int col)
     {
         const auto target =
             calibration::resolve_edit_target({.first_row = row, .first_col = col, .last_row = row, .last_col = col},
@@ -109,7 +109,7 @@ std::optional<calibration::SelectionRange> body_widget_range(const calibration::
     {
         for (int col = 0; col < columns; ++col)
         {
-            if (is_body(row, col))
+            if (isBody(row, col))
             {
                 return calibration::SelectionRange{
                     .first_row = row, .first_col = col, .last_row = rows - 1, .last_col = columns - 1};
@@ -128,20 +128,20 @@ std::vector<std::vector<std::string>> split_paste_rows(const QString& text)
     {
         rows.removeLast();
     }
-    std::vector<std::vector<std::string>> owned_rows;
-    owned_rows.reserve(static_cast<std::size_t>(rows.size()));
+    std::vector<std::vector<std::string>> ownedRows;
+    ownedRows.reserve(static_cast<std::size_t>(rows.size()));
     for (const auto& row : rows)
     {
         const QStringList columns = row.split('\t');
-        std::vector<std::string> owned_columns;
-        owned_columns.reserve(static_cast<std::size_t>(columns.size()));
+        std::vector<std::string> ownedColumns;
+        ownedColumns.reserve(static_cast<std::size_t>(columns.size()));
         for (const auto& column : columns)
         {
-            owned_columns.push_back(column.toStdString());
+            ownedColumns.push_back(column.toStdString());
         }
-        owned_rows.push_back(std::move(owned_columns));
+        ownedRows.push_back(std::move(ownedColumns));
     }
-    return owned_rows;
+    return ownedRows;
 }
 
 } // namespace fastecu::ui

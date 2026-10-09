@@ -70,13 +70,13 @@ bool apply_choice(fastecu::logging::LoggerSelection& selection, std::vector<std:
 }
 } // namespace
 
-void MainWindow::change_log_values(int tab_index, const QString& protocol_arg)
+void MainWindow::change_log_values(int tabIndex, const QString& protocolArg)
 {
     QDialog dialog{this};
-    auto *main_layout = new QVBoxLayout(&dialog);
+    auto *mainLayout = new QVBoxLayout(&dialog);
     auto *tabs = new QTabWidget(&dialog);
-    main_layout->addWidget(tabs);
-    const auto add_parameters =
+    mainLayout->addWidget(tabs);
+    const auto addParameters =
         [&](const std::vector<std::string>& ids, const QString& title, const QString& kind, auto slot)
     {
         auto *page = new QWidget(tabs);
@@ -85,10 +85,10 @@ void MainWindow::change_log_values(int tab_index, const QString& protocol_arg)
         {
             auto *combo = new QComboBox(page);
             combo->setObjectName(kind + " value " + QString::number(i));
-            populate_parameter_choices(*combo, *logger_model_, protocol_arg, ids[i]);
+            populate_parameter_choices(*combo, *logger_model_, protocolArg, ids[i]);
             auto *units = new QComboBox(page);
             units->setObjectName(kind + " unit " + QString::number(i));
-            if (const auto *p = logger_model_->parameter(protocol_arg.toStdString(), ids[i]); p != nullptr)
+            if (const auto *p = logger_model_->parameter(protocolArg.toStdString(), ids[i]); p != nullptr)
             {
                 for (const auto& conversion : p->conversions)
                 {
@@ -106,26 +106,26 @@ void MainWindow::change_log_values(int tab_index, const QString& protocol_arg)
         tabs->addTab(page, title);
     };
     const auto& selection = logger_model_->selection();
-    add_parameters(selection.gauge_ids, "Gauges", "Gauge", &MainWindow::change_log_gauge_value);
-    add_parameters(selection.lower_panel_ids, "Digital", "Digital", &MainWindow::change_log_digital_value);
-    auto *switch_page = new QWidget(tabs);
-    auto *switch_layout = new QGridLayout(switch_page);
+    addParameters(selection.gauge_ids, "Gauges", "Gauge", &MainWindow::change_log_gauge_value);
+    addParameters(selection.lower_panel_ids, "Digital", "Digital", &MainWindow::change_log_digital_value);
+    auto *switchPage = new QWidget(tabs);
+    auto *switchLayout = new QGridLayout(switchPage);
     for (std::size_t i = 0; i < selection.switch_ids.size(); ++i)
     {
-        auto *combo = new QComboBox(switch_page);
+        auto *combo = new QComboBox(switchPage);
         combo->setObjectName("Switch value " + QString::number(i));
-        populate_switch_choices(*combo, *logger_model_, protocol_arg, selection.switch_ids[i]);
-        auto *name = new QLineEdit(switch_page);
+        populate_switch_choices(*combo, *logger_model_, protocolArg, selection.switch_ids[i]);
+        auto *name = new QLineEdit(switchPage);
         name->setObjectName("Switch title " + QString::number(i));
-        switch_layout->addWidget(new QLabel("Switch " + QString::number(i + 1), switch_page), static_cast<int>(i), 0);
-        switch_layout->addWidget(combo, static_cast<int>(i), 1);
-        switch_layout->addWidget(name, static_cast<int>(i), 2);
+        switchLayout->addWidget(new QLabel("Switch " + QString::number(i + 1), switchPage), static_cast<int>(i), 0);
+        switchLayout->addWidget(combo, static_cast<int>(i), 1);
+        switchLayout->addWidget(name, static_cast<int>(i), 2);
         connect(combo, qOverload<int>(&QComboBox::currentIndexChanged), this, &MainWindow::change_log_switch_value);
     }
-    tabs->addTab(switch_page, "Switches");
-    tabs->setCurrentIndex(tab_index);
+    tabs->addTab(switchPage, "Switches");
+    tabs->setCurrentIndex(tabIndex);
     auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
-    main_layout->addWidget(buttons);
+    mainLayout->addWidget(buttons);
     connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
     connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
     // Edits are applied and saved immediately, preserving Cancel's behavior.

@@ -4,9 +4,9 @@
 
 namespace mutdma
 {
-static bool ackOk(bytes::ByteView f, bytes::Byte cA, bytes::Byte cB)
+static bool ackOk(bytes::ByteView f, bytes::Byte c_a, bytes::Byte c_b)
 {
-    return verifyFrame(f) && (f[0] == cA || f[0] == cB);
+    return verifyFrame(f) && (f[0] == c_a || f[0] == c_b);
 }
 
 namespace
@@ -28,8 +28,8 @@ fastecu::Status writeFrame(IKlineTransport& transport, bytes::ByteView frame)
 }
 } // namespace
 
-fastecu::Status MutDmaDriver::startFreeFormLog(const std::vector<Channel>& channels, bytes::Byte setupCmd,
-                                               bytes::Byte listCmd, const fastecu::ICancellationToken& cancellation)
+fastecu::Status MutDmaDriver::startFreeFormLog(const std::vector<Channel>& channels, bytes::Byte setup_cmd,
+                                               bytes::Byte list_cmd, const fastecu::ICancellationToken& cancellation)
 {
     channels_ = channels;
     streaming_ = false;
@@ -37,7 +37,7 @@ fastecu::Status MutDmaDriver::startFreeFormLog(const std::vector<Channel>& chann
     {
         return wake;
     }
-    const auto setup = buildSetupFrame(setupCmd, static_cast<bytes::Byte>(channels.size()));
+    const auto setup = buildSetupFrame(setup_cmd, static_cast<bytes::Byte>(channels.size()));
     if (auto written = writeFrame(t_, setup); !written)
     {
         return written;
@@ -51,8 +51,8 @@ fastecu::Status MutDmaDriver::startFreeFormLog(const std::vector<Channel>& chann
     {
         return fastecu::fail(fastecu::ErrorKind::kBadResponse, "MUT/DMA setup acknowledgement invalid");
     }
-    const auto idList = buildIdListFrame(listCmd, channels);
-    if (auto written = writeFrame(t_, idList); !written)
+    const auto id_list = buildIdListFrame(list_cmd, channels);
+    if (auto written = writeFrame(t_, id_list); !written)
     {
         return written;
     }

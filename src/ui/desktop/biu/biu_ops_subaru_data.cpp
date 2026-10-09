@@ -1,23 +1,23 @@
 #include "biu_ops_subaru_data.h"
 #include <ui_biu_ops_subaru_data.h>
 
-BiuOpsSubaruData::BiuOpsSubaruData(QStringList *data_result, QWidget *parent)
+BiuOpsSubaruData::BiuOpsSubaruData(QStringList *dataResult, QWidget *parent)
     : QWidget(parent), ui_{std::make_unique<Ui::BiuOpsSubaruDataWindow>()}
 {
     ui_->setupUi(this);
 
-    this->data_result_ = data_result;
+    this->data_result_ = dataResult;
 
-    QFont custom_font("Courier New", 10);
+    QFont customFont("Courier New", 10);
 
     QLabel *label;
 
-    for (int i = 0; i < data_result->length(); i++)
+    for (int i = 0; i < dataResult->length(); i++)
     {
         label = new QLabel;
         label->setObjectName("Name" + QString::number(i));
-        label->setFont(custom_font);
-        label->setText(data_result->at(i));
+        label->setFont(customFont);
+        label->setText(dataResult->at(i));
         ui_->gridLayout->addWidget(label, i, 0);
     }
 }
@@ -26,18 +26,18 @@ BiuOpsSubaruData::~BiuOpsSubaruData()
 {
 }
 
-void BiuOpsSubaruData::update_data_results(QStringList *data_result)
+void BiuOpsSubaruData::update_data_results(QStringList *dataResult)
 {
 
-    QLabel *current_label;
+    QLabel *currentLabel;
 
-    for (int i = 0; i < data_result->length(); i++)
+    for (int i = 0; i < dataResult->length(); i++)
     {
 
-        current_label = ui_->gridLayoutWidget->findChild<QLabel *>("Name" + QString::number(i));
-        if (current_label)
+        currentLabel = ui_->gridLayoutWidget->findChild<QLabel *>("Name" + QString::number(i));
+        if (currentLabel)
         {
-            current_label->setText(data_result->at(i));
+            currentLabel->setText(dataResult->at(i));
         }
     }
 }

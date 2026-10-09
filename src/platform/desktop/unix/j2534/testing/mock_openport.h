@@ -27,8 +27,8 @@ class MockOpenPort : public QObject
 {
     Q_OBJECT
   public:
-    explicit MockOpenPort(int masterFd, QObject *parent = nullptr)
-        : QObject(parent), fd_(masterFd), notifier_(new QSocketNotifier(masterFd, QSocketNotifier::Read, this))
+    explicit MockOpenPort(int master_fd, QObject *parent = nullptr)
+        : QObject(parent), fd_(master_fd), notifier_(new QSocketNotifier(master_fd, QSocketNotifier::Read, this))
     {
         connect(notifier_, &QSocketNotifier::activated, this, &MockOpenPort::onReadable);
     }
@@ -95,7 +95,7 @@ class MockOpenPort : public QObject
 class MockOpenPortThread : public QThread
 {
   public:
-    explicit MockOpenPortThread(int masterFd) : fd_(masterFd)
+    explicit MockOpenPortThread(int master_fd) : fd_(master_fd)
     {
         start();
         ready_.acquire();

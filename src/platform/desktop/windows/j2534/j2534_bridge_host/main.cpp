@@ -45,9 +45,9 @@ struct VendorApi
     PfPassThruIoctl ioctl = nullptr;
 };
 
-bool loadVendorApi(const char *dllPath, VendorApi& api)
+bool loadVendorApi(const char *dll_path, VendorApi& api)
 {
-    api.module = LoadLibraryA(dllPath);
+    api.module = LoadLibraryA(dll_path);
     if (!api.module)
     {
         return false;
@@ -109,14 +109,14 @@ bool drainPayload(HANDLE pipe, std::uint32_t size)
 // or response is possible -- just returns false. On success, req is
 // populated and this returns true.
 template <typename Req, typename Resp>
-bool readTypedRequest(HANDLE in, HANDLE out, const FrameHeader& header, Function respondAs, Req& req)
+bool readTypedRequest(HANDLE in, HANDLE out, const FrameHeader& header, Function respond_as, Req& req)
 {
     if (header.payload_size != sizeof(req))
     {
         drainPayload(in, header.payload_size);
-        Resp errResp{};
-        errResp.result = kJ2534ErrFailed;
-        writeFrame(out, respondAs, &errResp, sizeof(errResp));
+        Resp err_resp{};
+        err_resp.result = kJ2534ErrFailed;
+        writeFrame(out, respond_as, &err_resp, sizeof(err_resp));
         return false;
     }
     if (!readFramePayload(in, &req, sizeof(req)))
@@ -134,9 +134,9 @@ void handlePassThruOpen(const VendorApi& api, HANDLE in, HANDLE out, const Frame
         return;
     }
     PassThruOpenResponse resp{};
-    unsigned long deviceId = 0;
-    resp.result = api.open(req.has_name ? req.name.data() : nullptr, &deviceId);
-    resp.device_id = deviceId;
+    unsigned long device_id = 0;
+    resp.result = api.open(req.has_name ? req.name.data() : nullptr, &device_id);
+    resp.device_id = device_id;
     writeFrame(out, Function::kPassThruOpen, &resp, sizeof(resp));
 }
 
@@ -161,9 +161,9 @@ void handlePassThruConnect(const VendorApi& api, HANDLE in, HANDLE out, const Fr
         return;
     }
     PassThruConnectResponse resp{};
-    unsigned long channelId = 0;
-    resp.result = api.connect(req.device_id, req.protocol_id, req.flags, req.baudrate, &channelId);
-    resp.channel_id = channelId;
+    unsigned long channel_id = 0;
+    resp.result = api.connect(req.device_id, req.protocol_id, req.flags, req.baudrate, &channel_id);
+    resp.channel_id = channel_id;
     writeFrame(out, Function::kPassThruConnect, &resp, sizeof(resp));
 }
 
@@ -189,9 +189,9 @@ void handlePassThruReadMsgs(const VendorApi& api, HANDLE in, HANDLE out, const F
         return;
     }
     PassThruReadMsgsResponse resp{};
-    unsigned long numMsgs = 1;
-    resp.result = api.read_msgs(req.channel_id, &resp.msg, &numMsgs, req.timeout);
-    resp.num_msgs = numMsgs;
+    unsigned long num_msgs = 1;
+    resp.result = api.read_msgs(req.channel_id, &resp.msg, &num_msgs, req.timeout);
+    resp.num_msgs = num_msgs;
     writeFrame(out, Function::kPassThruReadMsgs, &resp, sizeof(resp));
 }
 
@@ -204,9 +204,9 @@ void handlePassThruWriteMsgs(const VendorApi& api, HANDLE in, HANDLE out, const 
         return;
     }
     PassThruWriteMsgsResponse resp{};
-    unsigned long numMsgs = 1;
-    resp.result = api.write_msgs(req.channel_id, &req.msg, &numMsgs, req.timeout);
-    resp.num_msgs = numMsgs;
+    unsigned long num_msgs = 1;
+    resp.result = api.write_msgs(req.channel_id, &req.msg, &num_msgs, req.timeout);
+    resp.num_msgs = num_msgs;
     writeFrame(out, Function::kPassThruWriteMsgs, &resp, sizeof(resp));
 }
 
@@ -219,9 +219,9 @@ void handlePassThruStartPeriodicMsg(const VendorApi& api, HANDLE in, HANDLE out,
         return;
     }
     PassThruStartPeriodicMsgResponse resp{};
-    unsigned long msgId = 0;
-    resp.result = api.start_periodic_msg(req.channel_id, &req.msg, &msgId, req.time_interval);
-    resp.msg_id = msgId;
+    unsigned long msg_id = 0;
+    resp.result = api.start_periodic_msg(req.channel_id, &req.msg, &msg_id, req.time_interval);
+    resp.msg_id = msg_id;
     writeFrame(out, Function::kPassThruStartPeriodicMsg, &resp, sizeof(resp));
 }
 
@@ -247,10 +247,10 @@ void handlePassThruStartMsgFilter(const VendorApi& api, HANDLE in, HANDLE out, c
         return;
     }
     PassThruStartMsgFilterResponse resp{};
-    unsigned long msgId = 0;
+    unsigned long msg_id = 0;
     resp.result = api.start_msg_filter(req.channel_id, req.filter_type, &req.mask_msg, &req.pattern_msg,
-                                       req.has_flow_control_msg ? &req.flow_control_msg : nullptr, &msgId);
-    resp.msg_id = msgId;
+                                       req.has_flow_control_msg ? &req.flow_control_msg : nullptr, &msg_id);
+    resp.msg_id = msg_id;
     writeFrame(out, Function::kPassThruStartMsgFilter, &resp, sizeof(resp));
 }
 
@@ -327,10 +327,10 @@ void handlePassThruIoctl(const VendorApi& api, HANDLE in, HANDLE out, const Fram
     case kJ2534FiveBaudInit:
     case kJ2534FastInit:
     {
-        SByteArray inArr{req.input_byte_count, req.input_bytes.data()};
-        SByteArray outArr{static_cast<unsigned long>(resp.output_bytes.size()), resp.output_bytes.data()};
-        resp.result = api.ioctl(req.channel_id, req.ioctl_id, &inArr, &outArr);
-        resp.output_byte_count = outArr.num_of_bytes;
+        SByteArray in_arr{req.input_byte_count, req.input_bytes.data()};
+        SByteArray out_arr{static_cast<unsigned long>(resp.output_bytes.size()), resp.output_bytes.data()};
+        resp.result = api.ioctl(req.channel_id, req.ioctl_id, &in_arr, &out_arr);
+        resp.output_byte_count = out_arr.num_of_bytes;
         break;
     }
     case kJ2534ReadVbatt:
@@ -437,10 +437,10 @@ int main(int argc, char **argv)
     VendorApi api;
     if (!loadVendorApi(argv[1], api))
     {
-        PassThruOpenResponse errorResp{};
-        errorResp.result = kJ2534ErrDeviceNotConnected;
+        PassThruOpenResponse error_resp{};
+        error_resp.result = kJ2534ErrDeviceNotConnected;
         HANDLE out = GetStdHandle(STD_OUTPUT_HANDLE);
-        writeFrame(out, Function::kPassThruOpen, &errorResp, sizeof(errorResp));
+        writeFrame(out, Function::kPassThruOpen, &error_resp, sizeof(error_resp));
         return 1;
     }
 

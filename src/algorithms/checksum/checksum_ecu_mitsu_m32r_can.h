@@ -6,5 +6,5 @@
 class ChecksumEcuMitsuM32rCan
 {
   public:
-    static ChecksumResult calculate_checksum_result(bytes::ByteView romData);
+    static ChecksumResult calculate_checksum_result(bytes::ByteView rom_data);
 };

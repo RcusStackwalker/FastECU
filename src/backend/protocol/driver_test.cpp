@@ -178,9 +178,9 @@ TEST(TestDriver, write_memory_fails_on_bad_echo)
     AlreadyInMode init(125000);
     const bytes::Bytes data = test_bytes::bytesFromHex("DEAD");
     t.expectWrite(buildWriteFrames(0x8010, data).at(0));
-    MutDmaFrame badEcho = buildCommandFrame(0x87, bytes::Bytes{0x80, 0x00}, kTrailerStd);
-    badEcho[49] = static_cast<bytes::Byte>(badEcho[49] ^ 0xFF); // corrupt checksum
-    t.queueRead(badEcho);
+    MutDmaFrame bad_echo = buildCommandFrame(0x87, bytes::Bytes{0x80, 0x00}, kTrailerStd);
+    bad_echo[49] = static_cast<bytes::Byte>(bad_echo[49] ^ 0xFF); // corrupt checksum
+    t.queueRead(bad_echo);
     MutDmaDriver d(t, init);
     fastecu::FakeCancellationToken cancellation;
     ASSERT_THAT(d.writeMemory(0x8010, data, cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::kBadResponse));

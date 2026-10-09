@@ -20,6 +20,6 @@ class QtEventSink : public QObject, public fastecu::IEventSink
   signals:
     void logged(int level, QString message);
     void progressed(int done, int total);
-    void phaseProgressed(QString phaseName, int phaseIndex, int phaseCount, int done, int total);
+    void phaseProgressed(QString phase_name, int phase_index, int phase_count, int done, int total);
     void noticed(QString message);
 };

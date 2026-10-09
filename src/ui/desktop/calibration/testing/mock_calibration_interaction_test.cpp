@@ -20,10 +20,10 @@ TEST(MockCalibrationInteraction, DispatchesScriptedRepliesThroughInterface)
     const bytes::Bytes image{1, 2, 3};
     const ChecksumSelection selection;
 
-    ChecksumCorrectionResult corrected_result;
-    corrected_result.corrected_rom_data = bytes::Bytes{4, 5, 6};
+    ChecksumCorrectionResult correctedResult;
+    correctedResult.corrected_rom_data = bytes::Bytes{4, 5, 6};
     EXPECT_CALL(mock, confirm_write_without_checksum()).WillOnce(Return(false));
-    EXPECT_CALL(mock, correct_checksums(_, true, _)).WillOnce(Return(corrected_result));
+    EXPECT_CALL(mock, correct_checksums(_, true, _)).WillOnce(Return(correctedResult));
     EXPECT_CALL(mock, choose_save_path(std::string_view("/old/read.bin")))
         .WillOnce(Return(std::optional<std::string>("/cal/new.bin")));
     EXPECT_CALL(mock, show_notice(CalibrationNotice::kNoSaveFilename)).Times(1);

@@ -12,7 +12,7 @@ class RemoteUtility : public QObject
 {
     Q_OBJECT
   public:
-    explicit RemoteUtility(const QString& peerAddress, QString password, QWebSocket *web_socket = nullptr,
+    explicit RemoteUtility(const QString& peer_address, QString password, QWebSocket *web_socket = nullptr,
                            QObject *parent = nullptr);
     ~RemoteUtility();
 
@@ -27,7 +27,7 @@ class RemoteUtility : public QObject
     void waitForSource(void);
 
   signals:
-    void stateChanged(QRemoteObjectReplica::State state, QRemoteObjectReplica::State oldState);
+    void stateChanged(QRemoteObjectReplica::State state, QRemoteObjectReplica::State old_state);
 
   private:
     QString peer_address_;
@@ -55,5 +55,5 @@ class RemoteUtility : public QObject
     static constexpr int kPingsSequentlyMissedLimit{5};
 
   private slots:
-    void utilityRemoteStateChanged(QRemoteObjectReplica::State state, QRemoteObjectReplica::State oldState);
+    void utilityRemoteStateChanged(QRemoteObjectReplica::State state, QRemoteObjectReplica::State old_state);
 };

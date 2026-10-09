@@ -34,7 +34,7 @@ std::optional<MapWindowId> parse_map_window_id(QMdiSubWindow *window);
 // numeric edit expects. nullopt for a null window, a missing table, an empty
 // selection, a session without the map, or a static-axis header selection.
 std::optional<calibration::NumericSelection>
-selected_numeric_target(QMdiSubWindow *window, const calibration::CalibrationSession& session, int map_number);
+selected_numeric_target(QMdiSubWindow *window, const calibration::CalibrationSession& session, int mapNumber);
 
 // The widget cells a "select all" should cover for a numeric map's table of
 // `rows` x `columns`: the body only, never the axis header row or column. It
@@ -42,7 +42,7 @@ selected_numeric_target(QMdiSubWindow *window, const calibration::CalibrationSes
 // two cannot disagree. nullopt when the session lacks the map or the table has
 // no body cell.
 std::optional<calibration::SelectionRange> body_widget_range(const calibration::CalibrationSession& session,
-                                                             int map_number, int rows, int columns);
+                                                             int mapNumber, int rows, int columns);
 
 // Splits clipboard text into owned rows of tab-separated text cells. Exactly
 // one terminal LF is a record delimiter, not a row; empty cells, interior

@@ -55,7 +55,7 @@ struct PickerObservation
 template <typename T> class DialogDriver
 {
   public:
-    DialogDriver(std::function<void(T *)> answer, bool *timed_out) : answer_(std::move(answer)), timed_out_(timed_out)
+    DialogDriver(std::function<void(T *)> answer, bool *timedOut) : answer_(std::move(answer)), timed_out_(timedOut)
     {
         deadline_.start();
         timer_.setInterval(5);
@@ -148,18 +148,18 @@ TEST_P(WriteWarningChoices, MapsOnlyCancelToDeclined)
     QWidget parent;
     QtCalibrationInteraction interaction(&parent);
     BoxObservation observed;
-    bool timed_out = false;
+    bool timedOut = false;
     DialogDriver<QMessageBox> driver(
         [&](QMessageBox *box)
         {
             observed = observe_box(box);
             box->done(answer);
         },
-        &timed_out);
+        &timedOut);
 
     const bool proceed = interaction.confirm_write_without_checksum();
 
-    ASSERT_FALSE(timed_out);
+    ASSERT_FALSE(timedOut);
     ASSERT_TRUE(observed.seen);
     EXPECT_EQ(proceed, answer != QMessageBox::Cancel);
     if (kMessageBoxHasTitle)
@@ -193,18 +193,18 @@ TEST_P(NoticeRendering, ShowsExpectedBoxOnParent)
     QWidget parent;
     QtCalibrationInteraction interaction(&parent);
     BoxObservation observed;
-    bool timed_out = false;
+    bool timedOut = false;
     DialogDriver<QMessageBox> driver(
         [&](QMessageBox *box)
         {
             observed = observe_box(box);
             box->accept();
         },
-        &timed_out);
+        &timedOut);
 
     interaction.show_notice(expected.notice);
 
-    ASSERT_FALSE(timed_out);
+    ASSERT_FALSE(timedOut);
     ASSERT_TRUE(observed.seen);
     EXPECT_EQ(observed.parent, &parent);
     EXPECT_EQ(observed.icon, expected.icon);
@@ -225,7 +225,7 @@ INSTANTIATE_TEST_SUITE_P(Notices, NoticeRendering,
 
 TEST(QtCalibrationInteraction, SavePathRoundTrip)
 {
-    NativeDialogsDisabled no_native;
+    NativeDialogsDisabled noNative;
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
     QWidget parent;
@@ -233,7 +233,7 @@ TEST(QtCalibrationInteraction, SavePathRoundTrip)
     const QString chosen = QDir(directory.path()).absoluteFilePath(QString::fromUtf8("tune-\xc3\xa9.BIN"));
     const std::string suggested = (directory.path() + "/read.bin").toStdString();
     PickerObservation observed;
-    bool timed_out = false;
+    bool timedOut = false;
     DialogDriver<QFileDialog> driver(
         [&](QFileDialog *dialog)
         {
@@ -241,21 +241,21 @@ TEST(QtCalibrationInteraction, SavePathRoundTrip)
             observed.title = dialog->windowTitle();
             observed.filter = dialog->nameFilters().value(0);
             // The non-native dialog takes its answer from the file-name field.
-            auto *name_edit = dialog->findChild<QLineEdit *>("fileNameEdit");
-            if (!name_edit)
+            auto *nameEdit = dialog->findChild<QLineEdit *>("fileNameEdit");
+            if (!nameEdit)
             {
                 ADD_FAILURE() << "QFileDialog has no fileNameEdit child";
                 dialog->reject();
                 return;
             }
-            name_edit->setText(chosen);
+            nameEdit->setText(chosen);
             QMetaObject::invokeMethod(dialog, "accept", Qt::DirectConnection);
         },
-        &timed_out);
+        &timedOut);
 
     const auto path = interaction.choose_save_path(suggested);
 
-    ASSERT_FALSE(timed_out);
+    ASSERT_FALSE(timedOut);
     ASSERT_TRUE(observed.seen);
     EXPECT_EQ(path, std::optional<std::string>(chosen.toStdString()));
     EXPECT_EQ(observed.title, QString("Save calibration file"));
@@ -264,17 +264,17 @@ TEST(QtCalibrationInteraction, SavePathRoundTrip)
 
 TEST(QtCalibrationInteraction, CancellingSavePathReturnsNoPath)
 {
-    NativeDialogsDisabled no_native;
+    NativeDialogsDisabled noNative;
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
     QWidget parent;
     QtCalibrationInteraction interaction(&parent);
-    bool timed_out = false;
-    DialogDriver<QFileDialog> driver([](QFileDialog *dialog) { dialog->reject(); }, &timed_out);
+    bool timedOut = false;
+    DialogDriver<QFileDialog> driver([](QFileDialog *dialog) { dialog->reject(); }, &timedOut);
 
     const auto path = interaction.choose_save_path((directory.path() + "/read.bin").toStdString());
 
-    ASSERT_FALSE(timed_out);
+    ASSERT_FALSE(timedOut);
     EXPECT_EQ(path, std::nullopt);
 }
 
@@ -285,17 +285,17 @@ TEST(QtCalibrationInteraction, UnknownMcuDelegatesToChecksumCommand)
     ChecksumSelection selection;
     selection.mcu_type = "M32170";
     const bytes::Bytes image(16, 0);
-    int dialog_count = 0;
+    int dialogCount = 0;
     QTimer counter;
     counter.setInterval(5);
     QObject::connect(&counter, &QTimer::timeout,
-                     [&dialog_count]
+                     [&dialogCount]
                      {
                          for (QWidget *widget : QApplication::topLevelWidgets())
                          {
                              if (widget->isVisible() && qobject_cast<QDialog *>(widget) != nullptr)
                              {
-                                 ++dialog_count;
+                                 ++dialogCount;
                                  widget->close();
                              }
                          }
@@ -306,19 +306,19 @@ TEST(QtCalibrationInteraction, UnknownMcuDelegatesToChecksumCommand)
     QCoreApplication::processEvents();
 
     EXPECT_TRUE(result.unknown_mcu_type);
-    EXPECT_EQ(dialog_count, 0);
+    EXPECT_EQ(dialogCount, 0);
 }
 
 class MainWindowOnlyTranslator : public QTranslator
 {
   public:
-    QString translate(const char *context, const char *source_text, const char *, int) const override
+    QString translate(const char *context, const char *sourceText, const char *, int) const override
     {
         if (std::string_view(context) != "MainWindow")
         {
             return {};
         }
-        return QString("T:") + source_text;
+        return QString("T:") + sourceText;
     }
     bool isEmpty() const override
     {
@@ -328,7 +328,7 @@ class MainWindowOnlyTranslator : public QTranslator
 
 TEST(QtCalibrationInteraction, MigratedTranslationsUseMainWindowContext)
 {
-    NativeDialogsDisabled no_native;
+    NativeDialogsDisabled noNative;
     MainWindowOnlyTranslator translator;
     QCoreApplication::installTranslator(&translator);
     QTemporaryDir directory;
@@ -337,7 +337,7 @@ TEST(QtCalibrationInteraction, MigratedTranslationsUseMainWindowContext)
     QtCalibrationInteraction interaction(&parent);
     PickerObservation picker;
     BoxObservation box;
-    bool timed_out = false;
+    bool timedOut = false;
     {
         DialogDriver<QFileDialog> driver(
             [&](QFileDialog *dialog)
@@ -347,7 +347,7 @@ TEST(QtCalibrationInteraction, MigratedTranslationsUseMainWindowContext)
                 picker.filter = dialog->nameFilters().value(0);
                 dialog->reject();
             },
-            &timed_out);
+            &timedOut);
         std::ignore = interaction.choose_save_path((directory.path() + "/read.bin").toStdString());
     }
     {
@@ -357,12 +357,12 @@ TEST(QtCalibrationInteraction, MigratedTranslationsUseMainWindowContext)
                 box = observe_box(notice);
                 notice->accept();
             },
-            &timed_out);
+            &timedOut);
         interaction.show_notice(CalibrationNotice::kNoCalibrationToWrite);
     }
     QCoreApplication::removeTranslator(&translator);
 
-    ASSERT_FALSE(timed_out);
+    ASSERT_FALSE(timedOut);
     EXPECT_EQ(picker.title, QString("T:Save calibration file"));
     EXPECT_EQ(picker.filter, QString("T:Calibration file (*.bin)"));
     if (kMessageBoxHasTitle)

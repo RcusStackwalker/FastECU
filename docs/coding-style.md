@@ -448,6 +448,9 @@ static constexpr auto kCells = std::to_array<std::string_view>({"10", "20"});
 - An underscore may separate words only next to a digit (`kFlashBlocksSH7058_1block`).
 - Under `src/ui/desktop`, methods, functions, parameters and locals are
   `camelBack` to match Qt.
+- Outside `src/ui/desktop`, parameters and local variables are `lower_case`. A
+  non-`constexpr` local never carries the `k` prefix (`kIndex` becomes `index`);
+  only `constexpr` variables do.
 
 ## Formatting and headers
 

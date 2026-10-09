@@ -61,7 +61,7 @@ class AdapterConnection final : public QObject
     SerialPortActions& facade();
 
   signals:
-    void stateChanged(QRemoteObjectReplica::State state, QRemoteObjectReplica::State oldState);
+    void stateChanged(QRemoteObjectReplica::State state, QRemoteObjectReplica::State old_state);
 
   private:
     SerialPortActions& facade_;

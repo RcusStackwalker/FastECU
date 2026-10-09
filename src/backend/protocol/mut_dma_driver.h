@@ -21,7 +21,7 @@ class MutDmaDriver
     }
     // Wake + run the free-form handshake for `channels`. setupCmd 0xA0/0xB0,
     // listCmd 0xA1..0xA4 (rate slot). Succeeds once streaming is established.
-    fastecu::Status startFreeFormLog(const std::vector<Channel>& channels, bytes::Byte setupCmd, bytes::Byte listCmd,
+    fastecu::Status startFreeFormLog(const std::vector<Channel>& channels, bytes::Byte setup_cmd, bytes::Byte list_cmd,
                                      const fastecu::ICancellationToken& cancellation);
     bool isStreaming() const
     {

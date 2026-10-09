@@ -32,7 +32,7 @@ QMap<QString, QString> readJ2534RegistryView(QSettings::Format format)
 // TODO find all devices
 QStringList SerialPortActionsDirect::check_j2534_devices(QMap<QString, QString> installed_drivers)
 {
-    bool j2534DeviceFound = false;
+    bool j2534_device_found = false;
     QStringList j2534_devices;
     int driver_count = 0;
     for (const QString& vendor : installed_drivers.keys())
@@ -40,19 +40,19 @@ QStringList SerialPortActionsDirect::check_j2534_devices(QMap<QString, QString> 
         driver_count++;
         j2534_->disable();
         // close_j2534_serial_port();
-        QString j2534DllName = installed_drivers[vendor];
-        emit LOG_D("Testing for " + j2534DllName, true, true);
-        j2534_->setDllName(j2534DllName.toLocal8Bit().data());
+        QString j2534_dll_name = installed_drivers[vendor];
+        emit LOG_D("Testing for " + j2534_dll_name, true, true);
+        j2534_->setDllName(j2534_dll_name.toLocal8Bit().data());
         if (j2534_->init())
         {
-            emit LOG_D(j2534DllName + " init successfull", true, true);
+            emit LOG_D(j2534_dll_name + " init successfull", true, true);
             // 0 means no error
             if (!j2534_->PassThruOpen(nullptr, &dev_id_))
             {
-                emit LOG_D("Successfully opened " + QString::number(dev_id_) + " / " + vendor + " / " + j2534DllName,
+                emit LOG_D("Successfully opened " + QString::number(dev_id_) + " / " + vendor + " / " + j2534_dll_name,
                            true, true);
                 j2534_devices.append(vendor);
-                j2534DeviceFound = true;
+                j2534_device_found = true;
                 j2534_->PassThruClose(dev_id_);
             }
             else
@@ -62,9 +62,9 @@ QStringList SerialPortActionsDirect::check_j2534_devices(QMap<QString, QString> 
         }
         else
         {
-            emit LOG_D(j2534DllName + " not found", true, true);
+            emit LOG_D(j2534_dll_name + " not found", true, true);
         }
-        if (j2534DeviceFound)
+        if (j2534_device_found)
         {
             break;
         }
@@ -83,9 +83,9 @@ QMap<QString, QString> SerialPortActionsDirect::getAllJ2534DriversNames()
                                                                readJ2534RegistryView(QSettings::Registry64Format));
 
     emit LOG_D("Found installed drivers: ", true, false);
-    for (const QString& dllPath : drivers_map)
+    for (const QString& dll_path : drivers_map)
     {
-        emit LOG_D(dllPath + ", ", false, false);
+        emit LOG_D(dll_path + ", ", false, false);
     }
     emit LOG_D(" ", false, true);
     return drivers_map;
@@ -120,30 +120,30 @@ SerialPortActionsDirect::ResolvedPort SerialPortActionsDirect::resolve_port(cons
 
 void SerialPortActionsDirect::select_j2534_dll()
 {
-    QString localDllName;
-    QString installedDllName;
+    QString local_dll_name;
+    QString installed_dll_name;
 
-    QStringList dllName = installed_drivers_.value(serial_port).split("\\");
-    localDllName = dllName.at(dllName.count() - 1);
-    installedDllName = installed_drivers_.value(serial_port);
-    emit LOG_D("Local DLL Name: " + localDllName, true, true);
-    emit LOG_D("Installed DLL Name: " + installedDllName, true, true);
+    QStringList dll_name = installed_drivers_.value(serial_port).split("\\");
+    local_dll_name = dll_name.at(dll_name.count() - 1);
+    installed_dll_name = installed_drivers_.value(serial_port);
+    emit LOG_D("Local DLL Name: " + local_dll_name, true, true);
+    emit LOG_D("Installed DLL Name: " + installed_dll_name, true, true);
 
     QMap<QString, QString> user_j2534_drivers;
 
     emit LOG_D("Opening device: " + serial_port, true, true);
     QStringList j2534_driver;
-    user_j2534_drivers[serial_port] = localDllName;
+    user_j2534_drivers[serial_port] = local_dll_name;
     j2534_driver = check_j2534_devices(user_j2534_drivers);
-    user_j2534_drivers[serial_port] = installedDllName;
+    user_j2534_drivers[serial_port] = installed_dll_name;
     if (j2534_driver.isEmpty())
     {
         j2534_driver = check_j2534_devices(user_j2534_drivers);
     }
-    const QString resolvedDllName = resolveJ2534DllForConnection(serial_port, installedDllName, j2534_driver);
-    if (!resolvedDllName.isEmpty())
+    const QString resolved_dll_name = resolveJ2534DllForConnection(serial_port, installed_dll_name, j2534_driver);
+    if (!resolved_dll_name.isEmpty())
     {
-        j2534_->setDllName(resolvedDllName.toLocal8Bit().data());
+        j2534_->setDllName(resolved_dll_name.toLocal8Bit().data());
     }
     else
     {

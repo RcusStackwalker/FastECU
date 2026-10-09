@@ -60,9 +60,9 @@ const std::array<bytes::Byte, kWriteRoutineSize> kWriteRedirectRoutine = {
     0x21, 0x91, 0xF0, 0x00, 0x81, 0xC1, 0x00, 0x01, 0xB0, 0x91, 0x00, 0x03, 0x48, 0xFF, 0xF0, 0x00, 0xB0, 0x98,
     0xFF, 0xF9, 0x60, 0x01, 0xF0, 0x00, 0xB0, 0x98, 0x00, 0x02, 0x60, 0x00, 0xF0, 0x00};
 
-std::uint16_t seedKeyWord(std::uint16_t seedWord)
+std::uint16_t seedKeyWord(std::uint16_t seed_word)
 {
-    return static_cast<std::uint16_t>(std::uint32_t(seedWord) * 135 + 1542);
+    return static_cast<std::uint16_t>(std::uint32_t(seed_word) * 135 + 1542);
 }
 
 bytes::Bytes seedKey(bytes::ByteView seed)
@@ -108,15 +108,15 @@ std::vector<bytes::Bytes> buildTransferDataFrames(bytes::ByteView payload)
     std::vector<bytes::Bytes> frames;
     for (std::size_t offset = 0; offset < payload.size(); offset += kTransferChunkSize)
     {
-        const std::size_t chunkSize = std::min<std::size_t>(kTransferChunkSize, payload.size() - offset);
-        frames.push_back(uds::buildRequest(kServiceTransferData, payload.subspan(offset, chunkSize)));
+        const std::size_t chunk_size = std::min<std::size_t>(kTransferChunkSize, payload.size() - offset);
+        frames.push_back(uds::buildRequest(kServiceTransferData, payload.subspan(offset, chunk_size)));
     }
     return frames;
 }
 
-bytes::Bytes buildRoutineCheckCrc(std::uint32_t targetStart)
+bytes::Bytes buildRoutineCheckCrc(std::uint32_t target_start)
 {
-    return uds::buildRequest(kServiceRoutineControl, kRoutineCheckCrc, composeBe(targetStart < 0x800000 ? 2_b : 1_b));
+    return uds::buildRequest(kServiceRoutineControl, kRoutineCheckCrc, composeBe(target_start < 0x800000 ? 2_b : 1_b));
 }
 
 bytes::Bytes buildRoutineErase()
@@ -140,9 +140,9 @@ bytes::Bytes buildReadMemoryByAddress(std::uint32_t addr, bytes::Byte len)
     return uds::buildRequest(kServiceReadMemoryByAddress, composeBe(u24(addr), len));
 }
 
-bytes::Bytes buildDiagnosticSession(bytes::Byte sessionId)
+bytes::Bytes buildDiagnosticSession(bytes::Byte session_id)
 {
-    return uds::buildRequest(kServiceDiagnosticSession, sessionId);
+    return uds::buildRequest(kServiceDiagnosticSession, session_id);
 }
 
 bytes::Bytes buildSecurityAccessSeedRequest()

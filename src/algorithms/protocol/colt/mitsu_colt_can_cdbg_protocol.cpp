@@ -116,27 +116,28 @@ CdbgFrame buildLogResetFrame(bytes::Byte instance)
     return CdbgFrame{kCmdLogReset, 0, instance, 0, 0, 0, 0x06, 0x31};
 }
 
-CdbgFrame buildLogStartFrame(bytes::Byte instance, bytes::Byte frameCount, std::uint32_t intervalMs)
+CdbgFrame buildLogStartFrame(bytes::Byte instance, bytes::Byte frame_count, std::uint32_t interval_ms)
 {
-    bytes::Byte unitFlag;
+    bytes::Byte unit_flag;
     std::uint16_t encoded;
-    if (intervalMs > 65535)
+    if (interval_ms > 65535)
     {
-        unitFlag = 1;
-        encoded = static_cast<std::uint16_t>(intervalMs / 10);
+        unit_flag = 1;
+        encoded = static_cast<std::uint16_t>(interval_ms / 10);
     }
     else
     {
-        unitFlag = 0;
-        encoded = static_cast<std::uint16_t>(intervalMs);
+        unit_flag = 0;
+        encoded = static_cast<std::uint16_t>(interval_ms);
     }
 
-    CdbgFrame frame{kCmdLogStart, 0, 1, instance, frameCount, unitFlag, 0, 0};
+    CdbgFrame frame{kCmdLogStart, 0, 1, instance, frame_count, unit_flag, 0, 0};
     bytes::writeU16Be(frame, 6, encoded);
     return frame;
 }
 
-bool batchChannelsIntoFrames(const std::vector<CdbgChannel>& channels, std::vector<std::vector<CdbgChannel>>& outFrames)
+bool batchChannelsIntoFrames(const std::vector<CdbgChannel>& channels,
+                             std::vector<std::vector<CdbgChannel>>& out_frames)
 {
     if (channels.empty())
     {
@@ -145,18 +146,18 @@ bool batchChannelsIntoFrames(const std::vector<CdbgChannel>& channels, std::vect
 
     std::vector<std::vector<CdbgChannel>> frames;
     std::vector<CdbgChannel> current;
-    int byteIndex = 1;
+    int byte_index = 1;
 
     for (const CdbgChannel& ch : channels)
     {
-        if (byteIndex + ch.size > 8)
+        if (byte_index + ch.size > 8)
         {
             frames.push_back(current);
             current.clear();
-            byteIndex = 1;
+            byte_index = 1;
         }
         current.push_back(ch);
-        byteIndex += ch.size;
+        byte_index += ch.size;
     }
     if (!current.empty())
     {
@@ -168,37 +169,37 @@ bool batchChannelsIntoFrames(const std::vector<CdbgChannel>& channels, std::vect
         return false;
     }
 
-    outFrames = frames;
+    out_frames = frames;
     return true;
 }
 
-std::vector<CdbgFrame> buildFrameInitFrames(bytes::Byte instance, bytes::Byte frameIndex,
-                                            const std::vector<CdbgChannel>& frameItems)
+std::vector<CdbgFrame> buildFrameInitFrames(bytes::Byte instance, bytes::Byte frame_index,
+                                            const std::vector<CdbgChannel>& frame_items)
 {
     std::vector<CdbgFrame> out;
-    out.reserve(frameItems.size() * 2);
-    for (std::size_t i = 0; i < frameItems.size(); ++i)
+    out.reserve(frame_items.size() * 2);
+    for (std::size_t i = 0; i < frame_items.size(); ++i)
     {
-        out.push_back(CdbgFrame{kCmdLogSelectItem, 0, instance, frameIndex, static_cast<bytes::Byte>(i), 0, 0, 0});
+        out.push_back(CdbgFrame{kCmdLogSelectItem, 0, instance, frame_index, static_cast<bytes::Byte>(i), 0, 0, 0});
 
-        const CdbgChannel& ch = frameItems.at(i);
-        CdbgFrame pointerFrame{kCmdLogSetPointer, 0, ch.size, 0, 0, 0, 0, 0};
-        bytes::writeU32Be(pointerFrame, 4, ch.pointer);
-        out.push_back(pointerFrame);
+        const CdbgChannel& ch = frame_items.at(i);
+        CdbgFrame pointer_frame{kCmdLogSetPointer, 0, ch.size, 0, 0, 0, 0, 0};
+        bytes::writeU32Be(pointer_frame, 4, ch.pointer);
+        out.push_back(pointer_frame);
     }
     return out;
 }
 
-std::vector<std::uint32_t> decodeFrame(bytes::Byte expectedFrameIndex, const std::vector<CdbgChannel>& frameItems,
+std::vector<std::uint32_t> decodeFrame(bytes::Byte expected_frame_index, const std::vector<CdbgChannel>& frame_items,
                                        bytes::ByteView frame)
 {
-    if (frame.empty() || frame[0] != expectedFrameIndex)
+    if (frame.empty() || frame[0] != expected_frame_index)
     {
         return {};
     }
 
     std::size_t need = 1;
-    for (const CdbgChannel& ch : frameItems)
+    for (const CdbgChannel& ch : frame_items)
     {
         need += ch.size;
     }
@@ -209,7 +210,7 @@ std::vector<std::uint32_t> decodeFrame(bytes::Byte expectedFrameIndex, const std
 
     std::vector<std::uint32_t> out;
     int offset = 1;
-    for (const CdbgChannel& ch : frameItems)
+    for (const CdbgChannel& ch : frame_items)
     {
         out.push_back(bytes::readUBe(frame, static_cast<std::size_t>(offset), ch.size));
         offset += ch.size;

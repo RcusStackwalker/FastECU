@@ -56,8 +56,8 @@ class DataTerminal : public QDialog
 
     QVBoxLayout *v_box_layout_{};
 
-    uint8_t calculate_checksum(const QByteArray& output, bool dec_0x100);
-    QByteArray add_ssm_header(QByteArray output, uint8_t tester_id, uint8_t target_id, bool dec_0x100);
+    uint8_t calculate_checksum(const QByteArray& output, bool dec0x100);
+    QByteArray add_ssm_header(QByteArray output, uint8_t testerId, uint8_t targetId, bool dec0x100);
     QString parse_message_to_hex(const QByteArray& received);
     void delay(int timeout);
 

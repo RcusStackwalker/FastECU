@@ -341,7 +341,7 @@ void scriptUploadFrames(ScriptedCanFlashTransport& transport, std::uint32_t star
 // both the value and the order of its two halves -- instead of one recomputed
 // the way the implementation does.
 void scriptCrcCommit(ScriptedCanFlashTransport& transport, std::uint32_t start, bytes::ByteView data,
-                     std::optional<bytes::Bytes> crcBytes = std::nullopt)
+                     std::optional<bytes::Bytes> crc_bytes = std::nullopt)
 {
     const auto section = transport.section("crc commit");
     transport.exchange(request(mitsu_colt_can::buildRequestDownload(mitsu_colt_can::kCrcTransferAddress,
@@ -349,8 +349,8 @@ void scriptCrcCommit(ScriptedCanFlashTransport& transport, std::uint32_t start, 
                        response({0x74}));
 
     const std::uint16_t crc = mitsu_colt_can::checksum(data);
-    const bytes::Bytes crcData = crcBytes.value_or(bytes::composeBe(crc));
-    transport.exchange(request(mitsu_colt_can::buildTransferDataFrames(crcData).front()), response({0x76}));
+    const bytes::Bytes crc_data = crc_bytes.value_or(bytes::composeBe(crc));
+    transport.exchange(request(mitsu_colt_can::buildTransferDataFrames(crc_data).front()), response({0x76}));
 
     // [echo][status=0], the routine-id echo plus the CRC-match status byte
     // (colt_commented.S ~0x5aa0-0x5ad4); the executor now checks the latter.
@@ -361,11 +361,11 @@ void scriptCrcCommit(ScriptedCanFlashTransport& transport, std::uint32_t start, 
 // TransferData chunks, the CRC RequestDownload + TransferData, and the
 // RoutineControl CRC check.
 void scriptUploadAndCommit(ScriptedCanFlashTransport& transport, std::uint32_t start, bytes::ByteView data,
-                           std::optional<bytes::Bytes> crcBytes = std::nullopt)
+                           std::optional<bytes::Bytes> crc_bytes = std::nullopt)
 {
     const auto section = transport.section("upload and commit");
     scriptUploadFrames(transport, start, data);
-    scriptCrcCommit(transport, start, data, std::move(crcBytes));
+    scriptCrcCommit(transport, start, data, std::move(crc_bytes));
 }
 
 // Scripts the unlock + erase-trigger pair.
@@ -1770,8 +1770,8 @@ TEST(MitsuColtM32rCanExecutor, BootstrapAbortsWhenTheChecksumTransferDataIsRejec
                        response({0x74}));
     {
         const std::uint16_t crc = mitsu_colt_can::checksum(mitsu_colt_can::kWriteRedirectRoutine);
-        const bytes::Bytes crcData = bytes::composeBe(crc);
-        transport.exchange(request(mitsu_colt_can::buildTransferDataFrames(crcData).front()));
+        const bytes::Bytes crc_data = bytes::composeBe(crc);
+        transport.exchange(request(mitsu_colt_can::buildTransferDataFrames(crc_data).front()));
     }
     transport.queueRead(response({0x7f, 0x36, 0x22}));
 

@@ -115,22 +115,22 @@ TEST(FlashDeviceTable, MatchesExpectedSummariesAndNamedAnomalies)
     });
     constexpr std::size_t kCount = kExpected.size();
 
-    for (std::size_t deviceIndex = 0; deviceIndex < kCount; ++deviceIndex)
+    for (std::size_t device_index = 0; device_index < kCount; ++device_index)
     {
-        const FlashDevice& actual = kFlashDevices[deviceIndex];
-        const FlashDeviceSummary& summary = kExpected[deviceIndex];
+        const FlashDevice& actual = kFlashDevices[device_index];
+        const FlashDeviceSummary& summary = kExpected[device_index];
         EXPECT_STREQ(actual.name, summary.name);
         EXPECT_EQ(actual.romsize, summary.romsize);
         EXPECT_EQ(actual.numblocks, summary.numblocks);
         EXPECT_EQ(actual.fblocks[0].start, summary.first_block_start);
-        const FlashBlock& finalBlock = actual.fblocks[actual.numblocks - 1];
-        EXPECT_EQ(finalBlock.start + finalBlock.len, summary.final_block_end);
-        for (unsigned blockIndex = 0; blockIndex < actual.numblocks; ++blockIndex)
+        const FlashBlock& final_block = actual.fblocks[actual.numblocks - 1];
+        EXPECT_EQ(final_block.start + final_block.len, summary.final_block_end);
+        for (unsigned block_index = 0; block_index < actual.numblocks; ++block_index)
         {
-            EXPECT_GT(actual.fblocks[blockIndex].len, 0U);
-            if (blockIndex > 0)
+            EXPECT_GT(actual.fblocks[block_index].len, 0U);
+            if (block_index > 0)
             {
-                EXPECT_LE(actual.fblocks[blockIndex - 1].start, actual.fblocks[blockIndex].start);
+                EXPECT_LE(actual.fblocks[block_index - 1].start, actual.fblocks[block_index].start);
             }
         }
     }

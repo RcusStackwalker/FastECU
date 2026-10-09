@@ -19,10 +19,10 @@ std::string default_dtc_message(std::uint16_t dtc)
 
 } // namespace
 
-std::string dtc_description(std::uint16_t dtc, const std::unordered_map<int, std::string>& pCodes,
-                            const std::unordered_map<int, std::string>& cCodes,
-                            const std::unordered_map<int, std::string>& bCodes,
-                            const std::unordered_map<int, std::string>& uCodes)
+std::string dtc_description(std::uint16_t dtc, const std::unordered_map<int, std::string>& p_codes,
+                            const std::unordered_map<int, std::string>& c_codes,
+                            const std::unordered_map<int, std::string>& b_codes,
+                            const std::unordered_map<int, std::string>& u_codes)
 {
     const std::string fallback = default_dtc_message(dtc);
 
@@ -30,16 +30,16 @@ std::string dtc_description(std::uint16_t dtc, const std::unordered_map<int, std
     switch (dtc >> 14)
     {
     case 0x00:
-        table = &pCodes;
+        table = &p_codes;
         break;
     case 0x01:
-        table = &cCodes;
+        table = &c_codes;
         break;
     case 0x02:
-        table = &bCodes;
+        table = &b_codes;
         break;
     case 0x03:
-        table = &uCodes;
+        table = &u_codes;
         break;
     default:
         return fallback;

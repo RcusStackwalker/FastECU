@@ -48,7 +48,7 @@ class FlashOperationController : public QObject
     Q_OBJECT
 
   public:
-    FlashOperationController(SerialPortActions& serial, QWidget *dialog_parent);
+    FlashOperationController(SerialPortActions& serial, QWidget *dialogParent);
 
     FlashOperationOutcome run(const FlashOperationInput& input);
 

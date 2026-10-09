@@ -60,10 +60,10 @@ std::uint32_t challengeInverseTransform(std::uint32_t seed)
     return x;
 }
 
-std::uint32_t bytesToSeed(bytes::ByteView seedBytes)
+std::uint32_t bytesToSeed(bytes::ByteView seed_bytes)
 {
-    assert(seedBytes.size() == 4);
-    return bytes::readU32Be(seedBytes);
+    assert(seed_bytes.size() == 4);
+    return bytes::readU32Be(seed_bytes);
 }
 
 bytes::Bytes keyBytes(std::uint32_t key)

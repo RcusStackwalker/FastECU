@@ -178,22 +178,22 @@ Status upload(BenchContext& context, CommandOutcome& outcome, std::uint32_t addr
         return sent;
     }
     // kCrcTransferSize bytes by construction: checksum() is a uint16_t.
-    const bytes::Bytes checksumBytes = bytes::composeBe(mitsu_colt_can::checksum(payload));
-    if (const Status sent = transfer(mitsu_colt_can::kCrcTransferAddress, checksumBytes); !sent.has_value())
+    const bytes::Bytes checksum_bytes = bytes::composeBe(mitsu_colt_can::checksum(payload));
+    if (const Status sent = transfer(mitsu_colt_can::kCrcTransferAddress, checksum_bytes); !sent.has_value())
     {
         return sent;
     }
 
-    const bytes::Bytes crcCheck = mitsu_colt_can::buildRoutineCheckCrc(addr);
-    const Result<bytes::Bytes> crcReply = exchange(context, outcome, crcCheck, kSlowPolicy);
-    if (!crcReply.has_value())
+    const bytes::Bytes crc_check = mitsu_colt_can::buildRoutineCheckCrc(addr);
+    const Result<bytes::Bytes> crc_reply = exchange(context, outcome, crc_check, kSlowPolicy);
+    if (!crc_reply.has_value())
     {
-        return std::unexpected(crcReply.error());
+        return std::unexpected(crc_reply.error());
     }
-    if (const bytes::ByteView crcPayload = uds::payload(*crcReply);
-        crcPayload.size() < 2 || crcPayload[0] != mitsu_colt_can::kRoutineCheckCrc || crcPayload[1] != 0)
+    if (const bytes::ByteView crc_payload = uds::payload(*crc_reply);
+        crc_payload.size() < 2 || crc_payload[0] != mitsu_colt_can::kRoutineCheckCrc || crc_payload[1] != 0)
     {
-        return fail(ErrorKind::kBadResponse, decode_crc_reply(crcPayload));
+        return fail(ErrorKind::kBadResponse, decode_crc_reply(crc_payload));
     }
     return {};
 }

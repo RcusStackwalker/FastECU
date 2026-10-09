@@ -7,17 +7,17 @@
 
 #include "src/platform/desktop/common/serial/websocket/websocketiodevice.h"
 
-WebSocketIoDevice::WebSocketIoDevice(QWebSocket *webSocket, QObject *parent) : QIODevice(parent), m_socket_(webSocket)
+WebSocketIoDevice::WebSocketIoDevice(QWebSocket *web_socket, QObject *parent) : QIODevice(parent), m_socket_(web_socket)
 {
     open(QIODevice::ReadWrite);
-    connect(webSocket, &QWebSocket::disconnected, this, &WebSocketIoDevice::disconnected);
-    connect(webSocket, &QWebSocket::binaryMessageReceived, this,
+    connect(web_socket, &QWebSocket::disconnected, this, &WebSocketIoDevice::disconnected);
+    connect(web_socket, &QWebSocket::binaryMessageReceived, this,
             [this](const QByteArray& message)
             {
                 m_buffer_.append(message);
                 emit readyRead();
             });
-    connect(webSocket, &QWebSocket::bytesWritten, this, &WebSocketIoDevice::bytesWritten);
+    connect(web_socket, &QWebSocket::bytesWritten, this, &WebSocketIoDevice::bytesWritten);
 }
 
 qint64 WebSocketIoDevice::bytesAvailable() const

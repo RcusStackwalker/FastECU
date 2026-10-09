@@ -325,11 +325,11 @@ TEST(CalibrationMapsTest, retainedSwitchRefreshKeepsUncheckedControlWithoutEmitt
     fastecu::testing::SignalRecorder edits(&map, &CalibrationMaps::checkbox_state_changed);
     checkbox->setChecked(true);
     ASSERT_EQ(edits.count(), 1U);
-    const auto edits_before_refresh = edits.count();
+    const auto editsBeforeRefresh = edits.count();
     map.refresh();
     ASSERT_EQ(table->cellWidget(0, 0), checkbox);
     ASSERT_TRUE(!checkbox->isChecked());
-    ASSERT_EQ(edits.count(), edits_before_refresh);
+    ASSERT_EQ(edits.count(), editsBeforeRefresh);
     ASSERT_TRUE(!session->dirty());
 }
 
@@ -452,8 +452,8 @@ TEST(CalibrationMaps, StructuralRefreshFailureClearsStaleValuesAndRecovers)
     auto *table = table_of(map);
     ASSERT_NE(table->item(0, 0), nullptr);
     auto *session = fixture.workspace.find(*id);
-    const auto valid_definition = *session->definition();
-    auto broken = valid_definition;
+    const auto validDefinition = *session->definition();
+    auto broken = validDefinition;
     broken.definition.maps[0].address = 1000;
     replace_definition(*session, std::move(broken));
     map.refresh();
@@ -463,7 +463,7 @@ TEST(CalibrationMaps, StructuralRefreshFailureClearsStaleValuesAndRecovers)
     ASSERT_NE(error, nullptr);
     EXPECT_FALSE(error->text().isEmpty());
     EXPECT_FALSE(error->isHidden());
-    replace_definition(*session, valid_definition);
+    replace_definition(*session, validDefinition);
     map.refresh();
     EXPECT_TRUE(table->isEnabled());
     ASSERT_NE(table->item(0, 0), nullptr);
@@ -480,15 +480,15 @@ TEST(CalibrationMaps, EditTargetResolvesThroughMdiWindowAfterOpeningFailureRecov
     const auto id = fixture.open(numeric_table("1D", 1, 1));
     ASSERT_THAT(id, fastecu::testing::IsOk());
     auto *session = fixture.workspace.find(*id);
-    const auto valid_definition = *session->definition();
-    auto broken = valid_definition;
+    const auto validDefinition = *session->definition();
+    auto broken = validDefinition;
     broken.definition.maps[0].address = 1000;
     replace_definition(*session, std::move(broken));
     auto *map = new CalibrationMaps(fixture.workspace, *id, 0, QRect(0, 0, 800, 600));
     QMdiSubWindow window;
     window.setWidget(map);
     window.setObjectName(map->objectName());
-    replace_definition(*session, valid_definition);
+    replace_definition(*session, validDefinition);
     map->refresh();
     ASSERT_NE(window.objectName(), map->objectName());
     auto *table = table_of(*map);
@@ -508,8 +508,8 @@ TEST(CalibrationMaps, SelectAllSelectsTheBodyAndLeavesTheAxesOut)
     auto *table = table_of(map);
     table->setRangeSelected(QTableWidgetSelectionRange(0, 0, 0, 0), true);
 
-    QKeyEvent select_all(QEvent::KeyPress, Qt::Key_A, Qt::ControlModifier);
-    QApplication::sendEvent(table, &select_all);
+    QKeyEvent selectAll(QEvent::KeyPress, Qt::Key_A, Qt::ControlModifier);
+    QApplication::sendEvent(table, &selectAll);
 
     const auto ranges = table->selectedRanges();
     ASSERT_EQ(ranges.size(), 1);

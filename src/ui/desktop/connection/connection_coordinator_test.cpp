@@ -20,11 +20,11 @@ using fastecu::ui::FakeIdentifyLauncher;
 using fastecu::ui::IdentifyOutcome;
 using Events = std::vector<std::string>;
 
-IdentifyOutcome success(std::string ecu_id = "3152584006")
+IdentifyOutcome success(std::string ecuId = "3152584006")
 {
     IdentifyOutcome outcome;
     outcome.success = true;
-    outcome.ecu_id = std::move(ecu_id);
+    outcome.ecu_id = std::move(ecuId);
     return outcome;
 }
 

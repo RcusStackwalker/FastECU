@@ -16,7 +16,7 @@ QString legacy_value(const std::string& value)
 
 } // namespace
 
-QTreeWidget *CalibrationTreeWidget::buildCalibrationFilesTree(fastecu::calibration::SessionId session_id,
+QTreeWidget *CalibrationTreeWidget::buildCalibrationFilesTree(fastecu::calibration::SessionId sessionId,
                                                               QTreeWidget *filesTreeWidget,
                                                               const fastecu::calibration::CalibrationSession& session)
 {
@@ -28,7 +28,7 @@ QTreeWidget *CalibrationTreeWidget::buildCalibrationFilesTree(fastecu::calibrati
     calFilesTree->setFont(filesItemFont);
 
     QTreeWidgetItem *topLevelFilesTreeItem = new QTreeWidgetItem();
-    topLevelFilesTreeItem->setText(2, fastecu::ui::session_key_text(session_id));
+    topLevelFilesTreeItem->setText(2, fastecu::ui::session_key_text(sessionId));
     topLevelFilesTreeItem->setCheckState(0, Qt::Unchecked);
     topLevelFilesTreeItem->setFirstColumnSpanned(true);
     calFilesTree->addTopLevelItem(topLevelFilesTreeItem);
@@ -82,8 +82,8 @@ QTreeWidget *CalibrationTreeWidget::buildCalibrationDataTree(QTreeWidget *dataTr
     }
 
     const fastecu::calibration::ResolvedDefinition *resolved = session.definition();
-    const std::size_t map_count = resolved != nullptr ? resolved->definition.maps.size() : 0;
-    for (std::size_t j = 0; j < map_count; j++)
+    const std::size_t mapCount = resolved != nullptr ? resolved->definition.maps.size() : 0;
+    for (std::size_t j = 0; j < mapCount; j++)
     {
         const fastecu::definition::CalibrationMap& map = resolved->definition.maps[j];
         const QString category = legacy_value(map.category);

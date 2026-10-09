@@ -66,7 +66,7 @@ class FlashWorker final : public QThread
   signals:
     void logEvent(int level, QString message);
     void progressChanged(int done, int total);
-    void phaseProgressChanged(QString phaseName, int phaseIndex, int phaseCount, int done, int total);
+    void phaseProgressChanged(QString phase_name, int phase_index, int phase_count, int done, int total);
     // Emitted exactly once per run(), always from this worker's own thread.
     void finished(fastecu::flash::FlashWorkerResult result);
 

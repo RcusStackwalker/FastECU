@@ -26,7 +26,7 @@ class RemotePeer final : public QObject
     void wait_requested();
     void log_window_message(QString message);
     void progress(int value);
-    void stateChanged(QRemoteObjectReplica::State state, QRemoteObjectReplica::State old_state);
+    void stateChanged(QRemoteObjectReplica::State state, QRemoteObjectReplica::State oldState);
 };
 
 } // namespace fastecu::ui

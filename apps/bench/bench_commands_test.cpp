@@ -431,8 +431,8 @@ TEST(BenchCommands, DownloadRejectsAPayloadLargerThanTheTwentyFourBitLengthField
 TEST(BenchCommands, DownloadChunksAPayloadLargerThanTheTransferChunkSize)
 {
     Harness harness;
-    const bytes::Bytes bigFile(257, 0xAB);
-    harness.files.contents["big.bin"] = bigFile;
+    const bytes::Bytes big_file(257, 0xAB);
+    harness.files.contents["big.bin"] = big_file;
     harness.session.replies = {
         bytes::Bytes{0x74},             // RequestDownload for the payload
         bytes::Bytes{0x76},             // TransferData, 256-byte frame
@@ -445,12 +445,13 @@ TEST(BenchCommands, DownloadChunksAPayloadLargerThanTheTransferChunkSize)
     const auto outcome = harness.run(destructiveStep(CommandId::Download, {"0x8000", "big.bin"}));
 
     ASSERT_TRUE(outcome.ok) << outcome.error_detail;
-    bytes::Bytes expectedFirstFrame(257, 0xAB); // SID + 256 payload bytes
-    expectedFirstFrame.front() = 0x36;
-    const bytes::Bytes expectedSecondFrame{0x36, 0xAB}; // SID + 1 payload byte
-    EXPECT_THAT(harness.session.requests, ::testing::ElementsAre(::testing::_, test_bytes::BytesEq(expectedFirstFrame),
-                                                                 test_bytes::BytesEq(expectedSecondFrame), ::testing::_,
-                                                                 ::testing::_, ::testing::_));
+    bytes::Bytes expected_first_frame(257, 0xAB); // SID + 256 payload bytes
+    expected_first_frame.front() = 0x36;
+    const bytes::Bytes expected_second_frame{0x36, 0xAB}; // SID + 1 payload byte
+    EXPECT_THAT(harness.session.requests,
+                ::testing::ElementsAre(::testing::_, test_bytes::BytesEq(expected_first_frame),
+                                       test_bytes::BytesEq(expected_second_frame), ::testing::_, ::testing::_,
+                                       ::testing::_));
 }
 
 TEST(BenchCommands, UploadRoutineSendsTheBakedArrayToItsRamSlot)

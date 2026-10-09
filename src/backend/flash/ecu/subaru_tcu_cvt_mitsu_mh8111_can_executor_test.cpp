@@ -166,13 +166,13 @@ void scriptSession(ScriptedCanFlashTransport& transport)
 void scriptSeedAndKey(ScriptedCanFlashTransport& transport, bytes::ByteView seed, bytes::ByteView key)
 {
     const auto section = transport.section("seed and key");
-    bytes::Bytes seedResponse{0x67, 0x01};
-    seedResponse.insert(seedResponse.end(), seed.begin(), seed.end());
-    transport.exchange(request({0x27, 0x01}), response(seedResponse));
+    bytes::Bytes seed_response{0x67, 0x01};
+    seed_response.insert(seed_response.end(), seed.begin(), seed.end());
+    transport.exchange(request({0x27, 0x01}), response(seed_response));
 
-    bytes::Bytes keyRequest{0x27, 0x02};
-    keyRequest.insert(keyRequest.end(), key.begin(), key.end());
-    transport.exchange(request(keyRequest), response({0x67, 0x02}));
+    bytes::Bytes key_request{0x27, 0x02};
+    key_request.insert(key_request.end(), key.begin(), key.end());
+    transport.exchange(request(key_request), response({0x67, 0x02}));
 }
 
 // Jump 0x10/0x42, fatal.
@@ -225,12 +225,12 @@ void scriptFlashDump(ScriptedCanFlashTransport& transport, std::uint32_t start, 
                      std::uint32_t pagesize, bytes::Byte fill)
 {
     const auto section = transport.section("flash dump");
-    const bytes::Bytes plainPage(pagesize, fill);
-    const bytes::Bytes wirePage = toWire(plainPage);
+    const bytes::Bytes plain_page(pagesize, fill);
+    const bytes::Bytes wire_page = toWire(plain_page);
     for (std::uint32_t addr = start; addr < start + length; addr += pagesize)
     {
         bytes::Bytes reply = response({0xF7});
-        reply.insert(reply.end(), wirePage.begin(), wirePage.end());
+        reply.insert(reply.end(), wire_page.begin(), wire_page.end());
         transport.exchange(request(bytes::composeBe(bytes::Byte(0xB7), bytes::u24(addr))), reply);
     }
 }
@@ -278,7 +278,7 @@ void scriptEraseMemory(ScriptedCanFlashTransport& transport)
 
 // Scripts unlock_and_reflash_block's setup, 256-byte chunk sweep (content-
 // blind), close and checksum, each succeeding on the first attempt.
-void scriptWriteBlock(ScriptedCanFlashTransport& transport, bytes::ByteView blockPlain)
+void scriptWriteBlock(ScriptedCanFlashTransport& transport, bytes::ByteView block_plain)
 {
     const auto section = transport.section("write block");
     constexpr std::uint32_t kChunkSize = 256;
@@ -290,7 +290,7 @@ void scriptWriteBlock(ScriptedCanFlashTransport& transport, bytes::ByteView bloc
                                                 bytes::u24(kSetupDataLen))),
                        response({0x74}));
 
-    const bytes::Bytes encrypted = toWire(blockPlain);
+    const bytes::Bytes encrypted = toWire(block_plain);
     for (std::uint32_t offset = 0; offset < kWriteLength; offset += kChunkSize)
     {
         const std::uint32_t addr = kWriteStart + offset;

@@ -38,8 +38,8 @@ std::uint32_t challengeTransform(std::uint32_t secret);
 // the ECU will accept.
 std::uint32_t challengeInverseTransform(std::uint32_t seed);
 
-std::uint32_t bytesToSeed(bytes::ByteView seedBytes); // expects exactly 4 bytes
-bytes::Bytes keyBytes(std::uint32_t key);             // produces exactly 4 bytes
+std::uint32_t bytesToSeed(bytes::ByteView seed_bytes); // expects exactly 4 bytes
+bytes::Bytes keyBytes(std::uint32_t key);              // produces exactly 4 bytes
 
 // SID 0x23 vendor extension seed request: [0x23][0x27][0x41].
 bytes::Bytes buildChallengeSeedRequest();

@@ -57,11 +57,11 @@ void register_desktop_logging_protocols(LoggingEngine& engine, SerialPortActions
                             [&serial, &clock](const fastecu::desktop::logging::DesktopLoggingSnapshot& snapshot)
                             {
                                 auto transport = std::make_unique<FastEcuSsmTransport>(&serial);
-                                bool targetIsEcu = snapshot.target_is_ecu;
-                                bool useOpenport2Adapter = serial.get_use_openport2_adapter();
+                                bool target_is_ecu = snapshot.target_is_ecu;
+                                bool use_openport2_adapter = serial.get_use_openport2_adapter();
                                 return std::make_unique<fastecu::logging::SsmLoggingProtocol>(
                                     clock, std::move(transport), snapshot.session.channels(), snapshot.response_offsets,
-                                    targetIsEcu, useOpenport2Adapter);
+                                    target_is_ecu, use_openport2_adapter);
                             });
 }
 } // namespace fastecu::desktop::logging

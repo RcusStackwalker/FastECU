@@ -22,9 +22,9 @@ void copyJ2534Text(char *out, std::string_view text)
 extern "C"
 {
 
-    __declspec(dllexport) long PT_CALL PassThruOpen(const void * /*pName*/, unsigned long *pDeviceID)
+    __declspec(dllexport) long PT_CALL PassThruOpen(const void * /*pName*/, unsigned long *p_device_id)
     {
-        *pDeviceID = 7;
+        *p_device_id = 7;
         return kJ2534StatusNoerror;
     }
 
@@ -35,9 +35,9 @@ extern "C"
 
     __declspec(dllexport) long PT_CALL PassThruConnect(unsigned long /*DeviceID*/, unsigned long /*ProtocolID*/,
                                                        unsigned long /*Flags*/, unsigned long /*Baudrate*/,
-                                                       unsigned long *pChannelID)
+                                                       unsigned long *p_channel_id)
     {
-        *pChannelID = 3;
+        *p_channel_id = 3;
         return kJ2534StatusNoerror;
     }
 
@@ -46,30 +46,30 @@ extern "C"
         return kJ2534StatusNoerror;
     }
 
-    __declspec(dllexport) long PT_CALL PassThruReadMsgs(unsigned long /*ChannelID*/, PassThruMsg *pMsg,
-                                                        unsigned long *pNumMsgs, unsigned long /*Timeout*/)
+    __declspec(dllexport) long PT_CALL PassThruReadMsgs(unsigned long /*ChannelID*/, PassThruMsg *p_msg,
+                                                        unsigned long *p_num_msgs, unsigned long /*Timeout*/)
     {
-        pMsg[0].data_size = 4;
-        pMsg[0].data[0] = 0xDE;
-        pMsg[0].data[1] = 0xAD;
-        pMsg[0].data[2] = 0xBE;
-        pMsg[0].data[3] = 0xEF;
-        *pNumMsgs = 1;
+        p_msg[0].data_size = 4;
+        p_msg[0].data[0] = 0xDE;
+        p_msg[0].data[1] = 0xAD;
+        p_msg[0].data[2] = 0xBE;
+        p_msg[0].data[3] = 0xEF;
+        *p_num_msgs = 1;
         return kJ2534StatusNoerror;
     }
 
-    __declspec(dllexport) long PT_CALL PassThruWriteMsgs(unsigned long /*ChannelID*/, const PassThruMsg *pMsg,
-                                                         unsigned long *pNumMsgs, unsigned long /*Timeout*/)
+    __declspec(dllexport) long PT_CALL PassThruWriteMsgs(unsigned long /*ChannelID*/, const PassThruMsg *p_msg,
+                                                         unsigned long *p_num_msgs, unsigned long /*Timeout*/)
     {
-        *pNumMsgs = 1;
-        return (pMsg[0].data_size > 0 && pMsg[0].data[0] == 0x11) ? kJ2534StatusNoerror : kJ2534ErrFailed;
+        *p_num_msgs = 1;
+        return (p_msg[0].data_size > 0 && p_msg[0].data[0] == 0x11) ? kJ2534StatusNoerror : kJ2534ErrFailed;
     }
 
     __declspec(dllexport) long PT_CALL PassThruStartPeriodicMsg(unsigned long /*ChannelID*/,
-                                                                const PassThruMsg * /*pMsg*/, unsigned long *pMsgID,
+                                                                const PassThruMsg * /*pMsg*/, unsigned long *p_msg_id,
                                                                 unsigned long /*TimeInterval*/)
     {
-        *pMsgID = 55;
+        *p_msg_id = 55;
         return kJ2534StatusNoerror;
     }
 
@@ -80,9 +80,9 @@ extern "C"
 
     __declspec(dllexport) long PT_CALL PassThruStartMsgFilter(unsigned long /*ChannelID*/, unsigned long /*FilterType*/,
                                                               const void * /*pMaskMsg*/, const void * /*pPatternMsg*/,
-                                                              const void * /*pFlowControlMsg*/, unsigned long *pMsgID)
+                                                              const void * /*pFlowControlMsg*/, unsigned long *p_msg_id)
     {
-        *pMsgID = 99;
+        *p_msg_id = 99;
         return kJ2534StatusNoerror;
     }
 
@@ -97,27 +97,27 @@ extern "C"
         return kJ2534StatusNoerror;
     }
 
-    __declspec(dllexport) long PT_CALL PassThruReadVersion(unsigned long /*DeviceID*/, char *pApiVersion,
-                                                           char *pDllVersion, char *pFirmwareVersion)
+    __declspec(dllexport) long PT_CALL PassThruReadVersion(unsigned long /*DeviceID*/, char *p_api_version,
+                                                           char *p_dll_version, char *p_firmware_version)
     {
-        copyJ2534Text(pApiVersion, "04.04");
-        copyJ2534Text(pDllVersion, "1.0.0-fake");
-        copyJ2534Text(pFirmwareVersion, "0.0.0-fake");
+        copyJ2534Text(p_api_version, "04.04");
+        copyJ2534Text(p_dll_version, "1.0.0-fake");
+        copyJ2534Text(p_firmware_version, "0.0.0-fake");
         return kJ2534StatusNoerror;
     }
 
-    __declspec(dllexport) long PT_CALL PassThruGetLastError(char *pErrorDescription)
+    __declspec(dllexport) long PT_CALL PassThruGetLastError(char *p_error_description)
     {
-        copyJ2534Text(pErrorDescription, "fake DLL error");
+        copyJ2534Text(p_error_description, "fake DLL error");
         return kJ2534StatusNoerror;
     }
 
-    __declspec(dllexport) long PT_CALL PassThruIoctl(unsigned long /*ChannelID*/, unsigned long IoctlID,
-                                                     const void * /*pInput*/, void *pOutput)
+    __declspec(dllexport) long PT_CALL PassThruIoctl(unsigned long /*ChannelID*/, unsigned long ioctl_id,
+                                                     const void * /*pInput*/, void *p_output)
     {
-        if (IoctlID == kJ2534ReadVbatt)
+        if (ioctl_id == kJ2534ReadVbatt)
         {
-            *static_cast<unsigned long *>(pOutput) = 12500;
+            *static_cast<unsigned long *>(p_output) = 12500;
         }
         return kJ2534StatusNoerror;
     }

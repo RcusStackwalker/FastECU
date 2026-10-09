@@ -2,13 +2,13 @@
 #include "checksum_primitives.h"
 #include "src/algorithms/protocol/bytes.h"
 
-ChecksumResult ChecksumEcuSubaruHitachiSH7058::calculate_checksum_result(bytes::ByteView romView)
+ChecksumResult ChecksumEcuSubaruHitachiSH7058::calculate_checksum_result(bytes::ByteView rom_view)
 {
     // Fixed 1 MiB layout: checksum fields occupy 0xFFFE8-0xFFFFB.
-    if (romView.size() != 0x100000)
+    if (rom_view.size() != 0x100000)
     {
         return {.status = ChecksumResult::Status::kInvalidSize,
-                .rom_data = bytes::Bytes(romView.begin(), romView.end()),
+                .rom_data = bytes::Bytes(rom_view.begin(), rom_view.end()),
                 .message = "ROM size does not match the checksum layout"};
     }
     /*******************
@@ -21,7 +21,7 @@ ChecksumResult ChecksumEcuSubaruHitachiSH7058::calculate_checksum_result(bytes::
      *  Checksum 4 calculated between 0x0000 - 0xfffff excluding 0xffff0 - 0xffff7, 32-bit XOR, result at 0x7fff4
      *
      * ****************/
-    bytes::Bytes romData(romView.begin(), romView.end());
+    bytes::Bytes rom_data(rom_view.begin(), rom_view.end());
 
     uint32_t checksum_1_value_stored = 0;
     uint32_t checksum_1_value_calculated = 0;
@@ -48,39 +48,39 @@ ChecksumResult ChecksumEcuSubaruHitachiSH7058::calculate_checksum_result(bytes::
      * *************************************/
     for (int i = 0x18400; i < 0x1e000; i += 4)
     {
-        const std::uint32_t word = bytes::readU32Be(romData, static_cast<std::size_t>(i));
+        const std::uint32_t word = bytes::readU32Be(rom_data, static_cast<std::size_t>(i));
         checksum_1_value_calculated += word;
         checksum_2_value_calculated ^= word;
     }
-    checksum_1_value_stored = bytes::readU32Be(romData, checksum_1_value_address);
-    checksum_2_value_stored = bytes::readU32Be(romData, checksum_2_value_address);
+    checksum_1_value_stored = bytes::readU32Be(rom_data, checksum_1_value_address);
+    checksum_2_value_stored = bytes::readU32Be(rom_data, checksum_2_value_address);
     if (checksum_1_value_calculated != checksum_1_value_stored)
     {
         checksum_ok = false;
 
-        bytes::writeU32Be(romData, checksum_1_value_address, checksum_1_value_calculated);
+        bytes::writeU32Be(rom_data, checksum_1_value_address, checksum_1_value_calculated);
     }
     if (checksum_2_value_calculated != checksum_2_value_stored)
     {
         checksum_ok = false;
 
-        bytes::writeU32Be(romData, checksum_2_value_address, checksum_2_value_calculated);
+        bytes::writeU32Be(rom_data, checksum_2_value_address, checksum_2_value_calculated);
     }
     /****************************************
      *
      * Calculate and fix checksum 5
      *
      * *************************************/
-    for (uint32_t i = 0x4000; i < (uint32_t)romData.size(); i += 4)
+    for (uint32_t i = 0x4000; i < (uint32_t)rom_data.size(); i += 4)
     {
         if (i != checksum_3_value_address && i != checksum_4_value_address)
         {
-            checksum_5_value_calculated += bytes::readU32Be(romData, static_cast<std::size_t>(i));
+            checksum_5_value_calculated += bytes::readU32Be(rom_data, static_cast<std::size_t>(i));
         }
     }
     if (checksum_5_value_calculated != 0x5aa5a55a)
     {
-        fastecu::checksum::internal::rebalanceU32Be(romData, checksum_5_balance_value_address,
+        fastecu::checksum::internal::rebalanceU32Be(rom_data, checksum_5_balance_value_address,
                                                     checksum_5_value_calculated, 0x5aa5a55a);
     }
     /****************************************
@@ -92,18 +92,18 @@ ChecksumResult ChecksumEcuSubaruHitachiSH7058::calculate_checksum_result(bytes::
     {
         if (i != checksum_3_value_address && i != checksum_4_value_address)
         {
-            const std::uint32_t word2 = bytes::readU32Be(romData, static_cast<std::size_t>(i));
+            const std::uint32_t word2 = bytes::readU32Be(rom_data, static_cast<std::size_t>(i));
             checksum_3_value_calculated += word2;
             checksum_4_value_calculated ^= word2;
         }
     }
-    checksum_3_value_stored = bytes::readU32Be(romData, checksum_3_value_address);
-    checksum_4_value_stored = bytes::readU32Be(romData, checksum_4_value_address);
+    checksum_3_value_stored = bytes::readU32Be(rom_data, checksum_3_value_address);
+    checksum_4_value_stored = bytes::readU32Be(rom_data, checksum_4_value_address);
     if (checksum_3_value_calculated != checksum_3_value_stored)
     {
         checksum_ok = false;
 
-        bytes::writeU32Be(romData, checksum_3_value_address, checksum_3_value_calculated);
+        bytes::writeU32Be(rom_data, checksum_3_value_address, checksum_3_value_calculated);
     }
     if (checksum_4_value_calculated != checksum_4_value_stored)
     {
@@ -114,15 +114,15 @@ ChecksumResult ChecksumEcuSubaruHitachiSH7058::calculate_checksum_result(bytes::
         {
             if (i != checksum_3_value_address && i != checksum_4_value_address)
             {
-                checksum_4_value_calculated ^= bytes::readU32Be(romData, i);
+                checksum_4_value_calculated ^= bytes::readU32Be(rom_data, i);
             }
         }
 
-        bytes::writeU32Be(romData, checksum_4_value_address, checksum_4_value_calculated);
+        bytes::writeU32Be(rom_data, checksum_4_value_address, checksum_4_value_calculated);
     }
 
     ChecksumResult result;
-    result.rom_data = romData;
+    result.rom_data = rom_data;
     if (!checksum_ok)
     {
         result.status = ChecksumResult::Status::kCorrected;

@@ -8,14 +8,14 @@
 #include "src/ui/desktop/diagnostic_link_io.h"
 #include "src/platform/desktop/common/bytes/qt_bytes.h"
 
-BiuOperationsSubaru::BiuOperationsSubaru(fastecu::diagnostics::IDiagnosticLink& link_arg, QWidget *parent)
+BiuOperationsSubaru::BiuOperationsSubaru(fastecu::diagnostics::IDiagnosticLink& linkArg, QWidget *parent)
     : QDialog(parent), ui_{std::make_unique<Ui::BiuOperationsSubaruWindow>()}
 {
     ui_->setupUi(this);
 
     ui_->progressbar->hide();
 
-    this->link_ = &link_arg;
+    this->link_ = &linkArg;
 
     biu_ops_subaru_switches_io_ = nullptr;
     biu_ops_subaru_switches_lighting_ = nullptr;
@@ -218,19 +218,19 @@ void BiuOperationsSubaru::keep_alive()
 void BiuOperationsSubaru::parse_biu_cmd()
 {
 
-    QString selected_item_text = ui_->msg_combo_box->currentText();
-    QStringList selected_item_msg;
+    QString selectedItemText = ui_->msg_combo_box->currentText();
+    QStringList selectedItemMsg;
 
-    bool cmd_ready = true;
+    bool cmdReady = true;
     bool ok = false;
 
-    if (selected_item_text != "Custom")
+    if (selectedItemText != "Custom")
     {
         for (int i = 0; i < biu_messages_.length(); i += 2)
         {
-            if (selected_item_text == biu_messages_.at(i))
+            if (selectedItemText == biu_messages_.at(i))
             {
-                selected_item_msg = biu_messages_.at(i + 1).split(",");
+                selectedItemMsg = biu_messages_.at(i + 1).split(",");
             }
         }
     }
@@ -238,17 +238,17 @@ void BiuOperationsSubaru::parse_biu_cmd()
     {
         if (!ui_->msg_line_edit->text().isEmpty())
         {
-            selected_item_msg = ui_->msg_line_edit->text().split(",");
+            selectedItemMsg = ui_->msg_line_edit->text().split(",");
         }
     }
 
     cmd_.clear();
-    for (int i = 0; i < selected_item_msg.length(); i++)
+    for (int i = 0; i < selectedItemMsg.length(); i++)
     {
-        cmd_.push_back(static_cast<bytes::Byte>(selected_item_msg.at(i).toUInt(&ok, 16)));
+        cmd_.push_back(static_cast<bytes::Byte>(selectedItemMsg.at(i).toUInt(&ok, 16)));
     }
 
-    if (selected_item_text == "SET:  Times & Temps")
+    if (selectedItemText == "SET:  Times & Temps")
     {
         if (biu_tt_result_->length() > 0)
         {
@@ -263,10 +263,10 @@ void BiuOperationsSubaru::parse_biu_cmd()
             emit LOG_I("Read data before attempting change", true, true);
         }
 
-        cmd_ready = false;
+        cmdReady = false;
     }
 
-    if (selected_item_text == "SET:  Car options")
+    if (selectedItemText == "SET:  Car options")
     {
         if (biu_option_result_->length() > 0)
         {
@@ -280,10 +280,10 @@ void BiuOperationsSubaru::parse_biu_cmd()
             emit LOG_I("Read data before attempting change", true, true);
         }
 
-        cmd_ready = false;
+        cmdReady = false;
     }
 
-    if (cmd_ready)
+    if (cmdReady)
     {
         current_command_ = cmd_[0];
         if (current_command_ == kInfoRequest)
@@ -299,9 +299,9 @@ void BiuOperationsSubaru::parse_biu_cmd()
     }
 }
 
-void BiuOperationsSubaru::prepare_biu_set_cmd(const QByteArray& cmd_settings)
+void BiuOperationsSubaru::prepare_biu_set_cmd(const QByteArray& cmdSettings)
 {
-    const auto settings = bytes::view(cmd_settings);
+    const auto settings = bytes::view(cmdSettings);
     if (cmd_.size() < 2 + settings.size())
     {
         cmd_.resize(2 + settings.size());
@@ -365,7 +365,7 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
     }
 
     const auto frame = bytes::view(message);
-    const bytes::Byte chk_sum = bytes::sum8(frame.first(frame.size() - 1));
+    const bytes::Byte chkSum = bytes::sum8(frame.first(frame.size() - 1));
 
     if (((uint8_t)message.at(0) & 0x80U) != 0x80 || (uint8_t)message.at(1) != 0xf0 || (uint8_t)message.at(2) != 0x40)
     {
@@ -379,7 +379,7 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
         return;
     }
 
-    if (chk_sum != (uint8_t)message.at(message.length() - 1))
+    if (chkSum != (uint8_t)message.at(message.length() - 1))
     {
         emit LOG_I("Invalid message received: invalid checksum", true, true);
         return;
@@ -419,7 +419,7 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
          */
 
         // QStringList dtc_result;
-        QString dtc_code;
+        QString dtcCode;
         QString byte;
 
         current_command_ = kTesterPresent;
@@ -435,32 +435,32 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
             while (index < (message.length() - 1))
             {
                 byte = QString("%1").arg((uint8_t)message.at(index) & 0x0fU, 2, 16, QLatin1Char('0'));
-                dtc_code = "B" + byte;
+                dtcCode = "B" + byte;
                 index++;
                 byte = QString("%1").arg((uint8_t)message.at(index) & 0xffU, 2, 16, QLatin1Char('0'));
-                dtc_code.append(byte);
+                dtcCode.append(byte);
                 index++;
                 for (int i = 0; i < biu_dtc_list_.length(); i += 2)
                 {
-                    if (dtc_code == biu_dtc_list_.at(i))
+                    if (dtcCode == biu_dtc_list_.at(i))
                     {
-                        dtc_code.append(" - " + biu_dtc_list_.at(i + 1));
+                        dtcCode.append(" - " + biu_dtc_list_.at(i + 1));
                     }
                 }
                 if (message.at(index) == 0)
                 {
-                    dtc_code.append(" (pending)");
+                    dtcCode.append(" (pending)");
                 }
                 else
                 {
-                    dtc_code.append(" (stored)");
+                    dtcCode.append(" (stored)");
                 }
                 index++;
 
-                if (!dtc_code.isEmpty())
+                if (!dtcCode.isEmpty())
                 {
                     // emit LOG_I(dtc_code, true, true);
-                    data_result_->append(dtc_code);
+                    data_result_->append(dtcCode);
                 }
             }
         }
@@ -501,12 +501,12 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
         {
             for (index = 5; index < (message.length() - 1); index++)
             {
-                unsigned bit_mask = 1;
-                for (int bit_counter = 0; bit_counter < 8; bit_counter++)
+                unsigned bitMask = 1;
+                for (int bitCounter = 0; bitCounter < 8; bitCounter++)
                 {
-                    i = ((index - 5) * 8) + bit_counter;
+                    i = ((index - 5) * 8) + bitCounter;
                     switch_result_->append(biu_switch_names_.at(i));
-                    if ((uint8_t)message.at(index) & bit_mask)
+                    if ((uint8_t)message.at(index) & bitMask)
                     {
                         switch_result_->append("ON");
                     }
@@ -515,7 +515,7 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
                         switch_result_->append("OFF");
                     }
                     // emit LOG_I(switch_result->at(2 * i) + switch_result->at(2 * i + 1), true, true);
-                    bit_mask = bit_mask << 1U;
+                    bitMask = bitMask << 1U;
                 }
             }
         }
@@ -539,12 +539,12 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
         {
             for (index = 5; index < (message.length() - 1); index++)
             {
-                unsigned bit_mask = 1;
-                for (int bit_counter = 0; bit_counter < 8; bit_counter++)
+                unsigned bitMask = 1;
+                for (int bitCounter = 0; bitCounter < 8; bitCounter++)
                 {
-                    i = ((index - 5) * 8) + bit_counter;
+                    i = ((index - 5) * 8) + bitCounter;
                     switch_result_->append(biu_lightsw_names_.at(i));
-                    if ((uint8_t)message.at(index) & bit_mask)
+                    if ((uint8_t)message.at(index) & bitMask)
                     {
                         switch_result_->append("ON");
                     }
@@ -553,7 +553,7 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
                         switch_result_->append("OFF");
                     }
                     // emit LOG_I(switch_result, true, true);
-                    bit_mask = bit_mask << 1U;
+                    bitMask = bitMask << 1U;
                 }
             }
         }
@@ -568,8 +568,8 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
          * rsp:   fm+l dest src  rply 0x40 0xB1 0xB2 0xBn cksm
          */
 
-        float calc_result;
-        QString biu_data_result;
+        float calcResult;
+        QString biuDataResult;
         int index = 5;
 
         data_result_->clear();
@@ -578,13 +578,13 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
         {
             for (index = 5; index < (message.length() - 1); index++)
             {
-                biu_data_result = biu_data_names_.at((static_cast<qsizetype>(index) - 5) * 2);
-                calc_result = (static_cast<float>(static_cast<uint8_t>(message.at(index))) *
-                               kBiuDataFactors[static_cast<ptrdiff_t>((index - 5) * 2)]) +
-                              kBiuDataFactors[(index - 5) * 2 + 1];
-                biu_data_result.append(QString("%1 ").arg(calc_result));
-                biu_data_result.append(biu_data_names_.at((index - 5) * 2 + 1));
-                data_result_->append(biu_data_result);
+                biuDataResult = biu_data_names_.at((static_cast<qsizetype>(index) - 5) * 2);
+                calcResult = (static_cast<float>(static_cast<uint8_t>(message.at(index))) *
+                              kBiuDataFactors[static_cast<ptrdiff_t>((index - 5) * 2)]) +
+                             kBiuDataFactors[(index - 5) * 2 + 1];
+                biuDataResult.append(QString("%1 ").arg(calcResult));
+                biuDataResult.append(biu_data_names_.at((index - 5) * 2 + 1));
+                data_result_->append(biuDataResult);
                 // emit LOG_I(data_result, true, true);
             }
         }
@@ -599,8 +599,8 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
          * rsp:   fm+l dest src  rply 0x41 0xB1 0xB2 0xBn cksm
          */
 
-        QString can_data_result;
-        float calc_result;
+        QString canDataResult;
+        float calcResult;
 
         int item = 0;
 
@@ -610,99 +610,99 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
         {
 
             // front wheel speed
-            can_data_result = can_data_names_.at(static_cast<qsizetype>(item) * 2);
-            calc_result = bytes::readU16Le(bytes::view(message), 5);
-            calc_result =
-                (calc_result * kCanDataFactors[static_cast<ptrdiff_t>(item * 2)]) + kCanDataFactors[item * 2 + 1];
-            can_data_result.append(QString("%1 ").arg(calc_result));
-            can_data_result.append(can_data_names_.at(item * 2 + 1));
-            data_result_->append(can_data_result);
+            canDataResult = can_data_names_.at(static_cast<qsizetype>(item) * 2);
+            calcResult = bytes::readU16Le(bytes::view(message), 5);
+            calcResult =
+                (calcResult * kCanDataFactors[static_cast<ptrdiff_t>(item * 2)]) + kCanDataFactors[item * 2 + 1];
+            canDataResult.append(QString("%1 ").arg(calcResult));
+            canDataResult.append(can_data_names_.at(item * 2 + 1));
+            data_result_->append(canDataResult);
             // emit LOG_I(can_data_result, true, true);
 
             // VDC/ABS latest f-code
             item++;
-            can_data_result = can_data_names_.at(static_cast<qsizetype>(item) * 2);
-            can_data_result.append(QString("%1 ").arg((uint8_t)message.at(8), 2, 16, QLatin1Char('0')));
-            can_data_result.append(QString("%1 ").arg((uint8_t)message.at(7), 2, 16, QLatin1Char('0')));
-            can_data_result.append(can_data_names_.at(item * 2 + 1));
-            data_result_->append(can_data_result);
+            canDataResult = can_data_names_.at(static_cast<qsizetype>(item) * 2);
+            canDataResult.append(QString("%1 ").arg((uint8_t)message.at(8), 2, 16, QLatin1Char('0')));
+            canDataResult.append(QString("%1 ").arg((uint8_t)message.at(7), 2, 16, QLatin1Char('0')));
+            canDataResult.append(can_data_names_.at(item * 2 + 1));
+            data_result_->append(canDataResult);
             // emit LOG_I(can_data_result, true, true);
 
             // Blower fan steps
             item++;
-            can_data_result = can_data_names_.at(static_cast<qsizetype>(item) * 2);
-            calc_result = (uint8_t)message.at(9);
-            calc_result =
-                (calc_result * kCanDataFactors[static_cast<ptrdiff_t>(item * 2)]) + kCanDataFactors[item * 2 + 1];
-            can_data_result.append(QString("%1 ").arg(calc_result));
-            can_data_result.append(can_data_names_.at(item * 2 + 1));
-            data_result_->append(can_data_result);
+            canDataResult = can_data_names_.at(static_cast<qsizetype>(item) * 2);
+            calcResult = (uint8_t)message.at(9);
+            calcResult =
+                (calcResult * kCanDataFactors[static_cast<ptrdiff_t>(item * 2)]) + kCanDataFactors[item * 2 + 1];
+            canDataResult.append(QString("%1 ").arg(calcResult));
+            canDataResult.append(can_data_names_.at(item * 2 + 1));
+            data_result_->append(canDataResult);
             // emit LOG_I(can_data_result, true, true);
 
             // Fuel level resistance
             item++;
-            can_data_result = can_data_names_.at(static_cast<qsizetype>(item) * 2);
-            calc_result = bytes::readU16Le(bytes::view(message), 10);
-            calc_result =
-                (calc_result * kCanDataFactors[static_cast<ptrdiff_t>(item * 2)]) + kCanDataFactors[item * 2 + 1];
-            can_data_result.append(QString("%1 ").arg(calc_result));
-            can_data_result.append(can_data_names_.at(item * 2 + 1));
-            data_result_->append(can_data_result);
+            canDataResult = can_data_names_.at(static_cast<qsizetype>(item) * 2);
+            calcResult = bytes::readU16Le(bytes::view(message), 10);
+            calcResult =
+                (calcResult * kCanDataFactors[static_cast<ptrdiff_t>(item * 2)]) + kCanDataFactors[item * 2 + 1];
+            canDataResult.append(QString("%1 ").arg(calcResult));
+            canDataResult.append(can_data_names_.at(item * 2 + 1));
+            data_result_->append(canDataResult);
             // emit LOG_I(can_data_result, true, true);
 
             // Fuel consumption
             item++;
-            can_data_result = can_data_names_.at(static_cast<qsizetype>(item) * 2);
-            calc_result = bytes::readU16Le(bytes::view(message), 12);
-            calc_result =
-                (calc_result * kCanDataFactors[static_cast<ptrdiff_t>(item * 2)]) + kCanDataFactors[item * 2 + 1];
-            can_data_result.append(QString("%1 ").arg(calc_result));
-            can_data_result.append(can_data_names_.at(item * 2 + 1));
-            data_result_->append(can_data_result);
+            canDataResult = can_data_names_.at(static_cast<qsizetype>(item) * 2);
+            calcResult = bytes::readU16Le(bytes::view(message), 12);
+            calcResult =
+                (calcResult * kCanDataFactors[static_cast<ptrdiff_t>(item * 2)]) + kCanDataFactors[item * 2 + 1];
+            canDataResult.append(QString("%1 ").arg(calcResult));
+            canDataResult.append(can_data_names_.at(item * 2 + 1));
+            data_result_->append(canDataResult);
             // emit LOG_I(can_data_result, true, true);
 
             // engine coolant temp
             item++;
-            can_data_result = can_data_names_.at(static_cast<qsizetype>(item) * 2);
-            calc_result = (uint8_t)message.at(14);
-            calc_result =
-                (calc_result * kCanDataFactors[static_cast<ptrdiff_t>(item * 2)]) + kCanDataFactors[item * 2 + 1];
-            can_data_result.append(QString("%1 ").arg(calc_result));
-            can_data_result.append(can_data_names_.at(item * 2 + 1));
-            data_result_->append(can_data_result);
+            canDataResult = can_data_names_.at(static_cast<qsizetype>(item) * 2);
+            calcResult = (uint8_t)message.at(14);
+            calcResult =
+                (calcResult * kCanDataFactors[static_cast<ptrdiff_t>(item * 2)]) + kCanDataFactors[item * 2 + 1];
+            canDataResult.append(QString("%1 ").arg(calcResult));
+            canDataResult.append(can_data_names_.at(item * 2 + 1));
+            data_result_->append(canDataResult);
             // emit LOG_I(can_data_result, true, true);
 
             // g-force
             item++;
-            can_data_result = can_data_names_.at(static_cast<qsizetype>(item) * 2);
-            calc_result = (uint8_t)message.at(15);
-            calc_result =
-                (calc_result * kCanDataFactors[static_cast<ptrdiff_t>(item * 2)]) + kCanDataFactors[item * 2 + 1];
-            can_data_result.append(QString("%1 ").arg(calc_result));
-            can_data_result.append(can_data_names_.at(item * 2 + 1));
-            data_result_->append(can_data_result);
+            canDataResult = can_data_names_.at(static_cast<qsizetype>(item) * 2);
+            calcResult = (uint8_t)message.at(15);
+            calcResult =
+                (calcResult * kCanDataFactors[static_cast<ptrdiff_t>(item * 2)]) + kCanDataFactors[item * 2 + 1];
+            canDataResult.append(QString("%1 ").arg(calcResult));
+            canDataResult.append(can_data_names_.at(item * 2 + 1));
+            data_result_->append(canDataResult);
             // emit LOG_I(can_data_result, true, true);
 
             // sport shift
             item++;
-            can_data_result = can_data_names_.at(static_cast<qsizetype>(item) * 2);
-            calc_result = (uint8_t)message.at(16);
-            calc_result =
-                (calc_result * kCanDataFactors[static_cast<ptrdiff_t>(item * 2)]) + kCanDataFactors[item * 2 + 1];
-            can_data_result.append(QString("%1 ").arg(calc_result));
-            can_data_result.append(can_data_names_.at(item * 2 + 1));
-            data_result_->append(can_data_result);
+            canDataResult = can_data_names_.at(static_cast<qsizetype>(item) * 2);
+            calcResult = (uint8_t)message.at(16);
+            calcResult =
+                (calcResult * kCanDataFactors[static_cast<ptrdiff_t>(item * 2)]) + kCanDataFactors[item * 2 + 1];
+            canDataResult.append(QString("%1 ").arg(calcResult));
+            canDataResult.append(can_data_names_.at(item * 2 + 1));
+            data_result_->append(canDataResult);
             // emit LOG_I(can_data_result, true, true);
 
             // shift position
             item++;
-            can_data_result = can_data_names_.at(static_cast<qsizetype>(item) * 2);
-            calc_result = (uint8_t)message.at(17);
-            calc_result =
-                (calc_result * kCanDataFactors[static_cast<ptrdiff_t>(item * 2)]) + kCanDataFactors[item * 2 + 1];
-            can_data_result.append(QString("%1 ").arg(calc_result));
-            can_data_result.append(can_data_names_.at(item * 2 + 1));
-            data_result_->append(can_data_result);
+            canDataResult = can_data_names_.at(static_cast<qsizetype>(item) * 2);
+            calcResult = (uint8_t)message.at(17);
+            calcResult =
+                (calcResult * kCanDataFactors[static_cast<ptrdiff_t>(item * 2)]) + kCanDataFactors[item * 2 + 1];
+            canDataResult.append(QString("%1 ").arg(calcResult));
+            canDataResult.append(can_data_names_.at(item * 2 + 1));
+            data_result_->append(canDataResult);
             // emit LOG_I(can_data_result, true, true);
         }
 
@@ -718,7 +718,7 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
 
         current_command_ = kTesterPresent;
         QString temp;
-        float calc_result;
+        float calcResult;
 
         data_result_->clear();
 
@@ -728,20 +728,20 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
             // room lamp off delay time
             temp = biu_tt_names_.at(0);
             biu_tt_result_->append(static_cast<char>((uint8_t)message.at(5) & 0x03U));
-            calc_result = static_cast<float>((uint8_t)message.at(5) & 0x03U);
-            if (calc_result == 0)
+            calcResult = static_cast<float>((uint8_t)message.at(5) & 0x03U);
+            if (calcResult == 0)
             {
                 temp.append("Normal");
             }
-            else if (calc_result == 0x01)
+            else if (calcResult == 0x01)
             {
                 temp.append("OFF");
             }
-            else if (calc_result == 0x02)
+            else if (calcResult == 0x02)
             {
                 temp.append("Short");
             }
-            else if (calc_result == 0x03)
+            else if (calcResult == 0x03)
             {
                 temp.append("Long");
             }
@@ -752,8 +752,8 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
             // auto-lock time
             temp = biu_tt_names_.at(2);
             biu_tt_result_->append(static_cast<char>((uint8_t)message.at(6) & 0x07U));
-            calc_result = static_cast<float>(((uint8_t)message.at(6) & 0x07U) * 10);
-            temp.append(QString("%1 ").arg(calc_result));
+            calcResult = static_cast<float>(((uint8_t)message.at(6) & 0x07U) * 10);
+            temp.append(QString("%1 ").arg(calcResult));
             temp.append(biu_tt_names_.at(3));
             data_result_->append(temp);
             // emit LOG_I(biu_tt_result, true, true);
@@ -763,9 +763,9 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
             {
                 temp = biu_tt_names_.at(4);
                 biu_tt_result_->append(static_cast<char>((uint8_t)message.at(7) & 0x0FU));
-                calc_result =
+                calcResult =
                     static_cast<float>((static_cast<int>((((uint8_t)message.at(7) & 0x0FU) + 4U) & 0x0FU) - 4) * 0.5);
-                temp.append(QString("%1 ").arg(calc_result));
+                temp.append(QString("%1 ").arg(calcResult));
                 temp.append(biu_tt_names_.at(5));
                 data_result_->append(temp);
                 // emit LOG_I(biu_tt_result, true, true);
@@ -794,12 +794,12 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
         {
             for (index = 5; index < (message.length() - 1); index++)
             {
-                unsigned bit_mask = 1;
-                for (int bit_counter = 0; bit_counter < 8; bit_counter++)
+                unsigned bitMask = 1;
+                for (int bitCounter = 0; bitCounter < 8; bitCounter++)
                 {
-                    i = ((index - 5) * 8) + bit_counter;
+                    i = ((index - 5) * 8) + bitCounter;
                     switch_result_->append(biu_option_names_.at(static_cast<qsizetype>(i) * 3));
-                    if ((uint8_t)message.at(index) & bit_mask)
+                    if ((uint8_t)message.at(index) & bitMask)
                     {
                         switch_result_->append(biu_option_names_.at(i * 3 + 1));
                     }
@@ -808,7 +808,7 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
                         switch_result_->append(biu_option_names_.at(i * 3 + 2));
                     }
                     // emit LOG_I(switch_result->at(2 * i) + switch_result->at(2 * i + 1), true, true);
-                    bit_mask = bit_mask << 1U;
+                    bitMask = bitMask << 1U;
                 }
 
                 biu_option_result_->append(static_cast<char>((uint8_t)message.at(index)));

@@ -8,7 +8,7 @@ namespace fastecu::ui
 HeaderFormEditors build_header_form(QGridLayout *grid, const definition::DefinitionHeaderDraft& draft)
 {
     int row = 0;
-    const auto add_line = [&](const char *label, const char *name, const std::string& value)
+    const auto addLine = [&](const char *label, const char *name, const std::string& value)
     {
         grid->addWidget(new QLabel(QString::fromUtf8(label)), row, 0);
         auto *editor = new QLineEdit(QString::fromStdString(value));
@@ -17,20 +17,20 @@ HeaderFormEditors build_header_form(QGridLayout *grid, const definition::Definit
         return editor;
     };
     HeaderFormEditors editors{
-        .xml_id = add_line("XML ID", "xmlid", draft.xml_id),
-        .internal_id_address = add_line("Internal ID Address", "internalidaddress", draft.internal_id_address_text),
-        .internal_id = add_line("Internal ID String", "internalidstring", draft.internal_id),
-        .ecu_id = add_line("ECU ID", "ecuid", draft.ecu_id),
-        .make = add_line("Make", "make", draft.metadata.make),
-        .market = add_line("Market", "market", draft.metadata.market),
-        .model = add_line("Model", "model", draft.metadata.model),
-        .submodel = add_line("Submodel", "submodel", draft.metadata.submodel),
-        .transmission = add_line("Transmission", "transmission", draft.metadata.transmission),
-        .year = add_line("Year", "year", draft.metadata.year),
-        .flash_method = add_line("Flash Method", "flashmethod", draft.metadata.flash_method),
-        .memory_model = add_line("Memory Model", "memmodel", draft.metadata.memory_model),
-        .checksum_module = add_line("Checksum Module", "checksummodule", draft.metadata.checksum_module),
-        .include = add_line("Include", "include", draft.include),
+        .xml_id = addLine("XML ID", "xmlid", draft.xml_id),
+        .internal_id_address = addLine("Internal ID Address", "internalidaddress", draft.internal_id_address_text),
+        .internal_id = addLine("Internal ID String", "internalidstring", draft.internal_id),
+        .ecu_id = addLine("ECU ID", "ecuid", draft.ecu_id),
+        .make = addLine("Make", "make", draft.metadata.make),
+        .market = addLine("Market", "market", draft.metadata.market),
+        .model = addLine("Model", "model", draft.metadata.model),
+        .submodel = addLine("Submodel", "submodel", draft.metadata.submodel),
+        .transmission = addLine("Transmission", "transmission", draft.metadata.transmission),
+        .year = addLine("Year", "year", draft.metadata.year),
+        .flash_method = addLine("Flash Method", "flashmethod", draft.metadata.flash_method),
+        .memory_model = addLine("Memory Model", "memmodel", draft.metadata.memory_model),
+        .checksum_module = addLine("Checksum Module", "checksummodule", draft.metadata.checksum_module),
+        .include = addLine("Include", "include", draft.include),
         .notes = new QTextEdit(),
     };
     grid->addWidget(new QLabel("Notes"), row, 0);

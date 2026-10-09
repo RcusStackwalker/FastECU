@@ -18,7 +18,7 @@ class BiuOpsSubaruDtcs : public QWidget
     Q_OBJECT
 
   public:
-    explicit BiuOpsSubaruDtcs(QStringList *dtc_result, QWidget *parent = nullptr);
+    explicit BiuOpsSubaruDtcs(QStringList *dtcResult, QWidget *parent = nullptr);
     ~BiuOpsSubaruDtcs();
 
   private:

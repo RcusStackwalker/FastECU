@@ -138,14 +138,14 @@ TEST(SsmProtocolCore, HasPayloadPrefixRejectsAMismatchedPrefixATooLongPrefixOrAB
 {
     const bytes::Bytes response =
         ssm_protocol::addHeader(bytes::ByteView(test_bytes::bytesFromHex("EF5201")), 0xF0, 0x10);
-    bytes::Bytes badChecksum = response;
-    badChecksum.back() = 0x00;
+    bytes::Bytes bad_checksum = response;
+    bad_checksum.back() = 0x00;
 
     EXPECT_FALSE(ssm_protocol::hasPayloadPrefix(bytes::ByteView(response),
                                                 bytes::ByteView(test_bytes::bytesFromHex("EF53")), 0x10, 0xF0));
     EXPECT_FALSE(ssm_protocol::hasPayloadPrefix(bytes::ByteView(response),
                                                 bytes::ByteView(test_bytes::bytesFromHex("EF520100")), 0x10, 0xF0));
-    EXPECT_FALSE(ssm_protocol::hasPayloadPrefix(bytes::ByteView(badChecksum),
+    EXPECT_FALSE(ssm_protocol::hasPayloadPrefix(bytes::ByteView(bad_checksum),
                                                 bytes::ByteView(test_bytes::bytesFromHex("EF52")), 0x10, 0xF0));
 }
 
@@ -153,11 +153,11 @@ TEST(SsmProtocolCore, HasValidFrameRejectsAShortFrameOrAWrongReceiverSenderOrLen
 {
     const bytes::Bytes response =
         ssm_protocol::addHeader(bytes::ByteView(test_bytes::bytesFromHex("EF52")), 0xF0, 0x10);
-    bytes::Bytes badLength = response;
-    badLength[3] = 0x03;
+    bytes::Bytes bad_length = response;
+    bad_length[3] = 0x03;
 
     EXPECT_FALSE(ssm_protocol::hasValidFrame(bytes::ByteView(test_bytes::bytesFromHex("8010F0")), 0x10, 0xF0));
     EXPECT_FALSE(ssm_protocol::hasValidFrame(bytes::ByteView(response), 0x11, 0xF0));
     EXPECT_FALSE(ssm_protocol::hasValidFrame(bytes::ByteView(response), 0x10, 0xF1));
-    EXPECT_FALSE(ssm_protocol::hasValidFrame(bytes::ByteView(badLength), 0x10, 0xF0));
+    EXPECT_FALSE(ssm_protocol::hasValidFrame(bytes::ByteView(bad_length), 0x10, 0xF0));
 }

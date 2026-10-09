@@ -6,18 +6,18 @@
 #include "src/platform/desktop/common/serial/qtrohelper.hpp"
 #include "rep_serial_port_actions_replica.h"
 
-RemoteSerialBackend::RemoteSerialBackend(QString peerAddress, QString password, QWebSocket *externalSocket,
+RemoteSerialBackend::RemoteSerialBackend(QString peer_address, QString password, QWebSocket *external_socket,
                                          QObject *parent)
-    : QObject{parent}, peer_address_(std::move(peerAddress)), password_(std::move(password))
+    : QObject{parent}, peer_address_(std::move(peer_address)), password_(std::move(password))
 {
-    if (externalSocket && externalSocket->thread() != thread())
+    if (external_socket && external_socket->thread() != thread())
     {
         emit LOG_W("RemoteSerialBackend: external websocket has foreign thread "
                    "affinity, creating own socket instead",
                    true, true);
-        externalSocket = nullptr;
+        external_socket = nullptr;
     }
-    web_socket_ = externalSocket ? externalSocket : new QWebSocket("", QWebSocketProtocol::VersionLatest, this);
+    web_socket_ = external_socket ? external_socket : new QWebSocket("", QWebSocketProtocol::VersionLatest, this);
     socket_ = new WebSocketIoDevice(web_socket_, web_socket_);
     startRemote();
 }
@@ -52,9 +52,9 @@ void RemoteSerialBackend::startRemote()
 
 void RemoteSerialBackend::startOverNetwork()
 {
-    QSslConfiguration sslConfiguration;
-    sslConfiguration.setPeerVerifyMode(QSslSocket::VerifyNone);
-    web_socket_->setSslConfiguration(sslConfiguration);
+    QSslConfiguration ssl_configuration;
+    ssl_configuration.setPeerVerifyMode(QSslSocket::VerifyNone);
+    web_socket_->setSslConfiguration(ssl_configuration);
     // Start node when Web Socket will be up
     QObject::connect(web_socket_, &QWebSocket::connected, this, &RemoteSerialBackend::websocket_connected);
     node_.setHeartbeatInterval(heartbeat_interval_);
@@ -101,14 +101,14 @@ void RemoteSerialBackend::websocket_connected()
 }
 
 void RemoteSerialBackend::serialRemoteStateChanged(QRemoteObjectReplica::State state,
-                                                   QRemoteObjectReplica::State oldState)
+                                                   QRemoteObjectReplica::State old_state)
 {
-    emit stateChanged(state, oldState);
+    emit stateChanged(state, old_state);
     if (state == QRemoteObjectReplica::Valid)
     {
         emit LOG_D("RemoteSerialBackend remote connection established", true, true);
     }
-    else if (oldState == QRemoteObjectReplica::Valid)
+    else if (old_state == QRemoteObjectReplica::Valid)
     {
         emit LOG_D("RemoteSerialBackend remote connection lost", true, true);
     }
@@ -488,9 +488,9 @@ bool RemoteSerialBackend::is_serial_port_open()
     return qtrohelper::slot_sync(serial_remote_->is_serial_port_open());
 }
 
-int RemoteSerialBackend::change_port_speed(QString portSpeed)
+int RemoteSerialBackend::change_port_speed(QString port_speed)
 {
-    return qtrohelper::slot_sync(serial_remote_->change_port_speed(portSpeed));
+    return qtrohelper::slot_sync(serial_remote_->change_port_speed(port_speed));
 }
 
 // NOTE: pinned quirk, preserved verbatim from the old facade (serial_port_actions.cpp

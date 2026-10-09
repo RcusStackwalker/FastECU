@@ -122,7 +122,7 @@ class SerialBackend
 
     // -- operations ------------------------------------------------------
     virtual bool is_serial_port_open() = 0;
-    virtual int change_port_speed(QString portSpeed) = 0;
+    virtual int change_port_speed(QString port_speed) = 0;
     virtual bool set_kline_timings(std::uint32_t parameter, int value) = 0;
     virtual int set_j2534_ioctl(std::uint32_t parameter, int value) = 0;
     virtual QByteArray five_baud_init(QByteArray output) = 0;

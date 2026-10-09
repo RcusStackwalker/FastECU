@@ -90,9 +90,9 @@ TEST_P(SingleWindowPlanContract, WriteRequiresAFullStartAlignedImage)
 {
     const SingleWindowPlanCase& c = GetParam();
 
-    const auto tooShort = c.build(FlashOperation::kWrite, c.protocol, c.mcu, bytes::Bytes(c.image_size - 1, 0x00));
+    const auto too_short = c.build(FlashOperation::kWrite, c.protocol, c.mcu, bytes::Bytes(c.image_size - 1, 0x00));
 
-    EXPECT_THAT(tooShort,
+    EXPECT_THAT(too_short,
                 fastecu::testing::IsErr(c.supports_write ? ErrorKind::kInvalidConfig : ErrorKind::kUnsupported));
 
     const auto ok = c.build(FlashOperation::kWrite, c.protocol, c.mcu, bytes::Bytes(c.image_size, 0x00));

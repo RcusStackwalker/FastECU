@@ -8,7 +8,7 @@
 namespace cdbg
 {
 
-fastecu::Result<std::size_t> FastEcuCanTransport::write(std::uint32_t canId, bytes::ByteView payload)
+fastecu::Result<std::size_t> FastEcuCanTransport::write(std::uint32_t can_id, bytes::ByteView payload)
 {
     try
     {
@@ -18,7 +18,7 @@ fastecu::Result<std::size_t> FastEcuCanTransport::write(std::uint32_t canId, byt
         }
         bytes::Bytes frame;
         frame.reserve(payload.size() + 4);
-        bytes::appendU32Be(frame, canId);
+        bytes::appendU32Be(frame, can_id);
         frame.insert(frame.end(), payload.begin(), payload.end());
         serial_->write_serial_data_echo_check(bytes::toQByteArray(frame));
         if (!serial_->is_serial_port_open())

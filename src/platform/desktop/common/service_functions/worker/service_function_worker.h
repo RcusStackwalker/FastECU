@@ -54,12 +54,12 @@ class ServiceFunctionWorker final : public QThread
 
     // Answers the matching outstanding gate. Stale IDs and duplicate answers
     // are ignored. Safe from any thread.
-    void answerGate(int gateId, bool accepted);
+    void answerGate(int gate_id, bool accepted);
 
   signals:
     void logEvent(int level, QString message);
     void progressChanged(int done, int total);
-    void gateRequested(int gateId);
+    void gateRequested(int gate_id);
     // Emitted exactly once per run(), always from this worker's own thread.
     void finished(fastecu::service_functions::ServiceFunctionWorkerResult result);
 

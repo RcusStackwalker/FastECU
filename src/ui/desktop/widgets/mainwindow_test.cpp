@@ -104,7 +104,7 @@ class ModalDriver final : public QObject
 {
 
   public:
-    explicit ModalDriver(QString chooser_choice) : chooser_choice_(std::move(chooser_choice))
+    explicit ModalDriver(QString chooserChoice) : chooser_choice_(std::move(chooserChoice))
     {
         timer_.setInterval(5);
         connect(&timer_, &QTimer::timeout, this, &ModalDriver::drive);
@@ -174,17 +174,17 @@ class ModalDriver final : public QObject
     {
         for (QWidget *widget : QApplication::topLevelWidgets())
         {
-            if (auto *message_box = qobject_cast<QMessageBox *>(widget); message_box != nullptr)
+            if (auto *messageBox = qobject_cast<QMessageBox *>(widget); messageBox != nullptr)
             {
-                if (message_box->text() == kTcuChooserText)
+                if (messageBox->text() == kTcuChooserText)
                 {
                     saw_chooser_ = true;
                     if (chooser_choice_.isEmpty())
                     {
-                        message_box->reject();
+                        messageBox->reject();
                         return;
                     }
-                    for (QAbstractButton *button : message_box->buttons())
+                    for (QAbstractButton *button : messageBox->buttons())
                     {
                         if (button->text() == chooser_choice_)
                         {
@@ -193,37 +193,37 @@ class ModalDriver final : public QObject
                         }
                     }
                 }
-                if (message_box->text() == kTcuIgnitionText)
+                if (messageBox->text() == kTcuIgnitionText)
                 {
                     ++ignition_count_;
-                    message_box->done(QMessageBox::Cancel);
+                    messageBox->done(QMessageBox::Cancel);
                     return;
                 }
-                if (message_box->text() == kLegacyEcuIgnitionText)
+                if (messageBox->text() == kLegacyEcuIgnitionText)
                 {
                     ++legacy_ecu_ignition_count_;
-                    message_box->done(QMessageBox::Cancel);
+                    messageBox->done(QMessageBox::Cancel);
                     return;
                 }
-                if (message_box->text().startsWith(kNoChecksumModuleText))
+                if (messageBox->text().startsWith(kNoChecksumModuleText))
                 {
                     ++checksum_warning_count_;
-                    message_box->done(QMessageBox::Cancel);
+                    messageBox->done(QMessageBox::Cancel);
                     return;
                 }
-                if (message_box->text() == kPortableEcuIgnitionText)
+                if (messageBox->text() == kPortableEcuIgnitionText)
                 {
                     ++portable_ecu_ignition_count_;
-                    message_box->done(QMessageBox::Cancel);
+                    messageBox->done(QMessageBox::Cancel);
                     return;
                 }
-                if (message_box->text() == kNoFileSelectedText)
+                if (messageBox->text() == kNoFileSelectedText)
                 {
                     ++no_file_selected_count_;
                 }
 
-                accepted_texts_ << message_box->text();
-                message_box->accept();
+                accepted_texts_ << messageBox->text();
+                messageBox->accept();
                 return;
             }
             if (widget->inherits("fastecu::flash::FlashDialog"))
@@ -285,11 +285,11 @@ class ModalDriver final : public QObject
 };
 
 // Invoke the slot through Qt, as the menu dispatch does.
-int startEcuOperations(MainWindow& window, const QString& cmd_type)
+int startEcuOperations(MainWindow& window, const QString& cmdType)
 {
     int result = -1;
     if (!QMetaObject::invokeMethod(&window, "start_ecu_operations", Qt::DirectConnection, Q_RETURN_ARG(int, result),
-                                   Q_ARG(QString, cmd_type)))
+                                   Q_ARG(QString, cmdType)))
     {
         return -1;
     }
@@ -608,8 +608,8 @@ constexpr fastecu::config::Catalog kWindowCatalog{kWindowProtocols, kWindowVehic
 // left unwired: tests spy on them.
 struct TestServices
 {
-    explicit TestServices(const QString& config_root)
-        : config_status(config.initialize(config_root.toStdString(), kTestApplication.version)),
+    explicit TestServices(const QString& configRoot)
+        : config_status(config.initialize(configRoot.toStdString(), kTestApplication.version)),
           definition_catalogs(definition_service, config, file_system, events)
     {
     }
@@ -760,12 +760,12 @@ class MainWindowTest : public ::testing::Test
     // picker accepts, so the write fails. Informational notices are closed.
     // False when the picker never opened or timed out.
     static bool driveSaveAs(MainWindow& window, const QString& target, bool cancel, bool fail,
-                            const std::function<void()>& on_picker = {})
+                            const std::function<void()>& onPicker = {})
     {
         QTimer timer;
         timer.setInterval(5);
         bool handled = false;
-        bool timed_out = false;
+        bool timedOut = false;
         QElapsedTimer deadline;
         deadline.start();
         QObject::connect(
@@ -781,7 +781,7 @@ class MainWindowTest : public ::testing::Test
                     }
                     if (deadline.elapsed() > 3000)
                     {
-                        timed_out = true;
+                        timedOut = true;
                         dialog->reject();
                         return;
                     }
@@ -790,9 +790,9 @@ class MainWindowTest : public ::testing::Test
                         continue;
                     }
                     handled = true;
-                    if (on_picker)
+                    if (onPicker)
                     {
-                        on_picker();
+                        onPicker();
                     }
                     if (cancel)
                     {
@@ -823,11 +823,11 @@ class MainWindowTest : public ::testing::Test
         timer.start();
         window.save_calibration_file_as();
         timer.stop();
-        if (timed_out)
+        if (timedOut)
         {
             qWarning() << "Save As dialog timed out for" << target;
         }
-        return handled && !timed_out;
+        return handled && !timedOut;
     }
 
     // Selects only the files-tree row at `index`, as a click would.
@@ -840,14 +840,14 @@ class MainWindowTest : public ::testing::Test
         }
     }
 
-    static QAction *prepareLogging(MainWindow& window, const QString& log_protocol)
+    static QAction *prepareLogging(MainWindow& window, const QString& logProtocol)
     {
         window.vbatt_timer_->stop();
         window.ecu_init_complete_ = true;
-        window.protocol_ = log_protocol;
+        window.protocol_ = logProtocol;
         QAction *action = menuAction(window, kToggleRealtime);
         installLoggingFixture(window,
-                              {.parameters = {{.protocol = log_protocol.toStdString(),
+                              {.parameters = {{.protocol = logProtocol.toStdString(),
                                                .id = "rpm",
                                                .name = "rpm",
                                                .address = "000010",
@@ -857,7 +857,7 @@ class MainWindowTest : public ::testing::Test
                                                .target = "ECU",
                                                .enabled = true,
                                                .conversions = {{"rpm", "x", "0", "0", "100", "1"}}}}},
-                              {.protocol = log_protocol.toStdString(), .lower_panel_ids = {"rpm"}});
+                              {.protocol = logProtocol.toStdString(), .lower_panel_ids = {"rpm"}});
         return action;
     }
 
@@ -873,7 +873,7 @@ class MainWindowTest : public ::testing::Test
     void check_externalLoggerMirrorsToTheRemotePeer();
     void check_peerStateChangesReachTheWindow();
     void check_handledDensoTcuReadChoicesRunMainWindowCleanupAndStopVoltagePolling(QString choice,
-                                                                                   int expected_ignition_count);
+                                                                                   int expectedIgnitionCount);
     void check_futureDensoSuffixesDoNotInstantiateKlineOrPerformEcuIo(QString protocol);
     void check_representativePortableRoutesReachFactoryBeforeLegacyFallback(QString protocol);
     void check_writeWithoutASelectedCalibrationStopsVoltagePolling(QString command);
@@ -941,11 +941,11 @@ class MainWindowTest : public ::testing::Test
     void check_unresolvedDisplaySlotsAreSkippedAndUpdateTheirOriginalLabels();
     void check_chooserDuplicateLabelIdentity(int tab, QString kind);
     void check_csvSharedIdProtocolIdentity();
-    void check_loggingStartWaitsForIdentification(bool target_is_ecu);
+    void check_loggingStartWaitsForIdentification(bool targetIsEcu);
     void check_batterySamplingDoesNotUseTheFacadeDuringIdentification();
     void check_windowDestructionJoinsIdentificationWithoutContinuingLogging();
     void check_connectStopsAnActiveLoggingWorkerBeforeIdentification();
-    void check_connectionEntryPointsStopIdentification(QString entry_point);
+    void check_connectionEntryPointsStopIdentification(QString entryPoint);
     void check_nestedConnectDuringCapabilityNoticeKeepsEachContinuation();
     void check_menuMatchesTheGolden();
     void check_everyIconNamedByTheMenuResolves();
@@ -974,11 +974,11 @@ void MainWindowTest::SetUpTestSuite()
     QSettings::setDefaultFormat(QSettings::IniFormat);
     // Pass the fixture root explicitly: Qt resolves the Windows home from
     // the account profile before trying HOME/USERPROFILE fallbacks.
-    const QString config_dir =
+    const QString configDir =
         config_root_->path() + "/" + QString::fromStdString(kTestApplication.version) + "/config/";
-    qInfo() << "Fixture config:" << config_dir << "Qt home:" << QDir::homePath();
-    ASSERT_TRUE(QDir().mkpath(config_dir));
-    ASSERT_TRUE(writeTextFile(config_dir + "fastecu.cfg",
+    qInfo() << "Fixture config:" << configDir << "Qt home:" << QDir::homePath();
+    ASSERT_TRUE(QDir().mkpath(configDir));
+    ASSERT_TRUE(writeTextFile(configDir + "fastecu.cfg",
 
                               R"(<?xml version="1.0" encoding="UTF-8"?>
 <config name="FastECU" version="0.0-dev0">
@@ -1005,39 +1005,39 @@ void MainWindowTest::SetUpTestSuite()
   </software_settings>
 </config>
 )"));
-    ASSERT_TRUE(writeTextFile(config_dir + "logger.cfg",
+    ASSERT_TRUE(writeTextFile(configDir + "logger.cfg",
                               R"(<?xml version="1.0" encoding="UTF-8"?>
 <config name="FastECU" version="0.0-dev0">
   <logger/>
 </config>
 )"));
-    const QString kernel_dir =
+    const QString kernelDir =
         config_root_->path() + "/" + QString::fromStdString(kTestApplication.version) + "/kernels/";
-    ASSERT_TRUE(QDir().mkpath(kernel_dir));
+    ASSERT_TRUE(QDir().mkpath(kernelDir));
     // The kernels kWindowProtocols names: a flash request carries the selected
     // protocol, so the portable-route reads load these.
-    ASSERT_TRUE(writeTextFile(kernel_dir + "test-kernel.bin", "ABCD"));
-    ASSERT_TRUE(writeTextFile(kernel_dir + "tcu_kernel.bin", "ABCD"));
+    ASSERT_TRUE(writeTextFile(kernelDir + "test-kernel.bin", "ABCD"));
+    ASSERT_TRUE(writeTextFile(kernelDir + "tcu_kernel.bin", "ABCD"));
 }
 
 void MainWindowTest::check_explicitConfigRootLoadsFixtureAndProvisionsDirectories()
 {
-    ModalDriver constructor_driver{QString()};
-    constructor_driver.start();
+    ModalDriver constructorDriver{QString()};
+    constructorDriver.start();
     TestServices services{config_root_->path()};
     ASSERT_TRUE(services.config_status.has_value());
     ASSERT_TRUE(services.fake != nullptr);
     MainWindow window{services.services()};
-    constructor_driver.stop();
+    constructorDriver.stop();
 
-    const QString version_dir = config_root_->path() + "/" + window.software_version_ + "/";
+    const QString versionDir = config_root_->path() + "/" + window.software_version_ + "/";
     const fastecu::config::ConfigPaths paths = window.config_session_->provisioned_paths();
     ASSERT_EQ(paths.base_config_directory, config_root_->path().toStdString());
-    ASSERT_EQ(paths.config_file, (version_dir + "config/fastecu.cfg").toStdString());
+    ASSERT_EQ(paths.config_file, (versionDir + "config/fastecu.cfg").toStdString());
     ASSERT_EQ(window.config_session_->vehicles().front().model, std::string("Test"));
-    ASSERT_EQ(paths.syslog_files_directory, (version_dir + "syslogs/").toStdString());
-    ASSERT_TRUE(QDir(version_dir + "syslogs").exists());
-    ASSERT_TRUE(QDir(version_dir + "definitions").exists());
+    ASSERT_EQ(paths.syslog_files_directory, (versionDir + "syslogs/").toStdString());
+    ASSERT_TRUE(QDir(versionDir + "syslogs").exists());
+    ASSERT_TRUE(QDir(versionDir + "definitions").exists());
     ASSERT_TRUE(QFile::exists(QString::fromStdString(paths.config_file)));
 }
 
@@ -1048,14 +1048,14 @@ TEST_F(MainWindowTest, explicitConfigRootLoadsFixtureAndProvisionsDirectories)
 
 void MainWindowTest::check_directSessionStartupNeverWaitsForARemoteSource()
 {
-    ModalDriver constructor_driver{QString()};
-    constructor_driver.start();
+    ModalDriver constructorDriver{QString()};
+    constructorDriver.start();
     TestServices services{config_root_->path()};
     ASSERT_TRUE(services.config_status.has_value());
     ASSERT_TRUE(services.fake != nullptr);
     EXPECT_CALL(*services.fake, waitForSource()).Times(0);
     MainWindow window{services.services()};
-    constructor_driver.stop();
+    constructorDriver.stop();
 }
 
 TEST_F(MainWindowTest, directSessionStartupNeverWaitsForARemoteSource)
@@ -1065,12 +1065,12 @@ TEST_F(MainWindowTest, directSessionStartupNeverWaitsForARemoteSource)
 
 void MainWindowTest::check_windowLogLinesReachTheLogChannel()
 {
-    ModalDriver constructor_driver{QString()};
-    constructor_driver.start();
+    ModalDriver constructorDriver{QString()};
+    constructorDriver.start();
     TestServices services{config_root_->path()};
     ASSERT_TRUE(services.config_status.has_value());
     MainWindow window{services.services()};
-    constructor_driver.stop();
+    constructorDriver.stop();
     fastecu::testing::SignalRecorder lines{&services.log_channel, &fastecu::ui::LogChannel::LOG_I};
 
     emit window.LOG_I("probe line", true, false);
@@ -1088,13 +1088,13 @@ TEST_F(MainWindowTest, windowLogLinesReachTheLogChannel)
 
 void MainWindowTest::check_windowEnablesFileLoggingThroughTheChannel()
 {
-    ModalDriver constructor_driver{QString()};
-    constructor_driver.start();
+    ModalDriver constructorDriver{QString()};
+    constructorDriver.start();
     TestServices services{config_root_->path()};
     ASSERT_TRUE(services.config_status.has_value());
     fastecu::testing::SignalRecorder enables{&services.log_channel, &fastecu::ui::LogChannel::enable_log_write_to_file};
     MainWindow window{services.services()};
-    constructor_driver.stop();
+    constructorDriver.stop();
 
     ASSERT_TRUE(std::ranges::any_of(enables.snapshot(), [](const auto& arguments) { return std::get<0>(arguments); }));
 }
@@ -1106,13 +1106,13 @@ TEST_F(MainWindowTest, windowEnablesFileLoggingThroughTheChannel)
 
 void MainWindowTest::check_directSessionStartupNeverRequestsTheRemoteWait()
 {
-    ModalDriver constructor_driver{QString()};
-    constructor_driver.start();
+    ModalDriver constructorDriver{QString()};
+    constructorDriver.start();
     TestServices services{config_root_->path()};
     ASSERT_TRUE(services.config_status.has_value());
     fastecu::testing::SignalRecorder waits{&services.remote_peer, &fastecu::ui::RemotePeer::wait_requested};
     MainWindow window{services.services()};
-    constructor_driver.stop();
+    constructorDriver.stop();
 
     ASSERT_EQ(waits.count(), 0U);
 }
@@ -1124,12 +1124,12 @@ TEST_F(MainWindowTest, directSessionStartupNeverRequestsTheRemoteWait)
 
 void MainWindowTest::check_externalLoggerMirrorsToTheRemotePeer()
 {
-    ModalDriver constructor_driver{QString()};
-    constructor_driver.start();
+    ModalDriver constructorDriver{QString()};
+    constructorDriver.start();
     TestServices services{config_root_->path()};
     ASSERT_TRUE(services.config_status.has_value());
     MainWindow window{services.services()};
-    constructor_driver.stop();
+    constructorDriver.stop();
     fastecu::testing::SignalRecorder lines{&services.remote_peer, &fastecu::ui::RemotePeer::log_window_message};
     fastecu::testing::SignalRecorder progress{&services.remote_peer, &fastecu::ui::RemotePeer::progress};
 
@@ -1153,17 +1153,17 @@ TEST_F(MainWindowTest, externalLoggerMirrorsToTheRemotePeer)
 
 void MainWindowTest::check_peerStateChangesReachTheWindow()
 {
-    ModalDriver constructor_driver{QString()};
-    constructor_driver.start();
+    ModalDriver constructorDriver{QString()};
+    constructorDriver.start();
     TestServices services{config_root_->path()};
     ASSERT_TRUE(services.config_status.has_value());
     MainWindow window{services.services()};
-    constructor_driver.stop();
-    fastecu::testing::SignalRecorder debug_lines{&window, &MainWindow::LOG_D};
+    constructorDriver.stop();
+    fastecu::testing::SignalRecorder debugLines{&window, &MainWindow::LOG_D};
 
     emit services.remote_peer.stateChanged(QRemoteObjectReplica::Valid, QRemoteObjectReplica::Default);
 
-    ASSERT_TRUE(std::ranges::any_of(debug_lines.snapshot(), [](const auto& arguments)
+    ASSERT_TRUE(std::ranges::any_of(debugLines.snapshot(), [](const auto& arguments)
                                     { return std::get<0>(arguments) == "Network connection established"; }));
 }
 
@@ -1211,16 +1211,16 @@ INSTANTIATE_TEST_SUITE_P(
         return name;
     });
 void MainWindowTest::check_handledDensoTcuReadChoicesRunMainWindowCleanupAndStopVoltagePolling(
-    QString choice, int expected_ignition_count)
+    QString choice, int expectedIgnitionCount)
 {
 
-    ModalDriver constructor_driver{QString()};
-    constructor_driver.start();
+    ModalDriver constructorDriver{QString()};
+    constructorDriver.start();
     TestServices services{config_root_->path()};
     ASSERT_TRUE(services.config_status.has_value());
     ASSERT_TRUE(services.fake != nullptr);
     MainWindow window{services.services()};
-    constructor_driver.stop();
+    constructorDriver.stop();
 
     FakeBackend *fake = services.fake;
     EXPECT_CALL(*fake, open_serial_port()).Times(0);
@@ -1241,23 +1241,23 @@ void MainWindowTest::check_handledDensoTcuReadChoicesRunMainWindowCleanupAndStop
     ASSERT_NO_FATAL_FAILURE(selectSubaruProtocol(window, "sub_tcu_denso_sh7058_can"));
 
     // The TCU log lines are relayed through MainWindow's own LOG_* signals.
-    fastecu::testing::SignalRecorder info_lines{&window, &MainWindow::LOG_I};
-    ModalDriver operation_driver{choice};
-    operation_driver.start();
+    fastecu::testing::SignalRecorder infoLines{&window, &MainWindow::LOG_I};
+    ModalDriver operationDriver{choice};
+    operationDriver.start();
     ASSERT_EQ(startEcuOperations(window, "read"), 0);
 
-    ASSERT_TRUE(operation_driver.sawChooser());
-    ASSERT_EQ(operation_driver.ignitionCount(), expected_ignition_count);
-    ASSERT_TRUE(!operation_driver.timedOut());
-    ASSERT_EQ(operation_driver.unexpectedFlashDialogCount(), 0);
+    ASSERT_TRUE(operationDriver.sawChooser());
+    ASSERT_EQ(operationDriver.ignitionCount(), expectedIgnitionCount);
+    ASSERT_TRUE(!operationDriver.timedOut());
+    ASSERT_EQ(operationDriver.unexpectedFlashDialogCount(), 0);
 
     fastecu::testing::process_events_for(std::chrono::milliseconds(window.vbatt_timer_->interval() + 100));
     ASSERT_TRUE(!window.vbatt_timer_->isActive());
     ASSERT_TRUE(window.calibrations_.empty());
     ASSERT_TRUE(services.calibrations.ids().empty());
-    const QString expected_line = choice.isEmpty() ? "No option selected" : "Attempting TCU relearn";
-    ASSERT_TRUE(std::ranges::any_of(info_lines.snapshot(),
-                                    [&](const auto& arguments) { return std::get<0>(arguments) == expected_line; }));
+    const QString expectedLine = choice.isEmpty() ? "No option selected" : "Attempting TCU relearn";
+    ASSERT_TRUE(std::ranges::any_of(infoLines.snapshot(),
+                                    [&](const auto& arguments) { return std::get<0>(arguments) == expectedLine; }));
 }
 
 TEST_P(HandledDensoTcuReadChoicesRunMainWindowCleanupAndStopVoltagePollingParameters,
@@ -1307,13 +1307,13 @@ INSTANTIATE_TEST_SUITE_P(
 void MainWindowTest::check_futureDensoSuffixesDoNotInstantiateKlineOrPerformEcuIo(QString protocol)
 {
 
-    ModalDriver constructor_driver{QString()};
-    constructor_driver.start();
+    ModalDriver constructorDriver{QString()};
+    constructorDriver.start();
     TestServices services{config_root_->path()};
     ASSERT_TRUE(services.config_status.has_value());
     ASSERT_TRUE(services.fake != nullptr);
     MainWindow window{services.services()};
-    constructor_driver.stop();
+    constructorDriver.stop();
 
     FakeBackend *fake = services.fake;
     EXPECT_CALL(*fake, open_serial_port()).Times(0);
@@ -1326,15 +1326,15 @@ void MainWindowTest::check_futureDensoSuffixesDoNotInstantiateKlineOrPerformEcuI
     window.serial_port_list_->setCurrentIndex(0);
     ASSERT_NO_FATAL_FAILURE(selectSubaruProtocol(window, protocol));
 
-    ModalDriver operation_driver{QString()};
-    operation_driver.start();
+    ModalDriver operationDriver{QString()};
+    operationDriver.start();
     ASSERT_EQ(startEcuOperations(window, "read"), 0);
-    operation_driver.stop();
+    operationDriver.stop();
 
-    ASSERT_TRUE(!operation_driver.timedOut());
-    ASSERT_EQ(operation_driver.legacyEcuIgnitionCount(), 0);
-    ASSERT_EQ(operation_driver.portableEcuIgnitionCount(), 0);
-    ASSERT_EQ(operation_driver.unexpectedFlashDialogCount(), 0);
+    ASSERT_TRUE(!operationDriver.timedOut());
+    ASSERT_EQ(operationDriver.legacyEcuIgnitionCount(), 0);
+    ASSERT_EQ(operationDriver.portableEcuIgnitionCount(), 0);
+    ASSERT_EQ(operationDriver.unexpectedFlashDialogCount(), 0);
 }
 
 TEST_P(FutureDensoSuffixesDoNotInstantiateKlineOrPerformEcuIoParameters,
@@ -1390,13 +1390,13 @@ INSTANTIATE_TEST_SUITE_P(
 void MainWindowTest::check_representativePortableRoutesReachFactoryBeforeLegacyFallback(QString protocol)
 {
 
-    ModalDriver constructor_driver{QString()};
-    constructor_driver.start();
+    ModalDriver constructorDriver{QString()};
+    constructorDriver.start();
     TestServices services{config_root_->path()};
     ASSERT_TRUE(services.config_status.has_value());
     ASSERT_TRUE(services.fake != nullptr);
     MainWindow window{services.services()};
-    constructor_driver.stop();
+    constructorDriver.stop();
 
     FakeBackend *fake = services.fake;
     EXPECT_CALL(*fake, open_serial_port()).Times(0);
@@ -1409,14 +1409,14 @@ void MainWindowTest::check_representativePortableRoutesReachFactoryBeforeLegacyF
     window.serial_port_list_->setCurrentIndex(0);
     ASSERT_NO_FATAL_FAILURE(selectSubaruProtocol(window, protocol));
 
-    ModalDriver operation_driver{QString()};
-    operation_driver.start();
+    ModalDriver operationDriver{QString()};
+    operationDriver.start();
     ASSERT_EQ(startEcuOperations(window, "read"), 0);
-    operation_driver.stop();
+    operationDriver.stop();
 
-    ASSERT_TRUE(!operation_driver.timedOut());
-    ASSERT_EQ(operation_driver.legacyEcuIgnitionCount(), 0);
-    ASSERT_EQ(operation_driver.portableEcuIgnitionCount(), 1);
+    ASSERT_TRUE(!operationDriver.timedOut());
+    ASSERT_EQ(operationDriver.legacyEcuIgnitionCount(), 0);
+    ASSERT_EQ(operationDriver.portableEcuIgnitionCount(), 1);
 }
 
 TEST_P(RepresentativePortableRoutesReachFactoryBeforeLegacyFallbackParameters,
@@ -1450,13 +1450,13 @@ INSTANTIATE_TEST_SUITE_P(Rows, WriteWithoutASelectedCalibrationStopsVoltagePolli
                          ::testing::ValuesIn(writeCommandRows()), writeCommandName);
 void MainWindowTest::check_writeWithoutASelectedCalibrationStopsVoltagePolling(QString command)
 {
-    ModalDriver constructor_driver{QString()};
-    constructor_driver.start();
+    ModalDriver constructorDriver{QString()};
+    constructorDriver.start();
     TestServices services{config_root_->path()};
     ASSERT_TRUE(services.config_status.has_value());
     ASSERT_TRUE(services.fake != nullptr);
     MainWindow window{services.services()};
-    constructor_driver.stop();
+    constructorDriver.stop();
 
     FakeBackend *fake = services.fake;
     EXPECT_CALL(*fake, open_serial_port()).Times(0);
@@ -1468,13 +1468,13 @@ void MainWindowTest::check_writeWithoutASelectedCalibrationStopsVoltagePolling(Q
     window.serial_port_list_->setCurrentIndex(0);
     ASSERT_NO_FATAL_FAILURE(selectSubaruProtocol(window, "sub_ecu_denso_sh7058_can"));
 
-    ModalDriver operation_driver{QString()};
-    operation_driver.start();
+    ModalDriver operationDriver{QString()};
+    operationDriver.start();
     ASSERT_EQ(startEcuOperations(window, command), 0);
-    operation_driver.stop();
+    operationDriver.stop();
 
-    ASSERT_TRUE(!operation_driver.timedOut());
-    ASSERT_EQ(operation_driver.noFileSelectedCount(), 1);
+    ASSERT_TRUE(!operationDriver.timedOut());
+    ASSERT_EQ(operationDriver.noFileSelectedCount(), 1);
     ASSERT_TRUE(!window.vbatt_timer_->isActive());
 }
 
@@ -1486,13 +1486,13 @@ TEST_P(WriteWithoutASelectedCalibrationStopsVoltagePollingParameters,
 
 void MainWindowTest::check_otherMakesSkipDispatchButStillRunCleanup()
 {
-    ModalDriver constructor_driver{QString()};
-    constructor_driver.start();
+    ModalDriver constructorDriver{QString()};
+    constructorDriver.start();
     TestServices services{config_root_->path()};
     ASSERT_TRUE(services.config_status.has_value());
     ASSERT_TRUE(services.fake != nullptr);
     MainWindow window{services.services()};
-    constructor_driver.stop();
+    constructorDriver.stop();
 
     FakeBackend *fake = services.fake;
     EXPECT_CALL(*fake, open_serial_port()).Times(0);
@@ -1503,13 +1503,13 @@ void MainWindowTest::check_otherMakesSkipDispatchButStillRunCleanup()
     window.serial_port_list_->setCurrentIndex(0);
     ASSERT_NO_FATAL_FAILURE(selectMake(window, "Nissan"));
 
-    ModalDriver operation_driver{QString()};
-    operation_driver.start();
+    ModalDriver operationDriver{QString()};
+    operationDriver.start();
     ASSERT_EQ(startEcuOperations(window, "read"), 0);
-    operation_driver.stop();
+    operationDriver.stop();
 
-    ASSERT_TRUE(!operation_driver.timedOut());
-    ASSERT_EQ(operation_driver.unexpectedFlashDialogCount(), 0);
+    ASSERT_TRUE(!operationDriver.timedOut());
+    ASSERT_EQ(operationDriver.unexpectedFlashDialogCount(), 0);
     ASSERT_TRUE(!window.vbatt_timer_->isActive());
 }
 
@@ -1520,13 +1520,13 @@ TEST_F(MainWindowTest, otherMakesSkipDispatchButStillRunCleanup)
 
 void MainWindowTest::check_readOfAnUnsupportedProtocolAddsNoCalibration()
 {
-    ModalDriver constructor_driver{QString()};
-    constructor_driver.start();
+    ModalDriver constructorDriver{QString()};
+    constructorDriver.start();
     TestServices services{config_root_->path()};
     ASSERT_TRUE(services.config_status.has_value());
     ASSERT_TRUE(services.fake != nullptr);
     MainWindow window{services.services()};
-    constructor_driver.stop();
+    constructorDriver.stop();
 
     window.serial_ports_ = {"OpenPort 2.0"};
     window.serial_port_list_->clear();
@@ -1535,12 +1535,12 @@ void MainWindowTest::check_readOfAnUnsupportedProtocolAddsNoCalibration()
     ASSERT_NO_FATAL_FAILURE(selectSubaruProtocol(window, "sub_ecu_not_a_real_protocol"));
     ASSERT_EQ(window.calibrations_.size(), std::size_t{0});
 
-    ModalDriver operation_driver{QString()};
-    operation_driver.start();
+    ModalDriver operationDriver{QString()};
+    operationDriver.start();
     ASSERT_EQ(startEcuOperations(window, "read"), 0);
-    operation_driver.stop();
+    operationDriver.stop();
 
-    ASSERT_TRUE(!operation_driver.timedOut());
+    ASSERT_TRUE(!operationDriver.timedOut());
     ASSERT_EQ(window.calibrations_.size(), std::size_t{0});
     ASSERT_TRUE(services.calibrations.ids().empty());
     ASSERT_EQ(window.ui_->calibrationFilesTreeWidget->topLevelItemCount(), 0);
@@ -1559,13 +1559,13 @@ INSTANTIATE_TEST_SUITE_P(Rows, CancellingTheChecksumWarningStopsVoltagePollingPa
                          ::testing::ValuesIn(writeCommandRows()), writeCommandName);
 void MainWindowTest::check_cancellingTheChecksumWarningStopsVoltagePolling(QString command)
 {
-    ModalDriver constructor_driver{QString()};
-    constructor_driver.start();
+    ModalDriver constructorDriver{QString()};
+    constructorDriver.start();
     TestServices services{config_root_->path()};
     ASSERT_TRUE(services.config_status.has_value());
     ASSERT_TRUE(services.fake != nullptr);
     MainWindow window{services.services()};
-    constructor_driver.stop();
+    constructorDriver.stop();
 
     FakeBackend *fake = services.fake;
     EXPECT_CALL(*fake, open_serial_port()).Times(0);
@@ -1576,22 +1576,22 @@ void MainWindowTest::check_cancellingTheChecksumWarningStopsVoltagePolling(QStri
     window.serial_port_list_->addItem("OpenPort 2.0");
     window.serial_port_list_->setCurrentIndex(0);
     QTemporaryDir roms;
-    const QString rom_path = writeRom(roms, "test.bin", '\x5a', 16);
-    ASSERT_TRUE(!rom_path.isEmpty());
-    ModalDriver open_driver{QString()};
-    open_driver.start();
-    ASSERT_EQ(window.open_calibration_file(rom_path), 0);
-    open_driver.stop();
-    ASSERT_EQ(open_driver.missingDefinitionPromptCount(), 1);
+    const QString romPath = writeRom(roms, "test.bin", '\x5a', 16);
+    ASSERT_TRUE(!romPath.isEmpty());
+    ModalDriver openDriver{QString()};
+    openDriver.start();
+    ASSERT_EQ(window.open_calibration_file(romPath), 0);
+    openDriver.stop();
+    ASSERT_EQ(openDriver.missingDefinitionPromptCount(), 1);
     ASSERT_NO_FATAL_FAILURE(selectSubaruProtocol(window, "sub_ecu_denso_sh7058_can_checksum_na"));
 
-    ModalDriver operation_driver{QString()};
-    operation_driver.start();
+    ModalDriver operationDriver{QString()};
+    operationDriver.start();
     ASSERT_EQ(startEcuOperations(window, command), 0);
-    operation_driver.stop();
+    operationDriver.stop();
 
-    ASSERT_TRUE(!operation_driver.timedOut());
-    ASSERT_EQ(operation_driver.checksumWarningCount(), 1);
+    ASSERT_TRUE(!operationDriver.timedOut());
+    ASSERT_EQ(operationDriver.checksumWarningCount(), 1);
     ASSERT_TRUE(std::ranges::all_of(services.calibrations.find(window.calibrations_.front().id)->rom(),
                                     [](auto byte) { return byte == 0x5a; }));
     ASSERT_TRUE(!window.vbatt_timer_->isActive());
@@ -1604,12 +1604,12 @@ TEST_P(CancellingTheChecksumWarningStopsVoltagePollingParameters, cancellingTheC
 
 void MainWindowTest::check_definitionlessOpenPromptsOnceAndAppliesPlaceholders()
 {
-    ModalDriver constructor_driver{QString()};
-    constructor_driver.start();
+    ModalDriver constructorDriver{QString()};
+    constructorDriver.start();
     TestServices services{config_root_->path()};
     ASSERT_TRUE(services.config_status.has_value());
     MainWindow window{services.services()};
-    constructor_driver.stop();
+    constructorDriver.stop();
     QTemporaryDir roms;
     const QString path = writeRom(roms, "a.bin", '\x11');
 
@@ -1621,10 +1621,10 @@ void MainWindowTest::check_definitionlessOpenPromptsOnceAndAppliesPlaceholders()
     ASSERT_TRUE(!driver.timedOut());
     ASSERT_EQ(driver.missingDefinitionPromptCount(), 1);
     ASSERT_EQ(window.calibrations_.size(), std::size_t{1});
-    QTreeWidgetItem *rom_info = window.ui_->calibrationDataTreeWidget->topLevelItem(0);
-    ASSERT_EQ(rom_info->text(0), QString("ROM Info"));
-    ASSERT_EQ(rom_info->child(0)->text(0), QString("XML ID: UnknownID"));
-    ASSERT_EQ(rom_info->child(4)->text(0), "Make: " + qs(services.config.selected_vehicle()->make));
+    QTreeWidgetItem *romInfo = window.ui_->calibrationDataTreeWidget->topLevelItem(0);
+    ASSERT_EQ(romInfo->text(0), QString("ROM Info"));
+    ASSERT_EQ(romInfo->child(0)->text(0), QString("XML ID: UnknownID"));
+    ASSERT_EQ(romInfo->child(4)->text(0), "Make: " + qs(services.config.selected_vehicle()->make));
     ASSERT_EQ(window.calibrations_.front().view.missing_definition_make,
               std::optional<QString>(qs(services.config.selected_vehicle()->make)));
     ASSERT_EQ(services.calibrations.find(window.calibrations_.front().id)->source().display_name, std::string{"a.bin"});
@@ -1640,12 +1640,12 @@ TEST_F(MainWindowTest, definitionlessOpenPromptsOnceAndAppliesPlaceholders)
 
 void MainWindowTest::check_closingAMiddleRomKeepsLaterRomsAddressable()
 {
-    ModalDriver constructor_driver{QString()};
-    constructor_driver.start();
+    ModalDriver constructorDriver{QString()};
+    constructorDriver.start();
     TestServices services{config_root_->path()};
     ASSERT_TRUE(services.config_status.has_value());
     MainWindow window{services.services()};
-    constructor_driver.stop();
+    constructorDriver.stop();
     QTemporaryDir roms;
     ModalDriver driver{QString()};
     driver.start();
@@ -1657,7 +1657,7 @@ void MainWindowTest::check_closingAMiddleRomKeepsLaterRomsAddressable()
     const auto a = window.calibrations_.at(0).id;
     const auto c = window.calibrations_.at(2).id;
     QTreeWidget *files = window.ui_->calibrationFilesTreeWidget;
-    const QString c_key = files->topLevelItem(2)->text(2);
+    const QString cKey = files->topLevelItem(2)->text(2);
 
     for (int i = 0; i < files->topLevelItemCount(); ++i)
     {
@@ -1668,7 +1668,7 @@ void MainWindowTest::check_closingAMiddleRomKeepsLaterRomsAddressable()
     ASSERT_EQ(window.calibrations_.size(), std::size_t{2});
     ASSERT_EQ(services.calibrations.ids(), (std::vector{a, c}));
     ASSERT_EQ(files->topLevelItemCount(), 2);
-    ASSERT_EQ(files->topLevelItem(1)->text(2), c_key); // not renumbered
+    ASSERT_EQ(files->topLevelItem(1)->text(2), cKey); // not renumbered
     ASSERT_TRUE(services.calibrations.find(c) != nullptr);
     ASSERT_EQ(services.calibrations.find(c)->source().display_name, std::string{"c.bin"});
     ASSERT_EQ(services.calibrations.find(c)->rom()[0], std::uint8_t{0x0c});
@@ -1681,12 +1681,12 @@ TEST_F(MainWindowTest, closingAMiddleRomKeepsLaterRomsAddressable)
 
 void MainWindowTest::check_windowsOfAClosedRomAreInert()
 {
-    ModalDriver constructor_driver{QString()};
-    constructor_driver.start();
+    ModalDriver constructorDriver{QString()};
+    constructorDriver.start();
     TestServices services{config_root_->path()};
     ASSERT_TRUE(services.config_status.has_value());
     MainWindow window{services.services()};
-    constructor_driver.stop();
+    constructorDriver.stop();
     QTemporaryDir roms;
     ModalDriver driver{QString()};
     driver.start();
@@ -1703,13 +1703,13 @@ void MainWindowTest::check_windowsOfAClosedRomAreInert()
     sub->setObjectName(stale);
     content->setObjectName(stale);
     window.ui_->mdiArea->setActiveSubWindow(sub);
-    QObject destroyed_window;
-    destroyed_window.setObjectName(stale);
+    QObject destroyedWindow;
+    destroyedWindow.setObjectName(stale);
 
     window.set_maptablewidget_items();
     window.selectable_combobox_item_changed("anything");
     window.checkbox_state_changed(2);
-    window.close_calibration_map(&destroyed_window);
+    window.close_calibration_map(&destroyedWindow);
 
     ASSERT_EQ(window.calibrations_.size(), std::size_t{1});
     ASSERT_EQ(window.ui_->calibrationFilesTreeWidget->topLevelItemCount(), 1);
@@ -1722,12 +1722,12 @@ TEST_F(MainWindowTest, windowsOfAClosedRomAreInert)
 
 void MainWindowTest::check_hexEditorOutlivesItsRom()
 {
-    ModalDriver constructor_driver{QString()};
-    constructor_driver.start();
+    ModalDriver constructorDriver{QString()};
+    constructorDriver.start();
     TestServices services{config_root_->path()};
     ASSERT_TRUE(services.config_status.has_value());
     MainWindow window{services.services()};
-    constructor_driver.stop();
+    constructorDriver.stop();
     QTemporaryDir roms;
     ModalDriver driver{QString()};
     driver.start();
@@ -1748,21 +1748,21 @@ TEST_F(MainWindowTest, hexEditorOutlivesItsRom)
 
 void MainWindowTest::check_closingARomClosesAllOfItsWindows()
 {
-    ModalDriver constructor_driver{QString()};
-    constructor_driver.start();
+    ModalDriver constructorDriver{QString()};
+    constructorDriver.start();
     TestServices services{config_root_->path()};
     ASSERT_TRUE(services.config_status.has_value());
     MainWindow window{services.services()};
-    constructor_driver.stop();
+    constructorDriver.stop();
     QTemporaryDir roms;
     ModalDriver driver{QString()};
     driver.start();
     ASSERT_EQ(window.open_calibration_file(writeRom(roms, "a.bin", '\x0a')), 0);
     ASSERT_EQ(window.open_calibration_file(writeRom(roms, "b.bin", '\x0b')), 0);
     driver.stop();
-    const QString a_key = fastecu::ui::session_key_text(window.calibrations_.at(0).id);
-    const QString b_key = fastecu::ui::session_key_text(window.calibrations_.at(1).id);
-    for (const QString& name : {a_key + ",0,X", a_key + ",1,Y", b_key + ",0,Z"})
+    const QString aKey = fastecu::ui::session_key_text(window.calibrations_.at(0).id);
+    const QString bKey = fastecu::ui::session_key_text(window.calibrations_.at(1).id);
+    for (const QString& name : {aKey + ",0,X", aKey + ",1,Y", bKey + ",0,Z"})
     {
         auto *content = new QWidget;
         QMdiSubWindow *sub = window.ui_->mdiArea->addSubWindow(content);
@@ -1781,7 +1781,7 @@ void MainWindowTest::check_closingARomClosesAllOfItsWindows()
     {
         remaining << sub->objectName();
     }
-    ASSERT_EQ(remaining, QStringList{b_key + ",0,Z"});
+    ASSERT_EQ(remaining, QStringList{bKey + ",0,Z"});
 }
 
 TEST_F(MainWindowTest, closingARomClosesAllOfItsWindows)
@@ -1791,12 +1791,12 @@ TEST_F(MainWindowTest, closingARomClosesAllOfItsWindows)
 
 void MainWindowTest::check_viewStateIsKeptPerRom()
 {
-    ModalDriver constructor_driver{QString()};
-    constructor_driver.start();
+    ModalDriver constructorDriver{QString()};
+    constructorDriver.start();
     TestServices services{config_root_->path()};
     ASSERT_TRUE(services.config_status.has_value());
     MainWindow window{services.services()};
-    constructor_driver.stop();
+    constructorDriver.stop();
     QTemporaryDir roms;
     ModalDriver driver{QString()};
     driver.start();
@@ -1805,7 +1805,7 @@ void MainWindowTest::check_viewStateIsKeptPerRom()
     driver.stop();
     QTreeWidget *files = window.ui_->calibrationFilesTreeWidget;
     QTreeWidget *data = window.ui_->calibrationDataTreeWidget;
-    const auto select_rom = [&](int row)
+    const auto selectRom = [&](int row)
     {
         for (int i = 0; i < files->topLevelItemCount(); ++i)
         {
@@ -1814,11 +1814,11 @@ void MainWindowTest::check_viewStateIsKeptPerRom()
         window.calibration_files_treewidget_item_selected(files->topLevelItem(row));
     };
 
-    select_rom(0);
+    selectRom(0);
     window.calibration_data_treewidget_item_expanded(data->topLevelItem(0)); // ROM Info
-    select_rom(1);
+    selectRom(1);
     ASSERT_TRUE(!data->topLevelItem(0)->isExpanded());
-    select_rom(0);
+    selectRom(0);
     ASSERT_TRUE(data->topLevelItem(0)->isExpanded());
     ASSERT_TRUE(window.calibrations_.at(0).view.rom_info_expanded);
     ASSERT_TRUE(!window.calibrations_.at(1).view.rom_info_expanded);
@@ -1990,38 +1990,38 @@ TEST_F(MainWindowTest, calibrationLogsReachTheLogChannel)
 
 void MainWindowTest::check_saveAsChangesSourceAndTreeOnlyAfterSuccess()
 {
-    const bool native_disabled = QApplication::testAttribute(Qt::AA_DontUseNativeDialogs);
+    const bool nativeDisabled = QApplication::testAttribute(Qt::AA_DontUseNativeDialogs);
     QApplication::setAttribute(Qt::AA_DontUseNativeDialogs, true);
-    const auto restore_dialogs =
-        qScopeGuard([&] { QApplication::setAttribute(Qt::AA_DontUseNativeDialogs, native_disabled); });
+    const auto restoreDialogs =
+        qScopeGuard([&] { QApplication::setAttribute(Qt::AA_DontUseNativeDialogs, nativeDisabled); });
     ModalDriver driver{QString()};
     driver.start();
     TestServices services{config_root_->path()};
     ASSERT_TRUE(services.config_status.has_value());
     MainWindow window{services.services()};
     QTemporaryDir files;
-    const QString original_path = writeRom(files, "original.bin", '\x11');
-    ASSERT_EQ(window.open_calibration_file(original_path), 0);
+    const QString originalPath = writeRom(files, "original.bin", '\x11');
+    ASSERT_EQ(window.open_calibration_file(originalPath), 0);
     auto *session = services.calibrations.find(window.calibrations_.front().id);
     ASSERT_TRUE(session != nullptr);
     auto protocol = session->protocol();
     protocol.mcu_type.clear(); // Unknown MCU preserves bytes without a checksum dialog.
     session->set_protocol(protocol);
     ASSERT_TRUE(session->write_bytes(0, bytes::Bytes{9}).has_value());
-    const auto original_source = session->source();
+    const auto originalSource = session->source();
     QTreeWidgetItem *row = window.ui_->calibrationFilesTreeWidget->topLevelItem(0);
-    const QString original_label = row->text(0);
+    const QString originalLabel = row->text(0);
     driver.stop();
 
     ASSERT_TRUE(driveSaveAs(window, {}, true, false));
-    ASSERT_TRUE(session->source() == original_source);
+    ASSERT_TRUE(session->source() == originalSource);
     ASSERT_TRUE(session->dirty());
-    ASSERT_EQ(row->text(0), original_label);
+    ASSERT_EQ(row->text(0), originalLabel);
     const QString blocked = files.path() + "/blocked.bin";
     ASSERT_TRUE(driveSaveAs(window, blocked, false, true));
-    ASSERT_TRUE(session->source() == original_source);
+    ASSERT_TRUE(session->source() == originalSource);
     ASSERT_TRUE(session->dirty());
-    ASSERT_EQ(row->text(0), original_label);
+    ASSERT_EQ(row->text(0), originalLabel);
     ASSERT_TRUE(driveSaveAs(window, files.path() + "/renamed.", false, false));
     ASSERT_EQ(session->source().path, (files.path() + "/renamed.bin").toStdString());
     ASSERT_EQ(session->source().display_name, std::string{"renamed.bin"});
@@ -2043,10 +2043,10 @@ TEST_F(MainWindowTest, saveAsChangesSourceAndTreeOnlyAfterSuccess)
 // row label, never the row selected later.
 void MainWindowTest::check_saveAsUpdatesOriginalSessionAfterSelectionChanges()
 {
-    const bool native_disabled = QApplication::testAttribute(Qt::AA_DontUseNativeDialogs);
+    const bool nativeDisabled = QApplication::testAttribute(Qt::AA_DontUseNativeDialogs);
     QApplication::setAttribute(Qt::AA_DontUseNativeDialogs, true);
-    const auto restore_dialogs =
-        qScopeGuard([&] { QApplication::setAttribute(Qt::AA_DontUseNativeDialogs, native_disabled); });
+    const auto restoreDialogs =
+        qScopeGuard([&] { QApplication::setAttribute(Qt::AA_DontUseNativeDialogs, nativeDisabled); });
     ModalDriver driver{QString()};
     driver.start();
     TestServices services{config_root_->path()};
@@ -2067,12 +2067,12 @@ void MainWindowTest::check_saveAsUpdatesOriginalSessionAfterSelectionChanges()
         protocol.mcu_type.clear(); // Unknown MCU preserves bytes without a checksum dialog.
         session->set_protocol(protocol);
     }
-    QTreeWidgetItem *a_row = window.files_tree_item(a->id());
-    QTreeWidgetItem *b_row = window.files_tree_item(b->id());
-    ASSERT_TRUE(a_row != nullptr);
-    ASSERT_TRUE(b_row != nullptr);
-    const auto b_source = b->source();
-    const std::string b_label = b_row->text(0).toStdString();
+    QTreeWidgetItem *aRow = window.files_tree_item(a->id());
+    QTreeWidgetItem *bRow = window.files_tree_item(b->id());
+    ASSERT_TRUE(aRow != nullptr);
+    ASSERT_TRUE(bRow != nullptr);
+    const auto bSource = b->source();
+    const std::string bLabel = bRow->text(0).toStdString();
     ASSERT_NO_FATAL_FAILURE(selectFilesRow(window, 0));
     ASSERT_EQ(window.selected_calibration(), a);
 
@@ -2081,9 +2081,9 @@ void MainWindowTest::check_saveAsUpdatesOriginalSessionAfterSelectionChanges()
 
     EXPECT_EQ(a->source().path, target.toStdString());
     EXPECT_EQ(a->source().display_name, std::string{"renamed.bin"});
-    EXPECT_EQ(a_row->text(0).toStdString(), std::string{"renamed.bin"});
-    EXPECT_TRUE(b->source() == b_source);
-    EXPECT_EQ(b_row->text(0).toStdString(), b_label);
+    EXPECT_EQ(aRow->text(0).toStdString(), std::string{"renamed.bin"});
+    EXPECT_TRUE(b->source() == bSource);
+    EXPECT_EQ(bRow->text(0).toStdString(), bLabel);
     EXPECT_EQ(window.selected_calibration(), b);
     EXPECT_THAT(services.file_repository.read(target.toStdString()),
                 fastecu::testing::IsOkAnd(::testing::Each(std::uint8_t{0x0a})));
@@ -2114,7 +2114,7 @@ void MainWindowTest::check_selectableSignalEditsItsEmittingSession()
     services.config.settings().ecuflash_definition_files_directory = files.path().toStdString();
     ASSERT_TRUE(
         services.definition_catalogs.refresh_index(fastecu::definition::DefinitionFormat::kEcuFlash).has_value());
-    const auto open_map = [&](const QString& name) -> CalibrationMaps *
+    const auto openMap = [&](const QString& name) -> CalibrationMaps *
     {
         const auto opened = services.calibrations.adopt_read_image({
             .rom = bytes::Bytes(16, 0),
@@ -2125,12 +2125,12 @@ void MainWindowTest::check_selectableSignalEditsItsEmittingSession()
         {
             return nullptr;
         }
-        auto *file_tree = window.ui_->calibrationFilesTreeWidget;
-        for (int row = 0; row < file_tree->topLevelItemCount(); ++row)
+        auto *fileTree = window.ui_->calibrationFilesTreeWidget;
+        for (int row = 0; row < fileTree->topLevelItemCount(); ++row)
         {
-            file_tree->topLevelItem(row)->setSelected(row == file_tree->topLevelItemCount() - 1);
+            fileTree->topLevelItem(row)->setSelected(row == fileTree->topLevelItemCount() - 1);
         }
-        window.calibration_files_treewidget_item_selected(file_tree->topLevelItem(file_tree->topLevelItemCount() - 1));
+        window.calibration_files_treewidget_item_selected(fileTree->topLevelItem(fileTree->topLevelItemCount() - 1));
         QTreeWidget *tree = window.ui_->calibrationDataTreeWidget;
         for (int i = 0; i < tree->topLevelItemCount(); ++i)
         {
@@ -2150,22 +2150,22 @@ void MainWindowTest::check_selectableSignalEditsItsEmittingSession()
         }
         return nullptr;
     };
-    CalibrationMaps *first = open_map(files.path() + "/first.bin");
+    CalibrationMaps *first = openMap(files.path() + "/first.bin");
     ASSERT_TRUE(first != nullptr);
-    const auto first_id = services.calibrations.ids().front();
-    CalibrationMaps *second = open_map(files.path() + "/second.bin");
+    const auto firstId = services.calibrations.ids().front();
+    CalibrationMaps *second = openMap(files.path() + "/second.bin");
     ASSERT_TRUE(second != nullptr);
     ASSERT_TRUE(first != second);
-    const auto second_id = services.calibrations.ids().back();
+    const auto secondId = services.calibrations.ids().back();
     ASSERT_TRUE(window.ui_->mdiArea->activeSubWindow()->widget() == second);
 
     // Emit from the inactive first map while the second ROM/window is selected.
     first->selectable_combobox_item_changed("enabled");
 
-    ASSERT_EQ(services.calibrations.find(first_id)->rom()[0], std::uint8_t{1});
-    ASSERT_TRUE(services.calibrations.find(first_id)->dirty());
-    ASSERT_EQ(services.calibrations.find(second_id)->rom()[0], std::uint8_t{0});
-    ASSERT_TRUE(!services.calibrations.find(second_id)->dirty());
+    ASSERT_EQ(services.calibrations.find(firstId)->rom()[0], std::uint8_t{1});
+    ASSERT_TRUE(services.calibrations.find(firstId)->dirty());
+    ASSERT_EQ(services.calibrations.find(secondId)->rom()[0], std::uint8_t{0});
+    ASSERT_TRUE(!services.calibrations.find(secondId)->dirty());
     driver.stop();
     ASSERT_TRUE(!driver.timedOut());
 }
@@ -2238,8 +2238,8 @@ TEST_F(MainWindowTest, failedMapDecodeKeepsAnErrorView)
 
 void MainWindowTest::check_windowPreservesInjectedLoggingFactory()
 {
-    ModalDriver constructor_driver{QString()};
-    constructor_driver.start();
+    ModalDriver constructorDriver{QString()};
+    constructorDriver.start();
     TestServices services{config_root_->path()};
     ASSERT_TRUE(services.config_status.has_value());
     ASSERT_TRUE(services.fake != nullptr);
@@ -2254,7 +2254,7 @@ void MainWindowTest::check_windowPreservesInjectedLoggingFactory()
             return protocol;
         });
     MainWindow window{services.services()};
-    constructor_driver.stop();
+    constructorDriver.stop();
     // This test checks ownership, not UI error dialogs. The next test
     // drives actual menu dispatch and checks the selected target.
     QObject::disconnect(&services.logging_engine, nullptr, &window, nullptr);
@@ -2285,13 +2285,13 @@ TEST_F(MainWindowTest, windowPreservesInjectedLoggingFactory)
 
 void MainWindowTest::check_loggingCapturesTargetForEachRun()
 {
-    ModalDriver constructor_driver{QString()};
-    constructor_driver.start();
+    ModalDriver constructorDriver{QString()};
+    constructorDriver.start();
     TestServices services{config_root_->path()};
     ASSERT_TRUE(services.config_status.has_value());
     ASSERT_TRUE(services.fake != nullptr);
     MainWindow window{services.services()};
-    constructor_driver.stop();
+    constructorDriver.stop();
     window.config_session_->settings().selected_log_protocol = "SSM";
     QAction *action = prepareLogging(window, "SSM");
     std::vector<bool> targets;
@@ -2373,10 +2373,10 @@ void MainWindowTest::check_chooserDialogsApplyAcceptedChoicesAndIgnoreCancellati
     ASSERT_TRUE(services.config_status.has_value());
     ASSERT_TRUE(services.config.select_row(0).has_value());
     ASSERT_TRUE(services.config.save().has_value());
-    ModalDriver constructor_driver{QString()};
-    constructor_driver.start();
+    ModalDriver constructorDriver{QString()};
+    constructorDriver.start();
     MainWindow window{services.services()};
-    constructor_driver.stop();
+    constructorDriver.stop();
     const auto target = services.config.vehicles()[1];
     std::size_t expected = 1;
     if (protocol)
@@ -2393,7 +2393,7 @@ void MainWindowTest::check_chooserDialogsApplyAcceptedChoicesAndIgnoreCancellati
     QElapsedTimer deadline;
     bool driven = false;
     bool unexpected = false;
-    bool timed_out = false;
+    bool timedOut = false;
     QObject::connect(
         &driver, &QTimer::timeout,
         [&]
@@ -2401,7 +2401,7 @@ void MainWindowTest::check_chooserDialogsApplyAcceptedChoicesAndIgnoreCancellati
             auto *dialog = qobject_cast<QDialog *>(QApplication::activeModalWidget());
             if (deadline.elapsed() > 3000)
             {
-                timed_out = true;
+                timedOut = true;
                 if (dialog)
                 {
                     dialog->reject();
@@ -2412,8 +2412,8 @@ void MainWindowTest::check_chooserDialogsApplyAcceptedChoicesAndIgnoreCancellati
             {
                 return;
             }
-            const char *expected_class = protocol ? "ProtocolSelect" : "VehicleSelect";
-            if (!dialog->inherits(expected_class))
+            const char *expectedClass = protocol ? "ProtocolSelect" : "VehicleSelect";
+            if (!dialog->inherits(expectedClass))
             {
                 unexpected = true;
                 dialog->reject();
@@ -2446,7 +2446,7 @@ void MainWindowTest::check_chooserDialogsApplyAcceptedChoicesAndIgnoreCancellati
                            selectText(dialog->findChild<QTreeWidget *>("car_model_tree_widget"), qs(target.model));
                 auto *versions = dialog->findChild<QTreeWidget *>("car_version_tree_widget");
                 selected = selected && versions != nullptr;
-                bool row_found = false;
+                bool rowFound = false;
                 if (versions)
                 {
                     for (int i = 0; i < versions->topLevelItemCount(); ++i)
@@ -2455,12 +2455,12 @@ void MainWindowTest::check_chooserDialogsApplyAcceptedChoicesAndIgnoreCancellati
                         if (item->text(12) == "1")
                         {
                             versions->setCurrentItem(item);
-                            row_found = true;
+                            rowFound = true;
                             break;
                         }
                     }
                 }
-                selected = selected && row_found;
+                selected = selected && rowFound;
             }
             auto *button = dialog->findChild<QPushButton *>(accept ? "select_button" : "cancel_button");
             driven = selected && button && button->isEnabled();
@@ -2487,7 +2487,7 @@ void MainWindowTest::check_chooserDialogsApplyAcceptedChoicesAndIgnoreCancellati
     driver.stop();
     ASSERT_TRUE(driven);
     ASSERT_TRUE(!unexpected);
-    ASSERT_TRUE(!timed_out);
+    ASSERT_TRUE(!timedOut);
     ASSERT_EQ(*services.config.selected_row(), accept ? expected : std::size_t{0});
     TestServices reread{root.path()};
     ASSERT_TRUE(reread.config_status.has_value());
@@ -2510,15 +2510,15 @@ void MainWindowTest::check_definitionManagerRemovesSelectedRowsAndSavesSurviving
     ASSERT_TRUE(services.config_status.has_value());
     services.config.settings().romraider_definition_files = {"/first.xml", "/middle.xml", "/last.xml"};
     ASSERT_TRUE(services.config.save().has_value());
-    ModalDriver constructor_driver{QString()};
-    constructor_driver.start();
+    ModalDriver constructorDriver{QString()};
+    constructorDriver.start();
     MainWindow window{services.services()};
-    constructor_driver.stop();
+    constructorDriver.stop();
     QTimer driver;
     QElapsedTimer deadline;
     bool driven = false;
     bool unexpected = false;
-    bool unchanged_without_selection = false;
+    bool unchangedWithoutSelection = false;
     QStringList displayed;
     QObject::connect(&driver, &QTimer::timeout,
                      [&]
@@ -2551,9 +2551,8 @@ void MainWindowTest::check_definitionManagerRemovesSelectedRowsAndSavesSurviving
                          }
                          list->clearSelection();
                          remove->click();
-                         unchanged_without_selection =
-                             services.config.settings().romraider_definition_files ==
-                             std::vector<std::string>{"/first.xml", "/middle.xml", "/last.xml"};
+                         unchangedWithoutSelection = services.config.settings().romraider_definition_files ==
+                                                     std::vector<std::string>{"/first.xml", "/middle.xml", "/last.xml"};
                          list->item(1)->setSelected(true);
                          remove->click();
                          for (int i = 0; i < list->count(); ++i)
@@ -2569,7 +2568,7 @@ void MainWindowTest::check_definitionManagerRemovesSelectedRowsAndSavesSurviving
     driver.stop();
     ASSERT_TRUE(driven);
     ASSERT_TRUE(!unexpected);
-    ASSERT_TRUE(unchanged_without_selection);
+    ASSERT_TRUE(unchangedWithoutSelection);
     ASSERT_EQ(displayed, (QStringList{"/first.xml", "/last.xml"}));
     const std::vector<std::string> expected{"/first.xml", "/last.xml"};
     ASSERT_EQ(services.config.settings().romraider_definition_files, expected);
@@ -2593,10 +2592,10 @@ void MainWindowTest::check_numericWindowGeometryRestoresAndPersistsAcrossWindowS
     services.config.settings().window_width = "900";
     services.config.settings().window_height = "700";
     ASSERT_TRUE(services.config.save().has_value());
-    ModalDriver constructor_driver{QString()};
-    constructor_driver.start();
+    ModalDriver constructorDriver{QString()};
+    constructorDriver.start();
     MainWindow window{services.services()};
-    constructor_driver.stop();
+    constructorDriver.stop();
     ASSERT_EQ(window.size(), QSize(900, 700));
     window.show();
     window.resize(950, 750);
@@ -2630,26 +2629,26 @@ TEST_F(MainWindowTest, numericWindowGeometryRestoresAndPersistsAcrossWindowState
 
 void MainWindowTest::check_acceptedVehicleChoiceSelectsTheRowAndSavesIt()
 {
-    ModalDriver constructor_driver{QString()};
-    constructor_driver.start();
+    ModalDriver constructorDriver{QString()};
+    constructorDriver.start();
     TestServices services{config_root_->path()};
     ASSERT_TRUE(services.config_status.has_value());
     MainWindow window{services.services()};
-    constructor_driver.stop();
-    const std::string flash_transport = services.config.settings().selected_flash_transport;
-    const std::string log_transport = services.config.settings().selected_log_transport;
+    constructorDriver.stop();
+    const std::string flashTransport = services.config.settings().selected_flash_transport;
+    const std::string logTransport = services.config.settings().selected_log_transport;
 
     window.apply_vehicle_choice(QDialog::Accepted, 1);
 
     ASSERT_EQ(*services.config.selected_row(), std::size_t{1});
     ASSERT_EQ(services.config.settings().selected_log_protocol, std::string("SSM"));
-    ASSERT_EQ(services.config.settings().selected_flash_transport, flash_transport);
-    ASSERT_EQ(services.config.settings().selected_log_transport, log_transport);
+    ASSERT_EQ(services.config.settings().selected_flash_transport, flashTransport);
+    ASSERT_EQ(services.config.settings().selected_log_transport, logTransport);
 
     // Saved: a fresh session over the same root restores row 1.
-    QtEventSink reread_events;
+    QtEventSink rereadEvents;
     fastecu::config::ConfigSession reread{kWindowCatalog, services.file_system, services.resource_bundle,
-                                          services.file_repository, reread_events};
+                                          services.file_repository, rereadEvents};
     ASSERT_TRUE(reread.initialize(config_root_->path().toStdString(), kTestApplication.version).has_value());
     ASSERT_EQ(reread.settings().selected_vehicle_id, std::string(kWindowVehicles[1].id));
 }
@@ -2661,12 +2660,12 @@ TEST_F(MainWindowTest, acceptedVehicleChoiceSelectsTheRowAndSavesIt)
 
 void MainWindowTest::check_cancelledVehicleChoiceChangesNothing()
 {
-    ModalDriver constructor_driver{QString()};
-    constructor_driver.start();
+    ModalDriver constructorDriver{QString()};
+    constructorDriver.start();
     TestServices services{config_root_->path()};
     ASSERT_TRUE(services.config_status.has_value());
     MainWindow window{services.services()};
-    constructor_driver.stop();
+    constructorDriver.stop();
     const auto before = services.config.settings();
 
     window.apply_vehicle_choice(QDialog::Rejected, 1);
@@ -2681,12 +2680,12 @@ TEST_F(MainWindowTest, cancelledVehicleChoiceChangesNothing)
 
 void MainWindowTest::check_acceptedProtocolChoiceSelectsTheLastMatchingRow()
 {
-    ModalDriver constructor_driver{QString()};
-    constructor_driver.start();
+    ModalDriver constructorDriver{QString()};
+    constructorDriver.start();
     TestServices services{config_root_->path()};
     ASSERT_TRUE(services.config_status.has_value());
     MainWindow window{services.services()};
-    constructor_driver.stop();
+    constructorDriver.stop();
     const auto vehicles = services.config.vehicles();
     std::size_t last = 0;
     for (std::size_t i = 0; i < vehicles.size(); ++i)
@@ -2709,12 +2708,12 @@ TEST_F(MainWindowTest, acceptedProtocolChoiceSelectsTheLastMatchingRow)
 
 void MainWindowTest::check_romFlashMethodSelectsTheLastMatchingRow()
 {
-    ModalDriver constructor_driver{QString()};
-    constructor_driver.start();
+    ModalDriver constructorDriver{QString()};
+    constructorDriver.start();
     TestServices services{config_root_->path()};
     ASSERT_TRUE(services.config_status.has_value());
     MainWindow window{services.services()};
-    constructor_driver.stop();
+    constructorDriver.stop();
     window.update_protocol_info("sub_ecu_denso_sh7058");
 
     ASSERT_EQ(*services.config.selected_row(), std::size_t{9}); // rows 3, 8, 9 match; the last wins
@@ -2728,12 +2727,12 @@ TEST_F(MainWindowTest, romFlashMethodSelectsTheLastMatchingRow)
 
 void MainWindowTest::check_unmatchedRomFlashMethodChangesNothing()
 {
-    ModalDriver constructor_driver{QString()};
-    constructor_driver.start();
+    ModalDriver constructorDriver{QString()};
+    constructorDriver.start();
     TestServices services{config_root_->path()};
     ASSERT_TRUE(services.config_status.has_value());
     MainWindow window{services.services()};
-    constructor_driver.stop();
+    constructorDriver.stop();
     const auto before = services.config.settings();
     window.update_protocol_info("no_such_protocol");
 
@@ -2747,12 +2746,12 @@ TEST_F(MainWindowTest, unmatchedRomFlashMethodChangesNothing)
 
 void MainWindowTest::check_restoreLoggingUiStateUnchecksLogging()
 {
-    ModalDriver constructor_driver{QString()};
-    constructor_driver.start();
+    ModalDriver constructorDriver{QString()};
+    constructorDriver.start();
     TestServices services{config_root_->path()};
     ASSERT_TRUE(services.config_status.has_value());
     MainWindow window{services.services()};
-    constructor_driver.stop();
+    constructorDriver.stop();
 
     QAction *logging = menuAction(window, kToggleRealtime);
     ASSERT_NE(logging, nullptr);
@@ -2773,12 +2772,12 @@ TEST_F(MainWindowTest, restoreLoggingUiStateUnchecksLogging)
 
 void MainWindowTest::check_setRealtimeStateChecksAndUnchecksLogging()
 {
-    ModalDriver constructor_driver{QString()};
-    constructor_driver.start();
+    ModalDriver constructorDriver{QString()};
+    constructorDriver.start();
     TestServices services{config_root_->path()};
     ASSERT_TRUE(services.config_status.has_value());
     MainWindow window{services.services()};
-    constructor_driver.stop();
+    constructorDriver.stop();
 
     QAction *logging = menuAction(window, kToggleRealtime);
     ASSERT_NE(logging, nullptr);
@@ -2796,29 +2795,29 @@ TEST_F(MainWindowTest, setRealtimeStateChecksAndUnchecksLogging)
 
 void MainWindowTest::check_identificationDisablesLoggingAndConnectButNotDisconnect()
 {
-    ModalDriver constructor_driver{QString()};
-    constructor_driver.start();
+    ModalDriver constructorDriver{QString()};
+    constructorDriver.start();
     TestServices services{config_root_->path()};
     ASSERT_TRUE(services.config_status.has_value());
     MainWindow window{services.services()};
-    constructor_driver.stop();
+    constructorDriver.stop();
 
     QAction *logging = menuAction(window, kToggleRealtime);
-    QAction *connect_action = menuAction(window, kConnectToEcu);
-    QAction *disconnect_action = menuAction(window, kDisconnectFromEcu);
+    QAction *connectAction = menuAction(window, kConnectToEcu);
+    QAction *disconnectAction = menuAction(window, kDisconnectFromEcu);
     ASSERT_NE(logging, nullptr);
-    ASSERT_NE(connect_action, nullptr);
-    ASSERT_NE(disconnect_action, nullptr);
+    ASSERT_NE(connectAction, nullptr);
+    ASSERT_NE(disconnectAction, nullptr);
 
     window.connection_presentation_.set_controls_locked(true);
     EXPECT_FALSE(logging->isEnabled());
-    EXPECT_FALSE(connect_action->isEnabled());
-    EXPECT_TRUE(disconnect_action->isEnabled());
+    EXPECT_FALSE(connectAction->isEnabled());
+    EXPECT_TRUE(disconnectAction->isEnabled());
 
     window.connection_presentation_.set_controls_locked(false);
     EXPECT_TRUE(logging->isEnabled());
-    EXPECT_TRUE(connect_action->isEnabled());
-    EXPECT_TRUE(disconnect_action->isEnabled());
+    EXPECT_TRUE(connectAction->isEnabled());
+    EXPECT_TRUE(disconnectAction->isEnabled());
 }
 
 TEST_F(MainWindowTest, identificationDisablesLoggingAndConnectButNotDisconnect)
@@ -2828,22 +2827,22 @@ TEST_F(MainWindowTest, identificationDisablesLoggingAndConnectButNotDisconnect)
 
 void MainWindowTest::check_logToFileActionDrivesWriteDatalogToFile()
 {
-    ModalDriver constructor_driver{QString()};
-    constructor_driver.start();
+    ModalDriver constructorDriver{QString()};
+    constructorDriver.start();
     TestServices services{config_root_->path()};
     ASSERT_TRUE(services.config_status.has_value());
     MainWindow window{services.services()};
-    constructor_driver.stop();
+    constructorDriver.stop();
 
-    QAction *log_to_file = menuAction(window, kLogToFile);
-    ASSERT_NE(log_to_file, nullptr);
-    ASSERT_TRUE(log_to_file->isCheckable());
+    QAction *logToFile = menuAction(window, kLogToFile);
+    ASSERT_NE(logToFile, nullptr);
+    ASSERT_TRUE(logToFile->isCheckable());
 
-    log_to_file->setChecked(true);
+    logToFile->setChecked(true);
     window.toggle_log_to_file();
     EXPECT_TRUE(window.write_datalog_to_file_);
 
-    log_to_file->setChecked(false);
+    logToFile->setChecked(false);
     window.toggle_log_to_file();
     EXPECT_FALSE(window.write_datalog_to_file_);
 }
@@ -2855,33 +2854,33 @@ TEST_F(MainWindowTest, logToFileActionDrivesWriteDatalogToFile)
 
 void MainWindowTest::check_flashActionsFollowTheSelectedProtocolsCapabilities()
 {
-    ModalDriver constructor_driver{QString()};
-    constructor_driver.start();
+    ModalDriver constructorDriver{QString()};
+    constructorDriver.start();
     TestServices services{config_root_->path()};
     ASSERT_TRUE(services.config_status.has_value());
     MainWindow window{services.services()};
-    constructor_driver.stop();
+    constructorDriver.stop();
 
-    QAction *read_action = menuAction(window, kReadRomFromEcu);
-    QAction *test_write_action = menuAction(window, kTestWriteRomToEcu);
-    QAction *write_action = menuAction(window, kWriteRomToEcu);
-    ASSERT_NE(read_action, nullptr);
-    ASSERT_NE(test_write_action, nullptr);
-    ASSERT_NE(write_action, nullptr);
+    QAction *readAction = menuAction(window, kReadRomFromEcu);
+    QAction *testWriteAction = menuAction(window, kTestWriteRomToEcu);
+    QAction *writeAction = menuAction(window, kWriteRomToEcu);
+    ASSERT_NE(readAction, nullptr);
+    ASSERT_NE(testWriteAction, nullptr);
+    ASSERT_NE(writeAction, nullptr);
 
     // A protocol with every capability enables all three...
     ASSERT_NO_FATAL_FAILURE(selectProtocol(window, "sub_ecu_denso_sh7058_can"));
     window.set_flash_arrow_state();
-    ASSERT_TRUE(read_action->isEnabled());
-    ASSERT_TRUE(test_write_action->isEnabled());
-    ASSERT_TRUE(write_action->isEnabled());
+    ASSERT_TRUE(readAction->isEnabled());
+    ASSERT_TRUE(testWriteAction->isEnabled());
+    ASSERT_TRUE(writeAction->isEnabled());
 
     // ...and one without test write disables only that action.
     ASSERT_NO_FATAL_FAILURE(selectProtocol(window, "sub_ecu_denso_sh7058"));
     window.set_flash_arrow_state();
-    ASSERT_TRUE(read_action->isEnabled());
-    ASSERT_TRUE(!test_write_action->isEnabled());
-    ASSERT_TRUE(write_action->isEnabled());
+    ASSERT_TRUE(readAction->isEnabled());
+    ASSERT_TRUE(!testWriteAction->isEnabled());
+    ASSERT_TRUE(writeAction->isEnabled());
 }
 
 TEST_F(MainWindowTest, flashActionsFollowTheSelectedProtocolsCapabilities)
@@ -2891,13 +2890,13 @@ TEST_F(MainWindowTest, flashActionsFollowTheSelectedProtocolsCapabilities)
 
 void MainWindowTest::check_loggingUsesTheSessionLogProtocol()
 {
-    ModalDriver constructor_driver{QString()};
-    constructor_driver.start();
+    ModalDriver constructorDriver{QString()};
+    constructorDriver.start();
     TestServices services{config_root_->path()};
     ASSERT_TRUE(services.config_status.has_value());
     ASSERT_TRUE(services.fake != nullptr);
     MainWindow window{services.services()};
-    constructor_driver.stop();
+    constructorDriver.stop();
     prepareLogging(window, "CDBG");
     services.logging_engine.registerProtocol("CDBG",
                                              [](const fastecu::desktop::logging::DesktopLoggingSnapshot&)
@@ -2924,13 +2923,13 @@ TEST_F(MainWindowTest, loggingUsesTheSessionLogProtocol)
 
 void MainWindowTest::check_selectedSerialPortIsEmptyWithoutPorts()
 {
-    ModalDriver constructor_driver{QString()};
-    constructor_driver.start();
+    ModalDriver constructorDriver{QString()};
+    constructorDriver.start();
     TestServices services{config_root_->path()};
     ASSERT_TRUE(services.config_status.has_value());
     ASSERT_TRUE(services.fake != nullptr);
     MainWindow window{services.services()};
-    constructor_driver.stop();
+    constructorDriver.stop();
     window.serial_ports_.clear();
     window.serial_port_list_->clear();
     ASSERT_EQ(window.selected_serial_port(), QString());
@@ -2946,13 +2945,13 @@ TEST_F(MainWindowTest, selectedSerialPortIsEmptyWithoutPorts)
 
 void MainWindowTest::check_dtcWindowWithoutAPortWarnsInsteadOfCrashing()
 {
-    ModalDriver constructor_driver{QString()};
-    constructor_driver.start();
+    ModalDriver constructorDriver{QString()};
+    constructorDriver.start();
     TestServices services{config_root_->path()};
     ASSERT_TRUE(services.config_status.has_value());
     ASSERT_TRUE(services.fake != nullptr);
     MainWindow window{services.services()};
-    constructor_driver.stop();
+    constructorDriver.stop();
     window.serial_ports_.clear();
     window.serial_port_list_->clear();
     EXPECT_CALL(*services.fake, set_serial_port_list(::testing::_)).Times(0);
@@ -2973,8 +2972,8 @@ TEST_F(MainWindowTest, dtcWindowWithoutAPortWarnsInsteadOfCrashing)
 
 void MainWindowTest::check_repeatedSaveFailuresLogOnceUntilASuccess()
 {
-    ModalDriver constructor_driver{QString()};
-    constructor_driver.start();
+    ModalDriver constructorDriver{QString()};
+    constructorDriver.start();
     QTemporaryDir root;
     ASSERT_TRUE(root.isValid());
     TestServices services{root.path()};
@@ -2982,29 +2981,29 @@ void MainWindowTest::check_repeatedSaveFailuresLogOnceUntilASuccess()
     // A fresh root has no saved vehicle; the startup gate would ask for one.
     ASSERT_TRUE(services.config.select_row(0).has_value());
     MainWindow window{services.services()};
-    constructor_driver.stop();
+    constructorDriver.stop();
     fastecu::testing::SignalRecorder errors{&window, &MainWindow::LOG_E};
-    const QString config_file = QString::fromStdString(services.config.provisioned_paths().config_file);
-    ASSERT_TRUE(QFile::remove(config_file));
-    ASSERT_TRUE(QDir().mkpath(config_file));
+    const QString configFile = QString::fromStdString(services.config.provisioned_paths().config_file);
+    ASSERT_TRUE(QFile::remove(configFile));
+    ASSERT_TRUE(QDir().mkpath(configFile));
 
     services.config.settings().toolbar_iconsize = "48";
     window.save_settings();
     window.save_settings();
     window.save_settings();
     ASSERT_EQ(errors.count(), 1U);
-    ASSERT_TRUE(std::get<0>(errors.snapshot().front()).contains(config_file));
+    ASSERT_TRUE(std::get<0>(errors.snapshot().front()).contains(configFile));
     ASSERT_EQ(services.config.settings().toolbar_iconsize, std::string("48"));
 
-    ASSERT_TRUE(QDir().rmdir(config_file));
+    ASSERT_TRUE(QDir().rmdir(configFile));
     window.save_settings();
     ASSERT_EQ(errors.count(), 1U);
-    QFile saved{config_file};
+    QFile saved{configFile};
     ASSERT_TRUE(saved.open(QIODevice::ReadOnly));
     ASSERT_TRUE(saved.readAll().contains(R"(data="48")"));
     saved.close();
-    ASSERT_TRUE(QFile::remove(config_file));
-    ASSERT_TRUE(QDir().mkpath(config_file));
+    ASSERT_TRUE(QFile::remove(configFile));
+    ASSERT_TRUE(QDir().mkpath(configFile));
     window.save_settings();
     ASSERT_EQ(errors.count(), 2U);
 }
@@ -3016,19 +3015,19 @@ TEST_F(MainWindowTest, repeatedSaveFailuresLogOnceUntilASuccess)
 
 void MainWindowTest::check_biuWindowRemembersTheOpenedPort()
 {
-    ModalDriver constructor_driver{QString()};
-    constructor_driver.start();
+    ModalDriver constructorDriver{QString()};
+    constructorDriver.start();
     TestServices services{config_root_->path()};
     ASSERT_TRUE(services.config_status.has_value());
     ASSERT_TRUE(services.fake != nullptr);
     MainWindow window{services.services()};
-    constructor_driver.stop();
+    constructorDriver.stop();
     ASSERT_NO_FATAL_FAILURE(prepareConnect(window, *services.fake, "Subaru", "K-Line"));
     ON_CALL(*services.fake, get_openedSerialPort()).WillByDefault(::testing::Return(QString("ttyUSB0")));
     window.previous_serial_port_.clear();
     window.config_session_->settings().serial_port = "none";
     window.save_settings();
-    const QString config_file =
+    const QString configFile =
         config_root_->path() + "/" + QString::fromStdString(kTestApplication.version) + "/config/fastecu.cfg";
 
     ModalDriver driver{QString()};
@@ -3040,7 +3039,7 @@ void MainWindowTest::check_biuWindowRemembersTheOpenedPort()
     // remembered for the next launch and as the previously opened port.
     ASSERT_EQ(window.previous_serial_port_, QString("ttyUSB0"));
     ASSERT_EQ(window.config_session_->settings().serial_port, std::string("ttyUSB0"));
-    QFile saved{config_file};
+    QFile saved{configFile};
     ASSERT_TRUE(saved.open(QIODevice::ReadOnly));
     ASSERT_TRUE(saved.readAll().contains(R"(data="ttyUSB0")"));
 }
@@ -3052,13 +3051,13 @@ TEST_F(MainWindowTest, biuWindowRemembersTheOpenedPort)
 
 void MainWindowTest::check_disconnectReturnsTheAdapterToIdle()
 {
-    ModalDriver constructor_driver{QString()};
-    constructor_driver.start();
+    ModalDriver constructorDriver{QString()};
+    constructorDriver.start();
     TestServices services{config_root_->path()};
     ASSERT_TRUE(services.config_status.has_value());
     ASSERT_TRUE(services.fake != nullptr);
     MainWindow window{services.services()};
-    constructor_driver.stop();
+    constructorDriver.stop();
     {
         ::testing::InSequence order;
         EXPECT_CALL(*services.fake, reset_connection());
@@ -3079,13 +3078,13 @@ TEST_F(MainWindowTest, disconnectReturnsTheAdapterToIdle)
 
 void MainWindowTest::check_connectOnAnotherMakeDisconnectsWithoutIdentifying()
 {
-    ModalDriver constructor_driver{QString()};
-    constructor_driver.start();
+    ModalDriver constructorDriver{QString()};
+    constructorDriver.start();
     TestServices services{config_root_->path()};
     ASSERT_TRUE(services.config_status.has_value());
     ASSERT_TRUE(services.fake != nullptr);
     MainWindow window{services.services()};
-    constructor_driver.stop();
+    constructorDriver.stop();
     ASSERT_NO_FATAL_FAILURE(prepareConnect(window, *services.fake, "Mitsubishi", "K-Line"));
     EXPECT_CALL(*services.fake, write_serial_data_echo_check(::testing::_)).Times(0);
     EXPECT_CALL(*services.fake, set_serial_port_parity(0)).Times(::testing::AtLeast(1));
@@ -3106,20 +3105,20 @@ TEST_F(MainWindowTest, connectOnAnotherMakeDisconnectsWithoutIdentifying)
 
 void MainWindowTest::check_subaruKlineConnectIdentifiesOffTheUiThread()
 {
-    ModalDriver constructor_driver{QString()};
-    constructor_driver.start();
+    ModalDriver constructorDriver{QString()};
+    constructorDriver.start();
     TestServices services{config_root_->path()};
     ASSERT_TRUE(services.config_status.has_value());
     ASSERT_TRUE(services.fake != nullptr);
     MainWindow window{services.services()};
-    constructor_driver.stop();
+    constructorDriver.stop();
     ASSERT_NO_FATAL_FAILURE(prepareConnect(window, *services.fake, "Subaru", "K-Line"));
-    std::atomic<bool> read_off_ui_thread = false;
+    std::atomic<bool> readOffUiThread = false;
     EXPECT_CALL(*services.fake, read_serial_data(::testing::_))
         .WillOnce(
-            [&window, &read_off_ui_thread](std::uint16_t)
+            [&window, &readOffUiThread](std::uint16_t)
             {
-                read_off_ui_thread.store(QThread::currentThread() != window.thread());
+                readOffUiThread.store(QThread::currentThread() != window.thread());
                 return kEcuInit;
             })
         .WillRepeatedly(::testing::Return(QByteArray{}));
@@ -3129,13 +3128,13 @@ void MainWindowTest::check_subaruKlineConnectIdentifiesOffTheUiThread()
     ASSERT_TRUE(!window.log_transport_list_->isEnabled());
     ASSERT_TRUE(!window.serial_port_list_->isEnabled());
 
-    constructor_driver.start();
+    constructorDriver.start();
     ASSERT_TRUE(fastecu::testing::wait_until([&] { return !window.connection_coordinator_->identifying(); },
                                              std::chrono::milliseconds(5000)));
-    constructor_driver.stop();
+    constructorDriver.stop();
     ASSERT_TRUE(window.ecu_init_complete_);
     ASSERT_EQ(window.ecuid_, QString("3152584006"));
-    ASSERT_TRUE(read_off_ui_thread.load());
+    ASSERT_TRUE(readOffUiThread.load());
     ASSERT_TRUE(!window.connection_coordinator_->identifying());
     ASSERT_TRUE(window.log_transport_list_->isEnabled());
     ASSERT_TRUE(!window.serial_port_list_->isEnabled()); // stays locked while connected, as before
@@ -3148,8 +3147,8 @@ TEST_F(MainWindowTest, subaruKlineConnectIdentifiesOffTheUiThread)
 
 void MainWindowTest::check_subaruConnectThatNeverAnswersDisconnectsAndRestoresControls()
 {
-    ModalDriver constructor_driver{QString()};
-    constructor_driver.start();
+    ModalDriver constructorDriver{QString()};
+    constructorDriver.start();
     TestServices services{config_root_->path()};
     ASSERT_TRUE(services.config_status.has_value());
     ASSERT_TRUE(services.fake != nullptr);
@@ -3161,7 +3160,7 @@ void MainWindowTest::check_subaruConnectThatNeverAnswersDisconnectsAndRestoresCo
         return clock;
     };
     MainWindow window{services.services()};
-    constructor_driver.stop();
+    constructorDriver.stop();
     ASSERT_NO_FATAL_FAILURE(prepareConnect(window, *services.fake, "Subaru", "K-Line"));
 
     ASSERT_TRUE(triggerMenu(window, kConnectToEcu));
@@ -3181,13 +3180,13 @@ TEST_F(MainWindowTest, subaruConnectThatNeverAnswersDisconnectsAndRestoresContro
 
 void MainWindowTest::check_disconnectDuringIdentificationCancelsAndDropsTheResult()
 {
-    ModalDriver constructor_driver{QString()};
-    constructor_driver.start();
+    ModalDriver constructorDriver{QString()};
+    constructorDriver.start();
     TestServices services{config_root_->path()};
     ASSERT_TRUE(services.config_status.has_value());
     ASSERT_TRUE(services.fake != nullptr);
     MainWindow window{services.services()};
-    constructor_driver.stop();
+    constructorDriver.stop();
     ASSERT_NO_FATAL_FAILURE(prepareConnect(window, *services.fake, "Subaru", "K-Line"));
 
     EXPECT_CALL(*services.fake, read_serial_data(::testing::_)).WillOnce(::testing::Return(kEcuInit));
@@ -3493,28 +3492,28 @@ INSTANTIATE_TEST_SUITE_P(Rows, LoggingStartWaitsForIdentificationParameters,
                              }
                              return name;
                          });
-void MainWindowTest::check_loggingStartWaitsForIdentification(bool target_is_ecu)
+void MainWindowTest::check_loggingStartWaitsForIdentification(bool targetIsEcu)
 {
 
-    QSemaphore response_gate;
-    ModalDriver constructor_driver{QString()};
-    constructor_driver.start();
+    QSemaphore responseGate;
+    ModalDriver constructorDriver{QString()};
+    constructorDriver.start();
     TestServices services{config_root_->path()};
     ASSERT_TRUE(services.config_status.has_value());
     ASSERT_TRUE(services.fake != nullptr);
     MainWindow window{services.services()};
-    constructor_driver.stop();
+    constructorDriver.stop();
     ASSERT_NO_FATAL_FAILURE(prepareConnect(window, *services.fake, "Subaru", "iso15765"));
     window.protocol_ = "SSM";
-    (target_is_ecu ? window.ecu_radio_button_ : window.tcu_radio_button_)->setChecked(true);
+    (targetIsEcu ? window.ecu_radio_button_ : window.tcu_radio_button_)->setChecked(true);
     EXPECT_CALL(*services.fake,
-                write_serial_data_echo_check(frame({0x00, 0x00, 0x07, target_is_ecu ? 0xE0 : 0xE1, 0x22, 0xF1, 0x82})));
+                write_serial_data_echo_check(frame({0x00, 0x00, 0x07, targetIsEcu ? 0xE0 : 0xE1, 0x22, 0xF1, 0x82})));
     EXPECT_CALL(*services.fake, read_serial_data(::testing::_))
         .WillOnce(
-            [&response_gate](std::uint16_t)
+            [&responseGate](std::uint16_t)
             {
                 // Bound the wait so an assertion failure can still join the worker.
-                response_gate.tryAcquire(1, 5000);
+                responseGate.tryAcquire(1, 5000);
                 return frame({0x00, 0x00, 0x07, 0xE8, 0x62, 0xF1, 0x82, 0x12, 0x34, 0x56, 0x78, 0x9A});
             })
         .WillRepeatedly(::testing::Return(QByteArray{}));
@@ -3531,12 +3530,12 @@ void MainWindowTest::check_loggingStartWaitsForIdentification(bool target_is_ecu
                                            .enabled = true,
                                            .conversions = {{"rpm", "x", "0", "0", "100", "1"}}}}},
                           {.protocol = std::string("SSM"), .lower_panel_ids = {"rpm"}});
-    bool target_frozen_in_continuation = false;
+    bool targetFrozenInContinuation = false;
     services.logging_engine.registerProtocol(
         "SSM",
-        [&window, &target_frozen_in_continuation](const fastecu::desktop::logging::DesktopLoggingSnapshot&)
+        [&window, &targetFrozenInContinuation](const fastecu::desktop::logging::DesktopLoggingSnapshot&)
         {
-            target_frozen_in_continuation =
+            targetFrozenInContinuation =
                 !window.ecu_radio_button_->isEnabled() && !window.tcu_radio_button_->isEnabled();
             auto protocol = std::make_unique<ScriptedLoggingProtocol>();
             protocol->blockPollUntilCancelled();
@@ -3549,15 +3548,15 @@ void MainWindowTest::check_loggingStartWaitsForIdentification(bool target_is_ecu
     ASSERT_TRUE(triggerMenu(window, kToggleRealtime));
     ASSERT_TRUE(action->isChecked());
     ASSERT_TRUE(!window.active_logging_snapshot_.has_value()); // still identifying
-    (target_is_ecu ? window.tcu_radio_button_ : window.ecu_radio_button_)->click();
-    response_gate.release();
+    (targetIsEcu ? window.tcu_radio_button_ : window.ecu_radio_button_)->click();
+    responseGate.release();
     ASSERT_TRUE(fastecu::testing::wait_until([&] { return window.active_logging_snapshot_.has_value(); },
                                              std::chrono::milliseconds(5000)));
     ASSERT_EQ(window.ecuid_, QString("123456789A"));
     ASSERT_TRUE(window.logger_model_->parameter_supported("SSM", "rpm"));
     ASSERT_TRUE(window.active_logging_snapshot_.has_value());
-    ASSERT_EQ(window.active_logging_snapshot_->target_is_ecu, target_is_ecu);
-    ASSERT_TRUE(target_frozen_in_continuation);
+    ASSERT_EQ(window.active_logging_snapshot_->target_is_ecu, targetIsEcu);
+    ASSERT_TRUE(targetFrozenInContinuation);
     ASSERT_TRUE(window.ecu_radio_button_->isEnabled());
     ASSERT_TRUE(window.tcu_radio_button_->isEnabled());
     services.logging_engine.stop();
@@ -3570,12 +3569,12 @@ TEST_P(LoggingStartWaitsForIdentificationParameters, loggingStartWaitsForIdentif
 
 void MainWindowTest::check_batterySamplingDoesNotUseTheFacadeDuringIdentification()
 {
-    ModalDriver constructor_driver{QString()};
-    constructor_driver.start();
+    ModalDriver constructorDriver{QString()};
+    constructorDriver.start();
     TestServices services{config_root_->path()};
     ASSERT_TRUE(services.config_status.has_value());
     MainWindow window{services.services()};
-    constructor_driver.stop();
+    constructorDriver.stop();
     ASSERT_NO_FATAL_FAILURE(prepareConnect(window, *services.fake, "Subaru", "K-Line"));
     ASSERT_TRUE(triggerMenu(window, kConnectToEcu));
     EXPECT_CALL(*services.fake, get_use_openport2_adapter()).Times(0);
@@ -3591,12 +3590,12 @@ TEST_F(MainWindowTest, batterySamplingDoesNotUseTheFacadeDuringIdentification)
 
 void MainWindowTest::check_windowDestructionJoinsIdentificationWithoutContinuingLogging()
 {
-    ModalDriver constructor_driver{QString()};
-    constructor_driver.start();
+    ModalDriver constructorDriver{QString()};
+    constructorDriver.start();
     TestServices services{config_root_->path()};
     ASSERT_TRUE(services.config_status.has_value());
     auto window = std::make_unique<MainWindow>(services.services());
-    constructor_driver.stop();
+    constructorDriver.stop();
     ASSERT_NO_FATAL_FAILURE(prepareConnect(*window, *services.fake, "Subaru", "K-Line"));
     bool continued = false;
     window->connect_to_ecu([&continued](bool) { continued = true; });
@@ -3613,12 +3612,12 @@ TEST_F(MainWindowTest, windowDestructionJoinsIdentificationWithoutContinuingLogg
 
 void MainWindowTest::check_connectStopsAnActiveLoggingWorkerBeforeIdentification()
 {
-    ModalDriver constructor_driver{QString()};
-    constructor_driver.start();
+    ModalDriver constructorDriver{QString()};
+    constructorDriver.start();
     TestServices services{config_root_->path()};
     ASSERT_TRUE(services.config_status.has_value());
     MainWindow window{services.services()};
-    constructor_driver.stop();
+    constructorDriver.stop();
     ASSERT_NO_FATAL_FAILURE(prepareConnect(window, *services.fake, "Subaru", "K-Line"));
     services.logging_engine.registerProtocol("SSM",
                                              [](const fastecu::desktop::logging::DesktopLoggingSnapshot&)
@@ -3693,24 +3692,24 @@ INSTANTIATE_TEST_SUITE_P(Rows, ConnectionEntryPointsStopIdentificationParameters
                              }
                              return name;
                          });
-void MainWindowTest::check_connectionEntryPointsStopIdentification(QString entry_point)
+void MainWindowTest::check_connectionEntryPointsStopIdentification(QString entryPoint)
 {
 
-    ModalDriver constructor_driver{QString()};
-    constructor_driver.start();
+    ModalDriver constructorDriver{QString()};
+    constructorDriver.start();
     TestServices services{config_root_->path()};
     ASSERT_TRUE(services.config_status.has_value());
     MainWindow window{services.services()};
-    constructor_driver.stop();
+    constructorDriver.stop();
     ASSERT_NO_FATAL_FAILURE(prepareConnect(window, *services.fake, "Subaru", "K-Line"));
     bool cancelled = false;
     window.connect_to_ecu([&cancelled](bool connected) { cancelled = !connected; });
     ASSERT_TRUE(window.connection_coordinator_->identifying());
     ASSERT_TRUE(!window.serial_port_list_->isEnabled());
     ASSERT_TRUE(!window.refresh_serial_port_list_->isEnabled());
-    QTimer close_dialog;
-    close_dialog.setInterval(5);
-    QObject::connect(&close_dialog, &QTimer::timeout,
+    QTimer closeDialog;
+    closeDialog.setInterval(5);
+    QObject::connect(&closeDialog, &QTimer::timeout,
                      []
                      {
                          for (QWidget *widget : QApplication::topLevelWidgets())
@@ -3721,22 +3720,22 @@ void MainWindowTest::check_connectionEntryPointsStopIdentification(QString entry
                              }
                          }
                      });
-    close_dialog.start();
-    if (entry_point == "show_dtc_window")
+    closeDialog.start();
+    if (entryPoint == "show_dtc_window")
     {
         window.show_dtc_window();
     }
-    else if (entry_point == "show_subaru_biu_window")
+    else if (entryPoint == "show_subaru_biu_window")
     {
         window.show_subaru_biu_window();
     }
-    else if (entry_point == "show_terminal_window")
+    else if (entryPoint == "show_terminal_window")
     {
         window.show_terminal_window();
     }
     else
     {
-        ASSERT_TRUE(QMetaObject::invokeMethod(&window, entry_point.toLatin1().constData(), Qt::DirectConnection));
+        ASSERT_TRUE(QMetaObject::invokeMethod(&window, entryPoint.toLatin1().constData(), Qt::DirectConnection));
     }
     ASSERT_TRUE(!window.connection_coordinator_->identifying());
     ASSERT_TRUE(cancelled);
@@ -3755,25 +3754,25 @@ TEST_P(ConnectionEntryPointsStopIdentificationParameters, connectionEntryPointsS
 
 void MainWindowTest::check_nestedConnectDuringCapabilityNoticeKeepsEachContinuation()
 {
-    ModalDriver constructor_driver{QString()};
-    constructor_driver.start();
+    ModalDriver constructorDriver{QString()};
+    constructorDriver.start();
     TestServices services{config_root_->path()};
     ASSERT_TRUE(services.config_status.has_value());
     MainWindow window{services.services()};
-    constructor_driver.stop();
+    constructorDriver.stop();
     ASSERT_NO_FATAL_FAILURE(prepareConnect(window, *services.fake, "Subaru", "K-Line"));
     EXPECT_CALL(*services.fake, read_serial_data(::testing::_))
         .WillOnce(::testing::Return(kEcuInit))
         .WillRepeatedly(::testing::Return(QByteArray{}));
-    std::optional<bool> first_result;
-    std::optional<bool> second_result;
-    window.connect_to_ecu([&first_result](bool connected) { first_result = connected; });
+    std::optional<bool> firstResult;
+    std::optional<bool> secondResult;
+    window.connect_to_ecu([&firstResult](bool connected) { firstResult = connected; });
     ASSERT_TRUE(window.identify_launcher_->wait_for_worker(std::chrono::milliseconds(5000)));
     bool restarted = false;
-    bool target_frozen_in_notice = false;
-    QTimer notice_driver;
-    notice_driver.setInterval(5);
-    QObject::connect(&notice_driver, &QTimer::timeout,
+    bool targetFrozenInNotice = false;
+    QTimer noticeDriver;
+    noticeDriver.setInterval(5);
+    QObject::connect(&noticeDriver, &QTimer::timeout,
                      [&]
                      {
                          for (QWidget *widget : QApplication::topLevelWidgets())
@@ -3782,30 +3781,30 @@ void MainWindowTest::check_nestedConnectDuringCapabilityNoticeKeepsEachContinuat
                              {
                                  if (!restarted)
                                  {
-                                     target_frozen_in_notice = !window.ecu_radio_button_->isEnabled() &&
-                                                               !window.tcu_radio_button_->isEnabled();
+                                     targetFrozenInNotice = !window.ecu_radio_button_->isEnabled() &&
+                                                            !window.tcu_radio_button_->isEnabled();
                                      restarted = true;
-                                     window.connect_to_ecu([&second_result](bool connected)
-                                                           { second_result = connected; });
+                                     window.connect_to_ecu([&secondResult](bool connected)
+                                                           { secondResult = connected; });
                                  }
                                  notice->accept();
                              }
                          }
                      });
-    notice_driver.start();
+    noticeDriver.start();
     QCoreApplication::processEvents();
-    notice_driver.stop();
+    noticeDriver.stop();
     ASSERT_TRUE(restarted);
-    ASSERT_TRUE(target_frozen_in_notice);
+    ASSERT_TRUE(targetFrozenInNotice);
     ASSERT_TRUE(!window.ecu_radio_button_->isEnabled());
     ASSERT_TRUE(!window.tcu_radio_button_->isEnabled());
     ASSERT_TRUE(window.connection_coordinator_->identifying());
-    ASSERT_TRUE(first_result.has_value());
-    ASSERT_TRUE(!*first_result);
-    ASSERT_TRUE(!second_result.has_value());
+    ASSERT_TRUE(firstResult.has_value());
+    ASSERT_TRUE(!*firstResult);
+    ASSERT_TRUE(!secondResult.has_value());
     window.connection_coordinator_->cancel();
-    ASSERT_TRUE(second_result.has_value());
-    ASSERT_TRUE(!*second_result);
+    ASSERT_TRUE(secondResult.has_value());
+    ASSERT_TRUE(!*secondResult);
     ASSERT_TRUE(window.ecu_radio_button_->isEnabled());
     ASSERT_TRUE(window.tcu_radio_button_->isEnabled());
 }
@@ -3826,17 +3825,17 @@ TEST_F(MainWindowTest, nestedConnectDuringCapabilityNoticeKeepsEachContinuation)
 // - Settings' shortcut="false", which bound nothing, is not carried over.
 void MainWindowTest::check_menuMatchesTheGolden()
 {
-    ModalDriver constructor_driver{QString()};
-    constructor_driver.start();
+    ModalDriver constructorDriver{QString()};
+    constructorDriver.start();
     TestServices services{config_root_->path()};
     ASSERT_TRUE(services.config_status.has_value());
     MainWindow window{services.services()};
-    constructor_driver.stop();
+    constructorDriver.stop();
 
     const std::string actual = fastecu::ui::testing::menu_snapshot(*window.ui_->menubar, *window.ui_->toolBar);
-    const char *golden_path = std::getenv("MAIN_MENU_GOLDEN_PATH");
-    ASSERT_NE(golden_path, nullptr) << "MAIN_MENU_GOLDEN_PATH must be set by the Bazel target's env";
-    std::ifstream file(golden_path, std::ios::binary);
+    const char *goldenPath = std::getenv("MAIN_MENU_GOLDEN_PATH");
+    ASSERT_NE(goldenPath, nullptr) << "MAIN_MENU_GOLDEN_PATH must be set by the Bazel target's env";
+    std::ifstream file(goldenPath, std::ios::binary);
     ASSERT_TRUE(file.is_open());
     const std::string expected((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
     EXPECT_EQ(actual, expected) << "actual snapshot:\n" << actual;
@@ -3849,26 +3848,26 @@ TEST_F(MainWindowTest, menuMatchesTheGolden)
 
 void MainWindowTest::check_everyIconNamedByTheMenuResolves()
 {
-    ModalDriver constructor_driver{QString()};
-    constructor_driver.start();
+    ModalDriver constructorDriver{QString()};
+    constructorDriver.start();
     TestServices services{config_root_->path()};
     ASSERT_TRUE(services.config_status.has_value());
     MainWindow window{services.services()};
-    constructor_driver.stop();
+    constructorDriver.stop();
 
-    int without_icon = 0;
+    int withoutIcon = 0;
     for (const QAction *action : window.findChildren<QAction *>())
     {
         if (!action->objectName().startsWith(QStringLiteral("action")))
         {
             continue;
         }
-        without_icon += action->icon().isNull() ? 1 : 0;
+        withoutIcon += action->icon().isNull() ? 1 : 0;
     }
     // Set value, Interpolate bidirectional, Log views, Hex Editor, Terminal,
     // BIU communication, Get Encryption Key and WinOLS CSV have no icon by
     // design; any other null icon is a mistyped path.
-    EXPECT_EQ(without_icon, 8);
+    EXPECT_EQ(withoutIcon, 8);
 }
 
 TEST_F(MainWindowTest, everyIconNamedByTheMenuResolves)
@@ -3878,12 +3877,12 @@ TEST_F(MainWindowTest, everyIconNamedByTheMenuResolves)
 
 void MainWindowTest::check_noTwoActionsShareAShortcutAndNoneLostItsBinding()
 {
-    ModalDriver constructor_driver{QString()};
-    constructor_driver.start();
+    ModalDriver constructorDriver{QString()};
+    constructorDriver.start();
     TestServices services{config_root_->path()};
     ASSERT_TRUE(services.config_status.has_value());
     MainWindow window{services.services()};
-    constructor_driver.stop();
+    constructorDriver.stop();
 
     QSet<QString> seen;
     for (const QAction *action : window.findChildren<QAction *>())
@@ -3918,12 +3917,12 @@ TEST_F(MainWindowTest, noTwoActionsShareAShortcutAndNoneLostItsBinding)
 
 void MainWindowTest::check_toolbarKeepsMenuActionsBeforeTheTransportWidgets()
 {
-    ModalDriver constructor_driver{QString()};
-    constructor_driver.start();
+    ModalDriver constructorDriver{QString()};
+    constructorDriver.start();
     TestServices services{config_root_->path()};
     ASSERT_TRUE(services.config_status.has_value());
     MainWindow window{services.services()};
-    constructor_driver.stop();
+    constructorDriver.stop();
 
     const QList<QAction *> actions = window.ui_->toolBar->actions();
     // Open, Save, |, Logging, Log to file, Read, Test write, Write, |, then widgets.
@@ -3951,19 +3950,19 @@ void MainWindowTest::check_aStaleOrMalformedMenuCfgIsIgnored()
     QTemporaryDir root;
     ASSERT_TRUE(root.isValid());
     ASSERT_NO_FATAL_FAILURE(copyFixtureConfig(root.path()));
-    const QString menu_cfg = root.path() + "/" + QString::fromStdString(kTestApplication.version) + "/config/menu.cfg";
-    ASSERT_TRUE(writeTextFile(menu_cfg, "<<< not xml >>>"));
+    const QString menuCfg = root.path() + "/" + QString::fromStdString(kTestApplication.version) + "/config/menu.cfg";
+    ASSERT_TRUE(writeTextFile(menuCfg, "<<< not xml >>>"));
 
-    ModalDriver constructor_driver{QString()};
-    constructor_driver.start();
+    ModalDriver constructorDriver{QString()};
+    constructorDriver.start();
     TestServices services{root.path()};
     ASSERT_TRUE(services.config_status.has_value());
     MainWindow window{services.services()};
-    constructor_driver.stop();
+    constructorDriver.stop();
 
     // The runtime menu loader raised this warning for an unreadable menu.cfg;
     // ModalDriver accepts any box it does not recognise, so check its record.
-    for (const QString& text : constructor_driver.acceptedTexts())
+    for (const QString& text : constructorDriver.acceptedTexts())
     {
         EXPECT_FALSE(text.startsWith(QStringLiteral("Unable to load menu config file"))) << qPrintable(text);
     }
@@ -3978,12 +3977,12 @@ TEST_F(MainWindowTest, aStaleOrMalformedMenuCfgIsIgnored)
 
 void MainWindowTest::check_everyMenuActionIsConnectedToTheWindow()
 {
-    ModalDriver constructor_driver{QString()};
-    constructor_driver.start();
+    ModalDriver constructorDriver{QString()};
+    constructorDriver.start();
     TestServices services{config_root_->path()};
     ASSERT_TRUE(services.config_status.has_value());
     MainWindow window{services.services()};
-    constructor_driver.stop();
+    constructorDriver.stop();
 
     // QObject::isSignalConnected and receivers() are protected, so probe with
     // the public disconnect: it reports whether anything had connected the
@@ -4017,23 +4016,23 @@ TEST_F(MainWindowTest, everyMenuActionIsConnectedToTheWindow)
 
 void MainWindowTest::check_triggeringLogToFileReachesItsHandler()
 {
-    ModalDriver constructor_driver{QString()};
-    constructor_driver.start();
+    ModalDriver constructorDriver{QString()};
+    constructorDriver.start();
     TestServices services{config_root_->path()};
     ASSERT_TRUE(services.config_status.has_value());
     MainWindow window{services.services()};
-    constructor_driver.stop();
+    constructorDriver.stop();
 
-    QAction *log_to_file = menuAction(window, kLogToFile);
-    ASSERT_NE(log_to_file, nullptr);
-    ASSERT_FALSE(log_to_file->isChecked());
+    QAction *logToFile = menuAction(window, kLogToFile);
+    ASSERT_NE(logToFile, nullptr);
+    ASSERT_FALSE(logToFile->isChecked());
     ASSERT_FALSE(window.write_datalog_to_file_);
 
     // trigger() toggles the checkable action as a click does; the handler
     // then reads the new state.
-    log_to_file->trigger();
+    logToFile->trigger();
     EXPECT_TRUE(window.write_datalog_to_file_);
-    log_to_file->trigger();
+    logToFile->trigger();
     EXPECT_FALSE(window.write_datalog_to_file_);
 }
 
@@ -4044,12 +4043,12 @@ TEST_F(MainWindowTest, triggeringLogToFileReachesItsHandler)
 
 void MainWindowTest::check_tuneActionsEditTheSelectionThroughTheirOwnHandlers()
 {
-    ModalDriver constructor_driver{QString()};
-    constructor_driver.start();
+    ModalDriver constructorDriver{QString()};
+    constructorDriver.start();
     TestServices services{config_root_->path()};
     ASSERT_TRUE(services.config_status.has_value());
     MainWindow window{services.services()};
-    constructor_driver.stop();
+    constructorDriver.stop();
     // A handler that fails reports through a message box; record any.
     ModalDriver driver{QString()};
     driver.start();
@@ -4092,22 +4091,22 @@ void MainWindowTest::check_tuneActionsEditTheSelectionThroughTheirOwnHandlers()
     ASSERT_TRUE(opened.has_value());
     ASSERT_TRUE(window.add_calibration(opened->id));
 
-    auto *file_tree = window.ui_->calibrationFilesTreeWidget;
-    ASSERT_EQ(file_tree->topLevelItemCount(), 1);
-    file_tree->topLevelItem(0)->setSelected(true);
-    window.calibration_files_treewidget_item_selected(file_tree->topLevelItem(0));
-    QTreeWidget *data_tree = window.ui_->calibrationDataTreeWidget;
-    QTreeWidgetItem *grid_item = nullptr;
-    for (int i = 0; i < data_tree->topLevelItemCount(); ++i)
+    auto *fileTree = window.ui_->calibrationFilesTreeWidget;
+    ASSERT_EQ(fileTree->topLevelItemCount(), 1);
+    fileTree->topLevelItem(0)->setSelected(true);
+    window.calibration_files_treewidget_item_selected(fileTree->topLevelItem(0));
+    QTreeWidget *dataTree = window.ui_->calibrationDataTreeWidget;
+    QTreeWidgetItem *gridItem = nullptr;
+    for (int i = 0; i < dataTree->topLevelItemCount(); ++i)
     {
-        if (data_tree->topLevelItem(i)->text(0) == "Tune" && data_tree->topLevelItem(i)->childCount() != 0)
+        if (dataTree->topLevelItem(i)->text(0) == "Tune" && dataTree->topLevelItem(i)->childCount() != 0)
         {
-            grid_item = data_tree->topLevelItem(i)->child(0);
+            gridItem = dataTree->topLevelItem(i)->child(0);
         }
     }
-    ASSERT_NE(grid_item, nullptr);
-    data_tree->setCurrentItem(grid_item);
-    window.calibration_data_treewidget_item_selected(grid_item);
+    ASSERT_NE(gridItem, nullptr);
+    dataTree->setCurrentItem(gridItem);
+    window.calibration_data_treewidget_item_selected(gridItem);
     const QList<QMdiSubWindow *> windows = window.ui_->mdiArea->subWindowList();
     ASSERT_EQ(windows.size(), 1U);
     window.ui_->mdiArea->setActiveSubWindow(windows.front());
@@ -4200,12 +4199,12 @@ TEST_F(MainWindowTest, tuneActionsEditTheSelectionThroughTheirOwnHandlers)
 
 void MainWindowTest::check_copyFromALargerMapPastesIntoASmallerOneThroughItsScaling()
 {
-    ModalDriver constructor_driver{QString()};
-    constructor_driver.start();
+    ModalDriver constructorDriver{QString()};
+    constructorDriver.start();
     TestServices services{config_root_->path()};
     ASSERT_TRUE(services.config_status.has_value());
     MainWindow window{services.services()};
-    constructor_driver.stop();
+    constructorDriver.stop();
     ModalDriver driver{QString()};
     driver.start();
     window.show();
@@ -4236,7 +4235,7 @@ void MainWindowTest::check_copyFromALargerMapPastesIntoASmallerOneThroughItsScal
 
     constexpr std::size_t kSource = 0x10;
     constexpr std::size_t kDest = 0x30;
-    const bytes::Bytes source_body{0, 20, 20, 0, 100, 0, 40, 0, 60};
+    const bytes::Bytes sourceBody{0, 20, 20, 0, 100, 0, 40, 0, 60};
     bytes::Bytes image(0x40, 0);
     // Distinct axis bytes: a copy that wrongly included them would show up.
     for (std::size_t i = 0; i < 3; ++i)
@@ -4244,7 +4243,7 @@ void MainWindowTest::check_copyFromALargerMapPastesIntoASmallerOneThroughItsScal
         image[i] = static_cast<bytes::Byte>(201 + i);
         image[4 + i] = static_cast<bytes::Byte>(211 + i);
     }
-    std::ranges::copy(source_body, image.begin() + static_cast<std::ptrdiff_t>(kSource));
+    std::ranges::copy(sourceBody, image.begin() + static_cast<std::ptrdiff_t>(kSource));
     const auto opened = services.calibrations.adopt_read_image({
         .rom = image,
         .filename = "maps.bin",
@@ -4253,21 +4252,21 @@ void MainWindowTest::check_copyFromALargerMapPastesIntoASmallerOneThroughItsScal
     ASSERT_TRUE(opened.has_value());
     ASSERT_TRUE(window.add_calibration(opened->id));
 
-    auto *file_tree = window.ui_->calibrationFilesTreeWidget;
-    ASSERT_EQ(file_tree->topLevelItemCount(), 1);
-    file_tree->topLevelItem(0)->setSelected(true);
-    window.calibration_files_treewidget_item_selected(file_tree->topLevelItem(0));
-    QTreeWidget *data_tree = window.ui_->calibrationDataTreeWidget;
-    const auto open_map = [&](const QString& name) -> QMdiSubWindow *
+    auto *fileTree = window.ui_->calibrationFilesTreeWidget;
+    ASSERT_EQ(fileTree->topLevelItemCount(), 1);
+    fileTree->topLevelItem(0)->setSelected(true);
+    window.calibration_files_treewidget_item_selected(fileTree->topLevelItem(0));
+    QTreeWidget *dataTree = window.ui_->calibrationDataTreeWidget;
+    const auto openMap = [&](const QString& name) -> QMdiSubWindow *
     {
-        for (int i = 0; i < data_tree->topLevelItemCount(); ++i)
+        for (int i = 0; i < dataTree->topLevelItemCount(); ++i)
         {
-            auto *category = data_tree->topLevelItem(i);
+            auto *category = dataTree->topLevelItem(i);
             for (int child = 0; category->text(0) == "Tune" && child < category->childCount(); ++child)
             {
                 if (category->child(child)->text(0) == name)
                 {
-                    data_tree->setCurrentItem(category->child(child));
+                    dataTree->setCurrentItem(category->child(child));
                     window.calibration_data_treewidget_item_selected(category->child(child));
                     for (auto *candidate : window.ui_->mdiArea->subWindowList())
                     {
@@ -4282,16 +4281,16 @@ void MainWindowTest::check_copyFromALargerMapPastesIntoASmallerOneThroughItsScal
         }
         return nullptr;
     };
-    QMdiSubWindow *source_window = open_map("Source");
-    QMdiSubWindow *dest_window = open_map("Dest");
-    ASSERT_NE(source_window, nullptr);
-    ASSERT_NE(dest_window, nullptr);
-    auto *source_table = source_window->findChild<QTableWidget *>();
-    auto *dest_table = dest_window->findChild<QTableWidget *>();
-    ASSERT_NE(source_table, nullptr);
-    ASSERT_NE(dest_table, nullptr);
+    QMdiSubWindow *sourceWindow = openMap("Source");
+    QMdiSubWindow *destWindow = openMap("Dest");
+    ASSERT_NE(sourceWindow, nullptr);
+    ASSERT_NE(destWindow, nullptr);
+    auto *sourceTable = sourceWindow->findChild<QTableWidget *>();
+    auto *destTable = destWindow->findChild<QTableWidget *>();
+    ASSERT_NE(sourceTable, nullptr);
+    ASSERT_NE(destTable, nullptr);
 
-    const auto dest_body = [&]
+    const auto destBody = [&]
     {
         const bytes::ByteView rom = services.calibrations.find(opened->id)->rom();
         const auto first = rom.begin() + static_cast<std::ptrdiff_t>(kDest);
@@ -4300,20 +4299,20 @@ void MainWindowTest::check_copyFromALargerMapPastesIntoASmallerOneThroughItsScal
 
     // Select All takes the body only, so the clipboard holds the 3x3 values
     // at full precision and none of the axes.
-    window.ui_->mdiArea->setActiveSubWindow(source_window);
-    source_table->setFocus();
-    QKeyEvent select_all(QEvent::KeyPress, Qt::Key_A, Qt::ControlModifier);
-    QApplication::sendEvent(source_table, &select_all);
+    window.ui_->mdiArea->setActiveSubWindow(sourceWindow);
+    sourceTable->setFocus();
+    QKeyEvent selectAll(QEvent::KeyPress, Qt::Key_A, Qt::ControlModifier);
+    QApplication::sendEvent(sourceTable, &selectAll);
     window.ui_->actionCopy->trigger();
     EXPECT_EQ(QApplication::clipboard()->text(), "0\t2.5\t2.5\n0\t12.5\t0\n5\t0\t7.5");
 
     // Paste starts at the destination selection's top-left and clips to its
     // 2x2 body, storing each value through the destination's own scaling.
-    window.ui_->mdiArea->setActiveSubWindow(dest_window);
-    dest_table->clearSelection();
-    dest_table->setRangeSelected(QTableWidgetSelectionRange(1, 1, 1, 1), true);
+    window.ui_->mdiArea->setActiveSubWindow(destWindow);
+    destTable->clearSelection();
+    destTable->setRangeSelected(QTableWidgetSelectionRange(1, 1, 1, 1), true);
     window.ui_->actionPaste->trigger();
-    EXPECT_EQ(dest_body(), (std::vector<int>{0, 10, 0, 50}));
+    EXPECT_EQ(destBody(), (std::vector<int>{0, 10, 0, 50}));
 
     driver.stop();
     EXPECT_TRUE(driver.acceptedTexts().isEmpty()) << qPrintable(driver.acceptedTexts().join(" | "));
@@ -4369,8 +4368,8 @@ void MainWindowTest::check_typedAssignment(AssignmentScenario scenario)
     model.endian = "big";
     model.scaling_name = "Raw";
     definition.maps.push_back(model);
-    const bool no_op = scenario == AssignmentScenario::kNoOpResolution || scenario == AssignmentScenario::kNoOpLimit;
-    if (no_op)
+    const bool noOp = scenario == AssignmentScenario::kNoOpResolution || scenario == AssignmentScenario::kNoOpLimit;
+    if (noOp)
     {
         definition.scalings[0].from_byte = "x/10";
         definition.scalings[0].to_byte = "x*10";
@@ -4404,24 +4403,24 @@ void MainWindowTest::check_typedAssignment(AssignmentScenario scenario)
     ASSERT_NE(table, nullptr);
     table->setRangeSelected(QTableWidgetSelectionRange(0, 0, 0, 0), true);
     std::optional<fastecu::calibration::SessionId> other;
-    const bool active_changed =
+    const bool activeChanged =
         scenario == AssignmentScenario::kActiveMapChanged || scenario == AssignmentScenario::kActiveMapChangedNoOp;
     const bool paste = scenario == AssignmentScenario::kPasteLf || scenario == AssignmentScenario::kPasteCrLf ||
                        scenario == AssignmentScenario::kPasteInteriorEmpty;
-    QMdiSubWindow *other_window = nullptr;
-    if (scenario == AssignmentScenario::kSelectionChanged || active_changed)
+    QMdiSubWindow *otherWindow = nullptr;
+    if (scenario == AssignmentScenario::kSelectionChanged || activeChanged)
     {
         const auto adopted = services.calibrations.adopt_read_image({.rom = {0, 40}, .filename = "other.bin"});
         ASSERT_THAT(adopted, fastecu::testing::IsOk());
         other = adopted->id;
-        auto *other_session = services.calibrations.find(*other);
-        ASSERT_NE(other_session, nullptr);
-        *other_session = fastecu::calibration::CalibrationSession(
-            *other, {.source = other_session->source(),
+        auto *otherSession = services.calibrations.find(*other);
+        ASSERT_NE(otherSession, nullptr);
+        *otherSession = fastecu::calibration::CalibrationSession(
+            *other, {.source = otherSession->source(),
                      .rom = {0, 40},
                      .definition = fastecu::calibration::ResolvedDefinition{.definition = definition}});
         ASSERT_TRUE(window.add_calibration(*other));
-        if (active_changed)
+        if (activeChanged)
         {
             auto *category = window.ui_->calibrationDataTreeWidget->topLevelItem(0);
             for (int row = 0; row < window.ui_->calibrationDataTreeWidget->topLevelItemCount(); ++row)
@@ -4438,15 +4437,15 @@ void MainWindowTest::check_typedAssignment(AssignmentScenario scenario)
             {
                 if (candidate != subwindow)
                 {
-                    other_window = candidate;
+                    otherWindow = candidate;
                 }
             }
-            ASSERT_NE(other_window, nullptr);
+            ASSERT_NE(otherWindow, nullptr);
             window.ui_->mdiArea->setActiveSubWindow(subwindow);
         }
     }
     bool answered = false;
-    QString notice_text;
+    QString noticeText;
     QTimer reply;
     reply.setInterval(5);
     QObject::connect(
@@ -4455,7 +4454,7 @@ void MainWindowTest::check_typedAssignment(AssignmentScenario scenario)
         {
             if (auto *notice = qobject_cast<QMessageBox *>(QApplication::activeModalWidget()); notice != nullptr)
             {
-                notice_text = notice->text();
+                noticeText = notice->text();
                 answered = true;
                 notice->accept();
                 return;
@@ -4477,17 +4476,17 @@ void MainWindowTest::check_typedAssignment(AssignmentScenario scenario)
             }
             if (scenario == AssignmentScenario::kSelectionChanged)
             {
-                auto *file_tree = window.ui_->calibrationFilesTreeWidget;
-                for (int row = 0; row < file_tree->topLevelItemCount(); ++row)
+                auto *fileTree = window.ui_->calibrationFilesTreeWidget;
+                for (int row = 0; row < fileTree->topLevelItemCount(); ++row)
                 {
-                    file_tree->topLevelItem(row)->setSelected(row == file_tree->topLevelItemCount() - 1);
+                    fileTree->topLevelItem(row)->setSelected(row == fileTree->topLevelItemCount() - 1);
                 }
                 window.calibration_files_treewidget_item_selected(
-                    file_tree->topLevelItem(file_tree->topLevelItemCount() - 1));
+                    fileTree->topLevelItem(fileTree->topLevelItemCount() - 1));
             }
-            if (active_changed)
+            if (activeChanged)
             {
-                window.ui_->mdiArea->setActiveSubWindow(other_window);
+                window.ui_->mdiArea->setActiveSubWindow(otherWindow);
             }
             if (scenario == AssignmentScenario::kOriginalClosed)
             {
@@ -4512,7 +4511,7 @@ void MainWindowTest::check_typedAssignment(AssignmentScenario scenario)
         answered = true;
         window.paste_value();
     }
-    else if (no_op)
+    else if (noOp)
     {
         window.inc_dec_value(fastecu::calibration::IncrementStep::kFineUp);
     }
@@ -4529,18 +4528,18 @@ void MainWindowTest::check_typedAssignment(AssignmentScenario scenario)
     }
     session = services.calibrations.find(id);
     ASSERT_NE(session, nullptr);
-    if (no_op)
+    if (noOp)
     {
         EXPECT_EQ(bytes::readU16Be(session->rom()), 10);
         EXPECT_FALSE(session->dirty());
         if (scenario == AssignmentScenario::kNoOpResolution)
         {
-            EXPECT_TRUE(notice_text.contains("storage resolution"));
+            EXPECT_TRUE(noticeText.contains("storage resolution"));
         }
         else
         {
-            EXPECT_TRUE(notice_text.contains("definition limit"));
-            EXPECT_FALSE(notice_text.contains("storage resolution"));
+            EXPECT_TRUE(noticeText.contains("definition limit"));
+            EXPECT_FALSE(noticeText.contains("storage resolution"));
         }
         return;
     }
@@ -4548,14 +4547,14 @@ void MainWindowTest::check_typedAssignment(AssignmentScenario scenario)
     {
         EXPECT_EQ(bytes::readU16Be(session->rom()), 10);
         EXPECT_FALSE(session->dirty());
-        EXPECT_FALSE(notice_text.isEmpty());
+        EXPECT_FALSE(noticeText.isEmpty());
         return;
     }
     if (paste)
     {
         EXPECT_EQ(bytes::readU16Be(session->rom()), 20);
         EXPECT_EQ(table->item(0, 0)->text(), "20.00");
-        EXPECT_TRUE(notice_text.isEmpty());
+        EXPECT_TRUE(noticeText.isEmpty());
         return;
     }
     const std::uint16_t expected =

@@ -32,12 +32,12 @@ TEST(TestMitsuColtCanProtocol, transfer_data_frames_chunk_at_256_bytes)
 {
     bytes::Bytes payload(300, bytes::Byte{0x5A});
     const std::vector<bytes::Bytes> frames = buildTransferDataFrames(payload);
-    bytes::Bytes expectedFirstFrame(257, bytes::Byte{0x5A}); // SID + 256 bytes
-    expectedFirstFrame.front() = kServiceTransferData;
-    bytes::Bytes expectedSecondFrame(45, bytes::Byte{0x5A}); // SID + 44 remaining bytes
-    expectedSecondFrame.front() = kServiceTransferData;
-    EXPECT_THAT(frames, ::testing::ElementsAre(test_bytes::BytesEq(expectedFirstFrame),
-                                               test_bytes::BytesEq(expectedSecondFrame)));
+    bytes::Bytes expected_first_frame(257, bytes::Byte{0x5A}); // SID + 256 bytes
+    expected_first_frame.front() = kServiceTransferData;
+    bytes::Bytes expected_second_frame(45, bytes::Byte{0x5A}); // SID + 44 remaining bytes
+    expected_second_frame.front() = kServiceTransferData;
+    EXPECT_THAT(frames, ::testing::ElementsAre(test_bytes::BytesEq(expected_first_frame),
+                                               test_bytes::BytesEq(expected_second_frame)));
 }
 TEST(TestMitsuColtCanProtocol, routine_check_crc_selects_flash_vs_memory)
 {

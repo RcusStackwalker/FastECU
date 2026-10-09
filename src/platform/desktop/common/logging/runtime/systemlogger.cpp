@@ -34,14 +34,14 @@ void SystemLogger::log_messages(const QString& message, bool timestamp, bool lin
 {
     QString msg;
 
-    QDateTime dateTime = dateTime.currentDateTime();
+    QDateTime date_time = date_time.currentDateTime();
 
-    QString dateTimeString = dateTime.toString("[yyyy-MM-dd hh':'mm':'ss'.'zzz'] ");
-    QMetaMethod metaMethod;
+    QString date_time_string = date_time.toString("[yyyy-MM-dd hh':'mm':'ss'.'zzz'] ");
+    QMetaMethod meta_method;
 
     if (sender())
     {
-        metaMethod = sender()->metaObject()->method(senderSignalIndex());
+        meta_method = sender()->metaObject()->method(senderSignalIndex());
     }
     else
     {
@@ -53,22 +53,22 @@ void SystemLogger::log_messages(const QString& message, bool timestamp, bool lin
     // Check if timestamp added
     if (timestamp)
     {
-        msg += dateTimeString;
+        msg += date_time_string;
 
         // Check log type
-        if (metaMethod.name() == "LOG_E")
+        if (meta_method.name() == "LOG_E")
         {
             msg += "(EE) ";
         }
-        else if (metaMethod.name() == "LOG_W")
+        else if (meta_method.name() == "LOG_W")
         {
             msg += "(WW) ";
         }
-        else if (metaMethod.name() == "LOG_I")
+        else if (meta_method.name() == "LOG_I")
         {
             msg += "(II) ";
         }
-        else if (metaMethod.name() == "LOG_D")
+        else if (meta_method.name() == "LOG_D")
         {
             msg += "(DD) ";
         }
@@ -83,7 +83,7 @@ void SystemLogger::log_messages(const QString& message, bool timestamp, bool lin
         msg += "\n";
     }
 
-    if (metaMethod.name() != "LOG_D")
+    if (meta_method.name() != "LOG_D")
     {
         emit send_message_to_log_window(msg);
     }
@@ -99,15 +99,15 @@ bool SystemLogger::write_syslog(const QString& msg)
     // Open file for writing if needed
     if (!syslog_file_open_)
     {
-        QDateTime dateTime = dateTime.currentDateTime();
-        QString dateTimeString = dateTime.toString("yyyy-MM-dd_hh'h'mm'm'ss's'");
+        QDateTime date_time = date_time.currentDateTime();
+        QString date_time_string = date_time.toString("yyyy-MM-dd_hh'h'mm'm'ss's'");
 
         QString syslog_file_name = file_path_;
         if (file_path_.at(file_path_.length() - 1) != '/')
         {
             syslog_file_name.append("/");
         }
-        syslog_file_name.append("log_fastecu_" + dateTimeString + ".txt");
+        syslog_file_name.append("log_fastecu_" + date_time_string + ".txt");
 
         syslog_file_.setFileName(syslog_file_name);
 
@@ -123,7 +123,7 @@ bool SystemLogger::write_syslog(const QString& msg)
         syslog_file_init_ready_ = true;
         syslog_file_outstream_.setDevice(&syslog_file_);
         syslog_file_outstream_ << software_name_ + " v" + software_version_ +
-                                      ", system log file, start time: " + dateTimeString;
+                                      ", system log file, start time: " + date_time_string;
         syslog_file_outstream_ << "\n";
     }
 

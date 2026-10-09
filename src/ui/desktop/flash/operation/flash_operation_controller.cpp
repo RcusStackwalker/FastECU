@@ -13,8 +13,8 @@
 namespace fastecu::flash
 {
 
-FlashOperationController::FlashOperationController(SerialPortActions& serial, QWidget *dialog_parent)
-    : serial_(serial), dialog_parent_(dialog_parent)
+FlashOperationController::FlashOperationController(SerialPortActions& serial, QWidget *dialogParent)
+    : serial_(serial), dialog_parent_(dialogParent)
 {
 }
 
@@ -71,18 +71,18 @@ FlashOperationOutcome FlashOperationController::run(const FlashOperationInput& i
         return {.status = FlashOperationStatus::kUnsupported};
     }
 
-    FlashDialog flash_module(std::move(workflow), input.operation, QString::fromStdString(input.display_filename),
-                             dialog_parent_);
-    QObject::connect<void (FlashDialog::*)(QString)>(&flash_module, &FlashDialog::external_logger, this,
+    FlashDialog flashModule(std::move(workflow), input.operation, QString::fromStdString(input.display_filename),
+                            dialog_parent_);
+    QObject::connect<void (FlashDialog::*)(QString)>(&flashModule, &FlashDialog::external_logger, this,
                                                      qOverload<QString>(&FlashOperationController::external_logger));
-    QObject::connect<void (FlashDialog::*)(int)>(&flash_module, &FlashDialog::external_logger, this,
+    QObject::connect<void (FlashDialog::*)(int)>(&flashModule, &FlashDialog::external_logger, this,
                                                  qOverload<int>(&FlashOperationController::external_logger));
-    QObject::connect(&flash_module, &FlashDialog::LOG_E, this, &FlashOperationController::LOG_E);
-    QObject::connect(&flash_module, &FlashDialog::LOG_W, this, &FlashOperationController::LOG_W);
-    QObject::connect(&flash_module, &FlashDialog::LOG_I, this, &FlashOperationController::LOG_I);
-    QObject::connect(&flash_module, &FlashDialog::LOG_D, this, &FlashOperationController::LOG_D);
+    QObject::connect(&flashModule, &FlashDialog::LOG_E, this, &FlashOperationController::LOG_E);
+    QObject::connect(&flashModule, &FlashDialog::LOG_W, this, &FlashOperationController::LOG_W);
+    QObject::connect(&flashModule, &FlashDialog::LOG_I, this, &FlashOperationController::LOG_I);
+    QObject::connect(&flashModule, &FlashDialog::LOG_D, this, &FlashOperationController::LOG_D);
 
-    FlashDialogResult result = flash_module.run();
+    FlashDialogResult result = flashModule.run();
     return {
         .status = FlashOperationStatus::kCompleted,
         .read_bytes = std::move(result.accepted_read_bytes),

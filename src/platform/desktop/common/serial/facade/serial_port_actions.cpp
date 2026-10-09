@@ -441,11 +441,11 @@ bool SerialPortActions::is_serial_port_open()
     return runOnBackend([this] { return m_backend_->is_serial_port_open(); });
 }
 
-int SerialPortActions::change_port_speed(const QString& portSpeed)
+int SerialPortActions::change_port_speed(const QString& port_speed)
 {
     CallGuard guard(m_active_calls_);
     set_comm_busy(true);
-    int result = runOnBackend([this, portSpeed] { return m_backend_->change_port_speed(portSpeed); });
+    int result = runOnBackend([this, port_speed] { return m_backend_->change_port_speed(port_speed); });
     set_comm_busy(false);
     return result;
 }

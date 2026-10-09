@@ -122,11 +122,11 @@ TEST_F(TestDirectBackendPty, ptyParityChangesWhileOpen)
     ASSERT_TRUE(direct.set_serial_port_parity(static_cast<std::uint8_t>(QSerialPort::NoParity)));
     ASSERT_EQ(direct.get_serial_port_parity(), static_cast<std::uint8_t>(QSerialPort::NoParity));
 
-    const bool evenParitySet = direct.set_serial_port_parity(static_cast<std::uint8_t>(QSerialPort::EvenParity));
+    const bool even_parity_set = direct.set_serial_port_parity(static_cast<std::uint8_t>(QSerialPort::EvenParity));
 #if defined(__linux__)
     // Linux PTYs have no parity hardware and may reject PARENB. Keep testing
     // the open-port NoParity path when this PTY cannot accept even parity.
-    if (!evenParitySet)
+    if (!even_parity_set)
     {
         ASSERT_TRUE(direct.set_serial_port_parity(static_cast<std::uint8_t>(QSerialPort::NoParity)));
         ASSERT_EQ(direct.get_serial_port_parity(), static_cast<std::uint8_t>(QSerialPort::NoParity));
@@ -134,7 +134,7 @@ TEST_F(TestDirectBackendPty, ptyParityChangesWhileOpen)
         return;
     }
 #endif
-    ASSERT_TRUE(evenParitySet);
+    ASSERT_TRUE(even_parity_set);
     ASSERT_EQ(direct.get_serial_port_parity(), static_cast<std::uint8_t>(QSerialPort::EvenParity));
     ASSERT_TRUE(direct.set_serial_port_parity(static_cast<std::uint8_t>(QSerialPort::NoParity)));
     ASSERT_EQ(direct.get_serial_port_parity(), static_cast<std::uint8_t>(QSerialPort::NoParity));

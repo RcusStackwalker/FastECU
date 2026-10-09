@@ -79,7 +79,7 @@ extern const std::array<bytes::Byte, kWriteRoutineSize> kWriteRedirectRoutine;
 // externals/livemonitor/obdengine.cpp. Different from (and not compatible
 // with) the table-based algorithms used by the Subaru-targeted modules in
 // this codebase.
-std::uint16_t seedKeyWord(std::uint16_t seedWord);
+std::uint16_t seedKeyWord(std::uint16_t seed_word);
 
 // Applies seedKeyWord() to both 16-bit halves of a 4-byte seed (big-endian
 // in, big-endian out): seed = [pk1_hi, pk1_lo, pk2_hi, pk2_lo].
@@ -103,7 +103,7 @@ std::vector<bytes::Bytes> buildTransferDataFrames(bytes::ByteView payload);
 
 // SID 0x31/225: [SID][225][selector]. selector = 2 if targetStart < 0x800000
 // ("flash"), else 1 ("memory") — matches obdengine.cpp's "flash/memory fun".
-bytes::Bytes buildRoutineCheckCrc(std::uint32_t targetStart);
+bytes::Bytes buildRoutineCheckCrc(std::uint32_t target_start);
 
 // SID 0x31/224, bare 2 bytes, no selector byte. Source comment: "causes reflash".
 bytes::Bytes buildRoutineErase();
@@ -120,7 +120,7 @@ bytes::Bytes buildRequestReflashUnlock();
 bytes::Bytes buildReadMemoryByAddress(std::uint32_t addr, bytes::Byte len);
 
 // SID 0x10: [SID][sessionId].
-bytes::Bytes buildDiagnosticSession(bytes::Byte sessionId);
+bytes::Bytes buildDiagnosticSession(bytes::Byte session_id);
 
 // SID 0x27/5 (seed request): [SID][0x05].
 bytes::Bytes buildSecurityAccessSeedRequest();

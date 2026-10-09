@@ -11,22 +11,22 @@ using namespace j2534_bridge;
 
 TEST(J2534BridgeProtocol, round_trip_small_payload)
 {
-    HANDLE readEnd = nullptr, writeEnd = nullptr;
+    HANDLE read_end = nullptr, write_end = nullptr;
     SECURITY_ATTRIBUTES sa{sizeof(sa), nullptr, TRUE};
-    BOOL ok = CreatePipe(&readEnd, &writeEnd, &sa, 0);
+    BOOL ok = CreatePipe(&read_end, &write_end, &sa, 0);
     ASSERT_TRUE(ok && "CreatePipe failed");
-    std::unique_ptr<void, decltype(&CloseHandle)> read_handle(readEnd, &CloseHandle);
-    std::unique_ptr<void, decltype(&CloseHandle)> write_handle(writeEnd, &CloseHandle);
+    std::unique_ptr<void, decltype(&CloseHandle)> read_handle(read_end, &CloseHandle);
+    std::unique_ptr<void, decltype(&CloseHandle)> write_handle(write_end, &CloseHandle);
 
     PassThruCloseRequest req{};
     req.device_id = 42;
 
-    bool wrote = writeFrame(writeEnd, Function::kPassThruClose, &req, sizeof(req));
+    bool wrote = writeFrame(write_end, Function::kPassThruClose, &req, sizeof(req));
     ASSERT_TRUE(wrote && "writeFrame failed");
 
     FrameHeader header{};
     PassThruCloseRequest received{};
-    bool read = readFrame(readEnd, header, &received, sizeof(received));
+    bool read = readFrame(read_end, header, &received, sizeof(received));
     ASSERT_TRUE(read && "readFrame failed");
     ASSERT_TRUE(header.function == Function::kPassThruClose);
     ASSERT_TRUE(header.payload_size == sizeof(req));
@@ -37,17 +37,17 @@ TEST(J2534BridgeProtocol, round_trip_small_payload)
 
 TEST(J2534BridgeProtocol, read_fails_on_closed_pipe)
 {
-    HANDLE readEnd = nullptr, writeEnd = nullptr;
+    HANDLE read_end = nullptr, write_end = nullptr;
     SECURITY_ATTRIBUTES sa{sizeof(sa), nullptr, TRUE};
-    BOOL ok = CreatePipe(&readEnd, &writeEnd, &sa, 0);
+    BOOL ok = CreatePipe(&read_end, &write_end, &sa, 0);
     ASSERT_TRUE(ok && "CreatePipe failed");
-    std::unique_ptr<void, decltype(&CloseHandle)> read_handle(readEnd, &CloseHandle);
-    std::unique_ptr<void, decltype(&CloseHandle)> write_handle(writeEnd, &CloseHandle);
+    std::unique_ptr<void, decltype(&CloseHandle)> read_handle(read_end, &CloseHandle);
+    std::unique_ptr<void, decltype(&CloseHandle)> write_handle(write_end, &CloseHandle);
     write_handle.reset(); // simulate the helper process exiting mid-call
 
     FrameHeader header{};
     std::array<char, 16> buf{};
-    bool read = readFrame(readEnd, header, buf.data(), static_cast<std::uint32_t>(buf.size()));
+    bool read = readFrame(read_end, header, buf.data(), static_cast<std::uint32_t>(buf.size()));
     ASSERT_TRUE(!read && "readFrame should fail on a broken pipe");
 
     std::printf("test_read_fails_on_closed_pipe: PASS\n");

@@ -47,7 +47,7 @@ QString rom_info_value(const QStringList& values, RomInfoRow row)
 }
 
 QStringList rom_info_values(const calibration::CalibrationSession& session,
-                            const std::optional<QString>& placeholder_make)
+                            const std::optional<QString>& placeholderMake)
 {
     const calibration::RomProtocolInfo& protocol = session.protocol();
     QStringList values(kRomInfoRowCount, QString(" "));
@@ -84,13 +84,13 @@ QStringList rom_info_values(const calibration::CalibrationSession& session,
         set(values, RomInfoRow::kChecksumModule, qs(protocol.checksum_module));
     }
     set(values, RomInfoRow::kFileSize, qs(protocol.file_size_label));
-    if (placeholder_make.has_value())
+    if (placeholderMake.has_value())
     {
         set(values, RomInfoRow::kXmlId, "UnknownID");
         set(values, RomInfoRow::kInternalIdAddress, "");
         set(values, RomInfoRow::kInternalIdString, "");
         set(values, RomInfoRow::kEcuId, "");
-        set(values, RomInfoRow::kMake, *placeholder_make);
+        set(values, RomInfoRow::kMake, *placeholderMake);
         set(values, RomInfoRow::kDefFile, " ");
     }
     return values;

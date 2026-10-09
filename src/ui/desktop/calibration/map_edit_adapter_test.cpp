@@ -159,16 +159,16 @@ TEST(SelectedNumericTarget, TranslatesBodyAndAxisHeaderSelections)
     EXPECT_THAT(body->elements, ::testing::FieldsAre(0, 0, 1, 1));
 
     select(0, 1, 0, 2);
-    const auto x_axis = selected_numeric_target(&window, session, 0);
-    ASSERT_TRUE(x_axis.has_value());
-    EXPECT_EQ(x_axis->target, calibration::NumericTarget::kXAxis);
-    EXPECT_THAT(x_axis->elements, ::testing::FieldsAre(0, 0, 0, 1));
+    const auto xAxis = selected_numeric_target(&window, session, 0);
+    ASSERT_TRUE(xAxis.has_value());
+    EXPECT_EQ(xAxis->target, calibration::NumericTarget::kXAxis);
+    EXPECT_THAT(xAxis->elements, ::testing::FieldsAre(0, 0, 0, 1));
 
     select(1, 0, 2, 0);
-    const auto y_axis = selected_numeric_target(&window, session, 0);
-    ASSERT_TRUE(y_axis.has_value());
-    EXPECT_EQ(y_axis->target, calibration::NumericTarget::kYAxis);
-    EXPECT_THAT(y_axis->elements, ::testing::FieldsAre(0, 0, 1, 0));
+    const auto yAxis = selected_numeric_target(&window, session, 0);
+    ASSERT_TRUE(yAxis.has_value());
+    EXPECT_EQ(yAxis->target, calibration::NumericTarget::kYAxis);
+    EXPECT_THAT(yAxis->elements, ::testing::FieldsAre(0, 0, 1, 0));
 }
 
 TEST(BodyWidgetRange, SkipsTheAxisRowAndColumnOfAThreeDimensionalTable)
@@ -235,12 +235,12 @@ TEST(SelectedNumericTarget, IsEmptyWithoutANumericSelection)
     const calibration::CalibrationSession definitionless(calibration::SessionId{2}, calibration::SessionContents{});
     EXPECT_FALSE(selected_numeric_target(&window, definitionless, 0).has_value());
 
-    auto static_def = two_by_two_definition();
-    static_def.maps[0].x_axis.type = "Static Y Axis";
-    const auto static_session = session_from(std::move(static_def));
+    auto staticDef = two_by_two_definition();
+    staticDef.maps[0].x_axis.type = "Static Y Axis";
+    const auto staticSession = session_from(std::move(staticDef));
     table->clearSelection();
     table->setRangeSelected(QTableWidgetSelectionRange(1, 0, 1, 0), true);
-    EXPECT_FALSE(selected_numeric_target(&window, static_session, 0).has_value());
+    EXPECT_FALSE(selected_numeric_target(&window, staticSession, 0).has_value());
 }
 
 TEST(SplitPasteRows, SplitsTabSeparatedRowsAndDropsOneTerminalLf)

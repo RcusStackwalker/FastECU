@@ -137,7 +137,7 @@ class FakeBackend : public SerialPortActionsDirect
     MOCK_METHOD(bool, set_iso15765_destination_address, (std::uint32_t value), (override));
 
     MOCK_METHOD(bool, is_serial_port_open, (), (override));
-    MOCK_METHOD(int, change_port_speed, (QString portSpeed), (override));
+    MOCK_METHOD(int, change_port_speed, (QString port_speed), (override));
     MOCK_METHOD(bool, set_kline_timings, (std::uint32_t parameter, int value), (override));
     MOCK_METHOD(int, set_j2534_ioctl, (std::uint32_t parameter, int value), (override));
     MOCK_METHOD(QByteArray, five_baud_init, (QByteArray output), (override));
