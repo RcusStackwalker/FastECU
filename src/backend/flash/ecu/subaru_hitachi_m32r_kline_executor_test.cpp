@@ -39,7 +39,7 @@ class TripOnReadTransport final : public ScriptedKlineFlashTransport
 
 bytes::Bytes frame(bytes::Bytes payload)
 {
-    return ssm_protocol::addHeader(payload, 0xf0, 0x10);
+    return ssm_protocol::AddHeader(payload, 0xf0, 0x10);
 }
 
 bytes::Bytes idResponse()
@@ -88,7 +88,7 @@ bytes::Bytes encryptedImage(bytes::ByteView image)
     static constexpr auto kTransform =
         std::to_array<std::uint8_t>({0x5, 0x6, 0x7, 0x1, 0x9, 0xc, 0xd, 0x8, 0xa, 0xd, 0x2, 0xb, 0xf, 0x4, 0x0, 0x3,
                                      0xb, 0x4, 0x6, 0x0, 0xf, 0x2, 0xd, 0x9, 0x5, 0xc, 0x1, 0xa, 0x3, 0xd, 0xe, 0x8});
-    return ssm_protocol::calculatePayload(image, static_cast<std::uint32_t>(image.size()), kIndex, kTransform);
+    return ssm_protocol::CalculatePayload(image, static_cast<std::uint32_t>(image.size()), kIndex, kTransform);
 }
 
 void scriptWriteBody(ScriptedKlineFlashTransport& transport, bytes::ByteView image)

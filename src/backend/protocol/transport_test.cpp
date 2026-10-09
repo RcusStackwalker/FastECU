@@ -42,36 +42,36 @@ TEST(TransportContract, QueuedErrorsRemainDistinctFromNoFrame)
 TEST(TransportContract, CanReadReturnsFrameWithIdAndPayload)
 {
     cdbg::ScriptedCanTransport t;
-    t.queueRead(0x7E8, test_bytes::bytesFromHex("0102"));
+    t.queueRead(0x7E8, test_bytes::BytesFromHex("0102"));
     fastecu::FakeCancellationToken token;
     auto result = t.read(20ms, token);
     ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_TRUE(result->has_value());
     EXPECT_EQ(result->value().id, 0x7E8U);
-    EXPECT_EQ(result->value().payload, test_bytes::bytesFromHex("0102"));
+    EXPECT_EQ(result->value().payload, test_bytes::BytesFromHex("0102"));
 }
 
 TEST(TestTransport, scripted_write_then_read)
 {
     ScriptedKlineTransport t;
-    t.expectWrite(test_bytes::bytesFromHex("A0"));
-    t.queueRead(test_bytes::bytesFromHex("A5"));
+    t.expectWrite(test_bytes::BytesFromHex("A0"));
+    t.queueRead(test_bytes::BytesFromHex("A5"));
     fastecu::FakeCancellationToken token;
     ASSERT_THAT(t.setBaud(125000), fastecu::testing::IsOk());
-    const auto written = t.write(test_bytes::bytesFromHex("A0"));
+    const auto written = t.write(test_bytes::BytesFromHex("A0"));
     ASSERT_THAT(written, fastecu::testing::IsOk());
     ASSERT_EQ(*written, 1U);
     const auto read = t.read(50ms, token);
     ASSERT_THAT(read, fastecu::testing::IsOk());
     ASSERT_TRUE(read->has_value());
-    ASSERT_EQ(read->value(), test_bytes::bytesFromHex("A5"));
+    ASSERT_EQ(read->value(), test_bytes::BytesFromHex("A5"));
     ASSERT_TRUE(t.scriptConsumed());
 }
 
 TEST(TestTransport, scripted_unexpected_write_flags)
 {
     ScriptedKlineTransport t;
-    t.expectWrite(test_bytes::bytesFromHex("A0"));
-    ASSERT_THAT(t.write(test_bytes::bytesFromHex("BB")), fastecu::testing::IsErr(fastecu::ErrorKind::kInternal));
+    t.expectWrite(test_bytes::BytesFromHex("A0"));
+    ASSERT_THAT(t.write(test_bytes::BytesFromHex("BB")), fastecu::testing::IsErr(fastecu::ErrorKind::kInternal));
     ASSERT_FALSE(t.ok()); // mismatch recorded
 }

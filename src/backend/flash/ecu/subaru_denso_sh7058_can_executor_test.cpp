@@ -862,7 +862,7 @@ TEST(SubaruDensoSh7058CanExecutor, KernelStartAcceptsServiceOnlyAndFullEchoBefor
     const std::array<bytes::Bytes, 2> accepted{{bytes::Bytes{0x71}, bytes::Bytes{0x71, 0x01, 0x02, 0x02, 0x02}}};
     for (const bytes::Bytes& start_reply : accepted)
     {
-        SCOPED_TRACE(bytes::toHex(start_reply));
+        SCOPED_TRACE(bytes::ToHex(start_reply));
         bytes::Bytes kernel_data(129, bytes::Byte{0});
         kernel_data.back() = 0x01;
         auto plan = plan_for(kVariants.front(), FlashOperation::kRead, {}, std::move(kernel_data));
@@ -960,7 +960,7 @@ TEST(SubaruDensoSh7058CanExecutor, ShortAndWrongIdInitialKernelProbesFallBackToB
                                                     bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0xBE, 0xEF, 0x00, 0x01, 0x01}};
     for (const bytes::Bytes& probe_reply : probe_replies)
     {
-        SCOPED_TRACE(bytes::toHex(probe_reply));
+        SCOPED_TRACE(bytes::ToHex(probe_reply));
         auto plan = plan_for(kVariants.front(), FlashOperation::kRead);
         ASSERT_TRUE(plan.has_value()) << plan.error().detail;
         SubaruDensoSh7058CanExecutor executor;

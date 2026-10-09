@@ -21,7 +21,7 @@ Result<Bytes> exchange(IKlineFlashTransport& transport, IClock& clock, const ICa
     {
         return fail(ErrorKind::kCancelled, "SH7058 read cancelled");
     }
-    const Bytes frame = ssm_protocol::addHeader(payload, 0xf0, 0x10);
+    const Bytes frame = ssm_protocol::AddHeader(payload, 0xf0, 0x10);
     auto written = transport.write(frame);
     if (!written.has_value())
     {
@@ -53,7 +53,7 @@ Result<Bytes> exchange(IKlineFlashTransport& transport, IClock& clock, const ICa
 
 bool valid(bytes::ByteView frame, bytes::Byte service, std::size_t payload_size)
 {
-    return ssm_protocol::hasValidFrame(frame, 0xf0, 0x10) && frame[3] == payload_size && frame[4] == service;
+    return ssm_protocol::HasValidFrame(frame, 0xf0, 0x10) && frame[3] == payload_size && frame[4] == service;
 }
 } // namespace
 
@@ -104,18 +104,18 @@ Result<FlashExecutionResult> SubaruHitachiSh7058KlineExecutor::execute(const Fla
         {
             return std::unexpected(identity.error());
         }
-        if (!ssm_protocol::hasValidFrame(*identity, 0xf0, 0x10) || identity->size() < 14 || (*identity)[4] != 0xff)
+        if (!ssm_protocol::HasValidFrame(*identity, 0xf0, 0x10) || identity->size() < 14 || (*identity)[4] != 0xff)
         {
             return fail(ErrorKind::kBadResponse, "invalid SH7058 identity response");
         }
-        std::string id = bytes::toHex(bytes::ByteView(*identity).subspan(8, 5), "{:02X}");
+        std::string id = bytes::ToHex(bytes::ByteView(*identity).subspan(8, 5), "{:02X}");
         rom_id = id + '_';
         auto switched = exchange(transport, clock, cancel, Bytes{0xb8, 0, 0, 0, 0x75}, 50ms);
         if (!switched.has_value())
         {
             return std::unexpected(switched.error());
         }
-        if (!ssm_protocol::hasPayloadPrefix(*switched, Bytes{0xf8}, 0xf0, 0x10))
+        if (!ssm_protocol::HasPayloadPrefix(*switched, Bytes{0xf8}, 0xf0, 0x10))
         {
             return fail(ErrorKind::kBadResponse, "SH7058 baud switch rejected");
         }
@@ -128,7 +128,7 @@ Result<FlashExecutionResult> SubaruHitachiSh7058KlineExecutor::execute(const Fla
         {
             return std::unexpected(resumed.error());
         }
-        if (!ssm_protocol::hasPayloadPrefix(*resumed, Bytes{0xff}, 0xf0, 0x10))
+        if (!ssm_protocol::HasPayloadPrefix(*resumed, Bytes{0xff}, 0xf0, 0x10))
         {
             return fail(ErrorKind::kBadResponse, "SH7058 connection lost after baud switch");
         }
@@ -138,7 +138,7 @@ Result<FlashExecutionResult> SubaruHitachiSh7058KlineExecutor::execute(const Fla
     for (std::uint32_t offset = 0; offset < 0x100000; offset += 0x80)
     {
         const std::uint32_t address = 0x100000 + offset;
-        Bytes request = bytes::composeBe(bytes::Byte{0xa0}, address, bytes::Byte{0x7f});
+        Bytes request = bytes::ComposeBe(bytes::Byte{0xa0}, address, bytes::Byte{0x7f});
         auto page = exchange(transport, clock, cancel, request, 0ms);
         if (!page.has_value())
         {

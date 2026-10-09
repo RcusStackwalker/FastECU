@@ -30,21 +30,21 @@ constexpr bytes::Byte kVendorChallengeAccepted = 0x34;
 // is what the ECU applies to its internal secret to produce the seed value
 // it sends the client. Provided for documentation/completeness and as the
 // basis for the round-trip check in tests — not what a client calls.
-std::uint32_t challengeTransform(std::uint32_t secret);
+std::uint32_t ChallengeTransform(std::uint32_t secret);
 
 // Inverse of challengeTransform(), analytically derived and verified against
 // the forward function across the full 32-bit domain. THIS is what a real
 // client calls: given the 4-byte seed the ECU sends, computes the key value
 // the ECU will accept.
-std::uint32_t challengeInverseTransform(std::uint32_t seed);
+std::uint32_t ChallengeInverseTransform(std::uint32_t seed);
 
-std::uint32_t bytesToSeed(bytes::ByteView seed_bytes); // expects exactly 4 bytes
-bytes::Bytes keyBytes(std::uint32_t key);              // produces exactly 4 bytes
+std::uint32_t BytesToSeed(bytes::ByteView seed_bytes); // expects exactly 4 bytes
+bytes::Bytes KeyBytes(std::uint32_t key);              // produces exactly 4 bytes
 
 // SID 0x23 vendor extension seed request: [0x23][0x27][0x41].
-bytes::Bytes buildChallengeSeedRequest();
+bytes::Bytes BuildChallengeSeedRequest();
 
 // SID 0x23 vendor extension key answer: [0x23][0x27][0x42][4-byte key].
-bytes::Bytes buildChallengeKey(std::uint32_t key);
+bytes::Bytes BuildChallengeKey(std::uint32_t key);
 
 } // namespace mitsu_colt_can_vendor_ext

@@ -34,10 +34,10 @@ LoggingChannel channel()
 void scriptValidHandshake(ScriptedKlineTransport& transport)
 {
     const std::vector<Channel> channels = {{0x8000, 2}};
-    transport.expectWrite(mutdma::buildSetupFrame(0xA0, 1));
-    transport.queueRead(mutdma::buildCommandFrame(0xA5, bytes::Bytes{}, mutdma::kTrailerStd));
-    transport.expectWrite(mutdma::buildIdListFrame(0xA1, channels));
-    transport.queueRead(mutdma::buildCommandFrame(0x05, bytes::Bytes{}, mutdma::kTrailerStd));
+    transport.expectWrite(mutdma::BuildSetupFrame(0xA0, 1));
+    transport.queueRead(mutdma::BuildCommandFrame(0xA5, bytes::Bytes{}, mutdma::kTrailerStd));
+    transport.expectWrite(mutdma::BuildIdListFrame(0xA1, channels));
+    transport.queueRead(mutdma::BuildCommandFrame(0x05, bytes::Bytes{}, mutdma::kTrailerStd));
 }
 
 std::unique_ptr<MutDmaLoggingProtocol> makeProtocol(std::unique_ptr<ScriptedKlineTransport> transport,
@@ -74,8 +74,8 @@ TEST(MutDmaLoggingProtocolTest, StartFailsWhenAdapterIsClosed)
 TEST(MutDmaLoggingProtocolTest, StartFailurePinsBadResponseForInvalidHandshake)
 {
     auto transport = std::make_unique<ScriptedKlineTransport>();
-    transport->expectWrite(mutdma::buildSetupFrame(0xA0, 1));
-    transport->queueRead(mutdma::buildCommandFrame(0x00, bytes::Bytes{}, mutdma::kTrailerStd));
+    transport->expectWrite(mutdma::BuildSetupFrame(0xA0, 1));
+    transport->queueRead(mutdma::BuildCommandFrame(0x00, bytes::Bytes{}, mutdma::kTrailerStd));
     auto protocol = makeProtocol(std::move(transport));
     fastecu::FakeCancellationToken cancellation;
 
@@ -107,7 +107,7 @@ TEST(MutDmaLoggingProtocolTest, StartPropagatesInternalSetBaudErrorKindAndDetail
 TEST(MutDmaLoggingProtocolTest, StartPropagatesQueuedWriteErrorKindAndDetail)
 {
     auto transport = std::make_unique<ScriptedKlineTransport>();
-    transport->expectWrite(mutdma::buildSetupFrame(0xA0, 1));
+    transport->expectWrite(mutdma::BuildSetupFrame(0xA0, 1));
     transport->queue_write_error(fastecu::ErrorKind::kDisconnected, "sentinel core setup write disconnect");
     auto protocol = makeProtocol(std::move(transport));
     fastecu::FakeCancellationToken cancellation;
@@ -119,7 +119,7 @@ TEST(MutDmaLoggingProtocolTest, StartPropagatesQueuedWriteErrorKindAndDetail)
 TEST(MutDmaLoggingProtocolTest, StartPropagatesQueuedReadErrorKindAndDetail)
 {
     auto transport = std::make_unique<ScriptedKlineTransport>();
-    transport->expectWrite(mutdma::buildSetupFrame(0xA0, 1));
+    transport->expectWrite(mutdma::BuildSetupFrame(0xA0, 1));
     transport->queue_error(fastecu::ErrorKind::kInternal, "sentinel core setup read internal");
     auto protocol = makeProtocol(std::move(transport));
     fastecu::FakeCancellationToken cancellation;
@@ -163,7 +163,7 @@ TEST(MutDmaLoggingProtocolTest, PollReturnsStableIdAndRawDecimalString)
     ASSERT_THAT(protocol->start(cancellation), fastecu::testing::IsOk());
 
     bytes::Bytes frame = {0x51, 0x12, 0x34};
-    frame.push_back(mutdma::sum8(frame));
+    frame.push_back(mutdma::Sum8(frame));
     frame.push_back(mutdma::kTrailerStd);
     script->queueRead(frame);
 

@@ -745,7 +745,7 @@ QByteArray SerialPortActionsDirect::read_serial_data(uint16_t timeout_arg)
             {
                 if (received.startsWith("\xbe\xef"))
                 {
-                    msglen = bytes::readU16Be(bytes::view(received), 2) + 1; // +1 for checksum
+                    msglen = bytes::ReadU16Be(bytes::view(received), 2) + 1; // +1 for checksum
                 }
                 if (received.startsWith("\x80\xf0"))
                 {
@@ -1228,10 +1228,10 @@ int SerialPortActionsDirect::init_j2534_connection()
         return kSerialError;
     }
 
-    const std::string_view api_version = bytes::fromFixedBufferDroppingLast(str_api_version);
-    const std::string_view dll_version = bytes::fromFixedBufferDroppingLast(str_dll_version);
-    const std::string_view firmware_version = bytes::fromFixedBufferDroppingLast(str_firmware_version);
-    const std::string_view serial_number = bytes::fromFixedBufferDroppingLast(str_serial);
+    const std::string_view api_version = bytes::FromFixedBufferDroppingLast(str_api_version);
+    const std::string_view dll_version = bytes::FromFixedBufferDroppingLast(str_dll_version);
+    const std::string_view firmware_version = bytes::FromFixedBufferDroppingLast(str_firmware_version);
+    const std::string_view serial_number = bytes::FromFixedBufferDroppingLast(str_serial);
 
     emit LOG_D("J2534 API Version: " + QString::fromUtf8(api_version), true, true);
     emit LOG_D("J2534 DLL Version: " + QString::fromUtf8(dll_version), true, true);
@@ -1375,7 +1375,7 @@ int SerialPortActionsDirect::set_j2534_can_filters()
         memset(msg_mask.data, 0xFF, txmsg.data_size);
         memset(msg_pattern.data, 0xFF, txmsg.data_size);
 
-        bytes::writeU32Be(msg_pattern.data, 0, can_destination_address);
+        bytes::WriteU32Be(msg_pattern.data, 0, can_destination_address);
 
         if (j2534_->PassThruStartMsgFilter(chan_id_, kJ2534PassFilter, &msg_mask, &msg_pattern, nullptr, &msg_id))
         {
@@ -1397,8 +1397,8 @@ int SerialPortActionsDirect::set_j2534_can_filters()
         memset(msg_pattern.data, 0xFF, txmsg.data_size);
         memset(msg_flow.data, 0xFF, txmsg.data_size);
 
-        bytes::writeU32Be(msg_pattern.data, 0, iso15765_destination_address);
-        bytes::writeU32Be(msg_flow.data, 0, iso15765_source_address);
+        bytes::WriteU32Be(msg_pattern.data, 0, iso15765_destination_address);
+        bytes::WriteU32Be(msg_flow.data, 0, iso15765_source_address);
 
         if (j2534_->PassThruStartMsgFilter(chan_id_, kJ2534FlowControlFilter, &msg_mask, &msg_pattern, &msg_flow,
                                            &msg_id))

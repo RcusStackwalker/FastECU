@@ -22,7 +22,7 @@ using bytes::Bytes;
 Bytes frame(std::uint32_t id, bytes::ByteView payload)
 {
     Bytes out;
-    bytes::appendU32Be(out, id);
+    bytes::AppendU32Be(out, id);
     out.insert(out.end(), payload.begin(), payload.end());
     return out;
 }
@@ -118,7 +118,7 @@ class Sh72543rExecutor : public ::testing::Test
     }
     Bytes pageRequest(std::uint32_t a)
     {
-        return bytes::composeBe(0x23_b, 0x24_b, a, std::uint16_t{1024});
+        return bytes::ComposeBe(0x23_b, 0x24_b, a, std::uint16_t{1024});
     }
     Bytes pages()
     {
@@ -437,7 +437,7 @@ class Sh72543rWrite : public Sh72543rExecutor
         b.reserve(0x200000);
         for (std::uint32_t address = 0; address < 0x200000; address += 4)
         {
-            bytes::appendU32Be(b, 0xdeadbeefU ^ address);
+            bytes::AppendU32Be(b, 0xdeadbeefU ^ address);
         }
         return b;
     }
@@ -465,10 +465,10 @@ class Sh72543rWrite : public Sh72543rExecutor
     {
         for (std::uint32_t a = 0x6000; a < 0x200000; a += 0x100)
         {
-            Bytes payload = bytes::composeBe(0xb6_b, bytes::u24(a));
+            Bytes payload = bytes::ComposeBe(0xb6_b, bytes::U24(a));
             for (unsigned offset = 0; offset < 0x100; offset += 4)
             {
-                bytes::appendU32Be(payload, referenceCipher(0xdeadbeefU ^ (a + offset)));
+                bytes::AppendU32Be(payload, referenceCipher(0xdeadbeefU ^ (a + offset)));
             }
             ASSERT_EQ(payload.size(), 260U);
             transport_.expectWrite(req(payload));

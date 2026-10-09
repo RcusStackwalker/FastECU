@@ -802,7 +802,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, InitialProbeToleratesShortMalformedNega
     }};
     for (const bytes::Bytes& probe_reply : probe_replies)
     {
-        SCOPED_TRACE(bytes::toHex(probe_reply));
+        SCOPED_TRACE(bytes::ToHex(probe_reply));
         auto plan = plan_for(kVariants.front(), FlashOperation::kRead);
         ASSERT_TRUE(plan.has_value()) << plan.error().detail;
         SubaruDensoSh7058CanDieselExecutor executor;
@@ -1483,7 +1483,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, NonzeroLargeBlockCommitsEveryWindowWith
     for (std::size_t index = 0; index < commits.size(); ++index)
     {
         SCOPED_TRACE(index);
-        EXPECT_EQ(bytes::readU32Be(commits[index], 9), expected_commit_addresses[index]);
+        EXPECT_EQ(bytes::ReadU32Be(commits[index], 9), expected_commit_addresses[index]);
         EXPECT_EQ(bytes::Bytes(commits[index].begin(), commits[index].begin() + 9),
                   (bytes::Bytes{0x00, 0x00, 0x07, 0xE0, 0xBE, 0xEF, 0x00, 0x0B, 0x24}));
         EXPECT_EQ(bytes::Bytes(commits[index].begin() + 13, commits[index].end()),

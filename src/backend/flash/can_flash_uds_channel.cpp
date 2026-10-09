@@ -17,7 +17,7 @@ CanFlashUdsChannel::CanFlashUdsChannel(ICanFlashTransport& transport, std::uint3
 Status CanFlashUdsChannel::send(bytes::ByteView pdu, const ICancellationToken& cancellation)
 {
     last_received_frame_.reset();
-    return transport_.write(bytes::composeBe(request_id_, pdu), cancellation);
+    return transport_.write(bytes::ComposeBe(request_id_, pdu), cancellation);
 }
 
 Result<std::optional<bytes::Bytes>> CanFlashUdsChannel::receive(std::chrono::milliseconds timeout,
@@ -41,7 +41,7 @@ Result<std::optional<bytes::Bytes>> CanFlashUdsChannel::receive(std::chrono::mil
                     std::format("CAN frame of {} bytes is shorter than its 4-byte id envelope", raw.size()));
     }
 
-    if (const std::uint32_t id = bytes::readU32Be(raw); id != response_id_)
+    if (const std::uint32_t id = bytes::ReadU32Be(raw); id != response_id_)
     {
         return fail(ErrorKind::kBadResponse, std::format("expected CAN reply id 0x{:x}, got 0x{:x}", response_id_, id));
     }

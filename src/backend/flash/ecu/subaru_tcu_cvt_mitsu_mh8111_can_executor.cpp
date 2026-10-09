@@ -29,8 +29,8 @@ namespace
 {
 using namespace bytes::literals;
 using namespace std::chrono_literals;
-using bytes::composeBe;
-using bytes::u24;
+using bytes::ComposeBe;
+using bytes::U24;
 
 constexpr uds::ExchangePolicy kExchangePolicy{.read_timeout = 2000ms};
 
@@ -57,18 +57,18 @@ constexpr MemoryRegion kWriteRegion{0x80000, 0x100000};
 
 bytes::Bytes seed_key(bytes::ByteView seed)
 {
-    return ssm_protocol::calculateSeedKey(seed, tcuCvtMitsuSeedKeyTable(), ssm_protocol::kIndexTransformationStock);
+    return ssm_protocol::CalculateSeedKey(seed, tcuCvtMitsuSeedKeyTable(), ssm_protocol::kIndexTransformationStock);
 }
 
 bytes::Bytes encrypt_rom(bytes::ByteView image)
 {
-    return ssm_protocol::calculatePayload(image, static_cast<std::uint32_t>(image.size()), tcuCvtMitsuEncryptTable(),
+    return ssm_protocol::CalculatePayload(image, static_cast<std::uint32_t>(image.size()), tcuCvtMitsuEncryptTable(),
                                           ssm_protocol::kIndexTransformationStock);
 }
 
 bytes::Bytes decrypt_page(bytes::ByteView page)
 {
-    return ssm_protocol::calculatePayload(page, static_cast<std::uint32_t>(page.size()), tcuCvtMitsuDecryptTable(),
+    return ssm_protocol::CalculatePayload(page, static_cast<std::uint32_t>(page.size()), tcuCvtMitsuDecryptTable(),
                                           ssm_protocol::kIndexTransformationStock);
 }
 
@@ -152,7 +152,7 @@ Status connect_bootloader(Ctx& ctx)
         return std::unexpected(seed_reply.error());
     }
     info(ctx, "Seed request ok");
-    const bytes::ByteView seed = uds::payload(*seed_reply).subspan(1, 4);
+    const bytes::ByteView seed = uds::Payload(*seed_reply).subspan(1, 4);
     const bytes::Bytes key = seed_key(seed);
 
     // Seed key 0x27/0x02 (lines 236-263), fatal.
@@ -214,7 +214,7 @@ Status connect_bootloader(Ctx& ctx)
     {
         if (alive->has_value())
         {
-            error(ctx, std::format("Wrong response from TCU: {}", bytes::toHex(**alive)));
+            error(ctx, std::format("Wrong response from TCU: {}", bytes::ToHex(**alive)));
         }
         else
         {
@@ -259,7 +259,7 @@ Result<bytes::Bytes> dump_flash_range(Ctx& ctx, PhaseReporter& progress)
     {
         if (setup->has_value())
         {
-            error(ctx, std::format("Wrong response from TCU: {}", bytes::toHex(**setup)));
+            error(ctx, std::format("Wrong response from TCU: {}", bytes::ToHex(**setup)));
         }
         else
         {
@@ -281,13 +281,13 @@ Result<bytes::Bytes> dump_flash_range(Ctx& ctx, PhaseReporter& progress)
 
         // Lines 406-454: SID 0xB7 + 3-byte big-endian address, standard
         // SID+0x40 convention (0xB7 -> 0xF7).
-        Result<bytes::Bytes> chunk = fatal_request(ctx, composeBe(uds::kSidReadMemoryChunk, u24(addr)),
+        Result<bytes::Bytes> chunk = fatal_request(ctx, ComposeBe(uds::kSidReadMemoryChunk, U24(addr)),
                                                    std::format("the flash read at 0x{:x}", addr));
         if (!chunk.has_value())
         {
             return std::unexpected(chunk.error());
         }
-        const bytes::Bytes decrypted = decrypt_page(uds::payload(*chunk));
+        const bytes::Bytes decrypted = decrypt_page(uds::Payload(*chunk));
         rom.insert(rom.end(), decrypted.begin(), decrypted.end());
         progress.update(static_cast<int>(addr + kPageSize - kReadRegion.start));
     }
@@ -350,7 +350,7 @@ Status erase_memory(Ctx& ctx)
             kExchangePolicy, ctx.cancellation);
         if (reply.has_value())
         {
-            if (const bytes::ByteView payload = uds::payload(*reply);
+            if (const bytes::ByteView payload = uds::Payload(*reply);
                 payload.size() >= 2 && payload[0] == uds::kRoutineControlStart && payload[1] == 0x02)
             {
                 info(ctx, "Erased! Starting Writing! Do Not Power Off!");
@@ -405,7 +405,7 @@ Status unlock_and_reflash_block(Ctx& ctx, bytes::ByteView block_plain, PhaseRepo
     for (int attempt = 0; attempt < 6; ++attempt)
     {
         Result<bytes::Bytes> setup =
-            ctx.uds.request(composeBe(uds::kSidRequestDownload, 0x04_b, 0x33_b, u24(0), u24(kSetupDataLen)),
+            ctx.uds.request(ComposeBe(uds::kSidRequestDownload, 0x04_b, 0x33_b, U24(0), U24(kSetupDataLen)),
                             kExchangePolicy, ctx.cancellation);
         setup_ok = setup.has_value();
         if (setup_ok)
@@ -439,7 +439,7 @@ Status unlock_and_reflash_block(Ctx& ctx, bytes::ByteView block_plain, PhaseRepo
         // fatal_request()/ctx.uds, which would enforce a SID+0x40 content
         // match this family's legacy code never checks here.
         if (const Status sent =
-                ctx.channel.send(composeBe(uds::kSidWriteMemoryChunk, u24(addr), chunk_data), ctx.cancellation);
+                ctx.channel.send(ComposeBe(uds::kSidWriteMemoryChunk, U24(addr), chunk_data), ctx.cancellation);
             !sent.has_value())
         {
             return sent;
@@ -486,7 +486,7 @@ Status unlock_and_reflash_block(Ctx& ctx, bytes::ByteView block_plain, PhaseRepo
                             kExchangePolicy, ctx.cancellation);
         if (checksum.has_value())
         {
-            if (const bytes::ByteView payload = uds::payload(*checksum);
+            if (const bytes::ByteView payload = uds::Payload(*checksum);
                 payload.size() >= 2 && payload[0] == uds::kRoutineControlStart && payload[1] == 0x02)
             {
                 info(ctx, "Checksum verified...");

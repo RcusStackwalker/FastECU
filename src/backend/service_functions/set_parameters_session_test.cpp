@@ -35,9 +35,9 @@ TcuParameterValues sample()
 bytes::Bytes framed(std::uint32_t address, bytes::Byte value)
 {
     bytes::Bytes payload{0xb8};
-    bytes::appendU24Be(payload, address);
+    bytes::AppendU24Be(payload, address);
     payload.push_back(value);
-    return ssm_protocol::addHeader(payload, 0xf0, 0x18);
+    return ssm_protocol::AddHeader(payload, 0xf0, 0x18);
 }
 
 bytes::Bytes ack()

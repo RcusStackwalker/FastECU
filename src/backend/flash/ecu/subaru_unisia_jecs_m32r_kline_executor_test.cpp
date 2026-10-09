@@ -36,7 +36,7 @@ bytes::Bytes request(const bytes::Bytes& payload)
 {
     bytes::Bytes frame{0x80, 0x10, 0xf0, static_cast<bytes::Byte>(payload.size())};
     frame.insert(frame.end(), payload.begin(), payload.end());
-    frame.push_back(bytes::sum8(frame));
+    frame.push_back(bytes::Sum8(frame));
     return frame;
 }
 
@@ -44,7 +44,7 @@ bytes::Bytes reply(const bytes::Bytes& payload)
 {
     bytes::Bytes frame{0x80, 0xf0, 0x10, static_cast<bytes::Byte>(payload.size())};
     frame.insert(frame.end(), payload.begin(), payload.end());
-    frame.push_back(bytes::sum8(frame));
+    frame.push_back(bytes::Sum8(frame));
     return frame;
 }
 

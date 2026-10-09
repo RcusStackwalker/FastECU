@@ -85,7 +85,7 @@ int GetKeyOperationsSubaru::load_and_apply_linear_approx()
 
     emit LOG_I("Start Time", true, true);
     const auto recovery =
-        subaru_key_recovery::recover_keys(bytes::view(unencryptedFileData), bytes::view(encryptedFileData));
+        subaru_key_recovery::RecoverKeys(bytes::view(unencryptedFileData), bytes::view(encryptedFileData));
     if (!recovery.has_value())
     {
         QMessageBox::warning(this, tr("Get Key Operation"),

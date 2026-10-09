@@ -60,7 +60,7 @@ Result<StepSpec> makeStep(const std::vector<std::string>& tokens)
         {
             return std::unexpected(pdu.error());
         }
-        if (mitsu_colt_can::isDestructiveRequest(*pdu))
+        if (mitsu_colt_can::IsDestructiveRequest(*pdu))
         {
             return fail(ErrorKind::kInvalidConfig,
                         std::format("{} cannot bypass a named destructive command", spec->name));

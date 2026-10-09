@@ -331,9 +331,9 @@ TEST_F(MutDmaIntegrationTest, write_throughAdapter_putsExactFrameOnWire)
         payload.append(char(0x03)); // sub-cmd 3
         payload.append(char(0x12));
         payload.append(char(0x34)); // addr16 (l_command word)
-        const QByteArray frame = bytes::toQByteArray(buildCommandFrame(0x87, bytes::view(payload), kTrailerStd));
+        const QByteArray frame = bytes::toQByteArray(BuildCommandFrame(0x87, bytes::view(payload), kTrailerStd));
         ASSERT_EQ(frame.size(), kFrameLen);
-        ASSERT_TRUE(verifyFrame(bytes::view(frame)));
+        ASSERT_TRUE(VerifyFrame(bytes::view(frame)));
 
         fastecu::testing::process_events_for(
             std::chrono::milliseconds(100)); // let all connect-handshake bytes reach the mock
@@ -413,7 +413,7 @@ TEST_F(MutDmaIntegrationTest, driverPollOnce_throughAdapter_decodesStreamFrameFr
         QByteArray frame;
         frame.append(char(log_id));
         frame.append(data);
-        frame.append(char(sum8(bytes::view(frame))));
+        frame.append(char(Sum8(bytes::view(frame))));
         frame.append(char(kTrailerStd));
 
         std::ignore = tr.read(60ms, cancellation); // drain residual

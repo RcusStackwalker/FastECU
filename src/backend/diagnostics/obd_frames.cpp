@@ -164,7 +164,7 @@ std::vector<std::uint16_t> decode_dtcs(bytes::ByteView data)
     for (std::size_t i = 0; i < data.size(); i += 2)
     {
         // readU16Be yields 0 for a trailing odd byte, which is dropped below.
-        if (const std::uint16_t code = bytes::readU16Be(data, i); code != 0)
+        if (const std::uint16_t code = bytes::ReadU16Be(data, i); code != 0)
         {
             codes.push_back(code);
         }

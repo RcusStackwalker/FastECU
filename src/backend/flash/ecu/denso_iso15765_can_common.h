@@ -85,20 +85,20 @@ inline constexpr std::array<std::uint16_t, 4> kDensoIso15765DecryptTable{0x92A0,
 // generate_can_seed_key().
 inline bytes::Bytes denso_seed_key(bytes::ByteView seed)
 {
-    return ssm_protocol::calculateSeedKey(seed, kDensoIso15765SeedKeyTable, ssm_protocol::kIndexTransformationStock);
+    return ssm_protocol::CalculateSeedKey(seed, kDensoIso15765SeedKeyTable, ssm_protocol::kIndexTransformationStock);
 }
 
 // encrypt_payload(), run once over the whole image before a flash write.
 inline bytes::Bytes denso_encrypt_rom(bytes::ByteView image)
 {
-    return ssm_protocol::calculatePayload(image, static_cast<std::uint32_t>(image.size()), kDensoIso15765EncryptTable,
+    return ssm_protocol::CalculatePayload(image, static_cast<std::uint32_t>(image.size()), kDensoIso15765EncryptTable,
                                           ssm_protocol::kIndexTransformationStock);
 }
 
 // decrypt_payload(), run per 256-byte page as a dump arrives.
 inline bytes::Bytes denso_decrypt_page(bytes::ByteView page)
 {
-    return ssm_protocol::calculatePayload(page, static_cast<std::uint32_t>(page.size()), kDensoIso15765DecryptTable,
+    return ssm_protocol::CalculatePayload(page, static_cast<std::uint32_t>(page.size()), kDensoIso15765DecryptTable,
                                           ssm_protocol::kIndexTransformationStock);
 }
 

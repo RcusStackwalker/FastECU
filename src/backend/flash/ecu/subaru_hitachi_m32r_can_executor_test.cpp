@@ -51,7 +51,7 @@ constexpr std::string_view kMcu = "M32R_512KB_1block";
 bytes::Bytes request(bytes::ByteView payload)
 {
     bytes::Bytes out;
-    bytes::appendU32Be(out, 0x7e0);
+    bytes::AppendU32Be(out, 0x7e0);
     out.insert(out.end(), payload.begin(), payload.end());
     return out;
 }
@@ -62,7 +62,7 @@ bytes::Bytes request(std::initializer_list<bytes::Byte> payload)
 bytes::Bytes response(bytes::ByteView tail)
 {
     bytes::Bytes out;
-    bytes::appendU32Be(out, 0x7e8);
+    bytes::AppendU32Be(out, 0x7e8);
     out.insert(out.end(), tail.begin(), tail.end());
     return out;
 }
@@ -117,7 +117,7 @@ constexpr std::array<std::uint8_t, 32> kIndexTransformation{0x5, 0x6, 0x7, 0x1, 
 
 bytes::Bytes seedKey(bytes::ByteView seed)
 {
-    return ssm_protocol::calculateSeedKey(seed, kSeedKeyTable, kIndexTransformation);
+    return ssm_protocol::CalculateSeedKey(seed, kSeedKeyTable, kIndexTransformation);
 }
 
 // The encrypt table is a genuine round-trip inverse of the decrypt table the
@@ -129,7 +129,7 @@ bytes::Bytes seedKey(bytes::ByteView seed)
 // computes the wire bytes a write must carry for a known plaintext image.
 bytes::Bytes toWire(bytes::ByteView plain)
 {
-    return ssm_protocol::calculatePayload(plain, static_cast<std::uint32_t>(plain.size()), kEncryptTable,
+    return ssm_protocol::CalculatePayload(plain, static_cast<std::uint32_t>(plain.size()), kEncryptTable,
                                           kIndexTransformation);
 }
 
@@ -206,7 +206,7 @@ void scriptFlashDump(ScriptedCanFlashTransport& transport, std::uint32_t start, 
     {
         bytes::Bytes reply = response({0xF7});
         reply.insert(reply.end(), wire_page.begin(), wire_page.end());
-        transport.exchange(request(bytes::composeBe(bytes::Byte(0xB7), bytes::u24(addr))), reply);
+        transport.exchange(request(bytes::ComposeBe(bytes::Byte(0xB7), bytes::U24(addr))), reply);
     }
 }
 
@@ -234,7 +234,7 @@ void scriptUpToFirstFatalRead(ScriptedCanFlashTransport& transport)
     scriptBenchConnect(transport);
     scriptDumpSetup(transport);
     const auto section = transport.section("first dump chunk (request only)");
-    transport.exchange(request(bytes::composeBe(bytes::Byte(0xB7), bytes::u24(0))));
+    transport.exchange(request(bytes::ComposeBe(bytes::Byte(0xB7), bytes::U24(0))));
 }
 
 // Scripts erase_memory's single write + single successful read.
@@ -260,7 +260,7 @@ void scriptReflashChunks(ScriptedCanFlashTransport& transport, bytes::ByteView r
     for (std::uint32_t addr = 0; addr < rom.size(); addr += chunk_size)
     {
         bytes::Bytes req =
-            bytes::composeBe(bytes::Byte(0xB6), bytes::u24(addr), bytes::ByteView(encrypted).subspan(addr, chunk_size));
+            bytes::ComposeBe(bytes::Byte(0xB6), bytes::U24(addr), bytes::ByteView(encrypted).subspan(addr, chunk_size));
         transport.exchange(request(req), response({0xF6}));
     }
 }
@@ -467,7 +467,7 @@ TEST(SubaruHitachiM32rCanExecutor, WriteStopsWhenTheEraseIsRejected)
 
     const bytes::Bytes encrypted = toWire(rom);
     bytes::Bytes first_chunk_request =
-        bytes::composeBe(bytes::Byte(0xB6), bytes::u24(0), bytes::ByteView(encrypted).subspan(0, 256));
+        bytes::ComposeBe(bytes::Byte(0xB6), bytes::U24(0), bytes::ByteView(encrypted).subspan(0, 256));
     transport.exchange(request(first_chunk_request), response({0x7F, 0xB6, 0x22}));
 
     const auto result = executor.execute(*plan, transport, clock, cancellation, events);

@@ -41,38 +41,38 @@ struct CdbgChannel
 };
 
 // {1, 1, 0,0,0,0,0,0}
-CdbgFrame buildInitFrame();
+CdbgFrame BuildInitFrame();
 
 // {18, 0, 2, 0,0,0,0,0} - kSecurityLogAccess seed request.
-CdbgFrame buildSecuritySeedRequestFrame();
+CdbgFrame BuildSecuritySeedRequestFrame();
 
 // Ported byte-for-byte from cdbgengine.cpp's seed_to_key(): per-byte
 // increment (keyed on the byte's low 2 bits) + 8-bit left-rotate by 3,
 // then a parity-keyed byte permutation, then two 16-bit multiply-accumulates.
 // Pure integer math - no ROM-specific addresses involved.
-std::uint32_t seedToKey(std::uint32_t seed);
+std::uint32_t SeedToKey(std::uint32_t seed);
 
 // Extracts the big-endian 4-byte seed from the security-seed-request reply
 // (reply bytes [4,8)). Returns 0 if reply is shorter than 8 bytes.
-std::uint32_t extractSeed(bytes::ByteView reply);
+std::uint32_t ExtractSeed(bytes::ByteView reply);
 
 // {19, 0, key[0..3] (big-endian), 0, 0}
-CdbgFrame buildSecurityKeyFrame(std::uint32_t key);
+CdbgFrame BuildSecurityKeyFrame(std::uint32_t key);
 
 // True if the key-response reply grants access (byte[3] != 0) - matches
 // livemonitor's security_flags check (the only documented success signal
 // for this step, in mainwindow.cpp's dead-code cdbgSecurityAccessCallback).
 // Returns false if reply is shorter than 4 bytes.
-bool securityGranted(bytes::ByteView reply);
+bool SecurityGranted(bytes::ByteView reply);
 
 // {20, 0, instance, 0, 0, 0, 0x06, 0x31}
-CdbgFrame buildLogResetFrame(bytes::Byte instance);
+CdbgFrame BuildLogResetFrame(bytes::Byte instance);
 
 // {6, 0, 1, instance, frameCount, intervalUnit, intervalHi, intervalLo}.
 // intervalMs is encoded directly in milliseconds if it fits in 16 bits
 // (intervalUnit=0), otherwise in tens-of-milliseconds (intervalUnit=1,
 // truncating division) - matches getLogStartCommand.
-CdbgFrame buildLogStartFrame(bytes::Byte instance, bytes::Byte frame_count, std::uint32_t interval_ms);
+CdbgFrame BuildLogStartFrame(bytes::Byte instance, bytes::Byte frame_count, std::uint32_t interval_ms);
 
 // Packs channels into frames of at most kMaxFrameBytes total size each (byte
 // 0 of every streamed frame is the frame-index marker, so payload starts at
@@ -80,14 +80,14 @@ CdbgFrame buildLogStartFrame(bytes::Byte instance, bytes::Byte frame_count, std:
 // LogItemsModel::loadSchema's byteIndex/frameIndex bookkeeping. Returns
 // false (outFrames untouched) if channels is empty or does not fit within
 // kMaxFrames frames.
-bool batchChannelsIntoFrames(const std::vector<CdbgChannel>& channels,
+bool BatchChannelsIntoFrames(const std::vector<CdbgChannel>& channels,
                              std::vector<std::vector<CdbgChannel>>& out_frames);
 
 // Builds the {21,...}/{22,...} command pairs (in order: select0, pointer0,
 // select1, pointer1, ...) that configure one frame's items, matching
 // getLogFrameInitCommands. Caller must have already produced frameItems via
 // batchChannelsIntoFrames.
-std::vector<CdbgFrame> buildFrameInitFrames(bytes::Byte instance, bytes::Byte frame_index,
+std::vector<CdbgFrame> BuildFrameInitFrames(bytes::Byte instance, bytes::Byte frame_index,
                                             const std::vector<CdbgChannel>& frame_items);
 
 // Decodes one streamed reply frame (byte 0 = frame index, bytes [1, N) =
@@ -95,7 +95,7 @@ std::vector<CdbgFrame> buildFrameInitFrames(bytes::Byte instance, bytes::Byte fr
 // raw unsigned value per channel. Returns an empty vector if frame is
 // shorter than 1 byte, frame[0] doesn't match expectedFrameIndex, or frame
 // is too short to hold every channel in frameItems.
-std::vector<std::uint32_t> decodeFrame(bytes::Byte expected_frame_index, const std::vector<CdbgChannel>& frame_items,
+std::vector<std::uint32_t> DecodeFrame(bytes::Byte expected_frame_index, const std::vector<CdbgChannel>& frame_items,
                                        bytes::ByteView frame);
 
 } // namespace mitsu_colt_can_cdbg

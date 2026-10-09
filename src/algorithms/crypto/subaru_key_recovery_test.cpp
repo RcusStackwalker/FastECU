@@ -19,7 +19,7 @@ using subaru_key_recovery::Keys;
 // vector, in round order.
 constexpr Keys kKeys{0x3b61, 0x8bef, 0x9e51, 0x1075};
 
-std::uint32_t xorshift(std::uint32_t& state)
+std::uint32_t Xorshift(std::uint32_t& state)
 {
     state ^= state << 13U;
     state ^= state >> 17U;
@@ -36,27 +36,27 @@ struct Pair
 // 0x20000 bytes of xorshift32 plaintext (seed 0x2545f491), with every 16th
 // word repeating word i/2 so duplicate plaintexts are present, and its
 // encryption under kKeys.
-Pair syntheticPair()
+Pair SyntheticPair()
 {
     std::array<std::uint32_t, 0x8000> words{};
     std::uint32_t state = 0x2545f491;
     for (std::size_t i = 0; i < words.size(); ++i)
     {
-        words[i] = i % 16 == 15 ? words[i / 2] : xorshift(state);
+        words[i] = i % 16 == 15 ? words[i / 2] : Xorshift(state);
     }
     Pair pair;
     for (const std::uint32_t word : words)
     {
-        bytes::appendU32Be(pair.plain, word);
-        bytes::appendU32Be(pair.cipher, subaru_key_recovery::encrypt(word, kKeys));
+        bytes::AppendU32Be(pair.plain, word);
+        bytes::AppendU32Be(pair.cipher, subaru_key_recovery::Encrypt(word, kKeys));
     }
     return pair;
 }
 
-void overwriteWord(bytes::Bytes& data, std::size_t index, std::uint32_t word)
+void OverwriteWord(bytes::Bytes& data, std::size_t index, std::uint32_t word)
 {
     bytes::Bytes encoded;
-    bytes::appendU32Be(encoded, word);
+    bytes::AppendU32Be(encoded, word);
     std::ranges::copy(encoded, data.begin() + static_cast<std::ptrdiff_t>(index * 4));
 }
 
@@ -80,7 +80,7 @@ TEST(SubaruKeyRecovery, FFunctionMatchesTheDialogImplementation)
     for (const Case& test : kCases)
     {
         SCOPED_TRACE(std::format("word {:#06x} key {:#06x}", test.word, test.key));
-        EXPECT_EQ(subaru_key_recovery::f_function(test.word, test.key), test.expected);
+        EXPECT_EQ(subaru_key_recovery::FFunction(test.word, test.key), test.expected);
     }
 }
 
@@ -99,7 +99,7 @@ TEST(SubaruKeyRecovery, EncryptMatchesTheDialogImplementation)
     for (const Case& test : kCases)
     {
         SCOPED_TRACE(std::format("plain {:#010x}", test.plain));
-        EXPECT_EQ(subaru_key_recovery::encrypt(test.plain, kKeys), test.expected);
+        EXPECT_EQ(subaru_key_recovery::Encrypt(test.plain, kKeys), test.expected);
     }
 }
 
@@ -109,11 +109,11 @@ TEST(SubaruKeyRecovery, EncryptIsTheSsmPayloadCipher)
     {
         SCOPED_TRACE(std::format("plain {:#010x}", plain));
         bytes::Bytes encoded;
-        bytes::appendU32Be(encoded, plain);
+        bytes::AppendU32Be(encoded, plain);
         const bytes::Bytes payload =
-            ssm_protocol::calculatePayload(bytes::ByteView(encoded), 4, kKeys, ssm_protocol::kIndexTransformationStock);
+            ssm_protocol::CalculatePayload(bytes::ByteView(encoded), 4, kKeys, ssm_protocol::kIndexTransformationStock);
         ASSERT_EQ(payload.size(), 4U);
-        EXPECT_EQ(subaru_key_recovery::encrypt(plain, kKeys), bytes::readU32Be(bytes::ByteView(payload)));
+        EXPECT_EQ(subaru_key_recovery::Encrypt(plain, kKeys), bytes::ReadU32Be(bytes::ByteView(payload)));
     }
 }
 
@@ -122,8 +122,8 @@ constexpr std::size_t kDistinctPairs = 0x8000 - 0x8000 / 16;
 
 TEST(SubaruKeyRecovery, RecoversTheRealKeysFromASyntheticPair)
 {
-    const Pair pair = syntheticPair();
-    const auto recovery = subaru_key_recovery::recover_keys(bytes::ByteView(pair.plain), bytes::ByteView(pair.cipher));
+    const Pair pair = SyntheticPair();
+    const auto recovery = subaru_key_recovery::RecoverKeys(bytes::ByteView(pair.plain), bytes::ByteView(pair.cipher));
     ASSERT_TRUE(recovery.has_value());
     EXPECT_EQ(recovery->keys, kKeys);
     EXPECT_EQ(recovery->distinct_pairs, kDistinctPairs);
@@ -132,10 +132,10 @@ TEST(SubaruKeyRecovery, RecoversTheRealKeysFromASyntheticPair)
 
 TEST(SubaruKeyRecovery, ReadsOnlyTheFirst128KiB)
 {
-    Pair pair = syntheticPair();
+    Pair pair = SyntheticPair();
     pair.plain.resize(pair.plain.size() + 8, 0x5a);
     pair.cipher.resize(pair.cipher.size() + 4, 0xa5);
-    const auto recovery = subaru_key_recovery::recover_keys(bytes::ByteView(pair.plain), bytes::ByteView(pair.cipher));
+    const auto recovery = subaru_key_recovery::RecoverKeys(bytes::ByteView(pair.plain), bytes::ByteView(pair.cipher));
     ASSERT_TRUE(recovery.has_value());
     EXPECT_EQ(recovery->keys, kKeys);
     EXPECT_EQ(recovery->distinct_pairs, kDistinctPairs);
@@ -143,14 +143,14 @@ TEST(SubaruKeyRecovery, ReadsOnlyTheFirst128KiB)
 
 TEST(SubaruKeyRecovery, ShortInputFailsBeforeReading)
 {
-    const Pair pair = syntheticPair();
+    const Pair pair = SyntheticPair();
     const bytes::ByteView full_plain(pair.plain);
     const bytes::ByteView full_cipher(pair.cipher);
-    EXPECT_EQ(subaru_key_recovery::recover_keys(full_plain.first(full_plain.size() - 1), full_cipher),
+    EXPECT_EQ(subaru_key_recovery::RecoverKeys(full_plain.first(full_plain.size() - 1), full_cipher),
               std::unexpected(Failure::kInputTooShort));
-    EXPECT_EQ(subaru_key_recovery::recover_keys(full_plain, full_cipher.first(full_cipher.size() - 1)),
+    EXPECT_EQ(subaru_key_recovery::RecoverKeys(full_plain, full_cipher.first(full_cipher.size() - 1)),
               std::unexpected(Failure::kInputTooShort));
-    EXPECT_EQ(subaru_key_recovery::recover_keys({}, {}), std::unexpected(Failure::kInputTooShort));
+    EXPECT_EQ(subaru_key_recovery::RecoverKeys({}, {}), std::unexpected(Failure::kInputTooShort));
 }
 
 // Word 0x7fff repeats word 0x3fff, so 0x7ffe is the last distinct pair. Its
@@ -158,9 +158,9 @@ TEST(SubaruKeyRecovery, ShortInputFailsBeforeReading)
 // and k4; every other pair outvotes it.
 TEST(SubaruKeyRecovery, AMismatchedPairIsOutvoted)
 {
-    Pair pair = syntheticPair();
-    overwriteWord(pair.cipher, 0x7ffe, 0xc0eb535f);
-    const auto recovery = subaru_key_recovery::recover_keys(bytes::ByteView(pair.plain), bytes::ByteView(pair.cipher));
+    Pair pair = SyntheticPair();
+    OverwriteWord(pair.cipher, 0x7ffe, 0xc0eb535f);
+    const auto recovery = subaru_key_recovery::RecoverKeys(bytes::ByteView(pair.plain), bytes::ByteView(pair.cipher));
     ASSERT_TRUE(recovery.has_value());
     EXPECT_EQ(recovery->keys, kKeys);
     EXPECT_EQ(recovery->distinct_pairs, kDistinctPairs);
@@ -171,14 +171,14 @@ TEST(SubaruKeyRecovery, AMismatchedPairIsOutvoted)
 // k2 is consistent with a majority of the pairs.
 TEST(SubaruKeyRecovery, UnrelatedFilesFailWithoutAMajorityKey)
 {
-    Pair pair = syntheticPair();
+    Pair pair = SyntheticPair();
     pair.cipher.clear();
     std::uint32_t state = 0x9e3779b9;
     for (std::size_t i = 0; i < 0x8000; ++i)
     {
-        bytes::appendU32Be(pair.cipher, xorshift(state));
+        bytes::AppendU32Be(pair.cipher, Xorshift(state));
     }
-    EXPECT_EQ(subaru_key_recovery::recover_keys(bytes::ByteView(pair.plain), bytes::ByteView(pair.cipher)),
+    EXPECT_EQ(subaru_key_recovery::RecoverKeys(bytes::ByteView(pair.plain), bytes::ByteView(pair.cipher)),
               std::unexpected(Failure::kNoMatchingKey));
 }
 

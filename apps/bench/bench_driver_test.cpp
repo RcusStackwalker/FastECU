@@ -51,7 +51,7 @@ std::vector<Result<bytes::Bytes>> successfulUploadReplies()
 
 bool sentErase(const FakeBenchSession& session)
 {
-    return std::ranges::find(session.requests, mitsu_colt_can::buildRoutineErase()) != session.requests.end();
+    return std::ranges::find(session.requests, mitsu_colt_can::BuildRoutineErase()) != session.requests.end();
 }
 
 TEST(BenchDriver, JsonPortsIsOneObjectAndNeverRequestsASession)
@@ -190,7 +190,7 @@ TEST(BenchDriver, PreparedPayloadIsNotReloadedAfterAnEarlierDestructiveStep)
     EXPECT_EQ(code, 0);
     EXPECT_EQ(harness.files.load_calls.at("payload.bin"), 1);
     ASSERT_EQ(harness.session.requests.size(), 6U);
-    EXPECT_EQ(harness.session.requests.front(), mitsu_colt_can::buildRequestReflashUnlock());
+    EXPECT_EQ(harness.session.requests.front(), mitsu_colt_can::BuildRequestReflashUnlock());
     EXPECT_THAT(harness.session.requests[2], test_bytes::BytesEq((bytes::Bytes{0x36, 0xAA})));
 }
 

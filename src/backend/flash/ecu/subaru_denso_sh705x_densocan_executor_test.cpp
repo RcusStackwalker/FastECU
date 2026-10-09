@@ -36,8 +36,8 @@ namespace fastecu::flash
 {
 namespace
 {
-using bytes::composeBe;
-using bytes::u24;
+using bytes::ComposeBe;
+using bytes::U24;
 using namespace bytes::literals;
 using namespace std::chrono_literals;
 
@@ -209,7 +209,7 @@ Result<FlashPlan> write_plan(const Case& test_case, FlashOperation operation = F
 
 bytes::Bytes iso_request(std::uint8_t opcode, bytes::ByteView payload = {})
 {
-    bytes::Bytes message = composeBe(kIsoRequestId, std::uint16_t{0xBEEF},
+    bytes::Bytes message = ComposeBe(kIsoRequestId, std::uint16_t{0xBEEF},
                                      static_cast<std::uint16_t>(payload.size() + 1), bytes::Byte(opcode));
     message.insert(message.end(), payload.begin(), payload.end());
     return message;
@@ -224,7 +224,7 @@ bytes::Bytes kernel_id_request()
 
 bytes::Bytes iso_response(std::uint8_t opcode, bytes::ByteView payload = {})
 {
-    bytes::Bytes message = composeBe(kIsoResponseId, std::uint16_t{0xBEEF},
+    bytes::Bytes message = ComposeBe(kIsoResponseId, std::uint16_t{0xBEEF},
                                      static_cast<std::uint16_t>(payload.size() + 1), bytes::Byte(opcode));
     message.insert(message.end(), payload.begin(), payload.end());
     return message;
@@ -264,7 +264,7 @@ void script_read_pages(ScriptedMixedCanFlashTransport& transport, std::uint32_t 
 {
     for (std::uint32_t address = 0; address < size; address += kReadPageSize)
     {
-        transport.expectIsoWrite(iso_request(0x03, composeBe(0x00_b, u24(address), std::uint16_t{kReadPageSize})));
+        transport.expectIsoWrite(iso_request(0x03, ComposeBe(0x00_b, U24(address), std::uint16_t{kReadPageSize})));
         transport.queueIsoRead(iso_response(0x43, bytes::Bytes(kReadPageSize, wire_fill)));
     }
 }
@@ -273,7 +273,7 @@ void script_raw_read_pages_with_boundary_sentinels(ScriptedMixedCanFlashTranspor
 {
     for (std::uint32_t address = 0; address < size; address += kReadPageSize)
     {
-        transport.expectIsoWrite(iso_request(0x03, composeBe(0x00_b, u24(address), std::uint16_t{kReadPageSize})));
+        transport.expectIsoWrite(iso_request(0x03, ComposeBe(0x00_b, U24(address), std::uint16_t{kReadPageSize})));
         bytes::Bytes page(kReadPageSize, bytes::Byte{0});
         if (address == 0)
         {
@@ -335,8 +335,8 @@ bytes::Bytes fixed_raw_zero_bytes(std::size_t size)
 
 void script_crc(ScriptedMixedCanFlashTransport& transport, const MemoryRegion& block, std::uint32_t crc)
 {
-    transport.expectIsoWrite(iso_request(0x02, composeBe(block.start, 0x00_b, u24(block.length))));
-    transport.queueIsoRead(iso_response(0x42, composeBe(crc)));
+    transport.expectIsoWrite(iso_request(0x02, ComposeBe(block.start, 0x00_b, U24(block.length))));
+    transport.queueIsoRead(iso_response(0x42, ComposeBe(crc)));
     // Legacy check_romcrc() discards a short response after either comparison result.
     transport.queueNoIsoFrame();
 }
@@ -417,25 +417,25 @@ void script_raw_first_flash_block(ScriptedMixedCanFlashTransport& transport, boo
     transport.queueIsoRead(iso_response(0x44, bytes::Bytes{0x00, 0x64}));
     if (!test_write)
     {
-        transport.expectIsoWrite(iso_request(0x25, composeBe(std::uint32_t{0})));
+        transport.expectIsoWrite(iso_request(0x25, ComposeBe(std::uint32_t{0})));
         transport.queueIsoRead(iso_response(0x65));
     }
     for (std::uint32_t offset = 0; offset < kCommitBlockSize; offset += kWriteChunkSize)
     {
-        transport.expectIsoWrite(iso_request(0x22, composeBe(offset, expected_raw_commit_chunk(offset))));
+        transport.expectIsoWrite(iso_request(0x22, ComposeBe(offset, expected_raw_commit_chunk(offset))));
         transport.queueIsoRead(iso_response(0x62));
     }
     transport.expectIsoWrite(iso_request(test_write ? 0x23 : 0x24,
-                                         composeBe(std::uint32_t{0}, std::uint16_t{kCommitBlockSize}, 0xFF6A783EU)));
+                                         ComposeBe(std::uint32_t{0}, std::uint16_t{kCommitBlockSize}, 0xFF6A783EU)));
     transport.queueIsoRead(iso_response(test_write ? 0x63 : 0x64));
 }
 
 void script_flash_init(ScriptedMixedCanFlashTransport& transport, bool test_write)
 {
     transport.expectIsoWrite(iso_request(0x05));
-    transport.queueIsoRead(iso_response(0x45, composeBe(std::uint32_t{0x00000200})));
+    transport.queueIsoRead(iso_response(0x45, ComposeBe(std::uint32_t{0x00000200})));
     transport.expectIsoWrite(iso_request(0x06));
-    transport.queueIsoRead(iso_response(0x46, composeBe(std::uint32_t{0x00001000})));
+    transport.queueIsoRead(iso_response(0x46, ComposeBe(std::uint32_t{0x00001000})));
     transport.expectIsoWrite(iso_request(test_write ? 0x21 : 0x20));
     transport.queueIsoRead(iso_response(test_write ? 0x61 : 0x60));
 }
@@ -449,18 +449,18 @@ void script_first_flash_block(ScriptedMixedCanFlashTransport& transport, bool te
     transport.queueIsoRead(iso_response(0x44, bytes::Bytes{0x00, 0x64}));
     if (!test_write)
     {
-        transport.expectIsoWrite(iso_request(0x25, composeBe(start)));
+        transport.expectIsoWrite(iso_request(0x25, ComposeBe(start)));
         transport.queueIsoRead(iso_response(0x65));
     }
 
     const bytes::Bytes raw_chunk = fixed_raw_zero_bytes(kWriteChunkSize);
     for (std::uint32_t offset = 0; offset < kCommitBlockSize; offset += kWriteChunkSize)
     {
-        transport.expectIsoWrite(iso_request(0x22, composeBe(offset, raw_chunk)));
+        transport.expectIsoWrite(iso_request(0x22, ComposeBe(offset, raw_chunk)));
         transport.queueIsoRead(iso_response(0x62));
     }
     transport.expectIsoWrite(
-        iso_request(test_write ? 0x23 : 0x24, composeBe(start, std::uint16_t{kCommitBlockSize}, 0xF722EF49U)));
+        iso_request(test_write ? 0x23 : 0x24, ComposeBe(start, std::uint16_t{kCommitBlockSize}, 0xF722EF49U)));
     transport.queueIsoRead(iso_response(test_write ? 0x63 : 0x64));
 }
 
@@ -494,18 +494,18 @@ void script_large_nonzero_write_block(ScriptedMixedCanFlashTransport& transport)
 
     transport.expectIsoWrite(iso_request(0x04));
     transport.queueIsoRead(iso_response(0x44, bytes::Bytes{0x00, 0x64}));
-    transport.expectIsoWrite(iso_request(0x25, composeBe(std::uint32_t{0x00008000})));
+    transport.expectIsoWrite(iso_request(0x25, ComposeBe(std::uint32_t{0x00008000})));
     transport.queueIsoRead(iso_response(0x65));
     const bytes::Bytes raw_chunk = fixed_raw_zero_bytes(kWriteChunkSize);
     std::size_t commit_index = 0;
     for (const FlashBufferExpectation& buffer : kBuffers)
     {
-        transport.expectIsoWrite(iso_request(0x22, composeBe(buffer.address, raw_chunk)));
+        transport.expectIsoWrite(iso_request(0x22, ComposeBe(buffer.address, raw_chunk)));
         transport.queueIsoRead(iso_response(0x62));
         if (buffer.commit_after)
         {
             transport.expectIsoWrite(iso_request(
-                0x24, composeBe(kCommitStarts[commit_index], std::uint16_t{kCommitBlockSize}, 0xF722EF49U)));
+                0x24, ComposeBe(kCommitStarts[commit_index], std::uint16_t{kCommitBlockSize}, 0xF722EF49U)));
             transport.queueIsoRead(iso_response(0x64));
             ++commit_index;
         }
@@ -1028,7 +1028,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor, UploadPaddingAndChecksumUseHandDerivedSe
     transport.queueNoRawFrame();
     transport.expectIsoWrite(kernel_id_request());
     transport.queueIsoRead(kernel_id_response());
-    transport.expectIsoWrite(iso_request(0x03, composeBe(0x00_b, u24(0), std::uint16_t{kReadPageSize})));
+    transport.expectIsoWrite(iso_request(0x03, ComposeBe(0x00_b, U24(0), std::uint16_t{kReadPageSize})));
     transport.queueIsoRead(iso_response(0x43, bytes::Bytes{0x00}));
     FakeCancellationToken cancellation;
     FakeClock clock;
@@ -1266,7 +1266,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor, RejectsBEEFResponseWhoseDeclaredLengthDo
     ScriptedMixedCanFlashTransport transport;
     configure_and_open(executor, *plan, transport);
     script_kernel_alive(transport);
-    transport.expectIsoWrite(iso_request(0x03, composeBe(0x00_b, u24(0), std::uint16_t{kReadPageSize})));
+    transport.expectIsoWrite(iso_request(0x03, ComposeBe(0x00_b, U24(0), std::uint16_t{kReadPageSize})));
     bytes::Bytes truncated_declaration = iso_response(0x43, bytes::Bytes(kReadPageSize, 0x00));
     truncated_declaration[6] = 0x00;
     truncated_declaration[7] = 0x01;
@@ -1362,7 +1362,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor, TimeoutAndDisconnectPropagateWithoutAnUn
         ScriptedMixedCanFlashTransport transport;
         configure_and_open(executor, *plan, transport);
         script_kernel_alive(transport);
-        transport.expectIsoWrite(iso_request(0x03, composeBe(0x00_b, u24(0), std::uint16_t{kReadPageSize})));
+        transport.expectIsoWrite(iso_request(0x03, ComposeBe(0x00_b, U24(0), std::uint16_t{kReadPageSize})));
         transport.queueNoIsoFrame();
 
         auto result = executor.execute(*plan, transport, clock, cancellation, events);
@@ -1428,7 +1428,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor, ShortReadAndCrcPayloadsAreRejectedBefore
         ScriptedMixedCanFlashTransport transport;
         configure_and_open(executor, *plan, transport);
         script_kernel_alive(transport);
-        transport.expectIsoWrite(iso_request(0x03, composeBe(0x00_b, u24(0), std::uint16_t{kReadPageSize})));
+        transport.expectIsoWrite(iso_request(0x03, ComposeBe(0x00_b, U24(0), std::uint16_t{kReadPageSize})));
         transport.queueIsoRead(iso_response(0x43, bytes::Bytes(kReadPageSize - 1, 0x00)));
 
         auto result = executor.execute(*plan, transport, clock, cancellation, events);
@@ -1448,7 +1448,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor, ShortReadAndCrcPayloadsAreRejectedBefore
         ScriptedMixedCanFlashTransport transport;
         configure_and_open(executor, *plan, transport);
         script_kernel_alive(transport);
-        transport.expectIsoWrite(iso_request(0x02, composeBe(block.start, 0x00_b, u24(block.length))));
+        transport.expectIsoWrite(iso_request(0x02, ComposeBe(block.start, 0x00_b, U24(block.length))));
         transport.queueIsoRead(iso_response(0x42, bytes::Bytes{0x00, 0x00, 0x00}));
 
         auto result = executor.execute(*plan, transport, clock, cancellation, events);
@@ -1549,9 +1549,9 @@ TEST(SubaruDensoSh705xDensoCanExecutor, ShortRawAndFlashAcknowledgementsAreRejec
         script_flash_init(transport, false);
         transport.expectIsoWrite(iso_request(0x04));
         transport.queueIsoRead(iso_response(0x44, bytes::Bytes{0x00, 0x64}));
-        transport.expectIsoWrite(iso_request(0x25, composeBe(std::uint32_t{0})));
+        transport.expectIsoWrite(iso_request(0x25, ComposeBe(std::uint32_t{0})));
         transport.queueIsoRead(iso_response(0x65));
-        transport.expectIsoWrite(iso_request(0x22, composeBe(std::uint32_t{0}, raw_chunk)));
+        transport.expectIsoWrite(iso_request(0x22, ComposeBe(std::uint32_t{0}, raw_chunk)));
         transport.queueIsoRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE8, 0xBE, 0xEF, 0x00, 0x01});
 
         auto result = executor.execute(*plan, transport, clock, cancellation, events);
@@ -1578,9 +1578,9 @@ TEST(SubaruDensoSh705xDensoCanExecutor, PostEraseProtocolFailureEmitsTheLegacyRe
     script_flash_init(transport, false);
     transport.expectIsoWrite(iso_request(0x04));
     transport.queueIsoRead(iso_response(0x44, bytes::Bytes{0x00, 0x64}));
-    transport.expectIsoWrite(iso_request(0x25, composeBe(std::uint32_t{0})));
+    transport.expectIsoWrite(iso_request(0x25, ComposeBe(std::uint32_t{0})));
     transport.queueIsoRead(iso_response(0x65));
-    transport.expectIsoWrite(iso_request(0x22, composeBe(std::uint32_t{0}, raw_chunk)));
+    transport.expectIsoWrite(iso_request(0x22, ComposeBe(std::uint32_t{0}, raw_chunk)));
     transport.queueIsoRead(iso_response(0x7F));
     FakeCancellationToken cancellation;
     FakeClock clock;
@@ -1613,9 +1613,9 @@ TEST(SubaruDensoSh705xDensoCanExecutor, CancellationAfterEraseEmitsTheLegacyReco
     script_flash_init(transport, false);
     transport.expectIsoWrite(iso_request(0x04));
     transport.queueIsoRead(iso_response(0x44, bytes::Bytes{0x00, 0x64}));
-    transport.expectIsoWrite(iso_request(0x25, composeBe(std::uint32_t{0})));
+    transport.expectIsoWrite(iso_request(0x25, ComposeBe(std::uint32_t{0})));
     transport.queueIsoRead(iso_response(0x65));
-    transport.expectIsoWrite(iso_request(0x22, composeBe(std::uint32_t{0}, raw_chunk)));
+    transport.expectIsoWrite(iso_request(0x22, ComposeBe(std::uint32_t{0}, raw_chunk)));
     transport.queueIsoRead(iso_response(0x62));
     FakeCancellationToken cancellation;
     FakeClock clock;
@@ -1722,7 +1722,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor, ReadAndWriteCancellationStopBeforeASecon
         ScriptedMixedCanFlashTransport transport;
         configure_and_open(executor, *plan, transport);
         script_kernel_alive(transport);
-        transport.expectIsoWrite(iso_request(0x03, composeBe(0x00_b, u24(0), std::uint16_t{kReadPageSize})));
+        transport.expectIsoWrite(iso_request(0x03, ComposeBe(0x00_b, U24(0), std::uint16_t{kReadPageSize})));
         transport.queueIsoRead(iso_response(0x43, bytes::Bytes(kReadPageSize, 0)));
         FakeCancellationToken cancellation;
         FakeClock clock;
@@ -1747,9 +1747,9 @@ TEST(SubaruDensoSh705xDensoCanExecutor, ReadAndWriteCancellationStopBeforeASecon
         script_flash_init(transport, false);
         transport.expectIsoWrite(iso_request(0x04));
         transport.queueIsoRead(iso_response(0x44, bytes::Bytes{0x00, 0x64}));
-        transport.expectIsoWrite(iso_request(0x25, composeBe(std::uint32_t{0})));
+        transport.expectIsoWrite(iso_request(0x25, ComposeBe(std::uint32_t{0})));
         transport.queueIsoRead(iso_response(0x65));
-        transport.expectIsoWrite(iso_request(0x22, composeBe(std::uint32_t{0}, raw_chunk)));
+        transport.expectIsoWrite(iso_request(0x22, ComposeBe(std::uint32_t{0}, raw_chunk)));
         transport.queueIsoRead(iso_response(0x62));
         FakeCancellationToken cancellation;
         FakeClock clock;

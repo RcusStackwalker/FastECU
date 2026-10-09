@@ -25,10 +25,10 @@ enum class Failure
 // The attack reads exactly this many leading bytes of each input.
 inline constexpr std::size_t kAnalyzedBytes = 0x20000;
 
-std::uint16_t f_function(std::uint16_t word, std::uint16_t key);
+std::uint16_t FFunction(std::uint16_t word, std::uint16_t key);
 
 // Four rounds under keys, then the final half swap.
-std::uint32_t encrypt(std::uint32_t plain, const Keys& keys);
+std::uint32_t Encrypt(std::uint32_t plain, const Keys& keys);
 
 struct Recovery
 {
@@ -46,6 +46,6 @@ struct Recovery
 // with it; the key with the most votes wins, the lowest on a tie, and must
 // have more than half of them. A few mismatched words are outvoted, while
 // unrelated files or a wrong k1 or k4 fail with NoMatchingKey.
-std::expected<Recovery, Failure> recover_keys(bytes::ByteView plain, bytes::ByteView cipher);
+std::expected<Recovery, Failure> RecoverKeys(bytes::ByteView plain, bytes::ByteView cipher);
 
 } // namespace subaru_key_recovery

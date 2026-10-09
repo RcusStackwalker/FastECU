@@ -16,7 +16,7 @@ double increment_value(std::string_view text)
     {
         return 0.0;
     }
-    const auto value = expression::parse_finite_number(text);
+    const auto value = expression::ParseFiniteNumber(text);
     // Reject malformed increments in the numeric increment operation without
     // preventing absolute assignments that do not use increment metadata.
     return value.has_value() ? *value : std::numeric_limits<double>::quiet_NaN();

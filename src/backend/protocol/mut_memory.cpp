@@ -43,7 +43,7 @@ fastecu::Result<bytes::Bytes> read_memory(IKlineTransport& transport, std::uint1
     {
         const std::size_t chunk = std::min(kReadChunk, len - off);
         const std::vector<Channel> channels =
-            planReadChannels(static_cast<std::uint16_t>(addr + off), static_cast<int>(chunk));
+            PlanReadChannels(static_cast<std::uint16_t>(addr + off), static_cast<int>(chunk));
         if (auto started = driver.startFreeFormLog(channels, kSetupCmd, kListCmd, cancellation); !started.has_value())
         {
             if (off == 0)
@@ -61,7 +61,7 @@ fastecu::Result<bytes::Bytes> read_memory(IKlineTransport& transport, std::uint1
             }
             break;
         }
-        const bytes::Bytes piece = reassembleRead(*values);
+        const bytes::Bytes piece = ReassembleRead(*values);
         out.insert(out.end(), piece.begin(), piece.end());
     }
     return out;

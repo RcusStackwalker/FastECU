@@ -36,9 +36,9 @@ namespace fastecu::flash
 {
 namespace
 {
-using bytes::composeBe;
-using bytes::composeBeWithChecksum;
-using bytes::u24;
+using bytes::ComposeBe;
+using bytes::ComposeBeWithChecksum;
+using bytes::U24;
 using fastecu::testing::IsErr;
 using fastecu::testing::IsOk;
 using namespace bytes::literals;
@@ -49,7 +49,7 @@ using namespace std::chrono_literals;
 // Kernel frame: BE EF, u16 length (opcode + payload), opcode, payload, sum8.
 bytes::Bytes beef(std::uint8_t opcode, bytes::ByteView payload = {})
 {
-    return composeBeWithChecksum(bytes::sum8, std::uint16_t{0xBEEF}, std::uint16_t(payload.size() + 1),
+    return ComposeBeWithChecksum(bytes::Sum8, std::uint16_t{0xBEEF}, std::uint16_t(payload.size() + 1),
                                  bytes::Byte(opcode), payload);
 }
 // A positive kernel reply: BE EF, length, opcode|0x40, data, sum8.
@@ -60,12 +60,12 @@ bytes::Bytes beef_reply(std::uint8_t opcode, bytes::ByteView data = {})
 // SSM request tester 0xF0 -> target 0x10: 80 10 F0 len payload sum8.
 bytes::Bytes ssm(bytes::ByteView payload)
 {
-    return composeBeWithChecksum(bytes::sum8, 0x80_b, 0x10_b, 0xF0_b, bytes::Byte(payload.size()), payload);
+    return ComposeBeWithChecksum(bytes::Sum8, 0x80_b, 0x10_b, 0xF0_b, bytes::Byte(payload.size()), payload);
 }
 // SSM reply target -> tester: 80 F0 10 len payload sum8.
 bytes::Bytes ssm_reply(bytes::ByteView payload)
 {
-    return composeBeWithChecksum(bytes::sum8, 0x80_b, 0xF0_b, 0x10_b, bytes::Byte(payload.size()), payload);
+    return ComposeBeWithChecksum(bytes::Sum8, 0x80_b, 0xF0_b, 0x10_b, bytes::Byte(payload.size()), payload);
 }
 
 constexpr auto kKeyTable =
@@ -116,15 +116,15 @@ void script_probe_alive(ScriptedKlineFlashTransport& t)
 
 bytes::Bytes stock_key(bytes::ByteView seed)
 {
-    return ssm_protocol::calculateSeedKey(seed, kKeyTable, ssm_protocol::kIndexTransformationStock);
+    return ssm_protocol::CalculateSeedKey(seed, kKeyTable, ssm_protocol::kIndexTransformationStock);
 }
 bytes::Bytes ecutek_key(bytes::ByteView seed)
 {
-    return ssm_protocol::calculateSeedKey(seed, kKeyTable, ssm_protocol::kIndexTransformationEcutek);
+    return ssm_protocol::CalculateSeedKey(seed, kKeyTable, ssm_protocol::kIndexTransformationEcutek);
 }
 bytes::Bytes encrypted_kernel(bytes::ByteView balanced)
 {
-    return ssm_protocol::calculatePayload(balanced, static_cast<std::uint32_t>(balanced.size()), kEncryptTable,
+    return ssm_protocol::CalculatePayload(balanced, static_cast<std::uint32_t>(balanced.size()), kEncryptTable,
                                           ssm_protocol::kIndexTransformationStock);
 }
 
@@ -137,8 +137,8 @@ void script_handshake(ScriptedKlineFlashTransport& t, bytes::ByteView key)
     t.exchange(ssm(bytes::Bytes{0xBF}), ssm_reply(kEcuIdPayload));
     t.exchange(ssm(bytes::Bytes{0x81}), ssm_reply(bytes::Bytes{0xC1}));
     t.exchange(ssm(bytes::Bytes{0x83, 0x00}), ssm_reply(bytes::Bytes{0xC3}));
-    t.exchange(ssm(bytes::Bytes{0x27, 0x01}), ssm_reply(composeBe(0x67_b, 0x01_b, kSeed)));
-    t.exchange(ssm(composeBe(0x27_b, 0x02_b, key)), ssm_reply(bytes::Bytes{0x67, 0x02}));
+    t.exchange(ssm(bytes::Bytes{0x27, 0x01}), ssm_reply(ComposeBe(0x67_b, 0x01_b, kSeed)));
+    t.exchange(ssm(ComposeBe(0x27_b, 0x02_b, key)), ssm_reply(bytes::Bytes{0x67, 0x02}));
     t.exchange(ssm(bytes::Bytes{0x10, 0x85, 0x02}), ssm_reply(bytes::Bytes{0x50}));
 }
 
@@ -146,8 +146,8 @@ void script_handshake(ScriptedKlineFlashTransport& t, bytes::ByteView key)
 void script_upload_frames(ScriptedKlineFlashTransport& t, std::uint32_t address)
 {
     const bytes::Bytes encrypted = encrypted_kernel(kBalancedKernel);
-    t.exchange(ssm(composeBe(0x34_b, u24(address), 0x04_b, u24(8))), ssm_reply(bytes::Bytes{0x74}));
-    t.exchange(ssm(composeBe(0x36_b, u24(address), encrypted)), ssm_reply(bytes::Bytes{0x76}));
+    t.exchange(ssm(ComposeBe(0x34_b, U24(address), 0x04_b, U24(8))), ssm_reply(bytes::Bytes{0x74}));
+    t.exchange(ssm(ComposeBe(0x36_b, U24(address), encrypted)), ssm_reply(bytes::Bytes{0x76}));
     t.exchange(ssm(bytes::Bytes{0x31, 0x01, 0x01}), ssm_reply(bytes::Bytes{0x71}));
 }
 
@@ -169,7 +169,7 @@ void script_session(ScriptedKlineFlashTransport& t, bytes::ByteView key = {}, st
 // check_romcrc():812-831 -- CRC [addr32, 00, len24] -> BE EF len 42 crc32 sum8.
 bytes::Bytes crc_request(const FlashBlock& block)
 {
-    return beef(0x02, composeBe(block.start, 0x00_b, u24(block.len)));
+    return beef(0x02, ComposeBe(block.start, 0x00_b, U24(block.len)));
 }
 
 // The session tests below pin only the session; the Write/TestWrite tail's
@@ -223,7 +223,7 @@ TEST(SubaruDensoSh705xKlineExecutor, BalancedKernelWordSumIsAlways5AA5)
         std::uint16_t sum = 0;
         for (std::size_t i = 0; i < out.size(); i += 4)
         {
-            sum = static_cast<std::uint16_t>(sum + bytes::readU32Be(out, i));
+            sum = static_cast<std::uint16_t>(sum + bytes::ReadU32Be(out, i));
         }
         EXPECT_EQ(sum, 0x5AA5);
     }
@@ -370,7 +370,7 @@ TEST(SubaruDensoSh705xKlineExecutor, SessionLogsTheLegacyStrings)
         {L::kInfo, "Requesting seed"},
         {L::kInfo, "Seed request ok"},
         {L::kInfo, "Received seed: 11 22 33 44 "},
-        {L::kInfo, "Calculated seed key: " + bytes::toHex(stock_key(kSeed))},
+        {L::kInfo, "Calculated seed key: " + bytes::ToHex(stock_key(kSeed))},
         {L::kInfo, "Sending seed key to ECU"},
         {L::kInfo, "Seed key ok"},
         {L::kInfo, "Set session mode"},
@@ -425,13 +425,13 @@ TEST(SubaruDensoSh705xKlineExecutor, KernelTransferSplitsInto0x80ByteBlocks)
     script_handshake(h.transport, stock_key(kSeed));
     {
         auto s = h.transport.section("upload");
-        h.transport.exchange(ssm(composeBe(0x34_b, u24(0xFFFF6004), 0x04_b, u24(0x104))),
+        h.transport.exchange(ssm(ComposeBe(0x34_b, U24(0xFFFF6004), 0x04_b, U24(0x104))),
                              ssm_reply(bytes::Bytes{0x74}));
-        h.transport.exchange(ssm(composeBe(0x36_b, u24(0xFFFF6004), view.subspan(0, 0x80))),
+        h.transport.exchange(ssm(ComposeBe(0x36_b, U24(0xFFFF6004), view.subspan(0, 0x80))),
                              ssm_reply(bytes::Bytes{0x76}));
-        h.transport.exchange(ssm(composeBe(0x36_b, u24(0xFFFF6084), view.subspan(0x80, 0x80))),
+        h.transport.exchange(ssm(ComposeBe(0x36_b, U24(0xFFFF6084), view.subspan(0x80, 0x80))),
                              ssm_reply(bytes::Bytes{0x76}));
-        h.transport.exchange(ssm(composeBe(0x36_b, u24(0xFFFF6104), view.subspan(0x100, 4))),
+        h.transport.exchange(ssm(ComposeBe(0x36_b, U24(0xFFFF6104), view.subspan(0x100, 4))),
                              ssm_reply(bytes::Bytes{0x76}));
         h.transport.exchange(ssm(bytes::Bytes{0x31, 0x01, 0x01}), ssm_reply(bytes::Bytes{0x71}));
         h.transport.exchange(kKernelIdRequest, kernel_id_reply());
@@ -456,8 +456,8 @@ TEST(SubaruDensoSh705xKlineExecutor, RejectedKernelTransferBlockStops)
     Harness h;
     script_probe_dead(h.transport);
     script_handshake(h.transport, stock_key(kSeed));
-    h.transport.exchange(ssm(composeBe(0x34_b, u24(0xFFFF6004), 0x04_b, u24(8))), ssm_reply(bytes::Bytes{0x74}));
-    h.transport.exchange(ssm(composeBe(0x36_b, u24(0xFFFF6004), encrypted_kernel(kBalancedKernel))),
+    h.transport.exchange(ssm(ComposeBe(0x34_b, U24(0xFFFF6004), 0x04_b, U24(8))), ssm_reply(bytes::Bytes{0x74}));
+    h.transport.exchange(ssm(ComposeBe(0x36_b, U24(0xFFFF6004), encrypted_kernel(kBalancedKernel))),
                          ssm_reply(bytes::Bytes{0x7F, 0x36, 0x22}));
     EXPECT_THAT(h.run(make_plan(FlashOperation::kRead)), IsErr(ErrorKind::kBadResponse));
     EXPECT_TRUE(h.transport.scriptConsumed());
@@ -536,12 +536,12 @@ TEST(SubaruDensoSh705xKlineExecutor, EachNegativeHandshakeReplyStopsTheSession)
                                              ssm(bytes::Bytes{0x81}),
                                              ssm(bytes::Bytes{0x83, 0x00}),
                                              ssm(bytes::Bytes{0x27, 0x01}),
-                                             ssm(composeBe(0x27_b, 0x02_b, stock_key(kSeed))),
+                                             ssm(ComposeBe(0x27_b, 0x02_b, stock_key(kSeed))),
                                              ssm(bytes::Bytes{0x10, 0x85, 0x02})};
     const std::vector<bytes::Bytes> good{ssm_reply(kEcuIdPayload),
                                          ssm_reply(bytes::Bytes{0xC1}),
                                          ssm_reply(bytes::Bytes{0xC3}),
-                                         ssm_reply(composeBe(0x67_b, 0x01_b, kSeed)),
+                                         ssm_reply(ComposeBe(0x67_b, 0x01_b, kSeed)),
                                          ssm_reply(bytes::Bytes{0x67, 0x02}),
                                          ssm_reply(bytes::Bytes{0x50})};
     for (const Case& c : cases)
@@ -685,7 +685,7 @@ TEST(SubaruDensoSh705xKlineExecutor, CancellationBeforeAnySessionWriteSendsNothi
 // read_mem(): READ_AREA [00, addr24, 0x0400], reply BE EF len 43 <0x400 bytes> sum8.
 bytes::Bytes read_request(std::uint32_t address)
 {
-    return beef(0x03, composeBe(0x00_b, u24(address), std::uint16_t{0x0400}));
+    return beef(0x03, ComposeBe(0x00_b, U24(address), std::uint16_t{0x0400}));
 }
 bytes::Bytes page_reply(std::uint32_t address)
 {
@@ -805,12 +805,12 @@ void script_compare(ScriptedKlineFlashTransport& t, std::string_view mcu, const 
     for (unsigned i = 0; i < device->numblocks; ++i)
     {
         const FlashBlock& block = device->fblocks[i];
-        std::uint32_t crc = fastecu::checksum::crc32(bytes::ByteView(image).subspan(block.start, block.len));
+        std::uint32_t crc = fastecu::checksum::Crc32(bytes::ByteView(image).subspan(block.start, block.len));
         if (std::ranges::find(differing, i) != differing.end())
         {
             crc ^= 0xFFFFFFFFU;
         }
-        t.exchange(crc_request(block), beef_reply(0x02, composeBe(crc)));
+        t.exchange(crc_request(block), beef_reply(0x02, ComposeBe(crc)));
         t.queue_no_frame(); // the 200ms flush read after every compare
     }
 }
@@ -818,8 +818,8 @@ void script_compare(ScriptedKlineFlashTransport& t, std::string_view mcu, const 
 void script_init(ScriptedKlineFlashTransport& t, std::uint8_t mode_opcode)
 {
     auto s = t.section("init_flash_write");
-    t.exchange(beef(0x05), beef_reply(0x05, composeBe(std::uint32_t{0x00000204})));
-    t.exchange(beef(0x06), beef_reply(0x06, composeBe(std::uint32_t{0x00001000})));
+    t.exchange(beef(0x05), beef_reply(0x05, ComposeBe(std::uint32_t{0x00000204})));
+    t.exchange(beef(0x06), beef_reply(0x06, ComposeBe(std::uint32_t{0x00001000})));
     t.exchange(beef(mode_opcode), beef_reply(mode_opcode, bytes::Bytes{0x00}));
 }
 // reflash_block():1068-1105 PROG_VOLT, then flash_block():1155-1357 BLANK_PAGE,
@@ -829,16 +829,16 @@ void script_reflash(ScriptedKlineFlashTransport& t, const bytes::Bytes& image, c
 {
     auto s = t.section("reflash_block");
     t.exchange(beef(0x04), beef_reply(0x04, bytes::Bytes{0x03, 0x84, 0x00, 0x00, 0x00})); // 900/50 = 18.0V
-    t.exchange(beef(0x25, composeBe(block.start)), beef_reply(0x25));
+    t.exchange(beef(0x25, ComposeBe(block.start)), beef_reply(0x25));
     for (std::uint32_t address = block.start; address < block.start + block.len; address += 0x200)
     {
-        t.exchange(beef(0x22, composeBe(address, bytes::ByteView(image).subspan(address, 0x200))),
+        t.exchange(beef(0x22, ComposeBe(address, bytes::ByteView(image).subspan(address, 0x200))),
                    beef_reply(0x22, bytes::Bytes{0x00}));
         if ((address + 0x200 - block.start) % 0x1000 == 0)
         {
             const std::uint32_t commit_start = address + 0x200 - 0x1000;
-            const std::uint32_t crc = fastecu::checksum::crc32(bytes::ByteView(image).subspan(commit_start, 0x1000));
-            t.exchange(beef(commit_opcode, composeBe(commit_start, std::uint16_t{0x1000}, crc)),
+            const std::uint32_t crc = fastecu::checksum::Crc32(bytes::ByteView(image).subspan(commit_start, 0x1000));
+            t.exchange(beef(commit_opcode, ComposeBe(commit_start, std::uint16_t{0x1000}, crc)),
                        beef_reply(commit_opcode, bytes::Bytes{0x00}));
         }
     }
@@ -920,8 +920,8 @@ TEST(SubaruDensoSh705xKlineExecutor, BadFlashModeAckSendsNoEraseInEitherMode)
         const bytes::Bytes image = sh7055_image();
         script_session(h.transport);
         script_compare(h.transport, "SH7055", image, {0});
-        h.transport.exchange(beef(0x05), beef_reply(0x05, composeBe(std::uint32_t{0x204})));
-        h.transport.exchange(beef(0x06), beef_reply(0x06, composeBe(std::uint32_t{0x1000})));
+        h.transport.exchange(beef(0x05), beef_reply(0x05, ComposeBe(std::uint32_t{0x204})));
+        h.transport.exchange(beef(0x06), beef_reply(0x06, ComposeBe(std::uint32_t{0x1000})));
         h.transport.exchange(beef(opcode), bytes::Bytes{0xBE, 0xEF, 0x00, 0x02, 0x7F, opcode, 0x00});
 
         EXPECT_THAT(h.run(make_plan(operation, "sub_ecu_denso_sh7055_04", "SH7055", image)),
@@ -968,14 +968,14 @@ TEST(SubaruDensoSh705xKlineExecutor, EachRejectedWriteStepStopsLaterCommands)
     const FlashDevice *device = find_flash_device("SH7055");
     const FlashBlock block = device->fblocks[0];
     const bytes::Bytes image = sh7055_image();
-    const std::uint32_t crc0 = fastecu::checksum::crc32(bytes::ByteView(image).subspan(0, 0x1000));
+    const std::uint32_t crc0 = fastecu::checksum::Crc32(bytes::ByteView(image).subspan(0, 0x1000));
     const std::vector<std::vector<std::pair<bytes::Bytes, bytes::Bytes>>> prefixes{
         {{beef(0x04), bytes::Bytes{0xBE, 0xEF, 0x00, 0x01, 0x7F, 0x00}}},
         {{beef(0x04), beef_reply(0x04, bytes::Bytes{0x03, 0x84, 0, 0, 0})},
-         {beef(0x25, composeBe(block.start)), bytes::Bytes{0xBE, 0xEF, 0x00, 0x01, 0x7F, 0x00}}},
+         {beef(0x25, ComposeBe(block.start)), bytes::Bytes{0xBE, 0xEF, 0x00, 0x01, 0x7F, 0x00}}},
         {{beef(0x04), beef_reply(0x04, bytes::Bytes{0x03, 0x84, 0, 0, 0})},
-         {beef(0x25, composeBe(block.start)), beef_reply(0x25)},
-         {beef(0x22, composeBe(std::uint32_t{0}, bytes::ByteView(image).subspan(0, 0x200))),
+         {beef(0x25, ComposeBe(block.start)), beef_reply(0x25)},
+         {beef(0x22, ComposeBe(std::uint32_t{0}, bytes::ByteView(image).subspan(0, 0x200))),
           bytes::Bytes{0xBE, 0xEF, 0x00, 0x02, 0x7F, 0x22, 0x00}}},
     };
     for (const auto& prefix : prefixes)
@@ -999,13 +999,13 @@ TEST(SubaruDensoSh705xKlineExecutor, EachRejectedWriteStepStopsLaterCommands)
         script_compare(h.transport, "SH7055", image, {0});
         script_init(h.transport, 0x20);
         h.transport.exchange(beef(0x04), beef_reply(0x04, bytes::Bytes{0x03, 0x84, 0, 0, 0}));
-        h.transport.exchange(beef(0x25, composeBe(block.start)), beef_reply(0x25));
+        h.transport.exchange(beef(0x25, ComposeBe(block.start)), beef_reply(0x25));
         for (std::uint32_t address = 0; address < 0x1000; address += 0x200)
         {
-            h.transport.exchange(beef(0x22, composeBe(address, bytes::ByteView(image).subspan(address, 0x200))),
+            h.transport.exchange(beef(0x22, ComposeBe(address, bytes::ByteView(image).subspan(address, 0x200))),
                                  beef_reply(0x22, bytes::Bytes{0x00}));
         }
-        h.transport.exchange(beef(0x24, composeBe(std::uint32_t{0}, std::uint16_t{0x1000}, crc0)),
+        h.transport.exchange(beef(0x24, ComposeBe(std::uint32_t{0}, std::uint16_t{0x1000}, crc0)),
                              bytes::Bytes{0xBE, 0xEF, 0x00, 0x02, 0x7F, 0x24, 0x00});
         EXPECT_THAT(h.run(make_plan(FlashOperation::kWrite, "sub_ecu_denso_sh7055_04", "SH7055", image)),
                     IsErr(ErrorKind::kBadResponse));
@@ -1090,8 +1090,8 @@ TEST(SubaruDensoSh705xKlineExecutor, WriteLogsTheLegacyStrings)
 
     using L = LogLevel;
     using Entry = std::pair<LogLevel, std::string>;
-    const std::uint32_t crc0 = fastecu::checksum::crc32(bytes::ByteView(image).subspan(0, 0x1000));
-    const std::uint32_t crc1 = fastecu::checksum::crc32(bytes::ByteView(image).subspan(0x1000, 0x1000));
+    const std::uint32_t crc0 = fastecu::checksum::Crc32(bytes::ByteView(image).subspan(0, 0x1000));
+    const std::uint32_t crc1 = fastecu::checksum::Crc32(bytes::ByteView(image).subspan(0x1000, 0x1000));
     // write_mem():661-662, get_changed_blocks():782, check_romcrc():864-878
     // for the first two blocks (block 0 differs).
     const std::vector<Entry> compare_head{
@@ -1163,7 +1163,7 @@ TEST(SubaruDensoSh705xKlineExecutor, FailedFlashBlockLogsTheLegacyRecoveryText)
     script_compare(h.transport, "SH7055", image, {0});
     script_init(h.transport, 0x20);
     h.transport.exchange(beef(0x04), beef_reply(0x04, bytes::Bytes{0x03, 0x84, 0, 0, 0}));
-    h.transport.exchange(beef(0x25, composeBe(std::uint32_t{0})), bytes::Bytes{0xBE, 0xEF, 0x00, 0x01, 0x7F, 0x00});
+    h.transport.exchange(beef(0x25, ComposeBe(std::uint32_t{0})), bytes::Bytes{0xBE, 0xEF, 0x00, 0x01, 0x7F, 0x00});
     EXPECT_THAT(h.run(make_plan(FlashOperation::kWrite, "sub_ecu_denso_sh7055_04", "SH7055", image)),
                 IsErr(ErrorKind::kBadResponse));
     ASSERT_GE(h.events.logs.size(), 3U);

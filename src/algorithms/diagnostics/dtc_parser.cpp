@@ -8,7 +8,7 @@
 namespace
 {
 
-std::string default_dtc_message(std::uint16_t dtc)
+std::string DefaultDtcMessage(std::uint16_t dtc)
 {
     static constexpr std::array<char, 4> kPrefixes = {'P', 'C', 'B', 'U'};
     const std::size_t category = dtc >> 14;
@@ -19,12 +19,12 @@ std::string default_dtc_message(std::uint16_t dtc)
 
 } // namespace
 
-std::string dtc_description(std::uint16_t dtc, const std::unordered_map<int, std::string>& p_codes,
-                            const std::unordered_map<int, std::string>& c_codes,
-                            const std::unordered_map<int, std::string>& b_codes,
-                            const std::unordered_map<int, std::string>& u_codes)
+std::string DtcDescription(std::uint16_t dtc, const std::unordered_map<int, std::string>& p_codes,
+                           const std::unordered_map<int, std::string>& c_codes,
+                           const std::unordered_map<int, std::string>& b_codes,
+                           const std::unordered_map<int, std::string>& u_codes)
 {
-    const std::string fallback = default_dtc_message(dtc);
+    const std::string fallback = DefaultDtcMessage(dtc);
 
     const std::unordered_map<int, std::string> *table = nullptr;
     switch (dtc >> 14)
@@ -51,7 +51,7 @@ std::string dtc_description(std::uint16_t dtc, const std::unordered_map<int, std
     return it != table->end() ? it->second : fallback;
 }
 
-std::string dtc_description(std::uint16_t dtc)
+std::string DtcDescription(std::uint16_t dtc)
 {
-    return dtc_description(dtc, dtc_p_codes(), dtc_c_codes(), dtc_b_codes(), dtc_u_codes());
+    return DtcDescription(dtc, DtcPCodes(), DtcCCodes(), DtcBCodes(), DtcUCodes());
 }

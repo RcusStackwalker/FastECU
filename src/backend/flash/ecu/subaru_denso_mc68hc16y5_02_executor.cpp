@@ -18,9 +18,9 @@ namespace fastecu::flash
 {
 namespace
 {
-using bytes::composeBe;
-using bytes::composeBeWithChecksum;
-using bytes::u24;
+using bytes::ComposeBe;
+using bytes::ComposeBeWithChecksum;
+using bytes::U24;
 using namespace bytes::literals;
 using namespace std::chrono_literals;
 
@@ -59,12 +59,12 @@ Status check_cancelled(const ICancellationToken& cancellation, std::string detai
 bytes::Bytes frame(std::uint8_t opcode, bytes::ByteView payload = {})
 {
     const std::uint16_t len_plus_one = static_cast<std::uint16_t>(payload.size() + 1);
-    return composeBeWithChecksum(bytes::sum8, kStartComm, len_plus_one, bytes::Byte(opcode), payload);
+    return ComposeBeWithChecksum(bytes::Sum8, kStartComm, len_plus_one, bytes::Byte(opcode), payload);
 }
 
 bool response_ok(bytes::ByteView received, std::uint8_t expected_opcode_with_ack)
 {
-    return received.size() > 5 && bytes::readU16Be(received, 0) == kStartComm &&
+    return received.size() > 5 && bytes::ReadU16Be(received, 0) == kStartComm &&
            received[4] == expected_opcode_with_ack;
 }
 
@@ -345,7 +345,7 @@ Status SubaruDensoMc68hc16y5_02Executor::upload_kernel(IKlineFlashTransport& tra
     {
         byte = static_cast<bytes::Byte>((byte ^ family_plan.encryption_xor) + 0x10);
     }
-    bytes::writeU16Be(bytes::MutableByteView(payload), 2, family_plan.kernel_magic);
+    bytes::WriteU16Be(bytes::MutableByteView(payload), 2, family_plan.kernel_magic);
 
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:256-281:
     // SUB_UPLOAD_KERNEL is raw, not SUB_KERNEL_START_COMM-framed.
@@ -354,8 +354,8 @@ Status SubaruDensoMc68hc16y5_02Executor::upload_kernel(IKlineFlashTransport& tra
     // Not a full u24(address): the frame carries only the address's high two
     // bytes here (bits 23-8). The low byte (bits 7-0) is never emitted in
     // this header.
-    const bytes::Bytes request = composeBeWithChecksum(&fastecu::checksum::negatedSum8, kOpUploadKernel,
-                                                       std::uint16_t(address >> 8U), u24(length), payload);
+    const bytes::Bytes request = ComposeBeWithChecksum(&fastecu::checksum::NegatedSum8, kOpUploadKernel,
+                                                       std::uint16_t(address >> 8U), U24(length), payload);
 
     events.log(LogLevel::kInfo, "Sending kernel...");
     Result<IKlineFlashTransport::OptionalBytes> upload_response =
@@ -441,7 +441,7 @@ Result<bytes::Bytes> SubaruDensoMc68hc16y5_02Executor::read_mem(IKlineFlashTrans
             {
                 return std::unexpected(cancelled.error());
             }
-            const bytes::Bytes payload = composeBe(0x00_b, u24(address), std::uint16_t(kReadPageSize));
+            const bytes::Bytes payload = ComposeBe(0x00_b, U24(address), std::uint16_t(kReadPageSize));
             Result<bytes::Bytes> response =
                 exchange(transport, clock, cancellation, frame(kOpReadArea, payload), 10ms, 3000ms);
             if (!response.has_value())
@@ -476,7 +476,7 @@ Result<std::uint32_t> SubaruDensoMc68hc16y5_02Executor::read_block_crc(IKlineFla
 {
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:626-715:
     // request the ECU's CRC over [start, start + length).
-    const bytes::Bytes payload = composeBe(block.start, 0x00_b, u24(block.length));
+    const bytes::Bytes payload = ComposeBe(block.start, 0x00_b, U24(block.length));
     const bytes::Bytes request = frame(kOpCrc, payload);
     if (Status cancelled = check_cancelled(cancellation, "cancelled before CRC write"); !cancelled.has_value())
     {
@@ -537,7 +537,7 @@ Result<std::uint32_t> SubaruDensoMc68hc16y5_02Executor::read_block_crc(IKlineFla
     {
         return fail(ErrorKind::kBadResponse, "Wrong response from ECU during CRC check");
     }
-    const std::uint32_t crc = bytes::readU32Be(response, 5);
+    const std::uint32_t crc = bytes::ReadU32Be(response, 5);
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:702-714.
     if (Status drained = drain_response(transport, cancellation, 200ms, "CRC response drain"); !drained.has_value())
     {
@@ -562,7 +562,7 @@ Status SubaruDensoMc68hc16y5_02Executor::flash_block(IKlineFlashTransport& trans
         // Legacy
         // src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:950-992.
         events.log(LogLevel::kInfo, "Erasing flash page...");
-        const bytes::Bytes erase_payload = composeBe(block.start);
+        const bytes::Bytes erase_payload = ComposeBe(block.start);
         // Legacy
         // src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:950-969.
         Result<bytes::Bytes> erase_response =
@@ -590,7 +590,7 @@ Status SubaruDensoMc68hc16y5_02Executor::flash_block(IKlineFlashTransport& trans
         // Legacy
         // src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:994-1039.
         const std::uint32_t chunk_address = block.start + offset;
-        const bytes::Bytes payload = composeBe(chunk_address, image.subspan(chunk_address, kWriteChunkSize));
+        const bytes::Bytes payload = ComposeBe(chunk_address, image.subspan(chunk_address, kWriteChunkSize));
         Result<bytes::Bytes> response = exchange(transport, cancellation, frame(kOpWriteFlashBuffer, payload), 3000ms);
         if (!response.has_value())
         {
@@ -607,10 +607,10 @@ Status SubaruDensoMc68hc16y5_02Executor::flash_block(IKlineFlashTransport& trans
             // Legacy
             // src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:1072-1128.
             const std::uint32_t commit_crc =
-                fastecu::checksum::crc32(image.subspan(commit_block_start, kCommitBlockSize));
+                fastecu::checksum::Crc32(image.subspan(commit_block_start, kCommitBlockSize));
             const std::uint8_t commit_opcode = test_write ? kOpValidateFlashBuffer : kOpCommitFlashBuffer;
             const bytes::Bytes commit_payload =
-                composeBe(commit_block_start, std::uint16_t(kCommitBlockSize), commit_crc);
+                ComposeBe(commit_block_start, std::uint16_t(kCommitBlockSize), commit_crc);
             Result<bytes::Bytes> commit_response =
                 exchange(transport, clock, cancellation, frame(commit_opcode, commit_payload), 200ms, 3000ms);
             if (!commit_response.has_value())
@@ -695,7 +695,7 @@ Status SubaruDensoMc68hc16y5_02Executor::write_mem(IKlineFlashTransport& transpo
                 return std::unexpected(ecu_crc.error());
             }
             const std::uint32_t image_crc =
-                fastecu::checksum::crc32(bytes::ByteView(addressed_image).subspan(block.start, block.length));
+                fastecu::checksum::Crc32(bytes::ByteView(addressed_image).subspan(block.start, block.length));
             modified[block_no] = *ecu_crc != image_crc;
             modified_count += modified[block_no] ? 1U : 0U;
         }

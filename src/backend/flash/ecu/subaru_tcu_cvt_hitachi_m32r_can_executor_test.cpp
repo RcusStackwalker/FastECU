@@ -55,7 +55,7 @@ constexpr std::string_view kMcu = "M32R_512KB";
 bytes::Bytes request(bytes::ByteView payload)
 {
     bytes::Bytes out;
-    bytes::appendU32Be(out, 0x7e1);
+    bytes::AppendU32Be(out, 0x7e1);
     out.insert(out.end(), payload.begin(), payload.end());
     return out;
 }
@@ -66,7 +66,7 @@ bytes::Bytes request(std::initializer_list<bytes::Byte> payload)
 bytes::Bytes response(bytes::ByteView tail)
 {
     bytes::Bytes out;
-    bytes::appendU32Be(out, 0x7e9);
+    bytes::AppendU32Be(out, 0x7e9);
     out.insert(out.end(), tail.begin(), tail.end());
     return out;
 }
@@ -83,7 +83,7 @@ bytes::Bytes response(std::initializer_list<bytes::Byte> tail)
 bytes::Bytes requestOnId(std::uint32_t arb_id, bytes::ByteView payload)
 {
     bytes::Bytes out;
-    bytes::appendU32Be(out, arb_id);
+    bytes::AppendU32Be(out, arb_id);
     out.insert(out.end(), payload.begin(), payload.end());
     return out;
 }
@@ -135,7 +135,7 @@ constexpr std::array<std::uint8_t, 32> kIndexTransformation{0x5, 0x6, 0x7, 0x1, 
 
 bytes::Bytes seedKey(bytes::ByteView seed)
 {
-    return ssm_protocol::calculateSeedKey(seed, kSeedKeyTable, kIndexTransformation);
+    return ssm_protocol::CalculateSeedKey(seed, kSeedKeyTable, kIndexTransformation);
 }
 
 // calculatePayload's Feistel structure inverts by reversing key order and is
@@ -146,7 +146,7 @@ bytes::Bytes seedKey(bytes::ByteView seed)
 // image -- even for a sub-window that does not start at image offset 0.
 bytes::Bytes toWire(bytes::ByteView plain)
 {
-    return ssm_protocol::calculatePayload(plain, static_cast<std::uint32_t>(plain.size()), kEncryptTable,
+    return ssm_protocol::CalculatePayload(plain, static_cast<std::uint32_t>(plain.size()), kEncryptTable,
                                           kIndexTransformation);
 }
 
@@ -224,8 +224,8 @@ void scriptFullConnect(ScriptedCanFlashTransport& transport)
 void scriptDumpSetup(ScriptedCanFlashTransport& transport)
 {
     const auto section = transport.section("dump setup");
-    transport.exchange(request(bytes::composeBe(bytes::Byte(0x34), bytes::Byte(0x04), bytes::Byte(0x33),
-                                                bytes::u24(0x8000), bytes::u24(0x78000))),
+    transport.exchange(request(bytes::ComposeBe(bytes::Byte(0x34), bytes::Byte(0x04), bytes::Byte(0x33),
+                                                bytes::U24(0x8000), bytes::U24(0x78000))),
                        response({0x74, 0x20, 0x01, 0x04}));
 }
 
@@ -243,7 +243,7 @@ void scriptFlashDump(ScriptedCanFlashTransport& transport, std::uint32_t start, 
     {
         bytes::Bytes reply = response({0xF7});
         reply.insert(reply.end(), wire_page.begin(), wire_page.end());
-        transport.exchange(request(bytes::composeBe(bytes::Byte(0xB7), bytes::u24(addr))), reply);
+        transport.exchange(request(bytes::ComposeBe(bytes::Byte(0xB7), bytes::U24(addr))), reply);
     }
 }
 
@@ -269,8 +269,8 @@ void scriptUpToFirstFatalRead(ScriptedCanFlashTransport& transport)
 {
     scriptFullConnect(transport);
     const auto section = transport.section("dump setup (first request only)");
-    transport.exchange(request(bytes::composeBe(bytes::Byte(0x34), bytes::Byte(0x04), bytes::Byte(0x33),
-                                                bytes::u24(0x8000), bytes::u24(0x78000))));
+    transport.exchange(request(bytes::ComposeBe(bytes::Byte(0x34), bytes::Byte(0x04), bytes::Byte(0x33),
+                                                bytes::U24(0x8000), bytes::U24(0x78000))));
 }
 
 // Scripts erase_mem's single write + single successful read. The positive
@@ -290,15 +290,15 @@ void scriptWriteBlock(ScriptedCanFlashTransport& transport, bytes::ByteView bloc
     const auto section = transport.section("write block");
     constexpr std::uint32_t kChunkSize = 128;
 
-    transport.exchange(request(bytes::composeBe(bytes::Byte(0x34), bytes::Byte(0x04), bytes::Byte(0x33),
-                                                bytes::u24(start), bytes::u24(length))),
+    transport.exchange(request(bytes::ComposeBe(bytes::Byte(0x34), bytes::Byte(0x04), bytes::Byte(0x33),
+                                                bytes::U24(start), bytes::U24(length))),
                        response({0x74}));
 
     const bytes::Bytes encrypted = toWire(block_plain);
     for (std::uint32_t offset = 0; offset < length; offset += kChunkSize)
     {
         const std::uint32_t addr = start + offset;
-        bytes::Bytes req = bytes::composeBe(bytes::Byte(0xB6), bytes::u24(addr),
+        bytes::Bytes req = bytes::ComposeBe(bytes::Byte(0xB6), bytes::U24(addr),
                                             bytes::ByteView(encrypted).subspan(offset, kChunkSize));
         transport.exchange(request(req), response({0xF6}));
     }
@@ -433,7 +433,7 @@ TEST(SubaruTcuCvtHitachiM32rCanExecutor, ReadDisconnectMidDumpLoopPropagates)
 
     scriptFullConnect(transport);
     scriptDumpSetup(transport);
-    transport.exchange(request(bytes::composeBe(bytes::Byte(0xB7), bytes::u24(0x8000))));
+    transport.exchange(request(bytes::ComposeBe(bytes::Byte(0xB7), bytes::U24(0x8000))));
     transport.queue_error(ErrorKind::kDisconnected, "adapter gone");
 
     const auto result = executor.execute(*plan, transport, clock, cancellation, events);

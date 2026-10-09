@@ -87,7 +87,7 @@ Result<MapPresentation> present_map(const calibration::CalibrationSession& sessi
     else
     {
         result.blob = std::get<calibration::BlobValue>(decoded->body).data;
-        result.body.push_back({.text = QString::fromStdString(bytes::toHex(*result.blob, "{:02x}"))});
+        result.body.push_back({.text = QString::fromStdString(bytes::ToHex(*result.blob, "{:02x}"))});
     }
     result.x_axis = present_axis(decoded->x_axis, result.x_format);
     result.y_axis = present_axis(decoded->y_axis, result.y_format);

@@ -100,14 +100,14 @@ std::string format_text(const CommandOutcome& outcome, bool stats)
                        outcome.exchange_count == 1 ? "exchange" : "exchanges", outcome.elapsed_ms);
     if (outcome.exchange_count > 0)
     {
-        out += std::format("  TX first {}\n", bytes::toHex(outcome.tx));
-        out += std::format("  RX first {}\n", bytes::toHex(outcome.rx));
-        out += std::format("  TX last {}\n", bytes::toHex(outcome.last_tx));
-        out += std::format("  RX last {}\n", bytes::toHex(outcome.last_rx));
+        out += std::format("  TX first {}\n", bytes::ToHex(outcome.tx));
+        out += std::format("  RX first {}\n", bytes::ToHex(outcome.rx));
+        out += std::format("  TX last {}\n", bytes::ToHex(outcome.last_tx));
+        out += std::format("  RX last {}\n", bytes::ToHex(outcome.last_rx));
     }
     if (!outcome.data.empty())
     {
-        out += std::format("  DATA {}\n", bytes::toHex(outcome.data));
+        out += std::format("  DATA {}\n", bytes::ToHex(outcome.data));
     }
     if (!outcome.note.empty())
     {

@@ -68,9 +68,9 @@ fastecu::Result<bytes::Bytes> UdsClient::request(bytes::ByteView pdu, const Exch
         }
 
         bytes::Bytes frame = std::move(**received);
-        const Response parsed = parseResponse(frame);
+        const Response parsed = ParseResponse(frame);
 
-        if (parsed.isPending())
+        if (parsed.IsPending())
         {
             events_.log(LogLevel::kDebug,
                         std::format("ECU reported responsePending for SID 0x{:02x}; waiting", expected_service));
@@ -84,11 +84,11 @@ fastecu::Result<bytes::Bytes> UdsClient::request(bytes::ByteView pdu, const Exch
         switch (parsed.kind)
         {
         case ResponseKind::kMalformed:
-            return fail(ErrorKind::kBadResponse, std::format("malformed UDS response: {}", bytes::toHex(frame)));
+            return fail(ErrorKind::kBadResponse, std::format("malformed UDS response: {}", bytes::ToHex(frame)));
         case ResponseKind::kNegative:
-            return fail(ErrorKind::kBadResponse, describe(frame));
+            return fail(ErrorKind::kBadResponse, Describe(frame));
         case ResponseKind::kPositive:
-            if (!parsed.matches(expected_service))
+            if (!parsed.Matches(expected_service))
             {
                 return fail(ErrorKind::kBadResponse, std::format("expected response to SID 0x{:02x}, got 0x{:02x}",
                                                                  expected_service, parsed.service));

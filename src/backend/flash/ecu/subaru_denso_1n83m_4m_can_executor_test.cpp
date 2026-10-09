@@ -80,7 +80,7 @@ constexpr std::uint32_t kPageSize = 0x100;
 bytes::Bytes requestTo(std::uint32_t id, bytes::ByteView payload)
 {
     bytes::Bytes out;
-    bytes::appendU32Be(out, id);
+    bytes::AppendU32Be(out, id);
     out.insert(out.end(), payload.begin(), payload.end());
     return out;
 }
@@ -152,7 +152,7 @@ constexpr std::array<std::uint8_t, 32> kIndexTransformation{0x5, 0x6, 0x7, 0x1, 
 // a known plaintext image.
 bytes::Bytes toWire(bytes::ByteView plain)
 {
-    return ssm_protocol::calculatePayload(plain, static_cast<std::uint32_t>(plain.size()), kEncryptTable,
+    return ssm_protocol::CalculatePayload(plain, static_cast<std::uint32_t>(plain.size()), kEncryptTable,
                                           kIndexTransformation);
 }
 
@@ -255,7 +255,7 @@ void scriptFlashDump(ScriptedCanFlashTransport& t, std::uint32_t start, std::uin
     {
         bytes::Bytes reply = response({0xF7});
         reply.insert(reply.end(), wire_page.begin(), wire_page.end());
-        t.exchange(request(bytes::composeBe(bytes::Byte(0xB7), addr)), reply);
+        t.exchange(request(bytes::ComposeBe(bytes::Byte(0xB7), addr)), reply);
     }
 }
 
@@ -348,7 +348,7 @@ void scriptReflashChunks(ScriptedCanFlashTransport& t, bytes::ByteView rom)
     for (std::uint32_t offset = 0; offset < kBlockLength; offset += 256)
     {
         const std::uint32_t addr = kBlockStart + offset;
-        t.exchange(request(bytes::composeBe(bytes::Byte(0xB6), addr,
+        t.exchange(request(bytes::ComposeBe(bytes::Byte(0xB6), addr,
                                             bytes::ByteView(encrypted).subspan(addr - kImageStart, 256))),
                    response({0xF6}));
     }
@@ -418,7 +418,7 @@ TEST(SubaruDenso1n83m_4mCanExecutor, ProceedsPastMalformedInCarProbeAndDumpSetup
     scriptPreliminaries(transport, 0x00);
     scriptInCarConnectTail(transport, 0x50, 0x02); // wrong subfunction, tolerated
     scriptReadSetupWithMissingThenWrongReply(transport);
-    transport.exchange(request(bytes::composeBe(bytes::Byte(0xB7), kBlockStart)));
+    transport.exchange(request(bytes::ComposeBe(bytes::Byte(0xB7), kBlockStart)));
     transport.queue_error(ErrorKind::kDisconnected, "adapter gone");
 
     FakeClock clock;
@@ -554,7 +554,7 @@ TEST(SubaruDenso1n83m_4mCanExecutor, ReadDisconnectMidDumpLoopPropagates)
     ScriptedCanFlashTransport transport;
     scriptBenchConnect(transport);
     scriptReadSetup(transport);
-    transport.exchange(request(bytes::composeBe(bytes::Byte(0xB7), kBlockStart)));
+    transport.exchange(request(bytes::ComposeBe(bytes::Byte(0xB7), kBlockStart)));
     transport.queue_error(ErrorKind::kDisconnected, "adapter gone");
 
     FakeClock clock;

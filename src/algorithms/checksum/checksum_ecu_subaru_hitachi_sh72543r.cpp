@@ -2,7 +2,7 @@
 #include "checksum_primitives.h"
 #include "src/algorithms/protocol/bytes.h"
 
-ChecksumResult ChecksumEcuSubaruHitachiSh72543r::calculate_checksum_result(bytes::ByteView rom_view)
+ChecksumResult ChecksumEcuSubaruHitachiSh72543r::CalculateChecksumResult(bytes::ByteView rom_view)
 {
     // Fixed 2 MiB layout: the balance field is at 0x1FFFFE.
     if (rom_view.size() != 0x200000)
@@ -23,13 +23,13 @@ ChecksumResult ChecksumEcuSubaruHitachiSh72543r::calculate_checksum_result(bytes
 
     for (int i = 0x6000; i < 0x200000; i += 2)
     {
-        chksum += bytes::readU16Be(rom_data, static_cast<std::size_t>(i));
+        chksum += bytes::ReadU16Be(rom_data, static_cast<std::size_t>(i));
     }
 
     ChecksumResult result;
     if (chksum != 0x5aa5)
     {
-        fastecu::checksum::internal::rebalanceU16Be(rom_data, 0x1ffffe, chksum, 0x5aa5);
+        fastecu::checksum::internal::RebalanceU16Be(rom_data, 0x1ffffe, chksum, 0x5aa5);
 
         result.status = ChecksumResult::Status::kCorrected;
         result.message = "Subaru Hitachi SH72543r ECU Checksum";

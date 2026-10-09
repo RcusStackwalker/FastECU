@@ -6,7 +6,7 @@ using Table = std::unordered_map<int, std::string>;
 } // namespace
 
 // 59 entries, transcribed verbatim from the former FileActions::neg_rsp_codes.
-const std::unordered_map<int, std::string>& nrc_codes()
+const std::unordered_map<int, std::string>& NrcCodes()
 {
     static const Table table{
         {0x10, "General reject"},
@@ -73,7 +73,7 @@ const std::unordered_map<int, std::string>& nrc_codes()
 }
 
 // 1733 entries, transcribed verbatim from the former FileActions::dtc_Pxxxx_codes.
-const std::unordered_map<int, std::string>& dtc_p_codes()
+const std::unordered_map<int, std::string>& DtcPCodes()
 {
     static const Table table{
         {0x0000, "P0000 - No trouble code"},
@@ -1835,7 +1835,7 @@ const std::unordered_map<int, std::string>& dtc_p_codes()
 }
 
 // 1147 entries, transcribed verbatim from the former FileActions::dtc_Bxxxx_codes.
-const std::unordered_map<int, std::string>& dtc_b_codes()
+const std::unordered_map<int, std::string>& DtcBCodes()
 {
     static const Table table{
         {0x1200, "B1200 - Climate Control Pushbutton Circuit Failure"},
@@ -2990,7 +2990,7 @@ const std::unordered_map<int, std::string>& dtc_b_codes()
 }
 
 // 487 entries, transcribed verbatim from the former FileActions::dtc_Cxxxx_codes.
-const std::unordered_map<int, std::string>& dtc_c_codes()
+const std::unordered_map<int, std::string>& DtcCCodes()
 {
     static const Table table{
         {0x1091, "C1091 - Speed Wheel Sensor All Coherency Failure"},
@@ -3485,7 +3485,7 @@ const std::unordered_map<int, std::string>& dtc_c_codes()
 }
 
 // 299 entries, transcribed verbatim from the former FileActions::dtc_Uxxxx_codes.
-const std::unordered_map<int, std::string>& dtc_u_codes()
+const std::unordered_map<int, std::string>& DtcUCodes()
 {
     static const Table table{
         {0x1000, "U1000 - SCP (J1850) Invalid or Missing Data for Primary Id"},

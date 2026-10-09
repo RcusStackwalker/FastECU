@@ -130,7 +130,7 @@ TEST(DtcSession, Iso9141DirectReadRunsTheFullSequence)
     const auto info_lines = lines(h.events, LogLevel::kInfo);
     EXPECT_THAT(info_lines, Contains("Supported PIDs 0x1-0x20: be 1f b8 10 "));
     EXPECT_THAT(info_lines, Contains("Stored DTCs: 01 33 00 00 00 00 "));
-    EXPECT_THAT(info_lines, Contains("DTC: " + dtc_description(0x0133)));
+    EXPECT_THAT(info_lines, Contains("DTC: " + DtcDescription(0x0133)));
     EXPECT_THAT(info_lines, Contains("Pending DTCs: 00 00 00 00 00 00 "));
     EXPECT_THAT(info_lines, Contains("Diagnostic trouble codes succesfully read!"));
     EXPECT_TRUE(h.link.script_consumed());
@@ -264,7 +264,7 @@ TEST(DtcSession, Iso15765InitNrcIsLoggedFromOffsetThree)
     h.link.queue_read(b({0x00, 0x00, 0x07, 0xE8, 0x7F, 0x01, 0x12}));
     EXPECT_THAT(h.run(ObdProtocol::kIso15765, DtcOperation::kRead), IsErr(ErrorKind::kBadResponse));
     const bytes::Bytes nrc_frame = b({0xE8, 0x7F, 0x01, 0x12});
-    EXPECT_THAT(lines(h.events, LogLevel::kError), Contains("Wrong response from ECU: " + nrc_description(nrc_frame)));
+    EXPECT_THAT(lines(h.events, LogLevel::kError), Contains("Wrong response from ECU: " + NrcDescription(nrc_frame)));
 }
 
 TEST(DtcSession, NrcOnStoredDtcsLogsAndFails)
@@ -278,7 +278,7 @@ TEST(DtcSession, NrcOnStoredDtcsLogsAndFails)
     h.link.queue_read(b({0x48, 0x6B, 0x10, 0x7F, 0x03, 0x22, 0xCC}));
     EXPECT_THAT(h.run(ObdProtocol::kIso9141, DtcOperation::kRead), IsErr(ErrorKind::kBadResponse));
     const bytes::Bytes nrc_frame = b({0x7F, 0x03, 0x22, 0xCC});
-    EXPECT_THAT(lines(h.events, LogLevel::kError), Contains("Wrong response from ECU: " + nrc_description(nrc_frame)));
+    EXPECT_THAT(lines(h.events, LogLevel::kError), Contains("Wrong response from ECU: " + NrcDescription(nrc_frame)));
 }
 
 TEST(DtcSession, WrongPidIsLoggedAndDiscarded)

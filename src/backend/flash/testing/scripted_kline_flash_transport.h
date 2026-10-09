@@ -229,7 +229,7 @@ class ScriptedKlineFlashTransport : public IKlineFlashTransport
         {
             return fail(ErrorKind::kInternal,
                         std::format("scripted K-Line write ran past the end of the script ({} exchanges); wrote {}",
-                                    expected_.size(), bytes::toHex(actual)));
+                                    expected_.size(), bytes::ToHex(actual)));
         }
         if (expected_.at(w_idx_) != actual)
         {
@@ -338,8 +338,8 @@ class ScriptedKlineFlashTransport : public IKlineFlashTransport
         const std::string where = label.empty()
                                       ? std::format("scripted K-Line exchange #{}", index + 1)
                                       : std::format("scripted K-Line exchange #{} (\"{}\")", index + 1, label);
-        return std::format("{} diverged\n  expected: {}\n  actual:   {}", where, bytes::toHex(expected_.at(index)),
-                           bytes::toHex(actual));
+        return std::format("{} diverged\n  expected: {}\n  actual:   {}", where, bytes::ToHex(expected_.at(index)),
+                           bytes::ToHex(actual));
     }
 
     std::vector<std::size_t> raw_writes_;

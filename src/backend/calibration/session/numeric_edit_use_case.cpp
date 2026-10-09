@@ -57,7 +57,7 @@ Result<std::vector<std::vector<double>>> parse_paste(const PasteEdit& paste)
         values.reserve(row.size());
         for (const auto& text : row)
         {
-            const auto number = expression::parse_finite_number(text);
+            const auto number = expression::ParseFiniteNumber(text);
             if (!number.has_value())
             {
                 return fail(ErrorKind::kInvalidConfig, number.error().detail);

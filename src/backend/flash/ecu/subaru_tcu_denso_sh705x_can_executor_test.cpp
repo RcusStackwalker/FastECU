@@ -38,8 +38,8 @@ namespace fastecu::flash
 {
 namespace
 {
-using bytes::composeBe;
-using bytes::u24;
+using bytes::ComposeBe;
+using bytes::U24;
 using namespace bytes::literals;
 using namespace std::chrono_literals;
 
@@ -306,12 +306,12 @@ Result<FlashPlan> write_plan(const Case& test_case, bytes::Bytes image = {})
 
 bytes::Bytes request(bytes::ByteView pdu)
 {
-    return composeBe(kRequestId, pdu);
+    return ComposeBe(kRequestId, pdu);
 }
 
 bytes::Bytes response(bytes::ByteView pdu)
 {
-    return composeBe(kResponseId, pdu);
+    return ComposeBe(kResponseId, pdu);
 }
 
 // Legacy request_kernel_id(), r59f4e442 lines 1583-1647. This is the initial
@@ -323,7 +323,7 @@ bytes::Bytes kernel_id_request()
 
 bytes::Bytes beef_request(std::uint8_t opcode, bytes::ByteView payload = {})
 {
-    bytes::Bytes message = composeBe(kRequestId, std::uint16_t{0xBEEF}, static_cast<std::uint16_t>(payload.size() + 1),
+    bytes::Bytes message = ComposeBe(kRequestId, std::uint16_t{0xBEEF}, static_cast<std::uint16_t>(payload.size() + 1),
                                      bytes::Byte(opcode));
     message.insert(message.end(), payload.begin(), payload.end());
     return message;
@@ -331,7 +331,7 @@ bytes::Bytes beef_request(std::uint8_t opcode, bytes::ByteView payload = {})
 
 bytes::Bytes beef_response(std::uint8_t opcode, bytes::ByteView payload = {})
 {
-    bytes::Bytes message = composeBe(kResponseId, std::uint16_t{0xBEEF}, static_cast<std::uint16_t>(payload.size() + 1),
+    bytes::Bytes message = ComposeBe(kResponseId, std::uint16_t{0xBEEF}, static_cast<std::uint16_t>(payload.size() + 1),
                                      bytes::Byte(opcode));
     message.insert(message.end(), payload.begin(), payload.end());
     return message;
@@ -370,7 +370,7 @@ void script_kernel_alive_fragmented(ScriptedCanFlashTransport& transport)
     // payload arrives in a second raw envelope, followed by an empty short
     // read that terminates the legacy trailing drain.
     transport.queueRead(
-        composeBe(kResponseId, std::uint16_t{0xBEEF}, std::uint16_t{4}, bytes::Byte{0x41}, bytes::Byte{'K'}));
+        ComposeBe(kResponseId, std::uint16_t{0xBEEF}, std::uint16_t{4}, bytes::Byte{0x41}, bytes::Byte{'K'}));
     transport.queueRead(response(bytes::Bytes{'I', 'D'}));
     transport.queue_error(ErrorKind::kTimeout, "legacy short drain expired");
 }
@@ -388,7 +388,7 @@ void script_read_pages(ScriptedCanFlashTransport& transport, std::uint32_t size,
 {
     for (std::uint32_t address = 0; address < size; address += kReadPageSize)
     {
-        transport.expectWrite(beef_request(0x03, composeBe(0x00_b, u24(address), std::uint16_t{kReadPageSize})));
+        transport.expectWrite(beef_request(0x03, ComposeBe(0x00_b, U24(address), std::uint16_t{kReadPageSize})));
         transport.queueRead(beef_response(0x43, bytes::Bytes(kReadPageSize, wire_fill)));
     }
 }
@@ -399,7 +399,7 @@ void script_raw_read_pages_with_boundary_sentinels(ScriptedCanFlashTransport& tr
     constexpr std::array<bytes::Byte, 8> kLastWireBytes{0x9C, 0x31, 0xE7, 0x04, 0xB2, 0x6D, 0x58, 0xAF};
     for (std::uint32_t address = 0; address < size; address += kReadPageSize)
     {
-        transport.expectWrite(beef_request(0x03, composeBe(0x00_b, u24(address), std::uint16_t{kReadPageSize})));
+        transport.expectWrite(beef_request(0x03, ComposeBe(0x00_b, U24(address), std::uint16_t{kReadPageSize})));
         bytes::Bytes page(kReadPageSize, bytes::Byte{0});
         if (address == 0)
         {
@@ -478,7 +478,7 @@ void script_kernel_upload_until_start(ScriptedCanFlashTransport& transport, cons
     // 128-byte transfer. The checksum word is 59 A3 A2 56, and the first and
     // last encrypted words are fixed here so the test never calls production
     // crypto helpers.
-    transport.expectWrite(request(composeBe(0x34_b, 0x04_b, 0x33_b, u24(test_case.kernel_address), u24(0x80))));
+    transport.expectWrite(request(ComposeBe(0x34_b, 0x04_b, 0x33_b, U24(test_case.kernel_address), U24(0x80))));
     transport.queueRead(response(bytes::Bytes{0x74, 0x20}));
 
     bytes::Bytes block{0xB6,
@@ -558,16 +558,16 @@ bytes::Bytes zero_chunk(std::size_t size)
 
 void script_crc(ScriptedCanFlashTransport& transport, const BlockFixture& block, std::uint32_t crc)
 {
-    transport.expectWrite(beef_request(0x02, composeBe(block.start, 0x00_b, u24(block.length))));
-    transport.queueRead(beef_response(0x42, composeBe(crc)));
+    transport.expectWrite(beef_request(0x02, ComposeBe(block.start, 0x00_b, U24(block.length))));
+    transport.queueRead(beef_response(0x42, ComposeBe(crc)));
     transport.queue_no_frame(); // Legacy drains a short stale frame after each CRC comparison.
 }
 
 void script_crc_with_stale(ScriptedCanFlashTransport& transport, const BlockFixture& block, std::uint32_t crc,
                            bytes::ByteView stale)
 {
-    transport.expectWrite(beef_request(0x02, composeBe(block.start, 0x00_b, u24(block.length))));
-    transport.queueRead(beef_response(0x42, composeBe(crc)));
+    transport.expectWrite(beef_request(0x02, ComposeBe(block.start, 0x00_b, U24(block.length))));
+    transport.queueRead(beef_response(0x42, ComposeBe(crc)));
     transport.queueRead(stale);
 }
 
@@ -619,9 +619,9 @@ void script_sh7058_a5_block_compare(ScriptedCanFlashTransport& transport, bool b
 void script_flash_init(ScriptedCanFlashTransport& transport)
 {
     transport.expectWrite(beef_request(0x05));
-    transport.queueRead(beef_response(0x45, composeBe(std::uint32_t{0x00000200})));
+    transport.queueRead(beef_response(0x45, ComposeBe(std::uint32_t{0x00000200})));
     transport.expectWrite(beef_request(0x06));
-    transport.queueRead(beef_response(0x46, composeBe(std::uint32_t{0x00001000})));
+    transport.queueRead(beef_response(0x46, ComposeBe(std::uint32_t{0x00001000})));
     transport.expectWrite(beef_request(0x20));
     transport.queueRead(beef_response(0x60));
 }
@@ -630,7 +630,7 @@ void script_first_flash_block(ScriptedCanFlashTransport& transport, bool include
 {
     transport.expectWrite(beef_request(0x04));
     transport.queueRead(beef_response(0x44, bytes::Bytes{0x00, 0x64}));
-    transport.expectWrite(beef_request(0x25, composeBe(std::uint32_t{0x00000000})));
+    transport.expectWrite(beef_request(0x25, ComposeBe(std::uint32_t{0x00000000})));
     transport.queueRead(beef_response(0x65));
     if (!include_chunks)
     {
@@ -639,11 +639,11 @@ void script_first_flash_block(ScriptedCanFlashTransport& transport, bool include
     const bytes::Bytes chunk = zero_chunk(kWriteChunkSize);
     for (std::uint32_t offset = 0; offset < kCommitBlockSize; offset += kWriteChunkSize)
     {
-        transport.expectWrite(beef_request(0x22, composeBe(offset, chunk)));
+        transport.expectWrite(beef_request(0x22, ComposeBe(offset, chunk)));
         transport.queueRead(beef_response(0x62));
     }
     transport.expectWrite(
-        beef_request(0x24, composeBe(std::uint32_t{0x00000000}, std::uint16_t{kCommitBlockSize}, 0xF722EF49U)));
+        beef_request(0x24, ComposeBe(std::uint32_t{0x00000000}, std::uint16_t{kCommitBlockSize}, 0xF722EF49U)));
     transport.queueRead(beef_response(0x64));
 }
 
@@ -651,19 +651,19 @@ void script_sh7058_a5_block_write(ScriptedCanFlashTransport& transport)
 {
     transport.expectWrite(beef_request(0x04));
     transport.queueRead(beef_response(0x44, bytes::Bytes{0x00, 0x64}));
-    transport.expectWrite(beef_request(0x25, composeBe(std::uint32_t{0x00008000})));
+    transport.expectWrite(beef_request(0x25, ComposeBe(std::uint32_t{0x00008000})));
     transport.queueRead(beef_response(0x65));
 
     const bytes::Bytes a5_chunk(kWriteChunkSize, bytes::Byte{0xA5});
     for (std::uint32_t address = 0x00008000; address < 0x00020000; address += kWriteChunkSize)
     {
-        transport.expectWrite(beef_request(0x22, composeBe(address, a5_chunk)));
+        transport.expectWrite(beef_request(0x22, ComposeBe(address, a5_chunk)));
         transport.queueRead(beef_response(0x62));
         if ((address + kWriteChunkSize) % kCommitBlockSize == 0)
         {
             const std::uint32_t commit_address = address + kWriteChunkSize - kCommitBlockSize;
             transport.expectWrite(beef_request(
-                0x24, composeBe(commit_address, std::uint16_t{kCommitBlockSize}, std::uint32_t{0x958BA140})));
+                0x24, ComposeBe(commit_address, std::uint16_t{kCommitBlockSize}, std::uint32_t{0x958BA140})));
             transport.queueRead(beef_response(0x64));
         }
     }
@@ -1137,7 +1137,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, SessionSafetyCorrectionRejectsBothLegacyPa
     const std::array<bytes::Bytes, 2> partial_matches{{bytes::Bytes{0x50, 0x02}, bytes::Bytes{0x51, 0x03}}};
     for (const bytes::Bytes& reply : partial_matches)
     {
-        SCOPED_TRACE(bytes::toHex(reply));
+        SCOPED_TRACE(bytes::ToHex(reply));
         auto plan = read_plan(kCases[1]);
         ASSERT_TRUE(plan.has_value()) << plan.error().detail;
         SubaruTcuDensoSh705xCanExecutor executor;
@@ -1243,7 +1243,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, KernelStartAcceptsServiceOnlyAndFullEchoBe
     const std::array<bytes::Bytes, 2> accepted{{bytes::Bytes{0x71}, bytes::Bytes{0x71, 0x01, 0x02, 0x02, 0x02}}};
     for (const bytes::Bytes& start_reply : accepted)
     {
-        SCOPED_TRACE(bytes::toHex(start_reply));
+        SCOPED_TRACE(bytes::ToHex(start_reply));
         auto plan = read_plan(kCases[1]);
         ASSERT_TRUE(plan.has_value()) << plan.error().detail;
         SubaruTcuDensoSh705xCanExecutor executor;
@@ -1332,7 +1332,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, ProbeTimeoutRunsIdentityStrictUdsUploadAnd
     transport.queueRead(kernel_id_response());
     transport.queue_no_frame();
     script_read_pages(transport, kReadPageSize);
-    transport.expectWrite(beef_request(0x03, composeBe(0x00_b, u24(kReadPageSize), std::uint16_t{kReadPageSize})));
+    transport.expectWrite(beef_request(0x03, ComposeBe(0x00_b, U24(kReadPageSize), std::uint16_t{kReadPageSize})));
     transport.queueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0xBE, 0xEF, 0x00, 0x01, 0x43});
     FakeCancellationToken cancellation;
     MockClock clock;
@@ -1674,9 +1674,9 @@ TEST(SubaruTcuDensoSh705xCanExecutor, ZeroElapsedClockUsesOneMillisecondClampFor
         script_flash_init(transport);
         transport.expectWrite(beef_request(0x04));
         transport.queueRead(beef_response(0x44, bytes::Bytes{0x00, 0x64}));
-        transport.expectWrite(beef_request(0x25, composeBe(std::uint32_t{0x00000000})));
+        transport.expectWrite(beef_request(0x25, ComposeBe(std::uint32_t{0x00000000})));
         transport.queueRead(beef_response(0x65));
-        transport.expectWrite(beef_request(0x22, composeBe(std::uint32_t{0}, zero_chunk(kWriteChunkSize))));
+        transport.expectWrite(beef_request(0x22, ComposeBe(std::uint32_t{0}, zero_chunk(kWriteChunkSize))));
         transport.queueRead(beef_response(0x62));
         FakeCancellationToken cancellation;
         FakeClock clock;
@@ -1979,9 +1979,9 @@ TEST(SubaruTcuDensoSh705xCanExecutor, CancellationInterruptsUploadReadCrcAndWrit
         script_flash_init(transport);
         transport.expectWrite(beef_request(0x04));
         transport.queueRead(beef_response(0x44, bytes::Bytes{0x00, 0x64}));
-        transport.expectWrite(beef_request(0x25, composeBe(std::uint32_t{0x00000000})));
+        transport.expectWrite(beef_request(0x25, ComposeBe(std::uint32_t{0x00000000})));
         transport.queueRead(beef_response(0x65));
-        transport.expectWrite(beef_request(0x22, composeBe(std::uint32_t{0}, zero_chunk(kWriteChunkSize))));
+        transport.expectWrite(beef_request(0x22, ComposeBe(std::uint32_t{0}, zero_chunk(kWriteChunkSize))));
         transport.queueRead(beef_response(0x62));
         FakeCancellationToken cancellation;
         FakeClock clock;
@@ -2112,7 +2112,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, BoundAttemptReturnsCloseErrorOnlyWhenExecu
 
     auto failing_transport = std::make_unique<ScriptedCanFlashTransport>();
     script_kernel_alive(*failing_transport);
-    failing_transport->expectWrite(beef_request(0x03, composeBe(0x00_b, u24(0), std::uint16_t{kReadPageSize})));
+    failing_transport->expectWrite(beef_request(0x03, ComposeBe(0x00_b, U24(0), std::uint16_t{kReadPageSize})));
     failing_transport->queue_no_frame();
     failing_transport->close_result = fail(ErrorKind::kInternal, "close also failed");
     auto failing_attempt =

@@ -20,9 +20,9 @@ bytes::Bytes frameFor(const TcuParameterWrite& write)
 {
     // legacy :210-215 -- SID 0xB8, 24-bit address, value, framed exactly once.
     bytes::Bytes payload{0xb8};
-    bytes::appendU24Be(payload, write.address);
+    bytes::AppendU24Be(payload, write.address);
     payload.push_back(write.value);
-    return ssm_protocol::addHeader(payload, kTesterId, kTargetId);
+    return ssm_protocol::AddHeader(payload, kTesterId, kTargetId);
 }
 
 } // namespace
@@ -97,7 +97,7 @@ ServiceFunctionStep SetParametersSession::resume(ISsmTransport& transport, ICloc
         const bytes::Bytes& reply = **received;
         if (reply.size() <= 4 || reply[4] != kPositiveResponse)
         {
-            return FailedStep{Error{ErrorKind::kBadResponse, "TCU rejected a parameter write: " + bytes::toHex(reply)}};
+            return FailedStep{Error{ErrorKind::kBadResponse, "TCU rejected a parameter write: " + bytes::ToHex(reply)}};
         }
 
         ++written_count;

@@ -33,8 +33,8 @@ bool starts_with(std::string_view value, std::string_view prefix)
 ChecksumResult denso_sh7xxx(bytes::ByteView rom, std::uint32_t area_start, std::int32_t offset = 0)
 {
     ChecksumResult result =
-        ChecksumEcuSubaruDensoSH7xxx::calculate_checksum_result(rom, area_start, kDensoTableLength, offset);
-    if (result.changed())
+        ChecksumEcuSubaruDensoSH7xxx::CalculateChecksumResult(rom, area_start, kDensoTableLength, offset);
+    if (result.Changed())
     {
         // This wrapper supplies the family title only for the Corrected path.
         // Other outcomes retain the algorithm-specific body text used by the
@@ -46,7 +46,7 @@ ChecksumResult denso_sh7xxx(bytes::ByteView rom, std::uint32_t area_start, std::
 
 ChecksumResult denso_sh705x_diesel(bytes::ByteView rom, std::uint32_t area_start)
 {
-    return ChecksumEcuSubaruDensoSH705xDiesel::calculate_checksum_result(rom, area_start, kDensoTableLength);
+    return ChecksumEcuSubaruDensoSH705xDiesel::CalculateChecksumResult(rom, area_start, kDensoTableLength);
 }
 
 struct DispatchResult
@@ -116,31 +116,31 @@ DispatchResult execute(const RouteSpec& spec, std::string_view rom_id, bytes::By
     case Route::kDensoDiesel:
         return {true, denso_sh705x_diesel(rom, spec.table_offset)};
     case Route::kDensoTcuSh7055:
-        return {true, ChecksumTcuSubaruDensoSH7055::calculate_checksum_result(rom)};
+        return {true, ChecksumTcuSubaruDensoSH7055::CalculateChecksumResult(rom)};
     case Route::kM32rByRomId:
         if (starts_with(rom_id, "3"))
         {
-            return {true, ChecksumEcuSubaruHitachiM32rKline::calculate_checksum_result(rom)};
+            return {true, ChecksumEcuSubaruHitachiM32rKline::CalculateChecksumResult(rom)};
         }
         if (starts_with(rom_id, "4") || starts_with(rom_id, "6"))
         {
-            return {true, ChecksumEcuSubaruHitachiM32rCan::calculate_checksum_result(rom)};
+            return {true, ChecksumEcuSubaruHitachiM32rCan::CalculateChecksumResult(rom)};
         }
         // The protocol has a module, but unknown ROM-ID prefixes deliberately
         // run no family and produce no missing-module warning.
         return {true, std::nullopt};
     case Route::kM32rCan:
-        return {true, ChecksumEcuSubaruHitachiM32rCan::calculate_checksum_result(rom)};
+        return {true, ChecksumEcuSubaruHitachiM32rCan::CalculateChecksumResult(rom)};
     case Route::kSh7058:
-        return {true, ChecksumEcuSubaruHitachiSH7058::calculate_checksum_result(rom)};
+        return {true, ChecksumEcuSubaruHitachiSH7058::CalculateChecksumResult(rom)};
     case Route::kSh72543r:
-        return {true, ChecksumEcuSubaruHitachiSh72543r::calculate_checksum_result(rom)};
+        return {true, ChecksumEcuSubaruHitachiSh72543r::CalculateChecksumResult(rom)};
     case Route::kHitachiM32rTcu:
-        return {true, ChecksumTcuSubaruHitachiM32rCan::calculate_checksum_result(rom)};
+        return {true, ChecksumTcuSubaruHitachiM32rCan::CalculateChecksumResult(rom)};
     case Route::kMitsuMh8104Tcu:
-        return {true, ChecksumTcuMitsuMH8104Can::calculate_checksum_result(rom)};
+        return {true, ChecksumTcuMitsuMH8104Can::CalculateChecksumResult(rom)};
     case Route::kMitsuColtM32rCan:
-        return {true, ChecksumEcuMitsuM32rCan::calculate_checksum_result(rom)};
+        return {true, ChecksumEcuMitsuM32rCan::CalculateChecksumResult(rom)};
     }
     std::unreachable();
 }

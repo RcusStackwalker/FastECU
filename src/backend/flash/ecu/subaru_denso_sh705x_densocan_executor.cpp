@@ -18,8 +18,8 @@ namespace fastecu::flash
 {
 namespace
 {
-using bytes::composeBe;
-using bytes::u24;
+using bytes::ComposeBe;
+using bytes::U24;
 using namespace bytes::literals;
 using namespace std::chrono_literals;
 
@@ -61,7 +61,7 @@ std::uint64_t elapsed_milliseconds(std::chrono::steady_clock::time_point start,
 
 bytes::Bytes iso_request(std::uint8_t opcode, bytes::ByteView payload = {})
 {
-    bytes::Bytes request = composeBe(kIsoRequestId, kStartComm, static_cast<std::uint16_t>(payload.size() + 1),
+    bytes::Bytes request = ComposeBe(kIsoRequestId, kStartComm, static_cast<std::uint16_t>(payload.size() + 1),
                                      static_cast<bytes::Byte>(opcode));
     request.insert(request.end(), payload.begin(), payload.end());
     return request;
@@ -159,7 +159,7 @@ Status expect_iso_response(bytes::ByteView response, std::uint8_t expected_opcod
     {
         return fail(ErrorKind::kBadResponse, std::format("Wrong response from ECU during {}", subject));
     }
-    const std::size_t declared_payload = bytes::readU16Be(response, 6);
+    const std::size_t declared_payload = bytes::ReadU16Be(response, 6);
     if (declared_payload == 0 || declared_payload > response.size() - 8 || declared_payload - 1 < min_payload ||
         response.size() - 9 < min_payload)
     {
@@ -497,7 +497,7 @@ Result<bytes::Bytes> read_mem(IMixedCanFlashTransport& transport, const MemoryRe
             return std::unexpected(cancelled.error());
         }
         const std::uint32_t address = region.start + offset;
-        const bytes::Bytes request = iso_request(0x03, composeBe(0x00_b, u24(address), std::uint16_t{kReadPageSize}));
+        const bytes::Bytes request = iso_request(0x03, ComposeBe(0x00_b, U24(address), std::uint16_t{kReadPageSize}));
         if (Status written = iso_write(transport, request, cancellation, "ROM read"); !written)
         {
             return std::unexpected(written.error());
@@ -540,7 +540,7 @@ Result<std::uint32_t> read_block_crc(IMixedCanFlashTransport& transport, const M
 {
     // Legacy check_romcrc(), lines 820-905. The seven-byte CRC request body
     // is [address:4][00][length:3]; response bytes 9..12 hold the ECU CRC.
-    const bytes::Bytes request = iso_request(0x02, composeBe(block.start, 0x00_b, u24(block.length)));
+    const bytes::Bytes request = iso_request(0x02, ComposeBe(block.start, 0x00_b, U24(block.length)));
     if (Status written = iso_write(transport, request, cancellation, "ROM CRC"); !written)
     {
         return std::unexpected(written.error());
@@ -558,7 +558,7 @@ Result<std::uint32_t> read_block_crc(IMixedCanFlashTransport& transport, const M
     {
         return std::unexpected(valid.error());
     }
-    const std::uint32_t crc = bytes::readU32Be(**received, 9);
+    const std::uint32_t crc = bytes::ReadU32Be(**received, 9);
     // Legacy lines 883 and 904 intentionally perform this short stale-byte
     // drain after both equal and unequal CRC outcomes.
     Result<std::optional<bytes::Bytes>> drained = iso_read(transport, 200ms, cancellation, "ROM CRC drain");
@@ -617,7 +617,7 @@ Status init_flash_write(IMixedCanFlashTransport& transport, bool test_write, con
         {
             return valid;
         }
-        const std::uint32_t value = bytes::readU32Be(**received, 9);
+        const std::uint32_t value = bytes::ReadU32Be(**received, 9);
         events.log(LogLevel::kInfo, std::format(": 0x{:04x}", value));
     }
     // Legacy test write sends FLASH_DISABLE instead of FLASH_ENABLE at
@@ -656,7 +656,7 @@ Status query_programming_voltage(IMixedCanFlashTransport& transport, const ICanc
     {
         return valid;
     }
-    const std::uint16_t voltage_raw = bytes::readU16Be(**received, 9);
+    const std::uint16_t voltage_raw = bytes::ReadU16Be(**received, 9);
     const float voltage = static_cast<float>(voltage_raw) / 50.0F;
     events.log(LogLevel::kInfo, std::format(": {:g}V", voltage));
     return {};
@@ -681,7 +681,7 @@ Status flash_block(IMixedCanFlashTransport& transport, bytes::ByteView image, co
                    std::format("Flash page erase addr: 0x{:08x} len: 0x{:08x}", block.start, block.length));
         events.log(LogLevel::kInfo, "Erasing flash page...");
         if (Status written =
-                iso_write(transport, iso_request(0x25, composeBe(block.start)), cancellation, "flash erase");
+                iso_write(transport, iso_request(0x25, ComposeBe(block.start)), cancellation, "flash erase");
             !written)
         {
             return written;
@@ -714,7 +714,7 @@ Status flash_block(IMixedCanFlashTransport& transport, bytes::ByteView image, co
             return cancelled;
         }
         const std::uint32_t address = block.start + offset;
-        const bytes::Bytes request = iso_request(0x22, composeBe(address, image.subspan(address, kWriteChunkSize)));
+        const bytes::Bytes request = iso_request(0x22, ComposeBe(address, image.subspan(address, kWriteChunkSize)));
         if (Status written = iso_write(transport, request, cancellation, "flash buffer transfer"); !written)
         {
             return written;
@@ -756,7 +756,7 @@ Status flash_block(IMixedCanFlashTransport& transport, bytes::ByteView image, co
         if ((offset + kWriteChunkSize) % kCommitBlockSize == 0)
         {
             const std::uint32_t commit_start = address + kWriteChunkSize - kCommitBlockSize;
-            const std::uint32_t crc = checksum::crc32(image.subspan(commit_start, kCommitBlockSize));
+            const std::uint32_t crc = checksum::Crc32(image.subspan(commit_start, kCommitBlockSize));
             const std::uint8_t command = test_write ? 0x23 : 0x24;
             events.log(LogLevel::kInfo, "Flash buffer write complete... ");
             events.log(LogLevel::kDebug, std::format("Image CRC32: 0x{:x}", crc));
@@ -765,7 +765,7 @@ Status flash_block(IMixedCanFlashTransport& transport, bytes::ByteView image, co
             events.log(LogLevel::kInfo, std::format(" len: 0x{:x}", kCommitBlockSize));
             events.log(LogLevel::kInfo, std::format(" crc32: 0x{:x}", crc));
             const bytes::Bytes commit =
-                iso_request(command, composeBe(commit_start, std::uint16_t{kCommitBlockSize}, crc));
+                iso_request(command, ComposeBe(commit_start, std::uint16_t{kCommitBlockSize}, crc));
             if (Status written = iso_write(transport, commit, cancellation, "flash commit"); !written)
             {
                 return written;
@@ -852,7 +852,7 @@ Status write_mem(IMixedCanFlashTransport& transport, const FlashPlan& plan, IClo
             {
                 return std::unexpected(ecu_crc.error());
             }
-            const std::uint32_t image_crc = checksum::crc32(image.subspan(block.start, block.length));
+            const std::uint32_t image_crc = checksum::Crc32(image.subspan(block.start, block.length));
             modified[index] = *ecu_crc != image_crc;
             events.log(LogLevel::kDebug, std::format("ROM CRC: 0x{:08x} IMG CRC: 0x{:08x}", *ecu_crc, image_crc));
             events.log(LogLevel::kInfo, std::format("\t{:08X}\t{:08X}", *ecu_crc, image_crc));

@@ -75,37 +75,37 @@ inline void appendU32Le(QByteArray& out, std::uint32_t value)
 
 inline void writeU16Be(QByteArray& out, std::size_t offset, std::uint16_t value)
 {
-    writeU16Be(mutableView(out), offset, value);
+    WriteU16Be(mutableView(out), offset, value);
 }
 
 inline void writeU24Be(QByteArray& out, std::size_t offset, std::uint32_t value)
 {
-    writeU24Be(mutableView(out), offset, value);
+    WriteU24Be(mutableView(out), offset, value);
 }
 
 inline void writeU32Be(QByteArray& out, std::size_t offset, std::uint32_t value)
 {
-    writeU32Be(mutableView(out), offset, value);
+    WriteU32Be(mutableView(out), offset, value);
 }
 
 inline void writeU16Le(QByteArray& out, std::size_t offset, std::uint16_t value)
 {
-    writeU16Le(mutableView(out), offset, value);
+    WriteU16Le(mutableView(out), offset, value);
 }
 
 inline void writeU24Le(QByteArray& out, std::size_t offset, std::uint32_t value)
 {
-    writeU24Le(mutableView(out), offset, value);
+    WriteU24Le(mutableView(out), offset, value);
 }
 
 inline void writeU32Le(QByteArray& out, std::size_t offset, std::uint32_t value)
 {
-    writeU32Le(mutableView(out), offset, value);
+    WriteU32Le(mutableView(out), offset, value);
 }
 
 inline QString toHex(const QByteArray& data)
 {
-    return QString::fromStdString(toHex(view(data)));
+    return QString::fromStdString(ToHex(view(data)));
 }
 
 } // namespace bytes

@@ -99,7 +99,7 @@ std::string_view mcuFor(std::string_view protocol)
 bytes::Bytes request(bytes::ByteView payload)
 {
     bytes::Bytes out;
-    bytes::appendU32Be(out, 0x7e0);
+    bytes::AppendU32Be(out, 0x7e0);
     out.insert(out.end(), payload.begin(), payload.end());
     return out;
 }
@@ -109,7 +109,7 @@ bytes::Bytes request(bytes::ByteView payload)
 bytes::Bytes response(bytes::ByteView tail)
 {
     bytes::Bytes out;
-    bytes::appendU32Be(out, 0x7e8);
+    bytes::AppendU32Be(out, 0x7e8);
     out.insert(out.end(), tail.begin(), tail.end());
     return out;
 }
@@ -244,7 +244,7 @@ void scriptFlashRead(ScriptedCanFlashTransport& transport, std::uint32_t start, 
             remaining < mitsu_colt_can::kFlashReadBlockSize ? remaining : mitsu_colt_can::kFlashReadBlockSize);
         bytes::Bytes reply = response({0x63});
         reply.insert(reply.end(), chunk, fill);
-        transport.exchange(request(mitsu_colt_can::buildReadMemoryByAddress(addr, chunk)), reply);
+        transport.exchange(request(mitsu_colt_can::BuildReadMemoryByAddress(addr, chunk)), reply);
     }
 }
 
@@ -258,7 +258,7 @@ void scriptFlashReadChunk(ScriptedCanFlashTransport& transport, std::uint32_t ad
     const auto section = transport.section("flash read chunk");
     bytes::Bytes reply = response({0x63});
     reply.insert(reply.end(), chunk_len, fill);
-    transport.exchange(request(mitsu_colt_can::buildReadMemoryByAddress(addr, chunk_len)), reply);
+    transport.exchange(request(mitsu_colt_can::BuildReadMemoryByAddress(addr, chunk_len)), reply);
 }
 
 void scriptFlashReadData(ScriptedCanFlashTransport& transport, std::uint32_t start, bytes::ByteView data)
@@ -271,7 +271,7 @@ void scriptFlashReadData(ScriptedCanFlashTransport& transport, std::uint32_t sta
             remaining < mitsu_colt_can::kFlashReadBlockSize ? remaining : mitsu_colt_can::kFlashReadBlockSize);
         bytes::Bytes reply = response({0x63});
         reply.insert(reply.end(), data.begin() + offset, data.begin() + offset + chunk);
-        transport.exchange(request(mitsu_colt_can::buildReadMemoryByAddress(start + offset, chunk)), reply);
+        transport.exchange(request(mitsu_colt_can::BuildReadMemoryByAddress(start + offset, chunk)), reply);
     }
 }
 
@@ -295,7 +295,7 @@ void scriptAddressMarkedRead(ScriptedCanFlashTransport& transport, std::uint32_t
         const std::uint32_t remaining = length - addr;
         const auto chunk = static_cast<bytes::Byte>(
             remaining < mitsu_colt_can::kFlashReadBlockSize ? remaining : mitsu_colt_can::kFlashReadBlockSize);
-        transport.exchange(request(mitsu_colt_can::buildReadMemoryByAddress(addr, chunk)));
+        transport.exchange(request(mitsu_colt_can::BuildReadMemoryByAddress(addr, chunk)));
         bytes::Bytes reply = response({0x63});
         for (std::uint32_t offset = 0; offset < chunk; ++offset)
         {
@@ -310,13 +310,13 @@ void scriptAddressMarkedRead(ScriptedCanFlashTransport& transport, std::uint32_t
 void scriptBootloadHandshake(ScriptedCanFlashTransport& transport)
 {
     const auto section = transport.section("bootload handshake");
-    transport.exchange(request(mitsu_colt_can::buildDiagnosticSession(mitsu_colt_can::kSessionBootload)),
+    transport.exchange(request(mitsu_colt_can::BuildDiagnosticSession(mitsu_colt_can::kSessionBootload)),
                        response({0x50, 0x85}));
 
-    transport.exchange(request(mitsu_colt_can::buildSecurityAccessSeedRequest()),
+    transport.exchange(request(mitsu_colt_can::BuildSecurityAccessSeedRequest()),
                        response({0x67, 0x05, 0x11, 0x22, 0x33, 0x44}));
 
-    transport.exchange(request(mitsu_colt_can::buildSecurityAccessKey(mitsu_colt_can::seedKey(kSeed))),
+    transport.exchange(request(mitsu_colt_can::BuildSecurityAccessKey(mitsu_colt_can::SeedKey(kSeed))),
                        response({0x67, 0x06}));
 }
 
@@ -326,10 +326,10 @@ void scriptBootloadHandshake(ScriptedCanFlashTransport& transport)
 void scriptUploadFrames(ScriptedCanFlashTransport& transport, std::uint32_t start, bytes::ByteView data)
 {
     const auto section = transport.section("upload frames");
-    transport.exchange(request(mitsu_colt_can::buildRequestDownload(start, static_cast<std::uint32_t>(data.size()))),
+    transport.exchange(request(mitsu_colt_can::BuildRequestDownload(start, static_cast<std::uint32_t>(data.size()))),
                        response({0x74}));
 
-    for (const bytes::Bytes& chunk : mitsu_colt_can::buildTransferDataFrames(data))
+    for (const bytes::Bytes& chunk : mitsu_colt_can::BuildTransferDataFrames(data))
     {
         transport.exchange(request(chunk), response({0x76}));
     }
@@ -344,17 +344,17 @@ void scriptCrcCommit(ScriptedCanFlashTransport& transport, std::uint32_t start, 
                      std::optional<bytes::Bytes> crc_bytes = std::nullopt)
 {
     const auto section = transport.section("crc commit");
-    transport.exchange(request(mitsu_colt_can::buildRequestDownload(mitsu_colt_can::kCrcTransferAddress,
+    transport.exchange(request(mitsu_colt_can::BuildRequestDownload(mitsu_colt_can::kCrcTransferAddress,
                                                                     mitsu_colt_can::kCrcTransferSize)),
                        response({0x74}));
 
-    const std::uint16_t crc = mitsu_colt_can::checksum(data);
-    const bytes::Bytes crc_data = crc_bytes.value_or(bytes::composeBe(crc));
-    transport.exchange(request(mitsu_colt_can::buildTransferDataFrames(crc_data).front()), response({0x76}));
+    const std::uint16_t crc = mitsu_colt_can::Checksum(data);
+    const bytes::Bytes crc_data = crc_bytes.value_or(bytes::ComposeBe(crc));
+    transport.exchange(request(mitsu_colt_can::BuildTransferDataFrames(crc_data).front()), response({0x76}));
 
     // [echo][status=0], the routine-id echo plus the CRC-match status byte
     // (colt_commented.S ~0x5aa0-0x5ad4); the executor now checks the latter.
-    transport.exchange(request(mitsu_colt_can::buildRoutineCheckCrc(start)), response({0x71, 0xe1, 0x00}));
+    transport.exchange(request(mitsu_colt_can::BuildRoutineCheckCrc(start)), response({0x71, 0xe1, 0x00}));
 }
 
 // Scripts one upload_and_commit(start, data): RequestDownload, the
@@ -372,11 +372,11 @@ void scriptUploadAndCommit(ScriptedCanFlashTransport& transport, std::uint32_t s
 void scriptUnlockAndErase(ScriptedCanFlashTransport& transport)
 {
     const auto section = transport.section("unlock and erase");
-    transport.exchange(request(mitsu_colt_can::buildRequestReflashUnlock()), response({0x7b}));
+    transport.exchange(request(mitsu_colt_can::BuildRequestReflashUnlock()), response({0x7b}));
     // [echo][status=0], the routine-id echo plus the erase-succeeded status
     // byte (colt_commented.S ~0x59c8-0x5a38); the executor now checks the
     // latter -- this is the exact wire shape a real ECU sends.
-    transport.exchange(request(mitsu_colt_can::buildRoutineErase()), response({0x71, 0xe0, 0x00}));
+    transport.exchange(request(mitsu_colt_can::BuildRoutineErase()), response({0x71, 0xe0, 0x00}));
 }
 
 void scriptWriteThroughEraseTrigger(ScriptedCanFlashTransport& transport)
@@ -386,8 +386,8 @@ void scriptWriteThroughEraseTrigger(ScriptedCanFlashTransport& transport)
     scriptFlashRead(transport, mitsu_colt_can::kTopRegionStart, mitsu_colt_can::kTopRegionLength, 0xEE);
     scriptUploadAndCommit(transport, mitsu_colt_can::kEraseRoutineRamAddr, mitsu_colt_can::kErasePageRoutine);
     scriptUploadAndCommit(transport, mitsu_colt_can::kWriteRoutineRamAddr, mitsu_colt_can::kWritePageRoutine);
-    transport.exchange(request(mitsu_colt_can::buildRequestReflashUnlock()), response({0x7b}));
-    transport.exchange(request(mitsu_colt_can::buildRoutineErase()));
+    transport.exchange(request(mitsu_colt_can::BuildRequestReflashUnlock()), response({0x7b}));
+    transport.exchange(request(mitsu_colt_can::BuildRoutineErase()));
 }
 
 void scriptWriteThroughEraseRoutineCrcCheck(ScriptedCanFlashTransport& transport)
@@ -396,13 +396,13 @@ void scriptWriteThroughEraseRoutineCrcCheck(ScriptedCanFlashTransport& transport
     scriptBootloadHandshake(transport);
     scriptFlashRead(transport, mitsu_colt_can::kTopRegionStart, mitsu_colt_can::kTopRegionLength, 0xEE);
     scriptUploadFrames(transport, mitsu_colt_can::kEraseRoutineRamAddr, mitsu_colt_can::kErasePageRoutine);
-    transport.exchange(request(mitsu_colt_can::buildRequestDownload(mitsu_colt_can::kCrcTransferAddress,
+    transport.exchange(request(mitsu_colt_can::BuildRequestDownload(mitsu_colt_can::kCrcTransferAddress,
                                                                     mitsu_colt_can::kCrcTransferSize)),
                        response({0x74}));
-    const std::uint16_t crc = mitsu_colt_can::checksum(mitsu_colt_can::kErasePageRoutine);
-    const bytes::Bytes crc_data = bytes::composeBe(crc);
-    transport.exchange(request(mitsu_colt_can::buildTransferDataFrames(crc_data).front()), response({0x76}));
-    transport.exchange(request(mitsu_colt_can::buildRoutineCheckCrc(mitsu_colt_can::kEraseRoutineRamAddr)));
+    const std::uint16_t crc = mitsu_colt_can::Checksum(mitsu_colt_can::kErasePageRoutine);
+    const bytes::Bytes crc_data = bytes::ComposeBe(crc);
+    transport.exchange(request(mitsu_colt_can::BuildTransferDataFrames(crc_data).front()), response({0x76}));
+    transport.exchange(request(mitsu_colt_can::BuildRoutineCheckCrc(mitsu_colt_can::kEraseRoutineRamAddr)));
 }
 
 // The userspace slice of `rom` the write path must transfer.
@@ -550,7 +550,7 @@ TEST(MitsuColtM32rCanExecutor, ReadReportsAnEmptyReplyAsTimeout)
     auto plan = readPlan();
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
-    transport.exchange(request(mitsu_colt_can::buildDiagnosticSession(mitsu_colt_can::kSessionBootload)));
+    transport.exchange(request(mitsu_colt_can::BuildDiagnosticSession(mitsu_colt_can::kSessionBootload)));
     transport.queue_no_frame();
 
     ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
@@ -567,7 +567,7 @@ TEST(MitsuColtM32rCanExecutor, ReadPropagatesADisconnectedTransport)
     auto plan = readPlan();
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
-    transport.exchange(request(mitsu_colt_can::buildDiagnosticSession(mitsu_colt_can::kSessionBootload)));
+    transport.exchange(request(mitsu_colt_can::BuildDiagnosticSession(mitsu_colt_can::kSessionBootload)));
     transport.queue_error(ErrorKind::kDisconnected, "adapter gone");
 
     ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
@@ -587,7 +587,7 @@ TEST(MitsuColtM32rCanExecutor, ReadTimeoutPropagates)
     auto plan = readPlan();
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
-    transport.exchange(request(mitsu_colt_can::buildDiagnosticSession(mitsu_colt_can::kSessionBootload)));
+    transport.exchange(request(mitsu_colt_can::BuildDiagnosticSession(mitsu_colt_can::kSessionBootload)));
     transport.queue_error(ErrorKind::kTimeout, "no reply");
 
     const auto result = executor.execute(*plan, transport, clock, cancellation, events);
@@ -605,7 +605,7 @@ TEST(MitsuColtM32rCanExecutor, ReadStopsWhenCancelled)
     auto plan = readPlan();
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
-    transport.exchange(request(mitsu_colt_can::buildDiagnosticSession(mitsu_colt_can::kSessionBootload)),
+    transport.exchange(request(mitsu_colt_can::BuildDiagnosticSession(mitsu_colt_can::kSessionBootload)),
                        response({0x50, 0x85}));
     cancellation.cancel();
 
@@ -654,7 +654,7 @@ TEST(MitsuColtM32rCanExecutor, ReadStopsAtTheNextChunkWhenCancelledMidRead)
     const std::uint32_t start = plan->transfer_region().start;
     bytes::Bytes reply = response({0x63});
     reply.insert(reply.end(), mitsu_colt_can::kFlashReadBlockSize, 0x5A);
-    transport.exchange(request(mitsu_colt_can::buildReadMemoryByAddress(
+    transport.exchange(request(mitsu_colt_can::BuildReadMemoryByAddress(
                            start, static_cast<bytes::Byte>(mitsu_colt_can::kFlashReadBlockSize))),
                        reply);
 
@@ -683,16 +683,16 @@ TEST(MitsuColtM32rCanExecutor, VendorChallengeRunsInBasicSessionBeforeBootloadSe
     auto plan = readPlan(kVendorProtocol384);
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
-    transport.exchange(request(mitsu_colt_can::buildDiagnosticSession(mitsu_colt_can::kSessionBasic)),
+    transport.exchange(request(mitsu_colt_can::BuildDiagnosticSession(mitsu_colt_can::kSessionBasic)),
                        response({0x50, 0x81}));
 
-    transport.exchange(request(mitsu_colt_can_vendor_ext::buildChallengeSeedRequest()),
+    transport.exchange(request(mitsu_colt_can_vendor_ext::BuildChallengeSeedRequest()),
                        response({0x63, 0x27, 0x41, 0x12, 0x34, 0x56, 0x78}));
 
-    const std::uint32_t key = mitsu_colt_can_vendor_ext::challengeInverseTransform(0x12345678);
-    transport.exchange(request(mitsu_colt_can_vendor_ext::buildChallengeKey(key)), response({0x63, 0x27, 0x34}));
+    const std::uint32_t key = mitsu_colt_can_vendor_ext::ChallengeInverseTransform(0x12345678);
+    transport.exchange(request(mitsu_colt_can_vendor_ext::BuildChallengeKey(key)), response({0x63, 0x27, 0x34}));
 
-    transport.exchange(request(mitsu_colt_can::buildDiagnosticSession(mitsu_colt_can::kSessionBootload)));
+    transport.exchange(request(mitsu_colt_can::BuildDiagnosticSession(mitsu_colt_can::kSessionBootload)));
     transport.queue_no_frame(); // stop here: ordering is what this pins
 
     ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
@@ -713,10 +713,10 @@ TEST(MitsuColtM32rCanExecutor, VendorChallengeRejectionStopsBeforeTheSession)
     auto plan = readPlan(kVendorProtocol384);
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
-    transport.exchange(request(mitsu_colt_can::buildDiagnosticSession(mitsu_colt_can::kSessionBasic)),
+    transport.exchange(request(mitsu_colt_can::BuildDiagnosticSession(mitsu_colt_can::kSessionBasic)),
                        response({0x50, 0x81}));
 
-    transport.exchange(request(mitsu_colt_can_vendor_ext::buildChallengeSeedRequest()), response({0x7f, 0x23, 0x33}));
+    transport.exchange(request(mitsu_colt_can_vendor_ext::BuildChallengeSeedRequest()), response({0x7f, 0x23, 0x33}));
 
     ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
                 fastecu::testing::IsErr(ErrorKind::kBadResponse));
@@ -777,25 +777,25 @@ TEST(MitsuColtM32rCanExecutor, WriteDrivesTheBootloadSessionThenFactorySecurityA
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
     // a write selects kSessionBootload (0x85), not kSessionBasic.
-    transport.exchange(request(mitsu_colt_can::buildDiagnosticSession(mitsu_colt_can::kSessionBootload)),
+    transport.exchange(request(mitsu_colt_can::BuildDiagnosticSession(mitsu_colt_can::kSessionBootload)),
                        response({0x50, 0x85}));
 
     // SID 0x27/5, answered with (0x27+0x40, 0x05) and a 4-byte seed at
     // received.mid(6, 4).
-    transport.exchange(request(mitsu_colt_can::buildSecurityAccessSeedRequest()),
+    transport.exchange(request(mitsu_colt_can::BuildSecurityAccessSeedRequest()),
                        response({0x67, 0x05, 0x11, 0x22, 0x33, 0x44}));
 
     // the key is seedKey(seed), and the request carries it verbatim. Scripting
     // the exact bytes means a wrong seed offset or a wrong key derivation is
     // rejected by the transport, not silently accepted.
-    transport.exchange(request(mitsu_colt_can::buildSecurityAccessKey(mitsu_colt_can::seedKey(kSeed))),
+    transport.exchange(request(mitsu_colt_can::BuildSecurityAccessKey(mitsu_colt_can::SeedKey(kSeed))),
                        response({0x67, 0x06}));
 
     // The handshake is what this test pins, so the run is stopped one request
     // into the write path: the first chunk of the top-region check goes
     // unanswered. That the request is a top-region read at all is the proof
     // the write branch now proceeds instead of refusing.
-    transport.exchange(request(mitsu_colt_can::buildReadMemoryByAddress(
+    transport.exchange(request(mitsu_colt_can::BuildReadMemoryByAddress(
         mitsu_colt_can::kTopRegionStart, static_cast<bytes::Byte>(mitsu_colt_can::kFlashReadBlockSize))));
     transport.queue_no_frame();
 
@@ -998,7 +998,7 @@ TEST(MitsuColtM32rCanExecutor, WritePropagatesACarrierReadFailureBeforeRedirectH
 
     scriptBootloadHandshake(transport);
     scriptFlashReadChunk(transport, mitsu_colt_can::kTopRegionStart, mitsu_colt_can::kFlashReadBlockSize, 0xFF);
-    transport.exchange(request(mitsu_colt_can::buildReadMemoryByAddress(
+    transport.exchange(request(mitsu_colt_can::BuildReadMemoryByAddress(
         mitsu_colt_can::kUserspaceStart, static_cast<bytes::Byte>(mitsu_colt_can::kFlashReadBlockSize))));
     transport.queue_error(ErrorKind::kDisconnected, "carrier read disconnected");
 
@@ -1135,7 +1135,7 @@ TEST(MitsuColtM32rCanExecutor, WriteStopsWhenTheReflashUnlockIsRejected)
     scriptFlashRead(transport, mitsu_colt_can::kTopRegionStart, mitsu_colt_can::kTopRegionLength, 0xEE);
     scriptUploadAndCommit(transport, mitsu_colt_can::kEraseRoutineRamAddr, mitsu_colt_can::kErasePageRoutine);
     scriptUploadAndCommit(transport, mitsu_colt_can::kWriteRoutineRamAddr, mitsu_colt_can::kWritePageRoutine);
-    transport.exchange(request(mitsu_colt_can::buildRequestReflashUnlock()), response({0x7f, 0x3b, 0x33}));
+    transport.exchange(request(mitsu_colt_can::BuildRequestReflashUnlock()), response({0x7f, 0x3b, 0x33}));
 
     ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
                 fastecu::testing::IsErr(ErrorKind::kBadResponse));
@@ -1161,8 +1161,8 @@ TEST(MitsuColtM32rCanExecutor, WriteStopsWhenTheEraseTriggerIsRejected)
     scriptFlashRead(transport, mitsu_colt_can::kTopRegionStart, mitsu_colt_can::kTopRegionLength, 0xEE);
     scriptUploadAndCommit(transport, mitsu_colt_can::kEraseRoutineRamAddr, mitsu_colt_can::kErasePageRoutine);
     scriptUploadAndCommit(transport, mitsu_colt_can::kWriteRoutineRamAddr, mitsu_colt_can::kWritePageRoutine);
-    transport.exchange(request(mitsu_colt_can::buildRequestReflashUnlock()), response({0x7b}));
-    transport.exchange(request(mitsu_colt_can::buildRoutineErase()), response({0x7f, 0x31, 0x22}));
+    transport.exchange(request(mitsu_colt_can::BuildRequestReflashUnlock()), response({0x7b}));
+    transport.exchange(request(mitsu_colt_can::BuildRoutineErase()), response({0x7f, 0x31, 0x22}));
 
     ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
                 fastecu::testing::IsErr(ErrorKind::kBadResponse));
@@ -1194,8 +1194,8 @@ TEST(MitsuColtM32rCanExecutor, WriteStopsWhenTheCarrierEraseTriggerReportsANonZe
     scriptFlashReadData(transport, mitsu_colt_can::kUserspaceStart, topRegionOf(rom));
     scriptUploadAndCommit(transport, mitsu_colt_can::kEraseRoutineRamAddr, mitsu_colt_can::kEraseRedirectRoutine);
     scriptUploadAndCommit(transport, mitsu_colt_can::kWriteRoutineRamAddr, mitsu_colt_can::kWriteRedirectRoutine);
-    transport.exchange(request(mitsu_colt_can::buildRequestReflashUnlock()), response({0x7b}));
-    transport.exchange(request(mitsu_colt_can::buildRoutineErase()), response({0x71, 0xe0, 0x01}));
+    transport.exchange(request(mitsu_colt_can::BuildRequestReflashUnlock()), response({0x7b}));
+    transport.exchange(request(mitsu_colt_can::BuildRoutineErase()), response({0x71, 0xe0, 0x01}));
 
     ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
                 fastecu::testing::IsErr(ErrorKind::kBadResponse));
@@ -1361,7 +1361,7 @@ TEST(MitsuColtM32rCanExecutor, HandshakeRejectsAReplyTooShortToHoldAServiceByte)
     // `received.mid(4, ...)` clamped and the frame decoded as the useless
     // "Not a valid answer"; CanFlashUdsChannel now rejects the frame before
     // any PDU is parsed, and says what was wrong with it.
-    transport.exchange(request(mitsu_colt_can::buildDiagnosticSession(mitsu_colt_can::kSessionBootload)),
+    transport.exchange(request(mitsu_colt_can::BuildDiagnosticSession(mitsu_colt_can::kSessionBootload)),
                        bytes::Bytes{0x07, 0xe8});
 
     ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
@@ -1387,7 +1387,7 @@ TEST(MitsuColtM32rCanExecutor, ReadRejectsAChunkAnsweredWithTheWrongService)
     // The first chunk comes back as a negative response. Accepting it would
     // append 192 bytes of framing garbage to the ROM image at offset 0.
     const std::uint32_t start = plan->transfer_region().start;
-    transport.exchange(request(mitsu_colt_can::buildReadMemoryByAddress(
+    transport.exchange(request(mitsu_colt_can::BuildReadMemoryByAddress(
                            start, static_cast<bytes::Byte>(mitsu_colt_can::kFlashReadBlockSize))),
                        response({0x7f, 0x23, 0x22}));
 
@@ -1494,7 +1494,7 @@ TEST(MitsuColtM32rCanExecutor, ACancelledEraseTriggerIsNotReportedAsAnEcuRejecti
     // ECU refused the request -- nor leave a dangling "rejected: " carrying no
     // reason at all, which is what an empty cancellation detail produced.
     fastecu::ManualCancellationToken cancellation;
-    CancelOnRequestTransport transport{cancellation, request(mitsu_colt_can::buildRoutineErase())};
+    CancelOnRequestTransport transport{cancellation, request(mitsu_colt_can::BuildRoutineErase())};
     FakeClock clock;
     RecordingEventSink events;
     MitsuColtM32rCanExecutor executor;
@@ -1506,10 +1506,10 @@ TEST(MitsuColtM32rCanExecutor, ACancelledEraseTriggerIsNotReportedAsAnEcuRejecti
     scriptBootloadHandshake(transport);
     scriptUploadAndCommit(transport, mitsu_colt_can::kEraseRoutineRamAddr, mitsu_colt_can::kErasePageRoutine);
     scriptUploadAndCommit(transport, mitsu_colt_can::kWriteRoutineRamAddr, mitsu_colt_can::kWritePageRoutine);
-    transport.exchange(request(mitsu_colt_can::buildRequestReflashUnlock()), response({0x7b}));
+    transport.exchange(request(mitsu_colt_can::BuildRequestReflashUnlock()), response({0x7b}));
     // The erase trigger reaches the bus and the operator cancels. No reply is
     // scripted because none is ever read.
-    transport.exchange(request(mitsu_colt_can::buildRoutineErase()));
+    transport.exchange(request(mitsu_colt_can::BuildRoutineErase()));
 
     ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
                 fastecu::testing::IsErr(ErrorKind::kCancelled));
@@ -1583,7 +1583,7 @@ TEST(MitsuColtM32rCanExecutor, ACancellationThatArrivesAfterTheRequestStopsBefor
     auto plan = readPlan();
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
-    transport.exchange(request(mitsu_colt_can::buildDiagnosticSession(mitsu_colt_can::kSessionBootload)),
+    transport.exchange(request(mitsu_colt_can::BuildDiagnosticSession(mitsu_colt_can::kSessionBootload)),
                        response({0x50, 0x85}));
 
     const auto result = executor.execute(*plan, transport, clock, cancellation, events);
@@ -1614,7 +1614,7 @@ TEST(MitsuColtM32rCanExecutor, WriteAbortsWhenTheEraseRoutineRequestDownloadIsRe
     // The bootloader refuses to open the RAM window for the erase-page
     // routine. Continuing would erase flash with whatever happens to be at
     // kEraseRoutineRamAddr.
-    transport.exchange(request(mitsu_colt_can::buildRequestDownload(
+    transport.exchange(request(mitsu_colt_can::BuildRequestDownload(
                            mitsu_colt_can::kEraseRoutineRamAddr,
                            static_cast<std::uint32_t>(std::size(mitsu_colt_can::kErasePageRoutine)))),
                        response({0x7f, 0x34, 0x33}));
@@ -1645,11 +1645,11 @@ TEST(MitsuColtM32rCanExecutor, WriteAbortsWhenTheWriteRoutineTransferDataIsRejec
     scriptUploadAndCommit(transport, mitsu_colt_can::kEraseRoutineRamAddr, mitsu_colt_can::kErasePageRoutine);
     // The window opens but the payload frame is refused: a half-uploaded
     // write-page routine must never be handed the erase trigger.
-    transport.exchange(request(mitsu_colt_can::buildRequestDownload(
+    transport.exchange(request(mitsu_colt_can::BuildRequestDownload(
                            mitsu_colt_can::kWriteRoutineRamAddr,
                            static_cast<std::uint32_t>(std::size(mitsu_colt_can::kWritePageRoutine)))),
                        response({0x74}));
-    transport.exchange(request(mitsu_colt_can::buildTransferDataFrames(mitsu_colt_can::kWritePageRoutine).front()),
+    transport.exchange(request(mitsu_colt_can::BuildTransferDataFrames(mitsu_colt_can::kWritePageRoutine).front()),
                        response({0x7f, 0x36, 0x31}));
 
     ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
@@ -1683,12 +1683,12 @@ TEST(MitsuColtM32rCanExecutor, WriteFailsWhenTheUserspaceCrcCheckIsRejected)
     // says "the flash you just wrote does not match what you sent", so
     // reporting success here would send a user off to flash a bricked ECU.
     scriptUploadFrames(transport, mitsu_colt_can::kUserspaceStart, userspaceOf(rom));
-    transport.exchange(request(mitsu_colt_can::buildRequestDownload(mitsu_colt_can::kCrcTransferAddress,
+    transport.exchange(request(mitsu_colt_can::BuildRequestDownload(mitsu_colt_can::kCrcTransferAddress,
                                                                     mitsu_colt_can::kCrcTransferSize)),
                        response({0x74}));
-    transport.exchange(request(mitsu_colt_can::buildTransferDataFrames(bytes::Bytes{0x12, 0x34}).front()),
+    transport.exchange(request(mitsu_colt_can::BuildTransferDataFrames(bytes::Bytes{0x12, 0x34}).front()),
                        response({0x76}));
-    transport.exchange(request(mitsu_colt_can::buildRoutineCheckCrc(mitsu_colt_can::kUserspaceStart)),
+    transport.exchange(request(mitsu_colt_can::BuildRoutineCheckCrc(mitsu_colt_can::kUserspaceStart)),
                        response({0x7f, 0x31, 0x22}));
 
     ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
@@ -1734,7 +1734,7 @@ TEST(MitsuColtM32rCanExecutor, BootstrapAbortsWhenTheChecksumRequestDownloadIsRe
     // checksum window -- so the routine is in RAM but unverified, and the
     // bootstrap must not go on to erase the carrier window with it.
     scriptUploadFrames(transport, mitsu_colt_can::kEraseRoutineRamAddr, mitsu_colt_can::kEraseRedirectRoutine);
-    transport.exchange(request(mitsu_colt_can::buildRequestDownload(mitsu_colt_can::kCrcTransferAddress,
+    transport.exchange(request(mitsu_colt_can::BuildRequestDownload(mitsu_colt_can::kCrcTransferAddress,
                                                                     mitsu_colt_can::kCrcTransferSize)),
                        response({0x7f, 0x34, 0x22}));
 
@@ -1765,13 +1765,13 @@ TEST(MitsuColtM32rCanExecutor, BootstrapAbortsWhenTheChecksumTransferDataIsRejec
     scriptFlashReadData(transport, mitsu_colt_can::kUserspaceStart, topRegionOf(rom));
     scriptUploadAndCommit(transport, mitsu_colt_can::kEraseRoutineRamAddr, mitsu_colt_can::kEraseRedirectRoutine);
     scriptUploadFrames(transport, mitsu_colt_can::kWriteRoutineRamAddr, mitsu_colt_can::kWriteRedirectRoutine);
-    transport.exchange(request(mitsu_colt_can::buildRequestDownload(mitsu_colt_can::kCrcTransferAddress,
+    transport.exchange(request(mitsu_colt_can::BuildRequestDownload(mitsu_colt_can::kCrcTransferAddress,
                                                                     mitsu_colt_can::kCrcTransferSize)),
                        response({0x74}));
     {
-        const std::uint16_t crc = mitsu_colt_can::checksum(mitsu_colt_can::kWriteRedirectRoutine);
-        const bytes::Bytes crc_data = bytes::composeBe(crc);
-        transport.exchange(request(mitsu_colt_can::buildTransferDataFrames(crc_data).front()));
+        const std::uint16_t crc = mitsu_colt_can::Checksum(mitsu_colt_can::kWriteRedirectRoutine);
+        const bytes::Bytes crc_data = bytes::ComposeBe(crc);
+        transport.exchange(request(mitsu_colt_can::BuildTransferDataFrames(crc_data).front()));
     }
     transport.queueRead(response({0x7f, 0x36, 0x22}));
 
@@ -1803,7 +1803,7 @@ TEST(MitsuColtM32rCanExecutor, BootstrapReportsItsOwnReflashUnlockRejection)
     scriptFlashReadData(transport, mitsu_colt_can::kUserspaceStart, topRegionOf(rom));
     scriptUploadAndCommit(transport, mitsu_colt_can::kEraseRoutineRamAddr, mitsu_colt_can::kEraseRedirectRoutine);
     scriptUploadAndCommit(transport, mitsu_colt_can::kWriteRoutineRamAddr, mitsu_colt_can::kWriteRedirectRoutine);
-    transport.exchange(request(mitsu_colt_can::buildRequestReflashUnlock()), response({0x7f, 0x3b, 0x22}));
+    transport.exchange(request(mitsu_colt_can::BuildRequestReflashUnlock()), response({0x7f, 0x3b, 0x22}));
 
     ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
                 fastecu::testing::IsErr(ErrorKind::kBadResponse));
@@ -1829,17 +1829,17 @@ TEST(MitsuColtM32rCanExecutor, VendorChallengeKeyRejectionStopsBeforeTheSession)
     auto plan = readPlan(kVendorProtocol384);
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
-    transport.exchange(request(mitsu_colt_can::buildDiagnosticSession(mitsu_colt_can::kSessionBasic)),
+    transport.exchange(request(mitsu_colt_can::BuildDiagnosticSession(mitsu_colt_can::kSessionBasic)),
                        response({0x50, 0x81}));
 
-    transport.exchange(request(mitsu_colt_can_vendor_ext::buildChallengeSeedRequest()),
+    transport.exchange(request(mitsu_colt_can_vendor_ext::BuildChallengeSeedRequest()),
                        response({0x63, 0x27, 0x41, 0x12, 0x34, 0x56, 0x78}));
 
     // Echoing the key subfunction is not the vendor extension's success
     // signal. Only response byte 0x34 grants access, so no session may be
     // started on the strength of this reply.
-    const std::uint32_t key = mitsu_colt_can_vendor_ext::challengeInverseTransform(0x12345678);
-    transport.exchange(request(mitsu_colt_can_vendor_ext::buildChallengeKey(key)), response({0x63, 0x27, 0x42}));
+    const std::uint32_t key = mitsu_colt_can_vendor_ext::ChallengeInverseTransform(0x12345678);
+    transport.exchange(request(mitsu_colt_can_vendor_ext::BuildChallengeKey(key)), response({0x63, 0x27, 0x42}));
 
     ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
                 fastecu::testing::IsErr(ErrorKind::kBadResponse));
@@ -1898,11 +1898,11 @@ TEST(MitsuColtM32rCanExecutor, AbsorbsResponsePendingWithoutResending)
     auto plan = readPlan(kVendorProtocol384);
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
-    transport.exchange(request(mitsu_colt_can::buildDiagnosticSession(mitsu_colt_can::kSessionBasic)),
+    transport.exchange(request(mitsu_colt_can::BuildDiagnosticSession(mitsu_colt_can::kSessionBasic)),
                        response({0x7f, 0x10, 0x78}));
     transport.queueRead(response({0x50, 0x81}));
 
-    transport.exchange(request(mitsu_colt_can_vendor_ext::buildChallengeSeedRequest()));
+    transport.exchange(request(mitsu_colt_can_vendor_ext::BuildChallengeSeedRequest()));
     transport.queue_no_frame(); // stop here: pending absorption is what this pins
 
     ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
@@ -1923,7 +1923,7 @@ TEST(MitsuColtM32rCanExecutor, FailsWhenTheEcuPendsPastTheRepeatLimit)
     auto plan = readPlan(kVendorProtocol384);
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
-    transport.exchange(request(mitsu_colt_can::buildDiagnosticSession(mitsu_colt_can::kSessionBasic)));
+    transport.exchange(request(mitsu_colt_can::BuildDiagnosticSession(mitsu_colt_can::kSessionBasic)));
     // One normal read plus the default max_pending_repeats of 10.
     for (int i = 0; i < 11; ++i)
     {
@@ -1949,7 +1949,7 @@ TEST(MitsuColtM32rCanExecutor, RejectsAResponseToADifferentService)
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
     // A SecurityAccess reply (0x67) to a DiagnosticSession request (0x10).
-    transport.exchange(request(mitsu_colt_can::buildDiagnosticSession(mitsu_colt_can::kSessionBasic)),
+    transport.exchange(request(mitsu_colt_can::BuildDiagnosticSession(mitsu_colt_can::kSessionBasic)),
                        response({0x67, 0x05}));
 
     const auto result = executor.execute(*plan, transport, clock, cancellation, events);
@@ -1971,9 +1971,9 @@ TEST(MitsuColtM32rCanExecutor, RejectsAFrameFromTheWrongReplyId)
 
     // Built inline: the response() helper hardcodes the plan's 0x7e8.
     bytes::Bytes wrong_id;
-    bytes::appendU32Be(wrong_id, 0x7e9);
+    bytes::AppendU32Be(wrong_id, 0x7e9);
     wrong_id.insert(wrong_id.end(), {0x50, 0x81});
-    transport.exchange(request(mitsu_colt_can::buildDiagnosticSession(mitsu_colt_can::kSessionBasic)), wrong_id);
+    transport.exchange(request(mitsu_colt_can::BuildDiagnosticSession(mitsu_colt_can::kSessionBasic)), wrong_id);
 
     const auto result = executor.execute(*plan, transport, clock, cancellation, events);
 

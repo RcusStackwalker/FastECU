@@ -113,7 +113,7 @@ bytes::Bytes requestKernelIdRequest()
     bytes::Bytes out{
         static_cast<bytes::Byte>((0xbeefU >> 8U) & 0xFFU), static_cast<bytes::Byte>(0xbeefU & 0xFFU), 0x00, 0x01, 0x01,
     };
-    out.push_back(bytes::sum8(out));
+    out.push_back(bytes::Sum8(out));
     return out;
 }
 

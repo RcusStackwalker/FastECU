@@ -88,13 +88,13 @@ Status readIntoOutcome(BenchContext& context, const PreparedStep& prepared, Comm
         const std::uint32_t remaining = len - offset;
         const auto chunk_len =
             static_cast<bytes::Byte>(std::min<std::uint32_t>(remaining, mitsu_colt_can::kFlashReadBlockSize));
-        const bytes::Bytes pdu = mitsu_colt_can::buildReadMemoryByAddress(addr + offset, chunk_len);
+        const bytes::Bytes pdu = mitsu_colt_can::BuildReadMemoryByAddress(addr + offset, chunk_len);
         const Result<bytes::Bytes> reply = exchange(context, outcome, pdu, kRoutinePolicy);
         if (!reply.has_value())
         {
             return std::unexpected(reply.error());
         }
-        const bytes::ByteView payload = uds::payload(*reply);
+        const bytes::ByteView payload = uds::Payload(*reply);
         if (payload.size() < chunk_len)
         {
             return fail(ErrorKind::kBadResponse,
@@ -157,12 +157,12 @@ Status upload(BenchContext& context, CommandOutcome& outcome, std::uint32_t addr
     // and the checksum go the same way, so they go through the same sequence.
     const auto transfer = [&](std::uint32_t at, bytes::ByteView block) -> Status
     {
-        const bytes::Bytes request = mitsu_colt_can::buildRequestDownload(at, static_cast<std::uint32_t>(block.size()));
+        const bytes::Bytes request = mitsu_colt_can::BuildRequestDownload(at, static_cast<std::uint32_t>(block.size()));
         if (const Result<bytes::Bytes> reply = exchange(context, outcome, request, kRoutinePolicy); !reply.has_value())
         {
             return std::unexpected(reply.error());
         }
-        for (const bytes::Bytes& frame : mitsu_colt_can::buildTransferDataFrames(block))
+        for (const bytes::Bytes& frame : mitsu_colt_can::BuildTransferDataFrames(block))
         {
             if (const Result<bytes::Bytes> reply = exchange(context, outcome, frame, kRoutinePolicy);
                 !reply.has_value())
@@ -178,19 +178,19 @@ Status upload(BenchContext& context, CommandOutcome& outcome, std::uint32_t addr
         return sent;
     }
     // kCrcTransferSize bytes by construction: checksum() is a uint16_t.
-    const bytes::Bytes checksum_bytes = bytes::composeBe(mitsu_colt_can::checksum(payload));
+    const bytes::Bytes checksum_bytes = bytes::ComposeBe(mitsu_colt_can::Checksum(payload));
     if (const Status sent = transfer(mitsu_colt_can::kCrcTransferAddress, checksum_bytes); !sent.has_value())
     {
         return sent;
     }
 
-    const bytes::Bytes crc_check = mitsu_colt_can::buildRoutineCheckCrc(addr);
+    const bytes::Bytes crc_check = mitsu_colt_can::BuildRoutineCheckCrc(addr);
     const Result<bytes::Bytes> crc_reply = exchange(context, outcome, crc_check, kSlowPolicy);
     if (!crc_reply.has_value())
     {
         return std::unexpected(crc_reply.error());
     }
-    if (const bytes::ByteView crc_payload = uds::payload(*crc_reply);
+    if (const bytes::ByteView crc_payload = uds::Payload(*crc_reply);
         crc_payload.size() < 2 || crc_payload[0] != mitsu_colt_can::kRoutineCheckCrc || crc_payload[1] != 0)
     {
         return fail(ErrorKind::kBadResponse, decode_crc_reply(crc_payload));
@@ -211,7 +211,7 @@ Status routineWithStatus(BenchContext& context, CommandOutcome& outcome, bytes::
     {
         return std::unexpected(reply.error());
     }
-    const bytes::ByteView payload = uds::payload(*reply);
+    const bytes::ByteView payload = uds::Payload(*reply);
     outcome.note = decode(payload);
     if (payload.size() < 2 || payload[0] != routine || payload[1] != 0)
     {
@@ -332,7 +332,7 @@ Result<PreparedStep> prepare_step(IBenchFiles& files, const StepSpec& step)
         {
             return std::unexpected(pdu.error());
         }
-        if (mitsu_colt_can::isDestructiveRequest(*pdu))
+        if (mitsu_colt_can::IsDestructiveRequest(*pdu))
         {
             return fail(ErrorKind::kInvalidConfig,
                         std::format("{} cannot bypass a named destructive command", spec->name));
@@ -446,7 +446,7 @@ Status executeStep(BenchContext& context, const PreparedStep& prepared, CommandO
             return fail(ErrorKind::kInvalidConfig,
                         std::format("CRC address 0x{:x} does not fit the 24-bit address space", prepared.address));
         }
-        return routineWithStatus(context, outcome, mitsu_colt_can::buildRoutineCheckCrc(prepared.address),
+        return routineWithStatus(context, outcome, mitsu_colt_can::BuildRoutineCheckCrc(prepared.address),
                                  mitsu_colt_can::kRoutineCheckCrc, decode_crc_reply);
     }
     case CommandId::Send:
@@ -454,7 +454,7 @@ Status executeStep(BenchContext& context, const PreparedStep& prepared, CommandO
     {
         // Gated at parse and prepare time as well; repeated here so no PDU
         // reaches the wire without passing the one destructive predicate.
-        if (mitsu_colt_can::isDestructiveRequest(prepared.pdu))
+        if (mitsu_colt_can::IsDestructiveRequest(prepared.pdu))
         {
             return fail(ErrorKind::kInvalidConfig,
                         std::format("{} cannot bypass a named destructive command", spec->name));
@@ -486,7 +486,7 @@ Status executeStep(BenchContext& context, const PreparedStep& prepared, CommandO
         return fail(ErrorKind::kUnsupported, "ports does not use a session");
     case CommandId::Unlock:
     {
-        const bytes::Bytes pdu = mitsu_colt_can::buildRequestReflashUnlock();
+        const bytes::Bytes pdu = mitsu_colt_can::BuildRequestReflashUnlock();
         if (const Result<bytes::Bytes> reply = exchange(context, outcome, pdu, kSlowPolicy); !reply.has_value())
         {
             return std::unexpected(reply.error());
@@ -494,7 +494,7 @@ Status executeStep(BenchContext& context, const PreparedStep& prepared, CommandO
         break;
     }
     case CommandId::Erase:
-        return routineWithStatus(context, outcome, mitsu_colt_can::buildRoutineErase(), mitsu_colt_can::kRoutineErase,
+        return routineWithStatus(context, outcome, mitsu_colt_can::BuildRoutineErase(), mitsu_colt_can::kRoutineErase,
                                  decode_erase_reply);
     case CommandId::Download:
     case CommandId::UploadRoutine:

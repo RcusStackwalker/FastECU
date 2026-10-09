@@ -253,7 +253,7 @@ bool valid_expression(const LoggingChannel& channel)
     const auto is_finite = [&channel](const std::string_view& probe)
     {
         return std::isfinite(
-            expression_evaluate(channel.from_byte_expression, probe, static_cast<int>(channel.decimal_precision)));
+            ExpressionEvaluate(channel.from_byte_expression, probe, static_cast<int>(channel.decimal_precision)));
     };
     constexpr std::array<std::string_view, 3> kProbes{"1", "16", "1616"};
     return std::ranges::any_of(kProbes, is_finite);
@@ -313,7 +313,7 @@ bool valid_wire_shape(LoggingProtocolId protocol, const std::vector<LoggingChann
             wire_channels.push_back({channel.address, static_cast<bytes::Byte>(channel.length)});
         }
         std::vector<std::vector<mitsu_colt_can_cdbg::CdbgChannel>> frames;
-        return mitsu_colt_can_cdbg::batchChannelsIntoFrames(wire_channels, frames);
+        return mitsu_colt_can_cdbg::BatchChannelsIntoFrames(wire_channels, frames);
     }
     }
     return false;

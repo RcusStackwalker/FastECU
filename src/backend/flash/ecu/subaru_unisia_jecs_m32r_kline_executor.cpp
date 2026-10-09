@@ -18,8 +18,8 @@ namespace fastecu::flash
 {
 namespace
 {
-using bytes::composeBe;
-using bytes::u24;
+using bytes::ComposeBe;
+using bytes::U24;
 using namespace bytes::literals;
 using namespace std::chrono_literals;
 
@@ -66,7 +66,7 @@ Status send(Session& s, bytes::ByteView payload)
     {
         return cancelled;
     }
-    const bytes::Bytes request = ssm_protocol::addHeader(payload, s.wire.tester_id, s.wire.target_id);
+    const bytes::Bytes request = ssm_protocol::AddHeader(payload, s.wire.tester_id, s.wire.target_id);
     auto written = s.transport.write(request);
     if (!written.has_value())
     {
@@ -96,7 +96,7 @@ Result<std::optional<bytes::Bytes>> receive(Session& s, std::chrono::millisecond
 
 bool has_sid(bytes::ByteView frame, const SubaruUnisiaJecsM32rKlinePlan& wire, bytes::Byte sid)
 {
-    return ssm_protocol::hasValidFrame(frame, wire.tester_id, wire.target_id) && frame[3] >= 1 && frame[4] == sid;
+    return ssm_protocol::HasValidFrame(frame, wire.tester_id, wire.target_id) && frame[3] >= 1 && frame[4] == sid;
 }
 
 bool carries_ecu_id(bytes::ByteView frame)
@@ -124,7 +124,7 @@ Result<bytes::Bytes> exchange_expect(Session& s, bytes::ByteView payload, std::c
     if (!has_sid(**response, s.wire, sid))
     {
         return fail(ErrorKind::kBadResponse,
-                    std::format("unexpected response to {}: {}", what, bytes::toHex(**response)));
+                    std::format("unexpected response to {}: {}", what, bytes::ToHex(**response)));
     }
     return std::move(**response);
 }
@@ -133,14 +133,14 @@ Result<bytes::Bytes> exchange_expect(Session& s, bytes::ByteView payload, std::c
 // enough to carry the ECU ID.
 Result<bytes::Bytes> expect_ssm_init(Session& s)
 {
-    auto init = exchange_expect(s, composeBe(0xbf_b), kTimeout, 0xff, "SSM init");
+    auto init = exchange_expect(s, ComposeBe(0xbf_b), kTimeout, 0xff, "SSM init");
     if (!init.has_value())
     {
         return init;
     }
     if (!carries_ecu_id(*init))
     {
-        return fail(ErrorKind::kBadResponse, std::format("SSM init reply carries no ECU ID: {}", bytes::toHex(*init)));
+        return fail(ErrorKind::kBadResponse, std::format("SSM init reply carries no ECU ID: {}", bytes::ToHex(*init)));
     }
     return init;
 }
@@ -171,7 +171,7 @@ Result<FlashExecutionResult> read_rom(Session& s, const FlashPlan& plan)
         return std::unexpected(baud.error());
     }
     s.events.log(LogLevel::kInfo, "Checking if ECU in read mode");
-    if (Status sent = send(s, composeBe(0xbf_b)); !sent.has_value())
+    if (Status sent = send(s, ComposeBe(0xbf_b)); !sent.has_value())
     {
         return std::unexpected(sent.error());
     }
@@ -201,7 +201,7 @@ Result<FlashExecutionResult> read_rom(Session& s, const FlashPlan& plan)
         init = std::move(*cold);
         // send_sid_b8_change_baudrate_38400() :671-688.
         auto changed =
-            exchange_expect(s, composeBe(0xb8_b, 0x00_b, 0x00_b, 0x00_b, 0x75_b), kTimeout, 0xf8, "baud rate change");
+            exchange_expect(s, ComposeBe(0xb8_b, 0x00_b, 0x00_b, 0x00_b, 0x75_b), kTimeout, 0xf8, "baud rate change");
         if (!changed.has_value())
         {
             return std::unexpected(changed.error());
@@ -229,7 +229,7 @@ Result<FlashExecutionResult> read_rom(Session& s, const FlashPlan& plan)
     for (int page = 0; page < pages; ++page)
     {
         const std::uint32_t address = region.start + static_cast<std::uint32_t>(page) * kPage;
-        auto block = exchange_expect(s, composeBe(0xa0_b, 0x00_b, u24(address), bytes::Byte(kPage - 1)),
+        auto block = exchange_expect(s, ComposeBe(0xa0_b, 0x00_b, U24(address), bytes::Byte(kPage - 1)),
                                      kExtraLongTimeout, 0xe0, std::format("block read at 0x{:06X}", address));
         if (!block.has_value())
         {
@@ -252,7 +252,7 @@ Result<FlashExecutionResult> read_rom(Session& s, const FlashPlan& plan)
 
 bool is_exact_reply(bytes::ByteView frame, const SubaruUnisiaJecsM32rKlinePlan& wire, bytes::ByteView payload)
 {
-    return ssm_protocol::hasValidFrame(frame, wire.tester_id, wire.target_id) && frame[3] == payload.size() &&
+    return ssm_protocol::HasValidFrame(frame, wire.tester_id, wire.target_id) && frame[3] == payload.size() &&
            std::ranges::equal(frame.subspan(4, payload.size()), payload);
 }
 
@@ -273,7 +273,7 @@ Status poll_for(Session& s, bytes::ByteView expected, int rounds, std::string_vi
         {
             if (!is_exact_reply(**response, s.wire, expected))
             {
-                return fail(ErrorKind::kBadResponse, std::format("{} failed: {}", what, bytes::toHex(**response)));
+                return fail(ErrorKind::kBadResponse, std::format("{} failed: {}", what, bytes::ToHex(**response)));
             }
             return {};
         }
@@ -293,7 +293,7 @@ Status enter_flash_mode(Session& s, std::uint32_t rom_size)
         return baud;
     }
     s.events.log(LogLevel::kInfo, "Checking if OBK is running");
-    if (Status sent = send(s, composeBe(0xaf_b)); !sent.has_value())
+    if (Status sent = send(s, ComposeBe(0xaf_b)); !sent.has_value())
     {
         return sent;
     }
@@ -322,7 +322,7 @@ Status enter_flash_mode(Session& s, std::uint32_t rom_size)
     // rejection here and went on to raise VPP and erase.
     s.events.log(LogLevel::kInfo, "Sending request to change to flash mode");
     auto entered = exchange_expect(
-        s, composeBe(0xaf_b, 0x11_b, bytes::ByteView(*init).subspan(kEcuIdOffset, kEcuIdLength), u24(rom_size)),
+        s, ComposeBe(0xaf_b, 0x11_b, bytes::ByteView(*init).subspan(kEcuIdOffset, kEcuIdLength), U24(rom_size)),
         kTimeout, 0xef, "enter flash mode");
     if (!entered.has_value())
     {
@@ -355,17 +355,17 @@ Status write_rom(Session& s, const FlashPlan& plan)
 
     // send_sid_af_erase_memory_block() :716-731 sends without reading.
     s.events.log(LogLevel::kInfo, "Sending request to erase flash");
-    if (Status sent = send(s, composeBe(0xaf_b, 0x31_b)); !sent.has_value())
+    if (Status sent = send(s, ComposeBe(0xaf_b, 0x31_b)); !sent.has_value())
     {
         return sent;
     }
-    if (Status started = poll_for(s, composeBe(0xef_b, 0x42_b), kEraseStartRounds, "flash erase start");
+    if (Status started = poll_for(s, ComposeBe(0xef_b, 0x42_b), kEraseStartRounds, "flash erase start");
         !started.has_value())
     {
         return started;
     }
     s.events.log(LogLevel::kInfo, "Flash erase in progress, please wait...");
-    if (Status erased = poll_for(s, composeBe(0xef_b, 0x52_b), kEraseDoneRounds, "flash erase"); !erased.has_value())
+    if (Status erased = poll_for(s, ComposeBe(0xef_b, 0x52_b), kEraseDoneRounds, "flash erase"); !erased.has_value())
     {
         return erased;
     }
@@ -378,12 +378,12 @@ Status write_rom(Session& s, const FlashPlan& plan)
     }
     if (trailing->has_value())
     {
-        s.events.log(LogLevel::kDebug, std::format("Discarded after erase: {}", bytes::toHex(**trailing)));
+        s.events.log(LogLevel::kDebug, std::format("Discarded after erase: {}", bytes::ToHex(**trailing)));
     }
 
     // write_mem() :535-625.
     const auto blocks = static_cast<int>(rom_size / kPage);
-    const bytes::Bytes done = composeBe(0xef_b, 0x52_b);
+    const bytes::Bytes done = ComposeBe(0xef_b, 0x52_b);
     for (int block = 0; block < blocks; ++block)
     {
         const std::uint32_t address = static_cast<std::uint32_t>(block) * kPage;
@@ -393,7 +393,7 @@ Status write_rom(Session& s, const FlashPlan& plan)
         {
             value ^= kBlockXor;
         }
-        if (Status sent = send(s, composeBe(0xaf_b, last ? 0x69_b : 0x61_b, u24(address), bytes::ByteView(data)));
+        if (Status sent = send(s, ComposeBe(0xaf_b, last ? 0x69_b : 0x61_b, U24(address), bytes::ByteView(data)));
             !sent.has_value())
         {
             return sent;
@@ -415,7 +415,7 @@ Status write_rom(Session& s, const FlashPlan& plan)
         else if (!is_exact_reply(**response, s.wire, done))
         {
             return fail(ErrorKind::kBadResponse,
-                        std::format("block write at 0x{:06X} failed: {}", address, bytes::toHex(**response)));
+                        std::format("block write at 0x{:06X} failed: {}", address, bytes::ToHex(**response)));
         }
         s.events.progress(block + 1, blocks);
     }

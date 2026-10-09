@@ -33,7 +33,7 @@ constexpr std::array<ChecksumArea, 12> kChecksumAreas{{
 
 } // namespace
 
-ChecksumResult ChecksumTcuSubaruDensoSH7055::calculate_checksum_result(bytes::ByteView rom_view)
+ChecksumResult ChecksumTcuSubaruDensoSH7055::CalculateChecksumResult(bytes::ByteView rom_view)
 {
     // Fixed 512 KiB SH7055 layout; the last checksum area ends at 0x80000.
     if (rom_view.size() != 0x80000)
@@ -59,14 +59,14 @@ ChecksumResult ChecksumTcuSubaruDensoSH7055::calculate_checksum_result(bytes::By
 
         for (uint32_t j = area_start; j < area_end; j += 2)
         {
-            checksum += bytes::readU16Be(rom_data, j);
+            checksum += bytes::ReadU16Be(rom_data, j);
         }
     }
 
     ChecksumResult result;
     if (checksum != 0x5aa5)
     {
-        fastecu::checksum::internal::rebalanceU16Be(rom_data, 0x7fff4, checksum, 0x5aa5);
+        fastecu::checksum::internal::RebalanceU16Be(rom_data, 0x7fff4, checksum, 0x5aa5);
 
         result.status = ChecksumResult::Status::kCorrected;
         result.message = "Subaru Denso SH7055 TCU Checksum";

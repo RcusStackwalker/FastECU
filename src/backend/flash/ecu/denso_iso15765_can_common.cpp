@@ -83,7 +83,7 @@ Result<bytes::Bytes> tolerant_probe(const CanExecutorContext& ctx, bytes::ByteVi
     const bytes::Bytes& frame = **received;
     if (frame[0] != expected_service || frame[1] != expected_subfunction)
     {
-        error(ctx, std::format("{}{}", rejection_prefix, bytes::toHex(frame)));
+        error(ctx, std::format("{}{}", rejection_prefix, bytes::ToHex(frame)));
     }
     return frame;
 }
@@ -121,11 +121,11 @@ Status denso_security_access(const CanExecutorContext& ctx)
     info(ctx, "Seed request ok");
     // The four seed bytes sit at payload offsets 1-4, once the service id is
     // stripped and behind the level echo.
-    const bytes::Bytes key = denso_seed_key(uds::payload(*seed_reply).subspan(1, 4));
+    const bytes::Bytes key = denso_seed_key(uds::Payload(*seed_reply).subspan(1, 4));
 
     info(ctx, "Sending seed key");
     Result<bytes::Bytes> key_reply =
-        fatal_query(exchange, bytes::composeBe(uds::kSidSecurityAccess, kSecurityAccessSendKey, key),
+        fatal_query(exchange, bytes::ComposeBe(uds::kSidSecurityAccess, kSecurityAccessSendKey, key),
                     bytes::Bytes{kSecurityAccessSendKey}, kRejectionPrefix, "seed key");
     if (!key_reply.has_value())
     {

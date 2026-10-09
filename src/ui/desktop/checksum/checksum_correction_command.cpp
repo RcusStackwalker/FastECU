@@ -52,7 +52,7 @@ bool ChecksumCorrectionCommand::confirmProceedWithoutChecksumModule()
 void ChecksumCorrectionCommand::showFamilyResultDialog(const ChecksumResult& familyResult)
 {
     const QString message = QString::fromStdString(familyResult.message);
-    if (familyResult.changed())
+    if (familyResult.Changed())
     {
         QMessageBox::information(nullptr, QObject::tr("Checksum Correction"),
                                  QObject::tr("Checksums corrected:\n\n%1").arg(message));
@@ -116,7 +116,7 @@ ChecksumCorrectionResult ChecksumCorrectionCommand::run(bytes::ByteView romData,
     case ChecksumCorrectionOutcome::Status::kFamilyRan:
         if (outcome.family_result.has_value())
         {
-            if (outcome.family_result->ok())
+            if (outcome.family_result->Ok())
             {
                 result.corrected_rom_data = outcome.family_result->rom_data;
             }

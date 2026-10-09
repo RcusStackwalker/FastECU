@@ -6,7 +6,7 @@ namespace mutdma
 {
 static bool ackOk(bytes::ByteView f, bytes::Byte c_a, bytes::Byte c_b)
 {
-    return verifyFrame(f) && (f[0] == c_a || f[0] == c_b);
+    return VerifyFrame(f) && (f[0] == c_a || f[0] == c_b);
 }
 
 namespace
@@ -37,7 +37,7 @@ fastecu::Status MutDmaDriver::startFreeFormLog(const std::vector<Channel>& chann
     {
         return wake;
     }
-    const auto setup = buildSetupFrame(setup_cmd, static_cast<bytes::Byte>(channels.size()));
+    const auto setup = BuildSetupFrame(setup_cmd, static_cast<bytes::Byte>(channels.size()));
     if (auto written = writeFrame(t_, setup); !written)
     {
         return written;
@@ -51,7 +51,7 @@ fastecu::Status MutDmaDriver::startFreeFormLog(const std::vector<Channel>& chann
     {
         return fastecu::fail(fastecu::ErrorKind::kBadResponse, "MUT/DMA setup acknowledgement invalid");
     }
-    const auto id_list = buildIdListFrame(list_cmd, channels);
+    const auto id_list = BuildIdListFrame(list_cmd, channels);
     if (auto written = writeFrame(t_, id_list); !written)
     {
         return written;
@@ -76,7 +76,7 @@ fastecu::Status MutDmaDriver::writeMemory(std::uint16_t addr, bytes::ByteView da
     {
         return wake;
     }
-    const std::vector<MutDmaFrame> frames = buildWriteFrames(addr, data);
+    const std::vector<MutDmaFrame> frames = BuildWriteFrames(addr, data);
     if (frames.empty() && !data.empty())
     {
         return fastecu::fail(fastecu::ErrorKind::kInvalidConfig, "MUT/DMA memory write range is invalid");
@@ -92,7 +92,7 @@ fastecu::Status MutDmaDriver::writeMemory(std::uint16_t addr, bytes::ByteView da
         {
             return std::unexpected(echo.error());
         }
-        if (!echo->has_value() || !verifyFrame(echo->value()))
+        if (!echo->has_value() || !VerifyFrame(echo->value()))
         {
             return fastecu::fail(fastecu::ErrorKind::kBadResponse, "MUT/DMA memory-write echo invalid");
         }
@@ -116,7 +116,7 @@ fastecu::Result<std::vector<std::uint32_t>> MutDmaDriver::pollOnce(std::chrono::
     {
         return std::vector<std::uint32_t>{};
     }
-    StreamFrame s = parseStreamFrame(frame->value());
+    StreamFrame s = ParseStreamFrame(frame->value());
     if (!s.ok)
     {
         return fastecu::fail(fastecu::ErrorKind::BadResponse, "MUT/DMA stream framing or checksum invalid");
@@ -126,6 +126,6 @@ fastecu::Result<std::vector<std::uint32_t>> MutDmaDriver::pollOnce(std::chrono::
         return fastecu::fail(fastecu::ErrorKind::BadResponse,
                              "MUT/DMA stream payload length does not match selected widths");
     }
-    return decodeStreamValues(channels_, s.data);
+    return DecodeStreamValues(channels_, s.data);
 }
 } // namespace mutdma

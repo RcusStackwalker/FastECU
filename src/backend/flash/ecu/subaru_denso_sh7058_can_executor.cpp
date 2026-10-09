@@ -41,7 +41,7 @@ namespace fastecu::flash
 namespace
 {
 
-using bytes::composeBe;
+using bytes::ComposeBe;
 using namespace bytes::literals;
 using namespace std::chrono_literals;
 
@@ -130,11 +130,11 @@ Result<BeefMessage> parse_beef(bytes::ByteView pdu)
     {
         return fail(ErrorKind::kBadResponse, "short BEEF response envelope");
     }
-    if (bytes::readU16Be(pdu) != kKernelStartComm)
+    if (bytes::ReadU16Be(pdu) != kKernelStartComm)
     {
         return fail(ErrorKind::kBadResponse, "wrong BEEF response marker");
     }
-    const std::uint16_t declared = bytes::readU16Be(pdu, 2);
+    const std::uint16_t declared = bytes::ReadU16Be(pdu, 2);
     if (declared < 1 || static_cast<std::size_t>(declared) + 4 > pdu.size())
     {
         return fail(ErrorKind::kBadResponse, "invalid BEEF response length");
@@ -258,7 +258,7 @@ Status strict_payload(Context& context, bytes::ByteView pdu, bytes::ByteView exp
     {
         return std::unexpected(reply.error());
     }
-    const bytes::ByteView payload = uds::payload(*reply);
+    const bytes::ByteView payload = uds::Payload(*reply);
     if (payload.size() < expected.size() || !std::equal(expected.begin(), expected.end(), payload.begin()))
     {
         error(context, std::format("Wrong response from ECU during {}", label));
@@ -303,14 +303,14 @@ Result<bytes::Bytes> security_key(Context& context, bytes::ByteView seed, const 
         return denso_seed_key(seed);
     case SubaruDensoSh7058CanSecurity::kEcuTek:
         info(context, "Using EcuTek seed key algo");
-        return ssm_protocol::calculateSeedKey(seed, kDensoIso15765SeedKeyTable, kEcuTekIndexTransformation);
+        return ssm_protocol::CalculateSeedKey(seed, kDensoIso15765SeedKeyTable, kEcuTekIndexTransformation);
     case SubaruDensoSh7058CanSecurity::kRaceRom:
     {
         info(context, "Using EcuTek RaceRom RSA algo");
-        const std::uint32_t raw = bytes::readU32Be(seed);
+        const std::uint32_t raw = bytes::ReadU32Be(seed);
         const std::uint32_t key = modular_power(raw, 0x0A863281U, 0x0FDA9293U);
         info(context, std::format("Seed key: 0x{:08x}", key));
-        return composeBe(key);
+        return ComposeBe(key);
     }
     case SubaruDensoSh7058CanSecurity::kRaceRomAlt:
     {
@@ -319,18 +319,18 @@ Result<bytes::Bytes> security_key(Context& context, bytes::ByteView seed, const 
             return fail(ErrorKind::kBadResponse, "RaceRom-alt RAM values are unavailable");
         }
         info(context, "Using EcuTek seed key algo");
-        bytes::Bytes key = ssm_protocol::calculateSeedKey(seed, kDensoIso15765SeedKeyTable, kEcuTekIndexTransformation);
-        std::uint32_t altered = bytes::readU32Be(key);
+        bytes::Bytes key = ssm_protocol::CalculateSeedKey(seed, kDensoIso15765SeedKeyTable, kEcuTekIndexTransformation);
+        std::uint32_t altered = bytes::ReadU32Be(key);
         constexpr std::uint32_t kXorMultiplier = 0x01000193U;
         altered = ((alt->seed_alter ^ altered) ^ alt->xor_byte_1) * kXorMultiplier;
         altered = (altered ^ alt->xor_byte_2) * kXorMultiplier;
-        key = composeBe(altered);
-        debug(context, std::format("Altered seed key: {}", bytes::toHex(key)));
+        key = ComposeBe(altered);
+        debug(context, std::format("Altered seed key: {}", bytes::ToHex(key)));
         return key;
     }
     case SubaruDensoSh7058CanSecurity::kCobb:
         info(context, "Using COBB seed key algo");
-        return ssm_protocol::calculateSeedKey(seed, kCobbSeedTable, ssm_protocol::kIndexTransformationStock);
+        return ssm_protocol::CalculateSeedKey(seed, kCobbSeedTable, ssm_protocol::kIndexTransformationStock);
     }
     return fail(ErrorKind::kInternal, "unknown petrol security variant");
 }
@@ -381,7 +381,7 @@ Result<std::optional<std::string>> request_kernel_id(Context& context, bool tole
             return std::unexpected(checkpoint.error());
         }
         const bytes::Bytes& frame = **raw;
-        if (frame.size() < CanFlashUdsChannel::kEnvelopeSize || bytes::readU32Be(frame) != context.response_id)
+        if (frame.size() < CanFlashUdsChannel::kEnvelopeSize || bytes::ReadU32Be(frame) != context.response_id)
         {
             error(context, "Wrong response from ECU while requesting kernel ID");
             return std::optional<std::string>{};
@@ -437,7 +437,7 @@ Result<std::uint32_t> read_ram_location(Context& context, std::uint32_t address)
     bytes::Bytes request{0xA8, 0x00};
     for (std::uint32_t offset = 0; offset < 4; ++offset)
     {
-        const bytes::Bytes encoded = composeBe(bytes::u24(address + offset));
+        const bytes::Bytes encoded = ComposeBe(bytes::U24(address + offset));
         request.insert(request.end(), encoded.begin(), encoded.end());
     }
     Result<bytes::Bytes> reply = channel_request(context, request, kReadTimeout);
@@ -449,7 +449,7 @@ Result<std::uint32_t> read_ram_location(Context& context, std::uint32_t address)
     {
         return fail(ErrorKind::kBadResponse, "invalid RaceRom-alt RAM response");
     }
-    return bytes::readU32Be(*reply, 1);
+    return bytes::ReadU32Be(*reply, 1);
 }
 
 Result<std::optional<std::string>> identity_string(Context& context, bytes::ByteView request, bytes::Byte first,
@@ -467,7 +467,7 @@ Result<std::optional<std::string>> identity_string(Context& context, bytes::Byte
     const bytes::Bytes& pdu = **reply;
     if (pdu.size() < 3 || pdu[0] != first || pdu[1] != second)
     {
-        error(context, std::format("Wrong response from ECU: {}", bytes::toHex(pdu)));
+        error(context, std::format("Wrong response from ECU: {}", bytes::ToHex(pdu)));
         return std::optional<std::string>{};
     }
     const std::string value(pdu.begin() + 3, pdu.end());
@@ -492,7 +492,7 @@ Result<bool> request_session(Context& context, bytes::Byte subfunction)
     {
         return true;
     }
-    error(context, std::format("Wrong response from ECU: {}", bytes::toHex(pdu)));
+    error(context, std::format("Wrong response from ECU: {}", bytes::ToHex(pdu)));
     return false;
 }
 
@@ -538,7 +538,7 @@ Status connect_bootloader(Context& context, bool read_operation, bool& kernel_al
         }
         else
         {
-            error(context, std::format("Wrong response from ECU: {}", bytes::toHex(pdu)));
+            error(context, std::format("Wrong response from ECU: {}", bytes::ToHex(pdu)));
         }
     }
 
@@ -578,7 +578,7 @@ Status connect_bootloader(Context& context, bool read_operation, bool& kernel_al
         }
         else
         {
-            error(context, std::format("Wrong response from ECU: {}", bytes::toHex(pdu)));
+            error(context, std::format("Wrong response from ECU: {}", bytes::ToHex(pdu)));
         }
     }
 
@@ -652,7 +652,7 @@ Status connect_bootloader(Context& context, bool read_operation, bool& kernel_al
     {
         return std::unexpected(seed_reply.error());
     }
-    const bytes::ByteView seed_payload = uds::payload(*seed_reply);
+    const bytes::ByteView seed_payload = uds::Payload(*seed_reply);
     if (seed_payload.size() < 5 || seed_payload[0] != uds::kSecurityAccessRequestSeed)
     {
         return fail(ErrorKind::kBadResponse, "invalid petrol seed response");
@@ -689,7 +689,7 @@ Status connect_bootloader(Context& context, bool read_operation, bool& kernel_al
     {
         return std::unexpected(programming_reply.error());
     }
-    const bytes::ByteView programming_payload = uds::payload(*programming_reply);
+    const bytes::ByteView programming_payload = uds::Payload(*programming_reply);
     if (programming_payload.empty() || (programming_payload[0] != 0x02 && programming_payload[0] != 0x42))
     {
         return fail(ErrorKind::kBadResponse, "unexpected programming session response");
@@ -724,16 +724,16 @@ Status upload_kernel(Context& context, const KernelImage& kernel)
     std::uint32_t sum = 0;
     for (std::size_t offset = 0; offset < plain.size(); offset += 4)
     {
-        sum += bytes::readU32Be(plain, offset);
+        sum += bytes::ReadU32Be(plain, offset);
     }
-    bytes::appendU32Be(plain, 0x5AA5A55AU - sum);
+    bytes::AppendU32Be(plain, 0x5AA5A55AU - sum);
     const bytes::Bytes encrypted = encrypt_payload(plain);
 
     debug(context, std::format("Start address to upload kernel: 0x{:x}", kernel.load_address));
     info(context, "Initialize kernel upload");
     if (const Status initialized = strict_payload(context,
-                                                  composeBe(0x34_b, 0x04_b, 0x33_b, bytes::u24(kernel.load_address),
-                                                            bytes::u24(static_cast<std::uint32_t>(data_length))),
+                                                  ComposeBe(0x34_b, 0x04_b, 0x33_b, bytes::U24(kernel.load_address),
+                                                            bytes::U24(static_cast<std::uint32_t>(data_length))),
                                                   bytes::Bytes{0x20}, "kernel download");
         !initialized.has_value())
     {
@@ -753,7 +753,7 @@ Status upload_kernel(Context& context, const KernelImage& kernel)
         const std::size_t chunk_size = block == block_count ? remaining : kKernelUploadBlockSize;
         const std::uint32_t address = kernel.load_address + static_cast<std::uint32_t>(block_offset);
         const bytes::ByteView chunk(encrypted.data() + static_cast<std::ptrdiff_t>(block_offset), chunk_size);
-        const bytes::Bytes transfer = composeBe(0xB6_b, bytes::u24(address), chunk);
+        const bytes::Bytes transfer = ComposeBe(0xB6_b, bytes::U24(address), chunk);
         if (const Status discarded = upload_b6_discard(context, transfer); !discarded.has_value())
         {
             return discarded;
@@ -815,7 +815,7 @@ Result<bytes::Bytes> read_memory(Context& context, const FlashPlan& plan, PhaseR
             return std::unexpected(checkpoint.error());
         }
         const std::uint32_t address = region.start + offset;
-        const bytes::Bytes request = composeBe(bytes::Byte{0x00}, bytes::u24(address), std::uint16_t{kKernelPageSize});
+        const bytes::Bytes request = ComposeBe(bytes::Byte{0x00}, bytes::U24(address), std::uint16_t{kKernelPageSize});
         Result<bytes::Bytes> reply = beef_exchange(context, kKernelReadArea, request, kKernelPageSize, kReadTimeout);
         if (!reply.has_value())
         {
@@ -858,13 +858,13 @@ struct CompareResult
 Result<std::uint32_t> query_crc(Context& context, const MemoryRegion& block)
 {
     // check_romcrc(), revision 59f4e442:1185-1267.
-    const bytes::Bytes payload = composeBe(block.start, bytes::Byte{0x00}, bytes::u24(block.length));
+    const bytes::Bytes payload = ComposeBe(block.start, bytes::Byte{0x00}, bytes::U24(block.length));
     Result<bytes::Bytes> reply = beef_exchange(context, kKernelCrc, payload, 4, kExtraLongTimeout);
     if (!reply.has_value())
     {
         return std::unexpected(reply.error());
     }
-    const std::uint32_t crc = bytes::readU32Be(*reply);
+    const std::uint32_t crc = bytes::ReadU32Be(*reply);
     if (const Status drained = discard_stale_frame(context); !drained.has_value())
     {
         return std::unexpected(drained.error());
@@ -900,7 +900,7 @@ Result<CompareResult> compare_blocks(Context& context, const FlashPlan& plan, by
             return std::unexpected(ecu_crc.error());
         }
         const std::size_t image_offset = block.start - plan.transfer_region().start;
-        const std::uint32_t image_crc = fastecu::checksum::crc32(image.subspan(image_offset, block.length));
+        const std::uint32_t image_crc = fastecu::checksum::Crc32(image.subspan(image_offset, block.length));
         debug(context, std::format("ROM CRC: 0x{:08x} IMG CRC: 0x{:08x}", *ecu_crc, image_crc));
         info(context, std::format("\t{:08X}\t{:08X}", *ecu_crc, image_crc));
         result.modified[index] = *ecu_crc != image_crc;
@@ -940,7 +940,7 @@ Status initialize_flash(Context& context, bool test_write)
     {
         return std::unexpected(max_message.error());
     }
-    info(context, std::format(": 0x{:04x}", bytes::readU32Be(*max_message)));
+    info(context, std::format(": 0x{:04x}", bytes::ReadU32Be(*max_message)));
 
     info(context, "Check flashblock size");
     Result<bytes::Bytes> max_block = beef_exchange(context, kKernelGetMaxBlock, {}, 4, kMediumTimeout);
@@ -948,7 +948,7 @@ Status initialize_flash(Context& context, bool test_write)
     {
         return std::unexpected(max_block.error());
     }
-    info(context, std::format(": 0x{:04x}", bytes::readU32Be(*max_block)));
+    info(context, std::format(": 0x{:04x}", bytes::ReadU32Be(*max_block)));
 
     const bytes::Byte command = test_write ? kKernelFlashDisable : kKernelFlashEnable;
     info(context, test_write ? "Test write mode on, no actual flash write is performed"
@@ -986,7 +986,7 @@ Status flash_block(Context& context, bytes::ByteView image, const FlashPlan& pla
     info(context, std::format("Flash page erase addr: 0x{:08x} len: 0x{:08x}", block.start, block.length));
     info(context, "Erasing flash page...");
     Result<bytes::Bytes> erased =
-        beef_exchange(context, kKernelBlankPage, composeBe(block.start), 0, kExtraLongTimeout);
+        beef_exchange(context, kKernelBlankPage, ComposeBe(block.start), 0, kExtraLongTimeout);
     if (!erased.has_value())
     {
         return std::unexpected(erased.error());
@@ -1007,7 +1007,7 @@ Status flash_block(Context& context, bytes::ByteView image, const FlashPlan& pla
         const std::size_t chunk_offset = static_cast<std::size_t>(address - block.start);
         const bytes::ByteView chunk = image.subspan(image_offset + chunk_offset, kFlashBufferSize);
         Result<bytes::Bytes> written =
-            beef_exchange(context, kKernelWriteBuffer, composeBe(address, chunk), 0, kLongTimeout);
+            beef_exchange(context, kKernelWriteBuffer, ComposeBe(address, chunk), 0, kLongTimeout);
         if (!written.has_value())
         {
             return std::unexpected(written.error());
@@ -1051,7 +1051,7 @@ Status flash_block(Context& context, bytes::ByteView image, const FlashPlan& pla
             }
             info(context, "Flash buffer write complete... ");
             const std::size_t crc_offset = image_offset + static_cast<std::size_t>(commit_start - block.start);
-            const std::uint32_t image_crc = fastecu::checksum::crc32(image.subspan(crc_offset, kFlashCommitSize));
+            const std::uint32_t image_crc = fastecu::checksum::Crc32(image.subspan(crc_offset, kFlashCommitSize));
             debug(context, std::format("Image CRC32: 0x{:x}", image_crc));
             if (test_write)
             {
@@ -1063,7 +1063,7 @@ Status flash_block(Context& context, bytes::ByteView image, const FlashPlan& pla
             }
             info(context, std::format(" len: 0x{:x}", kFlashCommitSize));
             info(context, std::format(" crc32: 0x{:x}", image_crc));
-            const bytes::Bytes commit = composeBe(commit_start, std::uint16_t{kFlashCommitSize}, image_crc);
+            const bytes::Bytes commit = ComposeBe(commit_start, std::uint16_t{kFlashCommitSize}, image_crc);
             Result<bytes::Bytes> committed = beef_exchange(
                 context, test_write ? kKernelValidateBuffer : kKernelCommitBuffer, commit, 0, kExtraLongTimeout);
             if (!committed.has_value())
@@ -1088,7 +1088,7 @@ Status reflash_block(Context& context, bytes::ByteView image, const FlashPlan& p
     {
         return std::unexpected(voltage.error());
     }
-    const double volts = static_cast<double>(bytes::readU16Be(*voltage)) / 50.0;
+    const double volts = static_cast<double>(bytes::ReadU16Be(*voltage)) / 50.0;
     info(context, std::format(": {}V", volts));
 
     Status flashed =

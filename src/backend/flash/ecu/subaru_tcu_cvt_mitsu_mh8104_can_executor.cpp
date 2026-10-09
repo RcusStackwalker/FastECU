@@ -47,8 +47,8 @@ namespace
 {
 using namespace bytes::literals;
 using namespace std::chrono_literals;
-using bytes::composeBe;
-using bytes::u24;
+using bytes::ComposeBe;
+using bytes::U24;
 
 // Seed key (legacy generate_seed_key, lines 903-907) -- identical to the
 // sibling MH8111 family's table, confirmed by direct byte-for-byte
@@ -72,18 +72,18 @@ constexpr bytes::Byte kSessionKernelJump = 0x42;
 
 bytes::Bytes seed_key(bytes::ByteView seed)
 {
-    return ssm_protocol::calculateSeedKey(seed, tcuCvtMitsuSeedKeyTable(), ssm_protocol::kIndexTransformationStock);
+    return ssm_protocol::CalculateSeedKey(seed, tcuCvtMitsuSeedKeyTable(), ssm_protocol::kIndexTransformationStock);
 }
 
 bytes::Bytes encrypt_rom(bytes::ByteView image)
 {
-    return ssm_protocol::calculatePayload(image, static_cast<std::uint32_t>(image.size()), tcuCvtMitsuEncryptTable(),
+    return ssm_protocol::CalculatePayload(image, static_cast<std::uint32_t>(image.size()), tcuCvtMitsuEncryptTable(),
                                           ssm_protocol::kIndexTransformationStock);
 }
 
 bytes::Bytes decrypt_page(bytes::ByteView page)
 {
-    return ssm_protocol::calculatePayload(page, static_cast<std::uint32_t>(page.size()), tcuCvtMitsuDecryptTable(),
+    return ssm_protocol::CalculatePayload(page, static_cast<std::uint32_t>(page.size()), tcuCvtMitsuDecryptTable(),
                                           ssm_protocol::kIndexTransformationStock);
 }
 
@@ -221,7 +221,7 @@ Result<bool> kernel_already_running(Ctx& ctx)
     {
         return false;
     }
-    const bytes::ByteView rest = uds::payload(reply);
+    const bytes::ByteView rest = uds::Payload(reply);
     return rest.size() >= 3 && rest[0] == uds::kRoutineControlStop && rest[1] == 0x02 && rest[2] == 0x03;
 }
 
@@ -241,7 +241,7 @@ Result<std::optional<bytes::Bytes>> retry_init_step(Ctx& ctx, bytes::ByteView pd
     }
     if (reply->has_value())
     {
-        info(ctx, std::format("{}{}", success_prefix, bytes::toHex(**reply)));
+        info(ctx, std::format("{}{}", success_prefix, bytes::ToHex(**reply)));
     }
     else
     {
@@ -341,7 +341,7 @@ Status connect_bootloader(Ctx& ctx)
     // never a crash).
     bytes::Bytes seed(4, 0x00);
     {
-        const bytes::ByteView after_sid = uds::payload(*seed_reply); // [subfunction, seed x4]
+        const bytes::ByteView after_sid = uds::Payload(*seed_reply); // [subfunction, seed x4]
         for (std::size_t i = 0; i < 4 && i + 1 < after_sid.size(); ++i)
         {
             seed[i] = after_sid[i + 1];
@@ -431,7 +431,7 @@ Result<bytes::Bytes> dump_flash_range(Ctx& ctx, PhaseReporter& progress)
         // 0xB7 dump request (lines 406-454): single-shot per chunk, NO
         // retry, content-blind (line 453's `// return STATUS_ERROR;` for
         // "Page data request failed!" is commented out).
-        Result<bytes::Bytes> chunk = single_shot(ctx, composeBe(uds::kSidReadMemoryChunk, u24(addr)), 200ms,
+        Result<bytes::Bytes> chunk = single_shot(ctx, ComposeBe(uds::kSidReadMemoryChunk, U24(addr)), 200ms,
                                                  std::format("the flash read at 0x{:x}", addr));
         if (!chunk.has_value())
         {
@@ -441,7 +441,7 @@ Result<bytes::Bytes> dump_flash_range(Ctx& ctx, PhaseReporter& progress)
         {
             error(ctx, "Page data request failed!");
         }
-        const bytes::Bytes decrypted = decrypt_page(uds::payload(*chunk));
+        const bytes::Bytes decrypted = decrypt_page(uds::Payload(*chunk));
         rom.insert(rom.end(), decrypted.begin(), decrypted.end());
         progress.update(static_cast<int>(addr + kPageSize - kReadRegion.start));
     }
@@ -532,7 +532,7 @@ Status unlock_and_reflash_block(Ctx& ctx, bytes::ByteView block_plain, PhaseRepo
     // source, not assumed from the sibling family's own halving quirk.
     info(ctx, "Settting flash start & length...");
     Result<std::optional<bytes::Bytes>> setup = retry_until_any_reply(
-        ctx, composeBe(uds::kSidRequestDownload, 0x04_b, 0x33_b, u24(kWriteRegion.start), u24(kWriteRegion.length)), 6,
+        ctx, ComposeBe(uds::kSidRequestDownload, 0x04_b, 0x33_b, U24(kWriteRegion.start), U24(kWriteRegion.length)), 6,
         200ms);
     if (!setup.has_value())
     {
@@ -563,7 +563,7 @@ Status unlock_and_reflash_block(Ctx& ctx, bytes::ByteView block_plain, PhaseRepo
         // transport-level failure from the read itself fails this
         // exchange, unlike every single-shot exchange above.
         if (const Status sent =
-                ctx.channel.send(composeBe(uds::kSidWriteMemoryChunk, u24(addr), chunk_data), ctx.cancellation);
+                ctx.channel.send(ComposeBe(uds::kSidWriteMemoryChunk, U24(addr), chunk_data), ctx.cancellation);
             !sent.has_value())
         {
             return sent;

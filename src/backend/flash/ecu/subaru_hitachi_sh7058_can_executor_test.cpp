@@ -16,7 +16,7 @@ namespace
 {
 bytes::Bytes request(bytes::ByteView payload, std::uint32_t id = 0x7e0)
 {
-    return bytes::composeBe(id, payload);
+    return bytes::ComposeBe(id, payload);
 }
 bytes::Bytes response(bytes::ByteView payload)
 {
@@ -106,7 +106,7 @@ TEST(SubaruHitachiSh7058CanExecutor, ActiveKernelWritesAll4096Frames)
     ASSERT_TRUE(plan.has_value());
     constexpr std::array<std::uint16_t, 4> kKeys{0x14ca, 0x77f4, 0x973c, 0xf50e};
     const auto encrypted =
-        ssm_protocol::calculatePayload(image, 0x100000, kKeys, ssm_protocol::kIndexTransformationStock);
+        ssm_protocol::CalculatePayload(image, 0x100000, kKeys, ssm_protocol::kIndexTransformationStock);
     ASSERT_GE(encrypted.size(), 4U);
     EXPECT_EQ(bytes::Bytes(encrypted.begin(), encrypted.begin() + 4), (bytes::Bytes{0x08, 0x03, 0xfd, 0x11}));
     const auto frame = [](bytes::ByteView payload)
@@ -122,7 +122,7 @@ TEST(SubaruHitachiSh7058CanExecutor, ActiveKernelWritesAll4096Frames)
     transport.exchange(frame(bytes::Bytes{0x34, 4, 0x33, 0, 0, 0, 0x10, 0, 0}), bytes::Bytes{0, 0, 7, 0xe8, 0x74});
     for (std::uint32_t address = 0; address < 0x100000; address += 0x100)
     {
-        bytes::Bytes request = bytes::composeBe(bytes::Byte{0xb6}, bytes::u24(address),
+        bytes::Bytes request = bytes::ComposeBe(bytes::Byte{0xb6}, bytes::U24(address),
                                                 bytes::ByteView(encrypted).subspan(address, 0x100));
         transport.exchange(frame(request), bytes::Bytes{0, 0, 7, 0xe8, 0xf6});
     }

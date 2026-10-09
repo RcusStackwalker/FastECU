@@ -9,9 +9,9 @@ namespace biu_subaru
 // where the checksum is bytes::sum8 of all preceding bytes.
 
 // Wraps `payload` (service id and arguments) in a request frame.
-bytes::Bytes buildRequest(bytes::ByteView payload);
+bytes::Bytes BuildRequest(bytes::ByteView payload);
 
 // The tester-present frame sent every second while connected.
-bytes::Bytes keepAliveRequest();
+bytes::Bytes KeepAliveRequest();
 
 } // namespace biu_subaru

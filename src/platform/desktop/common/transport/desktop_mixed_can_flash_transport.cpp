@@ -191,7 +191,7 @@ Status DesktopMixedCanFlashTransport::write_raw(const cdbg::CanFrame& frame, con
     // frame.payload.size() -- unlike the legacy DensoCAN path, which always
     // wrote 8 zero-filled payload bytes. A caller whose target expects a
     // fixed 8-byte DLC must pad frame.payload itself before calling this.
-    return write_serial(bytes::composeBe(frame.id, frame.payload), cancellation);
+    return write_serial(bytes::ComposeBe(frame.id, frame.payload), cancellation);
 }
 
 Result<std::optional<cdbg::CanFrame>> DesktopMixedCanFlashTransport::read_raw(std::chrono::milliseconds timeout,
@@ -214,7 +214,7 @@ Result<std::optional<cdbg::CanFrame>> DesktopMixedCanFlashTransport::read_raw(st
     {
         return fail(ErrorKind::kBadResponse, "raw CAN response lacks a four-byte arbitration ID");
     }
-    const std::uint32_t id = bytes::readU32Be(raw->value());
+    const std::uint32_t id = bytes::ReadU32Be(raw->value());
     if (!stored_config_.has_value())
     {
         return fail(ErrorKind::kInvalidConfig, "mixed CAN transport has no stored configuration");

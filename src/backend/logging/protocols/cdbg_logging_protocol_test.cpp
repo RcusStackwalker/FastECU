@@ -34,24 +34,24 @@ void scriptValidHandshake(cdbg::ScriptedCanTransport& transport)
     using namespace mitsu_colt_can_cdbg;
     const std::vector<CdbgChannel> channels = {{0x804000, 1}};
 
-    transport.expectWrite(kRequestCanId, buildInitFrame());
-    transport.queueRead(kReplyCanId, test_bytes::bytesFromHex("0000000000000000"));
-    transport.expectWrite(kRequestCanId, buildSecuritySeedRequestFrame());
-    transport.queueRead(kReplyCanId, test_bytes::bytesFromHex("0000000012345678"));
-    transport.expectWrite(kRequestCanId, buildSecurityKeyFrame(0x8C536B33));
-    transport.queueRead(kReplyCanId, test_bytes::bytesFromHex("0000000100000000"));
-    transport.expectWrite(kRequestCanId, buildLogResetFrame(0));
-    transport.queueRead(kReplyCanId, test_bytes::bytesFromHex("0000000000000000"));
+    transport.expectWrite(kRequestCanId, BuildInitFrame());
+    transport.queueRead(kReplyCanId, test_bytes::BytesFromHex("0000000000000000"));
+    transport.expectWrite(kRequestCanId, BuildSecuritySeedRequestFrame());
+    transport.queueRead(kReplyCanId, test_bytes::BytesFromHex("0000000012345678"));
+    transport.expectWrite(kRequestCanId, BuildSecurityKeyFrame(0x8C536B33));
+    transport.queueRead(kReplyCanId, test_bytes::BytesFromHex("0000000100000000"));
+    transport.expectWrite(kRequestCanId, BuildLogResetFrame(0));
+    transport.queueRead(kReplyCanId, test_bytes::BytesFromHex("0000000000000000"));
 
     std::vector<std::vector<CdbgChannel>> frames;
-    ASSERT_TRUE(batchChannelsIntoFrames(channels, frames));
-    for (const auto& command : buildFrameInitFrames(0, 0, frames.at(0)))
+    ASSERT_TRUE(BatchChannelsIntoFrames(channels, frames));
+    for (const auto& command : BuildFrameInitFrames(0, 0, frames.at(0)))
     {
         transport.expectWrite(kRequestCanId, command);
-        transport.queueRead(kReplyCanId, test_bytes::bytesFromHex("0000000000000000"));
+        transport.queueRead(kReplyCanId, test_bytes::BytesFromHex("0000000000000000"));
     }
-    transport.expectWrite(kRequestCanId, buildLogStartFrame(0, 1, 10));
-    transport.queueRead(kReplyCanId, test_bytes::bytesFromHex("0000000000000000"));
+    transport.expectWrite(kRequestCanId, BuildLogStartFrame(0, 1, 10));
+    transport.queueRead(kReplyCanId, test_bytes::BytesFromHex("0000000000000000"));
 }
 
 std::unique_ptr<CdbgLoggingProtocol> makeProtocol(std::unique_ptr<cdbg::ScriptedCanTransport> transport,
@@ -85,7 +85,7 @@ TEST(CdbgLoggingProtocolTest, StartFailurePinsInvalidConfigForEmptyChannels)
 TEST(CdbgLoggingProtocolTest, StartFailurePinsBadResponseForMissingHandshakeReply)
 {
     auto transport = std::make_unique<cdbg::ScriptedCanTransport>();
-    transport->expectWrite(mitsu_colt_can_cdbg::kRequestCanId, mitsu_colt_can_cdbg::buildInitFrame());
+    transport->expectWrite(mitsu_colt_can_cdbg::kRequestCanId, mitsu_colt_can_cdbg::BuildInitFrame());
     transport->queue_no_frame();
     auto protocol = makeProtocol(std::move(transport));
     fastecu::FakeCancellationToken cancellation;
@@ -133,7 +133,7 @@ TEST(CdbgLoggingProtocolTest, PollReturnsStableIdAndRawDecimalString)
     auto protocol = makeProtocol(std::move(transport));
     fastecu::FakeCancellationToken cancellation;
     ASSERT_THAT(protocol->start(cancellation), fastecu::testing::IsOk());
-    script->queueRead(mitsu_colt_can_cdbg::kReplyCanId, test_bytes::bytesFromHex("002A000000000000"));
+    script->queueRead(mitsu_colt_can_cdbg::kReplyCanId, test_bytes::BytesFromHex("002A000000000000"));
 
     const auto result = protocol->poll(50ms, cancellation);
 

@@ -47,7 +47,7 @@ inline constexpr std::uint32_t kKernelStartComm = 0xBEEF;
 // opcode plus payload, opcode, payload.
 inline bytes::Bytes beef_request(bytes::Byte opcode, bytes::ByteView payload = {})
 {
-    return bytes::composeBe(std::uint16_t{kKernelStartComm}, static_cast<std::uint16_t>(payload.size() + 1), opcode,
+    return bytes::ComposeBe(std::uint16_t{kKernelStartComm}, static_cast<std::uint16_t>(payload.size() + 1), opcode,
                             payload);
 }
 

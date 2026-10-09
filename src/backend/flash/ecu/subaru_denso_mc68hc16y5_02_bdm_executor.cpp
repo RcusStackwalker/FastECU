@@ -102,7 +102,7 @@ Status discard(IKlineFlashTransport& transport, IClock& clock, const ICancellati
     }
     if (!drained->empty())
     {
-        events.log(LogLevel::kDebug, std::format("BDM discarded: {}", bytes::toHex(*drained)));
+        events.log(LogLevel::kDebug, std::format("BDM discarded: {}", bytes::ToHex(*drained)));
     }
     return {};
 }
@@ -124,10 +124,10 @@ Status expect_ack(IKlineFlashTransport& transport, IClock& clock, const ICancell
     if (received->size() < token.size())
     {
         return fail(ErrorKind::kTimeout,
-                    std::format("BDM bridge did not send {} (received {})", token, bytes::toHex(*received)));
+                    std::format("BDM bridge did not send {} (received {})", token, bytes::ToHex(*received)));
     }
     return fail(ErrorKind::kBadResponse,
-                std::format("BDM bridge sent {} instead of {}", bytes::toHex(*received), token));
+                std::format("BDM bridge sent {} instead of {}", bytes::ToHex(*received), token));
 }
 
 // read_mem() :146-175. Legacy replaced its buffer on every poll and appended
@@ -239,7 +239,7 @@ Status log_reply(std::string_view command, IKlineFlashTransport& transport, IClo
     {
         return std::unexpected(reply.error());
     }
-    events.log(LogLevel::kInfo, std::format("BDM {} reply: {}", command, bytes::toHex(*reply)));
+    events.log(LogLevel::kInfo, std::format("BDM {} reply: {}", command, bytes::ToHex(*reply)));
     return {};
 }
 
@@ -331,7 +331,7 @@ Status bootstrap_kernel(bytes::ByteView kernel, IKlineFlashTransport& transport,
     }
     if (auto reply = accumulate(transport, clock, cancellation, kUnbounded, kLongTimeout); reply.has_value())
     {
-        events.log(LogLevel::kInfo, std::format("BDM go reply: {}", bytes::toHex(*reply)));
+        events.log(LogLevel::kInfo, std::format("BDM go reply: {}", bytes::ToHex(*reply)));
     }
     else
     {

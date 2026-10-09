@@ -1922,7 +1922,7 @@ void MainWindowTest::check_checksumAndSaveUseATemporaryImage()
                   });
     ASSERT_EQ(correction.status, fastecu::checksum::ChecksumCorrectionOutcome::Status::kFamilyRan);
     ASSERT_TRUE(correction.family_result.has_value());
-    ASSERT_TRUE(correction.family_result->ok());
+    ASSERT_TRUE(correction.family_result->Ok());
     const bytes::Bytes corrected = correction.family_result->rom_data;
     ASSERT_TRUE(corrected != original);
     ASSERT_TRUE(session->dirty());
@@ -4530,7 +4530,7 @@ void MainWindowTest::check_typedAssignment(AssignmentScenario scenario)
     ASSERT_NE(session, nullptr);
     if (noOp)
     {
-        EXPECT_EQ(bytes::readU16Be(session->rom()), 10);
+        EXPECT_EQ(bytes::ReadU16Be(session->rom()), 10);
         EXPECT_FALSE(session->dirty());
         if (scenario == AssignmentScenario::kNoOpResolution)
         {
@@ -4545,14 +4545,14 @@ void MainWindowTest::check_typedAssignment(AssignmentScenario scenario)
     }
     if (scenario == AssignmentScenario::kPasteInteriorEmpty)
     {
-        EXPECT_EQ(bytes::readU16Be(session->rom()), 10);
+        EXPECT_EQ(bytes::ReadU16Be(session->rom()), 10);
         EXPECT_FALSE(session->dirty());
         EXPECT_FALSE(noticeText.isEmpty());
         return;
     }
     if (paste)
     {
-        EXPECT_EQ(bytes::readU16Be(session->rom()), 20);
+        EXPECT_EQ(bytes::ReadU16Be(session->rom()), 20);
         EXPECT_EQ(table->item(0, 0)->text(), "20.00");
         EXPECT_TRUE(noticeText.isEmpty());
         return;
@@ -4565,10 +4565,10 @@ void MainWindowTest::check_typedAssignment(AssignmentScenario scenario)
             ? 20
         : scenario == AssignmentScenario::kInvalidCurrent ? 20
                                                           : 11;
-    EXPECT_EQ(bytes::readU16Be(session->rom()), expected);
+    EXPECT_EQ(bytes::ReadU16Be(session->rom()), expected);
     if (other.has_value())
     {
-        EXPECT_EQ(bytes::readU16Be(services.calibrations.find(*other)->rom()), 40);
+        EXPECT_EQ(bytes::ReadU16Be(services.calibrations.find(*other)->rom()), 40);
         EXPECT_FALSE(services.calibrations.find(*other)->dirty());
     }
     if (scenario == AssignmentScenario::kActiveMapChanged)

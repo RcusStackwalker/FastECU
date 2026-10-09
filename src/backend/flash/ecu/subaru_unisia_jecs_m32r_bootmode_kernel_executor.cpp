@@ -79,7 +79,7 @@ Status upload(const FlashPlan& plan, IKlineFlashTransport& transport, IClock& cl
     }
     if (trailing->has_value())
     {
-        events.log(LogLevel::kDebug, std::format("Discarded after kernel upload: {}", bytes::toHex(**trailing)));
+        events.log(LogLevel::kDebug, std::format("Discarded after kernel upload: {}", bytes::ToHex(**trailing)));
     }
     return {};
 }

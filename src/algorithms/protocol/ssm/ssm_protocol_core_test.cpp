@@ -15,7 +15,7 @@ using ::testing::ElementsAre;
 TEST(SsmProtocolCorePortable, AddHeaderPrefixesTesterAndTarget)
 {
     const bytes::Bytes payload{0xA0};
-    const bytes::Bytes framed = ssm_protocol::addHeader(bytes::ByteView(payload), 0xF0, 0x10);
+    const bytes::Bytes framed = ssm_protocol::AddHeader(bytes::ByteView(payload), 0xF0, 0x10);
     ASSERT_GE(framed.size(), payload.size());
     EXPECT_EQ(framed[0], static_cast<bytes::Byte>(0x80));
 }
@@ -23,22 +23,22 @@ TEST(SsmProtocolCorePortable, AddHeaderPrefixesTesterAndTarget)
 TEST(SsmProtocolCore, AddHeaderBuildsTheFramedRequest)
 {
     const bytes::Bytes payload{0xEF, 0x52};
-    EXPECT_THAT(ssm_protocol::addHeader(bytes::ByteView(payload), 0xF0, 0x10),
+    EXPECT_THAT(ssm_protocol::AddHeader(bytes::ByteView(payload), 0xF0, 0x10),
                 ElementsAre(0x80, 0x10, 0xF0, 0x02, 0xEF, 0x52, 0xC3));
 }
 
 TEST(SsmProtocolCore, HasValidFrameAcceptsWhatAddHeaderProduces)
 {
     const bytes::Bytes payload{0xEF, 0x52};
-    const bytes::Bytes framed = ssm_protocol::addHeader(bytes::ByteView(payload), 0xF0, 0x10);
-    EXPECT_TRUE(ssm_protocol::hasValidFrame(bytes::ByteView(framed), 0x10, 0xF0));
+    const bytes::Bytes framed = ssm_protocol::AddHeader(bytes::ByteView(payload), 0xF0, 0x10);
+    EXPECT_TRUE(ssm_protocol::HasValidFrame(bytes::ByteView(framed), 0x10, 0xF0));
 }
 
 TEST(SsmProtocolCore, HasValidFrameRejectsACorruptedChecksum)
 {
     bytes::Bytes framed{0x80, 0x10, 0xF0, 0x02, 0xEF, 0x52, 0xC3};
     framed.back() = 0xC4;
-    EXPECT_FALSE(ssm_protocol::hasValidFrame(bytes::ByteView(framed), 0x10, 0xF0));
+    EXPECT_FALSE(ssm_protocol::HasValidFrame(bytes::ByteView(framed), 0x10, 0xF0));
 }
 
 // The two index transformations calculateSeedKey and calculatePayload take.
@@ -99,65 +99,65 @@ constexpr auto kPayloadTable = std::to_array<std::uint16_t>({0xC85B, 0x32C0, 0xE
 
 TEST(SsmProtocolCore, CalculateSeedKeyMatchesTheCommonDensoVector)
 {
-    EXPECT_THAT(ssm_protocol::calculateSeedKey(bytes::ByteView(test_bytes::bytesFromHex("12345678")), kCommonSeedTable,
+    EXPECT_THAT(ssm_protocol::CalculateSeedKey(bytes::ByteView(test_bytes::BytesFromHex("12345678")), kCommonSeedTable,
                                                ssm_protocol::kIndexTransformationStock),
-                test_bytes::BytesEq(test_bytes::bytesFromHex("2daa46dc")));
+                test_bytes::BytesEq(test_bytes::BytesFromHex("2daa46dc")));
 }
 
 TEST(SsmProtocolCore, CalculateSeedKeyMatchesTheAlternateTableVector)
 {
-    EXPECT_THAT(ssm_protocol::calculateSeedKey(bytes::ByteView(test_bytes::bytesFromHex("89abcdef")),
+    EXPECT_THAT(ssm_protocol::CalculateSeedKey(bytes::ByteView(test_bytes::BytesFromHex("89abcdef")),
                                                kAlternateSeedTable, kAlternateTransformTable),
-                test_bytes::BytesEq(test_bytes::bytesFromHex("408d111d")));
+                test_bytes::BytesEq(test_bytes::BytesFromHex("408d111d")));
 }
 
 TEST(SsmProtocolCore, CalculatePayloadMatchesTheCommonDensoVector)
 {
-    EXPECT_THAT(ssm_protocol::calculatePayload(bytes::ByteView(test_bytes::bytesFromHex("0011223344556677")), 8,
+    EXPECT_THAT(ssm_protocol::CalculatePayload(bytes::ByteView(test_bytes::BytesFromHex("0011223344556677")), 8,
                                                kPayloadTable, ssm_protocol::kIndexTransformationStock),
-                test_bytes::BytesEq(test_bytes::bytesFromHex("ed9fd931afacd594")));
+                test_bytes::BytesEq(test_bytes::BytesFromHex("ed9fd931afacd594")));
 }
 
 TEST(SsmProtocolCore, CalculatePayloadTruncatesToAFourByteBoundary)
 {
-    EXPECT_THAT(ssm_protocol::calculatePayload(bytes::ByteView(test_bytes::bytesFromHex("0011223344")), 5,
+    EXPECT_THAT(ssm_protocol::CalculatePayload(bytes::ByteView(test_bytes::BytesFromHex("0011223344")), 5,
                                                kPayloadTable, ssm_protocol::kIndexTransformationStock),
-                test_bytes::BytesEq(test_bytes::bytesFromHex("ed9fd931")));
+                test_bytes::BytesEq(test_bytes::BytesFromHex("ed9fd931")));
 }
 
 TEST(SsmProtocolCore, HasPayloadPrefixAcceptsAMatchingPrefix)
 {
     const bytes::Bytes response =
-        ssm_protocol::addHeader(bytes::ByteView(test_bytes::bytesFromHex("EF5201")), 0xF0, 0x10);
+        ssm_protocol::AddHeader(bytes::ByteView(test_bytes::BytesFromHex("EF5201")), 0xF0, 0x10);
 
-    EXPECT_TRUE(ssm_protocol::hasPayloadPrefix(bytes::ByteView(response),
-                                               bytes::ByteView(test_bytes::bytesFromHex("EF52")), 0x10, 0xF0));
+    EXPECT_TRUE(ssm_protocol::HasPayloadPrefix(bytes::ByteView(response),
+                                               bytes::ByteView(test_bytes::BytesFromHex("EF52")), 0x10, 0xF0));
 }
 
 TEST(SsmProtocolCore, HasPayloadPrefixRejectsAMismatchedPrefixATooLongPrefixOrABadChecksum)
 {
     const bytes::Bytes response =
-        ssm_protocol::addHeader(bytes::ByteView(test_bytes::bytesFromHex("EF5201")), 0xF0, 0x10);
+        ssm_protocol::AddHeader(bytes::ByteView(test_bytes::BytesFromHex("EF5201")), 0xF0, 0x10);
     bytes::Bytes bad_checksum = response;
     bad_checksum.back() = 0x00;
 
-    EXPECT_FALSE(ssm_protocol::hasPayloadPrefix(bytes::ByteView(response),
-                                                bytes::ByteView(test_bytes::bytesFromHex("EF53")), 0x10, 0xF0));
-    EXPECT_FALSE(ssm_protocol::hasPayloadPrefix(bytes::ByteView(response),
-                                                bytes::ByteView(test_bytes::bytesFromHex("EF520100")), 0x10, 0xF0));
-    EXPECT_FALSE(ssm_protocol::hasPayloadPrefix(bytes::ByteView(bad_checksum),
-                                                bytes::ByteView(test_bytes::bytesFromHex("EF52")), 0x10, 0xF0));
+    EXPECT_FALSE(ssm_protocol::HasPayloadPrefix(bytes::ByteView(response),
+                                                bytes::ByteView(test_bytes::BytesFromHex("EF53")), 0x10, 0xF0));
+    EXPECT_FALSE(ssm_protocol::HasPayloadPrefix(bytes::ByteView(response),
+                                                bytes::ByteView(test_bytes::BytesFromHex("EF520100")), 0x10, 0xF0));
+    EXPECT_FALSE(ssm_protocol::HasPayloadPrefix(bytes::ByteView(bad_checksum),
+                                                bytes::ByteView(test_bytes::BytesFromHex("EF52")), 0x10, 0xF0));
 }
 
 TEST(SsmProtocolCore, HasValidFrameRejectsAShortFrameOrAWrongReceiverSenderOrLength)
 {
     const bytes::Bytes response =
-        ssm_protocol::addHeader(bytes::ByteView(test_bytes::bytesFromHex("EF52")), 0xF0, 0x10);
+        ssm_protocol::AddHeader(bytes::ByteView(test_bytes::BytesFromHex("EF52")), 0xF0, 0x10);
     bytes::Bytes bad_length = response;
     bad_length[3] = 0x03;
 
-    EXPECT_FALSE(ssm_protocol::hasValidFrame(bytes::ByteView(test_bytes::bytesFromHex("8010F0")), 0x10, 0xF0));
-    EXPECT_FALSE(ssm_protocol::hasValidFrame(bytes::ByteView(response), 0x11, 0xF0));
-    EXPECT_FALSE(ssm_protocol::hasValidFrame(bytes::ByteView(response), 0x10, 0xF1));
-    EXPECT_FALSE(ssm_protocol::hasValidFrame(bytes::ByteView(bad_length), 0x10, 0xF0));
+    EXPECT_FALSE(ssm_protocol::HasValidFrame(bytes::ByteView(test_bytes::BytesFromHex("8010F0")), 0x10, 0xF0));
+    EXPECT_FALSE(ssm_protocol::HasValidFrame(bytes::ByteView(response), 0x11, 0xF0));
+    EXPECT_FALSE(ssm_protocol::HasValidFrame(bytes::ByteView(response), 0x10, 0xF1));
+    EXPECT_FALSE(ssm_protocol::HasValidFrame(bytes::ByteView(bad_length), 0x10, 0xF0));
 }

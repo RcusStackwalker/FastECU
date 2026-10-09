@@ -25,14 +25,14 @@ namespace
 // carrying `data`.
 void script_chunk(ScriptedKlineTransport& t, std::uint16_t addr, const bytes::Bytes& data)
 {
-    const auto channels = planReadChannels(addr, static_cast<int>(data.size()));
-    t.expectWrite(buildSetupFrame(0xA0, static_cast<bytes::Byte>(channels.size())));
-    t.queueRead(buildCommandFrame(0xA5, bytes::Bytes{}, kTrailerStd));
-    t.expectWrite(buildIdListFrame(0xA1, channels));
-    t.queueRead(buildCommandFrame(0x05, bytes::Bytes{}, kTrailerStd));
+    const auto channels = PlanReadChannels(addr, static_cast<int>(data.size()));
+    t.expectWrite(BuildSetupFrame(0xA0, static_cast<bytes::Byte>(channels.size())));
+    t.queueRead(BuildCommandFrame(0xA5, bytes::Bytes{}, kTrailerStd));
+    t.expectWrite(BuildIdListFrame(0xA1, channels));
+    t.queueRead(BuildCommandFrame(0x05, bytes::Bytes{}, kTrailerStd));
     bytes::Bytes frame{0x51};
     frame.insert(frame.end(), data.begin(), data.end());
-    frame.push_back(sum8(frame));
+    frame.push_back(Sum8(frame));
     frame.push_back(kTrailerStd);
     t.queueRead(frame);
 }
@@ -71,8 +71,8 @@ TEST(MutMemory, WriteAtBothWindowEdgesReachesTheDriver)
         ScriptedKlineTransport t;
         fastecu::FakeCancellationToken token;
         const bytes::Bytes data{0xAB};
-        t.expectWrite(buildWriteFrames(addr, data).at(0));
-        t.queueRead(buildCommandFrame(0x87, bytes::Bytes{0x80, 0x00}, kTrailerStd));
+        t.expectWrite(BuildWriteFrames(addr, data).at(0));
+        t.queueRead(BuildCommandFrame(0x87, bytes::Bytes{0x80, 0x00}, kTrailerStd));
         EXPECT_THAT(write_memory(t, addr, data, token), IsOk()) << std::hex << addr;
         EXPECT_TRUE(t.scriptConsumed());
     }
@@ -103,7 +103,7 @@ TEST(MutMemory, ReadReturnsWhatItHadWhenALaterChunkFails)
     fastecu::FakeCancellationToken token;
     const bytes::Bytes first = counting(40);
     script_chunk(t, 0x8000, first);
-    t.expectWrite(buildSetupFrame(0xA0, 40));
+    t.expectWrite(BuildSetupFrame(0xA0, 40));
     t.queue_error(ErrorKind::kDisconnected);
     EXPECT_THAT(read_memory(t, 0x8000, 80, token), IsOkAnd(ElementsAreArray(first)));
 }
@@ -112,7 +112,7 @@ TEST(MutMemory, ReadFailsWhenTheFirstChunkFails)
 {
     ScriptedKlineTransport t;
     fastecu::FakeCancellationToken token;
-    t.expectWrite(buildSetupFrame(0xA0, 4));
+    t.expectWrite(BuildSetupFrame(0xA0, 4));
     t.queue_error(ErrorKind::kDisconnected);
     EXPECT_THAT(read_memory(t, 0x8000, 4, token), IsErr(ErrorKind::kDisconnected));
 }
@@ -123,11 +123,11 @@ TEST(MutMemory, ReadSkipsAChunkWhosePollReturnsNoFrame)
     // and moves to the next chunk.
     ScriptedKlineTransport t;
     fastecu::FakeCancellationToken token;
-    const auto channels = planReadChannels(0x8000, 40);
-    t.expectWrite(buildSetupFrame(0xA0, 40));
-    t.queueRead(buildCommandFrame(0xA5, bytes::Bytes{}, kTrailerStd));
-    t.expectWrite(buildIdListFrame(0xA1, channels));
-    t.queueRead(buildCommandFrame(0x05, bytes::Bytes{}, kTrailerStd));
+    const auto channels = PlanReadChannels(0x8000, 40);
+    t.expectWrite(BuildSetupFrame(0xA0, 40));
+    t.queueRead(BuildCommandFrame(0xA5, bytes::Bytes{}, kTrailerStd));
+    t.expectWrite(BuildIdListFrame(0xA1, channels));
+    t.queueRead(BuildCommandFrame(0x05, bytes::Bytes{}, kTrailerStd));
     t.queue_no_frame();
     const bytes::Bytes second = counting(10, 0x40);
     script_chunk(t, 0x8028, second);

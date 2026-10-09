@@ -18,7 +18,7 @@ fastecu::Result<std::size_t> FastEcuCanTransport::write(std::uint32_t can_id, by
         }
         bytes::Bytes frame;
         frame.reserve(payload.size() + 4);
-        bytes::appendU32Be(frame, can_id);
+        bytes::AppendU32Be(frame, can_id);
         frame.insert(frame.end(), payload.begin(), payload.end());
         serial_->write_serial_data_echo_check(bytes::toQByteArray(frame));
         if (!serial_->is_serial_port_open())
@@ -69,7 +69,7 @@ fastecu::Result<std::optional<CanFrame>> FastEcuCanTransport::read(std::chrono::
         {
             return fastecu::fail(fastecu::ErrorKind::kInternal, "CAN driver returned a truncated frame");
         }
-        return std::optional<CanFrame>{CanFrame{bytes::readU32Be(raw, 0), bytes::Bytes(raw.begin() + 4, raw.end())}};
+        return std::optional<CanFrame>{CanFrame{bytes::ReadU32Be(raw, 0), bytes::Bytes(raw.begin() + 4, raw.end())}};
     }
     catch (const std::exception& error)
     {

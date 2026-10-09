@@ -8,7 +8,7 @@
 namespace
 {
 
-int precedence(const std::string& op)
+int Precedence(const std::string& op)
 {
     if (op == "*" || op == "/")
     {
@@ -21,12 +21,12 @@ int precedence(const std::string& op)
     return 0;
 }
 
-bool shouldPopBefore(const std::vector<std::string>& operators, const std::string& next_operator)
+bool ShouldPopBefore(const std::vector<std::string>& operators, const std::string& next_operator)
 {
-    return !operators.empty() && operators.back() != "(" && precedence(operators.back()) >= precedence(next_operator);
+    return !operators.empty() && operators.back() != "(" && Precedence(operators.back()) >= Precedence(next_operator);
 }
 
-std::string normalizedSingleValue(std::string value)
+std::string NormalizedSingleValue(std::string value)
 {
     if (value.rfind("--", 0) == 0)
     {
@@ -35,7 +35,7 @@ std::string normalizedSingleValue(std::string value)
     return value;
 }
 
-double toDouble(const std::string& value)
+double ToDouble(const std::string& value)
 {
     try
     {
@@ -49,7 +49,7 @@ double toDouble(const std::string& value)
     }
 }
 
-std::string formatNumber(double value, int precision)
+std::string FormatNumber(double value, int precision)
 {
     if (precision < 1)
     {
@@ -60,7 +60,7 @@ std::string formatNumber(double value, int precision)
 
 } // namespace
 
-std::vector<std::string> expression_parse(std::string_view expression, std::string_view x)
+std::vector<std::string> ExpressionParse(std::string_view expression, std::string_view x)
 {
     std::vector<std::string> numbers;
     std::vector<std::string> operators;
@@ -125,7 +125,7 @@ std::vector<std::string> expression_parse(std::string_view expression, std::stri
         {
             is_operator = true;
             const std::string op_str(1, ch);
-            while (shouldPopBefore(operators, op_str))
+            while (ShouldPopBefore(operators, op_str))
             {
                 numbers.push_back(operators.back());
                 operators.pop_back();
@@ -136,7 +136,7 @@ std::vector<std::string> expression_parse(std::string_view expression, std::stri
         {
             is_operator = true;
             const std::string op_str(1, ch);
-            while (shouldPopBefore(operators, op_str))
+            while (ShouldPopBefore(operators, op_str))
             {
                 numbers.push_back(operators.back());
                 operators.pop_back();
@@ -155,13 +155,13 @@ std::vector<std::string> expression_parse(std::string_view expression, std::stri
     return numbers;
 }
 
-double expression_evaluate(std::vector<std::string> expression, int precision)
+double ExpressionEvaluate(std::vector<std::string> expression, int precision)
 {
     double value = 0;
 
     if (expression.size() == 1)
     {
-        value = toDouble(normalizedSingleValue(expression[0]));
+        value = ToDouble(NormalizedSingleValue(expression[0]));
     }
 
     while (expression.size() > 1)
@@ -176,26 +176,26 @@ double expression_evaluate(std::vector<std::string> expression, int precision)
 
             if (expression[i] == "-")
             {
-                value = toDouble(expression[i - 2]) - toDouble(expression[i - 1]);
+                value = ToDouble(expression[i - 2]) - ToDouble(expression[i - 1]);
             }
             else if (expression[i] == "+")
             {
-                value = toDouble(expression[i - 2]) + toDouble(expression[i - 1]);
+                value = ToDouble(expression[i - 2]) + ToDouble(expression[i - 1]);
             }
             else if (expression[i] == "*")
             {
-                value = toDouble(expression[i - 2]) * toDouble(expression[i - 1]);
+                value = ToDouble(expression[i - 2]) * ToDouble(expression[i - 1]);
             }
             else if (expression[i] == "/")
             {
-                value = toDouble(expression[i - 2]) / toDouble(expression[i - 1]);
+                value = ToDouble(expression[i - 2]) / ToDouble(expression[i - 1]);
             }
             else
             {
                 continue;
             }
 
-            expression[i] = formatNumber(value, precision);
+            expression[i] = FormatNumber(value, precision);
             expression.erase(expression.begin() + static_cast<long>(i) - 1);
             expression.erase(expression.begin() + static_cast<long>(i) - 2);
             reduced = true;
@@ -215,7 +215,7 @@ double expression_evaluate(std::vector<std::string> expression, int precision)
     return value;
 }
 
-double expression_evaluate(std::string_view expression, std::string_view x, int precision)
+double ExpressionEvaluate(std::string_view expression, std::string_view x, int precision)
 {
-    return expression_evaluate(expression_parse(expression, x), precision);
+    return ExpressionEvaluate(ExpressionParse(expression, x), precision);
 }

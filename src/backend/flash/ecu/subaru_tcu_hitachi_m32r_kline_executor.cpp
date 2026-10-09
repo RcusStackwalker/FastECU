@@ -14,7 +14,7 @@ namespace fastecu::flash
 {
 namespace
 {
-using bytes::composeBe;
+using bytes::ComposeBe;
 using namespace bytes::literals;
 using namespace std::chrono_literals;
 
@@ -37,7 +37,7 @@ constexpr int kBlockAttempts = 5;
 
 bytes::Bytes framed(bytes::ByteView payload, const SubaruTcuHitachiM32rKlinePlan& p)
 {
-    return ssm_protocol::addHeader(payload, p.tester_id, p.target_id);
+    return ssm_protocol::AddHeader(payload, p.tester_id, p.target_id);
 }
 
 Result<std::optional<bytes::Bytes>> exchange_optional(IKlineFlashTransport& transport,
@@ -201,7 +201,7 @@ bytes::Bytes seed_key(bytes::ByteView seed)
     static constexpr std::array<std::uint16_t, 16> kIndex = {0x0FE9, 0xCA58, 0x5E90, 0xDFF1, 0x690B, 0xF591,
                                                              0x1794, 0x5C7B, 0xA7BF, 0x98E5, 0x0B63, 0xA1C9,
                                                              0x79BF, 0xF413, 0x82B1, 0xA895};
-    return ssm_protocol::calculateSeedKey(seed, kIndex, ssm_protocol::kIndexTransformationStock);
+    return ssm_protocol::CalculateSeedKey(seed, kIndex, ssm_protocol::kIndexTransformationStock);
 }
 
 Result<std::string> connect_bootloader(IKlineFlashTransport& transport, IClock& clock,
@@ -246,7 +246,7 @@ Result<std::string> connect_bootloader(IKlineFlashTransport& transport, IClock& 
         return fail(ErrorKind::kBadResponse, "seed response is too short");
     }
     bytes::Bytes key_request =
-        composeBe(uds::kSidSecurityAccess, uds::kSecurityAccessSendKey, seed_key(bytes::ByteView{*seed}.subspan(6, 4)));
+        ComposeBe(uds::kSidSecurityAccess, uds::kSecurityAccessSendKey, seed_key(bytes::ByteView{*seed}.subspan(6, 4)));
     if (auto s =
             request_prefix(transport, cancellation, std::move(key_request), {0x67, uds::kSecurityAccessSendKey}, p);
         !s.has_value())
@@ -338,7 +338,7 @@ Result<bytes::Bytes> read_rom(IKlineFlashTransport& transport, IClock& clock, co
         }
         const std::uint32_t length = std::min(p.block_size, kRomSize - address);
         const bytes::Bytes request =
-            composeBe(0xa0_b, 0x00_b, bytes::u24(address), static_cast<bytes::Byte>(length - 1));
+            ComposeBe(0xa0_b, 0x00_b, bytes::U24(address), static_cast<bytes::Byte>(length - 1));
 
         // read_a0_rom's retry loop: up to five attempts while the response is
         // too short to carry data. Each attempt keeps the legacy

@@ -16,8 +16,8 @@ namespace fastecu::flash
 {
 namespace
 {
-using bytes::composeBe;
-using bytes::u24;
+using bytes::ComposeBe;
+using bytes::U24;
 using namespace bytes::literals;
 using namespace std::chrono_literals;
 
@@ -56,7 +56,7 @@ Status send(Session& s, bytes::ByteView payload)
     {
         return cancelled;
     }
-    const bytes::Bytes request = ssm_protocol::addHeader(payload, s.wire.tester_id, s.wire.target_id);
+    const bytes::Bytes request = ssm_protocol::AddHeader(payload, s.wire.tester_id, s.wire.target_id);
     auto written = s.transport.write(request);
     if (!written.has_value())
     {
@@ -85,7 +85,7 @@ Result<std::optional<bytes::Bytes>> receive(Session& s, std::chrono::millisecond
 
 bool is_status_reply(bytes::ByteView frame, const SubaruUnisiaJecsM32rBootModeProgramPlan& wire)
 {
-    return ssm_protocol::hasValidFrame(frame, wire.tester_id, wire.target_id) && frame[3] == 2 && frame[4] == 0xef;
+    return ssm_protocol::HasValidFrame(frame, wire.tester_id, wire.target_id) && frame[3] == 2 && frame[4] == 0xef;
 }
 
 bool is_status(bytes::ByteView frame, const SubaruUnisiaJecsM32rBootModeProgramPlan& wire, bytes::Byte status)
@@ -120,9 +120,9 @@ std::string describe(bytes::ByteView frame, const SubaruUnisiaJecsM32rBootModePr
 {
     if (is_status_reply(frame, wire))
     {
-        return std::format("{} (status {:02X}: {})", bytes::toHex(frame), frame[5], status_meaning(frame[5]));
+        return std::format("{} (status {:02X}: {})", bytes::ToHex(frame), frame[5], status_meaning(frame[5]));
     }
-    return bytes::toHex(frame);
+    return bytes::ToHex(frame);
 }
 
 // write_mem() :393-463. read() returns whole frames: an empty read continues
@@ -168,7 +168,7 @@ Status program(Session& s, const FlashPlan& plan)
     }
 
     s.events.log(LogLevel::kInfo, "Requesting flash erase, please wait...");
-    if (Status sent = send(s, composeBe(0xaf_b, 0x31_b)); !sent.has_value())
+    if (Status sent = send(s, ComposeBe(0xaf_b, 0x31_b)); !sent.has_value())
     {
         return sent;
     }
@@ -199,7 +199,7 @@ Status program(Session& s, const FlashPlan& plan)
         const std::uint32_t address = static_cast<std::uint32_t>(block) * kBlock;
         const bool last = block == blocks - 1;
         const bytes::ByteView data = bytes::ByteView(image).subspan(address, kBlock);
-        if (Status sent = send(s, composeBe(0xaf_b, last ? 0x69_b : 0x61_b, u24(address), data)); !sent.has_value())
+        if (Status sent = send(s, ComposeBe(0xaf_b, last ? 0x69_b : 0x61_b, U24(address), data)); !sent.has_value())
         {
             return sent;
         }

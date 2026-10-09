@@ -80,19 +80,19 @@ TEST(DensoIso15765CanCommonTest, SeedKeyProducesKnownVectors)
 {
     const bytes::Bytes seed_a{0x11, 0x22, 0x33, 0x44};
     EXPECT_THAT(
-        ssm_protocol::calculateSeedKey(seed_a, kDensoIso15765SeedKeyTable, ssm_protocol::kIndexTransformationStock),
+        ssm_protocol::CalculateSeedKey(seed_a, kDensoIso15765SeedKeyTable, ssm_protocol::kIndexTransformationStock),
         test_bytes::BytesEq((bytes::Bytes{0x35, 0xB6, 0x83, 0xBF})));
 
     const bytes::Bytes seed_b{0xDE, 0xAD, 0xBE, 0xEF};
     EXPECT_THAT(
-        ssm_protocol::calculateSeedKey(seed_b, kDensoIso15765SeedKeyTable, ssm_protocol::kIndexTransformationStock),
+        ssm_protocol::CalculateSeedKey(seed_b, kDensoIso15765SeedKeyTable, ssm_protocol::kIndexTransformationStock),
         test_bytes::BytesEq((bytes::Bytes{0xB6, 0xF5, 0x24, 0x21})));
 }
 
 TEST(DensoIso15765CanCommonTest, EncryptProducesKnownPayloadVector)
 {
     const bytes::Bytes plain{0x00, 0x01, 0x02, 0x03, 0xFC, 0xFD, 0xFE, 0xFF};
-    EXPECT_THAT(ssm_protocol::calculatePayload(plain, static_cast<std::uint32_t>(plain.size()),
+    EXPECT_THAT(ssm_protocol::CalculatePayload(plain, static_cast<std::uint32_t>(plain.size()),
                                                kDensoIso15765EncryptTable, ssm_protocol::kIndexTransformationStock),
                 test_bytes::BytesEq((bytes::Bytes{0xE0, 0xD3, 0x85, 0x2B, 0xC5, 0xFE, 0x4B, 0x39})));
 }
@@ -104,7 +104,7 @@ TEST(DensoIso15765CanCommonTest, EncryptProducesKnownPayloadVector)
 TEST(DensoIso15765CanCommonTest, DecryptInvertsEncrypt)
 {
     const bytes::Bytes cipher{0xE0, 0xD3, 0x85, 0x2B, 0xC5, 0xFE, 0x4B, 0x39};
-    EXPECT_THAT(ssm_protocol::calculatePayload(cipher, static_cast<std::uint32_t>(cipher.size()),
+    EXPECT_THAT(ssm_protocol::CalculatePayload(cipher, static_cast<std::uint32_t>(cipher.size()),
                                                kDensoIso15765DecryptTable, ssm_protocol::kIndexTransformationStock),
                 test_bytes::BytesEq((bytes::Bytes{0x00, 0x01, 0x02, 0x03, 0xFC, 0xFD, 0xFE, 0xFF})));
 }
@@ -121,7 +121,7 @@ using fastecu::Status;
 bytes::Bytes request(std::initializer_list<bytes::Byte> payload)
 {
     bytes::Bytes out;
-    bytes::appendU32Be(out, 0x7E0);
+    bytes::AppendU32Be(out, 0x7E0);
     out.insert(out.end(), payload.begin(), payload.end());
     return out;
 }
@@ -129,7 +129,7 @@ bytes::Bytes request(std::initializer_list<bytes::Byte> payload)
 bytes::Bytes response(std::initializer_list<bytes::Byte> payload)
 {
     bytes::Bytes out;
-    bytes::appendU32Be(out, 0x7E8);
+    bytes::AppendU32Be(out, 0x7E8);
     out.insert(out.end(), payload.begin(), payload.end());
     return out;
 }
@@ -313,7 +313,7 @@ TEST(DensoIso15765CanCommonTest, EraseCancellationAfterTriggerStopsPolling)
 bytes::Bytes requestTo(std::uint32_t id, std::initializer_list<bytes::Byte> payload)
 {
     bytes::Bytes out;
-    bytes::appendU32Be(out, id);
+    bytes::AppendU32Be(out, id);
     out.insert(out.end(), payload.begin(), payload.end());
     return out;
 }

@@ -34,14 +34,14 @@ LoggingChannel channel(std::string id = "rpm", std::uint32_t address = 0x1000, s
 
 bytes::Bytes buildRequest(bytes::ByteView payload, bool target_is_ecu = true)
 {
-    return ssm_protocol::addHeader(payload, 0xF0, target_is_ecu ? 0x10 : 0x18);
+    return ssm_protocol::AddHeader(payload, 0xF0, target_is_ecu ? 0x10 : 0x18);
 }
 
 bytes::Bytes buildResponse(bytes::ByteView payload)
 {
     bytes::Bytes message = {0x80, 0xf0, 0x10, static_cast<bytes::Byte>(payload.size() + 1), 0xe8};
     message.insert(message.end(), payload.begin(), payload.end());
-    message.push_back(bytes::sum8(message));
+    message.push_back(bytes::Sum8(message));
     return message;
 }
 

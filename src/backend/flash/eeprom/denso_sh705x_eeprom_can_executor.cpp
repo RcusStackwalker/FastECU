@@ -14,8 +14,8 @@ namespace fastecu::flash
 {
 namespace
 {
-using bytes::composeBe;
-using bytes::u24;
+using bytes::ComposeBe;
+using bytes::U24;
 using namespace bytes::literals;
 using namespace std::chrono_literals;
 
@@ -63,7 +63,7 @@ constexpr int kInterPageDelayMs = 1;      // read_mem():1117 delay(1)
 
 bytes::Bytes can_frame(std::uint32_t request_id, bytes::ByteView payload)
 {
-    return composeBe(request_id, payload);
+    return ComposeBe(request_id, payload);
 }
 
 bytes::Bytes init_connection_request(std::uint32_t request_id)
@@ -96,7 +96,7 @@ bytes::Bytes seed_request(std::uint32_t request_id)
 }
 bytes::Bytes seed_key_send_request(std::uint32_t request_id, bytes::ByteView key)
 {
-    return can_frame(request_id, composeBe(0x27_b, 0x02_b, key));
+    return can_frame(request_id, ComposeBe(0x27_b, 0x02_b, key));
 }
 // lines 586-602: [0x10] with 0x02 appended iff req_10_03_connected, then 0x42
 // appended iff req_10_43_connected. Computed dynamically, not hardcoded to
@@ -125,15 +125,15 @@ bytes::Bytes request_kernel_id_frame(std::uint32_t request_id)
     // type, so they're spelled out explicitly to keep the 8-byte payload
     // length exact.
     return can_frame(request_id,
-                     composeBe(kSubKernelStartComm, std::uint16_t{1}, kSubKernelId, 0x00_b, 0x00_b, 0x00_b));
+                     ComposeBe(kSubKernelStartComm, std::uint16_t{1}, kSubKernelId, 0x00_b, 0x00_b, 0x00_b));
 }
 bytes::Bytes sid34_request(std::uint32_t request_id, std::uint32_t addr, std::uint32_t data_len)
 {
-    return can_frame(request_id, composeBe(0x34_b, 0x04_b, 0x33_b, u24(addr), u24(data_len)));
+    return can_frame(request_id, ComposeBe(0x34_b, 0x04_b, 0x33_b, U24(addr), U24(data_len)));
 }
 bytes::Bytes sid_b6_request(std::uint32_t request_id, std::uint32_t block_addr, bytes::ByteView chunk)
 {
-    return can_frame(request_id, composeBe(0xB6_b, u24(block_addr), chunk));
+    return can_frame(request_id, ComposeBe(0xB6_b, U24(block_addr), chunk));
 }
 bytes::Bytes sid37_request(std::uint32_t request_id)
 {
@@ -149,8 +149,8 @@ bytes::Bytes read_eeprom_request(std::uint32_t request_id, std::uint8_t mode, st
                                  std::uint32_t pagesize)
 {
     constexpr std::uint32_t kDatalen = 6;
-    return can_frame(request_id, composeBe(kSubKernelStartComm, std::uint16_t(kDatalen + 1), kSubKernelReadEeprom, mode,
-                                           u24(addr), std::uint16_t(pagesize)));
+    return can_frame(request_id, ComposeBe(kSubKernelStartComm, std::uint16_t(kDatalen + 1), kSubKernelReadEeprom, mode,
+                                           U24(addr), std::uint16_t(pagesize)));
 }
 
 // request_kernel_id()'s / upload_kernel()'s post-upload poll's "kernel alive"
@@ -158,7 +158,7 @@ bytes::Bytes read_eeprom_request(std::uint32_t request_id, std::uint8_t mode, st
 // big-endian, received[8] == SUB_KERNEL_ID | 0x40.
 bool looks_kernel_alive(bytes::ByteView received)
 {
-    return received.size() > 8 && bytes::readU16Be(received, 4) == kSubKernelStartComm &&
+    return received.size() > 8 && bytes::ReadU16Be(received, 4) == kSubKernelStartComm &&
            received[8] == static_cast<bytes::Byte>(kSubKernelId | 0x40U);
 }
 
@@ -176,7 +176,7 @@ bytes::Bytes generate_stock_seed_key(bytes::ByteView seed)
     static constexpr std::array<std::uint16_t, 16> kIndex{0x78B1, 0x4625, 0x201C, 0x9EA5, 0xAD6B, 0x35F4,
                                                           0xFD21, 0x5E71, 0xB046, 0x7F4A, 0x4B75, 0x93F9,
                                                           0x1895, 0x8961, 0x3ECC, 0x862B};
-    return ssm_protocol::calculateSeedKey(seed, kIndex, ssm_protocol::kIndexTransformationStock);
+    return ssm_protocol::CalculateSeedKey(seed, kIndex, ssm_protocol::kIndexTransformationStock);
 }
 
 // generate_ecutek_seed_key(), lines 1224-1269 (base calculateSeedKey() call
@@ -190,7 +190,7 @@ bytes::Bytes generate_ecutek_seed_key(bytes::ByteView seed)
     static constexpr std::array<std::uint16_t, 16> kIndex{0x78B1, 0x4625, 0x201C, 0x9EA5, 0xAD6B, 0x35F4,
                                                           0xFD21, 0x5E71, 0xB046, 0x7F4A, 0x4B75, 0x93F9,
                                                           0x1895, 0x8961, 0x3ECC, 0x862B};
-    return ssm_protocol::calculateSeedKey(seed, kIndex, ssm_protocol::kIndexTransformationEcutek);
+    return ssm_protocol::CalculateSeedKey(seed, kIndex, ssm_protocol::kIndexTransformationEcutek);
 }
 
 // generate_cobb_seed_key(), lines 1274-1302 ("2017 VA model" table -- the one
@@ -200,7 +200,7 @@ bytes::Bytes generate_cobb_seed_key(bytes::ByteView seed)
     static constexpr std::array<std::uint16_t, 16> kIndex{0x9DDB, 0x9CFB, 0x9B9A, 0x6136, 0x59E1, 0xBA03,
                                                           0xD683, 0x7092, 0x9E05, 0x8723, 0xF998, 0x15BB,
                                                           0xB8D5, 0xFF0C, 0x9D91, 0x24B9};
-    return ssm_protocol::calculateSeedKey(seed, kIndex, ssm_protocol::kIndexTransformationStock);
+    return ssm_protocol::CalculateSeedKey(seed, kIndex, ssm_protocol::kIndexTransformationStock);
 }
 
 // decrypt_racerom_seed(), lines 1175-1189: plain modular exponentiation
@@ -226,11 +226,11 @@ std::uint64_t decrypt_racerom_seed(std::uint64_t base, std::uint64_t exponent, s
 // big-endian as the 4-byte key.
 bytes::Bytes generate_ecutek_racerom_can_seed_key(bytes::ByteView seed)
 {
-    const std::uint32_t seed_word = bytes::readU32Be(seed, 0);
+    const std::uint32_t seed_word = bytes::ReadU32Be(seed, 0);
     constexpr std::uint64_t kD = 0x0A863281ULL;
     constexpr std::uint64_t kN = 0x0fda9293ULL;
     const std::uint32_t decrypted = static_cast<std::uint32_t>(decrypt_racerom_seed(seed_word, kD, kN));
-    return composeBe(decrypted);
+    return ComposeBe(decrypted);
 }
 
 // encrypt_payload(), lines 1314-1330: this class's OWN key table --
@@ -239,7 +239,7 @@ bytes::Bytes generate_ecutek_racerom_can_seed_key(bytes::ByteView seed)
 bytes::Bytes encrypt_can_kernel_payload(bytes::ByteView buf, std::uint32_t len)
 {
     static constexpr std::array<std::uint16_t, 4> kIndex{0xC85B, 0x32C0, 0xE282, 0x92A0};
-    return ssm_protocol::calculatePayload(buf, len, kIndex, ssm_protocol::kIndexTransformationStock);
+    return ssm_protocol::CalculatePayload(buf, len, kIndex, ssm_protocol::kIndexTransformationStock);
 }
 
 // ---------------------------------------------------------------------
@@ -652,10 +652,10 @@ Status DensoSh705xEepromCanExecutor::upload_kernel(ICanFlashTransport& transport
     std::uint32_t chk_sum = 0;
     for (std::size_t i = 0; i < buf.size(); i += 4)
     {
-        chk_sum += bytes::readU32Be(buf, i);
+        chk_sum += bytes::ReadU32Be(buf, i);
     }
     chk_sum = 0x5aa5a55aU - chk_sum;
-    bytes::appendU32Be(buf, chk_sum);
+    bytes::AppendU32Be(buf, chk_sum);
     const bytes::Bytes encrypted = encrypt_can_kernel_payload(buf, static_cast<std::uint32_t>(buf.size()));
 
     events.log(LogLevel::kInfo, "Initialize kernel upload");

@@ -267,7 +267,7 @@ TEST(BenchCommands, UnlockSendsTheTwelveByteReflashPayload)
     const auto outcome = harness.run(destructiveStep(CommandId::Unlock));
 
     ASSERT_TRUE(outcome.ok) << outcome.error_detail;
-    EXPECT_EQ(harness.session.requests.at(0), mitsu_colt_can::buildRequestReflashUnlock());
+    EXPECT_EQ(harness.session.requests.at(0), mitsu_colt_can::BuildRequestReflashUnlock());
 }
 
 TEST(BenchCommands, EraseSendsRoutineControl224AndAcceptsAZeroStatus)
@@ -333,12 +333,12 @@ TEST(BenchCommands, DownloadSendsRequestDownloadThenTransferDataThenTheChecksum)
     ASSERT_TRUE(outcome.ok) << outcome.error_detail;
     // 0xAA + 0xBB = 0x0165, big-endian.
     EXPECT_THAT(harness.session.requests,
-                ::testing::ElementsAre(test_bytes::BytesEq(mitsu_colt_can::buildRequestDownload(0x8000, 2)),
+                ::testing::ElementsAre(test_bytes::BytesEq(mitsu_colt_can::BuildRequestDownload(0x8000, 2)),
                                        test_bytes::BytesEq((bytes::Bytes{0x36, 0xAA, 0xBB})),
-                                       test_bytes::BytesEq(mitsu_colt_can::buildRequestDownload(
+                                       test_bytes::BytesEq(mitsu_colt_can::BuildRequestDownload(
                                            mitsu_colt_can::kCrcTransferAddress, mitsu_colt_can::kCrcTransferSize)),
                                        test_bytes::BytesEq((bytes::Bytes{0x36, 0x01, 0x65})),
-                                       test_bytes::BytesEq(mitsu_colt_can::buildRoutineCheckCrc(0x8000))));
+                                       test_bytes::BytesEq(mitsu_colt_can::BuildRoutineCheckCrc(0x8000))));
 }
 
 TEST(BenchCommands, DownloadUsesDesktopTimingAndReservesTheSlowPolicyForFinalCrc)
@@ -469,7 +469,7 @@ TEST(BenchCommands, UploadRoutineSendsTheBakedArrayToItsRamSlot)
     const auto outcome = harness.run(destructiveStep(CommandId::UploadRoutine, {"erase-redirect"}));
 
     ASSERT_TRUE(outcome.ok) << outcome.error_detail;
-    EXPECT_EQ(harness.session.requests.at(0), mitsu_colt_can::buildRequestDownload(mitsu_colt_can::kEraseRoutineRamAddr,
+    EXPECT_EQ(harness.session.requests.at(0), mitsu_colt_can::BuildRequestDownload(mitsu_colt_can::kEraseRoutineRamAddr,
                                                                                    mitsu_colt_can::kEraseRoutineSize));
 }
 
@@ -483,7 +483,7 @@ TEST(BenchCommands, UploadRoutineSendsWriteRoutinesToTheWriteRamSlot)
     const auto outcome = harness.run(destructiveStep(CommandId::UploadRoutine, {"write-redirect"}));
 
     ASSERT_TRUE(outcome.ok) << outcome.error_detail;
-    EXPECT_EQ(harness.session.requests.at(0), mitsu_colt_can::buildRequestDownload(mitsu_colt_can::kWriteRoutineRamAddr,
+    EXPECT_EQ(harness.session.requests.at(0), mitsu_colt_can::BuildRequestDownload(mitsu_colt_can::kWriteRoutineRamAddr,
                                                                                    mitsu_colt_can::kWriteRoutineSize));
 }
 
@@ -501,7 +501,7 @@ TEST(BenchCommands, UploadRoutineFromFileSendsTheFilesBytesInsteadOfTheBakedArra
 
     ASSERT_TRUE(outcome.ok) << outcome.error_detail;
     EXPECT_EQ(harness.session.requests.at(0),
-              mitsu_colt_can::buildRequestDownload(mitsu_colt_can::kEraseRoutineRamAddr, 4));
+              mitsu_colt_can::BuildRequestDownload(mitsu_colt_can::kEraseRoutineRamAddr, 4));
     EXPECT_THAT(harness.session.requests.at(1), test_bytes::BytesEq((bytes::Bytes{0x36, 0x11, 0x22, 0x33, 0x44})));
     // 0x11+0x22+0x33+0x44 = 0x00AA, big-endian.
     EXPECT_THAT(harness.session.requests.at(3), test_bytes::BytesEq((bytes::Bytes{0x36, 0x00, 0xAA})));

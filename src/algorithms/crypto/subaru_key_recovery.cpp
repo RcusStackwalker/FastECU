@@ -30,29 +30,29 @@ struct WordPair
     std::uint32_t cipher;
 };
 
-std::uint32_t bit(std::uint32_t value, unsigned position)
+std::uint32_t Bit(std::uint32_t value, unsigned position)
 {
     return (value >> (32U - position)) & 1U;
 }
 
-std::uint32_t bits(std::uint32_t value, const BitPair& positions, unsigned offset = 0)
+std::uint32_t Bits(std::uint32_t value, const BitPair& positions, unsigned offset = 0)
 {
-    return bit(value, positions[0] + offset) ^ bit(value, positions[1] + offset);
+    return Bit(value, positions[0] + offset) ^ Bit(value, positions[1] + offset);
 }
 
-std::uint16_t high(std::uint32_t word)
+std::uint16_t High(std::uint32_t word)
 {
     return static_cast<std::uint16_t>(word >> 16U);
 }
 
-std::uint16_t low(std::uint32_t word)
+std::uint16_t Low(std::uint32_t word)
 {
     return static_cast<std::uint16_t>(word);
 }
 
 // The round key a nybble's subkey stands for. The fifth subkey bit of nybble
 // 0 shifts out of the 16-bit key and is folded into bit 0 instead.
-std::uint16_t candidate(std::size_t nybble, std::uint32_t subkey)
+std::uint16_t Candidate(std::size_t nybble, std::uint32_t subkey)
 {
     auto key = static_cast<std::uint16_t>(subkey << (12U - nybble * 4U));
     if (nybble == 0 && subkey > 0xF)
@@ -63,16 +63,16 @@ std::uint16_t candidate(std::size_t nybble, std::uint32_t subkey)
 }
 
 // Every pair whose plaintext word has not occurred earlier, in input order.
-std::vector<WordPair> distinct_pairs(bytes::ByteView plain, bytes::ByteView cipher)
+std::vector<WordPair> DistinctPairs(bytes::ByteView plain, bytes::ByteView cipher)
 {
     std::vector<WordPair> pairs;
     std::unordered_set<std::uint32_t> seen;
     for (std::size_t offset = 0; offset < kAnalyzedBytes; offset += 4)
     {
-        const std::uint32_t word = bytes::readU32Be(plain, offset);
+        const std::uint32_t word = bytes::ReadU32Be(plain, offset);
         if (seen.insert(word).second)
         {
-            pairs.push_back({word, bytes::readU32Be(cipher, offset)});
+            pairs.push_back({word, bytes::ReadU32Be(cipher, offset)});
         }
     }
     return pairs;
@@ -82,7 +82,7 @@ std::vector<WordPair> distinct_pairs(bytes::ByteView plain, bytes::ByteView ciph
 // subkey and keeps the subkey whose count strays furthest from half the
 // pairs; a tie goes to the higher subkey. Only the low four bits of each
 // chosen subkey reach the key.
-template <typename Parity> std::uint16_t most_biased_key(std::span<const WordPair> pairs, Parity parity)
+template <typename Parity> std::uint16_t MostBiasedKey(std::span<const WordPair> pairs, Parity parity)
 {
     const std::size_t half = pairs.size() / 2;
     std::uint16_t key = 0;
@@ -93,7 +93,7 @@ template <typename Parity> std::uint16_t most_biased_key(std::span<const WordPai
         {
             for (std::uint32_t subkey = 0; subkey < kSubkeys; ++subkey)
             {
-                if (parity(pair, nybble, candidate(nybble, subkey)) == 0)
+                if (parity(pair, nybble, Candidate(nybble, subkey)) == 0)
                 {
                     ++agreeing[subkey];
                 }
@@ -127,7 +127,7 @@ class FunctionInverse
         std::vector<std::uint32_t> counts(kKeySpace);
         for (std::uint32_t v = 0; v < kKeySpace; ++v)
         {
-            ++counts[f_function(static_cast<std::uint16_t>(v), 0)];
+            ++counts[FFunction(static_cast<std::uint16_t>(v), 0)];
         }
         for (std::uint32_t output = 0; output < kKeySpace; ++output)
         {
@@ -136,11 +136,11 @@ class FunctionInverse
         std::vector<std::uint32_t> next(first_.begin(), first_.end() - 1);
         for (std::uint32_t v = 0; v < kKeySpace; ++v)
         {
-            values_[next[f_function(static_cast<std::uint16_t>(v), 0)]++] = static_cast<std::uint16_t>(v);
+            values_[next[FFunction(static_cast<std::uint16_t>(v), 0)]++] = static_cast<std::uint16_t>(v);
         }
     }
 
-    std::span<const std::uint16_t> preimages(std::uint16_t output) const
+    std::span<const std::uint16_t> Preimages(std::uint16_t output) const
     {
         return std::span(values_).subspan(first_[output], first_[output + 1U] - first_[output]);
     }
@@ -159,12 +159,12 @@ struct Equation
 
 // The key satisfying the most equations, the lowest on a tie. It must satisfy
 // more than half of them: a wrong k1 or k4 scatters the votes.
-std::expected<std::uint16_t, Failure> majority_key(std::span<const Equation> equations, const FunctionInverse& inverse)
+std::expected<std::uint16_t, Failure> MajorityKey(std::span<const Equation> equations, const FunctionInverse& inverse)
 {
     std::vector<std::size_t> votes(kKeySpace);
     for (const Equation& equation : equations)
     {
-        for (const std::uint16_t v : inverse.preimages(equation.output))
+        for (const std::uint16_t v : inverse.Preimages(equation.output))
         {
             ++votes[equation.input ^ v];
         }
@@ -179,7 +179,7 @@ std::expected<std::uint16_t, Failure> majority_key(std::span<const Equation> equ
 
 } // namespace
 
-std::uint16_t f_function(std::uint16_t word, std::uint16_t key)
+std::uint16_t FFunction(std::uint16_t word, std::uint16_t key)
 {
     std::uint32_t index = static_cast<std::uint32_t>(word ^ key);
     index += index << 16U;
@@ -192,44 +192,44 @@ std::uint16_t f_function(std::uint16_t word, std::uint16_t key)
     return std::rotr(substituted, 3);
 }
 
-std::uint32_t encrypt(std::uint32_t plain, const Keys& keys)
+std::uint32_t Encrypt(std::uint32_t plain, const Keys& keys)
 {
     std::uint32_t word = plain;
     for (const std::uint16_t key : keys)
     {
-        const auto mixed = static_cast<std::uint16_t>(high(word) ^ f_function(low(word), key));
-        word = (static_cast<std::uint32_t>(low(word)) << 16U) | mixed;
+        const auto mixed = static_cast<std::uint16_t>(High(word) ^ FFunction(Low(word), key));
+        word = (static_cast<std::uint32_t>(Low(word)) << 16U) | mixed;
     }
     return std::rotl(word, 16);
 }
 
-std::expected<Recovery, Failure> recover_keys(bytes::ByteView plain, bytes::ByteView cipher)
+std::expected<Recovery, Failure> RecoverKeys(bytes::ByteView plain, bytes::ByteView cipher)
 {
     if (plain.size() < kAnalyzedBytes || cipher.size() < kAnalyzedBytes)
     {
         return std::unexpected(Failure::kInputTooShort);
     }
-    const std::vector<WordPair> pairs = distinct_pairs(plain, cipher);
+    const std::vector<WordPair> pairs = DistinctPairs(plain, cipher);
 
-    const std::uint16_t k4 = most_biased_key(
+    const std::uint16_t k4 = MostBiasedKey(
         pairs,
         [](const WordPair& pair, std::size_t nybble, std::uint16_t key)
         {
-            const std::uint32_t p = bits(pair.plain, kInBits[nybble]) ^ bits(pair.plain, kOutBits[nybble]);
-            const std::uint32_t c = bits(pair.cipher, kOutBits[nybble], 16);
-            const auto x3 = static_cast<std::uint16_t>(high(pair.cipher) ^ f_function(low(pair.cipher), key));
-            return p ^ c ^ bits(x3, kInBits[nybble]);
+            const std::uint32_t p = Bits(pair.plain, kInBits[nybble]) ^ Bits(pair.plain, kOutBits[nybble]);
+            const std::uint32_t c = Bits(pair.cipher, kOutBits[nybble], 16);
+            const auto x3 = static_cast<std::uint16_t>(High(pair.cipher) ^ FFunction(Low(pair.cipher), key));
+            return p ^ c ^ Bits(x3, kInBits[nybble]);
         });
 
-    const std::uint16_t k1 = most_biased_key(
+    const std::uint16_t k1 = MostBiasedKey(
         pairs,
         [k4](const WordPair& pair, std::size_t nybble, std::uint16_t key)
         {
-            const auto x3 = static_cast<std::uint16_t>(high(pair.cipher) ^ f_function(low(pair.cipher), k4));
-            const std::uint32_t p = bits(pair.plain, kOutBits[nybble], 16);
-            const std::uint32_t c = bits(x3, kOutBits[nybble], 16);
-            const auto x2 = static_cast<std::uint16_t>(high(pair.plain) ^ f_function(low(pair.plain), key));
-            return p ^ c ^ bits(x2, kInBits[nybble]);
+            const auto x3 = static_cast<std::uint16_t>(High(pair.cipher) ^ FFunction(Low(pair.cipher), k4));
+            const std::uint32_t p = Bits(pair.plain, kOutBits[nybble], 16);
+            const std::uint32_t c = Bits(x3, kOutBits[nybble], 16);
+            const auto x2 = static_cast<std::uint16_t>(High(pair.plain) ^ FFunction(Low(pair.plain), key));
+            return p ^ c ^ Bits(x2, kInBits[nybble]);
         });
 
     // The middle rounds: from each pair's halves after round 1 (x2) and
@@ -241,18 +241,18 @@ std::expected<Recovery, Failure> recover_keys(bytes::ByteView plain, bytes::Byte
     k3_equations.reserve(pairs.size());
     for (const WordPair& pair : pairs)
     {
-        const auto x2 = static_cast<std::uint16_t>(high(pair.plain) ^ f_function(low(pair.plain), k1));
-        const auto x3 = static_cast<std::uint16_t>(high(pair.cipher) ^ f_function(low(pair.cipher), k4));
-        k2_equations.push_back({x2, static_cast<std::uint16_t>(x3 ^ low(pair.plain))});
-        k3_equations.push_back({x3, static_cast<std::uint16_t>(x2 ^ low(pair.cipher))});
+        const auto x2 = static_cast<std::uint16_t>(High(pair.plain) ^ FFunction(Low(pair.plain), k1));
+        const auto x3 = static_cast<std::uint16_t>(High(pair.cipher) ^ FFunction(Low(pair.cipher), k4));
+        k2_equations.push_back({x2, static_cast<std::uint16_t>(x3 ^ Low(pair.plain))});
+        k3_equations.push_back({x3, static_cast<std::uint16_t>(x2 ^ Low(pair.cipher))});
     }
     const FunctionInverse inverse;
-    const auto k2 = majority_key(k2_equations, inverse);
+    const auto k2 = MajorityKey(k2_equations, inverse);
     if (!k2.has_value())
     {
         return std::unexpected(k2.error());
     }
-    const auto k3 = majority_key(k3_equations, inverse);
+    const auto k3 = MajorityKey(k3_equations, inverse);
     if (!k3.has_value())
     {
         return std::unexpected(k3.error());
@@ -260,7 +260,7 @@ std::expected<Recovery, Failure> recover_keys(bytes::ByteView plain, bytes::Byte
 
     const Keys keys{k1, *k2, *k3, k4};
     const auto reproduced = static_cast<std::size_t>(std::ranges::count_if(
-        pairs, [&keys](const WordPair& pair) { return encrypt(pair.plain, keys) == pair.cipher; }));
+        pairs, [&keys](const WordPair& pair) { return Encrypt(pair.plain, keys) == pair.cipher; }));
     return Recovery{.keys = keys, .distinct_pairs = pairs.size(), .reproduced_pairs = reproduced};
 }
 

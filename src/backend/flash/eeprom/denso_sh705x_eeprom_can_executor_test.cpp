@@ -35,8 +35,8 @@ namespace fastecu::flash
 {
 namespace
 {
-using bytes::composeBe;
-using bytes::u24;
+using bytes::ComposeBe;
+using bytes::U24;
 using namespace bytes::literals;
 
 // eeprom_ecu_subaru_denso_sh705x_can_operation.cpp's serial->set_can_source_
@@ -92,7 +92,7 @@ bytes::Bytes seedRequestFrame()
 }
 bytes::Bytes seedKeySendRequest(bytes::ByteView key)
 {
-    return composeBe(bytes::Bytes{0x00, 0x00, 0x07, 0xE0}, 0x27_b, 0x02_b, key);
+    return ComposeBe(bytes::Bytes{0x00, 0x00, 0x07, 0xE0}, 0x27_b, 0x02_b, key);
 }
 // Every fixture below gives positive responses to both prior session-mode
 // requests, so both flags are true and both bytes are appended.
@@ -108,11 +108,11 @@ bytes::Bytes requestKernelIdRequest()
 }
 bytes::Bytes sid34RequestDownloadRequest(std::uint32_t start_address, std::uint32_t data_len)
 {
-    return composeBe(bytes::Bytes{0x00, 0x00, 0x07, 0xE0}, 0x34_b, 0x04_b, 0x33_b, u24(start_address), u24(data_len));
+    return ComposeBe(bytes::Bytes{0x00, 0x00, 0x07, 0xE0}, 0x34_b, 0x04_b, 0x33_b, U24(start_address), U24(data_len));
 }
 bytes::Bytes sidB6TransferBlockRequest(std::uint32_t block_addr, bytes::ByteView payload)
 {
-    return composeBe(bytes::Bytes{0x00, 0x00, 0x07, 0xE0}, 0xB6_b, u24(block_addr), payload);
+    return ComposeBe(bytes::Bytes{0x00, 0x00, 0x07, 0xE0}, 0xB6_b, U24(block_addr), payload);
 }
 bytes::Bytes sid37StartKernelRequest()
 {
@@ -182,7 +182,7 @@ bytes::Bytes generateSeedKeyStock(bytes::ByteView seed)
     static constexpr auto kTransform =
         std::to_array<std::uint8_t>({0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8, 0xA, 0xD, 0x2, 0xB, 0xF, 0x4, 0x0, 0x3,
                                      0xB, 0x4, 0x6, 0x0, 0xF, 0x2, 0xD, 0x9, 0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8});
-    return ssm_protocol::calculateSeedKey(seed, kIndex, kTransform);
+    return ssm_protocol::CalculateSeedKey(seed, kIndex, kTransform);
 }
 bytes::Bytes generateEcutekSeedKeyPlain(bytes::ByteView seed)
 {
@@ -192,7 +192,7 @@ bytes::Bytes generateEcutekSeedKeyPlain(bytes::ByteView seed)
     static constexpr auto kTransform =
         std::to_array<std::uint8_t>({0x4, 0x2, 0x5, 0x1, 0x8, 0xC, 0xD, 0x8, 0xA, 0xD, 0x2, 0xB, 0xF, 0x4, 0x0, 0x3,
                                      0xB, 0x4, 0x6, 0x0, 0xF, 0x2, 0xD, 0x9, 0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8});
-    return ssm_protocol::calculateSeedKey(seed, kIndex, kTransform);
+    return ssm_protocol::CalculateSeedKey(seed, kIndex, kTransform);
 }
 bytes::Bytes generateCobbSeedKey(bytes::ByteView seed)
 {
@@ -202,7 +202,7 @@ bytes::Bytes generateCobbSeedKey(bytes::ByteView seed)
     static constexpr auto kTransform =
         std::to_array<std::uint8_t>({0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8, 0xA, 0xD, 0x2, 0xB, 0xF, 0x4, 0x0, 0x3,
                                      0xB, 0x4, 0x6, 0x0, 0xF, 0x2, 0xD, 0x9, 0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8});
-    return ssm_protocol::calculateSeedKey(seed, kIndex, kTransform);
+    return ssm_protocol::CalculateSeedKey(seed, kIndex, kTransform);
 }
 std::uint64_t decryptRaceromSeed(std::uint64_t base, std::uint64_t exponent, std::uint64_t modulus)
 {
@@ -227,7 +227,7 @@ bytes::Bytes generateEcutekRacecomCanSeedKey(bytes::ByteView seed)
     constexpr std::uint64_t kD = 0x0A863281ULL;
     constexpr std::uint64_t kN = 0x0fda9293ULL;
     const std::uint32_t decrypted = static_cast<std::uint32_t>(decryptRaceromSeed(seed_word, kD, kN));
-    return composeBe(decrypted);
+    return ComposeBe(decrypted);
 }
 // encrypt_payload(), this class's OWN key table, distinct from the K-Line
 // sibling's.
@@ -237,7 +237,7 @@ bytes::Bytes encryptPayloadCan(bytes::ByteView buf, std::uint32_t len)
     static constexpr auto kTransform =
         std::to_array<std::uint8_t>({0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8, 0xA, 0xD, 0x2, 0xB, 0xF, 0x4, 0x0, 0x3,
                                      0xB, 0x4, 0x6, 0x0, 0xF, 0x2, 0xD, 0x9, 0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8});
-    return ssm_protocol::calculatePayload(buf, len, kIndex, kTransform);
+    return ssm_protocol::CalculatePayload(buf, len, kIndex, kTransform);
 }
 
 // ---- Kernel-upload framing: TRANSCRIBE of upload_kernel()'s padding/-------
@@ -275,7 +275,7 @@ KernelUploadPlan computeKernelUploadPlan(bytes::ByteView kernel_bytes)
     }
     chk_sum = 0x5aa5a55aU - chk_sum;
 
-    bytes::appendU32Be(pl_encr, chk_sum);
+    bytes::AppendU32Be(pl_encr, chk_sum);
 
     plan.encrypted_payload = encryptPayloadCan(pl_encr, static_cast<std::uint32_t>(pl_encr.size()));
     return plan;
@@ -289,7 +289,7 @@ bytes::Bytes kernelAliveResponse()
     out[4] = 0xBE;
     out[5] = 0xEF;
     out[8] = 0x41; // SUB_KERNEL_ID | 0x40
-    out = composeBe(out, std::string_view{"KERN2"});
+    out = ComposeBe(out, std::string_view{"KERN2"});
     return out; // 14 bytes
 }
 bytes::Bytes initConnResponse()

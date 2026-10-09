@@ -42,7 +42,7 @@ namespace fastecu::flash
 {
 namespace
 {
-using bytes::composeBe;
+using bytes::ComposeBe;
 using namespace std::chrono_literals;
 
 // Legacy's read timeouts. This family writes most of them as bare literals
@@ -202,7 +202,7 @@ Status tolerant_setup(Ctx& ctx, bytes::ByteView pdu, bytes::ByteView expected_pr
     const bytes::Bytes& frame = **received;
     if (!std::equal(expected_prefix.begin(), expected_prefix.end(), frame.begin()))
     {
-        error(ctx, std::format("{}{}", kRejectionPrefix, bytes::toHex(frame)));
+        error(ctx, std::format("{}{}", kRejectionPrefix, bytes::ToHex(frame)));
     }
     return {};
 }
@@ -441,7 +441,7 @@ Status connect_bootloader(Ctx& ctx, ICanFlashTransport& can)
 // region's start and length, big-endian, behind the two format bytes.
 bytes::Bytes setup_pdu(bytes::Byte service, const MemoryRegion& region)
 {
-    return composeBe(service, kDataFormatIdentifier, kAddressAndLengthFormat, region.start, region.length);
+    return ComposeBe(service, kDataFormatIdentifier, kAddressAndLengthFormat, region.start, region.length);
 }
 
 // Legacy read_memory, lines 821-1081. start_addr and length are overwritten
@@ -481,13 +481,13 @@ Result<bytes::Bytes> read_memory(Ctx& ctx, const SubaruDenso1n83m_4mCanPlan& fam
         // Lines 929-965: SID 0xB7 plus a 4-byte big-endian address; the reply
         // is 0xF7 plus one 256-byte encrypted page (lines 967-991). This
         // exchange keeps its live `return STATUS_ERROR` (lines 977, 984).
-        Result<bytes::Bytes> chunk = fatal_request(ctx, composeBe(uds::kSidReadMemoryChunk, addr), kLongPolicy,
+        Result<bytes::Bytes> chunk = fatal_request(ctx, ComposeBe(uds::kSidReadMemoryChunk, addr), kLongPolicy,
                                                    std::format("the flash read at 0x{:x}", addr));
         if (!chunk.has_value())
         {
             return std::unexpected(chunk.error());
         }
-        const bytes::Bytes decrypted = denso_decrypt_page(uds::payload(*chunk));
+        const bytes::Bytes decrypted = denso_decrypt_page(uds::Payload(*chunk));
         rom.insert(rom.end(), decrypted.begin(), decrypted.end());
         progress.update(static_cast<int>(offset + kPageSize));
     }
@@ -565,7 +565,7 @@ Status reflash_block(Ctx& ctx, bytes::ByteView image, const MemoryRegion& block,
         const std::size_t image_offset = block_addr - kImageStart;
         if (Result<bytes::Bytes> written =
                 fatal_request(ctx,
-                              composeBe(uds::kSidWriteMemoryChunk, block_addr,
+                              ComposeBe(uds::kSidWriteMemoryChunk, block_addr,
                                         bytes::ByteView(encrypted).subspan(image_offset, kChunkSize)),
                               kReceivePolicy, std::format("the flash write at 0x{:x}", block_addr));
             !written.has_value())
@@ -591,7 +591,7 @@ Status reflash_block(Ctx& ctx, bytes::ByteView image, const MemoryRegion& block,
             // pass. The hex is the envelope-stripped PDU where legacy's was the
             // raw frame, envelope included -- the same divergence the other
             // three cluster members' "Stop request response" lines carry.
-            info(ctx, std::format("Closed succesfully: {}", bytes::toHex(*closed)));
+            info(ctx, std::format("Closed succesfully: {}", bytes::ToHex(*closed)));
             break;
         }
     }

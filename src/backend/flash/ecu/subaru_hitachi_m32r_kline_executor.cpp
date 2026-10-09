@@ -12,8 +12,8 @@ namespace fastecu::flash
 {
 namespace
 {
-using bytes::composeBe;
-using bytes::u24;
+using bytes::ComposeBe;
+using bytes::U24;
 using namespace bytes::literals;
 using namespace std::chrono_literals;
 
@@ -21,7 +21,7 @@ constexpr int kTimeoutMs = 2000;
 
 bytes::Bytes framed(bytes::ByteView payload, const SubaruHitachiM32rKlinePlan& p)
 {
-    return ssm_protocol::addHeader(payload, p.tester_id, p.target_id);
+    return ssm_protocol::AddHeader(payload, p.tester_id, p.target_id);
 }
 
 Result<std::optional<bytes::Bytes>> exchange_optional(IKlineFlashTransport& transport,
@@ -113,13 +113,13 @@ bytes::Bytes seed_key(bytes::ByteView seed)
     static constexpr std::array<std::uint16_t, 16> kIndex = {0x3275, 0x6ad8, 0x1062, 0x512b, 0xd695, 0x7640,
                                                              0x25f6, 0xac45, 0x6803, 0xe5da, 0xc821, 0x36bf,
                                                              0xa433, 0x3f41, 0x842c, 0x05d9};
-    return ssm_protocol::calculateSeedKey(seed, kIndex, ssm_protocol::kIndexTransformationStock);
+    return ssm_protocol::CalculateSeedKey(seed, kIndex, ssm_protocol::kIndexTransformationStock);
 }
 
 bytes::Bytes encrypt(bytes::ByteView image)
 {
     static constexpr std::array<std::uint16_t, 4> kIndex = {0x78f1, 0x2962, 0x9312, 0x7c03};
-    return ssm_protocol::calculatePayload(image, static_cast<std::uint32_t>(image.size()), kIndex,
+    return ssm_protocol::CalculatePayload(image, static_cast<std::uint32_t>(image.size()), kIndex,
                                           ssm_protocol::kIndexTransformationStock);
 }
 
@@ -172,7 +172,7 @@ Status authenticated_session(IKlineFlashTransport& transport, const ICancellatio
         return fail(ErrorKind::kBadResponse, "seed response is too short");
     }
     bytes::Bytes key_request =
-        composeBe(uds::kSidSecurityAccess, uds::kSecurityAccessSendKey, seed_key(bytes::ByteView{*seed}.subspan(6, 4)));
+        ComposeBe(uds::kSidSecurityAccess, uds::kSecurityAccessSendKey, seed_key(bytes::ByteView{*seed}.subspan(6, 4)));
     if (Status key_status = p.session_mode == HitachiM32rKlineSessionMode::kRecovery
                                 ? request_prefix(transport, cancellation, std::move(key_request), {0x67}, p)
                                 : request_prefix(transport, cancellation, std::move(key_request),
@@ -300,7 +300,7 @@ Result<bytes::Bytes> read_rom(IKlineFlashTransport& transport, const ICancellati
         }
         const std::uint32_t address = logical + p.read_address_bias;
         auto response = exchange(transport, cancellation,
-                                 composeBe(0xa0_b, 0x00_b, 0x00_b, u24(address), bytes::Byte(p.chunk_size - 1)), p);
+                                 ComposeBe(0xa0_b, 0x00_b, 0x00_b, U24(address), bytes::Byte(p.chunk_size - 1)), p);
         if (!response.has_value())
         {
             return std::unexpected(response.error());
@@ -392,7 +392,7 @@ Status write_rom(IKlineFlashTransport& transport, IClock& clock, const ICancella
             return fail(ErrorKind::kCancelled, "cancelled during ROM write");
         }
         const bytes::Bytes request =
-            composeBe(uds::kSidTransferData, u24(address), bytes::ByteView(encrypted).subspan(address, p.chunk_size));
+            ComposeBe(uds::kSidTransferData, U24(address), bytes::ByteView(encrypted).subspan(address, p.chunk_size));
         auto ack = exchange_optional(transport, cancellation, request, p);
         if (!ack.has_value())
         {

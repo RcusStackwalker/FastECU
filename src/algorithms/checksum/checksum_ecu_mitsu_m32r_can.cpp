@@ -39,7 +39,7 @@ constexpr std::array kAreaCodes{
     AreaCode{0xC0, 0x050000}, AreaCode{0xC2, 0x060000}, AreaCode{0xC3, 0x0C0000},
 };
 
-std::optional<std::size_t> areaEndFor(std::uint8_t code)
+std::optional<std::size_t> AreaEndFor(std::uint8_t code)
 {
     const auto match = std::ranges::find(kAreaCodes, code, &AreaCode::code);
     return match == kAreaCodes.end() ? std::nullopt : std::optional{match->end};
@@ -49,42 +49,42 @@ std::optional<std::size_t> areaEndFor(std::uint8_t code)
 // shorter than that carries no Mitsubishi M32R checksum layout at all.
 constexpr std::size_t kLayoutEnd = kCorrectionWords + 2 + (kCorrectionWordCount * 4);
 
-ChecksumResult unchangedWith(ChecksumResult::Status status, bytes::ByteView rom_view, std::string message)
+ChecksumResult UnchangedWith(ChecksumResult::Status status, bytes::ByteView rom_view, std::string message)
 {
     return {
         .status = status, .rom_data = bytes::Bytes(rom_view.begin(), rom_view.end()), .message = std::move(message)};
 }
 } // namespace
 
-ChecksumResult ChecksumEcuMitsuM32rCan::calculate_checksum_result(bytes::ByteView rom_view)
+ChecksumResult ChecksumEcuMitsuM32rCan::CalculateChecksumResult(bytes::ByteView rom_view)
 {
     if (rom_view.size() < kLayoutEnd)
     {
-        return unchangedWith(ChecksumResult::Status::kInvalidSize, rom_view,
+        return UnchangedWith(ChecksumResult::Status::kInvalidSize, rom_view,
                              "ROM is too small to carry the Mitsubishi M32R checksum layout");
     }
 
-    const std::optional<std::size_t> area_end = areaEndFor(rom_view[kAreaCodeOffset]);
+    const std::optional<std::size_t> area_end = AreaEndFor(rom_view[kAreaCodeOffset]);
     if (!area_end.has_value())
     {
-        return unchangedWith(ChecksumResult::Status::kDisabled, rom_view,
+        return UnchangedWith(ChecksumResult::Status::kDisabled, rom_view,
                              "Unrecognised checksum area code; checksums disabled");
     }
     if (*area_end > rom_view.size())
     {
-        return unchangedWith(ChecksumResult::Status::kDisabled, rom_view,
+        return UnchangedWith(ChecksumResult::Status::kDisabled, rom_view,
                              "Checksum area extends past the end of the ROM; checksums disabled");
     }
 
     std::uint32_t checksum = 0;
     for (std::size_t offset = 0; offset < *area_end; offset += 4)
     {
-        checksum += bytes::readU32Be(rom_view, offset);
+        checksum += bytes::ReadU32Be(rom_view, offset);
     }
-    checksum -= bytes::readU16Be(rom_view, kCorrectionWords);
+    checksum -= bytes::ReadU16Be(rom_view, kCorrectionWords);
     for (std::size_t index = 0; index < kCorrectionWordCount; ++index)
     {
-        checksum -= bytes::readU32Be(rom_view, kCorrectionWords + 2 + (index * 4));
+        checksum -= bytes::ReadU32Be(rom_view, kCorrectionWords + 2 + (index * 4));
     }
     checksum += 0xFFFF;
     checksum -= 5;
@@ -94,7 +94,7 @@ ChecksumResult ChecksumEcuMitsuM32rCan::calculate_checksum_result(bytes::ByteVie
     {
         return {.status = ChecksumResult::Status::kUnchanged, .rom_data = std::move(rom_data)};
     }
-    fastecu::checksum::internal::rebalanceU32Be(rom_data, kBalanceSlot, checksum, kTargetChecksum);
+    fastecu::checksum::internal::RebalanceU32Be(rom_data, kBalanceSlot, checksum, kTargetChecksum);
     return {.status = ChecksumResult::Status::kCorrected,
             .rom_data = std::move(rom_data),
             .message = "Mitsubishi M32R CAN ECU Checksum"};

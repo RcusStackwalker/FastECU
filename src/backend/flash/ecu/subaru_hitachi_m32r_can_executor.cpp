@@ -25,8 +25,8 @@ namespace
 {
 using namespace bytes::literals;
 using namespace std::chrono_literals;
-using bytes::composeBe;
-using bytes::u24;
+using bytes::ComposeBe;
+using bytes::U24;
 
 constexpr uds::ExchangePolicy kExchangePolicy{.read_timeout = 500ms};
 
@@ -45,18 +45,18 @@ constexpr auto kDecryptTable = std::to_array<std::uint16_t>({0xF50E, 0x973C, 0x7
 
 bytes::Bytes seed_key(bytes::ByteView seed)
 {
-    return ssm_protocol::calculateSeedKey(seed, kSeedKeyTable, ssm_protocol::kIndexTransformationStock);
+    return ssm_protocol::CalculateSeedKey(seed, kSeedKeyTable, ssm_protocol::kIndexTransformationStock);
 }
 
 bytes::Bytes encrypt_rom(bytes::ByteView image)
 {
-    return ssm_protocol::calculatePayload(image, static_cast<std::uint32_t>(image.size()), kEncryptTable,
+    return ssm_protocol::CalculatePayload(image, static_cast<std::uint32_t>(image.size()), kEncryptTable,
                                           ssm_protocol::kIndexTransformationStock);
 }
 
 bytes::Bytes decrypt_page(bytes::ByteView page)
 {
-    return ssm_protocol::calculatePayload(page, static_cast<std::uint32_t>(page.size()), kDecryptTable,
+    return ssm_protocol::CalculatePayload(page, static_cast<std::uint32_t>(page.size()), kDecryptTable,
                                           ssm_protocol::kIndexTransformationStock);
 }
 
@@ -203,15 +203,15 @@ Status connect_bootloader(Ctx& ctx)
         return std::unexpected(seed_reply.error());
     }
     info(ctx, "Seed request ok");
-    const bytes::ByteView seed_payload = uds::payload(*seed_reply);
+    const bytes::ByteView seed_payload = uds::Payload(*seed_reply);
     const bytes::ByteView seed = seed_payload.subspan(1, 4);
-    info(ctx, std::format("Received seed: {}", bytes::toHex(seed)));
+    info(ctx, std::format("Received seed: {}", bytes::ToHex(seed)));
     const bytes::Bytes key = seed_key(seed);
-    info(ctx, std::format("Calculated seed key: {}", bytes::toHex(key)));
+    info(ctx, std::format("Calculated seed key: {}", bytes::ToHex(key)));
 
     info(ctx, "Sending seed key to ECU...");
     if (Result<bytes::Bytes> key_reply =
-            fatal_query(ctx, composeBe(uds::kSidSecurityAccess, uds::kSecurityAccessSendKey, key),
+            fatal_query(ctx, ComposeBe(uds::kSidSecurityAccess, uds::kSecurityAccessSendKey, key),
                         bytes::Bytes{uds::kSecurityAccessSendKey}, "seed key");
         !key_reply.has_value())
     {
@@ -261,7 +261,7 @@ Result<bytes::Bytes> dump_flash_range(Ctx& ctx, PhaseReporter& progress)
     {
         error(ctx, std::format("Wrong response from ECU: {}", setup.error().detail));
     }
-    else if (const bytes::ByteView p = uds::payload(*setup);
+    else if (const bytes::ByteView p = uds::Payload(*setup);
              p.size() < 3 || p[0] != 0x20 || p[1] != 0x01 || p[2] != 0x01)
     {
         error(ctx, "Wrong response from ECU: unexpected dump setup response");
@@ -279,7 +279,7 @@ Result<bytes::Bytes> dump_flash_range(Ctx& ctx, PhaseReporter& progress)
         }
 
         // Lines 823-832/855-858: SID 0xB7 + 3-byte big-endian address.
-        Result<bytes::Bytes> chunk = fatal_request(ctx, composeBe(uds::kSidReadMemoryChunk, u24(addr)),
+        Result<bytes::Bytes> chunk = fatal_request(ctx, ComposeBe(uds::kSidReadMemoryChunk, U24(addr)),
                                                    std::format("the flash read at 0x{:x}", addr));
         if (!chunk.has_value())
         {
@@ -287,7 +287,7 @@ Result<bytes::Bytes> dump_flash_range(Ctx& ctx, PhaseReporter& progress)
         }
         // Lines 877-881: the 256-byte encrypted page is everything after the
         // SID, decrypted in place.
-        const bytes::Bytes decrypted = decrypt_page(uds::payload(*chunk));
+        const bytes::Bytes decrypted = decrypt_page(uds::Payload(*chunk));
         rom.insert(rom.end(), decrypted.begin(), decrypted.end());
         progress.update(static_cast<int>(addr + kPageSize));
     }
@@ -389,7 +389,7 @@ Status unlock_and_reflash_block(Ctx& ctx, bytes::ByteView image, PhaseReporter& 
         }
 
         const bytes::ByteView chunk_data = bytes::ByteView(encrypted).subspan(addr, kChunkSize);
-        if (Result<bytes::Bytes> chunk = fatal_request(ctx, composeBe(uds::kSidWriteMemoryChunk, u24(addr), chunk_data),
+        if (Result<bytes::Bytes> chunk = fatal_request(ctx, ComposeBe(uds::kSidWriteMemoryChunk, U24(addr), chunk_data),
                                                        std::format("the flash write at 0x{:x}", addr));
             !chunk.has_value())
         {

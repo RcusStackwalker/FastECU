@@ -29,7 +29,7 @@ bytes::Bytes buildRequest()
     bytes::Bytes request{0x00, 0x00, 0x07, 0xe1, 0xa8, 0x00};
     for (const std::uint16_t address : kAddresses)
     {
-        bytes::appendU24Be(request, address);
+        bytes::AppendU24Be(request, address);
     }
     return request;
 }
@@ -42,7 +42,7 @@ TcuParameterReadout decode(bytes::ByteView frame)
         .high_low_reverse_clutch = frame[6],
         .direct_clutch = frame[7],
         .front_brake = frame[8],
-        .awd_clutch_torque = bytes::readU16Be(frame, 9),
+        .awd_clutch_torque = bytes::ReadU16Be(frame, 9),
         .forward_brake = frame[11],
         .four_wheel_drive = frame[12],
         .line_pressure = frame[13],
@@ -123,7 +123,7 @@ ServiceFunctionStep ReadParametersSession::resume(ISsmTransport& transport, IClo
         return FailedStep{Error{ErrorKind::kTimeout, "no response to the TCU parameter read after 6 attempts"}};
     }
     return FailedStep{
-        Error{ErrorKind::kBadResponse, std::format("TCU rejected the parameter read: {}", bytes::toHex(frame))}};
+        Error{ErrorKind::kBadResponse, std::format("TCU rejected the parameter read: {}", bytes::ToHex(frame))}};
 }
 
 } // namespace fastecu::service_functions

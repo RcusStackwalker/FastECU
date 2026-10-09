@@ -17,7 +17,7 @@ constexpr uds::ExchangePolicy kConnectPolicy{};
 
 Status validateEcho(bytes::ByteView reply, bytes::Byte expected, std::size_t minimum_size, std::string_view subject)
 {
-    const bytes::ByteView payload = uds::payload(reply);
+    const bytes::ByteView payload = uds::Payload(reply);
     if (payload.size() < minimum_size)
     {
         return fail(ErrorKind::kBadResponse, std::format("{} reply too short", subject));
@@ -102,7 +102,7 @@ Status BenchSession::connect()
     if (vendor_challenge_)
     {
         const Result<bytes::Bytes> basic_reply =
-            request(mitsu_colt_can::buildDiagnosticSession(mitsu_colt_can::kSessionBasic));
+            request(mitsu_colt_can::BuildDiagnosticSession(mitsu_colt_can::kSessionBasic));
         if (!basic_reply.has_value())
         {
             return std::unexpected(basic_reply.error());
@@ -114,13 +114,13 @@ Status BenchSession::connect()
             return valid;
         }
 
-        const Result<bytes::Bytes> vendor_seed_reply = request(mitsu_colt_can_vendor_ext::buildChallengeSeedRequest());
+        const Result<bytes::Bytes> vendor_seed_reply = request(mitsu_colt_can_vendor_ext::BuildChallengeSeedRequest());
         if (!vendor_seed_reply.has_value())
         {
             return std::unexpected(vendor_seed_reply.error());
         }
         // [selector][subfunction][4-byte seed].
-        const bytes::ByteView vendor_seed_payload = uds::payload(*vendor_seed_reply);
+        const bytes::ByteView vendor_seed_payload = uds::Payload(*vendor_seed_reply);
         if (vendor_seed_payload.size() < 6)
         {
             return fail(ErrorKind::kBadResponse, "vendor challenge seed reply too short");
@@ -132,15 +132,15 @@ Status BenchSession::connect()
                                                              vendor_seed_payload[0], vendor_seed_payload[1]));
         }
 
-        const std::uint32_t vendor_key = mitsu_colt_can_vendor_ext::challengeInverseTransform(
-            mitsu_colt_can_vendor_ext::bytesToSeed(vendor_seed_payload.subspan(2, 4)));
+        const std::uint32_t vendor_key = mitsu_colt_can_vendor_ext::ChallengeInverseTransform(
+            mitsu_colt_can_vendor_ext::BytesToSeed(vendor_seed_payload.subspan(2, 4)));
 
-        const Result<bytes::Bytes> vendor_key_reply = request(mitsu_colt_can_vendor_ext::buildChallengeKey(vendor_key));
+        const Result<bytes::Bytes> vendor_key_reply = request(mitsu_colt_can_vendor_ext::BuildChallengeKey(vendor_key));
         if (!vendor_key_reply.has_value())
         {
             return std::unexpected(vendor_key_reply.error());
         }
-        const bytes::ByteView vendor_key_payload = uds::payload(*vendor_key_reply);
+        const bytes::ByteView vendor_key_payload = uds::Payload(*vendor_key_reply);
         if (vendor_key_payload.size() < 2)
         {
             return fail(ErrorKind::kBadResponse, "vendor challenge key reply too short");
@@ -157,7 +157,7 @@ Status BenchSession::connect()
     }
 
     const Result<bytes::Bytes> session_reply =
-        request(mitsu_colt_can::buildDiagnosticSession(mitsu_colt_can::kSessionBootload));
+        request(mitsu_colt_can::BuildDiagnosticSession(mitsu_colt_can::kSessionBootload));
     if (!session_reply.has_value())
     {
         return std::unexpected(session_reply.error());
@@ -168,7 +168,7 @@ Status BenchSession::connect()
         return valid;
     }
 
-    const Result<bytes::Bytes> seed_reply = request(mitsu_colt_can::buildSecurityAccessSeedRequest());
+    const Result<bytes::Bytes> seed_reply = request(mitsu_colt_can::BuildSecurityAccessSeedRequest());
     if (!seed_reply.has_value())
     {
         return std::unexpected(seed_reply.error());
@@ -177,11 +177,11 @@ Status BenchSession::connect()
     {
         return valid;
     }
-    const bytes::ByteView seed_payload = uds::payload(*seed_reply);
+    const bytes::ByteView seed_payload = uds::Payload(*seed_reply);
     const bytes::ByteView seed = seed_payload.subspan(1, 4);
 
     const Result<bytes::Bytes> key_reply =
-        request(mitsu_colt_can::buildSecurityAccessKey(mitsu_colt_can::seedKey(seed)));
+        request(mitsu_colt_can::BuildSecurityAccessKey(mitsu_colt_can::SeedKey(seed)));
     if (!key_reply.has_value())
     {
         return std::unexpected(key_reply.error());

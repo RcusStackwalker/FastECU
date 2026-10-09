@@ -12,8 +12,8 @@ namespace fastecu::flash
 {
 namespace
 {
-using bytes::composeBe;
-using bytes::u24;
+using bytes::ComposeBe;
+using bytes::U24;
 using namespace bytes::literals;
 using namespace std::chrono_literals;
 
@@ -21,7 +21,7 @@ constexpr int kTimeoutMs = 2000;
 
 bytes::Bytes framed(bytes::ByteView payload, const SubaruMitsuM32rKlinePlan& p)
 {
-    return ssm_protocol::addHeader(payload, p.tester_id, p.target_id);
+    return ssm_protocol::AddHeader(payload, p.tester_id, p.target_id);
 }
 
 Result<std::optional<bytes::Bytes>> exchange_optional(IKlineFlashTransport& transport,
@@ -94,13 +94,13 @@ bytes::Bytes seed_key(bytes::ByteView seed)
     static constexpr std::array<std::uint16_t, 16> kIndex = {0x8519, 0x5c53, 0xc0e9, 0x2452, 0x1e68, 0x6feb,
                                                              0x2648, 0x81e2, 0x8ce4, 0x953b, 0x1ca9, 0x6180,
                                                              0xb85e, 0x5109, 0xdb3c, 0x3cf2};
-    return ssm_protocol::calculateSeedKey(seed, kIndex, ssm_protocol::kIndexTransformationStock);
+    return ssm_protocol::CalculateSeedKey(seed, kIndex, ssm_protocol::kIndexTransformationStock);
 }
 
 bytes::Bytes encrypt(bytes::ByteView image)
 {
     static constexpr std::array<std::uint16_t, 4> kIndex = {0x25b5, 0x3875, 0xca11, 0x2680};
-    return ssm_protocol::calculatePayload(image, static_cast<std::uint32_t>(image.size()), kIndex,
+    return ssm_protocol::CalculatePayload(image, static_cast<std::uint32_t>(image.size()), kIndex,
                                           ssm_protocol::kIndexTransformationStock);
 }
 
@@ -171,7 +171,7 @@ Result<std::string> handshake(IKlineFlashTransport& transport, IClock& clock, co
     {
         return fail(ErrorKind::kBadResponse, "seed response is too short");
     }
-    const bytes::Bytes key_request = composeBe(uds::kSidSecurityAccess, uds::kSecurityAccessSendKey,
+    const bytes::Bytes key_request = ComposeBe(uds::kSidSecurityAccess, uds::kSecurityAccessSendKey,
                                                seed_key(bytes::ByteView{*seed_response}.subspan(6, 4)));
     events.log(LogLevel::kInfo, "Sending seed key to ECU");
     if (auto s = request(std::move(key_request), {0x67, uds::kSecurityAccessSendKey}); !s.has_value())
@@ -201,7 +201,7 @@ Result<bytes::Bytes> read_rom(IKlineFlashTransport& transport, const ICancellati
             return fail(ErrorKind::kCancelled, "cancelled during ROM read");
         }
         const std::uint32_t address = region.start + offset;
-        const bytes::Bytes request = composeBe(0xa0_b, 0x00_b, 0x20_b, u24(address), bytes::Byte(p.chunk_size - 1));
+        const bytes::Bytes request = ComposeBe(0xa0_b, 0x00_b, 0x20_b, U24(address), bytes::Byte(p.chunk_size - 1));
         auto response = exchange(transport, cancellation, request, p);
         if (!response.has_value())
         {
@@ -265,7 +265,7 @@ Status write_rom(IKlineFlashTransport& transport, IClock& clock, const ICancella
         }
         const std::uint32_t address = region.start + offset;
         const bytes::Bytes request =
-            composeBe(uds::kSidTransferData, u24(address), bytes::ByteView(encrypted).subspan(address, p.chunk_size));
+            ComposeBe(uds::kSidTransferData, U24(address), bytes::ByteView(encrypted).subspan(address, p.chunk_size));
         if (auto ack = exchange_optional(transport, cancellation, request, p); !ack.has_value())
         {
             return std::unexpected(ack.error());

@@ -33,9 +33,9 @@ namespace fastecu::flash
 {
 namespace
 {
-using bytes::composeBe;
-using bytes::composeBeWithChecksum;
-using bytes::u24;
+using bytes::ComposeBe;
+using bytes::ComposeBeWithChecksum;
+using bytes::U24;
 using namespace bytes::literals;
 using namespace std::chrono_literals;
 
@@ -165,7 +165,7 @@ Result<FlashPlan> malformed_plan(std::vector<ConfirmationSpec> confirmations, st
 bytes::Bytes framed(std::uint8_t opcode, bytes::ByteView payload = {})
 {
     const std::uint16_t length = static_cast<std::uint16_t>(payload.size() + 1);
-    return composeBeWithChecksum(bytes::sum8, std::uint16_t{0xBEEF}, length, bytes::Byte(opcode), payload);
+    return ComposeBeWithChecksum(bytes::Sum8, std::uint16_t{0xBEEF}, length, bytes::Byte(opcode), payload);
 }
 
 // Anchors framed() against hardcoded wire bytes so a bug in composeBeWithChecksum
@@ -205,7 +205,7 @@ bytes::Bytes exact_upload_request()
 
 bytes::Bytes crc_response(std::uint32_t crc)
 {
-    return framed(0x42, composeBe(0x05_b, crc));
+    return framed(0x42, ComposeBe(0x05_b, crc));
 }
 
 void script_read_page(ScriptedKlineFlashTransport& transport, std::uint32_t address, bytes::Byte fill,
@@ -214,7 +214,7 @@ void script_read_page(ScriptedKlineFlashTransport& transport, std::uint32_t addr
     const auto section = transport.section("read page");
     // SUB_KERNEL_READ_AREA uses a zero byte plus the 24-bit address and a
     // fixed 0x400-byte page request. The reply carries the 0x43 acknowledgment.
-    transport.exchange(framed(0x03, composeBe(0x00_b, u24(address), std::uint16_t{0x400})),
+    transport.exchange(framed(0x03, ComposeBe(0x00_b, U24(address), std::uint16_t{0x400})),
                        framed(response_opcode, bytes::Bytes(0x400, fill)));
 }
 
@@ -273,10 +273,10 @@ void script_crc_compare(ScriptedKlineFlashTransport& transport, const FlashDevic
     for (unsigned block_no = 0; block_no < device.numblocks; ++block_no)
     {
         const auto& block = device.fblocks[block_no];
-        const bytes::Bytes request_payload = composeBe(block.start, 0x00_b, u24(block.len));
+        const bytes::Bytes request_payload = ComposeBe(block.start, 0x00_b, U24(block.len));
         transport.exchange(framed(0x02, request_payload));
 
-        std::uint32_t ecu_crc = fastecu::checksum::crc32(bytes::ByteView(image).subspan(block.start, block.len));
+        std::uint32_t ecu_crc = fastecu::checksum::Crc32(bytes::ByteView(image).subspan(block.start, block.len));
         if (differing_block == block_no)
         {
             ecu_crc ^= 0x00000001U;
@@ -314,7 +314,7 @@ bytes::Bytes write_chunk_request(const FlashDevice& device, bytes::ByteView imag
     // composeBe: production builds this frame as composeBe(address, subspan),
     // so folding would make both sides the same expression and a bug in the
     // splice would cancel out instead of failing the test.
-    bytes::Bytes payload = composeBe(block.start + offset);
+    bytes::Bytes payload = ComposeBe(block.start + offset);
     payload.insert(payload.end(), image.begin() + block.start + offset,
                    image.begin() + block.start + offset + kChunkSize);
     return framed(0x22, payload);
@@ -326,12 +326,12 @@ bytes::Bytes commit_request(const FlashDevice& device, bytes::ByteView image, un
     constexpr std::uint32_t kCommitSize = 0x1000;
     const auto& block = device.fblocks[block_no];
     const std::uint32_t address = block.start + offset;
-    const std::uint32_t crc = fastecu::checksum::crc32(bytes::ByteView(image).subspan(address, kCommitSize));
+    const std::uint32_t crc = fastecu::checksum::Crc32(bytes::ByteView(image).subspan(address, kCommitSize));
     // 0x10, 0x00 stay two byte literals: production spells this field
     // std::uint16_t(kCommitBlockSize), so the width derivation is not shared
     // and a byte-order bug in appendU16Be would fail this test rather than
     // move both sides together.
-    return framed(test_write ? 0x23 : 0x24, composeBe(address, 0x10_b, 0x00_b, crc));
+    return framed(test_write ? 0x23 : 0x24, ComposeBe(address, 0x10_b, 0x00_b, crc));
 }
 
 void script_block_transfer(ScriptedKlineFlashTransport& transport, const FlashDevice& device, bytes::ByteView image,
@@ -343,7 +343,7 @@ void script_block_transfer(ScriptedKlineFlashTransport& transport, const FlashDe
     const auto& block = device.fblocks[block_no];
     if (!test_write)
     {
-        transport.exchange(framed(0x25, composeBe(block.start)), framed(0x65));
+        transport.exchange(framed(0x25, ComposeBe(block.start)), framed(0x65));
     }
     for (std::uint32_t offset = 0; offset < block.len; offset += kChunkSize)
     {
@@ -369,7 +369,7 @@ void script_write_prefix(ScriptedKlineFlashTransport& transport, const FlashDevi
     script_prog_volt(transport);
     if (!test_write)
     {
-        transport.exchange(framed(0x25, composeBe(device.fblocks[block_no].start)), framed(0x65));
+        transport.exchange(framed(0x25, ComposeBe(device.fblocks[block_no].start)), framed(0x65));
     }
 }
 
@@ -816,7 +816,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteFailsOnRejectedEraseResponse)
     script_crc_compare(transport, *device, image, kDifferingBlock);
     script_flash_init(transport, false);
     script_prog_volt(transport);
-    transport.exchange(framed(0x25, composeBe(device->fblocks[kDifferingBlock].start)), framed(0x64));
+    transport.exchange(framed(0x25, ComposeBe(device->fblocks[kDifferingBlock].start)), framed(0x64));
 
     MockClock clock;
 
@@ -844,7 +844,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteCancelsMidBlockTransfer)
     script_crc_compare(transport, *device, image, kDifferingBlock);
     script_flash_init(transport, false);
     script_prog_volt(transport);
-    transport.exchange(framed(0x25, composeBe(device->fblocks[kDifferingBlock].start)), framed(0x65));
+    transport.exchange(framed(0x25, ComposeBe(device->fblocks[kDifferingBlock].start)), framed(0x65));
 
     FakeClock clock;
     RecordingEventSink events;
@@ -891,9 +891,9 @@ TEST(SubaruDensoSh7055_02Executor, WriteAcceptsFragmentedBlockCrcAndDrainsIt)
     for (unsigned block_no = 0; block_no < device->numblocks; ++block_no)
     {
         const auto& block = device->fblocks[block_no];
-        const bytes::Bytes payload = composeBe(block.start, 0x00_b, u24(block.len));
+        const bytes::Bytes payload = ComposeBe(block.start, 0x00_b, U24(block.len));
         transport.exchange(framed(0x02, payload));
-        const std::uint32_t crc = fastecu::checksum::crc32(bytes::ByteView(image).subspan(block.start, block.len));
+        const std::uint32_t crc = fastecu::checksum::Crc32(bytes::ByteView(image).subspan(block.start, block.len));
         const bytes::Bytes response = crc_response(crc);
         if (block_no == 0)
         {
@@ -931,9 +931,9 @@ TEST(SubaruDensoSh7055_02Executor, WriteAcceptsBlockCrcAfterEmptyInitialRead)
     for (unsigned block_no = 0; block_no < device->numblocks; ++block_no)
     {
         const auto& block = device->fblocks[block_no];
-        const bytes::Bytes payload = composeBe(block.start, 0x00_b, u24(block.len));
+        const bytes::Bytes payload = ComposeBe(block.start, 0x00_b, U24(block.len));
         transport.exchange(framed(0x02, payload));
-        const std::uint32_t crc = fastecu::checksum::crc32(bytes::ByteView(image).subspan(block.start, block.len));
+        const std::uint32_t crc = fastecu::checksum::Crc32(bytes::ByteView(image).subspan(block.start, block.len));
         if (block_no == 0)
         {
             transport.queue_no_frame();
@@ -1007,7 +1007,7 @@ TEST(SubaruDensoSh7055_02Executor, WritePropagatesBlockCrcDrainError)
     ASSERT_THAT(plan, fastecu::testing::IsOk());
     ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::kOpen};
     script_write_connect_and_upload(transport);
-    const std::uint32_t crc = fastecu::checksum::crc32(bytes::ByteView(image).first(device->fblocks[0].len));
+    const std::uint32_t crc = fastecu::checksum::Crc32(bytes::ByteView(image).first(device->fblocks[0].len));
     transport.exchange(framed(0x02, bytes::Bytes{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0x00}), crc_response(crc));
     transport.queue_error(ErrorKind::kDisconnected, "CRC drain failed");
 

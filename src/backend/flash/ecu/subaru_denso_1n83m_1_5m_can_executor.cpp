@@ -27,7 +27,7 @@ namespace fastecu::flash
 {
 namespace
 {
-using bytes::composeBe;
+using bytes::ComposeBe;
 using namespace std::chrono_literals;
 
 // Legacy's three read timeouts, kept apart rather than flattened into one
@@ -345,7 +345,7 @@ Status connect_bootloader(Ctx& ctx, ICanFlashTransport& can)
 // region's start and length, big-endian, behind the two format bytes.
 bytes::Bytes setup_pdu(bytes::Byte service, const MemoryRegion& region)
 {
-    return composeBe(service, kDataFormatIdentifier, kAddressAndLengthFormat, region.start, region.length);
+    return ComposeBe(service, kDataFormatIdentifier, kAddressAndLengthFormat, region.start, region.length);
 }
 
 // Legacy read_memory, lines 813-1074. start_addr and length are overwritten
@@ -384,13 +384,13 @@ Result<bytes::Bytes> read_memory(Ctx& ctx, const SubaruDenso1n83m_1_5mCanPlan& f
         const std::uint32_t addr = region.start + offset;
         // Lines 922-953: SID 0xB7 plus a 4-byte big-endian address; the reply
         // is 0xF7 plus one 256-byte encrypted page (lines 958-979).
-        Result<bytes::Bytes> chunk = fatal_request(ctx, composeBe(uds::kSidReadMemoryChunk, addr), kLongPolicy,
+        Result<bytes::Bytes> chunk = fatal_request(ctx, ComposeBe(uds::kSidReadMemoryChunk, addr), kLongPolicy,
                                                    std::format("the flash read at 0x{:x}", addr));
         if (!chunk.has_value())
         {
             return std::unexpected(chunk.error());
         }
-        const bytes::Bytes decrypted = denso_decrypt_page(uds::payload(*chunk));
+        const bytes::Bytes decrypted = denso_decrypt_page(uds::Payload(*chunk));
         rom.insert(rom.end(), decrypted.begin(), decrypted.end());
         progress.update(static_cast<int>(offset + kPageSize));
     }
@@ -407,7 +407,7 @@ Result<bytes::Bytes> read_memory(Ctx& ctx, const SubaruDenso1n83m_1_5mCanPlan& f
                 ctx.uds.request(bytes::Bytes{uds::kSidRequestTransferExit}, kReceivePolicy, ctx.cancellation);
             stop.has_value())
         {
-            info(ctx, std::format("Stop request response: {}", bytes::toHex(*stop)));
+            info(ctx, std::format("Stop request response: {}", bytes::ToHex(*stop)));
             break;
         }
     }
@@ -459,7 +459,7 @@ Status reflash_block(Ctx& ctx, bytes::ByteView image, const MemoryRegion& block,
         const std::size_t image_offset = block_addr - kImageStart;
         if (Result<bytes::Bytes> written =
                 fatal_request(ctx,
-                              composeBe(uds::kSidWriteMemoryChunk, block_addr,
+                              ComposeBe(uds::kSidWriteMemoryChunk, block_addr,
                                         bytes::ByteView(encrypted).subspan(image_offset, kChunkSize)),
                               kReceivePolicy, std::format("the flash write at 0x{:x}", block_addr));
             !written.has_value())
@@ -485,7 +485,7 @@ Status reflash_block(Ctx& ctx, bytes::ByteView image, const MemoryRegion& block,
             // pass. The hex is the envelope-stripped PDU where legacy's was the
             // raw frame, envelope included -- same divergence the
             // "Stop request response" line above already carries.
-            info(ctx, std::format("Closed succesfully: {}", bytes::toHex(*closed)));
+            info(ctx, std::format("Closed succesfully: {}", bytes::ToHex(*closed)));
             break;
         }
     }

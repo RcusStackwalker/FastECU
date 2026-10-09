@@ -10,14 +10,14 @@ TEST(DiagnosticsPortable, NrcDecodesKnownNegativeResponse)
     const std::unordered_map<int, std::string> codes = {{0x31, "Request out of range"}};
     const bytes::Bytes frame = {0x7f, 0x22, 0x31};
 
-    EXPECT_EQ(nrc_description(frame, codes), "Request out of range");
+    EXPECT_EQ(NrcDescription(frame, codes), "Request out of range");
 }
 
 TEST(DiagnosticsPortable, NrcRejectsTooShortResponse)
 {
     const bytes::Bytes too_short = {0x62, 0x22};
 
-    EXPECT_EQ(nrc_description(too_short, {}), "Not a valid answer");
+    EXPECT_EQ(NrcDescription(too_short, {}), "Not a valid answer");
 }
 
 TEST(DiagnosticsPortable, NrcUnknownCodeReturnsUnknownErrorCode)
@@ -29,7 +29,7 @@ TEST(DiagnosticsPortable, NrcUnknownCodeReturnsUnknownErrorCode)
     // an empty string, not a placeholder.
     const bytes::Bytes frame = {0x7f, 0x22, 0xff};
 
-    EXPECT_EQ(nrc_description(frame, {}), "Unknown error code");
+    EXPECT_EQ(NrcDescription(frame, {}), "Unknown error code");
 }
 
 TEST(DiagnosticsPortable, DtcDecodesKnownCategoryMap)
@@ -38,13 +38,13 @@ TEST(DiagnosticsPortable, DtcDecodesKnownCategoryMap)
     // dtc_description masks the category bits off before the lookup.
     const std::unordered_map<int, std::string> c_codes = {{0x0001, "C0001 - Test chassis code"}};
 
-    EXPECT_EQ(dtc_description(0x4001, {}, c_codes, {}, {}), "C0001 - Test chassis code");
+    EXPECT_EQ(DtcDescription(0x4001, {}, c_codes, {}, {}), "C0001 - Test chassis code");
 }
 
 TEST(DiagnosticsPortable, DtcUsesCategoryPrefixForUnknownCodes)
 {
-    EXPECT_EQ(dtc_description(0x0001, {}, {}, {}, {}), "P0001 - Unknown error code");
-    EXPECT_EQ(dtc_description(0x4001, {}, {}, {}, {}), "C0001 - Unknown error code");
-    EXPECT_EQ(dtc_description(0x8001, {}, {}, {}, {}), "B0001 - Unknown error code");
-    EXPECT_EQ(dtc_description(0xc001, {}, {}, {}, {}), "U0001 - Unknown error code");
+    EXPECT_EQ(DtcDescription(0x0001, {}, {}, {}, {}), "P0001 - Unknown error code");
+    EXPECT_EQ(DtcDescription(0x4001, {}, {}, {}, {}), "C0001 - Unknown error code");
+    EXPECT_EQ(DtcDescription(0x8001, {}, {}, {}, {}), "B0001 - Unknown error code");
+    EXPECT_EQ(DtcDescription(0xc001, {}, {}, {}, {}), "U0001 - Unknown error code");
 }

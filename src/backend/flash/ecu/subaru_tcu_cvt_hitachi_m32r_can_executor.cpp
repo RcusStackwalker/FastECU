@@ -30,8 +30,8 @@ namespace
 {
 using namespace bytes::literals;
 using namespace std::chrono_literals;
-using bytes::composeBe;
-using bytes::u24;
+using bytes::ComposeBe;
+using bytes::U24;
 
 // Most exchanges in legacy read serial_read_timeout (2000ms); a handful
 // (the two alive probes, the kernel jump, and the dump-setup call) use an
@@ -94,18 +94,18 @@ constexpr std::array<MemoryRegion, 8> kWriteBlocks{{
 
 bytes::Bytes seed_key(bytes::ByteView seed)
 {
-    return ssm_protocol::calculateSeedKey(seed, kSeedKeyTable, ssm_protocol::kIndexTransformationStock);
+    return ssm_protocol::CalculateSeedKey(seed, kSeedKeyTable, ssm_protocol::kIndexTransformationStock);
 }
 
 bytes::Bytes encrypt_rom(bytes::ByteView image)
 {
-    return ssm_protocol::calculatePayload(image, static_cast<std::uint32_t>(image.size()), kEncryptTable,
+    return ssm_protocol::CalculatePayload(image, static_cast<std::uint32_t>(image.size()), kEncryptTable,
                                           ssm_protocol::kIndexTransformationStock);
 }
 
 bytes::Bytes decrypt_page(bytes::ByteView page)
 {
-    return ssm_protocol::calculatePayload(page, static_cast<std::uint32_t>(page.size()), kDecryptTable,
+    return ssm_protocol::CalculatePayload(page, static_cast<std::uint32_t>(page.size()), kDecryptTable,
                                           ssm_protocol::kIndexTransformationStock);
 }
 
@@ -220,7 +220,7 @@ Status connect_bootloader(Ctx& ctx)
     }
     if (alive->has_value())
     {
-        error(ctx, std::format("Wrong response from TCU: {}", bytes::toHex(**alive)));
+        error(ctx, std::format("Wrong response from TCU: {}", bytes::ToHex(**alive)));
     }
     else
     {
@@ -275,7 +275,7 @@ Status connect_bootloader(Ctx& ctx)
         return std::unexpected(seed_reply.error());
     }
     info(ctx, "Seed request ok");
-    const bytes::ByteView seed = uds::payload(*seed_reply).subspan(1, 4);
+    const bytes::ByteView seed = uds::Payload(*seed_reply).subspan(1, 4);
     const bytes::Bytes key = seed_key(seed);
 
     // Seed key 0x27/0x02 (lines 305-333): sent on 0x7E0, fatal.
@@ -328,7 +328,7 @@ Result<bytes::Bytes> dump_flash_range(Ctx& ctx, PhaseReporter& progress)
     // (both branches of the length check return STATUS_ERROR).
     info(ctx, "Settting dump start & length...");
     if (Result<bytes::Bytes> setup = fatal_query(
-            ctx, composeBe(uds::kSidRequestDownload, 0x04_b, 0x33_b, u24(kWindow.start), u24(kWindow.length)),
+            ctx, ComposeBe(uds::kSidRequestDownload, 0x04_b, 0x33_b, U24(kWindow.start), U24(kWindow.length)),
             bytes::Bytes{0x20, 0x01, 0x04}, "dump start & length setup");
         !setup.has_value())
     {
@@ -347,13 +347,13 @@ Result<bytes::Bytes> dump_flash_range(Ctx& ctx, PhaseReporter& progress)
         }
 
         // Lines 567-576/601-623: SID 0xB7 + 3-byte big-endian address.
-        Result<bytes::Bytes> chunk = fatal_request(ctx, composeBe(uds::kSidReadMemoryChunk, u24(addr)),
+        Result<bytes::Bytes> chunk = fatal_request(ctx, ComposeBe(uds::kSidReadMemoryChunk, U24(addr)),
                                                    std::format("the flash read at 0x{:x}", addr));
         if (!chunk.has_value())
         {
             return std::unexpected(chunk.error());
         }
-        const bytes::Bytes decrypted = decrypt_page(uds::payload(*chunk));
+        const bytes::Bytes decrypted = decrypt_page(uds::Payload(*chunk));
         rom.insert(rom.end(), decrypted.begin(), decrypted.end());
         progress.update(static_cast<int>(addr + kPageSize - kWindow.start));
     }
@@ -411,7 +411,7 @@ Status erase_memory(Ctx& ctx)
     {
         if (received->has_value())
         {
-            error(ctx, std::format("Wrong response from TCU: {}", bytes::toHex(**received)));
+            error(ctx, std::format("Wrong response from TCU: {}", bytes::ToHex(**received)));
         }
         else
         {
@@ -435,7 +435,7 @@ Status unlock_and_reflash_block(Ctx& ctx, bytes::ByteView block_plain, std::uint
     // SID+0x40 matching already enforces exactly that.
     info(ctx, "Settting flash start & length...");
     if (Result<bytes::Bytes> setup =
-            fatal_request(ctx, composeBe(uds::kSidRequestDownload, 0x04_b, 0x33_b, u24(start), u24(length)),
+            fatal_request(ctx, ComposeBe(uds::kSidRequestDownload, 0x04_b, 0x33_b, U24(start), U24(length)),
                           "the flash start & length setup");
         !setup.has_value())
     {
@@ -465,7 +465,7 @@ Status unlock_and_reflash_block(Ctx& ctx, bytes::ByteView block_plain, std::uint
         // fatal_request()/ctx.uds, which would enforce the SID+0x40 content
         // match this family's legacy code never checks here).
         if (const Status sent =
-                ctx.channel.send(composeBe(uds::kSidWriteMemoryChunk, u24(addr), chunk_data), ctx.cancellation);
+                ctx.channel.send(ComposeBe(uds::kSidWriteMemoryChunk, U24(addr), chunk_data), ctx.cancellation);
             !sent.has_value())
         {
             return sent;

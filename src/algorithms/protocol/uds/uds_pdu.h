@@ -35,12 +35,12 @@ inline constexpr bytes::Byte kNrcResponsePending = 0x78;
 // in review.
 inline constexpr bytes::Byte kNrcBusyRepeatRequest = 0x21;
 
-constexpr bytes::Byte positiveResponse(bytes::Byte sid)
+constexpr bytes::Byte PositiveResponse(bytes::Byte sid)
 {
     return static_cast<bytes::Byte>(sid + kPositiveResponseOffset);
 }
 
-constexpr bytes::Byte requestFromPositive(bytes::Byte positive_sid)
+constexpr bytes::Byte RequestFromPositive(bytes::Byte positive_sid)
 {
     return static_cast<bytes::Byte>(positive_sid - kPositiveResponseOffset);
 }
@@ -53,9 +53,9 @@ constexpr bytes::Byte requestFromPositive(bytes::Byte positive_sid)
 // A family builder may compose its own frames with bytes::composeBe
 // or delegate to these -- MitsuColtCan's builders delegate, which is what puts
 // the [SID][...] shape in one place instead of one per service.
-bytes::Bytes buildRequest(bytes::Byte sid);
-bytes::Bytes buildRequest(bytes::Byte sid, bytes::Byte subfunction);
-bytes::Bytes buildRequest(bytes::Byte sid, bytes::ByteView data);
-bytes::Bytes buildRequest(bytes::Byte sid, bytes::Byte subfunction, bytes::ByteView data);
+bytes::Bytes BuildRequest(bytes::Byte sid);
+bytes::Bytes BuildRequest(bytes::Byte sid, bytes::Byte subfunction);
+bytes::Bytes BuildRequest(bytes::Byte sid, bytes::ByteView data);
+bytes::Bytes BuildRequest(bytes::Byte sid, bytes::Byte subfunction, bytes::ByteView data);
 
 } // namespace uds

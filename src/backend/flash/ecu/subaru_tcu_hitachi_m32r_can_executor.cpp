@@ -75,7 +75,7 @@ constexpr std::array<bool, 16> kBlockModified{
 bytes::Bytes framed(bytes::ByteView payload, std::uint32_t request_id)
 {
     bytes::Bytes result;
-    bytes::appendU32Be(result, request_id);
+    bytes::AppendU32Be(result, request_id);
     result.insert(result.end(), payload.begin(), payload.end());
     return result;
 }
@@ -191,7 +191,7 @@ non_fatal_prefix(ICanFlashTransport& transport, IClock& clock, const ICancellati
     if (const Status matched = expect_prefix(**response, expected); !matched.has_value())
     {
         events.log(LogLevel::kError,
-                   std::format("Wrong response from TCU for {}: {}", label, bytes::toHex(**response)));
+                   std::format("Wrong response from TCU for {}: {}", label, bytes::ToHex(**response)));
         return std::optional<bytes::Bytes>{};
     }
     return std::move(**response);
@@ -199,7 +199,7 @@ non_fatal_prefix(ICanFlashTransport& transport, IClock& clock, const ICancellati
 
 bytes::Bytes seed_key(bytes::ByteView seed)
 {
-    return ssm_protocol::calculateSeedKey(seed, kSeedKeyTable, ssm_protocol::kIndexTransformationStock);
+    return ssm_protocol::CalculateSeedKey(seed, kSeedKeyTable, ssm_protocol::kIndexTransformationStock);
 }
 
 // Legacy composes ecuCalDef->RomId as "<CALID>_<TCUID>_" (operation.cpp:170,
@@ -233,7 +233,7 @@ Result<std::optional<std::string>> connect_bootloader(ICanFlashTransport& transp
             // (line 128), so RomId is never set on this path either.
             return std::optional<std::string>{};
         }
-        events.log(LogLevel::kError, std::format("Wrong response from TCU: {}", bytes::toHex(**alive)));
+        events.log(LogLevel::kError, std::format("Wrong response from TCU: {}", bytes::ToHex(**alive)));
     }
     else
     {
@@ -349,7 +349,7 @@ Result<std::optional<std::string>> connect_bootloader(ICanFlashTransport& transp
     }
     if (jump->has_value())
     {
-        events.log(LogLevel::kInfo, std::format("kernel jump response: {}", bytes::toHex(**jump)));
+        events.log(LogLevel::kInfo, std::format("kernel jump response: {}", bytes::ToHex(**jump)));
     }
 
     // Step 8, deliberate divergence 3: build the full four-byte payload in
@@ -379,8 +379,8 @@ Result<bytes::Bytes> read_rom(ICanFlashTransport& transport, IClock& clock, cons
     // (0x78000) bytes from region.start (0x8000).
     events.log(LogLevel::kInfo, "Setting dump start & length...");
     bytes::Bytes window_request{0x34, 0x04, 0x33};
-    bytes::appendU24Be(window_request, region.start);
-    bytes::appendU24Be(window_request, region.length);
+    bytes::AppendU24Be(window_request, region.start);
+    bytes::AppendU24Be(window_request, region.length);
     if (Result<bytes::Bytes> window = request_prefix(transport, clock, cancellation, window_request, plan.request_id,
                                                      0ms, kResponseTimeout, {0x74, 0x20, 0x01, 0x04});
         !window.has_value())
@@ -401,7 +401,7 @@ Result<bytes::Bytes> read_rom(ICanFlashTransport& transport, IClock& clock, cons
         }
         const std::uint32_t address = region.start + offset;
         bytes::Bytes page_request{0xB7};
-        bytes::appendU24Be(page_request, address);
+        bytes::AppendU24Be(page_request, address);
         Result<bytes::Bytes> page = request_prefix(transport, clock, cancellation, page_request, plan.request_id, 0ms,
                                                    kResponseTimeout, {0xF7});
         if (!page.has_value())
@@ -442,7 +442,7 @@ Result<bytes::Bytes> read_rom(ICanFlashTransport& transport, IClock& clock, cons
     // default-constructed, empty QByteArray through padBytes[i] for i in
     // 0..0x7FFF (lines 605-609), which does not extend under Qt 6.
     bytes::Bytes image(region.start, bytes::Byte{0x00});
-    const bytes::Bytes decrypted = ssm_protocol::calculatePayload(
+    const bytes::Bytes decrypted = ssm_protocol::CalculatePayload(
         dumped, static_cast<std::uint32_t>(dumped.size()), kDecryptTable, ssm_protocol::kIndexTransformationStock);
     image.insert(image.end(), decrypted.begin(), decrypted.end());
     return image;
@@ -512,8 +512,8 @@ Status reflash_block(ICanFlashTransport& transport, IClock& clock, const ICancel
 
     events.log(LogLevel::kInfo, "Setting flash start & length...");
     bytes::Bytes window_request{0x34, 0x04, 0x33};
-    bytes::appendU24Be(window_request, block.start);
-    bytes::appendU24Be(window_request, data_len);
+    bytes::AppendU24Be(window_request, block.start);
+    bytes::AppendU24Be(window_request, data_len);
     if (Result<bytes::Bytes> window = request_prefix(transport, clock, cancellation, window_request, plan.request_id,
                                                      0ms, kResponseTimeout, {0x74});
         !window.has_value())
@@ -532,7 +532,7 @@ Status reflash_block(ICanFlashTransport& transport, IClock& clock, const ICancel
         }
         const std::uint32_t address = block.start + (frame * frame_size);
         bytes::Bytes data_request{0xB6};
-        bytes::appendU24Be(data_request, address);
+        bytes::AppendU24Be(data_request, address);
         const auto offset = static_cast<std::ptrdiff_t>(address);
         data_request.insert(data_request.end(), encrypted.begin() + offset,
                             encrypted.begin() + offset + static_cast<std::ptrdiff_t>(frame_size));
@@ -616,7 +616,7 @@ Status write_rom(ICanFlashTransport& transport, IClock& clock, const ICancellati
     // (operation.cpp:640) and then indexes it by absolute flash address
     // (operation.cpp:803, newdata[i + blockaddr] over fblocks[0].start == 0).
     const bytes::Bytes& image = *flash_plan.image();
-    const bytes::Bytes encrypted = ssm_protocol::calculatePayload(
+    const bytes::Bytes encrypted = ssm_protocol::CalculatePayload(
         image, static_cast<std::uint32_t>(image.size()), kEncryptTable, ssm_protocol::kIndexTransformationStock);
     // A second defensive guard, same treatment as the one in reflash_block above:
     // no test pins this line, and it is unreachable on a correct build --

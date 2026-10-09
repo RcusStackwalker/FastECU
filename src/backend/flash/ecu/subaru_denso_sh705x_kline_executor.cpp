@@ -22,9 +22,9 @@ namespace fastecu::flash
 {
 namespace
 {
-using bytes::composeBe;
-using bytes::composeBeWithChecksum;
-using bytes::u24;
+using bytes::ComposeBe;
+using bytes::ComposeBeWithChecksum;
+using bytes::U24;
 using namespace bytes::literals;
 using namespace std::chrono_literals;
 using OptionalBytes = IKlineFlashTransport::OptionalBytes;
@@ -78,7 +78,7 @@ Status check_cancelled(const ICancellationToken& cancellation, std::string detai
 // BE EF, u16 length (opcode + payload), opcode, payload, sum8.
 bytes::Bytes frame(std::uint8_t opcode, bytes::ByteView payload = {})
 {
-    return composeBeWithChecksum(bytes::sum8, kStartComm, static_cast<std::uint16_t>(payload.size() + 1),
+    return ComposeBeWithChecksum(bytes::Sum8, kStartComm, static_cast<std::uint16_t>(payload.size() + 1),
                                  bytes::Byte(opcode), payload);
 }
 
@@ -169,7 +169,7 @@ Status sleep_for(IClock& clock, const ICancellationToken& cancellation, std::chr
 void log_wrong_response(IEventSink& events, bytes::ByteView received, std::size_t offset)
 {
     const bytes::ByteView nrc = offset < received.size() ? received.subspan(offset) : bytes::ByteView{};
-    events.log(LogLevel::kError, "Wrong response from ECU: " + nrc_description(nrc));
+    events.log(LogLevel::kError, "Wrong response from ECU: " + NrcDescription(nrc));
 }
 
 // received.remove(0, 5); received.remove(received.length() - 1, 1): the
@@ -247,7 +247,7 @@ Result<bytes::Bytes> ssm_exchange(IKlineFlashTransport& transport, IClock& clock
 {
     Result<bytes::Bytes> reply =
         required_exchange(transport, clock, cancellation,
-                          ssm_protocol::addHeader(payload, plan.tester_id, plan.target_id), 0ms, timeout, what);
+                          ssm_protocol::AddHeader(payload, plan.tester_id, plan.target_id), 0ms, timeout, what);
     if (!reply.has_value() && reply.error().kind == ErrorKind::kTimeout)
     {
         events.log(LogLevel::kError, "No valid response from ECU");
@@ -357,16 +357,16 @@ Result<std::string> connect_bootloader(IKlineFlashTransport& transport, IClock& 
 
     // :261-279 -- seed at(6..9); ECUTEK transformation for "_ecutek" methods.
     const bytes::ByteView seed = bytes::ByteView(*seed_reply).subspan(6, 4);
-    events.log(LogLevel::kInfo, "Received seed: " + bytes::toHex(seed));
+    events.log(LogLevel::kInfo, "Received seed: " + bytes::ToHex(seed));
     const bytes::Bytes key = plan.seed_key == SubaruDensoSh705xKlineSeedKey::kEcuTek
                                  ? denso_sh705x_kline_ecutek_seed_key(seed)
                                  : denso_sh705x_kline_stock_seed_key(seed);
-    events.log(LogLevel::kInfo, "Calculated seed key: " + bytes::toHex(key));
+    events.log(LogLevel::kInfo, "Calculated seed key: " + bytes::ToHex(key));
 
     // :281-300, send_sid_27_send_seed_key():1455-1462.
     events.log(LogLevel::kInfo, "Sending seed key to ECU");
     Result<bytes::Bytes> key_reply = ssm_exchange(transport, clock, cancellation, events, plan,
-                                                  composeBe(0x27_b, 0x02_b, key), kReadTimeout, "seed key");
+                                                  ComposeBe(0x27_b, 0x02_b, key), kReadTimeout, "seed key");
     if (!key_reply.has_value())
     {
         return std::unexpected(key_reply.error());
@@ -408,7 +408,7 @@ Status transfer_kernel(IKlineFlashTransport& transport, IClock& clock, const ICa
         const std::uint32_t chunk = std::min(kUploadChunkBytes, length - offset);
         Result<bytes::Bytes> reply = required_exchange(
             transport, clock, cancellation,
-            ssm_protocol::addHeader(composeBe(0x36_b, u24(address + offset), encrypted.subspan(offset, chunk)),
+            ssm_protocol::AddHeader(ComposeBe(0x36_b, U24(address + offset), encrypted.subspan(offset, chunk)),
                                     plan.tester_id, plan.target_id),
             0ms, kReadTimeout, "kernel transfer");
         if (!reply.has_value())
@@ -449,7 +449,7 @@ Status upload_kernel(IKlineFlashTransport& transport, IClock& clock, const ICanc
     // :391-411, send_sid_34_request_upload():1494-1506.
     events.log(LogLevel::kInfo, "Requesting kernel upload");
     Result<bytes::Bytes> request = ssm_exchange(transport, clock, cancellation, events, plan,
-                                                composeBe(0x34_b, u24(kernel.load_address), 0x04_b, u24(size)),
+                                                ComposeBe(0x34_b, U24(kernel.load_address), 0x04_b, U24(size)),
                                                 kExtraLongTimeout, "upload request");
     if (!request.has_value())
     {
@@ -565,7 +565,7 @@ Result<bytes::Bytes> read_mem(IKlineFlashTransport& transport, IClock& clock, co
     events.progress(0, static_cast<int>(region.length));
     for (std::uint32_t address = region.start; address < region.start + region.length; address += kReadPageSize)
     {
-        const bytes::Bytes request = frame(kOpReadArea, composeBe(0x00_b, u24(address), std::uint16_t(kReadPageSize)));
+        const bytes::Bytes request = frame(kOpReadArea, ComposeBe(0x00_b, U24(address), std::uint16_t(kReadPageSize)));
         Result<bytes::Bytes> reply =
             required_exchange(transport, clock, cancellation, request, 0ms, kExtraLongTimeout, "read");
         if (!reply.has_value())
@@ -575,7 +575,7 @@ Result<bytes::Bytes> read_mem(IKlineFlashTransport& transport, IClock& clock, co
         // Correction: require the complete page and its sum8 before accepting it.
         const bytes::Bytes& page = *reply;
         if (page.size() != kReadPageSize + 6 || !kernel_reply_ok(page, kOpReadArea, kReadPageSize + 6) ||
-            page.back() != bytes::sum8(bytes::ByteView(page).first(page.size() - 1)))
+            page.back() != bytes::Sum8(bytes::ByteView(page).first(page.size() - 1)))
         {
             events.log(LogLevel::kError, "Wrong response from ECU");
             return fail(ErrorKind::kBadResponse, std::format("incomplete or corrupt page at 0x{:06X}", address));
@@ -638,7 +638,7 @@ Result<std::uint32_t> read_block_crc(IKlineFlashTransport& transport, IClock& cl
                                      const ICancellationToken& cancellation, IEventSink& events,
                                      const MemoryRegion& block)
 {
-    const bytes::Bytes request = frame(kOpCrc, composeBe(block.start, 0x00_b, u24(block.length)));
+    const bytes::Bytes request = frame(kOpCrc, ComposeBe(block.start, 0x00_b, U24(block.length)));
     Result<bytes::Bytes> reply =
         kernel_exchange(transport, clock, cancellation, events, request, kExtraLongTimeout, "CRC check");
     if (!reply.has_value())
@@ -651,7 +651,7 @@ Result<std::uint32_t> read_block_crc(IKlineFlashTransport& transport, IClock& cl
     {
         return std::unexpected(ok.error());
     }
-    const std::uint32_t crc = bytes::readU32Be(*reply, 5);
+    const std::uint32_t crc = bytes::ReadU32Be(*reply, 5);
     if (Status cancelled = check_cancelled(cancellation, "cancelled before CRC flush"); !cancelled.has_value())
     {
         return std::unexpected(cancelled.error());
@@ -683,7 +683,7 @@ Result<std::vector<bool>> compare_blocks(IKlineFlashTransport& transport, IClock
         {
             return std::unexpected(ecu_crc.error());
         }
-        const std::uint32_t image_crc = fastecu::checksum::crc32(image.subspan(block.start, block.length));
+        const std::uint32_t image_crc = fastecu::checksum::Crc32(image.subspan(block.start, block.length));
         changed[i] = *ecu_crc != image_crc;
         events.log(LogLevel::kDebug, std::format("ROM CRC: 0x{:08x} IMG CRC: 0x{:08x}", *ecu_crc, image_crc)); // :860
         events.log(LogLevel::kInfo, std::format("\t{:08X}\t{:08X}", *ecu_crc, image_crc));                     // :868
@@ -733,7 +733,7 @@ Status init_flash_write(IKlineFlashTransport& transport, IClock& clock, const IC
         {
             return ok;
         }
-        events.log(LogLevel::kInfo, std::format(": 0x{:04x}", bytes::readU32Be(*reply, 5))); // :916 / :958
+        events.log(LogLevel::kInfo, std::format(": 0x{:04x}", bytes::ReadU32Be(*reply, 5))); // :916 / :958
     }
     // :977-987.
     const std::uint8_t mode = test_write ? kOpFlashDisable : kOpFlashEnable;
@@ -774,7 +774,7 @@ Status flash_block(IKlineFlashTransport& transport, IClock& clock, const ICancel
                std::format("Flash page erase addr: 0x{:08x} len: 0x{:08x}", block.start, block.length));
     events.log(LogLevel::kInfo, "Erasing flash page...");
     Result<bytes::Bytes> erased =
-        kernel_exchange(transport, clock, cancellation, events, frame(kOpBlankPage, composeBe(block.start)),
+        kernel_exchange(transport, clock, cancellation, events, frame(kOpBlankPage, ComposeBe(block.start)),
                         kExtraLongTimeout, "erase");
     if (!erased.has_value())
     {
@@ -801,7 +801,7 @@ Status flash_block(IKlineFlashTransport& transport, IClock& clock, const ICancel
         const std::uint32_t address = block.start + offset;
         Result<bytes::Bytes> chunk =
             kernel_exchange(transport, clock, cancellation, events,
-                            frame(kOpWriteFlashBuffer, composeBe(address, image.subspan(address, kWriteChunkSize))),
+                            frame(kOpWriteFlashBuffer, ComposeBe(address, image.subspan(address, kWriteChunkSize))),
                             kExtraLongTimeout, "write");
         if (!chunk.has_value())
         {
@@ -834,7 +834,7 @@ Status flash_block(IKlineFlashTransport& transport, IClock& clock, const ICancel
         // :1291-1358.
         if (commit_start + kCommitBlockSize == address + kWriteChunkSize)
         {
-            const std::uint32_t crc = fastecu::checksum::crc32(image.subspan(commit_start, kCommitBlockSize));
+            const std::uint32_t crc = fastecu::checksum::Crc32(image.subspan(commit_start, kCommitBlockSize));
             events.log(LogLevel::kInfo, "Flash buffer write complete... ");
             events.log(LogLevel::kDebug, std::format("Image CRC32: 0x{:x}", crc));
             const std::uint8_t commit = test_write ? kOpValidateFlashBuffer : kOpCommitFlashBuffer;
@@ -844,7 +844,7 @@ Status flash_block(IKlineFlashTransport& transport, IClock& clock, const ICancel
             events.log(LogLevel::kInfo, std::format(" crc32: 0x{:x}", crc));
             Result<bytes::Bytes> committed = kernel_exchange(
                 transport, clock, cancellation, events,
-                frame(commit, composeBe(commit_start, static_cast<std::uint16_t>(kCommitBlockSize), crc)),
+                frame(commit, ComposeBe(commit_start, static_cast<std::uint16_t>(kCommitBlockSize), crc)),
                 kExtraLongTimeout, "commit");
             if (!committed.has_value())
             {
@@ -890,7 +890,7 @@ Status reflash_block(IKlineFlashTransport& transport, IClock& clock, const ICanc
         return ok;
     }
     // QString::number(float) is 'g' with precision 6, as is std::format's {:g}.
-    const auto prog_voltage = static_cast<float>(bytes::readU16Be(*volt, 5) / 50.0);
+    const auto prog_voltage = static_cast<float>(bytes::ReadU16Be(*volt, 5) / 50.0);
     events.log(LogLevel::kInfo, std::format(": {:g}V", prog_voltage));
 
     // :1107-1115.

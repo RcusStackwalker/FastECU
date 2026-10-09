@@ -27,7 +27,7 @@ Result<std::optional<double>> parse_limit(std::string_view text)
     {
         return std::optional<double>{};
     }
-    const auto value = expression::parse_finite_number(text);
+    const auto value = expression::ParseFiniteNumber(text);
     if (!value.has_value())
     {
         return fail(ErrorKind::kInvalidConfig, std::format("invalid definition limit: {}", value.error().detail));
@@ -73,7 +73,7 @@ Result<bytes::Bytes> encode_value(const MapElementSpec& spec, double value)
     {
         return fail(ErrorKind::kInvalidConfig, "edit has invalid numeric storage, stride, or value");
     }
-    const auto encoded = expression::evaluate_checked(spec.to_byte, value);
+    const auto encoded = expression::EvaluateChecked(spec.to_byte, value);
     if (!encoded.has_value())
     {
         return fail(ErrorKind::kInvalidConfig, std::format("encoding expression: {}", encoded.error().detail));
@@ -341,7 +341,7 @@ Result<NumericEditResult> calculate_assignment(bytes::ByteView rom, const MapEle
                            {
                                return current;
                            }
-                           const auto value = expression::evaluate_checked(formula, *current);
+                           const auto value = expression::EvaluateChecked(formula, *current);
                            if (!value.has_value())
                            {
                                return fail(ErrorKind::kInvalidConfig, value.error().detail);

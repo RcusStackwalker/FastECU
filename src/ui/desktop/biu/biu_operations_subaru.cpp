@@ -209,7 +209,7 @@ void BiuOperationsSubaru::keep_alive()
 {
     if (current_command_ == kTesterPresent)
     {
-        output_ = biu_subaru::keepAliveRequest();
+        output_ = biu_subaru::KeepAliveRequest();
     }
 
     send_biu_msg();
@@ -319,7 +319,7 @@ void BiuOperationsSubaru::prepare_biu_set_cmd(const QByteArray& cmdSettings)
 
 void BiuOperationsSubaru::prepare_biu_msg()
 {
-    output_ = biu_subaru::buildRequest(cmd_);
+    output_ = biu_subaru::BuildRequest(cmd_);
 
     send_biu_msg();
 }
@@ -365,7 +365,7 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
     }
 
     const auto frame = bytes::view(message);
-    const bytes::Byte chkSum = bytes::sum8(frame.first(frame.size() - 1));
+    const bytes::Byte chkSum = bytes::Sum8(frame.first(frame.size() - 1));
 
     if (((uint8_t)message.at(0) & 0x80U) != 0x80 || (uint8_t)message.at(1) != 0xf0 || (uint8_t)message.at(2) != 0x40)
     {
@@ -611,7 +611,7 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
 
             // front wheel speed
             canDataResult = can_data_names_.at(static_cast<qsizetype>(item) * 2);
-            calcResult = bytes::readU16Le(bytes::view(message), 5);
+            calcResult = bytes::ReadU16Le(bytes::view(message), 5);
             calcResult =
                 (calcResult * kCanDataFactors[static_cast<ptrdiff_t>(item * 2)]) + kCanDataFactors[item * 2 + 1];
             canDataResult.append(QString("%1 ").arg(calcResult));
@@ -642,7 +642,7 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
             // Fuel level resistance
             item++;
             canDataResult = can_data_names_.at(static_cast<qsizetype>(item) * 2);
-            calcResult = bytes::readU16Le(bytes::view(message), 10);
+            calcResult = bytes::ReadU16Le(bytes::view(message), 10);
             calcResult =
                 (calcResult * kCanDataFactors[static_cast<ptrdiff_t>(item * 2)]) + kCanDataFactors[item * 2 + 1];
             canDataResult.append(QString("%1 ").arg(calcResult));
@@ -653,7 +653,7 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
             // Fuel consumption
             item++;
             canDataResult = can_data_names_.at(static_cast<qsizetype>(item) * 2);
-            calcResult = bytes::readU16Le(bytes::view(message), 12);
+            calcResult = bytes::ReadU16Le(bytes::view(message), 12);
             calcResult =
                 (calcResult * kCanDataFactors[static_cast<ptrdiff_t>(item * 2)]) + kCanDataFactors[item * 2 + 1];
             canDataResult.append(QString("%1 ").arg(calcResult));

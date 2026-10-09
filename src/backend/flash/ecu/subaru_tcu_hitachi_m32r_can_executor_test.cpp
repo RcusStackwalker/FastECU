@@ -69,7 +69,7 @@ constexpr std::size_t kConnectFrames = 8;
 Bytes framedBytes(std::uint32_t request_id, bytes::ByteView payload)
 {
     Bytes result;
-    bytes::appendU32Be(result, request_id);
+    bytes::AppendU32Be(result, request_id);
     result.insert(result.end(), payload.begin(), payload.end());
     return result;
 }
@@ -156,8 +156,8 @@ void scriptFullConnect(ScriptedCanFlashTransport& transport, bool valid_tcu = tr
 Bytes readWindowRequest()
 {
     Bytes payload{0x34, 0x04, 0x33};
-    bytes::appendU24Be(payload, kRegionStart);
-    bytes::appendU24Be(payload, kRegionLength);
+    bytes::AppendU24Be(payload, kRegionStart);
+    bytes::AppendU24Be(payload, kRegionLength);
     return framedBytes(0x7E1, payload);
 }
 
@@ -206,7 +206,7 @@ Bytes pagePayload(std::uint32_t page)
 Bytes pageRequest(std::uint32_t page)
 {
     Bytes payload{0xB7};
-    bytes::appendU24Be(payload, kRegionStart + (page * kPageSize));
+    bytes::AppendU24Be(payload, kRegionStart + (page * kPageSize));
     return framedBytes(0x7E1, payload);
 }
 
@@ -267,7 +267,7 @@ Bytes expectedImage()
     // Deliberate divergence 4: a sized zero buffer. Legacy filled an empty
     // QByteArray through padBytes[i] for i in 0..0x7FFF.
     Bytes image(kRegionStart, Byte{0x00});
-    const Bytes decrypted = ssm_protocol::calculatePayload(dumped, static_cast<std::uint32_t>(dumped.size()),
+    const Bytes decrypted = ssm_protocol::CalculatePayload(dumped, static_cast<std::uint32_t>(dumped.size()),
                                                            kDecryptTable, kIndexTransformation);
     image.insert(image.end(), decrypted.begin(), decrypted.end());
     return image;
@@ -989,7 +989,7 @@ const Bytes& encryptedRom()
         static constexpr std::array<std::uint8_t, 32> kIndexTransformation{
             0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8, 0xA, 0xD, 0x2, 0xB, 0xF, 0x4, 0x0, 0x3,
             0xB, 0x4, 0x6, 0x0, 0xF, 0x2, 0xD, 0x9, 0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8};
-        return ssm_protocol::calculatePayload(plaintextRom(), static_cast<std::uint32_t>(kRomSize), kEncryptTable,
+        return ssm_protocol::CalculatePayload(plaintextRom(), static_cast<std::uint32_t>(kRomSize), kEncryptTable,
                                               kIndexTransformation);
     }();
     return rom;
@@ -1010,15 +1010,15 @@ Bytes eraseRequest()
 Bytes blockWindowRequest(const BlockSpec& block)
 {
     Bytes payload{0x34, 0x04, 0x33};
-    bytes::appendU24Be(payload, block.start);
-    bytes::appendU24Be(payload, block.len);
+    bytes::AppendU24Be(payload, block.start);
+    bytes::AppendU24Be(payload, block.len);
     return framedBytes(0x7E1, payload);
 }
 
 Bytes dataRequest(std::uint32_t address)
 {
     Bytes payload{0xB6};
-    bytes::appendU24Be(payload, address);
+    bytes::AppendU24Be(payload, address);
     const Bytes& rom = encryptedRom();
     const auto offset = static_cast<std::ptrdiff_t>(address);
     payload.insert(payload.end(), rom.begin() + offset, rom.begin() + offset + kWriteFrameSize);
@@ -1212,7 +1212,7 @@ TEST(SubaruTcuHitachiM32rCanExecutor, DataFramesCarryTheEncryptedImageNotThePlai
     // 128 payload bytes are not the encrypted ones, and the guard below proves
     // that expectation is not vacuously equal to the plaintext.
     Bytes plaintext_frame{0xB6};
-    bytes::appendU24Be(plaintext_frame, kRegionStart);
+    bytes::AppendU24Be(plaintext_frame, kRegionStart);
     plaintext_frame.insert(plaintext_frame.end(), plaintextRom().begin() + kRegionStart,
                            plaintextRom().begin() + kRegionStart + kWriteFrameSize);
     ASSERT_NE(dataRequest(kRegionStart), framedBytes(0x7E1, plaintext_frame));

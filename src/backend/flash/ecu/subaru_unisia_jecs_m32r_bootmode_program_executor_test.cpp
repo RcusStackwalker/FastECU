@@ -35,7 +35,7 @@ bytes::Bytes request(const bytes::Bytes& payload)
 {
     bytes::Bytes frame{0x80, 0x10, 0xf0, static_cast<bytes::Byte>(payload.size())};
     frame.insert(frame.end(), payload.begin(), payload.end());
-    frame.push_back(bytes::sum8(frame));
+    frame.push_back(bytes::Sum8(frame));
     return frame;
 }
 
@@ -43,7 +43,7 @@ bytes::Bytes reply(const bytes::Bytes& payload)
 {
     bytes::Bytes frame{0x80, 0xf0, 0x10, static_cast<bytes::Byte>(payload.size())};
     frame.insert(frame.end(), payload.begin(), payload.end());
-    frame.push_back(bytes::sum8(frame));
+    frame.push_back(bytes::Sum8(frame));
     return frame;
 }
 
@@ -356,7 +356,7 @@ TEST(SubaruUnisiaJecsM32rBootModeProgramExecutor, ANonStatusReplyFailsTheErasePo
     RunContext context;
     const auto result = run(plan, transport, context);
     ASSERT_THAT(result, IsErr(ErrorKind::kBadResponse));
-    EXPECT_THAT(result.error().detail, ::testing::HasSubstr(bytes::toHex(malformed)));
+    EXPECT_THAT(result.error().detail, ::testing::HasSubstr(bytes::ToHex(malformed)));
     EXPECT_THAT(result.error().detail, ::testing::Not(::testing::HasSubstr("status")));
 }
 
@@ -371,7 +371,7 @@ TEST(SubaruUnisiaJecsM32rBootModeProgramExecutor, ABadChecksumFailsTheErasePoll)
     RunContext context;
     const auto result = run(plan, transport, context);
     ASSERT_THAT(result, IsErr(ErrorKind::kBadResponse));
-    EXPECT_THAT(result.error().detail, ::testing::HasSubstr(bytes::toHex(bad_checksum)));
+    EXPECT_THAT(result.error().detail, ::testing::HasSubstr(bytes::ToHex(bad_checksum)));
     EXPECT_THAT(result.error().detail, ::testing::Not(::testing::HasSubstr("status")));
 }
 

@@ -36,8 +36,8 @@ Result<NumericRun> decode_numeric_run(bytes::ByteView rom, const ElementRun& run
     {
         const auto address =
             run.address + std::uint64_t(run.start_position - 1) * width + std::uint64_t(index) * width * run.interval;
-        const auto raw = little_endian ? bytes::readULe(rom, static_cast<std::size_t>(address), width)
-                                       : bytes::readUBe(rom, static_cast<std::size_t>(address), width);
+        const auto raw = little_endian ? bytes::ReadULe(rom, static_cast<std::size_t>(address), width)
+                                       : bytes::ReadUBe(rom, static_cast<std::size_t>(address), width);
         const double numeric = is_float ? static_cast<double>(std::bit_cast<float>(raw))
                                : definition::is_unsigned_storage(run.storage_type)
                                    ? static_cast<double>(raw)
@@ -45,7 +45,7 @@ Result<NumericRun> decode_numeric_run(bytes::ByteView rom, const ElementRun& run
         // Numeric Selectable's existing control semantics are outside this
         // migration; blob selections are represented separately as bytes.
         const auto value = run.is_selectable ? std::expected<double, expression::EvaluationError>(0.0)
-                                             : expression::evaluate_checked(run.from_byte, numeric);
+                                             : expression::EvaluateChecked(run.from_byte, numeric);
         if (value.has_value())
         {
             result.cells.emplace_back(*value);

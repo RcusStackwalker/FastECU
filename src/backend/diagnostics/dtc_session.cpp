@@ -201,7 +201,7 @@ class DtcRun
         if (f[4] == 0x7F)
         {
             // Today's code describes the NRC from offset 3, not 4.
-            error("Wrong response from ECU: " + nrc_description(bytes::ByteView(f).subspan(3)));
+            error("Wrong response from ECU: " + NrcDescription(bytes::ByteView(f).subspan(3)));
             return fail(ErrorKind::kBadResponse, "iso15765 init rejected");
         }
         if (f[4] != 0x41)
@@ -307,7 +307,7 @@ class DtcRun
             report_.*list.field = decode_dtcs(*response);
             for (const std::uint16_t code : report_.*list.field)
             {
-                info("DTC: " + dtc_description(code));
+                info("DTC: " + DtcDescription(code));
             }
             if (auto slept = clock_.sleep(kBetweenRequests, cancellation_); !slept.has_value())
             {
@@ -349,7 +349,7 @@ class DtcRun
             }
             if (f[index] == 0x7F)
             {
-                error("Wrong response from ECU: " + nrc_description(bytes::ByteView(f).subspan(index)));
+                error("Wrong response from ECU: " + NrcDescription(bytes::ByteView(f).subspan(index)));
                 break;
             }
             if (f[index] != (kClearDtcs | 0x40U))
@@ -399,7 +399,7 @@ class DtcRun
             if (check == ResponseCheck::kNrc)
             {
                 error("Wrong response from ECU: " +
-                      nrc_description(bytes::ByteView(f).subspan(response_index(request_.protocol))));
+                      NrcDescription(bytes::ByteView(f).subspan(response_index(request_.protocol))));
                 break;
             }
             if (check == ResponseCheck::kWrongId)

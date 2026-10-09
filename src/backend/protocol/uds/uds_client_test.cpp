@@ -151,7 +151,7 @@ TEST(UdsClientTest, ReportsANegativeResponseWithItsNrcDescription)
 
     uds::UdsClient client = f.client();
     ASSERT_THAT(client.request(request, kPolicy, f.cancellation),
-                fastecu::testing::IsErrWith(ErrorKind::kBadResponse, uds::describe(bytes::Bytes{0x7F, 0x27, 0x35})));
+                fastecu::testing::IsErrWith(ErrorKind::kBadResponse, uds::Describe(bytes::Bytes{0x7F, 0x27, 0x35})));
 }
 
 TEST(UdsClientTest, RejectsAResponseToADifferentService)

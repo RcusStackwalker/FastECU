@@ -45,13 +45,13 @@ void non_fatal_query(const UdsExchangeContext& ctx, bytes::ByteView pdu,
         ctx.events.log(LogLevel::kError, std::format("{}{}", rejection_prefix, reply.error().detail));
         return;
     }
-    const bytes::ByteView payload = uds::payload(*reply);
+    const bytes::ByteView payload = uds::Payload(*reply);
     if (expected_subfunction.has_value() && (payload.empty() || payload[0] != *expected_subfunction))
     {
         ctx.events.log(LogLevel::kError, std::format("{}unexpected subfunction", rejection_prefix));
         return;
     }
-    ctx.events.log(LogLevel::kInfo, std::format("{}: {}", label, bytes::toHex(payload)));
+    ctx.events.log(LogLevel::kInfo, std::format("{}: {}", label, bytes::ToHex(payload)));
 }
 
 Result<bytes::Bytes> fatal_query(const UdsExchangeContext& ctx, bytes::ByteView pdu, bytes::ByteView expected_prefix,
@@ -63,7 +63,7 @@ Result<bytes::Bytes> fatal_query(const UdsExchangeContext& ctx, bytes::ByteView 
     {
         return reply;
     }
-    const bytes::ByteView payload = uds::payload(*reply);
+    const bytes::ByteView payload = uds::Payload(*reply);
     if (const std::size_t required_size = min_payload_size.value_or(expected_prefix.size());
         payload.size() < required_size || !std::equal(expected_prefix.begin(), expected_prefix.end(), payload.begin()))
     {

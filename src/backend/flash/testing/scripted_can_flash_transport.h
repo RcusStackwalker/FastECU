@@ -158,7 +158,7 @@ class ScriptedCanFlashTransport : public ICanFlashTransport
         {
             return fail(ErrorKind::kInternal,
                         std::format("scripted CAN write ran past the end of the script ({} exchanges); wrote {}",
-                                    expected_.size(), bytes::toHex(actual)));
+                                    expected_.size(), bytes::ToHex(actual)));
         }
         if (expected_.at(w_idx_) != actual)
         {
@@ -210,8 +210,8 @@ class ScriptedCanFlashTransport : public ICanFlashTransport
         const std::string& label = sections_.at(index);
         const std::string where = label.empty() ? std::format("scripted CAN exchange #{}", index + 1)
                                                 : std::format("scripted CAN exchange #{} (\"{}\")", index + 1, label);
-        return std::format("{} diverged\n  expected: {}\n  actual:   {}", where, bytes::toHex(expected_.at(index)),
-                           bytes::toHex(actual));
+        return std::format("{} diverged\n  expected: {}\n  actual:   {}", where, bytes::ToHex(expected_.at(index)),
+                           bytes::ToHex(actual));
     }
 
     std::vector<bytes::Bytes> expected_;

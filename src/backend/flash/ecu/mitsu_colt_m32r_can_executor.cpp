@@ -97,7 +97,7 @@ Status connect_bootloader(Ctx& ctx, const MitsuColtM32rCanPlan& family)
     {
         info(ctx, "Starting basic diagnostic session for vendor authorization...");
         Result<bytes::Bytes> received =
-            fatal_query(ctx, buildDiagnosticSession(kSessionBasic), bytes::Bytes{kSessionBasic}, kRoutineExchangePolicy,
+            fatal_query(ctx, BuildDiagnosticSession(kSessionBasic), bytes::Bytes{kSessionBasic}, kRoutineExchangePolicy,
                         "Wrong response from ECU: ", "basic diagnostic session");
         if (!received.has_value())
         {
@@ -109,7 +109,7 @@ Status connect_bootloader(Ctx& ctx, const MitsuColtM32rCanPlan& family)
         // 4-byte seed after them (legacy "length > 10" on the enveloped
         // frame).
         info(ctx, "Requesting vendor extension challenge seed...");
-        received = fatal_query(ctx, mitsu_colt_can_vendor_ext::buildChallengeSeedRequest(),
+        received = fatal_query(ctx, mitsu_colt_can_vendor_ext::BuildChallengeSeedRequest(),
                                bytes::Bytes{mitsu_colt_can_vendor_ext::kVendorChallengeSelector,
                                             mitsu_colt_can_vendor_ext::kVendorChallengeSeedSubfunction},
                                kRoutineExchangePolicy,
@@ -120,19 +120,19 @@ Status connect_bootloader(Ctx& ctx, const MitsuColtM32rCanPlan& family)
         }
 
         // Lines 97-104: received.mid(7, 4) on the enveloped frame.
-        const bytes::ByteView seed_bytes = uds::payload(*received).subspan(2, 4);
-        info(ctx, std::format("Received vendor seed: {}", bytes::toHex(seed_bytes)));
+        const bytes::ByteView seed_bytes = uds::Payload(*received).subspan(2, 4);
+        info(ctx, std::format("Received vendor seed: {}", bytes::ToHex(seed_bytes)));
 
         const std::uint32_t vendor_key =
-            mitsu_colt_can_vendor_ext::challengeInverseTransform(mitsu_colt_can_vendor_ext::bytesToSeed(seed_bytes));
-        const bytes::Bytes key_bytes = mitsu_colt_can_vendor_ext::keyBytes(vendor_key);
-        info(ctx, std::format("Calculated vendor key: {}", bytes::toHex(key_bytes)));
+            mitsu_colt_can_vendor_ext::ChallengeInverseTransform(mitsu_colt_can_vendor_ext::BytesToSeed(seed_bytes));
+        const bytes::Bytes key_bytes = mitsu_colt_can_vendor_ext::KeyBytes(vendor_key);
+        info(ctx, std::format("Calculated vendor key: {}", bytes::ToHex(key_bytes)));
 
         // Lines 106-116. Echoing the selector is not acceptance: only
         // kVendorChallengeAccepted grants the transition, so this stays a
         // content check of its own.
         info(ctx, "Sending vendor key to ECU...");
-        received = fatal_query(ctx, mitsu_colt_can_vendor_ext::buildChallengeKey(vendor_key),
+        received = fatal_query(ctx, mitsu_colt_can_vendor_ext::BuildChallengeKey(vendor_key),
                                bytes::Bytes{mitsu_colt_can_vendor_ext::kVendorChallengeSelector,
                                             mitsu_colt_can_vendor_ext::kVendorChallengeAccepted},
                                kRoutineExchangePolicy, "Vendor challenge key rejected: ", "vendor challenge key");
@@ -148,7 +148,7 @@ Status connect_bootloader(Ctx& ctx, const MitsuColtM32rCanPlan& family)
     // bootload session and complete factory SecurityAccess.
     info(ctx, "Starting diagnostic session...");
     Result<bytes::Bytes> received =
-        fatal_query(ctx, buildDiagnosticSession(family.session_id), bytes::Bytes{family.session_id},
+        fatal_query(ctx, BuildDiagnosticSession(family.session_id), bytes::Bytes{family.session_id},
                     kRoutineExchangePolicy, "Wrong response from ECU: ", "diagnostic session");
     if (!received.has_value())
     {
@@ -166,7 +166,7 @@ Status connect_bootloader(Ctx& ctx, const MitsuColtM32rCanPlan& family)
     // The seed level byte plus the 4 seed bytes behind it (legacy "length > 9"
     // on the enveloped frame).
     info(ctx, "Requesting security seed...");
-    received = fatal_query(ctx, buildSecurityAccessSeedRequest(), bytes::Bytes{kSecurityAccessSeedLevel},
+    received = fatal_query(ctx, BuildSecurityAccessSeedRequest(), bytes::Bytes{kSecurityAccessSeedLevel},
                            kRoutineExchangePolicy, "Wrong response from ECU: ", "security access seed request", 5);
     if (!received.has_value())
     {
@@ -174,15 +174,15 @@ Status connect_bootloader(Ctx& ctx, const MitsuColtM32rCanPlan& family)
     }
 
     // Lines 147-153: received.mid(6, 4) on the enveloped frame.
-    const bytes::ByteView seed = uds::payload(*received).subspan(1, 4);
-    info(ctx, std::format("Received seed: {}", bytes::toHex(seed)));
+    const bytes::ByteView seed = uds::Payload(*received).subspan(1, 4);
+    info(ctx, std::format("Received seed: {}", bytes::ToHex(seed)));
 
-    const bytes::Bytes key = seedKey(seed);
-    info(ctx, std::format("Calculated seed key: {}", bytes::toHex(key)));
+    const bytes::Bytes key = SeedKey(seed);
+    info(ctx, std::format("Calculated seed key: {}", bytes::ToHex(key)));
 
     // Lines 155-165.
     info(ctx, "Sending seed key to ECU...");
-    received = fatal_query(ctx, buildSecurityAccessKey(key), bytes::Bytes{kSecurityAccessKeyLevel},
+    received = fatal_query(ctx, BuildSecurityAccessKey(key), bytes::Bytes{kSecurityAccessKeyLevel},
                            kRoutineExchangePolicy, "Wrong response from ECU: ", "security access key");
     if (!received.has_value())
     {
@@ -204,7 +204,7 @@ Result<bytes::Bytes> read_one_chunk(Ctx& ctx, std::uint32_t addr, bytes::Byte ch
 
     // Lines 191-194.
     Result<bytes::Bytes> received =
-        fatal_request(ctx, buildReadMemoryByAddress(addr, chunk_len), kRoutineExchangePolicy,
+        fatal_request(ctx, BuildReadMemoryByAddress(addr, chunk_len), kRoutineExchangePolicy,
                       std::format("the flash read at 0x{:x}", addr));
     if (!received.has_value())
     {
@@ -214,7 +214,7 @@ Result<bytes::Bytes> read_one_chunk(Ctx& ctx, std::uint32_t addr, bytes::Byte ch
     // short one is refused rather than padded -- silently accepting it
     // would leave a hole in the image the verify pass then blames on the
     // flash write.
-    const bytes::ByteView payload = uds::payload(*received);
+    const bytes::ByteView payload = uds::Payload(*received);
     if (payload.size() < chunk_len)
     {
         error(ctx, std::format("Wrong response from ECU at 0x{:x}: expected {} payload "
@@ -319,7 +319,7 @@ Status upload_and_commit(Ctx& ctx, std::uint32_t start, bytes::ByteView data, Ph
 
     // Lines 238-246.
     Result<bytes::Bytes> received =
-        fatal_request(ctx, buildRequestDownload(start, static_cast<std::uint32_t>(data.size())), kRoutineExchangePolicy,
+        fatal_request(ctx, BuildRequestDownload(start, static_cast<std::uint32_t>(data.size())), kRoutineExchangePolicy,
                       std::format("RequestDownload to 0x{:x}", start));
     if (!received.has_value())
     {
@@ -328,7 +328,7 @@ Status upload_and_commit(Ctx& ctx, std::uint32_t start, bytes::ByteView data, Ph
 
     // Lines 248-260.
     std::uint32_t payload_done = 0;
-    for (const bytes::Bytes& chunk : buildTransferDataFrames(data))
+    for (const bytes::Bytes& chunk : BuildTransferDataFrames(data))
     {
         received = fatal_request(ctx, chunk, kRoutineExchangePolicy, std::format("TransferData to 0x{:x}", start));
         if (!received.has_value())
@@ -343,7 +343,7 @@ Status upload_and_commit(Ctx& ctx, std::uint32_t start, bytes::ByteView data, Ph
     }
 
     // Lines 262-270.
-    received = fatal_request(ctx, buildRequestDownload(kCrcTransferAddress, kCrcTransferSize), kRoutineExchangePolicy,
+    received = fatal_request(ctx, BuildRequestDownload(kCrcTransferAddress, kCrcTransferSize), kRoutineExchangePolicy,
                              "RequestDownload for the checksum");
     if (!received.has_value())
     {
@@ -352,8 +352,8 @@ Status upload_and_commit(Ctx& ctx, std::uint32_t start, bytes::ByteView data, Ph
 
     // Lines 272-284: big-endian 16-bit running sum, always exactly one
     // TransferData frame (kCrcTransferSize is 2, well under kTransferChunkSize).
-    const std::uint16_t crc = checksum(data);
-    received = fatal_request(ctx, buildTransferDataFrames(bytes::composeBe(crc)).front(), kRoutineExchangePolicy,
+    const std::uint16_t crc = Checksum(data);
+    received = fatal_request(ctx, BuildTransferDataFrames(bytes::ComposeBe(crc)).front(), kRoutineExchangePolicy,
                              "TransferData for the checksum");
     if (!received.has_value())
     {
@@ -368,7 +368,7 @@ Status upload_and_commit(Ctx& ctx, std::uint32_t start, bytes::ByteView data, Ph
     // bytes at once, so a reported mismatch is rejected the same generic way
     // as a malformed reply -- see the vendor challenge key rejection above
     // for the identical pattern and its "not the legacy text" rationale.
-    received = fatal_query(ctx, buildRoutineCheckCrc(start), bytes::Bytes{kRoutineCheckCrc, 0x00}, kSlowExchangePolicy,
+    received = fatal_query(ctx, BuildRoutineCheckCrc(start), bytes::Bytes{kRoutineCheckCrc, 0x00}, kSlowExchangePolicy,
                            std::format("RoutineControl CRC check for 0x{:x} rejected: ", start),
                            std::format("CRC check for 0x{:x}", start));
     if (!received.has_value())
@@ -394,7 +394,7 @@ Status unlock_and_erase(Ctx& ctx, std::string_view stage)
 {
     using namespace mitsu_colt_can;
 
-    Result<bytes::Bytes> received = fatal_request(ctx, buildRequestReflashUnlock(), kSlowExchangePolicy,
+    Result<bytes::Bytes> received = fatal_request(ctx, BuildRequestReflashUnlock(), kSlowExchangePolicy,
                                                   std::format("the reflash unlock request{}", stage));
     if (!received.has_value())
     {
@@ -409,7 +409,7 @@ Status unlock_and_erase(Ctx& ctx, std::string_view stage)
     // both bytes at once, so that failure is rejected the same generic way
     // as a malformed reply -- see the vendor challenge key rejection in
     // connect_bootloader for the identical pattern.
-    received = fatal_query(ctx, buildRoutineErase(), bytes::Bytes{kRoutineErase, 0x00}, kSlowExchangePolicy,
+    received = fatal_query(ctx, BuildRoutineErase(), bytes::Bytes{kRoutineErase, 0x00}, kSlowExchangePolicy,
                            std::format("Erase trigger{} rejected: ", stage), std::format("erase trigger{}", stage));
     if (!received.has_value())
     {
