@@ -154,6 +154,11 @@ flash-worker prompt/progress qualification.
 
 Remaining behavior and code gaps:
 
+- The direct serial reader currently recognizes SSM source headers `0x10`/`0x01`
+  but excludes TCU source `0x18`. Qualify and repair direct-adapter TCU framing
+  separately; target-change support invalidation does not establish transport
+  compatibility.
+
 - Add an in-app logger measurement editor for request ID/address code, width,
   scaling, unit, and precision, with stable identities and definition persistence.
   The current chooser selects existing IDs and cannot author definitions; use the

@@ -946,6 +946,7 @@ class MainWindowTest : public ::testing::Test
     void check_subaruConnectThatNeverAnswersDisconnectsAndRestoresControls();
     void check_disconnectDuringIdentificationCancelsAndDropsTheResult();
     void check_loggingSelectionFailureSemanticsAndSupportPreservation();
+    void check_targetChangeInvalidatesIdentificationAndSupport();
     void check_loggingDefinitionFailureIsNonfatal();
     void check_unresolvedDisplaySlotsRemainVisibleAndUpdateTheirOriginalLabels();
     void check_chooserDuplicateLabelIdentity(int tab, QString kind);
@@ -2320,6 +2321,7 @@ void MainWindowTest::check_loggingCapturesTargetForEachRun()
     {
         window.ecu_radio_button->setAutoExclusive(false);
         window.ecu_radio_button->setChecked(target);
+        window.connection_presentation_.identified({.ecu_id = target ? "ECU" : "TCU"});
         // trigger() toggles a checkable action, as a click does: start
         // unchecked so the handler sees Logging switched on.
         action->setChecked(false);
@@ -5234,4 +5236,29 @@ TEST_F(MainWindowTest, PasteAcceptsTerminalCrLf)
 TEST_F(MainWindowTest, PasteRejectsInteriorEmptyCellAtomically)
 {
     ASSERT_NO_FATAL_FAILURE(check_typedAssignment(AssignmentScenario::PasteInteriorEmpty));
+}
+
+void MainWindowTest::check_targetChangeInvalidatesIdentificationAndSupport()
+{
+    ModalDriver driver{QString()};
+    driver.start();
+    TestServices services{config_root_->path()};
+    MainWindow window{services.services()};
+    prepareLogging(window, "SSM");
+    for (const auto old_support : {fastecu::logging::EcuSupport::Supported, fastecu::logging::EcuSupport::Unsupported})
+    {
+        window.ecu_init_complete = true;
+        window.ecuid = "OLD_TARGET";
+        window.loggerModel->set_parameter_support("SSM", "rpm", old_support);
+        (window.ecu_radio_button->isChecked() ? window.tcu_radio_button : window.ecu_radio_button)->click();
+        EXPECT_FALSE(window.ecu_init_complete);
+        EXPECT_TRUE(window.ecuid.isEmpty());
+        EXPECT_EQ(window.loggerModel->parameter_support("SSM", "rpm"), fastecu::logging::EcuSupport::Unknown);
+    }
+    driver.stop();
+}
+
+TEST_F(MainWindowTest, targetChangeInvalidatesIdentificationAndSupport)
+{
+    ASSERT_NO_FATAL_FAILURE(check_targetChangeInvalidatesIdentificationAndSupport());
 }

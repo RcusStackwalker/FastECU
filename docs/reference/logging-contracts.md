@@ -23,7 +23,8 @@ unknown support still undergo normal preparation, including user-authored MUT
 sources. No ROM matching is required.
 
 All connection-specific support evidence resets when a new target is identified,
-including custom protocol keys. Missing capability metadata or payload bytes leave
+including custom protocol keys. Changing the ECU/TCU selection invalidates both
+identification and support evidence; the next run identifies the selected target. Missing capability metadata or payload bytes leave
 support unknown. SSM's framing checksum is excluded from capability data. MUT
 setup ACKs and returned data do not establish per-measurement support.
 

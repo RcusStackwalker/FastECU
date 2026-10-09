@@ -21,6 +21,10 @@ one of the maintained 84 request entries. Multi-byte measurements require ordere
 byte requests. Historical decimal-byte concatenation remains a conversion rule:
 bytes `01 02` supply raw expression input `"12"` independently of physical mapping.
 
+Continuous SSM responses can arrive consecutively or coalesced in a serial read.
+The plain transport path consumes one declared frame at a time, retains subsequent
+bytes, and checks that frame against the captured read plan and checksum.
+
 ## MUT/DMA: maintained format and analyzed OEM firmware
 
 The [maintained free-form codec](../../src/algorithms/protocol/mut_dma/mut_dma_freeform.cpp)

@@ -37,6 +37,7 @@ class SsmLoggingProtocol final : public LoggingProtocol
     const SsmReadPlan plan_;
     const bool target_is_ecu_;
     const bool use_openport2_adapter_;
+    bytes::Bytes pending_response_bytes_;
 };
 
 } // namespace fastecu::logging

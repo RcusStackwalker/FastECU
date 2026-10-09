@@ -392,6 +392,15 @@ MainWindow::MainWindow(MainWindowServices services, const QString& peerAddress, 
     ui->toolBar->addWidget(ecu_radio_button);
     tcu_radio_button = new QRadioButton("TCU");
     ui->toolBar->addWidget(tcu_radio_button);
+    connect(ecu_radio_button, &QRadioButton::toggled, this,
+            [this]
+            {
+                // Identification and capability evidence belong to one target.
+                ecu_init_complete = false;
+                ecuid.clear();
+                loggerModel->reset_support();
+                set_status_bar_label(false, false, "");
+            });
 
     ui->toolBar->addSeparator();
 

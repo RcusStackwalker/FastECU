@@ -67,7 +67,6 @@ TEST(SsmLoggingProtocolTest, StartPreservesHistoricalRequestVector)
     auto transport = std::make_unique<ScriptedSsmTransport>();
     transport->expectWrite(buildRequest(bytes::Bytes{0xA8, 0x00, 0x00, 0x00, 0x07}));
     transport->queueRead(buildResponse(bytes::Bytes{0}));
-    transport->queue_no_frame();
     auto *script = transport.get();
     auto clock = fastecu::make_auto_advancing_clock(10ms);
     fastecu::FakeCancellationToken cancellation;
@@ -121,7 +120,6 @@ TEST(SsmLoggingProtocolTest, PreservesDecimalByteConcatenation)
     auto transport = std::make_unique<ScriptedSsmTransport>();
     transport->expectWrite(buildRequest(bytes::Bytes{0xA8, 0x01, 0x00, 0x10, 0x00, 0x00, 0x10, 0x01}));
     transport->queueRead(buildResponse(bytes::Bytes{16, 16}));
-    transport->queue_no_frame();
     auto *script = transport.get();
     auto clock = fastecu::make_auto_advancing_clock(10ms);
     fastecu::FakeCancellationToken cancellation;
@@ -143,7 +141,6 @@ TEST(SsmLoggingProtocolTest, PollPreservesChannelRequestOrder)
     auto transport = std::make_unique<ScriptedSsmTransport>();
     transport->expectWrite(buildRequest(bytes::Bytes{0xA8, 0x01, 0x00, 0x10, 0x00, 0x00, 0x10, 0x03}));
     transport->queueRead(buildResponse(bytes::Bytes{42, 99}));
-    transport->queue_no_frame();
     auto clock = fastecu::make_auto_advancing_clock(10ms);
     fastecu::FakeCancellationToken cancellation;
     auto protocol =
@@ -165,7 +162,6 @@ TEST(SsmLoggingProtocolTest, PollMapsConsecutivePhysicalBytesIndependentOfMissin
     auto transport = std::make_unique<ScriptedSsmTransport>();
     transport->expectWrite(buildRequest(bytes::Bytes{0xA8, 0x01, 0x00, 0x10, 0x00, 0x00, 0x10, 0x03}));
     transport->queueRead(buildResponse(bytes::Bytes{42, 99}));
-    transport->queue_no_frame();
     auto clock = fastecu::make_auto_advancing_clock(10ms);
     fastecu::FakeCancellationToken cancellation;
     auto protocol =
@@ -405,4 +401,52 @@ TEST(SsmLoggingProtocolTest, StartRejectsInvalidChecksumWrongTargetAndExtraData)
         auto protocol = make_protocol(clock, std::move(transport), {channel()}, true, true);
         EXPECT_THAT(protocol.start(cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::BadResponse));
     }
+}
+
+TEST(SsmLoggingProtocolTest, ConsecutiveContinuousFramesAreNotConcatenated)
+{
+    auto transport = std::make_unique<ScriptedSsmTransport>();
+    const auto request = buildRequest(bytes::Bytes{0xa8, 1, 0, 0x10, 0});
+    transport->expectWrite(request);
+    transport->expectWrite(request);
+    transport->queueRead(buildResponse(bytes::Bytes{42}));
+    transport->queueRead(buildResponse(bytes::Bytes{99}));
+    auto *script = transport.get();
+    auto clock = fastecu::make_auto_advancing_clock(1ms);
+    fastecu::FakeCancellationToken cancellation;
+    auto protocol = make_protocol(clock, std::move(transport), {channel()}, true, false);
+    const auto first = protocol.poll(50ms, cancellation);
+    ASSERT_THAT(first, fastecu::testing::IsOk());
+    ASSERT_EQ(first->samples.size(), 1U);
+    EXPECT_EQ(first->samples.front().raw_value, "42");
+    const auto second = protocol.poll(50ms, cancellation);
+    ASSERT_THAT(second, fastecu::testing::IsOk());
+    ASSERT_EQ(second->samples.size(), 1U);
+    EXPECT_EQ(second->samples.front().raw_value, "99");
+    EXPECT_TRUE(script->scriptConsumed());
+}
+
+TEST(SsmLoggingProtocolTest, CoalescedContinuousFramesRetainTheNextFrame)
+{
+    auto transport = std::make_unique<ScriptedSsmTransport>();
+    const auto request = buildRequest(bytes::Bytes{0xa8, 1, 0, 0x10, 0});
+    transport->expectWrite(request);
+    transport->expectWrite(request);
+    auto responses = buildResponse(bytes::Bytes{42});
+    const auto next = buildResponse(bytes::Bytes{99});
+    responses.insert(responses.end(), next.begin(), next.end());
+    transport->queueRead(responses);
+    auto *script = transport.get();
+    auto clock = fastecu::make_auto_advancing_clock(1ms);
+    fastecu::FakeCancellationToken cancellation;
+    auto protocol = make_protocol(clock, std::move(transport), {channel()}, true, false);
+    const auto first = protocol.poll(50ms, cancellation);
+    ASSERT_THAT(first, fastecu::testing::IsOk());
+    ASSERT_EQ(first->samples.size(), 1U);
+    EXPECT_EQ(first->samples.front().raw_value, "42");
+    const auto second = protocol.poll(50ms, cancellation);
+    ASSERT_THAT(second, fastecu::testing::IsOk());
+    ASSERT_EQ(second->samples.size(), 1U);
+    EXPECT_EQ(second->samples.front().raw_value, "99");
+    EXPECT_TRUE(script->scriptConsumed());
 }

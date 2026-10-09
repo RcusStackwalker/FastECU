@@ -88,29 +88,27 @@ fastecu::Result<bytes::Bytes> SsmLoggingProtocol::readFramedResponse(std::chrono
         return received;
     }
 
-    while (received.size() < 3 && clock_.now() < deadline)
+    received = std::move(pending_response_bytes_);
+    while (clock_.now() < deadline)
     {
-        if (auto status = read_and_append(10ms); !status.has_value())
+        while (received.size() >= 3 &&
+               (received[0] != 0x80 || received[1] != 0xf0 || received[2] != (target_is_ecu_ ? 0x10 : 0x18)))
         {
-            return std::unexpected(status.error());
+            received.erase(received.begin());
         }
-    }
-
-    while (received.size() >= 3 &&
-           (received[0] != 0x80 || received[1] != 0xf0 || received[2] != (target_is_ecu_ ? 0x10 : 0x18)) &&
-           clock_.now() < deadline)
-    {
-        received.erase(received.begin());
-        if (auto status = read_and_append(10ms); !status.has_value())
+        if (received.size() >= 4)
         {
-            return std::unexpected(status.error());
+            const auto frame_size = static_cast<std::size_t>(received[3]) + 5;
+            if (received.size() >= frame_size)
+            {
+                // Continuous SSM replies can arrive consecutively or in one read.
+                // Validate one frame at a time and retain the following bytes.
+                pending_response_bytes_.assign(received.begin() + frame_size, received.end());
+                received.resize(frame_size);
+                return received;
+            }
         }
-    }
-
-    if (const auto remaining = deadline - clock_.now(); remaining > 0ms)
-    {
-        if (auto status = read_and_append(std::chrono::duration_cast<std::chrono::milliseconds>(remaining));
-            !status.has_value())
+        if (auto status = read_and_append(10ms); !status.has_value())
         {
             return std::unexpected(status.error());
         }

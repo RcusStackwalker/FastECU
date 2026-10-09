@@ -210,7 +210,7 @@ TEST(DesktopLoggingProtocolRegistrationTest, ssm_target_and_adapter_are_per_run)
                     .WillOnce(Return(QByteArray::fromHex(target ? "80f01002e8006a" : "80f01802e80072")));
                 if (!openport)
                 {
-                    EXPECT_CALL(serial.fake(), read_serial_data(980)).WillOnce(Return(QByteArray{}));
+                    EXPECT_CALL(serial.fake(), read_serial_data(980)).Times(0);
                 }
             }
             ASSERT_TRUE((*result)->start(cancellation));
