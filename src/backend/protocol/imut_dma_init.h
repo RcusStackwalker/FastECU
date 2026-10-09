@@ -29,7 +29,7 @@ class AlreadyInMode : public IMutDmaInit
 class FiveBaudInit : public IMutDmaInit
 {
   public:
-    FiveBaudInit(bytes::Byte addrByte, int baud) : addr_(addrByte), baud_(baud)
+    FiveBaudInit(bytes::Byte addr_byte, int baud) : addr_(addr_byte), baud_(baud)
     {
     }
     fastecu::Status wake(IKlineTransport& t) override; // see .cpp

@@ -178,13 +178,13 @@ void scriptSession(ScriptedCanFlashTransport& transport)
 void scriptSeedAndKey(ScriptedCanFlashTransport& transport, bytes::ByteView seed, bytes::ByteView key)
 {
     const auto section = transport.section("seed and key");
-    bytes::Bytes seedResponse{0x67, 0x01};
-    seedResponse.insert(seedResponse.end(), seed.begin(), seed.end());
-    transport.exchange(request({0x27, 0x01}), response(seedResponse));
+    bytes::Bytes seed_response{0x67, 0x01};
+    seed_response.insert(seed_response.end(), seed.begin(), seed.end());
+    transport.exchange(request({0x27, 0x01}), response(seed_response));
 
-    bytes::Bytes keyRequest{0x27, 0x02};
-    keyRequest.insert(keyRequest.end(), key.begin(), key.end());
-    transport.exchange(request(keyRequest), response({0x67, 0x02}));
+    bytes::Bytes key_request{0x27, 0x02};
+    key_request.insert(key_request.end(), key.begin(), key.end());
+    transport.exchange(request(key_request), response({0x67, 0x02}));
 }
 
 // Jump 0x10/0x42, content-blind.
@@ -236,12 +236,12 @@ void scriptFlashDump(ScriptedCanFlashTransport& transport, std::uint32_t start, 
                      std::uint32_t pagesize, bytes::Byte fill)
 {
     const auto section = transport.section("flash dump");
-    const bytes::Bytes plainPage(pagesize, fill);
-    const bytes::Bytes wirePage = toWire(plainPage);
+    const bytes::Bytes plain_page(pagesize, fill);
+    const bytes::Bytes wire_page = toWire(plain_page);
     for (std::uint32_t addr = start; addr < start + length; addr += pagesize)
     {
         bytes::Bytes reply = response({0xF7});
-        reply.insert(reply.end(), wirePage.begin(), wirePage.end());
+        reply.insert(reply.end(), wire_page.begin(), wire_page.end());
         transport.exchange(request(bytes::composeBe(bytes::Byte(0xB7), bytes::u24(addr))), reply);
     }
 }
@@ -351,9 +351,9 @@ TEST(SubaruTcuCvtMitsuMh8104CanExecutor, ConnectSucceedsEvenWhenEveryDiagnosticR
 
     const bytes::Bytes seed{0x33, 0xAA, 0xBB, 0xCC};
     const bytes::Bytes key = seedKey(seed);
-    bytes::Bytes keyRequest{0x27, 0x02};
-    keyRequest.insert(keyRequest.end(), key.begin(), key.end());
-    transport.exchange(request(keyRequest), response({0x7F, 0x27, 0x35}));
+    bytes::Bytes key_request{0x27, 0x02};
+    key_request.insert(key_request.end(), key.begin(), key.end());
+    transport.exchange(request(key_request), response({0x7F, 0x27, 0x35}));
 
     transport.exchange(request({0x10, 0x42}), response({0x7F, 0x10, 0x22}));
 
@@ -388,14 +388,14 @@ TEST(SubaruTcuCvtMitsuMh8104CanExecutor, ConnectPropagatesATimeoutBetweenExchang
     scriptIdentityQueries(transport);
     scriptSession(transport);
 
-    bytes::Bytes seedResponse{0x67, 0x01};
-    seedResponse.insert(seedResponse.end(), kSeed.begin(), kSeed.end());
-    transport.exchange(request({0x27, 0x01}), response(seedResponse));
+    bytes::Bytes seed_response{0x67, 0x01};
+    seed_response.insert(seed_response.end(), kSeed.begin(), kSeed.end());
+    transport.exchange(request({0x27, 0x01}), response(seed_response));
 
     const bytes::Bytes key = seedKey(kSeed);
-    bytes::Bytes keyRequest{0x27, 0x02};
-    keyRequest.insert(keyRequest.end(), key.begin(), key.end());
-    transport.exchange(request(keyRequest));
+    bytes::Bytes key_request{0x27, 0x02};
+    key_request.insert(key_request.end(), key.begin(), key.end());
+    transport.exchange(request(key_request));
     transport.queue_no_frame();
 
     const auto result = executor.execute(*plan, transport, clock, cancellation, events);
@@ -505,8 +505,8 @@ TEST(SubaruTcuCvtMitsuMh8104CanExecutor, WriteFlashesTheBlockToleratingEveryCont
                                                 bytes::u24(kWindowStart), bytes::u24(kWindowLength))),
                        response({0x7F, 0x34, 0x22}));
 
-    const bytes::ByteView blockPlain = bytes::ByteView(rom).subspan(kWindowStart, kWindowLength);
-    const bytes::Bytes encrypted = toWire(blockPlain);
+    const bytes::ByteView block_plain = bytes::ByteView(rom).subspan(kWindowStart, kWindowLength);
+    const bytes::Bytes encrypted = toWire(block_plain);
     constexpr std::uint32_t kChunkSize = 128;
     for (std::uint32_t offset = 0; offset < kWindowLength; offset += kChunkSize)
     {
@@ -559,11 +559,11 @@ TEST(SubaruTcuCvtMitsuMh8104CanExecutor, WriteStopsOnATimeoutBetweenChunks)
                                                 bytes::u24(kWindowStart), bytes::u24(kWindowLength))),
                        response({0x74}));
 
-    const bytes::ByteView blockPlain = bytes::ByteView(rom).subspan(kWindowStart, kWindowLength);
-    const bytes::Bytes encrypted = toWire(blockPlain);
-    bytes::Bytes firstChunkReq =
+    const bytes::ByteView block_plain = bytes::ByteView(rom).subspan(kWindowStart, kWindowLength);
+    const bytes::Bytes encrypted = toWire(block_plain);
+    bytes::Bytes first_chunk_req =
         bytes::composeBe(bytes::Byte(0xB6), bytes::u24(kWindowStart), bytes::ByteView(encrypted).subspan(0, 128));
-    transport.exchange(request(firstChunkReq));
+    transport.exchange(request(first_chunk_req));
     transport.queue_error(ErrorKind::kDisconnected, "adapter gone mid-write");
 
     const auto result = executor.execute(*plan, transport, clock, cancellation, events);

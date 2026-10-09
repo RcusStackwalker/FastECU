@@ -75,9 +75,9 @@ bytes::Bytes sid34RequestUploadRequest(std::uint32_t dataaddr, std::uint32_t dat
 {
     return ssm_protocol::addHeader(composeBe(0x34_b, u24(dataaddr), 0x04_b, u24(datalen)), kTesterId, kTargetId);
 }
-bytes::Bytes sid36TransferDataRequest(std::uint32_t blockaddr, bytes::ByteView blockBytes)
+bytes::Bytes sid36TransferDataRequest(std::uint32_t blockaddr, bytes::ByteView block_bytes)
 {
-    return ssm_protocol::addHeader(composeBe(0x36_b, u24(blockaddr), blockBytes), kTesterId, kTargetId);
+    return ssm_protocol::addHeader(composeBe(0x36_b, u24(blockaddr), block_bytes), kTesterId, kTargetId);
 }
 bytes::Bytes sid31StartRoutineRequest()
 {
@@ -167,9 +167,9 @@ bytes::Bytes encryptPayload(bytes::ByteView buf, std::uint32_t len)
 // skip_start/willget/numblocks/curblock arithmetic (lines 469-510) reduces,
 // for this start/length, to a single request with numblocks=8, curblock=0,
 // for every EEPROM_MODE value.
-bytes::Bytes sidDumpRequestForSh7055(std::uint8_t eepromMode)
+bytes::Bytes sidDumpRequestForSh7055(std::uint8_t eeprom_mode)
 {
-    return {0xbd, eepromMode, 0x00, 0x08, 0x00, 0x00};
+    return {0xbd, eeprom_mode, 0x00, 0x08, 0x00, 0x00};
 }
 
 // read_mem()'s per-block unframing (lines 545-550): each 35-byte wire block
@@ -204,10 +204,10 @@ bytes::Bytes expectedDecodedEeprom256Bytes()
 // Minimal positive-response fixture: only byte index 4 (the service/session
 // code) is inspected for these SIDs, so a 5-byte frame with that one byte
 // set is sufficient and unambiguous with the "no frame"/too-short checks.
-bytes::Bytes positiveResponse(std::uint8_t serviceCode)
+bytes::Bytes positiveResponse(std::uint8_t service_code)
 {
     bytes::Bytes out(5, 0);
-    out[4] = serviceCode;
+    out[4] = service_code;
     return out;
 }
 
@@ -266,7 +266,7 @@ bytes::Bytes kernelFixtureBytes()
 // 27/27/10 init, then upload_kernel()'s 34/36/34/36/31 sequence and its
 // kernel-alive re-poll. 13 writes total.
 void enqueueFullBootloaderAndKernelUpload(ScriptedKlineFlashTransport& transport, bytes::ByteView seed,
-                                          bytes::ByteView kernelBytes, std::uint32_t kernelStartAddr)
+                                          bytes::ByteView kernel_bytes, std::uint32_t kernel_start_addr)
 {
     transport.expectWrite(requestKernelIdRequest());
     transport.queue_no_frame(); // kernel not (yet) alive
@@ -283,15 +283,15 @@ void enqueueFullBootloaderAndKernelUpload(ScriptedKlineFlashTransport& transport
     transport.expectWrite(sid27RequestSeedRequest());
     transport.queueRead(sid27SeedResponse(seed));
 
-    const bytes::Bytes seedKey = generateSeedKey(seed);
-    transport.expectWrite(sid27SendKeyRequest(seedKey));
+    const bytes::Bytes seed_key = generateSeedKey(seed);
+    transport.expectWrite(sid27SendKeyRequest(seed_key));
     transport.queueRead(positiveResponse(0x67));
 
     transport.expectWrite(sid10StartDiagRequest());
     transport.queueRead(positiveResponse(0x50));
 
-    const std::uint32_t plLen = (static_cast<std::uint32_t>(kernelBytes.size()) + 3) & ~std::uint32_t(3);
-    transport.expectWrite(sid34RequestUploadRequest(kernelStartAddr, plLen));
+    const std::uint32_t pl_len = (static_cast<std::uint32_t>(kernel_bytes.size()) + 3) & ~std::uint32_t(3);
+    transport.expectWrite(sid34RequestUploadRequest(kernel_start_addr, pl_len));
     transport.queueRead(positiveResponse(0x74));
 
     // Pad to plLen with zero bytes before encrypting -- this is the
@@ -300,16 +300,16 @@ void enqueueFullBootloaderAndKernelUpload(ScriptedKlineFlashTransport& transport
     // kernelBytes (kernelFixtureBytes(), used by most tests here) this is a
     // no-op; NonAlignedKernelIsPaddedBeforeEncryptionAvoidsOobRead below
     // exercises the case where padding actually changes the wire bytes.
-    bytes::Bytes paddedKernel(kernelBytes.begin(), kernelBytes.end());
-    paddedKernel.resize(plLen, 0);
-    transport.expectWrite(sid36TransferDataRequest(kernelStartAddr, encryptPayload(paddedKernel, plLen)));
+    bytes::Bytes padded_kernel(kernel_bytes.begin(), kernel_bytes.end());
+    padded_kernel.resize(pl_len, 0);
+    transport.expectWrite(sid36TransferDataRequest(kernel_start_addr, encryptPayload(padded_kernel, pl_len)));
     transport.queueRead(positiveResponse(0x76));
 
-    const bytes::Bytes cksBypass{0x00, 0x00, 0x5A, 0xA5};
-    transport.expectWrite(sid34RequestUploadRequest(kernelStartAddr + plLen, 4));
+    const bytes::Bytes cks_bypass{0x00, 0x00, 0x5A, 0xA5};
+    transport.expectWrite(sid34RequestUploadRequest(kernel_start_addr + pl_len, 4));
     transport.queueRead(positiveResponse(0x74));
 
-    transport.expectWrite(sid36TransferDataRequest(kernelStartAddr + plLen, encryptPayload(cksBypass, 4)));
+    transport.expectWrite(sid36TransferDataRequest(kernel_start_addr + pl_len, encryptPayload(cks_bypass, 4)));
     transport.queueRead(positiveResponse(0x76));
 
     transport.expectWrite(sid31StartRoutineRequest());
@@ -319,7 +319,7 @@ void enqueueFullBootloaderAndKernelUpload(ScriptedKlineFlashTransport& transport
     transport.queueRead(kernelAliveResponse());
 }
 
-Result<FlashPlan> makeKlinePlan(EepromReadMode mode, bytes::Bytes kernelBytes, std::uint32_t kernelAddr,
+Result<FlashPlan> makeKlinePlan(EepromReadMode mode, bytes::Bytes kernel_bytes, std::uint32_t kernel_addr,
                                 DensoSecurityVariant security = DensoSecurityVariant::kStock)
 {
     return build_denso_sh705x_eeprom_plan(DensoSh705xEepromInput{
@@ -328,7 +328,7 @@ Result<FlashPlan> makeKlinePlan(EepromReadMode mode, bytes::Bytes kernelBytes, s
         .target_id = "sub_ecu_eeprom_denso_sh7055_kline",
         .mcu_name = "SH7055",
         .flash_method = "sub_ecu_eeprom_denso_sh7055_kline",
-        .kernel = KernelImage{.id = "k", .load_address = kernelAddr, .bytes = std::move(kernelBytes)},
+        .kernel = KernelImage{.id = "k", .load_address = kernel_addr, .bytes = std::move(kernel_bytes)},
         .mode = mode,
         .security = security,
         .eeprom_region = MemoryRegion{.start = 0, .length = 0x100},
@@ -647,7 +647,7 @@ TEST(DensoSh705xEepromKlineExecutorTest, StockAndEcutekSecurityProduceDifferentS
 {
     const bytes::Bytes seed{0x11, 0x22, 0x33, 0x44};
 
-    auto runTo_seedKey = [&](DensoSecurityVariant security, bytes::ByteView expectedKey)
+    auto run_to_seed_key = [&](DensoSecurityVariant security, bytes::ByteView expected_key)
     {
         auto plan = makeKlinePlan(EepromReadMode::kMode2, kernelFixtureBytes(), kKernelStartAddr, security);
         EXPECT_THAT(plan, fastecu::testing::IsOk());
@@ -665,7 +665,7 @@ TEST(DensoSh705xEepromKlineExecutorTest, StockAndEcutekSecurityProduceDifferentS
         transport.queueRead(sid27SeedResponse(seed));
         // The executor's own key must match this byte for byte, or the
         // scripted write fails -- that is the assertion.
-        transport.expectWrite(sid27SendKeyRequest(expectedKey));
+        transport.expectWrite(sid27SendKeyRequest(expected_key));
         transport.queue_no_frame(); // stop the round here
 
         DensoSh705xEepromKlineExecutor executor;
@@ -678,12 +678,12 @@ TEST(DensoSh705xEepromKlineExecutorTest, StockAndEcutekSecurityProduceDifferentS
         EXPECT_TRUE(transport.scriptConsumed());
     };
 
-    const bytes::Bytes stockKey = generateSeedKey(seed);
-    const bytes::Bytes ecutekKey = generateEcutekSeedKey(seed);
-    ASSERT_NE(stockKey, ecutekKey) << "the two transformations must not collapse to the same key";
+    const bytes::Bytes stock_key = generateSeedKey(seed);
+    const bytes::Bytes ecutek_key = generateEcutekSeedKey(seed);
+    ASSERT_NE(stock_key, ecutek_key) << "the two transformations must not collapse to the same key";
 
-    runTo_seedKey(DensoSecurityVariant::kStock, stockKey);
-    runTo_seedKey(DensoSecurityVariant::kEcuTek, ecutekKey);
+    run_to_seed_key(DensoSecurityVariant::kStock, stock_key);
+    run_to_seed_key(DensoSecurityVariant::kEcuTek, ecutek_key);
 }
 
 } // namespace fastecu::flash

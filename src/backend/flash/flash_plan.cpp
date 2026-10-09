@@ -5,14 +5,14 @@ namespace fastecu::flash
 
 const bytes::Bytes& FlashPlan::image_or_empty() const
 {
-    static const bytes::Bytes kNoImage;
-    return fields_.image.has_value() ? *fields_.image : kNoImage;
+    static const bytes::Bytes no_image;
+    return fields_.image.has_value() ? *fields_.image : no_image;
 }
 
 const KernelImage& FlashPlan::kernel_or_empty() const
 {
-    static const KernelImage kNoKernel{};
-    return fields_.kernel.has_value() ? *fields_.kernel : kNoKernel;
+    static const KernelImage no_kernel{};
+    return fields_.kernel.has_value() ? *fields_.kernel : no_kernel;
 }
 
 std::string_view FlashPlan::experimental_family_id() const

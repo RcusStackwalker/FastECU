@@ -188,13 +188,13 @@ void scriptSessionAndSeed(ScriptedCanFlashTransport& transport, bytes::ByteView 
 
     transport.exchange(requestOnId(0x7e0, {0x10, 0x43}), response({0x50, 0x43}));
 
-    bytes::Bytes seedResponse{0x67, 0x01};
-    seedResponse.insert(seedResponse.end(), seed.begin(), seed.end());
-    transport.exchange(requestOnId(0x7e0, {0x27, 0x01}), response(seedResponse));
+    bytes::Bytes seed_response{0x67, 0x01};
+    seed_response.insert(seed_response.end(), seed.begin(), seed.end());
+    transport.exchange(requestOnId(0x7e0, {0x27, 0x01}), response(seed_response));
 
-    bytes::Bytes keyRequest{0x27, 0x02};
-    keyRequest.insert(keyRequest.end(), key.begin(), key.end());
-    transport.exchange(requestOnId(0x7e0, keyRequest), response({0x67, 0x02}));
+    bytes::Bytes key_request{0x27, 0x02};
+    key_request.insert(key_request.end(), key.begin(), key.end());
+    transport.exchange(requestOnId(0x7e0, key_request), response({0x67, 0x02}));
 }
 
 // Jump (0x10/0x02) and alive re-check (0x31/0x02/0x02/0x01), both back on this
@@ -237,12 +237,12 @@ void scriptFlashDump(ScriptedCanFlashTransport& transport, std::uint32_t start, 
                      std::uint32_t pagesize, bytes::Byte fill)
 {
     const auto section = transport.section("flash dump");
-    const bytes::Bytes plainPage(pagesize, fill);
-    const bytes::Bytes wirePage = toWire(plainPage);
+    const bytes::Bytes plain_page(pagesize, fill);
+    const bytes::Bytes wire_page = toWire(plain_page);
     for (std::uint32_t addr = start; addr < start + length; addr += pagesize)
     {
         bytes::Bytes reply = response({0xF7});
-        reply.insert(reply.end(), wirePage.begin(), wirePage.end());
+        reply.insert(reply.end(), wire_page.begin(), wire_page.end());
         transport.exchange(request(bytes::composeBe(bytes::Byte(0xB7), bytes::u24(addr))), reply);
     }
 }
@@ -284,7 +284,7 @@ void scriptEraseMemory(ScriptedCanFlashTransport& transport)
 
 // Scripts one reflash_block block: setup, 128-byte chunk sweep (content-blind
 // -- any well-formed reply is accepted), close, checksum.
-void scriptWriteBlock(ScriptedCanFlashTransport& transport, bytes::ByteView blockPlain, std::uint32_t start,
+void scriptWriteBlock(ScriptedCanFlashTransport& transport, bytes::ByteView block_plain, std::uint32_t start,
                       std::uint32_t length)
 {
     const auto section = transport.section("write block");
@@ -294,7 +294,7 @@ void scriptWriteBlock(ScriptedCanFlashTransport& transport, bytes::ByteView bloc
                                                 bytes::u24(start), bytes::u24(length))),
                        response({0x74}));
 
-    const bytes::Bytes encrypted = toWire(blockPlain);
+    const bytes::Bytes encrypted = toWire(block_plain);
     for (std::uint32_t offset = 0; offset < length; offset += kChunkSize)
     {
         const std::uint32_t addr = start + offset;

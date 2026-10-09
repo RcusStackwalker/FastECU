@@ -106,13 +106,13 @@ bytes::Bytes requestKernelIdRequest()
 {
     return {0x00, 0x00, 0x07, 0xE0, 0xBE, 0xEF, 0x00, 0x01, 0x01, 0x00, 0x00, 0x00};
 }
-bytes::Bytes sid34RequestDownloadRequest(std::uint32_t startAddress, std::uint32_t dataLen)
+bytes::Bytes sid34RequestDownloadRequest(std::uint32_t start_address, std::uint32_t data_len)
 {
-    return composeBe(bytes::Bytes{0x00, 0x00, 0x07, 0xE0}, 0x34_b, 0x04_b, 0x33_b, u24(startAddress), u24(dataLen));
+    return composeBe(bytes::Bytes{0x00, 0x00, 0x07, 0xE0}, 0x34_b, 0x04_b, 0x33_b, u24(start_address), u24(data_len));
 }
-bytes::Bytes sidB6TransferBlockRequest(std::uint32_t blockAddr, bytes::ByteView payload)
+bytes::Bytes sidB6TransferBlockRequest(std::uint32_t block_addr, bytes::ByteView payload)
 {
-    return composeBe(bytes::Bytes{0x00, 0x00, 0x07, 0xE0}, 0xB6_b, u24(blockAddr), payload);
+    return composeBe(bytes::Bytes{0x00, 0x00, 0x07, 0xE0}, 0xB6_b, u24(block_addr), payload);
 }
 bytes::Bytes sid37StartKernelRequest()
 {
@@ -158,12 +158,12 @@ TEST(DensoSh705xEepromCanExecutorTest, SidB6TransferBlockRequestMatchesHardcoded
 }
 // read_mem(), for McuType "SH7055" (kEepromBlocksSH7055[0] == {start=0,
 // len=0x100}): reduces to a single request with addr=0, pagesize=0x100.
-bytes::Bytes sidReadEepromRequestForSh7055(std::uint8_t eepromMode)
+bytes::Bytes sidReadEepromRequestForSh7055(std::uint8_t eeprom_mode)
 {
     return {
-        0x00,       0x00, 0x07, 0xe0, 0xBE, 0xEF, 0x00, 0x07,
+        0x00,        0x00, 0x07, 0xe0, 0xBE, 0xEF, 0x00, 0x07,
         0x07, // SUB_KERNEL_READ_EEPROM
-        eepromMode,
+        eeprom_mode,
         0x00, // addr>>16 (addr == 0)
         0x00, // addr>>8
         0x00, // addr
@@ -221,12 +221,12 @@ std::uint64_t decryptRaceromSeed(std::uint64_t base, std::uint64_t exponent, std
 }
 bytes::Bytes generateEcutekRacecomCanSeedKey(bytes::ByteView seed)
 {
-    const std::uint32_t seedWord = (static_cast<std::uint32_t>(seed[0]) << 24) |
-                                   (static_cast<std::uint32_t>(seed[1]) << 16) |
-                                   (static_cast<std::uint32_t>(seed[2]) << 8) | static_cast<std::uint32_t>(seed[3]);
+    const std::uint32_t seed_word = (static_cast<std::uint32_t>(seed[0]) << 24) |
+                                    (static_cast<std::uint32_t>(seed[1]) << 16) |
+                                    (static_cast<std::uint32_t>(seed[2]) << 8) | static_cast<std::uint32_t>(seed[3]);
     constexpr std::uint64_t kD = 0x0A863281ULL;
     constexpr std::uint64_t kN = 0x0fda9293ULL;
-    const std::uint32_t decrypted = static_cast<std::uint32_t>(decryptRaceromSeed(seedWord, kD, kN));
+    const std::uint32_t decrypted = static_cast<std::uint32_t>(decryptRaceromSeed(seed_word, kD, kN));
     return composeBe(decrypted);
 }
 // encrypt_payload(), this class's OWN key table, distinct from the K-Line
@@ -250,34 +250,34 @@ struct KernelUploadPlan
     bytes::Bytes encrypted_payload; // length == dataLen
 };
 
-KernelUploadPlan computeKernelUploadPlan(bytes::ByteView kernelBytes)
+KernelUploadPlan computeKernelUploadPlan(bytes::ByteView kernel_bytes)
 {
     KernelUploadPlan plan;
-    const std::uint32_t fileLen = static_cast<std::uint32_t>(kernelBytes.size());
-    const std::uint32_t plLen = (fileLen + 3) & ~std::uint32_t(3);
-    bytes::Bytes plEncr(kernelBytes.begin(), kernelBytes.end());
+    const std::uint32_t file_len = static_cast<std::uint32_t>(kernel_bytes.size());
+    const std::uint32_t pl_len = (file_len + 3) & ~std::uint32_t(3);
+    bytes::Bytes pl_encr(kernel_bytes.begin(), kernel_bytes.end());
 
-    plan.max_blocks = plLen / 128;
-    if (plLen % 128 != 0)
+    plan.max_blocks = pl_len / 128;
+    if (pl_len % 128 != 0)
     {
         plan.max_blocks++;
     }
     plan.data_len = plan.max_blocks * 128;
 
-    plEncr.resize(plan.data_len, 0);
-    plEncr.resize(plEncr.size() - 4);
+    pl_encr.resize(plan.data_len, 0);
+    pl_encr.resize(pl_encr.size() - 4);
 
-    std::uint32_t chkSum = 0;
-    for (std::size_t i = 0; i < plEncr.size(); i += 4)
+    std::uint32_t chk_sum = 0;
+    for (std::size_t i = 0; i < pl_encr.size(); i += 4)
     {
-        chkSum += (static_cast<std::uint32_t>(plEncr[i]) << 24) | (static_cast<std::uint32_t>(plEncr[i + 1]) << 16) |
-                  (static_cast<std::uint32_t>(plEncr[i + 2]) << 8) | static_cast<std::uint32_t>(plEncr[i + 3]);
+        chk_sum += (static_cast<std::uint32_t>(pl_encr[i]) << 24) | (static_cast<std::uint32_t>(pl_encr[i + 1]) << 16) |
+                   (static_cast<std::uint32_t>(pl_encr[i + 2]) << 8) | static_cast<std::uint32_t>(pl_encr[i + 3]);
     }
-    chkSum = 0x5aa5a55aU - chkSum;
+    chk_sum = 0x5aa5a55aU - chk_sum;
 
-    bytes::appendU32Be(plEncr, chkSum);
+    bytes::appendU32Be(pl_encr, chk_sum);
 
-    plan.encrypted_payload = encryptPayloadCan(plEncr, static_cast<std::uint32_t>(plEncr.size()));
+    plan.encrypted_payload = encryptPayloadCan(pl_encr, static_cast<std::uint32_t>(pl_encr.size()));
     return plan;
 }
 
@@ -456,8 +456,8 @@ void enqueueConnectBootloaderFullInit(ScriptedCanFlashTransport& transport, byte
     transport.expectWrite(seedRequestFrame());
     transport.queueRead(seedResponse(seed));
 
-    const bytes::Bytes seedKey = generateSeedKeyStock(seed);
-    transport.expectWrite(seedKeySendRequest(seedKey));
+    const bytes::Bytes seed_key = generateSeedKeyStock(seed);
+    transport.expectWrite(seedKeySendRequest(seed_key));
     transport.queueRead(seedKeyAckResponse());
 
     transport.expectWrite(sessionSetRequestBothConnected());
@@ -468,11 +468,11 @@ void enqueueConnectBootloaderFullInit(ScriptedCanFlashTransport& transport, byte
 // for a given kernel fixture: SID34, one 0xB6 frame per block (the last one
 // empty -- see sidB6TransferBlockRequest()'s call site comment below), 0x37,
 // 0x31, then the post-upload single-attempt request_kernel_id() poll.
-void enqueueUploadKernel(ScriptedCanFlashTransport& transport, bytes::ByteView kernelBytes,
-                         std::uint32_t kernelStartAddr)
+void enqueueUploadKernel(ScriptedCanFlashTransport& transport, bytes::ByteView kernel_bytes,
+                         std::uint32_t kernel_start_addr)
 {
-    const KernelUploadPlan plan = computeKernelUploadPlan(kernelBytes);
-    transport.expectWrite(sid34RequestDownloadRequest(kernelStartAddr, plan.data_len));
+    const KernelUploadPlan plan = computeKernelUploadPlan(kernel_bytes);
+    transport.expectWrite(sid34RequestDownloadRequest(kernel_start_addr, plan.data_len));
     transport.queueRead(sid34DownloadAckResponse());
 
     // lines 816-857: blockno runs 0..maxBlocks INCLUSIVE. Since dataLen ==
@@ -480,12 +480,12 @@ void enqueueUploadKernel(ScriptedCanFlashTransport& transport, bytes::ByteView k
     // is always empty -- an N-block kernel produces N+1 wire frames.
     for (std::uint32_t blockno = 0; blockno <= plan.max_blocks; ++blockno)
     {
-        const std::uint32_t blockAddr = kernelStartAddr + blockno * 128;
+        const std::uint32_t block_addr = kernel_start_addr + blockno * 128;
         const bytes::ByteView chunk =
             blockno < plan.max_blocks
                 ? bytes::ByteView(plan.encrypted_payload).subspan(static_cast<std::size_t>(blockno) * 128, 128)
                 : bytes::ByteView{};
-        transport.expectWrite(sidB6TransferBlockRequest(blockAddr, chunk));
+        transport.expectWrite(sidB6TransferBlockRequest(block_addr, chunk));
         transport.queue_no_frame(); // response content is never inspected
     }
 
@@ -501,15 +501,15 @@ void enqueueUploadKernel(ScriptedCanFlashTransport& transport, bytes::ByteView k
 
 // Enqueues the exact write/read sequence one read_mem() page (SH7055's
 // single page) consumes.
-void enqueueReadMem(ScriptedCanFlashTransport& transport, std::uint8_t eepromMode)
+void enqueueReadMem(ScriptedCanFlashTransport& transport, std::uint8_t eeprom_mode)
 {
-    transport.expectWrite(sidReadEepromRequestForSh7055(eepromMode));
+    transport.expectWrite(sidReadEepromRequestForSh7055(eeprom_mode));
     transport.queueRead(eepromHeaderAckResponse());
     transport.queueRead(eepromPagedataResponse264Bytes());
 }
 
-Result<FlashPlan> makeCanPlan(DensoSecurityVariant security, EepromReadMode mode, bytes::Bytes kernelBytes,
-                              std::uint32_t kernelAddr)
+Result<FlashPlan> makeCanPlan(DensoSecurityVariant security, EepromReadMode mode, bytes::Bytes kernel_bytes,
+                              std::uint32_t kernel_addr)
 {
     return build_denso_sh705x_eeprom_plan(DensoSh705xEepromInput{
         .operation = FlashOperation::kRead,
@@ -517,7 +517,7 @@ Result<FlashPlan> makeCanPlan(DensoSecurityVariant security, EepromReadMode mode
         .target_id = "sub_ecu_eeprom_denso_sh7055_densocan",
         .mcu_name = "SH7055",
         .flash_method = "sub_ecu_eeprom_denso_sh7055_densocan",
-        .kernel = KernelImage{.id = "k", .load_address = kernelAddr, .bytes = std::move(kernelBytes)},
+        .kernel = KernelImage{.id = "k", .load_address = kernel_addr, .bytes = std::move(kernel_bytes)},
         .mode = mode,
         .security = security,
         .eeprom_region = MemoryRegion{.start = 0, .length = 0x100},
@@ -638,7 +638,7 @@ TEST(DensoSh705xEepromCanExecutorTest, AllFourSecurityVariantsProduceDistinctSee
     static constexpr auto kVariants =
         std::to_array<DensoSecurityVariant>({DensoSecurityVariant::kStock, DensoSecurityVariant::kEcuTek,
                                              DensoSecurityVariant::kCobb, DensoSecurityVariant::kEcuTekRaceRom});
-    std::vector<bytes::Bytes> seedKeyFrames;
+    std::vector<bytes::Bytes> seed_key_frames;
 
     for (DensoSecurityVariant security : kVariants)
     {
@@ -670,7 +670,7 @@ TEST(DensoSh705xEepromCanExecutorTest, AllFourSecurityVariantsProduceDistinctSee
         // ahead of time here (that's exactly what's under test), so instead
         // we let it through as a wildcard by pre-registering an expectation
         // per candidate key below.
-        const bytes::Bytes expectedKey = [&]() -> bytes::Bytes
+        const bytes::Bytes expected_key = [&]() -> bytes::Bytes
         {
             switch (security)
             {
@@ -685,7 +685,7 @@ TEST(DensoSh705xEepromCanExecutorTest, AllFourSecurityVariantsProduceDistinctSee
             }
             return {};
         }();
-        transport.expectWrite(seedKeySendRequest(expectedKey));
+        transport.expectWrite(seedKeySendRequest(expected_key));
         transport.queue_no_frame(); // no response at all -> Timeout, stopping the round here
 
         DensoSh705xEepromCanExecutor executor;
@@ -698,14 +698,14 @@ TEST(DensoSh705xEepromCanExecutorTest, AllFourSecurityVariantsProduceDistinctSee
         EXPECT_EQ(transport.writesConsumed(), 10U); // kernel-id probe + 9 handshake writes
         EXPECT_TRUE(transport.scriptConsumed());
 
-        seedKeyFrames.push_back(seedKeySendRequest(expectedKey));
+        seed_key_frames.push_back(seedKeySendRequest(expected_key));
     }
 
-    for (std::size_t i = 0; i < seedKeyFrames.size(); ++i)
+    for (std::size_t i = 0; i < seed_key_frames.size(); ++i)
     {
-        for (std::size_t j = i + 1; j < seedKeyFrames.size(); ++j)
+        for (std::size_t j = i + 1; j < seed_key_frames.size(); ++j)
         {
-            EXPECT_NE(seedKeyFrames[i], seedKeyFrames[j])
+            EXPECT_NE(seed_key_frames[i], seed_key_frames[j])
                 << "variants " << i << " and " << j << " produced the same seed-key frame";
         }
     }

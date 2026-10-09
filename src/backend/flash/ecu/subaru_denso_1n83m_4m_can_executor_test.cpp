@@ -159,16 +159,16 @@ bytes::Bytes toWire(bytes::ByteView plain)
 // The OBK probe miss, the four non-fatal identity queries, the access-method
 // probe and the branch selector. Byte 7 of the raw 0x22 0x10 0x1D reply frame
 // -- payload index 3 -- selects the programming branch.
-void scriptPreliminaries(ScriptedCanFlashTransport& t, bytes::Byte branchByte)
+void scriptPreliminaries(ScriptedCanFlashTransport& t, bytes::Byte branch_byte)
 {
     const auto section = t.section("preliminaries");
-    t.exchange(request({0x10, 0x5F}), response({0x50, 0x01}));                         // OBK probe, miss
-    t.exchange(request({0xAA}), response({0xEA, 0, 0, 0, 0, 1, 2, 3, 4, 5}));          // ECU ID
-    t.exchange(request({0x09, 0x02}), response({0x49, 0x02, 'V', 'I', 'N'}));          // VIN
-    t.exchange(request({0x09, 0x04}), response({0x49, 0x04, 'C', 'A', 'L'}));          // CAL ID
-    t.exchange(request({0x09, 0x06}), response({0x49, 0x06, 0xAA, 0xBB}));             // CVN
-    t.exchange(request({0x10, 0x5F}), response({0x50, 0x01}));                         // access method
-    t.exchange(request({0x22, 0x10, 0x1D}), response({0x62, 0x10, 0x1D, branchByte})); // branch selector
+    t.exchange(request({0x10, 0x5F}), response({0x50, 0x01}));                          // OBK probe, miss
+    t.exchange(request({0xAA}), response({0xEA, 0, 0, 0, 0, 1, 2, 3, 4, 5}));           // ECU ID
+    t.exchange(request({0x09, 0x02}), response({0x49, 0x02, 'V', 'I', 'N'}));           // VIN
+    t.exchange(request({0x09, 0x04}), response({0x49, 0x04, 'C', 'A', 'L'}));           // CAL ID
+    t.exchange(request({0x09, 0x06}), response({0x49, 0x06, 0xAA, 0xBB}));              // CVN
+    t.exchange(request({0x10, 0x5F}), response({0x50, 0x01}));                          // access method
+    t.exchange(request({0x22, 0x10, 0x1D}), response({0x62, 0x10, 0x1D, branch_byte})); // branch selector
 }
 
 // The same preliminaries with every reply the family tolerates made bad: the
@@ -177,16 +177,16 @@ void scriptPreliminaries(ScriptedCanFlashTransport& t, bytes::Byte branchByte)
 // selector -- answered with the wrong subfunction. None of these may stop the
 // sequence. The selector's byte 3 still selects the branch, exactly as legacy
 // reads it out of a reply legacy has already logged as wrong.
-void scriptPreliminariesWithNegativeIdReplies(ScriptedCanFlashTransport& t, bytes::Byte branchByte)
+void scriptPreliminariesWithNegativeIdReplies(ScriptedCanFlashTransport& t, bytes::Byte branch_byte)
 {
     const auto section = t.section("preliminaries with negative id replies");
-    t.exchange(request({0x10, 0x5F}), response({0x50, 0x01}));                         // OBK probe, miss
-    t.exchange(request({0xAA}), response({0x7F, 0xAA, 0x11}));                         // ECU ID
-    t.exchange(request({0x09, 0x02}), response({0x7F, 0x09, 0x11}));                   // VIN
-    t.exchange(request({0x09, 0x04}), response({0x7F, 0x09, 0x11}));                   // CAL ID
-    t.exchange(request({0x09, 0x06}), response({0x7F, 0x09, 0x11}));                   // CVN
-    t.exchange(request({0x10, 0x5F}), response({0x50, 0x02}));                         // access method, tolerated
-    t.exchange(request({0x22, 0x10, 0x1D}), response({0x62, 0x11, 0x1D, branchByte})); // branch selector, tolerated
+    t.exchange(request({0x10, 0x5F}), response({0x50, 0x01}));                          // OBK probe, miss
+    t.exchange(request({0xAA}), response({0x7F, 0xAA, 0x11}));                          // ECU ID
+    t.exchange(request({0x09, 0x02}), response({0x7F, 0x09, 0x11}));                    // VIN
+    t.exchange(request({0x09, 0x04}), response({0x7F, 0x09, 0x11}));                    // CAL ID
+    t.exchange(request({0x09, 0x06}), response({0x7F, 0x09, 0x11}));                    // CVN
+    t.exchange(request({0x10, 0x5F}), response({0x50, 0x02}));                          // access method, tolerated
+    t.exchange(request({0x22, 0x10, 0x1D}), response({0x62, 0x11, 0x1D, branch_byte})); // branch selector, tolerated
 }
 
 // The bench arm after the preliminaries. The kernel jump reads TWICE before
@@ -250,11 +250,11 @@ void scriptFlashDump(ScriptedCanFlashTransport& t, std::uint32_t start, std::uin
                      bytes::Byte fill)
 {
     const auto section = t.section("flash dump");
-    const bytes::Bytes wirePage = toWire(bytes::Bytes(pagesize, fill));
+    const bytes::Bytes wire_page = toWire(bytes::Bytes(pagesize, fill));
     for (std::uint32_t addr = start; addr < start + length; addr += pagesize)
     {
         bytes::Bytes reply = response({0xF7});
-        reply.insert(reply.end(), wirePage.begin(), wirePage.end());
+        reply.insert(reply.end(), wire_page.begin(), wire_page.end());
         t.exchange(request(bytes::composeBe(bytes::Byte(0xB7), addr)), reply);
     }
 }
@@ -297,10 +297,10 @@ void scriptUpToFirstFatalRead(ScriptedCanFlashTransport& t)
 // the id, and this pins that the port does not add a check legacy lacks.
 // `probeService`/`probeSub` parameterize the probe so the tolerance can be
 // driven.
-void scriptInCarConnectTail(ScriptedCanFlashTransport& t, bytes::Byte probeService, bytes::Byte probeSub)
+void scriptInCarConnectTail(ScriptedCanFlashTransport& t, bytes::Byte probe_service, bytes::Byte probe_sub)
 {
     const auto section = t.section("in-car connect tail");
-    t.exchange(request({0x10, 0x5F}), response({probeService, probeSub})); // tolerated
+    t.exchange(request({0x10, 0x5F}), response({probe_service, probe_sub})); // tolerated
 
     t.exchange(requestTo(0x7A2, {0x10, 0xC0}), responseFrom(0x7AA, {0x50, 0xC0}));
     t.exchange(request({0x10, 0x63}), response({0x50, 0x63}));

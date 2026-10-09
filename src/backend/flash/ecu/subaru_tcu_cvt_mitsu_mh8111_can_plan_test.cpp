@@ -46,16 +46,16 @@ TEST(SubaruTcuCvtMitsuMh8111CanPlan, ReadPlanCarriesThisFamilysWireParameters)
 // regions above -- it is a relationship between them.
 TEST(SubaruTcuCvtMitsuMh8111CanPlan, ReadCoversTheLowerWindowWriteCoversTheUpperBlock)
 {
-    const auto readPlan = build_subaru_tcu_cvt_mitsu_mh8111_can_plan(
+    const auto read_plan = build_subaru_tcu_cvt_mitsu_mh8111_can_plan(
         FlashOperation::kRead, "sub_tcu_cvt_mitsu_mh8111_can", "MH8111", std::nullopt);
-    ASSERT_THAT(readPlan, fastecu::testing::IsOk());
+    ASSERT_THAT(read_plan, fastecu::testing::IsOk());
 
-    const auto writePlan = build_subaru_tcu_cvt_mitsu_mh8111_can_plan(
+    const auto write_plan = build_subaru_tcu_cvt_mitsu_mh8111_can_plan(
         FlashOperation::kWrite, "sub_tcu_cvt_mitsu_mh8111_can", "MH8111", bytes::Bytes(0x180000, 0x00));
-    ASSERT_THAT(writePlan, fastecu::testing::IsOk());
+    ASSERT_THAT(write_plan, fastecu::testing::IsOk());
 
-    EXPECT_EQ(readPlan->transfer_region().start + readPlan->transfer_region().length,
-              writePlan->transfer_region().start);
+    EXPECT_EQ(read_plan->transfer_region().start + read_plan->transfer_region().length,
+              write_plan->transfer_region().start);
 }
 } // namespace
 } // namespace fastecu::flash::testing

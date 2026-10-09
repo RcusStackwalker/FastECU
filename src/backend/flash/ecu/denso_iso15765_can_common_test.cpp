@@ -78,21 +78,21 @@ TEST(DensoIso15765CanCommonTest, DecryptTableIsEncryptTableReversed)
 
 TEST(DensoIso15765CanCommonTest, SeedKeyProducesKnownVectors)
 {
-    const bytes::Bytes kSeedA{0x11, 0x22, 0x33, 0x44};
+    const bytes::Bytes seed_a{0x11, 0x22, 0x33, 0x44};
     EXPECT_THAT(
-        ssm_protocol::calculateSeedKey(kSeedA, kDensoIso15765SeedKeyTable, ssm_protocol::kIndexTransformationStock),
+        ssm_protocol::calculateSeedKey(seed_a, kDensoIso15765SeedKeyTable, ssm_protocol::kIndexTransformationStock),
         test_bytes::BytesEq((bytes::Bytes{0x35, 0xB6, 0x83, 0xBF})));
 
-    const bytes::Bytes kSeedB{0xDE, 0xAD, 0xBE, 0xEF};
+    const bytes::Bytes seed_b{0xDE, 0xAD, 0xBE, 0xEF};
     EXPECT_THAT(
-        ssm_protocol::calculateSeedKey(kSeedB, kDensoIso15765SeedKeyTable, ssm_protocol::kIndexTransformationStock),
+        ssm_protocol::calculateSeedKey(seed_b, kDensoIso15765SeedKeyTable, ssm_protocol::kIndexTransformationStock),
         test_bytes::BytesEq((bytes::Bytes{0xB6, 0xF5, 0x24, 0x21})));
 }
 
 TEST(DensoIso15765CanCommonTest, EncryptProducesKnownPayloadVector)
 {
-    const bytes::Bytes kPlain{0x00, 0x01, 0x02, 0x03, 0xFC, 0xFD, 0xFE, 0xFF};
-    EXPECT_THAT(ssm_protocol::calculatePayload(kPlain, static_cast<std::uint32_t>(kPlain.size()),
+    const bytes::Bytes plain{0x00, 0x01, 0x02, 0x03, 0xFC, 0xFD, 0xFE, 0xFF};
+    EXPECT_THAT(ssm_protocol::calculatePayload(plain, static_cast<std::uint32_t>(plain.size()),
                                                kDensoIso15765EncryptTable, ssm_protocol::kIndexTransformationStock),
                 test_bytes::BytesEq((bytes::Bytes{0xE0, 0xD3, 0x85, 0x2B, 0xC5, 0xFE, 0x4B, 0x39})));
 }
@@ -103,8 +103,8 @@ TEST(DensoIso15765CanCommonTest, EncryptProducesKnownPayloadVector)
 // ROM meaningful, so pin the round trip and not only the one direction.
 TEST(DensoIso15765CanCommonTest, DecryptInvertsEncrypt)
 {
-    const bytes::Bytes kCipher{0xE0, 0xD3, 0x85, 0x2B, 0xC5, 0xFE, 0x4B, 0x39};
-    EXPECT_THAT(ssm_protocol::calculatePayload(kCipher, static_cast<std::uint32_t>(kCipher.size()),
+    const bytes::Bytes cipher{0xE0, 0xD3, 0x85, 0x2B, 0xC5, 0xFE, 0x4B, 0x39};
+    EXPECT_THAT(ssm_protocol::calculatePayload(cipher, static_cast<std::uint32_t>(cipher.size()),
                                                kDensoIso15765DecryptTable, ssm_protocol::kIndexTransformationStock),
                 test_bytes::BytesEq((bytes::Bytes{0x00, 0x01, 0x02, 0x03, 0xFC, 0xFD, 0xFE, 0xFF})));
 }
@@ -324,14 +324,14 @@ bytes::Bytes requestTo(std::uint32_t id, std::initializer_list<bytes::Byte> payl
 TEST(DensoIso15765CanCommonTest, N83mInCarSequencePreservesBothFamilyTranscripts)
 {
     CommonFixture f;
-    const std::array<bytes::Bytes, 10> kRequests{requestTo(0x7A2, {0x10, 0xC0}), requestTo(0x7E0, {0x10, 0x63}),
-                                                 requestTo(0x7DF, {0x10, 0x03}), requestTo(0x7E1, {0x10, 0x63}),
-                                                 requestTo(0x7B0, {0x10, 0x03}), requestTo(0x7B0, {0x85, 0x02}),
-                                                 requestTo(0x7DF, {0x85, 0x02}), requestTo(0x7B0, {0x85, 0x02}),
-                                                 requestTo(0x7DF, {0x85, 0x02}), requestTo(0x7DF, {0x28, 0x03, 0x01})};
-    for (std::size_t i = 0; i < kRequests.size(); ++i)
+    const std::array<bytes::Bytes, 10> requests{requestTo(0x7A2, {0x10, 0xC0}), requestTo(0x7E0, {0x10, 0x63}),
+                                                requestTo(0x7DF, {0x10, 0x03}), requestTo(0x7E1, {0x10, 0x63}),
+                                                requestTo(0x7B0, {0x10, 0x03}), requestTo(0x7B0, {0x85, 0x02}),
+                                                requestTo(0x7DF, {0x85, 0x02}), requestTo(0x7B0, {0x85, 0x02}),
+                                                requestTo(0x7DF, {0x85, 0x02}), requestTo(0x7DF, {0x28, 0x03, 0x01})};
+    for (std::size_t i = 0; i < requests.size(); ++i)
     {
-        f.transport.exchange(kRequests[i], requestTo(0x123 + static_cast<std::uint32_t>(i), {0x7F, 0xEE, 0xEE}));
+        f.transport.exchange(requests[i], requestTo(0x123 + static_cast<std::uint32_t>(i), {0x7F, 0xEE, 0xEE}));
     }
 
     EXPECT_THAT(n83m_in_car_fire_and_forget(f.ctx, f.transport), fastecu::testing::IsOk());

@@ -22,7 +22,7 @@ class CdbgLogDriver
     // configuration + start command for `channels` (RAM pointer + size
     // each). Succeeds once the ECU has been told to start streaming.
     fastecu::Status startFreeFormLog(const std::vector<CdbgChannel>& channels, bytes::Byte instance,
-                                     std::uint32_t intervalMs, const fastecu::ICancellationToken& cancellation);
+                                     std::uint32_t interval_ms, const fastecu::ICancellationToken& cancellation);
     bool isStreaming() const
     {
         return streaming_;

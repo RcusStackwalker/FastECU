@@ -506,17 +506,17 @@ TEST_F(Sh72543rWrite, CompleteWriteUsesAbsoluteOffsetsAndImmediateEraseReply)
     EXPECT_EQ(clock_.elapsed(), 82210ms);
     EXPECT_EQ(transport_.readTimeouts()[8103], 800ms);
     EXPECT_EQ(transport_.readTimeouts()[8104], 2000ms);
-    int previousPhase = 0, previousDone = 0;
+    int previous_phase = 0, previous_done = 0;
     for (const auto& p : events_.phase_progress_calls)
     {
-        EXPECT_GE(p.phase_index, previousPhase);
-        if (p.phase_index == previousPhase)
+        EXPECT_GE(p.phase_index, previous_phase);
+        if (p.phase_index == previous_phase)
         {
-            EXPECT_GE(p.done, previousDone);
+            EXPECT_GE(p.done, previous_done);
         }
         EXPECT_LE(p.done, p.total);
-        previousPhase = p.phase_index;
-        previousDone = p.done;
+        previous_phase = p.phase_index;
+        previous_done = p.done;
     }
     EXPECT_EQ(events_.phase_progress_calls.back().done, events_.phase_progress_calls.back().total);
 }

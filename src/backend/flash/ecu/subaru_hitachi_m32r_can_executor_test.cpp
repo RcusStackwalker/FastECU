@@ -171,10 +171,10 @@ void scriptBenchConnect(ScriptedCanFlashTransport& transport)
     transport.exchange(request({0x27, 0x01}), response({0x67, 0x01, 0x11, 0x22, 0x33, 0x44}));
 
     // Seed key: 0x27 0x02 <4-byte key>.
-    bytes::Bytes keyRequest{0x27, 0x02};
+    bytes::Bytes key_request{0x27, 0x02};
     const bytes::Bytes key = seedKey(kSeed);
-    keyRequest.insert(keyRequest.end(), key.begin(), key.end());
-    transport.exchange(request(keyRequest), response({0x67, 0x02}));
+    key_request.insert(key_request.end(), key.begin(), key.end());
+    transport.exchange(request(key_request), response({0x67, 0x02}));
 
     // Jump to kernel: 0x10 0x42 / 0x50 0x42.
     transport.exchange(request({0x10, 0x42}), response({0x50, 0x42}));
@@ -200,12 +200,12 @@ void scriptFlashDump(ScriptedCanFlashTransport& transport, std::uint32_t start, 
                      std::uint32_t pagesize, bytes::Byte fill)
 {
     const auto section = transport.section("flash dump");
-    const bytes::Bytes plainPage(pagesize, fill);
-    const bytes::Bytes wirePage = toWire(plainPage);
+    const bytes::Bytes plain_page(pagesize, fill);
+    const bytes::Bytes wire_page = toWire(plain_page);
     for (std::uint32_t addr = start; addr < start + length; addr += pagesize)
     {
         bytes::Bytes reply = response({0xF7});
-        reply.insert(reply.end(), wirePage.begin(), wirePage.end());
+        reply.insert(reply.end(), wire_page.begin(), wire_page.end());
         transport.exchange(request(bytes::composeBe(bytes::Byte(0xB7), bytes::u24(addr))), reply);
     }
 }
@@ -253,14 +253,14 @@ void scriptReflashSetup(ScriptedCanFlashTransport& transport)
 
 // Scripts the 0xB6 write-chunk sweep for the whole ROM (legacy reflash_block).
 // `rom` is encrypted once, matching production.
-void scriptReflashChunks(ScriptedCanFlashTransport& transport, bytes::ByteView rom, std::uint32_t chunkSize)
+void scriptReflashChunks(ScriptedCanFlashTransport& transport, bytes::ByteView rom, std::uint32_t chunk_size)
 {
     const auto section = transport.section("reflash chunks");
     const bytes::Bytes encrypted = toWire(rom);
-    for (std::uint32_t addr = 0; addr < rom.size(); addr += chunkSize)
+    for (std::uint32_t addr = 0; addr < rom.size(); addr += chunk_size)
     {
         bytes::Bytes req =
-            bytes::composeBe(bytes::Byte(0xB6), bytes::u24(addr), bytes::ByteView(encrypted).subspan(addr, chunkSize));
+            bytes::composeBe(bytes::Byte(0xB6), bytes::u24(addr), bytes::ByteView(encrypted).subspan(addr, chunk_size));
         transport.exchange(request(req), response({0xF6}));
     }
 }
@@ -466,9 +466,9 @@ TEST(SubaruHitachiM32rCanExecutor, WriteStopsWhenTheEraseIsRejected)
     scriptReflashSetup(transport);
 
     const bytes::Bytes encrypted = toWire(rom);
-    bytes::Bytes firstChunkRequest =
+    bytes::Bytes first_chunk_request =
         bytes::composeBe(bytes::Byte(0xB6), bytes::u24(0), bytes::ByteView(encrypted).subspan(0, 256));
-    transport.exchange(request(firstChunkRequest), response({0x7F, 0xB6, 0x22}));
+    transport.exchange(request(first_chunk_request), response({0x7F, 0xB6, 0x22}));
 
     const auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
