@@ -82,7 +82,7 @@ MainWindow::MainWindow(MainWindowServices services, const QString& peerAddress, 
 #elif defined Q_OS_WIN32
     emit LOG_D("Running on Windows Desktop ", true, false);
     // serialPort = serialPortWindows;
-    serial_port_prefix = "";
+    serial_port_prefix_ = "";
 #endif
 
 #if Q_PROCESSOR_WORDSIZE == 4

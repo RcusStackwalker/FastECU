@@ -52,7 +52,7 @@ void OptionsDialog::readSettings()
     setColor(ui_->lbAsciiFontColor, settings.value("AsciiFontColor", QPalette::WindowText).value<QColor>());
     setColor(ui_->lbHexFontColor, settings.value("HexFontColor", QPalette::WindowText).value<QColor>());
 #ifdef Q_OS_WIN32
-    ui->leWidgetFont->setFont(settings.value("WidgetFont", QFont("Courier", 10)).value<QFont>());
+    ui_->leWidgetFont->setFont(settings.value("WidgetFont", QFont("Courier", 10)).value<QFont>());
 #else
     ui_->leWidgetFont->setFont(settings.value("WidgetFont", QFont("Monospace", 10)).value<QFont>());
 #endif

@@ -354,7 +354,7 @@ int Chunks::getChunkIndex(qint64 absPos)
 #ifdef MODUL_TEST
 int Chunks::chunkSize()
 {
-    return _chunks.size();
+    return chunks_.size();
 }
 
 #endif
