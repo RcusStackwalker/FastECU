@@ -38,6 +38,20 @@ conversion is used, with fixed decimal display formatting.
   big-endian integer.
 - MUT/DMA spells the decoded unsigned integer in decimal and filters unsupported
   channels. CDBG also uses unsigned-integer decimal and does not filter support.
+  Each CDBG poll publishes only measurements decoded from its received frame,
+  mapped through that frame's logical channel offset. Out-of-order frames do not
+  fabricate zero values for unseen channels or republish measurements from prior
+  frames. The desktop owns its existing display cache.
+
+Conversion expressions use the shared
+[checked evaluator](../../src/algorithms/expression/expression.h) with
+`double` arithmetic throughout; intermediate results are not rounded. The raw
+value is parsed once as a finite decimal number: a non-numeric raw value is a
+`kBadResponse` error, and an expression that fails to evaluate is
+`kInvalidConfig`. Session preparation accepts an expression if it evaluates for
+at least one of the probes 1, 16 and 1616. Compiling the expression once per
+session instead of per sample is tracked in
+[#575](https://github.com/RcusStackwalker/FastECU/issues/575).
 
 ## Desktop protocol binding
 
@@ -118,6 +132,14 @@ OEM K-Line DMA activation research is held in the parent research repository,
 under the title "OEM K-Line DMA Logging — Activation Control Flow & Wire Protocol"
 (2026-06-07, Z27AG / 33520003). Search that repository by title/date for the
 original extraction; it is not a deleted FastECU-local spec.
+
+The [free-form wire evidence](logging-mut-freeform-wire.md) records request
+codes and multi-byte stream values in little-endian order, derived from Colt
+33520003 firmware. Free-form numeric values are converted to unsigned decimal
+input for scaling. This corrects the previous unverified big-endian behavior;
+XML definitions do not select a dialect. Other MUT command layouts retain their
+own byte order. Firmware-specific capacity and hardware qualification remain
+separate work.
 
 The maintained [codec sources](../../src/algorithms/protocol/mut_dma/) and
 [driver sources](../../src/backend/protocol/) describe implemented behavior.

@@ -17,6 +17,12 @@ _Avoid_: Display text
 A numeric value represented by the ROM storage before scaling is applied.
 _Avoid_: Scaled value
 
+**Conversion expression**:
+A formula over the single input `x` that turns a raw value into a scaled value
+(or a scaled value back into a raw value). Used by calibration scaling and by
+logging channels.
+_Avoid_: Scaling expression, from-byte expression, formula string
+
 **Invalid numeric cell**:
 A calibration cell whose current ROM content cannot yield a valid scaled value.
 Its current value is unavailable, but a replacement may still be encodable.

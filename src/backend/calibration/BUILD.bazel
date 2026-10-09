@@ -17,7 +17,7 @@ cc_library(
     hdrs = ["calibration_service.h"],
     implementation_deps = [
         ":scaling_internal",
-        "//src/algorithms/expression:checked_expression",
+        "//src/algorithms/expression",
     ],
     deps = [
         ":decoded_map",
@@ -75,7 +75,7 @@ cc_library(
     hdrs = ["numeric_map_edit.h"],
     implementation_deps = [
         ":scaling_internal",
-        "//src/algorithms/expression:checked_expression",
+        "//src/algorithms/expression",
     ],
     deps = [
         ":decoded_map",

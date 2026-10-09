@@ -21,6 +21,7 @@
 #include "src/backend/flash/ecu/flash_phase_progress.h"
 #include "src/backend/flash/ecu/subaru_tcu_denso_sh705x_can_plan.h"
 #include "src/backend/flash/ecu/uds_client_exchange_common.h"
+#include "src/backend/flash/transfer_progress.h"
 #include "src/backend/protocol/uds/uds_client.h"
 
 // Every protocol exchange below is transcribed from
@@ -704,14 +705,8 @@ Result<bytes::Bytes> ReadMemory(Context& context, const FlashPlan& plan, PhaseRe
             page.resize(region.length - offset);
         }
         const std::uint64_t elapsed_ms = ElapsedMilliseconds(loop_started, context.clock.Now());
-        unsigned speed = static_cast<unsigned>(kKernelPageSize * (1000.0F / static_cast<float>(elapsed_ms)));
-        if (speed == 0)
-        {
-            speed = 1;
-        }
-        const unsigned time_left = static_cast<unsigned>(((region.length - offset) / speed) % 9999U) + 1U;
-        LogInfo(context, std::format("Kernel read addr: 0x{:08X} length: 0x{:08X}, {:>6} B/s {:>6} s", address,
-                                     kKernelPageSize, speed, time_left));
+        const TransferRate rate = ComputeTransferRate(kKernelPageSize, elapsed_ms, region.length - offset);
+        LogInfo(context, FormatReadProgress(address, kKernelPageSize, rate));
         rom.insert(rom.end(), page.begin(), page.end());
         progress.Update(static_cast<int>(std::min<std::uint64_t>(region.length, offset + kKernelPageSize)));
     }
@@ -880,21 +875,9 @@ Status FlashBlock(Context& context, bytes::ByteView image, const FlashPlan& plan
         const auto now = context.clock.Now();
         const std::uint64_t elapsed = ElapsedMilliseconds(previous_time, now);
         previous_time = now;
-        std::uint32_t speed =
-            static_cast<std::uint32_t>(static_cast<std::uint64_t>(kFlashBufferSize) * 1000U / elapsed);
-        if (speed == 0)
-        {
-            speed = 1;
-        }
-        const std::uint32_t next_index = static_cast<std::uint32_t>(flash_bytes_index + kFlashBufferSize);
-        std::uint32_t time_left = static_cast<std::uint32_t>((flash_bytes_count - next_index) / speed);
-        if (time_left > 9999)
-        {
-            time_left = 9999;
-        }
-        ++time_left;
-        LogInfo(context,
-                std::format("Write flash buffer: 0x{:08X} ({}% - {} B/s, ~ {} s)", start, percent, speed, time_left));
+        const auto next_index = static_cast<std::uint32_t>(flash_bytes_index + kFlashBufferSize);
+        const TransferRate rate = ComputeTransferRate(kFlashBufferSize, elapsed, flash_bytes_count - next_index);
+        LogInfo(context, FormatWriteProgress(start, percent, rate));
 
         remaining -= kFlashBufferSize;
         start += kFlashBufferSize;

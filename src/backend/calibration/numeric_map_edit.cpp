@@ -8,7 +8,7 @@
 #include <limits>
 #include <optional>
 
-#include "src/algorithms/expression/checked_expression.h"
+#include "src/algorithms/expression/expression.h"
 #include "src/backend/calibration/scaling_internal.h"
 
 namespace fastecu::calibration

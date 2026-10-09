@@ -14,9 +14,10 @@
 #include "src/algorithms/protocol/bytes.h"
 #include "src/algorithms/protocol/bytes_compose.h"
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
-#include "src/backend/flash/kernel/kernelmemorymodels.h"
 #include "src/backend/flash/ecu/denso_sh705x_kline_common.h"
 #include "src/backend/flash/flash_device_lookup.h"
+#include "src/backend/flash/kernel/kernelmemorymodels.h"
+#include "src/backend/flash/transfer_progress.h"
 
 namespace fastecu::flash
 {
@@ -814,20 +815,9 @@ Status FlashBlock(IKlineFlashTransport& transport, IClock& clock, const ICancell
         // :1254-1286. Legacy printed the previous chunk's speed (and an
         // uninitialised one first); this chunk's is printed instead.
         const std::uint64_t elapsed_ms = ElapsedMilliseconds(chunk_started, clock.Now());
-        auto curspeed = static_cast<unsigned>(kWriteChunkSize * (1000.0F / static_cast<float>(elapsed_ms)));
-        if (curspeed == 0)
-        {
-            curspeed = 1;
-        }
         written += kWriteChunkSize;
-        auto tleft = static_cast<unsigned>(static_cast<float>(total - written) / static_cast<float>(curspeed));
-        if (tleft > 9999U)
-        {
-            tleft = 9999U;
-        }
-        ++tleft;
-        events.Log(LogLevel::kInfo, std::format("Write flash buffer: 0x{:08X} ({}% - {} B/s, ~ {} s remain)", address,
-                                                (100U * offset) / block.length, curspeed, tleft));
+        const TransferRate rate = ComputeTransferRate(kWriteChunkSize, elapsed_ms, total - written);
+        events.Log(LogLevel::kInfo, FormatWriteProgress(address, (100U * offset) / block.length, rate));
         events.Progress(static_cast<int>(written), static_cast<int>(total)); // :1288-1289
 
         // :1291-1358.

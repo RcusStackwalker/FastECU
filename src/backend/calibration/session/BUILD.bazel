@@ -119,7 +119,7 @@ cc_library(
     name = "map_element_fields",
     srcs = ["map_element_fields.cpp"],
     hdrs = ["map_element_fields.h"],
-    implementation_deps = ["//src/algorithms/expression:checked_expression"],
+    implementation_deps = ["//src/algorithms/expression"],
     # Field resolution is internal to the numeric edit use case.
     visibility = ["//src/backend/calibration/session:__pkg__"],
     deps = [
@@ -144,7 +144,7 @@ cc_library(
     hdrs = ["numeric_edit_use_case.h"],
     implementation_deps = [
         ":map_element_fields",
-        "//src/algorithms/expression:checked_expression",
+        "//src/algorithms/expression",
     ],
     deps = [
         ":calibration_session",

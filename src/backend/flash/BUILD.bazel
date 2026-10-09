@@ -83,6 +83,21 @@ fastecu_portable_gtest(
 )
 
 cc_library(
+    name = "transfer_progress",
+    srcs = ["transfer_progress.cpp"],
+    hdrs = ["transfer_progress.h"],
+)
+
+fastecu_portable_gtest(
+    name = "transfer_progress_test",
+    srcs = ["transfer_progress_test.cpp"],
+    deps = [
+        ":transfer_progress",
+        "@googletest//:gtest",
+    ],
+)
+
+cc_library(
     name = "flash_executor",
     srcs = ["flash_executor.cpp"],
     hdrs = [
