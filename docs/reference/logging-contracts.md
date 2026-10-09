@@ -39,6 +39,16 @@ conversion is used, with fixed decimal display formatting.
 - MUT/DMA spells the decoded unsigned integer in decimal and filters unsupported
   channels. CDBG also uses unsigned-integer decimal and does not filter support.
 
+Conversion expressions use the shared
+[checked evaluator](../../src/algorithms/expression/expression.h) with
+`double` arithmetic throughout; intermediate results are not rounded. The raw
+value is parsed once as a finite decimal number: a non-numeric raw value is a
+`kBadResponse` error, and an expression that fails to evaluate is
+`kInvalidConfig`. Session preparation accepts an expression if it evaluates for
+at least one of the probes 1, 16 and 1616. Compiling the expression once per
+session instead of per sample is tracked in
+[#575](https://github.com/RcusStackwalker/FastECU/issues/575).
+
 ## Desktop protocol binding
 
 [Registration](../../src/platform/desktop/common/transport/desktop_logging_protocol_registration.cpp)

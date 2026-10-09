@@ -94,7 +94,7 @@ TEST(LoggingConversionTest, RejectsNonFiniteConvertedValues)
                 fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
 }
 
-TEST(LoggingConversionTest, UsesHistoricalFifteenDigitIntermediatePrecision)
+TEST(LoggingConversionTest, EvaluatesIntermediateResultsWithoutTextRounding)
 {
     auto c = Channel("rpm", 0x10);
     c.from_byte_expression = "x/3*3";
@@ -104,6 +104,13 @@ TEST(LoggingConversionTest, UsesHistoricalFifteenDigitIntermediatePrecision)
     auto result = ConvertSample(session, ProtocolSample{"rpm", "10"});
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
-    EXPECT_DOUBLE_EQ(result->numeric_value, 9.9999999999999893);
-    EXPECT_NE(result->numeric_value, 9.9);
+    EXPECT_DOUBLE_EQ(result->numeric_value, 10.0);
+}
+
+TEST(LoggingConversionTest, RejectsNonNumericRawValue)
+{
+    auto session = MakeValidSession();
+
+    ASSERT_THAT(ConvertSample(session, ProtocolSample{"rpm", "12ab"}),
+                fastecu::testing::IsErr(fastecu::ErrorKind::kBadResponse));
 }
