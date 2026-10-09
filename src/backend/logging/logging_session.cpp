@@ -9,7 +9,7 @@
 #include <unordered_set>
 #include <utility>
 
-#include "src/algorithms/expression/checked_expression.h"
+#include "src/algorithms/expression/expression.h"
 #include "src/algorithms/protocol/colt/mitsu_colt_can_cdbg_protocol.h"
 
 namespace fastecu::logging

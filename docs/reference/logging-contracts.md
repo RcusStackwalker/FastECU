@@ -40,7 +40,7 @@ conversion is used, with fixed decimal display formatting.
   channels. CDBG also uses unsigned-integer decimal and does not filter support.
 
 Conversion expressions use the shared
-[checked evaluator](../../src/algorithms/expression/checked_expression.h) with
+[checked evaluator](../../src/algorithms/expression/expression.h) with
 `double` arithmetic throughout; intermediate results are not rounded. The raw
 value is parsed once as a finite decimal number: a non-numeric raw value is a
 `kBadResponse` error, and an expression that fails to evaluate is

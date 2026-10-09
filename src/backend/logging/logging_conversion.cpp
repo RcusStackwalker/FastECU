@@ -1,6 +1,6 @@
 #include "src/backend/logging/logging_conversion.h"
 
-#include "src/algorithms/expression/checked_expression.h"
+#include "src/algorithms/expression/expression.h"
 #include "src/backend/logging/logging_session.h"
 #include "src/backend/ports/error.h"
 

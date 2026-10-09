@@ -41,7 +41,7 @@ labels. Static labels containing commas remain single labels. Numeric data is
 never joined into text and split for downstream calculation. Body storage/endian
 use map fields before scaling defaults; axes use resolved axis fields.
 
-[Checked expressions](../../src/algorithms/expression/checked_expression.h)
+[Checked expressions](../../src/algorithms/expression/expression.h)
 calculate with `double` throughout. Supported syntax is `x`, decimal and
 scientific-notation literals, binary `+ - * /`, parentheses, and unary signs.
 Missing numeric scaling and missing/blank definition expressions mean identity;

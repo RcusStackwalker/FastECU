@@ -3,7 +3,7 @@
 #include <limits>
 #include <string_view>
 
-#include "src/algorithms/expression/checked_expression.h"
+#include "src/algorithms/expression/expression.h"
 
 namespace fastecu::calibration
 {

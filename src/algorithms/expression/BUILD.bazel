@@ -4,16 +4,16 @@ load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
 package(default_visibility = ["//bazel/layers:algorithms_and_above"])
 
 cc_library(
-    name = "checked_expression",
-    srcs = ["checked_expression.cpp"],
-    hdrs = ["checked_expression.h"],
+    name = "expression",
+    srcs = ["expression.cpp"],
+    hdrs = ["expression.h"],
 )
 
 fastecu_portable_gtest(
-    name = "checked_expression_test",
-    srcs = ["checked_expression_test.cpp"],
+    name = "expression_test",
+    srcs = ["expression_test.cpp"],
     deps = [
-        ":checked_expression",
+        ":expression",
         "@googletest//:gtest",
     ],
 )

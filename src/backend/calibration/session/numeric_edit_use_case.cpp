@@ -7,7 +7,7 @@
 #include <utility>
 #include <vector>
 
-#include "src/algorithms/expression/checked_expression.h"
+#include "src/algorithms/expression/expression.h"
 #include "src/backend/calibration/session/map_element_fields.h"
 
 namespace fastecu::calibration
