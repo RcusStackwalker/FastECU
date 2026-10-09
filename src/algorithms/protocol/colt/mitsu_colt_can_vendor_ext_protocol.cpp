@@ -62,7 +62,7 @@ std::uint32_t challengeInverseTransform(std::uint32_t seed)
 
 std::uint32_t bytesToSeed(bytes::ByteView seed_bytes)
 {
-    assert(seedBytes.size() == 4);
+    assert(seed_bytes.size() == 4);
     return bytes::readU32Be(seed_bytes);
 }
 
