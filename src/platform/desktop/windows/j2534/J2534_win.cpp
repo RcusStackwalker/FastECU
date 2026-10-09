@@ -100,7 +100,7 @@ J2534::~J2534()
 #define getPTfn(name)                                                                                                  \
     do                                                                                                                 \
     {                                                                                                                  \
-        pf##name = (PF_##name *)GetProcAddress(hDLL, "" #name);                                                        \
+        pf##name = (Pf##name *)GetProcAddress(hDLL, "" #name);                                                         \
         if (!pf##name)                                                                                                 \
         {                                                                                                              \
             return false;                                                                                              \
@@ -114,7 +114,7 @@ J2534::~J2534()
 #define getPTfn(name)                                                                                                  \
     do                                                                                                                 \
     {                                                                                                                  \
-        pf##name = (PF_##name *)dlsym(hDLL, "" #name);                                                                 \
+        pf##name = (Pf##name *)dlsym(hDLL, "" #name);                                                                  \
         if (!pf##name)                                                                                                 \
         {                                                                                                              \
             return false;                                                                                              \

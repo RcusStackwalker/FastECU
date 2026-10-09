@@ -34,23 +34,23 @@ enum class Function : std::uint8_t
 struct FrameHeader
 {
     Function function = Function::Invalid;
-    std::uint32_t payloadSize = 0;
+    std::uint32_t payload_size = 0;
 };
 
 struct PassThruOpenRequest
 {
-    bool hasName;
+    bool has_name;
     std::array<char, 256> name;
 };
 struct PassThruOpenResponse
 {
     long result;
-    unsigned long deviceId;
+    unsigned long device_id;
 };
 
 struct PassThruCloseRequest
 {
-    unsigned long deviceId;
+    unsigned long device_id;
 };
 struct PassThruCloseResponse
 {
@@ -59,20 +59,20 @@ struct PassThruCloseResponse
 
 struct PassThruConnectRequest
 {
-    unsigned long deviceId;
-    unsigned long protocolId;
+    unsigned long device_id;
+    unsigned long protocol_id;
     unsigned long flags;
     unsigned long baudrate;
 };
 struct PassThruConnectResponse
 {
     long result;
-    unsigned long channelId;
+    unsigned long channel_id;
 };
 
 struct PassThruDisconnectRequest
 {
-    unsigned long channelId;
+    unsigned long channel_id;
 };
 struct PassThruDisconnectResponse
 {
@@ -83,44 +83,44 @@ struct PassThruDisconnectResponse
 // the bridge is deliberately single-message, not a general array marshaler.
 struct PassThruReadMsgsRequest
 {
-    unsigned long channelId;
+    unsigned long channel_id;
     unsigned long timeout;
 };
 struct PassThruReadMsgsResponse
 {
     long result;
-    unsigned long numMsgs; // 0 or 1
+    unsigned long num_msgs; // 0 or 1
     PassThruMsg msg;
 };
 
 struct PassThruWriteMsgsRequest
 {
-    unsigned long channelId;
+    unsigned long channel_id;
     unsigned long timeout;
     PassThruMsg msg;
 };
 struct PassThruWriteMsgsResponse
 {
     long result;
-    unsigned long numMsgs; // 0 or 1
+    unsigned long num_msgs; // 0 or 1
 };
 
 struct PassThruStartPeriodicMsgRequest
 {
-    unsigned long channelId;
-    unsigned long timeInterval;
+    unsigned long channel_id;
+    unsigned long time_interval;
     PassThruMsg msg;
 };
 struct PassThruStartPeriodicMsgResponse
 {
     long result;
-    unsigned long msgId;
+    unsigned long msg_id;
 };
 
 struct PassThruStopPeriodicMsgRequest
 {
-    unsigned long channelId;
-    unsigned long msgId;
+    unsigned long channel_id;
+    unsigned long msg_id;
 };
 struct PassThruStopPeriodicMsgResponse
 {
@@ -129,23 +129,23 @@ struct PassThruStopPeriodicMsgResponse
 
 struct PassThruStartMsgFilterRequest
 {
-    unsigned long channelId;
-    unsigned long filterType;
-    bool hasFlowControlMsg; // false for PASS_FILTER/BLOCK_FILTER (pFlowControlMsg == NULL)
-    PassThruMsg maskMsg;
-    PassThruMsg patternMsg;
-    PassThruMsg flowControlMsg; // meaningful only when hasFlowControlMsg is true
+    unsigned long channel_id;
+    unsigned long filter_type;
+    bool has_flow_control_msg; // false for PASS_FILTER/BLOCK_FILTER (pFlowControlMsg == NULL)
+    PassThruMsg mask_msg;
+    PassThruMsg pattern_msg;
+    PassThruMsg flow_control_msg; // meaningful only when has_flow_control_msg is true
 };
 struct PassThruStartMsgFilterResponse
 {
     long result;
-    unsigned long msgId;
+    unsigned long msg_id;
 };
 
 struct PassThruStopMsgFilterRequest
 {
-    unsigned long channelId;
-    unsigned long msgId;
+    unsigned long channel_id;
+    unsigned long msg_id;
 };
 struct PassThruStopMsgFilterResponse
 {
@@ -154,7 +154,7 @@ struct PassThruStopMsgFilterResponse
 
 struct PassThruSetProgrammingVoltageRequest
 {
-    unsigned long deviceId;
+    unsigned long device_id;
     unsigned long pin;
     unsigned long voltage;
 };
@@ -165,14 +165,14 @@ struct PassThruSetProgrammingVoltageResponse
 
 struct PassThruReadVersionRequest
 {
-    unsigned long deviceId;
+    unsigned long device_id;
 };
 struct PassThruReadVersionResponse
 {
     long result;
-    std::array<char, 80> apiVersion;
-    std::array<char, 80> dllVersion;
-    std::array<char, 80> firmwareVersion;
+    std::array<char, 80> api_version;
+    std::array<char, 80> dll_version;
+    std::array<char, 80> firmware_version;
 };
 
 struct PassThruGetLastErrorRequest
@@ -182,7 +182,7 @@ struct PassThruGetLastErrorRequest
 struct PassThruGetLastErrorResponse
 {
     long result;
-    std::array<char, 80> errorDescription;
+    std::array<char, 80> error_description;
 };
 
 // PassThruIoctl: only the closed set of IoctlIDs this codebase actually issues
@@ -191,19 +191,19 @@ struct PassThruGetLastErrorResponse
 // with ERR_INVALID_IOCTL_ID before it ever reaches the vendor DLL.
 struct PassThruIoctlRequest
 {
-    unsigned long channelId;
-    unsigned long ioctlId;
-    unsigned long numConfigParams;            // SET_CONFIG only
-    std::array<SCONFIG, 16> configParams;     // SET_CONFIG only; this codebase never sets more than a handful
-    unsigned long inputByteCount;             // FIVE_BAUD_INIT / FAST_INIT only
-    std::array<unsigned char, 64> inputBytes; // FIVE_BAUD_INIT / FAST_INIT only
+    unsigned long channel_id;
+    unsigned long ioctl_id;
+    unsigned long num_config_params;           // SET_CONFIG only
+    std::array<SCONFIG, 16> config_params;     // SET_CONFIG only; this codebase never sets more than a handful
+    unsigned long input_byte_count;            // FIVE_BAUD_INIT / FAST_INIT only
+    std::array<unsigned char, 64> input_bytes; // FIVE_BAUD_INIT / FAST_INIT only
 };
 struct PassThruIoctlResponse
 {
     long result;
-    unsigned long outputByteCount;             // FIVE_BAUD_INIT / FAST_INIT only
-    std::array<unsigned char, 64> outputBytes; // FIVE_BAUD_INIT / FAST_INIT only
-    unsigned long vbatt;                       // READ_VBATT / READ_PROG_VOLTAGE only
+    unsigned long output_byte_count;            // FIVE_BAUD_INIT / FAST_INIT only
+    std::array<unsigned char, 64> output_bytes; // FIVE_BAUD_INIT / FAST_INIT only
+    unsigned long vbatt;                        // READ_VBATT / READ_PROG_VOLTAGE only
 };
 
 bool writeFrame(HANDLE pipe, Function function, const void *payload, std::uint32_t payloadSize);

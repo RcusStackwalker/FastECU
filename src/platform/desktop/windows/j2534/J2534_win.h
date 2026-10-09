@@ -22,8 +22,8 @@
 
 // name is token-pasted into a type and a member name, so it cannot be parenthesized.
 // NOLINTNEXTLINE(bugprone-macro-parentheses)
-#define PTfn(name) PF_##name *pf##name
-#define PText(name) PT_API PF_##name name
+#define PTfn(name) Pf##name *pf##name
+#define PText(name) PT_API Pf##name name
 
 class J2534
 {
