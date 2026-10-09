@@ -1,4 +1,9 @@
 #include "src/ui/desktop/widgets/mainwindow.h"
+
+#include <string_view>
+#include <vector>
+
+#include "src/backend/logging/logging_csv_record.h"
 #include "ui_mainwindow.h"
 #include "src/platform/desktop/common/bytes/qt_bytes.h"
 #include "src/ui/desktop/config_fields.h"
@@ -58,22 +63,20 @@ void MainWindow::logToFile()
             }
 
             datalog_file_outstream_.setDevice(&datalog_file_);
-            datalog_file_outstream_ << "Time,";
-            writeLoggerCsvCells(true);
-            datalog_file_outstream_ << "\n";
+            writeLoggerCsvRecord(true);
         }
         else
         {
 
-            datalog_file_outstream_ << QString::number(static_cast<float>(log_file_timer_->elapsed()) / 1000.0F) << ",";
-            writeLoggerCsvCells(false);
-            datalog_file_outstream_ << "\n";
+            writeLoggerCsvRecord(false);
         }
     }
 }
 
-void MainWindow::writeLoggerCsvCells(bool header)
+void MainWindow::writeLoggerCsvRecord(bool header)
 {
+    std::vector<std::string> fields{
+        header ? "Time" : QString::number(static_cast<float>(log_file_timer_->elapsed()) / 1000.0F).toStdString()};
     const auto key = active_logging_snapshot_ ? active_logging_snapshot_->protocol : protocol_.toStdString();
     const auto& selection = logger_model_->Selection();
     const auto parameters = [&](const auto& ids)
@@ -81,10 +84,9 @@ void MainWindow::writeLoggerCsvCells(bool header)
         for (const auto& id : ids)
         {
             const auto *item = logger_model_->Parameter(key, id);
-            datalog_file_outstream_ << (item == nullptr ? QString{}
-                                        : header        ? fastecu::ui::qs(item->name)
-                                                        : logger_values_.ParameterValue(key, id))
-                                    << ",";
+            fields.push_back(item == nullptr ? std::string{}
+                             : header        ? item->name
+                                             : logger_values_.ParameterValue(key, id).toStdString());
         }
     };
     parameters(selection.gauge_ids);
@@ -92,9 +94,10 @@ void MainWindow::writeLoggerCsvCells(bool header)
     for (const auto& id : selection.switch_ids)
     {
         const auto *item = logger_model_->SwitchDefinition(key, id);
-        datalog_file_outstream_ << (item == nullptr ? QString{}
-                                    : header        ? fastecu::ui::qs(item->name)
-                                                    : logger_values_.SwitchValue(key, id))
-                                << ",";
+        fields.push_back(item == nullptr ? std::string{}
+                         : header        ? item->name
+                                         : logger_values_.SwitchValue(key, id).toStdString());
     }
+    const std::vector<std::string_view> fieldViews{fields.begin(), fields.end()};
+    datalog_file_outstream_ << QString::fromStdString(fastecu::logging::SerializeLoggingCsvRecord(fieldViews));
 }

@@ -62,7 +62,12 @@ tab indentation would otherwise reformat existing files on save. The
 contract.
 
 CSV preserves file lifetime, schema, trailing commas, column order, and numeric
-formatting. It resolves the current selection within the active run's captured
+formatting. The portable [record serializer](../../src/backend/logging/logging_csv_record.h)
+escapes every header and row field, including Time: fields containing a comma,
+quote, CR, or LF are quoted, and embedded quotes are doubled. UTF-8 bytes and
+empty field positions are preserved. The desktop retains column resolution,
+timing, and file ownership; the first write opens the file and emits only the
+header. It resolves the current selection within the active run's captured
 protocol, even if the UI protocol changes. It does not resolve an ID across
 unrelated protocols. Unresolved columns remain empty.
 

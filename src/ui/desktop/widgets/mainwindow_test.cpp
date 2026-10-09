@@ -941,6 +941,7 @@ class MainWindowTest : public ::testing::Test
     void checkUnresolvedDisplaySlotsAreSkippedAndUpdateTheirOriginalLabels();
     void checkChooserDuplicateLabelIdentity(int tab, QString kind);
     void checkCsvSharedIdProtocolIdentity();
+    void checkCsvEscapesNamesAndValues();
     void checkLoggingStartWaitsForIdentification(bool targetIsEcu);
     void checkBatterySamplingDoesNotUseTheFacadeDuringIdentification();
     void checkWindowDestructionJoinsIdentificationWithoutContinuingLogging();
@@ -3456,6 +3457,73 @@ void MainWindowTest::checkCsvSharedIdProtocolIdentity()
 TEST_F(MainWindowTest, csvSharedIdProtocolIdentity)
 {
     ASSERT_NO_FATAL_FAILURE(checkCsvSharedIdProtocolIdentity());
+}
+
+void MainWindowTest::checkCsvEscapesNamesAndValues()
+{
+    ModalDriver driver{QString()};
+    driver.start();
+    TestServices services{config_root_->path()};
+    MainWindow window{services.services()};
+    driver.stop();
+    prepareLogging(window, "CDBG");
+    installLoggingFixture(window,
+                          {.parameters = {{.protocol = "SSM",
+                                           .id = "rpm",
+                                           .name = "Wrong SSM",
+                                           .address = "10",
+                                           .length = "1",
+                                           .enabled = true,
+                                           .conversions = {{"rpm", "x", "0.00", "0", "100", "1"}}},
+                                          {.protocol = "CDBG",
+                                           .id = "rpm",
+                                           .name = "温度, \"CDBG\"\r\nreading",
+                                           .address = "10",
+                                           .length = "1",
+                                           .enabled = true,
+                                           .conversions = {{"rpm", "x", "0.00", "0", "100", "1"}}}}},
+                          {.protocol = "CDBG",
+                           .gauge_ids = {"missing"},
+                           .lower_panel_ids = {"rpm", "unresolved"},
+                           .switch_ids = {"missing-switch"}});
+    ASSERT_TRUE(window.logger_values_.SetParameterValue({"SSM", "rpm"}, "11.00"));
+    ASSERT_TRUE(window.logger_values_.SetParameterValue({"CDBG", "rpm"}, "温度, \"value\"\r\n"));
+    auto snapshot = fastecu::desktop::logging::MakeDesktopLoggingSnapshot(
+        *window.logger_model_, fastecu::logging::LoggingProtocolId::kCdbg, "CDBG",
+        {.poll_timeout = std::chrono::milliseconds{50},
+         .car_silence_miss_threshold = 20,
+         .reconnect_attempt_threshold = 100,
+         .reconnect_retry_period = 20});
+    ASSERT_TRUE(snapshot.has_value());
+    window.active_logging_snapshot_ = *snapshot;
+    window.protocol_ = "SSM"; // active run, not mutable UI choice, owns CSV protocol
+    ASSERT_TRUE(QDir().mkpath(QString::fromStdString(services.config.EffectivePaths().datalog_files_directory)));
+    window.write_datalog_to_file_ = true;
+    window.logToFile();
+    window.datalog_file_outstream_.flush();
+    QFile header{window.datalog_file_.fileName()};
+    ASSERT_TRUE(header.open(QIODevice::ReadOnly));
+    EXPECT_EQ(header.readAll(), QByteArray("Time,,\"温度, \"\"CDBG\"\"\r\nreading\",,,\n"));
+    header.close();
+    window.logger_model_->SetSelection({.protocol = "CDBG",
+                                        .gauge_ids = {"rpm"},
+                                        .lower_panel_ids = {"unresolved", "missing"},
+                                        .switch_ids = {"missing-switch"}});
+    window.logToFile();
+    window.datalog_file_outstream_.flush();
+    QFile csv{window.datalog_file_.fileName()};
+    ASSERT_TRUE(csv.open(QIODevice::ReadOnly));
+    const auto content = csv.readAll();
+    EXPECT_TRUE(content.startsWith("Time,,\"温度, \"\"CDBG\"\"\r\nreading\",,,\n"));
+    EXPECT_TRUE(content.contains(",\"温度, \"\"value\"\"\r\n\",,,,\n"));
+    ASSERT_TRUE(!content.contains("Wrong SSM"));
+    ASSERT_TRUE(!content.contains("11.00"));
+    window.datalog_file_.close();
+}
+
+TEST_F(MainWindowTest, csvEscapesNamesAndValues)
+{
+    ASSERT_NO_FATAL_FAILURE(checkCsvEscapesNamesAndValues());
 }
 
 struct LoggingStartWaitsForIdentificationCase

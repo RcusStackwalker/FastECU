@@ -185,3 +185,18 @@ cc_library(
         "//src/algorithms/protocol",
     ],
 )
+
+cc_library(
+    name = "logging_csv_record",
+    srcs = ["logging_csv_record.cpp"],
+    hdrs = ["logging_csv_record.h"],
+)
+
+fastecu_portable_gtest(
+    name = "logging_csv_record_test",
+    srcs = ["logging_csv_record_test.cpp"],
+    deps = [
+        ":logging_csv_record",
+        "@googletest//:gtest",
+    ],
+)
