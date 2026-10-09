@@ -122,7 +122,7 @@ class TracingTransport : public ScriptedKlineFlashTransport
     std::vector<Step>& trace_;
 };
 
-// Every sleep appends Step::Sleep to the shared trace, then advances time.
+// Every sleep appends Step::kSleep to the shared trace, then advances time.
 void trace_sleeps(MockClock& clock, std::vector<Step>& trace)
 {
     ON_CALL(clock, sleep).WillByDefault(DoAll([&trace] { trace.push_back(Step::kSleep); }, clock.sleep_on_fake()));

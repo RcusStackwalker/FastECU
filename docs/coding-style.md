@@ -313,7 +313,7 @@ needed to preserve operation or cleanup order.
 ```cpp
 ASSERT_THAT(result, fastecu::testing::IsOk());
 EXPECT_THAT(result, fastecu::testing::IsOkAnd(42));
-EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::Timeout));
+EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kTimeout));
 ```
 
 Use `Not(IsOk())` only when the contract intentionally permits any error.
@@ -371,11 +371,11 @@ prints, so the suffix is redundant on every line of output.
 
 ```cpp
 // Yes
-EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::Timeout, HasSubstr("no reply")));
+EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kTimeout, HasSubstr("no reply")));
 
 // No
 ASSERT_FALSE(result.has_value());
-EXPECT_EQ(result.error().kind, ErrorKind::Timeout);
+EXPECT_EQ(result.error().kind, ErrorKind::kTimeout);
 ```
 
 `ASSERT_TRUE(x.has_value())` throws away the error the assertion is already

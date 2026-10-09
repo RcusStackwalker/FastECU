@@ -1751,7 +1751,7 @@ TEST(SubaruTcuHitachiM32rCanExecutor, WithNoScriptToStopItTheWriteStillNeverTouc
 
 // --- cancellation and failure paths -----------------------------------------
 //
-// Every cancellation test below returns ErrorKind::Cancelled, which by itself
+// Every cancellation test below returns ErrorKind::kCancelled, which by itself
 // discriminates nothing: read_rom and reflash_block each poll
 // cancellation.cancelled() at several points (top of loop, before a write,
 // after a write, after a read, and inside clock.sleep), and every one of

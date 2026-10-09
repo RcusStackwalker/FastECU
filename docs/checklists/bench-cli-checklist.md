@@ -77,7 +77,7 @@ each — not a paraphrase of whether it "looked right."
 
   `MitsuColtM32rCanExecutor` now read-verifies the full logical carrier against
   the desired top payload before it uploads either helper, unlocks, or erases,
-  and refuses the bootstrap with `ErrorKind::InvalidConfig` on a mismatch. That
+  and refuses the bootstrap with `ErrorKind::kInvalidConfig` on a mismatch. That
   refusal happens before anything destructive, so a carrier that would have
   produced NRC `0x71` mid-write no longer leaves the top bank erased.
 

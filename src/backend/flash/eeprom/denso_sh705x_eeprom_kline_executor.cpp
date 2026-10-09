@@ -119,7 +119,7 @@ bool looks_kernel_alive(bytes::ByteView received)
 // Shared shape of every SSM-addHeader-framed exchange (send_sid_bf/81/83/
 // 27req/27key/10/34/31 and each send_sid_36_transferdata block): write,
 // then read with no delay in between (legacy never delays here), mapping a
-// timed-out response (no frame at all) to ErrorKind::Timeout -- a genuine
+// timed-out response (no frame at all) to ErrorKind::kTimeout -- a genuine
 // hard transport failure (Disconnected et al.) propagates as-is, and
 // cancellation is checked before the write and after the read, per the
 // portable seam's cancellation contract.

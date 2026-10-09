@@ -578,7 +578,7 @@ TEST(MitsuColtM32rCanExecutor, ReadTimeoutPropagates)
 {
     // A genuine transport-level timeout (distinct from queue_no_frame's empty
     // reply, which UdsClient itself maps to Timeout) at the very first
-    // exchange must surface as ErrorKind::Timeout unmodified.
+    // exchange must surface as ErrorKind::kTimeout unmodified.
     ScriptedCanFlashTransport transport;
     FakeClock clock;
     RecordingEventSink events;

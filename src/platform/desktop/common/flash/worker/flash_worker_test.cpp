@@ -106,7 +106,7 @@ DensoSh705xEepromInput validInput(FlashFamily family)
 // probe delay) is exactly this write, so ScriptedKlineFlashTransport must
 // have it queued via expectWrite() before the ensuing read() can be reached
 // at all -- otherwise the unscripted write itself fails with
-// ErrorKind::Internal before the blocking read is ever attempted, which
+// ErrorKind::kInternal before the blocking read is ever attempted, which
 // would prove nothing about unblock/cancellation.
 bytes::Bytes requestKernelIdRequest()
 {

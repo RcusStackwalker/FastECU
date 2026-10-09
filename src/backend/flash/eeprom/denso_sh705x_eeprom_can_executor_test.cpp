@@ -628,7 +628,7 @@ TEST(DensoSh705xEepromCanExecutorTest, FullBootloaderStockSecurityMode2MatchesLe
 // value, by driving the executor far enough to capture each variant's
 // "0x27,0x02,<key>" frame from an IDENTICAL seed and proving all four differ.
 // Each run is deliberately stopped right after the seed-key-send write (its
-// own response read is scripted as "no frame", tripping ErrorKind::Timeout
+// own response read is scripted as "no frame", tripping ErrorKind::kTimeout
 // immediately after) -- keeping this test fast without needing a full kernel
 // upload + EEPROM read per variant, mirroring the deleted characterization
 // test's own "stopped short" shape.
@@ -666,7 +666,7 @@ TEST(DensoSh705xEepromCanExecutorTest, AllFourSecurityVariantsProduceDistinctSee
         transport.queueRead(seedResponse(seed));
         // The seed-key-send frame itself is captured via expectWrite() below
         // (whichever bytes the executor sends must match, or the write fails
-        // with ErrorKind::Internal) -- we don't know its expected content
+        // with ErrorKind::kInternal) -- we don't know its expected content
         // ahead of time here (that's exactly what's under test), so instead
         // we let it through as a wildcard by pre-registering an expectation
         // per candidate key below.

@@ -28,7 +28,7 @@ class ServiceFunctionSession
 
     // Runs I/O until the next operator gate, completion, or failure. After a
     // GateStep the caller must submit() an answer before calling resume()
-    // again; calling it with a gate outstanding is ErrorKind::Internal.
+    // again; calling it with a gate outstanding is ErrorKind::kInternal.
     virtual ServiceFunctionStep resume(ISsmTransport& transport, IClock& clock, const ICancellationToken& cancellation,
                                        IEventSink& events) = 0;
 

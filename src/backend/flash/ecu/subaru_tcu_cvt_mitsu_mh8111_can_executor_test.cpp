@@ -252,7 +252,7 @@ void scriptStopCommand(ScriptedCanFlashTransport& transport)
 //
 // Deliberately NOT cut at read_mem's own 0x35 dump-setup exchange, unlike the
 // sibling MH8104 family: that exchange is routed through ctx.channel
-// directly and classifies an absent reply as ErrorKind::BadResponse ("dump
+// directly and classifies an absent reply as ErrorKind::kBadResponse ("dump
 // start & length setup rejected"), not Timeout -- a different assertion,
 // not just a different constant, from what the shared
 // ReadReportsAnEmptyReplyAsTimeout test checks. The seed request, by

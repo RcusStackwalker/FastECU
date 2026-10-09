@@ -145,7 +145,7 @@ owns UI sequencing through `ICalibrationInteraction`. `MainWindow` supplies the
 session and retains port checks, battery polling, cleanup, and flash dispatch.
 
 - Cancelling the missing-checksum-module warning before Write or TestWrite
-  (`ChecksumSupport::Missing`, formerly `n/a`) stops the operation before
+  (`ChecksumSupport::kMissing`, formerly `n/a`) stops the operation before
   refresh, correction, or dispatch. The cleanup guard still runs.
 - Declining checksum correction, an unknown MCU, or an outcome without bytes
   leaves the operation image unchanged and allows save/write to continue.

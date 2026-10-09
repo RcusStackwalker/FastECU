@@ -293,7 +293,7 @@ Result<std::optional<bytes::Bytes>> can_raw_exchange(ICanFlashTransport& transpo
     return std::move(*received);
 }
 
-// Gated variant: an absent response maps to ErrorKind::Timeout. Used only at
+// Gated variant: an absent response maps to ErrorKind::kTimeout. Used only at
 // connect_bootloader()'s 3 hard-gating steps (seed request, seed-key send,
 // session set) and upload_kernel()'s SID34/0x37/0x31 acks -- exactly the
 // sites where legacy's own `if (received.length() > N) {...} else { return
@@ -404,7 +404,7 @@ Result<FlashExecutionResult> DensoSh705xEepromCanExecutor::execute(const FlashPl
 //      executor could actually perform the branch's prerequisite step: a
 //      temporary K-Line-shaped SSM exchange (read_ram_location(), addHeader-
 //      framed, no CAN-ID prefix) multiplexed over the SAME physical adapter
-//      the plan declares as TransportKind::CanIso15765. Nothing in the
+//      the plan declares as TransportKind::kCanIso15765. Nothing in the
 //      portable transport seam (ICanFlashTransport/Iso15765Config) exposes a
 //      "become K-Line for a moment" capability; inventing one is a
 //      transport-architecture change well beyond this task's scope (build

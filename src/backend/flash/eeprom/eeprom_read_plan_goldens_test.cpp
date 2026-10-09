@@ -64,7 +64,7 @@ TEST(EepromReadPlanGolden, Sh7058CanMode2)
     // family_plan is DensoSh705xEepromCanPlan with request_id=0x7e0,
     // response_id=0x7e8, bitrate=500000, extended_id=false. FlashMethod
     // carries no security suffix here, so security_for_protocol falls
-    // through to DensoSecurityVariant::Stock.
+    // through to DensoSecurityVariant::kStock.
     const auto *can_plan = std::get_if<DensoSh705xEepromCanPlan>(&plan->family_plan());
     ASSERT_NE(can_plan, nullptr);
     EXPECT_EQ(can_plan->mode, EepromReadMode::kMode2);
@@ -102,7 +102,7 @@ TEST(EepromReadPlanGolden, Sh7055KlineMode4)
     // family_plan is DensoSh705xEepromKlinePlan with tester_id=0xf0,
     // target_id=0x10, initial_baud=4800, kernel_baud=15625 (the resolved
     // family value). FlashMethod carries no security suffix here, so
-    // security_for_protocol falls through to DensoSecurityVariant::Stock.
+    // security_for_protocol falls through to DensoSecurityVariant::kStock.
     const auto *kline_plan = std::get_if<DensoSh705xEepromKlinePlan>(&plan->family_plan());
     ASSERT_NE(kline_plan, nullptr);
     EXPECT_EQ(kline_plan->mode, EepromReadMode::kMode4);

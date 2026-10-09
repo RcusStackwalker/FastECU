@@ -14,7 +14,7 @@ namespace fastecu::service_functions
 // and requires the 15 bytes the decode actually indexes.
 //
 // Has no operator gates: submit() is a contract violation and makes the next
-// resume() fail with ErrorKind::Internal.
+// resume() fail with ErrorKind::kInternal.
 class ReadParametersSession final : public ServiceFunctionSession
 {
   public:
