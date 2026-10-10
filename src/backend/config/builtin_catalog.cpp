@@ -2,10 +2,108 @@
 
 #include <array>
 
+#include "src/algorithms/memory/address.h"
+#include "src/algorithms/memory/memory_map.h"
+
 namespace fastecu::config
 {
 namespace
 {
+
+using memory::ByteCount;
+constexpr auto kReadOnly = memory::Writability::kReadOnly;
+constexpr auto kWritable = memory::Writability::kWritable;
+
+// Memory maps (ADR 0020). A protocol declares them only when its ROM files are
+// not placed at address 0 with every byte writable; the rest get the identity
+// map. Writable means the protocol can write the block by some route. The
+// agreement test in //src/backend/flash/ecu checks every writable range against
+// the flash family's own write window and against its FlashDevice.
+
+// MC68HC16Y5 `_02`: flash at 0x00000-0x1FFFF and 0x28000-0x2FFFF around RAM at
+// 0x20000-0x27FFF. A 160 KiB file packs the two flash ranges; a 192 KiB file (a
+// BDM read, or a community file declaring `filesize 192kb`) also holds bytes for
+// the RAM range.
+constexpr auto kMc68PackedBlocks = std::to_array({
+    FileBlock(0x00000, 0x20000, 0x00000, kWritable),
+    FillBlock(0x20000, 0x08000, 0xFF),
+    FileBlock(0x28000, 0x08000, 0x20000, kWritable),
+});
+constexpr auto kMc68FullBlocks = std::to_array({
+    FileBlock(0x00000, 0x20000, 0x00000, kWritable),
+    FileBlock(0x20000, 0x08000, 0x20000, kReadOnly),
+    FileBlock(0x28000, 0x08000, 0x28000, kWritable),
+});
+constexpr auto kMc68Maps = std::to_array<MemoryMapSpec>({
+    {.file_size = ByteCount{0x28000}, .blocks = kMc68PackedBlocks},
+    {.file_size = ByteCount{0x30000}, .blocks = kMc68FullBlocks},
+});
+
+// 512 KiB M32R and MH8104 ROMs whose protocol never writes the 0x8000-byte
+// bootloader. The Colt CZT 512 KiB variants write 0x60000-0x7FFFF through the
+// redirect carrier, which counts as writable.
+constexpr auto kBootloaderOf512kBlocks = std::to_array({
+    FileBlock(0x00000, 0x08000, 0x00000, kReadOnly),
+    FileBlock(0x08000, 0x78000, 0x08000, kWritable),
+});
+constexpr auto kBootloaderOf512kMaps =
+    std::to_array<MemoryMapSpec>({{.file_size = ByteCount{0x80000}, .blocks = kBootloaderOf512kBlocks}});
+
+// Colt CZT 384 KiB variants: the bootloader, then userspace up to 0x60000.
+constexpr auto kColt384kBlocks = std::to_array({
+    FileBlock(0x00000, 0x08000, 0x00000, kReadOnly),
+    FileBlock(0x08000, 0x58000, 0x08000, kWritable),
+});
+constexpr auto kColt384kMaps =
+    std::to_array<MemoryMapSpec>({{.file_size = ByteCount{0x60000}, .blocks = kColt384kBlocks}});
+
+// MH8111: only the 1 MiB block at 0x80000 is written.
+constexpr auto kMh8111Blocks = std::to_array({
+    FileBlock(0x00000, 0x080000, 0x00000, kReadOnly),
+    FileBlock(0x80000, 0x100000, 0x80000, kWritable),
+});
+constexpr auto kMh8111Maps =
+    std::to_array<MemoryMapSpec>({{.file_size = ByteCount{0x180000}, .blocks = kMh8111Blocks}});
+
+// SH72543R: the first 0x6000 bytes are never written.
+constexpr auto kSh72543rBlocks = std::to_array({
+    FileBlock(0x0000, 0x006000, 0x0000, kReadOnly),
+    FileBlock(0x6000, 0x1FA000, 0x6000, kWritable),
+});
+constexpr auto kSh72543rMaps =
+    std::to_array<MemoryMapSpec>({{.file_size = ByteCount{0x200000}, .blocks = kSh72543rBlocks}});
+
+// Denso ISO-15765 bootloader dialect: the ROM file holds a lead block and a
+// 0x100-byte tail block that the bootloader keeps, around the written main
+// block. N83M files start at 0x08F9C000.
+constexpr auto kSh72531Blocks = std::to_array({
+    FileBlock(0x000000, 0x008000, 0x000000, kReadOnly),
+    FileBlock(0x008000, 0x137F00, 0x008000, kWritable),
+    FileBlock(0x13FF00, 0x000100, 0x13FF00, kReadOnly),
+});
+constexpr auto kSh72531Maps =
+    std::to_array<MemoryMapSpec>({{.file_size = ByteCount{0x140000}, .blocks = kSh72531Blocks}});
+constexpr auto kSh72543DieselBlocks = std::to_array({
+    FileBlock(0x000000, 0x008000, 0x000000, kReadOnly),
+    FileBlock(0x008000, 0x1F7F00, 0x008000, kWritable),
+    FileBlock(0x1FFF00, 0x000100, 0x1FFF00, kReadOnly),
+});
+constexpr auto kSh72543DieselMaps =
+    std::to_array<MemoryMapSpec>({{.file_size = ByteCount{0x200000}, .blocks = kSh72543DieselBlocks}});
+constexpr auto kN83m4mBlocks = std::to_array({
+    FileBlock(0x08F9C000, 0x010000, 0x000000, kReadOnly),
+    FileBlock(0x08FAC000, 0x3D3F00, 0x010000, kWritable),
+    FileBlock(0x0937FF00, 0x000100, 0x3E3F00, kReadOnly),
+});
+constexpr auto kN83m4mMaps =
+    std::to_array<MemoryMapSpec>({{.file_size = ByteCount{0x3E4000}, .blocks = kN83m4mBlocks}});
+constexpr auto kN83m1_5mBlocks = std::to_array({
+    FileBlock(0x08F9C000, 0x010000, 0x000000, kReadOnly),
+    FileBlock(0x08FAC000, 0x173F00, 0x010000, kWritable),
+    FileBlock(0x0911FF00, 0x000100, 0x183F00, kReadOnly),
+});
+constexpr auto kN83m1_5mMaps =
+    std::to_array<MemoryMapSpec>({{.file_size = ByteCount{0x184000}, .blocks = kN83m1_5mBlocks}});
 
 // Generated once from the retired protocols.cfg and maintained by hand
 // since. The vehicle order is the chooser's unsorted order, and alias
@@ -111,7 +209,8 @@ constexpr auto kProtocols = std::to_array<ProtocolSpec>({
      .log_protocol = "SSM",
      .kernel = "ssmk_mc68hc916y5.bin",
      .kernel_load_address = 0x20000U,
-     .description = "Subaru Forester/Impreza/Legacy 16bit Denso non-USDM 2001-2005 (USDM 2002-2003) BDM (HC16/160KB)"},
+     .description = "Subaru Forester/Impreza/Legacy 16bit Denso non-USDM 2001-2005 (USDM 2002-2003) BDM (HC16/160KB)",
+     .memory_maps = kMc68Maps},
     {.name = "sub_ecu_denso_mc68hc16y5_02",
      .alias = "wrx02",
      .ecu = "Denso MC68HC16Y5",
@@ -127,7 +226,8 @@ constexpr auto kProtocols = std::to_array<ProtocolSpec>({
      .kernel = "ssmk_mc68hc916y5.bin",
      .kernel_load_address = 0x20000U,
      .description =
-         "Subaru Forester/Impreza/Legacy 16bit Denso non-USDM 2001-2005 (USDM 2002-2003) K-Line (HC16/160KB)"},
+         "Subaru Forester/Impreza/Legacy 16bit Denso non-USDM 2001-2005 (USDM 2002-2003) K-Line (HC16/160KB)",
+     .memory_maps = kMc68Maps},
     {.name = "sub_ecu_denso_mc68hc16y5_02_ecutek",
      .alias = "wrx02",
      .ecu = "Denso MC68HC16Y5",
@@ -143,7 +243,8 @@ constexpr auto kProtocols = std::to_array<ProtocolSpec>({
      .kernel = "ssmk_mc68hc916y5.bin",
      .kernel_load_address = 0x20000U,
      .description =
-         "Subaru Forester/Impreza/Legacy 16bit Denso non-USDM 2001-2005 (USDM 2002-2003) K-Line (HC16/160KB) EcuTek"},
+         "Subaru Forester/Impreza/Legacy 16bit Denso non-USDM 2001-2005 (USDM 2002-2003) K-Line (HC16/160KB) EcuTek",
+     .memory_maps = kMc68Maps},
     {.name = "sub_ecu_denso_sh7055_02",
      .alias = "fxt02",
      .ecu = "Denso SH7055",
@@ -380,7 +481,8 @@ constexpr auto kProtocols = std::to_array<ProtocolSpec>({
      .flash_transport = "iso15765,CAN",
      .log_transport = "iso15765",
      .log_protocol = "SSM",
-     .description = "Subaru Forester/Impreza/Legacy 32bit DBW Denso 2017+ CAN EURO6 Diesel (SH72543/2MB)"},
+     .description = "Subaru Forester/Impreza/Legacy 32bit DBW Denso 2017+ CAN EURO6 Diesel (SH72543/2MB)",
+     .memory_maps = kSh72543DieselMaps},
     {.name = "sub_ecu_unisia_jecs_20_bootmode",
      .ecu = "WA12212920WWW",
      .mcu = "M32R_128KB",
@@ -514,7 +616,8 @@ constexpr auto kProtocols = std::to_array<ProtocolSpec>({
      .flash_transport = "iso15765",
      .log_transport = "K-Line",
      .log_protocol = "SSM",
-     .description = "Unknown unk-unk CAN (Hitachi M32176F4/512KB)"},
+     .description = "Unknown unk-unk CAN (Hitachi M32176F4/512KB)",
+     .memory_maps = kBootloaderOf512kMaps},
     {.name = "sub_tcu_cvt_hitachi_m32r_can",
      .ecu = "M32176F4",
      .mcu = "M32R_512KB",
@@ -526,7 +629,8 @@ constexpr auto kProtocols = std::to_array<ProtocolSpec>({
      .flash_transport = "iso15765",
      .log_transport = "K-Line",
      .log_protocol = "SSM",
-     .description = "Unknown unk-unk CVT CAN (Hitachi M32176F4/512KB)"},
+     .description = "Unknown unk-unk CVT CAN (Hitachi M32176F4/512KB)",
+     .memory_maps = kBootloaderOf512kMaps},
     {.name = "sub_tcu_denso_sh7058_can",
      .ecu = "Denso SH7058",
      .mcu = "SH7058",
@@ -566,7 +670,8 @@ constexpr auto kProtocols = std::to_array<ProtocolSpec>({
      .flash_transport = "iso15765",
      .log_transport = "K-Line",
      .log_protocol = "SSM",
-     .description = "Subaru Legacy 2010-2014 CVT CAN (Mitsubishi MH8104/512KB)"},
+     .description = "Subaru Legacy 2010-2014 CVT CAN (Mitsubishi MH8104/512KB)",
+     .memory_maps = kBootloaderOf512kMaps},
     {.name = "sub_tcu_cvt_mitsu_mh8111_can",
      .ecu = "Mitsubish MH8111",
      .mcu = "MH8111",
@@ -578,7 +683,8 @@ constexpr auto kProtocols = std::to_array<ProtocolSpec>({
      .flash_transport = "iso15765",
      .log_transport = "K-Line",
      .log_protocol = "SSM",
-     .description = "TCU CVT CAN (Mitsubishi MH8111/1536KB)"},
+     .description = "TCU CVT CAN (Mitsubishi MH8111/1536KB)",
+     .memory_maps = kMh8111Maps},
     {.name = "sub_ecu_mitsu_m32r_kline",
      .ecu = "Mitsubish M32R",
      .mcu = "M32R_512KB_4blocks",
@@ -590,7 +696,8 @@ constexpr auto kProtocols = std::to_array<ProtocolSpec>({
      .flash_transport = "K-Line",
      .log_transport = "K-Line",
      .log_protocol = "SSM",
-     .description = "ECU Kline (Mitsubishi M32R/512KB)"},
+     .description = "ECU Kline (Mitsubishi M32R/512KB)",
+     .memory_maps = kBootloaderOf512kMaps},
     {.name = "mitsu_ecu_m32r_kline_mut_dma",
      .ecu = "Mitsubishi M32R",
      .mcu = "M32170",
@@ -614,7 +721,8 @@ constexpr auto kProtocols = std::to_array<ProtocolSpec>({
      .flash_transport = "iso15765",
      .log_transport = "CAN",
      .log_protocol = "CDBG",
-     .description = "Mitsubishi Colt CZT Z37A CAN (M32176F3/384KB, ROM 47110032)"},
+     .description = "Mitsubishi Colt CZT Z37A CAN (M32176F3/384KB, ROM 47110032)",
+     .memory_maps = kColt384kMaps},
     {.name = "mitsu_ecu_m32r_can_vendor_ext",
      .ecu = "Mitsubishi M32R",
      .mcu = "M32R_384KB_1block",
@@ -626,7 +734,8 @@ constexpr auto kProtocols = std::to_array<ProtocolSpec>({
      .flash_transport = "iso15765",
      .log_transport = "CAN",
      .log_protocol = "CDBG",
-     .description = "Mitsubishi Colt CZT Z37A CAN vendor diagnostic extension (M32176F3/384KB, ROM 47110032)"},
+     .description = "Mitsubishi Colt CZT Z37A CAN vendor diagnostic extension (M32176F3/384KB, ROM 47110032)",
+     .memory_maps = kColt384kMaps},
     {.name = "mitsu_ecu_m32r_can_512kb",
      .ecu = "Mitsubishi M32R",
      .mcu = "M32R_512KB_1block",
@@ -638,7 +747,8 @@ constexpr auto kProtocols = std::to_array<ProtocolSpec>({
      .flash_transport = "iso15765",
      .log_transport = "CAN",
      .log_protocol = "CDBG",
-     .description = "Mitsubishi Colt CZT Z37A CAN full flash (M32176F3/512KB, ROM 47110032)"},
+     .description = "Mitsubishi Colt CZT Z37A CAN full flash (M32176F3/512KB, ROM 47110032)",
+     .memory_maps = kBootloaderOf512kMaps},
     {.name = "mitsu_ecu_m32r_can_vendor_ext_512kb",
      .ecu = "Mitsubishi M32R",
      .mcu = "M32R_512KB_1block",
@@ -651,7 +761,8 @@ constexpr auto kProtocols = std::to_array<ProtocolSpec>({
      .log_transport = "CAN",
      .log_protocol = "CDBG",
      .description =
-         "Mitsubishi Colt CZT Z37A CAN vendor diagnostic extension full flash (M32176F3/512KB, ROM 47110032)"},
+         "Mitsubishi Colt CZT Z37A CAN vendor diagnostic extension full flash (M32176F3/512KB, ROM 47110032)",
+     .memory_maps = kBootloaderOf512kMaps},
     {.name = "sub_ecu_hitachi_sh7058_can",
      .ecu = "Hitachi SH7058",
      .mcu = "SH7058_1block",
@@ -675,7 +786,8 @@ constexpr auto kProtocols = std::to_array<ProtocolSpec>({
      .flash_transport = "iso15765",
      .log_transport = "iso15765",
      .log_protocol = "SSM",
-     .description = "Subaru Forester 2013+ CAN (Hitachi SH72543R/2MB)"},
+     .description = "Subaru Forester 2013+ CAN (Hitachi SH72543R/2MB)",
+     .memory_maps = kSh72543rMaps},
     {.name = "sub_ecu_hitachi_sh72543r_can_recovery",
      .ecu = "Hitachi SH72543R",
      .mcu = "SH72543R",
@@ -687,7 +799,8 @@ constexpr auto kProtocols = std::to_array<ProtocolSpec>({
      .flash_transport = "iso15765",
      .log_transport = "iso15765",
      .log_protocol = "SSM",
-     .description = "Subaru Forester 2013+ CAN (Hitachi SH72543R/2MB)"},
+     .description = "Subaru Forester 2013+ CAN (Hitachi SH72543R/2MB)",
+     .memory_maps = kSh72543rMaps},
     {.name = "sub_ecu_denso_sh72531_can",
      .ecu = "Denso SH72531",
      .mcu = "SH72531",
@@ -699,7 +812,8 @@ constexpr auto kProtocols = std::to_array<ProtocolSpec>({
      .flash_transport = "iso15765",
      .log_transport = "iso15765",
      .log_protocol = "SSM",
-     .description = "Subaru Legacy/Outback 2014-2018 CAN (Denso SH72531R/1.3MB)"},
+     .description = "Subaru Legacy/Outback 2014-2018 CAN (Denso SH72531R/1.3MB)",
+     .memory_maps = kSh72531Maps},
     {.name = "sub_ecu_denso_1n83m_4m_can",
      .ecu = "Denso 1N83M 4MB",
      .mcu = "N83M_4MB",
@@ -711,7 +825,8 @@ constexpr auto kProtocols = std::to_array<ProtocolSpec>({
      .flash_transport = "iso15765",
      .log_transport = "iso15765",
      .log_protocol = "SSM",
-     .description = "Subaru Forester/XV 2018- (Denso 1N83M/4MB)"},
+     .description = "Subaru Forester/XV 2018- (Denso 1N83M/4MB)",
+     .memory_maps = kN83m4mMaps},
     {.name = "sub_ecu_denso_1n83m_1_5m_can",
      .ecu = "Denso 1N83M 1.5MB",
      .mcu = "N83M_1_5MB",
@@ -723,7 +838,8 @@ constexpr auto kProtocols = std::to_array<ProtocolSpec>({
      .flash_transport = "iso15765",
      .log_transport = "iso15765",
      .log_protocol = "SSM",
-     .description = "Subaru Forester/XV 1.6L 2.0L 2018-2021 (Denso 1N83M/1.5MB)"},
+     .description = "Subaru Forester/XV 1.6L 2.0L 2018-2021 (Denso 1N83M/1.5MB)",
+     .memory_maps = kN83m1_5mMaps},
     {.name = "sub_ecu_eeprom_denso_sh7055_kline",
      .ecu = "Denso SH7055",
      .mcu = "SH7055",

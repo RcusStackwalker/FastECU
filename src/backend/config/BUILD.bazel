@@ -124,6 +124,10 @@ cc_library(
     name = "builtin_catalog",
     srcs = ["builtin_catalog.cpp"],
     hdrs = ["builtin_catalog.h"],
+    implementation_deps = [
+        "//src/algorithms/memory:address",
+        "//src/algorithms/memory:memory_map",
+    ],
     # Only the composition root hands the built-in catalog on; tests that
     # check it against other packages name it too.
     visibility = [
@@ -141,6 +145,7 @@ fastecu_portable_gtest(
     srcs = ["builtin_catalog_test.cpp"],
     deps = [
         ":builtin_catalog",
+        "//src/algorithms/memory:memory_map",
         "@googletest//:gtest",
     ],
 )
