@@ -280,6 +280,39 @@ TEST(ChecksumPortable, DensoSh7055TcuBalancesZeroRom)
     EXPECT_THAT(unchanged_result.rom_data, test_bytes::BytesEq(result.rom_data));
 }
 
+// The family sums the whole file: a 512 KiB M32R_512KB read corrects the same
+// fixed fields as a smaller file (legacy checksum_tcu_subaru_hitachi_m32r_can).
+TEST(ChecksumPortable, HitachiM32rCanTcuBalancesA512KibRom)
+{
+    const bytes::Bytes original(0x80000, 0x00);
+
+    const ChecksumResult result =
+        ChecksumTcuSubaruHitachiM32rCan::CalculateChecksumResult(memory::testing::ViewOf(bytes::ByteView(original)));
+    EXPECT_EQ(result.status, ChecksumResult::Status::kCorrected);
+    CompareChangedBytes(original, result.rom_data,
+                        {{0x8000, bytes::Bytes{0xa5, 0x5a, 0x5a, 0xa6}},
+                         {0x8004, bytes::Bytes{0xa5, 0x5a, 0x5a, 0xa6}},
+                         {0x8020, bytes::Bytes{0x5a, 0xa5, 0xa5, 0x5a}}});
+
+    const ChecksumResult unchanged_result = ChecksumTcuSubaruHitachiM32rCan::CalculateChecksumResult(
+        memory::testing::ViewOf(bytes::ByteView(result.rom_data)));
+    EXPECT_EQ(unchanged_result.status, ChecksumResult::Status::kUnchanged);
+}
+
+// The checksum fields end at 0x8024 and the sums read whole 32-bit words.
+TEST(ChecksumPortable, HitachiM32rCanTcuRejectsAFileTooShortOrNotWordAligned)
+{
+    for (const std::size_t size : {std::size_t{0x8020}, std::size_t{0x80001}})
+    {
+        const bytes::Bytes original(size, 0x3C);
+        const ChecksumResult result =
+            ChecksumTcuSubaruHitachiM32rCan::CalculateChecksumResult(memory::testing::ViewOf(original));
+        EXPECT_EQ(result.status, ChecksumResult::Status::kInvalidSize) << size;
+        EXPECT_THAT(result.rom_data, test_bytes::BytesEq(original));
+        EXPECT_EQ(result.message, "ROM size does not match the checksum layout");
+    }
+}
+
 TEST(ChecksumPortable, HitachiM32rCanTcuBalancesZeroRom)
 {
     const bytes::Bytes original(0x10000, 0x00);
@@ -314,7 +347,6 @@ TEST(ChecksumPortable, FixedLayoutFamiliesRejectShortAndLongRoms)
         {0x200000, &ChecksumEcuSubaruHitachiSh72543r::CalculateChecksumResult},
         {0x80000, &ChecksumTcuMitsuMH8104Can::CalculateChecksumResult},
         {0x80000, &ChecksumTcuSubaruDensoSH7055::CalculateChecksumResult},
-        {0x10000, &ChecksumTcuSubaruHitachiM32rCan::CalculateChecksumResult},
     });
 
     for (const FixedLayout& layout : kLayouts)

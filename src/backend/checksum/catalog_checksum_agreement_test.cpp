@@ -26,6 +26,7 @@ namespace fastecu::checksum
 {
 namespace
 {
+using ::testing::IsEmpty;
 using ::testing::Pair;
 using ::testing::UnorderedElementsAre;
 using Status = ChecksumCorrectionOutcome::Status;
@@ -97,9 +98,7 @@ TEST(CatalogChecksumAgreement, EveryDeclaredMapHoldsItsChecksumStoresInWritableM
     // N83M_1_5MB's romsize (0x174000) is not the 1.5M file size (0x184000), so
     // that route never runs (deferred).
     EXPECT_THAT(bad_size, UnorderedElementsAre(Pair("sub_ecu_denso_1n83m_1_5m_can", 0x184000U)));
-    // sub_tcu_hitachi_m32r_can names M32R_512KB, but its family's layout is
-    // 64 KiB, so no file of the MCU's romsize corrects (deferred).
-    EXPECT_THAT(layout_mismatch, UnorderedElementsAre(Pair("sub_tcu_hitachi_m32r_can", 0x80000U)));
+    EXPECT_THAT(layout_mismatch, IsEmpty());
 }
 } // namespace
 } // namespace fastecu::checksum

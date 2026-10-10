@@ -78,6 +78,16 @@ before any write.
       backup.
 - [ ] Repeat the read and confirm the two files have the same SHA-256.
 - [ ] Record the raw first-page and last-page reply bytes, not a paraphrase.
+- [ ] **Checksum on a stock read.** Open the untouched read with the
+      `sub_tcu_hitachi_m32r_can` vehicle selected and run checksum correction
+      without editing anything. It must report the checksums as already
+      correct (no change). The family sums the whole `0x80000`-byte file, a
+      32-bit word at a time, as the legacy module did. Checksum 2 (stored at
+      `0x8000` and `0x8004`) therefore includes the synthesized zero region
+      `0x0000`–`0x7FFF`. If the stock read reports a correction, either the
+      algorithm or that zero region disagrees with what the TCU checks:
+      **do not write** a corrected image, and record the stored and calculated
+      values from the log.
 
 ## 3. Write qualification — gated by section 0
 
