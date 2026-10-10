@@ -40,3 +40,20 @@ fastecu_portable_gtest(
         "@googletest//:gtest",
     ],
 )
+
+fastecu_portable_gtest(
+    name = "catalog_checksum_agreement_test",
+    srcs = ["catalog_checksum_agreement_test.cpp"],
+    deps = [
+        ":checksum_selection",
+        ":dispatch",
+        "//src/algorithms/memory:address",
+        "//src/algorithms/memory:memory_image",
+        "//src/algorithms/memory:memory_map",
+        "//src/algorithms/protocol",
+        "//src/backend/config:builtin_catalog",
+        "//src/backend/config:catalog",
+        "//src/backend/flash:flash_device_lookup",
+        "@googletest//:gtest",
+    ],
+)
