@@ -4,11 +4,14 @@
 #include <chrono>
 #include <format>
 #include <limits>
+#include <optional>
 #include <string_view>
 #include <utility>
 #include <vector>
 
 #include "src/algorithms/checksum/checksum_primitives.h"
+#include "src/algorithms/memory/address.h"
+#include "src/algorithms/memory/memory_error.h"
 #include "src/algorithms/protocol/bytes.h"
 #include "src/algorithms/protocol/bytes_compose.h"
 #include "src/backend/flash/kernel/kernelmemorymodels.h"
@@ -634,46 +637,37 @@ Status SubaruDensoMc68hc16y5_02Executor::FlashBlock(IKlineFlashTransport& transp
 
 Status SubaruDensoMc68hc16y5_02Executor::WriteMem(IKlineFlashTransport& transport, IClock& clock,
                                                   const ICancellationToken& cancellation, IEventSink& events,
-                                                  bytes::ByteView image, const std::string& mcu_name,
+                                                  const memory::MemoryImage& image, const std::string& mcu_name,
                                                   bool test_write) const
 {
     const FlashDevice *device = FindFlashDevice(mcu_name);
-    if (device == nullptr)
+    if (device == nullptr || device->numblocks == 0)
     {
         return Fail(ErrorKind::kInvalidConfig, "Unknown MCU type");
     }
 
-    std::uint64_t physical_size = 0;
-    for (unsigned block_no = 0; block_no < device->numblocks; ++block_no)
-    {
-        physical_size = std::max(physical_size, static_cast<std::uint64_t>(device->fblocks[block_no].start) +
-                                                    device->fblocks[block_no].len);
-    }
-    if (image.size() != device->romsize || physical_size > std::numeric_limits<std::size_t>::max())
-    {
-        return Fail(ErrorKind::kInvalidConfig, "ROM image does not match the flash device");
-    }
-
-    // Task 2 accepts the packed 160 KiB ROM. The legacy write path padded the
-    // 0x20000-0x27fff RAM/kernel hole before indexing by physical address
+    // The ROM file placed at ECU addresses by its memory map (ADR 0020), as
+    // the legacy write path's padded buffer held it
     // (src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:460-489).
-    bytes::Bytes addressed_image(static_cast<std::size_t>(physical_size), 0xFF);
-    std::size_t image_offset = 0;
+    // Only flash block ranges are compared and written, so what the span holds
+    // between them (the RAM range) is never sent.
+    const std::uint32_t span_start = device->fblocks[0].start;
+    std::uint32_t span_end = span_start;
     for (unsigned block_no = 0; block_no < device->numblocks; ++block_no)
     {
-        const auto& flash_block = device->fblocks[block_no];
-        if (flash_block.len > image.size() - image_offset)
-        {
-            return Fail(ErrorKind::kInvalidConfig, "ROM image is shorter than its flash blocks");
-        }
-        std::ranges::copy(bytes::ByteView(image).subspan(image_offset, flash_block.len),
-                          addressed_image.begin() + flash_block.start);
-        image_offset += flash_block.len;
+        span_end = std::max(span_end, device->fblocks[block_no].start + device->fblocks[block_no].len);
     }
-    if (image_offset != image.size())
+    const auto span = memory::AddressRange<memory::FlashSpace>::Make(memory::FlashAddress{span_start},
+                                                                     memory::ByteCount{span_end - span_start});
+    const auto rendered =
+        span.has_value() ? image.Render(*span) : std::unexpected(memory::MemoryError{.detail = "empty flash device"});
+    if (!rendered.has_value())
     {
-        return Fail(ErrorKind::kInvalidConfig, "ROM image is longer than its flash blocks");
+        return Fail(ErrorKind::kInvalidConfig,
+                    std::format("ROM image does not cover the flash device: {}", rendered.error().detail));
     }
+    bytes::Bytes addressed_image(span_end, 0xFF);
+    std::ranges::copy(rendered->Data(), addressed_image.begin() + span_start);
 
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:460-620.
     events.Log(LogLevel::kInfo, "Comparing ECU flash memory pages to image file");
@@ -877,11 +871,12 @@ Result<FlashExecutionResult> SubaruDensoMc68hc16y5_02Executor::Execute(const Fla
         return FlashExecutionResult{.operation = plan.Operation(), .read_bytes = std::move(*read)};
     }
 
-    if (!plan.Image().has_value())
+    const std::optional<memory::MemoryImage> image = plan.RomImage();
+    if (!image.has_value())
     {
         return Fail(ErrorKind::kInvalidConfig, "MC68HC16Y5_02 write requires a ROM image");
     }
-    if (Status written = WriteMem(kline, clock, cancellation, events, *plan.Image(), plan.McuName(),
+    if (Status written = WriteMem(kline, clock, cancellation, events, *image, plan.McuName(),
                                   plan.Operation() == FlashOperation::kTestWrite);
         !written.has_value())
     {

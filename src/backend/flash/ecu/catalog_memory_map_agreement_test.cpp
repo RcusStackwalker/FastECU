@@ -19,6 +19,7 @@
 #include <gtest/gtest.h>
 
 #include "src/algorithms/memory/address.h"
+#include "src/algorithms/memory/memory_image.h"
 #include "src/algorithms/memory/memory_map.h"
 #include "src/algorithms/protocol/bytes.h"
 #include "src/backend/config/builtin_catalog.h"
@@ -62,9 +63,8 @@ enum class WriteWindow
 {
     // The plan's transfer region is the ECU address range it writes.
     kTransferRegion,
-    // The plan's transfer region is in packed ROM file coordinates, which the
-    // MC68HC16Y5 K-Line executor unpacks; the FlashDevice's flash blocks are
-    // what it writes.
+    // The MC68HC16Y5 K-Line family: the FlashDevice's flash blocks are what it
+    // writes, through the ROM file's memory map.
     kFlashBlocks,
     // The write uploads only a kernel (MC68HC16Y5 BDM); no ROM bytes.
     kNone,
@@ -95,6 +95,29 @@ Result<FlashPlan> WithKernel(const config::ProtocolSpec& protocol, FlashOperatio
     return kBuild(operation, protocol.name, protocol.mcu, std::move(image), KernelFor(protocol));
 }
 
+// The ROM file placed by the catalog's memory map for its size, as the
+// desktop workflow hands it over.
+Result<FlashPlan> PlacedMc68(const config::ProtocolSpec& protocol, FlashOperation operation, bytes::Bytes image)
+{
+    const std::optional<ByteCount> size = ByteCount::FromSize(image.size());
+    if (!size.has_value())
+    {
+        return Fail(ErrorKind::kInvalidConfig, "ROM file too large");
+    }
+    auto map = config::SelectMemoryMap(protocol, *size);
+    if (!map.has_value())
+    {
+        return Fail(ErrorKind::kInvalidConfig, map.error().detail);
+    }
+    auto placed = memory::MemoryImage::Create(std::move(*map), std::move(image));
+    if (!placed.has_value())
+    {
+        return Fail(ErrorKind::kInvalidConfig, placed.error().detail);
+    }
+    return BuildSubaruDensoMc68hc16y502Plan(operation, protocol.name, protocol.mcu, std::move(*placed),
+                                            KernelFor(protocol));
+}
+
 Result<FlashPlan> UnisiaJecsM32rKline(const config::ProtocolSpec& protocol, FlashOperation operation,
                                       bytes::Bytes image)
 {
@@ -117,8 +140,8 @@ constexpr auto kRows = std::to_array<AgreementRow>({
     {"sub_ecu_denso_sh7058s_diesel_densocan", &WithKernel<&BuildSubaruDensoSh705xDensocanPlan>},
     {"sub_ecu_denso_sh7059_diesel_densocan", &WithKernel<&BuildSubaruDensoSh705xDensocanPlan>},
     {"sub_ecu_denso_mc68hc16y5_02_bdm", nullptr, WriteWindow::kNone},
-    {"sub_ecu_denso_mc68hc16y5_02", &WithKernel<&BuildSubaruDensoMc68hc16y502Plan>, WriteWindow::kFlashBlocks},
-    {"sub_ecu_denso_mc68hc16y5_02_ecutek", &WithKernel<&BuildSubaruDensoMc68hc16y502Plan>, WriteWindow::kFlashBlocks},
+    {"sub_ecu_denso_mc68hc16y5_02", &PlacedMc68, WriteWindow::kFlashBlocks},
+    {"sub_ecu_denso_mc68hc16y5_02_ecutek", &PlacedMc68, WriteWindow::kFlashBlocks},
     {"sub_ecu_denso_sh7055_02", &WithKernel<&BuildSubaruDensoSh705502Plan>},
     {"sub_ecu_denso_sh7055_02_ecutek", &WithKernel<&BuildSubaruDensoSh705502Plan>},
     {"sub_ecu_denso_sh7055_04", &WithKernel<&BuildSubaruDensoSh705xKlinePlan>},
@@ -362,6 +385,41 @@ TEST(CatalogMemoryMapAgreement, WritableBlocksAreFlashAndFillBlocksAreNot)
                     EXPECT_FALSE(Overlaps(ExtentOf(block), flash)) << protocol.name << ": fill block at 0x" << std::hex
                                                                    << block.range.Start().Value() << " hides flash";
                 }
+            }
+        }
+    }
+}
+
+// Families other than MC68HC16Y5 index the ROM file's bytes directly by ECU
+// address (less the definition base), so every map their protocols declare
+// must keep each file byte at that address. A map that moves file bytes
+// elsewhere needs its family to write through the memory image first, as the
+// MC68HC16Y5 K-Line family does (ADR 0020).
+TEST(CatalogMemoryMapAgreement, FamiliesIndexingFileBytesGetEcuAddressedFiles)
+{
+    for (const AgreementRow& row : kRows)
+    {
+        if (row.window != WriteWindow::kTransferRegion)
+        {
+            continue;
+        }
+        const config::ProtocolSpec *protocol = config::BuiltinCatalog().FindProtocol(row.protocol);
+        ASSERT_NE(protocol, nullptr) << row.protocol;
+        const FlashDevice *device = FindFlashDevice(protocol->mcu);
+        ASSERT_NE(device, nullptr) << row.protocol;
+        for (const MemoryMap& map : CandidateMaps(*protocol, *device))
+        {
+            const std::uint32_t base = map.DefinitionBase().Value();
+            for (const memory::MemoryBlock& block : map.Blocks())
+            {
+                const auto *file = std::get_if<memory::FileBacking>(&block.backing);
+                if (file == nullptr)
+                {
+                    continue;
+                }
+                EXPECT_EQ(block.range.Start().Value() - base, file->offset.Value())
+                    << row.protocol << ", " << map.FileSize().Value() << "-byte ROM file: the block at 0x" << std::hex
+                    << block.range.Start().Value() << " holds file offset 0x" << file->offset.Value();
             }
         }
     }

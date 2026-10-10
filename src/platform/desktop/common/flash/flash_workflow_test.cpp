@@ -17,8 +17,11 @@
 #include <optional>
 #include <string_view>
 #include <tuple>
+#include <utility>
 #include <vector>
 
+#include "src/algorithms/memory/memory_image.h"
+#include "src/backend/config/builtin_catalog.h"
 #include "src/backend/config/catalog.h"
 #include "src/backend/flash/ecu/subaru_denso_sh7058_can_plan.h"
 #include "src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_plan.h"
@@ -81,6 +84,30 @@ FlashWorkflowRequest Request(std::string_view protocol, FlashOperation operation
             .paths = {},
             .display_filename = "test.bin",
             .serial = nullptr};
+}
+
+// An MC68HC16Y5 `_02` K-Line request carrying the built-in catalog's memory
+// maps, as the application's selected protocol does.
+FlashWorkflowRequest Mc68Request(FlashOperation operation)
+{
+    auto input = Request("sub_ecu_denso_mc68hc16y5_02", operation);
+    input.protocol.mcu = "MC68HC16Y5";
+    input.protocol.memory_maps = config::BuiltinCatalog().FindProtocol("sub_ecu_denso_mc68hc16y5_02")->memory_maps;
+    return input;
+}
+
+// The bytes `plan`'s ROM image holds at ECU addresses [start, start + size).
+bytes::Bytes RenderedFlash(const FlashPlan& plan, std::uint32_t start, std::uint32_t size)
+{
+    const std::optional<memory::MemoryImage> image = plan.RomImage();
+    if (!image.has_value())
+    {
+        return {};
+    }
+    const auto range =
+        memory::AddressRange<memory::FlashSpace>::Make(memory::FlashAddress{start}, memory::ByteCount{size});
+    const auto view = range.has_value() ? image->Render(*range) : std::unexpected(memory::MemoryError{});
+    return view.has_value() ? bytes::Bytes(view->Data().begin(), view->Data().end()) : bytes::Bytes{};
 }
 
 FlashWorkflowRequest UnisiaM32rWrite()
@@ -1496,8 +1523,7 @@ TEST(FlashWorkflowTest, mc68TestWriteWithPortableImageReachesAttempt)
 {
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
-    auto input = Request("sub_ecu_denso_mc68hc16y5_02", FlashOperation::kTestWrite);
-    input.protocol.mcu = "MC68HC16Y5";
+    auto input = Mc68Request(FlashOperation::kTestWrite);
     const auto paths = CatalogPaths(directory);
     ASSERT_TRUE(paths.has_value());
     input.paths = *paths;
@@ -1513,20 +1539,19 @@ TEST(FlashWorkflowTest, mc68TestWriteWithPortableImageReachesAttempt)
     ASSERT_EQ(std::get<FlashAttempt>(step).attempt->Plan().Image(), packed_image);
 }
 
-TEST(FlashWorkflowTest, mc68PhysicalImageIsPackedAtWorkflowBoundary)
+TEST(FlashWorkflowTest, mc68FullFileIsPlacedByItsCatalogMap)
 {
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
-    auto input = Request("sub_ecu_denso_mc68hc16y5_02", FlashOperation::kWrite);
-    input.protocol.mcu = "MC68HC16Y5";
+    auto input = Mc68Request(FlashOperation::kWrite);
     const auto paths = CatalogPaths(directory);
     ASSERT_TRUE(paths.has_value());
     input.paths = *paths;
 
-    bytes::Bytes physical_image(0x30000, 0xee);
-    std::fill_n(physical_image.begin(), 0x20000, 0x11);
-    std::fill(physical_image.begin() + 0x28000, physical_image.end(), 0x22);
-    input.image = physical_image;
+    bytes::Bytes full_file(0x30000, 0xee);
+    std::fill_n(full_file.begin(), 0x20000, 0x11);
+    std::fill(full_file.begin() + 0x28000, full_file.end(), 0x22);
+    input.image = full_file;
     auto workflow = FlashWorkflowFactory::TryCreate(std::move(input));
     ASSERT_TRUE(workflow != nullptr);
 
@@ -1539,43 +1564,78 @@ TEST(FlashWorkflowTest, mc68PhysicalImageIsPackedAtWorkflowBoundary)
     workflow->Submit(FlashPromptResponse::kAccept);
     step = workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashAttempt>(step));
-    const auto& packed = std::get<FlashAttempt>(step).attempt->Plan().Image();
-    ASSERT_TRUE(packed.has_value());
-    ASSERT_EQ(packed->size(), std::size_t{0x28000});
-    ASSERT_TRUE(
-        std::all_of(packed->begin(), packed->begin() + 0x20000, [](bytes::Byte value) { return value == 0x11; }));
-    ASSERT_TRUE(std::all_of(packed->begin() + 0x20000, packed->end(), [](bytes::Byte value) { return value == 0x22; }));
+    const FlashPlan& plan = std::get<FlashAttempt>(step).attempt->Plan();
+    // Handed over as the file it is, with the map for its size; not packed.
+    ASSERT_EQ(plan.Image(), full_file);
+    ASSERT_TRUE(plan.ImageMap().has_value());
+    EXPECT_EQ(plan.ImageMap()->FileSize(), memory::ByteCount{0x30000});
+    EXPECT_EQ(RenderedFlash(plan, 0x00000, 0x20000), bytes::Bytes(0x20000, 0x11));
+    EXPECT_EQ(RenderedFlash(plan, 0x28000, 0x8000), bytes::Bytes(0x8000, 0x22));
 }
 
-TEST(FlashWorkflowTest, mc68CalibrationPaddingRoundTripsToPackedWriteImage)
+TEST(FlashWorkflowTest, mc68FullAndPackedFilesRenderTheSameFlash)
 {
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
-    auto input = Request("sub_ecu_denso_mc68hc16y5_02", FlashOperation::kTestWrite);
-    input.protocol.mcu = "MC68HC16Y5";
     const auto paths = CatalogPaths(directory);
     ASSERT_TRUE(paths.has_value());
-    input.paths = *paths;
 
-    bytes::Bytes packed_image(0x28000);
-    for (std::size_t index = 0; index < packed_image.size(); ++index)
+    bytes::Bytes packed_file(0x28000);
+    for (std::size_t index = 0; index < packed_file.size(); ++index)
     {
-        packed_image[index] = static_cast<bytes::Byte>((index / 0x4000) + 1);
+        packed_file[index] = static_cast<bytes::Byte>((index / 0x4000) + 1);
     }
-    // A 192 KiB image: the packed flash with 0x8000 bytes of 0xFF for the RAM
+    // A 192 KiB file: the packed flash with 0x8000 bytes of 0xFF for the RAM
     // range at 0x20000, as a 192 KiB community file or a BDM read holds it.
-    bytes::Bytes full_image = packed_image;
-    full_image.insert(full_image.begin() + 0x20000, 0x8000, bytes::Byte{0xFF});
-    input.image = std::move(full_image);
-    ASSERT_EQ(input.image->size(), std::size_t{0x30000});
+    bytes::Bytes full_file = packed_file;
+    full_file.insert(full_file.begin() + 0x20000, 0x8000, bytes::Byte{0xFF});
 
+    std::vector<std::unique_ptr<FlashWorkflow>> workflows;
+    std::vector<decltype(FlashAttempt::attempt)> attempts;
+    for (bytes::Bytes file : {packed_file, full_file})
+    {
+        auto input = Mc68Request(FlashOperation::kTestWrite);
+        input.paths = *paths;
+        input.image = std::move(file);
+        workflows.push_back(FlashWorkflowFactory::TryCreate(std::move(input)));
+        ASSERT_TRUE(workflows.back() != nullptr);
+        ASSERT_EQ(std::get<FlashPromptStep>(workflows.back()->Next()).kind, FlashPromptKind::kBegin);
+        workflows.back()->Submit(FlashPromptResponse::kAccept);
+        auto step = workflows.back()->Next();
+        ASSERT_TRUE(std::holds_alternative<FlashAttempt>(step));
+        attempts.push_back(std::move(std::get<FlashAttempt>(step).attempt));
+    }
+    const FlashPlan& packed_plan = attempts[0]->Plan();
+    const FlashPlan& full_plan = attempts[1]->Plan();
+    for (const auto& [start, size] : {std::pair{0x00000U, 0x20000U}, std::pair{0x28000U, 0x8000U}})
+    {
+        SCOPED_TRACE(start);
+        EXPECT_EQ(RenderedFlash(packed_plan, start, size), RenderedFlash(full_plan, start, size));
+        EXPECT_FALSE(RenderedFlash(packed_plan, start, size).empty());
+    }
+}
+
+TEST(FlashWorkflowTest, mc68FileSizeWithoutAMapIsRefusedBeforeTheKernelIsRead)
+{
+    QTemporaryDir directory;
+    ASSERT_TRUE(directory.isValid());
+    auto input = Mc68Request(FlashOperation::kWrite);
+    // No kernel files: reading the kernel first would report that instead.
+    const auto paths = CatalogPaths(directory, /*include_kernel_files=*/false);
+    ASSERT_TRUE(paths.has_value());
+    input.paths = *paths;
+    input.image = bytes::Bytes(0x29000, 0x5a);
     auto workflow = FlashWorkflowFactory::TryCreate(std::move(input));
     ASSERT_TRUE(workflow != nullptr);
-    ASSERT_EQ(std::get<FlashPromptStep>(workflow->Next()).kind, FlashPromptKind::kBegin);
-    workflow->Submit(FlashPromptResponse::kAccept);
+
     auto step = workflow->Next();
-    ASSERT_TRUE(std::holds_alternative<FlashAttempt>(step));
-    ASSERT_EQ(std::get<FlashAttempt>(step).attempt->Plan().Image(), packed_image);
+    if (std::holds_alternative<FlashPromptStep>(step))
+    {
+        workflow->Submit(FlashPromptResponse::kAccept);
+        step = workflow->Next();
+    }
+    ASSERT_TRUE(std::holds_alternative<FlashFailureStep>(step));
+    EXPECT_THAT(std::get<FlashFailureStep>(step).error.detail, ::testing::HasSubstr("ROM file size error"));
 }
 
 TEST(FlashWorkflowTest, sh7055TestWriteWithPortableImageReachesPromptsAndAttempt)

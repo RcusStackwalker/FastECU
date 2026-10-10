@@ -88,6 +88,11 @@ Result<FlashPlan> ValidateAndBuild(FlashPlanFields fields)
             return Fail(ErrorKind::kInvalidConfig, "Write/TestWrite plans must carry an image");
         }
     }
+    if (fields.image_map.has_value() &&
+        (!fields.image.has_value() || fields.image_map->FileSize().Value() != fields.image->size()))
+    {
+        return Fail(ErrorKind::kInvalidConfig, "the image's memory map places a ROM file of another size");
+    }
     if (const bool requires_kernel =
             std::visit([]<typename T>(const T&) { return kFamilyRequiresKernel<T>; }, fields.family_plan);
         requires_kernel && !fields.kernel.has_value())

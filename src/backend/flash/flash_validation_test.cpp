@@ -6,6 +6,9 @@
 #include <gtest/gtest.h>
 
 #include <array>
+#include <cstddef>
+#include <cstdint>
+#include <optional>
 #include <tuple>
 #include <type_traits>
 #include <variant>
@@ -264,6 +267,95 @@ TEST(FlashValidationTest, WritePlanExposesItsImage)
 
     EXPECT_EQ(plan->ImageOrEmpty().size(), 0x1000U);
     EXPECT_EQ(plan->Image(), bytes::Bytes(0x1000, 0xA5));
+}
+
+// A 0x40-byte ROM file whose second half sits at ECU 0x30, past a 0x10-byte gap.
+memory::MemoryMap SplitMap()
+{
+    const auto range = [](std::uint32_t start, std::uint32_t size)
+    {
+        return memory::AddressRange<memory::FlashSpace>::Make(memory::FlashAddress{start}, memory::ByteCount{size})
+            .value();
+    };
+    const std::array blocks{
+        memory::MemoryBlock{.range = range(0x00, 0x20),
+                            .backing = memory::FileBacking{.offset = memory::FileOffset{0x00}},
+                            .writability = memory::Writability::kWritable},
+        memory::MemoryBlock{.range = range(0x30, 0x20),
+                            .backing = memory::FileBacking{.offset = memory::FileOffset{0x20}},
+                            .writability = memory::Writability::kWritable},
+    };
+    return memory::MemoryMap::Create(blocks, memory::ByteCount{0x40}).value();
+}
+
+bytes::Bytes CountingImage(std::size_t size)
+{
+    bytes::Bytes image(size);
+    for (std::size_t index = 0; index < size; ++index)
+    {
+        image[index] = static_cast<bytes::Byte>(index);
+    }
+    return image;
+}
+
+TEST(FlashValidationTest, AReadPlanCarriesNoImageMemoryMap)
+{
+    auto fields = ValidReadFields();
+    fields.image_map = SplitMap();
+
+    EXPECT_THAT(ValidateAndBuild(std::move(fields)),
+                fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, ::testing::HasSubstr("memory map")));
+}
+
+TEST(FlashValidationTest, AnImageMemoryMapForAnotherFileSizeIsRejected)
+{
+    auto fields = ValidReadFields();
+    fields.operation = FlashOperation::kWrite;
+    fields.image = CountingImage(0x40);
+    fields.image_map = memory::MemoryMap::Identity(memory::ByteCount{0x20}).value();
+
+    EXPECT_THAT(ValidateAndBuild(std::move(fields)),
+                fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, ::testing::HasSubstr("memory map")));
+}
+
+TEST(FlashValidationTest, RomImagePlacesTheImageByItsMemoryMap)
+{
+    auto fields = ValidReadFields();
+    fields.operation = FlashOperation::kWrite;
+    fields.image = CountingImage(0x40);
+    fields.image_map = SplitMap();
+    auto plan = ValidateAndBuild(std::move(fields));
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+
+    const std::optional<memory::MemoryImage> rom = plan->RomImage();
+    ASSERT_TRUE(rom.has_value());
+    const auto view = rom->Render(
+        memory::AddressRange<memory::FlashSpace>::Make(memory::FlashAddress{0x30}, memory::ByteCount{1}).value());
+    ASSERT_TRUE(view.has_value());
+    EXPECT_EQ(view->Data()[0], 0x20);
+}
+
+TEST(FlashValidationTest, RomImageWithoutAMemoryMapIsTheIdentityPlacement)
+{
+    auto fields = ValidReadFields();
+    fields.operation = FlashOperation::kWrite;
+    fields.image = CountingImage(0x40);
+    auto plan = ValidateAndBuild(std::move(fields));
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+
+    const std::optional<memory::MemoryImage> rom = plan->RomImage();
+    ASSERT_TRUE(rom.has_value());
+    ASSERT_EQ(rom->Map().Blocks().size(), 1U);
+    EXPECT_EQ(rom->Map().Blocks()[0].range.Start(), memory::FlashAddress{0});
+    EXPECT_THAT(rom->File(), ::testing::ElementsAreArray(CountingImage(0x40)));
+}
+
+TEST(FlashValidationTest, AReadPlanHasNoRomImage)
+{
+    auto plan = ValidateAndBuild(ValidReadFields());
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+
+    EXPECT_FALSE(plan->RomImage().has_value());
 }
 
 TEST(FlashValidationTest, EmptyTargetIdIsRejected)

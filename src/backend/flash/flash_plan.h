@@ -7,6 +7,8 @@
 #include <utility>
 #include <vector>
 
+#include "src/algorithms/memory/memory_image.h"
+#include "src/algorithms/memory/memory_map.h"
 #include "src/algorithms/protocol/bytes.h"
 #include "src/backend/flash/flash_types.h"
 #include "src/backend/ports/result.h"
@@ -27,6 +29,10 @@ struct FlashPlanFields
     MemoryRegion transfer_region{};
     std::vector<MemoryRegion> erase_regions;
     std::optional<bytes::Bytes> image;
+    // Where `image`'s bytes sit at ECU addresses (ADR 0020). Absent means the
+    // identity map: byte i of the image is ECU address i. Only a write image
+    // can have one.
+    std::optional<memory::MemoryMap> image_map;
     // Optional because not every family uploads one. The EEPROM pair loads a
     // kernel file and uploads it; the Mitsu Colt CAN family drives the ECU's
     // own vendor bootloader and uploads only compile-time RAM helper routines
@@ -72,6 +78,13 @@ class FlashPlan
     {
         return fields_.image;
     }
+    const std::optional<memory::MemoryMap>& ImageMap() const
+    {
+        return fields_.image_map;
+    }
+    // The image placed at ECU addresses by ImageMap(), or by the identity map
+    // when it has none; nullopt for a plan without an image.
+    std::optional<memory::MemoryImage> RomImage() const;
     const std::optional<KernelImage>& Kernel() const
     {
         return fields_.kernel;

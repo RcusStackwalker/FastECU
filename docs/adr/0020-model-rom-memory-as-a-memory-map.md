@@ -3,12 +3,13 @@
 ## Status
 
 Accepted. Tracks [#119](https://github.com/RcusStackwalker/FastECU/issues/119);
-slices 1-5 have landed: the memory types, the catalog's memory maps with tests
+slices 1-6 have landed: the memory types, the catalog's memory maps with tests
 that they agree with each flash family's write window and flash device and that
 FastECU's own read files open with them, calibration sessions held as a ROM
-file placed by its memory map, and definition addresses typed and the internal
-ID checked through each definition's memory map. Still to come: flash
-executors taking a memory image, and checksums addressing by ECU address.
+file placed by its memory map, definition addresses typed and the internal ID
+checked through each definition's memory map, and flash write plans carrying
+the ROM file's memory map, with MC68HC16Y5 writes placed through it. Still to
+come: checksums addressing by ECU address.
 
 ## Context
 
@@ -92,3 +93,8 @@ Rejected:
 - Reserved bootloader regions become non-writable memory blocks, a fact the
   memory map can state and tests can check against each flash family's own
   windows.
+- Flash families whose ROM files are already ECU-addressed keep indexing the
+  file bytes; a test pins that every memory map they declare keeps each file
+  offset equal to its ECU address minus the definition base. Only the
+  MC68HC16Y5 K-Line family writes through the memory image. Read results stay
+  ROM file bytes, placed by their memory map when the session opens them.
