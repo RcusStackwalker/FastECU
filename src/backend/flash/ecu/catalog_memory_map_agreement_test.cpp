@@ -389,5 +389,40 @@ TEST(CatalogMemoryMapAgreement, WritableBlocksAreFlashAndFillBlocksAreNot)
         }
     }
 }
+
+// Families other than MC68HC16Y5 index the ROM file's bytes directly by ECU
+// address (less the definition base), so every map their protocols declare
+// must keep each file byte at that address. A map that moves file bytes
+// elsewhere needs its family to write through the memory image first, as the
+// MC68HC16Y5 K-Line family does (ADR 0020).
+TEST(CatalogMemoryMapAgreement, FamiliesIndexingFileBytesGetEcuAddressedFiles)
+{
+    for (const AgreementRow& row : kRows)
+    {
+        if (row.window != WriteWindow::kTransferRegion)
+        {
+            continue;
+        }
+        const config::ProtocolSpec *protocol = config::BuiltinCatalog().FindProtocol(row.protocol);
+        ASSERT_NE(protocol, nullptr) << row.protocol;
+        const FlashDevice *device = FindFlashDevice(protocol->mcu);
+        ASSERT_NE(device, nullptr) << row.protocol;
+        for (const MemoryMap& map : CandidateMaps(*protocol, *device))
+        {
+            const std::uint32_t base = map.DefinitionBase().Value();
+            for (const memory::MemoryBlock& block : map.Blocks())
+            {
+                const auto *file = std::get_if<memory::FileBacking>(&block.backing);
+                if (file == nullptr)
+                {
+                    continue;
+                }
+                EXPECT_EQ(block.range.Start().Value() - base, file->offset.Value())
+                    << row.protocol << ", " << map.FileSize().Value() << "-byte ROM file: the block at 0x" << std::hex
+                    << block.range.Start().Value() << " holds file offset 0x" << file->offset.Value();
+            }
+        }
+    }
+}
 } // namespace
 } // namespace fastecu::flash
