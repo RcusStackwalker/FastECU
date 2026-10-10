@@ -13,7 +13,10 @@ cc_library(
     name = "calibration_session",
     srcs = ["calibration_session.cpp"],
     hdrs = ["calibration_session.h"],
+    implementation_deps = ["//src/backend/calibration:map_placement"],
     deps = [
+        "//src/algorithms/memory:memory_image",
+        "//src/algorithms/memory:memory_map",
         "//src/algorithms/protocol",
         "//src/backend/calibration:calibration_service",
         "//src/backend/definition:definition_model",
@@ -26,6 +29,7 @@ fastecu_portable_gtest(
     srcs = ["calibration_session_test.cpp"],
     deps = [
         ":calibration_session",
+        "//src/algorithms/memory:memory_map",
         "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
     ],

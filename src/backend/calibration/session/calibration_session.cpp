@@ -1,13 +1,84 @@
 #include "src/backend/calibration/session/calibration_session.h"
 
 #include <algorithm>
+#include <cstddef>
+#include <cstdint>
 #include <format>
+#include <optional>
+#include <string>
+#include <string_view>
 #include <utility>
+#include <vector>
+
+#include "src/backend/calibration/map_placement.h"
 
 namespace fastecu::calibration
 {
+namespace
+{
+std::optional<memory::MemoryImage> ImageOf(std::vector<std::uint8_t> rom, std::optional<memory::MemoryMap> memory_map)
+{
+    if (!memory_map.has_value())
+    {
+        const std::optional<memory::ByteCount> size = memory::ByteCount::FromSize(rom.size());
+        if (!size.has_value())
+        {
+            return std::nullopt;
+        }
+        auto identity = memory::MemoryMap::Identity(*size);
+        if (!identity.has_value())
+        {
+            return std::nullopt;
+        }
+        memory_map = std::move(*identity);
+    }
+    auto image = memory::MemoryImage::Create(std::move(*memory_map), std::move(rom));
+    if (!image.has_value())
+    {
+        return std::nullopt;
+    }
+    return std::move(*image);
+}
 
-CalibrationSession::CalibrationSession(SessionId id, SessionContents contents) : id_(id), contents_(std::move(contents))
+// Index i holds the byte at definition base + i, up to the end of the highest
+// block; bytes no block holds stay 0x00.
+bytes::Bytes DefinitionView(const memory::MemoryImage& image)
+{
+    const memory::MemoryMap& map = image.Map();
+    const std::uint32_t base = map.DefinitionBase().Value();
+    std::uint32_t end = base;
+    for (const memory::MemoryBlock& block : map.Blocks())
+    {
+        end = std::max(end, block.range.End().Value());
+    }
+    bytes::Bytes view(end - base, 0x00);
+    for (const memory::MemoryBlock& block : map.Blocks())
+    {
+        if (block.range.End().Value() <= base)
+        {
+            continue;
+        }
+        const std::uint32_t start = std::max(block.range.Start().Value(), base);
+        const auto range = memory::AddressRange<memory::FlashSpace>::Make(
+            memory::FlashAddress{start}, memory::ByteCount{block.range.End().Value() - start});
+        if (!range.has_value())
+        {
+            continue;
+        }
+        if (const auto rendered = image.Render(*range); rendered.has_value())
+        {
+            std::ranges::copy(rendered->Data(), view.begin() + static_cast<std::ptrdiff_t>(start - base));
+        }
+    }
+    return view;
+}
+} // namespace
+
+CalibrationSession::CalibrationSession(SessionId id, SessionContents contents)
+    : id_(id), source_(std::move(contents.source)),
+      image_(ImageOf(std::move(contents.rom), std::move(contents.memory_map))),
+      definition_view_(image_.has_value() ? DefinitionView(*image_) : bytes::Bytes{}),
+      definition_(std::move(contents.definition)), protocol_(std::move(contents.protocol))
 {
 }
 
@@ -18,27 +89,32 @@ SessionId CalibrationSession::Id() const
 
 const RomSource& CalibrationSession::Source() const
 {
-    return contents_.source;
+    return source_;
 }
 
 bytes::ByteView CalibrationSession::Rom() const
 {
-    return contents_.rom;
+    return definition_view_;
+}
+
+bytes::ByteView CalibrationSession::File() const
+{
+    return image_.has_value() ? image_->File() : bytes::ByteView{};
 }
 
 const ResolvedDefinition *CalibrationSession::Definition() const
 {
-    return contents_.definition.has_value() ? &*contents_.definition : nullptr;
+    return definition_.has_value() ? &*definition_ : nullptr;
 }
 
 const RomProtocolInfo& CalibrationSession::Protocol() const
 {
-    return contents_.protocol;
+    return protocol_;
 }
 
 void CalibrationSession::SetProtocol(RomProtocolInfo protocol)
 {
-    contents_.protocol = std::move(protocol);
+    protocol_ = std::move(protocol);
 }
 
 bool CalibrationSession::Dirty() const
@@ -53,36 +129,73 @@ void CalibrationSession::MarkSaved(std::string_view path)
     // Copy both views before changing source: path may refer to source().path.
     std::string saved_path{path};
     std::string saved_name = name.empty() ? std::string{"default.bin"} : std::string{name};
-    contents_.source.path = std::move(saved_path);
-    contents_.source.display_name = std::move(saved_name);
+    source_.path = std::move(saved_path);
+    source_.display_name = std::move(saved_name);
     dirty_ = false;
 }
 
 Result<DecodedMap> CalibrationSession::DecodeMap(std::size_t map_index) const
 {
-    if (!contents_.definition.has_value())
+    if (!definition_.has_value())
     {
         return Fail(ErrorKind::kInvalidConfig, "calibration session has no definition");
     }
-    const definition::RomDefinition& rom_definition = contents_.definition->definition;
+    const definition::RomDefinition& rom_definition = definition_->definition;
     if (map_index >= rom_definition.maps.size())
     {
         return Fail(ErrorKind::kInvalidConfig, std::format("map index {} is past the definition's {} maps", map_index,
                                                            rom_definition.maps.size()));
     }
-    return DecodeCalibrationMap(rom_definition, rom_definition.maps[map_index], contents_.rom);
+    const definition::CalibrationMap& map = rom_definition.maps[map_index];
+    if (image_.has_value())
+    {
+        if (const Status placed = CheckMapPlacement(rom_definition, map, image_->Map()); !placed.has_value())
+        {
+            return std::unexpected(placed.error());
+        }
+    }
+    return DecodeCalibrationMap(rom_definition, map, definition_view_);
+}
+
+Status CalibrationSession::CheckWrite(std::uint64_t offset, std::size_t size) const
+{
+    const std::uint64_t view_size = definition_view_.size();
+    // Written as two comparisons so a huge offset cannot wrap the sum.
+    if (offset > view_size || size > view_size - offset)
+    {
+        return Fail(ErrorKind::kInvalidConfig,
+                    std::format("write of {} bytes at 0x{:x} is outside the {}-byte image", size, offset, view_size));
+    }
+    if (size == 0 || !image_.has_value())
+    {
+        return {};
+    }
+    // Inside the view, so the address and the count both fit in 32 bits.
+    const memory::FlashAddress start{static_cast<std::uint32_t>(image_->Map().DefinitionBase().Value() + offset)};
+    if (const auto checked = image_->CheckWrite(start, memory::ByteCount{static_cast<std::uint32_t>(size)});
+        !checked.has_value())
+    {
+        return Fail(ErrorKind::kInvalidConfig,
+                    std::format("write of {} bytes at 0x{:x}: {}", size, offset, checked.error().detail));
+    }
+    return {};
 }
 
 Status CalibrationSession::WriteBytes(std::uint64_t offset, bytes::ByteView data)
 {
-    const std::uint64_t size = contents_.rom.size();
-    // Written as two comparisons so a huge offset cannot wrap the sum.
-    if (offset > size || data.size() > size - offset)
+    if (const Status checked = CheckWrite(offset, data.size()); !checked.has_value())
     {
-        return Fail(ErrorKind::kInvalidConfig,
-                    std::format("write of {} bytes at 0x{:x} is outside the {}-byte image", data.size(), offset, size));
+        return checked;
     }
-    std::ranges::copy(data, contents_.rom.begin() + static_cast<std::ptrdiff_t>(offset));
+    if (!data.empty())
+    {
+        const memory::FlashAddress start{static_cast<std::uint32_t>(image_->Map().DefinitionBase().Value() + offset)};
+        if (const auto written = image_->Write(start, data); !written.has_value())
+        {
+            return Fail(ErrorKind::kInvalidConfig, written.error().detail);
+        }
+        std::ranges::copy(data, definition_view_.begin() + static_cast<std::ptrdiff_t>(offset));
+    }
     dirty_ = true;
     return {};
 }

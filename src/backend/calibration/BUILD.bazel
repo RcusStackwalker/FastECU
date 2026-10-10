@@ -92,3 +92,28 @@ fastecu_portable_gtest(
         "@googletest//:gtest",
     ],
 )
+
+cc_library(
+    name = "map_placement",
+    srcs = ["map_placement.cpp"],
+    hdrs = ["map_placement.h"],
+    implementation_deps = [":calibration_service"],
+    deps = [
+        "//src/algorithms/memory:memory_map",
+        "//src/backend/definition:definition_model",
+        "//src/backend/ports",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "map_placement_test",
+    srcs = ["map_placement_test.cpp"],
+    deps = [
+        ":map_placement",
+        "//src/algorithms/memory:address",
+        "//src/algorithms/memory:memory_map",
+        "//src/backend/definition:definition_model",
+        "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
+    ],
+)

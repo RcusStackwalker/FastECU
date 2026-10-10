@@ -7,6 +7,8 @@
 #include <string_view>
 #include <vector>
 
+#include "src/algorithms/memory/memory_image.h"
+#include "src/algorithms/memory/memory_map.h"
 #include "src/algorithms/protocol/bytes.h"
 #include "src/backend/calibration/calibration_service.h"
 #include "src/backend/definition/definition_model.h"
@@ -66,23 +68,37 @@ struct RomProtocolInfo
 struct SessionContents
 {
     RomSource source;
+    // The ROM file's bytes exactly as loaded; saving writes them back in this
+    // layout.
     std::vector<std::uint8_t> rom;
+    // Where those bytes sit on the ECU, and the definition base. nullopt means
+    // the identity map over `rom`.
+    std::optional<memory::MemoryMap> memory_map;
     // nullopt: opened without a definition ("continue without definition
     // file"), a modeled state rather than placeholder rows.
     std::optional<ResolvedDefinition> definition;
     RomProtocolInfo protocol;
 };
 
-// One open ROM. Its bytes are the only truth for map values: there is no
+// One open ROM: the ROM file as loaded, placed at ECU addresses by its memory
+// map (ADR 0020). Its bytes are the only truth for map values: there is no
 // decoded-value cache, so a view decodes on demand and an edit writes bytes.
 class CalibrationSession
 {
   public:
+    // Contents whose `rom` is empty or does not fit `memory_map` give a session
+    // with no bytes; RomOpenUseCase never builds one.
     CalibrationSession(SessionId id, SessionContents contents);
 
     SessionId Id() const;
     const RomSource& Source() const;
+    // The bytes as definitions address them: index i is the byte at the
+    // definition base + i, up to the end of the highest memory block. Fill
+    // blocks read as their fill byte and addresses no block holds as 0x00.
+    // Derived from File() and the memory map; for most ROMs it equals File().
     bytes::ByteView Rom() const;
+    // The ROM file as loaded, with every write since: what saving writes.
+    bytes::ByteView File() const;
     const ResolvedDefinition *Definition() const;
     const RomProtocolInfo& Protocol() const;
     void SetProtocol(RomProtocolInfo protocol);
@@ -92,18 +108,28 @@ class CalibrationSession
     void MarkSaved(std::string_view path);
 
     // Cells and axes of definition()->definition.maps[map_index], decoded from
-    // the current bytes. InvalidConfig for an index past the last map or a
-    // session without a definition or unusable layout. Computation errors are
+    // the current bytes. InvalidConfig for an index past the last map, a
+    // session without a definition, an unusable layout, or a map whose cells
+    // or axes leave the memory map, touch a fill block, or span writable and
+    // read-only memory (a structural map failure). Computation errors are
     // retained per numeric cell in the typed snapshot.
     Result<DecodedMap> DecodeMap(std::size_t map_index) const;
 
-    // The only mutation of the bytes. The whole of `data` must land inside the
-    // image; a write that would not is rejected and changes nothing.
+    // Whether WriteBytes(offset, ...) of `size` bytes would succeed: the whole
+    // range lies in Rom() and in writable, ROM-file-backed memory.
+    Status CheckWrite(std::uint64_t offset, std::size_t size) const;
+    // The only mutation of the bytes, at definition address `offset`. A write
+    // CheckWrite rejects changes nothing.
     Status WriteBytes(std::uint64_t offset, bytes::ByteView data);
 
   private:
     SessionId id_;
-    SessionContents contents_;
+    RomSource source_;
+    std::optional<memory::MemoryImage> image_;
+    // Rom(): rendered from image_ at construction, then patched by WriteBytes.
+    bytes::Bytes definition_view_;
+    std::optional<ResolvedDefinition> definition_;
+    RomProtocolInfo protocol_;
     bool dirty_{false};
 };
 

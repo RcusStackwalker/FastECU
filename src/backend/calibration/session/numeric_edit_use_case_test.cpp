@@ -11,6 +11,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "src/algorithms/memory/memory_map.h"
 #include "src/backend/calibration/session/testing/fake_definition_catalogs.h"
 #include "src/backend/config/testing/config_session_fixture.h"
 #include "src/backend/ports/testing/in_memory_atomic_file_writer.h"
@@ -26,6 +27,7 @@ using fastecu::testing::IsErrWith;
 using fastecu::testing::IsOk;
 using fastecu::testing::IsOkAnd;
 using ::testing::ElementsAre;
+using ::testing::ElementsAreArray;
 using ::testing::Field;
 using ::testing::HasSubstr;
 using ::testing::VariantWith;
@@ -114,7 +116,7 @@ class NumericEditUseCaseTest : public ::testing::Test
 
     // Replaces the open session's contents with a clean session.
     void Install(std::optional<definition::RomDefinition> def, std::vector<std::uint8_t> rom = GridRom(),
-                 RomProtocolInfo protocol = {})
+                 RomProtocolInfo protocol = {}, std::optional<memory::MemoryMap> memory_map = std::nullopt)
     {
         std::optional<ResolvedDefinition> resolved;
         if (def.has_value())
@@ -123,6 +125,7 @@ class NumericEditUseCaseTest : public ::testing::Test
         }
         *workspace_.Find(id_) = CalibrationSession(id_, SessionContents{.source = {.display_name = "grid.bin"},
                                                                         .rom = std::move(rom),
+                                                                        .memory_map = std::move(memory_map),
                                                                         .definition = std::move(resolved),
                                                                         .protocol = std::move(protocol)});
     }
@@ -369,6 +372,29 @@ TEST_F(NumericEditUseCaseTest, Mc68PaddedImagesWriteHighAddressesInPlace)
 
     EXPECT_EQ(Session().Rom()[0x2C000], 20);
     EXPECT_EQ(Session().Rom()[0x24000], 0);
+}
+
+// Q13: a map in memory the protocol never writes (a bootloader prefix) decodes
+// but cannot be edited, and a multi-cell edit changes no byte at all.
+TEST_F(NumericEditUseCaseTest, EditsToAMapInReadOnlyMemoryChangeNothing)
+{
+    const std::vector<std::uint8_t> rom = GridRom();
+    const std::array blocks{memory::MemoryBlock{
+        .range = memory::AddressRange<memory::FlashSpace>::Make(
+                     memory::FlashAddress{0}, memory::ByteCount{static_cast<std::uint32_t>(rom.size())})
+                     .value(),
+        .backing = memory::FileBacking{},
+        .writability = memory::Writability::kReadOnly}};
+    Install(GridDefinition(), rom, {},
+            memory::MemoryMap::Create(blocks, memory::ByteCount{static_cast<std::uint32_t>(rom.size())}).value());
+
+    EXPECT_THAT(Edit(NumericTarget::kMapBody,
+                     SelectionRange{.first_row = 0, .first_col = 0, .last_row = 1, .last_col = 1},
+                     AssignmentEdit{"x+1"}),
+                IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("not writable")));
+
+    EXPECT_THAT(Session().Rom(), ElementsAreArray(rom));
+    EXPECT_FALSE(Session().Dirty());
 }
 
 TEST_F(NumericEditUseCaseTest, StaleSessionIdsAreNotApplicable)

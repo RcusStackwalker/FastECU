@@ -1,5 +1,6 @@
 #include "src/backend/calibration/session/calibration_session.h"
 
+#include <array>
 #include <cstdint>
 #include <limits>
 #include <vector>
@@ -7,6 +8,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "src/algorithms/memory/memory_map.h"
 #include "src/backend/ports/testing/result_matchers.h"
 
 namespace fastecu::calibration
@@ -15,7 +17,10 @@ namespace
 {
 
 using fastecu::testing::IsErr;
+using fastecu::testing::IsErrWith;
 using fastecu::testing::IsOk;
+using ::testing::ElementsAre;
+using ::testing::HasSubstr;
 
 definition::RomDefinition FuelDefinition()
 {
@@ -136,6 +141,114 @@ TEST(CalibrationSessionTest, ProtocolInfoCanBeReplaced)
     EXPECT_EQ(session.Protocol().flash_method, "proto_b");
     EXPECT_EQ(session.Protocol().kernel_path, "/k/b.bin");
     EXPECT_FALSE(session.Dirty());
+}
+
+memory::MemoryBlock FileBlock(std::uint32_t start, std::uint32_t size, std::uint32_t offset,
+                              memory::Writability writability = memory::Writability::kWritable)
+{
+    return {.range =
+                memory::AddressRange<memory::FlashSpace>::Make(memory::FlashAddress{start}, memory::ByteCount{size})
+                    .value(),
+            .backing = memory::FileBacking{.offset = memory::FileOffset{offset}},
+            .writability = writability};
+}
+
+memory::MemoryBlock FillBlock(std::uint32_t start, std::uint32_t size)
+{
+    return {.range =
+                memory::AddressRange<memory::FlashSpace>::Make(memory::FlashAddress{start}, memory::ByteCount{size})
+                    .value(),
+            .backing = memory::FillBacking{},
+            .writability = memory::Writability::kReadOnly};
+}
+
+// An MC68HC16Y5-style packed 4-byte ROM file: file 0-1 at 0, two fill bytes at
+// 2, file 2-3 at 4.
+CalibrationSession PackedSession(std::optional<ResolvedDefinition> definition = std::nullopt)
+{
+    const std::array blocks{FileBlock(0, 2, 0), FillBlock(2, 2), FileBlock(4, 2, 2)};
+    return CalibrationSession(
+        SessionId{1}, SessionContents{.rom = {1, 2, 3, 4},
+                                      .memory_map = memory::MemoryMap::Create(blocks, memory::ByteCount{4}).value(),
+                                      .definition = std::move(definition)});
+}
+
+TEST(CalibrationSessionMemory, RomPlacesFileBytesAtTheirDefinitionAddresses)
+{
+    const CalibrationSession session = PackedSession();
+
+    EXPECT_THAT(session.Rom(), ElementsAre(1, 2, 0xFF, 0xFF, 3, 4));
+    EXPECT_THAT(session.File(), ElementsAre(1, 2, 3, 4));
+}
+
+TEST(CalibrationSessionMemory, AWriteLandsInTheRomFileAtItsMappedOffset)
+{
+    CalibrationSession session = PackedSession();
+
+    ASSERT_THAT(session.WriteBytes(4, bytes::Bytes{9}), IsOk());
+
+    EXPECT_THAT(session.File(), ElementsAre(1, 2, 9, 4));
+    EXPECT_THAT(session.Rom(), ElementsAre(1, 2, 0xFF, 0xFF, 9, 4));
+    EXPECT_TRUE(session.Dirty());
+}
+
+TEST(CalibrationSessionMemory, AWriteIntoAFillBlockChangesNothing)
+{
+    CalibrationSession session = PackedSession();
+
+    EXPECT_THAT(session.WriteBytes(1, bytes::Bytes{7, 7}),
+                IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("fill block")));
+
+    EXPECT_THAT(session.File(), ElementsAre(1, 2, 3, 4));
+    EXPECT_THAT(session.Rom(), ElementsAre(1, 2, 0xFF, 0xFF, 3, 4));
+    EXPECT_FALSE(session.Dirty());
+}
+
+TEST(CalibrationSessionMemory, AWriteIntoAReadOnlyBlockChangesNothing)
+{
+    const std::array blocks{FileBlock(0, 2, 0, memory::Writability::kReadOnly), FileBlock(2, 2, 2)};
+    CalibrationSession session(
+        SessionId{1}, SessionContents{.rom = {1, 2, 3, 4},
+                                      .memory_map = memory::MemoryMap::Create(blocks, memory::ByteCount{4}).value()});
+
+    EXPECT_THAT(session.CheckWrite(2, 2), IsOk());
+    EXPECT_THAT(session.WriteBytes(1, bytes::Bytes{5, 5}),
+                IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("not writable")));
+
+    EXPECT_THAT(session.File(), ElementsAre(1, 2, 3, 4));
+    EXPECT_FALSE(session.Dirty());
+}
+
+// 1N83M: the ROM file sits at 0x08F9C000 and definitions count from there.
+TEST(CalibrationSessionMemory, DefinitionAddressesCountFromTheDefinitionBase)
+{
+    const std::array blocks{FileBlock(0x08F9C000, 4, 0)};
+    CalibrationSession session(
+        SessionId{1},
+        SessionContents{
+            .rom = {1, 2, 3, 4},
+            .memory_map =
+                memory::MemoryMap::Create(blocks, memory::ByteCount{4}, memory::FlashAddress{0x08F9C000}).value()});
+
+    EXPECT_THAT(session.Rom(), ElementsAre(1, 2, 3, 4));
+    ASSERT_THAT(session.WriteBytes(1, bytes::Bytes{9}), IsOk());
+    EXPECT_THAT(session.File(), ElementsAre(1, 9, 3, 4));
+}
+
+TEST(CalibrationSessionMemory, ContentsWithoutAMemoryMapUseTheIdentityMap)
+{
+    const CalibrationSession session(SessionId{1}, SessionContents{.rom = {1, 2, 3}});
+
+    EXPECT_THAT(session.Rom(), ElementsAre(1, 2, 3));
+    EXPECT_THAT(session.File(), ElementsAre(1, 2, 3));
+}
+
+TEST(CalibrationSessionMemory, DecodingAMapInAFillBlockIsAStructuralFailure)
+{
+    definition::RomDefinition definition = FuelDefinition(); // three cells from address 2
+    const CalibrationSession session = PackedSession(ResolvedDefinition{.definition = std::move(definition)});
+
+    EXPECT_THAT(session.DecodeMap(0), IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("fill block")));
 }
 
 } // namespace
