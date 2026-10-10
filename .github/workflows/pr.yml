@@ -253,3 +253,4 @@ jobs:
         shell: bash
         run: |
           bazel run --config=release //:clang_tidy_report_changed -- --profile ${{ matrix.scope }}
+          bazel run --config=release //:clang_tidy_check_fixtures

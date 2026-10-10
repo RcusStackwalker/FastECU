@@ -42,7 +42,11 @@ Checks: >
   readability-uppercase-literal-suffix,
   readability-use-anyofallof
 
-WarningsAsErrors: '*'
+WarningsAsErrors: >
+  *,
+  -custom-fastecu-result-assertion,
+  -custom-fastecu-container-assertion,
+  -custom-fastecu-message-concatenation
 HeaderFilterRegex: 'src/(algorithms|backend|platform|ui)/.*\.h'
 # workaround for the issue with separators normalization
 ExcludeHeaderFilterRegex: '([/\\\\]generated_ui[/\\\\].*|_replica)\.h'
@@ -173,3 +177,185 @@ CheckOptions:
   # identifier this tree has to name.
   - key: bugprone-reserved-identifier.AllowedIdentifiers
     value: '_'
+
+# Diagnostic-only repository conventions. The Bazel runner enables these in
+# a separate advisory pass with a wider first-party header filter. Keeping
+# them out of Checks above preserves the built-in pass's enforcement scope.
+# LLVM prefixes each Name with custom-. Use the registered name when enabling
+# a check or excluding it from WarningsAsErrors.
+CustomChecks:
+# Match the direct operand of GoogleTest's AssertionResult construction.
+# Following only transparent wrappers and logical negation excludes unrelated
+# nested calls/aggregates while retaining direct assertions inside callbacks.
+  - Name: fastecu-result-assertion
+    Query: |
+      match cxxConstructExpr(
+        hasType(
+          recordType(hasDeclaration(cxxRecordDecl(hasName("::testing::AssertionResult"))))
+        ),
+        anyOf(
+          isExpandedFromMacro("EXPECT_TRUE"),
+          isExpandedFromMacro("EXPECT_FALSE"),
+          isExpandedFromMacro("ASSERT_TRUE"),
+          isExpandedFromMacro("ASSERT_FALSE")
+        ),
+        hasArgument(
+          0,
+          ignoringImplicit(
+            ignoringParenImpCasts(
+              anyOf(
+                cxxMemberCallExpr(
+                  callee(
+                    cxxMethodDecl(
+                      hasName("has_value"),
+                      ofClass(
+                        classTemplateSpecializationDecl(
+                          hasName("::std::expected"),
+                          hasTemplateArgument(
+                            1,
+                            refersToType(recordType(hasDeclaration(cxxRecordDecl(hasName("::fastecu::Error")))))
+                          )
+                        )
+                      )
+                    )
+                  )
+                ).bind("assertion"),
+                unaryOperator(
+                  hasOperatorName("!"),
+                  hasUnaryOperand(
+                    ignoringImplicit(
+                      ignoringParenImpCasts(
+                        cxxMemberCallExpr(
+                          callee(
+                            cxxMethodDecl(
+                              hasName("has_value"),
+                              ofClass(
+                                classTemplateSpecializationDecl(
+                                  hasName("::std::expected"),
+                                  hasTemplateArgument(
+                                    1,
+                                    refersToType(recordType(hasDeclaration(cxxRecordDecl(hasName("::fastecu::Error")))))
+                                  )
+                                )
+                              )
+                            )
+                          )
+                        ).bind("assertion")
+                      )
+                    )
+                  )
+                )
+              )
+            )
+          )
+        ),
+        unless(isExpansionInFileMatching("(^|.*[/\\\\])src[/\\\\]backend[/\\\\]ports[/\\\\]result_test[.]cpp$"))
+      )
+    Diagnostic:
+      - BindName: assertion
+        Message: 'assert Result/Status with IsOk(), IsErr(), or IsErrWith() rather than a bare boolean assertion'
+        Level: Warning
+  - Name: fastecu-container-assertion
+    Query: |
+      match cxxConstructExpr(
+        hasType(
+          recordType(hasDeclaration(cxxRecordDecl(hasName("::testing::AssertionResult"))))
+        ),
+        anyOf(
+          isExpandedFromMacro("EXPECT_TRUE"),
+          isExpandedFromMacro("EXPECT_FALSE"),
+          isExpandedFromMacro("ASSERT_TRUE"),
+          isExpandedFromMacro("ASSERT_FALSE")
+        ),
+        hasArgument(
+          0,
+          ignoringImplicit(
+            ignoringParenImpCasts(
+              anyOf(
+                expr(
+                  anyOf(
+                    callExpr(
+                      callee(functionDecl(hasAnyName("::std::all_of", "::std::any_of", "::std::none_of")))
+                    ),
+                    cxxOperatorCallExpr(
+                      hasOverloadedOperatorName("()"),
+                      hasArgument(
+                        0,
+                        ignoringParenImpCasts(
+                          declRefExpr(
+                            to(
+                              varDecl(
+                                hasAnyName("::std::ranges::all_of", "::std::ranges::any_of", "::std::ranges::none_of")
+                              )
+                            )
+                          )
+                        )
+                      )
+                    )
+                  )
+                ).bind("assertion"),
+                unaryOperator(
+                  hasOperatorName("!"),
+                  hasUnaryOperand(
+                    ignoringImplicit(
+                      ignoringParenImpCasts(
+                        expr(
+                          anyOf(
+                            callExpr(
+                              callee(functionDecl(hasAnyName("::std::all_of", "::std::any_of", "::std::none_of")))
+                            ),
+                            cxxOperatorCallExpr(
+                              hasOverloadedOperatorName("()"),
+                              hasArgument(
+                                0,
+                                ignoringParenImpCasts(
+                                  declRefExpr(
+                                    to(
+                                      varDecl(
+                                        hasAnyName("::std::ranges::all_of", "::std::ranges::any_of", "::std::ranges::none_of")
+                                      )
+                                    )
+                                  )
+                                )
+                              )
+                            )
+                          )
+                        ).bind("assertion")
+                      )
+                    )
+                  )
+                )
+              )
+            )
+          )
+        )
+      )
+    Diagnostic:
+      - BindName: assertion
+        Message: 'assert container properties with Google Mock matchers instead of reducing the predicate to a boolean'
+        Level: Warning
+  - Name: fastecu-message-concatenation
+    Query: |
+      match callExpr(
+        anyOf(
+          callee(functionDecl(hasName("::fastecu::Fail"))),
+          callee(cxxMethodDecl(hasName("Log"), ofClass(cxxRecordDecl(hasName("::fastecu::IEventSink")))))
+        ),
+        hasArgument(1, ignoringParenImpCasts(anyOf(
+          ignoringImplicit(cxxOperatorCallExpr(hasOverloadedOperatorName("+"),
+            hasType(hasUnqualifiedDesugaredType(recordType(hasDeclaration(
+              cxxRecordDecl(hasName("::std::basic_string"))
+            )))))),
+          cxxMemberCallExpr(callee(cxxConversionDecl()),
+            on(ignoringImplicit(cxxOperatorCallExpr(hasOverloadedOperatorName("+"),
+              hasType(hasUnqualifiedDesugaredType(recordType(hasDeclaration(
+                cxxRecordDecl(hasName("::std::basic_string"))
+              ))))
+            )))
+          )
+        )))
+      ).bind("message")
+    Diagnostic:
+      - BindName: message
+        Message: 'construct this diagnostic message with std::format instead of string concatenation'
+        Level: Warning

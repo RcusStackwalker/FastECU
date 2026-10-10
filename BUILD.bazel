@@ -1,5 +1,5 @@
 load("@gazelle//:def.bzl", "gazelle", "gazelle_binary")
-load("@rules_python//python:defs.bzl", "py_test")
+load("@rules_python//python:defs.bzl", "py_binary", "py_test")
 load("//bazel:clang_tidy.bzl", "clang_tidy_runner")
 
 package(default_visibility = ["//visibility:public"])
@@ -125,6 +125,45 @@ alias(
 )
 
 py_test(
+    name = "clang_tidy_adapter_test",
+    size = "small",
+    srcs = [
+        "scripts/clang_tidy_adapter.py",
+        "scripts/clang_tidy_adapter_test.py",
+    ],
+    main = "scripts/clang_tidy_adapter_test.py",
+)
+
+py_binary(
+    name = "clang_tidy_check_fixtures",
+    srcs = [
+        "scripts/clang_tidy_adapter.py",
+        "scripts/clang_tidy_checks_test.py",
+        "scripts/clang_tidy_profile.py",
+        "scripts/clang_tidy_runner.py",
+        "scripts/clang_tidy_scope.py",
+    ],
+    imports = ["scripts"],
+    main = "scripts/clang_tidy_checks_test.py",
+    deps = ["@python_deps//pyyaml"],
+)
+
+py_test(
+    name = "clang_tidy_benchmark_test",
+    size = "small",
+    srcs = [
+        "scripts/clang_tidy_benchmark.py",
+        "scripts/clang_tidy_benchmark_test.py",
+        "scripts/clang_tidy_profile.py",
+        "scripts/clang_tidy_runner.py",
+        "scripts/clang_tidy_scope.py",
+    ],
+    imports = ["scripts"],
+    main = "scripts/clang_tidy_benchmark_test.py",
+    deps = ["@python_deps//pyyaml"],
+)
+
+py_test(
     name = "clang_tidy_runner_test",
     size = "small",
     srcs = [
@@ -198,6 +237,11 @@ py_test(
 clang_tidy_runner(
     name = "clang_tidy_report",
     mode = "report",
+)
+
+clang_tidy_runner(
+    name = "clang_tidy_benchmark",
+    mode = "benchmark",
 )
 
 clang_tidy_runner(
