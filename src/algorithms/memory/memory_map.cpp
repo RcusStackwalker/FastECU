@@ -115,6 +115,13 @@ std::span<const MemoryBlock> MemoryMap::Blocks() const
     return blocks_;
 }
 
+AddressRange<FlashSpace> MemoryMap::Span() const
+{
+    const FlashAddress start = blocks_.front().range.Start();
+    // Create guarantees sorted, non-empty blocks whose ends are representable.
+    return *AddressRange<FlashSpace>::Make(start, *blocks_.back().range.End().DistanceFrom(start));
+}
+
 ByteCount MemoryMap::FileSize() const
 {
     return file_size_;

@@ -1,11 +1,13 @@
 #pragma once
 
 #include "checksum_result.h"
-#include "src/algorithms/protocol/bytes.h"
+#include "src/algorithms/memory/address.h"
+#include "src/algorithms/memory/memory_image.h"
 
 class ChecksumEcuSubaruDensoSH705xDiesel
 {
   public:
-    static ChecksumResult CalculateChecksumResult(bytes::ByteView rom_data, uint32_t checksum_area_start,
-                                                  uint32_t checksum_area_length);
+    // The table at `table_address` holds ECU addresses within `rom`'s range.
+    static ChecksumResult CalculateChecksumResult(const fastecu::memory::MemoryView& rom,
+                                                  fastecu::memory::FlashAddress table_address, uint32_t table_length);
 };

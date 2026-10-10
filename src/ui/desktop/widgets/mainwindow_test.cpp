@@ -26,6 +26,7 @@
 #include <QTemporaryDir>
 #include <QWidgetAction>
 #include <gtest/gtest.h>
+#include "src/algorithms/memory/testing/memory_views.h"
 #include "src/platform/desktop/common/testing/signal_recorder.h"
 #include "src/platform/desktop/common/testing/event_helpers.h"
 #include <QSemaphore>
@@ -1936,17 +1937,18 @@ void MainWindowTest::checkChecksumAndSaveUseATemporaryImage()
     // the coordinator's selection plumbing.
     const VehicleSpec& vehicle = *services.config.SelectedVehicle();
     const fastecu::checksum::ChecksumCorrectionOutcome correction = fastecu::checksum::ApplyChecksumCorrection(
-        original, {
-                      .make = std::string(vehicle.make),
-                      .checksum_flag = std::string(fastecu::config::ChecksumFlag(vehicle.protocol->checksum)),
-                      .flash_method = std::string(vehicle.protocol->name),
-                      .mcu_type = session->Protocol().mcu_type,
-                      .rom_id = session->Protocol().rom_id,
-                  });
+        fastecu::memory::testing::ImageAt(fastecu::memory::FlashAddress{0}, original),
+        {
+            .make = std::string(vehicle.make),
+            .checksum_flag = std::string(fastecu::config::ChecksumFlag(vehicle.protocol->checksum)),
+            .flash_method = std::string(vehicle.protocol->name),
+            .mcu_type = session->Protocol().mcu_type,
+            .rom_id = session->Protocol().rom_id,
+        });
     ASSERT_EQ(correction.status, fastecu::checksum::ChecksumCorrectionOutcome::Status::kFamilyRan);
     ASSERT_TRUE(correction.family_result.has_value());
-    ASSERT_TRUE(correction.family_result->Ok());
-    const bytes::Bytes corrected = correction.family_result->rom_data;
+    ASSERT_TRUE(correction.corrected_file.has_value());
+    const bytes::Bytes corrected = *correction.corrected_file;
     ASSERT_TRUE(corrected != original);
     ASSERT_TRUE(session->Dirty());
 

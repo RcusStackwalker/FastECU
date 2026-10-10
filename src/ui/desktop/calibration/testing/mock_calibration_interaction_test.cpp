@@ -3,6 +3,8 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "src/algorithms/memory/testing/memory_views.h"
+
 using fastecu::checksum::ChecksumSelection;
 using fastecu::ui::CalibrationNotice;
 using fastecu::ui::ChecksumCorrectionResult;
@@ -29,7 +31,8 @@ TEST(MockCalibrationInteraction, DispatchesScriptedRepliesThroughInterface)
     EXPECT_CALL(mock, showNotice(CalibrationNotice::kNoSaveFilename)).Times(1);
 
     EXPECT_FALSE(port.confirmWriteWithoutChecksum());
-    const auto corrected = port.correctChecksums(image, true, selection);
+    const auto corrected = port.correctChecksums(
+        fastecu::memory::testing::ImageAt(fastecu::memory::FlashAddress{0}, image), true, selection);
     ASSERT_TRUE(corrected.corrected_rom_data.has_value());
     EXPECT_THAT(*corrected.corrected_rom_data, ElementsAre(4, 5, 6));
     EXPECT_EQ(port.chooseSavePath("/old/read.bin"), "/cal/new.bin");

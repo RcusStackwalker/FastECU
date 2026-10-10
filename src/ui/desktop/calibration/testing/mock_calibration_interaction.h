@@ -18,7 +18,8 @@ class MockCalibrationInteraction : public ICalibrationInteraction
   public:
     MOCK_METHOD(bool, confirmWriteWithoutChecksum, (), (override));
     MOCK_METHOD(ChecksumCorrectionResult, correctChecksums,
-                (bytes::ByteView image, bool hasDefinition, const checksum::ChecksumSelection& selection), (override));
+                (const memory::MemoryImage& image, bool hasDefinition, const checksum::ChecksumSelection& selection),
+                (override));
     MOCK_METHOD(std::optional<std::string>, chooseSavePath, (std::string_view suggestedPath), (override));
     MOCK_METHOD(void, showNotice, (CalibrationNotice notice), (override));
 };

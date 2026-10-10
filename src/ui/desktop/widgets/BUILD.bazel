@@ -192,6 +192,7 @@ fastecu_gtest(
         ":qt_identify_launcher",
         "//bazel/qt:core",
         "//bazel/qt:widgets",
+        "//src/algorithms/memory/testing:memory_views",
         "//src/backend/calibration/session:calibration_workspace",
         "//src/backend/calibration/session:rom_open",
         "//src/backend/calibration/session:rom_save",

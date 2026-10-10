@@ -3,6 +3,8 @@
 
 #include <gtest/gtest.h>
 
+#include "src/algorithms/memory/testing/memory_views.h"
+
 #include <cstdint>
 
 #include "src/algorithms/protocol/bytes.h"
@@ -26,6 +28,7 @@
 // counter and raises the ROM-checksum DTC, which is what keeps a mis-summed
 // image out of userspace.
 
+namespace memory = fastecu::memory;
 namespace
 {
 
@@ -148,7 +151,7 @@ TEST(ChecksumEcuMitsuM32rCanTest, LeavesAnImageTheEcuAlreadyAcceptsUnchanged)
     BalanceWithEcuModel(rom, 0x60000);
     ASSERT_TRUE(EcuAcceptsRom(rom, 0x60000));
 
-    const ChecksumResult result = ChecksumEcuMitsuM32rCan::CalculateChecksumResult(rom);
+    const ChecksumResult result = ChecksumEcuMitsuM32rCan::CalculateChecksumResult(memory::testing::ViewOf(rom));
 
     EXPECT_EQ(result.status, ChecksumResult::Status::kUnchanged);
     EXPECT_THAT(result.rom_data, test_bytes::BytesEq(rom));
@@ -159,7 +162,7 @@ TEST(ChecksumEcuMitsuM32rCanTest, CorrectsAnImageTheEcuWouldRejectUntilItAccepts
     const bytes::Bytes rom = SyntheticColtRom();
     ASSERT_FALSE(EcuAcceptsRom(rom, 0x60000));
 
-    const ChecksumResult result = ChecksumEcuMitsuM32rCan::CalculateChecksumResult(rom);
+    const ChecksumResult result = ChecksumEcuMitsuM32rCan::CalculateChecksumResult(memory::testing::ViewOf(rom));
 
     EXPECT_EQ(result.status, ChecksumResult::Status::kCorrected);
     EXPECT_TRUE(EcuAcceptsRom(result.rom_data, 0x60000));
@@ -170,7 +173,7 @@ TEST(ChecksumEcuMitsuM32rCanTest, AreaCode0x50SumsTheFull512KiBTheEcuWalks)
     const bytes::Bytes rom = SyntheticColtRom(0x80000, 0x50);
     ASSERT_FALSE(EcuAcceptsRom(rom, 0x80000));
 
-    const ChecksumResult result = ChecksumEcuMitsuM32rCan::CalculateChecksumResult(rom);
+    const ChecksumResult result = ChecksumEcuMitsuM32rCan::CalculateChecksumResult(memory::testing::ViewOf(rom));
 
     EXPECT_EQ(result.status, ChecksumResult::Status::kCorrected);
     EXPECT_TRUE(EcuAcceptsRom(result.rom_data, 0x80000));
@@ -180,7 +183,7 @@ TEST(ChecksumEcuMitsuM32rCanTest, UnrecognisedAreaCodeDisablesChecksumsAndTouche
 {
     const bytes::Bytes rom = SyntheticColtRom(0x60000, 0x11);
 
-    const ChecksumResult result = ChecksumEcuMitsuM32rCan::CalculateChecksumResult(rom);
+    const ChecksumResult result = ChecksumEcuMitsuM32rCan::CalculateChecksumResult(memory::testing::ViewOf(rom));
 
     EXPECT_EQ(result.status, ChecksumResult::Status::kDisabled);
     EXPECT_THAT(result.rom_data, test_bytes::BytesEq(rom));
@@ -191,7 +194,7 @@ TEST(ChecksumEcuMitsuM32rCanTest, AreaCodeLargerThanTheFileDisablesChecksumsAndT
     // 0x60 asks for a 1 MiB sweep, which a 384 KiB image cannot satisfy.
     const bytes::Bytes rom = SyntheticColtRom(0x60000, 0x60);
 
-    const ChecksumResult result = ChecksumEcuMitsuM32rCan::CalculateChecksumResult(rom);
+    const ChecksumResult result = ChecksumEcuMitsuM32rCan::CalculateChecksumResult(memory::testing::ViewOf(rom));
 
     EXPECT_EQ(result.status, ChecksumResult::Status::kDisabled);
     EXPECT_THAT(result.rom_data, test_bytes::BytesEq(rom));
@@ -201,7 +204,7 @@ TEST(ChecksumEcuMitsuM32rCanTest, ImageTooSmallToCarryTheLayoutIsRejectedAsInval
 {
     const bytes::Bytes rom(0x1000, 0x00);
 
-    const ChecksumResult result = ChecksumEcuMitsuM32rCan::CalculateChecksumResult(rom);
+    const ChecksumResult result = ChecksumEcuMitsuM32rCan::CalculateChecksumResult(memory::testing::ViewOf(rom));
 
     EXPECT_EQ(result.status, ChecksumResult::Status::kInvalidSize);
     EXPECT_THAT(result.rom_data, test_bytes::BytesEq(rom));
@@ -211,7 +214,7 @@ TEST(ChecksumEcuMitsuM32rCanTest, CorrectionRewritesOnlyTheFourBytesOfTheBalance
 {
     const bytes::Bytes rom = SyntheticColtRom();
 
-    const ChecksumResult result = ChecksumEcuMitsuM32rCan::CalculateChecksumResult(rom);
+    const ChecksumResult result = ChecksumEcuMitsuM32rCan::CalculateChecksumResult(memory::testing::ViewOf(rom));
 
     ASSERT_EQ(result.status, ChecksumResult::Status::kCorrected);
     ASSERT_EQ(result.rom_data.size(), rom.size());
@@ -232,10 +235,12 @@ TEST(ChecksumEcuMitsuM32rCanTest, CorrectionRewritesOnlyTheFourBytesOfTheBalance
 
 TEST(ChecksumEcuMitsuM32rCanTest, CorrectingAnAlreadyCorrectedImageChangesNothingFurther)
 {
-    const ChecksumResult first = ChecksumEcuMitsuM32rCan::CalculateChecksumResult(SyntheticColtRom());
+    const ChecksumResult first =
+        ChecksumEcuMitsuM32rCan::CalculateChecksumResult(memory::testing::ViewOf(SyntheticColtRom()));
     ASSERT_EQ(first.status, ChecksumResult::Status::kCorrected);
 
-    const ChecksumResult second = ChecksumEcuMitsuM32rCan::CalculateChecksumResult(first.rom_data);
+    const ChecksumResult second =
+        ChecksumEcuMitsuM32rCan::CalculateChecksumResult(memory::testing::ViewOf(first.rom_data));
 
     EXPECT_EQ(second.status, ChecksumResult::Status::kUnchanged);
     EXPECT_THAT(second.rom_data, test_bytes::BytesEq(first.rom_data));

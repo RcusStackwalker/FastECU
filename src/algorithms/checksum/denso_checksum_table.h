@@ -1,5 +1,6 @@
 #pragma once
 
+#include "src/algorithms/memory/address.h"
 #include "src/algorithms/protocol/bytes.h"
 
 #include <cstddef>
@@ -11,15 +12,14 @@ namespace fastecu::checksum::internal
 
 struct DensoWordOverride
 {
-    std::uint32_t address;
+    std::uint32_t address; // ECU address
     std::uint32_t value;
 };
 
 struct DensoTableSpec
 {
-    std::size_t table_offset = 0;
-    std::size_t table_length = 0;
-    std::int32_t address_offset = 0;
+    memory::FlashAddress table_address;
+    std::uint32_t table_length = 0;
     std::span<const DensoWordOverride> overrides;
     bool detect_disabled = true;
 };
@@ -34,6 +34,8 @@ enum class DensoTableOutcome
     kInvalidRecordLength,
 };
 
-DensoTableOutcome CorrectDensoTable(bytes::MutableByteView rom, const DensoTableSpec& spec);
+// `rom` holds the bytes from ECU address `base` on. The table's records hold
+// ECU addresses; a record with a zero start or end address sums nothing.
+DensoTableOutcome CorrectDensoTable(memory::FlashAddress base, bytes::MutableByteView rom, const DensoTableSpec& spec);
 
 } // namespace fastecu::checksum::internal

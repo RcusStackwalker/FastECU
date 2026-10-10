@@ -2,20 +2,19 @@
 
 #include "denso_checksum_table.h"
 
-ChecksumResult ChecksumEcuSubaruDensoSH7xxx::CalculateChecksumResult(bytes::ByteView rom_data,
-                                                                     uint32_t checksum_area_start,
-                                                                     uint32_t checksum_area_length, int32_t offset)
+ChecksumResult ChecksumEcuSubaruDensoSH7xxx::CalculateChecksumResult(const fastecu::memory::MemoryView& rom,
+                                                                     fastecu::memory::FlashAddress table_address,
+                                                                     uint32_t table_length)
 {
     ChecksumResult result;
-    result.rom_data.assign(rom_data.begin(), rom_data.end());
+    result.rom_data.assign(rom.Data().begin(), rom.Data().end());
     const fastecu::checksum::internal::DensoTableSpec spec{
-        .table_offset = checksum_area_start,
-        .table_length = checksum_area_length,
-        .address_offset = offset,
+        .table_address = table_address,
+        .table_length = table_length,
     };
 
     using Outcome = fastecu::checksum::internal::DensoTableOutcome;
-    switch (fastecu::checksum::internal::CorrectDensoTable(result.rom_data, spec))
+    switch (fastecu::checksum::internal::CorrectDensoTable(rom.Range().Start(), result.rom_data, spec))
     {
     case Outcome::kUnchanged:
         result.status = ChecksumResult::Status::kUnchanged;

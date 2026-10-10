@@ -4,10 +4,13 @@
 
 #include <array>
 
-ChecksumResult ChecksumEcuSubaruDensoSH705xDiesel::CalculateChecksumResult(bytes::ByteView rom_view,
-                                                                           uint32_t checksum_area_start,
-                                                                           uint32_t checksum_area_length)
+ChecksumResult ChecksumEcuSubaruDensoSH705xDiesel::CalculateChecksumResult(const fastecu::memory::MemoryView& rom,
+                                                                           fastecu::memory::FlashAddress table_address,
+                                                                           uint32_t table_length)
 {
+    const bytes::ByteView rom_view = rom.Data();
+    const fastecu::memory::FlashAddress base = rom.Range().Start();
+    const std::uint32_t checksum_area_start = table_address.Value();
     using fastecu::checksum::internal::DensoTableOutcome;
     using fastecu::checksum::internal::DensoTableSpec;
     using fastecu::checksum::internal::DensoWordOverride;
@@ -28,11 +31,12 @@ ChecksumResult ChecksumEcuSubaruDensoSH705xDiesel::CalculateChecksumResult(bytes
     }
 
     const DensoTableSpec primary{
-        .table_offset = checksum_area_start,
-        .table_length = checksum_area_length,
+        .table_address = table_address,
+        .table_length = table_length,
         .overrides = active_overrides,
     };
-    const DensoTableOutcome primary_outcome = fastecu::checksum::internal::CorrectDensoTable(result.rom_data, primary);
+    const DensoTableOutcome primary_outcome =
+        fastecu::checksum::internal::CorrectDensoTable(base, result.rom_data, primary);
     if (primary_outcome == DensoTableOutcome::kDisabled)
     {
         result.status = ChecksumResult::Status::kDisabled;
@@ -62,11 +66,11 @@ ChecksumResult ChecksumEcuSubaruDensoSH705xDiesel::CalculateChecksumResult(bytes
     if (checksum_area_start == 0x1FF800)
     {
         const DensoTableSpec secondary{
-            .table_offset = 0x1FF8E8,
+            .table_address = fastecu::memory::FlashAddress{0x1FF8E8},
             .table_length = 24,
             .detect_disabled = false,
         };
-        secondary_outcome = fastecu::checksum::internal::CorrectDensoTable(result.rom_data, secondary);
+        secondary_outcome = fastecu::checksum::internal::CorrectDensoTable(base, result.rom_data, secondary);
         if (secondary_outcome == DensoTableOutcome::kInvalidTableRange ||
             secondary_outcome == DensoTableOutcome::kInvalidBlockRange)
         {

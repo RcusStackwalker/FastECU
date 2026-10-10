@@ -1,10 +1,11 @@
 #pragma once
 
 #include "checksum_result.h"
-#include "src/algorithms/protocol/bytes.h"
+#include "src/algorithms/memory/memory_image.h"
 
 class ChecksumEcuSubaruHitachiSh72543r
 {
   public:
-    static ChecksumResult CalculateChecksumResult(bytes::ByteView rom_data);
+    // `rom` must start at ECU address 0: the layout's constants are ECU addresses.
+    static ChecksumResult CalculateChecksumResult(const fastecu::memory::MemoryView& rom);
 };

@@ -74,7 +74,7 @@ void ChecksumCorrectionCommand::showFamilyResultDialog(const ChecksumResult& fam
     }
 }
 
-ChecksumCorrectionResult ChecksumCorrectionCommand::run(bytes::ByteView romData, bool hasDefinition,
+ChecksumCorrectionResult ChecksumCorrectionCommand::run(const fastecu::memory::MemoryImage& image, bool hasDefinition,
                                                         const fastecu::checksum::ChecksumSelection& selection,
                                                         QWidget *parent)
 {
@@ -97,7 +97,7 @@ ChecksumCorrectionResult ChecksumCorrectionCommand::run(bytes::ByteView romData,
         }
     }
 
-    switch (const ChecksumCorrectionOutcome outcome = fastecu::checksum::ApplyChecksumCorrection(romData, selection);
+    switch (const ChecksumCorrectionOutcome outcome = fastecu::checksum::ApplyChecksumCorrection(image, selection);
             outcome.status)
     {
     case ChecksumCorrectionOutcome::Status::kUnknownMcuType:
@@ -116,9 +116,9 @@ ChecksumCorrectionResult ChecksumCorrectionCommand::run(bytes::ByteView romData,
     case ChecksumCorrectionOutcome::Status::kFamilyRan:
         if (outcome.family_result.has_value())
         {
-            if (outcome.family_result->Ok())
+            if (outcome.corrected_file.has_value())
             {
-                result.corrected_rom_data = outcome.family_result->rom_data;
+                result.corrected_rom_data = *outcome.corrected_file;
             }
             showFamilyResultDialog(*outcome.family_result);
         }

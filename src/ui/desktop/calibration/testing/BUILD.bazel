@@ -21,6 +21,7 @@ fastecu_gtest(
     qt = False,
     deps = [
         ":mock_calibration_interaction",
+        "//src/algorithms/memory/testing:memory_views",
         "@googletest//:gtest",
     ],
 )

@@ -60,6 +60,9 @@ class MemoryMap
     static std::expected<MemoryMap, MemoryError> Identity(ByteCount file_size);
 
     [[nodiscard]] std::span<const MemoryBlock> Blocks() const;
+    // From the first block's start to the last block's end, including any
+    // addresses between blocks.
+    [[nodiscard]] AddressRange<FlashSpace> Span() const;
     [[nodiscard]] ByteCount FileSize() const;
     [[nodiscard]] FlashAddress DefinitionBase() const;
 

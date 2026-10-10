@@ -34,7 +34,11 @@ cc_library(
         "checksum_tcu_subaru_hitachi_m32r_can.h",
         "denso_checksum_table.h",
     ],
-    deps = ["//src/algorithms/protocol"],
+    deps = [
+        "//src/algorithms/memory:address",
+        "//src/algorithms/memory:memory_image",
+        "//src/algorithms/protocol",
+    ],
 )
 
 fastecu_portable_gtest(
@@ -42,6 +46,8 @@ fastecu_portable_gtest(
     srcs = ["checksum_test.cpp"],
     deps = [
         ":checksum",
+        "//src/algorithms/memory:address",
+        "//src/algorithms/memory/testing:memory_views",
         "//src/algorithms/protocol/testing:byte_matchers",
         "@googletest//:gtest",
     ],
@@ -52,6 +58,7 @@ fastecu_portable_gtest(
     srcs = ["checksum_ecu_mitsu_m32r_can_test.cpp"],
     deps = [
         ":checksum",
+        "//src/algorithms/memory/testing:memory_views",
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/testing:byte_matchers",
         "@googletest//:gtest",
@@ -73,6 +80,7 @@ fastecu_portable_gtest(
     srcs = ["denso_checksum_table_test.cpp"],
     deps = [
         ":checksum",
+        "//src/algorithms/memory:address",
         "@googletest//:gtest",
     ],
 )

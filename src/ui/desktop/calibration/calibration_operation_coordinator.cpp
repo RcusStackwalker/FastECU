@@ -1,8 +1,14 @@
 #include "src/ui/desktop/calibration/calibration_operation_coordinator.h"
 
+#include <expected>
 #include <format>
+#include <optional>
 #include <utility>
 
+#include "src/algorithms/memory/address.h"
+#include "src/algorithms/memory/memory_error.h"
+#include "src/algorithms/memory/memory_image.h"
+#include "src/algorithms/memory/memory_map.h"
 #include "src/backend/checksum/checksum_selection.h"
 #include "src/backend/config/catalog.h"
 #include "src/backend/flash/flash_device_lookup.h"
@@ -43,6 +49,29 @@ std::string withCalibrationSuffix(std::string path)
     return path;
 }
 
+// The selected protocol's checksum route addresses the ROM through that
+// protocol's memory map for this file size, or the identity map when it
+// declares none of that size (the romsize check then decides, as before).
+std::expected<memory::MemoryImage, memory::MemoryError> checksumImage(const config::ProtocolSpec& protocol,
+                                                                      bytes::ByteView file)
+{
+    const std::optional<memory::ByteCount> size = memory::ByteCount::FromSize(file.size());
+    if (!size.has_value())
+    {
+        return std::unexpected(memory::MemoryError{.kind = memory::MemoryErrorKind::kFileSizeMismatch,
+                                                   .detail = "the ROM file is larger than 4 GiB"});
+    }
+    auto map = config::SelectMemoryMap(protocol, *size);
+    if (!map.has_value())
+    {
+        map = memory::MemoryMap::Identity(*size);
+    }
+    if (!map.has_value())
+    {
+        return std::unexpected(map.error());
+    }
+    return memory::MemoryImage::Create(std::move(*map), bytes::Bytes(file.begin(), file.end()));
+}
 } // namespace
 
 CalibrationOperationCoordinator::CalibrationOperationCoordinator(config::ConfigSession& config,
@@ -172,8 +201,14 @@ void CalibrationOperationCoordinator::correctOperationImage(const calibration::C
                        std::format("ecuCalDef->McuType: {} {}", session.Protocol().mcu_type, vehicle.protocol->mcu));
         callbacks_.log(LogLevel::kDebug, std::format("Size: 0x{:x} -> 0x{:x}", image.size(), device->romsize));
     }
+    const auto placed = checksumImage(*vehicle.protocol, image);
+    if (!placed.has_value())
+    {
+        callbacks_.log(LogLevel::kError, std::format("Checksum image error: {}", placed.error().detail));
+        return;
+    }
     const ChecksumCorrectionResult result =
-        interaction_.correctChecksums(image, session.Definition() != nullptr, selection);
+        interaction_.correctChecksums(*placed, session.Definition() != nullptr, selection);
     if (result.unknown_mcu_type)
     {
         callbacks_.log(LogLevel::kError, std::format("Unknown MCU type: {}", session.Protocol().mcu_type));

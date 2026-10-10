@@ -2,7 +2,10 @@
 
 #include <algorithm>
 #include <array>
+#include <cstddef>
 #include <cstdint>
+#include <expected>
+#include <format>
 #include <optional>
 #include <string_view>
 #include <utility>
@@ -17,6 +20,8 @@
 #include "src/algorithms/checksum/checksum_tcu_mitsu_mh8104_can.h"
 #include "src/algorithms/checksum/checksum_tcu_subaru_denso_sh7055.h"
 #include "src/algorithms/checksum/checksum_tcu_subaru_hitachi_m32r_can.h"
+#include "src/algorithms/memory/address.h"
+#include "src/algorithms/memory/memory_error.h"
 #include "src/backend/flash/flash_device_lookup.h"
 
 namespace fastecu::checksum
@@ -30,10 +35,10 @@ bool StartsWith(std::string_view value, std::string_view prefix)
     return value.substr(0, prefix.size()) == prefix;
 }
 
-ChecksumResult DensoSh7xxx(bytes::ByteView rom, std::uint32_t area_start, std::int32_t offset = 0)
+ChecksumResult DensoSh7xxx(const memory::MemoryView& rom, std::uint32_t table_address)
 {
-    ChecksumResult result =
-        ChecksumEcuSubaruDensoSH7xxx::CalculateChecksumResult(rom, area_start, kDensoTableLength, offset);
+    ChecksumResult result = ChecksumEcuSubaruDensoSH7xxx::CalculateChecksumResult(
+        rom, memory::FlashAddress{table_address}, kDensoTableLength);
     if (result.Changed())
     {
         // This wrapper supplies the family title only for the Corrected path.
@@ -44,9 +49,10 @@ ChecksumResult DensoSh7xxx(bytes::ByteView rom, std::uint32_t area_start, std::i
     return result;
 }
 
-ChecksumResult DensoSh705xDiesel(bytes::ByteView rom, std::uint32_t area_start)
+ChecksumResult DensoSh705xDiesel(const memory::MemoryView& rom, std::uint32_t table_address)
 {
-    return ChecksumEcuSubaruDensoSH705xDiesel::CalculateChecksumResult(rom, area_start, kDensoTableLength);
+    return ChecksumEcuSubaruDensoSH705xDiesel::CalculateChecksumResult(rom, memory::FlashAddress{table_address},
+                                                                       kDensoTableLength);
 }
 
 struct DispatchResult
@@ -74,8 +80,7 @@ struct RouteSpec
     std::string_view prefix;
     std::string_view make; // the selected vehicle's make (ConfigSession)
     Route route;
-    std::uint32_t table_offset = 0;
-    std::int32_t address_offset = 0;
+    std::uint32_t table_address = 0; // ECU address of the Denso checksum table
 };
 
 // First prefix match wins, and only for the make the route belongs to, so a
@@ -88,8 +93,8 @@ constexpr std::array kRoutes{
     RouteSpec{"sub_ecu_denso_sh7058s_diesel_densocan", "Subaru", Route::kDensoDiesel, 0x0FFB80},
     RouteSpec{"sub_ecu_denso_sh7058", "Subaru", Route::kDensoSh7xxx, 0x0FFB80},
     RouteSpec{"sub_ecu_denso_sh72531_can", "Subaru", Route::kDensoSh7xxx, 0x13F500},
-    RouteSpec{"sub_ecu_denso_1n83m_4m_can", "Subaru", Route::kDensoSh7xxx, 0x3E3E00, -0x8F9C000},
-    RouteSpec{"sub_ecu_denso_1n83m_1_5m_can", "Subaru", Route::kDensoSh7xxx, 0x183E00, -0x8F9C000},
+    RouteSpec{"sub_ecu_denso_1n83m_4m_can", "Subaru", Route::kDensoSh7xxx, 0x0937FE00},
+    RouteSpec{"sub_ecu_denso_1n83m_1_5m_can", "Subaru", Route::kDensoSh7xxx, 0x0911FE00},
     RouteSpec{"sub_ecu_denso_sh7059_can_diesel", "Subaru", Route::kDensoDiesel, 0x17FB80},
     RouteSpec{"sub_ecu_denso_sh7059_diesel_densocan", "Subaru", Route::kDensoDiesel, 0x17FB80},
     RouteSpec{"sub_ecu_denso_sh72543_can_diesel", "Subaru", Route::kDensoDiesel, 0x1FF800},
@@ -107,46 +112,46 @@ constexpr std::array kRoutes{
     RouteSpec{"mitsu_ecu_m32r_can", "Mitsubishi", Route::kMitsuColtM32rCan},
 };
 
-DispatchResult Execute(const RouteSpec& spec, std::string_view rom_id, bytes::ByteView rom)
+DispatchResult Execute(const RouteSpec& spec, std::string_view rom_id, const memory::MemoryView& view)
 {
     switch (spec.route)
     {
     case Route::kDensoSh7xxx:
-        return {true, DensoSh7xxx(rom, spec.table_offset, spec.address_offset)};
+        return {true, DensoSh7xxx(view, spec.table_address)};
     case Route::kDensoDiesel:
-        return {true, DensoSh705xDiesel(rom, spec.table_offset)};
+        return {true, DensoSh705xDiesel(view, spec.table_address)};
     case Route::kDensoTcuSh7055:
-        return {true, ChecksumTcuSubaruDensoSH7055::CalculateChecksumResult(rom)};
+        return {true, ChecksumTcuSubaruDensoSH7055::CalculateChecksumResult(view)};
     case Route::kM32rByRomId:
         if (StartsWith(rom_id, "3"))
         {
-            return {true, ChecksumEcuSubaruHitachiM32rKline::CalculateChecksumResult(rom)};
+            return {true, ChecksumEcuSubaruHitachiM32rKline::CalculateChecksumResult(view)};
         }
         if (StartsWith(rom_id, "4") || StartsWith(rom_id, "6"))
         {
-            return {true, ChecksumEcuSubaruHitachiM32rCan::CalculateChecksumResult(rom)};
+            return {true, ChecksumEcuSubaruHitachiM32rCan::CalculateChecksumResult(view)};
         }
         // The protocol has a module, but unknown ROM-ID prefixes deliberately
         // run no family and produce no missing-module warning.
         return {true, std::nullopt};
     case Route::kM32rCan:
-        return {true, ChecksumEcuSubaruHitachiM32rCan::CalculateChecksumResult(rom)};
+        return {true, ChecksumEcuSubaruHitachiM32rCan::CalculateChecksumResult(view)};
     case Route::kSh7058:
-        return {true, ChecksumEcuSubaruHitachiSH7058::CalculateChecksumResult(rom)};
+        return {true, ChecksumEcuSubaruHitachiSH7058::CalculateChecksumResult(view)};
     case Route::kSh72543r:
-        return {true, ChecksumEcuSubaruHitachiSh72543r::CalculateChecksumResult(rom)};
+        return {true, ChecksumEcuSubaruHitachiSh72543r::CalculateChecksumResult(view)};
     case Route::kHitachiM32rTcu:
-        return {true, ChecksumTcuSubaruHitachiM32rCan::CalculateChecksumResult(rom)};
+        return {true, ChecksumTcuSubaruHitachiM32rCan::CalculateChecksumResult(view)};
     case Route::kMitsuMh8104Tcu:
-        return {true, ChecksumTcuMitsuMH8104Can::CalculateChecksumResult(rom)};
+        return {true, ChecksumTcuMitsuMH8104Can::CalculateChecksumResult(view)};
     case Route::kMitsuColtM32rCan:
-        return {true, ChecksumEcuMitsuM32rCan::CalculateChecksumResult(rom)};
+        return {true, ChecksumEcuMitsuM32rCan::CalculateChecksumResult(view)};
     }
     std::unreachable();
 }
 
 DispatchResult DispatchFamily(std::string_view make, std::string_view flash_method, std::string_view rom_id,
-                              bytes::ByteView rom)
+                              const memory::MemoryView& rom)
 {
     for (const RouteSpec& spec : kRoutes)
     {
@@ -157,6 +162,36 @@ DispatchResult DispatchFamily(std::string_view make, std::string_view flash_meth
     }
     return {false, std::nullopt};
 }
+
+// Writes each run of bytes `after` changed relative to `before` into `image`
+// through its memory map. The first refused write is the error.
+std::expected<void, memory::MemoryError> WriteBack(memory::MemoryImage& image, const memory::MemoryView& before,
+                                                   bytes::ByteView after)
+{
+    const bytes::ByteView original = before.Data();
+    std::size_t index = 0;
+    while (index < original.size())
+    {
+        if (original[index] == after[index])
+        {
+            ++index;
+            continue;
+        }
+        const std::size_t run_start = index;
+        while (index < original.size() && original[index] != after[index])
+        {
+            ++index;
+        }
+        // The view's range holds every index, so the address is representable.
+        const memory::FlashAddress address =
+            *before.Range().Start().Advance(memory::ByteCount{static_cast<std::uint32_t>(run_start)});
+        if (auto written = image.Write(address, after.subspan(run_start, index - run_start)); !written.has_value())
+        {
+            return written;
+        }
+    }
+    return {};
+}
 } // namespace
 
 bool HasRoute(std::string_view make, std::string_view flash_method)
@@ -165,7 +200,7 @@ bool HasRoute(std::string_view make, std::string_view flash_method)
                                { return spec.make == make && StartsWith(flash_method, spec.prefix); });
 }
 
-ChecksumCorrectionOutcome ApplyChecksumCorrection(bytes::ByteView rom_data, const ChecksumSelection& selection)
+ChecksumCorrectionOutcome ApplyChecksumCorrection(const memory::MemoryImage& image, const ChecksumSelection& selection)
 {
     const FlashDevice *device = fastecu::flash::FindFlashDevice(selection.mcu_type);
     if (device == nullptr)
@@ -176,17 +211,41 @@ ChecksumCorrectionOutcome ApplyChecksumCorrection(bytes::ByteView rom_data, cons
     {
         return {.status = ChecksumCorrectionOutcome::Status::kNoModuleForProtocol};
     }
-    if (rom_data.size() != device->romsize)
+    if (image.File().size() != device->romsize)
+    {
+        return {.status = ChecksumCorrectionOutcome::Status::kBadRomSize};
+    }
+    // A map with addresses no block holds has no contiguous range for a family
+    // to run on.
+    const std::expected<memory::MemoryView, memory::MemoryError> view = image.Render(image.Map().Span());
+    if (!view.has_value())
     {
         return {.status = ChecksumCorrectionOutcome::Status::kBadRomSize};
     }
 
-    const DispatchResult dispatch = DispatchFamily(selection.make, selection.flash_method, selection.rom_id, rom_data);
+    DispatchResult dispatch = DispatchFamily(selection.make, selection.flash_method, selection.rom_id, *view);
     if (!dispatch.module_available)
     {
         return {.status = ChecksumCorrectionOutcome::Status::kNoModuleForProtocol};
     }
-    return {.status = ChecksumCorrectionOutcome::Status::kFamilyRan, .family_result = dispatch.result};
+    ChecksumCorrectionOutcome outcome{.status = ChecksumCorrectionOutcome::Status::kFamilyRan,
+                                      .family_result = std::move(dispatch.result)};
+    // Every family returns the bytes of exactly the range it was given.
+    if (!outcome.family_result.has_value() || !outcome.family_result->Ok() ||
+        outcome.family_result->rom_data.size() != view->Data().size())
+    {
+        return outcome;
+    }
+    memory::MemoryImage corrected = image;
+    if (auto written = WriteBack(corrected, *view, outcome.family_result->rom_data); !written.has_value())
+    {
+        outcome.family_result->status = ChecksumResult::Status::kUnsupportedRom;
+        outcome.family_result->message = std::format(
+            "Checksum correction would change ROM bytes the protocol cannot write: {}", written.error().detail);
+        return outcome;
+    }
+    outcome.corrected_file.emplace(corrected.File().begin(), corrected.File().end());
+    return outcome;
 }
 
 } // namespace fastecu::checksum
