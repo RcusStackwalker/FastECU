@@ -16,3 +16,28 @@ fastecu_portable_gtest(
         "@googletest//:gtest",
     ],
 )
+
+cc_library(
+    name = "memory_error",
+    hdrs = ["memory_error.h"],
+)
+
+cc_library(
+    name = "memory_map",
+    srcs = ["memory_map.cpp"],
+    hdrs = ["memory_map.h"],
+    deps = [
+        ":address",
+        ":memory_error",
+        "//src/algorithms/protocol",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "memory_map_test",
+    srcs = ["memory_map_test.cpp"],
+    deps = [
+        ":memory_map",
+        "@googletest//:gtest",
+    ],
+)
