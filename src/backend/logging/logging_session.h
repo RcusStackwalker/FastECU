@@ -28,6 +28,10 @@ class LoggingSession
     MakeLoggingSession(LoggingProtocolId protocol, std::vector<LoggingChannel> channels, LoggingPolicy policy);
 };
 
+// Validates individual channel fields. Aggregate wire shape and duplicate IDs
+// remain the responsibility of MakeLoggingSession.
+fastecu::Status ValidateLoggingChannel(LoggingProtocolId protocol, const LoggingChannel& channel);
+
 fastecu::Result<LoggingSession> MakeLoggingSession(LoggingProtocolId protocol, std::vector<LoggingChannel> channels,
                                                    LoggingPolicy policy);
 
