@@ -37,7 +37,7 @@ definition::RomDefinition SelectableDefinition(std::vector<definition::Selection
     definition::CalibrationMap map;
     map.name = "Mode";
     map.type = "Selectable";
-    map.address = kAddress;
+    map.address = memory::DefinitionAddress{kAddress};
     map.x_size = 1;
     map.y_size = 1;
     map.storage_type = definition::StorageType::kBloblist;

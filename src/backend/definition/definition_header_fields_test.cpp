@@ -80,7 +80,7 @@ TEST(DefinitionHeaderFields, MapsEveryEditableField)
     EXPECT_EQ(input->xml_id, "ID");
     EXPECT_EQ(input->internal_id, "internal");
     EXPECT_EQ(input->ecu_id, "ECU");
-    EXPECT_EQ(input->internal_id_address, 0x2f8000U);
+    EXPECT_EQ(input->internal_id_address, fastecu::memory::DefinitionAddress{0x2f8000});
     EXPECT_EQ(input->metadata.make, "make");
     EXPECT_EQ(input->metadata.market, "market");
     EXPECT_EQ(input->metadata.model, "model");
@@ -104,21 +104,22 @@ TEST(DefinitionHeaderFields, MissingFieldsAndBlankAddressRemainOptional)
     EXPECT_EQ(input->internal_id_address, std::nullopt);
 }
 
-TEST(DefinitionHeaderFields, AcceptsHexPrefixesPlusAndUint64Maximum)
+TEST(DefinitionHeaderFields, AcceptsHexPrefixesPlusAndUint32Maximum)
 {
-    for (const std::string address : {"10", "0X10", "+0x10", "ffffffffffffffff"})
+    for (const std::string address : {"10", "0X10", "+0x10", "ffffffff"})
     {
         SCOPED_TRACE(address);
         const auto input = BuildDefinitionHeaderInput(DefinitionHeaderDraft{.internal_id_address_text = address});
         ASSERT_THAT(input, IsOk());
         EXPECT_EQ(input->internal_id_address,
-                  address == "ffffffffffffffff" ? std::numeric_limits<std::uint64_t>::max() : 16U);
+                  fastecu::memory::DefinitionAddress{address == "ffffffff" ? std::numeric_limits<std::uint32_t>::max()
+                                                                           : 16U});
     }
 }
 
 TEST(DefinitionHeaderFields, RejectsInvalidTrailingJunkNegativeAndOverflowingAddresses)
 {
-    for (const std::string address : {"not-hex", "0x", "+", "+ 10", "-0", "10junk", "10000000000000000"})
+    for (const std::string address : {"not-hex", "0x", "+", "+ 10", "-0", "10junk", "100000000", "10000000000000000"})
     {
         SCOPED_TRACE(address);
         EXPECT_THAT(BuildDefinitionHeaderInput(DefinitionHeaderDraft{.internal_id_address_text = address}),
@@ -135,7 +136,7 @@ TEST(DefinitionHeaderFields, NormalizesScalarFieldsAndPreservesNotes)
                                                                         .notes = " notes "});
     ASSERT_THAT(input, IsOk());
     EXPECT_EQ(input->xml_id, "ID");
-    EXPECT_EQ(input->internal_id_address, 16U);
+    EXPECT_EQ(input->internal_id_address, fastecu::memory::DefinitionAddress{16});
     EXPECT_EQ(input->ecu_id, "ECU");
     EXPECT_EQ(input->notes, " notes ");
 }

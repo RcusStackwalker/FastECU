@@ -49,12 +49,12 @@ memory::MemoryMap Layout(std::uint32_t base = 0)
     return memory::MemoryMap::Create(blocks, memory::ByteCount{0x30}, memory::FlashAddress{base}).value();
 }
 
-definition::RomDefinition OneMap(std::uint64_t address, std::uint32_t cells)
+definition::RomDefinition OneMap(std::uint32_t address, std::uint32_t cells)
 {
     definition::RomDefinition definition;
     definition::CalibrationMap map;
     map.name = "Fuel";
-    map.address = address;
+    map.address = memory::DefinitionAddress{address};
     map.x_size = cells;
     map.y_size = 1;
     map.storage_type = definition::StorageType::kUint8;
@@ -101,7 +101,7 @@ TEST(CheckMapPlacement, RejectsAMapThatLeavesTheMemoryMap)
 TEST(CheckMapPlacement, ChecksEachAxisToo)
 {
     auto definition = OneMap(0x10, 2);
-    definition.maps[0].x_axis.address = 0x2F;
+    definition.maps[0].x_axis.address = memory::DefinitionAddress{0x2F};
     definition.maps[0].x_axis.size = 2;
     definition.maps[0].x_axis.storage_type = definition::StorageType::kUint8;
 
@@ -175,7 +175,7 @@ TEST(CheckMapPlacement, AnExtentPastTheAddressSpaceLiesOutsideTheMemoryMap)
     EXPECT_THAT(Check(wide, Layout()), IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("outside the ROM's memory map")));
 
     // ElementRunEnd saturates on overflow rather than wrapping.
-    auto overflowing = OneMap(std::numeric_limits<std::uint64_t>::max() - 1, 2);
+    auto overflowing = OneMap(std::numeric_limits<std::uint32_t>::max() - 1, 2);
     EXPECT_THAT(Check(overflowing, Layout()),
                 IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("outside the ROM's memory map")));
 }

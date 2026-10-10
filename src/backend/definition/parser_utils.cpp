@@ -117,13 +117,31 @@ Status ValidateHeaderStructure(pugi::xml_node rom, std::string_view source)
     return validate_fields(rom, kRootFields);
 }
 
-Result<std::optional<std::uint64_t>> ParseHeaderAddress(std::string_view text, std::string_view source,
+namespace
+{
+// A definition address fits the 32-bit ECU address space; a wider value is a
+// malformed definition, not a value to truncate.
+Result<memory::DefinitionAddress> DefinitionAddressFrom(std::uint64_t value, std::string_view text,
+                                                        std::string_view source, std::string context,
                                                         std::string_view definition_id)
+{
+    if (value > std::numeric_limits<std::uint32_t>::max())
+    {
+        return Invalid(source, std::move(context),
+                       std::format("invalid hexadecimal unsigned value '{}': does not fit 32 bits", text),
+                       definition_id);
+    }
+    return memory::DefinitionAddress{static_cast<std::uint32_t>(value)};
+}
+} // namespace
+
+Result<std::optional<memory::DefinitionAddress>> ParseHeaderAddress(std::string_view text, std::string_view source,
+                                                                    std::string_view definition_id)
 {
     text = TrimHeaderText(text);
     if (text.empty())
     {
-        return std::optional<std::uint64_t>{};
+        return std::optional<memory::DefinitionAddress>{};
     }
     if (text.starts_with('+'))
     {
@@ -135,7 +153,13 @@ Result<std::optional<std::uint64_t>> ParseHeaderAddress(std::string_view text, s
         return Invalid(source, "element <romid> child <internalidaddress>",
                        std::format("invalid hexadecimal unsigned value '{}'", text), definition_id);
     }
-    return parsed;
+    auto address =
+        DefinitionAddressFrom(*parsed, text, source, "element <romid> child <internalidaddress>", definition_id);
+    if (!address.has_value())
+    {
+        return std::unexpected(address.error());
+    }
+    return std::optional<memory::DefinitionAddress>{*address};
 }
 
 std::string TableElementText(pugi::xml_node element)
@@ -329,14 +353,26 @@ Result<std::optional<std::uint64_t>> OptionalHexAttribute(pugi::xml_node node, s
     return std::optional<std::uint64_t>{*parsed};
 }
 
-Result<std::optional<std::uint64_t>> OptionalAddress(pugi::xml_node node, std::string_view source,
-                                                     std::string_view definition_id)
+Result<std::optional<memory::DefinitionAddress>> OptionalAddress(pugi::xml_node node, std::string_view source,
+                                                                 std::string_view definition_id)
 {
-    if (node.attribute("address"))
+    const char *name = node.attribute("address") ? "address" : "storageaddress";
+    auto value = OptionalHexAttribute(node, name, source, definition_id);
+    if (!value.has_value())
     {
-        return OptionalHexAttribute(node, "address", source, definition_id);
+        return std::unexpected(value.error());
     }
-    return OptionalHexAttribute(node, "storageaddress", source, definition_id);
+    if (!value->has_value())
+    {
+        return std::optional<memory::DefinitionAddress>{};
+    }
+    auto address = DefinitionAddressFrom(**value, TrimCopy(node.attribute(name).value()), source,
+                                         std::format("element <{}> attribute '{}'", node.name(), name), definition_id);
+    if (!address.has_value())
+    {
+        return std::unexpected(address.error());
+    }
+    return std::optional<memory::DefinitionAddress>{*address};
 }
 
 Result<std::uint32_t> DimensionAttribute(pugi::xml_node node, std::string_view attribute_name,

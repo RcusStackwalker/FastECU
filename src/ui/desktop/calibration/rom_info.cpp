@@ -58,7 +58,7 @@ QStringList romInfoValues(const calibration::CalibrationSession& session, const 
         set(values, RomInfoRow::kXmlId, qs(definition.identity.xml_id));
         set(values, RomInfoRow::kInternalIdAddress,
             definition.identity.internal_id_address.has_value()
-                ? qs(std::format("{:x}", *definition.identity.internal_id_address)) // "0x" stripped
+                ? qs(std::format("{:x}", definition.identity.internal_id_address->Value())) // "0x" stripped
                 : QString{});
         set(values, RomInfoRow::kInternalIdString, qs(definition.identity.internal_id));
         set(values, RomInfoRow::kEcuId, qs(definition.identity.ecu_id));

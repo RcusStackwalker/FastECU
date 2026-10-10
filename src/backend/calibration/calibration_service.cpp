@@ -65,7 +65,7 @@ namespace
 ElementRun MapElementRun(const definition::CalibrationMap& map, const definition::Scaling *scaling, std::uint32_t count)
 {
     return ElementRun{
-        .address = map.address.value_or(0),
+        .address = map.address.has_value() ? map.address->Value() : 0,
         .count = count,
         .start_position = map.start_position,
         .interval = map.interval,
@@ -79,7 +79,7 @@ ElementRun MapElementRun(const definition::CalibrationMap& map, const definition
 ElementRun AxisElementRun(const definition::AxisDefinition& axis, std::uint32_t count)
 {
     return ElementRun{
-        .address = axis.address.value_or(0),
+        .address = axis.address.has_value() ? axis.address->Value() : 0,
         .count = count,
         .start_position = axis.start_position,
         .interval = axis.interval,
@@ -143,11 +143,12 @@ Result<DecodedMap> DecodeCalibrationMap(const definition::RomDefinition& rom_def
     if (storage == definition::StorageType::kBloblist)
     {
         const auto width = ElementByteSize(storage, scaling);
-        if (!ByteWindowFits(rom, *map.address, width))
+        const std::uint64_t blob_address = map.address->Value();
+        if (!ByteWindowFits(rom, blob_address, width))
         {
             return Fail(ErrorKind::kInvalidConfig, std::format("map '{}' blob exceeds ROM size", map.name));
         }
-        const auto data = rom.subspan(static_cast<std::size_t>(*map.address), width);
+        const auto data = rom.subspan(static_cast<std::size_t>(blob_address), width);
         result.body = BlobValue{bytes::Bytes(data.begin(), data.end())};
         return result;
     }

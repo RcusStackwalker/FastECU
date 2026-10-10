@@ -170,8 +170,9 @@ Status CalibrationSession::CheckWrite(std::uint64_t offset, std::size_t size) co
     {
         return {};
     }
-    // Inside the view, so the address and the count both fit in 32 bits.
-    const memory::FlashAddress start{static_cast<std::uint32_t>(image_->Map().DefinitionBase().Value() + offset)};
+    // Inside the view, so the offset fits in 32 bits and the address exists.
+    const memory::FlashAddress start =
+        *image_->Map().ToFlashAddress(memory::DefinitionAddress{static_cast<std::uint32_t>(offset)});
     if (const auto checked = image_->CheckWrite(start, memory::ByteCount{static_cast<std::uint32_t>(size)});
         !checked.has_value())
     {
@@ -189,7 +190,9 @@ Status CalibrationSession::WriteBytes(std::uint64_t offset, bytes::ByteView data
     }
     if (!data.empty())
     {
-        const memory::FlashAddress start{static_cast<std::uint32_t>(image_->Map().DefinitionBase().Value() + offset)};
+        // CheckWrite passed, so the offset fits in 32 bits and the address exists.
+        const memory::FlashAddress start =
+            *image_->Map().ToFlashAddress(memory::DefinitionAddress{static_cast<std::uint32_t>(offset)});
         if (const auto written = image_->Write(start, data); !written.has_value())
         {
             return Fail(ErrorKind::kInvalidConfig, written.error().detail);

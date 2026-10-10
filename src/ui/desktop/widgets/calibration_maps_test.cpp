@@ -63,7 +63,7 @@ struct MapFixture
             {.format = DefinitionFormat::kEcuFlash,
              .definition_id = "MAPS",
              .internal_id = "MAPS",
-             .internal_id_address = 0,
+             .internal_id_address = fastecu::memory::DefinitionAddress{0},
              .internal_id_encoding = fastecu::definition::IdEncoding::kAscii,
              .source = "/defs/maps.xml"}};
         std::vector<std::uint8_t> bytes(128);
@@ -454,7 +454,7 @@ TEST(CalibrationMaps, StructuralRefreshFailureClearsStaleValuesAndRecovers)
     auto *session = fixture.workspace.Find(*id);
     const auto validDefinition = *session->Definition();
     auto broken = validDefinition;
-    broken.definition.maps[0].address = 1000;
+    broken.definition.maps[0].address = fastecu::memory::DefinitionAddress{1000};
     replaceDefinition(*session, std::move(broken));
     map.refresh();
     EXPECT_FALSE(table->isEnabled());
@@ -482,7 +482,7 @@ TEST(CalibrationMaps, EditTargetResolvesThroughMdiWindowAfterOpeningFailureRecov
     auto *session = fixture.workspace.Find(*id);
     const auto validDefinition = *session->Definition();
     auto broken = validDefinition;
-    broken.definition.maps[0].address = 1000;
+    broken.definition.maps[0].address = fastecu::memory::DefinitionAddress{1000};
     replaceDefinition(*session, std::move(broken));
     auto *map = new CalibrationMaps(fixture.workspace, *id, 0, QRect(0, 0, 800, 600));
     QMdiSubWindow window;
@@ -526,7 +526,7 @@ TEST(CalibrationMaps, StructuralFailureAtOpeningShowsError)
     ASSERT_THAT(id, fastecu::testing::IsOk());
     auto *session = fixture.workspace.Find(*id);
     auto broken = *session->Definition();
-    broken.definition.maps[0].address = 1000;
+    broken.definition.maps[0].address = fastecu::memory::DefinitionAddress{1000};
     replaceDefinition(*session, std::move(broken));
     CalibrationMaps map(fixture.workspace, *id, 0, QRect(0, 0, 800, 600));
     EXPECT_FALSE(tableOf(map)->isEnabled());

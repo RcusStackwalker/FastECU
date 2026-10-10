@@ -36,14 +36,14 @@ std::vector<std::uint8_t> EcuflashXml(std::string_view id)
     return Bytes("<rom><romid><xmlid>" + std::string(id) + "</xmlid></romid></rom>");
 }
 
-DefinitionIndexEntry IndexEntry(std::string id, std::string internal_id, std::optional<std::uint64_t> address,
+DefinitionIndexEntry IndexEntry(std::string id, std::string internal_id, std::optional<std::uint32_t> address,
                                 IdEncoding encoding = IdEncoding::kAscii)
 {
     return DefinitionIndexEntry{
         .format = DefinitionFormat::kRomRaider,
         .definition_id = std::move(id),
         .internal_id = std::move(internal_id),
-        .internal_id_address = address,
+        .internal_id_address = address.has_value() ? std::optional(memory::DefinitionAddress{*address}) : std::nullopt,
         .internal_id_encoding = encoding,
         .source = "definitions.xml",
     };
@@ -72,7 +72,7 @@ DefinitionHeaderInput ValidHeaderInput()
         .xml_id = "NEW",
         .internal_id = "INTERNAL",
         .ecu_id = "ECU",
-        .internal_id_address = 0x20,
+        .internal_id_address = memory::DefinitionAddress{0x20},
         .metadata =
             RomMetadata{
                 .make = "Subaru",

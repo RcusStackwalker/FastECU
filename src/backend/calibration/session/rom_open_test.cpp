@@ -239,7 +239,7 @@ definition::DefinitionIndexEntry TestEntry(DefinitionFormat format, std::string 
         .format = format,
         .definition_id = "TESTROM",
         .internal_id = "TESTROM",
-        .internal_id_address = 0x10,
+        .internal_id_address = memory::DefinitionAddress{0x10},
         .internal_id_encoding = definition::IdEncoding::kAscii,
         .source = std::move(source),
     };

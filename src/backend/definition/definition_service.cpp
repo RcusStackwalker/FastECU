@@ -232,7 +232,7 @@ Result<DefinitionIndexEntry> DefinitionService::MatchRom(const DefinitionCatalog
             continue;
         }
 
-        const std::uint64_t address = *entry.internal_id_address;
+        const std::uint64_t address = entry.internal_id_address->Value();
         if (address > rom.size())
         {
             continue;

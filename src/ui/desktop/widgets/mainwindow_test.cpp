@@ -2217,7 +2217,7 @@ void MainWindowTest::checkFailedMapDecodeKeepsAnErrorView()
     map.name = "Broken";
     map.category = "Controls";
     map.type = "1D";
-    map.address = 1000; // Beyond the opened 16-byte image.
+    map.address = fastecu::memory::DefinitionAddress{1000}; // Beyond the opened 16-byte image.
     map.x_size = 1;
     map.y_size = 1;
     map.storage_type = fastecu::definition::StorageType::kUint8;
@@ -4498,7 +4498,7 @@ void MainWindowTest::checkTypedAssignment(AssignmentScenario scenario)
     model.name = "Value";
     model.category = "Controls";
     model.type = "1D";
-    model.address = 0;
+    model.address = fastecu::memory::DefinitionAddress{0};
     model.storage_type = fastecu::definition::StorageType::kInt16;
     model.endian = "big";
     model.scaling_name = "Raw";

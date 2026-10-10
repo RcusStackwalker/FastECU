@@ -176,14 +176,14 @@ namespace
 {
 // A RomDefinition with one 3x1 uint8 map named "Fuel" at `address`, scaled by
 // `expression`.
-definition::RomDefinition OneMapDefinition(std::uint64_t address, std::string_view expression = "x")
+definition::RomDefinition OneMapDefinition(std::uint32_t address, std::string_view expression = "x")
 {
     definition::RomDefinition rom;
     rom.scalings.push_back(definition::Scaling{.name = "FuelScaling", .from_byte = std::string(expression)});
     definition::CalibrationMap map;
     map.name = "Fuel";
     map.type = "2D";
-    map.address = address;
+    map.address = memory::DefinitionAddress{address};
     map.x_size = 3;
     map.y_size = 1;
     map.storage_type = definition::StorageType::kUint8;
@@ -263,7 +263,7 @@ TEST(DecodeCalibrationMap, RejectsStructuralFailures)
     auto& map = definition.maps[0];
     map.address.reset();
     EXPECT_THAT(DecodeCalibrationMap(definition, map, rom), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
-    map.address = 0;
+    map.address = memory::DefinitionAddress{0};
     map.x_size = 0;
     EXPECT_THAT(DecodeCalibrationMap(definition, map, rom), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     map.x_size = std::numeric_limits<std::uint32_t>::max();
@@ -271,7 +271,7 @@ TEST(DecodeCalibrationMap, RejectsStructuralFailures)
     EXPECT_THAT(DecodeCalibrationMap(definition, map, rom), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     map.x_size = 3;
     map.y_size = 1;
-    map.address = 1;
+    map.address = memory::DefinitionAddress{1};
     EXPECT_THAT(DecodeCalibrationMap(definition, map, rom), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
@@ -372,10 +372,14 @@ TEST(DecodeCalibrationMap, DecodesNumericAxesWithResolvedExpressions)
     auto& map = definition.maps[0];
     map.x_size = 2;
     map.y_size = 2;
-    map.x_axis =
-        AxisDefinition{.type = "X Axis", .storage_type = StorageType::kUint8, .address = 4, .from_byte = "x*2"};
-    map.y_axis =
-        AxisDefinition{.type = "Y Axis", .storage_type = StorageType::kUint8, .address = 6, .from_byte = "x/2"};
+    map.x_axis = AxisDefinition{.type = "X Axis",
+                                .storage_type = StorageType::kUint8,
+                                .address = memory::DefinitionAddress{4},
+                                .from_byte = "x*2"};
+    map.y_axis = AxisDefinition{.type = "Y Axis",
+                                .storage_type = StorageType::kUint8,
+                                .address = memory::DefinitionAddress{6},
+                                .from_byte = "x/2"};
     const bytes::Bytes rom{1, 2, 3, 4, 5, 6, 8, 10};
     const auto decoded = DecodeCalibrationMap(definition, map, rom);
     ASSERT_THAT(decoded, fastecu::testing::IsOk());

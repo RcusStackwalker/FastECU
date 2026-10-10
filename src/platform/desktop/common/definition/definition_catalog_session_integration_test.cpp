@@ -28,7 +28,7 @@ fastecu::definition::DefinitionHeaderInput Header(std::string id = "NEW_XML")
     return {.xml_id = std::move(id),
             .internal_id = "A1B2C3",
             .ecu_id = "ECU-42",
-            .internal_id_address = 0x1A0,
+            .internal_id_address = fastecu::memory::DefinitionAddress{0x1A0},
             .metadata = {.make = "Subaru",
                          .model = "Legacy",
                          .flash_method = "proto_a",
@@ -71,7 +71,8 @@ TEST_F(DefinitionCatalogSessionIntegration, CreatedFileOutsideDirectoryRoundTrip
     ASSERT_THAT(bytes, IsOk());
     auto parsed = fastecu::definition::ParseEcuflashDefinition(*bytes, Path("outside.xml"));
     ASSERT_THAT(parsed, IsOk());
-    EXPECT_EQ(parsed->identity, (fastecu::definition::RomIdentity{"NEW_XML", "A1B2C3", "ECU-42", 0x1A0}));
+    EXPECT_EQ(parsed->identity, (fastecu::definition::RomIdentity{"NEW_XML", "A1B2C3", "ECU-42",
+                                                                  fastecu::memory::DefinitionAddress{0x1A0}}));
     EXPECT_EQ(parsed->metadata.make, "Subaru");
     EXPECT_EQ(parsed->metadata.model, "Legacy");
     EXPECT_EQ(parsed->metadata.flash_method, "proto_a");
@@ -169,7 +170,7 @@ TEST_F(DefinitionCatalogSessionIntegration, RemovedDiscoveredFileIsNotRetriedByR
 TEST_F(DefinitionCatalogSessionIntegration, RomOpenFindsAnAuthoredDefinitionOutsideConfiguredDirectory)
 {
     auto input = Header();
-    input.internal_id_address = 0x10;
+    input.internal_id_address = fastecu::memory::DefinitionAddress{0x10};
     ASSERT_THAT(session_.SubmitNewDefinition(Path("outside.xml"), input, true), IsOk());
     config_.session.Settings().primary_definition_base = "ecuflash";
     config_.session.Settings().use_ecuflash_definitions = "enabled";

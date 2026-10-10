@@ -29,7 +29,7 @@ definition::RomDefinition FuelDefinition()
     definition::CalibrationMap map;
     map.name = "Fuel";
     map.type = "2D";
-    map.address = 2;
+    map.address = memory::DefinitionAddress{2};
     map.x_size = 3;
     map.storage_type = definition::StorageType::kUint8;
     map.endian = "big";

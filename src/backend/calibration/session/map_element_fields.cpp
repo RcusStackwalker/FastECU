@@ -52,7 +52,7 @@ MapElementFields CollectMapElementFields(const CalibrationSession& session, std:
     if (target == NumericTarget::kMapBody)
     {
         scaling = definition::FindScaling(def, map.scaling_name);
-        fields.address_ = map.address.value_or(0);
+        fields.address_ = map.address.has_value() ? map.address->Value() : 0;
         fields.storage_type_ = map.storage_type ? map.storage_type : scaling ? scaling->storage_type : std::nullopt;
         fields.endian_ = !map.endian.empty() ? map.endian : scaling ? scaling->endian : "";
         fields.from_byte_ = scaling ? scaling->from_byte : "x";
@@ -65,7 +65,7 @@ MapElementFields CollectMapElementFields(const CalibrationSession& session, std:
         const auto& axis = target == NumericTarget::kXAxis ? map.x_axis : map.y_axis;
         const bool present = !axis.type.empty();
         scaling = present ? definition::FindScaling(def, axis.scaling_name) : nullptr;
-        fields.address_ = present ? axis.address.value_or(0) : 0;
+        fields.address_ = present && axis.address.has_value() ? axis.address->Value() : 0;
         fields.storage_type_ = present ? axis.storage_type : std::nullopt;
         fields.endian_ = present ? axis.endian : "";
         fields.from_byte_ = present ? axis.from_byte : "";

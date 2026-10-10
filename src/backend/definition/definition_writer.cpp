@@ -67,11 +67,11 @@ void SetUniqueText(pugi::xml_node parent, const char *name, std::string_view val
     }
 }
 
-void SetOptionalHex(pugi::xml_node parent, const char *name, std::optional<std::uint64_t> value)
+void SetOptionalHex(pugi::xml_node parent, const char *name, std::optional<memory::DefinitionAddress> value)
 {
-    if (value)
+    if (value.has_value())
     {
-        SetUniqueText(parent, name, HexText(*value));
+        SetUniqueText(parent, name, HexText(value->Value()));
         return;
     }
     // No known address: remove rather than write a placeholder, so an unset optional never

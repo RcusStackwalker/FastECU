@@ -41,7 +41,7 @@ TEST(EcuFlashParserTest, IndexesIdentityAndIncludeWithoutResolvingIt)
     ASSERT_EQ(result->size(), 1U);
     EXPECT_EQ(result->front().format, DefinitionFormat::kEcuFlash);
     EXPECT_EQ(result->front().definition_id, "CHILD");
-    EXPECT_EQ(result->front().internal_id_address, 0x1A0U);
+    EXPECT_EQ(result->front().internal_id_address, memory::DefinitionAddress{0x1A0});
     EXPECT_EQ(result->front().internal_id, "CHILD-ID");
     EXPECT_EQ(result->front().internal_id_encoding, IdEncoding::kAsciiOrHex);
     EXPECT_EQ(result->front().ecu_id, "ECU-1");
@@ -87,7 +87,7 @@ TEST(EcuFlashParserTest, ParsesMetadataGlobalScalingsAndNestedAxes)
     EXPECT_EQ(result->source, "test.xml");
     EXPECT_EQ(result->parents, std::vector<std::string>{"BASE"});
     EXPECT_EQ(result->identity.xml_id, "TEST");
-    EXPECT_EQ(result->identity.internal_id_address, 0x100U);
+    EXPECT_EQ(result->identity.internal_id_address, memory::DefinitionAddress{0x100});
     EXPECT_EQ(result->identity.internal_id, "TEST-ID");
     EXPECT_EQ(result->identity.ecu_id, "ECU-A");
     EXPECT_EQ(result->metadata.make, "Subaru");
@@ -106,7 +106,7 @@ TEST(EcuFlashParserTest, ParsesMetadataGlobalScalingsAndNestedAxes)
     const auto& map = result->maps.front();
     EXPECT_EQ(map.id, "fuel-primary");
     EXPECT_EQ(map.name, "Fuel");
-    EXPECT_EQ(map.address, 0x200U);
+    EXPECT_EQ(map.address, memory::DefinitionAddress{0x200});
     EXPECT_EQ(map.type, "3D");
     EXPECT_EQ(map.category, "Fuel");
     EXPECT_EQ(map.subcategory, "Primary");
@@ -124,7 +124,7 @@ TEST(EcuFlashParserTest, ParsesMetadataGlobalScalingsAndNestedAxes)
     EXPECT_EQ(map.log_parameter, "fuel");
     EXPECT_EQ(map.x_axis.type, "X Axis");
     EXPECT_EQ(map.x_axis.name, "Engine Speed");
-    EXPECT_EQ(map.x_axis.address, 0x300U);
+    EXPECT_EQ(map.x_axis.address, memory::DefinitionAddress{0x300});
     EXPECT_EQ(map.x_axis.size, 4U);
     EXPECT_EQ(map.x_axis.units, "rpm");
     EXPECT_EQ(map.x_axis.scaling_name, "rpm-scale");
@@ -133,7 +133,7 @@ TEST(EcuFlashParserTest, ParsesMetadataGlobalScalingsAndNestedAxes)
     EXPECT_EQ(map.x_axis.log_parameter, "rpm");
     EXPECT_EQ(map.y_axis.type, "Y Axis");
     EXPECT_EQ(map.y_axis.name, "Load");
-    EXPECT_EQ(map.y_axis.address, 0x400U);
+    EXPECT_EQ(map.y_axis.address, memory::DefinitionAddress{0x400});
     EXPECT_EQ(map.y_axis.size, 2U);
     EXPECT_EQ(map.y_axis.units, "g/rev");
     EXPECT_EQ(map.y_axis.scaling_name, "load-scale");
@@ -204,7 +204,7 @@ TEST(EcuFlashParserTest, AddressWinsAndStrictFlagsParse)
              swapxy="true" flipx="false" flipy="true"/></rom>)xml"),
                                           "test.xml");
     ASSERT_THAT(result, fastecu::testing::IsOk());
-    EXPECT_EQ(result->maps.at(0).address, 0x1000);
+    EXPECT_EQ(result->maps.at(0).address, memory::DefinitionAddress{0x1000});
     EXPECT_EQ(result->maps.at(0).swap_xy, true);
     EXPECT_EQ(result->maps.at(0).flip_x, false);
     EXPECT_EQ(result->maps.at(0).flip_y, true);
@@ -399,6 +399,35 @@ TEST(EcuFlashParserTest, HeaderWhitespacePreservationDoesNotHideTableDescription
     EXPECT_THAT(result->maps[0].x_axis.static_data, ::testing::Optional(::testing::ElementsAre("1000")));
     EXPECT_THAT(result->maps[1].x_axis.static_data, ::testing::Optional(::testing::ElementsAre("2000")));
     EXPECT_EQ(result->metadata.notes, "  ");
+}
+
+TEST(EcuFlashParserTest, ATableAddressWiderThan32BitsIsAParseError)
+{
+    const auto parsed = ParseEcuflashDefinition(Bytes(R"xml(<rom><romid><xmlid>ID</xmlid></romid>
+        <table name="Wide" address="100000000" type="1D" storagetype="uint8"/></rom>)xml"),
+                                                "wide.xml");
+
+    ExpectInvalidWithContext(parsed, "wide.xml", "does not fit 32 bits");
+}
+
+TEST(EcuFlashParserTest, AnInternalIdAddressWiderThan32BitsIsAParseError)
+{
+    const auto parsed = ParseEcuflashIndex(Bytes(R"xml(<rom><romid><xmlid>ID</xmlid>
+        <internalidaddress>100000000</internalidaddress></romid></rom>)xml"),
+                                           "wide.xml");
+
+    ASSERT_THAT(parsed, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
+    EXPECT_THAT(parsed.error().detail, ::testing::HasSubstr("does not fit 32 bits"));
+}
+
+TEST(EcuFlashParserTest, TheLargest32BitAddressParses)
+{
+    const auto parsed = ParseEcuflashDefinition(Bytes(R"xml(<rom><romid><xmlid>ID</xmlid></romid>
+        <table name="Top" address="FFFFFFFF" type="1D" storagetype="uint8"/></rom>)xml"),
+                                                "top.xml");
+
+    ASSERT_THAT(parsed, fastecu::testing::IsOk());
+    EXPECT_EQ(parsed->maps.at(0).address, memory::DefinitionAddress{0xFFFFFFFF});
 }
 
 } // namespace
