@@ -44,11 +44,10 @@ bytes::Bytes BuildIdListFrame(bytes::Byte list_cmd, const std::vector<Channel>& 
     }
     std::size_t id_off = 2 + desc_bytes;
     for (const Channel& channel : channels)
-    { // big-endian u16 ids
+    { // u16 request codes in the selected dialect byte order
         if (dialect == FreeformDialect::kOem33520003)
         {
-            f[id_off] = static_cast<bytes::Byte>(channel.id & 0xffU);
-            f[id_off + 1] = static_cast<bytes::Byte>(channel.id >> 8U);
+            bytes::WriteU16Le(f, id_off, channel.id);
         }
         else
         {
@@ -83,12 +82,7 @@ std::vector<std::uint32_t> DecodeStreamValues(const std::vector<Channel>& channe
     {
         if (dialect == FreeformDialect::kOem33520003)
         {
-            std::uint32_t value = 0;
-            for (std::size_t i = 0; i < c.len && off + i < data.size(); ++i)
-            {
-                value |= static_cast<std::uint32_t>(data[off + i]) << (i * 8U);
-            }
-            out.push_back(value);
+            out.push_back(bytes::ReadULe(data, off, c.len));
         }
         else
         {

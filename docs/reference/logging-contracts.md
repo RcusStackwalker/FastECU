@@ -158,30 +158,6 @@ adapter and ECU/TCU behavior, including repeated requests during continuous
 replies, requires the
 [composition checklist](../checklists/logging-composition-bench-checklist.md).
 
-## SSM response integrity
-
-The [SSM logging protocol](../../src/backend/logging/protocols/portable_ssm_logging_protocol.cpp)
-extracts one direct-transport frame using its declared body length and retains
-coalesced following bytes for the next poll. Starting or stopping clears those
-bytes, so reconnect probes cannot accept a previous polling reply. It completes
-fragmented frames and resynchronizes to the captured target sender (`0x10` ECU, `0x18` TCU) within the
-poll deadline. Available complete frames are extracted even when a read finishes
-at the deadline; additional direct reads are capped to the remaining time.
-OpenPort keeps its single adapter read per response.
-
-Startup requires a checksum-valid `0xE8` response with exactly one probe data
-byte (seven bytes including framing). Polling checks the header, captured sender,
-declared total length and checksum before delivering samples. Invalid or missing
-poll replies deliver no samples and retain the existing retry behavior. Mapping uses the captured physical response positions and decimal-byte assembly;
-the read plan expands logical widths into the requested byte addresses.
-
-Backend scripted TCU responses verify target-aware parsing. Direct desktop TCU
-operation remains limited: the direct serial facade recognizes ECU-specific
-SSM prefixes and can discard TCU replies before bytes reach the logger. Actual
-adapter and ECU/TCU behavior, including repeated requests during continuous
-replies, requires the
-[composition checklist](../checklists/logging-composition-bench-checklist.md).
-
 ## Selection persistence and CSV
 
 Selection XML writes with explicit four-space indentation. pugixml's default
