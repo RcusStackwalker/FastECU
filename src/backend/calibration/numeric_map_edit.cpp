@@ -116,8 +116,8 @@ void MergeReason(NoChangeReason& previous, NoChangeReason next)
     }
 }
 
-Status AppendWrite(NumericEditResult& result, bytes::ByteView rom, const MapElementSpec& spec, const Limits& limits,
-                   std::uint32_t index, double requested, const NumericCell *old_value)
+Status AppendWrite(NumericEditResult& result, const DefinitionBytes& rom, const MapElementSpec& spec,
+                   const Limits& limits, std::uint32_t index, double requested, const NumericCell *old_value)
 {
     if (!std::isfinite(requested))
     {
@@ -138,11 +138,12 @@ Status AppendWrite(NumericEditResult& result, bytes::ByteView rom, const MapElem
         return std::unexpected(encoded.error());
     }
     const auto address = ElementByteAddress(spec, index);
-    if (!internal::ByteWindowFits(rom, address, encoded->size()))
+    const std::optional<bytes::ByteView> current = rom.At(address, encoded->size());
+    if (!current.has_value())
     {
         return Fail(ErrorKind::kInvalidConfig, "edit byte range exceeds ROM size");
     }
-    if (std::ranges::equal(rom.subspan(static_cast<std::size_t>(address), encoded->size()), *encoded))
+    if (std::ranges::equal(*current, *encoded))
     {
         const auto reason = clamped != requested ? NoChangeReason::kDefinitionLimit
                             : old_value != nullptr && old_value->has_value() && **old_value != clamped
@@ -158,7 +159,7 @@ Status AppendWrite(NumericEditResult& result, bytes::ByteView rom, const MapElem
 }
 
 template <class Candidate>
-Result<NumericEditResult> BuildPatch(bytes::ByteView rom, const MapElementSpec& spec, std::uint32_t width,
+Result<NumericEditResult> BuildPatch(const DefinitionBytes& rom, const MapElementSpec& spec, std::uint32_t width,
                                      std::span<const NumericCell> cells, const SelectionRange& range,
                                      Candidate candidate)
 {
@@ -301,9 +302,9 @@ Result<double> Interpolated(std::span<const NumericCell> cells, std::uint32_t wi
 
 } // namespace
 
-Result<NumericEditResult> CalculateIncrement(bytes::ByteView rom, const MapElementSpec& spec, std::uint32_t width,
-                                             std::span<const NumericCell> cells, const SelectionRange& range,
-                                             IncrementStep step)
+Result<NumericEditResult> CalculateIncrement(const DefinitionBytes& rom, const MapElementSpec& spec,
+                                             std::uint32_t width, std::span<const NumericCell> cells,
+                                             const SelectionRange& range, IncrementStep step)
 {
     const bool fine = step == IncrementStep::kFineUp || step == IncrementStep::kFineDown;
     const bool down = step == IncrementStep::kFineDown || step == IncrementStep::kCoarseDown;
@@ -324,9 +325,9 @@ Result<NumericEditResult> CalculateIncrement(bytes::ByteView rom, const MapEleme
                       });
 }
 
-Result<NumericEditResult> CalculateAssignment(bytes::ByteView rom, const MapElementSpec& spec, std::uint32_t width,
-                                              std::span<const NumericCell> cells, const SelectionRange& range,
-                                              std::string_view formula)
+Result<NumericEditResult> CalculateAssignment(const DefinitionBytes& rom, const MapElementSpec& spec,
+                                              std::uint32_t width, std::span<const NumericCell> cells,
+                                              const SelectionRange& range, std::string_view formula)
 {
     const auto needs_input = UsesCurrentValue(formula);
     if (!needs_input.has_value())
@@ -350,15 +351,15 @@ Result<NumericEditResult> CalculateAssignment(bytes::ByteView rom, const MapElem
                       });
 }
 
-Result<NumericEditResult> CalculateInterpolation(bytes::ByteView rom, const MapElementSpec& spec, std::uint32_t width,
-                                                 std::span<const NumericCell> cells, const SelectionRange& range,
-                                                 InterpolationMode mode)
+Result<NumericEditResult> CalculateInterpolation(const DefinitionBytes& rom, const MapElementSpec& spec,
+                                                 std::uint32_t width, std::span<const NumericCell> cells,
+                                                 const SelectionRange& range, InterpolationMode mode)
 {
     return BuildPatch(rom, spec, width, cells, range, [&](std::uint32_t, std::uint64_t row, std::uint64_t col)
                       { return Interpolated(cells, width, range, mode, row, col); });
 }
 
-Result<NumericEditResult> CalculatePaste(bytes::ByteView rom, const MapElementSpec& spec, std::uint32_t width,
+Result<NumericEditResult> CalculatePaste(const DefinitionBytes& rom, const MapElementSpec& spec, std::uint32_t width,
                                          std::uint32_t height, const SelectionRange& range,
                                          std::span<const std::vector<double>> values)
 {

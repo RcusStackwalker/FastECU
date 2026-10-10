@@ -1,5 +1,6 @@
 #include "src/backend/ports/testing/result_matchers.h"
 #include "src/backend/calibration/calibration_service.h"
+#include "src/backend/calibration/definition_bytes.h"
 
 #include <format>
 #include <limits>
@@ -206,6 +207,28 @@ TEST(DecodeCalibrationMap, HasExactExtentAndExplicitAbsentAxes)
                                        fastecu::testing::IsOkAnd(3), fastecu::testing::IsOkAnd(4)));
     EXPECT_TRUE(std::holds_alternative<std::monostate>(decoded->x_axis));
     EXPECT_TRUE(std::holds_alternative<std::monostate>(decoded->y_axis));
+}
+
+TEST(DecodeCalibrationMap, ReadsAWindowThatStartsAtItsDefinitionAddress)
+{
+    const auto definition = OneMapDefinition(0x1002);
+    const bytes::Bytes window{9, 9, 5, 6, 7};
+
+    const auto decoded = DecodeCalibrationMap(definition, definition.maps[0], DefinitionBytes(window, 0x1000));
+
+    ASSERT_THAT(decoded, fastecu::testing::IsOk());
+    EXPECT_THAT(std::get<NumericRun>(decoded->body).cells,
+                ::testing::ElementsAre(fastecu::testing::IsOkAnd(5), fastecu::testing::IsOkAnd(6),
+                                       fastecu::testing::IsOkAnd(7)));
+}
+
+TEST(DecodeCalibrationMap, RejectsAMapThatStartsBeforeItsWindow)
+{
+    const auto definition = OneMapDefinition(0x0FFF);
+    const bytes::Bytes window{1, 2, 3, 4};
+
+    EXPECT_THAT(DecodeCalibrationMap(definition, definition.maps[0], DefinitionBytes(window, 0x1000)),
+                fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
 TEST(DecodeCalibrationMap, UsesIdentityWithoutScaling)
