@@ -31,7 +31,8 @@ bool QtCalibrationInteraction::confirmWriteWithoutChecksum()
     return msgBox.exec() != QMessageBox::Cancel;
 }
 
-ChecksumCorrectionResult QtCalibrationInteraction::correctChecksums(bytes::ByteView image, bool hasDefinition,
+ChecksumCorrectionResult QtCalibrationInteraction::correctChecksums(const memory::MemoryImage& image,
+                                                                    bool hasDefinition,
                                                                     const checksum::ChecksumSelection& selection)
 {
     return checksum_command_.run(image, hasDefinition, selection, parent_);

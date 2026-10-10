@@ -6,8 +6,6 @@
 #include <QString>
 #include <QWidget>
 
-#include "src/algorithms/memory/memory_image.h"
-#include "src/algorithms/memory/memory_map.h"
 #include "src/backend/checksum/dispatch.h"
 #include "src/backend/flash/flash_device_lookup.h"
 
@@ -76,7 +74,7 @@ void ChecksumCorrectionCommand::showFamilyResultDialog(const ChecksumResult& fam
     }
 }
 
-ChecksumCorrectionResult ChecksumCorrectionCommand::run(bytes::ByteView romData, bool hasDefinition,
+ChecksumCorrectionResult ChecksumCorrectionCommand::run(const fastecu::memory::MemoryImage& image, bool hasDefinition,
                                                         const fastecu::checksum::ChecksumSelection& selection,
                                                         QWidget *parent)
 {
@@ -99,17 +97,7 @@ ChecksumCorrectionResult ChecksumCorrectionCommand::run(bytes::ByteView romData,
         }
     }
 
-    const std::optional<fastecu::memory::ByteCount> size = fastecu::memory::ByteCount::FromSize(romData.size());
-    auto map = size.has_value() ? fastecu::memory::MemoryMap::Identity(*size)
-                                : std::unexpected(fastecu::memory::MemoryError{});
-    auto image = map.has_value() ? fastecu::memory::MemoryImage::Create(std::move(*map),
-                                                                        bytes::Bytes(romData.begin(), romData.end()))
-                                 : std::unexpected(map.error());
-    if (!image.has_value())
-    {
-        return result;
-    }
-    switch (const ChecksumCorrectionOutcome outcome = fastecu::checksum::ApplyChecksumCorrection(*image, selection);
+    switch (const ChecksumCorrectionOutcome outcome = fastecu::checksum::ApplyChecksumCorrection(image, selection);
             outcome.status)
     {
     case ChecksumCorrectionOutcome::Status::kUnknownMcuType:

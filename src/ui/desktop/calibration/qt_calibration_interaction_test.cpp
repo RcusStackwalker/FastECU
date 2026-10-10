@@ -19,6 +19,8 @@
 #include <QWidget>
 #include <gtest/gtest.h>
 
+#include "src/algorithms/memory/testing/memory_views.h"
+
 #include "src/platform/desktop/common/testing/widgets_application_environment.h"
 
 using fastecu::checksum::ChecksumSelection;
@@ -302,7 +304,8 @@ TEST(QtCalibrationInteraction, UnknownMcuDelegatesToChecksumCommand)
                      });
     counter.start();
 
-    const auto result = interaction.correctChecksums(image, true, selection);
+    const auto result = interaction.correctChecksums(
+        fastecu::memory::testing::ImageAt(fastecu::memory::FlashAddress{0}, image), true, selection);
     QCoreApplication::processEvents();
 
     EXPECT_TRUE(result.unknown_mcu_type);

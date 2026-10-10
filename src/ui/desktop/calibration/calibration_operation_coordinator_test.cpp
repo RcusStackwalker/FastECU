@@ -15,6 +15,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "src/algorithms/memory/memory_image.h"
 #include "src/algorithms/memory/memory_map.h"
 #include "src/algorithms/protocol/bytes.h"
 #include "src/backend/calibration/session/calibration_session.h"
@@ -155,9 +156,11 @@ template <typename TestBase> class CoordinatorHarness : public TestBase
     {
         EXPECT_CALL(interaction_, correctChecksums(_, _, _))
             .WillOnce(
-                [this, result](bytes::ByteView image, bool hasDefinition, const checksum::ChecksumSelection& selection)
+                [this, result](const memory::MemoryImage& image, bool hasDefinition,
+                               const checksum::ChecksumSelection& selection)
                 {
-                    checksum_image_.assign(image.begin(), image.end());
+                    checksum_image_.assign(image.File().begin(), image.File().end());
+                    checksum_span_start_ = image.Map().Span().Start();
                     checksum_has_definition_ = hasDefinition;
                     checksum_selection_ = selection;
                     trace_.emplace_back("checksum");
@@ -198,6 +201,7 @@ template <typename TestBase> class CoordinatorHarness : public TestBase
     std::vector<DescriptionEvent> descriptions_;
     std::vector<std::string> trace_;
     bytes::Bytes checksum_image_;
+    memory::FlashAddress checksum_span_start_;
     bool checksum_has_definition_ = false;
     checksum::ChecksumSelection checksum_selection_;
     std::string suggested_path_;
@@ -313,6 +317,53 @@ constexpr auto kNissanForesterVehicles = std::to_array<config::VehicleSpec>({
      .protocol = config::ProtocolIn(config::testing::kStandardProtocols, "proto_a")},
 });
 constexpr config::Catalog kNissanForesterCatalog{config::testing::kStandardProtocols, kNissanForesterVehicles};
+
+// The standard catalog with proto_a declaring one 8-byte memory map at 0x1000.
+constexpr auto kPlacedBlocks = std::to_array({config::FileBlock(0x1000, 8, 0, memory::Writability::kWritable)});
+constexpr auto kPlacedMaps =
+    std::to_array<config::MemoryMapSpec>({{.file_size = memory::ByteCount{8}, .blocks = kPlacedBlocks}});
+constexpr auto kPlacedProtocols = []
+{
+    auto protocols = config::testing::kStandardProtocols;
+    protocols[0].memory_maps = kPlacedMaps;
+    return protocols;
+}();
+constexpr auto kPlacedVehicles = std::to_array<config::VehicleSpec>({
+    {.id = "subaru-impreza-v1",
+     .make = "Subaru",
+     .model = "Impreza",
+     .version = "v1",
+     .protocol = config::ProtocolIn(kPlacedProtocols, "proto_a")},
+});
+constexpr config::Catalog kPlacedCatalog{kPlacedProtocols, kPlacedVehicles};
+
+// The checksum route is the selected vehicle's, so the image is placed by that
+// protocol's map, even for a session opened on the identity map.
+TEST_F(CalibrationOperationCoordinator, ChecksumImageIsPlacedBySelectedProtocolsMap)
+{
+    ASSERT_NO_FATAL_FAILURE(start(kPlacedCatalog));
+    session_ = calibration::CalibrationSession{calibration::SessionId{2},
+                                               calibration::SessionContents{.rom = bytes::Bytes(8, 0)}};
+    expectChecksum({});
+
+    ASSERT_TRUE(coordinator_.prepareWrite(&session_, "/kernels/").has_value());
+
+    EXPECT_EQ(checksum_span_start_, memory::FlashAddress{0x1000});
+    EXPECT_THAT(checksum_image_, ElementsAreArray(bytes::Bytes(8, 0)));
+}
+
+TEST_F(CalibrationOperationCoordinator, ChecksumImageOfAnUnmappedSizeIsPlacedByTheIdentityMap)
+{
+    ASSERT_NO_FATAL_FAILURE(start(kPlacedCatalog));
+    session_ = calibration::CalibrationSession{calibration::SessionId{2},
+                                               calibration::SessionContents{.rom = bytes::Bytes(9, 0)}};
+    expectChecksum({});
+
+    ASSERT_TRUE(coordinator_.prepareWrite(&session_, "/kernels/").has_value());
+
+    EXPECT_EQ(checksum_span_start_, memory::FlashAddress{0});
+    EXPECT_THAT(checksum_image_, SizeIs(9));
+}
 
 TEST_F(CalibrationOperationCoordinator, EmptyDefinedMethodReselectsBeforeChecksum)
 {

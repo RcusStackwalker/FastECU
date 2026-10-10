@@ -16,15 +16,13 @@ cc_library(
     implementation_deps = [
         "//bazel/qt:core",
         "//bazel/qt:widgets",
-        "//src/algorithms/memory:memory_image",
-        "//src/algorithms/memory:memory_map",
         "//src/backend/checksum:dispatch",
         "//src/backend/flash:flash_device_lookup",
     ],
     deps = [
         ":checksum_correction_result",
         "//src/algorithms/checksum",
-        "//src/algorithms/protocol",
+        "//src/algorithms/memory:memory_image",
         "//src/backend/checksum:checksum_selection",
     ],
 )
@@ -36,6 +34,9 @@ fastecu_gtest(
     deps = [
         ":checksum_correction_command",
         "//bazel/qt:widgets",
+        "//src/algorithms/memory:memory_image",
+        "//src/algorithms/memory:memory_map",
+        "//src/algorithms/memory/testing:memory_views",
         "@googletest//:gtest",
     ],
 )
