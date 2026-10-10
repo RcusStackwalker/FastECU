@@ -85,7 +85,7 @@ fastecu::Result<LoggingRunSnapshot> PrepareLoggingRun(const LoggerModel& model, 
     std::vector<LoggingChannel> channels;
     std::vector<LoggingMeasurement> measurements;
     std::unordered_set<std::string> identities;
-    const auto Add = [&](LoggingMeasurementKind kind, const std::string& id) -> Status
+    const auto add = [&](LoggingMeasurementKind kind, const std::string& id) -> Status
     {
         const auto tag = std::format("{}:{}", kind == LoggingMeasurementKind::kParameter ? "parameter" : "switch", id);
         if (!identities.insert(tag).second)
@@ -152,7 +152,7 @@ fastecu::Result<LoggingRunSnapshot> PrepareLoggingRun(const LoggerModel& model, 
     {
         for (const auto& id : ids)
         {
-            const auto status = Add(LoggingMeasurementKind::kParameter, id);
+            const auto status = add(LoggingMeasurementKind::kParameter, id);
             if (!status.has_value())
             {
                 return std::unexpected(status.error());
@@ -161,7 +161,7 @@ fastecu::Result<LoggingRunSnapshot> PrepareLoggingRun(const LoggerModel& model, 
     }
     for (const auto& id : model.Selection().switch_ids)
     {
-        const auto status = Add(LoggingMeasurementKind::kSwitch, id);
+        const auto status = add(LoggingMeasurementKind::kSwitch, id);
         if (!status.has_value())
         {
             return std::unexpected(status.error());

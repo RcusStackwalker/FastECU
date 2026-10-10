@@ -11,8 +11,6 @@
 #include <mutex>
 #include <string_view>
 
-#include "src/backend/ports/testing/result_matchers.h"
-
 #include "src/backend/logging/testing/scripted_logging_protocol.h"
 #include "src/platform/desktop/common/logging/cdbg_serial_setup.h"
 #include "src/platform/desktop/common/logging/runtime/logging_engine.h"

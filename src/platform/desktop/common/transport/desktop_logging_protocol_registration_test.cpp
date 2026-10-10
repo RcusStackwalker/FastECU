@@ -16,7 +16,6 @@
 #include <format>
 #include <string>
 
-#include "src/backend/ports/testing/result_matchers.h"
 // Test the registered factories synchronously without adding a production
 // inspection API. Engine/worker lifecycle has its own suite.
 #define private public

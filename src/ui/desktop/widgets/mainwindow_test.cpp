@@ -3005,7 +3005,7 @@ void MainWindowTest::checkLoggingDefinitionErrorShowsContextAndLeavesStopped()
                                              });
     fastecu::testing::SignalRecorder errors{&window, &MainWindow::logE};
     QString dialogText;
-    Qt::TextFormat dialog_format = Qt::AutoText;
+    Qt::TextFormat dialogFormat = Qt::AutoText;
     QTimer timer;
     timer.setInterval(5);
     QObject::connect(&timer, &QTimer::timeout, &window,
@@ -3017,7 +3017,7 @@ void MainWindowTest::checkLoggingDefinitionErrorShowsContextAndLeavesStopped()
                                  notice != nullptr && notice->isVisible())
                              {
                                  dialogText = notice->text();
-                                 dialog_format = notice->textFormat();
+                                 dialogFormat = notice->textFormat();
                                  notice->accept();
                              }
                          }
@@ -3030,7 +3030,7 @@ void MainWindowTest::checkLoggingDefinitionErrorShowsContextAndLeavesStopped()
                 ::testing::AllOf(::testing::HasSubstr("SSM"), ::testing::HasSubstr("rpm"),
                                  ::testing::HasSubstr("format"), ::testing::HasSubstr("<b>bad</b>"),
                                  ::testing::HasSubstr("expected")));
-    EXPECT_EQ(dialog_format, Qt::PlainText);
+    EXPECT_EQ(dialogFormat, Qt::PlainText);
     ASSERT_EQ(lines.size(), 1U);
     EXPECT_THAT(std::get<0>(lines.front()),
                 ::testing::AllOf(::testing::HasSubstr("SSM"), ::testing::HasSubstr("rpm"),
