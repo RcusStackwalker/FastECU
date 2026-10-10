@@ -1,6 +1,7 @@
 #include "denso_checksum_table.h"
 
 #include <algorithm>
+#include <optional>
 
 namespace fastecu::checksum::internal
 {
@@ -9,21 +10,25 @@ namespace
 constexpr std::size_t kRecordLength = 12;
 constexpr std::uint32_t kChecksumTarget = 0x5AA5A55A;
 
-std::uint32_t WordAt(bytes::ByteView rom, std::uint32_t address, std::span<const DensoWordOverride> overrides)
+// The word at `position` in `rom`, which is ECU address `ecu_address`.
+std::uint32_t WordAt(bytes::ByteView rom, std::uint32_t position, std::uint32_t ecu_address,
+                     std::span<const DensoWordOverride> overrides)
 {
-    const auto match = std::find_if(overrides.begin(), overrides.end(),
-                                    [address](const DensoWordOverride& item) { return item.address == address; });
-    return match == overrides.end() ? bytes::ReadU32Be(rom, address) : match->value;
+    const auto match = std::find_if(overrides.begin(), overrides.end(), [ecu_address](const DensoWordOverride& item)
+                                    { return item.address == ecu_address; });
+    return match == overrides.end() ? bytes::ReadU32Be(rom, position) : match->value;
 }
 } // namespace
 
-DensoTableOutcome CorrectDensoTable(bytes::MutableByteView rom, const DensoTableSpec& spec)
+DensoTableOutcome CorrectDensoTable(memory::FlashAddress base, bytes::MutableByteView rom, const DensoTableSpec& spec)
 {
     if (spec.table_length % kRecordLength != 0)
     {
         return DensoTableOutcome::kInvalidRecordLength;
     }
-    if (spec.table_offset > rom.size() || spec.table_length > rom.size() - spec.table_offset)
+    const std::optional<memory::ByteCount> table_position = spec.table_address.DistanceFrom(base);
+    if (!table_position.has_value() || table_position->Value() > rom.size() ||
+        spec.table_length > rom.size() - table_position->Value())
     {
         return DensoTableOutcome::kInvalidTableRange;
     }
@@ -31,28 +36,25 @@ DensoTableOutcome CorrectDensoTable(bytes::MutableByteView rom, const DensoTable
     bytes::Bytes corrected;
     corrected.reserve(spec.table_length);
     bool changed = false;
-    std::int32_t address_offset = spec.address_offset;
 
     for (std::size_t record = 0; record < spec.table_length; record += kRecordLength)
     {
-        const std::size_t position = spec.table_offset + record;
+        const std::size_t position = table_position->Value() + record;
         const std::uint32_t raw_low = bytes::ReadU32Be(rom, position);
         const std::uint32_t raw_high = bytes::ReadU32Be(rom, position + 4);
         const std::uint32_t stored = bytes::ReadU32Be(rom, position + 8);
-        if (raw_low == 0 && raw_high == 0)
-        {
-            address_offset = 0;
-        }
-        const std::uint32_t low = raw_low + static_cast<std::uint32_t>(address_offset);
-        const std::uint32_t high = raw_high + static_cast<std::uint32_t>(address_offset);
 
-        if (record == 0 && spec.detect_disabled && low == 0 && high == 0 && stored == kChecksumTarget)
+        if (record == 0 && spec.detect_disabled && raw_low == 0 && raw_high == 0 && stored == kChecksumTarget)
         {
             return DensoTableOutcome::kDisabled;
         }
 
+        // Positions in `rom`. An address below `base` wraps past the end of
+        // `rom` and fails the range checks below.
+        const std::uint32_t low = raw_low - base.Value();
+        const std::uint32_t high = raw_high - base.Value();
         std::uint32_t sum = 0;
-        if (low != 0 && high != 0 && stored != kChecksumTarget)
+        if (raw_low != 0 && raw_high != 0 && stored != kChecksumTarget)
         {
             if (high > rom.size())
             {
@@ -64,7 +66,7 @@ DensoTableOutcome CorrectDensoTable(bytes::MutableByteView rom, const DensoTable
                 {
                     return DensoTableOutcome::kInvalidBlockRange;
                 }
-                sum += WordAt(rom, address, spec.overrides);
+                sum += WordAt(rom, address, address + base.Value(), spec.overrides);
             }
         }
         const std::uint32_t expected = kChecksumTarget - sum;
@@ -78,7 +80,7 @@ DensoTableOutcome CorrectDensoTable(bytes::MutableByteView rom, const DensoTable
     {
         return DensoTableOutcome::kUnchanged;
     }
-    bytes::OverwriteAt(rom, spec.table_offset, corrected);
+    bytes::OverwriteAt(rom, table_position->Value(), corrected);
     return DensoTableOutcome::kCorrected;
 }
 

@@ -11,6 +11,9 @@
 
 #include <gtest/gtest.h>
 
+#include "src/algorithms/memory/address.h"
+#include "src/algorithms/memory/testing/memory_views.h"
+
 #include <algorithm>
 #include <utility>
 #include <vector>
@@ -22,6 +25,7 @@
 // target proves the portable API round-trips (math included) without
 // depending on //tests or linking Qt.
 
+namespace memory = fastecu::memory;
 namespace
 {
 
@@ -61,8 +65,8 @@ TEST(ChecksumPortable, DensoSh705xDieselCorrectsSingleZeroRecord)
 {
     const bytes::Bytes original(12, 0x00);
 
-    const ChecksumResult result =
-        ChecksumEcuSubaruDensoSH705xDiesel::CalculateChecksumResult(bytes::ByteView(original), 0, 12);
+    const ChecksumResult result = ChecksumEcuSubaruDensoSH705xDiesel::CalculateChecksumResult(
+        memory::testing::ViewOf(bytes::ByteView(original)), memory::FlashAddress{0}, 12);
 
     EXPECT_EQ(result.status, ChecksumResult::Status::kCorrected);
     EXPECT_EQ(result.message, "Subaru Denso SH705x Checksum");
@@ -74,8 +78,8 @@ TEST(ChecksumPortable, DensoSh705xDieselCorrectedRecordTriggersDisabledCompatibi
 {
     const bytes::Bytes original = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x5a, 0xa5, 0xa5, 0x5a};
 
-    const ChecksumResult result =
-        ChecksumEcuSubaruDensoSH705xDiesel::CalculateChecksumResult(bytes::ByteView(original), 0, 12);
+    const ChecksumResult result = ChecksumEcuSubaruDensoSH705xDiesel::CalculateChecksumResult(
+        memory::testing::ViewOf(bytes::ByteView(original)), memory::FlashAddress{0}, 12);
 
     EXPECT_EQ(result.status, ChecksumResult::Status::kDisabled);
     EXPECT_EQ(result.message, "ROM has all checksums disabled");
@@ -86,8 +90,8 @@ TEST(ChecksumPortable, DensoSh705xDieselKeepsMatchingRecord)
 {
     const bytes::Bytes original = {0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x08, 0x5a, 0xa5, 0xa5, 0x52};
 
-    const ChecksumResult result =
-        ChecksumEcuSubaruDensoSH705xDiesel::CalculateChecksumResult(bytes::ByteView(original), 0, 12);
+    const ChecksumResult result = ChecksumEcuSubaruDensoSH705xDiesel::CalculateChecksumResult(
+        memory::testing::ViewOf(bytes::ByteView(original)), memory::FlashAddress{0}, 12);
 
     EXPECT_EQ(result.status, ChecksumResult::Status::kUnchanged);
     EXPECT_THAT(result.rom_data, test_bytes::BytesEq(original));
@@ -97,7 +101,8 @@ TEST(ChecksumPortable, DensoSh7xxxReturnsUnchangedForMatchingChecksum)
 {
     const bytes::Bytes rom = DensoRomWithChecksumTable(0x5aa5a559);
 
-    const ChecksumResult result = ChecksumEcuSubaruDensoSH7xxx::CalculateChecksumResult(bytes::ByteView(rom), 16, 12);
+    const ChecksumResult result = ChecksumEcuSubaruDensoSH7xxx::CalculateChecksumResult(
+        memory::testing::ViewOf(bytes::ByteView(rom)), memory::FlashAddress{16}, 12);
 
     EXPECT_EQ(result.status, ChecksumResult::Status::kUnchanged);
     EXPECT_THAT(result.rom_data, test_bytes::BytesEq(rom));
@@ -109,7 +114,8 @@ TEST(ChecksumPortable, DensoSh7xxxReturnsCorrectedDataForMismatchedChecksum)
 {
     const bytes::Bytes rom = DensoRomWithChecksumTable(0x00000000);
 
-    const ChecksumResult result = ChecksumEcuSubaruDensoSH7xxx::CalculateChecksumResult(bytes::ByteView(rom), 16, 12);
+    const ChecksumResult result = ChecksumEcuSubaruDensoSH7xxx::CalculateChecksumResult(
+        memory::testing::ViewOf(bytes::ByteView(rom)), memory::FlashAddress{16}, 12);
 
     EXPECT_EQ(result.status, ChecksumResult::Status::kCorrected);
     bytes::Bytes expected = rom;
@@ -119,8 +125,8 @@ TEST(ChecksumPortable, DensoSh7xxxReturnsCorrectedDataForMismatchedChecksum)
     EXPECT_TRUE(result.Ok());
     EXPECT_TRUE(result.Changed());
 
-    const ChecksumResult unchanged_result =
-        ChecksumEcuSubaruDensoSH7xxx::CalculateChecksumResult(bytes::ByteView(result.rom_data), 16, 12);
+    const ChecksumResult unchanged_result = ChecksumEcuSubaruDensoSH7xxx::CalculateChecksumResult(
+        memory::testing::ViewOf(bytes::ByteView(result.rom_data)), memory::FlashAddress{16}, 12);
     EXPECT_EQ(unchanged_result.status, ChecksumResult::Status::kUnchanged);
     EXPECT_THAT(unchanged_result.rom_data, test_bytes::BytesEq(result.rom_data));
 }
@@ -132,7 +138,8 @@ TEST(ChecksumPortable, DensoSh7xxxReturnsDisabledWithoutClearingRomData)
     bytes::AppendU32Be(rom, 0x00000000);
     bytes::AppendU32Be(rom, 0x5aa5a55a);
 
-    const ChecksumResult result = ChecksumEcuSubaruDensoSH7xxx::CalculateChecksumResult(bytes::ByteView(rom), 16, 12);
+    const ChecksumResult result = ChecksumEcuSubaruDensoSH7xxx::CalculateChecksumResult(
+        memory::testing::ViewOf(bytes::ByteView(rom)), memory::FlashAddress{16}, 12);
 
     EXPECT_EQ(result.status, ChecksumResult::Status::kDisabled);
     EXPECT_THAT(result.rom_data, test_bytes::BytesEq(rom));
@@ -143,7 +150,8 @@ TEST(ChecksumPortable, DensoSh7xxxRejectsChecksumAreaOutsideRom)
 {
     const bytes::Bytes rom(16, 0x00);
 
-    const ChecksumResult result = ChecksumEcuSubaruDensoSH7xxx::CalculateChecksumResult(bytes::ByteView(rom), 16, 12);
+    const ChecksumResult result = ChecksumEcuSubaruDensoSH7xxx::CalculateChecksumResult(
+        memory::testing::ViewOf(bytes::ByteView(rom)), memory::FlashAddress{16}, 12);
 
     EXPECT_EQ(result.status, ChecksumResult::Status::kInvalidSize);
     EXPECT_THAT(result.rom_data, test_bytes::BytesEq(rom));
@@ -154,7 +162,8 @@ TEST(ChecksumPortable, DensoSh7xxxRejectsNonTableAlignedChecksumArea)
 {
     const bytes::Bytes rom(16, 0x00);
 
-    const ChecksumResult result = ChecksumEcuSubaruDensoSH7xxx::CalculateChecksumResult(bytes::ByteView(rom), 0, 10);
+    const ChecksumResult result = ChecksumEcuSubaruDensoSH7xxx::CalculateChecksumResult(
+        memory::testing::ViewOf(bytes::ByteView(rom)), memory::FlashAddress{0}, 10);
 
     EXPECT_EQ(result.status, ChecksumResult::Status::kParseError);
     EXPECT_THAT(result.rom_data, test_bytes::BytesEq(rom));
@@ -316,11 +325,13 @@ TEST(ChecksumPortable, FixedLayoutFamiliesRejectShortAndLongRoms)
 TEST(ChecksumPortable, DensoDieselRejectsMalformedTableWithoutMutation)
 {
     const bytes::Bytes original(24, 0x22);
-    const ChecksumResult malformed = ChecksumEcuSubaruDensoSH705xDiesel::CalculateChecksumResult(original, 0, 10);
+    const ChecksumResult malformed = ChecksumEcuSubaruDensoSH705xDiesel::CalculateChecksumResult(
+        memory::testing::ViewOf(original), memory::FlashAddress{0}, 10);
     EXPECT_EQ(malformed.status, ChecksumResult::Status::kParseError);
     EXPECT_THAT(malformed.rom_data, test_bytes::BytesEq(original));
 
-    const ChecksumResult out_of_range = ChecksumEcuSubaruDensoSH705xDiesel::CalculateChecksumResult(original, 20, 12);
+    const ChecksumResult out_of_range = ChecksumEcuSubaruDensoSH705xDiesel::CalculateChecksumResult(
+        memory::testing::ViewOf(original), memory::FlashAddress{20}, 12);
     EXPECT_EQ(out_of_range.status, ChecksumResult::Status::kInvalidSize);
     EXPECT_THAT(out_of_range.rom_data, test_bytes::BytesEq(original));
 }
@@ -331,7 +342,8 @@ TEST(ChecksumPortable, DensoDieselSecondaryFailureRollsBackPrimaryCorrection)
     bytes::WriteU32Be(original, 0x1FF8E8, 0x1FFFFC);
     bytes::WriteU32Be(original, 0x1FF8EC, 0x200004);
 
-    const ChecksumResult result = ChecksumEcuSubaruDensoSH705xDiesel::CalculateChecksumResult(original, 0x1FF800, 12);
+    const ChecksumResult result = ChecksumEcuSubaruDensoSH705xDiesel::CalculateChecksumResult(
+        memory::testing::ViewOf(original), memory::FlashAddress{0x1FF800}, 12);
 
     EXPECT_EQ(result.status, ChecksumResult::Status::kInvalidSize);
     EXPECT_EQ(result.message, "ROM is too small for a checksum block range");
@@ -346,7 +358,8 @@ TEST(ChecksumPortable, DensoDieselCorrectsSh72543SecondaryTableAfterPrimary)
     bytes::WriteU32Be(original, 0x1FF804, 8);
     bytes::WriteU32Be(original, 0x1FF808, 0x5AA5A559);
 
-    const ChecksumResult result = ChecksumEcuSubaruDensoSH705xDiesel::CalculateChecksumResult(original, 0x1FF800, 12);
+    const ChecksumResult result = ChecksumEcuSubaruDensoSH705xDiesel::CalculateChecksumResult(
+        memory::testing::ViewOf(original), memory::FlashAddress{0x1FF800}, 12);
 
     EXPECT_EQ(result.status, ChecksumResult::Status::kCorrected);
     EXPECT_EQ(bytes::ReadU32Be(result.rom_data, 0x1FF8F0), 0x5AA5A55AU);
@@ -359,7 +372,8 @@ TEST(ChecksumPortable, DensoSh7xxxReportsInvalidBlockRangeMessage)
     bytes::WriteU32Be(original, 0, 20);
     bytes::WriteU32Be(original, 4, 28);
 
-    const ChecksumResult result = ChecksumEcuSubaruDensoSH7xxx::CalculateChecksumResult(original, 0, 12);
+    const ChecksumResult result = ChecksumEcuSubaruDensoSH7xxx::CalculateChecksumResult(
+        memory::testing::ViewOf(original), memory::FlashAddress{0}, 12);
 
     EXPECT_EQ(result.status, ChecksumResult::Status::kInvalidSize);
     EXPECT_EQ(result.message, "ROM is too small for a checksum block range");

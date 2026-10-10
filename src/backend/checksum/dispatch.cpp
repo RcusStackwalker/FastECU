@@ -35,10 +35,10 @@ bool StartsWith(std::string_view value, std::string_view prefix)
     return value.substr(0, prefix.size()) == prefix;
 }
 
-ChecksumResult DensoSh7xxx(bytes::ByteView rom, std::uint32_t area_start, std::int32_t offset = 0)
+ChecksumResult DensoSh7xxx(const memory::MemoryView& rom, std::uint32_t table_address)
 {
-    ChecksumResult result =
-        ChecksumEcuSubaruDensoSH7xxx::CalculateChecksumResult(rom, area_start, kDensoTableLength, offset);
+    ChecksumResult result = ChecksumEcuSubaruDensoSH7xxx::CalculateChecksumResult(
+        rom, memory::FlashAddress{table_address}, kDensoTableLength);
     if (result.Changed())
     {
         // This wrapper supplies the family title only for the Corrected path.
@@ -49,9 +49,10 @@ ChecksumResult DensoSh7xxx(bytes::ByteView rom, std::uint32_t area_start, std::i
     return result;
 }
 
-ChecksumResult DensoSh705xDiesel(bytes::ByteView rom, std::uint32_t area_start)
+ChecksumResult DensoSh705xDiesel(const memory::MemoryView& rom, std::uint32_t table_address)
 {
-    return ChecksumEcuSubaruDensoSH705xDiesel::CalculateChecksumResult(rom, area_start, kDensoTableLength);
+    return ChecksumEcuSubaruDensoSH705xDiesel::CalculateChecksumResult(rom, memory::FlashAddress{table_address},
+                                                                       kDensoTableLength);
 }
 
 struct DispatchResult
@@ -79,8 +80,7 @@ struct RouteSpec
     std::string_view prefix;
     std::string_view make; // the selected vehicle's make (ConfigSession)
     Route route;
-    std::uint32_t table_offset = 0;
-    std::int32_t address_offset = 0;
+    std::uint32_t table_address = 0; // ECU address of the Denso checksum table
 };
 
 // First prefix match wins, and only for the make the route belongs to, so a
@@ -93,8 +93,8 @@ constexpr std::array kRoutes{
     RouteSpec{"sub_ecu_denso_sh7058s_diesel_densocan", "Subaru", Route::kDensoDiesel, 0x0FFB80},
     RouteSpec{"sub_ecu_denso_sh7058", "Subaru", Route::kDensoSh7xxx, 0x0FFB80},
     RouteSpec{"sub_ecu_denso_sh72531_can", "Subaru", Route::kDensoSh7xxx, 0x13F500},
-    RouteSpec{"sub_ecu_denso_1n83m_4m_can", "Subaru", Route::kDensoSh7xxx, 0x3E3E00, -0x8F9C000},
-    RouteSpec{"sub_ecu_denso_1n83m_1_5m_can", "Subaru", Route::kDensoSh7xxx, 0x183E00, -0x8F9C000},
+    RouteSpec{"sub_ecu_denso_1n83m_4m_can", "Subaru", Route::kDensoSh7xxx, 0x0937FE00},
+    RouteSpec{"sub_ecu_denso_1n83m_1_5m_can", "Subaru", Route::kDensoSh7xxx, 0x0911FE00},
     RouteSpec{"sub_ecu_denso_sh7059_can_diesel", "Subaru", Route::kDensoDiesel, 0x17FB80},
     RouteSpec{"sub_ecu_denso_sh7059_diesel_densocan", "Subaru", Route::kDensoDiesel, 0x17FB80},
     RouteSpec{"sub_ecu_denso_sh72543_can_diesel", "Subaru", Route::kDensoDiesel, 0x1FF800},
@@ -112,14 +112,15 @@ constexpr std::array kRoutes{
     RouteSpec{"mitsu_ecu_m32r_can", "Mitsubishi", Route::kMitsuColtM32rCan},
 };
 
-DispatchResult Execute(const RouteSpec& spec, std::string_view rom_id, bytes::ByteView rom)
+DispatchResult Execute(const RouteSpec& spec, std::string_view rom_id, const memory::MemoryView& view)
 {
+    const bytes::ByteView rom = view.Data();
     switch (spec.route)
     {
     case Route::kDensoSh7xxx:
-        return {true, DensoSh7xxx(rom, spec.table_offset, spec.address_offset)};
+        return {true, DensoSh7xxx(view, spec.table_address)};
     case Route::kDensoDiesel:
-        return {true, DensoSh705xDiesel(rom, spec.table_offset)};
+        return {true, DensoSh705xDiesel(view, spec.table_address)};
     case Route::kDensoTcuSh7055:
         return {true, ChecksumTcuSubaruDensoSH7055::CalculateChecksumResult(rom)};
     case Route::kM32rByRomId:
@@ -151,7 +152,7 @@ DispatchResult Execute(const RouteSpec& spec, std::string_view rom_id, bytes::By
 }
 
 DispatchResult DispatchFamily(std::string_view make, std::string_view flash_method, std::string_view rom_id,
-                              bytes::ByteView rom)
+                              const memory::MemoryView& rom)
 {
     for (const RouteSpec& spec : kRoutes)
     {
@@ -223,7 +224,7 @@ ChecksumCorrectionOutcome ApplyChecksumCorrection(const memory::MemoryImage& ima
         return {.status = ChecksumCorrectionOutcome::Status::kBadRomSize};
     }
 
-    DispatchResult dispatch = DispatchFamily(selection.make, selection.flash_method, selection.rom_id, view->Data());
+    DispatchResult dispatch = DispatchFamily(selection.make, selection.flash_method, selection.rom_id, *view);
     if (!dispatch.module_available)
     {
         return {.status = ChecksumCorrectionOutcome::Status::kNoModuleForProtocol};

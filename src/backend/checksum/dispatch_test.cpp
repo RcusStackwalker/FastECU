@@ -31,6 +31,12 @@ memory::AddressRange<memory::FlashSpace> Range(std::uint32_t start, std::uint32_
     return memory::AddressRange<memory::FlashSpace>::Make(memory::FlashAddress{start}, memory::ByteCount{size}).value();
 }
 
+// 1N83M ROM files start at ECU address 0x08F9C000.
+memory::MemoryImage N83mImageOf(const bytes::Bytes& rom)
+{
+    return memory::testing::ImageAt(memory::FlashAddress{0x08F9C000}, rom);
+}
+
 ChecksumSelection SubaruSelection(std::string flash_method, std::string mcu_type, std::string rom_id = "39670016")
 {
     ChecksumSelection s;
@@ -303,18 +309,18 @@ TEST(ApplyChecksumCorrection, Sh72531CanRoutesToSh7xxx)
     EXPECT_EQ(outcome.family_result->status, ChecksumResult::Status::kCorrected);
 }
 
-TEST(ApplyChecksumCorrection, N83m4mCanRoutesToSh7xxxWithNegativeOffset)
+TEST(ApplyChecksumCorrection, N83m4mCanRoutesToSh7xxx)
 {
     const bytes::Bytes rom(3984UZ * 1024, 0); // N83M_4MB romsize, 0x3E3E00 + 204 in bounds
     const auto outcome =
-        ApplyChecksumCorrection(IdentityOf(rom), SubaruSelection("sub_ecu_denso_1n83m_4m_can", "N83M_4MB"));
+        ApplyChecksumCorrection(N83mImageOf(rom), SubaruSelection("sub_ecu_denso_1n83m_4m_can", "N83M_4MB"));
 
     ASSERT_EQ(outcome.status, Status::kFamilyRan);
     ASSERT_TRUE(outcome.family_result.has_value());
     EXPECT_EQ(outcome.family_result->status, ChecksumResult::Status::kCorrected);
 }
 
-TEST(ApplyChecksumCorrection, N83m1_5mCanRoutesToSh7xxxWithNegativeOffset)
+TEST(ApplyChecksumCorrection, N83m1_5mCanRoutesToSh7xxx)
 {
     // Uses N83M_4MB, not the "naturally" paired N83M_1_5MB: this
     // flash_method's hardcoded area_start (0x183E00) is 1,588,736 bytes in,
@@ -323,7 +329,7 @@ TEST(ApplyChecksumCorrection, N83m1_5mCanRoutesToSh7xxxWithNegativeOffset)
     // N83M_4MB is large enough to prove routing without hitting that quirk.
     const bytes::Bytes rom(3984UZ * 1024, 0);
     const auto outcome =
-        ApplyChecksumCorrection(IdentityOf(rom), SubaruSelection("sub_ecu_denso_1n83m_1_5m_can", "N83M_4MB"));
+        ApplyChecksumCorrection(N83mImageOf(rom), SubaruSelection("sub_ecu_denso_1n83m_1_5m_can", "N83M_4MB"));
 
     ASSERT_EQ(outcome.status, Status::kFamilyRan);
     ASSERT_TRUE(outcome.family_result.has_value());
@@ -516,4 +522,19 @@ TEST(ApplyChecksumCorrection, AMapWithUnmappedAddressesIsABadRomSize)
 
     EXPECT_EQ(ApplyChecksumCorrection(*image, SubaruSelection("sub_ecu_hitachi_sh72543r", "SH72543R")).status,
               Status::kBadRomSize);
+}
+
+// The table sits at ECU 0x0937FE00 (file 0x3E3E00) and its one record covers
+// ECU [0x08FAC000, 0x08FAC004) (file 0x10000), which holds 1.
+TEST(ApplyChecksumCorrection, N83m4mTableIsAddressedByEcuAddress)
+{
+    bytes::Bytes rom(0x3E4000, 0);
+    bytes::WriteU32Be(rom, 0x10000, 1);
+    bytes::WriteU32Be(rom, 0x3E3E00, 0x08FAC000);
+    bytes::WriteU32Be(rom, 0x3E3E04, 0x08FAC004);
+    const auto outcome =
+        ApplyChecksumCorrection(N83mImageOf(rom), SubaruSelection("sub_ecu_denso_1n83m_4m_can", "N83M_4MB"));
+
+    ASSERT_TRUE(outcome.corrected_file.has_value());
+    EXPECT_EQ(bytes::ReadU32Be(*outcome.corrected_file, 0x3E3E08), 0x5AA5A55AU - 1);
 }
