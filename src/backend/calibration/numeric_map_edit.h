@@ -1,6 +1,7 @@
 #pragma once
 
 #include "src/backend/calibration/decoded_map.h"
+#include "src/backend/calibration/definition_bytes.h"
 #include "src/backend/calibration/map_edit.h"
 
 namespace fastecu::calibration
@@ -30,16 +31,16 @@ struct NumericEditResult
     NoChangeReason no_change{NoChangeReason::kNone};
 };
 
-Result<NumericEditResult> CalculateIncrement(bytes::ByteView rom, const MapElementSpec& spec, std::uint32_t run_width,
-                                             std::span<const NumericCell> cells, const SelectionRange& range,
-                                             IncrementStep step);
-Result<NumericEditResult> CalculateAssignment(bytes::ByteView rom, const MapElementSpec& spec, std::uint32_t run_width,
-                                              std::span<const NumericCell> cells, const SelectionRange& range,
-                                              std::string_view expression);
-Result<NumericEditResult> CalculateInterpolation(bytes::ByteView rom, const MapElementSpec& spec,
+Result<NumericEditResult> CalculateIncrement(const DefinitionBytes& rom, const MapElementSpec& spec,
+                                             std::uint32_t run_width, std::span<const NumericCell> cells,
+                                             const SelectionRange& range, IncrementStep step);
+Result<NumericEditResult> CalculateAssignment(const DefinitionBytes& rom, const MapElementSpec& spec,
+                                              std::uint32_t run_width, std::span<const NumericCell> cells,
+                                              const SelectionRange& range, std::string_view expression);
+Result<NumericEditResult> CalculateInterpolation(const DefinitionBytes& rom, const MapElementSpec& spec,
                                                  std::uint32_t run_width, std::span<const NumericCell> cells,
                                                  const SelectionRange& range, InterpolationMode mode);
-Result<NumericEditResult> CalculatePaste(bytes::ByteView rom, const MapElementSpec& spec, std::uint32_t run_width,
-                                         std::uint32_t run_height, const SelectionRange& range,
+Result<NumericEditResult> CalculatePaste(const DefinitionBytes& rom, const MapElementSpec& spec,
+                                         std::uint32_t run_width, std::uint32_t run_height, const SelectionRange& range,
                                          std::span<const std::vector<double>> values);
 } // namespace fastecu::calibration

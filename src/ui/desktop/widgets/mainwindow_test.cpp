@@ -1616,7 +1616,7 @@ void MainWindowTest::checkCancellingTheChecksumWarningStopsVoltagePolling(QStrin
 
     ASSERT_TRUE(!operationDriver.timedOut());
     ASSERT_EQ(operationDriver.checksumWarningCount(), 1);
-    ASSERT_TRUE(std::ranges::all_of(services.calibrations.Find(window.calibrations_.front().id)->Rom(),
+    ASSERT_TRUE(std::ranges::all_of(services.calibrations.Find(window.calibrations_.front().id)->File(),
                                     [](auto byte) { return byte == 0x5a; }));
     ASSERT_TRUE(!window.vbatt_timer_->isActive());
 }
@@ -1695,7 +1695,7 @@ void MainWindowTest::checkClosingAMiddleRomKeepsLaterRomsAddressable()
     ASSERT_EQ(files->topLevelItem(1)->text(2), cKey); // not renumbered
     ASSERT_TRUE(services.calibrations.Find(c) != nullptr);
     ASSERT_EQ(services.calibrations.Find(c)->Source().display_name, std::string{"c.bin"});
-    ASSERT_EQ(services.calibrations.Find(c)->Rom()[0], std::uint8_t{0x0c});
+    ASSERT_EQ(services.calibrations.Find(c)->File()[0], std::uint8_t{0x0c});
 }
 
 TEST_F(MainWindowTest, closingAMiddleRomKeepsLaterRomsAddressable)
@@ -1893,7 +1893,7 @@ void MainWindowTest::checkWritePreparationRefreshesMetadataAndStatusLabel()
     EXPECT_EQ(session.Protocol().mcu_type, std::string{"SH7058"});
     EXPECT_EQ(prepared->kernel_path, std::string{"/kernels/test-kernel.bin"});
     EXPECT_EQ(prepared->display_filename, std::string{"d.bin"});
-    EXPECT_THAT(prepared->image, ::testing::ElementsAreArray(session.Rom()));
+    EXPECT_THAT(prepared->image, ::testing::ElementsAreArray(session.File()));
 }
 
 TEST_F(MainWindowTest, writePreparationRefreshesMetadataAndStatusLabel)
@@ -1932,7 +1932,7 @@ void MainWindowTest::checkChecksumAndSaveUseATemporaryImage()
     ASSERT_TRUE(session != nullptr);
     ASSERT_TRUE(session->Definition() != nullptr);
     ASSERT_TRUE(session->WriteBytes(0, bytes::Bytes{1}).has_value());
-    const bytes::Bytes original(session->Rom().begin(), session->Rom().end());
+    const bytes::Bytes original(session->File().begin(), session->File().end());
     // The expected bytes come from the backend dispatcher, independently of
     // the coordinator's selection plumbing.
     const VehicleSpec& vehicle = *services.config.SelectedVehicle();
@@ -1954,10 +1954,10 @@ void MainWindowTest::checkChecksumAndSaveUseATemporaryImage()
 
     window.saveCalibrationFile();
     EXPECT_THAT(services.file_repository.Read(path.toStdString()), fastecu::testing::IsOkAnd(corrected));
-    ASSERT_TRUE(std::ranges::equal(session->Rom(), original));
+    ASSERT_TRUE(std::ranges::equal(session->File(), original));
     ASSERT_TRUE(!session->Dirty());
     ASSERT_TRUE(session->WriteBytes(0, bytes::Bytes{2}).has_value());
-    const bytes::Bytes edited(session->Rom().begin(), session->Rom().end());
+    const bytes::Bytes edited(session->File().begin(), session->File().end());
     // A directory is a deterministic failed file write on every platform.
     session->MarkSaved(files.path().toStdString());
     ASSERT_TRUE(session->WriteBytes(0, bytes::Bytes{2}).has_value());
@@ -1965,7 +1965,7 @@ void MainWindowTest::checkChecksumAndSaveUseATemporaryImage()
     window.saveCalibrationFile();
     ASSERT_TRUE(session->Source() == source);
     ASSERT_TRUE(session->Dirty());
-    ASSERT_TRUE(std::ranges::equal(session->Rom(), edited));
+    ASSERT_TRUE(std::ranges::equal(session->File(), edited));
     driver.stop();
     ASSERT_TRUE(!driver.timedOut());
 }
@@ -2055,7 +2055,7 @@ void MainWindowTest::checkSaveAsChangesSourceAndTreeOnlyAfterSuccess()
     const auto saved = services.file_repository.Read(session->Source().path);
     ASSERT_TRUE(saved.has_value());
     ASSERT_EQ(saved->at(0), std::uint8_t{9});
-    ASSERT_EQ(session->Rom()[0], std::uint8_t{9});
+    ASSERT_EQ(session->File()[0], std::uint8_t{9});
 }
 
 TEST_F(MainWindowTest, saveAsChangesSourceAndTreeOnlyAfterSuccess)
@@ -2187,9 +2187,9 @@ void MainWindowTest::checkSelectableSignalEditsItsEmittingSession()
     // Emit from the inactive first map while the second ROM/window is selected.
     first->selectableComboboxItemChanged("enabled");
 
-    ASSERT_EQ(services.calibrations.Find(firstId)->Rom()[0], std::uint8_t{1});
+    ASSERT_EQ(services.calibrations.Find(firstId)->File()[0], std::uint8_t{1});
     ASSERT_TRUE(services.calibrations.Find(firstId)->Dirty());
-    ASSERT_EQ(services.calibrations.Find(secondId)->Rom()[0], std::uint8_t{0});
+    ASSERT_EQ(services.calibrations.Find(secondId)->File()[0], std::uint8_t{0});
     ASSERT_TRUE(!services.calibrations.Find(secondId)->Dirty());
     driver.stop();
     ASSERT_TRUE(!driver.timedOut());
@@ -4259,7 +4259,7 @@ void MainWindowTest::checkTuneActionsEditTheSelectionThroughTheirOwnHandlers()
     };
     const auto grid = [&]
     {
-        const bytes::ByteView rom = services.calibrations.Find(opened->id)->Rom();
+        const bytes::ByteView rom = services.calibrations.Find(opened->id)->File();
         const auto first = rom.begin() + static_cast<std::ptrdiff_t>(kBody);
         return std::vector<int>(first, first + static_cast<std::ptrdiff_t>(body.size()));
     };
@@ -4429,7 +4429,7 @@ void MainWindowTest::checkCopyFromALargerMapPastesIntoASmallerOneThroughItsScali
 
     const auto destBody = [&]
     {
-        const bytes::ByteView rom = services.calibrations.Find(opened->id)->Rom();
+        const bytes::ByteView rom = services.calibrations.Find(opened->id)->File();
         const auto first = rom.begin() + static_cast<std::ptrdiff_t>(kDest);
         return std::vector<int>(first, first + 4);
     };
@@ -4667,7 +4667,7 @@ void MainWindowTest::checkTypedAssignment(AssignmentScenario scenario)
     ASSERT_NE(session, nullptr);
     if (noOp)
     {
-        EXPECT_EQ(bytes::ReadU16Be(session->Rom()), 10);
+        EXPECT_EQ(bytes::ReadU16Be(session->File()), 10);
         EXPECT_FALSE(session->Dirty());
         if (scenario == AssignmentScenario::kNoOpResolution)
         {
@@ -4682,14 +4682,14 @@ void MainWindowTest::checkTypedAssignment(AssignmentScenario scenario)
     }
     if (scenario == AssignmentScenario::kPasteInteriorEmpty)
     {
-        EXPECT_EQ(bytes::ReadU16Be(session->Rom()), 10);
+        EXPECT_EQ(bytes::ReadU16Be(session->File()), 10);
         EXPECT_FALSE(session->Dirty());
         EXPECT_FALSE(noticeText.isEmpty());
         return;
     }
     if (paste)
     {
-        EXPECT_EQ(bytes::ReadU16Be(session->Rom()), 20);
+        EXPECT_EQ(bytes::ReadU16Be(session->File()), 20);
         EXPECT_EQ(table->item(0, 0)->text(), "20.00");
         EXPECT_TRUE(noticeText.isEmpty());
         return;
@@ -4702,10 +4702,10 @@ void MainWindowTest::checkTypedAssignment(AssignmentScenario scenario)
             ? 20
         : scenario == AssignmentScenario::kInvalidCurrent ? 20
                                                           : 11;
-    EXPECT_EQ(bytes::ReadU16Be(session->Rom()), expected);
+    EXPECT_EQ(bytes::ReadU16Be(session->File()), expected);
     if (other.has_value())
     {
-        EXPECT_EQ(bytes::ReadU16Be(services.calibrations.Find(*other)->Rom()), 40);
+        EXPECT_EQ(bytes::ReadU16Be(services.calibrations.Find(*other)->File()), 40);
         EXPECT_FALSE(services.calibrations.Find(*other)->Dirty());
     }
     if (scenario == AssignmentScenario::kActiveMapChanged)
