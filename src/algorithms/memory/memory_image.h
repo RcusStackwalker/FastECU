@@ -42,6 +42,11 @@ class MemoryImage
     // fill blocks read as their fill byte.
     [[nodiscard]] std::expected<MemoryView, MemoryError> Render(AddressRange<FlashSpace> range) const;
 
+    // Whether Write(start, data) of `size` bytes would succeed, without
+    // writing: the same error, for the same first address, as Write would
+    // give. Checking no bytes succeeds.
+    [[nodiscard]] std::expected<void, MemoryError> CheckWrite(FlashAddress start, ByteCount size) const;
+
     // Writes `data` from `start` into the ROM file bytes. Every address written
     // must be in a writable, file-backed block (kUnmapped, kFillBlock or
     // kNotWritable otherwise, for the first address that is not); on any error

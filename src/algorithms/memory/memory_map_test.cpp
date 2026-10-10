@@ -155,5 +155,24 @@ TEST(MemoryMap, RejectsAnEmptyRomFile)
     const std::array blocks{FillBlock(0x0, 0x100)};
     EXPECT_EQ(CreateError(blocks, 0), MemoryErrorKind::kInvalidLayout);
 }
+TEST(MemoryMap, DefinitionBaseIsZeroUnlessDeclared)
+{
+    const auto blocks = PackedMc68Blocks();
+    const auto map = MemoryMap::Create(blocks, ByteCount{0x28000});
+
+    ASSERT_TRUE(map.has_value());
+    EXPECT_EQ(map->DefinitionBase(), FlashAddress{0});
+}
+
+TEST(MemoryMap, KeepsTheDeclaredDefinitionBase)
+{
+    // 1N83M definitions count addresses from where the ROM file starts.
+    const std::array blocks{FileBlock(0x08F9C000, 0x100, 0x0)};
+    const auto map = MemoryMap::Create(blocks, ByteCount{0x100}, FlashAddress{0x08F9C000});
+
+    ASSERT_TRUE(map.has_value());
+    EXPECT_EQ(map->DefinitionBase(), FlashAddress{0x08F9C000});
+}
+
 } // namespace
 } // namespace fastecu::memory

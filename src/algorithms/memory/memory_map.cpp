@@ -65,7 +65,8 @@ std::expected<void, MemoryError> CheckFilePlacement(std::span<const MemoryBlock>
 }
 } // namespace
 
-std::expected<MemoryMap, MemoryError> MemoryMap::Create(std::span<const MemoryBlock> blocks, ByteCount file_size)
+std::expected<MemoryMap, MemoryError> MemoryMap::Create(std::span<const MemoryBlock> blocks, ByteCount file_size,
+                                                        FlashAddress definition_base)
 {
     if (blocks.empty())
     {
@@ -94,7 +95,7 @@ std::expected<MemoryMap, MemoryError> MemoryMap::Create(std::span<const MemoryBl
     {
         return std::unexpected(placement.error());
     }
-    return MemoryMap(std::vector<MemoryBlock>(blocks.begin(), blocks.end()), file_size);
+    return MemoryMap(std::vector<MemoryBlock>(blocks.begin(), blocks.end()), file_size, definition_base);
 }
 
 std::expected<MemoryMap, MemoryError> MemoryMap::Identity(ByteCount file_size)
@@ -119,6 +120,11 @@ ByteCount MemoryMap::FileSize() const
     return file_size_;
 }
 
+FlashAddress MemoryMap::DefinitionBase() const
+{
+    return definition_base_;
+}
+
 const MemoryBlock *MemoryMap::BlockAt(FlashAddress address) const
 {
     // Blocks are sorted and disjoint, so only the last block starting at or
@@ -133,8 +139,8 @@ const MemoryBlock *MemoryMap::BlockAt(FlashAddress address) const
     return candidate.range.Contains(address) ? &candidate : nullptr;
 }
 
-MemoryMap::MemoryMap(std::vector<MemoryBlock> blocks, ByteCount file_size)
-    : blocks_(std::move(blocks)), file_size_(file_size)
+MemoryMap::MemoryMap(std::vector<MemoryBlock> blocks, ByteCount file_size, FlashAddress definition_base)
+    : blocks_(std::move(blocks)), file_size_(file_size), definition_base_(definition_base)
 {
 }
 } // namespace fastecu::memory
