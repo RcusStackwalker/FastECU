@@ -3,11 +3,11 @@
 ## Status
 
 Accepted. Tracks [#119](https://github.com/RcusStackwalker/FastECU/issues/119);
-slices 1-4 have landed: the memory types, the catalog's memory maps with tests
+slices 1-5 have landed: the memory types, the catalog's memory maps with tests
 that they agree with each flash family's write window and flash device and that
-FastECU's own read files open with them, and calibration sessions held as a ROM
-file placed by its memory map. Still to come: checking a definition's internal
-ID through the candidate's memory map, typed definition addresses, flash
+FastECU's own read files open with them, calibration sessions held as a ROM
+file placed by its memory map, and definition addresses typed and the internal
+ID checked through each definition's memory map. Still to come: flash
 executors taking a memory image, and checksums addressing by ECU address.
 
 ## Context
@@ -45,10 +45,15 @@ the padded buffer, silently turning a 160 KiB file into a 192 KiB one.
 - A ROM file selects a memory map by its exact size among those its protocol
   declares; a protocol declaring none gets the identity map over the file. A
   size matching no declared map is rejected, not padded. A definition's
-  internal ID is checked by ECU address through the candidate's memory map.
+  internal ID is checked by ECU address through the candidate's memory map:
+  the map its own or inherited flash method selects for the file, or the
+  identity map when that protocol declares none for its size, so the open can
+  then reject the file by name.
 - Definition files state addresses relative to a definition base that the
-  memory map declares; parsing converts them to ECU addresses once. The base
-  is 0 everywhere except 1N83M (0x08F9C000). Community WRX02 definitions
+  memory map declares. Definitions keep them as definition addresses, because
+  the memory map is chosen after parsing, from the definition's flash method
+  and the ROM file's size, and convert them to ECU addresses only through the
+  memory map. The base is 0 everywhere except 1N83M (0x08F9C000). Community WRX02 definitions
   already use ECU addresses at base 0 (Merp/SubaruDefs: no address in the RAM
   range across 192 files). No 1N83M definitions were found; the base preserves
   the file-relative convention FastECU's own 1N83M constants use.
