@@ -1,6 +1,7 @@
 #pragma once
 
 #include <compare>
+#include <cstddef>
 #include <cstdint>
 #include <limits>
 #include <optional>
@@ -19,6 +20,16 @@ class ByteCount
     [[nodiscard]] constexpr std::uint32_t Value() const
     {
         return value_;
+    }
+
+    // The count of `size` bytes, or nullopt when it does not fit in 32 bits.
+    [[nodiscard]] static constexpr std::optional<ByteCount> FromSize(std::size_t size)
+    {
+        if (size > std::numeric_limits<std::uint32_t>::max())
+        {
+            return std::nullopt;
+        }
+        return ByteCount(static_cast<std::uint32_t>(size));
     }
 
     constexpr auto operator<=>(const ByteCount&) const = default;

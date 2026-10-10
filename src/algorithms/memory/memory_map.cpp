@@ -7,6 +7,7 @@
 #include <optional>
 #include <string>
 #include <utility>
+#include <variant>
 
 namespace fastecu::memory
 {
@@ -69,6 +70,18 @@ std::expected<MemoryMap, MemoryError> MemoryMap::Create(std::span<const MemoryBl
     if (blocks.empty())
     {
         return InvalidLayout("a memory map needs at least one block");
+    }
+    if (file_size.Value() == 0)
+    {
+        return InvalidLayout("a memory map needs a non-empty ROM file");
+    }
+    const auto writable_fill = std::ranges::find_if(
+        blocks, [](const MemoryBlock& block)
+        { return std::holds_alternative<FillBacking>(block.backing) && block.writability == Writability::kWritable; });
+    if (writable_fill != blocks.end())
+    {
+        return InvalidLayout(
+            std::format("the fill block at 0x{:x} is marked writable", writable_fill->range.Start().Value()));
     }
     const auto disorder = std::ranges::adjacent_find(blocks, [](const MemoryBlock& before, const MemoryBlock& after)
                                                      { return after.range.Start() < before.range.End(); });

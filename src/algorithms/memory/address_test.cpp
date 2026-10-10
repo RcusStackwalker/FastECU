@@ -1,7 +1,9 @@
 #include "src/algorithms/memory/address.h"
 
 #include <concepts>
+#include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <optional>
 #include <type_traits>
 
@@ -89,6 +91,20 @@ TEST(AddressRange, ContainsAndOverlapsCompareWholeRanges)
     EXPECT_TRUE(inner.Overlaps(outer));
     EXPECT_FALSE(inner.Overlaps(adjacent));
     EXPECT_FALSE(adjacent.Overlaps(inner));
+}
+
+TEST(ByteCount, FromSizeKeepsEveryCountThatFitsInThirtyTwoBits)
+{
+    EXPECT_EQ(ByteCount::FromSize(0), ByteCount{0});
+    EXPECT_EQ(ByteCount::FromSize(0xFFFFFFFF), ByteCount{0xFFFFFFFF});
+}
+
+TEST(ByteCount, FromSizeRejectsCountsPastThirtyTwoBits)
+{
+    if constexpr (sizeof(std::size_t) > sizeof(std::uint32_t))
+    {
+        EXPECT_EQ(ByteCount::FromSize(std::size_t{std::numeric_limits<std::uint32_t>::max()} + 1), std::nullopt);
+    }
 }
 } // namespace
 } // namespace fastecu::memory
