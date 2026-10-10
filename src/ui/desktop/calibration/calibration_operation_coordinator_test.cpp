@@ -15,6 +15,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "src/algorithms/memory/testing/memory_views.h"
 #include "src/algorithms/memory/memory_image.h"
 #include "src/algorithms/memory/memory_map.h"
 #include "src/algorithms/protocol/bytes.h"
@@ -84,7 +85,7 @@ calibration::CalibrationSession ecuRead(std::optional<calibration::ResolvedDefin
         calibration::SessionId{1},
         calibration::SessionContents{
             .source = {.display_name = "read.bin", .path = "/old/read.bin", .origin = calibration::RomOrigin::kEcuRead},
-            .rom = {1, 2, 3},
+            .image = memory::testing::IdentityImage({1, 2, 3}),
             .definition = std::move(definition),
             .protocol = {.flash_method = std::move(flashMethod), .rom_id = "TEST"},
         }};
@@ -108,15 +109,14 @@ calibration::CalibrationSession packedFile()
                             .backing = memory::FileBacking{.offset = memory::FileOffset{2}},
                             .writability = memory::Writability::kWritable},
     };
-    return calibration::CalibrationSession{
-        calibration::SessionId{2}, calibration::SessionContents{
-                                       .source = {.display_name = "packed.bin",
-                                                  .path = "/cal/packed.bin",
-                                                  .origin = calibration::RomOrigin::kFile},
-                                       .rom = {1, 2, 3, 4},
-                                       .memory_map = memory::MemoryMap::Create(blocks, memory::ByteCount{4}).value(),
-                                       .protocol = {.rom_id = "TEST"},
-                                   }};
+    return calibration::CalibrationSession{calibration::SessionId{2},
+                                           calibration::SessionContents{
+                                               .source = {.display_name = "packed.bin",
+                                                          .path = "/cal/packed.bin",
+                                                          .origin = calibration::RomOrigin::kFile},
+                                               .image = memory::testing::PlacedImage(blocks, {1, 2, 3, 4}),
+                                               .protocol = {.rom_id = "TEST"},
+                                           }};
 }
 
 // A coordinator over an initialized in-memory configuration, the real
@@ -293,8 +293,9 @@ TEST_F(CalibrationOperationCoordinator, ChecksumLogsKeepLegacyTextAndOrder)
 {
     // 0x1a bytes, so the size line shows the lowercase hexadecimal legacy
     // QString::number(n, 16) produced.
-    session_ = calibration::CalibrationSession{calibration::SessionId{2},
-                                               calibration::SessionContents{.rom = bytes::Bytes(0x1a, 0)}};
+    session_ = calibration::CalibrationSession{
+        calibration::SessionId{2},
+        calibration::SessionContents{.image = memory::testing::IdentityImage(bytes::Bytes(0x1a, 0))}};
     expectChecksum({.canceled_due_to_missing_module = true});
 
     ASSERT_TRUE(coordinator_.prepareWrite(&session_, "/kernels/").has_value());
@@ -342,8 +343,9 @@ constexpr config::Catalog kPlacedCatalog{kPlacedProtocols, kPlacedVehicles};
 TEST_F(CalibrationOperationCoordinator, ChecksumImageIsPlacedBySelectedProtocolsMap)
 {
     ASSERT_NO_FATAL_FAILURE(start(kPlacedCatalog));
-    session_ = calibration::CalibrationSession{calibration::SessionId{2},
-                                               calibration::SessionContents{.rom = bytes::Bytes(8, 0)}};
+    session_ = calibration::CalibrationSession{
+        calibration::SessionId{2},
+        calibration::SessionContents{.image = memory::testing::IdentityImage(bytes::Bytes(8, 0))}};
     expectChecksum({});
 
     ASSERT_TRUE(coordinator_.prepareWrite(&session_, "/kernels/").has_value());
@@ -355,8 +357,9 @@ TEST_F(CalibrationOperationCoordinator, ChecksumImageIsPlacedBySelectedProtocols
 TEST_F(CalibrationOperationCoordinator, ChecksumImageOfAnUnmappedSizeIsPlacedByTheIdentityMap)
 {
     ASSERT_NO_FATAL_FAILURE(start(kPlacedCatalog));
-    session_ = calibration::CalibrationSession{calibration::SessionId{2},
-                                               calibration::SessionContents{.rom = bytes::Bytes(9, 0)}};
+    session_ = calibration::CalibrationSession{
+        calibration::SessionId{2},
+        calibration::SessionContents{.image = memory::testing::IdentityImage(bytes::Bytes(9, 0))}};
     expectChecksum({});
 
     ASSERT_TRUE(coordinator_.prepareWrite(&session_, "/kernels/").has_value());

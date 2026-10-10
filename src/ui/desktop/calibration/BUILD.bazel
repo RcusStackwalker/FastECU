@@ -28,6 +28,7 @@ fastecu_gtest(
         ":map_edit_adapter",
         "//bazel/qt:core",
         "//bazel/qt:widgets",
+        "//src/algorithms/memory/testing:memory_views",
         "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
     ],
@@ -88,6 +89,7 @@ fastecu_gtest(
     srcs = ["map_presentation_test.cpp"],
     deps = [
         ":map_presentation",
+        "//src/algorithms/memory/testing:memory_views",
         "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
     ],
@@ -98,6 +100,7 @@ fastecu_gtest(
     srcs = ["rom_info_test.cpp"],
     deps = [
         ":rom_info",
+        "//src/algorithms/memory/testing:memory_views",
         "@googletest//:gtest",
     ],
 )
@@ -186,6 +189,7 @@ fastecu_gtest(
         ":calibration_operation_coordinator",
         "//src/algorithms/memory:memory_image",
         "//src/algorithms/memory:memory_map",
+        "//src/algorithms/memory/testing:memory_views",
         "//src/algorithms/protocol",
         "//src/backend/calibration/session:calibration_session",
         "//src/backend/calibration/session:rom_save",

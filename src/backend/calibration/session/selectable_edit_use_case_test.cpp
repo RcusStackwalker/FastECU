@@ -9,6 +9,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "src/algorithms/memory/testing/memory_views.h"
 #include "src/backend/calibration/session/testing/fake_definition_catalogs.h"
 #include "src/backend/config/testing/config_session_fixture.h"
 #include "src/backend/ports/testing/in_memory_atomic_file_writer.h"
@@ -88,10 +89,11 @@ class SelectableEditUseCaseTest : public ::testing::Test
         {
             resolved = ResolvedDefinition{.definition = std::move(*def)};
         }
-        *workspace_.Find(id_) = CalibrationSession(id_, SessionContents{.source = {.display_name = "modes.bin"},
-                                                                        .rom = std::move(rom),
-                                                                        .definition = std::move(resolved),
-                                                                        .protocol = {}});
+        *workspace_.Find(id_) =
+            CalibrationSession(id_, SessionContents{.source = {.display_name = "modes.bin"},
+                                                    .image = memory::testing::IdentityImage(std::move(rom)),
+                                                    .definition = std::move(resolved),
+                                                    .protocol = {}});
     }
 
     CalibrationSession& Session()

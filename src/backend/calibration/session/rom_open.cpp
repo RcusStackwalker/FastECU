@@ -89,7 +89,6 @@ Result<RomOpenOutcome> RomOpenUseCase::AdoptReadImage(ReadImage image)
 
 Result<RomOpenOutcome> RomOpenUseCase::Finish(Seed seed)
 {
-    RomOpenOutcome outcome;
     std::string rom_id = std::move(seed.rom_id);
     std::optional<ResolvedDefinition> definition = FindDefinition(seed.rom, rom_id);
 
@@ -107,16 +106,16 @@ Result<RomOpenOutcome> RomOpenUseCase::Finish(Seed seed)
     // Checked before selecting a vehicle, so a rejected file changes nothing.
     // A flash method naming no catalog protocol gets the identity map.
     const std::size_t file_size = seed.rom.size();
-    auto memory_map = config::SelectMemoryMap(config_.FindProtocol(flash_method), file_size);
-    if (!memory_map.has_value())
+    auto image = config::PlaceRomFile(config_.FindProtocol(flash_method), std::move(seed.rom));
+    if (!image.has_value())
     {
-        const auto failed = Fail(ErrorKind::kInvalidConfig, memory_map.error().detail);
+        const auto failed = Fail(ErrorKind::kInvalidConfig, image.error().detail);
         LogError("ROM file does not fit its protocol's memory map", failed.error());
-        events_.Notice(std::format("File size error: {}", memory_map.error().detail));
+        events_.Notice(std::format("File size error: {}", image.error().detail));
         return failed;
     }
 
-    outcome.vehicle_selected = config_.SelectByProtocolName(flash_method);
+    const bool vehicle_selected = config_.SelectByProtocolName(flash_method);
     const config::VehicleSpec *vehicle = config_.SelectedVehicle();
     if (vehicle != nullptr)
     {
@@ -134,23 +133,25 @@ Result<RomOpenOutcome> RomOpenUseCase::Finish(Seed seed)
         }
     }
 
-    outcome.contents = SessionContents{
-        .source = std::move(seed.source),
-        .rom = std::move(seed.rom),
-        .memory_map = std::move(*memory_map),
-        .definition = std::move(definition),
-        .protocol =
-            RomProtocolInfo{
-                .flash_method = flash_method,
-                .checksum_module = std::move(checksum_module),
-                .mcu_type = vehicle != nullptr ? std::string(vehicle->protocol->mcu) : std::string{},
-                .kernel_path = std::move(seed.kernel_path),
-                .kernel_start_address = std::move(seed.kernel_start_address),
-                .rom_id = std::move(rom_id),
-                .file_size_label = std::format("{}kb", file_size / 1024),
+    return RomOpenOutcome{
+        .contents =
+            SessionContents{
+                .source = std::move(seed.source),
+                .image = std::move(*image),
+                .definition = std::move(definition),
+                .protocol =
+                    RomProtocolInfo{
+                        .flash_method = flash_method,
+                        .checksum_module = std::move(checksum_module),
+                        .mcu_type = vehicle != nullptr ? std::string(vehicle->protocol->mcu) : std::string{},
+                        .kernel_path = std::move(seed.kernel_path),
+                        .kernel_start_address = std::move(seed.kernel_start_address),
+                        .rom_id = std::move(rom_id),
+                        .file_size_label = std::format("{}kb", file_size / 1024),
+                    },
             },
+        .vehicle_selected = vehicle_selected,
     };
-    return outcome;
 }
 
 std::optional<ResolvedDefinition> RomOpenUseCase::FindDefinition(std::span<const std::uint8_t> rom, std::string& rom_id)

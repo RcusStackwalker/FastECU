@@ -3,6 +3,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "src/algorithms/memory/testing/memory_views.h"
 #include "src/backend/calibration/session/rom_open.h"
 #include "src/backend/calibration/session/testing/fake_definition_catalogs.h"
 #include "src/backend/config/testing/config_session_fixture.h"
@@ -28,7 +29,7 @@ class RomSaveTest : public ::testing::Test
         SessionId{1},
         SessionContents{
             .source = {.display_name = "read.bin", .path = "/old/read.bin", .origin = RomOrigin::kEcuRead},
-            .rom = {1, 2, 3},
+            .image = memory::testing::IdentityImage({1, 2, 3}),
         }};
     config::testing::ConfigSessionFixture cfg_;
     RomSaveUseCase saver_{cfg_.file_repository, cfg_.events};
@@ -49,7 +50,7 @@ TEST_F(RomSaveTest, SavesEditedBytesAndReopensThem)
     RomOpenUseCase opener{catalogs, definitions, cfg_.file_repository, cfg_.file_system, cfg_.events, cfg_.session};
     const auto reopened = opener.OpenFile("/cal/saved.bin");
     ASSERT_THAT(reopened, IsOk());
-    EXPECT_THAT(reopened->contents.rom, ElementsAre(1, 9, 3));
+    EXPECT_THAT(reopened->contents.image.File(), ElementsAre(1, 9, 3));
     EXPECT_EQ(reopened->contents.source.origin, RomOrigin::kFile);
     ASSERT_THAT(session_.WriteBytes(0, patch), IsOk());
     EXPECT_TRUE(session_.Dirty());
@@ -99,7 +100,7 @@ TEST_F(RomSaveTest, SavingToTheCurrentPathPreservesFileOrigin)
     CalibrationSession file_session{
         SessionId{2}, SessionContents{
                           .source = {.display_name = "a.bin", .path = "/cal/a.bin", .origin = RomOrigin::kFile},
-                          .rom = {1, 2, 3},
+                          .image = memory::testing::IdentityImage({1, 2, 3}),
                       }};
     ASSERT_THAT(saver_.Save(file_session, file_session.Source().path, file_session.Rom()), IsOk());
     EXPECT_EQ(file_session.Source(), (RomSource{"a.bin", "/cal/a.bin", RomOrigin::kFile}));
