@@ -49,6 +49,7 @@ fastecu_gtest(
     deps = [
         ":logging_runtime",
         "//src/backend/logging/testing:scripted_logging_protocol",
+        "//src/backend/ports/testing:result_matchers",
         "//src/platform/desktop/common/logging:cdbg_serial_setup",
         "//src/platform/desktop/common/testing:core_application_environment",
         "//src/platform/desktop/common/testing:event_helpers",

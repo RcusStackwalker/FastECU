@@ -171,6 +171,26 @@ TEST(SsmLoggingProtocolTest, PollHonorsSnapshottedHistoricalResponseOffsets)
     EXPECT_EQ(result->samples[1].raw_value, "99");
 }
 
+TEST(SsmLoggingProtocolTest, PollHonorsNonmonotonicResponseOffsets)
+{
+    auto transport = std::make_unique<ScriptedSsmTransport>();
+    transport->ExpectWrite(BuildRequest(bytes::Bytes{0xA8, 0x01, 0x00, 0x10, 0x00, 0x00, 0x10, 0x03}));
+    transport->QueueRead(BuildResponse(bytes::Bytes{42, 77, 99}));
+    transport->QueueNoFrame();
+    auto clock = fastecu::MakeAutoAdvancingClock(10ms);
+    fastecu::FakeCancellationToken cancellation;
+    SsmLoggingProtocol protocol(clock, std::move(transport), {Channel("first", 0x1000), Channel("third", 0x1003)},
+                                std::vector<std::size_t>{2, 0}, true, false);
+
+    const auto result = protocol.Poll(50ms, cancellation);
+
+    ASSERT_THAT(result, fastecu::testing::IsOk());
+    ASSERT_TRUE(result->responded);
+    ASSERT_EQ(result->samples.size(), 2U);
+    EXPECT_EQ(result->samples[0].raw_value, "99");
+    EXPECT_EQ(result->samples[1].raw_value, "42");
+}
+
 TEST(SsmLoggingProtocolTest, PollReturnsNoResponseOnDirectReadTimeout)
 {
     auto transport = std::make_unique<ScriptedSsmTransport>();

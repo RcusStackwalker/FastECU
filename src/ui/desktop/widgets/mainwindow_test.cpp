@@ -100,6 +100,29 @@ constexpr auto kNoFileSelectedText = "No file selected!";
 constexpr auto kPortableEcuIgnitionText = "Turn ignition ON and press OK to start initializing the ECU connection.";
 constexpr auto kContinueWithoutDefinitionText = "Continue without definition file";
 
+fastecu::Result<fastecu::desktop::logging::DesktopLoggingSnapshot> makeLoggingSnapshot(bool targetIsEcu)
+{
+    fastecu::logging::LoggerModel model;
+    model.InstallDefinition({.parameters = {{.protocol = "SSM",
+                                             .id = "rpm",
+                                             .address = "10",
+                                             .length = "1",
+                                             .enabled = true,
+                                             .conversions = {{"rpm", "x", "0", "0", "100", "1"}}}}});
+    model.SetSelection({.protocol = "SSM", .lower_panel_ids = {"rpm"}});
+    auto snapshot =
+        fastecu::desktop::logging::MakeDesktopLoggingSnapshot(model, fastecu::logging::LoggingProtocolId::kSsm, "SSM",
+                                                              {.poll_timeout = std::chrono::milliseconds{50},
+                                                               .car_silence_miss_threshold = 20,
+                                                               .reconnect_attempt_threshold = 100,
+                                                               .reconnect_retry_period = 20});
+    if (snapshot.has_value())
+    {
+        snapshot->target_is_ecu = targetIsEcu;
+    }
+    return snapshot;
+}
+
 class ModalDriver final : public QObject
 {
 
@@ -2259,22 +2282,9 @@ void MainWindowTest::checkWindowPreservesInjectedLoggingFactory()
     // This test checks ownership, not UI error dialogs. The next test
     // drives actual menu dispatch and checks the selected target.
     QObject::disconnect(&services.logging_engine, nullptr, &window, nullptr);
-    auto session =
-        fastecu::logging::MakeLoggingSession(fastecu::logging::LoggingProtocolId::kSsm,
-                                             {{.id = "rpm",
-                                               .address = 0x10,
-                                               .length = 1,
-                                               .raw_assembly = fastecu::logging::RawAssembly::kUnsignedIntegerDecimal,
-                                               .from_byte_expression = "x",
-                                               .unit = "rpm",
-                                               .decimal_precision = 0}},
-                                             {.poll_timeout = std::chrono::milliseconds{50},
-                                              .car_silence_miss_threshold = 20,
-                                              .reconnect_attempt_threshold = 100,
-                                              .reconnect_retry_period = 20});
-    ASSERT_TRUE(session);
-    ASSERT_TRUE(services.logging_engine.Start(
-        {.protocol_id = "SSM"}, {.session = std::move(*session), .response_offsets = {0}, .target_is_ecu = false}));
+    auto snapshot = makeLoggingSnapshot(false);
+    ASSERT_THAT(snapshot, fastecu::testing::IsOk());
+    ASSERT_THAT(services.logging_engine.Start({.protocol_id = "SSM"}, std::move(*snapshot)), fastecu::testing::IsOk());
     services.logging_engine.Stop();
     ASSERT_TRUE(called);
 }
@@ -3693,22 +3703,9 @@ void MainWindowTest::checkConnectStopsAnActiveLoggingWorkerBeforeIdentification(
                                                  protocol->BlockPollUntilCancelled();
                                                  return protocol;
                                              });
-    auto session =
-        fastecu::logging::MakeLoggingSession(fastecu::logging::LoggingProtocolId::kSsm,
-                                             {{.id = "rpm",
-                                               .address = 0x10,
-                                               .length = 1,
-                                               .raw_assembly = fastecu::logging::RawAssembly::kUnsignedIntegerDecimal,
-                                               .from_byte_expression = "x",
-                                               .unit = "rpm",
-                                               .decimal_precision = 0}},
-                                             {.poll_timeout = std::chrono::milliseconds{50},
-                                              .car_silence_miss_threshold = 20,
-                                              .reconnect_attempt_threshold = 100,
-                                              .reconnect_retry_period = 20});
-    ASSERT_TRUE(session.has_value());
-    fastecu::desktop::logging::DesktopLoggingSnapshot snapshot{.session = std::move(*session)};
-    ASSERT_TRUE(services.logging_engine.Start({"SSM"}, std::move(snapshot)).has_value());
+    auto snapshot = makeLoggingSnapshot(true);
+    ASSERT_THAT(snapshot, fastecu::testing::IsOk());
+    ASSERT_THAT(services.logging_engine.Start({"SSM"}, std::move(*snapshot)), fastecu::testing::IsOk());
     ASSERT_TRUE(fastecu::testing::WaitUntil([&] { return services.logging_engine.IsRunning(); },
                                             std::chrono::milliseconds(5000)));
     window.logging_state_ = true;
