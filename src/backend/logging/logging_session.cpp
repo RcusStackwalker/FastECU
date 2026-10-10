@@ -130,11 +130,35 @@ const LoggingChannel *LoggingSession::FindChannel(std::string_view id) const
 
 fastecu::Status ValidateLoggingChannel(LoggingProtocolId protocol, const LoggingChannel& channel)
 {
-    if (!ValidProtocol(protocol) || channel.id.empty() || channel.length == 0 || channel.length > 255 ||
-        !ValidAddress(protocol, channel.address) || !ValidRawAssembly(channel.raw_assembly) ||
-        channel.decimal_precision > 15 || !ValidExpression(channel))
+    if (!ValidProtocol(protocol))
     {
-        return fastecu::Fail(fastecu::ErrorKind::kInvalidConfig, "invalid logging channel");
+        return fastecu::Fail(fastecu::ErrorKind::kInvalidConfig, "invalid logging protocol");
+    }
+    if (channel.id.empty())
+    {
+        return fastecu::Fail(fastecu::ErrorKind::kInvalidConfig, "missing channel id");
+    }
+    if (channel.length == 0 || channel.length > 255)
+    {
+        return fastecu::Fail(fastecu::ErrorKind::kInvalidConfig, "invalid length; expected 1–255 bytes");
+    }
+    if (!ValidAddress(protocol, channel.address))
+    {
+        return fastecu::Fail(fastecu::ErrorKind::kInvalidConfig, "address exceeds the selected protocol's range");
+    }
+    if (!ValidRawAssembly(channel.raw_assembly))
+    {
+        return fastecu::Fail(fastecu::ErrorKind::kInvalidConfig, "invalid raw assembly");
+    }
+    if (channel.decimal_precision > 15)
+    {
+        return fastecu::Fail(fastecu::ErrorKind::kInvalidConfig,
+                             "invalid format precision; expected 0–15 decimal places");
+    }
+    if (!ValidExpression(channel))
+    {
+        return fastecu::Fail(fastecu::ErrorKind::kInvalidConfig,
+                             "invalid expression; provide a finite numeric conversion");
     }
     return {};
 }
