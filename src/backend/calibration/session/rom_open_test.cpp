@@ -520,7 +520,11 @@ constexpr auto kBasedMaps = std::to_array<config::MemoryMapSpec>(
     {{.file_size = memory::ByteCount{0x40}, .blocks = kBasedBlocks, .definition_base = memory::FlashAddress{0x1000}}});
 constexpr auto kMappedProtocols = std::to_array<config::ProtocolSpec>({
     {.name = "proto_a", .mcu = "SH7058", .checksum = config::ChecksumSupport::kCorrected, .description = "A"},
-    {.name = "mapped", .mcu = "MC68HC16Y5", .description = "Mapped", .memory_maps = kMappedMaps},
+    {.name = "mapped",
+     .alias = "mapped_alias",
+     .mcu = "MC68HC16Y5",
+     .description = "Mapped",
+     .memory_maps = kMappedMaps},
     {.name = "based", .mcu = "N83M_4MB", .description = "Based", .memory_maps = kBasedMaps},
 });
 constexpr auto kMappedVehicles = std::to_array<config::VehicleSpec>({
@@ -585,6 +589,99 @@ TEST_F(RomOpenMemoryMaps, AFileSizeTheProtocolHasNoMapForIsNotOpened)
     EXPECT_THAT(outcome, IsErr(ErrorKind::kInvalidConfig));
     EXPECT_THAT(Notices(), Contains("File size error: protocol 'mapped' has no memory map for 0x41-byte ROM files"));
     EXPECT_EQ(*cfg_.session.SelectedRow(), 0U); // the rejected file selected no vehicle
+}
+
+// A "mapped" EcuFlash definition identified by "MAPPED" at ECU 0x30, which is
+// file offset 0x20 under the mapped protocol's memory map.
+constexpr std::string_view kMappedDefinition = R"xml(
+<rom>
+  <romid><xmlid>MAPPED</xmlid><internalidaddress>30</internalidaddress>
+    <internalidstring>MAPPED</internalidstring><flashmethod>mapped</flashmethod></romid>
+</rom>)xml";
+
+class RomOpenMappedDefinitions : public RomOpenMemoryMaps
+{
+  protected:
+    void SetUp() override
+    {
+        RomOpenMemoryMaps::SetUp();
+        cfg_.Put("/defs/mapped.xml", kMappedDefinition);
+        cfg_.file_system.files["/defs/mapped.xml"] = {};
+        auto& settings = cfg_.session.Settings();
+        settings.primary_definition_base = "ecuflash";
+        settings.use_ecuflash_definitions = "enabled";
+        settings.ecuflash_definition_files_directory = "/defs/";
+        catalogs_.entries[DefinitionFormat::kEcuFlash] = {MappedEntry("mapped")};
+    }
+
+    static definition::DefinitionIndexEntry MappedEntry(std::string flash_method)
+    {
+        return definition::DefinitionIndexEntry{
+            .format = DefinitionFormat::kEcuFlash,
+            .definition_id = "MAPPED",
+            .internal_id = "MAPPED",
+            .internal_id_address = memory::DefinitionAddress{0x30},
+            .internal_id_encoding = definition::IdEncoding::kAscii,
+            .flash_method = std::move(flash_method),
+            .source = "/defs/mapped.xml",
+        };
+    }
+
+    static std::vector<std::uint8_t> RomWithIdAt(std::size_t size, std::size_t offset)
+    {
+        std::vector<std::uint8_t> rom(size, 0);
+        const std::string id = "MAPPED";
+        std::ranges::copy(id, rom.begin() + static_cast<std::ptrdiff_t>(offset));
+        return rom;
+    }
+};
+
+TEST_F(RomOpenMappedDefinitions, TheInternalIdIsReadThroughTheDefinitionsMemoryMap)
+{
+    PutRom("/cal/m.bin", RomWithIdAt(0x40, 0x20));
+
+    const auto outcome = opener_.OpenFile("/cal/m.bin");
+
+    ASSERT_THAT(outcome, IsOk());
+    ASSERT_TRUE(outcome->contents.definition.has_value());
+    EXPECT_EQ(outcome->contents.definition->id, "MAPPED");
+    EXPECT_EQ(outcome->contents.protocol.flash_method, "mapped");
+}
+
+TEST_F(RomOpenMappedDefinitions, AnIdAtTheFileOffsetAloneDoesNotMatch)
+{
+    // File offset 0x30 is ECU 0x40 under the map, not 0x30.
+    PutRom("/cal/m.bin", RomWithIdAt(0x40, 0x30));
+
+    const auto outcome = opener_.OpenFile("/cal/m.bin");
+
+    ASSERT_THAT(outcome, IsOk());
+    EXPECT_FALSE(outcome->contents.definition.has_value());
+}
+
+TEST_F(RomOpenMappedDefinitions, AFlashMethodAliasSelectsItsProtocolsMemoryMap)
+{
+    catalogs_.entries[DefinitionFormat::kEcuFlash] = {MappedEntry("mapped_alias")};
+    PutRom("/cal/m.bin", RomWithIdAt(0x40, 0x20));
+
+    const auto outcome = opener_.OpenFile("/cal/m.bin");
+
+    ASSERT_THAT(outcome, IsOk());
+    ASSERT_TRUE(outcome->contents.definition.has_value());
+    EXPECT_EQ(outcome->contents.definition->id, "MAPPED");
+}
+
+TEST_F(RomOpenMappedDefinitions, AFileSizeTheMatchedProtocolHasNoMapForIsStillIdentifiedThenRejected)
+{
+    // No map for 0x41 bytes: matching falls back to the file offset, so the
+    // definition is found and the open names the real problem.
+    PutRom("/cal/m.bin", RomWithIdAt(0x41, 0x30));
+
+    const auto outcome = opener_.OpenFile("/cal/m.bin");
+
+    EXPECT_THAT(outcome, IsErr(ErrorKind::kInvalidConfig));
+    EXPECT_THAT(Notices(), Contains("File size error: protocol 'mapped' has no memory map for 0x41-byte ROM files"));
+    EXPECT_EQ(*cfg_.session.SelectedRow(), 0U);
 }
 
 } // namespace

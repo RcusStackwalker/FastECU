@@ -105,6 +105,7 @@ cc_library(
     deps = [
         ":definition_model",
         ":definition_writer",
+        "//src/algorithms/memory:memory_map",
         "//src/backend/ports",
     ],
 )

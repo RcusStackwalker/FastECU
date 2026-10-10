@@ -172,6 +172,58 @@ Result<DefinitionCatalog> BuildCatalog(IFileRepository& repository, std::span<co
     return DefinitionCatalog::Create(std::move(entries));
 }
 
+// The flash method `entry` resolves to: its own, else the last parent's that
+// has one, since later parents overlay earlier ones (definition_resolver.cpp).
+// A missing parent, a cycle, or an over-deep chain contributes nothing; Load
+// reports those.
+std::string EffectiveFlashMethod(const DefinitionCatalog& catalog, const DefinitionIndexEntry& entry,
+                                 std::vector<std::string>& chain)
+{
+    if (!entry.flash_method.empty())
+    {
+        return entry.flash_method;
+    }
+    if (chain.size() >= kMaxInheritanceDepth || std::ranges::contains(chain, entry.definition_id))
+    {
+        return {};
+    }
+    chain.push_back(entry.definition_id);
+    std::string inherited;
+    for (const std::string& parent_id : entry.parents)
+    {
+        if (auto parent = catalog.Find(entry.format, parent_id); parent.has_value())
+        {
+            if (std::string method = EffectiveFlashMethod(catalog, parent->get(), chain); !method.empty())
+            {
+                inherited = std::move(method);
+            }
+        }
+    }
+    chain.pop_back();
+    return inherited;
+}
+
+// Whether `candidate` is the ROM file's bytes at the ECU address `address`
+// stands for under `map`, all within one file-backed block.
+bool IdAt(const memory::MemoryMap& map, std::span<const std::uint8_t> rom, memory::DefinitionAddress address,
+          std::span<const std::uint8_t> candidate)
+{
+    const std::optional<memory::FlashAddress> start = map.ToFlashAddress(address);
+    const std::optional<memory::ByteCount> size = memory::ByteCount::FromSize(candidate.size());
+    if (!start.has_value() || !size.has_value())
+    {
+        return false;
+    }
+    const auto range = memory::AddressRange<memory::FlashSpace>::Make(*start, *size);
+    if (!range.has_value())
+    {
+        return false;
+    }
+    const std::optional<memory::FileOffset> offset = map.FileOffsetOf(*range);
+    // The map places exactly this file, so a file-backed range lies inside it.
+    return offset.has_value() && std::ranges::equal(candidate, rom.subspan(offset->Value(), candidate.size()));
+}
+
 } // namespace
 
 DefinitionService::DefinitionService(IFileSystem& file_system, IFileRepository& repository, IAtomicFileWriter& writer)
@@ -211,7 +263,8 @@ Result<DefinitionCatalog> DefinitionService::BuildEcuflashCatalog(std::string_vi
 }
 
 Result<DefinitionIndexEntry> DefinitionService::MatchRom(const DefinitionCatalog& catalog,
-                                                         std::span<const std::uint8_t> rom) const
+                                                         std::span<const std::uint8_t> rom,
+                                                         const MemoryMapLookup& memory_maps) const
 {
     for (const DefinitionIndexEntry& entry : catalog.Entries())
     {
@@ -219,9 +272,10 @@ Result<DefinitionIndexEntry> DefinitionService::MatchRom(const DefinitionCatalog
         {
             continue;
         }
-        // An entry with unusable match metadata (bad identifier encoding, no address, or an
-        // address outside this particular ROM) just isn't a candidate for this ROM -- it is
-        // not a reason to abandon the scan before reaching a later entry that does match.
+        // An entry with unusable match metadata (bad identifier encoding, no address, a flash
+        // method that cannot place this ROM, or an address outside it) just isn't a candidate
+        // for this ROM -- it is not a reason to abandon the scan before reaching a later entry
+        // that does match.
         auto candidates = IdentifierCandidates(entry.internal_id, entry.internal_id_encoding);
         if (!candidates.has_value())
         {
@@ -232,16 +286,16 @@ Result<DefinitionIndexEntry> DefinitionService::MatchRom(const DefinitionCatalog
             continue;
         }
 
-        const std::uint64_t address = entry.internal_id_address->Value();
-        if (address > rom.size())
+        std::vector<std::string> chain;
+        const std::optional<memory::MemoryMap> map = memory_maps(EffectiveFlashMethod(catalog, entry, chain));
+        // A map for another file size would misplace every byte.
+        if (!map.has_value() || map->FileSize().Value() != rom.size())
         {
             continue;
         }
-        const auto offset = static_cast<std::size_t>(address);
         for (const std::vector<std::uint8_t>& candidate : *candidates)
         {
-            if (candidate.size() <= rom.size() - offset &&
-                std::ranges::equal(candidate, rom.subspan(offset, candidate.size())))
+            if (IdAt(*map, rom, *entry.internal_id_address, candidate))
             {
                 return entry;
             }

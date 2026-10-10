@@ -676,11 +676,6 @@ std::string ChainText(const std::vector<std::string>& stack, std::string_view ta
     return result;
 }
 
-// Real definition families are at most a handful of levels deep; this is a generous ceiling
-// that still fails fast with a resolvable error well short of the C++ call stack limit for
-// `ResolverState::resolve`'s recursion.
-constexpr std::size_t kMaxInheritanceDepth = 256;
-
 class ChainGuard
 {
   public:

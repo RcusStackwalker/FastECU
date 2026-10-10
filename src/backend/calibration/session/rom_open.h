@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <optional>
 #include <span>
@@ -71,6 +72,11 @@ class RomOpenUseCase
     std::optional<ResolvedDefinition> FindDefinition(std::span<const std::uint8_t> rom, std::string& rom_id);
     std::optional<ResolvedDefinition> TryFormat(definition::DefinitionFormat format, std::span<const std::uint8_t> rom,
                                                 std::string& rom_id);
+    // Each definition's memory map for a file of `file_size` bytes: its flash
+    // method's protocol's map, or the identity map when that protocol declares
+    // none for this size (Finish then rejects the file by name) or names no
+    // catalog protocol.
+    definition::MemoryMapLookup MemoryMapsFor(std::size_t file_size) const;
     std::string ResolveAlias(const std::string& flash_method);
     void LogError(std::string_view operation, const Error& error);
 
