@@ -228,6 +228,7 @@ TEST(CalibrationSessionMemory, DefinitionAddressesCountFromTheDefinitionBase)
         SessionContents{.image = memory::testing::PlacedImage(blocks, {1, 2, 3, 4}, memory::FlashAddress{0x08F9C000})});
 
     EXPECT_THAT(session.Read(0, 4), IsOkAnd(ElementsAre(1, 2, 3, 4)));
+    EXPECT_THAT(session.Read(4, 1), IsErr(ErrorKind::kInvalidConfig));
     ASSERT_THAT(session.WriteBytes(1, bytes::Bytes{9}), IsOk());
     EXPECT_THAT(session.File(), ElementsAre(1, 9, 3, 4));
 }

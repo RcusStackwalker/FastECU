@@ -579,6 +579,7 @@ TEST_F(RomOpenMemoryMaps, DefinitionAddressesCountFromTheMapsDefinitionBase)
     EXPECT_EQ(outcome->contents.image.Map().DefinitionBase(), memory::FlashAddress{0x1000});
     const CalibrationSession session(SessionId{1}, std::move(outcome->contents));
     EXPECT_THAT(session.Read(0, 0x40), fastecu::testing::IsOkAnd(ElementsAreArray(CountingRom(0x40))));
+    EXPECT_THAT(session.Read(0x40, 1), IsErr(ErrorKind::kInvalidConfig));
 }
 
 TEST_F(RomOpenMemoryMaps, AFileSizeTheProtocolHasNoMapForIsNotOpened)
