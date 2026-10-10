@@ -123,5 +123,62 @@ TEST(CheckMapPlacement, LeavesAMapWithoutAnAddressToTheDecoder)
 
     EXPECT_THAT(Check(definition, Layout()), IsOk());
 }
+
+// A Selectable switch is one blob of its selections' width at its address; its
+// dimensions and stride do not widen what is checked.
+TEST(CheckMapPlacement, ChecksABlobAtItsSelectionWidthOnly)
+{
+    auto definition = OneMap(0x3E, 1);
+    auto& map = definition.maps[0];
+    map.storage_type = definition::StorageType::kBloblist;
+    map.scaling_name = "switch";
+    map.x_size = 16;
+    map.y_size = 4;
+    definition::Scaling scaling;
+    scaling.name = "switch";
+    scaling.storage_type = definition::StorageType::kBloblist;
+    scaling.selections.push_back(definition::Selection{.name = "off", .value = {0x00, 0x00}});
+    definition.scalings.push_back(scaling);
+
+    EXPECT_THAT(Check(definition, Layout()), IsOk());
+}
+
+TEST(CheckMapPlacement, UsesTheScalingsStorageWhenTheMapHasNone)
+{
+    auto definition = OneMap(0x1F, 1);
+    definition.maps[0].storage_type.reset();
+    definition.maps[0].scaling_name = "wide";
+    definition::Scaling scaling;
+    scaling.name = "wide";
+    scaling.storage_type = definition::StorageType::kUint16;
+    definition.scalings.push_back(scaling);
+
+    // Two bytes from 0x1F reach the fill block at 0x20.
+    EXPECT_THAT(Check(definition, Layout()), IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("fill block")));
+}
+
+TEST(CheckMapPlacement, FollowsTheStartPositionAndIntervalStride)
+{
+    auto definition = OneMap(0x10, 3);
+    definition.maps[0].start_position = 2;
+    definition.maps[0].interval = 4; // cells at 0x11, 0x15, 0x19
+    EXPECT_THAT(Check(definition, Layout()), IsOk());
+
+    definition.maps[0].interval = 8; // cells at 0x11, 0x19, 0x21
+    EXPECT_THAT(Check(definition, Layout()), IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("fill block")));
+}
+
+TEST(CheckMapPlacement, AnExtentPastTheAddressSpaceLiesOutsideTheMemoryMap)
+{
+    auto wide = OneMap(0x10, 2);
+    wide.maps[0].interval = std::numeric_limits<std::uint32_t>::max();
+    EXPECT_THAT(Check(wide, Layout()), IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("outside the ROM's memory map")));
+
+    // ElementRunEnd saturates on overflow rather than wrapping.
+    auto overflowing = OneMap(std::numeric_limits<std::uint64_t>::max() - 1, 2);
+    EXPECT_THAT(Check(overflowing, Layout()),
+                IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("outside the ROM's memory map")));
+}
+
 } // namespace
 } // namespace fastecu::calibration
