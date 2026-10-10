@@ -122,7 +122,7 @@ Result<DecodedMap> CalibrationSession::DecodeMap(std::size_t map_index) const
                                                            rom_definition.maps.size()));
     }
     const definition::CalibrationMap& map = rom_definition.maps[map_index];
-    if (const Status placed = CheckMapPlacement(rom_definition, map, image_.Map()); !placed.has_value())
+    if (const auto placed = CheckMapPlacement(rom_definition, map, image_.Map()); !placed.has_value())
     {
         return std::unexpected(placed.error());
     }
