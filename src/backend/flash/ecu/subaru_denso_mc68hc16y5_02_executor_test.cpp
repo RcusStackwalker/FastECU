@@ -15,6 +15,7 @@
 #include "src/backend/config/catalog.h"
 #include "src/backend/flash/kernel/kernelmemorymodels.h"
 #include "src/backend/flash/ecu/subaru_denso_mc68hc16y5_02_plan.h"
+#include "src/backend/flash/ecu/testing/mc68_rom_images.h"
 #include "src/backend/flash/eeprom/eeprom_read_plan.h"
 #include "src/backend/flash/flash_device_lookup.h"
 #include "src/backend/flash/flash_validation.h"
@@ -167,7 +168,8 @@ Result<FlashPlan> StockPlan(FlashOperation operation = FlashOperation::kRead)
 {
     return BuildSubaruDensoMc68hc16y502Plan(
         operation, "sub_ecu_denso_mc68hc16y5_02", "MC68HC16Y5",
-        operation == FlashOperation::kRead ? std::nullopt : std::optional<bytes::Bytes>(bytes::Bytes(0x28000, 0)),
+        operation == FlashOperation::kRead ? std::nullopt
+                                           : std::optional(testing::PackedMc68Image(bytes::Bytes(0x28000, 0))),
         KernelImage{.id = "k", .load_address = 0x20000, .bytes = {0x01, 0x02, 0x03, 0x04}});
 }
 
@@ -175,7 +177,8 @@ Result<FlashPlan> EcutekPlan(FlashOperation operation = FlashOperation::kRead)
 {
     return BuildSubaruDensoMc68hc16y502Plan(
         operation, "sub_ecu_denso_mc68hc16y5_02_ecutek", "MC68HC16Y5",
-        operation == FlashOperation::kRead ? std::nullopt : std::optional<bytes::Bytes>(bytes::Bytes(0x28000, 0)),
+        operation == FlashOperation::kRead ? std::nullopt
+                                           : std::optional(testing::PackedMc68Image(bytes::Bytes(0x28000, 0))),
         KernelImage{.id = "k", .load_address = 0x20000, .bytes = {0x01, 0x02, 0x03, 0x04}});
 }
 
@@ -332,7 +335,14 @@ void ScriptBlockTransfer(ScriptedKlineFlashTransport& transport, const FlashDevi
     transport.QueueNoFrame();
 }
 
+Result<FlashPlan> StockWritePlanFrom(FlashOperation operation, memory::MemoryImage image);
+
 Result<FlashPlan> StockWritePlan(FlashOperation operation, bytes::Bytes image)
+{
+    return StockWritePlanFrom(operation, testing::PackedMc68Image(std::move(image)));
+}
+
+Result<FlashPlan> StockWritePlanFrom(FlashOperation operation, memory::MemoryImage image)
 {
     return BuildSubaruDensoMc68hc16y502Plan(
         operation, "sub_ecu_denso_mc68hc16y5_02", "MC68HC16Y5", std::move(image),
@@ -892,6 +902,44 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WriteReflashesOnlyDifferingBlocks)
     EXPECT_EQ(transport.control_line_trace.back(),
               ScriptedKlineFlashTransport::ControlLineAction::kEnableProgrammingVoltageLine);
     EXPECT_EQ(clock.Elapsed(), 4050ms);
+}
+
+// The executor writes by ECU address through the ROM file's memory map, so a
+// 192 KiB file and its packed 160 KiB twin send exactly the same bytes.
+TEST(SubaruDensoMc68hc16y5_02Executor, AFullRomFileWritesTheSameBytesAsItsPackedTwin)
+{
+    const FlashDevice *device = FindFlashDevice("MC68HC16Y5");
+    ASSERT_NE(device, nullptr);
+    // The last block lies in the second flash range, past the RAM hole, where
+    // the two files' layouts differ.
+    const unsigned differing_block = device->numblocks - 1;
+    ASSERT_GE(device->fblocks[differing_block].start, 0x28000U);
+    bytes::Bytes packed(device->romsize, 0x00);
+    const std::size_t image_offset = PackedBlockOffset(*device, differing_block);
+    for (std::size_t offset = 0; offset < device->fblocks[differing_block].len; ++offset)
+    {
+        packed[image_offset + offset] = static_cast<bytes::Byte>(offset * 13U + 7U);
+    }
+    auto plan = StockWritePlanFrom(FlashOperation::kWrite, testing::FullMc68Image(packed));
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+
+    // Scripted from the packed file, exactly as the 160 KiB write expects.
+    OpenScriptedKlineFlashTransport transport;
+    ScriptStockConnectAndUpload(transport);
+    ScriptCrcCompare(transport, *device, packed, differing_block);
+    ScriptFlashInit(transport, false);
+    ScriptProgVolt(transport);
+    ScriptBlockTransfer(transport, *device, packed, differing_block, false);
+    ScriptCrcCompare(transport, *device, packed, std::nullopt);
+
+    FakeClock clock;
+    FakeCancellationToken cancellation;
+    RecordingEventSink events;
+    SubaruDensoMc68hc16y5_02Executor executor;
+    auto result = executor.Execute(*plan, transport, clock, cancellation, events);
+
+    ASSERT_THAT(result, fastecu::testing::IsOk());
+    EXPECT_TRUE(transport.ScriptConsumed());
 }
 
 TEST(SubaruDensoMc68hc16y5_02Executor, TestWriteSendsValidateNotCommit)

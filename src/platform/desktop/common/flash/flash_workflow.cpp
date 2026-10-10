@@ -6,6 +6,9 @@
 #include <format>
 #include <string_view>
 
+#include "src/algorithms/memory/address.h"
+#include "src/algorithms/memory/memory_image.h"
+#include "src/backend/config/catalog.h"
 #include "src/backend/flash/flash_device_lookup.h"
 #include "src/backend/flash/ecu/mitsu_colt_m32r_can_executor.h"
 #include "src/backend/flash/ecu/mitsu_colt_m32r_can_plan.h"
@@ -187,42 +190,6 @@ Result<bytes::Bytes> ResolveKernelBytes(const FlashWorkflowRequest& request, IFi
         return Fail(error.kind, std::format("kernel file '{}': {}", request.protocol.kernel, error.detail));
     }
     return bytes::Bytes(kernel_bytes->begin(), kernel_bytes->end());
-}
-
-std::optional<bytes::Bytes> NormalizeMc68Image(std::optional<bytes::Bytes> image, std::string_view mcu_name)
-{
-    if (!image.has_value())
-    {
-        return std::nullopt;
-    }
-    const FlashDevice *device = FindFlashDevice(mcu_name);
-    if (device == nullptr || image->size() == device->romsize)
-    {
-        return image;
-    }
-
-    std::size_t physical_size = 0;
-    for (unsigned block_no = 0; block_no < device->numblocks; ++block_no)
-    {
-        const auto& block = device->fblocks[block_no];
-        physical_size = std::max(physical_size, static_cast<std::size_t>(block.start) + block.len);
-    }
-    if (image->size() != physical_size)
-    {
-        return image;
-    }
-
-    bytes::Bytes packed;
-    packed.reserve(device->romsize);
-    std::size_t packed_remaining = device->romsize;
-    for (unsigned block_no = 0; block_no < device->numblocks && packed_remaining > 0; ++block_no)
-    {
-        const auto& block = device->fblocks[block_no];
-        const std::size_t block_bytes = std::min<std::size_t>(block.len, packed_remaining);
-        packed.append_range(bytes::ByteView(*image).subspan(block.start, block_bytes));
-        packed_remaining -= block_bytes;
-    }
-    return packed;
 }
 
 // The adapter check moved here from legacy write_mem() :434: an
@@ -666,17 +633,34 @@ template <KernelBackedPlanBuilder Build> Result<FlashPlan> PrepareKernelBacked(F
 }
 
 // MC68HC16Y5_02: prepareKernelBacked with two family steps before the kernel
-// is read.
+// is read: the ROM file is placed by its protocol's memory map for its size
+// (ADR 0020), and the family builder checks the protocol, MCU and placement.
 Result<FlashPlan> PrepareMc68(FlashWorkflowRequest& request)
 {
-    // Desktop FullRomData is physically addressed after the legacy
-    // calibration adapter inserts the 0x20000-0x27fff RAM/kernel hole.
-    // Portable MC plans and executors use the packed flash-block image.
-    request.image = NormalizeMc68Image(std::move(request.image), request.protocol.mcu);
+    std::optional<memory::MemoryImage> image;
+    if (request.image.has_value())
+    {
+        const std::optional<memory::ByteCount> size = memory::ByteCount::FromSize(request.image->size());
+        if (!size.has_value())
+        {
+            return Fail(ErrorKind::kInvalidConfig, "ROM file size error: the ROM file is larger than 4 GiB");
+        }
+        auto map = config::SelectMemoryMap(request.protocol, *size);
+        if (!map.has_value())
+        {
+            return Fail(ErrorKind::kInvalidConfig, std::format("ROM file size error: {}", map.error().detail));
+        }
+        auto placed = memory::MemoryImage::Create(std::move(*map), std::move(*request.image));
+        if (!placed.has_value())
+        {
+            return Fail(ErrorKind::kInvalidConfig, std::format("ROM file size error: {}", placed.error().detail));
+        }
+        image = std::move(*placed);
+    }
     // Run the family builder first so a protocol or MCU the family rejects
     // fails before the kernel file is read.
     Result<FlashPlan> preflight = BuildSubaruDensoMc68hc16y502Plan(
-        request.operation, request.protocol.name, request.protocol.mcu, request.image,
+        request.operation, request.protocol.name, request.protocol.mcu, image,
         KernelImage{.id = std::format("{}-kernel", request.protocol.name), .load_address = 0x20000, .bytes = {0}});
     if (!preflight.has_value())
     {
@@ -689,7 +673,7 @@ Result<FlashPlan> PrepareMc68(FlashWorkflowRequest& request)
         return std::unexpected(kernel.error());
     }
     return BuildSubaruDensoMc68hc16y502Plan(request.operation, request.protocol.name, request.protocol.mcu,
-                                            std::move(request.image), std::move(*kernel));
+                                            std::move(image), std::move(*kernel));
 }
 
 // MC68HC16Y5 BDM: only Write reads the kernel file -- its "write" uploads and

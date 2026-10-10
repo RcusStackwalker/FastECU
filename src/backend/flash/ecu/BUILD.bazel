@@ -343,11 +343,16 @@ cc_library(
     srcs = ["subaru_denso_mc68hc16y5_02_plan.cpp"],
     hdrs = ["subaru_denso_mc68hc16y5_02_plan.h"],
     implementation_deps = [
+        "//src/algorithms/memory:address",
+        "//src/algorithms/memory:memory_map",
         "//src/backend/flash:flash_device_lookup",
         "//src/backend/flash:flash_validation",
         "//src/backend/flash/kernel:memory_models",
     ],
-    deps = ["//src/backend/flash:flash_plan"],
+    deps = [
+        "//src/algorithms/memory:memory_image",
+        "//src/backend/flash:flash_plan",
+    ],
 )
 
 cc_library(
@@ -471,12 +476,15 @@ cc_library(
     hdrs = ["subaru_denso_mc68hc16y5_02_executor.h"],
     implementation_deps = [
         "//src/algorithms/checksum",
+        "//src/algorithms/memory:address",
+        "//src/algorithms/memory:memory_error",
         "//src/algorithms/protocol",
         "//src/backend/flash:flash_device_lookup",
         "//src/backend/flash/kernel:memory_models",
     ],
     deps = [
         ":subaru_denso_mc68hc16y5_02_plan",
+        "//src/algorithms/memory:memory_image",
         "//src/backend/flash:flash_executor",
     ],
 )
@@ -531,6 +539,7 @@ fastecu_portable_gtest(
         "//src/backend/config:catalog",
         "//src/backend/flash:flash_device_lookup",
         "//src/backend/flash:flash_validation",
+        "//src/backend/flash/ecu/testing:mc68_rom_images",
         "//src/backend/flash/eeprom:eeprom_read_plan",
         "//src/backend/flash/kernel:memory_models",
         "//src/backend/flash/testing:scripted_flash_transports",
@@ -681,6 +690,7 @@ fastecu_portable_gtest(
         ":subaru_denso_mc68hc16y5_02_plan",
         "//src/backend/flash:flash_device_lookup",
         "//src/backend/flash:flash_validation",
+        "//src/backend/flash/ecu/testing:mc68_rom_images",
         "//src/backend/flash/kernel:memory_models",
         "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
@@ -1857,6 +1867,7 @@ fastecu_portable_gtest(
         ":subaru_unisia_jecs_m32r_bootmode_plan",
         ":subaru_unisia_jecs_m32r_kline_plan",
         "//src/algorithms/memory:address",
+        "//src/algorithms/memory:memory_image",
         "//src/algorithms/memory:memory_map",
         "//src/algorithms/protocol",
         "//src/backend/config:builtin_catalog",

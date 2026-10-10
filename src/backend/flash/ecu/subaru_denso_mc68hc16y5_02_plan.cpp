@@ -1,8 +1,11 @@
 #include "src/backend/flash/ecu/subaru_denso_mc68hc16y5_02_plan.h"
 
 #include <format>
+#include <optional>
 #include <utility>
 
+#include "src/algorithms/memory/address.h"
+#include "src/algorithms/memory/memory_map.h"
 #include "src/backend/flash/kernel/kernelmemorymodels.h"
 #include "src/backend/flash/flash_device_lookup.h"
 #include "src/backend/flash/flash_validation.h"
@@ -11,6 +14,24 @@ namespace fastecu::flash
 {
 namespace
 {
+
+// Every flash block of `device` is writable ROM file bytes in `image`.
+Status CheckFlashBlocksPlaced(const memory::MemoryImage& image, const FlashDevice& device)
+{
+    for (unsigned block_no = 0; block_no < device.numblocks; ++block_no)
+    {
+        const auto& block = device.fblocks[block_no];
+        if (const auto placed = image.CheckWrite(memory::FlashAddress{block.start}, memory::ByteCount{block.len});
+            !placed.has_value())
+        {
+            return Fail(ErrorKind::kInvalidConfig,
+                        std::format("ROM file's memory map does not hold flash block 0x{:x} as writable ROM file "
+                                    "bytes: {}",
+                                    block.start, placed.error().detail));
+        }
+    }
+    return {};
+}
 
 // mainwindow.cpp:1250-1258: sub_ecu_denso_mc68hc16y5_02(_ecutek)? and the
 // reachable-but-quirky _02_tpu (see spec) all construct this class.
@@ -144,16 +165,20 @@ Status ValidateSubaruDensoMc68hc16y502Plan(const FlashPlan& plan)
     {
         return valid;
     }
-    if ((plan.Operation() == FlashOperation::kWrite || plan.Operation() == FlashOperation::kTestWrite) &&
-        (!plan.Image().has_value() || plan.Image()->size() != romsize))
+    if (plan.Operation() == FlashOperation::kWrite || plan.Operation() == FlashOperation::kTestWrite)
     {
-        return Fail(kInvalidConfig, std::format("ROM file must be exactly 0x{:x} bytes", romsize));
+        const std::optional<memory::MemoryImage> image = plan.RomImage();
+        if (!image.has_value())
+        {
+            return Fail(kInvalidConfig, "MC68HC16Y5_02 write requires a ROM image");
+        }
+        return CheckFlashBlocksPlaced(*image, kFlashDevices[index]);
     }
     return {};
 }
 
 Result<FlashPlan> BuildSubaruDensoMc68hc16y502Plan(FlashOperation operation, std::string_view protocol_name,
-                                                   std::string_view mcu_type, std::optional<bytes::Bytes> image,
+                                                   std::string_view mcu_type, std::optional<memory::MemoryImage> image,
                                                    KernelImage kernel)
 {
     if (auto valid = ValidateIdentity(protocol_name, mcu_type); !valid.has_value())
@@ -174,10 +199,20 @@ Result<FlashPlan> BuildSubaruDensoMc68hc16y502Plan(FlashOperation operation, std
         return Fail(ErrorKind::kInvalidConfig, "Unknown MCU type");
     }
     const std::uint32_t romsize = kFlashDevices[index].romsize;
-    if ((operation == FlashOperation::kWrite || operation == FlashOperation::kTestWrite) &&
-        (!image.has_value() || image->size() != romsize))
+    std::optional<bytes::Bytes> file;
+    std::optional<memory::MemoryMap> file_map;
+    if (operation == FlashOperation::kWrite || operation == FlashOperation::kTestWrite)
     {
-        return Fail(ErrorKind::kInvalidConfig, std::format("ROM file must be exactly 0x{:x} bytes", romsize));
+        if (!image.has_value())
+        {
+            return Fail(ErrorKind::kInvalidConfig, "MC68HC16Y5_02 write requires a ROM image");
+        }
+        if (auto placed = CheckFlashBlocksPlaced(*image, kFlashDevices[index]); !placed.has_value())
+        {
+            return std::unexpected(placed.error());
+        }
+        file = bytes::Bytes(image->File().begin(), image->File().end());
+        file_map = image->Map();
     }
 
     FlashPlanFields fields{
@@ -190,7 +225,8 @@ Result<FlashPlan> BuildSubaruDensoMc68hc16y502Plan(FlashOperation operation, std
         .erase_regions = {}, // per-block erase happens inside the write executor
                              // (blank-page-per-modified-block, legacy
                              // flash_block():950-992), not a fixed up-front set
-        .image = operation == FlashOperation::kRead ? std::nullopt : std::move(image),
+        .image = std::move(file),
+        .image_map = std::move(file_map),
         .kernel = std::move(kernel),
         .family_plan = WireParams(protocol_name),
     };
