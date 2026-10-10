@@ -85,6 +85,11 @@ The ECU address that address 0 in a definition file stands for, declared by the
 memory map. Zero for almost every ECU.
 _Avoid_: Address offset, image base
 
+**Definition address**:
+A location as a definition file states it: an offset from the definition base.
+Converted to an ECU address only through the memory map.
+_Avoid_: Offset, file offset, ECU address
+
 **Fill block**:
 A memory block with no ROM file bytes behind it; every address in it reads as
 its fill byte.

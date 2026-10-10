@@ -370,14 +370,14 @@ TEST(DefinitionResolverTest, MergesMapsByStableIdAndAppendsChildMaps)
     base.maps.push_back(Map("boost", "Boost Limit"));
     auto fuel = Map("fuel", "Fuel");
     fuel.category = "Fuel";
-    fuel.address = 0x100;
+    fuel.address = memory::DefinitionAddress{0x100};
     fuel.storage_type = StorageType::kUint16;
     fuel.x_size = 4;
     fuel.x_axis = UnresolvedAxisDefinition{
         .type = "X Axis",
         .name = "Engine Speed",
         .units = "rpm",
-        .address = 0x200,
+        .address = memory::DefinitionAddress{0x200},
         .size = 4,
     };
     base.maps.push_back(fuel);
@@ -385,7 +385,7 @@ TEST(DefinitionResolverTest, MergesMapsByStableIdAndAppendsChildMaps)
     auto child = Doc("CHILD", {"BASE"});
     auto fuel_override = Map("fuel", "Fuel");
     fuel_override.description = "Child fuel map";
-    fuel_override.address = 0x300;
+    fuel_override.address = memory::DefinitionAddress{0x300};
     fuel_override.x_axis.units = "r/min";
     child.maps.push_back(fuel_override);
     child.maps.push_back(Map("timing", "Ignition Timing"));
@@ -399,11 +399,11 @@ TEST(DefinitionResolverTest, MergesMapsByStableIdAndAppendsChildMaps)
     EXPECT_EQ(result->maps[1].id, "fuel");
     EXPECT_EQ(result->maps[1].category, "Fuel");
     EXPECT_EQ(result->maps[1].description, "Child fuel map");
-    EXPECT_EQ(result->maps[1].address, 0x300U);
+    EXPECT_EQ(result->maps[1].address, memory::DefinitionAddress{0x300});
     EXPECT_EQ(result->maps[1].storage_type, StorageType::kUint16);
     EXPECT_EQ(result->maps[1].x_axis.name, "Engine Speed");
     EXPECT_EQ(result->maps[1].x_axis.units, "r/min");
-    EXPECT_EQ(result->maps[1].x_axis.address, 0x200U);
+    EXPECT_EQ(result->maps[1].x_axis.address, memory::DefinitionAddress{0x200});
     EXPECT_EQ(result->maps[2].id, "timing");
 }
 
@@ -686,8 +686,8 @@ TEST(DefinitionResolverTest, ImplicitInheritedAxisSizeFollowsExplicitChildMapDim
     EXPECT_EQ(result->maps.front().y_size, 2U);
     EXPECT_EQ(result->maps.front().x_axis.size, 2U);
     EXPECT_EQ(result->maps.front().y_axis.size, 2U);
-    EXPECT_EQ(result->maps.front().x_axis.address, 0x50U);
-    EXPECT_EQ(result->maps.front().y_axis.address, 0x60U);
+    EXPECT_EQ(result->maps.front().x_axis.address, memory::DefinitionAddress{0x50});
+    EXPECT_EQ(result->maps.front().y_axis.address, memory::DefinitionAddress{0x60});
     EXPECT_EQ(*child, original);
 }
 

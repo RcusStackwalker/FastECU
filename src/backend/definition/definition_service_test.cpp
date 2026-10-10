@@ -4,7 +4,10 @@
 #include "src/backend/ports/testing/in_memory_file_repository.h"
 #include "src/backend/ports/testing/in_memory_file_system.h"
 
+#include <array>
+#include <cstddef>
 #include <cstdint>
+#include <algorithm>
 #include <map>
 #include <optional>
 #include <span>
@@ -21,6 +24,8 @@ namespace fastecu::definition
 namespace
 {
 
+using ::testing::Field;
+
 std::vector<std::uint8_t> Bytes(std::string_view text)
 {
     return {text.begin(), text.end()};
@@ -36,17 +41,72 @@ std::vector<std::uint8_t> EcuflashXml(std::string_view id)
     return Bytes("<rom><romid><xmlid>" + std::string(id) + "</xmlid></romid></rom>");
 }
 
-DefinitionIndexEntry IndexEntry(std::string id, std::string internal_id, std::optional<std::uint64_t> address,
+DefinitionIndexEntry IndexEntry(std::string id, std::string internal_id, std::optional<std::uint32_t> address,
                                 IdEncoding encoding = IdEncoding::kAscii)
 {
     return DefinitionIndexEntry{
         .format = DefinitionFormat::kRomRaider,
         .definition_id = std::move(id),
         .internal_id = std::move(internal_id),
-        .internal_id_address = address,
+        .internal_id_address = address.has_value() ? std::optional(memory::DefinitionAddress{*address}) : std::nullopt,
         .internal_id_encoding = encoding,
         .source = "definitions.xml",
     };
+}
+
+// Every definition sees the ROM file at ECU address 0, as before ADR 0020.
+MemoryMapLookup IdentityMaps(std::size_t file_size)
+{
+    return [file_size](std::string_view) -> std::optional<memory::MemoryMap>
+    {
+        const std::optional<memory::ByteCount> size = memory::ByteCount::FromSize(file_size);
+        if (!size.has_value())
+        {
+            return std::nullopt;
+        }
+        auto map = memory::MemoryMap::Identity(*size);
+        return map.has_value() ? std::optional(std::move(*map)) : std::nullopt;
+    };
+}
+
+memory::AddressRange<memory::FlashSpace> FlashRange(std::uint32_t start, std::uint32_t size)
+{
+    return memory::AddressRange<memory::FlashSpace>::Make(memory::FlashAddress{start}, memory::ByteCount{size}).value();
+}
+
+// "packed": a 0x40-byte file whose second half sits at base + 0x30, past a
+// 0x10-byte fill block, like the 160 KiB MC68HC16Y5 `_02` file. Every other
+// flash method gets the identity map.
+MemoryMapLookup PackedMapFor(std::string_view packed_method, std::uint32_t definition_base = 0)
+{
+    return [packed_method = std::string(packed_method),
+            definition_base](std::string_view method) -> std::optional<memory::MemoryMap>
+    {
+        if (method != packed_method)
+        {
+            return memory::MemoryMap::Identity(memory::ByteCount{0x40}).value();
+        }
+        const std::array blocks{
+            memory::MemoryBlock{.range = FlashRange(definition_base, 0x20),
+                                .backing = memory::FileBacking{.offset = memory::FileOffset{0x00}},
+                                .writability = memory::Writability::kWritable},
+            memory::MemoryBlock{.range = FlashRange(definition_base + 0x20, 0x10),
+                                .backing = memory::FillBacking{.value = 0xFF},
+                                .writability = memory::Writability::kReadOnly},
+            memory::MemoryBlock{.range = FlashRange(definition_base + 0x30, 0x20),
+                                .backing = memory::FileBacking{.offset = memory::FileOffset{0x20}},
+                                .writability = memory::Writability::kWritable},
+        };
+        return memory::MemoryMap::Create(blocks, memory::ByteCount{0x40}, memory::FlashAddress{definition_base})
+            .value();
+    };
+}
+
+std::vector<std::uint8_t> RomWith(std::string_view id, std::size_t offset)
+{
+    std::vector<std::uint8_t> rom(0x40, 0);
+    std::ranges::copy(id, rom.begin() + static_cast<std::ptrdiff_t>(offset));
+    return rom;
 }
 
 DefinitionIndexEntry LoadEntry(DefinitionFormat format, std::string id, std::string source)
@@ -72,7 +132,7 @@ DefinitionHeaderInput ValidHeaderInput()
         .xml_id = "NEW",
         .internal_id = "INTERNAL",
         .ecu_id = "ECU",
-        .internal_id_address = 0x20,
+        .internal_id_address = memory::DefinitionAddress{0x20},
         .metadata =
             RomMetadata{
                 .make = "Subaru",
@@ -267,7 +327,7 @@ TEST_F(DefinitionServiceTest, MatchesAsciiIdentifierEndingExactlyAtRomEnd)
     ASSERT_THAT(catalog, fastecu::testing::IsOk());
     const std::vector<std::uint8_t> rom{'x', 'A', 'B'};
 
-    auto result = service_.MatchRom(*catalog, rom);
+    auto result = service_.MatchRom(*catalog, rom, IdentityMaps(rom.size()));
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(result->definition_id, "EXACT");
@@ -279,7 +339,8 @@ TEST_F(DefinitionServiceTest, RejectsIdentifierWhenRomIsOneByteShort)
     ASSERT_THAT(catalog, fastecu::testing::IsOk());
     const std::vector<std::uint8_t> rom{'x', 'A'};
 
-    ASSERT_THAT(service_.MatchRom(*catalog, rom), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
+    ASSERT_THAT(service_.MatchRom(*catalog, rom, IdentityMaps(rom.size())),
+                fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
 TEST_F(DefinitionServiceTest, MatchesUpperAndLowerCaseHexText)
@@ -290,8 +351,8 @@ TEST_F(DefinitionServiceTest, MatchesUpperAndLowerCaseHexText)
     ASSERT_THAT(upper_catalog, fastecu::testing::IsOk());
     const std::vector<std::uint8_t> rom{0xAB, 0x10};
 
-    auto lower = service_.MatchRom(*lower_catalog, rom);
-    auto upper = service_.MatchRom(*upper_catalog, rom);
+    auto lower = service_.MatchRom(*lower_catalog, rom, IdentityMaps(rom.size()));
+    auto upper = service_.MatchRom(*upper_catalog, rom, IdentityMaps(rom.size()));
 
     ASSERT_THAT(lower, fastecu::testing::IsOk());
     ASSERT_THAT(upper, fastecu::testing::IsOk());
@@ -308,8 +369,8 @@ TEST_F(DefinitionServiceTest, MatchesEitherAsciiOrHexForLegacyCompatibleEntry)
     const std::vector<std::uint8_t> ascii_rom{'A', 'B', '1', '0'};
     const std::vector<std::uint8_t> hex_rom{0xAB, 0x10};
 
-    auto ascii = service_.MatchRom(*ascii_catalog, ascii_rom);
-    auto hex = service_.MatchRom(*hex_catalog, hex_rom);
+    auto ascii = service_.MatchRom(*ascii_catalog, ascii_rom, IdentityMaps(ascii_rom.size()));
+    auto hex = service_.MatchRom(*hex_catalog, hex_rom, IdentityMaps(hex_rom.size()));
 
     ASSERT_THAT(ascii, fastecu::testing::IsOk());
     ASSERT_THAT(hex, fastecu::testing::IsOk());
@@ -326,7 +387,7 @@ TEST_F(DefinitionServiceTest, SkipsOddLengthHexIdentifierAndMatchesLaterEntry)
     ASSERT_THAT(catalog, fastecu::testing::IsOk());
     const std::vector<std::uint8_t> rom{0xAB};
 
-    auto result = service_.MatchRom(*catalog, rom);
+    auto result = service_.MatchRom(*catalog, rom, IdentityMaps(rom.size()));
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(result->definition_id, "VALID");
@@ -341,7 +402,7 @@ TEST_F(DefinitionServiceTest, SkipsInvalidHexDigitAndMatchesLaterEntry)
     ASSERT_THAT(catalog, fastecu::testing::IsOk());
     const std::vector<std::uint8_t> rom{'A'};
 
-    auto result = service_.MatchRom(*catalog, rom);
+    auto result = service_.MatchRom(*catalog, rom, IdentityMaps(rom.size()));
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(result->definition_id, "VALID");
@@ -356,7 +417,7 @@ TEST_F(DefinitionServiceTest, SkipsMissingAddressAndMatchesLaterEntry)
     ASSERT_THAT(catalog, fastecu::testing::IsOk());
     const std::vector<std::uint8_t> rom{'A'};
 
-    auto result = service_.MatchRom(*catalog, rom);
+    auto result = service_.MatchRom(*catalog, rom, IdentityMaps(rom.size()));
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(result->definition_id, "VALID");
@@ -371,7 +432,7 @@ TEST_F(DefinitionServiceTest, SkipsAddressBeyondRomBoundsAndMatchesLaterEntry)
     ASSERT_THAT(catalog, fastecu::testing::IsOk());
     const std::vector<std::uint8_t> rom{'A'};
 
-    auto result = service_.MatchRom(*catalog, rom);
+    auto result = service_.MatchRom(*catalog, rom, IdentityMaps(rom.size()));
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(result->definition_id, "VALID");
@@ -386,7 +447,7 @@ TEST_F(DefinitionServiceTest, ReturnsFirstCatalogEntryWhenMatchesAreAmbiguous)
     ASSERT_THAT(catalog, fastecu::testing::IsOk());
     const std::vector<std::uint8_t> rom{'A'};
 
-    auto result = service_.MatchRom(*catalog, rom);
+    auto result = service_.MatchRom(*catalog, rom, IdentityMaps(rom.size()));
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(result->definition_id, "FIRST");
@@ -397,7 +458,7 @@ TEST_F(DefinitionServiceTest, EmptyIdentifierDoesNotMatch)
     auto catalog = DefinitionCatalog::Create({IndexEntry("EMPTY", "", 0U)});
     ASSERT_THAT(catalog, fastecu::testing::IsOk());
 
-    ASSERT_THAT(service_.MatchRom(*catalog, {}), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
+    ASSERT_THAT(service_.MatchRom(*catalog, {}, IdentityMaps(0)), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
 TEST_F(DefinitionServiceTest, ReturnsInvalidConfigWhenNoIdentifierMatches)
@@ -406,7 +467,8 @@ TEST_F(DefinitionServiceTest, ReturnsInvalidConfigWhenNoIdentifierMatches)
     ASSERT_THAT(catalog, fastecu::testing::IsOk());
     const std::vector<std::uint8_t> rom{'A'};
 
-    ASSERT_THAT(service_.MatchRom(*catalog, rom), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
+    ASSERT_THAT(service_.MatchRom(*catalog, rom, IdentityMaps(rom.size())),
+                fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
 TEST_F(DefinitionServiceTest, LoadsAndResolvesRomRaiderChildAndBaseFiles)
@@ -653,6 +715,97 @@ TEST_F(DefinitionServiceTest, PropagatesAtomicReplacementFailureUnchanged)
     EXPECT_EQ(result.error(), (Error{ErrorKind::kInternal, "atomic commit failed"}));
     ASSERT_EQ(writer_.replace_calls.size(), 1U);
     EXPECT_EQ(writer_.replace_calls.front().handle, "destination.xml");
+}
+
+TEST_F(DefinitionServiceTest, MatchRomReadsTheIdThroughTheDefinitionsMemoryMap)
+{
+    DefinitionIndexEntry entry = IndexEntry("PACKED", "ABCD", 0x30U);
+    entry.flash_method = "packed";
+    auto catalog = DefinitionCatalog::Create({entry});
+    ASSERT_THAT(catalog, fastecu::testing::IsOk());
+
+    // ECU 0x30 is file offset 0x20 under the packed map.
+    const auto rom = RomWith("ABCD", 0x20);
+
+    EXPECT_THAT(service_.MatchRom(*catalog, rom, PackedMapFor("packed")),
+                fastecu::testing::IsOkAnd(Field(&DefinitionIndexEntry::definition_id, "PACKED")));
+    EXPECT_THAT(service_.MatchRom(*catalog, rom, IdentityMaps(rom.size())),
+                fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
+}
+
+TEST_F(DefinitionServiceTest, MatchRomNeverMatchesAnIdInAFillBlock)
+{
+    DefinitionIndexEntry entry = IndexEntry("HOLE", "FFFF", 0x20U, IdEncoding::kHex);
+    entry.flash_method = "packed";
+    auto catalog = DefinitionCatalog::Create({entry});
+    ASSERT_THAT(catalog, fastecu::testing::IsOk());
+
+    const std::vector<std::uint8_t> rom(0x40, 0xFF);
+
+    EXPECT_THAT(service_.MatchRom(*catalog, rom, PackedMapFor("packed")),
+                fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
+}
+
+TEST_F(DefinitionServiceTest, MatchRomCountsTheIdAddressFromTheDefinitionBase)
+{
+    DefinitionIndexEntry entry = IndexEntry("BASED", "ABCD", 0x10U);
+    entry.flash_method = "packed";
+    auto catalog = DefinitionCatalog::Create({entry});
+    ASSERT_THAT(catalog, fastecu::testing::IsOk());
+
+    EXPECT_THAT(service_.MatchRom(*catalog, RomWith("ABCD", 0x10), PackedMapFor("packed", 0x08F9C000)),
+                fastecu::testing::IsOkAnd(Field(&DefinitionIndexEntry::definition_id, "BASED")));
+}
+
+TEST_F(DefinitionServiceTest, MatchRomUsesAFlashMethodInheritedFromTheLastParentThatHasOne)
+{
+    DefinitionIndexEntry first = IndexEntry("FIRST", "", std::nullopt);
+    first.flash_method = "identity";
+    DefinitionIndexEntry second = IndexEntry("SECOND", "", std::nullopt);
+    second.flash_method = "packed";
+    DefinitionIndexEntry child = IndexEntry("CHILD", "ABCD", 0x30U);
+    child.parents = {"FIRST", "SECOND"};
+    auto catalog = DefinitionCatalog::Create({first, second, child});
+    ASSERT_THAT(catalog, fastecu::testing::IsOk());
+
+    EXPECT_THAT(service_.MatchRom(*catalog, RomWith("ABCD", 0x20), PackedMapFor("packed")),
+                fastecu::testing::IsOkAnd(Field(&DefinitionIndexEntry::definition_id, "CHILD")));
+}
+
+TEST_F(DefinitionServiceTest, MatchRomSurvivesAnInheritanceCycle)
+{
+    DefinitionIndexEntry a = IndexEntry("A", "ABCD", 0x10U);
+    a.parents = {"B"};
+    DefinitionIndexEntry b = IndexEntry("B", "", std::nullopt);
+    b.parents = {"A"};
+    auto catalog = DefinitionCatalog::Create({a, b});
+    ASSERT_THAT(catalog, fastecu::testing::IsOk());
+
+    EXPECT_THAT(service_.MatchRom(*catalog, RomWith("ABCD", 0x10), IdentityMaps(0x40)),
+                fastecu::testing::IsOkAnd(Field(&DefinitionIndexEntry::definition_id, "A")));
+}
+
+TEST_F(DefinitionServiceTest, MatchRomSkipsADefinitionThatCannotPlaceTheFile)
+{
+    auto catalog = DefinitionCatalog::Create({IndexEntry("NOMAP", "ABCD", 0x10U)});
+    ASSERT_THAT(catalog, fastecu::testing::IsOk());
+
+    EXPECT_THAT(service_.MatchRom(*catalog, RomWith("ABCD", 0x10),
+                                  [](std::string_view) -> std::optional<memory::MemoryMap> { return std::nullopt; }),
+                fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
+}
+
+TEST_F(DefinitionServiceTest, MatchRomSkipsAMapForAnotherFileSize)
+{
+    auto catalog = DefinitionCatalog::Create({IndexEntry("SMALL", "ABCD", 0x10U)});
+    ASSERT_THAT(catalog, fastecu::testing::IsOk());
+
+    // The lookup's map places 0x40 bytes; the ROM file holds 0x20.
+    std::vector<std::uint8_t> rom(0x20, 0);
+    std::ranges::copy(std::string_view("ABCD"), rom.begin() + 0x10);
+
+    EXPECT_THAT(service_.MatchRom(*catalog, rom, IdentityMaps(0x40)),
+                fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
 } // namespace

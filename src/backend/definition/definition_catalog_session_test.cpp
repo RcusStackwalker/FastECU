@@ -18,7 +18,10 @@ using testing::HasSubstr;
 
 fastecu::definition::DefinitionHeaderInput Header()
 {
-    return {.xml_id = "NEW_XML", .internal_id = "A1B2C3", .ecu_id = "ECU-42", .internal_id_address = 0x1A0};
+    return {.xml_id = "NEW_XML",
+            .internal_id = "A1B2C3",
+            .ecu_id = "ECU-42",
+            .internal_id_address = fastecu::memory::DefinitionAddress{0x1A0}};
 }
 
 class DefinitionCatalogSession : public testing::Test

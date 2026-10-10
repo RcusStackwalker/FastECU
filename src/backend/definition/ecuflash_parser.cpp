@@ -250,6 +250,7 @@ Result<std::vector<DefinitionIndexEntry>> ParseEcuflashIndex(std::span<const std
         .internal_id_address = header->identity.internal_id_address,
         .internal_id_encoding = IdEncoding::kAsciiOrHex,
         .ecu_id = std::move(header->identity.ecu_id),
+        .flash_method = HeaderChildText(header->rom.child("romid"), "flashmethod"),
         .source = std::string(source),
         .parents = ParentReferences(header->rom),
     }};

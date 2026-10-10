@@ -19,7 +19,8 @@ TEST(RomInfo, PinsLabelsAndRowPositions)
 TEST(RomInfo, DefinitionRowsUseProtocolMetadataAndDirectParent)
 {
     definition::RomDefinition definition{.format = definition::DefinitionFormat::kEcuFlash};
-    definition.identity = {.xml_id = "ID", .internal_id = "INT", .ecu_id = "ECU", .internal_id_address = 0x10};
+    definition.identity = {
+        .xml_id = "ID", .internal_id = "INT", .ecu_id = "ECU", .internal_id_address = memory::DefinitionAddress{0x10}};
     definition.metadata = {.make = "Subaru",
                            .market = "EU",
                            .model = "Impreza",

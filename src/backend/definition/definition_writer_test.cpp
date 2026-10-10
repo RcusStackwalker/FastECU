@@ -39,7 +39,7 @@ DefinitionHeaderInput CompleteInput()
         .xml_id = "NEW_XML",
         .internal_id = "A1B2C3",
         .ecu_id = "ECU-42",
-        .internal_id_address = 0x1A0,
+        .internal_id_address = memory::DefinitionAddress{0x1A0},
         .metadata =
             RomMetadata{
                 .make = "Subaru",
@@ -270,7 +270,7 @@ TEST(DefinitionWriterTest, CanonicalizesDirectCreateAndRewriteInputsWithoutChang
     input.metadata.file_size = " 1024 ";
     input.metadata.notes = " \n identity notes \n ";
     input.notes = " \n document notes \n ";
-    input.internal_id_address = std::numeric_limits<std::uint64_t>::max();
+    input.internal_id_address = memory::DefinitionAddress{std::numeric_limits<std::uint32_t>::max()};
     const auto created = CreateEcuflashXml(input);
     const auto rewritten =
         RewriteEcuflashXml(Bytes("<rom><romid><xmlid>OLD</xmlid></romid><!-- keep --></rom>"), input);
@@ -285,14 +285,15 @@ TEST(DefinitionWriterTest, CanonicalizesDirectCreateAndRewriteInputsWithoutChang
         EXPECT_THAT(xml, HasSubstr("<model>Mitsubishi Colt</model>"));
         EXPECT_THAT(xml, HasSubstr("<make>Mitsubishi</make>"));
         EXPECT_THAT(xml, HasSubstr("<filesize>1024</filesize>"));
-        EXPECT_THAT(xml, HasSubstr("<internalidaddress>0xffffffffffffffff</internalidaddress>"));
+        EXPECT_THAT(xml, HasSubstr("<internalidaddress>0xffffffff</internalidaddress>"));
         EXPECT_THAT(xml, HasSubstr("<notes> \n identity notes \n </notes>"));
         EXPECT_THAT(xml, HasSubstr("<notes> \n document notes \n </notes>"));
         const auto parsed = ParseEcuflashDefinition(**result, "canonical.xml");
         ASSERT_THAT(parsed, fastecu::testing::IsOk());
         EXPECT_EQ(parsed->identity.xml_id, "CAL123");
         EXPECT_EQ(parsed->identity.internal_id, "INTERNAL ID");
-        EXPECT_EQ(parsed->identity.internal_id_address, std::numeric_limits<std::uint64_t>::max());
+        EXPECT_EQ(parsed->identity.internal_id_address,
+                  memory::DefinitionAddress{std::numeric_limits<std::uint32_t>::max()});
         EXPECT_EQ(parsed->metadata.notes, " \n identity notes \n ");
     }
     ASSERT_THAT(rewritten, fastecu::testing::IsOk());

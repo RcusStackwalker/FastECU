@@ -12,6 +12,7 @@
 
 #include <pugixml.hpp>
 
+#include "src/algorithms/memory/address.h"
 #include "src/backend/definition/definition_model.h"
 #include "src/backend/ports/error.h"
 #include "src/backend/ports/result.h"
@@ -26,8 +27,8 @@ Result<pugi::xml_node> ParseDocumentRoot(pugi::xml_document& document, std::span
 std::string ReadElementText(pugi::xml_node element);
 std::string HeaderChildText(pugi::xml_node parent, std::string_view name);
 Status ValidateHeaderStructure(pugi::xml_node rom, std::string_view source);
-Result<std::optional<std::uint64_t>> ParseHeaderAddress(std::string_view text, std::string_view source,
-                                                        std::string_view definition_id = {});
+Result<std::optional<memory::DefinitionAddress>> ParseHeaderAddress(std::string_view text, std::string_view source,
+                                                                    std::string_view definition_id = {});
 
 struct ParsedRomHeader
 {
@@ -56,8 +57,8 @@ std::string ValueOrEmpty(pugi::xml_attribute attribute);
 std::string SelectionName(std::string name);
 Result<std::optional<std::uint64_t>> OptionalHexAttribute(pugi::xml_node node, std::string_view attribute_name,
                                                           std::string_view source, std::string_view definition_id);
-Result<std::optional<std::uint64_t>> OptionalAddress(pugi::xml_node node, std::string_view source,
-                                                     std::string_view definition_id);
+Result<std::optional<memory::DefinitionAddress>> OptionalAddress(pugi::xml_node node, std::string_view source,
+                                                                 std::string_view definition_id);
 Result<std::uint32_t> DimensionAttribute(pugi::xml_node node, std::string_view attribute_name,
                                          std::uint32_t default_value, std::string_view source,
                                          std::string_view definition_id);

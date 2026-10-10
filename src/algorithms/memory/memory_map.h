@@ -1,6 +1,7 @@
 #pragma once
 
 #include <expected>
+#include <optional>
 #include <span>
 #include <variant>
 #include <vector>
@@ -64,6 +65,15 @@ class MemoryMap
 
     // The block holding `address`, or nullptr when no block does.
     [[nodiscard]] const MemoryBlock *BlockAt(FlashAddress address) const;
+
+    // The ECU address definition address `address` stands for: the definition
+    // base plus `address`, or nullopt past the end of the 32-bit space.
+    [[nodiscard]] std::optional<FlashAddress> ToFlashAddress(DefinitionAddress address) const;
+
+    // Where `range` starts in the ROM file, when one file-backed block holds
+    // all of it; nullopt when any address is in no block, a fill block, or
+    // another block.
+    [[nodiscard]] std::optional<FileOffset> FileOffsetOf(AddressRange<FlashSpace> range) const;
 
   private:
     MemoryMap(std::vector<MemoryBlock> blocks, ByteCount file_size, FlashAddress definition_base);

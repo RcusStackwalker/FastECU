@@ -225,7 +225,7 @@ std::optional<ResolvedDefinition> RomOpenUseCase::TryFormat(definition::Definiti
         return std::nullopt;
     }
 
-    Result<definition::DefinitionIndexEntry> match = definitions_.MatchRom(*catalog, rom);
+    Result<definition::DefinitionIndexEntry> match = definitions_.MatchRom(*catalog, rom, MemoryMapsFor(rom.size()));
     if (match.has_value())
     {
         rom_id = match->definition_id;
@@ -272,6 +272,28 @@ std::optional<ResolvedDefinition> RomOpenUseCase::TryFormat(definition::Definiti
         return std::nullopt;
     }
     return ResolvedDefinition{.format = format, .id = rom_id, .definition = std::move(*loaded)};
+}
+
+definition::MemoryMapLookup RomOpenUseCase::MemoryMapsFor(std::size_t file_size) const
+{
+    // Resolves the alias without ResolveAlias's log lines: those describe the
+    // one definition chosen, not every candidate tried.
+    return [this, file_size](std::string_view flash_method) -> std::optional<memory::MemoryMap>
+    {
+        const config::VehicleSpec *aliased = config_.VehicleForAlias(flash_method);
+        const std::string_view protocol = aliased != nullptr ? aliased->protocol->name : flash_method;
+        if (auto map = MemoryMapFor(config_.Vehicles(), protocol, file_size); map.has_value())
+        {
+            return std::move(*map);
+        }
+        const std::optional<memory::ByteCount> size = memory::ByteCount::FromSize(file_size);
+        if (!size.has_value())
+        {
+            return std::nullopt;
+        }
+        auto identity = memory::MemoryMap::Identity(*size);
+        return identity.has_value() ? std::optional(std::move(*identity)) : std::nullopt;
+    };
 }
 
 std::string RomOpenUseCase::ResolveAlias(const std::string& flash_method)

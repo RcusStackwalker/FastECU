@@ -83,7 +83,7 @@ TEST(BuildHeaderFormTest, MapsTypedValuesAndEditsBackIntoTheDomainHeader)
     EXPECT_EQ(input->xml_id, "XML");
     EXPECT_EQ(input->internal_id, "INTERNAL");
     EXPECT_EQ(input->ecu_id, "Changed ECU");
-    EXPECT_EQ(input->internal_id_address, 0x2f8000U);
+    EXPECT_EQ(input->internal_id_address, fastecu::memory::DefinitionAddress{0x2f8000});
     EXPECT_EQ(input->metadata, draft.metadata);
     EXPECT_EQ(input->include, "Parent");
     EXPECT_EQ(input->notes, "Notes");

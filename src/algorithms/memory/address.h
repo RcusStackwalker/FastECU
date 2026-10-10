@@ -98,6 +98,15 @@ struct FileTag
 // A byte position within a ROM file. Meaningful only when loading and saving.
 using FileOffset = TaggedPosition<FileTag>;
 
+struct DefinitionTag
+{
+};
+
+// A location as a definition file states it: an offset from the definition
+// base its memory map declares (ADR 0020). Only MemoryMap::ToFlashAddress turns
+// it into an ECU address.
+using DefinitionAddress = TaggedPosition<DefinitionTag>;
+
 // A non-empty half-open range [start, start + size) in one address space. Its
 // end is always representable, so no range includes address 0xFFFFFFFF.
 template <typename Space> class AddressRange

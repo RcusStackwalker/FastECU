@@ -53,7 +53,7 @@ TEST(RomRaiderParserTest, IndexesMultipleDefinitionsAndRecordsParentReferences)
     EXPECT_EQ(result->at(0).source, "rr.xml");
     EXPECT_TRUE(result->at(0).parents.empty());
     EXPECT_EQ(result->at(1).definition_id, "CHILD");
-    EXPECT_EQ(result->at(1).internal_id_address, 0x1A0U);
+    EXPECT_EQ(result->at(1).internal_id_address, memory::DefinitionAddress{0x1A0});
     EXPECT_EQ(result->at(1).internal_id, "CHILD-ID");
     EXPECT_EQ(result->at(1).ecu_id, "ECU-1");
     EXPECT_EQ(result->at(1).parents, std::vector<std::string>{"BASE"});
@@ -98,7 +98,7 @@ TEST(RomRaiderParserTest, ParsesChildWithoutResolvingItsBase)
     EXPECT_EQ(result->source, "rr.xml");
     EXPECT_EQ(result->parents, std::vector<std::string>{"BASE"});
     EXPECT_EQ(result->identity.xml_id, "CHILD");
-    EXPECT_EQ(result->identity.internal_id_address, 0x100U);
+    EXPECT_EQ(result->identity.internal_id_address, memory::DefinitionAddress{0x100});
     EXPECT_EQ(result->identity.internal_id, "ABCD");
     EXPECT_EQ(result->identity.ecu_id, "ECU-A");
     EXPECT_EQ(result->metadata.make, "Subaru");
@@ -117,7 +117,7 @@ TEST(RomRaiderParserTest, ParsesChildWithoutResolvingItsBase)
     const auto& map = result->maps.front();
     EXPECT_EQ(map.id, "fuel-primary");
     EXPECT_EQ(map.name, "Fuel");
-    EXPECT_EQ(map.address, 0x200U);
+    EXPECT_EQ(map.address, memory::DefinitionAddress{0x200});
     EXPECT_EQ(map.type, "3D");
     EXPECT_EQ(map.category, "Fuel");
     EXPECT_EQ(map.subcategory, "Primary");
@@ -138,7 +138,7 @@ TEST(RomRaiderParserTest, ParsesChildWithoutResolvingItsBase)
 
     EXPECT_EQ(map.x_axis.type, "X Axis");
     EXPECT_EQ(map.x_axis.name, "Engine Speed");
-    EXPECT_EQ(map.x_axis.address, 0x300U);
+    EXPECT_EQ(map.x_axis.address, memory::DefinitionAddress{0x300});
     EXPECT_EQ(map.x_axis.size, 4U);
     EXPECT_EQ(map.x_axis.units, "rpm");
     EXPECT_EQ(map.x_axis.from_byte, "x");
@@ -149,7 +149,7 @@ TEST(RomRaiderParserTest, ParsesChildWithoutResolvingItsBase)
     EXPECT_EQ(map.x_axis.log_parameter, "rpm");
     EXPECT_EQ(map.y_axis.type, "Y Axis");
     EXPECT_EQ(map.y_axis.name, "Load");
-    EXPECT_EQ(map.y_axis.address, 0x400U);
+    EXPECT_EQ(map.y_axis.address, memory::DefinitionAddress{0x400});
     EXPECT_EQ(map.y_axis.size, 2U);
     EXPECT_EQ(map.y_axis.units, "g/rev");
     EXPECT_EQ(map.y_axis.from_byte, "x/10");
@@ -266,7 +266,7 @@ TEST(RomRaiderParserTest, NormalizesLegacyTwoDimensionalYAxisDimensions)
     ASSERT_EQ(result->maps.size(), 1U);
     EXPECT_EQ(result->maps.front().x_axis.type, "Y Axis");
     EXPECT_EQ(result->maps.front().x_axis.name, "Curve Points");
-    EXPECT_EQ(result->maps.front().x_axis.address, 0x80U);
+    EXPECT_EQ(result->maps.front().x_axis.address, memory::DefinitionAddress{0x80});
     EXPECT_EQ(result->maps.front().x_axis.size, 4U);
     EXPECT_EQ(result->maps.front().x_size, 4U);
     EXPECT_EQ(result->maps.front().y_size, 1U);
@@ -307,7 +307,7 @@ TEST(RomRaiderParserTest, UsesAddressBeforeStorageAddressAndPreservesAbsentOptio
     EXPECT_EQ(result->metadata, RomMetadata{});
     ASSERT_EQ(result->maps.size(), 1U);
     EXPECT_FALSE(result->maps.front().id);
-    EXPECT_EQ(result->maps.front().address, 0x20U);
+    EXPECT_EQ(result->maps.front().address, memory::DefinitionAddress{0x20});
     EXPECT_FALSE(result->maps.front().x_size);
     EXPECT_FALSE(result->maps.front().y_size);
     EXPECT_FALSE(result->maps.front().swap_xy);
@@ -428,7 +428,7 @@ TEST(RomRaiderParserTest, UnselectedInvalidAddressDoesNotBlockRequestedDefinitio
     const auto definition = ParseRomraiderDefinition(xml, "selection.xml", "SELECTED");
     ASSERT_THAT(definition, fastecu::testing::IsOk());
     EXPECT_EQ(definition->identity.xml_id, "SELECTED");
-    EXPECT_EQ(definition->identity.internal_id_address, 0x20U);
+    EXPECT_EQ(definition->identity.internal_id_address, memory::DefinitionAddress{0x20});
     EXPECT_EQ(definition->parents, (std::vector<std::string>{"BASE"}));
 
     const auto index = ParseRomraiderIndex(xml, "selection.xml");
@@ -473,6 +473,32 @@ TEST(RomRaiderParserTest, HeaderWhitespacePreservationDoesNotHideTableDescriptio
     EXPECT_THAT(result->maps[0].x_axis.static_data, ::testing::Optional(::testing::ElementsAre("1000")));
 
     EXPECT_EQ(result->metadata.notes, "  ");
+}
+
+TEST(RomRaiderParserTest, AnAxisAddressWiderThan32BitsIsAParseError)
+{
+    const auto xml = Bytes(R"xml(<roms><rom><romid><xmlid>WIDE</xmlid></romid>
+      <table name="Fuel" type="2D" storageaddress="10" storagetype="uint8">
+        <table type="X Axis" name="RPM" storageaddress="100000000" storagetype="uint8" sizex="2"/>
+      </table></rom></roms>)xml");
+
+    const auto parsed = ParseRomraiderDefinition(xml, "wide.xml", "WIDE");
+
+    ASSERT_THAT(parsed, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
+    EXPECT_THAT(parsed.error().detail, ::testing::HasSubstr("does not fit 32 bits"));
+}
+
+TEST(RomRaiderParserTest, EachIndexEntryRecordsItsOwnFlashMethod)
+{
+    const auto entries = ParseRomraiderIndex(Bytes(R"xml(<roms>
+      <rom><romid><xmlid>OWN</xmlid><flashmethod>sti04</flashmethod></romid></rom>
+      <rom base="OWN"><romid><xmlid>INHERITS</xmlid></romid></rom></roms>)xml"),
+                                             "rr.xml");
+
+    ASSERT_THAT(entries, fastecu::testing::IsOk());
+    ASSERT_EQ(entries->size(), 2U);
+    EXPECT_EQ(entries->at(0).flash_method, "sti04");
+    EXPECT_EQ(entries->at(1).flash_method, "");
 }
 
 } // namespace

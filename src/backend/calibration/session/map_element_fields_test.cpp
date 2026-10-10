@@ -29,7 +29,7 @@ definition::RomDefinition TwoByTwoDefinition()
     def.scalings.push_back(scaling);
     definition::CalibrationMap map;
     map.name = "Timing";
-    map.address = 16;
+    map.address = memory::DefinitionAddress{16};
     map.storage_type = definition::StorageType::kUint16;
     map.endian = "big";
     map.scaling_name = "body";
@@ -38,12 +38,12 @@ definition::RomDefinition TwoByTwoDefinition()
     map.start_position = 2;
     map.interval = 3;
     map.x_axis.type = "X Axis";
-    map.x_axis.address = 64;
+    map.x_axis.address = memory::DefinitionAddress{64};
     map.x_axis.storage_type = definition::StorageType::kUint8;
     map.x_axis.from_byte = "x*10";
     map.x_axis.to_byte = "x/10";
     map.y_axis.type = "Y Axis";
-    map.y_axis.address = 80;
+    map.y_axis.address = memory::DefinitionAddress{80};
     map.y_axis.storage_type = definition::StorageType::kInt16;
     map.y_axis.endian = "big";
     map.y_axis.from_byte = "x/4";

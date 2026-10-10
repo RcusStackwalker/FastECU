@@ -9,6 +9,7 @@
 #include <utility>
 #include <vector>
 
+#include "src/algorithms/memory/address.h"
 #include "src/algorithms/protocol/bytes.h"
 #include "src/backend/ports/result.h"
 
@@ -65,9 +66,11 @@ struct DefinitionIndexEntry
     DefinitionFormat format{};
     std::string definition_id;
     std::string internal_id;
-    std::optional<std::uint64_t> internal_id_address;
+    std::optional<memory::DefinitionAddress> internal_id_address;
     IdEncoding internal_id_encoding;
     std::string ecu_id;
+    // This definition's own <flashmethod>; empty when it inherits one or has none.
+    std::string flash_method;
     std::string source;
     std::vector<std::string> parents;
 
@@ -100,7 +103,7 @@ struct UnresolvedAxisDefinition
     std::string format;
     std::optional<StorageType> storage_type;
     std::string endian;
-    std::optional<std::uint64_t> address;
+    std::optional<memory::DefinitionAddress> address;
     std::optional<std::uint32_t> size;
     std::optional<std::string> from_byte;
     std::optional<std::string> to_byte;
@@ -121,7 +124,7 @@ struct UnresolvedCalibrationMap
     std::string category;
     std::string subcategory;
     std::string description;
-    std::optional<std::uint64_t> address;
+    std::optional<memory::DefinitionAddress> address;
     std::optional<std::uint32_t> x_size;
     std::optional<std::uint32_t> y_size;
     std::optional<bool> swap_xy;
@@ -183,7 +186,7 @@ struct AxisDefinition
     // supplied inline via <data> elements), which likewise have no address.
     std::optional<StorageType> storage_type;
     std::string endian;
-    std::optional<std::uint64_t> address;
+    std::optional<memory::DefinitionAddress> address;
     std::uint32_t size{1};
     std::string from_byte{"x"};
     std::string to_byte{"x"};
@@ -204,7 +207,7 @@ struct CalibrationMap
     std::string category;
     std::string subcategory;
     std::string description;
-    std::optional<std::uint64_t> address;
+    std::optional<memory::DefinitionAddress> address;
     std::uint32_t x_size{1};
     std::uint32_t y_size{1};
     bool swap_xy{false};
@@ -236,7 +239,7 @@ struct RomIdentity
     std::string xml_id;
     std::string internal_id;
     std::string ecu_id;
-    std::optional<std::uint64_t> internal_id_address;
+    std::optional<memory::DefinitionAddress> internal_id_address;
 
     bool operator==(const RomIdentity&) const = default;
 };

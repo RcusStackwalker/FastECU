@@ -17,7 +17,7 @@ calibration::CalibrationSession session(std::string_view expression = "x")
     map.type = "3D";
     map.x_size = 2;
     map.y_size = 2;
-    map.address = 0;
+    map.address = memory::DefinitionAddress{0};
     map.storage_type = definition::StorageType::kUint8;
     map.scaling_name = "raw";
     definition.maps.push_back(map);

@@ -21,12 +21,16 @@ std::optional<std::string_view> ProblemWith(std::uint64_t start, std::uint64_t e
     constexpr std::string_view kOutside = "outside the ROM's memory map";
     constexpr std::uint64_t kAddressSpaceEnd = std::uint64_t{1} << 32;
     const std::uint64_t base = memory_map.DefinitionBase().Value();
-    if (end > kAddressSpaceEnd - base)
+    const std::optional<memory::FlashAddress> first =
+        start > std::numeric_limits<std::uint32_t>::max()
+            ? std::nullopt
+            : memory_map.ToFlashAddress(memory::DefinitionAddress{static_cast<std::uint32_t>(start)});
+    if (!first.has_value() || end > kAddressSpaceEnd - base)
     {
         return kOutside;
     }
     std::optional<memory::Writability> writability;
-    for (std::uint64_t cursor = base + start; cursor < base + end;)
+    for (std::uint64_t cursor = first->Value(); cursor < base + end;)
     {
         const memory::MemoryBlock *block = memory_map.BlockAt(memory::FlashAddress{static_cast<std::uint32_t>(cursor)});
         if (block == nullptr)
@@ -47,7 +51,7 @@ std::optional<std::string_view> ProblemWith(std::uint64_t start, std::uint64_t e
     return std::nullopt;
 }
 
-Status CheckRun(std::string_view map_name, std::string_view subject, std::optional<std::uint64_t> address,
+Status CheckRun(std::string_view map_name, std::string_view subject, std::optional<memory::DefinitionAddress> address,
                 std::uint64_t count, std::uint32_t start_position, std::uint32_t interval, std::uint32_t width,
                 const memory::MemoryMap& memory_map)
 {
@@ -56,8 +60,9 @@ Status CheckRun(std::string_view map_name, std::string_view subject, std::option
         return {};
     }
     const std::uint64_t end =
-        ElementRunEnd(*address, start_position, interval, width, static_cast<std::uint32_t>(count));
-    if (const std::optional<std::string_view> problem = ProblemWith(*address, end, memory_map); problem.has_value())
+        ElementRunEnd(address->Value(), start_position, interval, width, static_cast<std::uint32_t>(count));
+    if (const std::optional<std::string_view> problem = ProblemWith(address->Value(), end, memory_map);
+        problem.has_value())
     {
         return Fail(ErrorKind::kInvalidConfig, std::format("map '{}' {} {}", map_name, subject, *problem));
     }

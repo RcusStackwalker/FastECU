@@ -33,7 +33,7 @@ DefinitionIndexEntry Entry(std::string definition_id, std::string source, std::v
         .format = DefinitionFormat::kRomRaider,
         .definition_id = std::move(definition_id),
         .internal_id = "CAL-001",
-        .internal_id_address = 0x1234,
+        .internal_id_address = fastecu::memory::DefinitionAddress{0x1234},
         .internal_id_encoding = IdEncoding::kAscii,
         .ecu_id = "ECU-001",
         .source = std::move(source),
@@ -187,7 +187,7 @@ TEST(DefinitionCatalogTest, ConflictingDuplicateAddressIsInvalidConfig)
 {
     auto first = Entry("A", "a.xml");
     auto second = Entry("A", "b.xml");
-    second.internal_id_address = 0x5678;
+    second.internal_id_address = fastecu::memory::DefinitionAddress{0x5678};
 
     ASSERT_THAT(DefinitionCatalog::Create({first, second}), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }

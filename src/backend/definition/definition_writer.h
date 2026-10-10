@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 
+#include "src/algorithms/memory/address.h"
 #include "src/backend/definition/definition_model.h"
 #include "src/backend/ports/result.h"
 
@@ -17,7 +18,7 @@ struct DefinitionHeaderInput
     std::string xml_id;
     std::string internal_id;
     std::string ecu_id;
-    std::optional<std::uint64_t> internal_id_address;
+    std::optional<memory::DefinitionAddress> internal_id_address;
     RomMetadata metadata;
     std::string include;
     std::string notes;

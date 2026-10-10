@@ -99,8 +99,10 @@ TEST(ParserUtilsTest, RomHeaderOwnsNormalizedIdentityAndBorrowsTheRomElement)
     const auto header = ParseRomHeader(document.document_element(), "identity.xml");
     ASSERT_THAT(header, fastecu::testing::IsOk());
     EXPECT_EQ(header->rom, document.document_element());
-    EXPECT_EQ(header->identity,
-              (RomIdentity{.xml_id = "ID", .internal_id = "INTERNAL", .ecu_id = "ECU", .internal_id_address = 0x20U}));
+    EXPECT_EQ(header->identity, (RomIdentity{.xml_id = "ID",
+                                             .internal_id = "INTERNAL",
+                                             .ecu_id = "ECU",
+                                             .internal_id_address = memory::DefinitionAddress{0x20}}));
 }
 
 TEST(ParserUtilsTest, RomHeaderKeepsMissingAddressOptional)
@@ -186,7 +188,7 @@ TEST(ParserUtilsTest, HeaderReadsAllDirectTextAndNormalizesUnicodePadding)
     const auto header = ParseRomHeader(document.document_element(), "header.xml");
     ASSERT_THAT(header, fastecu::testing::IsOk());
     EXPECT_EQ(header->identity.xml_id, "CAL123X");
-    EXPECT_EQ(header->identity.internal_id_address, 16U);
+    EXPECT_EQ(header->identity.internal_id_address, memory::DefinitionAddress{16});
     const auto metadata = ParseMetadata(header->rom.child("romid"));
     EXPECT_EQ(metadata.model, "Mitsubishi Colt");
     EXPECT_EQ(metadata.notes, " \nnotes \n ");
