@@ -47,6 +47,47 @@ An edit whose resulting bytes equal the bytes already in the session. It
 reports no change and leaves the session clean.
 _Avoid_: No-op write
 
+## ROM memory
+
+**ROM file**:
+The bytes of a ROM exactly as stored on disk. Saving a session reproduces the
+layout of the ROM file it was opened from.
+_Avoid_: Dense buffer, raw image
+
+**File offset**:
+A byte position within a ROM file. Meaningful only when loading and saving.
+_Avoid_: Address
+
+**ECU address**:
+A location in the ECU's own address space, as the ECU's CPU sees it. Map, axis
+and checksum locations are ECU addresses.
+_Avoid_: Offset, physical offset
+
+**Memory map**:
+The ordered set of memory blocks that places a ROM file's bytes at ECU
+addresses. Two ROM files of one ECU can need different memory maps.
+_Avoid_: Padding, sparse buffer, memory model
+
+**Memory block**:
+One contiguous range of ECU addresses in a memory map, backed either by a range
+of the ROM file or by a fill byte, and carrying whether it is writable.
+_Avoid_: Segment, region, flash block (an erase unit of the flash device)
+
+**Writable**:
+Of a memory block: the protocol can write it to the ECU by some route. Maps in
+a block that is not writable cannot be edited.
+_Avoid_: Protected, userspace
+
+**Definition base**:
+The ECU address that address 0 in a definition file stands for, declared by the
+memory map. Zero for almost every ECU.
+_Avoid_: Address offset, image base
+
+**Fill block**:
+A memory block with no ROM file bytes behind it; every address in it reads as
+its fill byte.
+_Avoid_: Gap, hole, synthetic bytes, padding
+
 ## Terminal scripts
 
 **Terminal script**:
