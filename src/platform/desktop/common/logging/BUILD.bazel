@@ -34,7 +34,7 @@ cc_library(
     deps = [
         "//bazel/qt:core",
         "//src/backend/logging:logger_model",
-        "//src/backend/logging:logging_session",
+        "//src/backend/logging:logging_run_snapshot",
         "//src/backend/logging:logging_types",
         "//src/backend/ports",
     ],

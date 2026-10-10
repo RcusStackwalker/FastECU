@@ -20,7 +20,7 @@ void RegisterDesktopLoggingProtocols(LoggingEngine& engine, SerialPortActions& s
                                 auto transport = std::make_unique<mutdma::FastEcuKlineTransport>(&serial);
                                 auto init = std::make_unique<mutdma::AlreadyInMode>(125000);
                                 return std::make_unique<fastecu::logging::MutDmaLoggingProtocol>(
-                                    std::move(transport), std::move(init), snapshot.session.Channels());
+                                    std::move(transport), std::move(init), snapshot.Session().Channels());
                             });
 
     engine.RegisterProtocol(
@@ -50,18 +50,18 @@ void RegisterDesktopLoggingProtocols(LoggingEngine& engine, SerialPortActions& s
             auto transport = std::make_unique<cdbg::FastEcuCanTransport>(&serial);
             return std::unique_ptr<fastecu::logging::LoggingProtocol>(
                 std::make_unique<fastecu::logging::CdbgLoggingProtocol>(std::move(transport),
-                                                                        snapshot.session.Channels()));
+                                                                        snapshot.Session().Channels()));
         });
 
     engine.RegisterProtocol("SSM",
                             [&serial, &clock](const fastecu::desktop::logging::DesktopLoggingSnapshot& snapshot)
                             {
                                 auto transport = std::make_unique<FastEcuSsmTransport>(&serial);
-                                bool target_is_ecu = snapshot.target_is_ecu;
+                                bool target_is_ecu = (snapshot.Target() == fastecu::logging::LoggingTarget::kEcu);
                                 bool use_openport2_adapter = serial.GetUseOpenport2Adapter();
                                 return std::make_unique<fastecu::logging::SsmLoggingProtocol>(
-                                    clock, std::move(transport), snapshot.session.Channels(), snapshot.response_offsets,
-                                    target_is_ecu, use_openport2_adapter);
+                                    clock, std::move(transport), snapshot.Session().Channels(),
+                                    snapshot.ResponseOffsets(), target_is_ecu, use_openport2_adapter);
                             });
 }
 } // namespace fastecu::desktop::logging

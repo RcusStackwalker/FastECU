@@ -44,23 +44,17 @@ QString FormatLoggingValue(double value, int precision)
 fastecu::Status ApplyLogSample(const DesktopLoggingSnapshot& snapshot, const fastecu::logging::LogSample& sample,
                                DesktopLoggerValues& values)
 {
-    const auto identity = snapshot.identities_by_id.find(sample.channel_id);
-    if (identity == snapshot.identities_by_id.end())
+    const auto *channel = snapshot.Session().FindChannel(sample.channel_id);
+    if (channel == nullptr)
     {
-        return fastecu::Fail(fastecu::ErrorKind::kInternal, "logging sample id is not in the desktop snapshot");
+        return fastecu::Fail(fastecu::ErrorKind::kInternal, "logging sample id is not in the run snapshot");
     }
-    const auto *channel = snapshot.session.FindChannel(sample.channel_id);
-    if (channel == nullptr || identity->second.first != snapshot.protocol ||
-        identity->second.second != sample.channel_id)
-    {
-        return fastecu::Fail(fastecu::ErrorKind::kInternal, "logging snapshot identities and session disagree");
-    }
-    if (!snapshot.enabled_ids.contains(sample.channel_id))
+    if (!snapshot.ChannelEnabled(sample.channel_id))
     {
         return {};
     }
-    if (!values.SetParameterValue(identity->second,
-                                  FormatLoggingValue(sample.numeric_value, channel->decimal_precision)))
+    const fastecu::logging::LoggerIdentity identity{snapshot.ProtocolKey(), channel->id};
+    if (!values.SetParameterValue(identity, FormatLoggingValue(sample.numeric_value, channel->decimal_precision)))
     {
         return fastecu::Fail(fastecu::ErrorKind::kInternal, "logging sample identity is not in the desktop values");
     }

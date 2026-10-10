@@ -27,8 +27,14 @@ retain empty cells in their original CSV positions.
 
 ## Per-run snapshots
 
-[Session preparation](../../src/backend/logging/logging_session.h) captures
-protocol, stable identities, support, conversion, and target as owned values.
+[Run preparation](../../src/backend/logging/logging_run_snapshot.h) constructs an
+owned snapshot through a validating factory with const-only accessors. It
+captures protocol, selection, support eligibility, conversion, original SSM
+offsets and a typed ECU/TCU target before engine startup. Later model changes
+cannot modify a prepared run. Identities derive from the captured protocol and
+validated channels rather than a second mutable map. Unresolved selected IDs are
+omitted from acquisition; participating duplicate IDs are rejected. This scope
+acquires only lower-panel parameters.
 Failed desktop preparation logs the returned error detail and shows it in a
 plain-text Logging dialog. It restores the stopped UI state without starting
 a protocol factory or worker.
@@ -41,7 +47,7 @@ conversion is used, with fixed decimal display formatting.
   `"12"`. This is the conversion-expression input contract, not a decoded
   big-endian integer.
 - MUT/DMA spells the decoded unsigned integer in decimal and filters unsupported
-  channels. CDBG also uses unsigned-integer decimal and does not filter support.
+  channels before field validation. Unsupported SSM channels still validate. CDBG also uses unsigned-integer decimal and does not filter support.
   Each CDBG poll publishes only measurements decoded from its received frame,
   mapped through that frame's logical channel offset. Out-of-order frames do not
   fabricate zero values for unseen channels or republish measurements from prior
@@ -156,7 +162,7 @@ Static protocol extraction does not qualify the host adapter, electrical path,
 or end-to-end desktop workflow. Runtime evidence remains subject to the
 [logging checklist](../checklists/logging-engine-bench-checklist.md).
 
-## Portable definition preparation API
+## Definition input grammar
 
 [Channel preparation](../../src/backend/logging/logging_channel_preparation.h)
 accepts hexadecimal addresses with an optional `0x`/`0X` prefix and positive
@@ -166,27 +172,6 @@ whitespace, trailing junk and overflow are rejected. Display formats are exactly
 conversion is used. Existing protocol bounds and shared expression validation
 remain applicable. Errors identify the definition's protocol, parameter ID and
 invalid field.
-
-This backend API is tested independently. Desktop preparation still uses its
-existing Qt parsing until the adoption PR switches its callers.
-
-## Portable run preparation API
-
-[Run preparation](../../src/backend/logging/logging_run_snapshot.h) constructs an
-owned snapshot through a validating factory with const-only accessors. It
-captures protocol, selection, support eligibility, original SSM offsets and a
-typed ECU/TCU target. Later model changes cannot modify a prepared run. Identities
-are derived from the captured protocol and validated channels rather than a
-second mutable map.
-
-Unsupported MUT parameters are filtered before definition validation;
-unsupported SSM parameters remain polled and must validate, but are ineligible
-for display. CDBG does not filter support. Unresolved selected IDs are omitted
-from acquisition; participating duplicate IDs are rejected. Only lower-panel
-parameters are acquired in this preparation scope.
-
-Desktop consumers still use their existing snapshot representation until
-adoption. CSV's current-selection behavior remains unchanged.
 
 ## Portable delivered-sample resolution API
 
