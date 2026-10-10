@@ -4,7 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <format>
-#include <limits>
+#include <optional>
 #include <string>
 #include <utility>
 #include <variant>
@@ -152,9 +152,8 @@ std::expected<void, MemoryError> MemoryImage::Write(FlashAddress start, bytes::B
     {
         return {};
     }
-    const auto range = data.size() > std::numeric_limits<std::uint32_t>::max()
-                           ? std::nullopt
-                           : AddressRange<FlashSpace>::Make(start, ByteCount{static_cast<std::uint32_t>(data.size())});
+    const std::optional<ByteCount> size = ByteCount::FromSize(data.size());
+    const auto range = size.has_value() ? AddressRange<FlashSpace>::Make(start, *size) : std::nullopt;
     if (!range.has_value())
     {
         return Fail(MemoryErrorKind::kUnmapped,

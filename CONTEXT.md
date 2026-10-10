@@ -74,8 +74,10 @@ of the ROM file or by a fill byte, and carrying whether it is writable.
 _Avoid_: Segment, region, flash block (an erase unit of the flash device)
 
 **Writable**:
-Of a memory block: the protocol can write it to the ECU by some route. Maps in
-a block that is not writable cannot be edited.
+Of a memory block: calibration may edit its bytes. For a protocol that writes,
+these are exactly the bytes some write route reaches; a ROM file with no
+reserved region is writable throughout, even where FastECU has no write route
+for it. Maps in a block that is not writable cannot be edited.
 _Avoid_: Protected, userspace
 
 **Definition base**:

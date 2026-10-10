@@ -46,9 +46,10 @@ struct MemoryBlock
 class MemoryMap
 {
   public:
-    // Blocks must be at least one, sorted by address and disjoint. Together the
-    // file-backed blocks must place every byte of a `file_size`-byte ROM file
-    // exactly once. Addresses between blocks are allowed and belong to no block.
+    // Blocks must be at least one, sorted by address and disjoint, and no fill
+    // block may be writable. The ROM file must be non-empty, and together the
+    // file-backed blocks must place every byte of it exactly once. Addresses
+    // between blocks are allowed and belong to no block.
     static std::expected<MemoryMap, MemoryError> Create(std::span<const MemoryBlock> blocks, ByteCount file_size);
 
     // One writable block holding the whole ROM file at address 0.

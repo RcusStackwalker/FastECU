@@ -38,7 +38,7 @@ MemoryBlock FillBlock(std::uint32_t start, std::uint32_t size, bytes::Byte value
 
 MemoryImage ImageOf(std::span<const MemoryBlock> blocks, bytes::Bytes file)
 {
-    auto map = MemoryMap::Create(blocks, ByteCount{static_cast<std::uint32_t>(file.size())});
+    auto map = MemoryMap::Create(blocks, ByteCount::FromSize(file.size()).value());
     return MemoryImage::Create(std::move(map).value(), std::move(file)).value();
 }
 

@@ -140,5 +140,20 @@ TEST(MemoryMap, AcceptsFileRangesPlacedOutOfFileOrder)
     const std::array blocks{FileBlock(0x0, 0x10, 0x10), FileBlock(0x10, 0x10, 0x0)};
     EXPECT_EQ(CreateError(blocks, 0x20), std::nullopt);
 }
+
+TEST(MemoryMap, RejectsAWritableFillBlock)
+{
+    // A fill block has no ROM file bytes, so nothing can be written to it.
+    const std::array blocks{
+        FileBlock(0x0, 0x100, 0x0),
+        MemoryBlock{.range = Range(0x100, 0x100), .backing = FillBacking{}, .writability = Writability::kWritable}};
+    EXPECT_EQ(CreateError(blocks, 0x100), MemoryErrorKind::kInvalidLayout);
+}
+
+TEST(MemoryMap, RejectsAnEmptyRomFile)
+{
+    const std::array blocks{FillBlock(0x0, 0x100)};
+    EXPECT_EQ(CreateError(blocks, 0), MemoryErrorKind::kInvalidLayout);
+}
 } // namespace
 } // namespace fastecu::memory
