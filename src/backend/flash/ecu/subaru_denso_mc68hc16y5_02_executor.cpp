@@ -871,7 +871,7 @@ Result<FlashExecutionResult> SubaruDensoMc68hc16y5_02Executor::Execute(const Fla
         return FlashExecutionResult{.operation = plan.Operation(), .read_bytes = std::move(*read)};
     }
 
-    const std::optional<memory::MemoryImage> image = plan.RomImage();
+    const std::optional<memory::MemoryImage>& image = plan.RomImage();
     if (!image.has_value())
     {
         return Fail(ErrorKind::kInvalidConfig, "MC68HC16Y5_02 write requires a ROM image");

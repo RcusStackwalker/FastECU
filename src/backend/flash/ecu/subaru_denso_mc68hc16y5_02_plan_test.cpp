@@ -144,8 +144,8 @@ TEST(SubaruDensoMc68hc16y5_02Plan, PackedAndFullRomFilesBothBuildAWritePlan)
                                                      "MC68HC16Y5", std::move(image),
                                                      KernelImage{.id = "k", .load_address = 0x20000, .bytes = {0xaa}});
         ASSERT_THAT(plan, fastecu::testing::IsOk());
-        ASSERT_TRUE(plan->ImageMap().has_value());
-        EXPECT_EQ(plan->ImageMap()->FileSize(), memory::ByteCount{file_size});
+        ASSERT_TRUE(plan->RomImage().has_value());
+        EXPECT_EQ(plan->RomImage()->Map().FileSize(), memory::ByteCount{file_size});
         EXPECT_EQ(plan->Image()->size(), file_size);
         EXPECT_THAT(ValidateSubaruDensoMc68hc16y502Plan(*plan), fastecu::testing::IsOk());
     }

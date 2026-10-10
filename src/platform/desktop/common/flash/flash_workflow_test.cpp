@@ -99,7 +99,7 @@ FlashWorkflowRequest Mc68Request(FlashOperation operation)
 // The bytes `plan`'s ROM image holds at ECU addresses [start, start + size).
 bytes::Bytes RenderedFlash(const FlashPlan& plan, std::uint32_t start, std::uint32_t size)
 {
-    const std::optional<memory::MemoryImage> image = plan.RomImage();
+    const std::optional<memory::MemoryImage>& image = plan.RomImage();
     if (!image.has_value())
     {
         return {};
@@ -1567,8 +1567,8 @@ TEST(FlashWorkflowTest, mc68FullFileIsPlacedByItsCatalogMap)
     const FlashPlan& plan = std::get<FlashAttempt>(step).attempt->Plan();
     // Handed over as the file it is, with the map for its size; not packed.
     ASSERT_EQ(plan.Image(), full_file);
-    ASSERT_TRUE(plan.ImageMap().has_value());
-    EXPECT_EQ(plan.ImageMap()->FileSize(), memory::ByteCount{0x30000});
+    ASSERT_TRUE(plan.RomImage().has_value());
+    EXPECT_EQ(plan.RomImage()->Map().FileSize(), memory::ByteCount{0x30000});
     EXPECT_EQ(RenderedFlash(plan, 0x00000, 0x20000), bytes::Bytes(0x20000, 0x11));
     EXPECT_EQ(RenderedFlash(plan, 0x28000, 0x8000), bytes::Bytes(0x8000, 0x22));
 }
