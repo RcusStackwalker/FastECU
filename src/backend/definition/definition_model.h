@@ -69,6 +69,8 @@ struct DefinitionIndexEntry
     std::optional<memory::DefinitionAddress> internal_id_address;
     IdEncoding internal_id_encoding;
     std::string ecu_id;
+    // This definition's own <flashmethod>; empty when it inherits one or has none.
+    std::string flash_method;
     std::string source;
     std::vector<std::string> parents;
 

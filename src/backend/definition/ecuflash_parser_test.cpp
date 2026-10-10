@@ -430,5 +430,23 @@ TEST(EcuFlashParserTest, TheLargest32BitAddressParses)
     EXPECT_EQ(parsed->maps.at(0).address, memory::DefinitionAddress{0xFFFFFFFF});
 }
 
+TEST(EcuFlashParserTest, TheIndexEntryRecordsItsOwnFlashMethod)
+{
+    const auto entries = ParseEcuflashIndex(Bytes(R"xml(<rom><romid><xmlid>ID</xmlid>
+        <flashmethod> wrx02 </flashmethod></romid></rom>)xml"),
+                                            "a.xml");
+
+    ASSERT_THAT(entries, fastecu::testing::IsOk());
+    EXPECT_EQ(entries->at(0).flash_method, "wrx02");
+}
+
+TEST(EcuFlashParserTest, AnIndexEntryWithoutAFlashMethodRecordsNone)
+{
+    const auto entries = ParseEcuflashIndex(Bytes("<rom><romid><xmlid>ID</xmlid></romid></rom>"), "a.xml");
+
+    ASSERT_THAT(entries, fastecu::testing::IsOk());
+    EXPECT_EQ(entries->at(0).flash_method, "");
+}
+
 } // namespace
 } // namespace fastecu::definition

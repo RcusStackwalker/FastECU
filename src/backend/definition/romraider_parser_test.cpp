@@ -488,5 +488,18 @@ TEST(RomRaiderParserTest, AnAxisAddressWiderThan32BitsIsAParseError)
     EXPECT_THAT(parsed.error().detail, ::testing::HasSubstr("does not fit 32 bits"));
 }
 
+TEST(RomRaiderParserTest, EachIndexEntryRecordsItsOwnFlashMethod)
+{
+    const auto entries = ParseRomraiderIndex(Bytes(R"xml(<roms>
+      <rom><romid><xmlid>OWN</xmlid><flashmethod>sti04</flashmethod></romid></rom>
+      <rom base="OWN"><romid><xmlid>INHERITS</xmlid></romid></rom></roms>)xml"),
+                                             "rr.xml");
+
+    ASSERT_THAT(entries, fastecu::testing::IsOk());
+    ASSERT_EQ(entries->size(), 2U);
+    EXPECT_EQ(entries->at(0).flash_method, "sti04");
+    EXPECT_EQ(entries->at(1).flash_method, "");
+}
+
 } // namespace
 } // namespace fastecu::definition
