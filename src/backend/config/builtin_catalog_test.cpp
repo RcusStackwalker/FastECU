@@ -283,4 +283,47 @@ TEST(BuiltinCatalogMemoryMaps, ProtocolsDeclaringNoMapGetTheIdentityMapAtAnySize
     }
 }
 
+// ADR 0020: full-size community files and FastECU's own reads share one memory
+// map, so every ROM file a family's read produces opens with its protocol's map.
+TEST(BuiltinCatalogMemoryMaps, FastEcuReadFilesOpenWithTheirProtocolsMap)
+{
+    struct ReadFile
+    {
+        std::string_view protocol;
+        std::uint32_t file_size;
+    };
+    for (const ReadFile file : std::to_array<ReadFile>({
+             {"sub_ecu_denso_mc68hc16y5_02", 0x28000},
+             {"sub_ecu_denso_mc68hc16y5_02_ecutek", 0x28000},
+             {"sub_ecu_denso_mc68hc16y5_02_bdm", 0x30000},
+             {"sub_ecu_denso_sh72543_can_diesel", 0x200000},
+             {"sub_tcu_hitachi_m32r_can", 0x80000},
+             {"sub_tcu_cvt_hitachi_m32r_can", 0x80000},
+             {"sub_tcu_cvt_mitsu_mh8104_can", 0x80000},
+             {"sub_tcu_cvt_mitsu_mh8111_can", 0x80000},
+             {"sub_ecu_mitsu_m32r_kline", 0x80000},
+             {"mitsu_ecu_m32r_can", 0x60000},
+             {"mitsu_ecu_m32r_can_vendor_ext", 0x60000},
+             {"mitsu_ecu_m32r_can_512kb", 0x80000},
+             {"mitsu_ecu_m32r_can_vendor_ext_512kb", 0x80000},
+             {"sub_ecu_hitachi_sh72543r_can", 0x200000},
+             {"sub_ecu_hitachi_sh72543r_can_recovery", 0x200000},
+             {"sub_ecu_denso_sh72531_can", 0x140000},
+             {"sub_ecu_denso_1n83m_4m_can", 0x3E4000},
+             {"sub_ecu_denso_1n83m_1_5m_can", 0x184000},
+         }))
+    {
+        EXPECT_TRUE(MapFor(file.protocol, file.file_size).has_value()) << file.protocol;
+    }
+}
+
+// The MH8111 read covers 0x8000-0x7FFFF; the protocol writes only from 0x80000,
+// so nothing in a read file can be edited.
+TEST(BuiltinCatalogMemoryMaps, Mh8111ReadFilesHoldNoWritableBytes)
+{
+    const std::optional<MemoryMap> map = MapFor("sub_tcu_cvt_mitsu_mh8111_can", 0x80000);
+    ASSERT_TRUE(map.has_value());
+    EXPECT_THAT(map->Blocks(), ::testing::Each(::testing::Field(&MemoryBlock::writability, Writability::kReadOnly)));
+}
+
 } // namespace

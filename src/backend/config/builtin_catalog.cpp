@@ -16,9 +16,10 @@ constexpr auto kWritable = memory::Writability::kWritable;
 
 // Memory maps (ADR 0020). A protocol declares them only when its ROM files are
 // not placed at address 0 with every byte writable; the rest get the identity
-// map. Writable means the protocol can write the block by some route. The
-// agreement test in //src/backend/flash/ecu checks every writable range against
-// the flash family's own write window and against its FlashDevice.
+// map. Writable means calibration may edit the block; for a protocol that
+// writes, that is exactly what some write route reaches. The agreement test in
+// //src/backend/flash/ecu checks every writable range against the flash
+// family's own write window and against its FlashDevice.
 
 // MC68HC16Y5 `_02`: flash at 0x00000-0x1FFFF and 0x28000-0x2FFFF around RAM at
 // 0x20000-0x27FFF. A 160 KiB file packs the two flash ranges; a 192 KiB file (a
@@ -57,13 +58,18 @@ constexpr auto kColt384kBlocks = std::to_array({
 constexpr auto kColt384kMaps =
     std::to_array<MemoryMapSpec>({{.file_size = ByteCount{0x60000}, .blocks = kColt384kBlocks}});
 
-// MH8111: only the 1 MiB block at 0x80000 is written.
+// MH8111: only the 1 MiB block at 0x80000 is written. FastECU's own read
+// covers 0x8000-0x7FFFF (0xFF for the unread prefix), so a 512 KiB read file
+// holds no byte the protocol writes.
+constexpr auto kMh8111ReadBlocks = std::to_array({FileBlock(0x00000, 0x080000, 0x00000, kReadOnly)});
 constexpr auto kMh8111Blocks = std::to_array({
     FileBlock(0x00000, 0x080000, 0x00000, kReadOnly),
     FileBlock(0x80000, 0x100000, 0x80000, kWritable),
 });
-constexpr auto kMh8111Maps =
-    std::to_array<MemoryMapSpec>({{.file_size = ByteCount{0x180000}, .blocks = kMh8111Blocks}});
+constexpr auto kMh8111Maps = std::to_array<MemoryMapSpec>({
+    {.file_size = ByteCount{0x80000}, .blocks = kMh8111ReadBlocks},
+    {.file_size = ByteCount{0x180000}, .blocks = kMh8111Blocks},
+});
 
 // SH72543R: the first 0x6000 bytes are never written.
 constexpr auto kSh72543rBlocks = std::to_array({

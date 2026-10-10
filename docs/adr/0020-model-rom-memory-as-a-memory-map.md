@@ -4,7 +4,8 @@
 
 Accepted. Tracks [#119](https://github.com/RcusStackwalker/FastECU/issues/119);
 slices 1-3 have landed: the memory types, and the catalog's memory maps with
-agreement tests against every flash family.
+tests that they agree with each flash family's write window and flash device,
+and that FastECU's own read files open with them.
 
 ## Context
 
