@@ -326,4 +326,21 @@ TEST(BuiltinCatalogMemoryMaps, Mh8111ReadFilesHoldNoWritableBytes)
     EXPECT_THAT(map->Blocks(), ::testing::Each(::testing::Field(&MemoryBlock::writability, Writability::kReadOnly)));
 }
 
+// FastECU's own 1N83M constants count from the start of the ROM file, and no
+// community 1N83M definitions exist; every other map counts from address 0.
+TEST(BuiltinCatalogMemoryMaps, OnlyN83mDefinitionsCountFromTheirImageAddress)
+{
+    for (const ProtocolSpec& protocol : BuiltinCatalog().Protocols())
+    {
+        const bool n83m = protocol.name.starts_with("sub_ecu_denso_1n83m_");
+        for (const fastecu::config::MemoryMapSpec& spec : protocol.memory_maps)
+        {
+            EXPECT_EQ(spec.definition_base, FlashAddress{n83m ? 0x08F9C000U : 0U}) << protocol.name;
+        }
+    }
+    const std::optional<MemoryMap> map = MapFor("sub_ecu_denso_1n83m_4m_can", 0x3E4000);
+    ASSERT_TRUE(map.has_value());
+    EXPECT_EQ(map->DefinitionBase(), FlashAddress{0x08F9C000});
+}
+
 } // namespace

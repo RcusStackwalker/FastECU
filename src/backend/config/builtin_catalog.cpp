@@ -101,15 +101,18 @@ constexpr auto kN83m4mBlocks = std::to_array({
     FileBlock(0x08FAC000, 0x3D3F00, 0x010000, kWritable),
     FileBlock(0x0937FF00, 0x000100, 0x3E3F00, kReadOnly),
 });
-constexpr auto kN83m4mMaps =
-    std::to_array<MemoryMapSpec>({{.file_size = ByteCount{0x3E4000}, .blocks = kN83m4mBlocks}});
+// 1N83M definitions count from the start of the ROM file: FastECU's own
+// constants do, and no community 1N83M definitions exist.
+constexpr auto kN83m4mMaps = std::to_array<MemoryMapSpec>(
+    {{.file_size = ByteCount{0x3E4000}, .blocks = kN83m4mBlocks, .definition_base = memory::FlashAddress{0x08F9C000}}});
 constexpr auto kN83m1_5mBlocks = std::to_array({
     FileBlock(0x08F9C000, 0x010000, 0x000000, kReadOnly),
     FileBlock(0x08FAC000, 0x173F00, 0x010000, kWritable),
     FileBlock(0x0911FF00, 0x000100, 0x183F00, kReadOnly),
 });
-constexpr auto kN83m1_5mMaps =
-    std::to_array<MemoryMapSpec>({{.file_size = ByteCount{0x184000}, .blocks = kN83m1_5mBlocks}});
+constexpr auto kN83m1_5mMaps = std::to_array<MemoryMapSpec>({{.file_size = ByteCount{0x184000},
+                                                              .blocks = kN83m1_5mBlocks,
+                                                              .definition_base = memory::FlashAddress{0x08F9C000}}});
 
 // Generated once from the retired protocols.cfg and maintained by hand
 // since. The vehicle order is the chooser's unsorted order, and alias

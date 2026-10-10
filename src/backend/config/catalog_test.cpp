@@ -212,4 +212,21 @@ TEST(CatalogProblems, ReportsInvalidAndSameSizeMemoryMaps)
                             "protocol 'badmaps' declares two memory maps for 0x80-byte files"));
 }
 
+// A 0x100-byte file at 0x1000 whose definitions count from 0x1000.
+constexpr auto kBasedBlocks = std::to_array({FileBlock(0x1000, 0x100, 0x0, Writability::kWritable)});
+constexpr auto kBasedMaps = std::to_array<MemoryMapSpec>(
+    {{.file_size = ByteCount{0x100}, .blocks = kBasedBlocks, .definition_base = FlashAddress{0x1000}}});
+constexpr ProtocolSpec kBased{.name = "based", .memory_maps = kBasedMaps};
+
+TEST(SelectMemoryMap, CarriesTheDeclaredDefinitionBase)
+{
+    const auto based = SelectMemoryMap(kBased, ByteCount{0x100});
+    const auto plain = SelectMemoryMap(kPlain, ByteCount{0x100});
+
+    ASSERT_TRUE(based.has_value());
+    ASSERT_TRUE(plain.has_value());
+    EXPECT_EQ(based->DefinitionBase(), FlashAddress{0x1000});
+    EXPECT_EQ(plain->DefinitionBase(), FlashAddress{0});
+}
+
 } // namespace
