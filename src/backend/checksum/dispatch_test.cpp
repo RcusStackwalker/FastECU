@@ -175,9 +175,9 @@ TEST(ApplyChecksumCorrection, TcuDensoSh7055RoutesCorrectly)
 
 TEST(ApplyChecksumCorrection, TcuHitachiM32rCanRoutesForCanFlashMethod)
 {
-    const bytes::Bytes rom(65536, 0); // M3779x romsize
+    const bytes::Bytes rom(0x80000, 0); // M32R_512KB romsize, as the catalog names
     const auto outcome =
-        ApplyChecksumCorrection(IdentityOf(rom), SubaruSelection("sub_tcu_hitachi_m32r_can", "M3779x"));
+        ApplyChecksumCorrection(IdentityOf(rom), SubaruSelection("sub_tcu_hitachi_m32r_can", "M32R_512KB"));
 
     ASSERT_EQ(outcome.status, Status::kFamilyRan);
     ASSERT_TRUE(outcome.family_result.has_value());
@@ -189,9 +189,9 @@ TEST(ApplyChecksumCorrection, TcuHitachiM32rCanRoutesForKlineFlashMethodToo)
     // Legacy checksum_correction routes both "sub_tcu_hitachi_m32r_can" and
     // "sub_tcu_hitachi_m32r_kline" to the same family class
     // (file_actions.cpp:2311-2321) -- not a typo, preserved verbatim.
-    const bytes::Bytes rom(65536, 0);
+    const bytes::Bytes rom(0x80000, 0);
     const auto outcome =
-        ApplyChecksumCorrection(IdentityOf(rom), SubaruSelection("sub_tcu_hitachi_m32r_kline", "M3779x"));
+        ApplyChecksumCorrection(IdentityOf(rom), SubaruSelection("sub_tcu_hitachi_m32r_kline", "M32R_512KB"));
 
     ASSERT_EQ(outcome.status, Status::kFamilyRan);
     ASSERT_TRUE(outcome.family_result.has_value());
