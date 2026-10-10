@@ -171,7 +171,7 @@ TEST(BuiltinCatalogFixes, MutDmaLoggingHasAMitsubishiVehicle)
 // when it gives none.
 std::optional<MemoryMap> MapFor(std::string_view protocol, std::uint32_t file_size)
 {
-    auto map = SelectMemoryMap(ProtocolNamed(protocol), ByteCount{file_size});
+    auto map = SelectMemoryMap(&ProtocolNamed(protocol), file_size);
     if (!map.has_value())
     {
         ADD_FAILURE() << protocol << ": " << map.error().detail;
@@ -224,7 +224,7 @@ TEST(BuiltinCatalogMemoryMaps, Mc68FilesOfOtherSizesAreRejectedNotPadded)
 {
     for (const std::uint32_t file_size : {0x20000U, 0x40000U})
     {
-        const auto map = SelectMemoryMap(ProtocolNamed("sub_ecu_denso_mc68hc16y5_02"), ByteCount{file_size});
+        const auto map = SelectMemoryMap(&ProtocolNamed("sub_ecu_denso_mc68hc16y5_02"), file_size);
         ASSERT_FALSE(map.has_value()) << file_size;
         EXPECT_EQ(map.error().kind, MemoryErrorKind::kFileSizeMismatch) << file_size;
     }

@@ -16,30 +16,6 @@ namespace fastecu::calibration
 {
 namespace
 {
-std::optional<memory::MemoryImage> ImageOf(std::vector<std::uint8_t> rom, std::optional<memory::MemoryMap> memory_map)
-{
-    if (!memory_map.has_value())
-    {
-        const std::optional<memory::ByteCount> size = memory::ByteCount::FromSize(rom.size());
-        if (!size.has_value())
-        {
-            return std::nullopt;
-        }
-        auto identity = memory::MemoryMap::Identity(*size);
-        if (!identity.has_value())
-        {
-            return std::nullopt;
-        }
-        memory_map = std::move(*identity);
-    }
-    auto image = memory::MemoryImage::Create(std::move(*memory_map), std::move(rom));
-    if (!image.has_value())
-    {
-        return std::nullopt;
-    }
-    return std::move(*image);
-}
-
 // Index i holds the byte at definition base + i, up to the end of the highest
 // block; bytes no block holds stay 0x00.
 bytes::Bytes DefinitionView(const memory::MemoryImage& image)
@@ -75,10 +51,9 @@ bytes::Bytes DefinitionView(const memory::MemoryImage& image)
 } // namespace
 
 CalibrationSession::CalibrationSession(SessionId id, SessionContents contents)
-    : id_(id), source_(std::move(contents.source)),
-      image_(ImageOf(std::move(contents.rom), std::move(contents.memory_map))),
-      definition_view_(image_.has_value() ? DefinitionView(*image_) : bytes::Bytes{}),
-      definition_(std::move(contents.definition)), protocol_(std::move(contents.protocol))
+    : id_(id), source_(std::move(contents.source)), image_(std::move(contents.image)),
+      definition_view_(DefinitionView(image_)), definition_(std::move(contents.definition)),
+      protocol_(std::move(contents.protocol))
 {
 }
 
@@ -99,7 +74,7 @@ bytes::ByteView CalibrationSession::Rom() const
 
 bytes::ByteView CalibrationSession::File() const
 {
-    return image_.has_value() ? image_->File() : bytes::ByteView{};
+    return image_.File();
 }
 
 const ResolvedDefinition *CalibrationSession::Definition() const
@@ -147,12 +122,9 @@ Result<DecodedMap> CalibrationSession::DecodeMap(std::size_t map_index) const
                                                            rom_definition.maps.size()));
     }
     const definition::CalibrationMap& map = rom_definition.maps[map_index];
-    if (image_.has_value())
+    if (const Status placed = CheckMapPlacement(rom_definition, map, image_.Map()); !placed.has_value())
     {
-        if (const Status placed = CheckMapPlacement(rom_definition, map, image_->Map()); !placed.has_value())
-        {
-            return std::unexpected(placed.error());
-        }
+        return std::unexpected(placed.error());
     }
     return DecodeCalibrationMap(rom_definition, map, definition_view_);
 }
@@ -166,14 +138,14 @@ Status CalibrationSession::CheckWrite(std::uint64_t offset, std::size_t size) co
         return Fail(ErrorKind::kInvalidConfig,
                     std::format("write of {} bytes at 0x{:x} is outside the {}-byte image", size, offset, view_size));
     }
-    if (size == 0 || !image_.has_value())
+    if (size == 0)
     {
         return {};
     }
     // Inside the view, so the offset fits in 32 bits and the address exists.
     const memory::FlashAddress start =
-        *image_->Map().ToFlashAddress(memory::DefinitionAddress{static_cast<std::uint32_t>(offset)});
-    if (const auto checked = image_->CheckWrite(start, memory::ByteCount{static_cast<std::uint32_t>(size)});
+        *image_.Map().ToFlashAddress(memory::DefinitionAddress{static_cast<std::uint32_t>(offset)});
+    if (const auto checked = image_.CheckWrite(start, memory::ByteCount{static_cast<std::uint32_t>(size)});
         !checked.has_value())
     {
         return Fail(ErrorKind::kInvalidConfig,
@@ -192,8 +164,8 @@ Status CalibrationSession::WriteBytes(std::uint64_t offset, bytes::ByteView data
     {
         // CheckWrite passed, so the offset fits in 32 bits and the address exists.
         const memory::FlashAddress start =
-            *image_->Map().ToFlashAddress(memory::DefinitionAddress{static_cast<std::uint32_t>(offset)});
-        if (const auto written = image_->Write(start, data); !written.has_value())
+            *image_.Map().ToFlashAddress(memory::DefinitionAddress{static_cast<std::uint32_t>(offset)});
+        if (const auto written = image_.Write(start, data); !written.has_value())
         {
             return Fail(ErrorKind::kInvalidConfig, written.error().detail);
         }

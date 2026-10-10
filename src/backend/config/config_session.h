@@ -69,6 +69,9 @@ class ConfigSession
     // a definition's flash method resolves; nullptr when none matches or the
     // session is not initialized.
     const VehicleSpec *VehicleForAlias(std::string_view flash_method) const;
+    // The catalog protocol named `name`; nullptr when none is or the session
+    // is not initialized.
+    const ProtocolSpec *FindProtocol(std::string_view name) const;
 
   private:
     const Catalog& catalog_;

@@ -8,6 +8,7 @@
 #include <QCheckBox>
 #include <QLabel>
 #include <QComboBox>
+#include "src/algorithms/memory/testing/memory_views.h"
 #include "src/platform/desktop/common/testing/signal_recorder.h"
 #include "src/platform/desktop/common/testing/event_helpers.h"
 #include <QKeyEvent>
@@ -104,11 +105,12 @@ std::string numericTable(std::string_view type, int x, int y, std::string_view a
 void replaceDefinition(fastecu::calibration::CalibrationSession& session,
                        fastecu::calibration::ResolvedDefinition definition)
 {
-    const auto rom = session.Rom();
-    fastecu::calibration::SessionContents contents{.source = session.Source(),
-                                                   .rom = std::vector<std::uint8_t>(rom.begin(), rom.end()),
-                                                   .definition = std::move(definition),
-                                                   .protocol = session.Protocol()};
+    const auto file = session.File();
+    fastecu::calibration::SessionContents contents{
+        .source = session.Source(),
+        .image = fastecu::memory::testing::IdentityImage(std::vector<std::uint8_t>(file.begin(), file.end())),
+        .definition = std::move(definition),
+        .protocol = session.Protocol()};
     session = fastecu::calibration::CalibrationSession(session.Id(), std::move(contents));
 }
 

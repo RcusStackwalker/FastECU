@@ -167,7 +167,7 @@ Status ValidateSubaruDensoMc68hc16y502Plan(const FlashPlan& plan)
     }
     if (plan.Operation() == FlashOperation::kWrite || plan.Operation() == FlashOperation::kTestWrite)
     {
-        const std::optional<memory::MemoryImage> image = plan.RomImage();
+        const std::optional<memory::MemoryImage>& image = plan.RomImage();
         if (!image.has_value())
         {
             return Fail(kInvalidConfig, "MC68HC16Y5_02 write requires a ROM image");

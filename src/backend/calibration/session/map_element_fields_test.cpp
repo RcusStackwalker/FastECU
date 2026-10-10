@@ -6,6 +6,8 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "src/algorithms/memory/testing/memory_views.h"
+
 namespace fastecu::calibration
 {
 namespace
@@ -54,10 +56,9 @@ definition::RomDefinition TwoByTwoDefinition()
 
 CalibrationSession SessionFrom(definition::RomDefinition def = TwoByTwoDefinition())
 {
-    SessionContents contents;
-    contents.rom.resize(128);
-    contents.definition = ResolvedDefinition{.definition = std::move(def)};
-    return CalibrationSession(SessionId{1}, std::move(contents));
+    return CalibrationSession(SessionId{1},
+                              SessionContents{.image = memory::testing::IdentityImage(bytes::Bytes(128)),
+                                              .definition = ResolvedDefinition{.definition = std::move(def)}});
 }
 
 TEST(MapElementFields, PlucksTypedFields)

@@ -62,10 +62,8 @@ TEST(CatalogChecksumAgreement, EveryDeclaredMapHoldsItsChecksumStoresInWritableM
         for (const config::MemoryMapSpec& spec : protocol.memory_maps)
         {
             SCOPED_TRACE(std::format("{} {:#x}", protocol.name, spec.file_size.Value()));
-            auto map = config::SelectMemoryMap(protocol, spec.file_size);
-            ASSERT_TRUE(map.has_value());
-            const auto image = memory::MemoryImage::Create(std::move(*map),
-                                                           ZeroRomThatCorrects(protocol.name, spec.file_size.Value()));
+            const auto image =
+                config::PlaceRomFile(&protocol, ZeroRomThatCorrects(protocol.name, spec.file_size.Value()));
             ASSERT_TRUE(image.has_value());
 
             const ChecksumCorrectionOutcome outcome =

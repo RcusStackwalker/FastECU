@@ -1,4 +1,5 @@
 #include "src/ui/desktop/calibration/map_presentation.h"
+#include "src/algorithms/memory/testing/memory_views.h"
 #include "src/backend/ports/testing/result_matchers.h"
 
 #include <gtest/gtest.h>
@@ -21,9 +22,9 @@ calibration::CalibrationSession session(std::string_view expression = "x")
     map.storage_type = definition::StorageType::kUint8;
     map.scaling_name = "raw";
     definition.maps.push_back(map);
-    return calibration::CalibrationSession(
-        calibration::SessionId{1},
-        {.rom = {1, 2, 3, 4}, .definition = calibration::ResolvedDefinition{.definition = definition}});
+    return calibration::CalibrationSession(calibration::SessionId{1},
+                                           {.image = memory::testing::IdentityImage({1, 2, 3, 4}),
+                                            .definition = calibration::ResolvedDefinition{.definition = definition}});
 }
 
 TEST(MapPresentation, FormatsNumericCellsAndExplicitAbsentAxes)

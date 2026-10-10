@@ -640,17 +640,7 @@ Result<FlashPlan> PrepareMc68(FlashWorkflowRequest& request)
     std::optional<memory::MemoryImage> image;
     if (request.image.has_value())
     {
-        const std::optional<memory::ByteCount> size = memory::ByteCount::FromSize(request.image->size());
-        if (!size.has_value())
-        {
-            return Fail(ErrorKind::kInvalidConfig, "ROM file size error: the ROM file is larger than 4 GiB");
-        }
-        auto map = config::SelectMemoryMap(request.protocol, *size);
-        if (!map.has_value())
-        {
-            return Fail(ErrorKind::kInvalidConfig, std::format("ROM file size error: {}", map.error().detail));
-        }
-        auto placed = memory::MemoryImage::Create(std::move(*map), std::move(*request.image));
+        auto placed = config::PlaceRomFile(&request.protocol, std::move(*request.image));
         if (!placed.has_value())
         {
             return Fail(ErrorKind::kInvalidConfig, std::format("ROM file size error: {}", placed.error().detail));

@@ -3,6 +3,7 @@
 #include <gtest/gtest.h>
 #include <QTreeWidget>
 
+#include "src/algorithms/memory/testing/memory_views.h"
 #include "src/ui/desktop/calibration/session_key.h"
 #include "src/ui/desktop/widgets/calibration_treewidget.h"
 
@@ -44,7 +45,7 @@ CalibrationSession sessionWithMaps()
         SessionId{7},
         SessionContents{
             .source = {.display_name = "t.bin", .path = "/t.bin"},
-            .rom = std::vector<std::uint8_t>(16, 0),
+            .image = fastecu::memory::testing::IdentityImage(std::vector<std::uint8_t>(16, 0)),
             .definition = fastecu::calibration::ResolvedDefinition{.id = "TREE", .definition = definition},
             .protocol = {.file_size_label = "0kb"},
         });
@@ -122,7 +123,8 @@ TEST(CalibrationTreeWidgetTest, definitionlessRomShowsOnlyRomInfo)
 {
     QTreeWidget data;
     CalibrationTreeWidget builder;
-    const CalibrationSession session(SessionId{1}, SessionContents{.rom = std::vector<std::uint8_t>(4, 0)});
+    const CalibrationSession session(SessionId{1}, SessionContents{.image = fastecu::memory::testing::IdentityImage(
+                                                                       std::vector<std::uint8_t>(4, 0))});
 
     builder.buildCalibrationDataTree(&data, session, {});
 

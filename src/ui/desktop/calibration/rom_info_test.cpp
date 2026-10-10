@@ -2,6 +2,8 @@
 
 #include <gtest/gtest.h>
 
+#include "src/algorithms/memory/testing/memory_views.h"
+
 namespace fastecu::ui
 {
 namespace
@@ -37,6 +39,7 @@ TEST(RomInfo, DefinitionRowsUseProtocolMetadataAndDirectParent)
     calibration::CalibrationSession session(
         calibration::SessionId{1},
         {
+            .image = memory::testing::IdentityImage({0}),
             .definition = calibration::ResolvedDefinition{.definition = definition},
             .protocol = {.flash_method = "resolved", .checksum_module = "checksumresolved", .file_size_label = "128kb"},
         });
@@ -56,6 +59,7 @@ TEST(RomInfo, DefinitionlessAndContinueWithoutPlaceholders)
     const calibration::CalibrationSession session(calibration::SessionId{1},
                                                   {
                                                       .source = {.origin = calibration::RomOrigin::kFile},
+                                                      .image = memory::testing::IdentityImage({0}),
                                                       .protocol = {.file_size_label = "16kb"},
                                                   });
     const auto plain = romInfoValues(session);
@@ -76,6 +80,7 @@ TEST(RomInfo, EcuReadAndHeaderOnlyDefinitionRetainMetadata)
 {
     calibration::SessionContents contents{
         .source = {.origin = calibration::RomOrigin::kEcuRead},
+        .image = memory::testing::IdentityImage({0}),
         .protocol = {.flash_method = "read protocol", .checksum_module = "No checksums", .file_size_label = "256kb"}};
     const calibration::CalibrationSession read(calibration::SessionId{1}, contents);
     EXPECT_EQ(romInfoValue(romInfoValues(read), RomInfoRow::kFlashMethod), "read protocol");

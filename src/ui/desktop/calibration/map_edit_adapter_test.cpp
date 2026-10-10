@@ -13,6 +13,7 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "src/algorithms/memory/testing/memory_views.h"
 #include "src/backend/ports/testing/result_matchers.h"
 
 namespace fastecu::ui
@@ -79,14 +80,15 @@ definition::RomDefinition twoByTwoDefinition()
 
 calibration::CalibrationSession sessionFrom(definition::RomDefinition def = twoByTwoDefinition())
 {
-    calibration::SessionContents contents;
-    contents.rom.resize(128);
+    bytes::Bytes rom(128);
     for (unsigned i = 0; i < 4; ++i)
     {
-        contents.rom[19 + i * 6] = static_cast<std::uint8_t>(i + 1);
+        rom[19 + i * 6] = static_cast<std::uint8_t>(i + 1);
     }
-    contents.definition = calibration::ResolvedDefinition{.definition = std::move(def)};
-    return calibration::CalibrationSession(calibration::SessionId{1}, std::move(contents));
+    return calibration::CalibrationSession(
+        calibration::SessionId{1},
+        calibration::SessionContents{.image = memory::testing::IdentityImage(std::move(rom)),
+                                     .definition = calibration::ResolvedDefinition{.definition = std::move(def)}});
 }
 
 TEST(ParseMapWindowId, ReturnsNulloptForANullWindow)
@@ -210,7 +212,8 @@ TEST(BodyWidgetRange, IsEmptyWithoutADefinitionAMapOrAnyCells)
     EXPECT_FALSE(bodyWidgetRange(session, 1, 3, 3).has_value());
     EXPECT_FALSE(bodyWidgetRange(session, -1, 3, 3).has_value());
     EXPECT_FALSE(bodyWidgetRange(session, 0, 0, 0).has_value());
-    const calibration::CalibrationSession definitionless(calibration::SessionId{2}, calibration::SessionContents{});
+    const calibration::CalibrationSession definitionless(
+        calibration::SessionId{2}, calibration::SessionContents{.image = memory::testing::IdentityImage({0})});
     EXPECT_FALSE(bodyWidgetRange(definitionless, 0, 3, 3).has_value());
 }
 
@@ -230,7 +233,8 @@ TEST(SelectedNumericTarget, IsEmptyWithoutANumericSelection)
     table->setRangeSelected(QTableWidgetSelectionRange(1, 1, 1, 1), true);
     EXPECT_FALSE(selectedNumericTarget(&window, session, 1).has_value());
     EXPECT_FALSE(selectedNumericTarget(&window, session, -1).has_value());
-    const calibration::CalibrationSession definitionless(calibration::SessionId{2}, calibration::SessionContents{});
+    const calibration::CalibrationSession definitionless(
+        calibration::SessionId{2}, calibration::SessionContents{.image = memory::testing::IdentityImage({0})});
     EXPECT_FALSE(selectedNumericTarget(&window, definitionless, 0).has_value());
 
     auto staticDef = twoByTwoDefinition();

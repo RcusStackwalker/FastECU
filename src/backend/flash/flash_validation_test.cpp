@@ -314,8 +314,9 @@ TEST(FlashValidationTest, AnImageMemoryMapForAnotherFileSizeIsRejected)
     fields.image = CountingImage(0x40);
     fields.image_map = memory::MemoryMap::Identity(memory::ByteCount{0x20}).value();
 
-    EXPECT_THAT(ValidateAndBuild(std::move(fields)),
-                fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, ::testing::HasSubstr("memory map")));
+    EXPECT_THAT(
+        ValidateAndBuild(std::move(fields)),
+        fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, ::testing::HasSubstr("does not fit its memory map")));
 }
 
 TEST(FlashValidationTest, RomImagePlacesTheImageByItsMemoryMap)
@@ -327,7 +328,7 @@ TEST(FlashValidationTest, RomImagePlacesTheImageByItsMemoryMap)
     auto plan = ValidateAndBuild(std::move(fields));
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
-    const std::optional<memory::MemoryImage> rom = plan->RomImage();
+    const std::optional<memory::MemoryImage>& rom = plan->RomImage();
     ASSERT_TRUE(rom.has_value());
     const auto view = rom->Render(
         memory::AddressRange<memory::FlashSpace>::Make(memory::FlashAddress{0x30}, memory::ByteCount{1}).value());
@@ -335,7 +336,7 @@ TEST(FlashValidationTest, RomImagePlacesTheImageByItsMemoryMap)
     EXPECT_EQ(view->Data()[0], 0x20);
 }
 
-TEST(FlashValidationTest, RomImageWithoutAMemoryMapIsTheIdentityPlacement)
+TEST(FlashValidationTest, AWriteImageWithoutAMemoryMapHasNoRomImage)
 {
     auto fields = ValidReadFields();
     fields.operation = FlashOperation::kWrite;
@@ -343,11 +344,7 @@ TEST(FlashValidationTest, RomImageWithoutAMemoryMapIsTheIdentityPlacement)
     auto plan = ValidateAndBuild(std::move(fields));
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
-    const std::optional<memory::MemoryImage> rom = plan->RomImage();
-    ASSERT_TRUE(rom.has_value());
-    ASSERT_EQ(rom->Map().Blocks().size(), 1U);
-    EXPECT_EQ(rom->Map().Blocks()[0].range.Start(), memory::FlashAddress{0});
-    EXPECT_THAT(rom->File(), ::testing::ElementsAreArray(CountingImage(0x40)));
+    EXPECT_FALSE(plan->RomImage().has_value());
 }
 
 TEST(FlashValidationTest, AReadPlanHasNoRomImage)

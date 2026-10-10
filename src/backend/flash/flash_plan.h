@@ -29,9 +29,9 @@ struct FlashPlanFields
     MemoryRegion transfer_region{};
     std::vector<MemoryRegion> erase_regions;
     std::optional<bytes::Bytes> image;
-    // Where `image`'s bytes sit at ECU addresses (ADR 0020). Absent means the
-    // identity map: byte i of the image is ECU address i. Only a write image
-    // can have one.
+    // Where `image`'s bytes sit at ECU addresses (ADR 0020). ValidateAndBuild
+    // places the image by it once, for RomImage(). Only a write image can have
+    // one.
     std::optional<memory::MemoryMap> image_map;
     // Optional because not every family uploads one. The EEPROM pair loads a
     // kernel file and uploads it; the Mitsu Colt CAN family drives the ECU's
@@ -78,13 +78,13 @@ class FlashPlan
     {
         return fields_.image;
     }
-    const std::optional<memory::MemoryMap>& ImageMap() const
+    // The image placed at ECU addresses by the builder's image_map (ADR 0020).
+    // Present exactly when the builder gave one: only plans that write through
+    // a memory image (the MC68HC16Y5 `_02` family) have it.
+    const std::optional<memory::MemoryImage>& RomImage() const
     {
-        return fields_.image_map;
+        return rom_image_;
     }
-    // The image placed at ECU addresses by ImageMap(), or by the identity map
-    // when it has none; nullopt for a plan without an image.
-    std::optional<memory::MemoryImage> RomImage() const;
     const std::optional<KernelImage>& Kernel() const
     {
         return fields_.kernel;
@@ -114,13 +114,15 @@ class FlashPlan
   private:
     friend Result<FlashPlan> ValidateAndBuild(FlashPlanFields fields);
 
-    explicit FlashPlan(FlashPlanFields fields, std::uint64_t total_transfer_bytes)
-        : fields_(std::move(fields)), total_transfer_bytes_(total_transfer_bytes)
+    explicit FlashPlan(FlashPlanFields fields, std::uint64_t total_transfer_bytes,
+                       std::optional<memory::MemoryImage> rom_image)
+        : fields_(std::move(fields)), total_transfer_bytes_(total_transfer_bytes), rom_image_(std::move(rom_image))
     {
     }
 
     FlashPlanFields fields_;
     std::uint64_t total_transfer_bytes_;
+    std::optional<memory::MemoryImage> rom_image_;
 };
 
 } // namespace fastecu::flash

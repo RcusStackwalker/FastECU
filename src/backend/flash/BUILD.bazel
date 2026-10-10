@@ -67,7 +67,10 @@ cc_library(
     name = "flash_validation",
     srcs = ["flash_validation.cpp"],
     hdrs = ["flash_validation.h"],
-    implementation_deps = [":flash_types"],
+    implementation_deps = [
+        ":flash_types",
+        "//src/algorithms/memory:memory_image",
+    ],
     deps = [
         ":flash_plan",
         "//src/backend/ports",

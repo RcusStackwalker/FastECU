@@ -203,4 +203,9 @@ const VehicleSpec *ConfigSession::VehicleForAlias(std::string_view flash_method)
     return initialized_ ? catalog_.FirstVehicleForAlias(flash_method) : nullptr;
 }
 
+const ProtocolSpec *ConfigSession::FindProtocol(std::string_view name) const
+{
+    return initialized_ ? catalog_.FindProtocol(name) : nullptr;
+}
+
 } // namespace fastecu::config
