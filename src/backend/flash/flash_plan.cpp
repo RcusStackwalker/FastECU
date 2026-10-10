@@ -1,5 +1,8 @@
 #include "src/backend/flash/flash_plan.h"
 
+#include <optional>
+#include <utility>
+
 namespace fastecu::flash
 {
 
@@ -7,6 +10,31 @@ const bytes::Bytes& FlashPlan::ImageOrEmpty() const
 {
     static const bytes::Bytes kNoImage;
     return fields_.image.has_value() ? *fields_.image : kNoImage;
+}
+
+std::optional<memory::MemoryImage> FlashPlan::RomImage() const
+{
+    if (!fields_.image.has_value())
+    {
+        return std::nullopt;
+    }
+    std::optional<memory::MemoryMap> map = fields_.image_map;
+    if (!map.has_value())
+    {
+        const std::optional<memory::ByteCount> size = memory::ByteCount::FromSize(fields_.image->size());
+        if (!size.has_value())
+        {
+            return std::nullopt;
+        }
+        auto identity = memory::MemoryMap::Identity(*size);
+        if (!identity.has_value())
+        {
+            return std::nullopt;
+        }
+        map = std::move(*identity);
+    }
+    auto image = memory::MemoryImage::Create(std::move(*map), *fields_.image);
+    return image.has_value() ? std::optional(std::move(*image)) : std::nullopt;
 }
 
 const KernelImage& FlashPlan::KernelOrEmpty() const

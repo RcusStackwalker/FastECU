@@ -56,6 +56,8 @@ cc_library(
     hdrs = ["flash_plan.h"],
     deps = [
         ":flash_types",
+        "//src/algorithms/memory:memory_image",
+        "//src/algorithms/memory:memory_map",
         "//src/algorithms/protocol",
         "//src/backend/ports",
     ],
