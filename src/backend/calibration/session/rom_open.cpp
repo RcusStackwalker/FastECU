@@ -145,7 +145,6 @@ RomOpenOutcome RomOpenUseCase::Finish(Seed seed)
                 .kernel_start_address = std::move(seed.kernel_start_address),
                 .rom_id = std::move(rom_id),
                 .file_size_label = std::format("{}kb", unpadded_size / 1024),
-                .unpadded_size = unpadded_size,
             },
     };
     return outcome;

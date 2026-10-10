@@ -74,13 +74,10 @@ struct MapElementSpec
     // One-based start and element interval; callers validate nonzero values.
     std::uint32_t start_position{1};
     std::uint32_t interval{1};
-    std::string_view flash_method;
-    std::uint64_t rom_file_size{0}; // Unpadded image size.
 };
 
-// Checked layout arithmetic returns a sentinel on overflow. The independently
-// evidence-gated wrx02 read/write predicates remain distinct and pinned in tests.
-std::uint64_t ElementByteAddress(const MapElementSpec& spec, std::uint32_t index, bool for_write);
+// Checked layout arithmetic returns a sentinel on overflow.
+std::uint64_t ElementByteAddress(const MapElementSpec& spec, std::uint32_t index);
 
 // Float reads return IEEE-754 bits, not a scaled numeric value. All integer
 // widths respect declared byte order; float storage remains big-endian.

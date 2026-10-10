@@ -57,12 +57,10 @@ CalibrationSession SessionFrom(definition::RomDefinition def = TwoByTwoDefinitio
     SessionContents contents;
     contents.rom.resize(128);
     contents.definition = ResolvedDefinition{.definition = std::move(def)};
-    contents.protocol.flash_method = "wrx02";
-    contents.protocol.unpadded_size = 123;
     return CalibrationSession(SessionId{1}, std::move(contents));
 }
 
-TEST(MapElementFields, PlucksTypedFieldsAndUnpaddedProtocolSize)
+TEST(MapElementFields, PlucksTypedFields)
 {
     const auto session = SessionFrom();
     const auto fields = CollectMapElementFields(session, 0, NumericTarget::kMapBody);
@@ -75,8 +73,6 @@ TEST(MapElementFields, PlucksTypedFieldsAndUnpaddedProtocolSize)
     EXPECT_DOUBLE_EQ(spec.fine_increment, 0.1);
     EXPECT_EQ(spec.start_position, 2U);
     EXPECT_EQ(spec.interval, 3U);
-    EXPECT_EQ(spec.flash_method, "wrx02");
-    EXPECT_EQ(spec.rom_file_size, 123U);
 }
 
 TEST(MapElementFields, AxisUsesResolvedFieldsAndScalingBounds)

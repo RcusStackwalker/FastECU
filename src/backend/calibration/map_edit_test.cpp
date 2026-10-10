@@ -231,35 +231,6 @@ TEST(ReadRawElement, ReadsASigned24BitValueCorrectly)
                 fastecu::testing::IsOkAnd(0x010203));
 }
 
-TEST(ElementByteAddress, Wrx02ReadAndWritePredicatesAgreeWhenNeitherRelocates)
-{
-    MapElementSpec spec = SpecFor(definition::StorageType::kUint8, "big", /*address=*/0x100);
-    spec.flash_method = "wrx02";
-    spec.rom_file_size = 0x40000; // 256 KiB: >= address, and >= the 190 KiB write threshold.
-
-    EXPECT_EQ(ElementByteAddress(spec, 0, /*for_write=*/false), ElementByteAddress(spec, 0, /*for_write=*/true));
-    EXPECT_EQ(ElementByteAddress(spec, 0, /*for_write=*/false), 0x100U);
-}
-
-// get_rom_data_value (read) relocates when `rom_file_size < byte_address`.
-// set_rom_data_value (write) relocates when `rom_file_size < 190*1024 &&
-// byte_address > 0x27FFF`. A 180 KiB image with a cell at 0x28000 satisfies
-// the write predicate (180 KiB < 190 KiB and 0x28000 > 0x27FFF) but not the
-// read predicate (180 KiB == 0x2D000 > 0x28000, so rom_file_size is NOT less
-// than byte_address) -- the two paths disagree on whether to relocate the
-// same element. Ported verbatim; spec's defect (a), deliberately left
-// unreconciled pending corpus evidence about which predicate real wrx02
-// ROMs actually need -- the 6b-4 fix wave fixes the byte-order defects but
-// intentionally does not touch this one.
-TEST(ElementByteAddress, PinnedDefect_Wrx02FixupDiffersBetweenReadAndWrite)
-{
-    MapElementSpec spec = SpecFor(definition::StorageType::kUint8, "big", /*address=*/0x28000);
-    spec.flash_method = "wrx02";
-    spec.rom_file_size = std::uint64_t{180} * 1024;
-
-    EXPECT_NE(ElementByteAddress(spec, 0, /*for_write=*/false), ElementByteAddress(spec, 0, /*for_write=*/true));
-}
-
 // Spec defect (b): the edit path used a flat address + index*width layout while
 // decode_numeric_run honours start_position and interval, so editing a
 // strided map landed on neighbouring data.
@@ -272,9 +243,9 @@ TEST(ElementByteAddress, HonoursTheStartPositionAndIntervalStride)
     spec.interval = 3;
 
     // addr(j) = 0x100 + (2-1)*2 + j*2*3
-    EXPECT_EQ(ElementByteAddress(spec, 0, false), 0x102U);
-    EXPECT_EQ(ElementByteAddress(spec, 1, false), 0x108U);
-    EXPECT_EQ(ElementByteAddress(spec, 2, false), 0x10EU);
+    EXPECT_EQ(ElementByteAddress(spec, 0), 0x102U);
+    EXPECT_EQ(ElementByteAddress(spec, 1), 0x108U);
+    EXPECT_EQ(ElementByteAddress(spec, 2), 0x10EU);
 }
 
 TEST(WriteRawElement, WritesInTheLabeledByteOrderForEveryWidth)

@@ -175,8 +175,8 @@ checked storage encoding. Invalid cells can receive absolute replacements;
 relative operations require valid inputs. An increment applies one requested
 step, and decoding errors remain visible. The
 [calibration contract](reference/calibration-compatibility.md#decoded-values-and-map-edits)
-owns numeric rules and operator outcomes. The logging evaluator and `wrx02`
-predicate remain separate; further edit-policy ownership extraction is
+owns numeric rules and operator outcomes. The logging evaluator remains
+separate; further edit-policy ownership extraction is
 [unresolved work](tech-debt.md#p1-separate-ui-from-application-logic).
 
 ### Save and flash use operation images

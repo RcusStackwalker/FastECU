@@ -35,7 +35,6 @@ class MapElementFields
     std::string from_byte_;
     std::string min_value_;
     std::string max_value_;
-    std::string flash_method_;
     std::uint64_t address_{0};
     std::optional<definition::StorageType> storage_type_;
     double coarse_increment_{0.0};
@@ -44,7 +43,6 @@ class MapElementFields
     std::uint32_t y_size_{1};
     std::uint32_t start_position_{1};
     std::uint32_t interval_{1};
-    std::uint64_t rom_file_size_{0};
 };
 
 // Resolves definition and protocol fields for one element run. Body storage

@@ -137,7 +137,7 @@ Status AppendWrite(NumericEditResult& result, bytes::ByteView rom, const MapElem
     {
         return std::unexpected(encoded.error());
     }
-    const auto address = ElementByteAddress(spec, index, true);
+    const auto address = ElementByteAddress(spec, index);
     if (!internal::ByteWindowFits(rom, address, encoded->size()))
     {
         return Fail(ErrorKind::kInvalidConfig, "edit byte range exceeds ROM size");

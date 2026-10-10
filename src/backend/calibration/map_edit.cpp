@@ -11,7 +11,7 @@ namespace fastecu::calibration
 {
 using namespace internal;
 
-std::uint64_t ElementByteAddress(const MapElementSpec& spec, std::uint32_t index, bool for_write)
+std::uint64_t ElementByteAddress(const MapElementSpec& spec, std::uint32_t index)
 {
     const std::uint32_t width = definition::StorageByteSize(spec.storage_type);
 
@@ -30,8 +30,8 @@ std::uint64_t ElementByteAddress(const MapElementSpec& spec, std::uint32_t index
     // sentinel address a real ROM can never contain rather than wrapping, so
     // every caller's existing bounds check (read_raw_element's
     // byte_window_fits, or read_raw_element having already validated the
-    // same index before any of this file's apply_* operations reach their
-    // own element_byte_address(..., for_write=true) call) turns the overflow
+    // same index before any of this file's apply_* operations compute the
+    // same address again) turns the overflow
     // into the same "runs past ROM size" failure decode_numeric_run reports,
     // instead of silently targeting a wrapped-around address.
     constexpr std::uint64_t kOverflowSentinel = std::numeric_limits<std::uint64_t>::max();
@@ -46,27 +46,13 @@ std::uint64_t ElementByteAddress(const MapElementSpec& spec, std::uint32_t index
         return kOverflowSentinel;
     }
 
-    // Legacy applies two DIFFERENT wrx02 relocation predicates on the read and
-    // write paths. Preserved verbatim and kept visibly side by side; the spec's
-    // defect (a) covers the divergence, deferred pending corpus evidence about
-    // which predicate real wrx02 ROMs actually need -- deliberately NOT
-    // reconciled by the 6b-4 fix wave (unlike the byte-order defects it does
-    // fix), since picking the wrong one here could target a different but
-    // still-plausible ROM address on a real device.
-    if (spec.flash_method != "wrx02")
-    {
-        return address;
-    }
-    constexpr std::uint64_t kSizeThreshold = std::uint64_t(190) * 1024;
-    const bool relocate =
-        for_write ? (spec.rom_file_size < kSizeThreshold && address > 0x27FFF) : (spec.rom_file_size < address);
-    return relocate ? address - 0x8000 : address;
+    return address;
 }
 
 Result<std::int64_t> ReadRawElement(bytes::ByteView rom_data, const MapElementSpec& spec, std::uint32_t index)
 {
     const std::uint32_t width = definition::StorageByteSize(spec.storage_type);
-    const std::uint64_t address = ElementByteAddress(spec, index, /*for_write=*/false);
+    const std::uint64_t address = ElementByteAddress(spec, index);
 
     if (!ByteWindowFits(rom_data, address, width))
     {

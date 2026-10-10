@@ -86,8 +86,6 @@ calibration::CalibrationSession sessionFrom(definition::RomDefinition def = twoB
         contents.rom[19 + i * 6] = static_cast<std::uint8_t>(i + 1);
     }
     contents.definition = calibration::ResolvedDefinition{.definition = std::move(def)};
-    contents.protocol.flash_method = "wrx02";
-    contents.protocol.unpadded_size = 123;
     return calibration::CalibrationSession(calibration::SessionId{1}, std::move(contents));
 }
 
