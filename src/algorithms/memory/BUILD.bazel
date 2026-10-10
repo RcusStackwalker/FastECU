@@ -41,3 +41,24 @@ fastecu_portable_gtest(
         "@googletest//:gtest",
     ],
 )
+
+cc_library(
+    name = "memory_image",
+    srcs = ["memory_image.cpp"],
+    hdrs = ["memory_image.h"],
+    deps = [
+        ":address",
+        ":memory_error",
+        ":memory_map",
+        "//src/algorithms/protocol",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "memory_image_test",
+    srcs = ["memory_image_test.cpp"],
+    deps = [
+        ":memory_image",
+        "@googletest//:gtest",
+    ],
+)
