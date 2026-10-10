@@ -38,8 +38,6 @@ than copying its inventory.
 ## Active work
 
 Task-specific specs and plans exist only while their work is proposed or unfinished.
-The [logging preparation PR split](superpowers/plans/2026-10-10-logging-preparation-pr-split.md)
-records the confirmed delivery boundaries for the active preparation work.
 Find them, when present, with:
 
 ```sh

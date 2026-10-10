@@ -173,7 +173,7 @@ conversion is used. Existing protocol bounds and shared expression validation
 remain applicable. Errors identify the definition's protocol, parameter ID and
 invalid field.
 
-## Portable delivered-sample resolution API
+## Delivered sample validation
 
 [Sample resolution](../../src/backend/logging/logging_sample_resolution.h)
 derives identity and precision from a validated run. An unknown delivered ID is
@@ -182,6 +182,8 @@ known samples return captured identity, numeric value and precision. Conversion
 remains the acquisition use case's responsibility. A raw-channel or conversion
 failure prevents publication of the entire polling batch.
 
-Desktop resolution still uses its existing adapter until adoption. Desktop owns
-formatting, cache lookup/mutation and reporting missing cache entries; delivered
-identity errors must allow subsequent valid samples to continue.
+The desktop adapter delegates identity and eligibility policy to this resolver.
+Desktop owns formatting, cache lookup/mutation and reporting missing cache
+entries. Delivered identity errors allow subsequent valid samples to continue;
+existing cache values remain intact. The UI rechecks the active snapshot between
+samples because error reporting may synchronously stop the run.

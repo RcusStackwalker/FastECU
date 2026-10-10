@@ -119,7 +119,8 @@ identity avoids ambiguity from duplicate labels or IDs shared across protocols.
 Owned per-run snapshots insulate workers from later widget/selection changes.
 Backend run preparation now owns definition parsing and validated immutable
 construction, including the typed target. The desktop bridge binds those values
-to transports and workers; presentation still owns formatting and caches.
+to transports and workers. Backend sample resolution owns identity and captured
+support eligibility; presentation owns formatting, caches and error dialogs.
 
 
 SSM raw values deliberately concatenate decimal byte spellings because shipped

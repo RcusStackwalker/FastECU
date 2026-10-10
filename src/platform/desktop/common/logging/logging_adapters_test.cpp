@@ -63,8 +63,10 @@ TEST(DesktopLoggingValueAdapterTest, UnknownSamplesAndMissingCacheEntriesDoNotUp
     ASSERT_THAT(snapshot, fastecu::testing::IsOk());
     desktop::DesktopLoggerValues cache;
     cache.Initialize(values);
-    EXPECT_THAT(desktop::ApplyLogSample(*snapshot, {.channel_id = "unknown", .numeric_value = 8}, cache),
-                fastecu::testing::IsErr(fastecu::ErrorKind::kInternal));
+    EXPECT_THAT(
+        desktop::ApplyLogSample(*snapshot, {.channel_id = "unknown", .numeric_value = 8}, cache),
+        fastecu::testing::IsErrWith(fastecu::ErrorKind::kInternal,
+                                    ::testing::AllOf(::testing::HasSubstr("SSM"), ::testing::HasSubstr("unknown"))));
     EXPECT_EQ(cache.ParameterValue("SSM", "rpm"), "0.00");
     desktop::DesktopLoggerValues empty;
     EXPECT_THAT(desktop::ApplyLogSample(*snapshot, {.channel_id = "rpm", .numeric_value = 8}, empty),
