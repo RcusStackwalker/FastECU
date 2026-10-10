@@ -47,9 +47,9 @@ cc_library(
     name = "mc68_rom_images",
     hdrs = ["mc68_rom_images.h"],
     deps = [
-        "//src/algorithms/memory:address",
         "//src/algorithms/memory:memory_image",
-        "//src/algorithms/memory:memory_map",
         "//src/algorithms/protocol",
+        "//src/backend/config:builtin_catalog",
+        "//src/backend/config:catalog",
     ],
 )

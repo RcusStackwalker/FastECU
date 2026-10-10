@@ -688,6 +688,8 @@ fastecu_portable_gtest(
     srcs = ["subaru_denso_mc68hc16y5_02_plan_test.cpp"],
     deps = [
         ":subaru_denso_mc68hc16y5_02_plan",
+        "//src/algorithms/memory/testing:memory_views",
+        "//src/backend/config:catalog",
         "//src/backend/flash:flash_device_lookup",
         "//src/backend/flash:flash_validation",
         "//src/backend/flash/ecu/testing:mc68_rom_images",
