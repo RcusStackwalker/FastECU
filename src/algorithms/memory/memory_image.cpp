@@ -28,9 +28,12 @@ struct Chunk
     std::size_t offset_in_range{0};
 };
 
-// Splits `range` at block boundaries, in address order; kUnmapped at the first
-// address no block holds.
-std::expected<std::vector<Chunk>, MemoryError> SplitByBlock(const MemoryMap& map, AddressRange<FlashSpace> range)
+// Splits `range` at block boundaries, in address order. Fails at the first
+// chunk that no block holds (kUnmapped) or that `check` rejects, so the error
+// names the first address that fails.
+template <typename Check>
+std::expected<std::vector<Chunk>, MemoryError> SplitByBlock(const MemoryMap& map, AddressRange<FlashSpace> range,
+                                                            Check check)
 {
     std::vector<Chunk> chunks;
     FlashAddress cursor = range.Start();
@@ -43,13 +46,37 @@ std::expected<std::vector<Chunk>, MemoryError> SplitByBlock(const MemoryMap& map
                         std::format("no memory block holds address 0x{:x}", cursor.Value()));
         }
         const FlashAddress chunk_end = std::min(block->range.End(), range.End());
-        chunks.push_back(Chunk{.block = block,
-                               .start = cursor,
-                               .size = chunk_end.Value() - cursor.Value(),
-                               .offset_in_range = cursor.Value() - range.Start().Value()});
+        const Chunk chunk{.block = block,
+                          .start = cursor,
+                          .size = chunk_end.Value() - cursor.Value(),
+                          .offset_in_range = cursor.Value() - range.Start().Value()};
+        if (const std::expected<void, MemoryError> checked = check(chunk); !checked.has_value())
+        {
+            return std::unexpected(checked.error());
+        }
+        chunks.push_back(chunk);
         cursor = chunk_end;
     }
     return chunks;
+}
+
+std::expected<void, MemoryError> AnyBlock(const Chunk& /*chunk*/)
+{
+    return {};
+}
+
+std::expected<void, MemoryError> WritableFileBlock(const Chunk& chunk)
+{
+    if (std::holds_alternative<FillBacking>(chunk.block->backing))
+    {
+        return Fail(MemoryErrorKind::kFillBlock, std::format("address 0x{:x} is in a fill block", chunk.start.Value()));
+    }
+    if (chunk.block->writability != Writability::kWritable)
+    {
+        return Fail(MemoryErrorKind::kNotWritable,
+                    std::format("address 0x{:x} is in a block that is not writable", chunk.start.Value()));
+    }
+    return {};
 }
 
 // Where `address`, inside a file-backed `block`, sits in the ROM file.
@@ -96,7 +123,7 @@ bytes::ByteView MemoryImage::File() const
 
 std::expected<MemoryView, MemoryError> MemoryImage::Render(AddressRange<FlashSpace> range) const
 {
-    const auto chunks = SplitByBlock(map_, range);
+    const auto chunks = SplitByBlock(map_, range, AnyBlock);
     if (!chunks.has_value())
     {
         return std::unexpected(chunks.error());
@@ -133,25 +160,11 @@ std::expected<void, MemoryError> MemoryImage::Write(FlashAddress start, bytes::B
         return Fail(MemoryErrorKind::kUnmapped,
                     std::format("a {}-byte write at 0x{:x} runs past the address space", data.size(), start.Value()));
     }
-    const auto chunks = SplitByBlock(map_, *range);
+    // Every chunk is checked before any byte changes, so a rejected write changes nothing.
+    const auto chunks = SplitByBlock(map_, *range, WritableFileBlock);
     if (!chunks.has_value())
     {
         return std::unexpected(chunks.error());
-    }
-
-    // Check every chunk before changing any byte, so a rejected write changes nothing.
-    for (const Chunk& chunk : *chunks)
-    {
-        if (std::holds_alternative<FillBacking>(chunk.block->backing))
-        {
-            return Fail(MemoryErrorKind::kFillBlock,
-                        std::format("address 0x{:x} is in a fill block", chunk.start.Value()));
-        }
-        if (chunk.block->writability != Writability::kWritable)
-        {
-            return Fail(MemoryErrorKind::kNotWritable,
-                        std::format("address 0x{:x} is in a block that is not writable", chunk.start.Value()));
-        }
     }
     for (const Chunk& chunk : *chunks)
     {

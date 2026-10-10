@@ -1,6 +1,5 @@
 #include "src/algorithms/memory/memory_image.h"
 
-#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <optional>
@@ -16,6 +15,7 @@ namespace
 {
 using ::testing::Each;
 using ::testing::ElementsAre;
+using ::testing::ElementsAreArray;
 
 AddressRange<FlashSpace> Range(std::uint32_t start, std::uint32_t size)
 {
@@ -173,7 +173,7 @@ TEST(MemoryImage, WriteIntoAFillBlockChangesNothing)
 
     EXPECT_EQ(WriteError(image, 0x1FFFF, bytes::Bytes{1, 2}), MemoryErrorKind::kFillBlock);
 
-    EXPECT_TRUE(std::ranges::equal(image.File(), before));
+    EXPECT_THAT(image.File(), ElementsAreArray(before));
 }
 
 TEST(MemoryImage, WriteIntoAReadOnlyBlockChangesNothing)
@@ -196,6 +196,18 @@ TEST(MemoryImage, WritePastTheMapChangesNothing)
     EXPECT_EQ(WriteError(image, 0x2FFFF, bytes::Bytes{1, 2}), MemoryErrorKind::kUnmapped);
 
     EXPECT_EQ(image.File()[0x27FFF], 0xC3);
+}
+
+TEST(MemoryImage, WriteReportsTheFirstAddressThatCannotBeWritten)
+{
+    // Writable userspace, then a block the protocol never writes, then no block.
+    const std::array blocks{FileBlock(0x0, 0x8000, 0x0), FileBlock(0x8000, 0x8000, 0x8000, Writability::kReadOnly)};
+    MemoryImage image = ImageOf(blocks, bytes::Bytes(0x10000, 0x00));
+    const bytes::Bytes before(image.File().begin(), image.File().end());
+
+    EXPECT_EQ(WriteError(image, 0x7FFF, bytes::Bytes(0x8002, 0x11)), MemoryErrorKind::kNotWritable);
+
+    EXPECT_THAT(image.File(), ElementsAreArray(before));
 }
 
 TEST(MemoryImage, WritingNoBytesSucceeds)
