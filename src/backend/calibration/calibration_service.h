@@ -48,7 +48,7 @@ std::uint32_t ElementByteSize(std::optional<definition::StorageType> storage_typ
 //
 // Both degenerate inputs are handled rather than allowed to wrap in unsigned
 // arithmetic, because both are reachable and both would otherwise produce a
-// ~4 GB extent that makes validate_rom_size reject an otherwise fine ROM:
+// ~4 GB extent that makes the structural placement check reject a fine map:
 //   * count == 0 -- an empty run touches nothing, so the result is `address`.
 //     The resolver rejects zero x_size/y_size/size today
 //     (definition_resolver.cpp), but this is a public, separately-tested
@@ -58,27 +58,6 @@ std::uint32_t ElementByteSize(std::optional<definition::StorageType> storage_typ
 //     smallest legal value, i.e. offset 0.
 std::uint64_t ElementRunEnd(std::uint64_t address, std::uint32_t start_position, std::uint32_t interval,
                             std::uint32_t element_width, std::uint32_t count);
-
-// Every matched map's address, x-axis address, and y-axis address (each
-// optional; absent addresses do not fail) must have its entire strided
-// element run -- not just its base address -- fit within rom_byte_length.
-// An address equal to rom_byte_length fails, since element_run_end always
-// adds at least one element's width.
-Status ValidateRomSize(const definition::RomDefinition& rom_definition, std::size_t rom_byte_length);
-
-// Reproduces the sub_ecu_denso_mc68hc16y5_02 ROM-padding special case: inserts
-// 0x8000 bytes of 0xFF at offset 0x20000 when flash_method starts with that
-// protocol name and rom_data is under 190*1024 bytes. A no-op otherwise.
-//
-// Zero-extends up to 0x20000 first when rom_data is shorter. Qt's
-// QByteArray::insert leaves such a gap "uninitialized" per its docs, so
-// zero-fill is a disclosed deterministic choice, not a preserved legacy value.
-//
-// Consume-and-return of an owning buffer, deliberately: a by-reference or
-// by-copy shape lets a caller pad a throwaway image and lose the result, which
-// is exactly the regression PR #118's own final review caught. Callers write
-//   rom = apply_flash_method_padding(std::move(rom), method);
-std::vector<std::uint8_t> ApplyFlashMethodPadding(std::vector<std::uint8_t> rom_data, std::string_view flash_method);
 
 // One run of consecutive elements: a map's cells, or one axis's points. Built
 // from either a CalibrationMap or an AxisDefinition -- the three call sites

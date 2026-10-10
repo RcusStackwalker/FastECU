@@ -16,7 +16,6 @@ struct OpenedSession
 {
     SessionId id{};
     bool vehicle_selected{false};
-    bool size_rejected{false};
 };
 
 // The open calibrations, replacing MainWindow's fixed array of 100 raw

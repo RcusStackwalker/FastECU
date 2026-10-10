@@ -41,14 +41,12 @@ struct RomOpenOutcome
     // the selected vehicle may have changed. The UI refreshes its protocol
     // display when this is set.
     bool vehicle_selected{false};
-    // The definition addresses beyond the image: its header is kept and its
-    // maps are dropped, as legacy's NameList.clear() did.
-    bool size_rejected{false};
 };
 
-// FileActions::open_subaru_rom_file on typed values. Only reading the image
-// can fail the open; every later problem degrades to a definition-less or
-// map-less session, with the legacy log lines and notices.
+// FileActions::open_subaru_rom_file on typed values. Reading the image, an
+// empty image, and a file size its protocol declares no memory map for fail
+// the open; every later problem degrades to a definition-less session or a map
+// that fails to decode, with the legacy log lines and notices.
 class RomOpenUseCase
 {
   public:
@@ -69,7 +67,7 @@ class RomOpenUseCase
         std::string kernel_start_address;
     };
 
-    RomOpenOutcome Finish(Seed seed);
+    Result<RomOpenOutcome> Finish(Seed seed);
     std::optional<ResolvedDefinition> FindDefinition(std::span<const std::uint8_t> rom, std::string& rom_id);
     std::optional<ResolvedDefinition> TryFormat(definition::DefinitionFormat format, std::span<const std::uint8_t> rom,
                                                 std::string& rom_id);

@@ -73,7 +73,6 @@ OpenedSession CalibrationWorkspace::Insert(RomOpenOutcome outcome)
     return OpenedSession{
         .id = id,
         .vehicle_selected = outcome.vehicle_selected,
-        .size_rejected = outcome.size_rejected,
     };
 }
 

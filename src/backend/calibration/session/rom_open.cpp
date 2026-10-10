@@ -1,10 +1,17 @@
 #include "src/backend/calibration/session/rom_open.h"
 
+#include <algorithm>
+#include <cstddef>
 #include <format>
+#include <optional>
+#include <span>
 #include <string_view>
 #include <utility>
 
+#include "src/algorithms/memory/address.h"
+#include "src/algorithms/memory/memory_map.h"
 #include "src/backend/calibration/calibration_service.h"
+#include "src/backend/config/catalog.h"
 
 namespace fastecu::calibration
 {
@@ -29,6 +36,33 @@ std::string ChecksumModuleFor(const std::string& flash_method)
 std::string_view FormatName(definition::DefinitionFormat format)
 {
     return format == definition::DefinitionFormat::kEcuFlash ? "EcuFlash" : "RomRaider";
+}
+
+// ADR 0020: the ROM file's memory map is the one its protocol declares for
+// exactly its size, or the identity map when no catalog protocol has the
+// flash method's name. Never padded to fit.
+Result<memory::MemoryMap> MemoryMapFor(std::span<const config::VehicleSpec> vehicles, std::string_view flash_method,
+                                       std::size_t file_size)
+{
+    if (file_size == 0)
+    {
+        return Fail(ErrorKind::kInvalidConfig, "the ROM file is empty");
+    }
+    const std::optional<memory::ByteCount> size = memory::ByteCount::FromSize(file_size);
+    if (!size.has_value())
+    {
+        return Fail(ErrorKind::kInvalidConfig, std::format("the {}-byte ROM file is larger than 4 GiB", file_size));
+    }
+    const auto vehicle =
+        std::ranges::find_if(vehicles, [flash_method](const config::VehicleSpec& candidate)
+                             { return candidate.protocol != nullptr && candidate.protocol->name == flash_method; });
+    auto map = vehicle != vehicles.end() ? config::SelectMemoryMap(*vehicle->protocol, *size)
+                                         : memory::MemoryMap::Identity(*size);
+    if (!map.has_value())
+    {
+        return Fail(ErrorKind::kInvalidConfig, map.error().detail);
+    }
+    return std::move(*map);
 }
 
 } // namespace
@@ -82,7 +116,7 @@ Result<RomOpenOutcome> RomOpenUseCase::AdoptReadImage(ReadImage image)
     });
 }
 
-RomOpenOutcome RomOpenUseCase::Finish(Seed seed)
+Result<RomOpenOutcome> RomOpenUseCase::Finish(Seed seed)
 {
     RomOpenOutcome outcome;
     std::string rom_id = std::move(seed.rom_id);
@@ -97,6 +131,16 @@ RomOpenOutcome RomOpenUseCase::Finish(Seed seed)
     {
         flash_method = ResolveAlias(definition->definition.metadata.flash_method);
         checksum_module = definition->definition.metadata.checksum_module;
+    }
+
+    // Checked before selecting a vehicle, so a rejected file changes nothing.
+    const std::size_t file_size = seed.rom.size();
+    Result<memory::MemoryMap> memory_map = MemoryMapFor(config_.Vehicles(), flash_method, file_size);
+    if (!memory_map.has_value())
+    {
+        LogError("ROM file does not fit its protocol's memory map", memory_map.error());
+        events_.Notice(std::format("File size error: {}", memory_map.error().detail));
+        return std::unexpected(memory_map.error());
     }
 
     outcome.vehicle_selected = config_.SelectByProtocolName(flash_method);
@@ -117,24 +161,10 @@ RomOpenOutcome RomOpenUseCase::Finish(Seed seed)
         }
     }
 
-    const std::size_t unpadded_size = seed.rom.size();
-    std::vector<std::uint8_t> rom = ApplyFlashMethodPadding(std::move(seed.rom), flash_method);
-
-    if (definition.has_value())
-    {
-        const Status size_ok = ValidateRomSize(definition->definition, rom.size());
-        if (!size_ok.has_value())
-        {
-            LogError("Error in expected ROM size", size_ok.error());
-            events_.Notice("File size error: Error in expected ROM size!");
-            definition->definition.maps.clear();
-            outcome.size_rejected = true;
-        }
-    }
-
     outcome.contents = SessionContents{
         .source = std::move(seed.source),
-        .rom = std::move(rom),
+        .rom = std::move(seed.rom),
+        .memory_map = std::move(*memory_map),
         .definition = std::move(definition),
         .protocol =
             RomProtocolInfo{
@@ -144,7 +174,7 @@ RomOpenOutcome RomOpenUseCase::Finish(Seed seed)
                 .kernel_path = std::move(seed.kernel_path),
                 .kernel_start_address = std::move(seed.kernel_start_address),
                 .rom_id = std::move(rom_id),
-                .file_size_label = std::format("{}kb", unpadded_size / 1024),
+                .file_size_label = std::format("{}kb", file_size / 1024),
             },
     };
     return outcome;

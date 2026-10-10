@@ -183,8 +183,8 @@ std::optional<MemoryMap> MapFor(std::string_view protocol, std::uint32_t file_si
 constexpr std::array<std::string_view, 3> kMc68Protocols{
     "sub_ecu_denso_mc68hc16y5_02", "sub_ecu_denso_mc68hc16y5_02_ecutek", "sub_ecu_denso_mc68hc16y5_02_bdm"};
 
-// ApplyFlashMethodPadding inserts 0x8000 bytes of 0xFF at 0x20000 into a
-// 160 KiB file; the packed map reads the same bytes there without inserting any.
+// Calibration used to insert 0x8000 bytes of 0xFF at 0x20000 into a 160 KiB
+// file; the packed map reads the same bytes there without inserting any.
 TEST(BuiltinCatalogMemoryMaps, Mc68PackedFilesReadErasedFlashInTheRamRange)
 {
     for (const std::string_view protocol : kMc68Protocols)

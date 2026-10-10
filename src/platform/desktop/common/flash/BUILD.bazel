@@ -92,7 +92,6 @@ fastecu_gtest(
     deps = [
         ":flash_workflow",
         "//bazel/qt:core",
-        "//src/backend/calibration:calibration_service",
         "//src/backend/config:catalog",
         "//src/backend/flash/ecu:subaru_denso_sh7058_can_diesel_plan",
         "//src/backend/flash/ecu:subaru_denso_sh7058_can_plan",

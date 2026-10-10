@@ -62,23 +62,6 @@ Result<NumericRun> DecodeNumericRun(bytes::ByteView rom, const ElementRun& run)
 namespace
 {
 
-Status ValidateExtent(std::optional<std::uint64_t> address, std::uint32_t count, std::uint32_t start_position,
-                      std::uint32_t interval, std::optional<definition::StorageType> storage_type,
-                      const definition::Scaling *scaling, std::size_t rom_byte_length, std::string_view context)
-{
-    if (!address.has_value())
-    {
-        return {};
-    }
-    const std::uint32_t width = ElementByteSize(storage_type, scaling);
-    if (const std::uint64_t end = ElementRunEnd(*address, start_position, interval, width, count);
-        end > rom_byte_length)
-    {
-        return Fail(ErrorKind::kInvalidConfig, std::string(context) + " address exceeds ROM size");
-    }
-    return {};
-}
-
 ElementRun MapElementRun(const definition::CalibrationMap& map, const definition::Scaling *scaling, std::uint32_t count)
 {
     return ElementRun{
@@ -242,55 +225,6 @@ std::uint64_t ElementRunEnd(std::uint64_t address, std::uint32_t start_position,
         return std::numeric_limits<std::uint64_t>::max();
     }
     return end;
-}
-
-Status ValidateRomSize(const definition::RomDefinition& rom_definition, std::size_t rom_byte_length)
-{
-    for (const definition::CalibrationMap& map : rom_definition.maps)
-    {
-        if (auto status =
-                ValidateExtent(map.address, map.x_size * map.y_size, map.start_position, map.interval, map.storage_type,
-                               definition::FindScaling(rom_definition, map.scaling_name), rom_byte_length, "map");
-            !status.has_value())
-        {
-            return status;
-        }
-        if (auto status = ValidateExtent(map.x_axis.address, map.x_axis.size, map.x_axis.start_position,
-                                         map.x_axis.interval, map.x_axis.storage_type,
-                                         definition::FindScaling(rom_definition, map.x_axis.scaling_name),
-                                         rom_byte_length, "x-axis");
-            !status.has_value())
-        {
-            return status;
-        }
-        if (auto status = ValidateExtent(map.y_axis.address, map.y_axis.size, map.y_axis.start_position,
-                                         map.y_axis.interval, map.y_axis.storage_type,
-                                         definition::FindScaling(rom_definition, map.y_axis.scaling_name),
-                                         rom_byte_length, "y-axis");
-            !status.has_value())
-        {
-            return status;
-        }
-    }
-    return {};
-}
-
-std::vector<std::uint8_t> ApplyFlashMethodPadding(std::vector<std::uint8_t> rom_data, std::string_view flash_method)
-{
-    constexpr std::size_t kInsertAt = 0x20000;
-    constexpr std::size_t kPadBytes = 0x8000;
-    constexpr std::size_t kSizeThreshold = static_cast<std::size_t>(190) * 1024;
-
-    if (!flash_method.starts_with("sub_ecu_denso_mc68hc16y5_02") || rom_data.size() >= kSizeThreshold)
-    {
-        return rom_data;
-    }
-    if (rom_data.size() < kInsertAt)
-    {
-        rom_data.resize(kInsertAt, 0x00);
-    }
-    rom_data.insert(rom_data.begin() + static_cast<std::ptrdiff_t>(kInsertAt), kPadBytes, 0xFF);
-    return rom_data;
 }
 
 } // namespace fastecu::calibration
