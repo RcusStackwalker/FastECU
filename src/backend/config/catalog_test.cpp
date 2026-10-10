@@ -10,7 +10,9 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "src/algorithms/memory/memory_image.h"
 #include "src/algorithms/memory/memory_map.h"
+#include "src/algorithms/protocol/bytes.h"
 
 namespace
 {
@@ -23,6 +25,7 @@ using fastecu::config::ChecksumSupport;
 using fastecu::config::FileBlock;
 using fastecu::config::KernelLoadAddressText;
 using fastecu::config::MemoryMapSpec;
+using fastecu::config::PlaceRomFile;
 using fastecu::config::ProtocolIn;
 using fastecu::config::ProtocolSpec;
 using fastecu::config::SelectMemoryMap;
@@ -34,6 +37,7 @@ using fastecu::memory::FlashAddress;
 using fastecu::memory::MemoryErrorKind;
 using fastecu::memory::Writability;
 using ::testing::ElementsAre;
+using ::testing::ElementsAreArray;
 using ::testing::IsEmpty;
 using ::testing::UnorderedElementsAre;
 
@@ -227,6 +231,60 @@ TEST(SelectMemoryMap, CarriesTheDeclaredDefinitionBase)
     ASSERT_TRUE(plain.has_value());
     EXPECT_EQ(based->DefinitionBase(), FlashAddress{0x1000});
     EXPECT_EQ(plain->DefinitionBase(), FlashAddress{0});
+}
+
+TEST(SelectMemoryMapForAFile, GivesTheIdentityMapWithoutAProtocol)
+{
+    const auto map = SelectMemoryMap(nullptr, 0x40);
+
+    ASSERT_TRUE(map.has_value());
+    ASSERT_EQ(map->Blocks().size(), 1U);
+    EXPECT_EQ(map->Blocks()[0].range.Start(), FlashAddress{0});
+    EXPECT_EQ(map->FileSize(), ByteCount{0x40});
+}
+
+TEST(SelectMemoryMapForAFile, RejectsAnEmptyFile)
+{
+    for (const ProtocolSpec *protocol : {static_cast<const ProtocolSpec *>(nullptr), &kPlain, &kMapped})
+    {
+        const auto map = SelectMemoryMap(protocol, 0);
+
+        ASSERT_FALSE(map.has_value());
+        EXPECT_EQ(map.error().kind, MemoryErrorKind::kFileSizeMismatch);
+        EXPECT_EQ(map.error().detail, "the ROM file is empty");
+    }
+}
+
+TEST(SelectMemoryMapForAFile, RejectsAFileOver4GiB)
+{
+    const auto map = SelectMemoryMap(&kPlain, std::size_t{1} << 32);
+
+    ASSERT_FALSE(map.has_value());
+    EXPECT_EQ(map.error().kind, MemoryErrorKind::kFileSizeMismatch);
+    EXPECT_EQ(map.error().detail, "the 4294967296-byte ROM file is larger than 4 GiB");
+}
+
+TEST(PlaceRomFile, PlacesTheFileByItsProtocolsMap)
+{
+    bytes::Bytes file(0x100, 0x00);
+    file[0] = 0xAB;
+
+    const auto image = PlaceRomFile(&kMapped, file);
+
+    ASSERT_TRUE(image.has_value());
+    EXPECT_THAT(image->File(), ElementsAreArray(file));
+    const auto view = image->Render(
+        fastecu::memory::AddressRange<fastecu::memory::FlashSpace>::Make(FlashAddress{0x100}, ByteCount{1}).value());
+    ASSERT_TRUE(view.has_value());
+    EXPECT_EQ(view->Data()[0], 0xAB);
+}
+
+TEST(PlaceRomFile, CarriesTheSelectionError)
+{
+    const auto image = PlaceRomFile(&kMapped, bytes::Bytes(0x180, 0x00));
+
+    ASSERT_FALSE(image.has_value());
+    EXPECT_EQ(image.error().detail, "protocol 'mapped' has no memory map for 0x180-byte ROM files");
 }
 
 } // namespace

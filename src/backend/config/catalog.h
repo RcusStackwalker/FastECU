@@ -11,7 +11,9 @@
 #include <vector>
 
 #include "src/algorithms/memory/address.h"
+#include "src/algorithms/memory/memory_image.h"
 #include "src/algorithms/memory/memory_map.h"
+#include "src/algorithms/protocol/bytes.h"
 
 namespace fastecu::config
 {
@@ -100,6 +102,18 @@ std::string KernelLoadAddressText(const ProtocolSpec& protocol);
 // never padded to fit one.
 std::expected<memory::MemoryMap, memory::MemoryError> SelectMemoryMap(const ProtocolSpec& protocol,
                                                                       memory::ByteCount file_size);
+
+// The memory map of a `file_size`-byte ROM file under `protocol`: the map it
+// declares for exactly that size, or the identity map when `protocol` is null
+// or declares none. kFileSizeMismatch for an empty file, one over 4 GiB, or a
+// size `protocol` declares maps but none for; a ROM file is never padded to
+// fit one.
+std::expected<memory::MemoryMap, memory::MemoryError> SelectMemoryMap(const ProtocolSpec *protocol,
+                                                                      std::size_t file_size);
+
+// `file` placed at ECU addresses by SelectMemoryMap(protocol, file.size())
+// (ADR 0020), with its error when there is no map.
+std::expected<memory::MemoryImage, memory::MemoryError> PlaceRomFile(const ProtocolSpec *protocol, bytes::Bytes file);
 
 // One vehicle the operator can select.
 struct VehicleSpec
