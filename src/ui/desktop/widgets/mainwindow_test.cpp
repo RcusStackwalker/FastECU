@@ -936,6 +936,7 @@ class MainWindowTest : public ::testing::Test
     void checkTypedAssignment(AssignmentScenario scenario);
     void checkWindowPreservesInjectedLoggingFactory();
     void checkLoggingCapturesTargetForEachRun();
+    void checkLoggingDefinitionErrorShowsDetailAndLeavesStopped();
     void checkChooserDialogsApplyAcceptedChoicesAndIgnoreCancellation(bool protocol, bool accept);
     void checkDefinitionManagerRemovesSelectedRowsAndSavesSurvivingOrder();
     void checkNumericWindowGeometryRestoresAndPersistsAcrossWindowStates();
@@ -2334,6 +2335,77 @@ void MainWindowTest::checkLoggingCapturesTargetForEachRun()
 TEST_F(MainWindowTest, loggingCapturesTargetForEachRun)
 {
     ASSERT_NO_FATAL_FAILURE(checkLoggingCapturesTargetForEachRun());
+}
+
+void MainWindowTest::checkLoggingDefinitionErrorShowsDetailAndLeavesStopped()
+{
+    ModalDriver constructorDriver{QString()};
+    constructorDriver.start();
+    TestServices services{config_root_->path()};
+    ASSERT_THAT(services.config_status, fastecu::testing::IsOk());
+    MainWindow window{services.services()};
+    constructorDriver.stop();
+    window.config_session_->Settings().selected_log_protocol = "SSM";
+    QAction *action = prepareLogging(window, "SSM");
+    ASSERT_NE(action, nullptr);
+    // The existing parser rejects this markup-like address with a static detail.
+    // Its richer contextual replacement must retain the same plain-text boundary.
+    installLoggingFixture(window,
+                          {.parameters = {{.protocol = "SSM",
+                                           .id = "rpm",
+                                           .name = "rpm",
+                                           .address = "<b>bad</b>",
+                                           .length = "1",
+                                           .enabled = true,
+                                           .conversions = {{"rpm", "x", "0", "0", "100", "1"}}}}},
+                          {.protocol = "SSM", .lower_panel_ids = {"rpm"}});
+    int factoryCalls = 0;
+    services.logging_engine.RegisterProtocol("SSM",
+                                             [&factoryCalls](const fastecu::desktop::logging::DesktopLoggingSnapshot&)
+                                             {
+                                                 ++factoryCalls;
+                                                 return std::make_unique<ScriptedLoggingProtocol>();
+                                             });
+    fastecu::testing::SignalRecorder errors{&window, &MainWindow::logE};
+    QString dialogText;
+    Qt::TextFormat dialogFormat = Qt::AutoText;
+    QTimer dialogDriver;
+    dialogDriver.setInterval(5);
+    QObject::connect(&dialogDriver, &QTimer::timeout, &window,
+                     [&]
+                     {
+                         if (auto *notice = qobject_cast<QMessageBox *>(QApplication::activeModalWidget());
+                             notice != nullptr)
+                         {
+                             dialogText = notice->text();
+                             dialogFormat = notice->textFormat();
+                             notice->accept();
+                         }
+                     });
+    dialogDriver.start();
+    action->setChecked(false);
+    ASSERT_TRUE(triggerMenu(window, kToggleRealtime));
+    dialogDriver.stop();
+
+    EXPECT_EQ(dialogText, QStringLiteral("invalid logging address or length"));
+    EXPECT_EQ(dialogFormat, Qt::PlainText);
+    const auto loggedErrors = errors.Snapshot();
+    ASSERT_EQ(loggedErrors.size(), 1U);
+    EXPECT_EQ(std::get<0>(loggedErrors.front()),
+              QStringLiteral("Logging session failed to start: invalid logging address or length"));
+    EXPECT_TRUE(std::get<1>(loggedErrors.front()));
+    EXPECT_TRUE(std::get<2>(loggedErrors.front()));
+    EXPECT_EQ(factoryCalls, 0);
+    EXPECT_FALSE(services.logging_engine.IsRunning());
+    EXPECT_FALSE(window.active_logging_snapshot_.has_value());
+    EXPECT_FALSE(action->isChecked());
+    EXPECT_FALSE(window.logging_state_);
+    EXPECT_FALSE(window.log_params_request_started_);
+}
+
+TEST_F(MainWindowTest, loggingDefinitionErrorShowsDetailAndLeavesStopped)
+{
+    ASSERT_NO_FATAL_FAILURE(checkLoggingDefinitionErrorShowsDetailAndLeavesStopped());
 }
 
 struct ChooserDialogsApplyAcceptedChoicesAndIgnoreCancellationCase

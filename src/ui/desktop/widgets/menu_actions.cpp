@@ -548,7 +548,10 @@ void MainWindow::continueStartLogging()
     {
         emit logE("Logging session failed to start: " + QString::fromStdString(snapshot.error().detail), true, true);
         restoreLoggingUiState();
-        QMessageBox::information(this, tr("Logging"), "Unable to start logging");
+        QMessageBox notice(QMessageBox::Information, tr("Logging"), QString::fromStdString(snapshot.error().detail),
+                           QMessageBox::Ok, this);
+        notice.setTextFormat(Qt::PlainText);
+        notice.exec();
         return;
     }
 
