@@ -26,6 +26,9 @@ static_assert(!std::is_convertible_v<FlashAddress, std::uint32_t>);
 static_assert(!std::is_convertible_v<std::uint32_t, ByteCount>);
 static_assert(!std::equality_comparable_with<FlashAddress, FileOffset>);
 static_assert(!std::equality_comparable_with<FlashAddress, Address<RamSpace>>);
+static_assert(!std::is_convertible_v<DefinitionAddress, FlashAddress>);
+static_assert(!std::is_constructible_v<FlashAddress, DefinitionAddress>);
+static_assert(!std::equality_comparable_with<DefinitionAddress, FlashAddress>);
 
 AddressRange<FlashSpace> Range(std::uint32_t start, std::uint32_t size)
 {

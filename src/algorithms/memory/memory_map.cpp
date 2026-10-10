@@ -139,6 +139,27 @@ const MemoryBlock *MemoryMap::BlockAt(FlashAddress address) const
     return candidate.range.Contains(address) ? &candidate : nullptr;
 }
 
+std::optional<FlashAddress> MemoryMap::ToFlashAddress(DefinitionAddress address) const
+{
+    return definition_base_.Advance(ByteCount{address.Value()});
+}
+
+std::optional<FileOffset> MemoryMap::FileOffsetOf(AddressRange<FlashSpace> range) const
+{
+    const MemoryBlock *block = BlockAt(range.Start());
+    if (block == nullptr || !block->range.Contains(range))
+    {
+        return std::nullopt;
+    }
+    const auto *file = std::get_if<FileBacking>(&block->backing);
+    if (file == nullptr)
+    {
+        return std::nullopt;
+    }
+    // Contained, so the distance exists and the offset fits in the file.
+    return file->offset.Advance(*range.Start().DistanceFrom(block->range.Start()));
+}
+
 MemoryMap::MemoryMap(std::vector<MemoryBlock> blocks, ByteCount file_size, FlashAddress definition_base)
     : blocks_(std::move(blocks)), file_size_(file_size), definition_base_(definition_base)
 {

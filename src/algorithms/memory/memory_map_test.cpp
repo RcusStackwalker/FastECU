@@ -174,5 +174,54 @@ TEST(MemoryMap, KeepsTheDeclaredDefinitionBase)
     EXPECT_EQ(map->DefinitionBase(), FlashAddress{0x08F9C000});
 }
 
+TEST(MemoryMap, ToFlashAddressAddsTheDefinitionBase)
+{
+    const std::array blocks{FileBlock(0x08F9C000, 0x40, 0x0)};
+    const auto map = MemoryMap::Create(blocks, ByteCount{0x40}, FlashAddress{0x08F9C000});
+    ASSERT_TRUE(map.has_value());
+
+    EXPECT_EQ(map->ToFlashAddress(DefinitionAddress{0x10}), FlashAddress{0x08F9C010});
+}
+
+TEST(MemoryMap, ToFlashAddressFailsPastTheAddressSpace)
+{
+    const std::array blocks{FileBlock(0xFFFFFF00, 0x40, 0x0)};
+    const auto map = MemoryMap::Create(blocks, ByteCount{0x40}, FlashAddress{0xFFFFFF00});
+    ASSERT_TRUE(map.has_value());
+
+    EXPECT_EQ(map->ToFlashAddress(DefinitionAddress{0xFF}), FlashAddress{0xFFFFFFFF});
+    EXPECT_EQ(map->ToFlashAddress(DefinitionAddress{0x100}), std::nullopt);
+}
+
+TEST(MemoryMap, FileOffsetOfFollowsTheBlocksFileBacking)
+{
+    const auto blocks = PackedMc68Blocks();
+    const auto map = MemoryMap::Create(blocks, ByteCount{0x28000});
+    ASSERT_TRUE(map.has_value());
+
+    EXPECT_EQ(map->FileOffsetOf(Range(0x10, 4)), FileOffset{0x10});
+    EXPECT_EQ(map->FileOffsetOf(Range(0x28010, 4)), FileOffset{0x20010});
+}
+
+TEST(MemoryMap, FileOffsetOfNeedsOneFileBackedBlockToHoldTheWholeRange)
+{
+    const auto blocks = PackedMc68Blocks();
+    const auto map = MemoryMap::Create(blocks, ByteCount{0x28000});
+    ASSERT_TRUE(map.has_value());
+
+    EXPECT_EQ(map->FileOffsetOf(Range(0x20010, 4)), std::nullopt); // fill block
+    EXPECT_EQ(map->FileOffsetOf(Range(0x1FFFE, 4)), std::nullopt); // into the fill block
+    EXPECT_EQ(map->FileOffsetOf(Range(0x30000, 4)), std::nullopt); // no block
+}
+
+TEST(MemoryMap, FileOffsetOfDoesNotSpanAdjacentFileBlocks)
+{
+    const std::array blocks{FileBlock(0x0, 0x10, 0x0), FileBlock(0x10, 0x10, 0x10, Writability::kReadOnly)};
+    const auto map = MemoryMap::Create(blocks, ByteCount{0x20});
+    ASSERT_TRUE(map.has_value());
+
+    EXPECT_EQ(map->FileOffsetOf(Range(0x0E, 4)), std::nullopt);
+}
+
 } // namespace
 } // namespace fastecu::memory
