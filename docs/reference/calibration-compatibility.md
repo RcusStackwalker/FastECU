@@ -14,8 +14,8 @@ flashing them; decoding correctly cannot recover an earlier intended edit.
 
 Current edits respect `startpos`/`interval` striding and declared byte order;
 float storage uses IEEE-754 bits. Float storage remains big-endian regardless
-of the endian label. The unresolved `wrx02` read/write
-address-predicate mismatch is owned by [technical debt](../tech-debt.md).
+of the endian label. Map and axis addresses index the session image directly; no
+protocol relocates them.
 
 ## Session and view ownership
 

@@ -40,8 +40,6 @@ MapElementSpec MapElementFields::Spec() const&
     spec.y_size = y_size_;
     spec.start_position = start_position_;
     spec.interval = interval_;
-    spec.flash_method = flash_method_;
-    spec.rom_file_size = rom_file_size_;
     return spec;
 }
 
@@ -81,8 +79,6 @@ MapElementFields CollectMapElementFields(const CalibrationSession& session, std:
     fields.fine_increment_ = scaling ? IncrementValue(scaling->fine_increment) : 0.0;
     fields.x_size_ = map.x_size;
     fields.y_size_ = map.y_size;
-    fields.flash_method_ = session.Protocol().flash_method;
-    fields.rom_file_size_ = session.Protocol().unpadded_size;
     return fields;
 }
 

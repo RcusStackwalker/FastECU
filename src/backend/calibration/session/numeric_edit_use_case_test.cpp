@@ -348,7 +348,10 @@ TEST_F(NumericEditUseCaseTest, BodyStorageAndEndianFallBackToTheScaling)
     EXPECT_THAT(BodyBytes(), ElementsAre(0x11, 0x00, 0x20, 0x00, 50, 200));
 }
 
-TEST_F(NumericEditUseCaseTest, Wrx02WritesKeepThePreservedRelocation)
+// A real HC16Y5 `_02` session holds the padded 0x30000-byte image under its
+// canonical protocol name (RomOpenUseCase resolves the `wrx02` alias before
+// any edit), so a definition address at or above 0x28000 is written in place.
+TEST_F(NumericEditUseCaseTest, Mc68PaddedImagesWriteHighAddressesInPlace)
 {
     definition::RomDefinition def = GridDefinition();
     auto& map = def.maps[0];
@@ -360,13 +363,12 @@ TEST_F(NumericEditUseCaseTest, Wrx02WritesKeepThePreservedRelocation)
     map.y_axis = {};
     std::vector<std::uint8_t> rom(0x30000, 0);
     rom[0x2C000] = 10;
-    Install(std::move(def), rom, RomProtocolInfo{.flash_method = "wrx02", .unpadded_size = 0x28000});
+    Install(std::move(def), rom, RomProtocolInfo{.flash_method = "sub_ecu_denso_mc68hc16y5_02"});
 
     EXPECT_THAT(Edit(NumericTarget::kMapBody, Cell(0, 0), AssignmentEdit{"20"}), Changed());
 
-    // The evidence-gated write predicate relocates below 190 KiB images.
-    EXPECT_EQ(Session().Rom()[0x24000], 20);
-    EXPECT_EQ(Session().Rom()[0x2C000], 10);
+    EXPECT_EQ(Session().Rom()[0x2C000], 20);
+    EXPECT_EQ(Session().Rom()[0x24000], 0);
 }
 
 TEST_F(NumericEditUseCaseTest, StaleSessionIdsAreNotApplicable)

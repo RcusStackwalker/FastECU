@@ -132,7 +132,6 @@ TEST_F(RomOpenBasics, FileOpenDerivesProtocolInfoFromTheSelectedVehicle)
     EXPECT_EQ(protocol.checksum_module, "checksum"); // "checksum" + flash_method minus 3 chars
     EXPECT_EQ(protocol.mcu_type, "SH7058");
     EXPECT_EQ(protocol.file_size_label, "3kb");
-    EXPECT_EQ(protocol.unpadded_size, 3U * 1024U + 5U);
     EXPECT_EQ(protocol.rom_id, "");
     EXPECT_EQ(*cfg_.session.SelectedRow(), 0U);
 }
@@ -193,7 +192,6 @@ TEST_F(RomOpenBasics, PaddingFollowsTheUnpaddedSizeLabel)
 
     ASSERT_THAT(outcome, IsOk());
     EXPECT_EQ(outcome->contents.protocol.file_size_label, "0kb");
-    EXPECT_EQ(outcome->contents.protocol.unpadded_size, 0x100U);
     EXPECT_EQ(outcome->contents.rom.size(), 0x28000U); // zero-extended to 0x20000, then 0x8000 of 0xFF
 }
 

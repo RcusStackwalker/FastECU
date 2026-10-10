@@ -114,7 +114,7 @@ Status WritePatch(CalibrationSession& session, const MapElementSpec& spec, std::
     for (const auto& cell : patch)
     {
         if (cell.index >= cell_count || cell.bytes.size() != width ||
-            cell.byte_address != ElementByteAddress(spec, cell.index, true))
+            cell.byte_address != ElementByteAddress(spec, cell.index))
         {
             return Fail(ErrorKind::kInvalidConfig, "map edit index, address, or byte width does not match its target");
         }

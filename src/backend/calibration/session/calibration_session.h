@@ -59,7 +59,6 @@ struct RomProtocolInfo
     std::string kernel_start_address;
     std::string rom_id;
     std::string file_size_label; // "<unpadded bytes / 1024>kb"
-    std::size_t unpadded_size{0};
 
     bool operator==(const RomProtocolInfo&) const = default;
 };
