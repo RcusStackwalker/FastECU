@@ -20,8 +20,10 @@ namespace
 using fastecu::testing::IsErr;
 using fastecu::testing::IsErrWith;
 using fastecu::testing::IsOk;
+using fastecu::testing::IsOkAnd;
 using ::testing::ElementsAre;
 using ::testing::HasSubstr;
+using ::testing::IsEmpty;
 
 definition::RomDefinition FuelDefinition()
 {
@@ -58,7 +60,7 @@ TEST(CalibrationSessionTest, ExposesWhatItWasBuiltFrom)
     EXPECT_EQ(session.Id(), SessionId{7});
     EXPECT_EQ(session.Source().display_name, "a.bin");
     EXPECT_EQ(session.Source().origin, RomOrigin::kFile);
-    EXPECT_EQ(session.Rom().size(), 6U);
+    EXPECT_EQ(session.File().size(), 6U);
     ASSERT_NE(session.Definition(), nullptr);
     EXPECT_EQ(session.Definition()->id, "TEST");
     EXPECT_EQ(session.Protocol().flash_method, "proto_a");
@@ -117,19 +119,19 @@ TEST(CalibrationSessionTest, WriteReachingTheLastByteSucceeds)
     const std::vector<std::uint8_t> patch{0xAA};
 
     ASSERT_THAT(session.WriteBytes(5, patch), IsOk());
-    EXPECT_EQ(session.Rom()[5], 0xAA);
+    EXPECT_EQ(session.File()[5], 0xAA);
 }
 
 TEST(CalibrationSessionTest, WritePastTheEndChangesNothing)
 {
     CalibrationSession session(SessionId{1}, ContentsWithDefinition());
-    const std::vector<std::uint8_t> before(session.Rom().begin(), session.Rom().end());
+    const std::vector<std::uint8_t> before(session.File().begin(), session.File().end());
     const std::vector<std::uint8_t> patch{1, 2};
 
     EXPECT_THAT(session.WriteBytes(5, patch), IsErr(ErrorKind::kInvalidConfig));
     EXPECT_THAT(session.WriteBytes(std::numeric_limits<std::uint64_t>::max(), patch), IsErr(ErrorKind::kInvalidConfig));
 
-    EXPECT_EQ(std::vector<std::uint8_t>(session.Rom().begin(), session.Rom().end()), before);
+    EXPECT_EQ(std::vector<std::uint8_t>(session.File().begin(), session.File().end()), before);
     EXPECT_FALSE(session.Dirty());
 }
 
@@ -176,7 +178,7 @@ TEST(CalibrationSessionMemory, RomPlacesFileBytesAtTheirDefinitionAddresses)
 {
     const CalibrationSession session = PackedSession();
 
-    EXPECT_THAT(session.Rom(), ElementsAre(1, 2, 0xFF, 0xFF, 3, 4));
+    EXPECT_THAT(session.Read(0, 6), IsOkAnd(ElementsAre(1, 2, 0xFF, 0xFF, 3, 4)));
     EXPECT_THAT(session.File(), ElementsAre(1, 2, 3, 4));
 }
 
@@ -187,7 +189,7 @@ TEST(CalibrationSessionMemory, AWriteLandsInTheRomFileAtItsMappedOffset)
     ASSERT_THAT(session.WriteBytes(4, bytes::Bytes{9}), IsOk());
 
     EXPECT_THAT(session.File(), ElementsAre(1, 2, 9, 4));
-    EXPECT_THAT(session.Rom(), ElementsAre(1, 2, 0xFF, 0xFF, 9, 4));
+    EXPECT_THAT(session.Read(0, 6), IsOkAnd(ElementsAre(1, 2, 0xFF, 0xFF, 9, 4)));
     EXPECT_TRUE(session.Dirty());
 }
 
@@ -199,7 +201,7 @@ TEST(CalibrationSessionMemory, AWriteIntoAFillBlockChangesNothing)
                 IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("fill block")));
 
     EXPECT_THAT(session.File(), ElementsAre(1, 2, 3, 4));
-    EXPECT_THAT(session.Rom(), ElementsAre(1, 2, 0xFF, 0xFF, 3, 4));
+    EXPECT_THAT(session.Read(0, 6), IsOkAnd(ElementsAre(1, 2, 0xFF, 0xFF, 3, 4)));
     EXPECT_FALSE(session.Dirty());
 }
 
@@ -225,7 +227,7 @@ TEST(CalibrationSessionMemory, DefinitionAddressesCountFromTheDefinitionBase)
         SessionId{1},
         SessionContents{.image = memory::testing::PlacedImage(blocks, {1, 2, 3, 4}, memory::FlashAddress{0x08F9C000})});
 
-    EXPECT_THAT(session.Rom(), ElementsAre(1, 2, 3, 4));
+    EXPECT_THAT(session.Read(0, 4), IsOkAnd(ElementsAre(1, 2, 3, 4)));
     ASSERT_THAT(session.WriteBytes(1, bytes::Bytes{9}), IsOk());
     EXPECT_THAT(session.File(), ElementsAre(1, 9, 3, 4));
 }
@@ -236,6 +238,35 @@ TEST(CalibrationSessionMemory, DecodingAMapInAFillBlockIsAStructuralFailure)
     const CalibrationSession session = PackedSession(ResolvedDefinition{.definition = std::move(definition)});
 
     EXPECT_THAT(session.DecodeMap(0), IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("fill block")));
+}
+
+TEST(CalibrationSessionMemory, ReadRefusesBytesPastTheHighestBlock)
+{
+    const CalibrationSession session = PackedSession();
+
+    EXPECT_THAT(session.Read(5, 2), IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("outside the 6-byte image")));
+    EXPECT_THAT(session.Read(6, 0), IsOkAnd(IsEmpty()));
+}
+
+// Cells at definition 0-1 and the X axis at 4-5, across the fill bytes at 2-3.
+TEST(CalibrationSessionMemory, DecodesAMapWhoseAxisLiesBeyondAFillBlock)
+{
+    definition::RomDefinition definition = FuelDefinition();
+    definition.maps[0].address = memory::DefinitionAddress{0};
+    definition.maps[0].x_size = 2;
+    definition.maps[0].x_axis = definition::AxisDefinition{
+        .type = "X Axis",
+        .storage_type = definition::StorageType::kUint8,
+        .address = memory::DefinitionAddress{4},
+        .size = 2,
+    };
+    const CalibrationSession session = PackedSession(ResolvedDefinition{.definition = std::move(definition)});
+
+    const auto decoded = session.DecodeMap(0);
+
+    ASSERT_THAT(decoded, IsOk());
+    EXPECT_THAT(std::get<NumericRun>(decoded->body).cells, ElementsAre(IsOkAnd(1), IsOkAnd(2)));
+    EXPECT_THAT(std::get<NumericRun>(decoded->x_axis).cells, ElementsAre(IsOkAnd(3), IsOkAnd(4)));
 }
 
 } // namespace

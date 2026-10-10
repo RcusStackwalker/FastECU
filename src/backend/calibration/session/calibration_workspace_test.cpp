@@ -57,7 +57,7 @@ TEST_F(CalibrationWorkspaceTest, OpenedSessionsAreFoundInOpenOrder)
     EXPECT_THAT(workspace_.Ids(), ElementsAre(a->id, b->id));
     ASSERT_NE(workspace_.Find(a->id), nullptr);
     EXPECT_EQ(workspace_.Find(a->id)->Source().display_name, "a.bin");
-    EXPECT_EQ(workspace_.Find(b->id)->Rom()[0], 0xB);
+    EXPECT_EQ(workspace_.Find(b->id)->File()[0], 0xB);
 }
 
 TEST_F(CalibrationWorkspaceTest, AFailedOpenLeavesTheWorkspaceUnchanged)
@@ -120,7 +120,7 @@ TEST_F(CalibrationWorkspaceTest, SessionsAreMutableThroughTheWorkspace)
     ASSERT_THAT(workspace_.Find(a->id)->WriteBytes(0, patch), IsOk());
 
     const CalibrationWorkspace& view = workspace_;
-    EXPECT_EQ(view.Find(a->id)->Rom()[0], 0xFF);
+    EXPECT_EQ(view.Find(a->id)->File()[0], 0xFF);
     EXPECT_TRUE(view.Find(a->id)->Dirty());
 }
 

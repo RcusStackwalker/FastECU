@@ -8,6 +8,8 @@
 #include <vector>
 
 #include "src/algorithms/expression/expression.h"
+#include "src/backend/calibration/calibration_service.h"
+#include "src/backend/calibration/definition_bytes.h"
 #include "src/backend/calibration/session/map_element_fields.h"
 
 namespace fastecu::calibration
@@ -69,8 +71,9 @@ Result<std::vector<std::vector<double>>> ParsePaste(const PasteEdit& paste)
     return rows;
 }
 
-Result<NumericEditResult> Calculate(bytes::ByteView rom, const MapElementSpec& spec, const NumericSelection& selection,
-                                    std::span<const NumericCell> cells, const NumericEditOperation& operation)
+Result<NumericEditResult> Calculate(const DefinitionBytes& rom, const MapElementSpec& spec,
+                                    const NumericSelection& selection, std::span<const NumericCell> cells,
+                                    const NumericEditOperation& operation)
 {
     const auto width = RunWidth(spec, selection.target);
     return std::visit(
@@ -103,14 +106,13 @@ Result<NumericEditResult> Calculate(bytes::ByteView rom, const MapElementSpec& s
         operation);
 }
 
-// Validates every write against the target run before any byte changes, so
-// one bad cell rejects the whole edit. Byte-identical writes are skipped,
-// preserving clean state.
+// Validates every write against the target run and the session's write rules
+// before any byte changes, so one bad cell rejects the whole edit.
+// Byte-identical cells never reach the patch: AppendWrite leaves them out.
 Status WritePatch(CalibrationSession& session, const MapElementSpec& spec, std::size_t cell_count,
                   const NumericEditPatch& patch)
 {
     const auto width = definition::StorageByteSize(spec.storage_type);
-    const auto size = session.Rom().size();
     for (const auto& cell : patch)
     {
         if (cell.index >= cell_count || cell.bytes.size() != width ||
@@ -118,18 +120,13 @@ Status WritePatch(CalibrationSession& session, const MapElementSpec& spec, std::
         {
             return Fail(ErrorKind::kInvalidConfig, "map edit index, address, or byte width does not match its target");
         }
-        if (cell.byte_address > size || cell.bytes.size() > size - cell.byte_address)
+        if (const Status writable = session.CheckWrite(cell.byte_address, cell.bytes.size()); !writable.has_value())
         {
-            return Fail(ErrorKind::kInvalidConfig, "map edit byte range is outside the ROM image");
+            return writable;
         }
     }
     for (const auto& cell : patch)
     {
-        const auto current = session.Rom().subspan(static_cast<std::size_t>(cell.byte_address), cell.bytes.size());
-        if (std::ranges::equal(current, cell.bytes))
-        {
-            continue;
-        }
         const auto written = session.WriteBytes(cell.byte_address, cell.bytes);
         if (!written.has_value())
         {
@@ -168,7 +165,19 @@ Result<NumericEditOutcome> ApplyNumericEdit(CalibrationWorkspace& workspace, con
     }
     const auto fields = CollectMapElementFields(*session, request.map_index, request.selection.target);
     const auto spec = fields.Spec();
-    const auto calculated = Calculate(session->Rom(), spec, request.selection, run->cells, request.operation);
+    // The target run's bytes, rendered from the session's memory image.
+    const std::uint64_t end =
+        ElementRunEnd(spec.address, spec.start_position, spec.interval, definition::StorageByteSize(spec.storage_type),
+                      static_cast<std::uint32_t>(run->cells.size()));
+    const auto window = end >= spec.address
+                            ? session->Read(spec.address, static_cast<std::size_t>(end - spec.address))
+                            : Fail(ErrorKind::kInvalidConfig, "map edit run overflows the address space");
+    if (!window.has_value())
+    {
+        return std::unexpected(window.error());
+    }
+    const auto calculated =
+        Calculate(DefinitionBytes(*window, spec.address), spec, request.selection, run->cells, request.operation);
     if (!calculated.has_value())
     {
         return std::unexpected(calculated.error());

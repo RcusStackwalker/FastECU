@@ -159,6 +159,8 @@ cc_library(
     implementation_deps = [
         ":map_element_fields",
         "//src/algorithms/expression",
+        "//src/backend/calibration:calibration_service",
+        "//src/backend/calibration:definition_bytes",
     ],
     deps = [
         ":calibration_session",
