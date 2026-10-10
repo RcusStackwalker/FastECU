@@ -156,14 +156,14 @@ TEST(SubaruDensoMc68hc16y5_02Plan, PackedAndFullRomFilesBothBuildAWritePlan)
 TEST(SubaruDensoMc68hc16y5_02Plan, AMapThatDoesNotHoldAFlashBlockAsWritableFileBytesIsRejected)
 {
     // 0x28000-0x2FFFF, the second flash range, is a fill block here.
-    constexpr std::array blocks{
+    constexpr std::array kBlocks{
         config::FileBlock(0x00000, 0x28000, 0x00000, memory::Writability::kWritable),
         config::FillBlock(0x28000, 0x8000, 0xFF),
     };
 
     EXPECT_THAT(
         BuildSubaruDensoMc68hc16y502Plan(FlashOperation::kWrite, "sub_ecu_denso_mc68hc16y5_02", "MC68HC16Y5",
-                                         fastecu::memory::testing::PlacedImage(blocks, bytes::Bytes(0x28000, 0)),
+                                         fastecu::memory::testing::PlacedImage(kBlocks, bytes::Bytes(0x28000, 0)),
                                          KernelImage{.id = "k", .load_address = 0x20000, .bytes = {0xaa}}),
         fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, ::testing::HasSubstr("flash block 0x28000")));
 }
