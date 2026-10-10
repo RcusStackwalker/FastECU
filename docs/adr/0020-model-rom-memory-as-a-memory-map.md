@@ -2,14 +2,20 @@
 
 ## Status
 
-Accepted. Tracks [#119](https://github.com/RcusStackwalker/FastECU/issues/119);
-slices 1-6 have landed: the memory types, the catalog's memory maps with tests
-that they agree with each flash family's write window and flash device and that
-FastECU's own read files open with them, calibration sessions held as a ROM
-file placed by its memory map, definition addresses typed and the internal ID
-checked through each definition's memory map, and flash write plans carrying
-the ROM file's memory map, with MC68HC16Y5 writes placed through it. Still to
-come: checksums addressing by ECU address.
+Accepted. Implemented by the seven slices of
+[#119](https://github.com/RcusStackwalker/FastECU/issues/119):
+- the dead edit-path `wrx02` relocation deleted;
+- the memory types;
+- the catalog's memory maps, with tests that they agree with each flash
+  family's write window and flash device, and that FastECU's own read files
+  open with them;
+- calibration sessions held as a ROM file placed by its memory map;
+- definition addresses typed, and the internal ID checked through each
+  definition's memory map;
+- flash write plans carrying the ROM file's memory map, with MC68HC16Y5 writes
+  placed through it;
+- checksums run on a memory view by ECU address, write their corrections back
+  through the memory map, and no longer carry an address offset.
 
 ## Context
 
