@@ -314,13 +314,13 @@ void MainWindow::pasteValue()
 void MainWindow::connectToEcu(std::function<void(bool)> onDone)
 {
     connection_coordinator_->cancel();
-    const bool had_logging_run = logging_engine_->IsRunning() || active_logging_snapshot_.has_value();
+    const bool hadLoggingRun = logging_engine_->IsRunning() || active_logging_snapshot_.has_value();
     if (logging_engine_->IsRunning())
     {
         logging_engine_->Stop();
     }
     // A checked Logging action can be a request still waiting for identification.
-    if (had_logging_run)
+    if (hadLoggingRun)
     {
         restoreLoggingUiState();
     }

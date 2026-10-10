@@ -91,8 +91,8 @@ TEST(LoggingCsvFileTest, WriteFailureReleasesOwnershipAndReturnsAnError)
     const auto run = Snapshot();
     ASSERT_THAT(run, fastecu::testing::IsOk());
     auto storage = std::make_unique<FailingCsvStorage>();
-    auto *injected = storage.Get();
-    LoggingCsvFile writer_(std::move(storage));
+    auto *injected = storage.get();
+    LoggingCsvFile writer(std::move(storage));
     const auto path = writer.BeginRun(*run, directory.path(), "run");
     ASSERT_THAT(path, fastecu::testing::IsOk());
     DesktopLoggerValues values;

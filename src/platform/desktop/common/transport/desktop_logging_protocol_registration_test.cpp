@@ -286,12 +286,12 @@ TEST(DesktopLoggingProtocolRegistrationTest, mut_dma_preserves_initialization_an
         ids[0] = char(0xa1);
         ids[1] = 1;
         ids[2] = 0x40;
-        ids[4] = char(0x80);
+        ids[3] = char(0x80);
         ids[29] = 0x62;
         ids[30] = 0x0d;
         EXPECT_CALL(serial.Fake(), WriteSerialData(ids)).WillOnce(Return(QByteArray{}));
         EXPECT_CALL(serial.Fake(), ReadSerialData(50)).WillOnce(Return(MutFrame(5, 0, 5, 0x0d)));
-        EXPECT_CALL(serial.Fake(), ReadSerialData(50)).WillOnce(Return(QByteArray::fromHex("013412470d")));
+        EXPECT_CALL(serial.Fake(), ReadSerialData(50)).WillOnce(Return(QByteArray::fromHex("011234470d")));
     }
     fastecu::FakeCancellationToken cancellation;
     ASSERT_TRUE((*result)->Start(cancellation));
@@ -318,7 +318,7 @@ TEST(DesktopLoggingProtocolRegistrationTest, explicit_oem_mut_dialect_reaches_re
         EXPECT_CALL(serial.Fake(), ChangePortSpeed(QStringLiteral("125000"))).WillOnce(Return(0));
         EXPECT_CALL(serial.Fake(), WriteSerialData(MutFrame(0xa0, 1, 0xa1, 0x0a))).WillOnce(Return(QByteArray{}));
         EXPECT_CALL(serial.Fake(), ReadSerialData(50)).WillOnce(Return(MutFrame(0xa5, 0, 0xa5, 0x0d)));
-        QByteArray Ids(31, '\0');
+        QByteArray ids(31, '\0');
         ids[0] = char(0xa1);
         ids[1] = 1;
         ids[2] = 0x40;

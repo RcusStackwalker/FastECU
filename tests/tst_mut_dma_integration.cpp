@@ -397,7 +397,7 @@ TEST_F(MutDmaIntegrationTest, driverPollOnce_throughAdapter_decodesStreamFrameFr
         FastEcuKlineTransport tr(&spad);
         fastecu::FakeCancellationToken cancellation;
         AlreadyInMode init(125000);
-        MutDmaDriver driver(tr, init);
+        MutDmaDriver driver(tr, init, mutdma::FreeformDialect::kOem33520003);
 
         // Two channels: one 1-byte, one 2-byte, little-endian.
         std::vector<Channel> channels{{0x1234, 1}, {0x5678, 2}};
