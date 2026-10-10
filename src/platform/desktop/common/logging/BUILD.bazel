@@ -50,3 +50,31 @@ fastecu_gtest(
         "@googletest//:gtest",
     ],
 )
+
+fastecu_gtest(
+    name = "logging_csv_file_test",
+    srcs = ["logging_csv_file_test.cpp"],
+    deps = [
+        ":logging_csv_file",
+        "//bazel/qt:core",
+        "//src/backend/ports/testing:result_matchers",
+        "//src/platform/desktop/common/logging/testing:failing_csv_storage",
+        "@googletest//:gtest",
+    ],
+)
+
+cc_library(
+    name = "logging_csv_file",
+    srcs = ["logging_csv_file.cpp"],
+    hdrs = ["logging_csv_file.h"],
+    copts = COMMON_COPTS,
+    implementation_deps = ["//src/backend/logging:logging_csv_record"],
+    visibility = UI_FACING_VISIBILITY,
+    deps = [
+        ":logging_adapters",
+        "//bazel/qt:core",
+        "//src/backend/logging:logging_csv_columns",
+        "//src/backend/logging:logging_run_snapshot",
+        "//src/backend/ports",
+    ],
+)

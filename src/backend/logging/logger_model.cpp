@@ -2,10 +2,9 @@
 
 #include <charconv>
 #include <cstdint>
+#include <optional>
 #include <ranges>
 #include <utility>
-
-#include "src/backend/logging/logger_conf.h"
 
 namespace fastecu::logging
 {
@@ -15,33 +14,41 @@ LoggerIdentity Identity(std::string_view protocol, std::string_view id)
 {
     return {std::string(protocol), std::string(id)};
 }
-unsigned Decimal(std::string_view text)
+std::optional<unsigned> Decimal(std::string_view text)
 {
     const auto first = text.find_first_not_of(" \t\n\r\v\f");
     if (first == std::string_view::npos)
     {
-        return 0;
+        return std::nullopt;
     }
     text = text.substr(first, text.find_last_not_of(" \t\n\r\v\f") - first + 1);
-    if (text.starts_with('+'))
-    {
-        text.remove_prefix(1);
-    }
     unsigned value = 0;
     const auto parsed = std::from_chars(text.data(), text.data() + text.size(), value);
-    return parsed.ec == std::errc{} && parsed.ptr == text.data() + text.size() ? value : 0;
+    return parsed.ec == std::errc{} && parsed.ptr == text.data() + text.size() ? std::optional<unsigned>{value}
+                                                                               : std::nullopt;
 }
-bool Supported(const std::map<LoggerIdentity, bool>& flags, std::string_view protocol, std::string_view id)
+EcuSupport Support(const std::map<LoggerIdentity, EcuSupport>& flags, std::string_view protocol, std::string_view id)
 {
     const auto it = flags.find(Identity(protocol, id));
-    return it != flags.end() && it->second;
+    return it == flags.end() ? EcuSupport::kUnknown : it->second;
 }
-void Update(std::map<LoggerIdentity, bool>& flags, std::string_view protocol, std::string_view id, bool value)
+void Update(std::map<LoggerIdentity, EcuSupport>& flags, std::string_view protocol, std::string_view id,
+            EcuSupport value)
 {
     if (const auto it = flags.find(Identity(protocol, id)); it != flags.end())
     {
         it->second = value;
     }
+}
+EcuSupport Capability(std::string_view index_text, std::string_view bit_text, bytes::ByteView bytes)
+{
+    const auto index = Decimal(index_text);
+    const auto bit = Decimal(bit_text);
+    if (!index.has_value() || !bit.has_value() || *index >= bytes.size() || *bit >= 8)
+    {
+        return EcuSupport::kUnknown;
+    }
+    return (bytes[*index] & (1U << *bit)) != 0 ? EcuSupport::kSupported : EcuSupport::kUnsupported;
 }
 } // namespace
 
@@ -53,15 +60,16 @@ bool LoggerModel::InstallDefinition(LoggerDefinition definition)
     }
     installed_ = true;
     definition_ = std::move(definition);
-    selection_ = InitialSelection(definition_);
+
     for (const auto& parameter : definition_.parameters)
     {
-        parameter_support_.emplace(Identity(parameter.protocol, parameter.id), parameter.enabled);
+        parameter_support_.emplace(Identity(parameter.protocol, parameter.id), EcuSupport::kUnknown);
     }
     for (const auto& item : definition_.switches)
     {
-        switch_support_.emplace(Identity(item.protocol, item.id), item.enabled);
+        switch_support_.emplace(Identity(item.protocol, item.id), EcuSupport::kUnknown);
     }
+    selection_ = DefaultSelection();
     return true;
 }
 const LoggerDefinition& LoggerModel::Definition() const
@@ -88,56 +96,98 @@ const LoggerSwitch *LoggerModel::SwitchDefinition(std::string_view protocol, std
         std::ranges::find_if(definition_.switches, [&](const auto& p) { return p.protocol == protocol && p.id == id; });
     return it == definition_.switches.end() ? nullptr : &*it;
 }
-bool LoggerModel::ParameterSupported(std::string_view protocol, std::string_view id) const
+EcuSupport LoggerModel::ParameterSupport(std::string_view protocol, std::string_view id) const
 {
-    return Supported(parameter_support_, protocol, id);
+    return Support(parameter_support_, protocol, id);
 }
-bool LoggerModel::SwitchSupported(std::string_view protocol, std::string_view id) const
+EcuSupport LoggerModel::SwitchSupport(std::string_view protocol, std::string_view id) const
 {
-    return Supported(switch_support_, protocol, id);
+    return Support(switch_support_, protocol, id);
 }
-void LoggerModel::SetParameterSupported(std::string_view protocol, std::string_view id, bool value)
+void LoggerModel::SetParameterSupport(std::string_view protocol, std::string_view id, EcuSupport state)
 {
-    Update(parameter_support_, protocol, id, value);
+    Update(parameter_support_, protocol, id, state);
 }
-void LoggerModel::SetSwitchSupported(std::string_view protocol, std::string_view id, bool value)
+void LoggerModel::SetSwitchSupport(std::string_view protocol, std::string_view id, EcuSupport state)
 {
-    Update(switch_support_, protocol, id, value);
+    Update(switch_support_, protocol, id, state);
+}
+void LoggerModel::ResetSupport(std::string_view protocol)
+{
+    for (auto& [key, state] : parameter_support_)
+    {
+        if (key.first == protocol)
+        {
+            state = EcuSupport::kUnknown;
+        }
+    }
+    for (auto& [key, state] : switch_support_)
+    {
+        if (key.first == protocol)
+        {
+            state = EcuSupport::kUnknown;
+        }
+    }
+}
+void LoggerModel::ResetSupport()
+{
+    for (auto& entry : parameter_support_)
+    {
+        entry.second = EcuSupport::kUnknown;
+    }
+    for (auto& entry : switch_support_)
+    {
+        entry.second = EcuSupport::kUnknown;
+    }
+}
+bool LoggerModel::ParameterAvailable(std::string_view protocol, std::string_view id) const
+{
+    const auto *p = Parameter(protocol, id);
+    const auto state = ParameterSupport(protocol, id);
+    return p != nullptr && (state == EcuSupport::kSupported || (state == EcuSupport::kUnknown && p->enabled));
+}
+bool LoggerModel::SwitchAvailable(std::string_view protocol, std::string_view id) const
+{
+    const auto *p = SwitchDefinition(protocol, id);
+    const auto state = SwitchSupport(protocol, id);
+    return p != nullptr && (state == EcuSupport::kSupported || (state == EcuSupport::kUnknown && p->enabled));
 }
 void LoggerModel::ApplyCapabilities(std::string_view protocol, bytes::ByteView capabilities)
 {
+    ResetSupport(protocol);
     for (const auto& p : definition_.parameters)
     {
-        if (p.protocol != protocol)
+        if (p.protocol == protocol)
         {
-            continue;
+            SetParameterSupport(protocol, p.id, Capability(p.ecu_byte_index, p.ecu_bit, capabilities));
         }
-        const auto index = static_cast<std::uint16_t>(Decimal(p.ecu_byte_index));
-        const auto bit = static_cast<std::uint8_t>(Decimal(p.ecu_bit));
-        SetParameterSupported(protocol, p.id,
-                              p.ecu_byte_index != "No byte index" && index < capabilities.size() && bit < 8 &&
-                                  (capabilities[index] & (1U << bit)) != 0);
     }
     for (const auto& p : definition_.switches)
     {
-        const auto index = static_cast<std::uint16_t>(Decimal(p.ecu_byte_index));
-        const auto bit = static_cast<std::uint8_t>(Decimal(p.ecu_bit));
-        if (p.protocol == protocol && index < capabilities.size())
+        if (p.protocol == protocol)
         {
-            SetSwitchSupported(protocol, p.id, bit < 8 && (capabilities[index] & (1U << bit)) != 0);
+            SetSwitchSupport(protocol, p.id, Capability(p.ecu_byte_index, p.ecu_bit, capabilities));
         }
     }
 }
-LoggerSelection LoggerModel::DefaultSelection() const
+LoggerSelection LoggerModel::DefaultSelection(std::string_view protocol) const
 {
     LoggerSelection result;
-    if (!definition_.parameters.empty())
+    result.protocol = protocol.empty() ? selection_.protocol : std::string(protocol);
+    if (result.protocol.empty())
     {
-        result.protocol = definition_.parameters.front().protocol;
+        if (!definition_.parameters.empty())
+        {
+            result.protocol = definition_.parameters.front().protocol;
+        }
+        else if (!definition_.switches.empty())
+        {
+            result.protocol = definition_.switches.front().protocol;
+        }
     }
     for (const auto& p : definition_.parameters)
     {
-        if (!ParameterSupported(p.protocol, p.id))
+        if (p.protocol != result.protocol || !ParameterAvailable(p.protocol, p.id))
         {
             continue;
         }
@@ -152,7 +202,7 @@ LoggerSelection LoggerModel::DefaultSelection() const
     }
     for (const auto& p : definition_.switches)
     {
-        if (SwitchSupported(p.protocol, p.id) && result.switch_ids.size() < 20)
+        if (p.protocol == result.protocol && SwitchAvailable(p.protocol, p.id) && result.switch_ids.size() < 20)
         {
             result.switch_ids.push_back(p.id);
         }

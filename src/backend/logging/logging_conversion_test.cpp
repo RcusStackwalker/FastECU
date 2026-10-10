@@ -114,3 +114,20 @@ TEST(LoggingConversionTest, RejectsNonNumericRawValue)
     ASSERT_THAT(ConvertSample(session, ProtocolSample{"rpm", "12ab"}),
                 fastecu::testing::IsErr(fastecu::ErrorKind::kBadResponse));
 }
+
+TEST(LoggingConversionTest, ExtractsSwitchBitInsteadOfTreatingWholeByteAsValue)
+{
+    auto source = Channel("switch:flag", 0x20);
+    source.length = 1;
+    source.decimal_precision = 0;
+    source.sample_bit = 7;
+    const auto session = MakeSessionWithChannel(source);
+    const auto on = ConvertSample(session, {"switch:flag", "128"});
+    const auto off = ConvertSample(session, {"switch:flag", "0"});
+    ASSERT_THAT(on, fastecu::testing::IsOk());
+    ASSERT_THAT(off, fastecu::testing::IsOk());
+    EXPECT_EQ(on->numeric_value, 1);
+    EXPECT_EQ(off->numeric_value, 0);
+    EXPECT_THAT(ConvertSample(session, {"switch:flag", "256"}),
+                fastecu::testing::IsErr(fastecu::ErrorKind::kBadResponse));
+}

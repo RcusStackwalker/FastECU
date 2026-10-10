@@ -6,6 +6,7 @@
 
 #include <cmath>
 #include <string>
+#include <charconv>
 
 namespace fastecu::logging
 {
@@ -16,6 +17,20 @@ fastecu::Result<LogSample> ConvertSample(const LoggingSession& session, const Pr
     if (channel == nullptr)
     {
         return fastecu::Fail(fastecu::ErrorKind::kInternal, "protocol sample channel is not in the logging session");
+    }
+
+    if (channel->sample_bit.has_value())
+    {
+        unsigned byte = 0;
+        const auto parsed = std::from_chars(raw.raw_value.data(), raw.raw_value.data() + raw.raw_value.size(), byte);
+        if (parsed.ec != std::errc{} || parsed.ptr != raw.raw_value.data() + raw.raw_value.size() || byte > 255)
+        {
+            return Fail(ErrorKind::kBadResponse, "switch raw sample is not a byte");
+        }
+        return LogSample{.channel_id = raw.channel_id,
+                         .numeric_value = static_cast<double>((byte >> *channel->sample_bit) & 1U),
+                         .raw_value = raw.raw_value,
+                         .unit = channel->unit};
     }
 
     const auto raw_value = fastecu::expression::ParseFiniteNumber(raw.raw_value);

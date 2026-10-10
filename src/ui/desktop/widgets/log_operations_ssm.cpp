@@ -11,10 +11,12 @@
 void MainWindow::parseLogValueList(QByteArray received, const QString& protocolArg)
 {
     received.remove(0, 5);
+    received.chop(1); // Identification framing is validated by the backend; checksum is not capability data.
     logger_model_->ApplyCapabilities(protocolArg.toStdString(), bytes::View(received));
     for (const auto& p : logger_model_->Definition().parameters)
     {
-        if (p.protocol != protocolArg.toStdString() || !logger_model_->ParameterSupported(p.protocol, p.id))
+        if (p.protocol != protocolArg.toStdString() ||
+            logger_model_->ParameterSupport(p.protocol, p.id) != fastecu::logging::EcuSupport::kSupported)
         {
             continue;
         }
@@ -34,70 +36,64 @@ void MainWindow::parseLogValueList(QByteArray received, const QString& protocolA
     updateLogboxes(protocolArg);
 }
 
-void MainWindow::logToFile()
+void MainWindow::reportLoggingCsvError(const fastecu::Error& error)
 {
-    if (write_datalog_to_file_)
+    if (logging_csv_failed_)
     {
-        if (!datalog_file_open_)
-        {
-            QDateTime dateTime = dateTime.currentDateTime();
-            QString dateTimeString = dateTime.toString("yyyy-MM-dd_hh'h'mm'm'ss's'");
+        return;
+    }
+    logging_csv_failed_ = true;
+    const auto message = QString::fromStdString(error.detail);
+    emit logE(message, true, true);
+    QMessageBox notice(this);
+    notice.setWindowTitle(tr("Logging CSV"));
+    notice.setTextFormat(Qt::PlainText);
+    notice.setText(message);
+    notice.setStandardButtons(QMessageBox::Ok);
+    notice.exec();
+}
 
-            QString logFileName = fastecu::ui::qs(config_session_->EffectivePaths().datalog_files_directory);
-            if (!logFileName.endsWith('/'))
-            {
-                logFileName.append("/");
-            }
-            logFileName.append("fastecu_" + dateTimeString + ".csv");
+void MainWindow::beginLoggingCsv()
+{
+    if (!write_datalog_to_file_ || !active_logging_snapshot_ || logging_csv_failed_ || logging_csv_file_.IsOpen())
+    {
+        return;
+    }
+    const auto stem = "fastecu_" + QDateTime::currentDateTime().toString("yyyy-MM-dd_hh'h'mm'm'ss's'");
+    const auto opened = logging_csv_file_.BeginRun(
+        *active_logging_snapshot_, fastecu::ui::qs(config_session_->EffectivePaths().datalog_files_directory), stem);
+    if (!opened.has_value())
+    {
+        reportLoggingCsvError(opened.error());
+        return;
+    }
+    last_logging_csv_path_ = *opened;
+}
 
-            datalog_file_.setFileName(logFileName);
-            if (!datalog_file_.open(QIODevice::WriteOnly))
-            {
-                QMessageBox::information(this, tr("Unable to open file"), datalog_file_.errorString());
-                return;
-            }
-            else
-            {
-                datalog_file_open_ = true;
-                log_file_timer_->start();
-            }
-
-            datalog_file_outstream_.setDevice(&datalog_file_);
-            writeLoggerCsvRecord(true);
-        }
-        else
-        {
-
-            writeLoggerCsvRecord(false);
-        }
+void MainWindow::endLoggingCsv()
+{
+    const auto closed = logging_csv_file_.EndRun();
+    if (!closed.has_value())
+    {
+        reportLoggingCsvError(closed.error());
     }
 }
 
-void MainWindow::writeLoggerCsvRecord(bool header)
+void MainWindow::logToFile()
 {
-    std::vector<std::string> fields{
-        header ? "Time" : QString::number(static_cast<float>(log_file_timer_->elapsed()) / 1000.0F).toStdString()};
-    const auto key = active_logging_snapshot_ ? active_logging_snapshot_->ProtocolKey() : protocol_.toStdString();
-    const auto& selection = logger_model_->Selection();
-    const auto parameters = [&](const auto& ids)
+    if (!write_datalog_to_file_ || !active_logging_snapshot_ || logging_csv_failed_)
     {
-        for (const auto& id : ids)
-        {
-            const auto *item = logger_model_->Parameter(key, id);
-            fields.push_back(item == nullptr ? std::string{}
-                             : header        ? item->name
-                                             : logger_values_.ParameterValue(key, id).toStdString());
-        }
-    };
-    parameters(selection.gauge_ids);
-    parameters(selection.lower_panel_ids);
-    for (const auto& id : selection.switch_ids)
-    {
-        const auto *item = logger_model_->SwitchDefinition(key, id);
-        fields.push_back(item == nullptr ? std::string{}
-                         : header        ? item->name
-                                         : logger_values_.SwitchValue(key, id).toStdString());
+        return;
     }
-    const std::vector<std::string_view> fieldViews{fields.begin(), fields.end()};
-    datalog_file_outstream_ << QString::fromStdString(fastecu::logging::SerializeLoggingCsvRecord(fieldViews));
+    beginLoggingCsv();
+    if (!active_logging_snapshot_ || !logging_csv_file_.IsOpen())
+    {
+        return;
+    }
+    const auto elapsed = log_file_timer_->isValid() ? log_file_timer_->elapsed() : 0;
+    const auto written = logging_csv_file_.AppendRow(logger_values_, std::chrono::milliseconds{elapsed});
+    if (!written.has_value())
+    {
+        reportLoggingCsvError(written.error());
+    }
 }

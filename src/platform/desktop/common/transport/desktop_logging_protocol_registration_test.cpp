@@ -13,6 +13,10 @@
 #include <QMap>
 #include <array>
 #include <optional>
+#include <format>
+#include <string>
+
+#include "src/backend/ports/testing/result_matchers.h"
 // Test the registered factories synchronously without adding a production
 // inspection API. Engine/worker lifecycle has its own suite.
 #define private public
@@ -31,39 +35,25 @@ using ::testing::Return;
 namespace
 {
 fastecu::Result<DesktopLoggingSnapshot> Snapshot(LoggingProtocolId id, std::uint32_t address = 0x804000,
-                                                 std::size_t length = 1, bool target_is_ecu = true,
-                                                 bool selection_gap = false)
+                                                 std::size_t length = 1, LoggingTarget target = LoggingTarget::kEcu,
+                                                 std::string dialect = {})
 {
-    const std::string protocol = id == LoggingProtocolId::kSsm      ? "SSM"
-                                 : id == LoggingProtocolId::kMutDma ? "MUT_DMA"
-                                                                    : "CDBG";
-    LoggerDefinition definition{.parameters = {{.protocol = protocol,
-                                                .id = "load",
-                                                .address = QString::number(address, 16).toStdString(),
-                                                .length = std::to_string(length),
-                                                .enabled = true,
-                                                .conversions = {{"%", "x", "0", "0", "100", "1"}}}}};
-    if (selection_gap)
-    {
-        definition.parameters.push_back({.protocol = protocol,
-                                         .id = "rpm",
-                                         .address = QString::number(address + 1, 16).toStdString(),
-                                         .length = "1",
-                                         .enabled = true,
-                                         .conversions = {{"rpm", "x", "0", "0", "100", "1"}}});
-    }
+    const auto key = id == LoggingProtocolId::kSsm ? "SSM" : id == LoggingProtocolId::kMutDma ? "MUT_DMA" : "CDBG";
     LoggerModel model;
-    model.InstallDefinition(std::move(definition));
-    model.SetSelection({.protocol = protocol,
-                        .lower_panel_ids = selection_gap ? std::vector<std::string>{"load", "missing", "rpm"}
-                                                         : std::vector<std::string>{"load"}});
-    auto snapshot = MakeDesktopLoggingSnapshot(model, id, QString::fromStdString(protocol),
-                                               {.poll_timeout = 50ms,
-                                                .car_silence_miss_threshold = 20,
-                                                .reconnect_attempt_threshold = 100,
-                                                .reconnect_retry_period = 20},
-                                               target_is_ecu ? LoggingTarget::kEcu : LoggingTarget::kTcu);
-    return snapshot;
+    model.InstallDefinition({.parameters = {{.protocol = key,
+                                             .id = "load",
+                                             .address = std::format("{:x}", address),
+                                             .length = std::to_string(length),
+                                             .enabled = true,
+                                             .conversions = {{"%", "x", "0", "0", "100", "1"}}}},
+                             .protocols = {{key, std::move(dialect)}}});
+    model.SetSelection({.protocol = key, .lower_panel_ids = {"load"}});
+    return PrepareLoggingRun(model, id, key,
+                             {.poll_timeout = 50ms,
+                              .car_silence_miss_threshold = 20,
+                              .reconnect_attempt_threshold = 100,
+                              .reconnect_retry_period = 20},
+                             target);
 }
 
 void ExpectCdbgSetup(FakeBackend& fake, int failure = 7)
@@ -116,9 +106,9 @@ TEST(DesktopLoggingProtocolRegistrationTest, cdbg_setup_failure_stops_at_failed_
         ExpectCdbgSetup(serial.Fake(), failure);
         EXPECT_CALL(serial.Fake(), OpenSerialPort()).Times(0);
         EXPECT_CALL(serial.Fake(), IsSerialPortOpen()).Times(0);
-        const auto snapshot = Snapshot(LoggingProtocolId::kCdbg);
-        ASSERT_THAT(snapshot, fastecu::testing::IsOk());
-        const auto result = engine.Start({.protocol_id = "CDBG"}, *snapshot);
+        const auto data = Snapshot(LoggingProtocolId::kCdbg);
+        ASSERT_THAT(data, fastecu::testing::IsOk());
+        const auto result = engine.Start({.protocol_id = "CDBG"}, *data);
         ASSERT_TRUE(!result);
         ASSERT_EQ(result.error().kind, fastecu::ErrorKind::kInvalidConfig);
         ASSERT_EQ(result.error().detail, std::string("failed to ") + details[failure]);
@@ -145,9 +135,9 @@ TEST(DesktopLoggingProtocolRegistrationTest, cdbg_open_failure)
         {
             EXPECT_CALL(serial.Fake(), IsSerialPortOpen()).WillOnce(Return(false));
         }
-        const auto snapshot = Snapshot(LoggingProtocolId::kCdbg);
-        ASSERT_THAT(snapshot, fastecu::testing::IsOk());
-        const auto result = engine.Start({.protocol_id = "CDBG"}, *snapshot);
+        const auto data = Snapshot(LoggingProtocolId::kCdbg);
+        ASSERT_THAT(data, fastecu::testing::IsOk());
+        const auto result = engine.Start({.protocol_id = "CDBG"}, *data);
         ASSERT_TRUE(!result);
         ASSERT_EQ(result.error().kind, fastecu::ErrorKind::kDisconnected);
         ASSERT_EQ(result.error().detail, std::string("unable to open CAN adapter for CDBG logging"));
@@ -185,9 +175,9 @@ TEST(DesktopLoggingProtocolRegistrationTest, cdbg_success_preserves_start_sequen
         }
     }
     fastecu::testing::SignalRecorder status(&engine, &LoggingEngine::statusChanged);
-    const auto snapshot = Snapshot(LoggingProtocolId::kCdbg);
-    ASSERT_THAT(snapshot, fastecu::testing::IsOk());
-    ASSERT_THAT(engine.Start({.protocol_id = "CDBG"}, *snapshot), fastecu::testing::IsOk());
+    const auto data = Snapshot(LoggingProtocolId::kCdbg);
+    ASSERT_THAT(data, fastecu::testing::IsOk());
+    ASSERT_TRUE(engine.Start({.protocol_id = "CDBG"}, *data));
     ASSERT_TRUE(
         fastecu::testing::WaitUntil([&] { return !status.Snapshot().empty(); }, std::chrono::milliseconds(2000)));
     ASSERT_EQ(std::get<0>(status.Snapshot().front()), LoggingStatus::kRunning);
@@ -207,15 +197,23 @@ TEST(DesktopLoggingProtocolRegistrationTest, ssm_target_and_adapter_are_per_run)
         {
             EXPECT_CALL(serial.Fake(), IsSerialPortOpen()).WillRepeatedly(Return(true));
             EXPECT_CALL(serial.Fake(), GetUseOpenport2Adapter()).WillOnce(Return(openport));
-            const auto snapshot = Snapshot(LoggingProtocolId::kSsm, 0x1000, 1, target);
-            ASSERT_THAT(snapshot, fastecu::testing::IsOk());
-            auto result = engine.registrations_.value("SSM")(*snapshot);
+            const auto data =
+                Snapshot(LoggingProtocolId::kSsm, 0x1000, 1, target ? LoggingTarget::kEcu : LoggingTarget::kTcu);
+            ASSERT_THAT(data, fastecu::testing::IsOk());
+            auto result = engine.registrations_.value("SSM")(*data);
             ASSERT_TRUE(result);
             EXPECT_CALL(serial.Fake(), WriteSerialDataEchoCheck(QByteArray::fromHex(target ? "8010f005a80000000734"
                                                                                            : "8018f005a8000000073c")))
                 .WillOnce(Return(QByteArray{}));
-            EXPECT_CALL(serial.Fake(), ReadSerialData(openport ? 1000 : 10))
-                .WillOnce(Return(QByteArray::fromHex(target ? "80f01002e80771" : "80f01802e80779")));
+            {
+                ::testing::InSequence order;
+                EXPECT_CALL(serial.Fake(), ReadSerialData(openport ? 1000 : 10))
+                    .WillOnce(Return(QByteArray::fromHex(target ? "80f01002e8006a" : "80f01802e80072")));
+                if (!openport)
+                {
+                    EXPECT_CALL(serial.Fake(), ReadSerialData(980)).Times(0);
+                }
+            }
             ASSERT_TRUE((*result)->Start(cancellation));
             ASSERT_TRUE((*result)->Stop());
             ASSERT_TRUE(::testing::Mock::VerifyAndClearExpectations(&serial.Fake()));
@@ -223,7 +221,7 @@ TEST(DesktopLoggingProtocolRegistrationTest, ssm_target_and_adapter_are_per_run)
     }
 }
 
-TEST(DesktopLoggingProtocolRegistrationTest, ssm_snapshot_offsets_reach_samples)
+TEST(DesktopLoggingProtocolRegistrationTest, ssm_physical_read_positions_reach_samples)
 {
     FakeBackedSerial serial;
     fastecu::FakeClock clock;
@@ -231,24 +229,41 @@ TEST(DesktopLoggingProtocolRegistrationTest, ssm_snapshot_offsets_reach_samples)
     RegisterDesktopLoggingProtocols(engine, *serial, clock);
     EXPECT_CALL(serial.Fake(), IsSerialPortOpen()).WillRepeatedly(Return(true));
     EXPECT_CALL(serial.Fake(), GetUseOpenport2Adapter()).WillOnce(Return(true));
-    const auto snapshot = Snapshot(LoggingProtocolId::kSsm, 0x1000, 1, true, true);
-    ASSERT_THAT(snapshot, fastecu::testing::IsOk());
-    ASSERT_EQ(snapshot->Selection().lower_panel_ids, (std::vector<std::string>{"load", "missing", "rpm"}));
-    ASSERT_EQ(snapshot->ResponseOffsets(), (std::vector<std::size_t>{0, 2}));
-    auto result = engine.registrations_.value("SSM")(*snapshot);
+    LoggerModel model;
+    model.InstallDefinition({.parameters = {{.protocol = "SSM",
+                                             .id = "load",
+                                             .address = "1000",
+                                             .length = "1",
+                                             .enabled = true,
+                                             .conversions = {{"%", "x", "0", "0", "100", "1"}}},
+                                            {.protocol = "SSM",
+                                             .id = "rpm",
+                                             .address = "1001",
+                                             .length = "1",
+                                             .enabled = true,
+                                             .conversions = {{"rpm", "x", "0", "0", "100", "1"}}}}});
+    model.SetSelection({.protocol = "SSM", .lower_panel_ids = {"load", "rpm"}});
+    const auto data = PrepareLoggingRun(model, LoggingProtocolId::kSsm, "SSM",
+                                        {.poll_timeout = 50ms,
+                                         .car_silence_miss_threshold = 20,
+                                         .reconnect_attempt_threshold = 100,
+                                         .reconnect_retry_period = 20},
+                                        LoggingTarget::kEcu);
+    ASSERT_THAT(data, fastecu::testing::IsOk());
+    auto result = engine.registrations_.value("SSM")(*data);
     ASSERT_TRUE(result);
     EXPECT_CALL(serial.Fake(), WriteSerialDataEchoCheck(QByteArray::fromHex("8010f008a80100100000100152")))
         .WillOnce(Return(QByteArray{}));
-    EXPECT_CALL(serial.Fake(), ReadSerialData(50)).WillOnce(Return(QByteArray::fromHex("80f01004e8112233d2")));
+    EXPECT_CALL(serial.Fake(), ReadSerialData(50)).WillOnce(Return(QByteArray::fromHex("80f01003e811229e")));
     fastecu::FakeCancellationToken cancellation;
     const auto samples = (*result)->Poll(50ms, cancellation);
     ASSERT_TRUE(samples);
     ASSERT_TRUE(samples->responded);
     ASSERT_EQ(samples->samples.size(), std::size_t{2});
-    ASSERT_EQ(samples->samples[0].channel_id, std::string("load"));
+    ASSERT_EQ(samples->samples[0].channel_id, std::string("parameter:load"));
     ASSERT_EQ(samples->samples[0].raw_value, std::string("17"));
-    ASSERT_EQ(samples->samples[1].channel_id, std::string("rpm"));
-    ASSERT_EQ(samples->samples[1].raw_value, std::string("51"));
+    ASSERT_EQ(samples->samples[1].channel_id, std::string("parameter:rpm"));
+    ASSERT_EQ(samples->samples[1].raw_value, std::string("34"));
 }
 
 TEST(DesktopLoggingProtocolRegistrationTest, mut_dma_preserves_initialization_and_channels)
@@ -258,9 +273,9 @@ TEST(DesktopLoggingProtocolRegistrationTest, mut_dma_preserves_initialization_an
     LoggingEngine engine;
     RegisterDesktopLoggingProtocols(engine, *serial, clock);
     EXPECT_CALL(serial.Fake(), IsSerialPortOpen()).WillRepeatedly(Return(true));
-    const auto snapshot = Snapshot(LoggingProtocolId::kMutDma, 0x8000, 2);
-    ASSERT_THAT(snapshot, fastecu::testing::IsOk());
-    auto result = engine.registrations_.value("MUT_DMA")(*snapshot);
+    const auto data = Snapshot(LoggingProtocolId::kMutDma, 0x8000, 2);
+    ASSERT_THAT(data, fastecu::testing::IsOk());
+    auto result = engine.registrations_.value("MUT_DMA")(*data);
     ASSERT_TRUE(result);
     {
         ::testing::InSequence order;
@@ -283,7 +298,43 @@ TEST(DesktopLoggingProtocolRegistrationTest, mut_dma_preserves_initialization_an
     const auto samples = (*result)->Poll(50ms, cancellation);
     ASSERT_TRUE(samples);
     ASSERT_EQ(samples->samples.size(), std::size_t{1});
-    ASSERT_EQ(samples->samples[0].channel_id, std::string("load"));
+    ASSERT_EQ(samples->samples[0].channel_id, std::string("parameter:load"));
+    ASSERT_EQ(samples->samples[0].raw_value, std::string("4660"));
+    ASSERT_TRUE((*result)->Stop());
+}
+TEST(DesktopLoggingProtocolRegistrationTest, explicit_oem_mut_dialect_reaches_request_and_samples)
+{
+    FakeBackedSerial serial;
+    fastecu::FakeClock clock;
+    LoggingEngine engine;
+    RegisterDesktopLoggingProtocols(engine, *serial, clock);
+    EXPECT_CALL(serial.Fake(), IsSerialPortOpen()).WillRepeatedly(Return(true));
+    const auto data = Snapshot(LoggingProtocolId::kMutDma, 0x8000, 2, LoggingTarget::kEcu, "oem-33520003");
+    ASSERT_THAT(data, fastecu::testing::IsOk());
+    auto result = engine.registrations_.value("MUT_DMA")(*data);
+    ASSERT_TRUE(result);
+    {
+        ::testing::InSequence order;
+        EXPECT_CALL(serial.Fake(), ChangePortSpeed(QStringLiteral("125000"))).WillOnce(Return(0));
+        EXPECT_CALL(serial.Fake(), WriteSerialData(MutFrame(0xa0, 1, 0xa1, 0x0a))).WillOnce(Return(QByteArray{}));
+        EXPECT_CALL(serial.Fake(), ReadSerialData(50)).WillOnce(Return(MutFrame(0xa5, 0, 0xa5, 0x0d)));
+        QByteArray Ids(31, '\0');
+        ids[0] = char(0xa1);
+        ids[1] = 1;
+        ids[2] = 0x40;
+        ids[4] = char(0x80);
+        ids[29] = 0x62;
+        ids[30] = 0x0d;
+        EXPECT_CALL(serial.Fake(), WriteSerialData(ids)).WillOnce(Return(QByteArray{}));
+        EXPECT_CALL(serial.Fake(), ReadSerialData(50)).WillOnce(Return(MutFrame(5, 0, 5, 0x0d)));
+        EXPECT_CALL(serial.Fake(), ReadSerialData(50)).WillOnce(Return(QByteArray::fromHex("013412470d")));
+    }
+    fastecu::FakeCancellationToken cancellation;
+    ASSERT_TRUE((*result)->Start(cancellation));
+    const auto samples = (*result)->Poll(50ms, cancellation);
+    ASSERT_TRUE(samples);
+    ASSERT_EQ(samples->samples.size(), std::size_t{1});
+    ASSERT_EQ(samples->samples[0].channel_id, std::string("parameter:load"));
     ASSERT_EQ(samples->samples[0].raw_value, std::string("4660"));
     ASSERT_TRUE((*result)->Stop());
 }

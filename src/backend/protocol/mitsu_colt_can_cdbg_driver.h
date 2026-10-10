@@ -5,6 +5,7 @@
 #include "src/backend/ports/result.h"
 
 #include <chrono>
+#include <cstddef>
 #include <cstdint>
 #include <vector>
 
@@ -48,8 +49,7 @@ class CdbgLogDriver
     };
 
     // Reads at most one streamed frame and reports whether a usable frame was
-    // actually received. Values belong only to that frame, starting at
-    // channel_offset in the configured channel list.
+    // actually received. Values belong only to that frame, starting at channel_offset.
     fastecu::Result<PollResult> PollOnce(std::chrono::milliseconds timeout,
                                          const fastecu::ICancellationToken& cancellation);
 

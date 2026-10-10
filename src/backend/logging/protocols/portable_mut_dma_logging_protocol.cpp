@@ -35,15 +35,15 @@ fastecu::Status CheckCancellation(const fastecu::ICancellationToken& cancellatio
 
 MutDmaLoggingProtocol::MutDmaLoggingProtocol(std::unique_ptr<mutdma::IKlineTransport> transport,
                                              std::unique_ptr<mutdma::IMutDmaInit> init,
-                                             std::vector<LoggingChannel> channels)
+                                             std::vector<LoggingChannel> channels, mutdma::FreeformDialect dialect)
     : transport_(std::move(transport)), init_(std::move(init)), channels_(std::move(channels)),
-      wire_channels_(MakeWireChannels(channels_)), driver_(*transport_, *init_)
+      wire_channels_(MakeWireChannels(channels_)), driver_(*transport_, *init_, dialect)
 {
 }
 
 fastecu::Status MutDmaLoggingProtocol::Start(const fastecu::ICancellationToken& cancellation)
 {
-    if (auto status = CheckCancellation(cancellation); !status)
+    if (auto status = CheckCancellation(cancellation); !status.has_value())
     {
         return status;
     }
@@ -57,7 +57,7 @@ fastecu::Status MutDmaLoggingProtocol::Start(const fastecu::ICancellationToken& 
 fastecu::Result<PollData> MutDmaLoggingProtocol::Poll(std::chrono::milliseconds timeout,
                                                       const fastecu::ICancellationToken& cancellation)
 {
-    if (auto status = CheckCancellation(cancellation); !status)
+    if (auto status = CheckCancellation(cancellation); !status.has_value())
     {
         return std::unexpected(status.error());
     }
@@ -71,7 +71,7 @@ fastecu::Result<PollData> MutDmaLoggingProtocol::Poll(std::chrono::milliseconds 
     }
 
     auto values = driver_.PollOnce(timeout, cancellation);
-    if (!values)
+    if (!values.has_value())
     {
         return std::unexpected(values.error());
     }

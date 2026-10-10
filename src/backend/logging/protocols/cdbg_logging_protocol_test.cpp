@@ -172,7 +172,7 @@ TEST(CdbgLoggingProtocolTest, StartPropagatesCancellation)
     ASSERT_THAT(protocol->Start(cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::kCancelled));
 }
 
-TEST(CdbgLoggingProtocol, OutOfOrderFramesPublishOnlyTheirMappedMeasurements)
+TEST(CdbgLoggingProtocolTest, OutOfOrderFramesPublishOnlyTheirMappedMeasurements)
 {
     auto first = Channel();
     first.id = "first";

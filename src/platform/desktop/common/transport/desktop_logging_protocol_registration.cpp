@@ -20,7 +20,8 @@ void RegisterDesktopLoggingProtocols(LoggingEngine& engine, SerialPortActions& s
                                 auto transport = std::make_unique<mutdma::FastEcuKlineTransport>(&serial);
                                 auto init = std::make_unique<mutdma::AlreadyInMode>(125000);
                                 return std::make_unique<fastecu::logging::MutDmaLoggingProtocol>(
-                                    std::move(transport), std::move(init), snapshot.Session().Channels());
+                                    std::move(transport), std::move(init), snapshot.Session().Channels(),
+                                    snapshot.Session().MutDmaDialect());
                             });
 
     engine.RegisterProtocol(
@@ -57,11 +58,11 @@ void RegisterDesktopLoggingProtocols(LoggingEngine& engine, SerialPortActions& s
                             [&serial, &clock](const fastecu::desktop::logging::DesktopLoggingSnapshot& snapshot)
                             {
                                 auto transport = std::make_unique<FastEcuSsmTransport>(&serial);
-                                bool target_is_ecu = (snapshot.Target() == fastecu::logging::LoggingTarget::kEcu);
+                                bool target_is_ecu = snapshot.Target() == fastecu::logging::LoggingTarget::kEcu;
                                 bool use_openport2_adapter = serial.GetUseOpenport2Adapter();
                                 return std::make_unique<fastecu::logging::SsmLoggingProtocol>(
                                     clock, std::move(transport), snapshot.Session().Channels(),
-                                    snapshot.ResponseOffsets(), target_is_ecu, use_openport2_adapter);
+                                    *snapshot.Session().ReadPlan(), target_is_ecu, use_openport2_adapter);
                             });
 }
 } // namespace fastecu::desktop::logging

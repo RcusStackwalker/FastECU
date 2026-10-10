@@ -68,7 +68,7 @@ TEST(TestDriver, poll_decodes_stream_frame)
     fr.push_back(Sum8(fr));
     fr.push_back(kTrailerStd);
     t.QueueRead(fr);
-    MutDmaDriver d(t, init);
+    MutDmaDriver d(t, init, FreeformDialect::kOem33520003);
     d.SetChannelsForTest(ch);
     fastecu::FakeCancellationToken cancellation;
     const auto result = d.PollOnce(50ms, cancellation);
@@ -169,7 +169,7 @@ TEST(TestDriver, poll_reports_bad_response_on_invalid_checksum)
     d.SetChannelsForTest(ch);
     fastecu::FakeCancellationToken cancellation;
     const auto result = d.PollOnce(50ms, cancellation);
-    EXPECT_THAT(result, fastecu::testing::IsErr(fastecu::ErrorKind::kBadResponse));
+    ASSERT_THAT(result, fastecu::testing::IsErr(fastecu::ErrorKind::kBadResponse));
 }
 
 TEST(TestDriver, write_memory_fails_on_bad_echo)
@@ -216,7 +216,7 @@ TEST(TestDriver, ChecksumValidShortStreamDoesNotFabricateZeroReadings)
 {
     ScriptedKlineTransport transport;
     AlreadyInMode init(125000);
-    // Valid checksum for one data byte; the selected widths require three.
+    // 0x51 + one payload byte + checksum + trailer, for widths 2 and 1.
     transport.QueueRead(bytes::Bytes{0x51, 0x12, 0x63, 0x0d});
     MutDmaDriver driver(transport, init);
     driver.SetChannelsForTest({{0x4010, 2}, {0x4020, 1}});

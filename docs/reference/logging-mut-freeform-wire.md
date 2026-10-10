@@ -63,12 +63,14 @@ buffer byte one; it does not perform a software word swap.
 
 ## Scope
 
-The maintained codec implements this free-form byte order directly. Its
-previous big-endian encoding/decoding had no recorded working-hardware evidence;
-there is no compatibility dialect selector. Fixed-format DMA logging, memory
-write commands, and other MUT operations have separate layouts and are not
-changed by this correction.
+This evidence establishes the `oem-33520003` free-form dialect. The approved
+[dialect policy](logging-wire-evidence.md) makes that dialect explicit in XML and
+retains `legacy-be` as the default for existing definitions. The interim
+unconditional little-endian correction in PR #577 is superseded by that scoped
+selection; the firmware evidence above remains unchanged. Neither dialect has
+recorded working-hardware qualification. Fixed-format DMA logging, memory writes
+and other MUT operations retain their own layouts.
 
-The firmware also has element/output bounds in its gather routine. Those
-firmware-specific limits require a separate capacity correction; this change
-does not generalize them to every ECU or alter the current count guard.
+The OEM dialect enforces its evidenced 96-entry/96-output-byte bounds. The
+historical format retains the 255-entry representation guard without asserting
+an ECU capacity. See the [dialect evidence](logging-wire-evidence.md) for limits.

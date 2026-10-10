@@ -102,7 +102,8 @@ a wrong length or byte order is a bricking risk.
 These compose helpers encode big-endian fields. Byte order belongs to the
 specific protocol contract, not the CPU or a repository-wide default. The
 [MUT/DMA free-form codec](reference/logging-mut-freeform-wire.md) uses explicit
-little-endian byte helpers for request codes and stream values.
+byte helpers selected by the XML dialect for request codes and stream values;
+see the [dialect evidence](reference/logging-wire-evidence.md).
 
 Four shapes stay hand-rolled on purpose, and are not inconsistencies to tidy
 away:

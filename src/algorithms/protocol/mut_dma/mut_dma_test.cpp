@@ -22,7 +22,7 @@ TEST(MutDmaPortable, Sum8Wraps)
 TEST(MutDmaPortable, BuildIdListFrameEncodesChannelsAndTrailer)
 {
     const std::vector<Channel> ch = {{0x8000, 2}, {0x8004, 1}}; // N=2
-    const bytes::Bytes f = BuildIdListFrame(0xA1, ch);
+    const bytes::Bytes f = BuildIdListFrame(0xA1, ch, FreeformDialect::kOem33520003);
     ASSERT_EQ(f.size(), ReqLen(2));     // ((2+3)>>2)+4+28 = 1+4+28 = 33
     EXPECT_EQ(f[0], bytes::Byte(0xA1)); // rate selector
     EXPECT_EQ(f[1], bytes::Byte(2));    // count
@@ -44,7 +44,7 @@ TEST(MutDmaPortable, DecodeStreamValuesRoundTripsChannelSizes)
     const std::vector<Channel> ch = {{0x8000, 2}, {0x8004, 1}, {0x8008, 4}};
     EXPECT_EQ(ResponseDataLength(ch), std::size_t{2 + 1 + 4});            // 7
     const bytes::Bytes data = {0x34, 0x12, 0x56, 0xEF, 0xCD, 0xAB, 0x89}; // LE per channel
-    const std::vector<std::uint32_t> v = DecodeStreamValues(ch, data);
+    const std::vector<std::uint32_t> v = DecodeStreamValues(ch, data, FreeformDialect::kOem33520003);
     ASSERT_EQ(v.size(), std::size_t(3));
     EXPECT_EQ(v.at(0), std::uint32_t(0x1234));
     EXPECT_EQ(v.at(1), std::uint32_t(0x56));

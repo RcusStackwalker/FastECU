@@ -30,44 +30,24 @@ void AppendBytes(bytes::Bytes& target, bytes::Bytes chunk)
     target.insert(target.end(), chunk.begin(), chunk.end());
 }
 
-bytes::Bytes BuildPollRequest(const std::vector<LoggingChannel>& channels)
+bytes::Bytes BuildPollRequest(const SsmReadPlan& plan)
 {
     bytes::Bytes output{0xA8, 0x01};
-    output.reserve(output.size() + channels.size() * 3);
-    for (const LoggingChannel& channel : channels)
+    output.reserve(output.size() + plan.addresses.size() * 3);
+    for (const auto address : plan.addresses)
     {
-        bytes::AppendU24Be(output, channel.address);
+        bytes::AppendU24Be(output, address);
     }
     return output;
 }
 
-std::vector<std::size_t> SequentialOffsets(std::size_t count)
-{
-    std::vector<std::size_t> offsets;
-    offsets.reserve(count);
-    for (std::size_t index = 0; index < count; ++index)
-    {
-        offsets.push_back(index);
-    }
-    return offsets;
-}
 } // namespace
 
 SsmLoggingProtocol::SsmLoggingProtocol(fastecu::IClock& clock, std::unique_ptr<ISsmTransport> transport,
-                                       std::vector<LoggingChannel> channels, bool target_is_ecu,
+                                       std::vector<LoggingChannel> channels, SsmReadPlan plan, bool target_is_ecu,
                                        bool use_openport2_adapter)
-    : clock_(clock), transport_(std::move(transport)), channels_(std::move(channels)),
-      response_offsets_(SequentialOffsets(channels_.size())), target_is_ecu_(target_is_ecu),
-      use_openport2_adapter_(use_openport2_adapter)
-{
-}
-
-SsmLoggingProtocol::SsmLoggingProtocol(fastecu::IClock& clock, std::unique_ptr<ISsmTransport> transport,
-                                       std::vector<LoggingChannel> channels, std::vector<std::size_t> response_offsets,
-                                       bool target_is_ecu, bool use_openport2_adapter)
-    : clock_(clock), transport_(std::move(transport)), channels_(std::move(channels)),
-      response_offsets_(std::move(response_offsets)), target_is_ecu_(target_is_ecu),
-      use_openport2_adapter_(use_openport2_adapter)
+    : clock_(clock), transport_(std::move(transport)), channels_(std::move(channels)), plan_(std::move(plan)),
+      target_is_ecu_(target_is_ecu), use_openport2_adapter_(use_openport2_adapter)
 {
 }
 
@@ -172,7 +152,7 @@ fastecu::Status SsmLoggingProtocol::Start(const fastecu::ICancellationToken& can
     {
         return std::unexpected(received.error());
     }
-    // The startup probe requests exactly one address and one data byte.
+    // The startup probe requests one address, hence one data byte.
     if (received->size() != 7 || received->at(0) != 0x80 || received->at(1) != 0xf0 ||
         received->at(2) != (target_is_ecu_ ? 0x10 : 0x18) || received->at(3) != 2 || received->at(4) != 0xe8 ||
         bytes::Sum8(bytes::ByteView{*received}.first(6)) != received->back())
@@ -194,7 +174,7 @@ fastecu::Result<PollData> SsmLoggingProtocol::Poll(std::chrono::milliseconds tim
         return fastecu::Fail(fastecu::ErrorKind::kDisconnected, "adapter disconnected");
     }
 
-    if (auto write_result = transport_->Write(BuildSsmHeader(BuildPollRequest(channels_))); !write_result.has_value())
+    if (auto write_result = transport_->Write(BuildSsmHeader(BuildPollRequest(plan_))); !write_result.has_value())
     {
         return std::unexpected(write_result.error());
     }
@@ -204,38 +184,40 @@ fastecu::Result<PollData> SsmLoggingProtocol::Poll(std::chrono::milliseconds tim
     {
         return std::unexpected(received.error());
     }
-    if (received->size() <= 6 || received->at(0) != 0x80 || received->at(1) != 0xf0 ||
-        received->at(2) != (target_is_ecu_ ? 0x10 : 0x18) ||
-        received->size() != static_cast<std::size_t>(received->at(3)) + 5 || received->at(4) != 0xe8 ||
-        bytes::Sum8(bytes::ByteView{*received}.first(received->size() - 1)) != received->back())
+    if (received->empty())
     {
         return PollData{.responded = false};
     }
-
-    constexpr std::size_t kPayloadOffset = 5;
-    const std::size_t payload_length = received->size() - kPayloadOffset - 1;
-
-    PollData data{.responded = true};
-    data.samples.reserve(channels_.size());
-    for (std::size_t index = 0; index < channels_.size(); ++index)
+    const auto expected_size = plan_.addresses.size() + 6;
+    if (received->size() != expected_size || received->at(0) != 0x80 || received->at(1) != 0xf0 ||
+        received->at(2) != (target_is_ecu_ ? 0x10 : 0x18) || received->at(3) != plan_.addresses.size() + 1 ||
+        received->at(4) != 0xe8 ||
+        bytes::Sum8(bytes::ByteView{*received}.first(received->size() - 1)) != received->back())
     {
-        const LoggingChannel& channel = channels_[index];
-        const std::size_t response_offset = response_offsets_.at(index);
-        if (response_offset >= payload_length)
+        return Fail(ErrorKind::kBadResponse, "SSM logging response does not match complete physical read plan");
+    }
+    if (plan_.response_positions.size() != channels_.size())
+    {
+        return Fail(ErrorKind::kInvalidConfig, "SSM logical channel/read-plan count mismatch");
+    }
+    PollData data{.responded = true};
+    for (std::size_t i = 0; i < channels_.size(); ++i)
+    {
+        const auto& positions = plan_.response_positions[i];
+        if (positions.size() != channels_[i].length)
         {
-            continue;
+            return Fail(ErrorKind::kInvalidConfig, "SSM channel byte positions do not match width");
         }
-
         std::string raw_value;
-        for (std::size_t byte_index = 0; byte_index < channel.length && response_offset + byte_index < payload_length;
-             ++byte_index)
+        for (const auto position : positions)
         {
-            raw_value += std::to_string(received->at(kPayloadOffset + response_offset + byte_index));
+            if (position >= plan_.addresses.size())
+            {
+                return Fail(ErrorKind::kInvalidConfig, "SSM response position outside physical read plan");
+            }
+            raw_value += std::to_string(received->at(5 + position));
         }
-        data.samples.push_back(ProtocolSample{
-            .channel_id = channel.id,
-            .raw_value = std::move(raw_value),
-        });
+        data.samples.push_back({channels_[i].id, std::move(raw_value)});
     }
     return data;
 }

@@ -27,7 +27,7 @@ std::size_t ReqLen(std::size_t channel_count)
 {
     return (channel_count + 3) / 4 + channel_count * 2 + 0x1c;
 }
-bytes::Bytes BuildIdListFrame(bytes::Byte list_cmd, const std::vector<Channel>& channels)
+bytes::Bytes BuildIdListFrame(bytes::Byte list_cmd, const std::vector<Channel>& channels, FreeformDialect dialect)
 {
     const std::size_t n = channels.size();
     const std::size_t total = ReqLen(n);
@@ -44,8 +44,16 @@ bytes::Bytes BuildIdListFrame(bytes::Byte list_cmd, const std::vector<Channel>& 
     }
     std::size_t id_off = 2 + desc_bytes;
     for (const Channel& channel : channels)
-    { // least-significant request byte first
-        bytes::WriteU16Le(f, id_off, channel.id);
+    { // big-endian u16 ids
+        if (dialect == FreeformDialect::kOem33520003)
+        {
+            f[id_off] = static_cast<bytes::Byte>(channel.id & 0xffU);
+            f[id_off + 1] = static_cast<bytes::Byte>(channel.id >> 8U);
+        }
+        else
+        {
+            bytes::WriteU16Be(f, id_off, channel.id);
+        }
         id_off += 2;
     }
     f[total - 2] = Sum8(f, 0, total - 2);
@@ -61,7 +69,8 @@ std::size_t ResponseDataLength(const std::vector<Channel>& channels)
     }
     return n;
 }
-std::vector<std::uint32_t> DecodeStreamValues(const std::vector<Channel>& channels, bytes::ByteView data)
+std::vector<std::uint32_t> DecodeStreamValues(const std::vector<Channel>& channels, bytes::ByteView data,
+                                              FreeformDialect dialect)
 {
     if (data.size() != ResponseDataLength(channels))
     {
@@ -72,7 +81,19 @@ std::vector<std::uint32_t> DecodeStreamValues(const std::vector<Channel>& channe
     std::size_t off = 0;
     for (const Channel& c : channels)
     {
-        out.push_back(bytes::ReadULe(data, off, c.len));
+        if (dialect == FreeformDialect::kOem33520003)
+        {
+            std::uint32_t value = 0;
+            for (std::size_t i = 0; i < c.len && off + i < data.size(); ++i)
+            {
+                value |= static_cast<std::uint32_t>(data[off + i]) << (i * 8U);
+            }
+            out.push_back(value);
+        }
+        else
+        {
+            out.push_back(bytes::ReadUBe(data, off, c.len));
+        }
         off += c.len;
     }
     return out;

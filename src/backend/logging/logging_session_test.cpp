@@ -198,6 +198,47 @@ TEST(LoggingSessionTest, RejectsProtocolSpecificWireShapesBeforeIo)
                 ::testing::Not(fastecu::testing::IsOk()));
 }
 
+TEST(LoggingSessionTest, SsmCapacityCountsPhysicalBytes)
+{
+    std::vector<LoggingChannel> channels;
+    for (int i = 0; i < 21; ++i)
+    {
+        auto source = Channel(std::to_string(i), static_cast<std::uint32_t>(i * 4));
+        source.length = 4;
+        channels.push_back(source);
+    }
+    ASSERT_THAT(MakeLoggingSession(LoggingProtocolId::kSsm, channels, ValidPolicy()), fastecu::testing::IsOk());
+    auto extra = Channel("extra", 0x100);
+    extra.length = 4;
+    channels.push_back(extra);
+    EXPECT_THAT(MakeLoggingSession(LoggingProtocolId::kSsm, channels, ValidPolicy()),
+                fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
+}
+TEST(LoggingSessionTest, SsmRejectsMultiByteAddressOverflow)
+{
+    EXPECT_THAT(MakeLoggingSession(LoggingProtocolId::kSsm, {Channel("wide", 0xffffff)}, ValidPolicy()),
+                fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
+}
+
+TEST(LoggingSessionTest, OemMutDialectBoundsEntriesAndOutputBytes)
+{
+    std::vector<LoggingChannel> sources;
+    for (int i = 0; i < 96; ++i)
+    {
+        auto source = Channel(std::to_string(i), static_cast<std::uint32_t>(0x4000 + i));
+        source.length = 1;
+        sources.push_back(source);
+    }
+    EXPECT_THAT(
+        MakeLoggingSession(LoggingProtocolId::kMutDma, sources, ValidPolicy(), mutdma::FreeformDialect::kOem33520003),
+        fastecu::testing::IsOk());
+    sources[0].length = 2;
+    EXPECT_THAT(
+        MakeLoggingSession(LoggingProtocolId::kMutDma, sources, ValidPolicy(), mutdma::FreeformDialect::kOem33520003),
+        fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
+    EXPECT_THAT(MakeLoggingSession(LoggingProtocolId::kMutDma, sources, ValidPolicy()), fastecu::testing::IsOk());
+}
+
 TEST(LoggingChannelValidation, SharesExistingBoundsAndExpressionProbes)
 {
     auto channel = Channel("rpm", 0x10);

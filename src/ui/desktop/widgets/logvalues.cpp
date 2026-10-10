@@ -21,7 +21,12 @@ void populateChoices(QComboBox& combo, std::vector<LoggerChoice> choices, const 
     {
         combo.addItem(choice.name, choice.identity);
     }
-    combo.setCurrentIndex(combo.findData(QStringList{protocol, QString::fromStdString(selected)}));
+    const QStringList identity{protocol, QString::fromStdString(selected)};
+    if (combo.findData(identity) < 0)
+    {
+        combo.addItem(QString::fromStdString(selected) + " (Unavailable: missing definition)", identity);
+    }
+    combo.setCurrentIndex(combo.findData(identity));
 }
 void populateParameterChoices(QComboBox& combo, const fastecu::logging::LoggerModel& model, const QString& protocol,
                               const std::string& selected)
@@ -30,9 +35,19 @@ void populateParameterChoices(QComboBox& combo, const fastecu::logging::LoggerMo
     const auto key = protocol.toStdString();
     for (const auto& p : model.Definition().parameters)
     {
-        if (p.protocol == key && model.ParameterSupported(key, p.id))
+        if (p.protocol == key && (model.ParameterAvailable(key, p.id) || p.id == selected))
         {
-            choices.push_back({QString::fromStdString(p.name), {protocol, QString::fromStdString(p.id)}});
+            auto name = QString::fromStdString(p.name);
+            const auto support = model.ParameterSupport(key, p.id);
+            if (support == fastecu::logging::EcuSupport::kUnsupported)
+            {
+                name += " (Unavailable: ECU reports unsupported)";
+            }
+            else if (support == fastecu::logging::EcuSupport::kUnknown && !p.enabled)
+            {
+                name += " (Default disabled)";
+            }
+            choices.push_back({name, {protocol, QString::fromStdString(p.id)}});
         }
     }
     populateChoices(combo, std::move(choices), protocol, selected);
@@ -44,9 +59,19 @@ void populateSwitchChoices(QComboBox& combo, const fastecu::logging::LoggerModel
     const auto key = protocol.toStdString();
     for (const auto& p : model.Definition().switches)
     {
-        if (p.protocol == key && model.SwitchSupported(key, p.id))
+        if (p.protocol == key && (model.SwitchAvailable(key, p.id) || p.id == selected))
         {
-            choices.push_back({QString::fromStdString(p.name), {protocol, QString::fromStdString(p.id)}});
+            auto name = QString::fromStdString(p.name);
+            const auto support = model.SwitchSupport(key, p.id);
+            if (support == fastecu::logging::EcuSupport::kUnsupported)
+            {
+                name += " (Unavailable: ECU reports unsupported)";
+            }
+            else if (support == fastecu::logging::EcuSupport::kUnknown && !p.enabled)
+            {
+                name += " (Default disabled)";
+            }
+            choices.push_back({name, {protocol, QString::fromStdString(p.id)}});
         }
     }
     populateChoices(combo, std::move(choices), protocol, selected);

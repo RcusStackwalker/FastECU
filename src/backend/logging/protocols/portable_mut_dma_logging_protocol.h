@@ -16,7 +16,8 @@ class MutDmaLoggingProtocol final : public LoggingProtocol
 {
   public:
     MutDmaLoggingProtocol(std::unique_ptr<mutdma::IKlineTransport> transport, std::unique_ptr<mutdma::IMutDmaInit> init,
-                          std::vector<LoggingChannel> channels);
+                          std::vector<LoggingChannel> channels,
+                          mutdma::FreeformDialect dialect = mutdma::FreeformDialect::kLegacyBe);
 
     fastecu::Status Start(const fastecu::ICancellationToken& cancellation) override;
     fastecu::Result<PollData> Poll(std::chrono::milliseconds timeout,

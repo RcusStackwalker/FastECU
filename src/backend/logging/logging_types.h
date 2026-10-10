@@ -3,7 +3,9 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <string>
+#include <vector>
 
 namespace fastecu::logging
 {
@@ -30,6 +32,8 @@ struct LoggingChannel
     std::string from_byte_expression;
     std::string unit;
     std::uint8_t decimal_precision;
+    std::vector<std::uint32_t> byte_addresses;
+    std::optional<std::uint8_t> sample_bit;
 };
 
 struct LoggingPolicy

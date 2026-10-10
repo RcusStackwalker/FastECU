@@ -21,8 +21,6 @@ Remaining actions from the backend migration roadmap:
 
 - Extract logger configuration/model installation and selection persistence
   orchestration from `MainWindow` into backend use cases.
-- Move CSV column resolution and serialization from UI code into backend logging.
-  Preserve [identity, formatting, and file-lifetime contracts](reference/logging-contracts.md).
 - Move reusable flash routing, preparation, prompt/stage policy into backend
   flash workflows. Desktop code binds plans to transports/workers and renders
   prompts; operator decisions stay outside executors. Do not unify different
@@ -51,6 +49,14 @@ coordinators retain their UI roles; see the relevant
   and event-log strings. Add missing scripted cases before changing those paths.
   The CAN-init NRC description uses offset 3 while other ISO-15765 NRCs use 4;
   reproduce it and distinguish a description fix from wire behavior changes.
+- **MUT/DMA dialect qualification.** The explicitly selected `oem-33520003`
+  format now has source-scoped request/response byte order and 96-entry/96-byte
+  guards; the maintained `legacy-be` format retains its 255-entry representation
+  guard. Obtain independent firmware/adapter traces before claiming qualification
+  or applying these properties to another dialect. The
+  [wire evidence owner](reference/logging-wire-evidence.md) records the static
+  sources and boundaries. ACKs and values do not prove measurement meaning;
+  pointer-table codes and compact RAM selectors remain operator-authored inputs.
 - **MUT memory read integrity/write bounds.** The currently uncalled helpers can
   omit a timed-out read chunk and continue, returning a gapped buffer. The
   `0x4000`–`0xBFFF` write guard checks only the start, so data may extend beyond
@@ -134,9 +140,23 @@ flash-worker prompt/progress qualification.
 
 Remaining behavior and code gaps:
 
+- The direct serial reader currently recognizes SSM source headers `0x10`/`0x01`
+  but excludes TCU source `0x18`. Qualify and repair direct-adapter TCU framing
+  separately; target-change support invalidation does not establish transport
+  compatibility.
+
+- Add an in-app logger measurement editor for request ID/address code, width,
+  scaling, unit, and precision, with stable identities and definition persistence.
+  The current chooser selects existing IDs and cannot author definitions; use the
+  [XML workflow](../resources/shared/config/README.md) until this follow-up is
+  implemented. User-authored MUT measurements do not require a firmware-match
+  gate; portable field and request validation still applies.
+- Construct a gauge renderer for acquired gauge selections; the current desktop
+  acquires, caches and exports these values but has no gauge renderer.
 - `CarNotResponding` is logged without a live GUI indicator.
 - Live channel/interval/protocol reconfiguration requires an explicit path through
-  session config and worker; current changes require stop/start.
+  session config and worker; saved selection edits remain pending with a visible
+  restart-needed state and current acquisition/display/CSV bindings stay frozen.
 - `LoggingEngine::stop()` disconnects worker signals and publishes
   `StoppedByUser` itself; its worker-Cancelled mapping is not reached by stop.
 - `FastEcuSsmTransport::write()` reports input size while discarding returned
