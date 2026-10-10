@@ -247,23 +247,25 @@ TEST(LoggingUseCaseTest, ConversionInvalidConfigTerminates)
 {
     auto session = SessionWithPolicy(MakeValidSession().Policy(), "x/(x-1)");
     ScriptedProtocol protocol;
-    protocol.polls.push_back(PollData{.responded = true, .samples = {{"rpm", "1"}}});
+    protocol.polls.push_back(PollData{.responded = true, .samples = {{"rpm", "2"}, {"rpm", "1"}}});
     RecordingLoggingSink sink;
 
     ASSERT_THAT(RunUntilCancelled(session, protocol, sink, 2),
                 fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
     EXPECT_EQ(protocol.stops, 1);
+    EXPECT_TRUE(sink.sample_batches.empty());
 }
 
 TEST(LoggingUseCaseTest, UnknownProtocolChannelTerminatesAsInternal)
 {
     ScriptedProtocol protocol;
-    protocol.polls.push_back(PollData{.responded = true, .samples = {{"unknown", "1"}}});
+    protocol.polls.push_back(PollData{.responded = true, .samples = {{"rpm", "2"}, {"unknown", "1"}}});
     RecordingLoggingSink sink;
 
     ASSERT_THAT(RunUntilCancelled(MakeValidSession(), protocol, sink, 2),
                 fastecu::testing::IsErr(fastecu::ErrorKind::kInternal));
     EXPECT_EQ(protocol.stops, 1);
+    EXPECT_TRUE(sink.sample_batches.empty());
 }
 
 TEST(LoggingUseCaseTest, PrimaryErrorWinsOverStopFailure)

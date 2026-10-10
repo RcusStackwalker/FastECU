@@ -183,3 +183,16 @@ parameters are acquired in this preparation scope.
 
 Desktop consumers still use their existing snapshot representation until
 adoption. CSV's current-selection behavior remains unchanged.
+
+## Portable delivered-sample resolution API
+
+[Sample resolution](../../src/backend/logging/logging_sample_resolution.h)
+derives identity and precision from a validated run. An unknown delivered ID is
+a `kInternal` error; an unsupported SSM sample is deliberately skipped; other
+known samples return captured identity, numeric value and precision. Conversion
+remains the acquisition use case's responsibility. A raw-channel or conversion
+failure prevents publication of the entire polling batch.
+
+Desktop resolution still uses its existing adapter until adoption. Desktop owns
+formatting, cache lookup/mutation and reporting missing cache entries; delivered
+identity errors must allow subsequent valid samples to continue.
