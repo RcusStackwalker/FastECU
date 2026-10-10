@@ -6,7 +6,10 @@ package(default_visibility = ["//bazel/layers:backend_and_above"])
 cc_library(
     name = "checksum_selection",
     hdrs = ["checksum_selection.h"],
-    deps = ["//src/algorithms/checksum"],
+    deps = [
+        "//src/algorithms/checksum",
+        "//src/algorithms/protocol",
+    ],
 )
 
 cc_library(
@@ -15,11 +18,13 @@ cc_library(
     hdrs = ["dispatch.h"],
     implementation_deps = [
         "//src/algorithms/checksum",
+        "//src/algorithms/memory:address",
+        "//src/algorithms/memory:memory_error",
         "//src/backend/flash:flash_device_lookup",
     ],
     deps = [
         ":checksum_selection",
-        "//src/algorithms/protocol",
+        "//src/algorithms/memory:memory_image",
     ],
 )
 
@@ -28,6 +33,10 @@ fastecu_portable_gtest(
     srcs = ["dispatch_test.cpp"],
     deps = [
         ":dispatch",
+        "//src/algorithms/memory:memory_image",
+        "//src/algorithms/memory:memory_map",
+        "//src/algorithms/memory/testing:memory_views",
+        "//src/algorithms/protocol/testing:byte_matchers",
         "@googletest//:gtest",
     ],
 )

@@ -16,6 +16,8 @@ cc_library(
     implementation_deps = [
         "//bazel/qt:core",
         "//bazel/qt:widgets",
+        "//src/algorithms/memory:memory_image",
+        "//src/algorithms/memory:memory_map",
         "//src/backend/checksum:dispatch",
         "//src/backend/flash:flash_device_lookup",
     ],

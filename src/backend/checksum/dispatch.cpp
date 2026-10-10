@@ -2,7 +2,10 @@
 
 #include <algorithm>
 #include <array>
+#include <cstddef>
 #include <cstdint>
+#include <expected>
+#include <format>
 #include <optional>
 #include <string_view>
 #include <utility>
@@ -17,6 +20,8 @@
 #include "src/algorithms/checksum/checksum_tcu_mitsu_mh8104_can.h"
 #include "src/algorithms/checksum/checksum_tcu_subaru_denso_sh7055.h"
 #include "src/algorithms/checksum/checksum_tcu_subaru_hitachi_m32r_can.h"
+#include "src/algorithms/memory/address.h"
+#include "src/algorithms/memory/memory_error.h"
 #include "src/backend/flash/flash_device_lookup.h"
 
 namespace fastecu::checksum
@@ -157,6 +162,36 @@ DispatchResult DispatchFamily(std::string_view make, std::string_view flash_meth
     }
     return {false, std::nullopt};
 }
+
+// Writes each run of bytes `after` changed relative to `before` into `image`
+// through its memory map. The first refused write is the error.
+std::expected<void, memory::MemoryError> WriteBack(memory::MemoryImage& image, const memory::MemoryView& before,
+                                                   bytes::ByteView after)
+{
+    const bytes::ByteView original = before.Data();
+    std::size_t index = 0;
+    while (index < original.size())
+    {
+        if (original[index] == after[index])
+        {
+            ++index;
+            continue;
+        }
+        const std::size_t run_start = index;
+        while (index < original.size() && original[index] != after[index])
+        {
+            ++index;
+        }
+        // The view's range holds every index, so the address is representable.
+        const memory::FlashAddress address =
+            *before.Range().Start().Advance(memory::ByteCount{static_cast<std::uint32_t>(run_start)});
+        if (auto written = image.Write(address, after.subspan(run_start, index - run_start)); !written.has_value())
+        {
+            return written;
+        }
+    }
+    return {};
+}
 } // namespace
 
 bool HasRoute(std::string_view make, std::string_view flash_method)
@@ -165,7 +200,7 @@ bool HasRoute(std::string_view make, std::string_view flash_method)
                                { return spec.make == make && StartsWith(flash_method, spec.prefix); });
 }
 
-ChecksumCorrectionOutcome ApplyChecksumCorrection(bytes::ByteView rom_data, const ChecksumSelection& selection)
+ChecksumCorrectionOutcome ApplyChecksumCorrection(const memory::MemoryImage& image, const ChecksumSelection& selection)
 {
     const FlashDevice *device = fastecu::flash::FindFlashDevice(selection.mcu_type);
     if (device == nullptr)
@@ -176,17 +211,41 @@ ChecksumCorrectionOutcome ApplyChecksumCorrection(bytes::ByteView rom_data, cons
     {
         return {.status = ChecksumCorrectionOutcome::Status::kNoModuleForProtocol};
     }
-    if (rom_data.size() != device->romsize)
+    if (image.File().size() != device->romsize)
+    {
+        return {.status = ChecksumCorrectionOutcome::Status::kBadRomSize};
+    }
+    // A map with addresses no block holds has no contiguous range for a family
+    // to run on.
+    const std::expected<memory::MemoryView, memory::MemoryError> view = image.Render(image.Map().Span());
+    if (!view.has_value())
     {
         return {.status = ChecksumCorrectionOutcome::Status::kBadRomSize};
     }
 
-    const DispatchResult dispatch = DispatchFamily(selection.make, selection.flash_method, selection.rom_id, rom_data);
+    DispatchResult dispatch = DispatchFamily(selection.make, selection.flash_method, selection.rom_id, view->Data());
     if (!dispatch.module_available)
     {
         return {.status = ChecksumCorrectionOutcome::Status::kNoModuleForProtocol};
     }
-    return {.status = ChecksumCorrectionOutcome::Status::kFamilyRan, .family_result = dispatch.result};
+    ChecksumCorrectionOutcome outcome{.status = ChecksumCorrectionOutcome::Status::kFamilyRan,
+                                      .family_result = std::move(dispatch.result)};
+    // Every family returns the bytes of exactly the range it was given.
+    if (!outcome.family_result.has_value() || !outcome.family_result->Ok() ||
+        outcome.family_result->rom_data.size() != view->Data().size())
+    {
+        return outcome;
+    }
+    memory::MemoryImage corrected = image;
+    if (auto written = WriteBack(corrected, *view, outcome.family_result->rom_data); !written.has_value())
+    {
+        outcome.family_result->status = ChecksumResult::Status::kUnsupportedRom;
+        outcome.family_result->message = std::format(
+            "Checksum correction would change ROM bytes the protocol cannot write: {}", written.error().detail);
+        return outcome;
+    }
+    outcome.corrected_file.emplace(corrected.File().begin(), corrected.File().end());
+    return outcome;
 }
 
 } // namespace fastecu::checksum
