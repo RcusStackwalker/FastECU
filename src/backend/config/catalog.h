@@ -36,7 +36,7 @@ struct MemoryMapSpec
     std::span<const memory::MemoryBlock> blocks;
     // The ECU address that address 0 in these ROMs' definition files stands
     // for (ADR 0020).
-    memory::FlashAddress definition_base{};
+    memory::FlashAddress definition_base;
 };
 
 // A ROM-file-backed memory block, for constant catalog data. A range that is

@@ -128,12 +128,20 @@ source and dirty state and emits the existing log and operator notice. A later
 edit marks dirty again. Warnings and confirmations belong to the UI.
 
 ROM opening preserves primary/secondary definition precedence, reported ROM-ID
-fallback, vehicle selection, the unpadded size label, and subsequent flash-method
-padding. Size-validation failure keeps a header with no maps. An unreadable
-indexed definition opens without a definition and retains its load-failure
-notice. Authoring a definition writes it without reopening the existing
-definition-less session. Failed or cancelled ECU reads create no session;
-successful reads with data are adopted after dispatch completes.
+fallback, vehicle selection, and the file size label. The ROM file is kept
+exactly as loaded and placed at ECU addresses by the memory map its protocol
+declares for exactly that file size ([ADR 0020](../adr/0020-model-rom-memory-as-a-memory-map.md));
+a protocol declaring none places it at address 0. A file whose size matches none
+of its protocol's memory maps, or an empty file, is not opened, and the selected
+vehicle does not change. Saving writes the file back in the layout it was opened
+in, so a 160 KiB MC68HC16Y5 file stays 160 KiB. A map whose cells or axes leave
+the memory map, touch a fill block, or span writable and read-only memory is a
+structural map failure of that map alone; a map in read-only memory decodes but
+cannot be edited. An unreadable indexed definition opens without a definition
+and retains its load-failure notice. Authoring a definition writes it without
+reopening the existing definition-less session. Failed or cancelled ECU reads
+create no session; successful reads with data are adopted after dispatch
+completes.
 
 See the [session API](../../src/backend/calibration/session/calibration_session.h)
 and [ROM save use case](../../src/backend/calibration/session/rom_save.h).

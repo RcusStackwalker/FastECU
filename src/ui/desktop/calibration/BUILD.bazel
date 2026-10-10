@@ -179,6 +179,7 @@ fastecu_gtest(
     deps = [
         ":calibration_interaction",
         ":calibration_operation_coordinator",
+        "//src/algorithms/memory:memory_map",
         "//src/algorithms/protocol",
         "//src/backend/calibration/session:calibration_session",
         "//src/backend/calibration/session:rom_save",
