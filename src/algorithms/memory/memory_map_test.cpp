@@ -223,5 +223,14 @@ TEST(MemoryMap, FileOffsetOfDoesNotSpanAdjacentFileBlocks)
     EXPECT_EQ(map->FileOffsetOf(Range(0x0E, 4)), std::nullopt);
 }
 
+TEST(MemoryMapSpan, RunsFromTheFirstBlockStartToTheLastBlockEnd)
+{
+    const std::array blocks{FileBlock(0x100, 0x10, 0x0, Writability::kReadOnly), FileBlock(0x200, 0x20, 0x10)};
+    const auto map = MemoryMap::Create(blocks, ByteCount{0x30});
+    ASSERT_TRUE(map.has_value());
+
+    EXPECT_EQ(map->Span(), Range(0x100, 0x120));
+}
+
 } // namespace
 } // namespace fastecu::memory
