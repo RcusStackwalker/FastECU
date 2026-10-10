@@ -2,6 +2,7 @@
 
 #include <array>
 #include <cstddef>
+#include <cstdint>
 #include <format>
 #include <optional>
 #include <ostream>
@@ -14,6 +15,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "src/algorithms/memory/memory_map.h"
 #include "src/algorithms/protocol/bytes.h"
 #include "src/backend/calibration/session/calibration_session.h"
 #include "src/backend/calibration/session/rom_save.h"
@@ -33,6 +35,7 @@ namespace
 namespace calibration = fastecu::calibration;
 namespace checksum = fastecu::checksum;
 namespace config = fastecu::config;
+namespace memory = fastecu::memory;
 namespace ui = fastecu::ui;
 using fastecu::Error;
 using fastecu::ErrorKind;
@@ -84,6 +87,35 @@ calibration::CalibrationSession ecuRead(std::optional<calibration::ResolvedDefin
             .definition = std::move(definition),
             .protocol = {.flash_method = std::move(flashMethod), .rom_id = "TEST"},
         }};
+}
+
+// An MC68HC16Y5-style packed file of {1, 2, 3, 4}: file 0-1 at 0, two fill
+// bytes at 2, file 2-3 at 4, so Rom() is {1, 2, 0xFF, 0xFF, 3, 4}.
+calibration::CalibrationSession packedFile()
+{
+    const auto range = [](std::uint32_t start, std::uint32_t size)
+    {
+        return memory::AddressRange<memory::FlashSpace>::Make(memory::FlashAddress{start}, memory::ByteCount{size})
+            .value();
+    };
+    const std::array blocks{
+        memory::MemoryBlock{
+            .range = range(0, 2), .backing = memory::FileBacking{}, .writability = memory::Writability::kWritable},
+        memory::MemoryBlock{
+            .range = range(2, 2), .backing = memory::FillBacking{}, .writability = memory::Writability::kReadOnly},
+        memory::MemoryBlock{.range = range(4, 2),
+                            .backing = memory::FileBacking{.offset = memory::FileOffset{2}},
+                            .writability = memory::Writability::kWritable},
+    };
+    return calibration::CalibrationSession{
+        calibration::SessionId{2}, calibration::SessionContents{
+                                       .source = {.display_name = "packed.bin",
+                                                  .path = "/cal/packed.bin",
+                                                  .origin = calibration::RomOrigin::kFile},
+                                       .rom = {1, 2, 3, 4},
+                                       .memory_map = memory::MemoryMap::Create(blocks, memory::ByteCount{4}).value(),
+                                       .protocol = {.rom_id = "TEST"},
+                                   }};
 }
 
 // A coordinator over an initialized in-memory configuration, the real
@@ -585,6 +617,31 @@ TEST_F(CalibrationOperationCoordinator, SaveAsCorrectsBeforeChoosingPath)
                                    Pair(LogLevel::kDebug, "Save as: Check if OEM ECU file"),
                                    Pair(LogLevel::kDebug, "ecuCalDef->FileName: saved.bin"),
                                    Pair(LogLevel::kDebug, "ecuCalDef->FullFileName: /cal/saved.bin")));
+}
+
+// Q3: a file is saved in the layout it was opened in; the fill bytes Rom()
+// shows for the RAM range never reach the checksum image or the saved file.
+TEST_F(CalibrationOperationCoordinator, SaveWritesTheRomFileInTheLayoutItWasOpenedIn)
+{
+    calibration::CalibrationSession packed = packedFile();
+    ASSERT_THAT(packed.Rom(), ElementsAre(1, 2, 0xFF, 0xFF, 3, 4));
+    expectChecksum({});
+
+    EXPECT_EQ(coordinator_.save(&packed, SaveMode::kSave), SaveOutcome::kSaved);
+
+    EXPECT_THAT(checksum_image_, ElementsAre(1, 2, 3, 4));
+    EXPECT_THAT(cfg_.file_repository.files.at("/cal/packed.bin"), ElementsAre(1, 2, 3, 4));
+}
+
+TEST_F(CalibrationOperationCoordinator, WriteImagesAreTheRomFileAsOpened)
+{
+    calibration::CalibrationSession packed = packedFile();
+    expectChecksum({});
+
+    const std::optional<PreparedWrite> prepared = coordinator_.prepareWrite(&packed, "/kernels");
+
+    ASSERT_TRUE(prepared.has_value());
+    EXPECT_THAT(prepared->image, ElementsAre(1, 2, 3, 4));
 }
 
 struct CancelledPickCase

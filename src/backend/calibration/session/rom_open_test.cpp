@@ -1,5 +1,7 @@
 #include "src/backend/calibration/session/rom_open.h"
 
+#include <array>
+#include <cstddef>
 #include <cstdint>
 #include <string>
 #include <utility>
@@ -8,7 +10,10 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "src/algorithms/memory/address.h"
+#include "src/algorithms/memory/memory_map.h"
 #include "src/backend/calibration/session/testing/fake_definition_catalogs.h"
+#include "src/backend/config/catalog.h"
 #include "src/backend/config/testing/config_session_fixture.h"
 #include "src/backend/ports/testing/in_memory_atomic_file_writer.h"
 #include "src/backend/ports/testing/result_matchers.h"
@@ -22,6 +27,7 @@ using definition::DefinitionFormat;
 using fastecu::testing::IsErr;
 using fastecu::testing::IsOk;
 using ::testing::Contains;
+using ::testing::ElementsAreArray;
 using ::testing::HasSubstr;
 using ::testing::IsEmpty;
 
@@ -88,7 +94,6 @@ TEST_F(RomOpenBasics, OpensAFileWithoutDefinitionsWhenBothFormatsAreDisabled)
     EXPECT_EQ(outcome->contents.rom, SyntheticRom());
     EXPECT_FALSE(outcome->contents.definition.has_value());
     EXPECT_THAT(catalogs_.calls, IsEmpty());
-    EXPECT_FALSE(outcome->size_rejected);
 }
 
 TEST_F(RomOpenBasics, APathWithoutABasenameIsShownAsDefaultBin)
@@ -182,7 +187,9 @@ TEST_F(RomOpenBasics, AFailedBackupDoesNotFailTheAdoption)
     EXPECT_THAT(opener_.AdoptReadImage(ReadImage{.rom = SyntheticRom(), .filename = "x.bin"}), IsOk());
 }
 
-TEST_F(RomOpenBasics, PaddingFollowsTheUnpaddedSizeLabel)
+// A protocol this catalog does not know places the ROM file at address 0 as
+// loaded: nothing is inserted, whatever the flash method is called.
+TEST_F(RomOpenBasics, AFileOfAnUnknownProtocolOpensAsLoaded)
 {
     const auto outcome = opener_.AdoptReadImage(ReadImage{
         .rom = std::vector<std::uint8_t>(0x100, 0x11),
@@ -192,7 +199,17 @@ TEST_F(RomOpenBasics, PaddingFollowsTheUnpaddedSizeLabel)
 
     ASSERT_THAT(outcome, IsOk());
     EXPECT_EQ(outcome->contents.protocol.file_size_label, "0kb");
-    EXPECT_EQ(outcome->contents.rom.size(), 0x28000U); // zero-extended to 0x20000, then 0x8000 of 0xFF
+    EXPECT_EQ(outcome->contents.rom.size(), 0x100U);
+    ASSERT_TRUE(outcome->contents.memory_map.has_value());
+    EXPECT_EQ(outcome->contents.memory_map->FileSize(), memory::ByteCount{0x100});
+}
+
+TEST_F(RomOpenBasics, AnEmptyFileIsNotOpened)
+{
+    PutRom("/cal/empty.bin", {});
+
+    EXPECT_THAT(opener_.OpenFile("/cal/empty.bin"), IsErr(ErrorKind::kInvalidConfig));
+    EXPECT_THAT(Notices(), Contains("File size error: the ROM file is empty"));
 }
 
 TEST_F(RomOpenBasics, NoCatalogIsRequestedWhileTheEcuFlashDirectoryIsEmpty)
@@ -428,7 +445,9 @@ TEST_F(RomOpenDefinitions, AnUnparseableDefinitionThatExistsIsLoggedWithoutANoti
     EXPECT_THAT(Notices(), IsEmpty());
 }
 
-TEST_F(RomOpenDefinitions, SizeRejectionKeepsHeaderAndDropsMaps)
+// Q17: a map past the end of the file is a structural failure of that map
+// alone; the definition keeps its maps and the file opens without a notice.
+TEST_F(RomOpenDefinitions, AMapPastTheEndOfTheFileFailsOnlyThatMap)
 {
     EnableEcuflashPrimary();
     catalogs_.entries[DefinitionFormat::kEcuFlash] = {TestEntry(DefinitionFormat::kEcuFlash)};
@@ -436,15 +455,14 @@ TEST_F(RomOpenDefinitions, SizeRejectionKeepsHeaderAndDropsMaps)
     short_rom.resize(0x20); // the map at 0x20 is now past the end
     PutRom("/cal/short.bin", short_rom);
 
-    const auto outcome = opener_.OpenFile("/cal/short.bin");
+    auto outcome = opener_.OpenFile("/cal/short.bin");
 
     ASSERT_THAT(outcome, IsOk());
-    EXPECT_TRUE(outcome->size_rejected);
     ASSERT_TRUE(outcome->contents.definition.has_value());
-    EXPECT_EQ(outcome->contents.definition->definition.identity.xml_id, "TESTROM");
-    EXPECT_THAT(outcome->contents.definition->definition.maps, IsEmpty());
-    EXPECT_THAT(Notices(), Contains("File size error: Error in expected ROM size!"));
-    EXPECT_THAT(LogText(), Contains(HasSubstr("Error in expected ROM size")));
+    EXPECT_EQ(outcome->contents.definition->definition.maps.size(), 1U);
+    EXPECT_THAT(Notices(), IsEmpty());
+    const CalibrationSession session(SessionId{1}, std::move(outcome->contents));
+    EXPECT_THAT(session.DecodeMap(0), IsErr(ErrorKind::kInvalidConfig));
 }
 
 // The production catalog is rebuilt on every open and skips unreadable files,
@@ -485,6 +503,88 @@ TEST_F(RomOpenDefinitions, AnIndexedDefinitionThatStillExistsIsLoggedWithoutANot
     EXPECT_FALSE(outcome->contents.definition.has_value());
     EXPECT_THAT(LogText(), Contains(HasSubstr("Unable to read EcuFlash definition TESTROM")));
     EXPECT_THAT(Notices(), IsEmpty());
+}
+
+// "mapped": a 0x40-byte file with a 0x10-byte fill block between its halves,
+// like MC68HC16Y5 `_02`. "based": a 0x40-byte file at 0x1000 whose definitions
+// count from 0x1000, like 1N83M.
+constexpr auto kMappedBlocks = std::to_array({
+    config::FileBlock(0x00, 0x20, 0x00, memory::Writability::kWritable),
+    config::FillBlock(0x20, 0x10, 0xFF),
+    config::FileBlock(0x30, 0x20, 0x20, memory::Writability::kWritable),
+});
+constexpr auto kBasedBlocks = std::to_array({config::FileBlock(0x1000, 0x40, 0x00, memory::Writability::kWritable)});
+constexpr auto kMappedMaps =
+    std::to_array<config::MemoryMapSpec>({{.file_size = memory::ByteCount{0x40}, .blocks = kMappedBlocks}});
+constexpr auto kBasedMaps = std::to_array<config::MemoryMapSpec>(
+    {{.file_size = memory::ByteCount{0x40}, .blocks = kBasedBlocks, .definition_base = memory::FlashAddress{0x1000}}});
+constexpr auto kMappedProtocols = std::to_array<config::ProtocolSpec>({
+    {.name = "proto_a", .mcu = "SH7058", .checksum = config::ChecksumSupport::kCorrected, .description = "A"},
+    {.name = "mapped", .mcu = "MC68HC16Y5", .description = "Mapped", .memory_maps = kMappedMaps},
+    {.name = "based", .mcu = "N83M_4MB", .description = "Based", .memory_maps = kBasedMaps},
+});
+constexpr auto kMappedVehicles = std::to_array<config::VehicleSpec>({
+    {.id = "subaru-impreza-v1", .make = "Subaru", .protocol = config::ProtocolIn(kMappedProtocols, "proto_a")},
+    {.id = "mapped-car", .make = "Subaru", .protocol = config::ProtocolIn(kMappedProtocols, "mapped")},
+    {.id = "based-car", .make = "Subaru", .protocol = config::ProtocolIn(kMappedProtocols, "based")},
+});
+constexpr config::Catalog kMappedCatalog{kMappedProtocols, kMappedVehicles};
+
+class RomOpenMemoryMaps : public RomOpenTest
+{
+  protected:
+    void SetUp() override
+    {
+        cfg_.catalog = kMappedCatalog;
+        RomOpenTest::SetUp();
+    }
+};
+
+// Each byte holds its own file offset.
+std::vector<std::uint8_t> CountingRom(std::size_t size)
+{
+    std::vector<std::uint8_t> rom(size);
+    for (std::size_t index = 0; index < size; ++index)
+    {
+        rom[index] = static_cast<std::uint8_t>(index);
+    }
+    return rom;
+}
+
+TEST_F(RomOpenMemoryMaps, AReadImageIsPlacedByItsProtocolsMemoryMap)
+{
+    auto outcome =
+        opener_.AdoptReadImage(ReadImage{.rom = CountingRom(0x40), .filename = "x.bin", .protocol_name = "mapped"});
+
+    ASSERT_THAT(outcome, IsOk());
+    const CalibrationSession session(SessionId{1}, std::move(outcome->contents));
+    EXPECT_THAT(session.File(), ElementsAreArray(CountingRom(0x40)));
+    ASSERT_EQ(session.Rom().size(), 0x50U);
+    EXPECT_EQ(session.Rom()[0x1F], 0x1F);
+    EXPECT_EQ(session.Rom()[0x20], 0xFF);
+    EXPECT_EQ(session.Rom()[0x30], 0x20);
+}
+
+TEST_F(RomOpenMemoryMaps, DefinitionAddressesCountFromTheMapsDefinitionBase)
+{
+    auto outcome =
+        opener_.AdoptReadImage(ReadImage{.rom = CountingRom(0x40), .filename = "x.bin", .protocol_name = "based"});
+
+    ASSERT_THAT(outcome, IsOk());
+    ASSERT_TRUE(outcome->contents.memory_map.has_value());
+    EXPECT_EQ(outcome->contents.memory_map->DefinitionBase(), memory::FlashAddress{0x1000});
+    const CalibrationSession session(SessionId{1}, std::move(outcome->contents));
+    EXPECT_THAT(session.Rom(), ElementsAreArray(CountingRom(0x40)));
+}
+
+TEST_F(RomOpenMemoryMaps, AFileSizeTheProtocolHasNoMapForIsNotOpened)
+{
+    const auto outcome =
+        opener_.AdoptReadImage(ReadImage{.rom = CountingRom(0x41), .filename = "x.bin", .protocol_name = "mapped"});
+
+    EXPECT_THAT(outcome, IsErr(ErrorKind::kInvalidConfig));
+    EXPECT_THAT(Notices(), Contains("File size error: protocol 'mapped' has no memory map for 0x41-byte ROM files"));
+    EXPECT_EQ(*cfg_.session.SelectedRow(), 0U); // the rejected file selected no vehicle
 }
 
 } // namespace

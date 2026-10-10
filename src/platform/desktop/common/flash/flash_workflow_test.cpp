@@ -19,7 +19,6 @@
 #include <tuple>
 #include <vector>
 
-#include "src/backend/calibration/calibration_service.h"
 #include "src/backend/config/catalog.h"
 #include "src/backend/flash/ecu/subaru_denso_sh7058_can_plan.h"
 #include "src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_plan.h"
@@ -1563,7 +1562,11 @@ TEST(FlashWorkflowTest, mc68CalibrationPaddingRoundTripsToPackedWriteImage)
     {
         packed_image[index] = static_cast<bytes::Byte>((index / 0x4000) + 1);
     }
-    input.image = calibration::ApplyFlashMethodPadding(packed_image, "sub_ecu_denso_mc68hc16y5_02");
+    // A 192 KiB image: the packed flash with 0x8000 bytes of 0xFF for the RAM
+    // range at 0x20000, as a 192 KiB community file or a BDM read holds it.
+    bytes::Bytes full_image = packed_image;
+    full_image.insert(full_image.begin() + 0x20000, 0x8000, bytes::Byte{0xFF});
+    input.image = std::move(full_image);
     ASSERT_EQ(input.image->size(), std::size_t{0x30000});
 
     auto workflow = FlashWorkflowFactory::TryCreate(std::move(input));

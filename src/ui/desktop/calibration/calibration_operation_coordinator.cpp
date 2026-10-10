@@ -62,7 +62,7 @@ std::optional<PreparedWrite> CalibrationOperationCoordinator::prepareWrite(calib
         return std::nullopt;
     }
 
-    bytes::Bytes image(session->Rom().begin(), session->Rom().end());
+    bytes::Bytes image(session->File().begin(), session->File().end());
     if (selectedProtocol(config_).checksum == config::ChecksumSupport::kMissing &&
         !interaction_.confirmWriteWithoutChecksum())
     {
@@ -95,7 +95,7 @@ SaveOutcome CalibrationOperationCoordinator::save(calibration::CalibrationSessio
     {
         callbacks_.log(LogLevel::kDebug, "Save as: Check selected ROM number");
     }
-    bytes::Bytes image(session->Rom().begin(), session->Rom().end());
+    bytes::Bytes image(session->File().begin(), session->File().end());
     correctOperationImage(*session, image);
 
     const std::optional<std::string> target =

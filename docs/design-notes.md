@@ -186,6 +186,9 @@ session bytes. Save/write outcomes therefore cannot change the user's in-memory
 calibration incidentally. A successful save updates path/dirty metadata; failure
 preserves it. The [calibration reference](reference/calibration-compatibility.md)
 records save/open behavior and warnings for files edited by older builds.
+The operation image is the ROM file as opened (the session's file layout),
+never the definition-addressed view, so saving reproduces the opened file's
+size.
 
 ### The UI owns operator sequencing
 

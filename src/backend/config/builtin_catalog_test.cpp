@@ -183,8 +183,8 @@ std::optional<MemoryMap> MapFor(std::string_view protocol, std::uint32_t file_si
 constexpr std::array<std::string_view, 3> kMc68Protocols{
     "sub_ecu_denso_mc68hc16y5_02", "sub_ecu_denso_mc68hc16y5_02_ecutek", "sub_ecu_denso_mc68hc16y5_02_bdm"};
 
-// ApplyFlashMethodPadding inserts 0x8000 bytes of 0xFF at 0x20000 into a
-// 160 KiB file; the packed map reads the same bytes there without inserting any.
+// Calibration used to insert 0x8000 bytes of 0xFF at 0x20000 into a 160 KiB
+// file; the packed map reads the same bytes there without inserting any.
 TEST(BuiltinCatalogMemoryMaps, Mc68PackedFilesReadErasedFlashInTheRamRange)
 {
     for (const std::string_view protocol : kMc68Protocols)
@@ -324,6 +324,23 @@ TEST(BuiltinCatalogMemoryMaps, Mh8111ReadFilesHoldNoWritableBytes)
     const std::optional<MemoryMap> map = MapFor("sub_tcu_cvt_mitsu_mh8111_can", 0x80000);
     ASSERT_TRUE(map.has_value());
     EXPECT_THAT(map->Blocks(), ::testing::Each(::testing::Field(&MemoryBlock::writability, Writability::kReadOnly)));
+}
+
+// FastECU's own 1N83M constants count from the start of the ROM file, and no
+// community 1N83M definitions exist; every other map counts from address 0.
+TEST(BuiltinCatalogMemoryMaps, OnlyN83mDefinitionsCountFromTheirImageAddress)
+{
+    for (const ProtocolSpec& protocol : BuiltinCatalog().Protocols())
+    {
+        const bool n83m = protocol.name.starts_with("sub_ecu_denso_1n83m_");
+        for (const fastecu::config::MemoryMapSpec& spec : protocol.memory_maps)
+        {
+            EXPECT_EQ(spec.definition_base, FlashAddress{n83m ? 0x08F9C000U : 0U}) << protocol.name;
+        }
+    }
+    const std::optional<MemoryMap> map = MapFor("sub_ecu_denso_1n83m_4m_can", 0x3E4000);
+    ASSERT_TRUE(map.has_value());
+    EXPECT_EQ(map->DefinitionBase(), FlashAddress{0x08F9C000});
 }
 
 } // namespace

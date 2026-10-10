@@ -216,5 +216,34 @@ TEST(MemoryImage, WritingNoBytesSucceeds)
 
     EXPECT_EQ(WriteError(image, 0x20000, bytes::ByteView{}), std::nullopt);
 }
+TEST(MemoryImage, CheckWriteReportsWhatWriteWouldWithoutWriting)
+{
+    const MemoryImage image = PackedMc68Image();
+    const bytes::Bytes before(image.File().begin(), image.File().end());
+    const auto check = [&image](std::uint32_t start, std::uint32_t size) -> std::optional<MemoryErrorKind>
+    {
+        const auto checked = image.CheckWrite(FlashAddress{start}, ByteCount{size});
+        return checked.has_value() ? std::nullopt : std::optional(checked.error().kind);
+    };
+
+    EXPECT_EQ(check(0x28000, 0x10), std::nullopt);
+    EXPECT_EQ(check(0x1FFFF, 2), MemoryErrorKind::kFillBlock);
+    EXPECT_EQ(check(0x2FFFF, 2), MemoryErrorKind::kUnmapped);
+    EXPECT_EQ(check(0xFFFFFFFF, 1), MemoryErrorKind::kUnmapped);
+    EXPECT_EQ(check(0x20000, 0), std::nullopt);
+    EXPECT_THAT(image.File(), ElementsAreArray(before));
+}
+
+TEST(MemoryImage, CheckWriteRejectsReadOnlyBlocks)
+{
+    const std::array blocks{FileBlock(0x0, 0x8000, 0x0, Writability::kReadOnly), FileBlock(0x8000, 0x8000, 0x8000)};
+    const MemoryImage image = ImageOf(blocks, bytes::Bytes(0x10000, 0x00));
+
+    const auto checked = image.CheckWrite(FlashAddress{0x7FFF}, ByteCount{2});
+
+    ASSERT_FALSE(checked.has_value());
+    EXPECT_EQ(checked.error().kind, MemoryErrorKind::kNotWritable);
+}
+
 } // namespace
 } // namespace fastecu::memory

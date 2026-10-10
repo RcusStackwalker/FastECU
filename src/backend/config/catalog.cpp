@@ -24,7 +24,8 @@ void AddMemoryMapProblems(const ProtocolSpec& protocol, std::vector<std::string>
     for (std::size_t index = 0; index < maps.size(); ++index)
     {
         const MemoryMapSpec& spec = maps[index];
-        if (const auto map = memory::MemoryMap::Create(spec.blocks, spec.file_size); !map.has_value())
+        if (const auto map = memory::MemoryMap::Create(spec.blocks, spec.file_size, spec.definition_base);
+            !map.has_value())
         {
             problems.push_back(std::format("protocol '{}' memory map for 0x{:x}-byte files is invalid: {}",
                                            protocol.name, spec.file_size.Value(), map.error().detail));
@@ -134,7 +135,7 @@ std::expected<memory::MemoryMap, memory::MemoryError> SelectMemoryMap(const Prot
                                 .detail = std::format("protocol '{}' has no memory map for 0x{:x}-byte ROM files",
                                                       protocol.name, file_size.Value())});
     }
-    return memory::MemoryMap::Create(found->blocks, found->file_size);
+    return memory::MemoryMap::Create(found->blocks, found->file_size, found->definition_base);
 }
 
 const ProtocolSpec *Catalog::FindProtocol(std::string_view name) const

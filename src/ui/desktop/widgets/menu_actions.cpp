@@ -622,7 +622,7 @@ void MainWindow::showHexEditor()
     // copy of the image, so it may outlive the ROM it was opened from.
     if (auto *session = selectedCalibration(); session != nullptr)
     {
-        HexEdit *hexEdit = new HexEdit(bytes::ToQByteArray(session->Rom()),
+        HexEdit *hexEdit = new HexEdit(bytes::ToQByteArray(session->File()),
                                        QString::fromStdString(session->Source().display_name), this);
         hexEdit->setAttribute(Qt::WA_DeleteOnClose);
     }

@@ -13,7 +13,10 @@ cc_library(
     name = "calibration_session",
     srcs = ["calibration_session.cpp"],
     hdrs = ["calibration_session.h"],
+    implementation_deps = ["//src/backend/calibration:map_placement"],
     deps = [
+        "//src/algorithms/memory:memory_image",
+        "//src/algorithms/memory:memory_map",
         "//src/algorithms/protocol",
         "//src/backend/calibration:calibration_service",
         "//src/backend/definition:definition_model",
@@ -26,6 +29,7 @@ fastecu_portable_gtest(
     srcs = ["calibration_session_test.cpp"],
     deps = [
         ":calibration_session",
+        "//src/algorithms/memory:memory_map",
         "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
     ],
@@ -44,7 +48,12 @@ cc_library(
     name = "rom_open",
     srcs = ["rom_open.cpp"],
     hdrs = ["rom_open.h"],
-    implementation_deps = ["//src/backend/calibration:calibration_service"],
+    implementation_deps = [
+        "//src/algorithms/memory:address",
+        "//src/algorithms/memory:memory_map",
+        "//src/backend/calibration:calibration_service",
+        "//src/backend/config:catalog",
+    ],
     deps = [
         ":calibration_session",
         ":definition_catalogs",
@@ -59,7 +68,10 @@ fastecu_portable_gtest(
     srcs = ["rom_open_test.cpp"],
     deps = [
         ":rom_open",
+        "//src/algorithms/memory:address",
+        "//src/algorithms/memory:memory_map",
         "//src/backend/calibration/session/testing:fake_definition_catalogs",
+        "//src/backend/config:catalog",
         "//src/backend/config/testing:config_session_fixture",
         "//src/backend/ports/testing:in_memory_atomic_file_writer",
         "//src/backend/ports/testing:result_matchers",
@@ -160,6 +172,7 @@ fastecu_portable_gtest(
     srcs = ["numeric_edit_use_case_test.cpp"],
     deps = [
         ":numeric_edit_use_case",
+        "//src/algorithms/memory:memory_map",
         "//src/backend/calibration/session/testing:fake_definition_catalogs",
         "//src/backend/config/testing:config_session_fixture",
         "//src/backend/ports/testing:in_memory_atomic_file_writer",

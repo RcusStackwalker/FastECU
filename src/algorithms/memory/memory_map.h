@@ -49,22 +49,27 @@ class MemoryMap
     // Blocks must be at least one, sorted by address and disjoint, and no fill
     // block may be writable. The ROM file must be non-empty, and together the
     // file-backed blocks must place every byte of it exactly once. Addresses
-    // between blocks are allowed and belong to no block.
-    static std::expected<MemoryMap, MemoryError> Create(std::span<const MemoryBlock> blocks, ByteCount file_size);
+    // between blocks are allowed and belong to no block. `definition_base` is
+    // the ECU address that address 0 in a definition file stands for (ADR 0020);
+    // it need not lie in a block.
+    static std::expected<MemoryMap, MemoryError> Create(std::span<const MemoryBlock> blocks, ByteCount file_size,
+                                                        FlashAddress definition_base = FlashAddress{0});
 
     // One writable block holding the whole ROM file at address 0.
     static std::expected<MemoryMap, MemoryError> Identity(ByteCount file_size);
 
     [[nodiscard]] std::span<const MemoryBlock> Blocks() const;
     [[nodiscard]] ByteCount FileSize() const;
+    [[nodiscard]] FlashAddress DefinitionBase() const;
 
     // The block holding `address`, or nullptr when no block does.
     [[nodiscard]] const MemoryBlock *BlockAt(FlashAddress address) const;
 
   private:
-    MemoryMap(std::vector<MemoryBlock> blocks, ByteCount file_size);
+    MemoryMap(std::vector<MemoryBlock> blocks, ByteCount file_size, FlashAddress definition_base);
 
     std::vector<MemoryBlock> blocks_;
     ByteCount file_size_;
+    FlashAddress definition_base_;
 };
 } // namespace fastecu::memory

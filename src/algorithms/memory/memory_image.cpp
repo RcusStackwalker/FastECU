@@ -146,6 +146,26 @@ std::expected<MemoryView, MemoryError> MemoryImage::Render(AddressRange<FlashSpa
     return MemoryView(range, std::move(data));
 }
 
+std::expected<void, MemoryError> MemoryImage::CheckWrite(FlashAddress start, ByteCount size) const
+{
+    if (size.Value() == 0)
+    {
+        return {};
+    }
+    const auto range = AddressRange<FlashSpace>::Make(start, size);
+    if (!range.has_value())
+    {
+        return Fail(MemoryErrorKind::kUnmapped,
+                    std::format("a {}-byte write at 0x{:x} runs past the address space", size.Value(), start.Value()));
+    }
+    const auto chunks = SplitByBlock(map_, *range, WritableFileBlock);
+    if (!chunks.has_value())
+    {
+        return std::unexpected(chunks.error());
+    }
+    return {};
+}
+
 std::expected<void, MemoryError> MemoryImage::Write(FlashAddress start, bytes::ByteView data)
 {
     if (data.empty())
