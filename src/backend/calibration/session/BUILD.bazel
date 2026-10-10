@@ -49,7 +49,6 @@ cc_library(
     srcs = ["rom_open.cpp"],
     hdrs = ["rom_open.h"],
     implementation_deps = [
-        "//src/algorithms/memory:address",
         "//src/algorithms/memory:memory_map",
         "//src/backend/calibration:calibration_service",
         "//src/backend/config:catalog",

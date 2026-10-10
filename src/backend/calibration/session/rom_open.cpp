@@ -1,6 +1,5 @@
 #include "src/backend/calibration/session/rom_open.h"
 
-#include <algorithm>
 #include <cstddef>
 #include <format>
 #include <optional>
@@ -8,7 +7,6 @@
 #include <string_view>
 #include <utility>
 
-#include "src/algorithms/memory/address.h"
 #include "src/algorithms/memory/memory_map.h"
 #include "src/backend/calibration/calibration_service.h"
 #include "src/backend/config/catalog.h"
@@ -36,33 +34,6 @@ std::string ChecksumModuleFor(const std::string& flash_method)
 std::string_view FormatName(definition::DefinitionFormat format)
 {
     return format == definition::DefinitionFormat::kEcuFlash ? "EcuFlash" : "RomRaider";
-}
-
-// ADR 0020: the ROM file's memory map is the one its protocol declares for
-// exactly its size, or the identity map when no catalog protocol has the
-// flash method's name. Never padded to fit.
-Result<memory::MemoryMap> MemoryMapFor(std::span<const config::VehicleSpec> vehicles, std::string_view flash_method,
-                                       std::size_t file_size)
-{
-    if (file_size == 0)
-    {
-        return Fail(ErrorKind::kInvalidConfig, "the ROM file is empty");
-    }
-    const std::optional<memory::ByteCount> size = memory::ByteCount::FromSize(file_size);
-    if (!size.has_value())
-    {
-        return Fail(ErrorKind::kInvalidConfig, std::format("the {}-byte ROM file is larger than 4 GiB", file_size));
-    }
-    const auto vehicle =
-        std::ranges::find_if(vehicles, [flash_method](const config::VehicleSpec& candidate)
-                             { return candidate.protocol != nullptr && candidate.protocol->name == flash_method; });
-    auto map = vehicle != vehicles.end() ? config::SelectMemoryMap(*vehicle->protocol, *size)
-                                         : memory::MemoryMap::Identity(*size);
-    if (!map.has_value())
-    {
-        return Fail(ErrorKind::kInvalidConfig, map.error().detail);
-    }
-    return std::move(*map);
 }
 
 } // namespace
@@ -134,13 +105,15 @@ Result<RomOpenOutcome> RomOpenUseCase::Finish(Seed seed)
     }
 
     // Checked before selecting a vehicle, so a rejected file changes nothing.
+    // A flash method naming no catalog protocol gets the identity map.
     const std::size_t file_size = seed.rom.size();
-    Result<memory::MemoryMap> memory_map = MemoryMapFor(config_.Vehicles(), flash_method, file_size);
+    auto memory_map = config::SelectMemoryMap(config_.FindProtocol(flash_method), file_size);
     if (!memory_map.has_value())
     {
-        LogError("ROM file does not fit its protocol's memory map", memory_map.error());
+        const auto failed = Fail(ErrorKind::kInvalidConfig, memory_map.error().detail);
+        LogError("ROM file does not fit its protocol's memory map", failed.error());
         events_.Notice(std::format("File size error: {}", memory_map.error().detail));
-        return std::unexpected(memory_map.error());
+        return failed;
     }
 
     outcome.vehicle_selected = config_.SelectByProtocolName(flash_method);
@@ -281,18 +254,15 @@ definition::MemoryMapLookup RomOpenUseCase::MemoryMapsFor(std::size_t file_size)
     return [this, file_size](std::string_view flash_method) -> std::optional<memory::MemoryMap>
     {
         const config::VehicleSpec *aliased = config_.VehicleForAlias(flash_method);
-        const std::string_view protocol = aliased != nullptr ? aliased->protocol->name : flash_method;
-        if (auto map = MemoryMapFor(config_.Vehicles(), protocol, file_size); map.has_value())
+        const std::string_view name = aliased != nullptr ? aliased->protocol->name : flash_method;
+        // A size the protocol has no map for still identifies the definition on
+        // the identity map; Finish then rejects the file by name.
+        auto map = config::SelectMemoryMap(config_.FindProtocol(name), file_size);
+        if (!map.has_value())
         {
-            return std::move(*map);
+            map = config::SelectMemoryMap(nullptr, file_size);
         }
-        const std::optional<memory::ByteCount> size = memory::ByteCount::FromSize(file_size);
-        if (!size.has_value())
-        {
-            return std::nullopt;
-        }
-        auto identity = memory::MemoryMap::Identity(*size);
-        return identity.has_value() ? std::optional(std::move(*identity)) : std::nullopt;
+        return map.has_value() ? std::optional(std::move(*map)) : std::nullopt;
     };
 }
 

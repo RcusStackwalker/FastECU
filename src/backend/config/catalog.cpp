@@ -127,24 +127,6 @@ std::string KernelLoadAddressText(const ProtocolSpec& protocol)
                                                     : std::string{};
 }
 
-std::expected<memory::MemoryMap, memory::MemoryError> SelectMemoryMap(const ProtocolSpec& protocol,
-                                                                      memory::ByteCount file_size)
-{
-    if (protocol.memory_maps.empty())
-    {
-        return memory::MemoryMap::Identity(file_size);
-    }
-    const auto found = std::ranges::find(protocol.memory_maps, file_size, &MemoryMapSpec::file_size);
-    if (found == protocol.memory_maps.end())
-    {
-        return std::unexpected(
-            memory::MemoryError{.kind = memory::MemoryErrorKind::kFileSizeMismatch,
-                                .detail = std::format("protocol '{}' has no memory map for 0x{:x}-byte ROM files",
-                                                      protocol.name, file_size.Value())});
-    }
-    return memory::MemoryMap::Create(found->blocks, found->file_size, found->definition_base);
-}
-
 std::expected<memory::MemoryMap, memory::MemoryError> SelectMemoryMap(const ProtocolSpec *protocol,
                                                                       std::size_t file_size)
 {

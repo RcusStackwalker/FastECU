@@ -96,13 +96,6 @@ struct ProtocolSpec
 // uppercase hex, e.g. "0xFFFF3000" -- or "" when there is none.
 std::string KernelLoadAddressText(const ProtocolSpec& protocol);
 
-// The memory map of a `file_size`-byte ROM file for `protocol`: the declared map
-// of exactly that size, or the identity map when the protocol declares none.
-// kFileSizeMismatch when it declares maps but none of that size; a ROM file is
-// never padded to fit one.
-std::expected<memory::MemoryMap, memory::MemoryError> SelectMemoryMap(const ProtocolSpec& protocol,
-                                                                      memory::ByteCount file_size);
-
 // The memory map of a `file_size`-byte ROM file under `protocol`: the map it
 // declares for exactly that size, or the identity map when `protocol` is null
 // or declares none. kFileSizeMismatch for an empty file, one over 4 GiB, or a

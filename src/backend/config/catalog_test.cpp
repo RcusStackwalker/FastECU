@@ -165,7 +165,7 @@ constexpr ProtocolSpec kPlain{.name = "plain"};
 
 TEST(SelectMemoryMap, GivesTheIdentityMapWhenTheProtocolDeclaresNone)
 {
-    const auto map = SelectMemoryMap(kPlain, ByteCount{0x1234});
+    const auto map = SelectMemoryMap(&kPlain, 0x1234);
 
     ASSERT_TRUE(map.has_value());
     ASSERT_EQ(map->Blocks().size(), 1U);
@@ -176,8 +176,8 @@ TEST(SelectMemoryMap, GivesTheIdentityMapWhenTheProtocolDeclaresNone)
 
 TEST(SelectMemoryMap, PicksTheDeclaredMapOfExactlyTheFileSize)
 {
-    const auto large = SelectMemoryMap(kMapped, ByteCount{0x200});
-    const auto small = SelectMemoryMap(kMapped, ByteCount{0x100});
+    const auto large = SelectMemoryMap(&kMapped, 0x200);
+    const auto small = SelectMemoryMap(&kMapped, 0x100);
 
     ASSERT_TRUE(large.has_value());
     ASSERT_TRUE(small.has_value());
@@ -190,10 +190,11 @@ TEST(SelectMemoryMap, PicksTheDeclaredMapOfExactlyTheFileSize)
 
 TEST(SelectMemoryMap, RejectsAFileSizeNoDeclaredMapHas)
 {
-    const auto map = SelectMemoryMap(kMapped, ByteCount{0x180});
+    const auto map = SelectMemoryMap(&kMapped, 0x180);
 
     ASSERT_FALSE(map.has_value());
     EXPECT_EQ(map.error().kind, MemoryErrorKind::kFileSizeMismatch);
+    EXPECT_EQ(map.error().detail, "protocol 'mapped' has no memory map for 0x180-byte ROM files");
 }
 
 // 0x100 bytes of blocks for a 0x200-byte file; two maps claim 0x80-byte files.
@@ -224,8 +225,8 @@ constexpr ProtocolSpec kBased{.name = "based", .memory_maps = kBasedMaps};
 
 TEST(SelectMemoryMap, CarriesTheDeclaredDefinitionBase)
 {
-    const auto based = SelectMemoryMap(kBased, ByteCount{0x100});
-    const auto plain = SelectMemoryMap(kPlain, ByteCount{0x100});
+    const auto based = SelectMemoryMap(&kBased, 0x100);
+    const auto plain = SelectMemoryMap(&kPlain, 0x100);
 
     ASSERT_TRUE(based.has_value());
     ASSERT_TRUE(plain.has_value());
