@@ -30,6 +30,19 @@ using ::testing::Pair;
 using ::testing::UnorderedElementsAre;
 using Status = ChecksumCorrectionOutcome::Status;
 
+// A zero ROM is enough for most families to correct. The Mitsubishi M32R CAN
+// family needs an area code at 0x3FFCB naming its sweep, or it is disabled and
+// writes nothing: 0xC2 sweeps 0x60000 bytes and 0x50 sweeps 0x80000.
+bytes::Bytes ZeroRomThatCorrects(std::string_view flash_method, std::uint32_t file_size)
+{
+    bytes::Bytes rom(file_size, 0);
+    if (flash_method.starts_with("mitsu_ecu_m32r_can"))
+    {
+        rom[0x3FFCB] = file_size == 0x60000 ? 0xC2 : 0x50;
+    }
+    return rom;
+}
+
 TEST(CatalogChecksumAgreement, EveryDeclaredMapHoldsItsChecksumStoresInWritableMemory)
 {
     std::set<std::string_view> seen;
@@ -51,7 +64,8 @@ TEST(CatalogChecksumAgreement, EveryDeclaredMapHoldsItsChecksumStoresInWritableM
             SCOPED_TRACE(std::format("{} {:#x}", protocol.name, spec.file_size.Value()));
             auto map = config::SelectMemoryMap(protocol, spec.file_size);
             ASSERT_TRUE(map.has_value());
-            const auto image = memory::MemoryImage::Create(std::move(*map), bytes::Bytes(spec.file_size.Value(), 0));
+            const auto image = memory::MemoryImage::Create(std::move(*map),
+                                                           ZeroRomThatCorrects(protocol.name, spec.file_size.Value()));
             ASSERT_TRUE(image.has_value());
 
             const ChecksumCorrectionOutcome outcome =
@@ -74,7 +88,9 @@ TEST(CatalogChecksumAgreement, EveryDeclaredMapHoldsItsChecksumStoresInWritableM
                 layout_mismatch.emplace_back(protocol.name, spec.file_size.Value());
                 continue;
             }
-            EXPECT_TRUE(outcome.family_result->Ok()) << outcome.family_result->message;
+            // Corrected, not merely Ok(): a family that writes nothing proves nothing.
+            EXPECT_EQ(outcome.family_result->status, ChecksumResult::Status::kCorrected)
+                << outcome.family_result->message;
             EXPECT_TRUE(outcome.corrected_file.has_value());
         }
     }
