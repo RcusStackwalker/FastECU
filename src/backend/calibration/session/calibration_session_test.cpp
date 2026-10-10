@@ -9,6 +9,7 @@
 #include <gtest/gtest.h>
 
 #include "src/algorithms/memory/memory_map.h"
+#include "src/algorithms/memory/testing/memory_views.h"
 #include "src/backend/ports/testing/result_matchers.h"
 
 namespace fastecu::calibration
@@ -42,7 +43,7 @@ SessionContents ContentsWithDefinition()
 {
     return SessionContents{
         .source = {.display_name = "a.bin", .path = "/cal/a.bin", .origin = RomOrigin::kFile},
-        .rom = {0, 0, 5, 6, 7, 0},
+        .image = memory::testing::IdentityImage({0, 0, 5, 6, 7, 0}),
         .definition = ResolvedDefinition{.format = definition::DefinitionFormat::kEcuFlash,
                                          .id = "TEST",
                                          .definition = FuelDefinition()},
@@ -167,10 +168,8 @@ memory::MemoryBlock FillBlock(std::uint32_t start, std::uint32_t size)
 CalibrationSession PackedSession(std::optional<ResolvedDefinition> definition = std::nullopt)
 {
     const std::array blocks{FileBlock(0, 2, 0), FillBlock(2, 2), FileBlock(4, 2, 2)};
-    return CalibrationSession(
-        SessionId{1}, SessionContents{.rom = {1, 2, 3, 4},
-                                      .memory_map = memory::MemoryMap::Create(blocks, memory::ByteCount{4}).value(),
-                                      .definition = std::move(definition)});
+    return CalibrationSession(SessionId{1}, SessionContents{.image = memory::testing::PlacedImage(blocks, {1, 2, 3, 4}),
+                                                            .definition = std::move(definition)});
 }
 
 TEST(CalibrationSessionMemory, RomPlacesFileBytesAtTheirDefinitionAddresses)
@@ -207,9 +206,8 @@ TEST(CalibrationSessionMemory, AWriteIntoAFillBlockChangesNothing)
 TEST(CalibrationSessionMemory, AWriteIntoAReadOnlyBlockChangesNothing)
 {
     const std::array blocks{FileBlock(0, 2, 0, memory::Writability::kReadOnly), FileBlock(2, 2, 2)};
-    CalibrationSession session(
-        SessionId{1}, SessionContents{.rom = {1, 2, 3, 4},
-                                      .memory_map = memory::MemoryMap::Create(blocks, memory::ByteCount{4}).value()});
+    CalibrationSession session(SessionId{1},
+                               SessionContents{.image = memory::testing::PlacedImage(blocks, {1, 2, 3, 4})});
 
     EXPECT_THAT(session.CheckWrite(2, 2), IsOk());
     EXPECT_THAT(session.WriteBytes(1, bytes::Bytes{5, 5}),
@@ -225,22 +223,11 @@ TEST(CalibrationSessionMemory, DefinitionAddressesCountFromTheDefinitionBase)
     const std::array blocks{FileBlock(0x08F9C000, 4, 0)};
     CalibrationSession session(
         SessionId{1},
-        SessionContents{
-            .rom = {1, 2, 3, 4},
-            .memory_map =
-                memory::MemoryMap::Create(blocks, memory::ByteCount{4}, memory::FlashAddress{0x08F9C000}).value()});
+        SessionContents{.image = memory::testing::PlacedImage(blocks, {1, 2, 3, 4}, memory::FlashAddress{0x08F9C000})});
 
     EXPECT_THAT(session.Rom(), ElementsAre(1, 2, 3, 4));
     ASSERT_THAT(session.WriteBytes(1, bytes::Bytes{9}), IsOk());
     EXPECT_THAT(session.File(), ElementsAre(1, 9, 3, 4));
-}
-
-TEST(CalibrationSessionMemory, ContentsWithoutAMemoryMapUseTheIdentityMap)
-{
-    const CalibrationSession session(SessionId{1}, SessionContents{.rom = {1, 2, 3}});
-
-    EXPECT_THAT(session.Rom(), ElementsAre(1, 2, 3));
-    EXPECT_THAT(session.File(), ElementsAre(1, 2, 3));
 }
 
 TEST(CalibrationSessionMemory, DecodingAMapInAFillBlockIsAStructuralFailure)

@@ -1,9 +1,11 @@
 #include "src/backend/flash/flash_validation.h"
 
 #include "src/backend/flash/flash_types.h"
+#include "src/algorithms/memory/memory_image.h"
 #include "src/backend/ports/error.h"
 
 #include <cstdint>
+#include <format>
 #include <optional>
 #include <string>
 #include <unordered_set>
@@ -88,10 +90,20 @@ Result<FlashPlan> ValidateAndBuild(FlashPlanFields fields)
             return Fail(ErrorKind::kInvalidConfig, "Write/TestWrite plans must carry an image");
         }
     }
-    if (fields.image_map.has_value() &&
-        (!fields.image.has_value() || fields.image_map->FileSize().Value() != fields.image->size()))
+    std::optional<memory::MemoryImage> rom_image;
+    if (fields.image_map.has_value())
     {
-        return Fail(ErrorKind::kInvalidConfig, "the image's memory map places a ROM file of another size");
+        if (!fields.image.has_value())
+        {
+            return Fail(ErrorKind::kInvalidConfig, "only a write image can have a memory map");
+        }
+        auto placed = memory::MemoryImage::Create(*fields.image_map, *fields.image);
+        if (!placed.has_value())
+        {
+            return Fail(ErrorKind::kInvalidConfig,
+                        std::format("the image does not fit its memory map: {}", placed.error().detail));
+        }
+        rom_image = std::move(*placed);
     }
     if (const bool requires_kernel =
             std::visit([]<typename T>(const T&) { return kFamilyRequiresKernel<T>; }, fields.family_plan);
@@ -130,7 +142,7 @@ Result<FlashPlan> ValidateAndBuild(FlashPlanFields fields)
     }
 
     const std::uint64_t total_transfer_bytes = fields.transfer_region.length;
-    return FlashPlan(std::move(fields), total_transfer_bytes);
+    return FlashPlan(std::move(fields), total_transfer_bytes, std::move(rom_image));
 }
 
 } // namespace fastecu::flash

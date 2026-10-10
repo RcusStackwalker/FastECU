@@ -295,6 +295,7 @@ fastecu_gtest(
     deps = [
         ":desktop",
         "//bazel/qt:gui",
+        "//src/algorithms/memory/testing:memory_views",
         "//src/platform/desktop/common/testing:widgets_application_environment",
         "//src/ui/desktop/calibration:session_key",
         "@googletest//:gtest",
@@ -312,6 +313,7 @@ fastecu_gtest(
         ":desktop",
         "//bazel/qt:gui",
         "//bazel/qt:widgets",
+        "//src/algorithms/memory/testing:memory_views",
         "//src/backend/calibration/session:calibration_workspace",
         "//src/backend/calibration/session/testing:fake_definition_catalogs",
         "//src/backend/config/testing:config_session_fixture",

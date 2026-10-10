@@ -68,12 +68,9 @@ struct RomProtocolInfo
 struct SessionContents
 {
     RomSource source;
-    // The ROM file's bytes exactly as loaded; saving writes them back in this
-    // layout.
-    std::vector<std::uint8_t> rom;
-    // Where those bytes sit on the ECU, and the definition base. nullopt means
-    // the identity map over `rom`.
-    std::optional<memory::MemoryMap> memory_map;
+    // The ROM file exactly as loaded, placed at ECU addresses by its memory
+    // map (ADR 0020). Saving writes its file bytes back in this layout.
+    memory::MemoryImage image;
     // nullopt: opened without a definition ("continue without definition
     // file"), a modeled state rather than placeholder rows.
     std::optional<ResolvedDefinition> definition;
@@ -86,8 +83,6 @@ struct SessionContents
 class CalibrationSession
 {
   public:
-    // Contents whose `rom` is empty or does not fit `memory_map` give a session
-    // with no bytes; RomOpenUseCase never builds one.
     CalibrationSession(SessionId id, SessionContents contents);
 
     SessionId Id() const;
@@ -125,7 +120,7 @@ class CalibrationSession
   private:
     SessionId id_;
     RomSource source_;
-    std::optional<memory::MemoryImage> image_;
+    memory::MemoryImage image_;
     // Rom(): rendered from image_ at construction, then patched by WriteBytes.
     bytes::Bytes definition_view_;
     std::optional<ResolvedDefinition> definition_;

@@ -99,7 +99,9 @@ fastecu_portable_gtest(
     srcs = ["catalog_test.cpp"],
     deps = [
         ":catalog",
+        "//src/algorithms/memory:memory_image",
         "//src/algorithms/memory:memory_map",
+        "//src/algorithms/protocol",
         "@googletest//:gtest",
     ],
 )
@@ -116,7 +118,9 @@ cc_library(
     ],
     deps = [
         "//src/algorithms/memory:address",
+        "//src/algorithms/memory:memory_image",
         "//src/algorithms/memory:memory_map",
+        "//src/algorithms/protocol",
     ],
 )
 
@@ -136,6 +140,7 @@ cc_library(
         # One-off test consumers: each checks every built-in entry against its family.
         "//src/backend/checksum:__pkg__",
         "//src/backend/flash/ecu:__pkg__",
+        "//src/backend/flash/ecu/testing:__pkg__",
         "//src/backend/flash/eeprom:__pkg__",
         "//src/platform/desktop/common/flash:__pkg__",
     ],

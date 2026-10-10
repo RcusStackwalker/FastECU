@@ -50,27 +50,18 @@ std::string withCalibrationSuffix(std::string path)
 }
 
 // The selected protocol's checksum route addresses the ROM through that
-// protocol's memory map for this file size, or the identity map when it
-// declares none of that size (the romsize check then decides, as before).
+// protocol's memory map for this file size. A size it declares no map for is
+// placed by the identity map, so the romsize check still reports it as a bad
+// ROM size.
 std::expected<memory::MemoryImage, memory::MemoryError> checksumImage(const config::ProtocolSpec& protocol,
                                                                       bytes::ByteView file)
 {
-    const std::optional<memory::ByteCount> size = memory::ByteCount::FromSize(file.size());
-    if (!size.has_value())
+    auto placed = config::PlaceRomFile(&protocol, bytes::Bytes(file.begin(), file.end()));
+    if (placed.has_value())
     {
-        return std::unexpected(memory::MemoryError{.kind = memory::MemoryErrorKind::kFileSizeMismatch,
-                                                   .detail = "the ROM file is larger than 4 GiB"});
+        return placed;
     }
-    auto map = config::SelectMemoryMap(protocol, *size);
-    if (!map.has_value())
-    {
-        map = memory::MemoryMap::Identity(*size);
-    }
-    if (!map.has_value())
-    {
-        return std::unexpected(map.error());
-    }
-    return memory::MemoryImage::Create(std::move(*map), bytes::Bytes(file.begin(), file.end()));
+    return config::PlaceRomFile(nullptr, bytes::Bytes(file.begin(), file.end()));
 }
 } // namespace
 

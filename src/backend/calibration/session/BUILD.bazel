@@ -30,6 +30,7 @@ fastecu_portable_gtest(
     deps = [
         ":calibration_session",
         "//src/algorithms/memory:memory_map",
+        "//src/algorithms/memory/testing:memory_views",
         "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
     ],
@@ -49,7 +50,6 @@ cc_library(
     srcs = ["rom_open.cpp"],
     hdrs = ["rom_open.h"],
     implementation_deps = [
-        "//src/algorithms/memory:address",
         "//src/algorithms/memory:memory_map",
         "//src/backend/calibration:calibration_service",
         "//src/backend/config:catalog",
@@ -109,6 +109,7 @@ fastecu_portable_gtest(
     deps = [
         ":rom_open",
         ":rom_save",
+        "//src/algorithms/memory/testing:memory_views",
         "//src/backend/calibration/session/testing:fake_definition_catalogs",
         "//src/backend/config/testing:config_session_fixture",
         "//src/backend/ports/testing:in_memory_atomic_file_writer",
@@ -146,6 +147,7 @@ fastecu_portable_gtest(
     srcs = ["map_element_fields_test.cpp"],
     deps = [
         ":map_element_fields",
+        "//src/algorithms/memory/testing:memory_views",
         "@googletest//:gtest",
     ],
 )
@@ -173,6 +175,7 @@ fastecu_portable_gtest(
     deps = [
         ":numeric_edit_use_case",
         "//src/algorithms/memory:memory_map",
+        "//src/algorithms/memory/testing:memory_views",
         "//src/backend/calibration/session/testing:fake_definition_catalogs",
         "//src/backend/config/testing:config_session_fixture",
         "//src/backend/ports/testing:in_memory_atomic_file_writer",
@@ -198,6 +201,7 @@ fastecu_portable_gtest(
     srcs = ["numeric_copy_use_case_test.cpp"],
     deps = [
         ":numeric_copy_use_case",
+        "//src/algorithms/memory/testing:memory_views",
         "//src/backend/calibration/session/testing:fake_definition_catalogs",
         "//src/backend/config/testing:config_session_fixture",
         "//src/backend/ports/testing:in_memory_atomic_file_writer",
@@ -227,6 +231,7 @@ fastecu_portable_gtest(
     srcs = ["selectable_edit_use_case_test.cpp"],
     deps = [
         ":selectable_edit_use_case",
+        "//src/algorithms/memory/testing:memory_views",
         "//src/backend/calibration/session/testing:fake_definition_catalogs",
         "//src/backend/config/testing:config_session_fixture",
         "//src/backend/ports/testing:in_memory_atomic_file_writer",

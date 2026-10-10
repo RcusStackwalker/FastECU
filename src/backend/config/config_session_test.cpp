@@ -481,6 +481,18 @@ TEST(ConfigSessionSelect, AliasFindsTheFirstVehicleOfItsProtocol)
     EXPECT_EQ(f.session.VehicleForAlias("absent"), nullptr);
 }
 
+TEST(ConfigSessionSelect, FindProtocolNamesACatalogProtocolOnceInitialized)
+{
+    ConfigSessionFixture f;
+    ASSERT_THAT(f.Initialize(), IsOk());
+    const fastecu::config::ProtocolSpec *first = f.session.Vehicles()[0].protocol;
+
+    EXPECT_EQ(f.session.FindProtocol(first->name), first);
+    EXPECT_EQ(f.session.FindProtocol("absent"), nullptr);
+    ConfigSessionFixture uninitialized;
+    EXPECT_EQ(uninitialized.session.FindProtocol(first->name), nullptr);
+}
+
 // --- built-in catalog -----------------------------------------------------
 
 TEST(ConfigSessionBuiltin, TheMutDmaVehicleLogsMutDmaAndOffersNoFlashOperation)

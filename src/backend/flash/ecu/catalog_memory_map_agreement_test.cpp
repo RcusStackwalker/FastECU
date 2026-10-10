@@ -99,17 +99,7 @@ Result<FlashPlan> WithKernel(const config::ProtocolSpec& protocol, FlashOperatio
 // desktop workflow hands it over.
 Result<FlashPlan> PlacedMc68(const config::ProtocolSpec& protocol, FlashOperation operation, bytes::Bytes image)
 {
-    const std::optional<ByteCount> size = ByteCount::FromSize(image.size());
-    if (!size.has_value())
-    {
-        return Fail(ErrorKind::kInvalidConfig, "ROM file too large");
-    }
-    auto map = config::SelectMemoryMap(protocol, *size);
-    if (!map.has_value())
-    {
-        return Fail(ErrorKind::kInvalidConfig, map.error().detail);
-    }
-    auto placed = memory::MemoryImage::Create(std::move(*map), std::move(image));
+    auto placed = config::PlaceRomFile(&protocol, std::move(image));
     if (!placed.has_value())
     {
         return Fail(ErrorKind::kInvalidConfig, placed.error().detail);
@@ -290,7 +280,7 @@ std::vector<MemoryMap> CandidateMaps(const config::ProtocolSpec& protocol, const
     std::vector<MemoryMap> maps;
     for (const ByteCount size : sizes)
     {
-        auto map = config::SelectMemoryMap(protocol, size);
+        auto map = config::SelectMemoryMap(&protocol, size.Value());
         if (map.has_value())
         {
             maps.push_back(std::move(*map));

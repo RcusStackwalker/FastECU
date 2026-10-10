@@ -91,7 +91,7 @@ TEST_F(RomOpenBasics, OpensAFileWithoutDefinitionsWhenBothFormatsAreDisabled)
 
     ASSERT_THAT(outcome, IsOk());
     EXPECT_EQ(outcome->contents.source, (RomSource{"a.bin", "/cal/dir/a.bin", RomOrigin::kFile}));
-    EXPECT_EQ(outcome->contents.rom, SyntheticRom());
+    EXPECT_THAT(outcome->contents.image.File(), ElementsAreArray(SyntheticRom()));
     EXPECT_FALSE(outcome->contents.definition.has_value());
     EXPECT_THAT(catalogs_.calls, IsEmpty());
 }
@@ -199,9 +199,8 @@ TEST_F(RomOpenBasics, AFileOfAnUnknownProtocolOpensAsLoaded)
 
     ASSERT_THAT(outcome, IsOk());
     EXPECT_EQ(outcome->contents.protocol.file_size_label, "0kb");
-    EXPECT_EQ(outcome->contents.rom.size(), 0x100U);
-    ASSERT_TRUE(outcome->contents.memory_map.has_value());
-    EXPECT_EQ(outcome->contents.memory_map->FileSize(), memory::ByteCount{0x100});
+    EXPECT_EQ(outcome->contents.image.File().size(), 0x100U);
+    EXPECT_EQ(outcome->contents.image.Map().FileSize(), memory::ByteCount{0x100});
 }
 
 TEST_F(RomOpenBasics, AnEmptyFileIsNotOpened)
@@ -575,8 +574,7 @@ TEST_F(RomOpenMemoryMaps, DefinitionAddressesCountFromTheMapsDefinitionBase)
         opener_.AdoptReadImage(ReadImage{.rom = CountingRom(0x40), .filename = "x.bin", .protocol_name = "based"});
 
     ASSERT_THAT(outcome, IsOk());
-    ASSERT_TRUE(outcome->contents.memory_map.has_value());
-    EXPECT_EQ(outcome->contents.memory_map->DefinitionBase(), memory::FlashAddress{0x1000});
+    EXPECT_EQ(outcome->contents.image.Map().DefinitionBase(), memory::FlashAddress{0x1000});
     const CalibrationSession session(SessionId{1}, std::move(outcome->contents));
     EXPECT_THAT(session.Rom(), ElementsAreArray(CountingRom(0x40)));
 }

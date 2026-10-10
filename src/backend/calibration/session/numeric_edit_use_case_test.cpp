@@ -11,6 +11,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "src/algorithms/memory/testing/memory_views.h"
 #include "src/algorithms/memory/memory_map.h"
 #include "src/backend/calibration/session/testing/fake_definition_catalogs.h"
 #include "src/backend/config/testing/config_session_fixture.h"
@@ -114,6 +115,13 @@ class NumericEditUseCaseTest : public ::testing::Test
         Install(GridDefinition());
     }
 
+    // `rom` placed by `memory_map`, or by the identity map without one.
+    static memory::MemoryImage PlaceGrid(std::vector<std::uint8_t> rom, std::optional<memory::MemoryMap> memory_map)
+    {
+        return memory_map.has_value() ? memory::MemoryImage::Create(std::move(*memory_map), std::move(rom)).value()
+                                      : memory::testing::IdentityImage(std::move(rom));
+    }
+
     // Replaces the open session's contents with a clean session.
     void Install(std::optional<definition::RomDefinition> def, std::vector<std::uint8_t> rom = GridRom(),
                  RomProtocolInfo protocol = {}, std::optional<memory::MemoryMap> memory_map = std::nullopt)
@@ -123,11 +131,11 @@ class NumericEditUseCaseTest : public ::testing::Test
         {
             resolved = ResolvedDefinition{.definition = std::move(*def)};
         }
-        *workspace_.Find(id_) = CalibrationSession(id_, SessionContents{.source = {.display_name = "grid.bin"},
-                                                                        .rom = std::move(rom),
-                                                                        .memory_map = std::move(memory_map),
-                                                                        .definition = std::move(resolved),
-                                                                        .protocol = std::move(protocol)});
+        *workspace_.Find(id_) =
+            CalibrationSession(id_, SessionContents{.source = {.display_name = "grid.bin"},
+                                                    .image = PlaceGrid(std::move(rom), std::move(memory_map)),
+                                                    .definition = std::move(resolved),
+                                                    .protocol = std::move(protocol)});
     }
 
     CalibrationSession& Session()

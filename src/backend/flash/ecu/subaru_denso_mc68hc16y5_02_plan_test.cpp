@@ -1,4 +1,6 @@
 #include "src/backend/ports/testing/result_matchers.h"
+#include "src/algorithms/memory/testing/memory_views.h"
+#include "src/backend/config/catalog.h"
 #include "src/backend/flash/ecu/subaru_denso_mc68hc16y5_02_plan.h"
 #include "src/backend/flash/ecu/testing/mc68_rom_images.h"
 #include "src/backend/flash/kernel/kernelmemorymodels.h"
@@ -144,8 +146,8 @@ TEST(SubaruDensoMc68hc16y5_02Plan, PackedAndFullRomFilesBothBuildAWritePlan)
                                                      "MC68HC16Y5", std::move(image),
                                                      KernelImage{.id = "k", .load_address = 0x20000, .bytes = {0xaa}});
         ASSERT_THAT(plan, fastecu::testing::IsOk());
-        ASSERT_TRUE(plan->ImageMap().has_value());
-        EXPECT_EQ(plan->ImageMap()->FileSize(), memory::ByteCount{file_size});
+        ASSERT_TRUE(plan->RomImage().has_value());
+        EXPECT_EQ(plan->RomImage()->Map().FileSize(), memory::ByteCount{file_size});
         EXPECT_EQ(plan->Image()->size(), file_size);
         EXPECT_THAT(ValidateSubaruDensoMc68hc16y502Plan(*plan), fastecu::testing::IsOk());
     }
@@ -154,20 +156,16 @@ TEST(SubaruDensoMc68hc16y5_02Plan, PackedAndFullRomFilesBothBuildAWritePlan)
 TEST(SubaruDensoMc68hc16y5_02Plan, AMapThatDoesNotHoldAFlashBlockAsWritableFileBytesIsRejected)
 {
     // 0x28000-0x2FFFF, the second flash range, is a fill block here.
-    const std::array blocks{
-        testing::Mc68FileBlock(0x00000, 0x28000, 0x00000, memory::Writability::kWritable),
-        memory::MemoryBlock{.range = testing::Mc68Range(0x28000, 0x8000),
-                            .backing = memory::FillBacking{.value = 0xFF},
-                            .writability = memory::Writability::kReadOnly},
+    constexpr std::array kBlocks{
+        config::FileBlock(0x00000, 0x28000, 0x00000, memory::Writability::kWritable),
+        config::FillBlock(0x28000, 0x8000, 0xFF),
     };
-    auto image = memory::MemoryImage::Create(memory::MemoryMap::Create(blocks, memory::ByteCount{0x28000}).value(),
-                                             bytes::Bytes(0x28000, 0));
-    ASSERT_TRUE(image.has_value());
 
-    EXPECT_THAT(BuildSubaruDensoMc68hc16y502Plan(FlashOperation::kWrite, "sub_ecu_denso_mc68hc16y5_02", "MC68HC16Y5",
-                                                 std::move(*image),
-                                                 KernelImage{.id = "k", .load_address = 0x20000, .bytes = {0xaa}}),
-                fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, ::testing::HasSubstr("flash block 0x28000")));
+    EXPECT_THAT(
+        BuildSubaruDensoMc68hc16y502Plan(FlashOperation::kWrite, "sub_ecu_denso_mc68hc16y5_02", "MC68HC16Y5",
+                                         fastecu::memory::testing::PlacedImage(kBlocks, bytes::Bytes(0x28000, 0)),
+                                         KernelImage{.id = "k", .load_address = 0x20000, .bytes = {0xaa}}),
+        fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, ::testing::HasSubstr("flash block 0x28000")));
 }
 
 TEST(SubaruDensoMc68hc16y5_02Plan, TpuRejectsWriteAndTestWrite)
@@ -178,7 +176,7 @@ TEST(SubaruDensoMc68hc16y5_02Plan, TpuRejectsWriteAndTestWrite)
     {
         bytes::Bytes rom(kFlashDevices[index].romsize, bytes::Byte{0});
         ASSERT_THAT(BuildSubaruDensoMc68hc16y502Plan(operation, "sub_ecu_denso_mc68hc16y5_02_tpu", "MC68HC16Y5_TPU",
-                                                     testing::IdentityImage(std::move(rom)),
+                                                     fastecu::memory::testing::IdentityImage(std::move(rom)),
                                                      KernelImage{.id = "k", .load_address = 0x20000, .bytes = {0xaa}}),
                     fastecu::testing::IsErr(ErrorKind::kUnsupported));
     }

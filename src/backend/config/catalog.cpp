@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <format>
+#include <optional>
 #include <span>
 #include <string>
 #include <utility>
@@ -11,6 +12,12 @@ namespace fastecu::config
 {
 namespace
 {
+
+std::unexpected<memory::MemoryError> FileSizeError(std::string detail)
+{
+    return std::unexpected(
+        memory::MemoryError{.kind = memory::MemoryErrorKind::kFileSizeMismatch, .detail = std::move(detail)});
+}
 
 bool IsVehicleId(std::string_view id)
 {
@@ -120,22 +127,39 @@ std::string KernelLoadAddressText(const ProtocolSpec& protocol)
                                                     : std::string{};
 }
 
-std::expected<memory::MemoryMap, memory::MemoryError> SelectMemoryMap(const ProtocolSpec& protocol,
-                                                                      memory::ByteCount file_size)
+std::expected<memory::MemoryMap, memory::MemoryError> SelectMemoryMap(const ProtocolSpec *protocol,
+                                                                      std::size_t file_size)
 {
-    if (protocol.memory_maps.empty())
+    if (file_size == 0)
     {
-        return memory::MemoryMap::Identity(file_size);
+        return FileSizeError("the ROM file is empty");
     }
-    const auto found = std::ranges::find(protocol.memory_maps, file_size, &MemoryMapSpec::file_size);
-    if (found == protocol.memory_maps.end())
+    const std::optional<memory::ByteCount> size = memory::ByteCount::FromSize(file_size);
+    if (!size.has_value())
     {
-        return std::unexpected(
-            memory::MemoryError{.kind = memory::MemoryErrorKind::kFileSizeMismatch,
-                                .detail = std::format("protocol '{}' has no memory map for 0x{:x}-byte ROM files",
-                                                      protocol.name, file_size.Value())});
+        return FileSizeError(std::format("the {}-byte ROM file is larger than 4 GiB", file_size));
+    }
+    if (protocol == nullptr || protocol->memory_maps.empty())
+    {
+        return memory::MemoryMap::Identity(*size);
+    }
+    const auto found = std::ranges::find(protocol->memory_maps, *size, &MemoryMapSpec::file_size);
+    if (found == protocol->memory_maps.end())
+    {
+        return FileSizeError(
+            std::format("protocol '{}' has no memory map for 0x{:x}-byte ROM files", protocol->name, file_size));
     }
     return memory::MemoryMap::Create(found->blocks, found->file_size, found->definition_base);
+}
+
+std::expected<memory::MemoryImage, memory::MemoryError> PlaceRomFile(const ProtocolSpec *protocol, bytes::Bytes file)
+{
+    auto map = SelectMemoryMap(protocol, file.size());
+    if (!map.has_value())
+    {
+        return std::unexpected(map.error());
+    }
+    return memory::MemoryImage::Create(std::move(*map), std::move(file));
 }
 
 const ProtocolSpec *Catalog::FindProtocol(std::string_view name) const

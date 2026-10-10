@@ -1868,7 +1868,7 @@ void MainWindowTest::checkWritePreparationRefreshesMetadataAndStatusLabel()
         fastecu::calibration::SessionId{41},
         fastecu::calibration::SessionContents{
             .source = {.display_name = "d.bin", .path = "/d.bin"},
-            .rom = std::vector<std::uint8_t>(16, 0),
+            .image = fastecu::memory::testing::IdentityImage(std::vector<std::uint8_t>(16, 0)),
             .definition =
                 fastecu::calibration::ResolvedDefinition{
                     .id = "D", .definition = {.format = fastecu::definition::DefinitionFormat::kEcuFlash}},
@@ -2229,7 +2229,7 @@ void MainWindowTest::checkFailedMapDecodeKeepsAnErrorView()
         id,
         {
             .source = session->Source(),
-            .rom = bytes::Bytes(16, 0),
+            .image = fastecu::memory::testing::IdentityImage(bytes::Bytes(16, 0)),
             .definition = fastecu::calibration::ResolvedDefinition{.id = "BAD", .definition = std::move(definition)},
         });
     window.calibrationFilesTreewidgetItemSelected(window.ui_->calibrationFilesTreeWidget->topLevelItem(0));
@@ -4518,7 +4518,7 @@ void MainWindowTest::checkTypedAssignment(AssignmentScenario scenario)
     }
     *session = fastecu::calibration::CalibrationSession(
         id, {.source = session->Source(),
-             .rom = {0, 10},
+             .image = fastecu::memory::testing::IdentityImage({0, 10}),
              .definition = fastecu::calibration::ResolvedDefinition{.definition = definition}});
     window.calibrationFilesTreewidgetItemSelected(window.ui_->calibrationFilesTreeWidget->topLevelItem(0));
     auto *tree = window.ui_->calibrationDataTreeWidget;
@@ -4554,7 +4554,7 @@ void MainWindowTest::checkTypedAssignment(AssignmentScenario scenario)
         ASSERT_NE(otherSession, nullptr);
         *otherSession = fastecu::calibration::CalibrationSession(
             *other, {.source = otherSession->Source(),
-                     .rom = {0, 40},
+                     .image = fastecu::memory::testing::IdentityImage({0, 40}),
                      .definition = fastecu::calibration::ResolvedDefinition{.definition = definition}});
         ASSERT_TRUE(window.addCalibration(*other));
         if (activeChanged)
