@@ -1,9 +1,17 @@
 #include "checksum_ecu_subaru_hitachi_m32r_can.h"
+
+#include <utility>
+
 #include "checksum_primitives.h"
 #include "src/algorithms/protocol/bytes.h"
 
-ChecksumResult ChecksumEcuSubaruHitachiM32rCan::CalculateChecksumResult(bytes::ByteView rom_view)
+ChecksumResult ChecksumEcuSubaruHitachiM32rCan::CalculateChecksumResult(const fastecu::memory::MemoryView& rom)
 {
+    if (auto rejected = fastecu::checksum::internal::RequireStartAtZero(rom); rejected.has_value())
+    {
+        return *std::move(rejected);
+    }
+    const bytes::ByteView rom_view = rom.Data();
     // Fixed 512 KiB layout: checksum fields occupy 0x7FFE8-0x7FFFB.
     if (rom_view.size() != 0x80000)
     {

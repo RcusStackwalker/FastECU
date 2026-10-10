@@ -1,13 +1,20 @@
 #pragma once
 
+#include "checksum_result.h"
+#include "src/algorithms/memory/memory_image.h"
 #include "src/algorithms/protocol/bytes.h"
 
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <span>
 
 namespace fastecu::checksum::internal
 {
+
+// kInvalidSize with the view's bytes unchanged, unless `rom` starts at ECU
+// address 0: the fixed layouts address bytes from 0.
+std::optional<ChecksumResult> RequireStartAtZero(const memory::MemoryView& rom);
 
 void RebalanceU16Be(bytes::MutableByteView rom, std::size_t offset, std::uint16_t observed, std::uint16_t target);
 void RebalanceU32Be(bytes::MutableByteView rom, std::size_t offset, std::uint32_t observed, std::uint32_t target);

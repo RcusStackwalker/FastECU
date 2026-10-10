@@ -58,6 +58,7 @@ fastecu_portable_gtest(
     srcs = ["checksum_ecu_mitsu_m32r_can_test.cpp"],
     deps = [
         ":checksum",
+        "//src/algorithms/memory/testing:memory_views",
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/testing:byte_matchers",
         "@googletest//:gtest",

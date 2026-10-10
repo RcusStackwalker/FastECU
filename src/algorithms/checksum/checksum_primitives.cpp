@@ -40,6 +40,17 @@ constexpr std::array<std::uint32_t, 256> kCrcTable = MakeCrcTable();
 namespace fastecu::checksum::internal
 {
 
+std::optional<ChecksumResult> RequireStartAtZero(const memory::MemoryView& rom)
+{
+    if (rom.Range().Start() == memory::FlashAddress{0})
+    {
+        return std::nullopt;
+    }
+    return ChecksumResult{.status = ChecksumResult::Status::kInvalidSize,
+                          .rom_data = bytes::Bytes(rom.Data().begin(), rom.Data().end()),
+                          .message = "ROM does not start at ECU address 0 as the checksum layout requires"};
+}
+
 void RebalanceU16Be(bytes::MutableByteView rom, std::size_t offset, std::uint16_t observed, std::uint16_t target)
 {
     const std::uint16_t stored = bytes::ReadU16Be(rom, offset);
