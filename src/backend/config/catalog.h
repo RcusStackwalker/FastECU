@@ -2,11 +2,16 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <expected>
 #include <optional>
 #include <span>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <vector>
+
+#include "src/algorithms/memory/address.h"
+#include "src/algorithms/memory/memory_map.h"
 
 namespace fastecu::config
 {
@@ -23,13 +28,48 @@ enum class ChecksumSupport
 // The legacy flag text ChecksumSelection still takes: "yes", "n/a" or "no".
 std::string_view ChecksumFlag(ChecksumSupport support);
 
+// One memory map a protocol's ROM files can have. A ROM file selects it by its
+// exact size; see SelectMemoryMap.
+struct MemoryMapSpec
+{
+    memory::ByteCount file_size;
+    std::span<const memory::MemoryBlock> blocks;
+};
+
+// A ROM-file-backed memory block, for constant catalog data. A range that is
+// empty or runs past the 32-bit address space does not compile: a
+// throw-expression is not a constant expression.
+consteval memory::MemoryBlock FileBlock(std::uint32_t start, std::uint32_t size, std::uint32_t file_offset,
+                                        memory::Writability writability)
+{
+    const auto range =
+        memory::AddressRange<memory::FlashSpace>::Make(memory::FlashAddress{start}, memory::ByteCount{size});
+    return range.has_value()
+               ? memory::MemoryBlock{.range = *range,
+                                     .backing = memory::FileBacking{.offset = memory::FileOffset{file_offset}},
+                                     .writability = writability}
+               : throw std::invalid_argument("memory block range is empty or runs past the address space");
+}
+
+// A read-only block of `fill` bytes with no ROM file bytes, for constant catalog data.
+consteval memory::MemoryBlock FillBlock(std::uint32_t start, std::uint32_t size, std::uint8_t fill)
+{
+    const auto range =
+        memory::AddressRange<memory::FlashSpace>::Make(memory::FlashAddress{start}, memory::ByteCount{size});
+    return range.has_value()
+               ? memory::MemoryBlock{.range = *range,
+                                     .backing = memory::FillBacking{.value = fill},
+                                     .writability = memory::Writability::kReadOnly}
+               : throw std::invalid_argument("memory block range is empty or runs past the address space");
+}
+
 // One flash and logging protocol, as compile-time data.
 struct ProtocolSpec
 {
     std::string_view name;  // unique within a catalog
     std::string_view alias; // one token a definition's flash method may use; empty when none
     std::string_view ecu;
-    std::string_view mcu;
+    std::string_view mcu; // names the FlashDevice (FindFlashDevice) giving erase geometry
     std::string_view mode;
     ChecksumSupport checksum = ChecksumSupport::kNone;
     bool read = false;
@@ -41,13 +81,22 @@ struct ProtocolSpec
     std::string_view kernel; // a file in the kernel directory; empty when none is uploaded
     std::optional<std::uint32_t> kernel_load_address;
     std::string_view description;
-
-    bool operator==(const ProtocolSpec&) const = default;
+    // Empty when ROM files sit at address 0 with every byte writable: those get
+    // the identity map at any size. Otherwise one map per ROM file size the
+    // protocol accepts.
+    std::span<const MemoryMapSpec> memory_maps;
 };
 
 // The load address as protocols.cfg spelled it -- "0x" then unpadded
 // uppercase hex, e.g. "0xFFFF3000" -- or "" when there is none.
 std::string KernelLoadAddressText(const ProtocolSpec& protocol);
+
+// The memory map of a `file_size`-byte ROM file for `protocol`: the declared map
+// of exactly that size, or the identity map when the protocol declares none.
+// kFileSizeMismatch when it declares maps but none of that size; a ROM file is
+// never padded to fit one.
+std::expected<memory::MemoryMap, memory::MemoryError> SelectMemoryMap(const ProtocolSpec& protocol,
+                                                                      memory::ByteCount file_size);
 
 // One vehicle the operator can select.
 struct VehicleSpec
@@ -131,8 +180,9 @@ class Catalog
 
 // Every way `catalog` is inconsistent, one message each; empty when it is
 // consistent. Covers catalog_references_resolve, plus duplicate protocol
-// names and vehicle ids, vehicle id spelling, comma-separated aliases, and
-// vehicles whose protocol belongs to another catalog.
+// names and vehicle ids, vehicle id spelling, comma-separated aliases,
+// vehicles whose protocol belongs to another catalog, and memory maps that are
+// invalid or share a ROM file size.
 std::vector<std::string> CatalogProblems(const Catalog& catalog);
 
 } // namespace fastecu::config

@@ -1,7 +1,11 @@
 #include "src/backend/config/catalog.h"
 
+#include <algorithm>
 #include <format>
+#include <span>
+#include <string>
 #include <utility>
+#include <vector>
 
 namespace fastecu::config
 {
@@ -12,6 +16,26 @@ bool IsVehicleId(std::string_view id)
 {
     return !id.empty() &&
            std::ranges::all_of(id, [](char c) { return (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-'; });
+}
+
+void AddMemoryMapProblems(const ProtocolSpec& protocol, std::vector<std::string>& problems)
+{
+    const std::span<const MemoryMapSpec> maps = protocol.memory_maps;
+    for (std::size_t index = 0; index < maps.size(); ++index)
+    {
+        const MemoryMapSpec& spec = maps[index];
+        if (const auto map = memory::MemoryMap::Create(spec.blocks, spec.file_size); !map.has_value())
+        {
+            problems.push_back(std::format("protocol '{}' memory map for 0x{:x}-byte files is invalid: {}",
+                                           protocol.name, spec.file_size.Value(), map.error().detail));
+        }
+        if (std::ranges::any_of(maps.first(index),
+                                [&spec](const MemoryMapSpec& earlier) { return earlier.file_size == spec.file_size; }))
+        {
+            problems.push_back(std::format("protocol '{}' declares two memory maps for 0x{:x}-byte files",
+                                           protocol.name, spec.file_size.Value()));
+        }
+    }
 }
 
 void AddProtocolProblems(const Catalog& catalog, std::vector<std::string>& problems)
@@ -42,6 +66,7 @@ void AddProtocolProblems(const Catalog& catalog, std::vector<std::string>& probl
         {
             problems.push_back(std::format("protocol '{}' has no vehicle", protocol.name));
         }
+        AddMemoryMapProblems(protocol, problems);
     }
 }
 
@@ -92,6 +117,24 @@ std::string KernelLoadAddressText(const ProtocolSpec& protocol)
 {
     return protocol.kernel_load_address.has_value() ? std::format("0x{:X}", *protocol.kernel_load_address)
                                                     : std::string{};
+}
+
+std::expected<memory::MemoryMap, memory::MemoryError> SelectMemoryMap(const ProtocolSpec& protocol,
+                                                                      memory::ByteCount file_size)
+{
+    if (protocol.memory_maps.empty())
+    {
+        return memory::MemoryMap::Identity(file_size);
+    }
+    const auto found = std::ranges::find(protocol.memory_maps, file_size, &MemoryMapSpec::file_size);
+    if (found == protocol.memory_maps.end())
+    {
+        return std::unexpected(
+            memory::MemoryError{.kind = memory::MemoryErrorKind::kFileSizeMismatch,
+                                .detail = std::format("protocol '{}' has no memory map for 0x{:x}-byte ROM files",
+                                                      protocol.name, file_size.Value())});
+    }
+    return memory::MemoryMap::Create(found->blocks, found->file_size);
 }
 
 const ProtocolSpec *Catalog::FindProtocol(std::string_view name) const

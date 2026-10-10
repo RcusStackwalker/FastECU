@@ -2,10 +2,15 @@
 
 #include <array>
 #include <cstddef>
+#include <cstdint>
 #include <optional>
+#include <string>
+#include <variant>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+
+#include "src/algorithms/memory/memory_map.h"
 
 namespace
 {
@@ -15,10 +20,20 @@ using fastecu::config::CatalogProblems;
 using fastecu::config::CatalogReferencesResolve;
 using fastecu::config::ChecksumFlag;
 using fastecu::config::ChecksumSupport;
+using fastecu::config::FileBlock;
 using fastecu::config::KernelLoadAddressText;
+using fastecu::config::MemoryMapSpec;
 using fastecu::config::ProtocolIn;
 using fastecu::config::ProtocolSpec;
+using fastecu::config::SelectMemoryMap;
 using fastecu::config::VehicleSpec;
+using fastecu::memory::ByteCount;
+using fastecu::memory::FileBacking;
+using fastecu::memory::FileOffset;
+using fastecu::memory::FlashAddress;
+using fastecu::memory::MemoryErrorKind;
+using fastecu::memory::Writability;
+using ::testing::ElementsAre;
 using ::testing::IsEmpty;
 using ::testing::UnorderedElementsAre;
 
@@ -128,6 +143,73 @@ TEST(CatalogProblems, ReportsEachInconsistencyOnce)
                     "protocol 'lonely' has a kernel load address but no kernel", "protocol 'lonely' has no vehicle",
                     "vehicle id 'Upper' is not lowercase [a-z0-9-]", "duplicate vehicle id 'twin'",
                     "vehicle 'orphan' has no protocol", "vehicle 'stranger' protocol is not in this catalog"));
+}
+
+// A 0x200-byte file whose first 0x100 bytes the protocol never writes, and a
+// 0x100-byte file of only the writable half, placed where the larger file puts it.
+constexpr auto kPrefixedBlocks = std::to_array({
+    FileBlock(0x000, 0x100, 0x000, Writability::kReadOnly),
+    FileBlock(0x100, 0x100, 0x100, Writability::kWritable),
+});
+constexpr auto kTailBlocks = std::to_array({FileBlock(0x100, 0x100, 0x000, Writability::kWritable)});
+constexpr auto kMaps = std::to_array<MemoryMapSpec>({
+    {.file_size = ByteCount{0x200}, .blocks = kPrefixedBlocks},
+    {.file_size = ByteCount{0x100}, .blocks = kTailBlocks},
+});
+constexpr ProtocolSpec kMapped{.name = "mapped", .memory_maps = kMaps};
+constexpr ProtocolSpec kPlain{.name = "plain"};
+
+TEST(SelectMemoryMap, GivesTheIdentityMapWhenTheProtocolDeclaresNone)
+{
+    const auto map = SelectMemoryMap(kPlain, ByteCount{0x1234});
+
+    ASSERT_TRUE(map.has_value());
+    ASSERT_EQ(map->Blocks().size(), 1U);
+    EXPECT_EQ(map->Blocks()[0].range.Start(), FlashAddress{0});
+    EXPECT_EQ(map->Blocks()[0].range.Size(), ByteCount{0x1234});
+    EXPECT_EQ(map->Blocks()[0].writability, Writability::kWritable);
+}
+
+TEST(SelectMemoryMap, PicksTheDeclaredMapOfExactlyTheFileSize)
+{
+    const auto large = SelectMemoryMap(kMapped, ByteCount{0x200});
+    const auto small = SelectMemoryMap(kMapped, ByteCount{0x100});
+
+    ASSERT_TRUE(large.has_value());
+    ASSERT_TRUE(small.has_value());
+    EXPECT_EQ(large->Blocks().size(), 2U);
+    ASSERT_EQ(small->Blocks().size(), 1U);
+    EXPECT_EQ(small->Blocks()[0].range.Start(), FlashAddress{0x100});
+    EXPECT_EQ(small->BlockAt(FlashAddress{0x100})->backing,
+              (std::variant<FileBacking, fastecu::memory::FillBacking>{FileBacking{.offset = FileOffset{0}}}));
+}
+
+TEST(SelectMemoryMap, RejectsAFileSizeNoDeclaredMapHas)
+{
+    const auto map = SelectMemoryMap(kMapped, ByteCount{0x180});
+
+    ASSERT_FALSE(map.has_value());
+    EXPECT_EQ(map.error().kind, MemoryErrorKind::kFileSizeMismatch);
+}
+
+// 0x100 bytes of blocks for a 0x200-byte file; two maps claim 0x80-byte files.
+constexpr auto kShortBlocks = std::to_array({FileBlock(0x0, 0x100, 0x0, Writability::kWritable)});
+constexpr auto kSmallBlocks = std::to_array({FileBlock(0x0, 0x80, 0x0, Writability::kWritable)});
+constexpr auto kBadMaps = std::to_array<MemoryMapSpec>({
+    {.file_size = ByteCount{0x200}, .blocks = kShortBlocks},
+    {.file_size = ByteCount{0x80}, .blocks = kSmallBlocks},
+    {.file_size = ByteCount{0x80}, .blocks = kSmallBlocks},
+});
+constexpr auto kBadMapProtocols = std::to_array<ProtocolSpec>({{.name = "badmaps", .memory_maps = kBadMaps}});
+constexpr auto kBadMapVehicles =
+    std::to_array<VehicleSpec>({{.id = "car", .protocol = ProtocolIn(kBadMapProtocols, "badmaps")}});
+
+TEST(CatalogProblems, ReportsInvalidAndSameSizeMemoryMaps)
+{
+    EXPECT_THAT(CatalogProblems(Catalog{kBadMapProtocols, kBadMapVehicles}),
+                ElementsAre("protocol 'badmaps' memory map for 0x200-byte files is invalid: "
+                            "ROM file bytes from 0x100 are not placed",
+                            "protocol 'badmaps' declares two memory maps for 0x80-byte files"));
 }
 
 } // namespace

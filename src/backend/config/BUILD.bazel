@@ -99,6 +99,7 @@ fastecu_portable_gtest(
     srcs = ["catalog_test.cpp"],
     deps = [
         ":catalog",
+        "//src/algorithms/memory:memory_map",
         "@googletest//:gtest",
     ],
 )
@@ -112,6 +113,10 @@ cc_library(
     visibility = [
         "//bazel/layers:apps_desktop",
         "//bazel/layers:backend_and_above",
+    ],
+    deps = [
+        "//src/algorithms/memory:address",
+        "//src/algorithms/memory:memory_map",
     ],
 )
 
