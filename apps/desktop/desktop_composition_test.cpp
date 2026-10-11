@@ -7,6 +7,7 @@
 
 #include <variant>
 #include <QMap>
+#include "src/backend/ports/testing/result_matchers.h"
 #include "src/platform/desktop/common/logging/runtime/logging_worker.h"
 #include "src/platform/desktop/common/logging/logging_snapshot_adapter.h"
 #define private public
@@ -35,6 +36,7 @@
 namespace
 {
 
+using fastecu::testing::IsOk;
 using fastecu::ui::LogChannel;
 using fastecu::ui::RemotePeer;
 
@@ -238,7 +240,7 @@ TEST_F(DesktopCompositionTest, workspaceOpensARomFromDisk)
 
     const auto opened = CalibrationWorkspaceOf(composition)->OpenFile(rom_path.toStdString());
 
-    ASSERT_TRUE(opened.has_value());
+    ASSERT_THAT(opened, IsOk());
     const auto *session = CalibrationWorkspaceOf(composition)->Find(opened->id);
     ASSERT_TRUE(session != nullptr);
     ASSERT_EQ(session->Source().display_name, std::string("synthetic.bin"));
@@ -348,7 +350,7 @@ TEST_F(DesktopCompositionTest, restartSeesSavedSettingsAndTheDatalogDirectory)
         ASSERT_TRUE(first.started());
         ConfigOf(first).Settings().serial_port = "ttyRESTART";
         ConfigOf(first).Settings().datalog_files_directory = datalogs;
-        ASSERT_TRUE(ConfigOf(first).Save().has_value());
+        ASSERT_THAT(ConfigOf(first).Save(), IsOk());
     }
     DesktopComposition second{{}, {}, root.path()};
     ASSERT_TRUE(second.started());

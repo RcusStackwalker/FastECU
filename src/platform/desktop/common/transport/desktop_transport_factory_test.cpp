@@ -120,7 +120,7 @@ TEST(TestDesktopTransportFactory, refusesToOpenWhenNoDetectedPortIsAJ2534Adapter
 #if defined(Q_OS_UNIX)
     ASSERT_THAT(transport, IsErr(ErrorKind::kDisconnected));
 #else
-    ASSERT_TRUE(transport.has_value());
+    ASSERT_THAT(transport, IsOk());
 #endif
 }
 
@@ -137,7 +137,7 @@ TEST(TestDesktopTransportFactory, refusesToOpenWhenTheNamedDeviceIsNotAJ2534Adap
 #if defined(Q_OS_UNIX)
     ASSERT_THAT(transport, IsErr(ErrorKind::kInvalidConfig));
 #else
-    ASSERT_TRUE(transport.has_value());
+    ASSERT_THAT(transport, IsOk());
 #endif
 }
 

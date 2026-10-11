@@ -126,6 +126,7 @@ fastecu_gtest(
     deps = [
         ":startup_vehicle_gate",
         "//src/backend/config/testing:config_session_fixture",
+        "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
     ],
 )
@@ -153,6 +154,7 @@ fastecu_gtest(
         "//bazel/qt:core",
         "//src/backend/calibration/session:calibration_workspace",
         "//src/backend/definition:definition_catalog_session",
+        "//src/backend/ports/testing:result_matchers",
         "//src/platform/desktop/common/logging:logging_adapters",
         "//src/platform/desktop/common/logging/runtime:logging_runtime",
         "//src/platform/desktop/common/logging/runtime:systemlogger",

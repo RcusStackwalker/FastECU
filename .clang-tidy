@@ -42,11 +42,7 @@ Checks: >
   readability-uppercase-literal-suffix,
   readability-use-anyofallof
 
-WarningsAsErrors: >
-  *,
-  -custom-fastecu-result-assertion,
-  -custom-fastecu-container-assertion,
-  -custom-fastecu-message-concatenation
+WarningsAsErrors: '*'
 HeaderFilterRegex: 'src/(algorithms|backend|platform|ui)/.*\.h'
 # workaround for the issue with separators normalization
 ExcludeHeaderFilterRegex: '([/\\\\]generated_ui[/\\\\].*|_replica)\.h'
@@ -179,10 +175,11 @@ CheckOptions:
     value: '_'
 
 # Diagnostic-only repository conventions. The Bazel runner enables these in
-# a separate advisory pass with a wider first-party header filter. Keeping
-# them out of Checks above preserves the built-in pass's enforcement scope.
-# LLVM prefixes each Name with custom-. Use the registered name when enabling
-# a check or excluding it from WarningsAsErrors.
+# a separate pass with a wider first-party header filter; their findings are
+# errors like every other check. Keeping them out of Checks above preserves
+# the built-in pass's header scope. LLVM prefixes each Name with custom-. Use
+# the registered name when enabling a check or excluding it from
+# WarningsAsErrors.
 CustomChecks:
 # Match the direct operand of GoogleTest's AssertionResult construction.
 # Following only transparent wrappers and logical negation excludes unrelated

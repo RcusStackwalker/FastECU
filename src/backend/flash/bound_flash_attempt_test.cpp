@@ -335,7 +335,7 @@ TEST(BoundFlashAttemptTest, MixedTransportUsesOuterLifecycleExactlyOnce)
     FakeCancellationToken cancellation;
     RecordingEventSink events;
 
-    ASSERT_TRUE(attempt->Run(clock, cancellation, events).has_value());
+    ASSERT_THAT(attempt->Run(clock, cancellation, events), fastecu::testing::IsOk());
     EXPECT_THAT(calls, ::testing::ElementsAre("before_transport_configure", "configure", "open", "execute", "close"));
 }
 

@@ -3,14 +3,16 @@
 #include <gtest/gtest.h>
 
 #include "src/backend/config/testing/config_session_fixture.h"
+#include "src/backend/ports/testing/result_matchers.h"
 
 using fastecu::config::ProtocolSpec;
 using fastecu::config::testing::ConfigSessionFixture;
+using fastecu::testing::IsOk;
 
 TEST(ConfigFields, FieldsAndCapabilities)
 {
     ConfigSessionFixture f;
-    ASSERT_TRUE(f.Initialize().has_value());
+    ASSERT_THAT(f.Initialize(), IsOk());
     const auto& impreza = f.session.Vehicles()[0];
     EXPECT_EQ(fastecu::ui::protocolField(impreza, &ProtocolSpec::mcu), QString("SH7058"));
     EXPECT_TRUE(fastecu::ui::protocolCapability(impreza, &ProtocolSpec::read));

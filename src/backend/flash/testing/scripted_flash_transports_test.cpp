@@ -3,6 +3,7 @@
 #include "src/backend/flash/testing/scripted_mixed_can_flash_transport.h"
 #include "src/algorithms/protocol/testing/byte_matchers.h"
 #include "src/backend/ports/testing/fake_cancellation_token.h"
+#include "src/backend/ports/testing/result_matchers.h"
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -19,6 +20,9 @@ namespace fastecu::flash
 namespace
 {
 using namespace std::chrono_literals;
+using fastecu::testing::IsErr;
+using fastecu::testing::IsErrWith;
+using fastecu::testing::IsOk;
 
 TEST(ScriptedKlineFlashTransport, RawExpectationsRejectFramedCalls)
 {
@@ -27,14 +31,14 @@ TEST(ScriptedKlineFlashTransport, RawExpectationsRejectFramedCalls)
     const bytes::Bytes request{0xaa};
     const bytes::Bytes reply{0x00, 0xff};
     transport.ExpectRawWrite(request);
-    EXPECT_FALSE(transport.Write(request).has_value());
-    EXPECT_TRUE(transport.WriteRaw(request).has_value());
+    EXPECT_THAT(transport.Write(request), IsErr(ErrorKind::kInternal));
+    EXPECT_THAT(transport.WriteRaw(request), IsOk());
     transport.QueueRawRead(reply);
-    EXPECT_FALSE(transport.Read(10ms, cancellation).has_value());
+    EXPECT_THAT(transport.Read(10ms, cancellation), IsErr(ErrorKind::kInternal));
     const auto result = transport.ReadRaw(10ms, cancellation);
-    ASSERT_TRUE(result.has_value());
+    ASSERT_THAT(result, IsOk());
     ASSERT_TRUE(result->has_value());
-    EXPECT_THAT(result->value(), testing::ElementsAre(0x00, 0xff));
+    EXPECT_THAT(result->value(), ::testing::ElementsAre(0x00, 0xff));
     EXPECT_TRUE(transport.ScriptConsumed());
 }
 
@@ -63,8 +67,8 @@ TEST(ScriptedCanFlashTransport, RestartUsesMandatoryResetThenExactConfigurationT
 
     const auto result = transport.RestartIso15765(restart_config, cancellation);
 
-    ASSERT_TRUE(result.has_value());
-    EXPECT_THAT(transport.lifecycle_calls, testing::ElementsAre("reset_connection", "configure", "open"));
+    EXPECT_THAT(result, IsOk());
+    EXPECT_THAT(transport.lifecycle_calls, ::testing::ElementsAre("reset_connection", "configure", "open"));
     ASSERT_TRUE(transport.last_config.has_value());
     EXPECT_EQ(transport.last_config->bitrate, 500000);
     EXPECT_EQ(transport.last_config->request_id, 0x7e1U);
@@ -100,19 +104,18 @@ TEST(ScriptedCanFlashTransport, RestartStopsAtEachFailureAndPreservesTheExactErr
         const auto result = transport.RestartIso15765(
             {.bitrate = 500000, .request_id = 0x7e1, .response_id = 0x7e9, .extended_id = false}, cancellation);
 
-        ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, expected_kind);
+        EXPECT_THAT(result, IsErr(expected_kind));
         if (stage == std::string_view{"reset"})
         {
-            EXPECT_THAT(transport.lifecycle_calls, testing::ElementsAre("reset_connection"));
+            EXPECT_THAT(transport.lifecycle_calls, ::testing::ElementsAre("reset_connection"));
         }
         else if (stage == std::string_view{"configure"})
         {
-            EXPECT_THAT(transport.lifecycle_calls, testing::ElementsAre("reset_connection", "configure"));
+            EXPECT_THAT(transport.lifecycle_calls, ::testing::ElementsAre("reset_connection", "configure"));
         }
         else
         {
-            EXPECT_THAT(transport.lifecycle_calls, testing::ElementsAre("reset_connection", "configure", "open"));
+            EXPECT_THAT(transport.lifecycle_calls, ::testing::ElementsAre("reset_connection", "configure", "open"));
         }
     }
 }
@@ -150,8 +153,7 @@ TEST(ScriptedCanFlashTransport, RestartChecksCancellationAtEveryLogicalBoundary)
         const auto result = transport.RestartIso15765(
             {.bitrate = 500000, .request_id = 0x7e1, .response_id = 0x7e9, .extended_id = false}, cancellation);
 
-        ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, ErrorKind::kCancelled);
+        EXPECT_THAT(result, IsErr(ErrorKind::kCancelled));
         EXPECT_EQ(transport.lifecycle_calls, expected_calls[boundary]);
     }
 }
@@ -176,12 +178,12 @@ TEST(ScriptedKlineFlashTransport, RecordsResetInLifecycleOrderAndClosesThePort)
 {
     ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::kOpen};
 
-    ASSERT_TRUE(transport.ResetConnection().has_value());
+    ASSERT_THAT(transport.ResetConnection(), IsOk());
     EXPECT_FALSE(transport.IsOpen());
-    ASSERT_TRUE(transport.Configure(KlineConfig{.baud = 4800, .iso14230 = false, .tester_id = 0xF0, .target_id = 0x10})
-                    .has_value());
-    ASSERT_TRUE(transport.Open().has_value());
-    ASSERT_TRUE(transport.Close().has_value());
+    ASSERT_THAT(transport.Configure(KlineConfig{.baud = 4800, .iso14230 = false, .tester_id = 0xF0, .target_id = 0x10}),
+                IsOk());
+    ASSERT_THAT(transport.Open(), IsOk());
+    ASSERT_THAT(transport.Close(), IsOk());
 
     EXPECT_EQ(transport.reset_call_count, 1);
     EXPECT_THAT(transport.lifecycle_calls, ::testing::ElementsAre("reset_connection", "configure", "open", "close"));
@@ -194,8 +196,7 @@ TEST(ScriptedKlineFlashTransport, ResetReturnsItsScriptedFailure)
 
     const Status reset = transport.ResetConnection();
 
-    ASSERT_FALSE(reset.has_value());
-    EXPECT_EQ(reset.error().kind, ErrorKind::kDisconnected);
+    EXPECT_THAT(reset, IsErr(ErrorKind::kDisconnected));
 }
 
 constexpr MixedCanConfig kMixedCanConfig{
@@ -206,8 +207,8 @@ constexpr MixedCanConfig kMixedCanConfig{
 
 void ConfigureAndOpen(ScriptedMixedCanFlashTransport& transport)
 {
-    ASSERT_TRUE(transport.Configure(kMixedCanConfig).has_value());
-    ASSERT_TRUE(transport.Open().has_value());
+    ASSERT_THAT(transport.Configure(kMixedCanConfig), IsOk());
+    ASSERT_THAT(transport.Open(), IsOk());
 }
 
 TEST(ScriptedMixedCanFlashTransport, ScriptsIsoAndRawFramesInTheirRespectiveModes)
@@ -221,24 +222,23 @@ TEST(ScriptedMixedCanFlashTransport, ScriptsIsoAndRawFramesInTheirRespectiveMode
     transport.QueueRawRead(cdbg::CanFrame{0x000fffff, {0x7a, 0x91}});
 
     ConfigureAndOpen(transport);
-    ASSERT_TRUE(transport.WriteIso15765(iso_request, cancellation).has_value());
+    ASSERT_THAT(transport.WriteIso15765(iso_request, cancellation), IsOk());
     const auto iso_reply = transport.ReadIso15765(10ms, cancellation);
-    ASSERT_TRUE(iso_reply.has_value());
+    ASSERT_THAT(iso_reply, IsOk());
     ASSERT_TRUE(iso_reply->has_value());
-    EXPECT_THAT(**iso_reply, testing::ElementsAre(0x00, 0x00, 0x07, 0xe8, 0xbe, 0xef, 0x00, 0x00, 0x41));
+    EXPECT_THAT(**iso_reply, ::testing::ElementsAre(0x00, 0x00, 0x07, 0xe8, 0xbe, 0xef, 0x00, 0x00, 0x41));
 
-    ASSERT_TRUE(transport.EnterRawBootloaderMode().has_value());
-    ASSERT_TRUE(transport.ClearReceiveBuffer().has_value());
-    ASSERT_TRUE(
-        transport.WriteRaw(cdbg::CanFrame{0x000ffffe, {0x7a, 0x90, 0, 0, 0, 0, 0, 0}}, cancellation).has_value());
+    ASSERT_THAT(transport.EnterRawBootloaderMode(), IsOk());
+    ASSERT_THAT(transport.ClearReceiveBuffer(), IsOk());
+    ASSERT_THAT(transport.WriteRaw(cdbg::CanFrame{0x000ffffe, {0x7a, 0x90, 0, 0, 0, 0, 0, 0}}, cancellation), IsOk());
     const auto raw_reply = transport.ReadRaw(10ms, cancellation);
-    ASSERT_TRUE(raw_reply.has_value());
+    ASSERT_THAT(raw_reply, IsOk());
     ASSERT_TRUE(raw_reply->has_value());
     EXPECT_EQ((*raw_reply)->id, 0x000fffffU);
-    EXPECT_THAT((*raw_reply)->payload, testing::ElementsAre(0x7a, 0x91));
+    EXPECT_THAT((*raw_reply)->payload, ::testing::ElementsAre(0x7a, 0x91));
     EXPECT_TRUE(transport.ScriptConsumed());
     EXPECT_THAT(transport.ModeChanges(),
-                testing::ElementsAre(ScriptedMixedCanMode::kIso15765Kernel, ScriptedMixedCanMode::kRawBootloader));
+                ::testing::ElementsAre(ScriptedMixedCanMode::kIso15765Kernel, ScriptedMixedCanMode::kRawBootloader));
     EXPECT_EQ(transport.ConfigureCallCount(), 1);
     EXPECT_EQ(transport.OpenCallCount(), 1);
     EXPECT_EQ(transport.CloseCallCount(), 0);
@@ -251,18 +251,15 @@ TEST(ScriptedMixedCanFlashTransport, RejectsWrongModeAndOversizeRawPayload)
 
     ConfigureAndOpen(transport);
     const auto raw_in_iso_mode = transport.WriteRaw(cdbg::CanFrame{0x000ffffe, {0x7a}}, cancellation);
-    ASSERT_FALSE(raw_in_iso_mode.has_value());
-    EXPECT_EQ(raw_in_iso_mode.error().kind, ErrorKind::kInvalidConfig);
+    EXPECT_THAT(raw_in_iso_mode, IsErr(ErrorKind::kInvalidConfig));
 
-    ASSERT_TRUE(transport.EnterRawBootloaderMode().has_value());
+    ASSERT_THAT(transport.EnterRawBootloaderMode(), IsOk());
     const bytes::Bytes iso_request{0x01};
     const auto iso_in_raw_mode = transport.WriteIso15765(iso_request, cancellation);
-    ASSERT_FALSE(iso_in_raw_mode.has_value());
-    EXPECT_EQ(iso_in_raw_mode.error().kind, ErrorKind::kInvalidConfig);
+    EXPECT_THAT(iso_in_raw_mode, IsErr(ErrorKind::kInvalidConfig));
 
     const auto oversized_raw = transport.WriteRaw(cdbg::CanFrame{0x000ffffe, bytes::Bytes(9, 0x00)}, cancellation);
-    ASSERT_FALSE(oversized_raw.has_value());
-    EXPECT_EQ(oversized_raw.error().kind, ErrorKind::kInvalidConfig);
+    EXPECT_THAT(oversized_raw, IsErr(ErrorKind::kInvalidConfig));
 }
 
 TEST(ScriptedMixedCanFlashTransport, CancelledReadLeavesItsIsoScriptItemQueued)
@@ -274,8 +271,7 @@ TEST(ScriptedMixedCanFlashTransport, CancelledReadLeavesItsIsoScriptItemQueued)
     ConfigureAndOpen(transport);
     const auto reply = transport.ReadIso15765(10ms, cancellation);
 
-    ASSERT_FALSE(reply.has_value());
-    EXPECT_EQ(reply.error().kind, ErrorKind::kCancelled);
+    EXPECT_THAT(reply, IsErr(ErrorKind::kCancelled));
     EXPECT_FALSE(transport.ScriptConsumed());
 }
 
@@ -286,15 +282,13 @@ TEST(ScriptedMixedCanFlashTransport, TransitionFailuresAreOneShot)
     ConfigureAndOpen(transport);
     transport.FailNextRawTransition();
     const auto raw_transition = transport.EnterRawBootloaderMode();
-    ASSERT_FALSE(raw_transition.has_value());
-    EXPECT_EQ(raw_transition.error().kind, ErrorKind::kInternal);
-    ASSERT_TRUE(transport.EnterRawBootloaderMode().has_value());
+    EXPECT_THAT(raw_transition, IsErr(ErrorKind::kInternal));
+    ASSERT_THAT(transport.EnterRawBootloaderMode(), IsOk());
 
     transport.FailNextIsoTransition();
     const auto iso_transition = transport.EnterIso15765KernelMode();
-    ASSERT_FALSE(iso_transition.has_value());
-    EXPECT_EQ(iso_transition.error().kind, ErrorKind::kInternal);
-    ASSERT_TRUE(transport.EnterIso15765KernelMode().has_value());
+    EXPECT_THAT(iso_transition, IsErr(ErrorKind::kInternal));
+    ASSERT_THAT(transport.EnterIso15765KernelMode(), IsOk());
 }
 
 TEST(ScriptedMixedCanFlashTransport, RequestUnblockReleasesBlockingIsoReadAsCancelled)
@@ -309,8 +303,7 @@ TEST(ScriptedMixedCanFlashTransport, RequestUnblockReleasesBlockingIsoReadAsCanc
     transport.RequestUnblock();
     const auto reply = pending_read.get();
 
-    ASSERT_FALSE(reply.has_value());
-    EXPECT_EQ(reply.error().kind, ErrorKind::kCancelled);
+    EXPECT_THAT(reply, IsErr(ErrorKind::kCancelled));
     EXPECT_TRUE(transport.ScriptConsumed());
 }
 
@@ -321,10 +314,10 @@ TEST(ScriptedCanFlashTransport, ExchangePairsARequestWithItsReply)
     transport.Exchange(bytes::Bytes{0x10, 0x43}, bytes::Bytes{0x50, 0x43});
 
     FakeCancellationToken cancellation;
-    ASSERT_TRUE(transport.Write(bytes::Bytes{0x10, 0x43}, cancellation).has_value());
+    ASSERT_THAT(transport.Write(bytes::Bytes{0x10, 0x43}, cancellation), IsOk());
     const auto reply = transport.Read(std::chrono::milliseconds{100}, cancellation);
 
-    ASSERT_TRUE(reply.has_value());
+    ASSERT_THAT(reply, IsOk());
     ASSERT_TRUE(reply->has_value());
     EXPECT_THAT(**reply, test_bytes::BytesEq(bytes::Bytes{0x50, 0x43}));
     EXPECT_TRUE(transport.ScriptConsumed());
@@ -341,10 +334,10 @@ TEST(ScriptedCanFlashTransport, ADivergentWriteNamesTheStepAndPrintsBothSides)
     transport.Exchange(bytes::Bytes{0x27, 0x61}, bytes::Bytes{0x67, 0x61});
 
     FakeCancellationToken cancellation;
-    ASSERT_TRUE(transport.Write(bytes::Bytes{0x10, 0x5F}, cancellation).has_value());
+    ASSERT_THAT(transport.Write(bytes::Bytes{0x10, 0x5F}, cancellation), IsOk());
     const auto status = transport.Write(bytes::Bytes{0x27, 0x62}, cancellation);
 
-    ASSERT_FALSE(status.has_value());
+    ASSERT_THAT(status, IsErr(ErrorKind::kInternal));
     // The index is 1-based over the whole script, so it matches what a reader
     // counts down the file.
     EXPECT_THAT(status.error().detail, ::testing::HasSubstr("exchange #2"));
@@ -360,12 +353,12 @@ TEST(ScriptedCanFlashTransport, AWriteRunningPastTheScriptSaysSo)
     transport.Exchange(bytes::Bytes{0x10, 0x43}, bytes::Bytes{0x50, 0x43});
 
     FakeCancellationToken cancellation;
-    ASSERT_TRUE(transport.Write(bytes::Bytes{0x10, 0x43}, cancellation).has_value());
+    ASSERT_THAT(transport.Write(bytes::Bytes{0x10, 0x43}, cancellation), IsOk());
     const auto status = transport.Write(bytes::Bytes{0x37}, cancellation);
 
-    ASSERT_FALSE(status.has_value());
-    EXPECT_THAT(status.error().detail, ::testing::HasSubstr("past the end of the script"));
-    EXPECT_THAT(status.error().detail, ::testing::HasSubstr("37"));
+    EXPECT_THAT(status,
+                IsErrWith(ErrorKind::kInternal, ::testing::AllOf(::testing::HasSubstr("past the end of the script"),
+                                                                 ::testing::HasSubstr("37"))));
 }
 
 TEST(ScriptedCanFlashTransport, StepsOutsideAnySectionStillReportTheirIndex)
@@ -376,8 +369,7 @@ TEST(ScriptedCanFlashTransport, StepsOutsideAnySectionStillReportTheirIndex)
     FakeCancellationToken cancellation;
     const auto status = transport.Write(bytes::Bytes{0x38}, cancellation);
 
-    ASSERT_FALSE(status.has_value());
-    EXPECT_THAT(status.error().detail, ::testing::HasSubstr("exchange #1"));
+    EXPECT_THAT(status, IsErrWith(ErrorKind::kInternal, ::testing::HasSubstr("exchange #1")));
 }
 
 TEST(ScriptedKlineFlashTransport, ExchangePairsARequestWithItsReply)
@@ -386,11 +378,11 @@ TEST(ScriptedKlineFlashTransport, ExchangePairsARequestWithItsReply)
     const auto section = transport.Section("bench connect");
     transport.Exchange(bytes::Bytes{0x10, 0x43}, bytes::Bytes{0x50, 0x43});
 
-    ASSERT_TRUE(transport.Write(bytes::Bytes{0x10, 0x43}).has_value());
+    ASSERT_THAT(transport.Write(bytes::Bytes{0x10, 0x43}), IsOk());
     FakeCancellationToken cancellation;
     const auto reply = transport.Read(std::chrono::milliseconds{100}, cancellation);
 
-    ASSERT_TRUE(reply.has_value());
+    ASSERT_THAT(reply, IsOk());
     ASSERT_TRUE(reply->has_value());
     EXPECT_THAT(**reply, test_bytes::BytesEq(bytes::Bytes{0x50, 0x43}));
     EXPECT_TRUE(transport.ScriptConsumed());
@@ -406,10 +398,10 @@ TEST(ScriptedKlineFlashTransport, ADivergentWriteNamesTheStepAndPrintsBothSides)
     const auto section = transport.Section("bench connect");
     transport.Exchange(bytes::Bytes{0x27, 0x61}, bytes::Bytes{0x67, 0x61});
 
-    ASSERT_TRUE(transport.Write(bytes::Bytes{0x10, 0x5F}).has_value());
+    ASSERT_THAT(transport.Write(bytes::Bytes{0x10, 0x5F}), IsOk());
     const auto status = transport.Write(bytes::Bytes{0x27, 0x62});
 
-    ASSERT_FALSE(status.has_value());
+    ASSERT_THAT(status, IsErr(ErrorKind::kInternal));
     // The index is 1-based over the whole script, so it matches what a reader
     // counts down the file.
     EXPECT_THAT(status.error().detail, ::testing::HasSubstr("scripted K-Line exchange #2"));
@@ -424,12 +416,12 @@ TEST(ScriptedKlineFlashTransport, AWriteRunningPastTheScriptSaysSo)
     const auto section = transport.Section("bench connect");
     transport.Exchange(bytes::Bytes{0x10, 0x43}, bytes::Bytes{0x50, 0x43});
 
-    ASSERT_TRUE(transport.Write(bytes::Bytes{0x10, 0x43}).has_value());
+    ASSERT_THAT(transport.Write(bytes::Bytes{0x10, 0x43}), IsOk());
     const auto status = transport.Write(bytes::Bytes{0x37});
 
-    ASSERT_FALSE(status.has_value());
-    EXPECT_THAT(status.error().detail, ::testing::HasSubstr("past the end of the script"));
-    EXPECT_THAT(status.error().detail, ::testing::HasSubstr("37"));
+    EXPECT_THAT(status,
+                IsErrWith(ErrorKind::kInternal, ::testing::AllOf(::testing::HasSubstr("past the end of the script"),
+                                                                 ::testing::HasSubstr("37"))));
 }
 
 TEST(ScriptedKlineFlashTransport, StepsOutsideAnySectionStillReportTheirIndex)
@@ -439,8 +431,7 @@ TEST(ScriptedKlineFlashTransport, StepsOutsideAnySectionStillReportTheirIndex)
 
     const auto status = transport.Write(bytes::Bytes{0x38});
 
-    ASSERT_FALSE(status.has_value());
-    EXPECT_THAT(status.error().detail, ::testing::HasSubstr("exchange #1"));
+    EXPECT_THAT(status, IsErrWith(ErrorKind::kInternal, ::testing::HasSubstr("exchange #1")));
 }
 } // namespace
 } // namespace fastecu::flash

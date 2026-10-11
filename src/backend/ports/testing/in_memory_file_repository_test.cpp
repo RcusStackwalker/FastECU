@@ -88,8 +88,7 @@ TEST(InMemoryFileRepository, WriteErrorIsReturnedAndNothingIsStored)
 
     const fastecu::Status written = repo.Write("a.cfg", bytes);
 
-    ASSERT_FALSE(written.has_value());
-    EXPECT_EQ(written.error().detail, "read-only");
+    EXPECT_THAT(written, fastecu::testing::IsErrWith(fastecu::ErrorKind::kInternal, ::testing::StrEq("read-only")));
     EXPECT_FALSE(repo.files.contains("a.cfg"));
     EXPECT_TRUE(repo.write_calls.empty());
 }

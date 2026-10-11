@@ -245,6 +245,7 @@ fastecu_gtest(
         "//bazel/qt:widgets",
         "//src/backend/config:config_session",
         "//src/backend/config/testing:config_session_fixture",
+        "//src/backend/ports/testing:result_matchers",
         "//src/platform/desktop/common/ports",
         "//src/platform/desktop/common/ports/event_sink:qt_event_sink",
         "//src/platform/desktop/common/testing:widgets_application_environment",
@@ -263,6 +264,7 @@ fastecu_gtest(
     deps = [
         ":desktop",
         "//src/backend/config/testing:config_session_fixture",
+        "//src/backend/ports/testing:result_matchers",
         "//src/platform/desktop/common/testing:widgets_application_environment",
         "@googletest//:gtest",
     ],
@@ -279,6 +281,7 @@ fastecu_gtest(
     deps = [
         ":desktop",
         "//src/backend/config/testing:config_session_fixture",
+        "//src/backend/ports/testing:result_matchers",
         "//src/platform/desktop/common/testing:widgets_application_environment",
         "//src/ui/desktop:ui_protocol_select",
         "@googletest//:gtest",
