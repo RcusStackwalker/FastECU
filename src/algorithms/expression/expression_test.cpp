@@ -65,6 +65,35 @@ INSTANTIATE_TEST_SUITE_P(Grammar, InvalidExpression,
                          ::testing::Values("2junk", "(x", "x)", "()", "x+", "*x", "x x", "y", "sin(x)", "x^2", "1/0",
                                            "0/0", "1e309", "1e308*10", "nan", "inf", "0x10", "1e", "1e+", ".", "1..2"));
 
+TEST(CompiledExpression, OwnsSourceAndCanBeCopiedForRepeatedEvaluation)
+{
+    auto compiled = Compile(std::string("x*2+1"));
+    ASSERT_THAT(compiled, ValueIs(::testing::_));
+    const auto copy = *compiled;
+    compiled = Compile("x");
+    EXPECT_THAT(copy.Evaluate(3), ValueIs(7));
+    EXPECT_THAT(copy.Evaluate(-2), ValueIs(-3));
+}
+
+TEST(CompiledExpression, DefersInputDependentDomainErrors)
+{
+    const auto compiled = Compile("1/((x-1)*(x-16)*(x-1616))");
+    ASSERT_THAT(compiled, ValueIs(::testing::_));
+    EXPECT_THAT(compiled->Evaluate(2), ValueIs(::testing::DoubleEq(1.0 / 22596.0)));
+    EXPECT_THAT(compiled->Evaluate(1), HasError());
+    EXPECT_THAT(compiled->Evaluate(16), HasError());
+    EXPECT_THAT(compiled->Evaluate(1616), HasError());
+}
+
+TEST(CompiledExpression, RejectsInvalidSyntaxAndConstantOperations)
+{
+    for (const auto text : std::to_array<std::string_view>({"x+", "x/0", "x/(2-2)", "1e308*10"}))
+    {
+        SCOPED_TRACE(text);
+        EXPECT_THAT(Compile(text), HasError());
+    }
+}
+
 TEST(CheckedExpression, RejectsNonFiniteInputs)
 {
     EXPECT_THAT(EvaluateChecked("x", std::numeric_limits<double>::infinity()), HasError());

@@ -26,7 +26,7 @@ fastecu::Result<LogSample> ConvertSample(const LoggingSession& session, const Pr
             fastecu::ErrorKind::kBadResponse,
             std::format("protocol sample raw value is not a finite number: {}", raw_value.error().detail));
     }
-    const auto numeric_value = fastecu::expression::EvaluateChecked(channel->from_byte_expression, *raw_value);
+    const auto numeric_value = session.FindConversion(raw.channel_id)->Evaluate(*raw_value);
     if (!numeric_value.has_value())
     {
         return fastecu::Fail(fastecu::ErrorKind::kInvalidConfig,

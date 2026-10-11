@@ -63,10 +63,12 @@ Conversion expressions use the shared
 `double` arithmetic throughout; intermediate results are not rounded. The raw
 value is parsed once as a finite decimal number: a non-numeric raw value is a
 `kBadResponse` error, and an expression that fails to evaluate is
-`kInvalidConfig`. Session preparation accepts an expression if it evaluates for
-at least one of the probes 1, 16 and 1616. Compiling the expression once per
-session instead of per sample is tracked in
-[#575](https://github.com/RcusStackwalker/FastECU/issues/575).
+`kInvalidConfig`. Session preparation compiles and owns immutable, reusable conversions without
+trial inputs. Syntax errors, nonfinite constants and invalid constant operations
+(such as a constant zero divisor) reject preparation. Input-dependent domain
+errors remain checked at evaluation time. Polling evaluates the captured compiled
+conversion without parsing its expression again. The shared `EvaluateChecked`
+entry point remains a compile-and-evaluate wrapper for existing callers.
 
 ## Desktop protocol binding
 
