@@ -131,8 +131,9 @@ using the old location; those examples will be corrected.
   `docs/superpowers/specs/2026-10-08-logging-selection-policy-design.md`.
 - Corrective implementation: PR #577, commit `31a359fa`.
 
-The linked PR-branch contracts still describe the disputed compatibility dialect;
-they are evidence of the current proposal, not approval for its preservation.
+The original PR snapshots describe the disputed compatibility dialect; they
+record a superseded proposal, not approval for its preservation. Owning contracts
+will be updated with each delivered correction.
 
 ## Q9 upstream switch findings
 
