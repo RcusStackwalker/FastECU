@@ -16,6 +16,7 @@
 #include "src/algorithms/memory/testing/memory_views.h"
 
 #include <algorithm>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -27,6 +28,19 @@
 // depending on //tests or linking Qt.
 
 namespace memory = fastecu::memory;
+
+// A fixed layout's size is its parameter type: bytes of any other length do
+// not convert to it implicitly.
+template <typename Family>
+constexpr bool kTakesOnlyItsLayout =
+    std::is_invocable_v<decltype(&Family::CalculateChecksumResult), typename Family::Rom> &&
+    !std::is_invocable_v<decltype(&Family::CalculateChecksumResult), bytes::ByteView>;
+static_assert(kTakesOnlyItsLayout<ChecksumEcuSubaruHitachiM32rCan>);
+static_assert(kTakesOnlyItsLayout<ChecksumEcuSubaruHitachiM32rKline>);
+static_assert(kTakesOnlyItsLayout<ChecksumEcuSubaruHitachiSH7058>);
+static_assert(kTakesOnlyItsLayout<ChecksumEcuSubaruHitachiSh72543r>);
+static_assert(kTakesOnlyItsLayout<ChecksumTcuMitsuMH8104Can>);
+static_assert(kTakesOnlyItsLayout<ChecksumTcuSubaruDensoSH7055>);
 namespace
 {
 
@@ -176,7 +190,7 @@ TEST(ChecksumPortable, HitachiM32rCanBalancesZeroRom)
     const bytes::Bytes original(0x80000, 0x00);
 
     const ChecksumResult result =
-        ChecksumEcuSubaruHitachiM32rCan::CalculateChecksumResult(memory::testing::ViewOf(bytes::ByteView(original)));
+        ChecksumEcuSubaruHitachiM32rCan::CalculateChecksumResult(ChecksumEcuSubaruHitachiM32rCan::Rom(original));
     EXPECT_EQ(result.status, ChecksumResult::Status::kCorrected);
     EXPECT_EQ(result.message, "Subaru Hitachi M32R CAN ECU Checksum");
     CompareChangedBytes(original, result.rom_data, {{0x7fffa, bytes::Bytes{0x5a, 0xa5}}});
@@ -185,8 +199,8 @@ TEST(ChecksumPortable, HitachiM32rCanBalancesZeroRom)
     // (dead code in the algorithm, unchanged by this task), so checksum_ok
     // stays false forever and a second pass keeps reporting Corrected even
     // though the bytes have stopped changing.
-    const ChecksumResult second_pass = ChecksumEcuSubaruHitachiM32rCan::CalculateChecksumResult(
-        memory::testing::ViewOf(bytes::ByteView(result.rom_data)));
+    const ChecksumResult second_pass =
+        ChecksumEcuSubaruHitachiM32rCan::CalculateChecksumResult(ChecksumEcuSubaruHitachiM32rCan::Rom(result.rom_data));
     EXPECT_EQ(second_pass.status, ChecksumResult::Status::kCorrected);
     EXPECT_THAT(second_pass.rom_data, test_bytes::BytesEq(result.rom_data));
 }
@@ -196,19 +210,19 @@ TEST(ChecksumPortable, HitachiM32rKlineBalancesZeroRom)
     const bytes::Bytes original(0x80000, 0x00);
 
     const ChecksumResult result =
-        ChecksumEcuSubaruHitachiM32rKline::CalculateChecksumResult(memory::testing::ViewOf(bytes::ByteView(original)));
+        ChecksumEcuSubaruHitachiM32rKline::CalculateChecksumResult(ChecksumEcuSubaruHitachiM32rKline::Rom(original));
     EXPECT_EQ(result.status, ChecksumResult::Status::kCorrected);
     EXPECT_EQ(result.message, "Subaru Hitachi M32R K-Line ECU Checksum");
     CompareChangedBytes(original, result.rom_data, {{0x7fffa, bytes::Bytes{0x5a, 0xa5}}});
 
     const ChecksumResult second_pass = ChecksumEcuSubaruHitachiM32rKline::CalculateChecksumResult(
-        memory::testing::ViewOf(bytes::ByteView(result.rom_data)));
+        ChecksumEcuSubaruHitachiM32rKline::Rom(result.rom_data));
     EXPECT_EQ(second_pass.status, ChecksumResult::Status::kCorrected);
     EXPECT_EQ(second_pass.message, "Subaru Hitachi M32R K-Line ECU Checksum");
     CompareChangedBytes(result.rom_data, second_pass.rom_data, {{0x8100, bytes::Bytes{0xff, 0xff}}});
 
     const ChecksumResult unchanged_result = ChecksumEcuSubaruHitachiM32rKline::CalculateChecksumResult(
-        memory::testing::ViewOf(bytes::ByteView(second_pass.rom_data)));
+        ChecksumEcuSubaruHitachiM32rKline::Rom(second_pass.rom_data));
     EXPECT_EQ(unchanged_result.status, ChecksumResult::Status::kUnchanged);
     EXPECT_THAT(unchanged_result.rom_data, test_bytes::BytesEq(second_pass.rom_data));
 }
@@ -218,7 +232,7 @@ TEST(ChecksumPortable, HitachiSh7058BalancesZeroRom)
     const bytes::Bytes original(0x100000, 0x00);
 
     const ChecksumResult result =
-        ChecksumEcuSubaruHitachiSH7058::CalculateChecksumResult(memory::testing::ViewOf(bytes::ByteView(original)));
+        ChecksumEcuSubaruHitachiSH7058::CalculateChecksumResult(ChecksumEcuSubaruHitachiSH7058::Rom(original));
     EXPECT_EQ(result.status, ChecksumResult::Status::kCorrected);
     EXPECT_EQ(result.message, "Subaru Hitachi SH7058 CAN ECU Checksum");
     CompareChangedBytes(original, result.rom_data,
@@ -226,8 +240,8 @@ TEST(ChecksumPortable, HitachiSh7058BalancesZeroRom)
                          {0xffff4, bytes::Bytes{0x5a, 0xa5, 0xa5, 0x5a}},
                          {0xffff8, bytes::Bytes{0x5a, 0xa5, 0xa5, 0x5a}}});
 
-    const ChecksumResult unchanged_result = ChecksumEcuSubaruHitachiSH7058::CalculateChecksumResult(
-        memory::testing::ViewOf(bytes::ByteView(result.rom_data)));
+    const ChecksumResult unchanged_result =
+        ChecksumEcuSubaruHitachiSH7058::CalculateChecksumResult(ChecksumEcuSubaruHitachiSH7058::Rom(result.rom_data));
     EXPECT_EQ(unchanged_result.status, ChecksumResult::Status::kUnchanged);
     EXPECT_THAT(unchanged_result.rom_data, test_bytes::BytesEq(result.rom_data));
 }
@@ -237,13 +251,13 @@ TEST(ChecksumPortable, HitachiSh72543rBalancesZeroRom)
     const bytes::Bytes original(0x200000, 0x00);
 
     const ChecksumResult result =
-        ChecksumEcuSubaruHitachiSh72543r::CalculateChecksumResult(memory::testing::ViewOf(bytes::ByteView(original)));
+        ChecksumEcuSubaruHitachiSh72543r::CalculateChecksumResult(ChecksumEcuSubaruHitachiSh72543r::Rom(original));
     EXPECT_EQ(result.status, ChecksumResult::Status::kCorrected);
     EXPECT_EQ(result.message, "Subaru Hitachi SH72543r ECU Checksum");
     CompareChangedBytes(original, result.rom_data, {{0x1ffffe, bytes::Bytes{0x5a, 0xa5}}});
 
     const ChecksumResult unchanged_result = ChecksumEcuSubaruHitachiSh72543r::CalculateChecksumResult(
-        memory::testing::ViewOf(bytes::ByteView(result.rom_data)));
+        ChecksumEcuSubaruHitachiSh72543r::Rom(result.rom_data));
     EXPECT_EQ(unchanged_result.status, ChecksumResult::Status::kUnchanged);
     EXPECT_THAT(unchanged_result.rom_data, test_bytes::BytesEq(result.rom_data));
 }
@@ -253,13 +267,13 @@ TEST(ChecksumPortable, MitsuMh8104TcuBalancesZeroRom)
     const bytes::Bytes original(0x80000, 0x00);
 
     const ChecksumResult result =
-        ChecksumTcuMitsuMH8104Can::CalculateChecksumResult(memory::testing::ViewOf(bytes::ByteView(original)));
+        ChecksumTcuMitsuMH8104Can::CalculateChecksumResult(ChecksumTcuMitsuMH8104Can::Rom(original));
     EXPECT_EQ(result.status, ChecksumResult::Status::kCorrected);
     EXPECT_EQ(result.message, "Subaru Hitachi M32R K-Line/CAN ECU Checksum");
     CompareChangedBytes(original, result.rom_data, {{0x81fc, bytes::Bytes{0x5a, 0xa5, 0x5a, 0xa5}}});
 
     const ChecksumResult unchanged_result =
-        ChecksumTcuMitsuMH8104Can::CalculateChecksumResult(memory::testing::ViewOf(bytes::ByteView(result.rom_data)));
+        ChecksumTcuMitsuMH8104Can::CalculateChecksumResult(ChecksumTcuMitsuMH8104Can::Rom(result.rom_data));
     EXPECT_EQ(unchanged_result.status, ChecksumResult::Status::kUnchanged);
     EXPECT_THAT(unchanged_result.rom_data, test_bytes::BytesEq(result.rom_data));
 }
@@ -269,23 +283,52 @@ TEST(ChecksumPortable, DensoSh7055TcuBalancesZeroRom)
     const bytes::Bytes original(0x80000, 0x00);
 
     const ChecksumResult result =
-        ChecksumTcuSubaruDensoSH7055::CalculateChecksumResult(memory::testing::ViewOf(bytes::ByteView(original)));
+        ChecksumTcuSubaruDensoSH7055::CalculateChecksumResult(ChecksumTcuSubaruDensoSH7055::Rom(original));
     EXPECT_EQ(result.status, ChecksumResult::Status::kCorrected);
     EXPECT_EQ(result.message, "Subaru Denso SH7055 TCU Checksum");
     CompareChangedBytes(original, result.rom_data, {{0x7fff4, bytes::Bytes{0x5a, 0xa5}}});
 
-    const ChecksumResult unchanged_result = ChecksumTcuSubaruDensoSH7055::CalculateChecksumResult(
-        memory::testing::ViewOf(bytes::ByteView(result.rom_data)));
+    const ChecksumResult unchanged_result =
+        ChecksumTcuSubaruDensoSH7055::CalculateChecksumResult(ChecksumTcuSubaruDensoSH7055::Rom(result.rom_data));
     EXPECT_EQ(unchanged_result.status, ChecksumResult::Status::kUnchanged);
     EXPECT_THAT(unchanged_result.rom_data, test_bytes::BytesEq(result.rom_data));
+}
+
+// The family sums the whole file: a 512 KiB M32R_512KB read corrects the same
+// fixed fields as a smaller file (legacy checksum_tcu_subaru_hitachi_m32r_can).
+TEST(ChecksumPortable, HitachiM32rCanTcuBalancesA512KibRom)
+{
+    const bytes::Bytes original(0x80000, 0x00);
+
+    const ChecksumResult result = ChecksumTcuSubaruHitachiM32rCan::CalculateChecksumResult(original);
+    EXPECT_EQ(result.status, ChecksumResult::Status::kCorrected);
+    CompareChangedBytes(original, result.rom_data,
+                        {{0x8000, bytes::Bytes{0xa5, 0x5a, 0x5a, 0xa6}},
+                         {0x8004, bytes::Bytes{0xa5, 0x5a, 0x5a, 0xa6}},
+                         {0x8020, bytes::Bytes{0x5a, 0xa5, 0xa5, 0x5a}}});
+
+    const ChecksumResult unchanged_result = ChecksumTcuSubaruHitachiM32rCan::CalculateChecksumResult(result.rom_data);
+    EXPECT_EQ(unchanged_result.status, ChecksumResult::Status::kUnchanged);
+}
+
+// The checksum fields end at 0x8024 and the sums read whole 32-bit words.
+TEST(ChecksumPortable, HitachiM32rCanTcuRejectsAFileTooShortOrNotWordAligned)
+{
+    for (const std::size_t size : {std::size_t{0x8020}, std::size_t{0x80001}})
+    {
+        const bytes::Bytes original(size, 0x3C);
+        const ChecksumResult result = ChecksumTcuSubaruHitachiM32rCan::CalculateChecksumResult(original);
+        EXPECT_EQ(result.status, ChecksumResult::Status::kInvalidSize) << size;
+        EXPECT_THAT(result.rom_data, test_bytes::BytesEq(original));
+        EXPECT_EQ(result.message, "ROM size does not match the checksum layout");
+    }
 }
 
 TEST(ChecksumPortable, HitachiM32rCanTcuBalancesZeroRom)
 {
     const bytes::Bytes original(0x10000, 0x00);
 
-    const ChecksumResult result =
-        ChecksumTcuSubaruHitachiM32rCan::CalculateChecksumResult(memory::testing::ViewOf(bytes::ByteView(original)));
+    const ChecksumResult result = ChecksumTcuSubaruHitachiM32rCan::CalculateChecksumResult(original);
     EXPECT_EQ(result.status, ChecksumResult::Status::kCorrected);
     EXPECT_EQ(result.message, "Subaru Hitachi M32R K-Line/CAN ECU Checksum");
     CompareChangedBytes(original, result.rom_data,
@@ -293,41 +336,9 @@ TEST(ChecksumPortable, HitachiM32rCanTcuBalancesZeroRom)
                          {0x8004, bytes::Bytes{0xa5, 0x5a, 0x5a, 0xa6}},
                          {0x8020, bytes::Bytes{0x5a, 0xa5, 0xa5, 0x5a}}});
 
-    const ChecksumResult unchanged_result = ChecksumTcuSubaruHitachiM32rCan::CalculateChecksumResult(
-        memory::testing::ViewOf(bytes::ByteView(result.rom_data)));
+    const ChecksumResult unchanged_result = ChecksumTcuSubaruHitachiM32rCan::CalculateChecksumResult(result.rom_data);
     EXPECT_EQ(unchanged_result.status, ChecksumResult::Status::kUnchanged);
     EXPECT_THAT(unchanged_result.rom_data, test_bytes::BytesEq(result.rom_data));
-}
-
-TEST(ChecksumPortable, FixedLayoutFamiliesRejectShortAndLongRoms)
-{
-    using Calculator = ChecksumResult (*)(const memory::MemoryView&);
-    struct FixedLayout
-    {
-        std::size_t size;
-        Calculator calculate;
-    };
-    static constexpr auto kLayouts = std::to_array<FixedLayout>({
-        {0x80000, &ChecksumEcuSubaruHitachiM32rCan::CalculateChecksumResult},
-        {0x80000, &ChecksumEcuSubaruHitachiM32rKline::CalculateChecksumResult},
-        {0x100000, &ChecksumEcuSubaruHitachiSH7058::CalculateChecksumResult},
-        {0x200000, &ChecksumEcuSubaruHitachiSh72543r::CalculateChecksumResult},
-        {0x80000, &ChecksumTcuMitsuMH8104Can::CalculateChecksumResult},
-        {0x80000, &ChecksumTcuSubaruDensoSH7055::CalculateChecksumResult},
-        {0x10000, &ChecksumTcuSubaruHitachiM32rCan::CalculateChecksumResult},
-    });
-
-    for (const FixedLayout& layout : kLayouts)
-    {
-        for (const std::size_t size : {layout.size - 1, layout.size + 1})
-        {
-            const bytes::Bytes original(size, 0x3C);
-            const ChecksumResult result = layout.calculate(memory::testing::ViewOf(original));
-            EXPECT_EQ(result.status, ChecksumResult::Status::kInvalidSize);
-            EXPECT_THAT(result.rom_data, test_bytes::BytesEq(original));
-            EXPECT_EQ(result.message, "ROM size does not match the checksum layout");
-        }
-    }
 }
 
 TEST(ChecksumPortable, DensoDieselRejectsMalformedTableWithoutMutation)
@@ -386,33 +397,4 @@ TEST(ChecksumPortable, DensoSh7xxxReportsInvalidBlockRangeMessage)
     EXPECT_EQ(result.status, ChecksumResult::Status::kInvalidSize);
     EXPECT_EQ(result.message, "ROM is too small for a checksum block range");
     EXPECT_THAT(result.rom_data, test_bytes::BytesEq(original));
-}
-
-TEST(ChecksumPortable, FixedLayoutFamiliesRejectAViewNotAtAddressZero)
-{
-    using Calculator = ChecksumResult (*)(const memory::MemoryView&);
-    struct FixedLayout
-    {
-        std::size_t size;
-        Calculator calculate;
-    };
-    static constexpr auto kLayouts = std::to_array<FixedLayout>({
-        {0x80000, &ChecksumEcuSubaruHitachiM32rCan::CalculateChecksumResult},
-        {0x80000, &ChecksumEcuSubaruHitachiM32rKline::CalculateChecksumResult},
-        {0x100000, &ChecksumEcuSubaruHitachiSH7058::CalculateChecksumResult},
-        {0x200000, &ChecksumEcuSubaruHitachiSh72543r::CalculateChecksumResult},
-        {0x80000, &ChecksumTcuMitsuMH8104Can::CalculateChecksumResult},
-        {0x80000, &ChecksumTcuSubaruDensoSH7055::CalculateChecksumResult},
-        {0x10000, &ChecksumTcuSubaruHitachiM32rCan::CalculateChecksumResult},
-        {0x60000, &ChecksumEcuMitsuM32rCan::CalculateChecksumResult},
-    });
-
-    for (const FixedLayout& layout : kLayouts)
-    {
-        const bytes::Bytes original(layout.size, 0x3C);
-        const ChecksumResult result = layout.calculate(memory::testing::ViewOf(original, memory::FlashAddress{0x100}));
-        EXPECT_EQ(result.status, ChecksumResult::Status::kInvalidSize);
-        EXPECT_THAT(result.rom_data, test_bytes::BytesEq(original));
-        EXPECT_EQ(result.message, "ROM does not start at ECU address 0 as the checksum layout requires");
-    }
 }

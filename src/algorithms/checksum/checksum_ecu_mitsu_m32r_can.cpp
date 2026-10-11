@@ -56,13 +56,8 @@ ChecksumResult UnchangedWith(ChecksumResult::Status status, bytes::ByteView rom_
 }
 } // namespace
 
-ChecksumResult ChecksumEcuMitsuM32rCan::CalculateChecksumResult(const fastecu::memory::MemoryView& rom)
+ChecksumResult ChecksumEcuMitsuM32rCan::CalculateChecksumResult(bytes::ByteView rom_view)
 {
-    if (auto rejected = fastecu::checksum::internal::RequireStartAtZero(rom); rejected.has_value())
-    {
-        return *std::move(rejected);
-    }
-    const bytes::ByteView rom_view = rom.Data();
     if (rom_view.size() < kLayoutEnd)
     {
         return UnchangedWith(ChecksumResult::Status::kInvalidSize, rom_view,

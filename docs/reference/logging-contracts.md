@@ -188,6 +188,16 @@ or end-to-end desktop workflow. Runtime evidence remains subject to the
 
 ## Definition input grammar
 
+[Definition parsing](../../src/backend/logging/logger_definition_parser.h)
+reads parameter width solely from the nested `address` element's `length`
+attribute, for example `<address length="2">0x804cfc</address>`. If that
+attribute is absent, the width defaults to `1`; a `length` attribute on
+`parameter` is ignored, including when both elements declare differing widths.
+The bundled [MUT/DMA example](../../resources/shared/config/logger_mut_dma_example.xml)
+and [CDBG example](../../resources/shared/config/logger_cdbg_example.xml)
+use this syntax. A missing `address` retains an empty address and width for
+channel preparation to validate.
+
 [Channel preparation](../../src/backend/logging/logging_channel_preparation.h)
 accepts hexadecimal addresses with an optional `0x`/`0X` prefix and positive
 decimal lengths. Surrounding ASCII whitespace is accepted; signs, internal

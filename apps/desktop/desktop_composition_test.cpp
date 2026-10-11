@@ -242,7 +242,7 @@ TEST_F(DesktopCompositionTest, workspaceOpensARomFromDisk)
     ASSERT_TRUE(session != nullptr);
     ASSERT_EQ(session->Source().display_name, std::string("synthetic.bin"));
     ASSERT_EQ(session->Protocol().file_size_label, std::string("2kb"));
-    ASSERT_EQ(session->Rom().size(), std::size_t{2048});
+    ASSERT_EQ(session->File().size(), std::size_t{2048});
 }
 
 TEST_F(DesktopCompositionTest, migrationLoadsPreviousVersionSettingsFromDisk)

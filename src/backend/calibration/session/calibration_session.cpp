@@ -16,44 +16,47 @@ namespace fastecu::calibration
 {
 namespace
 {
-// Index i holds the byte at definition base + i, up to the end of the highest
-// block; bytes no block holds stay 0x00.
-bytes::Bytes DefinitionView(const memory::MemoryImage& image)
+// One past the highest definition address any block holds: what Read and
+// CheckWrite accept.
+std::uint64_t DefinitionSize(const memory::MemoryMap& map)
 {
-    const memory::MemoryMap& map = image.Map();
     const std::uint32_t base = map.DefinitionBase().Value();
     std::uint32_t end = base;
     for (const memory::MemoryBlock& block : map.Blocks())
     {
         end = std::max(end, block.range.End().Value());
     }
-    bytes::Bytes view(end - base, 0x00);
-    for (const memory::MemoryBlock& block : map.Blocks())
+    return end - base;
+}
+
+// The ECU addresses [start, end), which lie inside the blocks' span: every
+// block's share rendered from `image`, 0x00 where no block holds an address.
+bytes::Bytes RenderWindow(const memory::MemoryImage& image, std::uint32_t start, std::uint32_t end)
+{
+    bytes::Bytes window(end - start, 0x00);
+    for (const memory::MemoryBlock& block : image.Map().Blocks())
     {
-        if (block.range.End().Value() <= base)
+        const std::uint32_t from = std::max(block.range.Start().Value(), start);
+        const std::uint32_t to = std::min(block.range.End().Value(), end);
+        if (from >= to)
         {
             continue;
         }
-        const std::uint32_t start = std::max(block.range.Start().Value(), base);
-        const auto range = memory::AddressRange<memory::FlashSpace>::Make(
-            memory::FlashAddress{start}, memory::ByteCount{block.range.End().Value() - start});
-        if (!range.has_value())
-        {
-            continue;
-        }
+        // Non-empty and inside one block, so the range exists and renders.
+        const auto range =
+            memory::AddressRange<memory::FlashSpace>::Make(memory::FlashAddress{from}, memory::ByteCount{to - from});
         if (const auto rendered = image.Render(*range); rendered.has_value())
         {
-            std::ranges::copy(rendered->Data(), view.begin() + static_cast<std::ptrdiff_t>(start - base));
+            std::ranges::copy(rendered->Data(), window.begin() + static_cast<std::ptrdiff_t>(from - start));
         }
     }
-    return view;
+    return window;
 }
 } // namespace
 
 CalibrationSession::CalibrationSession(SessionId id, SessionContents contents)
     : id_(id), source_(std::move(contents.source)), image_(std::move(contents.image)),
-      definition_view_(DefinitionView(image_)), definition_(std::move(contents.definition)),
-      protocol_(std::move(contents.protocol))
+      definition_(std::move(contents.definition)), protocol_(std::move(contents.protocol))
 {
 }
 
@@ -65,11 +68,6 @@ SessionId CalibrationSession::Id() const
 const RomSource& CalibrationSession::Source() const
 {
     return source_;
-}
-
-bytes::ByteView CalibrationSession::Rom() const
-{
-    return definition_view_;
 }
 
 bytes::ByteView CalibrationSession::File() const
@@ -122,16 +120,37 @@ Result<DecodedMap> CalibrationSession::DecodeMap(std::size_t map_index) const
                                                            rom_definition.maps.size()));
     }
     const definition::CalibrationMap& map = rom_definition.maps[map_index];
-    if (const Status placed = CheckMapPlacement(rom_definition, map, image_.Map()); !placed.has_value())
+    const auto extent = CheckMapPlacement(rom_definition, map, image_.Map());
+    if (!extent.has_value())
     {
-        return std::unexpected(placed.error());
+        return std::unexpected(extent.error());
     }
-    return DecodeCalibrationMap(rom_definition, map, definition_view_);
+    const auto window = Read(extent->start, static_cast<std::size_t>(extent->end - extent->start));
+    if (!window.has_value())
+    {
+        return std::unexpected(window.error());
+    }
+    return DecodeCalibrationMap(rom_definition, map, DefinitionBytes(*window, extent->start));
+}
+
+Result<bytes::Bytes> CalibrationSession::Read(std::uint64_t offset, std::size_t size) const
+{
+    const std::uint64_t view_size = DefinitionSize(image_.Map());
+    // Written as two comparisons so a huge offset cannot wrap the sum.
+    if (offset > view_size || size > view_size - offset)
+    {
+        return Fail(ErrorKind::kInvalidConfig,
+                    std::format("read of {} bytes at 0x{:x} is outside the {}-byte image", size, offset, view_size));
+    }
+    // Inside the view, so both ends are ECU addresses no larger than the
+    // highest block's end.
+    const std::uint32_t start = image_.Map().DefinitionBase().Value() + static_cast<std::uint32_t>(offset);
+    return RenderWindow(image_, start, start + static_cast<std::uint32_t>(size));
 }
 
 Status CalibrationSession::CheckWrite(std::uint64_t offset, std::size_t size) const
 {
-    const std::uint64_t view_size = definition_view_.size();
+    const std::uint64_t view_size = DefinitionSize(image_.Map());
     // Written as two comparisons so a huge offset cannot wrap the sum.
     if (offset > view_size || size > view_size - offset)
     {
@@ -169,7 +188,6 @@ Status CalibrationSession::WriteBytes(std::uint64_t offset, bytes::ByteView data
         {
             return Fail(ErrorKind::kInvalidConfig, written.error().detail);
         }
-        std::ranges::copy(data, definition_view_.begin() + static_cast<std::ptrdiff_t>(offset));
     }
     dirty_ = true;
     return {};

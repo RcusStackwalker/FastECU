@@ -58,9 +58,8 @@ Result<SelectableEditOutcome> ApplySelectableEdit(CalibrationWorkspace& workspac
         return Fail(ErrorKind::kInvalidConfig, "selection value width differs from the blob width");
     }
     const std::uint64_t offset = map.address.has_value() ? map.address->Value() : 0;
-    const auto image = session->Rom();
-    if (offset <= image.size() && data.size() <= image.size() - offset &&
-        std::ranges::equal(data, image.subspan(static_cast<std::size_t>(offset), data.size())))
+    if (const auto current = session->Read(offset, data.size());
+        current.has_value() && std::ranges::equal(data, *current))
     {
         return SelectableEditOutcome{SelectableEditUnchanged{}};
     }

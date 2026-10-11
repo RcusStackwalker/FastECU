@@ -87,11 +87,6 @@ class CalibrationSession
 
     SessionId Id() const;
     const RomSource& Source() const;
-    // The bytes as definitions address them: index i is the byte at the
-    // definition base + i, up to the end of the highest memory block. Fill
-    // blocks read as their fill byte and addresses no block holds as 0x00.
-    // Derived from File() and the memory map; for most ROMs it equals File().
-    bytes::ByteView Rom() const;
     // The ROM file as loaded, with every write since: what saving writes.
     bytes::ByteView File() const;
     const ResolvedDefinition *Definition() const;
@@ -110,8 +105,14 @@ class CalibrationSession
     // retained per numeric cell in the typed snapshot.
     Result<DecodedMap> DecodeMap(std::size_t map_index) const;
 
+    // The `size` bytes at definition addresses [offset, offset + size),
+    // rendered from the ROM file through its memory map: fill blocks read as
+    // their fill byte and addresses no block holds as 0x00. InvalidConfig past
+    // the end of the highest memory block.
+    Result<bytes::Bytes> Read(std::uint64_t offset, std::size_t size) const;
+
     // Whether WriteBytes(offset, ...) of `size` bytes would succeed: the whole
-    // range lies in Rom() and in writable, ROM-file-backed memory.
+    // range is readable and lies in writable, ROM-file-backed memory.
     Status CheckWrite(std::uint64_t offset, std::size_t size) const;
     // The only mutation of the bytes, at definition address `offset`. A write
     // CheckWrite rejects changes nothing.
@@ -121,8 +122,6 @@ class CalibrationSession
     SessionId id_;
     RomSource source_;
     memory::MemoryImage image_;
-    // Rom(): rendered from image_ at construction, then patched by WriteBytes.
-    bytes::Bytes definition_view_;
     std::optional<ResolvedDefinition> definition_;
     RomProtocolInfo protocol_;
     bool dirty_{false};

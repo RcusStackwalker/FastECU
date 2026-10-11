@@ -40,7 +40,7 @@ TEST_F(RomSaveTest, SavesEditedBytesAndReopensThem)
     const bytes::Bytes patch{9};
     ASSERT_THAT(session_.WriteBytes(1, patch), IsOk());
     ASSERT_TRUE(session_.Dirty());
-    ASSERT_THAT(saver_.Save(session_, "/cal/saved.bin", session_.Rom()), IsOk());
+    ASSERT_THAT(saver_.Save(session_, "/cal/saved.bin", session_.File()), IsOk());
     EXPECT_EQ(session_.Source(), (RomSource{"saved.bin", "/cal/saved.bin", RomOrigin::kEcuRead}));
     EXPECT_FALSE(session_.Dirty());
 
@@ -64,12 +64,12 @@ TEST_F(RomSaveTest, FailurePreservesSourceAndDirtyBytes)
     cfg_.file_repository.write_errors["/cal/fail.bin"] = Error{ErrorKind::kInternal, "disk full"};
     cfg_.events.logs.clear();
     cfg_.events.notices.clear();
-    const auto result = saver_.Save(session_, "/cal/fail.bin", session_.Rom());
+    const auto result = saver_.Save(session_, "/cal/fail.bin", session_.File());
     ASSERT_THAT(result, IsErr(ErrorKind::kInternal));
     EXPECT_EQ(result.error().detail, "disk full");
     EXPECT_EQ(session_.Source(), before);
     EXPECT_TRUE(session_.Dirty());
-    EXPECT_THAT(session_.Rom(), ElementsAre(1, 9, 3));
+    EXPECT_THAT(session_.File(), ElementsAre(1, 9, 3));
     EXPECT_THAT(cfg_.events.logs,
                 ElementsAre(std::pair{LogLevel::kError, std::string{"Unable to open file /cal/fail.bin for writing"}}));
     EXPECT_THAT(cfg_.events.notices,
@@ -82,7 +82,7 @@ TEST_F(RomSaveTest, SavesOperationImageWithoutReplacingSessionBytes)
     ASSERT_THAT(session_.WriteBytes(0, bytes::Bytes{9}), IsOk());
     ASSERT_THAT(saver_.Save(session_, "corrected.bin", corrected), IsOk());
     EXPECT_THAT(cfg_.file_repository.files.at("corrected.bin"), ElementsAre(4, 5, 6));
-    EXPECT_THAT(session_.Rom(), ElementsAre(9, 2, 3));
+    EXPECT_THAT(session_.File(), ElementsAre(9, 2, 3));
     EXPECT_FALSE(session_.Dirty());
 }
 
@@ -90,7 +90,7 @@ TEST_F(RomSaveTest, FailureLeavesAnUneditedSessionClean)
 {
     cfg_.file_repository.write_errors["failed.bin"] = Error{ErrorKind::kInternal, "disk full"};
     const RomSource before = session_.Source();
-    EXPECT_THAT(saver_.Save(session_, "failed.bin", session_.Rom()), IsErr(ErrorKind::kInternal));
+    EXPECT_THAT(saver_.Save(session_, "failed.bin", session_.File()), IsErr(ErrorKind::kInternal));
     EXPECT_FALSE(session_.Dirty());
     EXPECT_EQ(session_.Source(), before);
 }
@@ -102,7 +102,7 @@ TEST_F(RomSaveTest, SavingToTheCurrentPathPreservesFileOrigin)
                           .source = {.display_name = "a.bin", .path = "/cal/a.bin", .origin = RomOrigin::kFile},
                           .image = memory::testing::IdentityImage({1, 2, 3}),
                       }};
-    ASSERT_THAT(saver_.Save(file_session, file_session.Source().path, file_session.Rom()), IsOk());
+    ASSERT_THAT(saver_.Save(file_session, file_session.Source().path, file_session.File()), IsOk());
     EXPECT_EQ(file_session.Source(), (RomSource{"a.bin", "/cal/a.bin", RomOrigin::kFile}));
 }
 

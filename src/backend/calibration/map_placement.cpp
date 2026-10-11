@@ -1,5 +1,6 @@
 #include "src/backend/calibration/map_placement.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <format>
 #include <limits>
@@ -51,13 +52,16 @@ std::optional<std::string_view> ProblemWith(std::uint64_t start, std::uint64_t e
     return std::nullopt;
 }
 
-Status CheckRun(std::string_view map_name, std::string_view subject, std::optional<memory::DefinitionAddress> address,
-                std::uint64_t count, std::uint32_t start_position, std::uint32_t interval, std::uint32_t width,
-                const memory::MemoryMap& memory_map)
+// The run's extent once its placement is checked; nullopt for a run the check
+// leaves to the decoder.
+Result<std::optional<MapExtent>> CheckRun(std::string_view map_name, std::string_view subject,
+                                          std::optional<memory::DefinitionAddress> address, std::uint64_t count,
+                                          std::uint32_t start_position, std::uint32_t interval, std::uint32_t width,
+                                          const memory::MemoryMap& memory_map)
 {
     if (!address.has_value() || count == 0 || count > std::numeric_limits<std::uint32_t>::max())
     {
-        return {};
+        return std::nullopt;
     }
     const std::uint64_t end =
         ElementRunEnd(address->Value(), start_position, interval, width, static_cast<std::uint32_t>(count));
@@ -66,12 +70,24 @@ Status CheckRun(std::string_view map_name, std::string_view subject, std::option
     {
         return Fail(ErrorKind::kInvalidConfig, std::format("map '{}' {} {}", map_name, subject, *problem));
     }
-    return {};
+    return MapExtent{.start = address->Value(), .end = end};
+}
+
+// `extent` widened to cover `run`.
+void Cover(std::optional<MapExtent>& extent, const std::optional<MapExtent>& run)
+{
+    if (!run.has_value())
+    {
+        return;
+    }
+    extent = extent.has_value()
+                 ? MapExtent{.start = std::min(extent->start, run->start), .end = std::max(extent->end, run->end)}
+                 : run;
 }
 } // namespace
 
-Status CheckMapPlacement(const definition::RomDefinition& definition, const definition::CalibrationMap& map,
-                         const memory::MemoryMap& memory_map)
+Result<MapExtent> CheckMapPlacement(const definition::RomDefinition& definition, const definition::CalibrationMap& map,
+                                    const memory::MemoryMap& memory_map)
 {
     const definition::Scaling *scaling = definition::FindScaling(definition, map.scaling_name);
     const auto storage = map.storage_type.has_value() ? map.storage_type
@@ -79,25 +95,27 @@ Status CheckMapPlacement(const definition::RomDefinition& definition, const defi
                                                       : std::nullopt;
     const std::uint32_t width = ElementByteSize(storage, scaling);
     // A blob is read whole at its address, whatever its stride fields say.
-    const Status cells = storage == definition::StorageType::kBloblist
-                             ? CheckRun(map.name, "cells lie", map.address, 1, 1, 1, width, memory_map)
-                             : CheckRun(map.name, "cells lie", map.address, std::uint64_t{map.x_size} * map.y_size,
-                                        map.start_position, map.interval, width, memory_map);
+    const auto cells = storage == definition::StorageType::kBloblist
+                           ? CheckRun(map.name, "cells lie", map.address, 1, 1, 1, width, memory_map)
+                           : CheckRun(map.name, "cells lie", map.address, std::uint64_t{map.x_size} * map.y_size,
+                                      map.start_position, map.interval, width, memory_map);
     if (!cells.has_value())
     {
-        return cells;
+        return std::unexpected(cells.error());
     }
+    std::optional<MapExtent> extent = *cells;
     for (const auto& [axis, subject] : {std::pair{&map.x_axis, "X axis lies"}, std::pair{&map.y_axis, "Y axis lies"}})
     {
         const std::uint32_t axis_width =
             ElementByteSize(axis->storage_type, definition::FindScaling(definition, axis->scaling_name));
-        if (const Status placed = CheckRun(map.name, subject, axis->address, axis->size, axis->start_position,
-                                           axis->interval, axis_width, memory_map);
-            !placed.has_value())
+        const auto placed = CheckRun(map.name, subject, axis->address, axis->size, axis->start_position, axis->interval,
+                                     axis_width, memory_map);
+        if (!placed.has_value())
         {
-            return placed;
+            return std::unexpected(placed.error());
         }
+        Cover(extent, *placed);
     }
-    return {};
+    return extent.value_or(MapExtent{});
 }
 } // namespace fastecu::calibration

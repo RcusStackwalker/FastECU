@@ -10,6 +10,7 @@
 #include "src/algorithms/protocol/bytes.h"
 #include "src/backend/definition/definition_model.h"
 #include "src/backend/calibration/decoded_map.h"
+#include "src/backend/calibration/definition_bytes.h"
 #include "src/backend/ports/file_repository.h"
 #include "src/backend/ports/result.h"
 
@@ -78,8 +79,8 @@ struct ElementRun
     bool is_selectable{false};
 };
 
-Result<NumericRun> DecodeNumericRun(bytes::ByteView rom, const ElementRun& run);
+Result<NumericRun> DecodeNumericRun(const DefinitionBytes& rom, const ElementRun& run);
 Result<DecodedMap> DecodeCalibrationMap(const definition::RomDefinition& definition,
-                                        const definition::CalibrationMap& map, bytes::ByteView rom);
+                                        const definition::CalibrationMap& map, const DefinitionBytes& rom);
 
 } // namespace fastecu::calibration

@@ -18,6 +18,7 @@ namespace
 {
 using fastecu::testing::IsErrWith;
 using fastecu::testing::IsOk;
+using fastecu::testing::IsOkAnd;
 using ::testing::HasSubstr;
 
 constexpr auto kReadOnly = memory::Writability::kReadOnly;
@@ -62,7 +63,7 @@ definition::RomDefinition OneMap(std::uint32_t address, std::uint32_t cells)
     return definition;
 }
 
-Status Check(const definition::RomDefinition& definition, const memory::MemoryMap& layout)
+Result<MapExtent> Check(const definition::RomDefinition& definition, const memory::MemoryMap& layout)
 {
     return CheckMapPlacement(definition, definition.maps[0], layout);
 }
@@ -107,6 +108,31 @@ TEST(CheckMapPlacement, ChecksEachAxisToo)
 
     EXPECT_THAT(Check(definition, Layout()),
                 IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("map 'Fuel' X axis lies in a fill block")));
+}
+
+TEST(CheckMapPlacement, ReturnsTheExtentOfTheCells)
+{
+    EXPECT_THAT(Check(OneMap(0x10, 0x10), Layout()), IsOkAnd(MapExtent{.start = 0x10, .end = 0x20}));
+}
+
+// The extent spans from the lowest run to the highest, across the fill block
+// between them.
+TEST(CheckMapPlacement, TheExtentCoversTheAxesToo)
+{
+    auto definition = OneMap(0x10, 4);
+    definition.maps[0].x_axis.address = memory::DefinitionAddress{0x3E};
+    definition.maps[0].x_axis.size = 2;
+    definition.maps[0].x_axis.storage_type = definition::StorageType::kUint8;
+
+    EXPECT_THAT(Check(definition, Layout()), IsOkAnd(MapExtent{.start = 0x10, .end = 0x40}));
+}
+
+TEST(CheckMapPlacement, AMapWithoutAnAddressHasAnEmptyExtent)
+{
+    auto definition = OneMap(0x10, 4);
+    definition.maps[0].address.reset();
+
+    EXPECT_THAT(Check(definition, Layout()), IsOkAnd(MapExtent{}));
 }
 
 TEST(CheckMapPlacement, CountsDefinitionAddressesFromTheDefinitionBase)

@@ -103,7 +103,7 @@ class SelectableEditUseCaseTest : public ::testing::Test
 
     std::vector<std::uint8_t> RomBytes()
     {
-        const auto rom = Session().Rom();
+        const auto rom = Session().File();
         return {rom.begin(), rom.end()};
     }
 
