@@ -287,6 +287,7 @@ TEST(MemoryMap, SlicesOfASingleAddress)
     EXPECT_THAT(Described(*map, map->Slices(Range(0xFF, 1))), ::testing::ElementsAre(std::tuple{0, 0xFFU, 1U}));
     EXPECT_THAT(Described(*map, map->Slices(Range(0x100, 1))), ::testing::ElementsAre(std::tuple{-1, 0x100U, 1U}));
     EXPECT_THAT(Described(*map, map->Slices(Range(0x200, 1))), ::testing::ElementsAre(std::tuple{1, 0x200U, 1U}));
+    EXPECT_THAT(Described(*map, map->Slices(Range(0x300, 1))), ::testing::ElementsAre(std::tuple{-1, 0x300U, 1U}));
 }
 
 TEST(MemoryMap, SlicesOfARangeExactlyOnABlocksEdges)

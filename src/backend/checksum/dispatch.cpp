@@ -168,9 +168,11 @@ consteval std::optional<std::uint32_t> FixedRomSize(Route route)
 }
 
 // What RunFixedLayout and the families assume of kRoutes: a fixed-layout
-// window is [0, kRomSize), the Colt and Hitachi TCU families index from 0, and
-// no route sits behind an earlier, more general prefix of its make, where it
-// could never match.
+// window is [0, kRomSize), the Colt and Hitachi TCU families index from 0, a
+// Denso route's primary checksum table lies inside its window (the diesel
+// family's fixed second table is range-checked when it runs), and no route sits
+// behind an earlier, more general prefix of its make, where it could never
+// match.
 consteval bool RoutesAreConsistent(std::span<const RouteSpec> routes)
 {
     for (std::size_t index = 0; index < routes.size(); ++index)
@@ -183,6 +185,14 @@ consteval bool RoutesAreConsistent(std::span<const RouteSpec> routes)
         }
         if ((route.route == Route::kMitsuColtM32rCan || route.route == Route::kHitachiM32rTcu) &&
             route.window.Start().Value() != 0)
+        {
+            return false;
+        }
+        const std::optional<memory::AddressRange<memory::FlashSpace>> table =
+            memory::AddressRange<memory::FlashSpace>::Make(memory::FlashAddress{route.table_address},
+                                                           memory::ByteCount{kDensoTableLength});
+        if ((route.route == Route::kDensoSh7xxx || route.route == Route::kDensoDiesel) &&
+            (!table.has_value() || !route.window.Contains(*table)))
         {
             return false;
         }
