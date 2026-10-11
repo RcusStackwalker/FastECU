@@ -1,5 +1,6 @@
 #pragma once
 #include <algorithm>
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <expected>
@@ -8,6 +9,7 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <variant>
 #include <vector>
 
@@ -82,6 +84,50 @@ consteval memory::MemoryBlock FillBlock(std::uint32_t start, std::uint32_t size,
                                      .backing = memory::FillBacking{.value = fill},
                                      .writability = memory::Writability::kReadOnly}
                : throw std::invalid_argument("memory block range is empty or runs past the address space");
+}
+
+// Where one stretch of a linear ROM file starts, and whether it is writable.
+struct LinearSegment
+{
+    std::uint32_t start;
+    memory::Writability writability;
+};
+
+// Where segment `index` ends: the next segment's start, or `file_end` for the last.
+template <std::size_t N>
+consteval std::uint64_t LinearSegmentEnd(const LinearSegment (&segments)[N], std::size_t index, std::uint64_t file_end)
+{
+    return index + 1 < N ? std::uint64_t{segments[index + 1].start} : file_end;
+}
+
+// The file-backed blocks of a `file_size`-byte ROM file placed linearly from
+// `segments[0].start`: each segment runs to the next one's start, the last to
+// the file's end, and holds the file bytes at its address less the first start.
+// Starts out of order, a start at or past the file's end, an empty file, or an
+// end past the 32-bit space do not compile.
+template <std::size_t N>
+consteval std::array<memory::MemoryBlock, N> LinearBlocks(std::uint32_t file_size, const LinearSegment (&segments)[N])
+{
+    const std::uint32_t base = segments[0].start;
+    const std::uint64_t file_end = std::uint64_t{base} + file_size;
+    if (file_size == 0 || file_end > UINT32_MAX)
+    {
+        throw std::invalid_argument("a linear ROM file must be non-empty and end inside the 32-bit space");
+    }
+    for (std::size_t index = 0; index < N; ++index)
+    {
+        if (LinearSegmentEnd(segments, index, file_end) <= segments[index].start)
+        {
+            throw std::invalid_argument("linear segments must be in address order and start inside the ROM file");
+        }
+    }
+    return [&]<std::size_t... kIndex>(std::index_sequence<kIndex...>)
+    {
+        return std::array<memory::MemoryBlock, N>{
+            FileBlock(segments[kIndex].start,
+                      static_cast<std::uint32_t>(LinearSegmentEnd(segments, kIndex, file_end) - segments[kIndex].start),
+                      segments[kIndex].start - base, segments[kIndex].writability)...};
+    }(std::make_index_sequence<N>{});
 }
 
 // One flash and logging protocol, as compile-time data.

@@ -25,6 +25,7 @@ using fastecu::config::ChecksumSupport;
 using fastecu::config::FileBlock;
 using fastecu::config::FillBlock;
 using fastecu::config::KernelLoadAddressText;
+using fastecu::config::LinearBlocks;
 using fastecu::config::MemoryMapSpec;
 using fastecu::config::PlaceRomFile;
 using fastecu::config::ProtocolIn;
@@ -35,6 +36,7 @@ using fastecu::memory::ByteCount;
 using fastecu::memory::FileBacking;
 using fastecu::memory::FileOffset;
 using fastecu::memory::FlashAddress;
+using fastecu::memory::MemoryBlock;
 using fastecu::memory::MemoryErrorKind;
 using fastecu::memory::Writability;
 using ::testing::ElementsAre;
@@ -327,6 +329,46 @@ TEST(PlaceRomFile, CarriesTheSelectionError)
 
     ASSERT_FALSE(image.has_value());
     EXPECT_EQ(image.error().detail, "protocol 'mapped' has no memory map for 0x180-byte ROM files");
+}
+
+// A 0x140000-byte file at 0 with a written middle, like SH72531; and a
+// 0x100-byte file at 0x1000, like 1N83M.
+constexpr auto kLinearBlocks = LinearBlocks(
+    0x140000,
+    {{0x000000, Writability::kReadOnly}, {0x008000, Writability::kWritable}, {0x13FF00, Writability::kReadOnly}});
+constexpr auto kLinearBasedBlocks = LinearBlocks(0x100, {{0x1000, Writability::kWritable}});
+static_assert(MemoryMapSpec{.blocks = kLinearBlocks}.FileSize() == ByteCount{0x140000});
+
+MATCHER_P3(IsFileBlock, start, size, offset, "")
+{
+    const auto *file = std::get_if<FileBacking>(&arg.backing);
+    return arg.range.Start() == FlashAddress{static_cast<std::uint32_t>(start)} &&
+           arg.range.Size() == ByteCount{static_cast<std::uint32_t>(size)} && file != nullptr &&
+           file->offset == FileOffset{static_cast<std::uint32_t>(offset)};
+}
+
+TEST(LinearBlocks, PlacesEachSegmentAtItsAddressLessTheFirst)
+{
+    EXPECT_THAT(kLinearBlocks, ElementsAre(IsFileBlock(0x0, 0x8000, 0x0), IsFileBlock(0x8000, 0x137F00, 0x8000),
+                                           IsFileBlock(0x13FF00, 0x100, 0x13FF00)));
+    EXPECT_THAT(kLinearBasedBlocks, ElementsAre(IsFileBlock(0x1000, 0x100, 0x0)));
+}
+
+TEST(LinearBlocks, KeepsEachSegmentsWritability)
+{
+    EXPECT_THAT(kLinearBlocks, ElementsAre(::testing::Field(&MemoryBlock::writability, Writability::kReadOnly),
+                                           ::testing::Field(&MemoryBlock::writability, Writability::kWritable),
+                                           ::testing::Field(&MemoryBlock::writability, Writability::kReadOnly)));
+}
+
+TEST(LinearBlocks, MakesAValidMap)
+{
+    const auto map = fastecu::memory::MemoryMap::Create(kLinearBasedBlocks, ByteCount{0x100}, FlashAddress{0x1000});
+
+    ASSERT_TRUE(map.has_value());
+    EXPECT_EQ(map->FileOffsetOf(*fastecu::memory::AddressRange<fastecu::memory::FlashSpace>::Make(FlashAddress{0x1080},
+                                                                                                  ByteCount{0x10})),
+              FileOffset{0x80});
 }
 
 } // namespace
