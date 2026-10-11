@@ -4,7 +4,7 @@
 TEST(Settings, GetMissingReturnsNullopt)
 {
     fastecu::InMemorySettings s;
-    EXPECT_FALSE(s.get("k").has_value());
-    s.set("k", "v");
-    EXPECT_EQ(s.get("k"), "v");
+    EXPECT_FALSE(s.Get("k").has_value());
+    s.Set("k", "v");
+    EXPECT_EQ(s.Get("k"), "v");
 }

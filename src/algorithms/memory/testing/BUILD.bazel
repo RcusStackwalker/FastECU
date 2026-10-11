@@ -1,0 +1,25 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
+
+package(default_visibility = ["//visibility:public"])
+
+cc_library(
+    name = "memory_views",
+    testonly = True,
+    hdrs = ["memory_views.h"],
+    deps = [
+        "//src/algorithms/memory:address",
+        "//src/algorithms/memory:memory_image",
+        "//src/algorithms/memory:memory_map",
+        "//src/algorithms/protocol",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "memory_views_test",
+    srcs = ["memory_views_test.cpp"],
+    deps = [
+        ":memory_views",
+        "@googletest//:gtest",
+    ],
+)

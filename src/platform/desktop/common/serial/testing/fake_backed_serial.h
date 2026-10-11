@@ -49,14 +49,14 @@ template <typename Mock = NiceFakeBackend> class FakeBackedSerial
     {
         // Any marshaled call forces the backend into existence; this one is
         // otherwise inert. It is the call a StrictMock fixture must arrange.
-        serial_->set_add_ssm_header(false);
+        serial_->SetAddSsmHeader(false);
     }
 
     // Non-copyable and non-movable: the installed factory captures `this`.
     FakeBackedSerial(const FakeBackedSerial&) = delete;
     FakeBackedSerial& operator=(const FakeBackedSerial&) = delete;
 
-    Mock& fake()
+    Mock& Fake()
     {
         return *fake_;
     }
@@ -71,14 +71,14 @@ template <typename Mock = NiceFakeBackend> class FakeBackedSerial
         return serial_.get();
     }
 
-    SerialPortActions *get()
+    SerialPortActions *Get()
     {
         return serial_.get();
     }
 
     // Hands the facade to its consumer. fake() keeps working afterwards: the
     // backend now belongs to whoever took the facade, and dies with it.
-    std::unique_ptr<SerialPortActions> release()
+    std::unique_ptr<SerialPortActions> Release()
     {
         return std::move(serial_);
     }
@@ -86,7 +86,7 @@ template <typename Mock = NiceFakeBackend> class FakeBackedSerial
     // Destroys the facade, and with it the backend, while the fixture stays in
     // scope. The non-owning transport tests use this to choose the moment
     // teardown happens.
-    void reset()
+    void Reset()
     {
         serial_.reset();
     }

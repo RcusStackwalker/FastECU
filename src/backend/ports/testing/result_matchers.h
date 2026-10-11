@@ -67,7 +67,7 @@ MATCHER_P2(IsErrWith, kind, detail_matcher, "")
 
 // Renders a matcher's explanation for a value, so a test can assert on the
 // text a failure would print.
-template <class Value, class Matcher> std::string explainMatch(const Matcher& matcher, const Value& value)
+template <class Value, class Matcher> std::string ExplainMatch(const Matcher& matcher, const Value& value)
 {
     ::testing::StringMatchResultListener listener;
     ::testing::ExplainMatchResult(matcher, value, &listener);

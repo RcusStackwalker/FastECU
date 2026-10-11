@@ -411,70 +411,70 @@ class QHEXEDIT_API QHexEdit : public QAbstractScrollArea
 
   private:
     // Name convention: pixel positions start with _px
-    int _pxCharWidth{}, _pxCharHeight{}; // char dimensions (dependend on font)
-    int _pxPosHexX{};                    // X-Pos of HeaxArea
-    int _pxPosAdrX{};                    // X-Pos of Address Area
-    int _pxPosAsciiX{};                  // X-Pos of Ascii Area
-    int _pxPosBarX{};                    // X-Pos of Bar Area
-    int _pxGapAdr{};                     // gap left from AddressArea
-    int _pxGapAdrHex{};                  // gap between AddressArea and HexAerea
-    int _pxGapHexAscii{};                // gap between HexArea and AsciiArea
-    int _pxGapAsciiBar{};                // gap between AsciiArea and BarArea
-    int _pxCursorWidth{};                // cursor width
-    int _pxSelectionSub{};               // offset selection rect
-    int _pxCursorX{};                    // current cursor pos
-    int _pxCursorY{};                    // current cursor pos
+    int px_char_width_{}, px_char_height_{}; // char dimensions (dependend on font)
+    int px_pos_hex_x_{};                     // X-Pos of HeaxArea
+    int px_pos_adr_x_{};                     // X-Pos of Address Area
+    int px_pos_ascii_x_{};                   // X-Pos of Ascii Area
+    int px_pos_bar_x_{};                     // X-Pos of Bar Area
+    int px_gap_adr_{};                       // gap left from AddressArea
+    int px_gap_adr_hex_{};                   // gap between AddressArea and HexAerea
+    int px_gap_hex_ascii_{};                 // gap between HexArea and AsciiArea
+    int px_gap_ascii_bar_{};                 // gap between AsciiArea and BarArea
+    int px_cursor_width_{};                  // cursor width
+    int px_selection_sub_{};                 // offset selection rect
+    int px_cursor_x_{};                      // current cursor pos
+    int px_cursor_y_{};                      // current cursor pos
 
     // Name convention: absolute byte positions in chunks start with _b
-    qint64 _bSelectionBegin{}; // first position of Selection
-    qint64 _bSelectionEnd{};   // end of Selection
-    qint64 _bSelectionInit{};  // memory position of Selection
-    qint64 _bPosFirst{};       // position of first byte shown
-    qint64 _bPosLast{};        // position of last byte shown
-    qint64 _bPosCurrent{};     // current position
+    qint64 b_selection_begin_{}; // first position of Selection
+    qint64 b_selection_end_{};   // end of Selection
+    qint64 b_selection_init_{};  // memory position of Selection
+    qint64 b_pos_first_{};       // position of first byte shown
+    qint64 b_pos_last_{};        // position of last byte shown
+    qint64 b_pos_current_{};     // current position
 
     // variables to store the property values
-    bool _addressArea; // left area of QHexEdit
-    QColor _addressAreaColor;
-    QColor _asciiAreaColor;
-    QColor _barAreaColor;
-    QColor _addressFontColor;
-    QColor _asciiFontColor;
-    QColor _barFontColor;
-    QColor _hexFontColor;
-    int _addressWidth;
-    bool _asciiArea;
-    bool _barArea;
-    qint64 _addressOffset{};
-    int _bytesPerLine;
-    int _hexCharsInLine;
-    bool _highlighting;
-    bool _overwriteMode;
-    QBrush _brushSelection;
-    QPen _penSelection;
-    QBrush _brushHighlighted;
-    QPen _penHighlighted;
-    bool _readOnly;
-    bool _hexCaps;
-    bool _dynamicBytesPerLine;
+    bool address_area_; // left area of QHexEdit
+    QColor address_area_color_;
+    QColor ascii_area_color_;
+    QColor bar_area_color_;
+    QColor address_font_color_;
+    QColor ascii_font_color_;
+    QColor bar_font_color_;
+    QColor hex_font_color_;
+    int address_width_;
+    bool ascii_area_;
+    bool bar_area_;
+    qint64 address_offset_{};
+    int bytes_per_line_;
+    int hex_chars_in_line_;
+    bool highlighting_;
+    bool overwrite_mode_;
+    QBrush brush_selection_;
+    QPen pen_selection_;
+    QBrush brush_highlighted_;
+    QPen pen_highlighted_;
+    bool read_only_;
+    bool hex_caps_;
+    bool dynamic_bytes_per_line_;
 
     // other variables
-    bool _editAreaIsAscii;    // flag about the ascii mode edited
-    bool _editAreaIsBar;      // flag about the ascii mode edited
-    int _addrDigits{};        // real no of addressdigits, may be > addressWidth
-    bool _blink{};            // help get cursor blinking
-    QBuffer _bData;           // buffer, when setup with QByteArray
-    Chunks *_chunks;          // IODevice based access to data
-    QTimer _cursorTimer;      // for blinking cursor
-    qint64 _cursorPosition;   // absolute position of cursor, 1 Byte == 2 tics
-    QRect _cursorRect;        // physical dimensions of cursor
-    QByteArray _data;         // QHexEdit's data, when setup with QByteArray
-    QByteArray _dataShown;    // data in the current View
-    QByteArray _hexDataShown; // data in view, transformed to hex
-    qint64 _lastEventSize;    // size, which was emitted last time
-    QByteArray _markedShown;  // marked data in view
-    bool _modified{};         // Is any data in editor modified?
-    int _rowsShown{};         // lines of text shown
-    UndoStack *_undoStack;    // Stack to store edit actions for undo/redo
+    bool edit_area_is_ascii_;   // flag about the ascii mode edited
+    bool edit_area_is_bar_;     // flag about the ascii mode edited
+    int addr_digits_{};         // real no of addressdigits, may be > addressWidth
+    bool blink_{};              // help get cursor blinking
+    QBuffer b_data_;            // buffer, when setup with QByteArray
+    Chunks *chunks_;            // IODevice based access to data
+    QTimer cursor_timer_;       // for blinking cursor
+    qint64 cursor_position_;    // absolute position of cursor, 1 Byte == 2 tics
+    QRect cursor_rect_;         // physical dimensions of cursor
+    QByteArray data_;           // QHexEdit's data, when setup with QByteArray
+    QByteArray data_shown_;     // data in the current View
+    QByteArray hex_data_shown_; // data in view, transformed to hex
+    qint64 last_event_size_;    // size, which was emitted last time
+    QByteArray marked_shown_;   // marked data in view
+    bool modified_{};           // Is any data in editor modified?
+    int rows_shown_{};          // lines of text shown
+    UndoStack *undo_stack_;     // Stack to store edit actions for undo/redo
     /*! \endcond docNever */
 };

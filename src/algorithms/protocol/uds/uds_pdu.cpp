@@ -5,24 +5,24 @@
 namespace uds
 {
 
-bytes::Bytes buildRequest(bytes::Byte sid)
+bytes::Bytes BuildRequest(bytes::Byte sid)
 {
-    return bytes::composeBe(sid);
+    return bytes::ComposeBe(sid);
 }
 
-bytes::Bytes buildRequest(bytes::Byte sid, bytes::Byte subfunction)
+bytes::Bytes BuildRequest(bytes::Byte sid, bytes::Byte subfunction)
 {
-    return bytes::composeBe(sid, subfunction);
+    return bytes::ComposeBe(sid, subfunction);
 }
 
-bytes::Bytes buildRequest(bytes::Byte sid, bytes::ByteView data)
+bytes::Bytes BuildRequest(bytes::Byte sid, bytes::ByteView data)
 {
-    return bytes::composeBe(sid, data);
+    return bytes::ComposeBe(sid, data);
 }
 
-bytes::Bytes buildRequest(bytes::Byte sid, bytes::Byte subfunction, bytes::ByteView data)
+bytes::Bytes BuildRequest(bytes::Byte sid, bytes::Byte subfunction, bytes::ByteView data)
 {
-    return bytes::composeBe(sid, subfunction, data);
+    return bytes::ComposeBe(sid, subfunction, data);
 }
 
 } // namespace uds

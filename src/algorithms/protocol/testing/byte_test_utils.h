@@ -7,7 +7,7 @@
 namespace test_bytes
 {
 
-inline int hexNibble(char c)
+inline int HexNibble(char c)
 {
     if (c >= '0' && c <= '9')
     {
@@ -24,13 +24,13 @@ inline int hexNibble(char c)
     return -1;
 }
 
-inline bytes::Bytes bytesFromHex(std::string_view hex)
+inline bytes::Bytes BytesFromHex(std::string_view hex)
 {
     bytes::Bytes out;
     int high = -1;
     for (char c : hex)
     {
-        const int nibble = hexNibble(c);
+        const int nibble = HexNibble(c);
         if (nibble < 0)
         {
             continue;

@@ -1,6 +1,6 @@
 #include "src/backend/logging/logging_conversion.h"
 
-#include "src/algorithms/expression/expression_evaluator.h"
+#include "src/algorithms/expression/expression.h"
 #include "src/backend/logging/logging_session.h"
 #include "src/backend/ports/error.h"
 
@@ -10,28 +10,30 @@
 namespace fastecu::logging
 {
 
-fastecu::Result<LogSample> convert_sample(const LoggingSession& session, const ProtocolSample& raw)
+fastecu::Result<LogSample> ConvertSample(const LoggingSession& session, const ProtocolSample& raw)
 {
-    const LoggingChannel *channel = session.find_channel(raw.channel_id);
+    const LoggingChannel *channel = session.FindChannel(raw.channel_id);
     if (channel == nullptr)
     {
-        return fastecu::fail(fastecu::ErrorKind::Internal, "protocol sample channel is not in the logging session");
+        return fastecu::Fail(fastecu::ErrorKind::kInternal, "protocol sample channel is not in the logging session");
     }
 
-    // Legacy logging always evaluated intermediate expression results at 15
-    // significant digits. Display precision is applied only by the UI adapter.
-    constexpr int kCalculationPrecision = 15;
-    const double numeric_value =
-        expression_evaluate(channel->from_byte_expression, raw.raw_value, kCalculationPrecision);
-    if (!std::isfinite(numeric_value))
+    const auto raw_value = fastecu::expression::ParseFiniteNumber(raw.raw_value);
+    if (!raw_value.has_value())
     {
-        return fastecu::fail(fastecu::ErrorKind::InvalidConfig,
-                             "protocol sample evaluates to a non-finite logging value");
+        return fastecu::Fail(fastecu::ErrorKind::kBadResponse,
+                             "protocol sample raw value is not a finite number: " + raw_value.error().detail);
+    }
+    const auto numeric_value = fastecu::expression::EvaluateChecked(channel->from_byte_expression, *raw_value);
+    if (!numeric_value.has_value())
+    {
+        return fastecu::Fail(fastecu::ErrorKind::kInvalidConfig,
+                             "logging conversion expression failed: " + numeric_value.error().detail);
     }
 
     return LogSample{
         .channel_id = raw.channel_id,
-        .numeric_value = numeric_value,
+        .numeric_value = *numeric_value,
         .raw_value = raw.raw_value,
         .unit = channel->unit,
     };

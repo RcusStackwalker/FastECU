@@ -10,24 +10,24 @@
 #include <thread>
 
 using namespace std::chrono_literals;
-using fastecu::testing::process_events_for;
+using fastecu::testing::ProcessEventsFor;
 using fastecu::testing::SignalRecorder;
-using fastecu::testing::wait_until;
+using fastecu::testing::WaitUntil;
 
 namespace
 {
-QPointer<QCoreApplication> observed_application;
+QPointer<QCoreApplication> g_observed_application;
 class ApplicationTeardownObserver : public ::testing::Environment
 {
     void TearDown() override
     {
         EXPECT_EQ(QCoreApplication::instance(), nullptr);
-        EXPECT_TRUE(observed_application.isNull());
+        EXPECT_TRUE(g_observed_application.isNull());
     }
 };
 // Environments tear down in reverse registration order.
-const auto *const teardown_observer = ::testing::AddGlobalTestEnvironment(new ApplicationTeardownObserver);
-const auto *const environment = ::testing::AddGlobalTestEnvironment(new fastecu::testing::CoreApplicationEnvironment(
+const auto *const kTeardownObserver = ::testing::AddGlobalTestEnvironment(new ApplicationTeardownObserver);
+const auto *const kEnvironment = ::testing::AddGlobalTestEnvironment(new fastecu::testing::CoreApplicationEnvironment(
     []
     {
         EXPECT_EQ(QCoreApplication::instance(), nullptr);
@@ -38,7 +38,7 @@ const auto *const environment = ::testing::AddGlobalTestEnvironment(new fastecu:
 TEST(QtTestSupport, ApplicationLivesDuringFixtures)
 {
     ASSERT_NE(QCoreApplication::instance(), nullptr);
-    observed_application = QCoreApplication::instance();
+    g_observed_application = QCoreApplication::instance();
     EXPECT_EQ(QCoreApplication::arguments().front(), QString("fastecu-test"));
     EXPECT_TRUE(QCoreApplication::testAttribute(Qt::AA_ShareOpenGLContexts));
     EXPECT_TRUE(QCoreApplication::testAttribute(Qt::AA_Use96Dpi));
@@ -48,12 +48,12 @@ TEST(QtTestSupport, CapturesImmediateAndWorkerSignalsWithoutEventProcessing)
 {
     QObject source;
     SignalRecorder recorder(&source, &QObject::objectNameChanged);
-    ASSERT_TRUE(recorder.is_valid());
+    ASSERT_TRUE(recorder.IsValid());
     source.setObjectName("immediate");
     std::thread worker([&] { source.setObjectName("worker"); });
     worker.join();
-    ASSERT_EQ(recorder.count(), 2U);
-    const auto records = recorder.snapshot();
+    ASSERT_EQ(recorder.Count(), 2U);
+    const auto records = recorder.Snapshot();
     EXPECT_EQ(std::get<0>(records[0]), QString("immediate"));
     EXPECT_EQ(std::get<0>(records[1]), QString("worker"));
 }
@@ -63,16 +63,16 @@ TEST(QtTestSupport, CapturesQueuedSignals)
     QObject source;
     SignalRecorder recorder(&source, &QObject::objectNameChanged);
     QTimer::singleShot(0, &source, [&] { source.setObjectName("queued"); });
-    ASSERT_TRUE(wait_until([&] { return recorder.count() == 1; }, 100ms));
-    EXPECT_EQ(std::get<0>(recorder.snapshot().front()), QString("queued"));
+    ASSERT_TRUE(WaitUntil([&] { return recorder.Count() == 1; }, 100ms));
+    EXPECT_EQ(std::get<0>(recorder.Snapshot().front()), QString("queued"));
 }
 
 TEST(QtTestSupport, TimesOutAndProcessesDeferredDeletion)
 {
-    EXPECT_FALSE(wait_until([] { return false; }, 2ms));
+    EXPECT_FALSE(WaitUntil([] { return false; }, 2ms));
     QPointer<QObject> object = new QObject;
     object->deleteLater();
-    ASSERT_TRUE(wait_until([&] { return object.isNull(); }, 100ms));
+    ASSERT_TRUE(WaitUntil([&] { return object.isNull(); }, 100ms));
 }
 
 TEST(QtTestSupport, RecorderCanDieBeforeSender)
@@ -81,10 +81,10 @@ TEST(QtTestSupport, RecorderCanDieBeforeSender)
     {
         SignalRecorder recorder(&source, &QObject::objectNameChanged);
         source.setObjectName("first");
-        ASSERT_EQ(recorder.count(), 1U);
+        ASSERT_EQ(recorder.Count(), 1U);
     }
     source.setObjectName("after destruction");
-    process_events_for(2ms);
+    ProcessEventsFor(2ms);
 }
 
 TEST(QtTestSupport, SenderCanDieBeforeRecorder)
@@ -93,8 +93,8 @@ TEST(QtTestSupport, SenderCanDieBeforeRecorder)
     SignalRecorder recorder(source.get(), &QObject::objectNameChanged);
     source->setObjectName("retained");
     source.reset();
-    ASSERT_EQ(recorder.count(), 1U);
-    EXPECT_EQ(std::get<0>(recorder.snapshot().front()), QString("retained"));
+    ASSERT_EQ(recorder.Count(), 1U);
+    EXPECT_EQ(std::get<0>(recorder.Snapshot().front()), QString("retained"));
 }
 
 TEST(QtTestSupport, RecorderCanDisconnectWhileWorkerEmits)

@@ -24,7 +24,7 @@ TEST(TestRemoteBackendSmoke, constructAndDestroy_localPeer_noBlockNoCrash)
     t.restart();
     {
         RemoteSerialBackend remote("local:fastecu-test-nonexistent", "pw");
-        ASSERT_TRUE(remote.qobject() != nullptr);
+        ASSERT_TRUE(remote.Qobject() != nullptr);
     }
     const qint64 elapsed = t.elapsed();
     qInfo() << "Remote backend construction/teardown:" << elapsed << "ms";
@@ -33,7 +33,7 @@ TEST(TestRemoteBackendSmoke, constructAndDestroy_localPeer_noBlockNoCrash)
 
 namespace
 {
-const auto *const application_environment =
+const auto *const kApplicationEnvironment =
     ::testing::AddGlobalTestEnvironment(new fastecu::testing::CoreApplicationEnvironment(
         []
         {

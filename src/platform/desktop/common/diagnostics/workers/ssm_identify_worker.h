@@ -20,7 +20,7 @@ namespace fastecu::diagnostics
 struct SsmIdentifyWorkerResult
 {
     bool success = false;
-    ErrorKind error_kind = ErrorKind::Internal;
+    ErrorKind error_kind = ErrorKind::kInternal;
     QString error_detail;
     QString ecu_id;
     QByteArray init_response;
@@ -44,12 +44,14 @@ class SsmIdentifyWorker final : public QThread
     SsmIdentifyWorker& operator=(const SsmIdentifyWorker&) = delete;
 
     // Safe from any thread, any number of times, before or after start().
-    void requestStop();
+    void RequestStop();
 
   signals:
+    // NOLINTBEGIN(readability-identifier-naming): Qt signals keep Qt's camelBack names
     void logEvent(int level, QString message);
     // Emitted exactly once per run(), from the worker thread.
     void completed(fastecu::diagnostics::SsmIdentifyWorkerResult result);
+    // NOLINTEND(readability-identifier-naming)
 
   protected:
     void run() override;

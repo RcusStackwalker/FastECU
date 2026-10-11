@@ -9,39 +9,39 @@ namespace fastecu::logging
 {
 namespace
 {
-fastecu::Result<std::string> effective_protocol_filter(LoggingProtocolId protocol, std::string_view filter)
+fastecu::Result<std::string> EffectiveProtocolFilter(LoggingProtocolId protocol, std::string_view filter)
 {
     switch (protocol)
     {
-    case LoggingProtocolId::Ssm:
+    case LoggingProtocolId::kSsm:
         if (filter.empty())
         {
-            return fastecu::fail(ErrorKind::InvalidConfig, "SSM logging protocol filter is empty");
+            return fastecu::Fail(ErrorKind::kInvalidConfig, "SSM logging protocol filter is empty");
         }
         return std::string(filter);
-    case LoggingProtocolId::MutDma:
+    case LoggingProtocolId::kMutDma:
         return "MUT_DMA";
-    case LoggingProtocolId::Cdbg:
+    case LoggingProtocolId::kCdbg:
         return "CDBG";
     }
-    return fastecu::fail(ErrorKind::InvalidConfig, "invalid logging protocol");
+    return fastecu::Fail(ErrorKind::kInvalidConfig, "invalid logging protocol");
 }
 
-fastecu::Result<const LoggerParameter *> selected_parameter(const LoggerModel& model, LoggingProtocolId protocol,
-                                                            std::string_view key, std::string_view id)
+fastecu::Result<const LoggerParameter *> FindSelectedParameter(const LoggerModel& model, LoggingProtocolId protocol,
+                                                               std::string_view key, std::string_view id)
 {
     const LoggerParameter *selected = nullptr;
-    for (const auto& parameter : model.definition().parameters)
+    for (const auto& parameter : model.Definition().parameters)
     {
         if (parameter.id != id || parameter.protocol != key ||
-            (protocol == LoggingProtocolId::MutDma && !model.parameter_supported(key, id)))
+            (protocol == LoggingProtocolId::kMutDma && !model.ParameterSupported(key, id)))
         {
             continue;
         }
         if (selected != nullptr)
         {
-            return fastecu::fail(
-                ErrorKind::InvalidConfig,
+            return fastecu::Fail(
+                ErrorKind::kInvalidConfig,
                 std::format("{} parameter {}: duplicate logging value id in selected protocol", key, id));
         }
         selected = &parameter;
@@ -58,53 +58,53 @@ LoggingRunSnapshot::LoggingRunSnapshot(LoggingSession session, std::string proto
 {
 }
 
-const LoggingSession& LoggingRunSnapshot::session() const
+const LoggingSession& LoggingRunSnapshot::Session() const
 {
     return session_;
 }
-const std::string& LoggingRunSnapshot::protocol_key() const
+const std::string& LoggingRunSnapshot::ProtocolKey() const
 {
     return protocol_key_;
 }
-const LoggerSelection& LoggingRunSnapshot::selection() const
+const LoggerSelection& LoggingRunSnapshot::Selection() const
 {
     return selection_;
 }
-const std::vector<std::size_t>& LoggingRunSnapshot::response_offsets() const
+const std::vector<std::size_t>& LoggingRunSnapshot::ResponseOffsets() const
 {
     return response_offsets_;
 }
-LoggingTarget LoggingRunSnapshot::target() const
+LoggingTarget LoggingRunSnapshot::Target() const
 {
     return target_;
 }
-bool LoggingRunSnapshot::channel_enabled(std::string_view id) const
+bool LoggingRunSnapshot::ChannelEnabled(std::string_view id) const
 {
     return enabled_ids_.contains(std::string(id));
 }
 
-fastecu::Result<LoggingRunSnapshot> prepare_logging_run(const LoggerModel& model, LoggingProtocolId protocol,
-                                                        std::string_view protocol_filter, LoggingPolicy policy,
-                                                        LoggingTarget target)
+fastecu::Result<LoggingRunSnapshot> PrepareLoggingRun(const LoggerModel& model, LoggingProtocolId protocol,
+                                                      std::string_view protocol_filter, LoggingPolicy policy,
+                                                      LoggingTarget target)
 {
-    const auto filter = effective_protocol_filter(protocol, protocol_filter);
+    const auto filter = EffectiveProtocolFilter(protocol, protocol_filter);
     if (!filter.has_value())
     {
         return std::unexpected(filter.error());
     }
-    if (target != LoggingTarget::Ecu && target != LoggingTarget::Tcu)
+    if (target != LoggingTarget::kEcu && target != LoggingTarget::kTcu)
     {
-        return fastecu::fail(ErrorKind::InvalidConfig, std::format("{}: invalid logging target", *filter));
+        return fastecu::Fail(ErrorKind::kInvalidConfig, std::format("{}: invalid logging target", *filter));
     }
     std::vector<LoggingChannel> channels;
     std::vector<std::size_t> response_offsets;
     std::unordered_set<std::string> participating_ids;
     std::unordered_set<std::string> enabled_ids;
-    const auto& selected_ids = model.selection().lower_panel_ids;
+    const auto& selected_ids = model.Selection().lower_panel_ids;
     for (std::size_t slot = 0; slot < selected_ids.size(); ++slot)
     {
         const auto& id = selected_ids[slot];
-        const auto selected = selected_parameter(model, protocol, *filter, id);
+        const auto selected = FindSelectedParameter(model, protocol, *filter, id);
         if (!selected.has_value())
         {
             return std::unexpected(selected.error());
@@ -115,30 +115,30 @@ fastecu::Result<LoggingRunSnapshot> prepare_logging_run(const LoggerModel& model
         }
         if (!participating_ids.insert(id).second)
         {
-            return fastecu::fail(ErrorKind::InvalidConfig,
+            return fastecu::Fail(ErrorKind::kInvalidConfig,
                                  std::format("{} parameter {}: duplicate lower-panel logging value id", *filter, id));
         }
-        auto channel = prepare_logging_channel(**selected, protocol);
+        auto channel = PrepareLoggingChannel(**selected, protocol);
         if (!channel.has_value())
         {
             return std::unexpected(channel.error());
         }
-        if (protocol != LoggingProtocolId::Ssm || model.parameter_supported(*filter, id))
+        if (protocol != LoggingProtocolId::kSsm || model.ParameterSupported(*filter, id))
         {
             enabled_ids.insert(id);
         }
-        if (protocol == LoggingProtocolId::Ssm)
+        if (protocol == LoggingProtocolId::kSsm)
         {
             response_offsets.push_back(slot);
         }
         channels.push_back(std::move(*channel));
     }
-    auto session = make_logging_session(protocol, std::move(channels), policy);
+    auto session = MakeLoggingSession(protocol, std::move(channels), policy);
     if (!session.has_value())
     {
-        return fastecu::fail(session.error().kind, std::format("{}: {}", *filter, session.error().detail));
+        return fastecu::Fail(session.error().kind, std::format("{}: {}", *filter, session.error().detail));
     }
-    return LoggingRunSnapshot(std::move(*session), *filter, model.selection(), std::move(response_offsets),
+    return LoggingRunSnapshot(std::move(*session), *filter, model.Selection(), std::move(response_offsets),
                               std::move(enabled_ids), target);
 }
 } // namespace fastecu::logging

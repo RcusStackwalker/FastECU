@@ -16,7 +16,7 @@ class SigintCancellationToken final : public ICancellationToken
     SigintCancellationToken(SigintCancellationToken&&) = delete;
     SigintCancellationToken& operator=(SigintCancellationToken&&) = delete;
 
-    bool cancelled() const override;
+    bool Cancelled() const override;
 
   private:
     using SignalHandler = void (*)(int);

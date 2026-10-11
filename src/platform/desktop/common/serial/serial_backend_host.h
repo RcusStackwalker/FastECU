@@ -18,19 +18,19 @@ class SerialBackendHost
     ~SerialBackendHost(); // deletes the backend on the I/O thread, then joins
 
     // Runs `factory` on the I/O thread (blocking) and returns the backend.
-    SerialBackend *createBackend(const std::function<SerialBackend *()>& factory);
+    SerialBackend *CreateBackend(const std::function<SerialBackend *()>& factory);
 
-    QObject *context() const
+    QObject *Context() const
     {
-        return m_context;
+        return m_context_;
     }
-    QThread *ioThread()
+    QThread *IoThread()
     {
-        return &m_thread;
+        return &m_thread_;
     }
 
   private:
-    QThread m_thread;
-    QObject *m_context = nullptr; // affinity: m_thread; invokeMethod target
-    SerialBackend *m_backend = nullptr;
+    QThread m_thread_;
+    QObject *m_context_ = nullptr; // affinity: m_thread; invokeMethod target
+    SerialBackend *m_backend_ = nullptr;
 };

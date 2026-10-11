@@ -2,7 +2,7 @@
 
 #include "src/algorithms/diagnostics/dtc_tables.h"
 
-std::string nrc_description(bytes::ByteView nrc, const std::unordered_map<int, std::string>& codes)
+std::string NrcDescription(bytes::ByteView nrc, const std::unordered_map<int, std::string>& codes)
 {
     if (nrc.size() < 3 || nrc[0] != 0x7f)
     {
@@ -16,7 +16,7 @@ std::string nrc_description(bytes::ByteView nrc, const std::unordered_map<int, s
     return "Unknown error code";
 }
 
-std::string nrc_description(bytes::ByteView nrc)
+std::string NrcDescription(bytes::ByteView nrc)
 {
-    return nrc_description(nrc, nrc_codes());
+    return NrcDescription(nrc, NrcCodes());
 }

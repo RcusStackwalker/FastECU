@@ -14,8 +14,8 @@ flashing them; decoding correctly cannot recover an earlier intended edit.
 
 Current edits respect `startpos`/`interval` striding and declared byte order;
 float storage uses IEEE-754 bits. Float storage remains big-endian regardless
-of the endian label. The unresolved `wrx02` read/write
-address-predicate mismatch is owned by [technical debt](../tech-debt.md).
+of the endian label. Map and axis addresses index the session image directly; no
+protocol relocates them.
 
 ## Session and view ownership
 
@@ -41,13 +41,13 @@ labels. Static labels containing commas remain single labels. Numeric data is
 never joined into text and split for downstream calculation. Body storage/endian
 use map fields before scaling defaults; axes use resolved axis fields.
 
-[Checked expressions](../../src/algorithms/expression/checked_expression.h)
+[Checked expressions](../../src/algorithms/expression/expression.h)
 calculate with `double` throughout. Supported syntax is `x`, decimal and
 scientific-notation literals, binary `+ - * /`, parentheses, and unary signs.
 Missing numeric scaling and missing/blank definition expressions mean identity;
 unresolved named scaling, malformed syntax, division by zero, and non-finite
 results are errors. Parenthesis nesting beyond 128 levels is rejected with a
-diagnostic. The logging-facing evaluator retains its separate behavior.
+diagnostic. Logging channels use the same evaluator.
 
 Decimal precision follows the definition's display format, typically up to two
 places; it does not round values used for calculation. The Set Value dialog treats
@@ -108,7 +108,7 @@ selection, and a repeated selection name, fail the whole definition load, so a
 resolved selection is always valid bytes of one shared width.
 
 Choosing a selection of a selectable map writes that selection's bytes through
-`apply_selectable_edit`; a write that would not match the blob width is an
+`ApplySelectableEdit`; a write that would not match the blob width is an
 error and changes nothing. Writing identical bytes reports an unchanged edit
 and leaves the session clean. Sessions without a definition, unknown maps, maps
 that are not blob selections and unknown selection names are not applicable; the
@@ -128,12 +128,20 @@ source and dirty state and emits the existing log and operator notice. A later
 edit marks dirty again. Warnings and confirmations belong to the UI.
 
 ROM opening preserves primary/secondary definition precedence, reported ROM-ID
-fallback, vehicle selection, the unpadded size label, and subsequent flash-method
-padding. Size-validation failure keeps a header with no maps. An unreadable
-indexed definition opens without a definition and retains its load-failure
-notice. Authoring a definition writes it without reopening the existing
-definition-less session. Failed or cancelled ECU reads create no session;
-successful reads with data are adopted after dispatch completes.
+fallback, vehicle selection, and the file size label. The ROM file is kept
+exactly as loaded and placed at ECU addresses by the memory map its protocol
+declares for exactly that file size ([ADR 0020](../adr/0020-model-rom-memory-as-a-memory-map.md));
+a protocol declaring none places it at address 0. A file whose size matches none
+of its protocol's memory maps, or an empty file, is not opened, and the selected
+vehicle does not change. Saving writes the file back in the layout it was opened
+in, so a 160 KiB MC68HC16Y5 file stays 160 KiB. A map whose cells or axes leave
+the memory map, touch a fill block, or span writable and read-only memory is a
+structural map failure of that map alone; a map in read-only memory decodes but
+cannot be edited. An unreadable indexed definition opens without a definition
+and retains its load-failure notice. Authoring a definition writes it without
+reopening the existing definition-less session. Failed or cancelled ECU reads
+create no session; successful reads with data are adopted after dispatch
+completes.
 
 See the [session API](../../src/backend/calibration/session/calibration_session.h)
 and [ROM save use case](../../src/backend/calibration/session/rom_save.h).
@@ -145,7 +153,7 @@ owns UI sequencing through `ICalibrationInteraction`. `MainWindow` supplies the
 session and retains port checks, battery polling, cleanup, and flash dispatch.
 
 - Cancelling the missing-checksum-module warning before Write or TestWrite
-  (`ChecksumSupport::Missing`, formerly `n/a`) stops the operation before
+  (`ChecksumSupport::kMissing`, formerly `n/a`) stops the operation before
   refresh, correction, or dispatch. The cleanup guard still runs.
 - Declining checksum correction, an unknown MCU, or an outcome without bytes
   leaves the operation image unchanged and allows save/write to continue.

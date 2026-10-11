@@ -6,22 +6,22 @@
 
 namespace fastecu::logging
 {
-fastecu::Result<std::optional<ResolvedLogSample>> resolve_log_sample(const LoggingRunSnapshot& snapshot,
-                                                                     const LogSample& sample)
+fastecu::Result<std::optional<ResolvedLogSample>> ResolveLogSample(const LoggingRunSnapshot& snapshot,
+                                                                   const LogSample& sample)
 {
-    const auto *channel = snapshot.session().find_channel(sample.channel_id);
+    const auto *channel = snapshot.Session().FindChannel(sample.channel_id);
     if (channel == nullptr)
     {
-        return fastecu::fail(ErrorKind::Internal,
+        return fastecu::Fail(ErrorKind::kInternal,
                              std::format("{} sample {}: logging sample id is not in the run snapshot",
-                                         snapshot.protocol_key(), sample.channel_id));
+                                         snapshot.ProtocolKey(), sample.channel_id));
     }
-    if (!snapshot.channel_enabled(sample.channel_id))
+    if (!snapshot.ChannelEnabled(sample.channel_id))
     {
         return std::nullopt;
     }
     return ResolvedLogSample{
-        .identity = {snapshot.protocol_key(), channel->id},
+        .identity = {snapshot.ProtocolKey(), channel->id},
         .numeric_value = sample.numeric_value,
         .decimal_precision = channel->decimal_precision,
     };

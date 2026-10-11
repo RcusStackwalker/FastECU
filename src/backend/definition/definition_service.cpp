@@ -18,7 +18,7 @@ namespace fastecu::definition
 namespace
 {
 
-std::string join_path(std::string_view directory, std::string_view name)
+std::string JoinPath(std::string_view directory, std::string_view name)
 {
     if (directory.empty())
     {
@@ -31,7 +31,7 @@ std::string join_path(std::string_view directory, std::string_view name)
     return std::string(directory) + "/" + std::string(name);
 }
 
-bool is_xml_handle(std::string_view handle)
+bool IsXmlHandle(std::string_view handle)
 {
     constexpr std::string_view kSuffix = ".xml";
     if (handle.size() < kSuffix.size())
@@ -43,7 +43,7 @@ bool is_xml_handle(std::string_view handle)
                       { return std::tolower(left) == std::tolower(right); });
 }
 
-std::optional<unsigned> hex_nibble(char character)
+std::optional<unsigned> HexNibble(char character)
 {
     if (character >= '0' && character <= '9')
     {
@@ -60,37 +60,37 @@ std::optional<unsigned> hex_nibble(char character)
     return std::nullopt;
 }
 
-Result<std::vector<std::uint8_t>> identifier_bytes(std::string_view identifier, IdEncoding encoding)
+Result<std::vector<std::uint8_t>> IdentifierBytes(std::string_view identifier, IdEncoding encoding)
 {
-    if (encoding == IdEncoding::Ascii)
+    if (encoding == IdEncoding::kAscii)
     {
         return std::vector<std::uint8_t>(identifier.begin(), identifier.end());
     }
     if (identifier.size() % 2 != 0)
     {
-        return fail(ErrorKind::InvalidConfig, "hexadecimal identifier has odd length");
+        return Fail(ErrorKind::kInvalidConfig, "hexadecimal identifier has odd length");
     }
 
     std::vector<std::uint8_t> decoded;
     decoded.reserve(identifier.size() / 2);
     for (std::size_t index = 0; index < identifier.size(); index += 2)
     {
-        auto high = hex_nibble(identifier[index]);
-        auto low = hex_nibble(identifier[index + 1]);
+        auto high = HexNibble(identifier[index]);
+        auto low = HexNibble(identifier[index + 1]);
         if (!high.has_value() || !low.has_value())
         {
-            return fail(ErrorKind::InvalidConfig, "identifier contains a non-hexadecimal digit");
+            return Fail(ErrorKind::kInvalidConfig, "identifier contains a non-hexadecimal digit");
         }
         decoded.push_back(static_cast<std::uint8_t>((*high << 4U) | *low));
     }
     return decoded;
 }
 
-Result<std::vector<std::vector<std::uint8_t>>> identifier_candidates(std::string_view identifier, IdEncoding encoding)
+Result<std::vector<std::vector<std::uint8_t>>> IdentifierCandidates(std::string_view identifier, IdEncoding encoding)
 {
-    if (encoding != IdEncoding::AsciiOrHex)
+    if (encoding != IdEncoding::kAsciiOrHex)
     {
-        auto result = identifier_bytes(identifier, encoding);
+        auto result = IdentifierBytes(identifier, encoding);
         if (!result.has_value())
         {
             return std::unexpected(std::move(result).error());
@@ -101,16 +101,16 @@ Result<std::vector<std::vector<std::uint8_t>>> identifier_candidates(std::string
     std::vector<std::vector<std::uint8_t>> candidates{
         std::vector<std::uint8_t>(identifier.begin(), identifier.end()),
     };
-    if (auto hexadecimal = identifier_bytes(identifier, IdEncoding::Hex); hexadecimal.has_value())
+    if (auto hexadecimal = IdentifierBytes(identifier, IdEncoding::kHex); hexadecimal.has_value())
     {
         candidates.push_back(std::move(*hexadecimal));
     }
     return candidates;
 }
 
-Result<void> discover_xml(IFileSystem& file_system, std::string_view directory, std::vector<std::string>& handles)
+Result<void> DiscoverXml(IFileSystem& file_system, std::string_view directory, std::vector<std::string>& handles)
 {
-    auto entries = file_system.list_directory(directory);
+    auto entries = file_system.ListDirectory(directory);
     if (!entries.has_value())
     {
         return std::unexpected(entries.error());
@@ -118,19 +118,19 @@ Result<void> discover_xml(IFileSystem& file_system, std::string_view directory, 
 
     for (const DirEntry& entry : *entries)
     {
-        std::string handle = join_path(directory, entry.name);
+        std::string handle = JoinPath(directory, entry.name);
         if (entry.is_directory)
         {
             if (entry.is_symlink)
             {
                 continue;
             }
-            if (auto nested = discover_xml(file_system, handle, handles); !nested.has_value())
+            if (auto nested = DiscoverXml(file_system, handle, handles); !nested.has_value())
             {
                 return std::unexpected(nested.error());
             }
         }
-        else if (is_xml_handle(handle))
+        else if (IsXmlHandle(handle))
         {
             handles.push_back(std::move(handle));
         }
@@ -143,13 +143,13 @@ Result<void> discover_xml(IFileSystem& file_system, std::string_view directory, 
 // mixing formats or containing one broken file is normal, and one broken entry must not
 // hide every other ROM this ECU family could otherwise identify.
 template <typename Parser>
-Result<DefinitionCatalog> build_catalog(IFileRepository& repository, std::span<const std::string> handles,
-                                        Parser parser, bool skip_unusable_handles)
+Result<DefinitionCatalog> BuildCatalog(IFileRepository& repository, std::span<const std::string> handles, Parser parser,
+                                       bool skip_unusable_handles)
 {
     std::vector<DefinitionIndexEntry> entries;
     for (const std::string& handle : handles)
     {
-        auto contents = repository.read(handle);
+        auto contents = repository.Read(handle);
         if (!contents.has_value())
         {
             if (skip_unusable_handles)
@@ -169,7 +169,59 @@ Result<DefinitionCatalog> build_catalog(IFileRepository& repository, std::span<c
         }
         entries.insert(entries.end(), std::make_move_iterator(parsed->begin()), std::make_move_iterator(parsed->end()));
     }
-    return DefinitionCatalog::create(std::move(entries));
+    return DefinitionCatalog::Create(std::move(entries));
+}
+
+// The flash method `entry` resolves to: its own, else the last parent's that
+// has one, since later parents overlay earlier ones (definition_resolver.cpp).
+// A missing parent, a cycle, or an over-deep chain contributes nothing; Load
+// reports those.
+std::string EffectiveFlashMethod(const DefinitionCatalog& catalog, const DefinitionIndexEntry& entry,
+                                 std::vector<std::string>& chain)
+{
+    if (!entry.flash_method.empty())
+    {
+        return entry.flash_method;
+    }
+    if (chain.size() >= kMaxInheritanceDepth || std::ranges::contains(chain, entry.definition_id))
+    {
+        return {};
+    }
+    chain.push_back(entry.definition_id);
+    std::string inherited;
+    for (const std::string& parent_id : entry.parents)
+    {
+        if (auto parent = catalog.Find(entry.format, parent_id); parent.has_value())
+        {
+            if (std::string method = EffectiveFlashMethod(catalog, parent->get(), chain); !method.empty())
+            {
+                inherited = std::move(method);
+            }
+        }
+    }
+    chain.pop_back();
+    return inherited;
+}
+
+// Whether `candidate` is the ROM file's bytes at the ECU address `address`
+// stands for under `map`, all within one file-backed block.
+bool IdAt(const memory::MemoryMap& map, std::span<const std::uint8_t> rom, memory::DefinitionAddress address,
+          std::span<const std::uint8_t> candidate)
+{
+    const std::optional<memory::FlashAddress> start = map.ToFlashAddress(address);
+    const std::optional<memory::ByteCount> size = memory::ByteCount::FromSize(candidate.size());
+    if (!start.has_value() || !size.has_value())
+    {
+        return false;
+    }
+    const auto range = memory::AddressRange<memory::FlashSpace>::Make(*start, *size);
+    if (!range.has_value())
+    {
+        return false;
+    }
+    const std::optional<memory::FileOffset> offset = map.FileOffsetOf(*range);
+    // The map places exactly this file, so a file-backed range lies inside it.
+    return offset.has_value() && std::ranges::equal(candidate, rom.subspan(offset->Value(), candidate.size()));
 }
 
 } // namespace
@@ -179,27 +231,27 @@ DefinitionService::DefinitionService(IFileSystem& file_system, IFileRepository& 
 {
 }
 
-Result<DefinitionCatalog> DefinitionService::build_romraider_catalog(std::span<const std::string> ordered_handles,
-                                                                     bool skip_unusable_handles)
+Result<DefinitionCatalog> DefinitionService::BuildRomraiderCatalog(std::span<const std::string> ordered_handles,
+                                                                   bool skip_unusable_handles)
 {
-    return build_catalog(repository_, ordered_handles, parse_romraider_index, skip_unusable_handles);
+    return BuildCatalog(repository_, ordered_handles, ParseRomraiderIndex, skip_unusable_handles);
 }
 
-Result<DefinitionCatalog> DefinitionService::build_ecuflash_catalog(std::string_view directory,
-                                                                    std::span<const std::string> explicit_handles,
-                                                                    bool skip_unusable_handles)
+Result<DefinitionCatalog> DefinitionService::BuildEcuflashCatalog(std::string_view directory,
+                                                                  std::span<const std::string> explicit_handles,
+                                                                  bool skip_unusable_handles)
 {
     std::vector<std::string> handles;
     if (!directory.empty())
     {
-        if (auto discovered = discover_xml(file_system_, directory, handles); !discovered.has_value())
+        if (auto discovered = DiscoverXml(file_system_, directory, handles); !discovered.has_value())
         {
             return std::unexpected(discovered.error());
         }
     }
     for (const std::string& handle : explicit_handles)
     {
-        if (is_xml_handle(handle))
+        if (IsXmlHandle(handle))
         {
             handles.push_back(handle);
         }
@@ -207,22 +259,24 @@ Result<DefinitionCatalog> DefinitionService::build_ecuflash_catalog(std::string_
     std::ranges::sort(handles);
     const auto [first, last] = std::ranges::unique(handles);
     handles.erase(first, last);
-    return build_catalog(repository_, handles, parse_ecuflash_index, skip_unusable_handles);
+    return BuildCatalog(repository_, handles, ParseEcuflashIndex, skip_unusable_handles);
 }
 
-Result<DefinitionIndexEntry> DefinitionService::match_rom(const DefinitionCatalog& catalog,
-                                                          std::span<const std::uint8_t> rom) const
+Result<DefinitionIndexEntry> DefinitionService::MatchRom(const DefinitionCatalog& catalog,
+                                                         std::span<const std::uint8_t> rom,
+                                                         const MemoryMapLookup& memory_maps) const
 {
-    for (const DefinitionIndexEntry& entry : catalog.entries())
+    for (const DefinitionIndexEntry& entry : catalog.Entries())
     {
         if (entry.internal_id.empty())
         {
             continue;
         }
-        // An entry with unusable match metadata (bad identifier encoding, no address, or an
-        // address outside this particular ROM) just isn't a candidate for this ROM -- it is
-        // not a reason to abandon the scan before reaching a later entry that does match.
-        auto candidates = identifier_candidates(entry.internal_id, entry.internal_id_encoding);
+        // An entry with unusable match metadata (bad identifier encoding, no address, a flash
+        // method that cannot place this ROM, or an address outside it) just isn't a candidate
+        // for this ROM -- it is not a reason to abandon the scan before reaching a later entry
+        // that does match.
+        auto candidates = IdentifierCandidates(entry.internal_id, entry.internal_id_encoding);
         if (!candidates.has_value())
         {
             continue;
@@ -232,25 +286,25 @@ Result<DefinitionIndexEntry> DefinitionService::match_rom(const DefinitionCatalo
             continue;
         }
 
-        const std::uint64_t address = *entry.internal_id_address;
-        if (address > rom.size())
+        std::vector<std::string> chain;
+        const std::optional<memory::MemoryMap> map = memory_maps(EffectiveFlashMethod(catalog, entry, chain));
+        // A map for another file size would misplace every byte.
+        if (!map.has_value() || map->FileSize().Value() != rom.size())
         {
             continue;
         }
-        const auto offset = static_cast<std::size_t>(address);
         for (const std::vector<std::uint8_t>& candidate : *candidates)
         {
-            if (candidate.size() <= rom.size() - offset &&
-                std::ranges::equal(candidate, rom.subspan(offset, candidate.size())))
+            if (IdAt(*map, rom, *entry.internal_id_address, candidate))
             {
                 return entry;
             }
         }
     }
-    return fail(ErrorKind::InvalidConfig, "no matching ROM definition found");
+    return Fail(ErrorKind::kInvalidConfig, "no matching ROM definition found");
 }
 
-Result<RomDefinition> DefinitionService::load(const DefinitionCatalog& catalog, DefinitionFormat format,
+Result<RomDefinition> DefinitionService::Load(const DefinitionCatalog& catalog, DefinitionFormat format,
                                               std::string_view id)
 {
     std::optional<Error> repository_error;
@@ -258,31 +312,31 @@ Result<RomDefinition> DefinitionService::load(const DefinitionCatalog& catalog, 
                                &repository_error](DefinitionFormat requested_format,
                                                   std::string_view requested_id) -> Result<UnresolvedDefinition>
     {
-        auto found = catalog.find(requested_format, requested_id);
+        auto found = catalog.Find(requested_format, requested_id);
         if (!found.has_value())
         {
             return std::unexpected(found.error());
         }
         const DefinitionIndexEntry& entry = found->get();
-        auto contents = repository_.read(entry.source);
+        auto contents = repository_.Read(entry.source);
         if (!contents.has_value())
         {
             repository_error = contents.error();
             return std::unexpected(contents.error());
         }
 
-        if (requested_format == DefinitionFormat::RomRaider)
+        if (requested_format == DefinitionFormat::kRomRaider)
         {
-            return parse_romraider_definition(*contents, entry.source, requested_id);
+            return ParseRomraiderDefinition(*contents, entry.source, requested_id);
         }
-        auto parsed = parse_ecuflash_definition(*contents, entry.source);
+        auto parsed = ParseEcuflashDefinition(*contents, entry.source);
         if (!parsed.has_value())
         {
             return std::unexpected(parsed.error());
         }
         if (parsed->identity.xml_id != requested_id)
         {
-            return fail(ErrorKind::InvalidConfig,
+            return Fail(ErrorKind::kInvalidConfig,
                         std::format("EcuFlash catalog ID '{}' from '{}' loaded definition '{}'", requested_id,
                                     entry.source, parsed->identity.xml_id));
         }
@@ -294,7 +348,7 @@ Result<RomDefinition> DefinitionService::load(const DefinitionCatalog& catalog, 
     {
         return std::unexpected(root.error());
     }
-    auto resolved = resolve_definition(std::move(*root), loader);
+    auto resolved = ResolveDefinition(std::move(*root), loader);
     if (!resolved.has_value() && repository_error)
     {
         return std::unexpected(*repository_error);
@@ -302,39 +356,39 @@ Result<RomDefinition> DefinitionService::load(const DefinitionCatalog& catalog, 
     return resolved;
 }
 
-Status DefinitionService::create_definition(std::string_view destination, const DefinitionHeaderInput& input,
-                                            bool allow_overwrite)
+Status DefinitionService::CreateDefinition(std::string_view destination, const DefinitionHeaderInput& input,
+                                           bool allow_overwrite)
 {
     // "create" means a brand new definition file; import_definition is the rewrite-an-existing-
     // file path. Without this check a filename collision would silently replace -- and lose --
     // whatever definition was already at that destination. Callers whose own UI already
     // confirmed the overwrite (e.g. a native Save-As dialog) pass allow_overwrite=true.
-    if (!allow_overwrite && file_system_.exists(destination))
+    if (!allow_overwrite && file_system_.Exists(destination))
     {
-        return fail(ErrorKind::InvalidConfig, std::format("definition destination '{}' already exists", destination));
+        return Fail(ErrorKind::kInvalidConfig, std::format("definition destination '{}' already exists", destination));
     }
-    auto contents = create_ecuflash_xml(input);
+    auto contents = CreateEcuflashXml(input);
     if (!contents.has_value())
     {
         return std::unexpected(contents.error());
     }
-    return writer_.replace(destination, *contents);
+    return writer_.Replace(destination, *contents);
 }
 
-Status DefinitionService::import_definition(std::string_view source, std::string_view destination,
-                                            const DefinitionHeaderInput& input)
+Status DefinitionService::ImportDefinition(std::string_view source, std::string_view destination,
+                                           const DefinitionHeaderInput& input)
 {
-    auto source_contents = repository_.read(source);
+    auto source_contents = repository_.Read(source);
     if (!source_contents.has_value())
     {
         return std::unexpected(source_contents.error());
     }
-    auto rewritten = rewrite_ecuflash_xml(*source_contents, input);
+    auto rewritten = RewriteEcuflashXml(*source_contents, input);
     if (!rewritten.has_value())
     {
         return std::unexpected(rewritten.error());
     }
-    return writer_.replace(destination, *rewritten);
+    return writer_.Replace(destination, *rewritten);
 }
 
 } // namespace fastecu::definition

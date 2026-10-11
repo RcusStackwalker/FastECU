@@ -12,8 +12,8 @@ namespace fastecu::flash
 // read-only here. A Write plan carries ApplyProgrammingVoltage unless
 // `adapter_supplies_programming_voltage`; the desktop workflow collects that
 // confirmation before the executor starts.
-Result<FlashPlan> build_subaru_unisia_jecs_m32r_kline_plan(FlashOperation operation, std::string_view protocol_name,
-                                                           std::string_view mcu_type, std::optional<bytes::Bytes> image,
-                                                           bool adapter_supplies_programming_voltage);
-Status validate_subaru_unisia_jecs_m32r_kline_plan(const FlashPlan& plan);
+Result<FlashPlan> BuildSubaruUnisiaJecsM32rKlinePlan(FlashOperation operation, std::string_view protocol_name,
+                                                     std::string_view mcu_type, std::optional<bytes::Bytes> image,
+                                                     bool adapter_supplies_programming_voltage);
+Status ValidateSubaruUnisiaJecsM32rKlinePlan(const FlashPlan& plan);
 } // namespace fastecu::flash

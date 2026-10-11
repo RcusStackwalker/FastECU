@@ -15,6 +15,6 @@ namespace fastecu::ui::testing
 // ends at the first entry that hosts a widget (a QWidgetAction: comboboxes,
 // buttons, spacers): from there on the toolbar belongs to MainWindow, which
 // appends those widgets and the separators between them in code.
-std::string menu_snapshot(const QMenuBar& menubar, const QToolBar& toolbar);
+std::string menuSnapshot(const QMenuBar& menubar, const QToolBar& toolbar);
 
 } // namespace fastecu::ui::testing

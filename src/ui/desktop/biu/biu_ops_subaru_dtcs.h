@@ -18,14 +18,14 @@ class BiuOpsSubaruDtcs : public QWidget
     Q_OBJECT
 
   public:
-    explicit BiuOpsSubaruDtcs(QStringList *dtc_result, QWidget *parent = nullptr);
+    explicit BiuOpsSubaruDtcs(QStringList *dtcResult, QWidget *parent = nullptr);
     ~BiuOpsSubaruDtcs();
 
   private:
-    QStringList *dtc_result;
+    QStringList *dtc_result_;
 
     void closeEvent(QCloseEvent *event);
 
   private:
-    std::unique_ptr<Ui::BiuOpsSubaruDtcsWindow> ui;
+    std::unique_ptr<Ui::BiuOpsSubaruDtcsWindow> ui_;
 };

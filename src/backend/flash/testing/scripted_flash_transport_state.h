@@ -5,8 +5,8 @@ namespace fastecu::flash
 
 enum class ScriptedTransportInitialState
 {
-    Closed,
-    Open,
+    kClosed,
+    kOpen,
 };
 
 } // namespace fastecu::flash

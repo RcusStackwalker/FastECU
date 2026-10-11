@@ -8,8 +8,8 @@ namespace fastecu::flash
 // transformation when the flash method (the protocol name) ends in "_ecutek".
 enum class SubaruDensoSh705xKlineSeedKey
 {
-    Stock,
-    EcuTek,
+    kStock,
+    kEcuTek,
 };
 
 struct SubaruDensoSh705xKlinePlan

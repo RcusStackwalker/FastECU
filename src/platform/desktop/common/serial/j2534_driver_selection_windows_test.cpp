@@ -8,15 +8,15 @@
 // them here would regress Windows.
 TEST(TestJ2534DriverSelectionWindows, capableEntry_acceptsEveryNonEmptyEntry)
 {
-    ASSERT_TRUE(isJ2534CapableEntry(u"cu.usbmodemTApU_RJO1 - OpenPort 2.0"));
-    ASSERT_TRUE(isJ2534CapableEntry(u"cu.usbmodem0 - openport 2.0"));
-    ASSERT_TRUE(isJ2534CapableEntry(u"Tactrix Inc. - OpenPort 2.0 J2534 DLL"));
-    ASSERT_TRUE(isJ2534CapableEntry(u"Acme J2534 DLL"));
-    ASSERT_TRUE(!isJ2534CapableEntry(u""));
+    ASSERT_TRUE(IsJ2534CapableEntry(u"cu.usbmodemTApU_RJO1 - OpenPort 2.0"));
+    ASSERT_TRUE(IsJ2534CapableEntry(u"cu.usbmodem0 - openport 2.0"));
+    ASSERT_TRUE(IsJ2534CapableEntry(u"Tactrix Inc. - OpenPort 2.0 J2534 DLL"));
+    ASSERT_TRUE(IsJ2534CapableEntry(u"Acme J2534 DLL"));
+    ASSERT_TRUE(!IsJ2534CapableEntry(u""));
 }
 
 namespace
 {
-const auto *const application_environment =
+const auto *const kApplicationEnvironment =
     ::testing::AddGlobalTestEnvironment(new fastecu::testing::CoreApplicationEnvironment({}, /*use_96_dpi=*/true));
 }

@@ -27,56 +27,41 @@ retain empty cells in their original CSV positions.
 
 ## Per-run snapshots
 
-[Run preparation](../../src/backend/logging/logging_run_snapshot.h) returns one
-immutable, owned logging run snapshot containing the validated session,
-protocol, selection, support eligibility, original SSM response offsets, and a
-typed ECU/TCU target. Stable sample identities derive from the captured protocol
-and validated channel IDs. Later definition, selection, support, or target edits
-do not change an active run. Only the first conversion is used, with fixed
-decimal display formatting. Desktop code converts Qt inputs and binds the run;
-backend preparation reuses [session validation](../../src/backend/logging/logging_session.h).
+[Run preparation](../../src/backend/logging/logging_run_snapshot.h) constructs an
+owned snapshot through a validating factory with const-only accessors. It
+captures protocol, selection, support eligibility, conversion, original SSM
+offsets and a typed ECU/TCU target before engine startup. Later model changes
+cannot modify a prepared run. Identities derive from the captured protocol and
+validated channels rather than a second mutable map. Unresolved selected IDs are
+omitted from acquisition; participating duplicate IDs are rejected. This scope
+acquires only lower-panel parameters.
+Failed desktop preparation logs the returned error detail and shows it in a
+plain-text Logging dialog. It restores the stopped UI state without starting
+a protocol factory or worker.
+
+Later selection edits do not change the worker's session. Only the first
+conversion is used, with fixed decimal display formatting.
 
 - SSM polls disabled channels at their original lower-panel offsets. Its raw
   assembly concatenates the decimal spelling of each byte: `0x01, 0x02` becomes
   `"12"`. This is the conversion-expression input contract, not a decoded
   big-endian integer.
 - MUT/DMA spells the decoded unsigned integer in decimal and filters unsupported
-  channels. CDBG also uses unsigned-integer decimal and does not filter support.
+  channels before field validation. Unsupported SSM channels still validate. CDBG also uses unsigned-integer decimal and does not filter support.
+  Each CDBG poll publishes only measurements decoded from its received frame,
+  mapped through that frame's logical channel offset. Out-of-order frames do not
+  fabricate zero values for unseen channels or republish measurements from prior
+  frames. The desktop owns its existing display cache.
 
-## Definition input validation
-
-[Channel preparation](../../src/backend/logging/logging_channel_preparation.h)
-accepts hexadecimal address digits with an optional `0x`/`0X` prefix and positive
-decimal lengths. Both trim surrounding ASCII whitespace and reject signs,
-internal whitespace, trailing junk, and overflow. Protocol address, length, and
-aggregate wire-capacity limits continue to apply.
-
-Display formats are exactly `0`, or `0.` followed by 1–15 zeros; the fractional
-zero count defines fixed decimal precision. Other patterns are rejected rather
-than interpreted by counting zeros within arbitrary strings. Empty units are
-valid and display without a suffix. Omitted XML attributes retain parser
-defaults: units `#`, expression `x`, format `0.00`, and length `1` for a parameter
-with an address.
-
-Invalid participating selected channels prevent startup. Errors identify the
-protocol, parameter ID, offending field, and reason; the desktop logs the error
-and displays it literally in the Logging dialog. Unsupported MUT/DMA channels
-are filtered before field validation. Unsupported SSM channels still participate
-in polling and must validate; CDBG does not filter by support. Unresolved
-selection IDs retain their existing treatment.
-
-## Sample resolution and failure handling
-
-[Sample resolution](../../src/backend/logging/logging_sample_resolution.h) returns
-accepted identity/value/precision, a deliberate skip, or an error. Unsupported
-SSM samples do not update display values. Desktop code owns fixed formatting,
-cache lookup and mutation, and reporting of missing cache entries.
-
-Unknown raw protocol channels or nonfinite conversions terminate the run before
-publishing any samples from that polling batch. Delivered-sample identity errors
-or missing cache entries report an error and allow other samples to continue;
-existing values remain intact. The desktop retains its active-run checks during
-sample handling and generation checks for queued worker events after a restart.
+Conversion expressions use the shared
+[checked evaluator](../../src/algorithms/expression/expression.h) with
+`double` arithmetic throughout; intermediate results are not rounded. The raw
+value is parsed once as a finite decimal number: a non-numeric raw value is a
+`kBadResponse` error, and an expression that fails to evaluate is
+`kInvalidConfig`. Session preparation accepts an expression if it evaluates for
+at least one of the probes 1, 16 and 1616. Compiling the expression once per
+session instead of per sample is tracked in
+[#575](https://github.com/RcusStackwalker/FastECU/issues/575).
 
 ## Desktop protocol binding
 
@@ -86,13 +71,37 @@ adapter I/O. The engine invokes factories synchronously during `start()` before
 launching the worker. Factories borrow the facade and clock; composition stops
 and destroys the engine before those services.
 
-The desktop reads the ECU/TCU choice before preparation; the validated snapshot
-captures it before engine start.
+The snapshot captures ECU/TCU selection after validation and before engine start.
 SSM uses that per-run target and checks the adapter capability when its factory
 runs. Factories do not read widgets. CDBG preserves ordered setup with
 first-failure return and a short-circuited open check; MUT/DMA uses
 `AlreadyInMode(125000)`. Actual wire qualification belongs to the
 [logging composition checklist](../checklists/logging-composition-bench-checklist.md).
+
+## SSM response integrity
+
+The [SSM logging protocol](../../src/backend/logging/protocols/portable_ssm_logging_protocol.cpp)
+extracts one direct-transport frame using its declared body length and retains
+coalesced following bytes for the next poll. Starting or stopping clears those
+bytes, so reconnect probes cannot accept a previous polling reply. It completes
+fragmented frames and resynchronizes to the captured target sender (`0x10` ECU, `0x18` TCU) within the
+poll deadline. Available complete frames are extracted even when a read finishes
+at the deadline; additional direct reads are capped to the remaining time.
+OpenPort keeps its single adapter read per response.
+
+Startup requires a checksum-valid `0xE8` response with exactly one probe data
+byte (seven bytes including framing). Polling checks the header, captured sender,
+declared total length and checksum before delivering samples. Invalid or missing
+poll replies deliver no samples and retain the existing retry behavior. Mapping
+still uses the historical captured response offsets and decimal-byte assembly;
+response integrity does not impose a new channel-count or address-expansion rule.
+
+Backend scripted TCU responses verify target-aware parsing. Direct desktop TCU
+operation remains limited: the direct serial facade recognizes ECU-specific
+SSM prefixes and can discard TCU replies before bytes reach the logger. Actual
+adapter and ECU/TCU behavior, including repeated requests during continuous
+replies, requires the
+[composition checklist](../checklists/logging-composition-bench-checklist.md).
 
 ## Selection persistence and CSV
 
@@ -102,7 +111,12 @@ tab indentation would otherwise reformat existing files on save. The
 contract.
 
 CSV preserves file lifetime, schema, trailing commas, column order, and numeric
-formatting. It resolves the current selection within the active run's captured
+formatting. The portable [record serializer](../../src/backend/logging/logging_csv_record.h)
+escapes every header and row field, including Time: fields containing a comma,
+quote, CR, or LF are quoted, and embedded quotes are doubled. UTF-8 bytes and
+empty field positions are preserved. The desktop retains column resolution,
+timing, and file ownership; the first write opens the file and emits only the
+header. It resolves the current selection within the active run's captured
 protocol, even if the UI protocol changes. It does not resolve an ID across
 unrelated protocols. Unresolved columns remain empty.
 
@@ -116,6 +130,17 @@ and [composition checklist](../checklists/logging-composition-bench-checklist.md
 own hardware verification. Live reconfiguration, missing-frame polling, plain
 serial teardown, and CDBG gaps are tracked in [technical debt](../tech-debt.md#p2-logging-engine-follow-ups).
 
+## MUT/DMA response integrity
+
+The [MUT/DMA driver](../../src/backend/protocol/mut_dma_driver.cpp) validates
+stream framing, checksum, and exact payload length against the sum of selected
+channel widths before decoding. Short and oversized checksum-valid payloads are
+`BadResponse`; they publish no measurements and cannot fabricate zero readings.
+Absent data remains a no-response poll. Malformed replies follow the existing
+logging retry policy, and a subsequent complete reply can supply measurements.
+The [free-form decoder](../../src/algorithms/protocol/mut_dma/mut_dma_freeform.cpp)
+also rejects payloads whose length differs from the selected widths.
+
 ## MUT/DMA protocol evidence
 
 OEM K-Line DMA activation research is held in the parent research repository,
@@ -123,8 +148,42 @@ under the title "OEM K-Line DMA Logging — Activation Control Flow & Wire Proto
 (2026-06-07, Z27AG / 33520003). Search that repository by title/date for the
 original extraction; it is not a deleted FastECU-local spec.
 
+The [free-form wire evidence](logging-mut-freeform-wire.md) records request
+codes and multi-byte stream values in little-endian order, derived from Colt
+33520003 firmware. Free-form numeric values are converted to unsigned decimal
+input for scaling. This corrects the previous unverified big-endian behavior;
+XML definitions do not select a dialect. Other MUT command layouts retain their
+own byte order. Firmware-specific capacity and hardware qualification remain
+separate work.
+
 The maintained [codec sources](../../src/algorithms/protocol/mut_dma/) and
 [driver sources](../../src/backend/protocol/) describe implemented behavior.
 Static protocol extraction does not qualify the host adapter, electrical path,
 or end-to-end desktop workflow. Runtime evidence remains subject to the
 [logging checklist](../checklists/logging-engine-bench-checklist.md).
+
+## Definition input grammar
+
+[Channel preparation](../../src/backend/logging/logging_channel_preparation.h)
+accepts hexadecimal addresses with an optional `0x`/`0X` prefix and positive
+decimal lengths. Surrounding ASCII whitespace is accepted; signs, internal
+whitespace, trailing junk and overflow are rejected. Display formats are exactly
+`0`, or `0.` followed by 1–15 zeros. Empty units are valid; only the first
+conversion is used. Existing protocol bounds and shared expression validation
+remain applicable. Errors identify the definition's protocol, parameter ID and
+invalid field.
+
+## Delivered sample validation
+
+[Sample resolution](../../src/backend/logging/logging_sample_resolution.h)
+derives identity and precision from a validated run. An unknown delivered ID is
+a `kInternal` error; an unsupported SSM sample is deliberately skipped; other
+known samples return captured identity, numeric value and precision. Conversion
+remains the acquisition use case's responsibility. A raw-channel or conversion
+failure prevents publication of the entire polling batch.
+
+The desktop adapter delegates identity and eligibility policy to this resolver.
+Desktop owns formatting, cache lookup/mutation and reporting missing cache
+entries. Delivered identity errors allow subsequent valid samples to continue;
+existing cache values remain intact. The UI rechecks the active snapshot between
+samples because error reporting may synchronously stop the run.

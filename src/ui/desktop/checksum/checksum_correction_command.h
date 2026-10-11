@@ -3,7 +3,7 @@
 #include <optional>
 
 #include "src/algorithms/checksum/checksum_result.h"
-#include "src/algorithms/protocol/bytes.h"
+#include "src/algorithms/memory/memory_image.h"
 #include "src/backend/checksum/checksum_selection.h"
 #include "src/ui/desktop/checksum/checksum_correction_result.h"
 
@@ -23,7 +23,7 @@ class ChecksumCorrectionCommand
   public:
     virtual ~ChecksumCorrectionCommand() = default;
 
-    ChecksumCorrectionResult run(bytes::ByteView rom_data, bool has_definition,
+    ChecksumCorrectionResult run(const fastecu::memory::MemoryImage& image, bool hasDefinition,
                                  const fastecu::checksum::ChecksumSelection& selection, QWidget *parent);
 
   protected:
@@ -36,7 +36,7 @@ class ChecksumCorrectionCommand
     // Returns true if the user chose Cancel (abort correction), false for OK.
     virtual bool confirmProceedWithoutChecksumModule();
 
-    virtual void showFamilyResultDialog(const ChecksumResult& family_result);
+    virtual void showFamilyResultDialog(const ChecksumResult& familyResult);
 };
 
 } // namespace fastecu::ui

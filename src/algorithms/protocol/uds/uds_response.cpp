@@ -5,7 +5,7 @@
 namespace uds
 {
 
-Response parseResponse(bytes::ByteView pdu)
+Response ParseResponse(bytes::ByteView pdu)
 {
     if (pdu.empty())
     {
@@ -17,21 +17,21 @@ Response parseResponse(bytes::ByteView pdu)
         {
             return {};
         }
-        return {ResponseKind::Negative, pdu[1], pdu[2], pdu.subspan(3)};
+        return {ResponseKind::kNegative, pdu[1], pdu[2], pdu.subspan(3)};
     }
     if (pdu[0] < kPositiveResponseOffset)
     {
         return {};
     }
-    return {ResponseKind::Positive, requestFromPositive(pdu[0]), 0, pdu.subspan(1)};
+    return {ResponseKind::kPositive, RequestFromPositive(pdu[0]), 0, pdu.subspan(1)};
 }
 
-bytes::ByteView payload(bytes::ByteView pdu)
+bytes::ByteView Payload(bytes::ByteView pdu)
 {
     return pdu.empty() ? bytes::ByteView{} : pdu.subspan(1);
 }
 
-std::optional<bytes::Byte> subfunction(bytes::ByteView pdu)
+std::optional<bytes::Byte> Subfunction(bytes::ByteView pdu)
 {
     if (pdu.size() < 2)
     {
@@ -40,9 +40,9 @@ std::optional<bytes::Byte> subfunction(bytes::ByteView pdu)
     return pdu[1];
 }
 
-std::string describe(bytes::ByteView pdu)
+std::string Describe(bytes::ByteView pdu)
 {
-    return nrc_description(pdu);
+    return NrcDescription(pdu);
 }
 
 } // namespace uds

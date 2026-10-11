@@ -7,6 +7,6 @@
 class QtResourceBundle : public fastecu::IResourceBundle
 {
   public:
-    fastecu::Result<std::vector<std::string>> list(std::string_view bundle_id) override;
-    fastecu::Result<std::vector<std::uint8_t>> read(std::string_view bundle_id, std::string_view name) override;
+    fastecu::Result<std::vector<std::string>> List(std::string_view bundle_id) override;
+    fastecu::Result<std::vector<std::uint8_t>> Read(std::string_view bundle_id, std::string_view name) override;
 };

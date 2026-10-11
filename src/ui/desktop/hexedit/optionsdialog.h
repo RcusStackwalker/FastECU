@@ -38,5 +38,5 @@ class OptionsDialog : public QDialog
     void setColor(QWidget *widget, QColor color);
 
   private:
-    std::unique_ptr<Ui::OptionsDialog> ui;
+    std::unique_ptr<Ui::OptionsDialog> ui_;
 };

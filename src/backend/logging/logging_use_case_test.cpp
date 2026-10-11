@@ -24,7 +24,7 @@ using fastecu::RecordingEventSink;
 class ScriptedProtocol final : public LoggingProtocol
 {
   public:
-    fastecu::Status start(const fastecu::ICancellationToken&) override
+    fastecu::Status Start(const fastecu::ICancellationToken&) override
     {
         start_call_poll_numbers.push_back(polls_completed);
         ++starts;
@@ -37,7 +37,7 @@ class ScriptedProtocol final : public LoggingProtocol
         return start_result;
     }
 
-    fastecu::Result<PollData> poll(std::chrono::milliseconds timeout, const fastecu::ICancellationToken&) override
+    fastecu::Result<PollData> Poll(std::chrono::milliseconds timeout, const fastecu::ICancellationToken&) override
     {
         poll_timeouts.push_back(timeout);
         ++polls_completed;
@@ -50,7 +50,7 @@ class ScriptedProtocol final : public LoggingProtocol
         return result;
     }
 
-    fastecu::Status stop() override
+    fastecu::Status Stop() override
     {
         ++stops;
         return stop_result;
@@ -70,12 +70,12 @@ class ScriptedProtocol final : public LoggingProtocol
 class RecordingLoggingSink final : public ILoggingEventSink
 {
   public:
-    void state_changed(LoggingState state) override
+    void StateChanged(LoggingState state) override
     {
         states.push_back(state);
     }
 
-    void samples(std::span<const LogSample> values) override
+    void Samples(std::span<const LogSample> values) override
     {
         sample_batches.emplace_back(values.begin(), values.end());
     }
@@ -84,29 +84,29 @@ class RecordingLoggingSink final : public ILoggingEventSink
     std::vector<std::vector<LogSample>> sample_batches;
 };
 
-LoggingChannel channel(std::string id, std::string expression = "x")
+LoggingChannel Channel(std::string id, std::string expression = "x")
 {
     return LoggingChannel{
         .id = std::move(id),
         .address = 0x10,
         .length = 2,
-        .raw_assembly = RawAssembly::UnsignedIntegerDecimal,
+        .raw_assembly = RawAssembly::kUnsignedIntegerDecimal,
         .from_byte_expression = std::move(expression),
         .unit = "rpm",
         .decimal_precision = 2,
     };
 }
 
-LoggingSession session_with_policy(LoggingPolicy policy, std::string expression = "x")
+LoggingSession SessionWithPolicy(LoggingPolicy policy, std::string expression = "x")
 {
-    auto session = make_logging_session(LoggingProtocolId::Ssm, {channel("rpm", std::move(expression))}, policy);
+    auto session = MakeLoggingSession(LoggingProtocolId::kSsm, {Channel("rpm", std::move(expression))}, policy);
     EXPECT_THAT(session, fastecu::testing::IsOk());
     return std::move(*session);
 }
 
-LoggingSession make_valid_session()
+LoggingSession MakeValidSession()
 {
-    return session_with_policy({
+    return SessionWithPolicy({
         .poll_timeout = 100ms,
         .car_silence_miss_threshold = 3,
         .reconnect_attempt_threshold = 2,
@@ -114,13 +114,13 @@ LoggingSession make_valid_session()
     });
 }
 
-fastecu::Status run_until_cancelled(const LoggingSession& session, ScriptedProtocol& protocol,
-                                    RecordingLoggingSink& sink, int poll_count)
+fastecu::Status RunUntilCancelled(const LoggingSession& session, ScriptedProtocol& protocol, RecordingLoggingSink& sink,
+                                  int poll_count)
 {
     FakeCancellationToken token;
-    token.set_predicate([&protocol, poll_count] { return protocol.polls_completed >= poll_count; });
+    token.SetPredicate([&protocol, poll_count] { return protocol.polls_completed >= poll_count; });
     RecordingEventSink diagnostics;
-    return LoggingUseCase{}.run(session, protocol, token, sink, diagnostics);
+    return LoggingUseCase{}.Run(session, protocol, token, sink, diagnostics);
 }
 
 } // namespace
@@ -130,17 +130,17 @@ TEST(LoggingUseCaseTest, ConvertsAndEmitsOrderedSamplesThenCancels)
     ScriptedProtocol protocol;
     protocol.polls.push_back(PollData{.responded = true, .samples = {{"rpm", "4000"}}});
     FakeCancellationToken token;
-    token.set_predicate([&protocol] { return protocol.polls_completed >= 1; });
+    token.SetPredicate([&protocol] { return protocol.polls_completed >= 1; });
     RecordingLoggingSink sink;
     RecordingEventSink diagnostics;
 
-    ASSERT_THAT(LoggingUseCase{}.run(make_valid_session(), protocol, token, sink, diagnostics),
-                fastecu::testing::IsErr(fastecu::ErrorKind::Cancelled));
+    ASSERT_THAT(LoggingUseCase{}.Run(MakeValidSession(), protocol, token, sink, diagnostics),
+                fastecu::testing::IsErr(fastecu::ErrorKind::kCancelled));
     ASSERT_EQ(sink.sample_batches.size(), 1U);
     ASSERT_EQ(sink.sample_batches[0].size(), 1U);
     EXPECT_EQ(sink.sample_batches[0][0].channel_id, "rpm");
     EXPECT_DOUBLE_EQ(sink.sample_batches[0][0].numeric_value, 4000.0);
-    EXPECT_EQ(sink.states, (std::vector{LoggingState::Running}));
+    EXPECT_EQ(sink.states, (std::vector{LoggingState::kRunning}));
     EXPECT_EQ(protocol.poll_timeouts, (std::vector{100ms}));
     EXPECT_EQ(protocol.stops, 1);
 }
@@ -152,15 +152,15 @@ TEST(LoggingUseCaseTest, PreCancellationDoesNotStartProtocol)
     RecordingLoggingSink sink;
     RecordingEventSink diagnostics;
 
-    ASSERT_THAT(LoggingUseCase{}.run(make_valid_session(), protocol, token, sink, diagnostics),
-                fastecu::testing::IsErr(fastecu::ErrorKind::Cancelled));
+    ASSERT_THAT(LoggingUseCase{}.Run(MakeValidSession(), protocol, token, sink, diagnostics),
+                fastecu::testing::IsErr(fastecu::ErrorKind::kCancelled));
     EXPECT_EQ(protocol.starts, 0);
     EXPECT_EQ(protocol.stops, 0);
 }
 
 TEST(LoggingUseCaseTest, PreservesSilenceThresholdAndReconnectCadence)
 {
-    auto session = session_with_policy({
+    auto session = SessionWithPolicy({
         .poll_timeout = 10ms,
         .car_silence_miss_threshold = 2,
         .reconnect_attempt_threshold = 3,
@@ -175,9 +175,9 @@ TEST(LoggingUseCaseTest, PreservesSilenceThresholdAndReconnectCadence)
     };
     RecordingLoggingSink sink;
 
-    ASSERT_THAT(run_until_cancelled(session, protocol, sink, 4),
-                fastecu::testing::IsErr(fastecu::ErrorKind::Cancelled));
-    EXPECT_EQ(sink.states, (std::vector{LoggingState::Running, LoggingState::CarNotResponding, LoggingState::Running}));
+    ASSERT_THAT(RunUntilCancelled(session, protocol, sink, 4), fastecu::testing::IsErr(fastecu::ErrorKind::kCancelled));
+    EXPECT_EQ(sink.states,
+              (std::vector{LoggingState::kRunning, LoggingState::kCarNotResponding, LoggingState::kRunning}));
     EXPECT_EQ(protocol.start_call_poll_numbers, (std::vector{0, 3}));
     EXPECT_EQ(protocol.stops, 1);
 }
@@ -186,13 +186,13 @@ TEST(LoggingUseCaseTest, RetriesBadResponse)
 {
     ScriptedProtocol protocol;
     protocol.polls = {
-        fastecu::fail(fastecu::ErrorKind::BadResponse, "bad frame"),
+        fastecu::Fail(fastecu::ErrorKind::kBadResponse, "bad frame"),
         PollData{.responded = true, .samples = {{"rpm", "8"}}},
     };
     RecordingLoggingSink sink;
 
-    ASSERT_THAT(run_until_cancelled(make_valid_session(), protocol, sink, 2),
-                fastecu::testing::IsErr(fastecu::ErrorKind::Cancelled));
+    ASSERT_THAT(RunUntilCancelled(MakeValidSession(), protocol, sink, 2),
+                fastecu::testing::IsErr(fastecu::ErrorKind::kCancelled));
     ASSERT_EQ(sink.sample_batches.size(), 1U);
     EXPECT_EQ(sink.sample_batches[0][0].raw_value, "8");
     EXPECT_EQ(protocol.stops, 1);
@@ -200,7 +200,7 @@ TEST(LoggingUseCaseTest, RetriesBadResponse)
 
 TEST(LoggingUseCaseTest, RetriesFailedReconnectAtConfiguredCadence)
 {
-    auto session = session_with_policy({
+    auto session = SessionWithPolicy({
         .poll_timeout = 10ms,
         .car_silence_miss_threshold = 2,
         .reconnect_attempt_threshold = 3,
@@ -209,7 +209,7 @@ TEST(LoggingUseCaseTest, RetriesFailedReconnectAtConfiguredCadence)
     ScriptedProtocol protocol;
     protocol.start_results = {
         fastecu::Status{},
-        fastecu::fail(fastecu::ErrorKind::BadResponse, "retry later"),
+        fastecu::Fail(fastecu::ErrorKind::kBadResponse, "retry later"),
         fastecu::Status{},
     };
     protocol.polls = {
@@ -218,10 +218,10 @@ TEST(LoggingUseCaseTest, RetriesFailedReconnectAtConfiguredCadence)
     };
     RecordingLoggingSink sink;
 
-    ASSERT_THAT(run_until_cancelled(session, protocol, sink, 5),
-                fastecu::testing::IsErr(fastecu::ErrorKind::Cancelled));
+    ASSERT_THAT(RunUntilCancelled(session, protocol, sink, 5), fastecu::testing::IsErr(fastecu::ErrorKind::kCancelled));
     EXPECT_EQ(protocol.start_call_poll_numbers, (std::vector{0, 3, 5}));
-    EXPECT_EQ(sink.states, (std::vector{LoggingState::Running, LoggingState::CarNotResponding, LoggingState::Running}));
+    EXPECT_EQ(sink.states,
+              (std::vector{LoggingState::kRunning, LoggingState::kCarNotResponding, LoggingState::kRunning}));
 }
 
 class TerminalPollErrorTest : public ::testing::TestWithParam<fastecu::ErrorKind>
@@ -231,27 +231,27 @@ class TerminalPollErrorTest : public ::testing::TestWithParam<fastecu::ErrorKind
 TEST_P(TerminalPollErrorTest, TerminatesAndCleansUpOnce)
 {
     ScriptedProtocol protocol;
-    protocol.polls.push_back(fastecu::fail(GetParam(), "terminal"));
+    protocol.polls.push_back(fastecu::Fail(GetParam(), "terminal"));
     RecordingLoggingSink sink;
 
-    ASSERT_THAT(run_until_cancelled(make_valid_session(), protocol, sink, 2), fastecu::testing::IsErr(GetParam()));
+    ASSERT_THAT(RunUntilCancelled(MakeValidSession(), protocol, sink, 2), fastecu::testing::IsErr(GetParam()));
     EXPECT_EQ(protocol.stops, 1);
 }
 
 INSTANTIATE_TEST_SUITE_P(LoggingUseCase, TerminalPollErrorTest,
-                         ::testing::Values(fastecu::ErrorKind::InvalidConfig, fastecu::ErrorKind::Unsupported,
-                                           fastecu::ErrorKind::Internal, fastecu::ErrorKind::Disconnected,
-                                           fastecu::ErrorKind::Cancelled, fastecu::ErrorKind::Timeout));
+                         ::testing::Values(fastecu::ErrorKind::kInvalidConfig, fastecu::ErrorKind::kUnsupported,
+                                           fastecu::ErrorKind::kInternal, fastecu::ErrorKind::kDisconnected,
+                                           fastecu::ErrorKind::kCancelled, fastecu::ErrorKind::kTimeout));
 
 TEST(LoggingUseCaseTest, ConversionInvalidConfigTerminates)
 {
-    auto session = session_with_policy(make_valid_session().policy(), "x/(x-1)");
+    auto session = SessionWithPolicy(MakeValidSession().Policy(), "x/(x-1)");
     ScriptedProtocol protocol;
     protocol.polls.push_back(PollData{.responded = true, .samples = {{"rpm", "2"}, {"rpm", "1"}}});
     RecordingLoggingSink sink;
 
-    ASSERT_THAT(run_until_cancelled(session, protocol, sink, 2),
-                fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
+    ASSERT_THAT(RunUntilCancelled(session, protocol, sink, 2),
+                fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
     EXPECT_EQ(protocol.stops, 1);
     EXPECT_TRUE(sink.sample_batches.empty());
 }
@@ -262,8 +262,8 @@ TEST(LoggingUseCaseTest, UnknownProtocolChannelTerminatesAsInternal)
     protocol.polls.push_back(PollData{.responded = true, .samples = {{"rpm", "2"}, {"unknown", "1"}}});
     RecordingLoggingSink sink;
 
-    ASSERT_THAT(run_until_cancelled(make_valid_session(), protocol, sink, 2),
-                fastecu::testing::IsErr(fastecu::ErrorKind::Internal));
+    ASSERT_THAT(RunUntilCancelled(MakeValidSession(), protocol, sink, 2),
+                fastecu::testing::IsErr(fastecu::ErrorKind::kInternal));
     EXPECT_EQ(protocol.stops, 1);
     EXPECT_TRUE(sink.sample_batches.empty());
 }
@@ -271,16 +271,16 @@ TEST(LoggingUseCaseTest, UnknownProtocolChannelTerminatesAsInternal)
 TEST(LoggingUseCaseTest, PrimaryErrorWinsOverStopFailure)
 {
     ScriptedProtocol protocol;
-    protocol.polls.push_back(fastecu::fail(fastecu::ErrorKind::Disconnected, "lost"));
-    protocol.stop_result = fastecu::fail(fastecu::ErrorKind::Internal, "cleanup");
+    protocol.polls.push_back(fastecu::Fail(fastecu::ErrorKind::kDisconnected, "lost"));
+    protocol.stop_result = fastecu::Fail(fastecu::ErrorKind::kInternal, "cleanup");
     RecordingLoggingSink sink;
     RecordingEventSink diagnostics;
     FakeCancellationToken token;
-    token.set_predicate([&protocol] { return protocol.polls_completed >= 2; });
+    token.SetPredicate([&protocol] { return protocol.polls_completed >= 2; });
 
-    ASSERT_THAT(LoggingUseCase{}.run(make_valid_session(), protocol, token, sink, diagnostics),
-                fastecu::testing::IsErr(fastecu::ErrorKind::Disconnected));
+    ASSERT_THAT(LoggingUseCase{}.Run(MakeValidSession(), protocol, token, sink, diagnostics),
+                fastecu::testing::IsErr(fastecu::ErrorKind::kDisconnected));
     EXPECT_EQ(protocol.stops, 1);
     ASSERT_EQ(diagnostics.logs.size(), 1U);
-    EXPECT_EQ(diagnostics.logs[0].first, fastecu::LogLevel::Error);
+    EXPECT_EQ(diagnostics.logs[0].first, fastecu::LogLevel::kError);
 }

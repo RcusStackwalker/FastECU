@@ -10,6 +10,6 @@ namespace fastecu::flash
 // Family builders (denso_sh705x_eeprom_common and later per-family tail
 // builders) perform their own family-specific checks first, then delegate
 // here for the checks that apply to every family.
-Result<FlashPlan> validate_and_build(FlashPlanFields fields);
+Result<FlashPlan> ValidateAndBuild(FlashPlanFields fields);
 
 } // namespace fastecu::flash

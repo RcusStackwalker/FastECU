@@ -19,7 +19,7 @@ TEST(TransportConfigProjectionTest, CopiesIso15765WireFields)
         .extended_id = false,
     };
 
-    constexpr Iso15765Config kConfig = iso15765_config_from(kPlan);
+    constexpr Iso15765Config kConfig = Iso15765ConfigFrom(kPlan);
 
     EXPECT_EQ(kConfig.bitrate, 500000);
     EXPECT_EQ(kConfig.request_id, 0x7e0U);
@@ -38,7 +38,7 @@ TEST(TransportConfigProjectionTest, CopiesNonIso14230KlineWireFields)
         .unread_prefix_fill = 0x00,
     };
 
-    constexpr KlineConfig kConfig = non_iso14230_kline_config_from(kPlan);
+    constexpr KlineConfig kConfig = NonIso14230KlineConfigFrom(kPlan);
 
     EXPECT_EQ(kConfig.baud, 4800);
     EXPECT_FALSE(kConfig.iso14230);
@@ -46,12 +46,12 @@ TEST(TransportConfigProjectionTest, CopiesNonIso14230KlineWireFields)
     EXPECT_EQ(kConfig.target_id, 0x10);
 }
 
-FlashPlanFields kline_read_fields()
+FlashPlanFields KlineReadFields()
 {
     return FlashPlanFields{
-        .operation = FlashOperation::Read,
-        .family = FlashFamily::DensoSh705xEepromKline,
-        .transport = TransportKind::Kline,
+        .operation = FlashOperation::kRead,
+        .family = FlashFamily::kDensoSh705xEepromKline,
+        .transport = TransportKind::kKline,
         .target_id = "sub_ecu_eeprom_denso_sh7055_kline",
         .mcu_name = "SH7055",
         .transfer_region = MemoryRegion{.start = 0xf000, .length = 0x1000},
@@ -60,8 +60,8 @@ FlashPlanFields kline_read_fields()
         .kernel = KernelImage{.id = "k", .load_address = 0xffff2000, .bytes = {0x01}},
         .family_plan =
             DensoSh705xEepromKlinePlan{
-                .mode = EepromReadMode::Mode2,
-                .security = DensoSecurityVariant::Stock,
+                .mode = EepromReadMode::kMode2,
+                .security = DensoSecurityVariant::kStock,
                 .tester_id = 0xf0,
                 .target_id = 0x10,
                 .initial_baud = 4800,
@@ -69,26 +69,26 @@ FlashPlanFields kline_read_fields()
             },
         .confirmations =
             {
-                ConfirmationSpec{.id = ConfirmationSpec::Id::BeginEepromRead},
-                ConfirmationSpec{.id = ConfirmationSpec::Id::InspectEepromBytes},
+                ConfirmationSpec{.id = ConfirmationSpec::Id::kBeginEepromRead},
+                ConfirmationSpec{.id = ConfirmationSpec::Id::kInspectEepromBytes},
             },
     };
 }
 
 TEST(CheckFamilyTest, MatchingFamilyPasses)
 {
-    auto plan = validate_and_build(kline_read_fields());
+    auto plan = ValidateAndBuild(KlineReadFields());
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
-    EXPECT_THAT(check_family(*plan, FlashFamily::DensoSh705xEepromKline), fastecu::testing::IsOk());
+    EXPECT_THAT(CheckFamily(*plan, FlashFamily::kDensoSh705xEepromKline), fastecu::testing::IsOk());
 }
 
 TEST(CheckFamilyTest, WrongFamilyFailsWithInvalidConfig)
 {
-    auto plan = validate_and_build(kline_read_fields());
+    auto plan = ValidateAndBuild(KlineReadFields());
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
-    ASSERT_THAT(check_family(*plan, FlashFamily::MitsuColtM32rCan), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(CheckFamily(*plan, FlashFamily::kMitsuColtM32rCan), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
 } // namespace

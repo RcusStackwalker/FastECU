@@ -12,49 +12,49 @@ namespace fastecu::flash
 namespace
 {
 
-Status validate_identity(std::string_view protocol, std::string_view mcu)
+Status ValidateIdentity(std::string_view protocol, std::string_view mcu)
 {
     using enum ErrorKind;
     if (protocol != "sub_ecu_denso_sh7055_02" && protocol != "sub_ecu_denso_sh7055_02_ecutek")
     {
-        return fail(InvalidConfig, std::format("Unsupported SH7055_02 protocol: {}", protocol));
+        return Fail(kInvalidConfig, std::format("Unsupported SH7055_02 protocol: {}", protocol));
     }
     if (mcu != "SH7055")
     {
-        return fail(InvalidConfig, std::format("SH7055_02 protocol requires MCU SH7055, not {}", mcu));
+        return Fail(kInvalidConfig, std::format("SH7055_02 protocol requires MCU SH7055, not {}", mcu));
     }
     return {};
 }
 
-SubaruDensoSh7055_02Plan wire_params(FlashOperation operation)
+SubaruDensoSh7055_02Plan WireParams(FlashOperation operation)
 {
     // connect_bootloader():133-168 gates the SSM ECU-ID request on cmd_type
     // being "read". The selected suffix never changes these parameters.
-    return {.tester_id = 0xf0, .target_id = 0x10, .read_ecu_id = operation == FlashOperation::Read};
+    return {.tester_id = 0xf0, .target_id = 0x10, .read_ecu_id = operation == FlashOperation::kRead};
 }
 
-Status validate_image(const FlashPlan& plan, std::uint32_t romsize)
+Status ValidateImage(const FlashPlan& plan, std::uint32_t romsize)
 {
-    if ((plan.operation() == FlashOperation::Write || plan.operation() == FlashOperation::TestWrite) &&
-        (!plan.image().has_value() || plan.image()->size() != romsize))
+    if ((plan.Operation() == FlashOperation::kWrite || plan.Operation() == FlashOperation::kTestWrite) &&
+        (!plan.Image().has_value() || plan.Image()->size() != romsize))
     {
-        return fail(ErrorKind::InvalidConfig, std::format("ROM file must be exactly 0x{:x} bytes", romsize));
+        return Fail(ErrorKind::kInvalidConfig, std::format("ROM file must be exactly 0x{:x} bytes", romsize));
     }
     return {};
 }
 
-Status validate_kernel_upload(const KernelImage& kernel)
+Status ValidateKernelUpload(const KernelImage& kernel)
 {
     constexpr std::uint64_t kMaxWireLength = 0x00FFFFFF;
     if (kernel.bytes.size() > kMaxWireLength)
     {
-        return fail(ErrorKind::InvalidConfig, "SH7055_02 padded kernel plus envelope exceeds the 24-bit wire length");
+        return Fail(ErrorKind::kInvalidConfig, "SH7055_02 padded kernel plus envelope exceeds the 24-bit wire length");
     }
     const std::uint64_t padded_size = (static_cast<std::uint64_t>(kernel.bytes.size()) + 3) & ~3ULL;
     const std::uint64_t wire_length = padded_size + 4;
     if (wire_length > kMaxWireLength)
     {
-        return fail(ErrorKind::InvalidConfig, "SH7055_02 padded kernel plus envelope exceeds the 24-bit wire length");
+        return Fail(ErrorKind::kInvalidConfig, "SH7055_02 padded kernel plus envelope exceeds the 24-bit wire length");
     }
     // The two-byte wire address selects 0xffff6000. The fixed four-byte
     // envelope occupies 0xffff6000..03, then the catalog's logical kernel
@@ -64,7 +64,7 @@ Status validate_kernel_upload(const KernelImage& kernel)
     if (constexpr std::uint64_t kModelWireRegionLength = 0x00006000;
         kernel.load_address != kCanonicalKernelAddress || wire_length > kModelWireRegionLength)
     {
-        return fail(ErrorKind::InvalidConfig,
+        return Fail(ErrorKind::kInvalidConfig,
                     "SH7055_02 kernel address or padded envelope is outside the model kernel region");
     }
     return {};
@@ -72,104 +72,103 @@ Status validate_kernel_upload(const KernelImage& kernel)
 
 } // namespace
 
-Status validate_subaru_denso_sh7055_02_plan(const FlashPlan& plan)
+Status ValidateSubaruDensoSh705502Plan(const FlashPlan& plan)
 {
     using enum ErrorKind;
-    if (auto valid = validate_identity(plan.target_id(), plan.mcu_name()); !valid.has_value())
+    if (auto valid = ValidateIdentity(plan.TargetId(), plan.McuName()); !valid.has_value())
     {
         return valid;
     }
-    if (plan.family() != FlashFamily::SubaruDensoSh7055_02 || plan.transport() != TransportKind::Kline)
+    if (plan.Family() != FlashFamily::kSubaruDensoSh705502 || plan.Transport() != TransportKind::kKline)
     {
-        return fail(InvalidConfig, "plan is not for SH7055_02");
+        return Fail(kInvalidConfig, "plan is not for SH7055_02");
     }
-    const auto *family = std::get_if<SubaruDensoSh7055_02Plan>(&plan.family_plan());
+    const auto *family = std::get_if<SubaruDensoSh7055_02Plan>(&plan.FamilyPlan());
     if (family == nullptr)
     {
-        return fail(InvalidConfig, "SH7055_02 wire parameters are missing");
+        return Fail(kInvalidConfig, "SH7055_02 wire parameters are missing");
     }
     if (family->tester_id != 0xf0 || family->target_id != 0x10)
     {
-        return fail(InvalidConfig, "SH7055_02 wire parameters are invalid");
+        return Fail(kInvalidConfig, "SH7055_02 wire parameters are invalid");
     }
-    if (family->read_ecu_id != (plan.operation() == FlashOperation::Read))
+    if (family->read_ecu_id != (plan.Operation() == FlashOperation::kRead))
     {
-        return fail(InvalidConfig, "SH7055_02 ECU-ID read does not match the operation");
+        return Fail(kInvalidConfig, "SH7055_02 ECU-ID read does not match the operation");
     }
-    if (!plan.erase_regions().empty())
+    if (!plan.EraseRegions().empty())
     {
-        return fail(InvalidConfig, "SH7055_02 plans must not declare erase regions");
+        return Fail(kInvalidConfig, "SH7055_02 plans must not declare erase regions");
     }
-    if (!plan.kernel().has_value())
+    if (!plan.Kernel().has_value())
     {
-        return fail(InvalidConfig, "SH7055_02 requires a kernel image");
+        return Fail(kInvalidConfig, "SH7055_02 requires a kernel image");
     }
-    if (auto valid = validate_kernel_upload(*plan.kernel()); !valid.has_value())
+    if (auto valid = ValidateKernelUpload(*plan.Kernel()); !valid.has_value())
     {
         return valid;
     }
-    if (plan.confirmations().size() != 1 || plan.confirmations().front().id != ConfirmationSpec::Id::CycleIgnition ||
-        !plan.confirmations().front().arguments.empty())
+    if (plan.Confirmations().size() != 1 || plan.Confirmations().front().id != ConfirmationSpec::Id::kCycleIgnition ||
+        !plan.Confirmations().front().arguments.empty())
     {
-        return fail(InvalidConfig, "SH7055_02 requires exactly the CycleIgnition confirmation");
+        return Fail(kInvalidConfig, "SH7055_02 requires exactly the CycleIgnition confirmation");
     }
-    const int index = find_flash_device_index(plan.mcu_name());
+    const int index = FindFlashDeviceIndex(plan.McuName());
     if (index < 0)
     {
-        return fail(InvalidConfig, "Unknown MCU type");
+        return Fail(kInvalidConfig, "Unknown MCU type");
     }
     const std::uint32_t romsize = kFlashDevices[index].romsize;
-    if (plan.transfer_region().start != kFlashDevices[index].fblocks[0].start ||
-        plan.transfer_region().length != romsize)
+    if (plan.TransferRegion().start != kFlashDevices[index].fblocks[0].start || plan.TransferRegion().length != romsize)
     {
-        return fail(InvalidConfig, "SH7055_02 transfer region does not match the MCU");
+        return Fail(kInvalidConfig, "SH7055_02 transfer region does not match the MCU");
     }
-    return validate_image(plan, romsize);
+    return ValidateImage(plan, romsize);
 }
 
-Result<FlashPlan> build_subaru_denso_sh7055_02_plan(FlashOperation operation, std::string_view protocol_name,
-                                                    std::string_view mcu_type, std::optional<bytes::Bytes> image,
-                                                    KernelImage kernel)
+Result<FlashPlan> BuildSubaruDensoSh705502Plan(FlashOperation operation, std::string_view protocol_name,
+                                               std::string_view mcu_type, std::optional<bytes::Bytes> image,
+                                               KernelImage kernel)
 {
-    if (auto valid = validate_identity(protocol_name, mcu_type); !valid.has_value())
+    if (auto valid = ValidateIdentity(protocol_name, mcu_type); !valid.has_value())
     {
         return std::unexpected(valid.error());
     }
-    const int index = find_flash_device_index(mcu_type);
+    const int index = FindFlashDeviceIndex(mcu_type);
     if (index < 0)
     {
-        return fail(ErrorKind::InvalidConfig, "Unknown MCU type");
+        return Fail(ErrorKind::kInvalidConfig, "Unknown MCU type");
     }
     const std::uint32_t romsize = kFlashDevices[index].romsize;
-    if ((operation == FlashOperation::Write || operation == FlashOperation::TestWrite) &&
+    if ((operation == FlashOperation::kWrite || operation == FlashOperation::kTestWrite) &&
         (!image.has_value() || image->size() != romsize))
     {
-        return fail(ErrorKind::InvalidConfig, std::format("ROM file must be exactly 0x{:x} bytes", romsize));
+        return Fail(ErrorKind::kInvalidConfig, std::format("ROM file must be exactly 0x{:x} bytes", romsize));
     }
-    if (auto valid = validate_kernel_upload(kernel); !valid.has_value())
+    if (auto valid = ValidateKernelUpload(kernel); !valid.has_value())
     {
         return std::unexpected(valid.error());
     }
 
     FlashPlanFields fields{
         .operation = operation,
-        .family = FlashFamily::SubaruDensoSh7055_02,
-        .transport = TransportKind::Kline,
+        .family = FlashFamily::kSubaruDensoSh705502,
+        .transport = TransportKind::kKline,
         .target_id = std::string(protocol_name),
         .mcu_name = std::string(mcu_type),
         .transfer_region = MemoryRegion{kFlashDevices[index].fblocks[0].start, romsize},
         .erase_regions = {},
-        .image = operation == FlashOperation::Read ? std::nullopt : std::move(image),
+        .image = operation == FlashOperation::kRead ? std::nullopt : std::move(image),
         .kernel = std::move(kernel),
-        .family_plan = wire_params(operation),
-        .confirmations = {ConfirmationSpec{.id = ConfirmationSpec::Id::CycleIgnition}},
+        .family_plan = WireParams(operation),
+        .confirmations = {ConfirmationSpec{.id = ConfirmationSpec::Id::kCycleIgnition}},
     };
-    auto plan = validate_and_build(std::move(fields));
+    auto plan = ValidateAndBuild(std::move(fields));
     if (!plan.has_value())
     {
         return std::unexpected(plan.error());
     }
-    if (auto valid = validate_subaru_denso_sh7055_02_plan(*plan); !valid.has_value())
+    if (auto valid = ValidateSubaruDensoSh705502Plan(*plan); !valid.has_value())
     {
         return std::unexpected(valid.error());
     }

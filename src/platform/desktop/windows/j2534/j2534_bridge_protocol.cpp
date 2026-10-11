@@ -6,7 +6,7 @@ namespace j2534_bridge
 namespace
 {
 
-bool writeAll(HANDLE pipe, const void *data, std::uint32_t size)
+bool WriteAll(HANDLE pipe, const void *data, std::uint32_t size)
 {
     const auto *bytes = static_cast<const unsigned char *>(data);
     std::uint32_t written = 0;
@@ -22,7 +22,7 @@ bool writeAll(HANDLE pipe, const void *data, std::uint32_t size)
     return true;
 }
 
-bool readAll(HANDLE pipe, void *data, std::uint32_t size)
+bool ReadAll(HANDLE pipe, void *data, std::uint32_t size)
 {
     auto *bytes = static_cast<unsigned char *>(data);
     std::uint32_t read = 0;
@@ -40,45 +40,45 @@ bool readAll(HANDLE pipe, void *data, std::uint32_t size)
 
 } // namespace
 
-bool writeFrame(HANDLE pipe, Function function, const void *payload, std::uint32_t payloadSize)
+bool WriteFrame(HANDLE pipe, Function function, const void *payload, std::uint32_t payload_size)
 {
-    FrameHeader header{function, payloadSize};
-    if (!writeAll(pipe, &header, sizeof(header)))
+    FrameHeader header{function, payload_size};
+    if (!WriteAll(pipe, &header, sizeof(header)))
     {
         return false;
     }
-    if (payloadSize == 0)
+    if (payload_size == 0)
     {
         return true;
     }
-    return writeAll(pipe, payload, payloadSize);
+    return WriteAll(pipe, payload, payload_size);
 }
 
-bool readFrameHeader(HANDLE pipe, FrameHeader& outHeader)
+bool ReadFrameHeader(HANDLE pipe, FrameHeader& out_header)
 {
-    return readAll(pipe, &outHeader, sizeof(outHeader));
+    return ReadAll(pipe, &out_header, sizeof(out_header));
 }
 
-bool readFramePayload(HANDLE pipe, void *payload, std::uint32_t payloadSize)
+bool ReadFramePayload(HANDLE pipe, void *payload, std::uint32_t payload_size)
 {
-    if (payloadSize == 0)
+    if (payload_size == 0)
     {
         return true;
     }
-    return readAll(pipe, payload, payloadSize);
+    return ReadAll(pipe, payload, payload_size);
 }
 
-bool readFrame(HANDLE pipe, FrameHeader& outHeader, void *payload, std::uint32_t payloadCapacity)
+bool ReadFrame(HANDLE pipe, FrameHeader& out_header, void *payload, std::uint32_t payload_capacity)
 {
-    if (!readFrameHeader(pipe, outHeader))
+    if (!ReadFrameHeader(pipe, out_header))
     {
         return false;
     }
-    if (outHeader.payloadSize > payloadCapacity)
+    if (out_header.payload_size > payload_capacity)
     {
         return false;
     }
-    return readFramePayload(pipe, payload, outHeader.payloadSize);
+    return ReadFramePayload(pipe, payload, out_header.payload_size);
 }
 
 } // namespace j2534_bridge

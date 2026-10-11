@@ -20,20 +20,19 @@ class BiuOpsSubaruInput2 : public QWidget
     Q_OBJECT
 
   public:
-    explicit BiuOpsSubaruInput2(QStringList *biu_option_names, QByteArray *biu_option_result,
-                                QWidget *parent = nullptr);
+    explicit BiuOpsSubaruInput2(QStringList *biuOptionNames, QByteArray *biuOptionResult, QWidget *parent = nullptr);
     ~BiuOpsSubaruInput2();
 
   private:
-    QByteArray *biu_option_result;
-    QStringList *biu_option_names;
+    QByteArray *biu_option_result_;
+    QStringList *biu_option_names_;
 
   private slots:
-    void prepare_biu_setting2();
+    void prepareBiuSetting2();
 
   signals:
-    void send_biu_setting2(QByteArray output);
+    void sendBiuSetting2(QByteArray output);
 
   private:
-    std::unique_ptr<Ui::BiuOpsSubaruInput2Window> ui;
+    std::unique_ptr<Ui::BiuOpsSubaruInput2Window> ui_;
 };

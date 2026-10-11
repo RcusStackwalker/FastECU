@@ -3,6 +3,7 @@
 #include <gtest/gtest.h>
 #include <QTreeWidget>
 
+#include "src/algorithms/memory/testing/memory_views.h"
 #include "src/ui/desktop/calibration/session_key.h"
 #include "src/ui/desktop/widgets/calibration_treewidget.h"
 
@@ -27,9 +28,9 @@ fastecu::definition::CalibrationMap map(std::string name, std::string category, 
     return m;
 }
 
-CalibrationSession session_with_maps()
+CalibrationSession sessionWithMaps()
 {
-    fastecu::definition::RomDefinition definition{.format = fastecu::definition::DefinitionFormat::EcuFlash};
+    fastecu::definition::RomDefinition definition{.format = fastecu::definition::DefinitionFormat::kEcuFlash};
     definition.identity.xml_id = "TREE";
     definition.maps = {
         map("Idle", "Idle", "1D", 1, 1, "Idle speed", "idle-id"), // 0
@@ -44,13 +45,13 @@ CalibrationSession session_with_maps()
         SessionId{7},
         SessionContents{
             .source = {.display_name = "t.bin", .path = "/t.bin"},
-            .rom = std::vector<std::uint8_t>(16, 0),
+            .image = fastecu::memory::testing::IdentityImage(std::vector<std::uint8_t>(16, 0)),
             .definition = fastecu::calibration::ResolvedDefinition{.id = "TREE", .definition = definition},
             .protocol = {.file_size_label = "0kb"},
         });
 }
 
-bool same_icon(const QTreeWidgetItem *item, const char *path)
+bool sameIcon(const QTreeWidgetItem *item, const char *path)
 {
     return item->icon(0).pixmap(16).toImage() == QIcon(path).pixmap(16).toImage();
 }
@@ -61,15 +62,15 @@ TEST(CalibrationTreeWidgetTest, filesTreeCarriesNameFirstMapIdAndSessionKey)
 {
     QTreeWidget files;
     CalibrationTreeWidget builder;
-    const CalibrationSession session = session_with_maps();
+    const CalibrationSession session = sessionWithMaps();
 
-    builder.buildCalibrationFilesTree(session.id(), &files, session);
+    builder.buildCalibrationFilesTree(session.Id(), &files, session);
 
     ASSERT_EQ(files.topLevelItemCount(), 1);
     QTreeWidgetItem *item = files.topLevelItem(0);
     ASSERT_EQ(item->text(0), QString("t.bin"));
     ASSERT_EQ(item->text(1), QString("idle-id"));
-    ASSERT_EQ(item->text(2), fastecu::ui::session_key_text(SessionId{7}));
+    ASSERT_EQ(item->text(2), fastecu::ui::sessionKeyText(SessionId{7}));
     ASSERT_EQ(item->checkState(0), Qt::Checked);
     ASSERT_TRUE(item->isSelected());
 }
@@ -78,7 +79,7 @@ TEST(CalibrationTreeWidgetTest, dataTreeMatchesLegacyRules)
 {
     QTreeWidget data;
     CalibrationTreeWidget builder;
-    const CalibrationSession session = session_with_maps();
+    const CalibrationSession session = sessionWithMaps();
     fastecu::ui::CalibrationViewState view;
     view.open_maps = {2};
     view.expanded_categories = {"Fuel"};
@@ -87,11 +88,11 @@ TEST(CalibrationTreeWidgetTest, dataTreeMatchesLegacyRules)
     builder.buildCalibrationDataTree(&data, session, view);
 
     ASSERT_EQ(data.topLevelItemCount(), 4);
-    QTreeWidgetItem *rom_info = data.topLevelItem(0);
-    ASSERT_EQ(rom_info->text(0), QString("ROM Info"));
-    ASSERT_TRUE(rom_info->isExpanded());
-    ASSERT_EQ(rom_info->childCount(), 16);
-    ASSERT_EQ(rom_info->child(0)->text(0), QString("XML ID: TREE"));
+    QTreeWidgetItem *romInfo = data.topLevelItem(0);
+    ASSERT_EQ(romInfo->text(0), QString("ROM Info"));
+    ASSERT_TRUE(romInfo->isExpanded());
+    ASSERT_EQ(romInfo->childCount(), 16);
+    ASSERT_EQ(romInfo->child(0)->text(0), QString("XML ID: TREE"));
 
     ASSERT_EQ(data.topLevelItem(1)->text(0), QString("Idle"));
     ASSERT_TRUE(!data.topLevelItem(1)->isExpanded());
@@ -105,24 +106,25 @@ TEST(CalibrationTreeWidgetTest, dataTreeMatchesLegacyRules)
     ASSERT_EQ(fuel->child(0)->text(1), QString("1"));
     ASSERT_EQ(fuel->child(0)->toolTip(0), QString("Fuel ")); // legacy_value(" ") description
     ASSERT_EQ(fuel->child(0)->checkState(0), Qt::Unchecked);
-    ASSERT_TRUE(same_icon(fuel->child(0), ":/icons/2D-64.png"));
+    ASSERT_TRUE(sameIcon(fuel->child(0), ":/icons/2D-64.png"));
     ASSERT_EQ(fuel->child(1)->text(1), QString("2"));
     ASSERT_EQ(fuel->child(1)->checkState(0), Qt::Checked);
-    ASSERT_TRUE(same_icon(fuel->child(1), ":/icons/3D-64.png"));
+    ASSERT_TRUE(sameIcon(fuel->child(1), ":/icons/3D-64.png"));
     ASSERT_EQ(fuel->child(2)->text(1), QString("6"));
-    ASSERT_TRUE(same_icon(fuel->child(2), ":/icons/1D-64.png"));
+    ASSERT_TRUE(sameIcon(fuel->child(2), ":/icons/1D-64.png"));
 
     QTreeWidgetItem *idle = data.topLevelItem(1)->child(0);
     ASSERT_EQ(idle->toolTip(0), QString("IdleIdle speed"));
-    ASSERT_TRUE(same_icon(idle, ":/icons/1D-64.png"));
-    ASSERT_TRUE(same_icon(data.topLevelItem(3)->child(0), ":/icons/1D-64.png")); // Selectable
+    ASSERT_TRUE(sameIcon(idle, ":/icons/1D-64.png"));
+    ASSERT_TRUE(sameIcon(data.topLevelItem(3)->child(0), ":/icons/1D-64.png")); // Selectable
 }
 
 TEST(CalibrationTreeWidgetTest, definitionlessRomShowsOnlyRomInfo)
 {
     QTreeWidget data;
     CalibrationTreeWidget builder;
-    const CalibrationSession session(SessionId{1}, SessionContents{.rom = std::vector<std::uint8_t>(4, 0)});
+    const CalibrationSession session(SessionId{1}, SessionContents{.image = fastecu::memory::testing::IdentityImage(
+                                                                       std::vector<std::uint8_t>(4, 0))});
 
     builder.buildCalibrationDataTree(&data, session, {});
 
@@ -133,6 +135,6 @@ TEST(CalibrationTreeWidgetTest, definitionlessRomShowsOnlyRomInfo)
 
 namespace
 {
-const auto *const application_environment =
+const auto *const kApplicationEnvironment =
     ::testing::AddGlobalTestEnvironment(new fastecu::testing::WidgetsApplicationEnvironment({}, /*use_96_dpi=*/true));
 }

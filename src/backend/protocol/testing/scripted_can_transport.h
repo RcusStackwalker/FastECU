@@ -13,63 +13,63 @@ namespace cdbg
 class ScriptedCanTransport : public ICanTransport
 {
   public:
-    void expectWrite(std::uint32_t id, bytes::ByteView payload)
+    void ExpectWrite(std::uint32_t id, bytes::ByteView payload)
     {
-        expectedIds_.push_back(id);
-        expectedPayloads_.emplace_back(payload.begin(), payload.end());
+        expected_ids_.push_back(id);
+        expected_payloads_.emplace_back(payload.begin(), payload.end());
     }
-    void queueRead(std::uint32_t id, bytes::ByteView payload)
+    void QueueRead(std::uint32_t id, bytes::ByteView payload)
     {
         reads_.emplace_back(std::optional<CanFrame>{CanFrame{id, bytes::Bytes(payload.begin(), payload.end())}});
     }
-    void queue_no_frame()
+    void QueueNoFrame()
     {
         reads_.emplace_back(std::optional<CanFrame>{});
     }
-    void queue_error(fastecu::ErrorKind kind, std::string detail = {})
+    void QueueError(fastecu::ErrorKind kind, std::string detail = {})
     {
-        reads_.emplace_back(fastecu::fail(kind, std::move(detail)));
+        reads_.emplace_back(fastecu::Fail(kind, std::move(detail)));
     }
-    bool scriptConsumed() const
+    bool ScriptConsumed() const
     {
-        return wIdx_ == expectedIds_.size() && reads_.empty();
+        return w_idx_ == expected_ids_.size() && reads_.empty();
     }
-    bool ok() const
+    bool Ok() const
     {
         return ok_;
     }
-    void setOpen(bool open)
+    void SetOpen(bool open)
     {
         open_ = open;
     }
-    bool isOpen() const override
+    bool IsOpen() const override
     {
         return open_;
     }
-    fastecu::Result<std::size_t> write(std::uint32_t id, bytes::ByteView payload) override
+    fastecu::Result<std::size_t> Write(std::uint32_t id, bytes::ByteView payload) override
     {
-        if (wIdx_ >= expectedIds_.size() || expectedIds_.at(wIdx_) != id ||
-            expectedPayloads_.at(wIdx_) != bytes::Bytes(payload.begin(), payload.end()))
+        if (w_idx_ >= expected_ids_.size() || expected_ids_.at(w_idx_) != id ||
+            expected_payloads_.at(w_idx_) != bytes::Bytes(payload.begin(), payload.end()))
         {
             ok_ = false;
-            return fastecu::fail(fastecu::ErrorKind::Internal, "unexpected scripted CAN write");
+            return fastecu::Fail(fastecu::ErrorKind::kInternal, "unexpected scripted CAN write");
         }
         else
         {
-            ++wIdx_;
+            ++w_idx_;
         }
         return payload.size();
     }
-    fastecu::Result<std::optional<CanFrame>> read(std::chrono::milliseconds,
+    fastecu::Result<std::optional<CanFrame>> Read(std::chrono::milliseconds,
                                                   const fastecu::ICancellationToken& cancellation) override
     {
-        if (cancellation.cancelled())
+        if (cancellation.Cancelled())
         {
-            return fastecu::fail(fastecu::ErrorKind::Cancelled, "scripted CAN read cancelled");
+            return fastecu::Fail(fastecu::ErrorKind::kCancelled, "scripted CAN read cancelled");
         }
         if (reads_.empty())
         {
-            return fastecu::fail(fastecu::ErrorKind::Internal, "no scripted CAN read outcome");
+            return fastecu::Fail(fastecu::ErrorKind::kInternal, "no scripted CAN read outcome");
         }
         auto result = std::move(reads_.front());
         reads_.pop_front();
@@ -77,10 +77,10 @@ class ScriptedCanTransport : public ICanTransport
     }
 
   private:
-    std::vector<std::uint32_t> expectedIds_;
-    std::vector<bytes::Bytes> expectedPayloads_;
+    std::vector<std::uint32_t> expected_ids_;
+    std::vector<bytes::Bytes> expected_payloads_;
     std::deque<fastecu::Result<std::optional<CanFrame>>> reads_;
-    std::size_t wIdx_ = 0;
+    std::size_t w_idx_ = 0;
     bool ok_ = true;
     bool open_ = true;
 };

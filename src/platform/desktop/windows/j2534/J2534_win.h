@@ -22,8 +22,8 @@
 
 // name is token-pasted into a type and a member name, so it cannot be parenthesized.
 // NOLINTNEXTLINE(bugprone-macro-parentheses)
-#define PTfn(name) PF_##name *pf##name
-#define PText(name) PT_API PF_##name name
+#define PTfn(name) Pf##name *pf##name
+#define PText(name) PT_API Pf##name name
 
 class J2534
 {
@@ -32,61 +32,63 @@ class J2534
     ~J2534();
 
     bool serial_port_protocol_iso14230 = false;
-    bool J2534_init_ok = false;
+    bool j2534_init_ok = false;
 
     // Matches J2534_unix.h's contract: PassThruReadVersion's out-parameters
     // must each point at a buffer of at least this many bytes.
     static constexpr std::size_t kVersionBufferSize = 256;
 
-    bool is_serial_port_open();
-    bool init()
+    bool IsSerialPortOpen();
+    bool Init()
     {
-        return checkDLL();
+        return CheckDll();
     };
-    void disable();
-    void setDllName(const char *name);
-    void getDllName(char *name);
-    bool valid();
-    char *getLastError();
+    void Disable();
+    void SetDllName(const char *name);
+    void GetDllName(char *name);
+    bool Valid();
+    char *GetLastError();
 
-    long PassThruOpen(const void *pName, unsigned long *pDeviceID);
-    long PassThruClose(unsigned long DeviceID);
-    long PassThruConnect(unsigned long DeviceID, unsigned long ProtocolID, unsigned long Flags, unsigned long Baudrate,
-                         unsigned long *pChannelID);
-    long PassThruDisconnect(unsigned long ChannelID);
-    long PassThruReadMsgs(unsigned long ChannelID, PASSTHRU_MSG *pMsg, unsigned long *pNumMsgs, unsigned long Timeout);
-    long PassThruWriteMsgs(unsigned long ChannelID, const PASSTHRU_MSG *pMsg, unsigned long *pNumMsgs,
-                           unsigned long Timeout);
-    long PassThruStartPeriodicMsg(unsigned long ChannelID, const PASSTHRU_MSG *pMsg, unsigned long *pMsgID,
-                                  unsigned long TimeInterval);
-    long PassThruStopPeriodicMsg(unsigned long ChannelID, unsigned long MsgID);
-    long PassThruStartMsgFilter(unsigned long ChannelID, unsigned long FilterType, const PASSTHRU_MSG *pMaskMsg,
-                                const PASSTHRU_MSG *pPatternMsg, const PASSTHRU_MSG *pFlowControlMsg,
-                                unsigned long *pMsgID);
-    long PassThruStopMsgFilter(unsigned long ChannelID, unsigned long MsgID);
-    long PassThruSetProgrammingVoltage(unsigned long DeviceID, unsigned long Pin, unsigned long Voltage);
-    long PassThruReadVersion(char *pApiVersion, char *pDllVersion, char *pFirmwareVersion, unsigned long DeviceID);
-    long PassThruGetLastError(char *pErrorDescription);
-    long PassThruIoctl(unsigned long ChannelID, unsigned long IoctlID, const void *pInput, void *pOutput);
+    long PassThruOpen(const void *p_name, unsigned long *p_device_id);
+    long PassThruClose(unsigned long device_id);
+    long PassThruConnect(unsigned long device_id, unsigned long protocol_id, unsigned long flags,
+                         unsigned long baudrate, unsigned long *p_channel_id);
+    long PassThruDisconnect(unsigned long channel_id);
+    long PassThruReadMsgs(unsigned long channel_id, PassThruMsg *p_msg, unsigned long *p_num_msgs,
+                          unsigned long timeout);
+    long PassThruWriteMsgs(unsigned long channel_id, const PassThruMsg *p_msg, unsigned long *p_num_msgs,
+                           unsigned long timeout);
+    long PassThruStartPeriodicMsg(unsigned long channel_id, const PassThruMsg *p_msg, unsigned long *p_msg_id,
+                                  unsigned long time_interval);
+    long PassThruStopPeriodicMsg(unsigned long channel_id, unsigned long msg_id);
+    long PassThruStartMsgFilter(unsigned long channel_id, unsigned long filter_type, const PassThruMsg *p_mask_msg,
+                                const PassThruMsg *p_pattern_msg, const PassThruMsg *p_flow_control_msg,
+                                unsigned long *p_msg_id);
+    long PassThruStopMsgFilter(unsigned long channel_id, unsigned long msg_id);
+    long PassThruSetProgrammingVoltage(unsigned long device_id, unsigned long pin, unsigned long voltage);
+    long PassThruReadVersion(char *p_api_version, char *p_dll_version, char *p_firmware_version,
+                             unsigned long device_id);
+    long PassThruGetLastError(char *p_error_description);
+    long PassThruIoctl(unsigned long channel_id, unsigned long ioctl_id, const void *p_input, void *p_output);
 
   private:
-    bool getPTfns();
-    long LoadJ2534DLL(const char *szDLL);
-    bool checkDLL();
-    int is_valid_sconfig_param(SCONFIG s);
+    bool GetPTfns();
+    long LoadJ2534DLL(const char *sz_dll);
+    bool CheckDll();
+    int IsValidSconfigParam(SCONFIG s);
 
-    std::array<char, 256> lastError;
-    std::array<char, 256> dllName;
-    bool isLibraryInitialized;
+    std::array<char, 256> last_error_;
+    std::array<char, 256> dll_name_;
+    bool is_library_initialized_;
 
 #if defined(_WIN32) || defined(WIN32) || defined(_WIN64) || defined(WIN64)
-    HINSTANCE hDLL; // Handle to DLL
+    HINSTANCE h_dll_; // Handle to DLL
 #else
-    void *hDLL;
+    void *h_dll_;
 #endif
 
-    std::unique_ptr<J2534BridgeClient> bridgeClient;
-    bool useBridge = false;
+    std::unique_ptr<J2534BridgeClient> bridge_client_;
+    bool use_bridge_ = false;
 
     /* J2534 Interface API function pointers */
 

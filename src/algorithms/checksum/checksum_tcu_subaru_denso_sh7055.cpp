@@ -1,4 +1,7 @@
 #include "checksum_tcu_subaru_denso_sh7055.h"
+
+#include <utility>
+
 #include "checksum_primitives.h"
 #include "src/algorithms/protocol/bytes.h"
 #include <array>
@@ -13,7 +16,7 @@ namespace
 struct ChecksumArea
 {
     uint32_t start;
-    uint32_t wordCount;
+    uint32_t word_count;
 };
 
 constexpr std::array<ChecksumArea, 12> kChecksumAreas{{
@@ -33,13 +36,18 @@ constexpr std::array<ChecksumArea, 12> kChecksumAreas{{
 
 } // namespace
 
-ChecksumResult ChecksumTcuSubaruDensoSH7055::calculate_checksum_result(bytes::ByteView romView)
+ChecksumResult ChecksumTcuSubaruDensoSH7055::CalculateChecksumResult(const fastecu::memory::MemoryView& rom)
 {
-    // Fixed 512 KiB SH7055 layout; the last checksum area ends at 0x80000.
-    if (romView.size() != 0x80000)
+    if (auto rejected = fastecu::checksum::internal::RequireStartAtZero(rom); rejected.has_value())
     {
-        return {.status = ChecksumResult::Status::InvalidSize,
-                .romData = bytes::Bytes(romView.begin(), romView.end()),
+        return *std::move(rejected);
+    }
+    const bytes::ByteView rom_view = rom.Data();
+    // Fixed 512 KiB SH7055 layout; the last checksum area ends at 0x80000.
+    if (rom_view.size() != 0x80000)
+    {
+        return {.status = ChecksumResult::Status::kInvalidSize,
+                .rom_data = bytes::Bytes(rom_view.begin(), rom_view.end()),
                 .message = "ROM size does not match the checksum layout"};
     }
     /*******************
@@ -48,33 +56,33 @@ ChecksumResult ChecksumTcuSubaruDensoSH7055::calculate_checksum_result(bytes::By
      * every area size (16bit byte count) needs to multiply by 2
      *
      ******************/
-    bytes::Bytes romData(romView.begin(), romView.end());
+    bytes::Bytes rom_data(rom_view.begin(), rom_view.end());
 
     uint16_t checksum = 0;
 
     for (const ChecksumArea& area : kChecksumAreas)
     {
         const uint32_t area_start = area.start;
-        const uint32_t area_end = area_start + (2 * area.wordCount);
+        const uint32_t area_end = area_start + (2 * area.word_count);
 
         for (uint32_t j = area_start; j < area_end; j += 2)
         {
-            checksum += bytes::readU16Be(romData, j);
+            checksum += bytes::ReadU16Be(rom_data, j);
         }
     }
 
     ChecksumResult result;
     if (checksum != 0x5aa5)
     {
-        fastecu::checksum::internal::rebalanceU16Be(romData, 0x7fff4, checksum, 0x5aa5);
+        fastecu::checksum::internal::RebalanceU16Be(rom_data, 0x7fff4, checksum, 0x5aa5);
 
-        result.status = ChecksumResult::Status::Corrected;
+        result.status = ChecksumResult::Status::kCorrected;
         result.message = "Subaru Denso SH7055 TCU Checksum";
     }
     else
     {
-        result.status = ChecksumResult::Status::Unchanged;
+        result.status = ChecksumResult::Status::kUnchanged;
     }
-    result.romData = romData;
+    result.rom_data = rom_data;
     return result;
 }

@@ -37,8 +37,8 @@ class UndoStack : public QUndoStack
     void overwrite(qint64 pos, int len, const QByteArray& ba);
 
   private:
-    Chunks *_chunks;
-    QObject *_parent;
+    Chunks *chunks_;
+    QObject *parent_;
 };
 
 /** \endcond docNever */

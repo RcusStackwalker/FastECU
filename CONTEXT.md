@@ -1,7 +1,6 @@
-# FastECU domain language
+# FastECU calibration language
 
-Terms used when viewing and editing calibration maps, running terminal scripts,
-and logging vehicle measurements.
+Terms used when viewing and editing calibration maps.
 
 ## Language
 
@@ -17,6 +16,12 @@ _Avoid_: Display text
 **Raw value**:
 A numeric value represented by the ROM storage before scaling is applied.
 _Avoid_: Scaled value
+
+**Conversion expression**:
+A formula over the single input `x` that turns a raw value into a scaled value
+(or a scaled value back into a raw value). Used by calibration scaling and by
+logging channels.
+_Avoid_: Scaling expression, from-byte expression, formula string
 
 **Invalid numeric cell**:
 A calibration cell whose current ROM content cannot yield a valid scaled value.
@@ -41,6 +46,54 @@ _Avoid_: Option, switch state
 An edit whose resulting bytes equal the bytes already in the session. It
 reports no change and leaves the session clean.
 _Avoid_: No-op write
+
+## ROM memory
+
+**ROM file**:
+The bytes of a ROM exactly as stored on disk. Saving a session reproduces the
+layout of the ROM file it was opened from.
+_Avoid_: Dense buffer, raw image
+
+**File offset**:
+A byte position within a ROM file. Meaningful only when loading and saving.
+_Avoid_: Address
+
+**ECU address**:
+A location in the ECU's own address space, as the ECU's CPU sees it. Map, axis
+and checksum locations are ECU addresses.
+_Avoid_: Offset, physical offset
+
+**Memory map**:
+The ordered set of memory blocks that places a ROM file's bytes at ECU
+addresses. Two ROM files of one ECU can need different memory maps.
+_Avoid_: Padding, sparse buffer, memory model
+
+**Memory block**:
+One contiguous range of ECU addresses in a memory map, backed either by a range
+of the ROM file or by a fill byte, and carrying whether it is writable.
+_Avoid_: Segment, region, flash block (an erase unit of the flash device)
+
+**Writable**:
+Of a memory block: calibration may edit its bytes. For a protocol that writes,
+these are exactly the bytes some write route reaches; a ROM file with no
+reserved region is writable throughout, even where FastECU has no write route
+for it. Maps in a block that is not writable cannot be edited.
+_Avoid_: Protected, userspace
+
+**Definition base**:
+The ECU address that address 0 in a definition file stands for, declared by the
+memory map. Zero for almost every ECU.
+_Avoid_: Address offset, image base
+
+**Definition address**:
+A location as a definition file states it: an offset from the definition base.
+Converted to an ECU address only through the memory map.
+_Avoid_: Offset, file offset, ECU address
+
+**Fill block**:
+A memory block with no ROM file bytes behind it; every address in it reads as
+its fill byte.
+_Avoid_: Gap, hole, synthetic bytes, padding
 
 ## Terminal scripts
 

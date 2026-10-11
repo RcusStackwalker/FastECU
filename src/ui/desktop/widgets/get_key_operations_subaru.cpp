@@ -11,18 +11,18 @@ constexpr int kStatusError = 0x01;
 } // namespace
 
 GetKeyOperationsSubaru::GetKeyOperationsSubaru(QWidget *parent)
-    : QDialog(parent), ui{std::make_unique<Ui::EcuOperationsWindow>()}
+    : QDialog(parent), ui_{std::make_unique<Ui::EcuOperationsWindow>()}
 {
-    ui->setupUi(this);
+    ui_->setupUi(this);
 
     this->setWindowTitle("Determine Encryption Keys from Unencrypted and Encrypted Files");
     this->show();
 
     int result = 0;
 
-    ui->progressbar->setValue(0);
+    ui_->progressbar->setValue(0);
 
-    result = load_and_apply_linear_approx();
+    result = loadAndApplyLinearApprox();
 
     if (result == kStatusSuccess)
     {
@@ -46,7 +46,7 @@ void GetKeyOperationsSubaru::closeEvent(QCloseEvent *bar)
     // kill_process = true;
 }
 
-int GetKeyOperationsSubaru::load_and_apply_linear_approx()
+int GetKeyOperationsSubaru::loadAndApplyLinearApprox()
 {
     // QFileDialog openDialog;
     QString unencryptedFilename = QFileDialog::getOpenFileName(this, tr("Select unencrypted ROM"));
@@ -81,32 +81,32 @@ int GetKeyOperationsSubaru::load_and_apply_linear_approx()
     QByteArray encryptedFileData = encryptedFile.readAll();
     encryptedFile.close();
 
-    emit LOG_I("Files loaded successfully", true, true);
+    emit logI("Files loaded successfully", true, true);
 
-    emit LOG_I("Start Time", true, true);
+    emit logI("Start Time", true, true);
     const auto recovery =
-        subaru_key_recovery::recover_keys(bytes::view(unencryptedFileData), bytes::view(encryptedFileData));
+        subaru_key_recovery::RecoverKeys(bytes::View(unencryptedFileData), bytes::View(encryptedFileData));
     if (!recovery.has_value())
     {
         QMessageBox::warning(this, tr("Get Key Operation"),
-                             recovery.error() == subaru_key_recovery::Failure::InputTooShort
+                             recovery.error() == subaru_key_recovery::Failure::kInputTooShort
                                  ? "Both ROM files must be at least 128 KiB"
                                  : "No key is consistent with most of these ROM files' words");
         return kStatusError;
     }
     const auto& [k1, k2, k3, k4] = recovery->keys;
 
-    emit LOG_I("Predicted k4: 0x" + QString::number(k4, 16), true, true);
-    emit LOG_I("Moving on to k1", true, true);
-    emit LOG_I("Predicted k1: 0x" + QString::number(k1, 16), true, true);
-    emit LOG_I("Moving on to k2", true, true);
-    emit LOG_I("Predicted k2: 0x" + QString::number(k2, 16), true, true);
-    emit LOG_I("Moving on to k3", true, true);
-    emit LOG_I("Predicted k3: 0x" + QString::number(k3, 16), true, true);
-    emit LOG_I("Keys reproduce " + QString::number(recovery->reproduced_pairs) + " of " +
-                   QString::number(recovery->distinct_pairs) + " distinct word pairs",
-               true, true);
-    emit LOG_I("End Time", true, true);
+    emit logI("Predicted k4: 0x" + QString::number(k4, 16), true, true);
+    emit logI("Moving on to k1", true, true);
+    emit logI("Predicted k1: 0x" + QString::number(k1, 16), true, true);
+    emit logI("Moving on to k2", true, true);
+    emit logI("Predicted k2: 0x" + QString::number(k2, 16), true, true);
+    emit logI("Moving on to k3", true, true);
+    emit logI("Predicted k3: 0x" + QString::number(k3, 16), true, true);
+    emit logI("Keys reproduce " + QString::number(recovery->reproduced_pairs) + " of " +
+                  QString::number(recovery->distinct_pairs) + " distinct word pairs",
+              true, true);
+    emit logI("End Time", true, true);
 
     return kStatusSuccess;
 }

@@ -12,13 +12,11 @@ namespace fastecu::flash
 // (Read goes through the 6c-3 K-Line family). Write is two plans run as two
 // attempts: the kernel upload, then erase and program. Both carry
 // ApplyBootModeVoltages, collected by the desktop workflow before either runs.
-Result<FlashPlan> build_subaru_unisia_jecs_m32r_bootmode_kernel_plan(FlashOperation operation,
-                                                                     std::string_view protocol_name,
-                                                                     std::string_view mcu_type, bytes::Bytes kernel);
-Result<FlashPlan> build_subaru_unisia_jecs_m32r_bootmode_program_plan(FlashOperation operation,
-                                                                      std::string_view protocol_name,
-                                                                      std::string_view mcu_type,
-                                                                      std::optional<bytes::Bytes> image);
+Result<FlashPlan> BuildSubaruUnisiaJecsM32rBootmodeKernelPlan(FlashOperation operation, std::string_view protocol_name,
+                                                              std::string_view mcu_type, bytes::Bytes kernel);
+Result<FlashPlan> BuildSubaruUnisiaJecsM32rBootmodeProgramPlan(FlashOperation operation, std::string_view protocol_name,
+                                                               std::string_view mcu_type,
+                                                               std::optional<bytes::Bytes> image);
 // Validates a plan of either bootmode family.
-Status validate_subaru_unisia_jecs_m32r_bootmode_plan(const FlashPlan& plan);
+Status ValidateSubaruUnisiaJecsM32rBootmodePlan(const FlashPlan& plan);
 } // namespace fastecu::flash

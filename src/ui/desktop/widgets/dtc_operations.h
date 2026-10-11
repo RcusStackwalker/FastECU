@@ -25,10 +25,10 @@ class DtcOperations : public QDialog
     ~DtcOperations() override;
 
   signals:
-    void LOG_E(QString message, bool timestamp, bool linefeed);
-    void LOG_W(QString message, bool timestamp, bool linefeed);
-    void LOG_I(QString message, bool timestamp, bool linefeed);
-    void LOG_D(QString message, bool timestamp, bool linefeed);
+    void logE(QString message, bool timestamp, bool linefeed);
+    void logW(QString message, bool timestamp, bool linefeed);
+    void logI(QString message, bool timestamp, bool linefeed);
+    void logD(QString message, bool timestamp, bool linefeed);
 
   protected:
     void closeEvent(QCloseEvent *event) override;
@@ -44,6 +44,6 @@ class DtcOperations : public QDialog
     void stopWorker();
 
     fastecu::diagnostics::IDiagnosticLink& link_;
-    std::unique_ptr<Ui::DtcOperationsWindow> ui;
+    std::unique_ptr<Ui::DtcOperationsWindow> ui_;
     std::unique_ptr<fastecu::diagnostics::DtcWorker> worker_;
 };

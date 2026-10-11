@@ -8,7 +8,7 @@ namespace fastecu
 class InMemorySettings : public ISettings
 {
   public:
-    std::optional<std::string> get(std::string_view k) const override
+    std::optional<std::string> Get(std::string_view k) const override
     {
         auto it = kv.find(std::string(k));
         if (it == kv.end())
@@ -17,7 +17,7 @@ class InMemorySettings : public ISettings
         }
         return it->second;
     }
-    void set(std::string_view k, std::string_view v) override
+    void Set(std::string_view k, std::string_view v) override
     {
         kv[std::string(k)] = std::string(v);
     }

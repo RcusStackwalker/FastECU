@@ -13,12 +13,12 @@ TEST(QHexEditTest, showingAndResizingLaysOutWithoutCrashing)
     edit.setData(QByteArray(64, '\x0a'));
     edit.resize(300, 200);
     edit.show();
-    fastecu::testing::process_events_for(std::chrono::milliseconds(10));
+    fastecu::testing::ProcessEventsFor(std::chrono::milliseconds(10));
 
     ASSERT_EQ(edit.data().size(), qsizetype{64});
 }
 namespace
 {
-const auto *const environment =
+const auto *const kEnvironment =
     ::testing::AddGlobalTestEnvironment(new fastecu::testing::WidgetsApplicationEnvironment({}, /*use_96_dpi=*/true));
 }

@@ -32,19 +32,19 @@ struct SelectableEditUnchanged
 
 enum class SelectableNotApplicableReason
 {
-    ClosedSession,
-    NoDefinition,
-    UnknownMap,
+    kClosedSession,
+    kNoDefinition,
+    kUnknownMap,
     // The map has no selections or is not stored as a blob, such as a
     // multi-selectable map.
-    NotBloblist,
+    kNotBloblist,
     // No selection carries the requested name.
-    UnknownSelection,
+    kUnknownSelection,
 };
 
 struct SelectableEditNotApplicable
 {
-    SelectableNotApplicableReason reason{SelectableNotApplicableReason::ClosedSession};
+    SelectableNotApplicableReason reason{SelectableNotApplicableReason::kClosedSession};
 };
 
 using SelectableEditOutcome = std::variant<SelectableEditChanged, SelectableEditUnchanged, SelectableEditNotApplicable>;
@@ -53,7 +53,7 @@ using SelectableEditOutcome = std::variant<SelectableEditChanged, SelectableEdit
 // byte length; a selection of any other width, and a write the image rejects,
 // is an error and changes nothing. A map without an address writes at offset 0.
 // Synchronous; the caller owns the execution context.
-Result<SelectableEditOutcome> apply_selectable_edit(CalibrationWorkspace& workspace,
-                                                    const SelectableEditRequest& request);
+Result<SelectableEditOutcome> ApplySelectableEdit(CalibrationWorkspace& workspace,
+                                                  const SelectableEditRequest& request);
 
 } // namespace fastecu::calibration

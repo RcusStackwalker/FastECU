@@ -7,7 +7,7 @@ namespace
 {
 constexpr SingleWindowPlanCase kReadCase{
     .name = "SubaruTcuHitachiM32rKline",
-    .build = &build_subaru_tcu_hitachi_m32r_kline_plan,
+    .build = &BuildSubaruTcuHitachiM32rKlinePlan,
     .protocol = "sub_tcu_hitachi_m32r_kline",
     .mcu = "M32R_512KB",
     .foreign_protocol = "sub_tcu_hitachi_m32r_kline_typo",
@@ -18,17 +18,17 @@ constexpr SingleWindowPlanCase kReadCase{
     .supports_write = false,
 };
 
-INSTANTIATE_TEST_SUITE_P(SubaruTcuHitachiM32rKline, SingleWindowPlanContract, ::testing::Values(kReadCase), caseName);
+INSTANTIATE_TEST_SUITE_P(SubaruTcuHitachiM32rKline, SingleWindowPlanContract, ::testing::Values(kReadCase), CaseName);
 
 TEST(SubaruTcuHitachiM32rKlinePlan, MapsProtocolToItsWireParameters)
 {
-    const auto plan = build_subaru_tcu_hitachi_m32r_kline_plan(FlashOperation::Read, "sub_tcu_hitachi_m32r_kline",
-                                                               "M32R_512KB", std::nullopt);
+    const auto plan = BuildSubaruTcuHitachiM32rKlinePlan(FlashOperation::kRead, "sub_tcu_hitachi_m32r_kline",
+                                                         "M32R_512KB", std::nullopt);
     ASSERT_THAT(plan, fastecu::testing::IsOk());
-    EXPECT_EQ(plan->family(), FlashFamily::SubaruTcuHitachiM32rKline);
-    EXPECT_EQ(plan->transport(), TransportKind::Kline);
+    EXPECT_EQ(plan->Family(), FlashFamily::kSubaruTcuHitachiM32rKline);
+    EXPECT_EQ(plan->Transport(), TransportKind::kKline);
 
-    const auto& family = std::get<SubaruTcuHitachiM32rKlinePlan>(plan->family_plan());
+    const auto& family = std::get<SubaruTcuHitachiM32rKlinePlan>(plan->FamilyPlan());
     EXPECT_EQ(family.tester_id, 0xf0);
     EXPECT_EQ(family.target_id, 0x18);
     EXPECT_EQ(family.baud, 4800);
@@ -39,11 +39,11 @@ TEST(SubaruTcuHitachiM32rKlinePlan, MapsProtocolToItsWireParameters)
 // written nothing. See the plan's "Deliberate Divergences From Legacy".
 TEST(SubaruTcuHitachiM32rKlinePlan, RejectsWriteAndTestWriteAsUnsupported)
 {
-    for (const FlashOperation operation : {FlashOperation::Write, FlashOperation::TestWrite})
+    for (const FlashOperation operation : {FlashOperation::kWrite, FlashOperation::kTestWrite})
     {
-        const auto plan = build_subaru_tcu_hitachi_m32r_kline_plan(operation, "sub_tcu_hitachi_m32r_kline",
-                                                                   "M32R_512KB", bytes::Bytes(0x80000, 0x00));
-        EXPECT_THAT(plan, fastecu::testing::IsErr(ErrorKind::Unsupported));
+        const auto plan = BuildSubaruTcuHitachiM32rKlinePlan(operation, "sub_tcu_hitachi_m32r_kline", "M32R_512KB",
+                                                             bytes::Bytes(0x80000, 0x00));
+        EXPECT_THAT(plan, fastecu::testing::IsErr(ErrorKind::kUnsupported));
     }
 }
 } // namespace

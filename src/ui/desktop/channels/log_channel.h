@@ -17,13 +17,13 @@ class LogChannel final : public QObject
     Q_OBJECT
 
   signals:
-    void LOG_E(QString message, bool timestamp, bool linefeed);
-    void LOG_W(QString message, bool timestamp, bool linefeed);
-    void LOG_I(QString message, bool timestamp, bool linefeed);
-    void LOG_D(QString message, bool timestamp, bool linefeed);
-    void enable_log_write_to_file(bool enable);
+    void logE(QString message, bool timestamp, bool linefeed);
+    void logW(QString message, bool timestamp, bool linefeed);
+    void logI(QString message, bool timestamp, bool linefeed);
+    void logD(QString message, bool timestamp, bool linefeed);
+    void enableLogWriteToFile(bool enable);
     // Formatted non-debug lines for the log window, from the logger.
-    void log_window_message(QString message);
+    void logWindowMessage(QString message);
 };
 
 } // namespace fastecu::ui

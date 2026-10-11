@@ -29,16 +29,16 @@ class QtIdentifyLauncher final : public QObject, public IIdentifyLauncher
     using ClockFactory = std::function<std::unique_ptr<IClock>()>;
     using LogHandler = std::function<void(LogLevel, const QString&)>;
 
-    QtIdentifyLauncher(LinkFactory make_link, ClockFactory make_clock, LogHandler log, QObject *parent = nullptr);
+    QtIdentifyLauncher(LinkFactory makeLink, ClockFactory makeClock, LogHandler log, QObject *parent = nullptr);
     ~QtIdentifyLauncher() override;
 
-    void set_completion_handler(CompletionHandler handler) override;
+    void setCompletionHandler(CompletionHandler handler) override;
     void start(const diagnostics::SsmIdentifyRequest& request, IdentifyGeneration generation) override;
-    void stop_and_join() override;
+    void stopAndJoin() override;
 
     // Test hook: waits for the worker thread to finish without consuming the
     // completion it queued. True when no worker is live or it finished in time.
-    bool wait_for_worker(std::chrono::milliseconds timeout);
+    bool waitForWorker(std::chrono::milliseconds timeout);
 
   private:
     LinkFactory make_link_;

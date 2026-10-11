@@ -56,20 +56,6 @@ coordinators retain their UI roles; see the relevant
   `0x4000`–`0xBFFF` write guard checks only the start, so data may extend beyond
   the window. Resolve both before wiring callers; never relax the guard.
 
-### P1: Resolve the wrx02 address predicate
-
-`element_byte_address` subtracts `0x8000` under different conditions for reads
-and writes. A boundary cell can display one byte and write another. The write
-predicate matches `apply_flash_method_padding` (insert `0x8000` bytes at
-`0x20000` for images under `190 * 1024`), suggesting the read predicate is wrong.
-
-An earlier search of the `mmc-definitions` and `mmc-patches` corpora found no
-real definition declaring `wrx02`, so that reasoning lacks definition evidence.
-Keep `PinnedDefect_Wrx02FixupDiffersBetweenReadAndWrite` pinned until a real
-`wrx02` definition establishes the correct predicate, or an explicit accepted-
-risk decision chooses the write predicate from the padding rule alone. Also
-recheck associated `map_edit.cpp` complexity findings when resolving this item.
-
 ### P1: Consolidate flash workflow orchestration
 
 Actions:
@@ -128,8 +114,8 @@ Order cleanup by risk:
 - Fold byte/container modernization and commented-code removal (`S6022`, `S5945`,
   `S125`) into touched files.
 - Recheck complexity/nesting (`S3776`, `S134`) by subsystem, retaining protocol
-  outcomes. `wrx02` stays separately evidence-gated. A proposed zero-High program
-  becomes a scheduling commitment only after its own approval.
+  outcomes. A proposed zero-High program becomes a scheduling commitment only
+  after its own approval.
 - Remeasure duplication in definition-authoring validate/write tails and transport
   read/write guards before extracting it.
 

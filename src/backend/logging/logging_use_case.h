@@ -13,7 +13,7 @@ namespace fastecu::logging
 class LoggingUseCase
 {
   public:
-    fastecu::Status run(const LoggingSession& session, LoggingProtocol& protocol,
+    fastecu::Status Run(const LoggingSession& session, LoggingProtocol& protocol,
                         const fastecu::ICancellationToken& cancellation, ILoggingEventSink& events,
                         fastecu::IEventSink& diagnostics) const;
 };

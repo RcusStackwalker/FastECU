@@ -1,22 +1,54 @@
 #include "src/backend/config/catalog.h"
 
+#include <algorithm>
 #include <format>
+#include <optional>
+#include <span>
+#include <string>
 #include <utility>
+#include <vector>
 
 namespace fastecu::config
 {
 namespace
 {
 
-bool is_vehicle_id(std::string_view id)
+std::unexpected<memory::MemoryError> FileSizeError(std::string detail)
+{
+    return std::unexpected(
+        memory::MemoryError{.kind = memory::MemoryErrorKind::kFileSizeMismatch, .detail = std::move(detail)});
+}
+
+bool IsVehicleId(std::string_view id)
 {
     return !id.empty() &&
            std::ranges::all_of(id, [](char c) { return (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-'; });
 }
 
-void add_protocol_problems(const Catalog& catalog, std::vector<std::string>& problems)
+void AddMemoryMapProblems(const ProtocolSpec& protocol, std::vector<std::string>& problems)
 {
-    const std::span<const ProtocolSpec> protocols = catalog.protocols();
+    const std::span<const MemoryMapSpec> maps = protocol.memory_maps;
+    for (std::size_t index = 0; index < maps.size(); ++index)
+    {
+        const MemoryMapSpec& spec = maps[index];
+        if (const auto map = memory::MemoryMap::Create(spec.blocks, spec.file_size, spec.definition_base);
+            !map.has_value())
+        {
+            problems.push_back(std::format("protocol '{}' memory map for 0x{:x}-byte files is invalid: {}",
+                                           protocol.name, spec.file_size.Value(), map.error().detail));
+        }
+        if (std::ranges::any_of(maps.first(index),
+                                [&spec](const MemoryMapSpec& earlier) { return earlier.file_size == spec.file_size; }))
+        {
+            problems.push_back(std::format("protocol '{}' declares two memory maps for 0x{:x}-byte files",
+                                           protocol.name, spec.file_size.Value()));
+        }
+    }
+}
+
+void AddProtocolProblems(const Catalog& catalog, std::vector<std::string>& problems)
+{
+    const std::span<const ProtocolSpec> protocols = catalog.Protocols();
     for (std::size_t index = 0; index < protocols.size(); ++index)
     {
         const ProtocolSpec& protocol = protocols[index];
@@ -37,22 +69,23 @@ void add_protocol_problems(const Catalog& catalog, std::vector<std::string>& pro
         {
             problems.push_back(std::format("protocol '{}' has a kernel load address but no kernel", protocol.name));
         }
-        if (std::ranges::none_of(catalog.vehicles(),
+        if (std::ranges::none_of(catalog.Vehicles(),
                                  [&protocol](const VehicleSpec& vehicle) { return vehicle.protocol == &protocol; }))
         {
             problems.push_back(std::format("protocol '{}' has no vehicle", protocol.name));
         }
+        AddMemoryMapProblems(protocol, problems);
     }
 }
 
-void add_vehicle_problems(const Catalog& catalog, std::vector<std::string>& problems)
+void AddVehicleProblems(const Catalog& catalog, std::vector<std::string>& problems)
 {
-    const std::span<const VehicleSpec> vehicles = catalog.vehicles();
+    const std::span<const VehicleSpec> vehicles = catalog.Vehicles();
     for (std::size_t index = 0; index < vehicles.size(); ++index)
     {
         const VehicleSpec& vehicle = vehicles[index];
         const std::span<const VehicleSpec> earlier = vehicles.first(index);
-        if (!is_vehicle_id(vehicle.id))
+        if (!IsVehicleId(vehicle.id))
         {
             problems.push_back(std::format("vehicle id '{}' is not lowercase [a-z0-9-]", vehicle.id));
         }
@@ -64,7 +97,7 @@ void add_vehicle_problems(const Catalog& catalog, std::vector<std::string>& prob
         {
             problems.push_back(std::format("vehicle '{}' has no protocol", vehicle.id));
         }
-        else if (std::ranges::none_of(catalog.protocols(), [&vehicle](const ProtocolSpec& protocol)
+        else if (std::ranges::none_of(catalog.Protocols(), [&vehicle](const ProtocolSpec& protocol)
                                       { return &protocol == vehicle.protocol; }))
         {
             problems.push_back(std::format("vehicle '{}' protocol is not in this catalog", vehicle.id));
@@ -74,33 +107,68 @@ void add_vehicle_problems(const Catalog& catalog, std::vector<std::string>& prob
 
 } // namespace
 
-std::string_view checksum_flag(ChecksumSupport support)
+std::string_view ChecksumFlag(ChecksumSupport support)
 {
     switch (support)
     {
-    case ChecksumSupport::Corrected:
+    case ChecksumSupport::kCorrected:
         return "yes";
-    case ChecksumSupport::Missing:
+    case ChecksumSupport::kMissing:
         return "n/a";
-    case ChecksumSupport::None:
+    case ChecksumSupport::kNone:
         return "no";
     }
     std::unreachable();
 }
 
-std::string kernel_load_address_text(const ProtocolSpec& protocol)
+std::string KernelLoadAddressText(const ProtocolSpec& protocol)
 {
     return protocol.kernel_load_address.has_value() ? std::format("0x{:X}", *protocol.kernel_load_address)
                                                     : std::string{};
 }
 
-const ProtocolSpec *Catalog::find_protocol(std::string_view name) const
+std::expected<memory::MemoryMap, memory::MemoryError> SelectMemoryMap(const ProtocolSpec *protocol,
+                                                                      std::size_t file_size)
+{
+    if (file_size == 0)
+    {
+        return FileSizeError("the ROM file is empty");
+    }
+    const std::optional<memory::ByteCount> size = memory::ByteCount::FromSize(file_size);
+    if (!size.has_value())
+    {
+        return FileSizeError(std::format("the {}-byte ROM file is larger than 4 GiB", file_size));
+    }
+    if (protocol == nullptr || protocol->memory_maps.empty())
+    {
+        return memory::MemoryMap::Identity(*size);
+    }
+    const auto found = std::ranges::find(protocol->memory_maps, *size, &MemoryMapSpec::file_size);
+    if (found == protocol->memory_maps.end())
+    {
+        return FileSizeError(
+            std::format("protocol '{}' has no memory map for 0x{:x}-byte ROM files", protocol->name, file_size));
+    }
+    return memory::MemoryMap::Create(found->blocks, found->file_size, found->definition_base);
+}
+
+std::expected<memory::MemoryImage, memory::MemoryError> PlaceRomFile(const ProtocolSpec *protocol, bytes::Bytes file)
+{
+    auto map = SelectMemoryMap(protocol, file.size());
+    if (!map.has_value())
+    {
+        return std::unexpected(map.error());
+    }
+    return memory::MemoryImage::Create(std::move(*map), std::move(file));
+}
+
+const ProtocolSpec *Catalog::FindProtocol(std::string_view name) const
 {
     const auto found = std::ranges::find(protocols_, name, &ProtocolSpec::name);
     return found == protocols_.end() ? nullptr : &*found;
 }
 
-std::optional<std::size_t> Catalog::find_vehicle(std::string_view id) const
+std::optional<std::size_t> Catalog::FindVehicle(std::string_view id) const
 {
     const auto found = std::ranges::find(vehicles_, id, &VehicleSpec::id);
     if (id.empty() || found == vehicles_.end())
@@ -110,7 +178,7 @@ std::optional<std::size_t> Catalog::find_vehicle(std::string_view id) const
     return static_cast<std::size_t>(std::ranges::distance(vehicles_.begin(), found));
 }
 
-std::optional<std::size_t> Catalog::last_vehicle_for_protocol(std::string_view protocol_name) const
+std::optional<std::size_t> Catalog::LastVehicleForProtocol(std::string_view protocol_name) const
 {
     std::optional<std::size_t> last;
     for (std::size_t row = 0; row < vehicles_.size(); ++row)
@@ -123,7 +191,7 @@ std::optional<std::size_t> Catalog::last_vehicle_for_protocol(std::string_view p
     return last;
 }
 
-const VehicleSpec *Catalog::first_vehicle_for_alias(std::string_view flash_method) const
+const VehicleSpec *Catalog::FirstVehicleForAlias(std::string_view flash_method) const
 {
     if (flash_method.empty())
     {
@@ -135,11 +203,11 @@ const VehicleSpec *Catalog::first_vehicle_for_alias(std::string_view flash_metho
     return found == vehicles_.end() ? nullptr : &*found;
 }
 
-std::vector<std::string> catalog_problems(const Catalog& catalog)
+std::vector<std::string> CatalogProblems(const Catalog& catalog)
 {
     std::vector<std::string> problems;
-    add_protocol_problems(catalog, problems);
-    add_vehicle_problems(catalog, problems);
+    AddProtocolProblems(catalog, problems);
+    AddVehicleProblems(catalog, problems);
     return problems;
 }
 

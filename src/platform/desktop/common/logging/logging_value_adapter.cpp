@@ -6,30 +6,30 @@
 
 namespace fastecu::desktop::logging
 {
-void DesktopLoggerValues::initialize(const fastecu::logging::LoggerModel& model)
+void DesktopLoggerValues::Initialize(const fastecu::logging::LoggerModel& model)
 {
     parameters_.clear();
     switches_.clear();
-    for (const auto& p : model.definition().parameters)
+    for (const auto& p : model.Definition().parameters)
     {
         parameters_.emplace(fastecu::logging::LoggerIdentity{p.protocol, p.id}, QStringLiteral("0.00"));
     }
-    for (const auto& p : model.definition().switches)
+    for (const auto& p : model.Definition().switches)
     {
         switches_.emplace(fastecu::logging::LoggerIdentity{p.protocol, p.id}, QStringLiteral("0"));
     }
 }
-QString DesktopLoggerValues::parameter_value(std::string_view protocol, std::string_view id) const
+QString DesktopLoggerValues::ParameterValue(std::string_view protocol, std::string_view id) const
 {
     const auto it = parameters_.find({std::string(protocol), std::string(id)});
     return it == parameters_.end() ? QString{} : it->second;
 }
-QString DesktopLoggerValues::switch_value(std::string_view protocol, std::string_view id) const
+QString DesktopLoggerValues::SwitchValue(std::string_view protocol, std::string_view id) const
 {
     const auto it = switches_.find({std::string(protocol), std::string(id)});
     return it == switches_.end() ? QString{} : it->second;
 }
-bool DesktopLoggerValues::set_parameter_value(const fastecu::logging::LoggerIdentity& identity, QString value)
+bool DesktopLoggerValues::SetParameterValue(const fastecu::logging::LoggerIdentity& identity, QString value)
 {
     const auto it = parameters_.find(identity);
     if (it == parameters_.end())
@@ -39,14 +39,14 @@ bool DesktopLoggerValues::set_parameter_value(const fastecu::logging::LoggerIden
     it->second = std::move(value);
     return true;
 }
-QString format_logging_value(double value, int precision)
+QString FormatLoggingValue(double value, int precision)
 {
     return QString::number(value, 'f', precision);
 }
-fastecu::Status apply_log_sample(const DesktopLoggingSnapshot& snapshot, const fastecu::logging::LogSample& sample,
-                                 DesktopLoggerValues& values)
+fastecu::Status ApplyLogSample(const DesktopLoggingSnapshot& snapshot, const fastecu::logging::LogSample& sample,
+                               DesktopLoggerValues& values)
 {
-    const auto resolved = fastecu::logging::resolve_log_sample(snapshot, sample);
+    const auto resolved = fastecu::logging::ResolveLogSample(snapshot, sample);
     if (!resolved.has_value())
     {
         return std::unexpected(resolved.error());
@@ -56,9 +56,9 @@ fastecu::Status apply_log_sample(const DesktopLoggingSnapshot& snapshot, const f
         return {};
     }
     const auto& value = **resolved;
-    if (!values.set_parameter_value(value.identity, format_logging_value(value.numeric_value, value.decimal_precision)))
+    if (!values.SetParameterValue(value.identity, FormatLoggingValue(value.numeric_value, value.decimal_precision)))
     {
-        return fastecu::fail(fastecu::ErrorKind::Internal, "logging sample identity is not in the desktop values");
+        return fastecu::Fail(fastecu::ErrorKind::kInternal, "logging sample identity is not in the desktop values");
     }
     return {};
 }

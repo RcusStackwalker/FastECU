@@ -892,8 +892,6 @@ def run_workflow(
         command = _executable_command(tools.run_clang_tidy, platform_name=platform_name) + [
             "-clang-tidy-binary",
             tools.clang_tidy,
-            "-config-file",
-            str(workspace / ".clang-tidy"),
             "-p",
             directory,
             # REPO.bazel makes the build fail on warnings, so the extracted

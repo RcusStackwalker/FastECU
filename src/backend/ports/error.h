@@ -6,40 +6,40 @@ namespace fastecu
 
 enum class ErrorKind
 {
-    InvalidConfig, // invalid configuration or definition
-    Timeout,       // bounded read/operation exceeded its deadline
-    Disconnected,  // adapter/transport not open or dropped
-    BadResponse,   // malformed or negatively-acknowledged ECU response
-    Cancelled,     // cooperative cancellation observed
-    Unsupported,   // operation not available for this target
-    Internal,      // invariant violation / unexpected state
+    kInvalidConfig, // invalid configuration or definition
+    kTimeout,       // bounded read/operation exceeded its deadline
+    kDisconnected,  // adapter/transport not open or dropped
+    kBadResponse,   // malformed or negatively-acknowledged ECU response
+    kCancelled,     // cooperative cancellation observed
+    kUnsupported,   // operation not available for this target
+    kInternal,      // invariant violation / unexpected state
 };
 
 struct Error
 {
-    ErrorKind kind{ErrorKind::Internal};
+    ErrorKind kind{ErrorKind::kInternal};
     std::string detail; // human-readable context; never the sole control signal
 
     bool operator==(const Error&) const = default;
 };
 
-inline const char *to_string(ErrorKind k)
+inline const char *ToString(ErrorKind k)
 {
     switch (k)
     {
-    case ErrorKind::InvalidConfig:
+    case ErrorKind::kInvalidConfig:
         return "InvalidConfig";
-    case ErrorKind::Timeout:
+    case ErrorKind::kTimeout:
         return "Timeout";
-    case ErrorKind::Disconnected:
+    case ErrorKind::kDisconnected:
         return "Disconnected";
-    case ErrorKind::BadResponse:
+    case ErrorKind::kBadResponse:
         return "BadResponse";
-    case ErrorKind::Cancelled:
+    case ErrorKind::kCancelled:
         return "Cancelled";
-    case ErrorKind::Unsupported:
+    case ErrorKind::kUnsupported:
         return "Unsupported";
-    case ErrorKind::Internal:
+    case ErrorKind::kInternal:
         return "Internal";
     }
     return "Internal";

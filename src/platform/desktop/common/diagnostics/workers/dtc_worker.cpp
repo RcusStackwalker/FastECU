@@ -15,14 +15,14 @@ DtcWorker::DtcWorker(DtcRequest request, IDiagnosticLink& link, std::unique_ptr<
 
 DtcWorker::~DtcWorker()
 {
-    requestStop();
+    RequestStop();
     // run() uses owned members; join fully before they are destroyed.
     wait();
 }
 
-void DtcWorker::requestStop()
+void DtcWorker::RequestStop()
 {
-    cancellation_.cancel();
+    cancellation_.Cancel();
 }
 
 void DtcWorker::run()
@@ -31,9 +31,9 @@ void DtcWorker::run()
     connect(&events, &QtEventSink::logged, this, &DtcWorker::logEvent, Qt::DirectConnection);
     connect(
         &events, &QtEventSink::noticed, this, [this](QString message)
-        { emit logEvent(static_cast<int>(LogLevel::Info), std::move(message)); }, Qt::DirectConnection);
+        { emit logEvent(static_cast<int>(LogLevel::kInfo), std::move(message)); }, Qt::DirectConnection);
 
-    const Result<DtcReport> report = run_dtc_session(request_, link_, *clock_, cancellation_, events);
+    const Result<DtcReport> report = RunDtcSession(request_, link_, *clock_, cancellation_, events);
     DtcWorkerResult result;
     result.success = report.has_value();
     if (!report.has_value())

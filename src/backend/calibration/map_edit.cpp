@@ -11,9 +11,9 @@ namespace fastecu::calibration
 {
 using namespace internal;
 
-std::uint64_t element_byte_address(const MapElementSpec& spec, std::uint32_t index, bool for_write)
+std::uint64_t ElementByteAddress(const MapElementSpec& spec, std::uint32_t index)
 {
-    const std::uint32_t width = definition::storage_byte_size(spec.storage_type);
+    const std::uint32_t width = definition::StorageByteSize(spec.storage_type);
 
     // Layout matches decode_numeric_run (calibration_service.cpp) exactly --
     // spec's defect (b): the edit path used to lay elements out flat
@@ -30,8 +30,8 @@ std::uint64_t element_byte_address(const MapElementSpec& spec, std::uint32_t ind
     // sentinel address a real ROM can never contain rather than wrapping, so
     // every caller's existing bounds check (read_raw_element's
     // byte_window_fits, or read_raw_element having already validated the
-    // same index before any of this file's apply_* operations reach their
-    // own element_byte_address(..., for_write=true) call) turns the overflow
+    // same index before any of this file's apply_* operations compute the
+    // same address again) turns the overflow
     // into the same "runs past ROM size" failure decode_numeric_run reports,
     // instead of silently targeting a wrapped-around address.
     constexpr std::uint64_t kOverflowSentinel = std::numeric_limits<std::uint64_t>::max();
@@ -39,38 +39,24 @@ std::uint64_t element_byte_address(const MapElementSpec& spec, std::uint32_t ind
     std::uint64_t stride = 0;
     std::uint64_t element_offset = 0;
     std::uint64_t address = 0;
-    if (!checked_multiply(start_offset, width, start_byte_offset) || !checked_multiply(width, spec.interval, stride) ||
-        !checked_multiply(std::uint64_t(index), stride, element_offset) ||
-        !checked_add(spec.address, start_byte_offset, address) || !checked_add(address, element_offset, address))
+    if (!CheckedMultiply(start_offset, width, start_byte_offset) || !CheckedMultiply(width, spec.interval, stride) ||
+        !CheckedMultiply(std::uint64_t(index), stride, element_offset) ||
+        !CheckedAdd(spec.address, start_byte_offset, address) || !CheckedAdd(address, element_offset, address))
     {
         return kOverflowSentinel;
     }
 
-    // Legacy applies two DIFFERENT wrx02 relocation predicates on the read and
-    // write paths. Preserved verbatim and kept visibly side by side; the spec's
-    // defect (a) covers the divergence, deferred pending corpus evidence about
-    // which predicate real wrx02 ROMs actually need -- deliberately NOT
-    // reconciled by the 6b-4 fix wave (unlike the byte-order defects it does
-    // fix), since picking the wrong one here could target a different but
-    // still-plausible ROM address on a real device.
-    if (spec.flash_method != "wrx02")
-    {
-        return address;
-    }
-    constexpr std::uint64_t kSizeThreshold = std::uint64_t(190) * 1024;
-    const bool relocate =
-        for_write ? (spec.rom_file_size < kSizeThreshold && address > 0x27FFF) : (spec.rom_file_size < address);
-    return relocate ? address - 0x8000 : address;
+    return address;
 }
 
-Result<std::int64_t> read_raw_element(bytes::ByteView rom_data, const MapElementSpec& spec, std::uint32_t index)
+Result<std::int64_t> ReadRawElement(bytes::ByteView rom_data, const MapElementSpec& spec, std::uint32_t index)
 {
-    const std::uint32_t width = definition::storage_byte_size(spec.storage_type);
-    const std::uint64_t address = element_byte_address(spec, index, /*for_write=*/false);
+    const std::uint32_t width = definition::StorageByteSize(spec.storage_type);
+    const std::uint64_t address = ElementByteAddress(spec, index);
 
-    if (!byte_window_fits(rom_data, address, width))
+    if (!ByteWindowFits(rom_data, address, width))
     {
-        return fail(ErrorKind::Internal,
+        return Fail(ErrorKind::kInternal,
                     std::format("element {} at 0x{:x} runs past ROM size {}", index, address, rom_data.size()));
     }
 
@@ -90,7 +76,7 @@ Result<std::int64_t> read_raw_element(bytes::ByteView rom_data, const MapElement
     std::uint32_t data_byte = 0;
     std::array<std::uint8_t, 4> byte_value{};
 
-    const bool little_or_float = spec.endian == "little" || spec.storage_type == definition::StorageType::Float;
+    const bool little_or_float = spec.endian == "little" || spec.storage_type == definition::StorageType::kFloat;
 
     for (std::uint32_t k = 0; k < width; ++k)
     {
@@ -100,12 +86,12 @@ Result<std::int64_t> read_raw_element(bytes::ByteView rom_data, const MapElement
         byte_value[k] = raw_byte;
     }
 
-    if (definition::is_unsigned_storage(spec.storage_type))
+    if (definition::IsUnsignedStorage(spec.storage_type))
     {
         return static_cast<std::int64_t>(data_byte);
     }
 
-    if (spec.storage_type == definition::StorageType::Float)
+    if (spec.storage_type == definition::StorageType::kFloat)
     {
         // Assembles the four bytes into a uint32_t and returns those bits
         // reinterpreted as int32_t, rather than reading a union member that
@@ -126,7 +112,7 @@ Result<std::int64_t> read_raw_element(bytes::ByteView rom_data, const MapElement
         // float's most-significant byte: a big-endian float in ROM, matching
         // decode_numeric_run's documented float handling in
         // calibration_service.cpp.
-        const std::uint32_t bits = bytes::readU32Le(byte_value);
+        const std::uint32_t bits = bytes::ReadU32Le(byte_value);
         return static_cast<std::int64_t>(std::bit_cast<std::int32_t>(bits));
     }
 
@@ -140,13 +126,13 @@ Result<std::int64_t> read_raw_element(bytes::ByteView rom_data, const MapElement
     // all). Matches decode_numeric_run's identical
     // little_endian-read-then-sign_extend(raw, width) pattern
     // (calibration_service.cpp) for every width.
-    return static_cast<std::int64_t>(sign_extend(data_byte, width));
+    return static_cast<std::int64_t>(SignExtend(data_byte, width));
 }
 
-Result<std::vector<std::uint8_t>> write_raw_element(const MapElementSpec& spec, std::int64_t raw)
+Result<std::vector<std::uint8_t>> WriteRawElement(const MapElementSpec& spec, std::int64_t raw)
 {
-    const std::uint32_t width = definition::storage_byte_size(spec.storage_type);
-    const bool is_float = spec.storage_type == definition::StorageType::Float;
+    const std::uint32_t width = definition::StorageByteSize(spec.storage_type);
+    const bool is_float = spec.storage_type == definition::StorageType::kFloat;
 
     // `raw`'s low 32 bits are packed bit-for-bit -- for float storage this is
     // already the encoded float's bit pattern, not a number to convert; see
@@ -163,7 +149,7 @@ Result<std::vector<std::uint8_t>> write_raw_element(const MapElementSpec& spec, 
     return out;
 }
 
-EditTarget resolve_edit_target(const SelectionRange& selection, MapDimensions dims, std::string_view x_scale_type)
+EditTarget ResolveEditTarget(const SelectionRange& selection, MapDimensions dims, std::string_view x_scale_type)
 {
     // Ported from inc_dec_value's three-way branch (menu_actions.cpp), the
     // canonical copy duplicated verbatim across inc_dec_value, set_value, and
@@ -181,12 +167,12 @@ EditTarget resolve_edit_target(const SelectionRange& selection, MapDimensions di
     {
         if (is_static_scale)
         {
-            return {.kind = EditTargetKind::Rejected, .range = {}, .x_size = dims.x_size};
+            return {.kind = EditTargetKind::kRejected, .range = {}, .x_size = dims.x_size};
         }
         first_col++;
         last_col++;
         x_size = 1;
-        return {.kind = EditTargetKind::YAxis,
+        return {.kind = EditTargetKind::kYAxis,
                 .range = {.first_row = first_row, .first_col = first_col, .last_row = last_row, .last_col = last_col},
                 .x_size = x_size};
     }
@@ -195,7 +181,7 @@ EditTarget resolve_edit_target(const SelectionRange& selection, MapDimensions di
     {
         if (is_static_scale)
         {
-            return {.kind = EditTargetKind::Rejected, .range = {}, .x_size = dims.x_size};
+            return {.kind = EditTargetKind::kRejected, .range = {}, .x_size = dims.x_size};
         }
         first_row++;
         last_row++;
@@ -205,7 +191,7 @@ EditTarget resolve_edit_target(const SelectionRange& selection, MapDimensions di
             first_col++;
             last_col++;
         }
-        return {.kind = EditTargetKind::XAxis,
+        return {.kind = EditTargetKind::kXAxis,
                 .range = {.first_row = first_row, .first_col = first_col, .last_row = last_row, .last_col = last_col},
                 .x_size = x_size};
     }
@@ -221,7 +207,7 @@ EditTarget resolve_edit_target(const SelectionRange& selection, MapDimensions di
         last_col++;
     }
 
-    return {.kind = EditTargetKind::MapBody,
+    return {.kind = EditTargetKind::kMapBody,
             .range = {.first_row = first_row, .first_col = first_col, .last_row = last_row, .last_col = last_col},
             .x_size = x_size};
 }

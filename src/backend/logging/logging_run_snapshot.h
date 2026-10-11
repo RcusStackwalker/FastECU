@@ -14,19 +14,19 @@ namespace fastecu::logging
 {
 enum class LoggingTarget
 {
-    Ecu,
-    Tcu,
+    kEcu,
+    kTcu,
 };
 
 class LoggingRunSnapshot
 {
   public:
-    const LoggingSession& session() const;
-    const std::string& protocol_key() const;
-    const LoggerSelection& selection() const;
-    const std::vector<std::size_t>& response_offsets() const;
-    LoggingTarget target() const;
-    bool channel_enabled(std::string_view id) const;
+    const LoggingSession& Session() const;
+    const std::string& ProtocolKey() const;
+    const LoggerSelection& Selection() const;
+    const std::vector<std::size_t>& ResponseOffsets() const;
+    LoggingTarget Target() const;
+    bool ChannelEnabled(std::string_view id) const;
 
   private:
     LoggingRunSnapshot(LoggingSession session, std::string protocol_key, LoggerSelection selection,
@@ -40,12 +40,12 @@ class LoggingRunSnapshot
     std::unordered_set<std::string> enabled_ids_;
     LoggingTarget target_;
 
-    friend fastecu::Result<LoggingRunSnapshot> prepare_logging_run(const LoggerModel& model, LoggingProtocolId protocol,
-                                                                   std::string_view protocol_filter,
-                                                                   LoggingPolicy policy, LoggingTarget target);
+    friend fastecu::Result<LoggingRunSnapshot> PrepareLoggingRun(const LoggerModel& model, LoggingProtocolId protocol,
+                                                                 std::string_view protocol_filter, LoggingPolicy policy,
+                                                                 LoggingTarget target);
 };
 
-fastecu::Result<LoggingRunSnapshot> prepare_logging_run(const LoggerModel& model, LoggingProtocolId protocol,
-                                                        std::string_view protocol_filter, LoggingPolicy policy,
-                                                        LoggingTarget target);
+fastecu::Result<LoggingRunSnapshot> PrepareLoggingRun(const LoggerModel& model, LoggingProtocolId protocol,
+                                                      std::string_view protocol_filter, LoggingPolicy policy,
+                                                      LoggingTarget target);
 } // namespace fastecu::logging

@@ -38,8 +38,8 @@ namespace fastecu::flash
 {
 namespace
 {
-using bytes::composeBe;
-using bytes::u24;
+using bytes::ComposeBe;
+using bytes::U24;
 using namespace bytes::literals;
 using namespace std::chrono_literals;
 
@@ -54,15 +54,15 @@ constexpr std::string_view kReflashRecoveryWarning =
 
 enum class UploadB6Reply
 {
-    NoFrame,
-    Timeout,
-    Short,
-    Malformed,
-    WrongCanId,
-    Negative,
-    AdapterError,
-    Cancelled,
-    Disconnected,
+    kNoFrame,
+    kTimeout,
+    kShort,
+    kMalformed,
+    kWrongCanId,
+    kNegative,
+    kAdapterError,
+    kCancelled,
+    kDisconnected,
 };
 
 struct Case
@@ -126,7 +126,7 @@ constexpr std::array<BlockFixture, 16> kSh7058Blocks{{
     {0x000E0000, 0x00020000, 0xC39BE4A8},
 }};
 
-std::span<const BlockFixture> blocks_for(const Case& test_case)
+std::span<const BlockFixture> BlocksFor(const Case& test_case)
 {
     return test_case.mcu == "SH7055" ? std::span<const BlockFixture>(kSh7055Blocks)
                                      : std::span<const BlockFixture>(kSh7058Blocks);
@@ -142,7 +142,7 @@ std::span<const BlockFixture> blocks_for(const Case& test_case)
 class RecordingCanTransport final : public ICanFlashTransport
 {
   public:
-    Status reset_connection() override
+    Status ResetConnection() override
     {
         lifecycle.push_back("reset_connection");
         if (timeline != nullptr)
@@ -154,11 +154,11 @@ class RecordingCanTransport final : public ICanFlashTransport
         Status result = reset_result;
         if (result.has_value() && cancellation_on_reset != nullptr)
         {
-            cancellation_on_reset->set_cancelled(true);
+            cancellation_on_reset->SetCancelled(true);
         }
         return result;
     }
-    Status configure(const Iso15765Config& config) override
+    Status Configure(const Iso15765Config& config) override
     {
         lifecycle.push_back("configure");
         if (timeline != nullptr)
@@ -174,12 +174,12 @@ class RecordingCanTransport final : public ICanFlashTransport
             }
             if (cancellation_on_configure != nullptr)
             {
-                cancellation_on_configure->set_cancelled(true);
+                cancellation_on_configure->SetCancelled(true);
             }
         }
-        return scripted.configure(config);
+        return scripted.Configure(config);
     }
-    Status open() override
+    Status Open() override
     {
         lifecycle.push_back("open");
         if (timeline != nullptr)
@@ -190,30 +190,30 @@ class RecordingCanTransport final : public ICanFlashTransport
         {
             return restart_open_result;
         }
-        Status result = scripted.open();
+        Status result = scripted.Open();
         if (result.has_value() && restart_in_progress && cancellation_on_open != nullptr)
         {
-            cancellation_on_open->set_cancelled(true);
+            cancellation_on_open->SetCancelled(true);
         }
         return result;
     }
-    Status close() override
+    Status Close() override
     {
         lifecycle.push_back("close");
         if (timeline != nullptr)
         {
             timeline->push_back("close");
         }
-        return scripted.close();
+        return scripted.Close();
     }
-    void request_unblock() noexcept override
+    void RequestUnblock() noexcept override
     {
-        scripted.request_unblock();
+        scripted.RequestUnblock();
     }
-    Status write(bytes::ByteView data, const ICancellationToken& cancellation) override
+    Status Write(bytes::ByteView data, const ICancellationToken& cancellation) override
     {
         writes.emplace_back(data.begin(), data.end());
-        Status result = scripted.write(data, cancellation);
+        Status result = scripted.Write(data, cancellation);
         if (result.has_value() && timeline != nullptr)
         {
             timeline->push_back(data.size() > 4 && data[4] == 0x31                      ? "kernel_start_write"
@@ -223,15 +223,15 @@ class RecordingCanTransport final : public ICanFlashTransport
         if (result.has_value() && cancellation_to_trigger != nullptr && !cancel_prefix.empty() &&
             data.size() >= cancel_prefix.size() && std::equal(cancel_prefix.begin(), cancel_prefix.end(), data.begin()))
         {
-            cancellation_to_trigger->set_cancelled(true);
+            cancellation_to_trigger->SetCancelled(true);
         }
         return result;
     }
-    Result<std::optional<bytes::Bytes>> read(std::chrono::milliseconds timeout,
+    Result<std::optional<bytes::Bytes>> Read(std::chrono::milliseconds timeout,
                                              const ICancellationToken& cancellation) override
     {
         read_timeouts.push_back(timeout);
-        Result<std::optional<bytes::Bytes>> result = scripted.read(timeout, cancellation);
+        Result<std::optional<bytes::Bytes>> result = scripted.Read(timeout, cancellation);
         if (result.has_value() && timeline != nullptr)
         {
             timeline->push_back("read");
@@ -239,7 +239,7 @@ class RecordingCanTransport final : public ICanFlashTransport
         if (result.has_value() && cancellation_after_kernel_start_reply != nullptr && !writes.empty() &&
             writes.back().size() > 4 && writes.back()[4] == 0x31)
         {
-            cancellation_after_kernel_start_reply->set_cancelled(true);
+            cancellation_after_kernel_start_reply->SetCancelled(true);
         }
         return result;
     }
@@ -270,12 +270,12 @@ class CancellingEventSink final : public RecordingEventSink
     {
     }
 
-    void log(LogLevel level, std::string_view message) override
+    void Log(LogLevel level, std::string_view message) override
     {
-        RecordingEventSink::log(level, message);
+        RecordingEventSink::Log(level, message);
         if (message == " erased")
         {
-            cancellation_.set_cancelled(true);
+            cancellation_.SetCancelled(true);
         }
     }
 
@@ -283,63 +283,63 @@ class CancellingEventSink final : public RecordingEventSink
     FakeCancellationToken& cancellation_;
 };
 
-KernelImage kernel_for(const Case& test_case, bytes::Bytes data = {0x01, 0x02, 0x03, 0x04})
+KernelImage KernelFor(const Case& test_case, bytes::Bytes data = {0x01, 0x02, 0x03, 0x04})
 {
     return {.id = "tcu-denso-kernel", .load_address = test_case.kernel_address, .bytes = std::move(data)};
 }
 
-Result<FlashPlan> read_plan(const Case& test_case, bytes::Bytes kernel = {0x01, 0x02, 0x03, 0x04})
+Result<FlashPlan> ReadPlan(const Case& test_case, bytes::Bytes kernel = {0x01, 0x02, 0x03, 0x04})
 {
-    return build_subaru_tcu_denso_sh705x_can_plan(FlashOperation::Read, test_case.protocol, test_case.mcu, std::nullopt,
-                                                  kernel_for(test_case, std::move(kernel)));
+    return BuildSubaruTcuDensoSh705xCanPlan(FlashOperation::kRead, test_case.protocol, test_case.mcu, std::nullopt,
+                                            KernelFor(test_case, std::move(kernel)));
 }
 
-Result<FlashPlan> write_plan(const Case& test_case, bytes::Bytes image = {})
+Result<FlashPlan> WritePlan(const Case& test_case, bytes::Bytes image = {})
 {
     if (image.empty())
     {
         image.assign(test_case.rom_size, bytes::Byte{0});
     }
-    return build_subaru_tcu_denso_sh705x_can_plan(FlashOperation::Write, test_case.protocol, test_case.mcu,
-                                                  std::move(image), kernel_for(test_case));
+    return BuildSubaruTcuDensoSh705xCanPlan(FlashOperation::kWrite, test_case.protocol, test_case.mcu, std::move(image),
+                                            KernelFor(test_case));
 }
 
-bytes::Bytes request(bytes::ByteView pdu)
+bytes::Bytes Request(bytes::ByteView pdu)
 {
-    return composeBe(kRequestId, pdu);
+    return ComposeBe(kRequestId, pdu);
 }
 
-bytes::Bytes response(bytes::ByteView pdu)
+bytes::Bytes Response(bytes::ByteView pdu)
 {
-    return composeBe(kResponseId, pdu);
+    return ComposeBe(kResponseId, pdu);
 }
 
 // Legacy request_kernel_id(), r59f4e442 lines 1583-1647. This is the initial
 // ISO-15765 probe's exact twelve-byte wire buffer, not a UDS PDU.
-bytes::Bytes kernel_id_request()
+bytes::Bytes KernelIdRequest()
 {
     return {0x00, 0x00, 0x07, 0xE1, 0x7A, 0xA0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 }
 
-bytes::Bytes beef_request(std::uint8_t opcode, bytes::ByteView payload = {})
+bytes::Bytes BeefRequest(std::uint8_t opcode, bytes::ByteView payload = {})
 {
-    bytes::Bytes message = composeBe(kRequestId, std::uint16_t{0xBEEF}, static_cast<std::uint16_t>(payload.size() + 1),
+    bytes::Bytes message = ComposeBe(kRequestId, std::uint16_t{0xBEEF}, static_cast<std::uint16_t>(payload.size() + 1),
                                      bytes::Byte(opcode));
     message.insert(message.end(), payload.begin(), payload.end());
     return message;
 }
 
-bytes::Bytes beef_response(std::uint8_t opcode, bytes::ByteView payload = {})
+bytes::Bytes BeefResponse(std::uint8_t opcode, bytes::ByteView payload = {})
 {
-    bytes::Bytes message = composeBe(kResponseId, std::uint16_t{0xBEEF}, static_cast<std::uint16_t>(payload.size() + 1),
+    bytes::Bytes message = ComposeBe(kResponseId, std::uint16_t{0xBEEF}, static_cast<std::uint16_t>(payload.size() + 1),
                                      bytes::Byte(opcode));
     message.insert(message.end(), payload.begin(), payload.end());
     return message;
 }
 
-bytes::Bytes kernel_id_response(bool with_transport_padding = false)
+bytes::Bytes KernelIdResponse(bool with_transport_padding = false)
 {
-    bytes::Bytes response = beef_response(0x41, bytes::Bytes{'K', 'I', 'D'});
+    bytes::Bytes response = BeefResponse(0x41, bytes::Bytes{'K', 'I', 'D'});
     if (with_transport_padding)
     {
         response.insert(response.end(), {0x00, 0x00});
@@ -347,59 +347,59 @@ bytes::Bytes kernel_id_response(bool with_transport_padding = false)
     return response;
 }
 
-void configure_and_open(SubaruTcuDensoSh705xCanExecutor& executor, const FlashPlan& plan, ICanFlashTransport& transport)
+void ConfigureAndOpen(SubaruTcuDensoSh705xCanExecutor& executor, const FlashPlan& plan, ICanFlashTransport& transport)
 {
-    auto setup = executor.transport_setup(plan);
+    auto setup = executor.TransportSetup(plan);
     ASSERT_TRUE(setup.has_value()) << setup.error().detail;
-    ASSERT_TRUE(transport.configure(*setup).has_value());
-    ASSERT_TRUE(transport.open().has_value());
+    ASSERT_TRUE(transport.Configure(*setup).has_value());
+    ASSERT_TRUE(transport.Open().has_value());
 }
 
-void script_kernel_alive(ScriptedCanFlashTransport& transport, bool with_transport_padding = false)
+void ScriptKernelAlive(ScriptedCanFlashTransport& transport, bool with_transport_padding = false)
 {
-    transport.expectWrite(kernel_id_request());
-    transport.queueRead(kernel_id_response(with_transport_padding));
-    transport.queue_no_frame(); // terminate the legacy short trailing drain
+    transport.ExpectWrite(KernelIdRequest());
+    transport.QueueRead(KernelIdResponse(with_transport_padding));
+    transport.QueueNoFrame(); // terminate the legacy short trailing drain
 }
 
-void script_kernel_alive_fragmented(ScriptedCanFlashTransport& transport)
+void ScriptKernelAliveFragmented(ScriptedCanFlashTransport& transport)
 {
-    transport.expectWrite(kernel_id_request());
+    transport.ExpectWrite(KernelIdRequest());
     // The declared BEEF body is four bytes (opcode plus KID), but the first
     // raw CAN envelope carries only the first payload byte.  The remaining
     // payload arrives in a second raw envelope, followed by an empty short
     // read that terminates the legacy trailing drain.
-    transport.queueRead(
-        composeBe(kResponseId, std::uint16_t{0xBEEF}, std::uint16_t{4}, bytes::Byte{0x41}, bytes::Byte{'K'}));
-    transport.queueRead(response(bytes::Bytes{'I', 'D'}));
-    transport.queue_error(ErrorKind::Timeout, "legacy short drain expired");
+    transport.QueueRead(
+        ComposeBe(kResponseId, std::uint16_t{0xBEEF}, std::uint16_t{4}, bytes::Byte{0x41}, bytes::Byte{'K'}));
+    transport.QueueRead(Response(bytes::Bytes{'I', 'D'}));
+    transport.QueueError(ErrorKind::kTimeout, "legacy short drain expired");
 }
 
-void script_kernel_probe_timeout(ScriptedCanFlashTransport& transport)
+void ScriptKernelProbeTimeout(ScriptedCanFlashTransport& transport)
 {
     for (int attempt = 0; attempt < 5; ++attempt)
     {
-        transport.expectWrite(kernel_id_request());
-        transport.queue_no_frame();
+        transport.ExpectWrite(KernelIdRequest());
+        transport.QueueNoFrame();
     }
 }
 
-void script_read_pages(ScriptedCanFlashTransport& transport, std::uint32_t size, bytes::Byte wire_fill = 0)
+void ScriptReadPages(ScriptedCanFlashTransport& transport, std::uint32_t size, bytes::Byte wire_fill = 0)
 {
     for (std::uint32_t address = 0; address < size; address += kReadPageSize)
     {
-        transport.expectWrite(beef_request(0x03, composeBe(0x00_b, u24(address), std::uint16_t{kReadPageSize})));
-        transport.queueRead(beef_response(0x43, bytes::Bytes(kReadPageSize, wire_fill)));
+        transport.ExpectWrite(BeefRequest(0x03, ComposeBe(0x00_b, U24(address), std::uint16_t{kReadPageSize})));
+        transport.QueueRead(BeefResponse(0x43, bytes::Bytes(kReadPageSize, wire_fill)));
     }
 }
 
-void script_raw_read_pages_with_boundary_sentinels(ScriptedCanFlashTransport& transport, std::uint32_t size)
+void ScriptRawReadPagesWithBoundarySentinels(ScriptedCanFlashTransport& transport, std::uint32_t size)
 {
     constexpr std::array<bytes::Byte, 8> kFirstWireBytes{0xD3, 0x5A, 0xC7, 0x19, 0x2E, 0xF4, 0x80, 0x6B};
     constexpr std::array<bytes::Byte, 8> kLastWireBytes{0x9C, 0x31, 0xE7, 0x04, 0xB2, 0x6D, 0x58, 0xAF};
     for (std::uint32_t address = 0; address < size; address += kReadPageSize)
     {
-        transport.expectWrite(beef_request(0x03, composeBe(0x00_b, u24(address), std::uint16_t{kReadPageSize})));
+        transport.ExpectWrite(BeefRequest(0x03, ComposeBe(0x00_b, U24(address), std::uint16_t{kReadPageSize})));
         bytes::Bytes page(kReadPageSize, bytes::Byte{0});
         if (address == 0)
         {
@@ -409,77 +409,77 @@ void script_raw_read_pages_with_boundary_sentinels(ScriptedCanFlashTransport& tr
         {
             std::copy(kLastWireBytes.begin(), kLastWireBytes.end(), page.end() - kLastWireBytes.size());
         }
-        transport.queueRead(beef_response(0x43, page));
+        transport.QueueRead(BeefResponse(0x43, page));
     }
 }
 
-void script_identity_queries(ScriptedCanFlashTransport& transport)
+void ScriptIdentityQueries(ScriptedCanFlashTransport& transport)
 {
     // connect_bootloader(), r59f4e442 lines 137-214: both identity queries
     // are non-fatal, but successful read identity contributes to rom_id.
-    transport.expectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE1, 0xAA});
-    transport.queueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0xEA, 0x00, 0x00, 0x00, 0x45, 0x43, 0x55, 0x30, 0x31});
-    transport.expectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE1, 0x09, 0x04});
-    transport.queueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0x49, 0x04, 0x00, 0x43, 0x41, 0x4C});
+    transport.ExpectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE1, 0xAA});
+    transport.QueueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0xEA, 0x00, 0x00, 0x00, 0x45, 0x43, 0x55, 0x30, 0x31});
+    transport.ExpectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE1, 0x09, 0x04});
+    transport.QueueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0x49, 0x04, 0x00, 0x43, 0x41, 0x4C});
 }
 
-void script_strict_session_and_security(ScriptedCanFlashTransport& transport)
+void ScriptStrictSessionAndSecurity(ScriptedCanFlashTransport& transport)
 {
     // connect_bootloader(), r59f4e442 lines 216-359. Seed 11 22 33 44 maps
     // to 35 B6 83 BF; the literal is fixed independently of executor code.
-    transport.expectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE1, 0x10, 0x03});
-    transport.queueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0x50, 0x03});
-    transport.expectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE1, 0x27, 0x01});
-    transport.queueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0x67, 0x01, 0x11, 0x22, 0x33, 0x44});
-    transport.expectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE1, 0x27, 0x02, 0x35, 0xB6, 0x83, 0xBF});
-    transport.queueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0x67, 0x02});
-    transport.expectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE1, 0x10, 0x02});
-    transport.queueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0x50, 0x42});
+    transport.ExpectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE1, 0x10, 0x03});
+    transport.QueueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0x50, 0x03});
+    transport.ExpectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE1, 0x27, 0x01});
+    transport.QueueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0x67, 0x01, 0x11, 0x22, 0x33, 0x44});
+    transport.ExpectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE1, 0x27, 0x02, 0x35, 0xB6, 0x83, 0xBF});
+    transport.QueueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0x67, 0x02});
+    transport.ExpectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE1, 0x10, 0x02});
+    transport.QueueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0x50, 0x42});
 }
 
-void queue_upload_b6_reply(ScriptedCanFlashTransport& transport, UploadB6Reply reply)
+void QueueUploadB6Reply(ScriptedCanFlashTransport& transport, UploadB6Reply reply)
 {
     switch (reply)
     {
-    case UploadB6Reply::NoFrame:
-        transport.queue_no_frame();
+    case UploadB6Reply::kNoFrame:
+        transport.QueueNoFrame();
         return;
-    case UploadB6Reply::Timeout:
-        transport.queue_error(ErrorKind::Timeout, "legacy B6 timeout");
+    case UploadB6Reply::kTimeout:
+        transport.QueueError(ErrorKind::kTimeout, "legacy B6 timeout");
         return;
-    case UploadB6Reply::Short:
-        transport.queueRead(bytes::Bytes{0x00, 0x00, 0x07});
+    case UploadB6Reply::kShort:
+        transport.QueueRead(bytes::Bytes{0x00, 0x00, 0x07});
         return;
-    case UploadB6Reply::Malformed:
-        transport.queueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0xBE});
+    case UploadB6Reply::kMalformed:
+        transport.QueueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0xBE});
         return;
-    case UploadB6Reply::WrongCanId:
-        transport.queueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE8, 0x76});
+    case UploadB6Reply::kWrongCanId:
+        transport.QueueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE8, 0x76});
         return;
-    case UploadB6Reply::Negative:
-        transport.queueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0x7F, 0xB6, 0x31});
+    case UploadB6Reply::kNegative:
+        transport.QueueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0x7F, 0xB6, 0x31});
         return;
-    case UploadB6Reply::AdapterError:
-        transport.queue_error(ErrorKind::Internal, "legacy stale B6 adapter error");
+    case UploadB6Reply::kAdapterError:
+        transport.QueueError(ErrorKind::kInternal, "legacy stale B6 adapter error");
         return;
-    case UploadB6Reply::Cancelled:
-        transport.queue_error(ErrorKind::Cancelled, "legacy B6 cancellation");
+    case UploadB6Reply::kCancelled:
+        transport.QueueError(ErrorKind::kCancelled, "legacy B6 cancellation");
         return;
-    case UploadB6Reply::Disconnected:
-        transport.queue_error(ErrorKind::Disconnected, "legacy B6 disconnect");
+    case UploadB6Reply::kDisconnected:
+        transport.QueueError(ErrorKind::kDisconnected, "legacy B6 disconnect");
         return;
     }
 }
 
-void script_kernel_upload_until_start(ScriptedCanFlashTransport& transport, const Case& test_case,
-                                      UploadB6Reply b6_reply = UploadB6Reply::NoFrame)
+void ScriptKernelUploadUntilStart(ScriptedCanFlashTransport& transport, const Case& test_case,
+                                  UploadB6Reply b6_reply = UploadB6Reply::kNoFrame)
 {
     // upload_kernel(), r59f4e442 lines 369-627. Four kernel bytes pad to one
     // 128-byte transfer. The checksum word is 59 A3 A2 56, and the first and
     // last encrypted words are fixed here so the test never calls production
     // crypto helpers.
-    transport.expectWrite(request(composeBe(0x34_b, 0x04_b, 0x33_b, u24(test_case.kernel_address), u24(0x80))));
-    transport.queueRead(response(bytes::Bytes{0x74, 0x20}));
+    transport.ExpectWrite(Request(ComposeBe(0x34_b, 0x04_b, 0x33_b, U24(test_case.kernel_address), U24(0x80))));
+    transport.QueueRead(Response(bytes::Bytes{0x74, 0x20}));
 
     bytes::Bytes block{0xB6,
                        static_cast<bytes::Byte>(test_case.kernel_address >> 16U),
@@ -494,44 +494,44 @@ void script_kernel_upload_until_start(ScriptedCanFlashTransport& transport, cons
         block.insert(block.end(), {0xE7, 0xE2, 0x14, 0x30});
     }
     block.insert(block.end(), {0x6C, 0x78, 0x52, 0x90});
-    transport.expectWrite(request(block));
-    queue_upload_b6_reply(transport, b6_reply);
-    transport.expectWrite(
-        request(bytes::Bytes{0xB6, static_cast<bytes::Byte>((test_case.kernel_address + 0x80U) >> 16U),
+    transport.ExpectWrite(Request(block));
+    QueueUploadB6Reply(transport, b6_reply);
+    transport.ExpectWrite(
+        Request(bytes::Bytes{0xB6, static_cast<bytes::Byte>((test_case.kernel_address + 0x80U) >> 16U),
                              static_cast<bytes::Byte>((test_case.kernel_address + 0x80U) >> 8U),
                              static_cast<bytes::Byte>(test_case.kernel_address + 0x80U)}));
-    queue_upload_b6_reply(transport, b6_reply); // The <= maxblocks loop emits one empty final block.
+    QueueUploadB6Reply(transport, b6_reply); // The <= maxblocks loop emits one empty final block.
 
-    transport.expectWrite(request(bytes::Bytes{0x37}));
-    transport.queueRead(response(bytes::Bytes{0x77}));
-    transport.expectWrite(request(bytes::Bytes{0x31, 0x01, 0x02, 0x02, 0x02}));
+    transport.ExpectWrite(Request(bytes::Bytes{0x37}));
+    transport.QueueRead(Response(bytes::Bytes{0x77}));
+    transport.ExpectWrite(Request(bytes::Bytes{0x31, 0x01, 0x02, 0x02, 0x02}));
 }
 
-void script_kernel_upload(ScriptedCanFlashTransport& transport, const Case& test_case,
-                          UploadB6Reply b6_reply = UploadB6Reply::NoFrame,
-                          bytes::Bytes start_reply = bytes::Bytes{0x71, 0x01, 0x02, 0x02, 0x02})
+void ScriptKernelUpload(ScriptedCanFlashTransport& transport, const Case& test_case,
+                        UploadB6Reply b6_reply = UploadB6Reply::kNoFrame,
+                        bytes::Bytes start_reply = bytes::Bytes{0x71, 0x01, 0x02, 0x02, 0x02})
 {
-    script_kernel_upload_until_start(transport, test_case, b6_reply);
-    transport.queueRead(response(start_reply));
+    ScriptKernelUploadUntilStart(transport, test_case, b6_reply);
+    transport.QueueRead(Response(start_reply));
 }
 
-void script_hand_derived_129_byte_sh7055_kernel_upload(ScriptedCanFlashTransport& transport)
+void ScriptHandDerived129ByteSh7055KernelUpload(ScriptedCanFlashTransport& transport)
 {
     // Fixed transcript for 128 zero bytes followed by 01. Padding expands
     // the upload to 0x100 bytes. The second plaintext block begins with
     // 01 00 00 00 and ends with checksum 59 A5 A5 5A. Under the legacy
     // payload cipher those words are C0 41 D4 CA and 42 61 DB 2C;
     // encrypted zero words are E7 E2 14 30.
-    transport.expectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE1, 0x34, 0x04, 0x33, 0xFF, 0x90, 0x00, 0x00, 0x01, 0x00});
-    transport.queueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0x74, 0x20});
+    transport.ExpectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE1, 0x34, 0x04, 0x33, 0xFF, 0x90, 0x00, 0x00, 0x01, 0x00});
+    transport.QueueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0x74, 0x20});
 
     bytes::Bytes first_block{0x00, 0x00, 0x07, 0xE1, 0xB6, 0xFF, 0x90, 0x00};
     for (int word = 0; word < 32; ++word)
     {
         first_block.insert(first_block.end(), {0xE7, 0xE2, 0x14, 0x30});
     }
-    transport.expectWrite(first_block);
-    transport.queue_no_frame();
+    transport.ExpectWrite(first_block);
+    transport.QueueNoFrame();
 
     bytes::Bytes second_block{0x00, 0x00, 0x07, 0xE1, 0xB6, 0xFF, 0x90, 0x80, 0xC0, 0x41, 0xD4, 0xCA};
     for (int word = 0; word < 30; ++word)
@@ -539,50 +539,50 @@ void script_hand_derived_129_byte_sh7055_kernel_upload(ScriptedCanFlashTransport
         second_block.insert(second_block.end(), {0xE7, 0xE2, 0x14, 0x30});
     }
     second_block.insert(second_block.end(), {0x42, 0x61, 0xDB, 0x2C});
-    transport.expectWrite(second_block);
-    transport.queue_no_frame();
+    transport.ExpectWrite(second_block);
+    transport.QueueNoFrame();
 
     // Legacy's <= block-count loop emits one final zero-length transfer.
-    transport.expectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE1, 0xB6, 0xFF, 0x91, 0x00});
-    transport.queue_no_frame();
-    transport.expectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE1, 0x37});
-    transport.queueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0x77});
-    transport.expectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE1, 0x31, 0x01, 0x02, 0x02, 0x02});
-    transport.queueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0x71, 0x01, 0x02, 0x02, 0x02});
+    transport.ExpectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE1, 0xB6, 0xFF, 0x91, 0x00});
+    transport.QueueNoFrame();
+    transport.ExpectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE1, 0x37});
+    transport.QueueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0x77});
+    transport.ExpectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE1, 0x31, 0x01, 0x02, 0x02, 0x02});
+    transport.QueueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0x71, 0x01, 0x02, 0x02, 0x02});
 }
 
-bytes::Bytes zero_chunk(std::size_t size)
+bytes::Bytes ZeroChunk(std::size_t size)
 {
     return bytes::Bytes(size, bytes::Byte{0});
 }
 
-void script_crc(ScriptedCanFlashTransport& transport, const BlockFixture& block, std::uint32_t crc)
+void ScriptCrc(ScriptedCanFlashTransport& transport, const BlockFixture& block, std::uint32_t crc)
 {
-    transport.expectWrite(beef_request(0x02, composeBe(block.start, 0x00_b, u24(block.length))));
-    transport.queueRead(beef_response(0x42, composeBe(crc)));
-    transport.queue_no_frame(); // Legacy drains a short stale frame after each CRC comparison.
+    transport.ExpectWrite(BeefRequest(0x02, ComposeBe(block.start, 0x00_b, U24(block.length))));
+    transport.QueueRead(BeefResponse(0x42, ComposeBe(crc)));
+    transport.QueueNoFrame(); // Legacy drains a short stale frame after each CRC comparison.
 }
 
-void script_crc_with_stale(ScriptedCanFlashTransport& transport, const BlockFixture& block, std::uint32_t crc,
-                           bytes::ByteView stale)
+void ScriptCrcWithStale(ScriptedCanFlashTransport& transport, const BlockFixture& block, std::uint32_t crc,
+                        bytes::ByteView stale)
 {
-    transport.expectWrite(beef_request(0x02, composeBe(block.start, 0x00_b, u24(block.length))));
-    transport.queueRead(beef_response(0x42, composeBe(crc)));
-    transport.queueRead(stale);
+    transport.ExpectWrite(BeefRequest(0x02, ComposeBe(block.start, 0x00_b, U24(block.length))));
+    transport.QueueRead(BeefResponse(0x42, ComposeBe(crc)));
+    transport.QueueRead(stale);
 }
 
-void script_compare(ScriptedCanFlashTransport& transport, std::span<const BlockFixture> blocks,
-                    bool first_block_mismatches)
+void ScriptCompare(ScriptedCanFlashTransport& transport, std::span<const BlockFixture> blocks,
+                   bool first_block_mismatches)
 {
     for (std::size_t index = 0; index < blocks.size(); ++index)
     {
         const BlockFixture& block = blocks[index];
-        script_crc(transport, block, first_block_mismatches && index == 0 ? block.zero_crc ^ 1U : block.zero_crc);
+        ScriptCrc(transport, block, first_block_mismatches && index == 0 ? block.zero_crc ^ 1U : block.zero_crc);
     }
 }
 
-void script_compare_with_stale_crc_frames(ScriptedCanFlashTransport& transport, std::span<const BlockFixture> blocks,
-                                          bool first_block_mismatches)
+void ScriptCompareWithStaleCrcFrames(ScriptedCanFlashTransport& transport, std::span<const BlockFixture> blocks,
+                                     bool first_block_mismatches)
 {
     for (std::size_t index = 0; index < blocks.size(); ++index)
     {
@@ -591,91 +591,91 @@ void script_compare_with_stale_crc_frames(ScriptedCanFlashTransport& transport, 
         if (index == 0)
         {
             // Fixed wrong-ID stale frame after a mismatching CRC.
-            script_crc_with_stale(transport, block, crc, bytes::Bytes{0x00, 0x00, 0x07, 0xE8, 0xDE, 0xAD});
+            ScriptCrcWithStale(transport, block, crc, bytes::Bytes{0x00, 0x00, 0x07, 0xE8, 0xDE, 0xAD});
         }
         else if (index == 1)
         {
             // Fixed short junk after an equal CRC.
-            script_crc_with_stale(transport, block, crc, bytes::Bytes{0x12, 0x34});
+            ScriptCrcWithStale(transport, block, crc, bytes::Bytes{0x12, 0x34});
         }
         else
         {
-            script_crc(transport, block, crc);
+            ScriptCrc(transport, block, crc);
         }
     }
 }
 
-void script_sh7058_a5_block_compare(ScriptedCanFlashTransport& transport, bool block_matches)
+void ScriptSh7058A5BlockCompare(ScriptedCanFlashTransport& transport, bool block_matches)
 {
     // Block 8 is 0x18000 bytes at 0x8000. Its fixed CRC is AAA0B108 when
     // every byte is A5; all other image blocks remain all-zero fixtures.
     for (std::size_t index = 0; index < kSh7058Blocks.size(); ++index)
     {
         const std::uint32_t crc = index == 8 && block_matches ? 0xAAA0B108U : kSh7058Blocks[index].zero_crc;
-        script_crc(transport, kSh7058Blocks[index], crc);
+        ScriptCrc(transport, kSh7058Blocks[index], crc);
     }
 }
 
-void script_flash_init(ScriptedCanFlashTransport& transport)
+void ScriptFlashInit(ScriptedCanFlashTransport& transport)
 {
-    transport.expectWrite(beef_request(0x05));
-    transport.queueRead(beef_response(0x45, composeBe(std::uint32_t{0x00000200})));
-    transport.expectWrite(beef_request(0x06));
-    transport.queueRead(beef_response(0x46, composeBe(std::uint32_t{0x00001000})));
-    transport.expectWrite(beef_request(0x20));
-    transport.queueRead(beef_response(0x60));
+    transport.ExpectWrite(BeefRequest(0x05));
+    transport.QueueRead(BeefResponse(0x45, ComposeBe(std::uint32_t{0x00000200})));
+    transport.ExpectWrite(BeefRequest(0x06));
+    transport.QueueRead(BeefResponse(0x46, ComposeBe(std::uint32_t{0x00001000})));
+    transport.ExpectWrite(BeefRequest(0x20));
+    transport.QueueRead(BeefResponse(0x60));
 }
 
-void script_first_flash_block(ScriptedCanFlashTransport& transport, bool include_chunks = true)
+void ScriptFirstFlashBlock(ScriptedCanFlashTransport& transport, bool include_chunks = true)
 {
-    transport.expectWrite(beef_request(0x04));
-    transport.queueRead(beef_response(0x44, bytes::Bytes{0x00, 0x64}));
-    transport.expectWrite(beef_request(0x25, composeBe(std::uint32_t{0x00000000})));
-    transport.queueRead(beef_response(0x65));
+    transport.ExpectWrite(BeefRequest(0x04));
+    transport.QueueRead(BeefResponse(0x44, bytes::Bytes{0x00, 0x64}));
+    transport.ExpectWrite(BeefRequest(0x25, ComposeBe(std::uint32_t{0x00000000})));
+    transport.QueueRead(BeefResponse(0x65));
     if (!include_chunks)
     {
         return;
     }
-    const bytes::Bytes chunk = zero_chunk(kWriteChunkSize);
+    const bytes::Bytes chunk = ZeroChunk(kWriteChunkSize);
     for (std::uint32_t offset = 0; offset < kCommitBlockSize; offset += kWriteChunkSize)
     {
-        transport.expectWrite(beef_request(0x22, composeBe(offset, chunk)));
-        transport.queueRead(beef_response(0x62));
+        transport.ExpectWrite(BeefRequest(0x22, ComposeBe(offset, chunk)));
+        transport.QueueRead(BeefResponse(0x62));
     }
-    transport.expectWrite(
-        beef_request(0x24, composeBe(std::uint32_t{0x00000000}, std::uint16_t{kCommitBlockSize}, 0xF722EF49U)));
-    transport.queueRead(beef_response(0x64));
+    transport.ExpectWrite(
+        BeefRequest(0x24, ComposeBe(std::uint32_t{0x00000000}, std::uint16_t{kCommitBlockSize}, 0xF722EF49U)));
+    transport.QueueRead(BeefResponse(0x64));
 }
 
-void script_sh7058_a5_block_write(ScriptedCanFlashTransport& transport)
+void ScriptSh7058A5BlockWrite(ScriptedCanFlashTransport& transport)
 {
-    transport.expectWrite(beef_request(0x04));
-    transport.queueRead(beef_response(0x44, bytes::Bytes{0x00, 0x64}));
-    transport.expectWrite(beef_request(0x25, composeBe(std::uint32_t{0x00008000})));
-    transport.queueRead(beef_response(0x65));
+    transport.ExpectWrite(BeefRequest(0x04));
+    transport.QueueRead(BeefResponse(0x44, bytes::Bytes{0x00, 0x64}));
+    transport.ExpectWrite(BeefRequest(0x25, ComposeBe(std::uint32_t{0x00008000})));
+    transport.QueueRead(BeefResponse(0x65));
 
     const bytes::Bytes a5_chunk(kWriteChunkSize, bytes::Byte{0xA5});
     for (std::uint32_t address = 0x00008000; address < 0x00020000; address += kWriteChunkSize)
     {
-        transport.expectWrite(beef_request(0x22, composeBe(address, a5_chunk)));
-        transport.queueRead(beef_response(0x62));
+        transport.ExpectWrite(BeefRequest(0x22, ComposeBe(address, a5_chunk)));
+        transport.QueueRead(BeefResponse(0x62));
         if ((address + kWriteChunkSize) % kCommitBlockSize == 0)
         {
             const std::uint32_t commit_address = address + kWriteChunkSize - kCommitBlockSize;
-            transport.expectWrite(beef_request(
-                0x24, composeBe(commit_address, std::uint16_t{kCommitBlockSize}, std::uint32_t{0x958BA140})));
-            transport.queueRead(beef_response(0x64));
+            transport.ExpectWrite(BeefRequest(
+                0x24, ComposeBe(commit_address, std::uint16_t{kCommitBlockSize}, std::uint32_t{0x958BA140})));
+            transport.QueueRead(BeefResponse(0x64));
         }
     }
 }
 
-bool has_log(const RecordingEventSink& events, LogLevel level, std::string_view text)
+bool HasLog(const RecordingEventSink& events, LogLevel level, std::string_view text)
 {
     return std::any_of(events.logs.begin(), events.logs.end(), [level, text](const auto& log)
                        { return log.first == level && log.second.find(text) != std::string::npos; });
 }
 
-std::vector<std::string> log_messages_starting_with(const RecordingEventSink& events, std::string_view prefix)
+std::vector<std::string> LogMessagesStartingWith(const RecordingEventSink& events, std::string_view prefix)
 {
     std::vector<std::string> messages;
     for (const auto& [level, message] : events.logs)
@@ -700,7 +700,7 @@ struct ExpectedPhaseProgress
     int total;
 };
 
-void expect_exact_phase_progress(const RecordingEventSink& events, const std::vector<ExpectedPhaseProgress>& expected)
+void ExpectExactPhaseProgress(const RecordingEventSink& events, const std::vector<ExpectedPhaseProgress>& expected)
 {
     ASSERT_EQ(events.phase_progress_calls.size(), expected.size());
     for (std::size_t index = 0; index < expected.size(); ++index)
@@ -715,7 +715,7 @@ void expect_exact_phase_progress(const RecordingEventSink& events, const std::ve
     }
 }
 
-void expect_exact_read_phase_progress(const RecordingEventSink& events, int total_bytes)
+void ExpectExactReadPhaseProgress(const RecordingEventSink& events, int total_bytes)
 {
     const int pages = total_bytes / static_cast<int>(kReadPageSize);
     ASSERT_EQ(events.phase_progress_calls.size(), static_cast<std::size_t>(pages + 4));
@@ -739,94 +739,95 @@ void expect_exact_read_phase_progress(const RecordingEventSink& events, int tota
     expect(static_cast<std::size_t>(pages) + 3, "Read", 2, total_bytes, total_bytes);
 }
 
-void append_compare_logs(std::vector<LogRecord>& logs, std::span<const BlockFixture> blocks,
-                         bool first_block_mismatches, bool after_reflash)
+void AppendCompareLogs(std::vector<LogRecord>& logs, std::span<const BlockFixture> blocks, bool first_block_mismatches,
+                       bool after_reflash)
 {
-    logs.emplace_back(LogLevel::Info, after_reflash
-                                          ? "--- Comparing ECU flash memory pages to image file after reflash ---"
-                                          : "--- Comparing ECU flash memory pages to image file ---");
-    logs.emplace_back(LogLevel::Info, "blk\tstart\tlen\tecu crc\timg crc\tsame?");
+    logs.emplace_back(LogLevel::kInfo, after_reflash
+                                           ? "--- Comparing ECU flash memory pages to image file after reflash ---"
+                                           : "--- Comparing ECU flash memory pages to image file ---");
+    logs.emplace_back(LogLevel::kInfo, "blk\tstart\tlen\tecu crc\timg crc\tsame?");
     for (std::size_t index = 0; index < blocks.size(); ++index)
     {
         const BlockFixture& block = blocks[index];
         const bool differs = first_block_mismatches && index == 0;
         const std::uint32_t image_crc = block.zero_crc;
         const std::uint32_t ecu_crc = differs ? block.zero_crc ^ 1U : block.zero_crc;
-        logs.emplace_back(LogLevel::Info, std::format("FB{:02}\t0x{:08X}\t0x{:08X}", index, block.start, block.length));
-        logs.emplace_back(LogLevel::Debug, std::format("ROM CRC: 0x{:08x} IMG CRC: 0x{:08x}", ecu_crc, image_crc));
-        logs.emplace_back(LogLevel::Info, std::format("\t{:08X}\t{:08X}", ecu_crc, image_crc));
-        logs.emplace_back(LogLevel::Info, differs ? "\tNO" : "\tYES");
+        logs.emplace_back(LogLevel::kInfo,
+                          std::format("FB{:02}\t0x{:08X}\t0x{:08X}", index, block.start, block.length));
+        logs.emplace_back(LogLevel::kDebug, std::format("ROM CRC: 0x{:08x} IMG CRC: 0x{:08x}", ecu_crc, image_crc));
+        logs.emplace_back(LogLevel::kInfo, std::format("\t{:08X}\t{:08X}", ecu_crc, image_crc));
+        logs.emplace_back(LogLevel::kInfo, differs ? "\tNO" : "\tYES");
     }
-    logs.emplace_back(LogLevel::Info, "Different blocks : ");
+    logs.emplace_back(LogLevel::kInfo, "Different blocks : ");
     if (first_block_mismatches)
     {
-        logs.emplace_back(LogLevel::Info, "0, ");
+        logs.emplace_back(LogLevel::kInfo, "0, ");
     }
-    logs.emplace_back(LogLevel::Info, first_block_mismatches ? " (total: 1)" : " (total: 0)");
+    logs.emplace_back(LogLevel::kInfo, first_block_mismatches ? " (total: 1)" : " (total: 0)");
 }
 
-std::vector<LogRecord> expected_write_logs(std::span<const BlockFixture> blocks)
+std::vector<LogRecord> ExpectedWriteLogs(std::span<const BlockFixture> blocks)
 {
     std::vector<LogRecord> logs;
-    logs.emplace_back(LogLevel::Info, "Checking if kernel is already running...");
-    logs.emplace_back(LogLevel::Info, "Requesting kernel ID");
-    logs.emplace_back(LogLevel::Info, "Kernel ID request: 00 00 07 e1 7a a0 00 00 00 00 00 00 ");
-    logs.emplace_back(LogLevel::Info, "Kernel ID response: 00 00 07 e9 be ef 00 04 41 4b 49 44 ");
-    logs.emplace_back(LogLevel::Info, "Kernel ID: KID");
-    append_compare_logs(logs, blocks, true, false);
-    logs.emplace_back(LogLevel::Info, "--- Start writing ROM file to ECU flash memory ---");
-    logs.emplace_back(LogLevel::Info, "Check max message length");
-    logs.emplace_back(LogLevel::Info, ": 0x0200");
-    logs.emplace_back(LogLevel::Info, "Check flashblock size");
-    logs.emplace_back(LogLevel::Info, ": 0x1000");
-    logs.emplace_back(LogLevel::Info, "Test write mode off, perform actual flash write");
-    logs.emplace_back(LogLevel::Error, "Flash mode succesfully set");
-    logs.emplace_back(LogLevel::Info, "Flash block addr: 0x00000000 len: 0x00001000");
-    logs.emplace_back(LogLevel::Info, "Check flash voltage");
-    logs.emplace_back(LogLevel::Info, ": 2V");
-    logs.emplace_back(LogLevel::Info, "Flash page erase addr: 0x00000000 len: 0x00001000");
-    logs.emplace_back(LogLevel::Info, "Erasing flash page...");
-    logs.emplace_back(LogLevel::Info, " erased");
-    logs.emplace_back(LogLevel::Info, "Start flash write addr: 0x00000000 len: 0x00001000");
+    logs.emplace_back(LogLevel::kInfo, "Checking if kernel is already running...");
+    logs.emplace_back(LogLevel::kInfo, "Requesting kernel ID");
+    logs.emplace_back(LogLevel::kInfo, "Kernel ID request: 00 00 07 e1 7a a0 00 00 00 00 00 00 ");
+    logs.emplace_back(LogLevel::kInfo, "Kernel ID response: 00 00 07 e9 be ef 00 04 41 4b 49 44 ");
+    logs.emplace_back(LogLevel::kInfo, "Kernel ID: KID");
+    AppendCompareLogs(logs, blocks, true, false);
+    logs.emplace_back(LogLevel::kInfo, "--- Start writing ROM file to ECU flash memory ---");
+    logs.emplace_back(LogLevel::kInfo, "Check max message length");
+    logs.emplace_back(LogLevel::kInfo, ": 0x0200");
+    logs.emplace_back(LogLevel::kInfo, "Check flashblock size");
+    logs.emplace_back(LogLevel::kInfo, ": 0x1000");
+    logs.emplace_back(LogLevel::kInfo, "Test write mode off, perform actual flash write");
+    logs.emplace_back(LogLevel::kError, "Flash mode succesfully set");
+    logs.emplace_back(LogLevel::kInfo, "Flash block addr: 0x00000000 len: 0x00001000");
+    logs.emplace_back(LogLevel::kInfo, "Check flash voltage");
+    logs.emplace_back(LogLevel::kInfo, ": 2V");
+    logs.emplace_back(LogLevel::kInfo, "Flash page erase addr: 0x00000000 len: 0x00001000");
+    logs.emplace_back(LogLevel::kInfo, "Erasing flash page...");
+    logs.emplace_back(LogLevel::kInfo, " erased");
+    logs.emplace_back(LogLevel::kInfo, "Start flash write addr: 0x00000000 len: 0x00001000");
     constexpr std::array<std::uint32_t, 8> kBufferAddresses{0x00000000, 0x00000200, 0x00000400, 0x00000600,
                                                             0x00000800, 0x00000A00, 0x00000C00, 0x00000E00};
     constexpr std::array<unsigned, 8> kPercents{0, 12, 25, 37, 50, 62, 75, 87};
     for (std::size_t index = 0; index < kBufferAddresses.size(); ++index)
     {
-        logs.emplace_back(LogLevel::Debug, "Data written to flash buffer");
-        logs.emplace_back(LogLevel::Info, std::format("Write flash buffer: 0x{:08X} ({}% - 512000 B/s, ~ 1 s)",
-                                                      kBufferAddresses[index], kPercents[index]));
+        logs.emplace_back(LogLevel::kDebug, "Data written to flash buffer");
+        logs.emplace_back(LogLevel::kInfo, std::format("Write flash buffer: 0x{:08X} ({}% - 512000 B/s, ~ 1 s)",
+                                                       kBufferAddresses[index], kPercents[index]));
     }
-    logs.emplace_back(LogLevel::Info, "Flash buffer write complete... ");
-    logs.emplace_back(LogLevel::Debug, "Image CRC32: 0xf722ef49");
-    logs.emplace_back(LogLevel::Info, "Committ flash addr: 0x0");
-    logs.emplace_back(LogLevel::Info, " len: 0x1000");
-    logs.emplace_back(LogLevel::Info, " crc32: 0xf722ef49");
-    logs.emplace_back(LogLevel::Info, "Flash block ok");
-    logs.emplace_back(LogLevel::Info, "Block 0 reflash complete.");
-    append_compare_logs(logs, blocks, false, true);
+    logs.emplace_back(LogLevel::kInfo, "Flash buffer write complete... ");
+    logs.emplace_back(LogLevel::kDebug, "Image CRC32: 0xf722ef49");
+    logs.emplace_back(LogLevel::kInfo, "Committ flash addr: 0x0");
+    logs.emplace_back(LogLevel::kInfo, " len: 0x1000");
+    logs.emplace_back(LogLevel::kInfo, " crc32: 0xf722ef49");
+    logs.emplace_back(LogLevel::kInfo, "Flash block ok");
+    logs.emplace_back(LogLevel::kInfo, "Block 0 reflash complete.");
+    AppendCompareLogs(logs, blocks, false, true);
     return logs;
 }
 
-std::vector<LogRecord> expected_read_logs(const Case& test_case)
+std::vector<LogRecord> ExpectedReadLogs(const Case& test_case)
 {
     std::vector<LogRecord> logs;
-    logs.emplace_back(LogLevel::Info, "Checking if kernel is already running...");
-    logs.emplace_back(LogLevel::Info, "Requesting kernel ID");
-    logs.emplace_back(LogLevel::Info, "Kernel ID request: 00 00 07 e1 7a a0 00 00 00 00 00 00 ");
-    logs.emplace_back(LogLevel::Info, test_case.mcu == "SH7058"
-                                          ? "Kernel ID response: 00 00 07 e9 be ef 00 04 41 4b 49 44 00 00 "
-                                          : "Kernel ID response: 00 00 07 e9 be ef 00 04 41 4b 49 44 ");
-    logs.emplace_back(LogLevel::Info, "Kernel ID: KID");
-    logs.emplace_back(LogLevel::Info, "Start reading ROM, please wait...");
+    logs.emplace_back(LogLevel::kInfo, "Checking if kernel is already running...");
+    logs.emplace_back(LogLevel::kInfo, "Requesting kernel ID");
+    logs.emplace_back(LogLevel::kInfo, "Kernel ID request: 00 00 07 e1 7a a0 00 00 00 00 00 00 ");
+    logs.emplace_back(LogLevel::kInfo, test_case.mcu == "SH7058"
+                                           ? "Kernel ID response: 00 00 07 e9 be ef 00 04 41 4b 49 44 00 00 "
+                                           : "Kernel ID response: 00 00 07 e9 be ef 00 04 41 4b 49 44 ");
+    logs.emplace_back(LogLevel::kInfo, "Kernel ID: KID");
+    logs.emplace_back(LogLevel::kInfo, "Start reading ROM, please wait...");
     constexpr unsigned kFakeClockSpeed = 1'024'000;
     for (std::uint32_t offset = 0; offset < test_case.rom_size; offset += kReadPageSize)
     {
         const unsigned time_left = ((test_case.rom_size - offset) / kFakeClockSpeed) % 9999U + 1U;
-        logs.emplace_back(LogLevel::Info, std::format("Kernel read addr: 0x{:08X} length: 0x{:08X}, {:>6} B/s {:>6} s",
-                                                      offset, kReadPageSize, kFakeClockSpeed, time_left));
+        logs.emplace_back(LogLevel::kInfo, std::format("Kernel read addr: 0x{:08X} length: 0x{:08X}, {:>6} B/s {:>6} s",
+                                                       offset, kReadPageSize, kFakeClockSpeed, time_left));
     }
-    logs.emplace_back(LogLevel::Info, "ROM read ready");
+    logs.emplace_back(LogLevel::kInfo, "ROM read ready");
     return logs;
 }
 
@@ -835,9 +836,9 @@ TEST(SubaruTcuDensoSh705xCanExecutor, TransportSetupUsesExactTcuIsoConfiguration
     SubaruTcuDensoSh705xCanExecutor executor;
     for (const Case& test_case : kCases)
     {
-        auto plan = read_plan(test_case);
+        auto plan = ReadPlan(test_case);
         ASSERT_TRUE(plan.has_value()) << plan.error().detail;
-        auto setup = executor.transport_setup(*plan);
+        auto setup = executor.TransportSetup(*plan);
         ASSERT_TRUE(setup.has_value()) << setup.error().detail;
         EXPECT_EQ(setup->bitrate, 500000);
         EXPECT_EQ(setup->request_id, kRequestId);
@@ -852,26 +853,26 @@ TEST(SubaruTcuDensoSh705xCanExecutor, AlreadyRunningKernelReadsBothMcuGeometries
     FakeCancellationToken cancellation;
     for (const Case& test_case : kCases)
     {
-        auto plan = read_plan(test_case);
+        auto plan = ReadPlan(test_case);
         ASSERT_TRUE(plan.has_value()) << plan.error().detail;
         RecordingCanTransport transport;
-        configure_and_open(executor, *plan, transport);
-        script_kernel_alive(transport.scripted, test_case.mcu == "SH7058");
-        script_read_pages(transport.scripted, test_case.rom_size);
+        ConfigureAndOpen(executor, *plan, transport);
+        ScriptKernelAlive(transport.scripted, test_case.mcu == "SH7058");
+        ScriptReadPages(transport.scripted, test_case.rom_size);
         FakeClock clock;
         RecordingEventSink events;
 
-        auto result = executor.execute(*plan, transport, clock, cancellation, events);
+        auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
         ASSERT_TRUE(result.has_value()) << test_case.protocol << ": " << result.error().detail;
         ASSERT_TRUE(result->read_bytes.has_value());
         EXPECT_EQ(result->read_bytes->size(), test_case.rom_size);
         EXPECT_THAT(bytes::ByteView(*result->read_bytes).first(4), ElementsAre(0x00, 0x00, 0x00, 0x00));
         EXPECT_FALSE(result->rom_id.has_value());
-        EXPECT_TRUE(transport.scripted.scriptConsumed());
-        EXPECT_EQ(events.logs, expected_read_logs(test_case));
+        EXPECT_TRUE(transport.scripted.ScriptConsumed());
+        EXPECT_EQ(events.logs, ExpectedReadLogs(test_case));
         EXPECT_THAT(events.notices, ElementsAre("Reading ROM, please wait..."));
-        expect_exact_read_phase_progress(events, static_cast<int>(test_case.rom_size));
+        ExpectExactReadPhaseProgress(events, static_cast<int>(test_case.rom_size));
         ASSERT_EQ(transport.writes.size(), 1U + test_case.rom_size / kReadPageSize);
         EXPECT_EQ(transport.writes.front(),
                   (bytes::Bytes{0x00, 0x00, 0x07, 0xE1, 0x7A, 0xA0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}));
@@ -892,16 +893,16 @@ TEST(SubaruTcuDensoSh705xCanExecutor, ReadKeepsRawBeefBoundaryPayloadsForBothTcu
     for (const Case& test_case : kCases)
     {
         SCOPED_TRACE(test_case.protocol);
-        auto plan = read_plan(test_case);
+        auto plan = ReadPlan(test_case);
         ASSERT_TRUE(plan.has_value()) << plan.error().detail;
         ScriptedCanFlashTransport transport;
-        configure_and_open(executor, *plan, transport);
-        script_kernel_alive(transport);
-        script_raw_read_pages_with_boundary_sentinels(transport, test_case.rom_size);
+        ConfigureAndOpen(executor, *plan, transport);
+        ScriptKernelAlive(transport);
+        ScriptRawReadPagesWithBoundarySentinels(transport, test_case.rom_size);
         FakeClock clock;
         RecordingEventSink events;
 
-        auto result = executor.execute(*plan, transport, clock, cancellation, events);
+        auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
         ASSERT_TRUE(result.has_value()) << result.error().detail;
         ASSERT_TRUE(result->read_bytes.has_value());
@@ -909,223 +910,223 @@ TEST(SubaruTcuDensoSh705xCanExecutor, ReadKeepsRawBeefBoundaryPayloadsForBothTcu
                     ElementsAre(0xD3, 0x5A, 0xC7, 0x19, 0x2E, 0xF4, 0x80, 0x6B));
         EXPECT_THAT(bytes::ByteView(*result->read_bytes).last(8),
                     ElementsAre(0x9C, 0x31, 0xE7, 0x04, 0xB2, 0x6D, 0x58, 0xAF));
-        EXPECT_TRUE(transport.scriptConsumed());
+        EXPECT_TRUE(transport.ScriptConsumed());
     }
 }
 
 TEST(SubaruTcuDensoSh705xCanExecutor, KernelIdCoalescesMultiplePortableCanPayloadFrames)
 {
-    auto plan = write_plan(kCases[1]);
+    auto plan = WritePlan(kCases[1]);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
     SubaruTcuDensoSh705xCanExecutor executor;
     ScriptedCanFlashTransport transport;
-    configure_and_open(executor, *plan, transport);
-    script_kernel_alive_fragmented(transport);
-    script_compare(transport, blocks_for(kCases[1]), false);
+    ConfigureAndOpen(executor, *plan, transport);
+    ScriptKernelAliveFragmented(transport);
+    ScriptCompare(transport, BlocksFor(kCases[1]), false);
     FakeCancellationToken cancellation;
     FakeClock clock;
     RecordingEventSink events;
 
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
+    auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_TRUE(result.has_value()) << result.error().detail;
-    EXPECT_TRUE(transport.scriptConsumed());
+    EXPECT_TRUE(transport.ScriptConsumed());
 }
 
 TEST(SubaruTcuDensoSh705xCanExecutor, KernelIdContinuationAppendsTheEntireAcceptedPayloadAndDrainsToEmpty)
 {
-    auto plan = write_plan(kCases[1]);
+    auto plan = WritePlan(kCases[1]);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
     SubaruTcuDensoSh705xCanExecutor executor;
     RecordingCanTransport transport;
-    configure_and_open(executor, *plan, transport);
-    transport.scripted.expectWrite(
+    ConfigureAndOpen(executor, *plan, transport);
+    transport.scripted.ExpectWrite(
         bytes::Bytes{0x00, 0x00, 0x07, 0xE1, 0x7A, 0xA0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00});
-    transport.scripted.queueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0xBE, 0xEF, 0x00, 0x07, 0x41, 0x41});
+    transport.scripted.QueueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0xBE, 0xEF, 0x00, 0x07, 0x41, 0x41});
     // These bytes happen to begin with BEEF, but this is a continuation
     // payload, not a second envelope. Legacy lines 1621-1625 append it whole.
-    transport.scripted.queueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0xBE, 0xEF, 0x00, 0x03, 0x41, 0x42, 0x43});
-    transport.scripted.queue_no_frame();
-    script_compare(transport.scripted, blocks_for(kCases[1]), false);
+    transport.scripted.QueueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0xBE, 0xEF, 0x00, 0x03, 0x41, 0x42, 0x43});
+    transport.scripted.QueueNoFrame();
+    ScriptCompare(transport.scripted, BlocksFor(kCases[1]), false);
     FakeCancellationToken cancellation;
     FakeClock clock;
     RecordingEventSink events;
 
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
+    auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_TRUE(result.has_value()) << result.error().detail;
-    EXPECT_TRUE(transport.scripted.scriptConsumed());
+    EXPECT_TRUE(transport.scripted.ScriptConsumed());
     ASSERT_GE(transport.read_timeouts.size(), 3U);
     EXPECT_THAT(std::span<const std::chrono::milliseconds>(transport.read_timeouts).first(3),
                 ElementsAre(800ms, 200ms, 200ms));
     const std::string expected_kernel_id{"Kernel ID: A\xBE\xEF\x00\x03\x41", 17};
-    EXPECT_THAT(events.logs, Contains(LogRecord{LogLevel::Info, expected_kernel_id}));
+    EXPECT_THAT(events.logs, Contains(LogRecord{LogLevel::kInfo, expected_kernel_id}));
 }
 
 TEST(SubaruTcuDensoSh705xCanExecutor, KernelIdTrailingDrainPropagatesCancellationAndDisconnect)
 {
-    for (const ErrorKind error_kind : {ErrorKind::Cancelled, ErrorKind::Disconnected})
+    for (const ErrorKind error_kind : {ErrorKind::kCancelled, ErrorKind::kDisconnected})
     {
-        auto plan = write_plan(kCases[1]);
+        auto plan = WritePlan(kCases[1]);
         ASSERT_TRUE(plan.has_value()) << plan.error().detail;
         SubaruTcuDensoSh705xCanExecutor executor;
         ScriptedCanFlashTransport transport;
-        configure_and_open(executor, *plan, transport);
-        transport.expectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE1, 0x7A, 0xA0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00});
-        transport.queueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0xBE, 0xEF, 0x00, 0x04, 0x41, 0x4B, 0x49, 0x44});
-        transport.queue_error(error_kind, "trailing drain interrupted");
+        ConfigureAndOpen(executor, *plan, transport);
+        transport.ExpectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE1, 0x7A, 0xA0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00});
+        transport.QueueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0xBE, 0xEF, 0x00, 0x04, 0x41, 0x4B, 0x49, 0x44});
+        transport.QueueError(error_kind, "trailing drain interrupted");
         FakeCancellationToken cancellation;
         FakeClock clock;
         RecordingEventSink events;
 
-        auto result = executor.execute(*plan, transport, clock, cancellation, events);
+        auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
         ASSERT_FALSE(result.has_value());
         EXPECT_EQ(result.error().kind, error_kind);
-        EXPECT_TRUE(transport.scriptConsumed());
-        EXPECT_THAT(log_messages_starting_with(events, "Kernel ID "),
+        EXPECT_TRUE(transport.ScriptConsumed());
+        EXPECT_THAT(LogMessagesStartingWith(events, "Kernel ID "),
                     ElementsAre("Kernel ID request: 00 00 07 e1 7a a0 00 00 00 00 00 00 ",
                                 "Kernel ID response: 00 00 07 e9 be ef 00 04 41 4b 49 44 "));
-        expect_exact_phase_progress(events, {{"Kernel", 1, 4, 0, 1}});
+        ExpectExactPhaseProgress(events, {{"Kernel", 1, 4, 0, 1}});
     }
 }
 
 TEST(SubaruTcuDensoSh705xCanExecutor, InitialKernelIdTrailingDrainBoundFallsBackBeforeStartingAnotherCommand)
 {
-    auto plan = write_plan(kCases[1]);
+    auto plan = WritePlan(kCases[1]);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
     SubaruTcuDensoSh705xCanExecutor executor;
     ScriptedCanFlashTransport transport;
-    configure_and_open(executor, *plan, transport);
-    transport.expectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE1, 0x7A, 0xA0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00});
-    transport.queueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0xBE, 0xEF, 0x00, 0x04, 0x41, 0x4B, 0x49, 0x44});
+    ConfigureAndOpen(executor, *plan, transport);
+    transport.ExpectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE1, 0x7A, 0xA0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00});
+    transport.QueueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0xBE, 0xEF, 0x00, 0x04, 0x41, 0x4B, 0x49, 0x44});
     for (int fragment = 0; fragment < 32; ++fragment)
     {
         // Correct-ID envelope with an empty continuation payload. Exhausting
         // the portable bound must fail before a CRC command can reuse a
         // possibly contaminated transport queue.
-        transport.queueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9});
+        transport.QueueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9});
     }
-    script_identity_queries(transport);
-    transport.expectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE1, 0x10, 0x03});
-    transport.queueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0x7F, 0x10, 0x22});
+    ScriptIdentityQueries(transport);
+    transport.ExpectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE1, 0x10, 0x03});
+    transport.QueueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0x7F, 0x10, 0x22});
     FakeCancellationToken cancellation;
     FakeClock clock;
     RecordingEventSink events;
 
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
+    auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
-    EXPECT_TRUE(has_log(events, LogLevel::Info, "Requesting ECU ID"));
-    EXPECT_TRUE(transport.scriptConsumed());
-    expect_exact_phase_progress(events, {{"Kernel", 1, 4, 0, 1}});
+    EXPECT_EQ(result.error().kind, ErrorKind::kBadResponse);
+    EXPECT_TRUE(HasLog(events, LogLevel::kInfo, "Requesting ECU ID"));
+    EXPECT_TRUE(transport.ScriptConsumed());
+    ExpectExactPhaseProgress(events, {{"Kernel", 1, 4, 0, 1}});
 }
 
 TEST(SubaruTcuDensoSh705xCanExecutor, InitialKernelProbeTreatsLegacyNonterminalRepliesAsKernelAbsent)
 {
     enum class ProbeReply
     {
-        NoFrame,
-        Timeout,
-        AdapterError,
-        Short,
-        MalformedLength,
-        WrongCanId,
-        WrongOpcode,
+        kNoFrame,
+        kTimeout,
+        kAdapterError,
+        kShort,
+        kMalformedLength,
+        kWrongCanId,
+        kWrongOpcode,
     };
     for (const ProbeReply reply :
-         {ProbeReply::NoFrame, ProbeReply::Timeout, ProbeReply::AdapterError, ProbeReply::Short,
-          ProbeReply::MalformedLength, ProbeReply::WrongCanId, ProbeReply::WrongOpcode})
+         {ProbeReply::kNoFrame, ProbeReply::kTimeout, ProbeReply::kAdapterError, ProbeReply::kShort,
+          ProbeReply::kMalformedLength, ProbeReply::kWrongCanId, ProbeReply::kWrongOpcode})
     {
         SCOPED_TRACE(static_cast<int>(reply));
-        auto plan = read_plan(kCases[1]);
+        auto plan = ReadPlan(kCases[1]);
         ASSERT_TRUE(plan.has_value()) << plan.error().detail;
         SubaruTcuDensoSh705xCanExecutor executor;
         ScriptedCanFlashTransport transport;
-        configure_and_open(executor, *plan, transport);
-        if (reply == ProbeReply::NoFrame || reply == ProbeReply::Timeout)
+        ConfigureAndOpen(executor, *plan, transport);
+        if (reply == ProbeReply::kNoFrame || reply == ProbeReply::kTimeout)
         {
             for (int attempt = 0; attempt < 5; ++attempt)
             {
-                transport.expectWrite(kernel_id_request());
-                if (reply == ProbeReply::NoFrame)
+                transport.ExpectWrite(KernelIdRequest());
+                if (reply == ProbeReply::kNoFrame)
                 {
-                    transport.queue_no_frame();
+                    transport.QueueNoFrame();
                 }
                 else
                 {
-                    transport.queue_error(ErrorKind::Timeout, "legacy initial probe timeout");
+                    transport.QueueError(ErrorKind::kTimeout, "legacy initial probe timeout");
                 }
             }
         }
         else
         {
-            transport.expectWrite(kernel_id_request());
+            transport.ExpectWrite(KernelIdRequest());
             switch (reply)
             {
-            case ProbeReply::AdapterError:
-                transport.queue_error(ErrorKind::Internal, "legacy initial probe adapter error");
+            case ProbeReply::kAdapterError:
+                transport.QueueError(ErrorKind::kInternal, "legacy initial probe adapter error");
                 break;
-            case ProbeReply::Short:
-                transport.queueRead(bytes::Bytes{0x00, 0x00, 0x07});
+            case ProbeReply::kShort:
+                transport.QueueRead(bytes::Bytes{0x00, 0x00, 0x07});
                 break;
-            case ProbeReply::MalformedLength:
-                transport.queueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0xBE, 0xEF, 0x00, 0x02, 0x41});
-                transport.queue_no_frame();
+            case ProbeReply::kMalformedLength:
+                transport.QueueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0xBE, 0xEF, 0x00, 0x02, 0x41});
+                transport.QueueNoFrame();
                 break;
-            case ProbeReply::WrongCanId:
-                transport.queueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE8, 0xBE, 0xEF, 0x00, 0x01, 0x41});
+            case ProbeReply::kWrongCanId:
+                transport.QueueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE8, 0xBE, 0xEF, 0x00, 0x01, 0x41});
                 break;
-            case ProbeReply::WrongOpcode:
-                transport.queueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0xBE, 0xEF, 0x00, 0x01, 0x42});
-                transport.queue_no_frame();
+            case ProbeReply::kWrongOpcode:
+                transport.QueueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0xBE, 0xEF, 0x00, 0x01, 0x42});
+                transport.QueueNoFrame();
                 break;
-            case ProbeReply::NoFrame:
-            case ProbeReply::Timeout:
+            case ProbeReply::kNoFrame:
+            case ProbeReply::kTimeout:
                 break;
             }
         }
         // These literal identity exchanges prove fallback reached the next
         // ECU-initialization stage. A negative session response then bounds
         // the test without a kernel upload or ROM transcript.
-        script_identity_queries(transport);
-        transport.expectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE1, 0x10, 0x03});
-        transport.queueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0x7F, 0x10, 0x22});
+        ScriptIdentityQueries(transport);
+        transport.ExpectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE1, 0x10, 0x03});
+        transport.QueueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0x7F, 0x10, 0x22});
         FakeCancellationToken cancellation;
         FakeClock clock;
         RecordingEventSink events;
 
-        auto result = executor.execute(*plan, transport, clock, cancellation, events);
+        auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
         ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
-        EXPECT_TRUE(has_log(events, LogLevel::Info, "Requesting ECU ID"));
-        EXPECT_TRUE(transport.scriptConsumed());
+        EXPECT_EQ(result.error().kind, ErrorKind::kBadResponse);
+        EXPECT_TRUE(HasLog(events, LogLevel::kInfo, "Requesting ECU ID"));
+        EXPECT_TRUE(transport.ScriptConsumed());
     }
 }
 
 TEST(SubaruTcuDensoSh705xCanExecutor, InitialKernelProbeKeepsCancellationAndDisconnectTerminal)
 {
-    for (const ErrorKind terminal : {ErrorKind::Cancelled, ErrorKind::Disconnected})
+    for (const ErrorKind terminal : {ErrorKind::kCancelled, ErrorKind::kDisconnected})
     {
         SCOPED_TRACE(static_cast<int>(terminal));
-        auto plan = read_plan(kCases[1]);
+        auto plan = ReadPlan(kCases[1]);
         ASSERT_TRUE(plan.has_value()) << plan.error().detail;
         SubaruTcuDensoSh705xCanExecutor executor;
         ScriptedCanFlashTransport transport;
-        configure_and_open(executor, *plan, transport);
-        transport.expectWrite(kernel_id_request());
-        transport.queue_error(terminal, "terminal initial probe outcome");
+        ConfigureAndOpen(executor, *plan, transport);
+        transport.ExpectWrite(KernelIdRequest());
+        transport.QueueError(terminal, "terminal initial probe outcome");
         FakeCancellationToken cancellation;
         FakeClock clock;
         RecordingEventSink events;
 
-        auto result = executor.execute(*plan, transport, clock, cancellation, events);
+        auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
         ASSERT_FALSE(result.has_value());
         EXPECT_EQ(result.error().kind, terminal);
-        EXPECT_TRUE(transport.scriptConsumed());
+        EXPECT_TRUE(transport.ScriptConsumed());
     }
 }
 
@@ -1136,101 +1137,101 @@ TEST(SubaruTcuDensoSh705xCanExecutor, SessionSafetyCorrectionRejectsBothLegacyPa
     const std::array<bytes::Bytes, 2> partial_matches{{bytes::Bytes{0x50, 0x02}, bytes::Bytes{0x51, 0x03}}};
     for (const bytes::Bytes& reply : partial_matches)
     {
-        SCOPED_TRACE(bytes::toHex(reply));
-        auto plan = read_plan(kCases[1]);
+        SCOPED_TRACE(bytes::ToHex(reply));
+        auto plan = ReadPlan(kCases[1]);
         ASSERT_TRUE(plan.has_value()) << plan.error().detail;
         SubaruTcuDensoSh705xCanExecutor executor;
         ScriptedCanFlashTransport transport;
-        configure_and_open(executor, *plan, transport);
-        script_kernel_probe_timeout(transport);
-        script_identity_queries(transport);
-        transport.expectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE1, 0x10, 0x03});
-        transport.queueRead(response(reply));
+        ConfigureAndOpen(executor, *plan, transport);
+        ScriptKernelProbeTimeout(transport);
+        ScriptIdentityQueries(transport);
+        transport.ExpectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE1, 0x10, 0x03});
+        transport.QueueRead(Response(reply));
         FakeCancellationToken cancellation;
         FakeClock clock;
         RecordingEventSink events;
 
-        auto result = executor.execute(*plan, transport, clock, cancellation, events);
+        auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
         ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
-        EXPECT_TRUE(transport.scriptConsumed());
+        EXPECT_EQ(result.error().kind, ErrorKind::kBadResponse);
+        EXPECT_TRUE(transport.ScriptConsumed());
     }
 
-    auto plan = read_plan(kCases[1]);
+    auto plan = ReadPlan(kCases[1]);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
     SubaruTcuDensoSh705xCanExecutor executor;
     ScriptedCanFlashTransport transport;
-    configure_and_open(executor, *plan, transport);
-    script_kernel_probe_timeout(transport);
-    script_identity_queries(transport);
-    transport.expectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE1, 0x10, 0x03});
-    transport.queueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0x50, 0x03});
-    transport.expectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE1, 0x27, 0x01});
-    transport.queueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0x7F, 0x27, 0x35});
+    ConfigureAndOpen(executor, *plan, transport);
+    ScriptKernelProbeTimeout(transport);
+    ScriptIdentityQueries(transport);
+    transport.ExpectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE1, 0x10, 0x03});
+    transport.QueueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0x50, 0x03});
+    transport.ExpectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE1, 0x27, 0x01});
+    transport.QueueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0x7F, 0x27, 0x35});
     FakeCancellationToken cancellation;
     FakeClock clock;
     RecordingEventSink events;
 
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
+    auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
-    EXPECT_FALSE(has_log(events, LogLevel::Info, "Seed request ok"));
-    EXPECT_TRUE(transport.scriptConsumed());
+    EXPECT_EQ(result.error().kind, ErrorKind::kBadResponse);
+    EXPECT_FALSE(HasLog(events, LogLevel::kInfo, "Seed request ok"));
+    EXPECT_TRUE(transport.ScriptConsumed());
 }
 
 TEST(SubaruTcuDensoSh705xCanExecutor, UploadB6ReadsDiscardAllLegacyContentAndAdapterOutcomes)
 {
     for (const UploadB6Reply reply :
-         {UploadB6Reply::NoFrame, UploadB6Reply::Timeout, UploadB6Reply::Short, UploadB6Reply::Malformed,
-          UploadB6Reply::WrongCanId, UploadB6Reply::Negative, UploadB6Reply::AdapterError})
+         {UploadB6Reply::kNoFrame, UploadB6Reply::kTimeout, UploadB6Reply::kShort, UploadB6Reply::kMalformed,
+          UploadB6Reply::kWrongCanId, UploadB6Reply::kNegative, UploadB6Reply::kAdapterError})
     {
         SCOPED_TRACE(static_cast<int>(reply));
-        auto plan = read_plan(kCases[1]);
+        auto plan = ReadPlan(kCases[1]);
         ASSERT_TRUE(plan.has_value()) << plan.error().detail;
         SubaruTcuDensoSh705xCanExecutor executor;
         ScriptedCanFlashTransport transport;
-        configure_and_open(executor, *plan, transport);
-        script_kernel_probe_timeout(transport);
-        script_identity_queries(transport);
-        script_strict_session_and_security(transport);
-        script_kernel_upload(transport, kCases[1], reply);
-        transport.expectWrite(kernel_id_request());
-        transport.queue_error(ErrorKind::Disconnected, "bounded after every B6 read");
+        ConfigureAndOpen(executor, *plan, transport);
+        ScriptKernelProbeTimeout(transport);
+        ScriptIdentityQueries(transport);
+        ScriptStrictSessionAndSecurity(transport);
+        ScriptKernelUpload(transport, kCases[1], reply);
+        transport.ExpectWrite(KernelIdRequest());
+        transport.QueueError(ErrorKind::kDisconnected, "bounded after every B6 read");
         FakeCancellationToken cancellation;
         FakeClock clock;
         RecordingEventSink events;
 
-        auto result = executor.execute(*plan, transport, clock, cancellation, events);
+        auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
         ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, ErrorKind::Disconnected);
-        EXPECT_TRUE(transport.scriptConsumed());
+        EXPECT_EQ(result.error().kind, ErrorKind::kDisconnected);
+        EXPECT_TRUE(transport.ScriptConsumed());
     }
 }
 
 TEST(SubaruTcuDensoSh705xCanExecutor, UploadB6KeepsCancellationAndDisconnectTerminal)
 {
-    for (const ErrorKind terminal : {ErrorKind::Cancelled, ErrorKind::Disconnected})
+    for (const ErrorKind terminal : {ErrorKind::kCancelled, ErrorKind::kDisconnected})
     {
         SCOPED_TRACE(static_cast<int>(terminal));
-        auto plan = read_plan(kCases[1]);
+        auto plan = ReadPlan(kCases[1]);
         ASSERT_TRUE(plan.has_value()) << plan.error().detail;
         SubaruTcuDensoSh705xCanExecutor executor;
         ScriptedCanFlashTransport transport;
-        configure_and_open(executor, *plan, transport);
-        script_kernel_probe_timeout(transport);
-        script_identity_queries(transport);
-        script_strict_session_and_security(transport);
-        script_kernel_upload_until_start(transport, kCases[1],
-                                         terminal == ErrorKind::Cancelled ? UploadB6Reply::Cancelled
-                                                                          : UploadB6Reply::Disconnected);
+        ConfigureAndOpen(executor, *plan, transport);
+        ScriptKernelProbeTimeout(transport);
+        ScriptIdentityQueries(transport);
+        ScriptStrictSessionAndSecurity(transport);
+        ScriptKernelUploadUntilStart(transport, kCases[1],
+                                     terminal == ErrorKind::kCancelled ? UploadB6Reply::kCancelled
+                                                                       : UploadB6Reply::kDisconnected);
         FakeCancellationToken cancellation;
         FakeClock clock;
         RecordingEventSink events;
 
-        auto result = executor.execute(*plan, transport, clock, cancellation, events);
+        auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
         ASSERT_FALSE(result.has_value());
         EXPECT_EQ(result.error().kind, terminal);
@@ -1242,27 +1243,27 @@ TEST(SubaruTcuDensoSh705xCanExecutor, KernelStartAcceptsServiceOnlyAndFullEchoBe
     const std::array<bytes::Bytes, 2> accepted{{bytes::Bytes{0x71}, bytes::Bytes{0x71, 0x01, 0x02, 0x02, 0x02}}};
     for (const bytes::Bytes& start_reply : accepted)
     {
-        SCOPED_TRACE(bytes::toHex(start_reply));
-        auto plan = read_plan(kCases[1]);
+        SCOPED_TRACE(bytes::ToHex(start_reply));
+        auto plan = ReadPlan(kCases[1]);
         ASSERT_TRUE(plan.has_value()) << plan.error().detail;
         SubaruTcuDensoSh705xCanExecutor executor;
         ScriptedCanFlashTransport transport;
-        configure_and_open(executor, *plan, transport);
-        script_kernel_probe_timeout(transport);
-        script_identity_queries(transport);
-        script_strict_session_and_security(transport);
-        script_kernel_upload(transport, kCases[1], UploadB6Reply::NoFrame, start_reply);
-        transport.expectWrite(kernel_id_request());
-        transport.queueRead(bytes::Bytes{0x00, 0x00, 0x07});
+        ConfigureAndOpen(executor, *plan, transport);
+        ScriptKernelProbeTimeout(transport);
+        ScriptIdentityQueries(transport);
+        ScriptStrictSessionAndSecurity(transport);
+        ScriptKernelUpload(transport, kCases[1], UploadB6Reply::kNoFrame, start_reply);
+        transport.ExpectWrite(KernelIdRequest());
+        transport.QueueRead(bytes::Bytes{0x00, 0x00, 0x07});
         FakeCancellationToken cancellation;
         FakeClock clock;
         RecordingEventSink events;
 
-        auto result = executor.execute(*plan, transport, clock, cancellation, events);
+        auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
         ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
-        EXPECT_TRUE(transport.scriptConsumed());
+        EXPECT_EQ(result.error().kind, ErrorKind::kBadResponse);
+        EXPECT_TRUE(transport.ScriptConsumed());
     }
 }
 
@@ -1276,77 +1277,77 @@ TEST(SubaruTcuDensoSh705xCanExecutor, KernelStartRejectsWrongSidShortTimeoutCanc
         ErrorKind expected;
     };
     const std::array<StartCase, 5> cases{{
-        {"wrong-sid", response(bytes::Bytes{0x70}), std::nullopt, ErrorKind::BadResponse},
-        {"short", bytes::Bytes{0x00, 0x00, 0x07}, std::nullopt, ErrorKind::BadResponse},
-        {"timeout", std::nullopt, ErrorKind::Timeout, ErrorKind::Timeout},
-        {"cancelled", std::nullopt, ErrorKind::Cancelled, ErrorKind::Cancelled},
-        {"disconnected", std::nullopt, ErrorKind::Disconnected, ErrorKind::Disconnected},
+        {"wrong-sid", Response(bytes::Bytes{0x70}), std::nullopt, ErrorKind::kBadResponse},
+        {"short", bytes::Bytes{0x00, 0x00, 0x07}, std::nullopt, ErrorKind::kBadResponse},
+        {"timeout", std::nullopt, ErrorKind::kTimeout, ErrorKind::kTimeout},
+        {"cancelled", std::nullopt, ErrorKind::kCancelled, ErrorKind::kCancelled},
+        {"disconnected", std::nullopt, ErrorKind::kDisconnected, ErrorKind::kDisconnected},
     }};
     for (const StartCase& start : cases)
     {
         SCOPED_TRACE(start.name);
-        auto plan = read_plan(kCases[1]);
+        auto plan = ReadPlan(kCases[1]);
         ASSERT_TRUE(plan.has_value()) << plan.error().detail;
         SubaruTcuDensoSh705xCanExecutor executor;
         ScriptedCanFlashTransport transport;
-        configure_and_open(executor, *plan, transport);
-        script_kernel_probe_timeout(transport);
-        script_identity_queries(transport);
-        script_strict_session_and_security(transport);
-        script_kernel_upload_until_start(transport, kCases[1]);
+        ConfigureAndOpen(executor, *plan, transport);
+        ScriptKernelProbeTimeout(transport);
+        ScriptIdentityQueries(transport);
+        ScriptStrictSessionAndSecurity(transport);
+        ScriptKernelUploadUntilStart(transport, kCases[1]);
         if (start.error.has_value())
         {
-            transport.queue_error(*start.error, "kernel-start read outcome");
+            transport.QueueError(*start.error, "kernel-start read outcome");
         }
         else
         {
             ASSERT_TRUE(start.frame.has_value());
-            transport.queueRead(*start.frame);
+            transport.QueueRead(*start.frame);
         }
         FakeCancellationToken cancellation;
         FakeClock clock;
         RecordingEventSink events;
 
-        auto result = executor.execute(*plan, transport, clock, cancellation, events);
+        auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
         ASSERT_FALSE(result.has_value());
         EXPECT_EQ(result.error().kind, start.expected);
-        EXPECT_TRUE(transport.scriptConsumed());
+        EXPECT_TRUE(transport.ScriptConsumed());
     }
 }
 
 TEST(SubaruTcuDensoSh705xCanExecutor, ProbeTimeoutRunsIdentityStrictUdsUploadAndPostUploadBeefRead)
 {
     const Case& test_case = kCases[1];
-    auto plan = read_plan(test_case);
+    auto plan = ReadPlan(test_case);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
     SubaruTcuDensoSh705xCanExecutor executor;
     ScriptedCanFlashTransport transport;
-    configure_and_open(executor, *plan, transport);
-    script_kernel_probe_timeout(transport);
-    script_identity_queries(transport);
-    script_strict_session_and_security(transport);
-    script_kernel_upload(transport, test_case);
-    transport.expectWrite(kernel_id_request());
-    transport.queueRead(kernel_id_response());
-    transport.queue_no_frame();
-    script_read_pages(transport, kReadPageSize);
-    transport.expectWrite(beef_request(0x03, composeBe(0x00_b, u24(kReadPageSize), std::uint16_t{kReadPageSize})));
-    transport.queueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0xBE, 0xEF, 0x00, 0x01, 0x43});
+    ConfigureAndOpen(executor, *plan, transport);
+    ScriptKernelProbeTimeout(transport);
+    ScriptIdentityQueries(transport);
+    ScriptStrictSessionAndSecurity(transport);
+    ScriptKernelUpload(transport, test_case);
+    transport.ExpectWrite(KernelIdRequest());
+    transport.QueueRead(KernelIdResponse());
+    transport.QueueNoFrame();
+    ScriptReadPages(transport, kReadPageSize);
+    transport.ExpectWrite(BeefRequest(0x03, ComposeBe(0x00_b, U24(kReadPageSize), std::uint16_t{kReadPageSize})));
+    transport.QueueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0xBE, 0xEF, 0x00, 0x01, 0x43});
     FakeCancellationToken cancellation;
     MockClock clock;
-    EXPECT_CALL(clock, sleep(50ms, _)).Times(AtLeast(1));
-    EXPECT_CALL(clock, sleep(500ms, _)).Times(AtLeast(1));
+    EXPECT_CALL(clock, Sleep(50ms, _)).Times(AtLeast(1));
+    EXPECT_CALL(clock, Sleep(500ms, _)).Times(AtLeast(1));
     RecordingEventSink events;
 
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
+    auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
-    EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
-    EXPECT_TRUE(has_log(events, LogLevel::Info, "ECU ID: 4543553031"));
-    EXPECT_TRUE(has_log(events, LogLevel::Info, "CAL ID: CAL"));
+    EXPECT_EQ(result.error().kind, ErrorKind::kBadResponse);
+    EXPECT_TRUE(transport.ScriptConsumed());
+    EXPECT_EQ(result.error().kind, ErrorKind::kBadResponse);
+    EXPECT_TRUE(HasLog(events, LogLevel::kInfo, "ECU ID: 4543553031"));
+    EXPECT_TRUE(HasLog(events, LogLevel::kInfo, "CAL ID: CAL"));
     EXPECT_THAT(events.notices, ElementsAre("Preparing, please wait...", "Reading ROM, please wait..."));
 }
 
@@ -1354,31 +1355,30 @@ TEST(SubaruTcuDensoSh705xCanExecutor, ProbeTimeoutUploadsFixed129ByteKernelThenS
 {
     bytes::Bytes kernel(129, bytes::Byte{0x00});
     kernel.back() = 0x01;
-    auto plan = read_plan(kCases[0], std::move(kernel));
+    auto plan = ReadPlan(kCases[0], std::move(kernel));
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
     SubaruTcuDensoSh705xCanExecutor executor;
     RecordingCanTransport transport;
-    configure_and_open(executor, *plan, transport);
-    script_kernel_probe_timeout(transport.scripted);
-    script_identity_queries(transport.scripted);
-    script_strict_session_and_security(transport.scripted);
-    script_hand_derived_129_byte_sh7055_kernel_upload(transport.scripted);
-    transport.scripted.expectWrite(
+    ConfigureAndOpen(executor, *plan, transport);
+    ScriptKernelProbeTimeout(transport.scripted);
+    ScriptIdentityQueries(transport.scripted);
+    ScriptStrictSessionAndSecurity(transport.scripted);
+    ScriptHandDerived129ByteSh7055KernelUpload(transport.scripted);
+    transport.scripted.ExpectWrite(
         bytes::Bytes{0x00, 0x00, 0x07, 0xE1, 0x7A, 0xA0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00});
-    transport.scripted.queueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0xBE, 0xEF, 0x00, 0x04, 0x41, 0x4B, 0x49, 0x44});
-    transport.scripted.queue_no_frame();
-    script_read_pages(transport.scripted, 0x00080000);
+    transport.scripted.QueueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0xBE, 0xEF, 0x00, 0x04, 0x41, 0x4B, 0x49, 0x44});
+    transport.scripted.QueueNoFrame();
+    ScriptReadPages(transport.scripted, 0x00080000);
     FakeCancellationToken cancellation;
     std::vector<std::string> timeline;
     transport.timeline = &timeline;
     MockClock clock;
-    ON_CALL(clock, sleep)
+    ON_CALL(clock, Sleep)
         .WillByDefault(DoAll([&](std::chrono::milliseconds duration, const ICancellationToken&)
-                             { timeline.push_back(std::format("sleep:{}", duration.count())); },
-                             clock.sleep_on_fake()));
+                             { timeline.push_back(std::format("sleep:{}", duration.count())); }, clock.SleepOnFake()));
     RecordingEventSink events;
 
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
+    auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_TRUE(result.has_value()) << result.error().detail;
     ASSERT_TRUE(result->read_bytes.has_value());
@@ -1405,47 +1405,47 @@ TEST(SubaruTcuDensoSh705xCanExecutor, ProbeTimeoutUploadsFixed129ByteKernelThenS
     EXPECT_EQ(*(reset + 4), "kernel_id_write");
     EXPECT_EQ(*(reset + 5), "sleep:100");
     EXPECT_EQ(*(reset + 6), "read");
-    EXPECT_TRUE(transport.scripted.scriptConsumed());
+    EXPECT_TRUE(transport.scripted.ScriptConsumed());
     EXPECT_THAT(events.notices, ElementsAre("Preparing, please wait...", "Reading ROM, please wait..."));
     const std::vector<LogRecord> expected_upload_prefix{
-        {LogLevel::Info, "Checking if kernel is already running..."},
-        {LogLevel::Info, "Requesting kernel ID"},
-        {LogLevel::Info, "Kernel ID request: 00 00 07 e1 7a a0 00 00 00 00 00 00 "},
-        {LogLevel::Info, "Kernel ID response: "},
-        {LogLevel::Info, "Kernel ID request: 00 00 07 e1 7a a0 00 00 00 00 00 00 "},
-        {LogLevel::Info, "Kernel ID response: "},
-        {LogLevel::Info, "Kernel ID request: 00 00 07 e1 7a a0 00 00 00 00 00 00 "},
-        {LogLevel::Info, "Kernel ID response: "},
-        {LogLevel::Info, "Kernel ID request: 00 00 07 e1 7a a0 00 00 00 00 00 00 "},
-        {LogLevel::Info, "Kernel ID response: "},
-        {LogLevel::Info, "Kernel ID request: 00 00 07 e1 7a a0 00 00 00 00 00 00 "},
-        {LogLevel::Info, "Kernel ID response: "},
-        {LogLevel::Error, "No valid response from ECU"},
-        {LogLevel::Info, "No response from kernel, initialising ECU..."},
-        {LogLevel::Info, "Requesting ECU ID"},
-        {LogLevel::Info, "ECU ID: 4543553031"},
-        {LogLevel::Info, "Requesting CAL ID"},
-        {LogLevel::Info, "CAL ID: CAL"},
-        {LogLevel::Info, "Requesting session mode"},
-        {LogLevel::Info, "Seed request ok"},
-        {LogLevel::Info, "Sending seed key"},
-        {LogLevel::Info, "Seed key ok"},
-        {LogLevel::Info, "Requesting programming session"},
-        {LogLevel::Info, "Succesfully set to programming session"},
-        {LogLevel::Debug, "Start address to upload kernel: 0xffff9000"},
-        {LogLevel::Info, "Initialize kernel upload"},
-        {LogLevel::Info, "Uploading kernel, please wait..."},
-        {LogLevel::Info, "Kernel uploaded, starting..."},
-        {LogLevel::Info, "Kernel started, initializing..."},
-        {LogLevel::Info, "Requesting kernel ID"},
-        {LogLevel::Info, "Kernel ID request: 00 00 07 e1 7a a0 00 00 00 00 00 00 "},
-        {LogLevel::Info, "Kernel ID response: 00 00 07 e9 be ef 00 04 41 4b 49 44 "},
-        {LogLevel::Info, "Kernel ID: KID"},
-        {LogLevel::Info, "Start reading ROM, please wait..."},
+        {LogLevel::kInfo, "Checking if kernel is already running..."},
+        {LogLevel::kInfo, "Requesting kernel ID"},
+        {LogLevel::kInfo, "Kernel ID request: 00 00 07 e1 7a a0 00 00 00 00 00 00 "},
+        {LogLevel::kInfo, "Kernel ID response: "},
+        {LogLevel::kInfo, "Kernel ID request: 00 00 07 e1 7a a0 00 00 00 00 00 00 "},
+        {LogLevel::kInfo, "Kernel ID response: "},
+        {LogLevel::kInfo, "Kernel ID request: 00 00 07 e1 7a a0 00 00 00 00 00 00 "},
+        {LogLevel::kInfo, "Kernel ID response: "},
+        {LogLevel::kInfo, "Kernel ID request: 00 00 07 e1 7a a0 00 00 00 00 00 00 "},
+        {LogLevel::kInfo, "Kernel ID response: "},
+        {LogLevel::kInfo, "Kernel ID request: 00 00 07 e1 7a a0 00 00 00 00 00 00 "},
+        {LogLevel::kInfo, "Kernel ID response: "},
+        {LogLevel::kError, "No valid response from ECU"},
+        {LogLevel::kInfo, "No response from kernel, initialising ECU..."},
+        {LogLevel::kInfo, "Requesting ECU ID"},
+        {LogLevel::kInfo, "ECU ID: 4543553031"},
+        {LogLevel::kInfo, "Requesting CAL ID"},
+        {LogLevel::kInfo, "CAL ID: CAL"},
+        {LogLevel::kInfo, "Requesting session mode"},
+        {LogLevel::kInfo, "Seed request ok"},
+        {LogLevel::kInfo, "Sending seed key"},
+        {LogLevel::kInfo, "Seed key ok"},
+        {LogLevel::kInfo, "Requesting programming session"},
+        {LogLevel::kInfo, "Succesfully set to programming session"},
+        {LogLevel::kDebug, "Start address to upload kernel: 0xffff9000"},
+        {LogLevel::kInfo, "Initialize kernel upload"},
+        {LogLevel::kInfo, "Uploading kernel, please wait..."},
+        {LogLevel::kInfo, "Kernel uploaded, starting..."},
+        {LogLevel::kInfo, "Kernel started, initializing..."},
+        {LogLevel::kInfo, "Requesting kernel ID"},
+        {LogLevel::kInfo, "Kernel ID request: 00 00 07 e1 7a a0 00 00 00 00 00 00 "},
+        {LogLevel::kInfo, "Kernel ID response: 00 00 07 e9 be ef 00 04 41 4b 49 44 "},
+        {LogLevel::kInfo, "Kernel ID: KID"},
+        {LogLevel::kInfo, "Start reading ROM, please wait..."},
     };
     ASSERT_GE(events.logs.size(), expected_upload_prefix.size());
     EXPECT_TRUE(std::equal(expected_upload_prefix.begin(), expected_upload_prefix.end(), events.logs.begin()));
-    EXPECT_THAT(log_messages_starting_with(events, "Kernel ID "),
+    EXPECT_THAT(LogMessagesStartingWith(events, "Kernel ID "),
                 ElementsAre("Kernel ID request: 00 00 07 e1 7a a0 00 00 00 00 00 00 ",
                             "Kernel ID response: ", "Kernel ID request: 00 00 07 e1 7a a0 00 00 00 00 00 00 ",
                             "Kernel ID response: ", "Kernel ID request: 00 00 07 e1 7a a0 00 00 00 00 00 00 ",
@@ -1453,7 +1453,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, ProbeTimeoutUploadsFixed129ByteKernelThenS
                             "Kernel ID response: ", "Kernel ID request: 00 00 07 e1 7a a0 00 00 00 00 00 00 ",
                             "Kernel ID response: ", "Kernel ID request: 00 00 07 e1 7a a0 00 00 00 00 00 00 ",
                             "Kernel ID response: 00 00 07 e9 be ef 00 04 41 4b 49 44 "));
-    expect_exact_read_phase_progress(events, 0x00080000);
+    ExpectExactReadPhaseProgress(events, 0x00080000);
 }
 
 TEST(SubaruTcuDensoSh705xCanExecutor, RestartResetConfigureAndOpenFailuresPropagateAndOuterCloseStillRuns)
@@ -1465,49 +1465,49 @@ TEST(SubaruTcuDensoSh705xCanExecutor, RestartResetConfigureAndOpenFailuresPropag
         std::vector<std::string> expected_lifecycle;
     };
     const std::array cases{
-        FailureCase{"reset", ErrorKind::Internal, {"configure", "open", "reset_connection", "close"}},
+        FailureCase{"reset", ErrorKind::kInternal, {"configure", "open", "reset_connection", "close"}},
         FailureCase{
-            "configure", ErrorKind::InvalidConfig, {"configure", "open", "reset_connection", "configure", "close"}},
+            "configure", ErrorKind::kInvalidConfig, {"configure", "open", "reset_connection", "configure", "close"}},
         FailureCase{
-            "open", ErrorKind::Disconnected, {"configure", "open", "reset_connection", "configure", "open", "close"}},
+            "open", ErrorKind::kDisconnected, {"configure", "open", "reset_connection", "configure", "open", "close"}},
     };
     for (const FailureCase& failure : cases)
     {
         SCOPED_TRACE(failure.stage);
-        auto plan = read_plan(kCases[1]);
+        auto plan = ReadPlan(kCases[1]);
         ASSERT_TRUE(plan.has_value()) << plan.error().detail;
         auto transport = std::make_unique<RecordingCanTransport>();
         RecordingCanTransport *observed = transport.get();
-        script_kernel_probe_timeout(observed->scripted);
-        script_identity_queries(observed->scripted);
-        script_strict_session_and_security(observed->scripted);
-        script_kernel_upload(observed->scripted, kCases[1]);
+        ScriptKernelProbeTimeout(observed->scripted);
+        ScriptIdentityQueries(observed->scripted);
+        ScriptStrictSessionAndSecurity(observed->scripted);
+        ScriptKernelUpload(observed->scripted, kCases[1]);
         if (failure.stage == "reset")
         {
-            observed->reset_result = fail(failure.kind, "restart reset marker");
+            observed->reset_result = Fail(failure.kind, "restart reset marker");
         }
         else if (failure.stage == "configure")
         {
-            observed->restart_configure_result = fail(failure.kind, "restart configure marker");
+            observed->restart_configure_result = Fail(failure.kind, "restart configure marker");
         }
         else
         {
-            observed->restart_open_result = fail(failure.kind, "restart open marker");
+            observed->restart_open_result = Fail(failure.kind, "restart open marker");
         }
         FakeCancellationToken cancellation;
         MockClock clock;
-        EXPECT_CALL(clock, sleep(500ms, _)).Times(0);
+        EXPECT_CALL(clock, Sleep(500ms, _)).Times(0);
         RecordingEventSink events;
-        auto attempt = bind_flash_attempt(std::move(*plan), std::make_unique<SubaruTcuDensoSh705xCanExecutor>(),
-                                          std::move(transport));
+        auto attempt = BindFlashAttempt(std::move(*plan), std::make_unique<SubaruTcuDensoSh705xCanExecutor>(),
+                                        std::move(transport));
 
-        const auto result = attempt->run(clock, cancellation, events);
+        const auto result = attempt->Run(clock, cancellation, events);
 
         ASSERT_FALSE(result.has_value());
         EXPECT_EQ(result.error().kind, failure.kind);
         EXPECT_EQ(observed->lifecycle, failure.expected_lifecycle);
-        EXPECT_EQ(observed->scripted.close_call_count_, 1);
-        EXPECT_TRUE(observed->scripted.scriptConsumed());
+        EXPECT_EQ(observed->scripted.close_call_count, 1);
+        EXPECT_TRUE(observed->scripted.ScriptConsumed());
     }
 }
 
@@ -1527,14 +1527,14 @@ TEST(SubaruTcuDensoSh705xCanExecutor, CancellationAfterKernelStartAndWithinResta
     for (const CancellationCase& test_case : cases)
     {
         SCOPED_TRACE(test_case.boundary);
-        auto plan = read_plan(kCases[1]);
+        auto plan = ReadPlan(kCases[1]);
         ASSERT_TRUE(plan.has_value()) << plan.error().detail;
         auto transport = std::make_unique<RecordingCanTransport>();
         RecordingCanTransport *observed = transport.get();
-        script_kernel_probe_timeout(observed->scripted);
-        script_identity_queries(observed->scripted);
-        script_strict_session_and_security(observed->scripted);
-        script_kernel_upload(observed->scripted, kCases[1]);
+        ScriptKernelProbeTimeout(observed->scripted);
+        ScriptIdentityQueries(observed->scripted);
+        ScriptStrictSessionAndSecurity(observed->scripted);
+        ScriptKernelUpload(observed->scripted, kCases[1]);
         FakeCancellationToken cancellation;
         if (test_case.boundary == "before-restart")
         {
@@ -1553,18 +1553,18 @@ TEST(SubaruTcuDensoSh705xCanExecutor, CancellationAfterKernelStartAndWithinResta
             observed->cancellation_on_open = &cancellation;
         }
         MockClock clock;
-        EXPECT_CALL(clock, sleep(500ms, _)).Times(0);
+        EXPECT_CALL(clock, Sleep(500ms, _)).Times(0);
         RecordingEventSink events;
-        auto attempt = bind_flash_attempt(std::move(*plan), std::make_unique<SubaruTcuDensoSh705xCanExecutor>(),
-                                          std::move(transport));
+        auto attempt = BindFlashAttempt(std::move(*plan), std::make_unique<SubaruTcuDensoSh705xCanExecutor>(),
+                                        std::move(transport));
 
-        const auto result = attempt->run(clock, cancellation, events);
+        const auto result = attempt->Run(clock, cancellation, events);
 
         ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
+        EXPECT_EQ(result.error().kind, ErrorKind::kCancelled);
         EXPECT_EQ(observed->lifecycle, test_case.expected_lifecycle);
-        EXPECT_EQ(observed->scripted.close_call_count_, 1);
-        EXPECT_TRUE(observed->scripted.scriptConsumed());
+        EXPECT_EQ(observed->scripted.close_call_count, 1);
+        EXPECT_TRUE(observed->scripted.ScriptConsumed());
     }
 }
 
@@ -1573,36 +1573,36 @@ TEST(SubaruTcuDensoSh705xCanExecutor, CancellationDuringOrImmediatelyAfterRestar
     for (const bool cancellation_returns_from_sleep : {false, true})
     {
         SCOPED_TRACE(cancellation_returns_from_sleep);
-        auto plan = read_plan(kCases[1]);
+        auto plan = ReadPlan(kCases[1]);
         ASSERT_TRUE(plan.has_value()) << plan.error().detail;
         auto transport = std::make_unique<RecordingCanTransport>();
         RecordingCanTransport *observed = transport.get();
-        script_kernel_probe_timeout(observed->scripted);
-        script_identity_queries(observed->scripted);
-        script_strict_session_and_security(observed->scripted);
-        script_kernel_upload(observed->scripted, kCases[1]);
+        ScriptKernelProbeTimeout(observed->scripted);
+        ScriptIdentityQueries(observed->scripted);
+        ScriptStrictSessionAndSecurity(observed->scripted);
+        ScriptKernelUpload(observed->scripted, kCases[1]);
         FakeCancellationToken cancellation;
         MockClock clock;
         if (cancellation_returns_from_sleep)
         {
-            EXPECT_CALL(clock, sleep(500ms, _))
-                .WillOnce(DoAll(clock.sleep_on_fake(), [&] { cancellation.set_cancelled(true); }, Return(Status{})));
+            EXPECT_CALL(clock, Sleep(500ms, _))
+                .WillOnce(DoAll(clock.SleepOnFake(), [&] { cancellation.SetCancelled(true); }, Return(Status{})));
         }
         else
         {
-            EXPECT_CALL(clock, sleep(500ms, _))
-                .WillOnce(DoAll([&] { cancellation.set_cancelled(true); }, clock.sleep_on_fake()));
+            EXPECT_CALL(clock, Sleep(500ms, _))
+                .WillOnce(DoAll([&] { cancellation.SetCancelled(true); }, clock.SleepOnFake()));
         }
         RecordingEventSink events;
-        auto attempt = bind_flash_attempt(std::move(*plan), std::make_unique<SubaruTcuDensoSh705xCanExecutor>(),
-                                          std::move(transport));
+        auto attempt = BindFlashAttempt(std::move(*plan), std::make_unique<SubaruTcuDensoSh705xCanExecutor>(),
+                                        std::move(transport));
 
-        const auto result = attempt->run(clock, cancellation, events);
+        const auto result = attempt->Run(clock, cancellation, events);
 
         ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
-        EXPECT_EQ(observed->scripted.close_call_count_, 1);
-        EXPECT_TRUE(observed->scripted.scriptConsumed());
+        EXPECT_EQ(result.error().kind, ErrorKind::kCancelled);
+        EXPECT_EQ(observed->scripted.close_call_count, 1);
+        EXPECT_TRUE(observed->scripted.ScriptConsumed());
         EXPECT_EQ(std::count_if(observed->writes.begin(), observed->writes.end(), [](const bytes::Bytes& write)
                                 { return write.size() > 8 && write[4] == 0x7a && write[8] == 0x00; }),
                   5);
@@ -1611,28 +1611,28 @@ TEST(SubaruTcuDensoSh705xCanExecutor, CancellationDuringOrImmediatelyAfterRestar
 
 TEST(SubaruTcuDensoSh705xCanExecutor, KernelPhaseDoesNotCompleteWhenPostUploadIdentityDisconnects)
 {
-    auto plan = read_plan(kCases[1]);
+    auto plan = ReadPlan(kCases[1]);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
     SubaruTcuDensoSh705xCanExecutor executor;
     ScriptedCanFlashTransport transport;
-    configure_and_open(executor, *plan, transport);
-    script_kernel_probe_timeout(transport);
-    script_identity_queries(transport);
-    script_strict_session_and_security(transport);
-    script_kernel_upload(transport, kCases[1]);
-    transport.expectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE1, 0x7A, 0xA0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00});
-    transport.queue_error(ErrorKind::Disconnected, "adapter dropped during post-upload identity");
+    ConfigureAndOpen(executor, *plan, transport);
+    ScriptKernelProbeTimeout(transport);
+    ScriptIdentityQueries(transport);
+    ScriptStrictSessionAndSecurity(transport);
+    ScriptKernelUpload(transport, kCases[1]);
+    transport.ExpectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE1, 0x7A, 0xA0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00});
+    transport.QueueError(ErrorKind::kDisconnected, "adapter dropped during post-upload identity");
     FakeCancellationToken cancellation;
     FakeClock clock;
     RecordingEventSink events;
 
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
+    auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Disconnected);
-    EXPECT_TRUE(transport.scriptConsumed());
+    EXPECT_EQ(result.error().kind, ErrorKind::kDisconnected);
+    EXPECT_TRUE(transport.ScriptConsumed());
     EXPECT_THAT(events.notices, ElementsAre("Preparing, please wait..."));
-    expect_exact_phase_progress(events, {{"Kernel", 1, 2, 0, 1}});
+    ExpectExactPhaseProgress(events, {{"Kernel", 1, 2, 0, 1}});
 }
 
 TEST(SubaruTcuDensoSh705xCanExecutor, ZeroElapsedClockUsesOneMillisecondClampForExactReadAndWriteLogs)
@@ -1641,51 +1641,51 @@ TEST(SubaruTcuDensoSh705xCanExecutor, ZeroElapsedClockUsesOneMillisecondClampFor
     // elapsed interval is instead clamped to 1 ms while retaining its exact
     // rate/time formula and text layout.
     {
-        auto plan = read_plan(kCases[0]);
+        auto plan = ReadPlan(kCases[0]);
         ASSERT_TRUE(plan.has_value()) << plan.error().detail;
         SubaruTcuDensoSh705xCanExecutor executor;
         ScriptedCanFlashTransport transport;
-        configure_and_open(executor, *plan, transport);
-        script_kernel_alive(transport);
-        script_read_pages(transport, kReadPageSize);
+        ConfigureAndOpen(executor, *plan, transport);
+        ScriptKernelAlive(transport);
+        ScriptReadPages(transport, kReadPageSize);
         FakeCancellationToken cancellation;
         FakeClock clock;
         PhaseCancellingEventSink events(cancellation, "Read", kReadPageSize);
 
-        auto result = executor.execute(*plan, transport, clock, cancellation, events);
+        auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
         ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
-        EXPECT_THAT(log_messages_starting_with(events, "Kernel read addr:"),
+        EXPECT_EQ(result.error().kind, ErrorKind::kCancelled);
+        EXPECT_THAT(LogMessagesStartingWith(events, "Kernel read addr:"),
                     ElementsAre("Kernel read addr: 0x00000000 length: 0x00000400, 1024000 B/s      1 s"));
     }
 
     // The legacy writer logged uninitialized speed/time values for its first
     // window. The same 1 ms rule yields the exact stable first record below.
     {
-        auto plan = write_plan(kCases[1]);
+        auto plan = WritePlan(kCases[1]);
         ASSERT_TRUE(plan.has_value()) << plan.error().detail;
         SubaruTcuDensoSh705xCanExecutor executor;
         ScriptedCanFlashTransport transport;
-        configure_and_open(executor, *plan, transport);
-        script_kernel_alive(transport);
-        script_compare(transport, blocks_for(kCases[1]), true);
-        script_flash_init(transport);
-        transport.expectWrite(beef_request(0x04));
-        transport.queueRead(beef_response(0x44, bytes::Bytes{0x00, 0x64}));
-        transport.expectWrite(beef_request(0x25, composeBe(std::uint32_t{0x00000000})));
-        transport.queueRead(beef_response(0x65));
-        transport.expectWrite(beef_request(0x22, composeBe(std::uint32_t{0}, zero_chunk(kWriteChunkSize))));
-        transport.queueRead(beef_response(0x62));
+        ConfigureAndOpen(executor, *plan, transport);
+        ScriptKernelAlive(transport);
+        ScriptCompare(transport, BlocksFor(kCases[1]), true);
+        ScriptFlashInit(transport);
+        transport.ExpectWrite(BeefRequest(0x04));
+        transport.QueueRead(BeefResponse(0x44, bytes::Bytes{0x00, 0x64}));
+        transport.ExpectWrite(BeefRequest(0x25, ComposeBe(std::uint32_t{0x00000000})));
+        transport.QueueRead(BeefResponse(0x65));
+        transport.ExpectWrite(BeefRequest(0x22, ComposeBe(std::uint32_t{0}, ZeroChunk(kWriteChunkSize))));
+        transport.QueueRead(BeefResponse(0x62));
         FakeCancellationToken cancellation;
         FakeClock clock;
         PhaseCancellingEventSink events(cancellation, "Write", kWriteChunkSize);
 
-        auto result = executor.execute(*plan, transport, clock, cancellation, events);
+        auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
         ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
-        EXPECT_THAT(log_messages_starting_with(events, "Write flash buffer:"),
+        EXPECT_EQ(result.error().kind, ErrorKind::kCancelled);
+        EXPECT_THAT(LogMessagesStartingWith(events, "Write flash buffer:"),
                     ElementsAre("Write flash buffer: 0x00000000 (0% - 512000 B/s, ~ 1 s)"));
     }
 }
@@ -1693,27 +1693,27 @@ TEST(SubaruTcuDensoSh705xCanExecutor, ZeroElapsedClockUsesOneMillisecondClampFor
 TEST(SubaruTcuDensoSh705xCanExecutor, WriteComparesErasesProgramsAndVerifiesFirstChangedBlockWithStaleCrcFrames)
 {
     const Case& test_case = kCases[1];
-    auto plan = write_plan(test_case);
+    auto plan = WritePlan(test_case);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
     SubaruTcuDensoSh705xCanExecutor executor;
     ScriptedCanFlashTransport transport;
-    configure_and_open(executor, *plan, transport);
-    script_kernel_alive(transport);
-    script_compare_with_stale_crc_frames(transport, blocks_for(test_case), true);
-    script_flash_init(transport);
-    script_first_flash_block(transport);
-    script_compare(transport, blocks_for(test_case), false);
+    ConfigureAndOpen(executor, *plan, transport);
+    ScriptKernelAlive(transport);
+    ScriptCompareWithStaleCrcFrames(transport, BlocksFor(test_case), true);
+    ScriptFlashInit(transport);
+    ScriptFirstFlashBlock(transport);
+    ScriptCompare(transport, BlocksFor(test_case), false);
     FakeCancellationToken cancellation;
     FakeClock clock;
     RecordingEventSink events;
 
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
+    auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_TRUE(result.has_value()) << result.error().detail;
-    EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_EQ(events.logs, expected_write_logs(blocks_for(test_case)));
+    EXPECT_TRUE(transport.ScriptConsumed());
+    EXPECT_EQ(events.logs, ExpectedWriteLogs(BlocksFor(test_case)));
     EXPECT_THAT(events.notices, ElementsAre("Writing ROM, please wait..."));
-    expect_exact_phase_progress(
+    ExpectExactPhaseProgress(
         events, {{"Kernel", 1, 4, 0, 1},          {"Kernel", 1, 4, 1, 1},          {"Compare", 2, 4, 0, 16},
                  {"Compare", 2, 4, 1, 16},        {"Compare", 2, 4, 2, 16},        {"Compare", 2, 4, 3, 16},
                  {"Compare", 2, 4, 4, 16},        {"Compare", 2, 4, 5, 16},        {"Compare", 2, 4, 6, 16},
@@ -1731,27 +1731,27 @@ TEST(SubaruTcuDensoSh705xCanExecutor, NonzeroLargeBlockUsesEveryWriteWindowAndEx
 {
     bytes::Bytes image(kCases[1].rom_size, bytes::Byte{0x00});
     std::fill(image.begin() + 0x00008000, image.begin() + 0x00020000, bytes::Byte{0xA5});
-    auto plan = write_plan(kCases[1], std::move(image));
+    auto plan = WritePlan(kCases[1], std::move(image));
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
     SubaruTcuDensoSh705xCanExecutor executor;
     RecordingCanTransport transport;
-    configure_and_open(executor, *plan, transport);
-    script_kernel_alive(transport.scripted);
-    script_sh7058_a5_block_compare(transport.scripted, false);
-    script_flash_init(transport.scripted);
-    script_sh7058_a5_block_write(transport.scripted);
-    script_sh7058_a5_block_compare(transport.scripted, true);
+    ConfigureAndOpen(executor, *plan, transport);
+    ScriptKernelAlive(transport.scripted);
+    ScriptSh7058A5BlockCompare(transport.scripted, false);
+    ScriptFlashInit(transport.scripted);
+    ScriptSh7058A5BlockWrite(transport.scripted);
+    ScriptSh7058A5BlockCompare(transport.scripted, true);
     FakeCancellationToken cancellation;
     FakeClock clock;
     RecordingEventSink events;
 
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
+    auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_TRUE(result.has_value()) << result.error().detail;
-    EXPECT_TRUE(transport.scripted.scriptConsumed());
+    EXPECT_TRUE(transport.scripted.ScriptConsumed());
     EXPECT_THAT(events.notices, ElementsAre("Writing ROM, please wait..."));
-    EXPECT_FALSE(has_log(events, LogLevel::Error, "*** ERROR IN FLASH PROCESS ***"));
-    EXPECT_TRUE(has_log(events, LogLevel::Debug, "ROM CRC: 0xaaa0b108 IMG CRC: 0xaaa0b108"));
+    EXPECT_FALSE(HasLog(events, LogLevel::kError, "*** ERROR IN FLASH PROCESS ***"));
+    EXPECT_TRUE(HasLog(events, LogLevel::kDebug, "ROM CRC: 0xaaa0b108 IMG CRC: 0xaaa0b108"));
 
     // Kernel 0/1, Compare 0..16, Write start + 191 ordinary windows +
     // clamped last window + completion, then Complete 0/1.
@@ -1797,29 +1797,29 @@ TEST(SubaruTcuDensoSh705xCanExecutor, NonzeroLargeBlockUsesEveryWriteWindowAndEx
 TEST(SubaruTcuDensoSh705xCanExecutor, UnchangedWriteEmitsExactFourPhaseProgressStream)
 {
     const Case& test_case = kCases[1];
-    auto plan = write_plan(test_case);
+    auto plan = WritePlan(test_case);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
     SubaruTcuDensoSh705xCanExecutor executor;
     ScriptedCanFlashTransport transport;
-    configure_and_open(executor, *plan, transport);
-    script_kernel_alive(transport);
-    script_compare(transport, blocks_for(test_case), false);
+    ConfigureAndOpen(executor, *plan, transport);
+    ScriptKernelAlive(transport);
+    ScriptCompare(transport, BlocksFor(test_case), false);
     FakeCancellationToken cancellation;
     FakeClock clock;
     RecordingEventSink events;
 
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
+    auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_TRUE(result.has_value()) << result.error().detail;
-    EXPECT_TRUE(transport.scriptConsumed());
-    expect_exact_phase_progress(
-        events,
-        {{"Kernel", 1, 4, 0, 1},    {"Kernel", 1, 4, 1, 1},    {"Compare", 2, 4, 0, 16},  {"Compare", 2, 4, 1, 16},
-         {"Compare", 2, 4, 2, 16},  {"Compare", 2, 4, 3, 16},  {"Compare", 2, 4, 4, 16},  {"Compare", 2, 4, 5, 16},
-         {"Compare", 2, 4, 6, 16},  {"Compare", 2, 4, 7, 16},  {"Compare", 2, 4, 8, 16},  {"Compare", 2, 4, 9, 16},
-         {"Compare", 2, 4, 10, 16}, {"Compare", 2, 4, 11, 16}, {"Compare", 2, 4, 12, 16}, {"Compare", 2, 4, 13, 16},
-         {"Compare", 2, 4, 14, 16}, {"Compare", 2, 4, 15, 16}, {"Compare", 2, 4, 16, 16}, {"Write", 3, 4, 0, 0},
-         {"Complete", 4, 4, 0, 1},  {"Complete", 4, 4, 1, 1}});
+    EXPECT_TRUE(transport.ScriptConsumed());
+    ExpectExactPhaseProgress(events, {{"Kernel", 1, 4, 0, 1},    {"Kernel", 1, 4, 1, 1},    {"Compare", 2, 4, 0, 16},
+                                      {"Compare", 2, 4, 1, 16},  {"Compare", 2, 4, 2, 16},  {"Compare", 2, 4, 3, 16},
+                                      {"Compare", 2, 4, 4, 16},  {"Compare", 2, 4, 5, 16},  {"Compare", 2, 4, 6, 16},
+                                      {"Compare", 2, 4, 7, 16},  {"Compare", 2, 4, 8, 16},  {"Compare", 2, 4, 9, 16},
+                                      {"Compare", 2, 4, 10, 16}, {"Compare", 2, 4, 11, 16}, {"Compare", 2, 4, 12, 16},
+                                      {"Compare", 2, 4, 13, 16}, {"Compare", 2, 4, 14, 16}, {"Compare", 2, 4, 15, 16},
+                                      {"Compare", 2, 4, 16, 16}, {"Write", 3, 4, 0, 0},     {"Complete", 4, 4, 0, 1},
+                                      {"Complete", 4, 4, 1, 1}});
 }
 
 TEST(SubaruTcuDensoSh705xCanExecutor, CrcDrainIgnoresMalformedAndWrongIdFramesForEqualAndMismatchResults)
@@ -1830,62 +1830,62 @@ TEST(SubaruTcuDensoSh705xCanExecutor, CrcDrainIgnoresMalformedAndWrongIdFramesFo
     {
         for (const bool mismatch : {false, true})
         {
-            auto plan = write_plan(kCases[1]);
+            auto plan = WritePlan(kCases[1]);
             ASSERT_TRUE(plan.has_value()) << plan.error().detail;
             SubaruTcuDensoSh705xCanExecutor executor;
             ScriptedCanFlashTransport transport;
-            configure_and_open(executor, *plan, transport);
-            script_kernel_alive(transport);
-            script_crc_with_stale(transport, kSh7058Blocks[0],
-                                  mismatch ? std::uint32_t{0xF722EF48} : std::uint32_t{0xF722EF49}, stale);
+            ConfigureAndOpen(executor, *plan, transport);
+            ScriptKernelAlive(transport);
+            ScriptCrcWithStale(transport, kSh7058Blocks[0],
+                               mismatch ? std::uint32_t{0xF722EF48} : std::uint32_t{0xF722EF49}, stale);
             for (std::size_t index = 1; index < kSh7058Blocks.size(); ++index)
             {
-                script_crc(transport, kSh7058Blocks[index], kSh7058Blocks[index].zero_crc);
+                ScriptCrc(transport, kSh7058Blocks[index], kSh7058Blocks[index].zero_crc);
             }
             FakeCancellationToken cancellation;
             FakeClock clock;
             PhaseCancellingEventSink events(cancellation, mismatch ? "Compare" : "never", 16);
 
-            auto result = executor.execute(*plan, transport, clock, cancellation, events);
+            auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
             if (mismatch)
             {
                 ASSERT_FALSE(result.has_value());
-                EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
+                EXPECT_EQ(result.error().kind, ErrorKind::kCancelled);
             }
             else
             {
                 ASSERT_TRUE(result.has_value()) << result.error().detail;
             }
-            EXPECT_TRUE(transport.scriptConsumed());
-            EXPECT_TRUE(has_log(events, LogLevel::Info, mismatch ? "\tNO" : "\tYES"));
+            EXPECT_TRUE(transport.ScriptConsumed());
+            EXPECT_TRUE(HasLog(events, LogLevel::kInfo, mismatch ? "\tNO" : "\tYES"));
         }
     }
 }
 
 TEST(SubaruTcuDensoSh705xCanExecutor, CrcDrainPropagatesCancellationAndDisconnect)
 {
-    for (const ErrorKind error_kind : {ErrorKind::Cancelled, ErrorKind::Disconnected})
+    for (const ErrorKind error_kind : {ErrorKind::kCancelled, ErrorKind::kDisconnected})
     {
-        auto plan = write_plan(kCases[1]);
+        auto plan = WritePlan(kCases[1]);
         ASSERT_TRUE(plan.has_value()) << plan.error().detail;
         SubaruTcuDensoSh705xCanExecutor executor;
         ScriptedCanFlashTransport transport;
-        configure_and_open(executor, *plan, transport);
-        script_kernel_alive(transport);
-        transport.expectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE1, 0xBE, 0xEF, 0x00, 0x09, 0x02, 0x00, 0x00, 0x00, 0x00,
+        ConfigureAndOpen(executor, *plan, transport);
+        ScriptKernelAlive(transport);
+        transport.ExpectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE1, 0xBE, 0xEF, 0x00, 0x09, 0x02, 0x00, 0x00, 0x00, 0x00,
                                            0x00, 0x00, 0x10, 0x00});
-        transport.queueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0xBE, 0xEF, 0x00, 0x05, 0x42, 0xF7, 0x22, 0xEF, 0x49});
-        transport.queue_error(error_kind, "stale drain interrupted");
+        transport.QueueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0xBE, 0xEF, 0x00, 0x05, 0x42, 0xF7, 0x22, 0xEF, 0x49});
+        transport.QueueError(error_kind, "stale drain interrupted");
         FakeCancellationToken cancellation;
         FakeClock clock;
         RecordingEventSink events;
 
-        auto result = executor.execute(*plan, transport, clock, cancellation, events);
+        auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
         ASSERT_FALSE(result.has_value());
         EXPECT_EQ(result.error().kind, error_kind);
-        EXPECT_TRUE(transport.scriptConsumed());
+        EXPECT_TRUE(transport.ScriptConsumed());
     }
 }
 
@@ -1896,48 +1896,48 @@ TEST(SubaruTcuDensoSh705xCanExecutor, CancellationInterruptsUploadReadCrcAndWrit
     {
         bytes::Bytes kernel(129, bytes::Byte{0x00});
         kernel.back() = 0x01;
-        auto plan = read_plan(kCases[0], std::move(kernel));
+        auto plan = ReadPlan(kCases[0], std::move(kernel));
         ASSERT_TRUE(plan.has_value()) << plan.error().detail;
         SubaruTcuDensoSh705xCanExecutor executor;
         RecordingCanTransport transport;
-        configure_and_open(executor, *plan, transport);
-        script_kernel_probe_timeout(transport.scripted);
-        script_identity_queries(transport.scripted);
-        script_strict_session_and_security(transport.scripted);
-        script_hand_derived_129_byte_sh7055_kernel_upload(transport.scripted);
+        ConfigureAndOpen(executor, *plan, transport);
+        ScriptKernelProbeTimeout(transport.scripted);
+        ScriptIdentityQueries(transport.scripted);
+        ScriptStrictSessionAndSecurity(transport.scripted);
+        ScriptHandDerived129ByteSh7055KernelUpload(transport.scripted);
         FakeCancellationToken cancellation;
         transport.cancellation_to_trigger = &cancellation;
         transport.cancel_prefix = bytes::Bytes{0x00, 0x00, 0x07, 0xE1, 0xB6};
         FakeClock clock;
         RecordingEventSink events;
 
-        auto result = executor.execute(*plan, transport, clock, cancellation, events);
+        auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
         ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
+        EXPECT_EQ(result.error().kind, ErrorKind::kCancelled);
         EXPECT_THAT(events.notices, ElementsAre("Preparing, please wait..."));
-        expect_exact_phase_progress(events, {{"Kernel", 1, 2, 0, 1}});
+        ExpectExactPhaseProgress(events, {{"Kernel", 1, 2, 0, 1}});
     }
 
     // Read loop: one complete 0x400 page is reported, then the next boundary
     // observes cancellation before sending another request.
     {
-        auto plan = read_plan(kCases[0]);
+        auto plan = ReadPlan(kCases[0]);
         ASSERT_TRUE(plan.has_value()) << plan.error().detail;
         SubaruTcuDensoSh705xCanExecutor executor;
         ScriptedCanFlashTransport transport;
-        configure_and_open(executor, *plan, transport);
-        script_kernel_alive(transport);
-        script_read_pages(transport, kReadPageSize);
+        ConfigureAndOpen(executor, *plan, transport);
+        ScriptKernelAlive(transport);
+        ScriptReadPages(transport, kReadPageSize);
         FakeCancellationToken cancellation;
         FakeClock clock;
         PhaseCancellingEventSink events(cancellation, "Read", kReadPageSize);
 
-        auto result = executor.execute(*plan, transport, clock, cancellation, events);
+        auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
         ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
-        EXPECT_TRUE(transport.scriptConsumed());
+        EXPECT_EQ(result.error().kind, ErrorKind::kCancelled);
+        EXPECT_TRUE(transport.ScriptConsumed());
         EXPECT_EQ(events.phase_progress_calls.back().phase_name, "Read");
         EXPECT_EQ(events.phase_progress_calls.back().done, static_cast<int>(kReadPageSize));
     }
@@ -1945,22 +1945,22 @@ TEST(SubaruTcuDensoSh705xCanExecutor, CancellationInterruptsUploadReadCrcAndWrit
     // CRC loop: cancellation on the first completed comparison is observed
     // by the legacy 5 ms pacing checkpoint before block 2.
     {
-        auto plan = write_plan(kCases[1]);
+        auto plan = WritePlan(kCases[1]);
         ASSERT_TRUE(plan.has_value()) << plan.error().detail;
         SubaruTcuDensoSh705xCanExecutor executor;
         ScriptedCanFlashTransport transport;
-        configure_and_open(executor, *plan, transport);
-        script_kernel_alive(transport);
-        script_crc(transport, kSh7058Blocks[0], 0xF722EF49);
+        ConfigureAndOpen(executor, *plan, transport);
+        ScriptKernelAlive(transport);
+        ScriptCrc(transport, kSh7058Blocks[0], 0xF722EF49);
         FakeCancellationToken cancellation;
         FakeClock clock;
         PhaseCancellingEventSink events(cancellation, "Compare", 1);
 
-        auto result = executor.execute(*plan, transport, clock, cancellation, events);
+        auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
         ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
-        EXPECT_TRUE(transport.scriptConsumed());
+        EXPECT_EQ(result.error().kind, ErrorKind::kCancelled);
+        EXPECT_TRUE(transport.ScriptConsumed());
         EXPECT_EQ(events.phase_progress_calls.back().phase_name, "Compare");
         EXPECT_EQ(events.phase_progress_calls.back().done, 1);
     }
@@ -1968,51 +1968,51 @@ TEST(SubaruTcuDensoSh705xCanExecutor, CancellationInterruptsUploadReadCrcAndWrit
     // Write loop: cancellation after one 0x200 buffer update stops before
     // the second window and retains the post-erase recovery warning.
     {
-        auto plan = write_plan(kCases[1]);
+        auto plan = WritePlan(kCases[1]);
         ASSERT_TRUE(plan.has_value()) << plan.error().detail;
         SubaruTcuDensoSh705xCanExecutor executor;
         ScriptedCanFlashTransport transport;
-        configure_and_open(executor, *plan, transport);
-        script_kernel_alive(transport);
-        script_compare(transport, blocks_for(kCases[1]), true);
-        script_flash_init(transport);
-        transport.expectWrite(beef_request(0x04));
-        transport.queueRead(beef_response(0x44, bytes::Bytes{0x00, 0x64}));
-        transport.expectWrite(beef_request(0x25, composeBe(std::uint32_t{0x00000000})));
-        transport.queueRead(beef_response(0x65));
-        transport.expectWrite(beef_request(0x22, composeBe(std::uint32_t{0}, zero_chunk(kWriteChunkSize))));
-        transport.queueRead(beef_response(0x62));
+        ConfigureAndOpen(executor, *plan, transport);
+        ScriptKernelAlive(transport);
+        ScriptCompare(transport, BlocksFor(kCases[1]), true);
+        ScriptFlashInit(transport);
+        transport.ExpectWrite(BeefRequest(0x04));
+        transport.QueueRead(BeefResponse(0x44, bytes::Bytes{0x00, 0x64}));
+        transport.ExpectWrite(BeefRequest(0x25, ComposeBe(std::uint32_t{0x00000000})));
+        transport.QueueRead(BeefResponse(0x65));
+        transport.ExpectWrite(BeefRequest(0x22, ComposeBe(std::uint32_t{0}, ZeroChunk(kWriteChunkSize))));
+        transport.QueueRead(BeefResponse(0x62));
         FakeCancellationToken cancellation;
         FakeClock clock;
         PhaseCancellingEventSink events(cancellation, "Write", kWriteChunkSize);
 
-        auto result = executor.execute(*plan, transport, clock, cancellation, events);
+        auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
         ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
-        EXPECT_TRUE(transport.scriptConsumed());
+        EXPECT_EQ(result.error().kind, ErrorKind::kCancelled);
+        EXPECT_TRUE(transport.ScriptConsumed());
         EXPECT_EQ(events.phase_progress_calls.back().phase_name, "Write");
         EXPECT_EQ(events.phase_progress_calls.back().done, static_cast<int>(kWriteChunkSize));
-        EXPECT_TRUE(has_log(events, LogLevel::Error, kReflashRecoveryWarning));
+        EXPECT_TRUE(HasLog(events, LogLevel::kError, kReflashRecoveryWarning));
     }
 }
 
 TEST(SubaruTcuDensoSh705xCanExecutor, RejectsInvalidPlanBeforeTransportInteraction)
 {
     auto fields = FlashPlanFields{
-        .operation = FlashOperation::Read,
-        .family = FlashFamily::SubaruTcuDensoSh705xCan,
-        .transport = TransportKind::CanIso15765,
+        .operation = FlashOperation::kRead,
+        .family = FlashFamily::kSubaruTcuDensoSh705xCan,
+        .transport = TransportKind::kCanIso15765,
         .target_id = std::string(kCases[0].protocol),
         .mcu_name = std::string(kCases[0].mcu),
         .transfer_region = {0, kCases[0].rom_size},
         .erase_regions = {},
         .image = std::nullopt,
-        .kernel = kernel_for(kCases[0]),
+        .kernel = KernelFor(kCases[0]),
         .family_plan = SubaruTcuDensoSh705xCanPlan{.request_id = 0x7E0},
         .confirmations = {},
     };
-    auto plan = validate_and_build(std::move(fields));
+    auto plan = ValidateAndBuild(std::move(fields));
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
     SubaruTcuDensoSh705xCanExecutor executor;
     ScriptedCanFlashTransport transport;
@@ -2020,109 +2020,109 @@ TEST(SubaruTcuDensoSh705xCanExecutor, RejectsInvalidPlanBeforeTransportInteracti
     FakeClock clock;
     RecordingEventSink events;
 
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
+    auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
-    EXPECT_EQ(transport.writesConsumed(), 0U);
+    EXPECT_EQ(result.error().kind, ErrorKind::kInvalidConfig);
+    EXPECT_EQ(transport.WritesConsumed(), 0U);
 }
 
 TEST(SubaruTcuDensoSh705xCanExecutor, NegativeAndDisconnectRepliesAreTyped)
 {
-    auto plan = read_plan(kCases[1]);
+    auto plan = ReadPlan(kCases[1]);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
     FakeCancellationToken cancellation;
 
     {
         SubaruTcuDensoSh705xCanExecutor executor;
         ScriptedCanFlashTransport transport;
-        configure_and_open(executor, *plan, transport);
-        script_kernel_probe_timeout(transport);
-        script_identity_queries(transport);
-        transport.expectWrite(request(bytes::Bytes{0x10, 0x03}));
-        transport.queueRead(response(bytes::Bytes{0x7F, 0x10, 0x22}));
+        ConfigureAndOpen(executor, *plan, transport);
+        ScriptKernelProbeTimeout(transport);
+        ScriptIdentityQueries(transport);
+        transport.ExpectWrite(Request(bytes::Bytes{0x10, 0x03}));
+        transport.QueueRead(Response(bytes::Bytes{0x7F, 0x10, 0x22}));
         FakeClock clock;
         RecordingEventSink events;
 
-        auto result = executor.execute(*plan, transport, clock, cancellation, events);
+        auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
         ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+        EXPECT_EQ(result.error().kind, ErrorKind::kBadResponse);
     }
     {
         SubaruTcuDensoSh705xCanExecutor executor;
         ScriptedCanFlashTransport transport;
-        configure_and_open(executor, *plan, transport);
-        transport.expectWrite(kernel_id_request());
-        transport.queue_error(ErrorKind::Disconnected, "adapter dropped");
+        ConfigureAndOpen(executor, *plan, transport);
+        transport.ExpectWrite(KernelIdRequest());
+        transport.QueueError(ErrorKind::kDisconnected, "adapter dropped");
         FakeClock clock;
         RecordingEventSink events;
 
-        auto result = executor.execute(*plan, transport, clock, cancellation, events);
+        auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
         ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, ErrorKind::Disconnected);
+        EXPECT_EQ(result.error().kind, ErrorKind::kDisconnected);
     }
 }
 
 TEST(SubaruTcuDensoSh705xCanExecutor, CancellationAfterEraseReturnsRecoveryWarning)
 {
     const Case& test_case = kCases[1];
-    auto plan = write_plan(test_case);
+    auto plan = WritePlan(test_case);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
     SubaruTcuDensoSh705xCanExecutor executor;
     ScriptedCanFlashTransport transport;
-    configure_and_open(executor, *plan, transport);
-    script_kernel_alive(transport);
-    script_compare(transport, blocks_for(test_case), true);
-    script_flash_init(transport);
-    script_first_flash_block(transport, false);
+    ConfigureAndOpen(executor, *plan, transport);
+    ScriptKernelAlive(transport);
+    ScriptCompare(transport, BlocksFor(test_case), true);
+    ScriptFlashInit(transport);
+    ScriptFirstFlashBlock(transport, false);
     FakeCancellationToken cancellation;
     FakeClock clock;
     CancellingEventSink events(cancellation);
 
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
+    auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
-    EXPECT_TRUE(has_log(events, LogLevel::Error, kReflashRecoveryWarning));
-    EXPECT_TRUE(transport.scriptConsumed());
+    EXPECT_EQ(result.error().kind, ErrorKind::kCancelled);
+    EXPECT_TRUE(HasLog(events, LogLevel::kError, kReflashRecoveryWarning));
+    EXPECT_TRUE(transport.ScriptConsumed());
 }
 
 TEST(SubaruTcuDensoSh705xCanExecutor, BoundAttemptReturnsCloseErrorOnlyWhenExecutionSucceeds)
 {
-    auto plan = read_plan(kCases[0]);
+    auto plan = ReadPlan(kCases[0]);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
 
     auto success_transport = std::make_unique<ScriptedCanFlashTransport>();
-    script_kernel_alive(*success_transport);
-    script_read_pages(*success_transport, kCases[0].rom_size);
-    success_transport->close_result_ = fail(ErrorKind::Disconnected, "close failed");
+    ScriptKernelAlive(*success_transport);
+    ScriptReadPages(*success_transport, kCases[0].rom_size);
+    success_transport->close_result = Fail(ErrorKind::kDisconnected, "close failed");
     auto success_attempt =
-        bind_flash_attempt(*plan, std::make_unique<SubaruTcuDensoSh705xCanExecutor>(), std::move(success_transport));
+        BindFlashAttempt(*plan, std::make_unique<SubaruTcuDensoSh705xCanExecutor>(), std::move(success_transport));
     FakeCancellationToken cancellation;
     FakeClock clock;
     RecordingEventSink events;
 
-    auto close_only = success_attempt->run(clock, cancellation, events);
+    auto close_only = success_attempt->Run(clock, cancellation, events);
 
     ASSERT_FALSE(close_only.has_value());
-    EXPECT_EQ(close_only.error().kind, ErrorKind::Disconnected);
+    EXPECT_EQ(close_only.error().kind, ErrorKind::kDisconnected);
 
     auto failing_transport = std::make_unique<ScriptedCanFlashTransport>();
-    script_kernel_alive(*failing_transport);
-    failing_transport->expectWrite(beef_request(0x03, composeBe(0x00_b, u24(0), std::uint16_t{kReadPageSize})));
-    failing_transport->queue_no_frame();
-    failing_transport->close_result_ = fail(ErrorKind::Internal, "close also failed");
+    ScriptKernelAlive(*failing_transport);
+    failing_transport->ExpectWrite(BeefRequest(0x03, ComposeBe(0x00_b, U24(0), std::uint16_t{kReadPageSize})));
+    failing_transport->QueueNoFrame();
+    failing_transport->close_result = Fail(ErrorKind::kInternal, "close also failed");
     auto failing_attempt =
-        bind_flash_attempt(*plan, std::make_unique<SubaruTcuDensoSh705xCanExecutor>(), std::move(failing_transport));
+        BindFlashAttempt(*plan, std::make_unique<SubaruTcuDensoSh705xCanExecutor>(), std::move(failing_transport));
     RecordingEventSink failing_events;
 
-    auto execution_error = failing_attempt->run(clock, cancellation, failing_events);
+    auto execution_error = failing_attempt->Run(clock, cancellation, failing_events);
 
     ASSERT_FALSE(execution_error.has_value());
-    EXPECT_EQ(execution_error.error().kind, ErrorKind::Timeout);
-    EXPECT_TRUE(has_log(failing_events, LogLevel::Warning, "close failed after execution error"));
+    EXPECT_EQ(execution_error.error().kind, ErrorKind::kTimeout);
+    EXPECT_TRUE(HasLog(failing_events, LogLevel::kWarning, "close failed after execution error"));
 }
 
 } // namespace

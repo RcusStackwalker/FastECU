@@ -19,8 +19,8 @@ MATCHER_P(BytesEq, expected, "")
     {
         return true;
     }
-    *result_listener << "actual   " << bytes::toHex(actual_bytes) << "\n"
-                     << "expected " << bytes::toHex(expected_bytes);
+    *result_listener << "actual   " << bytes::ToHex(actual_bytes) << "\n"
+                     << "expected " << bytes::ToHex(expected_bytes);
     return false;
 }
 

@@ -42,6 +42,6 @@ using NumericCopyOutcome = std::variant<NumericCopyText, NumericCopyInvalidCell,
 // Resolves the session when called and decodes the target from current bytes.
 // A selection that is empty or leaves the target run is an InvalidConfig error.
 // Reads only; the session is never changed. Synchronous.
-Result<NumericCopyOutcome> copy_numeric_values(CalibrationWorkspace& workspace, const NumericCopyRequest& request);
+Result<NumericCopyOutcome> CopyNumericValues(CalibrationWorkspace& workspace, const NumericCopyRequest& request);
 
 } // namespace fastecu::calibration

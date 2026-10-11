@@ -25,7 +25,7 @@ namespace fastecu::flash
 struct FlashWorkerResult
 {
     bool success = false;
-    ErrorKind error_kind = ErrorKind::Internal;
+    ErrorKind error_kind = ErrorKind::kInternal;
     QString error_detail;
     std::optional<bytes::Bytes> read_bytes;
     std::optional<std::string> rom_id;
@@ -61,14 +61,16 @@ class FlashWorker final : public QThread
     // still-blocked transport call), and request_unblock() alone doesn't
     // tell the executor the interruption means "stop", not "retry". Safe to
     // call from any thread, any number of times, before or after start().
-    void requestStop();
+    void RequestStop();
 
   signals:
+    // NOLINTBEGIN(readability-identifier-naming): Qt signals keep Qt's camelBack names
     void logEvent(int level, QString message);
     void progressChanged(int done, int total);
-    void phaseProgressChanged(QString phaseName, int phaseIndex, int phaseCount, int done, int total);
+    void phaseProgressChanged(QString phase_name, int phase_index, int phase_count, int done, int total);
     // Emitted exactly once per run(), always from this worker's own thread.
     void finished(fastecu::flash::FlashWorkerResult result);
+    // NOLINTEND(readability-identifier-naming)
 
   protected:
     void run() override;

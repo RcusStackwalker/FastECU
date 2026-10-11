@@ -16,57 +16,57 @@ namespace
 using namespace fastecu;
 using namespace fastecu::flash;
 
-bytes::Bytes frame(bytes::Bytes payload)
+bytes::Bytes Frame(bytes::Bytes payload)
 {
-    return SsmProtocol::addHeader(payload, 0xf0, 0x10);
+    return ssm_protocol::AddHeader(payload, 0xf0, 0x10);
 }
 
-void scriptHandshake(ScriptedKlineFlashTransport& transport)
+void ScriptHandshake(ScriptedKlineFlashTransport& transport)
 {
-    const auto section = transport.section("handshake");
-    transport.exchange(frame({0xbf}),
+    const auto section = transport.Section("handshake");
+    transport.Exchange(Frame({0xbf}),
                        bytes::Bytes{0x80, 0xf0, 0x10, 0x09, 0xff, 0, 0, 0, 0x12, 0x34, 0x56, 0x78, 0x9a, 0});
-    transport.exchange(frame({0x81}), bytes::Bytes{0, 0, 0, 0, 0xc1});
-    transport.exchange(frame({0x83, 0x00}), bytes::Bytes{0, 0, 0, 0, 0xc3});
-    transport.exchange(frame({0x27, 0x01}), bytes::Bytes{0, 0, 0, 0, 0x67, 0x01, 0x12, 0x34, 0x56, 0x78});
+    transport.Exchange(Frame({0x81}), bytes::Bytes{0, 0, 0, 0, 0xc1});
+    transport.Exchange(Frame({0x83, 0x00}), bytes::Bytes{0, 0, 0, 0, 0xc3});
+    transport.Exchange(Frame({0x27, 0x01}), bytes::Bytes{0, 0, 0, 0, 0x67, 0x01, 0x12, 0x34, 0x56, 0x78});
     // Hand-derived seed 0x12345678 -> key 0xF7ABD485.
-    transport.exchange(frame({0x27, 0x02, 0xf7, 0xab, 0xd4, 0x85}), bytes::Bytes{0, 0, 0, 0, 0x67, 0x02});
-    transport.exchange(frame({0x10, 0x85, 0x02}), bytes::Bytes{0, 0, 0, 0, 0x50});
+    transport.Exchange(Frame({0x27, 0x02, 0xf7, 0xab, 0xd4, 0x85}), bytes::Bytes{0, 0, 0, 0, 0x67, 0x02});
+    transport.Exchange(Frame({0x10, 0x85, 0x02}), bytes::Bytes{0, 0, 0, 0, 0x50});
 }
 
-bytes::Bytes encryptedImage(bytes::ByteView image)
+bytes::Bytes EncryptedImage(bytes::ByteView image)
 {
     static constexpr auto kIndex = std::to_array<std::uint16_t>({0x25b5, 0x3875, 0xca11, 0x2680});
     static constexpr auto kTransform =
         std::to_array<std::uint8_t>({0x5, 0x6, 0x7, 0x1, 0x9, 0xc, 0xd, 0x8, 0xa, 0xd, 0x2, 0xb, 0xf, 0x4, 0x0, 0x3,
                                      0xb, 0x4, 0x6, 0x0, 0xf, 0x2, 0xd, 0x9, 0x5, 0xc, 0x1, 0xa, 0x3, 0xd, 0xe, 0x8});
-    return SsmProtocol::calculatePayload(image, static_cast<std::uint32_t>(image.size()), kIndex, kTransform);
+    return ssm_protocol::CalculatePayload(image, static_cast<std::uint32_t>(image.size()), kIndex, kTransform);
 }
 
 TEST(SubaruMitsuM32rKlineExecutor, RejectsFamilyMismatchBeforeIo)
 {
     auto plan =
-        build_mitsu_colt_m32r_can_plan(FlashOperation::Read, "mitsu_ecu_m32r_can", "M32R_384KB_1block", std::nullopt);
+        BuildMitsuColtM32rCanPlan(FlashOperation::kRead, "mitsu_ecu_m32r_can", "M32R_384KB_1block", std::nullopt);
     ASSERT_THAT(plan, fastecu::testing::IsOk());
     SubaruMitsuM32rKlineExecutor executor;
-    ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::Open};
+    ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::kOpen};
     FakeClock clock;
     ManualCancellationToken cancellation;
     RecordingEventSink events;
 
-    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
-                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
-    EXPECT_FALSE(transport.last_config_.has_value());
+    ASSERT_THAT(executor.Execute(*plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
+    EXPECT_FALSE(transport.last_config.has_value());
 }
 
 TEST(SubaruMitsuM32rKlineExecutor, TransportSetupReturnsPlansWireParameters)
 {
-    auto plan = build_subaru_mitsu_m32r_kline_plan(FlashOperation::Read, "sub_ecu_mitsu_m32r_kline",
-                                                   "M32R_512KB_4blocks", std::nullopt);
+    auto plan = BuildSubaruMitsuM32rKlinePlan(FlashOperation::kRead, "sub_ecu_mitsu_m32r_kline", "M32R_512KB_4blocks",
+                                              std::nullopt);
     ASSERT_THAT(plan, fastecu::testing::IsOk());
     SubaruMitsuM32rKlineExecutor executor;
 
-    auto setup = executor.transport_setup(*plan);
+    auto setup = executor.TransportSetup(*plan);
 
     ASSERT_THAT(setup, fastecu::testing::IsOk());
     EXPECT_EQ(setup->baud, 4800);
@@ -77,64 +77,64 @@ TEST(SubaruMitsuM32rKlineExecutor, TransportSetupReturnsPlansWireParameters)
 
 TEST(SubaruMitsuM32rKlineExecutor, CancellationBeforeSetupPerformsNoIo)
 {
-    auto plan = build_subaru_mitsu_m32r_kline_plan(FlashOperation::Read, "sub_ecu_mitsu_m32r_kline",
-                                                   "M32R_512KB_4blocks", std::nullopt);
+    auto plan = BuildSubaruMitsuM32rKlinePlan(FlashOperation::kRead, "sub_ecu_mitsu_m32r_kline", "M32R_512KB_4blocks",
+                                              std::nullopt);
     ASSERT_THAT(plan, fastecu::testing::IsOk());
     SubaruMitsuM32rKlineExecutor executor;
-    ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::Open};
+    ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::kOpen};
     FakeClock clock;
     ManualCancellationToken cancellation;
-    cancellation.cancel();
+    cancellation.Cancel();
     RecordingEventSink events;
 
-    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
-                fastecu::testing::IsErr(ErrorKind::Cancelled));
-    EXPECT_FALSE(transport.last_config_.has_value());
+    ASSERT_THAT(executor.Execute(*plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::kCancelled));
+    EXPECT_FALSE(transport.last_config.has_value());
 }
 
 TEST(SubaruMitsuM32rKlineExecutor, MapsMissingMalformedAndTransportFailureResponses)
 {
-    for (const ErrorKind expected : {ErrorKind::Timeout, ErrorKind::BadResponse, ErrorKind::Disconnected})
+    for (const ErrorKind expected : {ErrorKind::kTimeout, ErrorKind::kBadResponse, ErrorKind::kDisconnected})
     {
-        auto plan = build_subaru_mitsu_m32r_kline_plan(FlashOperation::Read, "sub_ecu_mitsu_m32r_kline",
-                                                       "M32R_512KB_4blocks", std::nullopt);
+        auto plan = BuildSubaruMitsuM32rKlinePlan(FlashOperation::kRead, "sub_ecu_mitsu_m32r_kline",
+                                                  "M32R_512KB_4blocks", std::nullopt);
         ASSERT_THAT(plan, fastecu::testing::IsOk());
-        ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::Open};
-        transport.exchange(frame({0xbf}));
-        if (expected == ErrorKind::Timeout)
+        ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::kOpen};
+        transport.Exchange(Frame({0xbf}));
+        if (expected == ErrorKind::kTimeout)
         {
-            transport.queue_no_frame();
+            transport.QueueNoFrame();
         }
-        else if (expected == ErrorKind::BadResponse)
+        else if (expected == ErrorKind::kBadResponse)
         {
-            transport.queueRead(bytes::Bytes{0, 0, 0, 0, 0x7f});
+            transport.QueueRead(bytes::Bytes{0, 0, 0, 0, 0x7f});
         }
         else
         {
-            transport.queue_error(ErrorKind::Disconnected, "adapter disconnected");
+            transport.QueueError(ErrorKind::kDisconnected, "adapter disconnected");
         }
         SubaruMitsuM32rKlineExecutor executor;
         FakeClock clock;
         ManualCancellationToken cancellation;
         RecordingEventSink events;
 
-        ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events), fastecu::testing::IsErr(expected));
+        ASSERT_THAT(executor.Execute(*plan, transport, clock, cancellation, events), fastecu::testing::IsErr(expected));
     }
 }
 
 TEST(SubaruMitsuM32rKlineExecutor, ReadsAllUserspaceChunksAndSynthesizesBootPrefix)
 {
-    auto plan = build_subaru_mitsu_m32r_kline_plan(FlashOperation::Read, "sub_ecu_mitsu_m32r_kline",
-                                                   "M32R_512KB_4blocks", std::nullopt);
+    auto plan = BuildSubaruMitsuM32rKlinePlan(FlashOperation::kRead, "sub_ecu_mitsu_m32r_kline", "M32R_512KB_4blocks",
+                                              std::nullopt);
     ASSERT_THAT(plan, fastecu::testing::IsOk());
     SubaruMitsuM32rKlineExecutor executor;
-    ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::Open};
-    scriptHandshake(transport);
+    ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::kOpen};
+    ScriptHandshake(transport);
     for (std::uint32_t address = 0x8000; address < 0x80000; address += 0x80)
     {
         bytes::Bytes response(134, 0x5a);
         response[4] = 0xe0;
-        transport.exchange(frame({0xa0, 0, 0x20, static_cast<bytes::Byte>(address >> 16),
+        transport.Exchange(Frame({0xa0, 0, 0x20, static_cast<bytes::Byte>(address >> 16),
                                   static_cast<bytes::Byte>(address >> 8), static_cast<bytes::Byte>(address), 0x7f}),
                            response);
     }
@@ -142,7 +142,7 @@ TEST(SubaruMitsuM32rKlineExecutor, ReadsAllUserspaceChunksAndSynthesizesBootPref
     ManualCancellationToken cancellation;
     RecordingEventSink events;
 
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
+    auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_TRUE(result->read_bytes.has_value());
@@ -152,7 +152,7 @@ TEST(SubaruMitsuM32rKlineExecutor, ReadsAllUserspaceChunksAndSynthesizesBootPref
     EXPECT_TRUE(std::all_of(result->read_bytes->begin() + 0x8000, result->read_bytes->end(),
                             [](bytes::Byte value) { return value == 0x5a; }));
     EXPECT_EQ(result->rom_id, std::string("123456789A_"));
-    EXPECT_TRUE(transport.scriptConsumed());
+    EXPECT_TRUE(transport.ScriptConsumed());
 }
 
 TEST(SubaruMitsuM32rKlineExecutor, WritesEveryEncryptedChunkAndToleratesTransferAcks)
@@ -162,37 +162,37 @@ TEST(SubaruMitsuM32rKlineExecutor, WritesEveryEncryptedChunkAndToleratesTransfer
     {
         image[i] = static_cast<bytes::Byte>(i);
     }
-    const bytes::Bytes encrypted = encryptedImage(image);
-    auto plan = build_subaru_mitsu_m32r_kline_plan(FlashOperation::Write, "sub_ecu_mitsu_m32r_kline",
-                                                   "M32R_512KB_4blocks", image);
+    const bytes::Bytes encrypted = EncryptedImage(image);
+    auto plan =
+        BuildSubaruMitsuM32rKlinePlan(FlashOperation::kWrite, "sub_ecu_mitsu_m32r_kline", "M32R_512KB_4blocks", image);
     ASSERT_THAT(plan, fastecu::testing::IsOk());
-    ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::Open};
-    scriptHandshake(transport);
-    transport.exchange(frame({0x34, 0, 0, 0, 0x04, 0x07, 0x80, 0}), bytes::Bytes{0, 0, 0, 0, 0x74});
-    transport.exchange(frame({0x31, 0x02, 0x0f, 0xff, 0xff, 0xff}), bytes::Bytes{0, 0, 0, 0, 0x71});
+    ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::kOpen};
+    ScriptHandshake(transport);
+    transport.Exchange(Frame({0x34, 0, 0, 0, 0x04, 0x07, 0x80, 0}), bytes::Bytes{0, 0, 0, 0, 0x74});
+    transport.Exchange(Frame({0x31, 0x02, 0x0f, 0xff, 0xff, 0xff}), bytes::Bytes{0, 0, 0, 0, 0x71});
     for (std::uint32_t address = 0x8000; address < 0x80000; address += 0x80)
     {
         bytes::Bytes request{0x36, static_cast<bytes::Byte>(address >> 16), static_cast<bytes::Byte>(address >> 8),
                              static_cast<bytes::Byte>(address)};
         request.insert(request.end(), encrypted.begin() + address, encrypted.begin() + address + 0x80);
-        transport.exchange(frame(request));
+        transport.Exchange(Frame(request));
         if (((address - 0x8000) / 0x80) % 2 == 0)
         {
-            transport.queue_no_frame();
+            transport.QueueNoFrame();
         }
         else
         {
-            transport.queueRead(bytes::Bytes{0xde, 0xad});
+            transport.QueueRead(bytes::Bytes{0xde, 0xad});
         }
     }
-    transport.exchange(frame({0x31, 0x01, 0x02}), bytes::Bytes{0, 0, 0, 0, 0x71, 0x01, 0x02});
+    transport.Exchange(Frame({0x31, 0x01, 0x02}), bytes::Bytes{0, 0, 0, 0, 0x71, 0x01, 0x02});
     SubaruMitsuM32rKlineExecutor executor;
     FakeClock clock;
     ManualCancellationToken cancellation;
     RecordingEventSink events;
 
-    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events), fastecu::testing::IsOk());
-    EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_EQ(transport.baud_calls_, std::vector<int>{15625});
+    ASSERT_THAT(executor.Execute(*plan, transport, clock, cancellation, events), fastecu::testing::IsOk());
+    EXPECT_TRUE(transport.ScriptConsumed());
+    EXPECT_EQ(transport.baud_calls, std::vector<int>{15625});
 }
 } // namespace

@@ -14,43 +14,43 @@ namespace fastecu::definition
 namespace
 {
 
-bool has_whitespace(std::string_view value)
+bool HasWhitespace(std::string_view value)
 {
     return std::ranges::any_of(value, [](unsigned char character) { return std::isspace(character) != 0; });
 }
 
-bool has_same_lookup_key(const DefinitionIndexEntry& left, const DefinitionIndexEntry& right)
+bool HasSameLookupKey(const DefinitionIndexEntry& left, const DefinitionIndexEntry& right)
 {
     return left.format == right.format && left.definition_id == right.definition_id;
 }
 
-bool has_same_identity(const DefinitionIndexEntry& left, const DefinitionIndexEntry& right)
+bool HasSameIdentity(const DefinitionIndexEntry& left, const DefinitionIndexEntry& right)
 {
     return left.internal_id == right.internal_id && left.ecu_id == right.ecu_id;
 }
 
-bool has_same_content(const DefinitionIndexEntry& left, const DefinitionIndexEntry& right)
+bool HasSameContent(const DefinitionIndexEntry& left, const DefinitionIndexEntry& right)
 {
-    return has_same_identity(left, right) && left.internal_id_address == right.internal_id_address &&
+    return HasSameIdentity(left, right) && left.internal_id_address == right.internal_id_address &&
            left.internal_id_encoding == right.internal_id_encoding && left.parents == right.parents;
 }
 
-Result<void> validate(const DefinitionIndexEntry& entry)
+Result<void> Validate(const DefinitionIndexEntry& entry)
 {
     if (entry.definition_id.empty())
     {
-        return fail(ErrorKind::InvalidConfig, "definition ID must not be empty");
+        return Fail(ErrorKind::kInvalidConfig, "definition ID must not be empty");
     }
     if (entry.source.empty())
     {
-        return fail(ErrorKind::InvalidConfig,
+        return Fail(ErrorKind::kInvalidConfig,
                     std::format("definition source must not be empty for ID '{}'", entry.definition_id));
     }
     for (const std::string& parent : entry.parents)
     {
-        if (parent.empty() || has_whitespace(parent))
+        if (parent.empty() || HasWhitespace(parent))
         {
-            return fail(ErrorKind::InvalidConfig, std::format("invalid parent reference in '{}'", entry.source));
+            return Fail(ErrorKind::kInvalidConfig, std::format("invalid parent reference in '{}'", entry.source));
         }
     }
     return {};
@@ -58,19 +58,19 @@ Result<void> validate(const DefinitionIndexEntry& entry)
 
 } // namespace
 
-std::optional<StorageType> storage_type_from_text(std::string_view text)
+std::optional<StorageType> StorageTypeFromText(std::string_view text)
 {
     static constexpr std::array<std::pair<std::string_view, StorageType>, 10> kStorageTypes{{
-        {"uint8", StorageType::Uint8},
-        {"int8", StorageType::Int8},
-        {"uint16", StorageType::Uint16},
-        {"int16", StorageType::Int16},
-        {"uint24", StorageType::Uint24},
-        {"int24", StorageType::Int24},
-        {"uint32", StorageType::Uint32},
-        {"int32", StorageType::Int32},
-        {"float", StorageType::Float},
-        {"bloblist", StorageType::Bloblist},
+        {"uint8", StorageType::kUint8},
+        {"int8", StorageType::kInt8},
+        {"uint16", StorageType::kUint16},
+        {"int16", StorageType::kInt16},
+        {"uint24", StorageType::kUint24},
+        {"int24", StorageType::kInt24},
+        {"uint32", StorageType::kUint32},
+        {"int32", StorageType::kInt32},
+        {"float", StorageType::kFloat},
+        {"bloblist", StorageType::kBloblist},
     }};
     for (const auto& [name, value] : kStorageTypes)
     {
@@ -82,7 +82,7 @@ std::optional<StorageType> storage_type_from_text(std::string_view text)
     return std::nullopt;
 }
 
-std::string storage_type_text(std::optional<StorageType> value)
+std::string StorageTypeText(std::optional<StorageType> value)
 {
     if (!value.has_value())
     {
@@ -90,31 +90,31 @@ std::string storage_type_text(std::optional<StorageType> value)
     }
     switch (*value)
     {
-    case StorageType::Uint8:
+    case StorageType::kUint8:
         return "uint8";
-    case StorageType::Int8:
+    case StorageType::kInt8:
         return "int8";
-    case StorageType::Uint16:
+    case StorageType::kUint16:
         return "uint16";
-    case StorageType::Int16:
+    case StorageType::kInt16:
         return "int16";
-    case StorageType::Uint24:
+    case StorageType::kUint24:
         return "uint24";
-    case StorageType::Int24:
+    case StorageType::kInt24:
         return "int24";
-    case StorageType::Uint32:
+    case StorageType::kUint32:
         return "uint32";
-    case StorageType::Int32:
+    case StorageType::kInt32:
         return "int32";
-    case StorageType::Float:
+    case StorageType::kFloat:
         return "float";
-    case StorageType::Bloblist:
+    case StorageType::kBloblist:
         return "bloblist";
     }
     return {};
 }
 
-std::uint32_t storage_byte_size(std::optional<StorageType> storage_type)
+std::uint32_t StorageByteSize(std::optional<StorageType> storage_type)
 {
     if (!storage_type.has_value())
     {
@@ -122,31 +122,31 @@ std::uint32_t storage_byte_size(std::optional<StorageType> storage_type)
     }
     switch (*storage_type)
     {
-    case StorageType::Uint16:
-    case StorageType::Int16:
+    case StorageType::kUint16:
+    case StorageType::kInt16:
         return 2;
-    case StorageType::Uint24:
-    case StorageType::Int24:
+    case StorageType::kUint24:
+    case StorageType::kInt24:
         return 3;
-    case StorageType::Uint32:
-    case StorageType::Int32:
-    case StorageType::Float:
+    case StorageType::kUint32:
+    case StorageType::kInt32:
+    case StorageType::kFloat:
         return 4;
-    case StorageType::Uint8:
-    case StorageType::Int8:
-    case StorageType::Bloblist:
+    case StorageType::kUint8:
+    case StorageType::kInt8:
+    case StorageType::kBloblist:
         return 1;
     }
     return 1;
 }
 
-const Scaling *find_scaling(const RomDefinition& definition, std::string_view name)
+const Scaling *FindScaling(const RomDefinition& definition, std::string_view name)
 {
     const auto it = std::ranges::find(definition.scalings, name, &Scaling::name);
     return it != definition.scalings.end() ? &*it : nullptr;
 }
 
-bool is_unsigned_storage(std::optional<StorageType> storage_type)
+bool IsUnsignedStorage(std::optional<StorageType> storage_type)
 {
     if (!storage_type.has_value())
     {
@@ -154,17 +154,17 @@ bool is_unsigned_storage(std::optional<StorageType> storage_type)
     }
     switch (*storage_type)
     {
-    case StorageType::Uint8:
-    case StorageType::Uint16:
-    case StorageType::Uint24:
-    case StorageType::Uint32:
+    case StorageType::kUint8:
+    case StorageType::kUint16:
+    case StorageType::kUint24:
+    case StorageType::kUint32:
         return true;
-    case StorageType::Int8:
-    case StorageType::Int16:
-    case StorageType::Int24:
-    case StorageType::Int32:
-    case StorageType::Float:
-    case StorageType::Bloblist:
+    case StorageType::kInt8:
+    case StorageType::kInt16:
+    case StorageType::kInt24:
+    case StorageType::kInt32:
+    case StorageType::kFloat:
+    case StorageType::kBloblist:
         return false;
     }
     return false;
@@ -174,29 +174,29 @@ DefinitionCatalog::DefinitionCatalog(std::vector<DefinitionIndexEntry> entries) 
 {
 }
 
-Result<DefinitionCatalog> DefinitionCatalog::create(std::vector<DefinitionIndexEntry> entries)
+Result<DefinitionCatalog> DefinitionCatalog::Create(std::vector<DefinitionIndexEntry> entries)
 {
     std::vector<DefinitionIndexEntry> canonical_entries;
     canonical_entries.reserve(entries.size());
 
     for (DefinitionIndexEntry& entry : entries)
     {
-        if (auto result = validate(entry); !result.has_value())
+        if (auto result = Validate(entry); !result.has_value())
         {
             return std::unexpected(result.error());
         }
 
         auto existing = std::ranges::find_if(canonical_entries, [&entry](const DefinitionIndexEntry& candidate)
-                                             { return has_same_lookup_key(candidate, entry); });
+                                             { return HasSameLookupKey(candidate, entry); });
         if (existing == std::ranges::end(canonical_entries))
         {
             canonical_entries.push_back(std::move(entry));
             continue;
         }
 
-        if (!has_same_content(*existing, entry))
+        if (!HasSameContent(*existing, entry))
         {
-            return fail(ErrorKind::InvalidConfig,
+            return Fail(ErrorKind::kInvalidConfig,
                         std::format("conflicting duplicate definition ID '{}' from '{}' and '{}'", entry.definition_id,
                                     existing->source, entry.source));
         }
@@ -205,19 +205,19 @@ Result<DefinitionCatalog> DefinitionCatalog::create(std::vector<DefinitionIndexE
     return DefinitionCatalog(std::move(canonical_entries));
 }
 
-Result<std::reference_wrapper<const DefinitionIndexEntry>> DefinitionCatalog::find(DefinitionFormat format,
+Result<std::reference_wrapper<const DefinitionIndexEntry>> DefinitionCatalog::Find(DefinitionFormat format,
                                                                                    std::string_view id) const
 {
     auto entry = std::ranges::find_if(entries_, [format, id](const DefinitionIndexEntry& candidate)
                                       { return candidate.format == format && candidate.definition_id == id; });
     if (entry == std::ranges::end(entries_))
     {
-        return fail(ErrorKind::InvalidConfig, std::format("definition ID not found: '{}'", id));
+        return Fail(ErrorKind::kInvalidConfig, std::format("definition ID not found: '{}'", id));
     }
     return std::cref(*entry);
 }
 
-std::span<const DefinitionIndexEntry> DefinitionCatalog::entries() const
+std::span<const DefinitionIndexEntry> DefinitionCatalog::Entries() const
 {
     return entries_;
 }

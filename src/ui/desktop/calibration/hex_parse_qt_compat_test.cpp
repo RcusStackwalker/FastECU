@@ -27,12 +27,12 @@ TEST(HexParseQtCompat, AgreesWithQtOnEveryRealKernelAddr)
     for (const char *text : kRealKernelAddrs)
     {
         bool ok = false;
-        const std::uint32_t qt_value = QString(text).toUInt(&ok, 16);
+        const std::uint32_t qtValue = QString(text).toUInt(&ok, 16);
         ASSERT_TRUE(ok) << "Qt rejected a real kernel_addr: " << text;
 
-        const auto parsed = fastecu::definition::parse_hex_value(text);
+        const auto parsed = fastecu::definition::ParseHexValue(text);
         ASSERT_TRUE(parsed.has_value()) << "parse_hex_value rejected: " << text;
-        EXPECT_EQ(*parsed, static_cast<std::uint64_t>(qt_value)) << text;
+        EXPECT_EQ(*parsed, static_cast<std::uint64_t>(qtValue)) << text;
     }
 }
 
@@ -46,12 +46,12 @@ TEST(HexParseQtCompat, AgreesWithQtOnVerticalTabAndFormFeed)
     for (const char *text : {"\v0x10", "0x10\v", "\f0x10", "0x10\f", "\f0x10\f"})
     {
         bool ok = false;
-        const std::uint32_t qt_value = QString(text).toUInt(&ok, 16);
+        const std::uint32_t qtValue = QString(text).toUInt(&ok, 16);
         ASSERT_TRUE(ok) << "Qt rejected: " << text;
 
-        const auto parsed = fastecu::definition::parse_hex_value(text);
+        const auto parsed = fastecu::definition::ParseHexValue(text);
         ASSERT_TRUE(parsed.has_value()) << "parse_hex_value rejected: " << text;
-        EXPECT_EQ(*parsed, static_cast<std::uint64_t>(qt_value)) << text;
+        EXPECT_EQ(*parsed, static_cast<std::uint64_t>(qtValue)) << text;
     }
 }
 
@@ -62,7 +62,7 @@ TEST(HexParseQtCompat, AgreesWithQtOnRejectionCases)
         bool ok = true;
         std::ignore = QString(text).toUInt(&ok, 16);
         EXPECT_FALSE(ok) << "Qt unexpectedly accepted: " << text;
-        EXPECT_FALSE(fastecu::definition::parse_hex_value(text).has_value()) << text;
+        EXPECT_FALSE(fastecu::definition::ParseHexValue(text).has_value()) << text;
     }
 }
 
@@ -76,7 +76,7 @@ TEST(HexParseQtCompat, DivergesAboveUint32ByDesign)
     std::ignore = QString("0x1FFFFFFFF").toUInt(&ok, 16);
     EXPECT_FALSE(ok); // Qt: overflow
 
-    const auto parsed = fastecu::definition::parse_hex_value("0x1FFFFFFFF");
+    const auto parsed = fastecu::definition::ParseHexValue("0x1FFFFFFFF");
     ASSERT_TRUE(parsed.has_value());
     EXPECT_EQ(*parsed, 0x1FFFFFFFFULL);
 }

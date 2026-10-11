@@ -11,7 +11,7 @@ template <class T> using Result = std::expected<T, Error>;
 
 using Status = std::expected<void, Error>;
 
-inline std::unexpected<Error> fail(ErrorKind k, std::string detail = {})
+inline std::unexpected<Error> Fail(ErrorKind k, std::string detail = {})
 {
     return std::unexpected(Error{k, std::move(detail)});
 }

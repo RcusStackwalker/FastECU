@@ -16,12 +16,12 @@ class QtLoggingEventSink final : public fastecu::logging::ILoggingEventSink
     {
     }
 
-    void state_changed(fastecu::logging::LoggingState state) override
+    void StateChanged(fastecu::logging::LoggingState state) override
     {
         emit worker_->stateChanged(state);
     }
 
-    void samples(std::span<const fastecu::logging::LogSample> samples) override
+    void Samples(std::span<const fastecu::logging::LogSample> samples) override
     {
         QVector<fastecu::logging::LogSample> values;
         values.reserve(static_cast<qsizetype>(samples.size()));
@@ -46,19 +46,19 @@ LoggingWorker::LoggingWorker(fastecu::logging::LoggingSession session, fastecu::
 
 LoggingWorker::~LoggingWorker()
 {
-    requestStop();
+    RequestStop();
     wait();
 }
 
-void LoggingWorker::requestStop()
+void LoggingWorker::RequestStop()
 {
-    cancellation_.cancel();
+    cancellation_.Cancel();
 }
 
 void LoggingWorker::run()
 {
     QtLoggingEventSink events{this};
-    result_ = use_case_.run(session_, *protocol_, cancellation_, events, diagnostics_);
+    result_ = use_case_.Run(session_, *protocol_, cancellation_, events, diagnostics_);
     emit sessionFinished(result_);
 }
 

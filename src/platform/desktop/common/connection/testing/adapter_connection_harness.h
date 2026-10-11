@@ -23,12 +23,12 @@ class AdapterConnectionHarness
     AdapterConnectionHarness& operator=(const AdapterConnectionHarness&) = delete;
 
     // Null if the fake backend failed to start.
-    FakeBackend *fake() const
+    FakeBackend *Fake() const
     {
         return fake_;
     }
 
-    AdapterConnection& connection()
+    AdapterConnection& Connection()
     {
         return *connection_;
     }

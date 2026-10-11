@@ -34,16 +34,16 @@ template <typename Sender, typename... Args> class SignalRecorder<void (Sender::
     SignalRecorder(const SignalRecorder&) = delete;
     SignalRecorder& operator=(const SignalRecorder&) = delete;
 
-    bool is_valid() const
+    bool IsValid() const
     {
         return static_cast<bool>(connection_);
     }
-    std::size_t count() const
+    std::size_t Count() const
     {
         const std::lock_guard lock(storage_->mutex);
         return storage_->records.size();
     }
-    std::vector<Record> snapshot() const
+    std::vector<Record> Snapshot() const
     {
         const std::lock_guard lock(storage_->mutex);
         return storage_->records;

@@ -5,7 +5,7 @@
 
 namespace mutdma
 {
-std::vector<MutDmaFrame> buildWriteFrames(std::uint16_t addr, bytes::ByteView bytes)
+std::vector<MutDmaFrame> BuildWriteFrames(std::uint16_t addr, bytes::ByteView bytes)
 {
     if (std::uint32_t(addr) + std::uint32_t(bytes.size()) > 0x10000U)
     {
@@ -21,16 +21,16 @@ std::vector<MutDmaFrame> buildWriteFrames(std::uint16_t addr, bytes::ByteView by
         payload.reserve(5 + chunk);
         payload.push_back(0x00); // sub-selector hi
         payload.push_back(0x03); // sub-selector lo = write arbitrary
-        bytes::appendU16Be(payload, a);
+        bytes::AppendU16Be(payload, a);
         payload.push_back(static_cast<bytes::Byte>(chunk));
         payload.insert(payload.end(), bytes.begin() + static_cast<std::ptrdiff_t>(off),
                        bytes.begin() + static_cast<std::ptrdiff_t>(off + chunk));
-        frames.push_back(buildCommandFrame(0x87, payload, kTrailerStd));
+        frames.push_back(BuildCommandFrame(0x87, payload, kTrailerStd));
         off += chunk;
     }
     return frames;
 }
-std::vector<Channel> planReadChannels(std::uint16_t addr, int len)
+std::vector<Channel> PlanReadChannels(std::uint16_t addr, int len)
 {
     std::vector<Channel> ch;
     ch.reserve(len > 0 ? static_cast<std::size_t>(len) : 0);
@@ -40,7 +40,7 @@ std::vector<Channel> planReadChannels(std::uint16_t addr, int len)
     }
     return ch;
 }
-bytes::Bytes reassembleRead(const std::vector<std::uint32_t>& values)
+bytes::Bytes ReassembleRead(const std::vector<std::uint32_t>& values)
 {
     bytes::Bytes out;
     out.reserve(static_cast<std::size_t>(values.size()));

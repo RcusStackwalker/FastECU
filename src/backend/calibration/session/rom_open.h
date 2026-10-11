@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <optional>
 #include <span>
@@ -41,22 +42,20 @@ struct RomOpenOutcome
     // the selected vehicle may have changed. The UI refreshes its protocol
     // display when this is set.
     bool vehicle_selected{false};
-    // The definition addresses beyond the image: its header is kept and its
-    // maps are dropped, as legacy's NameList.clear() did.
-    bool size_rejected{false};
 };
 
-// FileActions::open_subaru_rom_file on typed values. Only reading the image
-// can fail the open; every later problem degrades to a definition-less or
-// map-less session, with the legacy log lines and notices.
+// FileActions::open_subaru_rom_file on typed values. Reading the image, an
+// empty image, and a file size its protocol declares no memory map for fail
+// the open; every later problem degrades to a definition-less session or a map
+// that fails to decode, with the legacy log lines and notices.
 class RomOpenUseCase
 {
   public:
     RomOpenUseCase(IDefinitionCatalogs& catalogs, definition::DefinitionService& definitions, IFileRepository& files,
                    IFileSystem& file_system, IEventSink& events, config::ConfigSession& config);
 
-    Result<RomOpenOutcome> open_file(std::string_view path);
-    Result<RomOpenOutcome> adopt_read_image(ReadImage image);
+    Result<RomOpenOutcome> OpenFile(std::string_view path);
+    Result<RomOpenOutcome> AdoptReadImage(ReadImage image);
 
   private:
     struct Seed
@@ -69,12 +68,17 @@ class RomOpenUseCase
         std::string kernel_start_address;
     };
 
-    RomOpenOutcome finish(Seed seed);
-    std::optional<ResolvedDefinition> find_definition(std::span<const std::uint8_t> rom, std::string& rom_id);
-    std::optional<ResolvedDefinition> try_format(definition::DefinitionFormat format, std::span<const std::uint8_t> rom,
-                                                 std::string& rom_id);
-    std::string resolve_alias(const std::string& flash_method);
-    void log_error(std::string_view operation, const Error& error);
+    Result<RomOpenOutcome> Finish(Seed seed);
+    std::optional<ResolvedDefinition> FindDefinition(std::span<const std::uint8_t> rom, std::string& rom_id);
+    std::optional<ResolvedDefinition> TryFormat(definition::DefinitionFormat format, std::span<const std::uint8_t> rom,
+                                                std::string& rom_id);
+    // Each definition's memory map for a file of `file_size` bytes: its flash
+    // method's protocol's map, or the identity map when that protocol declares
+    // none for this size (Finish then rejects the file by name) or names no
+    // catalog protocol.
+    definition::MemoryMapLookup MemoryMapsFor(std::size_t file_size) const;
+    std::string ResolveAlias(const std::string& flash_method);
+    void LogError(std::string_view operation, const Error& error);
 
     IDefinitionCatalogs& catalogs_;
     definition::DefinitionService& definitions_;

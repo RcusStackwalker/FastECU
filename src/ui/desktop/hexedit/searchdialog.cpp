@@ -4,10 +4,10 @@
 #include <QMessageBox>
 
 SearchDialog::SearchDialog(QHexEdit *hexEdit, QWidget *parent)
-    : QDialog(parent), ui{std::make_unique<Ui::SearchDialog>()}
+    : QDialog(parent), ui_{std::make_unique<Ui::SearchDialog>()}
 {
-    ui->setupUi(this);
-    _hexEdit = hexEdit;
+    ui_->setupUi(this);
+    hex_edit_ = hexEdit;
 }
 
 SearchDialog::~SearchDialog()
@@ -16,19 +16,19 @@ SearchDialog::~SearchDialog()
 
 qint64 SearchDialog::findNext()
 {
-    qint64 from = _hexEdit->cursorPosition() / 2;
-    _findBa = getContent(ui->cbFindFormat->currentIndex(), ui->cbFind->currentText());
+    qint64 from = hex_edit_->cursorPosition() / 2;
+    find_ba_ = getContent(ui_->cbFindFormat->currentIndex(), ui_->cbFind->currentText());
     qint64 idx = -1;
 
-    if (_findBa.length() > 0)
+    if (find_ba_.length() > 0)
     {
-        if (ui->cbBackwards->isChecked())
+        if (ui_->cbBackwards->isChecked())
         {
-            idx = _hexEdit->lastIndexOf(_findBa, from);
+            idx = hex_edit_->lastIndexOf(find_ba_, from);
         }
         else
         {
-            idx = _hexEdit->indexOf(_findBa, from);
+            idx = hex_edit_->indexOf(find_ba_, from);
         }
     }
     return idx;
@@ -44,7 +44,7 @@ void SearchDialog::on_pbReplace_clicked()
     qint64 idx = findNext();
     if (idx >= 0)
     {
-        QByteArray replaceBa = getContent(ui->cbReplaceFormat->currentIndex(), ui->cbReplace->currentText());
+        QByteArray replaceBa = getContent(ui_->cbReplaceFormat->currentIndex(), ui_->cbReplace->currentText());
         replaceOccurrence(idx, replaceBa);
     }
 }
@@ -60,7 +60,7 @@ void SearchDialog::on_pbReplaceAll_clicked()
         idx = findNext();
         if (idx >= 0)
         {
-            QByteArray replaceBa = getContent(ui->cbReplaceFormat->currentIndex(), ui->cbReplace->currentText());
+            QByteArray replaceBa = getContent(ui_->cbReplaceFormat->currentIndex(), ui_->cbReplace->currentText());
             int result = static_cast<int>(replaceOccurrence(idx, replaceBa));
 
             if (result == QMessageBox::Yes)
@@ -103,20 +103,20 @@ qint64 SearchDialog::replaceOccurrence(qint64 idx, const QByteArray& replaceBa)
     int result = QMessageBox::Yes;
     if (replaceBa.length() >= 0)
     {
-        if (ui->cbPrompt->isChecked())
+        if (ui_->cbPrompt->isChecked())
         {
             result = QMessageBox::question(this, tr("QHexEdit"), tr("Replace occurrence?"),
                                            QMessageBox::Yes | QMessageBox::No | QMessageBox::Cancel);
 
             if (result == QMessageBox::Yes)
             {
-                _hexEdit->replace(idx, replaceBa.length(), replaceBa);
-                _hexEdit->update();
+                hex_edit_->replace(idx, replaceBa.length(), replaceBa);
+                hex_edit_->update();
             }
         }
         else
         {
-            _hexEdit->replace(idx, _findBa.length(), replaceBa);
+            hex_edit_->replace(idx, find_ba_.length(), replaceBa);
         }
     }
     return result;

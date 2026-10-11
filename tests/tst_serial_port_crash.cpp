@@ -45,9 +45,9 @@
 class TestableJ2534 : public J2534
 {
   public:
-    void detachSerialPort()
+    void DetachSerialPort()
     {
-        serial = nullptr;
+        serial_ = nullptr;
     }
 };
 
@@ -60,45 +60,45 @@ class TestableSerialPortActionsDirect : public SerialPortActionsDirect
     {
     }
 
-    void installNullSerialJ2534()
+    void InstallNullSerialJ2534()
     {
-        delete j2534;
+        delete j2534_;
         TestableJ2534 *tj = new TestableJ2534();
-        tj->detachSerialPort();
-        j2534 = tj;
+        tj->DetachSerialPort();
+        j2534_ = tj;
     }
 
     // Model the teardown reset_connection now performs: free j2534 and null the
     // pointer, so a reentrant read sees null (guarded) rather than a dangling ptr.
-    void deleteAndNullJ2534()
+    void DeleteAndNullJ2534()
     {
-        delete j2534;
-        j2534 = nullptr;
+        delete j2534_;
+        j2534_ = nullptr;
     }
 
     // Expose the (protected) connect orchestration for the mock-serial E2E test.
-    int runInitJ2534Connection()
+    int RunInitJ2534Connection()
     {
-        return init_j2534_connection();
+        return InitJ2534Connection();
     }
 };
 
 TEST(SerialPortCrashTest, isSerialPortOpen_withNullSerial_doesNotCrash)
 {
     TestableJ2534 j2534;
-    j2534.detachSerialPort();
+    j2534.DetachSerialPort();
     // J2534::is_serial_port_open() is `return serial->isOpen();` — the exact
     // null dereference from the crash report. Pre-fix: SIGSEGV at 0x8.
-    ASSERT_EQ(j2534.is_serial_port_open(), false);
+    ASSERT_EQ(j2534.IsSerialPortOpen(), false);
 }
 
 TEST(SerialPortCrashTest, readSerialData_withNullSerial_doesNotCrash)
 {
     TestableJ2534 j2534;
-    j2534.detachSerialPort();
+    j2534.DetachSerialPort();
     // read_serial_data() opens with `if (serial->isOpen())` — the guard itself
     // dereferences the null serial.
-    ASSERT_EQ(j2534.read_serial_data(3, 50), QByteArray());
+    ASSERT_EQ(j2534.ReadSerialData(3, 50), QByteArray());
 }
 
 TEST(SerialPortCrashTest, readSerialData_withNullSerial_doesNotBusySpin)
@@ -117,56 +117,56 @@ TEST(SerialPortCrashTest, readSerialData_withNullSerial_doesNotBusySpin)
     // elapsed is a structural check, not a timing race, so it should not be
     // flaky under CI load.
     TestableJ2534 j2534;
-    j2534.detachSerialPort();
+    j2534.DetachSerialPort();
 
     rusage before{};
     getrusage(RUSAGE_SELF, &before);
     QElapsedTimer wall;
     wall.start();
 
-    ASSERT_EQ(j2534.read_serial_data(3, 50), QByteArray());
+    ASSERT_EQ(j2534.ReadSerialData(3, 50), QByteArray());
 
-    const qint64 elapsedMs = wall.elapsed();
+    const qint64 elapsed_ms = wall.elapsed();
     rusage after{};
     getrusage(RUSAGE_SELF, &after);
 
     const auto to_ms = [](const timeval& tv) { return static_cast<qint64>(tv.tv_sec) * 1000 + tv.tv_usec / 1000; };
-    const qint64 cpuMsBefore = to_ms(before.ru_utime) + to_ms(before.ru_stime);
-    const qint64 cpuMsAfter = to_ms(after.ru_utime) + to_ms(after.ru_stime);
-    const qint64 cpuMs = cpuMsAfter - cpuMsBefore;
+    const qint64 cpu_ms_before = to_ms(before.ru_utime) + to_ms(before.ru_stime);
+    const qint64 cpu_ms_after = to_ms(after.ru_utime) + to_ms(after.ru_stime);
+    const qint64 cpu_ms = cpu_ms_after - cpu_ms_before;
 
     // Generous, non-flaky cutoff: a genuine busy spin burns CPU roughly equal
     // to elapsed wall-clock; a properly-yielding sleep burns a small fraction
     // of it. Half the elapsed time (plus a small floor for scheduler noise on
     // a loaded CI box) safely separates the two without being timing-sensitive.
-    ASSERT_TRUE(cpuMs < elapsedMs / 2 + 5)
+    ASSERT_TRUE(cpu_ms < elapsed_ms / 2 + 5)
         << qPrintable(QString("closed-port read burned %1 ms of CPU across %2 ms wall-clock -- looks like a busy spin")
-                          .arg(cpuMs)
-                          .arg(elapsedMs));
+                          .arg(cpu_ms)
+                          .arg(elapsed_ms));
 }
 
 TEST(SerialPortCrashTest, passThruReadMsgs_withNullSerial_doesNotCrash)
 {
     TestableJ2534 j2534;
-    j2534.detachSerialPort();
-    PASSTHRU_MSG msg;
-    unsigned long numMsgs = 1;
+    j2534.DetachSerialPort();
+    PassThruMsg msg;
+    unsigned long num_msgs = 1;
     // The exact inner frame from the crash report: PassThruReadMsgs -> the read
     // path -> serial->isOpen(). Reaching the next line is the assertion.
-    j2534.PassThruReadMsgs(0, &msg, &numMsgs, 50);
+    j2534.PassThruReadMsgs(0, &msg, &num_msgs, 50);
     ASSERT_TRUE(true);
 }
 
 TEST(SerialPortCrashTest, readVbatt_throughNullJ2534Serial_doesNotCrash)
 {
     TestableSerialPortActionsDirect spad;
-    spad.installNullSerialJ2534();
+    spad.InstallNullSerialJ2534();
     spad.use_openport2_adapter = true; // take the J2534 branch in read_vbatt
 
     // Exercises the full crash call chain from the real entry point:
     // read_vbatt -> PassThruIoctl(READ_VBATT) -> read path -> serial->isOpen()
     // with serial == null. Pre-fix: SIGSEGV at 0x8. Post-fix: returns cleanly.
-    spad.read_vbatt();
+    spad.ReadVbatt();
     ASSERT_TRUE(true);
 }
 
@@ -183,11 +183,11 @@ TEST(SerialPortCrashTest, reentrantReadDuringTeardown_viaEventLoop_doesNotCrash)
     spad.use_openport2_adapter = true; // read_vbatt takes the j2534 branch
 
     QObject consumer; // mirrors the still-running flash module
-    QMetaObject::invokeMethod(&consumer, [&spad]() { spad.read_vbatt(); }, Qt::QueuedConnection);
+    QMetaObject::invokeMethod(&consumer, [&spad]() { spad.ReadVbatt(); }, Qt::QueuedConnection);
 
     // Teardown frees and nulls j2534 (as reset_connection now does) before the
     // queued read runs.
-    spad.deleteAndNullJ2534();
+    spad.DeleteAndNullJ2534();
 
     // Non-GUI event loop dispatches the reentrant read. Pre-fix (read_vbatt
     // dereferences j2534 unconditionally): SIGSEGV. Post-fix (read_vbatt guards
@@ -208,19 +208,19 @@ TEST(SerialPortCrashTest, j2534Handshake_overMockPty_readVersionSucceeds)
         MockOpenPortThread mock(master);
 
         J2534 j2534;
-        const QString ptyPath = QString::fromLocal8Bit(name.data());
-        ASSERT_EQ(j2534.open_serial_port(ptyPath), ptyPath);
+        const QString pty_path = QString::fromLocal8Bit(name.data());
+        ASSERT_EQ(j2534.OpenSerialPort(pty_path), pty_path);
 
-        unsigned long devID = 1;
-        ASSERT_EQ(j2534.PassThruOpen(nullptr, &devID), (long)kJ2534StatusNoerror);
+        unsigned long dev_id = 1;
+        ASSERT_EQ(j2534.PassThruOpen(nullptr, &dev_id), (long)kJ2534StatusNoerror);
 
         std::array<char, 256> api{};
         std::array<char, 256> dll{};
         std::array<char, 256> fw{};
-        ASSERT_EQ(j2534.PassThruReadVersion(api.data(), dll.data(), fw.data(), devID), (long)kJ2534StatusNoerror);
+        ASSERT_EQ(j2534.PassThruReadVersion(api.data(), dll.data(), fw.data(), dev_id), (long)kJ2534StatusNoerror);
         ASSERT_EQ(QString::fromUtf8(fw.data()).trimmed(), QStringLiteral("1.17.4877"));
 
-        j2534.close_serial_port();
+        j2534.CloseSerialPort();
     }
     ::close(master);
 }
@@ -239,7 +239,7 @@ TEST(SerialPortCrashTest, spadInitJ2534Connection_overMockPty_succeeds)
         TestableSerialPortActionsDirect spad;
         spad.serial_port = QString::fromLocal8Bit(name.data());
 
-        ASSERT_EQ(spad.runInitJ2534Connection(), kSerialSuccess);
+        ASSERT_EQ(spad.RunInitJ2534Connection(), kSerialSuccess);
     }
     ::close(master);
 }
@@ -265,35 +265,35 @@ TEST(SerialPortCrashTest, loggingFlow_connectReadTeardownReentrancy_overMockPty_
 
         TestableSerialPortActionsDirect spad;
         spad.serial_port = QString::fromLocal8Bit(name.data());
-        ASSERT_EQ(spad.runInitJ2534Connection(), kSerialSuccess);
+        ASSERT_EQ(spad.RunInitJ2534Connection(), kSerialSuccess);
         spad.use_openport2_adapter = true;
 
         // Realtime read loop over the live mock connection.
         for (int i = 0; i < 3; ++i)
         {
-            spad.read_vbatt();
+            spad.ReadVbatt();
         }
 
         // A still-alive consumer (a running flash module) has a read queued.
         QObject consumer;
-        bool consumerRan = false;
+        bool consumer_ran = false;
         QMetaObject::invokeMethod(
             &consumer,
             [&]()
             {
-                spad.read_vbatt();
-                consumerRan = true;
+                spad.ReadVbatt();
+                consumer_ran = true;
             },
             Qt::QueuedConnection);
 
         // The reentrant operation tears the connection down (frees + nulls j2534).
-        spad.deleteAndNullJ2534();
+        spad.DeleteAndNullJ2534();
 
         // The event loop dispatches the queued reentrant read after teardown.
         // Pre-fix it dereferences the freed/null j2534; post-fix the guard makes it safe.
         QCoreApplication::processEvents();
 
-        ASSERT_TRUE(consumerRan);
+        ASSERT_TRUE(consumer_ran);
     }
     ::close(master);
 }
@@ -316,29 +316,29 @@ TEST(SerialPortCrashTest, resetQueuedDuringRead_runsAfterReadCompletes)
 
         TestableSerialPortActionsDirect spad;
         spad.serial_port = QString::fromLocal8Bit(name.data());
-        ASSERT_EQ(spad.runInitJ2534Connection(), kSerialSuccess);
+        ASSERT_EQ(spad.RunInitJ2534Connection(), kSerialSuccess);
         spad.use_openport2_adapter = true;
 
         // Withhold the READ_VBATT reply so the read below waits out its full
         // timeout (deterministic in-flight window, no reentrant pump to exploit).
-        mock.mock->answerReadVbatt = false;
+        mock.mock->answer_read_vbatt = false;
 
-        bool resetRan = false;
+        bool reset_ran = false;
         QObject consumer;
         QMetaObject::invokeMethod(
             &consumer,
             [&]
             {
-                spad.reset_connection();
-                resetRan = true;
+                spad.ResetConnection();
+                reset_ran = true;
             },
             Qt::QueuedConnection);
 
-        spad.read_vbatt();          // waits out its timeout; must NOT dispatch the reset
-        ASSERT_EQ(resetRan, false); // the queue no longer interleaves into reads
+        spad.ReadVbatt();            // waits out its timeout; must NOT dispatch the reset
+        ASSERT_EQ(reset_ran, false); // the queue no longer interleaves into reads
 
         QCoreApplication::processEvents();
-        ASSERT_EQ(resetRan, true); // the reset runs after, in order
+        ASSERT_EQ(reset_ran, true); // the reset runs after, in order
     }
     ::close(master);
 }
@@ -360,13 +360,13 @@ TEST(SerialPortCrashTest, blockingRead_doesNotDispatchQueuedEvents)
     TestableSerialPortActionsDirect spad;
     spad.serial_port_prefix_linux = "";
     spad.serial_port_list = QStringList() << QString::fromLocal8Bit(name.data());
-    ASSERT_EQ(spad.open_serial_port(), QString::fromLocal8Bit(name.data()));
+    ASSERT_EQ(spad.OpenSerialPort(), QString::fromLocal8Bit(name.data()));
 
     bool dispatched = false;
     QObject context;
     QMetaObject::invokeMethod(&context, [&dispatched] { dispatched = true; }, Qt::QueuedConnection);
 
-    spad.read_serial_data(200);
+    spad.ReadSerialData(200);
 
     ASSERT_EQ(dispatched, false);      // FAILS pre-fix: the pump ran the lambda
     QCoreApplication::processEvents(); // the event is still queued, not lost
@@ -376,6 +376,6 @@ TEST(SerialPortCrashTest, blockingRead_doesNotDispatchQueuedEvents)
 
 namespace
 {
-const auto *const application_environment =
+const auto *const kApplicationEnvironment =
     ::testing::AddGlobalTestEnvironment(new fastecu::testing::CoreApplicationEnvironment({}, /*use_96_dpi=*/true));
 }

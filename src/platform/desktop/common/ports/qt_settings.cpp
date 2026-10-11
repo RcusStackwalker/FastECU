@@ -8,7 +8,7 @@ QtSettings::QtSettings() : settings_(std::make_unique<QSettings>())
 }
 QtSettings::~QtSettings() = default;
 
-std::optional<std::string> QtSettings::get(std::string_view key) const
+std::optional<std::string> QtSettings::Get(std::string_view key) const
 {
     QString k = QString::fromUtf8(key.data(), static_cast<int>(key.size()));
     if (!settings_->contains(k))
@@ -18,7 +18,7 @@ std::optional<std::string> QtSettings::get(std::string_view key) const
     return settings_->value(k).toString().toStdString();
 }
 
-void QtSettings::set(std::string_view key, std::string_view value)
+void QtSettings::Set(std::string_view key, std::string_view value)
 {
     settings_->setValue(QString::fromUtf8(key.data(), static_cast<int>(key.size())),
                         QString::fromUtf8(value.data(), static_cast<int>(value.size())));

@@ -7,7 +7,7 @@ namespace
 
 volatile std::sig_atomic_t g_sigint_requested = 0;
 
-extern "C" void handle_sigint(int /*signal*/)
+extern "C" void HandleSigint(int /*signal*/)
 {
     g_sigint_requested = 1;
 }
@@ -20,7 +20,7 @@ namespace fastecu::bench
 SigintCancellationToken::SigintCancellationToken()
 {
     g_sigint_requested = 0;
-    previous_handler_ = std::signal(SIGINT, handle_sigint);
+    previous_handler_ = std::signal(SIGINT, HandleSigint);
 }
 
 SigintCancellationToken::~SigintCancellationToken()
@@ -31,7 +31,7 @@ SigintCancellationToken::~SigintCancellationToken()
     }
 }
 
-bool SigintCancellationToken::cancelled() const
+bool SigintCancellationToken::Cancelled() const
 {
     return g_sigint_requested != 0;
 }

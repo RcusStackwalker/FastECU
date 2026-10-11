@@ -16,7 +16,7 @@ namespace
 {
 
 // Copies `text` into `out`, truncating it to fit, and always NUL-terminates.
-void copyCString(std::span<char> out, std::string_view text)
+void CopyCString(std::span<char> out, std::string_view text)
 {
     const std::size_t length = std::min(text.size(), out.size() - 1);
     std::ranges::copy(text.substr(0, length), out.begin());
@@ -27,80 +27,80 @@ void copyCString(std::span<char> out, std::string_view text)
 
 J2534::J2534()
 {
-    hDLL = nullptr;
-    isLibraryInitialized = false;
+    h_dll_ = nullptr;
+    is_library_initialized_ = false;
     // default to the Openport 2.0 J2534 DLL
 #if defined(_WIN32) || defined(WIN32) || defined(_WIN64) || defined(WIN64)
-    copyCString(dllName, "j2534.dll");
+    CopyCString(dll_name_, "j2534.dll");
 #else
-    copyCString(dllName, "op20pt32.dylib");
+    CopyCString(dll_name_, "op20pt32.dylib");
 #endif
 }
 
-void J2534::setDllName(const char *name)
+void J2534::SetDllName(const char *name)
 {
-    copyCString(dllName, name);
+    CopyCString(dll_name_, name);
 }
 
-void J2534::getDllName(char *name)
+void J2534::GetDllName(char *name)
 {
-    // `name` must hold dllName.size() chars, as the one caller's buffer does.
-    copyCString(std::span(name, dllName.size()), dllName.data());
+    // `name` must hold dll_name_.size() chars, as the one caller's buffer does.
+    CopyCString(std::span(name, dll_name_.size()), dll_name_.data());
 }
 
-void J2534::disable()
+void J2534::Disable()
 {
-    if (hDLL)
+    if (h_dll_)
     {
-        FreeLibrary(hDLL);
-        hDLL = nullptr;
+        FreeLibrary(h_dll_);
+        h_dll_ = nullptr;
     }
-    if (bridgeClient)
+    if (bridge_client_)
     {
-        bridgeClient.reset();
-        useBridge = false;
+        bridge_client_.reset();
+        use_bridge_ = false;
     }
 }
 
-char *J2534::getLastError()
+char *J2534::GetLastError()
 {
-    return lastError.data();
+    return last_error_.data();
 }
 
-bool J2534::valid()
+bool J2534::Valid()
 {
-    if (bridgeClient)
+    if (bridge_client_)
     {
-        return bridgeClient->isRunning();
+        return bridge_client_->IsRunning();
     }
-    return hDLL != nullptr;
+    return h_dll_ != nullptr;
 }
 
 J2534::~J2534()
 {
 #if defined(OP20PT32_USE_LIB)
-    //	if (hDLL)
+    //	if (h_dll_)
     //		::OP20PT32_Stop();
     // #else
 
 #if defined(_WIN32) || defined(WIN32) || defined(_WIN64) || defined(WIN64)
-    if (hDLL)
-        FreeLibrary(hDLL);
+    if (h_dll_)
+        FreeLibrary(h_dll_);
 #else
-    if (hDLL)
-        dlclose(hDLL);
+    if (h_dll_)
+        dlclose(h_dll_);
 #endif
 #endif
 }
 
 #if defined(_WIN32) || defined(WIN32) || defined(_WIN64) || defined(WIN64)
 #if defined(OP20PT32_USE_LIB)
-#define getPTfn(name) pf##name = ::name;
+#define GET_PT_FN(name) pf##name = ::name;
 #else
-#define getPTfn(name)                                                                                                  \
+#define GET_PT_FN(name)                                                                                                \
     do                                                                                                                 \
     {                                                                                                                  \
-        pf##name = (PF_##name *)GetProcAddress(hDLL, "" #name);                                                        \
+        pf##name = (Pf##name *)GetProcAddress(h_dll_, "" #name);                                                       \
         if (!pf##name)                                                                                                 \
         {                                                                                                              \
             return false;                                                                                              \
@@ -109,12 +109,12 @@ J2534::~J2534()
 #endif
 #else
 #if defined(OP20PT32_USE_LIB)
-#define getPTfn(name) pf##name = ::name;
+#define GET_PT_FN(name) pf##name = ::name;
 #else
-#define getPTfn(name)                                                                                                  \
+#define GET_PT_FN(name)                                                                                                \
     do                                                                                                                 \
     {                                                                                                                  \
-        pf##name = (PF_##name *)dlsym(hDLL, "" #name);                                                                 \
+        pf##name = (Pf##name *)dlsym(h_dll_, "" #name);                                                                \
         if (!pf##name)                                                                                                 \
         {                                                                                                              \
             return false;                                                                                              \
@@ -123,349 +123,351 @@ J2534::~J2534()
 #endif
 #endif
 
-bool J2534::getPTfns()
+bool J2534::GetPTfns()
 {
-    if (!hDLL)
+    if (!h_dll_)
     {
         return false;
     }
 
-    getPTfn(PassThruOpen);
-    getPTfn(PassThruClose);
-    getPTfn(PassThruConnect);
-    getPTfn(PassThruDisconnect);
-    getPTfn(PassThruReadMsgs);
-    getPTfn(PassThruWriteMsgs);
-    getPTfn(PassThruStartPeriodicMsg);
-    getPTfn(PassThruStopPeriodicMsg);
-    getPTfn(PassThruStartMsgFilter);
-    getPTfn(PassThruStopMsgFilter);
-    getPTfn(PassThruSetProgrammingVoltage);
-    getPTfn(PassThruReadVersion);
-    getPTfn(PassThruGetLastError);
-    getPTfn(PassThruIoctl);
+    GET_PT_FN(PassThruOpen);
+    GET_PT_FN(PassThruClose);
+    GET_PT_FN(PassThruConnect);
+    GET_PT_FN(PassThruDisconnect);
+    GET_PT_FN(PassThruReadMsgs);
+    GET_PT_FN(PassThruWriteMsgs);
+    GET_PT_FN(PassThruStartPeriodicMsg);
+    GET_PT_FN(PassThruStopPeriodicMsg);
+    GET_PT_FN(PassThruStartMsgFilter);
+    GET_PT_FN(PassThruStopMsgFilter);
+    GET_PT_FN(PassThruSetProgrammingVoltage);
+    GET_PT_FN(PassThruReadVersion);
+    GET_PT_FN(PassThruGetLastError);
+    GET_PT_FN(PassThruIoctl);
 
     return true;
 }
 
-long J2534::LoadJ2534DLL(const char *szDLL)
+long J2534::LoadJ2534DLL(const char *sz_dll)
 {
 #if defined(OP20PT32_USE_LIB)
 //    szDLL; // unused
-//	if (!hDLL)
+//	if (!h_dll_)
 //		::OP20PT32_Start();
 #if defined(_WIN32) || defined(WIN32) || defined(_WIN64) || defined(WIN64)
-    hDLL = (HINSTANCE)1;
+    h_dll_ = (HINSTANCE)1;
 #else
-    hDLL = (void *)1;
+    h_dll_ = (void *)1;
 #endif
-    getPTfns();
+    GetPTfns();
 #else
 
-    if (szDLL == nullptr)
+    if (sz_dll == nullptr)
     {
         return (1);
     }
 
-    FreeLibrary(hDLL);
-    hDLL = nullptr;
+    FreeLibrary(h_dll_);
+    h_dll_ = nullptr;
 
 #if defined(_WIN32) || defined(WIN32) || defined(_WIN64) || defined(WIN64)
-    hDLL = LoadLibraryA(szDLL);
-    if (!hDLL)
+    h_dll_ = LoadLibraryA(sz_dll);
+    if (!h_dll_)
     {
-        copyCString(lastError, "error loading J2534 DLL");
+        CopyCString(last_error_, "error loading J2534 DLL");
         return false;
     }
-    else if (!getPTfns())
+    else if (!GetPTfns())
     {
         // assume unusable if we don't have everything we need
-        FreeLibrary(hDLL);
-        hDLL = nullptr;
-        copyCString(lastError, "error loading J2534 DLL function pointers");
+        FreeLibrary(h_dll_);
+        h_dll_ = nullptr;
+        CopyCString(last_error_, "error loading J2534 DLL function pointers");
         return false;
     }
 #else
-    CFURLRef appUrlRef = CFBundleCopyBundleURL(CFBundleGetMainBundle());
-    CFStringRef macPath = CFURLCopyFileSystemPath(appUrlRef, kCFURLPOSIXPathStyle);
-    const char *pathPtr = CFStringGetCStringPtr(macPath, CFStringGetSystemEncoding());
+    CFURLRef app_url_ref = CFBundleCopyBundleURL(CFBundleGetMainBundle());
+    CFStringRef mac_path = CFURLCopyFileSystemPath(app_url_ref, kCFURLPOSIXPathStyle);
+    const char *path_ptr = CFStringGetCStringPtr(mac_path, CFStringGetSystemEncoding());
 
-    char libPath[1024];
-    char oldPath[1024];
+    char lib_path[1024];
+    char old_path[1024];
 
-    getcwd(oldPath, 1024);
-    strcpy(libPath, pathPtr);
-    strcat(libPath, "/Contents/Frameworks");
-    chdir(libPath); // change to this dir so J2534 .dylib can find any other needed dylibs in the same dir
-    strcat(libPath,"/"");
-    strcat(libPath,szDLL);
+    getcwd(old_path, 1024);
+    strcpy(lib_path, path_ptr);
+    strcat(lib_path, "/Contents/Frameworks");
+    chdir(lib_path); // change to this dir so J2534 .dylib can find any other needed dylibs in the same dir
+    strcat(lib_path,"/"");
+    strcat(lib_path,sz_dll);
 
-    CFRelease(appUrlRef);
-    CFRelease(macPath);
+    CFRelease(app_url_ref);
+    CFRelease(mac_path);
 
-    if (!(hDLL = dlopen(libPath, RTLD_LOCAL|RTLD_LAZY)))
+    if (!(h_dll_ = dlopen(lib_path, RTLD_LOCAL|RTLD_LAZY)))
     {
-        strcpy(lastError.data(), "error loading ");
-        strcat(lastError.data(), libPath);
-        chdir(oldPath);
+        strcpy(last_error_.data(), "error loading ");
+        strcat(last_error_.data(), lib_path);
+        chdir(old_path);
         return false;
     }
-    else if (!getPTfns())
+    else if (!GetPTfns())
     {
         // assume unusable if we don't have everything we need
-        dlclose(hDLL);
-        hDLL = nullptr;
-        strcpy(lastError.data(), "error loading J2534 dylib function pointers");
-        chdir(oldPath);
+        dlclose(h_dll_);
+        h_dll_ = nullptr;
+        strcpy(last_error_.data(), "error loading J2534 dylib function pointers");
+        chdir(old_path);
         return false;
     }
-    chdir(oldPath);
+    chdir(old_path);
 #endif
 
 #endif
     return true;
 }
 
-bool J2534::checkDLL()
+bool J2534::CheckDll()
 {
-    if (bridgeClient)
+    if (bridge_client_)
     {
-        return bridgeClient->isRunning();
+        return bridge_client_->IsRunning();
     }
-    if (hDLL)
+    if (h_dll_)
     {
         return true;
     }
 
-    bool is32Bit = false;
-    if (isDll32Bit(dllName.data(), is32Bit) && is32Bit)
+    bool is32_bit = false;
+    if (IsDll32Bit(dll_name_.data(), is32_bit) && is32_bit)
     {
-        auto client = std::make_unique<J2534BridgeClient>("j2534_bridge_host.exe", dllName.data());
-        if (client->start())
+        auto client = std::make_unique<J2534BridgeClient>("j2534_bridge_host.exe", dll_name_.data());
+        if (client->Start())
         {
-            bridgeClient = std::move(client);
-            useBridge = true;
+            bridge_client_ = std::move(client);
+            use_bridge_ = true;
             return true;
         }
-        copyCString(lastError, "error starting 32-bit J2534 bridge helper");
+        CopyCString(last_error_, "error starting 32-bit J2534 bridge helper");
         return false;
     }
 
-    LoadJ2534DLL(dllName.data());
-    return (hDLL != nullptr);
+    LoadJ2534DLL(dll_name_.data());
+    return (h_dll_ != nullptr);
 }
 
-bool J2534::is_serial_port_open()
+bool J2534::IsSerialPortOpen()
 {
-    return J2534_init_ok;
+    return j2534_init_ok;
 }
 
-long J2534::PassThruOpen(const void *pName, unsigned long *pDeviceID)
+long J2534::PassThruOpen(const void *p_name, unsigned long *p_device_id)
 {
     long result = kJ2534StatusNoerror;
-    if (!checkDLL())
+    if (!CheckDll())
     {
         return kJ2534ErrDeviceNotConnected;
     }
-    if (useBridge)
+    if (use_bridge_)
     {
-        return bridgeClient->PassThruOpen(pName, pDeviceID);
+        return bridge_client_->PassThruOpen(p_name, p_device_id);
     }
 
-    result = (*pfPassThruOpen)(pName, pDeviceID);
+    result = (*pfPassThruOpen)(p_name, p_device_id);
 
     return result;
 }
 
-long J2534::PassThruClose(unsigned long DeviceID)
+long J2534::PassThruClose(unsigned long device_id)
 {
     long result = kJ2534StatusNoerror;
-    if (!checkDLL())
+    if (!CheckDll())
     {
         return kJ2534ErrDeviceNotConnected;
     }
-    if (useBridge)
+    if (use_bridge_)
     {
-        return bridgeClient->PassThruClose(DeviceID);
+        return bridge_client_->PassThruClose(device_id);
     }
-    result = (*pfPassThruClose)(DeviceID);
+    result = (*pfPassThruClose)(device_id);
 
     return result;
 }
 
-long J2534::PassThruConnect(unsigned long DeviceID, unsigned long ProtocolID, unsigned long Flags,
-                            unsigned long Baudrate, unsigned long *pChannelID)
+long J2534::PassThruConnect(unsigned long device_id, unsigned long protocol_id, unsigned long flags,
+                            unsigned long baudrate, unsigned long *p_channel_id)
 {
     long result = kJ2534StatusNoerror;
-    if (!checkDLL())
+    if (!CheckDll())
     {
         return kJ2534ErrDeviceNotConnected;
     }
-    if (useBridge)
+    if (use_bridge_)
     {
-        return bridgeClient->PassThruConnect(DeviceID, ProtocolID, Flags, Baudrate, pChannelID);
+        return bridge_client_->PassThruConnect(device_id, protocol_id, flags, baudrate, p_channel_id);
     }
-    result = (*pfPassThruConnect)(DeviceID, ProtocolID, Flags, Baudrate, pChannelID);
+    result = (*pfPassThruConnect)(device_id, protocol_id, flags, baudrate, p_channel_id);
     return result;
 }
 
-long J2534::PassThruDisconnect(unsigned long ChannelID)
+long J2534::PassThruDisconnect(unsigned long channel_id)
 {
     long result = kJ2534StatusNoerror;
-    if (!checkDLL())
+    if (!CheckDll())
     {
         return kJ2534ErrDeviceNotConnected;
     }
-    if (useBridge)
+    if (use_bridge_)
     {
-        return bridgeClient->PassThruDisconnect(ChannelID);
+        return bridge_client_->PassThruDisconnect(channel_id);
     }
-    result = (*pfPassThruDisconnect)(ChannelID);
+    result = (*pfPassThruDisconnect)(channel_id);
     return result;
 }
 
-long J2534::PassThruReadMsgs(unsigned long ChannelID, PASSTHRU_MSG *pMsg, unsigned long *pNumMsgs,
-                             unsigned long Timeout)
+long J2534::PassThruReadMsgs(unsigned long channel_id, PassThruMsg *p_msg, unsigned long *p_num_msgs,
+                             unsigned long timeout)
 {
     long result = kJ2534StatusNoerror;
-    if (!checkDLL())
+    if (!CheckDll())
     {
         return kJ2534ErrDeviceNotConnected;
     }
-    if (useBridge)
+    if (use_bridge_)
     {
-        return bridgeClient->PassThruReadMsgs(ChannelID, pMsg, pNumMsgs, Timeout);
+        return bridge_client_->PassThruReadMsgs(channel_id, p_msg, p_num_msgs, timeout);
     }
-    result = (*pfPassThruReadMsgs)(ChannelID, pMsg, pNumMsgs, Timeout);
+    result = (*pfPassThruReadMsgs)(channel_id, p_msg, p_num_msgs, timeout);
     return result;
 }
 
-long J2534::PassThruWriteMsgs(unsigned long ChannelID, const PASSTHRU_MSG *pMsg, unsigned long *pNumMsgs,
-                              unsigned long Timeout)
+long J2534::PassThruWriteMsgs(unsigned long channel_id, const PassThruMsg *p_msg, unsigned long *p_num_msgs,
+                              unsigned long timeout)
 {
-    if (!checkDLL())
+    if (!CheckDll())
     {
         return kJ2534ErrDeviceNotConnected;
     }
-    if (useBridge)
+    if (use_bridge_)
     {
-        return bridgeClient->PassThruWriteMsgs(ChannelID, pMsg, pNumMsgs, Timeout);
+        return bridge_client_->PassThruWriteMsgs(channel_id, p_msg, p_num_msgs, timeout);
     }
-    return (*pfPassThruWriteMsgs)(ChannelID, pMsg, pNumMsgs, Timeout);
+    return (*pfPassThruWriteMsgs)(channel_id, p_msg, p_num_msgs, timeout);
 }
 
-long J2534::PassThruStartPeriodicMsg(unsigned long ChannelID, const PASSTHRU_MSG *pMsg, unsigned long *pMsgID,
-                                     unsigned long TimeInterval)
+long J2534::PassThruStartPeriodicMsg(unsigned long channel_id, const PassThruMsg *p_msg, unsigned long *p_msg_id,
+                                     unsigned long time_interval)
 {
     long result = kJ2534StatusNoerror;
-    if (!checkDLL())
+    if (!CheckDll())
     {
         return kJ2534ErrDeviceNotConnected;
     }
-    if (useBridge)
+    if (use_bridge_)
     {
-        return bridgeClient->PassThruStartPeriodicMsg(ChannelID, pMsg, pMsgID, TimeInterval);
+        return bridge_client_->PassThruStartPeriodicMsg(channel_id, p_msg, p_msg_id, time_interval);
     }
-    result = (*pfPassThruStartPeriodicMsg)(ChannelID, pMsg, pMsgID, TimeInterval);
+    result = (*pfPassThruStartPeriodicMsg)(channel_id, p_msg, p_msg_id, time_interval);
     return result;
 }
 
-long J2534::PassThruStopPeriodicMsg(unsigned long ChannelID, unsigned long MsgID)
+long J2534::PassThruStopPeriodicMsg(unsigned long channel_id, unsigned long msg_id)
 {
     long result = kJ2534StatusNoerror;
-    if (!checkDLL())
+    if (!CheckDll())
     {
         return kJ2534ErrDeviceNotConnected;
     }
-    if (useBridge)
+    if (use_bridge_)
     {
-        return bridgeClient->PassThruStopPeriodicMsg(ChannelID, MsgID);
+        return bridge_client_->PassThruStopPeriodicMsg(channel_id, msg_id);
     }
-    result = (*pfPassThruStopPeriodicMsg)(ChannelID, MsgID);
+    result = (*pfPassThruStopPeriodicMsg)(channel_id, msg_id);
     return result;
 }
 
-long J2534::PassThruStartMsgFilter(unsigned long ChannelID, unsigned long FilterType, const PASSTHRU_MSG *pMaskMsg,
-                                   const PASSTHRU_MSG *pPatternMsg, const PASSTHRU_MSG *pFlowControlMsg,
-                                   unsigned long *pMsgID)
+long J2534::PassThruStartMsgFilter(unsigned long channel_id, unsigned long filter_type, const PassThruMsg *p_mask_msg,
+                                   const PassThruMsg *p_pattern_msg, const PassThruMsg *p_flow_control_msg,
+                                   unsigned long *p_msg_id)
 {
     long result = kJ2534StatusNoerror;
-    if (!checkDLL())
+    if (!CheckDll())
     {
         return kJ2534ErrDeviceNotConnected;
     }
-    if (useBridge)
+    if (use_bridge_)
     {
-        return bridgeClient->PassThruStartMsgFilter(ChannelID, FilterType, pMaskMsg, pPatternMsg, pFlowControlMsg,
-                                                    pMsgID);
+        return bridge_client_->PassThruStartMsgFilter(channel_id, filter_type, p_mask_msg, p_pattern_msg,
+                                                      p_flow_control_msg, p_msg_id);
     }
-    result = (*pfPassThruStartMsgFilter)(ChannelID, FilterType, pMaskMsg, pPatternMsg, pFlowControlMsg, pMsgID);
+    result =
+        (*pfPassThruStartMsgFilter)(channel_id, filter_type, p_mask_msg, p_pattern_msg, p_flow_control_msg, p_msg_id);
     return result;
 }
 
-long J2534::PassThruStopMsgFilter(unsigned long ChannelID, unsigned long MsgID)
+long J2534::PassThruStopMsgFilter(unsigned long channel_id, unsigned long msg_id)
 {
     long result = kJ2534StatusNoerror;
-    if (!checkDLL())
+    if (!CheckDll())
     {
         return kJ2534ErrDeviceNotConnected;
     }
-    if (useBridge)
+    if (use_bridge_)
     {
-        return bridgeClient->PassThruStopMsgFilter(ChannelID, MsgID);
+        return bridge_client_->PassThruStopMsgFilter(channel_id, msg_id);
     }
-    result = (*pfPassThruStopMsgFilter)(ChannelID, MsgID);
+    result = (*pfPassThruStopMsgFilter)(channel_id, msg_id);
     return result;
 }
 
-long J2534::PassThruSetProgrammingVoltage(unsigned long DeviceID, unsigned long Pin, unsigned long Voltage)
+long J2534::PassThruSetProgrammingVoltage(unsigned long device_id, unsigned long pin, unsigned long voltage)
 {
     long result = kJ2534StatusNoerror;
-    if (!checkDLL())
+    if (!CheckDll())
     {
         return kJ2534ErrDeviceNotConnected;
     }
-    if (useBridge)
+    if (use_bridge_)
     {
-        return bridgeClient->PassThruSetProgrammingVoltage(DeviceID, Pin, Voltage);
+        return bridge_client_->PassThruSetProgrammingVoltage(device_id, pin, voltage);
     }
-    result = (*pfPassThruSetProgrammingVoltage)(DeviceID, Pin, Voltage);
+    result = (*pfPassThruSetProgrammingVoltage)(device_id, pin, voltage);
     return result;
 }
 
-long J2534::PassThruReadVersion(char *pApiVersion, char *pDllVersion, char *pFirmwareVersion, unsigned long DeviceID)
+long J2534::PassThruReadVersion(char *p_api_version, char *p_dll_version, char *p_firmware_version,
+                                unsigned long device_id)
 {
     long result = kJ2534StatusNoerror;
-    if (!checkDLL())
+    if (!CheckDll())
     {
         return kJ2534ErrDeviceNotConnected;
     }
-    if (useBridge)
+    if (use_bridge_)
     {
-        return bridgeClient->PassThruReadVersion(pApiVersion, pDllVersion, pFirmwareVersion, DeviceID);
+        return bridge_client_->PassThruReadVersion(p_api_version, p_dll_version, p_firmware_version, device_id);
     }
-    result = (*pfPassThruReadVersion)(DeviceID, pFirmwareVersion, pDllVersion, pApiVersion);
+    result = (*pfPassThruReadVersion)(device_id, p_firmware_version, p_dll_version, p_api_version);
     return result;
 }
 
-long J2534::PassThruGetLastError(char *pErrorDescription)
+long J2534::PassThruGetLastError(char *p_error_description)
 {
     long result = kJ2534StatusNoerror;
-    if (!checkDLL())
+    if (!CheckDll())
     {
         return kJ2534ErrDeviceNotConnected;
     }
-    if (useBridge)
+    if (use_bridge_)
     {
-        return bridgeClient->PassThruGetLastError(pErrorDescription);
+        return bridge_client_->PassThruGetLastError(p_error_description);
     }
-    result = (*pfPassThruGetLastError)(pErrorDescription);
+    result = (*pfPassThruGetLastError)(p_error_description);
     return result;
 }
 
-int J2534::is_valid_sconfig_param(SCONFIG s)
+int J2534::IsValidSconfigParam(SCONFIG s)
 {
-    switch (s.Parameter)
+    switch (s.parameter)
     {
     case kJ2534P1Min:
     case kJ2534P2Min:
@@ -478,30 +480,30 @@ int J2534::is_valid_sconfig_param(SCONFIG s)
     }
 }
 
-long J2534::PassThruIoctl(unsigned long ChannelID, unsigned long IoctlID, const void *pInput, void *pOutput)
+long J2534::PassThruIoctl(unsigned long channel_id, unsigned long ioctl_id, const void *p_input, void *p_output)
 {
-    if (!checkDLL())
+    if (!CheckDll())
     {
         return kJ2534ErrDeviceNotConnected;
     }
-    if (useBridge)
+    if (use_bridge_)
     {
-        return bridgeClient->PassThruIoctl(ChannelID, IoctlID, pInput, pOutput);
+        return bridge_client_->PassThruIoctl(channel_id, ioctl_id, p_input, p_output);
     }
 
-    if (IoctlID == kJ2534SetConfig)
+    if (ioctl_id == kJ2534SetConfig)
     {
-        pOutput = nullptr; // make some DLLs happy
+        p_output = nullptr; // make some DLLs happy
     }
 
     // Parked, not dropped: rejecting parameters the DLL does not accept could
     // break some J2534 devices such as the Denso DST-i, so every SET_CONFIG
     // parameter is passed through as-is. is_valid_sconfig_param() classifies
     // them if this is ever revisited.
-    //     const auto *scl = static_cast<const SCONFIG_LIST *>(pInput);
-    //     for (unsigned i = 0; i < scl->NumOfParams; i++)
-    //         if (!is_valid_sconfig_param((scl->ConfigPtr)[i]))
+    //     const auto *scl = static_cast<const SConfigList *>(pInput);
+    //     for (unsigned i = 0; i < scl->num_of_params; i++)
+    //         if (!is_valid_sconfig_param((scl->config_ptr)[i]))
     //             return STATUS_NOERROR;
 
-    return (*pfPassThruIoctl)(ChannelID, IoctlID, pInput, pOutput);
+    return (*pfPassThruIoctl)(channel_id, ioctl_id, p_input, p_output);
 }

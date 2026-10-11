@@ -49,32 +49,32 @@ bool ChecksumCorrectionCommand::confirmProceedWithoutChecksumModule()
     return msgBox.clickedButton() == cancelButton;
 }
 
-void ChecksumCorrectionCommand::showFamilyResultDialog(const ChecksumResult& family_result)
+void ChecksumCorrectionCommand::showFamilyResultDialog(const ChecksumResult& familyResult)
 {
-    const QString message = QString::fromStdString(family_result.message);
-    if (family_result.changed())
+    const QString message = QString::fromStdString(familyResult.message);
+    if (familyResult.Changed())
     {
         QMessageBox::information(nullptr, QObject::tr("Checksum Correction"),
                                  QObject::tr("Checksums corrected:\n\n%1").arg(message));
         return;
     }
-    switch (family_result.status)
+    switch (familyResult.status)
     {
-    case ChecksumResult::Status::Disabled:
+    case ChecksumResult::Status::kDisabled:
         QMessageBox::information(nullptr, QObject::tr("32-bit checksum"), message);
         break;
-    case ChecksumResult::Status::InvalidSize:
-    case ChecksumResult::Status::UnsupportedRom:
-    case ChecksumResult::Status::ParseError:
+    case ChecksumResult::Status::kInvalidSize:
+    case ChecksumResult::Status::kUnsupportedRom:
+    case ChecksumResult::Status::kParseError:
         QMessageBox::warning(nullptr, QObject::tr("Checksum module"), message);
         break;
-    case ChecksumResult::Status::Corrected:
-    case ChecksumResult::Status::Unchanged:
+    case ChecksumResult::Status::kCorrected:
+    case ChecksumResult::Status::kUnchanged:
         break;
     }
 }
 
-ChecksumCorrectionResult ChecksumCorrectionCommand::run(bytes::ByteView rom_data, bool has_definition,
+ChecksumCorrectionResult ChecksumCorrectionCommand::run(const fastecu::memory::MemoryImage& image, bool hasDefinition,
                                                         const fastecu::checksum::ChecksumSelection& selection,
                                                         QWidget *parent)
 {
@@ -83,13 +83,13 @@ ChecksumCorrectionResult ChecksumCorrectionCommand::run(bytes::ByteView rom_data
     // Formerly FileActions::checksum_correction's own precheck, ahead of the
     // adapter call: an unregistered MCU returns the ROM untouched and shows
     // no dialog at all.
-    if (fastecu::flash::find_flash_device(selection.mcu_type) == nullptr)
+    if (fastecu::flash::FindFlashDevice(selection.mcu_type) == nullptr)
     {
         result.unknown_mcu_type = true;
         return result;
     }
 
-    if (!has_definition)
+    if (!hasDefinition)
     {
         if (!confirmProceedWithoutDefinition(parent))
         {
@@ -97,28 +97,28 @@ ChecksumCorrectionResult ChecksumCorrectionCommand::run(bytes::ByteView rom_data
         }
     }
 
-    switch (const ChecksumCorrectionOutcome outcome = fastecu::checksum::apply_checksum_correction(rom_data, selection);
+    switch (const ChecksumCorrectionOutcome outcome = fastecu::checksum::ApplyChecksumCorrection(image, selection);
             outcome.status)
     {
-    case ChecksumCorrectionOutcome::Status::UnknownMcuType:
+    case ChecksumCorrectionOutcome::Status::kUnknownMcuType:
         // Unreachable: the find_flash_device precheck above returns first.
         // Handled defensively as a no-op, matching legacy's silent return.
         break;
-    case ChecksumCorrectionOutcome::Status::BadRomSize:
+    case ChecksumCorrectionOutcome::Status::kBadRomSize:
         showBadRomSizeDialog(parent);
         break;
-    case ChecksumCorrectionOutcome::Status::NoModuleForProtocol:
+    case ChecksumCorrectionOutcome::Status::kNoModuleForProtocol:
         if (selection.checksum_flag != "no")
         {
             result.canceled_due_to_missing_module = confirmProceedWithoutChecksumModule();
         }
         break;
-    case ChecksumCorrectionOutcome::Status::FamilyRan:
+    case ChecksumCorrectionOutcome::Status::kFamilyRan:
         if (outcome.family_result.has_value())
         {
-            if (outcome.family_result->ok())
+            if (outcome.corrected_file.has_value())
             {
-                result.corrected_rom_data = outcome.family_result->romData;
+                result.corrected_rom_data = *outcome.corrected_file;
             }
             showFamilyResultDialog(*outcome.family_result);
         }

@@ -20,12 +20,12 @@ namespace fastecu::flash
 namespace
 {
 
-FlashPlanFields kline_read_fields()
+FlashPlanFields KlineReadFields()
 {
     return FlashPlanFields{
-        .operation = FlashOperation::Read,
-        .family = FlashFamily::DensoSh705xEepromKline,
-        .transport = TransportKind::Kline,
+        .operation = FlashOperation::kRead,
+        .family = FlashFamily::kDensoSh705xEepromKline,
+        .transport = TransportKind::kKline,
         .target_id = "sub_ecu_eeprom_denso_sh7055_kline",
         .mcu_name = "SH7055",
         .transfer_region = MemoryRegion{.start = 0xf000, .length = 0x1000},
@@ -34,8 +34,8 @@ FlashPlanFields kline_read_fields()
         .kernel = KernelImage{.id = "k", .load_address = 0xffff2000, .bytes = {0x01}},
         .family_plan =
             DensoSh705xEepromKlinePlan{
-                .mode = EepromReadMode::Mode2,
-                .security = DensoSecurityVariant::Stock,
+                .mode = EepromReadMode::kMode2,
+                .security = DensoSecurityVariant::kStock,
                 .tester_id = 0xf0,
                 .target_id = 0x10,
                 .initial_baud = 4800,
@@ -43,15 +43,15 @@ FlashPlanFields kline_read_fields()
             },
         .confirmations =
             {
-                ConfirmationSpec{.id = ConfirmationSpec::Id::BeginEepromRead},
-                ConfirmationSpec{.id = ConfirmationSpec::Id::InspectEepromBytes},
+                ConfirmationSpec{.id = ConfirmationSpec::Id::kBeginEepromRead},
+                ConfirmationSpec{.id = ConfirmationSpec::Id::kInspectEepromBytes},
             },
     };
 }
 
-FlashPlan built_plan()
+FlashPlan BuiltPlan()
 {
-    auto plan = validate_and_build(kline_read_fields());
+    auto plan = ValidateAndBuild(KlineReadFields());
     EXPECT_THAT(plan, fastecu::testing::IsOk());
     return std::move(*plan);
 }
@@ -71,26 +71,26 @@ class TestMixedExecutor final : public IMixedCanFlashExecutor
     {
     }
 
-    Result<MixedCanConfig> transport_setup(const FlashPlan&) const override
+    Result<MixedCanConfig> TransportSetup(const FlashPlan&) const override
     {
         return kMixedSetup;
     }
 
-    Status before_transport_configure(IMixedCanFlashTransport&, IClock&, const ICancellationToken&) const override
+    Status BeforeTransportConfigure(IMixedCanFlashTransport&, IClock&, const ICancellationToken&) const override
     {
         calls_.push_back("before_transport_configure");
         if (!before_configure_ok)
         {
-            return fail(ErrorKind::Internal, "before_transport_configure failed");
+            return Fail(ErrorKind::kInternal, "before_transport_configure failed");
         }
         return {};
     }
 
-    Result<FlashExecutionResult> execute(const FlashPlan&, IMixedCanFlashTransport&, IClock&, const ICancellationToken&,
+    Result<FlashExecutionResult> Execute(const FlashPlan&, IMixedCanFlashTransport&, IClock&, const ICancellationToken&,
                                          IEventSink&) override
     {
         calls_.push_back("execute");
-        return FlashExecutionResult{.operation = FlashOperation::Read, .read_bytes = bytes::Bytes{0x01}};
+        return FlashExecutionResult{.operation = FlashOperation::kRead, .read_bytes = bytes::Bytes{0x01}};
     }
 
     bool before_configure_ok = true;
@@ -106,55 +106,55 @@ class RecordingMixedTransport final : public IMixedCanFlashTransport
     {
     }
 
-    Status configure(const MixedCanConfig&) override
+    Status Configure(const MixedCanConfig&) override
     {
         calls_.push_back("configure");
         return {};
     }
-    Status reset_connection() override
+    Status ResetConnection() override
     {
         calls_.push_back("reset_connection");
         return {};
     }
-    Status open() override
+    Status Open() override
     {
         calls_.push_back("open");
         return {};
     }
-    Status close() override
+    Status Close() override
     {
         calls_.push_back("close");
         return {};
     }
-    Status enter_raw_bootloader_mode() override
+    Status EnterRawBootloaderMode() override
     {
         return {};
     }
-    Status clear_receive_buffer() override
+    Status ClearReceiveBuffer() override
     {
         return {};
     }
-    Status enter_iso15765_kernel_mode() override
+    Status EnterIso15765KernelMode() override
     {
         return {};
     }
-    Status write_iso15765(bytes::ByteView, const ICancellationToken&) override
+    Status WriteIso15765(bytes::ByteView, const ICancellationToken&) override
     {
         return {};
     }
-    Result<std::optional<bytes::Bytes>> read_iso15765(std::chrono::milliseconds, const ICancellationToken&) override
+    Result<std::optional<bytes::Bytes>> ReadIso15765(std::chrono::milliseconds, const ICancellationToken&) override
     {
         return std::optional<bytes::Bytes>{};
     }
-    Status write_raw(const cdbg::CanFrame&, const ICancellationToken&) override
+    Status WriteRaw(const cdbg::CanFrame&, const ICancellationToken&) override
     {
         return {};
     }
-    Result<std::optional<cdbg::CanFrame>> read_raw(std::chrono::milliseconds, const ICancellationToken&) override
+    Result<std::optional<cdbg::CanFrame>> ReadRaw(std::chrono::milliseconds, const ICancellationToken&) override
     {
         return std::optional<cdbg::CanFrame>{};
     }
-    void request_unblock() noexcept override
+    void RequestUnblock() noexcept override
     {
     }
 
@@ -168,25 +168,25 @@ static_assert(!std::derived_from<ICanFlashTransport, IMixedCanFlashTransport>);
 class FakeKlineExecutor final : public IKlineFlashExecutor
 {
   public:
-    Result<KlineConfig> transport_setup(const FlashPlan&) const override
+    Result<KlineConfig> TransportSetup(const FlashPlan&) const override
     {
         if (!setup_ok)
         {
-            return fail(ErrorKind::InvalidConfig, "bad plan");
+            return Fail(ErrorKind::kInvalidConfig, "bad plan");
         }
         return kSetup;
     }
 
-    Result<FlashExecutionResult> execute(const FlashPlan&, IKlineFlashTransport& transport, IClock&,
+    Result<FlashExecutionResult> Execute(const FlashPlan&, IKlineFlashTransport& transport, IClock&,
                                          const ICancellationToken&, IEventSink&) override
     {
         ++execute_calls;
-        saw_open_transport = transport.isOpen();
+        saw_open_transport = transport.IsOpen();
         if (!execute_ok)
         {
-            return fail(ErrorKind::BadResponse, "execute failed");
+            return Fail(ErrorKind::kBadResponse, "execute failed");
         }
-        return FlashExecutionResult{.operation = FlashOperation::Read, .read_bytes = bytes::Bytes{0x01}};
+        return FlashExecutionResult{.operation = FlashOperation::kRead, .read_bytes = bytes::Bytes{0x01}};
     }
 
     bool setup_ok = true;
@@ -210,12 +210,12 @@ struct Harness
         auto owned_executor = std::make_unique<FakeKlineExecutor>();
         transport = owned_transport.get();
         executor = owned_executor.get();
-        attempt = bind_flash_attempt(built_plan(), std::move(owned_executor), std::move(owned_transport));
+        attempt = BindFlashAttempt(BuiltPlan(), std::move(owned_executor), std::move(owned_transport));
     }
 
-    Result<FlashExecutionResult> run()
+    Result<FlashExecutionResult> Run()
     {
-        return attempt->run(clock, cancellation, events);
+        return attempt->Run(clock, cancellation, events);
     }
 };
 
@@ -223,12 +223,12 @@ TEST(BoundFlashAttemptTest, ConfiguresAndOpensBeforeExecuteAndClosesOnce)
 {
     Harness h;
 
-    ASSERT_THAT(h.run(), fastecu::testing::IsOk());
-    ASSERT_TRUE(h.transport->last_config_.has_value());
-    EXPECT_EQ(h.transport->last_config_->baud, kSetup.baud);
-    EXPECT_EQ(h.transport->last_config_->tester_id, kSetup.tester_id);
+    ASSERT_THAT(h.Run(), fastecu::testing::IsOk());
+    ASSERT_TRUE(h.transport->last_config.has_value());
+    EXPECT_EQ(h.transport->last_config->baud, kSetup.baud);
+    EXPECT_EQ(h.transport->last_config->tester_id, kSetup.tester_id);
     EXPECT_TRUE(h.executor->saw_open_transport);
-    EXPECT_EQ(h.transport->close_call_count_, 1);
+    EXPECT_EQ(h.transport->close_call_count, 1);
 }
 
 TEST(BoundFlashAttemptTest, InvalidPlanTouchesNoTransportCall)
@@ -236,50 +236,50 @@ TEST(BoundFlashAttemptTest, InvalidPlanTouchesNoTransportCall)
     Harness h;
     h.executor->setup_ok = false;
 
-    ASSERT_THAT(h.run(), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
-    EXPECT_FALSE(h.transport->last_config_.has_value());
-    EXPECT_EQ(h.transport->close_call_count_, 0);
+    ASSERT_THAT(h.Run(), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
+    EXPECT_FALSE(h.transport->last_config.has_value());
+    EXPECT_EQ(h.transport->close_call_count, 0);
     EXPECT_EQ(h.executor->execute_calls, 0);
 }
 
 TEST(BoundFlashAttemptTest, ConfigureFailureSkipsOpenAndExecuteAndClose)
 {
     Harness h;
-    h.transport->configure_result_ = fail(ErrorKind::Disconnected, "no port");
+    h.transport->configure_result = Fail(ErrorKind::kDisconnected, "no port");
 
-    ASSERT_THAT(h.run(), fastecu::testing::IsErr(ErrorKind::Disconnected));
+    ASSERT_THAT(h.Run(), fastecu::testing::IsErr(ErrorKind::kDisconnected));
     EXPECT_EQ(h.executor->execute_calls, 0);
-    EXPECT_EQ(h.transport->close_call_count_, 0);
+    EXPECT_EQ(h.transport->close_call_count, 0);
 }
 
 TEST(BoundFlashAttemptTest, OpenFailureSkipsExecuteAndClose)
 {
     Harness h;
-    h.transport->open_result_ = fail(ErrorKind::Disconnected, "open failed");
+    h.transport->open_result = Fail(ErrorKind::kDisconnected, "open failed");
 
-    ASSERT_THAT(h.run(), fastecu::testing::IsErr(ErrorKind::Disconnected));
+    ASSERT_THAT(h.Run(), fastecu::testing::IsErr(ErrorKind::kDisconnected));
     EXPECT_EQ(h.executor->execute_calls, 0);
-    EXPECT_EQ(h.transport->close_call_count_, 0);
+    EXPECT_EQ(h.transport->close_call_count, 0);
 }
 
 TEST(BoundFlashAttemptTest, CancelledBeforeConfigureDoesNotConfigure)
 {
     Harness h;
-    h.cancellation.set_cancelled(true);
+    h.cancellation.SetCancelled(true);
 
-    ASSERT_THAT(h.run(), fastecu::testing::IsErr(ErrorKind::Cancelled));
-    EXPECT_FALSE(h.transport->last_config_.has_value());
+    ASSERT_THAT(h.Run(), fastecu::testing::IsErr(ErrorKind::kCancelled));
+    EXPECT_FALSE(h.transport->last_config.has_value());
 }
 
 TEST(BoundFlashAttemptTest, CancellationIsNotUniversallyPolledBetweenConfigureAndOpen)
 {
     Harness h;
-    h.cancellation.cancel_on_check(2);
+    h.cancellation.CancelOnCheck(2);
 
-    ASSERT_THAT(h.run(), fastecu::testing::IsOk());
-    EXPECT_TRUE(h.transport->last_config_.has_value());
+    ASSERT_THAT(h.Run(), fastecu::testing::IsOk());
+    EXPECT_TRUE(h.transport->last_config.has_value());
     EXPECT_EQ(h.executor->execute_calls, 1);
-    EXPECT_EQ(h.transport->close_call_count_, 1);
+    EXPECT_EQ(h.transport->close_call_count, 1);
 }
 
 TEST(BoundFlashAttemptTest, ExecuteErrorIsReturnedAndTransportStillClosesOnce)
@@ -287,29 +287,29 @@ TEST(BoundFlashAttemptTest, ExecuteErrorIsReturnedAndTransportStillClosesOnce)
     Harness h;
     h.executor->execute_ok = false;
 
-    ASSERT_THAT(h.run(), fastecu::testing::IsErr(ErrorKind::BadResponse));
-    EXPECT_EQ(h.transport->close_call_count_, 1);
+    ASSERT_THAT(h.Run(), fastecu::testing::IsErr(ErrorKind::kBadResponse));
+    EXPECT_EQ(h.transport->close_call_count, 1);
 }
 
 TEST(BoundFlashAttemptTest, CloseOnlyErrorIsReturned)
 {
     Harness h;
-    h.transport->close_result_ = fail(ErrorKind::Internal, "close failed");
+    h.transport->close_result = Fail(ErrorKind::kInternal, "close failed");
 
-    ASSERT_THAT(h.run(), fastecu::testing::IsErr(ErrorKind::Internal));
-    EXPECT_EQ(h.transport->close_call_count_, 1);
+    ASSERT_THAT(h.Run(), fastecu::testing::IsErr(ErrorKind::kInternal));
+    EXPECT_EQ(h.transport->close_call_count, 1);
 }
 
 TEST(BoundFlashAttemptTest, ExecuteErrorWinsOverCloseErrorAndCloseIsLogged)
 {
     Harness h;
     h.executor->execute_ok = false;
-    h.transport->close_result_ = fail(ErrorKind::Internal, "close failed");
+    h.transport->close_result = Fail(ErrorKind::kInternal, "close failed");
 
-    ASSERT_THAT(h.run(), fastecu::testing::IsErr(ErrorKind::BadResponse));
-    EXPECT_EQ(h.transport->close_call_count_, 1);
+    ASSERT_THAT(h.Run(), fastecu::testing::IsErr(ErrorKind::kBadResponse));
+    EXPECT_EQ(h.transport->close_call_count, 1);
     const bool warned =
-        std::ranges::any_of(h.events.logs, [](const auto& entry) { return entry.first == LogLevel::Warning; });
+        std::ranges::any_of(h.events.logs, [](const auto& entry) { return entry.first == LogLevel::kWarning; });
     EXPECT_TRUE(warned);
 }
 
@@ -318,24 +318,24 @@ TEST(BoundFlashAttemptTest, RequestUnblockReachesTheTransport)
     using namespace std::chrono_literals;
 
     Harness h;
-    h.transport->queueBlockingRead();
+    h.transport->QueueBlockingRead();
 
-    h.attempt->request_unblock();
+    h.attempt->RequestUnblock();
 
-    auto read = h.transport->read(10ms, h.cancellation);
-    ASSERT_THAT(read, fastecu::testing::IsErr(ErrorKind::Cancelled));
+    auto read = h.transport->Read(10ms, h.cancellation);
+    ASSERT_THAT(read, fastecu::testing::IsErr(ErrorKind::kCancelled));
 }
 
 TEST(BoundFlashAttemptTest, MixedTransportUsesOuterLifecycleExactlyOnce)
 {
     std::vector<std::string> calls;
-    auto attempt = bind_flash_attempt(built_plan(), std::make_unique<TestMixedExecutor>(calls),
-                                      std::make_unique<RecordingMixedTransport>(calls));
+    auto attempt = BindFlashAttempt(BuiltPlan(), std::make_unique<TestMixedExecutor>(calls),
+                                    std::make_unique<RecordingMixedTransport>(calls));
     FakeClock clock;
     FakeCancellationToken cancellation;
     RecordingEventSink events;
 
-    ASSERT_TRUE(attempt->run(clock, cancellation, events).has_value());
+    ASSERT_TRUE(attempt->Run(clock, cancellation, events).has_value());
     EXPECT_THAT(calls, ::testing::ElementsAre("before_transport_configure", "configure", "open", "execute", "close"));
 }
 
@@ -344,13 +344,12 @@ TEST(BoundFlashAttemptTest, MixedTransportBeforeConfigureErrorSkipsConfigureOpen
     std::vector<std::string> calls;
     auto executor = std::make_unique<TestMixedExecutor>(calls);
     executor->before_configure_ok = false;
-    auto attempt =
-        bind_flash_attempt(built_plan(), std::move(executor), std::make_unique<RecordingMixedTransport>(calls));
+    auto attempt = BindFlashAttempt(BuiltPlan(), std::move(executor), std::make_unique<RecordingMixedTransport>(calls));
     FakeClock clock;
     FakeCancellationToken cancellation;
     RecordingEventSink events;
 
-    ASSERT_THAT(attempt->run(clock, cancellation, events), fastecu::testing::IsErr(ErrorKind::Internal));
+    ASSERT_THAT(attempt->Run(clock, cancellation, events), fastecu::testing::IsErr(ErrorKind::kInternal));
     EXPECT_THAT(calls, ::testing::ElementsAre("before_transport_configure"));
     EXPECT_TRUE(std::ranges::none_of(calls, [](const std::string& call) { return call == "configure"; }));
 }

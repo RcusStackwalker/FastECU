@@ -20,11 +20,6 @@ struct U24
     std::uint32_t value;
 };
 
-constexpr U24 u24(std::uint32_t value) noexcept
-{
-    return U24{value};
-}
-
 namespace literals
 {
 
@@ -49,7 +44,7 @@ namespace detail
 // /std:c++latest.
 template <typename> inline constexpr bool kDependentFalse = false;
 
-template <typename T> constexpr std::size_t widthBe(const T& arg)
+template <typename T> constexpr std::size_t WidthBe(const T& arg)
 {
     using U = std::remove_cvref_t<T>;
     if constexpr (std::same_as<U, Byte>)
@@ -92,7 +87,7 @@ template <typename T> constexpr std::size_t widthBe(const T& arg)
     }
 }
 
-template <typename T> void appendBe(Bytes& out, const T& arg)
+template <typename T> void AppendBe(Bytes& out, const T& arg)
 {
     using U = std::remove_cvref_t<T>;
     if constexpr (std::same_as<U, Byte>)
@@ -101,15 +96,15 @@ template <typename T> void appendBe(Bytes& out, const T& arg)
     }
     else if constexpr (std::same_as<U, std::uint16_t>)
     {
-        appendU16Be(out, arg);
+        AppendU16Be(out, arg);
     }
     else if constexpr (std::same_as<U, U24>)
     {
-        appendU24Be(out, arg.value);
+        AppendU24Be(out, arg.value);
     }
     else if constexpr (std::same_as<U, std::uint32_t>)
     {
-        appendU32Be(out, arg);
+        AppendU32Be(out, arg);
     }
     else if constexpr (std::same_as<U, std::string_view>)
     {
@@ -134,30 +129,30 @@ template <typename T> void appendBe(Bytes& out, const T& arg)
 
 // Composes `args` big-endian, reserving `extra_capacity` bytes beyond the
 // composed length so a caller that appends afterwards does not reallocate.
-template <typename... Args> Bytes composeBeWithExtraCapacity(std::size_t extra_capacity, const Args&...args)
+template <typename... Args> Bytes ComposeBeWithExtraCapacity(std::size_t extra_capacity, const Args&...args)
 {
     Bytes out;
-    out.reserve(extra_capacity + (std::size_t{0} + ... + detail::widthBe(args)));
-    (detail::appendBe(out, args), ...);
+    out.reserve(extra_capacity + (std::size_t{0} + ... + detail::WidthBe(args)));
+    (detail::AppendBe(out, args), ...);
     return out;
 }
 
-template <typename... Args> Bytes composeBe(const Args&...args)
+template <typename... Args> Bytes ComposeBe(const Args&...args)
 {
-    return composeBeWithExtraCapacity(0, args...);
+    return ComposeBeWithExtraCapacity(0, args...);
 }
 
 // Composes `args` big-endian, then appends `checksum(composed)` using the
 // same width law -- a Byte-returning function appends one byte, a
 // uint32_t-returning one appends four, most-significant first.
-template <typename ChecksumFn, typename... Args> Bytes composeBeWithChecksum(ChecksumFn checksum, const Args&...args)
+template <typename ChecksumFn, typename... Args> Bytes ComposeBeWithChecksum(ChecksumFn checksum, const Args&...args)
 {
     using Sum = std::invoke_result_t<ChecksumFn, ByteView>;
     static_assert(std::unsigned_integral<Sum> && sizeof(Sum) <= 4,
                   "composeBeWithChecksum: checksum function must return Byte, "
                   "std::uint16_t, or std::uint32_t -- appendBe has no wider width to give it");
-    Bytes out = composeBeWithExtraCapacity(sizeof(Sum), args...);
-    detail::appendBe(out, static_cast<Sum>(checksum(ByteView(out))));
+    Bytes out = ComposeBeWithExtraCapacity(sizeof(Sum), args...);
+    detail::AppendBe(out, static_cast<Sum>(checksum(ByteView(out))));
     return out;
 }
 

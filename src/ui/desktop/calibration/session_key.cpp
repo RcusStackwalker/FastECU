@@ -6,12 +6,12 @@
 namespace fastecu::ui
 {
 
-QString session_key_text(calibration::SessionId id)
+QString sessionKeyText(calibration::SessionId id)
 {
     return QString::number(static_cast<qulonglong>(static_cast<std::uint64_t>(id)));
 }
 
-std::optional<calibration::SessionId> parse_session_key(const QString& text)
+std::optional<calibration::SessionId> parseSessionKey(const QString& text)
 {
     if (text.isEmpty() || !std::ranges::all_of(text, [](QChar c) { return c >= u'0' && c <= u'9'; }))
     {

@@ -4,8 +4,8 @@
 #include <cstdint>
 #include <gtest/gtest.h>
 
-using fastecu::flash::find_flash_device;
-using fastecu::flash::find_flash_device_index;
+using fastecu::flash::FindFlashDevice;
+using fastecu::flash::FindFlashDeviceIndex;
 
 TEST(FindFlashDevice, ReturnsDeviceForEveryMcuStringInShippedProtocolsCfg)
 {
@@ -41,31 +41,31 @@ TEST(FindFlashDevice, ReturnsDeviceForEveryMcuStringInShippedProtocolsCfg)
     });
     for (const char *name : kKnown)
     {
-        EXPECT_NE(find_flash_device(name), nullptr) << name;
-        EXPECT_GE(find_flash_device_index(name), 0) << name;
+        EXPECT_NE(FindFlashDevice(name), nullptr) << name;
+        EXPECT_GE(FindFlashDeviceIndex(name), 0) << name;
     }
 }
 
 TEST(FindFlashDevice, ReturnsNullForUnknownMcuType)
 {
     // "M32170" is the MUT/DMA logging protocol's MCU; it is not registered in kFlashDevices[].
-    EXPECT_EQ(find_flash_device("M32170"), nullptr);
-    EXPECT_EQ(find_flash_device("does_not_exist"), nullptr);
-    EXPECT_EQ(find_flash_device_index("M32170"), -1);
-    EXPECT_EQ(find_flash_device_index("UNKNOWN_MCU"), -1);
+    EXPECT_EQ(FindFlashDevice("M32170"), nullptr);
+    EXPECT_EQ(FindFlashDevice("does_not_exist"), nullptr);
+    EXPECT_EQ(FindFlashDeviceIndex("M32170"), -1);
+    EXPECT_EQ(FindFlashDeviceIndex("UNKNOWN_MCU"), -1);
 }
 
 TEST(FindFlashDevice, ExposesRomsizeForSizeValidation)
 {
-    const auto *device = find_flash_device("M32R_512KB");
+    const auto *device = FindFlashDevice("M32R_512KB");
     ASSERT_NE(device, nullptr);
     EXPECT_EQ(device->romsize, 512U * 1024U);
 }
 
 TEST(FindFlashDevice, IndexAndPointerAgree)
 {
-    const int index = find_flash_device_index("M32R_384KB_1block");
-    const flashdev_t *device = find_flash_device("M32R_384KB_1block");
+    const int index = FindFlashDeviceIndex("M32R_384KB_1block");
+    const FlashDevice *device = FindFlashDevice("M32R_384KB_1block");
 
     ASSERT_GE(index, 0);
     ASSERT_NE(device, nullptr);
@@ -82,8 +82,8 @@ TEST(FlashDeviceTable, MatchesExpectedSummariesAndNamedAnomalies)
         const char *name;
         std::uint32_t romsize;
         unsigned numblocks;
-        std::uint32_t firstBlockStart;
-        std::uint32_t finalBlockEnd;
+        std::uint32_t first_block_start;
+        std::uint32_t final_block_end;
     };
 
     static constexpr auto kExpected = std::to_array<FlashDeviceSummary>({
@@ -115,27 +115,27 @@ TEST(FlashDeviceTable, MatchesExpectedSummariesAndNamedAnomalies)
     });
     constexpr std::size_t kCount = kExpected.size();
 
-    for (std::size_t deviceIndex = 0; deviceIndex < kCount; ++deviceIndex)
+    for (std::size_t device_index = 0; device_index < kCount; ++device_index)
     {
-        const flashdev_t& actual = kFlashDevices[deviceIndex];
-        const FlashDeviceSummary& summary = kExpected[deviceIndex];
+        const FlashDevice& actual = kFlashDevices[device_index];
+        const FlashDeviceSummary& summary = kExpected[device_index];
         EXPECT_STREQ(actual.name, summary.name);
         EXPECT_EQ(actual.romsize, summary.romsize);
         EXPECT_EQ(actual.numblocks, summary.numblocks);
-        EXPECT_EQ(actual.fblocks[0].start, summary.firstBlockStart);
-        const flashblock& finalBlock = actual.fblocks[actual.numblocks - 1];
-        EXPECT_EQ(finalBlock.start + finalBlock.len, summary.finalBlockEnd);
-        for (unsigned blockIndex = 0; blockIndex < actual.numblocks; ++blockIndex)
+        EXPECT_EQ(actual.fblocks[0].start, summary.first_block_start);
+        const FlashBlock& final_block = actual.fblocks[actual.numblocks - 1];
+        EXPECT_EQ(final_block.start + final_block.len, summary.final_block_end);
+        for (unsigned block_index = 0; block_index < actual.numblocks; ++block_index)
         {
-            EXPECT_GT(actual.fblocks[blockIndex].len, 0U);
-            if (blockIndex > 0)
+            EXPECT_GT(actual.fblocks[block_index].len, 0U);
+            if (block_index > 0)
             {
-                EXPECT_LE(actual.fblocks[blockIndex - 1].start, actual.fblocks[blockIndex].start);
+                EXPECT_LE(actual.fblocks[block_index - 1].start, actual.fblocks[block_index].start);
             }
         }
     }
 
-    const flashdev_t& sentinel = kFlashDevices[kCount];
+    const FlashDevice& sentinel = kFlashDevices[kCount];
     EXPECT_EQ(sentinel.name, nullptr);
     EXPECT_EQ(sentinel.romsize, std::uint32_t(0));
     EXPECT_EQ(sentinel.numblocks, 0U);
@@ -144,10 +144,10 @@ TEST(FlashDeviceTable, MatchesExpectedSummariesAndNamedAnomalies)
     EXPECT_EQ(sentinel.kblocks, nullptr);
     EXPECT_EQ(sentinel.eblocks, nullptr);
 
-    const flashdev_t *sh72531 = find_flash_device("SH72531");
-    const flashdev_t *mc68 = find_flash_device("MC68HC16Y5");
-    const flashdev_t *n83 = find_flash_device("N83M_1_5MB");
-    const flashdev_t *tpu = find_flash_device("MC68HC16Y5_TPU");
+    const FlashDevice *sh72531 = FindFlashDevice("SH72531");
+    const FlashDevice *mc68 = FindFlashDevice("MC68HC16Y5");
+    const FlashDevice *n83 = FindFlashDevice("N83M_1_5MB");
+    const FlashDevice *tpu = FindFlashDevice("MC68HC16Y5_TPU");
     ASSERT_NE(sh72531, nullptr);
     ASSERT_NE(mc68, nullptr);
     ASSERT_NE(n83, nullptr);

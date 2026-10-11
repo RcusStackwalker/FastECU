@@ -8,9 +8,9 @@
 namespace fastecu::flash
 {
 
-Result<FlashPlan> build_subaru_denso_sh705x_densocan_plan(FlashOperation operation, std::string_view protocol_name,
-                                                          std::string_view mcu_type, std::optional<bytes::Bytes> image,
-                                                          KernelImage kernel);
-Status validate_subaru_denso_sh705x_densocan_plan(const FlashPlan& plan);
+Result<FlashPlan> BuildSubaruDensoSh705xDensocanPlan(FlashOperation operation, std::string_view protocol_name,
+                                                     std::string_view mcu_type, std::optional<bytes::Bytes> image,
+                                                     KernelImage kernel);
+Status ValidateSubaruDensoSh705xDensocanPlan(const FlashPlan& plan);
 
 } // namespace fastecu::flash

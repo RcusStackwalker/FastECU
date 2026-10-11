@@ -16,22 +16,22 @@ namespace fastecu::diagnostics
 // Raw "CAN" never identified an ECU and has no variant.
 enum class SsmVariant
 {
-    Ssm1,
-    KlineSsm2,
-    Iso15765Uds,
+    kSsm1,
+    kKlineSsm2,
+    kIso15765Uds,
 };
 
 // The toolbar's ECU/TCU radio button.
 enum class SsmTarget
 {
-    Ecu,
-    Tcu,
+    kEcu,
+    kTcu,
 };
 
 struct SsmIdentifyRequest
 {
-    SsmVariant variant = SsmVariant::KlineSsm2;
-    SsmTarget target = SsmTarget::Ecu;
+    SsmVariant variant = SsmVariant::kKlineSsm2;
+    SsmTarget target = SsmTarget::kEcu;
 };
 
 struct SsmIdentity
@@ -45,15 +45,15 @@ struct SsmIdentity
 // Timeout: nothing came back. BadResponse: something came back but is short
 // or fails validation. Cancelled: the token tripped in a read or a sleep.
 // Link errors pass through unchanged. Logs nothing.
-Result<SsmIdentity> identify_ssm_ecu(IDiagnosticLink& link, IClock& clock, const ICancellationToken& cancellation,
-                                     const SsmIdentifyRequest& request);
+Result<SsmIdentity> IdentifySsmEcu(IDiagnosticLink& link, IClock& clock, const ICancellationToken& cancellation,
+                                   const SsmIdentifyRequest& request);
 
 // 80 {10|18} F0 len payload... checksum, the checksum being the 8-bit sum of
 // every byte before it.
-bytes::Bytes ssm_frame(bytes::ByteView payload, SsmTarget target);
+bytes::Bytes SsmFrame(bytes::ByteView payload, SsmTarget target);
 
 // The five ECU-ID bytes at offset 8 as uppercase hex, or nullopt when the
 // frame is too short to hold them.
-std::optional<std::string> parse_ssm_ecu_id(bytes::ByteView init_response);
+std::optional<std::string> ParseSsmEcuId(bytes::ByteView init_response);
 
 } // namespace fastecu::diagnostics

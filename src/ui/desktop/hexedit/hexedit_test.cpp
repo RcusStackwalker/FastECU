@@ -39,6 +39,6 @@ TEST(HexEditTest, bytesPerLineIsNeverZero)
 }
 namespace
 {
-const auto *const environment =
+const auto *const kEnvironment =
     ::testing::AddGlobalTestEnvironment(new fastecu::testing::WidgetsApplicationEnvironment({}, /*use_96_dpi=*/true));
 }

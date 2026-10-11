@@ -5,6 +5,6 @@
 class QtFileRepository : public fastecu::IFileRepository
 {
   public:
-    fastecu::Result<std::vector<std::uint8_t>> read(std::string_view handle) override;
-    fastecu::Status write(std::string_view handle, std::span<const std::uint8_t>) override;
+    fastecu::Result<std::vector<std::uint8_t>> Read(std::string_view handle) override;
+    fastecu::Status Write(std::string_view handle, std::span<const std::uint8_t>) override;
 };

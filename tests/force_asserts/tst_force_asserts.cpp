@@ -20,7 +20,7 @@
 // at runtime.
 static QByteArray g_ba;
 
-__attribute__((noinline)) static void access_out_of_bounds()
+__attribute__((noinline)) static void AccessOutOfBounds()
 {
     // g_ba.size() == 0 at runtime; at(0) is out of bounds.
     // With QT_FORCE_ASSERTS: Q_ASSERT fires -> qt_assert -> abort() -> SIGABRT.
@@ -39,5 +39,5 @@ TEST(ForceAssertsDeathTest, outOfBoundsAtAborts)
 
     // The empty regex matches any message: the contract is the signal, and
     // KilledBySignal(SIGABRT) fails on the SIGSEGV of the stripped-asserts state.
-    EXPECT_EXIT(access_out_of_bounds(), ::testing::KilledBySignal(SIGABRT), "");
+    EXPECT_EXIT(AccessOutOfBounds(), ::testing::KilledBySignal(SIGABRT), "");
 }

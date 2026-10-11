@@ -16,7 +16,6 @@ struct OpenedSession
 {
     SessionId id{};
     bool vehicle_selected{false};
-    bool size_rejected{false};
 };
 
 // The open calibrations, replacing MainWindow's fixed array of 100 raw
@@ -31,20 +30,20 @@ class CalibrationWorkspace
     CalibrationWorkspace(const CalibrationWorkspace&) = delete;
     CalibrationWorkspace& operator=(const CalibrationWorkspace&) = delete;
 
-    Result<OpenedSession> open_file(std::string_view path);
-    Result<OpenedSession> adopt_read_image(ReadImage image);
+    Result<OpenedSession> OpenFile(std::string_view path);
+    Result<OpenedSession> AdoptReadImage(ReadImage image);
     // InvalidConfig for an ID that is not open.
-    Status close(SessionId id);
+    Status Close(SessionId id);
 
     // nullptr for an ID that is not open -- an expected outcome for a UI
     // element outliving its session. Pointers stay valid until that session
     // is closed.
-    CalibrationSession *find(SessionId id);
-    const CalibrationSession *find(SessionId id) const;
-    std::vector<SessionId> ids() const;
+    CalibrationSession *Find(SessionId id);
+    const CalibrationSession *Find(SessionId id) const;
+    std::vector<SessionId> Ids() const;
 
   private:
-    OpenedSession insert(RomOpenOutcome outcome);
+    OpenedSession Insert(RomOpenOutcome outcome);
 
     RomOpenUseCase& opener_;
     std::uint64_t next_id_{1};

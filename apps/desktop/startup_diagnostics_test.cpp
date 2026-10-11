@@ -16,7 +16,7 @@ namespace
 class MessageCapture
 {
   public:
-    MessageCapture() : previous_(qInstallMessageHandler(handler))
+    MessageCapture() : previous_(qInstallMessageHandler(Handler))
     {
         active_ = this;
     }
@@ -29,7 +29,7 @@ class MessageCapture
     QStringList texts;
 
   private:
-    static void handler(QtMsgType level, const QMessageLogContext& context, const QString& text)
+    static void Handler(QtMsgType level, const QMessageLogContext& context, const QString& text)
     {
         if (level == QtWarningMsg || level == QtCriticalMsg)
         {
@@ -95,7 +95,7 @@ TEST(StartupDiagnosticsTest, realPresentersReportSeverityAndOrderedDetails)
     StartupModalDriver dialogs;
     MessageCapture messages;
     const QString detail = QStringLiteral("Invalid /tmp/配置/fastecu.cfg: broken");
-    present_startup_failure({fastecu::ErrorKind::InvalidConfig, detail.toStdString()});
+    present_startup_failure({fastecu::ErrorKind::kInvalidConfig, detail.toStdString()});
     present_startup_warnings({"first /a.cfg", "second /b.cfg"});
     ASSERT_EQ(dialogs.icons, (QList<QMessageBox::Icon>{QMessageBox::Critical, QMessageBox::Warning}));
     ASSERT_EQ(dialogs.titles, (QStringList{startup_message_box_title(), startup_message_box_title()}));
@@ -127,14 +127,14 @@ TEST(StartupDiagnosticsTest, sinkRetainsBoundedUtf8DiagnosticsInOrder)
     StartupEventSink sink;
     const std::string bounded = "\xE8\xAD\xA6\xE5\x91\x8A suffix";
     const std::string_view warning{bounded.data(), std::size_t{6}};
-    sink.log(fastecu::LogLevel::Debug, "debug");
-    sink.log(fastecu::LogLevel::Info, "info");
-    sink.log(fastecu::LogLevel::Warning, warning);
-    sink.progress(0, 10);
-    sink.log(fastecu::LogLevel::Error, "\xC3\xA9"
-                                       "chec");
-    sink.notice(std::string_view{"notice ignored", 6});
-    sink.progress(10, 10);
+    sink.Log(fastecu::LogLevel::kDebug, "debug");
+    sink.Log(fastecu::LogLevel::kInfo, "info");
+    sink.Log(fastecu::LogLevel::kWarning, warning);
+    sink.Progress(0, 10);
+    sink.Log(fastecu::LogLevel::kError, "\xC3\xA9"
+                                        "chec");
+    sink.Notice(std::string_view{"notice ignored", 6});
+    sink.Progress(10, 10);
     ASSERT_EQ(sink.warnings(), (QStringList{QString::fromUtf8("\xE8\xAD\xA6\xE5\x91\x8A"),
                                             QString::fromUtf8("\xC3\xA9"
                                                               "chec"),
@@ -144,7 +144,7 @@ TEST(StartupDiagnosticsTest, sinkRetainsBoundedUtf8DiagnosticsInOrder)
 TEST(StartupDiagnosticsTest, failureTextCarriesTheDetail)
 {
     const QString text =
-        startup_failure_text(fastecu::Error{fastecu::ErrorKind::InvalidConfig, "Unable to load /r/fastecu.cfg: bad"});
+        startup_failure_text(fastecu::Error{fastecu::ErrorKind::kInvalidConfig, "Unable to load /r/fastecu.cfg: bad"});
     ASSERT_TRUE(text.contains("/r/fastecu.cfg"));
     ASSERT_TRUE(text.contains("bad"));
 }
@@ -165,6 +165,6 @@ TEST(StartupDiagnosticsTest, defaultRootIsUnderHomeAndEndsInFastEcu)
 
 namespace
 {
-const auto *const application_environment =
+const auto *const kApplicationEnvironment =
     ::testing::AddGlobalTestEnvironment(new fastecu::testing::WidgetsApplicationEnvironment);
 }

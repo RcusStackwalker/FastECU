@@ -9,7 +9,7 @@ using namespace mutdma;
 TEST(TestMemory, write_frame_single)
 {
     const bytes::Bytes data = {0xDE, 0xAD};
-    const std::vector<MutDmaFrame> frames = buildWriteFrames(0x8010, data);
+    const std::vector<MutDmaFrame> frames = BuildWriteFrames(0x8010, data);
     ASSERT_EQ(frames.size(), std::size_t(1));
     const MutDmaFrame& f = frames.at(0);
     ASSERT_EQ(static_cast<int>(f.size()), kFrameLen);
@@ -21,13 +21,13 @@ TEST(TestMemory, write_frame_single)
     ASSERT_EQ(f[5], bytes::Byte(0x02)); // size
     ASSERT_EQ(f[6], bytes::Byte(0xDE)); // data
     ASSERT_EQ(f[7], bytes::Byte(0xAD));
-    ASSERT_TRUE(verifyFrame(f));
+    ASSERT_TRUE(VerifyFrame(f));
 }
 
 TEST(TestMemory, write_chunks_large_payload)
 {
     bytes::Bytes data(100, 0x5A); // > one frame's data capacity
-    const std::vector<MutDmaFrame> frames = buildWriteFrames(0x8000, data);
+    const std::vector<MutDmaFrame> frames = BuildWriteFrames(0x8000, data);
     ASSERT_TRUE(frames.size() >= 3);
     int total = 0;
     for (const MutDmaFrame& f : frames)
@@ -39,7 +39,7 @@ TEST(TestMemory, write_chunks_large_payload)
 
 TEST(TestMemory, read_plan_one_byte_channels)
 {
-    std::vector<Channel> ch = planReadChannels(0x8000, 3);
+    std::vector<Channel> ch = PlanReadChannels(0x8000, 3);
     ASSERT_EQ(ch.size(), 3U);
     ASSERT_EQ(ch.at(0).id, std::uint16_t(0x8000));
     ASSERT_EQ(ch.at(0).len, bytes::Byte(1));
@@ -49,13 +49,13 @@ TEST(TestMemory, read_plan_one_byte_channels)
 TEST(TestMemory, read_reassembles_values)
 {
     std::vector<std::uint32_t> vals = {0xDE, 0xAD, 0xBE};
-    const bytes::Bytes out = reassembleRead(vals);
+    const bytes::Bytes out = ReassembleRead(vals);
     const bytes::Bytes expected = {0xDE, 0xAD, 0xBE};
     ASSERT_TRUE(out == expected);
 }
 
 TEST(TestMemory, write_frames_rejectEmptyAndOverflowInputs)
 {
-    ASSERT_TRUE(buildWriteFrames(0x8000, bytes::Bytes{}).empty());
-    ASSERT_TRUE(buildWriteFrames(0xFFF0, bytes::Bytes(32, 0x5A)).empty());
+    ASSERT_TRUE(BuildWriteFrames(0x8000, bytes::Bytes{}).empty());
+    ASSERT_TRUE(BuildWriteFrames(0xFFF0, bytes::Bytes(32, 0x5A)).empty());
 }

@@ -187,14 +187,17 @@ cc_library(
 )
 
 cc_library(
-    name = "logging_channel_preparation",
-    srcs = ["logging_channel_preparation.cpp"],
-    hdrs = ["logging_channel_preparation.h"],
-    implementation_deps = [":logging_session"],
+    name = "logging_csv_record",
+    srcs = ["logging_csv_record.cpp"],
+    hdrs = ["logging_csv_record.h"],
+)
+
+fastecu_portable_gtest(
+    name = "logging_csv_record_test",
+    srcs = ["logging_csv_record_test.cpp"],
     deps = [
-        ":logger_definition_model",
-        ":logging_types",
-        "//src/backend/ports",
+        ":logging_csv_record",
+        "@googletest//:gtest",
     ],
 )
 
@@ -211,6 +214,18 @@ fastecu_portable_gtest(
 )
 
 cc_library(
+    name = "logging_channel_preparation",
+    srcs = ["logging_channel_preparation.cpp"],
+    hdrs = ["logging_channel_preparation.h"],
+    implementation_deps = [":logging_session"],
+    deps = [
+        ":logger_definition_model",
+        ":logging_types",
+        "//src/backend/ports",
+    ],
+)
+
+cc_library(
     name = "logging_run_snapshot",
     srcs = ["logging_run_snapshot.cpp"],
     hdrs = ["logging_run_snapshot.h"],
@@ -218,18 +233,6 @@ cc_library(
     deps = [
         ":logger_model",
         ":logging_session",
-        "//src/backend/ports",
-    ],
-)
-
-cc_library(
-    name = "logging_sample_resolution",
-    srcs = ["logging_sample_resolution.cpp"],
-    hdrs = ["logging_sample_resolution.h"],
-    implementation_deps = [":logging_run_snapshot"],
-    deps = [
-        ":logger_model",
-        ":logging_types",
         "//src/backend/ports",
     ],
 )
@@ -254,5 +257,17 @@ fastecu_portable_gtest(
         ":logging_sample_resolution",
         "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
+    ],
+)
+
+cc_library(
+    name = "logging_sample_resolution",
+    srcs = ["logging_sample_resolution.cpp"],
+    hdrs = ["logging_sample_resolution.h"],
+    implementation_deps = [":logging_run_snapshot"],
+    deps = [
+        ":logger_model",
+        ":logging_types",
+        "//src/backend/ports",
     ],
 )

@@ -4,7 +4,7 @@
 
 #include <gmock/gmock.h>
 
-int run_throwing_backend_child();
+int RunThrowingBackendChild();
 
 int main(int argc, char **argv)
 {
@@ -17,7 +17,7 @@ int main(int argc, char **argv)
     if (qEnvironmentVariableIsSet("FASTECU_THROWING_BACKEND_CHILD"))
     {
         QCoreApplication app(argc, argv);
-        return run_throwing_backend_child();
+        return RunThrowingBackendChild();
     }
 
     ::testing::AddGlobalTestEnvironment(new fastecu::testing::CoreApplicationEnvironment);

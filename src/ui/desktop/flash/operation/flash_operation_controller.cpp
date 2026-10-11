@@ -13,47 +13,47 @@
 namespace fastecu::flash
 {
 
-FlashOperationController::FlashOperationController(SerialPortActions& serial, QWidget *dialog_parent)
-    : serial_(serial), dialog_parent_(dialog_parent)
+FlashOperationController::FlashOperationController(SerialPortActions& serial, QWidget *dialogParent)
+    : serial_(serial), dialog_parent_(dialogParent)
 {
 }
 
 FlashOperationOutcome FlashOperationController::run(const FlashOperationInput& input)
 {
-    if (input.operation == FlashOperation::Read && is_denso_tcu_protocol(input.protocol.name))
+    if (input.operation == FlashOperation::kRead && IsDensoTcuProtocol(input.protocol.name))
     {
         using fastecu::service_functions::DensoTcuReadAction;
-        const DensoTcuReadAction action = fastecu::service_functions::choose_denso_tcu_read_action(dialog_parent_);
+        const DensoTcuReadAction action = fastecu::service_functions::chooseDensoTcuReadAction(dialog_parent_);
         switch (action)
         {
-        case DensoTcuReadAction::Dump:
-            emit LOG_I(
+        case DensoTcuReadAction::kDump:
+            emit logI(
                 "Read memory with flashmethod '" +
                     QString::fromUtf8(input.protocol.name.data(), static_cast<qsizetype>(input.protocol.name.size())) +
                     "' and kernel '" + QString::fromStdString(input.kernel_path) + "'",
                 true, true);
             break;
-        case DensoTcuReadAction::Relearn:
-            emit LOG_I("Attempting TCU relearn", true, true);
+        case DensoTcuReadAction::kRelearn:
+            emit logI("Attempting TCU relearn", true, true);
             break;
-        case DensoTcuReadAction::ReadParameters:
-            emit LOG_I("Attempting to read TCU parameters", true, true);
+        case DensoTcuReadAction::kReadParameters:
+            emit logI("Attempting to read TCU parameters", true, true);
             break;
-        case DensoTcuReadAction::SetParameters:
-            emit LOG_I("Attempting to set TCU parameters", true, true);
+        case DensoTcuReadAction::kSetParameters:
+            emit logI("Attempting to set TCU parameters", true, true);
             break;
-        case DensoTcuReadAction::Cancelled:
-            emit LOG_I("No option selected", true, true);
+        case DensoTcuReadAction::kCancelled:
+            emit logI("No option selected", true, true);
             break;
         }
-        if (fastecu::service_functions::run_denso_tcu_service_action(action, &serial_, std::string(input.protocol.name),
-                                                                     dialog_parent_))
+        if (fastecu::service_functions::runDensoTcuServiceAction(action, &serial_, std::string(input.protocol.name),
+                                                                 dialog_parent_))
         {
-            return {.status = FlashOperationStatus::ServiceActionHandled};
+            return {.status = FlashOperationStatus::kServiceActionHandled};
         }
     }
 
-    auto workflow = FlashWorkflowFactory::tryCreate({
+    auto workflow = FlashWorkflowFactory::TryCreate({
         .operation = input.operation,
         .protocol = input.protocol,
         .image = input.image,
@@ -68,23 +68,23 @@ FlashOperationOutcome FlashOperationController::run(const FlashOperationInput& i
             "Unknown flashmethod! Flashmethod \"" +
                 QString::fromUtf8(input.protocol.name.data(), static_cast<qsizetype>(input.protocol.name.size())) +
                 "\" not yet implemented!");
-        return {.status = FlashOperationStatus::Unsupported};
+        return {.status = FlashOperationStatus::kUnsupported};
     }
 
-    FlashDialog flash_module(std::move(workflow), input.operation, QString::fromStdString(input.display_filename),
-                             dialog_parent_);
-    QObject::connect<void (FlashDialog::*)(QString)>(&flash_module, &FlashDialog::external_logger, this,
-                                                     qOverload<QString>(&FlashOperationController::external_logger));
-    QObject::connect<void (FlashDialog::*)(int)>(&flash_module, &FlashDialog::external_logger, this,
-                                                 qOverload<int>(&FlashOperationController::external_logger));
-    QObject::connect(&flash_module, &FlashDialog::LOG_E, this, &FlashOperationController::LOG_E);
-    QObject::connect(&flash_module, &FlashDialog::LOG_W, this, &FlashOperationController::LOG_W);
-    QObject::connect(&flash_module, &FlashDialog::LOG_I, this, &FlashOperationController::LOG_I);
-    QObject::connect(&flash_module, &FlashDialog::LOG_D, this, &FlashOperationController::LOG_D);
+    FlashDialog flashModule(std::move(workflow), input.operation, QString::fromStdString(input.display_filename),
+                            dialog_parent_);
+    QObject::connect<void (FlashDialog::*)(QString)>(&flashModule, &FlashDialog::externalLogger, this,
+                                                     qOverload<QString>(&FlashOperationController::externalLogger));
+    QObject::connect<void (FlashDialog::*)(int)>(&flashModule, &FlashDialog::externalLogger, this,
+                                                 qOverload<int>(&FlashOperationController::externalLogger));
+    QObject::connect(&flashModule, &FlashDialog::logE, this, &FlashOperationController::logE);
+    QObject::connect(&flashModule, &FlashDialog::logW, this, &FlashOperationController::logW);
+    QObject::connect(&flashModule, &FlashDialog::logI, this, &FlashOperationController::logI);
+    QObject::connect(&flashModule, &FlashDialog::logD, this, &FlashOperationController::logD);
 
-    FlashDialogResult result = flash_module.run();
+    FlashDialogResult result = flashModule.run();
     return {
-        .status = FlashOperationStatus::Completed,
+        .status = FlashOperationStatus::kCompleted,
         .read_bytes = std::move(result.accepted_read_bytes),
         .rom_id = std::move(result.rom_id),
     };

@@ -37,7 +37,7 @@ constexpr auto kWhitespace = std::to_array<std::string_view>({" ",
 
 } // namespace
 
-std::string_view trim_header_text(std::string_view text)
+std::string_view TrimHeaderText(std::string_view text)
 {
     for (;;)
     {

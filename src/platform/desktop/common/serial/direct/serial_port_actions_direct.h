@@ -31,19 +31,21 @@ class SerialPortActionsDirect : public QObject, public SerialBackend
     Q_OBJECT
 
   signals:
-    void LOG_E(QString message, bool timestamp, bool linefeed);
-    void LOG_W(QString message, bool timestamp, bool linefeed);
-    void LOG_I(QString message, bool timestamp, bool linefeed);
-    void LOG_D(QString message, bool timestamp, bool linefeed);
+    // NOLINTBEGIN(readability-identifier-naming): Qt signals keep Qt's camelBack names
+    void logE(QString message, bool timestamp, bool linefeed);
+    void logW(QString message, bool timestamp, bool linefeed);
+    void logI(QString message, bool timestamp, bool linefeed);
+    void logD(QString message, bool timestamp, bool linefeed);
+    // NOLINTEND(readability-identifier-naming)
 
   public:
     explicit SerialPortActionsDirect(QObject *parent = nullptr);
     ~SerialPortActionsDirect();
 
-    bool serialPortAvailable = false;
-    bool setRequestToSend = true;
-    bool setDataTerminalReady = true;
-    bool signalToReadBattVoltage = false;
+    bool serial_port_available = false;
+    bool set_request_to_send = true;
+    bool set_data_terminal_ready = true;
+    bool signal_to_read_batt_voltage = false;
 
     bool add_ssm_header = false;
     bool add_iso9141_header = false;
@@ -55,12 +57,12 @@ class SerialPortActionsDirect : public QObject, public SerialBackend
 
     bool use_openport2_adapter = false;
 
-    unsigned long vBatt = 0;
+    unsigned long v_batt = 0;
 
-    int requestToSendEnabled = 0;
-    int requestToSendDisabled = 1;
-    int dataTerminalEnabled = 0;
-    int dataTerminalDisabled = 1;
+    int request_to_send_enabled = 0;
+    int request_to_send_disabled = 1;
+    int data_terminal_enabled = 0;
+    int data_terminal_disabled = 1;
 
     std::uint16_t echo_check_timout = 5000;
     std::uint16_t receive_timeout = 500;
@@ -78,7 +80,7 @@ class SerialPortActionsDirect : public QObject, public SerialBackend
     QByteArray ssm_receive_header_start = {"\x80\xf0\x10"};
 
     QStringList serial_port_list;
-    QString openedSerialPort;
+    QString opened_serial_port;
     QString subaru_02_16bit_bootloader_baudrate = "9600";
     QString subaru_04_16bit_bootloader_baudrate = "15625";
     QString subaru_02_32bit_bootloader_baudrate = "9600";
@@ -108,506 +110,508 @@ class SerialPortActionsDirect : public QObject, public SerialBackend
     std::uint32_t iso15765_destination_address = 0;
 
     std::uint8_t p1_max_ms = 10;
-    bool set_kline_timings(std::uint32_t parameter, int value) override;
+    bool SetKlineTimings(std::uint32_t parameter, int value) override;
 
-    bool is_serial_port_open() override;
-    int change_port_speed(QString portSpeed) override;
-    QByteArray five_baud_init(QByteArray output) override;
-    int fast_init(QByteArray output) override;
-    int set_lec_lines(int lec1, int lec2) override;
-    int pulse_lec_1_line(int timeout_arg) override;
-    int pulse_lec_2_line(int timeout_arg) override;
+    bool IsSerialPortOpen() override;
+    int ChangePortSpeed(QString port_speed) override;
+    QByteArray FiveBaudInit(QByteArray output) override;
+    int FastInit(QByteArray output) override;
+    int SetLecLines(int lec1, int lec2) override;
+    int PulseLec1Line(int timeout_arg) override;
+    int PulseLec2Line(int timeout_arg) override;
 
-    void reset_connection() override;
+    void ResetConnection() override;
 
-    QByteArray set_error();
-    QByteArray read_serial_obd_data(std::uint16_t timeout_arg) override;
-    QByteArray read_serial_data(std::uint16_t timeout_arg) override;
-    QByteArray write_serial_data(QByteArray output) override;
-    QByteArray write_serial_data_echo_check(QByteArray output) override;
+    QByteArray SetError();
+    QByteArray ReadSerialObdData(std::uint16_t timeout_arg) override;
+    QByteArray ReadSerialData(std::uint16_t timeout_arg) override;
+    QByteArray WriteSerialData(QByteArray output) override;
+    QByteArray WriteSerialDataEchoCheck(QByteArray output) override;
 
-    int clear_rx_buffer() override;
-    int clear_tx_buffer() override;
+    int ClearRxBuffer() override;
+    int ClearTxBuffer() override;
 
-    int send_periodic_j2534_data(QByteArray output, int timeout_arg) override;
-    int stop_periodic_j2534_data() override;
+    int SendPeriodicJ2534Data(QByteArray output, int timeout_arg) override;
+    int StopPeriodicJ2534Data() override;
 
-    QStringList check_serial_ports() override;
-    QString open_serial_port() override;
+    QStringList CheckSerialPorts() override;
+    QString OpenSerialPort() override;
 
-    unsigned long read_vbatt() override;
-    int set_j2534_ioctl(unsigned long parameter, int value);
+    unsigned long ReadVbatt() override;
+    int SetJ2534Ioctl(unsigned long parameter, int value);
 
-    bool get_is_tx_done() override;
+    bool GetIsTxDone() override;
 
     // -- SerialBackend ----------------------------------------------------
-    QObject *qobject() override
+    QObject *Qobject() override
     {
         return this;
     }
     // The interface takes std::uint32_t; the long-standing member takes unsigned
     // long. Distinct overloads on LP64 — adapt explicitly.
-    int set_j2534_ioctl(std::uint32_t parameter, int value) override
+    int SetJ2534Ioctl(std::uint32_t parameter, int value) override
     {
-        return set_j2534_ioctl((unsigned long)parameter, value);
+        return SetJ2534Ioctl((unsigned long)parameter, value);
     }
 
-    bool get_serialPortAvailable() override
+    bool GetSerialPortAvailable() override
     {
-        return serialPortAvailable;
+        return serial_port_available;
     }
-    bool set_serialPortAvailable(bool value) override
+    bool SetSerialPortAvailable(bool value) override
     {
-        serialPortAvailable = value;
+        serial_port_available = value;
         return true;
     }
-    bool get_setRequestToSend() override
+    bool GetSetRequestToSend() override
     {
-        return setRequestToSend;
+        return set_request_to_send;
     }
-    bool set_setRequestToSend(bool value) override
+    bool SetSetRequestToSend(bool value) override
     {
-        setRequestToSend = value;
+        set_request_to_send = value;
         return true;
     }
-    bool get_setDataTerminalReady() override
+    bool GetSetDataTerminalReady() override
     {
-        return setDataTerminalReady;
+        return set_data_terminal_ready;
     }
-    bool set_setDataTerminalReady(bool value) override
+    bool SetSetDataTerminalReady(bool value) override
     {
-        setDataTerminalReady = value;
+        set_data_terminal_ready = value;
         return true;
     }
-    bool get_add_ssm_header() override
+    bool GetAddSsmHeader() override
     {
         return add_ssm_header;
     }
-    bool set_add_ssm_header(bool value) override
+    bool SetAddSsmHeader(bool value) override
     {
         add_ssm_header = value;
         return true;
     }
-    bool get_add_iso9141_header() override
+    bool GetAddIso9141Header() override
     {
         return add_iso9141_header;
     }
-    bool set_add_iso9141_header(bool value) override
+    bool SetAddIso9141Header(bool value) override
     {
         add_iso9141_header = value;
         return true;
     }
-    bool get_add_iso14230_header() override
+    bool GetAddIso14230Header() override
     {
         return add_iso14230_header;
     }
-    bool set_add_iso14230_header(bool value) override
+    bool SetAddIso14230Header(bool value) override
     {
         add_iso14230_header = value;
         return true;
     }
-    bool get_is_iso14230_connection() override
+    bool GetIsIso14230Connection() override
     {
         return is_iso14230_connection;
     }
-    bool set_is_iso14230_connection(bool value) override
+    bool SetIsIso14230Connection(bool value) override
     {
         is_iso14230_connection = value;
         return true;
     }
-    bool get_is_can_connection() override
+    bool GetIsCanConnection() override
     {
         return is_can_connection;
     }
-    bool set_is_can_connection(bool value) override
+    bool SetIsCanConnection(bool value) override
     {
         is_can_connection = value;
         return true;
     }
-    bool get_is_iso15765_connection() override
+    bool GetIsIso15765Connection() override
     {
         return is_iso15765_connection;
     }
-    bool set_is_iso15765_connection(bool value) override
+    bool SetIsIso15765Connection(bool value) override
     {
         is_iso15765_connection = value;
         return true;
     }
-    bool get_is_29_bit_id() override
+    bool GetIs29BitId() override
     {
         return is_29_bit_id;
     }
-    bool set_is_29_bit_id(bool value) override
+    bool SetIs29BitId(bool value) override
     {
         is_29_bit_id = value;
         return true;
     }
-    bool get_use_openport2_adapter() override
+    bool GetUseOpenport2Adapter() override
     {
         return use_openport2_adapter;
     }
-    bool set_use_openport2_adapter(bool value) override
+    bool SetUseOpenport2Adapter(bool value) override
     {
         use_openport2_adapter = value;
         return true;
     }
 
-    int get_requestToSendEnabled() override
+    int GetRequestToSendEnabled() override
     {
-        return requestToSendEnabled;
+        return request_to_send_enabled;
     }
-    bool set_requestToSendEnabled(int value) override
+    bool SetRequestToSendEnabled(int value) override
     {
-        requestToSendEnabled = value;
+        request_to_send_enabled = value;
         return true;
     }
-    int get_requestToSendDisabled() override
+    int GetRequestToSendDisabled() override
     {
-        return requestToSendDisabled;
+        return request_to_send_disabled;
     }
-    bool set_requestToSendDisabled(int value) override
+    bool SetRequestToSendDisabled(int value) override
     {
-        requestToSendDisabled = value;
+        request_to_send_disabled = value;
         return true;
     }
-    int get_dataTerminalEnabled() override
+    int GetDataTerminalEnabled() override
     {
-        return dataTerminalEnabled;
+        return data_terminal_enabled;
     }
-    bool set_dataTerminalEnabled(int value) override
+    bool SetDataTerminalEnabled(int value) override
     {
-        dataTerminalEnabled = value;
+        data_terminal_enabled = value;
         return true;
     }
-    int get_dataTerminalDisabled() override
+    int GetDataTerminalDisabled() override
     {
-        return dataTerminalDisabled;
+        return data_terminal_disabled;
     }
-    bool set_dataTerminalDisabled(int value) override
+    bool SetDataTerminalDisabled(int value) override
     {
-        dataTerminalDisabled = value;
+        data_terminal_disabled = value;
         return true;
     }
 
-    std::uint8_t get_kline_startbyte() override
+    std::uint8_t GetKlineStartbyte() override
     {
         return kline_startbyte;
     }
-    bool set_kline_startbyte(std::uint8_t value) override
+    bool SetKlineStartbyte(std::uint8_t value) override
     {
         kline_startbyte = value;
         return true;
     }
-    std::uint8_t get_kline_tester_id() override
+    std::uint8_t GetKlineTesterId() override
     {
         return kline_tester_id;
     }
-    bool set_kline_tester_id(std::uint8_t value) override
+    bool SetKlineTesterId(std::uint8_t value) override
     {
         kline_tester_id = value;
         return true;
     }
-    std::uint8_t get_kline_target_id() override
+    std::uint8_t GetKlineTargetId() override
     {
         return kline_target_id;
     }
-    bool set_kline_target_id(std::uint8_t value) override
+    bool SetKlineTargetId(std::uint8_t value) override
     {
         kline_target_id = value;
         return true;
     }
-    std::uint8_t get_serial_port_parity() override
+    std::uint8_t GetSerialPortParity() override
     {
         return serial_port_parity;
     }
-    bool set_serial_port_parity(std::uint8_t parity_arg) override
+    bool SetSerialPortParity(std::uint8_t parity_arg) override
     {
         serial_port_parity = parity_arg;
-        if (serial && serial->isOpen())
+        if (serial_ && serial_->isOpen())
         {
-            return serial->setParity(static_cast<QSerialPort::Parity>(parity_arg));
+            return serial_->setParity(static_cast<QSerialPort::Parity>(parity_arg));
         }
         return true;
     }
 
-    QByteArray get_ssm_receive_header_start() override
+    QByteArray GetSsmReceiveHeaderStart() override
     {
         return ssm_receive_header_start;
     }
-    bool set_ssm_receive_header_start(QByteArray value) override
+    bool SetSsmReceiveHeaderStart(QByteArray value) override
     {
         ssm_receive_header_start = value;
         return true;
     }
 
-    QStringList get_serial_port_list() override
+    QStringList GetSerialPortList() override
     {
         return serial_port_list;
     }
-    bool set_serial_port_list(QStringList value) override
+    bool SetSerialPortList(QStringList value) override
     {
         serial_port_list = value;
         return true;
     }
 
-    QString get_openedSerialPort() override
+    QString GetOpenedSerialPort() override
     {
-        return openedSerialPort;
+        return opened_serial_port;
     }
-    bool set_openedSerialPort(QString value) override
+    bool SetOpenedSerialPort(QString value) override
     {
-        openedSerialPort = value;
+        opened_serial_port = value;
         return true;
     }
-    QString get_subaru_02_16bit_bootloader_baudrate() override
+    QString GetSubaru0216bitBootloaderBaudrate() override
     {
         return subaru_02_16bit_bootloader_baudrate;
     }
-    bool set_subaru_02_16bit_bootloader_baudrate(QString value) override
+    bool SetSubaru0216bitBootloaderBaudrate(QString value) override
     {
         subaru_02_16bit_bootloader_baudrate = value;
         return true;
     }
-    QString get_subaru_04_16bit_bootloader_baudrate() override
+    QString GetSubaru0416bitBootloaderBaudrate() override
     {
         return subaru_04_16bit_bootloader_baudrate;
     }
-    bool set_subaru_04_16bit_bootloader_baudrate(QString value) override
+    bool SetSubaru0416bitBootloaderBaudrate(QString value) override
     {
         subaru_04_16bit_bootloader_baudrate = value;
         return true;
     }
-    QString get_subaru_02_32bit_bootloader_baudrate() override
+    QString GetSubaru0232bitBootloaderBaudrate() override
     {
         return subaru_02_32bit_bootloader_baudrate;
     }
-    bool set_subaru_02_32bit_bootloader_baudrate(QString value) override
+    bool SetSubaru0232bitBootloaderBaudrate(QString value) override
     {
         subaru_02_32bit_bootloader_baudrate = value;
         return true;
     }
-    QString get_subaru_04_32bit_bootloader_baudrate() override
+    QString GetSubaru0432bitBootloaderBaudrate() override
     {
         return subaru_04_32bit_bootloader_baudrate;
     }
-    bool set_subaru_04_32bit_bootloader_baudrate(QString value) override
+    bool SetSubaru0432bitBootloaderBaudrate(QString value) override
     {
         subaru_04_32bit_bootloader_baudrate = value;
         return true;
     }
-    QString get_subaru_05_32bit_bootloader_baudrate() override
+    QString GetSubaru0532bitBootloaderBaudrate() override
     {
         return subaru_05_32bit_bootloader_baudrate;
     }
-    bool set_subaru_05_32bit_bootloader_baudrate(QString value) override
+    bool SetSubaru0532bitBootloaderBaudrate(QString value) override
     {
         subaru_05_32bit_bootloader_baudrate = value;
         return true;
     }
-    QString get_subaru_02_16bit_kernel_baudrate() override
+    QString GetSubaru0216bitKernelBaudrate() override
     {
         return subaru_02_16bit_kernel_baudrate;
     }
-    bool set_subaru_02_16bit_kernel_baudrate(QString value) override
+    bool SetSubaru0216bitKernelBaudrate(QString value) override
     {
         subaru_02_16bit_kernel_baudrate = value;
         return true;
     }
-    QString get_subaru_04_16bit_kernel_baudrate() override
+    QString GetSubaru0416bitKernelBaudrate() override
     {
         return subaru_04_16bit_kernel_baudrate;
     }
-    bool set_subaru_04_16bit_kernel_baudrate(QString value) override
+    bool SetSubaru0416bitKernelBaudrate(QString value) override
     {
         subaru_04_16bit_kernel_baudrate = value;
         return true;
     }
-    QString get_subaru_02_32bit_kernel_baudrate() override
+    QString GetSubaru0232bitKernelBaudrate() override
     {
         return subaru_02_32bit_kernel_baudrate;
     }
-    bool set_subaru_02_32bit_kernel_baudrate(QString value) override
+    bool SetSubaru0232bitKernelBaudrate(QString value) override
     {
         subaru_02_32bit_kernel_baudrate = value;
         return true;
     }
-    QString get_subaru_04_32bit_kernel_baudrate() override
+    QString GetSubaru0432bitKernelBaudrate() override
     {
         return subaru_04_32bit_kernel_baudrate;
     }
-    bool set_subaru_04_32bit_kernel_baudrate(QString value) override
+    bool SetSubaru0432bitKernelBaudrate(QString value) override
     {
         subaru_04_32bit_kernel_baudrate = value;
         return true;
     }
-    QString get_subaru_05_32bit_kernel_baudrate() override
+    QString GetSubaru0532bitKernelBaudrate() override
     {
         return subaru_05_32bit_kernel_baudrate;
     }
-    bool set_subaru_05_32bit_kernel_baudrate(QString value) override
+    bool SetSubaru0532bitKernelBaudrate(QString value) override
     {
         subaru_05_32bit_kernel_baudrate = value;
         return true;
     }
-    QString get_can_speed() override
+    QString GetCanSpeed() override
     {
         return can_speed;
     }
-    bool set_can_speed(QString value) override
+    bool SetCanSpeed(QString value) override
     {
         can_speed = value;
         return true;
     }
-    QString get_serial_port_baudrate() override
+    QString GetSerialPortBaudrate() override
     {
         return serial_port_baudrate;
     }
-    bool set_serial_port_baudrate(QString value) override
+    bool SetSerialPortBaudrate(QString value) override
     {
         serial_port_baudrate = value;
         return true;
     }
-    QString get_serial_port_linux() override
+    QString GetSerialPortLinux() override
     {
         return serial_port_linux;
     }
-    bool set_serial_port_linux(QString value) override
+    bool SetSerialPortLinux(QString value) override
     {
         serial_port_linux = value;
         return true;
     }
-    QString get_serial_port_windows() override
+    QString GetSerialPortWindows() override
     {
         return serial_port_windows;
     }
-    bool set_serial_port_windows(QString value) override
+    bool SetSerialPortWindows(QString value) override
     {
         serial_port_windows = value;
         return true;
     }
-    QString get_serial_port() override
+    QString GetSerialPort() override
     {
         return serial_port;
     }
-    bool set_serial_port(QString value) override
+    bool SetSerialPort(QString value) override
     {
         serial_port = value;
         return true;
     }
-    QString get_serial_port_prefix() override
+    QString GetSerialPortPrefix() override
     {
         return serial_port_prefix;
     }
-    bool set_serial_port_prefix(QString value) override
+    bool SetSerialPortPrefix(QString value) override
     {
         serial_port_prefix = value;
         return true;
     }
-    QString get_serial_port_prefix_linux() override
+    QString GetSerialPortPrefixLinux() override
     {
         return serial_port_prefix_linux;
     }
-    bool set_serial_port_prefix_linux(QString value) override
+    bool SetSerialPortPrefixLinux(QString value) override
     {
         serial_port_prefix_linux = value;
         return true;
     }
-    QString get_serial_port_prefix_win() override
+    QString GetSerialPortPrefixWin() override
     {
         return serial_port_prefix_win;
     }
-    bool set_serial_port_prefix_win(QString value) override
+    bool SetSerialPortPrefixWin(QString value) override
     {
         serial_port_prefix_win = value;
         return true;
     }
 
-    std::uint32_t get_can_source_address() override
+    std::uint32_t GetCanSourceAddress() override
     {
         return can_source_address;
     }
-    bool set_can_source_address(std::uint32_t value) override
+    bool SetCanSourceAddress(std::uint32_t value) override
     {
         can_source_address = value;
         return true;
     }
-    std::uint32_t get_can_destination_address() override
+    std::uint32_t GetCanDestinationAddress() override
     {
         return can_destination_address;
     }
-    bool set_can_destination_address(std::uint32_t value) override
+    bool SetCanDestinationAddress(std::uint32_t value) override
     {
         can_destination_address = value;
         return true;
     }
-    std::uint32_t get_iso15765_source_address() override
+    std::uint32_t GetIso15765SourceAddress() override
     {
         return iso15765_source_address;
     }
-    bool set_iso15765_source_address(std::uint32_t value) override
+    bool SetIso15765SourceAddress(std::uint32_t value) override
     {
         iso15765_source_address = value;
         return true;
     }
-    std::uint32_t get_iso15765_destination_address() override
+    std::uint32_t GetIso15765DestinationAddress() override
     {
         return iso15765_destination_address;
     }
-    bool set_iso15765_destination_address(std::uint32_t value) override
+    bool SetIso15765DestinationAddress(std::uint32_t value) override
     {
         iso15765_destination_address = value;
         return true;
     }
 
   private:
-    long PassThruOpen(const void *pName, unsigned long *pDeviceID);
-    long PassThruClose(unsigned long DeviceID);
-    long PassThruConnect(unsigned long DeviceID, unsigned long ProtocolID, unsigned long Flags, unsigned long Baudrate,
-                         unsigned long *pChannelID);
-    long PassThruDisconnect(unsigned long ChannelID);
-    long PassThruReadMsgs(unsigned long ChannelID, PASSTHRU_MSG *pMsg, unsigned long *pNumMsgs, unsigned long Timeout);
-    long PassThruWriteMsgs(unsigned long ChannelID, const PASSTHRU_MSG *pMsg, unsigned long *pNumMsgs,
-                           unsigned long Timeout);
-    long PassThruStartPeriodicMsg(unsigned long ChannelID, const PASSTHRU_MSG *pMsg, unsigned long *pMsgID,
-                                  unsigned long TimeInterval);
-    long PassThruStopPeriodicMsg(unsigned long ChannelID, unsigned long MsgID);
-    long PassThruStartMsgFilter(unsigned long ChannelID, unsigned long FilterType, const PASSTHRU_MSG *pMaskMsg,
-                                const PASSTHRU_MSG *pPatternMsg, const PASSTHRU_MSG *pFlowControlMsg,
-                                unsigned long *pMsgID);
-    long PassThruStopMsgFilter(unsigned long ChannelID, unsigned long MsgID);
-    long PassThruSetProgrammingVoltage(unsigned long DeviceID, unsigned long Pin, unsigned long Voltage);
-    long PassThruReadVersion(char *pApiVersion, char *pDllVersion, char *pFirmwareVersion, unsigned long DeviceID);
-    long PassThruGetLastError(char *pErrorDescription);
-    long PassThruIoctl(unsigned long ChannelID, unsigned long IoctlID, const void *pInput, void *pOutput);
+    long PassThruOpen(const void *p_name, unsigned long *p_device_id);
+    long PassThruClose(unsigned long device_id);
+    long PassThruConnect(unsigned long device_id, unsigned long protocol_id, unsigned long flags,
+                         unsigned long baudrate, unsigned long *p_channel_id);
+    long PassThruDisconnect(unsigned long channel_id);
+    long PassThruReadMsgs(unsigned long channel_id, PassThruMsg *p_msg, unsigned long *p_num_msgs,
+                          unsigned long timeout);
+    long PassThruWriteMsgs(unsigned long channel_id, const PassThruMsg *p_msg, unsigned long *p_num_msgs,
+                           unsigned long timeout);
+    long PassThruStartPeriodicMsg(unsigned long channel_id, const PassThruMsg *p_msg, unsigned long *p_msg_id,
+                                  unsigned long time_interval);
+    long PassThruStopPeriodicMsg(unsigned long channel_id, unsigned long msg_id);
+    long PassThruStartMsgFilter(unsigned long channel_id, unsigned long filter_type, const PassThruMsg *p_mask_msg,
+                                const PassThruMsg *p_pattern_msg, const PassThruMsg *p_flow_control_msg,
+                                unsigned long *p_msg_id);
+    long PassThruStopMsgFilter(unsigned long channel_id, unsigned long msg_id);
+    long PassThruSetProgrammingVoltage(unsigned long device_id, unsigned long pin, unsigned long voltage);
+    long PassThruReadVersion(char *p_api_version, char *p_dll_version, char *p_firmware_version,
+                             unsigned long device_id);
+    long PassThruGetLastError(char *p_error_description);
+    long PassThruIoctl(unsigned long channel_id, unsigned long ioctl_id, const void *p_input, void *p_output);
 
-    int set_j2534_can();
-    int unset_j2534_can();
-    int set_j2534_can_filters();
+    int SetJ2534Can();
+    int UnsetJ2534Can();
+    int SetJ2534CanFilters();
     //    int set_j2534_stmin_tx();
-    int set_j2534_can_timings();
-    int set_j2534_iso9141();
-    int set_j2534_iso9141_filters();
-    int set_j2534_iso9141_timings();
+    int SetJ2534CanTimings();
+    int SetJ2534Iso9141();
+    int SetJ2534Iso9141Filters();
+    int SetJ2534Iso9141Timings();
 
-    unsigned long msgID = 0;
+    unsigned long msg_id_ = 0;
 
-    enum rx_msg_type
+    enum RxMsgType
     {
-        NORM_MSG,
-        TX_DONE_MSG = 0x10,
-        TX_LB_MSG = 0x20,
-        RX_MSG_END_IND = 0x40,
-        EXT_ADDR_MSG_END_IND = 0x44,
-        LB_MSG_END_IND = 0x60,
-        NORM_MSG_START_IND = 0x80,
-        TX_LB_START_IND = 0xA0,
+        kNormMsg,
+        kTxDoneMsg = 0x10,
+        kTxLbMsg = 0x20,
+        kRxMsgEndInd = 0x40,
+        kExtAddrMsgEndInd = 0x44,
+        kLbMsgEndInd = 0x60,
+        kNormMsgStartInd = 0x80,
+        kTxLbStartInd = 0xA0,
     };
 
   protected:
     // protected so tests can drive the J2534 lifetime (reset_connection
     // use-after-free reproduction) and the connect sequence over a mock serial.
-    int init_j2534_connection();
-    J2534 *j2534;
+    int InitJ2534Connection();
+    J2534 *j2534_;
 
     // Per-OS hooks. Declared once here and defined in exactly one of
     // serial_port_actions_direct_unix.cpp / serial_port_actions_direct_windows.cpp,
@@ -618,73 +622,75 @@ class SerialPortActionsDirect : public QObject, public SerialBackend
         QString port;
         bool is_j2534 = false;
     };
-    void connect_j2534_logs();
-    void settle_after_programming_voltage();
-    void append_j2534_interfaces(QStringList& serial_ports);
-    ResolvedPort resolve_port(const QString& entry) const;
-    void select_j2534_dll();
-    bool open_j2534_transport();
-    void close_j2534_transport();
-    void log_j2534_opened();
-    void adopt_j2534_channel_id();
-    bool j2534_tx_done();
+    void ConnectJ2534Logs();
+    void SettleAfterProgrammingVoltage();
+    void AppendJ2534Interfaces(QStringList& serial_ports);
+    ResolvedPort ResolvePort(const QString& entry) const;
+    void SelectJ2534Dll();
+    bool OpenJ2534Transport();
+    void CloseJ2534Transport();
+    void LogJ2534Opened();
+    void AdoptJ2534ChannelId();
+    bool J2534TxDone();
 
   private:
-    QSerialPort *serial;
+    QSerialPort *serial_;
 
     // Reentrancy guard: >0 while a J2534 read is in-flight (its read paths pump
     // the Qt event loop). close_j2534_serial_port() must not free j2534 while a
     // read holds it on the stack, or the in-flight read uses freed memory.
     int j2534_io_depth_ = 0;
 
-    unsigned int baudrate = 4800;
-    unsigned long devID = 0;
-    unsigned long chanID{};
-    unsigned long flags{};
-    unsigned int parity = kJ2534NoParity;
-    unsigned int timeout = 20;
+    unsigned int baudrate_ = 4800;
+    unsigned long dev_id_ = 0;
+    unsigned long chan_id_{};
+    unsigned long flags_{};
+    unsigned int parity_ = kJ2534NoParity;
+    unsigned int timeout_ = 20;
 
-    bool ssm_init_ok = false;
+    bool ssm_init_ok_ = false;
 
-    void close_j2534_serial_port();
-    bool get_serial_num(char *serial_arg);
-    void dump_msg(PASSTHRU_MSG *msg);
-    void reportJ2534Error();
+    void CloseJ2534SerialPort();
+    bool GetSerialNum(char *serial_arg);
+    void DumpMsg(PassThruMsg *msg);
+    void ReportJ2534Error();
 
-    unsigned int protocol = kJ2534Iso9141;
+    unsigned int protocol_ = kJ2534Iso9141;
 
-    bool J2534_init_ok = false;
-    bool J2534_open_ok = false;
-    bool J2534_connect_ok = false;
-    bool J2534_get_version_ok = false;
-    bool J2534_timing_ok = false;
-    bool J2534_filters_ok = false;
+    bool j2534_init_ok_ = false;
+    bool j2534_open_ok_ = false;
+    bool j2534_connect_ok_ = false;
+    bool j2534_get_version_ok_ = false;
+    bool j2534_timing_ok_ = false;
+    bool j2534_filters_ok_ = false;
 
-    bool J2534_is_denso_dsti = false;
+    bool j2534_is_denso_dsti_ = false;
 
-    int line_end_check_1_toggled(int state);
-    int line_end_check_2_toggled(int state);
-    QMap<QString, QString> installed_drivers;
+    int LineEndCheck1Toggled(int state);
+    int LineEndCheck2Toggled(int state);
+    QMap<QString, QString> installed_drivers_;
 
-    QByteArray append_ssm_header(QByteArray output);
-    QByteArray append_iso9141_header(QByteArray output);
-    QByteArray append_iso14230_header(QByteArray output);
-    int write_j2534_data(QByteArray output);
-    QByteArray read_j2534_data(unsigned long timeout_arg);
-    QString parse_message_to_hex(const QByteArray& received);
+    QByteArray AppendSsmHeader(QByteArray output);
+    QByteArray AppendIso9141Header(QByteArray output);
+    QByteArray AppendIso14230Header(QByteArray output);
+    int WriteJ2534Data(QByteArray output);
+    QByteArray ReadJ2534Data(unsigned long timeout_arg);
+    QString ParseMessageToHex(const QByteArray& received);
 
     /*public slots:
     QStringList check_serial_ports();
     QString open_serial_port();*/
 
-    QMap<QString, QString> getAllJ2534DriversNames();
-    QStringList check_j2534_devices(QMap<QString, QString> installed_drivers);
+    QMap<QString, QString> GetAllJ2534DriversNames();
+    QStringList CheckJ2534Devices(QMap<QString, QString> installed_drivers);
 
   private slots:
 
-    void close_serial_port();
-    void handle_error(QSerialPort::SerialPortError error);
-    void accurate_delay(double timeout_arg);
-    void fast_delay(int timeout_arg);
+    // NOLINTBEGIN(readability-identifier-naming): Qt slots keep Qt's camelBack names
+    void closeSerialPort();
+    void handleError(QSerialPort::SerialPortError error);
+    void accurateDelay(double timeout_arg);
+    void fastDelay(int timeout_arg);
     void delay(int timeout_arg);
+    // NOLINTEND(readability-identifier-naming)
 };

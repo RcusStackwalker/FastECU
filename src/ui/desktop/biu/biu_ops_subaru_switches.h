@@ -28,21 +28,21 @@ class BiuOpsSubaruSwitches : public QWidget
     Q_OBJECT
 
   public:
-    explicit BiuOpsSubaruSwitches(QStringList *switch_result, QWidget *parent = nullptr);
+    explicit BiuOpsSubaruSwitches(QStringList *switchResult, QWidget *parent = nullptr);
     ~BiuOpsSubaruSwitches();
 
-    void update_switch_results(QStringList *switch_result);
+    void updateSwitchResults(QStringList *switchResult);
 
   private:
     // QGroupBox *gridGroupBox;
     // QLabel *label;
 
-    QStringList *switch_result;
+    QStringList *switch_result_;
 
   private slots:
 
   signals:
 
   private:
-    std::unique_ptr<Ui::BiuOpsSubaruSwitchesWindow> ui;
+    std::unique_ptr<Ui::BiuOpsSubaruSwitchesWindow> ui_;
 };

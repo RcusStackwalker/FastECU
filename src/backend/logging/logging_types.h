@@ -10,15 +10,15 @@ namespace fastecu::logging
 
 enum class LoggingProtocolId
 {
-    Ssm,
-    MutDma,
-    Cdbg,
+    kSsm,
+    kMutDma,
+    kCdbg,
 };
 
 enum class RawAssembly
 {
-    DecimalBytesConcatenated,
-    UnsignedIntegerDecimal,
+    kDecimalBytesConcatenated,
+    kUnsignedIntegerDecimal,
 };
 
 struct LoggingChannel
@@ -56,8 +56,8 @@ struct LogSample
 
 enum class LoggingState
 {
-    Running,
-    CarNotResponding,
+    kRunning,
+    kCarNotResponding,
 };
 
 } // namespace fastecu::logging

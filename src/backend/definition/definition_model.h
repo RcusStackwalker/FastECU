@@ -9,6 +9,7 @@
 #include <utility>
 #include <vector>
 
+#include "src/algorithms/memory/address.h"
 #include "src/algorithms/protocol/bytes.h"
 #include "src/backend/ports/result.h"
 
@@ -17,34 +18,34 @@ namespace fastecu::definition
 
 enum class DefinitionFormat
 {
-    RomRaider,
-    EcuFlash,
+    kRomRaider,
+    kEcuFlash,
 };
 
 enum class IdEncoding
 {
-    Ascii,
-    Hex,
-    AsciiOrHex,
+    kAscii,
+    kHex,
+    kAsciiOrHex,
 };
 
 enum class StorageType
 {
-    Uint8,
-    Int8,
-    Uint16,
-    Int16,
-    Uint24,
-    Int24,
-    Uint32,
-    Int32,
-    Float,
-    Bloblist,
+    kUint8,
+    kInt8,
+    kUint16,
+    kInt16,
+    kUint24,
+    kInt24,
+    kUint32,
+    kInt32,
+    kFloat,
+    kBloblist,
 };
 
-std::optional<StorageType> storage_type_from_text(std::string_view text);
-std::string storage_type_text(std::optional<StorageType> value);
-std::uint32_t storage_byte_size(std::optional<StorageType> storage_type);
+std::optional<StorageType> StorageTypeFromText(std::string_view text);
+std::string StorageTypeText(std::optional<StorageType> value);
+std::uint32_t StorageByteSize(std::optional<StorageType> storage_type);
 
 struct RomDefinition;
 struct Scaling;
@@ -52,22 +53,24 @@ struct Scaling;
 // The scaling in `definition` named `name`, or nullptr when none matches.
 // Hoisted here because the legacy definition adapter and the calibration
 // decode both need it; it was privately duplicated in each before.
-const Scaling *find_scaling(const RomDefinition& definition, std::string_view name);
+const Scaling *FindScaling(const RomDefinition& definition, std::string_view name);
 
 // True only for the Uint8/Uint16/Uint24/Uint32 storage types. Reproduces
 // legacy's `storagetype.startsWith("uint")` test, including its result for an
 // absent storage type (false, since an empty string does not start with
 // "uint").
-bool is_unsigned_storage(std::optional<StorageType> storage_type);
+bool IsUnsignedStorage(std::optional<StorageType> storage_type);
 
 struct DefinitionIndexEntry
 {
     DefinitionFormat format{};
     std::string definition_id;
     std::string internal_id;
-    std::optional<std::uint64_t> internal_id_address;
+    std::optional<memory::DefinitionAddress> internal_id_address;
     IdEncoding internal_id_encoding;
     std::string ecu_id;
+    // This definition's own <flashmethod>; empty when it inherits one or has none.
+    std::string flash_method;
     std::string source;
     std::vector<std::string> parents;
 
@@ -100,7 +103,7 @@ struct UnresolvedAxisDefinition
     std::string format;
     std::optional<StorageType> storage_type;
     std::string endian;
-    std::optional<std::uint64_t> address;
+    std::optional<memory::DefinitionAddress> address;
     std::optional<std::uint32_t> size;
     std::optional<std::string> from_byte;
     std::optional<std::string> to_byte;
@@ -121,7 +124,7 @@ struct UnresolvedCalibrationMap
     std::string category;
     std::string subcategory;
     std::string description;
-    std::optional<std::uint64_t> address;
+    std::optional<memory::DefinitionAddress> address;
     std::optional<std::uint32_t> x_size;
     std::optional<std::uint32_t> y_size;
     std::optional<bool> swap_xy;
@@ -183,7 +186,7 @@ struct AxisDefinition
     // supplied inline via <data> elements), which likewise have no address.
     std::optional<StorageType> storage_type;
     std::string endian;
-    std::optional<std::uint64_t> address;
+    std::optional<memory::DefinitionAddress> address;
     std::uint32_t size{1};
     std::string from_byte{"x"};
     std::string to_byte{"x"};
@@ -204,7 +207,7 @@ struct CalibrationMap
     std::string category;
     std::string subcategory;
     std::string description;
-    std::optional<std::uint64_t> address;
+    std::optional<memory::DefinitionAddress> address;
     std::uint32_t x_size{1};
     std::uint32_t y_size{1};
     bool swap_xy{false};
@@ -236,7 +239,7 @@ struct RomIdentity
     std::string xml_id;
     std::string internal_id;
     std::string ecu_id;
-    std::optional<std::uint64_t> internal_id_address;
+    std::optional<memory::DefinitionAddress> internal_id_address;
 
     bool operator==(const RomIdentity&) const = default;
 };
@@ -289,11 +292,11 @@ struct RomDefinition
 class DefinitionCatalog
 {
   public:
-    static Result<DefinitionCatalog> create(std::vector<DefinitionIndexEntry> entries);
+    static Result<DefinitionCatalog> Create(std::vector<DefinitionIndexEntry> entries);
 
-    Result<std::reference_wrapper<const DefinitionIndexEntry>> find(DefinitionFormat format, std::string_view id) const;
+    Result<std::reference_wrapper<const DefinitionIndexEntry>> Find(DefinitionFormat format, std::string_view id) const;
 
-    std::span<const DefinitionIndexEntry> entries() const;
+    std::span<const DefinitionIndexEntry> Entries() const;
 
   private:
     explicit DefinitionCatalog(std::vector<DefinitionIndexEntry> entries);

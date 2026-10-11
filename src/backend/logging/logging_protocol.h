@@ -20,9 +20,9 @@ class LoggingProtocol
 {
   public:
     virtual ~LoggingProtocol() = default;
-    virtual fastecu::Status start(const fastecu::ICancellationToken&) = 0;
-    virtual fastecu::Result<PollData> poll(std::chrono::milliseconds timeout, const fastecu::ICancellationToken&) = 0;
-    virtual fastecu::Status stop() = 0;
+    virtual fastecu::Status Start(const fastecu::ICancellationToken&) = 0;
+    virtual fastecu::Result<PollData> Poll(std::chrono::milliseconds timeout, const fastecu::ICancellationToken&) = 0;
+    virtual fastecu::Status Stop() = 0;
 };
 
 } // namespace fastecu::logging

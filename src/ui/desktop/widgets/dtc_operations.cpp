@@ -17,20 +17,20 @@ using fastecu::diagnostics::DtcWorkerResult;
 using fastecu::diagnostics::ObdProtocol;
 
 DtcOperations::DtcOperations(fastecu::diagnostics::IDiagnosticLink& link, QWidget *parent)
-    : QDialog(parent), link_(link), ui{std::make_unique<Ui::DtcOperationsWindow>()}
+    : QDialog(parent), link_(link), ui_{std::make_unique<Ui::DtcOperationsWindow>()}
 {
-    ui->setupUi(this);
+    ui_->setupUi(this);
 
-    ui->protocolComboBox->addItem("SSM (K-Line)");
-    ui->protocolComboBox->addItem("SSM (CAN)");
-    ui->protocolComboBox->addItem("iso9141");
-    ui->protocolComboBox->addItem("iso14230");
-    ui->protocolComboBox->addItem("iso15765");
-    ui->protocolComboBox->setCurrentIndex(2);
+    ui_->protocolComboBox->addItem("SSM (K-Line)");
+    ui_->protocolComboBox->addItem("SSM (CAN)");
+    ui_->protocolComboBox->addItem("iso9141");
+    ui_->protocolComboBox->addItem("iso14230");
+    ui_->protocolComboBox->addItem("iso15765");
+    ui_->protocolComboBox->setCurrentIndex(2);
 
-    if (auto *model = qobject_cast<QStandardItemModel *>(ui->protocolComboBox->model()); model != nullptr)
+    if (auto *model = qobject_cast<QStandardItemModel *>(ui_->protocolComboBox->model()); model != nullptr)
     {
-        for (int i = 0; i < ui->protocolComboBox->count(); i++)
+        for (int i = 0; i < ui_->protocolComboBox->count(); i++)
         {
             if (auto *item = model->item(i); item != nullptr && item->text().startsWith("SSM "))
             {
@@ -39,9 +39,9 @@ DtcOperations::DtcOperations(fastecu::diagnostics::IDiagnosticLink& link, QWidge
         }
     }
 
-    connect(ui->readDtcButton, &QPushButton::clicked, this, [this] { start(DtcOperation::Read); });
-    connect(ui->clearDtcButton, &QPushButton::clicked, this, [this] { start(DtcOperation::Clear); });
-    connect(ui->closeButton, &QPushButton::clicked, this, &QDialog::close);
+    connect(ui_->readDtcButton, &QPushButton::clicked, this, [this] { start(DtcOperation::kRead); });
+    connect(ui_->clearDtcButton, &QPushButton::clicked, this, [this] { start(DtcOperation::kClear); });
+    connect(ui_->closeButton, &QPushButton::clicked, this, &QDialog::close);
 
     this->show();
 }
@@ -50,19 +50,19 @@ DtcOperations::~DtcOperations() = default;
 
 void DtcOperations::start(DtcOperation operation)
 {
-    const QString text = ui->protocolComboBox->currentText();
-    ObdProtocol protocol = ObdProtocol::Iso9141;
+    const QString text = ui_->protocolComboBox->currentText();
+    ObdProtocol protocol = ObdProtocol::kIso9141;
     if (text.startsWith("iso9141"))
     {
-        protocol = ObdProtocol::Iso9141;
+        protocol = ObdProtocol::kIso9141;
     }
     else if (text.startsWith("iso14230"))
     {
-        protocol = ObdProtocol::Iso14230;
+        protocol = ObdProtocol::kIso14230;
     }
     else if (text.startsWith("iso15765"))
     {
-        protocol = ObdProtocol::Iso15765;
+        protocol = ObdProtocol::kIso15765;
     }
     else
     {
@@ -78,21 +78,21 @@ void DtcOperations::start(DtcOperation operation)
 
 void DtcOperations::forwardLog(int level, const QString& message)
 {
-    if (level == static_cast<int>(fastecu::LogLevel::Error))
+    if (level == static_cast<int>(fastecu::LogLevel::kError))
     {
-        emit LOG_E(message, true, true);
+        emit logE(message, true, true);
     }
-    else if (level == static_cast<int>(fastecu::LogLevel::Warning))
+    else if (level == static_cast<int>(fastecu::LogLevel::kWarning))
     {
-        emit LOG_W(message, true, true);
+        emit logW(message, true, true);
     }
-    else if (level == static_cast<int>(fastecu::LogLevel::Debug))
+    else if (level == static_cast<int>(fastecu::LogLevel::kDebug))
     {
-        emit LOG_D(message, true, true);
+        emit logD(message, true, true);
     }
     else
     {
-        emit LOG_I(message, true, true);
+        emit logI(message, true, true);
     }
 }
 
@@ -100,7 +100,7 @@ void DtcOperations::finish(const DtcWorkerResult& result)
 {
     if (!result.success)
     {
-        emit LOG_E("DTC operation failed: " + result.error_detail, true, true);
+        emit logE("DTC operation failed: " + result.error_detail, true, true);
     }
     worker_.reset(); // joins; run() has already returned or is returning
     setButtonsEnabled(true);
@@ -108,21 +108,21 @@ void DtcOperations::finish(const DtcWorkerResult& result)
 
 void DtcOperations::setButtonsEnabled(bool enabled)
 {
-    ui->readDtcButton->setEnabled(enabled);
-    ui->clearDtcButton->setEnabled(enabled);
+    ui_->readDtcButton->setEnabled(enabled);
+    ui_->clearDtcButton->setEnabled(enabled);
 }
 
 void DtcOperations::stopWorker()
 {
     if (worker_)
     {
-        worker_->requestStop();
+        worker_->RequestStop();
         worker_->wait();
         worker_.reset();
     }
     // Today's closeEvent reset the facade; the session epilogue already reset
     // after a run, and a second reset is harmless.
-    std::ignore = link_.reset();
+    std::ignore = link_.Reset();
 }
 
 void DtcOperations::closeEvent(QCloseEvent *event)

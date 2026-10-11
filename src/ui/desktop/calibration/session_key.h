@@ -13,9 +13,9 @@ namespace fastecu::ui
 // files tree's column 2 and the first field of a map window's object name.
 // Decimal, so the object-name shape "<key>,<map>,<name>" is unchanged from the
 // positional index it replaces.
-QString session_key_text(calibration::SessionId id);
+QString sessionKeyText(calibration::SessionId id);
 
 // Strict inverse of session_key_text: plain decimal digits only.
-std::optional<calibration::SessionId> parse_session_key(const QString& text);
+std::optional<calibration::SessionId> parseSessionKey(const QString& text);
 
 } // namespace fastecu::ui

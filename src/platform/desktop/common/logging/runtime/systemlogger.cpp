@@ -3,45 +3,45 @@
 #include <utility>
 
 SystemLogger::SystemLogger(QString file_path, QString software_name, QString software_version, QObject *parent)
-    : QObject(parent), file_path(std::move(file_path)), software_name(std::move(software_name)),
-      software_version(std::move(software_version))
+    : QObject(parent), file_path_(std::move(file_path)), software_name_(std::move(software_name)),
+      software_version_(std::move(software_version))
 {
-    QObject::connect(this, &SystemLogger::LOG_E, this, &SystemLogger::log_messages);
-    QObject::connect(this, &SystemLogger::LOG_W, this, &SystemLogger::log_messages);
-    QObject::connect(this, &SystemLogger::LOG_I, this, &SystemLogger::log_messages);
-    QObject::connect(this, &SystemLogger::LOG_D, this, &SystemLogger::log_messages);
+    QObject::connect(this, &SystemLogger::logE, this, &SystemLogger::logMessages);
+    QObject::connect(this, &SystemLogger::logW, this, &SystemLogger::logMessages);
+    QObject::connect(this, &SystemLogger::logI, this, &SystemLogger::logMessages);
+    QObject::connect(this, &SystemLogger::logD, this, &SystemLogger::logMessages);
 }
 
 SystemLogger::~SystemLogger()
 {
-    if (syslog_file_open)
+    if (syslog_file_open_)
     {
-        syslog_file.close();
+        syslog_file_.close();
     }
 }
 
-void SystemLogger::run()
+void SystemLogger::Run()
 {
-    emit LOG_I("SystemLogger started...", true, true);
+    emit logI("SystemLogger started...", true, true);
 }
 
-void SystemLogger::enable_log_write_to_file(bool enable)
+void SystemLogger::enableLogWriteToFile(bool enable)
 {
-    write_syslog_to_file = enable;
+    write_syslog_to_file_ = enable;
 }
 
-void SystemLogger::log_messages(const QString& message, bool timestamp, bool linefeed)
+void SystemLogger::logMessages(const QString& message, bool timestamp, bool linefeed)
 {
     QString msg;
 
-    QDateTime dateTime = dateTime.currentDateTime();
+    QDateTime date_time = date_time.currentDateTime();
 
-    QString dateTimeString = dateTime.toString("[yyyy-MM-dd hh':'mm':'ss'.'zzz'] ");
-    QMetaMethod metaMethod;
+    QString date_time_string = date_time.toString("[yyyy-MM-dd hh':'mm':'ss'.'zzz'] ");
+    QMetaMethod meta_method;
 
     if (sender())
     {
-        metaMethod = sender()->metaObject()->method(senderSignalIndex());
+        meta_method = sender()->metaObject()->method(senderSignalIndex());
     }
     else
     {
@@ -53,22 +53,22 @@ void SystemLogger::log_messages(const QString& message, bool timestamp, bool lin
     // Check if timestamp added
     if (timestamp)
     {
-        msg += dateTimeString;
+        msg += date_time_string;
 
         // Check log type
-        if (metaMethod.name() == "LOG_E")
+        if (meta_method.name() == "logE")
         {
             msg += "(EE) ";
         }
-        else if (metaMethod.name() == "LOG_W")
+        else if (meta_method.name() == "logW")
         {
             msg += "(WW) ";
         }
-        else if (metaMethod.name() == "LOG_I")
+        else if (meta_method.name() == "logI")
         {
             msg += "(II) ";
         }
-        else if (metaMethod.name() == "LOG_D")
+        else if (meta_method.name() == "logD")
         {
             msg += "(DD) ";
         }
@@ -83,52 +83,52 @@ void SystemLogger::log_messages(const QString& message, bool timestamp, bool lin
         msg += "\n";
     }
 
-    if (metaMethod.name() != "LOG_D")
+    if (meta_method.name() != "logD")
     {
-        emit send_message_to_log_window(msg);
+        emit sendMessageToLogWindow(msg);
     }
 
-    if (write_syslog_to_file)
+    if (write_syslog_to_file_)
     {
-        write_syslog(msg);
+        WriteSyslog(msg);
     }
 }
 
-bool SystemLogger::write_syslog(const QString& msg)
+bool SystemLogger::WriteSyslog(const QString& msg)
 {
     // Open file for writing if needed
-    if (!syslog_file_open)
+    if (!syslog_file_open_)
     {
-        QDateTime dateTime = dateTime.currentDateTime();
-        QString dateTimeString = dateTime.toString("yyyy-MM-dd_hh'h'mm'm'ss's'");
+        QDateTime date_time = date_time.currentDateTime();
+        QString date_time_string = date_time.toString("yyyy-MM-dd_hh'h'mm'm'ss's'");
 
-        QString syslog_file_name = file_path;
-        if (file_path.at(file_path.length() - 1) != '/')
+        QString syslog_file_name = file_path_;
+        if (file_path_.at(file_path_.length() - 1) != '/')
         {
             syslog_file_name.append("/");
         }
-        syslog_file_name.append("log_fastecu_" + dateTimeString + ".txt");
+        syslog_file_name.append("log_fastecu_" + date_time_string + ".txt");
 
-        syslog_file.setFileName(syslog_file_name);
+        syslog_file_.setFileName(syslog_file_name);
 
         // qDebug() << "Create logfile: " << syslog_file_name;
-        if (!syslog_file.open(QIODevice::WriteOnly))
+        if (!syslog_file_.open(QIODevice::WriteOnly))
         {
             qDebug() << "Cannot open log file for writing";
-            qDebug() << syslog_file.errorString() + ": " + syslog_file.fileName();
+            qDebug() << syslog_file_.errorString() + ": " + syslog_file_.fileName();
             return false;
         }
 
-        syslog_file_open = true;
-        syslog_file_init_ready = true;
-        syslog_file_outstream.setDevice(&syslog_file);
-        syslog_file_outstream << software_name + " v" + software_version +
-                                     ", system log file, start time: " + dateTimeString;
-        syslog_file_outstream << "\n";
+        syslog_file_open_ = true;
+        syslog_file_init_ready_ = true;
+        syslog_file_outstream_.setDevice(&syslog_file_);
+        syslog_file_outstream_ << software_name_ + " v" + software_version_ +
+                                      ", system log file, start time: " + date_time_string;
+        syslog_file_outstream_ << "\n";
     }
 
-    syslog_file_outstream << msg;
-    syslog_file_outstream.flush();
+    syslog_file_outstream_ << msg;
+    syslog_file_outstream_.flush();
 
     return true;
 }

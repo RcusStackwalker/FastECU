@@ -31,3 +31,14 @@ fastecu_portable_gtest(
         "@googletest//:gtest",
     ],
 )
+
+fastecu_portable_gtest(
+    name = "scripted_ssm_transport_test",
+    srcs = ["scripted_ssm_transport_test.cpp"],
+    deps = [
+        ":scripted_transports",
+        "//src/backend/ports/testing:fake_cancellation_token",
+        "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
+    ],
+)

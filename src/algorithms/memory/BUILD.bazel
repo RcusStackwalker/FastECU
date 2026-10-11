@@ -1,0 +1,64 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
+
+package(default_visibility = ["//bazel/layers:algorithms_and_above"])
+
+cc_library(
+    name = "address",
+    hdrs = ["address.h"],
+)
+
+fastecu_portable_gtest(
+    name = "address_test",
+    srcs = ["address_test.cpp"],
+    deps = [
+        ":address",
+        "@googletest//:gtest",
+    ],
+)
+
+cc_library(
+    name = "memory_error",
+    hdrs = ["memory_error.h"],
+)
+
+cc_library(
+    name = "memory_map",
+    srcs = ["memory_map.cpp"],
+    hdrs = ["memory_map.h"],
+    deps = [
+        ":address",
+        ":memory_error",
+        "//src/algorithms/protocol",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "memory_map_test",
+    srcs = ["memory_map_test.cpp"],
+    deps = [
+        ":memory_map",
+        "@googletest//:gtest",
+    ],
+)
+
+cc_library(
+    name = "memory_image",
+    srcs = ["memory_image.cpp"],
+    hdrs = ["memory_image.h"],
+    deps = [
+        ":address",
+        ":memory_error",
+        ":memory_map",
+        "//src/algorithms/protocol",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "memory_image_test",
+    srcs = ["memory_image_test.cpp"],
+    deps = [
+        ":memory_image",
+        "@googletest//:gtest",
+    ],
+)

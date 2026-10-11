@@ -15,15 +15,15 @@ class CalibrationTreeWidget : public QWidget
     Q_OBJECT
 
   signals:
-    void LOG_E(QString message, bool timestamp, bool linefeed);
-    void LOG_W(QString message, bool timestamp, bool linefeed);
-    void LOG_I(QString message, bool timestamp, bool linefeed);
-    void LOG_D(QString message, bool timestamp, bool linefeed);
+    void logE(QString message, bool timestamp, bool linefeed);
+    void logW(QString message, bool timestamp, bool linefeed);
+    void logI(QString message, bool timestamp, bool linefeed);
+    void logD(QString message, bool timestamp, bool linefeed);
 
   public:
     CalibrationTreeWidget();
 
-    QTreeWidget *buildCalibrationFilesTree(fastecu::calibration::SessionId session_id, QTreeWidget *filesTreeWidget,
+    QTreeWidget *buildCalibrationFilesTree(fastecu::calibration::SessionId sessionId, QTreeWidget *filesTreeWidget,
                                            const fastecu::calibration::CalibrationSession& session);
     QTreeWidget *buildCalibrationDataTree(QTreeWidget *dataTreeWidget,
                                           const fastecu::calibration::CalibrationSession& session,

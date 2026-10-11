@@ -13,9 +13,9 @@ namespace fastecu::definition
 {
 
 // Trim surrounding Unicode White_Space without changing internal text.
-std::string_view trim_header_text(std::string_view text);
+std::string_view TrimHeaderText(std::string_view text);
 
-inline std::string hex_text(std::uint64_t value)
+inline std::string HexText(std::uint64_t value)
 {
     return std::format("0x{:x}", value);
 }
@@ -34,7 +34,7 @@ inline std::string hex_text(std::uint64_t value)
 // than a partial parse. Matches Qt's QString::toUInt(&ok, 16) on every value
 // in the retired protocols.cfg plus \v/\f-padded inputs, pinned by
 // tests/test_hex_parse_qt_compat.cpp.
-inline std::optional<std::uint64_t> parse_hex_value(std::string_view text)
+inline std::optional<std::uint64_t> ParseHexValue(std::string_view text)
 {
     const auto first = text.find_first_not_of(" \t\r\n\v\f");
     if (first == std::string_view::npos)
@@ -68,7 +68,7 @@ inline std::optional<std::uint64_t> parse_hex_value(std::string_view text)
 
 // Whole bytes written as pairs of hexadecimal digits, with no prefix, separators
 // or surrounding whitespace. An empty string yields no bytes.
-inline std::optional<bytes::Bytes> parse_hex_bytes(std::string_view text)
+inline std::optional<bytes::Bytes> ParseHexBytes(std::string_view text)
 {
     if (text.size() % 2 != 0)
     {

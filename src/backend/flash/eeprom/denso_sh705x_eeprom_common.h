@@ -31,7 +31,7 @@ struct DensoSh705xEepromInput
 // DensoSh705xEepromInput::eeprom_region against. Exposed so
 // build_eeprom_read_plan can supply a matching region without independently
 // re-transcribing the kernelmemorymodels.h literals.
-Result<MemoryRegion> resolve_sh705x_eeprom_region(const std::string& mcu_name);
+Result<MemoryRegion> ResolveSh705xEepromRegion(const std::string& mcu_name);
 
 // Transport-specific sizes derived from the raw kernel file length. K-Line
 // uploads a four-byte-aligned payload followed by a separate four-byte
@@ -48,7 +48,8 @@ struct DensoSh705xEepromUploadSizes
 // The single source of truth for the family-specific upload expansion used
 // by both validation and the executors. Rejects any size whose alignment or
 // trailer addition cannot be represented safely as uint32_t.
-Result<DensoSh705xEepromUploadSizes> denso_sh705x_eeprom_upload_sizes(FlashFamily family, std::size_t raw_kernel_bytes);
+Result<DensoSh705xEepromUploadSizes> ComputeDensoSh705xEepromUploadSizes(FlashFamily family,
+                                                                         std::size_t raw_kernel_bytes);
 
 // Validates every Denso SH705x EEPROM plan constraint decidable from the
 // supplied metadata. Pass std::nullopt before the kernel file is read: mode,
@@ -60,9 +61,9 @@ Result<DensoSh705xEepromUploadSizes> denso_sh705x_eeprom_upload_sizes(FlashFamil
 // build_denso_sh705x_eeprom_plan calls this same function with kernel_size,
 // making it the single source of truth for both preflight and final plan
 // validation.
-Result<void> validate_denso_sh705x_eeprom_preflight(const DensoSh705xEepromInput& input,
-                                                    std::optional<std::size_t> kernel_size);
+Result<void> ValidateDensoSh705xEepromPreflight(const DensoSh705xEepromInput& input,
+                                                std::optional<std::size_t> kernel_size);
 
-Result<FlashPlan> build_denso_sh705x_eeprom_plan(DensoSh705xEepromInput input);
+Result<FlashPlan> BuildDensoSh705xEepromPlan(DensoSh705xEepromInput input);
 
 } // namespace fastecu::flash

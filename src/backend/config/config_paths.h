@@ -22,6 +22,6 @@ struct ConfigPaths
 };
 
 // Pure, no I/O. Replaces FileActions::set_base_dirs.
-ConfigPaths resolve_config_paths(std::string_view app_root_path, std::string_view version);
+ConfigPaths ResolveConfigPaths(std::string_view app_root_path, std::string_view version);
 
 } // namespace fastecu::config

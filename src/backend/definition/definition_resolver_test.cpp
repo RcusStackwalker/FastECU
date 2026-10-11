@@ -21,13 +21,13 @@ namespace
 using ::testing::ElementsAre;
 using ::testing::HasSubstr;
 
-std::vector<std::uint8_t> xml_bytes(std::string_view text)
+std::vector<std::uint8_t> XmlBytes(std::string_view text)
 {
     return {text.begin(), text.end()};
 }
 
-UnresolvedDefinition doc(std::string id, std::vector<std::string> parents = {},
-                         DefinitionFormat format = DefinitionFormat::RomRaider)
+UnresolvedDefinition Doc(std::string id, std::vector<std::string> parents = {},
+                         DefinitionFormat format = DefinitionFormat::kRomRaider)
 {
     return UnresolvedDefinition{
         .format = format,
@@ -37,7 +37,7 @@ UnresolvedDefinition doc(std::string id, std::vector<std::string> parents = {},
     };
 }
 
-UnresolvedCalibrationMap map(std::string id, std::string name = {})
+UnresolvedCalibrationMap Map(std::string id, std::string name = {})
 {
     if (name.empty())
     {
@@ -50,7 +50,7 @@ UnresolvedCalibrationMap map(std::string id, std::string name = {})
     };
 }
 
-UnresolvedScaling scaling(std::string name, std::optional<StorageType> storage_type = StorageType::Uint16)
+UnresolvedScaling Scaling(std::string name, std::optional<StorageType> storage_type = StorageType::kUint16)
 {
     return UnresolvedScaling{
         .name = std::move(name),
@@ -70,12 +70,12 @@ class DefinitionSet
     {
     }
 
-    void add(std::string id, UnresolvedDefinition definition)
+    void Add(std::string id, UnresolvedDefinition definition)
     {
         definitions_.insert_or_assign(std::move(id), std::move(definition));
     }
 
-    DefinitionLoader loader()
+    DefinitionLoader Loader()
     {
         return [this](DefinitionFormat, std::string_view id) -> Result<UnresolvedDefinition>
         {
@@ -83,13 +83,13 @@ class DefinitionSet
             auto definition = definitions_.find(std::string(id));
             if (definition == definitions_.end())
             {
-                return fail(ErrorKind::InvalidConfig, "definition ID not found: '" + std::string(id) + "'");
+                return Fail(ErrorKind::kInvalidConfig, "definition ID not found: '" + std::string(id) + "'");
             }
             return definition->second;
         };
     }
 
-    int loads(std::string_view id) const
+    int Loads(std::string_view id) const
     {
         auto count = loads_.find(std::string(id));
         return count == loads_.end() ? 0 : count->second;
@@ -102,16 +102,16 @@ class DefinitionSet
 
 TEST(DefinitionResolverTest, ResolvesSingleLevelBaseBeforeChildOverrides)
 {
-    auto base = doc("BASE");
+    auto base = Doc("BASE");
     base.metadata.make = "Subaru";
     base.metadata.model = "Impreza";
     base.identity.internal_id = "BASE-ID";
 
-    auto child = doc("CHILD", {"BASE"});
+    auto child = Doc("CHILD", {"BASE"});
     child.metadata.model = "WRX";
 
     DefinitionSet definitions{{"BASE", base}};
-    auto result = resolve_definition(child, definitions.loader());
+    auto result = ResolveDefinition(child, definitions.Loader());
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(result->identity.xml_id, "CHILD");
@@ -123,18 +123,18 @@ TEST(DefinitionResolverTest, ResolvesSingleLevelBaseBeforeChildOverrides)
 
 TEST(DefinitionResolverTest, ResolvesMultiLevelInheritance)
 {
-    auto grandparent = doc("GRANDPARENT");
+    auto grandparent = Doc("GRANDPARENT");
     grandparent.metadata.make = "Subaru";
-    auto parent = doc("PARENT", {"GRANDPARENT"});
+    auto parent = Doc("PARENT", {"GRANDPARENT"});
     parent.metadata.model = "Legacy";
-    auto child = doc("CHILD", {"PARENT"});
+    auto child = Doc("CHILD", {"PARENT"});
     child.metadata.year = "2008";
 
     DefinitionSet definitions{
         {"GRANDPARENT", grandparent},
         {"PARENT", parent},
     };
-    auto result = resolve_definition(child, definitions.loader());
+    auto result = ResolveDefinition(child, definitions.Loader());
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(result->metadata.make, "Subaru");
@@ -146,8 +146,8 @@ TEST(DefinitionResolverTest, ResolvesMultiLevelInheritance)
 
 TEST(DefinitionResolverTest, InheritsRuntimeRowsAndAllowsExplicitDefaultOverrides)
 {
-    auto base = doc("BASE");
-    auto base_map = map("fuel", "Fuel");
+    auto base = Doc("BASE");
+    auto base_map = Map("fuel", "Fuel");
     base_map.start_position = 7;
     base_map.interval = 2;
     base_map.log_parameter = "P_BASE";
@@ -162,14 +162,14 @@ TEST(DefinitionResolverTest, InheritsRuntimeRowsAndAllowsExplicitDefaultOverride
     };
     base.maps.push_back(base_map);
 
-    auto child = doc("CHILD", {"BASE"});
-    auto child_map = map("fuel", "Fuel");
+    auto child = Doc("CHILD", {"BASE"});
+    auto child_map = Map("fuel", "Fuel");
     child_map.start_position = 1;
     child_map.interval = 1;
     child.maps.push_back(child_map);
 
     DefinitionSet definitions{{"BASE", base}};
-    auto result = resolve_definition(child, definitions.loader());
+    auto result = ResolveDefinition(child, definitions.Loader());
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_EQ(result->maps.size(), 1U);
@@ -184,8 +184,8 @@ TEST(DefinitionResolverTest, InheritsRuntimeRowsAndAllowsExplicitDefaultOverride
 
 TEST(DefinitionResolverTest, RejectsStaticAxisDataThatDoesNotMatchAxisSize)
 {
-    auto root = doc("ROOT");
-    auto fuel = map("fuel", "Fuel");
+    auto root = Doc("ROOT");
+    auto fuel = Map("fuel", "Fuel");
     fuel.x_size = 2;
     fuel.x_axis = UnresolvedAxisDefinition{
         .type = "Static X Axis",
@@ -197,9 +197,9 @@ TEST(DefinitionResolverTest, RejectsStaticAxisDataThatDoesNotMatchAxisSize)
     const auto original = root;
     DefinitionSet definitions{};
 
-    auto result = resolve_definition(root, definitions.loader());
+    auto result = ResolveDefinition(root, definitions.Loader());
 
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     EXPECT_THAT(result.error().detail, HasSubstr("static data"));
     EXPECT_THAT(result.error().detail, HasSubstr("x axis"));
     EXPECT_EQ(root, original);
@@ -207,8 +207,8 @@ TEST(DefinitionResolverTest, RejectsStaticAxisDataThatDoesNotMatchAxisSize)
 
 TEST(DefinitionResolverTest, RejectsStaticXAxisWithoutData)
 {
-    auto root = doc("ROOT");
-    auto fuel = map("fuel", "Fuel");
+    auto root = Doc("ROOT");
+    auto fuel = Map("fuel", "Fuel");
     fuel.x_size = 2;
     fuel.x_axis = UnresolvedAxisDefinition{
         .type = "Static X Axis",
@@ -219,9 +219,9 @@ TEST(DefinitionResolverTest, RejectsStaticXAxisWithoutData)
     const auto original = root;
     DefinitionSet definitions{};
 
-    auto result = resolve_definition(root, definitions.loader());
+    auto result = ResolveDefinition(root, definitions.Loader());
 
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     EXPECT_THAT(result.error().detail, HasSubstr("static data"));
     EXPECT_THAT(result.error().detail, HasSubstr("x axis"));
     EXPECT_EQ(root, original);
@@ -229,8 +229,8 @@ TEST(DefinitionResolverTest, RejectsStaticXAxisWithoutData)
 
 TEST(DefinitionResolverTest, RejectsStaticDataOutsideXAxisPosition)
 {
-    auto root = doc("ROOT");
-    auto fuel = map("fuel", "Fuel");
+    auto root = Doc("ROOT");
+    auto fuel = Map("fuel", "Fuel");
     fuel.y_size = 2;
     fuel.y_axis = UnresolvedAxisDefinition{
         .type = "Static X Axis",
@@ -242,9 +242,9 @@ TEST(DefinitionResolverTest, RejectsStaticDataOutsideXAxisPosition)
     const auto original = root;
     DefinitionSet definitions{};
 
-    auto result = resolve_definition(root, definitions.loader());
+    auto result = ResolveDefinition(root, definitions.Loader());
 
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     EXPECT_THAT(result.error().detail, HasSubstr("static data"));
     EXPECT_THAT(result.error().detail, HasSubstr("y axis"));
     EXPECT_EQ(root, original);
@@ -252,13 +252,13 @@ TEST(DefinitionResolverTest, RejectsStaticDataOutsideXAxisPosition)
 
 TEST(DefinitionResolverTest, MissingParentIsContextualInvalidConfig)
 {
-    const auto root = doc("CHILD", {"MISSING"});
+    const auto root = Doc("CHILD", {"MISSING"});
     const auto original = root;
     DefinitionSet definitions{};
 
-    auto result = resolve_definition(root, definitions.loader());
+    auto result = ResolveDefinition(root, definitions.Loader());
 
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     EXPECT_THAT(result.error().detail, HasSubstr("MISSING"));
     EXPECT_THAT(result.error().detail, HasSubstr("CHILD -> MISSING"));
     EXPECT_THAT(result.error().detail, HasSubstr("RomRaider"));
@@ -268,15 +268,15 @@ TEST(DefinitionResolverTest, MissingParentIsContextualInvalidConfig)
 
 TEST(DefinitionResolverTest, RecursiveDefinitionFailureIncludesInheritanceChain)
 {
-    const auto root = doc("ROOT", {"BASE"});
+    const auto root = Doc("ROOT", {"BASE"});
     const auto original = root;
-    auto invalid_base = doc("BASE");
+    auto invalid_base = Doc("BASE");
     invalid_base.source.clear();
     DefinitionSet definitions{{"BASE", invalid_base}};
 
-    auto result = resolve_definition(root, definitions.loader());
+    auto result = ResolveDefinition(root, definitions.Loader());
 
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     EXPECT_THAT(result.error().detail, HasSubstr("ROOT -> BASE"));
     EXPECT_THAT(result.error().detail, HasSubstr("BASE"));
     EXPECT_THAT(result.error().detail, HasSubstr("source"));
@@ -285,13 +285,13 @@ TEST(DefinitionResolverTest, RecursiveDefinitionFailureIncludesInheritanceChain)
 
 TEST(DefinitionResolverTest, ReportsSelfCycle)
 {
-    const auto root = doc("A", {"A"});
+    const auto root = Doc("A", {"A"});
     const auto original = root;
     DefinitionSet definitions{};
 
-    auto result = resolve_definition(root, definitions.loader());
+    auto result = ResolveDefinition(root, definitions.Loader());
 
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     EXPECT_THAT(result.error().detail, HasSubstr("A -> A"));
     EXPECT_THAT(result.error().detail, HasSubstr("RomRaider"));
     EXPECT_THAT(result.error().detail, HasSubstr("A.xml"));
@@ -300,16 +300,16 @@ TEST(DefinitionResolverTest, ReportsSelfCycle)
 
 TEST(DefinitionResolverTest, ReportsCompleteCycle)
 {
-    const auto root = doc("A", {"B"});
+    const auto root = Doc("A", {"B"});
     const auto original = root;
     DefinitionSet definitions{
-        {"B", doc("B", {"C"})},
-        {"C", doc("C", {"A"})},
+        {"B", Doc("B", {"C"})},
+        {"C", Doc("C", {"A"})},
     };
 
-    auto result = resolve_definition(root, definitions.loader());
+    auto result = ResolveDefinition(root, definitions.Loader());
 
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     EXPECT_THAT(result.error().detail, HasSubstr("A -> B -> C -> A"));
     EXPECT_EQ(root, original);
 }
@@ -322,28 +322,28 @@ TEST(DefinitionResolverTest, RejectsChainDeeperThanMaximumInsteadOfOverflowingTh
     {
         const std::string id = "LEVEL" + std::to_string(i);
         const std::string parent_id = "LEVEL" + std::to_string(i + 1);
-        definitions.add(id, doc(id, {parent_id}));
+        definitions.Add(id, Doc(id, {parent_id}));
     }
-    definitions.add("LEVEL" + std::to_string(kChainLength), doc("LEVEL" + std::to_string(kChainLength)));
+    definitions.Add("LEVEL" + std::to_string(kChainLength), Doc("LEVEL" + std::to_string(kChainLength)));
 
-    const auto root = doc("ROOT", {"LEVEL0"});
-    auto result = resolve_definition(root, definitions.loader());
+    const auto root = Doc("ROOT", {"LEVEL0"});
+    auto result = ResolveDefinition(root, definitions.Loader());
 
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     EXPECT_THAT(result.error().detail, HasSubstr("maximum depth"));
 }
 
 TEST(DefinitionResolverTest, RejectsCrossFormatParent)
 {
-    const auto root = doc("CHILD", {"BASE"}, DefinitionFormat::RomRaider);
+    const auto root = Doc("CHILD", {"BASE"}, DefinitionFormat::kRomRaider);
     const auto original = root;
     DefinitionSet definitions{
-        {"BASE", doc("BASE", {}, DefinitionFormat::EcuFlash)},
+        {"BASE", Doc("BASE", {}, DefinitionFormat::kEcuFlash)},
     };
 
-    auto result = resolve_definition(root, definitions.loader());
+    auto result = ResolveDefinition(root, definitions.Loader());
 
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     EXPECT_THAT(result.error().detail, HasSubstr("cross-format"));
     EXPECT_THAT(result.error().detail, HasSubstr("CHILD -> BASE"));
     EXPECT_EQ(root, original);
@@ -352,46 +352,46 @@ TEST(DefinitionResolverTest, RejectsCrossFormatParent)
 TEST(DefinitionResolverTest, MemoizesSharedBaseInDiamondGraph)
 {
     DefinitionSet definitions{
-        {"LEFT", doc("LEFT", {"SHARED"})},
-        {"RIGHT", doc("RIGHT", {"SHARED"})},
-        {"SHARED", doc("SHARED")},
+        {"LEFT", Doc("LEFT", {"SHARED"})},
+        {"RIGHT", Doc("RIGHT", {"SHARED"})},
+        {"SHARED", Doc("SHARED")},
     };
 
-    auto result = resolve_definition(doc("ROOT", {"LEFT", "RIGHT"}), definitions.loader());
+    auto result = ResolveDefinition(Doc("ROOT", {"LEFT", "RIGHT"}), definitions.Loader());
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
-    EXPECT_EQ(definitions.loads("SHARED"), 1);
+    EXPECT_EQ(definitions.Loads("SHARED"), 1);
     EXPECT_THAT(result->resolved_sources, ElementsAre("SHARED.xml", "LEFT.xml", "RIGHT.xml", "ROOT.xml"));
 }
 
 TEST(DefinitionResolverTest, MergesMapsByStableIdAndAppendsChildMaps)
 {
-    auto base = doc("BASE");
-    base.maps.push_back(map("boost", "Boost Limit"));
-    auto fuel = map("fuel", "Fuel");
+    auto base = Doc("BASE");
+    base.maps.push_back(Map("boost", "Boost Limit"));
+    auto fuel = Map("fuel", "Fuel");
     fuel.category = "Fuel";
-    fuel.address = 0x100;
-    fuel.storage_type = StorageType::Uint16;
+    fuel.address = memory::DefinitionAddress{0x100};
+    fuel.storage_type = StorageType::kUint16;
     fuel.x_size = 4;
     fuel.x_axis = UnresolvedAxisDefinition{
         .type = "X Axis",
         .name = "Engine Speed",
         .units = "rpm",
-        .address = 0x200,
+        .address = memory::DefinitionAddress{0x200},
         .size = 4,
     };
     base.maps.push_back(fuel);
 
-    auto child = doc("CHILD", {"BASE"});
-    auto fuel_override = map("fuel", "Fuel");
+    auto child = Doc("CHILD", {"BASE"});
+    auto fuel_override = Map("fuel", "Fuel");
     fuel_override.description = "Child fuel map";
-    fuel_override.address = 0x300;
+    fuel_override.address = memory::DefinitionAddress{0x300};
     fuel_override.x_axis.units = "r/min";
     child.maps.push_back(fuel_override);
-    child.maps.push_back(map("timing", "Ignition Timing"));
+    child.maps.push_back(Map("timing", "Ignition Timing"));
 
     DefinitionSet definitions{{"BASE", base}};
-    auto result = resolve_definition(child, definitions.loader());
+    auto result = ResolveDefinition(child, definitions.Loader());
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_EQ(result->maps.size(), 3U);
@@ -399,28 +399,28 @@ TEST(DefinitionResolverTest, MergesMapsByStableIdAndAppendsChildMaps)
     EXPECT_EQ(result->maps[1].id, "fuel");
     EXPECT_EQ(result->maps[1].category, "Fuel");
     EXPECT_EQ(result->maps[1].description, "Child fuel map");
-    EXPECT_EQ(result->maps[1].address, 0x300U);
-    EXPECT_EQ(result->maps[1].storage_type, StorageType::Uint16);
+    EXPECT_EQ(result->maps[1].address, memory::DefinitionAddress{0x300});
+    EXPECT_EQ(result->maps[1].storage_type, StorageType::kUint16);
     EXPECT_EQ(result->maps[1].x_axis.name, "Engine Speed");
     EXPECT_EQ(result->maps[1].x_axis.units, "r/min");
-    EXPECT_EQ(result->maps[1].x_axis.address, 0x200U);
+    EXPECT_EQ(result->maps[1].x_axis.address, memory::DefinitionAddress{0x200});
     EXPECT_EQ(result->maps[2].id, "timing");
 }
 
 TEST(DefinitionResolverTest, FallsBackToMapNameWhenStableIdIsAbsent)
 {
-    auto base = doc("BASE");
-    auto base_map = map("", "Fuel");
+    auto base = Doc("BASE");
+    auto base_map = Map("", "Fuel");
     base_map.category = "Fuel";
     base.maps.push_back(base_map);
 
-    auto child = doc("CHILD", {"BASE"});
-    auto child_map = map("", "Fuel");
+    auto child = Doc("CHILD", {"BASE"});
+    auto child_map = Map("", "Fuel");
     child_map.description = "Override";
     child.maps.push_back(child_map);
 
     DefinitionSet definitions{{"BASE", base}};
-    auto result = resolve_definition(child, definitions.loader());
+    auto result = ResolveDefinition(child, definitions.Loader());
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_EQ(result->maps.size(), 1U);
@@ -430,18 +430,18 @@ TEST(DefinitionResolverTest, FallsBackToMapNameWhenStableIdIsAbsent)
 
 TEST(DefinitionResolverTest, FallsBackToNameWhenOnlyBaseHasStableMapId)
 {
-    auto base = doc("BASE");
-    auto base_map = map("fuel", "Fuel");
+    auto base = Doc("BASE");
+    auto base_map = Map("fuel", "Fuel");
     base_map.category = "Fuel";
     base.maps.push_back(base_map);
 
-    auto child = doc("CHILD", {"BASE"});
-    auto child_map = map("", "Fuel");
+    auto child = Doc("CHILD", {"BASE"});
+    auto child_map = Map("", "Fuel");
     child_map.description = "Override";
     child.maps.push_back(child_map);
     DefinitionSet definitions{{"BASE", base}};
 
-    auto result = resolve_definition(child, definitions.loader());
+    auto result = ResolveDefinition(child, definitions.Loader());
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_EQ(result->maps.size(), 1U);
@@ -452,18 +452,18 @@ TEST(DefinitionResolverTest, FallsBackToNameWhenOnlyBaseHasStableMapId)
 
 TEST(DefinitionResolverTest, FallsBackToNameWhenOnlyChildHasStableMapId)
 {
-    auto base = doc("BASE");
-    auto base_map = map("", "Fuel");
+    auto base = Doc("BASE");
+    auto base_map = Map("", "Fuel");
     base_map.category = "Fuel";
     base.maps.push_back(base_map);
 
-    auto child = doc("CHILD", {"BASE"});
-    auto child_map = map("fuel", "Fuel");
+    auto child = Doc("CHILD", {"BASE"});
+    auto child_map = Map("fuel", "Fuel");
     child_map.description = "Override";
     child.maps.push_back(child_map);
     DefinitionSet definitions{{"BASE", base}};
 
-    auto result = resolve_definition(child, definitions.loader());
+    auto result = ResolveDefinition(child, definitions.Loader());
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_EQ(result->maps.size(), 1U);
@@ -474,18 +474,18 @@ TEST(DefinitionResolverTest, FallsBackToNameWhenOnlyChildHasStableMapId)
 
 TEST(DefinitionResolverTest, RejectsAmbiguousNameFallbackAcrossStableIds)
 {
-    auto base = doc("BASE");
-    base.maps.push_back(map("fuel-a", "Fuel"));
-    base.maps.push_back(map("fuel-b", "Fuel"));
+    auto base = Doc("BASE");
+    base.maps.push_back(Map("fuel-a", "Fuel"));
+    base.maps.push_back(Map("fuel-b", "Fuel"));
 
-    auto child = doc("CHILD", {"BASE"});
-    child.maps.push_back(map("", "Fuel"));
+    auto child = Doc("CHILD", {"BASE"});
+    child.maps.push_back(Map("", "Fuel"));
     const auto original = child;
     DefinitionSet definitions{{"BASE", base}};
 
-    auto result = resolve_definition(child, definitions.loader());
+    auto result = ResolveDefinition(child, definitions.Loader());
 
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     EXPECT_THAT(result.error().detail, HasSubstr("ambiguous"));
     EXPECT_THAT(result.error().detail, HasSubstr("Fuel"));
     EXPECT_EQ(child, original);
@@ -493,7 +493,7 @@ TEST(DefinitionResolverTest, RejectsAmbiguousNameFallbackAcrossStableIds)
 
 TEST(DefinitionResolverTest, RomRaiderOmittedFieldsDoNotResetInheritedValues)
 {
-    const auto xml = xml_bytes(R"xml(
+    const auto xml = XmlBytes(R"xml(
       <roms>
         <rom>
           <romid><xmlid>BASE</xmlid></romid>
@@ -513,14 +513,14 @@ TEST(DefinitionResolverTest, RomRaiderOmittedFieldsDoNotResetInheritedValues)
           </table>
         </rom>
       </roms>)xml");
-    auto base = parse_romraider_definition(xml, "romraider.xml", "BASE");
-    auto child = parse_romraider_definition(xml, "romraider.xml", "CHILD");
+    auto base = ParseRomraiderDefinition(xml, "romraider.xml", "BASE");
+    auto child = ParseRomraiderDefinition(xml, "romraider.xml", "CHILD");
     ASSERT_THAT(base, fastecu::testing::IsOk());
     ASSERT_THAT(child, fastecu::testing::IsOk());
     const auto original = *child;
     DefinitionSet definitions{{"BASE", *base}};
 
-    auto result = resolve_definition(*child, definitions.loader());
+    auto result = ResolveDefinition(*child, definitions.Loader());
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_EQ(result->maps.size(), 1U);
@@ -540,7 +540,7 @@ TEST(DefinitionResolverTest, RomRaiderOmittedFieldsDoNotResetInheritedValues)
 
 TEST(DefinitionResolverTest, EcuFlashExplicitDefaultsOverrideInheritedValuesAndMatchByName)
 {
-    auto base = parse_ecuflash_definition(xml_bytes(R"xml(
+    auto base = ParseEcuflashDefinition(XmlBytes(R"xml(
       <rom>
         <romid><xmlid>BASE</xmlid></romid>
         <table id="fuel" name="Fuel" type="3D" sizex="4" sizey="2"
@@ -548,8 +548,8 @@ TEST(DefinitionResolverTest, EcuFlashExplicitDefaultsOverrideInheritedValuesAndM
           <table type="X Axis" name="RPM" elements="4"/>
         </table>
       </rom>)xml"),
-                                          "base.xml");
-    auto child = parse_ecuflash_definition(xml_bytes(R"xml(
+                                        "base.xml");
+    auto child = ParseEcuflashDefinition(XmlBytes(R"xml(
       <rom>
         <romid><xmlid>CHILD</xmlid></romid>
         <include>BASE</include>
@@ -560,13 +560,13 @@ TEST(DefinitionResolverTest, EcuFlashExplicitDefaultsOverrideInheritedValuesAndM
           </table>
         </table>
       </rom>)xml"),
-                                           "child.xml");
+                                         "child.xml");
     ASSERT_THAT(base, fastecu::testing::IsOk());
     ASSERT_THAT(child, fastecu::testing::IsOk());
     const auto original = *child;
     DefinitionSet definitions{{"BASE", *base}};
 
-    auto result = resolve_definition(*child, definitions.loader());
+    auto result = ResolveDefinition(*child, definitions.Loader());
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_EQ(result->maps.size(), 1U);
@@ -586,7 +586,7 @@ TEST(DefinitionResolverTest, EcuFlashExplicitDefaultsOverrideInheritedValuesAndM
 
 TEST(DefinitionResolverTest, EcuFlashDirectDataInheritsOmittedAxisOffsets)
 {
-    auto base = parse_ecuflash_definition(xml_bytes(R"xml(
+    auto base = ParseEcuflashDefinition(XmlBytes(R"xml(
       <rom>
         <romid><xmlid>BASE</xmlid></romid>
         <table id="load" name="Load" type="2D" sizex="2" sizey="1">
@@ -596,8 +596,8 @@ TEST(DefinitionResolverTest, EcuFlashDirectDataInheritsOmittedAxisOffsets)
           </table>
         </table>
       </rom>)xml"),
-                                          "base.xml");
-    auto child = parse_ecuflash_definition(xml_bytes(R"xml(
+                                        "base.xml");
+    auto child = ParseEcuflashDefinition(XmlBytes(R"xml(
       <rom>
         <romid><xmlid>CHILD</xmlid></romid>
         <include>BASE</include>
@@ -605,13 +605,13 @@ TEST(DefinitionResolverTest, EcuFlashDirectDataInheritsOmittedAxisOffsets)
           <data>0.6</data><data>1.1</data>
         </table>
       </rom>)xml"),
-                                           "child.xml");
+                                         "child.xml");
     ASSERT_THAT(base, fastecu::testing::IsOk());
     ASSERT_THAT(child, fastecu::testing::IsOk());
     const auto original = *child;
     DefinitionSet definitions{{"BASE", *base}};
 
-    auto result = resolve_definition(*child, definitions.loader());
+    auto result = ResolveDefinition(*child, definitions.Loader());
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_EQ(result->maps.size(), 1U);
@@ -623,7 +623,7 @@ TEST(DefinitionResolverTest, EcuFlashDirectDataInheritsOmittedAxisOffsets)
 
 TEST(DefinitionResolverTest, OmittedAxisSizeDoesNotFollowExplicitChildMapDimension)
 {
-    const auto xml = xml_bytes(R"xml(
+    const auto xml = XmlBytes(R"xml(
       <roms>
         <rom>
           <romid><xmlid>BASE</xmlid></romid>
@@ -638,23 +638,23 @@ TEST(DefinitionResolverTest, OmittedAxisSizeDoesNotFollowExplicitChildMapDimensi
           </table>
         </rom>
       </roms>)xml");
-    auto base = parse_romraider_definition(xml, "romraider.xml", "BASE");
-    auto child = parse_romraider_definition(xml, "romraider.xml", "CHILD");
+    auto base = ParseRomraiderDefinition(xml, "romraider.xml", "BASE");
+    auto child = ParseRomraiderDefinition(xml, "romraider.xml", "CHILD");
     ASSERT_THAT(base, fastecu::testing::IsOk());
     ASSERT_THAT(child, fastecu::testing::IsOk());
     const auto original = *child;
     DefinitionSet definitions{{"BASE", *base}};
 
-    auto result = resolve_definition(*child, definitions.loader());
+    auto result = ResolveDefinition(*child, definitions.Loader());
 
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     EXPECT_THAT(result.error().detail, HasSubstr("inconsistent dimension"));
     EXPECT_EQ(*child, original);
 }
 
 TEST(DefinitionResolverTest, ImplicitInheritedAxisSizeFollowsExplicitChildMapDimension)
 {
-    const auto xml = xml_bytes(R"xml(
+    const auto xml = XmlBytes(R"xml(
       <roms>
         <rom>
           <romid><xmlid>BASE</xmlid></romid>
@@ -671,14 +671,14 @@ TEST(DefinitionResolverTest, ImplicitInheritedAxisSizeFollowsExplicitChildMapDim
           </table>
         </rom>
       </roms>)xml");
-    auto base = parse_romraider_definition(xml, "romraider.xml", "BASE");
-    auto child = parse_romraider_definition(xml, "romraider.xml", "CHILD");
+    auto base = ParseRomraiderDefinition(xml, "romraider.xml", "BASE");
+    auto child = ParseRomraiderDefinition(xml, "romraider.xml", "CHILD");
     ASSERT_THAT(base, fastecu::testing::IsOk());
     ASSERT_THAT(child, fastecu::testing::IsOk());
     const auto original = *child;
     DefinitionSet definitions{{"BASE", *base}};
 
-    auto result = resolve_definition(*child, definitions.loader());
+    auto result = ResolveDefinition(*child, definitions.Loader());
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_EQ(result->maps.size(), 1U);
@@ -686,21 +686,21 @@ TEST(DefinitionResolverTest, ImplicitInheritedAxisSizeFollowsExplicitChildMapDim
     EXPECT_EQ(result->maps.front().y_size, 2U);
     EXPECT_EQ(result->maps.front().x_axis.size, 2U);
     EXPECT_EQ(result->maps.front().y_axis.size, 2U);
-    EXPECT_EQ(result->maps.front().x_axis.address, 0x50U);
-    EXPECT_EQ(result->maps.front().y_axis.address, 0x60U);
+    EXPECT_EQ(result->maps.front().x_axis.address, memory::DefinitionAddress{0x50});
+    EXPECT_EQ(result->maps.front().y_axis.address, memory::DefinitionAddress{0x60});
     EXPECT_EQ(*child, original);
 }
 
 TEST(DefinitionResolverTest, ResolvesMapAndAxisScalingReferences)
 {
-    auto root = doc("ROOT");
-    auto value_scaling = scaling("value");
+    auto root = Doc("ROOT");
+    auto value_scaling = Scaling("value");
     value_scaling.units = "%";
-    auto axis_scaling = scaling("axis", StorageType::Uint8);
+    auto axis_scaling = Scaling("axis", StorageType::kUint8);
     axis_scaling.units = "rpm";
     root.scalings = {value_scaling, axis_scaling};
 
-    auto fuel = map("fuel", "Fuel");
+    auto fuel = Map("fuel", "Fuel");
     fuel.scaling_name = "value";
     fuel.x_size = 4;
     fuel.x_axis = UnresolvedAxisDefinition{
@@ -712,15 +712,15 @@ TEST(DefinitionResolverTest, ResolvesMapAndAxisScalingReferences)
     root.maps.push_back(fuel);
 
     DefinitionSet definitions{};
-    auto result = resolve_definition(root, definitions.loader());
+    auto result = ResolveDefinition(root, definitions.Loader());
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_EQ(result->maps.size(), 1U);
-    EXPECT_EQ(result->maps[0].storage_type, StorageType::Uint16);
+    EXPECT_EQ(result->maps[0].storage_type, StorageType::kUint16);
     EXPECT_EQ(result->maps[0].endian, "big");
     EXPECT_EQ(result->maps[0].x_axis.units, "rpm");
     EXPECT_EQ(result->maps[0].x_axis.format, "0.0");
-    EXPECT_EQ(result->maps[0].x_axis.storage_type, StorageType::Uint8);
+    EXPECT_EQ(result->maps[0].x_axis.storage_type, StorageType::kUint8);
     EXPECT_EQ(result->maps[0].x_axis.endian, "big");
     EXPECT_EQ(result->maps[0].x_axis.from_byte, "x*0.5");
     EXPECT_EQ(result->maps[0].x_axis.to_byte, "x*2");
@@ -728,12 +728,12 @@ TEST(DefinitionResolverTest, ResolvesMapAndAxisScalingReferences)
 
 TEST(DefinitionResolverTest, ExplicitIdentityScalingOverridesAxisExpression)
 {
-    auto root = doc("ROOT");
-    auto axis_scaling = scaling("axis", StorageType::Uint8);
+    auto root = Doc("ROOT");
+    auto axis_scaling = Scaling("axis", StorageType::kUint8);
     axis_scaling.from_byte = "x";
     root.scalings.push_back(axis_scaling);
 
-    auto fuel = map("fuel", "Fuel");
+    auto fuel = Map("fuel", "Fuel");
     fuel.x_axis = UnresolvedAxisDefinition{
         .type = "X Axis",
         .name = "Engine Speed",
@@ -743,7 +743,7 @@ TEST(DefinitionResolverTest, ExplicitIdentityScalingOverridesAxisExpression)
     root.maps.push_back(fuel);
 
     DefinitionSet definitions{};
-    auto result = resolve_definition(root, definitions.loader());
+    auto result = ResolveDefinition(root, definitions.Loader());
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(result->maps[0].x_axis.from_byte, "x");
@@ -751,16 +751,16 @@ TEST(DefinitionResolverTest, ExplicitIdentityScalingOverridesAxisExpression)
 
 TEST(DefinitionResolverTest, RejectsConflictingDuplicateScalingDefinitions)
 {
-    auto base = doc("BASE");
-    base.scalings.push_back(scaling("shared"));
-    auto child = doc("CHILD", {"BASE"});
-    child.scalings.push_back(scaling("shared", StorageType::Uint8));
+    auto base = Doc("BASE");
+    base.scalings.push_back(Scaling("shared"));
+    auto child = Doc("CHILD", {"BASE"});
+    child.scalings.push_back(Scaling("shared", StorageType::kUint8));
     const auto original = child;
     DefinitionSet definitions{{"BASE", base}};
 
-    auto result = resolve_definition(child, definitions.loader());
+    auto result = ResolveDefinition(child, definitions.Loader());
 
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     EXPECT_THAT(result.error().detail, HasSubstr("shared"));
     EXPECT_THAT(result.error().detail, HasSubstr("conflicting"));
     EXPECT_EQ(child, original);
@@ -768,13 +768,13 @@ TEST(DefinitionResolverTest, RejectsConflictingDuplicateScalingDefinitions)
 
 TEST(DefinitionResolverTest, AcceptsOneCanonicalCopyOfIdenticalScaling)
 {
-    auto base = doc("BASE");
-    base.scalings.push_back(scaling("shared"));
-    auto child = doc("CHILD", {"BASE"});
-    child.scalings.push_back(scaling("shared"));
+    auto base = Doc("BASE");
+    base.scalings.push_back(Scaling("shared"));
+    auto child = Doc("CHILD", {"BASE"});
+    child.scalings.push_back(Scaling("shared"));
     DefinitionSet definitions{{"BASE", base}};
 
-    auto result = resolve_definition(child, definitions.loader());
+    auto result = ResolveDefinition(child, definitions.Loader());
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_EQ(result->scalings.size(), 1U);
@@ -783,11 +783,11 @@ TEST(DefinitionResolverTest, AcceptsOneCanonicalCopyOfIdenticalScaling)
 
 TEST(DefinitionResolverTest, CanonicalizesIdenticalLocalScalingDefinitions)
 {
-    auto root = doc("ROOT");
-    root.scalings = {scaling("shared"), scaling("shared")};
+    auto root = Doc("ROOT");
+    root.scalings = {Scaling("shared"), Scaling("shared")};
     DefinitionSet definitions{};
 
-    auto result = resolve_definition(root, definitions.loader());
+    auto result = ResolveDefinition(root, definitions.Loader());
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_EQ(result->scalings.size(), 1U);
@@ -796,17 +796,17 @@ TEST(DefinitionResolverTest, CanonicalizesIdenticalLocalScalingDefinitions)
 
 TEST(DefinitionResolverTest, RejectsSelectableMapWithoutSelectionScaling)
 {
-    auto root = doc("ROOT");
-    auto modes = map("modes", "Modes");
+    auto root = Doc("ROOT");
+    auto modes = Map("modes", "Modes");
     modes.type = "Selectable";
-    modes.storage_type = StorageType::Bloblist;
+    modes.storage_type = StorageType::kBloblist;
     root.maps.push_back(modes);
     const auto original = root;
     DefinitionSet definitions{};
 
-    auto result = resolve_definition(root, definitions.loader());
+    auto result = ResolveDefinition(root, definitions.Loader());
 
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     EXPECT_THAT(result.error().detail, HasSubstr("modes"));
     EXPECT_THAT(result.error().detail, HasSubstr("scaling"));
     EXPECT_EQ(root, original);
@@ -814,13 +814,13 @@ TEST(DefinitionResolverTest, RejectsSelectableMapWithoutSelectionScaling)
 
 TEST(DefinitionResolverTest, KeepsResolvedSourceProvenanceUnique)
 {
-    auto base = doc("BASE");
+    auto base = Doc("BASE");
     base.source = "romraider.xml";
-    auto child = doc("CHILD", {"BASE"});
+    auto child = Doc("CHILD", {"BASE"});
     child.source = "romraider.xml";
     DefinitionSet definitions{{"BASE", base}};
 
-    auto result = resolve_definition(child, definitions.loader());
+    auto result = ResolveDefinition(child, definitions.Loader());
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_THAT(result->resolved_sources, ElementsAre("romraider.xml"));
@@ -828,16 +828,16 @@ TEST(DefinitionResolverTest, KeepsResolvedSourceProvenanceUnique)
 
 TEST(DefinitionResolverTest, RejectsUnresolvedScalingWithoutMutatingInput)
 {
-    auto root = doc("ROOT");
-    auto fuel = map("fuel", "Fuel");
+    auto root = Doc("ROOT");
+    auto fuel = Map("fuel", "Fuel");
     fuel.scaling_name = "missing";
     root.maps.push_back(fuel);
     const auto original = root;
     DefinitionSet definitions{};
 
-    auto result = resolve_definition(root, definitions.loader());
+    auto result = ResolveDefinition(root, definitions.Loader());
 
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     EXPECT_THAT(result.error().detail, HasSubstr("missing"));
     EXPECT_THAT(result.error().detail, HasSubstr("fuel"));
     EXPECT_EQ(root, original);
@@ -845,16 +845,16 @@ TEST(DefinitionResolverTest, RejectsUnresolvedScalingWithoutMutatingInput)
 
 TEST(DefinitionResolverTest, RejectsZeroRequiredDimensionWithoutMutatingInput)
 {
-    auto root = doc("ROOT");
-    auto fuel = map("fuel", "Fuel");
+    auto root = Doc("ROOT");
+    auto fuel = Map("fuel", "Fuel");
     fuel.x_size = 0;
     root.maps.push_back(fuel);
     const auto original = root;
     DefinitionSet definitions{};
 
-    auto result = resolve_definition(root, definitions.loader());
+    auto result = ResolveDefinition(root, definitions.Loader());
 
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     EXPECT_THAT(result.error().detail, HasSubstr("zero"));
     EXPECT_THAT(result.error().detail, HasSubstr("fuel"));
     EXPECT_EQ(root, original);
@@ -862,16 +862,16 @@ TEST(DefinitionResolverTest, RejectsZeroRequiredDimensionWithoutMutatingInput)
 
 TEST(DefinitionResolverTest, RejectsIncompleteAxisWithoutMutatingInput)
 {
-    auto root = doc("ROOT");
-    auto fuel = map("fuel", "Fuel");
+    auto root = Doc("ROOT");
+    auto fuel = Map("fuel", "Fuel");
     fuel.x_axis.type = "X Axis";
     root.maps.push_back(fuel);
     const auto original = root;
     DefinitionSet definitions{};
 
-    auto result = resolve_definition(root, definitions.loader());
+    auto result = ResolveDefinition(root, definitions.Loader());
 
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     EXPECT_THAT(result.error().detail, HasSubstr("incomplete"));
     EXPECT_THAT(result.error().detail, HasSubstr("x axis"));
     EXPECT_EQ(root, original);
@@ -879,14 +879,14 @@ TEST(DefinitionResolverTest, RejectsIncompleteAxisWithoutMutatingInput)
 
 TEST(DefinitionResolverTest, RejectsDuplicateMapKeyWithoutMutatingInput)
 {
-    auto root = doc("ROOT");
-    root.maps = {map("fuel", "Primary Fuel"), map("fuel", "Secondary Fuel")};
+    auto root = Doc("ROOT");
+    root.maps = {Map("fuel", "Primary Fuel"), Map("fuel", "Secondary Fuel")};
     const auto original = root;
     DefinitionSet definitions{};
 
-    auto result = resolve_definition(root, definitions.loader());
+    auto result = ResolveDefinition(root, definitions.Loader());
 
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     EXPECT_THAT(result.error().detail, HasSubstr("duplicate map key"));
     EXPECT_THAT(result.error().detail, HasSubstr("fuel"));
     EXPECT_EQ(root, original);
@@ -894,25 +894,25 @@ TEST(DefinitionResolverTest, RejectsDuplicateMapKeyWithoutMutatingInput)
 
 TEST(DefinitionResolverTest, RejectsContradictorySelectionStorageWithoutMutatingInput)
 {
-    auto root = doc("ROOT");
-    auto modes = scaling("modes", StorageType::Uint8);
+    auto root = Doc("ROOT");
+    auto modes = Scaling("modes", StorageType::kUint8);
     modes.selections = {{"disabled", "00"}, {"enabled", "01"}};
     root.scalings.push_back(modes);
     const auto original = root;
     DefinitionSet definitions{};
 
-    auto result = resolve_definition(root, definitions.loader());
+    auto result = ResolveDefinition(root, definitions.Loader());
 
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     EXPECT_THAT(result.error().detail, HasSubstr("modes"));
     EXPECT_THAT(result.error().detail, HasSubstr("bloblist"));
     EXPECT_EQ(root, original);
 }
 
-UnresolvedDefinition selectable_root(std::vector<std::pair<std::string, std::string>> selections)
+UnresolvedDefinition SelectableRoot(std::vector<std::pair<std::string, std::string>> selections)
 {
-    auto root = doc("ROOT");
-    auto modes = scaling("modes", StorageType::Bloblist);
+    auto root = Doc("ROOT");
+    auto modes = Scaling("modes", StorageType::kBloblist);
     modes.selections = std::move(selections);
     root.scalings.push_back(std::move(modes));
     return root;
@@ -922,7 +922,7 @@ TEST(DefinitionResolverTest, ResolvesSelectionHexIntoBytes)
 {
     DefinitionSet definitions{};
 
-    auto result = resolve_definition(selectable_root({{"off", "0000"}, {"low", "0a0B"}}), definitions.loader());
+    auto result = ResolveDefinition(SelectableRoot({{"off", "0000"}, {"low", "0a0B"}}), definitions.Loader());
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(result->scalings.front().selections,
@@ -934,11 +934,11 @@ TEST(DefinitionResolverTest, RejectsSelectionValuesThatAreNotWholeHexBytes)
     for (const std::string value : {"070", "0Z07", " 7", "0x07", "-1"})
     {
         DefinitionSet definitions{};
-        const auto root = selectable_root({{"off", "0000"}, {"bad", value}});
+        const auto root = SelectableRoot({{"off", "0000"}, {"bad", value}});
 
-        auto result = resolve_definition(root, definitions.loader());
+        auto result = ResolveDefinition(root, definitions.Loader());
 
-        ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::InvalidConfig)) << value;
+        ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kInvalidConfig)) << value;
         EXPECT_THAT(result.error().detail, HasSubstr("modes")) << value;
         EXPECT_THAT(result.error().detail, HasSubstr("bad")) << value;
     }
@@ -948,9 +948,9 @@ TEST(DefinitionResolverTest, RejectsAnEmptySelectionValue)
 {
     DefinitionSet definitions{};
 
-    auto result = resolve_definition(selectable_root({{"off", "0000"}, {"blank", ""}}), definitions.loader());
+    auto result = ResolveDefinition(SelectableRoot({{"off", "0000"}, {"blank", ""}}), definitions.Loader());
 
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     EXPECT_THAT(result.error().detail, HasSubstr("incomplete selection"));
 }
 
@@ -958,9 +958,9 @@ TEST(DefinitionResolverTest, RejectsSelectionsOfDifferentWidths)
 {
     DefinitionSet definitions{};
 
-    auto result = resolve_definition(selectable_root({{"off", "0000"}, {"wide", "AABBCC"}}), definitions.loader());
+    auto result = ResolveDefinition(SelectableRoot({{"off", "0000"}, {"wide", "AABBCC"}}), definitions.Loader());
 
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     EXPECT_THAT(result.error().detail, HasSubstr("modes"));
     EXPECT_THAT(result.error().detail, HasSubstr("wide"));
     EXPECT_THAT(result.error().detail, HasSubstr("width"));
@@ -970,21 +970,21 @@ TEST(DefinitionResolverTest, RejectsRepeatedSelectionNames)
 {
     DefinitionSet definitions{};
 
-    auto result = resolve_definition(selectable_root({{"mode", "01"}, {"mode", "02"}}), definitions.loader());
+    auto result = ResolveDefinition(SelectableRoot({{"mode", "01"}, {"mode", "02"}}), definitions.Loader());
 
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     EXPECT_THAT(result.error().detail, HasSubstr("duplicate selection"));
 }
 
 TEST(DefinitionResolverTest, RejectsLoaderDefinitionWhoseIdentityDoesNotMatchReference)
 {
-    const auto root = doc("ROOT", {"EXPECTED"});
+    const auto root = Doc("ROOT", {"EXPECTED"});
     const auto original = root;
-    DefinitionSet definitions{{"EXPECTED", doc("OTHER")}};
+    DefinitionSet definitions{{"EXPECTED", Doc("OTHER")}};
 
-    auto result = resolve_definition(root, definitions.loader());
+    auto result = ResolveDefinition(root, definitions.Loader());
 
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     EXPECT_THAT(result.error().detail, HasSubstr("EXPECTED"));
     EXPECT_THAT(result.error().detail, HasSubstr("OTHER"));
     EXPECT_EQ(root, original);
@@ -992,17 +992,17 @@ TEST(DefinitionResolverTest, RejectsLoaderDefinitionWhoseIdentityDoesNotMatchRef
 
 TEST(DefinitionResolverTest, RejectsZeroStartPositionOnMap)
 {
-    auto root = doc("ROOT");
-    auto fuel = map("fuel", "Fuel");
+    auto root = Doc("ROOT");
+    auto fuel = Map("fuel", "Fuel");
     fuel.x_size = 2;
     fuel.start_position = 0U;
     root.maps.push_back(fuel);
     const auto original = root;
     DefinitionSet definitions{};
 
-    auto result = resolve_definition(root, definitions.loader());
+    auto result = ResolveDefinition(root, definitions.Loader());
 
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     EXPECT_THAT(result.error().detail, HasSubstr("zero start position"));
     EXPECT_THAT(result.error().detail, HasSubstr("fuel"));
     EXPECT_EQ(root, original);
@@ -1010,8 +1010,8 @@ TEST(DefinitionResolverTest, RejectsZeroStartPositionOnMap)
 
 TEST(DefinitionResolverTest, RejectsZeroStartPositionOnAxis)
 {
-    auto root = doc("ROOT");
-    auto fuel = map("fuel", "Fuel");
+    auto root = Doc("ROOT");
+    auto fuel = Map("fuel", "Fuel");
     fuel.x_size = 2;
     fuel.x_axis = UnresolvedAxisDefinition{
         .type = "X Axis",
@@ -1023,9 +1023,9 @@ TEST(DefinitionResolverTest, RejectsZeroStartPositionOnAxis)
     const auto original = root;
     DefinitionSet definitions{};
 
-    auto result = resolve_definition(root, definitions.loader());
+    auto result = ResolveDefinition(root, definitions.Loader());
 
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     EXPECT_THAT(result.error().detail, HasSubstr("zero start position"));
     EXPECT_THAT(result.error().detail, HasSubstr("x axis"));
     EXPECT_EQ(root, original);
@@ -1033,14 +1033,14 @@ TEST(DefinitionResolverTest, RejectsZeroStartPositionOnAxis)
 
 TEST(DefinitionResolverTest, AcceptsStartPositionOfOne)
 {
-    auto root = doc("ROOT");
-    auto fuel = map("fuel", "Fuel");
+    auto root = Doc("ROOT");
+    auto fuel = Map("fuel", "Fuel");
     fuel.x_size = 2;
     fuel.start_position = 1U;
     root.maps.push_back(fuel);
     DefinitionSet definitions{};
 
-    EXPECT_THAT(resolve_definition(root, definitions.loader()), fastecu::testing::IsOk());
+    EXPECT_THAT(ResolveDefinition(root, definitions.Loader()), fastecu::testing::IsOk());
 }
 
 } // namespace

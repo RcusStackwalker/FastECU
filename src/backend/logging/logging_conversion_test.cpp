@@ -17,20 +17,20 @@ namespace
 using namespace fastecu::logging;
 using namespace std::chrono_literals;
 
-LoggingChannel channel(std::string id, std::uint32_t address)
+LoggingChannel Channel(std::string id, std::uint32_t address)
 {
     return LoggingChannel{
         .id = std::move(id),
         .address = address,
         .length = 2,
-        .raw_assembly = RawAssembly::UnsignedIntegerDecimal,
+        .raw_assembly = RawAssembly::kUnsignedIntegerDecimal,
         .from_byte_expression = "x",
         .unit = "",
         .decimal_precision = 15,
     };
 }
 
-LoggingPolicy valid_policy()
+LoggingPolicy ValidPolicy()
 {
     return LoggingPolicy{
         .poll_timeout = 100ms,
@@ -40,28 +40,28 @@ LoggingPolicy valid_policy()
     };
 }
 
-LoggingSession make_session_with_channel(LoggingChannel channel)
+LoggingSession MakeSessionWithChannel(LoggingChannel channel)
 {
-    auto session = make_logging_session(LoggingProtocolId::Ssm, {std::move(channel)}, valid_policy());
+    auto session = MakeLoggingSession(LoggingProtocolId::kSsm, {std::move(channel)}, ValidPolicy());
     EXPECT_THAT(session, fastecu::testing::IsOk());
     return std::move(*session);
 }
 
-LoggingSession make_valid_session()
+LoggingSession MakeValidSession()
 {
-    return make_session_with_channel(channel("rpm", 0x10));
+    return MakeSessionWithChannel(Channel("rpm", 0x10));
 }
 
 } // namespace
 
 TEST(LoggingConversionTest, PreservesSsmDecimalByteRawInput)
 {
-    LoggingChannel c = channel("rpm", 0x10);
-    c.raw_assembly = RawAssembly::DecimalBytesConcatenated;
+    LoggingChannel c = Channel("rpm", 0x10);
+    c.raw_assembly = RawAssembly::kDecimalBytesConcatenated;
     c.from_byte_expression = "x/4";
     c.unit = "rpm";
-    auto session = make_session_with_channel(c);
-    auto result = convert_sample(session, ProtocolSample{"rpm", "1616"});
+    auto session = MakeSessionWithChannel(c);
+    auto result = ConvertSample(session, ProtocolSample{"rpm", "1616"});
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(result->raw_value, "1616");
     EXPECT_DOUBLE_EQ(result->numeric_value, 404.0);
@@ -70,15 +70,15 @@ TEST(LoggingConversionTest, PreservesSsmDecimalByteRawInput)
 
 TEST(LoggingConversionTest, RejectsUnknownOrMismatchedChannel)
 {
-    auto session = make_valid_session();
-    ASSERT_THAT(convert_sample(session, ProtocolSample{"missing", "12"}),
-                fastecu::testing::IsErr(fastecu::ErrorKind::Internal));
+    auto session = MakeValidSession();
+    ASSERT_THAT(ConvertSample(session, ProtocolSample{"missing", "12"}),
+                fastecu::testing::IsErr(fastecu::ErrorKind::kInternal));
 }
 
 TEST(LoggingConversionTest, PreservesProtocolRawValueWithoutReassembly)
 {
-    auto session = make_valid_session();
-    auto result = convert_sample(session, ProtocolSample{"rpm", "0012"});
+    auto session = MakeValidSession();
+    auto result = ConvertSample(session, ProtocolSample{"rpm", "0012"});
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(result->raw_value, "0012");
     EXPECT_DOUBLE_EQ(result->numeric_value, 12.0);
@@ -86,24 +86,31 @@ TEST(LoggingConversionTest, PreservesProtocolRawValueWithoutReassembly)
 
 TEST(LoggingConversionTest, RejectsNonFiniteConvertedValues)
 {
-    auto c = channel("rpm", 0x10);
+    auto c = Channel("rpm", 0x10);
     c.from_byte_expression = "x/(x-1)";
-    auto session = make_session_with_channel(c);
+    auto session = MakeSessionWithChannel(c);
 
-    ASSERT_THAT(convert_sample(session, ProtocolSample{"rpm", "1"}),
-                fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
+    ASSERT_THAT(ConvertSample(session, ProtocolSample{"rpm", "1"}),
+                fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
 }
 
-TEST(LoggingConversionTest, UsesHistoricalFifteenDigitIntermediatePrecision)
+TEST(LoggingConversionTest, EvaluatesIntermediateResultsWithoutTextRounding)
 {
-    auto c = channel("rpm", 0x10);
+    auto c = Channel("rpm", 0x10);
     c.from_byte_expression = "x/3*3";
     c.decimal_precision = 2;
-    auto session = make_session_with_channel(c);
+    auto session = MakeSessionWithChannel(c);
 
-    auto result = convert_sample(session, ProtocolSample{"rpm", "10"});
+    auto result = ConvertSample(session, ProtocolSample{"rpm", "10"});
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
-    EXPECT_DOUBLE_EQ(result->numeric_value, 9.9999999999999893);
-    EXPECT_NE(result->numeric_value, 9.9);
+    EXPECT_DOUBLE_EQ(result->numeric_value, 10.0);
+}
+
+TEST(LoggingConversionTest, RejectsNonNumericRawValue)
+{
+    auto session = MakeValidSession();
+
+    ASSERT_THAT(ConvertSample(session, ProtocolSample{"rpm", "12ab"}),
+                fastecu::testing::IsErr(fastecu::ErrorKind::kBadResponse));
 }

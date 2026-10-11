@@ -12,10 +12,12 @@ class WebSocketIoDevice : public QIODevice
 {
     Q_OBJECT
   public:
-    WebSocketIoDevice(QWebSocket *webSocket, QObject *parent = nullptr);
+    WebSocketIoDevice(QWebSocket *web_socket, QObject *parent = nullptr);
 
   signals:
+    // NOLINTBEGIN(readability-identifier-naming): Qt signals keep Qt's camelBack names
     void disconnected();
+    // NOLINTEND(readability-identifier-naming)
 
     // QIODevice interface
   public:
@@ -28,6 +30,6 @@ class WebSocketIoDevice : public QIODevice
     qint64 writeData(const char *data, qint64 len) override;
 
   private:
-    QPointer<QWebSocket> m_socket;
-    QByteArray m_buffer;
+    QPointer<QWebSocket> m_socket_;
+    QByteArray m_buffer_;
 };

@@ -14,23 +14,23 @@ namespace fastecu::diagnostics
 // Which K-Line header the adapter adds to outgoing frames.
 enum class KlineHeader
 {
-    None,
-    Ssm,
-    Iso9141,
-    Iso14230,
+    kNone,
+    kSsm,
+    kIso9141,
+    kIso14230,
 };
 
-constexpr std::string_view to_string(KlineHeader header) noexcept
+constexpr std::string_view ToString(KlineHeader header) noexcept
 {
     switch (header)
     {
-    case KlineHeader::None:
+    case KlineHeader::kNone:
         return "None";
-    case KlineHeader::Ssm:
+    case KlineHeader::kSsm:
         return "Ssm";
-    case KlineHeader::Iso9141:
+    case KlineHeader::kIso9141:
         return "Iso9141";
-    case KlineHeader::Iso14230:
+    case KlineHeader::kIso14230:
         return "Iso14230";
     }
     return "None";
@@ -38,24 +38,24 @@ constexpr std::string_view to_string(KlineHeader header) noexcept
 
 enum class Parity
 {
-    None,
-    Even,
+    kNone,
+    kEven,
 };
 
-constexpr std::string_view to_string(Parity parity) noexcept
+constexpr std::string_view ToString(Parity parity) noexcept
 {
-    return parity == Parity::Even ? "Even" : "None";
+    return parity == Parity::kEven ? "Even" : "None";
 }
 
 struct KlineLinkConfig
 {
-    KlineHeader header = KlineHeader::None;
+    KlineHeader header = KlineHeader::kNone;
     bool iso14230_connection = false;
     int baud = 10400;
     std::uint8_t start_byte = 0;
     std::uint8_t tester_id = 0;
     std::uint8_t target_id = 0;
-    Parity parity = Parity::None; // SSM1 runs 1953 8E1
+    Parity parity = Parity::kNone; // SSM1 runs 1953 8E1
 };
 
 struct CanLinkConfig
@@ -79,25 +79,25 @@ class IDiagnosticLink
 
     // Reset, apply every field of the config, open. Disconnected if the
     // adapter reports no opened port.
-    virtual Status open(const KlineLinkConfig& config) = 0;
-    virtual Status open(const CanLinkConfig& config) = 0;
-    virtual Status reset() = 0;
+    virtual Status Open(const KlineLinkConfig& config) = 0;
+    virtual Status Open(const CanLinkConfig& config) = 0;
+    virtual Status Reset() = 0;
 
-    virtual Status set_header(KlineHeader header) = 0;
-    virtual Status set_p1_max(std::chrono::milliseconds p1_max) = 0;
+    virtual Status SetHeader(KlineHeader header) = 0;
+    virtual Status SetP1Max(std::chrono::milliseconds p1_max) = 0;
     // The raw adapter response, uninterpreted; empty when nothing came back.
-    virtual Result<bytes::Bytes> five_baud_init(std::uint8_t address) = 0;
-    virtual Status fast_init(bytes::ByteView wakeup) = 0;
+    virtual Result<bytes::Bytes> FiveBaudInit(std::uint8_t address) = 0;
+    virtual Status FastInit(bytes::ByteView wakeup) = 0;
 
     // Echo-checked write; returns what the adapter returned.
-    virtual Result<bytes::Bytes> write(bytes::ByteView data) = 0;
+    virtual Result<bytes::Bytes> Write(bytes::ByteView data) = 0;
     // A deadline is a successful empty optional.
-    virtual Result<OptionalBytes> read(std::chrono::milliseconds timeout, const ICancellationToken& cancellation) = 0;
+    virtual Result<OptionalBytes> Read(std::chrono::milliseconds timeout, const ICancellationToken& cancellation) = 0;
     // The adapter's OBD-framed read (direct serial K-Line).
-    virtual Result<OptionalBytes> read_obd(std::chrono::milliseconds timeout,
-                                           const ICancellationToken& cancellation) = 0;
+    virtual Result<OptionalBytes> ReadObd(std::chrono::milliseconds timeout,
+                                          const ICancellationToken& cancellation) = 0;
 
-    virtual bool uses_j2534() const = 0;
+    virtual bool UsesJ2534() const = 0;
 };
 
 } // namespace fastecu::diagnostics

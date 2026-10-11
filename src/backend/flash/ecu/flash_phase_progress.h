@@ -24,32 +24,32 @@ class PhaseReporter
     PhaseReporter(IEventSink& events, std::string_view name, int index, int count, int total)
         : events_(events), name_(name), index_(index), count_(count), total_(total)
     {
-        emit(0);
+        Emit(0);
     }
 
-    void update(int done)
+    void Update(int done)
     {
         const int maximum_incomplete = std::max(0, total_ - 1);
         const int next = std::clamp(done, last_, maximum_incomplete);
         if (next != last_)
         {
-            emit(next);
+            Emit(next);
         }
     }
 
-    void complete()
+    void Complete()
     {
         if (last_ != total_)
         {
-            emit(total_);
+            Emit(total_);
         }
     }
 
   private:
-    void emit(int done)
+    void Emit(int done)
     {
         last_ = done;
-        events_.phase_progress({name_, index_, count_, done, total_});
+        events_.PhaseProgress({name_, index_, count_, done, total_});
     }
 
     IEventSink& events_;
@@ -69,7 +69,7 @@ class PhaseSequence
     {
     }
 
-    PhaseReporter start(std::string_view name, int total)
+    PhaseReporter Start(std::string_view name, int total)
     {
         return PhaseReporter(events_, name, ++index_, count_, total);
     }

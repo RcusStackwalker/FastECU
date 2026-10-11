@@ -4,14 +4,14 @@
 
 #include <algorithm>
 
-namespace SsmProtocol
+namespace ssm_protocol
 {
 
 namespace
 {
 
 template <std::size_t Rounds>
-uint32_t transformWord(uint32_t word, std::span<const std::uint16_t, Rounds> keytogenerateindex,
+uint32_t TransformWord(uint32_t word, std::span<const std::uint16_t, Rounds> keytogenerateindex,
                        IndexTransformation indextransformation, bool reverse)
 {
     for (std::size_t r = 0; r < Rounds; ++r)
@@ -37,7 +37,7 @@ uint32_t transformWord(uint32_t word, std::span<const std::uint16_t, Rounds> key
 
 } // namespace
 
-bytes::Bytes calculateSeedKey(bytes::ByteView seed, SeedKeyToGenerateIndex keytogenerateindex,
+bytes::Bytes CalculateSeedKey(bytes::ByteView seed, SeedKeyToGenerateIndex keytogenerateindex,
                               IndexTransformation indextransformation)
 {
     bytes::Bytes key;
@@ -46,11 +46,11 @@ bytes::Bytes calculateSeedKey(bytes::ByteView seed, SeedKeyToGenerateIndex keyto
         return key;
     }
 
-    bytes::appendU32Be(key, transformWord(bytes::readU32Be(seed, 0), keytogenerateindex, indextransformation, true));
+    bytes::AppendU32Be(key, TransformWord(bytes::ReadU32Be(seed, 0), keytogenerateindex, indextransformation, true));
     return key;
 }
 
-bytes::Bytes calculatePayload(bytes::ByteView buf, uint32_t len, KeyToGenerateIndex keytogenerateindex,
+bytes::Bytes CalculatePayload(bytes::ByteView buf, uint32_t len, KeyToGenerateIndex keytogenerateindex,
                               IndexTransformation indextransformation)
 {
     bytes::Bytes encrypted;
@@ -67,20 +67,20 @@ bytes::Bytes calculatePayload(bytes::ByteView buf, uint32_t len, KeyToGenerateIn
 
     for (uint32_t i = 0; i < len; i += 4)
     {
-        bytes::appendU32Be(encrypted,
-                           transformWord(bytes::readU32Be(buf, i), keytogenerateindex, indextransformation, false));
+        bytes::AppendU32Be(encrypted,
+                           TransformWord(bytes::ReadU32Be(buf, i), keytogenerateindex, indextransformation, false));
     }
 
     return encrypted;
 }
 
-bytes::Bytes addHeader(bytes::ByteView output, bytes::Byte testerId, bytes::Byte targetId)
+bytes::Bytes AddHeader(bytes::ByteView output, bytes::Byte tester_id, bytes::Byte target_id)
 {
     using namespace bytes::literals;
-    return bytes::composeBeWithChecksum(bytes::sum8, 0x80_b, targetId, testerId, bytes::Byte(output.size()), output);
+    return bytes::ComposeBeWithChecksum(bytes::Sum8, 0x80_b, target_id, tester_id, bytes::Byte(output.size()), output);
 }
 
-bool hasValidFrame(bytes::ByteView frame, bytes::Byte receiverId, bytes::Byte senderId)
+bool HasValidFrame(bytes::ByteView frame, bytes::Byte receiver_id, bytes::Byte sender_id)
 {
     constexpr std::size_t kHeaderLength = 4;
     constexpr std::size_t kChecksumLength = 1;
@@ -89,27 +89,27 @@ bool hasValidFrame(bytes::ByteView frame, bytes::Byte receiverId, bytes::Byte se
         return false;
     }
 
-    if (const std::size_t payloadLength = frame[3]; frame.size() != kHeaderLength + payloadLength + kChecksumLength)
+    if (const std::size_t payload_length = frame[3]; frame.size() != kHeaderLength + payload_length + kChecksumLength)
     {
         return false;
     }
 
-    if (frame[0] != 0x80 || frame[1] != receiverId || frame[2] != senderId)
+    if (frame[0] != 0x80 || frame[1] != receiver_id || frame[2] != sender_id)
     {
         return false;
     }
 
-    return bytes::sum8(frame.first(frame.size() - kChecksumLength)) == frame[frame.size() - kChecksumLength];
+    return bytes::Sum8(frame.first(frame.size() - kChecksumLength)) == frame[frame.size() - kChecksumLength];
 }
 
-bool hasPayloadPrefix(bytes::ByteView frame, bytes::ByteView prefix, bytes::Byte receiverId, bytes::Byte senderId)
+bool HasPayloadPrefix(bytes::ByteView frame, bytes::ByteView prefix, bytes::Byte receiver_id, bytes::Byte sender_id)
 {
-    if (!hasValidFrame(frame, receiverId, senderId))
+    if (!HasValidFrame(frame, receiver_id, sender_id))
     {
         return false;
     }
 
-    if (const std::size_t payloadLength = frame[3]; prefix.size() > payloadLength)
+    if (const std::size_t payload_length = frame[3]; prefix.size() > payload_length)
     {
         return false;
     }
@@ -117,4 +117,4 @@ bool hasPayloadPrefix(bytes::ByteView frame, bytes::ByteView prefix, bytes::Byte
     return std::equal(prefix.begin(), prefix.end(), frame.begin() + 4);
 }
 
-} // namespace SsmProtocol
+} // namespace ssm_protocol

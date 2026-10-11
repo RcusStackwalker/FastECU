@@ -34,10 +34,10 @@ class IIdentifyLauncher
 
     // Called once by the coordinator. A completion may be delivered after the
     // run it belongs to was stopped; it carries the generation it started with.
-    virtual void set_completion_handler(CompletionHandler handler) = 0;
+    virtual void setCompletionHandler(CompletionHandler handler) = 0;
     virtual void start(const diagnostics::SsmIdentifyRequest& request, IdentifyGeneration generation) = 0;
     // Stops and joins the current run, if any, and releases what it used.
-    virtual void stop_and_join() = 0;
+    virtual void stopAndJoin() = 0;
 };
 
 // What a connection attempt shows and changes in the window. All calls are
@@ -49,13 +49,13 @@ class IConnectionPresentation
 
     // True while identification runs: the log-transport combo, the ECU/TCU
     // radio buttons and the Connect and Logging actions are disabled.
-    virtual void set_controls_locked(bool locked) = 0;
-    virtual void set_port_selector_enabled(bool enabled) = 0;
+    virtual void setControlsLocked(bool locked) = 0;
+    virtual void setPortSelectorEnabled(bool enabled) = 0;
     // Identification succeeded. May open a notice whose nested event loop
     // starts or cancels another identification.
     virtual void identified(const IdentifyOutcome& outcome) = 0;
     // Identification failed. The owner logs and disconnects.
-    virtual void identification_failed(const IdentifyOutcome& outcome) = 0;
+    virtual void identificationFailed(const IdentifyOutcome& outcome) = 0;
 };
 
 } // namespace fastecu::ui

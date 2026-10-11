@@ -21,18 +21,18 @@ namespace fastecu::flash
 class DensoSh705xEepromCanExecutor final : public ICanFlashExecutor
 {
   public:
-    Result<Iso15765Config> transport_setup(const FlashPlan& plan) const override;
-    Result<FlashExecutionResult> execute(const FlashPlan& plan, ICanFlashTransport& transport, IClock& clock,
+    Result<Iso15765Config> TransportSetup(const FlashPlan& plan) const override;
+    Result<FlashExecutionResult> Execute(const FlashPlan& plan, ICanFlashTransport& transport, IClock& clock,
                                          const ICancellationToken& cancellation, IEventSink& events) override;
 
   private:
-    Status connect_bootloader(ICanFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
-                              IEventSink& events, const DensoSh705xEepromCanPlan& can_plan, bool& kernel_alive) const;
-    Status upload_kernel(ICanFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
-                         IEventSink& events, const DensoSh705xEepromCanPlan& can_plan, const KernelImage& kernel) const;
-    Result<bytes::Bytes> read_mem(ICanFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
-                                  IEventSink& events, const MemoryRegion& region, EepromReadMode mode,
-                                  std::uint32_t request_id) const;
+    Status ConnectBootloader(ICanFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
+                             IEventSink& events, const DensoSh705xEepromCanPlan& can_plan, bool& kernel_alive) const;
+    Status UploadKernel(ICanFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
+                        IEventSink& events, const DensoSh705xEepromCanPlan& can_plan, const KernelImage& kernel) const;
+    Result<bytes::Bytes> ReadMem(ICanFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
+                                 IEventSink& events, const MemoryRegion& region, EepromReadMode mode,
+                                 std::uint32_t request_id) const;
 };
 
 } // namespace fastecu::flash

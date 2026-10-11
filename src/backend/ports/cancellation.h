@@ -9,7 +9,7 @@ class ICancellationToken
 {
   public:
     virtual ~ICancellationToken() = default;
-    virtual bool cancelled() const = 0;
+    virtual bool Cancelled() const = 0;
 };
 
 } // namespace fastecu

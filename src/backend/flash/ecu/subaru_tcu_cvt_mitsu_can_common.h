@@ -23,14 +23,14 @@ namespace fastecu::flash
 
 // Seed-key table (legacy generate_seed_key: mh8111 lines 908-913, mh8104
 // lines 903-907), confirmed byte-identical by direct comparison.
-const std::array<std::uint16_t, 16>& tcuCvtMitsuSeedKeyTable();
+const std::array<std::uint16_t, 16>& TcuCvtMitsuSeedKeyTable();
 
 // Write-payload encrypt table (legacy encrypt_payload: mh8111 lines
 // 947-948, mh8104 lines 935-936), confirmed byte-identical.
-const std::array<std::uint16_t, 4>& tcuCvtMitsuEncryptTable();
+const std::array<std::uint16_t, 4>& TcuCvtMitsuEncryptTable();
 
 // Read-payload decrypt table (legacy decrypt_payload: mh8111 lines
 // 965-966, mh8104 lines 953-954), confirmed byte-identical.
-const std::array<std::uint16_t, 4>& tcuCvtMitsuDecryptTable();
+const std::array<std::uint16_t, 4>& TcuCvtMitsuDecryptTable();
 
 } // namespace fastecu::flash

@@ -18,7 +18,7 @@ namespace fastecu::ui
 // parent chain, so they are readable exactly as long as the caller keeps
 // `dialog` alive -- a dialog destroyed before the editors are read takes
 // them with it.
-HeaderFormEditors populate_header_dialog(QDialog& dialog, const definition::DefinitionHeaderDraft& draft = {});
+HeaderFormEditors populateHeaderDialog(QDialog& dialog, const definition::DefinitionHeaderDraft& draft = {});
 
 // The two interactive definition-authoring wizards, moved out of
 // FileActions. Each collects ROM
@@ -39,17 +39,17 @@ class DefinitionAuthoringDialog : public QObject
     // Both return true when the ROM may continue to be used -- including
     // when the user cancels out, which legacy signalled by returning
     // ecuCalDef unchanged. false means a genuine failure (legacy nullptr).
-    bool create_new_definition();
-    bool use_existing_definition();
+    bool createNewDefinition();
+    bool useExistingDefinition();
 
   signals:
-    void LOG_E(QString message, bool timestamp, bool linefeed);
-    void LOG_W(QString message, bool timestamp, bool linefeed);
-    void LOG_I(QString message, bool timestamp, bool linefeed);
-    void LOG_D(QString message, bool timestamp, bool linefeed);
+    void logE(QString message, bool timestamp, bool linefeed);
+    void logW(QString message, bool timestamp, bool linefeed);
+    void logI(QString message, bool timestamp, bool linefeed);
+    void logD(QString message, bool timestamp, bool linefeed);
 
   private:
-    void log_header(const HeaderFormEditors& editors);
+    void logHeader(const HeaderFormEditors& editors);
 
     fastecu::definition::DefinitionCatalogSession& catalogs_;
     const fastecu::config::ConfigSession& config_;

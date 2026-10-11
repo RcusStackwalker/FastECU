@@ -9,7 +9,7 @@
 namespace
 {
 
-bool fileExists(const char *path)
+bool FileExists(const char *path)
 {
     return GetFileAttributesA(path) != INVALID_FILE_ATTRIBUTES;
 }
@@ -21,18 +21,18 @@ bool fileExists(const char *path)
 // j2534_bridge_host.exe lives in a separate --platforms=windows_x86 build
 // output tree (see J2534_BRIDGE_HOST_EXE), stage a copy next to this test
 // binary under that exact name before exercising any PassThru* call.
-void ensureBridgeHostStaged()
+void EnsureBridgeHostStaged()
 {
-    const char *hostSrc = std::getenv("J2534_BRIDGE_HOST_EXE");
-    if (!hostSrc)
+    const char *host_src = std::getenv("J2534_BRIDGE_HOST_EXE");
+    if (!host_src)
     {
         return;
     }
-    if (fileExists("j2534_bridge_host.exe"))
+    if (FileExists("j2534_bridge_host.exe"))
     {
         return;
     }
-    BOOL ok = CopyFileA(hostSrc, "j2534_bridge_host.exe", /*bFailIfExists=*/FALSE);
+    BOOL ok = CopyFileA(host_src, "j2534_bridge_host.exe", /*bFailIfExists=*/FALSE);
     ASSERT_TRUE(ok && "failed to stage j2534_bridge_host.exe next to the test binary");
     (void)ok;
 }
@@ -41,32 +41,32 @@ void ensureBridgeHostStaged()
 
 TEST(J2534WinBridge, OpensConnectsAndReadsThroughBridge)
 {
-    ASSERT_NO_FATAL_FAILURE(ensureBridgeHostStaged());
+    ASSERT_NO_FATAL_FAILURE(EnsureBridgeHostStaged());
 
-    const char *dllPath = std::getenv("FAKE_J2534_DLL_PATH");
-    if (!dllPath)
+    const char *dll_path = std::getenv("FAKE_J2534_DLL_PATH");
+    if (!dll_path)
     {
-        dllPath = "fake_j2534_dll.dll"; // built for x86; this test process is x64 (host arch)
+        dll_path = "fake_j2534_dll.dll"; // built for x86; this test process is x64 (host arch)
     }
 
     J2534 j2534;
-    j2534.setDllName(dllPath);
+    j2534.SetDllName(dll_path);
 
-    unsigned long deviceId = 0;
-    long result = j2534.PassThruOpen(nullptr, &deviceId);
+    unsigned long device_id = 0;
+    long result = j2534.PassThruOpen(nullptr, &device_id);
     ASSERT_TRUE(result == kJ2534StatusNoerror && "PassThruOpen should transparently succeed via the bridge");
-    ASSERT_TRUE(deviceId == 7);
+    ASSERT_TRUE(device_id == 7);
 
-    unsigned long channelId = 0;
-    result = j2534.PassThruConnect(deviceId, kJ2534Iso9141, 0, 0, &channelId);
+    unsigned long channel_id = 0;
+    result = j2534.PassThruConnect(device_id, kJ2534Iso9141, 0, 0, &channel_id);
     ASSERT_TRUE(result == kJ2534StatusNoerror);
-    ASSERT_TRUE(channelId == 3);
+    ASSERT_TRUE(channel_id == 3);
 
-    PASSTHRU_MSG msg{};
-    unsigned long numMsgs = 1;
-    result = j2534.PassThruReadMsgs(channelId, &msg, &numMsgs, 100);
+    PassThruMsg msg{};
+    unsigned long num_msgs = 1;
+    result = j2534.PassThruReadMsgs(channel_id, &msg, &num_msgs, 100);
     ASSERT_TRUE(result == kJ2534StatusNoerror);
-    ASSERT_TRUE(msg.DataSize == 4 && msg.Data[0] == 0xDE);
+    ASSERT_TRUE(msg.data_size == 4 && msg.data[0] == 0xDE);
 
     std::printf("All j2534_win_bridge tests passed.\n");
 }

@@ -37,31 +37,31 @@ class DataTerminal : public QDialog
     Q_OBJECT
 
   signals:
-    void LOG_E(QString message, bool timestamp, bool linefeed);
-    void LOG_W(QString message, bool timestamp, bool linefeed);
-    void LOG_I(QString message, bool timestamp, bool linefeed);
-    void LOG_D(QString message, bool timestamp, bool linefeed);
+    void logE(QString message, bool timestamp, bool linefeed);
+    void logW(QString message, bool timestamp, bool linefeed);
+    void logI(QString message, bool timestamp, bool linefeed);
+    void logD(QString message, bool timestamp, bool linefeed);
 
   public:
     explicit DataTerminal(fastecu::diagnostics::IDiagnosticLink& link, QWidget *parent = nullptr);
     ~DataTerminal();
 
   private:
-    uint16_t receive_timeout = 500;
-    uint16_t serial_read_extra_short_timeout = 50;
-    uint16_t serial_read_short_timeout = 200;
-    uint16_t serial_read_medium_timeout = 500;
-    uint16_t serial_read_long_timeout = 800;
-    uint16_t serial_read_extra_long_timeout = 3000;
+    uint16_t receive_timeout_ = 500;
+    uint16_t serial_read_extra_short_timeout_ = 50;
+    uint16_t serial_read_short_timeout_ = 200;
+    uint16_t serial_read_medium_timeout_ = 500;
+    uint16_t serial_read_long_timeout_ = 800;
+    uint16_t serial_read_extra_long_timeout_ = 3000;
 
-    QVBoxLayout *vBoxLayout{};
+    QVBoxLayout *v_box_layout_{};
 
-    uint8_t calculate_checksum(const QByteArray& output, bool dec_0x100);
-    QByteArray add_ssm_header(QByteArray output, uint8_t tester_id, uint8_t target_id, bool dec_0x100);
-    QString parse_message_to_hex(const QByteArray& received);
+    uint8_t calculateChecksum(const QByteArray& output, bool dec0x100);
+    QByteArray addSsmHeader(QByteArray output, uint8_t testerId, uint8_t targetId, bool dec0x100);
+    QString parseMessageToHex(const QByteArray& received);
     void delay(int timeout);
 
-    fastecu::diagnostics::IDiagnosticLink *link = nullptr;
+    fastecu::diagnostics::IDiagnosticLink *link_ = nullptr;
 
   signals:
 
@@ -71,5 +71,5 @@ class DataTerminal : public QDialog
     void sendToInterface();
 
   private:
-    std::unique_ptr<Ui::DataTerminalWindow> ui;
+    std::unique_ptr<Ui::DataTerminalWindow> ui_;
 };

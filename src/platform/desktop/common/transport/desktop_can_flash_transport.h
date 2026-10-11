@@ -31,14 +31,14 @@ class DesktopCanFlashTransport final : public ICanFlashTransport
     explicit DesktopCanFlashTransport(SerialPortActions *serial);
     ~DesktopCanFlashTransport() override;
 
-    Status reset_connection() override;
-    Status configure(const Iso15765Config& config) override;
-    Status open() override;
-    Status close() override;
-    void request_unblock() noexcept override;
+    Status ResetConnection() override;
+    Status Configure(const Iso15765Config& config) override;
+    Status Open() override;
+    Status Close() override;
+    void RequestUnblock() noexcept override;
 
-    Status write(bytes::ByteView data, const ICancellationToken& cancellation) override;
-    Result<std::optional<bytes::Bytes>> read(std::chrono::milliseconds timeout,
+    Status Write(bytes::ByteView data, const ICancellationToken& cancellation) override;
+    Result<std::optional<bytes::Bytes>> Read(std::chrono::milliseconds timeout,
                                              const ICancellationToken& cancellation) override;
 
   private:

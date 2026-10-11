@@ -16,10 +16,10 @@ namespace fastecu
 class RecordingClock final : public FakeClock
 {
   public:
-    Status sleep(std::chrono::milliseconds duration, const ICancellationToken& cancellation) override
+    Status Sleep(std::chrono::milliseconds duration, const ICancellationToken& cancellation) override
     {
         sleep_calls.push_back(duration);
-        return FakeClock::sleep(duration, cancellation);
+        return FakeClock::Sleep(duration, cancellation);
     }
 
     std::vector<std::chrono::milliseconds> sleep_calls;

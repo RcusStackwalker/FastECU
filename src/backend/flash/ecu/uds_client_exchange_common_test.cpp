@@ -30,7 +30,7 @@ struct Fixture
     FakeCancellationToken cancellation;
     uds::UdsClient client{channel, clock, events};
 
-    UdsExchangeContext ctx()
+    UdsExchangeContext Ctx()
     {
         return UdsExchangeContext{client, kPolicy, cancellation, events};
     }
@@ -39,24 +39,24 @@ struct Fixture
 TEST(ReportExchangeFailureTest, LogsRejectionWithPrefixAndReturnsFailureUnchanged)
 {
     RecordingEventSink events;
-    const Error failure{ErrorKind::BadResponse, "NRC 0x31"};
+    const Error failure{ErrorKind::kBadResponse, "NRC 0x31"};
 
-    const Error returned = report_exchange_failure(events, failure, "Wrong response from ECU: ", "the seed request");
+    const Error returned = ReportExchangeFailure(events, failure, "Wrong response from ECU: ", "the seed request");
 
     EXPECT_EQ(returned, failure);
-    ASSERT_THAT(events.logs, ElementsAre(Pair(LogLevel::Error, "Wrong response from ECU: NRC 0x31")));
+    ASSERT_THAT(events.logs, ElementsAre(Pair(LogLevel::kError, "Wrong response from ECU: NRC 0x31")));
 }
 
 TEST(ReportExchangeFailureTest, LogsCancellationAsAnOperatorLineNotARejection)
 {
     RecordingEventSink events;
-    const Error failure{ErrorKind::Cancelled, ""};
+    const Error failure{ErrorKind::kCancelled, ""};
 
-    const Error returned = report_exchange_failure(events, failure, "Wrong response from ECU: ", "the erase trigger");
+    const Error returned = ReportExchangeFailure(events, failure, "Wrong response from ECU: ", "the erase trigger");
 
     EXPECT_EQ(returned, failure);
     ASSERT_EQ(events.logs.size(), 1U);
-    EXPECT_EQ(events.logs[0].first, LogLevel::Warning);
+    EXPECT_EQ(events.logs[0].first, LogLevel::kWarning);
     EXPECT_THAT(events.logs[0].second, HasSubstr("Cancelled by operator during the erase trigger"));
 }
 
@@ -68,19 +68,19 @@ TEST(UdsClientExchangeCommonTest, DebugLogsAtDebugLevelThroughTheEventSink)
         IEventSink& events;
     } ctx{events};
 
-    debug(ctx, "kernel probe timed out");
+    LogDebug(ctx, "kernel probe timed out");
 
-    ASSERT_THAT(events.logs, ElementsAre(Pair(LogLevel::Debug, "kernel probe timed out")));
+    ASSERT_THAT(events.logs, ElementsAre(Pair(LogLevel::kDebug, "kernel probe timed out")));
 }
 
 TEST(FatalRequestTest, ReturnsThePositiveResponseOnSuccess)
 {
     Fixture f;
-    f.channel.expectSend(bytes::Bytes{0x10, 0x03});
-    f.channel.queueReceive(bytes::Bytes{0x50, 0x03});
+    f.channel.ExpectSend(bytes::Bytes{0x10, 0x03});
+    f.channel.QueueReceive(bytes::Bytes{0x50, 0x03});
 
     const Result<bytes::Bytes> reply =
-        fatal_request(f.ctx(), bytes::Bytes{0x10, 0x03}, "Wrong response from ECU: ", "the session request");
+        FatalRequest(f.Ctx(), bytes::Bytes{0x10, 0x03}, "Wrong response from ECU: ", "the session request");
 
     ASSERT_THAT(reply, fastecu::testing::IsOk());
     EXPECT_THAT(*reply, ElementsAre(0x50, 0x03));
@@ -90,59 +90,59 @@ TEST(FatalRequestTest, ReturnsThePositiveResponseOnSuccess)
 TEST(FatalRequestTest, LogsAndReturnsTheErrorOnFailure)
 {
     Fixture f;
-    f.channel.expectSend(bytes::Bytes{0x10, 0x03});
-    f.channel.queueReceive(bytes::Bytes{0x7F, 0x10, 0x31});
+    f.channel.ExpectSend(bytes::Bytes{0x10, 0x03});
+    f.channel.QueueReceive(bytes::Bytes{0x7F, 0x10, 0x31});
 
-    ASSERT_THAT(fatal_request(f.ctx(), bytes::Bytes{0x10, 0x03}, "Wrong response from ECU: ", "the session request"),
-                fastecu::testing::IsErr(ErrorKind::BadResponse));
+    ASSERT_THAT(FatalRequest(f.Ctx(), bytes::Bytes{0x10, 0x03}, "Wrong response from ECU: ", "the session request"),
+                fastecu::testing::IsErr(ErrorKind::kBadResponse));
     ASSERT_EQ(f.events.logs.size(), 1U);
-    EXPECT_EQ(f.events.logs[0].first, LogLevel::Error);
+    EXPECT_EQ(f.events.logs[0].first, LogLevel::kError);
     EXPECT_THAT(f.events.logs[0].second, HasSubstr("Wrong response from ECU: "));
 }
 
 TEST(NonFatalQueryTest, LogsTheDecodedPayloadOnAMatchingSubfunction)
 {
     Fixture f;
-    f.channel.expectSend(bytes::Bytes{0x09, 0x04});
-    f.channel.queueReceive(bytes::Bytes{0x49, 0x04, 0xAB, 0xCD});
+    f.channel.ExpectSend(bytes::Bytes{0x09, 0x04});
+    f.channel.QueueReceive(bytes::Bytes{0x49, 0x04, 0xAB, 0xCD});
 
-    non_fatal_query(f.ctx(), bytes::Bytes{0x09, 0x04}, bytes::Byte(0x04), "Wrong response from ECU: ", "CAL ID");
+    NonFatalQuery(f.Ctx(), bytes::Bytes{0x09, 0x04}, bytes::Byte(0x04), "Wrong response from ECU: ", "CAL ID");
 
-    ASSERT_THAT(f.events.logs, ElementsAre(Pair(LogLevel::Info, "CAL ID: 04 ab cd ")));
+    ASSERT_THAT(f.events.logs, ElementsAre(Pair(LogLevel::kInfo, "CAL ID: 04 ab cd ")));
 }
 
 TEST(NonFatalQueryTest, LogsAndDoesNotThrowOnAnExchangeFailure)
 {
     Fixture f;
-    f.channel.expectSend(bytes::Bytes{0xAA});
-    f.channel.queueNoFrame();
+    f.channel.ExpectSend(bytes::Bytes{0xAA});
+    f.channel.QueueNoFrame();
 
-    non_fatal_query(f.ctx(), bytes::Bytes{0xAA}, std::nullopt, "Wrong response from ECU: ", "ECU ID");
+    NonFatalQuery(f.Ctx(), bytes::Bytes{0xAA}, std::nullopt, "Wrong response from ECU: ", "ECU ID");
 
     ASSERT_EQ(f.events.logs.size(), 1U);
-    EXPECT_EQ(f.events.logs[0].first, LogLevel::Error);
+    EXPECT_EQ(f.events.logs[0].first, LogLevel::kError);
     EXPECT_THAT(f.events.logs[0].second, HasSubstr("Wrong response from ECU: "));
 }
 
 TEST(NonFatalQueryTest, LogsUnexpectedSubfunctionWithThePrefixAndDoesNotThrow)
 {
     Fixture f;
-    f.channel.expectSend(bytes::Bytes{0x09, 0x04});
-    f.channel.queueReceive(bytes::Bytes{0x49, 0x02});
+    f.channel.ExpectSend(bytes::Bytes{0x09, 0x04});
+    f.channel.QueueReceive(bytes::Bytes{0x49, 0x02});
 
-    non_fatal_query(f.ctx(), bytes::Bytes{0x09, 0x04}, bytes::Byte(0x04), "Wrong response from ECU: ", "CAL ID");
+    NonFatalQuery(f.Ctx(), bytes::Bytes{0x09, 0x04}, bytes::Byte(0x04), "Wrong response from ECU: ", "CAL ID");
 
-    ASSERT_THAT(f.events.logs, ElementsAre(Pair(LogLevel::Error, "Wrong response from ECU: unexpected subfunction")));
+    ASSERT_THAT(f.events.logs, ElementsAre(Pair(LogLevel::kError, "Wrong response from ECU: unexpected subfunction")));
 }
 
 TEST(FatalQueryTest, ReturnsTheReplyOnAMatchingSingleBytePrefix)
 {
     Fixture f;
-    f.channel.expectSend(bytes::Bytes{0x10, 0x43});
-    f.channel.queueReceive(bytes::Bytes{0x50, 0x43});
+    f.channel.ExpectSend(bytes::Bytes{0x10, 0x43});
+    f.channel.QueueReceive(bytes::Bytes{0x50, 0x43});
 
-    const Result<bytes::Bytes> reply = fatal_query(f.ctx(), bytes::Bytes{0x10, 0x43}, bytes::Bytes{0x43},
-                                                   "Wrong response from ECU: ", "bench diagnostic session");
+    const Result<bytes::Bytes> reply = FatalQuery(f.Ctx(), bytes::Bytes{0x10, 0x43}, bytes::Bytes{0x43},
+                                                  "Wrong response from ECU: ", "bench diagnostic session");
 
     ASSERT_THAT(reply, fastecu::testing::IsOk());
     EXPECT_THAT(*reply, ElementsAre(0x50, 0x43));
@@ -152,12 +152,12 @@ TEST(FatalQueryTest, ReturnsTheReplyOnAMatchingSingleBytePrefix)
 TEST(FatalQueryTest, ReturnsTheReplyOnAMatchingMultiBytePrefix)
 {
     Fixture f;
-    f.channel.expectSend(bytes::Bytes{0x31, 0x02, 0x02, 0x01});
-    f.channel.queueReceive(bytes::Bytes{0x71, 0x02, 0x02, 0x03});
+    f.channel.ExpectSend(bytes::Bytes{0x31, 0x02, 0x02, 0x01});
+    f.channel.QueueReceive(bytes::Bytes{0x71, 0x02, 0x02, 0x03});
 
     const Result<bytes::Bytes> reply =
-        fatal_query(f.ctx(), bytes::Bytes{0x31, 0x02, 0x02, 0x01}, bytes::Bytes{0x02, 0x02, 0x03},
-                    "Wrong response from TCU: ", "kernel alive re-check");
+        FatalQuery(f.Ctx(), bytes::Bytes{0x31, 0x02, 0x02, 0x01}, bytes::Bytes{0x02, 0x02, 0x03},
+                   "Wrong response from TCU: ", "kernel alive re-check");
 
     ASSERT_THAT(reply, fastecu::testing::IsOk());
     EXPECT_THAT(*reply, ElementsAre(0x71, 0x02, 0x02, 0x03));
@@ -167,12 +167,12 @@ TEST(FatalQueryTest, ReturnsTheReplyOnAMatchingMultiBytePrefix)
 TEST(FatalQueryTest, LogsAndReturnsTheSendErrorOnExchangeFailure)
 {
     Fixture f;
-    f.channel.expectSend(bytes::Bytes{0x10, 0x43});
-    f.channel.queueReceive(bytes::Bytes{0x7F, 0x10, 0x31});
+    f.channel.ExpectSend(bytes::Bytes{0x10, 0x43});
+    f.channel.QueueReceive(bytes::Bytes{0x7F, 0x10, 0x31});
 
-    ASSERT_THAT(fatal_query(f.ctx(), bytes::Bytes{0x10, 0x43}, bytes::Bytes{0x43},
-                            "Wrong response from ECU: ", "bench diagnostic session"),
-                fastecu::testing::IsErr(ErrorKind::BadResponse));
+    ASSERT_THAT(FatalQuery(f.Ctx(), bytes::Bytes{0x10, 0x43}, bytes::Bytes{0x43},
+                           "Wrong response from ECU: ", "bench diagnostic session"),
+                fastecu::testing::IsErr(ErrorKind::kBadResponse));
     ASSERT_EQ(f.events.logs.size(), 1U);
     EXPECT_THAT(f.events.logs[0].second, HasSubstr("Wrong response from ECU: "));
 }
@@ -180,37 +180,38 @@ TEST(FatalQueryTest, LogsAndReturnsTheSendErrorOnExchangeFailure)
 TEST(FatalQueryTest, LogsMismatchSummaryAndReturnsMismatchDetailOnAWrongPrefix)
 {
     Fixture f;
-    f.channel.expectSend(bytes::Bytes{0x10, 0x43});
-    f.channel.queueReceive(bytes::Bytes{0x50, 0x42});
+    f.channel.ExpectSend(bytes::Bytes{0x10, 0x43});
+    f.channel.QueueReceive(bytes::Bytes{0x50, 0x42});
 
-    ASSERT_THAT(fatal_query(f.ctx(), bytes::Bytes{0x10, 0x43}, bytes::Bytes{0x43},
-                            "Wrong response from ECU: ", "bench diagnostic session"),
-                fastecu::testing::IsErrWith(ErrorKind::BadResponse, "bench diagnostic session rejected"));
-    ASSERT_THAT(f.events.logs, ElementsAre(Pair(LogLevel::Error, "Wrong response from ECU: unexpected bench diagnostic "
-                                                                 "session response")));
+    ASSERT_THAT(FatalQuery(f.Ctx(), bytes::Bytes{0x10, 0x43}, bytes::Bytes{0x43},
+                           "Wrong response from ECU: ", "bench diagnostic session"),
+                fastecu::testing::IsErrWith(ErrorKind::kBadResponse, "bench diagnostic session rejected"));
+    ASSERT_THAT(f.events.logs,
+                ElementsAre(Pair(LogLevel::kError, "Wrong response from ECU: unexpected bench diagnostic "
+                                                   "session response")));
 }
 
 TEST(FatalQueryTest, TreatsAPayloadShorterThanMinPayloadSizeAsAMismatchEvenWithAMatchingPrefix)
 {
     Fixture f;
-    f.channel.expectSend(bytes::Bytes{0x27, 0x01});
-    f.channel.queueReceive(bytes::Bytes{0x67, 0x05, 0xAB});
+    f.channel.ExpectSend(bytes::Bytes{0x27, 0x01});
+    f.channel.QueueReceive(bytes::Bytes{0x67, 0x05, 0xAB});
 
-    ASSERT_THAT(fatal_query(f.ctx(), bytes::Bytes{0x27, 0x01}, bytes::Bytes{0x05},
-                            "Wrong response from ECU: ", "security access seed request", 5),
-                fastecu::testing::IsErr(ErrorKind::BadResponse));
-    ASSERT_THAT(f.events.logs, ElementsAre(Pair(LogLevel::Error, "Wrong response from ECU: unexpected security "
-                                                                 "access seed request response")));
+    ASSERT_THAT(FatalQuery(f.Ctx(), bytes::Bytes{0x27, 0x01}, bytes::Bytes{0x05},
+                           "Wrong response from ECU: ", "security access seed request", 5),
+                fastecu::testing::IsErr(ErrorKind::kBadResponse));
+    ASSERT_THAT(f.events.logs, ElementsAre(Pair(LogLevel::kError, "Wrong response from ECU: unexpected security "
+                                                                  "access seed request response")));
 }
 
 TEST(FatalQueryTest, AcceptsAPayloadAtLeastMinPayloadSizeWithAMatchingPrefix)
 {
     Fixture f;
-    f.channel.expectSend(bytes::Bytes{0x27, 0x01});
-    f.channel.queueReceive(bytes::Bytes{0x67, 0x05, 0xAB, 0xCD, 0xEF, 0x01});
+    f.channel.ExpectSend(bytes::Bytes{0x27, 0x01});
+    f.channel.QueueReceive(bytes::Bytes{0x67, 0x05, 0xAB, 0xCD, 0xEF, 0x01});
 
-    const Result<bytes::Bytes> reply = fatal_query(f.ctx(), bytes::Bytes{0x27, 0x01}, bytes::Bytes{0x05},
-                                                   "Wrong response from ECU: ", "security access seed request", 5);
+    const Result<bytes::Bytes> reply = FatalQuery(f.Ctx(), bytes::Bytes{0x27, 0x01}, bytes::Bytes{0x05},
+                                                  "Wrong response from ECU: ", "security access seed request", 5);
 
     ASSERT_THAT(reply, fastecu::testing::IsOk());
     EXPECT_THAT(*reply, ElementsAre(0x67, 0x05, 0xAB, 0xCD, 0xEF, 0x01));

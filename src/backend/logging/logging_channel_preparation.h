@@ -6,5 +6,5 @@
 
 namespace fastecu::logging
 {
-fastecu::Result<LoggingChannel> prepare_logging_channel(const LoggerParameter& parameter, LoggingProtocolId protocol);
+fastecu::Result<LoggingChannel> PrepareLoggingChannel(const LoggerParameter& parameter, LoggingProtocolId protocol);
 } // namespace fastecu::logging

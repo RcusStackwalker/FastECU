@@ -1,14 +1,22 @@
 #include "checksum_tcu_mitsu_mh8104_can.h"
+
+#include <utility>
+
 #include "checksum_primitives.h"
 #include "src/algorithms/protocol/bytes.h"
 
-ChecksumResult ChecksumTcuMitsuMH8104Can::calculate_checksum_result(bytes::ByteView romView)
+ChecksumResult ChecksumTcuMitsuMH8104Can::CalculateChecksumResult(const fastecu::memory::MemoryView& rom)
 {
-    // Fixed 512 KiB MH8104 layout; see the MH8104 flash-device model.
-    if (romView.size() != 0x80000)
+    if (auto rejected = fastecu::checksum::internal::RequireStartAtZero(rom); rejected.has_value())
     {
-        return {.status = ChecksumResult::Status::InvalidSize,
-                .romData = bytes::Bytes(romView.begin(), romView.end()),
+        return *std::move(rejected);
+    }
+    const bytes::ByteView rom_view = rom.Data();
+    // Fixed 512 KiB MH8104 layout; see the MH8104 flash-device model.
+    if (rom_view.size() != 0x80000)
+    {
+        return {.status = ChecksumResult::Status::kInvalidSize,
+                .rom_data = bytes::Bytes(rom_view.begin(), rom_view.end()),
                 .message = "ROM size does not match the checksum layout"};
     }
     /****************************
@@ -19,7 +27,7 @@ ChecksumResult ChecksumTcuMitsuMH8104Can::calculate_checksum_result(bytes::ByteV
      *
      *
      * *************************/
-    bytes::Bytes romData(romView.begin(), romView.end());
+    bytes::Bytes rom_data(rom_view.begin(), rom_view.end());
 
     uint32_t checksum_balance_value_address = 0x81fc;
     uint32_t checksum_target = 0x5aa45aab;
@@ -30,7 +38,7 @@ ChecksumResult ChecksumTcuMitsuMH8104Can::calculate_checksum_result(bytes::ByteV
 
     for (int i = 0x8000; i < 0x80000; i += 4)
     {
-        checksum += bytes::readU32Be(romData, static_cast<std::size_t>(i));
+        checksum += bytes::ReadU32Be(rom_data, static_cast<std::size_t>(i));
     }
     checksum -= 0xffff;
     for (int j = 0; j < 5; j++)
@@ -42,18 +50,19 @@ ChecksumResult ChecksumTcuMitsuMH8104Can::calculate_checksum_result(bytes::ByteV
     {
         checksum_ok = false;
 
-        fastecu::checksum::internal::rebalanceU32Be(romData, checksum_balance_value_address, checksum, checksum_target);
+        fastecu::checksum::internal::RebalanceU32Be(rom_data, checksum_balance_value_address, checksum,
+                                                    checksum_target);
     }
     ChecksumResult result;
-    result.romData = romData;
+    result.rom_data = rom_data;
     if (!checksum_ok)
     {
-        result.status = ChecksumResult::Status::Corrected;
+        result.status = ChecksumResult::Status::kCorrected;
         result.message = "Subaru Hitachi M32R K-Line/CAN ECU Checksum";
     }
     else
     {
-        result.status = ChecksumResult::Status::Unchanged;
+        result.status = ChecksumResult::Status::kUnchanged;
     }
     return result;
 }

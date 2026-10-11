@@ -15,88 +15,88 @@ namespace fastecu::service_functions
 namespace
 {
 
-std::optional<ServiceFunctionKind> to_service_kind(DensoTcuReadAction action)
+std::optional<ServiceFunctionKind> toServiceKind(DensoTcuReadAction action)
 {
     switch (action)
     {
-    case DensoTcuReadAction::Relearn:
-        return ServiceFunctionKind::Relearn;
-    case DensoTcuReadAction::ReadParameters:
-        return ServiceFunctionKind::ReadParameters;
-    case DensoTcuReadAction::SetParameters:
-        return ServiceFunctionKind::SetParameters;
-    case DensoTcuReadAction::Dump:
-    case DensoTcuReadAction::Cancelled:
+    case DensoTcuReadAction::kRelearn:
+        return ServiceFunctionKind::kRelearn;
+    case DensoTcuReadAction::kReadParameters:
+        return ServiceFunctionKind::kReadParameters;
+    case DensoTcuReadAction::kSetParameters:
+        return ServiceFunctionKind::kSetParameters;
+    case DensoTcuReadAction::kDump:
+    case DensoTcuReadAction::kCancelled:
         return std::nullopt;
     }
     return std::nullopt;
 }
 
-bool confirm_tcu_ignition(QWidget *parent)
+bool confirmTcuIgnition(QWidget *parent)
 {
-    QMessageBox message_box{QMessageBox::Warning, QObject::tr("Connecting to TCU"),
-                            QObject::tr("Turn ignition ON and press OK to start initializing connection to TCU"),
-                            QMessageBox::Ok | QMessageBox::Cancel, parent};
-    message_box.setDefaultButton(QMessageBox::Ok);
-    return message_box.exec() == QMessageBox::Ok;
+    QMessageBox messageBox{QMessageBox::Warning, QObject::tr("Connecting to TCU"),
+                           QObject::tr("Turn ignition ON and press OK to start initializing connection to TCU"),
+                           QMessageBox::Ok | QMessageBox::Cancel, parent};
+    messageBox.setDefaultButton(QMessageBox::Ok);
+    return messageBox.exec() == QMessageBox::Ok;
 }
 
 } // namespace
 
-DensoTcuReadAction choose_denso_tcu_read_action(QWidget *parent)
+DensoTcuReadAction chooseDensoTcuReadAction(QWidget *parent)
 {
-    QMessageBox message_box{parent};
-    message_box.setText("Choose which option");
-    message_box.setInformativeText("Perform TCU ROM Dump, Relearn, Read Parmeter or Set Parameter?");
-    QPushButton *dump = message_box.addButton("Dump", QMessageBox::YesRole);
-    QPushButton *relearn = message_box.addButton("Relearn", QMessageBox::YesRole);
-    QPushButton *read_parameters = message_box.addButton("Read Param", QMessageBox::YesRole);
-    QPushButton *set_parameters = message_box.addButton("Set Param", QMessageBox::YesRole);
+    QMessageBox messageBox{parent};
+    messageBox.setText("Choose which option");
+    messageBox.setInformativeText("Perform TCU ROM Dump, Relearn, Read Parmeter or Set Parameter?");
+    QPushButton *dump = messageBox.addButton("Dump", QMessageBox::YesRole);
+    QPushButton *relearn = messageBox.addButton("Relearn", QMessageBox::YesRole);
+    QPushButton *readParameters = messageBox.addButton("Read Param", QMessageBox::YesRole);
+    QPushButton *setParameters = messageBox.addButton("Set Param", QMessageBox::YesRole);
 
-    message_box.exec();
+    messageBox.exec();
 
-    const QAbstractButton *selected = message_box.clickedButton();
+    const QAbstractButton *selected = messageBox.clickedButton();
     if (selected == dump)
     {
-        return DensoTcuReadAction::Dump;
+        return DensoTcuReadAction::kDump;
     }
     if (selected == relearn)
     {
-        return DensoTcuReadAction::Relearn;
+        return DensoTcuReadAction::kRelearn;
     }
-    if (selected == read_parameters)
+    if (selected == readParameters)
     {
-        return DensoTcuReadAction::ReadParameters;
+        return DensoTcuReadAction::kReadParameters;
     }
-    if (selected == set_parameters)
+    if (selected == setParameters)
     {
-        return DensoTcuReadAction::SetParameters;
+        return DensoTcuReadAction::kSetParameters;
     }
-    return DensoTcuReadAction::Cancelled;
+    return DensoTcuReadAction::kCancelled;
 }
 
-bool run_denso_tcu_service_action(DensoTcuReadAction action, SerialPortActions *serial, std::string protocol,
-                                  QWidget *parent)
+bool runDensoTcuServiceAction(DensoTcuReadAction action, SerialPortActions *serial, std::string protocol,
+                              QWidget *parent)
 {
-    if (action == DensoTcuReadAction::Dump)
+    if (action == DensoTcuReadAction::kDump)
     {
         return false;
     }
-    if (action == DensoTcuReadAction::Cancelled)
+    if (action == DensoTcuReadAction::kCancelled)
     {
         return true;
     }
-    if (!confirm_tcu_ignition(parent))
+    if (!confirmTcuIgnition(parent))
     {
         return true;
     }
 
-    const std::optional<ServiceFunctionKind> service_kind = to_service_kind(action);
-    if (!service_kind.has_value())
+    const std::optional<ServiceFunctionKind> serviceKind = toServiceKind(action);
+    if (!serviceKind.has_value())
     {
         return true;
     }
-    ServiceFunctionDialog dialog{serial, std::move(protocol), *service_kind, parent};
+    ServiceFunctionDialog dialog{serial, std::move(protocol), *serviceKind, parent};
     dialog.exec();
     return true;
 }

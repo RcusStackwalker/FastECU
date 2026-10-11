@@ -29,9 +29,9 @@ namespace fastecu::flash
 {
 namespace
 {
-using bytes::composeBe;
-using bytes::composeBeWithChecksum;
-using bytes::u24;
+using bytes::ComposeBe;
+using bytes::ComposeBeWithChecksum;
+using bytes::U24;
 using namespace bytes::literals;
 
 // eeprom_ecu_subaru_denso_sh705x_kline_operation.cpp:62-63 -- tester_id =
@@ -47,47 +47,47 @@ constexpr std::uint32_t kKernelStartAddr = 0xFFFF6004;
 // ---- Request builders: TRANSCRIBE of each send_sid_* body (see
 // task-6-report.md's table for exact legacy line ranges). ----
 
-bytes::Bytes sidBfSsmInitRequest()
+bytes::Bytes SidBfSsmInitRequest()
 {
-    return SsmProtocol::addHeader(bytes::Bytes{0xbf}, kTesterId, kTargetId);
+    return ssm_protocol::AddHeader(bytes::Bytes{0xbf}, kTesterId, kTargetId);
 }
-bytes::Bytes sid81StartCommRequest()
+bytes::Bytes Sid81StartCommRequest()
 {
-    return SsmProtocol::addHeader(bytes::Bytes{0x81}, kTesterId, kTargetId);
+    return ssm_protocol::AddHeader(bytes::Bytes{0x81}, kTesterId, kTargetId);
 }
-bytes::Bytes sid83TimingsRequest()
+bytes::Bytes Sid83TimingsRequest()
 {
-    return SsmProtocol::addHeader(bytes::Bytes{0x83, 0x00}, kTesterId, kTargetId);
+    return ssm_protocol::AddHeader(bytes::Bytes{0x83, 0x00}, kTesterId, kTargetId);
 }
-bytes::Bytes sid27RequestSeedRequest()
+bytes::Bytes Sid27RequestSeedRequest()
 {
-    return SsmProtocol::addHeader(bytes::Bytes{0x27, 0x01}, kTesterId, kTargetId);
+    return ssm_protocol::AddHeader(bytes::Bytes{0x27, 0x01}, kTesterId, kTargetId);
 }
-bytes::Bytes sid27SendKeyRequest(bytes::ByteView key)
+bytes::Bytes Sid27SendKeyRequest(bytes::ByteView key)
 {
-    return SsmProtocol::addHeader(composeBe(0x27_b, 0x02_b, key), kTesterId, kTargetId);
+    return ssm_protocol::AddHeader(ComposeBe(0x27_b, 0x02_b, key), kTesterId, kTargetId);
 }
-bytes::Bytes sid10StartDiagRequest()
+bytes::Bytes Sid10StartDiagRequest()
 {
-    return SsmProtocol::addHeader(bytes::Bytes{0x10, 0x85, 0x02}, kTesterId, kTargetId);
+    return ssm_protocol::AddHeader(bytes::Bytes{0x10, 0x85, 0x02}, kTesterId, kTargetId);
 }
-bytes::Bytes sid34RequestUploadRequest(std::uint32_t dataaddr, std::uint32_t datalen)
+bytes::Bytes Sid34RequestUploadRequest(std::uint32_t dataaddr, std::uint32_t datalen)
 {
-    return SsmProtocol::addHeader(composeBe(0x34_b, u24(dataaddr), 0x04_b, u24(datalen)), kTesterId, kTargetId);
+    return ssm_protocol::AddHeader(ComposeBe(0x34_b, U24(dataaddr), 0x04_b, U24(datalen)), kTesterId, kTargetId);
 }
-bytes::Bytes sid36TransferDataRequest(std::uint32_t blockaddr, bytes::ByteView blockBytes)
+bytes::Bytes Sid36TransferDataRequest(std::uint32_t blockaddr, bytes::ByteView block_bytes)
 {
-    return SsmProtocol::addHeader(composeBe(0x36_b, u24(blockaddr), blockBytes), kTesterId, kTargetId);
+    return ssm_protocol::AddHeader(ComposeBe(0x36_b, U24(blockaddr), block_bytes), kTesterId, kTargetId);
 }
-bytes::Bytes sid31StartRoutineRequest()
+bytes::Bytes Sid31StartRoutineRequest()
 {
-    return SsmProtocol::addHeader(bytes::Bytes{0x31, 0x01, 0x01}, kTesterId, kTargetId);
+    return ssm_protocol::AddHeader(bytes::Bytes{0x31, 0x01, 0x01}, kTesterId, kTargetId);
 }
 
 // request_kernel_id(), lines 964-994: NOT addHeader-framed.
-bytes::Bytes requestKernelIdRequest()
+bytes::Bytes RequestKernelIdRequest()
 {
-    return composeBeWithChecksum(bytes::sum8, std::uint16_t{0xBEEF}, std::uint16_t{1}, 0x01_b);
+    return ComposeBeWithChecksum(bytes::Sum8, std::uint16_t{0xBEEF}, std::uint16_t{1}, 0x01_b);
 }
 
 // Anchors three helpers against hardcoded wire bytes -- each became the same
@@ -99,7 +99,7 @@ bytes::Bytes requestKernelIdRequest()
 //   0xBE + 0xEF + 0x00 + 0x01 + 0x01 = 0x1AF -> & 0xFF = 0xAF.
 TEST(DensoSh705xEepromKlineExecutorTest, RequestKernelIdRequestMatchesHardcodedWireBytes)
 {
-    EXPECT_THAT(requestKernelIdRequest(), ElementsAre(0xBE, 0xEF, 0x00, 0x01, 0x01, 0xAF));
+    EXPECT_THAT(RequestKernelIdRequest(), ElementsAre(0xBE, 0xEF, 0x00, 0x01, 0x01, 0xAF));
 }
 
 // sid34RequestUploadRequest(0x001000, 0x000010): SsmProtocol::addHeader wraps
@@ -112,7 +112,7 @@ TEST(DensoSh705xEepromKlineExecutorTest, RequestKernelIdRequestMatchesHardcodedW
 //   = 0x1E0 -> & 0xFF = 0xE0.
 TEST(DensoSh705xEepromKlineExecutorTest, Sid34RequestUploadRequestMatchesHardcodedWireBytes)
 {
-    EXPECT_THAT(sid34RequestUploadRequest(0x001000, 0x000010),
+    EXPECT_THAT(Sid34RequestUploadRequest(0x001000, 0x000010),
                 ElementsAre(0x80, 0x10, 0xF0, 0x08, 0x34, 0x00, 0x10, 0x00, 0x04, 0x00, 0x00, 0x10, 0xE0));
 }
 
@@ -121,12 +121,12 @@ TEST(DensoSh705xEepromKlineExecutorTest, Sid34RequestUploadRequestMatchesHardcod
 // Checksum (sum8): 0x80+0x10+0xF0+0x04+0x27+0x02+0x11+0x22 = 0x1E0 -> & 0xFF = 0xE0.
 TEST(DensoSh705xEepromKlineExecutorTest, Sid27SendKeyRequestMatchesHardcodedWireBytes)
 {
-    EXPECT_THAT(sid27SendKeyRequest(bytes::Bytes{0x11, 0x22}),
+    EXPECT_THAT(Sid27SendKeyRequest(bytes::Bytes{0x11, 0x22}),
                 ElementsAre(0x80, 0x10, 0xF0, 0x04, 0x27, 0x02, 0x11, 0x22, 0xE0));
 }
 
 // generate_seed_key(), lines 854-879 (stock / non-"_ecutek" table pair).
-bytes::Bytes generateSeedKey(bytes::ByteView seed)
+bytes::Bytes GenerateSeedKey(bytes::ByteView seed)
 {
     static constexpr auto kIndex =
         std::to_array<std::uint16_t>({0x53DA, 0x33BC, 0x72EB, 0x437D, 0x7CA3, 0x3382, 0x834F, 0x3608, 0xAFB8, 0x503D,
@@ -134,14 +134,14 @@ bytes::Bytes generateSeedKey(bytes::ByteView seed)
     static constexpr auto kTransform =
         std::to_array<std::uint8_t>({0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8, 0xA, 0xD, 0x2, 0xB, 0xF, 0x4, 0x0, 0x3,
                                      0xB, 0x4, 0x6, 0x0, 0xF, 0x2, 0xD, 0x9, 0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8});
-    return SsmProtocol::calculateSeedKey(seed, kIndex, kTransform);
+    return ssm_protocol::CalculateSeedKey(seed, kIndex, kTransform);
 }
 
 // generate_ecutek_seed_key(), lines 886-911: the same key table as stock,
 // paired with the ECUTEK index transformation, which differs from the stock
 // one in exactly its first five entries. Transcribed independently of
 // production, so binding the wrong one of the two fails here.
-bytes::Bytes generateEcutekSeedKey(bytes::ByteView seed)
+bytes::Bytes GenerateEcutekSeedKey(bytes::ByteView seed)
 {
     static constexpr auto kIndex =
         std::to_array<std::uint16_t>({0x53DA, 0x33BC, 0x72EB, 0x437D, 0x7CA3, 0x3382, 0x834F, 0x3608, 0xAFB8, 0x503D,
@@ -149,17 +149,17 @@ bytes::Bytes generateEcutekSeedKey(bytes::ByteView seed)
     static constexpr auto kTransform =
         std::to_array<std::uint8_t>({0x4, 0x2, 0x5, 0x1, 0x8, 0xC, 0xD, 0x8, 0xA, 0xD, 0x2, 0xB, 0xF, 0x4, 0x0, 0x3,
                                      0xB, 0x4, 0x6, 0x0, 0xF, 0x2, 0xD, 0x9, 0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8});
-    return SsmProtocol::calculateSeedKey(seed, kIndex, kTransform);
+    return ssm_protocol::CalculateSeedKey(seed, kIndex, kTransform);
 }
 
 // encrypt_payload(), lines 923-939.
-bytes::Bytes encryptPayload(bytes::ByteView buf, std::uint32_t len)
+bytes::Bytes EncryptPayload(bytes::ByteView buf, std::uint32_t len)
 {
     static constexpr auto kIndex = std::to_array<std::uint16_t>({0x7856, 0xCE22, 0xF513, 0x6E86});
     static constexpr auto kTransform =
         std::to_array<std::uint8_t>({0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8, 0xA, 0xD, 0x2, 0xB, 0xF, 0x4, 0x0, 0x3,
                                      0xB, 0x4, 0x6, 0x0, 0xF, 0x2, 0xD, 0x9, 0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8});
-    return SsmProtocol::calculatePayload(buf, len, kIndex, kTransform);
+    return ssm_protocol::CalculatePayload(buf, len, kIndex, kTransform);
 }
 
 // For McuType "SH7055", kEepromBlocksSH7055[0] == {start=0, len=0x100}
@@ -167,15 +167,15 @@ bytes::Bytes encryptPayload(bytes::ByteView buf, std::uint32_t len)
 // skip_start/willget/numblocks/curblock arithmetic (lines 469-510) reduces,
 // for this start/length, to a single request with numblocks=8, curblock=0,
 // for every EEPROM_MODE value.
-bytes::Bytes sidDumpRequestForSh7055(std::uint8_t eepromMode)
+bytes::Bytes SidDumpRequestForSh7055(std::uint8_t eeprom_mode)
 {
-    return {0xbd, eepromMode, 0x00, 0x08, 0x00, 0x00};
+    return {0xbd, eeprom_mode, 0x00, 0x08, 0x00, 0x00};
 }
 
 // read_mem()'s per-block unframing (lines 545-550): each 35-byte wire block
 // is [2 prefix][32 data][1 trailing]; prefix/trailing are stripped and never
 // inspected. 8 blocks * 35 bytes = 280 bytes.
-bytes::Bytes eepromPayload280Bytes()
+bytes::Bytes EepromPayload280Bytes()
 {
     bytes::Bytes out;
     for (int block = 0; block < 8; ++block)
@@ -191,7 +191,7 @@ bytes::Bytes eepromPayload280Bytes()
     return out; // 280 bytes
 }
 
-bytes::Bytes expectedDecodedEeprom256Bytes()
+bytes::Bytes ExpectedDecodedEeprom256Bytes()
 {
     bytes::Bytes out;
     for (int i = 0; i < 256; ++i)
@@ -204,10 +204,10 @@ bytes::Bytes expectedDecodedEeprom256Bytes()
 // Minimal positive-response fixture: only byte index 4 (the service/session
 // code) is inspected for these SIDs, so a 5-byte frame with that one byte
 // set is sufficient and unambiguous with the "no frame"/too-short checks.
-bytes::Bytes positiveResponse(std::uint8_t serviceCode)
+bytes::Bytes PositiveResponse(std::uint8_t service_code)
 {
     bytes::Bytes out(5, 0);
-    out[4] = serviceCode;
+    out[4] = service_code;
     return out;
 }
 
@@ -215,7 +215,7 @@ bytes::Bytes positiveResponse(std::uint8_t serviceCode)
 // == 0xFF; content beyond that is logged, never asserted, so 13 bytes of
 // arbitrary filler (>= the 13 needed to avoid a negative-length strip in the
 // legacy Qt code) is sufficient here too.
-bytes::Bytes sidBfSsmInitResponse()
+bytes::Bytes SidBfSsmInitResponse()
 {
     bytes::Bytes out(13, 0);
     out[4] = 0xFF;
@@ -228,7 +228,7 @@ bytes::Bytes sidBfSsmInitResponse()
 }
 
 // send_sid_27_request_seed()'s response: byte[4] == 0x67, seed at [6..9].
-bytes::Bytes sid27SeedResponse(bytes::ByteView seed)
+bytes::Bytes Sid27SeedResponse(bytes::ByteView seed)
 {
     bytes::Bytes out(10, 0);
     out[4] = 0x67;
@@ -241,9 +241,9 @@ bytes::Bytes sid27SeedResponse(bytes::ByteView seed)
 
 // request_kernel_id()'s "kernel is alive" response: received[0..1] ==
 // 0xBEEF, received[4] == 0x01 | 0x40 == 0x41.
-bytes::Bytes kernelAliveResponse()
+bytes::Bytes KernelAliveResponse()
 {
-    return composeBe(std::uint16_t{0xBEEF}, 0x00_b, 0x06_b, 0x41_b,
+    return ComposeBe(std::uint16_t{0xBEEF}, 0x00_b, 0x06_b, 0x41_b,
                      std::string_view("KERN2")); // 10 bytes
 }
 
@@ -251,7 +251,7 @@ bytes::Bytes kernelAliveResponse()
 // send_sid_36_transferdata()'s single-block path exactly, and (per
 // task-6-report.md's "Legacy behavior surprises" #1) is already aligned so
 // this executor's OOB-read-avoidance padding is a documented no-op here.
-bytes::Bytes kernelFixtureBytes()
+bytes::Bytes KernelFixtureBytes()
 {
     bytes::Bytes out;
     for (int i = 0; i < 16; ++i)
@@ -265,34 +265,34 @@ bytes::Bytes kernelFixtureBytes()
 // running" round: connect_bootloader()'s non-alive probe + full bf/81/83/
 // 27/27/10 init, then upload_kernel()'s 34/36/34/36/31 sequence and its
 // kernel-alive re-poll. 13 writes total.
-void enqueueFullBootloaderAndKernelUpload(ScriptedKlineFlashTransport& transport, bytes::ByteView seed,
-                                          bytes::ByteView kernelBytes, std::uint32_t kernelStartAddr)
+void EnqueueFullBootloaderAndKernelUpload(ScriptedKlineFlashTransport& transport, bytes::ByteView seed,
+                                          bytes::ByteView kernel_bytes, std::uint32_t kernel_start_addr)
 {
-    transport.expectWrite(requestKernelIdRequest());
-    transport.queue_no_frame(); // kernel not (yet) alive
+    transport.ExpectWrite(RequestKernelIdRequest());
+    transport.QueueNoFrame(); // kernel not (yet) alive
 
-    transport.expectWrite(sidBfSsmInitRequest());
-    transport.queueRead(sidBfSsmInitResponse());
+    transport.ExpectWrite(SidBfSsmInitRequest());
+    transport.QueueRead(SidBfSsmInitResponse());
 
-    transport.expectWrite(sid81StartCommRequest());
-    transport.queueRead(positiveResponse(0xC1));
+    transport.ExpectWrite(Sid81StartCommRequest());
+    transport.QueueRead(PositiveResponse(0xC1));
 
-    transport.expectWrite(sid83TimingsRequest());
-    transport.queueRead(positiveResponse(0xC3));
+    transport.ExpectWrite(Sid83TimingsRequest());
+    transport.QueueRead(PositiveResponse(0xC3));
 
-    transport.expectWrite(sid27RequestSeedRequest());
-    transport.queueRead(sid27SeedResponse(seed));
+    transport.ExpectWrite(Sid27RequestSeedRequest());
+    transport.QueueRead(Sid27SeedResponse(seed));
 
-    const bytes::Bytes seedKey = generateSeedKey(seed);
-    transport.expectWrite(sid27SendKeyRequest(seedKey));
-    transport.queueRead(positiveResponse(0x67));
+    const bytes::Bytes seed_key = GenerateSeedKey(seed);
+    transport.ExpectWrite(Sid27SendKeyRequest(seed_key));
+    transport.QueueRead(PositiveResponse(0x67));
 
-    transport.expectWrite(sid10StartDiagRequest());
-    transport.queueRead(positiveResponse(0x50));
+    transport.ExpectWrite(Sid10StartDiagRequest());
+    transport.QueueRead(PositiveResponse(0x50));
 
-    const std::uint32_t plLen = (static_cast<std::uint32_t>(kernelBytes.size()) + 3) & ~std::uint32_t(3);
-    transport.expectWrite(sid34RequestUploadRequest(kernelStartAddr, plLen));
-    transport.queueRead(positiveResponse(0x74));
+    const std::uint32_t pl_len = (static_cast<std::uint32_t>(kernel_bytes.size()) + 3) & ~std::uint32_t(3);
+    transport.ExpectWrite(Sid34RequestUploadRequest(kernel_start_addr, pl_len));
+    transport.QueueRead(PositiveResponse(0x74));
 
     // Pad to plLen with zero bytes before encrypting -- this is the
     // executor's OOB-read fix (denso_sh705x_eeprom_kline_executor.cpp,
@@ -300,55 +300,55 @@ void enqueueFullBootloaderAndKernelUpload(ScriptedKlineFlashTransport& transport
     // kernelBytes (kernelFixtureBytes(), used by most tests here) this is a
     // no-op; NonAlignedKernelIsPaddedBeforeEncryptionAvoidsOobRead below
     // exercises the case where padding actually changes the wire bytes.
-    bytes::Bytes paddedKernel(kernelBytes.begin(), kernelBytes.end());
-    paddedKernel.resize(plLen, 0);
-    transport.expectWrite(sid36TransferDataRequest(kernelStartAddr, encryptPayload(paddedKernel, plLen)));
-    transport.queueRead(positiveResponse(0x76));
+    bytes::Bytes padded_kernel(kernel_bytes.begin(), kernel_bytes.end());
+    padded_kernel.resize(pl_len, 0);
+    transport.ExpectWrite(Sid36TransferDataRequest(kernel_start_addr, EncryptPayload(padded_kernel, pl_len)));
+    transport.QueueRead(PositiveResponse(0x76));
 
-    const bytes::Bytes cksBypass{0x00, 0x00, 0x5A, 0xA5};
-    transport.expectWrite(sid34RequestUploadRequest(kernelStartAddr + plLen, 4));
-    transport.queueRead(positiveResponse(0x74));
+    const bytes::Bytes cks_bypass{0x00, 0x00, 0x5A, 0xA5};
+    transport.ExpectWrite(Sid34RequestUploadRequest(kernel_start_addr + pl_len, 4));
+    transport.QueueRead(PositiveResponse(0x74));
 
-    transport.expectWrite(sid36TransferDataRequest(kernelStartAddr + plLen, encryptPayload(cksBypass, 4)));
-    transport.queueRead(positiveResponse(0x76));
+    transport.ExpectWrite(Sid36TransferDataRequest(kernel_start_addr + pl_len, EncryptPayload(cks_bypass, 4)));
+    transport.QueueRead(PositiveResponse(0x76));
 
-    transport.expectWrite(sid31StartRoutineRequest());
-    transport.queueRead(positiveResponse(0x71));
+    transport.ExpectWrite(Sid31StartRoutineRequest());
+    transport.QueueRead(PositiveResponse(0x71));
 
-    transport.expectWrite(requestKernelIdRequest());
-    transport.queueRead(kernelAliveResponse());
+    transport.ExpectWrite(RequestKernelIdRequest());
+    transport.QueueRead(KernelAliveResponse());
 }
 
-Result<FlashPlan> makeKlinePlan(EepromReadMode mode, bytes::Bytes kernelBytes, std::uint32_t kernelAddr,
-                                DensoSecurityVariant security = DensoSecurityVariant::Stock)
+Result<FlashPlan> MakeKlinePlan(EepromReadMode mode, bytes::Bytes kernel_bytes, std::uint32_t kernel_addr,
+                                DensoSecurityVariant security = DensoSecurityVariant::kStock)
 {
-    return build_denso_sh705x_eeprom_plan(DensoSh705xEepromInput{
-        .operation = FlashOperation::Read,
-        .family = FlashFamily::DensoSh705xEepromKline,
+    return BuildDensoSh705xEepromPlan(DensoSh705xEepromInput{
+        .operation = FlashOperation::kRead,
+        .family = FlashFamily::kDensoSh705xEepromKline,
         .target_id = "sub_ecu_eeprom_denso_sh7055_kline",
         .mcu_name = "SH7055",
         .flash_method = "sub_ecu_eeprom_denso_sh7055_kline",
-        .kernel = KernelImage{.id = "k", .load_address = kernelAddr, .bytes = std::move(kernelBytes)},
+        .kernel = KernelImage{.id = "k", .load_address = kernel_addr, .bytes = std::move(kernel_bytes)},
         .mode = mode,
         .security = security,
         .eeprom_region = MemoryRegion{.start = 0, .length = 0x100},
     });
 }
 
-Result<FlashPlan> valid_kline_plan(EepromReadMode mode = EepromReadMode::Mode2)
+Result<FlashPlan> ValidKlinePlan(EepromReadMode mode = EepromReadMode::kMode2)
 {
-    return makeKlinePlan(mode, kernelFixtureBytes(), kKernelStartAddr);
+    return MakeKlinePlan(mode, KernelFixtureBytes(), kKernelStartAddr);
 }
 
 } // namespace
 
 TEST(DensoSh705xEepromKlineExecutorTest, TransportSetupReturnsPlansWireParameters)
 {
-    auto plan = valid_kline_plan(EepromReadMode::Mode2);
+    auto plan = ValidKlinePlan(EepromReadMode::kMode2);
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
     DensoSh705xEepromKlineExecutor executor;
-    const auto setup = executor.transport_setup(*plan);
+    const auto setup = executor.TransportSetup(*plan);
 
     ASSERT_THAT(setup, fastecu::testing::IsOk());
     EXPECT_EQ(setup->baud, 4800);
@@ -359,77 +359,77 @@ TEST(DensoSh705xEepromKlineExecutorTest, TransportSetupReturnsPlansWireParameter
 
 TEST(DensoSh705xEepromKlineExecutorTest, WrongFamilyPlanIsRejectedWithNoTransportCalls)
 {
-    auto plan = build_denso_sh705x_eeprom_plan(DensoSh705xEepromInput{
-        .operation = FlashOperation::Read,
-        .family = FlashFamily::DensoSh705xEepromCan,
+    auto plan = BuildDensoSh705xEepromPlan(DensoSh705xEepromInput{
+        .operation = FlashOperation::kRead,
+        .family = FlashFamily::kDensoSh705xEepromCan,
         .target_id = "sub_ecu_eeprom_denso_sh7058_can",
         .mcu_name = "SH7058",
         .flash_method = "sub_ecu_eeprom_denso_sh7058_can",
         .kernel = KernelImage{.id = "k", .load_address = 0xFFFF3000, .bytes = {0x01, 0x02, 0x03, 0x04}},
-        .mode = EepromReadMode::Mode2,
-        .security = DensoSecurityVariant::Stock,
+        .mode = EepromReadMode::kMode2,
+        .security = DensoSecurityVariant::kStock,
         .eeprom_region = MemoryRegion{.start = 0, .length = 0x100},
     });
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
     DensoSh705xEepromKlineExecutor executor;
-    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::kOpen};
     FakeClock clock;
     FakeCancellationToken cancellation;
     RecordingEventSink events;
 
-    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
-                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
-    EXPECT_TRUE(transport.scriptConsumed()); // nothing was ever queued or consumed
+    ASSERT_THAT(executor.Execute(*plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
+    EXPECT_TRUE(transport.ScriptConsumed()); // nothing was ever queued or consumed
 }
 
 TEST(DensoSh705xEepromKlineExecutorTest, FullBootloaderStockSecurityMode2MatchesLegacyTrace)
 {
-    auto plan = valid_kline_plan(EepromReadMode::Mode2);
+    auto plan = ValidKlinePlan(EepromReadMode::kMode2);
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
-    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::kOpen};
     const bytes::Bytes seed{0x11, 0x22, 0x33, 0x44};
-    enqueueFullBootloaderAndKernelUpload(transport, seed, kernelFixtureBytes(), kKernelStartAddr);
-    transport.expectWrite(sidDumpRequestForSh7055(2));
-    transport.queueRead(eepromPayload280Bytes());
+    EnqueueFullBootloaderAndKernelUpload(transport, seed, KernelFixtureBytes(), kKernelStartAddr);
+    transport.ExpectWrite(SidDumpRequestForSh7055(2));
+    transport.QueueRead(EepromPayload280Bytes());
 
     DensoSh705xEepromKlineExecutor executor;
     FakeClock clock;
     FakeCancellationToken cancellation;
     RecordingEventSink events;
 
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
+    auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
-    EXPECT_EQ(result->operation, FlashOperation::Read);
+    EXPECT_EQ(result->operation, FlashOperation::kRead);
     ASSERT_TRUE(result->read_bytes.has_value());
-    EXPECT_EQ(*result->read_bytes, expectedDecodedEeprom256Bytes());
-    EXPECT_TRUE(transport.scriptConsumed());
+    EXPECT_EQ(*result->read_bytes, ExpectedDecodedEeprom256Bytes());
+    EXPECT_TRUE(transport.ScriptConsumed());
 }
 
 TEST(DensoSh705xEepromKlineExecutorTest, KernelAlreadyRunningSkipsBootloaderMatchesLegacyTrace)
 {
-    auto plan = valid_kline_plan(EepromReadMode::Mode2);
+    auto plan = ValidKlinePlan(EepromReadMode::kMode2);
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
-    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
-    transport.expectWrite(requestKernelIdRequest());
-    transport.queueRead(kernelAliveResponse());
-    transport.expectWrite(sidDumpRequestForSh7055(2));
-    transport.queueRead(eepromPayload280Bytes());
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::kOpen};
+    transport.ExpectWrite(RequestKernelIdRequest());
+    transport.QueueRead(KernelAliveResponse());
+    transport.ExpectWrite(SidDumpRequestForSh7055(2));
+    transport.QueueRead(EepromPayload280Bytes());
 
     DensoSh705xEepromKlineExecutor executor;
     FakeClock clock;
     FakeCancellationToken cancellation;
     RecordingEventSink events;
 
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
+    auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_TRUE(result->read_bytes.has_value());
-    EXPECT_EQ(*result->read_bytes, expectedDecodedEeprom256Bytes());
-    EXPECT_TRUE(transport.scriptConsumed());
+    EXPECT_EQ(*result->read_bytes, ExpectedDecodedEeprom256Bytes());
+    EXPECT_TRUE(transport.ScriptConsumed());
 }
 
 // Proves the intentional OOB-read fix (see denso_sh705x_eeprom_kline_
@@ -448,80 +448,80 @@ TEST(DensoSh705xEepromKlineExecutorTest, NonAlignedKernelIsPaddedBeforeEncryptio
     {
         kernel15.push_back(static_cast<bytes::Byte>(i));
     }
-    auto plan = makeKlinePlan(EepromReadMode::Mode2, kernel15, kKernelStartAddr);
+    auto plan = MakeKlinePlan(EepromReadMode::kMode2, kernel15, kKernelStartAddr);
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
-    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::kOpen};
     const bytes::Bytes seed{0x11, 0x22, 0x33, 0x44};
-    enqueueFullBootloaderAndKernelUpload(transport, seed, kernel15, kKernelStartAddr);
-    transport.expectWrite(sidDumpRequestForSh7055(2));
-    transport.queueRead(eepromPayload280Bytes());
+    EnqueueFullBootloaderAndKernelUpload(transport, seed, kernel15, kKernelStartAddr);
+    transport.ExpectWrite(SidDumpRequestForSh7055(2));
+    transport.QueueRead(EepromPayload280Bytes());
 
     DensoSh705xEepromKlineExecutor executor;
     FakeClock clock;
     FakeCancellationToken cancellation;
     RecordingEventSink events;
 
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
+    auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_TRUE(result->read_bytes.has_value());
-    EXPECT_EQ(*result->read_bytes, expectedDecodedEeprom256Bytes());
-    EXPECT_TRUE(transport.scriptConsumed());
+    EXPECT_EQ(*result->read_bytes, ExpectedDecodedEeprom256Bytes());
+    EXPECT_TRUE(transport.ScriptConsumed());
 }
 
 TEST(DensoSh705xEepromKlineExecutorTest, NoResponseAtHandshakeReturnsTimeout)
 {
-    auto plan = valid_kline_plan(EepromReadMode::Mode2);
+    auto plan = ValidKlinePlan(EepromReadMode::kMode2);
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
-    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
-    transport.expectWrite(requestKernelIdRequest());
-    transport.queue_no_frame(); // kernel not (yet) alive
-    transport.expectWrite(sidBfSsmInitRequest());
-    transport.queue_no_frame(); // no response at all -> Timeout
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::kOpen};
+    transport.ExpectWrite(RequestKernelIdRequest());
+    transport.QueueNoFrame(); // kernel not (yet) alive
+    transport.ExpectWrite(SidBfSsmInitRequest());
+    transport.QueueNoFrame(); // no response at all -> Timeout
 
     DensoSh705xEepromKlineExecutor executor;
     FakeClock clock;
     FakeCancellationToken cancellation;
     RecordingEventSink events;
 
-    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
-                fastecu::testing::IsErr(ErrorKind::Timeout));
+    ASSERT_THAT(executor.Execute(*plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::kTimeout));
 }
 
 TEST(DensoSh705xEepromKlineExecutorTest, MalformedSid81ResponseReturnsBadResponse)
 {
-    auto plan = valid_kline_plan(EepromReadMode::Mode2);
+    auto plan = ValidKlinePlan(EepromReadMode::kMode2);
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
-    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
-    transport.expectWrite(requestKernelIdRequest());
-    transport.queue_no_frame();
-    transport.expectWrite(sidBfSsmInitRequest());
-    transport.queueRead(sidBfSsmInitResponse());
-    transport.expectWrite(sid81StartCommRequest());
-    transport.queueRead(positiveResponse(0x00)); // byte[4] != 0xC1
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::kOpen};
+    transport.ExpectWrite(RequestKernelIdRequest());
+    transport.QueueNoFrame();
+    transport.ExpectWrite(SidBfSsmInitRequest());
+    transport.QueueRead(SidBfSsmInitResponse());
+    transport.ExpectWrite(Sid81StartCommRequest());
+    transport.QueueRead(PositiveResponse(0x00)); // byte[4] != 0xC1
 
     DensoSh705xEepromKlineExecutor executor;
     FakeClock clock;
     FakeCancellationToken cancellation;
     RecordingEventSink events;
 
-    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
-                fastecu::testing::IsErr(ErrorKind::BadResponse));
+    ASSERT_THAT(executor.Execute(*plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::kBadResponse));
 }
 
 TEST(DensoSh705xEepromKlineExecutorTest, CancellationDuringKernelUploadReturnsCancelled)
 {
-    auto plan = valid_kline_plan(EepromReadMode::Mode2);
+    auto plan = ValidKlinePlan(EepromReadMode::kMode2);
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
-    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::kOpen};
     const bytes::Bytes seed{0x11, 0x22, 0x33, 0x44};
-    enqueueFullBootloaderAndKernelUpload(transport, seed, kernelFixtureBytes(), kKernelStartAddr);
-    transport.expectWrite(sidDumpRequestForSh7055(2));
-    transport.queueRead(eepromPayload280Bytes());
+    EnqueueFullBootloaderAndKernelUpload(transport, seed, KernelFixtureBytes(), kKernelStartAddr);
+    transport.ExpectWrite(SidDumpRequestForSh7055(2));
+    transport.QueueRead(EepromPayload280Bytes());
 
     DensoSh705xEepromKlineExecutor executor;
     FakeClock clock;
@@ -535,16 +535,16 @@ TEST(DensoSh705xEepromKlineExecutorTest, CancellationDuringKernelUploadReturnsCa
     // cancellation.cancelled() call count, including the ones
     // FakeClock::sleep() performs internally.
     FakeCancellationToken cancellation;
-    cancellation.cancel_on_check(38);
+    cancellation.CancelOnCheck(38);
     RecordingEventSink events;
 
-    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
-                fastecu::testing::IsErr(ErrorKind::Cancelled));
+    ASSERT_THAT(executor.Execute(*plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::kCancelled));
     // Concretely proves "between chunks": connect_bootloader's 7 writes
     // (probe + bf/81/83/27req/27key/10) plus upload_kernel's kernel-upload
     // request (sid_34) happened -- 8 total -- but the kernel-data chunk
     // (sid_36) was never written.
-    EXPECT_EQ(transport.writesConsumed(), 8U);
+    EXPECT_EQ(transport.WritesConsumed(), 8U);
 }
 
 // Transport-seam regression test for the ISO14230 auto-header bug found in
@@ -560,31 +560,31 @@ TEST(DensoSh705xEepromKlineExecutorTest, CancellationDuringKernelUploadReturnsCa
 // is used correctly.
 TEST(DensoSh705xEepromKlineExecutorTest, HeaderModeIsOffForBootloaderOnForReadThenResetToOff)
 {
-    auto plan = valid_kline_plan(EepromReadMode::Mode2);
+    auto plan = ValidKlinePlan(EepromReadMode::kMode2);
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
-    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::kOpen};
     const bytes::Bytes seed{0x11, 0x22, 0x33, 0x44};
-    enqueueFullBootloaderAndKernelUpload(transport, seed, kernelFixtureBytes(), kKernelStartAddr);
-    transport.expectWrite(sidDumpRequestForSh7055(2));
-    transport.queueRead(eepromPayload280Bytes());
+    EnqueueFullBootloaderAndKernelUpload(transport, seed, KernelFixtureBytes(), kKernelStartAddr);
+    transport.ExpectWrite(SidDumpRequestForSh7055(2));
+    transport.QueueRead(EepromPayload280Bytes());
 
     DensoSh705xEepromKlineExecutor executor;
     FakeClock clock;
     FakeCancellationToken cancellation;
     RecordingEventSink events;
 
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
+    auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_TRUE(result->read_bytes.has_value());
-    EXPECT_EQ(*result->read_bytes, expectedDecodedEeprom256Bytes());
+    EXPECT_EQ(*result->read_bytes, ExpectedDecodedEeprom256Bytes());
     // false before connect_bootloader()/upload_kernel() (self-framed via
     // SsmProtocol::addHeader(), must not double-frame), true right before
     // read_mem()'s raw SID_DUMP requests, false again afterward so a shared,
     // session-lifetime serial instance isn't left dirtied for the next
     // unrelated operation.
-    EXPECT_EQ(transport.header_mode_calls_, (std::vector<bool>{false, true, false}));
+    EXPECT_EQ(transport.header_mode_calls, (std::vector<bool>{false, true, false}));
 }
 
 // Same assertion on the "kernel already running" path (connect_bootloader()
@@ -592,22 +592,22 @@ TEST(DensoSh705xEepromKlineExecutorTest, HeaderModeIsOffForBootloaderOnForReadTh
 // ON -> OFF sequence doesn't depend on the upload phase actually running.
 TEST(DensoSh705xEepromKlineExecutorTest, HeaderModeSequenceHoldsWhenKernelAlreadyRunning)
 {
-    auto plan = valid_kline_plan(EepromReadMode::Mode2);
+    auto plan = ValidKlinePlan(EepromReadMode::kMode2);
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
-    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
-    transport.expectWrite(requestKernelIdRequest());
-    transport.queueRead(kernelAliveResponse());
-    transport.expectWrite(sidDumpRequestForSh7055(2));
-    transport.queueRead(eepromPayload280Bytes());
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::kOpen};
+    transport.ExpectWrite(RequestKernelIdRequest());
+    transport.QueueRead(KernelAliveResponse());
+    transport.ExpectWrite(SidDumpRequestForSh7055(2));
+    transport.QueueRead(EepromPayload280Bytes());
 
     DensoSh705xEepromKlineExecutor executor;
     FakeClock clock;
     FakeCancellationToken cancellation;
     RecordingEventSink events;
 
-    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events), fastecu::testing::IsOk());
-    EXPECT_EQ(transport.header_mode_calls_, (std::vector<bool>{false, true, false}));
+    ASSERT_THAT(executor.Execute(*plan, transport, clock, cancellation, events), fastecu::testing::IsOk());
+    EXPECT_EQ(transport.header_mode_calls, (std::vector<bool>{false, true, false}));
 }
 
 // Proves the header is still forced back OFF even when read_mem() itself
@@ -617,23 +617,23 @@ TEST(DensoSh705xEepromKlineExecutorTest, HeaderModeSequenceHoldsWhenKernelAlread
 // unrelated K-Line operation the user runs.
 TEST(DensoSh705xEepromKlineExecutorTest, HeaderModeResetToOffEvenWhenReadMemFails)
 {
-    auto plan = valid_kline_plan(EepromReadMode::Mode2);
+    auto plan = ValidKlinePlan(EepromReadMode::kMode2);
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
-    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
-    transport.expectWrite(requestKernelIdRequest());
-    transport.queueRead(kernelAliveResponse());
-    transport.expectWrite(sidDumpRequestForSh7055(2));
-    transport.queue_error(ErrorKind::Disconnected, "port dropped mid-read");
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::kOpen};
+    transport.ExpectWrite(RequestKernelIdRequest());
+    transport.QueueRead(KernelAliveResponse());
+    transport.ExpectWrite(SidDumpRequestForSh7055(2));
+    transport.QueueError(ErrorKind::kDisconnected, "port dropped mid-read");
 
     DensoSh705xEepromKlineExecutor executor;
     FakeClock clock;
     FakeCancellationToken cancellation;
     RecordingEventSink events;
 
-    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
-                fastecu::testing::IsErr(ErrorKind::Disconnected));
-    EXPECT_EQ(transport.header_mode_calls_, (std::vector<bool>{false, true, false}));
+    ASSERT_THAT(executor.Execute(*plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::kDisconnected));
+    EXPECT_EQ(transport.header_mode_calls, (std::vector<bool>{false, true, false}));
 }
 
 // The stock and ECUTEK branches differ only in the index transformation they
@@ -647,43 +647,43 @@ TEST(DensoSh705xEepromKlineExecutorTest, StockAndEcutekSecurityProduceDifferentS
 {
     const bytes::Bytes seed{0x11, 0x22, 0x33, 0x44};
 
-    auto runTo_seedKey = [&](DensoSecurityVariant security, bytes::ByteView expectedKey)
+    auto run_to_seed_key = [&](DensoSecurityVariant security, bytes::ByteView expected_key)
     {
-        auto plan = makeKlinePlan(EepromReadMode::Mode2, kernelFixtureBytes(), kKernelStartAddr, security);
+        auto plan = MakeKlinePlan(EepromReadMode::kMode2, KernelFixtureBytes(), kKernelStartAddr, security);
         EXPECT_THAT(plan, fastecu::testing::IsOk());
 
-        ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
-        transport.expectWrite(requestKernelIdRequest());
-        transport.queue_no_frame();
-        transport.expectWrite(sidBfSsmInitRequest());
-        transport.queueRead(sidBfSsmInitResponse());
-        transport.expectWrite(sid81StartCommRequest());
-        transport.queueRead(positiveResponse(0xC1));
-        transport.expectWrite(sid83TimingsRequest());
-        transport.queueRead(positiveResponse(0xC3));
-        transport.expectWrite(sid27RequestSeedRequest());
-        transport.queueRead(sid27SeedResponse(seed));
+        ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::kOpen};
+        transport.ExpectWrite(RequestKernelIdRequest());
+        transport.QueueNoFrame();
+        transport.ExpectWrite(SidBfSsmInitRequest());
+        transport.QueueRead(SidBfSsmInitResponse());
+        transport.ExpectWrite(Sid81StartCommRequest());
+        transport.QueueRead(PositiveResponse(0xC1));
+        transport.ExpectWrite(Sid83TimingsRequest());
+        transport.QueueRead(PositiveResponse(0xC3));
+        transport.ExpectWrite(Sid27RequestSeedRequest());
+        transport.QueueRead(Sid27SeedResponse(seed));
         // The executor's own key must match this byte for byte, or the
         // scripted write fails -- that is the assertion.
-        transport.expectWrite(sid27SendKeyRequest(expectedKey));
-        transport.queue_no_frame(); // stop the round here
+        transport.ExpectWrite(Sid27SendKeyRequest(expected_key));
+        transport.QueueNoFrame(); // stop the round here
 
         DensoSh705xEepromKlineExecutor executor;
         FakeClock clock;
         FakeCancellationToken cancellation;
         RecordingEventSink events;
 
-        EXPECT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
+        EXPECT_THAT(executor.Execute(*plan, transport, clock, cancellation, events),
                     ::testing::Not(fastecu::testing::IsOk()));
-        EXPECT_TRUE(transport.scriptConsumed());
+        EXPECT_TRUE(transport.ScriptConsumed());
     };
 
-    const bytes::Bytes stockKey = generateSeedKey(seed);
-    const bytes::Bytes ecutekKey = generateEcutekSeedKey(seed);
-    ASSERT_NE(stockKey, ecutekKey) << "the two transformations must not collapse to the same key";
+    const bytes::Bytes stock_key = GenerateSeedKey(seed);
+    const bytes::Bytes ecutek_key = GenerateEcutekSeedKey(seed);
+    ASSERT_NE(stock_key, ecutek_key) << "the two transformations must not collapse to the same key";
 
-    runTo_seedKey(DensoSecurityVariant::Stock, stockKey);
-    runTo_seedKey(DensoSecurityVariant::EcuTek, ecutekKey);
+    run_to_seed_key(DensoSecurityVariant::kStock, stock_key);
+    run_to_seed_key(DensoSecurityVariant::kEcuTek, ecutek_key);
 }
 
 } // namespace fastecu::flash

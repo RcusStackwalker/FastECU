@@ -11,14 +11,14 @@ namespace uds
 
 enum class ResponseKind
 {
-    Positive,
-    Negative,
-    Malformed,
+    kPositive,
+    kNegative,
+    kMalformed,
 };
 
 struct Response
 {
-    ResponseKind kind{ResponseKind::Malformed};
+    ResponseKind kind{ResponseKind::kMalformed};
 
     // Always the *request* SID: a 0x67 positive response and a 7F 27 xx
     // negative response both report 0x27, so callers compare against the
@@ -42,14 +42,14 @@ struct Response
     // rule above.
     bytes::ByteView data;
 
-    bool isPending() const
+    bool IsPending() const
     {
-        return kind == ResponseKind::Negative && nrc == kNrcResponsePending;
+        return kind == ResponseKind::kNegative && nrc == kNrcResponsePending;
     }
 
-    bool matches(bytes::Byte sid) const
+    bool Matches(bytes::Byte sid) const
     {
-        return kind == ResponseKind::Positive && service == sid;
+        return kind == ResponseKind::kPositive && service == sid;
     }
 };
 
@@ -62,16 +62,16 @@ struct Response
 //
 // Rule 1 cannot collide with a legitimate positive response: that would
 // require request SID 0x3F, which UDS reserves and no family uses.
-Response parseResponse(bytes::ByteView pdu);
+Response ParseResponse(bytes::ByteView pdu);
 
 // Everything after the service id. Empty for an empty or service-only PDU.
-bytes::ByteView payload(bytes::ByteView pdu);
+bytes::ByteView Payload(bytes::ByteView pdu);
 
 // The byte after the service id, when the PDU has one.
-std::optional<bytes::Byte> subfunction(bytes::ByteView pdu);
+std::optional<bytes::Byte> Subfunction(bytes::ByteView pdu);
 
 // Human-readable text for a negative-response frame, delegating to the shared
 // NRC table in //src/algorithms/diagnostics. The table is not duplicated here.
-std::string describe(bytes::ByteView pdu);
+std::string Describe(bytes::ByteView pdu);
 
 } // namespace uds

@@ -28,9 +28,9 @@ class SearchDialog : public QDialog
     QByteArray getContent(int comboIndex, const QString& input);
     qint64 replaceOccurrence(qint64 idx, const QByteArray& replaceBa);
 
-    QHexEdit *_hexEdit;
-    QByteArray _findBa;
+    QHexEdit *hex_edit_;
+    QByteArray find_ba_;
 
   private:
-    std::unique_ptr<Ui::SearchDialog> ui;
+    std::unique_ptr<Ui::SearchDialog> ui_;
 };

@@ -2,43 +2,42 @@
 
 #include "denso_checksum_table.h"
 
-ChecksumResult ChecksumEcuSubaruDensoSH7xxx::calculate_checksum_result(bytes::ByteView romData,
-                                                                       uint32_t checksum_area_start,
-                                                                       uint32_t checksum_area_length, int32_t offset)
+ChecksumResult ChecksumEcuSubaruDensoSH7xxx::CalculateChecksumResult(const fastecu::memory::MemoryView& rom,
+                                                                     fastecu::memory::FlashAddress table_address,
+                                                                     uint32_t table_length)
 {
     ChecksumResult result;
-    result.romData.assign(romData.begin(), romData.end());
+    result.rom_data.assign(rom.Data().begin(), rom.Data().end());
     const fastecu::checksum::internal::DensoTableSpec spec{
-        .table_offset = checksum_area_start,
-        .table_length = checksum_area_length,
-        .address_offset = offset,
+        .table_address = table_address,
+        .table_length = table_length,
     };
 
     using Outcome = fastecu::checksum::internal::DensoTableOutcome;
-    switch (fastecu::checksum::internal::correctDensoTable(result.romData, spec))
+    switch (fastecu::checksum::internal::CorrectDensoTable(rom.Range().Start(), result.rom_data, spec))
     {
-    case Outcome::Unchanged:
-        result.status = ChecksumResult::Status::Unchanged;
+    case Outcome::kUnchanged:
+        result.status = ChecksumResult::Status::kUnchanged;
         result.message = "Checksums OK";
         break;
-    case Outcome::Corrected:
-        result.status = ChecksumResult::Status::Corrected;
+    case Outcome::kCorrected:
+        result.status = ChecksumResult::Status::kCorrected;
         result.message = "Checksums corrected";
         break;
-    case Outcome::Disabled:
-        result.status = ChecksumResult::Status::Disabled;
+    case Outcome::kDisabled:
+        result.status = ChecksumResult::Status::kDisabled;
         result.message = "ROM has all checksums disabled";
         break;
-    case Outcome::InvalidRecordLength:
-        result.status = ChecksumResult::Status::ParseError;
+    case Outcome::kInvalidRecordLength:
+        result.status = ChecksumResult::Status::kParseError;
         result.message = "Checksum area length must be a multiple of 12 bytes";
         break;
-    case Outcome::InvalidTableRange:
-        result.status = ChecksumResult::Status::InvalidSize;
+    case Outcome::kInvalidTableRange:
+        result.status = ChecksumResult::Status::kInvalidSize;
         result.message = "ROM is too small for the configured checksum area";
         break;
-    case Outcome::InvalidBlockRange:
-        result.status = ChecksumResult::Status::InvalidSize;
+    case Outcome::kInvalidBlockRange:
+        result.status = ChecksumResult::Status::kInvalidSize;
         result.message = "ROM is too small for a checksum block range";
         break;
     }

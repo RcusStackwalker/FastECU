@@ -6,6 +6,9 @@
 #include <gtest/gtest.h>
 
 #include <array>
+#include <cstddef>
+#include <cstdint>
+#include <optional>
 #include <tuple>
 #include <type_traits>
 #include <variant>
@@ -15,12 +18,12 @@ namespace fastecu::flash
 namespace
 {
 
-FlashPlanFields valid_read_fields()
+FlashPlanFields ValidReadFields()
 {
     return FlashPlanFields{
-        .operation = FlashOperation::Read,
-        .family = FlashFamily::DensoSh705xEepromKline,
-        .transport = TransportKind::Kline,
+        .operation = FlashOperation::kRead,
+        .family = FlashFamily::kDensoSh705xEepromKline,
+        .transport = TransportKind::kKline,
         .target_id = "sub_ecu_eeprom_denso_sh7055_kline",
         .mcu_name = "SH7055",
         .transfer_region = MemoryRegion{.start = 0xf000, .length = 0x1000},
@@ -29,8 +32,8 @@ FlashPlanFields valid_read_fields()
         .kernel = KernelImage{.id = "k", .load_address = 0xffff2000, .bytes = {0x01}},
         .family_plan =
             DensoSh705xEepromKlinePlan{
-                .mode = EepromReadMode::Mode2,
-                .security = DensoSecurityVariant::Stock,
+                .mode = EepromReadMode::kMode2,
+                .security = DensoSecurityVariant::kStock,
                 .tester_id = 0xf0,
                 .target_id = 0x10,
                 .initial_baud = 4800,
@@ -38,21 +41,21 @@ FlashPlanFields valid_read_fields()
             },
         .confirmations =
             {
-                ConfirmationSpec{.id = ConfirmationSpec::Id::BeginEepromRead},
-                ConfirmationSpec{.id = ConfirmationSpec::Id::InspectEepromBytes},
+                ConfirmationSpec{.id = ConfirmationSpec::Id::kBeginEepromRead},
+                ConfirmationSpec{.id = ConfirmationSpec::Id::kInspectEepromBytes},
             },
     };
 }
 
-FlashPlanFields valid_can_read_fields()
+FlashPlanFields ValidCanReadFields()
 {
-    auto fields = valid_read_fields();
-    fields.family = FlashFamily::DensoSh705xEepromCan;
-    fields.transport = TransportKind::CanIso15765;
+    auto fields = ValidReadFields();
+    fields.family = FlashFamily::kDensoSh705xEepromCan;
+    fields.transport = TransportKind::kCanIso15765;
     fields.kernel = KernelImage{.id = "k", .load_address = 0xffff3000, .bytes = {0x01}};
     fields.family_plan = DensoSh705xEepromCanPlan{
-        .mode = EepromReadMode::Mode2,
-        .security = DensoSecurityVariant::Stock,
+        .mode = EepromReadMode::kMode2,
+        .security = DensoSecurityVariant::kStock,
         .request_id = 0x7e0,
         .response_id = 0x7e8,
         .bitrate = 500000,
@@ -69,26 +72,26 @@ struct FamilyCase
     std::string_view id;
 };
 
-const std::array<FamilyCase, 30>& family_cases()
+const std::array<FamilyCase, 30>& FamilyCases()
 {
-    static const std::array<FamilyCase, 30> cases{{
-        {FlashFamily::DensoSh705xEepromKline, TransportKind::Kline,
-         DensoSh705xEepromKlinePlan{.mode = EepromReadMode::Mode2,
-                                    .security = DensoSecurityVariant::Stock,
+    static const std::array<FamilyCase, 30> kCases{{
+        {FlashFamily::kDensoSh705xEepromKline, TransportKind::kKline,
+         DensoSh705xEepromKlinePlan{.mode = EepromReadMode::kMode2,
+                                    .security = DensoSecurityVariant::kStock,
                                     .tester_id = 0xf0,
                                     .target_id = 0x10,
                                     .initial_baud = 4800,
                                     .kernel_baud = 15625},
          "DensoSh705xEepromKline"},
-        {FlashFamily::DensoSh705xEepromCan, TransportKind::CanIso15765,
-         DensoSh705xEepromCanPlan{.mode = EepromReadMode::Mode2,
-                                  .security = DensoSecurityVariant::Stock,
+        {FlashFamily::kDensoSh705xEepromCan, TransportKind::kCanIso15765,
+         DensoSh705xEepromCanPlan{.mode = EepromReadMode::kMode2,
+                                  .security = DensoSecurityVariant::kStock,
                                   .request_id = 0x7e0,
                                   .response_id = 0x7e8,
                                   .bitrate = 500000,
                                   .extended_id = false},
          "DensoSh705xEepromCan"},
-        {FlashFamily::MitsuColtM32rCan, TransportKind::CanIso15765,
+        {FlashFamily::kMitsuColtM32rCan, TransportKind::kCanIso15765,
          MitsuColtM32rCanPlan{.request_id = 0x7e0,
                               .response_id = 0x7e8,
                               .bitrate = 500000,
@@ -96,7 +99,7 @@ const std::array<FamilyCase, 30>& family_cases()
                               .use_vendor_challenge = false,
                               .session_id = 0x85},
          "MitsuColtM32rCan"},
-        {FlashFamily::SubaruMitsuM32rKline, TransportKind::Kline,
+        {FlashFamily::kSubaruMitsuM32rKline, TransportKind::kKline,
          SubaruMitsuM32rKlinePlan{.tester_id = 0xf0,
                                   .target_id = 0x10,
                                   .initial_baud = 4800,
@@ -104,8 +107,8 @@ const std::array<FamilyCase, 30>& family_cases()
                                   .chunk_size = 0x200,
                                   .unread_prefix_fill = 0xff},
          "SubaruMitsuM32rKline"},
-        {FlashFamily::SubaruHitachiM32rKline, TransportKind::Kline,
-         SubaruHitachiM32rKlinePlan{.session_mode = HitachiM32rKlineSessionMode::Normal,
+        {FlashFamily::kSubaruHitachiM32rKline, TransportKind::kKline,
+         SubaruHitachiM32rKlinePlan{.session_mode = HitachiM32rKlineSessionMode::kNormal,
                                     .tester_id = 0xf0,
                                     .target_id = 0x10,
                                     .initial_baud = 4800,
@@ -114,31 +117,31 @@ const std::array<FamilyCase, 30>& family_cases()
                                     .chunk_size = 0x200,
                                     .read_address_bias = 0},
          "SubaruHitachiM32rKline"},
-        {FlashFamily::SubaruDensoMc68hc16y5_02, TransportKind::Kline,
+        {FlashFamily::kSubaruDensoMc68hc16y502, TransportKind::kKline,
          SubaruDensoMc68hc16y5_02Plan{.connect_baud = 9600,
                                       .kernel_baud = 9600,
                                       .encryption_xor = 0x55,
                                       .kernel_magic = 0x3941,
                                       .bootloader_ok = {0x4d, 0x00, 0xb3}},
          "SubaruDensoMc68hc16y5_02"},
-        {FlashFamily::SubaruDensoSh7055_02, TransportKind::Kline,
+        {FlashFamily::kSubaruDensoSh705502, TransportKind::kKline,
          SubaruDensoSh7055_02Plan{.tester_id = 0xf0, .target_id = 0x10, .read_ecu_id = true}, "SubaruDensoSh7055_02"},
-        {FlashFamily::SubaruHitachiM32rCan, TransportKind::CanIso15765,
+        {FlashFamily::kSubaruHitachiM32rCan, TransportKind::kCanIso15765,
          SubaruHitachiM32rCanPlan{.request_id = 0x7e0, .response_id = 0x7e8, .bitrate = 500000, .extended_id = false},
          "SubaruHitachiM32rCan"},
-        {FlashFamily::SubaruTcuCvtHitachiM32rCan, TransportKind::CanIso15765,
+        {FlashFamily::kSubaruTcuCvtHitachiM32rCan, TransportKind::kCanIso15765,
          SubaruTcuCvtHitachiM32rCanPlan{
              .request_id = 0x7e1, .response_id = 0x7e9, .bitrate = 500000, .extended_id = false},
          "SubaruTcuCvtHitachiM32rCan"},
-        {FlashFamily::SubaruTcuCvtMitsuMh8111Can, TransportKind::CanIso15765,
+        {FlashFamily::kSubaruTcuCvtMitsuMh8111Can, TransportKind::kCanIso15765,
          SubaruTcuCvtMitsuMh8111CanPlan{
              .request_id = 0x7e1, .response_id = 0x7e9, .bitrate = 500000, .extended_id = false},
          "SubaruTcuCvtMitsuMh8111Can"},
-        {FlashFamily::SubaruTcuCvtMitsuMh8104Can, TransportKind::CanIso15765,
+        {FlashFamily::kSubaruTcuCvtMitsuMh8104Can, TransportKind::kCanIso15765,
          SubaruTcuCvtMitsuMh8104CanPlan{
              .request_id = 0x7e1, .response_id = 0x7e9, .bitrate = 500000, .extended_id = false},
          "SubaruTcuCvtMitsuMh8104Can"},
-        {FlashFamily::SubaruDenso1n83m_1_5mCan, TransportKind::CanIso15765,
+        {FlashFamily::kSubaruDenso1n83m15mCan, TransportKind::kCanIso15765,
          SubaruDenso1n83m_1_5mCanPlan{.request_id = 0x7e0,
                                       .response_id = 0x7e8,
                                       .bitrate = 500000,
@@ -146,7 +149,7 @@ const std::array<FamilyCase, 30>& family_cases()
                                       .lead_pad_len = 0x10000,
                                       .tail_pad_len = 0x100},
          "SubaruDenso1n83m_1_5mCan"},
-        {FlashFamily::SubaruDensoSh72531Can, TransportKind::CanIso15765,
+        {FlashFamily::kSubaruDensoSh72531Can, TransportKind::kCanIso15765,
          SubaruDensoSh72531CanPlan{.request_id = 0x7e0,
                                    .response_id = 0x7e8,
                                    .bitrate = 500000,
@@ -154,7 +157,7 @@ const std::array<FamilyCase, 30>& family_cases()
                                    .lead_pad_len = 0x8000,
                                    .tail_pad_len = 0x100},
          "SubaruDensoSh72531Can"},
-        {FlashFamily::SubaruDensoSh72543CanDiesel, TransportKind::CanIso15765,
+        {FlashFamily::kSubaruDensoSh72543CanDiesel, TransportKind::kCanIso15765,
          SubaruDensoSh72543CanDieselPlan{.request_id = 0x7e0,
                                          .response_id = 0x7e8,
                                          .bitrate = 500000,
@@ -162,7 +165,7 @@ const std::array<FamilyCase, 30>& family_cases()
                                          .lead_pad_len = 0x8000,
                                          .tail_pad_len = 0x100},
          "SubaruDensoSh72543CanDiesel"},
-        {FlashFamily::SubaruDenso1n83m_4mCan, TransportKind::CanIso15765,
+        {FlashFamily::kSubaruDenso1n83m4mCan, TransportKind::kCanIso15765,
          SubaruDenso1n83m_4mCanPlan{.request_id = 0x7e0,
                                     .response_id = 0x7e8,
                                     .bitrate = 500000,
@@ -170,7 +173,7 @@ const std::array<FamilyCase, 30>& family_cases()
                                     .lead_pad_len = 0x10000,
                                     .tail_pad_len = 0x100},
          "SubaruDenso1n83m_4mCan"},
-        {FlashFamily::SubaruDensoSh705xDensoCan, TransportKind::CanRawIso15765,
+        {FlashFamily::kSubaruDensoSh705xDensoCan, TransportKind::kCanRawIso15765,
          SubaruDensoSh705xDensoCanPlan{.iso_request_id = 0x7e0,
                                        .iso_response_id = 0x7e8,
                                        .raw_transmit_id = 0x000ffffe,
@@ -179,25 +182,25 @@ const std::array<FamilyCase, 30>& family_cases()
                                        .iso_extended_id = false,
                                        .raw_extended_id = true},
          "SubaruDensoSh705xDensoCan"},
-        {FlashFamily::SubaruTcuDensoSh705xCan, TransportKind::CanIso15765,
+        {FlashFamily::kSubaruTcuDensoSh705xCan, TransportKind::kCanIso15765,
          SubaruTcuDensoSh705xCanPlan{
              .request_id = 0x7e1, .response_id = 0x7e9, .bitrate = 500000, .extended_id = false},
          "SubaruTcuDensoSh705xCan"},
-        {FlashFamily::SubaruDensoSh7058Can, TransportKind::CanIso15765,
+        {FlashFamily::kSubaruDensoSh7058Can, TransportKind::kCanIso15765,
          SubaruDensoSh7058CanPlan{.request_id = 0x7e0,
                                   .response_id = 0x7e8,
                                   .bitrate = 500000,
                                   .extended_id = false,
-                                  .security = SubaruDensoSh7058CanSecurity::Stock},
+                                  .security = SubaruDensoSh7058CanSecurity::kStock},
          "SubaruDensoSh7058Can"},
-        {FlashFamily::SubaruDensoSh7058CanDiesel, TransportKind::CanIso15765,
+        {FlashFamily::kSubaruDensoSh7058CanDiesel, TransportKind::kCanIso15765,
          SubaruDensoSh7058CanDieselPlan{
              .request_id = 0x7e0, .response_id = 0x7e8, .bitrate = 500000, .extended_id = false},
          "SubaruDensoSh7058CanDiesel"},
-        {FlashFamily::SubaruTcuHitachiM32rKline, TransportKind::Kline,
+        {FlashFamily::kSubaruTcuHitachiM32rKline, TransportKind::kKline,
          SubaruTcuHitachiM32rKlinePlan{.tester_id = 0xf0, .target_id = 0x18, .baud = 4800, .block_size = 96},
          "SubaruTcuHitachiM32rKline"},
-        {FlashFamily::SubaruTcuHitachiM32rCan, TransportKind::CanIso15765,
+        {FlashFamily::kSubaruTcuHitachiM32rCan, TransportKind::kCanIso15765,
          SubaruTcuHitachiM32rCanPlan{.request_id = 0x7e1,
                                      .response_id = 0x7e9,
                                      .bitrate = 500000,
@@ -205,96 +208,183 @@ const std::array<FamilyCase, 30>& family_cases()
                                      .page_size = 0x100,
                                      .write_frame_size = 128},
          "SubaruTcuHitachiM32rCan"},
-        {FlashFamily::SubaruHitachiSh72543rCan, TransportKind::CanIso15765,
+        {FlashFamily::kSubaruHitachiSh72543rCan, TransportKind::kCanIso15765,
          SubaruHitachiSh72543rCanPlan{0x7e0, 0x7e8, 500000, false, 0x400, 0x100}, "SubaruHitachiSh72543rCan"},
-        {FlashFamily::SubaruHitachiSh7058, TransportKind::Kline, SubaruHitachiSh7058KlinePlan{}, "SubaruHitachiSh7058"},
-        {FlashFamily::SubaruHitachiSh7058, TransportKind::CanIso15765, SubaruHitachiSh7058CanPlan{},
+        {FlashFamily::kSubaruHitachiSh7058, TransportKind::kKline, SubaruHitachiSh7058KlinePlan{},
          "SubaruHitachiSh7058"},
-        {FlashFamily::SubaruUnisiaJecs, TransportKind::Kline,
+        {FlashFamily::kSubaruHitachiSh7058, TransportKind::kCanIso15765, SubaruHitachiSh7058CanPlan{},
+         "SubaruHitachiSh7058"},
+        {FlashFamily::kSubaruUnisiaJecs, TransportKind::kKline,
          SubaruUnisiaJecsPlan{.initial_baud = 1953, .even_parity = true}, "SubaruUnisiaJecs"},
-        {FlashFamily::SubaruDensoSh705xKline, TransportKind::Kline,
+        {FlashFamily::kSubaruDensoSh705xKline, TransportKind::kKline,
          SubaruDensoSh705xKlinePlan{.initial_baud = 4800,
                                     .tester_id = 0xF0,
                                     .target_id = 0x10,
-                                    .seed_key = SubaruDensoSh705xKlineSeedKey::Stock},
+                                    .seed_key = SubaruDensoSh705xKlineSeedKey::kStock},
          "SubaruDensoSh705xKline"},
-        {FlashFamily::SubaruDensoMc68hc16y5_02Bdm, TransportKind::Kline,
+        {FlashFamily::kSubaruDensoMc68hc16y502Bdm, TransportKind::kKline,
          SubaruDensoMc68hc16y5_02BdmPlan{.baud = 115200}, "SubaruDensoMc68hc16y5_02Bdm"},
-        {FlashFamily::SubaruUnisiaJecsM32rKline, TransportKind::Kline,
+        {FlashFamily::kSubaruUnisiaJecsM32rKline, TransportKind::kKline,
          SubaruUnisiaJecsM32rKlinePlan{.initial_baud = 4800, .tester_id = 0xf0, .target_id = 0x10},
          "SubaruUnisiaJecsM32rKline"},
-        {FlashFamily::SubaruUnisiaJecsM32rBootModeKernel, TransportKind::Kline,
+        {FlashFamily::kSubaruUnisiaJecsM32rBootModeKernel, TransportKind::kKline,
          SubaruUnisiaJecsM32rBootModeKernelPlan{.initial_baud = 39063, .tester_id = 0xf0, .target_id = 0x10},
          "SubaruUnisiaJecsM32rBootModeKernel"},
-        {FlashFamily::SubaruUnisiaJecsM32rBootModeProgram, TransportKind::Kline,
+        {FlashFamily::kSubaruUnisiaJecsM32rBootModeProgram, TransportKind::kKline,
          SubaruUnisiaJecsM32rBootModeProgramPlan{.initial_baud = 19200, .tester_id = 0xf0, .target_id = 0x10},
          "SubaruUnisiaJecsM32rBootModeProgram"},
     }};
-    return cases;
+    return kCases;
 }
 
-static_assert(std::variant_size_v<FamilyPlan> == std::tuple_size_v<std::remove_reference_t<decltype(family_cases())>>);
+static_assert(std::variant_size_v<FamilyPlan> == std::tuple_size_v<std::remove_reference_t<decltype(FamilyCases())>>);
 
 TEST(FlashValidationTest, ValidReadFieldsProduceAPlan)
 {
-    auto plan = validate_and_build(valid_read_fields());
+    auto plan = ValidateAndBuild(ValidReadFields());
     ASSERT_THAT(plan, fastecu::testing::IsOk());
-    EXPECT_EQ(plan->total_transfer_bytes(), 0x1000U);
+    EXPECT_EQ(plan->TotalTransferBytes(), 0x1000U);
 }
 
 TEST(FlashValidationTest, ReadPlanHasNoImageButKeepsItsKernel)
 {
-    auto plan = validate_and_build(valid_read_fields());
+    auto plan = ValidateAndBuild(ValidReadFields());
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
-    EXPECT_TRUE(plan->image_or_empty().empty());
-    EXPECT_EQ(plan->kernel_or_empty().id, "k");
-    EXPECT_EQ(plan->kernel_or_empty().load_address, 0xffff2000U);
-    EXPECT_EQ(plan->kernel_or_empty().bytes, bytes::Bytes{0x01});
+    EXPECT_TRUE(plan->ImageOrEmpty().empty());
+    EXPECT_EQ(plan->KernelOrEmpty().id, "k");
+    EXPECT_EQ(plan->KernelOrEmpty().load_address, 0xffff2000U);
+    EXPECT_EQ(plan->KernelOrEmpty().bytes, bytes::Bytes{0x01});
 }
 
 TEST(FlashValidationTest, WritePlanExposesItsImage)
 {
-    auto fields = valid_read_fields();
-    fields.operation = FlashOperation::Write;
+    auto fields = ValidReadFields();
+    fields.operation = FlashOperation::kWrite;
     fields.image = bytes::Bytes(0x1000, 0xA5);
-    auto plan = validate_and_build(std::move(fields));
+    auto plan = ValidateAndBuild(std::move(fields));
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
-    EXPECT_EQ(plan->image_or_empty().size(), 0x1000U);
-    EXPECT_EQ(plan->image(), bytes::Bytes(0x1000, 0xA5));
+    EXPECT_EQ(plan->ImageOrEmpty().size(), 0x1000U);
+    EXPECT_EQ(plan->Image(), bytes::Bytes(0x1000, 0xA5));
+}
+
+// A 0x40-byte ROM file whose second half sits at ECU 0x30, past a 0x10-byte gap.
+memory::MemoryMap SplitMap()
+{
+    const auto range = [](std::uint32_t start, std::uint32_t size)
+    {
+        return memory::AddressRange<memory::FlashSpace>::Make(memory::FlashAddress{start}, memory::ByteCount{size})
+            .value();
+    };
+    const std::array blocks{
+        memory::MemoryBlock{.range = range(0x00, 0x20),
+                            .backing = memory::FileBacking{.offset = memory::FileOffset{0x00}},
+                            .writability = memory::Writability::kWritable},
+        memory::MemoryBlock{.range = range(0x30, 0x20),
+                            .backing = memory::FileBacking{.offset = memory::FileOffset{0x20}},
+                            .writability = memory::Writability::kWritable},
+    };
+    return memory::MemoryMap::Create(blocks, memory::ByteCount{0x40}).value();
+}
+
+bytes::Bytes CountingImage(std::size_t size)
+{
+    bytes::Bytes image(size);
+    for (std::size_t index = 0; index < size; ++index)
+    {
+        image[index] = static_cast<bytes::Byte>(index);
+    }
+    return image;
+}
+
+TEST(FlashValidationTest, AReadPlanCarriesNoImageMemoryMap)
+{
+    auto fields = ValidReadFields();
+    fields.image_map = SplitMap();
+
+    EXPECT_THAT(ValidateAndBuild(std::move(fields)),
+                fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, ::testing::HasSubstr("memory map")));
+}
+
+TEST(FlashValidationTest, AnImageMemoryMapForAnotherFileSizeIsRejected)
+{
+    auto fields = ValidReadFields();
+    fields.operation = FlashOperation::kWrite;
+    fields.image = CountingImage(0x40);
+    fields.image_map = memory::MemoryMap::Identity(memory::ByteCount{0x20}).value();
+
+    EXPECT_THAT(
+        ValidateAndBuild(std::move(fields)),
+        fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, ::testing::HasSubstr("does not fit its memory map")));
+}
+
+TEST(FlashValidationTest, RomImagePlacesTheImageByItsMemoryMap)
+{
+    auto fields = ValidReadFields();
+    fields.operation = FlashOperation::kWrite;
+    fields.image = CountingImage(0x40);
+    fields.image_map = SplitMap();
+    auto plan = ValidateAndBuild(std::move(fields));
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+
+    const std::optional<memory::MemoryImage>& rom = plan->RomImage();
+    ASSERT_TRUE(rom.has_value());
+    const auto view = rom->Render(
+        memory::AddressRange<memory::FlashSpace>::Make(memory::FlashAddress{0x30}, memory::ByteCount{1}).value());
+    ASSERT_TRUE(view.has_value());
+    EXPECT_EQ(view->Data()[0], 0x20);
+}
+
+TEST(FlashValidationTest, AWriteImageWithoutAMemoryMapHasNoRomImage)
+{
+    auto fields = ValidReadFields();
+    fields.operation = FlashOperation::kWrite;
+    fields.image = CountingImage(0x40);
+    auto plan = ValidateAndBuild(std::move(fields));
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+
+    EXPECT_FALSE(plan->RomImage().has_value());
+}
+
+TEST(FlashValidationTest, AReadPlanHasNoRomImage)
+{
+    auto plan = ValidateAndBuild(ValidReadFields());
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+
+    EXPECT_FALSE(plan->RomImage().has_value());
 }
 
 TEST(FlashValidationTest, EmptyTargetIdIsRejected)
 {
-    auto fields = valid_read_fields();
+    auto fields = ValidReadFields();
     fields.target_id.clear();
 
-    ASSERT_THAT(validate_and_build(std::move(fields)), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(ValidateAndBuild(std::move(fields)), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
 TEST(FlashValidationTest, EmptyMcuNameIsRejected)
 {
-    auto fields = valid_read_fields();
+    auto fields = ValidReadFields();
     fields.mcu_name.clear();
 
-    ASSERT_THAT(validate_and_build(std::move(fields)), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(ValidateAndBuild(std::move(fields)), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
 TEST(FlashValidationTest, ZeroLengthTransferRegionIsRejected)
 {
-    auto fields = valid_read_fields();
+    auto fields = ValidReadFields();
     fields.transfer_region.length = 0;
 
-    ASSERT_THAT(validate_and_build(std::move(fields)), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(ValidateAndBuild(std::move(fields)), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
 TEST(FlashValidationTest, TransferRegionOverflowIsRejected)
 {
-    auto fields = valid_read_fields();
+    auto fields = ValidReadFields();
     fields.transfer_region = MemoryRegion{.start = 0xffffffff, .length = 0x10};
 
-    ASSERT_THAT(validate_and_build(std::move(fields)), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(ValidateAndBuild(std::move(fields)), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
 // A region whose last byte is 0xffffffff ends at 0x100000000, which is one
@@ -306,53 +396,53 @@ TEST(FlashValidationTest, TransferRegionOverflowIsRejected)
 // into an acceptance.
 TEST(FlashValidationTest, TransferRegionEndingExactlyAtTheTopOfTheAddressSpaceIsRejected)
 {
-    auto fields = valid_read_fields();
+    auto fields = ValidReadFields();
     fields.transfer_region = MemoryRegion{.start = 0xffffff00, .length = 0x100};
 
-    ASSERT_THAT(validate_and_build(std::move(fields)), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(ValidateAndBuild(std::move(fields)), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
 // The largest region this accepts, one byte short of the boundary above.
 TEST(FlashValidationTest, TransferRegionEndingOneByteBelowTheTopOfTheAddressSpaceIsAccepted)
 {
-    auto fields = valid_read_fields();
+    auto fields = ValidReadFields();
     fields.transfer_region = MemoryRegion{.start = 0xffffff00, .length = 0xff};
 
-    EXPECT_THAT(validate_and_build(std::move(fields)), fastecu::testing::IsOk());
+    EXPECT_THAT(ValidateAndBuild(std::move(fields)), fastecu::testing::IsOk());
 }
 
 TEST(FlashValidationTest, ReadWithNonEmptyEraseRegionsIsRejected)
 {
-    auto fields = valid_read_fields();
+    auto fields = ValidReadFields();
     fields.erase_regions.push_back(MemoryRegion{.start = 0, .length = 4});
 
-    ASSERT_THAT(validate_and_build(std::move(fields)), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(ValidateAndBuild(std::move(fields)), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
 TEST(FlashValidationTest, ReadWithImagePresentIsRejected)
 {
-    auto fields = valid_read_fields();
+    auto fields = ValidReadFields();
     fields.image = bytes::Bytes{0x00};
 
-    ASSERT_THAT(validate_and_build(std::move(fields)), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(ValidateAndBuild(std::move(fields)), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
 TEST(FlashValidationTest, EmptyKernelIdIsRejected)
 {
-    auto fields = valid_read_fields();
+    auto fields = ValidReadFields();
     ASSERT_TRUE(fields.kernel.has_value());
     fields.kernel->id.clear();
 
-    ASSERT_THAT(validate_and_build(std::move(fields)), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(ValidateAndBuild(std::move(fields)), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
 TEST(FlashValidationTest, EmptyKernelBytesIsRejected)
 {
-    auto fields = valid_read_fields();
+    auto fields = ValidReadFields();
     ASSERT_TRUE(fields.kernel.has_value());
     fields.kernel->bytes.clear();
 
-    ASSERT_THAT(validate_and_build(std::move(fields)), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(ValidateAndBuild(std::move(fields)), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
 // A family that isn't the kernel-less Mitsu Colt CAN family must still carry
@@ -361,55 +451,55 @@ TEST(FlashValidationTest, EmptyKernelBytesIsRejected)
 // blanket relaxation for every family.
 TEST(FlashValidationTest, MissingKernelIsRejectedForKlineFamilyByDefault)
 {
-    auto fields = valid_read_fields();
+    auto fields = ValidReadFields();
     fields.kernel = std::nullopt;
 
-    auto plan = validate_and_build(std::move(fields));
+    auto plan = ValidateAndBuild(std::move(fields));
 
-    ASSERT_THAT(plan, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(plan, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     EXPECT_THAT(plan.error().detail, ::testing::HasSubstr("kernel"));
 }
 
 TEST(FlashValidationTest, MissingKernelIsRejectedForCanFamilyByDefault)
 {
-    auto fields = valid_can_read_fields();
+    auto fields = ValidCanReadFields();
     fields.kernel = std::nullopt;
 
-    auto plan = validate_and_build(std::move(fields));
+    auto plan = ValidateAndBuild(std::move(fields));
 
-    ASSERT_THAT(plan, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(plan, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     EXPECT_THAT(plan.error().detail, ::testing::HasSubstr("kernel"));
 }
 
 TEST(FlashValidationTest, FamilyPlanTagMismatchWithTransportIsRejected)
 {
-    auto fields = valid_read_fields();
+    auto fields = ValidReadFields();
     // Kline transport but a Can family_plan variant.
     fields.family_plan = DensoSh705xEepromCanPlan{
-        .mode = EepromReadMode::Mode2,
-        .security = DensoSecurityVariant::Stock,
+        .mode = EepromReadMode::kMode2,
+        .security = DensoSecurityVariant::kStock,
         .request_id = 0x7e0,
         .response_id = 0x7e8,
         .bitrate = 500000,
         .extended_id = false,
     };
 
-    ASSERT_THAT(validate_and_build(std::move(fields)), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(ValidateAndBuild(std::move(fields)), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
 TEST(FlashValidationTest, FamilyAndVariantMustMatchExhaustively)
 {
-    for (std::size_t declared_index = 0; declared_index < family_cases().size(); ++declared_index)
+    for (std::size_t declared_index = 0; declared_index < FamilyCases().size(); ++declared_index)
     {
-        for (std::size_t variant_index = 0; variant_index < family_cases().size(); ++variant_index)
+        for (std::size_t variant_index = 0; variant_index < FamilyCases().size(); ++variant_index)
         {
-            auto fields = valid_read_fields();
-            const auto& declared = family_cases()[declared_index];
+            auto fields = ValidReadFields();
+            const auto& declared = FamilyCases()[declared_index];
             fields.family = declared.family;
             fields.transport = declared.transport;
-            fields.family_plan = family_cases()[variant_index].family_plan;
+            fields.family_plan = FamilyCases()[variant_index].family_plan;
 
-            const auto plan = validate_and_build(std::move(fields));
+            const auto plan = ValidateAndBuild(std::move(fields));
 
             EXPECT_EQ(plan.has_value(), declared_index == variant_index)
                 << "declared index " << declared_index << ", variant index " << variant_index;
@@ -419,22 +509,22 @@ TEST(FlashValidationTest, FamilyAndVariantMustMatchExhaustively)
 
 TEST(FlashValidationTest, ExperimentalFamilyIdsCoverEveryFamily)
 {
-    for (const auto& family_case : family_cases())
+    for (const auto& family_case : FamilyCases())
     {
-        auto fields = valid_read_fields();
+        auto fields = ValidReadFields();
         fields.family = family_case.family;
         fields.transport = family_case.transport;
         fields.family_plan = family_case.family_plan;
-        const auto plan = validate_and_build(std::move(fields));
+        const auto plan = ValidateAndBuild(std::move(fields));
         ASSERT_THAT(plan, fastecu::testing::IsOk());
-        EXPECT_EQ(plan->experimental_family_id(), family_case.id);
+        EXPECT_EQ(plan->ExperimentalFamilyId(), family_case.id);
     }
 }
 
 TEST(FlashValidationTest, Sh7055_02KlinePlanIsAccepted)
 {
-    auto fields = valid_read_fields();
-    fields.family = FlashFamily::SubaruDensoSh7055_02;
+    auto fields = ValidReadFields();
+    fields.family = FlashFamily::kSubaruDensoSh705502;
     fields.target_id = "sub_ecu_denso_sh7055_02";
     fields.family_plan = SubaruDensoSh7055_02Plan{
         .tester_id = 0xf0,
@@ -442,18 +532,18 @@ TEST(FlashValidationTest, Sh7055_02KlinePlanIsAccepted)
         .read_ecu_id = true,
     };
 
-    auto plan = validate_and_build(std::move(fields));
+    auto plan = ValidateAndBuild(std::move(fields));
 
     ASSERT_THAT(plan, fastecu::testing::IsOk());
-    EXPECT_EQ(plan->family(), FlashFamily::SubaruDensoSh7055_02);
+    EXPECT_EQ(plan->Family(), FlashFamily::kSubaruDensoSh705502);
 }
 
 TEST(FlashValidationTest, DuplicateConfirmationIdsAreRejected)
 {
-    auto fields = valid_read_fields();
-    fields.confirmations.push_back(ConfirmationSpec{.id = ConfirmationSpec::Id::BeginEepromRead});
+    auto fields = ValidReadFields();
+    fields.confirmations.push_back(ConfirmationSpec{.id = ConfirmationSpec::Id::kBeginEepromRead});
 
-    ASSERT_THAT(validate_and_build(std::move(fields)), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(ValidateAndBuild(std::move(fields)), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
 // The "at least one confirmation" floor was removed:
@@ -461,13 +551,13 @@ TEST(FlashValidationTest, DuplicateConfirmationIdsAreRejected)
 // able to build a plan with zero confirmations. This is no longer rejected.
 TEST(FlashValidationTest, ZeroConfirmationsIsNowAccepted)
 {
-    auto fields = valid_read_fields();
+    auto fields = ValidReadFields();
     fields.confirmations.clear();
 
-    auto plan = validate_and_build(std::move(fields));
+    auto plan = ValidateAndBuild(std::move(fields));
 
     ASSERT_THAT(plan, fastecu::testing::IsOk());
-    EXPECT_TRUE(plan->confirmations().empty());
+    EXPECT_TRUE(plan->Confirmations().empty());
 }
 
 } // namespace
@@ -478,13 +568,13 @@ namespace
 
 // Minimal fields for a family that uploads no kernel and prompts for
 // nothing -- the shape the Mitsu Colt CAN read plan produces.
-fastecu::flash::FlashPlanFields kernellessReadFields()
+fastecu::flash::FlashPlanFields KernellessReadFields()
 {
     using namespace fastecu::flash;
     FlashPlanFields fields;
-    fields.operation = FlashOperation::Read;
-    fields.family = FlashFamily::MitsuColtM32rCan;
-    fields.transport = TransportKind::CanIso15765;
+    fields.operation = FlashOperation::kRead;
+    fields.family = FlashFamily::kMitsuColtM32rCan;
+    fields.transport = TransportKind::kCanIso15765;
     fields.target_id = "mitsu_ecu_m32r_can";
     fields.mcu_name = "M32R_384KB_1block";
     fields.transfer_region = MemoryRegion{0x00008000, 0x00058000};
@@ -504,57 +594,57 @@ fastecu::flash::FlashPlanFields kernellessReadFields()
 
 TEST(FlashValidation, AcceptsAPlanWithNoKernelAndNoConfirmations)
 {
-    const auto plan = fastecu::flash::validate_and_build(kernellessReadFields());
+    const auto plan = fastecu::flash::ValidateAndBuild(KernellessReadFields());
 
     ASSERT_THAT(plan, fastecu::testing::IsOk());
-    EXPECT_FALSE(plan->kernel().has_value());
-    EXPECT_TRUE(plan->confirmations().empty());
-    EXPECT_EQ(plan->experimental_family_id(), "MitsuColtM32rCan");
+    EXPECT_FALSE(plan->Kernel().has_value());
+    EXPECT_TRUE(plan->Confirmations().empty());
+    EXPECT_EQ(plan->ExperimentalFamilyId(), "MitsuColtM32rCan");
 }
 
 TEST(FlashValidation, RejectsAPresentKernelWithNoBytes)
 {
-    auto fields = kernellessReadFields();
+    auto fields = KernellessReadFields();
     fields.kernel = fastecu::flash::KernelImage{.id = "colt", .load_address = 0x800000, .bytes = {}};
 
-    const auto plan = fastecu::flash::validate_and_build(std::move(fields));
+    const auto plan = fastecu::flash::ValidateAndBuild(std::move(fields));
 
-    ASSERT_THAT(plan, fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
+    ASSERT_THAT(plan, fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
     EXPECT_THAT(plan.error().detail, ::testing::HasSubstr("kernel bytes"));
 }
 
 TEST(FlashValidation, RejectsAPresentKernelWithNoId)
 {
-    auto fields = kernellessReadFields();
+    auto fields = KernellessReadFields();
     fields.kernel = fastecu::flash::KernelImage{.id = "", .load_address = 0x800000, .bytes = {0x01, 0x02}};
 
-    const auto plan = fastecu::flash::validate_and_build(std::move(fields));
+    const auto plan = fastecu::flash::ValidateAndBuild(std::move(fields));
 
-    ASSERT_THAT(plan, fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
+    ASSERT_THAT(plan, fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
     EXPECT_THAT(plan.error().detail, ::testing::HasSubstr("kernel id"));
 }
 
 TEST(FlashValidation, RejectsAColtPlanOnAKlineTransport)
 {
-    auto fields = kernellessReadFields();
-    fields.transport = fastecu::flash::TransportKind::Kline;
+    auto fields = KernellessReadFields();
+    fields.transport = fastecu::flash::TransportKind::kKline;
 
-    const auto plan = fastecu::flash::validate_and_build(std::move(fields));
+    const auto plan = fastecu::flash::ValidateAndBuild(std::move(fields));
 
-    ASSERT_THAT(plan, fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
+    ASSERT_THAT(plan, fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
     EXPECT_THAT(plan.error().detail, ::testing::HasSubstr("does not match transport kind"));
 }
 
 TEST(FlashValidation, StillRejectsDuplicateConfirmationIds)
 {
     using fastecu::flash::ConfirmationSpec;
-    auto fields = kernellessReadFields();
-    fields.operation = fastecu::flash::FlashOperation::Write;
+    auto fields = KernellessReadFields();
+    fields.operation = fastecu::flash::FlashOperation::kWrite;
     fields.image = bytes::Bytes(0x80000, 0x00);
-    fields.confirmations = {ConfirmationSpec{ConfirmationSpec::Id::EraseTrigger, {}},
-                            ConfirmationSpec{ConfirmationSpec::Id::EraseTrigger, {}}};
+    fields.confirmations = {ConfirmationSpec{ConfirmationSpec::Id::kEraseTrigger, {}},
+                            ConfirmationSpec{ConfirmationSpec::Id::kEraseTrigger, {}}};
 
-    const auto plan = fastecu::flash::validate_and_build(std::move(fields));
+    const auto plan = fastecu::flash::ValidateAndBuild(std::move(fields));
 
     ASSERT_THAT(plan, ::testing::Not(fastecu::testing::IsOk()));
     EXPECT_THAT(plan.error().detail, ::testing::HasSubstr("duplicate confirmation id"));
@@ -562,9 +652,9 @@ TEST(FlashValidation, StillRejectsDuplicateConfirmationIds)
 
 TEST(FlashValidation, KernellessPlanYieldsAnEmptyKernel)
 {
-    auto plan = fastecu::flash::validate_and_build(kernellessReadFields());
+    auto plan = fastecu::flash::ValidateAndBuild(KernellessReadFields());
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
-    EXPECT_TRUE(plan->kernel_or_empty().id.empty());
-    EXPECT_TRUE(plan->kernel_or_empty().bytes.empty());
+    EXPECT_TRUE(plan->KernelOrEmpty().id.empty());
+    EXPECT_TRUE(plan->KernelOrEmpty().bytes.empty());
 }

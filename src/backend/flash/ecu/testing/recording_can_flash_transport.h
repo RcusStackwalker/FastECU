@@ -32,7 +32,7 @@ namespace fastecu::flash
 class RecordingCanFlashTransport final : public ICanFlashTransport
 {
   public:
-    Status reset_connection() override
+    Status ResetConnection() override
     {
         lifecycle.push_back("reset_connection");
         if (timeline != nullptr)
@@ -42,78 +42,78 @@ class RecordingCanFlashTransport final : public ICanFlashTransport
         Status result = reset_result;
         if (result.has_value() && cancellation_on_reset != nullptr)
         {
-            cancellation_on_reset->set_cancelled(true);
+            cancellation_on_reset->SetCancelled(true);
         }
         return result;
     }
 
-    Status configure(const Iso15765Config& config) override
+    Status Configure(const Iso15765Config& config) override
     {
         lifecycle.push_back("configure");
         if (timeline != nullptr)
         {
             timeline->push_back("configure");
         }
-        Status result = scripted.configure(config);
+        Status result = scripted.Configure(config);
         if (result.has_value() && cancellation_on_configure != nullptr)
         {
-            cancellation_on_configure->set_cancelled(true);
+            cancellation_on_configure->SetCancelled(true);
         }
         return result;
     }
 
-    Status open() override
+    Status Open() override
     {
         lifecycle.push_back("open");
         if (timeline != nullptr)
         {
             timeline->push_back("open");
         }
-        Status result = scripted.open();
+        Status result = scripted.Open();
         if (result.has_value() && cancellation_on_open != nullptr)
         {
-            cancellation_on_open->set_cancelled(true);
+            cancellation_on_open->SetCancelled(true);
         }
         return result;
     }
 
-    Status close() override
+    Status Close() override
     {
         lifecycle.push_back("close");
         if (timeline != nullptr)
         {
             timeline->push_back("close");
         }
-        return scripted.close();
+        return scripted.Close();
     }
 
-    void request_unblock() noexcept override
+    void RequestUnblock() noexcept override
     {
-        scripted.request_unblock();
+        scripted.RequestUnblock();
     }
 
-    Status write(bytes::ByteView data, const ICancellationToken& cancellation) override
+    Status Write(bytes::ByteView data, const ICancellationToken& cancellation) override
     {
         writes.emplace_back(data.begin(), data.end());
-        Status result = scripted.write(data, cancellation);
+        Status result = scripted.Write(data, cancellation);
         if (result.has_value() && cancellation_to_trigger != nullptr && !cancel_prefix.empty() &&
             data.size() >= cancel_prefix.size() && std::equal(cancel_prefix.begin(), cancel_prefix.end(), data.begin()))
         {
-            cancellation_to_trigger->set_cancelled(true);
+            cancellation_to_trigger->SetCancelled(true);
         }
         return result;
     }
 
-    Result<std::optional<bytes::Bytes>> read(std::chrono::milliseconds timeout,
+    Result<std::optional<bytes::Bytes>> Read(std::chrono::milliseconds timeout,
                                              const ICancellationToken& cancellation) override
     {
         read_timeouts.push_back(timeout);
-        Result<std::optional<bytes::Bytes>> result = scripted.read(timeout, cancellation);
+        Result<std::optional<bytes::Bytes>> result = scripted.Read(timeout, cancellation);
         ++read_count;
         if (result.has_value() && cancellation_to_trigger != nullptr && cancel_after_read_count.has_value() &&
             read_count == *cancel_after_read_count)
         {
-            cancellation_to_trigger->set_cancelled(true);
+            cancellation_to_trigger->SetCancelled(true);
         }
         return result;
     }
@@ -144,12 +144,12 @@ class PhaseCancellingEventSink final : public RecordingEventSink
     {
     }
 
-    void phase_progress(const PhaseProgressEvent& event) override
+    void PhaseProgress(const PhaseProgressEvent& event) override
     {
-        RecordingEventSink::phase_progress(event);
+        RecordingEventSink::PhaseProgress(event);
         if (event.phase_name == phase_ && event.done == done_)
         {
-            cancellation_.set_cancelled(true);
+            cancellation_.SetCancelled(true);
         }
     }
 

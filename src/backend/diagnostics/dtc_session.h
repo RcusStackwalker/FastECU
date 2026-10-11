@@ -17,14 +17,14 @@ namespace fastecu::diagnostics
 
 enum class DtcOperation
 {
-    Read,
-    Clear,
+    kRead,
+    kClear,
 };
 
 struct DtcRequest
 {
-    ObdProtocol protocol = ObdProtocol::Iso9141;
-    DtcOperation operation = DtcOperation::Read;
+    ObdProtocol protocol = ObdProtocol::kIso9141;
+    DtcOperation operation = DtcOperation::kRead;
 };
 
 struct SupportedPidPage
@@ -44,7 +44,7 @@ struct DtcReport
 // One OBD-II DTC read or clear, reproducing the legacy DtcOperations dialog's
 // wire sequence, sleeps, and log wording (step 6g spec, "DTC today"). Always
 // clears the link's header and resets it before returning.
-Result<DtcReport> run_dtc_session(const DtcRequest& request, IDiagnosticLink& link, IClock& clock,
-                                  const ICancellationToken& cancellation, IEventSink& events);
+Result<DtcReport> RunDtcSession(const DtcRequest& request, IDiagnosticLink& link, IClock& clock,
+                                const ICancellationToken& cancellation, IEventSink& events);
 
 } // namespace fastecu::diagnostics

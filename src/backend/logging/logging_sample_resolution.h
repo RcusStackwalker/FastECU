@@ -18,6 +18,6 @@ struct ResolvedLogSample
     std::uint8_t decimal_precision;
 };
 
-fastecu::Result<std::optional<ResolvedLogSample>> resolve_log_sample(const LoggingRunSnapshot& snapshot,
-                                                                     const LogSample& sample);
+fastecu::Result<std::optional<ResolvedLogSample>> ResolveLogSample(const LoggingRunSnapshot& snapshot,
+                                                                   const LogSample& sample);
 } // namespace fastecu::logging

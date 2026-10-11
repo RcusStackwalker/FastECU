@@ -31,11 +31,11 @@ struct HeaderFormEditors
 };
 
 // Build the fixed form from named domain values; presentation stays in the UI.
-HeaderFormEditors build_header_form(QGridLayout *grid, const definition::DefinitionHeaderDraft& draft = {});
-definition::DefinitionHeaderDraft read_header_form(const HeaderFormEditors& editors);
-Result<definition::DefinitionHeaderInput> definition_header_input(const HeaderFormEditors& editors);
+HeaderFormEditors buildHeaderForm(QGridLayout *grid, const definition::DefinitionHeaderDraft& draft = {});
+definition::DefinitionHeaderDraft readHeaderForm(const HeaderFormEditors& editors);
+Result<definition::DefinitionHeaderInput> definitionHeaderInput(const HeaderFormEditors& editors);
 
 // Strip a trailing dot and append .xml when absent.
-QString normalize_xml_suffix(QString filename);
+QString normalizeXmlSuffix(QString filename);
 
 } // namespace fastecu::ui

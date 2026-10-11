@@ -5,7 +5,7 @@
 #include <array>
 #include <cstdint>
 
-namespace SsmProtocol
+namespace ssm_protocol
 {
 
 using SeedKeyToGenerateIndex = std::span<const std::uint16_t, 16>;
@@ -14,7 +14,7 @@ using IndexTransformation = std::span<const std::uint8_t, 32>;
 
 // The index transformation calculateSeedKey and calculatePayload take.
 //
-// This is an SsmProtocol-level constant, not a per-family one: the same 32
+// This is an ssm_protocol-level constant, not a per-family one: the same 32
 // entries drive every Subaru seed-key and payload transform in the tree. It
 // was previously spelled out as an inline 32-entry literal at fourteen
 // production call sites across src/backend/flash/ecu and
@@ -39,12 +39,12 @@ inline constexpr std::array<std::uint8_t, 32> kIndexTransformationEcutek{
     0x4, 0x2, 0x5, 0x1, 0x8, 0xC, 0xD, 0x8, 0xA, 0xD, 0x2, 0xB, 0xF, 0x4, 0x0, 0x3,
     0xB, 0x4, 0x6, 0x0, 0xF, 0x2, 0xD, 0x9, 0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8};
 
-bytes::Bytes calculateSeedKey(bytes::ByteView seed, SeedKeyToGenerateIndex keytogenerateindex,
+bytes::Bytes CalculateSeedKey(bytes::ByteView seed, SeedKeyToGenerateIndex keytogenerateindex,
                               IndexTransformation indextransformation);
-bytes::Bytes calculatePayload(bytes::ByteView buf, std::uint32_t len, KeyToGenerateIndex keytogenerateindex,
+bytes::Bytes CalculatePayload(bytes::ByteView buf, std::uint32_t len, KeyToGenerateIndex keytogenerateindex,
                               IndexTransformation indextransformation);
-bytes::Bytes addHeader(bytes::ByteView output, bytes::Byte testerId, bytes::Byte targetId);
-bool hasValidFrame(bytes::ByteView frame, bytes::Byte receiverId, bytes::Byte senderId);
-bool hasPayloadPrefix(bytes::ByteView frame, bytes::ByteView prefix, bytes::Byte receiverId, bytes::Byte senderId);
+bytes::Bytes AddHeader(bytes::ByteView output, bytes::Byte tester_id, bytes::Byte target_id);
+bool HasValidFrame(bytes::ByteView frame, bytes::Byte receiver_id, bytes::Byte sender_id);
+bool HasPayloadPrefix(bytes::ByteView frame, bytes::ByteView prefix, bytes::Byte receiver_id, bytes::Byte sender_id);
 
-} // namespace SsmProtocol
+} // namespace ssm_protocol

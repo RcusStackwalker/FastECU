@@ -90,36 +90,36 @@ constexpr std::array<Case, 5> kCases{{
     {"sub_ecu_denso_sh7059_diesel_densocan", "SH7059d", 0x180000, 0xFFFEE000, 0xFFFE8000, 0x9000, kSh7059dBlocks},
 }};
 
-KernelImage kernel_for(const Case& test_case, bytes::Bytes data = {0x01, 0x02, 0x03, 0x04, 0x05})
+KernelImage KernelFor(const Case& test_case, bytes::Bytes data = {0x01, 0x02, 0x03, 0x04, 0x05})
 {
     return {.id = "densocan-kernel", .load_address = test_case.kernel_load_address, .bytes = std::move(data)};
 }
 
-std::optional<bytes::Bytes> image_for(const Case& test_case, FlashOperation operation)
+std::optional<bytes::Bytes> ImageFor(const Case& test_case, FlashOperation operation)
 {
-    if (operation == FlashOperation::Read)
+    if (operation == FlashOperation::kRead)
     {
         return std::nullopt;
     }
     return bytes::Bytes(test_case.rom_size, bytes::Byte{0});
 }
 
-FlashPlanFields valid_fields(const Case& test_case, FlashOperation operation = FlashOperation::Read)
+FlashPlanFields ValidFields(const Case& test_case, FlashOperation operation = FlashOperation::kRead)
 {
     return {
         .operation = operation,
-        .family = FlashFamily::SubaruDensoSh705xDensoCan,
-        .transport = TransportKind::CanRawIso15765,
+        .family = FlashFamily::kSubaruDensoSh705xDensoCan,
+        .transport = TransportKind::kCanRawIso15765,
         .target_id = std::string(test_case.protocol),
         .mcu_name = std::string(test_case.mcu),
         .transfer_region = {0x00000000, static_cast<std::uint32_t>(test_case.rom_size)},
-        .erase_regions = operation == FlashOperation::Read
+        .erase_regions = operation == FlashOperation::kRead
                              ? std::vector<MemoryRegion>{}
                              : std::vector<MemoryRegion>(test_case.blocks.begin(), test_case.blocks.end()),
-        .image = image_for(test_case, operation),
-        .kernel = kernel_for(test_case),
+        .image = ImageFor(test_case, operation),
+        .kernel = KernelFor(test_case),
         .family_plan = SubaruDensoSh705xDensoCanPlan{},
-        .confirmations = {ConfirmationSpec{.id = ConfirmationSpec::Id::CycleIgnition}},
+        .confirmations = {ConfirmationSpec{.id = ConfirmationSpec::Id::kCycleIgnition}},
     };
 }
 
@@ -127,25 +127,26 @@ TEST(SubaruDensoSh705xDensoCanPlan, BuildsEveryExactProtocolMcuOperationAndGeome
 {
     for (const Case& test_case : kCases)
     {
-        for (const FlashOperation operation : {FlashOperation::Read, FlashOperation::TestWrite, FlashOperation::Write})
+        for (const FlashOperation operation :
+             {FlashOperation::kRead, FlashOperation::kTestWrite, FlashOperation::kWrite})
         {
-            auto plan = build_subaru_denso_sh705x_densocan_plan(operation, test_case.protocol, test_case.mcu,
-                                                                image_for(test_case, operation), kernel_for(test_case));
+            auto plan = BuildSubaruDensoSh705xDensocanPlan(operation, test_case.protocol, test_case.mcu,
+                                                           ImageFor(test_case, operation), KernelFor(test_case));
 
             ASSERT_TRUE(plan.has_value()) << test_case.protocol << ": " << plan.error().detail;
-            EXPECT_EQ(plan->family(), FlashFamily::SubaruDensoSh705xDensoCan);
-            EXPECT_EQ(plan->transport(), TransportKind::CanRawIso15765);
-            EXPECT_EQ(plan->target_id(), test_case.protocol);
-            EXPECT_EQ(plan->mcu_name(), test_case.mcu);
-            EXPECT_EQ(plan->transfer_region().start, 0U);
-            EXPECT_EQ(plan->transfer_region().length, test_case.rom_size);
-            ASSERT_TRUE(plan->kernel().has_value());
-            EXPECT_EQ(plan->kernel()->load_address, test_case.kernel_load_address);
-            ASSERT_EQ(plan->confirmations().size(), 1U);
-            EXPECT_EQ(plan->confirmations().front().id, ConfirmationSpec::Id::CycleIgnition);
-            EXPECT_TRUE(plan->confirmations().front().arguments.empty());
+            EXPECT_EQ(plan->Family(), FlashFamily::kSubaruDensoSh705xDensoCan);
+            EXPECT_EQ(plan->Transport(), TransportKind::kCanRawIso15765);
+            EXPECT_EQ(plan->TargetId(), test_case.protocol);
+            EXPECT_EQ(plan->McuName(), test_case.mcu);
+            EXPECT_EQ(plan->TransferRegion().start, 0U);
+            EXPECT_EQ(plan->TransferRegion().length, test_case.rom_size);
+            ASSERT_TRUE(plan->Kernel().has_value());
+            EXPECT_EQ(plan->Kernel()->load_address, test_case.kernel_load_address);
+            ASSERT_EQ(plan->Confirmations().size(), 1U);
+            EXPECT_EQ(plan->Confirmations().front().id, ConfirmationSpec::Id::kCycleIgnition);
+            EXPECT_TRUE(plan->Confirmations().front().arguments.empty());
 
-            const auto& wire = std::get<SubaruDensoSh705xDensoCanPlan>(plan->family_plan());
+            const auto& wire = std::get<SubaruDensoSh705xDensoCanPlan>(plan->FamilyPlan());
             EXPECT_EQ(wire.iso_request_id, 0x7E0U);
             EXPECT_EQ(wire.iso_response_id, 0x7E8U);
             EXPECT_EQ(wire.raw_transmit_id, 0x000FFFFEU);
@@ -154,23 +155,23 @@ TEST(SubaruDensoSh705xDensoCanPlan, BuildsEveryExactProtocolMcuOperationAndGeome
             EXPECT_FALSE(wire.iso_extended_id);
             EXPECT_TRUE(wire.raw_extended_id);
 
-            if (operation == FlashOperation::Read)
+            if (operation == FlashOperation::kRead)
             {
-                EXPECT_FALSE(plan->image().has_value());
-                EXPECT_TRUE(plan->erase_regions().empty());
+                EXPECT_FALSE(plan->Image().has_value());
+                EXPECT_TRUE(plan->EraseRegions().empty());
             }
             else
             {
-                ASSERT_TRUE(plan->image().has_value());
-                EXPECT_EQ(plan->image()->size(), test_case.rom_size);
-                ASSERT_EQ(plan->erase_regions().size(), test_case.blocks.size());
+                ASSERT_TRUE(plan->Image().has_value());
+                EXPECT_EQ(plan->Image()->size(), test_case.rom_size);
+                ASSERT_EQ(plan->EraseRegions().size(), test_case.blocks.size());
                 for (std::size_t block = 0; block < test_case.blocks.size(); ++block)
                 {
-                    EXPECT_EQ(plan->erase_regions()[block].start, test_case.blocks[block].start);
-                    EXPECT_EQ(plan->erase_regions()[block].length, test_case.blocks[block].length);
+                    EXPECT_EQ(plan->EraseRegions()[block].start, test_case.blocks[block].start);
+                    EXPECT_EQ(plan->EraseRegions()[block].length, test_case.blocks[block].length);
                 }
             }
-            EXPECT_TRUE(validate_subaru_denso_sh705x_densocan_plan(*plan).has_value());
+            EXPECT_TRUE(ValidateSubaruDensoSh705xDensocanPlan(*plan).has_value());
         }
     }
 }
@@ -182,17 +183,17 @@ TEST(SubaruDensoSh705xDensoCanPlan, RejectsUnknownNearMissAndWrongMcuPairsBefore
         for (const std::string_view bad_protocol :
              {"unknown_densocan", "sub_ecu_denso_sh7058_densocan_extra", "sub_ecu_eeprom_denso_sh7058_densocan"})
         {
-            auto plan = build_subaru_denso_sh705x_densocan_plan(FlashOperation::Read, bad_protocol, test_case.mcu,
-                                                                std::nullopt, kernel_for(test_case));
+            auto plan = BuildSubaruDensoSh705xDensocanPlan(FlashOperation::kRead, bad_protocol, test_case.mcu,
+                                                           std::nullopt, KernelFor(test_case));
             ASSERT_FALSE(plan.has_value()) << bad_protocol;
-            EXPECT_EQ(plan.error().kind, ErrorKind::InvalidConfig);
+            EXPECT_EQ(plan.error().kind, ErrorKind::kInvalidConfig);
         }
 
         const std::string_view wrong_mcu = test_case.mcu == "SH7055" ? "SH7058" : "SH7055";
-        auto plan = build_subaru_denso_sh705x_densocan_plan(FlashOperation::Read, test_case.protocol, wrong_mcu,
-                                                            std::nullopt, kernel_for(test_case));
+        auto plan = BuildSubaruDensoSh705xDensocanPlan(FlashOperation::kRead, test_case.protocol, wrong_mcu,
+                                                       std::nullopt, KernelFor(test_case));
         ASSERT_FALSE(plan.has_value()) << test_case.protocol;
-        EXPECT_EQ(plan.error().kind, ErrorKind::InvalidConfig);
+        EXPECT_EQ(plan.error().kind, ErrorKind::kInvalidConfig);
     }
 }
 
@@ -200,7 +201,7 @@ TEST(SubaruDensoSh705xDensoCanPlan, WriteAndTestWriteRequireExactCatalogRomSizes
 {
     for (const Case& test_case : kCases)
     {
-        for (const FlashOperation operation : {FlashOperation::TestWrite, FlashOperation::Write})
+        for (const FlashOperation operation : {FlashOperation::kTestWrite, FlashOperation::kWrite})
         {
             const std::array<std::optional<bytes::Bytes>, 3> invalid_images{{
                 std::nullopt,
@@ -209,10 +210,10 @@ TEST(SubaruDensoSh705xDensoCanPlan, WriteAndTestWriteRequireExactCatalogRomSizes
             }};
             for (const std::optional<bytes::Bytes>& image : invalid_images)
             {
-                auto plan = build_subaru_denso_sh705x_densocan_plan(operation, test_case.protocol, test_case.mcu, image,
-                                                                    kernel_for(test_case));
+                auto plan = BuildSubaruDensoSh705xDensocanPlan(operation, test_case.protocol, test_case.mcu, image,
+                                                               KernelFor(test_case));
                 ASSERT_FALSE(plan.has_value()) << test_case.protocol;
-                EXPECT_EQ(plan.error().kind, ErrorKind::InvalidConfig);
+                EXPECT_EQ(plan.error().kind, ErrorKind::kInvalidConfig);
             }
         }
     }
@@ -227,20 +228,20 @@ TEST(SubaruDensoSh705xDensoCanPlan, KernelUploadRequiresExactCatalogAddressAndSi
         ASSERT_GT(capacity, 0U);
         ASSERT_EQ(capacity % 6U, 0U);
 
-        auto exact = build_subaru_denso_sh705x_densocan_plan(
-            FlashOperation::Read, test_case.protocol, test_case.mcu, std::nullopt,
-            kernel_for(test_case, bytes::Bytes(capacity, bytes::Byte{0xA5})));
+        auto exact =
+            BuildSubaruDensoSh705xDensocanPlan(FlashOperation::kRead, test_case.protocol, test_case.mcu, std::nullopt,
+                                               KernelFor(test_case, bytes::Bytes(capacity, bytes::Byte{0xA5})));
         ASSERT_TRUE(exact.has_value()) << test_case.protocol << ": " << exact.error().detail;
 
         for (KernelImage kernel : {
                  KernelImage{.id = "wrong-address", .load_address = test_case.kernel_load_address + 1, .bytes = {0xAA}},
-                 kernel_for(test_case, bytes::Bytes(capacity + 1, bytes::Byte{0xA5})),
+                 KernelFor(test_case, bytes::Bytes(capacity + 1, bytes::Byte{0xA5})),
              })
         {
-            auto plan = build_subaru_denso_sh705x_densocan_plan(FlashOperation::Read, test_case.protocol, test_case.mcu,
-                                                                std::nullopt, std::move(kernel));
+            auto plan = BuildSubaruDensoSh705xDensocanPlan(FlashOperation::kRead, test_case.protocol, test_case.mcu,
+                                                           std::nullopt, std::move(kernel));
             ASSERT_FALSE(plan.has_value()) << test_case.protocol;
-            EXPECT_EQ(plan.error().kind, ErrorKind::InvalidConfig);
+            EXPECT_EQ(plan.error().kind, ErrorKind::kInvalidConfig);
         }
     }
 }
@@ -250,7 +251,7 @@ TEST(SubaruDensoSh705xDensoCanPlan, ValidatorRejectsWireGeometryAndConfirmationD
     const Case& test_case = kCases.front();
     for (int mutation = 0; mutation < 6; ++mutation)
     {
-        auto fields = valid_fields(test_case, FlashOperation::Write);
+        auto fields = ValidFields(test_case, FlashOperation::kWrite);
         auto& wire = std::get<SubaruDensoSh705xDensoCanPlan>(fields.family_plan);
         switch (mutation)
         {
@@ -275,11 +276,11 @@ TEST(SubaruDensoSh705xDensoCanPlan, ValidatorRejectsWireGeometryAndConfirmationD
         default:
             FAIL() << "unexpected validator mutation " << mutation;
         }
-        auto plan = validate_and_build(std::move(fields));
+        auto plan = ValidateAndBuild(std::move(fields));
         ASSERT_TRUE(plan.has_value()) << plan.error().detail;
-        auto valid = validate_subaru_denso_sh705x_densocan_plan(*plan);
+        auto valid = ValidateSubaruDensoSh705xDensocanPlan(*plan);
         ASSERT_FALSE(valid.has_value()) << mutation;
-        EXPECT_EQ(valid.error().kind, ErrorKind::InvalidConfig);
+        EXPECT_EQ(valid.error().kind, ErrorKind::kInvalidConfig);
     }
 }
 
@@ -289,7 +290,7 @@ TEST(SubaruDensoSh705xDensoCanPlan, RejectsAlteredAddressesAndLengthsInEveryEras
     {
         for (bool alter_start : {false, true})
         {
-            auto fields = valid_fields(kCases.front(), FlashOperation::Write);
+            auto fields = ValidFields(kCases.front(), FlashOperation::kWrite);
             if (alter_start)
             {
                 ++fields.erase_regions[index].start;
@@ -298,11 +299,11 @@ TEST(SubaruDensoSh705xDensoCanPlan, RejectsAlteredAddressesAndLengthsInEveryEras
             {
                 --fields.erase_regions[index].length;
             }
-            auto plan = validate_and_build(std::move(fields));
+            auto plan = ValidateAndBuild(std::move(fields));
             ASSERT_TRUE(plan.has_value()) << plan.error().detail;
-            const auto validation = validate_subaru_denso_sh705x_densocan_plan(*plan);
+            const auto validation = ValidateSubaruDensoSh705xDensocanPlan(*plan);
             ASSERT_FALSE(validation.has_value()) << index;
-            EXPECT_EQ(validation.error(), (Error{ErrorKind::InvalidConfig, "erase geometry does not match the MCU"}));
+            EXPECT_EQ(validation.error(), (Error{ErrorKind::kInvalidConfig, "erase geometry does not match the MCU"}));
         }
     }
 }

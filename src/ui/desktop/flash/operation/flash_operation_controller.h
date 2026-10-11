@@ -29,9 +29,9 @@ struct FlashOperationInput
 
 enum class FlashOperationStatus
 {
-    Completed,            // a workflow ran; read_bytes/rom_id as the dialog returned them
-    ServiceActionHandled, // a Denso TCU service action consumed the request
-    Unsupported,          // no workflow for this protocol; warning shown
+    kCompleted,            // a workflow ran; read_bytes/rom_id as the dialog returned them
+    kServiceActionHandled, // a Denso TCU service action consumed the request
+    kUnsupported,          // no workflow for this protocol; warning shown
 };
 
 struct FlashOperationOutcome
@@ -48,17 +48,17 @@ class FlashOperationController : public QObject
     Q_OBJECT
 
   public:
-    FlashOperationController(SerialPortActions& serial, QWidget *dialog_parent);
+    FlashOperationController(SerialPortActions& serial, QWidget *dialogParent);
 
     FlashOperationOutcome run(const FlashOperationInput& input);
 
   signals:
-    void LOG_E(QString message, bool timestamp, bool linefeed);
-    void LOG_W(QString message, bool timestamp, bool linefeed);
-    void LOG_I(QString message, bool timestamp, bool linefeed);
-    void LOG_D(QString message, bool timestamp, bool linefeed);
-    void external_logger(QString message);
-    void external_logger(int value);
+    void logE(QString message, bool timestamp, bool linefeed);
+    void logW(QString message, bool timestamp, bool linefeed);
+    void logI(QString message, bool timestamp, bool linefeed);
+    void logD(QString message, bool timestamp, bool linefeed);
+    void externalLogger(QString message);
+    void externalLogger(int value);
 
   private:
     SerialPortActions& serial_;

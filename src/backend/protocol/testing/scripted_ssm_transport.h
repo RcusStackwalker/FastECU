@@ -12,53 +12,57 @@
 class ScriptedSsmTransport : public fastecu::ISsmTransport
 {
   public:
-    void expectWrite(bytes::ByteView b)
+    void ExpectWrite(bytes::ByteView b)
     {
         expected_.emplace_back(b.begin(), b.end());
     }
-    void queueRead(bytes::ByteView b)
+    void QueueRead(bytes::ByteView b)
     {
         reads_.emplace_back(OptionalBytes{bytes::Bytes(b.begin(), b.end())});
     }
-    void queue_no_frame()
+    void ExpectReadTimeout(std::chrono::milliseconds timeout)
+    {
+        expected_read_timeouts_.push_back(timeout);
+    }
+    void QueueNoFrame()
     {
         reads_.emplace_back(OptionalBytes{});
     }
-    void queue_error(fastecu::ErrorKind kind, std::string detail = {})
+    void QueueError(fastecu::ErrorKind kind, std::string detail = {})
     {
-        reads_.emplace_back(fastecu::fail(kind, std::move(detail)));
+        reads_.emplace_back(fastecu::Fail(kind, std::move(detail)));
     }
-    void queue_write_error(fastecu::ErrorKind kind, std::string detail = {})
+    void QueueWriteError(fastecu::ErrorKind kind, std::string detail = {})
     {
-        write_errors_.emplace_back(fastecu::fail(kind, std::move(detail)));
+        write_errors_.emplace_back(fastecu::Fail(kind, std::move(detail)));
     }
-    bool scriptConsumed() const
+    bool ScriptConsumed() const
     {
-        return wIdx_ == expected_.size() && reads_.empty();
+        return w_idx_ == expected_.size() && reads_.empty() && expected_read_timeouts_.empty();
     }
-    bool ok() const
+    bool Ok() const
     {
         return ok_;
     }
-    void setOpen(bool open)
+    void SetOpen(bool open)
     {
         open_ = open;
     }
-    bool isOpen() const override
+    bool IsOpen() const override
     {
         return open_;
     }
 
-    fastecu::Result<std::size_t> write(bytes::ByteView data) override
+    fastecu::Result<std::size_t> Write(bytes::ByteView data) override
     {
-        if (wIdx_ >= expected_.size() || expected_.at(wIdx_) != bytes::Bytes(data.begin(), data.end()))
+        if (w_idx_ >= expected_.size() || expected_.at(w_idx_) != bytes::Bytes(data.begin(), data.end()))
         {
             ok_ = false;
-            return fastecu::fail(fastecu::ErrorKind::Internal, "unexpected scripted SSM write");
+            return fastecu::Fail(fastecu::ErrorKind::kInternal, "unexpected scripted SSM write");
         }
         else
         {
-            ++wIdx_;
+            ++w_idx_;
         }
         if (!write_errors_.empty())
         {
@@ -69,16 +73,26 @@ class ScriptedSsmTransport : public fastecu::ISsmTransport
         return data.size();
     }
 
-    fastecu::Result<OptionalBytes> read(std::chrono::milliseconds,
+    fastecu::Result<OptionalBytes> Read(std::chrono::milliseconds timeout,
                                         const fastecu::ICancellationToken& cancellation) override
     {
-        if (cancellation.cancelled())
+        if (cancellation.Cancelled())
         {
-            return fastecu::fail(fastecu::ErrorKind::Cancelled, "scripted SSM read cancelled");
+            return fastecu::Fail(fastecu::ErrorKind::kCancelled, "scripted SSM read cancelled");
+        }
+        if (!expected_read_timeouts_.empty())
+        {
+            const auto expected_timeout = expected_read_timeouts_.front();
+            expected_read_timeouts_.pop_front();
+            if (timeout != expected_timeout)
+            {
+                ok_ = false;
+                return fastecu::Fail(fastecu::ErrorKind::kInternal, "unexpected scripted SSM read timeout");
+            }
         }
         if (reads_.empty())
         {
-            return fastecu::fail(fastecu::ErrorKind::Internal, "no scripted SSM read outcome");
+            return fastecu::Fail(fastecu::ErrorKind::kInternal, "no scripted SSM read outcome");
         }
         auto result = std::move(reads_.front());
         reads_.pop_front();
@@ -88,8 +102,9 @@ class ScriptedSsmTransport : public fastecu::ISsmTransport
   private:
     std::vector<bytes::Bytes> expected_;
     std::deque<fastecu::Result<OptionalBytes>> reads_;
+    std::deque<std::chrono::milliseconds> expected_read_timeouts_;
     std::deque<fastecu::Result<std::size_t>> write_errors_;
-    std::size_t wIdx_ = 0;
+    std::size_t w_idx_ = 0;
     bool ok_ = true;
     bool open_ = true;
 };

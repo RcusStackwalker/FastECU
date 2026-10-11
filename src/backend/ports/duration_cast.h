@@ -15,7 +15,7 @@ namespace fastecu
 // the wire type allows, never abort a flash mid-write. Clamping negatives to
 // zero matches every caller's existing "no wait" reading of a non-positive
 // timeout.
-template <std::integral T> constexpr T saturating_ms(std::chrono::milliseconds duration) noexcept
+template <std::integral T> constexpr T SaturatingMs(std::chrono::milliseconds duration) noexcept
 {
     using Limits = std::numeric_limits<T>;
     const auto count = duration.count();

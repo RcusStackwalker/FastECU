@@ -32,9 +32,9 @@ struct DesktopCanTransportConfig
     std::function<SerialBackend *()> backend_factory;
 };
 
-Result<std::vector<std::string>> list_desktop_serial_ports(const DesktopCanTransportConfig& config);
+Result<std::vector<std::string>> ListDesktopSerialPorts(const DesktopCanTransportConfig& config);
 
-Result<std::unique_ptr<ICanFlashTransport>> open_desktop_can_flash_transport(const DesktopCanTransportConfig& config,
-                                                                             const Iso15765Config& can);
+Result<std::unique_ptr<ICanFlashTransport>> OpenDesktopCanFlashTransport(const DesktopCanTransportConfig& config,
+                                                                         const Iso15765Config& can);
 
 } // namespace fastecu::flash

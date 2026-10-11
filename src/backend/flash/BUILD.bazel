@@ -56,6 +56,8 @@ cc_library(
     hdrs = ["flash_plan.h"],
     deps = [
         ":flash_types",
+        "//src/algorithms/memory:memory_image",
+        "//src/algorithms/memory:memory_map",
         "//src/algorithms/protocol",
         "//src/backend/ports",
     ],
@@ -65,7 +67,10 @@ cc_library(
     name = "flash_validation",
     srcs = ["flash_validation.cpp"],
     hdrs = ["flash_validation.h"],
-    implementation_deps = [":flash_types"],
+    implementation_deps = [
+        ":flash_types",
+        "//src/algorithms/memory:memory_image",
+    ],
     deps = [
         ":flash_plan",
         "//src/backend/ports",
@@ -78,6 +83,21 @@ fastecu_portable_gtest(
     deps = [
         ":flash_validation",
         "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
+    ],
+)
+
+cc_library(
+    name = "transfer_progress",
+    srcs = ["transfer_progress.cpp"],
+    hdrs = ["transfer_progress.h"],
+)
+
+fastecu_portable_gtest(
+    name = "transfer_progress_test",
+    srcs = ["transfer_progress_test.cpp"],
+    deps = [
+        ":transfer_progress",
         "@googletest//:gtest",
     ],
 )

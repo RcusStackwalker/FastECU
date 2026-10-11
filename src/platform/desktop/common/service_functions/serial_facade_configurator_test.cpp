@@ -20,10 +20,10 @@ using fastecu::service_functions::SsmTransportConfig;
 namespace
 {
 
-SsmTransportConfig klineConfig()
+SsmTransportConfig KlineConfig()
 {
     return SsmTransportConfig{
-        .framing = SsmTransportConfig::Framing::Kline14230,
+        .framing = SsmTransportConfig::Framing::kKline14230,
         .bitrate_or_baud = 4800,
         .request_id = 0,
         .response_id = 0,
@@ -43,9 +43,9 @@ struct Harness
                 fake = new NiceFakeBackend;
                 return fake;
             });
-        serial->set_add_ssm_header(false); // start the facade's backend thread
-        EXPECT_CALL(*fake, open_serial_port()).WillRepeatedly(::testing::Return(QStringLiteral("fake-port")));
-        EXPECT_CALL(*fake, is_serial_port_open()).WillRepeatedly(::testing::Return(true));
+        serial->SetAddSsmHeader(false); // start the facade's backend thread
+        EXPECT_CALL(*fake, OpenSerialPort()).WillRepeatedly(::testing::Return(QStringLiteral("fake-port")));
+        EXPECT_CALL(*fake, IsSerialPortOpen()).WillRepeatedly(::testing::Return(true));
         configurator = std::make_unique<SerialPortActionsConfigurator>(serial.get());
     }
 
@@ -59,27 +59,27 @@ struct Harness
 TEST(SerialFacadeConfiguratorTest, isoConfigurationClearsAStaleKlineHeaderAndUsesTheRequiredOrder)
 {
     Harness harness;
-    ASSERT_TRUE(harness.serial->set_add_iso14230_header(true));
+    ASSERT_TRUE(harness.serial->SetAddIso14230Header(true));
 
     ::testing::InSequence sequence;
-    EXPECT_CALL(*harness.fake, reset_connection()).WillOnce(::testing::Return());
-    EXPECT_CALL(*harness.fake, set_is_iso14230_connection(false)).WillOnce(::testing::Return(true));
-    EXPECT_CALL(*harness.fake, set_is_can_connection(false)).WillOnce(::testing::Return(true));
-    EXPECT_CALL(*harness.fake, set_is_iso15765_connection(true)).WillOnce(::testing::Return(true));
-    EXPECT_CALL(*harness.fake, set_is_29_bit_id(false)).WillOnce(::testing::Return(true));
-    EXPECT_CALL(*harness.fake, set_add_iso14230_header(false)).WillOnce(::testing::DoDefault());
-    EXPECT_CALL(*harness.fake, set_can_speed(QStringLiteral("500000"))).WillOnce(::testing::Return(true));
-    EXPECT_CALL(*harness.fake, set_iso15765_source_address(2017)).WillOnce(::testing::Return(true));
-    EXPECT_CALL(*harness.fake, set_iso15765_destination_address(2025)).WillOnce(::testing::Return(true));
-    EXPECT_CALL(*harness.fake, set_can_source_address(2017)).WillOnce(::testing::Return(true));
-    EXPECT_CALL(*harness.fake, set_can_destination_address(2025)).WillOnce(::testing::Return(true));
-    EXPECT_CALL(*harness.fake, open_serial_port()).WillOnce(::testing::Return(QStringLiteral("fake-port")));
-    EXPECT_CALL(*harness.fake, is_serial_port_open()).WillOnce(::testing::Return(true));
+    EXPECT_CALL(*harness.fake, ResetConnection()).WillOnce(::testing::Return());
+    EXPECT_CALL(*harness.fake, SetIsIso14230Connection(false)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(*harness.fake, SetIsCanConnection(false)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(*harness.fake, SetIsIso15765Connection(true)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(*harness.fake, SetIs29BitId(false)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(*harness.fake, SetAddIso14230Header(false)).WillOnce(::testing::DoDefault());
+    EXPECT_CALL(*harness.fake, SetCanSpeed(QStringLiteral("500000"))).WillOnce(::testing::Return(true));
+    EXPECT_CALL(*harness.fake, SetIso15765SourceAddress(2017)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(*harness.fake, SetIso15765DestinationAddress(2025)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(*harness.fake, SetCanSourceAddress(2017)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(*harness.fake, SetCanDestinationAddress(2025)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(*harness.fake, OpenSerialPort()).WillOnce(::testing::Return(QStringLiteral("fake-port")));
+    EXPECT_CALL(*harness.fake, IsSerialPortOpen()).WillOnce(::testing::Return(true));
 
-    const auto result = harness.configurator->apply(SsmTransportConfig{});
+    const auto result = harness.configurator->Apply(SsmTransportConfig{});
 
     ASSERT_TRUE(result.has_value());
-    ASSERT_EQ(harness.serial->get_add_iso14230_header(), false);
+    ASSERT_EQ(harness.serial->GetAddIso14230Header(), false);
 }
 
 TEST(SerialFacadeConfiguratorTest, klineConfigurationPreservesLegacyOpenBaudHeaderOrder)
@@ -87,17 +87,17 @@ TEST(SerialFacadeConfiguratorTest, klineConfigurationPreservesLegacyOpenBaudHead
     Harness harness;
 
     ::testing::InSequence sequence;
-    EXPECT_CALL(*harness.fake, reset_connection()).WillOnce(::testing::Return());
-    EXPECT_CALL(*harness.fake, set_is_can_connection(false)).WillOnce(::testing::Return(true));
-    EXPECT_CALL(*harness.fake, set_is_iso15765_connection(false)).WillOnce(::testing::Return(true));
-    EXPECT_CALL(*harness.fake, set_is_iso14230_connection(true)).WillOnce(::testing::Return(true));
-    EXPECT_CALL(*harness.fake, open_serial_port()).WillOnce(::testing::Return(QStringLiteral("fake-port")));
-    EXPECT_CALL(*harness.fake, is_serial_port_open()).WillOnce(::testing::Return(true));
-    EXPECT_CALL(*harness.fake, change_port_speed(QStringLiteral("4800"))).WillOnce(::testing::Return(kSerialSuccess));
-    EXPECT_CALL(*harness.fake, is_serial_port_open()).WillOnce(::testing::Return(true));
-    EXPECT_CALL(*harness.fake, set_add_iso14230_header(false)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(*harness.fake, ResetConnection()).WillOnce(::testing::Return());
+    EXPECT_CALL(*harness.fake, SetIsCanConnection(false)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(*harness.fake, SetIsIso15765Connection(false)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(*harness.fake, SetIsIso14230Connection(true)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(*harness.fake, OpenSerialPort()).WillOnce(::testing::Return(QStringLiteral("fake-port")));
+    EXPECT_CALL(*harness.fake, IsSerialPortOpen()).WillOnce(::testing::Return(true));
+    EXPECT_CALL(*harness.fake, ChangePortSpeed(QStringLiteral("4800"))).WillOnce(::testing::Return(kSerialSuccess));
+    EXPECT_CALL(*harness.fake, IsSerialPortOpen()).WillOnce(::testing::Return(true));
+    EXPECT_CALL(*harness.fake, SetAddIso14230Header(false)).WillOnce(::testing::Return(true));
 
-    const auto result = harness.configurator->apply(klineConfig());
+    const auto result = harness.configurator->Apply(KlineConfig());
 
     ASSERT_TRUE(result.has_value());
 }
@@ -106,178 +106,176 @@ TEST(SerialFacadeConfiguratorTest, nullFacadeIsDisconnected)
 {
     SerialPortActionsConfigurator configurator{nullptr};
 
-    const auto result = configurator.apply(SsmTransportConfig{});
+    const auto result = configurator.Apply(SsmTransportConfig{});
 
     ASSERT_TRUE(!result.has_value());
-    ASSERT_EQ(result.error().kind, ErrorKind::Disconnected);
+    ASSERT_EQ(result.error().kind, ErrorKind::kDisconnected);
 }
 
 TEST(SerialFacadeConfiguratorTest, anEmptyOpenResultIsDisconnectedEvenWithAStaleOpenFlag)
 {
     Harness harness;
-    EXPECT_CALL(*harness.fake, open_serial_port()).WillOnce(::testing::Return(QString{}));
+    EXPECT_CALL(*harness.fake, OpenSerialPort()).WillOnce(::testing::Return(QString{}));
 
-    const auto result = harness.configurator->apply(SsmTransportConfig{});
+    const auto result = harness.configurator->Apply(SsmTransportConfig{});
 
     ASSERT_TRUE(!result.has_value());
-    ASSERT_EQ(result.error().kind, ErrorKind::Disconnected);
+    ASSERT_EQ(result.error().kind, ErrorKind::kDisconnected);
 }
 
 TEST(SerialFacadeConfiguratorTest, aPortThatIsNotOpenAfterOpenIsDisconnected)
 {
     Harness harness;
-    EXPECT_CALL(*harness.fake, is_serial_port_open()).WillOnce(::testing::Return(false));
+    EXPECT_CALL(*harness.fake, IsSerialPortOpen()).WillOnce(::testing::Return(false));
     // A port that never opened must not be driven to a new baud rate.
-    EXPECT_CALL(*harness.fake, change_port_speed(::testing::_)).Times(0);
+    EXPECT_CALL(*harness.fake, ChangePortSpeed(::testing::_)).Times(0);
 
-    const auto result = harness.configurator->apply(klineConfig());
+    const auto result = harness.configurator->Apply(KlineConfig());
 
     ASSERT_TRUE(!result.has_value());
-    ASSERT_EQ(result.error().kind, ErrorKind::Disconnected);
+    ASSERT_EQ(result.error().kind, ErrorKind::kDisconnected);
 }
 
-struct eachBooleanSetterFailureIsInvalidConfigCase
+struct EachBooleanSetterFailureIsInvalidConfigCase
 {
     std::string name;
     int setter;
 };
-class eachBooleanSetterFailureIsInvalidConfigParameters
+class EachBooleanSetterFailureIsInvalidConfigParameters
     : public ::testing::Test,
-      public ::testing::WithParamInterface<eachBooleanSetterFailureIsInvalidConfigCase>
+      public ::testing::WithParamInterface<EachBooleanSetterFailureIsInvalidConfigCase>
 {
 };
 
 INSTANTIATE_TEST_SUITE_P(
-    Rows, eachBooleanSetterFailureIsInvalidConfigParameters,
-    ::testing::Values(eachBooleanSetterFailureIsInvalidConfigCase{"set_is_iso14230_connection", 0},
-                      eachBooleanSetterFailureIsInvalidConfigCase{"set_is_can_connection", 1},
-                      eachBooleanSetterFailureIsInvalidConfigCase{"set_is_iso15765_connection", 2},
-                      eachBooleanSetterFailureIsInvalidConfigCase{"set_is_29_bit_id", 3},
-                      eachBooleanSetterFailureIsInvalidConfigCase{"set_add_iso14230_header", 4},
-                      eachBooleanSetterFailureIsInvalidConfigCase{"set_can_speed", 5},
-                      eachBooleanSetterFailureIsInvalidConfigCase{"set_iso15765_source_address", 6},
-                      eachBooleanSetterFailureIsInvalidConfigCase{"set_iso15765_destination_address", 7},
-                      eachBooleanSetterFailureIsInvalidConfigCase{"set_can_source_address", 8},
-                      eachBooleanSetterFailureIsInvalidConfigCase{"set_can_destination_address", 9}),
-    [](const ::testing::TestParamInfo<eachBooleanSetterFailureIsInvalidConfigCase>& info) { return info.param.name; });
+    Rows, EachBooleanSetterFailureIsInvalidConfigParameters,
+    ::testing::Values(EachBooleanSetterFailureIsInvalidConfigCase{"set_is_iso14230_connection", 0},
+                      EachBooleanSetterFailureIsInvalidConfigCase{"set_is_can_connection", 1},
+                      EachBooleanSetterFailureIsInvalidConfigCase{"set_is_iso15765_connection", 2},
+                      EachBooleanSetterFailureIsInvalidConfigCase{"set_is_29_bit_id", 3},
+                      EachBooleanSetterFailureIsInvalidConfigCase{"set_add_iso14230_header", 4},
+                      EachBooleanSetterFailureIsInvalidConfigCase{"set_can_speed", 5},
+                      EachBooleanSetterFailureIsInvalidConfigCase{"set_iso15765_source_address", 6},
+                      EachBooleanSetterFailureIsInvalidConfigCase{"set_iso15765_destination_address", 7},
+                      EachBooleanSetterFailureIsInvalidConfigCase{"set_can_source_address", 8},
+                      EachBooleanSetterFailureIsInvalidConfigCase{"set_can_destination_address", 9}),
+    [](const ::testing::TestParamInfo<EachBooleanSetterFailureIsInvalidConfigCase>& info) { return info.param.name; });
 
-TEST_P(eachBooleanSetterFailureIsInvalidConfigParameters, eachBooleanSetterFailureIsInvalidConfig)
+TEST_P(EachBooleanSetterFailureIsInvalidConfigParameters, eachBooleanSetterFailureIsInvalidConfig)
 {
     const int setter = GetParam().setter;
     Harness harness;
     switch (setter)
     {
     case 0:
-        EXPECT_CALL(*harness.fake, set_is_iso14230_connection(false)).WillOnce(::testing::Return(false));
+        EXPECT_CALL(*harness.fake, SetIsIso14230Connection(false)).WillOnce(::testing::Return(false));
         break;
     case 1:
-        EXPECT_CALL(*harness.fake, set_is_can_connection(false)).WillOnce(::testing::Return(false));
+        EXPECT_CALL(*harness.fake, SetIsCanConnection(false)).WillOnce(::testing::Return(false));
         break;
     case 2:
-        EXPECT_CALL(*harness.fake, set_is_iso15765_connection(true)).WillOnce(::testing::Return(false));
+        EXPECT_CALL(*harness.fake, SetIsIso15765Connection(true)).WillOnce(::testing::Return(false));
         break;
     case 3:
-        EXPECT_CALL(*harness.fake, set_is_29_bit_id(false)).WillOnce(::testing::Return(false));
+        EXPECT_CALL(*harness.fake, SetIs29BitId(false)).WillOnce(::testing::Return(false));
         break;
     case 4:
-        EXPECT_CALL(*harness.fake, set_add_iso14230_header(false)).WillOnce(::testing::Return(false));
+        EXPECT_CALL(*harness.fake, SetAddIso14230Header(false)).WillOnce(::testing::Return(false));
         break;
     case 5:
-        EXPECT_CALL(*harness.fake, set_can_speed(::testing::_)).WillOnce(::testing::Return(false));
+        EXPECT_CALL(*harness.fake, SetCanSpeed(::testing::_)).WillOnce(::testing::Return(false));
         break;
     case 6:
-        EXPECT_CALL(*harness.fake, set_iso15765_source_address(::testing::_)).WillOnce(::testing::Return(false));
+        EXPECT_CALL(*harness.fake, SetIso15765SourceAddress(::testing::_)).WillOnce(::testing::Return(false));
         break;
     case 7:
-        EXPECT_CALL(*harness.fake, set_iso15765_destination_address(::testing::_)).WillOnce(::testing::Return(false));
+        EXPECT_CALL(*harness.fake, SetIso15765DestinationAddress(::testing::_)).WillOnce(::testing::Return(false));
         break;
     case 8:
-        EXPECT_CALL(*harness.fake, set_can_source_address(::testing::_)).WillOnce(::testing::Return(false));
+        EXPECT_CALL(*harness.fake, SetCanSourceAddress(::testing::_)).WillOnce(::testing::Return(false));
         break;
     case 9:
-        EXPECT_CALL(*harness.fake, set_can_destination_address(::testing::_)).WillOnce(::testing::Return(false));
+        EXPECT_CALL(*harness.fake, SetCanDestinationAddress(::testing::_)).WillOnce(::testing::Return(false));
         break;
     default:
         FAIL() << "unexpected configuration-setter index";
     }
 
-    const auto result = harness.configurator->apply(SsmTransportConfig{});
+    const auto result = harness.configurator->Apply(SsmTransportConfig{});
 
     ASSERT_TRUE(!result.has_value());
-    ASSERT_EQ(result.error().kind, ErrorKind::InvalidConfig);
+    ASSERT_EQ(result.error().kind, ErrorKind::kInvalidConfig);
 }
 
 TEST(SerialFacadeConfiguratorTest, aKlineHeaderSetterFailureIsInvalidConfig)
 {
     Harness harness;
-    EXPECT_CALL(*harness.fake, set_add_iso14230_header(false)).WillOnce(::testing::Return(false));
+    EXPECT_CALL(*harness.fake, SetAddIso14230Header(false)).WillOnce(::testing::Return(false));
 
-    const auto result = harness.configurator->apply(klineConfig());
+    const auto result = harness.configurator->Apply(KlineConfig());
 
     ASSERT_TRUE(!result.has_value());
-    ASSERT_EQ(result.error().kind, ErrorKind::InvalidConfig);
+    ASSERT_EQ(result.error().kind, ErrorKind::kInvalidConfig);
 }
 
 TEST(SerialFacadeConfiguratorTest, aSetterExceptionBecomesInternalStatus)
 {
     Harness harness;
-    EXPECT_CALL(*harness.fake, set_is_iso14230_connection(false))
+    EXPECT_CALL(*harness.fake, SetIsIso14230Connection(false))
         .WillOnce(::testing::Throw(std::runtime_error("scripted backend config-setter failure")));
 
-    const auto result = harness.configurator->apply(SsmTransportConfig{});
+    const auto result = harness.configurator->Apply(SsmTransportConfig{});
 
     ASSERT_TRUE(!result.has_value());
-    ASSERT_EQ(result.error().kind, ErrorKind::Internal);
+    ASSERT_EQ(result.error().kind, ErrorKind::kInternal);
 }
 
 TEST(SerialFacadeConfiguratorTest, anOpenExceptionBecomesInternalStatus)
 {
     Harness harness;
-    EXPECT_CALL(*harness.fake, open_serial_port())
+    EXPECT_CALL(*harness.fake, OpenSerialPort())
         .WillOnce(::testing::Throw(std::runtime_error("scripted backend open failure")));
 
-    const auto result = harness.configurator->apply(SsmTransportConfig{});
+    const auto result = harness.configurator->Apply(SsmTransportConfig{});
 
     ASSERT_TRUE(!result.has_value());
-    ASSERT_EQ(result.error().kind, ErrorKind::Internal);
+    ASSERT_EQ(result.error().kind, ErrorKind::kInternal);
 }
 
 TEST(SerialFacadeConfiguratorTest, aRejectedBaudChangeIsInternal)
 {
     Harness harness;
-    EXPECT_CALL(*harness.fake, change_port_speed(QStringLiteral("4800"))).WillOnce(::testing::Return(kSerialError));
+    EXPECT_CALL(*harness.fake, ChangePortSpeed(QStringLiteral("4800"))).WillOnce(::testing::Return(kSerialError));
 
-    const auto result = harness.configurator->apply(klineConfig());
+    const auto result = harness.configurator->Apply(KlineConfig());
 
     ASSERT_TRUE(!result.has_value());
-    ASSERT_EQ(result.error().kind, ErrorKind::Internal);
+    ASSERT_EQ(result.error().kind, ErrorKind::kInternal);
 }
 
 TEST(SerialFacadeConfiguratorTest, aPortDropDuringRejectedBaudChangeIsDisconnected)
 {
     Harness harness;
-    EXPECT_CALL(*harness.fake, is_serial_port_open())
-        .WillOnce(::testing::Return(true))
-        .WillOnce(::testing::Return(false));
-    EXPECT_CALL(*harness.fake, change_port_speed(QStringLiteral("4800"))).WillOnce(::testing::Return(kSerialError));
+    EXPECT_CALL(*harness.fake, IsSerialPortOpen()).WillOnce(::testing::Return(true)).WillOnce(::testing::Return(false));
+    EXPECT_CALL(*harness.fake, ChangePortSpeed(QStringLiteral("4800"))).WillOnce(::testing::Return(kSerialError));
 
-    const auto result = harness.configurator->apply(klineConfig());
+    const auto result = harness.configurator->Apply(KlineConfig());
 
     ASSERT_TRUE(!result.has_value());
-    ASSERT_EQ(result.error().kind, ErrorKind::Disconnected);
+    ASSERT_EQ(result.error().kind, ErrorKind::kDisconnected);
 }
 
 TEST(SerialFacadeConfiguratorTest, aStandardFacadeExceptionBecomesInternalStatus)
 {
     Harness harness;
-    EXPECT_CALL(*harness.fake, reset_connection())
+    EXPECT_CALL(*harness.fake, ResetConnection())
         .WillOnce(::testing::Throw(std::runtime_error("scripted backend reset failure")));
 
     try
     {
-        const auto result = harness.configurator->apply(SsmTransportConfig{});
+        const auto result = harness.configurator->Apply(SsmTransportConfig{});
         ASSERT_TRUE(!result.has_value());
-        ASSERT_EQ(result.error().kind, ErrorKind::Internal);
+        ASSERT_EQ(result.error().kind, ErrorKind::kInternal);
         ASSERT_EQ(QString::fromStdString(result.error().detail), QString("scripted backend reset failure"));
     }
     catch (...)
@@ -289,13 +287,13 @@ TEST(SerialFacadeConfiguratorTest, aStandardFacadeExceptionBecomesInternalStatus
 TEST(SerialFacadeConfiguratorTest, aNonStandardFacadeExceptionBecomesInternalStatus)
 {
     Harness harness;
-    EXPECT_CALL(*harness.fake, change_port_speed(QStringLiteral("4800"))).WillOnce(ThrowNonStandardBackendFailure());
+    EXPECT_CALL(*harness.fake, ChangePortSpeed(QStringLiteral("4800"))).WillOnce(ThrowNonStandardBackendFailure());
 
     try
     {
-        const auto result = harness.configurator->apply(klineConfig());
+        const auto result = harness.configurator->Apply(KlineConfig());
         ASSERT_TRUE(!result.has_value());
-        ASSERT_EQ(result.error().kind, ErrorKind::Internal);
+        ASSERT_EQ(result.error().kind, ErrorKind::kInternal);
     }
     catch (...)
     {
@@ -305,6 +303,6 @@ TEST(SerialFacadeConfiguratorTest, aNonStandardFacadeExceptionBecomesInternalSta
 
 namespace
 {
-const auto *const application_environment =
+const auto *const kApplicationEnvironment =
     ::testing::AddGlobalTestEnvironment(new fastecu::testing::CoreApplicationEnvironment);
 }
