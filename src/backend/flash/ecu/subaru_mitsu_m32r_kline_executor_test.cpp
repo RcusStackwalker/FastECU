@@ -1,6 +1,7 @@
 #include "src/backend/ports/testing/result_matchers.h"
 #include "src/backend/flash/ecu/subaru_mitsu_m32r_kline_executor.h"
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "src/backend/flash/ecu/mitsu_colt_m32r_can_plan.h"
@@ -15,6 +16,7 @@ namespace
 {
 using namespace fastecu;
 using namespace fastecu::flash;
+using ::testing::Each;
 
 bytes::Bytes Frame(bytes::Bytes payload)
 {
@@ -147,10 +149,8 @@ TEST(SubaruMitsuM32rKlineExecutor, ReadsAllUserspaceChunksAndSynthesizesBootPref
     ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_TRUE(result->read_bytes.has_value());
     EXPECT_EQ(result->read_bytes->size(), 0x80000U);
-    EXPECT_TRUE(std::all_of(result->read_bytes->begin(), result->read_bytes->begin() + 0x8000,
-                            [](bytes::Byte value) { return value == 0xff; }));
-    EXPECT_TRUE(std::all_of(result->read_bytes->begin() + 0x8000, result->read_bytes->end(),
-                            [](bytes::Byte value) { return value == 0x5a; }));
+    EXPECT_THAT(bytes::ByteView(*result->read_bytes).first(0x8000), Each(0xff));
+    EXPECT_THAT(bytes::ByteView(*result->read_bytes).subspan(0x8000), Each(0x5a));
     EXPECT_EQ(result->rom_id, std::string("123456789A_"));
     EXPECT_TRUE(transport.ScriptConsumed());
 }

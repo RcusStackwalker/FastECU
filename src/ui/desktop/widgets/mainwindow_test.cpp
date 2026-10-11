@@ -1120,7 +1120,7 @@ void MainWindowTest::checkWindowEnablesFileLoggingThroughTheChannel()
     MainWindow window{services.services()};
     constructorDriver.stop();
 
-    ASSERT_TRUE(std::ranges::any_of(enables.Snapshot(), [](const auto& arguments) { return std::get<0>(arguments); }));
+    ASSERT_THAT(enables.Snapshot(), ::testing::Contains(::testing::FieldsAre(true)));
 }
 
 TEST_F(MainWindowTest, windowEnablesFileLoggingThroughTheChannel)
@@ -1187,8 +1187,8 @@ void MainWindowTest::checkPeerStateChangesReachTheWindow()
 
     emit services.remote_peer.stateChanged(QRemoteObjectReplica::Valid, QRemoteObjectReplica::Default);
 
-    ASSERT_TRUE(std::ranges::any_of(debugLines.Snapshot(), [](const auto& arguments)
-                                    { return std::get<0>(arguments) == "Network connection established"; }));
+    ASSERT_THAT(logLines(debugLines), ::testing::Contains(::testing::FieldsAre("Network connection established",
+                                                                               ::testing::_, ::testing::_)));
 }
 
 TEST_F(MainWindowTest, peerStateChangesReachTheWindow)
@@ -1280,8 +1280,8 @@ void MainWindowTest::checkHandledDensoTcuReadChoicesRunMainWindowCleanupAndStopV
     ASSERT_TRUE(window.calibrations_.empty());
     ASSERT_TRUE(services.calibrations.Ids().empty());
     const QString expectedLine = choice.isEmpty() ? "No option selected" : "Attempting TCU relearn";
-    ASSERT_TRUE(std::ranges::any_of(infoLines.Snapshot(),
-                                    [&](const auto& arguments) { return std::get<0>(arguments) == expectedLine; }));
+    ASSERT_THAT(logLines(infoLines),
+                ::testing::Contains(::testing::FieldsAre(expectedLine.toStdString(), ::testing::_, ::testing::_)));
 }
 
 TEST_P(HandledDensoTcuReadChoicesRunMainWindowCleanupAndStopVoltagePollingParameters,
@@ -1616,8 +1616,7 @@ void MainWindowTest::checkCancellingTheChecksumWarningStopsVoltagePolling(QStrin
 
     ASSERT_TRUE(!operationDriver.timedOut());
     ASSERT_EQ(operationDriver.checksumWarningCount(), 1);
-    ASSERT_TRUE(std::ranges::all_of(services.calibrations.Find(window.calibrations_.front().id)->File(),
-                                    [](auto byte) { return byte == 0x5a; }));
+    ASSERT_THAT(services.calibrations.Find(window.calibrations_.front().id)->File(), ::testing::Each(0x5a));
     ASSERT_TRUE(!window.vbatt_timer_->isActive());
 }
 

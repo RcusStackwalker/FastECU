@@ -51,6 +51,7 @@ using fastecu::flash::SubaruTcuCvtMitsuMh8111CanPlan;
 // CanExecutorConformance's must be brought in wholesale rather than by a
 // single using-declaration.
 using namespace fastecu::flash::testing;
+using testing::Each;
 using testing::HasSubstr;
 using testing::IsEmpty;
 
@@ -361,10 +362,8 @@ TEST(SubaruTcuCvtMitsuMh8111CanExecutor, ReadReturnsTheLowerWindowPaddedWithFF)
     ASSERT_EQ(result->read_bytes->size(), kReadStart + kReadLength);
     // Padded with 0xFF, NOT 0x00 -- this family differs from Task 3's
     // Hitachi CAN sibling here.
-    EXPECT_TRUE(std::all_of(result->read_bytes->begin(), result->read_bytes->begin() + kReadStart,
-                            [](bytes::Byte b) { return b == 0xFF; }));
-    EXPECT_TRUE(std::all_of(result->read_bytes->begin() + kReadStart, result->read_bytes->end(),
-                            [](bytes::Byte b) { return b == 0x5A; }));
+    EXPECT_THAT(bytes::ByteView(*result->read_bytes).first(kReadStart), Each(0xFF));
+    EXPECT_THAT(bytes::ByteView(*result->read_bytes).subspan(kReadStart), Each(0x5A));
     EXPECT_TRUE(transport.ScriptConsumed());
 }
 

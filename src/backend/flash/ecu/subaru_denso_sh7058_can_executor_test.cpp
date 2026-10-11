@@ -45,6 +45,7 @@ namespace fastecu::flash
 namespace
 {
 using namespace std::chrono_literals;
+using ::testing::Each;
 
 constexpr std::uint32_t kRomSize = 0x00100000;
 constexpr std::uint32_t kKernelAddress = 0xFFFF3000;
@@ -714,8 +715,7 @@ TEST(SubaruDensoSh7058CanExecutor, AlreadyRunningKernelReadsFirstAndLastBoundary
     ASSERT_TRUE(result.has_value()) << result.error().detail;
     ASSERT_TRUE(result->read_bytes.has_value());
     EXPECT_EQ(result->read_bytes->size(), kRomSize);
-    EXPECT_TRUE(std::all_of(result->read_bytes->begin(), result->read_bytes->end(),
-                            [](bytes::Byte byte) { return byte == 0; }));
+    EXPECT_THAT(*result->read_bytes, Each(0));
     EXPECT_EQ(result->rom_id, std::nullopt);
     EXPECT_TRUE(transport.scripted.ScriptConsumed());
     ASSERT_EQ(transport.writes.size(), 1025U);

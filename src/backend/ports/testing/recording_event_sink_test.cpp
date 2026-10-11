@@ -17,3 +17,12 @@ TEST(EventSink, RecordsLogProgressNotice)
     EXPECT_EQ(s.phase_progress_calls[0].phase_name, "write");
     EXPECT_THAT(s.notices, ElementsAre("done"));
 }
+
+// Matchers over RecordingEventSink::logs print each level by name.
+TEST(EventSink, PrintsALogLevelByName)
+{
+    EXPECT_EQ(::testing::PrintToString(fastecu::LogLevel::kError), "Error");
+    EXPECT_EQ(::testing::PrintToString(fastecu::LogLevel::kWarning), "Warning");
+    EXPECT_EQ(::testing::PrintToString(fastecu::LogLevel::kInfo), "Info");
+    EXPECT_EQ(::testing::PrintToString(fastecu::LogLevel::kDebug), "Debug");
+}

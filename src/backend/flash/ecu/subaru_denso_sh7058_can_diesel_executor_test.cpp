@@ -8,6 +8,7 @@
 #include <iterator>
 #include <memory>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -46,6 +47,7 @@ namespace fastecu::flash
 namespace
 {
 using namespace std::chrono_literals;
+using ::testing::Each;
 
 struct DieselVariant
 {
@@ -671,8 +673,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, AlreadyRunningKernelReadsBothLiteralRom
         EXPECT_EQ(transport.writes.back(), expected_last);
         ASSERT_EQ(transport.read_timeouts.size(), 1U + variant.rom_size / kReadPageSize);
         EXPECT_EQ(transport.read_timeouts.front(), 800ms);
-        EXPECT_TRUE(std::all_of(transport.read_timeouts.begin() + 1, transport.read_timeouts.end(),
-                                [](std::chrono::milliseconds timeout) { return timeout == 2000ms; }));
+        EXPECT_THAT(std::span(transport.read_timeouts).subspan(1), Each(2000ms));
         EXPECT_THAT(events.notices, ElementsAre("Reading ROM, please wait..."));
         EXPECT_TRUE(HasExactLog(events, LogLevel::kInfo,
                                 "Connecting to Subaru 07+ Diesel 32-bit CAN bootloader, please wait..."));
@@ -1167,8 +1168,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, StrictUdsPendingRetriesAreBoundedAndNev
     EXPECT_EQ(std::count(transport.writes.begin(), transport.writes.end(), seed_request), 1);
     ASSERT_GE(transport.read_timeouts.size(), 11U);
     EXPECT_EQ(transport.read_timeouts[transport.read_timeouts.size() - 11], 2000ms);
-    EXPECT_TRUE(std::all_of(transport.read_timeouts.end() - 10, transport.read_timeouts.end(),
-                            [](std::chrono::milliseconds timeout) { return timeout == 3000ms; }));
+    EXPECT_THAT(std::span(transport.read_timeouts).last(10), Each(3000ms));
     EXPECT_EQ(std::count_if(events.logs.begin(), events.logs.end(),
                             [](const auto& record)
                             {
