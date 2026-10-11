@@ -123,9 +123,10 @@ to transports and workers. Backend sample resolution owns identity and captured
 support eligibility; presentation owns formatting, caches and error dialogs.
 
 
-SSM raw values deliberately concatenate decimal byte spellings because shipped
-conversion expressions depend on that input. CSV and selection persistence also
-retain their compatibility contracts. Read the relevant section of the
+SSM decodes binary numeric values before applying scaling, using the first
+conversion's storage and byte-order metadata. Its portable read plan maps
+contiguous requested bytes independently of display positions. CSV and selection
+persistence retain their existing contracts. Read the relevant section of the
 [logging reference](reference/logging-contracts.md) before changing these semantics.
 
 ## Definitions

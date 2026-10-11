@@ -23,7 +23,6 @@ LoggingChannel Channel(std::string id, std::uint32_t address)
         .id = std::move(id),
         .address = address,
         .length = 2,
-        .raw_assembly = RawAssembly::kUnsignedIntegerDecimal,
         .from_byte_expression = "x",
         .unit = "",
         .decimal_precision = 15,
@@ -54,17 +53,16 @@ LoggingSession MakeValidSession()
 
 } // namespace
 
-TEST(LoggingConversionTest, PreservesSsmDecimalByteRawInput)
+TEST(LoggingConversionTest, ScalesDecodedSsmNumericInput)
 {
     LoggingChannel c = Channel("rpm", 0x10);
-    c.raw_assembly = RawAssembly::kDecimalBytesConcatenated;
     c.from_byte_expression = "x/4";
     c.unit = "rpm";
     auto session = MakeSessionWithChannel(c);
-    auto result = ConvertSample(session, ProtocolSample{"rpm", "1616"});
+    auto result = ConvertSample(session, ProtocolSample{"rpm", "258"});
     ASSERT_THAT(result, fastecu::testing::IsOk());
-    EXPECT_EQ(result->raw_value, "1616");
-    EXPECT_DOUBLE_EQ(result->numeric_value, 404.0);
+    EXPECT_EQ(result->raw_value, "258");
+    EXPECT_DOUBLE_EQ(result->numeric_value, 64.5);
     EXPECT_EQ(result->unit, "rpm");
 }
 

@@ -17,6 +17,8 @@ struct Conversion
     std::string gauge_min;
     std::string gauge_max;
     std::string gauge_step;
+    std::string storage_type{};
+    std::string endian{};
 
     bool operator==(const Conversion&) const = default;
 };

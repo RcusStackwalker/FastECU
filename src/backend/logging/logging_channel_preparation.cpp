@@ -39,6 +39,50 @@ template <typename T> bool ParseUnsigned(std::string_view input, int base, T& va
     return result.ec == std::errc{} && result.ptr == input.data() + input.size();
 }
 
+std::string LowerAscii(std::string value)
+{
+    for (char& ch : value)
+    {
+        if (ch >= 'A' && ch <= 'Z')
+        {
+            ch = static_cast<char>(ch - 'A' + 'a');
+        }
+    }
+    return value;
+}
+
+Result<NumericStorage> ParseStorage(std::string_view input)
+{
+    const auto type = LowerAscii(std::string(input));
+    if (type.empty() || type == "uint" || type == "uint8" || type == "uint16" || type == "uint32")
+    {
+        return NumericStorage::kUnsignedInteger;
+    }
+    if (type == "int" || type == "int8" || type == "int16" || type == "int32")
+    {
+        return NumericStorage::kSignedInteger;
+    }
+    if (type == "float")
+    {
+        return NumericStorage::kFloat;
+    }
+    return Fail(ErrorKind::kInvalidConfig, std::format("invalid storagetype '{}'", input));
+}
+
+Result<NumericByteOrder> ParseByteOrder(std::string_view input)
+{
+    const auto endian = LowerAscii(std::string(input));
+    if (endian.empty() || endian == "big")
+    {
+        return NumericByteOrder::kBigEndian;
+    }
+    if (endian == "little")
+    {
+        return NumericByteOrder::kLittleEndian;
+    }
+    return Fail(ErrorKind::kInvalidConfig, std::format("invalid endian '{}'", input));
+}
+
 fastecu::Error ContextualError(const LoggerParameter& parameter, std::string_view detail)
 {
     return {ErrorKind::kInvalidConfig, std::format("{} parameter {}: {}", parameter.protocol, parameter.id, detail)};
@@ -65,11 +109,32 @@ fastecu::Result<LoggingChannel> PrepareLoggingChannel(const LoggerParameter& par
         return std::unexpected(ContextualError(
             parameter, std::format("invalid length '{}'; expected a positive decimal integer", parameter.length)));
     }
-    if ((protocol == LoggingProtocolId::kMutDma || protocol == LoggingProtocolId::kCdbg) && length != 1 &&
-        length != 2 && length != 4)
+    if (length != 1 && length != 2 && length != 4)
     {
         return std::unexpected(
             ContextualError(parameter, "invalid length; expected 1, 2 or 4 bytes for this protocol"));
+    }
+    const auto storage = ParseStorage(conversion.storage_type);
+    if (!storage.has_value())
+    {
+        return std::unexpected(ContextualError(parameter, storage.error().detail));
+    }
+    const auto byte_order = ParseByteOrder(conversion.endian);
+    if (!byte_order.has_value())
+    {
+        return std::unexpected(ContextualError(parameter, byte_order.error().detail));
+    }
+    if (*storage == NumericStorage::kFloat && length != 4)
+    {
+        return std::unexpected(ContextualError(parameter, "storagetype float requires length 4"));
+    }
+    if (protocol != LoggingProtocolId::kSsm && *storage != NumericStorage::kUnsignedInteger)
+    {
+        return std::unexpected(ContextualError(parameter, "storagetype is unsupported by this protocol"));
+    }
+    if (protocol != LoggingProtocolId::kSsm && *byte_order != NumericByteOrder::kBigEndian)
+    {
+        return std::unexpected(ContextualError(parameter, "endian override is unsupported by this protocol"));
     }
     const std::string_view format = conversion.format;
     std::size_t precision = 0;
@@ -87,11 +152,11 @@ fastecu::Result<LoggingChannel> PrepareLoggingChannel(const LoggerParameter& par
         .id = parameter.id,
         .address = address,
         .length = length,
-        .raw_assembly = protocol == LoggingProtocolId::kSsm ? RawAssembly::kDecimalBytesConcatenated
-                                                            : RawAssembly::kUnsignedIntegerDecimal,
         .from_byte_expression = conversion.expr,
         .unit = conversion.units,
         .decimal_precision = static_cast<std::uint8_t>(precision),
+        .storage = *storage,
+        .byte_order = *byte_order,
     };
     if (const auto valid = ValidateLoggingChannel(protocol, channel); !valid.has_value())
     {

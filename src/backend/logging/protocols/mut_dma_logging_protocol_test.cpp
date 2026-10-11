@@ -12,7 +12,6 @@ namespace
 {
 using fastecu::logging::LoggingChannel;
 using fastecu::logging::MutDmaLoggingProtocol;
-using fastecu::logging::RawAssembly;
 using mutdma::AlreadyInMode;
 using mutdma::Channel;
 using mutdma::ScriptedKlineTransport;
@@ -24,7 +23,6 @@ LoggingChannel MakeChannel()
         .id = "mut.rpm",
         .address = 0x8000,
         .length = 2,
-        .raw_assembly = RawAssembly::kUnsignedIntegerDecimal,
         .from_byte_expression = "x",
         .unit = "rpm",
         .decimal_precision = 0,

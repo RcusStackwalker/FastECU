@@ -25,6 +25,8 @@ Conversion ParseConversion(pugi::xml_node node)
         .gauge_min = AttributeOr(node, "gauge_min", "No gauge_min"),
         .gauge_max = AttributeOr(node, "gauge_max", "No gauge_max"),
         .gauge_step = AttributeOr(node, "gauge_step", "No gauge_step"),
+        .storage_type = AttributeOr(node, "storagetype", ""),
+        .endian = AttributeOr(node, "endian", ""),
     };
 }
 

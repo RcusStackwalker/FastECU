@@ -60,8 +60,8 @@ void RegisterDesktopLoggingProtocols(LoggingEngine& engine, SerialPortActions& s
                                 bool target_is_ecu = (snapshot.Target() == fastecu::logging::LoggingTarget::kEcu);
                                 bool use_openport2_adapter = serial.GetUseOpenport2Adapter();
                                 return std::make_unique<fastecu::logging::SsmLoggingProtocol>(
-                                    clock, std::move(transport), snapshot.Session().Channels(),
-                                    snapshot.ResponseOffsets(), target_is_ecu, use_openport2_adapter);
+                                    clock, std::move(transport), snapshot.Session().Channels(), target_is_ecu,
+                                    use_openport2_adapter);
                             });
 }
 } // namespace fastecu::desktop::logging

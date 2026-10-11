@@ -1,6 +1,10 @@
 #include "src/backend/logging/protocols/portable_ssm_logging_protocol.h"
 
 #include <algorithm>
+#include <bit>
+#include <cmath>
+#include <cstdint>
+#include <format>
 #include <chrono>
 #include <cstddef>
 #include <string>
@@ -30,26 +34,56 @@ void AppendBytes(bytes::Bytes& target, bytes::Bytes chunk)
     target.insert(target.end(), chunk.begin(), chunk.end());
 }
 
-bytes::Bytes BuildPollRequest(const std::vector<LoggingChannel>& channels)
+bytes::Bytes BuildPollRequest(const SsmReadPlan& plan)
 {
     bytes::Bytes output{0xA8, 0x01};
-    output.reserve(output.size() + channels.size() * 3);
-    for (const LoggingChannel& channel : channels)
+    output.reserve(output.size() + plan.addresses.size() * 3);
+    for (const auto address : plan.addresses)
     {
-        bytes::AppendU24Be(output, channel.address);
+        bytes::AppendU24Be(output, address);
     }
     return output;
 }
 
-std::vector<std::size_t> SequentialOffsets(std::size_t count)
+Result<std::string> DecodeNumeric(bytes::ByteView data, const LoggingChannel& channel)
 {
-    std::vector<std::size_t> offsets;
-    offsets.reserve(count);
-    for (std::size_t index = 0; index < count; ++index)
+    if (data.size() != channel.length || (data.size() != 1 && data.size() != 2 && data.size() != 4))
     {
-        offsets.push_back(index);
+        return Fail(ErrorKind::kBadResponse, "invalid SSM numeric width");
     }
-    return offsets;
+    std::uint32_t value = 0;
+    for (std::size_t i = 0; i < data.size(); ++i)
+    {
+        const auto position = channel.byte_order == NumericByteOrder::kLittleEndian ? data.size() - 1 - i : i;
+        value = (value << 8) | data[position];
+    }
+    switch (channel.storage)
+    {
+    case NumericStorage::kUnsignedInteger:
+        return std::to_string(value);
+    case NumericStorage::kSignedInteger:
+    {
+        const auto bits = data.size() * 8;
+        const auto signed_value = (value & (std::uint32_t{1} << (bits - 1))) != 0
+                                      ? static_cast<std::int64_t>(value) - (std::int64_t{1} << bits)
+                                      : static_cast<std::int64_t>(value);
+        return std::to_string(signed_value);
+    }
+    case NumericStorage::kFloat:
+    {
+        if (data.size() != 4)
+        {
+            return Fail(ErrorKind::kBadResponse, "SSM float requires four bytes");
+        }
+        const auto number = std::bit_cast<float>(value);
+        if (!std::isfinite(number))
+        {
+            return Fail(ErrorKind::kBadResponse, "nonfinite SSM float");
+        }
+        return std::format("{}", static_cast<double>(number));
+    }
+    }
+    return Fail(ErrorKind::kInvalidConfig, "invalid SSM numeric storage");
 }
 } // namespace
 
@@ -57,16 +91,7 @@ SsmLoggingProtocol::SsmLoggingProtocol(fastecu::IClock& clock, std::unique_ptr<I
                                        std::vector<LoggingChannel> channels, bool target_is_ecu,
                                        bool use_openport2_adapter)
     : clock_(clock), transport_(std::move(transport)), channels_(std::move(channels)),
-      response_offsets_(SequentialOffsets(channels_.size())), target_is_ecu_(target_is_ecu),
-      use_openport2_adapter_(use_openport2_adapter)
-{
-}
-
-SsmLoggingProtocol::SsmLoggingProtocol(fastecu::IClock& clock, std::unique_ptr<ISsmTransport> transport,
-                                       std::vector<LoggingChannel> channels, std::vector<std::size_t> response_offsets,
-                                       bool target_is_ecu, bool use_openport2_adapter)
-    : clock_(clock), transport_(std::move(transport)), channels_(std::move(channels)),
-      response_offsets_(std::move(response_offsets)), target_is_ecu_(target_is_ecu),
+      read_plan_(MakeSsmReadPlan(channels_)), target_is_ecu_(target_is_ecu),
       use_openport2_adapter_(use_openport2_adapter)
 {
 }
@@ -194,7 +219,11 @@ fastecu::Result<PollData> SsmLoggingProtocol::Poll(std::chrono::milliseconds tim
         return fastecu::Fail(fastecu::ErrorKind::kDisconnected, "adapter disconnected");
     }
 
-    if (auto write_result = transport_->Write(BuildSsmHeader(BuildPollRequest(channels_))); !write_result.has_value())
+    if (!read_plan_.has_value())
+    {
+        return std::unexpected(read_plan_.error());
+    }
+    if (auto write_result = transport_->Write(BuildSsmHeader(BuildPollRequest(*read_plan_))); !write_result.has_value())
     {
         return std::unexpected(write_result.error());
     }
@@ -215,27 +244,23 @@ fastecu::Result<PollData> SsmLoggingProtocol::Poll(std::chrono::milliseconds tim
     constexpr std::size_t kPayloadOffset = 5;
     const std::size_t payload_length = received->size() - kPayloadOffset - 1;
 
+    if (payload_length != read_plan_->addresses.size())
+    {
+        return PollData{.responded = false};
+    }
     PollData data{.responded = true};
     data.samples.reserve(channels_.size());
     for (std::size_t index = 0; index < channels_.size(); ++index)
     {
-        const LoggingChannel& channel = channels_[index];
-        const std::size_t response_offset = response_offsets_.at(index);
-        if (response_offset >= payload_length)
+        const auto& channel = channels_[index];
+        const auto raw_value = DecodeNumeric(
+            bytes::ByteView{*received}.subspan(kPayloadOffset + read_plan_->response_offsets[index], channel.length),
+            channel);
+        if (!raw_value.has_value())
         {
-            continue;
+            return std::unexpected(raw_value.error());
         }
-
-        std::string raw_value;
-        for (std::size_t byte_index = 0; byte_index < channel.length && response_offset + byte_index < payload_length;
-             ++byte_index)
-        {
-            raw_value += std::to_string(received->at(kPayloadOffset + response_offset + byte_index));
-        }
-        data.samples.push_back(ProtocolSample{
-            .channel_id = channel.id,
-            .raw_value = std::move(raw_value),
-        });
+        data.samples.push_back({channel.id, *raw_value});
     }
     return data;
 }
