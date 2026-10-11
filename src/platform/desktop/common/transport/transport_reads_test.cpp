@@ -9,6 +9,7 @@
 #include <stdexcept>
 
 #include "src/backend/ports/testing/fake_cancellation_token.h"
+#include "src/backend/ports/testing/result_matchers.h"
 #include "src/platform/desktop/common/serial/testing/fake_backed_serial.h"
 #include "src/platform/desktop/common/testing/core_application_environment.h"
 #include "src/platform/desktop/common/transport/desktop_can_flash_transport.h"
@@ -24,6 +25,10 @@ using fastecu::ErrorKind;
 using fastecu::FakeCancellationToken;
 using fastecu::ICancellationToken;
 using ReadResult = fastecu::Result<std::optional<bytes::Bytes>>;
+using fastecu::testing::IsErr;
+using fastecu::testing::IsErrWith;
+using fastecu::testing::IsOk;
+using ::testing::StrEq;
 
 enum class ReadPath
 {
@@ -40,7 +45,7 @@ class TransportReads : public ::testing::TestWithParam<ReadPath>
   protected:
     void SetUp() override
     {
-        ASSERT_TRUE(mixed_.Configure({}).has_value());
+        ASSERT_THAT(mixed_.Configure({}), IsOk());
     }
 
     ReadResult Read(std::chrono::milliseconds timeout, const ICancellationToken& cancellation)
@@ -111,7 +116,7 @@ TEST_P(TransportReads, SaturatesTimeoutAndPreservesBytes)
         SCOPED_TRACE(test.timeout.count());
         ExpectRead(test.expected, [](std::uint16_t) { return QByteArray("\x00\x80\xff", 3); });
         const auto result = Read(test.timeout, cancellation_);
-        ASSERT_TRUE(result.has_value());
+        ASSERT_THAT(result, IsOk());
         ASSERT_TRUE(result->has_value());
         EXPECT_EQ(result->value(), (bytes::Bytes{0x00, 0x80, 0xff}));
         ::testing::Mock::VerifyAndClearExpectations(&serial_.Fake());
@@ -122,7 +127,7 @@ TEST_P(TransportReads, SilenceIsAnEmptyOptional)
 {
     ExpectRead(10, [](std::uint16_t) { return QByteArray{}; });
     const auto result = Read(10ms, cancellation_);
-    ASSERT_TRUE(result.has_value());
+    ASSERT_THAT(result, IsOk());
     EXPECT_FALSE(result->has_value());
 }
 
@@ -133,8 +138,7 @@ TEST_P(TransportReads, CancellationPrecedesDisconnectAndSkipsDriver)
     EXPECT_CALL(serial_.Fake(), ReadSerialData(::testing::_)).Times(0);
     EXPECT_CALL(serial_.Fake(), ReadSerialObdData(::testing::_)).Times(0);
     const auto result = Read(10ms, cancellation_);
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::kCancelled);
+    EXPECT_THAT(result, IsErr(ErrorKind::kCancelled));
 }
 
 TEST_P(TransportReads, DisconnectionBeforeReadSkipsDriver)
@@ -143,8 +147,7 @@ TEST_P(TransportReads, DisconnectionBeforeReadSkipsDriver)
     EXPECT_CALL(serial_.Fake(), ReadSerialData(::testing::_)).Times(0);
     EXPECT_CALL(serial_.Fake(), ReadSerialObdData(::testing::_)).Times(0);
     const auto result = Read(10ms, cancellation_);
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::kDisconnected);
+    EXPECT_THAT(result, IsErr(ErrorKind::kDisconnected));
 }
 
 TEST_P(TransportReads, DisconnectionAfterReadDiscardsBytes)
@@ -154,8 +157,7 @@ TEST_P(TransportReads, DisconnectionAfterReadDiscardsBytes)
         .WillOnce(::testing::Return(false));
     ExpectRead(10, [](std::uint16_t) { return QByteArray("\xaa", 1); });
     const auto result = Read(10ms, cancellation_);
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::kDisconnected);
+    EXPECT_THAT(result, IsErr(ErrorKind::kDisconnected));
 }
 
 TEST_P(TransportReads, PostReadCancellationPrecedesDisconnect)
@@ -168,16 +170,14 @@ TEST_P(TransportReads, PostReadCancellationPrecedesDisconnect)
                    return QByteArray("\xaa", 1);
                });
     const auto result = Read(10ms, cancellation_);
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::kCancelled);
+    EXPECT_THAT(result, IsErr(ErrorKind::kCancelled));
 }
 
 TEST_P(TransportReads, StandardExceptionPreservesDiagnostic)
 {
     ExpectRead(10, [](std::uint16_t) -> QByteArray { throw std::runtime_error("read failed"); });
     const auto result = Read(10ms, cancellation_);
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), (fastecu::Error{ErrorKind::kInternal, "read failed"}));
+    EXPECT_THAT(result, IsErrWith(ErrorKind::kInternal, StrEq("read failed")));
 }
 
 TEST_P(TransportReads, NonstandardExceptionIsContained)
@@ -188,9 +188,7 @@ TEST_P(TransportReads, NonstandardExceptionIsContained)
                    throw FakeBackendNonStandardFailure{}; // NOLINT(bugprone-std-exception-baseclass): catch-all probe.
                });
     const auto result = Read(10ms, cancellation_);
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::kInternal);
-    EXPECT_EQ(result.error().detail, "serial driver read exception");
+    EXPECT_THAT(result, IsErrWith(ErrorKind::kInternal, StrEq("serial driver read exception")));
 }
 
 TEST_P(TransportReads, CancellationPrecedesStandardException)
@@ -202,8 +200,7 @@ TEST_P(TransportReads, CancellationPrecedesStandardException)
                    throw std::runtime_error("read failed");
                });
     const auto result = Read(10ms, cancellation_);
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::kCancelled);
+    EXPECT_THAT(result, IsErr(ErrorKind::kCancelled));
 }
 
 TEST_P(TransportReads, CancellationPrecedesNonstandardException)
@@ -215,8 +212,7 @@ TEST_P(TransportReads, CancellationPrecedesNonstandardException)
                    throw FakeBackendNonStandardFailure{}; // NOLINT(bugprone-std-exception-baseclass): catch-all probe.
                });
     const auto result = Read(10ms, cancellation_);
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::kCancelled);
+    EXPECT_THAT(result, IsErr(ErrorKind::kCancelled));
 }
 
 TEST_P(TransportReads, UnblockPreservesInflightBytesAndSuppressesNextRead)
@@ -232,15 +228,14 @@ TEST_P(TransportReads, UnblockPreservesInflightBytesAndSuppressesNextRead)
                    return QByteArray("\xaa", 1);
                });
     const auto inflight = Read(10ms, cancellation_);
-    ASSERT_TRUE(inflight.has_value());
+    ASSERT_THAT(inflight, IsOk());
     ASSERT_TRUE(inflight->has_value());
     EXPECT_EQ(inflight->value(), bytes::Bytes{0xaa});
     ::testing::Mock::VerifyAndClearExpectations(&serial_.Fake());
     EXPECT_CALL(serial_.Fake(), ReadSerialData(::testing::_)).Times(0);
     EXPECT_CALL(serial_.Fake(), ReadSerialObdData(::testing::_)).Times(0);
     const auto subsequent = Read(10ms, cancellation_);
-    ASSERT_FALSE(subsequent.has_value());
-    EXPECT_EQ(subsequent.error().kind, ErrorKind::kCancelled);
+    EXPECT_THAT(subsequent, IsErr(ErrorKind::kCancelled));
 }
 
 TEST(TransportReadPrechecks, ClosedAdaptersKeepCancellationAndModePrecedence)
@@ -250,19 +245,16 @@ TEST(TransportReadPrechecks, ClosedAdaptersKeepCancellationAndModePrecedence)
     fastecu::flash::DesktopCanFlashTransport can{nullptr};
     fastecu::flash::DesktopMixedCanFlashTransport mixed{nullptr};
     const auto raw = kline.ReadRaw(10ms, cancellation);
-    ASSERT_FALSE(raw.has_value());
-    EXPECT_EQ(raw.error(), (fastecu::Error{ErrorKind::kDisconnected, "read_raw() called after close()"}));
+    EXPECT_THAT(raw, IsErrWith(ErrorKind::kDisconnected, StrEq("read_raw() called after close()")));
     const auto can_closed = can.Read(10ms, cancellation);
-    ASSERT_FALSE(can_closed.has_value());
-    EXPECT_EQ(can_closed.error(), (fastecu::Error{ErrorKind::kDisconnected, "read() called after close()"}));
+    EXPECT_THAT(can_closed, IsErrWith(ErrorKind::kDisconnected, StrEq("read() called after close()")));
 
     cancellation.SetCancelled(true);
     EXPECT_EQ(kline.ReadRaw(10ms, cancellation).error().kind, ErrorKind::kCancelled);
     EXPECT_EQ(can.Read(10ms, cancellation).error().kind, ErrorKind::kCancelled);
     // Mixed CAN checks its lifecycle/mode before the serial-read precheck.
     const auto mixed_closed = mixed.ReadIso15765(10ms, cancellation);
-    ASSERT_FALSE(mixed_closed.has_value());
-    EXPECT_EQ(mixed_closed.error(), (fastecu::Error{ErrorKind::kDisconnected, "ISO-15765 read called after close()"}));
+    EXPECT_THAT(mixed_closed, IsErrWith(ErrorKind::kDisconnected, StrEq("ISO-15765 read called after close()")));
 }
 
 INSTANTIATE_TEST_SUITE_P(Adapters, TransportReads,
