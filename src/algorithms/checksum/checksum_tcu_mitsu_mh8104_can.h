@@ -1,11 +1,17 @@
 #pragma once
 
+#include <cstdint>
+#include <span>
+
 #include "checksum_result.h"
-#include "src/algorithms/memory/memory_image.h"
 
 class ChecksumTcuMitsuMH8104Can
 {
   public:
-    // `rom` must start at ECU address 0: the layout's constants are ECU addresses.
-    static ChecksumResult CalculateChecksumResult(const fastecu::memory::MemoryView& rom);
+    // The fixed layout covers ECU addresses [0, kRomSize); its constants are
+    // ECU addresses.
+    static constexpr std::uint32_t kRomSize = 0x80000;
+    using Rom = std::span<const std::uint8_t, kRomSize>;
+
+    static ChecksumResult CalculateChecksumResult(Rom rom);
 };

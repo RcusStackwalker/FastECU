@@ -7,6 +7,7 @@
 #include <string>
 #include <string_view>
 #include <tuple>
+#include <utility>
 
 #include "src/algorithms/memory/memory_image.h"
 #include "src/algorithms/memory/memory_map.h"
@@ -229,6 +230,28 @@ TEST(ApplyChecksumCorrection, BadRomSizeReturnsBadRomSizeStatus)
     EXPECT_FALSE(outcome.family_result.has_value());
 }
 
+// A 1 MiB SH7058 image placed at ECU 0x100 has the MCU's size but not the
+// route's window [0, 0x100000).
+TEST(ApplyChecksumCorrection, AnImageAtTheWrongEcuAddressIsABadRomSize)
+{
+    const auto outcome =
+        ApplyChecksumCorrection(memory::testing::ImageAt(memory::FlashAddress{0x100}, bytes::Bytes(0x100000, 0)),
+                                SubaruSelection("sub_ecu_denso_sh7058", "SH7058"));
+
+    EXPECT_EQ(outcome.status, Status::kBadRomSize);
+    EXPECT_FALSE(outcome.family_result.has_value());
+}
+
+// The size is judged against the route, so a flash method with no route is
+// "no module" whatever the file size.
+TEST(ApplyChecksumCorrection, AnUnroutedFlashMethodFindsNoModuleBeforeTheSizeIsJudged)
+{
+    const bytes::Bytes rom(100, 0);
+    const auto outcome = ApplyChecksumCorrection(IdentityOf(rom), SubaruSelection("does_not_exist", "M32R_512KB"));
+
+    EXPECT_EQ(outcome.status, Status::kNoModuleForProtocol);
+}
+
 TEST(ApplyChecksumCorrection, NonSubaruMakeReturnsNoModuleForProtocol)
 {
     const bytes::Bytes rom(524288, 0);
@@ -320,20 +343,26 @@ TEST(ApplyChecksumCorrection, N83m4mCanRoutesToSh7xxx)
     EXPECT_EQ(outcome.family_result->status, ChecksumResult::Status::kCorrected);
 }
 
-TEST(ApplyChecksumCorrection, N83m1_5mCanRoutesToSh7xxx)
+// The route's window, not the MCU's romsize, gates the size: N83M_1_5MB's
+// romsize (0x174000) is not its 1.5M file size (0x184000).
+TEST(ApplyChecksumCorrection, N83m1_5mCanCorrectsItsOwn1_5MiBFile)
 {
-    // Uses N83M_4MB, not the "naturally" paired N83M_1_5MB: this
-    // flash_method's hardcoded area_start (0x183E00) is 1,588,736 bytes in,
-    // which exceeds N83M_1_5MB's own romsize (1,523,712) -- a pre-existing
-    // legacy quirk this port preserves verbatim, not something to fix here.
-    // N83M_4MB is large enough to prove routing without hitting that quirk.
-    const bytes::Bytes rom(3984UZ * 1024, 0);
+    const bytes::Bytes rom(0x184000, 0); // table at file 0x183E00, ECU 0x0911FE00
     const auto outcome =
-        ApplyChecksumCorrection(N83mImageOf(rom), SubaruSelection("sub_ecu_denso_1n83m_1_5m_can", "N83M_4MB"));
+        ApplyChecksumCorrection(N83mImageOf(rom), SubaruSelection("sub_ecu_denso_1n83m_1_5m_can", "N83M_1_5MB"));
 
     ASSERT_EQ(outcome.status, Status::kFamilyRan);
     ASSERT_TRUE(outcome.family_result.has_value());
     EXPECT_EQ(outcome.family_result->status, ChecksumResult::Status::kCorrected);
+}
+
+TEST(ApplyChecksumCorrection, N83m1_5mCanRejectsA4MiBFile)
+{
+    const bytes::Bytes rom(0x3E4000, 0);
+    const auto outcome =
+        ApplyChecksumCorrection(N83mImageOf(rom), SubaruSelection("sub_ecu_denso_1n83m_1_5m_can", "N83M_4MB"));
+
+    EXPECT_EQ(outcome.status, Status::kBadRomSize);
 }
 
 TEST(ApplyChecksumCorrection, Sh7059CanDieselRoutesToSh705xDiesel)
@@ -424,6 +453,24 @@ TEST(ApplyChecksumCorrection, AllFourColtCanProtocolsRouteToTheMitsuM32rCanFamil
     }
 }
 
+// The 512 KiB protocols are suffixes of the 384 KiB prefix; each route takes
+// only its own size whatever MCU the selection names.
+TEST(ApplyChecksumCorrection, ColtRoutesTakeOnlyTheirOwnFileSize)
+{
+    for (const auto& [flash_method, size] : std::to_array<std::pair<std::string_view, std::size_t>>({
+             {"mitsu_ecu_m32r_can", 0x80000},
+             {"mitsu_ecu_m32r_can_vendor_ext", 0x80000},
+             {"mitsu_ecu_m32r_can_512kb", 0x60000},
+             {"mitsu_ecu_m32r_can_vendor_ext_512kb", 0x60000},
+         }))
+    {
+        const auto outcome = ApplyChecksumCorrection(IdentityOf(ColtRom(size)),
+                                                     ColtSelection(std::string(flash_method), "M32R_512KB_1block"));
+
+        EXPECT_EQ(outcome.status, Status::kBadRomSize) << flash_method;
+    }
+}
+
 TEST(ApplyChecksumCorrection, ColtFlashMethodUnderSubaruMakeFindsNoModule)
 {
     ChecksumSelection selection = ColtSelection("mitsu_ecu_m32r_can");
@@ -505,19 +552,22 @@ TEST(ApplyChecksumCorrection, AnUnchangedResultHandsBackTheFileAsItWas)
     EXPECT_THAT(*outcome.corrected_file, test_bytes::BytesEq(rom));
 }
 
-TEST(ApplyChecksumCorrection, AMapWithUnmappedAddressesIsABadRomSize)
+// The span is the SH72543R window [0, 0x200000), but no block holds
+// [0x80000, 0x100000).
+TEST(ApplyChecksumCorrection, AWindowWithUnmappedAddressesIsABadRomSize)
 {
     const std::array blocks{
-        memory::MemoryBlock{.range = Range(0, 0x100000),
+        memory::MemoryBlock{.range = Range(0, 0x80000),
                             .backing = memory::FileBacking{},
                             .writability = memory::Writability::kWritable},
-        memory::MemoryBlock{.range = Range(0x180000, 0x100000),
-                            .backing = memory::FileBacking{.offset = memory::FileOffset{0x100000}},
+        memory::MemoryBlock{.range = Range(0x100000, 0x100000),
+                            .backing = memory::FileBacking{.offset = memory::FileOffset{0x80000}},
                             .writability = memory::Writability::kWritable},
     };
-    const auto map = memory::MemoryMap::Create(blocks, memory::ByteCount{0x200000});
+    const auto map = memory::MemoryMap::Create(blocks, memory::ByteCount{0x180000});
     ASSERT_TRUE(map.has_value());
-    const auto image = memory::MemoryImage::Create(*map, bytes::Bytes(0x200000, 0));
+    ASSERT_EQ(map->Span(), Range(0, 0x200000));
+    const auto image = memory::MemoryImage::Create(*map, bytes::Bytes(0x180000, 0));
     ASSERT_TRUE(image.has_value());
 
     EXPECT_EQ(ApplyChecksumCorrection(*image, SubaruSelection("sub_ecu_hitachi_sh72543r", "SH72543R")).status,

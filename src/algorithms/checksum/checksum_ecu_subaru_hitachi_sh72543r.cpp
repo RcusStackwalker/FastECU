@@ -1,24 +1,11 @@
 #include "checksum_ecu_subaru_hitachi_sh72543r.h"
 
-#include <utility>
-
 #include "checksum_primitives.h"
 #include "src/algorithms/protocol/bytes.h"
 
-ChecksumResult ChecksumEcuSubaruHitachiSh72543r::CalculateChecksumResult(const fastecu::memory::MemoryView& rom)
+ChecksumResult ChecksumEcuSubaruHitachiSh72543r::CalculateChecksumResult(Rom rom)
 {
-    if (auto rejected = fastecu::checksum::internal::RequireStartAtZero(rom); rejected.has_value())
-    {
-        return *std::move(rejected);
-    }
-    const bytes::ByteView rom_view = rom.Data();
-    // Fixed 2 MiB layout: the balance field is at 0x1FFFFE.
-    if (rom_view.size() != 0x200000)
-    {
-        return {.status = ChecksumResult::Status::kInvalidSize,
-                .rom_data = bytes::Bytes(rom_view.begin(), rom_view.end()),
-                .message = "ROM size does not match the checksum layout"};
-    }
+    const bytes::ByteView rom_view = rom;
     /*******************
      *
      * Checksum is calculated between 0x6000 - 0x1fffff, 16bit summation, balance value is word at 0x1ffffe
