@@ -147,4 +147,3 @@ The internal sample/support distinction remains valuable. Q9 settles the externa
 syntax in favor of the RomRaider form.
 
 Source: [RomRaider definition parser](https://github.com/RomRaider/RomRaider/blob/dafe0c36c1a68efadbeedb2825f3855463fdbc35/src/main/java/com/romraider/logger/ecu/definition/xml/LoggerDefinitionHandler.java#L261).
-
