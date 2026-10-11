@@ -199,7 +199,7 @@ class Session
             {
                 id += std::format("{:02X}", b);
             }
-            events_.Log(LogLevel::kInfo, "ECU ID: " + id);
+            events_.Log(LogLevel::kInfo, std::format("ECU ID: {}", id));
             id += "_";
         }
         else
@@ -235,7 +235,11 @@ class Session
             {
                 value.assign(data.begin(), data.end());
             }
-            events_.Log(LogLevel::kInfo, (service == 2 ? "VIN: " : service == 4 ? "CAL ID: " : "CVN: ") + value);
+            events_.Log(LogLevel::kInfo, std::format("{}{}",
+                                                     service == 2   ? "VIN: "
+                                                     : service == 4 ? "CAL ID: "
+                                                                    : "CVN: ",
+                                                     value));
             if (service == 4)
             {
                 id = value + "_" + id;

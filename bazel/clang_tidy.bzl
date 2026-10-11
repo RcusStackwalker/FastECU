@@ -22,19 +22,22 @@ def _clang_tidy_runner_impl(name, visibility, mode, changed):
     Args:
       name: Name of the target.
       visibility: Caller visibility forwarded to the runner target.
-      mode: "report" to only list findings, "fix" to apply available fixes.
+      mode: "report" to list findings, "fix" to apply available fixes, or
+        "benchmark" to measure the local advisory-pass cost.
       changed: Restrict the run to files changed against the merge base.
     """
     py_binary(
         name = name,
         visibility = visibility,
         srcs = [
+            "//:scripts/clang_tidy_adapter.py",
+            "//:scripts/clang_tidy_benchmark.py",
             "//:scripts/clang_tidy_profile.py",
             "//:scripts/clang_tidy_runner.py",
             "//:scripts/clang_tidy_scope.py",
         ],
         imports = ["scripts"],
-        args = [mode] + (["--changed"] if changed else []) + [
+        args = ([] if mode == "benchmark" else [mode]) + (["--changed"] if changed else []) + [
             "--compdb-tool",
             "$(location //bazel/compile_commands:refresh)",
             "--build-arg=--config=release",
@@ -45,14 +48,14 @@ def _clang_tidy_runner_impl(name, visibility, mode, changed):
             "//:.clang-tidy",
             "//bazel/compile_commands:refresh",
         ],
-        main = "//:scripts/clang_tidy_runner.py",
+        main = "//:scripts/clang_tidy_benchmark.py" if mode == "benchmark" else "//:scripts/clang_tidy_runner.py",
         deps = ["@python_deps//pyyaml"],
     )
 
 clang_tidy_runner = macro(
     implementation = _clang_tidy_runner_impl,
     attrs = {
-        "mode": attr.string(mandatory = True, values = ["report", "fix"], configurable = False),
+        "mode": attr.string(mandatory = True, values = ["report", "fix", "benchmark"], configurable = False),
         "changed": attr.bool(default = False, configurable = False),
     },
     doc = "A clang-tidy runner for report or fix mode, optionally restricted to changed files.",

@@ -229,7 +229,7 @@ Status SubaruDensoSh7055_02Executor::ConnectBootloader(IKlineFlashTransport& tra
             return Fail(ErrorKind::kBadResponse, "ECU ID response is too short");
         }
         ecu_id = EcuIdHex(bytes::ByteView(response).subspan(8, 5));
-        events.Log(LogLevel::kInfo, "ECU ID: " + *ecu_id);
+        events.Log(LogLevel::kInfo, std::format("ECU ID: {}", *ecu_id));
     }
 
     if (Status baud = ChangeBaud(transport, cancellation, 9600); !baud.has_value())

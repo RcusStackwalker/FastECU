@@ -1,6 +1,7 @@
 #include "src/backend/service_functions/set_parameters_session.h"
 
 #include <chrono>
+#include <format>
 #include <utility>
 
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
@@ -36,7 +37,7 @@ Result<SsmTransportConfig> SetParametersSession::TransportSetup() const
 {
     if (protocol_ != "sub_tcu_denso_sh7055_can" && protocol_ != "sub_tcu_denso_sh7058_can")
     {
-        return Fail(ErrorKind::kUnsupported, "not a Subaru Denso SH705x TCU protocol: " + protocol_);
+        return Fail(ErrorKind::kUnsupported, std::format("not a Subaru Denso SH705x TCU protocol: {}", protocol_));
     }
     // legacy :141-152 -- "CAN 0xb8 command is disabled, so switch to K-Line comms".
     return SsmTransportConfig{

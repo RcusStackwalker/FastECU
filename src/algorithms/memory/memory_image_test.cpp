@@ -245,5 +245,19 @@ TEST(MemoryImage, CheckWriteRejectsReadOnlyBlocks)
     EXPECT_EQ(checked.error().kind, MemoryErrorKind::kNotWritable);
 }
 
+// The first address that cannot be written decides the error, even when a gap
+// no block holds comes later in the range.
+TEST(MemoryImage, CheckWriteNamesAReadOnlyBlockBeforeALaterGap)
+{
+    const std::array blocks{FileBlock(0x0, 0x10, 0x0, Writability::kReadOnly)};
+    MemoryImage image = ImageOf(blocks, bytes::Bytes(0x10, 0x00));
+
+    const auto checked = image.CheckWrite(FlashAddress{0x8}, ByteCount{0x10});
+    ASSERT_FALSE(checked.has_value());
+    EXPECT_EQ(checked.error().kind, MemoryErrorKind::kNotWritable);
+    EXPECT_EQ(checked.error().detail, "address 0x8 is in a block that is not writable");
+    EXPECT_EQ(WriteError(image, 0x8, bytes::Bytes(0x10, 0x11)), MemoryErrorKind::kNotWritable);
+}
+
 } // namespace
 } // namespace fastecu::memory

@@ -5,6 +5,7 @@
 #include "src/backend/ports/error.h"
 
 #include <cmath>
+#include <format>
 #include <string>
 
 namespace fastecu::logging
@@ -21,14 +22,15 @@ fastecu::Result<LogSample> ConvertSample(const LoggingSession& session, const Pr
     const auto raw_value = fastecu::expression::ParseFiniteNumber(raw.raw_value);
     if (!raw_value.has_value())
     {
-        return fastecu::Fail(fastecu::ErrorKind::kBadResponse,
-                             "protocol sample raw value is not a finite number: " + raw_value.error().detail);
+        return fastecu::Fail(
+            fastecu::ErrorKind::kBadResponse,
+            std::format("protocol sample raw value is not a finite number: {}", raw_value.error().detail));
     }
     const auto numeric_value = session.FindConversion(raw.channel_id)->Evaluate(*raw_value);
     if (!numeric_value.has_value())
     {
         return fastecu::Fail(fastecu::ErrorKind::kInvalidConfig,
-                             "logging conversion expression failed: " + numeric_value.error().detail);
+                             std::format("logging conversion expression failed: {}", numeric_value.error().detail));
     }
 
     return LogSample{

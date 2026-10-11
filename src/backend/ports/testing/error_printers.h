@@ -1,6 +1,10 @@
 #pragma once
 
+#include <expected>
 #include <ostream>
+#include <type_traits>
+
+#include <gtest/gtest-printers.h>
 
 #include "src/backend/ports/error.h"
 
@@ -21,6 +25,26 @@ inline void PrintTo(const Error& error, std::ostream *os)
     if (!error.detail.empty())
     {
         *os << " (" << error.detail << ")";
+    }
+}
+
+// Result<T> and Status: fastecu::Error is a template argument of the
+// std::expected, which makes fastecu an associated namespace for ADL.
+template <class T> void PrintTo(const std::expected<T, Error>& result, std::ostream *os)
+{
+    if (!result.has_value())
+    {
+        *os << "error: ";
+        PrintTo(result.error(), os);
+        return;
+    }
+    if constexpr (std::is_void_v<T>)
+    {
+        *os << "ok";
+    }
+    else
+    {
+        *os << "ok: " << ::testing::PrintToString(*result);
     }
 }
 

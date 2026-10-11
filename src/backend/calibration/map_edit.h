@@ -79,10 +79,6 @@ struct MapElementSpec
 // Checked layout arithmetic returns a sentinel on overflow.
 std::uint64_t ElementByteAddress(const MapElementSpec& spec, std::uint32_t index);
 
-// Float reads return IEEE-754 bits, not a scaled numeric value. All integer
-// widths respect declared byte order; float storage remains big-endian.
-Result<std::int64_t> ReadRawElement(bytes::ByteView rom_data, const MapElementSpec& spec, std::uint32_t index);
-
 // Packs already-encoded raw values. Numeric encoding checks range before
 // calling this primitive. Float raw values carry the stored bit pattern.
 Result<bytes::Bytes> WriteRawElement(const MapElementSpec& spec, std::int64_t raw);

@@ -42,10 +42,4 @@ bool CheckedMultiply(std::uint64_t lhs, std::uint64_t rhs, std::uint64_t& result
     return true;
 }
 
-bool ByteWindowFits(bytes::ByteView data, std::uint64_t address, std::uint64_t width)
-{
-    const std::uint64_t size = data.size();
-    return address <= size && width <= size - address;
-}
-
 } // namespace fastecu::calibration::internal

@@ -6,7 +6,7 @@
 #include <limits>
 #include <optional>
 #include <string_view>
-#include <utility>
+#include <tuple>
 #include <variant>
 
 #include "src/backend/calibration/calibration_service.h"
@@ -16,38 +16,45 @@ namespace fastecu::calibration
 namespace
 {
 // Why the definition addresses [start, end) have no valid storage in
-// `memory_map`, or nullopt when they do.
-std::optional<std::string_view> ProblemWith(std::uint64_t start, std::uint64_t end, const memory::MemoryMap& memory_map)
+// `memory_map`, or nullopt when they do. An empty run touches nothing.
+std::optional<std::string_view> ProblemWith(memory::DefinitionAddress start, std::uint64_t end,
+                                            const memory::MemoryMap& memory_map)
 {
     constexpr std::string_view kOutside = "outside the ROM's memory map";
-    constexpr std::uint64_t kAddressSpaceEnd = std::uint64_t{1} << 32;
-    const std::uint64_t base = memory_map.DefinitionBase().Value();
-    const std::optional<memory::FlashAddress> first =
-        start > std::numeric_limits<std::uint32_t>::max()
-            ? std::nullopt
-            : memory_map.ToFlashAddress(memory::DefinitionAddress{static_cast<std::uint32_t>(start)});
-    if (!first.has_value() || end > kAddressSpaceEnd - base)
+    const std::optional<memory::FlashAddress> first = memory_map.ToFlashAddress(start);
+    if (!first.has_value())
+    {
+        return kOutside;
+    }
+    if (end <= start.Value())
+    {
+        return std::nullopt;
+    }
+    const std::uint64_t size = end - start.Value();
+    const auto range = size > std::numeric_limits<std::uint32_t>::max()
+                           ? std::nullopt
+                           : memory::AddressRange<memory::FlashSpace>::Make(
+                                 *first, memory::ByteCount{static_cast<std::uint32_t>(size)});
+    if (!range.has_value())
     {
         return kOutside;
     }
     std::optional<memory::Writability> writability;
-    for (std::uint64_t cursor = first->Value(); cursor < base + end;)
+    for (const memory::BlockSlice& slice : memory_map.Slices(*range))
     {
-        const memory::MemoryBlock *block = memory_map.BlockAt(memory::FlashAddress{static_cast<std::uint32_t>(cursor)});
-        if (block == nullptr)
+        if (slice.block == nullptr)
         {
             return kOutside;
         }
-        if (std::holds_alternative<memory::FillBacking>(block->backing))
+        if (std::holds_alternative<memory::FillBacking>(slice.block->backing))
         {
             return "in a fill block, which holds no ROM file bytes";
         }
-        if (writability.has_value() && *writability != block->writability)
+        if (writability.has_value() && *writability != slice.block->writability)
         {
             return "across writable and read-only memory";
         }
-        writability = block->writability;
-        cursor = block->range.End().Value();
+        writability = slice.block->writability;
     }
     return std::nullopt;
 }
@@ -65,8 +72,7 @@ Result<std::optional<MapExtent>> CheckRun(std::string_view map_name, std::string
     }
     const std::uint64_t end =
         ElementRunEnd(address->Value(), start_position, interval, width, static_cast<std::uint32_t>(count));
-    if (const std::optional<std::string_view> problem = ProblemWith(address->Value(), end, memory_map);
-        problem.has_value())
+    if (const std::optional<std::string_view> problem = ProblemWith(*address, end, memory_map); problem.has_value())
     {
         return Fail(ErrorKind::kInvalidConfig, std::format("map '{}' {} {}", map_name, subject, *problem));
     }
@@ -104,12 +110,14 @@ Result<MapExtent> CheckMapPlacement(const definition::RomDefinition& definition,
         return std::unexpected(cells.error());
     }
     std::optional<MapExtent> extent = *cells;
-    for (const auto& [axis, subject] : {std::pair{&map.x_axis, "X axis lies"}, std::pair{&map.y_axis, "Y axis lies"}})
+    for (const auto& [axis, axis_extent, subject] :
+         {std::tuple{&map.x_axis, map.x_size, "X axis lies"}, std::tuple{&map.y_axis, map.y_size, "Y axis lies"}})
     {
         const std::uint32_t axis_width =
             ElementByteSize(axis->storage_type, definition::FindScaling(definition, axis->scaling_name));
-        const auto placed = CheckRun(map.name, subject, axis->address, axis->size, axis->start_position, axis->interval,
-                                     axis_width, memory_map);
+        // The decoder reads an axis as long as the map's own dimension.
+        const auto placed = CheckRun(map.name, subject, axis->address, axis_extent, axis->start_position,
+                                     axis->interval, axis_width, memory_map);
         if (!placed.has_value())
         {
             return std::unexpected(placed.error());
