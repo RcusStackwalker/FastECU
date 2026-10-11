@@ -90,7 +90,6 @@ LoggingChannel Channel(std::string id, std::string expression = "x")
         .id = std::move(id),
         .address = 0x10,
         .length = 2,
-        .raw_assembly = RawAssembly::kUnsignedIntegerDecimal,
         .from_byte_expression = std::move(expression),
         .unit = "rpm",
         .decimal_precision = 2,

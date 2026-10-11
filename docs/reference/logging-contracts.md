@@ -29,8 +29,8 @@ retain empty cells in their original CSV positions.
 
 [Run preparation](../../src/backend/logging/logging_run_snapshot.h) constructs an
 owned snapshot through a validating factory with const-only accessors. It
-captures protocol, selection, support eligibility, conversion, original SSM
-offsets and a typed ECU/TCU target before engine startup. Later model changes
+captures protocol, selection, support eligibility, conversion, numeric storage
+and byte order, and a typed ECU/TCU target before engine startup. Later model changes
 cannot modify a prepared run. Identities derive from the captured protocol and
 validated channels rather than a second mutable map. Unresolved selected IDs are
 omitted from acquisition; participating duplicate IDs are rejected. This scope
@@ -42,15 +42,15 @@ a protocol factory or worker.
 Later selection edits do not change the worker's session. Only the first
 conversion is used, with fixed decimal display formatting.
 
-Polling channels currently come from the Digital/lower-panel selection. Captured
-gauge and switch selections do not add acquisition requests. The
-[XML workflow](../../resources/shared/config/README.md) describes loading and
-choosing definitions through the existing UI.
-
-- SSM polls disabled channels at their original lower-panel offsets. Its raw
-  assembly concatenates the decimal spelling of each byte: `0x01, 0x02` becomes
-  `"12"`. This is the conversion-expression input contract, not a decoded
-  big-endian integer.
+- SSM polls disabled channels as captured channels. A portable
+  [read plan](../../src/backend/logging/logging_read_plan.h) expands every
+  contiguous base address and width into ordered byte addresses and maps each
+  channel to its packed reply bytes. Unresolved display positions do not leave
+  gaps in the wire response. Distinct channels remain distinct requests even
+  when their address ranges overlap. The request is bounded to 84 byte addresses
+  by the one-byte SSM body length; every expanded address must fit 24 bits.
+  Binary bytes decode numerically before scaling: `0x01, 0x02` is `258` under
+  the unsigned big-endian default. There is no decimal-concatenation mode.
 - MUT/DMA spells the decoded unsigned integer in decimal and filters unsupported
   channels before field validation. Unsupported SSM channels still validate. CDBG also uses unsigned-integer decimal and does not filter support.
   Each CDBG poll publishes only measurements decoded from its received frame,
@@ -97,9 +97,12 @@ OpenPort keeps its single adapter read per response.
 Startup requires a checksum-valid `0xE8` response with exactly one probe data
 byte (seven bytes including framing). Polling checks the header, captured sender,
 declared total length and checksum before delivering samples. Invalid or missing
-poll replies deliver no samples and retain the existing retry behavior. Mapping
-still uses the historical captured response offsets and decimal-byte assembly;
-response integrity does not impose a new channel-count or address-expansion rule.
+poll replies deliver no samples and retain the existing retry behavior. The
+payload must contain exactly one byte for every requested byte address.
+Short or oversized checksum-valid replies deliver no samples; partial channels
+never produce values. Nonfinite IEEE float data is a `kBadResponse` error,
+without a fabricated zero. Framing, deadline, cancellation and buffered-frame
+lifetime guards apply independently of numeric decoding.
 
 Backend scripted TCU responses verify target-aware parsing. Direct desktop TCU
 operation remains limited: the direct serial facade recognizes ECU-specific
@@ -146,25 +149,6 @@ logging retry policy, and a subsequent complete reply can supply measurements.
 The [free-form decoder](../../src/algorithms/protocol/mut_dma/mut_dma_freeform.cpp)
 also rejects payloads whose length differs from the selected widths.
 
-## SSM protocol evidence
-
-The [wire evidence owner](logging-wire-evidence.md) records physical layout,
-response integrity, and the separate maintained/OEM MUT format boundaries.
-
-RomRaider's [request/response example](https://github.com/RomRaider/RomRaider/blob/dafe0c36c1a68efadbeedb2825f3855463fdbc35/docs/ssm_info.txt#L108)
-requests two addresses and receives two data bytes. Its
-[SSM protocol implementation](https://github.com/RomRaider/RomRaider/blob/dafe0c36c1a68efadbeedb2825f3855463fdbc35/src/main/java/com/romraider/io/protocol/ssm/iso9141/SSMProtocol.java#L57)
-defines a three-byte address and one-byte returned datum, and its
-[address expansion](https://github.com/RomRaider/RomRaider/blob/dafe0c36c1a68efadbeedb2825f3855463fdbc35/src/main/java/com/romraider/logger/ecu/definition/EcuAddressImpl.java#L78)
-constructs ordered byte-address requests for multi-byte values.
-
-The current FastECU base-address/Digital-offset path does not establish the same
-mapping for multi-byte values or unresolved selection gaps. The
-[correctness debt](../tech-debt.md#p1-resolve-known-correctness-gaps) owns its
-characterization and correction. Decimal-byte conversion compatibility is a
-separate requirement from correct address-to-response association. Static source
-evidence does not replace the logging checklist's hardware qualification.
-
 ## MUT/DMA protocol evidence
 
 OEM K-Line DMA activation research is held in the parent research repository,
@@ -203,7 +187,21 @@ accepts hexadecimal addresses with an optional `0x`/`0X` prefix and positive
 decimal lengths. Surrounding ASCII whitespace is accepted; signs, internal
 whitespace, trailing junk and overflow are rejected. Display formats are exactly
 `0`, or `0.` followed by 1–15 zeros. Empty units are valid; only the first
-conversion is used. Existing protocol bounds and shared expression validation
+conversion is used. For SSM, its `storagetype` and `endian` attributes are
+normalized into portable typed channel metadata. Integer widths are 1, 2 or 4
+bytes; `uint`, `uint8`, `uint16` and `uint32` select unsigned assembly, while
+`int`, `int8`, `int16` and `int32` select signed two's-complement assembly.
+The address width governs assembly, independently of the integer type suffix.
+Omitted storage selects unsigned assembly, including multi-byte sources.
+`float` requires four bytes and decodes IEEE binary32; its exact finite value
+is preserved as decimal numeric input for checked scaling. Omitted byte order
+is big endian; `big` and `little` are accepted. Storage and byte-order values
+are case insensitive; unknown selected values fail preparation. Alternatives
+retain their original metadata but do not affect this run. MUT/DMA and CDBG
+retain their protocol-owned unsigned decoding, including firmware little-endian
+MUT/DMA free-form data; selected signed/float storage or a nondefault endian
+attribute is rejected for these protocols. Default metadata does not override
+protocol byte order. Existing protocol bounds and shared expression validation
 remain applicable. Errors identify the definition's protocol, parameter ID and
 invalid field.
 
@@ -221,3 +219,23 @@ Desktop owns formatting, cache lookup/mutation and reporting missing cache
 entries. Delivered identity errors allow subsequent valid samples to continue;
 existing cache values remain intact. The UI rechecks the active snapshot between
 samples because error reporting may synchronously stop the run.
+
+## SSM definition numeric evidence
+
+The pinned [RomRaider conversion implementation](https://github.com/RomRaider/RomRaider/blob/dafe0c36c1a68efadbeedb2825f3855463fdbc35/src/main/java/com/romraider/logger/ecu/definition/EcuParameterConvertorImpl.java)
+uses the received width for integer decoding, masks unsigned values, applies
+conversion expressions after binary assembly, and supports four-byte floats.
+Its omitted storage default is `uint8`, which remains unsigned at every
+supported received width. Its [definition handler](https://github.com/RomRaider/RomRaider/blob/dafe0c36c1a68efadbeedb2825f3855463fdbc35/src/main/java/com/romraider/logger/ecu/definition/xml/LoggerDefinitionHandler.java)
+reads storage and endian from each conversion and defaults endian to big.
+FastECU keeps checked errors for nonfinite data and rejects unknown selected
+metadata instead of reproducing upstream zero substitution or permissive
+fallbacks. These source-backed decoding contracts do not establish hardware
+qualification; the [composition checklist](../checklists/logging-composition-bench-checklist.md)
+owns that evidence.
+
+## SSM protocol evidence
+
+The [wire evidence owner](logging-wire-evidence.md#ssm-ordered-byte-reads) records
+source-pinned address expansion and packet examples. Host regressions do not
+replace the [composition checklist](../checklists/logging-composition-bench-checklist.md).

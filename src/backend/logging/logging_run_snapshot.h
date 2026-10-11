@@ -24,19 +24,16 @@ class LoggingRunSnapshot
     const LoggingSession& Session() const;
     const std::string& ProtocolKey() const;
     const LoggerSelection& Selection() const;
-    const std::vector<std::size_t>& ResponseOffsets() const;
     LoggingTarget Target() const;
     bool ChannelEnabled(std::string_view id) const;
 
   private:
     LoggingRunSnapshot(LoggingSession session, std::string protocol_key, LoggerSelection selection,
-                       std::vector<std::size_t> response_offsets, std::unordered_set<std::string> enabled_ids,
-                       LoggingTarget target);
+                       std::unordered_set<std::string> enabled_ids, LoggingTarget target);
 
     LoggingSession session_;
     std::string protocol_key_;
     LoggerSelection selection_;
-    std::vector<std::size_t> response_offsets_;
     std::unordered_set<std::string> enabled_ids_;
     LoggingTarget target_;
 

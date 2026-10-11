@@ -18,6 +18,12 @@ std::unexpected<MemoryError> InvalidLayout(std::string detail)
     return std::unexpected(MemoryError{.kind = MemoryErrorKind::kInvalidLayout, .detail = std::move(detail)});
 }
 
+// [start, end) for start < end, both addresses in the 32-bit space.
+AddressRange<FlashSpace> Between(FlashAddress start, FlashAddress end)
+{
+    return *AddressRange<FlashSpace>::Make(start, *end.DistanceFrom(start));
+}
+
 // Sorted by file offset, the file-backed blocks' file ranges must tile
 // [0, file_size) with no gap and no overlap.
 std::expected<void, MemoryError> CheckFilePlacement(std::span<const MemoryBlock> blocks, ByteCount file_size)
@@ -151,10 +157,41 @@ std::optional<FlashAddress> MemoryMap::ToFlashAddress(DefinitionAddress address)
     return definition_base_.Advance(ByteCount{address.Value()});
 }
 
+std::vector<BlockSlice> MemoryMap::Slices(AddressRange<FlashSpace> range) const
+{
+    std::vector<BlockSlice> slices;
+    // Blocks are sorted and disjoint: start at the first one ending after the
+    // range starts, and walk forward.
+    auto block = std::ranges::upper_bound(blocks_, range.Start(), {},
+                                          [](const MemoryBlock& candidate) { return candidate.range.End(); });
+    FlashAddress cursor = range.Start();
+    while (cursor < range.End())
+    {
+        if (block == blocks_.end() || cursor < block->range.Start())
+        {
+            const FlashAddress gap_end =
+                block == blocks_.end() ? range.End() : std::min(block->range.Start(), range.End());
+            slices.push_back(BlockSlice{.block = nullptr, .range = Between(cursor, gap_end)});
+            cursor = gap_end;
+            continue;
+        }
+        const FlashAddress end = std::min(block->range.End(), range.End());
+        slices.push_back(BlockSlice{.block = &*block, .range = Between(cursor, end)});
+        cursor = end;
+        ++block;
+    }
+    return slices;
+}
+
 std::optional<FileOffset> MemoryMap::FileOffsetOf(AddressRange<FlashSpace> range) const
 {
-    const MemoryBlock *block = BlockAt(range.Start());
-    if (block == nullptr || !block->range.Contains(range))
+    const std::vector<BlockSlice> slices = Slices(range);
+    return slices.size() == 1 ? slices.front().FileStart() : std::nullopt;
+}
+
+std::optional<FileOffset> BlockSlice::FileStart() const
+{
+    if (block == nullptr)
     {
         return std::nullopt;
     }
@@ -163,7 +200,8 @@ std::optional<FileOffset> MemoryMap::FileOffsetOf(AddressRange<FlashSpace> range
     {
         return std::nullopt;
     }
-    // Contained, so the distance exists and the offset fits in the file.
+    // The slice lies inside its block, so the distance exists and the offset
+    // fits in the file.
     return file->offset.Advance(*range.Start().DistanceFrom(block->range.Start()));
 }
 

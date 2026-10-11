@@ -2,6 +2,11 @@
 #include <gtest/gtest.h>
 
 #include <cstdint>
+#include <format>
+#include "src/backend/logging/logger_definition_parser.h"
+#include "src/backend/logging/logging_channel_preparation.h"
+#include "src/backend/logging/logging_conversion.h"
+#include "src/backend/logging/logging_session.h"
 #include <memory>
 #include <utility>
 #include <vector>
@@ -16,7 +21,6 @@ namespace
 {
 using namespace std::chrono_literals;
 using fastecu::logging::LoggingChannel;
-using fastecu::logging::RawAssembly;
 using fastecu::logging::SsmLoggingProtocol;
 
 LoggingChannel Channel(std::string id = "rpm", std::uint32_t address = 0x1000, std::size_t length = 1)
@@ -25,7 +29,6 @@ LoggingChannel Channel(std::string id = "rpm", std::uint32_t address = 0x1000, s
         .id = std::move(id),
         .address = address,
         .length = length,
-        .raw_assembly = RawAssembly::kDecimalBytesConcatenated,
         .from_byte_expression = "x",
         .unit = "rpm",
         .decimal_precision = 0,
@@ -108,11 +111,11 @@ TEST(SsmLoggingProtocolTest, StartFailsWhenAdapterIsClosed)
                 fastecu::testing::IsErrWith(fastecu::ErrorKind::kDisconnected, "adapter disconnected"));
 }
 
-TEST(SsmLoggingProtocolTest, PreservesDecimalByteConcatenation)
+TEST(SsmLoggingProtocolTest, DecodesBigEndianNumericBytes)
 {
     auto transport = std::make_unique<ScriptedSsmTransport>();
-    transport->ExpectWrite(BuildRequest(bytes::Bytes{0xA8, 0x01, 0x00, 0x10, 0x00}));
-    transport->QueueRead(BuildResponse(bytes::Bytes{16, 16}));
+    transport->ExpectWrite(BuildRequest(bytes::Bytes{0xA8, 0x01, 0x00, 0x10, 0x00, 0x00, 0x10, 0x01}));
+    transport->QueueRead(BuildResponse(bytes::Bytes{1, 2}));
     auto *script = transport.get();
     auto clock = fastecu::MakeAutoAdvancingClock(10ms);
     fastecu::FakeCancellationToken cancellation;
@@ -124,7 +127,7 @@ TEST(SsmLoggingProtocolTest, PreservesDecimalByteConcatenation)
     ASSERT_TRUE(result->responded);
     ASSERT_EQ(result->samples.size(), 1U);
     EXPECT_EQ(result->samples[0].channel_id, "rpm");
-    EXPECT_EQ(result->samples[0].raw_value, "1616");
+    EXPECT_EQ(result->samples[0].raw_value, "258");
     EXPECT_TRUE(script->ScriptConsumed());
     EXPECT_TRUE(script->Ok());
 }
@@ -151,44 +154,23 @@ TEST(SsmLoggingProtocolTest, PollPreservesChannelRequestOrder)
     EXPECT_EQ(result->samples[1].raw_value, "99");
 }
 
-TEST(SsmLoggingProtocolTest, PollHonorsSnapshottedHistoricalResponseOffsets)
+TEST(SsmLoggingProtocolTest, MapsUnequalWidthChannelsThroughPackedResponseBytes)
 {
     auto transport = std::make_unique<ScriptedSsmTransport>();
-    transport->ExpectWrite(BuildRequest(bytes::Bytes{0xA8, 0x01, 0x00, 0x10, 0x00, 0x00, 0x10, 0x03}));
-    transport->QueueRead(BuildResponse(bytes::Bytes{42, 77, 99}));
-    transport->QueueNoFrame();
+    transport->ExpectWrite(BuildRequest(bytes::Bytes{0xA8, 0x01, 0, 0x10, 0, 0, 0x10, 1, 0, 0x20, 0}));
+    transport->QueueRead(BuildResponse(bytes::Bytes{1, 2, 99}));
+    auto *script = transport.get();
     auto clock = fastecu::MakeAutoAdvancingClock(10ms);
     fastecu::FakeCancellationToken cancellation;
-    SsmLoggingProtocol protocol(clock, std::move(transport), {Channel("first", 0x1000), Channel("third", 0x1003)},
-                                std::vector<std::size_t>{0, 2}, true, false);
-
+    SsmLoggingProtocol protocol(clock, std::move(transport), {Channel("first", 0x1000, 2), Channel("second", 0x2000)},
+                                true, true);
     const auto result = protocol.Poll(50ms, cancellation);
-
     ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_TRUE(result->responded);
     ASSERT_EQ(result->samples.size(), 2U);
-    EXPECT_EQ(result->samples[0].raw_value, "42");
+    EXPECT_EQ(result->samples[0].raw_value, "258");
     EXPECT_EQ(result->samples[1].raw_value, "99");
-}
-
-TEST(SsmLoggingProtocolTest, PollHonorsNonmonotonicResponseOffsets)
-{
-    auto transport = std::make_unique<ScriptedSsmTransport>();
-    transport->ExpectWrite(BuildRequest(bytes::Bytes{0xA8, 0x01, 0x00, 0x10, 0x00, 0x00, 0x10, 0x03}));
-    transport->QueueRead(BuildResponse(bytes::Bytes{42, 77, 99}));
-    transport->QueueNoFrame();
-    auto clock = fastecu::MakeAutoAdvancingClock(10ms);
-    fastecu::FakeCancellationToken cancellation;
-    SsmLoggingProtocol protocol(clock, std::move(transport), {Channel("first", 0x1000), Channel("third", 0x1003)},
-                                std::vector<std::size_t>{2, 0}, true, false);
-
-    const auto result = protocol.Poll(50ms, cancellation);
-
-    ASSERT_THAT(result, fastecu::testing::IsOk());
-    ASSERT_TRUE(result->responded);
-    ASSERT_EQ(result->samples.size(), 2U);
-    EXPECT_EQ(result->samples[0].raw_value, "99");
-    EXPECT_EQ(result->samples[1].raw_value, "42");
+    EXPECT_TRUE(script->Ok());
 }
 
 TEST(SsmLoggingProtocolTest, PollReturnsNoResponseOnDirectReadTimeout)
@@ -367,48 +349,99 @@ TEST(SsmLoggingProtocolTest, PollFailsWhenAdapterIsClosed)
                 fastecu::testing::IsErrWith(fastecu::ErrorKind::kDisconnected, "adapter disconnected"));
 }
 
-TEST(SsmLoggingProtocolTest, PollSkipsChannelWhenResponseOffsetBeyondPayload)
+TEST(SsmLoggingProtocolTest, RejectsExtraPayloadWithoutSamples)
 {
     auto transport = std::make_unique<ScriptedSsmTransport>();
-    transport->ExpectWrite(BuildRequest(bytes::Bytes{0xA8, 0x01, 0x00, 0x10, 0x00, 0x00, 0x10, 0x03}));
-    // Payload is only 2 bytes long; the "second" channel's offset (5) lies
-    // beyond it and must be skipped entirely rather than read out of bounds.
+    transport->ExpectWrite(BuildRequest(bytes::Bytes{0xA8, 0x01, 0, 0x10, 0}));
     transport->QueueRead(BuildResponse(bytes::Bytes{42, 99}));
-    transport->QueueNoFrame();
     auto clock = fastecu::MakeAutoAdvancingClock(10ms);
     fastecu::FakeCancellationToken cancellation;
-    SsmLoggingProtocol protocol(clock, std::move(transport), {Channel("first", 0x1000), Channel("second", 0x1003)},
-                                std::vector<std::size_t>{0, 5}, true, false);
-
+    SsmLoggingProtocol protocol(clock, std::move(transport), {Channel()}, true, true);
     const auto result = protocol.Poll(50ms, cancellation);
-
     ASSERT_THAT(result, fastecu::testing::IsOk());
-    ASSERT_TRUE(result->responded);
-    ASSERT_EQ(result->samples.size(), 1U);
-    EXPECT_EQ(result->samples[0].channel_id, "first");
-    EXPECT_EQ(result->samples[0].raw_value, "42");
+    EXPECT_FALSE(result->responded);
+    EXPECT_TRUE(result->samples.empty());
 }
 
-TEST(SsmLoggingProtocolTest, PollTruncatesRawValueWhenLengthExtendsBeyondPayload)
+TEST(SsmLoggingProtocolTest, RejectsIncompleteNumericPayloadWithoutSamples)
 {
     auto transport = std::make_unique<ScriptedSsmTransport>();
-    transport->ExpectWrite(BuildRequest(bytes::Bytes{0xA8, 0x01, 0x00, 0x10, 0x00}));
-    // Channel wants 3 bytes starting at offset 0, but the payload is only 2
-    // bytes long -- the raw value must be built from just what's available.
-    transport->QueueRead(BuildResponse(bytes::Bytes{7, 8}));
-    transport->QueueNoFrame();
+    transport->ExpectWrite(BuildRequest(bytes::Bytes{0xA8, 0x01, 0x00, 0x10, 0x00, 0x00, 0x10, 0x01}));
+    transport->QueueRead(BuildResponse(bytes::Bytes{1}));
     auto clock = fastecu::MakeAutoAdvancingClock(10ms);
     fastecu::FakeCancellationToken cancellation;
-    SsmLoggingProtocol protocol(clock, std::move(transport), {Channel("rpm", 0x1000, 3)}, true, false);
-
+    SsmLoggingProtocol protocol(clock, std::move(transport), {Channel("rpm", 0x1000, 2)}, true, true);
     const auto result = protocol.Poll(50ms, cancellation);
-
     ASSERT_THAT(result, fastecu::testing::IsOk());
-    ASSERT_TRUE(result->responded);
-    ASSERT_EQ(result->samples.size(), 1U);
-    EXPECT_EQ(result->samples[0].channel_id, "rpm");
-    EXPECT_EQ(result->samples[0].raw_value, "78");
+    EXPECT_FALSE(result->responded);
+    EXPECT_TRUE(result->samples.empty());
 }
+
+struct NumericCase
+{
+    const char *storage;
+    const char *endian;
+    bytes::Bytes payload;
+    double expected;
+};
+class SsmNumericDefinitionTest : public ::testing::TestWithParam<NumericCase>
+{
+};
+TEST_P(SsmNumericDefinitionTest, DecodesBeforeCheckedScaling)
+{
+    const auto& item = GetParam();
+    const auto xml = std::format(R"(<logger><protocols><protocol id="SSM"><parameters>
+      <parameter id="p"><address length="{}">0x1000</address><conversions>
+      <conversion {} {} expr="x*2" format="0"/>
+      <conversion storagetype="float" endian="little" expr="x/2" format="0"/>
+      </conversions></parameter></parameters></protocol></protocols></logger>)",
+                                 item.payload.size(), item.storage, item.endian);
+    const auto definition = fastecu::logging::ParseLoggerDefinition(
+        {reinterpret_cast<const bytes::Byte *>(xml.data()), xml.size()}, "numeric fixture");
+    ASSERT_THAT(definition, fastecu::testing::IsOk());
+    ASSERT_EQ(definition->parameters.front().conversions.size(), 2U);
+    EXPECT_EQ(definition->parameters.front().conversions[1].storage_type, "float");
+    EXPECT_EQ(definition->parameters.front().conversions[1].endian, "little");
+    const auto channel = fastecu::logging::PrepareLoggingChannel(definition->parameters.front(),
+                                                                 fastecu::logging::LoggingProtocolId::kSsm);
+    ASSERT_THAT(channel, fastecu::testing::IsOk());
+    auto transport = std::make_unique<ScriptedSsmTransport>();
+    const auto request = item.payload.size() == 1 ? bytes::Bytes{0xA8, 0x01, 0, 0x10, 0}
+                         : item.payload.size() == 2
+                             ? bytes::Bytes{0xA8, 0x01, 0, 0x10, 0, 0, 0x10, 1}
+                             : bytes::Bytes{0xA8, 0x01, 0, 0x10, 0, 0, 0x10, 1, 0, 0x10, 2, 0, 0x10, 3};
+    transport->ExpectWrite(BuildRequest(request));
+    transport->QueueRead(BuildResponse(item.payload));
+    auto *script = transport.get();
+    auto clock = fastecu::MakeAutoAdvancingClock(10ms);
+    fastecu::FakeCancellationToken cancellation;
+    SsmLoggingProtocol protocol(clock, std::move(transport), {*channel}, true, true);
+    const auto poll = protocol.Poll(50ms, cancellation);
+    ASSERT_THAT(poll, fastecu::testing::IsOk());
+    ASSERT_TRUE(poll->responded);
+    ASSERT_EQ(poll->samples.size(), 1U);
+    const auto session =
+        fastecu::logging::MakeLoggingSession(fastecu::logging::LoggingProtocolId::kSsm, {*channel}, {50ms, 3, 2, 0});
+    ASSERT_THAT(session, fastecu::testing::IsOk());
+    const auto converted = fastecu::logging::ConvertSample(*session, poll->samples.front());
+    ASSERT_THAT(converted, fastecu::testing::IsOk());
+    EXPECT_DOUBLE_EQ(converted->numeric_value, item.expected * 2);
+    EXPECT_TRUE(script->Ok());
+    EXPECT_TRUE(script->ScriptConsumed());
+}
+INSTANTIATE_TEST_SUITE_P(
+    LiteralBytes, SsmNumericDefinitionTest,
+    ::testing::Values(NumericCase{"", "", {1, 2}, 258}, NumericCase{"", "", {0xff}, 255},
+                      NumericCase{"storagetype=\"uint8\"", "", {0xff, 0xff, 0xff, 0xff}, 4294967295.0},
+                      NumericCase{"storagetype=\"int8\"", "", {0xfe}, -2},
+                      NumericCase{"storagetype=\"INT32\"", "endian=\"BIG\"", {0x80}, -128},
+                      NumericCase{"storagetype=\"int16\"", "", {0xff, 0xfe}, -2},
+                      NumericCase{"storagetype=\"int32\"", "", {0xff, 0xff, 0xff, 0xfe}, -2},
+                      NumericCase{"storagetype=\"uint16\"", "endian=\"little\"", {1, 2}, 513},
+                      NumericCase{"storagetype=\"int16\"", "endian=\"little\"", {0xfe, 0xff}, -2},
+                      NumericCase{"storagetype=\"float\"", "", {0x3f, 0xc0, 0, 0}, 1.5},
+                      NumericCase{"storagetype=\"float\"", "", {0x3f, 0x80, 0, 1}, 1.00000011920928955078125},
+                      NumericCase{"storagetype=\"float\"", "endian=\"little\"", {0, 0, 0xc0, 0x3f}, 1.5}));
 
 TEST(SsmLoggingProtocolTest, StopSucceeds)
 {
@@ -721,3 +754,19 @@ TEST(SsmLoggingProtocolTest, DirectPollCapsEachReadToRemainingDeadline)
 }
 
 INSTANTIATE_TEST_SUITE_P(DirectAndOpenPort, SsmFrameIntegrityTest, ::testing::Bool());
+
+TEST(SsmLoggingProtocolTest, RejectsNonfiniteFloatWithoutFabricatedZero)
+{
+    for (const auto& payload : {bytes::Bytes{0x7f, 0x80, 0, 0}, bytes::Bytes{0x7f, 0xc0, 0, 0}})
+    {
+        auto channel = Channel("float", 0x1000, 4);
+        channel.storage = fastecu::logging::NumericStorage::kFloat;
+        auto transport = std::make_unique<ScriptedSsmTransport>();
+        transport->ExpectWrite(BuildRequest(bytes::Bytes{0xA8, 0x01, 0, 0x10, 0, 0, 0x10, 1, 0, 0x10, 2, 0, 0x10, 3}));
+        transport->QueueRead(BuildResponse(payload));
+        auto clock = fastecu::MakeAutoAdvancingClock(10ms);
+        fastecu::FakeCancellationToken cancellation;
+        SsmLoggingProtocol protocol(clock, std::move(transport), {channel}, true, true);
+        EXPECT_THAT(protocol.Poll(50ms, cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::kBadResponse));
+    }
+}

@@ -169,9 +169,7 @@ Result<NumericEditOutcome> ApplyNumericEdit(CalibrationWorkspace& workspace, con
     const std::uint64_t end =
         ElementRunEnd(spec.address, spec.start_position, spec.interval, definition::StorageByteSize(spec.storage_type),
                       static_cast<std::uint32_t>(run->cells.size()));
-    const auto window = end >= spec.address
-                            ? session->Read(spec.address, static_cast<std::size_t>(end - spec.address))
-                            : Fail(ErrorKind::kInvalidConfig, "map edit run overflows the address space");
+    const auto window = session->Read(spec.address, static_cast<std::size_t>(end - spec.address));
     if (!window.has_value())
     {
         return std::unexpected(window.error());

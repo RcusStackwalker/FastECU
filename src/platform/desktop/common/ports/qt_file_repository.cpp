@@ -1,4 +1,6 @@
 #include "src/platform/desktop/common/ports/qt_file_repository.h"
+#include <format>
+
 #include <QFile>
 #include <QString>
 
@@ -32,12 +34,14 @@ fastecu::Status QtFileRepository::Write(std::string_view handle, std::span<const
     // successful one.
     if (!f.flush())
     {
-        return fastecu::Fail(fastecu::ErrorKind::kInternal, "flush failed: " + f.errorString().toStdString());
+        return fastecu::Fail(fastecu::ErrorKind::kInternal,
+                             std::format("flush failed: {}", f.errorString().toStdString()));
     }
     f.close();
     if (f.error() != QFileDevice::NoError)
     {
-        return fastecu::Fail(fastecu::ErrorKind::kInternal, "close failed: " + f.errorString().toStdString());
+        return fastecu::Fail(fastecu::ErrorKind::kInternal,
+                             std::format("close failed: {}", f.errorString().toStdString()));
     }
     return {};
 }

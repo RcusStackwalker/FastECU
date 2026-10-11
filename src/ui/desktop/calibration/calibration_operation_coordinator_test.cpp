@@ -15,9 +15,9 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include "src/algorithms/memory/testing/memory_views.h"
 #include "src/algorithms/memory/memory_image.h"
 #include "src/algorithms/memory/memory_map.h"
+#include "src/algorithms/memory/testing/memory_views.h"
 #include "src/algorithms/protocol/bytes.h"
 #include "src/backend/calibration/session/calibration_session.h"
 #include "src/backend/calibration/session/rom_save.h"
@@ -303,7 +303,6 @@ TEST_F(CalibrationOperationCoordinator, ChecksumLogsKeepLegacyTextAndOrder)
     EXPECT_THAT(logs_, ElementsAre(Pair(LogLevel::kDebug, "Protocol: proto_a"), Pair(LogLevel::kDebug, "Make: Subaru"),
                                    Pair(LogLevel::kDebug, "Checksum: yes"),
                                    Pair(LogLevel::kDebug, "ecuCalDef->McuType: SH7058 SH7058"),
-                                   Pair(LogLevel::kDebug, "Size: 0x1a -> 0x100000"),
                                    Pair(LogLevel::kDebug, "Checksum calculation canceled!")));
 }
 
@@ -321,8 +320,7 @@ constexpr config::Catalog kNissanForesterCatalog{config::testing::kStandardProto
 
 // The standard catalog with proto_a declaring one 8-byte memory map at 0x1000.
 constexpr auto kPlacedBlocks = std::to_array({config::FileBlock(0x1000, 8, 0, memory::Writability::kWritable)});
-constexpr auto kPlacedMaps =
-    std::to_array<config::MemoryMapSpec>({{.file_size = memory::ByteCount{8}, .blocks = kPlacedBlocks}});
+constexpr auto kPlacedMaps = std::to_array<config::MemoryMapSpec>({{.blocks = kPlacedBlocks}});
 constexpr auto kPlacedProtocols = []
 {
     auto protocols = config::testing::kStandardProtocols;
@@ -406,8 +404,7 @@ TEST_F(CalibrationOperationCoordinator, EmptyDefinedMethodReselectsBeforeChecksu
                             Pair(LogLevel::kDebug, "Protocol info for selected ROM updated"),
                             Pair(LogLevel::kDebug, "Protocol: proto_a"), Pair(LogLevel::kDebug, "Make: Nissan"),
                             Pair(LogLevel::kDebug, "Checksum: yes"),
-                            Pair(LogLevel::kDebug, "ecuCalDef->McuType: SH7058 SH7058"),
-                            Pair(LogLevel::kDebug, "Size: 0x3 -> 0x100000")));
+                            Pair(LogLevel::kDebug, "ecuCalDef->McuType: SH7058 SH7058")));
 }
 
 struct UncorrectedCase

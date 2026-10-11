@@ -59,6 +59,35 @@ TEST(DensoChecksumTable, DescendingRangeKeepsLegacyEmptySumBehavior)
     EXPECT_EQ(bytes::ReadU32Be(rom, 28), 0x5AA5A55AU);
 }
 
+// With a nonzero base, a start address below it wraps above the end: a
+// descending range that sums nothing, so the record is "corrected" to the
+// target, as legacy does for any descending range.
+TEST(DensoChecksumTable, AStartBelowTheBaseSumsNothing)
+{
+    bytes::Bytes rom(32, 0);
+    bytes::WriteU32Be(rom, 16, 0x0800);
+    bytes::WriteU32Be(rom, 20, 0x1008);
+    const internal::DensoTableSpec spec{.table_address = memory::FlashAddress{0x1010}, .table_length = 12};
+
+    EXPECT_EQ(internal::CorrectDensoTable(memory::FlashAddress{0x1000}, rom, spec),
+              internal::DensoTableOutcome::kCorrected);
+    EXPECT_EQ(bytes::ReadU32Be(rom, 24), 0x5AA5A55AU);
+}
+
+// An end address below a nonzero base wraps past the end of the bytes.
+TEST(DensoChecksumTable, AnEndBelowTheBaseIsAnInvalidBlockRange)
+{
+    bytes::Bytes rom(32, 0);
+    bytes::WriteU32Be(rom, 16, 0x1004);
+    bytes::WriteU32Be(rom, 20, 0x0800);
+    const bytes::Bytes original = rom;
+    const internal::DensoTableSpec spec{.table_address = memory::FlashAddress{0x1010}, .table_length = 12};
+
+    EXPECT_EQ(internal::CorrectDensoTable(memory::FlashAddress{0x1000}, rom, spec),
+              internal::DensoTableOutcome::kInvalidBlockRange);
+    EXPECT_EQ(rom, original);
+}
+
 TEST(DensoChecksumTable, UnalignedRangeKeepsLegacyWordTraversalBehavior)
 {
     bytes::Bytes rom(40, 0);

@@ -26,8 +26,7 @@ Result<NumericRun> DecodeNumericRun(const DefinitionBytes& rom, const ElementRun
     const bool is_float = run.storage_type == definition::StorageType::kFloat;
     const bool little_endian = !is_float && run.endian == "little";
     const auto end = ElementRunEnd(run.address, run.start_position, run.interval, width, run.count);
-    const std::optional<bytes::ByteView> window =
-        end >= run.address ? rom.At(run.address, end - run.address) : std::nullopt;
+    const std::optional<bytes::ByteView> window = rom.At(run.address, end - run.address);
     if (!window.has_value())
     {
         return Fail(ErrorKind::kInvalidConfig, "numeric run exceeds ROM size");

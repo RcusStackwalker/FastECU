@@ -1,5 +1,6 @@
 #pragma once
 
+#include <stdexcept>
 #include <utility>
 
 #include "src/algorithms/memory/memory_image.h"
@@ -14,8 +15,12 @@ namespace fastecu::flash::testing
 // and 0x28000-0x2FFFF around RAM at 0x20000-0x27FFF.
 inline memory::MemoryImage CatalogMc68Image(bytes::Bytes file)
 {
-    return config::PlaceRomFile(config::BuiltinCatalog().FindProtocol("sub_ecu_denso_mc68hc16y5_02"), std::move(file))
-        .value();
+    const config::ProtocolSpec *protocol = config::BuiltinCatalog().FindProtocol("sub_ecu_denso_mc68hc16y5_02");
+    if (protocol == nullptr)
+    {
+        throw std::logic_error("the built-in catalog has no sub_ecu_denso_mc68hc16y5_02 protocol");
+    }
+    return config::PlaceRomFile(protocol, std::move(file)).value();
 }
 
 // A 160 KiB file: the two flash ranges packed, the RAM range a 0xFF fill block.

@@ -513,10 +513,9 @@ constexpr auto kMappedBlocks = std::to_array({
     config::FileBlock(0x30, 0x20, 0x20, memory::Writability::kWritable),
 });
 constexpr auto kBasedBlocks = std::to_array({config::FileBlock(0x1000, 0x40, 0x00, memory::Writability::kWritable)});
-constexpr auto kMappedMaps =
-    std::to_array<config::MemoryMapSpec>({{.file_size = memory::ByteCount{0x40}, .blocks = kMappedBlocks}});
-constexpr auto kBasedMaps = std::to_array<config::MemoryMapSpec>(
-    {{.file_size = memory::ByteCount{0x40}, .blocks = kBasedBlocks, .definition_base = memory::FlashAddress{0x1000}}});
+constexpr auto kMappedMaps = std::to_array<config::MemoryMapSpec>({{.blocks = kMappedBlocks}});
+constexpr auto kBasedMaps =
+    std::to_array<config::MemoryMapSpec>({{.blocks = kBasedBlocks, .definition_base = memory::FlashAddress{0x1000}}});
 constexpr auto kMappedProtocols = std::to_array<config::ProtocolSpec>({
     {.name = "proto_a", .mcu = "SH7058", .checksum = config::ChecksumSupport::kCorrected, .description = "A"},
     {.name = "mapped",

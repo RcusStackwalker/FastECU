@@ -18,9 +18,10 @@ struct MapExtent
     bool operator==(const MapExtent&) const = default;
 };
 
-// A structural map failure (ADR 0020) when a run of `map` -- its cells, X axis
-// or Y axis -- reaches an address no block of `memory_map` holds, touches a fill
-// block, or spans writable and read-only blocks. Definition addresses count from
+// A structural map failure (ADR 0020) when a run of `map` -- its cells, or its X
+// or Y axis read as long as the map's own X or Y dimension, as the decoder reads
+// it -- reaches an address no block of `memory_map` holds, touches a fill block,
+// or spans writable and read-only blocks. Definition addresses count from
 // memory_map.DefinitionBase(). A run without an address, and a cell run with
 // zero or overflowing dimensions, is left to the decoder to reject. On success,
 // the extent from the lowest checked run to the highest.

@@ -221,6 +221,10 @@ Result<FlashPlan> BuildSubaruDensoMc68hc16y502Plan(FlashOperation operation, std
         .transport = TransportKind::kKline,
         .target_id = std::string(protocol_name),
         .mcu_name = std::string(mcu_type),
+        // A byte count from flash start: romsize is the packed 160 KiB file's
+        // size, not the ECU range the write spans (0x0-0x2FFFF with RAM at
+        // 0x20000-0x27FFF). The executor writes the flash blocks through the
+        // plan's RomImage(), which ValidateAndBuild places by image_map.
         .transfer_region = MemoryRegion{kFlashDevices[index].fblocks[0].start, romsize},
         .erase_regions = {}, // per-block erase happens inside the write executor
                              // (blank-page-per-modified-block, legacy

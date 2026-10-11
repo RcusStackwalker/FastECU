@@ -92,6 +92,7 @@ cc_library(
     srcs = ["logging_session.cpp"],
     hdrs = ["logging_session.h"],
     implementation_deps = [
+        ":logging_read_plan",
         "//src/algorithms/expression",
         "//src/algorithms/protocol/colt:mitsu_colt_can_cdbg_protocol",
     ],
@@ -206,6 +207,7 @@ fastecu_portable_gtest(
     srcs = ["logging_channel_preparation_test.cpp"],
     deps = [
         ":logger_definition_model",
+        ":logger_definition_parser",
         ":logging_channel_preparation",
         ":logging_types",
         "//src/backend/ports/testing:result_matchers",
@@ -267,6 +269,16 @@ cc_library(
     implementation_deps = [":logging_run_snapshot"],
     deps = [
         ":logger_model",
+        ":logging_types",
+        "//src/backend/ports",
+    ],
+)
+
+cc_library(
+    name = "logging_read_plan",
+    srcs = ["logging_read_plan.cpp"],
+    hdrs = ["logging_read_plan.h"],
+    deps = [
         ":logging_types",
         "//src/backend/ports",
     ],

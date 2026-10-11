@@ -7,6 +7,7 @@
 #include <expected>
 #include <format>
 #include <optional>
+#include <span>
 #include <stdexcept>
 #include <string_view>
 #include <utility>
@@ -138,6 +139,74 @@ constexpr std::array kRoutes{
     RouteSpec{"mitsu_ecu_m32r_can_vendor_ext_512kb", "Mitsubishi", Route::kMitsuColtM32rCan, EcuWindow(0, 0x80000)},
     RouteSpec{"mitsu_ecu_m32r_can", "Mitsubishi", Route::kMitsuColtM32rCan, EcuWindow(0, 0x60000)},
 };
+
+// The ROM size a fixed-layout route's family takes, or nullopt for a route
+// that takes any window.
+consteval std::optional<std::uint32_t> FixedRomSize(Route route)
+{
+    switch (route)
+    {
+    case Route::kDensoTcuSh7055:
+        return ChecksumTcuSubaruDensoSH7055::kRomSize;
+    case Route::kM32rByRomId:
+        return ChecksumEcuSubaruHitachiM32rKline::kRomSize;
+    case Route::kM32rCan:
+        return ChecksumEcuSubaruHitachiM32rCan::kRomSize;
+    case Route::kSh7058:
+        return ChecksumEcuSubaruHitachiSH7058::kRomSize;
+    case Route::kSh72543r:
+        return ChecksumEcuSubaruHitachiSh72543r::kRomSize;
+    case Route::kMitsuMh8104Tcu:
+        return ChecksumTcuMitsuMH8104Can::kRomSize;
+    case Route::kDensoSh7xxx:
+    case Route::kDensoDiesel:
+    case Route::kHitachiM32rTcu:
+    case Route::kMitsuColtM32rCan:
+        return std::nullopt;
+    }
+    return std::nullopt;
+}
+
+// What RunFixedLayout and the families assume of kRoutes: a fixed-layout
+// window is [0, kRomSize), the Colt and Hitachi TCU families index from 0, a
+// Denso route's primary checksum table lies inside its window (the diesel
+// family's fixed second table is range-checked when it runs), and no route sits
+// behind an earlier, more general prefix of its make, where it could never
+// match.
+consteval bool RoutesAreConsistent(std::span<const RouteSpec> routes)
+{
+    for (std::size_t index = 0; index < routes.size(); ++index)
+    {
+        const RouteSpec& route = routes[index];
+        const std::optional<std::uint32_t> fixed = FixedRomSize(route.route);
+        if (fixed.has_value() && (route.window.Start().Value() != 0 || route.window.Size().Value() != *fixed))
+        {
+            return false;
+        }
+        if ((route.route == Route::kMitsuColtM32rCan || route.route == Route::kHitachiM32rTcu) &&
+            route.window.Start().Value() != 0)
+        {
+            return false;
+        }
+        const std::optional<memory::AddressRange<memory::FlashSpace>> table =
+            memory::AddressRange<memory::FlashSpace>::Make(memory::FlashAddress{route.table_address},
+                                                           memory::ByteCount{kDensoTableLength});
+        if ((route.route == Route::kDensoSh7xxx || route.route == Route::kDensoDiesel) &&
+            (!table.has_value() || !route.window.Contains(*table)))
+        {
+            return false;
+        }
+        for (const RouteSpec& earlier : routes.first(index))
+        {
+            if (earlier.make == route.make && route.prefix.starts_with(earlier.prefix))
+            {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+static_assert(RoutesAreConsistent(kRoutes), "a checksum route breaks a route-table invariant");
 
 std::optional<ChecksumResult> Execute(const RouteSpec& spec, std::string_view rom_id, const memory::MemoryView& view)
 {
