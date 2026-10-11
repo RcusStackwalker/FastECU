@@ -47,7 +47,7 @@ LoggerParameter ParseParameter(pugi::xml_node node, std::string_view protocol)
     if (const pugi::xml_node address = node.child("address"))
     {
         parameter.address = address.child_value();
-        parameter.length = AttributeOr(node, "length", "1");
+        parameter.length = AttributeOr(address, "length", "1");
     }
     for (pugi::xml_node conversion : node.child("conversions").children("conversion"))
     {
