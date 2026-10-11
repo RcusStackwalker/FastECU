@@ -137,7 +137,7 @@ consteval std::array<memory::MemoryBlock, sizeof...(Segments)> LinearBlocks(std:
             throw std::invalid_argument("linear segments must be in address order and start inside the ROM file");
         }
     }
-    return [&]<std::size_t... kIndex>(std::index_sequence<kIndex...>)
+    return [&]<std::size_t... kIndex>(std::index_sequence<kIndex...>) consteval
     {
         return std::array<memory::MemoryBlock, sizeof...(Segments)>{
             FileBlock(list[kIndex].start,
