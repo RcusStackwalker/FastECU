@@ -23,6 +23,7 @@ using fastecu::config::CatalogReferencesResolve;
 using fastecu::config::ChecksumFlag;
 using fastecu::config::ChecksumSupport;
 using fastecu::config::FileBlock;
+using fastecu::config::FillBlock;
 using fastecu::config::KernelLoadAddressText;
 using fastecu::config::MemoryMapSpec;
 using fastecu::config::PlaceRomFile;
@@ -157,8 +158,8 @@ constexpr auto kPrefixedBlocks = std::to_array({
 });
 constexpr auto kTailBlocks = std::to_array({FileBlock(0x100, 0x100, 0x000, Writability::kWritable)});
 constexpr auto kMaps = std::to_array<MemoryMapSpec>({
-    {.file_size = ByteCount{0x200}, .blocks = kPrefixedBlocks},
-    {.file_size = ByteCount{0x100}, .blocks = kTailBlocks},
+    {.blocks = kPrefixedBlocks},
+    {.blocks = kTailBlocks},
 });
 constexpr ProtocolSpec kMapped{.name = "mapped", .memory_maps = kMaps};
 constexpr ProtocolSpec kPlain{.name = "plain"};
@@ -197,13 +198,16 @@ TEST(SelectMemoryMap, RejectsAFileSizeNoDeclaredMapHas)
     EXPECT_EQ(map.error().detail, "protocol 'mapped' has no memory map for 0x180-byte ROM files");
 }
 
-// 0x100 bytes of blocks for a 0x200-byte file; two maps claim 0x80-byte files.
-constexpr auto kShortBlocks = std::to_array({FileBlock(0x0, 0x100, 0x0, Writability::kWritable)});
+// File bytes 0x100-0x17F are placed by no block; two maps place 0x80-byte files.
+constexpr auto kGappedBlocks = std::to_array({
+    FileBlock(0x000, 0x100, 0x000, Writability::kWritable),
+    FileBlock(0x100, 0x100, 0x180, Writability::kWritable),
+});
 constexpr auto kSmallBlocks = std::to_array({FileBlock(0x0, 0x80, 0x0, Writability::kWritable)});
 constexpr auto kBadMaps = std::to_array<MemoryMapSpec>({
-    {.file_size = ByteCount{0x200}, .blocks = kShortBlocks},
-    {.file_size = ByteCount{0x80}, .blocks = kSmallBlocks},
-    {.file_size = ByteCount{0x80}, .blocks = kSmallBlocks},
+    {.blocks = kGappedBlocks},
+    {.blocks = kSmallBlocks},
+    {.blocks = kSmallBlocks},
 });
 constexpr auto kBadMapProtocols = std::to_array<ProtocolSpec>({{.name = "badmaps", .memory_maps = kBadMaps}});
 constexpr auto kBadMapVehicles =
@@ -212,15 +216,15 @@ constexpr auto kBadMapVehicles =
 TEST(CatalogProblems, ReportsInvalidAndSameSizeMemoryMaps)
 {
     EXPECT_THAT(CatalogProblems(Catalog{kBadMapProtocols, kBadMapVehicles}),
-                ElementsAre("protocol 'badmaps' memory map for 0x200-byte files is invalid: "
-                            "ROM file bytes from 0x100 are not placed",
+                ElementsAre("protocol 'badmaps' memory map for 0x280-byte files is invalid: "
+                            "ROM file bytes 0x100-0x17f are not placed",
                             "protocol 'badmaps' declares two memory maps for 0x80-byte files"));
 }
 
 // A 0x100-byte file at 0x1000 whose definitions count from 0x1000.
 constexpr auto kBasedBlocks = std::to_array({FileBlock(0x1000, 0x100, 0x0, Writability::kWritable)});
-constexpr auto kBasedMaps = std::to_array<MemoryMapSpec>(
-    {{.file_size = ByteCount{0x100}, .blocks = kBasedBlocks, .definition_base = FlashAddress{0x1000}}});
+constexpr auto kBasedMaps =
+    std::to_array<MemoryMapSpec>({{.blocks = kBasedBlocks, .definition_base = FlashAddress{0x1000}}});
 constexpr ProtocolSpec kBased{.name = "based", .memory_maps = kBasedMaps};
 
 TEST(SelectMemoryMap, CarriesTheDeclaredDefinitionBase)
@@ -232,6 +236,43 @@ TEST(SelectMemoryMap, CarriesTheDeclaredDefinitionBase)
     ASSERT_TRUE(plain.has_value());
     EXPECT_EQ(based->DefinitionBase(), FlashAddress{0x1000});
     EXPECT_EQ(plain->DefinitionBase(), FlashAddress{0});
+}
+
+// File bytes 0x10-0x1F at 0x0 and 0x0-0xF at 0x10, around a fill block.
+constexpr auto kPermutedBlocks = std::to_array({
+    FileBlock(0x00, 0x10, 0x10, Writability::kWritable),
+    FillBlock(0x10, 0x10, 0xFF),
+    FileBlock(0x20, 0x10, 0x00, Writability::kWritable),
+});
+constexpr MemoryMapSpec kPermuted{.blocks = kPermutedBlocks};
+static_assert(kPermuted.FileSize() == ByteCount{0x20});
+
+TEST(MemoryMapSpec, FileSizeIsTheFurthestPlacedFileByte)
+{
+    EXPECT_EQ(kPermuted.FileSize(), ByteCount{0x20});
+    EXPECT_EQ((MemoryMapSpec{.blocks = kMaps[0].blocks}).FileSize(), ByteCount{0x200});
+}
+
+TEST(MemoryMapSpec, AMapWithNoFileBytesHasAnEmptyFile)
+{
+    const auto fill = std::to_array({FillBlock(0x0, 0x100, 0xFF)});
+
+    EXPECT_EQ((MemoryMapSpec{.blocks = fill}).FileSize(), ByteCount{0});
+}
+
+// The file range [0xFFFFFF80, 0x100000080) cannot wrap to a 0x80-byte file.
+constexpr auto kPastFourGiBBlocks = std::to_array({FileBlock(0x0, 0x100, 0xFFFFFF80, Writability::kWritable)});
+constexpr auto kPastFourGiBMaps = std::to_array<MemoryMapSpec>({{.blocks = kPastFourGiBBlocks}});
+constexpr auto kPastFourGiBProtocols = std::to_array<ProtocolSpec>({{.name = "huge", .memory_maps = kPastFourGiBMaps}});
+constexpr auto kPastFourGiBVehicles =
+    std::to_array<VehicleSpec>({{.id = "car", .protocol = ProtocolIn(kPastFourGiBProtocols, "huge")}});
+
+TEST(CatalogProblems, AFileRangePastFourGiBIsReportedNotWrapped)
+{
+    EXPECT_EQ(kPastFourGiBMaps[0].FileSize(), ByteCount{0xFFFFFFFF});
+    EXPECT_THAT(CatalogProblems(Catalog{kPastFourGiBProtocols, kPastFourGiBVehicles}),
+                ElementsAre("protocol 'huge' memory map for 0xffffffff-byte files is invalid: "
+                            "ROM file bytes 0x0-0xffffff7f are not placed"));
 }
 
 TEST(SelectMemoryMapForAFile, GivesTheIdentityMapWithoutAProtocol)

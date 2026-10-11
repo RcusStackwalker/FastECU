@@ -31,17 +31,17 @@ void AddMemoryMapProblems(const ProtocolSpec& protocol, std::vector<std::string>
     for (std::size_t index = 0; index < maps.size(); ++index)
     {
         const MemoryMapSpec& spec = maps[index];
-        if (const auto map = memory::MemoryMap::Create(spec.blocks, spec.file_size, spec.definition_base);
+        if (const auto map = memory::MemoryMap::Create(spec.blocks, spec.FileSize(), spec.definition_base);
             !map.has_value())
         {
             problems.push_back(std::format("protocol '{}' memory map for 0x{:x}-byte files is invalid: {}",
-                                           protocol.name, spec.file_size.Value(), map.error().detail));
+                                           protocol.name, spec.FileSize().Value(), map.error().detail));
         }
-        if (std::ranges::any_of(maps.first(index),
-                                [&spec](const MemoryMapSpec& earlier) { return earlier.file_size == spec.file_size; }))
+        if (std::ranges::any_of(maps.first(index), [&spec](const MemoryMapSpec& earlier)
+                                { return earlier.FileSize() == spec.FileSize(); }))
         {
             problems.push_back(std::format("protocol '{}' declares two memory maps for 0x{:x}-byte files",
-                                           protocol.name, spec.file_size.Value()));
+                                           protocol.name, spec.FileSize().Value()));
         }
     }
 }
@@ -143,13 +143,13 @@ std::expected<memory::MemoryMap, memory::MemoryError> SelectMemoryMap(const Prot
     {
         return memory::MemoryMap::Identity(*size);
     }
-    const auto found = std::ranges::find(protocol->memory_maps, *size, &MemoryMapSpec::file_size);
+    const auto found = std::ranges::find(protocol->memory_maps, *size, &MemoryMapSpec::FileSize);
     if (found == protocol->memory_maps.end())
     {
         return FileSizeError(
             std::format("protocol '{}' has no memory map for 0x{:x}-byte ROM files", protocol->name, file_size));
     }
-    return memory::MemoryMap::Create(found->blocks, found->file_size, found->definition_base);
+    return memory::MemoryMap::Create(found->blocks, found->FileSize(), found->definition_base);
 }
 
 std::expected<memory::MemoryImage, memory::MemoryError> PlaceRomFile(const ProtocolSpec *protocol, bytes::Bytes file)

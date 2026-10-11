@@ -275,7 +275,7 @@ std::vector<MemoryMap> CandidateMaps(const config::ProtocolSpec& protocol, const
     }
     for (const config::MemoryMapSpec& spec : protocol.memory_maps)
     {
-        sizes.push_back(spec.file_size);
+        sizes.push_back(spec.FileSize());
     }
     std::vector<MemoryMap> maps;
     for (const ByteCount size : sizes)

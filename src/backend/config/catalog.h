@@ -8,6 +8,7 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <variant>
 #include <vector>
 
 #include "src/algorithms/memory/address.h"
@@ -31,14 +32,29 @@ enum class ChecksumSupport
 std::string_view ChecksumFlag(ChecksumSupport support);
 
 // One memory map a protocol's ROM files can have. A ROM file selects it by its
-// exact size; see SelectMemoryMap.
+// exact size, FileSize(); see SelectMemoryMap.
 struct MemoryMapSpec
 {
-    memory::ByteCount file_size;
     std::span<const memory::MemoryBlock> blocks;
     // The ECU address that address 0 in these ROMs' definition files stands
     // for (ADR 0020).
     memory::FlashAddress definition_base;
+
+    // Where the furthest-placed ROM file byte ends; 0 with no file-backed
+    // block, and 0xFFFFFFFF when a file range runs past 4 GiB. MemoryMap::Create
+    // rejects both, and any gap or overlap among the file ranges.
+    [[nodiscard]] constexpr memory::ByteCount FileSize() const
+    {
+        std::uint64_t end = 0;
+        for (const memory::MemoryBlock& block : blocks)
+        {
+            if (const auto *file = std::get_if<memory::FileBacking>(&block.backing); file != nullptr)
+            {
+                end = std::max(end, std::uint64_t{file->offset.Value()} + block.range.Size().Value());
+            }
+        }
+        return memory::ByteCount{static_cast<std::uint32_t>(std::min<std::uint64_t>(end, UINT32_MAX))};
+    }
 };
 
 // A ROM-file-backed memory block, for constant catalog data. A range that is
