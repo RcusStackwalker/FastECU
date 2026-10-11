@@ -12,6 +12,10 @@ namespace fastecu::calibration
 // `start + i` is data[i]. Decoders and edits read through At(), so they run on
 // a window rendered from a memory image as well as on a whole ROM; a plain
 // byte buffer converts to a window at definition address 0.
+//
+// It does not own its bytes: they must outlive it. The `const bytes::Bytes&`
+// constructor binds a temporary too, so never keep a DefinitionBytes made from
+// one past the full expression.
 class DefinitionBytes
 {
   public:
