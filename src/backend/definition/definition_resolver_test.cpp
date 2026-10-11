@@ -4,6 +4,7 @@
 #include "src/backend/definition/romraider_parser.h"
 
 #include <cstdint>
+#include <format>
 #include <map>
 #include <string>
 #include <string_view>
@@ -83,7 +84,7 @@ class DefinitionSet
             auto definition = definitions_.find(std::string(id));
             if (definition == definitions_.end())
             {
-                return Fail(ErrorKind::kInvalidConfig, "definition ID not found: '" + std::string(id) + "'");
+                return Fail(ErrorKind::kInvalidConfig, std::format("definition ID not found: '{}'", id));
             }
             return definition->second;
         };

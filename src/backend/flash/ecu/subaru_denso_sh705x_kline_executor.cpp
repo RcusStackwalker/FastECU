@@ -170,7 +170,7 @@ Status SleepFor(IClock& clock, const ICancellationToken& cancellation, std::chro
 void LogWrongResponse(IEventSink& events, bytes::ByteView received, std::size_t offset)
 {
     const bytes::ByteView nrc = offset < received.size() ? received.subspan(offset) : bytes::ByteView{};
-    events.Log(LogLevel::kError, "Wrong response from ECU: " + NrcDescription(nrc));
+    events.Log(LogLevel::kError, std::format("Wrong response from ECU: {}", NrcDescription(nrc)));
 }
 
 // received.remove(0, 5); received.remove(received.length() - 1, 1): the
@@ -233,7 +233,7 @@ Result<bool> ProbeKernel(IKlineFlashTransport& transport, IClock& clock, const I
         LogWrongResponse(events, reply, 8); // :140-142, mid(8)
         return false;
     }
-    events.Log(LogLevel::kInfo, "Kernel ID: " + KernelIdText(reply)); // :146-148
+    events.Log(LogLevel::kInfo, std::format("Kernel ID: {}", KernelIdText(reply))); // :146-148
     return true;
 }
 
@@ -311,7 +311,7 @@ Result<std::string> ConnectBootloader(IKlineFlashTransport& transport, IClock& c
         return Fail(ErrorKind::kBadResponse, "ECU ID reply too short");
     }
     std::string ecu_id = EcuIdHex(bytes::ByteView(*bf).subspan(8, 5));
-    events.Log(LogLevel::kInfo, "ECU ID: " + ecu_id); // :192
+    events.Log(LogLevel::kInfo, std::format("ECU ID: {}", ecu_id)); // :192
 
     // :198-217, send_sid_81_start_communication():1393-1398.
     events.Log(LogLevel::kInfo, "Requesting to start communication");
@@ -357,11 +357,11 @@ Result<std::string> ConnectBootloader(IKlineFlashTransport& transport, IClock& c
 
     // :261-279 -- seed at(6..9); ECUTEK transformation for "_ecutek" methods.
     const bytes::ByteView seed = bytes::ByteView(*seed_reply).subspan(6, 4);
-    events.Log(LogLevel::kInfo, "Received seed: " + bytes::ToHex(seed));
+    events.Log(LogLevel::kInfo, std::format("Received seed: {}", bytes::ToHex(seed)));
     const bytes::Bytes key = plan.seed_key == SubaruDensoSh705xKlineSeedKey::kEcuTek
                                  ? DensoSh705xKlineEcutekSeedKey(seed)
                                  : DensoSh705xKlineStockSeedKey(seed);
-    events.Log(LogLevel::kInfo, "Calculated seed key: " + bytes::ToHex(key));
+    events.Log(LogLevel::kInfo, std::format("Calculated seed key: {}", bytes::ToHex(key)));
 
     // :281-300, send_sid_27_send_seed_key():1455-1462.
     events.Log(LogLevel::kInfo, "Sending seed key to ECU");
@@ -518,7 +518,7 @@ Status UploadKernel(IKlineFlashTransport& transport, IClock& clock, const ICance
         LogWrongResponse(events, reply, 8); // :474-476, mid(8)
         return Fail(ErrorKind::kBadResponse, "kernel did not start after upload");
     }
-    events.Log(LogLevel::kInfo, "Kernel ID: " + KernelIdText(reply)); // :482-484
+    events.Log(LogLevel::kInfo, std::format("Kernel ID: {}", KernelIdText(reply))); // :482-484
     return {};
 }
 
