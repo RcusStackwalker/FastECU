@@ -236,9 +236,10 @@ TEST(BuiltinCatalogMemoryMaps, N83mFilesStartAtTheirImageAddress)
     {
         std::string_view protocol;
         std::uint32_t file_size;
+        std::uint32_t tail;
     };
-    for (const N83mFile file :
-         {N83mFile{"sub_ecu_denso_1n83m_4m_can", 0x3E4000}, N83mFile{"sub_ecu_denso_1n83m_1_5m_can", 0x184000}})
+    for (const N83mFile file : {N83mFile{"sub_ecu_denso_1n83m_4m_can", 0x3E4000, 0x0937FF00},
+                                N83mFile{"sub_ecu_denso_1n83m_1_5m_can", 0x184000, 0x0911FF00}})
     {
         const std::optional<MemoryMap> map = MapFor(file.protocol, file.file_size);
         ASSERT_TRUE(map.has_value());
@@ -251,6 +252,9 @@ TEST(BuiltinCatalogMemoryMaps, N83mFilesStartAtTheirImageAddress)
         EXPECT_EQ(lead->writability, Writability::kReadOnly) << file.protocol;
         EXPECT_EQ(main->backing, Backing{FileBacking{.offset = FileOffset{0x10000}}}) << file.protocol;
         EXPECT_EQ(main->writability, Writability::kWritable) << file.protocol;
+        const MemoryBlock *tail = map->BlockAt(FlashAddress{file.tail});
+        ASSERT_NE(tail, nullptr) << file.protocol;
+        EXPECT_EQ(tail->writability, Writability::kReadOnly) << file.protocol;
     }
 }
 
