@@ -43,6 +43,16 @@ struct MemoryBlock
     Writability writability{Writability::kReadOnly};
 };
 
+// The part of an address range that one block holds, or a gap no block holds.
+struct BlockSlice
+{
+    const MemoryBlock *block{nullptr}; // nullptr for a gap
+    AddressRange<FlashSpace> range;
+
+    // Where the slice starts in the ROM file; nullopt for a gap or a fill block.
+    [[nodiscard]] std::optional<FileOffset> FileStart() const;
+};
+
 // The ordered memory blocks that place one ROM file layout at ECU addresses.
 class MemoryMap
 {
@@ -68,6 +78,11 @@ class MemoryMap
 
     // The block holding `address`, or nullptr when no block does.
     [[nodiscard]] const MemoryBlock *BlockAt(FlashAddress address) const;
+
+    // `range` split at block boundaries, in address order: one slice per
+    // stretch a block holds and one per gap no block holds, together covering
+    // exactly `range`.
+    [[nodiscard]] std::vector<BlockSlice> Slices(AddressRange<FlashSpace> range) const;
 
     // The ECU address definition address `address` stands for: the definition
     // base plus `address`, or nullopt past the end of the 32-bit space.
