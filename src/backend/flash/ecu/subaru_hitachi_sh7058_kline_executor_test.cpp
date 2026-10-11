@@ -26,7 +26,10 @@ TEST(SubaruHitachiSh7058KlineExecutor, RejectsMissingInitializationBeforeReadPag
     FakeCancellationToken cancel;
     RecordingEventSink events;
     auto result = executor.Execute(*plan, transport, clock, cancel, events);
-    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kInternal));
+    // A silent 38400 init is not rejected: the executor falls back to the 4800
+    // identity exchange, whose write runs past this one-exchange script.
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kInternal,
+                                                    ::testing::HasSubstr("ran past the end of the script")));
     EXPECT_EQ(transport.WritesConsumed(), 1U);
 }
 

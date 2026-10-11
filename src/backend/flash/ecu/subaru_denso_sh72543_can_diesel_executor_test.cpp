@@ -45,7 +45,6 @@ using fastecu::flash::SubaruDensoSh72543CanDieselPlan;
 // CanExecutorConformance's must be brought in wholesale rather than by a
 // single using-declaration.
 using namespace fastecu::flash::testing;
-using fastecu::testing::IsErr;
 using testing::Contains;
 using testing::Each;
 using testing::IsEmpty;
@@ -660,7 +659,8 @@ TEST(SubaruDensoSh72543CanDieselExecutor, EcuIdLogKeepsOnlyLegacysFiveBytes)
 
     const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
-    EXPECT_THAT(result, IsErr(ErrorKind::kInternal));
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kInternal,
+                                                    ::testing::HasSubstr("ran past the end of the script")));
     EXPECT_TRUE(transport.ScriptConsumed());
     EXPECT_THAT(events.logs, Contains(Pair(LogLevel::kInfo, "ECU ID: 11 22 33 44 55 ")));
 }
