@@ -2,6 +2,7 @@
 #include <QElapsedTimer>
 #include <QScopeGuard>
 #include <QTemporaryDir>
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include <variant>
@@ -320,8 +321,10 @@ TEST_F(DesktopCompositionTest, settingsRewriteFailureIsAStartupWarning)
     DesktopComposition composition{{}, {}, root.path()};
 
     ASSERT_TRUE(composition.started());
-    ASSERT_TRUE(std::ranges::any_of(composition.startup_warnings(),
-                                    [&](const QString& warning) { return warning.contains(config_file); }));
+    // Joined so a failure prints the warnings as text; a path has no '\n',
+    // so no match can span two warnings.
+    ASSERT_THAT(composition.startup_warnings().join('\n').toStdString(),
+                ::testing::HasSubstr(config_file.toStdString()));
 }
 
 TEST_F(DesktopCompositionTest, servicesShareTheCompositionsSession)
