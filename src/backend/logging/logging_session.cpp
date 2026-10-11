@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <format>
 #include <string>
 #include <string_view>
 #include <unordered_set>
@@ -207,7 +208,7 @@ fastecu::Result<LoggingSession> MakeLoggingSession(LoggingProtocolId protocol, s
         if (!compiled.has_value())
         {
             return fastecu::Fail(fastecu::ErrorKind::kInvalidConfig,
-                                 "invalid logging conversion: " + compiled.error().detail);
+                                 std::format("invalid logging conversion: {}", compiled.error().detail));
         }
         conversions.push_back(std::move(*compiled));
     }

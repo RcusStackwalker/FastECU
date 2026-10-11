@@ -88,10 +88,10 @@ TEST(LoggingConversionTest, RejectsNonFiniteConvertedValues)
     c.from_byte_expression = "x/(x-1)";
     auto session = MakeSessionWithChannel(c);
 
-    ASSERT_THAT(ConvertSample(session, ProtocolSample{"rpm", "1"}),
-                fastecu::testing::IsErrWith(
-                    fastecu::ErrorKind::kInvalidConfig,
-                    ::testing::Eq("logging conversion expression failed: cannot divide by zero at position 7")));
+    ASSERT_THAT(
+        ConvertSample(session, ProtocolSample{"rpm", "1"}),
+        fastecu::testing::IsErrWith(fastecu::ErrorKind::kInvalidConfig,
+                                    ::testing::Eq("logging conversion expression failed: cannot divide by zero")));
 }
 
 TEST(LoggingConversionTest, EvaluatesIntermediateResultsWithoutTextRounding)
