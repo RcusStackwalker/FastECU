@@ -398,7 +398,7 @@ TEST(SubaruDensoSh705xKlineExecutor, EcutekProtocolSendsTheEcutekKey)
     Harness h;
     ScriptSession(h.transport, EcutekKey(kSeed));
     ASSERT_NE(EcutekKey(kSeed), StockKey(kSeed));
-    EXPECT_FALSE(h.Run(MakePlan(FlashOperation::kRead, "sub_ecu_denso_sh7055_04_ecutek")).has_value());
+    EXPECT_THAT(h.Run(MakePlan(FlashOperation::kRead, "sub_ecu_denso_sh7055_04_ecutek")), IsErr(ErrorKind::kInternal));
     EXPECT_TRUE(h.transport.ScriptConsumed());
 }
 
@@ -406,7 +406,7 @@ TEST(SubaruDensoSh705xKlineExecutor, Sh7058UploadsToItsOwnKernelAddress)
 {
     Harness h;
     ScriptSession(h.transport, {}, 0xFFFF3000);
-    EXPECT_FALSE(h.Run(MakePlan(FlashOperation::kRead, "sub_ecu_denso_sh7058", "SH7058")).has_value());
+    EXPECT_THAT(h.Run(MakePlan(FlashOperation::kRead, "sub_ecu_denso_sh7058", "SH7058")), IsErr(ErrorKind::kInternal));
     EXPECT_TRUE(h.transport.ScriptConsumed());
 }
 
@@ -506,7 +506,7 @@ TEST(SubaruDensoSh705xKlineExecutor, WrongProbeReplyFallsThroughToHandshake)
     }
     ScriptHandshake(h.transport, StockKey(kSeed));
     ScriptUpload(h.transport, 0xFFFF6004);
-    EXPECT_FALSE(h.Run(MakePlan(FlashOperation::kRead)).has_value());
+    EXPECT_THAT(h.Run(MakePlan(FlashOperation::kRead)), IsErr(ErrorKind::kInternal));
     EXPECT_TRUE(h.transport.ScriptConsumed());
 }
 

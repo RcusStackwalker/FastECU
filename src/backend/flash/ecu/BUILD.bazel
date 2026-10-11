@@ -54,6 +54,7 @@ fastecu_portable_gtest(
         "//src/backend/ports/testing:fake_cancellation_token",
         "//src/backend/ports/testing:fake_clock",
         "//src/backend/ports/testing:recording_event_sink",
+        "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
     ],
 )
@@ -82,6 +83,7 @@ fastecu_portable_gtest(
         "//src/backend/ports/testing:fake_cancellation_token",
         "//src/backend/ports/testing:fake_clock",
         "//src/backend/ports/testing:recording_event_sink",
+        "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
     ],
 )
@@ -192,6 +194,7 @@ fastecu_portable_gtest(
         "//src/backend/ports/testing:fake_clock",
         "//src/backend/ports/testing:mock_clock",
         "//src/backend/ports/testing:recording_event_sink",
+        "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
     ],
 )
@@ -255,6 +258,7 @@ fastecu_portable_gtest(
         "//src/backend/ports/testing:fake_clock",
         "//src/backend/ports/testing:mock_clock",
         "//src/backend/ports/testing:recording_event_sink",
+        "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
     ],
 )
@@ -736,6 +740,7 @@ fastecu_portable_gtest(
         "//src/backend/ports/testing:fake_clock",
         "//src/backend/ports/testing:mock_clock",
         "//src/backend/ports/testing:recording_event_sink",
+        "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
     ],
 )
@@ -755,6 +760,7 @@ fastecu_portable_gtest(
         "//src/backend/ports/testing:fake_clock",
         "//src/backend/ports/testing:mock_clock",
         "//src/backend/ports/testing:recording_event_sink",
+        "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
     ],
 )
@@ -1626,6 +1632,7 @@ fastecu_portable_gtest(
     deps = [
         ":denso_beef_can_common",
         "//src/backend/ports/testing:fake_cancellation_token",
+        "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
     ],
 )
