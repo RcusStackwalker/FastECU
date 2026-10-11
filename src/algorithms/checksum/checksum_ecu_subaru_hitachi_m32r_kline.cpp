@@ -1,24 +1,11 @@
 #include "checksum_ecu_subaru_hitachi_m32r_kline.h"
 
-#include <utility>
-
 #include "checksum_primitives.h"
 #include "src/algorithms/protocol/bytes.h"
 
-ChecksumResult ChecksumEcuSubaruHitachiM32rKline::CalculateChecksumResult(const fastecu::memory::MemoryView& rom)
+ChecksumResult ChecksumEcuSubaruHitachiM32rKline::CalculateChecksumResult(Rom rom)
 {
-    if (auto rejected = fastecu::checksum::internal::RequireStartAtZero(rom); rejected.has_value())
-    {
-        return *std::move(rejected);
-    }
-    const bytes::ByteView rom_view = rom.Data();
-    // Fixed 512 KiB layout: the balance field is at 0x7FFFA.
-    if (rom_view.size() != 0x80000)
-    {
-        return {.status = ChecksumResult::Status::kInvalidSize,
-                .rom_data = bytes::Bytes(rom_view.begin(), rom_view.end()),
-                .message = "ROM size does not match the checksum layout"};
-    }
+    const bytes::ByteView rom_view = rom;
     /*******************
      *
      *  Checksum 1 calculated between 0x0000 - 0x7ffff excluding 0x8100 - 0x8101, 8bit SUM, result at 0x8100

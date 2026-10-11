@@ -56,6 +56,16 @@ ChecksumResult DensoSh705xDiesel(const memory::MemoryView& rom, std::uint32_t ta
                                                                        kDensoTableLength);
 }
 
+// The route's window is the family's fixed layout, so the rendered bytes are
+// exactly Family::kRomSize long.
+template <typename Family> ChecksumResult RunFixedLayout(const memory::MemoryView& view)
+{
+    return Family::CalculateChecksumResult(typename Family::Rom(view.Data()));
+}
+
+static_assert(ChecksumEcuSubaruHitachiM32rKline::kRomSize == ChecksumEcuSubaruHitachiM32rCan::kRomSize,
+              "the ROM-ID route renders one window for both M32R ECU families");
+
 enum class Route
 {
     kDensoSh7xxx,
@@ -106,15 +116,21 @@ constexpr std::array kRoutes{
     RouteSpec{"sub_ecu_denso_sh7059_can_diesel", "Subaru", Route::kDensoDiesel, EcuWindow(0, 0x180000), 0x17FB80},
     RouteSpec{"sub_ecu_denso_sh7059_diesel_densocan", "Subaru", Route::kDensoDiesel, EcuWindow(0, 0x180000), 0x17FB80},
     RouteSpec{"sub_ecu_denso_sh72543_can_diesel", "Subaru", Route::kDensoDiesel, EcuWindow(0, 0x200000), 0x1FF800},
-    RouteSpec{"sub_tcu_denso_sh7055_can", "Subaru", Route::kDensoTcuSh7055, EcuWindow(0, 0x80000)},
+    RouteSpec{"sub_tcu_denso_sh7055_can", "Subaru", Route::kDensoTcuSh7055,
+              EcuWindow(0, ChecksumTcuSubaruDensoSH7055::kRomSize)},
     RouteSpec{"sub_tcu_denso_sh7058_can", "Subaru", Route::kDensoSh7xxx, EcuWindow(0, 0x100000), 0x0FFB80},
-    RouteSpec{"sub_ecu_hitachi_m32r_kline", "Subaru", Route::kM32rByRomId, EcuWindow(0, 0x80000)},
-    RouteSpec{"sub_ecu_hitachi_m32r_can", "Subaru", Route::kM32rCan, EcuWindow(0, 0x80000)},
-    RouteSpec{"sub_ecu_hitachi_sh7058_can", "Subaru", Route::kSh7058, EcuWindow(0, 0x100000)},
-    RouteSpec{"sub_ecu_hitachi_sh72543r", "Subaru", Route::kSh72543r, EcuWindow(0, 0x200000)},
+    RouteSpec{"sub_ecu_hitachi_m32r_kline", "Subaru", Route::kM32rByRomId,
+              EcuWindow(0, ChecksumEcuSubaruHitachiM32rKline::kRomSize)},
+    RouteSpec{"sub_ecu_hitachi_m32r_can", "Subaru", Route::kM32rCan,
+              EcuWindow(0, ChecksumEcuSubaruHitachiM32rCan::kRomSize)},
+    RouteSpec{"sub_ecu_hitachi_sh7058_can", "Subaru", Route::kSh7058,
+              EcuWindow(0, ChecksumEcuSubaruHitachiSH7058::kRomSize)},
+    RouteSpec{"sub_ecu_hitachi_sh72543r", "Subaru", Route::kSh72543r,
+              EcuWindow(0, ChecksumEcuSubaruHitachiSh72543r::kRomSize)},
     RouteSpec{"sub_tcu_hitachi_m32r_can", "Subaru", Route::kHitachiM32rTcu, EcuWindow(0, 0x80000)},
     RouteSpec{"sub_tcu_hitachi_m32r_kline", "Subaru", Route::kHitachiM32rTcu, EcuWindow(0, 0x80000)},
-    RouteSpec{"sub_tcu_cvt_mitsu_mh8104_can", "Subaru", Route::kMitsuMh8104Tcu, EcuWindow(0, 0x80000)},
+    RouteSpec{"sub_tcu_cvt_mitsu_mh8104_can", "Subaru", Route::kMitsuMh8104Tcu,
+              EcuWindow(0, ChecksumTcuMitsuMH8104Can::kRomSize)},
     // Colt CZT Z37A (47110032). The 512 KiB protocols name their size as a
     // suffix, so they precede the 384 KiB prefix that covers plain and
     // vendor_ext.
@@ -132,31 +148,31 @@ std::optional<ChecksumResult> Execute(const RouteSpec& spec, std::string_view ro
     case Route::kDensoDiesel:
         return DensoSh705xDiesel(view, spec.table_address);
     case Route::kDensoTcuSh7055:
-        return ChecksumTcuSubaruDensoSH7055::CalculateChecksumResult(view);
+        return RunFixedLayout<ChecksumTcuSubaruDensoSH7055>(view);
     case Route::kM32rByRomId:
         if (StartsWith(rom_id, "3"))
         {
-            return ChecksumEcuSubaruHitachiM32rKline::CalculateChecksumResult(view);
+            return RunFixedLayout<ChecksumEcuSubaruHitachiM32rKline>(view);
         }
         if (StartsWith(rom_id, "4") || StartsWith(rom_id, "6"))
         {
-            return ChecksumEcuSubaruHitachiM32rCan::CalculateChecksumResult(view);
+            return RunFixedLayout<ChecksumEcuSubaruHitachiM32rCan>(view);
         }
         // The protocol has a module, but unknown ROM-ID prefixes deliberately
         // run no family and produce no missing-module warning.
         return std::nullopt;
     case Route::kM32rCan:
-        return ChecksumEcuSubaruHitachiM32rCan::CalculateChecksumResult(view);
+        return RunFixedLayout<ChecksumEcuSubaruHitachiM32rCan>(view);
     case Route::kSh7058:
-        return ChecksumEcuSubaruHitachiSH7058::CalculateChecksumResult(view);
+        return RunFixedLayout<ChecksumEcuSubaruHitachiSH7058>(view);
     case Route::kSh72543r:
-        return ChecksumEcuSubaruHitachiSh72543r::CalculateChecksumResult(view);
+        return RunFixedLayout<ChecksumEcuSubaruHitachiSh72543r>(view);
     case Route::kHitachiM32rTcu:
-        return ChecksumTcuSubaruHitachiM32rCan::CalculateChecksumResult(view);
+        return ChecksumTcuSubaruHitachiM32rCan::CalculateChecksumResult(view.Data());
     case Route::kMitsuMh8104Tcu:
-        return ChecksumTcuMitsuMH8104Can::CalculateChecksumResult(view);
+        return RunFixedLayout<ChecksumTcuMitsuMH8104Can>(view);
     case Route::kMitsuColtM32rCan:
-        return ChecksumEcuMitsuM32rCan::CalculateChecksumResult(view);
+        return ChecksumEcuMitsuM32rCan::CalculateChecksumResult(view.Data());
     }
     std::unreachable();
 }
