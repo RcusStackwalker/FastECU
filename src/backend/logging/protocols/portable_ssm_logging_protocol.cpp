@@ -64,9 +64,10 @@ Result<std::string> DecodeNumeric(bytes::ByteView data, const LoggingChannel& ch
     case NumericStorage::kSignedInteger:
     {
         const auto bits = data.size() * 8;
-        const auto signed_value = (value & (std::uint32_t{1} << (bits - 1))) != 0
-                                      ? static_cast<std::int64_t>(value) - (std::int64_t{1} << bits)
-                                      : static_cast<std::int64_t>(value);
+        const auto signed_value =
+            (value & (std::uint32_t{1} << (bits - 1))) != 0
+                ? static_cast<std::int64_t>(value) - static_cast<std::int64_t>(std::uint64_t{1} << bits)
+                : static_cast<std::int64_t>(value);
         return std::to_string(signed_value);
     }
     case NumericStorage::kFloat:
