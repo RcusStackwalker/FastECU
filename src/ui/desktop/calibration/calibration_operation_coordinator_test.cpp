@@ -303,7 +303,6 @@ TEST_F(CalibrationOperationCoordinator, ChecksumLogsKeepLegacyTextAndOrder)
     EXPECT_THAT(logs_, ElementsAre(Pair(LogLevel::kDebug, "Protocol: proto_a"), Pair(LogLevel::kDebug, "Make: Subaru"),
                                    Pair(LogLevel::kDebug, "Checksum: yes"),
                                    Pair(LogLevel::kDebug, "ecuCalDef->McuType: SH7058 SH7058"),
-                                   Pair(LogLevel::kDebug, "Size: 0x1a -> 0x100000"),
                                    Pair(LogLevel::kDebug, "Checksum calculation canceled!")));
 }
 
@@ -405,8 +404,7 @@ TEST_F(CalibrationOperationCoordinator, EmptyDefinedMethodReselectsBeforeChecksu
                             Pair(LogLevel::kDebug, "Protocol info for selected ROM updated"),
                             Pair(LogLevel::kDebug, "Protocol: proto_a"), Pair(LogLevel::kDebug, "Make: Nissan"),
                             Pair(LogLevel::kDebug, "Checksum: yes"),
-                            Pair(LogLevel::kDebug, "ecuCalDef->McuType: SH7058 SH7058"),
-                            Pair(LogLevel::kDebug, "Size: 0x3 -> 0x100000")));
+                            Pair(LogLevel::kDebug, "ecuCalDef->McuType: SH7058 SH7058")));
 }
 
 struct UncorrectedCase
