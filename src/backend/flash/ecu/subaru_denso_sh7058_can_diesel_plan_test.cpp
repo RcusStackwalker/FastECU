@@ -11,6 +11,7 @@
 
 #include "src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_types.h"
 #include "src/backend/flash/flash_validation.h"
+#include "src/backend/ports/testing/result_matchers.h"
 
 namespace fastecu::flash
 {
@@ -119,7 +120,7 @@ TEST(SubaruDensoSh7058CanDieselPlan, BuildsBothExactGenerationsForEveryOperation
         {
             const auto plan = BuildSubaruDensoSh7058CanDieselPlan(operation, diesel.protocol, diesel.mcu,
                                                                   ImageFor(diesel, operation), KernelFor(diesel));
-            ASSERT_TRUE(plan.has_value()) << diesel.protocol << ": " << plan.error().detail;
+            ASSERT_THAT(plan, fastecu::testing::IsOk()) << diesel.protocol;
             EXPECT_EQ(plan->Family(), FlashFamily::kSubaruDensoSh7058CanDiesel);
             EXPECT_EQ(plan->Transport(), TransportKind::kCanIso15765);
             EXPECT_EQ(plan->TargetId(), diesel.protocol);
@@ -153,7 +154,7 @@ TEST(SubaruDensoSh7058CanDieselPlan, BuildsBothExactGenerationsForEveryOperation
                     EXPECT_EQ(plan->EraseRegions()[index].length, BlocksFor(diesel)[index].length);
                 }
             }
-            EXPECT_TRUE(ValidateSubaruDensoSh7058CanDieselPlan(*plan).has_value());
+            EXPECT_THAT(ValidateSubaruDensoSh7058CanDieselPlan(*plan), fastecu::testing::IsOk());
         }
     }
 }
@@ -166,16 +167,14 @@ TEST(SubaruDensoSh7058CanDieselPlan, RejectsNearMissesAndWrongMcus)
     {
         const auto plan = BuildSubaruDensoSh7058CanDieselPlan(FlashOperation::kRead, protocol, "SH7058d", std::nullopt,
                                                               KernelFor(kDiesel.front()));
-        ASSERT_FALSE(plan.has_value()) << protocol;
-        EXPECT_EQ(plan.error().kind, ErrorKind::kInvalidConfig);
+        ASSERT_THAT(plan, fastecu::testing::IsErr(ErrorKind::kInvalidConfig)) << protocol;
     }
     for (const DieselCase& diesel : kDiesel)
     {
         const auto plan = BuildSubaruDensoSh7058CanDieselPlan(FlashOperation::kRead, diesel.protocol,
                                                               diesel.mcu == "SH7058d" ? "SH7059d" : "SH7058d",
                                                               std::nullopt, KernelFor(diesel));
-        ASSERT_FALSE(plan.has_value()) << diesel.protocol;
-        EXPECT_EQ(plan.error().kind, ErrorKind::kInvalidConfig);
+        EXPECT_THAT(plan, fastecu::testing::IsErr(ErrorKind::kInvalidConfig)) << diesel.protocol;
     }
 }
 
@@ -185,8 +184,7 @@ TEST(SubaruDensoSh7058CanDieselPlan, EnforcesImageAndKernelBoundsPerGeneration)
     {
         const auto read_with_image = BuildSubaruDensoSh7058CanDieselPlan(
             FlashOperation::kRead, diesel.protocol, diesel.mcu, bytes::Bytes(diesel.rom_size, 0), KernelFor(diesel));
-        ASSERT_FALSE(read_with_image.has_value());
-        EXPECT_EQ(read_with_image.error().kind, ErrorKind::kInvalidConfig);
+        EXPECT_THAT(read_with_image, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 
         for (const FlashOperation operation : {FlashOperation::kTestWrite, FlashOperation::kWrite})
         {
@@ -196,8 +194,7 @@ TEST(SubaruDensoSh7058CanDieselPlan, EnforcesImageAndKernelBoundsPerGeneration)
             {
                 const auto plan = BuildSubaruDensoSh7058CanDieselPlan(operation, diesel.protocol, diesel.mcu, image,
                                                                       KernelFor(diesel));
-                ASSERT_FALSE(plan.has_value()) << diesel.protocol;
-                EXPECT_EQ(plan.error().kind, ErrorKind::kInvalidConfig);
+                ASSERT_THAT(plan, fastecu::testing::IsErr(ErrorKind::kInvalidConfig)) << diesel.protocol;
             }
         }
 
@@ -206,12 +203,11 @@ TEST(SubaruDensoSh7058CanDieselPlan, EnforcesImageAndKernelBoundsPerGeneration)
             KernelFor(diesel, bytes::Bytes(diesel.kernel_region_size, bytes::Byte{0xA5})));
         if (diesel.mcu == "SH7058d")
         {
-            ASSERT_TRUE(exact.has_value()) << exact.error().detail;
+            ASSERT_THAT(exact, fastecu::testing::IsOk());
         }
         else
         {
-            ASSERT_FALSE(exact.has_value());
-            EXPECT_EQ(exact.error().kind, ErrorKind::kInvalidConfig);
+            EXPECT_THAT(exact, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
         }
 
         for (KernelImage invalid : {
@@ -221,8 +217,7 @@ TEST(SubaruDensoSh7058CanDieselPlan, EnforcesImageAndKernelBoundsPerGeneration)
         {
             const auto plan = BuildSubaruDensoSh7058CanDieselPlan(FlashOperation::kRead, diesel.protocol, diesel.mcu,
                                                                   std::nullopt, std::move(invalid));
-            ASSERT_FALSE(plan.has_value()) << diesel.protocol;
-            EXPECT_EQ(plan.error().kind, ErrorKind::kInvalidConfig);
+            EXPECT_THAT(plan, fastecu::testing::IsErr(ErrorKind::kInvalidConfig)) << diesel.protocol;
         }
     }
 }
@@ -262,10 +257,10 @@ TEST(SubaruDensoSh7058CanDieselPlan, ValidatorRejectsWireGeometryTransportAndCon
                 FAIL() << "unexpected validator mutation " << mutation;
             }
             auto plan = ValidateAndBuild(std::move(fields));
-            ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+            ASSERT_THAT(plan, fastecu::testing::IsOk());
             const auto valid = ValidateSubaruDensoSh7058CanDieselPlan(*plan);
-            ASSERT_FALSE(valid.has_value()) << diesel.protocol << " mutation " << mutation;
-            EXPECT_EQ(valid.error().kind, ErrorKind::kInvalidConfig);
+            EXPECT_THAT(valid, fastecu::testing::IsErr(ErrorKind::kInvalidConfig))
+                << diesel.protocol << " mutation " << mutation;
         }
     }
 }
@@ -286,10 +281,12 @@ TEST(SubaruDensoSh7058CanDieselPlan, RejectsAlteredAddressesAndLengthsInEveryEra
                 --fields.erase_regions[index].length;
             }
             auto plan = ValidateAndBuild(std::move(fields));
-            ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+            ASSERT_THAT(plan, fastecu::testing::IsOk());
             const auto validation = ValidateSubaruDensoSh7058CanDieselPlan(*plan);
-            ASSERT_FALSE(validation.has_value()) << index;
-            EXPECT_EQ(validation.error(), (Error{ErrorKind::kInvalidConfig, "erase geometry does not match the MCU"}));
+            EXPECT_THAT(validation,
+                        fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig,
+                                                    ::testing::StrEq("erase geometry does not match the MCU")))
+                << index;
         }
     }
 }

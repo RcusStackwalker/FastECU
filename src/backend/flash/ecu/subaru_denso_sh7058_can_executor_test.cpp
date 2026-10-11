@@ -24,6 +24,7 @@
 #include "src/backend/ports/testing/fake_clock.h"
 #include "src/backend/ports/testing/mock_clock.h"
 #include "src/backend/ports/testing/recording_event_sink.h"
+#include "src/backend/ports/testing/result_matchers.h"
 
 using ::testing::_;
 using ::testing::Contains;
@@ -45,7 +46,11 @@ namespace fastecu::flash
 namespace
 {
 using namespace std::chrono_literals;
+using fastecu::testing::IsErr;
+using fastecu::testing::IsErrWith;
+using fastecu::testing::IsOk;
 using ::testing::Each;
+using ::testing::StrEq;
 
 constexpr std::uint32_t kRomSize = 0x00100000;
 constexpr std::uint32_t kKernelAddress = 0xFFFF3000;
@@ -210,9 +215,9 @@ bytes::Bytes KernelIdResponse()
 void ConfigureAndOpen(SubaruDensoSh7058CanExecutor& executor, const FlashPlan& plan, ICanFlashTransport& transport)
 {
     auto setup = executor.TransportSetup(plan);
-    ASSERT_TRUE(setup.has_value()) << setup.error().detail;
-    ASSERT_TRUE(transport.Configure(*setup).has_value());
-    ASSERT_TRUE(transport.Open().has_value());
+    ASSERT_THAT(setup, IsOk());
+    ASSERT_THAT(transport.Configure(*setup), IsOk());
+    ASSERT_THAT(transport.Open(), IsOk());
 }
 
 void ScriptKernelAlive(ScriptedCanFlashTransport& transport)
@@ -556,9 +561,9 @@ TEST(SubaruDensoSh7058CanExecutor, TransportSetupUsesExactPetrolIsoConfiguration
     for (const Variant& variant : kVariants)
     {
         auto plan = PlanFor(variant, FlashOperation::kRead);
-        ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+        ASSERT_THAT(plan, IsOk());
         auto setup = executor.TransportSetup(*plan);
-        ASSERT_TRUE(setup.has_value()) << setup.error().detail;
+        ASSERT_THAT(setup, IsOk());
         EXPECT_EQ(setup->bitrate, 500000);
         EXPECT_EQ(setup->request_id, 0x7E0U);
         EXPECT_EQ(setup->response_id, 0x7E8U);
@@ -569,7 +574,7 @@ TEST(SubaruDensoSh7058CanExecutor, TransportSetupUsesExactPetrolIsoConfiguration
 TEST(SubaruDensoSh7058CanExecutor, BoundAttemptResetsBeforeConfiguringAndOpening)
 {
     auto plan = PlanFor(kVariants.front(), FlashOperation::kRead);
-    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    ASSERT_THAT(plan, IsOk());
     auto transport = std::make_unique<RecordingCanFlashTransport>();
     RecordingCanFlashTransport *observed = transport.get();
     FakeCancellationToken cancellation;
@@ -581,15 +586,14 @@ TEST(SubaruDensoSh7058CanExecutor, BoundAttemptResetsBeforeConfiguringAndOpening
         BindFlashAttempt(std::move(*plan), std::make_unique<SubaruDensoSh7058CanExecutor>(), std::move(transport));
     const auto result = attempt->Run(clock, cancellation, events);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::kCancelled);
+    EXPECT_THAT(result, IsErr(ErrorKind::kCancelled));
     EXPECT_THAT(observed->lifecycle, ElementsAre("reset_connection", "configure", "open", "close"));
 }
 
 TEST(SubaruDensoSh7058CanExecutor, StartupCancellationBeforeResetTouchesNoLifecycleOperation)
 {
     auto plan = PlanFor(kVariants.front(), FlashOperation::kRead);
-    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    ASSERT_THAT(plan, IsOk());
     auto transport = std::make_unique<RecordingCanFlashTransport>();
     RecordingCanFlashTransport *observed = transport.get();
     FakeCancellationToken cancellation;
@@ -601,15 +605,14 @@ TEST(SubaruDensoSh7058CanExecutor, StartupCancellationBeforeResetTouchesNoLifecy
         BindFlashAttempt(std::move(*plan), std::make_unique<SubaruDensoSh7058CanExecutor>(), std::move(transport));
     const auto result = attempt->Run(clock, cancellation, events);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::kCancelled);
+    EXPECT_THAT(result, IsErr(ErrorKind::kCancelled));
     EXPECT_TRUE(observed->lifecycle.empty());
 }
 
 TEST(SubaruDensoSh7058CanExecutor, StartupCancellationAfterResetSkipsConfigureOpenAndClose)
 {
     auto plan = PlanFor(kVariants.front(), FlashOperation::kRead);
-    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    ASSERT_THAT(plan, IsOk());
     auto transport = std::make_unique<RecordingCanFlashTransport>();
     RecordingCanFlashTransport *observed = transport.get();
     FakeCancellationToken cancellation;
@@ -621,15 +624,14 @@ TEST(SubaruDensoSh7058CanExecutor, StartupCancellationAfterResetSkipsConfigureOp
         BindFlashAttempt(std::move(*plan), std::make_unique<SubaruDensoSh7058CanExecutor>(), std::move(transport));
     const auto result = attempt->Run(clock, cancellation, events);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::kCancelled);
+    EXPECT_THAT(result, IsErr(ErrorKind::kCancelled));
     EXPECT_THAT(observed->lifecycle, ElementsAre("reset_connection"));
 }
 
 TEST(SubaruDensoSh7058CanExecutor, StartupCancellationDuringConfigureSkipsOpenAndClose)
 {
     auto plan = PlanFor(kVariants.front(), FlashOperation::kRead);
-    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    ASSERT_THAT(plan, IsOk());
     auto transport = std::make_unique<RecordingCanFlashTransport>();
     RecordingCanFlashTransport *observed = transport.get();
     FakeCancellationToken cancellation;
@@ -641,15 +643,14 @@ TEST(SubaruDensoSh7058CanExecutor, StartupCancellationDuringConfigureSkipsOpenAn
         BindFlashAttempt(std::move(*plan), std::make_unique<SubaruDensoSh7058CanExecutor>(), std::move(transport));
     const auto result = attempt->Run(clock, cancellation, events);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::kCancelled);
+    EXPECT_THAT(result, IsErr(ErrorKind::kCancelled));
     EXPECT_THAT(observed->lifecycle, ElementsAre("reset_connection", "configure"));
 }
 
 TEST(SubaruDensoSh7058CanExecutor, StartupResetFailurePropagatesWithoutConfigureOpenOrClose)
 {
     auto plan = PlanFor(kVariants.front(), FlashOperation::kRead);
-    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    ASSERT_THAT(plan, IsOk());
     auto transport = std::make_unique<RecordingCanFlashTransport>();
     RecordingCanFlashTransport *observed = transport.get();
     observed->reset_result = Fail(ErrorKind::kInternal, "petrol reset marker");
@@ -661,9 +662,7 @@ TEST(SubaruDensoSh7058CanExecutor, StartupResetFailurePropagatesWithoutConfigure
         BindFlashAttempt(std::move(*plan), std::make_unique<SubaruDensoSh7058CanExecutor>(), std::move(transport));
     const auto result = attempt->Run(clock, cancellation, events);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::kInternal);
-    EXPECT_EQ(result.error().detail, "petrol reset marker");
+    EXPECT_THAT(result, IsErrWith(ErrorKind::kInternal, StrEq("petrol reset marker")));
     EXPECT_THAT(observed->lifecycle, ElementsAre("reset_connection"));
 }
 
@@ -673,7 +672,7 @@ TEST(SubaruDensoSh7058CanExecutor, AllFiveValidatedEnumsProduceTheirFixedSecurit
     {
         SCOPED_TRACE(variant.protocol);
         auto plan = PlanFor(variant, FlashOperation::kRead);
-        ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+        ASSERT_THAT(plan, IsOk());
         SubaruDensoSh7058CanExecutor executor;
         ScriptedCanFlashTransport transport;
         ConfigureAndOpen(executor, *plan, transport);
@@ -684,8 +683,7 @@ TEST(SubaruDensoSh7058CanExecutor, AllFiveValidatedEnumsProduceTheirFixedSecurit
 
         auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
-        ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, ErrorKind::kBadResponse);
+        EXPECT_THAT(result, IsErr(ErrorKind::kBadResponse));
         EXPECT_TRUE(transport.ScriptConsumed());
         EXPECT_TRUE(HasLog(events, LogLevel::kInfo,
                            variant.security == SubaruDensoSh7058CanSecurity::kRaceRom ? "Using EcuTek RaceRom RSA algo"
@@ -700,7 +698,7 @@ TEST(SubaruDensoSh7058CanExecutor, AllFiveValidatedEnumsProduceTheirFixedSecurit
 TEST(SubaruDensoSh7058CanExecutor, AlreadyRunningKernelReadsFirstAndLastBoundaryWithExactLogsAndProgress)
 {
     auto plan = PlanFor(kVariants.front(), FlashOperation::kRead);
-    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    ASSERT_THAT(plan, IsOk());
     SubaruDensoSh7058CanExecutor executor;
     RecordingCanFlashTransport transport;
     ConfigureAndOpen(executor, *plan, transport);
@@ -712,7 +710,7 @@ TEST(SubaruDensoSh7058CanExecutor, AlreadyRunningKernelReadsFirstAndLastBoundary
 
     auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
-    ASSERT_TRUE(result.has_value()) << result.error().detail;
+    ASSERT_THAT(result, IsOk());
     ASSERT_TRUE(result->read_bytes.has_value());
     EXPECT_EQ(result->read_bytes->size(), kRomSize);
     EXPECT_THAT(*result->read_bytes, Each(0));
@@ -746,7 +744,7 @@ TEST(SubaruDensoSh7058CanExecutor, ReadKeepsRawBeefBoundaryPayloadsForEveryPetro
     {
         SCOPED_TRACE(variant.protocol);
         auto plan = PlanFor(variant, FlashOperation::kRead);
-        ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+        ASSERT_THAT(plan, IsOk());
         ScriptedCanFlashTransport transport;
         ConfigureAndOpen(executor, *plan, transport);
         ScriptKernelAlive(transport);
@@ -756,7 +754,7 @@ TEST(SubaruDensoSh7058CanExecutor, ReadKeepsRawBeefBoundaryPayloadsForEveryPetro
 
         auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
-        ASSERT_TRUE(result.has_value()) << result.error().detail;
+        ASSERT_THAT(result, IsOk());
         ASSERT_TRUE(result->read_bytes.has_value());
         EXPECT_THAT(bytes::ByteView(*result->read_bytes).first(8),
                     ElementsAre(0xD3, 0x5A, 0xC7, 0x19, 0x2E, 0xF4, 0x80, 0x6B));
@@ -771,7 +769,7 @@ TEST(SubaruDensoSh7058CanExecutor, ProbeTimeoutUploadsLiteral129ByteKernelThenRe
     bytes::Bytes kernel_data(129, bytes::Byte{0});
     kernel_data.back() = 0x01;
     auto plan = PlanFor(kVariants.front(), FlashOperation::kRead, {}, std::move(kernel_data));
-    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    ASSERT_THAT(plan, IsOk());
     SubaruDensoSh7058CanExecutor executor;
     RecordingCanFlashTransport transport;
     ConfigureAndOpen(executor, *plan, transport);
@@ -787,7 +785,7 @@ TEST(SubaruDensoSh7058CanExecutor, ProbeTimeoutUploadsLiteral129ByteKernelThenRe
 
     auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
-    ASSERT_TRUE(result.has_value()) << result.error().detail;
+    ASSERT_THAT(result, IsOk());
     EXPECT_TRUE(transport.scripted.ScriptConsumed());
     ASSERT_TRUE(result->read_bytes.has_value());
     EXPECT_EQ(result->read_bytes->size(), kRomSize);
@@ -810,7 +808,7 @@ TEST(SubaruDensoSh7058CanExecutor, UploadB6ShortMalformedWrongIdAndAdapterReplie
         bytes::Bytes kernel_data(129, bytes::Byte{0});
         kernel_data.back() = 0x01;
         auto plan = PlanFor(kVariants.front(), FlashOperation::kRead, {}, std::move(kernel_data));
-        ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+        ASSERT_THAT(plan, IsOk());
         SubaruDensoSh7058CanExecutor executor;
         ScriptedCanFlashTransport transport;
         ConfigureAndOpen(executor, *plan, transport);
@@ -825,8 +823,7 @@ TEST(SubaruDensoSh7058CanExecutor, UploadB6ShortMalformedWrongIdAndAdapterReplie
 
         const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
-        ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, ErrorKind::kBadResponse);
+        EXPECT_THAT(result, IsErr(ErrorKind::kBadResponse));
         EXPECT_TRUE(transport.ScriptConsumed());
     }
 }
@@ -840,7 +837,7 @@ TEST(SubaruDensoSh7058CanExecutor, UploadB6CancellationAndDisconnectArePropagate
         bytes::Bytes kernel_data(129, bytes::Byte{0});
         kernel_data.back() = 0x01;
         auto plan = PlanFor(kVariants.front(), FlashOperation::kRead, {}, std::move(kernel_data));
-        ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+        ASSERT_THAT(plan, IsOk());
         SubaruDensoSh7058CanExecutor executor;
         ScriptedCanFlashTransport transport;
         ConfigureAndOpen(executor, *plan, transport);
@@ -852,8 +849,7 @@ TEST(SubaruDensoSh7058CanExecutor, UploadB6CancellationAndDisconnectArePropagate
 
         const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
-        ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, expected);
+        EXPECT_THAT(result, IsErr(expected));
     }
 }
 
@@ -866,7 +862,7 @@ TEST(SubaruDensoSh7058CanExecutor, KernelStartAcceptsServiceOnlyAndFullEchoBefor
         bytes::Bytes kernel_data(129, bytes::Byte{0});
         kernel_data.back() = 0x01;
         auto plan = PlanFor(kVariants.front(), FlashOperation::kRead, {}, std::move(kernel_data));
-        ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+        ASSERT_THAT(plan, IsOk());
         SubaruDensoSh7058CanExecutor executor;
         ScriptedCanFlashTransport transport;
         ConfigureAndOpen(executor, *plan, transport);
@@ -878,8 +874,7 @@ TEST(SubaruDensoSh7058CanExecutor, KernelStartAcceptsServiceOnlyAndFullEchoBefor
 
         auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
-        ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, ErrorKind::kBadResponse);
+        EXPECT_THAT(result, IsErr(ErrorKind::kBadResponse));
         EXPECT_TRUE(transport.ScriptConsumed());
     }
 }
@@ -906,7 +901,7 @@ TEST(SubaruDensoSh7058CanExecutor, KernelStartRejectsWrongSidShortTimeoutCancell
         bytes::Bytes kernel_data(129, bytes::Byte{0});
         kernel_data.back() = 0x01;
         auto plan = PlanFor(kVariants.front(), FlashOperation::kRead, {}, std::move(kernel_data));
-        ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+        ASSERT_THAT(plan, IsOk());
         SubaruDensoSh7058CanExecutor executor;
         ScriptedCanFlashTransport transport;
         ConfigureAndOpen(executor, *plan, transport);
@@ -927,8 +922,7 @@ TEST(SubaruDensoSh7058CanExecutor, KernelStartRejectsWrongSidShortTimeoutCancell
 
         auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
-        ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, start.expected);
+        EXPECT_THAT(result, IsErr(start.expected));
         EXPECT_TRUE(transport.ScriptConsumed());
     }
 }
@@ -936,7 +930,7 @@ TEST(SubaruDensoSh7058CanExecutor, KernelStartRejectsWrongSidShortTimeoutCancell
 TEST(SubaruDensoSh7058CanExecutor, IdentityAndVendorFailuresRemainTolerantUntilStrictSecurity)
 {
     auto plan = PlanFor(kVariants.front(), FlashOperation::kRead);
-    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    ASSERT_THAT(plan, IsOk());
     SubaruDensoSh7058CanExecutor executor;
     ScriptedCanFlashTransport transport;
     ConfigureAndOpen(executor, *plan, transport);
@@ -947,8 +941,7 @@ TEST(SubaruDensoSh7058CanExecutor, IdentityAndVendorFailuresRemainTolerantUntilS
 
     auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::kBadResponse);
+    EXPECT_THAT(result, IsErr(ErrorKind::kBadResponse));
     EXPECT_TRUE(transport.ScriptConsumed());
     EXPECT_TRUE(HasLog(events, LogLevel::kError, "No valid response from ECU"));
     EXPECT_TRUE(HasLog(events, LogLevel::kInfo, "Sending seed key"));
@@ -962,7 +955,7 @@ TEST(SubaruDensoSh7058CanExecutor, ShortAndWrongIdInitialKernelProbesFallBackToB
     {
         SCOPED_TRACE(bytes::ToHex(probe_reply));
         auto plan = PlanFor(kVariants.front(), FlashOperation::kRead);
-        ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+        ASSERT_THAT(plan, IsOk());
         SubaruDensoSh7058CanExecutor executor;
         ScriptedCanFlashTransport transport;
         ConfigureAndOpen(executor, *plan, transport);
@@ -986,8 +979,7 @@ TEST(SubaruDensoSh7058CanExecutor, ShortAndWrongIdInitialKernelProbesFallBackToB
 
         const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
-        ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, ErrorKind::kBadResponse);
+        EXPECT_THAT(result, IsErr(ErrorKind::kBadResponse));
         EXPECT_TRUE(transport.ScriptConsumed());
         EXPECT_TRUE(HasLog(events, LogLevel::kInfo, "Requesting ECU ID"));
         EXPECT_TRUE(HasLog(events, LogLevel::kInfo, "Sending seed key"));
@@ -997,7 +989,7 @@ TEST(SubaruDensoSh7058CanExecutor, ShortAndWrongIdInitialKernelProbesFallBackToB
 TEST(SubaruDensoSh7058CanExecutor, TestWriteUsesDisableEraseBufferAndValidateWithoutCommit)
 {
     auto plan = PlanFor(kVariants.front(), FlashOperation::kTestWrite);
-    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    ASSERT_THAT(plan, IsOk());
     SubaruDensoSh7058CanExecutor executor;
     RecordingCanFlashTransport transport;
     ConfigureAndOpen(executor, *plan, transport);
@@ -1012,7 +1004,7 @@ TEST(SubaruDensoSh7058CanExecutor, TestWriteUsesDisableEraseBufferAndValidateWit
 
     auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
-    ASSERT_TRUE(result.has_value()) << result.error().detail;
+    ASSERT_THAT(result, IsOk());
     EXPECT_EQ(result->operation, FlashOperation::kTestWrite);
     EXPECT_TRUE(transport.scripted.ScriptConsumed());
     EXPECT_THAT(events.notices, ElementsAre("Writing ROM, please wait..."));
@@ -1028,7 +1020,7 @@ TEST(SubaruDensoSh7058CanExecutor, TestWriteUsesDisableEraseBufferAndValidateWit
 TEST(SubaruDensoSh7058CanExecutor, UnchangedWriteSkipsFlashAndStillCompletesFourOrderedPhases)
 {
     auto plan = PlanFor(kVariants.front(), FlashOperation::kWrite);
-    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    ASSERT_THAT(plan, IsOk());
     SubaruDensoSh7058CanExecutor executor;
     ScriptedCanFlashTransport transport;
     ConfigureAndOpen(executor, *plan, transport);
@@ -1040,7 +1032,7 @@ TEST(SubaruDensoSh7058CanExecutor, UnchangedWriteSkipsFlashAndStillCompletesFour
 
     auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
-    ASSERT_TRUE(result.has_value()) << result.error().detail;
+    ASSERT_THAT(result, IsOk());
     EXPECT_EQ(result->operation, FlashOperation::kWrite);
     EXPECT_TRUE(transport.ScriptConsumed());
     EXPECT_TRUE(HasLog(events, LogLevel::kInfo,
@@ -1057,7 +1049,7 @@ TEST(SubaruDensoSh7058CanExecutor, UnchangedWriteSkipsFlashAndStillCompletesFour
 TEST(SubaruDensoSh7058CanExecutor, SmallChangedWriteErasesProgramsCommitsVerifiesAndPinsCorrectedSpeedLog)
 {
     auto plan = PlanFor(kVariants.front(), FlashOperation::kWrite);
-    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    ASSERT_THAT(plan, IsOk());
     SubaruDensoSh7058CanExecutor executor;
     RecordingCanFlashTransport transport;
     ConfigureAndOpen(executor, *plan, transport);
@@ -1072,7 +1064,7 @@ TEST(SubaruDensoSh7058CanExecutor, SmallChangedWriteErasesProgramsCommitsVerifie
 
     auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
-    ASSERT_TRUE(result.has_value()) << result.error().detail;
+    EXPECT_THAT(result, IsOk());
     EXPECT_TRUE(transport.scripted.ScriptConsumed());
     EXPECT_FALSE(HasLog(events, LogLevel::kError, "*** ERROR IN FLASH PROCESS ***"));
     EXPECT_THAT(LogsStartingWith(events, "Write flash buffer:"),
@@ -1096,7 +1088,7 @@ TEST(SubaruDensoSh7058CanExecutor, NonzeroLargeBlockUsesAllRepeatedCommitWindows
     bytes::Bytes image(kRomSize, bytes::Byte{0});
     std::fill(image.begin() + 0x8000, image.begin() + 0x20000, bytes::Byte{0xA5});
     auto plan = PlanFor(kVariants.back(), FlashOperation::kWrite, std::move(image));
-    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    ASSERT_THAT(plan, IsOk());
     SubaruDensoSh7058CanExecutor executor;
     RecordingCanFlashTransport transport;
     ConfigureAndOpen(executor, *plan, transport);
@@ -1111,7 +1103,7 @@ TEST(SubaruDensoSh7058CanExecutor, NonzeroLargeBlockUsesAllRepeatedCommitWindows
 
     auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
-    ASSERT_TRUE(result.has_value()) << result.error().detail;
+    EXPECT_THAT(result, IsOk());
     EXPECT_TRUE(transport.scripted.ScriptConsumed());
     std::vector<bytes::Bytes> commits;
     for (const bytes::Bytes& wire : transport.writes)
@@ -1139,7 +1131,7 @@ TEST(SubaruDensoSh7058CanExecutor, CrcStaleDrainPreservesToleranceButPropagatesC
           std::optional<ErrorKind>{ErrorKind::kDisconnected}})
     {
         auto plan = PlanFor(kVariants.front(), FlashOperation::kWrite);
-        ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+        ASSERT_THAT(plan, IsOk());
         SubaruDensoSh7058CanExecutor executor;
         ScriptedCanFlashTransport transport;
         ConfigureAndOpen(executor, *plan, transport);
@@ -1166,12 +1158,11 @@ TEST(SubaruDensoSh7058CanExecutor, CrcStaleDrainPreservesToleranceButPropagatesC
 
         if (!terminal.has_value())
         {
-            ASSERT_TRUE(result.has_value()) << result.error().detail;
+            ASSERT_THAT(result, IsOk());
         }
         else
         {
-            ASSERT_FALSE(result.has_value());
-            EXPECT_EQ(result.error().kind, *terminal);
+            EXPECT_THAT(result, IsErr(*terminal));
         }
         EXPECT_TRUE(transport.ScriptConsumed());
     }
@@ -1193,7 +1184,7 @@ TEST(SubaruDensoSh7058CanExecutor, RejectsInvalidSecurityPlanBeforeTransportInte
         .confirmations = {},
     };
     auto plan = ValidateAndBuild(std::move(fields));
-    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    ASSERT_THAT(plan, IsOk());
     SubaruDensoSh7058CanExecutor executor;
     ScriptedCanFlashTransport transport;
     FakeCancellationToken cancellation;
@@ -1203,10 +1194,8 @@ TEST(SubaruDensoSh7058CanExecutor, RejectsInvalidSecurityPlanBeforeTransportInte
     auto setup = executor.TransportSetup(*plan);
     auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
-    ASSERT_FALSE(setup.has_value());
-    EXPECT_EQ(setup.error().kind, ErrorKind::kInvalidConfig);
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::kInvalidConfig);
+    EXPECT_THAT(setup, IsErr(ErrorKind::kInvalidConfig));
+    EXPECT_THAT(result, IsErr(ErrorKind::kInvalidConfig));
     EXPECT_EQ(transport.WritesConsumed(), 0U);
 }
 
@@ -1227,7 +1216,7 @@ TEST(SubaruDensoSh7058CanExecutor, MalformedNegativeTimeoutAndDisconnectRepliesA
     {
         SCOPED_TRACE(test_case.name);
         auto plan = PlanFor(kVariants.front(), FlashOperation::kRead);
-        ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+        ASSERT_THAT(plan, IsOk());
         SubaruDensoSh7058CanExecutor executor;
         ScriptedCanFlashTransport transport;
         ConfigureAndOpen(executor, *plan, transport);
@@ -1260,8 +1249,7 @@ TEST(SubaruDensoSh7058CanExecutor, MalformedNegativeTimeoutAndDisconnectRepliesA
 
         auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
-        ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, test_case.expected);
+        EXPECT_THAT(result, IsErr(test_case.expected));
     }
 }
 
@@ -1270,7 +1258,7 @@ TEST(SubaruDensoSh7058CanExecutor, MalformedKernelIdAfterUploadIsStrictlyRejecte
     bytes::Bytes kernel_data(129, bytes::Byte{0});
     kernel_data.back() = 0x01;
     auto plan = PlanFor(kVariants.front(), FlashOperation::kRead, {}, std::move(kernel_data));
-    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    ASSERT_THAT(plan, IsOk());
     SubaruDensoSh7058CanExecutor executor;
     ScriptedCanFlashTransport transport;
     ConfigureAndOpen(executor, *plan, transport);
@@ -1283,15 +1271,14 @@ TEST(SubaruDensoSh7058CanExecutor, MalformedKernelIdAfterUploadIsStrictlyRejecte
 
     auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::kBadResponse);
+    EXPECT_THAT(result, IsErr(ErrorKind::kBadResponse));
     EXPECT_TRUE(transport.ScriptConsumed());
 }
 
 TEST(SubaruDensoSh7058CanExecutor, StrictUdsExchangeReadsResponsePendingWithoutResending)
 {
     auto plan = PlanFor(kVariants.front(), FlashOperation::kRead);
-    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    ASSERT_THAT(plan, IsOk());
     SubaruDensoSh7058CanExecutor executor;
     RecordingCanFlashTransport transport;
     ConfigureAndOpen(executor, *plan, transport);
@@ -1310,8 +1297,7 @@ TEST(SubaruDensoSh7058CanExecutor, StrictUdsExchangeReadsResponsePendingWithoutR
 
     auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::kBadResponse);
+    EXPECT_THAT(result, IsErr(ErrorKind::kBadResponse));
     EXPECT_TRUE(transport.scripted.ScriptConsumed());
     EXPECT_EQ(
         std::count(transport.writes.begin(), transport.writes.end(), bytes::Bytes{0x00, 0x00, 0x07, 0xE0, 0x27, 0x01}),
@@ -1325,7 +1311,7 @@ TEST(SubaruDensoSh7058CanExecutor, ProprietaryBeefWrongOpcodeAndCanIdAreTypedBad
     // ISO envelope response id must be validated by the executor/channel.
     {
         auto plan = PlanFor(kVariants.front(), FlashOperation::kRead);
-        ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+        ASSERT_THAT(plan, IsOk());
         SubaruDensoSh7058CanExecutor executor;
         ScriptedCanFlashTransport transport;
         ConfigureAndOpen(executor, *plan, transport);
@@ -1339,8 +1325,7 @@ TEST(SubaruDensoSh7058CanExecutor, ProprietaryBeefWrongOpcodeAndCanIdAreTypedBad
 
         auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
-        ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, ErrorKind::kBadResponse);
+        ASSERT_THAT(result, IsErr(ErrorKind::kBadResponse));
         EXPECT_TRUE(transport.ScriptConsumed());
     }
 
@@ -1348,7 +1333,7 @@ TEST(SubaruDensoSh7058CanExecutor, ProprietaryBeefWrongOpcodeAndCanIdAreTypedBad
         bytes::Bytes kernel_data(129, bytes::Byte{0});
         kernel_data.back() = 0x01;
         auto plan = PlanFor(kVariants.front(), FlashOperation::kRead, {}, std::move(kernel_data));
-        ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+        ASSERT_THAT(plan, IsOk());
         SubaruDensoSh7058CanExecutor executor;
         ScriptedCanFlashTransport transport;
         ConfigureAndOpen(executor, *plan, transport);
@@ -1361,8 +1346,7 @@ TEST(SubaruDensoSh7058CanExecutor, ProprietaryBeefWrongOpcodeAndCanIdAreTypedBad
 
         auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
-        ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, ErrorKind::kBadResponse);
+        EXPECT_THAT(result, IsErr(ErrorKind::kBadResponse));
         EXPECT_TRUE(transport.ScriptConsumed());
     }
 }
@@ -1372,7 +1356,7 @@ TEST(SubaruDensoSh7058CanExecutor, CancellationInterruptsProbeUploadReadCrcErase
     // Probe boundary: an already-cancelled operation performs no I/O.
     {
         auto plan = PlanFor(kVariants.front(), FlashOperation::kRead);
-        ASSERT_TRUE(plan.has_value());
+        ASSERT_THAT(plan, IsOk());
         SubaruDensoSh7058CanExecutor executor;
         ScriptedCanFlashTransport transport;
         FakeCancellationToken cancellation;
@@ -1380,8 +1364,7 @@ TEST(SubaruDensoSh7058CanExecutor, CancellationInterruptsProbeUploadReadCrcErase
         FakeClock clock;
         RecordingEventSink events;
         auto result = executor.Execute(*plan, transport, clock, cancellation, events);
-        ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, ErrorKind::kCancelled);
+        ASSERT_THAT(result, IsErr(ErrorKind::kCancelled));
         EXPECT_EQ(transport.WritesConsumed(), 0U);
     }
 
@@ -1389,7 +1372,7 @@ TEST(SubaruDensoSh7058CanExecutor, CancellationInterruptsProbeUploadReadCrcErase
     // the following transfer, exit and kernel probe unconsumed.
     {
         auto plan = PlanFor(kVariants.front(), FlashOperation::kRead, {}, bytes::Bytes(129, 0));
-        ASSERT_TRUE(plan.has_value());
+        ASSERT_THAT(plan, IsOk());
         SubaruDensoSh7058CanExecutor executor;
         RecordingCanFlashTransport transport;
         ConfigureAndOpen(executor, *plan, transport);
@@ -1410,14 +1393,13 @@ TEST(SubaruDensoSh7058CanExecutor, CancellationInterruptsProbeUploadReadCrcErase
         FakeClock clock;
         RecordingEventSink events;
         auto result = executor.Execute(*plan, transport, clock, cancellation, events);
-        ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, ErrorKind::kCancelled);
+        ASSERT_THAT(result, IsErr(ErrorKind::kCancelled));
     }
 
     // Read loop boundary after the first page.
     {
         auto plan = PlanFor(kVariants.front(), FlashOperation::kRead);
-        ASSERT_TRUE(plan.has_value());
+        ASSERT_THAT(plan, IsOk());
         SubaruDensoSh7058CanExecutor executor;
         ScriptedCanFlashTransport transport;
         ConfigureAndOpen(executor, *plan, transport);
@@ -1434,14 +1416,13 @@ TEST(SubaruDensoSh7058CanExecutor, CancellationInterruptsProbeUploadReadCrcErase
         PhaseCancellingEventSink events(cancellation, "Read", 0x400);
         FakeClock clock;
         auto result = executor.Execute(*plan, transport, clock, cancellation, events);
-        ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, ErrorKind::kCancelled);
+        ASSERT_THAT(result, IsErr(ErrorKind::kCancelled));
     }
 
     // CRC boundary after the first completed comparison.
     {
         auto plan = PlanFor(kVariants.front(), FlashOperation::kWrite);
-        ASSERT_TRUE(plan.has_value());
+        ASSERT_THAT(plan, IsOk());
         SubaruDensoSh7058CanExecutor executor;
         ScriptedCanFlashTransport transport;
         ConfigureAndOpen(executor, *plan, transport);
@@ -1451,15 +1432,14 @@ TEST(SubaruDensoSh7058CanExecutor, CancellationInterruptsProbeUploadReadCrcErase
         PhaseCancellingEventSink events(cancellation, "Compare", 1);
         FakeClock clock;
         auto result = executor.Execute(*plan, transport, clock, cancellation, events);
-        ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, ErrorKind::kCancelled);
+        ASSERT_THAT(result, IsErr(ErrorKind::kCancelled));
     }
 
     // Erase/write loop boundary after the erase acknowledgement preserves
     // the legacy recovery notice and sends no buffer bytes.
     {
         auto plan = PlanFor(kVariants.front(), FlashOperation::kWrite);
-        ASSERT_TRUE(plan.has_value());
+        ASSERT_THAT(plan, IsOk());
         SubaruDensoSh7058CanExecutor executor;
         ScriptedCanFlashTransport transport;
         ConfigureAndOpen(executor, *plan, transport);
@@ -1474,15 +1454,14 @@ TEST(SubaruDensoSh7058CanExecutor, CancellationInterruptsProbeUploadReadCrcErase
         EraseCancellingEventSink events(cancellation);
         FakeClock clock;
         auto result = executor.Execute(*plan, transport, clock, cancellation, events);
-        ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, ErrorKind::kCancelled);
+        ASSERT_THAT(result, IsErr(ErrorKind::kCancelled));
         EXPECT_TRUE(HasLog(events, LogLevel::kError, "Reflash error! Do not panic, do not reset the ECU immediately"));
     }
 
     // Write boundary after the first buffer write.
     {
         auto plan = PlanFor(kVariants.front(), FlashOperation::kWrite);
-        ASSERT_TRUE(plan.has_value());
+        ASSERT_THAT(plan, IsOk());
         SubaruDensoSh7058CanExecutor executor;
         RecordingCanFlashTransport transport;
         ConfigureAndOpen(executor, *plan, transport);
@@ -1501,15 +1480,14 @@ TEST(SubaruDensoSh7058CanExecutor, CancellationInterruptsProbeUploadReadCrcErase
         FakeClock clock;
         RecordingEventSink events;
         auto result = executor.Execute(*plan, transport, clock, cancellation, events);
-        ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, ErrorKind::kCancelled);
+        ASSERT_THAT(result, IsErr(ErrorKind::kCancelled));
     }
 
     // Commit boundary: cancellation on the final incomplete progress event
     // is observed before the commit command.
     {
         auto plan = PlanFor(kVariants.front(), FlashOperation::kWrite);
-        ASSERT_TRUE(plan.has_value());
+        ASSERT_THAT(plan, IsOk());
         SubaruDensoSh7058CanExecutor executor;
         ScriptedCanFlashTransport transport;
         ConfigureAndOpen(executor, *plan, transport);
@@ -1532,8 +1510,7 @@ TEST(SubaruDensoSh7058CanExecutor, CancellationInterruptsProbeUploadReadCrcErase
         PhaseCancellingEventSink events(cancellation, "Write", 0x0FFF);
         FakeClock clock;
         auto result = executor.Execute(*plan, transport, clock, cancellation, events);
-        ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, ErrorKind::kCancelled);
+        EXPECT_THAT(result, IsErr(ErrorKind::kCancelled));
     }
 }
 
