@@ -1363,6 +1363,98 @@ class ClangTidyRunnerTest(unittest.TestCase):
         self.assertNotIn("1 warning generated", printed)
         self.assertIn("clang-tidy: 1 files clean, 0 findings", printed)
 
+    def test_successful_advisory_findings_are_visible_without_failing(self) -> None:
+        source = self.root / _MAIN_CPP
+        source.write_text("int main() { return 0; }\n")
+        self.write_database([source])
+
+        def fake_run(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+            if "-export-fixes" in command:
+                directory = Path(command[command.index("-export-fixes") + 1])
+                self.write_fixes(
+                    directory,
+                    "advisory.yaml",
+                    [self.diagnostic("custom-fastecu-result-assertion", [])],
+                )
+                return subprocess.CompletedProcess(
+                    command, 0, stdout="main.cpp:1: warning: use Result matcher\n"
+                )
+            return subprocess.CompletedProcess(command, 0)
+
+        output = StringIO()
+        with (
+            mock.patch.object(runner, "discover_tools", return_value=_UNIX_TOOLS),
+            redirect_stdout(output),
+        ):
+            runner.run_workflow(
+                mode="report",
+                workspace=self.root,
+                compdb_tool=_UNIX_COMPDB_TOOL,
+                platform_name="linux",
+                environ={},
+                command_runner=fake_run,
+            )
+        self.assertIn("warning: use Result matcher", output.getvalue())
+        self.assertIn("1 findings", output.getvalue())
+        self.assertNotIn("files clean", output.getvalue())
+
+    def test_custom_pass_uses_adapter_and_covers_application_headers(self) -> None:
+        (self.root / ".clang-tidy").write_text(
+            "Checks: '-*'\nCustomChecks:\n  - Name: fastecu-result-assertion\n"
+        )
+        commands, fake_run = self.prebuild_fixture()
+        output = StringIO()
+        with (
+            mock.patch.object(runner, "discover_tools", return_value=_UNIX_TOOLS),
+            redirect_stdout(output),
+        ):
+            runner.run_workflow(
+                mode="report",
+                workspace=self.root,
+                compdb_tool=_UNIX_COMPDB_TOOL,
+                platform_name="linux",
+                environ={},
+                command_runner=fake_run,
+                jobs=2,
+            )
+        analyses = [command for command in commands if "-clang-tidy-binary" in command]
+        self.assertEqual(2, len(analyses))
+        self.assertNotIn("-checks=-*,custom-fastecu-result-assertion", analyses[0])
+        self.assertIn("clang_tidy_adapter.py", Path(analyses[1][1]).name)
+        self.assertIn("-checks=-*,custom-fastecu-result-assertion", analyses[1])
+        header_filter = next(arg for arg in analyses[1] if arg.startswith("-header-filter="))
+        self.assertIn("apps", header_filter)
+        self.assertIn("tests", header_filter)
+        self.assertIn("-j", analyses[1])
+        self.assertIn("custom-analysis", output.getvalue())
+
+    def test_advisory_header_filter_accepts_both_windows_separator_spellings(self) -> None:
+        expression = runner.advisory_header_filter(PurePath("C:/a/FastECU"))
+        self.assertRegex("C:/a/FastECU/apps/bench/helper.h", expression)
+        self.assertRegex("C:\\a\\FastECU\\tests\\helper.h", expression)
+        self.assertNotRegex("C:/a/FastECU/external/vendor/header.h", expression)
+        self.assertRegex("./src/backend/helper.h", expression)
+
+    def test_baseline_can_disable_custom_pass_and_reuse_prepared_database(self) -> None:
+        (self.root / ".clang-tidy").write_text(
+            "Checks: '-*'\nCustomChecks:\n  - Name: fastecu-result-assertion\n"
+        )
+        commands, fake_run = self.prebuild_fixture()
+        with mock.patch.object(runner, "discover_tools", return_value=_UNIX_TOOLS):
+            report = runner.run_workflow(
+                mode="report",
+                workspace=self.root,
+                compdb_tool=_UNIX_COMPDB_TOOL,
+                platform_name="linux",
+                environ={},
+                command_runner=fake_run,
+                custom_checks=False,
+                reuse_compdb=True,
+            )
+        self.assertEqual(1, len(commands))
+        self.assertEqual(1, report["translation_units"])
+        self.assertNotIn("prebuild", report["phases"])
+
     def test_analysis_failure_prints_diagnostics_and_finding_count(self) -> None:
         source = self.root / _MAIN_CPP
         source.write_text("int main() { return 0; }\n")

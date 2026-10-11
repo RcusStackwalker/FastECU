@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -15,6 +16,7 @@ from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path, PurePath
+from typing import TypedDict
 
 import clang_tidy_profile as profile_report
 import clang_tidy_scope as scope_manifest
@@ -27,6 +29,13 @@ CONFIG_FILE_NAME = ".clang-tidy"
 
 class WorkflowError(RuntimeError):
     """An actionable clang-tidy workflow failure."""
+
+
+class WorkflowReport(TypedDict):
+    translation_units: int
+    phases: dict[str, float]
+    checks: dict[str, float]
+    findings: int
 
 
 @dataclass(frozen=True)
@@ -782,6 +791,13 @@ def _supports_check_profile(
     return "-enable-check-profile" in (_run_quiet(command_runner, command, workspace).stdout or "")
 
 
+def advisory_header_filter(workspace: PurePath) -> str:
+    """First-party headers with Clang's native or normalized separators."""
+    parts = re.split(r"[/\\]", str(workspace))
+    prefix = r"[/\\]".join(re.escape(part) for part in parts)
+    return rf"^({prefix}[/\\]|[.][/\\])?(src|apps|tests|scripts)[/\\].*\.(h|hpp)$"
+
+
 def run_workflow(
     *,
     mode: str,
@@ -795,11 +811,16 @@ def run_workflow(
     changed: bool = False,
     profile: bool = False,
     scope_os: str | None = None,
-) -> None:
+    jobs: int | None = None,
+    custom_checks: bool = True,
+    reuse_compdb: bool = False,
+) -> WorkflowReport | None:
     if mode not in ("report", "fix"):
         raise WorkflowError(f"unsupported mode: {mode}")
     if mode == "fix" and platform_name not in ("darwin", "linux"):
         raise WorkflowError("clang-tidy fix mode is supported only on macOS and Linux")
+    if jobs is not None and jobs < 1:
+        raise WorkflowError("--jobs must be positive")
 
     manifest = _load_scope(workspace)
     scope_prefixes: tuple[PurePath, ...] = ()
@@ -835,12 +856,15 @@ def run_workflow(
         # Not compdb_args: Hedron's refresh rejects target patterns given at run time.
 
     timings = PhaseTimings()
-    with timings.phase("prebuild"):
-        _prebuild(command_runner, build_args, workspace)
-    with timings.phase("compdb-refresh"):
-        refresh_code = _run(command_runner, [compdb_tool, *compdb_args], workspace)
-    if refresh_code:
-        raise WorkflowError(f"compilation database refresher failed with exit code {refresh_code}")
+    if not reuse_compdb:
+        with timings.phase("prebuild"):
+            _prebuild(command_runner, build_args, workspace)
+        with timings.phase("compdb-refresh"):
+            refresh_code = _run(command_runner, [compdb_tool, *compdb_args], workspace)
+        if refresh_code:
+            raise WorkflowError(
+                f"compilation database refresher failed with exit code {refresh_code}"
+            )
 
     with timings.phase("filter"):
         entries = load_project_entries(workspace, workspace / "compile_commands.json")
@@ -902,6 +926,8 @@ def run_workflow(
             # gate.
             "-extra-arg=-Wno-error",
         ]
+        if jobs is not None:
+            command.extend(["-j", str(jobs)])
         if macos_sdk is not None:
             command.extend(
                 [
@@ -926,6 +952,7 @@ def run_workflow(
         print(f"Analyzing {len(entries)} translation units in {mode} mode.")
         with timings.phase("analysis"):
             tidy_result = _run_quiet(command_runner, command, workspace)
+        checks = profile_report.parse_check_profile(tidy_result.stdout or "") if profile else {}
         if profile:
             _emit_profile(tidy_result.stdout or "", timings, len(entries), environ)
         tidy_code = tidy_result.returncode
@@ -953,7 +980,66 @@ def run_workflow(
             if mode == "fix":
                 detail += "; exported fixes were applied before reporting the failure"
             raise WorkflowError(detail)
-        print(f"clang-tidy: {len(entries)} files clean, 0 findings")
+        if finding_count:
+            if tidy_result.stdout:
+                print(tidy_result.stdout, end="")
+            print(f"clang-tidy: {len(entries)} files analyzed, {finding_count} findings (advisory)")
+        else:
+            print(f"clang-tidy: {len(entries)} files clean, 0 findings")
+        if custom_checks:
+            try:
+                configuration = yaml.safe_load(
+                    (workspace / CONFIG_FILE_NAME).read_text(encoding="utf-8")
+                )
+                definitions = (configuration or {}).get("CustomChecks", [])
+                names = [f"custom-{definition['Name']}" for definition in definitions]
+            except (OSError, yaml.YAMLError, AttributeError, KeyError, TypeError) as error:
+                raise WorkflowError(f"could not read inline check definitions: {error}") from error
+            if names:
+                custom_fixes = temp_root / "custom-fixes"
+                custom_fixes.mkdir()
+                # Build the same upstream arguments, changing only check/header scope
+                # and diagnostics destination. The adapter injects a tidy option,
+                # not a compiler option, into every upstream invocation.
+                upstream_arguments = command[
+                    len(_executable_command(tools.run_clang_tidy, platform_name=platform_name)) :
+                ]
+                upstream_arguments = list(upstream_arguments)
+                export_index = upstream_arguments.index("-export-fixes") + 1
+                upstream_arguments[export_index] = str(custom_fixes) + os.sep
+                header_filter = advisory_header_filter(workspace)
+                upstream_arguments.extend(
+                    ["-checks=-*," + ",".join(names), f"-header-filter={header_filter}"]
+                )
+                adapter_command = [
+                    sys.executable,
+                    str(Path(__file__).with_name("clang_tidy_adapter.py")),
+                    "--upstream",
+                    tools.run_clang_tidy,
+                    "--",
+                    *upstream_arguments,
+                ]
+                print(f"Analyzing {len(entries)} translation units with advisory inline checks.")
+                with timings.phase("custom-analysis"):
+                    custom_result = _run_quiet(command_runner, adapter_command, workspace)
+                custom_count = _count_diagnostics(custom_fixes)
+                finding_count += custom_count
+                if custom_result.stdout:
+                    print(custom_result.stdout, end="")
+                if profile:
+                    checks.update(profile_report.parse_check_profile(custom_result.stdout or ""))
+                    _emit_profile(custom_result.stdout or "", timings, len(entries), environ)
+                if custom_result.returncode:
+                    raise WorkflowError(
+                        f"inline check analysis failed with exit code {custom_result.returncode}"
+                    )
+                print(f"clang-tidy: {custom_count} inline findings (advisory)")
+        return {
+            "translation_units": len(entries),
+            "phases": dict(timings.durations),
+            "checks": checks,
+            "findings": finding_count,
+        }
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -962,6 +1048,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--changed", action="store_true")
     parser.add_argument("--profile", action="store_true")
     parser.add_argument("--scope-os")
+    parser.add_argument("--jobs", type=int)
+    parser.add_argument("--no-custom-checks", action="store_true")
+    parser.add_argument(
+        "--reuse-compdb",
+        action="store_true",
+        help="Analyze a previously prepared database without rebuilding or refreshing",
+    )
     parser.add_argument("--compdb-tool", required=True)
     parser.add_argument("--build-arg", action="append", default=[], dest="build_args")
     parser.add_argument("--compdb-arg", action="append", default=[], dest="compdb_args")
@@ -982,6 +1075,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             changed=args.changed,
             profile=args.profile,
             scope_os=args.scope_os,
+            jobs=args.jobs,
+            custom_checks=not args.no_custom_checks,
+            reuse_compdb=args.reuse_compdb,
         )
         return 0
     except WorkflowError as error:
