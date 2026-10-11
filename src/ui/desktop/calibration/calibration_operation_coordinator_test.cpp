@@ -15,9 +15,9 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include "src/algorithms/memory/testing/memory_views.h"
 #include "src/algorithms/memory/memory_image.h"
 #include "src/algorithms/memory/memory_map.h"
+#include "src/algorithms/memory/testing/memory_views.h"
 #include "src/algorithms/protocol/bytes.h"
 #include "src/backend/calibration/session/calibration_session.h"
 #include "src/backend/calibration/session/rom_save.h"

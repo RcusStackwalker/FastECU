@@ -11,8 +11,8 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include "src/algorithms/memory/testing/memory_views.h"
 #include "src/algorithms/memory/memory_map.h"
+#include "src/algorithms/memory/testing/memory_views.h"
 #include "src/backend/calibration/session/testing/fake_definition_catalogs.h"
 #include "src/backend/config/testing/config_session_fixture.h"
 #include "src/backend/ports/testing/in_memory_atomic_file_writer.h"

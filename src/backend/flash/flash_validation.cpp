@@ -1,7 +1,7 @@
 #include "src/backend/flash/flash_validation.h"
 
-#include "src/backend/flash/flash_types.h"
 #include "src/algorithms/memory/memory_image.h"
+#include "src/backend/flash/flash_types.h"
 #include "src/backend/ports/error.h"
 
 #include <cstdint>
@@ -97,7 +97,8 @@ Result<FlashPlan> ValidateAndBuild(FlashPlanFields fields)
         {
             return Fail(ErrorKind::kInvalidConfig, "only a write image can have a memory map");
         }
-        auto placed = memory::MemoryImage::Create(*fields.image_map, *fields.image);
+        auto placed = memory::MemoryImage::Create(*std::move(fields.image_map), *fields.image);
+        fields.image_map.reset();
         if (!placed.has_value())
         {
             return Fail(ErrorKind::kInvalidConfig,

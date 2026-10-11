@@ -109,7 +109,7 @@ Result<RomOpenOutcome> RomOpenUseCase::Finish(Seed seed)
     auto image = config::PlaceRomFile(config_.FindProtocol(flash_method), std::move(seed.rom));
     if (!image.has_value())
     {
-        const auto failed = Fail(ErrorKind::kInvalidConfig, image.error().detail);
+        auto failed = Fail(ErrorKind::kInvalidConfig, image.error().detail);
         LogError("ROM file does not fit its protocol's memory map", failed.error());
         events_.Notice(std::format("File size error: {}", image.error().detail));
         return failed;
