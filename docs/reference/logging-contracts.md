@@ -42,6 +42,11 @@ a protocol factory or worker.
 Later selection edits do not change the worker's session. Only the first
 conversion is used, with fixed decimal display formatting.
 
+Polling channels currently come from the Digital/lower-panel selection. Captured
+gauge and switch selections do not add acquisition requests. The
+[XML workflow](../../resources/shared/config/README.md) describes loading and
+choosing definitions through the existing UI.
+
 - SSM polls disabled channels at their original lower-panel offsets. Its raw
   assembly concatenates the decimal spelling of each byte: `0x01, 0x02` becomes
   `"12"`. This is the conversion-expression input contract, not a decoded
@@ -140,6 +145,25 @@ Absent data remains a no-response poll. Malformed replies follow the existing
 logging retry policy, and a subsequent complete reply can supply measurements.
 The [free-form decoder](../../src/algorithms/protocol/mut_dma/mut_dma_freeform.cpp)
 also rejects payloads whose length differs from the selected widths.
+
+## SSM protocol evidence
+
+The [wire evidence owner](logging-wire-evidence.md) records physical layout,
+response integrity, and the separate maintained/OEM MUT format boundaries.
+
+RomRaider's [request/response example](https://github.com/RomRaider/RomRaider/blob/dafe0c36c1a68efadbeedb2825f3855463fdbc35/docs/ssm_info.txt#L108)
+requests two addresses and receives two data bytes. Its
+[SSM protocol implementation](https://github.com/RomRaider/RomRaider/blob/dafe0c36c1a68efadbeedb2825f3855463fdbc35/src/main/java/com/romraider/io/protocol/ssm/iso9141/SSMProtocol.java#L57)
+defines a three-byte address and one-byte returned datum, and its
+[address expansion](https://github.com/RomRaider/RomRaider/blob/dafe0c36c1a68efadbeedb2825f3855463fdbc35/src/main/java/com/romraider/logger/ecu/definition/EcuAddressImpl.java#L78)
+constructs ordered byte-address requests for multi-byte values.
+
+The current FastECU base-address/Digital-offset path does not establish the same
+mapping for multi-byte values or unresolved selection gaps. The
+[correctness debt](../tech-debt.md#p1-resolve-known-correctness-gaps) owns its
+characterization and correction. Decimal-byte conversion compatibility is a
+separate requirement from correct address-to-response association. Static source
+evidence does not replace the logging checklist's hardware qualification.
 
 ## MUT/DMA protocol evidence
 
