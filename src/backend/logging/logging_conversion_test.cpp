@@ -112,3 +112,14 @@ TEST(LoggingConversionTest, RejectsNonNumericRawValue)
     ASSERT_THAT(ConvertSample(session, ProtocolSample{"rpm", "12ab"}),
                 fastecu::testing::IsErr(fastecu::ErrorKind::kBadResponse));
 }
+
+TEST(LoggingConversionTest, PreparesExpressionWhoseDomainExcludesFormerProbes)
+{
+    auto channel = Channel("rpm", 0x10);
+    channel.from_byte_expression = "1/((x-1)*(x-16)*(x-1616))";
+    auto session = MakeLoggingSession(LoggingProtocolId::kSsm, {channel}, ValidPolicy());
+    ASSERT_THAT(session, fastecu::testing::IsOk());
+    ASSERT_THAT(ConvertSample(*session, ProtocolSample{"rpm", "2"}), fastecu::testing::IsOk());
+    EXPECT_THAT(ConvertSample(*session, ProtocolSample{"rpm", "16"}),
+                fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
+}
