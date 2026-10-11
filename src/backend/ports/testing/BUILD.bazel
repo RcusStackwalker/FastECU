@@ -178,7 +178,10 @@ fastecu_portable_gtest(
 cc_library(
     name = "error_printers",
     hdrs = ["error_printers.h"],
-    deps = ["//src/backend/ports"],
+    deps = [
+        "//src/backend/ports",
+        "@googletest//:gtest",
+    ],
 )
 
 fastecu_portable_gtest(
@@ -186,6 +189,7 @@ fastecu_portable_gtest(
     srcs = ["error_printers_test.cpp"],
     deps = [
         ":error_printers",
+        "//src/backend/ports",
         "@googletest//:gtest",
     ],
 )
