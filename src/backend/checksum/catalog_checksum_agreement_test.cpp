@@ -66,7 +66,7 @@ std::vector<std::uint32_t> AcceptedFileSizes(const config::ProtocolSpec& protoco
     std::vector<std::uint32_t> sizes;
     for (const config::MemoryMapSpec& spec : protocol.memory_maps)
     {
-        sizes.push_back(spec.file_size.Value());
+        sizes.push_back(spec.FileSize().Value());
     }
     if (sizes.empty())
     {

@@ -321,8 +321,7 @@ constexpr config::Catalog kNissanForesterCatalog{config::testing::kStandardProto
 
 // The standard catalog with proto_a declaring one 8-byte memory map at 0x1000.
 constexpr auto kPlacedBlocks = std::to_array({config::FileBlock(0x1000, 8, 0, memory::Writability::kWritable)});
-constexpr auto kPlacedMaps =
-    std::to_array<config::MemoryMapSpec>({{.file_size = memory::ByteCount{8}, .blocks = kPlacedBlocks}});
+constexpr auto kPlacedMaps = std::to_array<config::MemoryMapSpec>({{.blocks = kPlacedBlocks}});
 constexpr auto kPlacedProtocols = []
 {
     auto protocols = config::testing::kStandardProtocols;

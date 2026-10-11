@@ -1,5 +1,7 @@
 #pragma once
 #include <algorithm>
+#include <array>
+#include <concepts>
 #include <cstddef>
 #include <cstdint>
 #include <expected>
@@ -8,6 +10,8 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <utility>
+#include <variant>
 #include <vector>
 
 #include "src/algorithms/memory/address.h"
@@ -31,14 +35,29 @@ enum class ChecksumSupport
 std::string_view ChecksumFlag(ChecksumSupport support);
 
 // One memory map a protocol's ROM files can have. A ROM file selects it by its
-// exact size; see SelectMemoryMap.
+// exact size, FileSize(); see SelectMemoryMap.
 struct MemoryMapSpec
 {
-    memory::ByteCount file_size;
     std::span<const memory::MemoryBlock> blocks;
     // The ECU address that address 0 in these ROMs' definition files stands
     // for (ADR 0020).
     memory::FlashAddress definition_base;
+
+    // Where the furthest-placed ROM file byte ends; 0 with no file-backed
+    // block, and 0xFFFFFFFF when a file range runs past 4 GiB. MemoryMap::Create
+    // rejects both, and any gap or overlap among the file ranges.
+    [[nodiscard]] constexpr memory::ByteCount FileSize() const
+    {
+        std::uint64_t end = 0;
+        for (const memory::MemoryBlock& block : blocks)
+        {
+            if (const auto *file = std::get_if<memory::FileBacking>(&block.backing); file != nullptr)
+            {
+                end = std::max(end, std::uint64_t{file->offset.Value()} + block.range.Size().Value());
+            }
+        }
+        return memory::ByteCount{static_cast<std::uint32_t>(std::min<std::uint64_t>(end, UINT32_MAX))};
+    }
 };
 
 // A ROM-file-backed memory block, for constant catalog data. A range that is
@@ -66,6 +85,65 @@ consteval memory::MemoryBlock FillBlock(std::uint32_t start, std::uint32_t size,
                                      .backing = memory::FillBacking{.value = fill},
                                      .writability = memory::Writability::kReadOnly}
                : throw std::invalid_argument("memory block range is empty or runs past the address space");
+}
+
+// Where one stretch of a linear ROM file starts, and whether it is writable.
+struct LinearSegment
+{
+    std::uint32_t start;
+    memory::Writability writability;
+};
+
+// A read-only stretch of a linear ROM file, from ECU address `start`.
+consteval LinearSegment ReadOnlyFrom(std::uint32_t start)
+{
+    return LinearSegment{.start = start, .writability = memory::Writability::kReadOnly};
+}
+
+// A writable stretch of a linear ROM file, from ECU address `start`.
+consteval LinearSegment WritableFrom(std::uint32_t start)
+{
+    return LinearSegment{.start = start, .writability = memory::Writability::kWritable};
+}
+
+// Where segment `index` ends: the next segment's start, or `file_end` for the last.
+consteval std::uint64_t LinearSegmentEnd(std::span<const LinearSegment> segments, std::size_t index,
+                                         std::uint64_t file_end)
+{
+    return index + 1 < segments.size() ? std::uint64_t{segments[index + 1].start} : file_end;
+}
+
+// The file-backed blocks of a `file_size`-byte ROM file placed linearly from
+// the first segment's start: each segment runs to the next one's start, the
+// last to the file's end, and holds the file bytes at its address less the
+// first start. Starts out of order, a start at or past the file's end, an
+// empty file, or an end past the 32-bit space do not compile.
+template <std::same_as<LinearSegment>... Segments>
+    requires(sizeof...(Segments) > 0)
+consteval std::array<memory::MemoryBlock, sizeof...(Segments)> LinearBlocks(std::uint32_t file_size,
+                                                                            Segments... segments)
+{
+    const std::array<LinearSegment, sizeof...(Segments)> list{segments...};
+    const std::uint32_t base = list[0].start;
+    const std::uint64_t file_end = std::uint64_t{base} + file_size;
+    if (file_size == 0 || file_end > UINT32_MAX)
+    {
+        throw std::invalid_argument("a linear ROM file must be non-empty and end inside the 32-bit space");
+    }
+    for (std::size_t index = 0; index < list.size(); ++index)
+    {
+        if (LinearSegmentEnd(list, index, file_end) <= list[index].start)
+        {
+            throw std::invalid_argument("linear segments must be in address order and start inside the ROM file");
+        }
+    }
+    return [&]<std::size_t... kIndex>(std::index_sequence<kIndex...>) consteval
+    {
+        return std::array<memory::MemoryBlock, sizeof...(Segments)>{
+            FileBlock(list[kIndex].start,
+                      static_cast<std::uint32_t>(LinearSegmentEnd(list, kIndex, file_end) - list[kIndex].start),
+                      list[kIndex].start - base, list[kIndex].writability)...};
+    }(std::index_sequence_for<Segments...>{});
 }
 
 // One flash and logging protocol, as compile-time data.
