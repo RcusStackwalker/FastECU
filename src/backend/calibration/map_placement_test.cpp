@@ -120,11 +120,61 @@ TEST(CheckMapPlacement, ReturnsTheExtentOfTheCells)
 TEST(CheckMapPlacement, TheExtentCoversTheAxesToo)
 {
     auto definition = OneMap(0x10, 4);
-    definition.maps[0].x_axis.address = memory::DefinitionAddress{0x3E};
-    definition.maps[0].x_axis.size = 2;
+    definition.maps[0].x_axis.address = memory::DefinitionAddress{0x3C};
+    definition.maps[0].x_axis.size = 4;
     definition.maps[0].x_axis.storage_type = definition::StorageType::kUint8;
 
     EXPECT_THAT(Check(definition, Layout()), IsOkAnd(MapExtent{.start = 0x10, .end = 0x40}));
+}
+
+// The decoder reads an axis as long as the map's own dimension, so placement
+// checks that many points whatever the axis's own size says.
+TEST(CheckMapPlacement, ChecksTheXAxisAsLongAsTheMapsXDimension)
+{
+    auto definition = OneMap(0x10, 4);
+    definition.maps[0].x_axis.address = memory::DefinitionAddress{0x30};
+    definition.maps[0].x_axis.size = 2;
+    definition.maps[0].x_axis.storage_type = definition::StorageType::kUint8;
+
+    EXPECT_THAT(Check(definition, Layout()), IsOkAnd(MapExtent{.start = 0x10, .end = 0x34}));
+}
+
+TEST(CheckMapPlacement, ChecksTheYAxisAsLongAsTheMapsYDimension)
+{
+    auto definition = OneMap(0x10, 1);
+    definition.maps[0].y_size = 3;
+    definition.maps[0].y_axis.address = memory::DefinitionAddress{0x30};
+    definition.maps[0].y_axis.size = 1;
+    definition.maps[0].y_axis.storage_type = definition::StorageType::kUint8;
+
+    EXPECT_THAT(Check(definition, Layout()), IsOkAnd(MapExtent{.start = 0x10, .end = 0x33}));
+}
+
+// Definition address 0x10 stands for ECU 0xFFFFFFF8 + 0x10, past the 32-bit space.
+TEST(CheckMapPlacement, ARunWhoseEcuAddressPassesTheAddressSpaceIsOutside)
+{
+    const std::array blocks{File(0xFFFFFF00, 0x10, 0x0, kWritable)};
+    const auto layout =
+        memory::MemoryMap::Create(blocks, memory::ByteCount{0x10}, memory::FlashAddress{0xFFFFFFF8}).value();
+
+    EXPECT_THAT(Check(OneMap(0x10, 1), layout),
+                IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("outside the ROM's memory map")));
+}
+
+// A bloblist whose selection value is empty is zero bytes wide: it touches
+// nothing, so it has no placement problem, even over a fill block.
+TEST(CheckMapPlacement, AZeroWidthRunHasNoPlacementProblem)
+{
+    auto definition = OneMap(0x20, 1);
+    definition.maps[0].storage_type = definition::StorageType::kBloblist;
+    definition.maps[0].scaling_name = "Empty";
+    definition::Scaling empty;
+    empty.name = "Empty";
+    empty.storage_type = definition::StorageType::kBloblist;
+    empty.selections.push_back(definition::Selection{.name = "None", .value = {}});
+    definition.scalings.push_back(empty);
+
+    EXPECT_THAT(Check(definition, Layout()), IsOkAnd(MapExtent{.start = 0x20, .end = 0x20}));
 }
 
 TEST(CheckMapPlacement, AMapWithoutAnAddressHasAnEmptyExtent)
