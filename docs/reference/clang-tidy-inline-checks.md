@@ -2,9 +2,9 @@
 
 The [coding guide](../coding-style.md#static-analysis) owns analysis commands
 and enforcement policy. The [configuration](../../.clang-tidy) owns the active
-inline check definitions. These checks report advisory warnings and provide
-no automatic replacements. Existing source violations remain separate cleanup
-work.
+inline check definitions. These checks report errors and provide no
+automatic replacements. The measurements below were recorded while they were
+still advisory warnings, before the source tree was cleaned up.
 
 ## Scope and precision
 
@@ -24,7 +24,7 @@ than searching arbitrary nested function arguments; path construction nested
 inside another call is outside their scope. Directly formatted messages are
 permitted; appending text to a formatted result remains concatenation.
 
-The advisory header filter includes first-party source, application, test, and
+The inline header filter includes first-party source, application, test, and
 script headers, with both native and normalized separators. Analysis still
 depends on the translation units buildable on the host and the headers they
 include. A macOS scan does not establish coverage of Windows-exclusive code

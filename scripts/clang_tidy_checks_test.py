@@ -30,8 +30,8 @@ class ClangTidyChecks(unittest.TestCase):
         # Literal markers identify independently expected user-file locations.
         expected = set()
         for line, text in enumerate(body.splitlines(), 1):
-            if "// warning: " in text:
-                expected.add(("custom-fastecu-" + text.split("// warning: ")[1], line))
+            if "// error: " in text:
+                expected.add(("custom-fastecu-" + text.split("// error: ")[1], line))
         with tempfile.TemporaryDirectory(prefix="fastecu-inline-fixture-") as directory:
             source = Path(directory) / filename
             source.parent.mkdir(parents=True, exist_ok=True)
@@ -68,7 +68,8 @@ class ClangTidyChecks(unittest.TestCase):
                 text=True,
                 cwd=self.workspace,
             )
-            self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+            # Inline findings are errors, so any expected diagnostic fails the run.
+            self.assertEqual(bool(expected), result.returncode != 0, result.stdout + result.stderr)
             actual = set()
             diagnostics = [
                 diagnostic
@@ -80,7 +81,7 @@ class ClangTidyChecks(unittest.TestCase):
                 if Path(message["FilePath"]).resolve() == source.resolve():
                     line = source.read_bytes()[: message["FileOffset"]].count(b"\n") + 1
                     actual.add((diagnostic["DiagnosticName"], line))
-                    self.assertEqual("Warning", diagnostic["Level"])
+                    self.assertEqual("Error", diagnostic["Level"])
                     self.assertEqual([], message["Replacements"])
             self.assertEqual(expected, actual, result.stdout + result.stderr)
 
@@ -97,11 +98,11 @@ TEST(InlineChecks, ResultAssertions) {
     std::optional<int> optional{42};
     fastecu::Result<std::optional<int>> nested{std::optional<int>{42}};
     const auto *pointer = &result;
-    EXPECT_TRUE(result.has_value()); // warning: result-assertion
-    ASSERT_TRUE((status.has_value())); // warning: result-assertion
-    EXPECT_FALSE(!pointer->has_value()); // warning: result-assertion
-    ASSERT_FALSE(result.has_value()); // warning: result-assertion
-    EXPECT_TRUE(nested.has_value()); // warning: result-assertion
+    EXPECT_TRUE(result.has_value()); // error: result-assertion
+    ASSERT_TRUE((status.has_value())); // error: result-assertion
+    EXPECT_FALSE(!pointer->has_value()); // error: result-assertion
+    ASSERT_FALSE(result.has_value()); // error: result-assertion
+    EXPECT_TRUE(nested.has_value()); // error: result-assertion
     EXPECT_TRUE(optional.has_value());
     EXPECT_TRUE(nested->has_value());
     EXPECT_THAT(result, fastecu::testing::IsOk());
@@ -109,7 +110,7 @@ TEST(InlineChecks, ResultAssertions) {
     EXPECT_TRUE(CheckFlags(result.has_value()));
     EXPECT_TRUE(Flag{result.has_value()});
     auto consume = [](auto action) { action(); };
-    consume([&] { EXPECT_TRUE(result.has_value()); }); // warning: result-assertion
+    consume([&] { EXPECT_TRUE(result.has_value()); }); // error: result-assertion
     if (result.has_value()) { EXPECT_EQ(*result, 42); }
 }
 """)
@@ -132,7 +133,7 @@ TEST(InlineChecks, LowLevelResultApi) {
             configuration = {
                 "Checks": "-*,custom-fastecu-header-probe",
                 "WarningsAsErrors": "*,-custom-fastecu-header-probe",
-                "HeaderFilterRegex": runner.advisory_header_filter(self.workspace),
+                "HeaderFilterRegex": runner.inline_header_filter(self.workspace),
                 "CustomChecks": [
                     {
                         "Name": "fastecu-header-probe",
@@ -190,14 +191,14 @@ bool CheckFlags(bool flags) { return flags; }
 TEST(InlineChecks, ContainerAssertions) {
     std::vector<int> values{1, 2};
     auto positive = [](int value) { return value > 0; };
-    EXPECT_TRUE(std::ranges::all_of(values, positive)); // warning: container-assertion
-    ASSERT_FALSE(std::ranges::any_of(values, positive)); // warning: container-assertion
-    EXPECT_FALSE(std::ranges::none_of(values, positive)); // warning: container-assertion
-    ASSERT_TRUE(std::all_of( // warning: container-assertion
+    EXPECT_TRUE(std::ranges::all_of(values, positive)); // error: container-assertion
+    ASSERT_FALSE(std::ranges::any_of(values, positive)); // error: container-assertion
+    EXPECT_FALSE(std::ranges::none_of(values, positive)); // error: container-assertion
+    ASSERT_TRUE(std::all_of( // error: container-assertion
         values.begin(), values.end(), positive));
-    EXPECT_FALSE(std::any_of( // warning: container-assertion
+    EXPECT_FALSE(std::any_of( // error: container-assertion
         values.begin(), values.end(), positive));
-    ASSERT_FALSE(std::none_of( // warning: container-assertion
+    ASSERT_FALSE(std::none_of( // error: container-assertion
         values.begin(), values.end(), positive));
     EXPECT_THAT(values, ::testing::Each(::testing::Gt(0)));
     const bool all_positive = std::ranges::all_of(values, positive);
@@ -206,7 +207,7 @@ TEST(InlineChecks, ContainerAssertions) {
     EXPECT_TRUE(CheckFlags(std::ranges::all_of(values, positive)));
     auto consume = [](auto action) { action(); };
     consume([&] {
-        EXPECT_TRUE(std::ranges::all_of(values, positive)); // warning: container-assertion
+        EXPECT_TRUE(std::ranges::all_of(values, positive)); // error: container-assertion
     });
 }
 """)
@@ -218,16 +219,16 @@ TEST(InlineChecks, ContainerAssertions) {
 #include "src/backend/ports/result.h"
 #include "src/backend/ports/event_sink.h"
 void Messages(fastecu::IEventSink& events, std::string name) {
-    auto bad = fastecu::Fail( // warning: message-concatenation
+    auto bad = fastecu::Fail( // error: message-concatenation
         fastecu::ErrorKind::kTimeout, "timeout: " + name);
-    events.Log(fastecu::LogLevel::kInfo, "selected " + name); // warning: message-concatenation
+    events.Log(fastecu::LogLevel::kInfo, "selected " + name); // error: message-concatenation
     auto formatted = fastecu::Fail(fastecu::ErrorKind::kTimeout, std::format("timeout: {}", name));
     const auto path = "directory/" + name;
     auto literal = fastecu::Fail(fastecu::ErrorKind::kTimeout, "timeout");
     events.Log(fastecu::LogLevel::kInfo, std::format("selected {}", name));
     auto nested_path = fastecu::Fail(fastecu::ErrorKind::kTimeout,
         std::filesystem::path("directory/" + name).string());
-    auto format_then_concat = fastecu::Fail( // warning: message-concatenation
+    auto format_then_concat = fastecu::Fail( // error: message-concatenation
         fastecu::ErrorKind::kTimeout, "prefix " + std::format("{}", name));
 }
 """)
@@ -246,23 +247,23 @@ struct DerivedSink : fastecu::IEventSink {
     void Log(fastecu::LogLevel, std::string_view) override {}
 };
 template<class T> void TemplateMessage(T name) {
-    auto error = fastecu::Fail( // warning: message-concatenation
+    auto error = fastecu::Fail( // error: message-concatenation
         fastecu::ErrorKind::kTimeout, "template " + name);
 }
 void Messages(fastecu::IEventSink& events, DerivedSink& derived, std::string name) {
-    auto parentheses = fastecu::Fail( // warning: message-concatenation
+    auto parentheses = fastecu::Fail( // error: message-concatenation
         fastecu::ErrorKind::kTimeout, (("prefix " + name)));
-    auto chain = fastecu::Fail( // warning: message-concatenation
+    auto chain = fastecu::Fail( // error: message-concatenation
         fastecu::ErrorKind::kTimeout, "prefix " + name + " suffix");
     using fastecu::Fail;
-    auto imported = Fail( // warning: message-concatenation
+    auto imported = Fail( // error: message-concatenation
         fastecu::ErrorKind::kTimeout, name + " suffix");
-    events.Log(fastecu::LogLevel::kInfo, (("prefix " + name))); // warning: message-concatenation
-    events.Log( // warning: message-concatenation
+    events.Log(fastecu::LogLevel::kInfo, (("prefix " + name))); // error: message-concatenation
+    events.Log( // error: message-concatenation
         fastecu::LogLevel::kInfo, "prefix " + name + " suffix");
-    events.Log( // warning: message-concatenation
+    events.Log( // error: message-concatenation
         fastecu::LogLevel::kInfo, std::format("{}", name) + " suffix");
-    derived.fastecu::IEventSink::Log( // warning: message-concatenation
+    derived.fastecu::IEventSink::Log( // error: message-concatenation
         fastecu::LogLevel::kInfo, "prefix " + name);
     derived.Log(fastecu::LogLevel::kInfo, "prefix " + name);
     unrelated::Fail(fastecu::ErrorKind::kTimeout, "prefix " + name);
