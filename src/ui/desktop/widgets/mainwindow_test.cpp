@@ -3245,7 +3245,7 @@ void MainWindowTest::checkLoggingSwitchValuesAndLiteralUnits()
     window.updateLogboxes("SSM");
     auto *flag = window.findChild<QLabel *>("switch_label0");
     ASSERT_NE(flag, nullptr);
-    EXPECT_TRUE(flag->text().contains("Pending", Qt::CaseInsensitive));
+    EXPECT_TRUE(flag->text().contains("Unavailable", Qt::CaseInsensitive));
     window.handleLoggingValuesUpdated(
         {{.channel_id = "parameter:rpm", .numeric_value = 42}, {.channel_id = "switch:rpm", .numeric_value = 1}});
     EXPECT_TRUE(flag->text().contains("ON"));
@@ -3259,6 +3259,13 @@ void MainWindowTest::checkLoggingSwitchValuesAndLiteralUnits()
         EXPECT_EQ(value->text(), "42 <b>unit</b>");
         EXPECT_EQ(value->textFormat(), Qt::PlainText);
     }
+    window.handleLoggingValuesUpdated({{.channel_id = "parameter:rpm", .numeric_value = std::nullopt}});
+    auto *unavailable = window.findChild<QLabel *>("log_label0");
+    ASSERT_NE(unavailable, nullptr);
+    EXPECT_EQ(unavailable->text(), "Unavailable <b>unit</b>");
+    EXPECT_TRUE(flag->text().contains("ON"));
+    window.handleLoggingValuesUpdated({{.channel_id = "parameter:rpm", .numeric_value = 7}});
+    EXPECT_EQ(unavailable->text(), "7 <b>unit</b>");
     window.handleLoggingValuesUpdated({{.channel_id = "switch:rpm", .numeric_value = 0}});
     EXPECT_TRUE(flag->text().contains("OFF"));
     services.logging_engine.Stop();
@@ -3924,8 +3931,8 @@ void MainWindowTest::checkCsvNewRunsOwnNewFiles()
     ASSERT_TRUE(original.open(QIODevice::ReadOnly));
     const auto firstBytes = original.readAll();
     original.close();
-    EXPECT_TRUE(firstBytes.startsWith("Time,rpm,\n"));
-    EXPECT_TRUE(firstBytes.contains(",42,\n"));
+    EXPECT_TRUE(firstBytes.startsWith("Time,rpm\n"));
+    EXPECT_TRUE(firstBytes.contains(",42\n"));
     services.logging_engine.Stop();
     EXPECT_FALSE(window.logging_csv_file_.IsOpen());
     window.continueStartLogging();
@@ -3936,7 +3943,7 @@ void MainWindowTest::checkCsvNewRunsOwnNewFiles()
     ASSERT_TRUE(fresh.open(QIODevice::ReadOnly));
     const auto freshBytes = fresh.readAll();
     fresh.close();
-    EXPECT_FALSE(freshBytes.contains(",42,\n"));
+    EXPECT_FALSE(freshBytes.contains(",42\n"));
     auto *fileAction = window.ui_->actionLogToFile;
     fileAction->setChecked(false);
     window.toggleLogToFile();
@@ -4108,8 +4115,8 @@ void MainWindowTest::checkCsvSharedIdProtocolIdentity()
     QFile csv{window.last_logging_csv_path_};
     ASSERT_TRUE(csv.open(QIODevice::ReadOnly));
     const auto content = csv.readAll();
-    ASSERT_TRUE(content.startsWith("Time,Correct CDBG,Correct CDBG,\n"));
-    ASSERT_TRUE(content.contains(",22.00,22.00,\n"));
+    ASSERT_TRUE(content.startsWith("Time,Correct CDBG\n"));
+    ASSERT_TRUE(content.contains(",22.00\n"));
     ASSERT_TRUE(!content.contains("Wrong SSM"));
     ASSERT_TRUE(!content.contains("11.00"));
     window.endLoggingCsv();
@@ -4161,7 +4168,7 @@ void MainWindowTest::checkCsvEscapesNamesAndValues()
     window.logToFile();
     QFile header{window.last_logging_csv_path_};
     ASSERT_TRUE(header.open(QIODevice::ReadOnly));
-    EXPECT_TRUE(header.readAll().startsWith("Time,\"温度, \"\"CDBG\"\"\r\nreading\",\n"));
+    EXPECT_TRUE(header.readAll().startsWith("Time,\"温度, \"\"CDBG\"\"\r\nreading\"\n"));
     header.close();
     window.logger_model_->SetSelection(
         {.protocol = "CDBG", .gauge_ids = {"rpm"}, .lower_panel_ids = {"unresolved", "missing"}, .switch_ids = {}});
@@ -4169,8 +4176,8 @@ void MainWindowTest::checkCsvEscapesNamesAndValues()
     QFile csv{window.last_logging_csv_path_};
     ASSERT_TRUE(csv.open(QIODevice::ReadOnly));
     const auto content = csv.readAll();
-    EXPECT_TRUE(content.startsWith("Time,\"温度, \"\"CDBG\"\"\r\nreading\",\n"));
-    EXPECT_TRUE(content.contains(",\"温度, \"\"value\"\"\r\n\",\n"));
+    EXPECT_TRUE(content.startsWith("Time,\"温度, \"\"CDBG\"\"\r\nreading\"\n"));
+    EXPECT_TRUE(content.contains(",\"温度, \"\"value\"\"\r\n\"\n"));
     ASSERT_TRUE(!content.contains("Wrong SSM"));
     ASSERT_TRUE(!content.contains("11.00"));
     window.endLoggingCsv();

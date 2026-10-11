@@ -219,7 +219,7 @@ TEST(LoggingSessionTest, SsmRejectsMultiByteAddressOverflow)
                 fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
 }
 
-TEST(LoggingSessionTest, OemMutDialectBoundsEntriesAndOutputBytes)
+TEST(LoggingSessionTest, MutBoundsEntriesAndOutputBytes)
 {
     std::vector<LoggingChannel> sources;
     for (int i = 0; i < 96; ++i)
@@ -228,14 +228,14 @@ TEST(LoggingSessionTest, OemMutDialectBoundsEntriesAndOutputBytes)
         source.length = 1;
         sources.push_back(source);
     }
-    EXPECT_THAT(
-        MakeLoggingSession(LoggingProtocolId::kMutDma, sources, ValidPolicy(), mutdma::FreeformDialect::kOem33520003),
-        fastecu::testing::IsOk());
-    sources[0].length = 2;
-    EXPECT_THAT(
-        MakeLoggingSession(LoggingProtocolId::kMutDma, sources, ValidPolicy(), mutdma::FreeformDialect::kOem33520003),
-        fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
     EXPECT_THAT(MakeLoggingSession(LoggingProtocolId::kMutDma, sources, ValidPolicy()), fastecu::testing::IsOk());
+    sources[0].length = 2;
+    EXPECT_THAT(MakeLoggingSession(LoggingProtocolId::kMutDma, sources, ValidPolicy()),
+                fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
+    sources[0].length = 1;
+    sources.push_back(Channel("overflow", 0x100));
+    EXPECT_THAT(MakeLoggingSession(LoggingProtocolId::kMutDma, sources, ValidPolicy()),
+                fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
 }
 
 TEST(LoggingChannelValidation, SharesExistingBoundsAndExpressionProbes)

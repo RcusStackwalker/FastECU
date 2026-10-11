@@ -27,7 +27,7 @@ std::size_t ReqLen(std::size_t channel_count)
 {
     return (channel_count + 3) / 4 + channel_count * 2 + 0x1c;
 }
-bytes::Bytes BuildIdListFrame(bytes::Byte list_cmd, const std::vector<Channel>& channels, FreeformDialect dialect)
+bytes::Bytes BuildIdListFrame(bytes::Byte list_cmd, const std::vector<Channel>& channels)
 {
     const std::size_t n = channels.size();
     const std::size_t total = ReqLen(n);
@@ -44,15 +44,8 @@ bytes::Bytes BuildIdListFrame(bytes::Byte list_cmd, const std::vector<Channel>& 
     }
     std::size_t id_off = 2 + desc_bytes;
     for (const Channel& channel : channels)
-    { // u16 request codes in the selected dialect byte order
-        if (dialect == FreeformDialect::kOem33520003)
-        {
-            bytes::WriteU16Le(f, id_off, channel.id);
-        }
-        else
-        {
-            bytes::WriteU16Be(f, id_off, channel.id);
-        }
+    { // u16 request codes in the little-endian byte order
+        bytes::WriteU16Le(f, id_off, channel.id);
         id_off += 2;
     }
     f[total - 2] = Sum8(f, 0, total - 2);
@@ -68,8 +61,7 @@ std::size_t ResponseDataLength(const std::vector<Channel>& channels)
     }
     return n;
 }
-std::vector<std::uint32_t> DecodeStreamValues(const std::vector<Channel>& channels, bytes::ByteView data,
-                                              FreeformDialect dialect)
+std::vector<std::uint32_t> DecodeStreamValues(const std::vector<Channel>& channels, bytes::ByteView data)
 {
     if (data.size() != ResponseDataLength(channels))
     {
@@ -80,14 +72,7 @@ std::vector<std::uint32_t> DecodeStreamValues(const std::vector<Channel>& channe
     std::size_t off = 0;
     for (const Channel& c : channels)
     {
-        if (dialect == FreeformDialect::kOem33520003)
-        {
-            out.push_back(bytes::ReadULe(data, off, c.len));
-        }
-        else
-        {
-            out.push_back(bytes::ReadUBe(data, off, c.len));
-        }
+        out.push_back(bytes::ReadULe(data, off, c.len));
         off += c.len;
     }
     return out;

@@ -61,7 +61,7 @@ struct ProtocolSample
 struct LogSample
 {
     std::string channel_id;
-    double numeric_value{};
+    std::optional<double> numeric_value;
     std::string raw_value;
     std::string unit;
 };

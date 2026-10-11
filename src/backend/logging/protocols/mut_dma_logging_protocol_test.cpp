@@ -160,7 +160,7 @@ TEST(MutDmaLoggingProtocolTest, PollReturnsStableIdAndRawDecimalString)
     fastecu::FakeCancellationToken cancellation;
     ASSERT_THAT(protocol->Start(cancellation), fastecu::testing::IsOk());
 
-    bytes::Bytes frame = {0x51, 0x12, 0x34};
+    bytes::Bytes frame = {0x51, 0x34, 0x12};
     frame.push_back(mutdma::Sum8(frame));
     frame.push_back(mutdma::kTrailerStd);
     script->QueueRead(frame);
@@ -188,7 +188,7 @@ TEST(MutDmaLoggingProtocol, PollRejectsShortChecksummedPayloadAndAcceptsNextComp
     auto transport = std::make_unique<ScriptedKlineTransport>();
     ScriptValidHandshake(*transport);
     transport->QueueRead(bytes::Bytes{0x51, 0x12, 0x63, 0x0d});
-    transport->QueueRead(bytes::Bytes{0x51, 0x12, 0x34, 0x97, 0x0d});
+    transport->QueueRead(bytes::Bytes{0x51, 0x34, 0x12, 0x97, 0x0d});
     auto protocol = MakeProtocol(std::move(transport));
     fastecu::FakeCancellationToken cancellation;
     ASSERT_THAT(protocol->Start(cancellation), fastecu::testing::IsOk());
@@ -199,7 +199,7 @@ TEST(MutDmaLoggingProtocol, PollRejectsShortChecksummedPayloadAndAcceptsNextComp
     EXPECT_EQ(result->samples.front().raw_value, "4660");
 }
 
-TEST(MutDmaLoggingProtocol, ExplicitOemDialectUsesLittleEndianRequestsAndSamples)
+TEST(MutDmaLoggingProtocol, UsesFirmwareLittleEndianRequestsAndSamples)
 {
     auto transport = std::make_unique<ScriptedKlineTransport>();
     transport->ExpectWrite(mutdma::BuildSetupFrame(0xa0, 1));
@@ -216,8 +216,7 @@ TEST(MutDmaLoggingProtocol, ExplicitOemDialectUsesLittleEndianRequestsAndSamples
     transport->ExpectWrite(request);
     transport->QueueRead(mutdma::BuildCommandFrame(0x05, {}, mutdma::kTrailerStd));
     transport->QueueRead(bytes::Bytes{0x51, 0x34, 0x12, 0x97, 0x0d});
-    MutDmaLoggingProtocol protocol(std::move(transport), std::make_unique<AlreadyInMode>(125000), {MakeChannel()},
-                                   mutdma::FreeformDialect::kOem33520003);
+    MutDmaLoggingProtocol protocol(std::move(transport), std::make_unique<AlreadyInMode>(125000), {MakeChannel()});
     fastecu::FakeCancellationToken cancellation;
     ASSERT_THAT(protocol.Start(cancellation), fastecu::testing::IsOk());
     const auto result = protocol.Poll(50ms, cancellation);

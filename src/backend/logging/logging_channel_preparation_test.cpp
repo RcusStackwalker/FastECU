@@ -42,25 +42,30 @@ TEST(LoggingChannelPreparation, PreservesExplicitAddressOrder)
     EXPECT_EQ(result->length, 2U);
     EXPECT_EQ(result->byte_addresses, (std::vector<std::uint32_t>{0x11, 0x10}));
 }
-TEST(LoggingChannelPreparation, RejectsConflictingLengthMetadata)
+TEST(LoggingChannelPreparation, CanonicalXmlWidthIgnoresParentAndCompilesDomainRestrictedExpression)
 {
-    auto p = Parameter();
-    p.declared_length = "1";
-    p.address_specs = {{.value = "0x10", .length = "2"}};
-    EXPECT_THAT(PrepareLoggingChannel(p, LoggingProtocolId::kSsm),
-                IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("length")));
+    const std::string xml = R"xml(<logger><protocols><protocol id="SSM"><parameters>
+      <parameter id="rpm" length="4"><address length="2">0x10</address><conversions>
+      <conversion expr="1/((x-1)*(x-16)*(x-1616))" format="0"/>
+      </conversions></parameter></parameters></protocol></protocols></logger>)xml";
+    const auto definition =
+        ParseLoggerDefinition({reinterpret_cast<const bytes::Byte *>(xml.data()), xml.size()}, "canonical.xml");
+    ASSERT_THAT(definition, IsOk());
+    const auto channel = PrepareLoggingChannel(definition->parameters.front(), LoggingProtocolId::kSsm);
+    ASSERT_THAT(channel, IsOk());
+    EXPECT_EQ(channel->length, 2U);
 }
 
-TEST(LoggingChannelPreparation, RejectsConflictingLegacyAndNestedSwitchAddresses)
+TEST(LoggingChannelPreparation, NestedSwitchAddressDoesNotSupplyMissingCanonicalSource)
 {
-    LoggerSwitch source{.protocol = "SSM",
-                        .id = "flag",
-                        .address = "20",
-                        .sample_bit = "5",
-                        .address_specs = {{.value = "20", .bit = "5"}},
-                        .declared_sample_address = "21"};
-    EXPECT_THAT(PrepareLoggingSwitch(source, LoggingProtocolId::kSsm),
-                IsErrWith(ErrorKind::kInvalidConfig, AllOf(HasSubstr("flag"), HasSubstr("address"))));
+    const std::string xml = R"xml(<logger><protocols><protocol id="SSM"><switches>
+      <switch id="flag"><address bit="5">20</address></switch>
+      </switches></protocol></protocols></logger>)xml";
+    const auto definition =
+        ParseLoggerDefinition({reinterpret_cast<const bytes::Byte *>(xml.data()), xml.size()}, "switch.xml");
+    ASSERT_THAT(definition, IsOk());
+    EXPECT_THAT(PrepareLoggingSwitch(definition->switches.front(), LoggingProtocolId::kSsm),
+                IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("flag")));
 }
 
 struct InvalidInput
@@ -229,6 +234,14 @@ TEST(LoggingChannelPreparation, RetainsProtocolLengthBounds)
         }
     }
 }
+TEST(LoggingChannelPreparation, SyntaxErrorIncludesSourcePosition)
+{
+    auto parameter = Parameter();
+    parameter.conversions.front().expr = "x+";
+    EXPECT_THAT(PrepareLoggingChannel(parameter, LoggingProtocolId::kSsm),
+                IsErrWith(ErrorKind::kInvalidConfig, AllOf(HasSubstr("rpm"), HasSubstr("position"))));
+}
+
 TEST(LoggingChannelPreparation, RetainsSharedEvaluatorSyntax)
 {
     auto parameter = Parameter();

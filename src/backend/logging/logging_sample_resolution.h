@@ -16,10 +16,9 @@ struct ResolvedLogSample
 {
     LoggingMeasurementKind kind;
     LoggerIdentity identity;
-    double numeric_value;
+    std::optional<double> numeric_value;
     std::uint8_t decimal_precision;
 };
 
-fastecu::Result<std::optional<ResolvedLogSample>> ResolveLogSample(const LoggingRunSnapshot& snapshot,
-                                                                   const LogSample& sample);
+fastecu::Result<ResolvedLogSample> ResolveLogSample(const LoggingRunSnapshot& snapshot, const LogSample& sample);
 } // namespace fastecu::logging

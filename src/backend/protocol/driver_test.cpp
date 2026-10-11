@@ -68,7 +68,7 @@ TEST(TestDriver, poll_decodes_stream_frame)
     fr.push_back(Sum8(fr));
     fr.push_back(kTrailerStd);
     t.QueueRead(fr);
-    MutDmaDriver d(t, init, FreeformDialect::kOem33520003);
+    MutDmaDriver d(t, init);
     d.SetChannelsForTest(ch);
     fastecu::FakeCancellationToken cancellation;
     const auto result = d.PollOnce(50ms, cancellation);

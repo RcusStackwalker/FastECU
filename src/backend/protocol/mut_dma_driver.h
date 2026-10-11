@@ -16,8 +16,7 @@ namespace mutdma
 class MutDmaDriver
 {
   public:
-    MutDmaDriver(IKlineTransport& transport, IMutDmaInit& init, FreeformDialect dialect = FreeformDialect::kLegacyBe)
-        : t_(transport), init_(init), dialect_(dialect)
+    MutDmaDriver(IKlineTransport& transport, IMutDmaInit& init) : t_(transport), init_(init)
     {
     }
     // Wake + run the free-form handshake for `channels`. setupCmd 0xA0/0xB0,
@@ -46,6 +45,5 @@ class MutDmaDriver
     IMutDmaInit& init_;
     std::vector<Channel> channels_;
     bool streaming_ = false;
-    FreeformDialect dialect_;
 };
 } // namespace mutdma

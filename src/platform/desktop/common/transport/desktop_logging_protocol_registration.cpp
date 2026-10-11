@@ -20,8 +20,7 @@ void RegisterDesktopLoggingProtocols(LoggingEngine& engine, SerialPortActions& s
                                 auto transport = std::make_unique<mutdma::FastEcuKlineTransport>(&serial);
                                 auto init = std::make_unique<mutdma::AlreadyInMode>(125000);
                                 return std::make_unique<fastecu::logging::MutDmaLoggingProtocol>(
-                                    std::move(transport), std::move(init), snapshot.Session().Channels(),
-                                    snapshot.Session().MutDmaDialect());
+                                    std::move(transport), std::move(init), snapshot.Session().Channels());
                             });
 
     engine.RegisterProtocol(

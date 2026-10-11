@@ -63,14 +63,12 @@ buffer byte one; it does not perform a software word swap.
 
 ## Scope
 
-This evidence establishes the `oem-33520003` free-form dialect. The approved
-[dialect policy](logging-wire-evidence.md) makes that dialect explicit in XML and
-retains `legacy-be` as the default for existing definitions. The interim
-unconditional little-endian correction in PR #577 is superseded by that scoped
-selection; the firmware evidence above remains unchanged. Neither dialect has
-recorded working-hardware qualification. Fixed-format DMA logging, memory writes
+This firmware evidence supports the little-endian correction in PR #577.
+Free-form request codes and values use that byte order unconditionally; there is
+no compatibility dialect or XML selector. Fixed-format DMA logging, memory writes
 and other MUT operations retain their own layouts.
 
-The OEM dialect enforces its evidenced 96-entry/96-output-byte bounds. The
-historical format retains the 255-entry representation guard without asserting
-an ECU capacity. See the [dialect evidence](logging-wire-evidence.md) for limits.
+Session preparation enforces the analyzed 96-entry/96-output-byte bounds. The
+count field's 255-entry representation is not an ECU capacity claim. Static
+extraction does not establish working-hardware qualification. See the
+[wire evidence](logging-wire-evidence.md) for scope and limits.

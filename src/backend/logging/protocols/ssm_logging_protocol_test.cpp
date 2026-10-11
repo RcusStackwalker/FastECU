@@ -169,8 +169,8 @@ TEST(SsmLoggingProtocolTest, MapsUnequalWidthChannelsThroughPackedResponseBytes)
     auto *script = transport.get();
     auto clock = fastecu::MakeAutoAdvancingClock(10ms);
     fastecu::FakeCancellationToken cancellation;
-    auto protocol = MakeProtocol(clock, std::move(transport), {Channel("first", 0x1000, 2), Channel("second", 0x2000)},
-                                true, true);
+    auto protocol =
+        MakeProtocol(clock, std::move(transport), {Channel("first", 0x1000, 2), Channel("second", 0x2000)}, true, true);
     const auto result = protocol.Poll(50ms, cancellation);
     ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_TRUE(result->responded);
@@ -462,7 +462,7 @@ TEST_P(SsmNumericDefinitionTest, DecodesBeforeCheckedScaling)
     ASSERT_THAT(session, fastecu::testing::IsOk());
     const auto converted = fastecu::logging::ConvertSample(*session, poll->samples.front());
     ASSERT_THAT(converted, fastecu::testing::IsOk());
-    EXPECT_DOUBLE_EQ(converted->numeric_value, item.expected * 2);
+    EXPECT_EQ(converted->numeric_value, item.expected * 2);
     EXPECT_TRUE(script->Ok());
     EXPECT_TRUE(script->ScriptConsumed());
 }

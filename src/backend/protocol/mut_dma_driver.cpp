@@ -51,7 +51,7 @@ fastecu::Status MutDmaDriver::StartFreeFormLog(const std::vector<Channel>& chann
     {
         return fastecu::Fail(fastecu::ErrorKind::kBadResponse, "MUT/DMA setup acknowledgement invalid");
     }
-    const auto id_list = BuildIdListFrame(list_cmd, channels, dialect_);
+    const auto id_list = BuildIdListFrame(list_cmd, channels);
     if (auto written = WriteFrame(t_, id_list); !written.has_value())
     {
         return written;
@@ -126,6 +126,6 @@ fastecu::Result<std::vector<std::uint32_t>> MutDmaDriver::PollOnce(std::chrono::
         return fastecu::Fail(fastecu::ErrorKind::kBadResponse,
                              "MUT/DMA stream payload length does not match selected widths");
     }
-    return DecodeStreamValues(channels_, s.data, dialect_);
+    return DecodeStreamValues(channels_, s.data);
 }
 } // namespace mutdma

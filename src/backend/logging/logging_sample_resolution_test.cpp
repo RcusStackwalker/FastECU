@@ -40,10 +40,9 @@ TEST(LoggingSampleResolution, DerivesIdentityAndPrecisionFromCapturedRun)
     ASSERT_THAT(run, IsOk());
     const auto result = ResolveLogSample(*run, {.channel_id = "parameter:rpm", .numeric_value = 1234.5});
     ASSERT_THAT(result, IsOk());
-    ASSERT_TRUE(result->has_value());
-    EXPECT_EQ((*result)->identity, (LoggerIdentity{"SSM", "rpm"}));
-    EXPECT_DOUBLE_EQ((*result)->numeric_value, 1234.5);
-    EXPECT_EQ((*result)->decimal_precision, 2);
+    EXPECT_EQ(result->identity, (LoggerIdentity{"SSM", "rpm"}));
+    EXPECT_EQ(result->numeric_value, 1234.5);
+    EXPECT_EQ(result->decimal_precision, 2);
 }
 
 TEST(LoggingSampleResolution, ExplicitUnknownSelectionResolvesIndependentlyOfDefaultEligibility)
@@ -52,14 +51,12 @@ TEST(LoggingSampleResolution, ExplicitUnknownSelectionResolvesIndependentlyOfDef
     const auto cdbg = Snapshot(LoggingProtocolId::kCdbg, "CDBG", false);
     ASSERT_THAT(ssm, IsOk());
     ASSERT_THAT(cdbg, IsOk());
-    const auto skipped = ResolveLogSample(*ssm, {.channel_id = "parameter:rpm", .numeric_value = 9});
-    ASSERT_THAT(skipped, IsOk());
-    ASSERT_TRUE(skipped->has_value());
-    EXPECT_EQ((*skipped)->kind, LoggingMeasurementKind::kParameter);
+    const auto accepted = ResolveLogSample(*ssm, {.channel_id = "parameter:rpm", .numeric_value = 9});
+    ASSERT_THAT(accepted, IsOk());
+    EXPECT_EQ(accepted->kind, LoggingMeasurementKind::kParameter);
     const auto shown = ResolveLogSample(*cdbg, {.channel_id = "parameter:rpm", .numeric_value = 9});
     ASSERT_THAT(shown, IsOk());
-    ASSERT_TRUE(shown->has_value());
-    EXPECT_EQ((*shown)->identity, (LoggerIdentity{"CDBG", "rpm"}));
+    EXPECT_EQ(shown->identity, (LoggerIdentity{"CDBG", "rpm"}));
 }
 
 TEST(LoggingSampleResolution, UnknownIdIsAnErrorRatherThanADisabledSkip)

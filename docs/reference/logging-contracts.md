@@ -46,18 +46,22 @@ switch namespaces remain distinct. Distinct definitions keep separate acquisitio
 Selected unresolved or known-unsupported entries fail before any protocol factory
 starts. Unknown support does not silently omit an explicit selection. Each selected
 source validates its syntax, width, conversion and aggregate protocol budget.
-Changing selections persists pending choices, shows a restart-needed state, and
+Changing selections persists pending choices, shows a restart-needed state only
+while they differ from the captured choices, and
 keeps active acquisition, displays and CSV columns unchanged until the next run.
 XML definition edits require an application restart.
 
 [SSM read plans](../../src/backend/logging/logging_read_plan.h) expand multi-byte
 sources into ordered byte addresses and map complete replies back to logical
 measurements. The 84-entry limit counts requested addresses, rather than display
-positions or logical channels. Raw parameter conversion still concatenates decimal
-byte spellings: `0x01,0x02` supplies `"12"`, not a decoded big-endian integer.
+positions or logical channels. Contiguous base-plus-width sources and explicit
+ordered byte-address lists normalize into this plan without sharing physical reads
+between distinct definitions. Binary bytes decode before scaling: `0x01,0x02`
+supplies 258 with the unsigned big-endian default.
 
-MUT/DMA and CDBG supply unsigned integer decimal input. MUT uses the explicitly
-selected dialect described by the [wire evidence](logging-wire-evidence.md).
+MUT/DMA and CDBG supply unsigned integer decimal input. MUT free-form request
+codes and values always use firmware-backed little endian, as recorded in the
+[wire evidence](logging-wire-evidence.md).
 CDBG publishes only channels from the received CAN frame, with their captured
 logical positions; it does not manufacture values for unseen frames. Desktop
 caches retain last-known values only within the active run.
@@ -70,10 +74,10 @@ Conversion expressions use the shared
 `double` arithmetic throughout; intermediate results are not rounded. Raw
 parameter input must be a finite decimal number; malformed raw input is
 `kBadResponse`, and an expression that fails evaluation is `kInvalidConfig`.
-Session preparation accepts an expression if it evaluates for at least one of
-1, 16 and 1616. Switch raw input must be a one-byte unsigned decimal value before
-its sample bit is extracted. Expression compilation per run remains tracked in
-[#575](https://github.com/RcusStackwalker/FastECU/issues/575).
+Session preparation compiles owned expressions once, without arbitrary trial inputs.
+Syntax failures include their source position; checked runtime failures include the
+failed operation. Polling evaluates the immutable compiled representation. Switch
+raw input must be a one-byte unsigned decimal value before its sample bit is extracted.
 
 ## Definition input validation
 
@@ -90,11 +94,13 @@ valid and display without a suffix. Omitted XML attributes retain parser
 defaults: units `#`, expression `x`, format `0.00`, and length `1` for a parameter
 with an address.
 
-Standard nested `<address length="...">` metadata and legacy parameter-level
-lengths are normalized before validation. Multiple explicit SSM byte addresses
-retain their order; inconsistent lengths, address overflow and invalid switch bits
-fail selected-source preparation. Nested switch sample bits and top-level ECU
-capability bits have distinct roles; a legacy sample bit is not capability evidence.
+Parameter width comes solely from nested `<address length="...">`, defaulting to
+one when absent. Parameter-level width is ignored. Multiple explicit SSM byte
+addresses retain their order and each declares at most one byte. Inconsistent
+lengths, address overflow and invalid switch bits fail selected-source preparation.
+Switches use top-level `byte` and `bit`; nested addresses and `ecubit` do not supply
+switch metadata. The same external bit supplies sample extraction and, when
+`ecubyteindex` is present, capability evidence. These roles remain separate internally.
 
 The first conversion supplies parameter scaling, units and fixed display precision.
 Selected malformed fields fail with protocol, identity, field and reason. Repeated
@@ -108,12 +114,17 @@ internal transport identities through captured measurement records to the user
 identity, kind, numeric value and precision. It does not infer kind from user text.
 Desktop code owns fixed formatting and separate parameter/switch caches. Each run
 starts its selected cache entries unavailable until sampled; missing current-run
-readings appear blank in CSV and Pending in active displays.
+readings appear blank in CSV and Unavailable in active displays.
 
 SSM and MUT reject incomplete/checksum-invalid response shapes before delivering
 values. A checksum-valid short MUT payload cannot fabricate zero readings. Bad
-responses follow the existing polling retry policy. Unknown raw channels or
-nonfinite conversions terminate the run before publishing any part of that batch.
+responses follow the existing polling retry policy. A value-dependent compiled
+conversion failure emits an explicit unavailable reading for only that measurement;
+healthy peers continue and a later successful conversion restores it. The desktop
+clears its cached value, so CSV and displays cannot present a stale reading as
+current. Diagnostics report at most once per measurement per run. Invalid expressions
+fail preparation; unknown raw channels remain internal errors and prevent batch
+publication. Malformed numeric input remains a bad-response error.
 Delivered identity/cache errors report an error and permit other samples to
 continue. The desktop keeps per-sample active-run checks and worker generation
 fencing across restarts. User-defined names/units display literally.
@@ -148,7 +159,7 @@ OpenPort keeps its single adapter read per response.
 Startup requires a checksum-valid `0xE8` response with exactly one probe data
 byte (seven bytes including framing). Polling checks the header, captured sender,
 declared total length and checksum before delivering samples. Invalid or missing
-poll replies deliver no samples and retain the existing retry behavior. Mapping uses the captured physical response positions and decimal-byte assembly;
+poll replies deliver no samples and retain the existing retry behavior. Mapping uses the captured physical response positions and binary numeric assembly;
 the read plan expands logical widths into the requested byte addresses.
 
 Backend scripted TCU responses verify target-aware parsing. Direct desktop TCU
@@ -166,10 +177,10 @@ tab indentation would otherwise reformat existing files on save. The
 contract.
 
 The [portable column policy](../../src/backend/logging/logging_csv_columns.h)
-resolves captured gauge → Digital → switch columns, retaining repeated display
-positions. The [portable record serializer](../../src/backend/logging/logging_csv_record.h)
-quotes commas, quotes and CR/LF, preserves UTF-8 and trailing commas, and keeps
-field positions stable. Desktop code supplies fixed numeric formatting and elapsed
+exports unique acquired measurements in first-occurrence gauge → Digital → switch
+order. Repeated positions share one column; parameter and switch IDs stay distinct. The [portable record serializer](../../src/backend/logging/logging_csv_record.h)
+quotes commas, quotes and CR/LF, preserves UTF-8 and empty field positions, and adds no extra trailing column.
+A final unavailable field still requires its preceding delimiter. Desktop code supplies fixed numeric formatting and elapsed
 run time, binds columns to current-run caches, and owns filesystem operations.
 
 The [desktop CSV adapter](../../src/platform/desktop/common/logging/logging_csv_file.h)
@@ -187,24 +198,6 @@ a new run or explicit re-enable retries creation. Pending edits cannot change an
 active file's column meanings. Hardware checks remain owned by the
 [logging engine](../checklists/logging-engine-bench-checklist.md) and
 [composition](../checklists/logging-composition-bench-checklist.md) checklists.
-
-## SSM protocol evidence
-
-The [wire evidence owner](logging-wire-evidence.md) records physical layout,
-response integrity, and the separate maintained/OEM MUT format boundaries.
-
-RomRaider's [request/response example](https://github.com/RomRaider/RomRaider/blob/dafe0c36c1a68efadbeedb2825f3855463fdbc35/docs/ssm_info.txt#L108)
-requests two addresses and receives two data bytes. Its
-[SSM protocol implementation](https://github.com/RomRaider/RomRaider/blob/dafe0c36c1a68efadbeedb2825f3855463fdbc35/src/main/java/com/romraider/io/protocol/ssm/iso9141/SSMProtocol.java#L57)
-defines a three-byte address and one-byte returned datum, and its
-[address expansion](https://github.com/RomRaider/RomRaider/blob/dafe0c36c1a68efadbeedb2825f3855463fdbc35/src/main/java/com/romraider/logger/ecu/definition/EcuAddressImpl.java#L78)
-constructs ordered byte-address requests for multi-byte values.
-
-FastECU uses ordered physical byte plans and complete-response mapping.
-The [wire evidence owner](logging-wire-evidence.md) records literal packets and
-dialect-specific boundaries. Decimal-byte conversion compatibility is a
-separate requirement from correct address-to-response association. Static source
-evidence does not replace the logging checklist's hardware qualification.
 
 ## MUT/DMA response integrity
 
@@ -226,12 +219,11 @@ original extraction; it is not a deleted FastECU-local spec.
 
 The [free-form wire evidence](logging-mut-freeform-wire.md) records
 little-endian request codes and multi-byte values in Colt 33520003 firmware.
-The approved [dialect policy](logging-wire-evidence.md) scopes those properties to
-XML `dialect="oem-33520003"`, with 96-entry/96-byte guards. Omitted dialect or
-`dialect="legacy-be"` retains the historical big-endian format and 255-entry
-representation guard; neither is a claim of hardware qualification. This explicit
-policy supersedes the interim unconditional little-endian implementation from
-PR #577. Other MUT command layouts retain their own byte order.
+PR #577 corrected the old big-endian interpretation. There is no compatibility
+dialect or XML selector. Preparation permits at most 96 entries and 96 requested
+response bytes, matching the analyzed firmware. The count field's 255-entry
+representation is not demonstrated ECU capacity. Other MUT commands retain their
+own byte order; no ROM match or inferred capability from ACK/data is required.
 
 The maintained [codec sources](../../src/algorithms/protocol/mut_dma/) and
 [driver sources](../../src/backend/protocol/) describe implemented behavior.
@@ -273,21 +265,6 @@ attribute is rejected for these protocols. Default metadata does not override
 protocol byte order. Existing protocol bounds and shared expression validation
 remain applicable. Errors identify the definition's protocol, parameter ID and
 invalid field.
-
-## Delivered sample validation
-
-[Sample resolution](../../src/backend/logging/logging_sample_resolution.h)
-derives identity and precision from a validated run. An unknown delivered ID is
-a `kInternal` error; an unsupported SSM sample is deliberately skipped; other
-known samples return captured identity, numeric value and precision. Conversion
-remains the acquisition use case's responsibility. A raw-channel or conversion
-failure prevents publication of the entire polling batch.
-
-The desktop adapter delegates identity and eligibility policy to this resolver.
-Desktop owns formatting, cache lookup/mutation and reporting missing cache
-entries. Delivered identity errors allow subsequent valid samples to continue;
-existing cache values remain intact. The UI rechecks the active snapshot between
-samples because error reporting may synchronously stop the run.
 
 ## SSM definition numeric evidence
 

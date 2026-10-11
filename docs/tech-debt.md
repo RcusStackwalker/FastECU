@@ -51,8 +51,8 @@ coordinators retain their UI roles; see the relevant
   reproduce it and distinguish a description fix from wire behavior changes.
 - **MUT/DMA free-form capacity.** The count field's 255-entry representation
   limit is not ECU capacity. The analyzed 33520003 firmware bounds the fill loop
-  to 96 entries and 96 output bytes; the confirmed logging rewrite will enforce
-  those bounds without an XML dialect selector. The
+  to 96 entries and 96 output bytes; session preparation enforces those bounds.
+  End-to-end qualification remains outstanding. The
   [wire evidence](reference/logging-wire-evidence.md) owns the firmware source.
   ACKs and returned values do not establish per-measurement availability or meaning.
 - **MUT memory read integrity/write bounds.** The currently uncalled helpers can

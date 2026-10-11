@@ -6,17 +6,17 @@
 
 namespace fastecu::logging
 {
-TEST(LoggingCsvRecordTest, PreservesColumnOrderEmptyFieldsAndTrailingComma)
+TEST(LoggingCsvRecordTest, PreservesColumnOrderAndEmptyLastFieldWithoutExtraColumn)
 {
     const std::array<std::string_view, 3> fields{"Time", "RPM", "Flag"};
-    EXPECT_EQ(SerializeLoggingCsvRecord(fields), "Time,RPM,Flag,\n");
+    EXPECT_EQ(SerializeLoggingCsvRecord(fields), "Time,RPM,Flag\n");
     const std::array<std::string_view, 3> empty{"", "rpm", ""};
-    EXPECT_EQ(SerializeLoggingCsvRecord(empty), ",rpm,,\n");
+    EXPECT_EQ(SerializeLoggingCsvRecord(empty), ",rpm,\n");
 }
 TEST(LoggingCsvRecordTest, QuotesCommasQuotesLineBreaksAndPreservesUtf8)
 {
     const std::array<std::string_view, 5> fields{"a,b", "a\"b", "a\rb", "a\nb", "温度"};
-    EXPECT_EQ(SerializeLoggingCsvRecord(fields), "\"a,b\",\"a\"\"b\",\"a\rb\",\"a\nb\",温度,\n");
+    EXPECT_EQ(SerializeLoggingCsvRecord(fields), "\"a,b\",\"a\"\"b\",\"a\rb\",\"a\nb\",温度\n");
 }
 TEST(LoggingCsvRecord, EmptyRecordContainsOnlyLineEnding)
 {

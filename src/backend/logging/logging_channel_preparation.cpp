@@ -147,14 +147,6 @@ fastecu::Result<LoggingChannel> PrepareLoggingChannel(const LoggerParameter& par
         {
             length = byte_addresses.size();
         }
-        if (parameter.declared_length.has_value())
-        {
-            std::size_t declared = 0;
-            if (!ParseUnsigned(*parameter.declared_length, 10, declared) || declared != length)
-            {
-                return std::unexpected(ContextualError(parameter, "conflicting address/parameter length metadata"));
-            }
-        }
         address = byte_addresses.front();
         if (!explicit_bytes)
         {
@@ -224,35 +216,12 @@ Result<LoggingChannel> PrepareLoggingSwitch(const LoggerSwitch& source, LoggingP
         return Fail(ErrorKind::kInvalidConfig,
                     std::format("{} switch {}: invalid sample bit; expected 0–7", source.protocol, source.id));
     }
-    if (source.declared_sample_address.has_value())
-    {
-        std::uint32_t declared = 0;
-        std::uint32_t actual = 0;
-        if (!ParseUnsigned(*source.declared_sample_address, 16, declared) ||
-            !ParseUnsigned(source.address, 16, actual) || declared != actual)
-        {
-            return Fail(ErrorKind::kInvalidConfig,
-                        std::format("{} switch {}: conflicting or invalid sample address metadata", source.protocol,
-                                    source.id));
-        }
-    }
     LoggerParameter parameter{.protocol = source.protocol,
                               .id = source.id,
                               .name = source.name,
                               .address = source.address,
                               .length = "1",
                               .conversions = {{.units = "", .expr = "x", .format = "0"}}};
-    for (const auto& address : source.address_specs)
-    {
-        if (address.bit.has_value() && *address.bit != source.sample_bit)
-        {
-            return Fail(ErrorKind::kInvalidConfig,
-                        std::format("{} switch {}: conflicting sample bits", source.protocol, source.id));
-        }
-        auto normalized = address;
-        normalized.bit.reset();
-        parameter.address_specs.push_back(std::move(normalized));
-    }
     auto result = PrepareLoggingChannel(parameter, protocol);
     if (!result.has_value())
     {

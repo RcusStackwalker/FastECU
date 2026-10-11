@@ -50,10 +50,6 @@ LoggerParameter ParseParameter(pugi::xml_node node, std::string_view protocol)
     {
         parameter.address = address.child_value();
         parameter.length = AttributeOr(address, "length", "1");
-        if (node.attribute("length"))
-        {
-            parameter.declared_length = node.attribute("length").value();
-        }
         for (pugi::xml_node item : node.children("address"))
         {
             parameter.address_specs.push_back(
@@ -73,29 +69,18 @@ LoggerParameter ParseParameter(pugi::xml_node node, std::string_view protocol)
 
 LoggerSwitch ParseSwitch(pugi::xml_node node, std::string_view protocol)
 {
-    const auto address = node.child("address");
     LoggerSwitch result{
         .protocol = std::string(protocol),
         .id = AttributeOr(node, "id", "No id"),
         .name = AttributeOr(node, "name", "No name"),
         .description = AttributeOr(node, "desc", "No desc"),
-        .address = address ? address.child_value() : AttributeOr(node, "byte", "No address"),
+        .address = AttributeOr(node, "byte", "No address"),
         .ecu_byte_index = AttributeOr(node, "ecubyteindex", "No ecu byte index"),
-        .ecu_bit = AttributeOr(node, "ecubit", address ? AttributeOr(node, "bit", "No ecu bit").c_str() : "No ecu bit"),
+        .ecu_bit = AttributeOr(node, "bit", "No ecu bit"),
         .target = AttributeOr(node, "target", "No target"),
         .enabled = AttributeOr(node, "enabled", "0") == "1",
-        .sample_bit = address ? AttributeOr(address, "bit", "") : AttributeOr(node, "bit", ""),
-        .declared_sample_address =
-            node.attribute("byte") ? std::optional<std::string>{node.attribute("byte").value()} : std::nullopt,
+        .sample_bit = AttributeOr(node, "bit", ""),
     };
-    for (pugi::xml_node item : node.children("address"))
-    {
-        result.address_specs.push_back(
-            {.value = item.child_value(),
-             .length =
-                 item.attribute("length") ? std::optional<std::string>{item.attribute("length").value()} : std::nullopt,
-             .bit = item.attribute("bit") ? std::optional<std::string>{item.attribute("bit").value()} : std::nullopt});
-    }
     return result;
 }
 
@@ -120,7 +105,6 @@ Result<LoggerDefinition> ParseLoggerDefinition(bytes::ByteView xml, std::string_
     for (pugi::xml_node protocol : root.child("protocols").children("protocol"))
     {
         const std::string protocol_id = AttributeOr(protocol, "id", "No protocol id");
-        definition.protocols.push_back({protocol_id, AttributeOr(protocol, "dialect", "")});
         for (pugi::xml_node parameter : protocol.child("parameters").children("parameter"))
         {
             definition.parameters.push_back(ParseParameter(parameter, protocol_id));

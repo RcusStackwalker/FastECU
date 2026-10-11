@@ -60,7 +60,7 @@ TEST(LoggingCsvFileTest, IdenticalRapidRunsAndExistingNamesPreserveCompletedOutp
     ASSERT_THAT(writer.AppendRow(values, 1234ms), fastecu::testing::IsOk());
     ASSERT_THAT(writer.EndRun(), fastecu::testing::IsOk());
     const auto first_bytes = Read(*first);
-    EXPECT_EQ(first_bytes, QByteArray("Time,\"RPM, speed\",\"RPM, speed\",Flag,\n1.234,42.00,42.00,1,\n"));
+    EXPECT_EQ(first_bytes, QByteArray("Time,\"RPM, speed\",Flag\n1.234,42.00,1\n"));
     const auto second = writer.BeginRun(*run, directory.path(), "run");
     ASSERT_THAT(second, fastecu::testing::IsOk());
     EXPECT_NE(*first, *second);
@@ -69,9 +69,36 @@ TEST(LoggingCsvFileTest, IdenticalRapidRunsAndExistingNamesPreserveCompletedOutp
     ASSERT_THAT(writer.EndRun(), fastecu::testing::IsOk());
     EXPECT_EQ(Read(*first), first_bytes);
     EXPECT_EQ(Read(existing.fileName()), "preserve");
-    EXPECT_EQ(Read(*second), QByteArray("Time,\"RPM, speed\",\"RPM, speed\",Flag,\n0,,,,\n"));
+    EXPECT_EQ(Read(*second), QByteArray("Time,\"RPM, speed\",Flag\n0,,\n"));
     EXPECT_FALSE(writer.IsOpen());
     EXPECT_THAT(writer.EndRun(), fastecu::testing::IsOk());
+}
+TEST(LoggingCsvFileTest, UnavailableUpdateClearsOnlyItsCsvCellAndRecovers)
+{
+    QTemporaryDir directory;
+    ASSERT_TRUE(directory.isValid());
+    const auto run = Snapshot();
+    ASSERT_THAT(run, fastecu::testing::IsOk());
+    DesktopLoggerValues values;
+    values.BeginRun(*run);
+    LoggingCsvFile writer;
+    const auto path = writer.BeginRun(*run, directory.path(), "availability");
+    ASSERT_THAT(path, fastecu::testing::IsOk());
+    ASSERT_THAT(ApplyLogSample(*run, {.channel_id = "parameter:rpm", .numeric_value = 42}, values),
+                fastecu::testing::IsOk());
+    ASSERT_THAT(ApplyLogSample(*run, {.channel_id = "switch:rpm", .numeric_value = 1}, values),
+                fastecu::testing::IsOk());
+    ASSERT_THAT(writer.AppendRow(values, 0ms), fastecu::testing::IsOk());
+    ASSERT_THAT(ApplyLogSample(*run, {.channel_id = "parameter:rpm", .numeric_value = std::nullopt}, values),
+                fastecu::testing::IsOk());
+    EXPECT_TRUE(values.ParameterValue("SSM", "rpm").isEmpty());
+    EXPECT_EQ(values.SwitchValue("SSM", "rpm"), "1");
+    ASSERT_THAT(writer.AppendRow(values, 1ms), fastecu::testing::IsOk());
+    ASSERT_THAT(ApplyLogSample(*run, {.channel_id = "parameter:rpm", .numeric_value = 9}, values),
+                fastecu::testing::IsOk());
+    ASSERT_THAT(writer.AppendRow(values, 2ms), fastecu::testing::IsOk());
+    ASSERT_THAT(writer.EndRun(), fastecu::testing::IsOk());
+    EXPECT_EQ(Read(*path), QByteArray("Time,\"RPM, speed\",Flag\n0,42.00,1\n0.001,,1\n0.002,9.00,1\n"));
 }
 TEST(LoggingCsvFileTest, CreationFailureDoesNotClaimOwnership)
 {
@@ -100,7 +127,7 @@ TEST(LoggingCsvFileTest, WriteFailureReleasesOwnershipAndReturnsAnError)
     injected->fail_writes = true;
     EXPECT_THAT(writer.AppendRow(values, 0ms), fastecu::testing::IsErr(ErrorKind::kInternal));
     EXPECT_FALSE(writer.IsOpen());
-    EXPECT_EQ(Read(*path), QByteArray("Time,\"RPM, speed\",\"RPM, speed\",Flag,\n"));
+    EXPECT_EQ(Read(*path), QByteArray("Time,\"RPM, speed\",Flag\n"));
 }
 } // namespace
 } // namespace fastecu::desktop::logging

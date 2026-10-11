@@ -167,31 +167,7 @@ fastecu::Result<LoggingRunSnapshot> PrepareLoggingRun(const LoggerModel& model, 
             return std::unexpected(status.error());
         }
     }
-    auto dialect = mutdma::FreeformDialect::kLegacyBe;
-    if (protocol == LoggingProtocolId::kMutDma)
-    {
-        std::size_t matches = 0;
-        for (const auto& source : model.Definition().protocols)
-        {
-            if (source.id != *filter)
-            {
-                continue;
-            }
-            if (++matches > 1)
-            {
-                return Fail(ErrorKind::kInvalidConfig, "MUT_DMA: duplicate protocol dialect declarations");
-            }
-            if (source.dialect == "oem-33520003")
-            {
-                dialect = mutdma::FreeformDialect::kOem33520003;
-            }
-            else if (!source.dialect.empty() && source.dialect != "legacy-be")
-            {
-                return Fail(ErrorKind::kInvalidConfig, std::format("MUT_DMA: unknown dialect '{}'", source.dialect));
-            }
-        }
-    }
-    auto session = MakeLoggingSession(protocol, std::move(channels), policy, dialect);
+    auto session = MakeLoggingSession(protocol, std::move(channels), policy);
     if (!session.has_value())
     {
         return Fail(session.error().kind, std::format("{}: {}", *filter, session.error().detail));

@@ -5,8 +5,14 @@ namespace fastecu::logging
 std::string SerializeLoggingCsvRecord(std::span<const std::string_view> fields)
 {
     std::string record;
+    bool first = true;
     for (const auto field : fields)
     {
+        if (!first)
+        {
+            record.push_back(',');
+        }
+        first = false;
         const bool quote = field.find_first_of(",\"\r\n") != std::string_view::npos;
         if (quote)
         {
@@ -24,7 +30,6 @@ std::string SerializeLoggingCsvRecord(std::span<const std::string_view> fields)
         {
             record.push_back('"');
         }
-        record.push_back(',');
     }
     record.push_back('\n');
     return record;

@@ -37,8 +37,6 @@ than copying its inventory.
 
 ## Active work
 
-The [logging selection rewrite](superpowers/specs/2026-10-11-logging-selection-rewrite.md) records the confirmed changes to the earlier proposal.
-
 Task-specific specs and plans exist only while their work is proposed or unfinished.
 Find them, when present, with:
 

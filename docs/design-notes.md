@@ -133,15 +133,17 @@ owns the accepted syntax and failure behavior.
 
 Acquisition uses the union of selected gauges, Digital values and switches,
 sharing repeated identities within each measurement kind. Active displays and CSV
-columns use captured metadata; saved edits show a restart-needed state. Portable
+columns use captured metadata; saved edits show a restart-needed state only when
+they differ. CSV exports each acquired identity once. Portable
 column projection/record serialization define output, while the desktop creates
 and closes an exclusive CSV for every run. These contracts are owned by the
 [logging reference](reference/logging-contracts.md).
 
 SSM decodes binary numeric values before applying scaling, using the first
 conversion's storage and byte-order metadata. Its portable read plan maps
-contiguous requested bytes independently of display positions. CSV and selection
-persistence retain their existing contracts. Read the relevant section of the
+contiguous sources and ordered byte-address lists independently of display positions.
+Run-owned compiled expressions use checked arithmetic; a value-dependent failure
+clears only that measurement for the current update while healthy peers continue. Read the relevant section of the
 [logging reference](reference/logging-contracts.md) before changing these semantics.
 
 ## Definitions

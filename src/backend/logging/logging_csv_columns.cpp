@@ -5,31 +5,10 @@ namespace fastecu::logging
 Result<std::vector<LoggingCsvColumn>> PrepareLoggingCsvColumns(const LoggingRunSnapshot& snapshot)
 {
     std::vector<LoggingCsvColumn> columns;
-    const auto add = [&](LoggingMeasurementKind kind, const auto& ids) -> Status
+    columns.reserve(snapshot.Measurements().size());
+    for (const auto& measurement : snapshot.Measurements())
     {
-        for (const auto& id : ids)
-        {
-            const auto *measurement = snapshot.FindMeasurement(kind, id);
-            if (measurement == nullptr)
-            {
-                return Fail(ErrorKind::kInternal, "CSV selection has no captured measurement");
-            }
-            columns.push_back({kind, measurement->identity, measurement->name});
-        }
-        return {};
-    };
-    for (const auto& ids : {snapshot.Selection().gauge_ids, snapshot.Selection().lower_panel_ids})
-    {
-        const auto added = add(LoggingMeasurementKind::kParameter, ids);
-        if (!added.has_value())
-        {
-            return std::unexpected(added.error());
-        }
-    }
-    const auto switches = add(LoggingMeasurementKind::kSwitch, snapshot.Selection().switch_ids);
-    if (!switches.has_value())
-    {
-        return std::unexpected(switches.error());
+        columns.push_back({measurement.kind, measurement.identity, measurement.name});
     }
     return columns;
 }

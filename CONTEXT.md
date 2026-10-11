@@ -144,3 +144,8 @@ Saved measurement and display choices that take effect on the next logging run.
 **Unavailable reading**:
 A selected measurement that has no usable value for the current update. A previous
 value is not presented as its current reading, and unavailable does not mean zero.
+
+**Logging measurement identity**:
+The combination of measurement kind, protocol, and definition ID. Repeated display
+positions share acquisition and one CSV column; distinct definitions remain distinct
+measurements even when their physical sources overlap.

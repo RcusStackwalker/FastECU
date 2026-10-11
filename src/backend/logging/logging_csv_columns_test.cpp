@@ -33,15 +33,12 @@ TEST(LoggingCsvColumnsTest, UsesCapturedIdentityAndOrderAcrossRepeatedDisplayPos
     ASSERT_THAT(run, fastecu::testing::IsOk());
     const auto columns = PrepareLoggingCsvColumns(*run);
     ASSERT_THAT(columns, fastecu::testing::IsOk());
-    ASSERT_EQ(columns->size(), 4U);
-    for (std::size_t i : {0U, 1U, 2U})
-    {
-        EXPECT_EQ(columns->at(i).kind, LoggingMeasurementKind::kParameter);
-        EXPECT_EQ(columns->at(i).identity, (LoggerIdentity{"SSM", "same"}));
-        EXPECT_EQ(columns->at(i).name, "Engine");
-    }
-    EXPECT_EQ(columns->at(3).kind, LoggingMeasurementKind::kSwitch);
-    EXPECT_EQ(columns->at(3).identity, (LoggerIdentity{"SSM", "same"}));
-    EXPECT_EQ(columns->at(3).name, "Flag");
+    ASSERT_EQ(columns->size(), 2U);
+    EXPECT_EQ(columns->at(0).kind, LoggingMeasurementKind::kParameter);
+    EXPECT_EQ(columns->at(0).identity, (LoggerIdentity{"SSM", "same"}));
+    EXPECT_EQ(columns->at(0).name, "Engine");
+    EXPECT_EQ(columns->at(1).kind, LoggingMeasurementKind::kSwitch);
+    EXPECT_EQ(columns->at(1).identity, (LoggerIdentity{"SSM", "same"}));
+    EXPECT_EQ(columns->at(1).name, "Flag");
 }
 } // namespace fastecu::logging

@@ -43,7 +43,7 @@ QGroupBox *LogBox::drawLogSwitchBox(int index, int switchBoxCount, const QString
         "QGroupBox{font: bold;border:1px solid gray;border-radius:5px;margin-top: 0px;padding:0px 0px 0px 0px;} "
         "QGroupBox::title{subcontrol-origin: margin;left: 7px;padding:0px 3px 0px 3px;}");
 
-    const auto state = value.isEmpty() ? tr("Pending") : value == "0" ? tr("OFF") : value == "1" ? tr("ON") : value;
+    const auto state = value.isEmpty() ? tr("Unavailable") : value == "0" ? tr("OFF") : value == "1" ? tr("ON") : value;
     const QString labelText = title + ": " + state;
 
     QLabel *switchBoxLabel = new QLabel();
@@ -89,7 +89,7 @@ QGroupBox *LogBox::drawLogValueBox(int index, int logBoxCount, const QString& ti
     logGroupBox->setMaximumWidth(maxWidth);
     logGroupBox->setFont(t);
 
-    const auto labelText = (value.isEmpty() ? tr("Pending") : value) + (unit.isEmpty() ? QString{} : " " + unit);
+    const auto labelText = (value.isEmpty() ? tr("Unavailable") : value) + (unit.isEmpty() ? QString{} : " " + unit);
 
     QLabel *logBoxLabel = new QLabel();
     logBoxLabel->setTextFormat(Qt::PlainText);

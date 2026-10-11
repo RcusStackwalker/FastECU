@@ -7,11 +7,6 @@
 
 namespace mutdma
 {
-enum class FreeformDialect
-{
-    kLegacyBe,
-    kOem33520003
-};
 struct Channel
 {
     std::uint16_t id; // PID or RAM address (mapped 0x4000-0xBFFF direct / 0x8000-window -> 0x800000+addr)
@@ -24,14 +19,12 @@ bytes::Byte SizeToDescriptor(bytes::Byte len);
 // reqLen = ceil(N/4) + N*2 + 0x1c   (header+descriptors+ids+overhead+csum+trailer)
 std::size_t ReqLen(std::size_t channel_count);
 // Id-list (host reply to ACK-1): [listCmd 0xA1..0xA4][N][2-bit size descriptors,
-// ceil(N/4) bytes, channel i at bits[(3-(i%4))*2]][N x u16 request codes in the selected dialect byte order][zero pad]
+// ceil(N/4) bytes, channel i at bits[(3-(i%4))*2]][N x u16 request codes in the little-endian byte order][zero pad]
 // [sum8(0..len-3)][0x0D]. Total length == reqLen(N). listCmd selects the rate slot.
-bytes::Bytes BuildIdListFrame(bytes::Byte list_cmd, const std::vector<Channel>& channels,
-                              FreeformDialect dialect = FreeformDialect::kLegacyBe);
+bytes::Bytes BuildIdListFrame(bytes::Byte list_cmd, const std::vector<Channel>& channels);
 // Sum of element sizes = number of data bytes a stream frame carries for these channels.
 std::size_t ResponseDataLength(const std::vector<Channel>& channels);
-// Decode a complete stream payload into values in the selected dialect byte order.
+// Decode a complete stream payload into values in the little-endian byte order.
 // An incomplete payload produces no values. LegacyBe is the maintained default.
-std::vector<std::uint32_t> DecodeStreamValues(const std::vector<Channel>& channels, bytes::ByteView data,
-                                              FreeformDialect dialect = FreeformDialect::kLegacyBe);
+std::vector<std::uint32_t> DecodeStreamValues(const std::vector<Channel>& channels, bytes::ByteView data);
 } // namespace mutdma

@@ -69,12 +69,9 @@ fastecu::Status ApplyLogSample(const DesktopLoggingSnapshot& snapshot, const fas
     {
         return std::unexpected(resolved.error());
     }
-    if (!resolved->has_value())
-    {
-        return {};
-    }
-    const auto& value = **resolved;
-    const auto formatted = FormatLoggingValue(value.numeric_value, value.decimal_precision);
+    const auto& value = *resolved;
+    const auto formatted =
+        value.numeric_value.has_value() ? FormatLoggingValue(*value.numeric_value, value.decimal_precision) : QString{};
     const bool updated = value.kind == fastecu::logging::LoggingMeasurementKind::kParameter
                              ? values.SetParameterValue(value.identity, formatted)
                              : values.SetSwitchValue(value.identity, formatted);

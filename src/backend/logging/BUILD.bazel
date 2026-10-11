@@ -96,7 +96,6 @@ cc_library(
         ":logging_read_plan",
         ":logging_types",
         "//src/algorithms/expression",
-        "//src/algorithms/protocol/mut_dma",
         "//src/backend/ports",
     ],
 )

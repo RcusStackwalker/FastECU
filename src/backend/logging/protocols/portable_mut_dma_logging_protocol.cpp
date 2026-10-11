@@ -35,9 +35,9 @@ fastecu::Status CheckCancellation(const fastecu::ICancellationToken& cancellatio
 
 MutDmaLoggingProtocol::MutDmaLoggingProtocol(std::unique_ptr<mutdma::IKlineTransport> transport,
                                              std::unique_ptr<mutdma::IMutDmaInit> init,
-                                             std::vector<LoggingChannel> channels, mutdma::FreeformDialect dialect)
+                                             std::vector<LoggingChannel> channels)
     : transport_(std::move(transport)), init_(std::move(init)), channels_(std::move(channels)),
-      wire_channels_(MakeWireChannels(channels_)), driver_(*transport_, *init_, dialect)
+      wire_channels_(MakeWireChannels(channels_)), driver_(*transport_, *init_)
 {
 }
 

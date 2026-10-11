@@ -174,17 +174,6 @@ TEST(LoggingRunSnapshot, RejectsUnresolvedSelectionWithActionableIdentity)
                     IsErrWith(ErrorKind::kInvalidConfig, AllOf(HasSubstr("missing"), HasSubstr("unresolved"))));
     }
 }
-TEST(LoggingRunSnapshot, CapturesExplicitMutDialectAndRejectsUnknownSetting)
-{
-    auto values =
-        Model({.parameters = {Parameter("rpm", "MUT_DMA")}, .protocols = {{"MUT_DMA", "oem-33520003"}}}, {"rpm"});
-    const auto run = PrepareLoggingRun(values, LoggingProtocolId::kMutDma, "ignored", Policy(), LoggingTarget::kEcu);
-    ASSERT_THAT(run, IsOk());
-    EXPECT_EQ(run->Session().MutDmaDialect(), mutdma::FreeformDialect::kOem33520003);
-    values = Model({.parameters = {Parameter("rpm", "MUT_DMA")}, .protocols = {{"MUT_DMA", "unknown"}}}, {"rpm"});
-    EXPECT_THAT(PrepareLoggingRun(values, LoggingProtocolId::kMutDma, "ignored", Policy(), LoggingTarget::kEcu),
-                IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("unknown dialect")));
-}
 
 class LoggingRunSnapshotInvalidEnum : public ::testing::TestWithParam<int>
 {

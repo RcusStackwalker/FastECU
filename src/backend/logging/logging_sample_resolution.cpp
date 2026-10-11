@@ -6,8 +6,7 @@
 
 namespace fastecu::logging
 {
-fastecu::Result<std::optional<ResolvedLogSample>> ResolveLogSample(const LoggingRunSnapshot& snapshot,
-                                                                   const LogSample& sample)
+fastecu::Result<ResolvedLogSample> ResolveLogSample(const LoggingRunSnapshot& snapshot, const LogSample& sample)
 {
     const auto *channel = snapshot.Session().FindChannel(sample.channel_id);
     if (channel == nullptr)

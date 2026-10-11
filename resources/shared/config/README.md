@@ -10,8 +10,8 @@ editor is [follow-up work](../../../docs/tech-debt.md#p2-logging-engine-follow-u
 Save a user-owned `.xml` file. Start with the structure below or adapt the
 [MUT/DMA example](logger_mut_dma_example.xml) or [CDBG example](logger_cdbg_example.xml).
 The MUT example's addresses are placeholders, and its parameters need
-`enabled="1"` for default/chooser eligibility. Select the explicit wire dialect
-that matches the ECU; omitted dialect retains the maintained format.
+`enabled="1"` for default/chooser eligibility. MUT free-form codes and values
+use the firmware-backed little-endian interpretation.
 
 This example demonstrates the file structure. Replace its name, request code,
 width, conversion, and unit with your own measurement definition; `0x4010` is
@@ -55,24 +55,20 @@ RAM address such as `0x804010` cannot be entered directly in this field. Supply
 the code your ECU expects; the application does not establish its measurement
 meaning from a successful response.
 
-### Select a MUT wire dialect explicitly
+### MUT wire interpretation and capacity
 
-Use `<protocol id="MUT_DMA" dialect="oem-33520003">` for the statically analyzed
-33520003 OEM format: little-endian request codes and two/four-byte stream values,
-with at most 96 request entries and 96 response data bytes. Omitted dialect or
-`dialect="legacy-be"` retains the maintained big-endian format and its 255-entry
-count-field guard. The latter is not an ECU capacity claim. Unknown explicit
-names prevent startup; neither setting requires ROM matching or probes support.
+MUT free-form request codes and two/four-byte values use little endian. A session
+permits at most 96 request entries and 96 response data bytes. The count field's
+255-entry representation is not an ECU capacity claim. No dialect selector or ROM
+matching is required, and ACK/data does not establish per-measurement support.
 The [wire evidence](../../../docs/reference/logging-wire-evidence.md) owns the
-scope and qualification boundaries. The bundled example's 33520003-labelled
-placeholders do not automatically select this dialect; add the setting when it
-matches your intended ECU format.
+firmware scope and qualification boundaries.
 
 ### SSM byte sources and switches
 
 A nested parameter `<address length="2">0x10</address>` reads byte addresses
-`0x10` and `0x11`. Legacy parameter-level `length` remains accepted; conflicting
-lengths are rejected. Multiple one-byte `<address>` elements describe an explicit
+`0x10` and `0x11`. Only nested address width is read; absent width defaults to
+one and parameter-level `length` is ignored. Multiple one-byte `<address>` elements describe an explicit
 ordered SSM byte list. Its 84-entry budget counts requested byte addresses.
 
 A switch keeps sample metadata separate from capability metadata:
@@ -81,19 +77,18 @@ A switch keeps sample metadata separate from capability metadata:
 <logger><protocols><protocol id="SSM">
     <switches>
         <switch id="USER_FLAG" name="Custom flag" enabled="1"
-                ecubyteindex="5" ecubit="1">
-            <address bit="7">0x20</address>
-        </switch>
+                byte="0x20" bit="7" ecubyteindex="5"/>
     </switches>
 </protocol></protocols></logger>
 ```
 
 This is a structure example; supply your actual byte address and capability
-metadata, or omit capability attributes when support is unknown. Sample bit 7
-extracts the flag from the byte read at `0x20`; capability bit 1 is a distinct
-identification fact. Legacy `byte="..." bit="..."` sample fields are also accepted;
-use `ecubit` separately for capability evidence. The indicator shows ON/OFF and
-CSV stores 1/0. Switch-only definitions can initialize selection slots.
+metadata, or omit `ecubyteindex` when support is unknown. Bit 7 extracts the flag
+from the byte read at `0x20` and also selects capability bit 7 at index 5. Sample
+and capability roles remain separate internally. Nested switch addresses and
+`ecubit` do not override the top-level `byte`/`bit` fields. The indicator shows
+ON/OFF and CSV stores 1/0; unavailable readings show Unavailable and an empty CSV
+cell. Switch-only definitions can initialize selection slots.
 
 The first conversion is used for logging. The accepted numeric, expression, and
 format rules are owned by the [logging contracts](../../../docs/reference/logging-contracts.md#definition-input-validation).
@@ -155,7 +150,7 @@ Successful parsing and acknowledgements do not establish ECU measurement
 support. In particular, the current 255-entry MUT host guard is a count-field
 limit, not a qualified ECU capacity; the
 [wire evidence](../../../docs/reference/logging-wire-evidence.md) records the
-implemented dialect boundaries and outstanding qualification.
+implemented wire boundaries and outstanding qualification.
 
 XML configuration does not activate an ECU logging mode. The current MUT/DMA
 binding assumes the ECU is already in the required 125000-baud mode. Consult the

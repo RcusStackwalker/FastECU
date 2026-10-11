@@ -34,8 +34,7 @@ using ::testing::Return;
 namespace
 {
 fastecu::Result<DesktopLoggingSnapshot> Snapshot(LoggingProtocolId id, std::uint32_t address = 0x804000,
-                                                 std::size_t length = 1, LoggingTarget target = LoggingTarget::kEcu,
-                                                 std::string dialect = {})
+                                                 std::size_t length = 1, LoggingTarget target = LoggingTarget::kEcu)
 {
     const auto key = id == LoggingProtocolId::kSsm ? "SSM" : id == LoggingProtocolId::kMutDma ? "MUT_DMA" : "CDBG";
     LoggerModel model;
@@ -44,8 +43,7 @@ fastecu::Result<DesktopLoggingSnapshot> Snapshot(LoggingProtocolId id, std::uint
                                              .address = std::format("{:x}", address),
                                              .length = std::to_string(length),
                                              .enabled = true,
-                                             .conversions = {{"%", "x", "0", "0", "100", "1"}}}},
-                             .protocols = {{key, std::move(dialect)}}});
+                                             .conversions = {{"%", "x", "0", "0", "100", "1"}}}}});
     model.SetSelection({.protocol = key, .lower_panel_ids = {"load"}});
     return PrepareLoggingRun(model, id, key,
                              {.poll_timeout = 50ms,
@@ -285,12 +283,12 @@ TEST(DesktopLoggingProtocolRegistrationTest, mut_dma_preserves_initialization_an
         ids[0] = char(0xa1);
         ids[1] = 1;
         ids[2] = 0x40;
-        ids[3] = char(0x80);
+        ids[4] = char(0x80);
         ids[29] = 0x62;
         ids[30] = 0x0d;
         EXPECT_CALL(serial.Fake(), WriteSerialData(ids)).WillOnce(Return(QByteArray{}));
         EXPECT_CALL(serial.Fake(), ReadSerialData(50)).WillOnce(Return(MutFrame(5, 0, 5, 0x0d)));
-        EXPECT_CALL(serial.Fake(), ReadSerialData(50)).WillOnce(Return(QByteArray::fromHex("011234470d")));
+        EXPECT_CALL(serial.Fake(), ReadSerialData(50)).WillOnce(Return(QByteArray::fromHex("013412470d")));
     }
     fastecu::FakeCancellationToken cancellation;
     ASSERT_TRUE((*result)->Start(cancellation));
@@ -301,14 +299,14 @@ TEST(DesktopLoggingProtocolRegistrationTest, mut_dma_preserves_initialization_an
     ASSERT_EQ(samples->samples[0].raw_value, std::string("4660"));
     ASSERT_TRUE((*result)->Stop());
 }
-TEST(DesktopLoggingProtocolRegistrationTest, explicit_oem_mut_dialect_reaches_request_and_samples)
+TEST(DesktopLoggingProtocolRegistrationTest, firmware_little_endian_mut_reaches_request_and_samples)
 {
     FakeBackedSerial serial;
     fastecu::FakeClock clock;
     LoggingEngine engine;
     RegisterDesktopLoggingProtocols(engine, *serial, clock);
     EXPECT_CALL(serial.Fake(), IsSerialPortOpen()).WillRepeatedly(Return(true));
-    const auto data = Snapshot(LoggingProtocolId::kMutDma, 0x8000, 2, LoggingTarget::kEcu, "oem-33520003");
+    const auto data = Snapshot(LoggingProtocolId::kMutDma, 0x8000, 2, LoggingTarget::kEcu);
     ASSERT_THAT(data, fastecu::testing::IsOk());
     auto result = engine.registrations_.value("MUT_DMA")(*data);
     ASSERT_TRUE(result);

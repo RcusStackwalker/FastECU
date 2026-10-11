@@ -1578,7 +1578,7 @@ void MainWindow::updateLogboxValues(const QString& protocolArg)
         }
         const auto value = logger_values_.ParameterValue(key, id);
         label->setTextFormat(Qt::PlainText);
-        label->setText((value.isEmpty() ? tr("Pending") : value) + (unit.isEmpty() ? QString{} : " " + unit));
+        label->setText((value.isEmpty() ? tr("Unavailable") : value) + (unit.isEmpty() ? QString{} : " " + unit));
     }
     for (std::size_t slot = 0; slot < selection.switch_ids.size(); ++slot)
     {
@@ -1610,7 +1610,7 @@ void MainWindow::updateLogboxValues(const QString& protocolArg)
         }
         const auto value = logger_values_.SwitchValue(key, id);
         label->setTextFormat(Qt::PlainText);
-        label->setText(name + ": " + (value.isEmpty() ? tr("Pending") : value == "0" ? tr("OFF") : tr("ON")));
+        label->setText(name + ": " + (value.isEmpty() ? tr("Unavailable") : value == "0" ? tr("OFF") : tr("ON")));
     }
     delay(1);
 }
