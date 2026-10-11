@@ -23,8 +23,8 @@ not a claim that a particular ECU stores the example value there.
         <protocol id="MUT_DMA">
             <parameters>
                 <parameter id="USER_VALUE" name="Custom value"
-                           desc="User-defined measurement" length="1" enabled="1">
-                    <address>0x4010</address>
+                           desc="User-defined measurement" enabled="1">
+                    <address length="1">0x4010</address>
                     <conversions>
                         <conversion units="units" expr="x*0.5-10" format="0.00"
                                     gauge_min="0" gauge_max="100" gauge_step="10"/>
@@ -43,7 +43,7 @@ not a claim that a particular ECU stores the example value there.
 | `name` | Name offered in the measurement chooser |
 | `enabled="1"` | Makes the MUT parameter eligible in the current implementation; it does not prove ECU support |
 | `<address>` | Hexadecimal request code sent to the ECU |
-| `length` | MUT/DMA read width: 1, 2, or 4 bytes |
+| `<address length="…">` | MUT/DMA read width: 1, 2, or 4 bytes |
 | `expr` | Conversion of raw `x` using arithmetic, for example `x/4` or `x*0.5-10` |
 | `units` | Unit text; `units=""` is valid for a value without a unit |
 | `format` | Fixed precision: `0` for integer display, `0.00` for two decimal places |
