@@ -45,8 +45,9 @@ struct MemoryMapSpec
     memory::FlashAddress definition_base;
 
     // Where the furthest-placed ROM file byte ends; 0 with no file-backed
-    // block, and 0xFFFFFFFF when a file range reaches 4 GiB. MemoryMap::Create
-    // rejects both, and any gap or overlap among the file ranges.
+    // block, and 0xFFFFFFFF when that end is past the 32-bit range.
+    // MemoryMap::Create rejects both, and any gap or overlap among the file
+    // ranges.
     [[nodiscard]] constexpr memory::ByteCount FileSize() const
     {
         std::uint64_t end = 0;
