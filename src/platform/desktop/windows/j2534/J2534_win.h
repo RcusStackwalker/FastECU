@@ -22,8 +22,8 @@
 
 // name is token-pasted into a type and a member name, so it cannot be parenthesized.
 // NOLINTNEXTLINE(bugprone-macro-parentheses)
-#define PTfn(name) Pf##name *pf##name
-#define PText(name) PT_API Pf##name name
+#define J2534_PT_FN(name) Pf##name *pf##name
+#define J2534_PT_EXT(name) PT_API Pf##name name
 
 class J2534
 {
@@ -92,37 +92,37 @@ class J2534
 
     /* J2534 Interface API function pointers */
 
-    PTfn(PassThruOpen);
-    PTfn(PassThruClose);
-    PTfn(PassThruConnect);
-    PTfn(PassThruDisconnect);
-    PTfn(PassThruReadMsgs);
-    PTfn(PassThruWriteMsgs);
-    PTfn(PassThruStartPeriodicMsg);
-    PTfn(PassThruStopPeriodicMsg);
-    PTfn(PassThruStartMsgFilter);
-    PTfn(PassThruStopMsgFilter);
-    PTfn(PassThruSetProgrammingVoltage);
-    PTfn(PassThruReadVersion);
-    PTfn(PassThruGetLastError);
-    PTfn(PassThruIoctl);
+    J2534_PT_FN(PassThruOpen);
+    J2534_PT_FN(PassThruClose);
+    J2534_PT_FN(PassThruConnect);
+    J2534_PT_FN(PassThruDisconnect);
+    J2534_PT_FN(PassThruReadMsgs);
+    J2534_PT_FN(PassThruWriteMsgs);
+    J2534_PT_FN(PassThruStartPeriodicMsg);
+    J2534_PT_FN(PassThruStopPeriodicMsg);
+    J2534_PT_FN(PassThruStartMsgFilter);
+    J2534_PT_FN(PassThruStopMsgFilter);
+    J2534_PT_FN(PassThruSetProgrammingVoltage);
+    J2534_PT_FN(PassThruReadVersion);
+    J2534_PT_FN(PassThruGetLastError);
+    J2534_PT_FN(PassThruIoctl);
 };
 
 #if defined(OP20PT32_USE_LIB)
 //	PT_API void OP20PT32_Start();
 //	PT_API void OP20PT32_Stop();
-PText(PassThruOpen);
-PText(PassThruClose);
-PText(PassThruConnect);
-PText(PassThruDisconnect);
-PText(PassThruReadMsgs);
-PText(PassThruWriteMsgs);
-PText(PassThruStartPeriodicMsg);
-PText(PassThruStopPeriodicMsg);
-PText(PassThruStartMsgFilter);
-PText(PassThruStopMsgFilter);
-PText(PassThruSetProgrammingVoltage);
-PText(PassThruReadVersion);
-PText(PassThruGetLastError);
-PText(PassThruIoctl);
+J2534_PT_EXT(PassThruOpen);
+J2534_PT_EXT(PassThruClose);
+J2534_PT_EXT(PassThruConnect);
+J2534_PT_EXT(PassThruDisconnect);
+J2534_PT_EXT(PassThruReadMsgs);
+J2534_PT_EXT(PassThruWriteMsgs);
+J2534_PT_EXT(PassThruStartPeriodicMsg);
+J2534_PT_EXT(PassThruStopPeriodicMsg);
+J2534_PT_EXT(PassThruStartMsgFilter);
+J2534_PT_EXT(PassThruStopMsgFilter);
+J2534_PT_EXT(PassThruSetProgrammingVoltage);
+J2534_PT_EXT(PassThruReadVersion);
+J2534_PT_EXT(PassThruGetLastError);
+J2534_PT_EXT(PassThruIoctl);
 #endif
