@@ -35,13 +35,14 @@ or headers unused by any analyzed translation unit.
 The [fixture harness](../../scripts/clang_tidy_checks_test.py) compiles small
 GoogleTest suites against the actual Bazel compilation flags and dependencies,
 then compares exported diagnostic names and source locations to independently
-marked expectations. It checks warning severity and absence of replacements.
+marked expectations. It checks error severity, a failing exit status for
+marked fixtures, and absence of replacements.
 
 The [adapter tests](../../scripts/clang_tidy_adapter_test.py) verify experimental
 activation, preserved upstream arguments/exit status, and explicit rejection
 of an incompatible upstream API. The [runner tests](../../scripts/clang_tidy_runner_test.py)
-verify successful warning visibility, separate advisory scope, Windows path
-spellings, and baseline preparation reuse.
+verify that inline findings fail the run, the separate inline scope, Windows
+path spellings, and baseline preparation reuse.
 
 ## Additional audit samples, 2026-10-10
 

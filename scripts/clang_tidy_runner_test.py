@@ -1363,7 +1363,7 @@ class ClangTidyRunnerTest(unittest.TestCase):
         self.assertNotIn("1 warning generated", printed)
         self.assertIn("clang-tidy: 1 files clean, 0 findings", printed)
 
-    def test_non_error_inline_findings_are_visible_without_failing(self) -> None:
+    def test_non_error_findings_are_visible_without_failing(self) -> None:
         source = self.root / _MAIN_CPP
         source.write_text("int main() { return 0; }\n")
         self.write_database([source])
@@ -1398,7 +1398,7 @@ class ClangTidyRunnerTest(unittest.TestCase):
         self.assertIn("1 findings", output.getvalue())
         self.assertNotIn("files clean", output.getvalue())
 
-    def run_failing_inline_pass(self, findings: int) -> str:
+    def run_inline_pass(self, findings: int, exit_code: int) -> tuple[str, str | None]:
         source = self.root / _MAIN_CPP
         source.write_text("int main() { return 0; }\n")
         self.write_database([source])
@@ -1416,38 +1416,49 @@ class ClangTidyRunnerTest(unittest.TestCase):
                     [self.diagnostic("custom-fastecu-result-assertion", [])] * findings,
                 )
                 return subprocess.CompletedProcess(
-                    command, 1, stdout="main.cpp:1: error: use Result matcher\n" * findings
+                    command, exit_code, stdout="main.cpp:1: error: use Result matcher\n" * findings
                 )
             return subprocess.CompletedProcess(command, 0)
 
         output = StringIO()
+        failure = None
         with (
             mock.patch.object(runner, "discover_tools", return_value=_UNIX_TOOLS),
             redirect_stdout(output),
-            self.assertRaises(runner.WorkflowError) as raised,
         ):
-            runner.run_workflow(
-                mode="report",
-                workspace=self.root,
-                compdb_tool=_UNIX_COMPDB_TOOL,
-                platform_name="linux",
-                environ={},
-                command_runner=fake_run,
-            )
+            try:
+                runner.run_workflow(
+                    mode="report",
+                    workspace=self.root,
+                    compdb_tool=_UNIX_COMPDB_TOOL,
+                    platform_name="linux",
+                    environ={},
+                    command_runner=fake_run,
+                )
+            except runner.WorkflowError as error:
+                failure = str(error)
         self.assertNotIn("advisory", output.getvalue())
-        return str(raised.exception)
+        return output.getvalue(), failure
 
     def test_inline_findings_fail_the_run(self) -> None:
-        self.assertEqual(
-            "1 inline findings; inline check pass failed with exit code 1",
-            self.run_failing_inline_pass(findings=1),
-        )
+        _, failure = self.run_inline_pass(findings=1, exit_code=1)
+        self.assertEqual("1 inline findings; inline check pass failed with exit code 1", failure)
 
     def test_inline_pass_tool_failure_without_findings(self) -> None:
-        self.assertEqual(
-            "inline check pass failed with exit code 1",
-            self.run_failing_inline_pass(findings=0),
-        )
+        _, failure = self.run_inline_pass(findings=0, exit_code=1)
+        self.assertEqual("inline check pass failed with exit code 1", failure)
+
+    def test_clean_inline_pass_reports_zero_findings(self) -> None:
+        output, failure = self.run_inline_pass(findings=0, exit_code=0)
+        self.assertIsNone(failure)
+        self.assertIn("clang-tidy: 0 inline findings\n", output)
+
+    def test_non_error_inline_findings_are_visible_without_failing(self) -> None:
+        # A check excluded from WarningsAsErrors exits 0; its findings still print.
+        output, failure = self.run_inline_pass(findings=1, exit_code=0)
+        self.assertIsNone(failure)
+        self.assertIn("error: use Result matcher", output)
+        self.assertIn("clang-tidy: 1 inline findings\n", output)
 
     def test_custom_pass_uses_adapter_and_covers_application_headers(self) -> None:
         (self.root / ".clang-tidy").write_text(
