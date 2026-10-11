@@ -73,7 +73,7 @@ TEST(CatalogConsistency, EveryBundledKernelIsUsed)
     }
     for (const std::string& name : BundledKernelNames())
     {
-        EXPECT_THAT(used_kernels, ::testing::Contains(name)) << name;
+        EXPECT_THAT(used_kernels, ::testing::Contains(name));
     }
 }
 
