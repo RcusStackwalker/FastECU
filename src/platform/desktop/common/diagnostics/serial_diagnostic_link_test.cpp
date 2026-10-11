@@ -8,6 +8,7 @@
 #include <gmock/gmock.h>
 
 #include "src/backend/ports/testing/fake_cancellation_token.h"
+#include "src/backend/ports/testing/result_matchers.h"
 #include "src/platform/desktop/common/serial/serial_facade_codes.h"
 #include "src/platform/desktop/common/serial/testing/fake_backend.h"
 #include "src/platform/desktop/common/serial/testing/fake_backed_serial.h"
@@ -19,6 +20,8 @@ using fastecu::diagnostics::KlineHeader;
 using fastecu::diagnostics::KlineLinkConfig;
 using fastecu::diagnostics::Parity;
 using fastecu::diagnostics::SerialDiagnosticLink;
+using fastecu::testing::IsErrWith;
+using ::testing::Eq;
 using ::testing::InSequence;
 using ::testing::Return;
 using namespace std::chrono_literals;
@@ -102,8 +105,7 @@ TEST(TestSerialDiagnosticLink, failingSetterIsInvalidConfigAndStopsTheSequence)
     EXPECT_CALL(serial.Fake(), OpenSerialPort()).Times(0);
     SerialDiagnosticLink link(serial.Get());
     const auto result = link.Open(KlineLinkConfig{});
-    ASSERT_TRUE(!result.has_value());
-    ASSERT_EQ(result.error().kind, ErrorKind::kInvalidConfig);
+    EXPECT_THAT(result, IsErrWith(ErrorKind::kInvalidConfig, Eq("set_is_iso14230_connection failed")));
 }
 
 TEST(TestSerialDiagnosticLink, emptyOpenedPortIsDisconnected)

@@ -21,6 +21,7 @@ using fastecu::testing::IsErr;
 using fastecu::testing::IsErrWith;
 using fastecu::testing::IsOk;
 using ::testing::ElementsAre;
+using ::testing::Eq;
 using ::testing::HasSubstr;
 using ::testing::IsEmpty;
 
@@ -151,7 +152,8 @@ TEST(IdentifyKlineSsm2, IncompleteHeaderIsBadResponse)
 {
     Harness h;
     h.link.QueueRead(B({0x80, 0xF0}));
-    EXPECT_THAT(h.Run(SsmVariant::kKlineSsm2), IsErrWith(ErrorKind::kBadResponse, HasSubstr("header incomplete")));
+    EXPECT_THAT(h.Run(SsmVariant::kKlineSsm2),
+                IsErrWith(ErrorKind::kBadResponse, Eq("SSM init response header incomplete: 80 F0")));
 }
 
 TEST(IdentifyKlineSsm2, TruncatedBodyIsBadResponse)
@@ -430,7 +432,9 @@ TEST(IdentifyIso15765Uds, AnAnswerWithNoIdBytesIsBadResponse)
 {
     Harness h;
     h.link.QueueRead(B({0x00, 0x00, 0x07, 0xE8, 0x62, 0xF1, 0x82}));
-    EXPECT_THAT(h.Run(SsmVariant::kIso15765Uds), IsErr(ErrorKind::kBadResponse));
+    EXPECT_THAT(
+        h.Run(SsmVariant::kIso15765Uds),
+        IsErrWith(ErrorKind::kBadResponse, Eq("unexpected answer to ReadDataByIdentifier F182: 00 00 07 E8 62 F1 82")));
 }
 
 TEST(IdentifyIso15765Uds, NoAnswerIsTimeout)

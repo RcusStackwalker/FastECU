@@ -89,7 +89,9 @@ TEST(LoggingConversionTest, RejectsNonFiniteConvertedValues)
     auto session = MakeSessionWithChannel(c);
 
     ASSERT_THAT(ConvertSample(session, ProtocolSample{"rpm", "1"}),
-                fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
+                fastecu::testing::IsErrWith(
+                    fastecu::ErrorKind::kInvalidConfig,
+                    ::testing::Eq("logging conversion expression failed: cannot divide by zero at position 7")));
 }
 
 TEST(LoggingConversionTest, EvaluatesIntermediateResultsWithoutTextRounding)
@@ -110,5 +112,7 @@ TEST(LoggingConversionTest, RejectsNonNumericRawValue)
     auto session = MakeValidSession();
 
     ASSERT_THAT(ConvertSample(session, ProtocolSample{"rpm", "12ab"}),
-                fastecu::testing::IsErr(fastecu::ErrorKind::kBadResponse));
+                fastecu::testing::IsErrWith(
+                    fastecu::ErrorKind::kBadResponse,
+                    ::testing::Eq("protocol sample raw value is not a finite number: invalid numeric literal")));
 }

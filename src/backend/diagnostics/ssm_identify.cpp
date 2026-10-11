@@ -88,7 +88,7 @@ Status CheckWritten(IDiagnosticLink& link, bytes::ByteView request)
 
 std::unexpected<Error> BadFrame(const std::string& what, bytes::ByteView frame)
 {
-    return Fail(ErrorKind::kBadResponse, "SSM init response " + what + ": " + SpacedHex(frame));
+    return Fail(ErrorKind::kBadResponse, std::format("SSM init response {}: {}", what, SpacedHex(frame)));
 }
 
 // RomRaider's SSMResponseProcessor.validateResponse, applied to a frame
@@ -316,7 +316,8 @@ Result<SsmIdentity> IdentifyIso15765Uds(IDiagnosticLink& link, const ICancellati
     }
     if (frame.size() <= 7 || frame[4] != 0x62 || frame[5] != 0xF1 || frame[6] != 0x82)
     {
-        return Fail(ErrorKind::kBadResponse, "unexpected answer to ReadDataByIdentifier F182: " + SpacedHex(frame));
+        return Fail(ErrorKind::kBadResponse,
+                    std::format("unexpected answer to ReadDataByIdentifier F182: {}", SpacedHex(frame)));
     }
     return SsmIdentity{UpperHex(bytes::ByteView(frame).subspan(7)), {}};
 }

@@ -100,7 +100,10 @@ TEST(SetParametersSession, RequiresTheKlineConfigurationNotTheCanOne)
 TEST(SetParametersSession, RejectsAnUnknownProtocolBeforeAnyIo)
 {
     const SetParametersSession session{"sub_ecu_denso_sh7058_can", Sample()};
-    ASSERT_THAT(session.TransportSetup(), fastecu::testing::IsErr(ErrorKind::kUnsupported));
+    ASSERT_THAT(
+        session.TransportSetup(),
+        fastecu::testing::IsErrWith(ErrorKind::kUnsupported,
+                                    ::testing::Eq("not a Subaru Denso SH705x TCU protocol: sub_ecu_denso_sh7058_can")));
 }
 
 TEST(SetParametersSession, WritesAllTwelveFramesEachFramedExactlyOnce)

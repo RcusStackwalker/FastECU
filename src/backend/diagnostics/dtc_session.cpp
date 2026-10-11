@@ -2,6 +2,7 @@
 
 #include <array>
 #include <chrono>
+#include <format>
 #include <string>
 #include <tuple>
 #include <utility>
@@ -132,7 +133,7 @@ class DtcRun
         if (!header.has_value())
         {
             Error(name + " five baud init failed.");
-            return Fail(ErrorKind::kBadResponse, name + " five baud init failed");
+            return Fail(ErrorKind::kBadResponse, std::format("{} five baud init failed", name));
         }
         std::ignore = link_.SetHeader(*header);
         Info(name + " five baud init succesfully completed.");
