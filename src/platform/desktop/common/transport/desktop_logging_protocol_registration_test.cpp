@@ -223,7 +223,7 @@ TEST(DesktopLoggingProtocolRegistrationTest, ssm_target_and_adapter_are_per_run)
     }
 }
 
-TEST(DesktopLoggingProtocolRegistrationTest, ssm_snapshot_offsets_reach_samples)
+TEST(DesktopLoggingProtocolRegistrationTest, ssm_reply_mapping_ignores_unresolved_display_slots)
 {
     FakeBackedSerial serial;
     fastecu::FakeClock clock;
@@ -234,12 +234,11 @@ TEST(DesktopLoggingProtocolRegistrationTest, ssm_snapshot_offsets_reach_samples)
     const auto snapshot = Snapshot(LoggingProtocolId::kSsm, 0x1000, 1, true, true);
     ASSERT_THAT(snapshot, fastecu::testing::IsOk());
     ASSERT_EQ(snapshot->Selection().lower_panel_ids, (std::vector<std::string>{"load", "missing", "rpm"}));
-    ASSERT_EQ(snapshot->ResponseOffsets(), (std::vector<std::size_t>{0, 2}));
     auto result = engine.registrations_.value("SSM")(*snapshot);
     ASSERT_TRUE(result);
     EXPECT_CALL(serial.Fake(), WriteSerialDataEchoCheck(QByteArray::fromHex("8010f008a80100100000100152")))
         .WillOnce(Return(QByteArray{}));
-    EXPECT_CALL(serial.Fake(), ReadSerialData(50)).WillOnce(Return(QByteArray::fromHex("80f01004e8112233d2")));
+    EXPECT_CALL(serial.Fake(), ReadSerialData(50)).WillOnce(Return(QByteArray::fromHex("80f01003e81133af")));
     fastecu::FakeCancellationToken cancellation;
     const auto samples = (*result)->Poll(50ms, cancellation);
     ASSERT_TRUE(samples);

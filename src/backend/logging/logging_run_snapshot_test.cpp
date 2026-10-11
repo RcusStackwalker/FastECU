@@ -47,7 +47,7 @@ LoggerModel BuildModel(LoggerDefinition definition, std::vector<std::string> ids
     return result;
 }
 
-TEST(LoggingRunSnapshot, PreservesProtocolSelectionSupportAndOriginalOffsets)
+TEST(LoggingRunSnapshot, PreservesProtocolSelectionAndSupport)
 {
     const auto values =
         BuildModel({.parameters = {BuildParameter("other", "OTHER"), BuildParameter("off", "CAR_SSM", false),
@@ -61,18 +61,14 @@ TEST(LoggingRunSnapshot, PreservesProtocolSelectionSupportAndOriginalOffsets)
     ASSERT_THAT(mut, IsOk());
     ASSERT_THAT(cdbg, IsOk());
     EXPECT_EQ(ssm->ProtocolKey(), "CAR_SSM");
-    EXPECT_THAT(ssm->ResponseOffsets(), ElementsAre(2, 3));
     EXPECT_FALSE(ssm->ChannelEnabled("off"));
     EXPECT_TRUE(ssm->ChannelEnabled("on"));
     ASSERT_EQ(ssm->Session().Channels().size(), 2U);
     EXPECT_EQ(ssm->Session().Channels()[0].id, "off");
     EXPECT_EQ(ssm->Session().Channels()[1].id, "on");
-    EXPECT_EQ(ssm->Session().Channels()[0].raw_assembly, RawAssembly::kDecimalBytesConcatenated);
     EXPECT_EQ(mut->ProtocolKey(), "MUT_DMA");
     ASSERT_EQ(mut->Session().Channels().size(), 1U);
     EXPECT_EQ(mut->Session().Channels()[0].id, "mut-on");
-    EXPECT_EQ(mut->Session().Channels()[0].raw_assembly, RawAssembly::kUnsignedIntegerDecimal);
-    EXPECT_TRUE(mut->ResponseOffsets().empty());
     EXPECT_EQ(cdbg->ProtocolKey(), "CDBG");
     ASSERT_EQ(cdbg->Session().Channels().size(), 1U);
     EXPECT_TRUE(cdbg->ChannelEnabled("cdbg-off"));

@@ -51,10 +51,9 @@ fastecu::Result<const LoggerParameter *> FindSelectedParameter(const LoggerModel
 } // namespace
 
 LoggingRunSnapshot::LoggingRunSnapshot(LoggingSession session, std::string protocol_key, LoggerSelection selection,
-                                       std::vector<std::size_t> response_offsets,
                                        std::unordered_set<std::string> enabled_ids, LoggingTarget target)
     : session_(std::move(session)), protocol_key_(std::move(protocol_key)), selection_(std::move(selection)),
-      response_offsets_(std::move(response_offsets)), enabled_ids_(std::move(enabled_ids)), target_(target)
+      enabled_ids_(std::move(enabled_ids)), target_(target)
 {
 }
 
@@ -69,10 +68,6 @@ const std::string& LoggingRunSnapshot::ProtocolKey() const
 const LoggerSelection& LoggingRunSnapshot::Selection() const
 {
     return selection_;
-}
-const std::vector<std::size_t>& LoggingRunSnapshot::ResponseOffsets() const
-{
-    return response_offsets_;
 }
 LoggingTarget LoggingRunSnapshot::Target() const
 {
@@ -97,7 +92,6 @@ fastecu::Result<LoggingRunSnapshot> PrepareLoggingRun(const LoggerModel& model, 
         return fastecu::Fail(ErrorKind::kInvalidConfig, std::format("{}: invalid logging target", *filter));
     }
     std::vector<LoggingChannel> channels;
-    std::vector<std::size_t> response_offsets;
     std::unordered_set<std::string> participating_ids;
     std::unordered_set<std::string> enabled_ids;
     const auto& selected_ids = model.Selection().lower_panel_ids;
@@ -127,10 +121,6 @@ fastecu::Result<LoggingRunSnapshot> PrepareLoggingRun(const LoggerModel& model, 
         {
             enabled_ids.insert(id);
         }
-        if (protocol == LoggingProtocolId::kSsm)
-        {
-            response_offsets.push_back(slot);
-        }
         channels.push_back(std::move(*channel));
     }
     auto session = MakeLoggingSession(protocol, std::move(channels), policy);
@@ -138,7 +128,6 @@ fastecu::Result<LoggingRunSnapshot> PrepareLoggingRun(const LoggerModel& model, 
     {
         return fastecu::Fail(session.error().kind, std::format("{}: {}", *filter, session.error().detail));
     }
-    return LoggingRunSnapshot(std::move(*session), *filter, model.Selection(), std::move(response_offsets),
-                              std::move(enabled_ids), target);
+    return LoggingRunSnapshot(std::move(*session), *filter, model.Selection(), std::move(enabled_ids), target);
 }
 } // namespace fastecu::logging

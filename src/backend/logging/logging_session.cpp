@@ -1,4 +1,5 @@
 #include "src/backend/logging/logging_session.h"
+#include "src/backend/logging/logging_read_plan.h"
 
 #include <algorithm>
 #include <array>
@@ -54,20 +55,12 @@ bool ValidProtocol(LoggingProtocolId protocol)
            protocol == LoggingProtocolId::kCdbg;
 }
 
-bool ValidRawAssembly(RawAssembly raw_assembly)
-{
-    return raw_assembly == RawAssembly::kDecimalBytesConcatenated ||
-           raw_assembly == RawAssembly::kUnsignedIntegerDecimal;
-}
-
 bool ValidWireShape(LoggingProtocolId protocol, const std::vector<LoggingChannel>& channels)
 {
     switch (protocol)
     {
     case LoggingProtocolId::kSsm:
-        // A8 + mode + three address bytes per channel must fit the SSM
-        // one-byte payload-length field.
-        return channels.size() <= 84;
+        return MakeSsmReadPlan(channels).has_value();
     case LoggingProtocolId::kMutDma:
         if (channels.size() > 255)
         {
@@ -138,17 +131,30 @@ fastecu::Status ValidateLoggingChannel(LoggingProtocolId protocol, const Logging
     {
         return fastecu::Fail(fastecu::ErrorKind::kInvalidConfig, "missing channel id");
     }
-    if (channel.length == 0 || channel.length > 255)
+    if (channel.length != 1 && channel.length != 2 && channel.length != 4)
     {
-        return fastecu::Fail(fastecu::ErrorKind::kInvalidConfig, "invalid length; expected 1–255 bytes");
+        return fastecu::Fail(fastecu::ErrorKind::kInvalidConfig, "invalid length; expected 1, 2 or 4 bytes");
     }
     if (!ValidAddress(protocol, channel.address))
     {
         return fastecu::Fail(fastecu::ErrorKind::kInvalidConfig, "address exceeds the selected protocol's range");
     }
-    if (!ValidRawAssembly(channel.raw_assembly))
+    if ((channel.storage != NumericStorage::kUnsignedInteger && channel.storage != NumericStorage::kSignedInteger &&
+         channel.storage != NumericStorage::kFloat) ||
+        (channel.byte_order != NumericByteOrder::kBigEndian && channel.byte_order != NumericByteOrder::kLittleEndian) ||
+        (channel.storage == NumericStorage::kFloat && channel.length != 4))
     {
-        return fastecu::Fail(fastecu::ErrorKind::kInvalidConfig, "invalid raw assembly");
+        return fastecu::Fail(fastecu::ErrorKind::kInvalidConfig, "invalid numeric storage or byte order");
+    }
+    if (protocol == LoggingProtocolId::kSsm && channel.length - 1 > 0xffffff - channel.address)
+    {
+        return fastecu::Fail(fastecu::ErrorKind::kInvalidConfig, "expanded byte address exceeds the SSM range");
+    }
+    if (protocol != LoggingProtocolId::kSsm &&
+        (channel.storage != NumericStorage::kUnsignedInteger || channel.byte_order != NumericByteOrder::kBigEndian))
+    {
+        return fastecu::Fail(fastecu::ErrorKind::kInvalidConfig,
+                             "numeric metadata override is unsupported by this protocol");
     }
     if (channel.decimal_precision > 15)
     {

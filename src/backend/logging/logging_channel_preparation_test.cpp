@@ -1,6 +1,8 @@
 #include "src/backend/logging/logging_channel_preparation.h"
 
 #include <array>
+#include <format>
+#include "src/backend/logging/logger_definition_parser.h"
 #include <cstdint>
 #include <string>
 #include <utility>
@@ -93,7 +95,6 @@ TEST(LoggingChannelPreparation, AcceptsHexadecimalAddressesAndAsciiWhitespace)
         const auto result = PrepareLoggingChannel(p, LoggingProtocolId::kSsm);
         ASSERT_THAT(result, IsOk());
         EXPECT_EQ(result->address, 0x10U);
-        EXPECT_EQ(result->raw_assembly, RawAssembly::kDecimalBytesConcatenated);
     }
 }
 
@@ -192,8 +193,7 @@ TEST(LoggingChannelPreparation, RetainsProtocolLengthBounds)
             auto p = BuildParameter();
             p.length = std::to_string(length);
             const auto result = PrepareLoggingChannel(p, protocol);
-            const bool valid =
-                protocol == LoggingProtocolId::kSsm ? length <= 255 : length == 1 || length == 2 || length == 4;
+            const bool valid = length == 1 || length == 2 || length == 4;
             if (valid)
             {
                 ASSERT_THAT(result, IsOk());
@@ -203,6 +203,41 @@ TEST(LoggingChannelPreparation, RetainsProtocolLengthBounds)
                 EXPECT_THAT(result, IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("length")));
             }
         }
+    }
+}
+TEST(LoggingChannelPreparation, RejectsInvalidSelectedNumericMetadata)
+{
+    for (const auto fields : {R"(storagetype="bogus")", R"(storagetype="float")", R"(endian="middle")"})
+    {
+        SCOPED_TRACE(fields);
+        const auto xml = std::format(R"(<logger><protocols><protocol id="SSM"><parameters>
+          <parameter id="rpm"><address length="2">0x1000</address><conversions>
+          <conversion {} expr="x" format="0"/></conversions></parameter>
+          </parameters></protocol></protocols></logger>)",
+                                     fields);
+        const auto definition =
+            ParseLoggerDefinition({reinterpret_cast<const bytes::Byte *>(xml.data()), xml.size()}, "metadata fixture");
+        ASSERT_THAT(definition, IsOk());
+        EXPECT_THAT(PrepareLoggingChannel(definition->parameters.front(), LoggingProtocolId::kSsm),
+                    IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("rpm")));
+    }
+}
+
+TEST(LoggingChannelPreparation, RejectsUnsupportedNondefaultNumericMetadataForOtherProtocols)
+{
+    for (const auto protocol : {LoggingProtocolId::kMutDma, LoggingProtocolId::kCdbg})
+    {
+        auto parameter = BuildParameter();
+        parameter.protocol = protocol == LoggingProtocolId::kMutDma ? "MUT_DMA" : "CDBG";
+        parameter.conversions.front().storage_type = "int16";
+        EXPECT_THAT(PrepareLoggingChannel(parameter, protocol),
+                    IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("storagetype")));
+        parameter.conversions.front().storage_type.clear();
+        parameter.conversions.front().endian = "little";
+        EXPECT_THAT(PrepareLoggingChannel(parameter, protocol),
+                    IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("endian")));
+        parameter.conversions.front().endian = "big";
+        EXPECT_THAT(PrepareLoggingChannel(parameter, protocol), IsOk());
     }
 }
 } // namespace
