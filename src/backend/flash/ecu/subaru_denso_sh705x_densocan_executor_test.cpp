@@ -40,6 +40,8 @@ using bytes::ComposeBe;
 using bytes::U24;
 using namespace bytes::literals;
 using namespace std::chrono_literals;
+using ::testing::Optional;
+using ::testing::Pair;
 
 constexpr std::uint32_t kIsoRequestId = 0x7E0;
 constexpr std::uint32_t kIsoResponseId = 0x7E8;
@@ -1121,9 +1123,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor, CrcIntervalsAndFlashBufferAcknowledgemen
     auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_TRUE(result.has_value()) << result.error().detail;
-    EXPECT_TRUE(std::any_of(transport.iso_read_timeouts.begin(), transport.iso_read_timeouts.end(),
-                            [](const auto& entry)
-                            { return entry.first == std::optional<std::uint8_t>{0x22} && entry.second == 800ms; }));
+    EXPECT_THAT(transport.iso_read_timeouts, Contains(Pair(Optional(0x22), 800ms)));
     EXPECT_TRUE(transport.scripted.ScriptConsumed());
 }
 

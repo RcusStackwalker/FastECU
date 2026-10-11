@@ -351,7 +351,7 @@ TEST(BoundFlashAttemptTest, MixedTransportBeforeConfigureErrorSkipsConfigureOpen
 
     ASSERT_THAT(attempt->Run(clock, cancellation, events), fastecu::testing::IsErr(ErrorKind::kInternal));
     EXPECT_THAT(calls, ::testing::ElementsAre("before_transport_configure"));
-    EXPECT_TRUE(std::ranges::none_of(calls, [](const std::string& call) { return call == "configure"; }));
+    EXPECT_THAT(calls, ::testing::Not(::testing::Contains("configure")));
 }
 
 } // namespace
