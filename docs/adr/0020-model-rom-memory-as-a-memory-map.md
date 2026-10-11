@@ -101,6 +101,9 @@ Rejected:
   store locations.
 - **Checksum constants are ECU addresses**, and no checksum route carries an
   address offset.
+- **Each checksum route declares its ECU window.** Correction runs only when
+  the ROM's memory map spans exactly the window the route's family checksums;
+  the MCU's `romsize` no longer gates it.
 - **Only the MC68HC16Y5 `_02` executor writes through the memory map.** Every
   other flash family's ROM files are already ECU-addressed, so it keeps indexing
   the file bytes. A test pins that each map those families declare keeps file
