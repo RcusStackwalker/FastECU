@@ -30,8 +30,10 @@ using fastecu::config::MemoryMapSpec;
 using fastecu::config::PlaceRomFile;
 using fastecu::config::ProtocolIn;
 using fastecu::config::ProtocolSpec;
+using fastecu::config::ReadOnlyFrom;
 using fastecu::config::SelectMemoryMap;
 using fastecu::config::VehicleSpec;
+using fastecu::config::WritableFrom;
 using fastecu::memory::ByteCount;
 using fastecu::memory::FileBacking;
 using fastecu::memory::FileOffset;
@@ -333,10 +335,9 @@ TEST(PlaceRomFile, CarriesTheSelectionError)
 
 // A 0x140000-byte file at 0 with a written middle, like SH72531; and a
 // 0x100-byte file at 0x1000, like 1N83M.
-constexpr auto kLinearBlocks = LinearBlocks(
-    0x140000,
-    {{0x000000, Writability::kReadOnly}, {0x008000, Writability::kWritable}, {0x13FF00, Writability::kReadOnly}});
-constexpr auto kLinearBasedBlocks = LinearBlocks(0x100, {{0x1000, Writability::kWritable}});
+constexpr auto kLinearBlocks =
+    LinearBlocks(0x140000, ReadOnlyFrom(0x000000), WritableFrom(0x008000), ReadOnlyFrom(0x13FF00));
+constexpr auto kLinearBasedBlocks = LinearBlocks(0x100, WritableFrom(0x1000));
 static_assert(MemoryMapSpec{.blocks = kLinearBlocks}.FileSize() == ByteCount{0x140000});
 
 MATCHER_P3(IsFileBlock, start, size, offset, "")

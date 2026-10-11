@@ -10,7 +10,6 @@ namespace fastecu::config
 namespace
 {
 
-constexpr auto kReadOnly = memory::Writability::kReadOnly;
 constexpr auto kWritable = memory::Writability::kWritable;
 
 // Memory maps (ADR 0020). A protocol declares them only when its ROM files are
@@ -32,7 +31,7 @@ constexpr auto kMc68PackedBlocks = std::to_array({
     FileBlock(0x28000, 0x08000, 0x20000, kWritable),
 });
 constexpr auto kMc68FullBlocks =
-    LinearBlocks(0x30000, {{0x00000, kWritable}, {0x20000, kReadOnly}, {0x28000, kWritable}});
+    LinearBlocks(0x30000, WritableFrom(0x00000), ReadOnlyFrom(0x20000), WritableFrom(0x28000));
 constexpr auto kMc68Maps = std::to_array<MemoryMapSpec>({
     {.blocks = kMc68PackedBlocks},
     {.blocks = kMc68FullBlocks},
@@ -41,44 +40,44 @@ constexpr auto kMc68Maps = std::to_array<MemoryMapSpec>({
 // 512 KiB M32R and MH8104 ROMs whose protocol never writes the 0x8000-byte
 // bootloader. The Colt CZT 512 KiB variants write 0x60000-0x7FFFF through the
 // redirect carrier, which counts as writable.
-constexpr auto kBootloaderOf512kBlocks = LinearBlocks(0x80000, {{0x00000, kReadOnly}, {0x08000, kWritable}});
+constexpr auto kBootloaderOf512kBlocks = LinearBlocks(0x80000, ReadOnlyFrom(0x00000), WritableFrom(0x08000));
 constexpr auto kBootloaderOf512kMaps = std::to_array<MemoryMapSpec>({{.blocks = kBootloaderOf512kBlocks}});
 
 // Colt CZT 384 KiB variants: the bootloader, then userspace up to 0x60000.
-constexpr auto kColt384kBlocks = LinearBlocks(0x60000, {{0x00000, kReadOnly}, {0x08000, kWritable}});
+constexpr auto kColt384kBlocks = LinearBlocks(0x60000, ReadOnlyFrom(0x00000), WritableFrom(0x08000));
 constexpr auto kColt384kMaps = std::to_array<MemoryMapSpec>({{.blocks = kColt384kBlocks}});
 
 // MH8111: only the 1 MiB block at 0x80000 is written. FastECU's own read
 // covers 0x8000-0x7FFFF (0xFF for the unread prefix), so a 512 KiB read file
 // holds no byte the protocol writes.
-constexpr auto kMh8111ReadBlocks = LinearBlocks(0x80000, {{0x00000, kReadOnly}});
-constexpr auto kMh8111Blocks = LinearBlocks(0x180000, {{0x00000, kReadOnly}, {0x80000, kWritable}});
+constexpr auto kMh8111ReadBlocks = LinearBlocks(0x80000, ReadOnlyFrom(0x00000));
+constexpr auto kMh8111Blocks = LinearBlocks(0x180000, ReadOnlyFrom(0x00000), WritableFrom(0x80000));
 constexpr auto kMh8111Maps = std::to_array<MemoryMapSpec>({
     {.blocks = kMh8111ReadBlocks},
     {.blocks = kMh8111Blocks},
 });
 
 // SH72543R: the first 0x6000 bytes are never written.
-constexpr auto kSh72543rBlocks = LinearBlocks(0x200000, {{0x0000, kReadOnly}, {0x6000, kWritable}});
+constexpr auto kSh72543rBlocks = LinearBlocks(0x200000, ReadOnlyFrom(0x0000), WritableFrom(0x6000));
 constexpr auto kSh72543rMaps = std::to_array<MemoryMapSpec>({{.blocks = kSh72543rBlocks}});
 
 // Denso ISO-15765 bootloader dialect: the ROM file holds a lead block and a
 // 0x100-byte tail block that the bootloader keeps, around the written main
 // block. N83M files start at 0x08F9C000.
 constexpr auto kSh72531Blocks =
-    LinearBlocks(0x140000, {{0x000000, kReadOnly}, {0x008000, kWritable}, {0x13FF00, kReadOnly}});
+    LinearBlocks(0x140000, ReadOnlyFrom(0x000000), WritableFrom(0x008000), ReadOnlyFrom(0x13FF00));
 constexpr auto kSh72531Maps = std::to_array<MemoryMapSpec>({{.blocks = kSh72531Blocks}});
 constexpr auto kSh72543DieselBlocks =
-    LinearBlocks(0x200000, {{0x000000, kReadOnly}, {0x008000, kWritable}, {0x1FFF00, kReadOnly}});
+    LinearBlocks(0x200000, ReadOnlyFrom(0x000000), WritableFrom(0x008000), ReadOnlyFrom(0x1FFF00));
 constexpr auto kSh72543DieselMaps = std::to_array<MemoryMapSpec>({{.blocks = kSh72543DieselBlocks}});
 constexpr auto kN83m4mBlocks =
-    LinearBlocks(0x3E4000, {{0x08F9C000, kReadOnly}, {0x08FAC000, kWritable}, {0x0937FF00, kReadOnly}});
+    LinearBlocks(0x3E4000, ReadOnlyFrom(0x08F9C000), WritableFrom(0x08FAC000), ReadOnlyFrom(0x0937FF00));
 // 1N83M definitions count from the start of the ROM file: FastECU's own
 // constants do, and no community 1N83M definitions exist.
 constexpr auto kN83m4mMaps =
     std::to_array<MemoryMapSpec>({{.blocks = kN83m4mBlocks, .definition_base = memory::FlashAddress{0x08F9C000}}});
 constexpr auto kN83m1_5mBlocks =
-    LinearBlocks(0x184000, {{0x08F9C000, kReadOnly}, {0x08FAC000, kWritable}, {0x0911FF00, kReadOnly}});
+    LinearBlocks(0x184000, ReadOnlyFrom(0x08F9C000), WritableFrom(0x08FAC000), ReadOnlyFrom(0x0911FF00));
 constexpr auto kN83m1_5mMaps =
     std::to_array<MemoryMapSpec>({{.blocks = kN83m1_5mBlocks, .definition_base = memory::FlashAddress{0x08F9C000}}});
 

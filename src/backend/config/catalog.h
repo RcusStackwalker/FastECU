@@ -1,6 +1,7 @@
 #pragma once
 #include <algorithm>
 #include <array>
+#include <concepts>
 #include <cstddef>
 #include <cstdint>
 #include <expected>
@@ -93,41 +94,56 @@ struct LinearSegment
     memory::Writability writability;
 };
 
-// Where segment `index` ends: the next segment's start, or `file_end` for the last.
-template <std::size_t N>
-consteval std::uint64_t LinearSegmentEnd(const LinearSegment (&segments)[N], std::size_t index, std::uint64_t file_end)
+// A read-only stretch of a linear ROM file, from ECU address `start`.
+consteval LinearSegment ReadOnlyFrom(std::uint32_t start)
 {
-    return index + 1 < N ? std::uint64_t{segments[index + 1].start} : file_end;
+    return LinearSegment{.start = start, .writability = memory::Writability::kReadOnly};
+}
+
+// A writable stretch of a linear ROM file, from ECU address `start`.
+consteval LinearSegment WritableFrom(std::uint32_t start)
+{
+    return LinearSegment{.start = start, .writability = memory::Writability::kWritable};
+}
+
+// Where segment `index` ends: the next segment's start, or `file_end` for the last.
+consteval std::uint64_t LinearSegmentEnd(std::span<const LinearSegment> segments, std::size_t index,
+                                         std::uint64_t file_end)
+{
+    return index + 1 < segments.size() ? std::uint64_t{segments[index + 1].start} : file_end;
 }
 
 // The file-backed blocks of a `file_size`-byte ROM file placed linearly from
-// `segments[0].start`: each segment runs to the next one's start, the last to
-// the file's end, and holds the file bytes at its address less the first start.
-// Starts out of order, a start at or past the file's end, an empty file, or an
-// end past the 32-bit space do not compile.
-template <std::size_t N>
-consteval std::array<memory::MemoryBlock, N> LinearBlocks(std::uint32_t file_size, const LinearSegment (&segments)[N])
+// the first segment's start: each segment runs to the next one's start, the
+// last to the file's end, and holds the file bytes at its address less the
+// first start. Starts out of order, a start at or past the file's end, an
+// empty file, or an end past the 32-bit space do not compile.
+template <std::same_as<LinearSegment>... Segments>
+    requires(sizeof...(Segments) > 0)
+consteval std::array<memory::MemoryBlock, sizeof...(Segments)> LinearBlocks(std::uint32_t file_size,
+                                                                            Segments... segments)
 {
-    const std::uint32_t base = segments[0].start;
+    const std::array<LinearSegment, sizeof...(Segments)> list{segments...};
+    const std::uint32_t base = list[0].start;
     const std::uint64_t file_end = std::uint64_t{base} + file_size;
     if (file_size == 0 || file_end > UINT32_MAX)
     {
         throw std::invalid_argument("a linear ROM file must be non-empty and end inside the 32-bit space");
     }
-    for (std::size_t index = 0; index < N; ++index)
+    for (std::size_t index = 0; index < list.size(); ++index)
     {
-        if (LinearSegmentEnd(segments, index, file_end) <= segments[index].start)
+        if (LinearSegmentEnd(list, index, file_end) <= list[index].start)
         {
             throw std::invalid_argument("linear segments must be in address order and start inside the ROM file");
         }
     }
     return [&]<std::size_t... kIndex>(std::index_sequence<kIndex...>)
     {
-        return std::array<memory::MemoryBlock, N>{
-            FileBlock(segments[kIndex].start,
-                      static_cast<std::uint32_t>(LinearSegmentEnd(segments, kIndex, file_end) - segments[kIndex].start),
-                      segments[kIndex].start - base, segments[kIndex].writability)...};
-    }(std::make_index_sequence<N>{});
+        return std::array<memory::MemoryBlock, sizeof...(Segments)>{
+            FileBlock(list[kIndex].start,
+                      static_cast<std::uint32_t>(LinearSegmentEnd(list, kIndex, file_end) - list[kIndex].start),
+                      list[kIndex].start - base, list[kIndex].writability)...};
+    }(std::index_sequence_for<Segments...>{});
 }
 
 // One flash and logging protocol, as compile-time data.
