@@ -71,10 +71,7 @@ TEST(CatalogConsistency, EveryBundledKernelIsUsed)
     {
         used_kernels.push_back(protocol.kernel);
     }
-    for (const std::string& name : BundledKernelNames())
-    {
-        EXPECT_THAT(used_kernels, ::testing::Contains(name));
-    }
+    EXPECT_THAT(used_kernels, ::testing::IsSupersetOf(BundledKernelNames()));
 }
 
 // MUT/DMA logging's M32170 is the one MCU without a flash memory model, and
