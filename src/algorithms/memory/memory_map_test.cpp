@@ -4,8 +4,11 @@
 #include <cstdint>
 #include <optional>
 #include <span>
+#include <tuple>
 #include <variant>
+#include <vector>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 namespace fastecu::memory
@@ -41,6 +44,19 @@ std::optional<MemoryErrorKind> CreateError(std::span<const MemoryBlock> blocks, 
 {
     const auto map = MemoryMap::Create(blocks, ByteCount{file_size});
     return map.has_value() ? std::nullopt : std::optional(map.error().kind);
+}
+
+// Each slice as (index of its block in the map, or -1 for a gap; start; size).
+std::vector<std::tuple<int, std::uint32_t, std::uint32_t>> Described(const MemoryMap& map,
+                                                                     std::span<const BlockSlice> slices)
+{
+    std::vector<std::tuple<int, std::uint32_t, std::uint32_t>> described;
+    for (const BlockSlice& slice : slices)
+    {
+        const int index = slice.block == nullptr ? -1 : static_cast<int>(slice.block - map.Blocks().data());
+        described.emplace_back(index, slice.range.Start().Value(), slice.range.Size().Value());
+    }
+    return described;
 }
 
 TEST(MemoryMap, AcceptsThePackedMc68Layout)
@@ -221,6 +237,45 @@ TEST(MemoryMap, FileOffsetOfDoesNotSpanAdjacentFileBlocks)
     ASSERT_TRUE(map.has_value());
 
     EXPECT_EQ(map->FileOffsetOf(Range(0x0E, 4)), std::nullopt);
+}
+
+TEST(MemoryMap, SlicesSplitARangeAtBlockBoundariesInAddressOrder)
+{
+    const std::array blocks{FileBlock(0x000, 0x100, 0x0), FillBlock(0x200, 0x100), FileBlock(0x300, 0x100, 0x100)};
+    const auto map = MemoryMap::Create(blocks, ByteCount{0x200});
+    ASSERT_TRUE(map.has_value());
+
+    EXPECT_THAT(Described(*map, map->Slices(Range(0x80, 0x300))),
+                ::testing::ElementsAre(std::tuple{0, 0x80U, 0x80U}, std::tuple{-1, 0x100U, 0x100U},
+                                       std::tuple{1, 0x200U, 0x100U}, std::tuple{2, 0x300U, 0x80U}));
+}
+
+TEST(MemoryMap, SlicesBeforeAndAfterEveryBlockAreGaps)
+{
+    const std::array blocks{FileBlock(0x100, 0x100, 0x0)};
+    const auto map = MemoryMap::Create(blocks, ByteCount{0x100});
+    ASSERT_TRUE(map.has_value());
+
+    EXPECT_THAT(Described(*map, map->Slices(Range(0x0, 0x80))), ::testing::ElementsAre(std::tuple{-1, 0x0U, 0x80U}));
+    EXPECT_THAT(Described(*map, map->Slices(Range(0x80, 0x200))),
+                ::testing::ElementsAre(std::tuple{-1, 0x80U, 0x80U}, std::tuple{0, 0x100U, 0x100U},
+                                       std::tuple{-1, 0x200U, 0x80U}));
+    EXPECT_THAT(Described(*map, map->Slices(Range(0x300, 0x10))),
+                ::testing::ElementsAre(std::tuple{-1, 0x300U, 0x10U}));
+}
+
+TEST(MemoryMap, SliceFileStartFollowsTheBlocksFileBacking)
+{
+    const auto blocks = PackedMc68Blocks();
+    const auto map = MemoryMap::Create(blocks, ByteCount{0x28000});
+    ASSERT_TRUE(map.has_value());
+
+    const std::vector<BlockSlice> slices = map->Slices(Range(0x1FFF0, 0x8020));
+    ASSERT_EQ(slices.size(), 3U);
+    EXPECT_EQ(slices[0].FileStart(), FileOffset{0x1FFF0});
+    EXPECT_EQ(slices[1].FileStart(), std::nullopt); // fill block
+    EXPECT_EQ(slices[2].FileStart(), FileOffset{0x20000});
+    EXPECT_EQ(map->Slices(Range(0x30000, 4))[0].FileStart(), std::nullopt); // gap
 }
 
 TEST(MemoryMapSpan, RunsFromTheFirstBlockStartToTheLastBlockEnd)
