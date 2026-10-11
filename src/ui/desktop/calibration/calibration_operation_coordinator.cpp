@@ -51,8 +51,8 @@ std::string withCalibrationSuffix(std::string path)
 
 // The selected protocol's checksum route addresses the ROM through that
 // protocol's memory map for this file size. A size it declares no map for is
-// placed by the identity map, so the romsize check still reports it as a bad
-// ROM size.
+// placed by the identity map, whose span is no route's window, so correction
+// reports a bad ROM size.
 std::expected<memory::MemoryImage, memory::MemoryError> checksumImage(const config::ProtocolSpec& protocol,
                                                                       bytes::ByteView file)
 {
