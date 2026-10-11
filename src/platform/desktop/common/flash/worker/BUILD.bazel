@@ -35,6 +35,7 @@ fastecu_gtest(
         "//src/backend/flash/eeprom:denso_sh705x_eeprom_kline",
         "//src/backend/flash/testing:scripted_flash_transports",
         "//src/backend/ports/testing:fake_clock",
+        "//src/backend/ports/testing:result_matchers",
         "//src/platform/desktop/common/flash:flash_workflow",
         "//src/platform/desktop/common/testing:core_application_environment",
         "//src/platform/desktop/common/testing:event_helpers",
