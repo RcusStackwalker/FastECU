@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <expected>
+#include <limits>
 #include <optional>
 #include <span>
 #include <stdexcept>
@@ -44,7 +45,7 @@ struct MemoryMapSpec
     memory::FlashAddress definition_base;
 
     // Where the furthest-placed ROM file byte ends; 0 with no file-backed
-    // block, and 0xFFFFFFFF when a file range runs past 4 GiB. MemoryMap::Create
+    // block, and 0xFFFFFFFF when a file range reaches 4 GiB. MemoryMap::Create
     // rejects both, and any gap or overlap among the file ranges.
     [[nodiscard]] constexpr memory::ByteCount FileSize() const
     {
@@ -56,7 +57,8 @@ struct MemoryMapSpec
                 end = std::max(end, std::uint64_t{file->offset.Value()} + block.range.Size().Value());
             }
         }
-        return memory::ByteCount{static_cast<std::uint32_t>(std::min<std::uint64_t>(end, UINT32_MAX))};
+        return memory::ByteCount{
+            static_cast<std::uint32_t>(std::min<std::uint64_t>(end, std::numeric_limits<std::uint32_t>::max()))};
     }
 };
 
@@ -126,7 +128,7 @@ consteval std::array<memory::MemoryBlock, sizeof...(Segments)> LinearBlocks(std:
     const std::array<LinearSegment, sizeof...(Segments)> list{segments...};
     const std::uint32_t base = list[0].start;
     const std::uint64_t file_end = std::uint64_t{base} + file_size;
-    if (file_size == 0 || file_end > UINT32_MAX)
+    if (file_size == 0 || file_end > std::numeric_limits<std::uint32_t>::max())
     {
         throw std::invalid_argument("a linear ROM file must be non-empty and end inside the 32-bit space");
     }

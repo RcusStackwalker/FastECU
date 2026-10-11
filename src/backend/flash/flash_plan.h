@@ -29,9 +29,9 @@ struct FlashPlanFields
     MemoryRegion transfer_region{};
     std::vector<MemoryRegion> erase_regions;
     std::optional<bytes::Bytes> image;
-    // Where `image`'s bytes sit at ECU addresses (ADR 0020). ValidateAndBuild
-    // places the image by it once, for RomImage(). Only a write image can have
-    // one.
+    // Where `image`'s bytes sit at ECU addresses (ADR 0020). Consumed by
+    // ValidateAndBuild, which places the image by it once for RomImage(); the
+    // built plan does not keep it. Only a write image can have one.
     std::optional<memory::MemoryMap> image_map;
     // Optional because not every family uploads one. The EEPROM pair loads a
     // kernel file and uploads it; the Mitsu Colt CAN family drives the ECU's
