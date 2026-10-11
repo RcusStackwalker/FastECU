@@ -278,6 +278,41 @@ TEST(MemoryMap, SliceFileStartFollowsTheBlocksFileBacking)
     EXPECT_EQ(map->Slices(Range(0x30000, 4))[0].FileStart(), std::nullopt); // gap
 }
 
+TEST(MemoryMap, SlicesOfASingleAddress)
+{
+    const std::array blocks{FileBlock(0x000, 0x100, 0x0), FileBlock(0x200, 0x100, 0x100)};
+    const auto map = MemoryMap::Create(blocks, ByteCount{0x200});
+    ASSERT_TRUE(map.has_value());
+
+    EXPECT_THAT(Described(*map, map->Slices(Range(0xFF, 1))), ::testing::ElementsAre(std::tuple{0, 0xFFU, 1U}));
+    EXPECT_THAT(Described(*map, map->Slices(Range(0x100, 1))), ::testing::ElementsAre(std::tuple{-1, 0x100U, 1U}));
+    EXPECT_THAT(Described(*map, map->Slices(Range(0x200, 1))), ::testing::ElementsAre(std::tuple{1, 0x200U, 1U}));
+}
+
+TEST(MemoryMap, SlicesOfARangeExactlyOnABlocksEdges)
+{
+    const std::array blocks{FileBlock(0x000, 0x100, 0x0), FillBlock(0x200, 0x100), FileBlock(0x300, 0x100, 0x100)};
+    const auto map = MemoryMap::Create(blocks, ByteCount{0x200});
+    ASSERT_TRUE(map.has_value());
+
+    EXPECT_THAT(Described(*map, map->Slices(Range(0x200, 0x100))),
+                ::testing::ElementsAre(std::tuple{1, 0x200U, 0x100U}));
+    EXPECT_THAT(Described(*map, map->Slices(Range(0x100, 0x100))),
+                ::testing::ElementsAre(std::tuple{-1, 0x100U, 0x100U}));
+}
+
+TEST(MemoryMap, SlicesReachABlockEndingAtTheTopOfTheAddressSpace)
+{
+    const std::array blocks{FileBlock(0xFFFFFF00, 0xFF, 0x0)};
+    const auto map = MemoryMap::Create(blocks, ByteCount{0xFF});
+    ASSERT_TRUE(map.has_value());
+
+    EXPECT_THAT(Described(*map, map->Slices(Range(0xFFFFFE00, 0x1FF))),
+                ::testing::ElementsAre(std::tuple{-1, 0xFFFFFE00U, 0x100U}, std::tuple{0, 0xFFFFFF00U, 0xFFU}));
+    EXPECT_THAT(Described(*map, map->Slices(Range(0xFFFFFFFE, 1))),
+                ::testing::ElementsAre(std::tuple{0, 0xFFFFFFFEU, 1U}));
+}
+
 TEST(MemoryMapSpan, RunsFromTheFirstBlockStartToTheLastBlockEnd)
 {
     const std::array blocks{FileBlock(0x100, 0x10, 0x0, Writability::kReadOnly), FileBlock(0x200, 0x20, 0x10)};

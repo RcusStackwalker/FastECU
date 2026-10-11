@@ -44,6 +44,8 @@ struct MemoryBlock
 };
 
 // The part of an address range that one block holds, or a gap no block holds.
+// `block` points into the blocks of the MemoryMap that made the slice: keep a
+// slice no longer than that map.
 struct BlockSlice
 {
     const MemoryBlock *block{nullptr}; // nullptr for a gap
