@@ -1,24 +1,11 @@
 #include "checksum_tcu_mitsu_mh8104_can.h"
 
-#include <utility>
-
 #include "checksum_primitives.h"
 #include "src/algorithms/protocol/bytes.h"
 
-ChecksumResult ChecksumTcuMitsuMH8104Can::CalculateChecksumResult(const fastecu::memory::MemoryView& rom)
+ChecksumResult ChecksumTcuMitsuMH8104Can::CalculateChecksumResult(Rom rom)
 {
-    if (auto rejected = fastecu::checksum::internal::RequireStartAtZero(rom); rejected.has_value())
-    {
-        return *std::move(rejected);
-    }
-    const bytes::ByteView rom_view = rom.Data();
-    // Fixed 512 KiB MH8104 layout; see the MH8104 flash-device model.
-    if (rom_view.size() != 0x80000)
-    {
-        return {.status = ChecksumResult::Status::kInvalidSize,
-                .rom_data = bytes::Bytes(rom_view.begin(), rom_view.end()),
-                .message = "ROM size does not match the checksum layout"};
-    }
+    const bytes::ByteView rom_view = rom;
     /****************************
      *
      *  FUN_00001578: Check that 0x8000 = 0x5aa5 & 0x7fffe = 0xa55a

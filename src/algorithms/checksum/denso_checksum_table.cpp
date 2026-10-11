@@ -49,8 +49,12 @@ DensoTableOutcome CorrectDensoTable(memory::FlashAddress base, bytes::MutableByt
             return DensoTableOutcome::kDisabled;
         }
 
-        // Positions in `rom`. An address below `base` wraps past the end of
-        // `rom` and fails the range checks below.
+        // Positions in `rom`. In a record that is summed (both addresses
+        // nonzero, stored value not the target), an end address below `base`
+        // wraps past the end of `rom` and fails the range checks below; a
+        // start address below `base` alone wraps above the end, which is a
+        // descending range and sums nothing, as legacy does for any
+        // descending range.
         const std::uint32_t low = raw_low - base.Value();
         const std::uint32_t high = raw_high - base.Value();
         std::uint32_t sum = 0;

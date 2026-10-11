@@ -25,6 +25,8 @@ Conversion ParseConversion(pugi::xml_node node)
         .gauge_min = AttributeOr(node, "gauge_min", "No gauge_min"),
         .gauge_max = AttributeOr(node, "gauge_max", "No gauge_max"),
         .gauge_step = AttributeOr(node, "gauge_step", "No gauge_step"),
+        .storage_type = AttributeOr(node, "storagetype", ""),
+        .endian = AttributeOr(node, "endian", ""),
     };
 }
 
@@ -47,7 +49,7 @@ LoggerParameter ParseParameter(pugi::xml_node node, std::string_view protocol)
     if (const pugi::xml_node address = node.child("address"))
     {
         parameter.address = address.child_value();
-        parameter.length = AttributeOr(address, "length", AttributeOr(node, "length", "1").c_str());
+        parameter.length = AttributeOr(address, "length", "1");
         if (node.attribute("length"))
         {
             parameter.declared_length = node.attribute("length").value();

@@ -17,10 +17,17 @@ enum class LoggingProtocolId
     kCdbg,
 };
 
-enum class RawAssembly
+enum class NumericStorage
 {
-    kDecimalBytesConcatenated,
-    kUnsignedIntegerDecimal,
+    kUnsignedInteger,
+    kSignedInteger,
+    kFloat,
+};
+
+enum class NumericByteOrder
+{
+    kBigEndian,
+    kLittleEndian,
 };
 
 struct LoggingChannel
@@ -28,12 +35,13 @@ struct LoggingChannel
     std::string id;
     std::uint32_t address;
     std::size_t length;
-    RawAssembly raw_assembly;
     std::string from_byte_expression;
     std::string unit;
     std::uint8_t decimal_precision;
     std::vector<std::uint32_t> byte_addresses;
     std::optional<std::uint8_t> sample_bit;
+    NumericStorage storage{NumericStorage::kUnsignedInteger};
+    NumericByteOrder byte_order{NumericByteOrder::kBigEndian};
 };
 
 struct LoggingPolicy

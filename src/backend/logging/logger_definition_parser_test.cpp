@@ -22,9 +22,9 @@ bytes::ByteView View(std::string_view text)
 }
 
 constexpr std::string_view kWellFormed = R"(<logger><protocols><protocol id="SSM"><parameters>
-  <parameter id="P1" name="Engine Speed" desc="RPM" length="2"
+  <parameter id="P1" name="Engine Speed" desc="RPM"
              ecubyteindex="3" ecubit="4" target="1" enabled="1">
-    <address>0x1234</address>
+    <address length="2">0x1234</address>
     <conversions>
       <conversion units="rpm" expr="x*0.25" format="0.00"
                   gauge_min="0" gauge_max="8000" gauge_step="500"/>
@@ -79,6 +79,30 @@ TEST(LoggerDefinitionParser, ParsesParametersSwitchesAndConversions)
     // The definition XML carries no switch enabled attribute; always false
     // out of the parser (file_actions.cpp:1261).
     EXPECT_FALSE(s.enabled);
+}
+
+TEST(LoggerDefinitionParser, IgnoresParameterWidthWhenAddressWidthIsAbsent)
+{
+    constexpr std::string_view kXml = R"(<logger><protocols><protocol><parameters>
+  <parameter length="4"><address>0x10</address></parameter>
+</parameters></protocol></protocols></logger>)";
+
+    const auto result = ParseLoggerDefinition(View(kXml), "test.xml");
+    ASSERT_THAT(result, fastecu::testing::IsOk());
+    ASSERT_THAT(result->parameters, SizeIs(1));
+    EXPECT_EQ(result->parameters.at(0).length, "1");
+}
+
+TEST(LoggerDefinitionParser, UsesAddressWidthWhenParameterDeclaresDifferentWidth)
+{
+    constexpr std::string_view kXml = R"(<logger><protocols><protocol><parameters>
+  <parameter length="4"><address length="2">0x10</address></parameter>
+</parameters></protocol></protocols></logger>)";
+
+    const auto result = ParseLoggerDefinition(View(kXml), "test.xml");
+    ASSERT_THAT(result, fastecu::testing::IsOk());
+    ASSERT_THAT(result->parameters, SizeIs(1));
+    EXPECT_EQ(result->parameters.at(0).length, "2");
 }
 
 TEST(LoggerDefinitionParser, SubstitutesLegacyPlaceholderDefaults)

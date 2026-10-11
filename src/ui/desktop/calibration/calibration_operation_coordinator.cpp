@@ -51,8 +51,8 @@ std::string withCalibrationSuffix(std::string path)
 
 // The selected protocol's checksum route addresses the ROM through that
 // protocol's memory map for this file size. A size it declares no map for is
-// placed by the identity map, so the romsize check still reports it as a bad
-// ROM size.
+// placed by the identity map, whose span is no route's window, so correction
+// reports a bad ROM size.
 std::expected<memory::MemoryImage, memory::MemoryError> checksumImage(const config::ProtocolSpec& protocol,
                                                                       bytes::ByteView file)
 {
@@ -186,11 +186,10 @@ void CalibrationOperationCoordinator::correctOperationImage(const calibration::C
     callbacks_.log(LogLevel::kDebug, std::format("Protocol: {}", selection.flash_method));
     callbacks_.log(LogLevel::kDebug, std::format("Make: {}", selection.make));
     callbacks_.log(LogLevel::kDebug, std::format("Checksum: {}", selection.checksum_flag));
-    if (const auto *device = flash::FindFlashDevice(selection.mcu_type); device != nullptr)
+    if (flash::FindFlashDevice(selection.mcu_type) != nullptr)
     {
         callbacks_.log(LogLevel::kDebug,
                        std::format("ecuCalDef->McuType: {} {}", session.Protocol().mcu_type, vehicle.protocol->mcu));
-        callbacks_.log(LogLevel::kDebug, std::format("Size: 0x{:x} -> 0x{:x}", image.size(), device->romsize));
     }
     const auto placed = checksumImage(*vehicle.protocol, image);
     if (!placed.has_value())

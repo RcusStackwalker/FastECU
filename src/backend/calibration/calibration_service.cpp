@@ -15,7 +15,7 @@ namespace fastecu::calibration
 {
 using namespace internal;
 
-Result<NumericRun> DecodeNumericRun(bytes::ByteView rom, const ElementRun& run)
+Result<NumericRun> DecodeNumericRun(const DefinitionBytes& rom, const ElementRun& run)
 {
     if (!run.storage_type.has_value() || run.storage_type == definition::StorageType::kBloblist ||
         run.start_position == 0 || run.interval == 0)
@@ -26,7 +26,8 @@ Result<NumericRun> DecodeNumericRun(bytes::ByteView rom, const ElementRun& run)
     const bool is_float = run.storage_type == definition::StorageType::kFloat;
     const bool little_endian = !is_float && run.endian == "little";
     const auto end = ElementRunEnd(run.address, run.start_position, run.interval, width, run.count);
-    if (end > rom.size())
+    const std::optional<bytes::ByteView> window = rom.At(run.address, end - run.address);
+    if (!window.has_value())
     {
         return Fail(ErrorKind::kInvalidConfig, "numeric run exceeds ROM size");
     }
@@ -36,8 +37,9 @@ Result<NumericRun> DecodeNumericRun(bytes::ByteView rom, const ElementRun& run)
     {
         const auto address =
             run.address + std::uint64_t(run.start_position - 1) * width + std::uint64_t(index) * width * run.interval;
-        const auto raw = little_endian ? bytes::ReadULe(rom, static_cast<std::size_t>(address), width)
-                                       : bytes::ReadUBe(rom, static_cast<std::size_t>(address), width);
+        const auto offset = static_cast<std::size_t>(address - run.address);
+        const auto raw =
+            little_endian ? bytes::ReadULe(*window, offset, width) : bytes::ReadUBe(*window, offset, width);
         const double numeric = is_float ? static_cast<double>(std::bit_cast<float>(raw))
                                : definition::IsUnsignedStorage(run.storage_type)
                                    ? static_cast<double>(raw)
@@ -90,8 +92,8 @@ ElementRun AxisElementRun(const definition::AxisDefinition& axis, std::uint32_t 
     };
 }
 
-Result<AxisValue> DecodeTypedAxis(const definition::AxisDefinition& axis, std::uint32_t extent, bytes::ByteView rom,
-                                  bool x_axis, std::string_view map_type)
+Result<AxisValue> DecodeTypedAxis(const definition::AxisDefinition& axis, std::uint32_t extent,
+                                  const DefinitionBytes& rom, bool x_axis, std::string_view map_type)
 {
     if (extent <= 1 || axis.type.empty())
     {
@@ -124,7 +126,7 @@ Result<AxisValue> DecodeTypedAxis(const definition::AxisDefinition& axis, std::u
 } // namespace
 
 Result<DecodedMap> DecodeCalibrationMap(const definition::RomDefinition& rom_definition,
-                                        const definition::CalibrationMap& map, bytes::ByteView rom)
+                                        const definition::CalibrationMap& map, const DefinitionBytes& rom)
 {
     const auto *scaling = definition::FindScaling(rom_definition, map.scaling_name);
     if (!map.scaling_name.empty() && scaling == nullptr)
@@ -144,12 +146,12 @@ Result<DecodedMap> DecodeCalibrationMap(const definition::RomDefinition& rom_def
     {
         const auto width = ElementByteSize(storage, scaling);
         const std::uint64_t blob_address = map.address->Value();
-        if (!ByteWindowFits(rom, blob_address, width))
+        const std::optional<bytes::ByteView> data = rom.At(blob_address, width);
+        if (!data.has_value())
         {
             return Fail(ErrorKind::kInvalidConfig, std::format("map '{}' blob exceeds ROM size", map.name));
         }
-        const auto data = rom.subspan(static_cast<std::size_t>(blob_address), width);
-        result.body = BlobValue{bytes::Bytes(data.begin(), data.end())};
+        result.body = BlobValue{bytes::Bytes(data->begin(), data->end())};
         return result;
     }
     auto run = MapElementRun(map, scaling, static_cast<std::uint32_t>(count));

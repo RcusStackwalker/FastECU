@@ -1,20 +1,15 @@
 #include "checksum_tcu_subaru_hitachi_m32r_can.h"
 
-#include <utility>
-
 #include "checksum_primitives.h"
 #include "src/algorithms/protocol/bytes.h"
 #include <array>
 
-ChecksumResult ChecksumTcuSubaruHitachiM32rCan::CalculateChecksumResult(const fastecu::memory::MemoryView& rom)
+ChecksumResult ChecksumTcuSubaruHitachiM32rCan::CalculateChecksumResult(bytes::ByteView rom_view)
 {
-    if (auto rejected = fastecu::checksum::internal::RequireStartAtZero(rom); rejected.has_value())
-    {
-        return *std::move(rejected);
-    }
-    const bytes::ByteView rom_view = rom.Data();
-    // Fixed 64 KiB M3779x/M3775x layout; checksum fields begin at 0x8000.
-    if (rom_view.size() != 0x10000)
+    // Both sums run over the whole file, a 32-bit word at a time, as the
+    // legacy module did; the checksum fields sit at fixed addresses
+    // 0x8000-0x8007 and 0x8020-0x8023. M32R_512KB files are 0x80000 bytes.
+    if (rom_view.size() < 0x8024 || rom_view.size() % 4 != 0)
     {
         return {.status = ChecksumResult::Status::kInvalidSize,
                 .rom_data = bytes::Bytes(rom_view.begin(), rom_view.end()),

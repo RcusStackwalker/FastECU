@@ -11,8 +11,8 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include "src/algorithms/memory/testing/memory_views.h"
 #include "src/algorithms/memory/memory_map.h"
+#include "src/algorithms/memory/testing/memory_views.h"
 #include "src/backend/calibration/session/testing/fake_definition_catalogs.h"
 #include "src/backend/config/testing/config_session_fixture.h"
 #include "src/backend/ports/testing/in_memory_atomic_file_writer.h"
@@ -145,7 +145,7 @@ class NumericEditUseCaseTest : public ::testing::Test
 
     std::vector<std::uint8_t> RomBytes()
     {
-        const auto rom = Session().Rom();
+        const auto rom = Session().File();
         return {rom.begin(), rom.end()};
     }
 
@@ -186,8 +186,8 @@ TEST_F(NumericEditUseCaseTest, EditsAxesWithTheirOwnGeometry)
     EXPECT_THAT(Edit(NumericTarget::kXAxis, Cell(0, 2), IncrementEdit{IncrementStep::kCoarseUp}), Changed());
     EXPECT_THAT(Edit(NumericTarget::kYAxis, Cell(1, 0), IncrementEdit{IncrementStep::kFineUp}), Changed());
 
-    EXPECT_EQ(Session().Rom()[2], 13);
-    EXPECT_EQ(Session().Rom()[9], 6);
+    EXPECT_EQ(Session().File()[2], 13);
+    EXPECT_EQ(Session().File()[9], 6);
     EXPECT_THAT(BodyBytes(), ElementsAre(10, 20, 30, 40, 50, 200));
 }
 
@@ -198,7 +198,7 @@ TEST_F(NumericEditUseCaseTest, CalculatesFromBytesWrittenBeforeTheCall)
 
     EXPECT_THAT(Edit(NumericTarget::kMapBody, Cell(0, 0), IncrementEdit{IncrementStep::kFineUp}), Changed());
 
-    EXPECT_EQ(Session().Rom()[kBody], 34);
+    EXPECT_EQ(Session().File()[kBody], 34);
 }
 
 TEST_F(NumericEditUseCaseTest, AssignsAnExpressionAcrossARow)
@@ -294,7 +294,7 @@ TEST_F(NumericEditUseCaseTest, RelativeEditsNeedValidCurrentValuesButAssignments
     EXPECT_FALSE(Session().Dirty());
 
     EXPECT_THAT(Edit(NumericTarget::kMapBody, Cell(0, 0), AssignmentEdit{"5"}), Changed());
-    EXPECT_EQ(Session().Rom()[kBody], 5);
+    EXPECT_EQ(Session().File()[kBody], 5);
 }
 
 TEST_F(NumericEditUseCaseTest, ReportsLimitAndOrdinaryNoChangeWithoutDirtying)
@@ -378,8 +378,8 @@ TEST_F(NumericEditUseCaseTest, Mc68PaddedImagesWriteHighAddressesInPlace)
 
     EXPECT_THAT(Edit(NumericTarget::kMapBody, Cell(0, 0), AssignmentEdit{"20"}), Changed());
 
-    EXPECT_EQ(Session().Rom()[0x2C000], 20);
-    EXPECT_EQ(Session().Rom()[0x24000], 0);
+    EXPECT_EQ(Session().File()[0x2C000], 20);
+    EXPECT_EQ(Session().File()[0x24000], 0);
 }
 
 // Q13: a map in memory the protocol never writes (a bootloader prefix) decodes
@@ -401,7 +401,7 @@ TEST_F(NumericEditUseCaseTest, EditsToAMapInReadOnlyMemoryChangeNothing)
                      AssignmentEdit{"x+1"}),
                 IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("not writable")));
 
-    EXPECT_THAT(Session().Rom(), ElementsAreArray(rom));
+    EXPECT_THAT(Session().File(), ElementsAreArray(rom));
     EXPECT_FALSE(Session().Dirty());
 }
 

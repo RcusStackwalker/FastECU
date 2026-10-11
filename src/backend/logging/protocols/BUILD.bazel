@@ -35,6 +35,10 @@ fastecu_portable_gtest(
     deps = [
         ":protocols",
         "//src/algorithms/protocol/ssm",
+        "//src/backend/logging:logger_definition_parser",
+        "//src/backend/logging:logging_channel_preparation",
+        "//src/backend/logging:logging_conversion",
+        "//src/backend/logging:logging_session",
         "//src/backend/ports/testing:fake_cancellation_token",
         "//src/backend/ports/testing:fake_clock",
         "//src/backend/ports/testing:result_matchers",

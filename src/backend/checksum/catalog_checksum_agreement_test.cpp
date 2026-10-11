@@ -1,8 +1,11 @@
-// Every built-in protocol that corrects checksums and declares memory maps
-// must keep each family's checksum stores in writable, ROM-file-backed memory
-// of every one of those maps (ADR 0020, decision 5 of the slice 7 plan).
+// Every built-in protocol that corrects checksums must correct a ROM of each
+// file size it accepts, with every checksum store in writable, file-backed
+// memory, and reject any other size (ADR 0020). It accepts the file sizes of
+// the memory maps it declares, else its MCU's romsize under the identity map:
+// the size gate before checksum routes declared their ECU window.
 #include <cstdint>
 #include <format>
+#include <optional>
 #include <set>
 #include <string>
 #include <string_view>
@@ -26,8 +29,6 @@ namespace fastecu::checksum
 {
 namespace
 {
-using ::testing::Pair;
-using ::testing::UnorderedElementsAre;
 using Status = ChecksumCorrectionOutcome::Status;
 
 // A zero ROM is enough for most families to correct. The Mitsubishi M32R CAN
@@ -43,63 +44,97 @@ bytes::Bytes ZeroRomThatCorrects(std::string_view flash_method, std::uint32_t fi
     return rom;
 }
 
-TEST(CatalogChecksumAgreement, EveryDeclaredMapHoldsItsChecksumStoresInWritableMemory)
+// One vehicle per built-in protocol that corrects checksums through a route.
+std::vector<const config::VehicleSpec *> OneVehiclePerRoutedProtocol()
 {
     std::set<std::string_view> seen;
-    std::vector<std::pair<std::string, std::uint32_t>> bad_size;
-    std::vector<std::pair<std::string, std::uint32_t>> layout_mismatch;
-    int checked = 0;
+    std::vector<const config::VehicleSpec *> vehicles;
     for (const config::VehicleSpec& vehicle : config::BuiltinCatalog().Vehicles())
     {
         const config::ProtocolSpec& protocol = *vehicle.protocol;
-        if (protocol.checksum != config::ChecksumSupport::kCorrected || protocol.memory_maps.empty() ||
-            !HasRoute(vehicle.make, protocol.name) || !seen.insert(protocol.name).second)
+        if (protocol.checksum == config::ChecksumSupport::kCorrected && HasRoute(vehicle.make, protocol.name) &&
+            seen.insert(protocol.name).second)
         {
-            continue;
+            vehicles.push_back(&vehicle);
         }
-        const FlashDevice *device = flash::FindFlashDevice(protocol.mcu);
-        ASSERT_NE(device, nullptr) << protocol.name;
-        for (const config::MemoryMapSpec& spec : protocol.memory_maps)
-        {
-            SCOPED_TRACE(std::format("{} {:#x}", protocol.name, spec.file_size.Value()));
-            const auto image =
-                config::PlaceRomFile(&protocol, ZeroRomThatCorrects(protocol.name, spec.file_size.Value()));
-            ASSERT_TRUE(image.has_value());
+    }
+    return vehicles;
+}
 
-            const ChecksumCorrectionOutcome outcome =
-                ApplyChecksumCorrection(*image, {.make = std::string(vehicle.make),
-                                                 .checksum_flag = "yes",
-                                                 .flash_method = std::string(protocol.name),
-                                                 .mcu_type = std::string(protocol.mcu),
-                                                 .rom_id = "39670016"});
+std::vector<std::uint32_t> AcceptedFileSizes(const config::ProtocolSpec& protocol)
+{
+    std::vector<std::uint32_t> sizes;
+    for (const config::MemoryMapSpec& spec : protocol.memory_maps)
+    {
+        sizes.push_back(spec.FileSize().Value());
+    }
+    if (sizes.empty())
+    {
+        if (const FlashDevice *device = flash::FindFlashDevice(protocol.mcu); device != nullptr)
+        {
+            sizes.push_back(device->romsize);
+        }
+    }
+    return sizes;
+}
+
+// As CalibrationOperationCoordinator places the operation image: by the
+// protocol's map for the size, else the identity map.
+memory::MemoryImage PlaceAsTheCoordinatorDoes(const config::ProtocolSpec& protocol, const bytes::Bytes& rom)
+{
+    auto placed = config::PlaceRomFile(&protocol, rom);
+    return placed.has_value() ? *std::move(placed) : config::PlaceRomFile(nullptr, rom).value();
+}
+
+ChecksumSelection SelectionFor(const config::VehicleSpec& vehicle)
+{
+    return {.make = std::string(vehicle.make),
+            .checksum_flag = "yes",
+            .flash_method = std::string(vehicle.protocol->name),
+            .mcu_type = std::string(vehicle.protocol->mcu),
+            .rom_id = "39670016"};
+}
+
+TEST(CatalogChecksumAgreement, EveryRoutedProtocolCorrectsEachFileSizeItAccepts)
+{
+    int checked = 0;
+    for (const config::VehicleSpec *vehicle : OneVehiclePerRoutedProtocol())
+    {
+        const config::ProtocolSpec& protocol = *vehicle->protocol;
+        const std::vector<std::uint32_t> sizes = AcceptedFileSizes(protocol);
+        ASSERT_FALSE(sizes.empty()) << protocol.name;
+        for (const std::uint32_t size : sizes)
+        {
+            SCOPED_TRACE(std::format("{} {:#x}", protocol.name, size));
+            const ChecksumCorrectionOutcome outcome = ApplyChecksumCorrection(
+                PlaceAsTheCoordinatorDoes(protocol, ZeroRomThatCorrects(protocol.name, size)), SelectionFor(*vehicle));
             ++checked;
-            if (spec.file_size.Value() != device->romsize)
-            {
-                EXPECT_EQ(outcome.status, Status::kBadRomSize);
-                bad_size.emplace_back(protocol.name, spec.file_size.Value());
-                continue;
-            }
+
             ASSERT_EQ(outcome.status, Status::kFamilyRan);
             ASSERT_TRUE(outcome.family_result.has_value());
-            if (outcome.family_result->status == ChecksumResult::Status::kInvalidSize)
-            {
-                layout_mismatch.emplace_back(protocol.name, spec.file_size.Value());
-                continue;
-            }
             // Corrected, not merely Ok(): a family that writes nothing proves nothing.
             EXPECT_EQ(outcome.family_result->status, ChecksumResult::Status::kCorrected)
                 << outcome.family_result->message;
             EXPECT_TRUE(outcome.corrected_file.has_value());
         }
     }
-
     EXPECT_GT(checked, 0);
-    // N83M_1_5MB's romsize (0x174000) is not the 1.5M file size (0x184000), so
-    // that route never runs (deferred).
-    EXPECT_THAT(bad_size, UnorderedElementsAre(Pair("sub_ecu_denso_1n83m_1_5m_can", 0x184000U)));
-    // sub_tcu_hitachi_m32r_can names M32R_512KB, but its family's layout is
-    // 64 KiB, so no file of the MCU's romsize corrects (deferred).
-    EXPECT_THAT(layout_mismatch, UnorderedElementsAre(Pair("sub_tcu_hitachi_m32r_can", 0x80000U)));
+}
+
+TEST(CatalogChecksumAgreement, EveryRoutedProtocolRejectsAFileOneWordLonger)
+{
+    for (const config::VehicleSpec *vehicle : OneVehiclePerRoutedProtocol())
+    {
+        const config::ProtocolSpec& protocol = *vehicle->protocol;
+        for (const std::uint32_t size : AcceptedFileSizes(protocol))
+        {
+            SCOPED_TRACE(std::format("{} {:#x}", protocol.name, size + 4));
+            const ChecksumCorrectionOutcome outcome = ApplyChecksumCorrection(
+                PlaceAsTheCoordinatorDoes(protocol, bytes::Bytes(size + 4, 0)), SelectionFor(*vehicle));
+
+            EXPECT_EQ(outcome.status, Status::kBadRomSize);
+        }
+    }
 }
 } // namespace
 } // namespace fastecu::checksum

@@ -15,9 +15,9 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include "src/algorithms/memory/testing/memory_views.h"
 #include "src/algorithms/memory/memory_image.h"
 #include "src/algorithms/memory/memory_map.h"
+#include "src/algorithms/memory/testing/memory_views.h"
 #include "src/algorithms/protocol/bytes.h"
 #include "src/backend/calibration/session/calibration_session.h"
 #include "src/backend/calibration/session/rom_save.h"
@@ -92,7 +92,7 @@ calibration::CalibrationSession ecuRead(std::optional<calibration::ResolvedDefin
 }
 
 // An MC68HC16Y5-style packed file of {1, 2, 3, 4}: file 0-1 at 0, two fill
-// bytes at 2, file 2-3 at 4, so Rom() is {1, 2, 0xFF, 0xFF, 3, 4}.
+// bytes at 2, file 2-3 at 4, so it reads as {1, 2, 0xFF, 0xFF, 3, 4}.
 calibration::CalibrationSession packedFile()
 {
     const auto range = [](std::uint32_t start, std::uint32_t size)
@@ -279,7 +279,7 @@ TEST_F(CalibrationOperationCoordinator, CorrectedWriteUsesOnlyOperationBytes)
     EXPECT_THAT(checksum_image_, ElementsAre(9, 2, 3));
     EXPECT_FALSE(checksum_has_definition_);
     EXPECT_THAT(prepared->image, ElementsAre(4, 5, 6));
-    EXPECT_THAT(session_.Rom(), ElementsAre(9, 2, 3));
+    EXPECT_THAT(session_.File(), ElementsAre(9, 2, 3));
     EXPECT_TRUE(session_.Dirty());
     EXPECT_EQ(prepared->protocol.name, "proto_a");
     EXPECT_EQ(prepared->protocol.mcu, "SH7058");
@@ -303,7 +303,6 @@ TEST_F(CalibrationOperationCoordinator, ChecksumLogsKeepLegacyTextAndOrder)
     EXPECT_THAT(logs_, ElementsAre(Pair(LogLevel::kDebug, "Protocol: proto_a"), Pair(LogLevel::kDebug, "Make: Subaru"),
                                    Pair(LogLevel::kDebug, "Checksum: yes"),
                                    Pair(LogLevel::kDebug, "ecuCalDef->McuType: SH7058 SH7058"),
-                                   Pair(LogLevel::kDebug, "Size: 0x1a -> 0x100000"),
                                    Pair(LogLevel::kDebug, "Checksum calculation canceled!")));
 }
 
@@ -321,8 +320,7 @@ constexpr config::Catalog kNissanForesterCatalog{config::testing::kStandardProto
 
 // The standard catalog with proto_a declaring one 8-byte memory map at 0x1000.
 constexpr auto kPlacedBlocks = std::to_array({config::FileBlock(0x1000, 8, 0, memory::Writability::kWritable)});
-constexpr auto kPlacedMaps =
-    std::to_array<config::MemoryMapSpec>({{.file_size = memory::ByteCount{8}, .blocks = kPlacedBlocks}});
+constexpr auto kPlacedMaps = std::to_array<config::MemoryMapSpec>({{.blocks = kPlacedBlocks}});
 constexpr auto kPlacedProtocols = []
 {
     auto protocols = config::testing::kStandardProtocols;
@@ -406,8 +404,7 @@ TEST_F(CalibrationOperationCoordinator, EmptyDefinedMethodReselectsBeforeChecksu
                             Pair(LogLevel::kDebug, "Protocol info for selected ROM updated"),
                             Pair(LogLevel::kDebug, "Protocol: proto_a"), Pair(LogLevel::kDebug, "Make: Nissan"),
                             Pair(LogLevel::kDebug, "Checksum: yes"),
-                            Pair(LogLevel::kDebug, "ecuCalDef->McuType: SH7058 SH7058"),
-                            Pair(LogLevel::kDebug, "Size: 0x3 -> 0x100000")));
+                            Pair(LogLevel::kDebug, "ecuCalDef->McuType: SH7058 SH7058")));
 }
 
 struct UncorrectedCase
@@ -450,7 +447,7 @@ TEST_P(UncorrectedWriteStillPrepares, WithOriginalBytes)
 
     ASSERT_TRUE(prepared.has_value());
     EXPECT_THAT(prepared->image, ElementsAre(9, 2, 3));
-    EXPECT_THAT(session_.Rom(), ElementsAre(9, 2, 3));
+    EXPECT_THAT(session_.File(), ElementsAre(9, 2, 3));
     EXPECT_THAT(
         logs_,
         Contains(Pair(LogLevel::kDebug, "Checksum calculation canceled!")).Times(GetParam().logs_cancellation ? 1 : 0));
@@ -576,7 +573,7 @@ TEST_F(CalibrationOperationCoordinator, SavePersistsCorrectedCopy)
 
     EXPECT_EQ(coordinator_.save(&session_, SaveMode::kSave), SaveOutcome::kSaved);
     EXPECT_THAT(cfg_.file_repository.files.at("/old/read.bin"), ElementsAre(4, 5, 6));
-    EXPECT_THAT(session_.Rom(), ElementsAre(9, 2, 3));
+    EXPECT_THAT(session_.File(), ElementsAre(9, 2, 3));
     EXPECT_EQ(session_.Source().origin, calibration::RomOrigin::kEcuRead);
     EXPECT_FALSE(session_.Dirty());
     EXPECT_THAT(logs_, Contains(Pair(LogLevel::kDebug, "ecuCalDef->FileName: read.bin")));
@@ -604,7 +601,7 @@ TEST_P(UncorrectedSaveStillPersists, WithOriginalBytes)
     EXPECT_EQ(coordinator_.save(&session_, mode), SaveOutcome::kSaved);
 
     EXPECT_THAT(cfg_.file_repository.files.at(destination), ElementsAre(9, 2, 3));
-    EXPECT_THAT(session_.Rom(), ElementsAre(9, 2, 3));
+    EXPECT_THAT(session_.File(), ElementsAre(9, 2, 3));
     EXPECT_FALSE(session_.Dirty());
     EXPECT_THAT(
         logs_,
@@ -660,7 +657,7 @@ TEST_F(CalibrationOperationCoordinator, SaveAsCorrectsBeforeChoosingPath)
     EXPECT_EQ(suggested_path_, cfg_.session.EffectivePaths().calibration_files_directory + "read.bin");
     EXPECT_EQ(suggested_path_, "/cal/read.bin");
     EXPECT_THAT(cfg_.file_repository.files.at("/cal/saved.bin"), ElementsAre(4, 5, 6));
-    EXPECT_THAT(session_.Rom(), ElementsAre(9, 2, 3));
+    EXPECT_THAT(session_.File(), ElementsAre(9, 2, 3));
     EXPECT_EQ(session_.Source().origin, calibration::RomOrigin::kEcuRead);
     // Each progress line precedes its step: the first the checksum logs, the
     // second the picker.
@@ -673,12 +670,12 @@ TEST_F(CalibrationOperationCoordinator, SaveAsCorrectsBeforeChoosingPath)
                                    Pair(LogLevel::kDebug, "ecuCalDef->FullFileName: /cal/saved.bin")));
 }
 
-// Q3: a file is saved in the layout it was opened in; the fill bytes Rom()
+// Q3: a file is saved in the layout it was opened in; the fill bytes a read
 // shows for the RAM range never reach the checksum image or the saved file.
 TEST_F(CalibrationOperationCoordinator, SaveWritesTheRomFileInTheLayoutItWasOpenedIn)
 {
     calibration::CalibrationSession packed = packedFile();
-    ASSERT_THAT(packed.Rom(), ElementsAre(1, 2, 0xFF, 0xFF, 3, 4));
+    ASSERT_THAT(packed.Read(0, 6), fastecu::testing::IsOkAnd(ElementsAre(1, 2, 0xFF, 0xFF, 3, 4)));
     expectChecksum({});
 
     EXPECT_EQ(coordinator_.save(&packed, SaveMode::kSave), SaveOutcome::kSaved);
@@ -726,7 +723,7 @@ TEST_P(SaveAsCancelledAfterCorrection, WritesNothing)
     EXPECT_THAT(trace_, ElementsAre("checksum", "choose", "notice"));
     EXPECT_EQ(session_.Source(), sourceBefore);
     EXPECT_TRUE(session_.Dirty());
-    EXPECT_THAT(session_.Rom(), ElementsAre(9, 2, 3));
+    EXPECT_THAT(session_.File(), ElementsAre(9, 2, 3));
     EXPECT_THAT(cfg_.file_repository.write_calls, IsEmpty());
     EXPECT_THAT(cfg_.events.notices, IsEmpty());
     EXPECT_THAT(logs_, Not(Contains(Pair(_, StartsWith("ecuCalDef->")))));
@@ -809,13 +806,13 @@ TEST_P(FailedSavePreservesState, AndReportsOnce)
     }
     cfg_.file_repository.write_errors[target] = Error{ErrorKind::kInternal, "disk full"};
     const calibration::RomSource sourceBefore = session_.Source();
-    const bytes::Bytes romBefore(session_.Rom().begin(), session_.Rom().end());
+    const bytes::Bytes romBefore(session_.File().begin(), session_.File().end());
     expectChecksum({.corrected_rom_data = bytes::Bytes{4, 5, 6}});
 
     EXPECT_EQ(coordinator_.save(&session_, mode), SaveOutcome::kFailed);
 
     EXPECT_EQ(session_.Source(), sourceBefore);
-    EXPECT_THAT(session_.Rom(), ElementsAreArray(romBefore));
+    EXPECT_THAT(session_.File(), ElementsAreArray(romBefore));
     EXPECT_EQ(session_.Dirty(), initiallyDirty);
     EXPECT_THAT(cfg_.file_repository.write_calls, IsEmpty());
     EXPECT_THAT(logs_, Not(Contains(Pair(_, StartsWith("ecuCalDef->")))));

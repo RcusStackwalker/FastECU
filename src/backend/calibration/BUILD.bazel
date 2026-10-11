@@ -8,7 +8,6 @@ cc_library(
     srcs = ["scaling_internal.cpp"],
     hdrs = ["scaling_internal.h"],
     visibility = ["//src/backend/calibration:__pkg__"],
-    deps = ["//src/algorithms/protocol"],
 )
 
 cc_library(
@@ -21,6 +20,7 @@ cc_library(
     ],
     deps = [
         ":decoded_map",
+        ":definition_bytes",
         "//src/algorithms/protocol",
         "//src/backend/definition:definition_model",
         "//src/backend/ports",
@@ -32,6 +32,7 @@ fastecu_portable_gtest(
     srcs = ["calibration_service_test.cpp"],
     deps = [
         ":calibration_service",
+        ":definition_bytes",
         "//src/backend/ports/testing:in_memory_file_repository",
         "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
@@ -79,6 +80,7 @@ cc_library(
     ],
     deps = [
         ":decoded_map",
+        ":definition_bytes",
         ":map_edit",
     ],
 )
@@ -114,6 +116,21 @@ fastecu_portable_gtest(
         "//src/algorithms/memory:memory_map",
         "//src/backend/definition:definition_model",
         "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
+    ],
+)
+
+cc_library(
+    name = "definition_bytes",
+    hdrs = ["definition_bytes.h"],
+    deps = ["//src/algorithms/protocol"],
+)
+
+fastecu_portable_gtest(
+    name = "definition_bytes_test",
+    srcs = ["definition_bytes_test.cpp"],
+    deps = [
+        ":definition_bytes",
         "@googletest//:gtest",
     ],
 )

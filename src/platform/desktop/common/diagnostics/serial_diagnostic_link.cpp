@@ -5,6 +5,7 @@
 
 #include <cstdint>
 #include <exception>
+#include <format>
 #include <functional>
 #include <initializer_list>
 #include <string>
@@ -35,7 +36,7 @@ Status RunSetters(std::initializer_list<Setter> setters)
     {
         if (!setter.call())
         {
-            return Fail(ErrorKind::kInvalidConfig, std::string(setter.name) + " failed");
+            return Fail(ErrorKind::kInvalidConfig, std::format("{} failed", setter.name));
         }
     }
     return {};

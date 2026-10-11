@@ -1628,12 +1628,7 @@ TEST(FlashWorkflowTest, mc68FileSizeWithoutAMapIsRefusedBeforeTheKernelIsRead)
     auto workflow = FlashWorkflowFactory::TryCreate(std::move(input));
     ASSERT_TRUE(workflow != nullptr);
 
-    auto step = workflow->Next();
-    if (std::holds_alternative<FlashPromptStep>(step))
-    {
-        workflow->Submit(FlashPromptResponse::kAccept);
-        step = workflow->Next();
-    }
+    const auto step = workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashFailureStep>(step));
     EXPECT_THAT(std::get<FlashFailureStep>(step).error.detail, ::testing::HasSubstr("ROM file size error"));
 }

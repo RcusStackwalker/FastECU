@@ -12,7 +12,7 @@ struct ChecksumSelection
     std::string make;          // the selected vehicle's make (ConfigSession)
     std::string checksum_flag; // the selected vehicle's checksum flag: "yes"/"no"/"n/a" verbatim
     std::string flash_method;  // the selected vehicle's protocol_name
-    std::string mcu_type;      // calibration session protocol MCU
+    std::string mcu_type;      // calibration session protocol MCU; must name a kFlashDevices[] entry
     std::string rom_id;        // calibration session protocol ROM ID
 };
 
@@ -21,7 +21,7 @@ struct ChecksumCorrectionOutcome
     enum class Status
     {
         kUnknownMcuType,      // mcu_type not found in kFlashDevices[]
-        kBadRomSize,          // rom size != kFlashDevices[index].romsize
+        kBadRomSize,          // the ROM's memory map does not span exactly the route's ECU window
         kNoModuleForProtocol, // make/checksum_flag/flash_method matched no family
         kFamilyRan,           // flash_method matched a family branch
     };

@@ -513,10 +513,9 @@ constexpr auto kMappedBlocks = std::to_array({
     config::FileBlock(0x30, 0x20, 0x20, memory::Writability::kWritable),
 });
 constexpr auto kBasedBlocks = std::to_array({config::FileBlock(0x1000, 0x40, 0x00, memory::Writability::kWritable)});
-constexpr auto kMappedMaps =
-    std::to_array<config::MemoryMapSpec>({{.file_size = memory::ByteCount{0x40}, .blocks = kMappedBlocks}});
-constexpr auto kBasedMaps = std::to_array<config::MemoryMapSpec>(
-    {{.file_size = memory::ByteCount{0x40}, .blocks = kBasedBlocks, .definition_base = memory::FlashAddress{0x1000}}});
+constexpr auto kMappedMaps = std::to_array<config::MemoryMapSpec>({{.blocks = kMappedBlocks}});
+constexpr auto kBasedMaps =
+    std::to_array<config::MemoryMapSpec>({{.blocks = kBasedBlocks, .definition_base = memory::FlashAddress{0x1000}}});
 constexpr auto kMappedProtocols = std::to_array<config::ProtocolSpec>({
     {.name = "proto_a", .mcu = "SH7058", .checksum = config::ChecksumSupport::kCorrected, .description = "A"},
     {.name = "mapped",
@@ -562,10 +561,12 @@ TEST_F(RomOpenMemoryMaps, AReadImageIsPlacedByItsProtocolsMemoryMap)
     ASSERT_THAT(outcome, IsOk());
     const CalibrationSession session(SessionId{1}, std::move(outcome->contents));
     EXPECT_THAT(session.File(), ElementsAreArray(CountingRom(0x40)));
-    ASSERT_EQ(session.Rom().size(), 0x50U);
-    EXPECT_EQ(session.Rom()[0x1F], 0x1F);
-    EXPECT_EQ(session.Rom()[0x20], 0xFF);
-    EXPECT_EQ(session.Rom()[0x30], 0x20);
+    const auto rom = session.Read(0, 0x50);
+    ASSERT_THAT(rom, IsOk());
+    EXPECT_EQ((*rom)[0x1F], 0x1F);
+    EXPECT_EQ((*rom)[0x20], 0xFF);
+    EXPECT_EQ((*rom)[0x30], 0x20);
+    EXPECT_THAT(session.Read(0x50, 1), IsErr(ErrorKind::kInvalidConfig));
 }
 
 TEST_F(RomOpenMemoryMaps, DefinitionAddressesCountFromTheMapsDefinitionBase)
@@ -576,7 +577,8 @@ TEST_F(RomOpenMemoryMaps, DefinitionAddressesCountFromTheMapsDefinitionBase)
     ASSERT_THAT(outcome, IsOk());
     EXPECT_EQ(outcome->contents.image.Map().DefinitionBase(), memory::FlashAddress{0x1000});
     const CalibrationSession session(SessionId{1}, std::move(outcome->contents));
-    EXPECT_THAT(session.Rom(), ElementsAreArray(CountingRom(0x40)));
+    EXPECT_THAT(session.Read(0, 0x40), fastecu::testing::IsOkAnd(ElementsAreArray(CountingRom(0x40))));
+    EXPECT_THAT(session.Read(0x40, 1), IsErr(ErrorKind::kInvalidConfig));
 }
 
 TEST_F(RomOpenMemoryMaps, AFileSizeTheProtocolHasNoMapForIsNotOpened)

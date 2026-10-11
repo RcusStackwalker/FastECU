@@ -17,7 +17,6 @@ LoggingChannel Channel(std::string id, std::uint32_t address)
         .id = std::move(id),
         .address = address,
         .length = 2,
-        .raw_assembly = RawAssembly::kDecimalBytesConcatenated,
         .from_byte_expression = "x",
         .unit = "rpm",
         .decimal_precision = 2,
@@ -75,7 +74,7 @@ TEST(LoggingSessionTest, RejectsInvalidChannelShape)
                 fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
 }
 
-TEST(LoggingSessionTest, RejectsInvalidChannelIdentityAndAssembly)
+TEST(LoggingSessionTest, RejectsInvalidChannelIdentityAndNumericStorage)
 {
     auto c = Channel("", 0x10);
     ASSERT_THAT(MakeLoggingSession(LoggingProtocolId::kSsm, {c}, ValidPolicy()),
@@ -88,7 +87,7 @@ TEST(LoggingSessionTest, RejectsInvalidChannelIdentityAndAssembly)
 
     c = Channel("rpm", 0x10);
     // NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange) -- exercises the invalid-value rejection path
-    c.raw_assembly = static_cast<RawAssembly>(99);
+    c.storage = static_cast<NumericStorage>(99);
     ASSERT_THAT(MakeLoggingSession(LoggingProtocolId::kSsm, {c}, ValidPolicy()),
                 fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
 }
@@ -254,4 +253,21 @@ TEST(LoggingChannelValidation, SharesExistingBoundsAndExpressionProbes)
     channel.from_byte_expression = "x+";
     EXPECT_THAT(ValidateLoggingChannel(LoggingProtocolId::kSsm, channel),
                 fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
+}
+
+TEST(LoggingSessionTest, BoundsExpandedSsmByteRequests)
+{
+    auto channel = Channel("overflow", 0xffffff);
+    EXPECT_THAT(MakeLoggingSession(LoggingProtocolId::kSsm, {channel}, ValidPolicy()),
+                fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
+    std::vector<LoggingChannel> channels;
+    for (int i = 0; i < 22; ++i)
+    {
+        channels.push_back(Channel(std::to_string(i), 0x1000));
+        channels.back().length = 4;
+    }
+    EXPECT_THAT(MakeLoggingSession(LoggingProtocolId::kSsm, channels, ValidPolicy()),
+                fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
+    channels.pop_back();
+    EXPECT_THAT(MakeLoggingSession(LoggingProtocolId::kSsm, channels, ValidPolicy()), fastecu::testing::IsOk());
 }

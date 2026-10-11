@@ -1,6 +1,10 @@
 #include "src/backend/logging/protocols/portable_ssm_logging_protocol.h"
 
 #include <algorithm>
+#include <bit>
+#include <cmath>
+#include <cstdint>
+#include <format>
 #include <chrono>
 #include <cstddef>
 #include <string>
@@ -41,6 +45,47 @@ bytes::Bytes BuildPollRequest(const SsmReadPlan& plan)
     return output;
 }
 
+Result<std::string> DecodeNumeric(bytes::ByteView data, const LoggingChannel& channel)
+{
+    if (data.size() != channel.length || (data.size() != 1 && data.size() != 2 && data.size() != 4))
+    {
+        return Fail(ErrorKind::kBadResponse, "invalid SSM numeric width");
+    }
+    std::uint32_t value = 0;
+    for (std::size_t i = 0; i < data.size(); ++i)
+    {
+        const auto position = channel.byte_order == NumericByteOrder::kLittleEndian ? data.size() - 1 - i : i;
+        value = (value << 8) | data[position];
+    }
+    switch (channel.storage)
+    {
+    case NumericStorage::kUnsignedInteger:
+        return std::to_string(value);
+    case NumericStorage::kSignedInteger:
+    {
+        const auto bits = data.size() * 8;
+        const auto signed_value =
+            (value & (std::uint32_t{1} << (bits - 1))) != 0
+                ? static_cast<std::int64_t>(value) - static_cast<std::int64_t>(std::uint64_t{1} << bits)
+                : static_cast<std::int64_t>(value);
+        return std::to_string(signed_value);
+    }
+    case NumericStorage::kFloat:
+    {
+        if (data.size() != 4)
+        {
+            return Fail(ErrorKind::kBadResponse, "SSM float requires four bytes");
+        }
+        const auto number = std::bit_cast<float>(value);
+        if (!std::isfinite(number))
+        {
+            return Fail(ErrorKind::kBadResponse, "nonfinite SSM float");
+        }
+        return std::format("{}", static_cast<double>(number));
+    }
+    }
+    return Fail(ErrorKind::kInvalidConfig, "invalid SSM numeric storage");
+}
 } // namespace
 
 SsmLoggingProtocol::SsmLoggingProtocol(fastecu::IClock& clock, std::unique_ptr<ISsmTransport> transport,
@@ -208,16 +253,21 @@ fastecu::Result<PollData> SsmLoggingProtocol::Poll(std::chrono::milliseconds tim
         {
             return Fail(ErrorKind::kInvalidConfig, "SSM channel byte positions do not match width");
         }
-        std::string raw_value;
+        bytes::Bytes raw_bytes;
         for (const auto position : positions)
         {
             if (position >= plan_.addresses.size())
             {
                 return Fail(ErrorKind::kInvalidConfig, "SSM response position outside physical read plan");
             }
-            raw_value += std::to_string(received->at(5 + position));
+            raw_bytes.push_back(received->at(5 + position));
         }
-        data.samples.push_back({channels_[i].id, std::move(raw_value)});
+        const auto raw_value = DecodeNumeric(raw_bytes, channels_[i]);
+        if (!raw_value.has_value())
+        {
+            return std::unexpected(raw_value.error());
+        }
+        data.samples.push_back({channels_[i].id, *raw_value});
     }
     return data;
 }

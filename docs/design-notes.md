@@ -138,9 +138,10 @@ column projection/record serialization define output, while the desktop creates
 and closes an exclusive CSV for every run. These contracts are owned by the
 [logging reference](reference/logging-contracts.md).
 
-SSM raw values deliberately concatenate decimal byte spellings because shipped
-conversion expressions depend on that input. CSV and selection persistence also
-retain their compatibility contracts. Read the relevant section of the
+SSM decodes binary numeric values before applying scaling, using the first
+conversion's storage and byte-order metadata. Its portable read plan maps
+contiguous requested bytes independently of display positions. CSV and selection
+persistence retain their existing contracts. Read the relevant section of the
 [logging reference](reference/logging-contracts.md) before changing these semantics.
 
 ## Definitions

@@ -566,8 +566,7 @@ TEST(SubaruDensoSh705xKlineExecutor, NegativeHandshakeReplyLogsTheNrc)
     EXPECT_THAT(h.Run(MakePlan(FlashOperation::kRead)), IsErr(ErrorKind::kBadResponse));
     ASSERT_FALSE(h.events.logs.empty());
     EXPECT_EQ(h.events.logs.back().first, LogLevel::kError);
-    EXPECT_TRUE(h.events.logs.back().second.starts_with("Wrong response from ECU: "));
-    EXPECT_NE(h.events.logs.back().second, "Wrong response from ECU: Not a valid answer");
+    EXPECT_EQ(h.events.logs.back().second, "Wrong response from ECU: Subfunction not supported");
 }
 
 TEST(SubaruDensoSh705xKlineExecutor, SilentHandshakeStepIsATimeout)

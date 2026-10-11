@@ -275,7 +275,7 @@ std::vector<MemoryMap> CandidateMaps(const config::ProtocolSpec& protocol, const
     }
     for (const config::MemoryMapSpec& spec : protocol.memory_maps)
     {
-        sizes.push_back(spec.file_size);
+        sizes.push_back(spec.FileSize());
     }
     std::vector<MemoryMap> maps;
     for (const ByteCount size : sizes)
@@ -382,9 +382,11 @@ TEST(CatalogMemoryMapAgreement, WritableBlocksAreFlashAndFillBlocksAreNot)
 
 // Families other than MC68HC16Y5 index the ROM file's bytes directly by ECU
 // address (less the definition base), so every map their protocols declare
-// must keep each file byte at that address. A map that moves file bytes
-// elsewhere needs its family to write through the memory image first, as the
-// MC68HC16Y5 K-Line family does (ADR 0020).
+// must keep each file byte at that address. LinearBlocks makes a map linear
+// from its first address; this checks that each such family gets only linear
+// maps, and that their definition base is that first address. A map that moves
+// file bytes elsewhere needs its family to write through the memory image
+// first, as the MC68HC16Y5 K-Line family does (ADR 0020).
 TEST(CatalogMemoryMapAgreement, FamiliesIndexingFileBytesGetEcuAddressedFiles)
 {
     for (const AgreementRow& row : kRows)

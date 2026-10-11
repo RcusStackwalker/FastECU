@@ -12,7 +12,6 @@ namespace
 {
 using fastecu::logging::CdbgLoggingProtocol;
 using fastecu::logging::LoggingChannel;
-using fastecu::logging::RawAssembly;
 using mitsu_colt_can_cdbg::CdbgChannel;
 using namespace std::chrono_literals;
 
@@ -22,7 +21,6 @@ LoggingChannel Channel()
         .id = "cdbg.load",
         .address = 0x804000,
         .length = 1,
-        .raw_assembly = RawAssembly::kUnsignedIntegerDecimal,
         .from_byte_expression = "x",
         .unit = "%",
         .decimal_precision = 0,

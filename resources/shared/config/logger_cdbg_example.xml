@@ -15,26 +15,26 @@
     <protocols>
         <protocol id="CDBG">
             <parameters>
-                <parameter id="CDBG_ENGINE_RPM" name="Engine RPM" desc="engine_rpm uint16, 1000 rpm / 256" length="2" enabled="1">
-                    <address>0x804cfc</address>
+                <parameter id="CDBG_ENGINE_RPM" name="Engine RPM" desc="engine_rpm uint16, 1000 rpm / 256" enabled="1">
+                    <address length="2">0x804cfc</address>
                     <conversions>
                         <conversion units="rpm" expr="x*1000/256" format="0" gauge_min="0" gauge_max="8000" gauge_step="500"/>
                     </conversions>
                 </parameter>
-                <parameter id="CDBG_COIL_DWELL_OPTIMAL_RPM_X_POWER" name="Coil Dwell Optimal RPM x Power" desc="coil_dwell_optimal_rpm_x_power raw uint16" length="2" enabled="1">
-                    <address>0x804f9c</address>
+                <parameter id="CDBG_COIL_DWELL_OPTIMAL_RPM_X_POWER" name="Coil Dwell Optimal RPM x Power" desc="coil_dwell_optimal_rpm_x_power raw uint16" enabled="1">
+                    <address length="2">0x804f9c</address>
                     <conversions>
                         <conversion units="raw" expr="x" format="0" gauge_min="0" gauge_max="65535" gauge_step="1024"/>
                     </conversions>
                 </parameter>
-                <parameter id="CDBG_KNOCK_SUM" name="Knock Sum" desc="knock_sum raw uint16" length="2" enabled="1">
-                    <address>0x804fbe</address>
+                <parameter id="CDBG_KNOCK_SUM" name="Knock Sum" desc="knock_sum raw uint16" enabled="1">
+                    <address length="2">0x804fbe</address>
                     <conversions>
                         <conversion units="raw" expr="x" format="0" gauge_min="0" gauge_max="65535" gauge_step="1"/>
                     </conversions>
                 </parameter>
-                <parameter id="CDBG_ECU_LOAD" name="ECU Load" desc="ecu_load uint16, 10 percent / 32" length="2" enabled="1">
-                    <address>0x804d2a</address>
+                <parameter id="CDBG_ECU_LOAD" name="ECU Load" desc="ecu_load uint16, 10 percent / 32" enabled="1">
+                    <address length="2">0x804d2a</address>
                     <conversions>
                         <conversion units="%" expr="x*10/32" format="0.0" gauge_min="0" gauge_max="300" gauge_step="10"/>
                     </conversions>

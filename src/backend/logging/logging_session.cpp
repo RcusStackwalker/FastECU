@@ -1,7 +1,7 @@
 #include "src/backend/logging/logging_session.h"
+#include "src/backend/logging/logging_read_plan.h"
 
 #include <algorithm>
-#include <array>
 #include <chrono>
 #include <cmath>
 #include <format>
@@ -21,20 +21,6 @@ using namespace std::chrono_literals;
 namespace
 {
 
-bool ValidExpression(const LoggingChannel& channel)
-{
-    if (channel.from_byte_expression.empty())
-    {
-        return false;
-    }
-    // A syntax error fails every probe; a probe-dependent failure such as a
-    // division by x-1 only rejects the expression if no probe evaluates.
-    const auto evaluates = [&channel](double probe)
-    { return fastecu::expression::EvaluateChecked(channel.from_byte_expression, probe).has_value(); };
-    constexpr std::array<double, 3> kProbes{1.0, 16.0, 1616.0};
-    return std::ranges::any_of(kProbes, evaluates);
-}
-
 bool ValidAddress(LoggingProtocolId protocol, std::uint32_t address)
 {
     switch (protocol)
@@ -53,12 +39,6 @@ bool ValidProtocol(LoggingProtocolId protocol)
 {
     return protocol == LoggingProtocolId::kSsm || protocol == LoggingProtocolId::kMutDma ||
            protocol == LoggingProtocolId::kCdbg;
-}
-
-bool ValidRawAssembly(RawAssembly raw_assembly)
-{
-    return raw_assembly == RawAssembly::kDecimalBytesConcatenated ||
-           raw_assembly == RawAssembly::kUnsignedIntegerDecimal;
 }
 
 bool ValidWireShape(LoggingProtocolId protocol, const std::vector<LoggingChannel>& channels)
@@ -89,9 +69,9 @@ bool ValidWireShape(LoggingProtocolId protocol, const std::vector<LoggingChannel
 } // namespace
 
 LoggingSession::LoggingSession(LoggingProtocolId protocol, std::vector<LoggingChannel> channels, LoggingPolicy policy,
-                               std::optional<SsmReadPlan> read_plan, mutdma::FreeformDialect dialect)
+                               std::optional<SsmReadPlan> read_plan, mutdma::FreeformDialect dialect, std::vector<expression::CompiledExpression> conversions)
     : protocol_(protocol), channels_(std::move(channels)), policy_(policy), dialect_(dialect),
-      read_plan_(std::move(read_plan))
+      read_plan_(std::move(read_plan)), conversions_(std::move(conversions))
 {
 }
 
@@ -132,7 +112,21 @@ const LoggingChannel *LoggingSession::FindChannel(std::string_view id) const
     return nullptr;
 }
 
-fastecu::Status ValidateLoggingChannel(LoggingProtocolId protocol, const LoggingChannel& channel)
+const expression::CompiledExpression *LoggingSession::FindConversion(std::string_view id) const
+{
+    for (std::size_t index = 0; index < channels_.size(); ++index)
+    {
+        if (channels_[index].id == id)
+        {
+            return &conversions_[index];
+        }
+    }
+    return nullptr;
+}
+
+namespace
+{
+fastecu::Status ValidateChannelFields(LoggingProtocolId protocol, const LoggingChannel& channel)
 {
     if (!ValidProtocol(protocol))
     {
@@ -142,12 +136,9 @@ fastecu::Status ValidateLoggingChannel(LoggingProtocolId protocol, const Logging
     {
         return fastecu::Fail(ErrorKind::kInvalidConfig, "invalid id; expected a nonempty channel id");
     }
-    if (channel.length == 0 || channel.length > 255 ||
-        (protocol != LoggingProtocolId::kSsm && channel.length != 1 && channel.length != 2 && channel.length != 4))
+    if (channel.length != 1 && channel.length != 2 && channel.length != 4)
     {
-        return fastecu::Fail(ErrorKind::kInvalidConfig,
-                             std::format("invalid length '{}'; expected {}", channel.length,
-                                         protocol == LoggingProtocolId::kSsm ? "1–255 bytes" : "1, 2, or 4 bytes"));
+        return fastecu::Fail(fastecu::ErrorKind::kInvalidConfig, "invalid length; expected 1, 2 or 4 bytes");
     }
     if (!ValidAddress(protocol, channel.address))
     {
@@ -159,15 +150,39 @@ fastecu::Status ValidateLoggingChannel(LoggingProtocolId protocol, const Logging
     {
         return Fail(ErrorKind::kInvalidConfig, "invalid switch sample bit; expected 0–7 in a one-byte source");
     }
-    if (!ValidRawAssembly(channel.raw_assembly))
+    if ((channel.storage != NumericStorage::kUnsignedInteger && channel.storage != NumericStorage::kSignedInteger &&
+         channel.storage != NumericStorage::kFloat) ||
+        (channel.byte_order != NumericByteOrder::kBigEndian && channel.byte_order != NumericByteOrder::kLittleEndian) ||
+        (channel.storage == NumericStorage::kFloat && channel.length != 4))
     {
-        return fastecu::Fail(ErrorKind::kInvalidConfig, "invalid raw assembly");
+        return fastecu::Fail(fastecu::ErrorKind::kInvalidConfig, "invalid numeric storage or byte order");
+    }
+    if (protocol == LoggingProtocolId::kSsm && channel.byte_addresses.empty() && channel.length - 1 > 0xffffff - channel.address)
+    {
+        return fastecu::Fail(fastecu::ErrorKind::kInvalidConfig, "expanded byte address exceeds the SSM range");
+    }
+    if (protocol != LoggingProtocolId::kSsm &&
+        (channel.storage != NumericStorage::kUnsignedInteger || channel.byte_order != NumericByteOrder::kBigEndian))
+    {
+        return fastecu::Fail(fastecu::ErrorKind::kInvalidConfig,
+                             "numeric metadata override is unsupported by this protocol");
     }
     if (channel.decimal_precision > 15)
     {
         return fastecu::Fail(ErrorKind::kInvalidConfig, "invalid precision; expected 0–15 decimal places");
     }
-    if (!ValidExpression(channel))
+    return {};
+}
+} // namespace
+
+fastecu::Status ValidateLoggingChannel(LoggingProtocolId protocol, const LoggingChannel& channel)
+{
+    const auto fields = ValidateChannelFields(protocol, channel);
+    if (!fields.has_value())
+    {
+        return fields;
+    }
+    if (channel.from_byte_expression.empty() || !expression::Compile(channel.from_byte_expression).has_value())
     {
         return fastecu::Fail(ErrorKind::kInvalidConfig,
                              std::format("invalid expression '{}'; expected a valid finite conversion expression",
@@ -189,6 +204,8 @@ fastecu::Result<LoggingSession> MakeLoggingSession(LoggingProtocolId protocol, s
         return fastecu::Fail(fastecu::ErrorKind::kInvalidConfig, "no CDBG log parameters selected");
     }
 
+    std::vector<expression::CompiledExpression> conversions;
+    conversions.reserve(channels.size());
     std::unordered_set<std::string> ids;
     for (const LoggingChannel& channel : channels)
     {
@@ -196,10 +213,21 @@ fastecu::Result<LoggingSession> MakeLoggingSession(LoggingProtocolId protocol, s
         {
             return fastecu::Fail(fastecu::ErrorKind::kInvalidConfig, "duplicate logging channel id");
         }
-        if (const auto valid = ValidateLoggingChannel(protocol, channel); !valid.has_value())
+        if (const auto valid = ValidateChannelFields(protocol, channel); !valid.has_value())
         {
             return std::unexpected(valid.error());
         }
+        if (channel.from_byte_expression.empty())
+        {
+            return Fail(ErrorKind::kInvalidConfig, "empty logging conversion");
+        }
+        auto compiled = expression::Compile(channel.from_byte_expression);
+        if (!compiled.has_value())
+        {
+            return fastecu::Fail(fastecu::ErrorKind::kInvalidConfig,
+                                 std::format("invalid logging conversion: {}", compiled.error().detail));
+        }
+        conversions.push_back(std::move(*compiled));
     }
 
     if (!ValidWireShape(protocol, channels))
@@ -233,7 +261,7 @@ fastecu::Result<LoggingSession> MakeLoggingSession(LoggingProtocolId protocol, s
         }
         read_plan = std::move(*result);
     }
-    return LoggingSession(protocol, std::move(channels), policy, std::move(read_plan), dialect);
+    return LoggingSession(protocol, std::move(channels), policy, std::move(read_plan), dialect, std::move(conversions));
 }
 
 } // namespace fastecu::logging

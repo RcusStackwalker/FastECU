@@ -78,10 +78,41 @@ before any write.
       backup.
 - [ ] Repeat the read and confirm the two files have the same SHA-256.
 - [ ] Record the raw first-page and last-page reply bytes, not a paraphrase.
+- [ ] **Checksum on a stock read. This item gates every write in section 3.**
+      FastECU corrects the checksum of every image it writes for this protocol
+      (and of every Save / Save As). There is no way to write uncorrected, so
+      the correction itself has to be proven on this TCU first:
+      1. Open the untouched CAN read with the `sub_tcu_hitachi_m32r_can`
+         vehicle selected. Use **Save As** to a new file; never plain
+         **Save**, which overwrites the read.
+      2. If the "No definition file linked" warning appears, press
+         **DO IT!**. Its other button skips the checksum entirely, which looks
+         exactly like a pass.
+      3. **Pass:** no "Checksums corrected" dialog appears, *and* the new file's
+         SHA-256 equals the read's. FastECU shows nothing when the checksums
+         are already correct, so the hash is the evidence.
+      4. **Fail:** a "Checksums corrected" dialog, or a different hash. Record
+         bytes `0x8000`–`0x8007` (checksum 2) and `0x8020`–`0x8023`
+         (checksum 1's balance) of both files from a hex dump: they show which
+         checksum moved and the stored versus corrected values. FastECU does
+         not log them. **A failure blocks every FastECU write of this family.**
+
+      Why it can fail: the family sums the whole `0x80000`-byte file a 32-bit
+      word at a time, as the legacy module did. Checksum 2 therefore includes
+      `0x0000`–`0x7FFF`, which a CAN read fills with synthesized zeros, while
+      the TCU may check its real bootloader there. A moved checksum 1 instead
+      points at the algorithm itself.
+
+      The result holds only for CAN reads. A `sub_tcu_hitachi_m32r_kline` read
+      starts at address 0 and holds the real bootloader bytes, so the same TCU
+      gets a different checksum 2. Never write a K-Line-read file through this
+      CAN family unless this item has also passed on a K-Line read.
 
 ## 3. Write qualification — gated by section 0
 
-Do not begin until section 0 is answered and section 2 has passed.
+Do not begin until section 0 is answered and section 2 has passed, including
+its stock-read checksum item. Every image this family writes is
+checksum-corrected first; there is no uncorrected write.
 
 - [ ] Confirm an image that is not exactly `0x80000` bytes is rejected before
       any transport call.
