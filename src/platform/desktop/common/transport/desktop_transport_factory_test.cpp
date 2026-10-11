@@ -82,7 +82,7 @@ TEST(TestDesktopTransportFactory, selectsTheFirstJ2534DeviceWhenNoNameIsGiven)
     const auto transport =
         OpenDesktopCanFlashTransport(ConfigWith(&fake, {kOpenPort0, kOpenPort1}, kOpenPort0), kColtCan);
 
-    EXPECT_THAT(transport, IsOk());
+    ASSERT_THAT(transport, IsOk());
     ASSERT_EQ(fake->GetSerialPortList(), QStringList({kOpenPort0}));
 }
 
@@ -97,7 +97,7 @@ TEST(TestDesktopTransportFactory, skipsNonJ2534PortsWhenNoNameIsGiven)
     const auto transport =
         OpenDesktopCanFlashTransport(ConfigWith(&fake, {kBluetoothPort, kOpenPort0}, kOpenPort0), kColtCan);
 
-    EXPECT_THAT(transport, IsOk());
+    ASSERT_THAT(transport, IsOk());
 #if defined(Q_OS_UNIX)
     ASSERT_EQ(fake->GetSerialPortList(), QStringList({kOpenPort0}));
 #else
