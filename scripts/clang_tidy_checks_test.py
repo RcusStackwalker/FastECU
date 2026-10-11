@@ -232,6 +232,48 @@ void Messages(fastecu::IEventSink& events, std::string name) {
 }
 """)
 
+    def test_message_callee_identity_and_wrappers(self) -> None:
+        self.assert_diagnostics("""#include <string>
+#include <string_view>
+#include <format>
+#include "src/backend/ports/result.h"
+#include "src/backend/ports/event_sink.h"
+namespace unrelated {
+void Fail(fastecu::ErrorKind, std::string) {}
+struct IEventSink { void Log(fastecu::LogLevel, std::string_view) {} };
+}
+struct DerivedSink : fastecu::IEventSink {
+    void Log(fastecu::LogLevel, std::string_view) override {}
+};
+template<class T> void TemplateMessage(T name) {
+    auto error = fastecu::Fail( // warning: message-concatenation
+        fastecu::ErrorKind::kTimeout, "template " + name);
+}
+void Messages(fastecu::IEventSink& events, DerivedSink& derived, std::string name) {
+    auto parentheses = fastecu::Fail( // warning: message-concatenation
+        fastecu::ErrorKind::kTimeout, (("prefix " + name)));
+    auto chain = fastecu::Fail( // warning: message-concatenation
+        fastecu::ErrorKind::kTimeout, "prefix " + name + " suffix");
+    using fastecu::Fail;
+    auto imported = Fail( // warning: message-concatenation
+        fastecu::ErrorKind::kTimeout, name + " suffix");
+    events.Log(fastecu::LogLevel::kInfo, (("prefix " + name))); // warning: message-concatenation
+    events.Log( // warning: message-concatenation
+        fastecu::LogLevel::kInfo, "prefix " + name + " suffix");
+    events.Log( // warning: message-concatenation
+        fastecu::LogLevel::kInfo, std::format("{}", name) + " suffix");
+    derived.fastecu::IEventSink::Log( // warning: message-concatenation
+        fastecu::LogLevel::kInfo, "prefix " + name);
+    derived.Log(fastecu::LogLevel::kInfo, "prefix " + name);
+    unrelated::Fail(fastecu::ErrorKind::kTimeout, "prefix " + name);
+    unrelated::IEventSink other;
+    other.Log(fastecu::LogLevel::kInfo, "prefix " + name);
+    const auto local = "prefix " + name;
+    events.Log(fastecu::LogLevel::kInfo, local);
+    TemplateMessage(name);
+}
+""")
+
 
 if __name__ == "__main__":
     unittest.main()

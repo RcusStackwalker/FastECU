@@ -337,10 +337,10 @@ CustomChecks:
   - Name: fastecu-message-concatenation
     Query: |
       match callExpr(
-        anyOf(
-          callee(functionDecl(hasName("::fastecu::Fail"))),
-          callee(cxxMethodDecl(hasName("Log"), ofClass(cxxRecordDecl(hasName("::fastecu::IEventSink")))))
-        ),
+        callee(functionDecl(hasAnyName(
+          "::fastecu::Fail",
+          "::fastecu::IEventSink::Log"
+        ))),
         hasArgument(1, ignoringParenImpCasts(anyOf(
           ignoringImplicit(cxxOperatorCallExpr(hasOverloadedOperatorName("+"),
             hasType(hasUnqualifiedDesugaredType(recordType(hasDeclaration(
