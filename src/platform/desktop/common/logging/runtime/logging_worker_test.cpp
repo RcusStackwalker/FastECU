@@ -1,6 +1,7 @@
 #include "src/platform/desktop/common/testing/core_application_environment.h"
 #include <gtest/gtest.h>
 #include <QElapsedTimer>
+#include "src/backend/ports/testing/result_matchers.h"
 #include "src/platform/desktop/common/testing/signal_recorder.h"
 #include "src/platform/desktop/common/testing/event_helpers.h"
 
@@ -17,6 +18,9 @@ namespace
 
 using namespace fastecu::logging;
 using namespace std::chrono_literals;
+using fastecu::testing::IsErr;
+using fastecu::testing::IsErrWith;
+using ::testing::StrEq;
 
 class NullDiagnostics final : public fastecu::IEventSink
 {
@@ -86,8 +90,7 @@ TEST(TestLoggingWorker, forwards_portable_states_samples_and_cancelled_result)
     ASSERT_EQ(samples.at(0).numeric_value, 1234.0);
     ASSERT_EQ(finished_spy.Count(), 1U);
     const auto result = std::get<0>(finished_spy.Snapshot().at(0));
-    ASSERT_TRUE(!result.has_value());
-    ASSERT_EQ(result.error().kind, fastecu::ErrorKind::kCancelled);
+    EXPECT_THAT(result, IsErr(fastecu::ErrorKind::kCancelled));
     ASSERT_TRUE(protocol.StopCalled());
 }
 
@@ -106,9 +109,7 @@ TEST(TestLoggingWorker, forwards_final_start_error_without_policy_mapping)
     ASSERT_TRUE(worker.wait(2000));
 
     const auto result = std::get<0>(finished_spy.Snapshot().at(0));
-    ASSERT_TRUE(!result.has_value());
-    ASSERT_EQ(result.error().kind, fastecu::ErrorKind::kBadResponse);
-    ASSERT_EQ(result.error().detail, std::string("handshake rejected"));
+    EXPECT_THAT(result, IsErrWith(fastecu::ErrorKind::kBadResponse, StrEq("handshake rejected")));
 }
 
 TEST(TestLoggingWorker, destruction_cancels_and_joins_a_blocked_poll)

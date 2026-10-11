@@ -25,6 +25,8 @@ using ::testing::Eq;
 using ::testing::InSequence;
 using ::testing::Return;
 using namespace std::chrono_literals;
+using fastecu::testing::IsErr;
+using fastecu::testing::IsOk;
 
 TEST(TestSerialDiagnosticLink, klineOpenResetsAppliesEverySetterThenOpens)
 {
@@ -48,13 +50,13 @@ TEST(TestSerialDiagnosticLink, klineOpenResetsAppliesEverySetterThenOpens)
         EXPECT_CALL(serial.Fake(), OpenSerialPort()).WillOnce(Return(QString("ttyUSB0")));
     }
     SerialDiagnosticLink link(serial.Get());
-    ASSERT_TRUE(link.Open(KlineLinkConfig{.header = KlineHeader::kIso14230,
+    ASSERT_THAT(link.Open(KlineLinkConfig{.header = KlineHeader::kIso14230,
                                           .iso14230_connection = true,
                                           .baud = 10400,
                                           .start_byte = 0xC0,
                                           .tester_id = 0xF1,
-                                          .target_id = 0x33})
-                    .has_value());
+                                          .target_id = 0x33}),
+                IsOk());
 }
 
 TEST(TestSerialDiagnosticLink, canOpenResetsAppliesEverySetterThenOpens)
@@ -76,11 +78,10 @@ TEST(TestSerialDiagnosticLink, canOpenResetsAppliesEverySetterThenOpens)
         EXPECT_CALL(serial.Fake(), OpenSerialPort()).WillOnce(Return(QString("j2534")));
     }
     SerialDiagnosticLink link(serial.Get());
-    ASSERT_TRUE(
-        link
-            .Open(CanLinkConfig{
-                .iso15765 = false, .bitrate = 250000, .extended_id = true, .source_id = 0x7E0, .destination_id = 0x7E8})
-            .has_value());
+    ASSERT_THAT(
+        link.Open(CanLinkConfig{
+            .iso15765 = false, .bitrate = 250000, .extended_id = true, .source_id = 0x7E0, .destination_id = 0x7E8}),
+        IsOk());
 }
 
 TEST(TestSerialDiagnosticLink, evenParityIsAppliedBeforeTheOpen)
@@ -94,7 +95,7 @@ TEST(TestSerialDiagnosticLink, evenParityIsAppliedBeforeTheOpen)
         EXPECT_CALL(serial.Fake(), OpenSerialPort()).WillOnce(Return(QString("ttyUSB0")));
     }
     SerialDiagnosticLink link(serial.Get());
-    ASSERT_TRUE(link.Open(KlineLinkConfig{.baud = 1953, .parity = Parity::kEven}).has_value());
+    ASSERT_THAT(link.Open(KlineLinkConfig{.baud = 1953, .parity = Parity::kEven}), IsOk());
 }
 
 TEST(TestSerialDiagnosticLink, failingSetterIsInvalidConfigAndStopsTheSequence)
@@ -125,8 +126,7 @@ TEST(TestSerialDiagnosticLink, emptyOpenedPortIsDisconnected)
     EXPECT_CALL(serial.Fake(), OpenSerialPort()).WillOnce(Return(QString()));
     SerialDiagnosticLink link(serial.Get());
     const auto result = link.Open(KlineLinkConfig{});
-    ASSERT_TRUE(!result.has_value());
-    ASSERT_EQ(result.error().kind, ErrorKind::kDisconnected);
+    EXPECT_THAT(result, IsErr(ErrorKind::kDisconnected));
 }
 
 TEST(TestSerialDiagnosticLink, setHeaderSetsAllThreeFlags)
@@ -139,7 +139,7 @@ TEST(TestSerialDiagnosticLink, setHeaderSetsAllThreeFlags)
         EXPECT_CALL(serial.Fake(), SetAddIso14230Header(false)).WillOnce(Return(true));
     }
     SerialDiagnosticLink link(serial.Get());
-    ASSERT_TRUE(link.SetHeader(KlineHeader::kIso9141).has_value());
+    ASSERT_THAT(link.SetHeader(KlineHeader::kIso9141), IsOk());
 }
 
 TEST(TestSerialDiagnosticLink, p1UsesTheJ2534IoctlOnOpenPort)
@@ -149,7 +149,7 @@ TEST(TestSerialDiagnosticLink, p1UsesTheJ2534IoctlOnOpenPort)
     EXPECT_CALL(serial.Fake(), SetJ2534Ioctl(0x07, 35)).WillOnce(Return(kSerialSuccess));
     EXPECT_CALL(serial.Fake(), SetKlineTimings(::testing::_, ::testing::_)).Times(0);
     SerialDiagnosticLink link(serial.Get());
-    ASSERT_TRUE(link.SetP1Max(35ms).has_value());
+    ASSERT_THAT(link.SetP1Max(35ms), IsOk());
 }
 
 TEST(TestSerialDiagnosticLink, p1UsesKlineTimingsOnDirectSerial)
@@ -159,7 +159,7 @@ TEST(TestSerialDiagnosticLink, p1UsesKlineTimingsOnDirectSerial)
     EXPECT_CALL(serial.Fake(), SetKlineTimings(0x01, 25)).WillOnce(Return(true));
     EXPECT_CALL(serial.Fake(), SetJ2534Ioctl(::testing::_, ::testing::_)).Times(0);
     SerialDiagnosticLink link(serial.Get());
-    ASSERT_TRUE(link.SetP1Max(25ms).has_value());
+    ASSERT_THAT(link.SetP1Max(25ms), IsOk());
 }
 
 TEST(TestSerialDiagnosticLink, initCallsPassBytesThrough)
@@ -169,11 +169,10 @@ TEST(TestSerialDiagnosticLink, initCallsPassBytesThrough)
     EXPECT_CALL(serial.Fake(), FastInit(QByteArray::fromHex("81"))).WillOnce(Return(kSerialError));
     SerialDiagnosticLink link(serial.Get());
     const auto response = link.FiveBaudInit(0x33);
-    ASSERT_TRUE(response.has_value());
+    ASSERT_THAT(response, IsOk());
     ASSERT_EQ(response->size(), std::size_t{3});
     const auto fast = link.FastInit(bytes::Bytes{0x81});
-    ASSERT_TRUE(!fast.has_value());
-    ASSERT_EQ(fast.error().kind, ErrorKind::kDisconnected);
+    EXPECT_THAT(fast, IsErr(ErrorKind::kDisconnected));
 }
 
 TEST(TestSerialDiagnosticLink, writeIsEchoCheckedAndReadsSelectTheFacadeCall)
@@ -185,7 +184,7 @@ TEST(TestSerialDiagnosticLink, writeIsEchoCheckedAndReadsSelectTheFacadeCall)
     EXPECT_CALL(serial.Fake(), ReadSerialObdData(200)).WillOnce(Return(QByteArray()));
     SerialDiagnosticLink link(serial.Get());
     FakeCancellationToken token;
-    ASSERT_TRUE(link.Write(bytes::Bytes{0x01, 0x00}).has_value());
+    ASSERT_THAT(link.Write(bytes::Bytes{0x01, 0x00}), IsOk());
     const auto frame = link.Read(200ms, token);
     ASSERT_TRUE(frame.has_value() && frame->has_value());
     const auto& payload = *frame;
@@ -202,8 +201,7 @@ TEST(TestSerialDiagnosticLink, cancelledReadNeverReachesTheFacade)
     SerialDiagnosticLink link(serial.Get());
     FakeCancellationToken token(true);
     const auto result = link.Read(200ms, token);
-    ASSERT_TRUE(!result.has_value());
-    ASSERT_EQ(result.error().kind, ErrorKind::kCancelled);
+    EXPECT_THAT(result, IsErr(ErrorKind::kCancelled));
 }
 
 TEST(TestSerialDiagnosticLink, nullFacadeIsDisconnected)

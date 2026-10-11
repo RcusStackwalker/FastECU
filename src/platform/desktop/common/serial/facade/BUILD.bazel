@@ -50,6 +50,7 @@ fastecu_gtest(
         ":serial_port_actions",
         "//bazel/qt:core",
         "//src/backend/ports/testing:fake_cancellation_token",
+        "//src/backend/ports/testing:result_matchers",
         "//src/platform/desktop/common/bytes:qt_bytes",
         "//src/platform/desktop/common/serial/testing:fake_serial_backend",
         "//src/platform/desktop/common/testing:event_helpers",
