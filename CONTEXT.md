@@ -140,3 +140,7 @@ The measurement and display choices captured for the current logging run.
 
 **Pending logging selection**:
 Saved measurement and display choices that take effect on the next logging run.
+
+**Unavailable reading**:
+A selected measurement that has no usable value for the current update. A previous
+value is not presented as its current reading, and unavailable does not mean zero.

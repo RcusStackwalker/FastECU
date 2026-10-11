@@ -238,3 +238,73 @@ The maintained [codec sources](../../src/algorithms/protocol/mut_dma/) and
 Static protocol extraction does not qualify the host adapter, electrical path,
 or end-to-end desktop workflow. Runtime evidence remains subject to the
 [logging checklist](../checklists/logging-engine-bench-checklist.md).
+
+## Definition input grammar
+
+[Definition parsing](../../src/backend/logging/logger_definition_parser.h)
+reads parameter width solely from the nested `address` element's `length`
+attribute, for example `<address length="2">0x804cfc</address>`. If that
+attribute is absent, the width defaults to `1`; a `length` attribute on
+`parameter` is ignored, including when both elements declare differing widths.
+The bundled [MUT/DMA example](../../resources/shared/config/logger_mut_dma_example.xml)
+and [CDBG example](../../resources/shared/config/logger_cdbg_example.xml)
+use this syntax. A missing `address` retains an empty address and width for
+channel preparation to validate.
+
+[Channel preparation](../../src/backend/logging/logging_channel_preparation.h)
+accepts hexadecimal addresses with an optional `0x`/`0X` prefix and positive
+decimal lengths. Surrounding ASCII whitespace is accepted; signs, internal
+whitespace, trailing junk and overflow are rejected. Display formats are exactly
+`0`, or `0.` followed by 1–15 zeros. Empty units are valid; only the first
+conversion is used. For SSM, its `storagetype` and `endian` attributes are
+normalized into portable typed channel metadata. Integer widths are 1, 2 or 4
+bytes; `uint`, `uint8`, `uint16` and `uint32` select unsigned assembly, while
+`int`, `int8`, `int16` and `int32` select signed two's-complement assembly.
+The address width governs assembly, independently of the integer type suffix.
+Omitted storage selects unsigned assembly, including multi-byte sources.
+`float` requires four bytes and decodes IEEE binary32; its exact finite value
+is preserved as decimal numeric input for checked scaling. Omitted byte order
+is big endian; `big` and `little` are accepted. Storage and byte-order values
+are case insensitive; unknown selected values fail preparation. Alternatives
+retain their original metadata but do not affect this run. MUT/DMA and CDBG
+retain their protocol-owned unsigned decoding, including firmware little-endian
+MUT/DMA free-form data; selected signed/float storage or a nondefault endian
+attribute is rejected for these protocols. Default metadata does not override
+protocol byte order. Existing protocol bounds and shared expression validation
+remain applicable. Errors identify the definition's protocol, parameter ID and
+invalid field.
+
+## Delivered sample validation
+
+[Sample resolution](../../src/backend/logging/logging_sample_resolution.h)
+derives identity and precision from a validated run. An unknown delivered ID is
+a `kInternal` error; an unsupported SSM sample is deliberately skipped; other
+known samples return captured identity, numeric value and precision. Conversion
+remains the acquisition use case's responsibility. A raw-channel or conversion
+failure prevents publication of the entire polling batch.
+
+The desktop adapter delegates identity and eligibility policy to this resolver.
+Desktop owns formatting, cache lookup/mutation and reporting missing cache
+entries. Delivered identity errors allow subsequent valid samples to continue;
+existing cache values remain intact. The UI rechecks the active snapshot between
+samples because error reporting may synchronously stop the run.
+
+## SSM definition numeric evidence
+
+The pinned [RomRaider conversion implementation](https://github.com/RomRaider/RomRaider/blob/dafe0c36c1a68efadbeedb2825f3855463fdbc35/src/main/java/com/romraider/logger/ecu/definition/EcuParameterConvertorImpl.java)
+uses the received width for integer decoding, masks unsigned values, applies
+conversion expressions after binary assembly, and supports four-byte floats.
+Its omitted storage default is `uint8`, which remains unsigned at every
+supported received width. Its [definition handler](https://github.com/RomRaider/RomRaider/blob/dafe0c36c1a68efadbeedb2825f3855463fdbc35/src/main/java/com/romraider/logger/ecu/definition/xml/LoggerDefinitionHandler.java)
+reads storage and endian from each conversion and defaults endian to big.
+FastECU keeps checked errors for nonfinite data and rejects unknown selected
+metadata instead of reproducing upstream zero substitution or permissive
+fallbacks. These source-backed decoding contracts do not establish hardware
+qualification; the [composition checklist](../checklists/logging-composition-bench-checklist.md)
+owns that evidence.
+
+## SSM protocol evidence
+
+The [wire evidence owner](logging-wire-evidence.md#ssm-ordered-byte-reads) records
+source-pinned address expansion and packet examples. Host regressions do not
+replace the [composition checklist](../checklists/logging-composition-bench-checklist.md).

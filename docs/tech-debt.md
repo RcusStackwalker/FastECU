@@ -49,14 +49,12 @@ coordinators retain their UI roles; see the relevant
   and event-log strings. Add missing scripted cases before changing those paths.
   The CAN-init NRC description uses offset 3 while other ISO-15765 NRCs use 4;
   reproduce it and distinguish a description fix from wire behavior changes.
-- **MUT/DMA dialect qualification.** The explicitly selected `oem-33520003`
-  format now has source-scoped request/response byte order and 96-entry/96-byte
-  guards; the maintained `legacy-be` format retains its 255-entry representation
-  guard. Obtain independent firmware/adapter traces before claiming qualification
-  or applying these properties to another dialect. The
-  [wire evidence owner](reference/logging-wire-evidence.md) records the static
-  sources and boundaries. ACKs and values do not prove measurement meaning;
-  pointer-table codes and compact RAM selectors remain operator-authored inputs.
+- **MUT/DMA free-form capacity.** The count field's 255-entry representation
+  limit is not ECU capacity. The analyzed 33520003 firmware bounds the fill loop
+  to 96 entries and 96 output bytes; the confirmed logging rewrite will enforce
+  those bounds without an XML dialect selector. The
+  [wire evidence](reference/logging-wire-evidence.md) owns the firmware source.
+  ACKs and returned values do not establish per-measurement availability or meaning.
 - **MUT memory read integrity/write bounds.** The currently uncalled helpers can
   omit a timed-out read chunk and continue, returning a gapped buffer. The
   `0x4000`–`0xBFFF` write guard checks only the start, so data may extend beyond
