@@ -55,6 +55,7 @@ fastecu_gtest(
     deps = [
         ":config_fields",
         "//src/backend/config/testing:config_session_fixture",
+        "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
     ],
 )

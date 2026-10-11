@@ -28,6 +28,7 @@ namespace
 {
 using fastecu::calibration::SessionId;
 using fastecu::definition::DefinitionFormat;
+using fastecu::testing::IsOk;
 
 struct MapFixture
 {
@@ -155,7 +156,7 @@ TEST_P(LayoutsAndRefreshParameters, layoutsAndRefresh)
     const auto id = fixture.open(
         numericTable(type.toStdString(), x, y,
                      (x > 1 ? std::string(kXAxis) : std::string{}) + (y > 1 ? std::string(kYAxis) : std::string{})));
-    ASSERT_TRUE(id.has_value());
+    ASSERT_THAT(id, IsOk());
     if (type == "2D" && y > 1)
     {
         // EcuFlash normalizes a 2D Y axis into its X dimension. Supply
@@ -190,7 +191,7 @@ TEST_P(LayoutsAndRefreshParameters, layoutsAndRefresh)
     }
     fastecu::testing::SignalRecorder changed(table, &QTableWidget::cellChanged);
     const std::array<std::uint8_t, 1> edit{55};
-    ASSERT_TRUE(fixture.workspace.Find(*id)->WriteBytes(32, edit).has_value());
+    ASSERT_THAT(fixture.workspace.Find(*id)->WriteBytes(32, edit), IsOk());
     map.refresh();
     ASSERT_EQ(table->item(bodyRow, bodyCol)->text(), "55.0");
     ASSERT_EQ(changed.Count(), 0U);
@@ -219,7 +220,7 @@ TEST_P(StaticAxisLabelsParameters, staticAxisLabels)
     const std::string axis = "<table type=\"" + std::string("Static X Axis") +
                              "\" name=\"Labels\" elements=\"2\"><data>Low</data><data>High</data></table>";
     const auto id = fixture.open(numericTable("2D", 2, 1, axis));
-    ASSERT_TRUE(id.has_value());
+    ASSERT_THAT(id, IsOk());
     if (axisType == "Static Y Axis")
     {
         // The retained UI accepts this legacy tag; the typed resolver
@@ -237,7 +238,7 @@ TEST_P(StaticAxisLabelsParameters, staticAxisLabels)
     ASSERT_EQ(table->item(0, 0)->text(), "Low");
     ASSERT_EQ(table->item(0, 1)->text(), "High");
     const std::array<std::uint8_t, 1> edit{77};
-    ASSERT_TRUE(fixture.workspace.Find(*id)->WriteBytes(32, edit).has_value());
+    ASSERT_THAT(fixture.workspace.Find(*id)->WriteBytes(32, edit), IsOk());
     map.refresh();
     ASSERT_EQ(table->item(0, 0)->text(), "Low");
     ASSERT_EQ(table->item(1, 0)->text(), "77.0");
@@ -247,7 +248,7 @@ TEST(CalibrationMapsTest, absentAxisUsesSequentialFallback)
 {
     MapFixture fixture;
     const auto id = fixture.open(numericTable("2D", 2, 1));
-    ASSERT_TRUE(id.has_value());
+    ASSERT_THAT(id, IsOk());
     CalibrationMaps map(fixture.workspace, *id, 0, QRect(0, 0, 800, 600));
     auto *table = tableOf(map);
     ASSERT_EQ(table->item(0, 0)->text(), "0");
@@ -261,7 +262,7 @@ TEST(CalibrationMapsTest, selectableReflectsBlobBytesWithoutEmittingEditSignal)
 {
     MapFixture fixture;
     const auto id = fixture.open(R"(<table name="Mode" type="Selectable" address="60" scaling="Modes"/>)");
-    ASSERT_TRUE(id.has_value());
+    ASSERT_THAT(id, IsOk());
     CalibrationMaps map(fixture.workspace, *id, 0, QRect(0, 0, 800, 600));
     auto *table = tableOf(map);
     auto *combo = qobject_cast<QComboBox *>(table->cellWidget(0, 0));
@@ -273,7 +274,7 @@ TEST(CalibrationMapsTest, selectableReflectsBlobBytesWithoutEmittingEditSignal)
     fastecu::testing::SignalRecorder edits(&map, &CalibrationMaps::selectableComboboxItemChanged);
     fastecu::testing::SignalRecorder changes(combo, &QComboBox::currentTextChanged);
     const std::array<std::uint8_t, 2> off{0, 0};
-    ASSERT_TRUE(fixture.workspace.Find(*id)->WriteBytes(96, off).has_value());
+    ASSERT_THAT(fixture.workspace.Find(*id)->WriteBytes(96, off), IsOk());
     map.refresh();
     ASSERT_EQ(combo->currentText(), "Off");
     ASSERT_EQ(edits.Count(), 0U);
@@ -285,7 +286,7 @@ TEST(CalibrationMapsTest, retainedMultiSelectableGeometryKeepsLegacyNumericCell)
 {
     MapFixture fixture;
     const auto id = fixture.open(numericTable("1D", 1, 1));
-    ASSERT_TRUE(id.has_value());
+    ASSERT_THAT(id, IsOk());
     auto *session = fixture.workspace.Find(*id);
     auto definition = *session->Definition();
     auto& typedMap = definition.definition.maps[0];
@@ -301,7 +302,7 @@ TEST(CalibrationMapsTest, retainedMultiSelectableGeometryKeepsLegacyNumericCell)
     ASSERT_TRUE(table->item(0, 0) != nullptr);
     ASSERT_EQ(table->item(0, 0)->text(), "10.0");
     const std::array<std::uint8_t, 1> edit{55};
-    ASSERT_TRUE(session->WriteBytes(32, edit).has_value());
+    ASSERT_THAT(session->WriteBytes(32, edit), IsOk());
     fastecu::testing::SignalRecorder changed(table, &QTableWidget::cellChanged);
     map.refresh();
     ASSERT_EQ(table->item(0, 0)->text(), "55.0");
@@ -312,7 +313,7 @@ TEST(CalibrationMapsTest, retainedSwitchRefreshKeepsUncheckedControlWithoutEmitt
 {
     MapFixture fixture;
     const auto id = fixture.open(numericTable("1D", 1, 1));
-    ASSERT_TRUE(id.has_value());
+    ASSERT_THAT(id, IsOk());
     auto *session = fixture.workspace.Find(*id);
     auto definition = *session->Definition();
     definition.definition.maps[0].type = "Switch";
@@ -339,7 +340,7 @@ TEST(CalibrationMapsTest, switchCheckboxEmitsQtCheckStateValues)
 {
     MapFixture fixture;
     const auto id = fixture.open(numericTable("1D", 1, 1));
-    ASSERT_TRUE(id.has_value());
+    ASSERT_THAT(id, IsOk());
     auto *session = fixture.workspace.Find(*id);
     auto definition = *session->Definition();
     definition.definition.maps[0].type = "Switch";
@@ -359,14 +360,14 @@ TEST(CalibrationMapsTest, colorsKeepOpeningBoundsDuringRefreshAndReopenUsesCurre
 {
     MapFixture fixture;
     const auto id = fixture.open(numericTable("2D", 2, 1, kXAxis));
-    ASSERT_TRUE(id.has_value());
+    ASSERT_THAT(id, IsOk());
     CalibrationMaps map(fixture.workspace, *id, 0, QRect(0, 0, 800, 600));
     auto *table = tableOf(map);
     const auto minimumColor = table->item(1, 0)->background().color();
     const auto maximumColor = table->item(1, 1)->background().color();
     ASSERT_TRUE(minimumColor != maximumColor);
     const std::array<std::uint8_t, 1> edit{30};
-    ASSERT_TRUE(fixture.workspace.Find(*id)->WriteBytes(32, edit).has_value());
+    ASSERT_THAT(fixture.workspace.Find(*id)->WriteBytes(32, edit), IsOk());
     map.refresh();
     ASSERT_EQ(table->item(1, 0)->background().color(), maximumColor);
     ASSERT_EQ(table->item(1, 1)->background().color(), maximumColor);
@@ -383,14 +384,14 @@ TEST(CalibrationMapsTest, constantMapHasFiniteStableColors)
 {
     MapFixture fixture;
     const auto id = fixture.open(numericTable("2D", 2, 1, kXAxis), true);
-    ASSERT_TRUE(id.has_value());
+    ASSERT_THAT(id, IsOk());
     CalibrationMaps map(fixture.workspace, *id, 0, QRect(0, 0, 800, 600));
     auto *table = tableOf(map);
     const auto color = table->item(1, 0)->background().color();
     ASSERT_TRUE(color.isValid());
     ASSERT_EQ(table->item(1, 1)->background().color(), color);
     const std::array<std::uint8_t, 1> edit{30};
-    ASSERT_TRUE(fixture.workspace.Find(*id)->WriteBytes(32, edit).has_value());
+    ASSERT_THAT(fixture.workspace.Find(*id)->WriteBytes(32, edit), IsOk());
     map.refresh();
     ASSERT_EQ(table->item(1, 0)->background().color(), color);
     CalibrationMaps reopened(fixture.workspace, *id, 0, QRect(0, 0, 800, 600));
@@ -401,16 +402,16 @@ TEST(CalibrationMapsTest, closedSessionRefreshIsInertAfterAnotherSessionOpens)
 {
     MapFixture fixture;
     const auto id = fixture.open(numericTable("1D", 1, 1));
-    ASSERT_TRUE(id.has_value());
+    ASSERT_THAT(id, IsOk());
     CalibrationMaps map(fixture.workspace, *id, 0, QRect(0, 0, 800, 600));
     auto *table = tableOf(map);
     fastecu::testing::SignalRecorder changed(table, &QTableWidget::cellChanged);
-    ASSERT_TRUE(fixture.workspace.Close(*id).has_value());
+    ASSERT_THAT(fixture.workspace.Close(*id), IsOk());
     const auto replacement = fixture.workspace.OpenFile("/cal/maps.bin");
-    ASSERT_TRUE(replacement.has_value());
+    ASSERT_THAT(replacement, IsOk());
     ASSERT_TRUE(replacement->id != *id);
     const std::array<std::uint8_t, 1> edit{99};
-    ASSERT_TRUE(fixture.workspace.Find(replacement->id)->WriteBytes(32, edit).has_value());
+    ASSERT_THAT(fixture.workspace.Find(replacement->id)->WriteBytes(32, edit), IsOk());
     map.refresh();
     ASSERT_EQ(table->item(0, 0)->text(), "10.0");
     ASSERT_EQ(changed.Count(), 0U);

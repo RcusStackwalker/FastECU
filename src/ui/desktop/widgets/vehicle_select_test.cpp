@@ -2,15 +2,17 @@
 #include <gtest/gtest.h>
 
 #include "src/backend/config/testing/config_session_fixture.h"
+#include "src/backend/ports/testing/result_matchers.h"
 #include "src/ui/desktop/widgets/vehicle_select.h"
 
 using fastecu::config::testing::ConfigSessionFixture;
+using fastecu::testing::IsOk;
 
 TEST(VehicleSelectTest, choosingRecordsTheRowWithoutTouchingTheSession)
 {
     ConfigSessionFixture f;
-    ASSERT_TRUE(f.Initialize().has_value());
-    ASSERT_TRUE(f.session.SelectRow(2).has_value());
+    ASSERT_THAT(f.Initialize(), IsOk());
+    ASSERT_THAT(f.session.SelectRow(2), IsOk());
     const auto before = f.session.Settings();
 
     VehicleSelect dialog{f.session}; // opens on the session's row (Subaru Forester)
@@ -24,7 +26,7 @@ TEST(VehicleSelectTest, choosingRecordsTheRowWithoutTouchingTheSession)
 TEST(VehicleSelectTest, rejectingLeavesNoChoice)
 {
     ConfigSessionFixture f;
-    ASSERT_TRUE(f.Initialize().has_value());
+    ASSERT_THAT(f.Initialize(), IsOk());
     VehicleSelect dialog{f.session};
     dialog.reject();
     ASSERT_TRUE(!dialog.chosenRow().has_value());
@@ -34,7 +36,7 @@ TEST(VehicleSelectTest, rejectingLeavesNoChoice)
 TEST(VehicleSelectTest, withNoSelectionItOpensOnTheFirstMakeModelAndVersion)
 {
     ConfigSessionFixture f;
-    ASSERT_TRUE(f.Initialize().has_value());
+    ASSERT_THAT(f.Initialize(), IsOk());
     ASSERT_TRUE(f.session.SelectedVehicle() == nullptr);
 
     VehicleSelect dialog{f.session}; // Mitsubishi sorts first; its only vehicle is the Colt

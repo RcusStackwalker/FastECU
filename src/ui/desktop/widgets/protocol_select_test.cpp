@@ -4,16 +4,18 @@
 
 #include "src/backend/config/testing/config_session_fixture.h"
 #define private public
+#include "src/backend/ports/testing/result_matchers.h"
 #include "src/ui/desktop/widgets/protocol_select.h"
 #undef private
 #include "ui_protocol_select.h"
 
 using fastecu::config::testing::ConfigSessionFixture;
+using fastecu::testing::IsOk;
 
 TEST(ProtocolSelectTest, listsEachVehicleBackedProtocolOnce)
 {
     ConfigSessionFixture f;
-    ASSERT_TRUE(f.Initialize().has_value());
+    ASSERT_THAT(f.Initialize(), IsOk());
     ProtocolSelect dialog{f.session};
     // proto_a (two rows) and proto_b.
     ASSERT_EQ(dialog.ui_->treeWidget->topLevelItemCount(), 2);
@@ -22,7 +24,7 @@ TEST(ProtocolSelectTest, listsEachVehicleBackedProtocolOnce)
 TEST(ProtocolSelectTest, choosingRecordsTheProtocolName)
 {
     ConfigSessionFixture f;
-    ASSERT_TRUE(f.Initialize().has_value());
+    ASSERT_THAT(f.Initialize(), IsOk());
     const auto before = f.session.Settings();
     ProtocolSelect dialog{f.session};
     const auto items = dialog.ui_->treeWidget->findItems("proto_b", Qt::MatchExactly, 0);
@@ -39,7 +41,7 @@ TEST(ProtocolSelectTest, choosingRecordsTheProtocolName)
 TEST(ProtocolSelectTest, rejectingLeavesNoChoice)
 {
     ConfigSessionFixture f;
-    ASSERT_TRUE(f.Initialize().has_value());
+    ASSERT_THAT(f.Initialize(), IsOk());
     ProtocolSelect dialog{f.session};
     dialog.reject();
     ASSERT_TRUE(!dialog.acceptedProtocolName().has_value());
