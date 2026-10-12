@@ -8,6 +8,7 @@
 #include <array>
 #include <cstdint>
 #include <format>
+#include <memory>
 #include <optional>
 #include <ostream>
 #include <span>
@@ -260,7 +261,7 @@ bool Writes(const config::ProtocolSpec& protocol)
 const AgreementRow *RowFor(std::string_view protocol)
 {
     const auto found = std::ranges::find(kRows, protocol, &AgreementRow::protocol);
-    return found == kRows.end() ? nullptr : &*found;
+    return found == kRows.end() ? nullptr : std::to_address(found);
 }
 
 // The memory maps a ROM file for `protocol` can have: one per declared map, or

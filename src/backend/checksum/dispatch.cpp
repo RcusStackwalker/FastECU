@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <expected>
 #include <format>
+#include <memory>
 #include <optional>
 #include <span>
 #include <stdexcept>
@@ -250,7 +251,7 @@ const RouteSpec *FindRoute(std::string_view make, std::string_view flash_method)
 {
     const auto found = std::ranges::find_if(kRoutes, [&](const RouteSpec& spec)
                                             { return spec.make == make && StartsWith(flash_method, spec.prefix); });
-    return found == kRoutes.end() ? nullptr : &*found;
+    return found == kRoutes.end() ? nullptr : std::to_address(found);
 }
 
 // Writes each run of bytes `after` changed relative to `before` into `image`
