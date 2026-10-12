@@ -60,6 +60,25 @@ The rollout adds advisory diagnostics, reviews and fixes every finding, then
 promotes the check to errors after clean full-scope Linux and Windows analysis
 and passing real-compiler fixtures. Existing checks remain enforced throughout.
 
+#### Local source audit, 2026-10-12
+
+The advisory pointer-only scan of commit `c21adaa3` completed successfully
+with LLVM 23.1.0 on macOS across 533 first-party translation units from the
+Bazel compilation database. It reported exactly two distinct warning sites:
+the route lookup in [checksum dispatch](../../src/backend/checksum/dispatch.cpp)
+and the agreement-row lookup in the
+[catalog memory-map agreement suite](../../src/backend/flash/ecu/catalog_memory_map_agreement_test.cpp).
+Both use `std::array` iterators represented as raw pointers on this host and
+guard against `end()` before taking the element address. No replacements
+were exported. This is local evidence, not Linux or Windows qualification;
+CI uses LLVM 23.1.2.
+
+Both sites were replaced with `std::to_address(found)` and explicit `<memory>`
+includes. The end guards remain unchanged. Focused analysis of both files
+reported no pointer findings and passed the existing built-in checks; all
+three affected route/catalog suites and the full release suite (278 passed,
+seven platform skips) passed after cleanup.
+
 ## Validation
 
 The [fixture harness](../../scripts/clang_tidy_checks_test.py) compiles small
