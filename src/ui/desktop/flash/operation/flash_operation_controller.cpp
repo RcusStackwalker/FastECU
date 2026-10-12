@@ -7,7 +7,7 @@
 
 #include "src/backend/flash/flash_operation_request.h"
 #include "src/platform/desktop/common/flash/desktop_flash_workflow_ports.h"
-#include "src/platform/desktop/common/flash/flash_workflow.h"
+#include "src/backend/flash/workflow/flash_workflow.h"
 #include "src/platform/desktop/common/ports/qt_clock.h"
 #include "src/ui/desktop/flash/common/flash_dialog.h"
 #include "src/ui/desktop/service_functions/denso_tcu_read_preflight.h"

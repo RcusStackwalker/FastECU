@@ -8,7 +8,7 @@
 #include <QEventLoop>
 
 #include "src/backend/ports/clock.h"
-#include "src/platform/desktop/common/flash/flash_workflow.h"
+#include "src/backend/flash/workflow/flash_workflow.h"
 #include "src/platform/desktop/common/flash/worker/flash_worker.h"
 #include <ui_ecu_operations.h>
 

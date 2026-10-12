@@ -90,6 +90,8 @@ cc_library(
         "//src/backend/flash/ecu:denso_sh705x_kline_common",
     ],
     visibility = [
+        # Backend workflow owns EEPROM attempt staging.
+        "//src/backend/flash/workflow:__pkg__",
         "//bazel/layers:platform",
         "//bazel/layers:tests",
     ],
@@ -123,6 +125,8 @@ cc_library(
         "//src/algorithms/protocol/ssm",
     ],
     visibility = [
+        # Backend workflow owns EEPROM attempt staging.
+        "//src/backend/flash/workflow:__pkg__",
         "//bazel/layers:platform",
         "//bazel/layers:tests",
     ],

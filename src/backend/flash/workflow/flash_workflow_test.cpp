@@ -1,4 +1,4 @@
-#include "src/platform/desktop/common/flash/flash_workflow.h"
+#include "src/backend/flash/workflow/flash_workflow.h"
 
 #include <gtest/gtest.h>
 
@@ -1992,7 +1992,7 @@ TEST(FlashWorkflowTest, unisiaBootmodeTestWriteIsUnsupported)
 
 TEST(FlashWorkflowTest, unisiaJecsM32rWriteWithoutAdapterVppPromptsBeforeAndAfter)
 {
-    // request() carries a null serial: no adapter information means prompting.
+    // The default scripted source supplies no programming voltage, so the workflow prompts.
     auto workflow = CreateWorkflow(UnisiaM32rWrite());
     ASSERT_TRUE(workflow != nullptr);
     ASSERT_EQ(std::get<FlashPromptStep>(workflow->Next()).kind, FlashPromptKind::kBegin);

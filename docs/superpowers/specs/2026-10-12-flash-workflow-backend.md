@@ -171,7 +171,7 @@ The module stays at `src/platform/desktop/common/flash`.
   (`petrolRead…`, `dieselRead…` and `tcuRead…BindsDesktopCanTransport`, plus
   `routesSh7058ReadAndWriteWithPreTransportPrompts`). Each now asserts the
   recorded transport kind and the scripted transport's recorded
-  `Iso15765Config` (0x7E0/0x7E8).
+  `Iso15765Config` (ECU request/response 0x7E0/0x7E8; TCU 0x7E1/0x7E9).
 - Add `KernelFileHandle`, fix the `flash_types.h` comment, and add the
   `CONTEXT.md` entry.
 - `builtin_catalog_capability_test` stays in the platform layer because it

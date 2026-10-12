@@ -21,10 +21,6 @@ Remaining actions from the backend migration roadmap:
 
 - Extract logger configuration/model installation and selection persistence
   orchestration from `MainWindow` into backend use cases.
-- Move reusable flash routing, preparation, prompt/stage policy into backend
-  flash workflows. Desktop code binds plans to transports/workers and renders
-  prompts; operator decisions stay outside executors. Do not unify different
-  ECU state machines merely to eliminate branches.
 - Extract BIU decoding/settings/session policy into portable diagnostics/codecs.
   Keep BIU exchanges synchronous and timer ownership on the desktop.
 - Extract DataTerminal script execution into portable diagnostics. Script

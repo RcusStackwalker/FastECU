@@ -55,6 +55,7 @@ Two differences from the spec's historical inventory matter:
 | `src/platform/desktop/common/flash/desktop_flash_workflow_ports.h`, `builtin_catalog_capability_test.cpp`, `BUILD.bazel` | Keep desktop composition and real bundled-kernel coverage; point them at backend policy |
 | `src/ui/desktop/flash/common/flash_dialog.h`, `BUILD.bazel`; `src/ui/desktop/flash/operation/flash_operation_controller.cpp`, `BUILD.bazel`; `src/ui/desktop/widgets/mainwindow.cpp`, `BUILD.bazel` | Update includes and generated dependencies |
 | `src/backend/config/BUILD.bazel` | Explicit built-in catalog visibility for relocated test consumer |
+| `src/backend/flash/eeprom/BUILD.bazel` | Explicit workflow consumer visibility on the two EEPROM executor targets |
 | `src/backend/flash/flash_types.h`, `CONTEXT.md`; `docs/design-notes.md`, `docs/tech-debt.md` | Fix confirmation comment, define transport source and document completed ownership move |
 
 Before execution, use a feature branch (suggested `refactor/flash-workflow-backend`) and the using-git-worktrees skill to obtain execution isolation. Preserve unrelated untracked `docs/superpowers` artifacts. Read [coding conventions](../../coding-style.md#tests), [ADR 0015](../../adr/0015-caller-owns-flash-transport-lifetime.md), [ADR 0016](../../adr/0016-enforce-qt-reachability-by-visibility.md), [ADR 0017](../../adr/0017-generate-bazel-targets-with-gazelle.md) and the [qualification matrix](../../flash-qualification-matrix.md). This structural move changes no wire qualification claims.
@@ -105,10 +106,10 @@ EXPECT_THAT(source.RequestedKinds(), ::testing::ElementsAre(
 EXPECT_FALSE(source.SuppliesProgrammingVoltage());
 ScriptedFlashTransportSource powered(true);
 EXPECT_TRUE(powered.SuppliesProgrammingVoltage());
-EXPECT_THAT(powered.RequestedKinds(), ::testing::IsEmpty());
+EXPECT_THAT(powered.RequestedKinds(), ::testing::SizeIs(0));
 ```
 
-For every default object assert no configuration/open lifecycle calls; mixed CAN defaults to `ScriptedMixedCanMode::kUnconfigured`. Do not open preloads in the fake or test.
+For every default object assert no configuration/open lifecycle calls. For mixed CAN use its existing configure/open counters and lifecycle observations; it exposes no current-mode getter. Do not add a fake interface or open preloads in the fake or test.
 
 - [ ] **Step 2: Regenerate and run the test to verify failure**
 
@@ -138,7 +139,7 @@ git commit -m "test(flash): add scripted flash transport source"
 - Produces: `std::string fastecu::config::KernelFileHandle(const ConfigPaths& paths, std::string_view kernel);` declared in `config_paths.h`, defined in `config_paths.cpp`.
 - Contract: return directory plus kernel verbatim. Insert no separator, normalize nothing and perform no filesystem I/O. Empty directory keeps the previous bare-handle behavior.
 
-- [ ] **Step 1: Write `KernelFileHandleTest.preservesConfiguredHandleText` in `config_paths_test.cpp`**
+- [ ] **Step 1: Write `KernelFileHandle.preservesConfiguredHandleText` in `config_paths_test.cpp`**
 
 ```cpp
 ConfigPaths paths;
@@ -197,12 +198,7 @@ EXPECT_THAT(test_ports.transports->RequestedKinds(), ::testing::ElementsAre(test
 
 In `unisiaBootmodeWriteMakesOneKlineTransportPerAttempt`, assert the trace is empty before accepting prompts, exactly `{kKline}` at the kernel attempt, remains `{kKline}` while `kRemoveMod1` waits, and becomes `{kKline, kKline}` only after accepting MOD1. Extend `unisiaBootmodeDeclinedMod1CancelsWithNotice` to assert it remains `{kKline}` after decline and the final cancellation.
 
-In `kernelBackedFamiliesKeepTheirKernelSnapshotAfterFilesAreRemoved` and `mc68BdmWriteKeepsItsKernelSnapshotAfterFilesAreRemoved`, erase the handle through `files->files.erase(handle)` after preflight, then assert:
-
-```cpp
-EXPECT_EQ(test_ports.files->ReadCount(handle), 1);
-EXPECT_EQ(attempt.attempt->Plan().Kernel()->bytes, expected_kernel_bytes);
-```
+In `kernelBackedFamiliesKeepTheirKernelSnapshotAfterFilesAreRemoved` and `mc68BdmWriteKeepsItsKernelSnapshotAfterFilesAreRemoved`, erase the handle through `files->files.erase(handle)` after preflight, then assert `ReadCount(handle)` remains 1. Normal kernel-backed attempts retain `Plan().Kernel()->bytes`. BDM Write retains its upload-chunk-padded snapshot in `Plan().Image()` and has no `Plan().Kernel()`.
 
 Retain the existing padded BDM expectations and all dedicated petrol/diesel/TCU snapshot checks. In adapter-VPP tests use `WorkflowTestPorts(true, true)`; preserve these exact assertions after submitting failed/cancelled attempts:
 
@@ -225,7 +221,7 @@ Run `bazel test --config=release //src/platform/desktop/common/flash:test_flash_
 
 Use the exact interface block above. Replace each temporary-directory setup with `CatalogPaths()` and a fresh bundle; use `include_kernel_files = false` for missing-kernel fixtures. Replace `WriteFile` changes with assignment to the repository map, preserving exact bytes, including empty kernels. Remove files with map erasure. Delete `QDir`, `QFile`, `QTemporaryDir`, `QByteArray` conversions, `RecordingSerial`, serial setup helpers and the global `CoreApplicationEnvironment` registration. Replace every `QtClock` with `FakeClock`.
 
-Rename the three `...BindsDesktopCanTransport` tests to `...BindsCanTransport`. Preload a `ScriptedCanFlashTransport`, keep its observer, retain the existing `CancelOnCheck(5)` attempt run and `kCancelled` expectation; assert the trace is exactly `{kCanIso15765}` and:
+Rename the three `...BindsDesktopCanTransport` tests to `...BindsCanTransport`. Preload a `ScriptedCanFlashTransport`, keep its observer, retain petrol's `CancelOnCheck(5)` and TCU's `CancelOnCheck(2)` attempt runs and `kCancelled` expectations. Change diesel's previous `CancelOnCheck(53)` to early cancellation at 5 to observe configure/open/close without protocol exchanges; assert the trace is exactly `{kCanIso15765}` and:
 
 ```cpp
 ASSERT_TRUE(can_observer->last_config.has_value());
@@ -235,7 +231,7 @@ EXPECT_EQ(can_observer->last_config->response_id, 0x7E8U);
 EXPECT_FALSE(can_observer->last_config->extended_id);
 ```
 
-Keep cancellation early enough to avoid protocol exchanges; no exchange scripts are added. In `routesSh7058ReadAndWriteWithPreTransportPrompts`, assert the source trace stays empty until confirmation, becomes `{kKline}` for Read and `{kCanIso15765}` for Write, and stays empty for the declined Read. Do not force an ISO-15765 assertion onto that Read's K-Line transport or add a new executor run.
+The example above is for the ECU bindings. The TCU config uses request ID `0x7E1U` and response ID `0x7E9U`. Keep cancellation early enough to avoid protocol exchanges; no exchange scripts are added. In `routesSh7058ReadAndWriteWithPreTransportPrompts`, assert the source trace stays empty until confirmation, becomes `{kKline}` for Read and `{kCanIso15765}` for Write, and stays empty for the declined Read. Do not force an ISO-15765 assertion onto that Read's K-Line transport or add a new executor run.
 
 Convert `UnisiaM32rOpenPort2WriteAtAttempt` to `UnisiaM32rAdapterVppWriteAtAttempt()` with no parameters, constructing a true-VPP bundle and retaining its begin/attempt sequencing checks. Convert all remaining serial-backed preflight and VPP tests found by `rg`, including TCU unsupported operations, single-attempt invalid/missing kernels, SH7058 short/test-write input, BDM missing kernel and Colt wrong size. Remove full gmock mocking includes if only matchers remain.
 
