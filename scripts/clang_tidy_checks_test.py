@@ -107,22 +107,22 @@ struct DereferenceOverload {
     int& operator*();
 };
 template<class T> T *RoundTrip(T *pointer) {
-    return &*pointer; // warning: redundant-address-dereference
+    return &*pointer; // error: redundant-address-dereference
 }
 template<class T> auto OverloadedRoundTrip(T& value) { return &*value; }
 void PointerExpressions(int *pointer, int value, void (*callback)(),
                         AddressOverload *overloaded_address,
                         DereferenceOverload overloaded_dereference) {
-    auto direct = &*pointer; // warning: redundant-address-dereference
-    auto parenthesized = &(*pointer); // warning: redundant-address-dereference
-    auto nested_parentheses = &((*(pointer))); // warning: redundant-address-dereference
+    auto direct = &*pointer; // error: redundant-address-dereference
+    auto parenthesized = &(*pointer); // error: redundant-address-dereference
+    auto nested_parentheses = &((*(pointer))); // error: redundant-address-dereference
     const int *const_pointer = pointer;
-    auto qualified = &*const_pointer; // warning: redundant-address-dereference
+    auto qualified = &*const_pointer; // error: redundant-address-dereference
     std::array<int, 2> array{1, 2};
     int *raw_iterator = array.data();
-    auto iterator_address = &*raw_iterator; // warning: redundant-address-dereference
+    auto iterator_address = &*raw_iterator; // error: redundant-address-dereference
     auto template_result = RoundTrip(pointer);
-    auto function_address = &*callback; // warning: redundant-address-dereference
+    auto function_address = &*callback; // error: redundant-address-dereference
     auto address = std::to_address(pointer);
     auto reversed = *&value;
     auto address_overload = &*overloaded_address;
@@ -133,9 +133,9 @@ void PointerExpressions(int *pointer, int value, void (*callback)(),
     auto expected_address = &*expected;
     auto optional_template = OverloadedRoundTrip(optional);
     auto expected_template = OverloadedRoundTrip(expected);
-    auto macro_pair = POINTER_ROUND_TRIP(pointer); // warning: redundant-address-dereference
-    auto macro_dereference = &DEREFERENCE(pointer); // warning: redundant-address-dereference
-    auto macro_address = ADDRESS(*pointer); // warning: redundant-address-dereference
+    auto macro_pair = POINTER_ROUND_TRIP(pointer); // error: redundant-address-dereference
+    auto macro_dereference = &DEREFERENCE(pointer); // error: redundant-address-dereference
+    auto macro_address = ADDRESS(*pointer); // error: redundant-address-dereference
 }
 """)
 
