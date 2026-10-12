@@ -21,6 +21,9 @@ struct ConfigPaths
     std::string logger_file;
 };
 
+// Returns the configured directory plus kernel verbatim; the directory supplies its trailing slash.
+std::string KernelFileHandle(const ConfigPaths& paths, std::string_view kernel);
+
 // Pure, no I/O. Replaces FileActions::set_base_dirs.
 ConfigPaths ResolveConfigPaths(std::string_view app_root_path, std::string_view version);
 
