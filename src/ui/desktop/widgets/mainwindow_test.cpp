@@ -3198,7 +3198,7 @@ void MainWindowTest::checkLoggingSelectionEditsWaitForNextRun()
     EXPECT_TRUE(pending->text().contains("restart", Qt::CaseInsensitive));
     const auto stored = services.logger_definitions.LoadSelection(window.config_session_->EffectivePaths().logger_file,
                                                                   "PENDING_SELECTION");
-    ASSERT_TRUE(stored.has_value());
+    ASSERT_THAT(stored, fastecu::testing::IsOk());
     ASSERT_TRUE(stored->has_value());
     EXPECT_EQ((**stored).lower_panel_ids, (std::vector<std::string>{"temperature"}));
     services.logging_engine.Stop();
