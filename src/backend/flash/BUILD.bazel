@@ -197,3 +197,9 @@ fastecu_portable_gtest(
         "@googletest//:gtest",
     ],
 )
+
+cc_library(
+    name = "flash_transport_source",
+    hdrs = ["flash_transport_source.h"],
+    deps = [":flash_executor"],
+)
