@@ -503,8 +503,12 @@ locally before that gate ever sees the change:
   directly (macOS/Linux only; needs system LLVM on `PATH`).
   Add `-- --profile` to the report run to see phase timings and the slowest
   checks. Inline repository checks run in a separate pass covering
-  first-party headers, including those under `apps/` and `tests/`. Their
-  findings are errors, like those of every check in [the configuration](../.clang-tidy).
+  first-party headers, including those under `apps/` and `tests/`.
+  Existing findings are errors. The new redundant built-in `&*` check is
+  temporarily advisory while its findings are reviewed and fixed; its
+  registered name alone is excluded from `WarningsAsErrors` in
+  [the configuration](../.clang-tidy). This staged analysis rollout does not
+  change the compiler/linker warnings policy in [ADR 0018](adr/0018-treat-first-party-warnings-as-errors.md).
   LLVM's experimental custom-check flag is inserted by
   [the parallel-runner adapter](../scripts/clang_tidy_adapter.py); built-in
   checks retain their existing enforcement and header scope.
