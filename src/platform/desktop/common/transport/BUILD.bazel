@@ -95,6 +95,18 @@ fastecu_gtest(
 )
 
 fastecu_gtest(
+    name = "test_desktop_flash_transport_source",
+    srcs = ["desktop_flash_transport_source_test.cpp"],
+    deps = [
+        ":flash_transports",
+        "//src/platform/desktop/common/serial/facade:serial_port_actions",
+        "//src/platform/desktop/common/serial/testing:fake_backed_serial",
+        "//src/platform/desktop/common/testing:core_application_environment",
+        "@googletest//:gtest",
+    ],
+)
+
+fastecu_gtest(
     name = "test_desktop_transport_factory",
     srcs = ["desktop_transport_factory_test.cpp"],
     deps = [
@@ -117,12 +129,14 @@ cc_library(
     name = "flash_transports",
     srcs = [
         "desktop_can_flash_transport.cpp",
+        "desktop_flash_transport_source.cpp",
         "desktop_kline_flash_transport.cpp",
         "desktop_mixed_can_flash_transport.cpp",
         "desktop_transport_factory.cpp",
     ],
     hdrs = [
         "desktop_can_flash_transport.h",
+        "desktop_flash_transport_source.h",
         "desktop_kline_flash_transport.h",
         "desktop_mixed_can_flash_transport.h",
         "desktop_transport_factory.h",
@@ -139,6 +153,7 @@ cc_library(
     ],
     deps = [
         "//src/backend/flash:flash_executor",
+        "//src/backend/flash:flash_transport_source",
         "//src/backend/ports",
     ],
 )

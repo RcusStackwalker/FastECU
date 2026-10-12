@@ -126,7 +126,7 @@ class CancellableWorkflow final : public FlashWorkflow
             }
             auto attempt = std::make_unique<BlockingAttempt>(std::move(*plan));
             active_attempt = attempt.get();
-            return FlashAttempt{std::move(attempt), std::make_unique<FakeClock>()};
+            return FlashAttempt{std::move(attempt)};
         }
         if (notice_due_)
         {
@@ -181,7 +181,7 @@ class TwoAttemptWorkflow final : public FlashWorkflow
             {
                 return FlashFailureStep{plan.error()};
             }
-            return FlashAttempt{std::make_unique<InstantAttempt>(std::move(*plan)), std::make_unique<FakeClock>()};
+            return FlashAttempt{std::make_unique<InstantAttempt>(std::move(*plan))};
         }
         return FlashCompletedStep{FlashWorkflowOutcome::kSucceeded, std::nullopt, std::nullopt};
     }
@@ -200,11 +200,17 @@ class TwoAttemptWorkflow final : public FlashWorkflow
     int step_ = 0;
 };
 
+FlashDialog::ClockFactory fakeClocks()
+{
+    return []() -> std::unique_ptr<IClock> { return std::make_unique<FakeClock>(); };
+}
+
 class RecordingDialog final : public FlashDialog
 {
   public:
-    RecordingDialog(std::unique_ptr<FlashWorkflow> workflow, FlashOperation operation, const QString& filename)
-        : FlashDialog(std::move(workflow), operation, filename)
+    RecordingDialog(std::unique_ptr<FlashWorkflow> workflow, FlashOperation operation, const QString& filename,
+                    ClockFactory makeClock = fakeClocks())
+        : FlashDialog(std::move(workflow), operation, filename, std::move(makeClock))
     {
     }
     QList<FlashPromptKind> prompts;
@@ -277,6 +283,19 @@ TEST(FlashDialogTest, runsASecondAttemptAfterAPromptBetweenAttempts)
     ASSERT_EQ(dialog.prompts, (QList{FlashPromptKind::kBegin, FlashPromptKind::kRemoveMod1}));
     ASSERT_EQ(workflow->attempts, (QList{true, true}));
     ASSERT_TRUE(dialog.success_shown);
+}
+
+TEST(FlashDialogTest, makesOneClockForEachAttempt)
+{
+    int clocksMade = 0;
+    RecordingDialog dialog(std::make_unique<TwoAttemptWorkflow>(), FlashOperation::kWrite, "rom.bin",
+                           [&clocksMade]() -> std::unique_ptr<IClock>
+                           {
+                               ++clocksMade;
+                               return std::make_unique<FakeClock>();
+                           });
+    ASSERT_EQ(dialog.run().outcome, FlashWorkflowOutcome::kSucceeded);
+    EXPECT_EQ(clocksMade, 2);
 }
 
 TEST(FlashDialogTest, programmingVoltageNoticeKeepsTheSixC3AdviceByDefault)

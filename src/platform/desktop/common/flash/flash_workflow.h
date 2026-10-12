@@ -10,10 +10,9 @@
 #include "src/backend/config/config_paths.h"
 #include "src/backend/flash/flash_executor.h"
 #include "src/backend/flash/flash_plan.h"
-#include "src/backend/ports/clock.h"
+#include "src/backend/flash/flash_transport_source.h"
 #include "src/backend/ports/error.h"
-
-class SerialPortActions;
+#include "src/backend/ports/file_repository.h"
 
 namespace fastecu::flash
 {
@@ -29,7 +28,6 @@ struct FlashWorkflowRequest
     std::optional<bytes::Bytes> image;
     config::ConfigPaths paths;
     std::string display_filename;
-    SerialPortActions *serial = nullptr;
 };
 
 enum class FlashPromptKind
@@ -74,6 +72,15 @@ enum class FlashWorkflowOutcome
     kFailed,
 };
 
+// What a workflow needs from its platform, owned by the workflow: `files`
+// reads kernel files by handle, and `transports` makes the transport each
+// attempt is bound to. Both must be non-null.
+struct FlashWorkflowPorts
+{
+    std::unique_ptr<IFileRepository> files;
+    std::unique_ptr<IFlashTransportSource> transports;
+};
+
 struct FlashPromptStep
 {
     FlashPromptKind kind;
@@ -83,7 +90,6 @@ struct FlashPromptStep
 struct FlashAttempt
 {
     std::unique_ptr<BoundFlashAttempt> attempt;
-    std::unique_ptr<IClock> clock;
 };
 
 struct FlashAttemptResult
@@ -123,7 +129,7 @@ class FlashWorkflowFactory
   public:
     // A null result means only that no portable family owns this protocol.
     // Recognized families return a workflow even when preflight will fail.
-    static std::unique_ptr<FlashWorkflow> TryCreate(FlashWorkflowRequest request);
+    static std::unique_ptr<FlashWorkflow> TryCreate(FlashWorkflowRequest request, FlashWorkflowPorts ports);
 };
 
 } // namespace fastecu::flash

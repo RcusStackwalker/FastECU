@@ -18,8 +18,8 @@ constexpr unsigned long kTeardownWaitMs = 5000;
 
 } // namespace
 
-FlashWorker::FlashWorker(FlashAttempt attempt, QObject *parent)
-    : QThread(parent), attempt_(std::move(attempt.attempt)), clock_(std::move(attempt.clock))
+FlashWorker::FlashWorker(std::unique_ptr<BoundFlashAttempt> attempt, std::unique_ptr<IClock> clock, QObject *parent)
+    : QThread(parent), attempt_(std::move(attempt)), clock_(std::move(clock))
 {
     qRegisterMetaType<FlashWorkerResult>();
 }

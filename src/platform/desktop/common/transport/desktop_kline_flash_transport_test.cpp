@@ -96,16 +96,6 @@ TEST(TestDesktopKlineFlashTransport, postKernelUploadDelayCapabilityMirrorsOpenP
 #endif
 }
 
-TEST(TestDesktopKlineFlashTransport, programmingVoltageSupplyMirrorsOpenPort2OnEveryPlatform)
-{
-    FakeBackedSerial serial;
-    SerialPortActions *serial_ptr = serial.Get();
-    ASSERT_TRUE(!fastecu::flash::AdapterSuppliesProgrammingVoltage(nullptr));
-    ASSERT_TRUE(!fastecu::flash::AdapterSuppliesProgrammingVoltage(serial_ptr));
-    ASSERT_TRUE(serial_ptr->SetUseOpenport2Adapter(true));
-    ASSERT_TRUE(fastecu::flash::AdapterSuppliesProgrammingVoltage(serial_ptr));
-}
-
 // reset_connection() is the SH705x K-Line startup seam. It calls the real
 // SerialPortActions facade over FakeBackend, as the CAN adapter test does.
 TEST(TestDesktopKlineFlashTransport, resetConnectionReachesTheAdapter)

@@ -480,9 +480,4 @@ bool DesktopKlineFlashTransport::IsOpen() const
     }
 }
 
-bool AdapterSuppliesProgrammingVoltage(SerialPortActions *serial)
-{
-    return serial != nullptr && serial->GetUseOpenport2Adapter();
-}
-
 } // namespace fastecu::flash

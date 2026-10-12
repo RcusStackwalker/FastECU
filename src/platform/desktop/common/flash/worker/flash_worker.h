@@ -12,7 +12,6 @@
 #include "src/backend/ports/clock.h"
 #include "src/backend/ports/error.h"
 #include "src/backend/ports/manual_cancellation_token.h"
-#include "src/platform/desktop/common/flash/flash_workflow.h"
 
 namespace fastecu::flash
 {
@@ -49,7 +48,7 @@ class FlashWorker final : public QThread
     Q_OBJECT
 
   public:
-    FlashWorker(FlashAttempt attempt, QObject *parent = nullptr);
+    FlashWorker(std::unique_ptr<BoundFlashAttempt> attempt, std::unique_ptr<IClock> clock, QObject *parent = nullptr);
     ~FlashWorker() override;
 
     FlashWorker(const FlashWorker&) = delete;

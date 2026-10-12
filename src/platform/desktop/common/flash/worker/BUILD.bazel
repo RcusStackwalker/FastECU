@@ -20,7 +20,6 @@ qt_cc_library(
         "//src/backend/flash:flash_executor",
         "//src/backend/flash:flash_plan",
         "//src/backend/ports",
-        "//src/platform/desktop/common/flash:flash_workflow",
     ],
 )
 
@@ -31,12 +30,12 @@ fastecu_gtest(
         ":flash_worker",
         "//bazel/qt:core",
         "//src/algorithms/protocol/ssm",
+        "//src/backend/flash:flash_executor",
         "//src/backend/flash/eeprom:denso_sh705x_eeprom_common",
         "//src/backend/flash/eeprom:denso_sh705x_eeprom_kline",
         "//src/backend/flash/testing:scripted_flash_transports",
         "//src/backend/ports/testing:fake_clock",
         "//src/backend/ports/testing:result_matchers",
-        "//src/platform/desktop/common/flash:flash_workflow",
         "//src/platform/desktop/common/testing:core_application_environment",
         "//src/platform/desktop/common/testing:event_helpers",
         "//src/platform/desktop/common/testing:signal_recorder",

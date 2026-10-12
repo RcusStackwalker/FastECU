@@ -1,11 +1,13 @@
 #pragma once
 
+#include <functional>
 #include <memory>
 #include <optional>
 
 #include <QDialog>
 #include <QEventLoop>
 
+#include "src/backend/ports/clock.h"
 #include "src/platform/desktop/common/flash/flash_workflow.h"
 #include "src/platform/desktop/common/flash/worker/flash_worker.h"
 #include <ui_ecu_operations.h>
@@ -30,8 +32,11 @@ class FlashDialog : public QDialog
 {
     Q_OBJECT
   public:
+    // Makes the clock each attempt's worker runs on; called once per attempt.
+    using ClockFactory = std::function<std::unique_ptr<IClock>()>;
+
     explicit FlashDialog(std::unique_ptr<FlashWorkflow> workflow, FlashOperation operation, const QString& filename,
-                         QWidget *parent = nullptr);
+                         ClockFactory makeClock, QWidget *parent = nullptr);
     ~FlashDialog() override = default;
     FlashDialogResult run();
 
@@ -61,6 +66,7 @@ class FlashDialog : public QDialog
     void setProgress(int done, int total);
 
     std::unique_ptr<FlashWorkflow> workflow_;
+    ClockFactory make_clock_;
     std::unique_ptr<FlashWorker> worker_;
     QEventLoop *loop_ = nullptr;
     FlashDialogResult result_;

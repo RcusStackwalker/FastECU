@@ -16,6 +16,7 @@
 
 #include "src/backend/config/builtin_catalog.h"
 #include "src/backend/flash/flash_device_lookup.h"
+#include "src/platform/desktop/common/flash/desktop_flash_workflow_ports.h"
 
 namespace fastecu::flash
 {
@@ -74,7 +75,8 @@ TEST(BuiltinCatalogCapability, EveryOfferedOperationIsAcceptedAndEveryOtherIsUns
         if (!protocol.read && !protocol.test_write && !protocol.write)
         {
             EXPECT_TRUE(FlashWorkflowFactory::TryCreate(
-                            {.operation = FlashOperation::kRead, .protocol = protocol, .paths = *paths}) == nullptr)
+                            {.operation = FlashOperation::kRead, .protocol = protocol, .paths = *paths},
+                            DesktopFlashWorkflowPorts(nullptr)) == nullptr)
                 << protocol.name << " offers no operation but has a route";
             continue;
         }
@@ -87,8 +89,8 @@ TEST(BuiltinCatalogCapability, EveryOfferedOperationIsAcceptedAndEveryOtherIsUns
                                                              .protocol = protocol,
                                                              .image = ImageFor(protocol, operation),
                                                              .paths = *paths,
-                                                             .display_filename = "capability.bin",
-                                                             .serial = nullptr});
+                                                             .display_filename = "capability.bin"},
+                                                            DesktopFlashWorkflowPorts(nullptr));
             ASSERT_TRUE(workflow != nullptr) << "no route";
             const FlashWorkflowStep step = workflow->Next();
             const auto *failure = std::get_if<FlashFailureStep>(&step);

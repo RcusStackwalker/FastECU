@@ -12,7 +12,6 @@
 // on signal recorder::wait() -- see the note in the first test.
 #include "src/backend/ports/testing/result_matchers.h"
 #include "src/platform/desktop/common/flash/worker/flash_worker.h"
-#include "src/platform/desktop/common/flash/flash_workflow.h"
 
 #include <QCoreApplication>
 #include <QElapsedTimer>
@@ -26,6 +25,7 @@
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
 #include "src/backend/flash/eeprom/denso_sh705x_eeprom_common.h"
 #include "src/backend/flash/eeprom/denso_sh705x_eeprom_kline_executor.h"
+#include "src/backend/flash/flash_executor.h"
 #include "src/backend/ports/testing/fake_clock.h"
 #include "src/backend/flash/testing/scripted_kline_flash_transport.h"
 
@@ -35,7 +35,6 @@ using fastecu::flash::DensoSecurityVariant;
 using fastecu::flash::DensoSh705xEepromInput;
 using fastecu::flash::DensoSh705xEepromKlineExecutor;
 using fastecu::flash::EepromReadMode;
-using fastecu::flash::FlashAttempt;
 using fastecu::flash::FlashFamily;
 using fastecu::flash::FlashOperation;
 using fastecu::flash::FlashWorker;
@@ -134,10 +133,9 @@ TEST(TestFlashWorker, closingWhileReadIsBlocked_cancelsUnblocksAndJoinsWithoutWa
     raw_transport->ExpectWrite(RequestKernelIdRequest());
     raw_transport->QueueBlockingRead();
 
-    FlashWorker worker(FlashAttempt{fastecu::flash::BindFlashAttempt(std::move(*plan),
-                                                                     std::make_unique<DensoSh705xEepromKlineExecutor>(),
-                                                                     std::move(transport)),
-                                    std::make_unique<FakeClock>()});
+    FlashWorker worker(fastecu::flash::BindFlashAttempt(
+                           std::move(*plan), std::make_unique<DensoSh705xEepromKlineExecutor>(), std::move(transport)),
+                       std::make_unique<FakeClock>());
     fastecu::testing::SignalRecorder finished_spy(&worker, &FlashWorker::finished);
 
     worker.start();
@@ -180,10 +178,9 @@ TEST(TestFlashWorker, oneAndOnlyOneTerminalResultIsEmitted)
     ASSERT_THAT(plan, IsOk());
 
     auto transport = std::make_unique<ScriptedKlineFlashTransport>();
-    FlashWorker worker(FlashAttempt{fastecu::flash::BindFlashAttempt(std::move(*plan),
-                                                                     std::make_unique<DensoSh705xEepromKlineExecutor>(),
-                                                                     std::move(transport)),
-                                    std::make_unique<FakeClock>()});
+    FlashWorker worker(fastecu::flash::BindFlashAttempt(
+                           std::move(*plan), std::make_unique<DensoSh705xEepromKlineExecutor>(), std::move(transport)),
+                       std::make_unique<FakeClock>());
     fastecu::testing::SignalRecorder finished_spy(&worker, &FlashWorker::finished);
 
     worker.start();
@@ -208,7 +205,7 @@ TEST(TestFlashWorker, phaseProgressIsForwardedAlongsideLegacyProgress)
     ASSERT_THAT(plan, IsOk());
 
     auto attempt = std::make_unique<FakeBoundAttempt>(std::move(*plan));
-    FlashWorker worker(FlashAttempt{std::move(attempt), std::make_unique<FakeClock>()});
+    FlashWorker worker(std::move(attempt), std::make_unique<FakeClock>());
     fastecu::testing::SignalRecorder legacy_spy(&worker, &FlashWorker::progressChanged);
     fastecu::testing::SignalRecorder phase_spy(&worker, &FlashWorker::phaseProgressChanged);
 
