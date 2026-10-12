@@ -44,6 +44,7 @@ using fastecu::flash::SubaruTcuCvtHitachiM32rCanPlan;
 // CanExecutorConformance's must be brought in wholesale rather than by a
 // single using-declaration.
 using namespace fastecu::flash::testing;
+using testing::Each;
 using testing::HasSubstr;
 using testing::IsEmpty;
 
@@ -387,10 +388,8 @@ TEST(SubaruTcuCvtHitachiM32rCanExecutor, ReadReturnsTheFloorClampedWindowPaddedW
     ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_TRUE(result->read_bytes.has_value());
     ASSERT_EQ(result->read_bytes->size(), 0x80000U);
-    EXPECT_TRUE(std::all_of(result->read_bytes->begin(), result->read_bytes->begin() + 0x8000,
-                            [](bytes::Byte b) { return b == 0x00; }));
-    EXPECT_TRUE(std::all_of(result->read_bytes->begin() + 0x8000, result->read_bytes->end(),
-                            [](bytes::Byte b) { return b == 0x5A; }));
+    EXPECT_THAT(bytes::ByteView(*result->read_bytes).first(0x8000), Each(0x00));
+    EXPECT_THAT(bytes::ByteView(*result->read_bytes).subspan(0x8000), Each(0x5A));
     EXPECT_TRUE(transport.ScriptConsumed());
 }
 

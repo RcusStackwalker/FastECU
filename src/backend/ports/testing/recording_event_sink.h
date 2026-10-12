@@ -1,12 +1,35 @@
 #pragma once
 #include "src/backend/ports/event_sink.h"
 
+#include <ostream>
 #include <string>
 #include <vector>
 #include <utility>
 
 namespace fastecu
 {
+
+// GoogleTest finds this by argument-dependent lookup, so a matcher over
+// RecordingEventSink::logs prints "Warning" rather than "4-byte object".
+inline void PrintTo(LogLevel level, std::ostream *os)
+{
+    switch (level)
+    {
+    case LogLevel::kError:
+        *os << "Error";
+        return;
+    case LogLevel::kWarning:
+        *os << "Warning";
+        return;
+    case LogLevel::kInfo:
+        *os << "Info";
+        return;
+    case LogLevel::kDebug:
+        *os << "Debug";
+        return;
+    }
+    *os << "LogLevel(" << static_cast<int>(level) << ")";
+}
 
 struct RecordedPhaseProgress
 {

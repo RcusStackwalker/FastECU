@@ -791,7 +791,7 @@ def _supports_check_profile(
     return "-enable-check-profile" in (_run_quiet(command_runner, command, workspace).stdout or "")
 
 
-def advisory_header_filter(workspace: PurePath) -> str:
+def inline_header_filter(workspace: PurePath) -> str:
     """First-party headers with Clang's native or normalized separators."""
     parts = re.split(r"[/\\]", str(workspace))
     prefix = r"[/\\]".join(re.escape(part) for part in parts)
@@ -1007,7 +1007,7 @@ def run_workflow(
                 upstream_arguments = list(upstream_arguments)
                 export_index = upstream_arguments.index("-export-fixes") + 1
                 upstream_arguments[export_index] = str(custom_fixes) + os.sep
-                header_filter = advisory_header_filter(workspace)
+                header_filter = inline_header_filter(workspace)
                 upstream_arguments.extend(
                     ["-checks=-*," + ",".join(names), f"-header-filter={header_filter}"]
                 )
@@ -1019,7 +1019,7 @@ def run_workflow(
                     "--",
                     *upstream_arguments,
                 ]
-                print(f"Analyzing {len(entries)} translation units with advisory inline checks.")
+                print(f"Analyzing {len(entries)} translation units with inline checks.")
                 with timings.phase("custom-analysis"):
                     custom_result = _run_quiet(command_runner, adapter_command, workspace)
                 custom_count = _count_diagnostics(custom_fixes)
@@ -1030,10 +1030,11 @@ def run_workflow(
                     checks.update(profile_report.parse_check_profile(custom_result.stdout or ""))
                     _emit_profile(custom_result.stdout or "", timings, len(entries), environ)
                 if custom_result.returncode:
-                    raise WorkflowError(
-                        f"inline check analysis failed with exit code {custom_result.returncode}"
-                    )
-                print(f"clang-tidy: {custom_count} inline findings (advisory)")
+                    detail = f"inline check pass failed with exit code {custom_result.returncode}"
+                    if custom_count:
+                        detail = f"{custom_count} inline findings; {detail}"
+                    raise WorkflowError(detail)
+                print(f"clang-tidy: {custom_count} inline findings")
         return {
             "translation_units": len(entries),
             "phases": dict(timings.durations),

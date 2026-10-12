@@ -3,6 +3,7 @@
 #include <string_view>
 #include <vector>
 
+#include "src/algorithms/expression/expression.h"
 #include "src/backend/logging/logging_types.h"
 #include "src/backend/ports/result.h"
 
@@ -16,13 +17,16 @@ class LoggingSession
     const std::vector<LoggingChannel>& Channels() const;
     const LoggingPolicy& Policy() const;
     const LoggingChannel *FindChannel(std::string_view id) const;
+    const expression::CompiledExpression *FindConversion(std::string_view id) const;
 
   private:
-    LoggingSession(LoggingProtocolId protocol, std::vector<LoggingChannel> channels, LoggingPolicy policy);
+    LoggingSession(LoggingProtocolId protocol, std::vector<LoggingChannel> channels, LoggingPolicy policy,
+                   std::vector<expression::CompiledExpression> conversions);
 
     LoggingProtocolId protocol_;
     std::vector<LoggingChannel> channels_;
     LoggingPolicy policy_;
+    std::vector<expression::CompiledExpression> conversions_;
 
     friend fastecu::Result<LoggingSession>
     MakeLoggingSession(LoggingProtocolId protocol, std::vector<LoggingChannel> channels, LoggingPolicy policy);

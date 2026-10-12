@@ -3,6 +3,9 @@
 #include <charconv>
 #include <cmath>
 #include <format>
+#include <optional>
+#include <utility>
+#include <vector>
 
 namespace fastecu::expression
 {
@@ -38,14 +41,43 @@ EvaluationResult Finite(double value)
     return value;
 }
 
+struct Instruction
+{
+    char operation;
+    double value;
+};
+using Constant = std::optional<double>;
+using CompileResult = std::expected<Constant, EvaluationError>;
+
+EvaluationResult Apply(char operation, double left, double right)
+{
+    switch (operation)
+    {
+    case '+':
+        return Finite(left + right);
+    case '-':
+        return Finite(left - right);
+    case '*':
+        return Finite(left * right);
+    case '/':
+        if (right == 0.0)
+        {
+            return std::unexpected(EvaluationError{"cannot divide by zero"});
+        }
+        return Finite(left / right);
+    default:
+        return std::unexpected(EvaluationError{"invalid compiled operation"});
+    }
+}
+
 class Parser
 {
   public:
-    Parser(std::string_view text, double input) : text_(text), input_(input)
+    Parser(std::string_view text, std::vector<Instruction>& instructions) : text_(text), instructions_(instructions)
     {
     }
 
-    EvaluationResult Evaluate()
+    CompileResult Compile()
     {
         auto value = Sum();
         if (!value.has_value())
@@ -61,7 +93,7 @@ class Parser
     }
 
   private:
-    EvaluationResult Error(std::string_view detail) const
+    CompileResult Error(std::string_view detail) const
     {
         return std::unexpected(EvaluationError{std::format("{} at position {}", detail, position_)});
     }
@@ -85,7 +117,7 @@ class Parser
         return true;
     }
 
-    EvaluationResult Sum()
+    CompileResult Sum()
     {
         auto left = Product();
         while (left.has_value())
@@ -101,12 +133,12 @@ class Parser
             {
                 return right;
             }
-            left = Finite(operation == '+' ? *left + *right : *left - *right);
+            left = Binary(operation, *left, *right);
         }
         return left;
     }
 
-    EvaluationResult Product()
+    CompileResult Product()
     {
         auto left = Unary();
         while (left.has_value())
@@ -122,16 +154,16 @@ class Parser
             {
                 return right;
             }
-            if (operation == '/' && *right == 0.0)
+            if (operation == '/' && right->has_value() && **right == 0.0)
             {
                 return Error("cannot divide by zero");
             }
-            left = Finite(operation == '*' ? *left * *right : *left / *right);
+            left = Binary(operation, *left, *right);
         }
         return left;
     }
 
-    EvaluationResult Unary()
+    CompileResult Unary()
     {
         bool negative = false;
         for (;;)
@@ -148,12 +180,16 @@ class Parser
         auto value = Primary();
         if (value.has_value() && negative)
         {
-            *value = -*value;
+            instructions_.push_back({'~', 0.0});
+            if (value->has_value())
+            {
+                **value = -**value;
+            }
         }
         return value;
     }
 
-    EvaluationResult Primary()
+    CompileResult Primary()
     {
         if (Consume('('))
         {
@@ -177,7 +213,8 @@ class Parser
         }
         if (Consume('x'))
         {
-            return input_;
+            instructions_.push_back({'x', 0.0});
+            return Constant{};
         }
         SkipWhitespace();
         if (position_ == text_.size() ||
@@ -194,11 +231,32 @@ class Parser
             return Error("invalid numeric literal");
         }
         position_ = static_cast<std::size_t>(parsed.ptr - text_.data());
-        return Finite(value);
+        const auto finite = Finite(value);
+        if (!finite.has_value())
+        {
+            return std::unexpected(finite.error());
+        }
+        instructions_.push_back({'n', value});
+        return Constant{value};
+    }
+
+    CompileResult Binary(char operation, Constant left, Constant right)
+    {
+        instructions_.push_back({operation, 0.0});
+        if (!left.has_value() || !right.has_value())
+        {
+            return Constant{};
+        }
+        const auto value = Apply(operation, *left, *right);
+        if (!value.has_value())
+        {
+            return std::unexpected(value.error());
+        }
+        return Constant{*value};
     }
 
     std::string_view text_;
-    double input_;
+    std::vector<Instruction>& instructions_;
     std::size_t position_{0};
     std::size_t nesting_{0};
 };
@@ -228,18 +286,75 @@ std::expected<double, EvaluationError> ParseFiniteNumber(std::string_view text)
     return Finite(value);
 }
 
-std::expected<double, EvaluationError> EvaluateChecked(std::string_view expression, double x)
+struct CompiledExpression::Program
+{
+    std::vector<Instruction> instructions;
+};
+
+CompiledExpression::CompiledExpression(std::shared_ptr<const Program> program) : program_(std::move(program))
+{
+}
+
+std::expected<CompiledExpression, EvaluationError> Compile(std::string_view expression)
+{
+    auto program = std::make_shared<CompiledExpression::Program>();
+    expression = Trimmed(expression);
+    if (expression.empty())
+    {
+        program->instructions.push_back({'x', 0.0});
+    }
+    else
+    {
+        const auto result = Parser(expression, program->instructions).Compile();
+        if (!result.has_value())
+        {
+            return std::unexpected(result.error());
+        }
+    }
+    return CompiledExpression(std::move(program));
+}
+
+std::expected<double, EvaluationError> CompiledExpression::Evaluate(double x) const
 {
     const auto input = Finite(x);
     if (!input.has_value())
     {
         return input;
     }
-    expression = Trimmed(expression);
-    if (expression.empty())
+    std::vector<double> values;
+    values.reserve(program_->instructions.size());
+    for (const auto& instruction : program_->instructions)
     {
-        return x;
+        if (instruction.operation == 'n' || instruction.operation == 'x')
+        {
+            values.push_back(instruction.operation == 'x' ? x : instruction.value);
+        }
+        else if (instruction.operation == '~')
+        {
+            values.back() = -values.back();
+        }
+        else
+        {
+            const double right = values.back();
+            values.pop_back();
+            const auto value = Apply(instruction.operation, values.back(), right);
+            if (!value.has_value())
+            {
+                return value;
+            }
+            values.back() = *value;
+        }
     }
-    return Parser(expression, x).Evaluate();
+    return values.back();
+}
+
+std::expected<double, EvaluationError> EvaluateChecked(std::string_view expression, double x)
+{
+    const auto compiled = Compile(expression);
+    if (!compiled.has_value())
+    {
+        return std::unexpected(compiled.error());
+    }
+    return compiled->Evaluate(x);
 }
 } // namespace fastecu::expression

@@ -14,6 +14,7 @@
 
 #include "src/backend/config/config_session.h"
 #include "src/backend/config/testing/config_session_fixture.h"
+#include "src/backend/ports/testing/result_matchers.h"
 #include "src/platform/desktop/common/ports/event_sink/qt_event_sink.h"
 #include "src/platform/desktop/common/ports/qt_file_repository.h"
 #include "src/platform/desktop/common/ports/qt_file_system.h"
@@ -91,7 +92,7 @@ TEST_P(ProviderCheckboxesPersistBothDirectionsParameters, providerCheckboxesPers
     QTemporaryDir root;
     ASSERT_TRUE(root.isValid());
     SessionOnDisk disk{root.path()};
-    ASSERT_TRUE(disk.status.has_value());
+    ASSERT_THAT(disk.status, fastecu::testing::IsOk());
     {
         Settings settings{disk.session};
         const auto boxes = settings.findChildren<QCheckBox *>();
@@ -107,7 +108,7 @@ TEST_P(ProviderCheckboxesPersistBothDirectionsParameters, providerCheckboxesPers
         ASSERT_EQ(disk.session.Settings().primary_definition_base, std::string(enabled ? "romraider" : "ecuflash"));
     }
     SessionOnDisk reread{root.path()};
-    ASSERT_TRUE(reread.status.has_value());
+    ASSERT_THAT(reread.status, fastecu::testing::IsOk());
     ASSERT_EQ(reread.session.Settings().use_romraider_definitions, disk.session.Settings().use_romraider_definitions);
     ASSERT_EQ(reread.session.Settings().use_ecuflash_definitions, disk.session.Settings().use_ecuflash_definitions);
     ASSERT_EQ(reread.session.Settings().primary_definition_base, disk.session.Settings().primary_definition_base);
@@ -138,7 +139,7 @@ TEST_P(RemovingDefinitionsPreservesOrderAndPersistsEmptyListParameters,
     QTemporaryDir root;
     ASSERT_TRUE(root.isValid());
     SessionOnDisk disk{root.path()};
-    ASSERT_TRUE(disk.status.has_value());
+    ASSERT_THAT(disk.status, fastecu::testing::IsOk());
     disk.session.Settings().romraider_definition_files = {"/first.xml", "/middle.xml", "/last.xml"};
     {
         Settings settings{disk.session};
@@ -183,7 +184,7 @@ TEST_P(RemovingDefinitionsPreservesOrderAndPersistsEmptyListParameters,
         }
     }
     SessionOnDisk reread{root.path()};
-    ASSERT_TRUE(reread.status.has_value());
+    ASSERT_THAT(reread.status, fastecu::testing::IsOk());
     ASSERT_EQ(reread.session.Settings().romraider_definition_files, disk.session.Settings().romraider_definition_files);
 }
 
@@ -192,7 +193,7 @@ TEST(SettingsTest, closingSettingsSavesThroughTheSession)
     QTemporaryDir root;
     ASSERT_TRUE(root.isValid());
     SessionOnDisk disk{root.path()};
-    ASSERT_TRUE(disk.status.has_value());
+    ASSERT_THAT(disk.status, fastecu::testing::IsOk());
     const QString configFile = QString::fromStdString(disk.session.ProvisionedPaths().config_file);
     ASSERT_TRUE(QFile::remove(configFile));
 
@@ -208,7 +209,7 @@ TEST(SettingsTest, editsReachTheSessionLive)
     QTemporaryDir root;
     ASSERT_TRUE(root.isValid());
     SessionOnDisk disk{root.path()};
-    ASSERT_TRUE(disk.status.has_value());
+    ASSERT_THAT(disk.status, fastecu::testing::IsOk());
     Settings settings{disk.session};
 
     ASSERT_TRUE(
@@ -222,7 +223,7 @@ TEST(SettingsTest, destructionRetriesPersistenceAfterClose)
     QTemporaryDir root;
     ASSERT_TRUE(root.isValid());
     SessionOnDisk disk{root.path()};
-    ASSERT_TRUE(disk.status.has_value());
+    ASSERT_THAT(disk.status, fastecu::testing::IsOk());
     const QString configFile = QString::fromStdString(disk.session.ProvisionedPaths().config_file);
     ASSERT_TRUE(QFile::remove(configFile));
     ASSERT_TRUE(QDir().mkpath(configFile));
@@ -246,7 +247,7 @@ TEST(SettingsTest, failedSaveKeepsEditsAndWarnsTheOperator)
     QTemporaryDir root;
     ASSERT_TRUE(root.isValid());
     SessionOnDisk disk{root.path()};
-    ASSERT_TRUE(disk.status.has_value());
+    ASSERT_THAT(disk.status, fastecu::testing::IsOk());
     const QString configFile = QString::fromStdString(disk.session.ProvisionedPaths().config_file);
     ASSERT_TRUE(QFile::remove(configFile));
     ASSERT_TRUE(QDir().mkpath(configFile)); // a directory where the file goes: every write fails

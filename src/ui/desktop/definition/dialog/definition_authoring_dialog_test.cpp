@@ -30,6 +30,7 @@
 #include "src/platform/desktop/common/ports/qt_resource_bundle.h"
 #include "src/ui/desktop/definition/definition_header_form.h"
 
+using fastecu::testing::IsOk;
 using fastecu::ui::DefinitionAuthoringDialog;
 using fastecu::ui::HeaderFormEditors;
 using fastecu::ui::populateHeaderDialog;
@@ -71,7 +72,7 @@ TEST(DefinitionAuthoringDialogTest, ConstructsAndExposesTheFourLogSignals)
     QtAtomicFileWriter writer;
     fastecu::NullEventSink events;
     fastecu::config::testing::ConfigSessionFixture config;
-    ASSERT_TRUE(config.Initialize().has_value());
+    ASSERT_THAT(config.Initialize(), IsOk());
     fastecu::definition::DefinitionService service(fileSystem, configRepository, writer);
     fastecu::definition::DefinitionCatalogSession catalogs(service, config.session, fileSystem, events);
 
@@ -120,7 +121,7 @@ TEST(DefinitionAuthoringDialogTest, HeaderEditorsStayReadableWhileTheCallerOwnsT
 
     // And the mapping the wizards perform on those editors still resolves.
     const auto input = fastecu::ui::definitionHeaderInput(editors);
-    ASSERT_TRUE(input.has_value());
+    ASSERT_THAT(input, IsOk());
     EXPECT_EQ(input->xml_id, "3352a403");
     EXPECT_EQ(input->ecu_id, "39670016");
     EXPECT_EQ(input->notes, "bench only");

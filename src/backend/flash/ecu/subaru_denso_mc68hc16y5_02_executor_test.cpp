@@ -40,6 +40,7 @@ using bytes::ComposeBeWithChecksum;
 using bytes::U24;
 using namespace bytes::literals;
 using namespace std::chrono_literals;
+using ::testing::Each;
 
 class ToggleCancellation final : public ICancellationToken
 {
@@ -761,8 +762,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, TpuReadHonorsDeclaredPackedRomSize)
     ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_TRUE(result->read_bytes.has_value());
     EXPECT_EQ(result->read_bytes->size(), device->romsize);
-    EXPECT_TRUE(std::all_of(result->read_bytes->begin(), result->read_bytes->end(),
-                            [](bytes::Byte value) { return value == 0x6a; }));
+    EXPECT_THAT(*result->read_bytes, Each(0x6a));
     EXPECT_TRUE(transport.ScriptConsumed());
 }
 

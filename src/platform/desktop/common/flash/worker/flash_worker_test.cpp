@@ -10,6 +10,7 @@
 // timing coincidence) is what makes teardown prompt. For the same reason the
 // suite waits on condition variables and thread joins throughout, and never
 // on signal recorder::wait() -- see the note in the first test.
+#include "src/backend/ports/testing/result_matchers.h"
 #include "src/platform/desktop/common/flash/worker/flash_worker.h"
 #include "src/platform/desktop/common/flash/flash_workflow.h"
 
@@ -42,6 +43,7 @@ using fastecu::flash::FlashWorkerResult;
 using fastecu::flash::KernelImage;
 using fastecu::flash::MemoryRegion;
 using fastecu::flash::ScriptedKlineFlashTransport;
+using fastecu::testing::IsOk;
 
 namespace
 {
@@ -122,7 +124,7 @@ bytes::Bytes RequestKernelIdRequest()
 TEST(TestFlashWorker, closingWhileReadIsBlocked_cancelsUnblocksAndJoinsWithoutWallClockSleep)
 {
     auto plan = fastecu::flash::BuildDensoSh705xEepromPlan(ValidInput(FlashFamily::kDensoSh705xEepromKline));
-    ASSERT_TRUE(plan.has_value());
+    ASSERT_THAT(plan, IsOk());
 
     auto transport = std::make_unique<ScriptedKlineFlashTransport>();
     ScriptedKlineFlashTransport *raw_transport = transport.get();
@@ -175,7 +177,7 @@ TEST(TestFlashWorker, oneAndOnlyOneTerminalResultIsEmitted)
     // scripted below, on purpose -- reaching the transport at all here
     // would itself be a bug).
     auto plan = fastecu::flash::BuildDensoSh705xEepromPlan(ValidInput(FlashFamily::kDensoSh705xEepromCan));
-    ASSERT_TRUE(plan.has_value());
+    ASSERT_THAT(plan, IsOk());
 
     auto transport = std::make_unique<ScriptedKlineFlashTransport>();
     FlashWorker worker(FlashAttempt{fastecu::flash::BindFlashAttempt(std::move(*plan),
@@ -203,7 +205,7 @@ TEST(TestFlashWorker, oneAndOnlyOneTerminalResultIsEmitted)
 TEST(TestFlashWorker, phaseProgressIsForwardedAlongsideLegacyProgress)
 {
     auto plan = fastecu::flash::BuildDensoSh705xEepromPlan(ValidInput(FlashFamily::kDensoSh705xEepromKline));
-    ASSERT_TRUE(plan.has_value());
+    ASSERT_THAT(plan, IsOk());
 
     auto attempt = std::make_unique<FakeBoundAttempt>(std::move(*plan));
     FlashWorker worker(FlashAttempt{std::move(attempt), std::make_unique<FakeClock>()});

@@ -2,9 +2,9 @@
 #include "src/backend/logging/logging_read_plan.h"
 
 #include <algorithm>
-#include <array>
 #include <chrono>
 #include <cmath>
+#include <format>
 #include <string>
 #include <string_view>
 #include <unordered_set>
@@ -20,20 +20,6 @@ using namespace std::chrono_literals;
 
 namespace
 {
-
-bool ValidExpression(const LoggingChannel& channel)
-{
-    if (channel.from_byte_expression.empty())
-    {
-        return false;
-    }
-    // A syntax error fails every probe; a probe-dependent failure such as a
-    // division by x-1 only rejects the expression if no probe evaluates.
-    const auto evaluates = [&channel](double probe)
-    { return fastecu::expression::EvaluateChecked(channel.from_byte_expression, probe).has_value(); };
-    constexpr std::array<double, 3> kProbes{1.0, 16.0, 1616.0};
-    return std::ranges::any_of(kProbes, evaluates);
-}
 
 bool ValidAddress(LoggingProtocolId protocol, std::uint32_t address)
 {
@@ -89,8 +75,9 @@ bool ValidWireShape(LoggingProtocolId protocol, const std::vector<LoggingChannel
 
 } // namespace
 
-LoggingSession::LoggingSession(LoggingProtocolId protocol, std::vector<LoggingChannel> channels, LoggingPolicy policy)
-    : protocol_(protocol), channels_(std::move(channels)), policy_(policy)
+LoggingSession::LoggingSession(LoggingProtocolId protocol, std::vector<LoggingChannel> channels, LoggingPolicy policy,
+                               std::vector<expression::CompiledExpression> conversions)
+    : protocol_(protocol), channels_(std::move(channels)), policy_(policy), conversions_(std::move(conversions))
 {
 }
 
@@ -121,7 +108,21 @@ const LoggingChannel *LoggingSession::FindChannel(std::string_view id) const
     return nullptr;
 }
 
-fastecu::Status ValidateLoggingChannel(LoggingProtocolId protocol, const LoggingChannel& channel)
+const expression::CompiledExpression *LoggingSession::FindConversion(std::string_view id) const
+{
+    for (std::size_t index = 0; index < channels_.size(); ++index)
+    {
+        if (channels_[index].id == id)
+        {
+            return &conversions_[index];
+        }
+    }
+    return nullptr;
+}
+
+namespace
+{
+fastecu::Status ValidateChannelFields(LoggingProtocolId protocol, const LoggingChannel& channel)
 {
     if (!ValidProtocol(protocol))
     {
@@ -161,7 +162,18 @@ fastecu::Status ValidateLoggingChannel(LoggingProtocolId protocol, const Logging
         return fastecu::Fail(fastecu::ErrorKind::kInvalidConfig,
                              "invalid format precision; expected 0–15 decimal places");
     }
-    if (!ValidExpression(channel))
+    return {};
+}
+} // namespace
+
+fastecu::Status ValidateLoggingChannel(LoggingProtocolId protocol, const LoggingChannel& channel)
+{
+    const auto fields = ValidateChannelFields(protocol, channel);
+    if (!fields.has_value())
+    {
+        return fields;
+    }
+    if (channel.from_byte_expression.empty() || !expression::Compile(channel.from_byte_expression).has_value())
     {
         return fastecu::Fail(fastecu::ErrorKind::kInvalidConfig,
                              "invalid expression; provide a finite numeric conversion");
@@ -182,13 +194,23 @@ fastecu::Result<LoggingSession> MakeLoggingSession(LoggingProtocolId protocol, s
         return fastecu::Fail(fastecu::ErrorKind::kInvalidConfig, "no CDBG log parameters selected");
     }
 
+    std::vector<expression::CompiledExpression> conversions;
+    conversions.reserve(channels.size());
     std::unordered_set<std::string> ids;
     for (const LoggingChannel& channel : channels)
     {
-        if (!ids.insert(channel.id).second || !ValidateLoggingChannel(protocol, channel).has_value())
+        if (!ids.insert(channel.id).second || !ValidateChannelFields(protocol, channel).has_value() ||
+            channel.from_byte_expression.empty())
         {
             return fastecu::Fail(fastecu::ErrorKind::kInvalidConfig, "invalid logging channel");
         }
+        auto compiled = expression::Compile(channel.from_byte_expression);
+        if (!compiled.has_value())
+        {
+            return fastecu::Fail(fastecu::ErrorKind::kInvalidConfig,
+                                 std::format("invalid logging conversion: {}", compiled.error().detail));
+        }
+        conversions.push_back(std::move(*compiled));
     }
 
     if (!ValidWireShape(protocol, channels))
@@ -196,7 +218,7 @@ fastecu::Result<LoggingSession> MakeLoggingSession(LoggingProtocolId protocol, s
         return fastecu::Fail(fastecu::ErrorKind::kInvalidConfig, "logging channels do not fit the selected protocol");
     }
 
-    return LoggingSession(protocol, std::move(channels), policy);
+    return LoggingSession(protocol, std::move(channels), policy, std::move(conversions));
 }
 
 } // namespace fastecu::logging

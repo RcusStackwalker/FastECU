@@ -93,11 +93,11 @@ cc_library(
     hdrs = ["logging_session.h"],
     implementation_deps = [
         ":logging_read_plan",
-        "//src/algorithms/expression",
         "//src/algorithms/protocol/colt:mitsu_colt_can_cdbg_protocol",
     ],
     deps = [
         ":logging_types",
+        "//src/algorithms/expression",
         "//src/backend/ports",
     ],
 )

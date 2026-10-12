@@ -17,6 +17,7 @@ namespace
 {
 using fastecu::testing::IsErr;
 using fastecu::testing::IsOk;
+using ::testing::Each;
 
 constexpr std::string_view kProtocol = "sub_ecu_denso_mc68hc16y5_02_bdm";
 constexpr std::string_view kMcu = "MC68HC16Y5";
@@ -74,8 +75,8 @@ TEST(SubaruDensoMc68hc16y5_02BdmPlan, WritePadsTheKernelAndCarriesItAsTheImage)
     ASSERT_TRUE(plan->Image().has_value());
     const bytes::Bytes& image = *plan->Image();
     ASSERT_EQ(image.size(), 64U);
-    EXPECT_TRUE(std::all_of(image.begin(), image.begin() + 33, [](bytes::Byte value) { return value == 0xab; }));
-    EXPECT_TRUE(std::all_of(image.begin() + 33, image.end(), [](bytes::Byte value) { return value == 0x00; }));
+    EXPECT_THAT(bytes::ByteView(image).first(33), Each(0xab));
+    EXPECT_THAT(bytes::ByteView(image).subspan(33), Each(0x00));
     EXPECT_EQ(plan->TransferRegion(), (MemoryRegion{0x20000, 64}));
     EXPECT_FALSE(plan->Kernel().has_value());
 }

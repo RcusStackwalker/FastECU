@@ -88,10 +88,10 @@ TEST(LoggingConversionTest, RejectsNonFiniteConvertedValues)
     c.from_byte_expression = "x/(x-1)";
     auto session = MakeSessionWithChannel(c);
 
-    ASSERT_THAT(ConvertSample(session, ProtocolSample{"rpm", "1"}),
-                fastecu::testing::IsErrWith(
-                    fastecu::ErrorKind::kInvalidConfig,
-                    ::testing::Eq("logging conversion expression failed: cannot divide by zero at position 7")));
+    ASSERT_THAT(
+        ConvertSample(session, ProtocolSample{"rpm", "1"}),
+        fastecu::testing::IsErrWith(fastecu::ErrorKind::kInvalidConfig,
+                                    ::testing::Eq("logging conversion expression failed: cannot divide by zero")));
 }
 
 TEST(LoggingConversionTest, EvaluatesIntermediateResultsWithoutTextRounding)
@@ -115,4 +115,15 @@ TEST(LoggingConversionTest, RejectsNonNumericRawValue)
                 fastecu::testing::IsErrWith(
                     fastecu::ErrorKind::kBadResponse,
                     ::testing::Eq("protocol sample raw value is not a finite number: invalid numeric literal")));
+}
+
+TEST(LoggingConversionTest, PreparesExpressionWhoseDomainExcludesFormerProbes)
+{
+    auto channel = Channel("rpm", 0x10);
+    channel.from_byte_expression = "1/((x-1)*(x-16)*(x-1616))";
+    auto session = MakeLoggingSession(LoggingProtocolId::kSsm, {channel}, ValidPolicy());
+    ASSERT_THAT(session, fastecu::testing::IsOk());
+    ASSERT_THAT(ConvertSample(*session, ProtocolSample{"rpm", "2"}), fastecu::testing::IsOk());
+    EXPECT_THAT(ConvertSample(*session, ProtocolSample{"rpm", "16"}),
+                fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
 }

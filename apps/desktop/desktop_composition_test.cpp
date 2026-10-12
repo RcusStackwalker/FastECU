@@ -2,10 +2,12 @@
 #include <QElapsedTimer>
 #include <QScopeGuard>
 #include <QTemporaryDir>
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include <variant>
 #include <QMap>
+#include "src/backend/ports/testing/result_matchers.h"
 #include "src/platform/desktop/common/logging/runtime/logging_worker.h"
 #include "src/platform/desktop/common/logging/logging_snapshot_adapter.h"
 #define private public
@@ -34,6 +36,7 @@
 namespace
 {
 
+using fastecu::testing::IsOk;
 using fastecu::ui::LogChannel;
 using fastecu::ui::RemotePeer;
 
@@ -237,7 +240,7 @@ TEST_F(DesktopCompositionTest, workspaceOpensARomFromDisk)
 
     const auto opened = CalibrationWorkspaceOf(composition)->OpenFile(rom_path.toStdString());
 
-    ASSERT_TRUE(opened.has_value());
+    ASSERT_THAT(opened, IsOk());
     const auto *session = CalibrationWorkspaceOf(composition)->Find(opened->id);
     ASSERT_TRUE(session != nullptr);
     ASSERT_EQ(session->Source().display_name, std::string("synthetic.bin"));
@@ -320,8 +323,10 @@ TEST_F(DesktopCompositionTest, settingsRewriteFailureIsAStartupWarning)
     DesktopComposition composition{{}, {}, root.path()};
 
     ASSERT_TRUE(composition.started());
-    ASSERT_TRUE(std::ranges::any_of(composition.startup_warnings(),
-                                    [&](const QString& warning) { return warning.contains(config_file); }));
+    // Joined so a failure prints the warnings as text; a path has no '\n',
+    // so no match can span two warnings.
+    ASSERT_THAT(composition.startup_warnings().join('\n').toStdString(),
+                ::testing::HasSubstr(config_file.toStdString()));
 }
 
 TEST_F(DesktopCompositionTest, servicesShareTheCompositionsSession)
@@ -345,7 +350,7 @@ TEST_F(DesktopCompositionTest, restartSeesSavedSettingsAndTheDatalogDirectory)
         ASSERT_TRUE(first.started());
         ConfigOf(first).Settings().serial_port = "ttyRESTART";
         ConfigOf(first).Settings().datalog_files_directory = datalogs;
-        ASSERT_TRUE(ConfigOf(first).Save().has_value());
+        ASSERT_THAT(ConfigOf(first).Save(), IsOk());
     }
     DesktopComposition second{{}, {}, root.path()};
     ASSERT_TRUE(second.started());

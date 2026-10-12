@@ -201,8 +201,7 @@ TEST(DensoIso15765CanCommonTest, SecurityAccessRejectsShortSeedWithoutSendingKey
 
     const Status result = DensoSecurityAccess(f.ctx);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::kBadResponse);
+    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kBadResponse));
     EXPECT_EQ(f.transport.WritesConsumed(), 1U);
 }
 
@@ -216,8 +215,7 @@ TEST(DensoIso15765CanCommonTest, SecurityAccessPropagatesCancellation)
 
     const Status result = DensoSecurityAccess(ctx);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::kCancelled);
+    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kCancelled));
     EXPECT_EQ(f.transport.WritesConsumed(), 1U);
 }
 
@@ -242,8 +240,7 @@ TEST(DensoIso15765CanCommonTest, EraseSetupMismatchDoesNotSendTrigger)
 
     const Status result = DensoIso15765Erase(f.ctx, kSetupPdu);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::kBadResponse);
+    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kBadResponse));
     EXPECT_EQ(f.transport.WritesConsumed(), 1U);
 }
 
@@ -280,8 +277,7 @@ TEST(DensoIso15765CanCommonTest, ErasePollingStopsAfter20ReceivesAndNeverResends
 
     const Status result = DensoIso15765Erase(f.ctx, kSetupPdu);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::kBadResponse);
+    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kBadResponse));
     EXPECT_TRUE(f.transport.ScriptConsumed());
     EXPECT_EQ(f.transport.WritesConsumed(), 2U);
     EXPECT_THAT(f.transport.ReadTimeouts(), ::testing::Each(500ms));
@@ -304,8 +300,7 @@ TEST(DensoIso15765CanCommonTest, EraseCancellationAfterTriggerStopsPolling)
 
     const Status result = DensoIso15765Erase(ctx, kSetupPdu);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::kCancelled);
+    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kCancelled));
     EXPECT_EQ(f.transport.WritesConsumed(), 2U);
     EXPECT_EQ(f.transport.ReadTimeouts().size(), 1U);
 }

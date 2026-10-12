@@ -206,6 +206,7 @@ fastecu_portable_gtest(
     srcs = ["mappack_converter_test.cpp"],
     deps = [
         ":mappack_converter",
+        "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
         "@pugixml",
     ],

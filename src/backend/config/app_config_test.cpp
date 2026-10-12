@@ -11,6 +11,8 @@ using fastecu::config::ConfigPaths;
 using fastecu::config::LoadAppConfig;
 using fastecu::config::ParseAppConfig;
 using fastecu::config::SaveAppConfig;
+using fastecu::testing::IsErr;
+using fastecu::testing::IsOk;
 
 namespace
 {
@@ -257,7 +259,7 @@ TEST(ParseAppConfig, ReadsWithoutWritingAndKeepsTheParserContract)
 
     const auto parsed = ParseAppConfig(paths, repo);
 
-    ASSERT_TRUE(parsed.has_value());
+    ASSERT_THAT(parsed, IsOk());
     EXPECT_EQ(parsed->calibration_files_directory, "/cal"); // unnormalized
     EXPECT_EQ(parsed->serial_port, "");                     // absent stays empty
     EXPECT_TRUE(repo.write_calls.empty());
@@ -270,7 +272,7 @@ TEST(LoadAppConfig, StillRewritesTheFileOnLoad)
     paths.config_file = "fastecu.cfg";
     PutText(repo, paths.config_file, kUnnormalizedCalibrationDir);
 
-    ASSERT_TRUE(LoadAppConfig(paths, repo).has_value());
+    ASSERT_THAT(LoadAppConfig(paths, repo), IsOk());
 
     ASSERT_EQ(repo.write_calls.size(), 1U);
     EXPECT_EQ(repo.write_calls.front().first, "fastecu.cfg");
@@ -282,5 +284,5 @@ TEST(ParseAppConfig, MissingFileIsAnError)
     ConfigPaths paths;
     paths.config_file = "absent.cfg";
 
-    EXPECT_FALSE(ParseAppConfig(paths, repo).has_value());
+    EXPECT_THAT(ParseAppConfig(paths, repo), IsErr(ErrorKind::kInvalidConfig));
 }

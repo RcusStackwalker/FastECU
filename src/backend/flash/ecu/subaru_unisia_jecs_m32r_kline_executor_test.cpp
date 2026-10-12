@@ -25,6 +25,9 @@ using namespace std::chrono_literals;
 using fastecu::testing::IsErr;
 using fastecu::testing::IsOk;
 using Line = ScriptedKlineFlashTransport::ControlLineAction;
+using ::testing::_;
+using ::testing::Contains;
+using ::testing::Pair;
 
 constexpr std::string_view kProtocol = "sub_ecu_unisia_jecs_20";
 constexpr std::string_view kMcu = "M32R_128KB";
@@ -690,8 +693,7 @@ TEST(SubaruUnisiaJecsM32rKlineExecutor, FinalBlockSilenceSucceedsWithAWarning)
 
     ASSERT_THAT(RunScripted(WritePlan(), transport, context), IsOk());
     EXPECT_TRUE(transport.ScriptConsumed());
-    EXPECT_TRUE(
-        std::ranges::any_of(context.events.logs, [](const auto& log) { return log.first == LogLevel::kWarning; }));
+    EXPECT_THAT(context.events.logs, Contains(Pair(LogLevel::kWarning, _)));
     EXPECT_EQ(transport.read_timeouts.back(), 3000ms);
 }
 

@@ -1058,8 +1058,7 @@ TEST(FlashWorkflowTest, petrolReadResolvesKernelBeforeBeginAndBindsDesktopCanTra
     cancellation.CancelOnCheck(5);
     NullEventSink events;
     const auto result = attempt.attempt->Run(*attempt.clock, cancellation, events);
-    ASSERT_TRUE(!result.has_value());
-    ASSERT_EQ(result.error().kind, ErrorKind::kCancelled);
+    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kCancelled));
 }
 
 TEST(FlashWorkflowTest, dieselRoutesOnlyTheTwoExactProtocols)
@@ -1221,8 +1220,7 @@ TEST(FlashWorkflowTest, dieselReadResolvesKernelBeforeBeginAndBindsDesktopCanTra
     cancellation.CancelOnCheck(53);
     NullEventSink events;
     const auto result = attempt.attempt->Run(*attempt.clock, cancellation, events);
-    ASSERT_TRUE(!result.has_value());
-    ASSERT_EQ(result.error().kind, ErrorKind::kCancelled);
+    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kCancelled));
 }
 
 TEST(FlashWorkflowTest, tcuRoutesOnlyTheTwoExactProtocols)
@@ -1373,8 +1371,7 @@ TEST(FlashWorkflowTest, tcuReadResolvesKernelBeforeBeginAndBindsDesktopCanTransp
     cancellation.CancelOnCheck(2);
     NullEventSink events;
     const auto result = attempt.attempt->Run(*attempt.clock, cancellation, events);
-    ASSERT_TRUE(!result.has_value());
-    ASSERT_EQ(result.error().kind, ErrorKind::kCancelled);
+    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kCancelled));
 }
 
 TEST(FlashWorkflowTest, tcuSuccessfulReadPropagatesBytesAndRomId)
