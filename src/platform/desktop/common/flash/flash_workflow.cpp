@@ -68,7 +68,6 @@
 #include "src/backend/flash/eeprom/denso_sh705x_eeprom_can_executor.h"
 #include "src/backend/flash/eeprom/denso_sh705x_eeprom_kline_executor.h"
 #include "src/backend/flash/eeprom/eeprom_read_plan.h"
-#include "src/platform/desktop/common/ports/qt_clock.h"
 
 namespace fastecu::flash
 {
@@ -260,8 +259,7 @@ class SubaruUnisiaJecsM32rKlineWorkflow final : public FlashWorkflow
             return FlashWorkflowStep{std::in_place_type<FlashAttempt>,
                                      BindFlashAttempt(std::move(*plan_),
                                                       std::make_unique<SubaruUnisiaJecsM32rKlineExecutor>(),
-                                                      ports_.transports->MakeKline()),
-                                     std::make_unique<QtClock>()};
+                                                      ports_.transports->MakeKline())};
         }
         return outcome_.CompletedStep();
     }
@@ -527,9 +525,9 @@ class SubaruUnisiaJecsM32rBootModeWorkflow final : public FlashWorkflow
 
     template <typename Executor> FlashWorkflowStep Attempt(FlashPlan plan, std::unique_ptr<Executor> executor)
     {
-        return FlashWorkflowStep{std::in_place_type<FlashAttempt>,
-                                 BindFlashAttempt(std::move(plan), std::move(executor), ports_.transports->MakeKline()),
-                                 std::make_unique<QtClock>()};
+        return FlashWorkflowStep{
+            std::in_place_type<FlashAttempt>,
+            BindFlashAttempt(std::move(plan), std::move(executor), ports_.transports->MakeKline())};
     }
 
     FlashWorkflowRequest request_;
@@ -751,8 +749,7 @@ class SingleAttemptFlashWorkflow final : public FlashWorkflow
             attempted_ = true;
             return FlashWorkflowStep{std::in_place_type<FlashAttempt>,
                                      BindFlashAttempt(std::move(*plan), std::make_unique<Executor>(),
-                                                      MakeTransport<Transport>(*ports_.transports)),
-                                     std::make_unique<QtClock>()};
+                                                      MakeTransport<Transport>(*ports_.transports))};
         }
         return outcome_.CompletedStep();
     }
@@ -906,13 +903,11 @@ class EepromWorkflow final : public FlashWorkflow
             return FlashWorkflowStep{std::in_place_type<FlashAttempt>,
                                      BindFlashAttempt(std::move(*plan),
                                                       std::make_unique<DensoSh705xEepromKlineExecutor>(),
-                                                      ports_.transports->MakeKline()),
-                                     std::make_unique<QtClock>()};
+                                                      ports_.transports->MakeKline())};
         }
         return FlashWorkflowStep{std::in_place_type<FlashAttempt>,
                                  BindFlashAttempt(std::move(*plan), std::make_unique<DensoSh705xEepromCanExecutor>(),
-                                                  ports_.transports->MakeCan()),
-                                 std::make_unique<QtClock>()};
+                                                  ports_.transports->MakeCan())};
     }
 
     void Submit(FlashPromptResponse response) override

@@ -10,8 +10,9 @@ namespace fastecu::flash
 {
 
 FlashDialog::FlashDialog(std::unique_ptr<FlashWorkflow> workflow, FlashOperation operation, const QString& filename,
-                         QWidget *parent)
-    : QDialog(parent), workflow_(std::move(workflow)), ui_(std::make_unique<Ui::EcuOperationsWindow>())
+                         ClockFactory make_clock, QWidget *parent)
+    : QDialog(parent), workflow_(std::move(workflow)), make_clock_(std::move(make_clock)),
+      ui_(std::make_unique<Ui::EcuOperationsWindow>())
 {
     ui_->setupUi(this);
     if (operation == FlashOperation::kRead)
@@ -90,7 +91,7 @@ void FlashDialog::advance()
 
 void FlashDialog::startAttempt(FlashAttempt attempt)
 {
-    worker_ = std::make_unique<FlashWorker>(std::move(attempt));
+    worker_ = std::make_unique<FlashWorker>(std::move(attempt.attempt), make_clock_());
     connect(worker_.get(), &FlashWorker::logEvent, this,
             [this](int level, const QString& message)
             {

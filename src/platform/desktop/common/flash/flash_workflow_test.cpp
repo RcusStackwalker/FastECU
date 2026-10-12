@@ -32,6 +32,7 @@
 #include "src/platform/desktop/common/serial/facade/serial_port_actions.h"
 #include "src/platform/desktop/common/serial/testing/fake_backend.h"
 #include "src/platform/desktop/common/flash/desktop_flash_workflow_ports.h"
+#include "src/platform/desktop/common/ports/qt_clock.h"
 #include "src/platform/desktop/common/ports/qt_file_repository.h"
 #include "src/platform/desktop/common/transport/desktop_flash_transport_source.h"
 
@@ -1110,7 +1111,8 @@ TEST(FlashWorkflowTest, petrolReadResolvesKernelBeforeBeginAndBindsDesktopCanTra
     FakeCancellationToken cancellation;
     cancellation.CancelOnCheck(5);
     NullEventSink events;
-    const auto result = attempt.attempt->Run(*attempt.clock, cancellation, events);
+    QtClock clock;
+    const auto result = attempt.attempt->Run(clock, cancellation, events);
     EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kCancelled));
 }
 
@@ -1271,7 +1273,8 @@ TEST(FlashWorkflowTest, dieselReadResolvesKernelBeforeBeginAndBindsDesktopCanTra
     FakeCancellationToken cancellation;
     cancellation.CancelOnCheck(53);
     NullEventSink events;
-    const auto result = attempt.attempt->Run(*attempt.clock, cancellation, events);
+    QtClock clock;
+    const auto result = attempt.attempt->Run(clock, cancellation, events);
     EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kCancelled));
 }
 
@@ -1420,7 +1423,8 @@ TEST(FlashWorkflowTest, tcuReadResolvesKernelBeforeBeginAndBindsDesktopCanTransp
     FakeCancellationToken cancellation;
     cancellation.CancelOnCheck(2);
     NullEventSink events;
-    const auto result = attempt.attempt->Run(*attempt.clock, cancellation, events);
+    QtClock clock;
+    const auto result = attempt.attempt->Run(clock, cancellation, events);
     EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kCancelled));
 }
 
@@ -2411,7 +2415,6 @@ TEST(FlashWorkflowTest, singleAttemptFamiliesPromptInOrderAndBindTheirExecutorOn
 
         auto& attempt = std::get<FlashAttempt>(step);
         ASSERT_TRUE(attempt.attempt != nullptr);
-        ASSERT_TRUE(attempt.clock != nullptr);
         const FlashPlan& plan = attempt.attempt->Plan();
         EXPECT_EQ(plan.Family(), test.family);
         EXPECT_EQ(plan.Transport(), test.transport);
@@ -2425,7 +2428,8 @@ TEST(FlashWorkflowTest, singleAttemptFamiliesPromptInOrderAndBindTheirExecutorOn
         // plan. Nothing is configured or opened on the way.
         FakeCancellationToken cancelled(true);
         NullEventSink events;
-        EXPECT_THAT(attempt.attempt->Run(*attempt.clock, cancelled, events),
+        QtClock clock;
+        EXPECT_THAT(attempt.attempt->Run(clock, cancelled, events),
                     fastecu::testing::IsErrWith(ErrorKind::kCancelled, ::testing::HasSubstr("before configure")));
 
         // Exactly one attempt: neither the pending nor the finished workflow
@@ -2733,7 +2737,8 @@ TEST(FlashWorkflowTest, sh7058WriteBindsTheCanExecutorAfterBeginAlone)
     // executor is bound. Nothing is configured or opened on the way.
     FakeCancellationToken cancelled(true);
     NullEventSink events;
-    EXPECT_THAT(attempt.attempt->Run(*attempt.clock, cancelled, events),
+    QtClock clock;
+    EXPECT_THAT(attempt.attempt->Run(clock, cancelled, events),
                 fastecu::testing::IsErrWith(ErrorKind::kCancelled, ::testing::HasSubstr("before configure")));
 
     workflow->Submit(
@@ -2845,7 +2850,8 @@ TEST(FlashWorkflowTest, mc68BdmWriteBindsItsExecutorAndReportsEveryOutcome)
         // cancellation proves the BDM executor owns it.
         FakeCancellationToken cancelled(true);
         NullEventSink events;
-        EXPECT_THAT(attempt.attempt->Run(*attempt.clock, cancelled, events),
+        QtClock clock;
+        EXPECT_THAT(attempt.attempt->Run(clock, cancelled, events),
                     fastecu::testing::IsErrWith(ErrorKind::kCancelled, ::testing::HasSubstr("before configure")));
         EXPECT_FALSE(std::holds_alternative<FlashAttempt>(workflow->Next()));
 
@@ -3014,7 +3020,8 @@ TEST(FlashWorkflowTest, coltWritePromptsCarryTheirCapacityArgumentsInOrder)
 
         FakeCancellationToken cancelled(true);
         NullEventSink events;
-        EXPECT_THAT(attempt.attempt->Run(*attempt.clock, cancelled, events),
+        QtClock clock;
+        EXPECT_THAT(attempt.attempt->Run(clock, cancelled, events),
                     fastecu::testing::IsErrWith(ErrorKind::kCancelled, ::testing::HasSubstr("before configure")));
 
         workflow->Submit(FlashAttemptResult{.success = true});

@@ -8,6 +8,7 @@
 #include "src/backend/flash/flash_operation_request.h"
 #include "src/platform/desktop/common/flash/desktop_flash_workflow_ports.h"
 #include "src/platform/desktop/common/flash/flash_workflow.h"
+#include "src/platform/desktop/common/ports/qt_clock.h"
 #include "src/ui/desktop/flash/common/flash_dialog.h"
 #include "src/ui/desktop/service_functions/denso_tcu_read_preflight.h"
 
@@ -73,8 +74,9 @@ FlashOperationOutcome FlashOperationController::run(const FlashOperationInput& i
         return {.status = FlashOperationStatus::kUnsupported};
     }
 
-    FlashDialog flashModule(std::move(workflow), input.operation, QString::fromStdString(input.display_filename),
-                            dialog_parent_);
+    FlashDialog flashModule(
+        std::move(workflow), input.operation, QString::fromStdString(input.display_filename),
+        []() -> std::unique_ptr<IClock> { return std::make_unique<QtClock>(); }, dialog_parent_);
     QObject::connect<void (FlashDialog::*)(QString)>(&flashModule, &FlashDialog::externalLogger, this,
                                                      qOverload<QString>(&FlashOperationController::externalLogger));
     QObject::connect<void (FlashDialog::*)(int)>(&flashModule, &FlashDialog::externalLogger, this,

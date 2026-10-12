@@ -75,7 +75,6 @@ cc_library(
         "//src/backend/flash/eeprom:denso_sh705x_eeprom_can",
         "//src/backend/flash/eeprom:denso_sh705x_eeprom_kline",
         "//src/backend/flash/eeprom:eeprom_read_plan",
-        "//src/platform/desktop/common/ports",
     ],
     deps = [
         "//src/algorithms/protocol",

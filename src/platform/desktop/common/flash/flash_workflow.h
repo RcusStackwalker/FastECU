@@ -11,7 +11,6 @@
 #include "src/backend/flash/flash_executor.h"
 #include "src/backend/flash/flash_plan.h"
 #include "src/backend/flash/flash_transport_source.h"
-#include "src/backend/ports/clock.h"
 #include "src/backend/ports/error.h"
 #include "src/backend/ports/file_repository.h"
 
@@ -91,7 +90,6 @@ struct FlashPromptStep
 struct FlashAttempt
 {
     std::unique_ptr<BoundFlashAttempt> attempt;
-    std::unique_ptr<IClock> clock;
 };
 
 struct FlashAttemptResult

@@ -18,6 +18,7 @@ qt_cc_library(
         "//src/backend/flash:flash_operation_request",
         "//src/platform/desktop/common/flash:desktop_flash_workflow_ports",
         "//src/platform/desktop/common/flash:flash_workflow",
+        "//src/platform/desktop/common/ports",
         "//src/ui/desktop/flash/common:flash_dialog",
         "//src/ui/desktop/service_functions:denso_tcu_read_preflight",
     ],
