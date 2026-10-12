@@ -1,4 +1,5 @@
 #include "src/backend/flash/ecu/plan_primitives.h"
+#include "src/backend/ports/testing/result_matchers.h"
 
 #include <gtest/gtest.h>
 
@@ -16,22 +17,25 @@ constexpr KernelBlock kRegion{0xFFFF3000, 0x9000};
 TEST(PlanPrimitives, AddressMismatchPrecedesPaddingAndRangeErrors)
 {
     const auto result = ValidateKernelUpload<128>(std::numeric_limits<std::uint64_t>::max(), 0, 0xFFFF3000, kRegion);
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(),
-              (Error{ErrorKind::kInvalidConfig, "kernel address does not match the selected protocol"}));
+    EXPECT_THAT(result,
+                fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig,
+                                            ::testing::StrEq("kernel address does not match the selected protocol")));
 }
 
 TEST(PlanPrimitives, Padded128ByteUploadsMustFitIncludingTheLastBlock)
 {
     for (const std::uint64_t size : {1U, 127U, 128U, 129U, 0x8F81U, 0x9000U})
     {
-        EXPECT_TRUE((ValidateKernelUpload<128>(size, 0xFFFF3000, 0xFFFF3000, kRegion)).has_value()) << size;
+        EXPECT_THAT((ValidateKernelUpload<128>(size, 0xFFFF3000, 0xFFFF3000, kRegion)), fastecu::testing::IsOk())
+            << size;
     }
     const auto over = ValidateKernelUpload<128>(0x9001, 0xFFFF3000, 0xFFFF3000, kRegion);
-    ASSERT_FALSE(over.has_value());
-    EXPECT_EQ(over.error().detail, "padded kernel lies outside the MCU kernel region");
+    EXPECT_THAT(over,
+                fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig,
+                                            ::testing::StrEq("padded kernel lies outside the MCU kernel region")));
     const KernelBlock short_region{0xFFFF3000, 127};
-    EXPECT_FALSE((ValidateKernelUpload<128>(1, 0xFFFF3000, 0xFFFF3000, short_region)).has_value());
+    EXPECT_THAT((ValidateKernelUpload<128>(1, 0xFFFF3000, 0xFFFF3000, short_region)),
+                fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
 TEST(PlanPrimitives, SixBytePaddingUsesItsOwnBoundary)
@@ -39,40 +43,46 @@ TEST(PlanPrimitives, SixBytePaddingUsesItsOwnBoundary)
     const KernelBlock region{0x100, 12};
     for (const std::uint64_t size : {1U, 5U, 6U, 7U, 11U, 12U})
     {
-        EXPECT_TRUE((ValidateKernelUpload<6>(size, 0x100, 0x100, region)).has_value()) << size;
+        EXPECT_THAT((ValidateKernelUpload<6>(size, 0x100, 0x100, region)), fastecu::testing::IsOk()) << size;
     }
-    EXPECT_FALSE((ValidateKernelUpload<6>(13, 0x100, 0x100, region)).has_value());
+    EXPECT_THAT((ValidateKernelUpload<6>(13, 0x100, 0x100, region)),
+                fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     // An unpadded byte fits, but its six-byte physical transfer does not.
     const KernelBlock short_region{0x100, 5};
-    EXPECT_FALSE((ValidateKernelUpload<6>(1, 0x100, 0x100, short_region)).has_value());
+    EXPECT_THAT((ValidateKernelUpload<6>(1, 0x100, 0x100, short_region)),
+                fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
 TEST(PlanPrimitives, AddressWindowChecksDoNotUnderflowOrWrapAt32Bits)
 {
     for (const std::uint32_t address : {0xFFFF2FFFU, 0xFFFFC000U, 0xFFFFC001U})
     {
-        EXPECT_FALSE((ValidateKernelUpload<128>(1, address, address, kRegion)).has_value()) << address;
+        EXPECT_THAT((ValidateKernelUpload<128>(1, address, address, kRegion)),
+                    fastecu::testing::IsErr(ErrorKind::kInvalidConfig))
+            << address;
     }
     // Empty kernels are rejected elsewhere; the range primitive preserves
     // the existing arithmetic boundary at the exclusive region end.
-    EXPECT_TRUE((ValidateKernelUpload<128>(0, 0xFFFFC000, 0xFFFFC000, kRegion)).has_value());
+    EXPECT_THAT((ValidateKernelUpload<128>(0, 0xFFFFC000, 0xFFFFC000, kRegion)), fastecu::testing::IsOk());
     const KernelBlock crossing{0xFFFFFFFC, 8};
-    EXPECT_TRUE((ValidateKernelUpload<6>(6, 0xFFFFFFFC, 0xFFFFFFFC, crossing)).has_value());
-    EXPECT_FALSE((ValidateKernelUpload<6>(7, 0xFFFFFFFC, 0xFFFFFFFC, crossing)).has_value());
+    EXPECT_THAT((ValidateKernelUpload<6>(6, 0xFFFFFFFC, 0xFFFFFFFC, crossing)), fastecu::testing::IsOk());
+    EXPECT_THAT((ValidateKernelUpload<6>(7, 0xFFFFFFFC, 0xFFFFFFFC, crossing)),
+                fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
 template <std::uint64_t Padding> void ExpectOverflowBoundary()
 {
     const std::uint64_t largest_addable = std::numeric_limits<std::uint64_t>::max() - (Padding - 1);
     const auto boundary = ValidateKernelUpload<Padding>(largest_addable, 0xFFFF3000, 0xFFFF3000, kRegion);
-    ASSERT_FALSE(boundary.has_value());
-    EXPECT_EQ(boundary.error().detail, "padded kernel lies outside the MCU kernel region");
+    EXPECT_THAT(boundary,
+                fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig,
+                                            ::testing::StrEq("padded kernel lies outside the MCU kernel region")));
     for (const std::uint64_t size : {largest_addable + 1, std::numeric_limits<std::uint64_t>::max()})
     {
         const auto overflow = ValidateKernelUpload<Padding>(size, 0, 0, kRegion);
-        ASSERT_FALSE(overflow.has_value());
-        EXPECT_EQ(overflow.error(),
-                  (Error{ErrorKind::kInvalidConfig, "kernel size cannot be padded to transfer blocks"}));
+        EXPECT_THAT(overflow,
+                    fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig,
+                                                ::testing::StrEq("kernel size cannot be padded to transfer blocks")));
     }
 }
 

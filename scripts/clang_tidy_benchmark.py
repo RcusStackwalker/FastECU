@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Measure the local full-scope cost of advisory inline clang-tidy checks."""
+"""Measure the local full-scope cost of the inline clang-tidy checks."""
 
 from __future__ import annotations
 

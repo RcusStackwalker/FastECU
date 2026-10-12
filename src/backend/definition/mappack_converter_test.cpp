@@ -1,4 +1,5 @@
 #include "src/backend/definition/mappack_converter.h"
+#include "src/backend/ports/testing/result_matchers.h"
 
 #include <gtest/gtest.h>
 #include <pugixml.hpp>
@@ -23,7 +24,7 @@ std::string Csv(std::string dimensions = "2;3", std::string comment = "\"a;quote
 TEST(MapPackConverterTest, ConvertsTablesScalingAndRomAddresses)
 {
     auto result = ConvertMappackCsv(Csv(), "ECU123");
-    ASSERT_TRUE(result.has_value());
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     pugi::xml_document doc;
     ASSERT_TRUE(doc.load_string(result->c_str()));
     auto base = doc.child("roms").child("rom");
@@ -56,7 +57,7 @@ TEST(MapPackConverterTest, ConvertsScalarsAndOneDimensionalMaps)
     for (const auto *dimensions : {"1;1", "1;3", "2;1"})
     {
         auto result = ConvertMappackCsv(Csv(dimensions, "last field"), "ECU");
-        ASSERT_TRUE(result.has_value());
+        ASSERT_THAT(result, fastecu::testing::IsOk());
         pugi::xml_document doc;
         ASSERT_TRUE(doc.load_string(result->c_str()));
         auto table = doc.child("roms").child("rom").child("table");
@@ -74,7 +75,7 @@ TEST(MapPackConverterTest, AcceptsCrLfTrailingDelimiterAndMultilineQuotedFields)
     auto input = Csv("2;3", "\"first\nsecond\";") + "\r\n";
     input.replace(input.find('\n'), 1, "\r\n");
     auto result = ConvertMappackCsv(input, "ECU");
-    ASSERT_TRUE(result.has_value());
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     pugi::xml_document doc;
     ASSERT_TRUE(doc.load_string(result->c_str()));
     EXPECT_STREQ(doc.child("roms").child("rom").child("table").child("description").text().get(), "first\nsecond");
@@ -86,30 +87,29 @@ TEST(MapPackConverterTest, RejectsMalformedInputWithContext)
                        Csv("2;3", "\"unterminated")})
     {
         auto result = ConvertMappackCsv(input, "ECU");
-        ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, ErrorKind::kInvalidConfig);
-        EXPECT_NE(result.error().detail.find("row"), std::string::npos);
-        EXPECT_NE(result.error().detail.find("column"), std::string::npos);
+        EXPECT_THAT(result, fastecu::testing::IsErrWith(
+                                ErrorKind::kInvalidConfig,
+                                ::testing::AllOf(::testing::HasSubstr("row"), ::testing::HasSubstr("column"))));
     }
     auto input = Csv();
     input.replace(input.find("0,01"), 4, "0");
-    EXPECT_FALSE(ConvertMappackCsv(input, "ECU").has_value());
+    EXPECT_THAT(ConvertMappackCsv(input, "ECU"), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     input = Csv();
     input.replace(input.find("$1234"), 5, "$oops");
-    EXPECT_FALSE(ConvertMappackCsv(input, "ECU").has_value());
+    EXPECT_THAT(ConvertMappackCsv(input, "ECU"), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 TEST(MapPackConverterTest, AllowsUnusedAxisFieldsToBeEmptyForScalars)
 {
     const auto input = kHeader + "Value;Engine;eByte;1;1;Value;unit;1;0;$1234;;;;;;;;;;;;;;;scalar";
     auto result = ConvertMappackCsv(input, "ECU");
-    ASSERT_TRUE(result.has_value()) << result.error().detail;
+    EXPECT_THAT(result, fastecu::testing::IsOk());
 }
 
 TEST(MapPackConverterTest, ConvertsMultipleRowsWithoutSharingDimensions)
 {
     const auto input = Csv("2;3", "first") + "\n" + Csv("1;1", "second").substr(kHeader.size());
     auto result = ConvertMappackCsv(input, "ECU");
-    ASSERT_TRUE(result.has_value());
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     pugi::xml_document doc;
     ASSERT_TRUE(doc.load_string(result->c_str()));
     auto first = doc.child("roms").child("rom").child("table");
@@ -124,7 +124,7 @@ TEST(MapPackConverterTest, PreservesAxisAddressRulesAndLegacyMetadata)
     auto input = Csv();
     input.replace(input.find(";1;$2000"), 8, ";0;$2000");
     auto result = ConvertMappackCsv(input, "ECU");
-    ASSERT_TRUE(result.has_value());
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     pugi::xml_document doc;
     ASSERT_TRUE(doc.load_string(result->c_str()));
     auto base = doc.child("roms").child("rom");
@@ -137,7 +137,7 @@ TEST(MapPackConverterTest, PreservesAxisAddressRulesAndLegacyMetadata)
     EXPECT_STREQ(rom.child("romid").child("model").text().get(), "");
 
     result = ConvertMappackCsv(Csv("1;1"), "ECU");
-    ASSERT_TRUE(result.has_value());
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_TRUE(doc.load_string(result->c_str()));
     rom = doc.child("roms").child("rom").next_sibling("rom");
     EXPECT_STREQ(rom.child("table").child("table").attribute("type").value(), "X Axis");
@@ -145,9 +145,12 @@ TEST(MapPackConverterTest, PreservesAxisAddressRulesAndLegacyMetadata)
 
 TEST(MapPackConverterTest, RejectsXmlControlCharactersInsteadOfTruncatingValues)
 {
-    EXPECT_FALSE(ConvertMappackCsv(Csv("1;1", std::string("nul\0text", 8)), "ECU").has_value());
-    EXPECT_FALSE(ConvertMappackCsv(Csv(), std::string("ECU\0ID", 6)).has_value());
-    EXPECT_FALSE(ConvertMappackCsv(Csv("1;1", std::string(1, '\x01')), "ECU").has_value());
+    EXPECT_THAT(ConvertMappackCsv(Csv("1;1", std::string("nul\0text", 8)), "ECU"),
+                fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
+    EXPECT_THAT(ConvertMappackCsv(Csv(), std::string("ECU\0ID", 6)),
+                fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
+    EXPECT_THAT(ConvertMappackCsv(Csv("1;1", std::string(1, '\x01')), "ECU"),
+                fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
 } // namespace

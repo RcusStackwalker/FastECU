@@ -25,6 +25,7 @@ fastecu_portable_gtest(
         ":scripted_flash_transports",
         "//src/algorithms/protocol/testing:byte_matchers",
         "//src/backend/ports/testing:fake_cancellation_token",
+        "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
     ],
 )

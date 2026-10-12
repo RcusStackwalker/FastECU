@@ -1363,7 +1363,7 @@ class ClangTidyRunnerTest(unittest.TestCase):
         self.assertNotIn("1 warning generated", printed)
         self.assertIn("clang-tidy: 1 files clean, 0 findings", printed)
 
-    def test_successful_advisory_findings_are_visible_without_failing(self) -> None:
+    def test_non_error_findings_are_visible_without_failing(self) -> None:
         source = self.root / _MAIN_CPP
         source.write_text("int main() { return 0; }\n")
         self.write_database([source])
@@ -1373,7 +1373,7 @@ class ClangTidyRunnerTest(unittest.TestCase):
                 directory = Path(command[command.index("-export-fixes") + 1])
                 self.write_fixes(
                     directory,
-                    "advisory.yaml",
+                    "inline.yaml",
                     [self.diagnostic("custom-fastecu-result-assertion", [])],
                 )
                 return subprocess.CompletedProcess(
@@ -1397,6 +1397,68 @@ class ClangTidyRunnerTest(unittest.TestCase):
         self.assertIn("warning: use Result matcher", output.getvalue())
         self.assertIn("1 findings", output.getvalue())
         self.assertNotIn("files clean", output.getvalue())
+
+    def run_inline_pass(self, findings: int, exit_code: int) -> tuple[str, str | None]:
+        source = self.root / _MAIN_CPP
+        source.write_text("int main() { return 0; }\n")
+        self.write_database([source])
+        (self.root / ".clang-tidy").write_text(
+            "Checks: '-*'\nCustomChecks:\n  - Name: fastecu-result-assertion\n"
+        )
+
+        def fake_run(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+            inline_pass = any(Path(arg).name == "clang_tidy_adapter.py" for arg in command)
+            if inline_pass:
+                directory = Path(command[command.index("-export-fixes") + 1])
+                self.write_fixes(
+                    directory,
+                    "inline.yaml",
+                    [self.diagnostic("custom-fastecu-result-assertion", [])] * findings,
+                )
+                return subprocess.CompletedProcess(
+                    command, exit_code, stdout="main.cpp:1: error: use Result matcher\n" * findings
+                )
+            return subprocess.CompletedProcess(command, 0)
+
+        output = StringIO()
+        failure = None
+        with (
+            mock.patch.object(runner, "discover_tools", return_value=_UNIX_TOOLS),
+            redirect_stdout(output),
+        ):
+            try:
+                runner.run_workflow(
+                    mode="report",
+                    workspace=self.root,
+                    compdb_tool=_UNIX_COMPDB_TOOL,
+                    platform_name="linux",
+                    environ={},
+                    command_runner=fake_run,
+                )
+            except runner.WorkflowError as error:
+                failure = str(error)
+        self.assertNotIn("advisory", output.getvalue())
+        return output.getvalue(), failure
+
+    def test_inline_findings_fail_the_run(self) -> None:
+        _, failure = self.run_inline_pass(findings=1, exit_code=1)
+        self.assertEqual("1 inline findings; inline check pass failed with exit code 1", failure)
+
+    def test_inline_pass_tool_failure_without_findings(self) -> None:
+        _, failure = self.run_inline_pass(findings=0, exit_code=1)
+        self.assertEqual("inline check pass failed with exit code 1", failure)
+
+    def test_clean_inline_pass_reports_zero_findings(self) -> None:
+        output, failure = self.run_inline_pass(findings=0, exit_code=0)
+        self.assertIsNone(failure)
+        self.assertIn("clang-tidy: 0 inline findings\n", output)
+
+    def test_non_error_inline_findings_are_visible_without_failing(self) -> None:
+        # A check excluded from WarningsAsErrors exits 0; its findings still print.
+        output, failure = self.run_inline_pass(findings=1, exit_code=0)
+        self.assertIsNone(failure)
+        self.assertIn("error: use Result matcher", output)
+        self.assertIn("clang-tidy: 1 inline findings\n", output)
 
     def test_custom_pass_uses_adapter_and_covers_application_headers(self) -> None:
         (self.root / ".clang-tidy").write_text(
@@ -1428,8 +1490,8 @@ class ClangTidyRunnerTest(unittest.TestCase):
         self.assertIn("-j", analyses[1])
         self.assertIn("custom-analysis", output.getvalue())
 
-    def test_advisory_header_filter_accepts_both_windows_separator_spellings(self) -> None:
-        expression = runner.advisory_header_filter(PurePath("C:/a/FastECU"))
+    def test_inline_header_filter_accepts_both_windows_separator_spellings(self) -> None:
+        expression = runner.inline_header_filter(PurePath("C:/a/FastECU"))
         self.assertRegex("C:/a/FastECU/apps/bench/helper.h", expression)
         self.assertRegex("C:\\a\\FastECU\\tests\\helper.h", expression)
         self.assertNotRegex("C:/a/FastECU/external/vendor/header.h", expression)

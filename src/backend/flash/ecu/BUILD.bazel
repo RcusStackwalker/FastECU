@@ -9,6 +9,7 @@ fastecu_portable_gtest(
     deps = [
         ":subaru_hitachi_sh7058_plan",
         "//src/backend/flash:flash_validation",
+        "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
     ],
 )
@@ -54,6 +55,7 @@ fastecu_portable_gtest(
         "//src/backend/ports/testing:fake_cancellation_token",
         "//src/backend/ports/testing:fake_clock",
         "//src/backend/ports/testing:recording_event_sink",
+        "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
     ],
 )
@@ -82,6 +84,7 @@ fastecu_portable_gtest(
         "//src/backend/ports/testing:fake_cancellation_token",
         "//src/backend/ports/testing:fake_clock",
         "//src/backend/ports/testing:recording_event_sink",
+        "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
     ],
 )
@@ -174,6 +177,7 @@ fastecu_portable_gtest(
     deps = [
         ":subaru_denso_sh7058_can_plan",
         "//src/backend/flash:flash_validation",
+        "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
     ],
 )
@@ -192,6 +196,7 @@ fastecu_portable_gtest(
         "//src/backend/ports/testing:fake_clock",
         "//src/backend/ports/testing:mock_clock",
         "//src/backend/ports/testing:recording_event_sink",
+        "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
     ],
 )
@@ -203,6 +208,7 @@ fastecu_portable_gtest(
         ":subaru_denso_sh7058_can_diesel_plan",
         ":subaru_denso_sh7058_can_diesel_types",
         "//src/backend/flash:flash_validation",
+        "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
     ],
 )
@@ -255,6 +261,7 @@ fastecu_portable_gtest(
         "//src/backend/ports/testing:fake_clock",
         "//src/backend/ports/testing:mock_clock",
         "//src/backend/ports/testing:recording_event_sink",
+        "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
     ],
 )
@@ -265,6 +272,7 @@ fastecu_portable_gtest(
     deps = [
         ":subaru_tcu_denso_sh705x_can_plan",
         "//src/backend/flash:flash_validation",
+        "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
     ],
 )
@@ -718,6 +726,7 @@ fastecu_portable_gtest(
     deps = [
         ":subaru_denso_sh705x_densocan_plan",
         "//src/backend/flash:flash_validation",
+        "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
     ],
 )
@@ -736,6 +745,7 @@ fastecu_portable_gtest(
         "//src/backend/ports/testing:fake_clock",
         "//src/backend/ports/testing:mock_clock",
         "//src/backend/ports/testing:recording_event_sink",
+        "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
     ],
 )
@@ -755,6 +765,7 @@ fastecu_portable_gtest(
         "//src/backend/ports/testing:fake_clock",
         "//src/backend/ports/testing:mock_clock",
         "//src/backend/ports/testing:recording_event_sink",
+        "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
     ],
 )
@@ -1626,6 +1637,7 @@ fastecu_portable_gtest(
     deps = [
         ":denso_beef_can_common",
         "//src/backend/ports/testing:fake_cancellation_token",
+        "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
     ],
 )
@@ -1837,6 +1849,7 @@ fastecu_portable_gtest(
     srcs = ["plan_primitives_test.cpp"],
     deps = [
         ":plan_primitives",
+        "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
     ],
 )

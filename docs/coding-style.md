@@ -15,8 +15,8 @@ from here.
 Enforcement is PR review, supplemented by mechanical checks (`prek`
 formatting, the `#pragma once` check, clang-tidy for naming) and diagnostic-only
 repository-specific clang-tidy checks. The custom checks report conservative
-patterns from this guide as advisory warnings; they do not require a cleanup
-sweep or replace review for the conventions they cannot prove.
+patterns from this guide as errors; they do not replace review for the
+conventions they cannot prove.
 
 ## Strings and messages
 
@@ -104,8 +104,8 @@ a wrong length or byte order is a bricking risk.
 These compose helpers encode big-endian fields. Byte order belongs to the
 specific protocol contract, not the CPU or a repository-wide default. The
 [MUT/DMA free-form codec](reference/logging-mut-freeform-wire.md) uses explicit
-byte helpers selected by the XML dialect for request codes and stream values;
-see the [dialect evidence](reference/logging-wire-evidence.md).
+little-endian byte helpers for request codes and stream values;
+see the [wire evidence](reference/logging-wire-evidence.md).
 
 Four shapes stay hand-rolled on purpose, and are not inconsistencies to tidy
 away:
@@ -502,9 +502,9 @@ locally before that gate ever sees the change:
   the PR gate; `bazel run //:clang_tidy_fix_changed` applies its fixes
   directly (macOS/Linux only; needs system LLVM on `PATH`).
   Add `-- --profile` to the report run to see phase timings and the slowest
-  checks. Inline repository checks run in a separate advisory pass covering
-  first-party headers, including those under `apps/` and `tests/`. They are
-  explicitly excluded from `WarningsAsErrors` in [the configuration](../.clang-tidy).
+  checks. Inline repository checks run in a separate pass covering
+  first-party headers, including those under `apps/` and `tests/`. Their
+  findings are errors, like those of every check in [the configuration](../.clang-tidy).
   LLVM's experimental custom-check flag is inserted by
   [the parallel-runner adapter](../scripts/clang_tidy_adapter.py); built-in
   checks retain their existing enforcement and header scope.
@@ -513,9 +513,9 @@ locally before that gate ever sees the change:
   Prepare the compilation database with a report run first.
 - `bazel run --config=release //:clang_tidy_benchmark -- --jobs 4 --output reports/clang-tidy-custom`
   measures the full local scope. It warms both modes, then runs three paired
-  baseline/advisory comparisons with fixed concurrency and alternates pair
+  baseline/inline comparisons with fixed concurrency and alternates pair
   order. Build/database preparation is recorded separately; elapsed analysis
-  includes the advisory pass's additional parsing. Raw logs and JSON results
+  includes the inline pass's additional parsing. Raw logs and JSON results
   are retained in the requested new output directory. Per-check seconds sum
   callback work across translation units, so they are not elapsed analysis
   time. The [local evidence record](reference/clang-tidy-inline-checks.md)

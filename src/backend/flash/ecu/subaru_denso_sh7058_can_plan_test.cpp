@@ -9,6 +9,7 @@
 #include <gtest/gtest.h>
 
 #include "src/backend/flash/flash_validation.h"
+#include "src/backend/ports/testing/result_matchers.h"
 
 namespace fastecu::flash
 {
@@ -97,7 +98,7 @@ TEST(SubaruDensoSh7058CanPlan, BuildsEveryExactSecurityVariantOperationAndGeomet
             auto plan =
                 BuildSubaruDensoSh7058CanPlan(operation, variant.protocol, "SH7058", ImageFor(operation), Kernel());
 
-            ASSERT_TRUE(plan.has_value()) << variant.protocol << ": " << plan.error().detail;
+            ASSERT_THAT(plan, fastecu::testing::IsOk()) << variant.protocol;
             EXPECT_EQ(plan->Family(), FlashFamily::kSubaruDensoSh7058Can);
             EXPECT_EQ(plan->Transport(), TransportKind::kCanIso15765);
             EXPECT_EQ(plan->TargetId(), variant.protocol);
@@ -132,7 +133,7 @@ TEST(SubaruDensoSh7058CanPlan, BuildsEveryExactSecurityVariantOperationAndGeomet
                     EXPECT_EQ(plan->EraseRegions()[block].length, kSh7058Blocks[block].length);
                 }
             }
-            EXPECT_TRUE(ValidateSubaruDensoSh7058CanPlan(*plan).has_value());
+            EXPECT_THAT(ValidateSubaruDensoSh7058CanPlan(*plan), fastecu::testing::IsOk());
         }
     }
 }
@@ -152,16 +153,14 @@ TEST(SubaruDensoSh7058CanPlan, RejectsUnknownSuffixDieselDensoCanTcuAndWrongMcuI
     for (const std::string_view protocol : kRejected)
     {
         auto plan = BuildSubaruDensoSh7058CanPlan(FlashOperation::kRead, protocol, "SH7058", std::nullopt, Kernel());
-        ASSERT_FALSE(plan.has_value()) << protocol;
-        EXPECT_EQ(plan.error().kind, ErrorKind::kInvalidConfig);
+        ASSERT_THAT(plan, fastecu::testing::IsErr(ErrorKind::kInvalidConfig)) << protocol;
     }
 
     for (const Variant& variant : kVariants)
     {
         auto plan =
             BuildSubaruDensoSh7058CanPlan(FlashOperation::kRead, variant.protocol, "SH7058d", std::nullopt, Kernel());
-        ASSERT_FALSE(plan.has_value()) << variant.protocol;
-        EXPECT_EQ(plan.error().kind, ErrorKind::kInvalidConfig);
+        EXPECT_THAT(plan, fastecu::testing::IsErr(ErrorKind::kInvalidConfig)) << variant.protocol;
     }
 }
 
@@ -170,8 +169,7 @@ TEST(SubaruDensoSh7058CanPlan, EnforcesReadAndWriteImageRequirementsExactly)
     const Variant& stock = kVariants.front();
     auto read_with_image = BuildSubaruDensoSh7058CanPlan(FlashOperation::kRead, stock.protocol, "SH7058",
                                                          bytes::Bytes(kRomSize, 0), Kernel());
-    ASSERT_FALSE(read_with_image.has_value());
-    EXPECT_EQ(read_with_image.error().kind, ErrorKind::kInvalidConfig);
+    EXPECT_THAT(read_with_image, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 
     for (const FlashOperation operation : {FlashOperation::kTestWrite, FlashOperation::kWrite})
     {
@@ -183,8 +181,7 @@ TEST(SubaruDensoSh7058CanPlan, EnforcesReadAndWriteImageRequirementsExactly)
         for (const auto& image : invalid)
         {
             auto plan = BuildSubaruDensoSh7058CanPlan(operation, stock.protocol, "SH7058", image, Kernel());
-            ASSERT_FALSE(plan.has_value());
-            EXPECT_EQ(plan.error().kind, ErrorKind::kInvalidConfig);
+            EXPECT_THAT(plan, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
         }
     }
 }
@@ -194,7 +191,7 @@ TEST(SubaruDensoSh7058CanPlan, EnforcesKernelIdentityAddressAnd128BytePaddedCont
     const Variant& stock = kVariants.front();
     auto exact = BuildSubaruDensoSh7058CanPlan(FlashOperation::kRead, stock.protocol, "SH7058", std::nullopt,
                                                Kernel(bytes::Bytes(kKernelRegionSize, bytes::Byte{0xA5})));
-    ASSERT_TRUE(exact.has_value()) << exact.error().detail;
+    EXPECT_THAT(exact, fastecu::testing::IsOk());
 
     for (KernelImage invalid : {
              KernelImage{.id = "", .load_address = kKernelAddress, .bytes = {0x01}},
@@ -205,8 +202,7 @@ TEST(SubaruDensoSh7058CanPlan, EnforcesKernelIdentityAddressAnd128BytePaddedCont
     {
         auto plan = BuildSubaruDensoSh7058CanPlan(FlashOperation::kRead, stock.protocol, "SH7058", std::nullopt,
                                                   std::move(invalid));
-        ASSERT_FALSE(plan.has_value());
-        EXPECT_EQ(plan.error().kind, ErrorKind::kInvalidConfig);
+        EXPECT_THAT(plan, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     }
 }
 
@@ -251,10 +247,9 @@ TEST(SubaruDensoSh7058CanPlan, ValidatorRejectsWireSecurityRegionGeometryAndConf
             FAIL() << "unexpected validator mutation " << mutation;
         }
         auto plan = ValidateAndBuild(std::move(fields));
-        ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+        ASSERT_THAT(plan, fastecu::testing::IsOk());
         auto valid = ValidateSubaruDensoSh7058CanPlan(*plan);
-        ASSERT_FALSE(valid.has_value()) << mutation;
-        EXPECT_EQ(valid.error().kind, ErrorKind::kInvalidConfig);
+        EXPECT_THAT(valid, fastecu::testing::IsErr(ErrorKind::kInvalidConfig)) << mutation;
     }
 }
 
@@ -274,10 +269,12 @@ TEST(SubaruDensoSh7058CanPlan, RejectsAlteredAddressesAndLengthsInEveryEraseBloc
                 --fields.erase_regions[index].length;
             }
             auto plan = ValidateAndBuild(std::move(fields));
-            ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+            ASSERT_THAT(plan, fastecu::testing::IsOk());
             const auto validation = ValidateSubaruDensoSh7058CanPlan(*plan);
-            ASSERT_FALSE(validation.has_value()) << index;
-            EXPECT_EQ(validation.error(), (Error{ErrorKind::kInvalidConfig, "erase geometry does not match the MCU"}));
+            EXPECT_THAT(validation,
+                        fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig,
+                                                    ::testing::StrEq("erase geometry does not match the MCU")))
+                << index;
         }
     }
 }

@@ -24,6 +24,11 @@ namespace
 using namespace std::chrono_literals;
 using fastecu::testing::IsErr;
 using fastecu::testing::IsOk;
+using ::testing::_;
+using ::testing::Contains;
+using ::testing::Each;
+using ::testing::Pair;
+using ::testing::StartsWith;
 
 constexpr std::string_view kProtocol = "sub_ecu_denso_mc68hc16y5_02_bdm";
 constexpr std::string_view kMcu = "MC68HC16Y5";
@@ -228,14 +233,13 @@ TEST(SubaruDensoMc68hc16y5_02BdmExecutor, ReadsTheAddressSpaceImageWithTheRamHol
         ASSERT_TRUE(std::equal(image.begin() + address, image.begin() + address + 0x400, PageBytes(address).begin()))
             << std::format("page 0x{:05X}", address);
     }
-    EXPECT_TRUE(
-        std::all_of(image.begin() + 0x20000, image.begin() + 0x28000, [](bytes::Byte value) { return value == 0xff; }));
+    EXPECT_THAT(bytes::ByteView(image).subspan(0x20000, 0x8000), Each(0xff));
     EXPECT_TRUE(transport.ScriptConsumed());
     EXPECT_EQ(transport.framed_calls, 0);
     // Every read (the initial discard and each page's polls) uses the
     // legacy short timeout; FakeClock does not advance on reads, so a
     // budget's full value is what gets recorded each time.
-    EXPECT_TRUE(std::ranges::all_of(transport.read_timeouts, [](auto timeout) { return timeout == 200ms; }));
+    EXPECT_THAT(transport.read_timeouts, Each(200ms));
     EXPECT_EQ(events.progress_calls.back(), (std::pair<int, int>{160, 160}));
     // Each page: one 100 ms poll sleep (read_mem() :162) and 1 ms (:204).
     EXPECT_EQ(clock.Elapsed(), 160 * 101ms);
@@ -412,8 +416,7 @@ TEST(SubaruDensoMc68hc16y5_02BdmExecutor, BootstrapsTheKernelWithTheLegacySequen
     EXPECT_EQ(transport.WritesConsumed(), writes);
     EXPECT_EQ(transport.framed_calls, 0);
     EXPECT_EQ(events.progress_calls.back(), (std::pair<int, int>{2, 2}));
-    EXPECT_TRUE(
-        std::ranges::any_of(events.logs, [](const auto& entry) { return entry.second == "BDM wpcsp reply: 3f 3f "; }));
+    EXPECT_THAT(events.logs, Contains(Pair(_, "BDM wpcsp reply: 3f 3f ")));
     // 13 reads: discard, WDMEM ACK, 2 chunk ACKs, discard, SCIB-command ACK,
     // 800 ms discard, SCIB-value ACK, discard, wpcsp "??" + empty, empty, go.
     // FakeClock does not advance on reads, so each recorded timeout is the
@@ -659,9 +662,7 @@ TEST(SubaruDensoMc68hc16y5_02BdmExecutor, TransportErrorOnGoReplyStillSucceedsWi
     auto result = SubaruDensoMc68hc16y5_02BdmExecutor{}.Execute(WritePlan(), transport, clock, cancellation, events);
 
     ASSERT_THAT(result, IsOk());
-    EXPECT_TRUE(std::ranges::any_of(
-        events.logs, [](const auto& entry)
-        { return entry.first == LogLevel::kWarning && entry.second.starts_with("BDM go reply not read"); }));
+    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::kWarning, StartsWith("BDM go reply not read"))));
 }
 
 TEST(SubaruDensoMc68hc16y5_02BdmExecutor, DiscardLogsAnyBytesItDrainsAtDebugLevel)
@@ -677,9 +678,7 @@ TEST(SubaruDensoMc68hc16y5_02BdmExecutor, DiscardLogsAnyBytesItDrainsAtDebugLeve
 
     ASSERT_THAT(result, IsOk());
     EXPECT_TRUE(transport.ScriptConsumed());
-    EXPECT_TRUE(
-        std::ranges::any_of(events.logs, [](const auto& entry)
-                            { return entry.first == LogLevel::kDebug && entry.second == "BDM discarded: de ad "; }));
+    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::kDebug, "BDM discarded: de ad ")));
 }
 } // namespace
 } // namespace fastecu::flash

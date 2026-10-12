@@ -26,6 +26,7 @@
 #include "src/backend/ports/testing/fake_clock.h"
 #include "src/backend/ports/testing/mock_clock.h"
 #include "src/backend/ports/testing/recording_event_sink.h"
+#include "src/backend/ports/testing/result_matchers.h"
 
 using ::testing::_;
 using ::testing::AtLeast;
@@ -42,6 +43,8 @@ using bytes::ComposeBe;
 using bytes::U24;
 using namespace bytes::literals;
 using namespace std::chrono_literals;
+using fastecu::testing::IsErr;
+using fastecu::testing::IsOk;
 
 constexpr std::uint32_t kRequestId = 0x7E1;
 constexpr std::uint32_t kResponseId = 0x7E9;
@@ -350,9 +353,9 @@ bytes::Bytes KernelIdResponse(bool with_transport_padding = false)
 void ConfigureAndOpen(SubaruTcuDensoSh705xCanExecutor& executor, const FlashPlan& plan, ICanFlashTransport& transport)
 {
     auto setup = executor.TransportSetup(plan);
-    ASSERT_TRUE(setup.has_value()) << setup.error().detail;
-    ASSERT_TRUE(transport.Configure(*setup).has_value());
-    ASSERT_TRUE(transport.Open().has_value());
+    ASSERT_THAT(setup, IsOk());
+    ASSERT_THAT(transport.Configure(*setup), IsOk());
+    ASSERT_THAT(transport.Open(), IsOk());
 }
 
 void ScriptKernelAlive(ScriptedCanFlashTransport& transport, bool with_transport_padding = false)
@@ -837,9 +840,9 @@ TEST(SubaruTcuDensoSh705xCanExecutor, TransportSetupUsesExactTcuIsoConfiguration
     for (const Case& test_case : kCases)
     {
         auto plan = ReadPlan(test_case);
-        ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+        ASSERT_THAT(plan, IsOk());
         auto setup = executor.TransportSetup(*plan);
-        ASSERT_TRUE(setup.has_value()) << setup.error().detail;
+        ASSERT_THAT(setup, IsOk());
         EXPECT_EQ(setup->bitrate, 500000);
         EXPECT_EQ(setup->request_id, kRequestId);
         EXPECT_EQ(setup->response_id, kResponseId);
@@ -854,7 +857,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, AlreadyRunningKernelReadsBothMcuGeometries
     for (const Case& test_case : kCases)
     {
         auto plan = ReadPlan(test_case);
-        ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+        ASSERT_THAT(plan, IsOk());
         RecordingCanTransport transport;
         ConfigureAndOpen(executor, *plan, transport);
         ScriptKernelAlive(transport.scripted, test_case.mcu == "SH7058");
@@ -864,7 +867,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, AlreadyRunningKernelReadsBothMcuGeometries
 
         auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
-        ASSERT_TRUE(result.has_value()) << test_case.protocol << ": " << result.error().detail;
+        ASSERT_THAT(result, IsOk()) << test_case.protocol;
         ASSERT_TRUE(result->read_bytes.has_value());
         EXPECT_EQ(result->read_bytes->size(), test_case.rom_size);
         EXPECT_THAT(bytes::ByteView(*result->read_bytes).first(4), ElementsAre(0x00, 0x00, 0x00, 0x00));
@@ -894,7 +897,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, ReadKeepsRawBeefBoundaryPayloadsForBothTcu
     {
         SCOPED_TRACE(test_case.protocol);
         auto plan = ReadPlan(test_case);
-        ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+        ASSERT_THAT(plan, IsOk());
         ScriptedCanFlashTransport transport;
         ConfigureAndOpen(executor, *plan, transport);
         ScriptKernelAlive(transport);
@@ -904,7 +907,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, ReadKeepsRawBeefBoundaryPayloadsForBothTcu
 
         auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
-        ASSERT_TRUE(result.has_value()) << result.error().detail;
+        ASSERT_THAT(result, IsOk());
         ASSERT_TRUE(result->read_bytes.has_value());
         EXPECT_THAT(bytes::ByteView(*result->read_bytes).first(8),
                     ElementsAre(0xD3, 0x5A, 0xC7, 0x19, 0x2E, 0xF4, 0x80, 0x6B));
@@ -917,7 +920,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, ReadKeepsRawBeefBoundaryPayloadsForBothTcu
 TEST(SubaruTcuDensoSh705xCanExecutor, KernelIdCoalescesMultiplePortableCanPayloadFrames)
 {
     auto plan = WritePlan(kCases[1]);
-    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    ASSERT_THAT(plan, IsOk());
     SubaruTcuDensoSh705xCanExecutor executor;
     ScriptedCanFlashTransport transport;
     ConfigureAndOpen(executor, *plan, transport);
@@ -929,14 +932,14 @@ TEST(SubaruTcuDensoSh705xCanExecutor, KernelIdCoalescesMultiplePortableCanPayloa
 
     auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
-    ASSERT_TRUE(result.has_value()) << result.error().detail;
+    EXPECT_THAT(result, IsOk());
     EXPECT_TRUE(transport.ScriptConsumed());
 }
 
 TEST(SubaruTcuDensoSh705xCanExecutor, KernelIdContinuationAppendsTheEntireAcceptedPayloadAndDrainsToEmpty)
 {
     auto plan = WritePlan(kCases[1]);
-    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    ASSERT_THAT(plan, IsOk());
     SubaruTcuDensoSh705xCanExecutor executor;
     RecordingCanTransport transport;
     ConfigureAndOpen(executor, *plan, transport);
@@ -954,7 +957,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, KernelIdContinuationAppendsTheEntireAccept
 
     auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
-    ASSERT_TRUE(result.has_value()) << result.error().detail;
+    EXPECT_THAT(result, IsOk());
     EXPECT_TRUE(transport.scripted.ScriptConsumed());
     ASSERT_GE(transport.read_timeouts.size(), 3U);
     EXPECT_THAT(std::span<const std::chrono::milliseconds>(transport.read_timeouts).first(3),
@@ -968,7 +971,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, KernelIdTrailingDrainPropagatesCancellatio
     for (const ErrorKind error_kind : {ErrorKind::kCancelled, ErrorKind::kDisconnected})
     {
         auto plan = WritePlan(kCases[1]);
-        ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+        ASSERT_THAT(plan, IsOk());
         SubaruTcuDensoSh705xCanExecutor executor;
         ScriptedCanFlashTransport transport;
         ConfigureAndOpen(executor, *plan, transport);
@@ -981,8 +984,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, KernelIdTrailingDrainPropagatesCancellatio
 
         auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
-        ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, error_kind);
+        EXPECT_THAT(result, IsErr(error_kind));
         EXPECT_TRUE(transport.ScriptConsumed());
         EXPECT_THAT(LogMessagesStartingWith(events, "Kernel ID "),
                     ElementsAre("Kernel ID request: 00 00 07 e1 7a a0 00 00 00 00 00 00 ",
@@ -994,7 +996,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, KernelIdTrailingDrainPropagatesCancellatio
 TEST(SubaruTcuDensoSh705xCanExecutor, InitialKernelIdTrailingDrainBoundFallsBackBeforeStartingAnotherCommand)
 {
     auto plan = WritePlan(kCases[1]);
-    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    ASSERT_THAT(plan, IsOk());
     SubaruTcuDensoSh705xCanExecutor executor;
     ScriptedCanFlashTransport transport;
     ConfigureAndOpen(executor, *plan, transport);
@@ -1016,8 +1018,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, InitialKernelIdTrailingDrainBoundFallsBack
 
     auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::kBadResponse);
+    EXPECT_THAT(result, IsErr(ErrorKind::kBadResponse));
     EXPECT_TRUE(HasLog(events, LogLevel::kInfo, "Requesting ECU ID"));
     EXPECT_TRUE(transport.ScriptConsumed());
     ExpectExactPhaseProgress(events, {{"Kernel", 1, 4, 0, 1}});
@@ -1041,7 +1042,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, InitialKernelProbeTreatsLegacyNonterminalR
     {
         SCOPED_TRACE(static_cast<int>(reply));
         auto plan = ReadPlan(kCases[1]);
-        ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+        ASSERT_THAT(plan, IsOk());
         SubaruTcuDensoSh705xCanExecutor executor;
         ScriptedCanFlashTransport transport;
         ConfigureAndOpen(executor, *plan, transport);
@@ -1099,8 +1100,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, InitialKernelProbeTreatsLegacyNonterminalR
 
         auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
-        ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, ErrorKind::kBadResponse);
+        EXPECT_THAT(result, IsErr(ErrorKind::kBadResponse));
         EXPECT_TRUE(HasLog(events, LogLevel::kInfo, "Requesting ECU ID"));
         EXPECT_TRUE(transport.ScriptConsumed());
     }
@@ -1112,7 +1112,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, InitialKernelProbeKeepsCancellationAndDisc
     {
         SCOPED_TRACE(static_cast<int>(terminal));
         auto plan = ReadPlan(kCases[1]);
-        ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+        ASSERT_THAT(plan, IsOk());
         SubaruTcuDensoSh705xCanExecutor executor;
         ScriptedCanFlashTransport transport;
         ConfigureAndOpen(executor, *plan, transport);
@@ -1124,8 +1124,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, InitialKernelProbeKeepsCancellationAndDisc
 
         auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
-        ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, terminal);
+        EXPECT_THAT(result, IsErr(terminal));
         EXPECT_TRUE(transport.ScriptConsumed());
     }
 }
@@ -1139,7 +1138,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, SessionSafetyCorrectionRejectsBothLegacyPa
     {
         SCOPED_TRACE(bytes::ToHex(reply));
         auto plan = ReadPlan(kCases[1]);
-        ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+        ASSERT_THAT(plan, IsOk());
         SubaruTcuDensoSh705xCanExecutor executor;
         ScriptedCanFlashTransport transport;
         ConfigureAndOpen(executor, *plan, transport);
@@ -1153,13 +1152,12 @@ TEST(SubaruTcuDensoSh705xCanExecutor, SessionSafetyCorrectionRejectsBothLegacyPa
 
         auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
-        ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, ErrorKind::kBadResponse);
+        ASSERT_THAT(result, IsErr(ErrorKind::kBadResponse));
         EXPECT_TRUE(transport.ScriptConsumed());
     }
 
     auto plan = ReadPlan(kCases[1]);
-    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    ASSERT_THAT(plan, IsOk());
     SubaruTcuDensoSh705xCanExecutor executor;
     ScriptedCanFlashTransport transport;
     ConfigureAndOpen(executor, *plan, transport);
@@ -1175,8 +1173,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, SessionSafetyCorrectionRejectsBothLegacyPa
 
     auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::kBadResponse);
+    EXPECT_THAT(result, IsErr(ErrorKind::kBadResponse));
     EXPECT_FALSE(HasLog(events, LogLevel::kInfo, "Seed request ok"));
     EXPECT_TRUE(transport.ScriptConsumed());
 }
@@ -1189,7 +1186,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, UploadB6ReadsDiscardAllLegacyContentAndAda
     {
         SCOPED_TRACE(static_cast<int>(reply));
         auto plan = ReadPlan(kCases[1]);
-        ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+        ASSERT_THAT(plan, IsOk());
         SubaruTcuDensoSh705xCanExecutor executor;
         ScriptedCanFlashTransport transport;
         ConfigureAndOpen(executor, *plan, transport);
@@ -1205,8 +1202,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, UploadB6ReadsDiscardAllLegacyContentAndAda
 
         auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
-        ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, ErrorKind::kDisconnected);
+        EXPECT_THAT(result, IsErr(ErrorKind::kDisconnected));
         EXPECT_TRUE(transport.ScriptConsumed());
     }
 }
@@ -1217,7 +1213,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, UploadB6KeepsCancellationAndDisconnectTerm
     {
         SCOPED_TRACE(static_cast<int>(terminal));
         auto plan = ReadPlan(kCases[1]);
-        ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+        ASSERT_THAT(plan, IsOk());
         SubaruTcuDensoSh705xCanExecutor executor;
         ScriptedCanFlashTransport transport;
         ConfigureAndOpen(executor, *plan, transport);
@@ -1233,8 +1229,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, UploadB6KeepsCancellationAndDisconnectTerm
 
         auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
-        ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, terminal);
+        EXPECT_THAT(result, IsErr(terminal));
     }
 }
 
@@ -1245,7 +1240,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, KernelStartAcceptsServiceOnlyAndFullEchoBe
     {
         SCOPED_TRACE(bytes::ToHex(start_reply));
         auto plan = ReadPlan(kCases[1]);
-        ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+        ASSERT_THAT(plan, IsOk());
         SubaruTcuDensoSh705xCanExecutor executor;
         ScriptedCanFlashTransport transport;
         ConfigureAndOpen(executor, *plan, transport);
@@ -1261,8 +1256,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, KernelStartAcceptsServiceOnlyAndFullEchoBe
 
         auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
-        ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, ErrorKind::kBadResponse);
+        EXPECT_THAT(result, IsErr(ErrorKind::kBadResponse));
         EXPECT_TRUE(transport.ScriptConsumed());
     }
 }
@@ -1287,7 +1281,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, KernelStartRejectsWrongSidShortTimeoutCanc
     {
         SCOPED_TRACE(start.name);
         auto plan = ReadPlan(kCases[1]);
-        ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+        ASSERT_THAT(plan, IsOk());
         SubaruTcuDensoSh705xCanExecutor executor;
         ScriptedCanFlashTransport transport;
         ConfigureAndOpen(executor, *plan, transport);
@@ -1310,8 +1304,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, KernelStartRejectsWrongSidShortTimeoutCanc
 
         auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
-        ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, start.expected);
+        EXPECT_THAT(result, IsErr(start.expected));
         EXPECT_TRUE(transport.ScriptConsumed());
     }
 }
@@ -1320,7 +1313,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, ProbeTimeoutRunsIdentityStrictUdsUploadAnd
 {
     const Case& test_case = kCases[1];
     auto plan = ReadPlan(test_case);
-    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    ASSERT_THAT(plan, IsOk());
     SubaruTcuDensoSh705xCanExecutor executor;
     ScriptedCanFlashTransport transport;
     ConfigureAndOpen(executor, *plan, transport);
@@ -1342,8 +1335,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, ProbeTimeoutRunsIdentityStrictUdsUploadAnd
 
     auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::kBadResponse);
+    ASSERT_THAT(result, IsErr(ErrorKind::kBadResponse));
     EXPECT_TRUE(transport.ScriptConsumed());
     EXPECT_EQ(result.error().kind, ErrorKind::kBadResponse);
     EXPECT_TRUE(HasLog(events, LogLevel::kInfo, "ECU ID: 4543553031"));
@@ -1356,7 +1348,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, ProbeTimeoutUploadsFixed129ByteKernelThenS
     bytes::Bytes kernel(129, bytes::Byte{0x00});
     kernel.back() = 0x01;
     auto plan = ReadPlan(kCases[0], std::move(kernel));
-    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    ASSERT_THAT(plan, IsOk());
     SubaruTcuDensoSh705xCanExecutor executor;
     RecordingCanTransport transport;
     ConfigureAndOpen(executor, *plan, transport);
@@ -1380,7 +1372,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, ProbeTimeoutUploadsFixed129ByteKernelThenS
 
     auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
-    ASSERT_TRUE(result.has_value()) << result.error().detail;
+    ASSERT_THAT(result, IsOk());
     ASSERT_TRUE(result->read_bytes.has_value());
     EXPECT_EQ(result->read_bytes->size(), 0x00080000U);
     ASSERT_TRUE(result->rom_id.has_value());
@@ -1475,7 +1467,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, RestartResetConfigureAndOpenFailuresPropag
     {
         SCOPED_TRACE(failure.stage);
         auto plan = ReadPlan(kCases[1]);
-        ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+        ASSERT_THAT(plan, IsOk());
         auto transport = std::make_unique<RecordingCanTransport>();
         RecordingCanTransport *observed = transport.get();
         ScriptKernelProbeTimeout(observed->scripted);
@@ -1503,8 +1495,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, RestartResetConfigureAndOpenFailuresPropag
 
         const auto result = attempt->Run(clock, cancellation, events);
 
-        ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, failure.kind);
+        EXPECT_THAT(result, IsErr(failure.kind));
         EXPECT_EQ(observed->lifecycle, failure.expected_lifecycle);
         EXPECT_EQ(observed->scripted.close_call_count, 1);
         EXPECT_TRUE(observed->scripted.ScriptConsumed());
@@ -1528,7 +1519,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, CancellationAfterKernelStartAndWithinResta
     {
         SCOPED_TRACE(test_case.boundary);
         auto plan = ReadPlan(kCases[1]);
-        ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+        ASSERT_THAT(plan, IsOk());
         auto transport = std::make_unique<RecordingCanTransport>();
         RecordingCanTransport *observed = transport.get();
         ScriptKernelProbeTimeout(observed->scripted);
@@ -1560,8 +1551,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, CancellationAfterKernelStartAndWithinResta
 
         const auto result = attempt->Run(clock, cancellation, events);
 
-        ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, ErrorKind::kCancelled);
+        EXPECT_THAT(result, IsErr(ErrorKind::kCancelled));
         EXPECT_EQ(observed->lifecycle, test_case.expected_lifecycle);
         EXPECT_EQ(observed->scripted.close_call_count, 1);
         EXPECT_TRUE(observed->scripted.ScriptConsumed());
@@ -1574,7 +1564,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, CancellationDuringOrImmediatelyAfterRestar
     {
         SCOPED_TRACE(cancellation_returns_from_sleep);
         auto plan = ReadPlan(kCases[1]);
-        ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+        ASSERT_THAT(plan, IsOk());
         auto transport = std::make_unique<RecordingCanTransport>();
         RecordingCanTransport *observed = transport.get();
         ScriptKernelProbeTimeout(observed->scripted);
@@ -1599,8 +1589,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, CancellationDuringOrImmediatelyAfterRestar
 
         const auto result = attempt->Run(clock, cancellation, events);
 
-        ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, ErrorKind::kCancelled);
+        EXPECT_THAT(result, IsErr(ErrorKind::kCancelled));
         EXPECT_EQ(observed->scripted.close_call_count, 1);
         EXPECT_TRUE(observed->scripted.ScriptConsumed());
         EXPECT_EQ(std::count_if(observed->writes.begin(), observed->writes.end(), [](const bytes::Bytes& write)
@@ -1612,7 +1601,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, CancellationDuringOrImmediatelyAfterRestar
 TEST(SubaruTcuDensoSh705xCanExecutor, KernelPhaseDoesNotCompleteWhenPostUploadIdentityDisconnects)
 {
     auto plan = ReadPlan(kCases[1]);
-    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    ASSERT_THAT(plan, IsOk());
     SubaruTcuDensoSh705xCanExecutor executor;
     ScriptedCanFlashTransport transport;
     ConfigureAndOpen(executor, *plan, transport);
@@ -1628,8 +1617,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, KernelPhaseDoesNotCompleteWhenPostUploadId
 
     auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::kDisconnected);
+    EXPECT_THAT(result, IsErr(ErrorKind::kDisconnected));
     EXPECT_TRUE(transport.ScriptConsumed());
     EXPECT_THAT(events.notices, ElementsAre("Preparing, please wait..."));
     ExpectExactPhaseProgress(events, {{"Kernel", 1, 2, 0, 1}});
@@ -1642,7 +1630,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, ZeroElapsedClockUsesOneMillisecondClampFor
     // rate/time formula and text layout.
     {
         auto plan = ReadPlan(kCases[0]);
-        ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+        ASSERT_THAT(plan, IsOk());
         SubaruTcuDensoSh705xCanExecutor executor;
         ScriptedCanFlashTransport transport;
         ConfigureAndOpen(executor, *plan, transport);
@@ -1654,8 +1642,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, ZeroElapsedClockUsesOneMillisecondClampFor
 
         auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
-        ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, ErrorKind::kCancelled);
+        ASSERT_THAT(result, IsErr(ErrorKind::kCancelled));
         EXPECT_THAT(LogMessagesStartingWith(events, "Kernel read addr:"),
                     ElementsAre("Kernel read addr: 0x00000000 length: 0x00000400, 1024000 B/s      1 s"));
     }
@@ -1664,7 +1651,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, ZeroElapsedClockUsesOneMillisecondClampFor
     // window. The same 1 ms rule yields the exact stable first record below.
     {
         auto plan = WritePlan(kCases[1]);
-        ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+        ASSERT_THAT(plan, IsOk());
         SubaruTcuDensoSh705xCanExecutor executor;
         ScriptedCanFlashTransport transport;
         ConfigureAndOpen(executor, *plan, transport);
@@ -1683,8 +1670,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, ZeroElapsedClockUsesOneMillisecondClampFor
 
         auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
-        ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, ErrorKind::kCancelled);
+        EXPECT_THAT(result, IsErr(ErrorKind::kCancelled));
         EXPECT_THAT(LogMessagesStartingWith(events, "Write flash buffer:"),
                     ElementsAre("Write flash buffer: 0x00000000 (0% - 512000 B/s, ~ 1 s)"));
     }
@@ -1694,7 +1680,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, WriteComparesErasesProgramsAndVerifiesFirs
 {
     const Case& test_case = kCases[1];
     auto plan = WritePlan(test_case);
-    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    ASSERT_THAT(plan, IsOk());
     SubaruTcuDensoSh705xCanExecutor executor;
     ScriptedCanFlashTransport transport;
     ConfigureAndOpen(executor, *plan, transport);
@@ -1709,7 +1695,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, WriteComparesErasesProgramsAndVerifiesFirs
 
     auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
-    ASSERT_TRUE(result.has_value()) << result.error().detail;
+    EXPECT_THAT(result, IsOk());
     EXPECT_TRUE(transport.ScriptConsumed());
     EXPECT_EQ(events.logs, ExpectedWriteLogs(BlocksFor(test_case)));
     EXPECT_THAT(events.notices, ElementsAre("Writing ROM, please wait..."));
@@ -1732,7 +1718,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, NonzeroLargeBlockUsesEveryWriteWindowAndEx
     bytes::Bytes image(kCases[1].rom_size, bytes::Byte{0x00});
     std::fill(image.begin() + 0x00008000, image.begin() + 0x00020000, bytes::Byte{0xA5});
     auto plan = WritePlan(kCases[1], std::move(image));
-    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    ASSERT_THAT(plan, IsOk());
     SubaruTcuDensoSh705xCanExecutor executor;
     RecordingCanTransport transport;
     ConfigureAndOpen(executor, *plan, transport);
@@ -1747,7 +1733,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, NonzeroLargeBlockUsesEveryWriteWindowAndEx
 
     auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
-    ASSERT_TRUE(result.has_value()) << result.error().detail;
+    EXPECT_THAT(result, IsOk());
     EXPECT_TRUE(transport.scripted.ScriptConsumed());
     EXPECT_THAT(events.notices, ElementsAre("Writing ROM, please wait..."));
     EXPECT_FALSE(HasLog(events, LogLevel::kError, "*** ERROR IN FLASH PROCESS ***"));
@@ -1798,7 +1784,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, UnchangedWriteEmitsExactFourPhaseProgressS
 {
     const Case& test_case = kCases[1];
     auto plan = WritePlan(test_case);
-    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    ASSERT_THAT(plan, IsOk());
     SubaruTcuDensoSh705xCanExecutor executor;
     ScriptedCanFlashTransport transport;
     ConfigureAndOpen(executor, *plan, transport);
@@ -1810,7 +1796,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, UnchangedWriteEmitsExactFourPhaseProgressS
 
     auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
-    ASSERT_TRUE(result.has_value()) << result.error().detail;
+    EXPECT_THAT(result, IsOk());
     EXPECT_TRUE(transport.ScriptConsumed());
     ExpectExactPhaseProgress(events, {{"Kernel", 1, 4, 0, 1},    {"Kernel", 1, 4, 1, 1},    {"Compare", 2, 4, 0, 16},
                                       {"Compare", 2, 4, 1, 16},  {"Compare", 2, 4, 2, 16},  {"Compare", 2, 4, 3, 16},
@@ -1831,7 +1817,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, CrcDrainIgnoresMalformedAndWrongIdFramesFo
         for (const bool mismatch : {false, true})
         {
             auto plan = WritePlan(kCases[1]);
-            ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+            ASSERT_THAT(plan, IsOk());
             SubaruTcuDensoSh705xCanExecutor executor;
             ScriptedCanFlashTransport transport;
             ConfigureAndOpen(executor, *plan, transport);
@@ -1850,12 +1836,11 @@ TEST(SubaruTcuDensoSh705xCanExecutor, CrcDrainIgnoresMalformedAndWrongIdFramesFo
 
             if (mismatch)
             {
-                ASSERT_FALSE(result.has_value());
-                EXPECT_EQ(result.error().kind, ErrorKind::kCancelled);
+                ASSERT_THAT(result, IsErr(ErrorKind::kCancelled));
             }
             else
             {
-                ASSERT_TRUE(result.has_value()) << result.error().detail;
+                EXPECT_THAT(result, IsOk());
             }
             EXPECT_TRUE(transport.ScriptConsumed());
             EXPECT_TRUE(HasLog(events, LogLevel::kInfo, mismatch ? "\tNO" : "\tYES"));
@@ -1868,7 +1853,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, CrcDrainPropagatesCancellationAndDisconnec
     for (const ErrorKind error_kind : {ErrorKind::kCancelled, ErrorKind::kDisconnected})
     {
         auto plan = WritePlan(kCases[1]);
-        ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+        ASSERT_THAT(plan, IsOk());
         SubaruTcuDensoSh705xCanExecutor executor;
         ScriptedCanFlashTransport transport;
         ConfigureAndOpen(executor, *plan, transport);
@@ -1883,8 +1868,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, CrcDrainPropagatesCancellationAndDisconnec
 
         auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
-        ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, error_kind);
+        EXPECT_THAT(result, IsErr(error_kind));
         EXPECT_TRUE(transport.ScriptConsumed());
     }
 }
@@ -1897,7 +1881,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, CancellationInterruptsUploadReadCrcAndWrit
         bytes::Bytes kernel(129, bytes::Byte{0x00});
         kernel.back() = 0x01;
         auto plan = ReadPlan(kCases[0], std::move(kernel));
-        ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+        ASSERT_THAT(plan, IsOk());
         SubaruTcuDensoSh705xCanExecutor executor;
         RecordingCanTransport transport;
         ConfigureAndOpen(executor, *plan, transport);
@@ -1913,8 +1897,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, CancellationInterruptsUploadReadCrcAndWrit
 
         auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
-        ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, ErrorKind::kCancelled);
+        ASSERT_THAT(result, IsErr(ErrorKind::kCancelled));
         EXPECT_THAT(events.notices, ElementsAre("Preparing, please wait..."));
         ExpectExactPhaseProgress(events, {{"Kernel", 1, 2, 0, 1}});
     }
@@ -1923,7 +1906,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, CancellationInterruptsUploadReadCrcAndWrit
     // observes cancellation before sending another request.
     {
         auto plan = ReadPlan(kCases[0]);
-        ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+        ASSERT_THAT(plan, IsOk());
         SubaruTcuDensoSh705xCanExecutor executor;
         ScriptedCanFlashTransport transport;
         ConfigureAndOpen(executor, *plan, transport);
@@ -1935,8 +1918,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, CancellationInterruptsUploadReadCrcAndWrit
 
         auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
-        ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, ErrorKind::kCancelled);
+        ASSERT_THAT(result, IsErr(ErrorKind::kCancelled));
         EXPECT_TRUE(transport.ScriptConsumed());
         EXPECT_EQ(events.phase_progress_calls.back().phase_name, "Read");
         EXPECT_EQ(events.phase_progress_calls.back().done, static_cast<int>(kReadPageSize));
@@ -1946,7 +1928,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, CancellationInterruptsUploadReadCrcAndWrit
     // by the legacy 5 ms pacing checkpoint before block 2.
     {
         auto plan = WritePlan(kCases[1]);
-        ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+        ASSERT_THAT(plan, IsOk());
         SubaruTcuDensoSh705xCanExecutor executor;
         ScriptedCanFlashTransport transport;
         ConfigureAndOpen(executor, *plan, transport);
@@ -1958,8 +1940,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, CancellationInterruptsUploadReadCrcAndWrit
 
         auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
-        ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, ErrorKind::kCancelled);
+        ASSERT_THAT(result, IsErr(ErrorKind::kCancelled));
         EXPECT_TRUE(transport.ScriptConsumed());
         EXPECT_EQ(events.phase_progress_calls.back().phase_name, "Compare");
         EXPECT_EQ(events.phase_progress_calls.back().done, 1);
@@ -1969,7 +1950,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, CancellationInterruptsUploadReadCrcAndWrit
     // the second window and retains the post-erase recovery warning.
     {
         auto plan = WritePlan(kCases[1]);
-        ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+        ASSERT_THAT(plan, IsOk());
         SubaruTcuDensoSh705xCanExecutor executor;
         ScriptedCanFlashTransport transport;
         ConfigureAndOpen(executor, *plan, transport);
@@ -1988,8 +1969,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, CancellationInterruptsUploadReadCrcAndWrit
 
         auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
-        ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, ErrorKind::kCancelled);
+        EXPECT_THAT(result, IsErr(ErrorKind::kCancelled));
         EXPECT_TRUE(transport.ScriptConsumed());
         EXPECT_EQ(events.phase_progress_calls.back().phase_name, "Write");
         EXPECT_EQ(events.phase_progress_calls.back().done, static_cast<int>(kWriteChunkSize));
@@ -2013,7 +1993,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, RejectsInvalidPlanBeforeTransportInteracti
         .confirmations = {},
     };
     auto plan = ValidateAndBuild(std::move(fields));
-    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    ASSERT_THAT(plan, IsOk());
     SubaruTcuDensoSh705xCanExecutor executor;
     ScriptedCanFlashTransport transport;
     FakeCancellationToken cancellation;
@@ -2022,15 +2002,14 @@ TEST(SubaruTcuDensoSh705xCanExecutor, RejectsInvalidPlanBeforeTransportInteracti
 
     auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::kInvalidConfig);
+    EXPECT_THAT(result, IsErr(ErrorKind::kInvalidConfig));
     EXPECT_EQ(transport.WritesConsumed(), 0U);
 }
 
 TEST(SubaruTcuDensoSh705xCanExecutor, NegativeAndDisconnectRepliesAreTyped)
 {
     auto plan = ReadPlan(kCases[1]);
-    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    ASSERT_THAT(plan, IsOk());
     FakeCancellationToken cancellation;
 
     {
@@ -2046,8 +2025,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, NegativeAndDisconnectRepliesAreTyped)
 
         auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
-        ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, ErrorKind::kBadResponse);
+        ASSERT_THAT(result, IsErr(ErrorKind::kBadResponse));
     }
     {
         SubaruTcuDensoSh705xCanExecutor executor;
@@ -2060,8 +2038,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, NegativeAndDisconnectRepliesAreTyped)
 
         auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
-        ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, ErrorKind::kDisconnected);
+        EXPECT_THAT(result, IsErr(ErrorKind::kDisconnected));
     }
 }
 
@@ -2069,7 +2046,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, CancellationAfterEraseReturnsRecoveryWarni
 {
     const Case& test_case = kCases[1];
     auto plan = WritePlan(test_case);
-    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    ASSERT_THAT(plan, IsOk());
     SubaruTcuDensoSh705xCanExecutor executor;
     ScriptedCanFlashTransport transport;
     ConfigureAndOpen(executor, *plan, transport);
@@ -2083,8 +2060,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, CancellationAfterEraseReturnsRecoveryWarni
 
     auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::kCancelled);
+    EXPECT_THAT(result, IsErr(ErrorKind::kCancelled));
     EXPECT_TRUE(HasLog(events, LogLevel::kError, kReflashRecoveryWarning));
     EXPECT_TRUE(transport.ScriptConsumed());
 }
@@ -2092,7 +2068,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, CancellationAfterEraseReturnsRecoveryWarni
 TEST(SubaruTcuDensoSh705xCanExecutor, BoundAttemptReturnsCloseErrorOnlyWhenExecutionSucceeds)
 {
     auto plan = ReadPlan(kCases[0]);
-    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    ASSERT_THAT(plan, IsOk());
 
     auto success_transport = std::make_unique<ScriptedCanFlashTransport>();
     ScriptKernelAlive(*success_transport);
@@ -2106,8 +2082,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, BoundAttemptReturnsCloseErrorOnlyWhenExecu
 
     auto close_only = success_attempt->Run(clock, cancellation, events);
 
-    ASSERT_FALSE(close_only.has_value());
-    EXPECT_EQ(close_only.error().kind, ErrorKind::kDisconnected);
+    EXPECT_THAT(close_only, IsErr(ErrorKind::kDisconnected));
 
     auto failing_transport = std::make_unique<ScriptedCanFlashTransport>();
     ScriptKernelAlive(*failing_transport);
@@ -2120,8 +2095,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, BoundAttemptReturnsCloseErrorOnlyWhenExecu
 
     auto execution_error = failing_attempt->Run(clock, cancellation, failing_events);
 
-    ASSERT_FALSE(execution_error.has_value());
-    EXPECT_EQ(execution_error.error().kind, ErrorKind::kTimeout);
+    EXPECT_THAT(execution_error, IsErr(ErrorKind::kTimeout));
     EXPECT_TRUE(HasLog(failing_events, LogLevel::kWarning, "close failed after execution error"));
 }
 

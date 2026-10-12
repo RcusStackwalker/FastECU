@@ -22,6 +22,7 @@ using fastecu::definition::CalibrationMap;
 using fastecu::definition::RomDefinition;
 using fastecu::definition::Scaling;
 using fastecu::definition::StorageType;
+using fastecu::testing::IsErr;
 
 TEST(ReadRom, ReadsRequestedHandleThroughRepository)
 {
@@ -336,13 +337,13 @@ TEST(DecodeNumericRun, RejectsOverflowingLayoutsBeforeReading)
     const bytes::Bytes rom{42};
     ElementRun run{
         .address = std::numeric_limits<std::uint64_t>::max(), .count = 1, .storage_type = StorageType::kUint8};
-    EXPECT_FALSE(DecodeNumericRun(rom, run).has_value());
+    EXPECT_THAT(DecodeNumericRun(rom, run), IsErr(ErrorKind::kInvalidConfig));
     run.start_position = 2;
-    EXPECT_FALSE(DecodeNumericRun(rom, run).has_value());
+    EXPECT_THAT(DecodeNumericRun(rom, run), IsErr(ErrorKind::kInvalidConfig));
     run.address = std::numeric_limits<std::uint64_t>::max() - 3;
     run.start_position = 2;
     run.storage_type = StorageType::kUint32;
-    EXPECT_FALSE(DecodeNumericRun(rom, run).has_value());
+    EXPECT_THAT(DecodeNumericRun(rom, run), IsErr(ErrorKind::kInvalidConfig));
 }
 
 TEST(ElementRunEndTest, RejectsOverflowingStrideProduct)

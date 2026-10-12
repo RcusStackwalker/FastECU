@@ -9,6 +9,7 @@
 #include "src/backend/ports/testing/fake_clock.h"
 #include "src/backend/ports/testing/recording_event_sink.h"
 #include "src/backend/ports/testing/fake_cancellation_token.h"
+#include "src/backend/ports/testing/result_matchers.h"
 
 namespace fastecu::flash
 {
@@ -16,7 +17,7 @@ TEST(SubaruHitachiSh7058KlineExecutor, RejectsMissingInitializationBeforeReadPag
 {
     auto plan = BuildSubaruHitachiSh7058Plan(FlashOperation::kRead, "sub_ecu_hitachi_sh7058_can", "SH7058_1block",
                                              std::nullopt);
-    ASSERT_TRUE(plan.has_value());
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
     SubaruHitachiSh7058KlineExecutor executor;
     ScriptedKlineFlashTransport transport;
     transport.ExpectWrite(bytes::Bytes{0x80, 0x10, 0xf0, 0x01, 0xbf, 0x40});
@@ -25,7 +26,10 @@ TEST(SubaruHitachiSh7058KlineExecutor, RejectsMissingInitializationBeforeReadPag
     FakeCancellationToken cancel;
     RecordingEventSink events;
     auto result = executor.Execute(*plan, transport, clock, cancel, events);
-    EXPECT_FALSE(result.has_value());
+    // A silent 38400 init is not rejected: the executor falls back to the 4800
+    // identity exchange, whose write runs past this one-exchange script.
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kInternal,
+                                                    ::testing::HasSubstr("ran past the end of the script")));
     EXPECT_EQ(transport.WritesConsumed(), 1U);
 }
 
@@ -35,7 +39,7 @@ TEST(SubaruHitachiSh7058KlineExecutor, ReadsEveryPhysicalPageBeforeReturningRom)
     {
         auto plan = BuildSubaruHitachiSh7058Plan(FlashOperation::kRead, "sub_ecu_hitachi_sh7058_can", "SH7058_1block",
                                                  std::nullopt);
-        ASSERT_TRUE(plan.has_value());
+        ASSERT_THAT(plan, fastecu::testing::IsOk());
         ScriptedKlineFlashTransport transport;
         const auto frame = [](bytes::ByteView payload, bool response)
         {
@@ -69,7 +73,7 @@ TEST(SubaruHitachiSh7058KlineExecutor, ReadsEveryPhysicalPageBeforeReturningRom)
         FakeCancellationToken cancel;
         RecordingEventSink events;
         auto result = executor.Execute(*plan, transport, clock, cancel, events);
-        ASSERT_TRUE(result.has_value());
+        ASSERT_THAT(result, fastecu::testing::IsOk());
         ASSERT_TRUE(result->read_bytes.has_value());
         EXPECT_EQ(result->read_bytes->size(), 0x100000U);
         if (!already_active)
@@ -86,7 +90,7 @@ TEST(SubaruHitachiSh7058KlineExecutor, RejectsShortWrongServiceAndBadChecksumPag
     {
         auto plan = BuildSubaruHitachiSh7058Plan(FlashOperation::kRead, "sub_ecu_hitachi_sh7058_can", "SH7058_1block",
                                                  std::nullopt);
-        ASSERT_TRUE(plan.has_value());
+        ASSERT_THAT(plan, fastecu::testing::IsOk());
         ScriptedKlineFlashTransport transport;
         transport.Exchange(ssm_protocol::AddHeader(bytes::Bytes{0xbf}, 0xf0, 0x10),
                            ssm_protocol::AddHeader(bytes::Bytes{0xff}, 0x10, 0xf0));
@@ -103,8 +107,7 @@ TEST(SubaruHitachiSh7058KlineExecutor, RejectsShortWrongServiceAndBadChecksumPag
         FakeCancellationToken cancel;
         RecordingEventSink events;
         auto result = executor.Execute(*plan, transport, clock, cancel, events);
-        ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, ErrorKind::kBadResponse);
+        EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kBadResponse));
         EXPECT_TRUE(transport.ScriptConsumed());
     }
 }
@@ -113,7 +116,7 @@ TEST(SubaruHitachiSh7058KlineExecutor, CancellationAndBaudFailureStopBeforeAnyRe
 {
     auto plan = BuildSubaruHitachiSh7058Plan(FlashOperation::kRead, "sub_ecu_hitachi_sh7058_can", "SH7058_1block",
                                              std::nullopt);
-    ASSERT_TRUE(plan.has_value());
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
     SubaruHitachiSh7058KlineExecutor executor;
     for (const bool cancel_first : {true, false})
     {
@@ -126,8 +129,7 @@ TEST(SubaruHitachiSh7058KlineExecutor, CancellationAndBaudFailureStopBeforeAnyRe
         FakeCancellationToken cancel(cancel_first);
         RecordingEventSink events;
         auto result = executor.Execute(*plan, transport, clock, cancel, events);
-        ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, cancel_first ? ErrorKind::kCancelled : ErrorKind::kDisconnected);
+        EXPECT_THAT(result, fastecu::testing::IsErr(cancel_first ? ErrorKind::kCancelled : ErrorKind::kDisconnected));
         EXPECT_EQ(transport.WritesConsumed(), 0U);
     }
 }
@@ -136,7 +138,7 @@ TEST(SubaruHitachiSh7058KlineExecutor, RejectsMalformedIdentityBeforeBaudSwitch)
 {
     auto plan = BuildSubaruHitachiSh7058Plan(FlashOperation::kRead, "sub_ecu_hitachi_sh7058_can", "SH7058_1block",
                                              std::nullopt);
-    ASSERT_TRUE(plan.has_value());
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
     ScriptedKlineFlashTransport transport;
     const auto request = ssm_protocol::AddHeader(bytes::Bytes{0xbf}, 0xf0, 0x10);
     transport.ExpectWrite(request);
@@ -147,8 +149,7 @@ TEST(SubaruHitachiSh7058KlineExecutor, RejectsMalformedIdentityBeforeBaudSwitch)
     FakeCancellationToken cancel;
     RecordingEventSink events;
     auto result = executor.Execute(*plan, transport, clock, cancel, events);
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::kBadResponse);
+    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kBadResponse));
     EXPECT_TRUE(transport.ScriptConsumed());
 }
 } // namespace fastecu::flash

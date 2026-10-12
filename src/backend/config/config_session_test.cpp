@@ -193,13 +193,13 @@ TEST(ConfigSessionInitialize, FailedInitializationExposesNothing)
 {
     ConfigSessionFixture f;
     f.Put(f.paths.config_file, "<config");
-    ASSERT_FALSE(f.Initialize().has_value());
+    ASSERT_THAT(f.Initialize(), IsErr(ErrorKind::kInvalidConfig));
 
     EXPECT_TRUE(f.session.Vehicles().empty());
-    EXPECT_FALSE(f.session.SelectedRow().has_value());
+    EXPECT_THAT(f.session.SelectedRow(), IsErr(ErrorKind::kInternal));
     EXPECT_EQ(f.session.SelectedVehicle(), nullptr);
     const std::size_t writes = f.file_repository.write_calls.size();
-    EXPECT_FALSE(f.session.Save().has_value());
+    EXPECT_THAT(f.session.Save(), IsErr(ErrorKind::kInternal));
     EXPECT_EQ(f.file_repository.write_calls.size(), writes);
 }
 
@@ -208,7 +208,7 @@ TEST(ConfigSessionInitialize, AFailedReinitializationDropsTheEarlierState)
     ConfigSessionFixture f;
     ASSERT_THAT(f.Initialize(), IsOk());
     f.Put(f.paths.config_file, "<config");
-    ASSERT_FALSE(f.Initialize().has_value());
+    ASSERT_THAT(f.Initialize(), IsErr(ErrorKind::kInvalidConfig));
     EXPECT_FALSE(f.session.Initialized());
     EXPECT_TRUE(f.session.Vehicles().empty());
 }

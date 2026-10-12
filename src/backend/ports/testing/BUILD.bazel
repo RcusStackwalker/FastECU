@@ -197,6 +197,13 @@ fastecu_portable_gtest(
 cc_library(
     name = "result_matchers",
     hdrs = ["result_matchers.h"],
+    # The desktop composition-root tests assert Results like every other layer.
+    visibility = [
+        "//apps/bench:__subpackages__",
+        "//bazel/layers:apps_desktop",
+        "//bazel/layers:src",
+        "//bazel/layers:tests",
+    ],
     deps = [
         ":error_printers",
         "//src/backend/ports",

@@ -5,6 +5,7 @@
 #include <gtest/gtest.h>
 
 #include "src/backend/ports/testing/fake_cancellation_token.h"
+#include "src/backend/ports/testing/result_matchers.h"
 
 namespace fastecu::flash
 {
@@ -12,6 +13,9 @@ namespace
 {
 
 using namespace std::chrono_literals;
+using fastecu::testing::IsErrWith;
+using fastecu::testing::IsOk;
+using ::testing::StrEq;
 
 TEST(DensoBeefCanCommonTest, BeefRequestFramesOpcodeAndPayloadLength)
 {
@@ -55,13 +59,11 @@ TEST(DensoBeefCanCommonTest, CancelledIfRequestedReportsTheCallerDetail)
     FakeCancellationToken token;
     const Ctx ctx{token};
 
-    EXPECT_TRUE(CancelledIfRequested(ctx, "cancelled before CAN request").has_value());
+    EXPECT_THAT(CancelledIfRequested(ctx, "cancelled before CAN request"), IsOk());
 
     token.SetCancelled(true);
     const Status cancelled = CancelledIfRequested(ctx, "cancelled before CAN request");
-    ASSERT_FALSE(cancelled.has_value());
-    EXPECT_EQ(cancelled.error().kind, ErrorKind::kCancelled);
-    EXPECT_EQ(cancelled.error().detail, "cancelled before CAN request");
+    EXPECT_THAT(cancelled, IsErrWith(ErrorKind::kCancelled, StrEq("cancelled before CAN request")));
 }
 
 } // namespace

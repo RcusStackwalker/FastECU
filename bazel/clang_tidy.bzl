@@ -23,7 +23,7 @@ def _clang_tidy_runner_impl(name, visibility, mode, changed):
       name: Name of the target.
       visibility: Caller visibility forwarded to the runner target.
       mode: "report" to list findings, "fix" to apply available fixes, or
-        "benchmark" to measure the local advisory-pass cost.
+        "benchmark" to measure the local inline-pass cost.
       changed: Restrict the run to files changed against the merge base.
     """
     py_binary(

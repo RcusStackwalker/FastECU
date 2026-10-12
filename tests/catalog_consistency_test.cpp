@@ -1,12 +1,14 @@
 // The built-in catalog against the three things it must agree with and no
 // single production package owns: checksum routing, the kernel bundle, and
 // the flash memory models.
-#include <algorithm>
 #include <cstdlib>
 #include <set>
 #include <sstream>
 #include <string>
+#include <string_view>
+#include <vector>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "src/backend/checksum/dispatch.h"
@@ -63,12 +65,13 @@ TEST(CatalogConsistency, EveryKernelNameIsABundledFileSpelledExactly)
 
 TEST(CatalogConsistency, EveryBundledKernelIsUsed)
 {
-    for (const std::string& name : BundledKernelNames())
+    // ProtocolSpec has no printer; match the kernel names so a failure lists them.
+    std::vector<std::string_view> used_kernels;
+    for (const auto& protocol : BuiltinCatalog().Protocols())
     {
-        EXPECT_TRUE(std::ranges::any_of(BuiltinCatalog().Protocols(),
-                                        [&name](const auto& protocol) { return protocol.kernel == name; }))
-            << name;
+        used_kernels.push_back(protocol.kernel);
     }
+    EXPECT_THAT(used_kernels, ::testing::IsSupersetOf(BundledKernelNames()));
 }
 
 // MUT/DMA logging's M32170 is the one MCU without a flash memory model, and

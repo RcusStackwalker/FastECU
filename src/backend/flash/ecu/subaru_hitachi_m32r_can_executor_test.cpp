@@ -39,6 +39,7 @@ using fastecu::flash::SubaruHitachiM32rCanPlan;
 // CanExecutorConformance's must be brought in wholesale rather than by a
 // single using-declaration.
 using namespace fastecu::flash::testing;
+using testing::Each;
 using testing::HasSubstr;
 using testing::IsEmpty;
 
@@ -313,7 +314,7 @@ TEST(SubaruHitachiM32rCanExecutor, ConnectAndReadReturnsTheFullRomFromAddressZer
     ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_TRUE(result->read_bytes.has_value());
     EXPECT_EQ(result->read_bytes->size(), 0x80000U);
-    EXPECT_TRUE(std::ranges::all_of(*result->read_bytes, [](bytes::Byte b) { return b == 0x5A; }));
+    EXPECT_THAT(*result->read_bytes, Each(0x5A));
     EXPECT_TRUE(transport.ScriptConsumed());
 }
 
