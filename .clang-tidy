@@ -179,12 +179,16 @@ CheckOptions:
 # errors like every other check. Keeping them out of Checks above preserves
 # the built-in pass's header scope. LLVM prefixes each Name with custom-. Use
 # the registered name when enabling a check or excluding it from
-# WarningsAsErrors.
+# WarningsAsErrors. Query fixtures: scripts/clang_tidy_checks_test.py; runner
+# and adapter tests: scripts/clang_tidy_runner_test.py and
+# scripts/clang_tidy_adapter_test.py.
 CustomChecks:
 # Both operators must be built-in; overloaded iterator/optional operators
 # do real work. Dependent template definitions wait for resolved instantiations.
 # Unlike Sonar cpp:S3491, macro pairs are included and *& is
 # outside this check's scope. The query provides diagnostics, not fix-its.
+# Fix: std::to_address(p) for object pointers, keeping any end() guard. For
+# function pointers, remove the pair; std::to_address does not accept them.
   - Name: fastecu-redundant-address-dereference
     Query: |
       match unaryOperator(
@@ -203,6 +207,8 @@ CustomChecks:
 # Match the direct operand of GoogleTest's AssertionResult construction.
 # Following only transparent wrappers and logical negation excludes unrelated
 # nested calls/aggregates while retaining direct assertions inside callbacks.
+# Only std::expected<T, fastecu::Error> counts, not std::optional. The Result
+# API suite (src/backend/ports/result_test.cpp) is excluded.
   - Name: fastecu-result-assertion
     Query: |
       match cxxConstructExpr(
@@ -271,6 +277,8 @@ CustomChecks:
       - BindName: assertion
         Message: 'assert Result/Status with IsOk(), IsErr(), or IsErrWith() rather than a bare boolean assertion'
         Level: Warning
+# Boolean container predicates as the direct operand of a GoogleTest assertion,
+# with the same operand rules as fastecu-result-assertion.
   - Name: fastecu-container-assertion
     Query: |
       match cxxConstructExpr(
@@ -350,6 +358,10 @@ CustomChecks:
       - BindName: assertion
         Message: 'assert container properties with Google Mock matchers instead of reducing the predicate to a boolean'
         Level: Warning
+# `"text " + x` passed directly to fastecu::Fail or IEventSink::Log, following
+# transparent temporary/conversion wrappers. Not matched: arbitrary functions,
+# locals traced across statements, or path construction nested in another call.
+# Directly formatted messages are allowed.
   - Name: fastecu-message-concatenation
     Query: |
       match callExpr(
