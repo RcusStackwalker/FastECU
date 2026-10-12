@@ -505,8 +505,9 @@ locally before that gate ever sees the change:
   checks. Inline repository checks run in a separate pass covering
   first-party headers, including those under `apps/` and `tests/`.
   Findings are errors, like those of every check in [the configuration](../.clang-tidy).
-  The built-in `&*` rule's scope, permitted overloads, and source audit are
-  recorded in the [inline-check evidence](reference/clang-tidy-inline-checks.md#redundant-addressdereference-pairs).
+  The repository checks are the `CustomChecks` entries in
+  [the configuration](../.clang-tidy); their queries document scope and
+  permitted overloads (for example `fastecu-redundant-address-dereference`).
   LLVM's experimental custom-check flag is inserted by
   [the parallel-runner adapter](../scripts/clang_tidy_adapter.py); built-in
   checks retain their existing enforcement and header scope.
@@ -520,8 +521,7 @@ locally before that gate ever sees the change:
   includes the inline pass's additional parsing. Raw logs and JSON results
   are retained in the requested new output directory. Per-check seconds sum
   callback work across translation units, so they are not elapsed analysis
-  time. The [local evidence record](reference/clang-tidy-inline-checks.md)
-  owns findings, measurement conditions, and limitations.
+  time.
 - Platform-gated code is listed in the clang-tidy
   [scope manifest](../.clang-tidy-scope.toml): Linux analyzes everything it can
   build, Windows only its exclusive code (`-- --scope-os windows`). The runner
