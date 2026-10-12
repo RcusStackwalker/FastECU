@@ -235,3 +235,9 @@ metadata instead of reproducing upstream zero substitution or permissive
 fallbacks. These source-backed decoding contracts do not establish hardware
 qualification; the [composition checklist](../checklists/logging-composition-bench-checklist.md)
 owns that evidence.
+
+## SSM protocol evidence
+
+The [wire evidence owner](logging-wire-evidence.md#ssm-ordered-byte-reads) records
+source-pinned address expansion and packet examples. Host regressions do not
+replace the [composition checklist](../checklists/logging-composition-bench-checklist.md).

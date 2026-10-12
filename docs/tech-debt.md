@@ -51,6 +51,12 @@ coordinators retain their UI roles; see the relevant
   and event-log strings. Add missing scripted cases before changing those paths.
   The CAN-init NRC description uses offset 3 while other ISO-15765 NRCs use 4;
   reproduce it and distinguish a description fix from wire behavior changes.
+- **MUT/DMA free-form capacity.** The count field's 255-entry representation
+  limit is not ECU capacity. The analyzed 33520003 firmware bounds the fill loop
+  to 96 entries and 96 output bytes; the confirmed logging rewrite will enforce
+  those bounds without an XML dialect selector. The
+  [wire evidence](reference/logging-wire-evidence.md) owns the firmware source.
+  ACKs and returned values do not establish per-measurement availability or meaning.
 - **MUT memory read integrity/write bounds.** The currently uncalled helpers can
   omit a timed-out read chunk and continue, returning a gapped buffer. The
   `0x4000`–`0xBFFF` write guard checks only the start, so data may extend beyond
@@ -134,6 +140,12 @@ flash-worker prompt/progress qualification.
 
 Remaining behavior and code gaps:
 
+- Add an in-app logger measurement editor for request ID/address code, width,
+  scaling, unit, and precision, with stable identities and definition persistence.
+  The current chooser selects existing IDs and cannot author definitions; use the
+  [XML workflow](../resources/shared/config/README.md) until this follow-up is
+  implemented. User-authored MUT measurements do not require a firmware-match
+  gate; portable field and request validation still applies.
 - `CarNotResponding` is logged without a live GUI indicator.
 - Live channel/interval/protocol reconfiguration requires an explicit path through
   session config and worker; current changes require stop/start.
