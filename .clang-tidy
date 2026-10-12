@@ -42,9 +42,7 @@ Checks: >
   readability-uppercase-literal-suffix,
   readability-use-anyofallof
 
-# Staged rollout: only the new pointer check is advisory until its findings
-# are reviewed and fixed. Existing checks remain errors.
-WarningsAsErrors: '*,-custom-fastecu-redundant-address-dereference'
+WarningsAsErrors: '*'
 HeaderFilterRegex: 'src/(algorithms|backend|platform|ui)/.*\.h'
 # workaround for the issue with separators normalization
 ExcludeHeaderFilterRegex: '([/\\\\]generated_ui[/\\\\].*|_replica)\.h'
@@ -178,9 +176,8 @@ CheckOptions:
 
 # Diagnostic-only repository conventions. The Bazel runner enables these in
 # a separate pass with a wider first-party header filter; their findings are
-# errors except for the staged check listed in WarningsAsErrors. Keeping them
-# out of Checks above preserves the built-in pass's header scope.
-# LLVM prefixes each Name with custom-. Use
+# errors like every other check. Keeping them out of Checks above preserves
+# the built-in pass's header scope. LLVM prefixes each Name with custom-. Use
 # the registered name when enabling a check or excluding it from
 # WarningsAsErrors.
 CustomChecks:

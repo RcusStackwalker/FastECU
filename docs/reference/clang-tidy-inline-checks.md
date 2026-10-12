@@ -2,9 +2,8 @@
 
 The [coding guide](../coding-style.md#static-analysis) owns analysis commands
 and enforcement policy. The [configuration](../../.clang-tidy) owns the active
-inline check definitions. The original checks report errors; the new
-redundant-address-dereference check is advisory during its staged rollout.
-All inline checks provide diagnostics without automatic replacements.
+inline check definitions. All inline checks report errors and provide
+diagnostics without automatic replacements.
 The first-series measurements below were recorded while those checks were
 still advisory warnings, before their source cleanup.
 
@@ -56,9 +55,10 @@ guard. For function pointers, remove the operator pair directly because
 `std::to_address` does not accept function pointers. This rule does not require
 changing valid overloaded iterator or optional/expected expressions.
 
-The rollout adds advisory diagnostics, reviews and fixes every finding, then
-promotes the check to errors after clean full-scope Linux and Windows analysis
-and passing real-compiler fixtures. Existing checks remain enforced throughout.
+The rollout separates advisory diagnostics, source cleanup, and error
+enforcement into three PRs. The enforcement PR remains a draft until the
+cleaned tree passes full-scope Linux and Windows analysis and real-compiler
+fixtures. Existing checks remain enforced throughout.
 
 #### Local source audit, 2026-10-12
 
