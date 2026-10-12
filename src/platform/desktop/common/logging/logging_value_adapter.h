@@ -14,6 +14,8 @@ namespace fastecu::desktop::logging
 class DesktopLoggerValues
 {
   public:
+    void BeginRun(const fastecu::logging::LoggingRunSnapshot& snapshot);
+    bool SetSwitchValue(const fastecu::logging::LoggerIdentity& identity, QString value);
     void Initialize(const fastecu::logging::LoggerModel& model);
     QString ParameterValue(std::string_view protocol, std::string_view id) const;
     QString SwitchValue(std::string_view protocol, std::string_view id) const;

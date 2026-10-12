@@ -46,9 +46,9 @@ TEST(TestCdbgDriver, handshake_and_single_frame_streaming)
     t.QueueRead(kReplyCanId, test_bytes::BytesFromHex("002A123400000000"));
     const auto result = d.PollOnce(50ms, cancellation);
     ASSERT_THAT(result, fastecu::testing::IsOk());
-    ASSERT_EQ(result->Size(), 2U);
-    ASSERT_EQ(result->At(0), std::uint32_t(42));
-    ASSERT_EQ(result->At(1), std::uint32_t(0x1234));
+    ASSERT_EQ(result->values.size(), 2U);
+    ASSERT_EQ(result->values.at(0), std::uint32_t(42));
+    ASSERT_EQ(result->values.at(1), std::uint32_t(0x1234));
 }
 
 TEST(TestCdbgDriver, accepts_live_security_reply_shape)
@@ -125,7 +125,7 @@ TEST(TestCdbgDriver, handshake_fails_when_init_gets_no_reply)
     ASSERT_TRUE(!d.IsStreaming());
 }
 
-TEST(TestCdbgDriver, poll_returns_only_received_frame_values)
+TEST(TestCdbgDriver, poll_publishes_only_the_received_frame_without_unseen_zero_values)
 {
     cdbg::ScriptedCanTransport t;
     std::vector<CdbgChannel> ch = {{0x804FBF, 4}, {0x804DF2, 4}, {0x8054AC, 2}};
@@ -161,18 +161,18 @@ TEST(TestCdbgDriver, poll_returns_only_received_frame_values)
     t.QueueRead(kReplyCanId, test_bytes::BytesFromHex("00AABBCCDD000000"));
     const auto r1 = d.PollOnce(50ms, cancellation);
     ASSERT_THAT(r1, fastecu::testing::IsOk());
+    ASSERT_EQ(r1->values.size(), 1U);
     EXPECT_EQ(r1->channel_offset, 0U);
-    ASSERT_EQ(r1->Size(), 1U);
-    ASSERT_EQ(r1->At(0), std::uint32_t(0xAABBCCDD));
+    ASSERT_EQ(r1->values.at(0), std::uint32_t(0xAABBCCDD));
 
     // Frame 1 arrives next: channel 1 (4-byte) = 0x11223344, channel 2 (2-byte) = 0x5566.
     t.QueueRead(kReplyCanId, test_bytes::BytesFromHex("0111223344556600"));
     const auto r2 = d.PollOnce(50ms, cancellation);
     ASSERT_THAT(r2, fastecu::testing::IsOk());
+    ASSERT_EQ(r2->values.size(), 2U);
     EXPECT_EQ(r2->channel_offset, 1U);
-    ASSERT_EQ(r2->Size(), 2U);
-    ASSERT_EQ(r2->At(0), std::uint32_t(0x11223344));
-    ASSERT_EQ(r2->At(1), std::uint32_t(0x5566));
+    ASSERT_EQ(r2->values.at(0), std::uint32_t(0x11223344));
+    ASSERT_EQ(r2->values.at(1), std::uint32_t(0x5566));
 }
 
 TEST(TestCdbgDriver, poll_returns_empty_when_not_streaming)
@@ -182,7 +182,7 @@ TEST(TestCdbgDriver, poll_returns_empty_when_not_streaming)
     fastecu::FakeCancellationToken cancellation;
     const auto result = d.PollOnce(50ms, cancellation);
     ASSERT_THAT(result, fastecu::testing::IsOk());
-    ASSERT_TRUE(result->Empty());
+    ASSERT_TRUE(result->values.empty());
 }
 
 TEST(TestCdbgDriver, handshake_propagates_cancellation_from_bounded_read)

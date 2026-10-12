@@ -19,8 +19,8 @@ Addresses `0x000008` and `0x00001c` correspond to response positions 0 and 1.
 Display slots never determine response positions. Each requested address consumes
 one of the maintained 84 request entries. Multi-byte measurements require ordered
 byte requests. RomRaider decodes binary numeric values before scaling; unsigned big-endian
-bytes `01 02` supply input 258. FastECU’s decimal concatenation supplies 12 and
-is being corrected by the [confirmed rewrite prerequisites](../superpowers/specs/2026-10-11-logging-selection-rewrite.md).
+bytes `01 02` supply input 258. FastECU uses the same numeric interpretation;
+there is no decimal-concatenation mode.
 
 ## MUT/DMA: analyzed firmware and corrected format
 
@@ -52,9 +52,8 @@ Markdown link.
 
 Special pointer-table sources can follow firmware single-byte expansion branches;
 choosing a width does not prove the source's meaning. Do not generalize these
-properties to another firmware. The earlier proposed compatibility dialect is
-superseded by the [confirmed rewrite](../superpowers/specs/2026-10-11-logging-selection-rewrite.md);
-byte order is a correction, not an operator-selectable format.
+properties to another firmware. Byte order is a correction, with no operator
+selector. Session preparation enforces the evidenced 96-entry/96-byte guard.
 No ROM matching or automatic capability discovery is established.
 
 ## Complete response integrity
@@ -63,9 +62,9 @@ The [MUT driver](../../src/backend/protocol/mut_dma_driver.cpp) checks stream fr
 Checksum-valid truncated or oversized responses are rejected; the corrected
 decoder cannot fabricate zero values from missing bytes.
 
-Both protocols must validate the complete expected response shape before
+Both protocols validate the complete expected response shape before
 publishing any values from that poll. A malformed/truncated response is
-`kBadResponse`; absent data retains existing polling/retry policy. The confirmed rewrite isolates value-dependent conversion failures to the
+`kBadResponse`; absent data retains existing polling/retry policy. Logging isolates value-dependent conversion failures to the
 affected measurement, while protocol shape failures remain packet errors. Literal independent fixtures and
 boundary tests prove host behavior; bench evidence remains required for adapter,
 electrical, firmware, and end-to-end qualification.

@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-#include <gmock/gmock-matchers.h>
+#include <algorithm>
 
 #include "src/algorithms/protocol/mut_dma/mut_dma_codec.h"
 #include "src/algorithms/protocol/mut_dma/mut_dma_freeform.h"
@@ -60,16 +60,35 @@ TEST(TestFreeform, decode_stream_values)
     ASSERT_EQ(v.at(2), std::uint32_t(0x89ABCDEF));
 }
 
-TEST(TestFreeform, decode_stream_values_rejects_incomplete_payload)
+TEST(TestFreeform, IncompletePayloadProducesNoValues)
 {
     const std::vector<Channel> channels = {{0x8000, 2}, {0x8004, 1}};
     EXPECT_TRUE(DecodeStreamValues(channels, bytes::Bytes{0x12}).empty());
 }
 
-TEST(TestFreeform, decode_stream_values_rejects_extra_payload)
+TEST(TestFreeform, UsesFirmwareLittleEndianRequestAndValueBytes)
+{
+    bytes::Bytes expected(31, 0);
+    const bytes::Bytes prefix{0xa1, 1, 0x40, 0x34, 0x12};
+    std::copy(prefix.begin(), prefix.end(), expected.begin());
+    expected[29] = 0x28;
+    expected[30] = 0x0d;
+    EXPECT_EQ(BuildIdListFrame(0xa1, {{0x1234, 2}}), expected);
+    const auto values =
+        DecodeStreamValues({{0x4010, 2}, {0x4020, 4}}, bytes::Bytes{0x34, 0x12, 0xef, 0xcd, 0xab, 0x89});
+    EXPECT_EQ(values, (std::vector<std::uint32_t>{0x1234, 0x89abcdef}));
+}
+
+TEST(TestFreeform, RejectsExtraPayload)
 {
     const std::vector<Channel> channels = {{0x8000, 2}};
     EXPECT_TRUE(DecodeStreamValues(channels, bytes::Bytes{0x12, 0x34, 0x56}).empty());
+}
+
+TEST(MutFreeform, SingleByteBackedOemSourcesRemainZeroExtended)
+{
+    const auto values = DecodeStreamValues({{0x10, 2}, {0x11, 4}}, bytes::Bytes{0xab, 0, 0xcd, 0, 0, 0});
+    EXPECT_EQ(values, (std::vector<std::uint32_t>{0xabU, 0xcdU}));
 }
 
 TEST(MutFreeform, RequestCodesMatchColtFirmwareByteAssembly)
@@ -91,11 +110,5 @@ TEST(MutFreeform, StreamValuesMatchColtFirmwareReversedMemoryBytes)
     // Two/four-byte big-endian memory sources are emitted src[1..0]/src[3..0].
     const auto values = DecodeStreamValues({{0x4010, 1}, {0x4020, 2}, {0x4030, 4}},
                                            bytes::Bytes{0x56, 0x34, 0x12, 0xef, 0xcd, 0xab, 0x89});
-    EXPECT_THAT(values, ::testing::ElementsAre(0x56U, 0x1234U, 0x89abcdefU));
-}
-
-TEST(MutFreeform, SingleByteBackedSourcesRemainZeroExtended)
-{
-    const auto values = DecodeStreamValues({{0x10, 2}, {0x11, 4}}, bytes::Bytes{0xab, 0, 0xcd, 0, 0, 0});
-    EXPECT_THAT(values, ::testing::ElementsAre(0xabU, 0xcdU));
+    EXPECT_EQ(values, (std::vector<std::uint32_t>{0x56U, 0x1234U, 0x89abcdefU}));
 }

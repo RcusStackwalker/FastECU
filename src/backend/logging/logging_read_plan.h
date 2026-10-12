@@ -11,7 +11,7 @@ namespace fastecu::logging
 struct SsmReadPlan
 {
     std::vector<std::uint32_t> addresses;
-    std::vector<std::size_t> response_offsets;
+    std::vector<std::vector<std::size_t>> response_positions;
 };
 Result<SsmReadPlan> MakeSsmReadPlan(std::span<const LoggingChannel> channels);
 } // namespace fastecu::logging

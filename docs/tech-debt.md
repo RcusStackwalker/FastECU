@@ -21,8 +21,6 @@ Remaining actions from the backend migration roadmap:
 
 - Extract logger configuration/model installation and selection persistence
   orchestration from `MainWindow` into backend use cases.
-- Move CSV column resolution and serialization from UI code into backend logging.
-  Preserve [identity, formatting, and file-lifetime contracts](reference/logging-contracts.md).
 - Move reusable flash routing, preparation, prompt/stage policy into backend
   flash workflows. Desktop code binds plans to transports/workers and renders
   prompts; operator decisions stay outside executors. Do not unify different
@@ -53,8 +51,8 @@ coordinators retain their UI roles; see the relevant
   reproduce it and distinguish a description fix from wire behavior changes.
 - **MUT/DMA free-form capacity.** The count field's 255-entry representation
   limit is not ECU capacity. The analyzed 33520003 firmware bounds the fill loop
-  to 96 entries and 96 output bytes; the confirmed logging rewrite will enforce
-  those bounds without an XML dialect selector. The
+  to 96 entries and 96 output bytes; session preparation enforces those bounds.
+  End-to-end qualification remains outstanding. The
   [wire evidence](reference/logging-wire-evidence.md) owns the firmware source.
   ACKs and returned values do not establish per-measurement availability or meaning.
 - **MUT memory read integrity/write bounds.** The currently uncalled helpers can
@@ -140,15 +138,23 @@ flash-worker prompt/progress qualification.
 
 Remaining behavior and code gaps:
 
+- The direct serial reader currently recognizes SSM source headers `0x10`/`0x01`
+  but excludes TCU source `0x18`. Qualify and repair direct-adapter TCU framing
+  separately; target-change support invalidation does not establish transport
+  compatibility.
+
 - Add an in-app logger measurement editor for request ID/address code, width,
   scaling, unit, and precision, with stable identities and definition persistence.
   The current chooser selects existing IDs and cannot author definitions; use the
   [XML workflow](../resources/shared/config/README.md) until this follow-up is
   implemented. User-authored MUT measurements do not require a firmware-match
   gate; portable field and request validation still applies.
+- Construct a gauge renderer for acquired gauge selections; the current desktop
+  acquires, caches and exports these values but has no gauge renderer.
 - `CarNotResponding` is logged without a live GUI indicator.
 - Live channel/interval/protocol reconfiguration requires an explicit path through
-  session config and worker; current changes require stop/start.
+  session config and worker; saved selection edits remain pending with a visible
+  restart-needed state and current acquisition/display/CSV bindings stay frozen.
 - `LoggingEngine::stop()` disconnects worker signals and publishes
   `StoppedByUser` itself; its worker-Cancelled mapping is not reached by stop.
 - `FastEcuSsmTransport::write()` reports input size while discarding returned

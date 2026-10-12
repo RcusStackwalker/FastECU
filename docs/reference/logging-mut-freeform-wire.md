@@ -63,12 +63,12 @@ buffer byte one; it does not perform a software word swap.
 
 ## Scope
 
-The maintained codec implements this free-form byte order directly. Its
-previous big-endian encoding/decoding had no recorded working-hardware evidence;
-there is no compatibility dialect selector. Fixed-format DMA logging, memory
-write commands, and other MUT operations have separate layouts and are not
-changed by this correction.
+This firmware evidence supports the little-endian correction in PR #577.
+Free-form request codes and values use that byte order unconditionally; there is
+no compatibility dialect or XML selector. Fixed-format DMA logging, memory writes
+and other MUT operations retain their own layouts.
 
-The firmware also has element/output bounds in its gather routine. Those
-firmware-specific limits require a separate capacity correction; this change
-does not generalize them to every ECU or alter the current count guard.
+Session preparation enforces the analyzed 96-entry/96-output-byte bounds. The
+count field's 255-entry representation is not an ECU capacity claim. Static
+extraction does not establish working-hardware qualification. See the
+[wire evidence](logging-wire-evidence.md) for scope and limits.

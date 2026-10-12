@@ -198,3 +198,29 @@ TEST(MutDmaLoggingProtocol, PollRejectsShortChecksummedPayloadAndAcceptsNextComp
     ASSERT_EQ(result->samples.size(), 1U);
     EXPECT_EQ(result->samples.front().raw_value, "4660");
 }
+
+TEST(MutDmaLoggingProtocol, UsesFirmwareLittleEndianRequestsAndSamples)
+{
+    auto transport = std::make_unique<ScriptedKlineTransport>();
+    transport->ExpectWrite(mutdma::BuildSetupFrame(0xa0, 1));
+    transport->QueueRead(mutdma::BuildCommandFrame(0xa5, {}, mutdma::kTrailerStd));
+    // Independently pinned request prefix: command, count, width descriptor, low code, high code.
+    bytes::Bytes request(31, 0);
+    request[0] = 0xa1;
+    request[1] = 1;
+    request[2] = 0x40;
+    request[3] = 0;
+    request[4] = 0x80;
+    request[29] = 0x62;
+    request[30] = 0x0d;
+    transport->ExpectWrite(request);
+    transport->QueueRead(mutdma::BuildCommandFrame(0x05, {}, mutdma::kTrailerStd));
+    transport->QueueRead(bytes::Bytes{0x51, 0x34, 0x12, 0x97, 0x0d});
+    MutDmaLoggingProtocol protocol(std::move(transport), std::make_unique<AlreadyInMode>(125000), {MakeChannel()});
+    fastecu::FakeCancellationToken cancellation;
+    ASSERT_THAT(protocol.Start(cancellation), fastecu::testing::IsOk());
+    const auto result = protocol.Poll(50ms, cancellation);
+    ASSERT_THAT(result, fastecu::testing::IsOk());
+    ASSERT_EQ(result->samples.size(), 1U);
+    EXPECT_EQ(result->samples.front().raw_value, "4660");
+}

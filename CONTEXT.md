@@ -1,6 +1,7 @@
-# FastECU calibration language
+# FastECU domain language
 
-Terms used when viewing and editing calibration maps.
+Terms used when viewing and editing calibration maps, running terminal scripts,
+and logging vehicle measurements.
 
 ## Language
 
@@ -120,7 +121,8 @@ The operator's choices of measurements for gauges, Digital displays, and switche
 A measurement can appear in several display positions.
 
 **Definition enabled**:
-A logging definition's declaration that a measurement is enabled for use.
+A logging definition's declaration that a measurement is eligible for default
+selection.
 It does not establish whether a particular ECU provides the measurement.
 _Avoid_: ECU supported
 
@@ -142,3 +144,8 @@ Saved measurement and display choices that take effect on the next logging run.
 **Unavailable reading**:
 A selected measurement that has no usable value for the current update. A previous
 value is not presented as its current reading, and unavailable does not mean zero.
+
+**Logging measurement identity**:
+The combination of measurement kind, protocol, and definition ID. Repeated display
+positions share acquisition and one CSV column; distinct definitions remain distinct
+measurements even when their physical sources overlap.

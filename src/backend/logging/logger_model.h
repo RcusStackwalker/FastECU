@@ -12,6 +12,13 @@ namespace fastecu::logging
 
 // Parameters and switches have separate identity namespaces. The definition is
 // installed once; support and operator choices never alter its XML defaults.
+enum class EcuSupport
+{
+    kUnknown,
+    kSupported,
+    kUnsupported
+};
+
 using LoggerIdentity = std::pair<std::string, std::string>;
 
 class LoggerModel
@@ -23,19 +30,23 @@ class LoggerModel
     void SetSelection(LoggerSelection selection);
     const LoggerParameter *Parameter(std::string_view protocol, std::string_view id) const;
     const LoggerSwitch *SwitchDefinition(std::string_view protocol, std::string_view id) const;
-    bool ParameterSupported(std::string_view protocol, std::string_view id) const;
-    bool SwitchSupported(std::string_view protocol, std::string_view id) const;
-    void SetParameterSupported(std::string_view protocol, std::string_view id, bool supported);
-    void SetSwitchSupported(std::string_view protocol, std::string_view id, bool supported);
+    EcuSupport ParameterSupport(std::string_view protocol, std::string_view id) const;
+    EcuSupport SwitchSupport(std::string_view protocol, std::string_view id) const;
+    void SetParameterSupport(std::string_view protocol, std::string_view id, EcuSupport state);
+    void SetSwitchSupport(std::string_view protocol, std::string_view id, EcuSupport state);
+    void ResetSupport(std::string_view protocol);
+    void ResetSupport();
+    bool ParameterAvailable(std::string_view protocol, std::string_view id) const;
+    bool SwitchAvailable(std::string_view protocol, std::string_view id) const;
     void ApplyCapabilities(std::string_view protocol, bytes::ByteView capabilities);
-    LoggerSelection DefaultSelection() const;
+    LoggerSelection DefaultSelection(std::string_view protocol = {}) const;
 
   private:
     bool installed_ = false;
     LoggerDefinition definition_;
     LoggerSelection selection_;
-    std::map<LoggerIdentity, bool> parameter_support_;
-    std::map<LoggerIdentity, bool> switch_support_;
+    std::map<LoggerIdentity, EcuSupport> parameter_support_;
+    std::map<LoggerIdentity, EcuSupport> switch_support_;
 };
 
 } // namespace fastecu::logging

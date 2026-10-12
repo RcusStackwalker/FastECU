@@ -44,7 +44,7 @@ bytes::Bytes BuildIdListFrame(bytes::Byte list_cmd, const std::vector<Channel>& 
     }
     std::size_t id_off = 2 + desc_bytes;
     for (const Channel& channel : channels)
-    { // least-significant request byte first
+    { // u16 request codes in the little-endian byte order
         bytes::WriteU16Le(f, id_off, channel.id);
         id_off += 2;
     }

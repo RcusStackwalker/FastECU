@@ -109,10 +109,53 @@ fastecu::Result<LoggingChannel> PrepareLoggingChannel(const LoggerParameter& par
         return std::unexpected(ContextualError(
             parameter, std::format("invalid length '{}'; expected a positive decimal integer", parameter.length)));
     }
+    std::vector<std::uint32_t> byte_addresses;
+    if (!parameter.address_specs.empty())
+    {
+        const bool explicit_bytes = parameter.address_specs.size() > 1;
+        if (explicit_bytes && protocol != LoggingProtocolId::kSsm)
+        {
+            return std::unexpected(ContextualError(parameter, "explicit byte address lists require SSM"));
+        }
+        for (const auto& source : parameter.address_specs)
+        {
+            std::uint32_t source_address = 0;
+            if (!ParseUnsigned(source.value, 16, source_address))
+            {
+                return std::unexpected(ContextualError(parameter, "invalid explicit byte address"));
+            }
+            if (source.bit.has_value())
+            {
+                return std::unexpected(ContextualError(parameter, "sample bit is only valid for a switch"));
+            }
+            if (source.length.has_value())
+            {
+                std::size_t source_length = 0;
+                if (!ParseUnsigned(*source.length, 10, source_length) || source_length == 0 ||
+                    (explicit_bytes && source_length != 1))
+                {
+                    return std::unexpected(ContextualError(parameter, "invalid explicit address length"));
+                }
+                if (!explicit_bytes)
+                {
+                    length = source_length;
+                }
+            }
+            byte_addresses.push_back(source_address);
+        }
+        if (explicit_bytes)
+        {
+            length = byte_addresses.size();
+        }
+        address = byte_addresses.front();
+        if (!explicit_bytes)
+        {
+            byte_addresses.clear();
+        } // A single base expands in the read planner.
+    }
     if (length != 1 && length != 2 && length != 4)
     {
-        return std::unexpected(
-            ContextualError(parameter, "invalid length; expected 1, 2 or 4 bytes for this protocol"));
+        return std::unexpected(ContextualError(parameter, "invalid length; expected 1, 2 or 4 bytes"));
     }
     const auto storage = ParseStorage(conversion.storage_type);
     if (!storage.has_value())
@@ -155,6 +198,7 @@ fastecu::Result<LoggingChannel> PrepareLoggingChannel(const LoggerParameter& par
         .from_byte_expression = conversion.expr,
         .unit = conversion.units,
         .decimal_precision = static_cast<std::uint8_t>(precision),
+        .byte_addresses = std::move(byte_addresses),
         .storage = *storage,
         .byte_order = *byte_order,
     };
@@ -163,5 +207,32 @@ fastecu::Result<LoggingChannel> PrepareLoggingChannel(const LoggerParameter& par
         return std::unexpected(ContextualError(parameter, valid.error().detail));
     }
     return channel;
+}
+Result<LoggingChannel> PrepareLoggingSwitch(const LoggerSwitch& source, LoggingProtocolId protocol)
+{
+    std::uint8_t bit = 0;
+    if (!ParseUnsigned(source.sample_bit, 10, bit) || bit >= 8)
+    {
+        return Fail(ErrorKind::kInvalidConfig,
+                    std::format("{} switch {}: invalid sample bit; expected 0–7", source.protocol, source.id));
+    }
+    LoggerParameter parameter{.protocol = source.protocol,
+                              .id = source.id,
+                              .name = source.name,
+                              .address = source.address,
+                              .length = "1",
+                              .conversions = {{.units = "", .expr = "x", .format = "0"}}};
+    auto result = PrepareLoggingChannel(parameter, protocol);
+    if (!result.has_value())
+    {
+        return std::unexpected(result.error());
+    }
+    result->sample_bit = bit;
+    if (const auto valid = ValidateLoggingChannel(protocol, *result); !valid.has_value())
+    {
+        return Fail(ErrorKind::kInvalidConfig,
+                    std::format("{} switch {}: {}", source.protocol, source.id, valid.error().detail));
+    }
+    return result;
 }
 } // namespace fastecu::logging

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -23,6 +24,14 @@ struct Conversion
     bool operator==(const Conversion&) const = default;
 };
 
+struct LoggerAddressSpec
+{
+    std::string value;
+    std::optional<std::string> length;
+    std::optional<std::string> bit;
+    bool operator==(const LoggerAddressSpec&) const = default;
+};
+
 // One <parameter>. Identity is (protocol, id); order follows the XML.
 struct LoggerParameter
 {
@@ -37,6 +46,7 @@ struct LoggerParameter
     std::string target;
     bool enabled{false};
     std::vector<Conversion> conversions;
+    std::vector<LoggerAddressSpec> address_specs;
 
     bool operator==(const LoggerParameter&) const = default;
 };
@@ -53,6 +63,8 @@ struct LoggerSwitch
     std::string target;
     // XML defaults only. LoggerModel owns runtime support separately.
     bool enabled{false};
+
+    std::string sample_bit;
 
     bool operator==(const LoggerSwitch&) const = default;
 };

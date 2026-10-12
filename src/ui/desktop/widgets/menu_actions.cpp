@@ -314,10 +314,19 @@ void MainWindow::pasteValue()
 void MainWindow::connectToEcu(std::function<void(bool)> onDone)
 {
     connection_coordinator_->cancel();
+    const bool hadLoggingRun = logging_engine_->IsRunning() || active_logging_snapshot_.has_value();
     if (logging_engine_->IsRunning())
     {
         logging_engine_->Stop();
+    }
+    // A checked Logging action can be a request still waiting for identification.
+    if (hadLoggingRun)
+    {
         restoreLoggingUiState();
+    }
+    else
+    {
+        endLoggingCsv();
     }
     ecuid_.clear();
     ecu_init_complete_ = false;
@@ -379,6 +388,7 @@ void MainWindow::ConnectionPresentation::setPortSelectorEnabled(bool enabled)
 
 void MainWindow::ConnectionPresentation::identified(const fastecu::ui::IdentifyOutcome& outcome)
 {
+    window_.logger_model_->ResetSupport();
     window_.ecu_init_complete_ = true;
     window_.ecuid_ = QString::fromStdString(outcome.ecu_id);
     emit window_.logD("ECU ID: " + window_.ecuid_, true, true);
@@ -490,11 +500,7 @@ void MainWindow::toggleRealtime()
     else
     {
         qDebug() << "Stop datalog";
-        if (datalog_file_open_)
-        {
-            datalog_file_open_ = false;
-            datalog_file_.close();
-        }
+        endLoggingCsv();
 
         logging_engine_->Stop();
 
@@ -542,22 +548,35 @@ void MainWindow::continueStartLogging()
                          .reconnect_retry_period = 10};
     }
 
-    const auto loggingTarget =
+    const auto target =
         ecu_radio_button_->isChecked() ? fastecu::logging::LoggingTarget::kEcu : fastecu::logging::LoggingTarget::kTcu;
     auto snapshot = fastecu::desktop::logging::MakeDesktopLoggingSnapshot(
-        *logger_model_, protocolId, active_log_value_protocol_filter_, loggingPolicy, loggingTarget);
+        *logger_model_, protocolId, active_log_value_protocol_filter_, loggingPolicy, target);
     if (!snapshot.has_value())
     {
         emit logE("Logging session failed to start: " + QString::fromStdString(snapshot.error().detail), true, true);
         restoreLoggingUiState();
-        QMessageBox notice(QMessageBox::Information, tr("Logging"), QString::fromStdString(snapshot.error().detail),
-                           QMessageBox::Ok, this);
+        QMessageBox notice(this);
+        notice.setIcon(QMessageBox::Information);
+        notice.setWindowTitle(tr("Logging"));
         notice.setTextFormat(Qt::PlainText);
+        notice.setText(tr("Unable to start logging:\n") + QString::fromStdString(snapshot.error().detail));
+        notice.setStandardButtons(QMessageBox::Ok);
         notice.exec();
         return;
     }
 
+    logger_values_.BeginRun(*snapshot);
     active_logging_snapshot_.emplace(*snapshot);
+    logging_csv_failed_ = false;
+    last_logging_csv_path_.clear();
+    log_file_timer_->start();
+    updateLogboxes(active_log_value_protocol_filter_);
+    beginLoggingCsv();
+    if (!active_logging_snapshot_)
+    {
+        return;
+    }
     const auto started = logging_engine_->Start(config, std::move(*snapshot));
     if (!started.has_value())
     {
@@ -570,14 +589,14 @@ void MainWindow::continueStartLogging()
 void MainWindow::toggleLogToFile()
 {
     write_datalog_to_file_ = ui_->actionLogToFile->isChecked();
-
     if (!write_datalog_to_file_)
     {
-        if (datalog_file_open_)
-        {
-            datalog_file_open_ = false;
-            datalog_file_.close();
-        }
+        endLoggingCsv();
+    }
+    else
+    {
+        logging_csv_failed_ = false;
+        beginLoggingCsv();
     }
 }
 

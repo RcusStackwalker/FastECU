@@ -18,7 +18,8 @@ class SsmLoggingProtocol final : public LoggingProtocol
 {
   public:
     SsmLoggingProtocol(fastecu::IClock& clock, std::unique_ptr<ISsmTransport> transport,
-                       std::vector<LoggingChannel> channels, bool target_is_ecu, bool use_openport2_adapter);
+                       std::vector<LoggingChannel> channels, SsmReadPlan plan, bool target_is_ecu,
+                       bool use_openport2_adapter);
 
     fastecu::Status Start(const fastecu::ICancellationToken& cancellation) override;
     fastecu::Result<PollData> Poll(std::chrono::milliseconds timeout,
@@ -33,7 +34,7 @@ class SsmLoggingProtocol final : public LoggingProtocol
     fastecu::IClock& clock_;
     std::unique_ptr<ISsmTransport> transport_;
     const std::vector<LoggingChannel> channels_;
-    const Result<SsmReadPlan> read_plan_;
+    const SsmReadPlan plan_;
     const bool target_is_ecu_;
     const bool use_openport2_adapter_;
     bytes::Bytes pending_response_bytes_;

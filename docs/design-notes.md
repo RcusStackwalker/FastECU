@@ -106,7 +106,7 @@ confirmation, rather than adding an enum value every family must handle.
 
 ### Backend policy owns the run loop
 
-The synchronous `LoggingUseCase::run()` owns miss counting, reconnect cadence,
+The synchronous `LoggingUseCase::Run()` owns miss counting, reconnect cadence,
 and status transitions. Platform code supplies a thread and forwards events.
 A platform-owned loop would duplicate policy in each future consumer; a
 callback-driven portable scheduler has no current consumer.
@@ -114,19 +114,36 @@ callback-driven portable scheduler has no current consumer.
 ### Separate definitions, selection, support, and samples
 
 Logger definitions are immutable, selection belongs to the operator, support
-comes from identification, and display values belong to the desktop. Protocol/ID
+can be supported, unsupported or unknown from capability evidence, and display
+values belong to the desktop. XML enablement determines default eligibility, not
+ECU capability. Explicit user-authored MUT selections with unknown support are
+validated without ROM matching. Protocol/ID
 identity avoids ambiguity from duplicate labels or IDs shared across protocols.
 Owned per-run snapshots insulate workers from later widget/selection changes.
-Backend run preparation now owns definition parsing and validated immutable
-construction, including the typed target. The desktop bridge binds those values
-to transports and workers. Backend sample resolution owns identity and captured
-support eligibility; presentation owns formatting, caches and error dialogs.
+Backend preparation owns channel parsing, support/selection rules, and sample
+identity resolution. One validated, immutable run value prevents independently
+mutable identity maps and channel metadata from disagreeing. Desktop adapters
+retain input conversion, fixed formatting, display caches, and transport binding.
 
+Definition fields follow an explicit portable grammar, allowing useful whitespace
+and hexadecimal prefixes while rejecting malformed formats. Empty units permit
+dimensionless measurements; contextual startup errors identify authoring mistakes.
+The [logging contract](reference/logging-contracts.md#definition-input-validation)
+owns the accepted syntax and failure behavior.
+
+Acquisition uses the union of selected gauges, Digital values and switches,
+sharing repeated identities within each measurement kind. Active displays and CSV
+columns use captured metadata; saved edits show a restart-needed state only when
+they differ. CSV exports each acquired identity once. Portable
+column projection/record serialization define output, while the desktop creates
+and closes an exclusive CSV for every run. These contracts are owned by the
+[logging reference](reference/logging-contracts.md).
 
 SSM decodes binary numeric values before applying scaling, using the first
 conversion's storage and byte-order metadata. Its portable read plan maps
-contiguous requested bytes independently of display positions. CSV and selection
-persistence retain their existing contracts. Read the relevant section of the
+contiguous sources and ordered byte-address lists independently of display positions.
+Run-owned compiled expressions use checked arithmetic; a value-dependent failure
+clears only that measurement for the current update while healthy peers continue. Read the relevant section of the
 [logging reference](reference/logging-contracts.md) before changing these semantics.
 
 ## Definitions
@@ -176,8 +193,8 @@ checked storage encoding. Invalid cells can receive absolute replacements;
 relative operations require valid inputs. An increment applies one requested
 step, and decoding errors remain visible. The
 [calibration contract](reference/calibration-compatibility.md#decoded-values-and-map-edits)
-owns numeric rules and operator outcomes. The logging evaluator remains
-separate; further edit-policy ownership extraction is
+owns numeric rules and operator outcomes. The shared checked expression evaluator also supplies logging conversion;
+further edit-policy ownership extraction is
 [unresolved work](tech-debt.md#p1-separate-ui-from-application-logic).
 
 ### Save and flash use operation images

@@ -89,11 +89,10 @@ Result<std::string> DecodeNumeric(bytes::ByteView data, const LoggingChannel& ch
 } // namespace
 
 SsmLoggingProtocol::SsmLoggingProtocol(fastecu::IClock& clock, std::unique_ptr<ISsmTransport> transport,
-                                       std::vector<LoggingChannel> channels, bool target_is_ecu,
+                                       std::vector<LoggingChannel> channels, SsmReadPlan plan, bool target_is_ecu,
                                        bool use_openport2_adapter)
-    : clock_(clock), transport_(std::move(transport)), channels_(std::move(channels)),
-      read_plan_(MakeSsmReadPlan(channels_)), target_is_ecu_(target_is_ecu),
-      use_openport2_adapter_(use_openport2_adapter)
+    : clock_(clock), transport_(std::move(transport)), channels_(std::move(channels)), plan_(std::move(plan)),
+      target_is_ecu_(target_is_ecu), use_openport2_adapter_(use_openport2_adapter)
 {
 }
 
@@ -198,7 +197,7 @@ fastecu::Status SsmLoggingProtocol::Start(const fastecu::ICancellationToken& can
     {
         return std::unexpected(received.error());
     }
-    // The startup probe requests exactly one address and one data byte.
+    // The startup probe requests one address, hence one data byte.
     if (received->size() != 7 || received->at(0) != 0x80 || received->at(1) != 0xf0 ||
         received->at(2) != (target_is_ecu_ ? 0x10 : 0x18) || received->at(3) != 2 || received->at(4) != 0xe8 ||
         bytes::Sum8(bytes::ByteView{*received}.first(6)) != received->back())
@@ -220,11 +219,7 @@ fastecu::Result<PollData> SsmLoggingProtocol::Poll(std::chrono::milliseconds tim
         return fastecu::Fail(fastecu::ErrorKind::kDisconnected, "adapter disconnected");
     }
 
-    if (!read_plan_.has_value())
-    {
-        return std::unexpected(read_plan_.error());
-    }
-    if (auto write_result = transport_->Write(BuildSsmHeader(BuildPollRequest(*read_plan_))); !write_result.has_value())
+    if (auto write_result = transport_->Write(BuildSsmHeader(BuildPollRequest(plan_))); !write_result.has_value())
     {
         return std::unexpected(write_result.error());
     }
@@ -234,34 +229,45 @@ fastecu::Result<PollData> SsmLoggingProtocol::Poll(std::chrono::milliseconds tim
     {
         return std::unexpected(received.error());
     }
-    if (received->size() <= 6 || received->at(0) != 0x80 || received->at(1) != 0xf0 ||
-        received->at(2) != (target_is_ecu_ ? 0x10 : 0x18) ||
-        received->size() != static_cast<std::size_t>(received->at(3)) + 5 || received->at(4) != 0xe8 ||
+    if (received->empty())
+    {
+        return PollData{.responded = false};
+    }
+    const auto expected_size = plan_.addresses.size() + 6;
+    if (received->size() != expected_size || received->at(0) != 0x80 || received->at(1) != 0xf0 ||
+        received->at(2) != (target_is_ecu_ ? 0x10 : 0x18) || received->at(3) != plan_.addresses.size() + 1 ||
+        received->at(4) != 0xe8 ||
         bytes::Sum8(bytes::ByteView{*received}.first(received->size() - 1)) != received->back())
     {
-        return PollData{.responded = false};
+        return Fail(ErrorKind::kBadResponse, "SSM logging response does not match complete physical read plan");
     }
-
-    constexpr std::size_t kPayloadOffset = 5;
-    const std::size_t payload_length = received->size() - kPayloadOffset - 1;
-
-    if (payload_length != read_plan_->addresses.size())
+    if (plan_.response_positions.size() != channels_.size())
     {
-        return PollData{.responded = false};
+        return Fail(ErrorKind::kInvalidConfig, "SSM logical channel/read-plan count mismatch");
     }
     PollData data{.responded = true};
-    data.samples.reserve(channels_.size());
-    for (std::size_t index = 0; index < channels_.size(); ++index)
+    for (std::size_t i = 0; i < channels_.size(); ++i)
     {
-        const auto& channel = channels_[index];
-        const auto raw_value = DecodeNumeric(
-            bytes::ByteView{*received}.subspan(kPayloadOffset + read_plan_->response_offsets[index], channel.length),
-            channel);
+        const auto& positions = plan_.response_positions[i];
+        if (positions.size() != channels_[i].length)
+        {
+            return Fail(ErrorKind::kInvalidConfig, "SSM channel byte positions do not match width");
+        }
+        bytes::Bytes raw_bytes;
+        for (const auto position : positions)
+        {
+            if (position >= plan_.addresses.size())
+            {
+                return Fail(ErrorKind::kInvalidConfig, "SSM response position outside physical read plan");
+            }
+            raw_bytes.push_back(received->at(5 + position));
+        }
+        const auto raw_value = DecodeNumeric(raw_bytes, channels_[i]);
         if (!raw_value.has_value())
         {
             return std::unexpected(raw_value.error());
         }
-        data.samples.push_back({channel.id, *raw_value});
+        data.samples.push_back({channels_[i].id, *raw_value});
     }
     return data;
 }

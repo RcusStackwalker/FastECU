@@ -2,6 +2,7 @@
 
 #include <format>
 #include <utility>
+#include <unordered_set>
 
 #include "src/backend/logging/logging_channel_preparation.h"
 
@@ -27,36 +28,30 @@ fastecu::Result<std::string> EffectiveProtocolFilter(LoggingProtocolId protocol,
     return fastecu::Fail(ErrorKind::kInvalidConfig, "invalid logging protocol");
 }
 
-fastecu::Result<const LoggerParameter *> FindSelectedParameter(const LoggerModel& model, LoggingProtocolId protocol,
-                                                               std::string_view key, std::string_view id)
-{
-    const LoggerParameter *selected = nullptr;
-    for (const auto& parameter : model.Definition().parameters)
-    {
-        if (parameter.id != id || parameter.protocol != key ||
-            (protocol == LoggingProtocolId::kMutDma && !model.ParameterSupported(key, id)))
-        {
-            continue;
-        }
-        if (selected != nullptr)
-        {
-            return fastecu::Fail(
-                ErrorKind::kInvalidConfig,
-                std::format("{} parameter {}: duplicate logging value id in selected protocol", key, id));
-        }
-        selected = &parameter;
-    }
-    return selected;
-}
 } // namespace
 
 LoggingRunSnapshot::LoggingRunSnapshot(LoggingSession session, std::string protocol_key, LoggerSelection selection,
-                                       std::unordered_set<std::string> enabled_ids, LoggingTarget target)
+                                       std::vector<LoggingMeasurement> measurements, LoggingTarget target)
     : session_(std::move(session)), protocol_key_(std::move(protocol_key)), selection_(std::move(selection)),
-      enabled_ids_(std::move(enabled_ids)), target_(target)
+      target_(target), measurements_(std::move(measurements))
 {
 }
 
+const std::vector<LoggingMeasurement>& LoggingRunSnapshot::Measurements() const
+{
+    return measurements_;
+}
+const LoggingMeasurement *LoggingRunSnapshot::FindMeasurement(LoggingMeasurementKind kind, std::string_view id) const
+{
+    for (const auto& item : measurements_)
+    {
+        if (item.kind == kind && item.identity.second == id)
+        {
+            return &item;
+        }
+    }
+    return nullptr;
+}
 const LoggingSession& LoggingRunSnapshot::Session() const
 {
     return session_;
@@ -73,10 +68,6 @@ LoggingTarget LoggingRunSnapshot::Target() const
 {
     return target_;
 }
-bool LoggingRunSnapshot::ChannelEnabled(std::string_view id) const
-{
-    return enabled_ids_.contains(std::string(id));
-}
 
 fastecu::Result<LoggingRunSnapshot> PrepareLoggingRun(const LoggerModel& model, LoggingProtocolId protocol,
                                                       std::string_view protocol_filter, LoggingPolicy policy,
@@ -92,42 +83,95 @@ fastecu::Result<LoggingRunSnapshot> PrepareLoggingRun(const LoggerModel& model, 
         return fastecu::Fail(ErrorKind::kInvalidConfig, std::format("{}: invalid logging target", *filter));
     }
     std::vector<LoggingChannel> channels;
-    std::unordered_set<std::string> participating_ids;
-    std::unordered_set<std::string> enabled_ids;
-    const auto& selected_ids = model.Selection().lower_panel_ids;
-    for (std::size_t slot = 0; slot < selected_ids.size(); ++slot)
+    std::vector<LoggingMeasurement> measurements;
+    std::unordered_set<std::string> identities;
+    const auto add = [&](LoggingMeasurementKind kind, const std::string& id) -> Status
     {
-        const auto& id = selected_ids[slot];
-        const auto selected = FindSelectedParameter(model, protocol, *filter, id);
-        if (!selected.has_value())
+        const auto tag = std::format("{}:{}", kind == LoggingMeasurementKind::kParameter ? "parameter" : "switch", id);
+        if (!identities.insert(tag).second)
         {
-            return std::unexpected(selected.error());
+            return {};
         }
-        if (*selected == nullptr)
+        const auto state = kind == LoggingMeasurementKind::kParameter ? model.ParameterSupport(*filter, id)
+                                                                      : model.SwitchSupport(*filter, id);
+        if (state == EcuSupport::kUnsupported)
         {
-            continue;
+            return Fail(
+                ErrorKind::kInvalidConfig,
+                std::format("{} {}: selected measurement is known unsupported; remove or replace it", *filter, tag));
         }
-        if (!participating_ids.insert(id).second)
+        Result<LoggingChannel> prepared = Fail(ErrorKind::kInvalidConfig, "unresolved measurement");
+        std::string name;
+        std::size_t matches = 0;
+        if (kind == LoggingMeasurementKind::kParameter)
         {
-            return fastecu::Fail(ErrorKind::kInvalidConfig,
-                                 std::format("{} parameter {}: duplicate lower-panel logging value id", *filter, id));
+            for (const auto& source : model.Definition().parameters)
+            {
+                if (source.protocol == *filter && source.id == id)
+                {
+                    ++matches;
+                    prepared = PrepareLoggingChannel(source, protocol);
+                    name = source.name;
+                }
+            }
         }
-        auto channel = PrepareLoggingChannel(**selected, protocol);
-        if (!channel.has_value())
+        else
         {
-            return std::unexpected(channel.error());
+            for (const auto& source : model.Definition().switches)
+            {
+                if (source.protocol == *filter && source.id == id)
+                {
+                    ++matches;
+                    prepared = PrepareLoggingSwitch(source, protocol);
+                    name = source.name;
+                }
+            }
         }
-        if (protocol != LoggingProtocolId::kSsm || model.ParameterSupported(*filter, id))
+        if (matches != 1)
         {
-            enabled_ids.insert(id);
+            return Fail(ErrorKind::kInvalidConfig,
+                        std::format("{} {}: {} definition; remove or replace the selected entry", *filter, tag,
+                                    matches == 0 ? "unresolved" : "duplicate"));
         }
-        channels.push_back(std::move(*channel));
+        if (!prepared.has_value())
+        {
+            return std::unexpected(prepared.error());
+        }
+        prepared->id = tag;
+        measurements.push_back({.kind = kind,
+                                .identity = {*filter, id},
+                                .channel_id = tag,
+                                .name = std::move(name),
+                                .unit = prepared->unit,
+                                .decimal_precision = prepared->decimal_precision,
+                                .support = state});
+        channels.push_back(std::move(*prepared));
+        return {};
+    };
+    for (const auto& ids : {model.Selection().gauge_ids, model.Selection().lower_panel_ids})
+    {
+        for (const auto& id : ids)
+        {
+            const auto status = add(LoggingMeasurementKind::kParameter, id);
+            if (!status.has_value())
+            {
+                return std::unexpected(status.error());
+            }
+        }
+    }
+    for (const auto& id : model.Selection().switch_ids)
+    {
+        const auto status = add(LoggingMeasurementKind::kSwitch, id);
+        if (!status.has_value())
+        {
+            return std::unexpected(status.error());
+        }
     }
     auto session = MakeLoggingSession(protocol, std::move(channels), policy);
     if (!session.has_value())
     {
-        return fastecu::Fail(session.error().kind, std::format("{}: {}", *filter, session.error().detail));
+        return Fail(session.error().kind, std::format("{}: {}", *filter, session.error().detail));
     }
-    return LoggingRunSnapshot(std::move(*session), *filter, model.Selection(), std::move(enabled_ids), target);
+    return LoggingRunSnapshot(std::move(*session), *filter, model.Selection(), std::move(measurements), target);
 }
 } // namespace fastecu::logging

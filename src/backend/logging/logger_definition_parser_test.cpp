@@ -74,6 +74,7 @@ TEST(LoggerDefinitionParser, ParsesParametersSwitchesAndConversions)
     EXPECT_EQ(s.address, "0x20");
     EXPECT_EQ(s.ecu_byte_index, "7");
     EXPECT_EQ(s.ecu_bit, "1");
+    EXPECT_EQ(s.sample_bit, "1");
     EXPECT_EQ(s.target, "2");
     // The definition XML carries no switch enabled attribute; always false
     // out of the parser (file_actions.cpp:1261).
@@ -202,6 +203,27 @@ TEST(LoggerDefinitionParser, AcceptsAnEmptyButWellFormedDocument)
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_THAT(result->parameters, IsEmpty());
     EXPECT_THAT(result->switches, IsEmpty());
+}
+
+TEST(LoggerDefinitionParser, ReadsCanonicalSwitchByteAndBitIgnoringAliases)
+{
+    constexpr std::string_view kXml = R"(<logger><protocols><protocol id="SSM">
+      <parameters><parameter id="wide" enabled="1">
+        <address length="2">0x10</address>
+      </parameter></parameters>
+      <switches><switch id="flag" enabled="1" byte="0x21" bit="6" ecubyteindex="0" ecubit="1">
+        <address bit="5">0x20</address>
+      </switch></switches>
+    </protocol></protocols></logger>)";
+    const auto result = ParseLoggerDefinition(View(kXml), "nested.xml");
+    ASSERT_THAT(result, fastecu::testing::IsOk());
+    EXPECT_EQ(result->parameters.at(0).length, "2");
+    EXPECT_EQ(result->switches.at(0).address, "0x21");
+    EXPECT_EQ(result->switches.at(0).ecu_bit, "6");
+    EXPECT_EQ(result->switches.at(0).sample_bit, "6");
+    ASSERT_EQ(result->parameters.at(0).address_specs.size(), 1U);
+    EXPECT_EQ(result->parameters.at(0).address_specs.at(0).length, "2");
+    EXPECT_TRUE(result->switches.at(0).enabled);
 }
 
 } // namespace

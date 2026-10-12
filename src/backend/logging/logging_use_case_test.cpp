@@ -138,7 +138,7 @@ TEST(LoggingUseCaseTest, ConvertsAndEmitsOrderedSamplesThenCancels)
     ASSERT_EQ(sink.sample_batches.size(), 1U);
     ASSERT_EQ(sink.sample_batches[0].size(), 1U);
     EXPECT_EQ(sink.sample_batches[0][0].channel_id, "rpm");
-    EXPECT_DOUBLE_EQ(sink.sample_batches[0][0].numeric_value, 4000.0);
+    EXPECT_EQ(sink.sample_batches[0][0].numeric_value, 4000.0);
     EXPECT_EQ(sink.states, (std::vector{LoggingState::kRunning}));
     EXPECT_EQ(protocol.poll_timeouts, (std::vector{100ms}));
     EXPECT_EQ(protocol.stops, 1);
@@ -242,17 +242,35 @@ INSTANTIATE_TEST_SUITE_P(LoggingUseCase, TerminalPollErrorTest,
                                            fastecu::ErrorKind::kInternal, fastecu::ErrorKind::kDisconnected,
                                            fastecu::ErrorKind::kCancelled, fastecu::ErrorKind::kTimeout));
 
-TEST(LoggingUseCaseTest, ConversionInvalidConfigTerminates)
+TEST(LoggingUseCaseTest, ConversionFailureContinuesHealthyPeersAndRecoversWithBoundedDiagnostics)
 {
-    auto session = SessionWithPolicy(MakeValidSession().Policy(), "x/(x-1)");
+    const auto session = MakeLoggingSession(
+        LoggingProtocolId::kSsm, {Channel("rpm", "x/(x-1)"), Channel("healthy", "x*2")}, MakeValidSession().Policy());
+    ASSERT_THAT(session, fastecu::testing::IsOk());
     ScriptedProtocol protocol;
-    protocol.polls.push_back(PollData{.responded = true, .samples = {{"rpm", "2"}, {"rpm", "1"}}});
+    protocol.polls = {
+        PollData{.responded = true, .samples = {{"rpm", "2"}, {"healthy", "10"}}},
+        PollData{.responded = true, .samples = {{"rpm", "1"}, {"healthy", "11"}}},
+        PollData{.responded = true, .samples = {{"rpm", "1"}, {"healthy", "12"}}},
+        PollData{.responded = true, .samples = {{"rpm", "3"}, {"healthy", "13"}}},
+    };
+    FakeCancellationToken token;
+    token.SetPredicate([&protocol] { return protocol.polls_completed >= 4; });
     RecordingLoggingSink sink;
-
-    ASSERT_THAT(RunUntilCancelled(session, protocol, sink, 2),
-                fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
+    RecordingEventSink diagnostics;
+    EXPECT_THAT(LoggingUseCase{}.Run(*session, protocol, token, sink, diagnostics),
+                fastecu::testing::IsErr(fastecu::ErrorKind::kCancelled));
+    ASSERT_EQ(sink.sample_batches.size(), 4U);
+    EXPECT_EQ(sink.sample_batches[0][0].numeric_value, 2.0);
+    EXPECT_EQ(sink.sample_batches[3][0].numeric_value, 1.5);
+    EXPECT_EQ(sink.sample_batches[1][0].numeric_value, std::nullopt);
+    EXPECT_EQ(sink.sample_batches[2][0].numeric_value, std::nullopt);
+    EXPECT_EQ(sink.sample_batches[1][1].numeric_value, 22.0);
+    EXPECT_EQ(sink.sample_batches[2][1].numeric_value, 24.0);
+    EXPECT_EQ(sink.sample_batches[3][1].numeric_value, 26.0);
+    ASSERT_EQ(diagnostics.logs.size(), 1U);
+    EXPECT_THAT(diagnostics.logs[0].second, ::testing::HasSubstr("rpm"));
     EXPECT_EQ(protocol.stops, 1);
-    EXPECT_TRUE(sink.sample_batches.empty());
 }
 
 TEST(LoggingUseCaseTest, UnknownProtocolChannelTerminatesAsInternal)

@@ -10,7 +10,8 @@ editor is [follow-up work](../../../docs/tech-debt.md#p2-logging-engine-follow-u
 Save a user-owned `.xml` file. Start with the structure below or adapt the
 [MUT/DMA example](logger_mut_dma_example.xml) or [CDBG example](logger_cdbg_example.xml).
 The MUT example's addresses are placeholders, and its parameters need
-`enabled="1"` to participate in the current MUT logging implementation.
+`enabled="1"` for default/chooser eligibility. MUT free-form codes and values
+use the firmware-backed little-endian interpretation.
 
 This example demonstrates the file structure. Replace its name, request code,
 width, conversion, and unit with your own measurement definition; `0x4010` is
@@ -41,7 +42,7 @@ not a claim that a particular ECU stores the example value there.
 | Protocol `id` | Matches the selected logging protocol; use `MUT_DMA` for this example |
 | Parameter `id` | Stable application identity stored in the saved selection; keep it unique within the protocol |
 | `name` | Name offered in the measurement chooser |
-| `enabled="1"` | Makes the MUT parameter eligible in the current implementation; it does not prove ECU support |
+| `enabled="1"` | Default/chooser eligibility when ECU support is unknown; not capability evidence |
 | `<address>` | Hexadecimal request code sent to the ECU |
 | `<address length="…">` | MUT/DMA read width: 1, 2, or 4 bytes |
 | `expr` | Conversion of raw `x` using arithmetic, for example `x/4` or `x*0.5-10` |
@@ -54,8 +55,43 @@ RAM address such as `0x804010` cannot be entered directly in this field. Supply
 the code your ECU expects; the application does not establish its measurement
 meaning from a successful response.
 
+### MUT wire interpretation and capacity
+
+MUT free-form request codes and two/four-byte values use little endian. A session
+permits at most 96 request entries and 96 response data bytes. The count field's
+255-entry representation is not an ECU capacity claim. No dialect selector or ROM
+matching is required, and ACK/data does not establish per-measurement support.
+The [wire evidence](../../../docs/reference/logging-wire-evidence.md) owns the
+firmware scope and qualification boundaries.
+
+### SSM byte sources and switches
+
+A nested parameter `<address length="2">0x10</address>` reads byte addresses
+`0x10` and `0x11`. Only nested address width is read; absent width defaults to
+one and parameter-level `length` is ignored. Multiple one-byte `<address>` elements describe an explicit
+ordered SSM byte list. Its 84-entry budget counts requested byte addresses.
+
+A switch keeps sample metadata separate from capability metadata:
+
+```xml
+<logger><protocols><protocol id="SSM">
+    <switches>
+        <switch id="USER_FLAG" name="Custom flag" enabled="1"
+                byte="0x20" bit="7" ecubyteindex="5"/>
+    </switches>
+</protocol></protocols></logger>
+```
+
+This is a structure example; supply your actual byte address and capability
+metadata, or omit `ecubyteindex` when support is unknown. Bit 7 extracts the flag
+from the byte read at `0x20` and also selects capability bit 7 at index 5. Sample
+and capability roles remain separate internally. Nested switch addresses and
+`ecubit` do not override the top-level `byte`/`bit` fields. The indicator shows
+ON/OFF and CSV stores 1/0; unavailable readings show Unavailable and an empty CSV
+cell. Switch-only definitions can initialize selection slots.
+
 The first conversion is used for logging. The accepted numeric, expression, and
-format rules are owned by the [logging contracts](../../../docs/reference/logging-contracts.md).
+format rules are owned by the [logging contracts](../../../docs/reference/logging-contracts.md#definition-input-validation).
 Keep parameter IDs stable when changing names, scaling, or units so saved
 selections continue to refer to the intended measurements.
 
@@ -69,19 +105,21 @@ selections continue to refer to the intended measurements.
 4. **Restart FastECU.** Definitions load when the main window is constructed;
    browsing to a file or editing its contents does not reload the active model.
 5. Select a connection configuration whose logging protocol matches the XML
-   protocol. Right-click the lower logging panel, open the **Digital** tab, and
-   select the measurement names for its existing slots.
+   protocol. Right-click the logging panels and use the **Gauges**, **Digital**
+   or **Switches** tabs to select measurement names for existing slots.
 6. Turn on **Logging**. Enable **Log to file** when CSV output is wanted.
 
-In the current implementation, Digital selections determine acquisition.
-Gauge-only and switch selections do not add polling requests. The
-[current run contract](../../../docs/reference/logging-contracts.md#per-run-snapshots)
-owns that behavior; acquisition for all selected displays is separate follow-up
-work.
+All selected gauges, Digital values and switches participate in acquisition.
+Repeated display positions for the same measurement share acquisition; parameter
+and switch IDs remain distinct. Gauge values are cached/exported; a gauge renderer
+is [follow-up work](../../../docs/tech-debt.md#p2-logging-engine-follow-ups).
 
-A run captures its request configuration at startup. Stop and start logging to
-apply changed selections; restart the application after editing XML definitions.
-Current preparation rejects repeated participating IDs in the Digital list.
+A run freezes its acquisition, display bindings and CSV columns. Chooser edits
+save pending choices and show that logging must restart to apply them. Every new
+run creates a fresh CSV if file logging is enabled, including an identical restart
+or restart after Connect. Existing files are preserved with collision-safe names.
+The [run and output contracts](../../../docs/reference/logging-contracts.md)
+own these behaviors.
 
 ## Definitions and saved selections are different files
 
@@ -90,13 +128,15 @@ per-ECU display selections by ID; it does not store request codes, scaling, or
 units. Choosing another XML file does not replace existing saved selection IDs.
 
 If an entry is missing from the chooser, check the selected protocol, parameter
-ID, and `enabled="1"` for MUT/DMA, then restart after file edits. If a saved ID
-is missing from the new definition, replace it through the chooser.
+ID, and `enabled="1"` for MUT/DMA, then restart after file edits. A known-unsupported or missing saved ID stays visible as unavailable and prevents
+startup; replace it through the chooser. Explicit unknown-support measurements
+remain subject to ordinary field/protocol validation.
 
-If there are no usable Digital slots, close FastECU and back up its active
+If you need to add/remove slots, close FastECU and back up its active
 `logger.cfg`. Update only the relevant ECU's
-`protocol/parameters/lower_panel/parameter` IDs to reference your definitions,
-then restart. Preserve the other ECU entries. The
+`protocol/parameters/gauges/parameter`,
+`protocol/parameters/lower_panel/parameter`, or `protocol/switches/switch` IDs to
+reference your definitions, then restart. Preserve the other ECU entries. The
 [selection persistence contract](../../../docs/reference/logging-contracts.md#selection-persistence-and-csv)
 describes the file's ownership and compatibility rules.
 
@@ -109,8 +149,8 @@ and report an error. Correct the definition or selection and retry.
 Successful parsing and acknowledgements do not establish ECU measurement
 support. In particular, the current 255-entry MUT host guard is a count-field
 limit, not a qualified ECU capacity; the
-[MUT/DMA capacity investigation](../../../docs/tech-debt.md#p1-resolve-known-correctness-gaps)
-records the known firmware discrepancy.
+[wire evidence](../../../docs/reference/logging-wire-evidence.md) records the
+implemented wire boundaries and outstanding qualification.
 
 XML configuration does not activate an ECU logging mode. The current MUT/DMA
 binding assumes the ECU is already in the required 125000-baud mode. Consult the

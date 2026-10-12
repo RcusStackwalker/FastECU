@@ -91,11 +91,9 @@ cc_library(
     name = "logging_session",
     srcs = ["logging_session.cpp"],
     hdrs = ["logging_session.h"],
-    implementation_deps = [
-        ":logging_read_plan",
-        "//src/algorithms/protocol/colt:mitsu_colt_can_cdbg_protocol",
-    ],
+    implementation_deps = ["//src/algorithms/protocol/colt:mitsu_colt_can_cdbg_protocol"],
     deps = [
+        ":logging_read_plan",
         ":logging_types",
         "//src/algorithms/expression",
         "//src/backend/ports",
@@ -179,7 +177,6 @@ cc_library(
     name = "logger_model",
     srcs = ["logger_model.cpp"],
     hdrs = ["logger_model.h"],
-    implementation_deps = [":logger_conf"],
     visibility = ["//visibility:public"],
     deps = [
         ":logger_definition_model",
@@ -188,17 +185,14 @@ cc_library(
 )
 
 cc_library(
-    name = "logging_csv_record",
-    srcs = ["logging_csv_record.cpp"],
-    hdrs = ["logging_csv_record.h"],
-)
-
-fastecu_portable_gtest(
-    name = "logging_csv_record_test",
-    srcs = ["logging_csv_record_test.cpp"],
+    name = "logging_channel_preparation",
+    srcs = ["logging_channel_preparation.cpp"],
+    hdrs = ["logging_channel_preparation.h"],
+    implementation_deps = [":logging_session"],
     deps = [
-        ":logging_csv_record",
-        "@googletest//:gtest",
+        ":logger_definition_model",
+        ":logging_types",
+        "//src/backend/ports",
     ],
 )
 
@@ -216,18 +210,6 @@ fastecu_portable_gtest(
 )
 
 cc_library(
-    name = "logging_channel_preparation",
-    srcs = ["logging_channel_preparation.cpp"],
-    hdrs = ["logging_channel_preparation.h"],
-    implementation_deps = [":logging_session"],
-    deps = [
-        ":logger_definition_model",
-        ":logging_types",
-        "//src/backend/ports",
-    ],
-)
-
-cc_library(
     name = "logging_run_snapshot",
     srcs = ["logging_run_snapshot.cpp"],
     hdrs = ["logging_run_snapshot.h"],
@@ -235,6 +217,18 @@ cc_library(
     deps = [
         ":logger_model",
         ":logging_session",
+        "//src/backend/ports",
+    ],
+)
+
+cc_library(
+    name = "logging_sample_resolution",
+    srcs = ["logging_sample_resolution.cpp"],
+    hdrs = ["logging_sample_resolution.h"],
+    deps = [
+        ":logger_model",
+        ":logging_run_snapshot",
+        ":logging_types",
         "//src/backend/ports",
     ],
 )
@@ -262,15 +256,13 @@ fastecu_portable_gtest(
     ],
 )
 
-cc_library(
-    name = "logging_sample_resolution",
-    srcs = ["logging_sample_resolution.cpp"],
-    hdrs = ["logging_sample_resolution.h"],
-    implementation_deps = [":logging_run_snapshot"],
+fastecu_portable_gtest(
+    name = "logging_read_plan_test",
+    srcs = ["logging_read_plan_test.cpp"],
     deps = [
-        ":logger_model",
-        ":logging_types",
-        "//src/backend/ports",
+        ":logging_read_plan",
+        "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
     ],
 )
 
@@ -280,6 +272,42 @@ cc_library(
     hdrs = ["logging_read_plan.h"],
     deps = [
         ":logging_types",
+        "//src/backend/ports",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "logging_csv_record_test",
+    srcs = ["logging_csv_record_test.cpp"],
+    deps = [
+        ":logging_csv_record",
+        "@googletest//:gtest",
+    ],
+)
+
+cc_library(
+    name = "logging_csv_record",
+    srcs = ["logging_csv_record.cpp"],
+    hdrs = ["logging_csv_record.h"],
+)
+
+fastecu_portable_gtest(
+    name = "logging_csv_columns_test",
+    srcs = ["logging_csv_columns_test.cpp"],
+    deps = [
+        ":logging_csv_columns",
+        "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
+    ],
+)
+
+cc_library(
+    name = "logging_csv_columns",
+    srcs = ["logging_csv_columns.cpp"],
+    hdrs = ["logging_csv_columns.h"],
+    deps = [
+        ":logger_model",
+        ":logging_run_snapshot",
         "//src/backend/ports",
     ],
 )

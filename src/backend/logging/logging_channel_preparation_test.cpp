@@ -23,13 +23,49 @@ using fastecu::testing::IsOk;
 using ::testing::AllOf;
 using ::testing::HasSubstr;
 
-LoggerParameter BuildParameter()
+LoggerParameter Parameter()
 {
     return {.protocol = "SSM",
             .id = "rpm",
             .address = "000010",
             .length = "1",
             .conversions = {{"rpm", "x", "0.00", "0", "100", "1"}}};
+}
+
+TEST(LoggingChannelPreparation, PreservesExplicitAddressOrder)
+{
+    auto p = Parameter();
+    p.address = "0x11";
+    p.address_specs = {{.value = "0x11"}, {.value = "0x10"}};
+    const auto result = PrepareLoggingChannel(p, LoggingProtocolId::kSsm);
+    ASSERT_THAT(result, IsOk());
+    EXPECT_EQ(result->length, 2U);
+    EXPECT_EQ(result->byte_addresses, (std::vector<std::uint32_t>{0x11, 0x10}));
+}
+TEST(LoggingChannelPreparation, CanonicalXmlWidthIgnoresParentAndCompilesDomainRestrictedExpression)
+{
+    const std::string xml = R"xml(<logger><protocols><protocol id="SSM"><parameters>
+      <parameter id="rpm" length="4"><address length="2">0x10</address><conversions>
+      <conversion expr="1/((x-1)*(x-16)*(x-1616))" format="0"/>
+      </conversions></parameter></parameters></protocol></protocols></logger>)xml";
+    const auto definition =
+        ParseLoggerDefinition({reinterpret_cast<const bytes::Byte *>(xml.data()), xml.size()}, "canonical.xml");
+    ASSERT_THAT(definition, IsOk());
+    const auto channel = PrepareLoggingChannel(definition->parameters.front(), LoggingProtocolId::kSsm);
+    ASSERT_THAT(channel, IsOk());
+    EXPECT_EQ(channel->length, 2U);
+}
+
+TEST(LoggingChannelPreparation, NestedSwitchAddressDoesNotSupplyMissingCanonicalSource)
+{
+    const std::string xml = R"xml(<logger><protocols><protocol id="SSM"><switches>
+      <switch id="flag"><address bit="5">20</address></switch>
+      </switches></protocol></protocols></logger>)xml";
+    const auto definition =
+        ParseLoggerDefinition({reinterpret_cast<const bytes::Byte *>(xml.data()), xml.size()}, "switch.xml");
+    ASSERT_THAT(definition, IsOk());
+    EXPECT_THAT(PrepareLoggingSwitch(definition->switches.front(), LoggingProtocolId::kSsm),
+                IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("flag")));
 }
 
 struct InvalidInput
@@ -45,7 +81,7 @@ class LoggingChannelPreparationInvalidInput : public ::testing::TestWithParam<In
 TEST_P(LoggingChannelPreparationInvalidInput, RejectsWithAuthorContext)
 {
     const auto& [field, input] = GetParam();
-    auto p = BuildParameter();
+    auto p = Parameter();
     if (field == "address")
     {
         p.address = input;
@@ -78,19 +114,12 @@ INSTANTIATE_TEST_SUITE_P(
                       InvalidInput{"format", "0.0garbage0"}, InvalidInput{"format", "0.00.000"},
                       InvalidInput{"format", " 0.00 "}, InvalidInput{"format", "0." + std::string(16, '0')}));
 
-TEST(LoggingChannelPreparation, RetainsSharedEvaluatorSyntax)
-{
-    auto parameter = BuildParameter();
-    parameter.conversions.front().expr = "+(x*1e2)";
-    EXPECT_THAT(PrepareLoggingChannel(parameter, LoggingProtocolId::kSsm), IsOk());
-}
-
 TEST(LoggingChannelPreparation, AcceptsHexadecimalAddressesAndAsciiWhitespace)
 {
     for (const auto& address : {"000010", "0x10", "0X10", " \t0x10\r\n"})
     {
         SCOPED_TRACE(address);
-        auto p = BuildParameter();
+        auto p = Parameter();
         p.address = address;
         const auto result = PrepareLoggingChannel(p, LoggingProtocolId::kSsm);
         ASSERT_THAT(result, IsOk());
@@ -104,7 +133,7 @@ TEST(LoggingChannelPreparation, AcceptsDecimalLengths)
          std::array<std::pair<const char *, std::size_t>, 3>{{{"1", 1}, {" 2 ", 2}, {"04", 4}}})
     {
         SCOPED_TRACE(input);
-        auto p = BuildParameter();
+        auto p = Parameter();
         p.length = input;
         const auto result = PrepareLoggingChannel(p, LoggingProtocolId::kSsm);
         ASSERT_THAT(result, IsOk());
@@ -114,7 +143,7 @@ TEST(LoggingChannelPreparation, AcceptsDecimalLengths)
 
 TEST(LoggingChannelPreparation, ResolvesFirstConversionAndAllowsEmptyUnits)
 {
-    auto p = BuildParameter();
+    auto p = Parameter();
     p.conversions.front().units.clear();
     p.conversions.push_back({"other", "x*2", "0.000", "0", "100", "1"});
     const auto result = PrepareLoggingChannel(p, LoggingProtocolId::kSsm);
@@ -129,7 +158,7 @@ TEST(LoggingChannelPreparation, AcceptsFixedDecimalFormatsThroughFifteenPlaces)
     for (const auto precision : {0U, 1U, 2U, 15U})
     {
         SCOPED_TRACE(precision);
-        auto p = BuildParameter();
+        auto p = Parameter();
         p.conversions.front().format = precision == 0 ? "0" : "0." + std::string(precision, '0');
         const auto result = PrepareLoggingChannel(p, LoggingProtocolId::kSsm);
         ASSERT_THAT(result, IsOk());
@@ -139,14 +168,14 @@ TEST(LoggingChannelPreparation, AcceptsFixedDecimalFormatsThroughFifteenPlaces)
 
 TEST(LoggingChannelPreparation, RejectsMissingConversionAndInvalidExpressions)
 {
-    auto p = BuildParameter();
+    auto p = Parameter();
     p.conversions.clear();
     EXPECT_THAT(PrepareLoggingChannel(p, LoggingProtocolId::kSsm),
                 IsErrWith(ErrorKind::kInvalidConfig, AllOf(HasSubstr("rpm"), HasSubstr("conversion"))));
     for (const auto expression : {"", "x+", "1/0"})
     {
         SCOPED_TRACE(expression);
-        p = BuildParameter();
+        p = Parameter();
         p.conversions.front().expr = expression;
         EXPECT_THAT(PrepareLoggingChannel(p, LoggingProtocolId::kSsm),
                     IsErrWith(ErrorKind::kInvalidConfig, AllOf(HasSubstr("rpm"), HasSubstr("expression"))));
@@ -168,7 +197,7 @@ TEST(LoggingChannelPreparation, RetainsProtocolAddressBounds)
                                                  {LoggingProtocolId::kCdbg, "ffffffff", true}}})
     {
         SCOPED_TRACE(item.address);
-        auto p = BuildParameter();
+        auto p = Parameter();
         p.address = item.address;
         const auto result = PrepareLoggingChannel(p, item.protocol);
         if (item.valid)
@@ -190,7 +219,7 @@ TEST(LoggingChannelPreparation, RetainsProtocolLengthBounds)
         {
             SCOPED_TRACE(static_cast<int>(protocol));
             SCOPED_TRACE(length);
-            auto p = BuildParameter();
+            auto p = Parameter();
             p.length = std::to_string(length);
             const auto result = PrepareLoggingChannel(p, protocol);
             const bool valid = length == 1 || length == 2 || length == 4;
@@ -205,6 +234,21 @@ TEST(LoggingChannelPreparation, RetainsProtocolLengthBounds)
         }
     }
 }
+TEST(LoggingChannelPreparation, SyntaxErrorIncludesSourcePosition)
+{
+    auto parameter = Parameter();
+    parameter.conversions.front().expr = "x+";
+    EXPECT_THAT(PrepareLoggingChannel(parameter, LoggingProtocolId::kSsm),
+                IsErrWith(ErrorKind::kInvalidConfig, AllOf(HasSubstr("rpm"), HasSubstr("position"))));
+}
+
+TEST(LoggingChannelPreparation, RetainsSharedEvaluatorSyntax)
+{
+    auto parameter = Parameter();
+    parameter.conversions.front().expr = "+(x*1e2)";
+    EXPECT_THAT(PrepareLoggingChannel(parameter, LoggingProtocolId::kSsm), IsOk());
+}
+
 TEST(LoggingChannelPreparation, RejectsInvalidSelectedNumericMetadata)
 {
     for (const auto fields : {R"(storagetype="bogus")", R"(storagetype="float")", R"(endian="middle")"})
@@ -227,7 +271,7 @@ TEST(LoggingChannelPreparation, RejectsUnsupportedNondefaultNumericMetadataForOt
 {
     for (const auto protocol : {LoggingProtocolId::kMutDma, LoggingProtocolId::kCdbg})
     {
-        auto parameter = BuildParameter();
+        auto parameter = Parameter();
         parameter.protocol = protocol == LoggingProtocolId::kMutDma ? "MUT_DMA" : "CDBG";
         parameter.conversions.front().storage_type = "int16";
         EXPECT_THAT(PrepareLoggingChannel(parameter, protocol),

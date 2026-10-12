@@ -1,9 +1,8 @@
 #pragma once
 
-#include <cstddef>
+#include <cstdint>
 #include <string>
 #include <string_view>
-#include <unordered_set>
 #include <vector>
 
 #include "src/backend/logging/logger_model.h"
@@ -18,24 +17,41 @@ enum class LoggingTarget
     kTcu,
 };
 
+enum class LoggingMeasurementKind
+{
+    kParameter,
+    kSwitch
+};
+struct LoggingMeasurement
+{
+    LoggingMeasurementKind kind;
+    LoggerIdentity identity;
+    std::string channel_id;
+    std::string name;
+    std::string unit;
+    std::uint8_t decimal_precision;
+    EcuSupport support;
+};
+
 class LoggingRunSnapshot
 {
   public:
     const LoggingSession& Session() const;
+    const std::vector<LoggingMeasurement>& Measurements() const;
+    const LoggingMeasurement *FindMeasurement(LoggingMeasurementKind kind, std::string_view id) const;
     const std::string& ProtocolKey() const;
     const LoggerSelection& Selection() const;
     LoggingTarget Target() const;
-    bool ChannelEnabled(std::string_view id) const;
 
   private:
     LoggingRunSnapshot(LoggingSession session, std::string protocol_key, LoggerSelection selection,
-                       std::unordered_set<std::string> enabled_ids, LoggingTarget target);
+                       std::vector<LoggingMeasurement> measurements, LoggingTarget target);
 
     LoggingSession session_;
     std::string protocol_key_;
     LoggerSelection selection_;
-    std::unordered_set<std::string> enabled_ids_;
     LoggingTarget target_;
+    std::vector<LoggingMeasurement> measurements_;
 
     friend fastecu::Result<LoggingRunSnapshot> PrepareLoggingRun(const LoggerModel& model, LoggingProtocolId protocol,
                                                                  std::string_view protocol_filter, LoggingPolicy policy,

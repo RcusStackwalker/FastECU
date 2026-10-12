@@ -1,6 +1,5 @@
 #include "src/backend/logging/protocols/portable_cdbg_logging_protocol.h"
 
-#include <algorithm>
 #include <string>
 #include <utility>
 
@@ -41,7 +40,7 @@ CdbgLoggingProtocol::CdbgLoggingProtocol(std::unique_ptr<cdbg::ICanTransport> tr
 
 fastecu::Status CdbgLoggingProtocol::Start(const fastecu::ICancellationToken& cancellation)
 {
-    if (auto status = CheckCancellation(cancellation); !status)
+    if (auto status = CheckCancellation(cancellation); !status.has_value())
     {
         return status;
     }
@@ -55,7 +54,7 @@ fastecu::Status CdbgLoggingProtocol::Start(const fastecu::ICancellationToken& ca
 fastecu::Result<PollData> CdbgLoggingProtocol::Poll(std::chrono::milliseconds timeout,
                                                     const fastecu::ICancellationToken& cancellation)
 {
-    if (auto status = CheckCancellation(cancellation); !status)
+    if (auto status = CheckCancellation(cancellation); !status.has_value())
     {
         return std::unexpected(status.error());
     }
@@ -69,7 +68,7 @@ fastecu::Result<PollData> CdbgLoggingProtocol::Poll(std::chrono::milliseconds ti
     }
 
     auto values = driver_.PollOnce(timeout, cancellation);
-    if (!values)
+    if (!values.has_value())
     {
         return std::unexpected(values.error());
     }
@@ -79,9 +78,11 @@ fastecu::Result<PollData> CdbgLoggingProtocol::Poll(std::chrono::milliseconds ti
     }
 
     PollData data{.responded = true};
-    const std::size_t sample_count = values->channel_offset < channels_.size()
-                                         ? std::min(values->values.size(), channels_.size() - values->channel_offset)
-                                         : 0;
+    if (values->channel_offset > channels_.size() || values->values.size() > channels_.size() - values->channel_offset)
+    {
+        return Fail(ErrorKind::kInternal, "CDBG frame values lie outside the captured channels");
+    }
+    const std::size_t sample_count = values->values.size();
     data.samples.reserve(sample_count);
     for (std::size_t i = 0; i < sample_count; ++i)
     {

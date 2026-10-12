@@ -1,6 +1,8 @@
 #include "src/backend/logging/logging_use_case.h"
 
 #include <string_view>
+#include <unordered_set>
+#include <format>
 #include <utility>
 #include <vector>
 
@@ -23,7 +25,7 @@ class StopGuard
     ~StopGuard()
     {
         const fastecu::Status stop_result = protocol_.Stop();
-        if (!stop_result)
+        if (!stop_result.has_value())
         {
             diagnostics_.Log(fastecu::LogLevel::kError, stop_result.error().detail);
         }
@@ -52,7 +54,7 @@ fastecu::Status LoggingUseCase::Run(const LoggingSession& session, LoggingProtoc
     }
 
     StopGuard stop_guard(protocol, diagnostics);
-    if (const fastecu::Status started = protocol.Start(cancellation); !started)
+    if (const fastecu::Status started = protocol.Start(cancellation); !started.has_value())
     {
         return std::unexpected(started.error());
     }
@@ -60,11 +62,12 @@ fastecu::Status LoggingUseCase::Run(const LoggingSession& session, LoggingProtoc
     events.StateChanged(LoggingState::kRunning);
     LoggingState last_state = LoggingState::kRunning;
     int consecutive_misses = 0;
+    std::unordered_set<std::string> reported_conversion_failures;
 
     while (!cancellation.Cancelled())
     {
         auto poll_result = protocol.Poll(session.Policy().poll_timeout, cancellation);
-        if (!poll_result)
+        if (!poll_result.has_value())
         {
             if (poll_result.error().kind == fastecu::ErrorKind::kBadResponse)
             {
@@ -87,9 +90,22 @@ fastecu::Status LoggingUseCase::Run(const LoggingSession& session, LoggingProtoc
             for (const ProtocolSample& raw : poll_result->samples)
             {
                 auto sample = ConvertSample(session, raw);
-                if (!sample)
+                if (!sample.has_value())
                 {
-                    return std::unexpected(sample.error());
+                    if (sample.error().kind != ErrorKind::kInvalidConfig)
+                    {
+                        return std::unexpected(sample.error());
+                    }
+                    if (reported_conversion_failures.insert(raw.channel_id).second)
+                    {
+                        diagnostics.Log(LogLevel::kError,
+                                        std::format("{} unavailable: {}", raw.channel_id, sample.error().detail));
+                    }
+                    converted.push_back({.channel_id = raw.channel_id,
+                                         .numeric_value = std::nullopt,
+                                         .raw_value = raw.raw_value,
+                                         .unit = session.FindChannel(raw.channel_id)->unit});
+                    continue;
                 }
                 converted.push_back(std::move(*sample));
             }
@@ -109,7 +125,7 @@ fastecu::Status LoggingUseCase::Run(const LoggingSession& session, LoggingProtoc
             continue;
         }
 
-        if (const fastecu::Status reconnected = protocol.Start(cancellation); !reconnected)
+        if (const fastecu::Status reconnected = protocol.Start(cancellation); !reconnected.has_value())
         {
             if (reconnected.error().kind != fastecu::ErrorKind::kBadResponse)
             {

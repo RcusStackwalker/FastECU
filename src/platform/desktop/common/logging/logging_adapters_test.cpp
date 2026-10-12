@@ -49,7 +49,7 @@ TEST(DesktopLoggingSnapshotAdapterTest, StableIdentitySurvivesSelectionEditsAndD
         {.parameters = {BuildParameter("rpm", "CDBG"), BuildParameter("rpm"), BuildParameter("coolant")}}, {"coolant"});
     desktop::DesktopLoggerValues cache;
     cache.Initialize(reordered);
-    ASSERT_THAT(desktop::ApplyLogSample(*snapshot, {.channel_id = "rpm", .numeric_value = 1234.5}, cache),
+    ASSERT_THAT(desktop::ApplyLogSample(*snapshot, {.channel_id = "parameter:rpm", .numeric_value = 1234.5}, cache),
                 fastecu::testing::IsOk());
     EXPECT_EQ(cache.ParameterValue("SSM", "rpm"), "1234.50");
     EXPECT_EQ(cache.ParameterValue("CDBG", "rpm"), "0.00");
@@ -69,7 +69,7 @@ TEST(DesktopLoggingValueAdapterTest, UnknownSamplesAndMissingCacheEntriesDoNotUp
                                     ::testing::AllOf(::testing::HasSubstr("SSM"), ::testing::HasSubstr("unknown"))));
     EXPECT_EQ(cache.ParameterValue("SSM", "rpm"), "0.00");
     desktop::DesktopLoggerValues empty;
-    EXPECT_THAT(desktop::ApplyLogSample(*snapshot, {.channel_id = "rpm", .numeric_value = 8}, empty),
+    EXPECT_THAT(desktop::ApplyLogSample(*snapshot, {.channel_id = "parameter:rpm", .numeric_value = 8}, empty),
                 fastecu::testing::IsErr(fastecu::ErrorKind::kInternal));
 }
 TEST(DesktopLoggingValueAdapterTest, CacheNamespacesAndFixedDecimalFormatting)
@@ -95,11 +95,31 @@ TEST(DesktopLoggingSnapshotAdapter, EmptyUnitsAndDisabledSamplesReachDisplayAdap
     EXPECT_EQ(snapshot->Target(), logging::LoggingTarget::kTcu);
     desktop::DesktopLoggerValues cache;
     cache.Initialize(values);
-    ASSERT_THAT(desktop::ApplyLogSample(*snapshot, {.channel_id = "rpm", .numeric_value = 2}, cache),
+    ASSERT_THAT(desktop::ApplyLogSample(*snapshot, {.channel_id = "parameter:rpm", .numeric_value = 2}, cache),
                 fastecu::testing::IsOk());
-    ASSERT_THAT(desktop::ApplyLogSample(*snapshot, {.channel_id = "off", .numeric_value = 9}, cache),
+    ASSERT_THAT(desktop::ApplyLogSample(*snapshot, {.channel_id = "parameter:off", .numeric_value = 9}, cache),
                 fastecu::testing::IsOk());
     EXPECT_EQ(cache.ParameterValue("SSM", "rpm"), "2.00");
-    EXPECT_EQ(cache.ParameterValue("SSM", "off"), "0.00");
+    EXPECT_EQ(cache.ParameterValue("SSM", "off"), "9.00");
+}
+TEST(DesktopLoggingValueAdapterTest, NewRunClearsOldValuesAndUpdatesSeparateSwitchNamespace)
+{
+    auto values = BuildModel({.parameters = {BuildParameter("rpm")},
+                              .switches = {{.protocol = "SSM", .id = "rpm", .address = "20", .sample_bit = "7"}}},
+                             {"rpm"});
+    values.SetSelection({.protocol = "SSM", .lower_panel_ids = {"rpm"}, .switch_ids = {"rpm"}});
+    const auto run = desktop::MakeDesktopLoggingSnapshot(values, logging::LoggingProtocolId::kSsm, "SSM", Policy(),
+                                                         logging::LoggingTarget::kEcu);
+    ASSERT_THAT(run, fastecu::testing::IsOk());
+    desktop::DesktopLoggerValues cache;
+    cache.Initialize(values);
+    cache.SetParameterValue({"SSM", "rpm"}, "999");
+    cache.BeginRun(*run);
+    EXPECT_TRUE(cache.ParameterValue("SSM", "rpm").isEmpty());
+    EXPECT_TRUE(cache.SwitchValue("SSM", "rpm").isEmpty());
+    ASSERT_THAT(desktop::ApplyLogSample(*run, {.channel_id = "switch:rpm", .numeric_value = 1}, cache),
+                fastecu::testing::IsOk());
+    EXPECT_EQ(cache.SwitchValue("SSM", "rpm"), "1");
+    EXPECT_TRUE(cache.ParameterValue("SSM", "rpm").isEmpty());
 }
 } // namespace

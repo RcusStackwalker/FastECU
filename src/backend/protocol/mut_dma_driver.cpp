@@ -16,7 +16,7 @@ using namespace std::chrono_literals;
 fastecu::Status WriteFrame(IKlineTransport& transport, bytes::ByteView frame)
 {
     auto result = transport.Write(frame);
-    if (!result)
+    if (!result.has_value())
     {
         return std::unexpected(result.error());
     }
@@ -33,17 +33,17 @@ fastecu::Status MutDmaDriver::StartFreeFormLog(const std::vector<Channel>& chann
 {
     channels_ = channels;
     streaming_ = false;
-    if (auto wake = init_.Wake(t_); !wake)
+    if (auto wake = init_.Wake(t_); !wake.has_value())
     {
         return wake;
     }
     const auto setup = BuildSetupFrame(setup_cmd, static_cast<bytes::Byte>(channels.size()));
-    if (auto written = WriteFrame(t_, setup); !written)
+    if (auto written = WriteFrame(t_, setup); !written.has_value())
     {
         return written;
     }
     auto resp1 = t_.Read(50ms, cancellation);
-    if (!resp1)
+    if (!resp1.has_value())
     {
         return std::unexpected(resp1.error());
     }
@@ -52,12 +52,12 @@ fastecu::Status MutDmaDriver::StartFreeFormLog(const std::vector<Channel>& chann
         return fastecu::Fail(fastecu::ErrorKind::kBadResponse, "MUT/DMA setup acknowledgement invalid");
     }
     const auto id_list = BuildIdListFrame(list_cmd, channels);
-    if (auto written = WriteFrame(t_, id_list); !written)
+    if (auto written = WriteFrame(t_, id_list); !written.has_value())
     {
         return written;
     }
     auto resp2 = t_.Read(50ms, cancellation);
-    if (!resp2)
+    if (!resp2.has_value())
     {
         return std::unexpected(resp2.error());
     }
@@ -72,7 +72,7 @@ fastecu::Status MutDmaDriver::StartFreeFormLog(const std::vector<Channel>& chann
 fastecu::Status MutDmaDriver::WriteMemory(std::uint16_t addr, bytes::ByteView data,
                                           const fastecu::ICancellationToken& cancellation)
 {
-    if (auto wake = init_.Wake(t_); !wake)
+    if (auto wake = init_.Wake(t_); !wake.has_value())
     {
         return wake;
     }
@@ -83,12 +83,12 @@ fastecu::Status MutDmaDriver::WriteMemory(std::uint16_t addr, bytes::ByteView da
     }
     for (const MutDmaFrame& f : frames)
     {
-        if (auto written = WriteFrame(t_, f); !written)
+        if (auto written = WriteFrame(t_, f); !written.has_value())
         {
             return written;
         }
         auto echo = t_.Read(50ms, cancellation);
-        if (!echo)
+        if (!echo.has_value())
         {
             return std::unexpected(echo.error());
         }

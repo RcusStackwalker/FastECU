@@ -50,6 +50,15 @@ LoggerParameter ParseParameter(pugi::xml_node node, std::string_view protocol)
     {
         parameter.address = address.child_value();
         parameter.length = AttributeOr(address, "length", "1");
+        for (pugi::xml_node item : node.children("address"))
+        {
+            parameter.address_specs.push_back(
+                {.value = item.child_value(),
+                 .length = item.attribute("length") ? std::optional<std::string>{item.attribute("length").value()}
+                                                    : std::nullopt,
+                 .bit =
+                     item.attribute("bit") ? std::optional<std::string>{item.attribute("bit").value()} : std::nullopt});
+        }
     }
     for (pugi::xml_node conversion : node.child("conversions").children("conversion"))
     {
@@ -60,7 +69,7 @@ LoggerParameter ParseParameter(pugi::xml_node node, std::string_view protocol)
 
 LoggerSwitch ParseSwitch(pugi::xml_node node, std::string_view protocol)
 {
-    return LoggerSwitch{
+    LoggerSwitch result{
         .protocol = std::string(protocol),
         .id = AttributeOr(node, "id", "No id"),
         .name = AttributeOr(node, "name", "No name"),
@@ -69,11 +78,10 @@ LoggerSwitch ParseSwitch(pugi::xml_node node, std::string_view protocol)
         .ecu_byte_index = AttributeOr(node, "ecubyteindex", "No ecu byte index"),
         .ecu_bit = AttributeOr(node, "bit", "No ecu bit"),
         .target = AttributeOr(node, "target", "No target"),
-        // The definition XML has no switch enabled attribute; the legacy
-        // parser always seeded log_switch_enabled with "0" for every switch
-        // (file_actions.cpp:1261). Runtime capability populates this later.
-        .enabled = false,
+        .enabled = AttributeOr(node, "enabled", "0") == "1",
+        .sample_bit = AttributeOr(node, "bit", ""),
     };
+    return result;
 }
 
 } // namespace

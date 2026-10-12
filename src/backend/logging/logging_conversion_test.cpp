@@ -62,7 +62,7 @@ TEST(LoggingConversionTest, ScalesDecodedSsmNumericInput)
     auto result = ConvertSample(session, ProtocolSample{"rpm", "258"});
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(result->raw_value, "258");
-    EXPECT_DOUBLE_EQ(result->numeric_value, 64.5);
+    EXPECT_EQ(result->numeric_value, 64.5);
     EXPECT_EQ(result->unit, "rpm");
 }
 
@@ -79,7 +79,7 @@ TEST(LoggingConversionTest, PreservesProtocolRawValueWithoutReassembly)
     auto result = ConvertSample(session, ProtocolSample{"rpm", "0012"});
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(result->raw_value, "0012");
-    EXPECT_DOUBLE_EQ(result->numeric_value, 12.0);
+    EXPECT_EQ(result->numeric_value, 12.0);
 }
 
 TEST(LoggingConversionTest, RejectsNonFiniteConvertedValues)
@@ -104,7 +104,7 @@ TEST(LoggingConversionTest, EvaluatesIntermediateResultsWithoutTextRounding)
     auto result = ConvertSample(session, ProtocolSample{"rpm", "10"});
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
-    EXPECT_DOUBLE_EQ(result->numeric_value, 10.0);
+    EXPECT_EQ(result->numeric_value, 10.0);
 }
 
 TEST(LoggingConversionTest, RejectsNonNumericRawValue)
@@ -126,4 +126,21 @@ TEST(LoggingConversionTest, PreparesExpressionWhoseDomainExcludesFormerProbes)
     ASSERT_THAT(ConvertSample(*session, ProtocolSample{"rpm", "2"}), fastecu::testing::IsOk());
     EXPECT_THAT(ConvertSample(*session, ProtocolSample{"rpm", "16"}),
                 fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
+}
+
+TEST(LoggingConversionTest, ExtractsSwitchBitInsteadOfTreatingWholeByteAsValue)
+{
+    auto source = Channel("switch:flag", 0x20);
+    source.length = 1;
+    source.decimal_precision = 0;
+    source.sample_bit = 7;
+    const auto session = MakeSessionWithChannel(source);
+    const auto on = ConvertSample(session, {"switch:flag", "128"});
+    const auto off = ConvertSample(session, {"switch:flag", "0"});
+    ASSERT_THAT(on, fastecu::testing::IsOk());
+    ASSERT_THAT(off, fastecu::testing::IsOk());
+    EXPECT_EQ(on->numeric_value, 1);
+    EXPECT_EQ(off->numeric_value, 0);
+    EXPECT_THAT(ConvertSample(session, {"switch:flag", "256"}),
+                fastecu::testing::IsErr(fastecu::ErrorKind::kBadResponse));
 }
