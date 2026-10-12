@@ -42,7 +42,9 @@ Checks: >
   readability-uppercase-literal-suffix,
   readability-use-anyofallof
 
-WarningsAsErrors: '*'
+# Staged rollout: only the new pointer check is advisory until its findings
+# are reviewed and fixed. Existing checks remain errors.
+WarningsAsErrors: '*,-custom-fastecu-redundant-address-dereference'
 HeaderFilterRegex: 'src/(algorithms|backend|platform|ui)/.*\.h'
 # workaround for the issue with separators normalization
 ExcludeHeaderFilterRegex: '([/\\\\]generated_ui[/\\\\].*|_replica)\.h'
@@ -176,11 +178,31 @@ CheckOptions:
 
 # Diagnostic-only repository conventions. The Bazel runner enables these in
 # a separate pass with a wider first-party header filter; their findings are
-# errors like every other check. Keeping them out of Checks above preserves
-# the built-in pass's header scope. LLVM prefixes each Name with custom-. Use
+# errors except for the staged check listed in WarningsAsErrors. Keeping them
+# out of Checks above preserves the built-in pass's header scope.
+# LLVM prefixes each Name with custom-. Use
 # the registered name when enabling a check or excluding it from
 # WarningsAsErrors.
 CustomChecks:
+# Both operators must be built-in; overloaded iterator/optional operators
+# do real work. Dependent template definitions wait for resolved instantiations.
+# Unlike Sonar cpp:S3491, macro pairs are included and *& is
+# outside this check's scope. The query provides diagnostics, not fix-its.
+  - Name: fastecu-redundant-address-dereference
+    Query: |
+      match unaryOperator(
+        hasOperatorName("&"),
+        unless(isTypeDependent()),
+        hasUnaryOperand(
+          ignoringParenImpCasts(
+            unaryOperator(hasOperatorName("*"))
+          )
+        )
+      ).bind("address")
+    Diagnostic:
+      - BindName: address
+        Message: 'remove redundant built-in &*; use std::to_address for object pointers'
+        Level: Warning
 # Match the direct operand of GoogleTest's AssertionResult construction.
 # Following only transparent wrappers and logical negation excludes unrelated
 # nested calls/aggregates while retaining direct assertions inside callbacks.

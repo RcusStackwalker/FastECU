@@ -2,9 +2,11 @@
 
 The [coding guide](../coding-style.md#static-analysis) owns analysis commands
 and enforcement policy. The [configuration](../../.clang-tidy) owns the active
-inline check definitions. These checks report errors and provide no
-automatic replacements. The measurements below were recorded while they were
-still advisory warnings, before the source tree was cleaned up.
+inline check definitions. The original checks report errors; the new
+redundant-address-dereference check is advisory during its staged rollout.
+All inline checks provide diagnostics without automatic replacements.
+The first-series measurements below were recorded while those checks were
+still advisory warnings, before their source cleanup.
 
 ## Scope and precision
 
@@ -30,13 +32,42 @@ depends on the translation units buildable on the host and the headers they
 include. A macOS scan does not establish coverage of Windows-exclusive code
 or headers unused by any analyzed translation unit.
 
+### Redundant address/dereference pairs
+
+`custom-fastecu-redundant-address-dereference` recognizes an address-of unary
+operator whose operand, after parentheses and implicit casts, is a built-in
+dereference unary operator. Both must be built-in: optional/expected access,
+overloaded iterator dereference, and overloaded address-of remain permitted.
+Type-dependent template definitions are deferred until a resolved
+instantiation proves both operators are built-in. Uninstantiated dependent
+code is not diagnosed. The reverse sequence `*&` is outside this check's scope.
+
+The rule is inspired by [Sonar cpp:S3491](https://rules.sonarsource.com/cpp/RSPEC-3491/),
+whose description was retrieved with the Sonar CLI. It intentionally differs:
+S3491 also checks `*&` and excludes pairs assembled across macro origins.
+This inline rule checks built-in macro pairs, including those assembled
+across macro boundaries. LLVM 23's query matcher API cannot generally exclude
+macro-generated operators without enumerating macro names; fixtures record
+the chosen broader macro scope. No current first-party macro finding was
+identified in the source audit.
+
+Cleanup uses `std::to_address` for object pointers, preserving any end-iterator
+guard. For function pointers, remove the operator pair directly because
+`std::to_address` does not accept function pointers. This rule does not require
+changing valid overloaded iterator or optional/expected expressions.
+
+The rollout adds advisory diagnostics, reviews and fixes every finding, then
+promotes the check to errors after clean full-scope Linux and Windows analysis
+and passing real-compiler fixtures. Existing checks remain enforced throughout.
+
 ## Validation
 
 The [fixture harness](../../scripts/clang_tidy_checks_test.py) compiles small
 GoogleTest suites against the actual Bazel compilation flags and dependencies,
 then compares exported diagnostic names and source locations to independently
-marked expectations. It checks error severity, a failing exit status for
-marked fixtures, and absence of replacements.
+marked expectations. Each marker states warning or error severity: advisory
+fixtures succeed, while fixtures with error diagnostics fail. Every diagnostic
+must have no replacements.
 
 The [adapter tests](../../scripts/clang_tidy_adapter_test.py) verify experimental
 activation, preserved upstream arguments/exit status, and explicit rejection
