@@ -36,7 +36,7 @@ class FlashDialog : public QDialog
     using ClockFactory = std::function<std::unique_ptr<IClock>()>;
 
     explicit FlashDialog(std::unique_ptr<FlashWorkflow> workflow, FlashOperation operation, const QString& filename,
-                         ClockFactory make_clock, QWidget *parent = nullptr);
+                         ClockFactory makeClock, QWidget *parent = nullptr);
     ~FlashDialog() override = default;
     FlashDialogResult run();
 

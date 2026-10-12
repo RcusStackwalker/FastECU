@@ -200,7 +200,7 @@ class TwoAttemptWorkflow final : public FlashWorkflow
     int step_ = 0;
 };
 
-FlashDialog::ClockFactory FakeClocks()
+FlashDialog::ClockFactory fakeClocks()
 {
     return []() -> std::unique_ptr<IClock> { return std::make_unique<FakeClock>(); };
 }
@@ -209,8 +209,8 @@ class RecordingDialog final : public FlashDialog
 {
   public:
     RecordingDialog(std::unique_ptr<FlashWorkflow> workflow, FlashOperation operation, const QString& filename,
-                    ClockFactory make_clock = FakeClocks())
-        : FlashDialog(std::move(workflow), operation, filename, std::move(make_clock))
+                    ClockFactory makeClock = fakeClocks())
+        : FlashDialog(std::move(workflow), operation, filename, std::move(makeClock))
     {
     }
     QList<FlashPromptKind> prompts;
@@ -287,15 +287,15 @@ TEST(FlashDialogTest, runsASecondAttemptAfterAPromptBetweenAttempts)
 
 TEST(FlashDialogTest, makesOneClockForEachAttempt)
 {
-    int clocks_made = 0;
+    int clocksMade = 0;
     RecordingDialog dialog(std::make_unique<TwoAttemptWorkflow>(), FlashOperation::kWrite, "rom.bin",
-                           [&clocks_made]() -> std::unique_ptr<IClock>
+                           [&clocksMade]() -> std::unique_ptr<IClock>
                            {
-                               ++clocks_made;
+                               ++clocksMade;
                                return std::make_unique<FakeClock>();
                            });
     ASSERT_EQ(dialog.run().outcome, FlashWorkflowOutcome::kSucceeded);
-    EXPECT_EQ(clocks_made, 2);
+    EXPECT_EQ(clocksMade, 2);
 }
 
 TEST(FlashDialogTest, programmingVoltageNoticeKeepsTheSixC3AdviceByDefault)

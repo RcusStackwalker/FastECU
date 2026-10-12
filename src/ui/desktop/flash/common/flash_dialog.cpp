@@ -10,8 +10,8 @@ namespace fastecu::flash
 {
 
 FlashDialog::FlashDialog(std::unique_ptr<FlashWorkflow> workflow, FlashOperation operation, const QString& filename,
-                         ClockFactory make_clock, QWidget *parent)
-    : QDialog(parent), workflow_(std::move(workflow)), make_clock_(std::move(make_clock)),
+                         ClockFactory makeClock, QWidget *parent)
+    : QDialog(parent), workflow_(std::move(workflow)), make_clock_(std::move(makeClock)),
       ui_(std::make_unique<Ui::EcuOperationsWindow>())
 {
     ui_->setupUi(this);
