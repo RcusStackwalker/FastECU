@@ -73,10 +73,4 @@ class DesktopKlineFlashTransport final : public IKlineFlashTransport
     std::atomic<bool> unblock_requested_{false};
 };
 
-// Whether the adapter drives programming voltage on the LEC line itself
-// (OpenPort 2.0), so the operator need not apply it. Unlike
-// requires_post_kernel_upload_delay(), this holds on every platform. A null
-// serial answers false: without adapter information the caller prompts.
-bool AdapterSuppliesProgrammingVoltage(SerialPortActions *serial);
-
 } // namespace fastecu::flash

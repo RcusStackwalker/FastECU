@@ -76,7 +76,6 @@ cc_library(
         "//src/backend/flash/eeprom:denso_sh705x_eeprom_kline",
         "//src/backend/flash/eeprom:eeprom_read_plan",
         "//src/platform/desktop/common/ports",
-        "//src/platform/desktop/common/transport:flash_transports",
     ],
     deps = [
         "//src/algorithms/protocol",
@@ -84,27 +83,44 @@ cc_library(
         "//src/backend/config:config_paths",
         "//src/backend/flash:flash_executor",
         "//src/backend/flash:flash_plan",
+        "//src/backend/flash:flash_transport_source",
         "//src/backend/ports",
     ],
+)
+
+cc_library(
+    name = "desktop_flash_workflow_ports",
+    srcs = ["desktop_flash_workflow_ports.cpp"],
+    hdrs = ["desktop_flash_workflow_ports.h"],
+    copts = COMMON_COPTS,
+    implementation_deps = [
+        "//src/platform/desktop/common/ports",
+        "//src/platform/desktop/common/transport:flash_transports",
+    ],
+    deps = [":flash_workflow"],
 )
 
 fastecu_gtest(
     name = "test_flash_workflow",
     srcs = ["flash_workflow_test.cpp"],
     deps = [
+        ":desktop_flash_workflow_ports",
         ":flash_workflow",
         "//bazel/qt:core",
         "//src/algorithms/memory:memory_image",
         "//src/backend/config:builtin_catalog",
         "//src/backend/config:catalog",
+        "//src/backend/flash:flash_transport_source",
         "//src/backend/flash/ecu:subaru_denso_sh7058_can_diesel_plan",
         "//src/backend/flash/ecu:subaru_denso_sh7058_can_plan",
         "//src/backend/ports",
         "//src/backend/ports/testing:fake_cancellation_token",
         "//src/backend/ports/testing:result_matchers",
+        "//src/platform/desktop/common/ports",
         "//src/platform/desktop/common/serial/facade:serial_port_actions",
         "//src/platform/desktop/common/serial/testing:fake_serial_backend",
         "//src/platform/desktop/common/testing:core_application_environment",
+        "//src/platform/desktop/common/transport:flash_transports",
         "@googletest//:gtest",
     ],
 )
@@ -115,6 +131,7 @@ fastecu_gtest(
     data = ["//resources/shared:kernel_files"],
     env = {"KERNEL_FILES": "$(locations //resources/shared:kernel_files)"},
     deps = [
+        ":desktop_flash_workflow_ports",
         ":flash_workflow",
         "//bazel/qt:core",
         "//src/backend/config:builtin_catalog",

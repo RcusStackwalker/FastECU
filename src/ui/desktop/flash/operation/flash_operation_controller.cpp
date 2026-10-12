@@ -6,6 +6,7 @@
 #include <utility>
 
 #include "src/backend/flash/flash_operation_request.h"
+#include "src/platform/desktop/common/flash/desktop_flash_workflow_ports.h"
 #include "src/platform/desktop/common/flash/flash_workflow.h"
 #include "src/ui/desktop/flash/common/flash_dialog.h"
 #include "src/ui/desktop/service_functions/denso_tcu_read_preflight.h"
@@ -53,14 +54,15 @@ FlashOperationOutcome FlashOperationController::run(const FlashOperationInput& i
         }
     }
 
-    auto workflow = FlashWorkflowFactory::TryCreate({
-        .operation = input.operation,
-        .protocol = input.protocol,
-        .image = input.image,
-        .paths = input.paths,
-        .display_filename = input.display_filename,
-        .serial = &serial_,
-    });
+    auto workflow = FlashWorkflowFactory::TryCreate(
+        {
+            .operation = input.operation,
+            .protocol = input.protocol,
+            .image = input.image,
+            .paths = input.paths,
+            .display_filename = input.display_filename,
+        },
+        DesktopFlashWorkflowPorts(&serial_));
     if (!workflow)
     {
         QMessageBox::warning(
