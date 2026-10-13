@@ -37,9 +37,6 @@ than copying its inventory.
 
 ## Active work
 
-- [Numeric map target resolution specification](superpowers/specs/2026-10-13-numeric-map-target-resolution.md)
-  and [implementation plan](superpowers/plans/2026-10-13-numeric-map-target-resolution.md).
-
 Task-specific specs and plans exist only while their work is proposed or unfinished.
 Find them, when present, with:
 
