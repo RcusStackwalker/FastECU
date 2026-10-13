@@ -388,6 +388,13 @@ TEST(DecodeCalibrationMap, UsesMapThenScalingStoragePrecedence)
     const auto overridden = DecodeCalibrationMap(definition, map, rom);
     ASSERT_THAT(overridden, fastecu::testing::IsOk());
     EXPECT_THAT(std::get<NumericRun>(overridden->body).cells, ::testing::ElementsAre(fastecu::testing::IsOkAnd(52)));
+    map.storage_type = StorageType::kUint16;
+    map.endian = "big";
+    const bytes::Bytes big_endian_rom{0x12, 0x34};
+    const auto explicit_endian = DecodeCalibrationMap(definition, map, big_endian_rom);
+    ASSERT_THAT(explicit_endian, fastecu::testing::IsOk());
+    EXPECT_THAT(std::get<NumericRun>(explicit_endian->body).cells,
+                ::testing::ElementsAre(fastecu::testing::IsOkAnd(4660)));
 }
 
 TEST(DecodeCalibrationMap, DecodesNumericAxesWithResolvedExpressions)

@@ -110,6 +110,23 @@ TEST(CheckMapPlacement, ChecksEachAxisToo)
                 IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("map 'Fuel' X axis lies in a fill block")));
 }
 
+TEST(CheckMapPlacement, ChecksDeclaredAxesEvenWhenDecoderOmitsThem)
+{
+    for (const auto *type : {"", "Static X Axis", "unexpected"})
+    {
+        for (const std::uint32_t dimension : {1U, 2U})
+        {
+            SCOPED_TRACE(type);
+            SCOPED_TRACE(dimension);
+            auto definition = OneMap(0x10, dimension);
+            definition.maps[0].x_axis.type = type;
+            definition.maps[0].x_axis.address = memory::DefinitionAddress{0x20};
+            definition.maps[0].x_axis.storage_type = definition::StorageType::kUint8;
+            EXPECT_THAT(Check(definition, Layout()), IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("X axis")));
+        }
+    }
+}
+
 TEST(CheckMapPlacement, ReturnsTheExtentOfTheCells)
 {
     EXPECT_THAT(Check(OneMap(0x10, 0x10), Layout()), IsOkAnd(MapExtent{.start = 0x10, .end = 0x20}));

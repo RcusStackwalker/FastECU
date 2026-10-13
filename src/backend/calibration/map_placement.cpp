@@ -10,6 +10,7 @@
 #include <variant>
 
 #include "src/backend/calibration/calibration_service.h"
+#include "src/backend/calibration/definition_interpretation_internal.h"
 
 namespace fastecu::calibration
 {
@@ -95,29 +96,24 @@ void Cover(std::optional<MapExtent>& extent, const std::optional<MapExtent>& run
 Result<MapExtent> CheckMapPlacement(const definition::RomDefinition& definition, const definition::CalibrationMap& map,
                                     const memory::MemoryMap& memory_map)
 {
-    const definition::Scaling *scaling = definition::FindScaling(definition, map.scaling_name);
-    const auto storage = map.storage_type.has_value() ? map.storage_type
-                         : scaling != nullptr         ? scaling->storage_type
-                                                      : std::nullopt;
-    const std::uint32_t width = ElementByteSize(storage, scaling);
+    const auto body = internal::ResolveMapElement(definition, map, NumericTarget::kMapBody);
     // A blob is read whole at its address, whatever its stride fields say.
-    const auto cells = storage == definition::StorageType::kBloblist
-                           ? CheckRun(map.name, "cells lie", map.address, 1, 1, 1, width, memory_map)
-                           : CheckRun(map.name, "cells lie", map.address, std::uint64_t{map.x_size} * map.y_size,
-                                      map.start_position, map.interval, width, memory_map);
+    const auto cells = body.storage_type == definition::StorageType::kBloblist
+                           ? CheckRun(map.name, "cells lie", body.address, 1, 1, 1, body.byte_width, memory_map)
+                           : CheckRun(map.name, "cells lie", body.address, body.count, body.start_position,
+                                      body.interval, body.byte_width, memory_map);
     if (!cells.has_value())
     {
         return std::unexpected(cells.error());
     }
     std::optional<MapExtent> extent = *cells;
-    for (const auto& [axis, axis_extent, subject] :
-         {std::tuple{&map.x_axis, map.x_size, "X axis lies"}, std::tuple{&map.y_axis, map.y_size, "Y axis lies"}})
+    for (const auto& [target, subject] :
+         {std::tuple{NumericTarget::kXAxis, "X axis lies"}, std::tuple{NumericTarget::kYAxis, "Y axis lies"}})
     {
-        const std::uint32_t axis_width =
-            ElementByteSize(axis->storage_type, definition::FindScaling(definition, axis->scaling_name));
-        // The decoder reads an axis as long as the map's own dimension.
-        const auto placed = CheckRun(map.name, subject, axis->address, axis_extent, axis->start_position,
-                                     axis->interval, axis_width, memory_map);
+        const auto axis = internal::ResolveMapElement(definition, map, target);
+        // Check declared axis storage even when the decoder omits that axis.
+        const auto placed = CheckRun(map.name, subject, axis.address, axis.count, axis.start_position, axis.interval,
+                                     axis.byte_width, memory_map);
         if (!placed.has_value())
         {
             return std::unexpected(placed.error());

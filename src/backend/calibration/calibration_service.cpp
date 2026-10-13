@@ -9,6 +9,7 @@
 #include <tuple>
 
 #include "src/algorithms/expression/expression.h"
+#include "src/backend/calibration/definition_interpretation_internal.h"
 #include "src/backend/calibration/scaling_internal.h"
 
 namespace fastecu::calibration
@@ -64,36 +65,23 @@ Result<NumericRun> DecodeNumericRun(const DefinitionBytes& rom, const ElementRun
 namespace
 {
 
-ElementRun MapElementRun(const definition::CalibrationMap& map, const definition::Scaling *scaling, std::uint32_t count)
+ElementRun NumericElementRun(const ResolvedElement& element)
 {
     return ElementRun{
-        .address = map.address.has_value() ? map.address->Value() : 0,
-        .count = count,
-        .start_position = map.start_position,
-        .interval = map.interval,
-        .storage_type = map.storage_type,
-        .endian = map.endian,
-        .from_byte = scaling != nullptr ? std::string_view(scaling->from_byte) : std::string_view("x"),
-        .is_selectable = map.type == "Selectable",
-    };
-}
-
-ElementRun AxisElementRun(const definition::AxisDefinition& axis, std::uint32_t count)
-{
-    return ElementRun{
-        .address = axis.address.has_value() ? axis.address->Value() : 0,
-        .count = count,
-        .start_position = axis.start_position,
-        .interval = axis.interval,
-        .storage_type = axis.storage_type,
-        .endian = axis.endian,
-        .from_byte = axis.from_byte,
-        .is_selectable = axis.type == "Selectable",
+        .address = element.address.has_value() ? element.address->Value() : 0,
+        .count = static_cast<std::uint32_t>(element.count),
+        .start_position = element.start_position,
+        .interval = element.interval,
+        .storage_type = element.storage_type,
+        .endian = element.endian,
+        .from_byte = element.from_byte,
+        .is_selectable = element.is_selectable,
     };
 }
 
 Result<AxisValue> DecodeTypedAxis(const definition::AxisDefinition& axis, std::uint32_t extent,
-                                  const DefinitionBytes& rom, bool x_axis, std::string_view map_type)
+                                  const DefinitionBytes& rom, bool x_axis, std::string_view map_type,
+                                  const ResolvedElement& element)
 {
     if (extent <= 1 || axis.type.empty())
     {
@@ -115,7 +103,7 @@ Result<AxisValue> DecodeTypedAxis(const definition::AxisDefinition& axis, std::u
     {
         return Fail(ErrorKind::kInvalidConfig, "numeric axis has no address");
     }
-    auto values = DecodeNumericRun(rom, AxisElementRun(axis, extent));
+    auto values = DecodeNumericRun(rom, NumericElementRun(element));
     if (!values.has_value())
     {
         return std::unexpected(values.error());
@@ -133,20 +121,15 @@ Result<DecodedMap> DecodeCalibrationMap(const definition::RomDefinition& rom_def
     {
         return Fail(ErrorKind::kInvalidConfig, std::format("map '{}' has unresolved scaling", map.name));
     }
-    const std::uint64_t count = std::uint64_t(map.x_size) * map.y_size;
-    if (!map.address.has_value() || count == 0 || count > std::numeric_limits<std::uint32_t>::max())
+    const auto element = ResolveMapElement(rom_definition, map, NumericTarget::kMapBody);
+    if (!element.address.has_value() || element.count == 0 || element.count > std::numeric_limits<std::uint32_t>::max())
     {
         return Fail(ErrorKind::kInvalidConfig, std::format("map '{}' has invalid address or dimensions", map.name));
     }
     DecodedMap result;
-    const auto storage = map.storage_type.has_value() ? map.storage_type
-                         : scaling != nullptr         ? scaling->storage_type
-                                                      : std::nullopt;
-    if (storage == definition::StorageType::kBloblist)
+    if (element.storage_type == definition::StorageType::kBloblist)
     {
-        const auto width = ElementByteSize(storage, scaling);
-        const std::uint64_t blob_address = map.address->Value();
-        const std::optional<bytes::ByteView> data = rom.At(blob_address, width);
+        const std::optional<bytes::ByteView> data = rom.At(element.address->Value(), element.byte_width);
         if (!data.has_value())
         {
             return Fail(ErrorKind::kInvalidConfig, std::format("map '{}' blob exceeds ROM size", map.name));
@@ -154,12 +137,7 @@ Result<DecodedMap> DecodeCalibrationMap(const definition::RomDefinition& rom_def
         result.body = BlobValue{bytes::Bytes(data->begin(), data->end())};
         return result;
     }
-    auto run = MapElementRun(map, scaling, static_cast<std::uint32_t>(count));
-    run.storage_type = storage;
-    run.endian = !map.endian.empty()  ? std::string_view(map.endian)
-                 : scaling != nullptr ? std::string_view(scaling->endian)
-                                      : std::string_view{};
-    run.from_byte = scaling != nullptr ? std::string_view(scaling->from_byte) : std::string_view("x");
+    const auto run = NumericElementRun(element);
     auto body = DecodeNumericRun(rom, run);
     if (!body.has_value())
     {
@@ -167,12 +145,14 @@ Result<DecodedMap> DecodeCalibrationMap(const definition::RomDefinition& rom_def
     }
     result.body = std::move(*body);
 
-    auto x_axis = DecodeTypedAxis(map.x_axis, map.x_size, rom, true, map.type);
+    const auto x_element = ResolveMapElement(rom_definition, map, NumericTarget::kXAxis);
+    auto x_axis = DecodeTypedAxis(map.x_axis, map.x_size, rom, true, map.type, x_element);
     if (!x_axis.has_value())
     {
         return Fail(x_axis.error().kind, std::format("map '{}' X axis: {}", map.name, x_axis.error().detail));
     }
-    auto y_axis = DecodeTypedAxis(map.y_axis, map.y_size, rom, false, map.type);
+    const auto y_element = ResolveMapElement(rom_definition, map, NumericTarget::kYAxis);
+    auto y_axis = DecodeTypedAxis(map.y_axis, map.y_size, rom, false, map.type, y_element);
     if (!y_axis.has_value())
     {
         return Fail(y_axis.error().kind, std::format("map '{}' Y axis: {}", map.name, y_axis.error().detail));
@@ -196,11 +176,7 @@ void BackupRom(std::span<const std::uint8_t> rom_data, std::string_view backup_h
 
 std::uint32_t ElementByteSize(std::optional<definition::StorageType> storage_type, const definition::Scaling *scaling)
 {
-    if (storage_type == definition::StorageType::kBloblist && scaling != nullptr && !scaling->selections.empty())
-    {
-        return static_cast<std::uint32_t>(scaling->selections.front().value.size());
-    }
-    return definition::StorageByteSize(storage_type);
+    return ElementByteWidth(storage_type, scaling);
 }
 
 std::uint64_t ElementRunEnd(std::uint64_t address, std::uint32_t start_position, std::uint32_t interval,
