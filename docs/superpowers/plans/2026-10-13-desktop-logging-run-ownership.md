@@ -1,6 +1,6 @@
 # Desktop Logging Run Ownership Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Move desktop logging run state and lifecycle ordering into one window-owned coordinator while preserving the existing logging engine, connection flow, displays, CSV behavior, and hardware policy.
 
@@ -53,8 +53,8 @@
 
 Before implementing Task 1, add `MainWindowTest.characterizesReplacementDuringSampleNotification` to `mainwindow_test.cpp`. Start blocked run A with SSM `rpm`, connect a one-shot direct `MainWindow::logE` subscriber, and inject an engine `valuesUpdated` batch containing an unknown channel followed by `parameter:rpm` with numeric value `99`. The subscriber stops A through the current realtime action and starts prepared blocked run B. Assert B is active and its rpm cache becomes `"99"` after A's suspended handler resumes. Disconnect the subscriber before cleanup. This records the existing presence-check defect; migrate that exact scenario to Task 1's coordinator test. If the current implementation produces a different result, record the actual result and reconcile the characterization before extraction; never force the predicted defect.
 
-- [ ] Add and run the baseline test: `bazel test --config=release //src/ui/desktop/widgets:test_mainwindow --test_filter=MainWindowTest.characterizesReplacementDuringSampleNotification --test_output=errors`; expected PASS against current code.
-- [ ] Commit only `src/ui/desktop/widgets/mainwindow_test.cpp` with message `test(logging): characterize replacement during sample notification`.
+- [x] Add and run the baseline test: `bazel test --config=release //src/ui/desktop/widgets:test_mainwindow --test_filter=MainWindowTest.characterizesReplacementDuringSampleNotification --test_output=errors`; expected PASS against current code.
+- [x] Commit only `src/ui/desktop/widgets/mainwindow_test.cpp` with message `test(logging): characterize replacement during sample notification`.
 
 ### Task 1: Add the desktop logging run coordinator
 
@@ -75,7 +75,7 @@ The `qt_cc_library` target depends on `//bazel/qt:core`, `//src/platform/desktop
   - Signals `presentationChanged()`, `sessionEnded(SessionEndReason, QString)`, `sampleError(QString)`, `csvError(QString)`, and `shutdownError(QString)`. Release owned run state and output before completion; a CSV failure releases only output and preserves acquisition, snapshot and cache. Publish CSV/shutdown errors only after the corresponding state transition is finished.
   - A `qt_cc_library` target `desktop_logging_run` with target visibility `//bazel/layers:ui_desktop`, plus `fastecu_gtest` target `desktop_logging_run_test`, in the existing widgets package.
 
-- [ ] **Step 1: Add coordinator tests with exact lifecycle assertions**
+- [x] **Step 1: Add coordinator tests with exact lifecycle assertions**
 
 Create `desktop_logging_run_test.cpp` with `TEST(DesktopLoggingRun, ...)` cases. Register one `CoreApplicationEnvironment` using `::testing::AddGlobalTestEnvironment` at executable scope, following `logging_engine_test.cpp`; constructing an environment locally does not construct a Qt application. Each ordinary test creates `LoggingEngine engine`, `DesktopLoggingRun run{engine}`, prepared snapshot, and `DesktopLoggingRunStart request`; register a `ScriptedLoggingProtocol` factory, use `SignalRecorder` for coordinator outcomes, and use `WaitUntil` for worker completion. The CSV failure tests construct `LoggingCsvFile(std::move(storage))` with `FailingCsvStorage`. Define `enum class FailurePoint { kOpen, kHeaderWrite, kRowWrite };` and run the failure cases with a parameterized fixture; keep the following assertions in the named tests:
 
@@ -248,31 +248,31 @@ EXPECT_FALSE(engine.IsRunning());
 
 For unavailable samples, seed `rpm=42` first, then inject unavailable rpm and healthy coolant `90` in one batch; assert empty rpm in the cache **and the CSV field**, coolant `90`, one retained row and no acquisition stop. Assert `presentationChanged` observers see the fully applied batch. For retry tests, verify an ordinary repeated `SetCsvEnabled(true, ...)` does not retry a latched failure; explicitly disable then enable to retry. Disconnect the immediate-restart completion subscriber after its first invocation to prevent teardown from restarting recursively.
 
-- [ ] **Step 2: Run the new test target to verify the missing seam**
+- [x] **Step 2: Run the new test target to verify the missing seam**
 
 Create the header declarations, minimal linkable method stubs and Gazelle-generated target first (`python3 scripts/gazelle_check.py --fix`); do not count a nonexistent Bazel label as the failing test. Run: `bazel test --config=release //src/ui/desktop/widgets:desktop_logging_run_test --test_output=errors`.
 
 Expected: the new target builds and named lifecycle assertions fail against the stubs; fix harness/compilation problems before implementing behavior.
 
-- [ ] **Step 3: Implement `DesktopLoggingRun` and its public value types**
+- [x] **Step 3: Implement `DesktopLoggingRun` and its public value types**
 
 Confine all coordinator calls and engine connections to the owning Qt thread. `Start` rejects an already active run with `kInvalidConfig` before modifying any snapshot, cache, timer or file; callers stop explicitly before starting a replacement. Initialize the copied active snapshot, cache via `DesktopLoggerValues::BeginRun`, elapsed timer, CSV path, and failure latch before calling `LoggingEngine::Start`. Do not emit a coordinator notification with half-initialized state. Buffer a CSV creation error until acquisition startup has returned, so a file failure does not block acquisition; on a returned startup error, release CSV, snapshot, and cache before publishing buffered outcomes. Keep CSV enablement across runs; reset the failure latch on a new run and on a false-to-true CSV transition only. Connect engine samples and completion to the coordinator, preserve the per-sample active-run check, continue healthy peers after sample errors, and close CSV, clear run state, then publish completion. `Stop()` must not mutate state after `LoggingEngine::Stop()` returns, because its synchronous completion subscriber may already have started the next run. In `Shutdown`, set terminal shutdown mode before stopping; reject subsequent `Start` with `kInvalidConfig`, suppress ordinary completion/presentation/CSV notices during shutdown, disconnect engine callbacks before destruction, and report a close failure through `shutdownError`. Repeat `Shutdown` safely. `FailingCsvStorage` only injects write errors; `QFile::flush` is not a virtual seam for a deterministic close-only failure. Preserve the checked `EndRun` error routing without claiming that toggling `fail_writes` proves a close error. Use no new generic storage interface.
 
 For normal completion, collect any `EndRun` error, release snapshot/cache/timer and capture completion arguments before the first notification. Emit completion before any collected close-error notice; do not mutate state after a subscriber can restart. For samples, preserve the existing per-sample presence check and error-first notification ordering, recheck presence after the batch before rendering/writing, and leave replacement-run characterization separate. CSV errors must never clear acquisition state. `presentationChanged` carries no borrowed state and is emitted only after committed transitions; the window obtains a fresh view.
 
-- [ ] **Step 4: Generate the Bazel targets**
+- [x] **Step 4: Generate the Bazel targets**
 
 Run: `python3 scripts/gazelle_check.py --fix`
 
 Expected: Gazelle emits the coordinator library and GoogleTest target in the widgets package with no visibility widening.
 
-- [ ] **Step 5: Run the coordinator suite**
+- [x] **Step 5: Run the coordinator suite**
 
 Run: `bazel test --config=release //src/ui/desktop/widgets:desktop_logging_run_test --test_output=errors`
 
 Expected: PASS; review Gazelle's target and dependency output, keeping the library within the existing widgets package and using the emitted target names if Gazelle adjusts them.
 
-- [ ] **Step 6: Commit the coordinator**
+- [x] **Step 6: Commit the coordinator**
 
 ```sh
 git add src/ui/desktop/widgets/desktop_logging_run.h src/ui/desktop/widgets/desktop_logging_run.cpp src/ui/desktop/widgets/desktop_logging_run_test.cpp src/ui/desktop/widgets/BUILD.bazel
@@ -293,17 +293,17 @@ git commit -m "refactor(logging): add desktop run coordinator"
 - Consumes: `DesktopLoggingRunStart`, `DesktopLoggingRun::Start`, `Stop`, `SetCsvEnabled`, `Shutdown`, `View`, and the five signals defined in Task 1.
 - Produces: a `MainWindow`-owned `std::unique_ptr<DesktopLoggingRun> logging_run_`. No window handler calls `LoggingEngine::Start` or `Stop`, and no borrowed snapshot/cache reference survives a callback.
 
-- [ ] **Step 1: Rewrite the Connect ordering test and add the destruction case**
+- [x] **Step 1: Rewrite the Connect ordering test and add the destruction case**
 
 In `connectStopsAnActiveLoggingWorkerBeforeIdentification`, start through the window and assert that the run view has an active snapshot and open CSV before Connect; in the identification handoff assert `services.logging_engine.IsRunning()` is false, `View().active_snapshot` is empty, and `View().csv_open` is false. Add `windowDestructionStopsLoggingWithoutAModalNotice`: start a blocked scripted run with its CSV file open, destroy the window, then assert the engine is stopped and no modal notice was shown. Task 1's shutdown test asserts output closure through the coordinator view.
 
-- [ ] **Step 2: Run the affected window suite to verify the new integration expectation**
+- [x] **Step 2: Run the affected window suite to verify the new integration expectation**
 
 Run: `bazel test --config=release //src/ui/desktop/widgets:test_mainwindow --test_output=errors`
 
 Expected: failure showing the missing coordinator ownership/integration. Establish the declared `logging_run_` seam so the test builds before using a failing behavioral assertion as the integration red step.
 
-- [ ] **Step 3: Replace window-owned lifecycle fields and route each entry point**
+- [x] **Step 3: Replace window-owned lifecycle fields and route each entry point**
 
 Construct `logging_run_` with `services_.logging_engine`; move the snapshot, `DesktopLoggerValues`, elapsed timer, CSV file, failure latch, and last CSV path out of `MainWindow`. After identification succeeds, build `DesktopLoggingRunStart` from the existing selected protocol, policy, target, prepared snapshot, effective datalog directory, and timestamp stem. Route realtime stop, Connect, file logging toggles, and destruction through `Stop`, `SetCsvEnabled`, and `Shutdown`. Keep the pending connection continuation and startup dialogs in the window. Keep `reportLoggingCsvError` as the presentation handler, but remove its duplicate failure latch; make `restoreLoggingUiState` update controls and idle widgets without cleaning coordinator state.
 
@@ -311,17 +311,17 @@ Render from one `View()` copy per operation. Change the declaration and definiti
 
 Move `csvNewRunsOwnNewFiles`, `csvCreationFailureLeavesDisplayActive`, `csvWriteFailureLeavesDisplayActive`, `csvSessionEndsCloseTheirFile`, and `csvSharedIdProtocolIdentity` from `MainWindowTest` into `DesktopLoggingRunTest`; use `DesktopLoggingRunCompletion.engineCompletionReasonsReleaseRunAndCsv` for the former completion-reason cases. Keep `loggingDisplayErrorContinuesOtherSamples` as a focused window check: emit `valuesUpdated` with an unknown channel followed by `parameter:rpm=42`, assert one `logE`, assert the run view contains `42`, and assert acquisition is still active. Move the existing `csvEscapesNamesAndValues` composition case to the coordinator suite as well; retain the serializer/file unit tests that own escaping policy. Do not discard the composition assertion that escaped captured names and first-row values reach the output. Keep tests for actions, rendered OFF/ON and literal text, pending selection indication, protocol/target selection, invalid-preparation dialogs, identification handoff, Connect ordering, and window destruction. Read lifecycle state through `View()` in the remaining window tests. Keep `windowDestructionJoinsIdentificationWithoutContinuingLogging`; call `connection_coordinator_->shutdown()` before `logging_run_->Shutdown()` in the destructor. Keep engine diagnostic routing owned by composition; the coordinator consumes values/completion and emits sample/CSV errors without forwarding the same engine diagnostic twice.
 
-- [ ] **Step 4: Regenerate window dependencies**
+- [x] **Step 4: Regenerate window dependencies**
 
 Run: `python3 scripts/gazelle_check.py --fix`; expected only intended target/dependency changes and no visibility widening.
 
-- [ ] **Step 5: Run the coordinator and window suites**
+- [x] **Step 5: Run the coordinator and window suites**
 
 Run: `bazel test --config=release //src/ui/desktop/widgets:desktop_logging_run_test //src/ui/desktop/widgets:test_mainwindow --test_output=errors`
 
 Expected: PASS; the window tests still cover presentation and connection sequencing, while lifecycle tests run without constructing widgets.
 
-- [ ] **Step 6: Commit the window integration**
+- [x] **Step 6: Commit the window integration**
 
 ```sh
 git add src/ui/desktop/widgets/mainwindow.h src/ui/desktop/widgets/mainwindow.cpp src/ui/desktop/widgets/menu_actions.cpp src/ui/desktop/widgets/log_operations_ssm.cpp src/ui/desktop/widgets/mainwindow_test.cpp src/ui/desktop/widgets/BUILD.bazel
@@ -341,23 +341,23 @@ git commit -m "refactor(logging): route window lifecycle through run owner"
 - Consumes: the implemented `DesktopLoggingRun` ownership, copied-view, notification, cleanup, and window-lifetime behavior from Tasks 1–2.
 - Produces: current documentation that identifies the logging reference as the owner of the contract and links desktop composition lifetime notes to it.
 
-- [ ] **Step 1: Update the owning contract and its design links**
+- [x] **Step 1: Update the owning contract and its design links**
 
 In `logging-contracts.md`, describe that the window-owned desktop run coordinator borrows the composition-owned engine and owns the active snapshot, display cache, elapsed timing, CSV lifecycle, and failure latch; document by-value presentation views and release-before-notification ordering. In `desktop-contracts.md`, record that Connect, normal stop, and window shutdown synchronously release the run before facade reuse or destruction, with a human-readable link to the logging contract. Update the Logging section of `design-notes.md` to locate the desktop run/cache/CSV responsibilities and link to the owning contract. Add a separate item under `### P1: Resolve known correctness gaps` in `docs/tech-debt.md` describing the stale batch reaching a replacement run if the characterization test observes it; do not include a correction in this plan.
 
-- [ ] **Step 2: Check documentation links and whitespace**
+- [x] **Step 2: Check documentation links and whitespace**
 
 Run: `prek run lychee --all-files`
 
 Expected: PASS with all cross-document links using human-readable Markdown text.
 
-- [ ] **Step 3: Check the scoped diff**
+- [x] **Step 3: Check the scoped diff**
 
 Run: `git diff --check`
 
 Expected: PASS with no whitespace errors.
 
-- [ ] **Step 4: Commit the durable contract updates**
+- [x] **Step 4: Commit the durable contract updates**
 
 ```sh
 git add docs/reference/logging-contracts.md docs/reference/desktop-contracts.md docs/design-notes.md docs/tech-debt.md docs/superpowers/specs/2026-10-13-desktop-logging-run-ownership.md docs/superpowers/plans/2026-10-13-desktop-logging-run-ownership.md
@@ -380,8 +380,48 @@ Rendering's event-pumping order requires the explicit baseline check in Task 2.
 
 After all three tasks, regenerate and review managed targets, then run the repository gates:
 
-- [ ] Run `python3 scripts/gazelle_check.py --fix` and review all BUILD changes.
-- [ ] Run `prek run --all-files` and keep required formatting changes.
-- [ ] Run `bazel run //:clang_tidy_report_changed`.
-- [ ] Run `bazel test --config=release //...`.
-- [ ] Run `bazel build --config=release //:fastecu`.
+- [x] Run `python3 scripts/gazelle_check.py --fix` and review all BUILD changes.
+- [x] Run `prek run --all-files` and keep required formatting changes.
+- [x] Run `bazel run //:clang_tidy_report_changed`.
+- [x] Run `bazel test --config=release //...`.
+- [x] Run `bazel build --config=release //:fastecu`.
+
+## Execution record
+
+Completed natively on `docs/desktop-logging-run-ownership`. The original plan
+and spec are preserved in commit `b48eb465`; leave them through implementation
+delivery and follow the repository's later artifact cleanup workflow.
+
+Implementation rulings and their limits:
+
+- Used the existing task-specific feature branch and shared checkout; this adds
+  no extra worktree isolation.
+- Preserved presentation before CSV and the rendering event-pumping delay:
+  `queuedStopDuringRenderingPreventsTheCsvRow` proves a queued stop suppresses
+  that row. Retaining this order also retains its existing reentrant behavior.
+- Followed the Qt package's camelBack convention: coordinator methods are
+  `start`, `stop`, `setCsvEnabled`, `shutdown`, and `view`; API spelling differs
+  from the original plan's PascalCase interface.
+- Combined retry/re-enable assertions in the failure-point suite and shutdown
+  idempotence in the shutdown test; test names differ from the plan, with the
+  required assertions retained.
+- The unresolved idle-slot test uses unavailable readings rather than injecting
+  a private cache string; copied views expose no mutation seam. This preserves
+  layout coverage but does not test arbitrary idle-cache injection.
+- Stale run-A readings entering replacement B are characterized and recorded
+  in technical debt, without an unauthorized correction.
+- Close-only flush failure routing is statically reviewed; the existing QFile
+  adapter cannot deterministically inject that failure. No runtime proof is
+  claimed for that branch.
+- Protocols and hardware policy are unchanged. Local host gates provide no new
+  hardware or Windows runtime qualification.
+
+Validation: 30 coordinator GoogleTest cases and the window suite pass; the full
+release graph reports 281 passing test targets and seven Windows-only targets
+skipped. Release application build, Gazelle, `prek run --all-files`, and changed
+static analysis pass (six translation units, zero ordinary/inline findings).
+
+Fresh whole-branch review found no Critical or Important issues. Deferred minor:
+the Connect test checks cleanup after its action returns; assert engine stop,
+empty snapshot and closed CSV inside the identification launch seam when next
+extending this test. Current production ordering is correct.
