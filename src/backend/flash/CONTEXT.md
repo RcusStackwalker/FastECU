@@ -5,9 +5,9 @@ Terms used when describing which flash families share protocol behaviour.
 ## Language
 
 **Flash transport source**:
-The connected adapter as the flash workflow sees it: it opens K-Line, CAN or
-mixed-CAN flash transports and reports whether it supplies programming
-voltage itself.
+The connected adapter as the flash workflow sees it: it provides unopened
+K-Line, CAN or mixed-CAN flash transports and reports whether it supplies
+programming voltage itself.
 _Avoid_: Transport factory, flash adapter
 
 **Flash family**:
