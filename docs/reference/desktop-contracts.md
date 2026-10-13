@@ -137,8 +137,9 @@ at 10400 and saves the selected port.
 K-Line unframing retains total-length heuristics: data replies under 7 bytes keep
 the last byte, under 10 drop 5, and others drop 6. DTC-list replies under 7 keep
 the last byte and others drop 4. The ISO-15765 init NRC description starts at
-offset 3; other NRC descriptions use response index 4. Five-baud ASCII comparison
-and terminal delay parsing are unresolved [technical debt](../tech-debt.md).
+response index 4, after the CAN ID, matching the other ISO-15765 NRC descriptions.
+Five-baud ASCII comparison and terminal delay parsing are unresolved
+[technical debt](../tech-debt.md).
 Qualification is recorded in the [diagnostics checklist](../checklists/diagnostics-bench-checklist.md).
 
 ## UI channels

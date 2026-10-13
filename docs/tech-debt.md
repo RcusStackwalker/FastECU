@@ -35,37 +35,17 @@ coordinators retain their UI roles; see the relevant
 
 ### P1: Resolve known correctness gaps
 
-- **Logging batch entering a replacement run.** A synchronous sample-error
-  subscriber can stop run A and start run B while A's handler is suspended.
-  Desktop presence checks then allow A's later sample to populate B's cache
-  and potentially its output. `characterizesReplacementDuringSampleNotification`
-  reproduces rpm `99` entering B through the window and coordinator. Decide a
-  run-identity correction separately; engine generation fencing rejects queued
-  stale events but cannot fence an already-entered handler. Preserve the
-  [desktop run contract](reference/logging-contracts.md#desktop-run-ownership)
-  and add a regression before correcting this behavior.
-
-
 - **OpenPort five-baud ASCII comparison.** `five_baud_header` checks J2534 bytes
   `[5]`/`[7]` for iso9141 and `[8]`/`[9]` for iso14230 against `'8'`/`'8'` and
   `'8'`/`'f'`. Direct serial checks numeric `0x08`/`0x08` at `[1]`/`[2]` and
   `0x8F` at `[2]`. Obtain a bench capture before deciding whether the firmware
   actually returns ASCII; do not infer the answer from the sibling branch.
-- **DTC coverage and NRC interpretation.** Audit coverage for clear-loop short
-  frames/NRCs/wrong IDs, CAN-init short/non-`0x41` responses, fast-init cancellation,
-  and event-log strings. Add missing scripted cases before changing those paths.
-  The CAN-init NRC description uses offset 3 while other ISO-15765 NRCs use 4;
-  reproduce it and distinguish a description fix from wire behavior changes.
 - **MUT/DMA free-form capacity.** The count field's 255-entry representation
   limit is not ECU capacity. The analyzed 33520003 firmware bounds the fill loop
   to 96 entries and 96 output bytes; session preparation enforces those bounds.
   End-to-end qualification remains outstanding. The
   [wire evidence](reference/logging-wire-evidence.md) owns the firmware source.
   ACKs and returned values do not establish per-measurement availability or meaning.
-- **MUT memory read integrity/write bounds.** The currently uncalled helpers can
-  omit a timed-out read chunk and continue, returning a gapped buffer. The
-  `0x4000`–`0xBFFF` write guard checks only the start, so data may extend beyond
-  the window. Resolve both before wiring callers; never relax the guard.
 
 ### P1: Consolidate flash workflow orchestration
 

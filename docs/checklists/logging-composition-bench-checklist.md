@@ -73,3 +73,17 @@ Windows/macOS/Linux CI and Windows/macOS packaging remain merge gates.
 
 No hardware scenario is signed off by this change. Attach completed run records
 and traces before changing an item's status; retain failed observations too.
+
+### Standalone MUT memory helpers
+
+The [standalone memory helpers](../../src/backend/protocol/mut_memory.h) have no
+application callers and are outside the flash-family matrix. Their scripted
+corrections require complete contiguous reads, fail immediately on a missing or
+failed chunk, reject reads wrapping beyond the 16-bit address space, and validate
+the entire write interval within `0x4000–0xBFFF` before I/O. Chunk commands,
+40-byte read chunk size, timeouts, and acknowledgement rules remain unchanged;
+failed reads now stop rather than continuing or returning partial success, and
+out-of-range requests produce no exchanges. These outcome differences are
+automated evidence only. Before adding callers, record standalone memory-access
+bench procedures and read-back evidence for the selected ECU/adapter; the logging
+scenarios above do not qualify memory writes.

@@ -956,7 +956,7 @@ class MainWindowTest : public ::testing::Test
     void checkBatterySamplingDoesNotUseTheFacadeDuringIdentification();
     void checkWindowDestructionStopsLoggingWithoutAModalNotice();
     void checkWindowDestructionJoinsIdentificationWithoutContinuingLogging();
-    void checkCharacterizesReplacementDuringSampleNotification();
+    void checkReplacementDuringSampleNotificationDiscardsOldBatch();
     void checkQueuedStopDuringRenderingPreventsTheCsvRow();
     void checkConnectStopsAnActiveLoggingWorkerBeforeIdentification();
     void checkConnectionEntryPointsStopIdentification(QString entryPoint);
@@ -3382,7 +3382,7 @@ void MainWindowTest::checkLoggingDisplayErrorContinuesOtherSamples()
     services.logging_engine.Stop();
 }
 
-void MainWindowTest::checkCharacterizesReplacementDuringSampleNotification()
+void MainWindowTest::checkReplacementDuringSampleNotificationDiscardsOldBatch()
 {
     ModalDriver driver{QString()};
     driver.start();
@@ -3418,7 +3418,9 @@ void MainWindowTest::checkCharacterizesReplacementDuringSampleNotification()
         {{.channel_id = "unknown", .numeric_value = 8}, {.channel_id = "parameter:rpm", .numeric_value = 99}});
     EXPECT_TRUE(replaced);
     EXPECT_TRUE(services.logging_engine.IsRunning());
-    EXPECT_EQ(window.logging_run_->view().values.ParameterValue("SSM", "rpm"), "99");
+    EXPECT_TRUE(window.logging_run_->view().values.ParameterValue("SSM", "rpm").isEmpty());
+    emit services.logging_engine.valuesUpdated({{.channel_id = "parameter:rpm", .numeric_value = 43}});
+    EXPECT_EQ(window.logging_run_->view().values.ParameterValue("SSM", "rpm"), "43");
     QObject::disconnect(subscription);
     services.logging_engine.Stop();
 }
@@ -5201,9 +5203,9 @@ TEST_F(MainWindowTest, targetChangeInvalidatesIdentificationAndSupport)
     ASSERT_NO_FATAL_FAILURE(checkTargetChangeInvalidatesIdentificationAndSupport());
 }
 
-TEST_F(MainWindowTest, characterizesReplacementDuringSampleNotification)
+TEST_F(MainWindowTest, replacementDuringSampleNotificationDiscardsOldBatch)
 {
-    ASSERT_NO_FATAL_FAILURE(checkCharacterizesReplacementDuringSampleNotification());
+    ASSERT_NO_FATAL_FAILURE(checkReplacementDuringSampleNotificationDiscardsOldBatch());
 }
 
 TEST_F(MainWindowTest, queuedStopDuringRenderingPreventsTheCsvRow)

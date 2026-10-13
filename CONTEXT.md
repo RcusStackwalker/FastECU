@@ -110,6 +110,11 @@ _Avoid_: Response wait
 
 ## Logging
 
+**Logging run**:
+One acquisition session from startup to completion, with its own captured choices,
+readings, and output. Restarting begins a distinct run even when its choices match.
+_Avoid_: Logging selection
+
 **Logging run snapshot**:
 The fixed choices and measurement definitions captured for one logging run,
 including its protocol, ECU/TCU target, selected channels, and support status.

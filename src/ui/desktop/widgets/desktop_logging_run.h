@@ -2,6 +2,7 @@
 
 #include <QElapsedTimer>
 #include <QObject>
+#include <cstdint>
 #include <optional>
 
 #include "src/platform/desktop/common/logging/logging_csv_file.h"
@@ -61,6 +62,7 @@ class DesktopLoggingRun final : public QObject
     DesktopLoggerValues values_;
     QElapsedTimer elapsed_;
     QString csv_path_;
+    std::uint64_t run_id_ = 0;
     bool csv_enabled_ = false;
     bool csv_failed_ = false;
     bool shutdown_ = false;

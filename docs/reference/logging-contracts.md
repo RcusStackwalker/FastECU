@@ -110,16 +110,16 @@ without ordinary completion or CSV notices. Close errors use `shutdownError`,
 which the window logs without a modal dialog. The coordinator is destroyed before
 its borrowed engine and hardware services.
 
-Sample error delivery preserves healthy peers and per-sample stop checks.
+Sample error delivery preserves healthy peers while the same run remains active.
 `presentationChanged` publishes a committed cache before CSV append, preserving
 the window's existing rendering/event-processing order: a stop processed during
-rendering prevents that batch's row. A stopped run receives no later samples in
-that batch. Restarting from an error notification can still let the suspended
-old batch enter the replacement; this separately characterized defect is tracked
-in [known correctness gaps](../tech-debt.md#p1-resolve-known-correctness-gaps).
-The engine's queued-event generation fence does not protect an already-entered
-desktop handler. This ownership extraction changes no protocol traffic or
-hardware qualification.
+rendering prevents that batch's row. Each entered batch captures the coordinator's
+run identity. A stop, shutdown, or replacement during error or presentation
+delivery abandons its remaining samples and pending CSV append, even when the
+replacement has identical selections. The replacement owns a fresh cache and
+receives only its own batches. Coordinator checks protect already-entered
+handlers; the engine's generation fence separately rejects queued stale events.
+These checks change no protocol traffic or hardware qualification.
 
 ## Definition input validation
 

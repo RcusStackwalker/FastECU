@@ -1,6 +1,9 @@
 #include "src/backend/protocol/mut_memory.h"
 
 #include <algorithm>
+#include <limits>
+#include <string>
+#include <string_view>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -15,9 +18,12 @@
 using namespace mutdma;
 using fastecu::ErrorKind;
 using fastecu::testing::IsErr;
+using fastecu::testing::IsErrWith;
 using fastecu::testing::IsOk;
 using fastecu::testing::IsOkAnd;
 using ::testing::ElementsAreArray;
+using ::testing::Eq;
+using ::testing::IsEmpty;
 
 namespace
 {
@@ -68,6 +74,7 @@ TEST(MutMemory, WriteAtBothWindowEdgesReachesTheDriver)
 {
     for (const std::uint16_t addr : {std::uint16_t{0x4000}, std::uint16_t{0xBFFF}})
     {
+        SCOPED_TRACE(addr);
         ScriptedKlineTransport t;
         fastecu::FakeCancellationToken token;
         const bytes::Bytes data{0xAB};
@@ -82,6 +89,7 @@ TEST(MutMemory, ReadSplitsIntoFortyByteChunks)
 {
     for (const std::size_t len : {std::size_t{39}, std::size_t{40}, std::size_t{41}, std::size_t{80}})
     {
+        SCOPED_TRACE(len);
         ScriptedKlineTransport t;
         fastecu::FakeCancellationToken token;
         const bytes::Bytes expected = Counting(len);
@@ -97,7 +105,7 @@ TEST(MutMemory, ReadSplitsIntoFortyByteChunks)
     }
 }
 
-TEST(MutMemory, ReadReturnsWhatItHadWhenALaterChunkFails)
+TEST(MutMemory, ReadFailsWhenALaterChunkFails)
 {
     ScriptedKlineTransport t;
     fastecu::FakeCancellationToken token;
@@ -105,7 +113,9 @@ TEST(MutMemory, ReadReturnsWhatItHadWhenALaterChunkFails)
     ScriptChunk(t, 0x8000, first);
     t.ExpectWrite(BuildSetupFrame(0xA0, 40));
     t.QueueError(ErrorKind::kDisconnected);
-    EXPECT_THAT(ReadMemory(t, 0x8000, 80, token), IsOkAnd(ElementsAreArray(first)));
+    EXPECT_THAT(ReadMemory(t, 0x8000, 80, token), IsErr(ErrorKind::kDisconnected));
+    EXPECT_TRUE(t.ScriptConsumed());
+    EXPECT_TRUE(t.Ok());
 }
 
 TEST(MutMemory, ReadFailsWhenTheFirstChunkFails)
@@ -115,12 +125,12 @@ TEST(MutMemory, ReadFailsWhenTheFirstChunkFails)
     t.ExpectWrite(BuildSetupFrame(0xA0, 4));
     t.QueueError(ErrorKind::kDisconnected);
     EXPECT_THAT(ReadMemory(t, 0x8000, 4, token), IsErr(ErrorKind::kDisconnected));
+    EXPECT_TRUE(t.ScriptConsumed());
+    EXPECT_TRUE(t.Ok());
 }
 
-TEST(MutMemory, ReadSkipsAChunkWhosePollReturnsNoFrame)
+TEST(MutMemory, ReadFailsWhenPollReturnsNoFrame)
 {
-    // Today's loop only stops on a poll *error*; an empty poll appends nothing
-    // and moves to the next chunk.
     ScriptedKlineTransport t;
     fastecu::FakeCancellationToken token;
     const auto channels = PlanReadChannels(0x8000, 40);
@@ -129,7 +139,256 @@ TEST(MutMemory, ReadSkipsAChunkWhosePollReturnsNoFrame)
     t.ExpectWrite(BuildIdListFrame(0xA1, channels));
     t.QueueRead(BuildCommandFrame(0x05, bytes::Bytes{}, kTrailerStd));
     t.QueueNoFrame();
-    const bytes::Bytes second = Counting(10, 0x40);
-    ScriptChunk(t, 0x8028, second);
-    EXPECT_THAT(ReadMemory(t, 0x8000, 50, token), IsOkAnd(ElementsAreArray(second)));
+    EXPECT_THAT(ReadMemory(t, 0x8000, 50, token), IsErr(ErrorKind::kTimeout));
+    EXPECT_TRUE(t.ScriptConsumed());
+    EXPECT_TRUE(t.Ok());
+}
+
+TEST(MutMemory, ReadRejectsAddressWrapWithoutIo)
+{
+    ScriptedKlineTransport t;
+    fastecu::FakeCancellationToken token;
+    EXPECT_THAT(ReadMemory(t, 0xFFFF, 2, token), IsErr(ErrorKind::kInvalidConfig));
+    EXPECT_TRUE(t.ScriptConsumed());
+    EXPECT_TRUE(t.Ok());
+}
+
+TEST(MutMemory, WriteRejectsCrossingWindowWithoutIo)
+{
+    ScriptedKlineTransport t;
+    fastecu::FakeCancellationToken token;
+    EXPECT_THAT(WriteMemory(t, 0xBFFF, bytes::Bytes{0x01, 0x02}, token), IsErr(ErrorKind::kInvalidConfig));
+    EXPECT_TRUE(t.ScriptConsumed());
+    EXPECT_TRUE(t.Ok());
+}
+
+TEST(MutMemory, ReadAtLastAddressSucceeds)
+{
+    ScriptedKlineTransport t;
+    fastecu::FakeCancellationToken token;
+    ScriptChunk(t, 0xFFFF, bytes::Bytes{0xA5});
+    EXPECT_THAT(ReadMemory(t, 0xFFFF, 1, token), IsOkAnd(ElementsAreArray(bytes::Bytes{0xA5})));
+    EXPECT_TRUE(t.ScriptConsumed());
+    EXPECT_TRUE(t.Ok());
+}
+
+TEST(MutMemory, ZeroLengthReadSucceedsWithoutIo)
+{
+    for (const std::uint16_t addr : {std::uint16_t{0x0000}, std::uint16_t{0xFFFF}})
+    {
+        SCOPED_TRACE(addr);
+        ScriptedKlineTransport t;
+        fastecu::FakeCancellationToken token;
+        EXPECT_THAT(ReadMemory(t, addr, 0, token), IsOkAnd(IsEmpty()));
+        EXPECT_TRUE(t.ScriptConsumed());
+        EXPECT_TRUE(t.Ok());
+    }
+}
+
+TEST(MutMemory, ReadRejectsOversizedLengthWithoutIo)
+{
+    ScriptedKlineTransport t;
+    fastecu::FakeCancellationToken token;
+    EXPECT_THAT(ReadMemory(t, 0x0000, std::numeric_limits<std::size_t>::max(), token),
+                IsErr(ErrorKind::kInvalidConfig));
+    EXPECT_TRUE(t.ScriptConsumed());
+    EXPECT_TRUE(t.Ok());
+}
+
+TEST(MutMemory, WriteAcceptsCompleteIntervalsInsideWindow)
+{
+    struct Case
+    {
+        std::uint16_t addr;
+        std::size_t len;
+    };
+    for (const auto& [addr, len] : {Case{0xBFFF, 1}, Case{0xBFD5, 43}, Case{0x4000, 0x8000}})
+    {
+        SCOPED_TRACE(::testing::Message() << "address " << addr << ", length " << len);
+        ScriptedKlineTransport t;
+        fastecu::FakeCancellationToken token;
+        const bytes::Bytes data = Counting(len);
+        for (const auto& frame : BuildWriteFrames(addr, data))
+        {
+            t.ExpectWrite(frame);
+            t.QueueRead(BuildCommandFrame(0x87, bytes::Bytes{0x80, 0x00}, kTrailerStd));
+        }
+        EXPECT_THAT(WriteMemory(t, addr, data, token), IsOk());
+        EXPECT_TRUE(t.ScriptConsumed());
+        EXPECT_TRUE(t.Ok());
+    }
+}
+
+TEST(MutMemory, WriteRejectsIntervalsCrossingWindowWithoutIo)
+{
+    struct Case
+    {
+        std::uint16_t addr;
+        std::size_t len;
+    };
+    for (const auto& [addr, len] : {Case{0xBFD5, 44}, Case{0x4000, 0x8001}})
+    {
+        SCOPED_TRACE(::testing::Message() << "address " << addr << ", length " << len);
+        ScriptedKlineTransport t;
+        fastecu::FakeCancellationToken token;
+        EXPECT_THAT(WriteMemory(t, addr, Counting(len), token), IsErr(ErrorKind::kInvalidConfig));
+        EXPECT_TRUE(t.ScriptConsumed());
+        EXPECT_TRUE(t.Ok());
+    }
+}
+
+TEST(MutMemory, EmptyWriteRetainsStartAddressValidation)
+{
+    struct Case
+    {
+        std::uint16_t addr;
+        bool valid;
+    };
+    for (const auto& [addr, valid] : {Case{0x3FFF, false}, Case{0x4000, true}, Case{0xBFFF, true}, Case{0xC000, false}})
+    {
+        SCOPED_TRACE(addr);
+        ScriptedKlineTransport t;
+        fastecu::FakeCancellationToken token;
+        const auto result = WriteMemory(t, addr, bytes::Bytes{}, token);
+        if (valid)
+        {
+            EXPECT_THAT(result, IsOk());
+        }
+        else
+        {
+            EXPECT_THAT(result, IsErr(ErrorKind::kInvalidConfig));
+        }
+        EXPECT_TRUE(t.ScriptConsumed());
+        EXPECT_TRUE(t.Ok());
+    }
+}
+
+TEST(MutMemory, ReadPropagatesFirstAndLaterExchangeErrorsWithDetails)
+{
+    enum class Stage
+    {
+        kSetupAck,
+        kListAck,
+        kPoll
+    };
+    for (const bool later : {false, true})
+    {
+        SCOPED_TRACE(later ? "later chunk" : "first chunk");
+        for (const auto stage : {Stage::kSetupAck, Stage::kListAck, Stage::kPoll})
+        {
+            SCOPED_TRACE(static_cast<int>(stage));
+            ScriptedKlineTransport t;
+            fastecu::FakeCancellationToken token;
+            if (later)
+            {
+                ScriptChunk(t, 0x8000, Counting(40));
+            }
+            constexpr std::string_view kDetail = "transport failed at scripted exchange";
+            const std::uint16_t addr = later ? 0x8028 : 0x8000;
+            t.ExpectWrite(BuildSetupFrame(0xA0, 40));
+            if (stage == Stage::kSetupAck)
+            {
+                t.QueueError(ErrorKind::kDisconnected, std::string(kDetail));
+            }
+            else
+            {
+                t.QueueRead(BuildCommandFrame(0xA5, bytes::Bytes{}, kTrailerStd));
+                t.ExpectWrite(BuildIdListFrame(0xA1, PlanReadChannels(addr, 40)));
+                if (stage == Stage::kListAck)
+                {
+                    t.QueueError(ErrorKind::kDisconnected, std::string(kDetail));
+                }
+                else
+                {
+                    t.QueueRead(BuildCommandFrame(0x05, bytes::Bytes{}, kTrailerStd));
+                    t.QueueError(ErrorKind::kDisconnected, std::string(kDetail));
+                }
+            }
+            EXPECT_THAT(ReadMemory(t, 0x8000, 120, token), IsErrWith(ErrorKind::kDisconnected, Eq(kDetail)));
+            EXPECT_TRUE(t.ScriptConsumed());
+            EXPECT_TRUE(t.Ok());
+        }
+    }
+}
+
+TEST(MutMemory, ReadPropagatesInitializationAndSetupWriteErrorsWithDetails)
+{
+    for (const bool wake_failure : {false, true})
+    {
+        SCOPED_TRACE(wake_failure ? "wake" : "setup write");
+        ScriptedKlineTransport t;
+        fastecu::FakeCancellationToken token;
+        constexpr std::string_view kDetail = "transport initialization failed";
+        if (wake_failure)
+        {
+            t.QueueSetBaudError(ErrorKind::kDisconnected, std::string(kDetail));
+        }
+        else
+        {
+            t.ExpectWrite(BuildSetupFrame(0xA0, 40));
+            t.QueueWriteError(ErrorKind::kDisconnected, std::string(kDetail));
+        }
+        EXPECT_THAT(ReadMemory(t, 0x8000, 80, token), IsErrWith(ErrorKind::kDisconnected, Eq(kDetail)));
+        EXPECT_TRUE(t.ScriptConsumed());
+        EXPECT_TRUE(t.Ok());
+    }
+}
+
+TEST(MutMemory, ReadRejectsEmptyMalformedAndShortPollsWithoutLaterExchange)
+{
+    enum class Reply
+    {
+        kNoFrame,
+        kInvalidChecksum,
+        kShortPayload
+    };
+    for (const bool later : {false, true})
+    {
+        SCOPED_TRACE(later ? "later chunk" : "first chunk");
+        for (const auto reply : {Reply::kNoFrame, Reply::kInvalidChecksum, Reply::kShortPayload})
+        {
+            SCOPED_TRACE(static_cast<int>(reply));
+            ScriptedKlineTransport t;
+            fastecu::FakeCancellationToken token;
+            if (later)
+            {
+                ScriptChunk(t, 0x8000, Counting(40));
+            }
+            const std::uint16_t addr = later ? 0x8028 : 0x8000;
+            t.ExpectWrite(BuildSetupFrame(0xA0, 40));
+            t.QueueRead(BuildCommandFrame(0xA5, bytes::Bytes{}, kTrailerStd));
+            t.ExpectWrite(BuildIdListFrame(0xA1, PlanReadChannels(addr, 40)));
+            t.QueueRead(BuildCommandFrame(0x05, bytes::Bytes{}, kTrailerStd));
+            if (reply == Reply::kNoFrame)
+            {
+                t.QueueNoFrame();
+            }
+            else
+            {
+                bytes::Bytes frame{0x51};
+                const auto payload = Counting(reply == Reply::kShortPayload ? 39 : 40);
+                frame.insert(frame.end(), payload.begin(), payload.end());
+                frame.push_back(static_cast<bytes::Byte>(Sum8(frame) + (reply == Reply::kInvalidChecksum ? 1 : 0)));
+                frame.push_back(kTrailerStd);
+                t.QueueRead(frame);
+            }
+            EXPECT_THAT(ReadMemory(t, 0x8000, 120, token),
+                        IsErr(reply == Reply::kNoFrame ? ErrorKind::kTimeout : ErrorKind::kBadResponse));
+            EXPECT_TRUE(t.ScriptConsumed());
+            EXPECT_TRUE(t.Ok());
+        }
+    }
+}
+
+TEST(MutMemory, ReadPropagatesCancellationAfterFirstChunk)
+{
+    ScriptedKlineTransport t;
+    fastecu::FakeCancellationToken token;
+    token.CancelOnCheck(4);
+    ScriptChunk(t, 0x8000, Counting(40));
+    t.ExpectWrite(BuildSetupFrame(0xA0, 40));
+    EXPECT_THAT(ReadMemory(t, 0x8000, 120, token),
+                IsErrWith(ErrorKind::kCancelled, Eq("scripted K-Line read cancelled")));
+    EXPECT_TRUE(t.ScriptConsumed());
+    EXPECT_TRUE(t.Ok());
 }

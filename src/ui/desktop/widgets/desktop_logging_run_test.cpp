@@ -178,19 +178,160 @@ TEST_F(DesktopLoggingRunTest, sampleErrorSubscriberStopsBeforeHealthyPeer)
     EXPECT_TRUE(run_.view().values.ParameterValue("SSM", "rpm").isEmpty());
     EXPECT_EQ(readFile(path), "Time,rpm,coolant\n");
 }
-TEST_F(DesktopLoggingRunTest, characterizesReplacementDuringSampleNotification)
+TEST_F(DesktopLoggingRunTest, replacementDuringSampleErrorDiscardsOldBatch)
 {
+    run_.setCsvEnabled(true, directory_.path(), "run");
     ASSERT_THAT(run_.start(makeRequest(directory_.path())), IsOk());
+    const auto oldPath = run_.view().csv_path;
+    bool replaced = false;
     QObject::connect(&run_, &DesktopLoggingRun::sampleError, &run_,
                      [&](const QString&)
                      {
+                         if (replaced)
+                         {
+                             return;
+                         }
+                         replaced = true;
                          run_.stop();
+                         EXPECT_FALSE(run_.view().csv_open);
                          ASSERT_THAT(run_.start(makeRequest(directory_.path(), LoggingTarget::kEcu)), IsOk());
                      });
     emit engine_.valuesUpdated(
         {{.channel_id = "unknown", .numeric_value = 8}, {.channel_id = "parameter:rpm", .numeric_value = 99}});
-    EXPECT_EQ(run_.view().values.ParameterValue("SSM", "rpm"), "99");
+    EXPECT_TRUE(replaced);
+    ASSERT_TRUE(run_.view().active_snapshot.has_value());
     EXPECT_EQ(run_.view().active_snapshot->Target(), LoggingTarget::kEcu);
+    EXPECT_TRUE(run_.view().acquisition_running);
+    EXPECT_TRUE(run_.view().csv_open);
+    EXPECT_TRUE(run_.view().values.ParameterValue("SSM", "rpm").isEmpty());
+    const auto newPath = run_.view().csv_path;
+    EXPECT_NE(newPath, oldPath);
+    EXPECT_EQ(readFile(newPath), "Time,rpm,coolant\n");
+    EXPECT_EQ(readFile(oldPath), "Time,rpm,coolant\n");
+    emit engine_.valuesUpdated({{.channel_id = "parameter:rpm", .numeric_value = 43}});
+    EXPECT_EQ(run_.view().values.ParameterValue("SSM", "rpm"), "43");
+    EXPECT_TRUE(readFile(newPath).contains(",43,\n"));
+    EXPECT_FALSE(readFile(newPath).contains(",99,"));
+    EXPECT_EQ(readFile(oldPath), "Time,rpm,coolant\n");
+}
+TEST_F(DesktopLoggingRunTest, replacementDuringPresentationDiscardsOldCsvRow)
+{
+    run_.setCsvEnabled(true, directory_.path(), "run");
+    ASSERT_THAT(run_.start(makeRequest(directory_.path())), IsOk());
+    const auto oldPath = run_.view().csv_path;
+    bool replaced = false;
+    QObject::connect(&run_, &DesktopLoggingRun::presentationChanged, &run_,
+                     [&]
+                     {
+                         if (replaced)
+                         {
+                             return;
+                         }
+                         replaced = true;
+                         EXPECT_EQ(run_.view().values.ParameterValue("SSM", "rpm"), "99");
+                         run_.stop();
+                         EXPECT_FALSE(run_.view().csv_open);
+                         // Identical selections must still identify a distinct run.
+                         ASSERT_THAT(run_.start(makeRequest(directory_.path())), IsOk());
+                     });
+    emit engine_.valuesUpdated({{.channel_id = "parameter:rpm", .numeric_value = 99}});
+    EXPECT_TRUE(replaced);
+    ASSERT_TRUE(run_.view().active_snapshot.has_value());
+    EXPECT_TRUE(run_.view().acquisition_running);
+    EXPECT_TRUE(run_.view().csv_open);
+    EXPECT_TRUE(run_.view().values.ParameterValue("SSM", "rpm").isEmpty());
+    const auto newPath = run_.view().csv_path;
+    EXPECT_NE(newPath, oldPath);
+    EXPECT_EQ(readFile(newPath), "Time,rpm,coolant\n");
+    EXPECT_EQ(readFile(oldPath), "Time,rpm,coolant\n");
+    emit engine_.valuesUpdated({{.channel_id = "parameter:rpm", .numeric_value = 43}});
+    EXPECT_EQ(run_.view().values.ParameterValue("SSM", "rpm"), "43");
+    EXPECT_TRUE(readFile(newPath).contains(",43,\n"));
+    EXPECT_FALSE(readFile(newPath).contains(",99,"));
+    EXPECT_EQ(readFile(oldPath), "Time,rpm,coolant\n");
+}
+TEST_F(DesktopLoggingRunTest, shutdownDuringSampleErrorDiscardsOldBatch)
+{
+    run_.setCsvEnabled(true, directory_.path(), "run");
+    ASSERT_THAT(run_.start(makeRequest(directory_.path())), IsOk());
+    const auto path = run_.view().csv_path;
+    SignalRecorder presentations{&run_, &DesktopLoggingRun::presentationChanged};
+    SignalRecorder errors{&run_, &DesktopLoggingRun::sampleError};
+    QObject::connect(&run_, &DesktopLoggingRun::sampleError, &run_, [&](const QString&) { run_.shutdown(); });
+    emit engine_.valuesUpdated(
+        {{.channel_id = "unknown", .numeric_value = 8}, {.channel_id = "parameter:rpm", .numeric_value = 99}});
+    emit engine_.valuesUpdated({{.channel_id = "parameter:rpm", .numeric_value = 43}});
+    EXPECT_EQ(errors.Count(), 1U);
+    EXPECT_EQ(presentations.Count(), 0U);
+    EXPECT_FALSE(run_.view().active_snapshot.has_value());
+    EXPECT_FALSE(run_.view().acquisition_running);
+    EXPECT_FALSE(run_.view().csv_open);
+    EXPECT_TRUE(run_.view().values.ParameterValue("SSM", "rpm").isEmpty());
+    EXPECT_EQ(readFile(path), "Time,rpm,coolant\n");
+}
+TEST_F(DesktopLoggingRunTest, failedReplacementDoesNotResumeOldBatch)
+{
+    run_.setCsvEnabled(true, directory_.path(), "run");
+    ASSERT_THAT(run_.start(makeRequest(directory_.path())), IsOk());
+    const auto oldPath = run_.view().csv_path;
+    SignalRecorder presentations{&run_, &DesktopLoggingRun::presentationChanged};
+    bool attempted = false;
+    QObject::connect(&run_, &DesktopLoggingRun::sampleError, &run_,
+                     [&](const QString&)
+                     {
+                         if (attempted)
+                         {
+                             return;
+                         }
+                         attempted = true;
+                         run_.stop();
+                         engine_.RegisterProtocol("SSM", [](const auto&) -> Result<std::unique_ptr<LoggingProtocol>>
+                                                  { return Fail(ErrorKind::kInvalidConfig, "factory failure"); });
+                         EXPECT_THAT(run_.start(makeRequest(directory_.path())), IsErr(ErrorKind::kInvalidConfig));
+                     });
+    emit engine_.valuesUpdated(
+        {{.channel_id = "unknown", .numeric_value = 8}, {.channel_id = "parameter:rpm", .numeric_value = 99}});
+    EXPECT_TRUE(attempted);
+    EXPECT_EQ(presentations.Count(), 0U);
+    EXPECT_FALSE(run_.view().active_snapshot.has_value());
+    EXPECT_FALSE(run_.view().acquisition_running);
+    EXPECT_FALSE(run_.view().csv_open);
+    EXPECT_TRUE(run_.view().values.ParameterValue("SSM", "rpm").isEmpty());
+    EXPECT_NE(run_.view().csv_path, oldPath);
+    EXPECT_EQ(readFile(run_.view().csv_path), "Time,rpm,coolant\n");
+    EXPECT_EQ(readFile(oldPath), "Time,rpm,coolant\n");
+}
+TEST_F(DesktopLoggingRunTest, sampleErrorKeepsHealthyPeerWhenRunIsUnchanged)
+{
+    run_.setCsvEnabled(true, directory_.path(), "run");
+    ASSERT_THAT(run_.start(makeRequest(directory_.path())), IsOk());
+    SignalRecorder errors{&run_, &DesktopLoggingRun::sampleError};
+    emit engine_.valuesUpdated(
+        {{.channel_id = "unknown", .numeric_value = 8}, {.channel_id = "parameter:rpm", .numeric_value = 43}});
+    EXPECT_EQ(errors.Count(), 1U);
+    EXPECT_TRUE(run_.view().active_snapshot.has_value());
+    EXPECT_TRUE(run_.view().acquisition_running);
+    EXPECT_EQ(run_.view().values.ParameterValue("SSM", "rpm"), "43");
+    EXPECT_TRUE(readFile(run_.view().csv_path).contains(",43,\n"));
+}
+TEST_F(DesktopLoggingRunTest, stopDuringPresentationDiscardsPendingCsvRow)
+{
+    run_.setCsvEnabled(true, directory_.path(), "run");
+    ASSERT_THAT(run_.start(makeRequest(directory_.path())), IsOk());
+    const auto path = run_.view().csv_path;
+    bool stopped = false;
+    QObject::connect(&run_, &DesktopLoggingRun::presentationChanged, &run_,
+                     [&]
+                     {
+                         stopped = true;
+                         EXPECT_EQ(run_.view().values.ParameterValue("SSM", "rpm"), "99");
+                         run_.stop();
+                     });
+    emit engine_.valuesUpdated({{.channel_id = "parameter:rpm", .numeric_value = 99}});
+    EXPECT_TRUE(stopped);
+    EXPECT_FALSE(run_.view().active_snapshot.has_value());
+    EXPECT_FALSE(run_.view().csv_open);
+    EXPECT_EQ(readFile(path), "Time,rpm,coolant\n");
 }
 TEST_F(DesktopLoggingRunTest, copiedViewSurvivesStopAndRestart)
 {

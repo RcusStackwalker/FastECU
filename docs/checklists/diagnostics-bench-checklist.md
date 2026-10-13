@@ -10,6 +10,13 @@ heuristics are pinned quirks (see the
 `obd_frames_test.cpp`, `dtc_worker_test.cpp`) are regression evidence, not
 hardware qualification.
 
+The CAN-init NRC description uses response index 4, after the CAN ID. Scripted
+response `00 00 07 E8 7F 01 12` now logs "Subfunction not supported" instead of
+"Not a valid answer". This description correction changes no request bytes,
+response gates, or exchange timing. Scripted clear-loop short/NRC/wrong-service
+replies, short/wrong-service CAN-init replies, and fast-init cancellation cover
+failure outcomes and cleanup; the bench rows below remain unqualified.
+
 No row below is qualified until it is run on a bench and signed off. This
 checklist does not affect the [flash qualification matrix](../flash-qualification-matrix.md);
 it covers no flash path.
