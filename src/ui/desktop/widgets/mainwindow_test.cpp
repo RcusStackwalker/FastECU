@@ -2691,13 +2691,18 @@ void MainWindowTest::checkNumericWindowGeometryRestoresAndPersistsAcrossWindowSt
     constructorDriver.stop();
     ASSERT_EQ(window.size(), QSize(900, 700));
     window.show();
-    window.resize(950, 750);
     QCoreApplication::processEvents();
-    ASSERT_EQ(window.size(), QSize(950, 750));
+    // Exercise a layout minimum larger than the old request on every host,
+    // as the Windows offscreen layout does with its platform font metrics.
+    window.setMinimumSize(window.minimumSize().expandedTo(QSize(1081, 750)));
+    const QSize resizedSize = QSize(950, 750).expandedTo(window.minimumSize());
+    window.resize(resizedSize);
+    QCoreApplication::processEvents();
+    ASSERT_EQ(window.size(), resizedSize);
     TestServices resized{root.path()};
     ASSERT_THAT(resized.config_status, fastecu::testing::IsOk());
-    ASSERT_EQ(resized.config.Settings().window_width, std::string("950"));
-    ASSERT_EQ(resized.config.Settings().window_height, std::string("750"));
+    ASSERT_EQ(resized.config.Settings().window_width, std::to_string(resizedSize.width()));
+    ASSERT_EQ(resized.config.Settings().window_height, std::to_string(resizedSize.height()));
     window.showMaximized();
     QCoreApplication::processEvents();
     ASSERT_EQ(services.config.Settings().window_width, std::string("maximized"));
