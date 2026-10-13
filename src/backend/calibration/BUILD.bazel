@@ -15,6 +15,7 @@ cc_library(
     srcs = ["calibration_service.cpp"],
     hdrs = ["calibration_service.h"],
     implementation_deps = [
+        ":definition_interpretation_internal",
         ":scaling_internal",
         "//src/algorithms/expression",
     ],
@@ -99,7 +100,10 @@ cc_library(
     name = "map_placement",
     srcs = ["map_placement.cpp"],
     hdrs = ["map_placement.h"],
-    implementation_deps = [":calibration_service"],
+    implementation_deps = [
+        ":calibration_service",
+        ":definition_interpretation_internal",
+    ],
     deps = [
         "//src/algorithms/memory:memory_map",
         "//src/backend/definition:definition_model",
@@ -131,6 +135,28 @@ fastecu_portable_gtest(
     srcs = ["definition_bytes_test.cpp"],
     deps = [
         ":definition_bytes",
+        "@googletest//:gtest",
+    ],
+)
+
+cc_library(
+    name = "definition_interpretation_internal",
+    srcs = ["definition_interpretation_internal.cpp"],
+    hdrs = ["definition_interpretation_internal.h"],
+    implementation_deps = ["//src/algorithms/expression"],
+    visibility = ["//bazel/layers:backend"],
+    deps = [":map_edit"],
+)
+
+fastecu_portable_gtest(
+    name = "definition_interpretation_internal_test",
+    srcs = ["definition_interpretation_internal_test.cpp"],
+    deps = [
+        ":calibration_service",
+        ":definition_bytes",
+        ":definition_interpretation_internal",
+        ":numeric_map_edit",
+        "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
     ],
 )

@@ -114,9 +114,25 @@ and leaves the session clean. Sessions without a definition, unknown maps, maps
 that are not blob selections and unknown selection names are not applicable; the
 view still refreshes after an unknown name.
 
-Field resolution and patch application remain in the desktop edit adapter; their
-ownership extraction is separate
-[unresolved work](../tech-debt.md#p1-separate-ui-from-application-logic).
+[Shared backend interpretation](../../src/backend/calibration/definition_interpretation_internal.h)
+owns definition facts: body fields precede scaling defaults, while axes retain
+resolved-axis semantics. [Backend target preparation](../../src/backend/calibration/session/numeric_target_internal.h)
+owns metadata and decoded cells freshly for each synchronous copy or edit.
+Moving that owner preserves its strings and cells; borrowed edit metadata and
+byte windows remain inside the operation. Prepared targets do not survive
+operations or session closure, and there is no persistent value or metadata cache.
+
+Preparation uses the session's whole-map placement and structural validation.
+An invalid declared axis rejects a body operation, even if decoding would omit
+that axis. Absent/static axes and blob bodies are unavailable numeric targets.
+[Copy](../../src/backend/calibration/session/numeric_copy_use_case.h) requires
+valid selected decoded cells and preserves full-precision fixed decimal text
+with tabs between cells and LF between rows. It does not require encoding,
+limits, increments, or an edit byte window. Edits validate only consumed fields:
+absolute assignment does not require increment metadata, and encoding is checked
+for the requested value rather than a synthetic preflight value. Backend
+preparation calculates edits and validates/applies patches; desktop translates
+selections and clipboard text and presents outcomes.
 
 ## Open, save, and ECU-read outcomes
 

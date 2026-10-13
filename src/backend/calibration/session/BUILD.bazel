@@ -129,44 +129,13 @@ cc_library(
 )
 
 cc_library(
-    name = "map_element_fields",
-    srcs = ["map_element_fields.cpp"],
-    hdrs = ["map_element_fields.h"],
-    implementation_deps = ["//src/algorithms/expression"],
-    # Field resolution is internal to the numeric edit use case.
-    visibility = ["//src/backend/calibration/session:__pkg__"],
-    deps = [
-        ":calibration_session",
-        "//src/backend/calibration:map_edit",
-        "//src/backend/definition:definition_model",
-    ],
-)
-
-fastecu_portable_gtest(
-    name = "map_element_fields_test",
-    srcs = ["map_element_fields_test.cpp"],
-    deps = [
-        ":map_element_fields",
-        "//src/algorithms/memory/testing:memory_views",
-        "@googletest//:gtest",
-    ],
-)
-
-cc_library(
     name = "numeric_edit_use_case",
     srcs = ["numeric_edit_use_case.cpp"],
     hdrs = ["numeric_edit_use_case.h"],
-    implementation_deps = [
-        ":map_element_fields",
-        "//src/algorithms/expression",
-        "//src/backend/calibration:calibration_service",
-        "//src/backend/calibration:definition_bytes",
-    ],
+    implementation_deps = [":numeric_target_internal"],
     deps = [
-        ":calibration_session",
         ":calibration_workspace",
-        "//src/backend/calibration:map_edit",
-        "//src/backend/calibration:numeric_map_edit",
+        ":numeric_operation_types",
         "//src/backend/ports",
     ],
 )
@@ -177,10 +146,7 @@ fastecu_portable_gtest(
     deps = [
         ":numeric_edit_use_case",
         "//src/algorithms/memory:memory_map",
-        "//src/algorithms/memory/testing:memory_views",
-        "//src/backend/calibration/session/testing:fake_definition_catalogs",
-        "//src/backend/config/testing:config_session_fixture",
-        "//src/backend/ports/testing:in_memory_atomic_file_writer",
+        "//src/backend/calibration/session/testing:numeric_session_fixture",
         "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
     ],
@@ -190,10 +156,11 @@ cc_library(
     name = "numeric_copy_use_case",
     srcs = ["numeric_copy_use_case.cpp"],
     hdrs = ["numeric_copy_use_case.h"],
+    implementation_deps = [":numeric_target_internal"],
     deps = [
-        ":calibration_session",
         ":calibration_workspace",
         ":numeric_edit_use_case",
+        ":numeric_operation_types",
         "//src/backend/ports",
     ],
 )
@@ -203,10 +170,7 @@ fastecu_portable_gtest(
     srcs = ["numeric_copy_use_case_test.cpp"],
     deps = [
         ":numeric_copy_use_case",
-        "//src/algorithms/memory/testing:memory_views",
-        "//src/backend/calibration/session/testing:fake_definition_catalogs",
-        "//src/backend/config/testing:config_session_fixture",
-        "//src/backend/ports/testing:in_memory_atomic_file_writer",
+        "//src/backend/calibration/session/testing:numeric_session_fixture",
         "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
     ],
@@ -237,6 +201,47 @@ fastecu_portable_gtest(
         "//src/backend/calibration/session/testing:fake_definition_catalogs",
         "//src/backend/config/testing:config_session_fixture",
         "//src/backend/ports/testing:in_memory_atomic_file_writer",
+        "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
+    ],
+)
+
+cc_library(
+    name = "numeric_operation_types",
+    hdrs = ["numeric_operation_types.h"],
+    deps = [
+        ":calibration_session",
+        "//src/backend/calibration:map_edit",
+        "//src/backend/calibration:numeric_map_edit",
+    ],
+)
+
+cc_library(
+    name = "numeric_target_internal",
+    srcs = ["numeric_target_internal.cpp"],
+    hdrs = ["numeric_target_internal.h"],
+    implementation_deps = [
+        "//src/algorithms/expression",
+        "//src/backend/calibration:calibration_service",
+        "//src/backend/calibration:definition_bytes",
+    ],
+    visibility = ["//src/backend/calibration/session:__pkg__"],
+    deps = [
+        ":calibration_session",
+        ":calibration_workspace",
+        ":numeric_operation_types",
+        "//src/backend/calibration:decoded_map",
+        "//src/backend/calibration:definition_interpretation_internal",
+        "//src/backend/ports",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "numeric_target_internal_test",
+    srcs = ["numeric_target_internal_test.cpp"],
+    deps = [
+        ":numeric_target_internal",
+        "//src/backend/calibration/session/testing:numeric_session_fixture",
         "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
     ],

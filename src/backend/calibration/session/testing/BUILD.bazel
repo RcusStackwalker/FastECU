@@ -13,3 +13,24 @@ cc_library(
     hdrs = ["fake_definition_catalogs.h"],
     deps = ["//src/backend/calibration/session:definition_catalogs"],
 )
+
+cc_library(
+    name = "numeric_session_fixture",
+    testonly = True,
+    hdrs = ["numeric_session_fixture.h"],
+    deps = [
+        ":fake_definition_catalogs",
+        "//src/algorithms/memory:memory_map",
+        "//src/algorithms/memory/testing:memory_views",
+        "//src/algorithms/protocol",
+        "//src/backend/calibration/session:calibration_session",
+        "//src/backend/calibration/session:calibration_workspace",
+        "//src/backend/calibration/session:rom_open",
+        "//src/backend/config/testing:config_session_fixture",
+        "//src/backend/definition:definition_model",
+        "//src/backend/definition:definition_service",
+        "//src/backend/ports/testing:in_memory_atomic_file_writer",
+        "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
+    ],
+)
