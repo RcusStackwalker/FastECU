@@ -200,9 +200,12 @@ checked storage encoding. Invalid cells can receive absolute replacements;
 relative operations require valid inputs. An increment applies one requested
 step, and decoding errors remain visible. The
 [calibration contract](reference/calibration-compatibility.md#decoded-values-and-map-edits)
-owns numeric rules and operator outcomes. The shared checked expression evaluator also supplies logging conversion;
-further edit-policy ownership extraction is
-[unresolved work](tech-debt.md#p1-separate-ui-from-application-logic).
+owns numeric rules, operation-local target ownership, and operator outcomes.
+Shared backend interpretation supplies definition facts; prepared targets own
+metadata and fresh decoded cells without exposing borrowed views. Whole-map
+validation preserves axis failures for body operations, and each operation
+validates only the metadata it consumes. The shared checked expression evaluator
+also supplies logging conversion.
 
 ### Save and flash use operation images
 

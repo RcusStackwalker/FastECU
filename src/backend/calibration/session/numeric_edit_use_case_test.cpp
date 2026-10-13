@@ -191,6 +191,9 @@ TEST_F(NumericEditUseCaseTest, RelativeEditsNeedValidCurrentValuesButAssignments
     Install(std::move(def));
 
     EXPECT_THAT(Edit(NumericTarget::kMapBody, Cell(0, 0), AssignmentEdit{"x+1"}), IsErr(ErrorKind::kInvalidConfig));
+    EXPECT_THAT(Edit(NumericTarget::kMapBody, Cell(0, 0), IncrementEdit{IncrementStep::kFineUp}),
+                IsErr(ErrorKind::kInvalidConfig));
+    EXPECT_EQ(RomBytes(), GridRom());
     EXPECT_FALSE(Session().Dirty());
 
     EXPECT_THAT(Edit(NumericTarget::kMapBody, Cell(0, 0), AssignmentEdit{"5"}), Changed());
@@ -343,6 +346,13 @@ TEST_F(NumericEditUseCaseTest, UnavailableTargetsAreNotApplicable)
     EXPECT_THAT(Edit(NumericTarget::kYAxis, Cell(0, 0), AssignmentEdit{"7"}),
                 NotApplicable(NotApplicableReason::kUnavailableTarget));
 
+    auto blob = GridDefinition();
+    blob.maps[0].storage_type = definition::StorageType::kBloblist;
+    blob.scalings[0].selections = {{.name = "one", .value = {1}}};
+    Install(std::move(blob));
+    EXPECT_THAT(Edit(NumericTarget::kMapBody, Cell(0, 0), AssignmentEdit{"7"}),
+                NotApplicable(NotApplicableReason::kUnavailableTarget));
+
     auto structural = GridDefinition();
     structural.maps[0].address.reset();
     Install(std::move(structural));
@@ -351,6 +361,89 @@ TEST_F(NumericEditUseCaseTest, UnavailableTargetsAreNotApplicable)
 
     EXPECT_THAT(RomBytes(), ::testing::Eq(GridRom()));
     EXPECT_FALSE(Session().Dirty());
+}
+
+TEST_F(NumericEditUseCaseTest, AnInvalidAxisRejectsBodyOperations)
+{
+    auto def = GridDefinition();
+    def.maps[0].x_axis.address = memory::DefinitionAddress{0x40};
+    Install(std::move(def));
+    EXPECT_THAT(Edit(NumericTarget::kMapBody, Cell(0, 0), AssignmentEdit{"7"}),
+                NotApplicable(NotApplicableReason::kUnavailableTarget));
+    EXPECT_EQ(RomBytes(), GridRom());
+    EXPECT_FALSE(Session().Dirty());
+}
+
+TEST_F(NumericEditUseCaseTest, ReciprocalEncodingIsValidatedForTheRequestedValue)
+{
+    auto def = GridDefinition();
+    auto& map = def.maps[0];
+    map.type = "1D";
+    map.x_size = 1;
+    map.y_size = 1;
+    map.storage_type = definition::StorageType::kUint16;
+    map.x_axis = {};
+    map.y_axis = {};
+    auto& scaling = def.scalings[0];
+    scaling.from_byte = "7500000/x";
+    scaling.to_byte = "7500000/x";
+    scaling.minimum = "0";
+    scaling.maximum = "9000";
+    scaling.coarse_increment = "60";
+    auto rom = GridRom();
+    rom[kBody] = 0x03;
+    rom[kBody + 1] = 0xE8;
+    Install(std::move(def), rom);
+    const auto before = RomBytes();
+    EXPECT_THAT(Edit(NumericTarget::kMapBody, Cell(0, 0), AssignmentEdit{"7500"}),
+                Unchanged(NoChangeReason::kUnchanged));
+    EXPECT_THAT(Edit(NumericTarget::kMapBody, Cell(0, 0), AssignmentEdit{"0"}), IsErr(ErrorKind::kInvalidConfig));
+    EXPECT_EQ(RomBytes(), before);
+    EXPECT_FALSE(Session().Dirty());
+}
+
+TEST_F(NumericEditUseCaseTest, AssignmentIgnoresMalformedIncrement)
+{
+    auto def = GridDefinition();
+    def.scalings[0].fine_increment = "bad";
+    Install(std::move(def));
+    EXPECT_THAT(Edit(NumericTarget::kMapBody, Cell(0, 0), AssignmentEdit{"7"}), Changed());
+    EXPECT_EQ(Session().File()[kBody], 7);
+    const auto before = RomBytes();
+    EXPECT_THAT(Edit(NumericTarget::kMapBody, Cell(0, 0), IncrementEdit{IncrementStep::kFineUp}),
+                IsErr(ErrorKind::kInvalidConfig));
+    EXPECT_EQ(RomBytes(), before);
+    EXPECT_TRUE(Session().Dirty());
+}
+
+TEST_F(NumericEditUseCaseTest, ConsumedMalformedLimitRejectsAssignment)
+{
+    auto def = GridDefinition();
+    def.scalings[0].minimum = "bad";
+    Install(std::move(def));
+    EXPECT_THAT(Edit(NumericTarget::kMapBody, Cell(0, 0), AssignmentEdit{"7"}), IsErr(ErrorKind::kInvalidConfig));
+    EXPECT_EQ(RomBytes(), GridRom());
+    EXPECT_FALSE(Session().Dirty());
+}
+
+TEST_F(NumericEditUseCaseTest, ResolvedAxisExpressionsAndStrideDriveEdits)
+{
+    auto def = GridDefinition();
+    auto& axis = def.maps[0].x_axis;
+    axis.start_position = 2;
+    axis.interval = 2;
+    axis.from_byte = "x*10";
+    axis.to_byte = "x/10";
+    auto rom = GridRom();
+    rom[1] = 1;
+    rom[3] = 2;
+    rom[5] = 3;
+    Install(std::move(def), rom);
+    EXPECT_THAT(Edit(NumericTarget::kXAxis, Cell(0, 1), AssignmentEdit{"40"}), Changed());
+    EXPECT_EQ(Session().File()[1], 1);
+    EXPECT_EQ(Session().File()[3], 4);
+    EXPECT_EQ(Session().File()[5], 3);
+    EXPECT_THAT(BodyBytes(), ElementsAre(10, 20, 30, 40, 50, 200));
 }
 
 TEST_F(NumericEditUseCaseTest, PastesRowsFromTheSelectionTopLeft)

@@ -23,10 +23,10 @@ extracting repeated switches.
   selection, and body/X/Y geometry.
 - [Decoding](../../../src/backend/calibration/calibration_service.cpp),
   [placement](../../../src/backend/calibration/map_placement.cpp), and
-  [field collection](../../../src/backend/calibration/session/map_element_fields.cpp)
+  [field collection](https://github.com/RcusStackwalker/FastECU/blob/e444fd75cdc48743fd0ed877c9e79bde9bc71831/src/backend/calibration/session/map_element_fields.cpp)
   repeat parts of storage and definition interpretation. The review found no
   demonstrated disagreement between decode and edit metadata resolution.
-- [MapElementFields](../../../src/backend/calibration/session/map_element_fields.h)
+- [MapElementFields](https://github.com/RcusStackwalker/FastECU/blob/e444fd75cdc48743fd0ed877c9e79bde9bc71831/src/backend/calibration/session/map_element_fields.h)
   exposes borrowed strings through `Spec() const&`, but deletes a differently
   named `spec() const&&`. The intended protection against temporaries therefore
   does not apply. Current production calls retain the owner; no existing

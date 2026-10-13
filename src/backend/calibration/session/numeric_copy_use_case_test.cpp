@@ -9,6 +9,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "src/backend/calibration/session/numeric_edit_use_case.h"
 #include "src/backend/calibration/session/testing/numeric_session_fixture.h"
 #include "src/backend/ports/testing/result_matchers.h"
 
@@ -18,6 +19,8 @@ namespace
 {
 
 using testing::GridDefinition;
+using testing::GridRom;
+using testing::kBody;
 
 using fastecu::testing::IsErr;
 using fastecu::testing::IsOk;
@@ -178,8 +181,122 @@ TEST_F(NumericCopyUseCaseTest, IsNotApplicableWithoutAUsableTarget)
         NotApplicable(NotApplicableReason::kClosedSession));
     EXPECT_THAT(Copy(NumericTarget::kMapBody, Cell(0, 0), 5), NotApplicable(NotApplicableReason::kUnavailableTarget));
 
+    auto static_axis = GridDefinition();
+    static_axis.maps[0].x_axis = {.type = "Static X Axis", .static_data = {"a", "b", "c"}};
+    static_axis.maps[0].y_axis = {};
+    Install(std::move(static_axis));
+    EXPECT_THAT(Copy(NumericTarget::kXAxis, Cell(0, 0)), NotApplicable(NotApplicableReason::kUnavailableTarget));
+    EXPECT_THAT(Copy(NumericTarget::kYAxis, Cell(0, 0)), NotApplicable(NotApplicableReason::kUnavailableTarget));
+
+    auto blob = GridDefinition();
+    blob.maps[0].storage_type = definition::StorageType::kBloblist;
+    blob.scalings[0].selections = {{.name = "one", .value = {1}}};
+    Install(std::move(blob));
+    EXPECT_THAT(Copy(NumericTarget::kMapBody, Cell(0, 0)), NotApplicable(NotApplicableReason::kUnavailableTarget));
+    EXPECT_EQ(RomBytes(), GridRom());
+    EXPECT_FALSE(Session().Dirty());
+
     Install(std::nullopt);
     EXPECT_THAT(Copy(NumericTarget::kMapBody, Cell(0, 0)), NotApplicable(NotApplicableReason::kNoDefinition));
+}
+
+TEST_F(NumericCopyUseCaseTest, CopyReadsValuesAfterAnEdit)
+{
+    ASSERT_THAT(ApplyNumericEdit(workspace_, {.session = id_,
+                                              .map_index = 0,
+                                              .selection = {.target = NumericTarget::kMapBody, .elements = Cell(0, 0)},
+                                              .operation = AssignmentEdit{"33"}}),
+                IsOkAnd(VariantWith<NumericEditChanged>(::testing::_)));
+    EXPECT_THAT(Copy(NumericTarget::kMapBody, Cell(0, 0)), CopiedText("33"));
+}
+
+TEST_F(NumericCopyUseCaseTest, AnInvalidAxisRejectsBodyOperations)
+{
+    auto def = GridDefinition();
+    def.maps[0].x_axis.address = memory::DefinitionAddress{0x40};
+    Install(std::move(def));
+    EXPECT_THAT(Copy(NumericTarget::kMapBody, Cell(0, 0)), NotApplicable(NotApplicableReason::kUnavailableTarget));
+    EXPECT_EQ(RomBytes(), GridRom());
+    EXPECT_FALSE(Session().Dirty());
+}
+
+TEST_F(NumericCopyUseCaseTest, CopiesReciprocalScaledValues)
+{
+    auto def = GridDefinition();
+    auto& map = def.maps[0];
+    map.type = "1D";
+    map.x_size = 1;
+    map.y_size = 1;
+    map.storage_type = definition::StorageType::kUint16;
+    map.x_axis = {};
+    map.y_axis = {};
+    auto& scaling = def.scalings[0];
+    scaling.from_byte = "7500000/x";
+    scaling.to_byte = "7500000/x";
+    scaling.minimum = "0";
+    scaling.maximum = "9000";
+    scaling.coarse_increment = "60";
+    auto rom = GridRom();
+    rom[kBody] = 0x03;
+    rom[kBody + 1] = 0xE8;
+    Install(std::move(def), rom);
+    EXPECT_THAT(Copy(NumericTarget::kMapBody, Cell(0, 0)), CopiedText("7500"));
+    EXPECT_EQ(RomBytes(), rom);
+    EXPECT_FALSE(Session().Dirty());
+}
+
+class CopyIgnoresEditOnlyMetadataTest : public NumericCopyUseCaseTest, public ::testing::WithParamInterface<int>
+{
+};
+
+TEST_P(CopyIgnoresEditOnlyMetadataTest, CopyIgnoresEditOnlyMetadata)
+{
+    auto def = GridDefinition();
+    auto& scaling = def.scalings[0];
+    switch (GetParam())
+    {
+    case 0:
+        scaling.to_byte = "1/0";
+        break;
+    case 1:
+        scaling.minimum = "bad";
+        break;
+    case 2:
+        scaling.minimum = "200";
+        scaling.maximum = "0";
+        break;
+    case 3:
+        scaling.fine_increment = "bad";
+        break;
+    }
+    Install(std::move(def));
+    EXPECT_THAT(Copy(NumericTarget::kMapBody, Cell(0, 0)), CopiedText("10"));
+    EXPECT_EQ(RomBytes(), GridRom());
+    EXPECT_FALSE(Session().Dirty());
+}
+
+INSTANTIATE_TEST_SUITE_P(EditMetadata, CopyIgnoresEditOnlyMetadataTest, ::testing::Values(0, 1, 2, 3));
+
+TEST_F(NumericCopyUseCaseTest, ClosingAnotherSessionKeepsTheTargetIdStable)
+{
+    const auto other =
+        workspace_.AdoptReadImage(ReadImage{.rom = GridRom(), .filename = "other.bin", .protocol_name = "proto_b"});
+    ASSERT_THAT(other, IsOk());
+    ASSERT_THAT(workspace_.Close(other->id), IsOk());
+    EXPECT_THAT(Copy(NumericTarget::kMapBody, Cell(0, 0)), CopiedText("10"));
+    ASSERT_THAT(ApplyNumericEdit(workspace_, {.session = id_,
+                                              .map_index = 0,
+                                              .selection = {.target = NumericTarget::kMapBody, .elements = Cell(0, 0)},
+                                              .operation = AssignmentEdit{"7"}}),
+                IsOkAnd(VariantWith<NumericEditChanged>(::testing::_)));
+    EXPECT_EQ(Session().File()[kBody], 7);
+    ASSERT_THAT(workspace_.Close(id_), IsOk());
+    EXPECT_THAT(Copy(NumericTarget::kMapBody, Cell(0, 0)), NotApplicable(NotApplicableReason::kClosedSession));
+    EXPECT_THAT(ApplyNumericEdit(workspace_, {.session = id_,
+                                              .map_index = 0,
+                                              .selection = {.target = NumericTarget::kMapBody, .elements = Cell(0, 0)},
+                                              .operation = AssignmentEdit{"7"}}),
+                NotApplicable(NotApplicableReason::kClosedSession));
 }
 
 TEST_F(NumericCopyUseCaseTest, RejectsSelectionsOutsideTheRun)
