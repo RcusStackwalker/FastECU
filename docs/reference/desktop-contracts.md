@@ -13,6 +13,13 @@ catalog, which stops before its borrowed service and configuration. Logging stop
 before its clock/facade; remote services stop before serial release. The syslogger
 thread is quit and joined after its dependents stop.
 
+The window's logging coordinator borrows that engine. Connect stops acquisition
+and closes CSV synchronously before identification or facade reuse. Window
+shutdown first cancels and joins identification, then shuts down logging; logging
+close errors are logged without modal notices. The
+[desktop logging ownership contract](logging-contracts.md#desktop-run-ownership)
+owns copied presentation views and notification ordering.
+
 Composition links configuration and kernel resource registration explicitly.
 The [serial factory](../../src/platform/desktop/common/serial/desktop_serial_factory.h)
 exposes construction through an owner with a custom deleter and keeps the facade
