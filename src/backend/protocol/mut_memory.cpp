@@ -13,7 +13,8 @@ namespace mutdma
 namespace
 {
 constexpr std::uint16_t kWritableLow = 0x4000;
-constexpr std::uint16_t kWritableHigh = 0xBFFF;
+constexpr std::size_t kWritableEnd = 0xC000;
+constexpr std::size_t kAddressSpaceEnd = 0x10000;
 constexpr int kMutBaud = 125000;
 constexpr std::size_t kReadChunk = 40;
 constexpr bytes::Byte kSetupCmd = 0xA0;
@@ -24,7 +25,7 @@ constexpr std::chrono::milliseconds kPollTimeout{50};
 fastecu::Status WriteMemory(IKlineTransport& transport, std::uint16_t addr, bytes::ByteView data,
                             const fastecu::ICancellationToken& cancellation)
 {
-    if (addr < kWritableLow || addr > kWritableHigh)
+    if (addr < kWritableLow || addr >= kWritableEnd || data.size() > kWritableEnd - addr)
     {
         return fastecu::Fail(fastecu::ErrorKind::kInvalidConfig, "MUT/DMA: refusing write outside 0x4000-0xBFFF");
     }
@@ -36,6 +37,10 @@ fastecu::Status WriteMemory(IKlineTransport& transport, std::uint16_t addr, byte
 fastecu::Result<bytes::Bytes> ReadMemory(IKlineTransport& transport, std::uint16_t addr, std::size_t len,
                                          const fastecu::ICancellationToken& cancellation)
 {
+    if (len > kAddressSpaceEnd - addr)
+    {
+        return fastecu::Fail(fastecu::ErrorKind::kInvalidConfig, "MUT/DMA: refusing read beyond 16-bit address space");
+    }
     AlreadyInMode init(kMutBaud);
     MutDmaDriver driver(transport, init);
     bytes::Bytes out;
@@ -46,22 +51,22 @@ fastecu::Result<bytes::Bytes> ReadMemory(IKlineTransport& transport, std::uint16
             PlanReadChannels(static_cast<std::uint16_t>(addr + off), static_cast<int>(chunk));
         if (auto started = driver.StartFreeFormLog(channels, kSetupCmd, kListCmd, cancellation); !started.has_value())
         {
-            if (off == 0)
-            {
-                return std::unexpected(started.error());
-            }
-            break;
+            return std::unexpected(started.error());
         }
         auto values = driver.PollOnce(kPollTimeout, cancellation);
         if (!values.has_value())
         {
-            if (off == 0)
-            {
-                return std::unexpected(values.error());
-            }
-            break;
+            return std::unexpected(values.error());
+        }
+        if (values->empty())
+        {
+            return fastecu::Fail(fastecu::ErrorKind::kTimeout, "MUT/DMA: no frame for memory read chunk");
         }
         const bytes::Bytes piece = ReassembleRead(*values);
+        if (piece.size() != chunk)
+        {
+            return fastecu::Fail(fastecu::ErrorKind::kBadResponse, "MUT/DMA: memory read chunk has unexpected length");
+        }
         out.insert(out.end(), piece.begin(), piece.end());
     }
     return out;
