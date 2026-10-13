@@ -1,8 +1,8 @@
 # Five small technical-debt tasks for parallel implementation
 
-Status: proposed specification, ready for user review. Implementation is not
-authorized by this document. The interview settled the selection and behavior
-below; written-spec approval is the next step.
+Status: approved specification (user confirmation, 2026-10-13). Implementation
+is not authorized by this document. The interview settled the selection and
+behavior below; the implementation plan is the next review artifact.
 
 ## Purpose and scope
 
