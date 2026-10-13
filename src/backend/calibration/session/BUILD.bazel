@@ -159,6 +159,7 @@ cc_library(
     implementation_deps = [":numeric_target_internal"],
     deps = [
         ":calibration_workspace",
+        ":numeric_edit_use_case",
         ":numeric_operation_types",
         "//src/backend/ports",
     ],
@@ -169,7 +170,6 @@ fastecu_portable_gtest(
     srcs = ["numeric_copy_use_case_test.cpp"],
     deps = [
         ":numeric_copy_use_case",
-        ":numeric_edit_use_case",
         "//src/backend/calibration/session/testing:numeric_session_fixture",
         "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",

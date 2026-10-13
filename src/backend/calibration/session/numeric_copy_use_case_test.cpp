@@ -9,7 +9,6 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include "src/backend/calibration/session/numeric_edit_use_case.h"
 #include "src/backend/calibration/session/testing/numeric_session_fixture.h"
 #include "src/backend/ports/testing/result_matchers.h"
 
@@ -268,6 +267,8 @@ TEST_P(CopyIgnoresEditOnlyMetadataTest, CopyIgnoresEditOnlyMetadata)
     case 3:
         scaling.fine_increment = "bad";
         break;
+    default:
+        FAIL() << "Unexpected edit metadata parameter: " << GetParam();
     }
     Install(std::move(def));
     EXPECT_THAT(Copy(NumericTarget::kMapBody, Cell(0, 0)), CopiedText("10"));

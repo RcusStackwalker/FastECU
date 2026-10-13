@@ -1,6 +1,7 @@
 #pragma once
 
 #include "src/backend/calibration/session/calibration_workspace.h"
+#include "src/backend/calibration/session/numeric_edit_use_case.h"
 #include "src/backend/calibration/session/numeric_operation_types.h"
 #include "src/backend/ports/result.h"
 
