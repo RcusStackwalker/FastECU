@@ -40,6 +40,7 @@ Status DesktopLoggingRun::start(DesktopLoggingRunStart request)
         return Fail(ErrorKind::kInvalidConfig,
                     shutdown_ ? "logging run owner has shut down" : "a logging run is already active");
     }
+    ++run_id_;
     active_snapshot_.emplace(std::move(request.snapshot));
     values_.BeginRun(*active_snapshot_);
     csv_failed_ = false;
@@ -110,6 +111,7 @@ void DesktopLoggingRun::setCsvEnabled(bool enabled, const QString& directory, co
 }
 std::optional<QString> DesktopLoggingRun::releaseRun()
 {
+    ++run_id_;
     const auto closed = csv_file_.EndRun();
     active_snapshot_.reset();
     values_ = DesktopLoggerValues{};
@@ -154,15 +156,15 @@ void DesktopLoggingRun::reportCsvError(const QString& message)
 }
 void DesktopLoggingRun::handleSamples(const QVector<fastecu::logging::LogSample>& samples)
 {
-    if (shutdown_ || !active_snapshot_.has_value())
+    const auto runId = run_id_;
+    const auto isCurrentRun = [this, runId] { return !shutdown_ && active_snapshot_.has_value() && run_id_ == runId; };
+    if (!isCurrentRun())
     {
         return;
     }
     for (const auto& sample : samples)
     {
-        // Preserve the desktop's presence check; replacement identity is a
-        // separately characterized defect, beyond this ownership extraction.
-        if (!active_snapshot_.has_value())
+        if (!isCurrentRun())
         {
             return;
         }
@@ -170,15 +172,19 @@ void DesktopLoggingRun::handleSamples(const QVector<fastecu::logging::LogSample>
         if (!applied.has_value())
         {
             emit sampleError(QString::fromStdString(applied.error().detail));
+            if (!isCurrentRun())
+            {
+                return;
+            }
         }
     }
-    if (!active_snapshot_.has_value())
+    if (!isCurrentRun())
     {
         return;
     }
     // Rendering historically processes queued stop requests before CSV append.
     emit presentationChanged();
-    if (!active_snapshot_.has_value() || !csv_enabled_ || csv_failed_ || !csv_file_.IsOpen())
+    if (!isCurrentRun() || !csv_enabled_ || csv_failed_ || !csv_file_.IsOpen())
     {
         return;
     }
