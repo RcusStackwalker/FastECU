@@ -5,6 +5,11 @@
 namespace fastecu::config
 {
 
+std::string KernelFileHandle(const ConfigPaths& paths, std::string_view kernel)
+{
+    return paths.kernel_files_directory + std::string(kernel);
+}
+
 ConfigPaths ResolveConfigPaths(std::string_view app_root_path, std::string_view version)
 {
     ConfigPaths paths;

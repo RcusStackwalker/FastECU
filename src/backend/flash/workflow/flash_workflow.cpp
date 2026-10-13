@@ -1,4 +1,4 @@
-#include "src/platform/desktop/common/flash/flash_workflow.h"
+#include "src/backend/flash/workflow/flash_workflow.h"
 
 #include <algorithm>
 #include <array>
@@ -164,7 +164,7 @@ Result<KernelImage> ResolveKernel(const FlashWorkflowRequest& request, IFileRepo
                     std::format("protocol '{}' declares no kernel load address", request.protocol.name));
     }
     Result<std::vector<std::uint8_t>> kernel_bytes =
-        repository.Read(request.paths.kernel_files_directory + std::string(request.protocol.kernel));
+        repository.Read(config::KernelFileHandle(request.paths, request.protocol.kernel));
     if (!kernel_bytes.has_value())
     {
         return std::unexpected(kernel_bytes.error());
@@ -179,7 +179,7 @@ Result<KernelImage> ResolveKernel(const FlashWorkflowRequest& request, IFileRepo
 Result<bytes::Bytes> ResolveKernelBytes(const FlashWorkflowRequest& request, IFileRepository& repository)
 {
     Result<std::vector<std::uint8_t>> kernel_bytes =
-        repository.Read(request.paths.kernel_files_directory + std::string(request.protocol.kernel));
+        repository.Read(config::KernelFileHandle(request.paths, request.protocol.kernel));
     if (!kernel_bytes.has_value())
     {
         const Error& error = kernel_bytes.error();

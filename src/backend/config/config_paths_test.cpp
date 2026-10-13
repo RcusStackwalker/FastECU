@@ -34,3 +34,14 @@ TEST(ResolveConfigPaths, InstalledPathNestsUnderVersionDirectory)
     EXPECT_EQ(paths.syslog_files_directory, "/home/user/.config/FastECU/0.1.0-beta.5/syslogs/");
     EXPECT_EQ(paths.config_file, "/home/user/.config/FastECU/0.1.0-beta.5/config/fastecu.cfg");
 }
+
+TEST(KernelFileHandle, preservesConfiguredHandleText)
+{
+    ConfigPaths paths;
+    paths.kernel_files_directory = "kernels/";
+    EXPECT_EQ(fastecu::config::KernelFileHandle(paths, "kernel.bin"), "kernels/kernel.bin");
+    EXPECT_EQ(fastecu::config::KernelFileHandle(paths, "nested/kernel.bin"), "kernels/nested/kernel.bin");
+    EXPECT_EQ(fastecu::config::KernelFileHandle(paths, ""), "kernels/");
+    paths.kernel_files_directory.clear();
+    EXPECT_EQ(fastecu::config::KernelFileHandle(paths, "kernel.bin"), "kernel.bin");
+}

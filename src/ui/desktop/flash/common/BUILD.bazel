@@ -15,8 +15,8 @@ qt_cc_library(
     implementation_deps = ["//bazel/qt:core"],
     deps = [
         "//bazel/qt:widgets",
+        "//src/backend/flash/workflow:flash_workflow",
         "//src/backend/ports",
-        "//src/platform/desktop/common/flash:flash_workflow",
         "//src/platform/desktop/common/flash/worker:flash_worker",
         "//src/ui/desktop:ui_ecu_operations",
     ],

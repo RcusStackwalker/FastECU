@@ -23,7 +23,7 @@
 #include "src/platform/desktop/common/bytes/qt_bytes.h"
 #include "src/backend/logging/logger_definition_service.h"
 #include "src/backend/flash/flash_operation_request.h"
-#include "src/platform/desktop/common/flash/flash_workflow.h"
+#include "src/backend/flash/workflow/flash_workflow.h"
 #include "src/platform/desktop/common/serial/serial_idle.h"
 #include "src/ui/desktop/config_fields.h"
 #include "src/ui/desktop/flash/operation/flash_operation_controller.h"

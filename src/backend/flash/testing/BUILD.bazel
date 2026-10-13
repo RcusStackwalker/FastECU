@@ -45,3 +45,23 @@ fastecu_portable_gtest(
         "@googletest//:gtest",
     ],
 )
+
+cc_library(
+    name = "scripted_flash_transport_source",
+    testonly = True,
+    hdrs = ["scripted_flash_transport_source.h"],
+    deps = [
+        ":scripted_flash_transports",
+        "//src/backend/flash:flash_transport_source",
+        "//src/backend/flash:flash_types",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "scripted_flash_transport_source_test",
+    srcs = ["scripted_flash_transport_source_test.cpp"],
+    deps = [
+        ":scripted_flash_transport_source",
+        "@googletest//:gtest",
+    ],
+)

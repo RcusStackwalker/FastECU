@@ -1,6 +1,6 @@
 #pragma once
 
-#include "src/platform/desktop/common/flash/flash_workflow.h"
+#include "src/backend/flash/workflow/flash_workflow.h"
 
 class SerialPortActions;
 

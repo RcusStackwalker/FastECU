@@ -110,29 +110,23 @@ struct ConfirmationSpec
         kBeginEepromRead,
         kInspectEepromBytes,
         kCycleIgnition,
-        // Both are collected by the desktop dialog
-        // BEFORE the executor starts: a synchronous, dialog-free executor
-        // cannot block mid-run for a human answer. Presence in
-        // FlashPlan::confirmations() therefore means "granted" -- an
-        // operator who declines either one causes the dialog to never build
-        // a plan at all.
+        // Plans carry these required confirmations before the desktop prompts.
+        // The dialog collects operator answers before the synchronous,
+        // dialog-free executor starts; declining prevents execution of the
+        // bound attempt. Presence in the plan does not prove a grant.
         kEraseTrigger,
         kTopRegionBootstrap,
-        // Same contract as the two above: the
-        // operator confirmed, before the executor started, that external
-        // programming voltage is applied because the adapter cannot supply
-        // it.
+        // Requires confirmation that external programming voltage is applied
+        // because the adapter cannot supply it, before the attempt runs.
         kApplyProgrammingVoltage,
-        // Same contract: the operator confirmed, before
-        // the executor started, that VPP and MOD1 are connected for M32R
-        // boot mode.
+        // Requires confirmation that VPP and MOD1 are connected for M32R
+        // boot mode before the attempt runs.
         kApplyBootModeVoltages,
-        // Same contract as the four above. Hitachi SH7058 Read: the operator
-        // confirmed opening the adapter and starting the K-Line ROM read.
+        // Hitachi SH7058 Read requires confirmation before opening the
+        // adapter and starting the K-Line ROM read.
         kStartKlineRead,
-        // Same contract. Denso MC68HC16Y5 BDM Write: the operator confirmed
-        // uploading the kernel into RAM and starting it; the ROM is not
-        // written.
+        // Denso MC68HC16Y5 BDM Write requires confirmation before uploading
+        // the kernel into RAM and starting it; the ROM is not written.
         kKernelBootstrap,
     };
 

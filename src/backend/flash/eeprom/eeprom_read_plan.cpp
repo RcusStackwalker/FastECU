@@ -110,11 +110,8 @@ Result<FlashPlan> BuildEepromReadPlan(const config::ConfigPaths& paths, const co
         return std::unexpected(preflight.error());
     }
 
-    // No separator inserted: kernel_files_directory already carries its
-    // trailing separator (config_paths.cpp:20 builds it as base +
-    // "/kernels/"), exactly as mainwindow.cpp:1137 concatenated it. Adding
-    // one produces a doubled separator and a failed open.
-    const std::string kernel_handle = paths.kernel_files_directory + std::string(protocol.kernel);
+    // KernelFileHandle preserves the configured directory's trailing-slash contract.
+    const std::string kernel_handle = config::KernelFileHandle(paths, protocol.kernel);
     Result<std::vector<std::uint8_t>> kernel_bytes = file_repository.Read(kernel_handle);
     if (!kernel_bytes.has_value())
     {
