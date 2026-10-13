@@ -387,3 +387,63 @@ CustomChecks:
       - BindName: message
         Message: 'construct this diagnostic message with std::format instead of string concatenation'
         Level: Warning
+  - Name: linear-search-loop
+    Query: |
+      match cxxForRangeStmt(
+        hasLoopVariable(
+          varDecl().bind("element")
+        ),
+        hasBody(
+          compoundStmt(
+            hasDescendant(
+              ifStmt(
+                hasCondition(
+                  expr(
+                    anyOf(
+                      binaryOperator(
+                        hasOperatorName("==")
+                      ),
+                      cxxOperatorCallExpr(
+                        hasOverloadedOperatorName("==")
+                      )
+                    ),
+                    hasDescendant(
+                      declRefExpr(
+                        to(varDecl(
+                          equalsBoundNode("element")
+                        ))
+                      )
+                    )
+                  )
+                ),
+                hasThen(
+                  compoundStmt(
+                    has(
+                      returnStmt(
+                        hasReturnValue(
+                          unaryOperator(
+                            hasOperatorName("&"),
+                            hasUnaryOperand(
+                              ignoringParenImpCasts(
+                                declRefExpr(
+                                  to(varDecl(
+                                    equalsBoundNode("element")
+                                  ))
+                                )
+                              )
+                            )
+                          )
+                        )
+                      )
+                    )
+                  )
+                )
+              )
+            )
+          )
+        )
+      ).bind("loop")
+    Diagnostic:
+      - BindName: loop
+        Message: "Linear search loop returning an element address; consider std::ranges::find_if"
+        Level: Warning

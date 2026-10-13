@@ -1,7 +1,9 @@
 #include "src/backend/flash/ecu/subaru_denso_sh705x_densocan_plan.h"
 
+#include <algorithm>
 #include <array>
 #include <format>
+#include <memory>
 #include <utility>
 
 #include "src/backend/flash/kernel/kernelmemorymodels.h"
@@ -26,39 +28,26 @@ struct CatalogEntry
 // Exact built-in catalog/legacy identities. These are intentionally exact
 // identities rather than a suffix rule: EEPROM DensoCAN and future variants
 // are a different family until designed and tested explicitly.
-constexpr std::array<CatalogEntry, 5> kCatalog{{
-    {"sub_ecu_denso_sh7055_densocan", "SH7055", 0x00080000, 0xFFFF6004},
-    {"sub_ecu_denso_sh7058_densocan", "SH7058", 0x00100000, 0xFFFF3000},
-    {"sub_ecu_denso_sh7058s_densocan", "SH7058", 0x00100000, 0xFFFF3000},
-    {"sub_ecu_denso_sh7058s_diesel_densocan", "SH7058", 0x00100000, 0xFFFF3000},
-    {"sub_ecu_denso_sh7059_diesel_densocan", "SH7059d", 0x00180000, 0xFFFEE000},
-}};
+constexpr auto kCatalog =
+    std::to_array<CatalogEntry>({{"sub_ecu_denso_sh7055_densocan", "SH7055", 0x00080000, 0xFFFF6004},
+                                 {"sub_ecu_denso_sh7058_densocan", "SH7058", 0x00100000, 0xFFFF3000},
+                                 {"sub_ecu_denso_sh7058s_densocan", "SH7058", 0x00100000, 0xFFFF3000},
+                                 {"sub_ecu_denso_sh7058s_diesel_densocan", "SH7058", 0x00100000, 0xFFFF3000},
+                                 {"sub_ecu_denso_sh7059_diesel_densocan", "SH7059d", 0x00180000, 0xFFFEE000}});
 
-const CatalogEntry *FindCatalog(std::string_view protocol)
+Result<CatalogEntry> GetCatalogEntry(std::string_view protocol, std::string_view mcu)
 {
-    for (const CatalogEntry& entry : kCatalog)
-    {
-        if (entry.protocol == protocol)
-        {
-            return &entry;
-        }
-    }
-    return nullptr;
-}
-
-Status ValidateIdentity(std::string_view protocol, std::string_view mcu, const CatalogEntry *& entry)
-{
-    entry = FindCatalog(protocol);
-    if (entry == nullptr)
+    const auto it = std::ranges::find(kCatalog, protocol, &CatalogEntry::protocol);
+    if (it == kCatalog.end())
     {
         return Fail(ErrorKind::kInvalidConfig, std::format("Unsupported DensoCAN protocol: {}", protocol));
     }
-    if (mcu != entry->mcu)
+    if (mcu != it->mcu)
     {
         return Fail(ErrorKind::kInvalidConfig,
-                    std::format("DensoCAN protocol {} requires MCU {}, not {}", protocol, entry->mcu, mcu));
+                    std::format("DensoCAN protocol {} requires MCU {}, not {}", protocol, it->mcu, mcu));
     }
-    return {};
+    return *it;
 }
 
 const FlashDevice *CheckedDevice(const CatalogEntry& entry)
@@ -110,10 +99,10 @@ Status ValidateSubaruDensoSh705xDensocanPlan(const FlashPlan& plan)
     {
         return Fail(ErrorKind::kInvalidConfig, "DensoCAN wire parameters are invalid");
     }
-    const CatalogEntry *entry = nullptr;
-    if (Status identity = ValidateIdentity(plan.TargetId(), plan.McuName(), entry); !identity.has_value())
+    const auto entry = GetCatalogEntry(plan.TargetId(), plan.McuName());
+    if (!entry.has_value())
     {
-        return identity;
+        return std::unexpected(entry.error());
     }
     const FlashDevice *device = CheckedDevice(*entry);
     if (device == nullptr)
@@ -146,10 +135,10 @@ Result<FlashPlan> BuildSubaruDensoSh705xDensocanPlan(FlashOperation operation, s
                                                      std::string_view mcu_type, std::optional<bytes::Bytes> image,
                                                      KernelImage kernel)
 {
-    const CatalogEntry *entry = nullptr;
-    if (Status identity = ValidateIdentity(protocol_name, mcu_type, entry); !identity.has_value())
+    const auto entry = GetCatalogEntry(protocol_name, mcu_type);
+    if (!entry.has_value())
     {
-        return std::unexpected(identity.error());
+        return std::unexpected(entry.error());
     }
     const FlashDevice *device = CheckedDevice(*entry);
     if (device == nullptr)
