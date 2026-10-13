@@ -314,19 +314,13 @@ void MainWindow::pasteValue()
 void MainWindow::connectToEcu(std::function<void(bool)> onDone)
 {
     connection_coordinator_->cancel();
-    const bool hadLoggingRun = logging_engine_->IsRunning() || active_logging_snapshot_.has_value();
-    if (logging_engine_->IsRunning())
-    {
-        logging_engine_->Stop();
-    }
-    // A checked Logging action can be a request still waiting for identification.
+    const auto runView = logging_run_->view();
+    const bool hadLoggingRun = runView.acquisition_running || runView.active_snapshot.has_value();
+    logging_run_->stop();
+    // A checked action may still be waiting for identification.
     if (hadLoggingRun)
     {
         restoreLoggingUiState();
-    }
-    else
-    {
-        endLoggingCsv();
     }
     ecuid_.clear();
     ecu_init_complete_ = false;
@@ -500,9 +494,7 @@ void MainWindow::toggleRealtime()
     else
     {
         qDebug() << "Stop datalog";
-        endLoggingCsv();
-
-        logging_engine_->Stop();
+        logging_run_->stop();
 
         // disconnect_from_ecu();
     }
@@ -566,18 +558,15 @@ void MainWindow::continueStartLogging()
         return;
     }
 
-    logger_values_.BeginRun(*snapshot);
-    active_logging_snapshot_.emplace(*snapshot);
-    logging_csv_failed_ = false;
-    last_logging_csv_path_.clear();
-    log_file_timer_->start();
-    updateLogboxes(active_log_value_protocol_filter_);
-    beginLoggingCsv();
-    if (!active_logging_snapshot_)
+    const auto stem = "fastecu_" + QDateTime::currentDateTime().toString("yyyy-MM-dd_hh'h'mm'm'ss's'");
+    const auto started =
+        logging_run_->start({config, std::move(*snapshot),
+                             fastecu::ui::qs(config_session_->EffectivePaths().datalog_files_directory), stem});
+    if (started.has_value() && logging_run_->view().active_snapshot.has_value())
     {
-        return;
+        updateLogboxes(active_log_value_protocol_filter_);
     }
-    const auto started = logging_engine_->Start(config, std::move(*snapshot));
+
     if (!started.has_value())
     {
         restoreLoggingUiState();
@@ -588,16 +577,9 @@ void MainWindow::continueStartLogging()
 
 void MainWindow::toggleLogToFile()
 {
-    write_datalog_to_file_ = ui_->actionLogToFile->isChecked();
-    if (!write_datalog_to_file_)
-    {
-        endLoggingCsv();
-    }
-    else
-    {
-        logging_csv_failed_ = false;
-        beginLoggingCsv();
-    }
+    const auto stem = "fastecu_" + QDateTime::currentDateTime().toString("yyyy-MM-dd_hh'h'mm'm'ss's'");
+    logging_run_->setCsvEnabled(ui_->actionLogToFile->isChecked(),
+                                fastecu::ui::qs(config_session_->EffectivePaths().datalog_files_directory), stem);
 }
 
 void MainWindow::showDtcWindow()

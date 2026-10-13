@@ -36,14 +36,8 @@ void MainWindow::parseLogValueList(QByteArray received, const QString& protocolA
     updateLogboxes(protocolArg);
 }
 
-void MainWindow::reportLoggingCsvError(const fastecu::Error& error)
+void MainWindow::reportLoggingCsvError(const QString& message)
 {
-    if (logging_csv_failed_)
-    {
-        return;
-    }
-    logging_csv_failed_ = true;
-    const auto message = QString::fromStdString(error.detail);
     emit logE(message, true, true);
     QMessageBox notice(this);
     notice.setWindowTitle(tr("Logging CSV"));
@@ -51,49 +45,4 @@ void MainWindow::reportLoggingCsvError(const fastecu::Error& error)
     notice.setText(message);
     notice.setStandardButtons(QMessageBox::Ok);
     notice.exec();
-}
-
-void MainWindow::beginLoggingCsv()
-{
-    if (!write_datalog_to_file_ || !active_logging_snapshot_ || logging_csv_failed_ || logging_csv_file_.IsOpen())
-    {
-        return;
-    }
-    const auto stem = "fastecu_" + QDateTime::currentDateTime().toString("yyyy-MM-dd_hh'h'mm'm'ss's'");
-    const auto opened = logging_csv_file_.BeginRun(
-        *active_logging_snapshot_, fastecu::ui::qs(config_session_->EffectivePaths().datalog_files_directory), stem);
-    if (!opened.has_value())
-    {
-        reportLoggingCsvError(opened.error());
-        return;
-    }
-    last_logging_csv_path_ = *opened;
-}
-
-void MainWindow::endLoggingCsv()
-{
-    const auto closed = logging_csv_file_.EndRun();
-    if (!closed.has_value())
-    {
-        reportLoggingCsvError(closed.error());
-    }
-}
-
-void MainWindow::logToFile()
-{
-    if (!write_datalog_to_file_ || !active_logging_snapshot_ || logging_csv_failed_)
-    {
-        return;
-    }
-    beginLoggingCsv();
-    if (!active_logging_snapshot_ || !logging_csv_file_.IsOpen())
-    {
-        return;
-    }
-    const auto elapsed = log_file_timer_->isValid() ? log_file_timer_->elapsed() : 0;
-    const auto written = logging_csv_file_.AppendRow(logger_values_, std::chrono::milliseconds{elapsed});
-    if (!written.has_value())
-    {
-        reportLoggingCsvError(written.error());
-    }
 }

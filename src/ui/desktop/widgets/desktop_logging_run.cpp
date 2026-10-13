@@ -4,27 +4,27 @@
 
 namespace fastecu::desktop::logging
 {
-DesktopLoggingRun::DesktopLoggingRun(LoggingEngine& engine, LoggingCsvFile csv_file)
-    : engine_(engine), csv_file_(std::move(csv_file))
+DesktopLoggingRun::DesktopLoggingRun(LoggingEngine& engine, LoggingCsvFile csvFile)
+    : engine_(engine), csv_file_(std::move(csvFile))
 {
-    connect(&engine_, &LoggingEngine::valuesUpdated, this, &DesktopLoggingRun::HandleSamples);
-    connect(&engine_, &LoggingEngine::sessionEnded, this, &DesktopLoggingRun::HandleCompletion);
+    connect(&engine_, &LoggingEngine::valuesUpdated, this, &DesktopLoggingRun::handleSamples);
+    connect(&engine_, &LoggingEngine::sessionEnded, this, &DesktopLoggingRun::handleCompletion);
 }
 DesktopLoggingRun::~DesktopLoggingRun()
 {
-    Shutdown();
+    shutdown();
 }
-DesktopLoggingRunView DesktopLoggingRun::View() const
+DesktopLoggingRunView DesktopLoggingRun::view() const
 {
     return {active_snapshot_, values_, engine_.IsRunning(), csv_enabled_, csv_file_.IsOpen(), csv_path_};
 }
-std::optional<QString> DesktopLoggingRun::BeginCsv(const QString& directory, const QString& name_stem)
+std::optional<QString> DesktopLoggingRun::beginCsv(const QString& directory, const QString& nameStem)
 {
     if (!csv_enabled_ || !active_snapshot_.has_value() || csv_failed_ || csv_file_.IsOpen())
     {
         return std::nullopt;
     }
-    const auto opened = csv_file_.BeginRun(*active_snapshot_, directory, name_stem);
+    const auto opened = csv_file_.BeginRun(*active_snapshot_, directory, nameStem);
     if (!opened.has_value())
     {
         csv_failed_ = true;
@@ -33,7 +33,7 @@ std::optional<QString> DesktopLoggingRun::BeginCsv(const QString& directory, con
     csv_path_ = *opened;
     return std::nullopt;
 }
-Status DesktopLoggingRun::Start(DesktopLoggingRunStart request)
+Status DesktopLoggingRun::start(DesktopLoggingRunStart request)
 {
     if (shutdown_ || active_snapshot_.has_value() || engine_.IsRunning())
     {
@@ -45,25 +45,25 @@ Status DesktopLoggingRun::Start(DesktopLoggingRunStart request)
     csv_failed_ = false;
     csv_path_.clear();
     elapsed_.start();
-    const auto csv_error = BeginCsv(request.csv_directory, request.csv_name_stem);
+    const auto csvFailure = beginCsv(request.csv_directory, request.csv_name_stem);
     const auto started = engine_.Start(request.session, *active_snapshot_);
     if (!started.has_value())
     {
-        const auto close_error = ReleaseRun();
-        if (csv_error.has_value())
+        const auto closeError = releaseRun();
+        if (csvFailure.has_value())
         {
-            ReportCsvError(*csv_error);
+            reportCsvError(*csvFailure);
         }
-        if (close_error.has_value())
+        if (closeError.has_value())
         {
-            ReportCsvError(*close_error);
+            reportCsvError(*closeError);
         }
         return started;
     }
     // Acquisition is established before observers can enter a modal CSV notice.
-    if (csv_error.has_value())
+    if (csvFailure.has_value())
     {
-        ReportCsvError(*csv_error);
+        reportCsvError(*csvFailure);
     }
     if (active_snapshot_.has_value() && !shutdown_)
     {
@@ -71,13 +71,13 @@ Status DesktopLoggingRun::Start(DesktopLoggingRunStart request)
     }
     return {};
 }
-void DesktopLoggingRun::Stop()
+void DesktopLoggingRun::stop()
 {
     // Engine completion is synchronous. Its subscriber may start a replacement;
     // never clean up or change flags after Stop returns.
     engine_.Stop();
 }
-void DesktopLoggingRun::SetCsvEnabled(bool enabled, const QString& directory, const QString& name_stem)
+void DesktopLoggingRun::setCsvEnabled(bool enabled, const QString& directory, const QString& nameStem)
 {
     if (shutdown_ || enabled == csv_enabled_)
     {
@@ -88,7 +88,7 @@ void DesktopLoggingRun::SetCsvEnabled(bool enabled, const QString& directory, co
     if (enabled)
     {
         csv_failed_ = false;
-        error = BeginCsv(directory, name_stem);
+        error = beginCsv(directory, nameStem);
     }
     else
     {
@@ -101,14 +101,14 @@ void DesktopLoggingRun::SetCsvEnabled(bool enabled, const QString& directory, co
     }
     if (error.has_value())
     {
-        ReportCsvError(*error);
+        reportCsvError(*error);
     }
     if (!shutdown_)
     {
         emit presentationChanged();
     }
 }
-std::optional<QString> DesktopLoggingRun::ReleaseRun()
+std::optional<QString> DesktopLoggingRun::releaseRun()
 {
     const auto closed = csv_file_.EndRun();
     active_snapshot_.reset();
@@ -120,28 +120,28 @@ std::optional<QString> DesktopLoggingRun::ReleaseRun()
     }
     return std::nullopt;
 }
-void DesktopLoggingRun::HandleCompletion(SessionEndReason reason, const QString& message)
+void DesktopLoggingRun::handleCompletion(SessionEndReason reason, const QString& message)
 {
     if (!active_snapshot_.has_value())
     {
         return;
     }
-    const auto close_error = ReleaseRun();
+    const auto closeError = releaseRun();
     if (shutdown_)
     {
-        if (close_error.has_value())
+        if (closeError.has_value())
         {
-            emit shutdownError(*close_error);
+            emit shutdownError(*closeError);
         }
         return;
     }
     emit sessionEnded(reason, message);
-    if (close_error.has_value())
+    if (closeError.has_value())
     {
-        ReportCsvError(*close_error);
+        reportCsvError(*closeError);
     }
 }
-void DesktopLoggingRun::ReportCsvError(const QString& message)
+void DesktopLoggingRun::reportCsvError(const QString& message)
 {
     if (shutdown_)
     {
@@ -152,7 +152,7 @@ void DesktopLoggingRun::ReportCsvError(const QString& message)
         emit csvError(message);
     }
 }
-void DesktopLoggingRun::HandleSamples(const QVector<fastecu::logging::LogSample>& samples)
+void DesktopLoggingRun::handleSamples(const QVector<fastecu::logging::LogSample>& samples)
 {
     if (shutdown_ || !active_snapshot_.has_value())
     {
@@ -186,10 +186,10 @@ void DesktopLoggingRun::HandleSamples(const QVector<fastecu::logging::LogSample>
     if (!written.has_value())
     {
         csv_failed_ = true;
-        ReportCsvError(QString::fromStdString(written.error().detail));
+        reportCsvError(QString::fromStdString(written.error().detail));
     }
 }
-void DesktopLoggingRun::Shutdown()
+void DesktopLoggingRun::shutdown()
 {
     if (shutdown_)
     {
@@ -198,7 +198,7 @@ void DesktopLoggingRun::Shutdown()
     shutdown_ = true;
     disconnect(&engine_, nullptr, this, nullptr);
     engine_.Stop();
-    const auto error = ReleaseRun();
+    const auto error = releaseRun();
     if (error.has_value())
     {
         emit shutdownError(*error);

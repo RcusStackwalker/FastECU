@@ -433,7 +433,6 @@ MainWindow::MainWindow(MainWindowServices services, const QString& peerAddress, 
 
     logger_model_ = &services_.logger_model;
     loadLoggerDefinition();
-    logger_values_.Initialize(*logger_model_);
     log_boxes_ = new LogBox();
 
     if (logger_model_ != nullptr)
@@ -455,7 +454,6 @@ MainWindow::MainWindow(MainWindowServices services, const QString& peerAddress, 
         connect(ssm_init_poll_timer, SIGNAL(timeout()), this, SLOT(ecu_init()));
         ssm_init_poll_timer->start();
     */
-    log_file_timer_ = std::make_unique<QElapsedTimer>();
 
     if (!calibrations_.empty())
     {
@@ -495,15 +493,7 @@ void MainWindow::emitLogLine(fastecu::LogLevel level, const QString& message)
 MainWindow::~MainWindow()
 {
     connection_coordinator_->shutdown();
-    if (logging_state_)
-    {
-        logging_engine_->Stop();
-    }
-    const auto closed = logging_csv_file_.EndRun();
-    if (!closed.has_value())
-    {
-        emit logE(QString::fromStdString(closed.error().detail), true, true);
-    }
+    logging_run_->shutdown();
 }
 
 void MainWindow::networkStateChanged(QRemoteObjectReplica::State state, QRemoteObjectReplica::State oldState)
@@ -1466,18 +1456,21 @@ void MainWindow::changeSwitchValues()
     changeLogValues(2, protocol_);
 }
 
-const fastecu::logging::LoggerSelection& MainWindow::displayedLoggingSelection() const
+fastecu::logging::LoggerSelection MainWindow::displayedLoggingSelection() const
 {
-    return active_logging_snapshot_ ? active_logging_snapshot_->Selection() : logger_model_->Selection();
+    const auto view = logging_run_->view();
+    return view.active_snapshot ? view.active_snapshot->Selection() : logger_model_->Selection();
 }
 void MainWindow::updateLoggingPendingState()
 {
-    logging_pending_label_->setVisible(active_logging_snapshot_.has_value() &&
-                                       active_logging_snapshot_->Selection() != logger_model_->Selection());
+    const auto view = logging_run_->view();
+    logging_pending_label_->setVisible(view.active_snapshot.has_value() &&
+                                       view.active_snapshot->Selection() != logger_model_->Selection());
 }
 
 void MainWindow::updateLogboxes(const QString& protocolArg)
 {
+    const auto view = logging_run_->view();
     for (auto *layout : {ui_->switchBoxLayout, ui_->logBoxLayout})
     {
         while (!layout->isEmpty())
@@ -1487,8 +1480,9 @@ void MainWindow::updateLogboxes(const QString& protocolArg)
             delete item;
         }
     }
-    const auto key = active_logging_snapshot_ ? active_logging_snapshot_->ProtocolKey() : protocolArg.toStdString();
-    const auto& selection = displayedLoggingSelection();
+    const auto key = view.active_snapshot ? view.active_snapshot->ProtocolKey() : protocolArg.toStdString();
+    const auto selection =
+        view.active_snapshot.has_value() ? view.active_snapshot->Selection() : logger_model_->Selection();
     using Kind = fastecu::logging::LoggingMeasurementKind;
     const auto add = [&](Kind kind, const auto& ids)
     {
@@ -1498,9 +1492,9 @@ void MainWindow::updateLogboxes(const QString& protocolArg)
             QString name;
             QString unit;
             bool available = false;
-            if (active_logging_snapshot_)
+            if (view.active_snapshot)
             {
-                if (const auto *item = active_logging_snapshot_->FindMeasurement(kind, id); item != nullptr)
+                if (const auto *item = view.active_snapshot->FindMeasurement(kind, id); item != nullptr)
                 {
                     name = qs(item->name);
                     unit = qs(item->unit);
@@ -1529,8 +1523,8 @@ void MainWindow::updateLogboxes(const QString& protocolArg)
             {
                 name += tr(" (Unavailable)");
             }
-            auto value = available ? (kind == Kind::kParameter ? logger_values_.ParameterValue(key, id)
-                                                               : logger_values_.SwitchValue(key, id))
+            auto value = available ? (kind == Kind::kParameter ? view.values.ParameterValue(key, id)
+                                                               : view.values.SwitchValue(key, id))
                                    : tr("Unavailable");
             auto *box = log_boxes_->drawLogBoxes(kind == Kind::kParameter ? "log" : "switch", static_cast<int>(slot),
                                                  kind == Kind::kParameter ? 12 : 20, name, unit, value);
@@ -1545,16 +1539,18 @@ void MainWindow::updateLogboxes(const QString& protocolArg)
 
 void MainWindow::updateLogboxValues(const QString& protocolArg)
 {
-    const auto key = active_logging_snapshot_ ? active_logging_snapshot_->ProtocolKey() : protocolArg.toStdString();
-    const auto& selection = displayedLoggingSelection();
+    const auto view = logging_run_->view();
+    const auto key = view.active_snapshot ? view.active_snapshot->ProtocolKey() : protocolArg.toStdString();
+    const auto selection =
+        view.active_snapshot.has_value() ? view.active_snapshot->Selection() : logger_model_->Selection();
     for (std::size_t slot = 0; slot < selection.lower_panel_ids.size(); ++slot)
     {
         const auto& id = selection.lower_panel_ids[slot];
         QString unit;
-        if (active_logging_snapshot_)
+        if (view.active_snapshot)
         {
             const auto *item =
-                active_logging_snapshot_->FindMeasurement(fastecu::logging::LoggingMeasurementKind::kParameter, id);
+                view.active_snapshot->FindMeasurement(fastecu::logging::LoggingMeasurementKind::kParameter, id);
             if (item == nullptr)
             {
                 continue;
@@ -1576,7 +1572,7 @@ void MainWindow::updateLogboxValues(const QString& protocolArg)
         {
             continue;
         }
-        const auto value = logger_values_.ParameterValue(key, id);
+        const auto value = view.values.ParameterValue(key, id);
         label->setTextFormat(Qt::PlainText);
         label->setText((value.isEmpty() ? tr("Unavailable") : value) + (unit.isEmpty() ? QString{} : " " + unit));
     }
@@ -1589,10 +1585,10 @@ void MainWindow::updateLogboxValues(const QString& protocolArg)
         }
         const auto& id = selection.switch_ids[slot];
         QString name;
-        if (active_logging_snapshot_)
+        if (view.active_snapshot)
         {
             const auto *item =
-                active_logging_snapshot_->FindMeasurement(fastecu::logging::LoggingMeasurementKind::kSwitch, id);
+                view.active_snapshot->FindMeasurement(fastecu::logging::LoggingMeasurementKind::kSwitch, id);
             if (item == nullptr)
             {
                 continue;
@@ -1608,7 +1604,7 @@ void MainWindow::updateLogboxValues(const QString& protocolArg)
             }
             name = qs(item->name);
         }
-        const auto value = logger_values_.SwitchValue(key, id);
+        const auto value = view.values.SwitchValue(key, id);
         label->setTextFormat(Qt::PlainText);
         label->setText(name + ": " + (value.isEmpty() ? tr("Unavailable") : value == "0" ? tr("OFF") : tr("ON")));
     }
@@ -2008,42 +2004,28 @@ void MainWindow::updateVbatt()
 
 void MainWindow::setupLoggingEngine()
 {
-    logging_engine_ = &services_.logging_engine;
-
-    connect(logging_engine_, &fastecu::desktop::logging::LoggingEngine::valuesUpdated, this,
-            &MainWindow::handleLoggingValuesUpdated);
-    connect(logging_engine_, &fastecu::desktop::logging::LoggingEngine::sessionEnded, this,
-            &MainWindow::handleLoggingSessionEnded);
-}
-
-void MainWindow::handleLoggingValuesUpdated(const QVector<fastecu::logging::LogSample>& samples)
-{
-    if (!active_logging_snapshot_)
-    {
-        return;
-    }
-    for (const auto& sample : samples)
-    {
-        // Re-checked per sample: LOG_E below can reach a slot that ends the session.
-        if (!active_logging_snapshot_)
-        {
-            return;
-        }
-        const auto applied =
-            fastecu::desktop::logging::ApplyLogSample(*active_logging_snapshot_, sample, logger_values_);
-        if (!applied)
-        {
-            emit logE(QString::fromStdString(applied.error().detail), true, true);
-        }
-    }
-    updateLogboxValues(active_log_value_protocol_filter_);
-    logToFile();
+    using fastecu::desktop::logging::DesktopLoggingRun;
+    logging_run_ = std::make_unique<DesktopLoggingRun>(services_.logging_engine);
+    connect(logging_run_.get(), &DesktopLoggingRun::presentationChanged, this,
+            [this]
+            {
+                const auto view = logging_run_->view();
+                if (view.active_snapshot.has_value())
+                {
+                    updateLogboxValues(QString::fromStdString(view.active_snapshot->ProtocolKey()));
+                }
+                updateLoggingPendingState();
+            });
+    connect(logging_run_.get(), &DesktopLoggingRun::sessionEnded, this, &MainWindow::handleLoggingSessionEnded);
+    connect(logging_run_.get(), &DesktopLoggingRun::sampleError, this,
+            [this](const QString& message) { emit logE(message, true, true); });
+    connect(logging_run_.get(), &DesktopLoggingRun::csvError, this, &MainWindow::reportLoggingCsvError);
+    connect(logging_run_.get(), &DesktopLoggingRun::shutdownError, this,
+            [this](const QString& message) { emit logE(message, true, true); });
 }
 
 void MainWindow::restoreLoggingUiState()
 {
-    endLoggingCsv();
-    active_logging_snapshot_.reset();
     logging_state_ = false;
     log_params_request_started_ = false;
     ui_->actionToggleRealtime->setChecked(false);

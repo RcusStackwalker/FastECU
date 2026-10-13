@@ -70,7 +70,7 @@ inline constexpr int kRestartCode = 1000;
 #include "src/platform/desktop/common/logging/runtime/logging_engine.h"
 #include "src/platform/desktop/common/logging/logging_snapshot_adapter.h"
 #include "src/platform/desktop/common/logging/logging_value_adapter.h"
-#include "src/platform/desktop/common/logging/logging_csv_file.h"
+#include "src/ui/desktop/widgets/desktop_logging_run.h"
 #include "src/platform/desktop/common/ports/qt_file_repository.h"
 #include "src/platform/desktop/common/connection/adapter_connection.h"
 #include "src/ui/desktop/connection/connection_ports.h"
@@ -111,6 +111,7 @@ class MainWindow : public QMainWindow
 
   private:
     MainWindowServices services_;
+    std::unique_ptr<fastecu::desktop::logging::DesktopLoggingRun> logging_run_;
 
     QString software_name_;
     QString software_title_;
@@ -158,13 +159,10 @@ class MainWindow : public QMainWindow
     std::unique_ptr<fastecu::ui::CalibrationOperationCoordinator> calibration_operations_;
     fastecu::ui::DefinitionAuthoringDialog *definition_authoring_dialog_ = nullptr;
     fastecu::logging::LoggerModel *logger_model_;
-    fastecu::desktop::logging::DesktopLoggerValues logger_values_;
     void loadLoggerDefinition();
     void loadLoggerSelection();
     void saveLoggerSelection();
-    void beginLoggingCsv();
-    void endLoggingCsv();
-    void reportLoggingCsvError(const fastecu::Error& error);
+    void reportLoggingCsvError(const QString& message);
     fastecu::config::ConfigSession *config_session_ = nullptr;
     std::optional<fastecu::Error> last_settings_save_error_;
     // Desktop owns only identity and presentation; the workspace owns ROM data.
@@ -249,8 +247,6 @@ class MainWindow : public QMainWindow
     // QTimer *ssm_init_poll_timer;
     uint16_t ssm_init_poll_timer_timeout_ = 250;
 
-    fastecu::desktop::logging::LoggingEngine *logging_engine_ = nullptr;
-    std::optional<fastecu::desktop::logging::DesktopLoggingSnapshot> active_logging_snapshot_;
     QString active_log_value_protocol_filter_;
 
     LogBox *log_boxes_;
@@ -272,15 +268,10 @@ class MainWindow : public QMainWindow
     QComboBox *flash_transport_list_;
     QComboBox *log_transport_list_;
 
-    fastecu::desktop::logging::LoggingCsvFile logging_csv_file_;
-    QString last_logging_csv_path_;
-    bool logging_csv_failed_ = false;
     QFile syslog_file_;
     QTextStream syslog_file_outstream_;
-    bool write_datalog_to_file_ = false;
     bool write_syslog_to_file_ = false;
     bool syslog_file_open_ = false;
-    std::unique_ptr<QElapsedTimer> log_file_timer_;
 
     QDialog *settings_dialog_{};
     QListWidget *contents_widget_{};
@@ -304,7 +295,6 @@ class MainWindow : public QMainWindow
 
     // log_operations
     void parseLogValueList(QByteArray received, const QString& protocolArg);
-    void logToFile();
 
     void setupLoggingEngine();
     void restoreLoggingUiState();
@@ -414,7 +404,6 @@ class MainWindow : public QMainWindow
     void calibrationDataTreewidgetItemCollapsed(QTreeWidgetItem *item);
 
     // log_operations.c
-    void handleLoggingValuesUpdated(const QVector<fastecu::logging::LogSample>& samples);
     void handleLoggingSessionEnded(fastecu::desktop::logging::SessionEndReason reason, const QString& message);
 
     // mainwindow.c
@@ -434,7 +423,7 @@ class MainWindow : public QMainWindow
     void changeSwitchValues();
     void updateLogboxes(const QString& protocolArg);
     void updateLogboxValues(const QString& protocolArg);
-    const fastecu::logging::LoggerSelection& displayedLoggingSelection() const;
+    fastecu::logging::LoggerSelection displayedLoggingSelection() const;
     void updateLoggingPendingState();
     void addNewEcuDefinitionFile();
     void removeEcuDefinitionFile();

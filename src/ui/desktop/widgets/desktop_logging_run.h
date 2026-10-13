@@ -33,29 +33,27 @@ class DesktopLoggingRun final : public QObject
 {
     Q_OBJECT
   public:
-    explicit DesktopLoggingRun(LoggingEngine& engine, LoggingCsvFile csv_file = LoggingCsvFile{});
+    explicit DesktopLoggingRun(LoggingEngine& engine, LoggingCsvFile csvFile = LoggingCsvFile{});
     ~DesktopLoggingRun() override;
-    Status Start(DesktopLoggingRunStart request);
-    void Stop();
-    void SetCsvEnabled(bool enabled, const QString& directory, const QString& name_stem);
-    void Shutdown();
-    DesktopLoggingRunView View() const;
+    Status start(DesktopLoggingRunStart request);
+    void stop();
+    void setCsvEnabled(bool enabled, const QString& directory, const QString& nameStem);
+    void shutdown();
+    DesktopLoggingRunView view() const;
 
   signals:
-    // NOLINTBEGIN(readability-identifier-naming): Qt signals keep Qt's camelBack names
     void presentationChanged();
     void sessionEnded(SessionEndReason reason, QString message);
     void sampleError(QString message);
     void csvError(QString message);
     void shutdownError(QString message);
-    // NOLINTEND(readability-identifier-naming)
 
   private:
-    void HandleSamples(const QVector<fastecu::logging::LogSample>& samples);
-    void HandleCompletion(SessionEndReason reason, const QString& message);
-    std::optional<QString> BeginCsv(const QString& directory, const QString& name_stem);
-    std::optional<QString> ReleaseRun();
-    void ReportCsvError(const QString& message);
+    void handleSamples(const QVector<fastecu::logging::LogSample>& samples);
+    void handleCompletion(SessionEndReason reason, const QString& message);
+    std::optional<QString> beginCsv(const QString& directory, const QString& nameStem);
+    std::optional<QString> releaseRun();
+    void reportCsvError(const QString& message);
 
     LoggingEngine& engine_;
     LoggingCsvFile csv_file_;
