@@ -962,6 +962,8 @@ class MainWindowTest : public ::testing::Test
     void checkLoggingStartWaitsForIdentification(bool targetIsEcu);
     void checkBatterySamplingDoesNotUseTheFacadeDuringIdentification();
     void checkWindowDestructionJoinsIdentificationWithoutContinuingLogging();
+    void checkCharacterizesReplacementDuringSampleNotification();
+    void checkQueuedStopDuringRenderingPreventsTheCsvRow();
     void checkConnectStopsAnActiveLoggingWorkerBeforeIdentification();
     void checkConnectionEntryPointsStopIdentification(QString entryPoint);
     void checkNestedConnectDuringCapabilityNoticeKeepsEachContinuation();
@@ -3378,6 +3380,82 @@ void MainWindowTest::checkLoggingDisplayErrorContinuesOtherSamples()
     services.logging_engine.Stop();
 }
 
+void MainWindowTest::checkCharacterizesReplacementDuringSampleNotification()
+{
+    ModalDriver driver{QString()};
+    driver.start();
+    TestServices services{config_root_->path()};
+    MainWindow window{services.services()};
+    driver.stop();
+    prepareLogging(window, "SSM");
+    window.config_session_->Settings().selected_log_protocol = "SSM";
+    services.logging_engine.RegisterProtocol("SSM",
+                                             [](const auto&)
+                                             {
+                                                 auto source = std::make_unique<ScriptedLoggingProtocol>();
+                                                 source->BlockPollUntilCancelled();
+                                                 return source;
+                                             });
+    window.continueStartLogging();
+    bool replaced = false;
+    const auto subscription = QObject::connect(
+        &window, &MainWindow::logE, &window,
+        [&](const QString&, bool, bool)
+        {
+            if (replaced)
+            {
+                return;
+            }
+            replaced = true;
+            window.ui_->actionToggleRealtime->setChecked(false);
+            window.toggleRealtime();
+            window.continueStartLogging();
+        },
+        Qt::DirectConnection);
+    emit services.logging_engine.valuesUpdated(
+        {{.channel_id = "unknown", .numeric_value = 8}, {.channel_id = "parameter:rpm", .numeric_value = 99}});
+    EXPECT_TRUE(replaced);
+    EXPECT_TRUE(services.logging_engine.IsRunning());
+    EXPECT_EQ(window.logger_values_.ParameterValue("SSM", "rpm"), "99");
+    QObject::disconnect(subscription);
+    services.logging_engine.Stop();
+}
+
+void MainWindowTest::checkQueuedStopDuringRenderingPreventsTheCsvRow()
+{
+    ModalDriver driver{QString()};
+    driver.start();
+    TestServices services{config_root_->path()};
+    MainWindow window{services.services()};
+    driver.stop();
+    QTemporaryDir directory;
+    ASSERT_TRUE(directory.isValid());
+    window.config_session_->Settings().datalog_files_directory = directory.path().toStdString();
+    prepareLogging(window, "SSM");
+    window.config_session_->Settings().selected_log_protocol = "SSM";
+    window.write_datalog_to_file_ = true;
+    services.logging_engine.RegisterProtocol("SSM",
+                                             [](const auto&)
+                                             {
+                                                 auto source = std::make_unique<ScriptedLoggingProtocol>();
+                                                 source->BlockPollUntilCancelled();
+                                                 return source;
+                                             });
+    window.continueStartLogging();
+    const auto csv_path = window.last_logging_csv_path_;
+    QTimer::singleShot(0, &window,
+                       [&]
+                       {
+                           window.ui_->actionToggleRealtime->setChecked(false);
+                           window.toggleRealtime();
+                       });
+    emit services.logging_engine.valuesUpdated({{.channel_id = "parameter:rpm", .numeric_value = 42}});
+    EXPECT_FALSE(services.logging_engine.IsRunning());
+    QFile csv{csv_path};
+    ASSERT_TRUE(csv.open(QIODevice::ReadOnly));
+    EXPECT_EQ(csv.readAll(), "Time,rpm\n");
+}
+
 TEST_F(MainWindowTest, loggingDisplayErrorContinuesOtherSamples)
 {
     ASSERT_NO_FATAL_FAILURE(checkLoggingDisplayErrorContinuesOtherSamples());
@@ -5407,4 +5485,14 @@ void MainWindowTest::checkTargetChangeInvalidatesIdentificationAndSupport()
 TEST_F(MainWindowTest, targetChangeInvalidatesIdentificationAndSupport)
 {
     ASSERT_NO_FATAL_FAILURE(checkTargetChangeInvalidatesIdentificationAndSupport());
+}
+
+TEST_F(MainWindowTest, characterizesReplacementDuringSampleNotification)
+{
+    ASSERT_NO_FATAL_FAILURE(checkCharacterizesReplacementDuringSampleNotification());
+}
+
+TEST_F(MainWindowTest, queuedStopDuringRenderingPreventsTheCsvRow)
+{
+    ASSERT_NO_FATAL_FAILURE(checkQueuedStopDuringRenderingPreventsTheCsvRow());
 }
