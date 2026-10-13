@@ -201,8 +201,8 @@ class DtcRun
         }
         if (f[4] == 0x7F)
         {
-            // Today's code describes the NRC from offset 3, not 4.
-            Error("Wrong response from ECU: " + NrcDescription(bytes::ByteView(f).subspan(3)));
+            // The four-byte CAN identifier precedes the NRC payload.
+            Error("Wrong response from ECU: " + NrcDescription(bytes::ByteView(f).subspan(4)));
             return Fail(ErrorKind::kBadResponse, "iso15765 init rejected");
         }
         if (f[4] != 0x41)

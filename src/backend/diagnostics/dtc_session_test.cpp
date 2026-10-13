@@ -86,6 +86,40 @@ struct Harness
         return RunDtcSession(DtcRequest{protocol, operation}, link, clock, token, events);
     }
 };
+
+void QueueClearSetup(Harness& h)
+{
+    h.link.QueueFiveBaud(B({0x55, 0x08, 0x08}));
+    for (int i = 0; i < 14; ++i)
+    {
+        h.link.QueueNoFrame();
+    }
+    h.link.QueueRead(B({0x48, 0x6B, 0x10, 0x43, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xCC}));
+    h.link.QueueNoFrame();
+    h.link.QueueRead(B({0x48, 0x6B, 0x10, 0x47, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xCC}));
+    h.link.QueueNoFrame();
+}
+
+std::vector<std::string> ClearCalls(int acknowledgement_reads)
+{
+    std::vector<std::string> calls{
+        "open kline header=None iso14230=false baud=10400 start=68 tester=F1 target=6A",
+        "p1 35",
+        "five_baud 33",
+        "p1 25",
+        "set_header Iso9141",
+    };
+    const auto info = VehicleInfoCalls("read_obd 200");
+    calls.insert(calls.end(), info.begin(), info.end());
+    calls.insert(calls.end(),
+                 {"write 03", "read_obd 200", "read_obd 200", "write 07", "read_obd 200", "read_obd 200", "write 04"});
+    for (int i = 0; i < acknowledgement_reads; ++i)
+    {
+        calls.emplace_back("read_obd 200");
+    }
+    calls.insert(calls.end(), {"set_header None", "reset"});
+    return calls;
+}
 } // namespace
 
 TEST(DtcSession, Iso9141DirectReadRunsTheFullSequence)
@@ -257,14 +291,17 @@ TEST(DtcSession, Iso15765ReadDecodesCanFrames)
     EXPECT_THAT(report->stored, ElementsAre(0x0133));
 }
 
-TEST(DtcSession, Iso15765InitNrcIsLoggedFromOffsetThree)
+TEST(DtcSession, Iso15765InitNrcDescribesActualPayload)
 {
     Harness h;
     h.link.j2534 = true;
     h.link.QueueRead(B({0x00, 0x00, 0x07, 0xE8, 0x7F, 0x01, 0x12}));
     EXPECT_THAT(h.Run(ObdProtocol::kIso15765, DtcOperation::kRead), IsErr(ErrorKind::kBadResponse));
-    const bytes::Bytes nrc_frame = B({0xE8, 0x7F, 0x01, 0x12});
-    EXPECT_THAT(Lines(h.events, LogLevel::kError), Contains("Wrong response from ECU: " + NrcDescription(nrc_frame)));
+    EXPECT_THAT(Lines(h.events, LogLevel::kError), ElementsAre("Wrong response from ECU: Subfunction not supported"));
+    EXPECT_THAT(h.link.calls,
+                ElementsAre("open can iso15765=true bitrate=500000 extended=false source=7E0 destination=7E8",
+                            "write 00 00 07 E0 01 00", "read 2000", "set_header None", "reset"));
+    EXPECT_TRUE(h.link.ScriptConsumed());
 }
 
 TEST(DtcSession, NrcOnStoredDtcsLogsAndFails)
@@ -308,15 +345,7 @@ TEST(DtcSession, HighPidPagesAreAccepted)
 TEST(DtcSession, ClearSucceedsOnPositiveAcknowledgement)
 {
     Harness h;
-    h.link.QueueFiveBaud(B({0x55, 0x08, 0x08}));
-    for (int i = 0; i < 14; ++i)
-    {
-        h.link.QueueNoFrame();
-    }
-    h.link.QueueRead(B({0x48, 0x6B, 0x10, 0x43, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xCC}));
-    h.link.QueueNoFrame();
-    h.link.QueueRead(B({0x48, 0x6B, 0x10, 0x47, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xCC}));
-    h.link.QueueNoFrame();
+    QueueClearSetup(h);
     h.link.QueueRead(B({0x48, 0x6B, 0x10, 0x44, 0xCC}));
     const auto report = h.Run(ObdProtocol::kIso9141, DtcOperation::kClear);
     ASSERT_THAT(report, IsOk());
@@ -328,15 +357,7 @@ TEST(DtcSession, ClearSucceedsOnPositiveAcknowledgement)
 TEST(DtcSession, ClearWithoutAcknowledgementFails)
 {
     Harness h;
-    h.link.QueueFiveBaud(B({0x55, 0x08, 0x08}));
-    for (int i = 0; i < 14; ++i)
-    {
-        h.link.QueueNoFrame();
-    }
-    h.link.QueueRead(B({0x48, 0x6B, 0x10, 0x43, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xCC}));
-    h.link.QueueNoFrame();
-    h.link.QueueRead(B({0x48, 0x6B, 0x10, 0x47, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xCC}));
-    h.link.QueueNoFrame();
+    QueueClearSetup(h);
     EXPECT_THAT(h.Run(ObdProtocol::kIso9141, DtcOperation::kClear), IsErr(ErrorKind::kBadResponse));
     EXPECT_EQ(h.link.calls.back(), "reset");
 }
@@ -360,4 +381,119 @@ TEST(DtcSession, OpenFailureEndsRunAfterEpilogue)
     EXPECT_THAT(h.link.calls,
                 ElementsAre("open kline header=None iso14230=false baud=10400 start=68 tester=F1 target=6A",
                             "set_header None", "reset"));
+}
+
+TEST(DtcSession, ClearShortFrameThenAckSucceeds)
+{
+    Harness h;
+    QueueClearSetup(h);
+    h.link.QueueRead(B({0x48, 0x6B, 0x10}));
+    h.link.QueueRead(B({0x48, 0x6B, 0x10, 0x44, 0xCC}));
+
+    const auto report = h.Run(ObdProtocol::kIso9141, DtcOperation::kClear);
+
+    ASSERT_THAT(report, IsOk());
+    EXPECT_TRUE(report->cleared);
+    EXPECT_THAT(Lines(h.events, LogLevel::kError), IsEmpty());
+    EXPECT_THAT(Lines(h.events, LogLevel::kInfo), Contains("Diagnostic trouble codes succesfully cleared!"));
+    EXPECT_THAT(h.link.calls, ElementsAreArray(ClearCalls(2)));
+    EXPECT_TRUE(h.link.ScriptConsumed());
+}
+
+TEST(DtcSession, ClearShortFrameThenSilenceFails)
+{
+    Harness h;
+    QueueClearSetup(h);
+    h.link.QueueRead(B({0x48, 0x6B, 0x10}));
+    h.link.QueueNoFrame();
+
+    EXPECT_THAT(h.Run(ObdProtocol::kIso9141, DtcOperation::kClear), IsErr(ErrorKind::kBadResponse));
+    EXPECT_THAT(Lines(h.events, LogLevel::kError), IsEmpty());
+    EXPECT_THAT(Lines(h.events, LogLevel::kInfo), Not(Contains("Diagnostic trouble codes succesfully cleared!")));
+    EXPECT_THAT(h.link.calls, ElementsAreArray(ClearCalls(2)));
+    EXPECT_TRUE(h.link.ScriptConsumed());
+}
+
+TEST(DtcSession, ClearNrcStopsReading)
+{
+    Harness h;
+    QueueClearSetup(h);
+    h.link.QueueRead(B({0x48, 0x6B, 0x10, 0x7F, 0x04, 0x12, 0xCC}));
+
+    EXPECT_THAT(h.Run(ObdProtocol::kIso9141, DtcOperation::kClear), IsErr(ErrorKind::kBadResponse));
+    EXPECT_THAT(Lines(h.events, LogLevel::kError), ElementsAre("Wrong response from ECU: Subfunction not supported"));
+    EXPECT_THAT(h.link.calls, ElementsAreArray(ClearCalls(1)));
+    EXPECT_TRUE(h.link.ScriptConsumed());
+}
+
+TEST(DtcSession, ClearWrongServiceStopsReading)
+{
+    Harness h;
+    QueueClearSetup(h);
+    h.link.QueueRead(B({0x48, 0x6B, 0x10, 0x43, 0xCC}));
+
+    EXPECT_THAT(h.Run(ObdProtocol::kIso9141, DtcOperation::kClear), IsErr(ErrorKind::kBadResponse));
+    EXPECT_THAT(Lines(h.events, LogLevel::kError), ElementsAre("Wrong response from ECU: 48 6b 10 43 cc "));
+    EXPECT_THAT(h.link.calls, ElementsAreArray(ClearCalls(1)));
+    EXPECT_TRUE(h.link.ScriptConsumed());
+}
+
+TEST(DtcSession, CanInitMissingOrShortReplyStopsBeforeVehicleInfo)
+{
+    // A missing frame differs from a present zero-length frame at the port.
+    for (int length = -1; length <= 4; ++length)
+    {
+        SCOPED_TRACE(length);
+        Harness h;
+        h.link.j2534 = true;
+        if (length < 0)
+        {
+            h.link.QueueNoFrame();
+        }
+        else
+        {
+            h.link.QueueRead(bytes::Bytes(static_cast<std::size_t>(length), 0x41));
+        }
+
+        EXPECT_THAT(h.Run(ObdProtocol::kIso15765, DtcOperation::kRead), IsErr(ErrorKind::kBadResponse));
+        EXPECT_THAT(Lines(h.events, LogLevel::kError), IsEmpty());
+        EXPECT_THAT(Lines(h.events, LogLevel::kInfo), Not(Contains("Requesting vehicle info, please wait...")));
+        EXPECT_THAT(h.link.calls,
+                    ElementsAre("open can iso15765=true bitrate=500000 extended=false source=7E0 destination=7E8",
+                                "write 00 00 07 E0 01 00", "read 2000", "set_header None", "reset"));
+        EXPECT_TRUE(h.link.ScriptConsumed());
+    }
+}
+
+TEST(DtcSession, CanInitWrongServiceStopsBeforeVehicleInfo)
+{
+    for (int service : {0x00, 0x40, 0x42, 0xFF})
+    {
+        SCOPED_TRACE(service);
+        Harness h;
+        h.link.j2534 = true;
+        const auto frame = B({0x00, 0x00, 0x07, 0xE8, service, 0x00});
+        h.link.QueueRead(frame);
+
+        EXPECT_THAT(h.Run(ObdProtocol::kIso15765, DtcOperation::kRead), IsErr(ErrorKind::kBadResponse));
+        EXPECT_THAT(Lines(h.events, LogLevel::kError), ElementsAre("Wrong response from ECU: " + FormatHex(frame)));
+        EXPECT_THAT(Lines(h.events, LogLevel::kInfo), Not(Contains("Requesting vehicle info, please wait...")));
+        EXPECT_THAT(h.link.calls,
+                    ElementsAre("open can iso15765=true bitrate=500000 extended=false source=7E0 destination=7E8",
+                                "write 00 00 07 E0 01 00", "read 2000", "set_header None", "reset"));
+        EXPECT_TRUE(h.link.ScriptConsumed());
+    }
+}
+
+TEST(DtcSession, FastInitCancellationDoesNotFallBack)
+{
+    Harness h;
+    h.link.QueueReadError(ErrorKind::kCancelled);
+
+    EXPECT_THAT(h.Run(ObdProtocol::kIso14230, DtcOperation::kRead), IsErr(ErrorKind::kCancelled));
+    EXPECT_THAT(Lines(h.events, LogLevel::kError), IsEmpty());
+    EXPECT_THAT(h.link.calls,
+                ElementsAre("open kline header=Iso14230 iso14230=true baud=10400 start=C0 tester=F1 target=33",
+                            "fast_init 81", "read_obd 200", "set_header None", "reset"));
+    EXPECT_TRUE(h.link.ScriptConsumed());
 }
