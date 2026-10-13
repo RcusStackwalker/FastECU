@@ -177,10 +177,7 @@ fastecu_portable_gtest(
     deps = [
         ":numeric_edit_use_case",
         "//src/algorithms/memory:memory_map",
-        "//src/algorithms/memory/testing:memory_views",
-        "//src/backend/calibration/session/testing:fake_definition_catalogs",
-        "//src/backend/config/testing:config_session_fixture",
-        "//src/backend/ports/testing:in_memory_atomic_file_writer",
+        "//src/backend/calibration/session/testing:numeric_session_fixture",
         "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
     ],
@@ -203,10 +200,7 @@ fastecu_portable_gtest(
     srcs = ["numeric_copy_use_case_test.cpp"],
     deps = [
         ":numeric_copy_use_case",
-        "//src/algorithms/memory/testing:memory_views",
-        "//src/backend/calibration/session/testing:fake_definition_catalogs",
-        "//src/backend/config/testing:config_session_fixture",
-        "//src/backend/ports/testing:in_memory_atomic_file_writer",
+        "//src/backend/calibration/session/testing:numeric_session_fixture",
         "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
     ],
