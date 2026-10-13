@@ -35,6 +35,17 @@ coordinators retain their UI roles; see the relevant
 
 ### P1: Resolve known correctness gaps
 
+- **Logging batch entering a replacement run.** A synchronous sample-error
+  subscriber can stop run A and start run B while A's handler is suspended.
+  Desktop presence checks then allow A's later sample to populate B's cache
+  and potentially its output. `characterizesReplacementDuringSampleNotification`
+  reproduces rpm `99` entering B through the window and coordinator. Decide a
+  run-identity correction separately; engine generation fencing rejects queued
+  stale events but cannot fence an already-entered handler. Preserve the
+  [desktop run contract](reference/logging-contracts.md#desktop-run-ownership)
+  and add a regression before correcting this behavior.
+
+
 - **OpenPort five-baud ASCII comparison.** `five_baud_header` checks J2534 bytes
   `[5]`/`[7]` for iso9141 and `[8]`/`[9]` for iso14230 against `'8'`/`'8'` and
   `'8'`/`'f'`. Direct serial checks numeric `0x08`/`0x08` at `[1]`/`[2]` and

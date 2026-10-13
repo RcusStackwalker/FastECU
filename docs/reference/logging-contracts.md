@@ -8,7 +8,8 @@ explain the policy boundary.
 
 [LoggerModel](../../src/backend/logging/logger_model.h) separates immutable
 definitions, operator selection, and ECU support. Desktop composition owns the
-model and definition service; the UI has its own display cache. XML `enabled`
+model and definition service; the window-owned desktop run coordinator owns the
+active display cache. XML `enabled`
 defaults remain immutable. Selection reads/edits do not restore XML support
 flags. Parameters and switches have separate `(protocol, ID)` namespaces;
 presentation and defaults retain definition order. Chooser items carry those
@@ -78,6 +79,47 @@ Session preparation compiles owned expressions once, without arbitrary trial inp
 Syntax failures include their source position; checked runtime failures include the
 failed operation. Polling evaluates the immutable compiled representation. Switch
 raw input must be a one-byte unsigned decimal value before its sample bit is extracted.
+
+## Desktop run ownership
+
+The window owns [DesktopLoggingRun](../../src/ui/desktop/widgets/desktop_logging_run.h)
+and borrows the composition-owned engine. The coordinator owns the captured
+snapshot, formatted readings, elapsed timer, CSV file, most recent output path
+and CSV failure latch. `view()` returns an independent copy of presentation
+facts, including active selection and measurement metadata. The window retains
+pending selection, identification sequencing, idle display choices, translations,
+controls and dialogs; it supplies prepared inputs after identification succeeds.
+
+`start()` rejects an already active run before modifying it. Snapshot and fresh
+cache initialization precede engine startup; a returned startup failure releases
+run state and output without manufacturing a completion event. CSV creation
+failures are reported after startup returns and leave successful acquisition
+running. CSV enablement survives successive runs. Open, header and row write
+failures latch once; subsequent samples continue to update readings without
+retrying output. An explicit disable/re-enable or new run retries with captured
+columns and a new exclusive file. Elapsed time resets for a new acquisition run,
+not when CSV is re-enabled. Closed files and their contents remain intact.
+
+Normal engine completion synchronously joins acquisition and releases the
+snapshot, readings and output before publishing `sessionEnded`. The completion
+subscriber may start another run immediately; cleanup never resumes against that
+replacement. The last successfully opened output path remains available after
+close. CSV disablement releases output alone. `shutdown()` is terminal and
+idempotent: it disconnects engine callbacks, stops acquisition and releases output
+without ordinary completion or CSV notices. Close errors use `shutdownError`,
+which the window logs without a modal dialog. The coordinator is destroyed before
+its borrowed engine and hardware services.
+
+Sample error delivery preserves healthy peers and per-sample stop checks.
+`presentationChanged` publishes a committed cache before CSV append, preserving
+the window's existing rendering/event-processing order: a stop processed during
+rendering prevents that batch's row. A stopped run receives no later samples in
+that batch. Restarting from an error notification can still let the suspended
+old batch enter the replacement; this separately characterized defect is tracked
+in [known correctness gaps](../tech-debt.md#p1-resolve-known-correctness-gaps).
+The engine's queued-event generation fence does not protect an already-entered
+desktop handler. This ownership extraction changes no protocol traffic or
+hardware qualification.
 
 ## Definition input validation
 

@@ -118,6 +118,16 @@ and status transitions. Platform code supplies a thread and forwards events.
 A platform-owned loop would duplicate policy in each future consumer; a
 callback-driven portable scheduler has no current consumer.
 
+### One desktop owner coordinates an active run
+
+The window-owned `DesktopLoggingRun` borrows the composition-owned engine and
+owns the captured snapshot, formatted readings, elapsed timing and CSV lifecycle.
+The window renders copied views and retains identification, pending selection
+and presentation. This concentrates ordering and cleanup invariants in the same
+interface tested without constructing widgets. The
+[desktop run contract](reference/logging-contracts.md#desktop-run-ownership)
+owns the lifecycle and reentrancy details.
+
 ### Separate definitions, selection, support, and samples
 
 Logger definitions are immutable, selection belongs to the operator, support
