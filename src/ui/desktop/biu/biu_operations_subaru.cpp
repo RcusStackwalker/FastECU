@@ -357,6 +357,8 @@ void BiuOperationsSubaru::sendBiuMsg()
 
 void BiuOperationsSubaru::parseBiuMessage(const QByteArray& message)
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     if (!message.length())
     {
         emit logI("Invalid message received: zero length", true, true);

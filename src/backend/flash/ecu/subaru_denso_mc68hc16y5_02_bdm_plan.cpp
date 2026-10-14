@@ -50,6 +50,8 @@ bytes::Bytes PadKernel(bytes::Bytes kernel)
 
 Status ValidateSubaruDensoMc68hc16y502BdmPlan(const FlashPlan& plan)
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     if (plan.Family() != FlashFamily::kSubaruDensoMc68hc16y502Bdm || plan.Transport() != TransportKind::kKline)
     {
         return Fail(ErrorKind::kInvalidConfig, "plan is not for Subaru Denso MC68HC16Y5 BDM");

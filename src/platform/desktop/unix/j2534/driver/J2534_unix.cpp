@@ -289,6 +289,8 @@ long J2534::PassThruDisconnect(unsigned long channel_id)
 long J2534::PassThruReadMsgs(unsigned long channel_id, PassThruMsg *p_msg, unsigned long *p_num_msgs,
                              unsigned long timeout)
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     QByteArray received;
     QByteArray msg;
     long result = kJ2534StatusNoerror;
@@ -798,6 +800,8 @@ void J2534::DumpSbyteArray(const SByteArray *s)
 
 void J2534::DumpSconfigParam(SCONFIG s)
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     std::string param_name;
 
     switch (s.parameter)
@@ -960,6 +964,8 @@ void J2534::DumpSconfigParam(SCONFIG s)
 
 long J2534::PassThruIoctl(unsigned long channel_id, unsigned long ioctl_id, const void *p_input, void *p_output)
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     QByteArray output;
     QByteArray received;
     uint32_t par_cnt = 0;

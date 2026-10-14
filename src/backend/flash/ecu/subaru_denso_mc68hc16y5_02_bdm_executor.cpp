@@ -248,6 +248,8 @@ Status LogReply(std::string_view command, IKlineFlashTransport& transport, ICloc
 Status BootstrapKernel(bytes::ByteView kernel, IKlineFlashTransport& transport, IClock& clock,
                        const ICancellationToken& cancellation, IEventSink& events)
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     events.Log(LogLevel::kInfo, "Uploading kernel to Subaru Denso MC68HC16 RAM with BDM");
     // write_mem() :226.
     if (auto cleared = Discard(transport, clock, cancellation, events, kShortTimeout); !cleared.has_value())

@@ -118,6 +118,8 @@ void DataTerminal::listenInterface()
 
 void DataTerminal::sendToInterface()
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     bool serialOk = true;
     bool ok = false;
     QObject *obj = sender();

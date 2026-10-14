@@ -114,6 +114,8 @@ Status ValidateKernelUpload(const KernelImage& kernel)
 
 Status ValidateSubaruDensoMc68hc16y502Plan(const FlashPlan& plan)
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     using enum ErrorKind;
     if (plan.Family() != FlashFamily::kSubaruDensoMc68hc16y502 || plan.Transport() != TransportKind::kKline)
     {

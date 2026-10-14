@@ -116,6 +116,8 @@ class Session
     }
     Status Connect()
     {
+        // #lizard forgives(cyclomatic_complexity)
+        // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
         auto active = Exchange(Bytes{0xb7}, 50ms);
         if (!active.has_value())
         {

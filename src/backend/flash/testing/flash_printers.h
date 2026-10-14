@@ -32,6 +32,8 @@ inline void PrintTo(const MemoryRegion& region, std::ostream *os)
 
 inline void PrintTo(FlashFamily family, std::ostream *os)
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     switch (family)
     {
     case FlashFamily::kDensoSh705xEepromKline:

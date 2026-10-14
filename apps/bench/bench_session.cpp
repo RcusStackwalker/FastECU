@@ -90,6 +90,8 @@ Result<bytes::Bytes> BenchSession::requestOnce(bytes::ByteView pdu, const uds::E
 
 Status BenchSession::connect()
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     TrafficEvidence total;
     const auto request = [&](bytes::ByteView pdu) -> Result<bytes::Bytes>
     {

@@ -230,6 +230,8 @@ Status ConnectBootloader(Ctx& ctx)
 // Legacy read_mem, lines 344-544.
 Result<bytes::Bytes> DumpFlashRange(Ctx& ctx, PhaseReporter& progress)
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     constexpr std::uint32_t kPageSize = 0x100;
 
     // "Settting dump start & length..." (lines 365-400). The sent PDU's SID
@@ -376,6 +378,8 @@ Status EraseMemory(Ctx& ctx)
 // exactly one block, kWriteRegion / kFlashBlocksMH8111[3]).
 Status UnlockAndReflashBlock(Ctx& ctx, bytes::ByteView block_plain, PhaseReporter& progress)
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     constexpr std::uint32_t kChunkSize = 256;
 
     // maxblocks/end_addr/data_len (lines 661-663): maxblocks = pl_len/256

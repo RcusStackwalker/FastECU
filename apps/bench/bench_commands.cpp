@@ -275,6 +275,8 @@ std::string decode_crc_reply(bytes::ByteView payload)
 
 Result<PreparedStep> prepare_step(IBenchFiles& files, const StepSpec& step)
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     PreparedStep prepared{.spec = step};
     const CommandSpec *const spec = find_command(step.id);
     if (spec == nullptr)
@@ -406,6 +408,8 @@ Result<PreparedStep> prepare_step(IBenchFiles& files, const StepSpec& step)
 
 Status ExecuteStep(BenchContext& context, const PreparedStep& prepared, CommandOutcome& outcome)
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     const StepSpec& step = prepared.spec;
     const CommandSpec *const spec = find_command(step.id);
     if (spec == nullptr)

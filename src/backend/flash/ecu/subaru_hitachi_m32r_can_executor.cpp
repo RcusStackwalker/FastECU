@@ -114,6 +114,8 @@ void NonFatalQuery(Ctx& ctx, bytes::ByteView request_pdu, std::optional<bytes::B
 // Status, so an unopened bus fails earlier and with a typed error.
 Status ConnectBootloader(Ctx& ctx)
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     // "Checking if OBK is already running..." (lines 91-113). The
     // already-running signal is packaged as a UDS negative response (0x7F
     // 0xB7 0x13) that UdsClient::request() would otherwise treat as an

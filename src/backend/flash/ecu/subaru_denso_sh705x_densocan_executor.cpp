@@ -360,6 +360,8 @@ Status SetRawKernelAddress(IMixedCanFlashTransport& transport, std::uint32_t add
 Status UploadKernel(IMixedCanFlashTransport& transport, const KernelImage& kernel, IClock& clock,
                     const ICancellationToken& cancellation, IEventSink& events)
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     // Legacy upload_kernel(), lines 227-507. This raw Denso bootloader path
     // uses a 29-bit transmit ID, six payload bytes per 0x7A/0xAE block, and
     // a zero-padded final block. BEEF is not used in this mode.
@@ -660,6 +662,8 @@ Status FlashBlock(IMixedCanFlashTransport& transport, bytes::ByteView image, con
                   IClock& clock, const ICancellationToken& cancellation, IEventSink& events, PhaseReporter& phase,
                   bool& destructive_erase_succeeded, std::uint32_t& flashbytesindex, std::uint32_t flashbytescount)
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     // Legacy flash_block(), lines 1153-1395. Each physical block is blanked
     // only for a real write, transferred in 0x200 chunks, and committed (or
     // validated for test-write) in fixed 0x1000 windows.
@@ -790,6 +794,8 @@ Status WriteMem(IMixedCanFlashTransport& transport, const FlashPlan& plan, ICloc
                 const ICancellationToken& cancellation, IEventSink& events, PhaseSequence& phases,
                 PhaseReporter& compare_phase)
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     // Legacy write_mem()/get_changed_blocks(), lines 662-819, then
     // check_romcrc()/init_flash_write()/reflash_block()/flash_block(),
     // lines 820-1395. The portable plan retains every one of the sixteen
@@ -979,6 +985,8 @@ Result<FlashExecutionResult>
 SubaruDensoSh705xDensoCanExecutor::Execute(const FlashPlan& plan, IMixedCanFlashTransport& transport, IClock& clock,
                                            const ICancellationToken& cancellation, IEventSink& events)
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     if (Status family = CheckFamily(plan, FlashFamily::kSubaruDensoSh705xDensoCan); !family)
     {
         return std::unexpected(family.error());

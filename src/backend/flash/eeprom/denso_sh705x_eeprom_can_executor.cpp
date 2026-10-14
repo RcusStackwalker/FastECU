@@ -443,6 +443,8 @@ Status DensoSh705xEepromCanExecutor::ConnectBootloader(ICanFlashTransport& trans
                                                        const DensoSh705xEepromCanPlan& can_plan,
                                                        bool& kernel_alive) const
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     if (cancellation.Cancelled())
     {
         return Fail(ErrorKind::kCancelled, "cancelled before connect");
@@ -615,6 +617,8 @@ Status DensoSh705xEepromCanExecutor::UploadKernel(ICanFlashTransport& transport,
                                                   const DensoSh705xEepromCanPlan& can_plan,
                                                   const KernelImage& kernel) const
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     if (cancellation.Cancelled())
     {
         return Fail(ErrorKind::kCancelled, "cancelled before kernel upload");
@@ -778,6 +782,8 @@ Result<bytes::Bytes> DensoSh705xEepromCanExecutor::ReadMem(ICanFlashTransport& t
                                                            const MemoryRegion& region, EepromReadMode mode,
                                                            std::uint32_t request_id) const
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     const std::uint32_t start_addr = region.start;
     const std::uint32_t length = region.length;
 

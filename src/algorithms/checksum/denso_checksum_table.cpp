@@ -22,6 +22,8 @@ std::uint32_t WordAt(bytes::ByteView rom, std::uint32_t position, std::uint32_t 
 
 DensoTableOutcome CorrectDensoTable(memory::FlashAddress base, bytes::MutableByteView rom, const DensoTableSpec& spec)
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     if (spec.table_length % kRecordLength != 0)
     {
         return DensoTableOutcome::kInvalidRecordLength;

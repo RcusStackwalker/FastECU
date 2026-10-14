@@ -205,6 +205,8 @@ Result<bytes::Bytes> BeefExchange(Context& context, bytes::Byte opcode, bytes::B
 
 Result<std::optional<std::string>> RequestKernelId(Context& context, bool tolerate_malformed)
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     // request_kernel_id(), revision 59f4e442 lines 1583-1647. The literal
     // PDU is intentionally kept here instead of deriving it from BEEF
     // constants: 0x7A 0xA0 is the legacy kernel probe, not a BEEF command.
@@ -442,6 +444,8 @@ Status StrictSeed(Context& context, bytes::Bytes& key)
 
 Status ConnectBootloader(Context& context, bool read_operation, bool& kernel_alive, std::optional<std::string>& rom_id)
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     // connect_bootloader(), revision 59f4e442 lines 107-135. The oracle
     // continues initialization after any nonterminal invalid probe reply;
     // post-upload callers select the strict path instead.
@@ -562,6 +566,8 @@ Status ConnectBootloader(Context& context, bool read_operation, bool& kernel_ali
 
 Status UploadKernel(Context& context, const KernelImage& kernel)
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     // upload_kernel(), revision 59f4e442 lines 369-627. The source pads to
     // 128-byte transfer blocks, removes the final four bytes, computes the
     // 0x5AA5A55A complement over 32-bit words, appends it, and encrypts.

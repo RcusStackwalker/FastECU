@@ -361,6 +361,8 @@ void HandlePassThruIoctl(const VendorApi& api, HANDLE in, HANDLE out, const Fram
 // payload via readFramePayload once its Request type is known.
 bool RunLoop(const VendorApi& api)
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     HANDLE in = GetStdHandle(STD_INPUT_HANDLE);
     HANDLE out = GetStdHandle(STD_OUTPUT_HANDLE);
 

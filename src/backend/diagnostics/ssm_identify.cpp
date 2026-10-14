@@ -126,6 +126,8 @@ Status ValidateSsm2Init(bytes::ByteView frame, SsmTarget target)
 Result<SsmIdentity> IdentifyKlineSsm2(IDiagnosticLink& link, IClock& clock, const ICancellationToken& cancellation,
                                       SsmTarget target)
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     // The state ssm_kline_init inherited from connect_to_ecu and
     // log_transport_changed, now set explicitly.
     if (auto opened = link.Open(KlineLinkConfig{.header = KlineHeader::kNone, .baud = 4800, .parity = Parity::kNone});
@@ -213,6 +215,8 @@ Status WriteThenDiscard(IDiagnosticLink& link, bytes::ByteView request, int coun
 
 Result<SsmIdentity> IdentifySsm1(IDiagnosticLink& link, const ICancellationToken& cancellation)
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     if (auto opened = link.Open(KlineLinkConfig{.header = KlineHeader::kNone, .baud = 1953, .parity = Parity::kEven});
         !opened.has_value())
     {

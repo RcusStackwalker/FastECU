@@ -28,6 +28,8 @@ void AppendTrailingSlashIfMissing(std::string& path)
 
 Result<AppConfig> ParseAppConfig(const ConfigPaths& paths, IFileRepository& file_repository)
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     Result<std::vector<std::uint8_t>> bytes = file_repository.Read(paths.config_file);
     if (!bytes.has_value())
     {

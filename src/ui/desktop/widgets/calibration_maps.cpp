@@ -46,6 +46,8 @@ CalibrationMaps::CalibrationMaps(fastecu::calibration::CalibrationWorkspace& wor
 void CalibrationMaps::initializeView(const fastecu::ui::MapPresentation& map,
                                      const fastecu::calibration::RomSource& source)
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     QString mapWindowObjectName =
         fastecu::ui::sessionKeyText(session_) + "," + QString::number(map_index_) + "," + map.name;
 
@@ -294,6 +296,8 @@ void CalibrationMaps::setMapTableWidgetSize(int maxWidth, int maxHeight, int xSi
 
 void CalibrationMaps::refresh()
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     const auto *rom = workspace_.Find(session_);
     if (rom == nullptr)
     {
@@ -536,6 +540,8 @@ void CalibrationMaps::cellPressed(int row, int col)
 
 void CalibrationMaps::cellChanged(int curRow, int curCol, int prevRow, int prevCol)
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     // qDebug() << "Startcell =" << startCol << ":" << startRow << " and current cell is" << curCol << ":" << curRow;
 
     int cols = ui_->mapDataTableWidget->columnCount();

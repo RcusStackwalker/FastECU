@@ -104,6 +104,8 @@ bytes::Bytes SsmLoggingProtocol::BuildSsmHeader(bytes::ByteView output) const
 fastecu::Result<bytes::Bytes> SsmLoggingProtocol::ReadFramedResponse(std::chrono::milliseconds timeout,
                                                                      const fastecu::ICancellationToken& cancellation)
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     bytes::Bytes received;
     const auto deadline = clock_.Now() + timeout;
 
@@ -210,6 +212,8 @@ fastecu::Status SsmLoggingProtocol::Start(const fastecu::ICancellationToken& can
 fastecu::Result<PollData> SsmLoggingProtocol::Poll(std::chrono::milliseconds timeout,
                                                    const fastecu::ICancellationToken& cancellation)
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     if (auto status = CheckCancellation(cancellation); !status.has_value())
     {
         return std::unexpected(status.error());

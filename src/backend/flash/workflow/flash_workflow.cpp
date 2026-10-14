@@ -336,6 +336,8 @@ class SubaruUnisiaJecsM32rBootModeWorkflow final : public FlashWorkflow
 
     FlashWorkflowStep Next() override
     {
+        // #lizard forgives(cyclomatic_complexity)
+        // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
         if (!built_.has_value())
         {
             built_ = BuildPlans();
@@ -1114,6 +1116,8 @@ std::optional<bytes::Bytes> PortableImageForOperation(FlashOperation operation, 
 
 std::unique_ptr<FlashWorkflow> FlashWorkflowFactory::TryCreate(FlashWorkflowRequest request, FlashWorkflowPorts ports)
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     const auto route = std::ranges::find_if(kRoutes,
                                             [&request](const Route& candidate)
                                             {

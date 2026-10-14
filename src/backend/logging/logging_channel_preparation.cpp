@@ -91,6 +91,8 @@ fastecu::Error ContextualError(const LoggerParameter& parameter, std::string_vie
 
 fastecu::Result<LoggingChannel> PrepareLoggingChannel(const LoggerParameter& parameter, LoggingProtocolId protocol)
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     if (parameter.conversions.empty())
     {
         return std::unexpected(ContextualError(parameter, "missing conversion; provide an expression and format"));

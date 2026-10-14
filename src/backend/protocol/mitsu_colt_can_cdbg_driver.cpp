@@ -42,6 +42,8 @@ fastecu::Status CdbgLogDriver::StartFreeFormLog(const std::vector<CdbgChannel>& 
                                                 std::uint32_t interval_ms,
                                                 const fastecu::ICancellationToken& cancellation)
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     streaming_ = false;
     frames_.clear();
 

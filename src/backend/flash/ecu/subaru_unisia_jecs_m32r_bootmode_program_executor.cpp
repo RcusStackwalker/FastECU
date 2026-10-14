@@ -155,6 +155,8 @@ Status PollFor(Session& s, bytes::Byte status, std::chrono::milliseconds sleep, 
 
 Status Program(Session& s, const FlashPlan& plan)
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     if (Status cancelled = CancelledIfRequested(s.cancellation, "before programming voltage"); !cancelled.has_value())
     {
         return cancelled;

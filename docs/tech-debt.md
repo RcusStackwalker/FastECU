@@ -10,6 +10,23 @@ configuration. [Design notes](design-notes.md) own current decisions; the
 
 ## Priorities
 
+### P1: Remove Lizard forgiveness markers
+
+Reduce the complexity of functions carrying native Lizard forgiveness markers
+to the limit defined by the [complexity gate](coding-style.md#lizard-complexity-gate),
+then remove their markers. Find the current scope with
+`rg -n '#lizard forgives' src apps tests bazel` rather than keeping a copied
+inventory here. Include test functions and maintained UI components.
+
+Forgiveness has no score cap or automatic retirement check, so review changes
+to exempted functions for complexity growth until the markers are removed.
+Prioritize the most complex functions and preserve behavior with package-owned
+tests. For flash or transport functions, preserve address-window guards,
+protocol outcomes, and recorded qualification boundaries; follow the
+[qualification matrix](flash-qualification-matrix.md) before hardware-facing
+changes. Resolve confirmed parser inaccuracies separately and record the reason
+for any marker that must remain.
+
 ### P1: Separate UI from application logic
 
 Reusable policy still exists in UI/platform consumers. Move it in scoped PRs

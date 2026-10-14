@@ -362,6 +362,8 @@ Status DensoSh705xEepromKlineExecutor::ConnectBootloader(IKlineFlashTransport& t
                                                          const DensoSh705xEepromKlinePlan& kline_plan,
                                                          bool& kernel_alive) const
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     if (cancellation.Cancelled())
     {
         return Fail(ErrorKind::kCancelled, "cancelled before connect");
@@ -505,6 +507,8 @@ Status DensoSh705xEepromKlineExecutor::UploadKernel(IKlineFlashTransport& transp
                                                     const DensoSh705xEepromKlinePlan& kline_plan,
                                                     const KernelImage& kernel) const
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     if (cancellation.Cancelled())
     {
         return Fail(ErrorKind::kCancelled, "cancelled before kernel upload");
@@ -661,6 +665,8 @@ Result<bytes::Bytes> DensoSh705xEepromKlineExecutor::ReadMem(IKlineFlashTranspor
                                                              const ICancellationToken& cancellation, IEventSink& events,
                                                              const MemoryRegion& region, EepromReadMode mode) const
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     const std::uint32_t start_addr = region.start;
     const std::uint32_t length = region.length;
 

@@ -216,6 +216,8 @@ Result<std::optional<std::string>> ConnectBootloader(ICanFlashTransport& transpo
                                                      const ICancellationToken& cancellation, IEventSink& events,
                                                      const SubaruTcuHitachiM32rCanPlan& plan)
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     // Step 1: a matching response means the resident kernel is already live
     // and the remaining seven exchanges must not be sent. A missing or
     // non-matching frame means normal initialization should continue.

@@ -14,6 +14,31 @@ repos:
         args: [--fix=lf]
   - repo: local
     hooks:
+      - id: lizard
+        name: C/C++ cyclomatic complexity
+        language: python
+        additional_dependencies: [lizard==1.24.1, pathspec==1.1.1, pygments==2.21.0]
+        # Native C++ reader omits these two repository-supported header suffixes.
+        entry: >-
+          python -c 'import sys; import lizard; from lizard_languages import CLikeReader;
+          CLikeReader.ext += ["hh", "hxx"]; sys.exit(lizard.main())'
+        pass_filenames: false
+        always_run: true
+        # Lizard accepts integer limits only; leave non-CCN metrics effectively unbounded.
+        args:
+          - --languages=cpp
+          - --CCN=15
+          - --length=1000000000
+          - --arguments=1000000000
+          - --Threshold=nloc=1000000000
+          - --warnings_only
+          # Local nested checkouts are not sources of this checkout.
+          - --exclude=*/.claude/worktrees/*
+          - --exclude=*/third_party/*
+          - --exclude=*/vendor/*
+          - --exclude=*/generated/*
+          # Start at the root so Lizard loads .gitignore (including Qt-generated files).
+          - .
       - id: pragma-once
         name: require pragma once in headers
         language: system

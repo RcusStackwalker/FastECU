@@ -5,6 +5,8 @@
 
 ChecksumResult ChecksumEcuSubaruHitachiM32rCan::CalculateChecksumResult(Rom rom)
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     const bytes::ByteView rom_view = rom;
     /*******************
      *

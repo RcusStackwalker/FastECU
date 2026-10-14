@@ -164,6 +164,8 @@ void LogEcuId(Session& s, std::string_view id)
 
 Result<FlashExecutionResult> ReadRom(Session& s, const FlashPlan& plan)
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     // read_mem() :101-104: probe at 38400 in case the ECU is already in read
     // mode. A mismatch is logged and the cold init follows, as legacy did.
     if (Status baud = s.transport.SetBaud(kReadBaud); !baud.has_value())
@@ -334,6 +336,8 @@ Status EnterFlashMode(Session& s, std::uint32_t rom_size)
 
 Status WriteRom(Session& s, const FlashPlan& plan)
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     const bytes::Bytes& image = plan.ImageOrEmpty();
     const std::uint32_t rom_size = plan.TransferRegion().length;
     if (Status entered = EnterFlashMode(s, rom_size); !entered.has_value())

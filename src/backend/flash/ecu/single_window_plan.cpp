@@ -43,6 +43,8 @@ Status ValidateIdentity(const SingleWindowPlanSpec& spec, std::string_view proto
 
 Status ValidateSingleWindowPlan(const SingleWindowPlanSpec& spec, const FlashPlan& plan)
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     if (auto valid = ValidateIdentity(spec, plan.TargetId(), plan.McuName()); !valid.has_value())
     {
         return valid;

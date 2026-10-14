@@ -46,6 +46,8 @@ bool Chunks::setIODevice(QIODevice& ioDevice)
 
 QByteArray Chunks::data(qint64 pos, qint64 maxSize, QByteArray *highlighted)
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     qint64 ioDelta = 0;
     int chunkIdx = 0;
 

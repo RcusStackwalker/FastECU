@@ -20,6 +20,8 @@ const KernelImage& FlashPlan::KernelOrEmpty() const
 
 std::string_view FlashPlan::ExperimentalFamilyId() const
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     switch (fields_.family)
     {
     case FlashFamily::kDensoSh705xEepromKline:

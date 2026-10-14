@@ -173,6 +173,8 @@ class ModalDriver final : public QObject
   private:
     void drive()
     {
+        // #lizard forgives(cyclomatic_complexity)
+        // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
         for (QWidget *widget : QApplication::topLevelWidgets())
         {
             if (auto *messageBox = qobject_cast<QMessageBox *>(widget); messageBox != nullptr)
@@ -2455,6 +2457,8 @@ INSTANTIATE_TEST_SUITE_P(
     });
 void MainWindowTest::checkChooserDialogsApplyAcceptedChoicesAndIgnoreCancellation(bool protocol, bool accept)
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
 
     QTemporaryDir root;
     ASSERT_TRUE(root.isValid());
@@ -4873,6 +4877,8 @@ const auto *const kFixtureEnvironment = ::testing::AddGlobalTestEnvironment(new 
 
 void MainWindowTest::checkTypedAssignment(AssignmentScenario scenario)
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     ModalDriver driver{QString()};
     driver.start();
     TestServices services{config_root_->path()};
