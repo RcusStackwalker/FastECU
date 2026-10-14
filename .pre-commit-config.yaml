@@ -29,8 +29,6 @@ repos:
           - --arguments=1000000000
           - --Threshold=nloc=1000000000
           - --warnings_only
-          # Local nested checkouts are not sources of this checkout.
-          - --exclude=*/.claude/worktrees/*
           - --exclude=*/third_party/*
           - --exclude=*/vendor/*
           - --exclude=*/generated/*

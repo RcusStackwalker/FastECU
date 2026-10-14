@@ -79,7 +79,9 @@ compile_flags.txt
 /.lycheecache
 /bazel-pkg-*.zip
 
+# Local Git worktrees
 /.worktrees/
+/.claude/worktrees/
 /.cargo/
 
 # Local analysis output: clang-tidy reports and coverage runs

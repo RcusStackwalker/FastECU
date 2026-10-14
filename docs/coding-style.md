@@ -500,9 +500,9 @@ CamelCase name to its `A`/`W` variant on Windows builds. Pick a different verb
 `prek run lizard --all-files` checks per-function cyclomatic complexity, with
 a maximum of 15. The pinned hook in [the configuration](../.pre-commit-config.yaml)
 scans first-party C/C++ sources and headers, including tests, on every commit
-and in CI. The scan starts at the repository root to honor `.gitignore`, including Qt's
-generated-file patterns. Generated, vendor, and third-party directories are
-also excluded explicitly, as are local checkouts under `.claude/worktrees/`.
+and in CI. The scan starts at the repository root to honor `.gitignore`, including
+Qt's generated-file patterns and local worktree directories. Generated, vendor,
+and third-party directories are also excluded explicitly.
 The scan covers the whole scope rather than only the filenames passed by the
 hook runner. Non-complexity metrics have
 effectively unbounded integer limits because Lizard's CLI requires integers.
