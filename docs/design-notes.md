@@ -87,11 +87,18 @@ that run asks for session `0x63`; the SH72531 and SH72543 diesel in-car runs sen
 and probe flows, kernel jumps, checksum verification, and response policies stay
 in each executor, and no configurable family state machine is shared.
 
-Hitachi and Mitsubishi M32R K-Line share framing but differ in optional probes,
-handshake timeouts, fallback parsing, and acknowledgement tolerance. Likewise,
-shared declarative plan validation does not establish interchangeable transfer
-loops. Shared headers identify their consumers and the equivalence they rely on.
-Transport seams keep failure and cancellation paths scriptable.
+The [ordinary optional M32R SSM exchange](../src/backend/flash/ecu/m32r_ssm_exchange.h)
+is shared by the Subaru Hitachi M32R K-Line ECU, Subaru Mitsubishi M32R K-Line
+ECU, and Subaru TCU Hitachi M32R K-Line executors. Byte-level characterization
+establishes equivalent framing, write-size checks, cancellation checkpoints,
+and transport-error precedence; replies remain unchanged for family parsing.
+Required-response diagnostics remain local (`no response from ECU` or
+`no response from TCU`). The TCU block exchange retains its 100ms sleeps on
+either side of its 500ms read and five-attempt retry policy. Optional probes,
+handshakes, timeout policy, acknowledgement tolerance, and address mapping remain
+family-owned. Shared declarative plan validation does not establish
+interchangeable transfer loops. Transport seams keep failure and cancellation
+paths scriptable; sharing does not change hardware qualification.
 
 ### Corrections require local evidence
 

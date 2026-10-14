@@ -195,4 +195,67 @@ TEST(SubaruMitsuM32rKlineExecutor, WritesEveryEncryptedChunkAndToleratesTransfer
     EXPECT_TRUE(transport.ScriptConsumed());
     EXPECT_EQ(transport.baud_calls, std::vector<int>{15625});
 }
+
+TEST(SubaruMitsuM32rKlineExecutor, PreservesRequiredResponseTimeoutDetail)
+{
+    auto plan = BuildSubaruMitsuM32rKlinePlan(FlashOperation::kRead, "sub_ecu_mitsu_m32r_kline", "M32R_512KB_4blocks",
+                                              std::nullopt);
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::kOpen};
+    transport.ExpectWrite(bytes::Bytes{0x80, 0x10, 0xf0, 0x01, 0xbf, 0x40});
+    transport.QueueNoFrame();
+    SubaruMitsuM32rKlineExecutor executor;
+    FakeClock clock;
+    ManualCancellationToken cancellation;
+    RecordingEventSink events;
+
+    const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
+
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kTimeout));
+    EXPECT_EQ(result.error().detail, "no response from ECU");
+    EXPECT_TRUE(transport.ScriptConsumed());
+    EXPECT_EQ(transport.WritesConsumed(), 1U);
+}
+
+TEST(SubaruMitsuM32rKlineExecutor, PreservesPresentEmptyResponseValidation)
+{
+    auto plan = BuildSubaruMitsuM32rKlinePlan(FlashOperation::kRead, "sub_ecu_mitsu_m32r_kline", "M32R_512KB_4blocks",
+                                              std::nullopt);
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::kOpen};
+    transport.ExpectWrite(bytes::Bytes{0x80, 0x10, 0xf0, 0x01, 0xbf, 0x40});
+    transport.QueueRead(bytes::Bytes{});
+    SubaruMitsuM32rKlineExecutor executor;
+    FakeClock clock;
+    ManualCancellationToken cancellation;
+    RecordingEventSink events;
+
+    const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
+
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kBadResponse));
+    EXPECT_EQ(result.error().detail, "No valid response from ECU");
+    EXPECT_TRUE(transport.ScriptConsumed());
+    EXPECT_EQ(transport.WritesConsumed(), 1U);
+}
+
+TEST(SubaruMitsuM32rKlineExecutor, PreservesExchangeReadFailure)
+{
+    auto plan = BuildSubaruMitsuM32rKlinePlan(FlashOperation::kRead, "sub_ecu_mitsu_m32r_kline", "M32R_512KB_4blocks",
+                                              std::nullopt);
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::kOpen};
+    transport.ExpectWrite(bytes::Bytes{0x80, 0x10, 0xf0, 0x01, 0xbf, 0x40});
+    transport.QueueError(ErrorKind::kDisconnected, "read fault");
+    SubaruMitsuM32rKlineExecutor executor;
+    FakeClock clock;
+    ManualCancellationToken cancellation;
+    RecordingEventSink events;
+
+    const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
+
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kDisconnected));
+    EXPECT_EQ(result.error().detail, "read fault");
+    EXPECT_TRUE(transport.ScriptConsumed());
+    EXPECT_EQ(transport.WritesConsumed(), 1U);
+}
 } // namespace

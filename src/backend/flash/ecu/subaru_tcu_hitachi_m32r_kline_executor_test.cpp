@@ -457,11 +457,16 @@ TEST(SubaruTcuHitachiM32rKlineExecutor, PacesEachBlockReadAsWriteThenDelayThenRe
     SubaruTcuHitachiM32rKlineExecutor executor;
     MockClock clock;
     TraceSleeps(clock, trace);
+    EXPECT_CALL(clock, Sleep).Times(0);
+    EXPECT_CALL(clock, Sleep(std::chrono::milliseconds{100}, ::testing::_)).Times(1 + 2 * 5462);
     ManualCancellationToken cancellation;
     RecordingEventSink events;
     const auto result = executor.Execute(ReadPlan(), transport, clock, cancellation, events);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
+    ASSERT_EQ(transport.read_timeouts.size(), 5U + 5462U);
+    EXPECT_THAT(std::span(transport.read_timeouts).first(5), ::testing::Each(std::chrono::milliseconds{2000}));
+    EXPECT_THAT(std::span(transport.read_timeouts).subspan(5), ::testing::Each(std::chrono::milliseconds{500}));
     ASSERT_EQ(trace.size(), 1U + 10U + 4U * 5462U);
     // Legacy connect_bootloader() opens with delay(100), before any traffic.
     EXPECT_EQ(trace[0], Step::kSleep);
@@ -594,5 +599,68 @@ TEST(SubaruTcuHitachiM32rKlineExecutor, FailsWhenTheTcuNeverAnswers)
 
     EXPECT_THAT(executor.Execute(ReadPlan(), transport, clock, cancellation, events),
                 fastecu::testing::IsErr(ErrorKind::kTimeout));
+}
+
+TEST(SubaruTcuHitachiM32rKlineExecutor, PreservesRequiredResponseTimeoutDetail)
+{
+    auto plan = BuildSubaruTcuHitachiM32rKlinePlan(FlashOperation::kRead, "sub_tcu_hitachi_m32r_kline", "M32R_512KB",
+                                                   std::nullopt);
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::kOpen};
+    transport.ExpectWrite(bytes::Bytes{0x80, 0x18, 0xf0, 0x01, 0xbf, 0x48});
+    transport.QueueNoFrame();
+    SubaruTcuHitachiM32rKlineExecutor executor;
+    FakeClock clock;
+    ManualCancellationToken cancellation;
+    RecordingEventSink events;
+
+    const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
+
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kTimeout));
+    EXPECT_EQ(result.error().detail, "no response from TCU");
+    EXPECT_TRUE(transport.ScriptConsumed());
+    EXPECT_EQ(transport.WritesConsumed(), 1U);
+}
+
+TEST(SubaruTcuHitachiM32rKlineExecutor, PreservesPresentEmptyResponseValidation)
+{
+    auto plan = BuildSubaruTcuHitachiM32rKlinePlan(FlashOperation::kRead, "sub_tcu_hitachi_m32r_kline", "M32R_512KB",
+                                                   std::nullopt);
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::kOpen};
+    transport.ExpectWrite(bytes::Bytes{0x80, 0x18, 0xf0, 0x01, 0xbf, 0x48});
+    transport.QueueRead(bytes::Bytes{});
+    SubaruTcuHitachiM32rKlineExecutor executor;
+    FakeClock clock;
+    ManualCancellationToken cancellation;
+    RecordingEventSink events;
+
+    const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
+
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kBadResponse));
+    EXPECT_EQ(result.error().detail, "response is too short");
+    EXPECT_TRUE(transport.ScriptConsumed());
+    EXPECT_EQ(transport.WritesConsumed(), 1U);
+}
+
+TEST(SubaruTcuHitachiM32rKlineExecutor, PreservesExchangeReadFailure)
+{
+    auto plan = BuildSubaruTcuHitachiM32rKlinePlan(FlashOperation::kRead, "sub_tcu_hitachi_m32r_kline", "M32R_512KB",
+                                                   std::nullopt);
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::kOpen};
+    transport.ExpectWrite(bytes::Bytes{0x80, 0x18, 0xf0, 0x01, 0xbf, 0x48});
+    transport.QueueError(ErrorKind::kDisconnected, "read fault");
+    SubaruTcuHitachiM32rKlineExecutor executor;
+    FakeClock clock;
+    ManualCancellationToken cancellation;
+    RecordingEventSink events;
+
+    const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
+
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kDisconnected));
+    EXPECT_EQ(result.error().detail, "read fault");
+    EXPECT_TRUE(transport.ScriptConsumed());
+    EXPECT_EQ(transport.WritesConsumed(), 1U);
 }
 } // namespace
