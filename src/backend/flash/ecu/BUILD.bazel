@@ -1893,3 +1893,23 @@ fastecu_portable_gtest(
         "@googletest//:gtest",
     ],
 )
+
+fastecu_portable_gtest(
+    name = "m32r_ssm_exchange_test",
+    srcs = ["m32r_ssm_exchange_test.cpp"],
+    deps = [
+        ":m32r_ssm_exchange",
+        "//src/backend/flash/testing:scripted_flash_transports",
+        "//src/backend/ports",
+        "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
+    ],
+)
+
+cc_library(
+    name = "m32r_ssm_exchange",
+    srcs = ["m32r_ssm_exchange.cpp"],
+    hdrs = ["m32r_ssm_exchange.h"],
+    implementation_deps = ["//src/algorithms/protocol/ssm"],
+    deps = ["//src/backend/flash:flash_executor"],
+)
