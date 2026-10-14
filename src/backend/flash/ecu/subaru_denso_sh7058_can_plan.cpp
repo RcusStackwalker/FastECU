@@ -1,5 +1,6 @@
 #include "src/backend/flash/ecu/subaru_denso_sh7058_can_plan.h"
 
+#include <algorithm>
 #include <array>
 #include <format>
 #include <utility>
@@ -24,34 +25,22 @@ struct CatalogEntry
 // Exact identities from the revision-59f4e442 legacy wrapper/configuration.
 // Security selection replaces the legacy suffix chain at operation.cpp:458-477;
 // the executor consumes only this enum and never reinterprets target_id().
-constexpr std::array<CatalogEntry, 5> kCatalog{{
+constexpr auto kCatalog = std::to_array<CatalogEntry>({
     {"sub_ecu_denso_sh7058_can", SubaruDensoSh7058CanSecurity::kStock},
     {"sub_ecu_denso_sh7058_can_ecutek", SubaruDensoSh7058CanSecurity::kEcuTek},
     {"sub_ecu_denso_sh7058_can_ecutek_racerom", SubaruDensoSh7058CanSecurity::kRaceRom},
     {"sub_ecu_denso_sh7058_can_ecutek_racerom_alt", SubaruDensoSh7058CanSecurity::kRaceRomAlt},
     {"sub_ecu_denso_sh7058_can_cobb", SubaruDensoSh7058CanSecurity::kCobb},
-}};
+});
 
 constexpr std::string_view kMcu = "SH7058";
 constexpr std::uint32_t kRomSize = 0x00100000;
 constexpr std::uint32_t kKernelLoadAddress = 0xFFFF3000;
 
-const CatalogEntry *FindCatalog(std::string_view protocol)
+Result<CatalogEntry> GetCatalogEntry(std::string_view protocol, std::string_view mcu)
 {
-    for (const CatalogEntry& entry : kCatalog)
-    {
-        if (entry.protocol == protocol)
-        {
-            return &entry;
-        }
-    }
-    return nullptr;
-}
-
-Status ValidateIdentity(std::string_view protocol, std::string_view mcu, const CatalogEntry *& entry)
-{
-    entry = FindCatalog(protocol);
-    if (entry == nullptr)
+    const auto it = std::ranges::find(kCatalog, protocol, &CatalogEntry::protocol);
+    if (it == kCatalog.end())
     {
         return Fail(ErrorKind::kInvalidConfig,
                     std::format("Unsupported Subaru Denso SH7058 petrol CAN protocol: {}", protocol));
@@ -62,7 +51,7 @@ Status ValidateIdentity(std::string_view protocol, std::string_view mcu, const C
             ErrorKind::kInvalidConfig,
             std::format("Subaru Denso SH7058 petrol CAN protocol {} requires MCU SH7058, not {}", protocol, mcu));
     }
-    return {};
+    return *it;
 }
 
 const FlashDevice *CheckedDevice()
@@ -104,10 +93,10 @@ Status ValidateSubaruDensoSh7058CanPlan(const FlashPlan& plan)
     {
         return Fail(ErrorKind::kInvalidConfig, "plan is not for Subaru Denso SH7058 petrol CAN");
     }
-    const CatalogEntry *entry = nullptr;
-    if (Status identity = ValidateIdentity(plan.TargetId(), plan.McuName(), entry); !identity.has_value())
+    const auto entry = GetCatalogEntry(plan.TargetId(), plan.McuName());
+    if (!entry.has_value())
     {
-        return identity;
+        return std::unexpected(entry.error());
     }
     const auto *wire = std::get_if<SubaruDensoSh7058CanPlan>(&plan.FamilyPlan());
     if (wire == nullptr || !WireParametersMatch(*wire, *entry))
@@ -144,10 +133,10 @@ Result<FlashPlan> BuildSubaruDensoSh7058CanPlan(FlashOperation operation, std::s
                                                 std::string_view mcu_type, std::optional<bytes::Bytes> image,
                                                 KernelImage kernel)
 {
-    const CatalogEntry *entry = nullptr;
-    if (Status identity = ValidateIdentity(protocol_name, mcu_type, entry); !identity.has_value())
+    const auto entry = GetCatalogEntry(protocol_name, mcu_type);
+    if (!entry.has_value())
     {
-        return std::unexpected(identity.error());
+        return std::unexpected(entry.error());
     }
     const FlashDevice *device = CheckedDevice();
     if (device == nullptr)

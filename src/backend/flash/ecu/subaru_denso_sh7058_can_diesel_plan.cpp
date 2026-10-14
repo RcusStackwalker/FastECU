@@ -29,38 +29,26 @@ struct CatalogEntry
 // legacy operation's EURO4/EURO5 comments at revision 59f4e442:113-116. The
 // executor consumes the selected plan and never derives a generation from a
 // target-id suffix.
-constexpr std::array<CatalogEntry, 2> kCatalog{{
+constexpr auto kCatalog = std::to_array<CatalogEntry>({
     {"sub_ecu_denso_sh7058_can_diesel", "SH7058d", 0x00100000, 0xFFFF4000},
     {"sub_ecu_denso_sh7059_can_diesel", "SH7059d", 0x00180000, 0xFFFEE000},
-}};
+});
 
-const CatalogEntry *FindCatalog(std::string_view protocol)
+Result<CatalogEntry> GetCatalogEntry(std::string_view protocol, std::string_view mcu)
 {
-    for (const CatalogEntry& entry : kCatalog)
-    {
-        if (entry.protocol == protocol)
-        {
-            return &entry;
-        }
-    }
-    return nullptr;
-}
-
-Status ValidateIdentity(std::string_view protocol, std::string_view mcu, const CatalogEntry *& entry)
-{
-    entry = FindCatalog(protocol);
-    if (entry == nullptr)
+    const auto it = std::ranges::find(kCatalog, protocol, &CatalogEntry::protocol);
+    if (it == kCatalog.end())
     {
         return Fail(ErrorKind::kInvalidConfig,
                     std::format("Unsupported Subaru Denso SH705x diesel CAN protocol: {}", protocol));
     }
-    if (mcu != entry->mcu)
+    if (mcu != it->mcu)
     {
-        return Fail(ErrorKind::kInvalidConfig,
-                    std::format("Subaru Denso SH705x diesel CAN protocol {} requires MCU {}, not {}", protocol,
-                                entry->mcu, mcu));
+        return Fail(
+            ErrorKind::kInvalidConfig,
+            std::format("Subaru Denso SH705x diesel CAN protocol {} requires MCU {}, not {}", protocol, it->mcu, mcu));
     }
-    return {};
+    return *it;
 }
 
 const FlashDevice *CheckedDevice(const CatalogEntry& entry)
@@ -101,10 +89,10 @@ Status ValidateSubaruDensoSh7058CanDieselPlan(const FlashPlan& plan)
     {
         return Fail(ErrorKind::kInvalidConfig, "plan is not for Subaru Denso SH7058/SH7059 diesel CAN");
     }
-    const CatalogEntry *entry = nullptr;
-    if (Status identity = ValidateIdentity(plan.TargetId(), plan.McuName(), entry); !identity.has_value())
+    const auto entry = GetCatalogEntry(plan.TargetId(), plan.McuName());
+    if (!entry.has_value())
     {
-        return identity;
+        return std::unexpected(entry.error());
     }
     const auto *wire = std::get_if<SubaruDensoSh7058CanDieselPlan>(&plan.FamilyPlan());
     if (wire == nullptr || !WireParametersMatch(*wire))
@@ -141,10 +129,10 @@ Result<FlashPlan> BuildSubaruDensoSh7058CanDieselPlan(FlashOperation operation, 
                                                       std::string_view mcu_type, std::optional<bytes::Bytes> image,
                                                       KernelImage kernel)
 {
-    const CatalogEntry *entry = nullptr;
-    if (Status identity = ValidateIdentity(protocol_name, mcu_type, entry); !identity.has_value())
+    const auto entry = GetCatalogEntry(protocol_name, mcu_type);
+    if (!entry.has_value())
     {
-        return std::unexpected(identity.error());
+        return std::unexpected(entry.error());
     }
     const FlashDevice *device = CheckedDevice(*entry);
     if (device == nullptr)
