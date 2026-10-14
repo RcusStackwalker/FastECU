@@ -4,6 +4,7 @@
 #include <array>
 #include <format>
 #include <iterator>
+#include <memory>
 #include <optional>
 #include <string>
 #include <utility>
@@ -176,7 +177,7 @@ std::vector<BlockSlice> MemoryMap::Slices(AddressRange<FlashSpace> range) const
             continue;
         }
         const FlashAddress end = std::min(block->range.End(), range.End());
-        slices.push_back(BlockSlice{.block = &*block, .range = Between(cursor, end)});
+        slices.push_back(BlockSlice{.block = std::to_address(block), .range = Between(cursor, end)});
         cursor = end;
         ++block;
     }

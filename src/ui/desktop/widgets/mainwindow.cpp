@@ -15,6 +15,7 @@
 #include <QSplashScreen>
 #include <cstddef>
 #include <iterator>
+#include <memory>
 #include <optional>
 #include <string_view>
 #include <tuple>
@@ -694,7 +695,7 @@ void MainWindow::selectVehicleFinished(int result)
 MainWindow::OpenCalibration *MainWindow::openCalibration(fastecu::calibration::SessionId id)
 {
     const auto found = std::ranges::find_if(calibrations_, [id](const OpenCalibration& open) { return open.id == id; });
-    return found == calibrations_.end() ? nullptr : &*found;
+    return found == calibrations_.end() ? nullptr : std::to_address(found);
 }
 
 MainWindow::OpenCalibration *MainWindow::selectedOpenCalibration()

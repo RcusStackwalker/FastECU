@@ -2,6 +2,7 @@
 
 #include <charconv>
 #include <cstdint>
+#include <memory>
 #include <optional>
 #include <ranges>
 #include <utility>
@@ -88,13 +89,13 @@ const LoggerParameter *LoggerModel::Parameter(std::string_view protocol, std::st
 {
     const auto it = std::ranges::find_if(definition_.parameters,
                                          [&](const auto& p) { return p.protocol == protocol && p.id == id; });
-    return it == definition_.parameters.end() ? nullptr : &*it;
+    return it == definition_.parameters.end() ? nullptr : std::to_address(it);
 }
 const LoggerSwitch *LoggerModel::SwitchDefinition(std::string_view protocol, std::string_view id) const
 {
     const auto it =
         std::ranges::find_if(definition_.switches, [&](const auto& p) { return p.protocol == protocol && p.id == id; });
-    return it == definition_.switches.end() ? nullptr : &*it;
+    return it == definition_.switches.end() ? nullptr : std::to_address(it);
 }
 EcuSupport LoggerModel::ParameterSupport(std::string_view protocol, std::string_view id) const
 {

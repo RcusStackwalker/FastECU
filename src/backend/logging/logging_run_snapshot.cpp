@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <format>
+#include <memory>
 #include <utility>
 #include <unordered_set>
 
@@ -46,7 +47,7 @@ const LoggingMeasurement *LoggingRunSnapshot::FindMeasurement(LoggingMeasurement
 {
     const auto item = std::ranges::find_if(measurements_, [&](const LoggingMeasurement& measurement)
                                            { return measurement.kind == kind && measurement.identity.second == id; });
-    return item == measurements_.end() ? nullptr : &*item;
+    return item == measurements_.end() ? nullptr : std::to_address(item);
 }
 const LoggingSession& LoggingRunSnapshot::Session() const
 {

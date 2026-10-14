@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <expected>
 #include <limits>
+#include <memory>
 #include <optional>
 #include <span>
 #include <stdexcept>
@@ -211,7 +212,7 @@ struct VehicleSpec
 consteval const ProtocolSpec *ProtocolIn(std::span<const ProtocolSpec> protocols, std::string_view name)
 {
     const auto found = std::ranges::find(protocols, name, &ProtocolSpec::name);
-    return found == protocols.end() ? nullptr : &*found;
+    return found == protocols.end() ? nullptr : std::to_address(found);
 }
 
 // The checks cheap enough to static_assert on every supported compiler:
