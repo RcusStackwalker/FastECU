@@ -71,7 +71,6 @@ struct FlashDevice
 };
 
 /* list of all defined flash devices */
-// extern const struct FlashDevice kFlashDevices[];
 
 inline constexpr auto kFlashBlocksSH72543d = std::to_array<FlashBlock>({
     //    {0x00000000,    0x00008000},
@@ -576,5 +575,4 @@ inline constexpr auto kFlashDevices = std::to_array<FlashDevice>({
      kEepromBlocksM3779x.data()},
     {"M3775x", kM3775x, 64 * 1024, 1, kFlashBlocksM3775x.data(), kRamBlocksM3775x.data(), kKernelBlocksM3775x.data(),
      kEepromBlocksM3775x.data()},
-    {0, kShInvalid, 0, 0, 0, 0, 0, 0},
 });

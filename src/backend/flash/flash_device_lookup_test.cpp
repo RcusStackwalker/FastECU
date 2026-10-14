@@ -62,6 +62,12 @@ TEST(FindFlashDevice, ExposesRomsizeForSizeValidation)
     EXPECT_EQ(device->romsize, 512U * 1024U);
 }
 
+TEST(FindFlashDevice, ReturnsNullForEmptyName)
+{
+    EXPECT_EQ(FindFlashDevice(""), nullptr);
+    EXPECT_EQ(FindFlashDeviceIndex(""), -1);
+}
+
 TEST(FindFlashDevice, IndexAndPointerAgree)
 {
     const int index = FindFlashDeviceIndex("M32R_384KB_1block");
@@ -114,6 +120,7 @@ TEST(FlashDeviceTable, MatchesExpectedSummariesAndNamedAnomalies)
         {"M3775x", 0x10000, 1, 0x1000, 0x10fff},
     });
     constexpr std::size_t kCount = kExpected.size();
+    ASSERT_EQ(kFlashDevices.size(), kCount);
 
     for (std::size_t device_index = 0; device_index < kCount; ++device_index)
     {
@@ -134,15 +141,6 @@ TEST(FlashDeviceTable, MatchesExpectedSummariesAndNamedAnomalies)
             }
         }
     }
-
-    const FlashDevice& sentinel = kFlashDevices[kCount];
-    EXPECT_EQ(sentinel.name, nullptr);
-    EXPECT_EQ(sentinel.romsize, std::uint32_t(0));
-    EXPECT_EQ(sentinel.numblocks, 0U);
-    EXPECT_EQ(sentinel.fblocks, nullptr);
-    EXPECT_EQ(sentinel.rblocks, nullptr);
-    EXPECT_EQ(sentinel.kblocks, nullptr);
-    EXPECT_EQ(sentinel.eblocks, nullptr);
 
     const FlashDevice *sh72531 = FindFlashDevice("SH72531");
     const FlashDevice *mc68 = FindFlashDevice("MC68HC16Y5");

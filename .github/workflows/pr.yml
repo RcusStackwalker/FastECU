@@ -214,6 +214,9 @@ jobs:
         with:
           api-key: ${{ secrets.BUILDBUDDY_API_KEY }}
 
+      - uses: ./.github/actions/qt-runtime-linux
+        if: runner.os == 'Linux'
+
       - name: Install clang-tidy (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
