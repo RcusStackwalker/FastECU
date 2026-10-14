@@ -415,6 +415,8 @@ long J2534BridgeClient::PassThruGetLastError(char *p_error_description)
 long J2534BridgeClient::PassThruIoctl(unsigned long channel_id, unsigned long ioctl_id, const void *p_input,
                                       void *p_output)
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     PassThruIoctlRequest req{};
     req.channel_id = channel_id;
     req.ioctl_id = ioctl_id;

@@ -684,6 +684,8 @@ QByteArray SerialPortActionsDirect::ReadSerialObdData(uint16_t timeout_arg)
 
 QByteArray SerialPortActionsDirect::ReadSerialData(uint16_t timeout_arg)
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     QByteArray received;
     QByteArray req_bytes;
     uint32_t msglen = 0;

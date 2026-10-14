@@ -362,6 +362,8 @@ Status EraseRom(IKlineFlashTransport& transport, IClock& clock, const ICancellat
 Status WriteRom(IKlineFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
                 IEventSink& events, const SubaruHitachiM32rKlinePlan& p, const FlashPlan& plan)
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     if (auto baud = transport.SetBaud(p.write_baud); !baud.has_value())
     {
         return baud;

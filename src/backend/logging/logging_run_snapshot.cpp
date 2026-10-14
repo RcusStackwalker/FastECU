@@ -70,6 +70,8 @@ fastecu::Result<LoggingRunSnapshot> PrepareLoggingRun(const LoggerModel& model, 
                                                       std::string_view protocol_filter, LoggingPolicy policy,
                                                       LoggingTarget target)
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     const auto filter = EffectiveProtocolFilter(protocol, protocol_filter);
     if (!filter.has_value())
     {

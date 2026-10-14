@@ -477,6 +477,8 @@ Result<RomDefinition> Materialize(const UnresolvedDefinition& value)
 Result<void> ApplyAxisScaling(AxisDefinition& axis, std::string_view axis_context,
                               const std::unordered_map<std::string, const UnresolvedScaling *>& scalings)
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     if (axis.scaling_name.empty())
     {
         return {};
@@ -568,6 +570,8 @@ Result<void> ValidateAxis(AxisDefinition& axis, std::string_view axis_context, s
 
 Result<void> ValidateAndResolveMaps(RomDefinition& definition, const UnresolvedDefinition& unresolved)
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     std::unordered_map<std::string, const UnresolvedScaling *> scalings;
     for (const UnresolvedScaling& scaling : unresolved.scalings)
     {
@@ -737,6 +741,8 @@ class ResolverState
   private:
     Result<Resolved> Resolve(UnresolvedDefinition definition)
     {
+        // #lizard forgives(cyclomatic_complexity)
+        // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
         const std::string id = definition.identity.xml_id;
         if (id.empty())
         {

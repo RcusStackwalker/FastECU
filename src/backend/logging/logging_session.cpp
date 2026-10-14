@@ -124,6 +124,8 @@ namespace
 {
 fastecu::Status ValidateChannelFields(LoggingProtocolId protocol, const LoggingChannel& channel)
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     if (!ValidProtocol(protocol))
     {
         return fastecu::Fail(ErrorKind::kInvalidConfig, "invalid logging protocol");
@@ -195,6 +197,8 @@ fastecu::Status ValidateLoggingChannel(LoggingProtocolId protocol, const Logging
 fastecu::Result<LoggingSession> MakeLoggingSession(LoggingProtocolId protocol, std::vector<LoggingChannel> channels,
                                                    LoggingPolicy policy)
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     if (!ValidProtocol(protocol) || policy.poll_timeout <= 0ms || policy.car_silence_miss_threshold <= 0 ||
         policy.reconnect_attempt_threshold <= 0 || policy.reconnect_retry_period < 0)
     {

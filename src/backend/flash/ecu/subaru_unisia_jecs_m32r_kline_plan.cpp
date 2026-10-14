@@ -80,6 +80,8 @@ MemoryRegion RegionFor(const Variant& variant, FlashOperation operation)
 
 Status ValidateSubaruUnisiaJecsM32rKlinePlan(const FlashPlan& plan)
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     if (plan.Family() != FlashFamily::kSubaruUnisiaJecsM32rKline || plan.Transport() != TransportKind::kKline)
     {
         return Fail(ErrorKind::kInvalidConfig, "plan is not for Subaru Unisia Jecs M32R");

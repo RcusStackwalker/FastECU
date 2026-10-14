@@ -169,6 +169,8 @@ template <typename ParseAxis>
 Status PopulateAxes(pugi::xml_node table, UnresolvedCalibrationMap& map, std::string_view source,
                     std::string_view definition_id, std::vector<UnresolvedScaling>& scalings, ParseAxis parse_axis)
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     bool x_axis_populated = false;
     bool y_axis_populated = false;
     for (pugi::xml_node axis_table : table.children("table"))

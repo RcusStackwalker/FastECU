@@ -51,6 +51,8 @@ Status WriteExact(IKlineFlashTransport& transport, bytes::ByteView request, bool
 Result<bytes::Byte> ReadAddress(std::uint16_t address, RawReadState& state, IKlineFlashTransport& transport,
                                 IClock& clock, const ICancellationToken& cancellation)
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     const bytes::Bytes request = RequestFor(address);
     if (auto cancelled = CancelledIfRequested(cancellation); !cancelled.has_value())
     {

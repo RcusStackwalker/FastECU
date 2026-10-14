@@ -134,6 +134,8 @@ Status ValidateSubaruDensoSh705xKlineGeometry(const FlashDevice& device)
 
 Status ValidateSubaruDensoSh705xKlinePlan(const FlashPlan& plan)
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     // Ruling 2: this function is outside the
     // anonymous namespace above, so the `using enum ErrorKind;` there does
     // not reach here -- reintroduce it locally rather than qualifying every

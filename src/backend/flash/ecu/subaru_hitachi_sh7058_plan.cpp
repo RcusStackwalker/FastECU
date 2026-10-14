@@ -17,6 +17,8 @@ constexpr std::uint32_t kSize = 0x100000;
 
 Status ValidateSubaruHitachiSh7058Plan(const FlashPlan& plan)
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     if (plan.Family() != FlashFamily::kSubaruHitachiSh7058 || plan.TargetId() != kProtocol || plan.McuName() != kMcu)
     {
         return Fail(ErrorKind::kInvalidConfig, "invalid SH7058 identity");
@@ -73,6 +75,8 @@ Status ValidateSubaruHitachiSh7058Plan(const FlashPlan& plan)
 Result<FlashPlan> BuildSubaruHitachiSh7058Plan(FlashOperation operation, std::string_view protocol,
                                                std::string_view mcu, std::optional<bytes::Bytes> image)
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     if (protocol != kProtocol || mcu != kMcu)
     {
         return Fail(ErrorKind::kInvalidConfig, "unsupported SH7058 protocol or MCU");

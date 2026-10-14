@@ -179,6 +179,8 @@ Status SubaruDensoSh7055_02Executor::ConnectBootloader(IKlineFlashTransport& tra
                                                        const SubaruDensoSh7055_02Plan& family_plan, bool read_ecu_id,
                                                        bool& kernel_alive, std::optional<std::string>& ecu_id) const
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     if (Status cancelled = CheckCancelled(cancellation, "cancelled before connect"); !cancelled.has_value())
     {
         return cancelled;
@@ -488,6 +490,8 @@ Result<std::uint32_t> SubaruDensoSh7055_02Executor::ReadBlockCrc(IKlineFlashTran
                                                                  const ICancellationToken& cancellation,
                                                                  const MemoryRegion& block) const
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     // Legacy check_romcrc(), lines 645-749: request the ECU CRC for the
     // physical [start, start + length) block.
     const bytes::Bytes payload = ComposeBe(block.start, 0x00_b, U24(block.length));
@@ -616,6 +620,8 @@ Status SubaruDensoSh7055_02Executor::FlashBlock(IKlineFlashTransport& transport,
                                                 const ICancellationToken& cancellation, IEventSink& events,
                                                 bytes::ByteView image, const MemoryRegion& block, bool test_write) const
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     if (block.start > image.size() || block.length > image.size() - block.start ||
         block.length % kWriteChunkSize != 0 || block.length % kCommitBlockSize != 0)
     {
@@ -707,6 +713,8 @@ Status SubaruDensoSh7055_02Executor::WriteMem(IKlineFlashTransport& transport, I
                                               const ICancellationToken& cancellation, IEventSink& events,
                                               bytes::ByteView image, const std::string& mcu_name, bool test_write) const
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     const FlashDevice *device = FindFlashDevice(mcu_name);
     if (device == nullptr)
     {

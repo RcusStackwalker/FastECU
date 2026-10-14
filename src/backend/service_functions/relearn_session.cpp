@@ -85,6 +85,8 @@ void RelearnSession::Submit(GateResponse response)
 ServiceFunctionStep RelearnSession::Resume(ISsmTransport& transport, IClock&, const ICancellationToken& cancellation,
                                            IEventSink& events)
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     if (gate_outstanding_)
     {
         return FailedStep{Error{ErrorKind::kInternal, "resume() called with an operator gate outstanding"}};

@@ -172,6 +172,8 @@ class Session
     }
     Result<std::optional<std::string>> Connect()
     {
+        // #lizard forgives(cyclomatic_complexity)
+        // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
         // Legacy connect_bootloader:103-124. Vendor negative response is its alive marker.
         events_.Log(LogLevel::kInfo, "Checking if OBK is already running...");
         auto alive = Optional(Bytes{0xb7}, 50ms, 200ms);

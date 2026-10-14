@@ -11,6 +11,8 @@ namespace fastecu::service_functions
 
 Status SerialPortActionsConfigurator::Apply(const SsmTransportConfig& config)
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     if (serial_ == nullptr)
     {
         return Fail(ErrorKind::kDisconnected, "no serial facade");

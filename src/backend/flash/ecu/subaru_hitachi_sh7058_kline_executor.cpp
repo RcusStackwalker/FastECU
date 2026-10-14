@@ -75,6 +75,8 @@ Result<FlashExecutionResult> SubaruHitachiSh7058KlineExecutor::Execute(const Fla
                                                                        const ICancellationToken& cancel,
                                                                        IEventSink& events)
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     if (auto setup = TransportSetup(plan); !setup.has_value())
     {
         return std::unexpected(setup.error());

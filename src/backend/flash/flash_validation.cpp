@@ -49,6 +49,8 @@ bool FamilyMatchesTransportVariant(const FlashPlanFields& fields)
 
 Result<FlashPlan> ValidateAndBuild(FlashPlanFields fields)
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     if (fields.target_id.empty())
     {
         return Fail(ErrorKind::kInvalidConfig, "target_id must not be empty");

@@ -75,6 +75,8 @@ Status CopyBundleIfAbsent(IFileSystem& fs, IResourceBundle& bundle, IFileReposit
 Status ProvisionConfigDirectories(const ConfigPaths& paths, IFileSystem& fs, IResourceBundle& resource_bundle,
                                   IFileRepository& file_repository, IEventSink& events)
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     if (Status r = EnsureDirectory(fs, paths.base_config_directory, events); !r.has_value())
     {
         return r;

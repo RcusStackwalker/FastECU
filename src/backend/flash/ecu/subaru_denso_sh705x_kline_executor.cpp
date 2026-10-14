@@ -279,6 +279,8 @@ Result<std::string> ConnectBootloader(IKlineFlashTransport& transport, IClock& c
                                       const ICancellationToken& cancellation, IEventSink& events,
                                       const SubaruDensoSh705xKlinePlan& plan)
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     events.Log(LogLevel::kInfo, "No response from kernel, initialising ECU..."); // :159
     // :161-162. Legacy ignored this result; a failed baud change stops here.
     if (Status baud = ChangeBaud(transport, cancellation, kSsmBaud); !baud.has_value())

@@ -152,6 +152,8 @@ std::vector<ConfirmationSpec> ConfirmationsForMode(EepromReadMode mode)
 Result<void> ValidateDensoSh705xEepromPreflight(const DensoSh705xEepromInput& input,
                                                 std::optional<std::size_t> kernel_size)
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     if (input.family != FlashFamily::kDensoSh705xEepromKline && input.family != FlashFamily::kDensoSh705xEepromCan)
     {
         return Fail(ErrorKind::kInvalidConfig, "unsupported family for Denso SH705x EEPROM builder");

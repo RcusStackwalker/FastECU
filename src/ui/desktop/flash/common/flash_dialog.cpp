@@ -188,6 +188,8 @@ ProgrammingVoltageNotice FlashDialog::programmingVoltageNotice(const FlashPrompt
 
 FlashPromptResponse FlashDialog::presentPrompt(const FlashPromptStep& prompt)
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     auto arg = [&prompt](const char *key)
     {
         for (const auto& [name, value] : prompt.arguments)

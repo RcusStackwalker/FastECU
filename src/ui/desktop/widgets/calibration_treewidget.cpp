@@ -55,6 +55,8 @@ QTreeWidget *CalibrationTreeWidget::buildCalibrationDataTree(QTreeWidget *dataTr
                                                              const fastecu::calibration::CalibrationSession& session,
                                                              const fastecu::ui::CalibrationViewState& view)
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     dataTreeWidget->clear();
 
     QTreeWidget *calDataTree = dataTreeWidget;

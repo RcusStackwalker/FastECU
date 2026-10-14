@@ -75,6 +75,8 @@ TEST(Sh72543rPlan, RejectsIdentityAndImageErrors)
 }
 TEST(Sh72543rPlan, ForgedPlansCannotChangeWireOrGeometry)
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     for (int mutation = 0; mutation < 16; ++mutation)
     {
         SCOPED_TRACE(mutation);

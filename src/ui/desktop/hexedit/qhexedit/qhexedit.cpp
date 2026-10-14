@@ -632,6 +632,8 @@ void QHexEdit::undo()
 // ********************************************************************** Handle events
 void QHexEdit::keyPressEvent(QKeyEvent *event)
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     // Cursor movements
     if (event->matches(QKeySequence::MoveToNextChar))
     {
@@ -1111,6 +1113,8 @@ void QHexEdit::mousePressEvent(QMouseEvent *event)
 
 void QHexEdit::paintEvent(QPaintEvent *event)
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     QPainter painter(viewport());
     int pxOfsX = horizontalScrollBar()->value();
 

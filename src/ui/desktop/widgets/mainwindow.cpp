@@ -46,6 +46,8 @@ const QColor MainWindow::kGreenLightOn = QColor(64, 255, 64);
 MainWindow::MainWindow(MainWindowServices services, const QString& peerAddress, QWidget *parent)
     : QMainWindow(parent), services_(services), peer_address_(peerAddress), ui_{std::make_unique<Ui::MainWindow>()}
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     ui_->setupUi(this);
     qApp->installEventFilter(this);
     qRegisterMetaType<QVector<int>>("QVector<int>");
@@ -888,6 +890,8 @@ void MainWindow::rememberOpenedPort(const QString& port, const QString& openedPo
 
 int MainWindow::startEcuOperations(const QString& cmdType)
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     connection_coordinator_->cancel();
     setRealtimeState(false);
     toggleRealtime();
@@ -1217,6 +1221,8 @@ void MainWindow::calibrationFilesTreewidgetItemSelected(QTreeWidgetItem *item)
 
 void MainWindow::calibrationDataTreewidgetItemSelected(QTreeWidgetItem *item)
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     const QModelIndex index = ui_->calibrationDataTreeWidget->selectionModel()->currentIndex();
     QString selectedText = index.data(Qt::DisplayRole).toString();
     QString selectedRom;
@@ -1471,6 +1477,8 @@ void MainWindow::updateLoggingPendingState()
 
 void MainWindow::updateLogboxes(const QString& protocolArg)
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     const auto view = logging_run_->view();
     for (auto *layout : {ui_->switchBoxLayout, ui_->logBoxLayout})
     {
@@ -1540,6 +1548,8 @@ void MainWindow::updateLogboxes(const QString& protocolArg)
 
 void MainWindow::updateLogboxValues(const QString& protocolArg)
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     const auto view = logging_run_->view();
     const auto key = view.active_snapshot ? view.active_snapshot->ProtocolKey() : protocolArg.toStdString();
     const auto selection =

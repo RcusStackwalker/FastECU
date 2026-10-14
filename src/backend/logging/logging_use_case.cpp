@@ -48,6 +48,8 @@ fastecu::Status LoggingUseCase::Run(const LoggingSession& session, LoggingProtoc
                                     const fastecu::ICancellationToken& cancellation, ILoggingEventSink& events,
                                     fastecu::IEventSink& diagnostics) const
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     if (cancellation.Cancelled())
     {
         return fastecu::Fail(fastecu::ErrorKind::kCancelled, "logging cancelled");

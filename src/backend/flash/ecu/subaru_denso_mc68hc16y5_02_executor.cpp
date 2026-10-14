@@ -218,6 +218,8 @@ Status SubaruDensoMc68hc16y5_02Executor::ConnectBootloader(IKlineFlashTransport&
                                                            const SubaruDensoMc68hc16y5_02Plan& family_plan,
                                                            bool& kernel_alive) const
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     if (Status cancelled = CheckCancelled(cancellation, "cancelled before connect"); !cancelled.has_value())
     {
         return cancelled;
@@ -315,6 +317,8 @@ Status SubaruDensoMc68hc16y5_02Executor::UploadKernel(IKlineFlashTransport& tran
                                                       const SubaruDensoMc68hc16y5_02Plan& family_plan,
                                                       const KernelImage& kernel) const
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     if (Status cancelled = CheckCancelled(cancellation, "cancelled before kernel upload"); !cancelled.has_value())
     {
         return cancelled;
@@ -476,6 +480,8 @@ Result<std::uint32_t> SubaruDensoMc68hc16y5_02Executor::ReadBlockCrc(IKlineFlash
                                                                      const ICancellationToken& cancellation,
                                                                      const MemoryRegion& block) const
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:626-715:
     // request the ECU's CRC over [start, start + length).
     const bytes::Bytes payload = ComposeBe(block.start, 0x00_b, U24(block.length));
@@ -553,6 +559,8 @@ Status SubaruDensoMc68hc16y5_02Executor::FlashBlock(IKlineFlashTransport& transp
                                                     bytes::ByteView image, const MemoryRegion& block,
                                                     bool test_write) const
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     if (block.start > image.size() || block.length > image.size() - block.start ||
         block.length % kWriteChunkSize != 0 || block.length % kCommitBlockSize != 0)
     {
@@ -640,6 +648,8 @@ Status SubaruDensoMc68hc16y5_02Executor::WriteMem(IKlineFlashTransport& transpor
                                                   const memory::MemoryImage& image, const std::string& mcu_name,
                                                   bool test_write) const
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     const FlashDevice *device = FindFlashDevice(mcu_name);
     if (device == nullptr || device->numblocks == 0)
     {

@@ -143,6 +143,8 @@ Result<UnresolvedAxisDefinition> ParseAxis(pugi::xml_node table, std::uint32_t d
 Result<UnresolvedCalibrationMap> ParseTable(pugi::xml_node table, std::string_view source,
                                             std::string_view definition_id, std::vector<UnresolvedScaling>& scalings)
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     UnresolvedCalibrationMap map;
     if (auto status = PopulateMapHeader(table, map, source, definition_id); !status.has_value())
     {

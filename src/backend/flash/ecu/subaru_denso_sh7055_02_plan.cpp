@@ -74,6 +74,8 @@ Status ValidateKernelUpload(const KernelImage& kernel)
 
 Status ValidateSubaruDensoSh705502Plan(const FlashPlan& plan)
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     using enum ErrorKind;
     if (auto valid = ValidateIdentity(plan.TargetId(), plan.McuName()); !valid.has_value())
     {

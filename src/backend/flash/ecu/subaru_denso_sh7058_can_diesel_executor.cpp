@@ -411,6 +411,8 @@ Result<bytes::Bytes> SecurityKey(Context& context, bytes::ByteView seed)
 Result<std::optional<std::string>> RequestKernelId(Context& context, bool tolerate_malformed,
                                                    bool *response_received = nullptr)
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     // request_kernel_id(), revision 59f4e442:1797-1829. The three trailing
     // zero bytes are outside the declared BEEF body but are present on the
     // legacy wire and therefore remain literal here.
@@ -567,6 +569,8 @@ Result<bool> RequestSession(Context& context, bytes::Byte subfunction)
 
 Status ConnectBootloader(Context& context, bool read_operation, bool& kernel_alive, std::optional<std::string>& rom_id)
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     // connect_bootloader(), revision 59f4e442:113-510.
     LogInfo(context, "Checking if kernel is already running...");
     LogInfo(context, "Requesting kernel ID");
@@ -724,6 +728,8 @@ Status ConnectBootloader(Context& context, bool read_operation, bool& kernel_ali
 
 Status UploadKernel(Context& context, const KernelImage& kernel)
 {
+    // #lizard forgives(cyclomatic_complexity)
+    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     // upload_kernel(), revision 59f4e442:517-782. The unusual <= loop is
     // intentional: after every 128-byte payload block the oracle emits one
     // final address-only 0xB6 request.
