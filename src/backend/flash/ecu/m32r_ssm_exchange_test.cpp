@@ -21,6 +21,28 @@ using ::testing::Optional;
 const bytes::Bytes kPayload{0xbf};
 const bytes::Bytes kFrame{0x80, 0x10, 0xf0, 0x01, 0xbf, 0x40};
 
+TEST(M32rSsmPayloadPrefix, MatchesAtOffsetFour)
+{
+    EXPECT_TRUE(M32rSsmPayloadHasPrefix(bytes::Bytes{0, 0, 0, 0, 0x67, 0x01}, bytes::Bytes{0x67, 0x01}));
+}
+
+TEST(M32rSsmPayloadPrefix, RejectsShortAndMismatchedPrefix)
+{
+    EXPECT_FALSE(M32rSsmPayloadHasPrefix(bytes::Bytes{0, 0, 0, 0, 0x67}, bytes::Bytes{0x67, 0x01}));
+    EXPECT_FALSE(M32rSsmPayloadHasPrefix(bytes::Bytes{0, 0, 0, 0, 0x66, 0x01}, bytes::Bytes{0x67, 0x01}));
+}
+
+TEST(M32rSsmPayloadPrefix, EmptyPrefixRequiresFourBytes)
+{
+    EXPECT_FALSE(M32rSsmPayloadHasPrefix(bytes::Bytes{0, 0, 0}, bytes::ByteView{}));
+    EXPECT_TRUE(M32rSsmPayloadHasPrefix(bytes::Bytes{0, 0, 0, 0}, bytes::ByteView{}));
+}
+
+TEST(M32rSsmPayloadPrefix, DoesNotValidateEnvelope)
+{
+    EXPECT_TRUE(M32rSsmPayloadHasPrefix(bytes::Bytes{0xde, 0xad, 0xbe, 0xff, 0x67, 0x01, 0}, bytes::Bytes{0x67, 0x01}));
+}
+
 class ExchangeTransport final : public ScriptedKlineFlashTransport
 {
   public:
@@ -75,40 +97,40 @@ class M32rSsmExchangeTest : public ::testing::Test
   protected:
     Result<std::optional<bytes::Bytes>> Exchange()
     {
-        return ExchangeM32rSsmOptional(transport, cancellation, kPayload, 0xf0, 0x10, 2000ms);
+        return ExchangeM32rSsmOptional(transport_, cancellation_, kPayload, 0xf0, 0x10, 2000ms);
     }
 
-    ManualCancellationToken cancellation;
-    ExchangeTransport transport{cancellation};
+    ManualCancellationToken cancellation_;
+    ExchangeTransport transport_{cancellation_};
 };
 
 TEST_F(M32rSsmExchangeTest, WritesExactFrameAndUsesExplicitTimeout)
 {
-    transport.Exchange(kFrame, bytes::Bytes{0x01, 0x02});
+    transport_.Exchange(kFrame, bytes::Bytes{0x01, 0x02});
     EXPECT_THAT(Exchange(), IsOkAnd(Optional(ElementsAre(0x01, 0x02))));
-    EXPECT_THAT(transport.read_timeouts, ElementsAre(2000ms));
-    EXPECT_EQ(transport.write_calls, 1);
-    EXPECT_EQ(transport.read_calls, 1);
-    EXPECT_TRUE(transport.ScriptConsumed());
+    EXPECT_THAT(transport_.read_timeouts, ElementsAre(2000ms));
+    EXPECT_EQ(transport_.write_calls, 1);
+    EXPECT_EQ(transport_.read_calls, 1);
+    EXPECT_TRUE(transport_.ScriptConsumed());
 }
 
 TEST_F(M32rSsmExchangeTest, PreservesNonDefaultIds)
 {
-    transport.Exchange(bytes::Bytes{0x80, 0x18, 0xf1, 0x01, 0xbf, 0x49}, bytes::Bytes{0x01, 0x02});
-    EXPECT_THAT(ExchangeM32rSsmOptional(transport, cancellation, kPayload, 0xf1, 0x18, 500ms),
+    transport_.Exchange(bytes::Bytes{0x80, 0x18, 0xf1, 0x01, 0xbf, 0x49}, bytes::Bytes{0x01, 0x02});
+    EXPECT_THAT(ExchangeM32rSsmOptional(transport_, cancellation_, kPayload, 0xf1, 0x18, 500ms),
                 IsOkAnd(Optional(ElementsAre(0x01, 0x02))));
-    EXPECT_THAT(transport.read_timeouts, ElementsAre(500ms));
-    EXPECT_TRUE(transport.ScriptConsumed());
+    EXPECT_THAT(transport_.read_timeouts, ElementsAre(500ms));
+    EXPECT_TRUE(transport_.ScriptConsumed());
 }
 
 TEST_F(M32rSsmExchangeTest, PreservesAbsentAndPresentEmptyReplies)
 {
-    transport.ExpectWrite(kFrame);
-    transport.QueueNoFrame();
+    transport_.ExpectWrite(kFrame);
+    transport_.QueueNoFrame();
     EXPECT_THAT(Exchange(), IsOkAnd(Eq(std::nullopt)));
-    transport.Exchange(kFrame, bytes::Bytes{});
+    transport_.Exchange(kFrame, bytes::Bytes{});
     EXPECT_THAT(Exchange(), IsOkAnd(Optional(ElementsAre())));
-    EXPECT_TRUE(transport.ScriptConsumed());
+    EXPECT_TRUE(transport_.ScriptConsumed());
 }
 
 TEST_F(M32rSsmExchangeTest, PreservesLengthWrapWithoutChangingWriteSize)
@@ -118,75 +140,75 @@ TEST_F(M32rSsmExchangeTest, PreservesLengthWrapWithoutChangingWriteSize)
     frame.insert(frame.end(), 256, 0);
     frame.push_back(0x80);
     ASSERT_EQ(frame.size(), 261U);
-    transport.Exchange(frame, bytes::Bytes{0x01});
-    EXPECT_THAT(ExchangeM32rSsmOptional(transport, cancellation, payload, 0xf0, 0x10, 2000ms),
+    transport_.Exchange(frame, bytes::Bytes{0x01});
+    EXPECT_THAT(ExchangeM32rSsmOptional(transport_, cancellation_, payload, 0xf0, 0x10, 2000ms),
                 IsOkAnd(Optional(ElementsAre(0x01))));
-    EXPECT_TRUE(transport.ScriptConsumed());
-    transport.ExpectWrite(frame);
-    transport.short_write = true;
-    EXPECT_THAT(ExchangeM32rSsmOptional(transport, cancellation, payload, 0xf0, 0x10, 2000ms),
+    EXPECT_TRUE(transport_.ScriptConsumed());
+    transport_.ExpectWrite(frame);
+    transport_.short_write = true;
+    EXPECT_THAT(ExchangeM32rSsmOptional(transport_, cancellation_, payload, 0xf0, 0x10, 2000ms),
                 IsErrWith(ErrorKind::kDisconnected, Eq("short K-Line write")));
-    EXPECT_EQ(transport.read_calls, 1);
-    EXPECT_TRUE(transport.ScriptConsumed());
+    EXPECT_EQ(transport_.read_calls, 1);
+    EXPECT_TRUE(transport_.ScriptConsumed());
 }
 
 TEST_F(M32rSsmExchangeTest, RejectsShortWriteBeforeRead)
 {
-    transport.ExpectWrite(kFrame);
-    transport.short_write = true;
+    transport_.ExpectWrite(kFrame);
+    transport_.short_write = true;
     EXPECT_THAT(Exchange(), IsErrWith(ErrorKind::kDisconnected, Eq("short K-Line write")));
-    EXPECT_EQ(transport.write_calls, 1);
-    EXPECT_EQ(transport.read_calls, 0);
-    EXPECT_TRUE(transport.ScriptConsumed());
+    EXPECT_EQ(transport_.write_calls, 1);
+    EXPECT_EQ(transport_.read_calls, 0);
+    EXPECT_TRUE(transport_.ScriptConsumed());
 }
 
 TEST_F(M32rSsmExchangeTest, CancelsBeforeWrite)
 {
-    cancellation.Cancel();
+    cancellation_.Cancel();
     EXPECT_THAT(Exchange(), IsErrWith(ErrorKind::kCancelled, Eq("cancelled before write")));
-    EXPECT_EQ(transport.write_calls, 0);
-    EXPECT_EQ(transport.read_calls, 0);
+    EXPECT_EQ(transport_.write_calls, 0);
+    EXPECT_EQ(transport_.read_calls, 0);
 }
 
 TEST_F(M32rSsmExchangeTest, CancelsAfterWrite)
 {
-    transport.ExpectWrite(kFrame);
-    transport.cancel_on_write = true;
+    transport_.ExpectWrite(kFrame);
+    transport_.cancel_on_write = true;
     EXPECT_THAT(Exchange(), IsErrWith(ErrorKind::kCancelled, Eq("cancelled after write")));
-    EXPECT_EQ(transport.write_calls, 1);
-    EXPECT_EQ(transport.read_calls, 0);
-    EXPECT_TRUE(transport.ScriptConsumed());
+    EXPECT_EQ(transport_.write_calls, 1);
+    EXPECT_EQ(transport_.read_calls, 0);
+    EXPECT_TRUE(transport_.ScriptConsumed());
 }
 
 TEST_F(M32rSsmExchangeTest, CancelsAfterRead)
 {
-    transport.Exchange(kFrame, bytes::Bytes{0x01});
-    transport.cancel_on_read = true;
+    transport_.Exchange(kFrame, bytes::Bytes{0x01});
+    transport_.cancel_on_read = true;
     EXPECT_THAT(Exchange(), IsErrWith(ErrorKind::kCancelled, Eq("cancelled after read")));
-    EXPECT_EQ(transport.write_calls, 1);
-    EXPECT_EQ(transport.read_calls, 1);
-    EXPECT_TRUE(transport.ScriptConsumed());
+    EXPECT_EQ(transport_.write_calls, 1);
+    EXPECT_EQ(transport_.read_calls, 1);
+    EXPECT_TRUE(transport_.ScriptConsumed());
 }
 
 TEST_F(M32rSsmExchangeTest, WriteFailureWinsOverCancellation)
 {
-    transport.ExpectWrite(kFrame);
-    transport.cancel_on_write = true;
-    transport.write_fault = true;
+    transport_.ExpectWrite(kFrame);
+    transport_.cancel_on_write = true;
+    transport_.write_fault = true;
     EXPECT_THAT(Exchange(), IsErrWith(ErrorKind::kDisconnected, Eq("write fault")));
-    EXPECT_EQ(transport.write_calls, 1);
-    EXPECT_EQ(transport.read_calls, 0);
-    EXPECT_TRUE(transport.ScriptConsumed());
+    EXPECT_EQ(transport_.write_calls, 1);
+    EXPECT_EQ(transport_.read_calls, 0);
+    EXPECT_TRUE(transport_.ScriptConsumed());
 }
 
 TEST_F(M32rSsmExchangeTest, ReadFailureWinsOverCancellation)
 {
-    transport.ExpectWrite(kFrame);
-    transport.QueueError(ErrorKind::kDisconnected, "read fault");
-    transport.cancel_on_read = true;
+    transport_.ExpectWrite(kFrame);
+    transport_.QueueError(ErrorKind::kDisconnected, "read fault");
+    transport_.cancel_on_read = true;
     EXPECT_THAT(Exchange(), IsErrWith(ErrorKind::kDisconnected, Eq("read fault")));
-    EXPECT_EQ(transport.write_calls, 1);
-    EXPECT_EQ(transport.read_calls, 1);
-    EXPECT_TRUE(transport.ScriptConsumed());
+    EXPECT_EQ(transport_.write_calls, 1);
+    EXPECT_EQ(transport_.read_calls, 1);
+    EXPECT_TRUE(transport_.ScriptConsumed());
 }
 } // namespace

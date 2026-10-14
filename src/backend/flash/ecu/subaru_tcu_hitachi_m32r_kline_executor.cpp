@@ -126,13 +126,9 @@ Status ExpectPrefix(bytes::ByteView response, std::initializer_list<bytes::Byte>
     {
         return Fail(ErrorKind::kBadResponse, "response is too short");
     }
-    std::size_t i = 4;
-    for (bytes::Byte value : prefix)
+    if (!M32rSsmPayloadHasPrefix(response, bytes::ByteView(prefix.begin(), prefix.size())))
     {
-        if (response[i++] != value)
-        {
-            return Fail(ErrorKind::kBadResponse, "wrong response from TCU");
-        }
+        return Fail(ErrorKind::kBadResponse, "wrong response from TCU");
     }
     return {};
 }

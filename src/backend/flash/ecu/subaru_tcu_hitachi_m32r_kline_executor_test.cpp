@@ -601,6 +601,29 @@ TEST(SubaruTcuHitachiM32rKlineExecutor, FailsWhenTheTcuNeverAnswers)
                 fastecu::testing::IsErr(ErrorKind::kTimeout));
 }
 
+TEST(SubaruTcuHitachiM32rKlineExecutor, PreservesPrefixFailureDetails)
+{
+    auto plan = BuildSubaruTcuHitachiM32rKlinePlan(FlashOperation::kRead, "sub_tcu_hitachi_m32r_kline", "M32R_512KB",
+                                                   std::nullopt);
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    for (const auto& response : {bytes::Bytes{0, 0, 0, 0}, bytes::Bytes{0, 0, 0, 0, 0xfe}})
+    {
+        SCOPED_TRACE(response.size());
+        ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::kOpen};
+        transport.Exchange(bytes::Bytes{0x80, 0x18, 0xf0, 0x01, 0xbf, 0x48}, response);
+        SubaruTcuHitachiM32rKlineExecutor executor;
+        FakeClock clock;
+        ManualCancellationToken cancellation;
+        RecordingEventSink events;
+
+        const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
+
+        ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kBadResponse));
+        EXPECT_EQ(result.error().detail, response.size() == 4 ? "response is too short" : "wrong response from TCU");
+        EXPECT_TRUE(transport.ScriptConsumed());
+    }
+}
+
 TEST(SubaruTcuHitachiM32rKlineExecutor, PreservesRequiredResponseTimeoutDetail)
 {
     auto plan = BuildSubaruTcuHitachiM32rKlinePlan(FlashOperation::kRead, "sub_tcu_hitachi_m32r_kline", "M32R_512KB",

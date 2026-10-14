@@ -18,4 +18,7 @@ Result<std::optional<bytes::Bytes>> ExchangeM32rSsmOptional(IKlineFlashTransport
                                                             bytes::ByteView payload, bytes::Byte tester_id,
                                                             bytes::Byte target_id, std::chrono::milliseconds timeout);
 
+// Compares payload bytes at offset four only; does not validate the envelope.
+bool M32rSsmPayloadHasPrefix(bytes::ByteView response, bytes::ByteView prefix);
+
 } // namespace fastecu::flash

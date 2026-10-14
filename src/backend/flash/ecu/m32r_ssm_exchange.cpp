@@ -1,5 +1,7 @@
 #include "src/backend/flash/ecu/m32r_ssm_exchange.h"
 
+#include <algorithm>
+
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
 
 namespace fastecu::flash
@@ -38,6 +40,16 @@ Result<std::optional<bytes::Bytes>> ExchangeM32rSsmOptional(IKlineFlashTransport
         return Fail(ErrorKind::kCancelled, "cancelled after read");
     }
     return response;
+}
+
+bool M32rSsmPayloadHasPrefix(bytes::ByteView response, bytes::ByteView prefix)
+{
+    constexpr std::size_t kPayloadOffset = 4;
+    if (response.size() < kPayloadOffset || prefix.size() > response.size() - kPayloadOffset)
+    {
+        return false;
+    }
+    return std::ranges::equal(response.subspan(kPayloadOffset, prefix.size()), prefix);
 }
 
 } // namespace fastecu::flash

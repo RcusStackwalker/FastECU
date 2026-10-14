@@ -92,9 +92,11 @@ is shared by the Subaru Hitachi M32R K-Line ECU, Subaru Mitsubishi M32R K-Line
 ECU, and Subaru TCU Hitachi M32R K-Line executors. Byte-level characterization
 establishes equivalent framing, write-size checks, cancellation checkpoints,
 and transport-error precedence; replies remain unchanged for family parsing.
-Required-response diagnostics remain local (`no response from ECU` or
-`no response from TCU`). The TCU block exchange retains its 100ms sleeps on
-either side of its 500ms read and five-attempt retry policy. Optional probes,
+The two Hitachi executors also share the offset-four payload-prefix predicate;
+it does not validate headers, declared lengths, or checksums. Short-response and
+prefix-mismatch diagnostics remain family-owned. Required-response diagnostics
+remain local (`no response from ECU` or `no response from TCU`). The TCU block
+exchange retains its 100ms sleeps on either side of its 500ms read and five-attempt retry policy. Optional probes,
 handshakes, timeout policy, acknowledgement tolerance, and address mapping remain
 family-owned. Shared declarative plan validation does not establish
 interchangeable transfer loops. Transport seams keep failure and cancellation

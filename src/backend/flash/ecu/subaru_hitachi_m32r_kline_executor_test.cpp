@@ -319,6 +319,31 @@ TEST(SubaruHitachiM32rKlineExecutor, CancellationAfterEraseIsNotReportedAsSucces
                 fastecu::testing::IsErr(ErrorKind::kCancelled));
 }
 
+TEST(SubaruHitachiM32rKlineExecutor, PreservesPrefixFailureDetails)
+{
+    auto plan = BuildSubaruHitachiM32rKlinePlan(FlashOperation::kRead, "sub_ecu_hitachi_m32r_kline",
+                                                "M32R_512KB_1block", std::nullopt);
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    for (const auto& response : {bytes::Bytes{0, 0, 0, 0}, bytes::Bytes{0, 0, 0, 0, 0xfe}})
+    {
+        SCOPED_TRACE(response.size());
+        ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::kOpen};
+        transport.ExpectWrite(bytes::Bytes{0x80, 0x10, 0xf0, 0x01, 0xbf, 0x40});
+        transport.QueueNoFrame();
+        transport.Exchange(bytes::Bytes{0x80, 0x10, 0xf0, 0x01, 0xbf, 0x40}, response);
+        SubaruHitachiM32rKlineExecutor executor;
+        FakeClock clock;
+        ManualCancellationToken cancellation;
+        RecordingEventSink events;
+
+        const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
+
+        ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kBadResponse));
+        EXPECT_EQ(result.error().detail, response.size() == 4 ? "response is too short" : "wrong response from ECU");
+        EXPECT_TRUE(transport.ScriptConsumed());
+    }
+}
+
 TEST(SubaruHitachiM32rKlineExecutor, PreservesRequiredResponseTimeoutDetail)
 {
     auto plan = BuildSubaruHitachiM32rKlinePlan(FlashOperation::kRead, "sub_ecu_hitachi_m32r_kline",
