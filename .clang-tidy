@@ -387,7 +387,10 @@ CustomChecks:
       - BindName: message
         Message: 'construct this diagnostic message with std::format instead of string concatenation'
         Level: Warning
-  - Name: linear-search-loop
+# Equality must reference the loop element, and the return must take that same
+# element's built-in address. Covers built-in and overloaded equality (including
+# std::string_view catalog keys); diagnostic only, without fix-its.
+  - Name: fastecu-linear-search-loop
     Query: |
       match cxxForRangeStmt(
         hasLoopVariable(

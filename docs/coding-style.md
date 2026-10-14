@@ -511,6 +511,11 @@ locally before that gate ever sees the change:
   LLVM's experimental custom-check flag is inserted by
   [the parallel-runner adapter](../scripts/clang_tidy_adapter.py); built-in
   checks retain their existing enforcement and header scope.
+  Direct invocations must enable both the experimental flag and the registered
+  check name, for example:
+  `clang-tidy --experimental-custom-checks --checks='-*,custom-fastecu-linear-search-loop' -p . src/backend/flash/ecu/subaru_denso_sh7058_can_plan.cpp`.
+  This check reports range loops that compare an element (or its member) for
+  equality and return that same element's address.
 - `bazel run --config=release //:clang_tidy_check_fixtures` verifies inline
   diagnostics and permitted counterexamples using real GoogleTest headers.
   Prepare the compilation database with a report run first.

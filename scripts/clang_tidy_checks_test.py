@@ -92,6 +92,45 @@ class ClangTidyChecks(unittest.TestCase):
                     self.assertEqual([], message["Replacements"])
             self.assertEqual(expected, actual, result.stdout + result.stderr)
 
+    def test_linear_search_returns_matching_catalog_entry_address(self) -> None:
+        self.assert_diagnostics("""#include <array>
+#include <string_view>
+struct CatalogEntry { std::string_view protocol; int id; };
+constexpr std::array<CatalogEntry, 2> kCatalog{{{"stock", 1}, {"custom", 2}}};
+const CatalogEntry *FindCatalog(std::string_view protocol) {
+    for (const CatalogEntry& entry : kCatalog) { // error: linear-search-loop
+        if (entry.protocol == protocol) {
+            return &entry;
+        }
+    }
+    return nullptr;
+}
+const CatalogEntry *FindId(int id) {
+    for (const CatalogEntry& entry : kCatalog) { // error: linear-search-loop
+        if (entry.id == id) {
+            return &entry;
+        }
+    }
+    return nullptr;
+}
+const CatalogEntry *FindUnrelated(std::string_view protocol, const CatalogEntry& other) {
+    for (const CatalogEntry& entry : kCatalog) {
+        if (other.protocol == protocol) {
+            return &entry;
+        }
+    }
+    return nullptr;
+}
+const CatalogEntry *ReturnOther(std::string_view protocol, const CatalogEntry& other) {
+    for (const CatalogEntry& entry : kCatalog) {
+        if (entry.protocol == protocol) {
+            return &other;
+        }
+    }
+    return nullptr;
+}
+""")
+
     def test_redundant_address_dereference_includes_macros_but_excludes_overloads(self) -> None:
         self.assert_diagnostics("""#include <array>
 #include <expected>
