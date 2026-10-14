@@ -183,11 +183,15 @@ CheckOptions:
 # and adapter tests: scripts/clang_tidy_runner_test.py and
 # scripts/clang_tidy_adapter_test.py.
 CustomChecks:
-# Both operators must be built-in; overloaded iterator/optional operators
-# do real work. Dependent template definitions wait for resolved instantiations.
+# The outer address operator must be built-in. Dereference is either built-in
+# or belongs to an allowlisted contiguous iterator in libc++, libstdc++, or
+# MSVC STL. Pointer-based wrappers must wrap a raw pointer. Match the operand's
+# actual type, not an inherited operator's declaring class. Other overloads
+# (optional/expected, smart pointers, proxies, reverse/node iterators, user
+# operators) stay excluded. Dependent templates wait for resolved instantiations.
 # Unlike Sonar cpp:S3491, macro pairs are included and *& is
 # outside this check's scope. The query provides diagnostics, not fix-its.
-# Fix: std::to_address(p) for object pointers, keeping any end() guard. For
+# Fix: std::to_address(p) for object pointers/iterators, keeping any end() guard. For
 # function pointers, remove the pair; std::to_address does not accept them.
   - Name: fastecu-redundant-address-dereference
     Query: |
@@ -196,13 +200,39 @@ CustomChecks:
         unless(isTypeDependent()),
         hasUnaryOperand(
           ignoringParenImpCasts(
-            unaryOperator(hasOperatorName("*"))
+            anyOf(
+              unaryOperator(hasOperatorName("*")),
+              cxxOperatorCallExpr(
+                hasOverloadedOperatorName("*"),
+                callee(cxxMethodDecl()),
+                hasArgument(0, ignoringParenImpCasts(expr(
+                  hasType(hasUnqualifiedDesugaredType(recordType(hasDeclaration(classTemplateSpecializationDecl(
+                    anyOf(
+                      allOf(
+                        isInStdNamespace(),
+                        anyOf(
+                          allOf(
+                            matchesName("(^|::)__wrap_iter$"),
+                            hasTemplateArgument(0, refersToType(pointerType()))
+                          ),
+                          matchesName("(^|::)(__bounded_iter|__static_bounded_iter|_Vector_(const_)?iterator|_String_(const_)?iterator|_Array_(const_)?iterator|_Span_iterator)$")
+                        )
+                      ),
+                      allOf(
+                        matchesName("^::__gnu_cxx::(__[0-9]+::)?__normal_iterator$"),
+                        hasTemplateArgument(0, refersToType(pointerType()))
+                      )
+                    )
+                  )))))
+                )))
+              )
+            )
           )
         )
       ).bind("address")
     Diagnostic:
       - BindName: address
-        Message: 'remove redundant built-in &*; use std::to_address for object pointers'
+        Message: 'remove redundant &*; use std::to_address for object pointers and contiguous iterators'
         Level: Warning
 # Match the direct operand of GoogleTest's AssertionResult construction.
 # Following only transparent wrappers and logical negation excludes unrelated

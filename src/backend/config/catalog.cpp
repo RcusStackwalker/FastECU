@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <format>
+#include <memory>
 #include <optional>
 #include <span>
 #include <string>
@@ -165,7 +166,7 @@ std::expected<memory::MemoryImage, memory::MemoryError> PlaceRomFile(const Proto
 const ProtocolSpec *Catalog::FindProtocol(std::string_view name) const
 {
     const auto found = std::ranges::find(protocols_, name, &ProtocolSpec::name);
-    return found == protocols_.end() ? nullptr : &*found;
+    return found == protocols_.end() ? nullptr : std::to_address(found);
 }
 
 std::optional<std::size_t> Catalog::FindVehicle(std::string_view id) const
@@ -200,7 +201,7 @@ const VehicleSpec *Catalog::FirstVehicleForAlias(std::string_view flash_method) 
     const auto found =
         std::ranges::find_if(vehicles_, [flash_method](const VehicleSpec& vehicle)
                              { return vehicle.protocol != nullptr && vehicle.protocol->alias == flash_method; });
-    return found == vehicles_.end() ? nullptr : &*found;
+    return found == vehicles_.end() ? nullptr : std::to_address(found);
 }
 
 std::vector<std::string> CatalogProblems(const Catalog& catalog)

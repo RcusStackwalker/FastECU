@@ -6,6 +6,7 @@
 #include <cctype>
 #include <expected>
 #include <format>
+#include <memory>
 #include <ranges>
 #include <array>
 
@@ -143,7 +144,7 @@ std::uint32_t StorageByteSize(std::optional<StorageType> storage_type)
 const Scaling *FindScaling(const RomDefinition& definition, std::string_view name)
 {
     const auto it = std::ranges::find(definition.scalings, name, &Scaling::name);
-    return it != definition.scalings.end() ? &*it : nullptr;
+    return it != definition.scalings.end() ? std::to_address(it) : nullptr;
 }
 
 bool IsUnsignedStorage(std::optional<StorageType> storage_type)

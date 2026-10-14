@@ -508,6 +508,14 @@ locally before that gate ever sees the change:
   The repository checks are the `CustomChecks` entries in
   [the configuration](../.clang-tidy); their queries document scope and
   permitted overloads (for example `fastecu-redundant-address-dereference`).
+  That check reports `&*` on raw pointers and allowlisted standard contiguous
+  iterator wrappers from libc++, libstdc++, and MSVC STL. Use `std::to_address`
+  and preserve any existing end guard. The outer address operator must be
+  built-in; optional/expected values, smart pointers, reverse and node
+  iterators, proxies, user subclasses of standard iterators, and arbitrary
+  overloaded operators remain excluded.
+  The wrapper allowlist lives in the query; real-container fixtures run with
+  each analysis job's standard library to catch implementation-name changes.
   LLVM's experimental custom-check flag is inserted by
   [the parallel-runner adapter](../scripts/clang_tidy_adapter.py); built-in
   checks retain their existing enforcement and header scope.

@@ -257,6 +257,78 @@ void PointerExpressions(int *pointer, int value, void (*callback)(),
 }
 """)
 
+    def test_redundant_address_dereference_includes_contiguous_iterators(self) -> None:
+        self.assert_diagnostics("""#include <algorithm>
+#include <array>
+#include <memory>
+#include <span>
+#include <string>
+#include <vector>
+#define ITERATOR_ADDRESS(it) (&*(it))
+template<class Container> auto FindAddress(const Container& values, int value) {
+    const auto found = std::ranges::find(values, value);
+    return found == values.end() ? nullptr : &*found; // error: redundant-address-dereference
+}
+void ContiguousAddresses(std::vector<int>& values, const std::vector<int>& constants,
+                         std::string& text, const std::string& constant_text,
+                         std::array<int, 2>& array, std::span<int> span) {
+    auto mutable_iterator = values.begin();
+    auto mutable_address = &*mutable_iterator; // error: redundant-address-dereference
+    auto constant_iterator = constants.begin();
+    auto constant_address = &(*constant_iterator); // error: redundant-address-dereference
+    auto text_iterator = text.begin();
+    auto text_address = &*text_iterator; // error: redundant-address-dereference
+    auto constant_text_iterator = constant_text.begin();
+    auto constant_text_address = &*constant_text_iterator; // error: redundant-address-dereference
+    auto array_iterator = array.begin();
+    auto array_address = &*array_iterator; // error: redundant-address-dereference
+    auto span_iterator = span.begin();
+    auto span_address = &*span_iterator; // error: redundant-address-dereference
+    auto macro_address = ITERATOR_ADDRESS(mutable_iterator); // error: redundant-address-dereference
+    auto template_address = FindAddress(constants, 42);
+    auto replacement = std::to_address(mutable_iterator);
+}
+""")
+
+    def test_redundant_address_dereference_excludes_other_overloads(self) -> None:
+        self.assert_diagnostics("""#include <iterator>
+#include <list>
+#include <memory>
+#include <vector>
+struct AddressOverload { AddressOverload *operator&(); };
+struct Proxy { Proxy *operator&(); };
+struct ProxyIterator { Proxy operator*(); };
+struct CustomIterator { int& operator*(); int *operator->(); };
+namespace unrelated {
+template<class T> struct _Vector_iterator { T& operator*(); T *operator->(); };
+namespace __gnu_cxx {
+template<class T> struct __normal_iterator { int& operator*(); int *operator->(); };
+}
+}
+struct DerivedIterator : std::vector<int>::iterator { int *operator->() const; };
+void OtherAddresses(std::vector<int>& values, std::list<int>& nodes,
+                    std::vector<AddressOverload>& overloaded,
+                    std::unique_ptr<int>& unique, std::shared_ptr<int>& shared,
+                    ProxyIterator proxy, CustomIterator custom,
+                    unrelated::_Vector_iterator<int> lookalike,
+                    unrelated::__gnu_cxx::__normal_iterator<int*> nested_lookalike,
+                    DerivedIterator derived) {
+    auto reverse = values.rbegin();
+    auto reverse_address = &*reverse;
+    auto node = nodes.begin();
+    auto node_address = &*node;
+    auto address_iterator = overloaded.begin();
+    auto overloaded_address = &*address_iterator;
+    auto unique_address = &*unique;
+    auto shared_address = &*shared;
+    auto proxy_address = &*proxy;
+    auto custom_address = &*custom;
+    auto lookalike_address = &*lookalike;
+    auto nested_lookalike_address = &*nested_lookalike;
+    auto derived_address = &*derived;
+}
+""")
+
     def test_result_assertions_distinguish_optional_and_matchers(self) -> None:
         self.assert_diagnostics("""#include <gmock/gmock.h>
 #include <optional>
