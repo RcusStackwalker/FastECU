@@ -1,8 +1,10 @@
 #include "src/backend/flash/ecu/subaru_denso_sh705x_kline_plan.h"
 #include "src/backend/flash/ecu/subaru_denso_sh705x_kline_plan_detail.h"
 
+#include <algorithm>
 #include <array>
 #include <format>
+#include <memory>
 #include <utility>
 
 #include "src/backend/flash/kernel/kernelmemorymodels.h"
@@ -43,18 +45,16 @@ constexpr std::uint64_t kMaxWireLength = 0x00FFFFFF; // send_sid_34_request_uplo
 
 Result<const Variant *> FindVariant(std::string_view protocol, std::string_view mcu)
 {
-    for (const Variant& variant : kVariants)
+    const auto variant = std::ranges::find(kVariants, protocol, &Variant::protocol);
+    if (variant == kVariants.end())
     {
-        if (variant.protocol == protocol)
-        {
-            if (variant.mcu != mcu)
-            {
-                return Fail(kInvalidConfig, std::format("{} requires MCU {}, not {}", protocol, variant.mcu, mcu));
-            }
-            return &variant;
-        }
+        return Fail(kInvalidConfig, std::format("Unsupported Denso SH705x K-Line protocol: {}", protocol));
     }
-    return Fail(kInvalidConfig, std::format("Unsupported Denso SH705x K-Line protocol: {}", protocol));
+    if (variant->mcu != mcu)
+    {
+        return Fail(kInvalidConfig, std::format("{} requires MCU {}, not {}", protocol, variant->mcu, mcu));
+    }
+    return std::to_address(variant);
 }
 
 Status ValidateOperation(const Variant& variant, FlashOperation operation)

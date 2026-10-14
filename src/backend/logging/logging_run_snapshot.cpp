@@ -1,5 +1,6 @@
 #include "src/backend/logging/logging_run_snapshot.h"
 
+#include <algorithm>
 #include <format>
 #include <utility>
 #include <unordered_set>
@@ -43,14 +44,9 @@ const std::vector<LoggingMeasurement>& LoggingRunSnapshot::Measurements() const
 }
 const LoggingMeasurement *LoggingRunSnapshot::FindMeasurement(LoggingMeasurementKind kind, std::string_view id) const
 {
-    for (const auto& item : measurements_)
-    {
-        if (item.kind == kind && item.identity.second == id)
-        {
-            return &item;
-        }
-    }
-    return nullptr;
+    const auto item = std::ranges::find_if(measurements_, [&](const LoggingMeasurement& measurement)
+                                           { return measurement.kind == kind && measurement.identity.second == id; });
+    return item == measurements_.end() ? nullptr : &*item;
 }
 const LoggingSession& LoggingRunSnapshot::Session() const
 {

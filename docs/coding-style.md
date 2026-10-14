@@ -545,6 +545,12 @@ locally before that gate ever sees the change:
   Changing any `.clang-tidy` file widens that changed-files run to every
   translation unit in the OS's scope, because a new or retuned check can fire
   in files the change never touched.
+  Before delivering a check change, run the full report with the revised
+  configuration and resolve all findings it introduces in the same PR.
+  Passing diagnostic fixtures alone does not establish a clean production scope.
+  The Linux analysis job uses the shared
+  [Qt runtime setup](../.github/actions/qt-runtime-linux/action.yml) before its
+  prebuild, just as the build job does.
 - Running the Sonar CLI locally, against the same `sonar-project.properties`
   CI uses: install the SonarSource build wrapper for your platform from
   `https://sonarcloud.io/static/cpp/` (`build-wrapper-macosx-x86` on macOS,

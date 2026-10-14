@@ -78,6 +78,10 @@ TEST(LoggingRunSnapshot, AcquiresSelectedUnionAndSharesRepeatedParameterIdentity
     ASSERT_EQ(run->Session().Channels().size(), 2U);
     ASSERT_NE(run->FindMeasurement(LoggingMeasurementKind::kParameter, "rpm"), nullptr);
     ASSERT_NE(run->FindMeasurement(LoggingMeasurementKind::kSwitch, "rpm"), nullptr);
+    EXPECT_EQ(run->FindMeasurement(LoggingMeasurementKind::kParameter, "rpm"), &run->Measurements()[0]);
+    EXPECT_EQ(run->FindMeasurement(LoggingMeasurementKind::kSwitch, "rpm"), &run->Measurements()[1]);
+    EXPECT_EQ(run->FindMeasurement(LoggingMeasurementKind::kParameter, "missing"), nullptr);
+    EXPECT_EQ(run->FindMeasurement(LoggingMeasurementKind::kSwitch, "missing"), nullptr);
     EXPECT_EQ(run->Session().Channels()[0].id, "parameter:rpm");
     EXPECT_EQ(run->Session().Channels()[1].id, "switch:rpm");
 }
