@@ -18,10 +18,7 @@ repos:
         name: C/C++ cyclomatic complexity
         language: python
         additional_dependencies: [lizard==1.24.1, pathspec==1.1.1, pygments==2.21.0]
-        # Native C++ reader omits these two repository-supported header suffixes.
-        entry: >-
-          python -c 'import sys; import lizard; from lizard_languages import CLikeReader;
-          CLikeReader.ext += ["hh", "hxx"]; sys.exit(lizard.main())'
+        entry: lizard
         pass_filenames: false
         always_run: true
         # Lizard accepts integer limits only; leave non-CCN metrics effectively unbounded.
