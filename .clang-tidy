@@ -387,51 +387,185 @@ CustomChecks:
       - BindName: message
         Message: 'construct this diagnostic message with std::format instead of string concatenation'
         Level: Warning
-# Equality must reference the loop element, and the return must take that same
-# element's built-in address. Covers built-in and overloaded equality (including
-# std::string_view catalog keys); diagnostic only, without fix-its.
+# Report element-address searches (including implicit Result construction and
+# conjunctions) and indexed searches returning the matching index/address.
+# Returns must be direct children of the matched branch: nested callbacks are
+# not loop exits. Indexed equality must access an array using the loop counter.
+# Diagnostic only: sentinel bounds and validation order need manual review.
   - Name: fastecu-linear-search-loop
     Query: |
-      match cxxForRangeStmt(
-        hasLoopVariable(
-          varDecl().bind("element")
-        ),
-        hasBody(
-          compoundStmt(
-            hasDescendant(
-              ifStmt(
-                hasCondition(
-                  expr(
-                    anyOf(
-                      binaryOperator(
-                        hasOperatorName("==")
-                      ),
-                      cxxOperatorCallExpr(
-                        hasOverloadedOperatorName("==")
+      match stmt(
+        anyOf(
+          cxxForRangeStmt(
+            hasLoopVariable(varDecl().bind("element")),
+            hasBody(
+              compoundStmt(
+                has(
+                  ifStmt(
+                    hasCondition(
+                      expr(
+                        anyOf(
+                          expr(
+                            anyOf(
+                              binaryOperator(hasOperatorName("==")),
+                              cxxOperatorCallExpr(hasOverloadedOperatorName("=="))
+                            ),
+                            hasDescendant(declRefExpr(to(varDecl(equalsBoundNode("element")))))
+                          ),
+                          binaryOperator(
+                            hasOperatorName("&&"),
+                            hasDescendant(
+                              expr(
+                                anyOf(
+                                  binaryOperator(hasOperatorName("==")),
+                                  cxxOperatorCallExpr(hasOverloadedOperatorName("=="))
+                                ),
+                                hasDescendant(declRefExpr(to(varDecl(equalsBoundNode("element")))))
+                              )
+                            )
+                          )
+                        )
                       )
                     ),
-                    hasDescendant(
-                      declRefExpr(
-                        to(varDecl(
-                          equalsBoundNode("element")
-                        ))
+                    hasThen(
+                      compoundStmt(
+                        has(
+                          returnStmt(
+                            hasReturnValue(
+                              expr(
+                                anyOf(
+                                  unaryOperator(
+                                    hasOperatorName("&"),
+                                    hasUnaryOperand(
+                                      ignoringParenImpCasts(
+                                        declRefExpr(to(varDecl(equalsBoundNode("element"))))
+                                      )
+                                    )
+                                  ),
+                                  expr(
+                                    anyOf(
+                                      cxxConstructExpr(
+                                        hasDeclaration(cxxConstructorDecl(ofClass(cxxRecordDecl(hasName("::std::expected"))))),
+                                        hasDescendant(
+                                          unaryOperator(
+                                            hasOperatorName("&"),
+                                            hasUnaryOperand(
+                                              ignoringParenImpCasts(
+                                                declRefExpr(to(varDecl(equalsBoundNode("element"))))
+                                              )
+                                            )
+                                          )
+                                        )
+                                      ),
+                                      hasDescendant(
+                                        cxxConstructExpr(
+                                          hasDeclaration(cxxConstructorDecl(ofClass(cxxRecordDecl(hasName("::std::expected"))))),
+                                          hasDescendant(
+                                            unaryOperator(
+                                              hasOperatorName("&"),
+                                              hasUnaryOperand(
+                                                ignoringParenImpCasts(
+                                                  declRefExpr(to(varDecl(equalsBoundNode("element"))))
+                                                )
+                                              )
+                                            )
+                                          )
+                                        )
+                                      )
+                                    ),
+                                    unless(hasDescendant(lambdaExpr()))
+                                  )
+                                )
+                              )
+                            )
+                          )
+                        )
                       )
                     )
                   )
-                ),
-                hasThen(
-                  compoundStmt(
-                    has(
-                      returnStmt(
-                        hasReturnValue(
-                          unaryOperator(
-                            hasOperatorName("&"),
-                            hasUnaryOperand(
+                )
+              )
+            )
+          ),
+          forStmt(
+            hasLoopInit(declStmt(hasSingleDecl(varDecl().bind("index")))),
+            hasIncrement(
+              unaryOperator(
+                hasOperatorName("++"),
+                hasUnaryOperand(declRefExpr(to(varDecl(equalsBoundNode("index")))))
+              )
+            ),
+            hasBody(
+              compoundStmt(
+                has(
+                  ifStmt(
+                    hasCondition(
+                      expr(
+                        anyOf(
+                          binaryOperator(hasOperatorName("==")),
+                          cxxOperatorCallExpr(hasOverloadedOperatorName("=="))
+                        ),
+                        hasDescendant(
+                          expr(
+                            anyOf(
+                              arraySubscriptExpr(
+                                hasIndex(
+                                  ignoringParenImpCasts(
+                                    declRefExpr(to(varDecl(equalsBoundNode("index"))))
+                                  )
+                                )
+                              ),
+                              cxxOperatorCallExpr(
+                                hasOverloadedOperatorName("[]"),
+                                hasArgument(
+                                  1,
+                                  ignoringParenImpCasts(
+                                    declRefExpr(to(varDecl(equalsBoundNode("index"))))
+                                  )
+                                )
+                              )
+                            )
+                          )
+                        )
+                      )
+                    ),
+                    hasThen(
+                      compoundStmt(
+                        has(
+                          returnStmt(
+                            hasReturnValue(
                               ignoringParenImpCasts(
-                                declRefExpr(
-                                  to(varDecl(
-                                    equalsBoundNode("element")
-                                  ))
+                                expr(
+                                  anyOf(
+                                    declRefExpr(to(varDecl(equalsBoundNode("index")))),
+                                    unaryOperator(
+                                      hasOperatorName("&"),
+                                      hasUnaryOperand(
+                                        ignoringParenImpCasts(
+                                          expr(
+                                            anyOf(
+                                              arraySubscriptExpr(
+                                                hasIndex(
+                                                  ignoringParenImpCasts(
+                                                    declRefExpr(to(varDecl(equalsBoundNode("index"))))
+                                                  )
+                                                )
+                                              ),
+                                              cxxOperatorCallExpr(
+                                                hasOverloadedOperatorName("[]"),
+                                                hasArgument(
+                                                  1,
+                                                  ignoringParenImpCasts(
+                                                    declRefExpr(to(varDecl(equalsBoundNode("index"))))
+                                                  )
+                                                )
+                                              )
+                                            )
+                                          )
+                                        )
+                                      )
+                                    )
+                                  )
                                 )
                               )
                             )
@@ -448,5 +582,5 @@ CustomChecks:
       ).bind("loop")
     Diagnostic:
       - BindName: loop
-        Message: "Linear search loop returning an element address; consider std::ranges::find_if"
+        Message: "Linear search loop returning a matching element or index; consider std::ranges::find or std::ranges::find_if"
         Level: Warning

@@ -515,7 +515,13 @@ locally before that gate ever sees the change:
   check name, for example:
   `clang-tidy --experimental-custom-checks --checks='-*,custom-fastecu-linear-search-loop' -p . src/backend/flash/ecu/subaru_denso_sh7058_can_plan.cpp`.
   This check reports range loops that compare an element (or its member) for
-  equality and return that same element's address.
+  equality, including conjunctions, and return that element's address directly
+  or through a `std::expected` result constructor. It also reports incrementing index loops
+  that compare an indexed element for equality and return the matching index
+  or an indexed element's address. The matching branch must occur directly in the loop body, and returns
+  directly in that branch; returns inside callbacks are excluded. Diagnostics have no fix-its:
+  preserve sentinel bounds, parallel-container indexing, and validation order
+  when replacing the loop with `std::ranges::find` or `std::ranges::find_if`.
 - `bazel run --config=release //:clang_tidy_check_fixtures` verifies inline
   diagnostics and permitted counterexamples using real GoogleTest headers.
   Prepare the compilation database with a report run first.
