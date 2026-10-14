@@ -1,5 +1,6 @@
 #include "src/backend/flash/ecu/subaru_tcu_denso_sh705x_can_plan.h"
 
+#include <algorithm>
 #include <array>
 #include <format>
 #include <utility>
@@ -27,36 +28,24 @@ struct CatalogEntry
 // Exact TCU identities and kernel addresses from the built-in catalog and
 // FlashTcuSubaruDensoSH705xCanOperation at revision 59f4e442 (lines 55-58).
 // Do not broaden this into a protocol suffix match.
-constexpr std::array<CatalogEntry, 2> kCatalog{{
+constexpr auto kCatalog = std::to_array<CatalogEntry>({
     {"sub_tcu_denso_sh7055_can", "SH7055", 0x00080000, 0xFFFF9000, false},
     {"sub_tcu_denso_sh7058_can", "SH7058", 0x00100000, 0xFFFF3000, true},
-}};
+});
 
-const CatalogEntry *FindCatalog(std::string_view protocol)
+Result<CatalogEntry> GetCatalogEntry(std::string_view protocol, std::string_view mcu)
 {
-    for (const CatalogEntry& entry : kCatalog)
-    {
-        if (entry.protocol == protocol)
-        {
-            return &entry;
-        }
-    }
-    return nullptr;
-}
-
-Status ValidateIdentity(std::string_view protocol, std::string_view mcu, const CatalogEntry *& entry)
-{
-    entry = FindCatalog(protocol);
-    if (entry == nullptr)
+    const auto it = std::ranges::find(kCatalog, protocol, &CatalogEntry::protocol);
+    if (it == kCatalog.end())
     {
         return Fail(ErrorKind::kInvalidConfig, std::format("Unsupported Denso SH705x TCU CAN protocol: {}", protocol));
     }
-    if (mcu != entry->mcu)
+    if (mcu != it->mcu)
     {
         return Fail(ErrorKind::kInvalidConfig,
-                    std::format("Denso SH705x TCU CAN protocol {} requires MCU {}, not {}", protocol, entry->mcu, mcu));
+                    std::format("Denso SH705x TCU CAN protocol {} requires MCU {}, not {}", protocol, it->mcu, mcu));
     }
-    return {};
+    return *it;
 }
 
 const FlashDevice *CheckedDevice(const CatalogEntry& entry)
@@ -116,10 +105,10 @@ Status ValidateSubaruTcuDensoSh705xCanPlan(const FlashPlan& plan)
     {
         return Fail(ErrorKind::kInvalidConfig, "TCU CAN wire parameters are invalid");
     }
-    const CatalogEntry *entry = nullptr;
-    if (Status identity = ValidateIdentity(plan.TargetId(), plan.McuName(), entry); !identity.has_value())
+    const auto entry = GetCatalogEntry(plan.TargetId(), plan.McuName());
+    if (!entry.has_value())
     {
-        return identity;
+        return std::unexpected(entry.error());
     }
     if (Status capability = ValidateCapability(plan, *entry); !capability.has_value())
     {
@@ -155,10 +144,10 @@ Result<FlashPlan> BuildSubaruTcuDensoSh705xCanPlan(FlashOperation operation, std
                                                    std::string_view mcu_type, std::optional<bytes::Bytes> image,
                                                    KernelImage kernel)
 {
-    const CatalogEntry *entry = nullptr;
-    if (Status identity = ValidateIdentity(protocol_name, mcu_type, entry); !identity.has_value())
+    const auto entry = GetCatalogEntry(protocol_name, mcu_type);
+    if (!entry.has_value())
     {
-        return std::unexpected(identity.error());
+        return std::unexpected(entry.error());
     }
     // Capability is checked before image/kernel validation, preserving the
     // SH7055 write and all test-write rejections before any hardware path.
