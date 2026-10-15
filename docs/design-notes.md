@@ -110,11 +110,11 @@ compares the write count against the full framed request, preserving SSM's
 one-byte length wrap. Receive reads exactly once with the caller's timeout,
 propagates transport errors before checking cancellation after the read, and
 returns absent, present empty, or malformed replies unchanged. It adds no
-pre-read cancellation gate. The ordinary combined exchange above retains its
-additional after-write cancellation checkpoint. Family parsing, polling,
-timeouts, programming stages, cleanup ordering, and error precedence remain in
-each executor. Independent primitive fixtures and family transcripts pin this
-sharing; hardware qualification is unchanged.
+pre-read cancellation gate. The ordinary combined exchange above composes these
+same primitives with an additional after-write cancellation checkpoint. Family
+parsing, polling, timeouts, programming stages, cleanup ordering, and error
+precedence remain in each executor. Independent primitive fixtures and family
+transcripts pin this sharing; hardware qualification is unchanged.
 
 The Subaru TCU Mitsubishi CVT MH8104 CAN and MH8111 CAN executors share
 `TcuCvtMitsuSeedKey`, `TcuCvtMitsuEncryptRom`, and `TcuCvtMitsuDecryptPage` in

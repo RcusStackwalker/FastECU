@@ -13,6 +13,8 @@ namespace fastecu::flash
 // exchanges have equivalent framing, write-size checks, cancellation checkpoints
 // and transport-error precedence. Replies are returned unchanged without frame
 // validation; family parsing, pacing and timeout policy remain with callers.
+// Composes SendM32rSsmFrame and ReceiveM32rSsmOnce with an additional
+// after-write cancellation check before receiving.
 Result<std::optional<bytes::Bytes>> ExchangeM32rSsmOptional(IKlineFlashTransport& transport,
                                                             const ICancellationToken& cancellation,
                                                             bytes::ByteView payload, bytes::Byte tester_id,

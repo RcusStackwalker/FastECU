@@ -12,34 +12,15 @@ Result<std::optional<bytes::Bytes>> ExchangeM32rSsmOptional(IKlineFlashTransport
                                                             bytes::ByteView payload, bytes::Byte tester_id,
                                                             bytes::Byte target_id, std::chrono::milliseconds timeout)
 {
-    if (cancellation.Cancelled())
+    if (Status sent = SendM32rSsmFrame(transport, cancellation, payload, tester_id, target_id); !sent.has_value())
     {
-        return Fail(ErrorKind::kCancelled, "cancelled before write");
-    }
-    const bytes::Bytes request = ssm_protocol::AddHeader(payload, tester_id, target_id);
-    auto written = transport.Write(request);
-    if (!written.has_value())
-    {
-        return std::unexpected(written.error());
-    }
-    if (*written != request.size())
-    {
-        return Fail(ErrorKind::kDisconnected, "short K-Line write");
+        return std::unexpected(sent.error());
     }
     if (cancellation.Cancelled())
     {
         return Fail(ErrorKind::kCancelled, "cancelled after write");
     }
-    auto response = transport.Read(timeout, cancellation);
-    if (!response.has_value())
-    {
-        return std::unexpected(response.error());
-    }
-    if (cancellation.Cancelled())
-    {
-        return Fail(ErrorKind::kCancelled, "cancelled after read");
-    }
-    return response;
+    return ReceiveM32rSsmOnce(transport, cancellation, timeout);
 }
 
 Status SendM32rSsmFrame(IKlineFlashTransport& transport, const ICancellationToken& cancellation,
