@@ -13,6 +13,7 @@ using namespace fastecu;
 using namespace fastecu::flash;
 using namespace std::chrono_literals;
 using fastecu::testing::IsErrWith;
+using fastecu::testing::IsOk;
 using fastecu::testing::IsOkAnd;
 using ::testing::ElementsAre;
 using ::testing::Eq;
@@ -209,6 +210,187 @@ TEST_F(M32rSsmExchangeTest, ReadFailureWinsOverCancellation)
     EXPECT_THAT(Exchange(), IsErrWith(ErrorKind::kDisconnected, Eq("read fault")));
     EXPECT_EQ(transport_.write_calls, 1);
     EXPECT_EQ(transport_.read_calls, 1);
+    EXPECT_TRUE(transport_.ScriptConsumed());
+}
+
+class M32rSsmPrimitivesTest : public ::testing::Test
+{
+  protected:
+    Status Send()
+    {
+        return SendM32rSsmFrame(transport_, cancellation_, kPayload, 0xf0, 0x10);
+    }
+
+    Result<std::optional<bytes::Bytes>> Receive()
+    {
+        return ReceiveM32rSsmOnce(transport_, cancellation_, 731ms);
+    }
+
+    ManualCancellationToken cancellation_;
+    ExchangeTransport transport_{cancellation_};
+};
+
+TEST_F(M32rSsmPrimitivesTest, SendWritesExactFrameWithoutReading)
+{
+    transport_.ExpectWrite(kFrame);
+    EXPECT_THAT(Send(), IsOk());
+    EXPECT_EQ(transport_.write_calls, 1);
+    EXPECT_EQ(transport_.read_calls, 0);
+    EXPECT_TRUE(transport_.ScriptConsumed());
+}
+
+TEST_F(M32rSsmPrimitivesTest, SendPreservesAlternateIds)
+{
+    transport_.ExpectWrite(bytes::Bytes{0x80, 0x18, 0xf1, 0x01, 0xbf, 0x49});
+    EXPECT_THAT(SendM32rSsmFrame(transport_, cancellation_, kPayload, 0xf1, 0x18), IsOk());
+    EXPECT_EQ(transport_.write_calls, 1);
+    EXPECT_EQ(transport_.read_calls, 0);
+    EXPECT_TRUE(transport_.ScriptConsumed());
+}
+
+TEST_F(M32rSsmPrimitivesTest, SendPreservesEmptyAndWrappedLength)
+{
+    transport_.ExpectWrite(bytes::Bytes{0x80, 0x10, 0xf0, 0x00, 0x80});
+    EXPECT_THAT(SendM32rSsmFrame(transport_, cancellation_, bytes::ByteView{}, 0xf0, 0x10), IsOk());
+    const bytes::Bytes payload(256, 0);
+    bytes::Bytes frame{0x80, 0x10, 0xf0, 0x00};
+    frame.insert(frame.end(), 256, 0);
+    frame.push_back(0x80);
+    ASSERT_EQ(frame.size(), 261U);
+    transport_.ExpectWrite(frame);
+    EXPECT_THAT(SendM32rSsmFrame(transport_, cancellation_, payload, 0xf0, 0x10), IsOk());
+    transport_.ExpectWrite(frame);
+    transport_.short_write = true;
+    EXPECT_THAT(SendM32rSsmFrame(transport_, cancellation_, payload, 0xf0, 0x10),
+                IsErrWith(ErrorKind::kDisconnected, Eq("short K-Line write")));
+    EXPECT_EQ(transport_.write_calls, 3);
+    EXPECT_EQ(transport_.read_calls, 0);
+    EXPECT_TRUE(transport_.ScriptConsumed());
+}
+
+TEST_F(M32rSsmPrimitivesTest, SendCancelsBeforeWrite)
+{
+    cancellation_.Cancel();
+    EXPECT_THAT(Send(), IsErrWith(ErrorKind::kCancelled, Eq("cancelled before write")));
+    EXPECT_EQ(transport_.write_calls, 0);
+    EXPECT_EQ(transport_.read_calls, 0);
+    EXPECT_TRUE(transport_.ScriptConsumed());
+}
+
+TEST_F(M32rSsmPrimitivesTest, SendDoesNotCheckCancellationAfterWrite)
+{
+    transport_.ExpectWrite(kFrame);
+    transport_.cancel_on_write = true;
+    EXPECT_THAT(Send(), IsOk());
+    EXPECT_TRUE(cancellation_.Cancelled());
+    EXPECT_EQ(transport_.write_calls, 1);
+    EXPECT_EQ(transport_.read_calls, 0);
+    EXPECT_TRUE(transport_.ScriptConsumed());
+}
+
+TEST_F(M32rSsmPrimitivesTest, SendPreservesWriteFailureBeforeCancellation)
+{
+    transport_.ExpectWrite(kFrame);
+    transport_.cancel_on_write = true;
+    transport_.write_fault = true;
+    EXPECT_THAT(Send(), IsErrWith(ErrorKind::kDisconnected, Eq("write fault")));
+    EXPECT_EQ(transport_.write_calls, 1);
+    EXPECT_EQ(transport_.read_calls, 0);
+    EXPECT_TRUE(transport_.ScriptConsumed());
+}
+
+TEST_F(M32rSsmPrimitivesTest, SendRejectsShortWriteEvenWhenCancelled)
+{
+    transport_.ExpectWrite(kFrame);
+    transport_.cancel_on_write = true;
+    transport_.short_write = true;
+    EXPECT_THAT(Send(), IsErrWith(ErrorKind::kDisconnected, Eq("short K-Line write")));
+    EXPECT_EQ(transport_.write_calls, 1);
+    EXPECT_EQ(transport_.read_calls, 0);
+    EXPECT_TRUE(transport_.ScriptConsumed());
+}
+
+TEST_F(M32rSsmPrimitivesTest, ReceiveReadsOnceWithCallerTimeout)
+{
+    transport_.QueueRead(bytes::Bytes{0xde, 0xad});
+    EXPECT_THAT(Receive(), IsOkAnd(Optional(ElementsAre(0xde, 0xad))));
+    EXPECT_EQ(transport_.write_calls, 0);
+    EXPECT_EQ(transport_.read_calls, 1);
+    EXPECT_THAT(transport_.read_timeouts, ElementsAre(731ms));
+    EXPECT_TRUE(transport_.ScriptConsumed());
+}
+
+TEST_F(M32rSsmPrimitivesTest, ReceivePreservesAbsentAndPresentEmpty)
+{
+    transport_.QueueNoFrame();
+    EXPECT_THAT(Receive(), IsOkAnd(Eq(std::nullopt)));
+    EXPECT_EQ(transport_.read_calls, 1);
+    transport_.QueueRead(bytes::Bytes{});
+    EXPECT_THAT(Receive(), IsOkAnd(Optional(ElementsAre())));
+    EXPECT_EQ(transport_.read_calls, 2);
+    EXPECT_EQ(transport_.write_calls, 0);
+    EXPECT_TRUE(transport_.ScriptConsumed());
+}
+
+TEST_F(M32rSsmPrimitivesTest, ReceiveCancelsAfterRead)
+{
+    for (const bool present : {true, false})
+    {
+        SCOPED_TRACE(present);
+        ManualCancellationToken cancellation;
+        ExchangeTransport transport(cancellation);
+        if (present)
+        {
+            transport.QueueRead(bytes::Bytes{0xde, 0xad});
+        }
+        else
+        {
+            transport.QueueNoFrame();
+        }
+        transport.cancel_on_read = true;
+        EXPECT_THAT(ReceiveM32rSsmOnce(transport, cancellation, 731ms),
+                    IsErrWith(ErrorKind::kCancelled, Eq("cancelled after read")));
+        EXPECT_EQ(transport.read_calls, 1);
+        EXPECT_EQ(transport.write_calls, 0);
+        EXPECT_TRUE(transport.ScriptConsumed());
+    }
+}
+
+// The shared scripted transport honours pre-cancellation itself. This local
+// port instead reports its read error even when the caller is already cancelled.
+class ReadFaultTransport final : public ScriptedKlineFlashTransport
+{
+  public:
+    Result<OptionalBytes> Read(std::chrono::milliseconds timeout, const ICancellationToken&) override
+    {
+        ++read_calls;
+        ManualCancellationToken uncancelled;
+        return ScriptedKlineFlashTransport::Read(timeout, uncancelled);
+    }
+
+    int read_calls = 0;
+};
+
+TEST_F(M32rSsmPrimitivesTest, ReceiveDoesNotAddAPreReadCancellationGate)
+{
+    ReadFaultTransport transport;
+    transport.QueueError(ErrorKind::kDisconnected, "read fault");
+    cancellation_.Cancel();
+    EXPECT_THAT(ReceiveM32rSsmOnce(transport, cancellation_, 731ms),
+                IsErrWith(ErrorKind::kDisconnected, Eq("read fault")));
+    EXPECT_EQ(transport.read_calls, 1);
+    EXPECT_THAT(transport.read_timeouts, ElementsAre(731ms));
+    EXPECT_EQ(transport.WritesConsumed(), 0U);
+    EXPECT_TRUE(transport.ScriptConsumed());
+}
+
+TEST_F(M32rSsmPrimitivesTest, ReceiveErrorWinsOverCancellation)
+{
+    transport_.QueueError(ErrorKind::kDisconnected, "read fault");
+    transport_.cancel_on_read = true;
+    EXPECT_THAT(Receive(), IsErrWith(ErrorKind::kDisconnected, Eq("read fault")));
+    EXPECT_EQ(transport_.read_calls, 1);
+    EXPECT_EQ(transport_.write_calls, 0);
     EXPECT_TRUE(transport_.ScriptConsumed());
 }
 } // namespace

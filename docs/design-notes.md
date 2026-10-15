@@ -102,6 +102,20 @@ family-owned. Shared declarative plan validation does not establish
 interchangeable transfer loops. Transport seams keep failure and cancellation
 paths scriptable; sharing does not change hardware qualification.
 
+The Subaru Unisia Jecs M32R K-Line and bootmode program executors share
+`SendM32rSsmFrame` and `ReceiveM32rSsmOnce` in the
+[M32R SSM module](../src/backend/flash/ecu/m32r_ssm_exchange.h), keeping separate
+send and receive call sites. Send checks cancellation only before writing and
+compares the write count against the full framed request, preserving SSM's
+one-byte length wrap. Receive reads exactly once with the caller's timeout,
+propagates transport errors before checking cancellation after the read, and
+returns absent, present empty, or malformed replies unchanged. It adds no
+pre-read cancellation gate. The ordinary combined exchange above composes these
+same primitives with an additional after-write cancellation checkpoint. Family
+parsing, polling, timeouts, programming stages, cleanup ordering, and error
+precedence remain in each executor. Independent primitive fixtures and family
+transcripts pin this sharing; hardware qualification is unchanged.
+
 The Subaru TCU Mitsubishi CVT MH8104 CAN and MH8111 CAN executors share
 `TcuCvtMitsuSeedKey`, `TcuCvtMitsuEncryptRom`, and `TcuCvtMitsuDecryptPage` in
 the [CVT common module](../src/backend/flash/ecu/subaru_tcu_cvt_mitsu_can_common.h).

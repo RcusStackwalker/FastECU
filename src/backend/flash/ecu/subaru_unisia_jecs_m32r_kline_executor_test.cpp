@@ -23,6 +23,7 @@ namespace
 {
 using namespace std::chrono_literals;
 using fastecu::testing::IsErr;
+using fastecu::testing::IsErrWith;
 using fastecu::testing::IsOk;
 using Line = ScriptedKlineFlashTransport::ControlLineAction;
 using ::testing::_;
@@ -780,5 +781,66 @@ TEST(SubaruUnisiaJecsM32rKlineExecutor, CleanupFailureNeverReplacesAnEarlierErro
 
     EXPECT_THAT(RunScripted(WritePlan(), transport, context), IsErr(ErrorKind::kBadResponse));
 }
+class FirstWriteFaultTransport final : public ScriptedKlineFlashTransport
+{
+  public:
+    explicit FirstWriteFaultTransport(bool short_write) : short_write_(short_write)
+    {
+    }
+
+    Result<std::size_t> Write(bytes::ByteView data) override
+    {
+        auto written = ScriptedKlineFlashTransport::Write(data);
+        if (!written.has_value())
+        {
+            return written;
+        }
+        if (short_write_)
+        {
+            return data.size() - 1;
+        }
+        return Fail(ErrorKind::kDisconnected, "write fault");
+    }
+
+    Result<OptionalBytes> Read(std::chrono::milliseconds timeout, const ICancellationToken& cancellation) override
+    {
+        ++read_calls;
+        return ScriptedKlineFlashTransport::Read(timeout, cancellation);
+    }
+
+    int read_calls = 0;
+
+  private:
+    bool short_write_;
+};
+
+TEST(SubaruUnisiaJecsM32rKlineExecutor, ShortWriteStopsBeforeReceiving)
+{
+    FirstWriteFaultTransport transport(true);
+    transport.ExpectWrite(bytes::Bytes{0x80, 0x10, 0xf0, 0x01, 0xaf, 0x30});
+    RunContext context;
+
+    EXPECT_THAT(RunScripted(WritePlan(), transport, context),
+                IsErrWith(ErrorKind::kDisconnected, ::testing::Eq("short K-Line write")));
+    EXPECT_EQ(transport.WritesConsumed(), 1U);
+    EXPECT_EQ(transport.read_calls, 0);
+    EXPECT_TRUE(transport.ScriptConsumed());
+    EXPECT_THAT(transport.control_line_trace, ::testing::ElementsAre(Line::kDisableLecLines));
+}
+
+TEST(SubaruUnisiaJecsM32rKlineExecutor, WriteFailureStopsBeforeReceiving)
+{
+    FirstWriteFaultTransport transport(false);
+    transport.ExpectWrite(bytes::Bytes{0x80, 0x10, 0xf0, 0x01, 0xaf, 0x30});
+    RunContext context;
+
+    EXPECT_THAT(RunScripted(WritePlan(), transport, context),
+                IsErrWith(ErrorKind::kDisconnected, ::testing::Eq("write fault")));
+    EXPECT_EQ(transport.WritesConsumed(), 1U);
+    EXPECT_EQ(transport.read_calls, 0);
+    EXPECT_TRUE(transport.ScriptConsumed());
+    EXPECT_THAT(transport.control_line_trace, ::testing::ElementsAre(Line::kDisableLecLines));
+}
+
 } // namespace
 } // namespace fastecu::flash

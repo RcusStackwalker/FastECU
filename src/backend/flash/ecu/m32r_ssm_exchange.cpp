@@ -12,6 +12,20 @@ Result<std::optional<bytes::Bytes>> ExchangeM32rSsmOptional(IKlineFlashTransport
                                                             bytes::ByteView payload, bytes::Byte tester_id,
                                                             bytes::Byte target_id, std::chrono::milliseconds timeout)
 {
+    if (Status sent = SendM32rSsmFrame(transport, cancellation, payload, tester_id, target_id); !sent.has_value())
+    {
+        return std::unexpected(sent.error());
+    }
+    if (cancellation.Cancelled())
+    {
+        return Fail(ErrorKind::kCancelled, "cancelled after write");
+    }
+    return ReceiveM32rSsmOnce(transport, cancellation, timeout);
+}
+
+Status SendM32rSsmFrame(IKlineFlashTransport& transport, const ICancellationToken& cancellation,
+                        bytes::ByteView payload, bytes::Byte tester_id, bytes::Byte target_id)
+{
     if (cancellation.Cancelled())
     {
         return Fail(ErrorKind::kCancelled, "cancelled before write");
@@ -26,10 +40,13 @@ Result<std::optional<bytes::Bytes>> ExchangeM32rSsmOptional(IKlineFlashTransport
     {
         return Fail(ErrorKind::kDisconnected, "short K-Line write");
     }
-    if (cancellation.Cancelled())
-    {
-        return Fail(ErrorKind::kCancelled, "cancelled after write");
-    }
+    return {};
+}
+
+Result<std::optional<bytes::Bytes>> ReceiveM32rSsmOnce(IKlineFlashTransport& transport,
+                                                       const ICancellationToken& cancellation,
+                                                       std::chrono::milliseconds timeout)
+{
     auto response = transport.Read(timeout, cancellation);
     if (!response.has_value())
     {

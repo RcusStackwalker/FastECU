@@ -932,6 +932,7 @@ cc_library(
     srcs = ["subaru_unisia_jecs_m32r_kline_executor.cpp"],
     hdrs = ["subaru_unisia_jecs_m32r_kline_executor.h"],
     implementation_deps = [
+        ":m32r_ssm_exchange",
         ":subaru_unisia_jecs_m32r_kline_plan",
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/ssm",
@@ -1010,6 +1011,7 @@ cc_library(
     srcs = ["subaru_unisia_jecs_m32r_bootmode_program_executor.cpp"],
     hdrs = ["subaru_unisia_jecs_m32r_bootmode_program_executor.h"],
     implementation_deps = [
+        ":m32r_ssm_exchange",
         ":subaru_unisia_jecs_m32r_bootmode_plan",
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/ssm",

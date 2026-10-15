@@ -12,6 +12,7 @@
 
 #include "src/algorithms/protocol/bytes_compose.h"
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
+#include "src/backend/flash/ecu/m32r_ssm_exchange.h"
 #include "src/backend/flash/ecu/subaru_unisia_jecs_m32r_kline_plan.h"
 
 namespace fastecu::flash
@@ -62,36 +63,13 @@ Status CancelledIfRequested(const ICancellationToken& cancellation, std::string_
 // Legacy write_serial_data_echo_check() of an SsmProtocol::addHeader frame.
 Status Send(Session& s, bytes::ByteView payload)
 {
-    if (Status cancelled = CancelledIfRequested(s.cancellation, "before write"); !cancelled.has_value())
-    {
-        return cancelled;
-    }
-    const bytes::Bytes request = ssm_protocol::AddHeader(payload, s.wire.tester_id, s.wire.target_id);
-    auto written = s.transport.Write(request);
-    if (!written.has_value())
-    {
-        return std::unexpected(written.error());
-    }
-    if (*written != request.size())
-    {
-        return Fail(ErrorKind::kDisconnected, "short K-Line write");
-    }
-    return {};
+    return SendM32rSsmFrame(s.transport, s.cancellation, payload, s.wire.tester_id, s.wire.target_id);
 }
 
 // One framed read; an empty optional means no frame arrived in time.
 Result<std::optional<bytes::Bytes>> Receive(Session& s, std::chrono::milliseconds timeout)
 {
-    auto response = s.transport.Read(timeout, s.cancellation);
-    if (!response.has_value())
-    {
-        return std::unexpected(response.error());
-    }
-    if (Status cancelled = CancelledIfRequested(s.cancellation, "after read"); !cancelled.has_value())
-    {
-        return std::unexpected(cancelled.error());
-    }
-    return std::move(*response);
+    return ReceiveM32rSsmOnce(s.transport, s.cancellation, timeout);
 }
 
 bool HasSid(bytes::ByteView frame, const SubaruUnisiaJecsM32rKlinePlan& wire, bytes::Byte sid)
