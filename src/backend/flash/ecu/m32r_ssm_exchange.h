@@ -18,6 +18,20 @@ Result<std::optional<bytes::Bytes>> ExchangeM32rSsmOptional(IKlineFlashTransport
                                                             bytes::ByteView payload, bytes::Byte tester_id,
                                                             bytes::Byte target_id, std::chrono::milliseconds timeout);
 
+// Separate operations shared by Unisia Jecs M32R K-Line and bootmode program
+// executors. Send checks cancellation only before writing, frames with AddHeader
+// (including its one-byte length wrap), propagates write errors and rejects a
+// count unequal to the full frame size. There is no after-write checkpoint.
+Status SendM32rSsmFrame(IKlineFlashTransport& transport, const ICancellationToken& cancellation,
+                        bytes::ByteView payload, bytes::Byte tester_id, bytes::Byte target_id);
+
+// Reads exactly once with the caller's timeout, even if already cancelled.
+// Transport errors win over the after-read cancellation check. Optional replies
+// (including present empty or malformed bytes) pass through without validation.
+Result<std::optional<bytes::Bytes>> ReceiveM32rSsmOnce(IKlineFlashTransport& transport,
+                                                       const ICancellationToken& cancellation,
+                                                       std::chrono::milliseconds timeout);
+
 // Compares payload bytes at offset four only; does not validate the envelope.
 bool M32rSsmPayloadHasPrefix(bytes::ByteView response, bytes::ByteView prefix);
 
