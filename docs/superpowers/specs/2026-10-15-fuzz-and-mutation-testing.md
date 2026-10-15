@@ -65,12 +65,15 @@ uploaded as artifacts. A maintainer minimizes each one, commits it as a seed
 
 ## Mutation testing
 
-**Tool.** Mull with its matching LLVM 19 toolchain (`mull-19` from apt in CI,
-`mull-project/mull/mull@19` and `llvm@19` from Homebrew locally). This is a
-second Clang pin, separate from LLVM 23 used for fuzzing, sanitizers and
-clang-tidy. Recorded in ADR 0022. Viability depends on Clang 19 building the
-C++23 portable tree against the CI runner's libstdc++; if it cannot, revisit
-the tool choice rather than lowering the language standard.
+**Tool.** Mull with the newest LLVM its release packages for the platform: in
+CI the Mull release `.deb` for Ubuntu 26.04 (Mull 0.34.1 ships LLVM 22.1.2)
+with the archive's matching `clang-22`; locally on macOS the release's
+newest macOS build (LLVM 20.1.8). This is a second Clang pin, separate from the
+LLVM 23 used for fuzzing, sanitizers and clang-tidy, because Mull's plugin must
+match the compiler that loads it. Recorded in ADR 0022. Viability depends on
+that Clang building the C++23 portable tree against the CI runner's libstdc++;
+if it cannot, revisit the tool choice rather than lowering the language
+standard.
 
 **Mutants.** Mull's default operator set over `src/algorithms` and
 `src/backend`, excluding `*_test.cpp`, `testing/` helper packages and generated
@@ -96,10 +99,10 @@ baseline is stable; it is not part of this design.
    the first two harnesses (one SSM or UDS reply decoder and the expression
    parser), ADR 0021 and the coding-style section.
 2. Weekly and manually dispatched fuzz workflow.
-3. Mull spike on `algorithms/checksum` with Clang 19: a go/no-go decision. Runs
+3. Mull spike on `algorithms/checksum` with Mull's Clang: a go/no-go decision. Runs
    in parallel with PR 1.
 4. Mull configs, local wrapper, weekly and PR-diff jobs, ADR 0022.
 5. Remaining harnesses in the order above, one PR per package.
 
-On macOS (Apple Silicon), fuzzing with Homebrew `llvm` and Mull with `llvm@19`
+On macOS (Apple Silicon), fuzzing with Homebrew `llvm` and Mull's macOS build
 are best-effort local workflows, not CI gates.
