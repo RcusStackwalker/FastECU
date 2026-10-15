@@ -40,6 +40,10 @@ build:asan --copt=-fno-omit-frame-pointer
 build:asan --linkopt=-fsanitize-link-c++-runtime
 # FuzzTest reads this define, not __has_feature, to know it runs under ASan.
 build:asan --copt=-DADDRESS_SANITIZER
+# Sanitized binaries run 2-3x slower; the flash executor suites, which already
+# spend most of their time in real-time waits, then outrun the 60 s `small`
+# timeout on a 4-core CI runner. Triple Bazel's default timeout per size.
+test:asan --test_timeout=180,900,2700,10800
 
 # Coverage-guided fuzzing. Adds coverage instrumentation to everything except
 # FuzzTest and GoogleTest themselves.
