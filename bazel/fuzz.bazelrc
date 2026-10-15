@@ -47,4 +47,6 @@ build:asan --copt=-DADDRESS_SANITIZER
 build:fuzztest --config=asan
 build:fuzztest --copt=-DFUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
 build:fuzztest --copt=-fsanitize-coverage=inline-8bit-counters,trace-cmp,pc-table
-build:fuzztest --per_file_copt=external/fuzztest\+/.*,external/googletest\+/.*@-fsanitize-coverage=0
+# `[+]`, not `\+`: the rc parser consumes the backslash, and FuzzTest
+# instrumenting its own coverage hooks recurses until the stack overflows.
+build:fuzztest --per_file_copt=external/fuzztest[+]/.*,external/googletest[+]/.*@-fsanitize-coverage=0
