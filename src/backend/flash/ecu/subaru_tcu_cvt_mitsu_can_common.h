@@ -1,25 +1,21 @@
 #pragma once
 
+#include "src/algorithms/protocol/bytes.h"
+
 #include <array>
 #include <cstdint>
 
 namespace fastecu::flash
 {
 
-// Crypto constants shared by SubaruTcuCvtMitsuMh8111CanExecutor and
-// SubaruTcuCvtMitsuMh8104CanExecutor.
-//
-// Both executors' seed/key derivation and payload encrypt/decrypt call
-// shapes were compared line by line against their legacy sources, which
-// confirmed these three tables are byte-identical between the two families. Everything else compared in that pass --
-// connect_bootloader, erase, reflash_block's setup/chunk-loop/close, and
-// checksum verify -- differs in real, deliberate ways (chunk size, retry
-// counts, per-chunk receive timeout, and content-check strictness) and is
-// NOT extracted here; folding those into a shared "policy-parameterized"
-// helper would recreate the configurable state machine the tail design
-// forbids. kIndexTransformation likewise stays a per-file constant,
-// matching every sibling executor's own copy in this package rather than
-// becoming a shared crypto-constants header entry.
+// Pure crypto operations and tables shared by SubaruTcuCvtMitsuMh8111CanExecutor
+// and SubaruTcuCvtMitsuMh8104CanExecutor, using the canonical stock transformation.
+// Connection, transport, addressing, checksum acceptance and programming flow
+// remain family-owned. Legacy citations below establish table provenance only.
+
+bytes::Bytes TcuCvtMitsuSeedKey(bytes::ByteView seed);
+bytes::Bytes TcuCvtMitsuEncryptRom(bytes::ByteView image);
+bytes::Bytes TcuCvtMitsuDecryptPage(bytes::ByteView page);
 
 // Seed-key table (legacy generate_seed_key: mh8111 lines 908-913, mh8104
 // lines 903-907), confirmed byte-identical by direct comparison.

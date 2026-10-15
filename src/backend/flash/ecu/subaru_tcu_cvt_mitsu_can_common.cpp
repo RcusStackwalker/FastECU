@@ -1,5 +1,7 @@
 #include "src/backend/flash/ecu/subaru_tcu_cvt_mitsu_can_common.h"
 
+#include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
+
 namespace fastecu::flash
 {
 namespace
@@ -23,6 +25,23 @@ const std::array<std::uint16_t, 4>& TcuCvtMitsuEncryptTable()
 const std::array<std::uint16_t, 4>& TcuCvtMitsuDecryptTable()
 {
     return kDecryptTable;
+}
+
+bytes::Bytes TcuCvtMitsuSeedKey(bytes::ByteView seed)
+{
+    return ssm_protocol::CalculateSeedKey(seed, TcuCvtMitsuSeedKeyTable(), ssm_protocol::kIndexTransformationStock);
+}
+
+bytes::Bytes TcuCvtMitsuEncryptRom(bytes::ByteView image)
+{
+    return ssm_protocol::CalculatePayload(image, static_cast<std::uint32_t>(image.size()), TcuCvtMitsuEncryptTable(),
+                                          ssm_protocol::kIndexTransformationStock);
+}
+
+bytes::Bytes TcuCvtMitsuDecryptPage(bytes::ByteView page)
+{
+    return ssm_protocol::CalculatePayload(page, static_cast<std::uint32_t>(page.size()), TcuCvtMitsuDecryptTable(),
+                                          ssm_protocol::kIndexTransformationStock);
 }
 
 } // namespace fastecu::flash

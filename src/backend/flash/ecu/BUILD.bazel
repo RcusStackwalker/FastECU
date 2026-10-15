@@ -1446,6 +1446,8 @@ cc_library(
     name = "subaru_tcu_cvt_mitsu_can_common",
     srcs = ["subaru_tcu_cvt_mitsu_can_common.cpp"],
     hdrs = ["subaru_tcu_cvt_mitsu_can_common.h"],
+    implementation_deps = ["//src/algorithms/protocol/ssm"],
+    deps = ["//src/algorithms/protocol"],
 )
 
 fastecu_portable_gtest(
@@ -1453,6 +1455,7 @@ fastecu_portable_gtest(
     srcs = ["subaru_tcu_cvt_mitsu_can_common_test.cpp"],
     deps = [
         ":subaru_tcu_cvt_mitsu_can_common",
+        "//src/algorithms/protocol",
         "@googletest//:gtest",
     ],
 )
