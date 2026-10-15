@@ -75,6 +75,16 @@ that Clang building the C++23 portable tree against the CI runner's libstdc++;
 if it cannot, revisit the tool choice rather than lowering the language
 standard.
 
+**Spike result (go).** On ubuntu-26.04, Mull 0.34.1 with `clang-22` built all
+of `src/algorithms` and `src/backend`, and built and mutated the
+`algorithms/checksum` tests with the compile-time `mull.yml` include and
+exclude rules honoured
+([run 38796618628](https://github.com/RcusStackwalker/FastECU/actions/runs/38796618628),
+branch `spike/mull`). Mutation scores per test binary were 39–61% with 140
+surviving mutants; `checksum_test` alone took 7.5 minutes, which sizes the
+weekly run. `mull-runner` reads its own config separately from the plugin; the
+real jobs must point both at the same file.
+
 **Mutants.** Mull's default operator set over `src/algorithms` and
 `src/backend`, excluding `*_test.cpp`, `testing/` helper packages and generated
 sources. Widen the operator set only after the baseline report shows where the
@@ -99,8 +109,8 @@ baseline is stable; it is not part of this design.
    the first two harnesses (one SSM or UDS reply decoder and the expression
    parser), ADR 0021 and the coding-style section.
 2. Weekly and manually dispatched fuzz workflow.
-3. Mull spike on `algorithms/checksum` with Mull's Clang: a go/no-go decision. Runs
-   in parallel with PR 1.
+3. Mull spike on `algorithms/checksum` with Mull's Clang: a go/no-go decision.
+   Done: go (see above).
 4. Mull configs, local wrapper, weekly and PR-diff jobs, ADR 0022.
 5. Remaining harnesses in the order above, one PR per package.
 
