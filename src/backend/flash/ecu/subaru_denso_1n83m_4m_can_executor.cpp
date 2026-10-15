@@ -93,11 +93,6 @@ constexpr bytes::Byte kRequestUploadReply = uds::kSidRequestUpload + 0x40;      
 constexpr bytes::Byte kRoutineIdHigh = 0x02;
 constexpr bytes::Byte kRoutineChecksum = 0x02;
 
-// RequestDownload/RequestUpload format bytes: 0x04 dataFormatIdentifier and
-// 0x44 addressAndLengthFormatIdentifier (4-byte address, 4-byte length).
-constexpr bytes::Byte kDataFormatIdentifier = 0x04;
-constexpr bytes::Byte kAddressAndLengthFormat = 0x44;
-
 // kFlashBlocksN83M_4MB[0].start -- reflash_block indexes the image as
 // newdata[i + blockaddr - fdt->fblocks[0].start] (line 1241) and write_memory
 // hands it &data_array[0] (line 1153), the whole encrypted ROM, so byte 0 of
@@ -436,14 +431,6 @@ Status ConnectBootloader(Ctx& ctx, ICanFlashTransport& can)
     return (*selector)[3] != 0xFF ? ConnectInCar(ctx, can) : ConnectBench(ctx);
 }
 
-// The 0x34 RequestDownload / 0x35 RequestUpload setup PDU legacy spells out
-// as literals for this family (lines 845-860, 886-901, 1390-1405): the
-// region's start and length, big-endian, behind the two format bytes.
-bytes::Bytes SetupPdu(bytes::Byte service, const MemoryRegion& region)
-{
-    return ComposeBe(service, kDataFormatIdentifier, kAddressAndLengthFormat, region.start, region.length);
-}
-
 // Legacy read_memory, lines 821-1081. start_addr and length are overwritten
 // with 0x08FAC000 / 0x003D3F00 at lines 834-836 regardless of the caller's
 // arguments; the plan carries exactly that region, so `region` reproduces it.
@@ -454,13 +441,13 @@ Result<bytes::Bytes> ReadMemory(Ctx& ctx, const SubaruDenso1n83m_4mCanPlan& fami
     // tolerate a wrong reply AND an absent one -- see tolerant_setup for the
     // four commented-out returns this preserves.
     LogInfo(ctx, "Settting dump start & length");
-    if (const Status download = TolerantSetup(ctx, SetupPdu(uds::kSidRequestDownload, region),
+    if (const Status download = TolerantSetup(ctx, DensoIso15765SetupPdu(uds::kSidRequestDownload, region),
                                               bytes::Bytes{kRequestDownloadReply, 0x20, 0x01, 0x05});
         !download.has_value())
     {
         return std::unexpected(download.error());
     }
-    if (const Status upload = TolerantSetup(ctx, SetupPdu(uds::kSidRequestUpload, region),
+    if (const Status upload = TolerantSetup(ctx, DensoIso15765SetupPdu(uds::kSidRequestUpload, region),
                                             bytes::Bytes{kRequestUploadReply, 0x20, 0x01, 0x01});
         !upload.has_value())
     {
@@ -530,7 +517,7 @@ Result<bytes::Bytes> ReadMemory(Ctx& ctx, const SubaruDenso1n83m_4mCanPlan& fami
 // the tolerance is confined to read_memory's own setup pair.
 Status EraseMemory(Ctx& ctx, const MemoryRegion& region)
 {
-    return DensoIso15765Erase(ctx, SetupPdu(uds::kSidRequestDownload, region));
+    return DensoIso15765Erase(ctx, DensoIso15765SetupPdu(uds::kSidRequestDownload, region));
 }
 
 // Legacy reflash_block, lines 1180-1367, called for block 1 only.

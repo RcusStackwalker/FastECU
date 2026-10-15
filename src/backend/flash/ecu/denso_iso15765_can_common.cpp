@@ -14,6 +14,11 @@ namespace fastecu::flash
 namespace
 {
 
+// Legacy setup-PDU provenance (operation sources at 20892df): N83M 1.5M
+// lines 837-852, 878-893, 1379-1394; N83M 4M lines 845-860, 886-901,
+// 1390-1405; SH72531 lines 844-854, 881-891, 1378-1388; SH72543 diesel
+// lines 827-843, 866-882, 1400-1413. Diesel computes the fields while its
+// siblings spell out literals; all encode the supplied region identically.
 constexpr bytes::Byte kDataFormatIdentifier = 0x04;
 constexpr bytes::Byte kAddressAndLengthFormat = 0x44;
 

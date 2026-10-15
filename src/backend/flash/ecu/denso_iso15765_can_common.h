@@ -32,8 +32,8 @@ namespace fastecu::flash
 // The decrypt table remains valid for the bootloader-dialect normal-ROM read paths.
 // DensoCAN is not a consumer of this data-only cluster.
 //
-// Beyond these tables, the common module shares three narrow operations: the
-// SecurityAccess seed/key exchange and the erase flow (all four
+// Beyond these tables, the common module shares four narrow operations: pure
+// setup-PDU encoding, the SecurityAccess seed/key exchange and the erase flow (all four
 // Denso ISO-15765 bootloader dialect executors) and the N83M in-car opening exchange run (the two N83M executors
 // only; its 0x7E1 request asks for session 0x63, where the SH-family runs send
 // 0x03). Everything else that looks alike -- the connect/probe shapes, the
@@ -141,7 +141,7 @@ Status FireAndForget(const CanExecutorContext& ctx, ICanFlashTransport& can, std
 Status DensoSecurityAccess(const CanExecutorContext& ctx);
 
 // The bootloader dialect's flash erase: RequestDownload with `request_download_setup_pdu`
-// (the executor builds it, since it also builds the read-path setup), then the
+// (the executor selects the region and calls DensoIso15765SetupPdu), then the
 // erase routine trigger, then up to twenty re-reads for the 71 01 02 success
 // reply. The trigger is sent once and never re-sent while polling. The setup
 // reply must start 20 01 05 or the trigger is never sent. Setup and polling

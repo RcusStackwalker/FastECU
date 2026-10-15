@@ -86,11 +86,6 @@ constexpr bytes::Byte kSidCommunicationControl = 0x28; // ISO 14229-1
 constexpr bytes::Byte kRoutineIdHigh = 0x02;
 constexpr bytes::Byte kRoutineChecksum = 0x02;
 
-// RequestDownload/RequestUpload format bytes: 0x04 dataFormatIdentifier and
-// 0x44 addressAndLengthFormatIdentifier (4-byte address, 4-byte length).
-constexpr bytes::Byte kDataFormatIdentifier = 0x04;
-constexpr bytes::Byte kAddressAndLengthFormat = 0x44;
-
 // ISO 14229-1 dataIdentifier 0xF182 (systemSupplierECUSoftwareNumber band).
 // Unlike its three siblings, which query the ECU id with the vendor SID 0xAA,
 // this family reads it with a standard ReadDataByIdentifier (lines 131-140)
@@ -460,16 +455,6 @@ Status ConnectBootloader(Ctx& ctx, ICanFlashTransport& can)
     return (*selector)[3] != 0xFF ? ConnectInCar(ctx, can) : ConnectBench(ctx);
 }
 
-// The 0x34 RequestDownload / 0x35 RequestUpload setup PDU. Unlike its three
-// siblings, which emit these bytes as literals, this family already computes
-// them from start_addr and length (lines 827-843, 866-882, 1400-1413); routing
-// them through the region field produces the identical wire bytes its siblings
-// spell out, and preserves this family's computed form.
-bytes::Bytes SetupPdu(bytes::Byte service, const MemoryRegion& region)
-{
-    return ComposeBe(service, kDataFormatIdentifier, kAddressAndLengthFormat, region.start, region.length);
-}
-
 // Legacy's own log line for all three "start & length" announcements
 // (lines 822-824, 1191-1193, 1396-1398). QString::number(x, 16) is lowercase
 // and unpadded, so this reproduces it character for character.
@@ -490,13 +475,13 @@ Result<bytes::Bytes> ReadMemory(Ctx& ctx, const SubaruDensoSh72543CanDieselPlan&
     // 884) -- the two reads in this family that do not use the long timeout.
     LogInfo(ctx, StartAndLengthLine(region));
     if (Result<bytes::Bytes> download =
-            FatalQuery(ctx, SetupPdu(uds::kSidRequestDownload, region), bytes::Bytes{0x20, 0x01, 0x05}, kShortPolicy,
-                       "dump start & length setup");
+            FatalQuery(ctx, DensoIso15765SetupPdu(uds::kSidRequestDownload, region), bytes::Bytes{0x20, 0x01, 0x05},
+                       kShortPolicy, "dump start & length setup");
         !download.has_value())
     {
         return std::unexpected(download.error());
     }
-    if (Result<bytes::Bytes> upload = FatalQuery(ctx, SetupPdu(uds::kSidRequestUpload, region),
+    if (Result<bytes::Bytes> upload = FatalQuery(ctx, DensoIso15765SetupPdu(uds::kSidRequestUpload, region),
                                                  bytes::Bytes{0x20, 0x01, 0x01}, kShortPolicy, "dump upload setup");
         !upload.has_value())
     {
@@ -575,7 +560,7 @@ Result<bytes::Bytes> ReadMemory(Ctx& ctx, const SubaruDensoSh72543CanDieselPlan&
 // re-sends.
 Status EraseMemory(Ctx& ctx, const MemoryRegion& region)
 {
-    return DensoIso15765Erase(ctx, SetupPdu(uds::kSidRequestDownload, region));
+    return DensoIso15765Erase(ctx, DensoIso15765SetupPdu(uds::kSidRequestDownload, region));
 }
 
 // Legacy reflash_block, lines 1156-1368, called for block 0 only.

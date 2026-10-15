@@ -69,11 +69,6 @@ constexpr bytes::Byte kReadDataByIdentifierReply = uds::kSidReadDataByIdentifier
 constexpr bytes::Byte kRoutineIdHigh = 0x02;
 constexpr bytes::Byte kRoutineChecksum = 0x02;
 
-// RequestDownload/RequestUpload format bytes: 0x04 dataFormatIdentifier and
-// 0x44 addressAndLengthFormatIdentifier (4-byte address, 4-byte length).
-constexpr bytes::Byte kDataFormatIdentifier = 0x04;
-constexpr bytes::Byte kAddressAndLengthFormat = 0x44;
-
 // kFlashBlocksN83M_1_5MB[0].start -- reflash_block indexes the image as
 // newdata[i + blockaddr - fdt->fblocks[0].start] (line 1225), so byte 0 of
 // the plan image is this address.
@@ -340,14 +335,6 @@ Status ConnectBootloader(Ctx& ctx, ICanFlashTransport& can)
     return (*selector)[3] != 0xFF ? ConnectInCar(ctx, can) : ConnectBench(ctx);
 }
 
-// The 0x34 RequestDownload / 0x35 RequestUpload setup PDU legacy spells out
-// as literals for this family (lines 837-852, 878-893, 1379-1394): the
-// region's start and length, big-endian, behind the two format bytes.
-bytes::Bytes SetupPdu(bytes::Byte service, const MemoryRegion& region)
-{
-    return ComposeBe(service, kDataFormatIdentifier, kAddressAndLengthFormat, region.start, region.length);
-}
-
 // Legacy read_memory, lines 813-1074. start_addr and length are overwritten
 // with 0x08FAC000 / 0x00173F00 at lines 826-828 regardless of the caller's
 // arguments; the plan carries exactly that region, so `region` reproduces it.
@@ -358,13 +345,13 @@ Result<bytes::Bytes> ReadMemory(Ctx& ctx, const SubaruDenso1n83m_1_5mCanPlan& fa
     // absent reply.
     LogInfo(ctx, "Settting dump start & length");
     if (Result<bytes::Bytes> download =
-            FatalQuery(ctx, SetupPdu(uds::kSidRequestDownload, region), bytes::Bytes{0x20, 0x01, 0x05}, kShortPolicy,
-                       "dump start & length setup");
+            FatalQuery(ctx, DensoIso15765SetupPdu(uds::kSidRequestDownload, region), bytes::Bytes{0x20, 0x01, 0x05},
+                       kShortPolicy, "dump start & length setup");
         !download.has_value())
     {
         return std::unexpected(download.error());
     }
-    if (Result<bytes::Bytes> upload = FatalQuery(ctx, SetupPdu(uds::kSidRequestUpload, region),
+    if (Result<bytes::Bytes> upload = FatalQuery(ctx, DensoIso15765SetupPdu(uds::kSidRequestUpload, region),
                                                  bytes::Bytes{0x20, 0x01, 0x01}, kShortPolicy, "dump upload setup");
         !upload.has_value())
     {
@@ -427,7 +414,7 @@ Result<bytes::Bytes> ReadMemory(Ctx& ctx, const SubaruDenso1n83m_1_5mCanPlan& fa
 // then a bounded re-read loop that never re-sends.
 Status EraseMemory(Ctx& ctx, const MemoryRegion& region)
 {
-    return DensoIso15765Erase(ctx, SetupPdu(uds::kSidRequestDownload, region));
+    return DensoIso15765Erase(ctx, DensoIso15765SetupPdu(uds::kSidRequestDownload, region));
 }
 
 // Legacy reflash_block, lines 1167-1357, called for block 1 only.
