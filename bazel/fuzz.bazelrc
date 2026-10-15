@@ -1,0 +1,50 @@
+# The `asan` and `fuzztest` configs. Imported by the root .bazelrc.
+#
+# Both need Clang: they force CC/CXX to the first `clang` on PATH, which CI
+# pins to the clang-tidy job's LLVM release. On macOS put Homebrew's LLVM
+# first on PATH (`export PATH="$(brew --prefix llvm)/bin:$PATH"`); Apple's
+# clang lacks the fuzzing runtime. MSVC is unsupported.
+#
+# Adapted from FuzzTest's generated configs (@fuzztest//bazel:setup_configs,
+# which Bazel 9 cannot run because it declares a native sh_binary).
+
+# Shared by both configs: Clang, the fuzz harness targets, static links so
+# instrumentation covers every library, and assertions kept on.
+build:fuzz-common --repo_env=CC=clang
+build:fuzz-common --repo_env=CXX=clang++
+build:fuzz-common --define=fastecu_fuzz_harnesses=enabled
+build:fuzz-common --dynamic_mode=off
+# FuzzTest declares no `includes`, so its headers would arrive as -iquote and
+# raise their own warnings (errors in our code, ADR 0018). This passes every
+# external repository's paths as -isystem, as gtest's already are. It must be
+# build-wide: each dependency records its external paths when it is compiled.
+build:fuzz-common --features=external_include_paths
+build:fuzz-common --copt=-UNDEBUG
+build:fuzz-common --copt=-D_GLIBCXX_ASSERTIONS
+build:fuzz-common --copt=-D_LIBCPP_HARDENING_MODE=_LIBCPP_HARDENING_MODE_DEBUG
+
+# ASan + UBSan over the portable tests and fuzz harnesses. Harnesses run in
+# FuzzTest's unit-test mode: their committed seeds replay under the sanitizers.
+# Use with: bazel test --config=asan //src/algorithms/... //src/backend/...
+build:asan --config=fuzz-common
+build:asan --copt=-fsanitize=address,undefined
+build:asan --linkopt=-fsanitize=address,undefined
+build:asan --copt=-fno-sanitize-recover=all
+# apple_support's toolchain (macOS) drops its _FORTIFY_SOURCE define, which
+# clashes with ASan's, only under these features. The Linux toolchain has no
+# such features; Bazel ignores requested features a toolchain does not define.
+build:asan --features=asan
+build:asan --features=ubsan
+build:asan --copt=-fno-omit-frame-pointer
+# Bazel links with `clang`, not `clang++`; this links UBSan's C++ runtime.
+build:asan --linkopt=-fsanitize-link-c++-runtime
+# FuzzTest reads this define, not __has_feature, to know it runs under ASan.
+build:asan --copt=-DADDRESS_SANITIZER
+
+# Coverage-guided fuzzing. Adds coverage instrumentation to everything except
+# FuzzTest and GoogleTest themselves.
+# Use with: bazel run --config=fuzztest //pkg:unit_fuzz_test -- --fuzz=Suite.Property
+build:fuzztest --config=asan
+build:fuzztest --copt=-DFUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+build:fuzztest --copt=-fsanitize-coverage=inline-8bit-counters,trace-cmp,pc-table
+build:fuzztest --per_file_copt=external/fuzztest\+/.*,external/googletest\+/.*@-fsanitize-coverage=0

@@ -1,0 +1,30 @@
+name: LLVM release (Linux)
+description: >-
+  Install an official llvm-project release tarball, checked against its
+  SHA-256, and put its unversioned clang, clang-tidy and run-clang-tidy first
+  on PATH.
+inputs:
+  version:
+    description: LLVM release version, for example 23.1.2.
+    required: true
+  sha256:
+    description: SHA-256 of the LLVM-<version>-Linux-X64.tar.xz release asset.
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Install LLVM ${{ inputs.version }}
+      shell: bash
+      env:
+        LLVM_VERSION: ${{ inputs.version }}
+        LLVM_SHA256: ${{ inputs.sha256 }}
+      run: |
+        name="LLVM-${LLVM_VERSION}-Linux-X64.tar.xz"
+        archive="${RUNNER_TEMP}/${name}"
+        curl -fsSL --retry 3 -o "${archive}" \
+          "https://github.com/llvm/llvm-project/releases/download/llvmorg-${LLVM_VERSION}/${name}"
+        echo "${LLVM_SHA256}  ${archive}" | sha256sum --check --strict
+        mkdir "${RUNNER_TEMP}/llvm"
+        tar -xJf "${archive}" -C "${RUNNER_TEMP}/llvm" --strip-components=1
+        rm "${archive}"
+        echo "${RUNNER_TEMP}/llvm/bin" >> "$GITHUB_PATH"

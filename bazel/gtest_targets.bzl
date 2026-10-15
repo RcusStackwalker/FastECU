@@ -26,7 +26,14 @@ def _fastecu_portable_gtest_impl(
         target_compatible_with,
         copts,
         size):
-    """GoogleTest target whose compile/link closure is deliberately Qt-free."""
+    """GoogleTest target whose compile/link closure is deliberately Qt-free.
+
+    A name ending in `_fuzz_test` makes a FuzzTest harness instead: Gazelle
+    cannot pick a rule kind by file suffix, so the suffix selects it here. A
+    harness links FuzzTest's main, is tagged `fuzz`, and builds only under the
+    configs in bazel/fuzz.bazelrc.
+    """
+    is_fuzz = name.endswith("_fuzz_test")
     cc_test(
         name = name,
         visibility = visibility,
@@ -35,12 +42,19 @@ def _fastecu_portable_gtest_impl(
         data = data,
         env = env,
         size = size,
-        tags = tags,
-        target_compatible_with = target_compatible_with,
+        tags = tags + ["fuzz"] if is_fuzz else tags,
+        target_compatible_with = target_compatible_with + select({
+            Label("//bazel:fuzz_harnesses_enabled"): [],
+            "//conditions:default": [Label("@platforms//:incompatible")],
+        }) if is_fuzz else target_compatible_with,
         deps = _with_implicit_deps([
             Label("//src/algorithms/protocol/testing:byte_matchers"),
+        ] + ([
+            Label("@fuzztest//fuzztest"),
+            Label("@fuzztest//fuzztest:fuzztest_gtest_main"),
+        ] if is_fuzz else [
             Label("@googletest//:gtest_main"),
-        ], deps),
+        ]), deps),
     )
 
 fastecu_portable_gtest = macro(

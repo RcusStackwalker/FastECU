@@ -171,6 +171,14 @@ integer facade statuses with typed results using names that cannot collide with
 Windows SDK macros; see the [desktop boundary contract](reference/desktop-contracts.md#composition-lifetime).
 Remove stale commented-out code as nearby behavior changes.
 
+### P2: Analyze fuzz harnesses with clang-tidy
+
+`*_fuzz_test.cpp` targets build only under `--config=asan` or
+`--config=fuzztest`, so the default compilation database the clang-tidy gate
+refreshes has no entry for them, and the changed-files run skips them without
+a note. Give the refresh a fuzz-enabled pass (or a database merged from one) and
+make a changed source with no database entry a reported note, not silence.
+
 ## Coverage growth sequence toward 80%
 
 Prioritize parser/model fixtures and validation; checksum golden vectors and

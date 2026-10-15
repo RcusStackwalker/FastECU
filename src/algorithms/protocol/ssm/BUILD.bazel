@@ -21,3 +21,14 @@ fastecu_portable_gtest(
         "@googletest//:gtest",
     ],
 )
+
+fastecu_portable_gtest(
+    name = "ssm_protocol_core_fuzz_test",
+    srcs = ["ssm_protocol_core_fuzz_test.cpp"],
+    data = glob(["testdata/fuzz/**"]),
+    deps = [
+        ":ssm",
+        "@fuzztest//fuzztest",
+        "@googletest//:gtest",
+    ],
+)

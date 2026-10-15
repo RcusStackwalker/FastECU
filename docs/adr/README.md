@@ -32,6 +32,7 @@ is an ADR.
 | [0018](0018-treat-first-party-warnings-as-errors.md) | Compiler and linker warnings in first-party code are errors |
 | [0019](0019-compile-the-protocol-catalog-into-the-backend.md) | Protocol and vehicle data are compiled into the backend |
 | [0020](0020-model-rom-memory-as-a-memory-map.md) | ROM memory is a memory map over the ROM file |
+| [0021](0021-fuzz-portable-code-with-fuzztest.md) | Portable code is fuzzed with FuzzTest under Clang only |
 
 ## Retired numbers
 
