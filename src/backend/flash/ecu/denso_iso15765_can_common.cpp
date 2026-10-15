@@ -14,6 +14,14 @@ namespace fastecu::flash
 namespace
 {
 
+// Legacy setup-PDU provenance (operation sources at 20892df): N83M 1.5M
+// lines 837-852, 878-893, 1379-1394; N83M 4M lines 845-860, 886-901,
+// 1390-1405; SH72531 lines 844-854, 881-891, 1378-1388; SH72543 diesel
+// lines 827-843, 866-882, 1400-1413. Diesel computes the fields while its
+// siblings spell out literals; all encode the supplied region identically.
+constexpr bytes::Byte kDataFormatIdentifier = 0x04;
+constexpr bytes::Byte kAddressAndLengthFormat = 0x44;
+
 // SecurityAccess levels for this family: odd requestSeed 0x61 paired with the
 // even sendKey 0x62, not the 0x01/0x02 uds_service_ids.h names.
 constexpr bytes::Byte kSecurityAccessRequestSeed = 0x61;
@@ -58,6 +66,18 @@ constexpr std::array<InCarExchange, 10> kN83mInCarSequence{{
 constexpr std::string_view kRejectionPrefix = "Wrong response from ECU: ";
 
 } // namespace
+
+bytes::Bytes DensoIso15765DownloadSetupPdu(const MemoryRegion& region)
+{
+    return bytes::ComposeBe(uds::kSidRequestDownload, kDataFormatIdentifier, kAddressAndLengthFormat, region.start,
+                            region.length);
+}
+
+bytes::Bytes DensoIso15765UploadSetupPdu(const MemoryRegion& region)
+{
+    return bytes::ComposeBe(uds::kSidRequestUpload, kDataFormatIdentifier, kAddressAndLengthFormat, region.start,
+                            region.length);
+}
 
 Result<bytes::Bytes> TolerantProbe(const CanExecutorContext& ctx, bytes::ByteView pdu, bytes::Byte expected_service,
                                    bytes::Byte expected_subfunction, std::chrono::milliseconds timeout,
@@ -135,12 +155,12 @@ Status DensoSecurityAccess(const CanExecutorContext& ctx)
     return {};
 }
 
-Status DensoIso15765Erase(const CanExecutorContext& ctx, bytes::ByteView request_download_setup_pdu)
+Status DensoIso15765Erase(const CanExecutorContext& ctx, const MemoryRegion& region)
 {
     LogInfo(ctx, "Setting flash start & length");
     if (Result<bytes::Bytes> setup =
-            FatalQuery(ExchangeContext(ctx, kErasePolicy), request_download_setup_pdu, bytes::Bytes{0x20, 0x01, 0x05},
-                       kRejectionPrefix, "flash start & length setup");
+            FatalQuery(ExchangeContext(ctx, kErasePolicy), DensoIso15765DownloadSetupPdu(region),
+                       bytes::Bytes{0x20, 0x01, 0x05}, kRejectionPrefix, "flash start & length setup");
         !setup.has_value())
     {
         return std::unexpected(setup.error());

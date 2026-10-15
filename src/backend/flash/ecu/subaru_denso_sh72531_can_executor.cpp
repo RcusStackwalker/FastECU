@@ -82,11 +82,6 @@ constexpr bytes::Byte kSidCommunicationControl = 0x28; // ISO 14229-1
 constexpr bytes::Byte kRoutineIdHigh = 0x02;
 constexpr bytes::Byte kRoutineChecksum = 0x02;
 
-// RequestDownload/RequestUpload format bytes: 0x04 dataFormatIdentifier and
-// 0x44 addressAndLengthFormatIdentifier (4-byte address, 4-byte length).
-constexpr bytes::Byte kDataFormatIdentifier = 0x04;
-constexpr bytes::Byte kAddressAndLengthFormat = 0x44;
-
 // kFlashBlocksSH72531[0].start. write_memory hands reflash_block
 // &data_array[fdt->fblocks->start] (line 1140), i.e. fblocks[0].start, and
 // reflash_block then indexes newdata[i + blockaddr] (line 1225) -- so byte 0
@@ -405,14 +400,6 @@ Status ConnectBootloader(Ctx& ctx, ICanFlashTransport& can)
     return (*selector)[3] != 0xFF ? ConnectInCar(ctx, can) : ConnectBench(ctx);
 }
 
-// The 0x34 RequestDownload / 0x35 RequestUpload setup PDU legacy spells out
-// as literals for this family (lines 844-854, 881-891, 1378-1388): the
-// region's start and length, big-endian, behind the two format bytes.
-bytes::Bytes SetupPdu(bytes::Byte service, const MemoryRegion& region)
-{
-    return ComposeBe(service, kDataFormatIdentifier, kAddressAndLengthFormat, region.start, region.length);
-}
-
 // Legacy read_memory, lines 815-1073. start_addr and length are overwritten
 // with 0x8000 / 0x137F00 at lines 828-830 regardless of the caller's
 // arguments; the plan carries exactly that region, so `region` reproduces it.
@@ -424,13 +411,13 @@ Result<bytes::Bytes> ReadMemory(Ctx& ctx, const SubaruDensoSh72531CanPlan& famil
     // not the short timeout its 1N83M 1.5M sibling uses here.
     LogInfo(ctx, "Settting dump start & length");
     if (Result<bytes::Bytes> download =
-            FatalQuery(ctx, SetupPdu(uds::kSidRequestDownload, region), bytes::Bytes{0x20, 0x01, 0x05}, kLongPolicy,
+            FatalQuery(ctx, DensoIso15765DownloadSetupPdu(region), bytes::Bytes{0x20, 0x01, 0x05}, kLongPolicy,
                        "dump start & length setup");
         !download.has_value())
     {
         return std::unexpected(download.error());
     }
-    if (Result<bytes::Bytes> upload = FatalQuery(ctx, SetupPdu(uds::kSidRequestUpload, region),
+    if (Result<bytes::Bytes> upload = FatalQuery(ctx, DensoIso15765UploadSetupPdu(region),
                                                  bytes::Bytes{0x20, 0x01, 0x01}, kLongPolicy, "dump upload setup");
         !upload.has_value())
     {
@@ -498,13 +485,6 @@ Result<bytes::Bytes> ReadMemory(Ctx& ctx, const SubaruDensoSh72531CanPlan& famil
     image.insert(image.end(), rom.begin(), rom.end());
     image.insert(image.end(), family.tail_pad_len, 0xFF);
     return image;
-}
-
-// Legacy erase_memory, lines 1357-1465: the setup PDU, the erase trigger,
-// then a bounded re-read loop that never re-sends.
-Status EraseMemory(Ctx& ctx, const MemoryRegion& region)
-{
-    return DensoIso15765Erase(ctx, SetupPdu(uds::kSidRequestDownload, region));
 }
 
 // Legacy reflash_block, lines 1167-1350, called for block 1 only.
@@ -607,7 +587,7 @@ Status WriteMemory(Ctx& ctx, bytes::ByteView image, const MemoryRegion& block, P
     LogInfo(ctx, "Blocks to flash: 1,  (total: 1)");
     LogInfo(ctx, "--- Erasing ECU flash memory ---");
     PhaseReporter erase = phases.Start("Erase", 1);
-    if (const Status erased = EraseMemory(ctx, block); !erased.has_value())
+    if (const Status erased = DensoIso15765Erase(ctx, block); !erased.has_value())
     {
         return erased;
     }

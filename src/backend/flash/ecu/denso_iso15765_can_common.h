@@ -9,6 +9,7 @@
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
 #include "src/backend/flash/ecu/uds_client_exchange_common.h"
 #include "src/backend/flash/flash_executor.h"
+#include "src/backend/flash/flash_types.h"
 #include "src/backend/ports/result.h"
 
 namespace fastecu::flash
@@ -31,8 +32,8 @@ namespace fastecu::flash
 // The decrypt table remains valid for the bootloader-dialect normal-ROM read paths.
 // DensoCAN is not a consumer of this data-only cluster.
 //
-// Beyond these tables, the common module shares three narrow operations: the
-// SecurityAccess seed/key exchange and the erase flow (all four
+// Beyond these tables, the common module shares four narrow operations: pure
+// setup-PDU encoding, the SecurityAccess seed/key exchange and the erase flow (all four
 // Denso ISO-15765 bootloader dialect executors) and the N83M in-car opening exchange run (the two N83M executors
 // only; its 0x7E1 request asks for session 0x63, where the SH-family runs send
 // 0x03). Everything else that looks alike -- the connect/probe shapes, the
@@ -102,6 +103,13 @@ inline bytes::Bytes DensoDecryptPage(bytes::ByteView page)
                                           ssm_protocol::kIndexTransformationStock);
 }
 
+// Pure setup encoding shared by the N83M 1.5M/4M, SH72531 and SH72543 diesel
+// bootloader executors: RequestDownload (34) or RequestUpload (35), 04 44,
+// then four-byte big-endian start and length. Region fields pass through
+// unchanged; callers own validation and policy.
+bytes::Bytes DensoIso15765DownloadSetupPdu(const MemoryRegion& region);
+bytes::Bytes DensoIso15765UploadSetupPdu(const MemoryRegion& region);
+
 // Sends `pdu`, reads one reply, and compares its first two bytes. A mismatch
 // is LOGGED AND TOLERATED -- the frame is still returned and the caller
 // decides -- which is what legacy does at these sites; only an absent or
@@ -134,14 +142,14 @@ Status FireAndForget(const CanExecutorContext& ctx, ICanFlashTransport& can, std
 // client's own pending timeout and are re-read, never re-sent.
 Status DensoSecurityAccess(const CanExecutorContext& ctx);
 
-// The bootloader dialect's flash erase: RequestDownload with `request_download_setup_pdu`
-// (the executor builds it, since it also builds the read-path setup), then the
+// The bootloader dialect's flash erase: builds RequestDownload setup from the
+// caller-selected region with DensoIso15765DownloadSetupPdu, then sends the
 // erase routine trigger, then up to twenty re-reads for the 71 01 02 success
 // reply. The trigger is sent once and never re-sent while polling. The setup
 // reply must start 20 01 05 or the trigger is never sent. Setup and polling
 // both read at 500 ms, with a 500 ms sleep after the trigger and after each
 // unsuccessful poll.
-Status DensoIso15765Erase(const CanExecutorContext& ctx, bytes::ByteView request_download_setup_pdu);
+Status DensoIso15765Erase(const CanExecutorContext& ctx, const MemoryRegion& region);
 
 // The N83M 1.5M and 4M in-car arms' opening run of ten session, DTC and
 // communication-control requests across 0x7A2, 0x7E0, 0x7DF, 0x7E1 and 0x7B0,

@@ -79,13 +79,25 @@ when byte-level evidence establishes equivalence. Preserve family sequencing,
 timeouts, response tolerance, retry policy, address translation, and erase rules.
 Do not build a universal configurable state machine from similar-looking code.
 
-The four executors of the Denso ISO-15765 bootloader dialect share three
-operations in the common module: the SecurityAccess seed/key exchange, the erase flow, and, for the two
-N83M families only, the in-car opening exchange run. The shared 0x7E1 request in
+The four executors of the Denso ISO-15765 bootloader dialect share four
+operations in the common module: pure setup-PDU encoding, the SecurityAccess
+seed/key exchange, the erase flow, and, for the two N83M families only, the
+in-car opening exchange run. The shared 0x7E1 request in
 that run asks for session `0x63`; the SH72531 and SH72543 diesel in-car runs send
 `0x03` and stay local. The `write_memory` orchestration, reads, reflash, connect
 and probe flows, kernel jumps, checksum verification, and response policies stay
 in each executor, and no configurable family state machine is shared.
+`DensoIso15765DownloadSetupPdu` and `DensoIso15765UploadSetupPdu` encode their
+fixed service (`34` or `35`), `04 44`, and the supplied region's four-byte
+big-endian start and length without validation or address arithmetic. The
+public interface accepts only the region, so callers cannot select another SID.
+Independent literal vectors and family transcripts pin its eleven-byte output.
+Read setup remains tolerant on N83M 4M and fatal on the other three families;
+SH72531 retains its long setup timeout, while SH72543 diesel and N83M 1.5M
+retain their short setup timeouts. Encoding does not change erase regions,
+caller response policy or hardware qualification. `DensoIso15765Erase` accepts
+the family-selected region and constructs its download setup internally; family
+write orchestration calls it directly without forwarding wrappers.
 
 The [ordinary optional M32R SSM exchange](../src/backend/flash/ecu/m32r_ssm_exchange.h)
 is shared by the Subaru Hitachi M32R K-Line ECU, Subaru Mitsubishi M32R K-Line
