@@ -14,6 +14,7 @@
 #include "src/algorithms/protocol/bytes_compose.h"
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
 #include "src/backend/flash/can_flash_uds_channel.h"
+#include "src/backend/flash/flash_types.h"
 #include "src/backend/flash/testing/scripted_can_flash_transport.h"
 #include "src/backend/ports/manual_cancellation_token.h"
 #include "src/backend/ports/testing/mock_clock.h"
@@ -26,6 +27,36 @@ namespace fastecu::flash
 {
 namespace
 {
+
+TEST(DensoIso15765CanCommon, SetupPduEncodesDownloadBigEndian)
+{
+    EXPECT_THAT(DensoIso15765SetupPdu(0x34, MemoryRegion{0x01234567, 0x89ABCDEF}),
+                test_bytes::BytesEq((bytes::Bytes{0x34, 0x04, 0x44, 0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF})));
+}
+
+TEST(DensoIso15765CanCommon, SetupPduEncodesUploadBigEndian)
+{
+    EXPECT_THAT(DensoIso15765SetupPdu(0x35, MemoryRegion{0x01234567, 0x89ABCDEF}),
+                test_bytes::BytesEq((bytes::Bytes{0x35, 0x04, 0x44, 0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF})));
+}
+
+TEST(DensoIso15765CanCommon, SetupPduEncodesZeroFields)
+{
+    EXPECT_THAT(DensoIso15765SetupPdu(0x34, MemoryRegion{0, 0}),
+                test_bytes::BytesEq((bytes::Bytes{0x34, 0x04, 0x44, 0, 0, 0, 0, 0, 0, 0, 0})));
+}
+
+TEST(DensoIso15765CanCommon, SetupPduEncodesMaximumFields)
+{
+    EXPECT_THAT(DensoIso15765SetupPdu(0x35, MemoryRegion{0xFFFFFFFF, 0xFFFFFFFF}),
+                test_bytes::BytesEq((bytes::Bytes{0x35, 0x04, 0x44, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF})));
+}
+
+TEST(DensoIso15765CanCommon, SetupPduPreservesServiceByte)
+{
+    EXPECT_THAT(DensoIso15765SetupPdu(0xA5, MemoryRegion{1, 0x100}),
+                test_bytes::BytesEq((bytes::Bytes{0xA5, 0x04, 0x44, 0, 0, 0, 1, 0, 0, 1, 0})));
+}
 
 // Two layers of assertion here, and they catch different mistakes.
 //

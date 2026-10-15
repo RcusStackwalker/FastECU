@@ -9,6 +9,7 @@
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
 #include "src/backend/flash/ecu/uds_client_exchange_common.h"
 #include "src/backend/flash/flash_executor.h"
+#include "src/backend/flash/flash_types.h"
 #include "src/backend/ports/result.h"
 
 namespace fastecu::flash
@@ -101,6 +102,11 @@ inline bytes::Bytes DensoDecryptPage(bytes::ByteView page)
     return ssm_protocol::CalculatePayload(page, static_cast<std::uint32_t>(page.size()), kDensoIso15765DecryptTable,
                                           ssm_protocol::kIndexTransformationStock);
 }
+
+// Pure setup encoding shared by the N83M 1.5M/4M, SH72531 and SH72543 diesel
+// bootloader executors: service, 04 44, then four-byte big-endian start and
+// length. Fields pass through unchanged; callers own validation and policy.
+bytes::Bytes DensoIso15765SetupPdu(bytes::Byte service, const MemoryRegion& region);
 
 // Sends `pdu`, reads one reply, and compares its first two bytes. A mismatch
 // is LOGGED AND TOLERATED -- the frame is still returned and the caller

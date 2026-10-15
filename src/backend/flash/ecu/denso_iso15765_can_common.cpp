@@ -14,6 +14,9 @@ namespace fastecu::flash
 namespace
 {
 
+constexpr bytes::Byte kDataFormatIdentifier = 0x04;
+constexpr bytes::Byte kAddressAndLengthFormat = 0x44;
+
 // SecurityAccess levels for this family: odd requestSeed 0x61 paired with the
 // even sendKey 0x62, not the 0x01/0x02 uds_service_ids.h names.
 constexpr bytes::Byte kSecurityAccessRequestSeed = 0x61;
@@ -58,6 +61,11 @@ constexpr std::array<InCarExchange, 10> kN83mInCarSequence{{
 constexpr std::string_view kRejectionPrefix = "Wrong response from ECU: ";
 
 } // namespace
+
+bytes::Bytes DensoIso15765SetupPdu(bytes::Byte service, const MemoryRegion& region)
+{
+    return bytes::ComposeBe(service, kDataFormatIdentifier, kAddressAndLengthFormat, region.start, region.length);
+}
 
 Result<bytes::Bytes> TolerantProbe(const CanExecutorContext& ctx, bytes::ByteView pdu, bytes::Byte expected_service,
                                    bytes::Byte expected_subfunction, std::chrono::milliseconds timeout,
