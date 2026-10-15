@@ -95,7 +95,9 @@ Independent literal vectors and family transcripts pin its eleven-byte output.
 Read setup remains tolerant on N83M 4M and fatal on the other three families;
 SH72531 retains its long setup timeout, while SH72543 diesel and N83M 1.5M
 retain their short setup timeouts. Encoding does not change erase regions,
-caller response policy or hardware qualification.
+caller response policy or hardware qualification. `DensoIso15765Erase` accepts
+the family-selected region and constructs its download setup internally; family
+write orchestration calls it directly without forwarding wrappers.
 
 The [ordinary optional M32R SSM exchange](../src/backend/flash/ecu/m32r_ssm_exchange.h)
 is shared by the Subaru Hitachi M32R K-Line ECU, Subaru Mitsubishi M32R K-Line

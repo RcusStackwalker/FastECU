@@ -155,12 +155,12 @@ Status DensoSecurityAccess(const CanExecutorContext& ctx)
     return {};
 }
 
-Status DensoIso15765Erase(const CanExecutorContext& ctx, bytes::ByteView request_download_setup_pdu)
+Status DensoIso15765Erase(const CanExecutorContext& ctx, const MemoryRegion& region)
 {
     LogInfo(ctx, "Setting flash start & length");
     if (Result<bytes::Bytes> setup =
-            FatalQuery(ExchangeContext(ctx, kErasePolicy), request_download_setup_pdu, bytes::Bytes{0x20, 0x01, 0x05},
-                       kRejectionPrefix, "flash start & length setup");
+            FatalQuery(ExchangeContext(ctx, kErasePolicy), DensoIso15765DownloadSetupPdu(region),
+                       bytes::Bytes{0x20, 0x01, 0x05}, kRejectionPrefix, "flash start & length setup");
         !setup.has_value())
     {
         return std::unexpected(setup.error());

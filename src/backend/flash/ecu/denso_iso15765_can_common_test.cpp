@@ -250,7 +250,7 @@ TEST(DensoIso15765CanCommonTest, SecurityAccessPropagatesCancellation)
     EXPECT_EQ(f.transport.WritesConsumed(), 1U);
 }
 
-const bytes::Bytes kSetupPdu{0x34, 0x04, 0x44, 0x08, 0xFA, 0xC0, 0x00, 0x00, 0x17, 0x3F, 0x00};
+constexpr MemoryRegion kEraseRegion{0x08FAC000, 0x00173F00};
 
 void ScriptEraseSetup(ScriptedCanFlashTransport& transport)
 {
@@ -269,7 +269,7 @@ TEST(DensoIso15765CanCommonTest, EraseSetupMismatchDoesNotSendTrigger)
     f.transport.Exchange(Request({0x34, 0x04, 0x44, 0x08, 0xFA, 0xC0, 0x00, 0x00, 0x17, 0x3F, 0x00}),
                          Response({0x74, 0x20, 0x01, 0x04}));
 
-    const Status result = DensoIso15765Erase(f.ctx, kSetupPdu);
+    const Status result = DensoIso15765Erase(f.ctx, kEraseRegion);
 
     EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kBadResponse));
     EXPECT_EQ(f.transport.WritesConsumed(), 1U);
@@ -283,7 +283,7 @@ TEST(DensoIso15765CanCommonTest, EraseAccepts71_01_02AfterPolling)
     f.transport.QueueRead(Response({0x71, 0x01, 0x03}));
     f.transport.QueueRead(Response({0x71, 0x01, 0x02, 0x00}));
 
-    EXPECT_THAT(DensoIso15765Erase(f.ctx, kSetupPdu), fastecu::testing::IsOk());
+    EXPECT_THAT(DensoIso15765Erase(f.ctx, kEraseRegion), fastecu::testing::IsOk());
 
     EXPECT_TRUE(f.transport.ScriptConsumed());
     EXPECT_EQ(f.transport.WritesConsumed(), 2U);
@@ -306,7 +306,7 @@ TEST(DensoIso15765CanCommonTest, ErasePollingStopsAfter20ReceivesAndNeverResends
         f.transport.QueueRead(Response({0x71, 0x01, 0x03}));
     }
 
-    const Status result = DensoIso15765Erase(f.ctx, kSetupPdu);
+    const Status result = DensoIso15765Erase(f.ctx, kEraseRegion);
 
     EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kBadResponse));
     EXPECT_TRUE(f.transport.ScriptConsumed());
@@ -329,7 +329,7 @@ TEST(DensoIso15765CanCommonTest, EraseCancellationAfterTriggerStopsPolling)
     ScriptEraseSetup(f.transport);
     ScriptEraseTrigger(f.transport);
 
-    const Status result = DensoIso15765Erase(ctx, kSetupPdu);
+    const Status result = DensoIso15765Erase(ctx, kEraseRegion);
 
     EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kCancelled));
     EXPECT_EQ(f.transport.WritesConsumed(), 2U);

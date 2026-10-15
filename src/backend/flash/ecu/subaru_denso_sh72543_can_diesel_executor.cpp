@@ -551,18 +551,6 @@ Result<bytes::Bytes> ReadMemory(Ctx& ctx, const SubaruDensoSh72543CanDieselPlan&
     return image;
 }
 
-// Legacy erase_memory, lines 1375-1488. Unlike its siblings this one takes the
-// block it is to erase -- `erase_memory(const FlashDevice *fdt, unsigned
-// blockno)` -- and write_memory calls it as
-// `erase_memory(&kFlashDevices[mcu_type_index], 0)` (line 1106), i.e. block 0,
-// which is the plan's transfer region. Shape is otherwise the siblings': the
-// setup PDU, the erase trigger, then a bounded re-read loop that never
-// re-sends.
-Status EraseMemory(Ctx& ctx, const MemoryRegion& region)
-{
-    return DensoIso15765Erase(ctx, DensoIso15765DownloadSetupPdu(region));
-}
-
 // Legacy reflash_block, lines 1156-1368, called for block 0 only.
 Status ReflashBlock(Ctx& ctx, bytes::ByteView image, const MemoryRegion& block, PhaseReporter& progress)
 {
@@ -680,7 +668,7 @@ Status WriteMemory(Ctx& ctx, bytes::ByteView image, const MemoryRegion& block, P
     LogInfo(ctx, "Blocks to flash: 0,  (total: 1)");
     LogInfo(ctx, "--- Erasing ECU flash memory ---");
     PhaseReporter erase = phases.Start("Erase", 1);
-    if (const Status erased = EraseMemory(ctx, block); !erased.has_value())
+    if (const Status erased = DensoIso15765Erase(ctx, block); !erased.has_value())
     {
         return erased;
     }

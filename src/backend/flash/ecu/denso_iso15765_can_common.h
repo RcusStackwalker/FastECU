@@ -142,14 +142,14 @@ Status FireAndForget(const CanExecutorContext& ctx, ICanFlashTransport& can, std
 // client's own pending timeout and are re-read, never re-sent.
 Status DensoSecurityAccess(const CanExecutorContext& ctx);
 
-// The bootloader dialect's flash erase: RequestDownload with `request_download_setup_pdu`
-// (the executor selects the region and calls DensoIso15765DownloadSetupPdu), then the
+// The bootloader dialect's flash erase: builds RequestDownload setup from the
+// caller-selected region with DensoIso15765DownloadSetupPdu, then sends the
 // erase routine trigger, then up to twenty re-reads for the 71 01 02 success
 // reply. The trigger is sent once and never re-sent while polling. The setup
 // reply must start 20 01 05 or the trigger is never sent. Setup and polling
 // both read at 500 ms, with a 500 ms sleep after the trigger and after each
 // unsuccessful poll.
-Status DensoIso15765Erase(const CanExecutorContext& ctx, bytes::ByteView request_download_setup_pdu);
+Status DensoIso15765Erase(const CanExecutorContext& ctx, const MemoryRegion& region);
 
 // The N83M 1.5M and 4M in-car arms' opening run of ten session, DTC and
 // communication-control requests across 0x7A2, 0x7E0, 0x7DF, 0x7E1 and 0x7B0,
