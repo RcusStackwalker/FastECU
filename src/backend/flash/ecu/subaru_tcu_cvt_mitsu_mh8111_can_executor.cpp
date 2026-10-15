@@ -7,7 +7,6 @@
 
 #include "src/algorithms/protocol/bytes.h"
 #include "src/algorithms/protocol/bytes_compose.h"
-#include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
 #include "src/algorithms/protocol/uds/uds_response.h"
 #include "src/algorithms/protocol/uds/uds_service_ids.h"
 #include "src/backend/flash/can_flash_uds_channel.h"
@@ -54,23 +53,6 @@ constexpr MemoryRegion kReadRegion{0x8000, 0x78000};
 // kFlashBlocksMH8111[3] in kernelmemorymodels.h). Deliberately does NOT overlap
 // kReadRegion -- see subaru_tcu_cvt_mitsu_mh8111_can_plan.cpp's comment.
 constexpr MemoryRegion kWriteRegion{0x80000, 0x100000};
-
-bytes::Bytes SeedKey(bytes::ByteView seed)
-{
-    return ssm_protocol::CalculateSeedKey(seed, TcuCvtMitsuSeedKeyTable(), ssm_protocol::kIndexTransformationStock);
-}
-
-bytes::Bytes EncryptRom(bytes::ByteView image)
-{
-    return ssm_protocol::CalculatePayload(image, static_cast<std::uint32_t>(image.size()), TcuCvtMitsuEncryptTable(),
-                                          ssm_protocol::kIndexTransformationStock);
-}
-
-bytes::Bytes DecryptPage(bytes::ByteView page)
-{
-    return ssm_protocol::CalculatePayload(page, static_cast<std::uint32_t>(page.size()), TcuCvtMitsuDecryptTable(),
-                                          ssm_protocol::kIndexTransformationStock);
-}
 
 // The five-field context this package shares; see uds_client_exchange_common.h.
 using Ctx = CanExecutorContext;
@@ -153,7 +135,7 @@ Status ConnectBootloader(Ctx& ctx)
     }
     LogInfo(ctx, "Seed request ok");
     const bytes::ByteView seed = uds::Payload(*seed_reply).subspan(1, 4);
-    const bytes::Bytes key = SeedKey(seed);
+    const bytes::Bytes key = TcuCvtMitsuSeedKey(seed);
 
     // Seed key 0x27/0x02 (lines 236-263), fatal.
     LogInfo(ctx, "Sending seed key");
@@ -289,7 +271,7 @@ Result<bytes::Bytes> DumpFlashRange(Ctx& ctx, PhaseReporter& progress)
         {
             return std::unexpected(chunk.error());
         }
-        const bytes::Bytes decrypted = DecryptPage(uds::Payload(*chunk));
+        const bytes::Bytes decrypted = TcuCvtMitsuDecryptPage(uds::Payload(*chunk));
         rom.insert(rom.end(), decrypted.begin(), decrypted.end());
         progress.Update(static_cast<int>(addr + kPageSize - kReadRegion.start));
     }
@@ -422,7 +404,7 @@ Status UnlockAndReflashBlock(Ctx& ctx, bytes::ByteView block_plain, PhaseReporte
         return Fail(ErrorKind::kBadResponse, "flash start & length setup rejected");
     }
 
-    const bytes::Bytes encrypted = EncryptRom(block_plain);
+    const bytes::Bytes encrypted = TcuCvtMitsuEncryptRom(block_plain);
 
     for (std::uint32_t offset = 0; offset < kWriteRegion.length; offset += kChunkSize)
     {

@@ -214,7 +214,7 @@ void ScriptFullConnect(ScriptedCanFlashTransport& transport)
     ScriptAliveProbeMiss(transport);
     ScriptIdentityQueries(transport);
     ScriptSession(transport);
-    const bytes::Bytes key = SeedKey(kSeed);
+    const bytes::Bytes key{0x12, 0xb6, 0xce, 0xba};
     ScriptSeedAndKey(transport, kSeed, key);
     ScriptJump(transport);
     ScriptAliveRecheck(transport);
@@ -505,7 +505,14 @@ TEST(SubaruTcuCvtMitsuMh8104CanExecutor, WriteFlashesTheBlockToleratingEveryCont
                        Response({0x7F, 0x34, 0x22}));
 
     const bytes::ByteView block_plain = bytes::ByteView(rom).subspan(kWindowStart, kWindowLength);
-    const bytes::Bytes encrypted = ToWire(block_plain);
+    ASSERT_THAT(block_plain.first(16),
+                testing::ElementsAreArray(bytes::Bytes{0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a,
+                                                       0x0b, 0x0c, 0x0d, 0x0e, 0x0f}));
+    bytes::Bytes encrypted = ToWire(block_plain);
+    // Independently calculated first wire word sequence; do not derive from ToWire.
+    constexpr std::array<bytes::Byte, 16> kFirstWire{0x76, 0xf9, 0xec, 0x8b, 0x7d, 0x53, 0x6f, 0xbf,
+                                                     0x50, 0xe5, 0x3f, 0x61, 0x16, 0xc7, 0xd5, 0x5c};
+    std::copy(kFirstWire.begin(), kFirstWire.end(), encrypted.begin());
     constexpr std::uint32_t kChunkSize = 128;
     for (std::uint32_t offset = 0; offset < kWindowLength; offset += kChunkSize)
     {

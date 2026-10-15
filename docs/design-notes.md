@@ -102,6 +102,17 @@ family-owned. Shared declarative plan validation does not establish
 interchangeable transfer loops. Transport seams keep failure and cancellation
 paths scriptable; sharing does not change hardware qualification.
 
+The Subaru TCU Mitsubishi CVT MH8104 CAN and MH8111 CAN executors share
+`TcuCvtMitsuSeedKey`, `TcuCvtMitsuEncryptRom`, and `TcuCvtMitsuDecryptPage` in
+the [CVT common module](../src/backend/flash/ecu/subaru_tcu_cvt_mitsu_can_common.h).
+These pure byte operations bind the existing family tables to the canonical
+stock transformation. Independent literal vectors and family wire transcripts
+pin the extraction. Connection, image addressing, programming flow, retries,
+chunk sizes, and acknowledgement policies remain family-owned: MH8104 retains
+its raw-channel exchanges and tolerant checksum handling, while MH8111 retains
+UDS exchanges and fatal checksum handling. Legacy line citations establish
+table provenance only; this sharing changes no hardware qualification.
+
 ### Corrections require local evidence
 
 A correction needs local evidence of the defect, a reproducing test, exact
