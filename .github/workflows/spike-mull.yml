@@ -1,0 +1,80 @@
+# Throwaway spike: can the portable tree build with Mull's LLVM and can Mull
+# mutate algorithms/checksum? Not for merge.
+name: spike-mull
+
+on:
+  push:
+    branches: [spike/mull]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  MULL_LLVM: '22'
+  MULL_DEB: Mull-22-0.34.1-LLVM-22.1.2-ubuntu-amd64-26.04.deb
+
+jobs:
+  spike:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: bazel-contrib/setup-bazel@c5acdfb288317d0b5c0bbd7a396a3dc868bb0f86 # 0.19.0
+        with:
+          bazelisk-cache: true
+          repository-cache: true
+          cache-save: false
+
+      - name: Install clang and Mull
+        run: |
+          sudo apt-get update
+          apt-cache policy "clang-${MULL_LLVM}" | head -5
+          sudo apt-get install -y --no-install-recommends "clang-${MULL_LLVM}" "llvm-${MULL_LLVM}"
+          curl -fsSL --retry 3 -o "${RUNNER_TEMP}/${MULL_DEB}" \
+            "https://github.com/mull-project/mull/releases/download/0.34.1/${MULL_DEB}"
+          sudo apt-get install -y "${RUNNER_TEMP}/${MULL_DEB}"
+          dpkg -L "mull-${MULL_LLVM}" | grep -E 'bin/|ir-frontend'
+          "clang++-${MULL_LLVM}" --version
+          "mull-runner-${MULL_LLVM}" --version
+
+      - name: Build portable tree with Mull's clang (no plugin)
+        run: |
+          bazel build -k \
+            --repo_env=CC="clang-${MULL_LLVM}" --repo_env=CXX="clang++-${MULL_LLVM}" \
+            //src/algorithms/... //src/backend/...
+
+      - name: Build checksum tests with the Mull plugin
+        run: |
+          plugin="$(dpkg -L "mull-${MULL_LLVM}" | grep 'mull-ir-frontend' | head -1)"
+          echo "plugin=${plugin}"
+          bazel build \
+            --repo_env=CC="clang-${MULL_LLVM}" --repo_env=CXX="clang++-${MULL_LLVM}" \
+            --dynamic_mode=off \
+            --copt=-O0 --copt=-g --copt=-grecord-command-line \
+            --copt="-fpass-plugin=${plugin}" \
+            --action_env=MULL_CONFIG="${GITHUB_WORKSPACE}/spike/mull/mull.yml" \
+            //src/algorithms/checksum:all
+
+      - name: Run Mull on checksum tests
+        run: |
+          mkdir -p "${RUNNER_TEMP}/mull-report"
+          status=0
+          for test in bazel-bin/src/algorithms/checksum/*_test; do
+            echo "::group::$(basename "${test}")"
+            "mull-runner-${MULL_LLVM}" \
+              --reporters IDE --reporters Elements \
+              --report-dir "${RUNNER_TEMP}/mull-report" \
+              --report-name "$(basename "${test}")" \
+              --ide-reporter-show-killed \
+              "${test}" 2>&1 | tail -n 200 || status=1
+            echo "::endgroup::"
+          done
+          exit "${status}"
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: mull-spike-report
+          path: ${{ runner.temp }}/mull-report

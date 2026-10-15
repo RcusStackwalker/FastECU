@@ -1,0 +1,7 @@
+includePaths:
+  - '.*src/(algorithms|backend)/.*'
+excludePaths:
+  - '.*external/.*'
+  - '.*_test\.cpp'
+  - '.*/testing/.*'
+timeout: 10000
