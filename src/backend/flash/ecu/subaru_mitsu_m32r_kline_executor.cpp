@@ -6,6 +6,7 @@
 #include "src/algorithms/protocol/bytes_compose.h"
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
 #include "src/algorithms/protocol/uds/uds_service_ids.h"
+#include "src/backend/flash/ecu/m32r_ssm_exchange.h"
 #include "src/backend/flash/ecu/subaru_mitsu_m32r_kline_plan.h"
 
 namespace fastecu::flash
@@ -17,44 +18,11 @@ using bytes::U24;
 using namespace bytes::literals;
 using namespace std::chrono_literals;
 
-constexpr int kTimeoutMs = 2000;
-
-bytes::Bytes Framed(bytes::ByteView payload, const SubaruMitsuM32rKlinePlan& p)
-{
-    return ssm_protocol::AddHeader(payload, p.tester_id, p.target_id);
-}
-
 Result<std::optional<bytes::Bytes>> ExchangeOptional(IKlineFlashTransport& transport,
                                                      const ICancellationToken& cancellation, bytes::ByteView payload,
                                                      const SubaruMitsuM32rKlinePlan& p)
 {
-    if (cancellation.Cancelled())
-    {
-        return Fail(ErrorKind::kCancelled, "cancelled before write");
-    }
-    auto written = transport.Write(Framed(payload, p));
-    if (!written.has_value())
-    {
-        return std::unexpected(written.error());
-    }
-    if (*written != payload.size() + 5)
-    {
-        return Fail(ErrorKind::kDisconnected, "short K-Line write");
-    }
-    if (cancellation.Cancelled())
-    {
-        return Fail(ErrorKind::kCancelled, "cancelled after write");
-    }
-    auto response = transport.Read(std::chrono::milliseconds{kTimeoutMs}, cancellation);
-    if (!response.has_value())
-    {
-        return std::unexpected(response.error());
-    }
-    if (cancellation.Cancelled())
-    {
-        return Fail(ErrorKind::kCancelled, "cancelled after read");
-    }
-    return std::move(*response);
+    return ExchangeM32rSsmOptional(transport, cancellation, payload, p.tester_id, p.target_id, 2000ms);
 }
 
 Result<bytes::Bytes> Exchange(IKlineFlashTransport& transport, const ICancellationToken& cancellation,

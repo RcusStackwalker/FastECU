@@ -8,6 +8,7 @@
 #include "src/algorithms/protocol/bytes_compose.h"
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
 #include "src/algorithms/protocol/uds/uds_service_ids.h"
+#include "src/backend/flash/ecu/m32r_ssm_exchange.h"
 #include "src/backend/flash/ecu/subaru_tcu_hitachi_m32r_kline_plan.h"
 
 namespace fastecu::flash
@@ -44,34 +45,8 @@ Result<std::optional<bytes::Bytes>> ExchangeOptional(IKlineFlashTransport& trans
                                                      const ICancellationToken& cancellation, bytes::ByteView payload,
                                                      const SubaruTcuHitachiM32rKlinePlan& p, int timeout)
 {
-    if (cancellation.Cancelled())
-    {
-        return Fail(ErrorKind::kCancelled, "cancelled before write");
-    }
-    const bytes::Bytes request = Framed(payload, p);
-    auto written = transport.Write(request);
-    if (!written.has_value())
-    {
-        return std::unexpected(written.error());
-    }
-    if (*written != request.size())
-    {
-        return Fail(ErrorKind::kDisconnected, "short K-Line write");
-    }
-    if (cancellation.Cancelled())
-    {
-        return Fail(ErrorKind::kCancelled, "cancelled after write");
-    }
-    auto response = transport.Read(std::chrono::milliseconds{timeout}, cancellation);
-    if (!response.has_value())
-    {
-        return std::unexpected(response.error());
-    }
-    if (cancellation.Cancelled())
-    {
-        return Fail(ErrorKind::kCancelled, "cancelled after read");
-    }
-    return std::move(*response);
+    return ExchangeM32rSsmOptional(transport, cancellation, payload, p.tester_id, p.target_id,
+                                   std::chrono::milliseconds{timeout});
 }
 
 Result<bytes::Bytes> Exchange(IKlineFlashTransport& transport, const ICancellationToken& cancellation,
@@ -151,13 +126,9 @@ Status ExpectPrefix(bytes::ByteView response, std::initializer_list<bytes::Byte>
     {
         return Fail(ErrorKind::kBadResponse, "response is too short");
     }
-    std::size_t i = 4;
-    for (bytes::Byte value : prefix)
+    if (!M32rSsmPayloadHasPrefix(response, bytes::ByteView(prefix.begin(), prefix.size())))
     {
-        if (response[i++] != value)
-        {
-            return Fail(ErrorKind::kBadResponse, "wrong response from TCU");
-        }
+        return Fail(ErrorKind::kBadResponse, "wrong response from TCU");
     }
     return {};
 }

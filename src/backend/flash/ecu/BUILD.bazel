@@ -330,6 +330,7 @@ cc_library(
     srcs = ["subaru_hitachi_m32r_kline_executor.cpp"],
     hdrs = ["subaru_hitachi_m32r_kline_executor.h"],
     implementation_deps = [
+        ":m32r_ssm_exchange",
         ":subaru_hitachi_m32r_kline_plan",
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/ssm",
@@ -566,6 +567,7 @@ cc_library(
     srcs = ["subaru_mitsu_m32r_kline_executor.cpp"],
     hdrs = ["subaru_mitsu_m32r_kline_executor.h"],
     implementation_deps = [
+        ":m32r_ssm_exchange",
         ":subaru_mitsu_m32r_kline_plan",
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/ssm",
@@ -1174,6 +1176,7 @@ cc_library(
     srcs = ["subaru_tcu_hitachi_m32r_kline_executor.cpp"],
     hdrs = ["subaru_tcu_hitachi_m32r_kline_executor.h"],
     implementation_deps = [
+        ":m32r_ssm_exchange",
         ":subaru_tcu_hitachi_m32r_kline_plan",
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/ssm",
@@ -1892,4 +1895,24 @@ fastecu_portable_gtest(
         "//src/backend/flash:flash_types",
         "@googletest//:gtest",
     ],
+)
+
+fastecu_portable_gtest(
+    name = "m32r_ssm_exchange_test",
+    srcs = ["m32r_ssm_exchange_test.cpp"],
+    deps = [
+        ":m32r_ssm_exchange",
+        "//src/backend/flash/testing:scripted_flash_transports",
+        "//src/backend/ports",
+        "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
+    ],
+)
+
+cc_library(
+    name = "m32r_ssm_exchange",
+    srcs = ["m32r_ssm_exchange.cpp"],
+    hdrs = ["m32r_ssm_exchange.h"],
+    implementation_deps = ["//src/algorithms/protocol/ssm"],
+    deps = ["//src/backend/flash:flash_executor"],
 )
