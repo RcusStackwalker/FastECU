@@ -1446,6 +1446,8 @@ cc_library(
     name = "subaru_tcu_cvt_mitsu_can_common",
     srcs = ["subaru_tcu_cvt_mitsu_can_common.cpp"],
     hdrs = ["subaru_tcu_cvt_mitsu_can_common.h"],
+    implementation_deps = ["//src/algorithms/protocol/ssm"],
+    deps = ["//src/algorithms/protocol"],
 )
 
 fastecu_portable_gtest(
@@ -1453,6 +1455,7 @@ fastecu_portable_gtest(
     srcs = ["subaru_tcu_cvt_mitsu_can_common_test.cpp"],
     deps = [
         ":subaru_tcu_cvt_mitsu_can_common",
+        "//src/algorithms/protocol",
         "@googletest//:gtest",
     ],
 )
@@ -1467,7 +1470,6 @@ cc_library(
         ":subaru_tcu_cvt_mitsu_mh8111_can_plan",
         ":uds_client_exchange_common",
         "//src/algorithms/protocol",
-        "//src/algorithms/protocol/ssm",
         "//src/algorithms/protocol/uds",
         "//src/algorithms/protocol/uds:uds_service_ids",
         "//src/backend/flash:can_flash_uds_channel",
@@ -1522,7 +1524,6 @@ cc_library(
         ":subaru_tcu_cvt_mitsu_mh8104_can_plan",
         ":uds_client_exchange_common",
         "//src/algorithms/protocol",
-        "//src/algorithms/protocol/ssm",
         "//src/algorithms/protocol/uds",
         "//src/algorithms/protocol/uds:uds_service_ids",
         "//src/backend/flash:can_flash_uds_channel",

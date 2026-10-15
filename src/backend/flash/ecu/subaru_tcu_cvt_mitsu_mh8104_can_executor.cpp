@@ -8,7 +8,6 @@
 
 #include "src/algorithms/protocol/bytes.h"
 #include "src/algorithms/protocol/bytes_compose.h"
-#include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
 #include "src/algorithms/protocol/uds/uds_response.h"
 #include "src/algorithms/protocol/uds/uds_service_ids.h"
 #include "src/backend/flash/can_flash_uds_channel.h"
@@ -69,23 +68,6 @@ constexpr MemoryRegion kWriteRegion{0x8000, 0x78000};
 // band -- no standard meaning.
 constexpr bytes::Byte kSessionBootload = 0x43;
 constexpr bytes::Byte kSessionKernelJump = 0x42;
-
-bytes::Bytes SeedKey(bytes::ByteView seed)
-{
-    return ssm_protocol::CalculateSeedKey(seed, TcuCvtMitsuSeedKeyTable(), ssm_protocol::kIndexTransformationStock);
-}
-
-bytes::Bytes EncryptRom(bytes::ByteView image)
-{
-    return ssm_protocol::CalculatePayload(image, static_cast<std::uint32_t>(image.size()), TcuCvtMitsuEncryptTable(),
-                                          ssm_protocol::kIndexTransformationStock);
-}
-
-bytes::Bytes DecryptPage(bytes::ByteView page)
-{
-    return ssm_protocol::CalculatePayload(page, static_cast<std::uint32_t>(page.size()), TcuCvtMitsuDecryptTable(),
-                                          ssm_protocol::kIndexTransformationStock);
-}
 
 // Bounds-safe prefix match: true only if `reply` is at least as long as
 // `expected` and every byte matches. Used throughout in place of legacy's
@@ -347,7 +329,7 @@ Status ConnectBootloader(Ctx& ctx)
             seed[i] = after_sid[i + 1];
         }
     }
-    const bytes::Bytes key = SeedKey(seed);
+    const bytes::Bytes key = TcuCvtMitsuSeedKey(seed);
 
     // Seed key 0x27/0x02 (lines 260-282): single-shot, content-blind.
     LogInfo(ctx, "Sending seed key...");
@@ -441,7 +423,7 @@ Result<bytes::Bytes> DumpFlashRange(Ctx& ctx, PhaseReporter& progress)
         {
             LogError(ctx, "Page data request failed!");
         }
-        const bytes::Bytes decrypted = DecryptPage(uds::Payload(*chunk));
+        const bytes::Bytes decrypted = TcuCvtMitsuDecryptPage(uds::Payload(*chunk));
         rom.insert(rom.end(), decrypted.begin(), decrypted.end());
         progress.Update(static_cast<int>(addr + kPageSize - kReadRegion.start));
     }
@@ -543,7 +525,7 @@ Status UnlockAndReflashBlock(Ctx& ctx, bytes::ByteView block_plain, PhaseReporte
         LogError(ctx, "No or bad response received");
     }
 
-    const bytes::Bytes encrypted = EncryptRom(block_plain);
+    const bytes::Bytes encrypted = TcuCvtMitsuEncryptRom(block_plain);
 
     for (std::uint32_t offset = 0; offset < kWriteRegion.length; offset += kChunkSize)
     {
