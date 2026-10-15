@@ -1,5 +1,13 @@
 # Denso setup PDU P79 Implementation Plan
 
+Status: implemented. Subsequent user review replaced the planned service-parameter
+API with `DensoIso15765DownloadSetupPdu(const MemoryRegion&)` and
+`DensoIso15765UploadSetupPdu(const MemoryRegion&)`. Arbitrary service passthrough
+is no longer public; the former passthrough test now covers small upload fields.
+The original plan below is retained until its history-preservation change is
+delivered; the [current contract](../../design-notes.md#share-only-proven-protocol-equivalence)
+owns the final interface.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. Execution method requires user selection; this document authorizes no implementation.
 
 **Goal:** Replace four identical Denso ISO-15765 setup-PDU encoders with one pure operation, preserving every emitted byte and caller policy.

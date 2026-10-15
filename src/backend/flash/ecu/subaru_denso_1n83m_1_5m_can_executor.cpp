@@ -345,13 +345,13 @@ Result<bytes::Bytes> ReadMemory(Ctx& ctx, const SubaruDenso1n83m_1_5mCanPlan& fa
     // absent reply.
     LogInfo(ctx, "Settting dump start & length");
     if (Result<bytes::Bytes> download =
-            FatalQuery(ctx, DensoIso15765SetupPdu(uds::kSidRequestDownload, region), bytes::Bytes{0x20, 0x01, 0x05},
-                       kShortPolicy, "dump start & length setup");
+            FatalQuery(ctx, DensoIso15765DownloadSetupPdu(region), bytes::Bytes{0x20, 0x01, 0x05}, kShortPolicy,
+                       "dump start & length setup");
         !download.has_value())
     {
         return std::unexpected(download.error());
     }
-    if (Result<bytes::Bytes> upload = FatalQuery(ctx, DensoIso15765SetupPdu(uds::kSidRequestUpload, region),
+    if (Result<bytes::Bytes> upload = FatalQuery(ctx, DensoIso15765UploadSetupPdu(region),
                                                  bytes::Bytes{0x20, 0x01, 0x01}, kShortPolicy, "dump upload setup");
         !upload.has_value())
     {
@@ -414,7 +414,7 @@ Result<bytes::Bytes> ReadMemory(Ctx& ctx, const SubaruDenso1n83m_1_5mCanPlan& fa
 // then a bounded re-read loop that never re-sends.
 Status EraseMemory(Ctx& ctx, const MemoryRegion& region)
 {
-    return DensoIso15765Erase(ctx, DensoIso15765SetupPdu(uds::kSidRequestDownload, region));
+    return DensoIso15765Erase(ctx, DensoIso15765DownloadSetupPdu(region));
 }
 
 // Legacy reflash_block, lines 1167-1357, called for block 1 only.

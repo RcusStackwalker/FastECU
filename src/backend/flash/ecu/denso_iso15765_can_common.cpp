@@ -67,9 +67,16 @@ constexpr std::string_view kRejectionPrefix = "Wrong response from ECU: ";
 
 } // namespace
 
-bytes::Bytes DensoIso15765SetupPdu(bytes::Byte service, const MemoryRegion& region)
+bytes::Bytes DensoIso15765DownloadSetupPdu(const MemoryRegion& region)
 {
-    return bytes::ComposeBe(service, kDataFormatIdentifier, kAddressAndLengthFormat, region.start, region.length);
+    return bytes::ComposeBe(uds::kSidRequestDownload, kDataFormatIdentifier, kAddressAndLengthFormat, region.start,
+                            region.length);
+}
+
+bytes::Bytes DensoIso15765UploadSetupPdu(const MemoryRegion& region)
+{
+    return bytes::ComposeBe(uds::kSidRequestUpload, kDataFormatIdentifier, kAddressAndLengthFormat, region.start,
+                            region.length);
 }
 
 Result<bytes::Bytes> TolerantProbe(const CanExecutorContext& ctx, bytes::ByteView pdu, bytes::Byte expected_service,

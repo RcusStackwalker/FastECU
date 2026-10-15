@@ -87,8 +87,10 @@ that run asks for session `0x63`; the SH72531 and SH72543 diesel in-car runs sen
 `0x03` and stay local. The `write_memory` orchestration, reads, reflash, connect
 and probe flows, kernel jumps, checksum verification, and response policies stay
 in each executor, and no configurable family state machine is shared.
-`DensoIso15765SetupPdu` encodes the service, `04 44`, and the supplied region's
-four-byte big-endian start and length without validation or address arithmetic.
+`DensoIso15765DownloadSetupPdu` and `DensoIso15765UploadSetupPdu` encode their
+fixed service (`34` or `35`), `04 44`, and the supplied region's four-byte
+big-endian start and length without validation or address arithmetic. The
+public interface accepts only the region, so callers cannot select another SID.
 Independent literal vectors and family transcripts pin its eleven-byte output.
 Read setup remains tolerant on N83M 4M and fatal on the other three families;
 SH72531 retains its long setup timeout, while SH72543 diesel and N83M 1.5M

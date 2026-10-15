@@ -441,13 +441,13 @@ Result<bytes::Bytes> ReadMemory(Ctx& ctx, const SubaruDenso1n83m_4mCanPlan& fami
     // tolerate a wrong reply AND an absent one -- see tolerant_setup for the
     // four commented-out returns this preserves.
     LogInfo(ctx, "Settting dump start & length");
-    if (const Status download = TolerantSetup(ctx, DensoIso15765SetupPdu(uds::kSidRequestDownload, region),
+    if (const Status download = TolerantSetup(ctx, DensoIso15765DownloadSetupPdu(region),
                                               bytes::Bytes{kRequestDownloadReply, 0x20, 0x01, 0x05});
         !download.has_value())
     {
         return std::unexpected(download.error());
     }
-    if (const Status upload = TolerantSetup(ctx, DensoIso15765SetupPdu(uds::kSidRequestUpload, region),
+    if (const Status upload = TolerantSetup(ctx, DensoIso15765UploadSetupPdu(region),
                                             bytes::Bytes{kRequestUploadReply, 0x20, 0x01, 0x01});
         !upload.has_value())
     {
@@ -517,7 +517,7 @@ Result<bytes::Bytes> ReadMemory(Ctx& ctx, const SubaruDenso1n83m_4mCanPlan& fami
 // the tolerance is confined to read_memory's own setup pair.
 Status EraseMemory(Ctx& ctx, const MemoryRegion& region)
 {
-    return DensoIso15765Erase(ctx, DensoIso15765SetupPdu(uds::kSidRequestDownload, region));
+    return DensoIso15765Erase(ctx, DensoIso15765DownloadSetupPdu(region));
 }
 
 // Legacy reflash_block, lines 1180-1367, called for block 1 only.

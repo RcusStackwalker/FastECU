@@ -104,9 +104,11 @@ inline bytes::Bytes DensoDecryptPage(bytes::ByteView page)
 }
 
 // Pure setup encoding shared by the N83M 1.5M/4M, SH72531 and SH72543 diesel
-// bootloader executors: service, 04 44, then four-byte big-endian start and
-// length. Fields pass through unchanged; callers own validation and policy.
-bytes::Bytes DensoIso15765SetupPdu(bytes::Byte service, const MemoryRegion& region);
+// bootloader executors: RequestDownload (34) or RequestUpload (35), 04 44,
+// then four-byte big-endian start and length. Region fields pass through
+// unchanged; callers own validation and policy.
+bytes::Bytes DensoIso15765DownloadSetupPdu(const MemoryRegion& region);
+bytes::Bytes DensoIso15765UploadSetupPdu(const MemoryRegion& region);
 
 // Sends `pdu`, reads one reply, and compares its first two bytes. A mismatch
 // is LOGGED AND TOLERATED -- the frame is still returned and the caller
@@ -141,7 +143,7 @@ Status FireAndForget(const CanExecutorContext& ctx, ICanFlashTransport& can, std
 Status DensoSecurityAccess(const CanExecutorContext& ctx);
 
 // The bootloader dialect's flash erase: RequestDownload with `request_download_setup_pdu`
-// (the executor selects the region and calls DensoIso15765SetupPdu), then the
+// (the executor selects the region and calls DensoIso15765DownloadSetupPdu), then the
 // erase routine trigger, then up to twenty re-reads for the 71 01 02 success
 // reply. The trigger is sent once and never re-sent while polling. The setup
 // reply must start 20 01 05 or the trigger is never sent. Setup and polling
