@@ -1,3 +1,4 @@
+#include "src/backend/ports/testing/result_matchers.h"
 #include "src/backend/flash/ecu/denso_beef_kline_common.h"
 
 #include <array>
@@ -73,12 +74,13 @@ TEST(DensoBeefKlineCommonTest, ComparesOrderedAddressedSlicesAndStopsOnFailureOr
         EXPECT_EQ(modified, (std::vector<bool>{false, scenario == 1, false}));
         if (scenario < 2)
         {
-            ASSERT_TRUE(result.has_value());
+            ASSERT_THAT(result, fastecu::testing::IsOk());
             EXPECT_EQ(*result, scenario == 1 ? 1U : 0U);
         }
         else
         {
-            ASSERT_FALSE(result.has_value());
+            ASSERT_THAT(result,
+                        fastecu::testing::IsErr(scenario == 2 ? ErrorKind::kDisconnected : ErrorKind::kCancelled));
             EXPECT_EQ(result.error().detail, scenario == 2 ? "CRC failed" : "cancelled during ROM compare");
         }
     }
@@ -116,11 +118,12 @@ TEST(DensoBeefKlineCommonTest, ProgrammingLinePreservesCancellationAndErrorPrece
         EXPECT_EQ(transport.calls, scenario == 0 ? 0U : 1U);
         if (scenario == 3)
         {
-            EXPECT_TRUE(result.has_value());
+            EXPECT_THAT(result, fastecu::testing::IsOk());
         }
         else
         {
-            ASSERT_FALSE(result.has_value());
+            ASSERT_THAT(result,
+                        fastecu::testing::IsErr(scenario == 2 ? ErrorKind::kDisconnected : ErrorKind::kCancelled));
             EXPECT_EQ(result.error().detail, scenario == 0   ? "cancelled before programming line state"
                                              : scenario == 1 ? "cancelled after programming line state"
                                                              : "line failed");
@@ -188,7 +191,7 @@ TEST(DensoBeefKlineCommonTest, PreservesEveryCancellationCheckpoint)
         ExchangeTraceTransport transport(cancellation);
         const auto result = DensoBeefKlineExchangeOptional(transport, nullptr, cancellation,
                                                            bytes::Bytes{0xBE, 0xEF, 0, 1, 1, 0xAF}, 200ms, 1234ms);
-        ASSERT_FALSE(result.has_value());
+        ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kCancelled));
         EXPECT_EQ(result.error().kind, ErrorKind::kCancelled);
         EXPECT_EQ(result.error().detail, details[checkpoint - 1]);
         EXPECT_EQ(cancellation.CheckCount(), checkpoint);
@@ -219,7 +222,7 @@ TEST(DensoBeefKlineCommonTest, TransportFailurePrecedesConcurrentCancellation)
         transport.read_error = scenario == 2;
         const auto result = DensoBeefKlineExchangeOptional(transport, nullptr, cancellation,
                                                            bytes::Bytes{0xBE, 0xEF, 0, 1, 1, 0xAF}, 0ms, 1234ms);
-        ASSERT_FALSE(result.has_value());
+        ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kDisconnected));
         EXPECT_EQ(result.error().kind, ErrorKind::kDisconnected);
         EXPECT_EQ(result.error().detail, scenario == 0   ? "write failed"
                                          : scenario == 1 ? "short K-Line write"
@@ -259,7 +262,7 @@ TEST(DensoBeefKlineCommonTest, SettleAndOptionalPresenceRemainDistinct)
                                                            scenario == 4 ? 0ms : 200ms, 1234ms);
         if (scenario == 2)
         {
-            ASSERT_FALSE(result.has_value());
+            ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kDisconnected));
             EXPECT_EQ(result.error().detail, "sleep failed");
             EXPECT_EQ(result.error().kind, ErrorKind::kDisconnected);
             EXPECT_EQ(transport.trace, (std::vector<std::string>{"write", "sleep"}));
@@ -267,7 +270,7 @@ TEST(DensoBeefKlineCommonTest, SettleAndOptionalPresenceRemainDistinct)
         }
         else
         {
-            ASSERT_TRUE(result.has_value());
+            ASSERT_THAT(result, fastecu::testing::IsOk());
             EXPECT_EQ(result->has_value(), scenario == 1);
             if (scenario == 1)
             {

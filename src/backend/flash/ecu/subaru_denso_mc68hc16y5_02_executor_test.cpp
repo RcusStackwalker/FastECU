@@ -944,7 +944,8 @@ TEST(SubaruDensoMc68hc16y5_02Executor, NoChangeProgrammingLinePreservesCancellat
         }
         else
         {
-            ASSERT_FALSE(result.has_value());
+            ASSERT_THAT(result,
+                        fastecu::testing::IsErr(scenario == 3 ? ErrorKind::kDisconnected : ErrorKind::kCancelled));
             EXPECT_EQ(result.error().detail, scenario == 1   ? "cancelled before programming line state"
                                              : scenario == 2 ? "cancelled after programming line state"
                                                              : "line failed");
@@ -1464,7 +1465,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, FirstExchangePreservesTransportErrorAndCa
             int scenario_;
         } transport(cancellation, scenario);
         auto plan = StockPlan();
-        ASSERT_TRUE(plan.has_value());
+        ASSERT_THAT(plan, fastecu::testing::IsOk());
         MockClock clock;
         EXPECT_CALL(clock, Sleep)
             .WillRepeatedly(
@@ -1487,13 +1488,13 @@ TEST(SubaruDensoMc68hc16y5_02Executor, FirstExchangePreservesTransportErrorAndCa
         RecordingEventSink events;
         SubaruDensoMc68hc16y5_02Executor executor;
         const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
-        ASSERT_FALSE(result.has_value());
         const std::array kinds{ErrorKind::kDisconnected, ErrorKind::kDisconnected, ErrorKind::kCancelled,
                                ErrorKind::kDisconnected, ErrorKind::kCancelled,    ErrorKind::kCancelled,
                                ErrorKind::kCancelled,    ErrorKind::kDisconnected};
         const std::array details{"probe write failed",     "short K-Line write",   "cancelled after write",
                                  "probe read failed",      "cancelled after read", "cancelled before read",
                                  "cancelled before write", "probe sleep failed"};
+        ASSERT_THAT(result, fastecu::testing::IsErr(kinds[scenario]));
         EXPECT_EQ(result.error().kind, kinds[scenario]);
         EXPECT_EQ(result.error().detail, details[scenario]);
         std::vector<std::string> expected{"drain"};
@@ -1521,7 +1522,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, ReadPreservesAbsentVersusPresentEmptyResp
     {
         SCOPED_TRACE(present);
         auto plan = StockPlan();
-        ASSERT_TRUE(plan.has_value());
+        ASSERT_THAT(plan, fastecu::testing::IsOk());
         ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::kOpen};
         ScriptStockConnectAndUpload(transport);
         // Literal first-page request, independent of production framing.
@@ -1539,7 +1540,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, ReadPreservesAbsentVersusPresentEmptyResp
         RecordingEventSink events;
         SubaruDensoMc68hc16y5_02Executor executor;
         const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
-        ASSERT_FALSE(result.has_value());
+        ASSERT_THAT(result, fastecu::testing::IsErr(present ? ErrorKind::kBadResponse : ErrorKind::kTimeout));
         EXPECT_EQ(result.error().kind, present ? ErrorKind::kBadResponse : ErrorKind::kTimeout);
         EXPECT_EQ(result.error().detail, present ? "Wrong response from ECU during read" : "no response from ECU");
         ASSERT_FALSE(transport.read_timeouts.empty());
