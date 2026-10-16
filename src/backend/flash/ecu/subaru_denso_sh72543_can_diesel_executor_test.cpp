@@ -943,9 +943,9 @@ TEST(SubaruDensoSh72543CanDieselExecutor, ShortPagesAdvanceByRequestedSizeAndSto
         for (std::size_t page = 1; page <= kPages; ++page)
         {
             SCOPED_TRACE(page);
-            EXPECT_EQ(read_progress[page], page == kPages ? kBlockLength - 1 : page * kPageSize);
+            EXPECT_EQ(read_progress[page], static_cast<int>(page == kPages ? kBlockLength - 1 : page * kPageSize));
         }
-        EXPECT_EQ(read_progress.back(), kBlockLength);
+        EXPECT_EQ(read_progress.back(), static_cast<int>(kBlockLength));
         EXPECT_TRUE(transport.ScriptConsumed());
         EXPECT_THAT(events.logs, testing::Contains(testing::Pair(fastecu::LogLevel::kInfo, "OBK is active!")));
         EXPECT_EQ(clock.sleep_calls, (std::vector<std::chrono::milliseconds>(kPages, 1ms)));
@@ -1039,12 +1039,12 @@ TEST(SubaruDensoSh72543CanDieselExecutor, CancellationAfterPageFailsButCancellat
         if (at_stop)
         {
             EXPECT_THAT(result, fastecu::testing::IsOk());
-            EXPECT_EQ(events.phase_progress_calls.back().done, kBlockLength);
+            EXPECT_EQ(events.phase_progress_calls.back().done, static_cast<int>(kBlockLength));
         }
         else
         {
             EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kCancelled));
-            EXPECT_EQ(events.phase_progress_calls.back().done, kPageSize);
+            EXPECT_EQ(events.phase_progress_calls.back().done, static_cast<int>(kPageSize));
         }
         EXPECT_TRUE(cancellation.Cancelled());
         EXPECT_TRUE(transport.ScriptConsumed());
