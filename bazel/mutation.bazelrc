@@ -22,3 +22,9 @@ build:mutation --copt=-fprofile-instr-generate
 build:mutation --copt=-fcoverage-mapping
 build:mutation --linkopt=-fprofile-instr-generate
 build:mutation --linkopt=-fcoverage-mapping
+# The standard library's bounds checks, as the asan config sets them (every
+# portable test already passes under them there). A mutant that indexes a span
+# or container out of range then aborts and is killed, instead of reading or
+# writing past it unnoticed: this build has no sanitizer to see the overrun.
+build:mutation --copt=-D_GLIBCXX_ASSERTIONS
+build:mutation --copt=-D_LIBCPP_HARDENING_MODE=_LIBCPP_HARDENING_MODE_DEBUG
