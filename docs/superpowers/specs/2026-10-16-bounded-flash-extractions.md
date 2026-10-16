@@ -1,8 +1,8 @@
 # Bounded flash extraction follow-ups
 
-Status: design interview complete; awaiting review of this written proposal.
-This proposal does not authorize product code changes or flash-behavior
-corrections.
+Status: design approved by the user on 2026-10-16; the
+[implementation plan](../plans/2026-10-16-bounded-flash-extractions.md) awaits
+review. This proposal does not authorize flash-behavior corrections.
 
 ## Purpose and scope
 
