@@ -21,27 +21,12 @@ ChecksumResult ChecksumEcuSubaruHitachiM32rCan::CalculateChecksumResult(Rom rom)
     // Each checksum below reads the corrections written before it.
     const Rom image{rom_data};
 
-    uint32_t checksum_1_value_stored = 0;
-    uint32_t checksum_1_value_calculated = 0;
-    uint32_t checksum_1_value_address = 0x7ffe8;
-    uint32_t checksum_2_value_stored = 0;
-    uint32_t checksum_2_value_calculated = 0;
-    uint32_t checksum_2_value_address = 0x7ffec;
-    uint32_t checksum_3_value_stored = 0;
-    uint32_t checksum_3_value_calculated = 0;
-    uint32_t checksum_3_value_address = 0x7fff0;
-    uint32_t checksum_4_value_stored = 0;
-    uint32_t checksum_4_value_calculated = 0;
-    uint32_t checksum_4_value_address = 0x7fff4;
-
-    uint16_t checksum_5_value_calculated = 0;
-    uint32_t checksum_5_balance_value_address = 0x7fffa;
-
-    uint16_t checksum_6_value_stored = 0;
-    uint16_t checksum_6_value_calculated = 0;
-    uint32_t checksum_6_value_address = 0x10000;
-    uint8_t checksum_6_value_hi_calculated = 0;
-    uint8_t checksum_6_value_lo_calculated = 0;
+    constexpr std::size_t kChecksum1Address = 0x7ffe8;
+    constexpr std::size_t kChecksum2Address = 0x7ffec;
+    constexpr std::size_t kChecksum3Address = 0x7fff0;
+    constexpr std::size_t kChecksum4Address = 0x7fff4;
+    constexpr std::size_t kChecksum5BalanceAddress = 0x7fffa;
+    constexpr std::size_t kChecksum6Address = 0x10000;
 
     bool checksum_ok = true;
 
@@ -50,23 +35,21 @@ ChecksumResult ChecksumEcuSubaruHitachiM32rCan::CalculateChecksumResult(Rom rom)
      * Calculate and fix checksums 1 and 2
      *
      * *************************************/
-    const fastecu::checksum::internal::WordFold checksums_1_and_2 =
+    const auto [checksum_1_value_calculated, checksum_2_value_calculated] =
         fastecu::checksum::internal::FoldU32Be(image.subspan<0x6000, 0x2000>());
-    checksum_1_value_calculated = checksums_1_and_2.sum;
-    checksum_2_value_calculated = checksums_1_and_2.xor_all;
-    checksum_1_value_stored = bytes::ReadU32Be(rom_data, checksum_1_value_address);
-    checksum_2_value_stored = bytes::ReadU32Be(rom_data, checksum_2_value_address);
+    const uint32_t checksum_1_value_stored = bytes::ReadU32Be(rom_data, kChecksum1Address);
+    const uint32_t checksum_2_value_stored = bytes::ReadU32Be(rom_data, kChecksum2Address);
     if (checksum_1_value_calculated != checksum_1_value_stored)
     {
         checksum_ok = false;
 
-        bytes::WriteU32Be(rom_data, checksum_1_value_address, checksum_1_value_calculated);
+        bytes::WriteU32Be(rom_data, kChecksum1Address, checksum_1_value_calculated);
     }
     if (checksum_2_value_calculated != checksum_2_value_stored)
     {
         checksum_ok = false;
 
-        bytes::WriteU32Be(rom_data, checksum_2_value_address, checksum_2_value_calculated);
+        bytes::WriteU32Be(rom_data, kChecksum2Address, checksum_2_value_calculated);
     }
     /****************************************
      *
@@ -74,43 +57,43 @@ ChecksumResult ChecksumEcuSubaruHitachiM32rCan::CalculateChecksumResult(Rom rom)
      *
      * *************************************/
     // Every checksum but 1 and 2 leaves out the word at 0x10000.
-    const fastecu::checksum::internal::WordFold checksums_3_and_4 =
+    const auto [checksum_3_value_calculated, checksum_4_value_calculated] =
         fastecu::checksum::internal::FoldU32Be(image.first<0x10000>(), image.subspan<0x10004, 0x6ffec>());
-    checksum_3_value_calculated = checksums_3_and_4.sum;
-    checksum_4_value_calculated = checksums_3_and_4.xor_all;
-    checksum_3_value_stored = bytes::ReadU32Be(rom_data, checksum_3_value_address);
-    checksum_4_value_stored = bytes::ReadU32Be(rom_data, checksum_4_value_address);
+    const uint32_t checksum_3_value_stored = bytes::ReadU32Be(rom_data, kChecksum3Address);
+    const uint32_t checksum_4_value_stored = bytes::ReadU32Be(rom_data, kChecksum4Address);
     if (checksum_3_value_calculated != checksum_3_value_stored)
     {
         checksum_ok = false;
 
-        bytes::WriteU32Be(rom_data, checksum_3_value_address, checksum_3_value_calculated);
+        bytes::WriteU32Be(rom_data, kChecksum3Address, checksum_3_value_calculated);
     }
     if (checksum_4_value_calculated != checksum_4_value_stored)
     {
         checksum_ok = false;
 
-        bytes::WriteU32Be(rom_data, checksum_4_value_address, checksum_4_value_calculated);
+        bytes::WriteU32Be(rom_data, kChecksum4Address, checksum_4_value_calculated);
     }
     /****************************************
      *
      * Calculate and fix checksum 5
      *
      * *************************************/
-    checksum_5_value_calculated = static_cast<uint16_t>(
+    const auto checksum_5_value_calculated = static_cast<uint16_t>(
         fastecu::checksum::internal::FoldU32Be(image.subspan<0x4000, 0xc000>(), image.subspan<0x10004>()).sum);
     if (checksum_5_value_calculated != 0x5aa5)
     {
         checksum_ok = false;
 
-        fastecu::checksum::internal::RebalanceU16Be(rom_data, checksum_5_balance_value_address,
-                                                    checksum_5_value_calculated, 0x5aa5);
+        fastecu::checksum::internal::RebalanceU16Be(rom_data, kChecksum5BalanceAddress, checksum_5_value_calculated,
+                                                    0x5aa5);
     }
     /****************************************
      *
      * Calculate checksum 6
      *
      * *************************************/
+    uint8_t checksum_6_value_hi_calculated = 0;
+    uint8_t checksum_6_value_lo_calculated = 0;
     for (int i = 0; i < static_cast<int>(rom_data.size()); i += 1)
     {
         if (i < 0x10000 || i > 0x10003)
@@ -119,8 +102,8 @@ ChecksumResult ChecksumEcuSubaruHitachiM32rCan::CalculateChecksumResult(Rom rom)
             checksum_6_value_lo_calculated ^= rom_data[static_cast<std::size_t>(i)];
         }
     }
-    checksum_6_value_calculated = (checksum_6_value_hi_calculated << 8) + checksum_6_value_lo_calculated;
-    checksum_6_value_stored = bytes::ReadU16Be(rom_data, checksum_6_value_address);
+    const uint16_t checksum_6_value_calculated = (checksum_6_value_hi_calculated << 8) + checksum_6_value_lo_calculated;
+    const uint16_t checksum_6_value_stored = bytes::ReadU16Be(rom_data, kChecksum6Address);
     if (checksum_6_value_calculated != checksum_6_value_stored)
     {
         // TODO: Preserve the legacy status quirk until writing the checksum-6

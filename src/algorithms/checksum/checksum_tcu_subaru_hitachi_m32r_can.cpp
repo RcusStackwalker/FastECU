@@ -36,25 +36,23 @@ ChecksumResult ChecksumTcuSubaruHitachiM32rCan::CalculateChecksumResult(bytes::B
     }
     bytes::Bytes rom_data(rom_view.begin(), rom_view.end());
 
-    uint32_t checksum_1_value_calculated = 0;
-    uint32_t checksum_1_balance_value_address = 0x8020;
-    uint32_t checksum_2_value_calculated = 0;
-    uint32_t checksum_2_value_stored = 0;
-    uint32_t checksum_2_balance_value_address = 0x8000;
+    constexpr std::size_t kChecksum1BalanceAddress = 0x8020;
+    constexpr std::size_t kChecksum2Address = 0x8000;
 
     bool checksum_ok = true;
 
-    checksum_1_value_calculated = fastecu::checksum::internal::FoldU32Be(bytes::ByteView(rom_data).subspan(0x8020)).sum;
-    checksum_2_value_calculated = Checksum2Field(rom_data);
+    const uint32_t checksum_1_value_calculated =
+        fastecu::checksum::internal::FoldU32Be(bytes::ByteView(rom_data).subspan(0x8020)).sum;
+    const uint32_t checksum_2_value_calculated = Checksum2Field(rom_data);
 
-    checksum_2_value_stored = bytes::ReadU32Be(rom_data, checksum_2_balance_value_address);
+    const uint32_t checksum_2_value_stored = bytes::ReadU32Be(rom_data, kChecksum2Address);
 
     if (checksum_1_value_calculated != 0x5aa5a55a)
     {
         checksum_ok = false;
 
-        fastecu::checksum::internal::RebalanceU32Be(rom_data, checksum_1_balance_value_address,
-                                                    checksum_1_value_calculated, 0x5aa5a55a);
+        fastecu::checksum::internal::RebalanceU32Be(rom_data, kChecksum1BalanceAddress, checksum_1_value_calculated,
+                                                    0x5aa5a55a);
     }
 
     if (checksum_2_value_calculated != checksum_2_value_stored)
@@ -62,10 +60,10 @@ ChecksumResult ChecksumTcuSubaruHitachiM32rCan::CalculateChecksumResult(bytes::B
         checksum_ok = false;
 
         // Recomputed: rebalancing checksum 1 above may have changed a word this one sums.
-        checksum_2_value_calculated = Checksum2Field(rom_data);
+        const uint32_t checksum_2_field = Checksum2Field(rom_data);
 
-        bytes::WriteU32Be(rom_data, checksum_2_balance_value_address, checksum_2_value_calculated);
-        bytes::WriteU32Be(rom_data, checksum_2_balance_value_address + 4, checksum_2_value_calculated);
+        bytes::WriteU32Be(rom_data, kChecksum2Address, checksum_2_field);
+        bytes::WriteU32Be(rom_data, kChecksum2Address + 4, checksum_2_field);
     }
     ChecksumResult result;
     result.rom_data = rom_data;

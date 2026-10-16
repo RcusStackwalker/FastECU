@@ -18,15 +18,9 @@ ChecksumResult ChecksumEcuSubaruHitachiM32rKline::CalculateChecksumResult(Rom ro
     // Each checksum below reads the corrections written before it.
     const Rom image{rom_data};
 
-    uint8_t checksum_1_value_stored = 0;
-    uint8_t checksum_1_value_calculated = 0;
-    uint32_t checksum_1_value_address = 0x8100;
-    uint8_t checksum_2_value_stored = 0;
-    uint8_t checksum_2_value_calculated = 0;
-    uint32_t checksum_2_value_address = 0x8101;
-
-    uint16_t checksum_3_value_calculated = 0;
-    uint32_t checksum_3_balance_value_address = 0x7fffa;
+    constexpr std::size_t kChecksum1Address = 0x8100;
+    constexpr std::size_t kChecksum2Address = 0x8101;
+    constexpr std::size_t kChecksum3BalanceAddress = 0x7fffa;
 
     bool checksum_ok = true;
 
@@ -35,6 +29,8 @@ ChecksumResult ChecksumEcuSubaruHitachiM32rKline::CalculateChecksumResult(Rom ro
      * Calculate and fix checksums 1 and 2
      *
      * *************************************/
+    uint8_t checksum_1_value_calculated = 0;
+    uint8_t checksum_2_value_calculated = 0;
     for (int i = 0x0000; i < static_cast<int>(rom_data.size()); i += 1)
     {
         if (i < 0x8100 || i > 0x8101)
@@ -43,19 +39,19 @@ ChecksumResult ChecksumEcuSubaruHitachiM32rKline::CalculateChecksumResult(Rom ro
             checksum_2_value_calculated ^= rom_data[static_cast<std::size_t>(i)];
         }
     }
-    checksum_1_value_stored = rom_data[checksum_1_value_address];
-    checksum_2_value_stored = rom_data[checksum_2_value_address];
+    const uint8_t checksum_1_value_stored = rom_data[kChecksum1Address];
+    const uint8_t checksum_2_value_stored = rom_data[kChecksum2Address];
     if (checksum_1_value_calculated != checksum_1_value_stored)
     {
         checksum_ok = false;
 
-        rom_data[checksum_1_value_address] = checksum_1_value_calculated;
+        rom_data[kChecksum1Address] = checksum_1_value_calculated;
     }
     if (checksum_2_value_calculated != checksum_2_value_stored)
     {
         checksum_ok = false;
 
-        rom_data[checksum_2_value_address] = checksum_2_value_calculated;
+        rom_data[kChecksum2Address] = checksum_2_value_calculated;
     }
 
     /****************************************
@@ -64,14 +60,14 @@ ChecksumResult ChecksumEcuSubaruHitachiM32rKline::CalculateChecksumResult(Rom ro
      *
      * *************************************/
     // Leaves out the word holding checksums 1 and 2.
-    checksum_3_value_calculated = static_cast<uint16_t>(
+    const auto checksum_3_value_calculated = static_cast<uint16_t>(
         fastecu::checksum::internal::FoldU32Be(image.subspan<0x4000, 0x4100>(), image.subspan<0x8104>()).sum);
     if (checksum_3_value_calculated != 0x5aa5)
     {
         checksum_ok = false;
 
-        fastecu::checksum::internal::RebalanceU16Be(rom_data, checksum_3_balance_value_address,
-                                                    checksum_3_value_calculated, 0x5aa5);
+        fastecu::checksum::internal::RebalanceU16Be(rom_data, kChecksum3BalanceAddress, checksum_3_value_calculated,
+                                                    0x5aa5);
     }
 
     ChecksumResult result;
