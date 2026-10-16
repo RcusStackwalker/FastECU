@@ -424,6 +424,20 @@ reply gates, or cancellation without hardware qualification, temporarily restore
 the defective behavior, verify that a named regression fails, then restore the
 correction. This detects unreachable or vacuously passing coverage.
 
+**Treat a surviving mutant as a missing assertion.** The PR `mutation` job
+mutates the portable lines a change touches and annotates the ones no test
+notices ([ADR 0022](adr/0022-advisory-mutation-testing-with-mull.md)). For each
+survivor, add the assertion that distinguishes the mutant, or judge it
+equivalent (the mutant cannot change observable behavior) and leave it. The job
+is advisory and never fails a PR. To run it locally, put Mull's `mull-runner-<N>`
+and its LLVM's `clang` first on `PATH` (set `MULL_IR_FRONTEND` if the plugin is
+not beside the runner), then:
+
+```sh
+python3 scripts/mutation_test.py --scope //src/algorithms/checksum/...
+python3 scripts/mutation_test.py --diff-ref origin/master   # only changed lines
+```
+
 **Verify reachability before retiring code.** String aliases and dispatch tables
 can make an apparently referenced branch dead; commented-out functions can look
 live to text searches. Check the built path or a comment-stripped parse before
