@@ -4,14 +4,19 @@ default_stages: [pre-commit]
 repos:
   - repo: builtin
     hooks:
+      # Fuzz seeds are exact bytes; the text fixers below would change them.
       - id: trailing-whitespace
+        exclude: (^|/)testdata/fuzz/
       - id: end-of-file-fixer
+        exclude: (^|/)testdata/fuzz/
       - id: fix-byte-order-marker
+        exclude: (^|/)testdata/fuzz/
       - id: no-commit-to-branch
       - id: check-shebang-scripts-are-executable
       - id: check-executables-have-shebangs
       - id: mixed-line-ending
         args: [--fix=lf]
+        exclude: (^|/)testdata/fuzz/
   - repo: local
     hooks:
       - id: lizard
@@ -44,6 +49,14 @@ repos:
         language: system
         files: \.(h|hh|hpp|hxx)$
         entry: bash -c 'hits=$(grep -n "^[[:space:]]*using namespace" "$@" /dev/null); if [ -n "$hits" ]; then echo "$hits"; exit 1; fi' --
+      - id: fuzz-seed-size
+        name: fuzz seeds are at most 4 KiB
+        language: system
+        files: (^|/)testdata/fuzz/
+        # Seeds are synthetic; a larger file may be ROM or bench-read content,
+        # which is never committed. Allowlist a legitimately larger synthetic
+        # seed by adding its path here: exclude: ^path/to/seed$
+        entry: bash -c 'big=$(find "$@" -size +4096c); if [ -n "$big" ]; then echo "$big"; exit 1; fi' --
       - id: gazelle
         name: BUILD files match Gazelle and Buildifier output
         language: python

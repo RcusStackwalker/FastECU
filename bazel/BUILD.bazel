@@ -7,3 +7,11 @@ exports_files([
     "qt_targets.bzl",
     "x86_windows_transition.bzl",
 ])
+
+# Fuzz harnesses (`*_fuzz_test` targets) build only when a config from
+# bazel/fuzz.bazelrc sets this define; every other build skips them.
+config_setting(
+    name = "fuzz_harnesses_enabled",
+    define_values = {"fastecu_fuzz_harnesses": "enabled"},
+    visibility = ["//visibility:public"],
+)

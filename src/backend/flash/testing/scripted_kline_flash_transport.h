@@ -235,7 +235,7 @@ class ScriptedKlineFlashTransport : public IKlineFlashTransport
         {
             return Fail(ErrorKind::kInternal, DescribeDivergence(w_idx_, actual));
         }
-        if (std::find(raw_writes_.begin(), raw_writes_.end(), w_idx_) != raw_writes_.end())
+        if (IsRawStep(raw_writes_, w_idx_))
         {
             return Fail(ErrorKind::kInternal, "expected raw K-Line write");
         }
@@ -245,8 +245,7 @@ class ScriptedKlineFlashTransport : public IKlineFlashTransport
     Result<std::size_t> WriteRaw(bytes::ByteView data) override
     {
         const bytes::Bytes actual(data.begin(), data.end());
-        if (w_idx_ >= expected_.size() || expected_[w_idx_] != actual ||
-            std::find(raw_writes_.begin(), raw_writes_.end(), w_idx_) == raw_writes_.end())
+        if (w_idx_ >= expected_.size() || expected_[w_idx_] != actual || !IsRawStep(raw_writes_, w_idx_))
         {
             return Fail(ErrorKind::kInternal, "unexpected raw K-Line write");
         }
@@ -255,7 +254,7 @@ class ScriptedKlineFlashTransport : public IKlineFlashTransport
     }
     Result<OptionalBytes> ReadRaw(std::chrono::milliseconds timeout, const ICancellationToken& cancellation) override
     {
-        if (std::find(raw_reads_.begin(), raw_reads_.end(), reads_consumed_) == raw_reads_.end())
+        if (!IsRawStep(raw_reads_, reads_consumed_))
         {
             return Fail(ErrorKind::kInternal, "unexpected raw K-Line read");
         }
@@ -263,7 +262,7 @@ class ScriptedKlineFlashTransport : public IKlineFlashTransport
     }
     Result<OptionalBytes> Read(std::chrono::milliseconds timeout, const ICancellationToken& cancellation) override
     {
-        if (std::find(raw_reads_.begin(), raw_reads_.end(), reads_consumed_) != raw_reads_.end())
+        if (IsRawStep(raw_reads_, reads_consumed_))
         {
             return Fail(ErrorKind::kInternal, "expected raw K-Line read");
         }
@@ -342,6 +341,13 @@ class ScriptedKlineFlashTransport : public IKlineFlashTransport
                            bytes::ToHex(actual));
     }
 
+    // Indices of raw steps, appended in script order and so always ascending:
+    // a binary search keeps a 64 Ki-step script linear rather than quadratic,
+    // which sanitizer builds would otherwise take minutes to replay.
+    static bool IsRawStep(const std::vector<std::size_t>& raw_steps, std::size_t step)
+    {
+        return std::ranges::binary_search(raw_steps, step);
+    }
     std::vector<std::size_t> raw_writes_;
     std::vector<std::size_t> raw_reads_;
     std::size_t reads_consumed_ = 0;

@@ -17,3 +17,14 @@ fastecu_portable_gtest(
         "@googletest//:gtest",
     ],
 )
+
+fastecu_portable_gtest(
+    name = "expression_fuzz_test",
+    srcs = ["expression_fuzz_test.cpp"],
+    data = glob(["testdata/fuzz/**"]),
+    deps = [
+        ":expression",
+        "@fuzztest//fuzztest",
+        "@googletest//:gtest",
+    ],
+)

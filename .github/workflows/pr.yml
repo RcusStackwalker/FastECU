@@ -13,11 +13,12 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  # The clang-tidy job's LLVM: the official llvm-project release tarball on both
-  # OSes, so they run the identical build and a runner-image or package-feed
-  # bump cannot change what the gate flags. Neither Chocolatey nor the Ubuntu
-  # archive carries 23 yet. Moving the version means updating both checksums
-  # (the `digest` of each asset on the GitHub release page).
+  # The clang-tidy job's LLVM, which the sanitizer job reuses: the official
+  # llvm-project release tarball on both OSes, so they run the identical build
+  # and a runner-image or package-feed bump cannot change what the gates flag.
+  # Neither Chocolatey nor the Ubuntu archive carries 23 yet. Moving the version
+  # means updating both checksums (the `digest` of each asset on the GitHub
+  # release page).
   CLANG_TIDY_LLVM_VERSION: '23.1.2'
   CLANG_TIDY_LLVM_SHA256_LINUX: 'b5ed9675149cc837c282e9b6962c276c9fa62863d5b2f91537b60848552995b7'
   CLANG_TIDY_LLVM_SHA256_WINDOWS: '8fb91cdc44fcbbdcf6b3ffd0a1f9859abd14a3c3aae4423c2b6d4a4f90bf0095'
@@ -183,6 +184,35 @@ jobs:
           path: bazel-bin/packaging/${{ matrix.package }}.zip
           retention-days: 14
 
+  sanitizers:
+    name: Sanitizers and fuzz seeds (ASan + UBSan)
+    needs: pre-commit
+    runs-on: ubuntu-26.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: bazel-contrib/setup-bazel@c5acdfb288317d0b5c0bbd7a396a3dc868bb0f86 # 0.19.0
+        with:
+          bazelisk-cache: true
+          repository-cache: true
+          cache-save: false
+
+      - uses: ./.github/actions/buildbuddy
+        with:
+          api-key: ${{ secrets.BUILDBUDDY_API_KEY }}
+
+      - uses: ./.github/actions/llvm-linux
+        with:
+          version: ${{ env.CLANG_TIDY_LLVM_VERSION }}
+          sha256: ${{ env.CLANG_TIDY_LLVM_SHA256_LINUX }}
+
+      # Portable tests and fuzz harnesses under ASan + UBSan; the harnesses run
+      # in FuzzTest's unit-test mode, replaying every committed seed.
+      - name: Test portable code under sanitizers
+        run: |
+          bazel test -k --config=asan //src/algorithms/... //src/backend/...
+
   clang-tidy:
     name: clang-tidy (${{ matrix.os }})
     needs: pre-commit
@@ -235,20 +265,13 @@ jobs:
           Remove-Item $archive
           Join-Path $dest 'bin' | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
-      - name: Install clang-tidy (Linux)
+      # The tarball ships unversioned clang-tidy and run-clang-tidy, which is
+      # where the runner looks them up.
+      - uses: ./.github/actions/llvm-linux
         if: runner.os == 'Linux'
-        run: |
-          name="LLVM-${CLANG_TIDY_LLVM_VERSION}-Linux-X64.tar.xz"
-          archive="${RUNNER_TEMP}/${name}"
-          curl -fsSL --retry 3 -o "${archive}" \
-            "https://github.com/llvm/llvm-project/releases/download/llvmorg-${CLANG_TIDY_LLVM_VERSION}/${name}"
-          echo "${CLANG_TIDY_LLVM_SHA256_LINUX}  ${archive}" | sha256sum --check --strict
-          mkdir "${RUNNER_TEMP}/llvm"
-          tar -xJf "${archive}" -C "${RUNNER_TEMP}/llvm" --strip-components=1
-          rm "${archive}"
-          # The tarball ships unversioned clang-tidy and run-clang-tidy, which
-          # is where the runner looks them up.
-          echo "${RUNNER_TEMP}/llvm/bin" >> "$GITHUB_PATH"
+        with:
+          version: ${{ env.CLANG_TIDY_LLVM_VERSION }}
+          sha256: ${{ env.CLANG_TIDY_LLVM_SHA256_LINUX }}
 
       - name: clang-tidy report
         # bash, not the Windows default pwsh: pwsh swallows the `--`, so bazel

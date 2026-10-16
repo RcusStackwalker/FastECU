@@ -429,6 +429,37 @@ can make an apparently referenced branch dead; commented-out functions can look
 live to text searches. Check the built path or a comment-stripped parse before
 porting or deleting the behavior.
 
+**Fuzz untrusted input with a FuzzTest harness.** Code that parses bytes or
+text from outside the program (ECU replies, ROM files, definitions, conversion
+expressions, terminal scripts) gets a harness in `<unit>_fuzz_test.cpp` beside
+the unit, owned by the same package. Gazelle generates its
+`fastecu_portable_gtest` target like any other test; the `_fuzz_test` name
+suffix makes the macro link FuzzTest, tag the target `fuzz`, and build it only
+under `--config=asan` or `--config=fuzztest`
+([ADR 0021](adr/0021-fuzz-portable-code-with-fuzztest.md)). Write properties,
+not only "does not crash": a round trip, an invariant of the output, or
+agreement between two entry points. Prefer typed domains
+(`VectorOf(...).WithMaxSize(255)`, `InRange`) where the input has structure.
+
+```sh
+# The PR gate: portable tests and every committed seed under ASan + UBSan.
+bazel test --config=asan //src/algorithms/... //src/backend/...
+# Coverage-guided fuzzing of one property.
+bazel run --config=fuzztest //src/algorithms/expression:expression_fuzz_test -- \
+    --fuzz=ExpressionFuzz.EvaluatesAnyExpressionSafely --fuzz_for=10m
+```
+
+Both configs need Clang first on `PATH`: CI uses the pinned clang-tidy LLVM;
+on macOS Xcode's clang works.
+
+**Seeds are small synthetic files.** Store them under
+`<package>/testdata/fuzz/<harness>/`, list them in the target's `data` with
+`glob(["testdata/fuzz/**"])`, and load them with
+`fuzztest::ReadFilesFromDirectory` and a workspace-relative path. Derive them
+from existing test fixtures; never commit stock ROM bytes or bench reads. A
+prek hook rejects seed files over 4 KiB. A minimized crash input becomes a
+seed in the fix's PR, which makes it a regression test.
+
 ## Naming
 
 Names follow the
