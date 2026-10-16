@@ -11,6 +11,7 @@ SOURCE = "src/algorithms/a.cpp"
 ABSOLUTE_SOURCE = f"/work/FastECU/{SOURCE}"
 SHORT = "src/a.cpp"
 TITLE = "Mutation testing"
+DIFF_REF = "origin/master"
 
 
 def _mutant(line: int, status: str, mutator: str = "cxx_sub_to_add", replacement: str = "+"):
@@ -137,7 +138,7 @@ class RenderTest(unittest.TestCase):
 
 class OperandTest(unittest.TestCase):
     def test_accepts_a_ref_or_pattern(self) -> None:
-        self.assertEqual("origin/master", mt.operand("origin/master"))
+        self.assertEqual(DIFF_REF, mt.operand(DIFF_REF))
 
     def test_rejects_an_option_like_value(self) -> None:
         with self.assertRaises(argparse.ArgumentTypeError):
@@ -167,7 +168,7 @@ class SelectionTest(unittest.TestCase):
         )
 
     def test_diff_config_appends_incremental_keys(self) -> None:
-        config = mt.diff_config("includePaths:\n  - 'x'\n", "origin/master", ROOT)
+        config = mt.diff_config("includePaths:\n  - 'x'\n", DIFF_REF, ROOT)
         self.assertEqual(
             "includePaths:\n  - 'x'\n"
             'gitDiffRef: "origin/master"\ngitProjectRoot: "/work/FastECU"\n',
@@ -197,13 +198,14 @@ class SelectionTest(unittest.TestCase):
 class RunnerCommandTest(unittest.TestCase):
     def test_allows_slow_original_runs_and_surviving_mutants(self) -> None:
         binary = ROOT / "bazel-bin/src/algorithms/checksum/checksum_test"
+        report_dir = ROOT / "mutation-reports"
         self.assertEqual(
             [
                 "mull-runner-22",
                 "--reporters",
                 "Elements",
                 "--report-dir",
-                "/tmp/mutation",
+                str(report_dir),
                 "--report-name",
                 "checksum_test",
                 "--timeout",
@@ -213,7 +215,7 @@ class RunnerCommandTest(unittest.TestCase):
                 "--no-mutant-output",
                 str(binary),
             ],
-            mt.runner_command("mull-runner-22", binary, Path("/tmp/mutation")),
+            mt.runner_command("mull-runner-22", binary, report_dir),
         )
 
 
