@@ -1047,6 +1047,30 @@ TEST(SubaruDenso1n83m_4mCanExecutor, BenchJumpExhaustionPreservesReadCountAndTim
     EXPECT_THAT(std::vector<std::chrono::milliseconds>(timeouts.begin() + 11, timeouts.begin() + 62), Each(200ms));
 }
 
+void ScriptCloseRetries(ScriptedCanFlashTransport& transport, bool acknowledged)
+{
+    for (int attempt = 0; attempt < 6; ++attempt)
+    {
+        transport.Exchange(Request({0x37}));
+        if (attempt == 5 && acknowledged)
+        {
+            transport.QueueRead(Response({0x77}));
+        }
+        else if (attempt == 1)
+        {
+            transport.QueueError(ErrorKind::kDisconnected, "close ignored");
+        }
+        else if (attempt == 2)
+        {
+            transport.QueueRead(Response({0x7F, 0x37, 0x31}));
+        }
+        else
+        {
+            transport.QueueNoFrame();
+        }
+    }
+}
+
 // A whole-image script includes both edge chunks with address-sensitive data;
 // N83M's nonzero image base must be subtracted exactly once.
 TEST(SubaruDenso1n83m_4mCanExecutor, CloseRetriesSettleAndChecksumOutcomes)
@@ -1060,26 +1084,7 @@ TEST(SubaruDenso1n83m_4mCanExecutor, CloseRetriesSettleAndChecksumOutcomes)
         ScriptEraseMemory(transport);
         transport.QueueRead(Response({0x71, 0x01, 0x02}));
         ScriptReflashChunks(transport, rom);
-        for (int attempt = 0; attempt < 6; ++attempt)
-        {
-            transport.Exchange(Request({0x37}));
-            if (attempt == 5 && outcome == 0)
-            {
-                transport.QueueRead(Response({0x77}));
-            }
-            else if (attempt == 1)
-            {
-                transport.QueueError(ErrorKind::kDisconnected, "close ignored");
-            }
-            else if (attempt == 2)
-            {
-                transport.QueueRead(Response({0x7F, 0x37, 0x31}));
-            }
-            else
-            {
-                transport.QueueNoFrame();
-            }
-        }
+        ScriptCloseRetries(transport, outcome == 0);
         transport.Exchange(Request({0x31, 0x01, 0x02, 0x02, 0x01}));
         if (outcome == 1)
         {

@@ -1410,6 +1410,51 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WriteLogsRemainingMismatchAfterVerificati
         events.logs.end());
 }
 
+class FirstExchangeProbeTransport final : public ScriptedKlineFlashTransport
+{
+  public:
+    FirstExchangeProbeTransport(FakeCancellationToken& cancellation, int scenario)
+        : cancellation_(cancellation), scenario_(scenario)
+    {
+    }
+    Result<std::size_t> Write(bytes::ByteView request) override
+    {
+        trace.push_back("write");
+        EXPECT_EQ(bytes::Bytes(request.begin(), request.end()), (bytes::Bytes{0x4D, 0xFF, 0xB4}));
+        if (scenario_ < 3)
+        {
+            cancellation_.SetCancelled(true);
+        }
+        if (scenario_ == 0)
+        {
+            return Fail(ErrorKind::kDisconnected, "probe write failed");
+        }
+        return scenario_ == 1 ? request.size() - 1 : request.size();
+    }
+    Result<OptionalBytes> Read(std::chrono::milliseconds timeout, const ICancellationToken&) override
+    {
+        if (trace.empty())
+        {
+            EXPECT_EQ(timeout, 10ms);
+            trace.push_back("drain");
+            return OptionalBytes{};
+        }
+        trace.push_back("read");
+        EXPECT_EQ(timeout, 200ms);
+        cancellation_.SetCancelled(true);
+        if (scenario_ == 3)
+        {
+            return Fail(ErrorKind::kDisconnected, "probe read failed");
+        }
+        return OptionalBytes{};
+    }
+    std::vector<std::string> trace;
+
+  private:
+    FakeCancellationToken& cancellation_;
+    int scenario_;
+};
+
 TEST(SubaruDensoMc68hc16y5_02Executor, FirstExchangePreservesTransportErrorAndCancellationPrecedence)
 {
     for (int scenario = 0; scenario < 8; ++scenario)
@@ -1420,50 +1465,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, FirstExchangePreservesTransportErrorAndCa
         {
             cancellation.CancelOnCheck(8);
         }
-        class ProbeTransport final : public ScriptedKlineFlashTransport
-        {
-          public:
-            ProbeTransport(FakeCancellationToken& cancellation, int scenario)
-                : cancellation_(cancellation), scenario_(scenario)
-            {
-            }
-            Result<std::size_t> Write(bytes::ByteView request) override
-            {
-                trace.push_back("write");
-                EXPECT_EQ(bytes::Bytes(request.begin(), request.end()), (bytes::Bytes{0x4D, 0xFF, 0xB4}));
-                if (scenario_ < 3)
-                {
-                    cancellation_.SetCancelled(true);
-                }
-                if (scenario_ == 0)
-                {
-                    return Fail(ErrorKind::kDisconnected, "probe write failed");
-                }
-                return scenario_ == 1 ? request.size() - 1 : request.size();
-            }
-            Result<OptionalBytes> Read(std::chrono::milliseconds timeout, const ICancellationToken&) override
-            {
-                if (trace.empty())
-                {
-                    EXPECT_EQ(timeout, 10ms);
-                    trace.push_back("drain");
-                    return OptionalBytes{};
-                }
-                trace.push_back("read");
-                EXPECT_EQ(timeout, 200ms);
-                cancellation_.SetCancelled(true);
-                if (scenario_ == 3)
-                {
-                    return Fail(ErrorKind::kDisconnected, "probe read failed");
-                }
-                return OptionalBytes{};
-            }
-            std::vector<std::string> trace;
-
-          private:
-            FakeCancellationToken& cancellation_;
-            int scenario_;
-        } transport(cancellation, scenario);
+        FirstExchangeProbeTransport transport(cancellation, scenario);
         auto plan = StockPlan();
         ASSERT_THAT(plan, fastecu::testing::IsOk());
         MockClock clock;
