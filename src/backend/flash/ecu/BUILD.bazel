@@ -1971,6 +1971,7 @@ fastecu_portable_gtest(
         ":cvt_b6_chunk_exchange",
         "//src/backend/ports/testing:fake_cancellation_token",
         "//src/backend/ports/testing:result_matchers",
+        "//src/backend/protocol/uds/testing:scripted_uds_channel",
         "@googletest//:gtest",
     ],
 )
