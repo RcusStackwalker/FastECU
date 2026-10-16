@@ -58,3 +58,13 @@ fastecu_portable_gtest(
         "@googletest//:gtest",
     ],
 )
+
+fastecu_portable_gtest(
+    name = "mitsu_colt_can_cdbg_protocol_fuzz_test",
+    srcs = ["mitsu_colt_can_cdbg_protocol_fuzz_test.cpp"],
+    deps = [
+        ":mitsu_colt_can_cdbg_protocol",
+        "@fuzztest//fuzztest",
+        "@googletest//:gtest",
+    ],
+)

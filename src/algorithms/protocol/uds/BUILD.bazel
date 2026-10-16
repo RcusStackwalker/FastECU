@@ -48,3 +48,13 @@ cc_library(
     hdrs = ["uds_service_ids.h"],
     deps = ["//src/algorithms/protocol"],
 )
+
+fastecu_portable_gtest(
+    name = "uds_response_fuzz_test",
+    srcs = ["uds_response_fuzz_test.cpp"],
+    deps = [
+        ":uds",
+        "@fuzztest//fuzztest",
+        "@googletest//:gtest",
+    ],
+)

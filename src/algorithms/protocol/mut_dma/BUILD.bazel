@@ -53,3 +53,23 @@ fastecu_portable_gtest(
         "@googletest//:gtest",
     ],
 )
+
+fastecu_portable_gtest(
+    name = "mut_dma_codec_fuzz_test",
+    srcs = ["mut_dma_codec_fuzz_test.cpp"],
+    deps = [
+        ":mut_dma",
+        "@fuzztest//fuzztest",
+        "@googletest//:gtest",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "mut_dma_freeform_fuzz_test",
+    srcs = ["mut_dma_freeform_fuzz_test.cpp"],
+    deps = [
+        ":mut_dma",
+        "@fuzztest//fuzztest",
+        "@googletest//:gtest",
+    ],
+)

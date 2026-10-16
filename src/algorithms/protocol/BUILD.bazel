@@ -43,3 +43,13 @@ fastecu_portable_gtest(
         "@googletest//:gtest",
     ],
 )
+
+fastecu_portable_gtest(
+    name = "bytes_fuzz_test",
+    srcs = ["bytes_fuzz_test.cpp"],
+    deps = [
+        ":protocol",
+        "@fuzztest//fuzztest",
+        "@googletest//:gtest",
+    ],
+)
