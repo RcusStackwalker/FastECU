@@ -52,6 +52,24 @@ void RebalanceU32Be(bytes::MutableByteView rom, std::size_t offset, std::uint32_
     bytes::WriteU32Be(rom, offset, stored + target - observed);
 }
 
+void FoldPieceU32Be(WordFold& fold, bytes::ByteView piece)
+{
+    for (std::size_t offset = 0; offset + 4 <= piece.size(); offset += 4)
+    {
+        const std::uint32_t word = bytes::ReadU32Be(piece, offset);
+        fold.sum += word;
+        fold.xor_all ^= word;
+    }
+}
+
+void SumPieceU16Be(std::uint16_t& sum, bytes::ByteView piece)
+{
+    for (std::size_t offset = 0; offset + 2 <= piece.size(); offset += 2)
+    {
+        sum = static_cast<std::uint16_t>(sum + bytes::ReadU16Be(piece, offset));
+    }
+}
+
 } // namespace fastecu::checksum::internal
 
 namespace fastecu::checksum

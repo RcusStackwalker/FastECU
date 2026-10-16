@@ -2,7 +2,10 @@
 
 #include "checksum_primitives.h"
 #include "src/algorithms/protocol/bytes.h"
+#include <algorithm>
 #include <array>
+#include <cstddef>
+#include <ranges>
 
 namespace
 {
@@ -13,8 +16,8 @@ namespace
 // string-parsing indirection is removed.
 struct ChecksumArea
 {
-    uint32_t start;
-    uint32_t word_count;
+    std::size_t start;
+    std::size_t word_count;
 };
 
 constexpr std::array<ChecksumArea, 12> kChecksumAreas{{
@@ -32,6 +35,12 @@ constexpr std::array<ChecksumArea, 12> kChecksumAreas{{
     {0x7fb80, 0x0240},
 }};
 
+// Each area is a run of halfwords, so a whole number of them; this keeps
+// every one inside the ROM.
+static_assert(
+    std::ranges::all_of(kChecksumAreas, [](const ChecksumArea& area)
+                        { return area.start + (2 * area.word_count) <= ChecksumTcuSubaruDensoSH7055::kRomSize; }));
+
 } // namespace
 
 ChecksumResult ChecksumTcuSubaruDensoSH7055::CalculateChecksumResult(Rom rom)
@@ -45,18 +54,9 @@ ChecksumResult ChecksumTcuSubaruDensoSH7055::CalculateChecksumResult(Rom rom)
      ******************/
     bytes::Bytes rom_data(rom_view.begin(), rom_view.end());
 
-    uint16_t checksum = 0;
-
-    for (const ChecksumArea& area : kChecksumAreas)
-    {
-        const uint32_t area_start = area.start;
-        const uint32_t area_end = area_start + (2 * area.word_count);
-
-        for (uint32_t j = area_start; j < area_end; j += 2)
-        {
-            checksum += bytes::ReadU16Be(rom_data, j);
-        }
-    }
+    const uint16_t checksum = fastecu::checksum::internal::SumU16Be(
+        kChecksumAreas | std::views::transform([&rom_view](const ChecksumArea& area)
+                                               { return rom_view.subspan(area.start, 2 * area.word_count); }));
 
     ChecksumResult result;
     if (checksum != 0x5aa5)
