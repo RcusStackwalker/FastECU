@@ -219,5 +219,59 @@ class RunnerCommandTest(unittest.TestCase):
         )
 
 
+class TestEnvironmentTest(unittest.TestCase):
+    def test_build_and_cquery_share_one_configuration(self) -> None:
+        flags = mt.mutation_flags("/usr/lib/mull-ir-frontend-22", ROOT / "mull.yml")
+        self.assertEqual(
+            [
+                "--config=mutation",
+                "--copt=-fpass-plugin=/usr/lib/mull-ir-frontend-22",
+                f"--action_env=MULL_CONFIG={ROOT / 'mull.yml'}",
+            ],
+            flags,
+        )
+        self.assertEqual(
+            [
+                "bazel",
+                "cquery",
+                *flags,
+                "--output=starlark",
+                f"--starlark:expr={mt.TEST_ENV_EXPR}",
+                "--",
+                "set(//a:t //b:u)",
+            ],
+            mt.env_query_command(["//a:t", "//b:u"], flags),
+        )
+
+    def test_parses_each_targets_env_by_its_label(self) -> None:
+        output = (
+            '{"env":{"KERNEL_FILES":"resources/a.bin resources/b.bin"},"label":"@@//src/a:t"}\n'
+            '{"env":{},"label":"@@//src/b:u"}\n'
+        )
+        self.assertEqual(
+            {"//src/a:t": {"KERNEL_FILES": "resources/a.bin resources/b.bin"}, "//src/b:u": {}},
+            mt.parse_test_environments(output),
+        )
+
+    def test_rejects_output_that_is_not_one_json_object_per_line(self) -> None:
+        with self.assertRaises(mt.MutationTestError):
+            mt.parse_test_environments("Loading: 0 packages loaded\n")
+
+    def test_runner_environment_adds_the_test_env_and_mull_config(self) -> None:
+        environ = mt.runner_environment(
+            {"PATH": "/usr/bin", "KERNEL_FILES": "stale", "MULL_CONFIG": "stale"},
+            {"KERNEL_FILES": "resources/a.bin"},
+            ROOT / "mull.yml",
+        )
+        self.assertEqual(
+            {
+                "PATH": "/usr/bin",
+                "KERNEL_FILES": "resources/a.bin",
+                "MULL_CONFIG": str(ROOT / "mull.yml"),
+            },
+            environ,
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

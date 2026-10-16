@@ -44,6 +44,14 @@ _RUNNER = re.compile(r"^mull-runner-(\d+)$")
 # default kills checksum_test, whose full-size ROMs take seconds in the -O0
 # coverage build. Mutant runs are unaffected: they get 10x the baseline time.
 ORIGINAL_RUN_TIMEOUT_MS = 60_000
+# Each test's `env` attribute as `bazel test` would set it. mull-runner runs
+# the binary directly, so the script sets it instead: a test reading a data
+# path from its environment fails its unmutated run without it.
+TEST_ENV_EXPR = (
+    'json.encode({"label": str(target.label), "env": '
+    'providers(target)["RunEnvironmentInfo"].environment '
+    'if "RunEnvironmentInfo" in providers(target) else {}})'
+)
 
 
 class MutationTestError(RuntimeError):
@@ -266,20 +274,58 @@ def git_changed_files(root: Path, diff_ref: str) -> list[str]:
     return result.stdout.splitlines()
 
 
-def build_tests(root: Path, targets: Sequence[str], plugin: str, config_path: Path) -> None:
-    result = _run(
-        [
-            "bazel",
-            "build",
-            "--config=mutation",
-            f"--copt=-fpass-plugin={plugin}",
-            f"--action_env=MULL_CONFIG={config_path}",
-            *targets,
-        ],
-        root,
-    )
+def mutation_flags(plugin: str, config_path: Path) -> list[str]:
+    """Flags for the mutated build; cquery reuses them to see the same targets."""
+    return [
+        "--config=mutation",
+        f"--copt=-fpass-plugin={plugin}",
+        f"--action_env=MULL_CONFIG={config_path}",
+    ]
+
+
+def build_tests(root: Path, targets: Sequence[str], flags: Sequence[str]) -> None:
+    result = _run(["bazel", "build", *flags, *targets], root)
     if result.returncode:
         raise MutationTestError("building the mutated tests failed")
+
+
+def env_query_command(targets: Sequence[str], flags: Sequence[str]) -> list[str]:
+    return [
+        "bazel",
+        "cquery",
+        *flags,
+        "--output=starlark",
+        f"--starlark:expr={TEST_ENV_EXPR}",
+        "--",
+        f"set({' '.join(targets)})",
+    ]
+
+
+def parse_test_environments(output: str) -> dict[str, dict[str, str]]:
+    """Map each test label to its `env`, from TEST_ENV_EXPR's one-object lines."""
+    environments: dict[str, dict[str, str]] = {}
+    for line in output.splitlines():
+        try:
+            entry = json.loads(line)
+        except json.JSONDecodeError as error:
+            raise MutationTestError(f"unexpected cquery output line {line!r}") from error
+        environments[entry["label"].removeprefix("@@")] = entry["env"]
+    return environments
+
+
+def query_test_environments(
+    root: Path, targets: Sequence[str], flags: Sequence[str]
+) -> dict[str, dict[str, str]]:
+    result = _run(env_query_command(targets, flags), root, capture_output=True)
+    if result.returncode:
+        raise MutationTestError(f"bazel cquery for the test environments failed:\n{result.stderr}")
+    return parse_test_environments(result.stdout)
+
+
+def runner_environment(
+    base: Mapping[str, str], test_env: Mapping[str, str], config_path: Path
+) -> dict[str, str]:
+    return {**base, **test_env, "MULL_CONFIG": str(config_path)}
 
 
 def runner_command(runner: str, binary: Path, report_dir: Path) -> list[str]:
@@ -303,15 +349,20 @@ def runner_command(runner: str, binary: Path, report_dir: Path) -> list[str]:
 
 
 def run_mull(
-    root: Path, runner: str, label: str, config_path: Path, report_dir: Path
+    root: Path,
+    runner: str,
+    label: str,
+    test_env: Mapping[str, str],
+    config_path: Path,
+    report_dir: Path,
 ) -> Mapping | None:
     binary = binary_path(root, label)
+    # The test's env holds runfiles-relative paths, as under `bazel test`.
     runfiles = binary.parent / f"{binary.name}.runfiles" / "_main"
-    environ = {**os.environ, "MULL_CONFIG": str(config_path)}
     result = _run(
         runner_command(runner, binary, report_dir),
         runfiles if runfiles.is_dir() else root,
-        env=environ,
+        env=runner_environment(os.environ, test_env, config_path),
     )
     if result.returncode:
         raise MutationTestError(f"mull-runner failed on {label}")
@@ -384,11 +435,20 @@ def main(argv: Sequence[str] = sys.argv[1:]) -> int:
                 config_path.write_text(diff_config(base_config, args.diff_ref, root))
             # The build always uses the checked-in config, so every mode shares one
             # set of mutated binaries; the runner applies the diff filter.
-            build_tests(root, targets, plugin, root / CONFIG_NAME)
+            flags = mutation_flags(plugin, root / CONFIG_NAME)
+            build_tests(root, targets, flags)
+            environments = query_test_environments(root, targets, flags)
+            missing = sorted(set(targets) - environments.keys())
+            if missing:
+                raise MutationTestError(f"cquery reported no environment for {', '.join(missing)}")
             reports = [
                 report
                 for label in targets
-                if (report := run_mull(root, runner, label, config_path, report_dir))
+                if (
+                    report := run_mull(
+                        root, runner, label, environments[label], config_path, report_dir
+                    )
+                )
             ]
         merged = merge_reports(reports, root)
         _emit(render_summary(merged, title), merged, args)
