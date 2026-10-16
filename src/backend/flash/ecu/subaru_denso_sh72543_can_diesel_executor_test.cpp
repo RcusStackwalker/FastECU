@@ -162,10 +162,22 @@ bytes::Bytes ToWire(bytes::ByteView plain)
 // -- payload index 3 -- selects the programming branch. Unlike its three
 // siblings, this family asks for the ECU id with ReadDataByIdentifier 0xF182
 // and gets 62 F1 82 back, not the vendor 0xAA/0xEA pair.
-void ScriptPreliminaries(ScriptedCanFlashTransport& t, bytes::Byte branch_byte)
+void ScriptPreliminaries(ScriptedCanFlashTransport& t, bytes::Byte branch_byte, int probe_case = 0)
 {
     const auto section = t.Section("preliminaries");
-    t.Exchange(Request({0x10, 0x5F}), Response({0x50, 0x01}));                          // OBK probe, miss
+    t.Exchange(Request({0x10, 0x5F}));
+    if (probe_case == 1)
+    {
+        t.QueueNoFrame();
+    }
+    else if (probe_case == 2)
+    {
+        t.QueueRead(Response({}));
+    }
+    else
+    {
+        t.QueueRead(Response({0x50, 0x01}));
+    }
     t.Exchange(Request({0x22, 0xF1, 0x82}), Response({0x62, 0xF1, 0x82, 'I', 'D'}));    // ECU ID
     t.Exchange(Request({0x09, 0x02}), Response({0x49, 0x02, 'V', 'I', 'N'}));           // VIN
     t.Exchange(Request({0x09, 0x04}), Response({0x49, 0x04, 'C', 'A', 'L'}));           // CAL ID
@@ -176,10 +188,10 @@ void ScriptPreliminaries(ScriptedCanFlashTransport& t, bytes::Byte branch_byte)
 
 // The bench arm. Its kernel jump reads once before the loop, where the SH72531
 // sibling reads twice.
-void ScriptBenchConnect(ScriptedCanFlashTransport& t)
+void ScriptBenchConnect(ScriptedCanFlashTransport& t, int probe_case = 0)
 {
     const auto section = t.Section("bench connect");
-    ScriptPreliminaries(t, 0xFF);
+    ScriptPreliminaries(t, 0xFF, probe_case);
     t.Exchange(Request({0x10, 0x43}), Response({0x50, 0x43}));
     t.Exchange(Request({0x27, 0x61}), Response({0x67, 0x61, 0x11, 0x22, 0x33, 0x44}));
     t.Exchange(Request({0x27, 0x62, 0x35, 0xB6, 0x83, 0xBF}), Response({0x67, 0x62}));
@@ -786,5 +798,239 @@ struct Sh72543CanDieselTraits
 };
 
 INSTANTIATE_TYPED_TEST_SUITE_P(SubaruDensoSh72543CanDiesel, CanExecutorConformance, Sh72543CanDieselTraits);
+
+// Independent family scripts: characterize the current boundaries, including
+// permissiveness, without invoking a new production helper or normalizing it.
+TEST(SubaruDensoSh72543CanDieselExecutor, ObkMismatchAbsentAndEmptyAreMisses)
+{
+    for (int probe_case = 0; probe_case < 3; ++probe_case)
+    {
+        SCOPED_TRACE(probe_case);
+        ScriptedCanFlashTransport transport;
+        ScriptBenchConnect(transport, probe_case);
+        ScriptReadSetup(transport);
+        transport.Exchange(Request(bytes::ComposeBe(bytes::Byte(0xB7), kBlockStart)));
+        transport.QueueError(ErrorKind::kDisconnected, "stop after successful connection");
+        FakeClock clock;
+        RecordingEventSink events;
+        fastecu::ManualCancellationToken cancellation;
+        SubaruDensoSh72543CanDieselExecutor executor;
+        const auto plan = ReadPlan();
+        ASSERT_THAT(plan, fastecu::testing::IsOk());
+        EXPECT_THAT(executor.Execute(*plan, transport, clock, cancellation, events),
+                    fastecu::testing::IsErr(ErrorKind::kDisconnected));
+        EXPECT_TRUE(transport.ScriptConsumed());
+        EXPECT_THAT(events.logs,
+                    testing::Contains(testing::Pair(fastecu::LogLevel::kInfo, "OBK not active, initialising ECU...")));
+        EXPECT_EQ(transport.ReadTimeouts().front(), 200ms);
+    }
+}
+
+TEST(SubaruDensoSh72543CanDieselExecutor, ObkErrorsAndCancellationPropagateBeforeInitialization)
+{
+    for (const auto kind : {ErrorKind::kDisconnected, ErrorKind::kCancelled, ErrorKind::kBadResponse})
+    {
+        SCOPED_TRACE(static_cast<int>(kind));
+        ScriptedCanFlashTransport transport;
+        transport.Exchange(Request({0x10, 0x5F}));
+        if (kind == ErrorKind::kBadResponse)
+        {
+            transport.QueueRead(bytes::Bytes{}); // malformed envelope, unlike an empty PDU
+        }
+        else
+        {
+            transport.QueueError(kind, "probe failure");
+        }
+        FakeClock clock;
+        RecordingEventSink events;
+        fastecu::ManualCancellationToken cancellation;
+        SubaruDensoSh72543CanDieselExecutor executor;
+        const auto plan = ReadPlan();
+        ASSERT_THAT(plan, fastecu::testing::IsOk());
+        EXPECT_THAT(executor.Execute(*plan, transport, clock, cancellation, events), fastecu::testing::IsErr(kind));
+        EXPECT_TRUE(transport.ScriptConsumed());
+        EXPECT_THAT(events.logs, testing::Not(testing::Contains(
+                                     testing::Pair(fastecu::LogLevel::kInfo, "OBK not active, initialising ECU..."))));
+    }
+}
+
+TEST(SubaruDensoSh72543CanDieselExecutor, ShortPagesAdvanceByRequestedSizeAndStopIsBestEffort)
+{
+    for (const bool exhausted : {false, true})
+    {
+        SCOPED_TRACE(exhausted);
+        ScriptedCanFlashTransport transport;
+        // Prefix hit (extra byte deliberately allowed) bypasses all identity,
+        // access-method, security and jump exchanges.
+        transport.Exchange(Request({0x10, 0x5F}), Response({0x50, 0x5F, 0x99}));
+        ScriptReadSetup(transport);
+        auto wire = ToWire(bytes::Bytes{0x12, 0x34, 0x56, 0x78});
+        wire.insert(wire.end(), {0xAA, 0xBB, 0xCC});
+        auto reply = Response({0xF7});
+        reply.insert(reply.end(), wire.begin(), wire.end());
+        for (std::uint32_t offset = 0; offset < kBlockLength; offset += kPageSize)
+        {
+            transport.Exchange(Request(bytes::ComposeBe(bytes::Byte(0xB7), kBlockStart + offset)), reply);
+        }
+        // Six sends maximum. All failed kinds are tolerated, even a cancelled
+        // exchange. A positive sixth reply logs and breaks; exhaustion also
+        // returns the padded image. No reply length check is added here.
+        transport.Exchange(Request({0x37}));
+        transport.QueueNoFrame();
+        transport.Exchange(Request({0x37}), bytes::Bytes{});
+        transport.Exchange(Request({0x37}), Response({0x7F, 0x37, 0x22}));
+        transport.Exchange(Request({0x37}));
+        transport.QueueError(ErrorKind::kDisconnected, "stop disconnected");
+        transport.Exchange(Request({0x37}));
+        transport.QueueError(ErrorKind::kCancelled, "stop cancelled");
+        transport.Exchange(Request({0x37}));
+        if (exhausted)
+        {
+            transport.QueueError(ErrorKind::kTimeout, "stop exhausted");
+        }
+        else
+        {
+            transport.QueueRead(Response({0x77}));
+        }
+        RecordingClock clock;
+        RecordingEventSink events;
+        fastecu::ManualCancellationToken cancellation;
+        SubaruDensoSh72543CanDieselExecutor executor;
+        const auto plan = ReadPlan();
+        ASSERT_THAT(plan, fastecu::testing::IsOk());
+        const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
+        ASSERT_THAT(result, fastecu::testing::IsOk());
+        ASSERT_TRUE(result->read_bytes.has_value());
+        constexpr std::size_t pages = kBlockLength / kPageSize;
+        constexpr std::size_t lead = 0x8000;
+        ASSERT_EQ(result->read_bytes->size(), lead + pages * 4 + 0x100);
+        EXPECT_THAT(bytes::ByteView(*result->read_bytes).first(lead), Each(0xFF));
+        EXPECT_THAT(bytes::ByteView(*result->read_bytes).last(0x100), Each(0xFF));
+        for (std::size_t page = 0; page < pages; ++page)
+        {
+            SCOPED_TRACE(page);
+            EXPECT_THAT(bytes::ByteView(*result->read_bytes).subspan(lead + page * 4, 4),
+                        testing::ElementsAre(0x12, 0x34, 0x56, 0x78));
+        }
+        std::vector<int> read_progress;
+        for (const auto& event : events.phase_progress_calls)
+        {
+            if (event.phase_name == "Read ROM")
+            {
+                read_progress.push_back(event.done);
+            }
+        }
+        ASSERT_EQ(read_progress.size(), pages + 2);
+        EXPECT_EQ(read_progress.front(), 0);
+        for (std::size_t page = 1; page <= pages; ++page)
+        {
+            SCOPED_TRACE(page);
+            EXPECT_EQ(read_progress[page], page == pages ? kBlockLength - 1 : page * kPageSize);
+        }
+        EXPECT_EQ(read_progress.back(), kBlockLength);
+        EXPECT_TRUE(transport.ScriptConsumed());
+        EXPECT_THAT(events.logs, testing::Contains(testing::Pair(fastecu::LogLevel::kInfo, "OBK is active!")));
+        EXPECT_EQ(clock.sleep_calls, (std::vector<std::chrono::milliseconds>(pages, 1ms)));
+        EXPECT_EQ(transport.ReadTimeouts().back(), 500ms);
+        if (!exhausted)
+        {
+            EXPECT_THAT(events.logs,
+                        testing::Contains(testing::Pair(fastecu::LogLevel::kInfo, "Stop request response: 77 ")));
+        }
+    }
+}
+
+TEST(SubaruDensoSh72543CanDieselExecutor, PageAbsentEmptyAndCancelledFailWithoutStopOrProgress)
+{
+    for (int response_case = 0; response_case < 3; ++response_case)
+    {
+        SCOPED_TRACE(response_case);
+        ScriptedCanFlashTransport transport;
+        transport.Exchange(Request({0x10, 0x5F}), Response({0x50, 0x5F}));
+        ScriptReadSetup(transport);
+        transport.Exchange(Request(bytes::ComposeBe(bytes::Byte(0xB7), kBlockStart)));
+        if (response_case == 0)
+        {
+            transport.QueueNoFrame();
+        }
+        else if (response_case == 1)
+        {
+            transport.QueueRead(bytes::Bytes{});
+        }
+        else
+        {
+            transport.QueueError(ErrorKind::kCancelled, "page cancelled");
+        }
+        FakeClock clock;
+        RecordingEventSink events;
+        fastecu::ManualCancellationToken cancellation;
+        SubaruDensoSh72543CanDieselExecutor executor;
+        const auto plan = ReadPlan();
+        ASSERT_THAT(plan, fastecu::testing::IsOk());
+        const auto kind = response_case == 0   ? ErrorKind::kTimeout
+                          : response_case == 1 ? ErrorKind::kBadResponse
+                                               : ErrorKind::kCancelled;
+        EXPECT_THAT(executor.Execute(*plan, transport, clock, cancellation, events), fastecu::testing::IsErr(kind));
+        EXPECT_TRUE(transport.ScriptConsumed());
+        EXPECT_EQ(events.phase_progress_calls.back().done, 0);
+    }
+}
+
+TEST(SubaruDensoSh72543CanDieselExecutor, CancellationAfterPageFailsButCancellationAtStopIsSwallowed)
+{
+    for (const bool at_stop : {false, true})
+    {
+        SCOPED_TRACE(at_stop);
+        ScriptedCanFlashTransport transport;
+        transport.Exchange(Request({0x10, 0x5F}), Response({0x50, 0x5F}));
+        ScriptReadSetup(transport);
+        ScriptFlashDump(transport, kBlockStart, at_stop ? kBlockLength : kPageSize, kPageSize, 0xA5);
+        fastecu::ManualCancellationToken cancellation;
+        class CancellingEvents final : public RecordingEventSink
+        {
+          public:
+            CancellingEvents(fastecu::ManualCancellationToken& token, bool stop) : token_(token), stop_(stop)
+            {
+            }
+            void Log(fastecu::LogLevel level, std::string_view text) override
+            {
+                RecordingEventSink::Log(level, text);
+                if (stop_ && text == "Sending stop command")
+                {
+                    token_.Cancel();
+                }
+            }
+            void PhaseProgress(const fastecu::PhaseProgressEvent& event) override
+            {
+                RecordingEventSink::PhaseProgress(event);
+                if (!stop_ && event.phase_name == "Read ROM" && event.done == static_cast<int>(kPageSize))
+                {
+                    token_.Cancel();
+                }
+            }
+
+          private:
+            fastecu::ManualCancellationToken& token_;
+            bool stop_;
+        } events(cancellation, at_stop);
+        FakeClock clock;
+        SubaruDensoSh72543CanDieselExecutor executor;
+        const auto plan = ReadPlan();
+        ASSERT_THAT(plan, fastecu::testing::IsOk());
+        const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
+        if (at_stop)
+        {
+            EXPECT_THAT(result, fastecu::testing::IsOk());
+            EXPECT_EQ(events.phase_progress_calls.back().done, kBlockLength);
+        }
+        else
+        {
+            EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kCancelled));
+            EXPECT_EQ(events.phase_progress_calls.back().done, kPageSize);
+        }
+        EXPECT_TRUE(cancellation.Cancelled());
+        EXPECT_TRUE(transport.ScriptConsumed());
+    }
+}
 
 } // namespace

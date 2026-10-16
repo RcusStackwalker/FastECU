@@ -99,6 +99,38 @@ caller response policy or hardware qualification. `DensoIso15765Erase` accepts
 the family-selected region and constructs its download setup internally; family
 write orchestration calls it directly without forwarding wrappers.
 
+The Denso read-boundary characterization resolves the broader extraction
+suggestions in [P23, P25 and P81](superpowers/specs/2026-10-14-flash-duplication-triage.md).
+Those proposals to share probe/stop/read operations disagreed with the common
+header's deliberate local-flow contract; this decision keeps that contract and
+bounds the page-only follow-up.
+Keep complete OBK probes and best-effort read-stop operations local: their
+observable logs differ (N83M success punctuation; 4M omits the stop-response
+log), even though the wire-prefix predicate and six-attempt stop policy match.
+An absent OBK frame is a miss; an empty PDU in a valid envelope is also a miss,
+while a raw empty frame fails envelope validation. Probe transport errors and
+cancellation propagate. Stop ignores all exchange failures, including
+cancellation and six-attempt exhaustion; this is characterization, not approval
+to tighten permissiveness or a claim of hardware qualification.
+
+The bounded page request/decrypt operation matches across all four families:
+`B7` plus the four-byte big-endian address, a 2000 ms initial read timeout,
+UDS positive-response checking, then decryption of whole four-byte words.
+Seven encrypted bytes currently yield four decrypted bytes; progress advances
+by the requested 256 bytes even for short pages. Setup, append, progress,
+padding, logs and pacing stay family-owned. Contrary to the task proposal's
+single-family pacing distinction, **both SH72531 and SH72543 diesel wait 1 ms
+per page**; neither N83M family does. Independent family scripts pin both waits.
+A separately authorized extraction may introduce only
+`Result<bytes::Bytes> ReadDensoEncryptedPage(const CanExecutorContext& ctx,
+std::uint32_t address)` in the common module, preserving the existing fatal
+request diagnostic and response policy. It must run the four family suites,
+including short-page, absent/empty, transport-error and cancellation cases,
+with no page-length tightening, progress move, setup change or pacing change.
+No production interface is introduced by this characterization. Local EcuFlash
+artifacts yielded no tractable mapping to these exact operations; no external
+oracle supports changing short-page acceptance or stop-error precedence.
+
 The [ordinary optional M32R SSM exchange](../src/backend/flash/ecu/m32r_ssm_exchange.h)
 is shared by the Subaru Hitachi M32R K-Line ECU, Subaru Mitsubishi M32R K-Line
 ECU, and Subaru TCU Hitachi M32R K-Line executors. Byte-level characterization
