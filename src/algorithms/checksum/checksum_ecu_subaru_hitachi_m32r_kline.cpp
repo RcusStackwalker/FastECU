@@ -65,7 +65,7 @@ ChecksumResult ChecksumEcuSubaruHitachiM32rKline::CalculateChecksumResult(Rom ro
      * *************************************/
     // Leaves out the word holding checksums 1 and 2.
     checksum_3_value_calculated = static_cast<uint16_t>(
-        fastecu::checksum::internal::FoldU32Be({image.first(0x8100).subspan(0x4000), image.subspan(0x8104)}).sum);
+        fastecu::checksum::internal::FoldU32Be({image.subspan(0x4000, 0x4100), image.subspan(0x8104)}).sum);
     if (checksum_3_value_calculated != 0x5aa5)
     {
         checksum_ok = false;

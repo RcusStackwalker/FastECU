@@ -44,7 +44,7 @@ ChecksumResult ChecksumEcuSubaruHitachiSH7058::CalculateChecksumResult(Rom rom)
      *
      * *************************************/
     const fastecu::checksum::internal::WordFold checksums_1_and_2 =
-        fastecu::checksum::internal::FoldU32Be({image.first(0x1e000).subspan(0x18400)});
+        fastecu::checksum::internal::FoldU32Be({image.subspan(0x18400, 0x5c00)});
     checksum_1_value_calculated = checksums_1_and_2.sum;
     checksum_2_value_calculated = checksums_1_and_2.xor_all;
     checksum_1_value_stored = bytes::ReadU32Be(rom_data, checksum_1_value_address);
@@ -68,7 +68,7 @@ ChecksumResult ChecksumEcuSubaruHitachiSH7058::CalculateChecksumResult(Rom rom)
      * *************************************/
     // Checksums 3 to 5 leave out the slots of checksums 3 and 4, 0xffff0 to 0xffff8.
     checksum_5_value_calculated =
-        fastecu::checksum::internal::FoldU32Be({image.first(0xffff0).subspan(0x4000), image.subspan(0xffff8)}).sum;
+        fastecu::checksum::internal::FoldU32Be({image.subspan(0x4000, 0xfbff0), image.subspan(0xffff8)}).sum;
     if (checksum_5_value_calculated != 0x5aa5a55a)
     {
         fastecu::checksum::internal::RebalanceU32Be(rom_data, checksum_5_balance_value_address,
