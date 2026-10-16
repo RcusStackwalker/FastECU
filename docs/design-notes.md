@@ -139,6 +139,23 @@ its raw-channel exchanges and tolerant checksum handling, while MH8111 retains
 UDS exchanges and fatal checksum handling. Legacy line citations establish
 table provenance only; this sharing changes no hardware qualification.
 
+The Hitachi M32R CVT CAN security/session sequence remains separate from
+Mitsubishi MH8111: Hitachi sends its security exchanges through `other_uds` on
+`0x7E0`, then returns to `0x7E1`; MH8111 uses its primary `0x7E1` channel.
+Their current seed-key tables and stock transformation are identical, while
+payload encryption tables differ. Literal seed/key transcripts characterize
+these bindings without establishing interchangeable connection policy.
+Both write-chunk loops tolerate an absent reply but propagate transport errors.
+Hitachi closes each block with one fatal attempt; MH8111 allows twenty attempts,
+succeeds on the first valid `0x77`, and reports `BadResponse` on exhaustion.
+Executor scripts pin these outcomes, including success on MH8111's twentieth
+attempt. They establish current behavior only: independent EcuFlash CVT
+security and reflash/retry function mappings remain unavailable, and the
+[qualification matrix](flash-qualification-matrix.md) remains authoritative.
+A possible bounded chunk exchange extraction must retain each family's
+geometry, encryption, progress, and close policy; no correction is inferred
+from similarity.
+
 ### Corrections require local evidence
 
 A correction needs local evidence of the defect, a reproducing test, exact

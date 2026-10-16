@@ -123,21 +123,13 @@ fastecu::Result<fastecu::flash::FlashPlan> HandBuiltPlan(FlashOperation operatio
     return fastecu::flash::ValidateAndBuild(std::move(fields));
 }
 
-// The seed/encrypt/decrypt tables, transcribed independently from the same
-// legacy lines the executor was (generate_seed_key/encrypt_payload/
-// decrypt_payload) -- not read back from the executor's own translation unit.
+// Payload tables transcribed from legacy encrypt_payload,
+// not read back from the executor's own translation unit.
 // Mirrors subaru_hitachi_m32r_can_executor_test.cpp's own precedent.
-constexpr std::array<std::uint16_t, 16> kSeedKeyTable{0x9E99, 0x685C, 0x874D, 0xF11E, 0x27D4, 0xA967, 0xB63B, 0x7A37,
-                                                      0xE23B, 0xA8D0, 0x9B82, 0xAC43, 0xE874, 0x7FC5, 0x7141, 0x8B44};
 constexpr std::array<std::uint16_t, 4> kEncryptTable{0x3B61, 0x8BEF, 0x9E51, 0x1075};
 constexpr std::array<std::uint8_t, 32> kIndexTransformation{0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8, 0xA, 0xD, 0x2,
                                                             0xB, 0xF, 0x4, 0x0, 0x3, 0xB, 0x4, 0x6, 0x0, 0xF, 0x2,
                                                             0xD, 0x9, 0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8};
-
-bytes::Bytes SeedKey(bytes::ByteView seed)
-{
-    return ssm_protocol::CalculateSeedKey(seed, kSeedKeyTable, kIndexTransformation);
-}
 
 // calculatePayload's Feistel structure inverts by reversing key order and is
 // memoryless per 4-byte word (position-independent), so this single helper
@@ -215,7 +207,8 @@ void ScriptFullConnect(ScriptedCanFlashTransport& transport)
     const auto section = transport.Section("full connect");
     ScriptKernelAliveMiss(transport);
     ScriptIdentityQueries(transport);
-    const bytes::Bytes key = SeedKey(kSeed);
+    // Literal stock seed-key vector; not calculated by the production helper.
+    const bytes::Bytes key{0x12, 0xb6, 0xce, 0xba};
     ScriptSessionAndSeed(transport, kSeed, key);
     ScriptJumpAndRecheck(transport);
 }
@@ -283,10 +276,17 @@ void ScriptEraseMemory(ScriptedCanFlashTransport& transport)
     transport.Exchange(Request({0x31, 0x02, 0x01, 0xff, 0xff, 0xff, 0xff}), Response({0x31, 0x02, 0x01}));
 }
 
+enum class ChunkReply
+{
+    kPositive,
+    kSilent,
+    kDisconnected,
+};
+
 // Scripts one reflash_block block: setup, 128-byte chunk sweep (content-blind
 // -- any well-formed reply is accepted), close, checksum.
 void ScriptWriteBlock(ScriptedCanFlashTransport& transport, bytes::ByteView block_plain, std::uint32_t start,
-                      std::uint32_t length)
+                      std::uint32_t length, ChunkReply chunk_reply = ChunkReply::kPositive, int close_failures = 0)
 {
     const auto section = transport.Section("write block");
     constexpr std::uint32_t kChunkSize = 128;
@@ -301,9 +301,31 @@ void ScriptWriteBlock(ScriptedCanFlashTransport& transport, bytes::ByteView bloc
         const std::uint32_t addr = start + offset;
         bytes::Bytes req = bytes::ComposeBe(bytes::Byte(0xB6), bytes::U24(addr),
                                             bytes::ByteView(encrypted).subspan(offset, kChunkSize));
-        transport.Exchange(Request(req), Response({0xF6}));
+        transport.Exchange(Request(req));
+        if (chunk_reply == ChunkReply::kSilent)
+        {
+            transport.QueueNoFrame();
+        }
+        else if (chunk_reply == ChunkReply::kDisconnected)
+        {
+            transport.QueueError(ErrorKind::kDisconnected, "chunk adapter gone");
+            return;
+        }
+        else
+        {
+            transport.QueueRead(Response({0xF6}));
+        }
     }
 
+    for (int attempt = 0; attempt < close_failures; ++attempt)
+    {
+        transport.Exchange(Request({0x37}));
+        transport.QueueNoFrame();
+    }
+    if (close_failures == 1)
+    {
+        return;
+    }
     transport.Exchange(Request({0x37}), Response({0x77}));
 
     transport.Exchange(Request({0x31, 0x02, 0x02, 0x01}), Response({0x71, 0x02, 0x02}));
@@ -317,6 +339,103 @@ bytes::Bytes WriteRom()
         rom[i] = static_cast<bytes::Byte>(i);
     }
     return rom;
+}
+
+// Literal vectors calculated with a standalone 16-bit Feistel transcription.
+// They pin the local table binding and exact security arbitration id, not a
+// hardware-qualified seed/key oracle or interchangeable connection policy.
+TEST(SubaruTcuCvtHitachiM32rCanExecutor, SecurityUsesLiteralStockVectorsOnFamilyAddress)
+{
+    const std::array<std::pair<bytes::Bytes, bytes::Bytes>, 2> vectors{{
+        {{0x00, 0x00, 0x00, 0x00}, {0xc2, 0x61, 0x58, 0x3a}},
+        {{0xff, 0xff, 0xff, 0xff}, {0xe3, 0xa0, 0x6c, 0x00}},
+    }};
+    for (const auto& [seed, key] : vectors)
+    {
+        SCOPED_TRACE(testing::PrintToString(seed));
+        ScriptedCanFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::kOpen};
+        FakeClock clock;
+        RecordingEventSink events;
+        fastecu::ManualCancellationToken cancellation;
+        SubaruTcuCvtHitachiM32rCanExecutor executor;
+        auto plan = ReadPlan();
+        ASSERT_THAT(plan, fastecu::testing::IsOk());
+
+        ScriptKernelAliveMiss(transport);
+        ScriptIdentityQueries(transport);
+        ScriptSessionAndSeed(transport, seed, key);
+        // Stop immediately after the exact seed-key exchange has succeeded.
+        transport.Exchange(Request({0x10, 0x02}));
+        transport.QueueError(ErrorKind::kDisconnected, "stop after security");
+
+        EXPECT_THAT(executor.Execute(*plan, transport, clock, cancellation, events),
+                    fastecu::testing::IsErr(ErrorKind::kDisconnected));
+        EXPECT_TRUE(transport.ScriptConsumed());
+    }
+}
+
+TEST(SubaruTcuCvtHitachiM32rCanExecutor, WriteAcceptsSilentChunkReplies)
+{
+    ScriptedCanFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::kOpen};
+    FakeClock clock;
+    RecordingEventSink events;
+    fastecu::ManualCancellationToken cancellation;
+    SubaruTcuCvtHitachiM32rCanExecutor executor;
+    const bytes::Bytes rom = WriteRom();
+    auto plan = WritePlan(rom);
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+
+    ScriptFullConnect(transport);
+    ScriptEraseMemory(transport);
+    ScriptWriteBlock(transport, bytes::ByteView(rom).subspan(0x8000, 0x8000), 0x8000, 0x8000, ChunkReply::kSilent);
+    for (std::uint32_t start = 0x10000; start < 0x80000; start += 0x10000)
+    {
+        ScriptWriteBlock(transport, bytes::ByteView(rom).subspan(start, 0x10000), start, 0x10000, ChunkReply::kSilent);
+    }
+
+    EXPECT_THAT(executor.Execute(*plan, transport, clock, cancellation, events), fastecu::testing::IsOk());
+    EXPECT_TRUE(transport.ScriptConsumed());
+}
+
+TEST(SubaruTcuCvtHitachiM32rCanExecutor, WritePropagatesChunkTransportError)
+{
+    ScriptedCanFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::kOpen};
+    FakeClock clock;
+    RecordingEventSink events;
+    fastecu::ManualCancellationToken cancellation;
+    SubaruTcuCvtHitachiM32rCanExecutor executor;
+    const bytes::Bytes rom = WriteRom();
+    auto plan = WritePlan(rom);
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+
+    ScriptFullConnect(transport);
+    ScriptEraseMemory(transport);
+    ScriptWriteBlock(transport, bytes::ByteView(rom).subspan(0x8000, 0x8000), 0x8000, 0x8000,
+                     ChunkReply::kDisconnected);
+
+    EXPECT_THAT(executor.Execute(*plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::kDisconnected));
+    EXPECT_TRUE(transport.ScriptConsumed());
+}
+
+TEST(SubaruTcuCvtHitachiM32rCanExecutor, WriteCloseExhaustionIsFatal)
+{
+    ScriptedCanFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::kOpen};
+    FakeClock clock;
+    RecordingEventSink events;
+    fastecu::ManualCancellationToken cancellation;
+    SubaruTcuCvtHitachiM32rCanExecutor executor;
+    const bytes::Bytes rom = WriteRom();
+    auto plan = WritePlan(rom);
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+
+    ScriptFullConnect(transport);
+    ScriptEraseMemory(transport);
+    ScriptWriteBlock(transport, bytes::ByteView(rom).subspan(0x8000, 0x8000), 0x8000, 0x8000, ChunkReply::kPositive, 1);
+
+    EXPECT_THAT(executor.Execute(*plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::kTimeout));
+    EXPECT_TRUE(transport.ScriptConsumed());
 }
 
 TEST(SubaruTcuCvtHitachiM32rCanExecutor, ConnectSkipsTheRestWhenKernelAlreadyRunning)
