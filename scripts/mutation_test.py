@@ -34,6 +34,7 @@ from pathlib import Path
 PORTABLE_PREFIXES = ("src/algorithms/", "src/backend/")
 SOURCE_SUFFIXES = (".c", ".cc", ".cpp", ".cxx", ".h", ".hh", ".hpp", ".hxx")
 PORTABLE_SCOPE = "//src/algorithms/... + //src/backend/..."
+CONFIG_NAME = "mull.yml"
 # GitHub shows at most 10 warning annotations per step.
 MAX_ANNOTATIONS = 10
 # A mutant's merged status is the strongest any binary reports for it.
@@ -241,7 +242,9 @@ def tests_expression(scope: str, changed: Sequence[str] | None) -> str:
 def query_tests(root: Path, scope: str, changed: Sequence[str] | None) -> list[str]:
     expression = tests_expression(scope, changed)
     result = _run(
-        ["bazel", "query", "--keep_going", expression, "--output=label"], root, capture_output=True
+        ["bazel", "query", "--keep_going", "--output=label", "--", expression],
+        root,
+        capture_output=True,
     )
     if result.returncode not in (0, 3):
         raise MutationTestError(f"bazel query failed:\n{result.stderr}")
@@ -250,7 +253,7 @@ def query_tests(root: Path, scope: str, changed: Sequence[str] | None) -> list[s
 
 def git_changed_files(root: Path, diff_ref: str) -> list[str]:
     result = _run(
-        ["git", "diff", "--name-only", "--diff-filter=d", f"{diff_ref}...HEAD"],
+        ["git", "diff", "--name-only", "--diff-filter=d", "--end-of-options", f"{diff_ref}...HEAD"],
         root,
         capture_output=True,
     )
@@ -307,14 +310,24 @@ def run_mull(
     return json.loads(report.read_text()) if report.exists() else None
 
 
+def operand(value: str) -> str:
+    """An argument passed on to git or Bazel as an operand, never as an option."""
+    if not value or value.startswith("-"):
+        raise argparse.ArgumentTypeError(f"{value!r} must not be empty or start with '-'")
+    return value
+
+
 def _parse_args(argv: Sequence[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--diff-ref", help="mutate only lines changed since this git ref")
+    parser.add_argument(
+        "--diff-ref", type=operand, help="mutate only lines changed since this git ref"
+    )
     parser.add_argument("--report-dir", type=Path, help="keep per-binary reports here")
     parser.add_argument("--summary", type=Path, help="append the Markdown summary to this file")
     parser.add_argument("--annotate", action="store_true", help="print GitHub annotations")
     parser.add_argument(
         "--scope",
+        type=operand,
         default=PORTABLE_SCOPE,
         help=f"Bazel target pattern whose tests run (default: {PORTABLE_SCOPE})",
     )
@@ -334,7 +347,7 @@ def _emit(summary: str, merged: Mapping[MutantKey, str], args: argparse.Namespac
 def main(argv: Sequence[str] = sys.argv[1:]) -> int:
     args = _parse_args(argv)
     root = Path(__file__).resolve().parent.parent
-    base_config = (root / "mull.yml").read_text()
+    base_config = (root / CONFIG_NAME).read_text()
     title = (
         f"Mutation testing (lines changed since {args.diff_ref})"
         if args.diff_ref
@@ -355,13 +368,13 @@ def main(argv: Sequence[str] = sys.argv[1:]) -> int:
         with tempfile.TemporaryDirectory(prefix="fastecu-mull-") as scratch:
             report_dir = args.report_dir or Path(scratch) / "reports"
             report_dir.mkdir(parents=True, exist_ok=True)
-            config_path = root / "mull.yml"
+            config_path = root / CONFIG_NAME
             if args.diff_ref:
-                config_path = Path(scratch) / "mull.yml"
+                config_path = Path(scratch) / CONFIG_NAME
                 config_path.write_text(diff_config(base_config, args.diff_ref, root))
             # The build always uses the checked-in config, so every mode shares one
             # set of mutated binaries; the runner applies the diff filter.
-            build_tests(root, targets, plugin, root / "mull.yml")
+            build_tests(root, targets, plugin, root / CONFIG_NAME)
             reports = [
                 report
                 for label in targets
