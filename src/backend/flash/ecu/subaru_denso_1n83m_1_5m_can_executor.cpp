@@ -371,14 +371,12 @@ Result<bytes::Bytes> ReadMemory(Ctx& ctx, const SubaruDenso1n83m_1_5mCanPlan& fa
         const std::uint32_t addr = region.start + offset;
         // Lines 922-953: SID 0xB7 plus a 4-byte big-endian address; the reply
         // is 0xF7 plus one 256-byte encrypted page (lines 958-979).
-        Result<bytes::Bytes> chunk = FatalRequest(ctx, ComposeBe(uds::kSidReadMemoryChunk, addr), kLongPolicy,
-                                                  std::format("the flash read at 0x{:x}", addr));
+        Result<bytes::Bytes> chunk = ReadDensoEncryptedPage(ctx, addr);
         if (!chunk.has_value())
         {
             return std::unexpected(chunk.error());
         }
-        const bytes::Bytes decrypted = DensoDecryptPage(uds::Payload(*chunk));
-        rom.insert(rom.end(), decrypted.begin(), decrypted.end());
+        rom.insert(rom.end(), chunk->begin(), chunk->end());
         progress.Update(static_cast<int>(offset + kPageSize));
     }
 

@@ -79,6 +79,19 @@ bytes::Bytes DensoIso15765UploadSetupPdu(const MemoryRegion& region)
                             region.length);
 }
 
+Result<bytes::Bytes> ReadDensoEncryptedPage(const CanExecutorContext& ctx, std::uint32_t address)
+{
+    constexpr uds::ExchangePolicy kPagePolicy{.read_timeout = std::chrono::milliseconds{2000}};
+    Result<bytes::Bytes> reply =
+        FatalRequest(ExchangeContext(ctx, kPagePolicy), bytes::ComposeBe(uds::kSidReadMemoryChunk, address),
+                     kRejectionPrefix, std::format("the flash read at 0x{:x}", address));
+    if (!reply.has_value())
+    {
+        return std::unexpected(reply.error());
+    }
+    return DensoDecryptPage(uds::Payload(*reply));
+}
+
 Result<bytes::Bytes> TolerantProbe(const CanExecutorContext& ctx, bytes::ByteView pdu, bytes::Byte expected_service,
                                    bytes::Byte expected_subfunction, std::chrono::milliseconds timeout,
                                    std::string_view rejection_prefix, std::string_view subject)
