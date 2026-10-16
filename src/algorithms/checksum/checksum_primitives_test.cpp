@@ -45,6 +45,72 @@ TEST(ChecksumPrimitives, RebalancesU32DownwardAtNonzeroOffset)
     EXPECT_THAT(rom, ElementsAre(0xA5, 0x12, 0x34, 0x56, 0x68, 0x5A));
 }
 
+namespace
+{
+
+using fastecu::checksum::internal::FoldU32Be;
+using fastecu::checksum::internal::SumU16Be;
+using fastecu::checksum::internal::WordFold;
+
+// A ROM of big-endian 32-bit words, the first at address 0. The words are
+// distinct powers of two, so a sum names exactly the words it took in.
+bytes::Bytes WordRom()
+{
+    bytes::Bytes rom(20, 0x00);
+    bytes::WriteU32Be(rom, 0x00, 0x01);
+    bytes::WriteU32Be(rom, 0x04, 0x02);
+    bytes::WriteU32Be(rom, 0x08, 0x04);
+    bytes::WriteU32Be(rom, 0x0c, 0x08);
+    bytes::WriteU32Be(rom, 0x10, 0x10);
+    return rom;
+}
+
+} // namespace
+
+TEST(FoldU32Be, TakesTheWordAtTheWindowStartButNotTheOneAtItsEnd)
+{
+    const WordFold fold = FoldU32Be(WordRom(), {0x04, 0x0c});
+    EXPECT_EQ(fold.sum, 0x02U + 0x04U);
+    EXPECT_EQ(fold.xor_all, 0x02U ^ 0x04U);
+}
+
+TEST(FoldU32Be, LeavesOutTheWordAtTheSkipStartButNotTheOneAtItsEnd)
+{
+    EXPECT_EQ(FoldU32Be(WordRom(), {0x00, 0x14}, {0x04, 0x0c}).sum, 0x01U + 0x08U + 0x10U);
+}
+
+TEST(FoldU32Be, SkipsNothingByDefault)
+{
+    EXPECT_EQ(FoldU32Be(WordRom(), {0x00, 0x14}).sum, 0x1fU);
+}
+
+TEST(FoldU32Be, ReadsAWordPastTheEndOfTheRomAsZero)
+{
+    EXPECT_EQ(FoldU32Be(WordRom(), {0x10, 0x18}).sum, 0x10U);
+}
+
+TEST(FoldU32Be, SumsWithCarryAndXorsWithout)
+{
+    bytes::Bytes rom(8, 0x00);
+    bytes::WriteU32Be(rom, 0, 0xffffffff);
+    bytes::WriteU32Be(rom, 4, 0x00000003);
+    const WordFold fold = FoldU32Be(rom, {0, 8});
+    EXPECT_EQ(fold.sum, 0x00000002U);
+    EXPECT_EQ(fold.xor_all, 0xfffffffcU);
+}
+
+TEST(SumU16Be, TakesTheHalfwordAtTheWindowStartButNotTheOneAtItsEnd)
+{
+    const bytes::Bytes rom{0x00, 0x01, 0x00, 0x02, 0x00, 0x04, 0x00, 0x08};
+    EXPECT_EQ(SumU16Be(rom, {2, 6}), std::uint16_t(0x02 + 0x04));
+}
+
+TEST(SumU16Be, WrapsAt16Bits)
+{
+    const bytes::Bytes rom{0xff, 0xff, 0x00, 0x03};
+    EXPECT_EQ(SumU16Be(rom, {0, 4}), std::uint16_t(0x0002));
+}
+
 TEST(ChecksumPrimitives, ChecksumsOnlyTheRequestedSubview)
 {
     const bytes::Bytes payload{0xA5, 0x80, 0x3C};

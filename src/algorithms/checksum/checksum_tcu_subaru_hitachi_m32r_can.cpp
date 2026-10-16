@@ -4,6 +4,24 @@
 #include "src/algorithms/protocol/bytes.h"
 #include <array>
 
+namespace
+{
+
+// Checksum 2: the sum of every word outside the two fields at 0x8000, stored
+// as the bytes below.
+std::uint32_t Checksum2Field(bytes::ByteView rom)
+{
+    const std::uint32_t sum = fastecu::checksum::internal::FoldU32Be(rom, {0x0, rom.size()}, {0x8000, 0x8008}).sum;
+    std::array<uint8_t, 4> field_bytes{};
+    field_bytes[3] = 0xffU - ((sum >> 24U) & 0xffU);
+    field_bytes[2] = 0xffU - ((sum >> 16U) & 0xffU);
+    field_bytes[1] = 0xffU - ((sum >> 8U) & 0xffU);
+    field_bytes[0] = 0x100U - (sum & 0xffU);
+    return bytes::ReadU32Le(field_bytes);
+}
+
+} // namespace
+
 ChecksumResult ChecksumTcuSubaruHitachiM32rCan::CalculateChecksumResult(bytes::ByteView rom_view)
 {
     // Both sums run over the whole file, a 32-bit word at a time, as the
@@ -25,24 +43,8 @@ ChecksumResult ChecksumTcuSubaruHitachiM32rCan::CalculateChecksumResult(bytes::B
 
     bool checksum_ok = true;
 
-    for (int i = 0x0; i < static_cast<int>(rom_data.size()); i += 4)
-    {
-        if (i >= 0x8020)
-        {
-            checksum_1_value_calculated += bytes::ReadU32Be(rom_data, static_cast<std::size_t>(i));
-        }
-        if (i < 0x8000 || i > 0x8007)
-        {
-            checksum_2_value_calculated += bytes::ReadU32Be(rom_data, static_cast<std::size_t>(i));
-        }
-    }
-
-    std::array<uint8_t, 4> checksum_2_value_calculated_bytes{};
-    checksum_2_value_calculated_bytes[3] = 0xffU - ((checksum_2_value_calculated >> 24U) & 0xffU);
-    checksum_2_value_calculated_bytes[2] = 0xffU - ((checksum_2_value_calculated >> 16U) & 0xffU);
-    checksum_2_value_calculated_bytes[1] = 0xffU - ((checksum_2_value_calculated >> 8U) & 0xffU);
-    checksum_2_value_calculated_bytes[0] = 0x100U - (checksum_2_value_calculated & 0xffU);
-    checksum_2_value_calculated = bytes::ReadU32Le(checksum_2_value_calculated_bytes);
+    checksum_1_value_calculated = fastecu::checksum::internal::FoldU32Be(rom_data, {0x8020, rom_data.size()}).sum;
+    checksum_2_value_calculated = Checksum2Field(rom_data);
 
     checksum_2_value_stored = bytes::ReadU32Be(rom_data, checksum_2_balance_value_address);
 
@@ -58,20 +60,8 @@ ChecksumResult ChecksumTcuSubaruHitachiM32rCan::CalculateChecksumResult(bytes::B
     {
         checksum_ok = false;
 
-        checksum_2_value_calculated = 0;
-        for (int i = 0x0; i < static_cast<int>(rom_data.size()); i += 4)
-        {
-            if (i < 0x8000 || i > 0x8007)
-            {
-                checksum_2_value_calculated += bytes::ReadU32Be(rom_data, static_cast<std::size_t>(i));
-            }
-        }
-        std::array<uint8_t, 4> checksum_2_value_calculated_bytes2{};
-        checksum_2_value_calculated_bytes2[3] = 0xffU - ((checksum_2_value_calculated >> 24U) & 0xffU);
-        checksum_2_value_calculated_bytes2[2] = 0xffU - ((checksum_2_value_calculated >> 16U) & 0xffU);
-        checksum_2_value_calculated_bytes2[1] = 0xffU - ((checksum_2_value_calculated >> 8U) & 0xffU);
-        checksum_2_value_calculated_bytes2[0] = 0x100U - (checksum_2_value_calculated & 0xffU);
-        checksum_2_value_calculated = bytes::ReadU32Le(checksum_2_value_calculated_bytes2);
+        // Recomputed: rebalancing checksum 1 above may have changed a word this one sums.
+        checksum_2_value_calculated = Checksum2Field(rom_data);
 
         bytes::WriteU32Be(rom_data, checksum_2_balance_value_address, checksum_2_value_calculated);
         bytes::WriteU32Be(rom_data, checksum_2_balance_value_address + 4, checksum_2_value_calculated);

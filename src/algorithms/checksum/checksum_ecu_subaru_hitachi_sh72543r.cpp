@@ -14,12 +14,7 @@ ChecksumResult ChecksumEcuSubaruHitachiSh72543r::CalculateChecksumResult(Rom rom
      ******************/
     bytes::Bytes rom_data(rom_view.begin(), rom_view.end());
 
-    uint16_t chksum = 0;
-
-    for (int i = 0x6000; i < 0x200000; i += 2)
-    {
-        chksum += bytes::ReadU16Be(rom_data, static_cast<std::size_t>(i));
-    }
+    const uint16_t chksum = fastecu::checksum::internal::SumU16Be(rom_data, {0x6000, 0x200000});
 
     ChecksumResult result;
     if (chksum != 0x5aa5)

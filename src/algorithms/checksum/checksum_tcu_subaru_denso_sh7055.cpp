@@ -49,13 +49,7 @@ ChecksumResult ChecksumTcuSubaruDensoSH7055::CalculateChecksumResult(Rom rom)
 
     for (const ChecksumArea& area : kChecksumAreas)
     {
-        const uint32_t area_start = area.start;
-        const uint32_t area_end = area_start + (2 * area.word_count);
-
-        for (uint32_t j = area_start; j < area_end; j += 2)
-        {
-            checksum += bytes::ReadU16Be(rom_data, j);
-        }
+        checksum += fastecu::checksum::internal::SumU16Be(rom_data, {area.start, area.start + (2 * area.word_count)});
     }
 
     ChecksumResult result;

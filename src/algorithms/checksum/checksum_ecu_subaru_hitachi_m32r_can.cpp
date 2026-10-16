@@ -5,8 +5,6 @@
 
 ChecksumResult ChecksumEcuSubaruHitachiM32rCan::CalculateChecksumResult(Rom rom)
 {
-    // #lizard forgives(cyclomatic_complexity)
-    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     const bytes::ByteView rom_view = rom;
     /*******************
      *
@@ -50,12 +48,10 @@ ChecksumResult ChecksumEcuSubaruHitachiM32rCan::CalculateChecksumResult(Rom rom)
      * Calculate and fix checksums 1 and 2
      *
      * *************************************/
-    for (int i = 0x6000; i < 0x8000; i += 4)
-    {
-        const std::uint32_t word = bytes::ReadU32Be(rom_data, static_cast<std::size_t>(i));
-        checksum_1_value_calculated += word;
-        checksum_2_value_calculated ^= word;
-    }
+    const fastecu::checksum::internal::WordFold checksums_1_and_2 =
+        fastecu::checksum::internal::FoldU32Be(rom_data, {0x6000, 0x8000});
+    checksum_1_value_calculated = checksums_1_and_2.sum;
+    checksum_2_value_calculated = checksums_1_and_2.xor_all;
     checksum_1_value_stored = bytes::ReadU32Be(rom_data, checksum_1_value_address);
     checksum_2_value_stored = bytes::ReadU32Be(rom_data, checksum_2_value_address);
     if (checksum_1_value_calculated != checksum_1_value_stored)
@@ -75,19 +71,12 @@ ChecksumResult ChecksumEcuSubaruHitachiM32rCan::CalculateChecksumResult(Rom rom)
      * Calculate and fix checksums 3 and 4
      *
      * *************************************/
-    // Equivalent as `<=`: at i == size the window test below is false.
-    // mull-ignore-next: cxx_lt_to_le
-    for (int i = 0x0000; i < static_cast<int>(rom_data.size()); i += 4)
-    {
-        // Equivalent as `>=`: i steps by 4 from 0, so it is never 0x10003.
-        // mull-ignore-next: cxx_gt_to_ge
-        if (i < 0x10000 || (i > 0x10003 && i < 0x7fff0))
-        {
-            const std::uint32_t word2 = bytes::ReadU32Be(rom_data, static_cast<std::size_t>(i));
-            checksum_3_value_calculated += word2;
-            checksum_4_value_calculated ^= word2;
-        }
-    }
+    // Every checksum but 1 and 2 leaves out the word at 0x10000.
+    const fastecu::checksum::internal::AddressRange excluded_word{0x10000, 0x10004};
+    const fastecu::checksum::internal::WordFold checksums_3_and_4 =
+        fastecu::checksum::internal::FoldU32Be(rom_data, {0x0000, 0x7fff0}, excluded_word);
+    checksum_3_value_calculated = checksums_3_and_4.sum;
+    checksum_4_value_calculated = checksums_3_and_4.xor_all;
     checksum_3_value_stored = bytes::ReadU32Be(rom_data, checksum_3_value_address);
     checksum_4_value_stored = bytes::ReadU32Be(rom_data, checksum_4_value_address);
     if (checksum_3_value_calculated != checksum_3_value_stored)
@@ -107,17 +96,8 @@ ChecksumResult ChecksumEcuSubaruHitachiM32rCan::CalculateChecksumResult(Rom rom)
      * Calculate and fix checksum 5
      *
      * *************************************/
-    // Equivalent as `<=`: at i == size ReadU32Be is out of range and adds 0.
-    // mull-ignore-next: cxx_lt_to_le
-    for (int i = 0x4000; i < static_cast<int>(rom_data.size()); i += 4)
-    {
-        // Equivalent as `>=`: i steps by 4 from 0x4000, so it is never 0x10003.
-        // mull-ignore-next: cxx_gt_to_ge
-        if (i < 0x10000 || i > 0x10003)
-        {
-            checksum_5_value_calculated += bytes::ReadU32Be(rom_data, static_cast<std::size_t>(i));
-        }
-    }
+    checksum_5_value_calculated = static_cast<uint16_t>(
+        fastecu::checksum::internal::FoldU32Be(rom_data, {0x4000, rom_data.size()}, excluded_word).sum);
     if (checksum_5_value_calculated != 0x5aa5)
     {
         checksum_ok = false;

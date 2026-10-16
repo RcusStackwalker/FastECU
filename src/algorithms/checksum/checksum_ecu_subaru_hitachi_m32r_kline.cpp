@@ -61,13 +61,9 @@ ChecksumResult ChecksumEcuSubaruHitachiM32rKline::CalculateChecksumResult(Rom ro
      * Calculate and fix checksum 5
      *
      * *************************************/
-    for (int i = 0x4000; i < static_cast<int>(rom_data.size()); i += 4)
-    {
-        if (i < 0x8100 || i > 0x8103)
-        {
-            checksum_3_value_calculated += bytes::ReadU32Be(rom_data, static_cast<std::size_t>(i));
-        }
-    }
+    // Leaves out the word holding checksums 1 and 2.
+    checksum_3_value_calculated = static_cast<uint16_t>(
+        fastecu::checksum::internal::FoldU32Be(rom_data, {0x4000, rom_data.size()}, {0x8100, 0x8104}).sum);
     if (checksum_3_value_calculated != 0x5aa5)
     {
         checksum_ok = false;
