@@ -438,6 +438,14 @@ python3 scripts/mutation_test.py --scope //src/algorithms/checksum/...
 python3 scripts/mutation_test.py --diff-ref origin/master   # only changed lines
 ```
 
+A change that only adds tests touches no mutable lines, so the PR job has
+nothing to mutate. Measure it with a scoped run of the `mutation` workflow on
+the branch instead, and compare its survivors with the same scope on `master`:
+
+```sh
+gh workflow run mutation -r <branch> -f scope=//src/algorithms/protocol/...
+```
+
 **Verify reachability before retiring code.** String aliases and dispatch tables
 can make an apparently referenced branch dead; commented-out functions can look
 live to text searches. Check the built path or a comment-stripped parse before
