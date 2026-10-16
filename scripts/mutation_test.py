@@ -145,13 +145,16 @@ def render_summary(merged: Mapping[MutantKey, str], title: str) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _describe(replacement: str) -> str:
+    return f"replaced with `{replacement}`" if replacement else "removed"
+
+
 def render_annotations(merged: Mapping[MutantKey, str], limit: int = MAX_ANNOTATIONS) -> list[str]:
     """GitHub warning annotations for surviving mutants, in source order."""
     survivors = sorted(key for key, status in merged.items() if status == "Survived")
     annotations = [
         f"::warning file={key.path},line={key.line},col={key.column},"
-        f"title=Surviving mutant::[{key.mutator}] replaced with `{key.replacement}`; "
-        "no test failed"
+        f"title=Surviving mutant::[{key.mutator}] {_describe(key.replacement)}; no test failed"
         for key in survivors[:limit]
     ]
     if len(survivors) > limit:

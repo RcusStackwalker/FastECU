@@ -112,6 +112,16 @@ class RenderTest(unittest.TestCase):
             mt.render_annotations(self.merged),
         )
 
+    def test_describes_a_deleting_mutant_as_a_removal(self) -> None:
+        merged = {mt.MutantKey("src/a.cpp", 3, 1, "cxx_minus_to_noop", ""): "Survived"}
+        self.assertEqual(
+            [
+                "::warning file=src/a.cpp,line=3,col=1,title=Surviving mutant::"
+                "[cxx_minus_to_noop] removed; no test failed"
+            ],
+            mt.render_annotations(merged),
+        )
+
     def test_caps_annotations_and_points_at_the_summary(self) -> None:
         survivors = {mt.MutantKey("src/a.cpp", n, 1, "m", "r"): "Survived" for n in range(1, 13)}
         annotations = mt.render_annotations(survivors, limit=10)
