@@ -194,5 +194,28 @@ class SelectionTest(unittest.TestCase):
         )
 
 
+class RunnerCommandTest(unittest.TestCase):
+    def test_allows_slow_original_runs_and_surviving_mutants(self) -> None:
+        binary = ROOT / "bazel-bin/src/algorithms/checksum/checksum_test"
+        self.assertEqual(
+            [
+                "mull-runner-22",
+                "--reporters",
+                "Elements",
+                "--report-dir",
+                "/tmp/mutation",
+                "--report-name",
+                "checksum_test",
+                "--timeout",
+                str(mt.ORIGINAL_RUN_TIMEOUT_MS),
+                "--allow-surviving",
+                "--no-test-output",
+                "--no-mutant-output",
+                str(binary),
+            ],
+            mt.runner_command("mull-runner-22", binary, Path("/tmp/mutation")),
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
