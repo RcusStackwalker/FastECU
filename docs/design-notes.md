@@ -79,6 +79,39 @@ when byte-level evidence establishes equivalence. Preserve family sequencing,
 timeouts, response tolerance, retry policy, address translation, and erase rules.
 Do not build a universal configurable state machine from similar-looking code.
 
+Pure [plan predicates](../src/backend/flash/ecu/plan_primitives.h) share only
+fixed device shape (nonnull device/flash/kernel tables and exact ROM size/block
+count), operation/image shape (no image for Read, exact ROM size otherwise), and
+transfer start/length equality with the device. Callers retain catalog identity,
+capabilities, diagnostics and validation order, including unsupported TCU
+TestWrite and SH7055 Write rejection before invalid image/kernel errors.
+Kernel upload arithmetic and erase-region construction retain their existing
+owners; family upload padding remains six versus 128 bytes.
+
+MC68 and SH7055 share the [Denso BEEF K-Line primitives](../src/backend/flash/ecu/denso_beef_kline_common.h):
+opcodes, frame/ACK checks, optional exchange, four-byte big-endian write-address
+encoding, block comparison and programming-voltage enable. The dialect stays
+separate from BEEF CAN. Framing preserves the 16-bit length conversion; ACK
+acceptance requires only six bytes, the BEEF marker and opcode at offset four.
+The optional exchange preserves before/after write/read cancellation checks,
+caller timeout and optional settle, and distinguishes absence from present-empty
+replies. Write/read transport failures and short writes precede later cancellation;
+programming-line errors likewise precede the post-line cancellation check.
+Required-response diagnostics remain local. CRC initial writes stay local because
+their cancellation diagnostics differ from ordinary exchange; fragment
+accumulation and family CRC decoding also remain local.
+
+Block comparison takes caller-prepared absolute-addressed image bytes, one flag
+per block and a family CRC reader, stops at cancellation or CRC failure, and
+preserves block order and modification counts. Families retain image rendering,
+address policy, startup, erase/commit sequencing, capability decoding and logs
+(including SH7055 offset-six lengths). MC68 chunk exchanges retain no settle and
+3000 ms reads; SH7055 retains 50 ms settles and 2000 ms reads. Both enable
+programming voltage before an unchanged-image return. Final Write mismatch still
+logs an error and returns success; TestWrite keeps its PASS reporting. Independent
+capability-layout and verification evidence is still missing, so these preserved
+behaviors do not authorize corrections or establish hardware qualification.
+
 The four executors of the Denso ISO-15765 bootloader dialect share four
 operations in the common module: pure setup-PDU encoding, the SecurityAccess
 seed/key exchange, the erase flow, and, for the two N83M families only, the
@@ -100,7 +133,8 @@ the family-selected region and constructs its download setup internally; family
 write orchestration calls it directly without forwarding wrappers.
 
 The Denso read-boundary characterization resolves the broader extraction
-suggestions in [P23, P25 and P81](superpowers/specs/2026-10-14-flash-duplication-triage.md).
+suggestions for OBK probes and read stops; the
+[P81 page follow-up](superpowers/specs/2026-10-14-flash-duplication-triage.md) remains open.
 Those proposals to share probe/stop/read operations disagreed with the common
 header's deliberate local-flow contract; this decision keeps that contract and
 bounds the page-only follow-up.
