@@ -427,9 +427,30 @@ correction. This detects unreachable or vacuously passing coverage.
 **Treat a surviving mutant as a missing assertion.** The PR `mutation` job
 mutates the portable lines a change touches and annotates the ones no test
 notices ([ADR 0022](adr/0022-advisory-mutation-testing-with-mull.md)). For each
-survivor, add the assertion that distinguishes the mutant, or judge it
-equivalent (the mutant cannot change observable behavior) and leave it. The job
-is advisory and never fails a PR. To run it locally, put Mull's `mull-runner-<N>`
+survivor, add the assertion that distinguishes the mutant. User-visible log and
+error text is observable behavior, so a mutant that only changes a message
+still needs a test. A `Timeout` counts as killed. The job is advisory and never
+fails a PR.
+
+**Suppress an equivalent mutant on its line, naming the mutator.** When no
+input can tell the mutant apart (a capacity hint, a bound the next check
+already enforces), give the reason on its own comment line and the annotation
+on the line before the code:
+
+```cpp
+// Equivalent as `>`: at offset == size the count below is zero.
+// mull-ignore-next: cxx_ge_to_gt
+if (offset >= out.size())
+```
+
+Mull keeps only letters, digits, `_` and `,` after the colon, so a reason on
+the annotation line itself joins the mutator's name and suppresses nothing. Do
+not use a bare `mull-ignore` or a `mull-off`/`mull-on` block: they hide every
+mutator, including real mutants a later change brings to that code. When a line
+holds an equivalent mutant beside a real one of the same mutator, suppressing
+either hides both; leave them and simplify the expression in its own change.
+Mull finds its annotations as substrings of any comment, so a comment that
+discusses them must not spell them out. To run it locally, put Mull's `mull-runner-<N>`
 and its LLVM's `clang` first on `PATH` (set `MULL_IR_FRONTEND` if the plugin is
 not beside the runner), then:
 
