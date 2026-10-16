@@ -5,7 +5,6 @@
 #include <concepts>
 #include <cstddef>
 #include <cstdint>
-#include <initializer_list>
 #include <ranges>
 #include <span>
 
@@ -21,52 +20,50 @@ struct WordFold
     std::uint32_t xor_all = 0;
 };
 
+// The loops behind FoldU32Be and SumU16Be, one piece at a time.
+void FoldPieceU32Be(WordFold& fold, bytes::ByteView piece);
+void SumPieceU16Be(std::uint16_t& sum, bytes::ByteView piece);
+
 // The pieces of a checksum window, each a view of the ROM; a checksum that
 // leaves out a slot folds the pieces either side of it.
+//
+// Every piece must be a whole number of words (halfwords for SumU16Be). A
+// fixed-size piece, such as image.subspan<0x6000, 0x2000>() on a fixed-size
+// ROM, is checked at compile time. A runtime piece is the caller's to check:
+// its window comes from a constexpr table the caller static_asserts, or from
+// a ROM size the caller validated on entry.
 template <typename R>
 concept ByteViewRange =
     std::ranges::input_range<R> && std::convertible_to<std::ranges::range_reference_t<R>, bytes::ByteView>;
 
-// The 32-bit sum and XOR of the big-endian words of every piece. A piece's
-// trailing partial word is left out.
-template <ByteViewRange Pieces> WordFold FoldU32Be(Pieces&& pieces)
+// The 32-bit sum and XOR of the big-endian words of every piece.
+template <std::size_t... Extents>
+    requires((Extents == std::dynamic_extent || Extents % 4 == 0) && ...)
+WordFold FoldU32Be(std::span<const bytes::Byte, Extents>... pieces)
 {
     WordFold fold;
-    for (const bytes::ByteView piece : pieces)
-    {
-        for (std::size_t offset = 0; offset + 4 <= piece.size(); offset += 4)
-        {
-            const std::uint32_t word = bytes::ReadU32Be(piece, offset);
-            fold.sum += word;
-            fold.xor_all ^= word;
-        }
-    }
+    (FoldPieceU32Be(fold, pieces), ...);
     return fold;
 }
 
-inline WordFold FoldU32Be(std::initializer_list<bytes::ByteView> pieces)
+// The 16-bit sum of the big-endian halfwords of every piece.
+template <std::size_t... Extents>
+    requires((Extents == std::dynamic_extent || Extents % 2 == 0) && ...)
+std::uint16_t SumU16Be(std::span<const bytes::Byte, Extents>... pieces)
 {
-    return FoldU32Be(std::span(pieces));
+    std::uint16_t sum = 0;
+    (SumPieceU16Be(sum, pieces), ...);
+    return sum;
 }
 
-// The 16-bit sum of the big-endian halfwords of every piece. A piece's
-// trailing odd byte is left out.
 template <ByteViewRange Pieces> std::uint16_t SumU16Be(Pieces&& pieces)
 {
     std::uint16_t sum = 0;
     for (const bytes::ByteView piece : pieces)
     {
-        for (std::size_t offset = 0; offset + 2 <= piece.size(); offset += 2)
-        {
-            sum = static_cast<std::uint16_t>(sum + bytes::ReadU16Be(piece, offset));
-        }
+        SumPieceU16Be(sum, piece);
     }
     return sum;
-}
-
-inline std::uint16_t SumU16Be(std::initializer_list<bytes::ByteView> pieces)
-{
-    return SumU16Be(std::span(pieces));
 }
 
 } // namespace fastecu::checksum::internal

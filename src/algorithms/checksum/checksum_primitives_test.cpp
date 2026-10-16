@@ -69,21 +69,26 @@ bytes::Bytes Words()
 
 } // namespace
 
-TEST(FoldU32Be, TakesEveryWholeWordOfEachPiece)
+// A fixed-size piece must be a whole number of words (halfwords for
+// SumU16Be); any other size does not compile.
+template <std::size_t N>
+concept FoldsAFixedPieceOf = requires(std::span<const bytes::Byte, N> piece) { FoldU32Be(piece); };
+template <std::size_t N>
+concept SumsAFixedPieceOf = requires(std::span<const bytes::Byte, N> piece) { SumU16Be(piece); };
+static_assert(FoldsAFixedPieceOf<8>);
+static_assert(!FoldsAFixedPieceOf<6>);
+static_assert(SumsAFixedPieceOf<6>);
+static_assert(!SumsAFixedPieceOf<5>);
+
+TEST(FoldU32Be, TakesEveryWordOfEachPiece)
 {
     const bytes::Bytes rom = Words();
     const bytes::ByteView view = rom;
     // The word at 0x08 sits between the pieces; each piece's last word is
     // the one a short loop would drop.
-    const WordFold fold = FoldU32Be({view.first(0x08), view.subspan(0x0c)});
+    const WordFold fold = FoldU32Be(view.first<0x08>(), view.subspan(0x0c));
     EXPECT_EQ(fold.sum, 0x01U + 0x02U + 0x08U + 0x10U);
     EXPECT_EQ(fold.xor_all, 0x01U ^ 0x02U ^ 0x08U ^ 0x10U);
-}
-
-TEST(FoldU32Be, LeavesOutAPiecesTrailingPartialWord)
-{
-    const bytes::Bytes rom = Words();
-    EXPECT_EQ(FoldU32Be({bytes::ByteView(rom).first(0x0b)}).sum, 0x01U + 0x02U);
 }
 
 TEST(FoldU32Be, SumsWithCarryAndXorsWithout)
@@ -91,22 +96,16 @@ TEST(FoldU32Be, SumsWithCarryAndXorsWithout)
     bytes::Bytes rom(8, 0x00);
     bytes::WriteU32Be(rom, 0, 0xffffffff);
     bytes::WriteU32Be(rom, 4, 0x00000003);
-    const WordFold fold = FoldU32Be({rom});
+    const WordFold fold = FoldU32Be(bytes::ByteView(rom));
     EXPECT_EQ(fold.sum, 0x00000002U);
     EXPECT_EQ(fold.xor_all, 0xfffffffcU);
 }
 
-TEST(SumU16Be, TakesEveryWholeHalfwordOfEachPiece)
+TEST(SumU16Be, TakesEveryHalfwordOfEachPiece)
 {
     const bytes::Bytes rom{0x00, 0x01, 0x00, 0x02, 0x00, 0x04, 0x00, 0x08};
     const bytes::ByteView view = rom;
-    EXPECT_EQ(SumU16Be({view.first(4), view.subspan(6)}), std::uint16_t(0x01 + 0x02 + 0x08));
-}
-
-TEST(SumU16Be, LeavesOutAPiecesTrailingOddByte)
-{
-    const bytes::Bytes rom{0x00, 0x01, 0x00, 0x02, 0xff};
-    EXPECT_EQ(SumU16Be({rom}), std::uint16_t(0x01 + 0x02));
+    EXPECT_EQ(SumU16Be(view.first<4>(), view.subspan(6)), std::uint16_t(0x01 + 0x02 + 0x08));
 }
 
 TEST(SumU16Be, TakesPiecesFromAView)
@@ -122,7 +121,7 @@ TEST(SumU16Be, TakesPiecesFromAView)
 TEST(SumU16Be, WrapsAt16Bits)
 {
     const bytes::Bytes rom{0xff, 0xff, 0x00, 0x03};
-    EXPECT_EQ(SumU16Be({rom}), std::uint16_t(0x0002));
+    EXPECT_EQ(SumU16Be(bytes::ByteView(rom)), std::uint16_t(0x0002));
 }
 
 TEST(ChecksumPrimitives, ChecksumsOnlyTheRequestedSubview)

@@ -2,6 +2,7 @@
 
 #include "checksum_primitives.h"
 #include "src/algorithms/protocol/bytes.h"
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <ranges>
@@ -33,6 +34,12 @@ constexpr std::array<ChecksumArea, 12> kChecksumAreas{{
     {0x6f814, 0x8174},
     {0x7fb80, 0x0240},
 }};
+
+// Each area is a run of halfwords, so a whole number of them; this keeps
+// every one inside the ROM.
+static_assert(
+    std::ranges::all_of(kChecksumAreas, [](const ChecksumArea& area)
+                        { return area.start + (2 * area.word_count) <= ChecksumTcuSubaruDensoSH7055::kRomSize; }));
 
 } // namespace
 

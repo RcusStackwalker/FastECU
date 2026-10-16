@@ -16,7 +16,7 @@ ChecksumResult ChecksumEcuSubaruHitachiM32rKline::CalculateChecksumResult(Rom ro
      * ****************/
     bytes::Bytes rom_data(rom_view.begin(), rom_view.end());
     // Each checksum below reads the corrections written before it.
-    const bytes::ByteView image = rom_data;
+    const Rom image{rom_data};
 
     uint8_t checksum_1_value_stored = 0;
     uint8_t checksum_1_value_calculated = 0;
@@ -65,7 +65,7 @@ ChecksumResult ChecksumEcuSubaruHitachiM32rKline::CalculateChecksumResult(Rom ro
      * *************************************/
     // Leaves out the word holding checksums 1 and 2.
     checksum_3_value_calculated = static_cast<uint16_t>(
-        fastecu::checksum::internal::FoldU32Be({image.subspan(0x4000, 0x4100), image.subspan(0x8104)}).sum);
+        fastecu::checksum::internal::FoldU32Be(image.subspan<0x4000, 0x4100>(), image.subspan<0x8104>()).sum);
     if (checksum_3_value_calculated != 0x5aa5)
     {
         checksum_ok = false;

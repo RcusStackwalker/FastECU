@@ -39,6 +39,10 @@ constexpr std::array kAreaCodes{
     AreaCode{0xC0, 0x050000}, AreaCode{0xC2, 0x060000}, AreaCode{0xC3, 0x0C0000},
 };
 
+// The sum takes the area as whole words. Whether an area fits is the ROM's
+// size, checked at runtime.
+static_assert(std::ranges::all_of(kAreaCodes, [](const AreaCode& area) { return area.end % 4 == 0; }));
+
 std::optional<std::size_t> AreaEndFor(std::uint8_t code)
 {
     const auto match = std::ranges::find(kAreaCodes, code, &AreaCode::code);
@@ -76,7 +80,7 @@ ChecksumResult ChecksumEcuMitsuM32rCan::CalculateChecksumResult(bytes::ByteView 
                              "Checksum area extends past the end of the ROM; checksums disabled");
     }
 
-    std::uint32_t checksum = fastecu::checksum::internal::FoldU32Be({rom_view.first(*area_end)}).sum;
+    std::uint32_t checksum = fastecu::checksum::internal::FoldU32Be(rom_view.first(*area_end)).sum;
     checksum -= bytes::ReadU16Be(rom_view, kCorrectionWords);
     for (std::size_t index = 0; index < kCorrectionWordCount; ++index)
     {
