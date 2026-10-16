@@ -1046,7 +1046,9 @@ TEST(SubaruDenso1n83m_1_5mCanExecutor, InCarJumpExhaustionAndCancellationPreserv
         EXPECT_TRUE(transport.ScriptConsumed());
         const auto& timeouts = transport.ReadTimeouts();
         const std::size_t count = outcome == 1 ? 11 : 1;
-        const auto end = timeouts.end() - (outcome == 1 ? 3 : 0);
+        const std::size_t trailing_read_count = outcome == 1 ? 3 : 0;
+        ASSERT_GE(timeouts.size(), count + trailing_read_count);
+        const auto end = timeouts.end() - trailing_read_count;
         EXPECT_THAT(std::vector<std::chrono::milliseconds>(end - count, end), Each(200ms));
         std::vector<std::chrono::milliseconds> sleeps{500ms};
         if (outcome == 1)
