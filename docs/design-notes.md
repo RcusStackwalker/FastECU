@@ -146,6 +146,22 @@ family-owned. Shared declarative plan validation does not establish
 interchangeable transfer loops. Transport seams keep failure and cancellation
 paths scriptable; sharing does not change hardware qualification.
 
+K-Line read mapping and kernel response policy remain family-owned
+([P06, P19, P48 and P49](superpowers/specs/2026-10-14-flash-duplication-triage.md)).
+Hitachi ECU reads send `A0 00 00` with a `0x100000` wire bias and reconstruct
+all 512 KiB; Mitsubishi reads send `A0 00 20` from `0x8000`, synthesize the low
+32 KiB as `FF`, and warn. MC68 stock/Ecutek upload success is an absent frame;
+a present-empty reply is an error. Current MC68 CRC decoding accumulates ten
+bytes without checksum validation; SH7055 checks declared size and checksum,
+then strips a payload prefix and rejects its `7F` failure marker. Both retain
+twenty bounded 50 ms continuation reads and 100 ms continuation settles.
+Scripts characterize these differences; they do not prove their protocol
+correctness. Independent family-specific pacing, address-window, upload-silence
+and CRC-marker evidence remains unavailable in the inspected local EcuFlash
+artifacts. Changing any policy requires mapped protocol functions or captured
+family traffic and a separate correction decision; no hardware qualification
+follows from these tests.
+
 The Subaru Unisia Jecs M32R K-Line and bootmode program executors share
 `SendM32rSsmFrame` and `ReceiveM32rSsmOnce` in the
 [M32R SSM module](../src/backend/flash/ecu/m32r_ssm_exchange.h), keeping separate

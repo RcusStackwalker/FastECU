@@ -391,6 +391,10 @@ TEST(SubaruTcuHitachiM32rKlineExecutor, FailsWhenFiveConsecutiveBlockReadsProduc
 
     EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kBadResponse));
     EXPECT_TRUE(transport.ScriptConsumed());
+    EXPECT_EQ(transport.WritesConsumed(), 10U);
+    ASSERT_EQ(transport.read_timeouts.size(), 10U);
+    EXPECT_THAT(std::span(transport.read_timeouts).subspan(5), ::testing::Each(std::chrono::milliseconds{500}));
+    EXPECT_EQ(clock.Elapsed(), std::chrono::milliseconds{1100});
 }
 
 // Deliberate divergence: the legacy appended nothing and returned

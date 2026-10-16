@@ -53,8 +53,12 @@ void ScriptReadChunks(ScriptedKlineFlashTransport& transport)
     for (std::uint32_t logical = 0; logical < 0x80000; logical += 0x80)
     {
         const std::uint32_t address = logical + 0x100000;
-        bytes::Bytes response(134, 0x5a);
+        bytes::Bytes response(134, 0xc7);
         response[4] = 0xe0;
+        for (std::uint32_t i = 0; i < 0x80; ++i)
+        {
+            response[5 + i] = static_cast<bytes::Byte>((logical + i) * 31U + (logical >> 8U));
+        }
         transport.Exchange(Frame({0xa0, 0, 0, static_cast<bytes::Byte>(address >> 16U),
                                   static_cast<bytes::Byte>(address >> 8U), static_cast<bytes::Byte>(address), 0x7f}),
                            response);
@@ -149,6 +153,14 @@ TEST(SubaruHitachiM32rKlineExecutor, ReadsAt38400ProbeAndReturnsLogicalFullRom)
     ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_TRUE(result->read_bytes.has_value());
     EXPECT_EQ(result->read_bytes->size(), 0x80000U);
+    bytes::Bytes expected(0x80000);
+    for (std::uint32_t i = 0; i < expected.size(); ++i)
+    {
+        expected[i] = static_cast<bytes::Byte>(i * 31U + ((i & ~0x7fU) >> 8U));
+    }
+    EXPECT_EQ(*result->read_bytes, expected);
+    EXPECT_EQ(transport.WritesConsumed(), 1U + 4096U);
+    EXPECT_EQ(transport.read_timeouts.size(), 1U + 4096U);
     EXPECT_EQ(result->rom_id, std::string("123456789A_"));
     EXPECT_TRUE(transport.ScriptConsumed());
     EXPECT_EQ(transport.baud_calls, std::vector<int>{38400});

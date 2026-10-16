@@ -917,6 +917,37 @@ TEST(SubaruDensoSh7055_02Executor, WriteCancelsMidBlockTransfer)
     EXPECT_EQ(transport.flash_buffer_write_attempts, 0U);
 }
 
+TEST(SubaruDensoSh7055_02Executor, WriteRejectsChecksumAndTruncatedPrefixPayload)
+{
+    for (const bool corrupt_checksum : {false, true})
+    {
+        SCOPED_TRACE(corrupt_checksum);
+        const FlashDevice *device = FindFlashDevice("SH7055");
+        ASSERT_NE(device, nullptr);
+        auto plan = WritePlan(FlashOperation::kWrite, bytes::Bytes(device->romsize, 0x00));
+        ASSERT_THAT(plan, fastecu::testing::IsOk());
+        ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::kOpen};
+        ScriptWriteConnectAndUpload(transport);
+        bytes::Bytes response = corrupt_checksum ? CrcResponse(0) : Framed(0x42, bytes::Bytes{0x05, 0, 0, 0});
+        if (corrupt_checksum)
+        {
+            response.back() ^= 0xff;
+        }
+        transport.Exchange(Framed(0x02, bytes::Bytes{0, 0, 0, 0, 0, 0, 0x10, 0}), response);
+        FakeClock clock;
+        FakeCancellationToken cancellation;
+        RecordingEventSink events;
+        SubaruDensoSh7055_02Executor executor;
+        EXPECT_THAT(executor.Execute(*plan, transport, clock, cancellation, events),
+                    fastecu::testing::IsErrWith(ErrorKind::kBadResponse,
+                                                corrupt_checksum
+                                                    ? "Wrong or incomplete response from ECU during CRC check"
+                                                    : "Truncated CRC response from ECU"));
+        EXPECT_TRUE(transport.ScriptConsumed());
+        EXPECT_EQ(std::count(transport.read_timeouts.begin(), transport.read_timeouts.end(), 50ms), 0);
+    }
+}
+
 TEST(SubaruDensoSh7055_02Executor, WriteRejectsCrcResponseMarkedFailed)
 {
     const FlashDevice *device = FindFlashDevice("SH7055");
