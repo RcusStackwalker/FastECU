@@ -1,0 +1,26 @@
+name: Mull (Linux)
+description: >-
+  Install Mull's release package and the Ubuntu LLVM it was built against, and
+  put that LLVM's unversioned clang first on PATH, as bazel/mutation.bazelrc
+  expects. Mull's plugin must match the compiler that loads it, which is why
+  this LLVM is separate from the clang-tidy/sanitizer pin (ADR 0022).
+runs:
+  using: composite
+  steps:
+    - name: Install Mull 0.34.1 and LLVM 22
+      shell: bash
+      env:
+        MULL_LLVM: '22'
+        MULL_DEB: Mull-22-0.34.1-LLVM-22.1.2-ubuntu-amd64-26.04.deb
+        MULL_SHA256: 183568aa32c4fb957aba7f0f204829dd1e08ad98ba9cf706d0d0c83f31172218
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y --no-install-recommends "clang-${MULL_LLVM}" "llvm-${MULL_LLVM}"
+        deb="${RUNNER_TEMP}/${MULL_DEB}"
+        curl -fsSL --retry 3 -o "${deb}" \
+          "https://github.com/mull-project/mull/releases/download/0.34.1/${MULL_DEB}"
+        echo "${MULL_SHA256}  ${deb}" | sha256sum --check --strict
+        sudo apt-get install -y "${deb}"
+        rm "${deb}"
+        echo "/usr/lib/llvm-${MULL_LLVM}/bin" >> "$GITHUB_PATH"
+        "mull-runner-${MULL_LLVM}" --version
