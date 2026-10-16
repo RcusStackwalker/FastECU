@@ -167,6 +167,8 @@ using MutableByteView = std::span<Byte>;
 
 inline void OverwriteAt(MutableByteView out, std::size_t offset, ByteView payload)
 {
+    // Equivalent as `>`: at offset == size the count below is zero.
+    // mull-ignore-next: cxx_ge_to_gt
     if (offset >= out.size())
     {
         return;
@@ -249,6 +251,8 @@ inline void WriteU32Le(MutableByteView out, std::size_t offset, std::uint32_t va
 // composeBeWithChecksum in bytes_compose.h).
 inline Byte Sum8Range(ByteView bytes, std::size_t from, std::size_t len)
 {
+    // Equivalent as `>`: at from == size the slice below is empty and sums to 0.
+    // mull-ignore-next: cxx_ge_to_gt
     if (from >= bytes.size())
     {
         return 0;
@@ -268,6 +272,8 @@ inline Byte Sum8(ByteView bytes)
 inline std::string ToHex(ByteView bytes, std::format_string<Byte> byte_format = "{:02x} ")
 {
     std::string msg;
+    // Capacity only: any reservation renders the same string.
+    // mull-ignore-next: cxx_mul_to_div
     msg.reserve(bytes.size() * 3);
     for (const Byte byte : bytes)
     {

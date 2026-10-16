@@ -1,12 +1,144 @@
 #include "src/algorithms/protocol/testing/byte_matchers.h"
 #include "src/algorithms/protocol/bytes.h"
 
+#include <cstddef>
+#include <cstdint>
 #include <limits>
+#include <string>
+#include <string_view>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 using ::testing::ElementsAre;
+
+namespace
+{
+
+// The view under test is the front of a larger buffer whose tail holds guard
+// bytes. An accessor that strays past the view's end reads a guard byte or
+// overwrites one, so the test sees it rather than reading or writing whatever
+// lies past a vector's allocation.
+constexpr std::size_t kViewSize = 8;
+constexpr bytes::Byte kGuard = 0xEE;
+constexpr std::size_t kGuardSize = 4;
+
+bytes::Bytes GuardedBuffer()
+{
+    bytes::Bytes buffer(kViewSize, 0x00);
+    buffer.insert(buffer.end(), kGuardSize, kGuard);
+    return buffer;
+}
+
+// One fixed-width reader/writer pair. `encoded` is `value` as it appears on
+// the wire, written out here rather than derived from the code under test.
+struct FixedWidthAccessorCase
+{
+    std::string_view name; // shows up in the gtest test name
+    std::size_t width;
+    std::uint32_t (*read)(bytes::ByteView, std::size_t);
+    void (*write)(bytes::MutableByteView, std::size_t, std::uint32_t);
+    std::uint32_t value;
+    bytes::Bytes encoded;
+};
+
+std::string CaseName(const ::testing::TestParamInfo<FixedWidthAccessorCase>& info)
+{
+    return std::string(info.param.name);
+}
+
+// The readers return and the writers take their own width; the table stores
+// every pair as one function-pointer type.
+template <auto Read> std::uint32_t ReadAs(bytes::ByteView view, std::size_t offset)
+{
+    return Read(view, offset);
+}
+
+template <auto Write, class Value = std::uint32_t>
+void WriteAs(bytes::MutableByteView view, std::size_t offset, std::uint32_t value)
+{
+    Write(view, offset, static_cast<Value>(value));
+}
+
+const FixedWidthAccessorCase kFixedWidthAccessors[] = {
+    {"U16Be", 2, &ReadAs<&bytes::ReadU16Be>, &WriteAs<&bytes::WriteU16Be, std::uint16_t>, 0x1234, {0x12, 0x34}},
+    {"U24Be", 3, &ReadAs<&bytes::ReadU24Be>, &WriteAs<&bytes::WriteU24Be>, 0x123456, {0x12, 0x34, 0x56}},
+    {"U32Be", 4, &ReadAs<&bytes::ReadU32Be>, &WriteAs<&bytes::WriteU32Be>, 0x12345678, {0x12, 0x34, 0x56, 0x78}},
+    {"U16Le", 2, &ReadAs<&bytes::ReadU16Le>, &WriteAs<&bytes::WriteU16Le, std::uint16_t>, 0x3412, {0x12, 0x34}},
+    {"U24Le", 3, &ReadAs<&bytes::ReadU24Le>, &WriteAs<&bytes::WriteU24Le>, 0x563412, {0x12, 0x34, 0x56}},
+    {"U32Le", 4, &ReadAs<&bytes::ReadU32Le>, &WriteAs<&bytes::WriteU32Le>, 0x78563412, {0x12, 0x34, 0x56, 0x78}},
+};
+
+class FixedWidthAccessor : public ::testing::TestWithParam<FixedWidthAccessorCase>
+{
+};
+
+// The last whole value starts at a non-zero offset for every width, so a
+// bound computed as `size + offset` instead of `size - offset` is visible.
+TEST_P(FixedWidthAccessor, ReadsTheLastWholeValue)
+{
+    const FixedWidthAccessorCase& c = GetParam();
+    bytes::Bytes buffer = GuardedBuffer();
+    std::ranges::copy(c.encoded, buffer.begin() + std::ptrdiff_t(kViewSize - c.width));
+
+    EXPECT_EQ(c.read(bytes::ByteView(buffer).first(kViewSize), kViewSize - c.width), c.value);
+}
+
+TEST_P(FixedWidthAccessor, ReadsZeroOnePastTheLastWholeValue)
+{
+    const FixedWidthAccessorCase& c = GetParam();
+    const bytes::Bytes buffer = GuardedBuffer();
+
+    EXPECT_EQ(c.read(bytes::ByteView(buffer).first(kViewSize), kViewSize - c.width + 1), 0U);
+}
+
+TEST_P(FixedWidthAccessor, ReadsZeroAtTheEndAndAtTheMaximumOffset)
+{
+    const FixedWidthAccessorCase& c = GetParam();
+    const bytes::Bytes buffer = GuardedBuffer();
+    const bytes::ByteView view = bytes::ByteView(buffer).first(kViewSize);
+
+    EXPECT_EQ(c.read(view, kViewSize), 0U);
+    EXPECT_EQ(c.read(view, std::numeric_limits<std::size_t>::max()), 0U);
+}
+
+TEST_P(FixedWidthAccessor, WritesTheLastWholeValue)
+{
+    const FixedWidthAccessorCase& c = GetParam();
+    bytes::Bytes buffer = GuardedBuffer();
+    bytes::Bytes expected = GuardedBuffer();
+    std::ranges::copy(c.encoded, expected.begin() + std::ptrdiff_t(kViewSize - c.width));
+
+    c.write(bytes::MutableByteView(buffer).first(kViewSize), kViewSize - c.width, c.value);
+
+    EXPECT_EQ(buffer, expected);
+}
+
+TEST_P(FixedWidthAccessor, LeavesTheBufferUntouchedOnePastTheLastWholeValue)
+{
+    const FixedWidthAccessorCase& c = GetParam();
+    bytes::Bytes buffer = GuardedBuffer();
+
+    c.write(bytes::MutableByteView(buffer).first(kViewSize), kViewSize - c.width + 1, c.value);
+
+    EXPECT_EQ(buffer, GuardedBuffer());
+}
+
+TEST_P(FixedWidthAccessor, LeavesTheBufferUntouchedAtTheEndAndAtTheMaximumOffset)
+{
+    const FixedWidthAccessorCase& c = GetParam();
+    bytes::Bytes buffer = GuardedBuffer();
+    const bytes::MutableByteView view = bytes::MutableByteView(buffer).first(kViewSize);
+
+    c.write(view, kViewSize, c.value);
+    c.write(view, std::numeric_limits<std::size_t>::max(), c.value);
+
+    EXPECT_EQ(buffer, GuardedBuffer());
+}
+
+INSTANTIATE_TEST_SUITE_P(BytesPortable, FixedWidthAccessor, ::testing::ValuesIn(kFixedWidthAccessors), CaseName);
+
+} // namespace
 
 TEST(BytesPortable, ReadsBigEndianWidths)
 {
@@ -114,9 +246,10 @@ TEST(BytesPortable, OverwriteAtPreservesTruncatingContract)
     bytes::OverwriteAt(exact, 2, payload);
     EXPECT_THAT(exact, ElementsAre(0, 1, 0xAA, 0xBB, 0xCC));
 
-    bytes::Bytes truncated{0, 1, 2, 3};
-    bytes::OverwriteAt(truncated, 2, payload);
-    EXPECT_THAT(truncated, ElementsAre(0, 1, 0xAA, 0xBB));
+    // The guard bytes past the view show a copy that runs past its end.
+    bytes::Bytes truncated{0, 1, 2, 3, kGuard, kGuard};
+    bytes::OverwriteAt(bytes::MutableByteView(truncated).first(4), 2, payload);
+    EXPECT_THAT(truncated, ElementsAre(0, 1, 0xAA, 0xBB, kGuard, kGuard));
 
     bytes::Bytes empty_payload{0, 1};
     bytes::OverwriteAt(empty_payload, 1, bytes::ByteView{});
@@ -138,40 +271,6 @@ TEST(BytesPortable, OverwriteAtDoesNothingAtOrBeyondEnd)
     EXPECT_THAT(at_end, ElementsAre(0, 1));
     EXPECT_THAT(beyond_end, ElementsAre(0, 1));
     EXPECT_THAT(maximum_offset, ElementsAre(0, 1));
-}
-
-TEST(BytesPortable, FixedWidthWritersRejectShortAndMaximumOffsets)
-{
-    constexpr std::size_t kMaximumOffset = std::numeric_limits<std::size_t>::max();
-    bytes::Bytes short_buffer{0x11, 0x22, 0x33};
-    const bytes::Bytes original = short_buffer;
-
-    bytes::WriteU16Be(short_buffer, kMaximumOffset, 0xAABB);
-    bytes::WriteU24Be(short_buffer, kMaximumOffset, 0xAABBCC);
-    bytes::WriteU32Be(short_buffer, kMaximumOffset, 0xAABBCCDD);
-    bytes::WriteU24Be(short_buffer, 1, 0xAABBCC);
-    bytes::WriteU32Be(short_buffer, 0, 0xAABBCCDD);
-    bytes::WriteU16Le(short_buffer, kMaximumOffset, 0xAABB);
-    bytes::WriteU24Le(short_buffer, kMaximumOffset, 0xAABBCC);
-    bytes::WriteU32Le(short_buffer, kMaximumOffset, 0xAABBCCDD);
-    bytes::WriteU24Le(short_buffer, 1, 0xAABBCC);
-    bytes::WriteU32Le(short_buffer, 0, 0xAABBCCDD);
-
-    EXPECT_EQ(short_buffer, original);
-}
-
-TEST(BytesPortable, FixedWidthWritersAcceptExactBoundary)
-{
-    bytes::Bytes out(18, 0);
-    bytes::WriteU16Be(out, 0, 0x1234);
-    bytes::WriteU24Be(out, 2, 0x56789A);
-    bytes::WriteU32Be(out, 5, 0xBCDEF012);
-    bytes::WriteU16Le(out, 9, 0x3456);
-    bytes::WriteU24Le(out, 11, 0x789ABC);
-    bytes::WriteU32Le(out, 14, 0xDEF01234);
-
-    EXPECT_THAT(out, ElementsAre(0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE, 0xF0, 0x12, 0x56, 0x34, 0xBC, 0x9A, 0x78,
-                                 0x34, 0x12, 0xF0, 0xDE));
 }
 
 TEST(BytesPortable, sum8Range_sumsOnlyTheRequestedWindow)
