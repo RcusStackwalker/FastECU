@@ -34,6 +34,8 @@ constexpr std::size_t kPageSize = 512;
 constexpr std::size_t kBalanceSlot = 0x3FFC0;
 constexpr std::size_t kAreaCodeOffset = 0x3FFCB;
 constexpr std::size_t kCorrectionWords = 0x3FFCE;
+// Where the six correction words end, and with them the checksum layout.
+constexpr std::size_t kLayoutEnd = kCorrectionWords + 2 + (std::size_t{5} * 4);
 constexpr std::size_t kExclusionFlag = 0x5013E;
 constexpr std::size_t kFaultReportingFlag = 0x5013F;
 
@@ -205,6 +207,35 @@ TEST(ChecksumEcuMitsuM32rCanTest, ImageTooSmallToCarryTheLayoutIsRejectedAsInval
 
     EXPECT_EQ(result.status, ChecksumResult::Status::kInvalidSize);
     EXPECT_THAT(result.rom_data, test_bytes::BytesEq(rom));
+}
+
+TEST(ChecksumEcuMitsuM32rCanTest, ImageJustLargeEnoughForTheLayoutGetsPastTheSizeCheck)
+{
+    // Its area code (0x00) is unrecognised, so it stops at the next check.
+    const bytes::Bytes rom(kLayoutEnd, 0x00);
+
+    const ChecksumResult result = ChecksumEcuMitsuM32rCan::CalculateChecksumResult(rom);
+
+    EXPECT_EQ(result.status, ChecksumResult::Status::kDisabled);
+    EXPECT_EQ(result.message, "Unrecognised checksum area code; checksums disabled");
+}
+
+TEST(ChecksumEcuMitsuM32rCanTest, CorrectsAgainstEachCorrectionWordTheEcuSubtracts)
+{
+    // Distinct, non-erased words: the ECU subtracts each one, so taking any
+    // word twice or skipping one leaves an image it rejects.
+    bytes::Bytes rom = SyntheticColtRom();
+    bytes::WriteU16Be(rom, kCorrectionWords, 0x1234);
+    for (std::size_t index = 0; index < 5; ++index)
+    {
+        bytes::WriteU32Be(rom, kCorrectionWords + 2 + (index * 4), 0x11111111U * static_cast<std::uint32_t>(index + 1));
+    }
+    ASSERT_FALSE(EcuAcceptsRom(rom, 0x60000));
+
+    const ChecksumResult result = ChecksumEcuMitsuM32rCan::CalculateChecksumResult(rom);
+
+    EXPECT_EQ(result.status, ChecksumResult::Status::kCorrected);
+    EXPECT_TRUE(EcuAcceptsRom(result.rom_data, 0x60000));
 }
 
 TEST(ChecksumEcuMitsuM32rCanTest, CorrectionRewritesOnlyTheFourBytesOfTheBalanceSlot)

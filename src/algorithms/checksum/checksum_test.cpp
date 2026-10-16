@@ -324,6 +324,20 @@ TEST(ChecksumPortable, HitachiM32rCanTcuRejectsAFileTooShortOrNotWordAligned)
     }
 }
 
+// 0x8024 is the shortest file that holds both fields, so it is corrected like
+// any larger one: checksum 1 is then its balance word alone.
+TEST(ChecksumPortable, HitachiM32rCanTcuBalancesTheShortestFileThatHoldsItsFields)
+{
+    const bytes::Bytes original(0x8024, 0x00);
+
+    const ChecksumResult result = ChecksumTcuSubaruHitachiM32rCan::CalculateChecksumResult(original);
+    EXPECT_EQ(result.status, ChecksumResult::Status::kCorrected);
+    CompareChangedBytes(original, result.rom_data,
+                        {{0x8000, bytes::Bytes{0xa5, 0x5a, 0x5a, 0xa6}},
+                         {0x8004, bytes::Bytes{0xa5, 0x5a, 0x5a, 0xa6}},
+                         {0x8020, bytes::Bytes{0x5a, 0xa5, 0xa5, 0x5a}}});
+}
+
 TEST(ChecksumPortable, HitachiM32rCanTcuBalancesZeroRom)
 {
     const bytes::Bytes original(0x10000, 0x00);
