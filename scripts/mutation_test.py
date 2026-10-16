@@ -40,6 +40,10 @@ MAX_ANNOTATIONS = 10
 # A mutant's merged status is the strongest any binary reports for it.
 _STATUS_RANK = {"NoCoverage": 0, "Survived": 1, "Timeout": 2, "Killed": 3}
 _RUNNER = re.compile(r"^mull-runner-(\d+)$")
+# Limit for mull-runner's unmutated warm-up and baseline runs. Its 3000 ms
+# default kills checksum_test, whose full-size ROMs take seconds in the -O0
+# coverage build. Mutant runs are unaffected: they get 10x the baseline time.
+ORIGINAL_RUN_TIMEOUT_MS = 60_000
 
 
 class MutationTestError(RuntimeError):
@@ -278,6 +282,26 @@ def build_tests(root: Path, targets: Sequence[str], plugin: str, config_path: Pa
         raise MutationTestError("building the mutated tests failed")
 
 
+def runner_command(runner: str, binary: Path, report_dir: Path) -> list[str]:
+    return [
+        runner,
+        "--reporters",
+        "Elements",
+        "--report-dir",
+        str(report_dir),
+        "--report-name",
+        binary.name,
+        "--timeout",
+        str(ORIGINAL_RUN_TIMEOUT_MS),
+        # The runner otherwise fails below a 100% score; survivors are
+        # reported, never fatal (ADR 0022).
+        "--allow-surviving",
+        "--no-test-output",
+        "--no-mutant-output",
+        str(binary),
+    ]
+
+
 def run_mull(
     root: Path, runner: str, label: str, config_path: Path, report_dir: Path
 ) -> Mapping | None:
@@ -285,21 +309,7 @@ def run_mull(
     runfiles = binary.parent / f"{binary.name}.runfiles" / "_main"
     environ = {**os.environ, "MULL_CONFIG": str(config_path)}
     result = _run(
-        [
-            runner,
-            "--reporters",
-            "Elements",
-            "--report-dir",
-            str(report_dir),
-            "--report-name",
-            binary.name,
-            # The runner otherwise fails below a 100% score; survivors are
-            # reported, never fatal (ADR 0022).
-            "--allow-surviving",
-            "--no-test-output",
-            "--no-mutant-output",
-            str(binary),
-        ],
+        runner_command(runner, binary, report_dir),
         runfiles if runfiles.is_dir() else root,
         env=environ,
     )
