@@ -257,15 +257,23 @@ void ScriptInCarConnect(ScriptedCanFlashTransport& t, int jump_outcome = 0)
     t.Exchange(Request({0x10, 0x5F}), Response({0x50, 0x63}));                   // fatal on mismatch
     t.Exchange(Request({0x22, 0x10, 0x1D}), Response({0x62, 0x10, 0x1D, 0x00})); // fatal on mismatch
     if (jump_outcome == 0)
+    {
         t.Exchange(Request({0x10, 0x62}), Response({0x50, 0x62}));
+    }
     else
     {
         t.Exchange(Request({0x10, 0x62}));
         if (jump_outcome == 2)
+        {
             t.QueueError(ErrorKind::kCancelled, "jump cancelled");
+        }
         else
+        {
             for (int attempt = 0; attempt < 11; ++attempt)
+            {
                 t.QueueNoFrame();
+            }
+        }
     }
 }
 
@@ -755,15 +763,15 @@ TEST(SubaruDenso1n83m_1_5mCanExecutor, ShortPagesAdvanceByRequestedSizeAndStopIs
         const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
         ASSERT_THAT(result, fastecu::testing::IsOk());
         ASSERT_TRUE(result->read_bytes.has_value());
-        constexpr std::size_t pages = kBlockLength / kPageSize;
-        constexpr std::size_t lead = 0x10000;
-        ASSERT_EQ(result->read_bytes->size(), lead + pages * 4 + 0x100);
-        EXPECT_THAT(bytes::ByteView(*result->read_bytes).first(lead), Each(0xFF));
+        constexpr std::size_t kPages = kBlockLength / kPageSize;
+        constexpr std::size_t kLead = 0x10000;
+        ASSERT_EQ(result->read_bytes->size(), kLead + kPages * 4 + 0x100);
+        EXPECT_THAT(bytes::ByteView(*result->read_bytes).first(kLead), Each(0xFF));
         EXPECT_THAT(bytes::ByteView(*result->read_bytes).last(0x100), Each(0xFF));
-        for (std::size_t page = 0; page < pages; ++page)
+        for (std::size_t page = 0; page < kPages; ++page)
         {
             SCOPED_TRACE(page);
-            EXPECT_THAT(bytes::ByteView(*result->read_bytes).subspan(lead + page * 4, 4),
+            EXPECT_THAT(bytes::ByteView(*result->read_bytes).subspan(kLead + page * 4, 4),
                         testing::ElementsAre(0x12, 0x34, 0x56, 0x78));
         }
         std::vector<int> read_progress;
@@ -774,12 +782,12 @@ TEST(SubaruDenso1n83m_1_5mCanExecutor, ShortPagesAdvanceByRequestedSizeAndStopIs
                 read_progress.push_back(event.done);
             }
         }
-        ASSERT_EQ(read_progress.size(), pages + 2);
+        ASSERT_EQ(read_progress.size(), kPages + 2);
         EXPECT_EQ(read_progress.front(), 0);
-        for (std::size_t page = 1; page <= pages; ++page)
+        for (std::size_t page = 1; page <= kPages; ++page)
         {
             SCOPED_TRACE(page);
-            EXPECT_EQ(read_progress[page], page == pages ? kBlockLength - 1 : page * kPageSize);
+            EXPECT_EQ(read_progress[page], page == kPages ? kBlockLength - 1 : page * kPageSize);
         }
         EXPECT_EQ(read_progress.back(), kBlockLength);
         EXPECT_TRUE(transport.ScriptConsumed());
@@ -943,13 +951,21 @@ TEST(SubaruDenso1n83m_1_5mCanExecutor, CloseRetriesSettleAndChecksumOutcomes)
         {
             transport.Exchange(Request({0x37}));
             if (attempt == 5 && outcome == 0)
+            {
                 transport.QueueRead(Response({0x77}));
+            }
             else if (attempt == 1)
+            {
                 transport.QueueError(ErrorKind::kDisconnected, "close ignored");
+            }
             else if (attempt == 2)
+            {
                 transport.QueueRead(Response({0x7F, 0x37, 0x31}));
+            }
             else
+            {
                 transport.QueueNoFrame();
+            }
         }
         transport.Exchange(Request({0x31, 0x01, 0x02, 0x02, 0x01}));
         if (outcome == 1)
@@ -958,16 +974,22 @@ TEST(SubaruDenso1n83m_1_5mCanExecutor, CloseRetriesSettleAndChecksumOutcomes)
             transport.QueueRead(Response({0x71, 0x01, 0x02}));
         }
         else if (outcome == 2)
+        {
             transport.QueueNoFrame();
+        }
         else if (outcome == 3)
+        {
             transport.QueueError(ErrorKind::kDisconnected, "checksum fails");
+        }
         else if (outcome == 4)
         {
             transport.QueueRead(Response({0x7F, 0x31, 0x78}));
             transport.QueueNoFrame();
         }
         else
+        {
             transport.QueueRead(Response({0x71, 0x01, 0x02}));
+        }
         RecordingClock clock;
         RecordingEventSink events;
         fastecu::ManualCancellationToken cancellation;
@@ -976,9 +998,13 @@ TEST(SubaruDenso1n83m_1_5mCanExecutor, CloseRetriesSettleAndChecksumOutcomes)
         ASSERT_THAT(plan, fastecu::testing::IsOk());
         const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
         if (outcome < 2)
+        {
             EXPECT_THAT(result, fastecu::testing::IsOk());
+        }
         else
+        {
             EXPECT_THAT(result, fastecu::testing::IsErr(outcome == 3 ? ErrorKind::kDisconnected : ErrorKind::kTimeout));
+        }
         EXPECT_TRUE(transport.ScriptConsumed());
         EXPECT_EQ(clock.sleep_calls, (std::vector<std::chrono::milliseconds>{500ms, 500ms, 100ms}));
         const auto& timeouts = transport.ReadTimeouts();
@@ -987,9 +1013,14 @@ TEST(SubaruDenso1n83m_1_5mCanExecutor, CloseRetriesSettleAndChecksumOutcomes)
         const std::size_t checksum_index = timeouts.size() - (reread ? 2 : 1);
         EXPECT_EQ(timeouts[checksum_index], 500ms);
         if (reread)
+        {
             EXPECT_EQ(timeouts.back(), 500ms);
-        EXPECT_THAT(std::vector<std::chrono::milliseconds>(timeouts.begin() + checksum_index - 6,
-                                                           timeouts.begin() + checksum_index),
+        }
+        EXPECT_THAT(std::vector<std::chrono::milliseconds>(
+                        timeouts.begin() +
+                            static_cast<std::vector<std::chrono::milliseconds>::difference_type>(checksum_index) - 6,
+                        timeouts.begin() +
+                            static_cast<std::vector<std::chrono::milliseconds>::difference_type>(checksum_index)),
                     Each(200ms));
     }
 }
@@ -1048,11 +1079,16 @@ TEST(SubaruDenso1n83m_1_5mCanExecutor, InCarJumpExhaustionAndCancellationPreserv
         const std::size_t count = outcome == 1 ? 11 : 1;
         const std::size_t trailing_read_count = outcome == 1 ? 3 : 0;
         ASSERT_GE(timeouts.size(), count + trailing_read_count);
-        const auto end = timeouts.end() - trailing_read_count;
-        EXPECT_THAT(std::vector<std::chrono::milliseconds>(end - count, end), Each(200ms));
+        const auto end =
+            timeouts.end() - static_cast<std::vector<std::chrono::milliseconds>::difference_type>(trailing_read_count);
+        EXPECT_THAT(std::vector<std::chrono::milliseconds>(
+                        end - static_cast<std::vector<std::chrono::milliseconds>::difference_type>(count), end),
+                    Each(200ms));
         std::vector<std::chrono::milliseconds> sleeps{500ms};
         if (outcome == 1)
+        {
             sleeps.insert(sleeps.end(), 10, 100ms);
+        }
         EXPECT_EQ(clock.sleep_calls, sleeps);
     }
 }

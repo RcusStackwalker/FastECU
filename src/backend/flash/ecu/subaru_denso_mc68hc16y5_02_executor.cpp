@@ -613,7 +613,9 @@ Status SubaruDensoMc68hc16y5_02Executor::WriteMem(IKlineFlashTransport& transpor
     std::vector<MemoryRegion> blocks;
     blocks.reserve(device->numblocks);
     for (unsigned block_no = 0; block_no < device->numblocks; ++block_no)
+    {
         blocks.push_back({device->fblocks[block_no].start, device->fblocks[block_no].len});
+    }
     const auto compare_blocks = [&](std::vector<bool>& modified) -> Result<unsigned>
     {
         return DensoBeefKlineCompareBlocks(blocks, bytes::ByteView(addressed_image), modified, cancellation,

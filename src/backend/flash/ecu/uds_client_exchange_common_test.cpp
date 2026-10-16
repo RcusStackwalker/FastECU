@@ -243,7 +243,9 @@ TEST(FatalQueryTest, ChecksumAcceptsImmediatePositiveAndPendingFinalWithSeparate
         Fixture f;
         f.channel.ExpectSend(bytes::Bytes{0x31, 0x01, 0x02, 0x02, 0x01});
         if (pending)
+        {
             f.channel.QueueReceive(bytes::Bytes{0x7F, 0x31, 0x78});
+        }
         f.channel.QueueReceive(bytes::Bytes{0x71, 0x01, 0x02});
         const uds::ExchangePolicy policy{.read_timeout = 500ms, .pending_timeout = 3000ms};
         const UdsExchangeContext ctx{f.client, policy, f.cancellation, f.events};

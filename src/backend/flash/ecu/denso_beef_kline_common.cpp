@@ -35,9 +35,13 @@ Status DensoBeefKlineEnableProgrammingVoltage(IKlineFlashTransport& transport, c
 {
     if (Status cancelled = CheckCancelled(cancellation, "cancelled before programming line state");
         !cancelled.has_value())
+    {
         return cancelled;
+    }
     if (Status line = transport.EnableProgrammingVoltageLine(); !line.has_value())
+    {
         return line;
+    }
     return CheckCancelled(cancellation, "cancelled after programming line state");
 }
 

@@ -60,9 +60,13 @@ TEST(DensoBeefKlineCommonTest, ComparesOrderedAddressedSlicesAndStopsOnFailureOr
                                                             EXPECT_EQ(block.length, blocks[calls].length);
                                                             ++calls;
                                                             if (scenario == 2 && calls == 2)
+                                                            {
                                                                 return Fail(ErrorKind::kDisconnected, "CRC failed");
+                                                            }
                                                             if (scenario == 3 && calls == 1)
+                                                            {
                                                                 cancellation.SetCancelled(true);
+                                                            }
                                                             return calls == 2 ? (scenario == 1 ? 1U : 0U) : 0x80C032ABU;
                                                         });
         EXPECT_EQ(calls, scenario == 2 ? 2U : scenario == 3 ? 1U : 3U);
@@ -86,7 +90,9 @@ TEST(DensoBeefKlineCommonTest, ProgrammingLinePreservesCancellationAndErrorPrece
     {
         FakeCancellationToken cancellation;
         if (scenario < 2)
-            cancellation.CancelOnCheck(static_cast<std::size_t>(scenario + 1));
+        {
+            cancellation.CancelOnCheck(static_cast<std::size_t>(scenario) + 1);
+        }
         class Transport final : public ScriptedKlineFlashTransport
         {
           public:
@@ -109,7 +115,9 @@ TEST(DensoBeefKlineCommonTest, ProgrammingLinePreservesCancellationAndErrorPrece
         const auto result = DensoBeefKlineEnableProgrammingVoltage(transport, cancellation);
         EXPECT_EQ(transport.calls, scenario == 0 ? 0U : 1U);
         if (scenario == 3)
+        {
             EXPECT_TRUE(result.has_value());
+        }
         else
         {
             ASSERT_FALSE(result.has_value());
@@ -133,9 +141,13 @@ class ExchangeTraceTransport final : public ScriptedKlineFlashTransport
         trace.push_back("write");
         EXPECT_EQ(bytes::Bytes(request.begin(), request.end()), (bytes::Bytes{0xBE, 0xEF, 0, 1, 1, 0xAF}));
         if (cancel_write)
+        {
             cancellation_.SetCancelled(true);
+        }
         if (write_error)
+        {
             return Fail(ErrorKind::kDisconnected, "write failed");
+        }
         return short_write ? request.size() - 1 : request.size();
     }
     Result<OptionalBytes> Read(std::chrono::milliseconds timeout, const ICancellationToken&) override
@@ -143,9 +155,13 @@ class ExchangeTraceTransport final : public ScriptedKlineFlashTransport
         trace.push_back("read");
         EXPECT_EQ(timeout, 1234ms);
         if (cancel_read)
+        {
             cancellation_.SetCancelled(true);
+        }
         if (read_error)
+        {
             return Fail(ErrorKind::kDisconnected, "read failed");
+        }
         return empty ? OptionalBytes{bytes::Bytes{}} : OptionalBytes{};
     }
     std::vector<std::string> trace;
@@ -178,9 +194,13 @@ TEST(DensoBeefKlineCommonTest, PreservesEveryCancellationCheckpoint)
         EXPECT_EQ(cancellation.CheckCount(), checkpoint);
         std::vector<std::string> expected;
         if (checkpoint >= 2)
+        {
             expected.push_back("write");
+        }
         if (checkpoint >= 4)
+        {
             expected.push_back("read");
+        }
         EXPECT_EQ(transport.trace, expected);
     }
 }
@@ -228,7 +248,9 @@ TEST(DensoBeefKlineCommonTest, SettleAndOptionalPresenceRemainDistinct)
                     {
                         transport.trace.push_back("sleep");
                         if (scenario == 2)
+                        {
                             return Fail(ErrorKind::kDisconnected, "sleep failed");
+                        }
                         return {};
                     });
         }
@@ -248,7 +270,9 @@ TEST(DensoBeefKlineCommonTest, SettleAndOptionalPresenceRemainDistinct)
             ASSERT_TRUE(result.has_value());
             EXPECT_EQ(result->has_value(), scenario == 1);
             if (scenario == 1)
+            {
                 EXPECT_TRUE((**result).empty());
+            }
             EXPECT_EQ(transport.trace, (scenario < 3 ? std::vector<std::string>{"write", "sleep", "read"}
                                                      : std::vector<std::string>{"write", "read"}));
             EXPECT_EQ(cancellation.CheckCount(), 4U);

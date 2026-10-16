@@ -930,7 +930,9 @@ TEST(SubaruDensoMc68hc16y5_02Executor, NoChangeProgrammingLinePreservesCancellat
         ScriptStockConnectAndUpload(transport);
         ScriptCrcCompare(transport, *device, image, std::nullopt);
         if (scenario == 1 || scenario == 2)
+        {
             cancellation.CancelOnCheck(baseline_checks - (scenario == 1 ? 1U : 0U));
+        }
         FakeClock clock;
         RecordingEventSink events;
         SubaruDensoMc68hc16y5_02Executor executor;
@@ -1414,7 +1416,9 @@ TEST(SubaruDensoMc68hc16y5_02Executor, FirstExchangePreservesTransportErrorAndCa
         SCOPED_TRACE(scenario);
         FakeCancellationToken cancellation;
         if (scenario == 6)
+        {
             cancellation.CancelOnCheck(8);
+        }
         class ProbeTransport final : public ScriptedKlineFlashTransport
         {
           public:
@@ -1427,9 +1431,13 @@ TEST(SubaruDensoMc68hc16y5_02Executor, FirstExchangePreservesTransportErrorAndCa
                 trace.push_back("write");
                 EXPECT_EQ(bytes::Bytes(request.begin(), request.end()), (bytes::Bytes{0x4D, 0xFF, 0xB4}));
                 if (scenario_ < 3)
+                {
                     cancellation_.SetCancelled(true);
+                }
                 if (scenario_ == 0)
+                {
                     return Fail(ErrorKind::kDisconnected, "probe write failed");
+                }
                 return scenario_ == 1 ? request.size() - 1 : request.size();
             }
             Result<OptionalBytes> Read(std::chrono::milliseconds timeout, const ICancellationToken&) override
@@ -1444,7 +1452,9 @@ TEST(SubaruDensoMc68hc16y5_02Executor, FirstExchangePreservesTransportErrorAndCa
                 EXPECT_EQ(timeout, 200ms);
                 cancellation_.SetCancelled(true);
                 if (scenario_ == 3)
+                {
                     return Fail(ErrorKind::kDisconnected, "probe read failed");
+                }
                 return OptionalBytes{};
             }
             std::vector<std::string> trace;
@@ -1464,9 +1474,13 @@ TEST(SubaruDensoMc68hc16y5_02Executor, FirstExchangePreservesTransportErrorAndCa
                     {
                         transport.trace.push_back("sleep");
                         if (scenario == 5)
+                        {
                             cancellation.SetCancelled(true);
+                        }
                         if (scenario == 7)
+                        {
                             return Fail(ErrorKind::kDisconnected, "probe sleep failed");
+                        }
                     }
                     return {};
                 });
@@ -1484,11 +1498,17 @@ TEST(SubaruDensoMc68hc16y5_02Executor, FirstExchangePreservesTransportErrorAndCa
         EXPECT_EQ(result.error().detail, details[scenario]);
         std::vector<std::string> expected{"drain"};
         if (scenario != 6)
+        {
             expected.push_back("write");
+        }
         if (scenario == 3 || scenario == 4 || scenario == 5 || scenario == 7)
+        {
             expected.push_back("sleep");
+        }
         if (scenario == 3 || scenario == 4)
+        {
             expected.push_back("read");
+        }
         EXPECT_EQ(transport.trace, expected);
         const std::array<std::size_t, 8> counts{8, 8, 9, 10, 11, 10, 8, 9};
         EXPECT_EQ(cancellation.CheckCount(), counts[scenario]);
@@ -1507,9 +1527,13 @@ TEST(SubaruDensoMc68hc16y5_02Executor, ReadPreservesAbsentVersusPresentEmptyResp
         // Literal first-page request, independent of production framing.
         transport.ExpectWrite(bytes::Bytes{0xBE, 0xEF, 0, 7, 3, 0, 0, 0, 0, 4, 0, 0xBB});
         if (present)
+        {
             transport.QueueRead(bytes::Bytes{});
+        }
         else
+        {
             transport.QueueNoFrame();
+        }
         FakeClock clock;
         FakeCancellationToken cancellation;
         RecordingEventSink events;

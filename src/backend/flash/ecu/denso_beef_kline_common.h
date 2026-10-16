@@ -47,11 +47,15 @@ Result<unsigned> DensoBeefKlineCompareBlocks(std::span<const MemoryRegion> block
     for (std::size_t index = 0; index < blocks.size(); ++index)
     {
         if (cancellation.Cancelled())
+        {
             return Fail(ErrorKind::kCancelled, "cancelled during ROM compare");
+        }
         const MemoryRegion& block = blocks[index];
         const Result<std::uint32_t> ecu_crc = read_crc(block);
         if (!ecu_crc.has_value())
+        {
             return std::unexpected(ecu_crc.error());
+        }
         const std::uint32_t image_crc = checksum::Crc32(addressed_image.subspan(block.start, block.length));
         modified[index] = *ecu_crc != image_crc;
         modified_count += modified[index] ? 1U : 0U;
