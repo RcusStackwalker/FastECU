@@ -12,6 +12,9 @@ Modes:
                    and src/backend.
   --diff-ref REF   only tests that depend on portable files changed since
                    REF, and only mutants on the changed lines.
+  --shard I/N      only every Nth test of the sorted selection, from the Ith;
+                   writes reports and a manifest for --merge-reports.
+  --merge-reports  merge the reports of N shards' report directories.
 
 Surviving mutants never fail the run (mutation testing is advisory); a tool or
 build failure does. Exit codes: 0 = ran (or nothing to do), 2 = tool failure.
@@ -54,8 +57,29 @@ TEST_ENV_EXPR = (
 )
 
 
+# Written last by a shard, so a shard that failed or was cancelled has none.
+SHARD_MANIFEST = "_shard.json"
+
+
 class MutationTestError(RuntimeError):
     """A tool, build, or report failure: not a surviving mutant."""
+
+
+@dataclasses.dataclass(frozen=True)
+class Shard:
+    index: int
+    count: int
+
+    def select(self, labels: Iterable[str]) -> list[str]:
+        """Round-robin over the sorted labels, so every shard agrees on its slice."""
+        return sorted(labels)[self.index :: self.count]
+
+
+def parse_shard(value: str) -> Shard:
+    index, _, count = value.partition("/")
+    if not (index.isdigit() and count.isdigit()) or not int(index) < int(count):
+        raise argparse.ArgumentTypeError(f"{value!r} is not I/N with 0 <= I < N")
+    return Shard(int(index), int(count))
 
 
 @dataclasses.dataclass(frozen=True, order=True)
@@ -196,6 +220,38 @@ def diff_config(base_config: str, diff_ref: str, root: Path) -> str:
         base_config.rstrip("\n")
         + f"\ngitDiffRef: {json.dumps(diff_ref)}\ngitProjectRoot: {json.dumps(root.as_posix())}\n"
     )
+
+
+def write_shard_manifest(report_dir: Path, shard: Shard, labels: Sequence[str]) -> None:
+    manifest = {"index": shard.index, "count": shard.count, "labels": list(labels)}
+    (report_dir / SHARD_MANIFEST).write_text(json.dumps(manifest))
+
+
+def collect_shard_reports(directory: Path, count: int) -> tuple[list[Mapping], list[int]]:
+    """Every report under `directory`, and the shards that left no manifest."""
+    reports, finished = [], set()
+    for path in sorted(directory.rglob("*.json")):
+        data = json.loads(path.read_text())
+        if path.name != SHARD_MANIFEST:
+            reports.append(data)
+        elif data["count"] != count:
+            raise MutationTestError(f"{path} is from a run of {data['count']} shards, not {count}")
+        else:
+            finished.add(data["index"])
+    return reports, sorted(set(range(count)) - finished)
+
+
+def render_missing_shards(missing: Sequence[int], count: int) -> str:
+    names = ", ".join(str(index) for index in missing)
+    noun = "shard" if len(missing) == 1 else "shards"
+    return (
+        f"**Incomplete:** {noun} {names} of {count} did not finish; "
+        "their tests are missing below.\n"
+    )
+
+
+def group_title(position: int, total: int, label: str) -> str:
+    return f"::group::[{position}/{total}] {label}"
 
 
 def binary_path(root: Path, label: str) -> Path:
@@ -392,7 +448,26 @@ def _parse_args(argv: Sequence[str]) -> argparse.Namespace:
         default=PORTABLE_SCOPE,
         help=f"Bazel target pattern whose tests run (default: {PORTABLE_SCOPE})",
     )
-    return parser.parse_args(argv)
+    parser.add_argument(
+        "--shard", type=parse_shard, help="run only shard I of N (0-based), e.g. 1/4"
+    )
+    parser.add_argument(
+        "--merge-reports",
+        type=Path,
+        metavar="DIR",
+        help="merge the shard report directories under DIR instead of running Mull",
+    )
+    parser.add_argument("--shards", type=int, help="with --merge-reports: how many shards ran")
+    args = parser.parse_args(argv)
+    if args.shard and not args.report_dir:
+        parser.error("--shard needs --report-dir, where the merge job finds its reports")
+    if args.shard and args.diff_ref:
+        parser.error("--shard is for full and scoped runs; the changed-lines run is one job")
+    if args.merge_reports and not (args.shards and args.shards > 0):
+        parser.error("--merge-reports needs --shards N")
+    if args.merge_reports and (args.shard or args.diff_ref):
+        parser.error("--merge-reports runs no tests; drop --shard and --diff-ref")
+    return args
 
 
 def _emit(summary: str, merged: Mapping[MutantKey, str], args: argparse.Namespace) -> None:
@@ -405,6 +480,20 @@ def _emit(summary: str, merged: Mapping[MutantKey, str], args: argparse.Namespac
             print(line)
 
 
+def merge_shards(args: argparse.Namespace, root: Path) -> int:
+    reports, missing = collect_shard_reports(args.merge_reports, args.shards)
+    merged = merge_reports(reports, root)
+    summary = render_summary(merged, "Mutation testing")
+    if missing:
+        heading, _, body = summary.partition("\n\n")
+        summary = f"{heading}\n\n{render_missing_shards(missing, args.shards)}\n{body}"
+    _emit(summary, merged, args)
+    if missing:
+        names = ", ".join(str(index) for index in missing)
+        raise MutationTestError(f"shard(s) {names} of {args.shards} left no manifest")
+    return 0
+
+
 def main(argv: Sequence[str] = sys.argv[1:]) -> int:
     args = _parse_args(argv)
     root = Path(__file__).resolve().parent.parent
@@ -415,6 +504,8 @@ def main(argv: Sequence[str] = sys.argv[1:]) -> int:
         else "Mutation testing"
     )
     try:
+        if args.merge_reports:
+            return merge_shards(args, root)
         changed = None
         if args.diff_ref:
             changed = changed_portable_sources(git_changed_files(root, args.diff_ref))
@@ -423,6 +514,13 @@ def main(argv: Sequence[str] = sys.argv[1:]) -> int:
                 return 0
         runner, plugin = find_mull(os.environ)
         targets = query_tests(root, args.scope, changed)
+        if args.shard:
+            targets = args.shard.select(targets)
+            if not targets:
+                args.report_dir.mkdir(parents=True, exist_ok=True)
+                write_shard_manifest(args.report_dir, args.shard, targets)
+                _emit(f"## {title}\n\nNo tests fall in this shard.\n", {}, args)
+                return 0
         if not targets:
             _emit(f"## {title}\n\nNo portable tests depend on the change.\n", {}, args)
             return 0
@@ -441,15 +539,22 @@ def main(argv: Sequence[str] = sys.argv[1:]) -> int:
             missing = sorted(set(targets) - environments.keys())
             if missing:
                 raise MutationTestError(f"cquery reported no environment for {', '.join(missing)}")
-            reports = [
-                report
-                for label in targets
-                if (
-                    report := run_mull(
+            grouped = os.environ.get("GITHUB_ACTIONS") == "true"
+            reports = []
+            for position, label in enumerate(targets, start=1):
+                if grouped:
+                    print(group_title(position, len(targets), label), flush=True)
+                try:
+                    report = run_mull(
                         root, runner, label, environments[label], config_path, report_dir
                     )
-                )
-            ]
+                finally:
+                    if grouped:
+                        print("::endgroup::", flush=True)
+                if report:
+                    reports.append(report)
+            if args.shard:
+                write_shard_manifest(report_dir, args.shard, targets)
         merged = merge_reports(reports, root)
         _emit(render_summary(merged, title), merged, args)
         return 0

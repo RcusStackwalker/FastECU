@@ -33,6 +33,13 @@ real.
   the runner so the build stays the same in every mode) and reports survivors
   as annotations on the diff and a job summary. Surviving mutants never fail
   either; a tool or build failure does.
+- The weekly and manual runs are sharded by test binary, the unit Mull runs:
+  four jobs each take every fourth label of the sorted selection, so each can
+  compute its own slice without a planning job, and build only its slice.
+  Each shard writes a manifest after its last binary, and a merge job that
+  runs even when a shard fails merges every report it finds, names the shards
+  that left no manifest in the summary, and fails the run if there were any.
+  The PR job, usually a few minutes, stays one job.
 
 ## Alternatives
 
@@ -48,6 +55,12 @@ real.
 - CI installs a second LLVM for these jobs, and a Mull bump may move it; the
   pin lives in one composite action.
 - Mutation runs build every selected test a second time with the plugin and
-  coverage; the weekly run takes hours and is bounded by its job timeout.
+  coverage. Mull reruns a whole test binary for every mutant it covers, so a
+  binary with slow cases costs that time per mutant: the slowest binary,
+  `subaru_key_recovery_test`, bounds a sharded run's wall time at about 25
+  minutes, and more shards cannot shorten it.
+- Round-robin ignores how long each binary takes, so one shard can run well
+  past the others. Balancing on the previous run's timings was rejected as
+  more machinery than an unattended weekly run needs.
 - macOS runs are local and best-effort with Mull's macOS release and the
   LLVM it was built against.

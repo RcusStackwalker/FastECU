@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 
 import argparse
+import contextlib
+import io
+import json
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -271,6 +275,101 @@ class TestEnvironmentTest(unittest.TestCase):
             },
             environ,
         )
+
+
+class ShardTest(unittest.TestCase):
+    def test_parses_an_index_and_a_count(self) -> None:
+        self.assertEqual(mt.Shard(1, 4), mt.parse_shard("1/4"))
+
+    def test_rejects_an_index_outside_the_count(self) -> None:
+        for value in ("4/4", "0/0", "-1/4", "1", "a/b"):
+            with self.subTest(value=value), self.assertRaises(argparse.ArgumentTypeError):
+                mt.parse_shard(value)
+
+    def test_takes_every_nth_label_of_the_sorted_list(self) -> None:
+        labels = ["//e:t", "//b:t", "//d:t", "//a:t", "//c:t"]
+        self.assertEqual(["//b:t", "//d:t"], mt.Shard(1, 2).select(labels))
+        self.assertEqual(["//a:t", "//c:t", "//e:t"], mt.Shard(0, 2).select(labels))
+
+    def test_a_shard_past_the_last_label_selects_nothing(self) -> None:
+        self.assertEqual([], mt.Shard(3, 4).select(["//a:t", "//b:t"]))
+
+
+class MergeShardsTest(unittest.TestCase):
+    def setUp(self) -> None:
+        scratch = tempfile.TemporaryDirectory()
+        self.addCleanup(scratch.cleanup)
+        self.root = Path(scratch.name)
+
+    def _shard(self, index: int, count: int, *reports: tuple[str, dict]) -> None:
+        directory = self.root / f"mutation-report-shard-{index}"
+        directory.mkdir()
+        for name, report in reports:
+            (directory / f"{name}.json").write_text(json.dumps(report))
+            (directory / f"{name}.html").write_text("<html></html>")
+        mt.write_shard_manifest(directory, mt.Shard(index, count), [f"//a:{n}" for n, _ in reports])
+
+    def test_collects_every_shards_reports_but_not_their_manifests(self) -> None:
+        first = _report(ABSOLUTE_SOURCE, _mutant(3, "Killed"))
+        second = _report(ABSOLUTE_SOURCE, _mutant(4, "Survived"))
+        self._shard(0, 2, ("x_test", first))
+        self._shard(1, 2, ("y_test", second))
+
+        reports, missing = mt.collect_shard_reports(self.root, 2)
+
+        self.assertCountEqual([first, second], reports)
+        self.assertEqual([], missing)
+
+    def test_an_empty_shard_that_finished_is_not_missing(self) -> None:
+        self._shard(0, 2, ("x_test", _report(ABSOLUTE_SOURCE)))
+        self._shard(1, 2)
+
+        self.assertEqual([], mt.collect_shard_reports(self.root, 2)[1])
+
+    def test_a_shard_without_a_manifest_is_missing(self) -> None:
+        # A shard writes its manifest last, so one that failed or was
+        # cancelled mid-run leaves reports but no manifest.
+        self._shard(0, 3, ("x_test", _report(ABSOLUTE_SOURCE)))
+        partial = self.root / "mutation-report-shard-2"
+        partial.mkdir()
+        (partial / "z_test.json").write_text(json.dumps(_report(ABSOLUTE_SOURCE)))
+
+        self.assertEqual([1, 2], mt.collect_shard_reports(self.root, 3)[1])
+
+    def test_rejects_a_manifest_from_a_differently_sharded_run(self) -> None:
+        self._shard(0, 4)
+        with self.assertRaises(mt.MutationTestError):
+            mt.collect_shard_reports(self.root, 2)
+
+    def test_the_summary_names_the_missing_shards(self) -> None:
+        self.assertEqual(
+            "**Incomplete:** shards 1, 2 of 4 did not finish; their tests are missing below.\n",
+            mt.render_missing_shards([1, 2], 4),
+        )
+
+
+class ParseArgsTest(unittest.TestCase):
+    def _rejects(self, *argv: str) -> None:
+        with self.assertRaises(SystemExit), contextlib.redirect_stderr(io.StringIO()):
+            mt._parse_args(list(argv))
+
+    def test_a_shard_needs_a_report_dir(self) -> None:
+        self._rejects("--shard", "0/4")
+
+    def test_the_changed_lines_run_is_not_sharded(self) -> None:
+        self._rejects("--shard", "0/4", "--report-dir", "r", "--diff-ref", DIFF_REF)
+
+    def test_a_merge_needs_the_shard_count(self) -> None:
+        self._rejects("--merge-reports", "r")
+
+    def test_accepts_a_scoped_shard(self) -> None:
+        args = mt._parse_args(["--shard", "2/4", "--report-dir", "r", "--scope", "//src/a/..."])
+        self.assertEqual(mt.Shard(2, 4), args.shard)
+
+
+class LogGroupTest(unittest.TestCase):
+    def test_titles_a_binary_with_its_position(self) -> None:
+        self.assertEqual("::group::[3/48] //src/a:t", mt.group_title(3, 48, "//src/a:t"))
 
 
 if __name__ == "__main__":
