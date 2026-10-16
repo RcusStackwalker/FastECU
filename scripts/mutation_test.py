@@ -68,7 +68,8 @@ class FileCounts:
 
 def relative_source_path(path: str, root: Path) -> str:
     """Map a path recorded in debug info to a workspace-relative one."""
-    root_prefix = str(root).rstrip("/") + "/"
+    # Debug-info and git paths are POSIX; so is this comparison on any host.
+    root_prefix = root.as_posix().rstrip("/") + "/"
     if path.startswith(root_prefix):
         return path[len(root_prefix) :]
     marker = "/execroot/_main/"
@@ -180,7 +181,7 @@ def diff_config(base_config: str, diff_ref: str, root: Path) -> str:
     """The checked-in Mull config plus incremental (git diff) filtering."""
     return (
         base_config.rstrip("\n")
-        + f"\ngitDiffRef: {json.dumps(diff_ref)}\ngitProjectRoot: {json.dumps(str(root))}\n"
+        + f"\ngitDiffRef: {json.dumps(diff_ref)}\ngitProjectRoot: {json.dumps(root.as_posix())}\n"
     )
 
 
