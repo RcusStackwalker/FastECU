@@ -467,6 +467,9 @@ the branch instead, and compare its survivors with the same scope on `master`:
 gh workflow run mutation -r <branch> -f scope=//src/algorithms/protocol/...
 ```
 
+The run is sharded like the weekly one; the `merged report` job's summary and
+its `mutation-report` artifact hold the result for the whole scope.
+
 **Verify reachability before retiring code.** String aliases and dispatch tables
 can make an apparently referenced branch dead; commented-out functions can look
 live to text searches. Check the built path or a comment-stripped parse before
