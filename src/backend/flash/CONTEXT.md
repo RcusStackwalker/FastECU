@@ -60,3 +60,11 @@ _Avoid_: Mode, variant
 The speed (B/s) and estimated seconds remaining of a read or write loop,
 reported as one log line per page. The estimate is clamped to 9999 s.
 _Avoid_: Telemetry, throughput
+
+**CVT B6 chunk dialect**:
+The Subaru TCU CVT Hitachi M32R CAN and Mitsubishi MH8111 CAN flash families.
+They share only the B6/U24 encrypted-chunk exchange in
+[cvt_b6_chunk_exchange.h](ecu/cvt_b6_chunk_exchange.h): one send and one
+2000 ms receive, accepting silence or any framed reply. Geometry, encryption,
+cancellation checkpoints, progress, setup, close and checksum stay family-owned.
+Mitsubishi CVT crypto sharing alone does not define this dialect.

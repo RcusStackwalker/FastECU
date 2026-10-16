@@ -245,16 +245,19 @@ Mitsubishi MH8111: Hitachi sends its security exchanges through `other_uds` on
 Their current seed-key tables and stock transformation are identical, while
 payload encryption tables differ. Literal seed/key transcripts characterize
 these bindings without establishing interchangeable connection policy.
-Both write-chunk loops tolerate an absent reply but propagate transport errors.
+The [CVT B6 chunk dialect](../src/backend/flash/CONTEXT.md) shares its
+[chunk exchange](../src/backend/flash/ecu/cvt_b6_chunk_exchange.h): B6 plus
+a U24 address and encrypted bytes, one send and one 2000 ms receive. Silence
+and every framed reply succeed; send and receive errors propagate unchanged.
+It adds no range guard, cancellation checkpoint or SID validation.
 Hitachi closes each block with one fatal attempt; MH8111 allows twenty attempts,
 succeeds on the first valid `0x77`, and reports `BadResponse` on exhaustion.
 Executor scripts pin these outcomes, including success on MH8111's twentieth
 attempt. They establish current behavior only: independent EcuFlash CVT
 security and reflash/retry function mappings remain unavailable, and the
 [qualification matrix](flash-qualification-matrix.md) remains authoritative.
-A possible bounded chunk exchange extraction must retain each family's
-geometry, encryption, progress, and close policy; no correction is inferred
-from similarity.
+Each family retains geometry, encryption, cancellation, progress, setup, close
+and checksum policy. This extraction establishes no protocol correction.
 
 ### Corrections require local evidence
 

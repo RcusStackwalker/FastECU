@@ -1471,6 +1471,7 @@ cc_library(
     srcs = ["subaru_tcu_cvt_mitsu_mh8111_can_executor.cpp"],
     hdrs = ["subaru_tcu_cvt_mitsu_mh8111_can_executor.h"],
     implementation_deps = [
+        ":cvt_b6_chunk_exchange",
         ":flash_phase_progress",
         ":subaru_tcu_cvt_mitsu_can_common",
         ":subaru_tcu_cvt_mitsu_mh8111_can_plan",
@@ -1562,6 +1563,7 @@ cc_library(
     srcs = ["subaru_tcu_cvt_hitachi_m32r_can_executor.cpp"],
     hdrs = ["subaru_tcu_cvt_hitachi_m32r_can_executor.h"],
     implementation_deps = [
+        ":cvt_b6_chunk_exchange",
         ":flash_phase_progress",
         ":subaru_tcu_cvt_hitachi_m32r_can_plan",
         ":uds_client_exchange_common",
@@ -1948,5 +1950,28 @@ cc_library(
         "//src/algorithms/checksum",
         "//src/algorithms/protocol",
         "//src/backend/flash:flash_executor",
+    ],
+)
+
+cc_library(
+    name = "cvt_b6_chunk_exchange",
+    srcs = ["cvt_b6_chunk_exchange.cpp"],
+    hdrs = ["cvt_b6_chunk_exchange.h"],
+    implementation_deps = [
+        "//src/algorithms/protocol",
+        "//src/algorithms/protocol/uds:uds_service_ids",
+    ],
+    deps = ["//src/backend/protocol/uds:uds_client"],
+)
+
+fastecu_portable_gtest(
+    name = "cvt_b6_chunk_exchange_test",
+    srcs = ["cvt_b6_chunk_exchange_test.cpp"],
+    deps = [
+        ":cvt_b6_chunk_exchange",
+        "//src/backend/ports/testing:fake_cancellation_token",
+        "//src/backend/ports/testing:result_matchers",
+        "//src/backend/protocol/uds/testing:scripted_uds_channel",
+        "@googletest//:gtest",
     ],
 )

@@ -273,6 +273,7 @@ enum class ChunkReply
 {
     kPositive,
     kSilent,
+    kUnexpected,
     kDisconnected,
 };
 
@@ -308,6 +309,10 @@ void ScriptWriteBlock(ScriptedCanFlashTransport& transport, bytes::ByteView bloc
         if (chunk_reply == ChunkReply::kSilent)
         {
             transport.QueueNoFrame();
+        }
+        else if (chunk_reply == ChunkReply::kUnexpected)
+        {
+            transport.QueueRead(Response({0x7F, 0xB6, 0x22}));
         }
         else if (chunk_reply == ChunkReply::kDisconnected)
         {
@@ -391,6 +396,25 @@ TEST(SubaruTcuCvtMitsuMh8111CanExecutor, WriteAcceptsSilentChunkReplies)
     ScriptFullConnect(transport);
     ScriptEraseMemory(transport);
     ScriptWriteBlock(transport, bytes::ByteView(rom).subspan(kWriteStart, kWriteLength), ChunkReply::kSilent);
+
+    EXPECT_THAT(executor.Execute(*plan, transport, clock, cancellation, events), fastecu::testing::IsOk());
+    EXPECT_TRUE(transport.ScriptConsumed());
+}
+
+TEST(SubaruTcuCvtMitsuMh8111CanExecutor, WriteAcceptsUninspectedChunkReplies)
+{
+    ScriptedCanFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::kOpen};
+    FakeClock clock;
+    RecordingEventSink events;
+    fastecu::ManualCancellationToken cancellation;
+    SubaruTcuCvtMitsuMh8111CanExecutor executor;
+    const bytes::Bytes rom = WriteRom();
+    auto plan = WritePlan(rom);
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+
+    ScriptFullConnect(transport);
+    ScriptEraseMemory(transport);
+    ScriptWriteBlock(transport, bytes::ByteView(rom).subspan(kWriteStart, kWriteLength), ChunkReply::kUnexpected);
 
     EXPECT_THAT(executor.Execute(*plan, transport, clock, cancellation, events), fastecu::testing::IsOk());
     EXPECT_TRUE(transport.ScriptConsumed());

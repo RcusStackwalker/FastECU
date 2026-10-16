@@ -26,6 +26,30 @@ TEST(ScriptedUdsChannelTest, AcceptsAnExpectedSend)
     EXPECT_EQ(channel.SendsConsumed(), 1U);
 }
 
+TEST(ScriptedUdsChannelTest, ReplaysSendErrorsAndCountsEveryAttempt)
+{
+    uds::ScriptedUdsChannel channel;
+    FakeCancellationToken cancellation;
+    const bytes::Bytes pdu{0x3E};
+    channel.ExpectSend(pdu, fastecu::Fail(ErrorKind::kDisconnected, "send failed"));
+    channel.ExpectSend(pdu);
+
+    const auto failed = channel.Send(pdu, cancellation);
+    ASSERT_THAT(failed, fastecu::testing::IsErr(ErrorKind::kDisconnected));
+    EXPECT_EQ(failed.error().detail, "send failed");
+    EXPECT_EQ(channel.SendsConsumed(), 1U);
+    EXPECT_FALSE(channel.ScriptConsumed());
+    EXPECT_THAT(channel.Send(pdu, cancellation), fastecu::testing::IsOk());
+    EXPECT_TRUE(channel.ScriptConsumed());
+    EXPECT_EQ(channel.SendCalls(), 2U);
+
+    EXPECT_THAT(channel.Send(pdu, cancellation), fastecu::testing::IsErr(ErrorKind::kInternal));
+    cancellation.SetCancelled(true);
+    EXPECT_THAT(channel.Send(pdu, cancellation), fastecu::testing::IsErr(ErrorKind::kCancelled));
+    EXPECT_EQ(channel.SendCalls(), 4U);
+    EXPECT_EQ(channel.SendsConsumed(), 2U);
+}
+
 TEST(ScriptedUdsChannelTest, RejectsAnUnexpectedSend)
 {
     uds::ScriptedUdsChannel channel;

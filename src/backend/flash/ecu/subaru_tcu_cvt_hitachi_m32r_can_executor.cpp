@@ -12,6 +12,7 @@
 #include "src/algorithms/protocol/uds/uds_service_ids.h"
 #include "src/backend/flash/can_flash_uds_channel.h"
 #include "src/backend/flash/ecu/flash_phase_progress.h"
+#include "src/backend/flash/ecu/cvt_b6_chunk_exchange.h"
 #include "src/backend/flash/ecu/subaru_tcu_cvt_hitachi_m32r_can_plan.h"
 #include "src/backend/flash/ecu/uds_client_exchange_common.h"
 #include "src/backend/protocol/uds/uds_client.h"
@@ -464,16 +465,10 @@ Status UnlockAndReflashBlock(Ctx& ctx, bytes::ByteView block_plain, std::uint32_
         // fails this exchange. Routed through the channel directly (not
         // fatal_request()/ctx.uds, which would enforce the SID+0x40 content
         // match this family's legacy code never checks here).
-        if (const Status sent =
-                ctx.channel.Send(ComposeBe(uds::kSidWriteMemoryChunk, U24(addr), chunk_data), ctx.cancellation);
-            !sent.has_value())
+        if (const Status exchanged = ExchangeCvtB6Chunk(ctx.channel, ctx.cancellation, addr, chunk_data);
+            !exchanged.has_value())
         {
-            return sent;
-        }
-        if (Result<std::optional<bytes::Bytes>> reply = ctx.channel.Receive(2000ms, ctx.cancellation);
-            !reply.has_value())
-        {
-            return std::unexpected(reply.error());
+            return exchanged;
         }
         progress.Update(static_cast<int>(done_before + offset + kChunkSize));
     }

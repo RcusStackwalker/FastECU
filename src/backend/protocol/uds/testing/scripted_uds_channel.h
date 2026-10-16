@@ -24,9 +24,11 @@ namespace uds
 class ScriptedUdsChannel final : public IUdsChannel
 {
   public:
-    void ExpectSend(bytes::ByteView pdu)
+    // A matched expectation is consumed even when its scripted send fails.
+    void ExpectSend(bytes::ByteView pdu, fastecu::Status outcome = {})
     {
         expected_.emplace_back(pdu.begin(), pdu.end());
+        send_results_.push_back(std::move(outcome));
     }
     void QueueReceive(bytes::ByteView pdu)
     {
@@ -41,6 +43,11 @@ class ScriptedUdsChannel final : public IUdsChannel
         receives_.emplace_back(fastecu::Fail(kind, std::move(detail)));
     }
 
+    // Includes cancelled and unexpected attempts, unlike SendsConsumed().
+    std::size_t SendCalls() const
+    {
+        return send_calls_;
+    }
     std::size_t SendsConsumed() const
     {
         return send_index_;
@@ -52,6 +59,7 @@ class ScriptedUdsChannel final : public IUdsChannel
 
     fastecu::Status Send(bytes::ByteView pdu, const fastecu::ICancellationToken& cancellation) override
     {
+        ++send_calls_;
         if (cancellation.Cancelled())
         {
             return fastecu::Fail(fastecu::ErrorKind::kCancelled, "scripted UDS send cancelled");
@@ -60,8 +68,7 @@ class ScriptedUdsChannel final : public IUdsChannel
         {
             return fastecu::Fail(fastecu::ErrorKind::kInternal, "unexpected scripted UDS send");
         }
-        ++send_index_;
-        return {};
+        return send_results_.at(send_index_++);
     }
 
     fastecu::Result<std::optional<bytes::Bytes>> Receive(std::chrono::milliseconds timeout,
@@ -87,6 +94,8 @@ class ScriptedUdsChannel final : public IUdsChannel
 
   private:
     std::vector<bytes::Bytes> expected_;
+    std::vector<fastecu::Status> send_results_;
+    std::size_t send_calls_ = 0;
     std::deque<fastecu::Result<std::optional<bytes::Bytes>>> receives_;
     std::size_t send_index_ = 0;
 };
