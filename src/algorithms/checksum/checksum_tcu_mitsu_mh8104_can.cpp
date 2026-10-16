@@ -19,7 +19,7 @@ ChecksumResult ChecksumTcuMitsuMH8104Can::CalculateChecksumResult(Rom rom)
     uint32_t checksum_balance_value_address = 0x81fc;
     uint32_t checksum_target = 0x5aa45aab;
 
-    uint32_t checksum = fastecu::checksum::internal::FoldU32Be(rom_data, {0x8000, 0x80000}).sum;
+    uint32_t checksum = fastecu::checksum::internal::FoldU32Be({rom_view.subspan(0x8000)}).sum;
 
     bool checksum_ok = true;
 

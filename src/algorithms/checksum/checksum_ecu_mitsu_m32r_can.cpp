@@ -76,7 +76,7 @@ ChecksumResult ChecksumEcuMitsuM32rCan::CalculateChecksumResult(bytes::ByteView 
                              "Checksum area extends past the end of the ROM; checksums disabled");
     }
 
-    std::uint32_t checksum = fastecu::checksum::internal::FoldU32Be(rom_view, {0, *area_end}).sum;
+    std::uint32_t checksum = fastecu::checksum::internal::FoldU32Be({rom_view.first(*area_end)}).sum;
     checksum -= bytes::ReadU16Be(rom_view, kCorrectionWords);
     for (std::size_t index = 0; index < kCorrectionWordCount; ++index)
     {

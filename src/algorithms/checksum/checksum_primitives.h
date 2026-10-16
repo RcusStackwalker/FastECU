@@ -2,8 +2,11 @@
 
 #include "src/algorithms/protocol/bytes.h"
 
+#include <concepts>
 #include <cstddef>
 #include <cstdint>
+#include <initializer_list>
+#include <ranges>
 #include <span>
 
 namespace fastecu::checksum::internal
@@ -12,27 +15,59 @@ namespace fastecu::checksum::internal
 void RebalanceU16Be(bytes::MutableByteView rom, std::size_t offset, std::uint16_t observed, std::uint16_t target);
 void RebalanceU32Be(bytes::MutableByteView rom, std::size_t offset, std::uint32_t observed, std::uint32_t target);
 
-// The ROM addresses [begin, end).
-struct AddressRange
-{
-    std::size_t begin = 0;
-    std::size_t end = 0;
-};
-
 struct WordFold
 {
     std::uint32_t sum = 0;
     std::uint32_t xor_all = 0;
 };
 
-// The 32-bit sum and XOR of the big-endian words at window.begin,
-// window.begin + 4, ... below window.end, leaving out each word whose address
-// is in `skip`. A word past the end of `rom` reads as 0, as in bytes::ReadU32Be.
-WordFold FoldU32Be(bytes::ByteView rom, AddressRange window, AddressRange skip = {});
+// The pieces of a checksum window, each a view of the ROM; a checksum that
+// leaves out a slot folds the pieces either side of it.
+template <typename R>
+concept ByteViewRange =
+    std::ranges::input_range<R> && std::convertible_to<std::ranges::range_reference_t<R>, bytes::ByteView>;
 
-// The 16-bit sum of the big-endian halfwords at window.begin,
-// window.begin + 2, ... below window.end.
-std::uint16_t SumU16Be(bytes::ByteView rom, AddressRange window);
+// The 32-bit sum and XOR of the big-endian words of every piece. A piece's
+// trailing partial word is left out.
+template <ByteViewRange Pieces> WordFold FoldU32Be(Pieces&& pieces)
+{
+    WordFold fold;
+    for (const bytes::ByteView piece : pieces)
+    {
+        for (std::size_t offset = 0; offset + 4 <= piece.size(); offset += 4)
+        {
+            const std::uint32_t word = bytes::ReadU32Be(piece, offset);
+            fold.sum += word;
+            fold.xor_all ^= word;
+        }
+    }
+    return fold;
+}
+
+inline WordFold FoldU32Be(std::initializer_list<bytes::ByteView> pieces)
+{
+    return FoldU32Be(std::span(pieces));
+}
+
+// The 16-bit sum of the big-endian halfwords of every piece. A piece's
+// trailing odd byte is left out.
+template <ByteViewRange Pieces> std::uint16_t SumU16Be(Pieces&& pieces)
+{
+    std::uint16_t sum = 0;
+    for (const bytes::ByteView piece : pieces)
+    {
+        for (std::size_t offset = 0; offset + 2 <= piece.size(); offset += 2)
+        {
+            sum = static_cast<std::uint16_t>(sum + bytes::ReadU16Be(piece, offset));
+        }
+    }
+    return sum;
+}
+
+inline std::uint16_t SumU16Be(std::initializer_list<bytes::ByteView> pieces)
+{
+    return SumU16Be(std::span(pieces));
+}
 
 } // namespace fastecu::checksum::internal
 

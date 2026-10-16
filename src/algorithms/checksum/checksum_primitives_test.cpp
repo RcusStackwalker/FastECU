@@ -5,7 +5,9 @@
 #include <gtest/gtest.h>
 
 #include <array>
+#include <cstddef>
 #include <cstdint>
+#include <ranges>
 #include <span>
 
 using ::testing::ElementsAre;
@@ -52,9 +54,9 @@ using fastecu::checksum::internal::FoldU32Be;
 using fastecu::checksum::internal::SumU16Be;
 using fastecu::checksum::internal::WordFold;
 
-// A ROM of big-endian 32-bit words, the first at address 0. The words are
-// distinct powers of two, so a sum names exactly the words it took in.
-bytes::Bytes WordRom()
+// Big-endian 32-bit words, the first at offset 0. They are distinct powers of
+// two, so a sum names exactly the words it took in.
+bytes::Bytes Words()
 {
     bytes::Bytes rom(20, 0x00);
     bytes::WriteU32Be(rom, 0x00, 0x01);
@@ -67,26 +69,21 @@ bytes::Bytes WordRom()
 
 } // namespace
 
-TEST(FoldU32Be, TakesTheWordAtTheWindowStartButNotTheOneAtItsEnd)
+TEST(FoldU32Be, TakesEveryWholeWordOfEachPiece)
 {
-    const WordFold fold = FoldU32Be(WordRom(), {0x04, 0x0c});
-    EXPECT_EQ(fold.sum, 0x02U + 0x04U);
-    EXPECT_EQ(fold.xor_all, 0x02U ^ 0x04U);
+    const bytes::Bytes rom = Words();
+    const bytes::ByteView view = rom;
+    // The word at 0x08 sits between the pieces; each piece's last word is
+    // the one a short loop would drop.
+    const WordFold fold = FoldU32Be({view.first(0x08), view.subspan(0x0c)});
+    EXPECT_EQ(fold.sum, 0x01U + 0x02U + 0x08U + 0x10U);
+    EXPECT_EQ(fold.xor_all, 0x01U ^ 0x02U ^ 0x08U ^ 0x10U);
 }
 
-TEST(FoldU32Be, LeavesOutTheWordAtTheSkipStartButNotTheOneAtItsEnd)
+TEST(FoldU32Be, LeavesOutAPiecesTrailingPartialWord)
 {
-    EXPECT_EQ(FoldU32Be(WordRom(), {0x00, 0x14}, {0x04, 0x0c}).sum, 0x01U + 0x08U + 0x10U);
-}
-
-TEST(FoldU32Be, SkipsNothingByDefault)
-{
-    EXPECT_EQ(FoldU32Be(WordRom(), {0x00, 0x14}).sum, 0x1fU);
-}
-
-TEST(FoldU32Be, ReadsAWordPastTheEndOfTheRomAsZero)
-{
-    EXPECT_EQ(FoldU32Be(WordRom(), {0x10, 0x18}).sum, 0x10U);
+    const bytes::Bytes rom = Words();
+    EXPECT_EQ(FoldU32Be({bytes::ByteView(rom).first(0x0b)}).sum, 0x01U + 0x02U);
 }
 
 TEST(FoldU32Be, SumsWithCarryAndXorsWithout)
@@ -94,21 +91,38 @@ TEST(FoldU32Be, SumsWithCarryAndXorsWithout)
     bytes::Bytes rom(8, 0x00);
     bytes::WriteU32Be(rom, 0, 0xffffffff);
     bytes::WriteU32Be(rom, 4, 0x00000003);
-    const WordFold fold = FoldU32Be(rom, {0, 8});
+    const WordFold fold = FoldU32Be({rom});
     EXPECT_EQ(fold.sum, 0x00000002U);
     EXPECT_EQ(fold.xor_all, 0xfffffffcU);
 }
 
-TEST(SumU16Be, TakesTheHalfwordAtTheWindowStartButNotTheOneAtItsEnd)
+TEST(SumU16Be, TakesEveryWholeHalfwordOfEachPiece)
 {
     const bytes::Bytes rom{0x00, 0x01, 0x00, 0x02, 0x00, 0x04, 0x00, 0x08};
-    EXPECT_EQ(SumU16Be(rom, {2, 6}), std::uint16_t(0x02 + 0x04));
+    const bytes::ByteView view = rom;
+    EXPECT_EQ(SumU16Be({view.first(4), view.subspan(6)}), std::uint16_t(0x01 + 0x02 + 0x08));
+}
+
+TEST(SumU16Be, LeavesOutAPiecesTrailingOddByte)
+{
+    const bytes::Bytes rom{0x00, 0x01, 0x00, 0x02, 0xff};
+    EXPECT_EQ(SumU16Be({rom}), std::uint16_t(0x01 + 0x02));
+}
+
+TEST(SumU16Be, TakesPiecesFromAView)
+{
+    // The shape of a checksum built from a table of areas.
+    const bytes::Bytes rom{0x00, 0x01, 0x00, 0x02, 0x00, 0x04, 0x00, 0x08};
+    const std::array<std::size_t, 2> area_starts{0, 6};
+    EXPECT_EQ(SumU16Be(area_starts | std::views::transform([&rom](std::size_t start)
+                                                           { return bytes::ByteView(rom).subspan(start, 2); })),
+              std::uint16_t(0x01 + 0x08));
 }
 
 TEST(SumU16Be, WrapsAt16Bits)
 {
     const bytes::Bytes rom{0xff, 0xff, 0x00, 0x03};
-    EXPECT_EQ(SumU16Be(rom, {0, 4}), std::uint16_t(0x0002));
+    EXPECT_EQ(SumU16Be({rom}), std::uint16_t(0x0002));
 }
 
 TEST(ChecksumPrimitives, ChecksumsOnlyTheRequestedSubview)

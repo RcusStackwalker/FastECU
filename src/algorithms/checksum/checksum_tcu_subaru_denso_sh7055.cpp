@@ -3,6 +3,8 @@
 #include "checksum_primitives.h"
 #include "src/algorithms/protocol/bytes.h"
 #include <array>
+#include <cstddef>
+#include <ranges>
 
 namespace
 {
@@ -13,8 +15,8 @@ namespace
 // string-parsing indirection is removed.
 struct ChecksumArea
 {
-    uint32_t start;
-    uint32_t word_count;
+    std::size_t start;
+    std::size_t word_count;
 };
 
 constexpr std::array<ChecksumArea, 12> kChecksumAreas{{
@@ -45,12 +47,9 @@ ChecksumResult ChecksumTcuSubaruDensoSH7055::CalculateChecksumResult(Rom rom)
      ******************/
     bytes::Bytes rom_data(rom_view.begin(), rom_view.end());
 
-    uint16_t checksum = 0;
-
-    for (const ChecksumArea& area : kChecksumAreas)
-    {
-        checksum += fastecu::checksum::internal::SumU16Be(rom_data, {area.start, area.start + (2 * area.word_count)});
-    }
+    const uint16_t checksum = fastecu::checksum::internal::SumU16Be(
+        kChecksumAreas | std::views::transform([&rom_view](const ChecksumArea& area)
+                                               { return rom_view.subspan(area.start, 2 * area.word_count); }));
 
     ChecksumResult result;
     if (checksum != 0x5aa5)

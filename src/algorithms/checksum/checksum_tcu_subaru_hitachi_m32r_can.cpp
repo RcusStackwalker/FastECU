@@ -11,7 +11,7 @@ namespace
 // as the bytes below.
 std::uint32_t Checksum2Field(bytes::ByteView rom)
 {
-    const std::uint32_t sum = fastecu::checksum::internal::FoldU32Be(rom, {0x0, rom.size()}, {0x8000, 0x8008}).sum;
+    const std::uint32_t sum = fastecu::checksum::internal::FoldU32Be({rom.first(0x8000), rom.subspan(0x8008)}).sum;
     std::array<uint8_t, 4> field_bytes{};
     field_bytes[3] = 0xffU - ((sum >> 24U) & 0xffU);
     field_bytes[2] = 0xffU - ((sum >> 16U) & 0xffU);
@@ -43,7 +43,8 @@ ChecksumResult ChecksumTcuSubaruHitachiM32rCan::CalculateChecksumResult(bytes::B
 
     bool checksum_ok = true;
 
-    checksum_1_value_calculated = fastecu::checksum::internal::FoldU32Be(rom_data, {0x8020, rom_data.size()}).sum;
+    checksum_1_value_calculated =
+        fastecu::checksum::internal::FoldU32Be({bytes::ByteView(rom_data).subspan(0x8020)}).sum;
     checksum_2_value_calculated = Checksum2Field(rom_data);
 
     checksum_2_value_stored = bytes::ReadU32Be(rom_data, checksum_2_balance_value_address);
