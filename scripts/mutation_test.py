@@ -286,6 +286,9 @@ def run_mull(
             str(report_dir),
             "--report-name",
             binary.name,
+            # The runner otherwise fails below a 100% score; survivors are
+            # reported, never fatal (ADR 0022).
+            "--allow-surviving",
             "--no-test-output",
             "--no-mutant-output",
             str(binary),
