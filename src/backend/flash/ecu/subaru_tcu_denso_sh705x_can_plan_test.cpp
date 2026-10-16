@@ -168,13 +168,18 @@ TEST(SubaruTcuDensoSh705xCanPlan, RejectsUnsupportedOperationsBeforeImageOrKerne
         auto rejected = BuildSubaruTcuDensoSh705xCanPlan(
             operation, sh7055.protocol, sh7055.mcu, std::nullopt,
             KernelImage{.id = "", .load_address = sh7055.kernel_load_address + 1, .bytes = {}});
-        EXPECT_THAT(rejected, fastecu::testing::IsErr(ErrorKind::kUnsupported));
+        EXPECT_THAT(rejected, fastecu::testing::IsErrWith(
+                                  ErrorKind::kUnsupported,
+                                  ::testing::StrEq("operation is not supported by the selected Denso SH705x TCU")));
     }
 
     auto sh7058_test_write =
-        BuildSubaruTcuDensoSh705xCanPlan(FlashOperation::kTestWrite, sh7058.protocol, sh7058.mcu,
-                                         ImageFor(sh7058, FlashOperation::kWrite), KernelFor(sh7058));
-    EXPECT_THAT(sh7058_test_write, fastecu::testing::IsErr(ErrorKind::kUnsupported));
+        BuildSubaruTcuDensoSh705xCanPlan(FlashOperation::kTestWrite, sh7058.protocol, sh7058.mcu, bytes::Bytes{0},
+                                         KernelImage{.id = "", .load_address = 0, .bytes = {}});
+    EXPECT_THAT(
+        sh7058_test_write,
+        fastecu::testing::IsErrWith(ErrorKind::kUnsupported,
+                                    ::testing::StrEq("operation is not supported by the selected Denso SH705x TCU")));
 }
 
 TEST(SubaruTcuDensoSh705xCanPlan, RejectsUnknownNearMissAndWrongMcuIdentities)

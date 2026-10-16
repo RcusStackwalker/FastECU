@@ -57,8 +57,7 @@ Result<CatalogEntry> GetCatalogEntry(std::string_view protocol, std::string_view
 const FlashDevice *CheckedDevice()
 {
     const FlashDevice *device = FindFlashDevice(kMcu);
-    if (device == nullptr || device->romsize != kRomSize || device->numblocks != 16 || device->fblocks == nullptr ||
-        device->kblocks == nullptr)
+    if (!detail::FixedShapeDeviceMatches(device, kRomSize, 16))
     {
         return nullptr;
     }
@@ -75,10 +74,11 @@ Status ValidateImage(const FlashPlan& plan, const FlashDevice& device)
 {
     if (plan.Operation() == FlashOperation::kRead)
     {
-        return plan.Image().has_value() ? Fail(ErrorKind::kInvalidConfig, "petrol SH7058 read plan carries a ROM image")
-                                        : Status{};
+        return !detail::OperationImageShapeMatches(plan, device.romsize)
+                   ? Fail(ErrorKind::kInvalidConfig, "petrol SH7058 read plan carries a ROM image")
+                   : Status{};
     }
-    if (!plan.Image().has_value() || plan.Image()->size() != device.romsize)
+    if (!detail::OperationImageShapeMatches(plan, device.romsize))
     {
         return Fail(ErrorKind::kInvalidConfig, std::format("ROM file must be exactly 0x{:x} bytes", device.romsize));
     }

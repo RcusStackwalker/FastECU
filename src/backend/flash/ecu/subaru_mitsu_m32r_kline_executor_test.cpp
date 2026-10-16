@@ -134,8 +134,12 @@ TEST(SubaruMitsuM32rKlineExecutor, ReadsAllUserspaceChunksAndSynthesizesBootPref
     ScriptHandshake(transport);
     for (std::uint32_t address = 0x8000; address < 0x80000; address += 0x80)
     {
-        bytes::Bytes response(134, 0x5a);
+        bytes::Bytes response(134, 0xc7);
         response[4] = 0xe0;
+        for (std::uint32_t i = 0; i < 0x80; ++i)
+        {
+            response[5 + i] = static_cast<bytes::Byte>((address + i) * 31U + (address >> 8U));
+        }
         transport.Exchange(Frame({0xa0, 0, 0x20, static_cast<bytes::Byte>(address >> 16),
                                   static_cast<bytes::Byte>(address >> 8), static_cast<bytes::Byte>(address), 0x7f}),
                            response);
@@ -150,7 +154,17 @@ TEST(SubaruMitsuM32rKlineExecutor, ReadsAllUserspaceChunksAndSynthesizesBootPref
     ASSERT_TRUE(result->read_bytes.has_value());
     EXPECT_EQ(result->read_bytes->size(), 0x80000U);
     EXPECT_THAT(bytes::ByteView(*result->read_bytes).first(0x8000), Each(0xff));
-    EXPECT_THAT(bytes::ByteView(*result->read_bytes).subspan(0x8000), Each(0x5a));
+    bytes::Bytes expected(0x80000, 0xff);
+    for (std::uint32_t i = 0x8000; i < expected.size(); ++i)
+    {
+        expected[i] = static_cast<bytes::Byte>(i * 31U + ((i & ~0x7fU) >> 8U));
+    }
+    EXPECT_EQ(*result->read_bytes, expected);
+    EXPECT_EQ(transport.WritesConsumed(), 6U + 3840U);
+    EXPECT_EQ(transport.read_timeouts.size(), 6U + 3840U);
+    EXPECT_THAT(events.logs, ::testing::Contains(::testing::Pair(
+                                 LogLevel::kWarning,
+                                 "The first 0x8000 ROM bytes are synthetic 0xFF; this protocol reads userspace only")));
     EXPECT_EQ(result->rom_id, std::string("123456789A_"));
     EXPECT_TRUE(transport.ScriptConsumed());
 }

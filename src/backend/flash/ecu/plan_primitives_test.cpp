@@ -1,5 +1,6 @@
 #include "src/backend/flash/ecu/plan_primitives.h"
 #include "src/backend/ports/testing/result_matchers.h"
+#include "src/backend/flash/flash_validation.h"
 
 #include <gtest/gtest.h>
 
@@ -13,6 +14,60 @@ namespace fastecu::flash::detail
 namespace
 {
 constexpr KernelBlock kRegion{0xFFFF3000, 0x9000};
+
+TEST(PlanPrimitives, FixedShapeRequiresDeviceTablesAndExactSizeAndBlockCount)
+{
+    const FlashBlock block{0x100, 0x200};
+    FlashDevice device{"test", kSH7058, 0x200, 1, &block, nullptr, &kRegion, nullptr};
+    EXPECT_TRUE(FixedShapeDeviceMatches(&device, 0x200, 1));
+    EXPECT_FALSE(FixedShapeDeviceMatches(nullptr, 0x200, 1));
+    EXPECT_FALSE(FixedShapeDeviceMatches(&device, 0x201, 1));
+    EXPECT_FALSE(FixedShapeDeviceMatches(&device, 0x200, 2));
+    device.fblocks = nullptr;
+    EXPECT_FALSE(FixedShapeDeviceMatches(&device, 0x200, 1));
+    device.fblocks = &block;
+    device.kblocks = nullptr;
+    EXPECT_FALSE(FixedShapeDeviceMatches(&device, 0x200, 1));
+}
+
+TEST(PlanPrimitives, TransferRequiresExactFlashStartAndRomLength)
+{
+    const FlashBlock block{0x100, 0x200};
+    const FlashDevice device{"test", kSH7058, 0x200, 1, &block, nullptr, &kRegion, nullptr};
+    EXPECT_TRUE(TransferMatchesDevice({0x100, 0x200}, device));
+    EXPECT_FALSE(TransferMatchesDevice({0x101, 0x200}, device));
+    EXPECT_FALSE(TransferMatchesDevice({0x100, 0x1FF}, device));
+}
+
+TEST(PlanPrimitives, OperationImageShapeRequiresNoReadImageAndExactWriteSize)
+{
+    for (const FlashOperation operation : {FlashOperation::kRead, FlashOperation::kWrite, FlashOperation::kTestWrite})
+    {
+        auto plan = ValidateAndBuild({
+            .operation = operation,
+            .family = FlashFamily::kMitsuColtM32rCan,
+            .transport = TransportKind::kCanIso15765,
+            .target_id = "test",
+            .mcu_name = "test",
+            .transfer_region = {0, 4},
+            .image = operation == FlashOperation::kRead ? std::nullopt : std::optional<bytes::Bytes>{{1, 2, 3, 4}},
+            .family_plan = MitsuColtM32rCanPlan{},
+        });
+        ASSERT_THAT(plan, fastecu::testing::IsOk());
+        EXPECT_TRUE(OperationImageShapeMatches(*plan, 4));
+        // Mutate a nonconst plan's image solely to exercise defensive checks
+        // that ValidateAndBuild normally prevents callers from reaching.
+        auto& image = const_cast<std::optional<bytes::Bytes>&>(plan->Image());
+        image = bytes::Bytes{1, 2, 3};
+        EXPECT_FALSE(OperationImageShapeMatches(*plan, 4));
+        image = bytes::Bytes{1, 2, 3, 4, 5};
+        EXPECT_FALSE(OperationImageShapeMatches(*plan, 4));
+        image = bytes::Bytes{1, 2, 3, 4};
+        EXPECT_EQ(OperationImageShapeMatches(*plan, 4), operation != FlashOperation::kRead);
+        image.reset();
+        EXPECT_EQ(OperationImageShapeMatches(*plan, 4), operation == FlashOperation::kRead);
+    }
+}
 
 TEST(PlanPrimitives, AddressMismatchPrecedesPaddingAndRangeErrors)
 {
