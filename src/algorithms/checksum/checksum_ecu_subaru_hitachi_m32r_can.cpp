@@ -75,8 +75,12 @@ ChecksumResult ChecksumEcuSubaruHitachiM32rCan::CalculateChecksumResult(Rom rom)
      * Calculate and fix checksums 3 and 4
      *
      * *************************************/
+    // Equivalent as `<=`: at i == size the window test below is false.
+    // mull-ignore-next: cxx_lt_to_le
     for (int i = 0x0000; i < static_cast<int>(rom_data.size()); i += 4)
     {
+        // Equivalent as `>=`: i steps by 4 from 0, so it is never 0x10003.
+        // mull-ignore-next: cxx_gt_to_ge
         if (i < 0x10000 || (i > 0x10003 && i < 0x7fff0))
         {
             const std::uint32_t word2 = bytes::ReadU32Be(rom_data, static_cast<std::size_t>(i));
@@ -103,8 +107,12 @@ ChecksumResult ChecksumEcuSubaruHitachiM32rCan::CalculateChecksumResult(Rom rom)
      * Calculate and fix checksum 5
      *
      * *************************************/
+    // Equivalent as `<=`: at i == size ReadU32Be is out of range and adds 0.
+    // mull-ignore-next: cxx_lt_to_le
     for (int i = 0x4000; i < static_cast<int>(rom_data.size()); i += 4)
     {
+        // Equivalent as `>=`: i steps by 4 from 0x4000, so it is never 0x10003.
+        // mull-ignore-next: cxx_gt_to_ge
         if (i < 0x10000 || i > 0x10003)
         {
             checksum_5_value_calculated += bytes::ReadU32Be(rom_data, static_cast<std::size_t>(i));

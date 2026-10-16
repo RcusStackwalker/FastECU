@@ -83,3 +83,13 @@ fastecu_portable_gtest(
         "@googletest//:gtest",
     ],
 )
+
+fastecu_portable_gtest(
+    name = "checksum_ecu_subaru_hitachi_m32r_can_test",
+    srcs = ["checksum_ecu_subaru_hitachi_m32r_can_test.cpp"],
+    deps = [
+        ":checksum",
+        "//src/algorithms/protocol",
+        "@googletest//:gtest",
+    ],
+)
