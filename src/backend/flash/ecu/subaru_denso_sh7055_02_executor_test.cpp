@@ -4,6 +4,7 @@
 #include "src/backend/flash/ecu/subaru_denso_sh7055_02_executor.h"
 
 #include <algorithm>
+#include <array>
 #include <string_view>
 #include <vector>
 
@@ -1203,5 +1204,124 @@ TEST(SubaruDensoSh7055_02Executor, CancellationDuringWrxInitLoopStopsBeforeSecon
     EXPECT_EQ(transport.WritesConsumed(), 3U); // probe + SID BF + one WRX request
 }
 
+TEST(SubaruDensoSh7055_02Executor, FirstExchangePreservesTransportErrorAndCancellationPrecedence)
+{
+    for (int scenario = 0; scenario < 8; ++scenario)
+    {
+        SCOPED_TRACE(scenario);
+        FakeCancellationToken cancellation;
+        if (scenario == 6)
+            cancellation.CancelOnCheck(6);
+        class ProbeTransport final : public ScriptedKlineFlashTransport
+        {
+          public:
+            ProbeTransport(FakeCancellationToken& cancellation, int scenario)
+                : cancellation_(cancellation), scenario_(scenario)
+            {
+            }
+            Result<std::size_t> Write(bytes::ByteView request) override
+            {
+                trace.push_back("write");
+                EXPECT_EQ(bytes::Bytes(request.begin(), request.end()), (bytes::Bytes{0xBE, 0xEF, 0, 1, 1, 0xAF}));
+                if (scenario_ < 3)
+                    cancellation_.SetCancelled(true);
+                if (scenario_ == 0)
+                    return Fail(ErrorKind::kDisconnected, "probe write failed");
+                return scenario_ == 1 ? request.size() - 1 : request.size();
+            }
+            Result<OptionalBytes> Read(std::chrono::milliseconds timeout, const ICancellationToken&) override
+            {
+
+                if (trace.empty())
+                {
+                    EXPECT_EQ(timeout, 10ms);
+                    trace.push_back("drain");
+                    return OptionalBytes{};
+                }
+                trace.push_back("read");
+                EXPECT_EQ(timeout, 2000ms);
+                cancellation_.SetCancelled(true);
+                if (scenario_ == 3)
+                    return Fail(ErrorKind::kDisconnected, "probe read failed");
+                return OptionalBytes{};
+            }
+            std::vector<std::string> trace;
+
+          private:
+            FakeCancellationToken& cancellation_;
+            int scenario_;
+        } transport(cancellation, scenario);
+        auto plan = ReadPlan();
+        ASSERT_TRUE(plan.has_value());
+        MockClock clock;
+        EXPECT_CALL(clock, Sleep)
+            .WillRepeatedly(
+                [&](auto duration, const auto&) -> Status
+                {
+                    if (duration == 200ms && transport.trace.back() == "write")
+                    {
+                        transport.trace.push_back("sleep");
+                        if (scenario == 5)
+                            cancellation.SetCancelled(true);
+                        if (scenario == 7)
+                            return Fail(ErrorKind::kDisconnected, "probe sleep failed");
+                    }
+                    return {};
+                });
+        RecordingEventSink events;
+        SubaruDensoSh7055_02Executor executor;
+        const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
+        ASSERT_FALSE(result.has_value());
+        const std::array kinds{ErrorKind::kDisconnected, ErrorKind::kDisconnected, ErrorKind::kCancelled,
+                               ErrorKind::kDisconnected, ErrorKind::kCancelled,    ErrorKind::kCancelled,
+                               ErrorKind::kCancelled,    ErrorKind::kDisconnected};
+        const std::array details{"probe write failed",     "short K-Line write",   "cancelled after write",
+                                 "probe read failed",      "cancelled after read", "cancelled before read",
+                                 "cancelled before write", "probe sleep failed"};
+        EXPECT_EQ(result.error().kind, kinds[scenario]);
+        EXPECT_EQ(result.error().detail, details[scenario]);
+        std::vector<std::string> expected{"drain"};
+        if (scenario != 6)
+            expected.push_back("write");
+        if (scenario == 3 || scenario == 4 || scenario == 5 || scenario == 7)
+            expected.push_back("sleep");
+        if (scenario == 3 || scenario == 4)
+            expected.push_back("read");
+        EXPECT_EQ(transport.trace, expected);
+        const std::array<std::size_t, 8> counts{6, 6, 7, 8, 9, 8, 6, 7};
+        EXPECT_EQ(cancellation.CheckCount(), counts[scenario]);
+    }
+}
+
+TEST(SubaruDensoSh7055_02Executor, ReadPreservesAbsentVersusPresentEmptyResponse)
+{
+    for (bool present : {false, true})
+    {
+        SCOPED_TRACE(present);
+        auto plan = ReadPlan();
+        ASSERT_TRUE(plan.has_value());
+        ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::kOpen};
+        ScriptWrxPreamble(transport, true);
+        ScriptFirstWrxAttemptConnects(transport);
+        ScriptUpload(transport);
+        // Literal first-page request, independent of production framing.
+        transport.ExpectWrite(bytes::Bytes{0xBE, 0xEF, 0, 7, 3, 0, 0, 0, 0, 4, 0, 0xBB});
+        if (present)
+            transport.QueueRead(bytes::Bytes{});
+        else
+            transport.QueueNoFrame();
+        FakeClock clock;
+        FakeCancellationToken cancellation;
+        RecordingEventSink events;
+        SubaruDensoSh7055_02Executor executor;
+        const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
+        ASSERT_FALSE(result.has_value());
+        EXPECT_EQ(result.error().kind, ErrorKind::kBadResponse);
+        EXPECT_EQ(result.error().detail, "Wrong response from ECU during read");
+        ASSERT_FALSE(transport.read_timeouts.empty());
+        EXPECT_EQ(transport.read_timeouts.back(), 3000ms);
+        EXPECT_TRUE(transport.ScriptConsumed());
+    }
+}
 } // namespace
 } // namespace fastecu::flash

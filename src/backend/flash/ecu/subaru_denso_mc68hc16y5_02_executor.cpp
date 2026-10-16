@@ -15,6 +15,7 @@
 #include "src/algorithms/protocol/bytes.h"
 #include "src/algorithms/protocol/bytes_compose.h"
 #include "src/backend/flash/kernel/kernelmemorymodels.h"
+#include "src/backend/flash/ecu/denso_beef_kline_common.h"
 #include "src/backend/flash/flash_device_lookup.h"
 
 namespace fastecu::flash
@@ -27,20 +28,6 @@ using bytes::U24;
 using namespace bytes::literals;
 using namespace std::chrono_literals;
 
-constexpr std::uint16_t kStartComm = 0xBEEF;
-constexpr std::uint8_t kOpId = 0x01;
-constexpr std::uint8_t kOpCrc = 0x02;
-constexpr std::uint8_t kOpReadArea = 0x03;
-constexpr std::uint8_t kOpProgVolt = 0x04;
-constexpr std::uint8_t kOpGetMaxMsgSize = 0x05;
-constexpr std::uint8_t kOpGetMaxBlockSize = 0x06;
-constexpr std::uint8_t kOpFlashEnable = 0x20;
-constexpr std::uint8_t kOpFlashDisable = 0x21;
-constexpr std::uint8_t kOpWriteFlashBuffer = 0x22;
-constexpr std::uint8_t kOpValidateFlashBuffer = 0x23;
-constexpr std::uint8_t kOpCommitFlashBuffer = 0x24;
-constexpr std::uint8_t kOpBlankPage = 0x25;
-constexpr std::uint8_t kOpUploadKernel = 0x53;
 // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:339.
 constexpr std::uint32_t kReadPageSize = 0x400;
 // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:937-948.
@@ -56,73 +43,12 @@ Status CheckCancelled(const ICancellationToken& cancellation, std::string detail
     return {};
 }
 
-// Shared SUB_KERNEL_START_COMM shape, from legacy
-// src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:1150-1159:
-// [0xBE][0xEF][len+1 hi][len+1 lo][opcode][payload][sum8].
-bytes::Bytes Frame(std::uint8_t opcode, bytes::ByteView payload = {})
-{
-    const std::uint16_t len_plus_one = static_cast<std::uint16_t>(payload.size() + 1);
-    return ComposeBeWithChecksum(bytes::Sum8, kStartComm, len_plus_one, bytes::Byte(opcode), payload);
-}
-
-bool ResponseOk(bytes::ByteView received, std::uint8_t expected_opcode_with_ack)
-{
-    return received.size() > 5 && bytes::ReadU16Be(received, 0) == kStartComm &&
-           received[4] == expected_opcode_with_ack;
-}
-
-// Shared cancellation-aware write/read exchange, porting legacy
-// src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:116-119 and 269-270.
-Result<IKlineFlashTransport::OptionalBytes>
-ExchangeOptionalImpl(IKlineFlashTransport& transport, IClock *clock, const ICancellationToken& cancellation,
-                     bytes::ByteView request, std::chrono::milliseconds settle, std::chrono::milliseconds timeout)
-{
-    if (Status cancelled = CheckCancelled(cancellation, "cancelled before write"); !cancelled.has_value())
-    {
-        return std::unexpected(cancelled.error());
-    }
-    Result<std::size_t> written = transport.Write(request);
-    if (!written.has_value())
-    {
-        return std::unexpected(written.error());
-    }
-    if (*written != request.size())
-    {
-        return Fail(ErrorKind::kDisconnected, "short K-Line write");
-    }
-    if (Status cancelled = CheckCancelled(cancellation, "cancelled after write"); !cancelled.has_value())
-    {
-        return std::unexpected(cancelled.error());
-    }
-    if (clock != nullptr && settle > 0ms)
-    {
-        if (Status slept = clock->Sleep(settle, cancellation); !slept.has_value())
-        {
-            return std::unexpected(slept.error());
-        }
-    }
-    if (Status cancelled = CheckCancelled(cancellation, "cancelled before read"); !cancelled.has_value())
-    {
-        return std::unexpected(cancelled.error());
-    }
-    auto received = transport.Read(timeout, cancellation);
-    if (!received.has_value())
-    {
-        return std::unexpected(received.error());
-    }
-    if (Status cancelled = CheckCancelled(cancellation, "cancelled after read"); !cancelled.has_value())
-    {
-        return std::unexpected(cancelled.error());
-    }
-    return std::move(*received);
-}
-
 Result<bytes::Bytes> ExchangeImpl(IKlineFlashTransport& transport, IClock *clock,
                                   const ICancellationToken& cancellation, bytes::ByteView request,
                                   std::chrono::milliseconds settle, std::chrono::milliseconds timeout)
 {
     Result<IKlineFlashTransport::OptionalBytes> received =
-        ExchangeOptionalImpl(transport, clock, cancellation, request, settle, timeout);
+        DensoBeefKlineExchangeOptional(transport, clock, cancellation, request, settle, timeout);
     if (!received.has_value())
     {
         return std::unexpected(received.error());
@@ -152,7 +78,7 @@ Result<IKlineFlashTransport::OptionalBytes> ExchangeOptional(IKlineFlashTranspor
                                                              bytes::ByteView request, std::chrono::milliseconds settle,
                                                              std::chrono::milliseconds timeout)
 {
-    return ExchangeOptionalImpl(transport, &clock, cancellation, request, settle, timeout);
+    return DensoBeefKlineExchangeOptional(transport, &clock, cancellation, request, settle, timeout);
 }
 
 Status DrainResponse(IKlineFlashTransport& transport, const ICancellationToken& cancellation,
@@ -176,7 +102,7 @@ Status DrainResponse(IKlineFlashTransport& transport, const ICancellationToken& 
 Result<bytes::Bytes> RequestKernelId(IKlineFlashTransport& transport, IClock& clock,
                                      const ICancellationToken& cancellation)
 {
-    const bytes::Bytes request = Frame(kOpId);
+    const bytes::Bytes request = DensoBeefKlineFrame(kDensoKlineOpId);
     Result<IKlineFlashTransport::OptionalBytes> received =
         ExchangeOptional(transport, clock, cancellation, request, 200ms, 2000ms);
     if (!received.has_value())
@@ -188,7 +114,7 @@ Result<bytes::Bytes> RequestKernelId(IKlineFlashTransport& transport, IClock& cl
 
 bool LooksKernelAlive(bytes::ByteView received)
 {
-    return ResponseOk(received, static_cast<bytes::Byte>(kOpId | 0x40U));
+    return DensoBeefKlineResponseOk(received, static_cast<bytes::Byte>(kDensoKlineOpId | 0x40U));
 }
 
 // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:69-70:
@@ -360,7 +286,7 @@ Status SubaruDensoMc68hc16y5_02Executor::UploadKernel(IKlineFlashTransport& tran
     // Not a full u24(address): the frame carries only the address's high two
     // bytes here (bits 23-8). The low byte (bits 7-0) is never emitted in
     // this header.
-    const bytes::Bytes request = ComposeBeWithChecksum(&fastecu::checksum::NegatedSum8, kOpUploadKernel,
+    const bytes::Bytes request = ComposeBeWithChecksum(&fastecu::checksum::NegatedSum8, kDensoKlineOpUploadKernel,
                                                        std::uint16_t(address >> 8U), U24(length), payload);
 
     events.Log(LogLevel::kInfo, "Sending kernel...");
@@ -448,14 +374,14 @@ Result<bytes::Bytes> SubaruDensoMc68hc16y5_02Executor::ReadMem(IKlineFlashTransp
                 return std::unexpected(cancelled.error());
             }
             const bytes::Bytes payload = ComposeBe(0x00_b, U24(address), std::uint16_t(kReadPageSize));
-            Result<bytes::Bytes> response =
-                Exchange(transport, clock, cancellation, Frame(kOpReadArea, payload), 10ms, 3000ms);
+            Result<bytes::Bytes> response = Exchange(transport, clock, cancellation,
+                                                     DensoBeefKlineFrame(kDensoKlineOpReadArea, payload), 10ms, 3000ms);
             if (!response.has_value())
             {
                 return std::unexpected(response.error());
             }
             if (response->size() != kReadPageSize + 6 ||
-                !ResponseOk(*response, static_cast<bytes::Byte>(kOpReadArea | 0x40U)))
+                !DensoBeefKlineResponseOk(*response, static_cast<bytes::Byte>(kDensoKlineOpReadArea | 0x40U)))
             {
                 return Fail(ErrorKind::kBadResponse, "Wrong response from ECU during read");
             }
@@ -485,7 +411,7 @@ Result<std::uint32_t> SubaruDensoMc68hc16y5_02Executor::ReadBlockCrc(IKlineFlash
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:626-715:
     // request the ECU's CRC over [start, start + length).
     const bytes::Bytes payload = ComposeBe(block.start, 0x00_b, U24(block.length));
-    const bytes::Bytes request = Frame(kOpCrc, payload);
+    const bytes::Bytes request = DensoBeefKlineFrame(kDensoKlineOpCrc, payload);
     if (Status cancelled = CheckCancelled(cancellation, "cancelled before CRC write"); !cancelled.has_value())
     {
         return std::unexpected(cancelled.error());
@@ -541,7 +467,7 @@ Result<std::uint32_t> SubaruDensoMc68hc16y5_02Executor::ReadBlockCrc(IKlineFlash
             return std::unexpected(slept.error());
         }
     }
-    if (response.size() <= 9 || !ResponseOk(response, kOpCrc | 0x40U))
+    if (response.size() <= 9 || !DensoBeefKlineResponseOk(response, kDensoKlineOpCrc | 0x40U))
     {
         return Fail(ErrorKind::kBadResponse, "Wrong response from ECU during CRC check");
     }
@@ -575,13 +501,13 @@ Status SubaruDensoMc68hc16y5_02Executor::FlashBlock(IKlineFlashTransport& transp
         const bytes::Bytes erase_payload = ComposeBe(block.start);
         // Legacy
         // src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:950-969.
-        Result<bytes::Bytes> erase_response =
-            Exchange(transport, clock, cancellation, Frame(kOpBlankPage, erase_payload), 500ms, 3000ms);
+        Result<bytes::Bytes> erase_response = Exchange(
+            transport, clock, cancellation, DensoBeefKlineFrame(kDensoKlineOpBlankPage, erase_payload), 500ms, 3000ms);
         if (!erase_response.has_value())
         {
             return std::unexpected(erase_response.error());
         }
-        if (!ResponseOk(*erase_response, kOpBlankPage | 0x40U))
+        if (!DensoBeefKlineResponseOk(*erase_response, kDensoKlineOpBlankPage | 0x40U))
         {
             return Fail(ErrorKind::kBadResponse, "Wrong response from ECU during erase");
         }
@@ -601,12 +527,13 @@ Status SubaruDensoMc68hc16y5_02Executor::FlashBlock(IKlineFlashTransport& transp
         // src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:994-1039.
         const std::uint32_t chunk_address = block.start + offset;
         const bytes::Bytes payload = ComposeBe(chunk_address, image.subspan(chunk_address, kWriteChunkSize));
-        Result<bytes::Bytes> response = Exchange(transport, cancellation, Frame(kOpWriteFlashBuffer, payload), 3000ms);
+        Result<bytes::Bytes> response =
+            Exchange(transport, cancellation, DensoBeefKlineFrame(kDensoKlineOpWriteFlashBuffer, payload), 3000ms);
         if (!response.has_value())
         {
             return std::unexpected(response.error());
         }
-        if (!ResponseOk(*response, kOpWriteFlashBuffer | 0x40U))
+        if (!DensoBeefKlineResponseOk(*response, kDensoKlineOpWriteFlashBuffer | 0x40U))
         {
             return Fail(ErrorKind::kBadResponse, "Wrong response from ECU during write");
         }
@@ -618,16 +545,17 @@ Status SubaruDensoMc68hc16y5_02Executor::FlashBlock(IKlineFlashTransport& transp
             // src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:1072-1128.
             const std::uint32_t commit_crc =
                 fastecu::checksum::Crc32(image.subspan(commit_block_start, kCommitBlockSize));
-            const std::uint8_t commit_opcode = test_write ? kOpValidateFlashBuffer : kOpCommitFlashBuffer;
+            const std::uint8_t commit_opcode =
+                test_write ? kDensoKlineOpValidateFlashBuffer : kDensoKlineOpCommitFlashBuffer;
             const bytes::Bytes commit_payload =
                 ComposeBe(commit_block_start, std::uint16_t(kCommitBlockSize), commit_crc);
-            Result<bytes::Bytes> commit_response =
-                Exchange(transport, clock, cancellation, Frame(commit_opcode, commit_payload), 200ms, 3000ms);
+            Result<bytes::Bytes> commit_response = Exchange(
+                transport, clock, cancellation, DensoBeefKlineFrame(commit_opcode, commit_payload), 200ms, 3000ms);
             if (!commit_response.has_value())
             {
                 return std::unexpected(commit_response.error());
             }
-            if (!ResponseOk(*commit_response, commit_opcode | 0x40U))
+            if (!DensoBeefKlineResponseOk(*commit_response, commit_opcode | 0x40U))
             {
                 return Fail(ErrorKind::kBadResponse, "Wrong response from ECU during commit");
             }
@@ -735,25 +663,27 @@ Status SubaruDensoMc68hc16y5_02Executor::WriteMem(IKlineFlashTransport& transpor
 
     // Legacy init_flash_write(), full exchanges at
     // src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:717-838.
-    for (const std::uint8_t opcode : {kOpGetMaxMsgSize, kOpGetMaxBlockSize})
+    for (const std::uint8_t opcode : {kDensoKlineOpGetMaxMsgSize, kDensoKlineOpGetMaxBlockSize})
     {
-        Result<bytes::Bytes> response = Exchange(transport, clock, cancellation, Frame(opcode), 200ms, 200ms);
+        Result<bytes::Bytes> response =
+            Exchange(transport, clock, cancellation, DensoBeefKlineFrame(opcode), 200ms, 200ms);
         if (!response.has_value())
         {
             return std::unexpected(response.error());
         }
-        if (response->size() <= 9 || !ResponseOk(*response, opcode | 0x40U))
+        if (response->size() <= 9 || !DensoBeefKlineResponseOk(*response, opcode | 0x40U))
         {
             return Fail(ErrorKind::kBadResponse, "Wrong response from ECU during flash init");
         }
     }
-    const std::uint8_t enable_opcode = test_write ? kOpFlashDisable : kOpFlashEnable;
-    Result<bytes::Bytes> enable_response = Exchange(transport, clock, cancellation, Frame(enable_opcode), 200ms, 200ms);
+    const std::uint8_t enable_opcode = test_write ? kDensoKlineOpFlashDisable : kDensoKlineOpFlashEnable;
+    Result<bytes::Bytes> enable_response =
+        Exchange(transport, clock, cancellation, DensoBeefKlineFrame(enable_opcode), 200ms, 200ms);
     if (!enable_response.has_value())
     {
         return std::unexpected(enable_response.error());
     }
-    if (!ResponseOk(*enable_response, enable_opcode | 0x40U))
+    if (!DensoBeefKlineResponseOk(*enable_response, enable_opcode | 0x40U))
     {
         return Fail(ErrorKind::kBadResponse, "Wrong response from ECU during flash init");
     }
@@ -767,12 +697,14 @@ Status SubaruDensoMc68hc16y5_02Executor::WriteMem(IKlineFlashTransport& transpor
         const MemoryRegion block{device->fblocks[block_no].start, device->fblocks[block_no].len};
         // Legacy reflash_block(), full PROG_VOLT exchange at
         // src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:845-921.
-        Result<bytes::Bytes> voltage_response = Exchange(transport, cancellation, Frame(kOpProgVolt), 200ms);
+        Result<bytes::Bytes> voltage_response =
+            Exchange(transport, cancellation, DensoBeefKlineFrame(kDensoKlineOpProgVolt), 200ms);
         if (!voltage_response.has_value())
         {
             return std::unexpected(voltage_response.error());
         }
-        if (voltage_response->size() <= 7 || !ResponseOk(*voltage_response, kOpProgVolt | 0x40U))
+        if (voltage_response->size() <= 7 ||
+            !DensoBeefKlineResponseOk(*voltage_response, kDensoKlineOpProgVolt | 0x40U))
         {
             return Fail(ErrorKind::kBadResponse, "Wrong response from ECU during prog-volt query");
         }

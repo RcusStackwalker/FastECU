@@ -486,6 +486,7 @@ cc_library(
     srcs = ["subaru_denso_mc68hc16y5_02_executor.cpp"],
     hdrs = ["subaru_denso_mc68hc16y5_02_executor.h"],
     implementation_deps = [
+        ":denso_beef_kline_common",
         "//src/algorithms/checksum",
         "//src/algorithms/memory:address",
         "//src/algorithms/memory:memory_error",
@@ -505,6 +506,7 @@ cc_library(
     srcs = ["subaru_denso_sh7055_02_executor.cpp"],
     hdrs = ["subaru_denso_sh7055_02_executor.h"],
     implementation_deps = [
+        ":denso_beef_kline_common",
         "//src/algorithms/checksum",
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/ssm",
@@ -1923,4 +1925,26 @@ cc_library(
     hdrs = ["m32r_ssm_exchange.h"],
     implementation_deps = ["//src/algorithms/protocol/ssm"],
     deps = ["//src/backend/flash:flash_executor"],
+)
+
+fastecu_portable_gtest(
+    name = "denso_beef_kline_common_test",
+    srcs = ["denso_beef_kline_common_test.cpp"],
+    deps = [
+        ":denso_beef_kline_common",
+        "//src/backend/flash/testing:scripted_flash_transports",
+        "//src/backend/ports/testing:fake_cancellation_token",
+        "//src/backend/ports/testing:mock_clock",
+        "@googletest//:gtest",
+    ],
+)
+
+cc_library(
+    name = "denso_beef_kline_common",
+    srcs = ["denso_beef_kline_common.cpp"],
+    hdrs = ["denso_beef_kline_common.h"],
+    deps = [
+        "//src/algorithms/protocol",
+        "//src/backend/flash:flash_executor",
+    ],
 )

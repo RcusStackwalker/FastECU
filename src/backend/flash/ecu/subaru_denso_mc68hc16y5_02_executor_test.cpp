@@ -4,6 +4,7 @@
 #include "src/backend/flash/ecu/subaru_denso_mc68hc16y5_02_executor.h"
 
 #include <algorithm>
+#include <array>
 #include <span>
 
 #include <gmock/gmock.h>
@@ -1283,5 +1284,121 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WriteLogsRemainingMismatchAfterVerificati
         events.logs.end());
 }
 
+TEST(SubaruDensoMc68hc16y5_02Executor, FirstExchangePreservesTransportErrorAndCancellationPrecedence)
+{
+    for (int scenario = 0; scenario < 8; ++scenario)
+    {
+        SCOPED_TRACE(scenario);
+        FakeCancellationToken cancellation;
+        if (scenario == 6)
+            cancellation.CancelOnCheck(8);
+        class ProbeTransport final : public ScriptedKlineFlashTransport
+        {
+          public:
+            ProbeTransport(FakeCancellationToken& cancellation, int scenario)
+                : cancellation_(cancellation), scenario_(scenario)
+            {
+            }
+            Result<std::size_t> Write(bytes::ByteView request) override
+            {
+                trace.push_back("write");
+                EXPECT_EQ(bytes::Bytes(request.begin(), request.end()), (bytes::Bytes{0x4D, 0xFF, 0xB4}));
+                if (scenario_ < 3)
+                    cancellation_.SetCancelled(true);
+                if (scenario_ == 0)
+                    return Fail(ErrorKind::kDisconnected, "probe write failed");
+                return scenario_ == 1 ? request.size() - 1 : request.size();
+            }
+            Result<OptionalBytes> Read(std::chrono::milliseconds timeout, const ICancellationToken&) override
+            {
+                if (trace.empty())
+                {
+                    EXPECT_EQ(timeout, 10ms);
+                    trace.push_back("drain");
+                    return OptionalBytes{};
+                }
+                trace.push_back("read");
+                EXPECT_EQ(timeout, 200ms);
+                cancellation_.SetCancelled(true);
+                if (scenario_ == 3)
+                    return Fail(ErrorKind::kDisconnected, "probe read failed");
+                return OptionalBytes{};
+            }
+            std::vector<std::string> trace;
+
+          private:
+            FakeCancellationToken& cancellation_;
+            int scenario_;
+        } transport(cancellation, scenario);
+        auto plan = StockPlan();
+        ASSERT_TRUE(plan.has_value());
+        MockClock clock;
+        EXPECT_CALL(clock, Sleep)
+            .WillRepeatedly(
+                [&](auto duration, const auto&) -> Status
+                {
+                    if (duration == 50ms && transport.trace.back() == "write")
+                    {
+                        transport.trace.push_back("sleep");
+                        if (scenario == 5)
+                            cancellation.SetCancelled(true);
+                        if (scenario == 7)
+                            return Fail(ErrorKind::kDisconnected, "probe sleep failed");
+                    }
+                    return {};
+                });
+        RecordingEventSink events;
+        SubaruDensoMc68hc16y5_02Executor executor;
+        const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
+        ASSERT_FALSE(result.has_value());
+        const std::array kinds{ErrorKind::kDisconnected, ErrorKind::kDisconnected, ErrorKind::kCancelled,
+                               ErrorKind::kDisconnected, ErrorKind::kCancelled,    ErrorKind::kCancelled,
+                               ErrorKind::kCancelled,    ErrorKind::kDisconnected};
+        const std::array details{"probe write failed",     "short K-Line write",   "cancelled after write",
+                                 "probe read failed",      "cancelled after read", "cancelled before read",
+                                 "cancelled before write", "probe sleep failed"};
+        EXPECT_EQ(result.error().kind, kinds[scenario]);
+        EXPECT_EQ(result.error().detail, details[scenario]);
+        std::vector<std::string> expected{"drain"};
+        if (scenario != 6)
+            expected.push_back("write");
+        if (scenario == 3 || scenario == 4 || scenario == 5 || scenario == 7)
+            expected.push_back("sleep");
+        if (scenario == 3 || scenario == 4)
+            expected.push_back("read");
+        EXPECT_EQ(transport.trace, expected);
+        const std::array<std::size_t, 8> counts{8, 8, 9, 10, 11, 10, 8, 9};
+        EXPECT_EQ(cancellation.CheckCount(), counts[scenario]);
+    }
+}
+
+TEST(SubaruDensoMc68hc16y5_02Executor, ReadPreservesAbsentVersusPresentEmptyResponse)
+{
+    for (bool present : {false, true})
+    {
+        SCOPED_TRACE(present);
+        auto plan = StockPlan();
+        ASSERT_TRUE(plan.has_value());
+        ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::kOpen};
+        ScriptStockConnectAndUpload(transport);
+        // Literal first-page request, independent of production framing.
+        transport.ExpectWrite(bytes::Bytes{0xBE, 0xEF, 0, 7, 3, 0, 0, 0, 0, 4, 0, 0xBB});
+        if (present)
+            transport.QueueRead(bytes::Bytes{});
+        else
+            transport.QueueNoFrame();
+        FakeClock clock;
+        FakeCancellationToken cancellation;
+        RecordingEventSink events;
+        SubaruDensoMc68hc16y5_02Executor executor;
+        const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
+        ASSERT_FALSE(result.has_value());
+        EXPECT_EQ(result.error().kind, present ? ErrorKind::kBadResponse : ErrorKind::kTimeout);
+        EXPECT_EQ(result.error().detail, present ? "Wrong response from ECU during read" : "no response from ECU");
+        ASSERT_FALSE(transport.read_timeouts.empty());
+        EXPECT_EQ(transport.read_timeouts.back(), 3000ms);
+        EXPECT_TRUE(transport.ScriptConsumed());
+    }
+}
 } // namespace
 } // namespace fastecu::flash
