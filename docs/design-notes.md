@@ -112,14 +112,14 @@ logs an error and returns success; TestWrite keeps its PASS reporting. Independe
 capability-layout and verification evidence is still missing, so these preserved
 behaviors do not authorize corrections or establish hardware qualification.
 
-The four executors of the Denso ISO-15765 bootloader dialect share four
+The four executors of the Denso ISO-15765 bootloader dialect share five
 operations in the common module: pure setup-PDU encoding, the SecurityAccess
-seed/key exchange, the erase flow, and, for the two N83M families only, the
-in-car opening exchange run. The shared 0x7E1 request in
+seed/key exchange, the erase flow, one encrypted page read, and, for the two
+N83M families only, the in-car opening exchange run. The shared 0x7E1 request in
 that run asks for session `0x63`; the SH72531 and SH72543 diesel in-car runs send
-`0x03` and stay local. The `write_memory` orchestration, reads, reflash, connect
-and probe flows, kernel jumps, checksum verification, and response policies stay
-in each executor, and no configurable family state machine is shared.
+`0x03` and stay local. The `write_memory` orchestration, read loops, reflash, connect
+and probe flows, kernel jumps, checksum verification, and family-specific response
+policies stay in each executor, and no configurable family state machine is shared.
 `DensoIso15765DownloadSetupPdu` and `DensoIso15765UploadSetupPdu` encode their
 fixed service (`34` or `35`), `04 44`, and the supplied region's four-byte
 big-endian start and length without validation or address arithmetic. The
@@ -132,12 +132,19 @@ caller response policy or hardware qualification. `DensoIso15765Erase` accepts
 the family-selected region and constructs its download setup internally; family
 write orchestration calls it directly without forwarding wrappers.
 
-The Denso read-boundary characterization resolves the broader extraction
-suggestions for OBK probes and read stops; the
-[P81 page follow-up](superpowers/specs/2026-10-14-flash-duplication-triage.md) remains open.
-Those proposals to share probe/stop/read operations disagreed with the common
-header's deliberate local-flow contract; this decision keeps that contract and
-bounds the page-only follow-up.
+`ReadDensoEncryptedPage` shares only the B7 request with its four-byte
+big-endian address, fatal UDS response handling at a 2000 ms initial timeout,
+and whole-word payload decryption. Seven encrypted payload bytes still produce
+four decrypted bytes; no page-length check is added. The four callers retain
+setup tolerance, top-of-loop cancellation, requested-size progress, SH-family
+1 ms pacing, stop diagnostics and image padding. Independent literal helper
+and family transcripts pin this boundary. The
+[P81 triage record](superpowers/specs/2026-10-14-flash-duplication-triage.md)
+records its extraction and remaining evidence limits. No mapped RomRaider or
+ECUFlash family page-read oracle establishes the timeout, response policy or
+short-page acceptance; this extraction preserves behavior and does not establish
+hardware qualification.
+
 Keep complete OBK probes and best-effort read-stop operations local: their
 observable logs differ (N83M success punctuation; 4M omits the stop-response
 log), even though the wire-prefix predicate and six-attempt stop policy match.

@@ -32,9 +32,10 @@ namespace fastecu::flash
 // The decrypt table remains valid for the bootloader-dialect normal-ROM read paths.
 // DensoCAN is not a consumer of this data-only cluster.
 //
-// Beyond these tables, the common module shares four narrow operations: pure
-// setup-PDU encoding, the SecurityAccess seed/key exchange and the erase flow (all four
-// Denso ISO-15765 bootloader dialect executors) and the N83M in-car opening exchange run (the two N83M executors
+// Beyond these tables, the common module shares five narrow operations: pure
+// setup-PDU encoding, the SecurityAccess seed/key exchange, the erase flow and
+// one encrypted B7 page read (all four Denso ISO-15765 bootloader dialect
+// executors) and the N83M in-car opening exchange run (the two N83M executors
 // only; its 0x7E1 request asks for session 0x63, where the SH-family runs send
 // 0x03). Everything else that looks alike -- the connect/probe shapes, the
 // reflash routines, the kernel jump, the stop and close-block retry loops, the
@@ -109,6 +110,11 @@ inline bytes::Bytes DensoDecryptPage(bytes::ByteView page)
 // unchanged; callers own validation and policy.
 bytes::Bytes DensoIso15765DownloadSetupPdu(const MemoryRegion& region);
 bytes::Bytes DensoIso15765UploadSetupPdu(const MemoryRegion& region);
+
+// One B7 request with a four-byte big-endian address, fatal UDS response
+// handling at 2000 ms, and whole-word payload decryption. Short pages remain
+// accepted; callers own read loops, pacing, progress, stop and image padding.
+Result<bytes::Bytes> ReadDensoEncryptedPage(const CanExecutorContext& ctx, std::uint32_t address);
 
 // Sends `pdu`, reads one reply, and compares its first two bytes. A mismatch
 // is LOGGED AND TOLERATED -- the frame is still returned and the caller

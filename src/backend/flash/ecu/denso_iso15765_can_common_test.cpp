@@ -199,6 +199,70 @@ struct CommonFixture
     CanExecutorContext ctx{cancellation, events, clock, client, channel};
 };
 
+// Wrong address encoding, timeout, or accepting a partial crypto word breaks this
+// literal page transcript. The helper must leave pacing and progress to callers.
+TEST(DensoIso15765CanCommonTest, ReadPageUsesLiteralB7AddressAndWholeWordDecrypt)
+{
+    CommonFixture f;
+    f.transport.Exchange(Request({0xB7, 0x08, 0xFA, 0xC0, 0x00}),
+                         Response({0xF7, 0xE0, 0xD3, 0x85, 0x2B, 0xAA, 0xBB, 0xCC}));
+
+    const auto result = ReadDensoEncryptedPage(f.ctx, 0x08FAC000);
+
+    ASSERT_THAT(result, fastecu::testing::IsOk());
+    EXPECT_THAT(*result, test_bytes::BytesEq((bytes::Bytes{0x00, 0x01, 0x02, 0x03})));
+    EXPECT_TRUE(f.transport.ScriptConsumed());
+    EXPECT_THAT(f.transport.ReadTimeouts(), ::testing::ElementsAre(2000ms));
+    EXPECT_THAT(f.clock.sleep_calls, ::testing::IsEmpty());
+    EXPECT_THAT(f.events.progress_calls, ::testing::IsEmpty());
+    EXPECT_THAT(f.events.phase_progress_calls, ::testing::IsEmpty());
+}
+
+TEST(DensoIso15765CanCommonTest, ReadPagePropagatesAbsentEmptyTransportAndCancellation)
+{
+    for (int response_case = 0; response_case < 4; ++response_case)
+    {
+        SCOPED_TRACE(response_case);
+        CommonFixture f;
+        f.transport.Exchange(Request({0xB7, 0x08, 0xFA, 0xC0, 0x00}));
+        if (response_case == 0)
+        {
+            f.transport.QueueNoFrame();
+        }
+        else if (response_case == 1)
+        {
+            f.transport.QueueRead(bytes::Bytes{});
+        }
+        else
+        {
+            f.transport.QueueError(response_case == 2 ? ErrorKind::kDisconnected : ErrorKind::kCancelled,
+                                   "page exchange failed");
+        }
+
+        const auto result = ReadDensoEncryptedPage(f.ctx, 0x08FAC000);
+
+        const auto kind = response_case == 0   ? ErrorKind::kTimeout
+                          : response_case == 1 ? ErrorKind::kBadResponse
+                          : response_case == 2 ? ErrorKind::kDisconnected
+                                               : ErrorKind::kCancelled;
+        ASSERT_THAT(result, fastecu::testing::IsErr(kind));
+        if (response_case >= 2)
+        {
+            EXPECT_EQ(result.error().detail, "page exchange failed");
+        }
+        if (response_case == 3)
+        {
+            EXPECT_THAT(f.events.logs, ::testing::Contains(::testing::Pair(
+                                           LogLevel::kWarning, ::testing::HasSubstr("the flash read at 0x8fac000"))));
+        }
+        EXPECT_TRUE(f.transport.ScriptConsumed());
+        EXPECT_EQ(f.transport.WritesConsumed(), 1U);
+        EXPECT_THAT(f.clock.sleep_calls, ::testing::IsEmpty());
+        EXPECT_THAT(f.events.progress_calls, ::testing::IsEmpty());
+        EXPECT_THAT(f.events.phase_progress_calls, ::testing::IsEmpty());
+    }
+}
+
 TEST(DensoIso15765CanCommonTest, SecurityAccessReadsLiteralSeedAndKeyAtTwoSeconds)
 {
     CommonFixture f;

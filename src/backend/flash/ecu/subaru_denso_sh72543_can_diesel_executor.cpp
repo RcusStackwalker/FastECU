@@ -505,14 +505,12 @@ Result<bytes::Bytes> ReadMemory(Ctx& ctx, const SubaruDensoSh72543CanDieselPlan&
         // 4-byte big-endian encoding here is byte-identical. The reply is
         // 0xF7 plus one 256-byte encrypted page (lines 947-968), read with a
         // bare 2000 literal rather than a named constant.
-        Result<bytes::Bytes> chunk = FatalRequest(ctx, ComposeBe(uds::kSidReadMemoryChunk, addr), kLongPolicy,
-                                                  std::format("the flash read at 0x{:x}", addr));
+        Result<bytes::Bytes> chunk = ReadDensoEncryptedPage(ctx, addr);
         if (!chunk.has_value())
         {
             return std::unexpected(chunk.error());
         }
-        const bytes::Bytes decrypted = DensoDecryptPage(uds::Payload(*chunk));
-        rom.insert(rom.end(), decrypted.begin(), decrypted.end());
+        rom.insert(rom.end(), chunk->begin(), chunk->end());
         progress.Update(static_cast<int>(offset + kPageSize));
         // Line 1001: this family paces each page by a millisecond before the
         // next 0xB7 write. Kept, since no read timeout subsumes a delay that
