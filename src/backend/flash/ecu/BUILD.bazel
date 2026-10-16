@@ -352,6 +352,7 @@ cc_library(
     srcs = ["subaru_denso_mc68hc16y5_02_plan.cpp"],
     hdrs = ["subaru_denso_mc68hc16y5_02_plan.h"],
     implementation_deps = [
+        ":plan_primitives",
         "//src/algorithms/memory:address",
         "//src/algorithms/memory:memory_map",
         "//src/backend/flash:flash_device_lookup",
@@ -369,6 +370,7 @@ cc_library(
     srcs = ["subaru_denso_sh7055_02_plan.cpp"],
     hdrs = ["subaru_denso_sh7055_02_plan.h"],
     implementation_deps = [
+        ":plan_primitives",
         "//src/backend/flash:flash_device_lookup",
         "//src/backend/flash:flash_validation",
         "//src/backend/flash/kernel:memory_models",
@@ -1857,6 +1859,7 @@ fastecu_portable_gtest(
     srcs = ["plan_primitives_test.cpp"],
     deps = [
         ":plan_primitives",
+        "//src/backend/flash:flash_validation",
         "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
     ],

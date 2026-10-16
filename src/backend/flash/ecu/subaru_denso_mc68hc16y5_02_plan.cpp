@@ -1,5 +1,7 @@
 #include "src/backend/flash/ecu/subaru_denso_mc68hc16y5_02_plan.h"
 
+#include "src/backend/flash/ecu/plan_primitives.h"
+
 #include <format>
 #include <optional>
 #include <utility>
@@ -158,8 +160,7 @@ Status ValidateSubaruDensoMc68hc16y502Plan(const FlashPlan& plan)
     {
         return Fail(kInvalidConfig, "Unknown MCU type");
     }
-    const std::uint32_t romsize = kFlashDevices[index].romsize;
-    if (plan.TransferRegion().start != kFlashDevices[index].fblocks[0].start || plan.TransferRegion().length != romsize)
+    if (!detail::TransferMatchesDevice(plan.TransferRegion(), kFlashDevices[index]))
     {
         return Fail(kInvalidConfig, "MC68HC16Y5_02 transfer region does not match the MCU");
     }

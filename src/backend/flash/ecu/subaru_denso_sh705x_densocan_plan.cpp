@@ -53,8 +53,7 @@ Result<CatalogEntry> GetCatalogEntry(std::string_view protocol, std::string_view
 const FlashDevice *CheckedDevice(const CatalogEntry& entry)
 {
     const FlashDevice *device = FindFlashDevice(entry.mcu);
-    if (device == nullptr || device->romsize != entry.rom_size || device->numblocks != 16 ||
-        device->fblocks == nullptr || device->kblocks == nullptr)
+    if (!detail::FixedShapeDeviceMatches(device, entry.rom_size, 16))
     {
         return nullptr;
     }
@@ -76,10 +75,11 @@ Status ValidateImage(const FlashPlan& plan, const FlashDevice& device)
 {
     if (plan.Operation() == FlashOperation::kRead)
     {
-        return plan.Image().has_value() ? Fail(ErrorKind::kInvalidConfig, "DensoCAN read plan carries an image")
-                                        : Status{};
+        return !detail::OperationImageShapeMatches(plan, device.romsize)
+                   ? Fail(ErrorKind::kInvalidConfig, "DensoCAN read plan carries an image")
+                   : Status{};
     }
-    if (!plan.Image().has_value() || plan.Image()->size() != device.romsize)
+    if (!detail::OperationImageShapeMatches(plan, device.romsize))
     {
         return Fail(ErrorKind::kInvalidConfig, std::format("ROM file must be exactly 0x{:x} bytes", device.romsize));
     }

@@ -1,5 +1,7 @@
 #include "src/backend/flash/ecu/subaru_denso_sh7055_02_plan.h"
 
+#include "src/backend/flash/ecu/plan_primitives.h"
+
 #include <format>
 #include <utility>
 
@@ -36,7 +38,7 @@ SubaruDensoSh7055_02Plan WireParams(FlashOperation operation)
 Status ValidateImage(const FlashPlan& plan, std::uint32_t romsize)
 {
     if ((plan.Operation() == FlashOperation::kWrite || plan.Operation() == FlashOperation::kTestWrite) &&
-        (!plan.Image().has_value() || plan.Image()->size() != romsize))
+        !detail::OperationImageShapeMatches(plan, romsize))
     {
         return Fail(ErrorKind::kInvalidConfig, std::format("ROM file must be exactly 0x{:x} bytes", romsize));
     }
@@ -121,7 +123,7 @@ Status ValidateSubaruDensoSh705502Plan(const FlashPlan& plan)
         return Fail(kInvalidConfig, "Unknown MCU type");
     }
     const std::uint32_t romsize = kFlashDevices[index].romsize;
-    if (plan.TransferRegion().start != kFlashDevices[index].fblocks[0].start || plan.TransferRegion().length != romsize)
+    if (!detail::TransferMatchesDevice(plan.TransferRegion(), kFlashDevices[index]))
     {
         return Fail(kInvalidConfig, "SH7055_02 transfer region does not match the MCU");
     }

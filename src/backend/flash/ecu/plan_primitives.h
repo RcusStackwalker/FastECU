@@ -11,6 +11,11 @@
 
 namespace fastecu::flash::detail
 {
+bool FixedShapeDeviceMatches(const FlashDevice *device, std::uint32_t rom_size, unsigned block_count);
+bool OperationImageShapeMatches(const FlashPlan& plan, std::uint32_t rom_size);
+// Callers validate the flash table before comparing transfer geometry.
+bool TransferMatchesDevice(const MemoryRegion& transfer, const FlashDevice& device);
+
 // Expected addresses and block sizes come from each family's protocol.
 // Use a numeric size so overflow boundaries can be checked without allocating
 // an image. Address and padding arithmetic use 64 bits to avoid wrapping.

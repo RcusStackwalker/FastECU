@@ -2,9 +2,26 @@
 
 namespace fastecu::flash::detail
 {
+bool FixedShapeDeviceMatches(const FlashDevice *device, std::uint32_t rom_size, unsigned block_count)
+{
+    return device != nullptr && device->fblocks != nullptr && device->kblocks != nullptr &&
+           device->romsize == rom_size && device->numblocks == block_count;
+}
+
+bool OperationImageShapeMatches(const FlashPlan& plan, std::uint32_t rom_size)
+{
+    return plan.Operation() == FlashOperation::kRead ? !plan.Image().has_value()
+                                                     : plan.Image().has_value() && plan.Image()->size() == rom_size;
+}
+
+bool TransferMatchesDevice(const MemoryRegion& transfer, const FlashDevice& device)
+{
+    return transfer.start == device.fblocks[0].start && transfer.length == device.romsize;
+}
+
 Status ValidateRegions(const FlashPlan& plan, const FlashDevice& device)
 {
-    if (plan.TransferRegion().start != device.fblocks[0].start || plan.TransferRegion().length != device.romsize)
+    if (!TransferMatchesDevice(plan.TransferRegion(), device))
     {
         return Fail(ErrorKind::kInvalidConfig, "transfer region does not match the MCU");
     }
