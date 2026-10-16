@@ -1,6 +1,9 @@
 #pragma once
 
 #include <chrono>
+#include <span>
+#include <vector>
+#include "src/algorithms/checksum/checksum_primitives.h"
 #include "src/algorithms/protocol/bytes.h"
 #include "src/backend/flash/flash_executor.h"
 
@@ -31,4 +34,28 @@ Result<IKlineFlashTransport::OptionalBytes>
 DensoBeefKlineExchangeOptional(IKlineFlashTransport& transport, IClock *clock, const ICancellationToken& cancellation,
                                bytes::ByteView request, std::chrono::milliseconds settle,
                                std::chrono::milliseconds timeout);
+bytes::Bytes DensoBeefKlineWritePayload(std::uint32_t address, bytes::ByteView chunk);
+Status DensoBeefKlineEnableProgrammingVoltage(IKlineFlashTransport& transport, const ICancellationToken& cancellation);
+
+// Callers provide valid absolute-addressed image slices and one flag per block.
+template <class ReadCrc>
+Result<unsigned> DensoBeefKlineCompareBlocks(std::span<const MemoryRegion> blocks, bytes::ByteView addressed_image,
+                                             std::vector<bool>& modified, const ICancellationToken& cancellation,
+                                             ReadCrc&& read_crc)
+{
+    unsigned modified_count = 0;
+    for (std::size_t index = 0; index < blocks.size(); ++index)
+    {
+        if (cancellation.Cancelled())
+            return Fail(ErrorKind::kCancelled, "cancelled during ROM compare");
+        const MemoryRegion& block = blocks[index];
+        const Result<std::uint32_t> ecu_crc = read_crc(block);
+        if (!ecu_crc.has_value())
+            return std::unexpected(ecu_crc.error());
+        const std::uint32_t image_crc = checksum::Crc32(addressed_image.subspan(block.start, block.length));
+        modified[index] = *ecu_crc != image_crc;
+        modified_count += modified[index] ? 1U : 0U;
+    }
+    return modified_count;
+}
 } // namespace fastecu::flash

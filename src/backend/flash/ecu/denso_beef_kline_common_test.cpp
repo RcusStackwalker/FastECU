@@ -33,6 +33,93 @@ TEST(DensoBeefKlineCommonTest, AckRequiresOnlyMarkerMinimumSizeAndOpcode)
     EXPECT_FALSE(DensoBeefKlineResponseOk(bytes::Bytes{0xBE, 0xEF, 0, 1, 0x42, 0}, 0x41));
 }
 
+TEST(DensoBeefKlineCommonTest, EncodesLiteralFirstAndLastChunkAddresses)
+{
+    EXPECT_EQ(DensoBeefKlineWritePayload(0x00123400, bytes::Bytes{0xA5, 0x5A}),
+              (bytes::Bytes{0x00, 0x12, 0x34, 0x00, 0xA5, 0x5A}));
+    EXPECT_EQ(DensoBeefKlineWritePayload(0x0012FF00, bytes::Bytes{0xFE, 0xDC}),
+              (bytes::Bytes{0x00, 0x12, 0xFF, 0x00, 0xFE, 0xDC}));
+}
+
+TEST(DensoBeefKlineCommonTest, ComparesOrderedAddressedSlicesAndStopsOnFailureOrCancellation)
+{
+    // Independent reflected bit calculation with polynomial 0x5AA5A55A,
+    // initial/final XOR 0xFFFFFFFF, for "123456789" and the empty slice.
+    const bytes::Bytes image{0xAA, '1', '2', '3', '4', '5', '6', '7', '8', '9', 0xBB};
+    const std::array blocks{MemoryRegion{1, 9}, MemoryRegion{11, 0}, MemoryRegion{1, 9}};
+    for (int scenario = 0; scenario < 4; ++scenario)
+    {
+        SCOPED_TRACE(scenario);
+        FakeCancellationToken cancellation;
+        std::vector<bool> modified(3, false);
+        unsigned calls = 0;
+        const auto result = DensoBeefKlineCompareBlocks(blocks, image, modified, cancellation,
+                                                        [&](const MemoryRegion& block) -> Result<std::uint32_t>
+                                                        {
+                                                            EXPECT_EQ(block.start, blocks[calls].start);
+                                                            EXPECT_EQ(block.length, blocks[calls].length);
+                                                            ++calls;
+                                                            if (scenario == 2 && calls == 2)
+                                                                return Fail(ErrorKind::kDisconnected, "CRC failed");
+                                                            if (scenario == 3 && calls == 1)
+                                                                cancellation.SetCancelled(true);
+                                                            return calls == 2 ? (scenario == 1 ? 1U : 0U) : 0x80C032ABU;
+                                                        });
+        EXPECT_EQ(calls, scenario == 2 ? 2U : scenario == 3 ? 1U : 3U);
+        EXPECT_EQ(modified, (std::vector<bool>{false, scenario == 1, false}));
+        if (scenario < 2)
+        {
+            ASSERT_TRUE(result.has_value());
+            EXPECT_EQ(*result, scenario == 1 ? 1U : 0U);
+        }
+        else
+        {
+            ASSERT_FALSE(result.has_value());
+            EXPECT_EQ(result.error().detail, scenario == 2 ? "CRC failed" : "cancelled during ROM compare");
+        }
+    }
+}
+
+TEST(DensoBeefKlineCommonTest, ProgrammingLinePreservesCancellationAndErrorPrecedence)
+{
+    for (int scenario = 0; scenario < 4; ++scenario)
+    {
+        FakeCancellationToken cancellation;
+        if (scenario < 2)
+            cancellation.CancelOnCheck(static_cast<std::size_t>(scenario + 1));
+        class Transport final : public ScriptedKlineFlashTransport
+        {
+          public:
+            FakeCancellationToken *cancellation = nullptr;
+            bool fail = false;
+            unsigned calls = 0;
+            Status EnableProgrammingVoltageLine() override
+            {
+                ++calls;
+                if (fail)
+                {
+                    cancellation->SetCancelled(true);
+                    return Fail(ErrorKind::kDisconnected, "line failed");
+                }
+                return {};
+            }
+        } transport;
+        transport.cancellation = &cancellation;
+        transport.fail = scenario == 2;
+        const auto result = DensoBeefKlineEnableProgrammingVoltage(transport, cancellation);
+        EXPECT_EQ(transport.calls, scenario == 0 ? 0U : 1U);
+        if (scenario == 3)
+            EXPECT_TRUE(result.has_value());
+        else
+        {
+            ASSERT_FALSE(result.has_value());
+            EXPECT_EQ(result.error().detail, scenario == 0   ? "cancelled before programming line state"
+                                             : scenario == 1 ? "cancelled after programming line state"
+                                                             : "line failed");
+        }
+    }
+}
+
 using namespace std::chrono_literals;
 
 class ExchangeTraceTransport final : public ScriptedKlineFlashTransport

@@ -26,6 +26,21 @@ bytes::Bytes DensoBeefKlineFrame(bytes::Byte opcode, bytes::ByteView payload)
     return ComposeBeWithChecksum(bytes::Sum8, kDensoBeefKlineStartComm, len_plus_one, bytes::Byte(opcode), payload);
 }
 
+bytes::Bytes DensoBeefKlineWritePayload(std::uint32_t address, bytes::ByteView chunk)
+{
+    return bytes::ComposeBe(address, chunk);
+}
+
+Status DensoBeefKlineEnableProgrammingVoltage(IKlineFlashTransport& transport, const ICancellationToken& cancellation)
+{
+    if (Status cancelled = CheckCancelled(cancellation, "cancelled before programming line state");
+        !cancelled.has_value())
+        return cancelled;
+    if (Status line = transport.EnableProgrammingVoltageLine(); !line.has_value())
+        return line;
+    return CheckCancelled(cancellation, "cancelled after programming line state");
+}
+
 bool DensoBeefKlineResponseOk(bytes::ByteView received, bytes::Byte expected_opcode_with_ack)
 {
     return received.size() > 5 && bytes::ReadU16Be(received, 0) == kDensoBeefKlineStartComm &&

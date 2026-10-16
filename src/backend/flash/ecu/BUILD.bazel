@@ -1944,6 +1944,7 @@ cc_library(
     srcs = ["denso_beef_kline_common.cpp"],
     hdrs = ["denso_beef_kline_common.h"],
     deps = [
+        "//src/algorithms/checksum",
         "//src/algorithms/protocol",
         "//src/backend/flash:flash_executor",
     ],

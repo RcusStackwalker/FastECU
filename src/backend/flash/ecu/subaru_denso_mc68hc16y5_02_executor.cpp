@@ -526,7 +526,8 @@ Status SubaruDensoMc68hc16y5_02Executor::FlashBlock(IKlineFlashTransport& transp
         // Legacy
         // src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:994-1039.
         const std::uint32_t chunk_address = block.start + offset;
-        const bytes::Bytes payload = ComposeBe(chunk_address, image.subspan(chunk_address, kWriteChunkSize));
+        const bytes::Bytes payload =
+            DensoBeefKlineWritePayload(chunk_address, image.subspan(chunk_address, kWriteChunkSize));
         Result<bytes::Bytes> response =
             Exchange(transport, cancellation, DensoBeefKlineFrame(kDensoKlineOpWriteFlashBuffer, payload), 3000ms);
         if (!response.has_value())
@@ -609,27 +610,15 @@ Status SubaruDensoMc68hc16y5_02Executor::WriteMem(IKlineFlashTransport& transpor
 
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:460-620.
     events.Log(LogLevel::kInfo, "Comparing ECU flash memory pages to image file");
+    std::vector<MemoryRegion> blocks;
+    blocks.reserve(device->numblocks);
+    for (unsigned block_no = 0; block_no < device->numblocks; ++block_no)
+        blocks.push_back({device->fblocks[block_no].start, device->fblocks[block_no].len});
     const auto compare_blocks = [&](std::vector<bool>& modified) -> Result<unsigned>
     {
-        unsigned modified_count = 0;
-        for (unsigned block_no = 0; block_no < device->numblocks; ++block_no)
-        {
-            if (Status cancelled = CheckCancelled(cancellation, "cancelled during ROM compare"); !cancelled.has_value())
-            {
-                return std::unexpected(cancelled.error());
-            }
-            const MemoryRegion block{device->fblocks[block_no].start, device->fblocks[block_no].len};
-            Result<std::uint32_t> ecu_crc = ReadBlockCrc(transport, clock, cancellation, block);
-            if (!ecu_crc.has_value())
-            {
-                return std::unexpected(ecu_crc.error());
-            }
-            const std::uint32_t image_crc =
-                fastecu::checksum::Crc32(bytes::ByteView(addressed_image).subspan(block.start, block.length));
-            modified[block_no] = *ecu_crc != image_crc;
-            modified_count += modified[block_no] ? 1U : 0U;
-        }
-        return modified_count;
+        return DensoBeefKlineCompareBlocks(blocks, bytes::ByteView(addressed_image), modified, cancellation,
+                                           [&](const MemoryRegion& block)
+                                           { return ReadBlockCrc(transport, clock, cancellation, block); });
     };
 
     std::vector<bool> modified(device->numblocks, false);
@@ -640,19 +629,9 @@ Status SubaruDensoMc68hc16y5_02Executor::WriteMem(IKlineFlashTransport& transpor
     }
 
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:501-515.
-    if (Status cancelled = CheckCancelled(cancellation, "cancelled before programming line state");
-        !cancelled.has_value())
-    {
-        return cancelled;
-    }
-    if (Status line = transport.EnableProgrammingVoltageLine(); !line.has_value())
+    if (Status line = DensoBeefKlineEnableProgrammingVoltage(transport, cancellation); !line.has_value())
     {
         return line;
-    }
-    if (Status cancelled = CheckCancelled(cancellation, "cancelled after programming line state");
-        !cancelled.has_value())
-    {
-        return cancelled;
     }
 
     if (*modified_count == 0)

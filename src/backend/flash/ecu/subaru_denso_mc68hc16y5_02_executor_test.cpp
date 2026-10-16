@@ -868,6 +868,67 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WriteSkipsWhenNoBlockDiffers)
     EXPECT_EQ(transport.programming_voltage_line_write_index, 3U + device->numblocks);
 }
 
+TEST(SubaruDensoMc68hc16y5_02Executor, NoChangeProgrammingLinePreservesCancellationAndErrorPrecedence)
+{
+    const FlashDevice *device = FindFlashDevice("MC68HC16Y5");
+    ASSERT_NE(device, nullptr);
+    bytes::Bytes image(device->romsize, 0);
+    auto plan = StockWritePlan(FlashOperation::kWrite, image);
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    std::size_t baseline_checks = 0;
+    for (int scenario = 0; scenario < 4; ++scenario)
+    {
+        SCOPED_TRACE(scenario);
+        FakeCancellationToken cancellation;
+        class Transport final : public ScriptedKlineFlashTransport
+        {
+          public:
+            Transport() : ScriptedKlineFlashTransport(ScriptedTransportInitialState::kOpen)
+            {
+            }
+            FakeCancellationToken *cancellation = nullptr;
+            bool fail = false;
+            Status EnableProgrammingVoltageLine() override
+            {
+                auto result = ScriptedKlineFlashTransport::EnableProgrammingVoltageLine();
+                if (fail)
+                {
+                    cancellation->SetCancelled(true);
+                    return Fail(ErrorKind::kDisconnected, "line failed");
+                }
+                return result;
+            }
+        } transport;
+        transport.cancellation = &cancellation;
+        transport.fail = scenario == 3;
+        ScriptStockConnectAndUpload(transport);
+        ScriptCrcCompare(transport, *device, image, std::nullopt);
+        if (scenario == 1 || scenario == 2)
+            cancellation.CancelOnCheck(baseline_checks - (scenario == 1 ? 1U : 0U));
+        FakeClock clock;
+        RecordingEventSink events;
+        SubaruDensoMc68hc16y5_02Executor executor;
+        const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
+        if (scenario == 0)
+        {
+            ASSERT_THAT(result, fastecu::testing::IsOk());
+            baseline_checks = cancellation.CheckCount();
+        }
+        else
+        {
+            ASSERT_FALSE(result.has_value());
+            EXPECT_EQ(result.error().detail, scenario == 1   ? "cancelled before programming line state"
+                                             : scenario == 2 ? "cancelled after programming line state"
+                                                             : "line failed");
+            EXPECT_EQ(result.error().kind, scenario == 3 ? ErrorKind::kDisconnected : ErrorKind::kCancelled);
+        }
+        EXPECT_TRUE(transport.ScriptConsumed());
+        EXPECT_EQ(std::count(transport.control_line_trace.begin(), transport.control_line_trace.end(),
+                             ScriptedKlineFlashTransport::ControlLineAction::kEnableProgrammingVoltageLine),
+                  scenario == 1 ? 0 : 1);
+    }
+}
+
 TEST(SubaruDensoMc68hc16y5_02Executor, WriteReflashesOnlyDifferingBlocks)
 {
     const FlashDevice *device = FindFlashDevice("MC68HC16Y5");
