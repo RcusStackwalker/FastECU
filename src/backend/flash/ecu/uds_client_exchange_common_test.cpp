@@ -15,6 +15,8 @@ namespace
 {
 using namespace std::chrono_literals;
 
+using ::testing::Contains;
+using ::testing::Each;
 using ::testing::ElementsAre;
 using ::testing::HasSubstr;
 using ::testing::IsEmpty;
@@ -219,4 +221,53 @@ TEST(FatalQueryTest, AcceptsAPayloadAtLeastMinPayloadSizeWithAMatchingPrefix)
 }
 
 } // namespace
+
+TEST(NonFatalQueryTest, TransportCancellationIsLoggedAndNextIdentityQueryCanRun)
+{
+    Fixture f;
+    f.channel.ExpectSend(bytes::Bytes{0x09, 0x02});
+    f.channel.QueueError(ErrorKind::kCancelled, "identity cancelled");
+    f.channel.ExpectSend(bytes::Bytes{0x09, 0x04});
+    f.channel.QueueReceive(bytes::Bytes{0x49, 0x04, 0xAB});
+    NonFatalQuery(f.Ctx(), bytes::Bytes{0x09, 0x02}, bytes::Byte(0x02), "Wrong response: ", "VIN");
+    NonFatalQuery(f.Ctx(), bytes::Bytes{0x09, 0x04}, bytes::Byte(0x04), "Wrong response: ", "CAL ID");
+    EXPECT_TRUE(f.channel.ScriptConsumed());
+    EXPECT_THAT(f.events.logs, Contains(Pair(LogLevel::kError, "Wrong response: identity cancelled")));
+    EXPECT_THAT(f.events.logs, Contains(Pair(LogLevel::kInfo, "CAL ID: 04 ab ")));
+}
+
+TEST(FatalQueryTest, ChecksumAcceptsImmediatePositiveAndPendingFinalWithSeparateTimeouts)
+{
+    for (const bool pending : {false, true})
+    {
+        Fixture f;
+        f.channel.ExpectSend(bytes::Bytes{0x31, 0x01, 0x02, 0x02, 0x01});
+        if (pending)
+            f.channel.QueueReceive(bytes::Bytes{0x7F, 0x31, 0x78});
+        f.channel.QueueReceive(bytes::Bytes{0x71, 0x01, 0x02});
+        const uds::ExchangePolicy policy{.read_timeout = 500ms, .pending_timeout = 3000ms};
+        const UdsExchangeContext ctx{f.client, policy, f.cancellation, f.events};
+        EXPECT_THAT(FatalQuery(ctx, bytes::Bytes{0x31, 0x01, 0x02, 0x02, 0x01}, bytes::Bytes{0x01, 0x02},
+                               "Wrong response: ", "checksum verify"),
+                    fastecu::testing::IsOk());
+        EXPECT_TRUE(f.channel.ScriptConsumed());
+        EXPECT_EQ(f.channel.timeouts, (pending ? std::vector<std::chrono::milliseconds>{500ms, 3000ms}
+                                               : std::vector<std::chrono::milliseconds>{500ms}));
+    }
+}
+
+TEST(NonFatalQueryTest, RealCancellationRemainsSetWhileIdentityCallsSwallowFailures)
+{
+    Fixture f;
+    f.cancellation.SetCancelled(true);
+    NonFatalQuery(f.Ctx(), bytes::Bytes{0x09, 0x02}, bytes::Byte(0x02), "Wrong response: ", "VIN");
+    NonFatalQuery(f.Ctx(), bytes::Bytes{0x09, 0x04}, bytes::Byte(0x04), "Wrong response: ", "CAL ID");
+    EXPECT_TRUE(f.cancellation.Cancelled());
+    EXPECT_EQ(f.channel.SendsConsumed(), 0U);
+    EXPECT_TRUE(f.channel.ScriptConsumed());
+    EXPECT_THAT(f.channel.timeouts, IsEmpty());
+    ASSERT_EQ(f.events.logs.size(), 2U);
+    EXPECT_THAT(f.events.logs, Each(Pair(LogLevel::kError, HasSubstr("Wrong response: "))));
+}
+
 } // namespace fastecu::flash

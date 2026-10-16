@@ -309,7 +309,8 @@ void ScriptUpToFirstFatalRead(ScriptedCanFlashTransport& t)
 // the id, and this pins that the port does not add a check legacy lacks.
 // `probeService`/`probeSub` parameterize the probe so the tolerance can be
 // driven.
-void ScriptInCarConnectTail(ScriptedCanFlashTransport& t, bytes::Byte probe_service, bytes::Byte probe_sub)
+void ScriptInCarConnectTail(ScriptedCanFlashTransport& t, bytes::Byte probe_service, bytes::Byte probe_sub,
+                            int jump_outcome = 0)
 {
     const auto section = t.Section("in-car connect tail");
     t.Exchange(Request({0x10, 0x5F}), Response({probe_service, probe_sub})); // tolerated
@@ -330,14 +331,24 @@ void ScriptInCarConnectTail(ScriptedCanFlashTransport& t, bytes::Byte probe_serv
 
     t.Exchange(Request({0x10, 0x5F}), Response({0x50, 0x63}));                   // fatal on mismatch
     t.Exchange(Request({0x22, 0x10, 0x1D}), Response({0x62, 0x10, 0x1D, 0x00})); // fatal on mismatch
-    t.Exchange(Request({0x10, 0x62}), Response({0x50, 0x62}));                   // one pre-loop read only
+    if (jump_outcome == 0)
+        t.Exchange(Request({0x10, 0x62}), Response({0x50, 0x62}));
+    else
+    {
+        t.Exchange(Request({0x10, 0x62}));
+        if (jump_outcome == 2)
+            t.QueueError(ErrorKind::kCancelled, "jump cancelled");
+        else
+            for (int attempt = 0; attempt < 11; ++attempt)
+                t.QueueNoFrame();
+    } // one pre-loop read only
 }
 
-void ScriptInCarConnect(ScriptedCanFlashTransport& t)
+void ScriptInCarConnect(ScriptedCanFlashTransport& t, int jump_outcome = 0)
 {
     const auto section = t.Section("in-car connect");
     ScriptPreliminaries(t, 0x00);
-    ScriptInCarConnectTail(t, 0x50, 0x01);
+    ScriptInCarConnectTail(t, 0x50, 0x01, jump_outcome);
 }
 
 // erase_memory's setup PDU plus its erase trigger; the trigger's answer is
@@ -382,7 +393,7 @@ bytes::Bytes WriteRom()
     bytes::Bytes rom(kImageSize, 0x00);
     for (std::size_t i = 0; i < rom.size(); ++i)
     {
-        rom[i] = static_cast<bytes::Byte>(i);
+        rom[i] = static_cast<bytes::Byte>((i ^ (i >> 8) ^ (i >> 16)) & 0xFF);
     }
     return rom;
 }
@@ -988,4 +999,172 @@ TEST(SubaruDenso1n83m_4mCanExecutor, CancellationAfterPageFailsButCancellationAt
     }
 }
 
+// No acknowledgement is required after the bounded bench wait. A matching
+// first frame is deliberately discarded in the two-read families.
+TEST(SubaruDenso1n83m_4mCanExecutor, BenchJumpExhaustionPreservesReadCountAndTiming)
+{
+    ScriptedCanFlashTransport transport;
+    ScriptPreliminaries(transport, 0xFF);
+    transport.Exchange(Request({0x10, 0x43}), Response({0x50, 0x43}));
+    transport.Exchange(Request({0x27, 0x61}), Response({0x67, 0x61, 0x11, 0x22, 0x33, 0x44}));
+    transport.Exchange(Request({0x27, 0x62, 0x35, 0xB6, 0x83, 0xBF}), Response({0x67, 0x62}));
+    transport.Exchange(Request({0x10, 0x42}));
+    transport.QueueRead(Response({0x50, 0x42})); // discarded despite matching
+    transport.QueueNoFrame();
+    for (int attempt = 0; attempt < 50; ++attempt)
+    {
+        transport.QueueNoFrame();
+    }
+    ScriptReadSetup(transport);
+    transport.Exchange(Request(bytes::ComposeBe(bytes::Byte(0xB7), kBlockStart)));
+    transport.QueueError(ErrorKind::kDisconnected, "stop after tolerated jump");
+    RecordingClock clock;
+    RecordingEventSink events;
+    fastecu::ManualCancellationToken cancellation;
+    SubaruDenso1n83m_4mCanExecutor executor;
+    const auto plan = ReadPlan();
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    EXPECT_THAT(executor.Execute(*plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::kDisconnected));
+    EXPECT_TRUE(transport.ScriptConsumed());
+    EXPECT_THAT(events.logs,
+                testing::Contains(testing::Pair(fastecu::LogLevel::kError,
+                                                "Kernel jump was not acknowledged; continuing, as legacy does")));
+    std::vector<std::chrono::milliseconds> sleeps{500ms, 50ms};
+    sleeps.insert(sleeps.end(), 50, 100ms);
+    EXPECT_EQ(clock.sleep_calls, sleeps);
+    const auto& timeouts = transport.ReadTimeouts();
+    ASSERT_GE(timeouts.size(), 65U);
+    EXPECT_EQ(timeouts[10], 200ms);
+    EXPECT_THAT(std::vector<std::chrono::milliseconds>(timeouts.begin() + 11, timeouts.begin() + 62), Each(200ms));
+}
+
+// A whole-image script includes both edge chunks with address-sensitive data;
+// N83M's nonzero image base must be subtracted exactly once.
+TEST(SubaruDenso1n83m_4mCanExecutor, CloseRetriesSettleAndChecksumOutcomes)
+{
+    for (int outcome = 0; outcome < 5; ++outcome)
+    {
+        SCOPED_TRACE(outcome);
+        ScriptedCanFlashTransport transport;
+        const auto rom = WriteRom();
+        ScriptBenchConnect(transport);
+        ScriptEraseMemory(transport);
+        transport.QueueRead(Response({0x71, 0x01, 0x02}));
+        ScriptReflashChunks(transport, rom);
+        for (int attempt = 0; attempt < 6; ++attempt)
+        {
+            transport.Exchange(Request({0x37}));
+            if (attempt == 5 && outcome == 0)
+                transport.QueueRead(Response({0x77}));
+            else if (attempt == 1)
+                transport.QueueError(ErrorKind::kDisconnected, "close ignored");
+            else if (attempt == 2)
+                transport.QueueRead(Response({0x7F, 0x37, 0x31}));
+            else
+                transport.QueueNoFrame();
+        }
+        transport.Exchange(Request({0x31, 0x01, 0x02, 0x02, 0x01}));
+        if (outcome == 1)
+        {
+            transport.QueueRead(Response({0x7F, 0x31, 0x78}));
+            transport.QueueRead(Response({0x71, 0x01, 0x02}));
+        }
+        else if (outcome == 2)
+            transport.QueueNoFrame();
+        else if (outcome == 3)
+            transport.QueueError(ErrorKind::kDisconnected, "checksum fails");
+        else if (outcome == 4)
+        {
+            transport.QueueRead(Response({0x7F, 0x31, 0x78}));
+            transport.QueueNoFrame();
+        }
+        else
+            transport.QueueRead(Response({0x71, 0x01, 0x02}));
+        RecordingClock clock;
+        RecordingEventSink events;
+        fastecu::ManualCancellationToken cancellation;
+        SubaruDenso1n83m_4mCanExecutor executor;
+        const auto plan = WritePlan(rom);
+        ASSERT_THAT(plan, fastecu::testing::IsOk());
+        const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
+        if (outcome < 2)
+            EXPECT_THAT(result, fastecu::testing::IsOk());
+        else
+            EXPECT_THAT(result, fastecu::testing::IsErr(outcome == 3 ? ErrorKind::kDisconnected : ErrorKind::kTimeout));
+        EXPECT_TRUE(transport.ScriptConsumed());
+        EXPECT_EQ(clock.sleep_calls, (std::vector<std::chrono::milliseconds>{500ms, 50ms, 500ms, 100ms}));
+        const auto& timeouts = transport.ReadTimeouts();
+        const bool reread = outcome == 1 || outcome == 4;
+        ASSERT_GE(timeouts.size(), 8U);
+        const std::size_t checksum_index = timeouts.size() - (reread ? 2 : 1);
+        EXPECT_EQ(timeouts[checksum_index], 500ms);
+        if (reread)
+            EXPECT_EQ(timeouts.back(), 3000ms);
+        EXPECT_THAT(std::vector<std::chrono::milliseconds>(timeouts.begin() + checksum_index - 6,
+                                                           timeouts.begin() + checksum_index),
+                    Each(200ms));
+    }
+}
+
+TEST(SubaruDenso1n83m_4mCanExecutor, IdentityExchangeFailuresIncludingCancellationAreNonFatal)
+{
+    for (const auto error : {ErrorKind::kDisconnected, ErrorKind::kCancelled})
+    {
+        ScriptedCanFlashTransport transport;
+        transport.Exchange(Request({0x10, 0x5F}), Response({0x50, 0x01}));
+        transport.Exchange(Request({0xAA}));
+        transport.QueueError(error, "identity failure");
+        for (const bytes::Byte subfunction : {0x02, 0x04, 0x06})
+        {
+            transport.Exchange(Request({0x09, subfunction}));
+            transport.QueueError(error, "identity failure");
+        }
+        transport.Exchange(Request({0x10, 0x5F}));
+        transport.QueueError(ErrorKind::kTimeout, "stop after identities");
+        RecordingClock clock;
+        RecordingEventSink events;
+        fastecu::ManualCancellationToken cancellation;
+        SubaruDenso1n83m_4mCanExecutor executor;
+        const auto plan = ReadPlan();
+        ASSERT_THAT(plan, fastecu::testing::IsOk());
+        EXPECT_THAT(executor.Execute(*plan, transport, clock, cancellation, events),
+                    fastecu::testing::IsErr(ErrorKind::kTimeout));
+        EXPECT_TRUE(transport.ScriptConsumed());
+        EXPECT_EQ(transport.ReadTimeouts(),
+                  (std::vector<std::chrono::milliseconds>{200ms, 2000ms, 2000ms, 2000ms, 2000ms, 200ms}));
+    }
+}
+
+TEST(SubaruDenso1n83m_4mCanExecutor, InCarJumpExhaustionAndCancellationPreserveTimeoutPolicy)
+{
+    for (const int outcome : {1, 2})
+    {
+        ScriptedCanFlashTransport transport;
+        ScriptInCarConnect(transport, outcome);
+        if (outcome == 1)
+        {
+            ScriptReadSetup(transport);
+            transport.Exchange(Request(bytes::ComposeBe(bytes::Byte(0xB7), kBlockStart)));
+            transport.QueueError(ErrorKind::kDisconnected, "stop after jump");
+        }
+        RecordingClock clock;
+        RecordingEventSink events;
+        fastecu::ManualCancellationToken cancellation;
+        SubaruDenso1n83m_4mCanExecutor executor;
+        const auto plan = ReadPlan();
+        ASSERT_THAT(plan, fastecu::testing::IsOk());
+        EXPECT_THAT(executor.Execute(*plan, transport, clock, cancellation, events),
+                    fastecu::testing::IsErr(outcome == 1 ? ErrorKind::kDisconnected : ErrorKind::kCancelled));
+        EXPECT_TRUE(transport.ScriptConsumed());
+        const auto& timeouts = transport.ReadTimeouts();
+        const std::size_t count = outcome == 1 ? 11 : 1;
+        const auto end = timeouts.end() - (outcome == 1 ? 3 : 0);
+        EXPECT_THAT(std::vector<std::chrono::milliseconds>(end - count, end), Each(200ms));
+        std::vector<std::chrono::milliseconds> sleeps{500ms};
+        if (outcome == 1)
+            sleeps.insert(sleeps.end(), 10, 100ms);
+        EXPECT_EQ(clock.sleep_calls, sleeps);
+    }
+}
 } // namespace

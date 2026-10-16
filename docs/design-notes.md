@@ -131,6 +131,31 @@ No production interface is introduced by this characterization. Local EcuFlash
 artifacts yielded no tractable mapping to these exact operations; no external
 oracle supports changing short-page acceptance or stop-error precedence.
 
+Denso connection/programming characterization also keeps complete jumps,
+identity preludes, close/checksum operations and reflash orchestration local.
+Bench jumps read once on N83M 1.5M and SH72543 diesel; 4M and SH72531 discard
+even a matching first reply, wait 50 ms and read again. Diesel initially waits
+2000 ms, then uses 200 ms bench or 2000 ms in-car continuation reads; other
+families use 200 ms. All tolerate 50 bench or ten in-car exhausted waits,
+with 100 ms sleeps; transport cancellation errors propagate at the jump.
+Non-fatal identity queries swallow exchange errors, including cancellation
+results; a genuinely cancelled token still prevents subsequent transport I/O.
+Programming indexes whole-image encrypted bytes by wire address minus image
+base, including the N83M nonzero bases. Address-sensitive full transcripts pin
+the first and last 256-byte chunks. Transfer exit retransmits `37` up to six
+times at 200 ms, tolerates exhaustion and settles 100 ms before checksum;
+these retries are distinct from erase's receive-only continuations. Checksum
+accepts immediate positives and pending/final replies: initial/pending timeouts
+are 500/500 ms (1.5M), 500/3000 ms (4M) and 2000/2000 ms (both SH families).
+The legacy pending-first discrepancy remains unresolved externally. ECUFlash
+family-name/constructor references do not map these operations and callers;
+neither addressing nor discarded-read correctness has an independent verdict.
+A separately authorized extraction may consider only the matching bounded wait
+tail or B6/address/chunk exchange, preserving caller policy and independent
+family tests. These observations do not authorize corrections or hardware
+qualification; the [remaining pair evidence](superpowers/specs/2026-10-14-flash-duplication-triage.md)
+records unresolved mappings.
+
 The [ordinary optional M32R SSM exchange](../src/backend/flash/ecu/m32r_ssm_exchange.h)
 is shared by the Subaru Hitachi M32R K-Line ECU, Subaru Mitsubishi M32R K-Line
 ECU, and Subaru TCU Hitachi M32R K-Line executors. Byte-level characterization
