@@ -213,6 +213,17 @@ py_test(
 )
 
 py_test(
+    name = "mutation_test_test",
+    size = "small",
+    srcs = [
+        "scripts/mutation_test.py",
+        "scripts/mutation_test_test.py",
+    ],
+    imports = ["scripts"],
+    main = "scripts/mutation_test_test.py",
+)
+
+py_test(
     name = "test_ownership_test",
     size = "small",
     srcs = [

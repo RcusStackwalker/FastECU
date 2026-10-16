@@ -1,0 +1,24 @@
+# The `mutation` config. Imported by the root .bazelrc.
+#
+# Builds tests for Mull (ADR 0022). Use it through scripts/mutation_test.py,
+# which adds the machine-specific flags: --copt=-fpass-plugin=<Mull's IR
+# frontend> and --action_env=MULL_CONFIG=<workspace>/mull.yml.
+#
+# The plugin must match the compiler that loads it, so CC is the first `clang`
+# on PATH: put Mull's LLVM first (CI: /usr/lib/llvm-22/bin; macOS: the LLVM
+# Mull's macOS release was built against).
+build:mutation --repo_env=CC=clang
+build:mutation --repo_env=CXX=clang++
+# Static links: mull-runner mutates code linked into the test executable.
+build:mutation --dynamic_mode=off
+# Mutants need source locations; -O0 keeps one mutant per source operation.
+build:mutation --copt=-O0
+build:mutation --copt=-g
+build:mutation --copt=-grecord-command-line
+# Coverage lets mull-runner skip the mutants a test binary never executes. Each
+# binary links whole libraries, so without it every uncovered mutant would read
+# as a survivor.
+build:mutation --copt=-fprofile-instr-generate
+build:mutation --copt=-fcoverage-mapping
+build:mutation --linkopt=-fprofile-instr-generate
+build:mutation --linkopt=-fcoverage-mapping

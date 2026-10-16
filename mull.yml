@@ -1,0 +1,11 @@
+# Mull mutation testing (scripts/mutation_test.py, ADR 0022). Read by the
+# compiler plugin through MULL_CONFIG and by mull-runner; the script adds
+# gitDiffRef/gitProjectRoot for a PR's changed lines.
+#
+# Portable code only, never the tests or test helpers that judge the mutants.
+includePaths:
+  - '.*/src/(algorithms|backend)/.*'
+excludePaths:
+  - '.*/external/.*'
+  - '.*_test\.(c|cc|cpp|h)$'
+  - '.*/testing/.*'

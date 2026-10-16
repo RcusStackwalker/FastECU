@@ -33,6 +33,7 @@ is an ADR.
 | [0019](0019-compile-the-protocol-catalog-into-the-backend.md) | Protocol and vehicle data are compiled into the backend |
 | [0020](0020-model-rom-memory-as-a-memory-map.md) | ROM memory is a memory map over the ROM file |
 | [0021](0021-fuzz-portable-code-with-fuzztest.md) | Portable code is fuzzed with FuzzTest under Clang only |
+| [0022](0022-advisory-mutation-testing-with-mull.md) | Mull mutation testing of portable code is advisory |
 
 ## Retired numbers
 
