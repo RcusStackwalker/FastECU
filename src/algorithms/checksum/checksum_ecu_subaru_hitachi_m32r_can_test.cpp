@@ -2,6 +2,7 @@
 
 #include <gtest/gtest.h>
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <ostream>
@@ -90,7 +91,7 @@ constexpr Slots kChecksums3To5 = {0, 0, 1, 1, BalanceFor(1 + 1 + 1)};
 // them (3), slot 4 XORs them (1), and checksum 5 sees the word and all four.
 constexpr Slots kEveryChecksum = {1, 1, 3, 1, BalanceFor(1 + 1 + 1 + 3 + 1)};
 
-const SingleWordCase kSingleWordCases[] = {
+constexpr std::array<SingleWordCase, 10> kSingleWordCases{{
     {"BelowChecksum5", 0x3ffc, kOnlyChecksums3And4},
     {"Checksum5Start", 0x4000, kChecksums3To5},
     {"BelowChecksum1", 0x5ffc, kChecksums3To5},
@@ -102,7 +103,7 @@ const SingleWordCase kSingleWordCases[] = {
     {"TheExcludedWord", 0x10000, {0, 0, 0, 0, BalanceFor(0)}},
     {"AboveTheExcludedWord", 0x10004, kChecksums3To5},
     {"Checksum3End", 0x7ffe4, kChecksums3To5},
-};
+}};
 
 class ChecksumEcuSubaruHitachiM32rCanWindow : public ::testing::TestWithParam<SingleWordCase>
 {
@@ -134,13 +135,13 @@ std::string StaleSlotCaseName(const ::testing::TestParamInfo<StaleSlotCase>& inf
     return std::string(info.param.name);
 }
 
-const StaleSlotCase kStaleSlotCases[] = {
+constexpr std::array<StaleSlotCase, 4> kStaleSlotCases{{
     {"Checksum1", kChecksum1},
     {"Checksum2", kChecksum2},
     // Checksum 3's words stop before its own slot, so it cannot vouch for itself.
     {"Checksum3", kChecksum3},
     {"Checksum4", kChecksum4},
-};
+}};
 
 class ChecksumEcuSubaruHitachiM32rCanStaleSlot : public ::testing::TestWithParam<StaleSlotCase>
 {
@@ -174,7 +175,7 @@ std::uint16_t Checksum6(bytes::ByteView rom)
             xor_all ^= rom[i];
         }
     }
-    return static_cast<std::uint16_t>((sum << 8U) | xor_all);
+    return static_cast<std::uint16_t>((static_cast<unsigned>(sum) << 8U) | xor_all);
 }
 
 TEST(ChecksumPortable, ChecksumEcuSubaruHitachiM32rCanLeavesARomWithEveryChecksumHeldUnchanged)
@@ -191,7 +192,7 @@ TEST(ChecksumPortable, ChecksumEcuSubaruHitachiM32rCanLeavesARomWithEveryChecksu
     // Both halves nonzero, so a slot read as data or a combination that
     // subtracts them shows.
     ASSERT_NE(checksum_6 >> 8U, 0);
-    ASSERT_NE(checksum_6 & 0xffU, 0);
+    ASSERT_NE(checksum_6 & 0xffU, 0U);
     bytes::WriteU16Be(balanced, kChecksum6, checksum_6);
 
     const ChecksumResult result = Rom::CalculateChecksumResult(Rom::Rom(balanced));
