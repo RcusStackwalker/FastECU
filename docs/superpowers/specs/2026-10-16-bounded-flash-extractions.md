@@ -1,8 +1,10 @@
 # Bounded flash extraction follow-ups
 
-Status: design approved by the user on 2026-10-16; the
-[implementation plan](../plans/2026-10-16-bounded-flash-extractions.md) awaits
-review. This proposal does not authorize flash-behavior corrections.
+Status: active, partially implemented series. The design was approved by the
+user on 2026-10-16. P81 is implemented and reviewed; the remaining four
+extractions are tracked in the
+[implementation plan](../plans/2026-10-16-bounded-flash-extractions.md).
+This series does not authorize flash-behavior corrections.
 
 ## Purpose and scope
 

@@ -133,17 +133,21 @@ the family-selected region and constructs its download setup internally; family
 write orchestration calls it directly without forwarding wrappers.
 
 `ReadDensoEncryptedPage` shares only the B7 request with its four-byte
-big-endian address, fatal UDS response handling at a 2000 ms initial timeout,
-and whole-word payload decryption. Seven encrypted payload bytes still produce
-four decrypted bytes; no page-length check is added. The four callers retain
-setup tolerance, top-of-loop cancellation, requested-size progress, SH-family
-1 ms pacing, stop diagnostics and image padding. Independent literal helper
-and family transcripts pin this boundary. The
+big-endian address, fatal UDS positive-response handling at a 2000 ms initial
+timeout with the existing address-bearing diagnostic, and whole-word payload
+decryption. Seven encrypted payload bytes still produce four decrypted bytes;
+no page-length check is added. The four callers retain
+setup tolerance, top-of-loop cancellation, append, requested-size progress,
+stop diagnostics and image padding. Progress advances by the requested 256
+bytes even for short pages. Both SH72531 and SH72543 diesel retain 1 ms pacing
+per page; neither N83M family adds that delay. Independent literal helper and
+family transcripts pin this boundary. The
 [P81 triage record](superpowers/specs/2026-10-14-flash-duplication-triage.md)
 records its extraction and remaining evidence limits. No mapped RomRaider or
 ECUFlash family page-read oracle establishes the timeout, response policy or
-short-page acceptance; this extraction preserves behavior and does not establish
-hardware qualification.
+short-page acceptance, and no external oracle supports changing stop-error
+precedence. This extraction preserves behavior and does not establish hardware
+qualification.
 
 Keep complete OBK probes and best-effort read-stop operations local: their
 observable logs differ (N83M success punctuation; 4M omits the stop-response
@@ -153,24 +157,6 @@ while a raw empty frame fails envelope validation. Probe transport errors and
 cancellation propagate. Stop ignores all exchange failures, including
 cancellation and six-attempt exhaustion; this is characterization, not approval
 to tighten permissiveness or a claim of hardware qualification.
-
-The bounded page request/decrypt operation matches across all four families:
-`B7` plus the four-byte big-endian address, a 2000 ms initial read timeout,
-UDS positive-response checking, then decryption of whole four-byte words.
-Seven encrypted bytes currently yield four decrypted bytes; progress advances
-by the requested 256 bytes even for short pages. Setup, append, progress,
-padding, logs and pacing stay family-owned. Contrary to the task proposal's
-single-family pacing distinction, **both SH72531 and SH72543 diesel wait 1 ms
-per page**; neither N83M family does. Independent family scripts pin both waits.
-A separately authorized extraction may introduce only
-`Result<bytes::Bytes> ReadDensoEncryptedPage(const CanExecutorContext& ctx,
-std::uint32_t address)` in the common module, preserving the existing fatal
-request diagnostic and response policy. It must run the four family suites,
-including short-page, absent/empty, transport-error and cancellation cases,
-with no page-length tightening, progress move, setup change or pacing change.
-No production interface is introduced by this characterization. Local EcuFlash
-artifacts yielded no tractable mapping to these exact operations; no external
-oracle supports changing short-page acceptance or stop-error precedence.
 
 Denso connection/programming characterization also keeps complete jumps,
 identity preludes, close/checksum operations and reflash orchestration local.
