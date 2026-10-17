@@ -1,6 +1,7 @@
 #include "src/algorithms/protocol/testing/byte_matchers.h"
 #include "src/algorithms/protocol/bytes.h"
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <limits>
@@ -60,14 +61,14 @@ void WriteAs(bytes::MutableByteView view, std::size_t offset, std::uint32_t valu
     Write(view, offset, static_cast<Value>(value));
 }
 
-const FixedWidthAccessorCase kFixedWidthAccessors[] = {
+const std::array<FixedWidthAccessorCase, 6> kFixedWidthAccessors{{
     {"U16Be", 2, &ReadAs<&bytes::ReadU16Be>, &WriteAs<&bytes::WriteU16Be, std::uint16_t>, 0x1234, {0x12, 0x34}},
     {"U24Be", 3, &ReadAs<&bytes::ReadU24Be>, &WriteAs<&bytes::WriteU24Be>, 0x123456, {0x12, 0x34, 0x56}},
     {"U32Be", 4, &ReadAs<&bytes::ReadU32Be>, &WriteAs<&bytes::WriteU32Be>, 0x12345678, {0x12, 0x34, 0x56, 0x78}},
     {"U16Le", 2, &ReadAs<&bytes::ReadU16Le>, &WriteAs<&bytes::WriteU16Le, std::uint16_t>, 0x3412, {0x12, 0x34}},
     {"U24Le", 3, &ReadAs<&bytes::ReadU24Le>, &WriteAs<&bytes::WriteU24Le>, 0x563412, {0x12, 0x34, 0x56}},
     {"U32Le", 4, &ReadAs<&bytes::ReadU32Le>, &WriteAs<&bytes::WriteU32Le>, 0x78563412, {0x12, 0x34, 0x56, 0x78}},
-};
+}};
 
 class FixedWidthAccessor : public ::testing::TestWithParam<FixedWidthAccessorCase>
 {
@@ -82,6 +83,26 @@ TEST_P(FixedWidthAccessor, ReadsTheLastWholeValue)
     std::ranges::copy(c.encoded, buffer.begin() + std::ptrdiff_t(kViewSize - c.width));
 
     EXPECT_EQ(c.read(bytes::ByteView(buffer).first(kViewSize), kViewSize - c.width), c.value);
+}
+
+TEST_P(FixedWidthAccessor, ReadsAValueThatFillsTheView)
+{
+    const FixedWidthAccessorCase& c = GetParam();
+    bytes::Bytes buffer = GuardedBuffer();
+    std::ranges::copy(c.encoded, buffer.begin());
+
+    EXPECT_EQ(c.read(bytes::ByteView(buffer).first(c.width), 0), c.value);
+}
+
+// The bytes past the view hold the rest of the value, so a reader that
+// strays past the view's end reads it.
+TEST_P(FixedWidthAccessor, ReadsZeroFromAViewShorterThanTheValue)
+{
+    const FixedWidthAccessorCase& c = GetParam();
+    bytes::Bytes buffer = GuardedBuffer();
+    std::ranges::copy(c.encoded, buffer.begin());
+
+    EXPECT_EQ(c.read(bytes::ByteView(buffer).first(c.width - 1), 0), 0U);
 }
 
 TEST_P(FixedWidthAccessor, ReadsZeroOnePastTheLastWholeValue)
@@ -112,6 +133,28 @@ TEST_P(FixedWidthAccessor, WritesTheLastWholeValue)
     c.write(bytes::MutableByteView(buffer).first(kViewSize), kViewSize - c.width, c.value);
 
     EXPECT_EQ(buffer, expected);
+}
+
+TEST_P(FixedWidthAccessor, WritesAValueThatFillsTheView)
+{
+    const FixedWidthAccessorCase& c = GetParam();
+    bytes::Bytes buffer = GuardedBuffer();
+    bytes::Bytes expected = GuardedBuffer();
+    std::ranges::copy(c.encoded, expected.begin());
+
+    c.write(bytes::MutableByteView(buffer).first(c.width), 0, c.value);
+
+    EXPECT_EQ(buffer, expected);
+}
+
+TEST_P(FixedWidthAccessor, LeavesTheBufferUntouchedInAViewShorterThanTheValue)
+{
+    const FixedWidthAccessorCase& c = GetParam();
+    bytes::Bytes buffer = GuardedBuffer();
+
+    c.write(bytes::MutableByteView(buffer).first(c.width - 1), 0, c.value);
+
+    EXPECT_EQ(buffer, GuardedBuffer());
 }
 
 TEST_P(FixedWidthAccessor, LeavesTheBufferUntouchedOnePastTheLastWholeValue)
