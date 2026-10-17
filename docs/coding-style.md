@@ -584,22 +584,20 @@ The scan covers the whole scope rather than only the filenames passed by the
 hook runner. Non-complexity metrics have
 effectively unbounded integer limits because Lizard's CLI requires integers.
 
-Existing complexity violations use native selective forgiveness inside the
-affected function:
+No function is exempt: a function over the limit is refactored. Lizard's native
+forgiveness marker is reserved for a confirmed Lizard parser inaccuracy, with a
+comment recording it:
 
 ```cpp
 void Example()
 {
     // #lizard forgives(cyclomatic_complexity)
-    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
+    // Lizard miscounts <construct>; its actual complexity is within the limit.
 }
 ```
 
-Forgiveness suppresses the complexity warning for the entire function, without
-a score cap or automatic retirement check. Removing these markers is
-[high-priority technical debt](tech-debt.md#p1-remove-lizard-forgiveness-markers).
-After adoption, new markers require review and a recorded reason for a Lizard
-parser inaccuracy; genuine complexity increases require refactoring.
+A marker suppresses the warning for the whole function, with no score cap or
+automatic retirement check, so review rejects one without that reason.
 
 Lizard uses a partial parser and supplements the existing analysis and review
 gates. Cyclomatic complexity is distinct from SonarCloud's cognitive complexity;
