@@ -63,6 +63,9 @@ jobs:
 
       - uses: ./.github/actions/mull-linux
 
+      - name: Record runner capacity
+        run: lscpu
+
       - name: Run Mull over this shard's portable tests
         env:
           SCOPE: ${{ inputs.scope }}

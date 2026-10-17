@@ -138,7 +138,8 @@ python3 scripts/mutation_test.py --schedule bazel/mutation-schedule.json \
    artifact's `_performance.json` files record revision, run ID, each slice's
    measured seconds and completion status, including the failing slice on a
    runner error. Setup/upload and final workflow duration come from Actions
-   job/step timestamps.
+   job/step timestamps. The runner-capacity step records the CPU model and
+   logical CPU count; compare these too when execution speeds differ.
 
 3. Compare identical production sources and scope. Investigate missing
    mutant identities, lost direct kills, additional survivors or new timeouts

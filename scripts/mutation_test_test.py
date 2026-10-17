@@ -502,9 +502,13 @@ class OrchestrationTest(unittest.TestCase):
             tools.mkdir()
             bazel = tools / "bazel"
             bazel.write_text(
-                """import json, sys
+                """import json, pathlib, sys
 if sys.argv[1] == "query":
     print("//a:t")
+elif sys.argv[1] == "build":
+    prefix = "--action_env=MULL_CONFIG="
+    config = next(arg.removeprefix(prefix) for arg in sys.argv if arg.startswith(prefix))
+    assert pathlib.Path(config).parent.resolve() == pathlib.Path(__file__).resolve().parent.parent
 elif sys.argv[1] == "cquery":
     print(json.dumps({"label": "//a:t", "env": {"FIXTURE": "available"}}))
 """
@@ -529,8 +533,12 @@ mutant = {"mutatorName": "m", "replacement": "r", "status": "Killed",
             # Windows cannot execute an extensionless script via a shebang.
             driver = root / "scripts/drive_mutation.py"
             driver.write_text(
-                """import pathlib, sys
-import mutation_test as mt
+                """import importlib.util, pathlib, sys
+source = pathlib.Path(__file__).with_name("mutation_test.py")
+spec = importlib.util.spec_from_file_location("mutation_fixture", source)
+mt = importlib.util.module_from_spec(spec)
+sys.modules[spec.name] = mt
+spec.loader.exec_module(mt)
 run = mt._run
 def launch(command, root, **kwargs):
     tool = pathlib.Path(__file__).parent.parent / "tools" / pathlib.Path(command[0]).name
@@ -545,6 +553,8 @@ sys.exit(mt.main())
             schedule.write_text(json.dumps({"tests": {"//a:t": {"seconds": 10, "test_shards": 2}}}))
             environment = {
                 **os.environ,
+                "PYTHONSAFEPATH": "1",
+                "PYTHONPATH": str(Path(mt.__file__).parent),
                 "MULL_RUNNER": str(runner),
                 "MULL_IR_FRONTEND": str(plugin),
             }
