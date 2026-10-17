@@ -274,35 +274,34 @@ Status RequireSsm(const bytes::Bytes& reply, std::size_t min_size, std::uint8_t 
     return {};
 }
 
-// connect_bootloader():159-323. Returns the ECU ID hex (legacy :184-192).
-Result<std::string> ConnectBootloader(IKlineFlashTransport& transport, IClock& clock,
-                                      const ICancellationToken& cancellation, IEventSink& events,
-                                      const SubaruDensoSh705xKlinePlan& plan)
+// One SSM step: the exchange, then the legacy reply check.
+Result<bytes::Bytes> SsmStep(IKlineFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
+                             IEventSink& events, const SubaruDensoSh705xKlinePlan& plan, bytes::ByteView payload,
+                             std::string_view what, std::size_t min_size, std::uint8_t byte4,
+                             std::optional<std::uint8_t> byte5 = std::nullopt)
 {
-    // #lizard forgives(cyclomatic_complexity)
-    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
-    events.Log(LogLevel::kInfo, "No response from kernel, initialising ECU..."); // :159
-    // :161-162. Legacy ignored this result; a failed baud change stops here.
-    if (Status baud = ChangeBaud(transport, cancellation, kSsmBaud); !baud.has_value())
+    Result<bytes::Bytes> reply = SsmExchange(transport, clock, cancellation, events, plan, payload, kReadTimeout, what);
+    if (!reply.has_value())
     {
-        return std::unexpected(baud.error());
+        return reply;
     }
-    if (Status slept = SleepFor(clock, cancellation, kBaudSettle); !slept.has_value())
+    if (Status ok = RequireSsm(*reply, min_size, byte4, byte5, events); !ok.has_value())
     {
-        return std::unexpected(slept.error());
+        return std::unexpected(ok.error());
     }
+    return reply;
+}
 
-    // :164-182, send_sid_bf_ssm_init():1373-1378.
+// :164-192, send_sid_bf_ssm_init():1373-1378.
+Result<std::string> RequestEcuId(IKlineFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
+                                 IEventSink& events, const SubaruDensoSh705xKlinePlan& plan)
+{
     events.Log(LogLevel::kInfo, "Requesting ECU ID");
     Result<bytes::Bytes> bf =
-        SsmExchange(transport, clock, cancellation, events, plan, bytes::Bytes{0xBF}, kReadTimeout, "ECU ID request");
+        SsmStep(transport, clock, cancellation, events, plan, bytes::Bytes{0xBF}, "ECU ID request", 5, 0xFF);
     if (!bf.has_value())
     {
         return std::unexpected(bf.error());
-    }
-    if (Status ok = RequireSsm(*bf, 5, 0xFF, std::nullopt, events); !ok.has_value())
-    {
-        return std::unexpected(ok.error());
     }
     // Correction: legacy checked only `> 4`, then removed 8 bytes and kept 5
     // (:184-185); require all 13 before slicing. The positive-reply check
@@ -314,49 +313,46 @@ Result<std::string> ConnectBootloader(IKlineFlashTransport& transport, IClock& c
     }
     std::string ecu_id = EcuIdHex(bytes::ByteView(*bf).subspan(8, 5));
     events.Log(LogLevel::kInfo, std::format("ECU ID: {}", ecu_id)); // :192
+    return ecu_id;
+}
 
-    // :198-217, send_sid_81_start_communication():1393-1398.
+// :198-238, send_sid_81_start_communication():1393-1398 and
+// send_sid_83_request_timings():1413-1419.
+Status StartCommunication(IKlineFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
+                          IEventSink& events, const SubaruDensoSh705xKlinePlan& plan)
+{
     events.Log(LogLevel::kInfo, "Requesting to start communication");
-    Result<bytes::Bytes> start = SsmExchange(transport, clock, cancellation, events, plan, bytes::Bytes{0x81},
-                                             kReadTimeout, "start communication");
-    if (!start.has_value())
+    if (auto start =
+            SsmStep(transport, clock, cancellation, events, plan, bytes::Bytes{0x81}, "start communication", 5, 0xC1);
+        !start.has_value())
     {
         return std::unexpected(start.error());
     }
-    if (Status ok = RequireSsm(*start, 5, 0xC1, std::nullopt, events); !ok.has_value())
-    {
-        return std::unexpected(ok.error());
-    }
     events.Log(LogLevel::kInfo, "Start communication ok");
-
-    // :219-238, send_sid_83_request_timings():1413-1419.
     events.Log(LogLevel::kInfo, "Requesting timings params");
-    Result<bytes::Bytes> timings = SsmExchange(transport, clock, cancellation, events, plan, bytes::Bytes{0x83, 0x00},
-                                               kReadTimeout, "timing parameters");
-    if (!timings.has_value())
+    if (auto timings = SsmStep(transport, clock, cancellation, events, plan, bytes::Bytes{0x83, 0x00},
+                               "timing parameters", 5, 0xC3);
+        !timings.has_value())
     {
         return std::unexpected(timings.error());
     }
-    if (Status ok = RequireSsm(*timings, 5, 0xC3, std::nullopt, events); !ok.has_value())
-    {
-        return std::unexpected(ok.error());
-    }
     events.Log(LogLevel::kInfo, "Timing parameters ok");
+    return {};
+}
 
-    // :240-259, send_sid_27_request_seed():1434-1440.
+// :240-300, send_sid_27_request_seed():1434-1440 and
+// send_sid_27_send_seed_key():1455-1462.
+Status UnlockSecurity(IKlineFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
+                      IEventSink& events, const SubaruDensoSh705xKlinePlan& plan)
+{
     events.Log(LogLevel::kInfo, "Requesting seed");
-    Result<bytes::Bytes> seed_reply = SsmExchange(transport, clock, cancellation, events, plan,
-                                                  bytes::Bytes{0x27, 0x01}, kReadTimeout, "seed request");
+    Result<bytes::Bytes> seed_reply =
+        SsmStep(transport, clock, cancellation, events, plan, bytes::Bytes{0x27, 0x01}, "seed request", 10, 0x67, 0x01);
     if (!seed_reply.has_value())
     {
         return std::unexpected(seed_reply.error());
     }
-    if (Status ok = RequireSsm(*seed_reply, 10, 0x67, 0x01, events); !ok.has_value())
-    {
-        return std::unexpected(ok.error());
-    }
     events.Log(LogLevel::kInfo, "Seed request ok");
-
     // :261-279 -- seed at(6..9); ECUTEK transformation for "_ecutek" methods.
     const bytes::ByteView seed = bytes::ByteView(*seed_reply).subspan(6, 4);
     events.Log(LogLevel::kInfo, std::format("Received seed: {}", bytes::ToHex(seed)));
@@ -364,32 +360,52 @@ Result<std::string> ConnectBootloader(IKlineFlashTransport& transport, IClock& c
                                  ? DensoSh705xKlineEcutekSeedKey(seed)
                                  : DensoSh705xKlineStockSeedKey(seed);
     events.Log(LogLevel::kInfo, std::format("Calculated seed key: {}", bytes::ToHex(key)));
-
-    // :281-300, send_sid_27_send_seed_key():1455-1462.
     events.Log(LogLevel::kInfo, "Sending seed key to ECU");
-    Result<bytes::Bytes> key_reply = SsmExchange(transport, clock, cancellation, events, plan,
-                                                 ComposeBe(0x27_b, 0x02_b, key), kReadTimeout, "seed key");
-    if (!key_reply.has_value())
+    if (auto key_reply = SsmStep(transport, clock, cancellation, events, plan, ComposeBe(0x27_b, 0x02_b, key),
+                                 "seed key", 6, 0x67, 0x02);
+        !key_reply.has_value())
     {
         return std::unexpected(key_reply.error());
     }
-    if (Status ok = RequireSsm(*key_reply, 6, 0x67, 0x02, events); !ok.has_value())
-    {
-        return std::unexpected(ok.error());
-    }
     events.Log(LogLevel::kInfo, "Seed key ok");
+    return {};
+}
 
+// connect_bootloader():159-323. Returns the ECU ID hex (legacy :184-192).
+Result<std::string> ConnectBootloader(IKlineFlashTransport& transport, IClock& clock,
+                                      const ICancellationToken& cancellation, IEventSink& events,
+                                      const SubaruDensoSh705xKlinePlan& plan)
+{
+    events.Log(LogLevel::kInfo, "No response from kernel, initialising ECU..."); // :159
+    // :161-162. Legacy ignored this result; a failed baud change stops here.
+    if (Status baud = ChangeBaud(transport, cancellation, kSsmBaud); !baud.has_value())
+    {
+        return std::unexpected(baud.error());
+    }
+    if (Status slept = SleepFor(clock, cancellation, kBaudSettle); !slept.has_value())
+    {
+        return std::unexpected(slept.error());
+    }
+    Result<std::string> ecu_id = RequestEcuId(transport, clock, cancellation, events, plan);
+    if (!ecu_id.has_value())
+    {
+        return ecu_id;
+    }
+    if (Status started = StartCommunication(transport, clock, cancellation, events, plan); !started.has_value())
+    {
+        return std::unexpected(started.error());
+    }
+    if (Status unlocked = UnlockSecurity(transport, clock, cancellation, events, plan); !unlocked.has_value())
+    {
+        return std::unexpected(unlocked.error());
+    }
     // :302-321, send_sid_10_start_diagnostic():1477-1484.
     events.Log(LogLevel::kInfo, "Set session mode");
-    Result<bytes::Bytes> session = SsmExchange(transport, clock, cancellation, events, plan,
-                                               bytes::Bytes{0x10, 0x85, 0x02}, kReadTimeout, "session mode");
-    if (!session.has_value())
+    if (auto session = SsmStep(transport, clock, cancellation, events, plan, bytes::Bytes{0x10, 0x85, 0x02},
+                               "session mode", 5, 0x50);
+        !session.has_value())
     {
         return std::unexpected(session.error());
-    }
-    if (Status ok = RequireSsm(*session, 5, 0x50, std::nullopt, events); !ok.has_value())
-    {
-        return std::unexpected(ok.error());
     }
     events.Log(LogLevel::kInfo, "Succesfully set to programming session");
     return ecu_id;

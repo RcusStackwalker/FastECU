@@ -140,12 +140,10 @@ void LogEcuId(Session& s, std::string_view id)
     s.events.Log(LogLevel::kInfo, std::format("ECU ID: {}", id));
 }
 
-Result<FlashExecutionResult> ReadRom(Session& s, const FlashPlan& plan)
+// read_mem() :101-104: probe at 38400 in case the ECU is already in read mode.
+// Returns its SSM init reply, or nothing when it must be woken cold.
+Result<std::optional<bytes::Bytes>> ProbeReadMode(Session& s)
 {
-    // #lizard forgives(cyclomatic_complexity)
-    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
-    // read_mem() :101-104: probe at 38400 in case the ECU is already in read
-    // mode. A mismatch is logged and the cold init follows, as legacy did.
     if (Status baud = s.transport.SetBaud(kReadBaud); !baud.has_value())
     {
         return std::unexpected(baud.error());
@@ -160,49 +158,50 @@ Result<FlashExecutionResult> ReadRom(Session& s, const FlashPlan& plan)
     {
         return std::unexpected(probe.error());
     }
-    std::optional<bytes::Bytes> init;
     if (probe->has_value() && HasSid(**probe, s.wire, 0xff) && CarriesEcuId(**probe))
     {
-        init = std::move(**probe);
+        return probe;
     }
-    else
-    {
-        s.events.Log(LogLevel::kInfo, "Read mode not active, initialising ECU...");
-        // read_mem() :141-216.
-        if (Status baud = s.transport.SetBaud(kColdBaud); !baud.has_value())
-        {
-            return std::unexpected(baud.error());
-        }
-        auto cold = ExpectSsmInit(s);
-        if (!cold.has_value())
-        {
-            return std::unexpected(cold.error());
-        }
-        init = std::move(*cold);
-        // send_sid_b8_change_baudrate_38400() :671-688.
-        auto changed =
-            ExchangeExpect(s, ComposeBe(0xb8_b, 0x00_b, 0x00_b, 0x00_b, 0x75_b), kTimeout, 0xf8, "baud rate change");
-        if (!changed.has_value())
-        {
-            return std::unexpected(changed.error());
-        }
-        if (Status baud = s.transport.SetBaud(kReadBaud); !baud.has_value())
-        {
-            return std::unexpected(baud.error());
-        }
-        s.events.Log(LogLevel::kInfo, "Requesting ECU ID, checking if baudrate change was ok");
-        auto confirmed = ExpectSsmInit(s);
-        if (!confirmed.has_value())
-        {
-            return std::unexpected(confirmed.error());
-        }
-    }
-    const std::string id = EcuIdHex(*init);
-    LogEcuId(s, id);
+    return std::nullopt;
+}
 
-    // read_mem() :219-318. Every page must be a complete, checksummed E0
-    // frame carrying exactly one page; legacy appended any E0 reply.
-    const MemoryRegion region = plan.TransferRegion();
+// read_mem() :141-216: SSM init at the cold baud, then switch to 38400 and
+// confirm. Returns the cold init reply.
+Result<bytes::Bytes> InitReadMode(Session& s)
+{
+    if (Status baud = s.transport.SetBaud(kColdBaud); !baud.has_value())
+    {
+        return std::unexpected(baud.error());
+    }
+    auto cold = ExpectSsmInit(s);
+    if (!cold.has_value())
+    {
+        return std::unexpected(cold.error());
+    }
+    // send_sid_b8_change_baudrate_38400() :671-688.
+    auto changed =
+        ExchangeExpect(s, ComposeBe(0xb8_b, 0x00_b, 0x00_b, 0x00_b, 0x75_b), kTimeout, 0xf8, "baud rate change");
+    if (!changed.has_value())
+    {
+        return std::unexpected(changed.error());
+    }
+    if (Status baud = s.transport.SetBaud(kReadBaud); !baud.has_value())
+    {
+        return std::unexpected(baud.error());
+    }
+    s.events.Log(LogLevel::kInfo, "Requesting ECU ID, checking if baudrate change was ok");
+    auto confirmed = ExpectSsmInit(s);
+    if (!confirmed.has_value())
+    {
+        return std::unexpected(confirmed.error());
+    }
+    return cold;
+}
+
+// read_mem() :219-318. Every page must be a complete, checksummed E0 frame
+// carrying exactly one page; legacy appended any E0 reply.
+Result<bytes::Bytes> ReadPages(Session& s, const MemoryRegion& region)
+{
     const auto pages = static_cast<int>(region.length / kPage);
     bytes::Bytes rom;
     rom.reserve(region.length);
@@ -227,7 +226,35 @@ Result<FlashExecutionResult> ReadRom(Session& s, const FlashPlan& plan)
             return std::unexpected(paced.error());
         }
     }
-    return FlashExecutionResult{.operation = FlashOperation::kRead, .read_bytes = std::move(rom), .rom_id = id + "_"};
+    return rom;
+}
+
+Result<FlashExecutionResult> ReadRom(Session& s, const FlashPlan& plan)
+{
+    // A mismatch at 38400 is logged and the cold init follows, as legacy did.
+    Result<std::optional<bytes::Bytes>> init = ProbeReadMode(s);
+    if (!init.has_value())
+    {
+        return std::unexpected(init.error());
+    }
+    if (!init->has_value())
+    {
+        s.events.Log(LogLevel::kInfo, "Read mode not active, initialising ECU...");
+        Result<bytes::Bytes> cold = InitReadMode(s);
+        if (!cold.has_value())
+        {
+            return std::unexpected(cold.error());
+        }
+        *init = std::move(*cold);
+    }
+    const std::string id = EcuIdHex(**init);
+    LogEcuId(s, id);
+    Result<bytes::Bytes> rom = ReadPages(s, plan.TransferRegion());
+    if (!rom.has_value())
+    {
+        return std::unexpected(rom.error());
+    }
+    return FlashExecutionResult{.operation = FlashOperation::kRead, .read_bytes = std::move(*rom), .rom_id = id + "_"};
 }
 
 bool IsExactReply(bytes::ByteView frame, const SubaruUnisiaJecsM32rKlinePlan& wire, bytes::ByteView payload)
@@ -312,29 +339,8 @@ Status EnterFlashMode(Session& s, std::uint32_t rom_size)
     return s.transport.SetBaud(kWriteBaud);
 }
 
-Status WriteRom(Session& s, const FlashPlan& plan)
+Status EraseFlash(Session& s)
 {
-    // #lizard forgives(cyclomatic_complexity)
-    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
-    const bytes::Bytes& image = plan.ImageOrEmpty();
-    const std::uint32_t rom_size = plan.TransferRegion().length;
-    if (Status entered = EnterFlashMode(s, rom_size); !entered.has_value())
-    {
-        return entered;
-    }
-
-    // write_mem() :440-441. The operator confirmed external VPP before the
-    // run when the adapter cannot supply it.
-    if (Status cancelled = CancelledIfRequested(s.cancellation, "before programming voltage"); !cancelled.has_value())
-    {
-        return cancelled;
-    }
-    s.events.Log(LogLevel::kDebug, "Set programming voltage +12v to Line End Check 1");
-    if (Status raised = s.transport.EnableProgrammingVoltageLine(); !raised.has_value())
-    {
-        return raised;
-    }
-
     // send_sid_af_erase_memory_block() :716-731 sends without reading.
     s.events.Log(LogLevel::kInfo, "Sending request to erase flash");
     if (Status sent = Send(s, ComposeBe(0xaf_b, 0x31_b)); !sent.has_value())
@@ -362,44 +368,79 @@ Status WriteRom(Session& s, const FlashPlan& plan)
     {
         s.events.Log(LogLevel::kDebug, std::format("Discarded after erase: {}", bytes::ToHex(**trailing)));
     }
+    return {};
+}
 
-    // write_mem() :535-625.
-    const auto blocks = static_cast<int>(rom_size / kPage);
+// write_mem() :535-625: one XOR-encoded block. The final AF 69 block may go
+// unanswered.
+Status WriteBlock(Session& s, const bytes::Bytes& image, int block, int blocks)
+{
     const bytes::Bytes done = ComposeBe(0xef_b, 0x52_b);
+    const std::uint32_t address = static_cast<std::uint32_t>(block) * kPage;
+    const bool last = block == blocks - 1;
+    bytes::Bytes data(image.begin() + address, image.begin() + address + kPage);
+    for (bytes::Byte& value : data)
+    {
+        value ^= kBlockXor;
+    }
+    if (Status sent = Send(s, ComposeBe(0xaf_b, last ? 0x69_b : 0x61_b, U24(address), bytes::ByteView(data)));
+        !sent.has_value())
+    {
+        return sent;
+    }
+    auto response = Receive(s, kExtraLongTimeout);
+    if (!response.has_value())
+    {
+        return std::unexpected(response.error());
+    }
+    if (!response->has_value())
+    {
+        if (!last)
+        {
+            return Fail(ErrorKind::kTimeout, std::format("no response to block write at 0x{:06X}", address));
+        }
+        // Legacy never read a reply to AF 69 (:564); its shape is unknown.
+        s.events.Log(LogLevel::kWarning, "No reply to the final block; treating the write as complete");
+    }
+    else if (!IsExactReply(**response, s.wire, done))
+    {
+        return Fail(ErrorKind::kBadResponse,
+                    std::format("block write at 0x{:06X} failed: {}", address, bytes::ToHex(**response)));
+    }
+    s.events.Progress(block + 1, blocks);
+    return {};
+}
+
+Status WriteRom(Session& s, const FlashPlan& plan)
+{
+    const bytes::Bytes& image = plan.ImageOrEmpty();
+    const std::uint32_t rom_size = plan.TransferRegion().length;
+    if (Status entered = EnterFlashMode(s, rom_size); !entered.has_value())
+    {
+        return entered;
+    }
+    // write_mem() :440-441. The operator confirmed external VPP before the
+    // run when the adapter cannot supply it.
+    if (Status cancelled = CancelledIfRequested(s.cancellation, "before programming voltage"); !cancelled.has_value())
+    {
+        return cancelled;
+    }
+    s.events.Log(LogLevel::kDebug, "Set programming voltage +12v to Line End Check 1");
+    if (Status raised = s.transport.EnableProgrammingVoltageLine(); !raised.has_value())
+    {
+        return raised;
+    }
+    if (Status erased = EraseFlash(s); !erased.has_value())
+    {
+        return erased;
+    }
+    const auto blocks = static_cast<int>(rom_size / kPage);
     for (int block = 0; block < blocks; ++block)
     {
-        const std::uint32_t address = static_cast<std::uint32_t>(block) * kPage;
-        const bool last = block == blocks - 1;
-        bytes::Bytes data(image.begin() + address, image.begin() + address + kPage);
-        for (bytes::Byte& value : data)
+        if (Status written = WriteBlock(s, image, block, blocks); !written.has_value())
         {
-            value ^= kBlockXor;
+            return written;
         }
-        if (Status sent = Send(s, ComposeBe(0xaf_b, last ? 0x69_b : 0x61_b, U24(address), bytes::ByteView(data)));
-            !sent.has_value())
-        {
-            return sent;
-        }
-        auto response = Receive(s, kExtraLongTimeout);
-        if (!response.has_value())
-        {
-            return std::unexpected(response.error());
-        }
-        if (!response->has_value())
-        {
-            if (!last)
-            {
-                return Fail(ErrorKind::kTimeout, std::format("no response to block write at 0x{:06X}", address));
-            }
-            // Legacy never read a reply to AF 69 (:564); its shape is unknown.
-            s.events.Log(LogLevel::kWarning, "No reply to the final block; treating the write as complete");
-        }
-        else if (!IsExactReply(**response, s.wire, done))
-        {
-            return Fail(ErrorKind::kBadResponse,
-                        std::format("block write at 0x{:06X} failed: {}", address, bytes::ToHex(**response)));
-        }
-        s.events.Progress(block + 1, blocks);
     }
     s.events.Log(LogLevel::kInfo, "ROM written to flash.");
     return {};

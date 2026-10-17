@@ -48,11 +48,38 @@ Status WriteExact(IKlineFlashTransport& transport, bytes::ByteView request, bool
     return *written == request.size() ? Status{} : Fail(ErrorKind::kDisconnected, "short K-Line write");
 }
 
+// Consumes buffered [high][low][value] tuples until one answers `address`.
+// Unsynchronized, it slides a byte at a time; after ten unmatched tuples it
+// drops back to sliding.
+std::optional<bytes::Byte> TakeAddressedValue(RawReadState& state, std::uint16_t address)
+{
+    const auto high = static_cast<bytes::Byte>(address >> 8U);
+    const auto low = static_cast<bytes::Byte>(address);
+    while (state.pending.size() >= 3U)
+    {
+        ++state.tuples_since_sync;
+        if (state.pending[0] == high && state.pending[1] == low)
+        {
+            const bytes::Byte value = state.pending[2];
+            state.pending.erase(state.pending.begin(), state.pending.begin() + 3);
+            state.synchronized = true;
+            state.tuples_since_sync = 0;
+            return value;
+        }
+        const std::size_t discard = state.synchronized ? 3U : 1U;
+        state.pending.erase(state.pending.begin(), state.pending.begin() + static_cast<std::ptrdiff_t>(discard));
+        if (state.tuples_since_sync > 10U)
+        {
+            state.synchronized = false;
+            state.tuples_since_sync = 0;
+        }
+    }
+    return std::nullopt;
+}
+
 Result<bytes::Byte> ReadAddress(std::uint16_t address, RawReadState& state, IKlineFlashTransport& transport,
                                 IClock& clock, const ICancellationToken& cancellation)
 {
-    // #lizard forgives(cyclomatic_complexity)
-    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     const bytes::Bytes request = RequestFor(address);
     if (auto cancelled = CancelledIfRequested(cancellation); !cancelled.has_value())
     {
@@ -67,8 +94,6 @@ Result<bytes::Byte> ReadAddress(std::uint16_t address, RawReadState& state, IKli
         return std::unexpected(slept.error());
     }
 
-    const auto high = static_cast<bytes::Byte>(address >> 8U);
-    const auto low = static_cast<bytes::Byte>(address);
     unsigned read_quanta = 0;
     while (true)
     {
@@ -76,24 +101,9 @@ Result<bytes::Byte> ReadAddress(std::uint16_t address, RawReadState& state, IKli
         {
             return std::unexpected(cancelled.error());
         }
-        while (state.pending.size() >= 3U)
+        if (const std::optional<bytes::Byte> value = TakeAddressedValue(state, address); value.has_value())
         {
-            ++state.tuples_since_sync;
-            if (state.pending[0] == high && state.pending[1] == low)
-            {
-                const bytes::Byte value = state.pending[2];
-                state.pending.erase(state.pending.begin(), state.pending.begin() + 3);
-                state.synchronized = true;
-                state.tuples_since_sync = 0;
-                return value;
-            }
-            const std::size_t discard = state.synchronized ? 3U : 1U;
-            state.pending.erase(state.pending.begin(), state.pending.begin() + static_cast<std::ptrdiff_t>(discard));
-            if (state.tuples_since_sync > 10U)
-            {
-                state.synchronized = false;
-                state.tuples_since_sync = 0;
-            }
+            return *value;
         }
         if (read_quanta == kReadsBeforeRetry)
         {
