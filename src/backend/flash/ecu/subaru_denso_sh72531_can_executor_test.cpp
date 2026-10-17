@@ -750,46 +750,14 @@ TEST(SubaruDensoSh72531CanExecutor, ShortPagesAdvanceByRequestedSizeAndStopIsBes
         }
         const auto plan = ReadPlan();
         ASSERT_THAT(plan, fastecu::testing::IsOk());
-        auto [clock, events, cancellation, result] =
-            ExecutorRun<SubaruDensoSh72531CanExecutor, fastecu::RecordingClock>(*plan, transport);
-        ASSERT_THAT(result, fastecu::testing::IsOk());
-        ASSERT_TRUE(result->read_bytes.has_value());
-        constexpr std::size_t kPages = kBlockLength / kPageSize;
-        constexpr std::size_t kLead = 0x8000;
-        ASSERT_EQ(result->read_bytes->size(), kLead + kPages * 4 + 0x100);
-        EXPECT_THAT(bytes::ByteView(*result->read_bytes).first(kLead), Each(0xFF));
-        EXPECT_THAT(bytes::ByteView(*result->read_bytes).last(0x100), Each(0xFF));
-        for (std::size_t page = 0; page < kPages; ++page)
-        {
-            SCOPED_TRACE(page);
-            EXPECT_THAT(bytes::ByteView(*result->read_bytes).subspan(kLead + page * 4, 4),
-                        testing::ElementsAre(0x12, 0x34, 0x56, 0x78));
-        }
-        std::vector<int> read_progress;
-        for (const auto& event : events.phase_progress_calls)
-        {
-            if (event.phase_name == "Read ROM")
-            {
-                read_progress.push_back(event.done);
-            }
-        }
-        ASSERT_EQ(read_progress.size(), kPages + 2);
-        EXPECT_EQ(read_progress.front(), 0);
-        for (std::size_t page = 1; page <= kPages; ++page)
-        {
-            SCOPED_TRACE(page);
-            EXPECT_EQ(read_progress[page], static_cast<int>(page == kPages ? kBlockLength - 1 : page * kPageSize));
-        }
-        EXPECT_EQ(read_progress.back(), static_cast<int>(kBlockLength));
-        EXPECT_TRUE(transport.ScriptConsumed());
-        EXPECT_THAT(events.logs, testing::Contains(testing::Pair(fastecu::LogLevel::kInfo, "OBK is active!")));
-        EXPECT_EQ(clock.sleep_calls, (std::vector<std::chrono::milliseconds>(kPages, 1ms)));
-        EXPECT_EQ(transport.ReadTimeouts().back(), 500ms);
-        if (!exhausted)
-        {
-            EXPECT_THAT(events.logs,
-                        testing::Contains(testing::Pair(fastecu::LogLevel::kInfo, "Stop request response: 77 ")));
-        }
+        ExpectShortPageRead<SubaruDensoSh72531CanExecutor>(
+            *plan, transport, exhausted,
+            {.block_length = kBlockLength,
+             .page_size = kPageSize,
+             .lead_pad = 0x8000,
+             .obk_active_log = "OBK is active!",
+             .sleeps = std::vector<std::chrono::milliseconds>(kBlockLength / kPageSize, 1ms),
+             .stop_log = StopResponseLog::kLoggedWhenAcknowledged});
     }
 }
 
