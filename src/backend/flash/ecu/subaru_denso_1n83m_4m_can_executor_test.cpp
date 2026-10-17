@@ -299,13 +299,12 @@ void ScriptEraseMemory(ScriptedCanFlashTransport& t)
     t.Exchange(Request({0x31, 0x01, 0x02, 0x01, 0xFF, 0xFF, 0xFF, 0xFF}));
 }
 
-// The 0xB6 write-chunk sweep for block 1 (legacy reflash_block). `rom` is the
+// The 0xB6 write-chunk sweep for block 1 (legacy reflash_block). `encrypted` is the
 // whole 0x3E4000 plan image, encrypted once, and indexed from kImageStart --
 // so chunk 0 carries encrypted[0x10000..0x10100).
-void ScriptReflashChunks(ScriptedCanFlashTransport& t, bytes::ByteView rom)
+void ScriptReflashChunks(ScriptedCanFlashTransport& t, bytes::ByteView encrypted)
 {
     const auto section = t.Section("reflash chunks");
-    const bytes::Bytes encrypted = ToWire(rom);
     for (std::uint32_t offset = 0; offset < kBlockLength; offset += 256)
     {
         const std::uint32_t addr = kBlockStart + offset;
@@ -387,6 +386,27 @@ bytes::Bytes WriteRom()
     }
     return rom;
 }
+
+// The write image and its wire encoding are the same for every write test, and
+// encrypting a multi-megabyte image dominates their time, so each is built once
+// per suite.
+class SubaruDenso1n83m_4mCanExecutorWrite : public testing::Test
+{
+  protected:
+    static void SetUpTestSuite()
+    {
+        rom_ = WriteRom();
+        wire_ = ToWire(rom_);
+    }
+    static void TearDownTestSuite()
+    {
+        rom_ = {};
+        wire_ = {};
+    }
+
+    static inline bytes::Bytes rom_;
+    static inline bytes::Bytes wire_;
+};
 
 TEST(SubaruDenso1n83m_4mCanExecutor, ProceedsPastMalformedConnectAndDumpSetupResponses)
 {
@@ -484,18 +504,17 @@ TEST(SubaruDenso1n83m_4mCanExecutor, InCarReadReturnsPaddedImage)
     EXPECT_TRUE(transport.ScriptConsumed());
 }
 
-TEST(SubaruDenso1n83m_4mCanExecutor, WriteErasesThenFlashesBlockOne)
+TEST_F(SubaruDenso1n83m_4mCanExecutorWrite, WriteErasesThenFlashesBlockOne)
 {
     ScriptedCanFlashTransport transport;
-    const bytes::Bytes rom = WriteRom();
 
     ScriptBenchConnect(transport);
     ScriptEraseMemory(transport);
     transport.QueueRead(Response({0x71, 0x01, 0x02}));
-    ScriptReflashChunks(transport, rom);
+    ScriptReflashChunks(transport, wire_);
     ScriptCloseAndChecksum(transport);
 
-    const auto plan = WritePlan(rom);
+    const auto plan = WritePlan(rom_);
     ASSERT_THAT(plan, fastecu::testing::IsOk());
     auto [clock, events, cancellation, result] =
         ExecutorRun<SubaruDenso1n83m_4mCanExecutor, fastecu::RecordingClock>(*plan, transport);
@@ -511,9 +530,9 @@ TEST(SubaruDenso1n83m_4mCanExecutor, WriteErasesThenFlashesBlockOne)
     // out of the caller's &data_array[0], which is the whole encrypted image
     // starting at fblocks[0].start -- so the first chunk of block 1 is
     // encrypted[0x10000..0x10100).
-    const bytes::Bytes encrypted = ToWire(rom);
+    const bytes::Bytes& encrypted = wire_;
     EXPECT_THAT(bytes::Bytes(encrypted.begin() + 0x10000, encrypted.begin() + 0x10000 + 256),
-                test_bytes::BytesEq(ToWire(bytes::ByteView(rom).subspan(0x10000, 256))));
+                test_bytes::BytesEq(ToWire(bytes::ByteView(rom_).subspan(0x10000, 256))));
     // Every sleep the write path performs, in order, each with the legacy
     // delay() it reproduces: connect_bench's wait, the bench kernel jump's
     // inter-read settle, the settle after the erase command, and the settle
@@ -617,12 +636,11 @@ TEST(SubaruDenso1n83m_4mCanExecutor, EmptyBranchSelectorReplyFails)
     EXPECT_TRUE(transport.ScriptConsumed());
 }
 
-TEST(SubaruDenso1n83m_4mCanExecutor, EraseRetryExhaustionFails)
+TEST_F(SubaruDenso1n83m_4mCanExecutorWrite, EraseRetryExhaustionFails)
 {
     // Legacy erase_memory's re-read loop: twenty reads, no re-send, then
     // "Flash area erase failed".
     ScriptedCanFlashTransport transport;
-    const bytes::Bytes rom = WriteRom();
     ScriptBenchConnect(transport);
     ScriptEraseMemory(transport);
     for (int attempt = 0; attempt < 20; ++attempt)
@@ -630,7 +648,7 @@ TEST(SubaruDenso1n83m_4mCanExecutor, EraseRetryExhaustionFails)
         transport.QueueRead(Response({0x71, 0x01, 0x03}));
     }
 
-    const auto plan = WritePlan(rom);
+    const auto plan = WritePlan(rom_);
     ASSERT_THAT(plan, fastecu::testing::IsOk());
     auto [clock, events, cancellation, result] = ExecutorRun<SubaruDenso1n83m_4mCanExecutor>(*plan, transport);
 
@@ -853,36 +871,34 @@ TEST(SubaruDenso1n83m_4mCanExecutor, BenchJumpExhaustionPreservesReadCountAndTim
     EXPECT_THAT(std::vector<std::chrono::milliseconds>(timeouts.begin() + 11, timeouts.begin() + 62), Each(200ms));
 }
 
-TEST(SubaruDenso1n83m_4mCanExecutor, CancellationAtCloseSettlePreventsChecksum)
+TEST_F(SubaruDenso1n83m_4mCanExecutorWrite, CancellationAtCloseSettlePreventsChecksum)
 {
     ScriptedCanFlashTransport transport;
-    const auto rom = WriteRom();
     ScriptBenchConnect(transport);
     ScriptEraseMemory(transport);
     transport.QueueRead(Response({0x71, 0x01, 0x02}));
-    ScriptReflashChunks(transport, rom);
+    ScriptReflashChunks(transport, wire_);
     ScriptCloseRetries(transport, true);
-    const auto plan = WritePlan(rom);
+    const auto plan = WritePlan(rom_);
     ASSERT_THAT(plan, fastecu::testing::IsOk());
     ExpectCancelAtCloseSettle<SubaruDenso1n83m_4mCanExecutor>(*plan, transport);
 }
 
 // A whole-image script includes both edge chunks with address-sensitive data;
 // N83M's nonzero image base must be subtracted exactly once.
-TEST(SubaruDenso1n83m_4mCanExecutor, CloseRetriesSettleAndChecksumOutcomes)
+TEST_F(SubaruDenso1n83m_4mCanExecutorWrite, CloseRetriesSettleAndChecksumOutcomes)
 {
     for (int outcome = 0; outcome < 5; ++outcome)
     {
         SCOPED_TRACE(outcome);
         ScriptedCanFlashTransport transport;
-        const auto rom = WriteRom();
         ScriptBenchConnect(transport);
         ScriptEraseMemory(transport);
         transport.QueueRead(Response({0x71, 0x01, 0x02}));
-        ScriptReflashChunks(transport, rom);
+        ScriptReflashChunks(transport, wire_);
         ScriptCloseRetries(transport, outcome == 0);
         ScriptChecksumOutcome(transport, outcome);
-        const auto plan = WritePlan(rom);
+        const auto plan = WritePlan(rom_);
         ASSERT_THAT(plan, fastecu::testing::IsOk());
         ExpectCloseOutcome<SubaruDenso1n83m_4mCanExecutor>(
             *plan, transport, outcome,
