@@ -9,7 +9,7 @@ moc_predefs.h
 # repc-generated replica headers (from REPC_REPLICA .rep files)
 rep_*_replica.h
 # built test binaries
-serial_crash_tests
+serial_port_crash_test
 mut_dma_tests
-mut_dma_integration_tests
+mut_dma_integration_test
 target_wrapper.sh
