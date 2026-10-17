@@ -60,6 +60,61 @@ Result<bytes::Bytes> ExchangeTolerantly(ISsmTransport& transport, const ICancell
     return last;
 }
 
+// A wrong response is logged, not fatal: legacy :688/:694 and :722/:733.
+Status WriteStep(ISsmTransport& transport, const ICancellationToken& cancellation, IEventSink& events, int step,
+                 bytes::ByteView frame)
+{
+    events.Log(LogLevel::kInfo, std::format("Initialising TCU relearn, step {}...", step));
+    const auto response = ExchangeTolerantly(transport, cancellation, frame, kWriteAck);
+    if (!response.has_value())
+    {
+        return std::unexpected(response.error());
+    }
+    if (response->size() <= 4 || (*response)[4] != kWriteAck)
+    {
+        events.Log(LogLevel::kError, std::format("Wrong response from TCU on relearn step {}; continuing", step));
+    }
+    return {};
+}
+
+// Which status value means "relearn complete" is not recoverable from the
+// legacy source, so no terminal condition is invented: the bound is the
+// legacy's 200 and the frame is surfaced for the bench.
+Result<RelearnOutcome> PollStatus(ISsmTransport& transport, const ICancellationToken& cancellation, IEventSink& events)
+{
+    events.Log(LogLevel::kInfo, "Tracking relearn status...");
+    RelearnOutcome outcome;
+    for (int poll = 0; poll < kPollIterations; ++poll)
+    {
+        if (cancellation.Cancelled())
+        {
+            return Fail(ErrorKind::kCancelled, "cancelled while tracking relearn status");
+        }
+        if (const auto sent = transport.Write(kPoll); !sent.has_value())
+        {
+            return std::unexpected(sent.error());
+        }
+        const auto received = transport.Read(kReadTimeout, cancellation);
+        if (!received.has_value())
+        {
+            return std::unexpected(received.error());
+        }
+        ++outcome.polls_performed;
+        events.Progress(outcome.polls_performed, kPollIterations);
+        if (!received->has_value())
+        {
+            continue;
+        }
+        outcome.last_status_frame = **received;
+        if (outcome.last_status_frame.size() > 4 && outcome.last_status_frame[4] != kReadAck)
+        {
+            // legacy :771/:777 -- logged, not fatal.
+            events.Log(LogLevel::kError, "Unexpected relearn status response; continuing");
+        }
+    }
+    return outcome;
+}
+
 } // namespace
 
 RelearnSession::RelearnSession(std::string protocol) : protocol_(std::move(protocol))
@@ -85,8 +140,6 @@ void RelearnSession::Submit(GateResponse response)
 ServiceFunctionStep RelearnSession::Resume(ISsmTransport& transport, IClock&, const ICancellationToken& cancellation,
                                            IEventSink& events)
 {
-    // #lizard forgives(cyclomatic_complexity)
-    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     if (gate_outstanding_)
     {
         return FailedStep{Error{ErrorKind::kInternal, "resume() called with an operator gate outstanding"}};
@@ -110,77 +163,27 @@ ServiceFunctionStep RelearnSession::Resume(ISsmTransport& transport, IClock&, co
         return GateStep{OperatorGateId::kRelearnStaticSetup};
 
     case Stage::kWriteSteps:
-    {
-        events.Log(LogLevel::kInfo, "Initialising TCU relearn, step 1...");
-        const auto first = ExchangeTolerantly(transport, cancellation, kStepOne, kWriteAck);
-        if (!first.has_value())
+        for (const auto& [step, frame] : {std::pair{1, &kStepOne}, std::pair{2, &kStepTwo}})
         {
-            return FailedStep{first.error()};
+            if (auto written = WriteStep(transport, cancellation, events, step, *frame); !written.has_value())
+            {
+                return FailedStep{written.error()};
+            }
         }
-        if (first->size() <= 4 || (*first)[4] != kWriteAck)
-        {
-            // legacy :688/:694 -- logged, not fatal.
-            events.Log(LogLevel::kError, "Wrong response from TCU on relearn step 1; continuing");
-        }
-
-        events.Log(LogLevel::kInfo, "Initialising TCU relearn, step 2...");
-        const auto second = ExchangeTolerantly(transport, cancellation, kStepTwo, kWriteAck);
-        if (!second.has_value())
-        {
-            return FailedStep{second.error()};
-        }
-        if (second->size() <= 4 || (*second)[4] != kWriteAck)
-        {
-            // legacy :722/:733 -- logged, not fatal.
-            events.Log(LogLevel::kError, "Wrong response from TCU on relearn step 2; continuing");
-        }
-
         // legacy :735 -- the gate that cannot be pre-collected.
         stage_ = Stage::kPoll;
         gate_outstanding_ = true;
         return GateStep{OperatorGateId::kRelearnEngineRunning};
-    }
 
     case Stage::kPoll:
     {
-        events.Log(LogLevel::kInfo, "Tracking relearn status...");
-        RelearnOutcome outcome;
-        for (int poll = 0; poll < kPollIterations; ++poll)
+        auto outcome = PollStatus(transport, cancellation, events);
+        if (!outcome.has_value())
         {
-            if (cancellation.Cancelled())
-            {
-                return FailedStep{Error{ErrorKind::kCancelled, "cancelled while tracking relearn status"}};
-            }
-
-            if (const auto sent = transport.Write(kPoll); !sent.has_value())
-            {
-                return FailedStep{sent.error()};
-            }
-
-            const auto received = transport.Read(kReadTimeout, cancellation);
-            if (!received.has_value())
-            {
-                return FailedStep{received.error()};
-            }
-
-            ++outcome.polls_performed;
-            events.Progress(outcome.polls_performed, kPollIterations);
-            if (received->has_value())
-            {
-                outcome.last_status_frame = **received;
-                if (outcome.last_status_frame.size() > 4 && outcome.last_status_frame[4] != kReadAck)
-                {
-                    // legacy :771/:777 -- logged, not fatal.
-                    events.Log(LogLevel::kError, "Unexpected relearn status response; continuing");
-                }
-            }
+            return FailedStep{outcome.error()};
         }
-
-        // Which status value means "relearn complete" is not recoverable from
-        // the legacy source, so no terminal condition is invented: the bound
-        // is the legacy's 200 and the frame is surfaced for the bench.
         stage_ = Stage::kDone;
-        return CompletedStep{outcome};
+        return CompletedStep{*outcome};
     }
 
     case Stage::kDone:

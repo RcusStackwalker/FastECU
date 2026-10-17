@@ -1,9 +1,10 @@
 #include "src/backend/protocol/mitsu_colt_can_cdbg_driver.h"
 
-#include <utility>
-
+#include <algorithm>
 #include <string>
 #include <string_view>
+#include <utility>
+#include <vector>
 
 namespace mitsu_colt_can_cdbg
 {
@@ -36,14 +37,71 @@ fastecu::Result<bytes::Bytes> SendAndReceive(cdbg::ICanTransport& transport, byt
     }
     return std::move(reply->value().payload);
 }
+
+fastecu::Status Send(cdbg::ICanTransport& transport, bytes::ByteView command,
+                     const fastecu::ICancellationToken& cancellation, std::string_view failure_detail)
+{
+    if (auto reply = SendAndReceive(transport, command, cancellation, failure_detail); !reply.has_value())
+    {
+        return std::unexpected(reply.error());
+    }
+    return {};
+}
+
+// Opens a session and passes seed/key security access.
+fastecu::Status Unlock(cdbg::ICanTransport& transport, const fastecu::ICancellationToken& cancellation)
+{
+    if (auto init = Send(transport, BuildInitFrame(), cancellation, "CDBG session init failed"); !init.has_value())
+    {
+        return init;
+    }
+    auto seed =
+        SendAndReceive(transport, BuildSecuritySeedRequestFrame(), cancellation, "CDBG security seed request failed");
+    if (!seed.has_value())
+    {
+        return std::unexpected(seed.error());
+    }
+    auto granted = SendAndReceive(transport, BuildSecurityKeyFrame(SeedToKey(ExtractSeed(*seed))), cancellation,
+                                  "CDBG security key request failed");
+    if (!granted.has_value())
+    {
+        return std::unexpected(granted.error());
+    }
+    if (!SecurityGranted(*granted))
+    {
+        return fastecu::Fail(fastecu::ErrorKind::kBadResponse, "CDBG security access denied");
+    }
+    return {};
+}
+
+// Resets log `instance` and defines each of its frames.
+fastecu::Status ConfigureFrames(cdbg::ICanTransport& transport, bytes::Byte instance,
+                                const std::vector<std::vector<CdbgChannel>>& frames,
+                                const fastecu::ICancellationToken& cancellation)
+{
+    if (auto reset = Send(transport, BuildLogResetFrame(instance), cancellation, "CDBG log reset failed");
+        !reset.has_value())
+    {
+        return reset;
+    }
+    for (std::size_t f = 0; f < frames.size(); ++f)
+    {
+        for (const CdbgFrame& cmd : BuildFrameInitFrames(instance, static_cast<bytes::Byte>(f), frames.at(f)))
+        {
+            if (auto setup = Send(transport, cmd, cancellation, "CDBG log frame setup failed"); !setup.has_value())
+            {
+                return setup;
+            }
+        }
+    }
+    return {};
+}
 } // namespace
 
 fastecu::Status CdbgLogDriver::StartFreeFormLog(const std::vector<CdbgChannel>& channels, bytes::Byte instance,
                                                 std::uint32_t interval_ms,
                                                 const fastecu::ICancellationToken& cancellation)
 {
-    // #lizard forgives(cyclomatic_complexity)
-    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     streaming_ = false;
     frames_.clear();
 
@@ -51,68 +109,29 @@ fastecu::Status CdbgLogDriver::StartFreeFormLog(const std::vector<CdbgChannel>& 
     {
         return fastecu::Fail(fastecu::ErrorKind::kInvalidConfig, "no CDBG log parameters selected");
     }
-
-    for (const CdbgChannel& ch : channels)
+    if (std::ranges::any_of(channels,
+                            [](const CdbgChannel& ch) { return ch.size != 1 && ch.size != 2 && ch.size != 4; }))
     {
-        if (ch.size != 1 && ch.size != 2 && ch.size != 4)
-        {
-            return fastecu::Fail(fastecu::ErrorKind::kInvalidConfig, "CDBG log parameter has unsupported byte length");
-        }
+        return fastecu::Fail(fastecu::ErrorKind::kInvalidConfig, "CDBG log parameter has unsupported byte length");
     }
-
-    auto reply = SendAndReceive(t_, BuildInitFrame(), cancellation, "CDBG session init failed");
-    if (!reply.has_value())
+    if (auto unlocked = Unlock(t_, cancellation); !unlocked.has_value())
     {
-        return std::unexpected(reply.error());
+        return unlocked;
     }
-
-    reply = SendAndReceive(t_, BuildSecuritySeedRequestFrame(), cancellation, "CDBG security seed request failed");
-    if (!reply.has_value())
-    {
-        return std::unexpected(reply.error());
-    }
-    std::uint32_t key = SeedToKey(ExtractSeed(*reply));
-    reply = SendAndReceive(t_, BuildSecurityKeyFrame(key), cancellation, "CDBG security key request failed");
-    if (!reply.has_value())
-    {
-        return std::unexpected(reply.error());
-    }
-    if (!SecurityGranted(*reply))
-    {
-        return fastecu::Fail(fastecu::ErrorKind::kBadResponse, "CDBG security access denied");
-    }
-
     if (!BatchChannelsIntoFrames(channels, frames_))
     {
         return fastecu::Fail(fastecu::ErrorKind::kInvalidConfig, "too many CDBG log parameters selected");
     }
-
-    reply = SendAndReceive(t_, BuildLogResetFrame(instance), cancellation, "CDBG log reset failed");
-    if (!reply.has_value())
+    if (auto configured = ConfigureFrames(t_, instance, frames_, cancellation); !configured.has_value())
     {
-        return std::unexpected(reply.error());
+        return configured;
     }
-
-    for (std::size_t f = 0; f < frames_.size(); ++f)
+    if (auto started = Send(t_, BuildLogStartFrame(instance, static_cast<bytes::Byte>(frames_.size()), interval_ms),
+                            cancellation, "CDBG log start failed");
+        !started.has_value())
     {
-        const std::vector<CdbgFrame> cmds = BuildFrameInitFrames(instance, static_cast<bytes::Byte>(f), frames_.at(f));
-        for (const CdbgFrame& cmd : cmds)
-        {
-            reply = SendAndReceive(t_, cmd, cancellation, "CDBG log frame setup failed");
-            if (!reply.has_value())
-            {
-                return std::unexpected(reply.error());
-            }
-        }
+        return started;
     }
-
-    reply = SendAndReceive(t_, BuildLogStartFrame(instance, static_cast<bytes::Byte>(frames_.size()), interval_ms),
-                           cancellation, "CDBG log start failed");
-    if (!reply.has_value())
-    {
-        return std::unexpected(reply.error());
-    }
-
     streaming_ = true;
     return {};
 }
