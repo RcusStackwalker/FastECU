@@ -9,6 +9,7 @@ prek hook (Lizard) and duplicates from the pinned `jscpd` hook. Exit codes:
 from __future__ import annotations
 
 import argparse
+import contextlib
 import csv
 import datetime
 import hashlib
@@ -24,6 +25,8 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import TextIO
 from xml.etree import ElementTree
+
+import mutation_test
 
 SCOPE = ("src/", "apps/", "tests/")
 PRODUCTION = "production"
@@ -41,6 +44,9 @@ RunJscpd = Callable[[Path], Mapping]
 HostFiles = Callable[[Path], set[str]]
 RunCoverage = Callable[[Path], tuple[str, list[str]]]
 RunGit = Callable[[Path, Sequence[str]], str]
+QueryTests = Callable[[Path, str, Sequence[str]], list[str]]
+# Mull statuses that count as a kill, as in mutation_test.count_by_file.
+KILLED = ("Killed", "Timeout")
 
 _FILE_HEADER = re.compile(r"^\s*NLOC\s+Avg\.NLOC\s+AvgCCN\s+Avg\.token\s+function_cnt\s+file\s*$")
 _FILE_ROW = re.compile(r"^\s*(\d+)\s+[\d.]+\s+[\d.]+\s+[\d.]+\s+\d+\s+(?:\./)?(\S.*?)\s*$")
@@ -484,6 +490,8 @@ def _load_snapshot(root: Path, commit: str, role: str) -> Snapshot:
 
 def _guards(args: argparse.Namespace, run_coverage: RunCoverage, git: RunGit, out: TextIO) -> int:
     root = args.root
+    if args.guards_command == "mutation":
+        return _mutation_guard(args, out)
     head = git(root, ["rev-parse", "HEAD"]).strip()
     if args.guards_command == "snapshot":
         if git(root, ["status", "--porcelain", "--untracked-files=no"]).strip():
@@ -503,6 +511,70 @@ def _guards(args: argparse.Namespace, run_coverage: RunCoverage, git: RunGit, ou
     for r in results:
         out.write(f"{'PASS' if r.ok else 'FAIL'} {r.name}{': ' + r.detail if r.detail else ''}\n")
     return 0 if all(r.ok for r in results) else 1
+
+
+def pr_kind(changed: Sequence[str]) -> str:
+    """A loop PR is a production PR as soon as it changes one production file."""
+    return "production" if any(classify(p) == PRODUCTION for p in changed) else "test-only"
+
+
+def portable_test_sources(changed: Sequence[str], root: Path) -> list[str]:
+    """Changed portable test sources present in the checkout: Mull's test selection."""
+    return sorted(
+        path
+        for path in changed
+        if path.startswith(mutation_test.PORTABLE_PREFIXES)
+        and path.endswith(mutation_test.SOURCE_SUFFIXES)
+        and classify(path) == TEST
+        and (root / path).exists()
+    )
+
+
+MutantKey = mutation_test.MutantKey
+
+
+def lost_kills(base: Mapping[MutantKey, str], head: Mapping[MutantKey, str]) -> list[MutantKey]:
+    """Mutants the base's tests kill that the head's tests no longer kill."""
+    return sorted(k for k, s in base.items() if s in KILLED and head.get(k) not in KILLED)
+
+
+def survivors(merged: Mapping[MutantKey, str]) -> list[MutantKey]:
+    return sorted(k for k, s in merged.items() if s == "Survived")
+
+
+def _describe_mutants(keys: Sequence[MutantKey]) -> str:
+    shown = [f"{k.path}:{k.line}:{k.column} {k.mutator}" for k in keys[:10]]
+    return "; ".join(shown) + (f"; ... {len(keys) - 10} more" if len(keys) > 10 else "")
+
+
+def _merged_shards(directory: Path, shards: int, root: Path) -> dict[MutantKey, str]:
+    reports, missing = mutation_test.collect_shard_reports(directory, shards)
+    if missing:
+        raise NlocLoopError(f"incomplete mutation run in {directory}: missing shards {missing}")
+    return mutation_test.merge_reports(reports, root)
+
+
+def _mutation_guard(args: argparse.Namespace, out: TextIO) -> int:
+    root = args.root
+    if args.base_reports is None:
+        merged = mutation_test.merge_reports(mutation_test.read_reports(args.reports), root)
+        survived = survivors(merged)
+        result = GuardResult("surviving mutants", not survived, _describe_mutants(survived) or "0")
+    else:
+        base = _merged_shards(args.base_reports, args.shards, root)
+        head = _merged_shards(args.reports, args.shards, root)
+        lost = lost_kills(base, head)
+        kills = [sum(s in KILLED for s in m.values()) for m in (base, head)]
+        detail = _describe_mutants(lost) if lost else f"{kills[0]} -> {kills[1]}"
+        result = GuardResult("killed mutants", not lost, detail)
+    out.write(f"{'PASS' if result.ok else 'FAIL'} {result.name}: {result.detail}\n")
+    return 0 if result.ok else 1
+
+
+def query_portable_tests(root: Path, scope: str, changed: Sequence[str]) -> list[str]:
+    """mutation_test's test query, with its command echo kept off stdout."""
+    with contextlib.redirect_stdout(sys.stderr):
+        return mutation_test.query_tests(root, scope, changed)
 
 
 def _run_tool(root: Path, command: Sequence[str]) -> str:
@@ -542,6 +614,20 @@ def _parse_args(argv: Sequence[str]) -> argparse.Namespace:
     check = guards_commands.add_parser("check", help="compare HEAD with its base")
     check.add_argument("--kind", choices=KINDS, required=True)
     check.add_argument("--base", default="origin/master", help="ref whose merge-base is the base")
+    mutation = guards_commands.add_parser(
+        "mutation", help="check Mull reports: kills kept (with a base) or no survivors"
+    )
+    mutation.add_argument("--reports", type=Path, required=True, help="the PR's report dir")
+    mutation.add_argument("--base-reports", type=Path, help="the base's sharded report dir")
+    mutation.add_argument("--shards", type=int, default=1, help="shards per sharded run")
+
+    for name, help_text in (
+        ("pr-kind", "print whether base..head is a test-only or production change"),
+        ("mutation-scope", "print the portable tests depending on changed test sources"),
+    ):
+        command = commands.add_parser(name, help=help_text)
+        command.add_argument("--base", type=mutation_test.operand, required=True)
+        command.add_argument("--head", type=mutation_test.operand, required=True)
 
     trend = commands.add_parser("trend", help="append the current NLOC to the trend log")
     trend.add_argument("--pr", type=int, required=True)
@@ -550,28 +636,39 @@ def _parse_args(argv: Sequence[str]) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-def _run(
-    args: argparse.Namespace,
-    run_hook: RunHook,
-    run_jscpd: RunJscpd,
-    host_files: HostFiles,
-    run_coverage: RunCoverage,
-    git: RunGit,
-    out: TextIO,
-    today: str,
-) -> int:
+@dataclass(frozen=True)
+class Tools:
+    """The external tools each command runs; tests substitute them."""
+
+    run_hook: RunHook
+    run_jscpd: RunJscpd
+    host_files: HostFiles
+    run_coverage: RunCoverage
+    git: RunGit
+    query_tests: QueryTests
+
+
+def _run(args: argparse.Namespace, tools: Tools, out: TextIO, today: str) -> int:
     root = args.root
+    if args.command in ("pr-kind", "mutation-scope"):
+        changed = tools.git(root, ["diff", "--name-only", args.base, args.head]).split()
+        if args.command == "pr-kind":
+            out.write(pr_kind(changed) + "\n")
+        elif sources := portable_test_sources(changed, root):
+            labels = tools.query_tests(root, mutation_test.PORTABLE_SCOPE, sources)
+            out.writelines(f"{label}\n" for label in labels)
+        return 0
     if args.command == "guards":
-        return _guards(args, run_coverage, git, out)
+        return _guards(args, tools.run_coverage, tools.git, out)
     if args.command == "candidates":
         ledger = Ledger.load(root / LEDGER)
-        for c in find_candidates(run_jscpd(root), root, host_files(root), ledger):
+        for c in find_candidates(tools.run_jscpd(root), root, tools.host_files(root), ledger):
             out.write(
                 f"{c.cluster_id} {c.kind} savings={c.savings} occurrences={len(c.occurrences)}\n"
             )
             out.writelines(f"  {o.path}:{o.start}-{o.end}\n" for o in c.occurrences)
     elif args.command == "measure":
-        result = measure(root, run_hook)
+        result = measure(root, tools.run_hook)
         if args.json:
             out.write(json.dumps({"total": result.total, **asdict(result)}) + "\n")
         else:
@@ -591,7 +688,7 @@ def _run(
                 )
             out.write(f"consecutive rejections: {ledger.consecutive_rejections()}\n")
     else:
-        after = measure(root, run_hook).total
+        after = measure(root, tools.run_hook).total
         append_trend(root / TREND, TrendRow(today, args.pr, args.kind, args.before, after))
     return 0
 
@@ -603,13 +700,15 @@ def main(
     host_files: HostFiles = query_host_files,
     run_coverage: RunCoverage = run_coverage_local,
     run_git: RunGit = run_git,
+    query_tests: QueryTests = query_portable_tests,
     out: TextIO = sys.stdout,
     today: Callable[[], str] = lambda: datetime.date.today().isoformat(),
 ) -> int:
     args = _parse_args(sys.argv[1:] if argv is None else argv)
     try:
-        return _run(args, run_hook, run_jscpd, host_files, run_coverage, run_git, out, today())
-    except NlocLoopError as error:
+        tools = Tools(run_hook, run_jscpd, host_files, run_coverage, run_git, query_tests)
+        return _run(args, tools, out, today())
+    except (NlocLoopError, mutation_test.MutationTestError) as error:
         out.write(f"nloc_loop: {error}\n")
         return 2
 

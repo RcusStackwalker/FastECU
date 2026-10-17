@@ -227,6 +227,7 @@ py_test(
     name = "nloc_loop_test",
     size = "small",
     srcs = [
+        "scripts/mutation_test.py",
         "scripts/nloc_loop.py",
         "scripts/nloc_loop_test.py",
     ],
