@@ -295,8 +295,13 @@ corrected expectations, and a qualification note describing the wire/outcome
 divergence. Similarity to a sibling family is a reason to investigate, never
 authority to change its protocol. Preserve command bytes, sequencing, and timing
 budgets while correcting demonstrated bounds, reply-gating, read-integrity,
-and cancellation defects. The [testing conventions](coding-style.md#tests)
+and cancellation defects. The [testing conventions](coding-style.md#mutation)
 describe mutation checks; automated success does not establish hardware qualification.
+
+Verify reachability before porting or retiring legacy behavior. String aliases
+and dispatch tables can make an apparently referenced branch dead, and
+commented-out functions look live to text searches; check the built path or a
+comment-stripped parse.
 
 ### Keep operation kinds narrow
 

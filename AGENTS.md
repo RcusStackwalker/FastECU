@@ -26,7 +26,7 @@ bazel run //:clang_tidy_report_changed
 ```
 
 Use focused package tests during code changes; run the applicable full gates
-before delivery. Formatting, Gazelle, [static analysis](docs/coding-style.md#static-analysis),
+before delivery. Formatting, Gazelle, [static analysis](docs/tooling.md#static-analysis),
 and platform CI/packaging are established gates. Markdown-only work uses
 `prek run lychee --all-files` and a scoped diff review; do not build the application
 for a documentation-only change.
