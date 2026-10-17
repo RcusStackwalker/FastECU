@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Measure NLOC, rank duplicate clusters, and keep the hill-climbing loop's records.
+"""Measure NLOC, rank duplicate clusters, check guards, and keep the hill-climbing loop's records.
 
 See docs/tooling.md#nloc-hill-climbing-loop. NLOC comes from the pinned `nloc`
 prek hook (Lizard) and duplicates from the pinned `jscpd` hook. Exit codes:
-0 = success, 2 = tool or input failure.
+0 = success, 1 = a guard failed, 2 = tool or input failure.
 """
 
 from __future__ import annotations
@@ -13,14 +13,17 @@ import csv
 import datetime
 import hashlib
 import json
+import os
 import re
 import shutil
 import subprocess
 import sys
+import time
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import TextIO
+from xml.etree import ElementTree
 
 SCOPE = ("src/", "apps/", "tests/")
 PRODUCTION = "production"
@@ -32,15 +35,19 @@ KINDS = ("test-only", "production")
 OUTCOMES = ("open", "merged", "rejected", "closed")
 MIN_SAVINGS = 50
 JSCPD_REPORT = Path(".nloc-loop/jscpd/jscpd-report.json")
+SNAPSHOTS = Path(".nloc-loop/snapshots")
 RunHook = Callable[[Path], str]
 RunJscpd = Callable[[Path], Mapping]
 HostFiles = Callable[[Path], set[str]]
+RunCoverage = Callable[[Path], tuple[str, list[str]]]
+RunGit = Callable[[Path, Sequence[str]], str]
 
 _FILE_HEADER = re.compile(r"^\s*NLOC\s+Avg\.NLOC\s+AvgCCN\s+Avg\.token\s+function_cnt\s+file\s*$")
 _FILE_ROW = re.compile(r"^\s*(\d+)\s+[\d.]+\s+[\d.]+\s+[\d.]+\s+\d+\s+(?:\./)?(\S.*?)\s*$")
 _TOTAL_HEADER = re.compile(r"^\s*Total nloc\s")
 _TOTAL_ROW = re.compile(r"^\s*(\d+)\s")
 _TEST_NAME = re.compile(r"(^tst_|_test[._])")
+_COVERAGE_ROW = re.compile(r"^\s*(\d+)\|\s*([0-9.]+[kMGTPE]?)?\s*\|")
 
 
 class NlocLoopError(RuntimeError):
@@ -205,11 +212,11 @@ class Candidate:
 
 
 def _relative(root: Path, name: str) -> str:
-    """Repository-relative path; jscpd may report the root with symlinks resolved or not."""
+    """Repository-relative path; tools may report the root with symlinks resolved or not."""
     for base in (root, root.resolve()):
         if Path(name).is_relative_to(base):
             return Path(name).relative_to(base).as_posix()
-    raise NlocLoopError(f"jscpd reported {name}, outside {root}")
+    raise NlocLoopError(f"a tool reported {name}, outside {root}")
 
 
 def _coalesce(fragments: Sequence[Occurrence]) -> list[Occurrence]:
@@ -305,6 +312,199 @@ def query_host_files(root: Path) -> set[str]:
     return parse_host_files(_run_tool(root, ["bazel", "cquery", query, "--output=label"]))
 
 
+@dataclass(frozen=True)
+class FileCoverage:
+    covered: frozenset[int]
+    executable: int
+
+
+def parse_coverage(report: str, root: Path) -> dict[str, FileCoverage]:
+    """Per-file covered lines from `llvm-cov show`; instantiation sub-views are skipped."""
+    sections: dict[str, tuple[set[int], list[int]]] = {}
+    current = None
+    for line in report.splitlines():
+        if line.endswith(":") and not line[:1].isspace():
+            current = sections.setdefault(_relative(root, line[:-1]), (set(), [0]))
+            continue
+        row = _COVERAGE_ROW.match(line)
+        if current is None or row is None or row.group(2) is None:
+            continue
+        current[1][0] += 1
+        if row.group(2) != "0":
+            current[0].add(int(row.group(1)))
+    return {
+        path: FileCoverage(frozenset(covered), executable[0])
+        for path, (covered, executable) in sections.items()
+    }
+
+
+def count_test_cases(xmls: Sequence[str]) -> int:
+    """Executed test cases across Bazel test.xml files; skipped and disabled cases excluded."""
+    count = 0
+    for text in xmls:
+        try:
+            cases = ElementTree.fromstring(text).iter("testcase")
+        except ElementTree.ParseError as error:
+            raise NlocLoopError(f"malformed test.xml: {error}") from error
+        count += sum(
+            case.get("status", "run") == "run"
+            and case.get("result") not in ("skipped", "suppressed")
+            and case.find("skipped") is None
+            for case in cases
+        )
+    return count
+
+
+@dataclass(frozen=True)
+class Snapshot:
+    commit: str
+    test_cases: int
+    coverage: Mapping[str, FileCoverage]
+
+    @classmethod
+    def load(cls, path: Path) -> Snapshot:
+        data = json.loads(path.read_text())
+        return cls(
+            data["commit"],
+            data["test_cases"],
+            {
+                p: FileCoverage(frozenset(c["covered"]), c["executable"])
+                for p, c in data["coverage"].items()
+            },
+        )
+
+    def save(self, path: Path) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        coverage = {
+            p: {"covered": sorted(c.covered), "executable": c.executable}
+            for p, c in sorted(self.coverage.items())
+        }
+        payload = {"commit": self.commit, "test_cases": self.test_cases, "coverage": coverage}
+        path.write_text(json.dumps(payload) + "\n")
+
+
+@dataclass(frozen=True)
+class GuardResult:
+    name: str
+    ok: bool
+    detail: str
+
+
+def _lost_lines(base: Snapshot, head: Snapshot) -> dict[str, list[int]]:
+    lost = {}
+    for path, coverage in base.coverage.items():
+        if classify(path) != PRODUCTION:
+            continue
+        kept = head.coverage.get(path, FileCoverage(frozenset(), 0)).covered
+        if missing := sorted(coverage.covered - kept):
+            lost[path] = missing
+    return lost
+
+
+def _worse_files(base: Snapshot, head: Snapshot, changed: Sequence[str]) -> list[str]:
+    worse = []
+    for path in changed:
+        before, after = base.coverage.get(path), head.coverage.get(path)
+        if classify(path) != PRODUCTION or before is None or after is None:
+            continue
+        # Cross-multiplied so equal fractions compare equal.
+        if len(after.covered) * before.executable < len(before.covered) * after.executable:
+            worse.append(
+                f"{path}: {len(before.covered)}/{before.executable}"
+                f" -> {len(after.covered)}/{after.executable}"
+            )
+    return worse
+
+
+def check_guards(
+    base: Snapshot, head: Snapshot, kind: str, changed: Sequence[str]
+) -> list[GuardResult]:
+    """The local guards for a loop PR of `kind` (docs/tooling.md#nloc-hill-climbing-loop)."""
+    results = [
+        GuardResult(
+            "test cases",
+            head.test_cases >= base.test_cases,
+            f"{base.test_cases} -> {head.test_cases}",
+        )
+    ]
+    if kind == "test-only":
+        touched = [p for p in changed if classify(p) == PRODUCTION]
+        results.append(GuardResult("production unchanged", not touched, " ".join(touched)))
+        lost = _lost_lines(base, head)
+        detail = "; ".join(
+            f"{p}: {', '.join(map(str, lines[:10]))}{' ...' if len(lines) > 10 else ''}"
+            for p, lines in sorted(lost.items())
+        )
+        results.append(GuardResult("covered lines", not lost, detail))
+    else:
+        worse = _worse_files(base, head, changed)
+        results.append(GuardResult("touched coverage", not worse, "; ".join(worse)))
+    return results
+
+
+def run_coverage_local(root: Path) -> tuple[str, list[str]]:
+    """Run scripts/coverage-local.sh into .nloc-loop/coverage; return its report and test.xmls."""
+    started = time.time()
+    output = root / SNAPSHOTS.parent / "coverage"
+    result = subprocess.run(
+        [str(root / "scripts" / "coverage-local.sh")],
+        cwd=root,
+        env={**os.environ, "COVERAGE_DIR": str(output)},
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        tail = "\n".join((result.stdout + result.stderr).splitlines()[-40:])
+        raise NlocLoopError(f"coverage-local.sh failed:\n{tail}")
+    xmls = [
+        p.read_text()
+        for p in (root / "bazel-testlogs").resolve().rglob("test.xml")
+        if p.stat().st_mtime >= started
+    ]
+    return (output / "llvm-cov.report").read_text(), xmls
+
+
+def run_git(root: Path, args: Sequence[str]) -> str:
+    return _run_tool(root, ["git", *args])
+
+
+def _snapshot_path(root: Path, commit: str) -> Path:
+    return root / SNAPSHOTS / f"{commit}.json"
+
+
+def _load_snapshot(root: Path, commit: str, role: str) -> Snapshot:
+    path = _snapshot_path(root, commit)
+    if not path.exists():
+        raise NlocLoopError(
+            f"no snapshot for {role} {commit}; check it out and run `guards snapshot`"
+        )
+    return Snapshot.load(path)
+
+
+def _guards(args: argparse.Namespace, run_coverage: RunCoverage, git: RunGit, out: TextIO) -> int:
+    root = args.root
+    head = git(root, ["rev-parse", "HEAD"]).strip()
+    if args.guards_command == "snapshot":
+        if git(root, ["status", "--porcelain", "--untracked-files=no"]).strip():
+            raise NlocLoopError(
+                "a snapshot describes a commit; commit or stash uncommitted changes"
+            )
+        report, xmls = run_coverage(root)
+        snap = Snapshot(head, count_test_cases(xmls), parse_coverage(report, root))
+        snap.save(_snapshot_path(root, head))
+        out.write(f"snapshot {head}: {snap.test_cases} test cases, {len(snap.coverage)} files\n")
+        return 0
+    base = git(root, ["merge-base", args.base, "HEAD"]).strip()
+    changed = git(root, ["diff", "--name-only", base, head]).split()
+    results = check_guards(
+        _load_snapshot(root, base, "base"), _load_snapshot(root, head, "head"), args.kind, changed
+    )
+    for r in results:
+        out.write(f"{'PASS' if r.ok else 'FAIL'} {r.name}{': ' + r.detail if r.detail else ''}\n")
+    return 0 if all(r.ok for r in results) else 1
+
+
 def _run_tool(root: Path, command: Sequence[str]) -> str:
     tool = shutil.which(command[0])
     if tool is None:
@@ -336,6 +536,13 @@ def _parse_args(argv: Sequence[str]) -> argparse.Namespace:
 
     commands.add_parser("candidates", help="print the ranked duplicate-cluster queue")
 
+    guards = commands.add_parser("guards", help="snapshot coverage or check a loop PR")
+    guards_commands = guards.add_subparsers(dest="guards_command", required=True)
+    guards_commands.add_parser("snapshot", help="record HEAD's test cases and coverage")
+    check = guards_commands.add_parser("check", help="compare HEAD with its base")
+    check.add_argument("--kind", choices=KINDS, required=True)
+    check.add_argument("--base", default="origin/master", help="ref whose merge-base is the base")
+
     trend = commands.add_parser("trend", help="append the current NLOC to the trend log")
     trend.add_argument("--pr", type=int, required=True)
     trend.add_argument("--kind", choices=KINDS, required=True)
@@ -348,10 +555,14 @@ def _run(
     run_hook: RunHook,
     run_jscpd: RunJscpd,
     host_files: HostFiles,
+    run_coverage: RunCoverage,
+    git: RunGit,
     out: TextIO,
     today: str,
-) -> None:
+) -> int:
     root = args.root
+    if args.command == "guards":
+        return _guards(args, run_coverage, git, out)
     if args.command == "candidates":
         ledger = Ledger.load(root / LEDGER)
         for c in find_candidates(run_jscpd(root), root, host_files(root), ledger):
@@ -382,6 +593,7 @@ def _run(
     else:
         after = measure(root, run_hook).total
         append_trend(root / TREND, TrendRow(today, args.pr, args.kind, args.before, after))
+    return 0
 
 
 def main(
@@ -389,16 +601,17 @@ def main(
     run_hook: RunHook = run_nloc_hook,
     run_jscpd: RunJscpd = run_jscpd_hook,
     host_files: HostFiles = query_host_files,
+    run_coverage: RunCoverage = run_coverage_local,
+    run_git: RunGit = run_git,
     out: TextIO = sys.stdout,
     today: Callable[[], str] = lambda: datetime.date.today().isoformat(),
 ) -> int:
     args = _parse_args(sys.argv[1:] if argv is None else argv)
     try:
-        _run(args, run_hook, run_jscpd, host_files, out, today())
+        return _run(args, run_hook, run_jscpd, host_files, run_coverage, run_git, out, today())
     except NlocLoopError as error:
         out.write(f"nloc_loop: {error}\n")
         return 2
-    return 0
 
 
 if __name__ == "__main__":

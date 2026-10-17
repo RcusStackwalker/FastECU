@@ -3,6 +3,7 @@
 import json
 import tempfile
 import unittest
+from collections.abc import Sequence
 from io import StringIO
 from pathlib import Path
 
@@ -268,6 +269,121 @@ class HostFilesTest(unittest.TestCase):
         )
 
 
+def coverage_report(root: Path, files: dict[str, dict[int, str]]) -> str:
+    """`llvm-cov show` output after coverage-local.sh rewrote headers to absolute paths."""
+    sections = []
+    for path, lines in files.items():
+        body = "".join(f"{n:>5}|{count:>7}|  code\n" for n, count in sorted(lines.items()))
+        sections.append(f"{root / path}:\n{body}")
+    return "\n".join(sections)
+
+
+def gtest_xml(*cases: str) -> str:
+    return (
+        '<?xml version="1.0" encoding="UTF-8"?>\n<testsuites><testsuite name="s">'
+        + "".join(cases)
+        + "</testsuite></testsuites>\n"
+    )
+
+
+_RUN = '<testcase name="a" status="run" result="completed"/>'
+_SKIPPED = '<testcase name="b" status="run" result="skipped"><skipped/></testcase>'
+_DISABLED = '<testcase name="DISABLED_c" status="notrun" result="suppressed"/>'
+_BAZEL = '<testcase name="//:py_test" status="run" duration="1" time="1"></testcase>'
+
+
+class CoverageParseTest(unittest.TestCase):
+    def test_covered_and_executable_lines(self) -> None:
+        report = coverage_report(_ROOT, {_PROD: {1: "", 2: "3", 3: "0", 4: "10.2k", 5: "1.5M"}})
+        self.assertEqual(
+            nl.parse_coverage(report, _ROOT),
+            {_PROD: nl.FileCoverage(covered=frozenset({2, 4, 5}), executable=4)},
+        )
+
+    def test_ignores_instantiation_subviews(self) -> None:
+        report = (
+            coverage_report(_ROOT, {_PROD: {1: "2"}})
+            + "  ------------------\n  | f.cpp:_Z1fv:\n  |    7|      0|  code\n"
+        )
+        self.assertEqual(nl.parse_coverage(report, _ROOT)[_PROD].executable, 1)
+
+    def test_rejects_sections_outside_the_root(self) -> None:
+        with self.assertRaisesRegex(nl.NlocLoopError, "outside"):
+            nl.parse_coverage("/elsewhere/a.cpp:\n    1|      1|  code\n", _ROOT)
+
+
+class TestCaseCountTest(unittest.TestCase):
+    def test_counts_executed_cases_only(self) -> None:
+        xmls = [gtest_xml(_RUN, _SKIPPED, _DISABLED, _RUN), gtest_xml(_BAZEL)]
+        self.assertEqual(nl.count_test_cases(xmls), 3)
+
+    def test_rejects_malformed_xml(self) -> None:
+        with self.assertRaisesRegex(nl.NlocLoopError, "test.xml"):
+            nl.count_test_cases(["<testsuites>"])
+
+
+def snapshot(test_cases: int, coverage: dict[str, tuple[set[int], int]]) -> nl.Snapshot:
+    return nl.Snapshot(
+        "c0ffee",
+        test_cases,
+        {p: nl.FileCoverage(frozenset(lines), n) for p, (lines, n) in coverage.items()},
+    )
+
+
+class GuardsTest(unittest.TestCase):
+    def failures(self, base, head, kind, changed) -> list[str]:
+        return [r.name for r in nl.check_guards(base, head, kind, changed) if not r.ok]
+
+    def test_test_only_passes_when_coverage_and_cases_are_kept(self) -> None:
+        base = snapshot(10, {_PROD: ({1, 2}, 4), _A: ({1}, 9)})
+        head = snapshot(10, {_PROD: ({1, 2, 3}, 4), _A: (set(), 2)})
+        self.assertEqual(self.failures(base, head, "test-only", [_A, "BUILD.bazel"]), [])
+
+    def test_test_only_fails_on_a_lost_covered_line(self) -> None:
+        base = snapshot(10, {_PROD: ({1, 2}, 4)})
+        head = snapshot(10, {_PROD: ({1, 3}, 4)})
+        results = nl.check_guards(base, head, "test-only", [_A])
+        [lost] = [r for r in results if not r.ok]
+        self.assertEqual(lost.name, "covered lines")
+        self.assertIn(f"{_PROD}: 2", lost.detail)
+
+    def test_test_only_fails_when_a_production_file_changed(self) -> None:
+        base = snapshot(10, {_PROD: ({1}, 4)})
+        self.assertEqual(
+            self.failures(base, base, "test-only", [_A, _PROD]), ["production unchanged"]
+        )
+
+    def test_fewer_test_cases_fail_either_kind(self) -> None:
+        base = snapshot(10, {_PROD: ({1}, 4)})
+        head = snapshot(9, {_PROD: ({1}, 4)})
+        for kind in nl.KINDS:
+            with self.subTest(kind=kind):
+                self.assertEqual(self.failures(base, head, kind, [_A]), ["test cases"])
+
+    def test_production_compares_touched_files_by_percentage(self) -> None:
+        other = "src/flash/b.cpp"
+        base = snapshot(10, {_PROD: ({1, 2}, 4), other: ({1, 2}, 2)})
+        # 2/4 -> 1/2 keeps 50%, and the untouched file may lose lines.
+        head = snapshot(10, {_PROD: ({7}, 2), other: ({1}, 2)})
+        self.assertEqual(self.failures(base, head, "production", [_PROD]), [])
+        worse = snapshot(10, {_PROD: ({7}, 3), other: ({1, 2}, 2)})
+        self.assertEqual(self.failures(base, worse, "production", [_PROD]), ["touched coverage"])
+
+    def test_production_ignores_deleted_and_new_files(self) -> None:
+        base = snapshot(10, {_PROD: ({1}, 4)})
+        head = snapshot(10, {"src/flash/new.cpp": (set(), 4)})
+        self.assertEqual(self.failures(base, head, "production", [_PROD, "src/flash/new.cpp"]), [])
+
+
+class SnapshotTest(unittest.TestCase):
+    def test_round_trips(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "s.json"
+            original = snapshot(10, {_PROD: ({3, 1}, 4)})
+            original.save(path)
+            self.assertEqual(nl.Snapshot.load(path), original)
+
+
 class MainTest(unittest.TestCase):
     def setUp(self) -> None:
         self.temp_dir = tempfile.TemporaryDirectory()
@@ -332,6 +448,60 @@ class MainTest(unittest.TestCase):
         [header, first, second] = out.getvalue().splitlines()
         self.assertRegex(header, r"^[0-9a-f]{12} test-only savings=60 occurrences=2$")
         self.assertEqual([first, second], [f"  {_A}:1-60", f"  {_B}:3-62"])
+
+    def run_guards(self, *argv: str, coverage=None, git=None) -> tuple[int, str]:
+        out = StringIO()
+        report = coverage_report(self.root.resolve(), coverage or {_PROD: {1: "1", 2: "0"}})
+        code = nl.main(
+            ["--root", str(self.root), "guards", *argv],
+            run_coverage=lambda _root: (report, [gtest_xml(_RUN, _RUN)]),
+            run_git=git or (lambda _root, args: self.git(args)),
+            out=out,
+        )
+        return code, out.getvalue()
+
+    @staticmethod
+    def git(args: Sequence[str]) -> str:
+        responses = {
+            ("status", "--porcelain", "--untracked-files=no"): "",
+            ("rev-parse", "HEAD"): "head\n",
+            ("merge-base", "origin/master", "HEAD"): "base\n",
+            ("diff", "--name-only", "base", "head"): f"{_A}\n",
+        }
+        return responses[tuple(args)]
+
+    def test_guards_snapshot_then_check(self) -> None:
+        code, text = self.run_guards("snapshot")
+        self.assertEqual((code, text), (0, "snapshot head: 2 test cases, 1 files\n"))
+        snapshots = self.root / ".nloc-loop" / "snapshots"
+        (snapshots / "head.json").rename(snapshots / "base.json")
+        self.run_guards("snapshot")
+        code, text = self.run_guards("check", "--kind", "test-only")
+        self.assertEqual(code, 0, text)
+        self.assertIn("PASS covered lines", text)
+
+    def test_guards_check_fails_with_exit_one(self) -> None:
+        self.run_guards("snapshot")
+        snapshots = self.root / ".nloc-loop" / "snapshots"
+        (snapshots / "head.json").rename(snapshots / "base.json")
+        self.run_guards("snapshot", coverage={_PROD: {1: "0", 2: "0"}})
+        code, text = self.run_guards("check", "--kind", "test-only")
+        self.assertEqual(code, 1)
+        self.assertIn("FAIL covered lines", text)
+
+    def test_guards_check_names_a_missing_base_snapshot(self) -> None:
+        self.run_guards("snapshot")
+        code, text = self.run_guards("check", "--kind", "test-only")
+        self.assertEqual(code, 2)
+        self.assertIn("no snapshot for base", text)
+
+    def test_guards_snapshot_needs_a_clean_tree(self) -> None:
+        def dirty(_root: Path, args: Sequence[str]) -> str:
+            return " M src/a.cpp\n" if args[0] == "status" else self.git(args)
+
+        code, text = self.run_guards("snapshot", git=dirty)
+        self.assertEqual(code, 2)
+        self.assertIn("uncommitted", text)
 
     def test_errors_exit_two(self) -> None:
         code, text = self.run_main("trend", "--pr", "700", "--kind", "test-only", "--before", "15")
