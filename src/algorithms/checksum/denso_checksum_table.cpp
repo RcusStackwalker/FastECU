@@ -66,9 +66,10 @@ DensoTableOutcome CorrectDensoTable(memory::FlashAddress base, bytes::MutableByt
             {
                 return DensoTableOutcome::kInvalidBlockRange;
             }
+            // address < high <= rom.size(), so the subtraction cannot wrap.
             for (std::uint32_t address = low; address < high; address += 4)
             {
-                if (address > rom.size() || 4 > rom.size() - address)
+                if (4 > rom.size() - address)
                 {
                     return DensoTableOutcome::kInvalidBlockRange;
                 }

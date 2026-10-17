@@ -16,6 +16,10 @@
 #include "src/algorithms/memory/testing/memory_views.h"
 
 #include <algorithm>
+#include <array>
+#include <cstdint>
+#include <string>
+#include <string_view>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -366,8 +370,68 @@ TEST(ChecksumPortable, DensoDieselRejectsMalformedTableWithoutMutation)
     const ChecksumResult out_of_range = ChecksumEcuSubaruDensoSH705xDiesel::CalculateChecksumResult(
         memory::testing::ViewOf(original), memory::FlashAddress{20}, 12);
     EXPECT_EQ(out_of_range.status, ChecksumResult::Status::kInvalidSize);
+    EXPECT_EQ(out_of_range.message, "ROM is too small for the configured checksum area");
     EXPECT_THAT(out_of_range.rom_data, test_bytes::BytesEq(original));
 }
+
+TEST(ChecksumPortable, DensoDieselReportsAPrimaryBlockPastTheEndOfTheRom)
+{
+    bytes::Bytes original(24, 0);
+    bytes::WriteU32Be(original, 0, 4);
+    bytes::WriteU32Be(original, 4, 28);
+
+    const ChecksumResult result = ChecksumEcuSubaruDensoSH705xDiesel::CalculateChecksumResult(
+        memory::testing::ViewOf(original), memory::FlashAddress{0}, 12);
+
+    EXPECT_EQ(result.status, ChecksumResult::Status::kInvalidSize);
+    EXPECT_EQ(result.message, "ROM is too small for a checksum block range");
+    EXPECT_THAT(result.rom_data, test_bytes::BytesEq(original));
+}
+
+// Two table addresses each have one word, 0x84 bytes below the table, that the
+// sum counts as 0xFFFFFFFF whatever the ROM holds there.
+struct DensoDieselFixedWordCase
+{
+    std::string_view name; // shows up in the gtest test name
+    std::uint32_t table_address;
+    std::uint32_t fixed_word_address;
+};
+
+std::string DensoDieselFixedWordCaseName(const ::testing::TestParamInfo<DensoDieselFixedWordCase>& info)
+{
+    return std::string(info.param.name);
+}
+
+constexpr std::array<DensoDieselFixedWordCase, 2> kDensoDieselFixedWordCases{{
+    {"Table0FFB80", 0x0FFB80, 0x0FFAFC},
+    {"Table17FB80", 0x17FB80, 0x17FAFC},
+}};
+
+class DensoDieselFixedWord : public ::testing::TestWithParam<DensoDieselFixedWordCase>
+{
+};
+
+// The bytes start at the fixed word, which holds 0x12345678; the table's one
+// record sums just that word.
+TEST_P(DensoDieselFixedWord, SumsTheWordAsAllOnes)
+{
+    const DensoDieselFixedWordCase& c = GetParam();
+    const std::size_t table_position = c.table_address - c.fixed_word_address;
+    bytes::Bytes original(table_position + 12, 0);
+    bytes::WriteU32Be(original, 0, 0x12345678);
+    bytes::WriteU32Be(original, table_position, c.fixed_word_address);
+    bytes::WriteU32Be(original, table_position + 4, c.fixed_word_address + 4);
+
+    const ChecksumResult result = ChecksumEcuSubaruDensoSH705xDiesel::CalculateChecksumResult(
+        memory::testing::ViewOf(original, memory::FlashAddress{c.fixed_word_address}),
+        memory::FlashAddress{c.table_address}, 12);
+
+    EXPECT_EQ(result.status, ChecksumResult::Status::kCorrected);
+    EXPECT_EQ(bytes::ReadU32Be(result.rom_data, table_position + 8), 0x5AA5A55AU - 0xFFFFFFFFU);
+}
+
+INSTANTIATE_TEST_SUITE_P(ChecksumPortable, DensoDieselFixedWord, ::testing::ValuesIn(kDensoDieselFixedWordCases),
+                         DensoDieselFixedWordCaseName);
 
 TEST(ChecksumPortable, DensoDieselSecondaryFailureRollsBackPrimaryCorrection)
 {

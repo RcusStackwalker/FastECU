@@ -160,3 +160,39 @@ TEST(DensoChecksumTable, RejectsATableOutsideTheBytes)
     EXPECT_EQ(internal::CorrectDensoTable(memory::FlashAddress{4}, rom, spec),
               internal::DensoTableOutcome::kInvalidTableRange);
 }
+
+// An empty table fits anywhere in the bytes, even right at their end.
+TEST(DensoChecksumTable, AnEmptyTableAtTheEndOfTheBytesIsUnchanged)
+{
+    bytes::Bytes rom(24, 0);
+    const internal::DensoTableSpec spec{.table_address = memory::FlashAddress{24}, .table_length = 0};
+
+    EXPECT_EQ(internal::CorrectDensoTable(memory::FlashAddress{0}, rom, spec), internal::DensoTableOutcome::kUnchanged);
+}
+
+TEST(DensoChecksumTable, ABlockMayEndAtTheEndOfTheBytes)
+{
+    bytes::Bytes rom(16, 0);
+    bytes::WriteU32Be(rom, 0, 12);
+    bytes::WriteU32Be(rom, 4, 16);
+    bytes::WriteU32Be(rom, 12, 1);
+    const internal::DensoTableSpec spec{.table_address = memory::FlashAddress{0}, .table_length = 12};
+
+    EXPECT_EQ(internal::CorrectDensoTable(memory::FlashAddress{0}, rom, spec), internal::DensoTableOutcome::kCorrected);
+    EXPECT_EQ(bytes::ReadU32Be(rom, 8), 0x5AA5A559U);
+}
+
+// The block [12, 18) ends inside the bytes, but its second word, [16, 20),
+// runs past them.
+TEST(DensoChecksumTable, AWordRunningPastTheEndOfTheBytesIsAnInvalidBlockRange)
+{
+    bytes::Bytes rom(18, 0);
+    bytes::WriteU32Be(rom, 0, 12);
+    bytes::WriteU32Be(rom, 4, 18);
+    const bytes::Bytes original = rom;
+    const internal::DensoTableSpec spec{.table_address = memory::FlashAddress{0}, .table_length = 12};
+
+    EXPECT_EQ(internal::CorrectDensoTable(memory::FlashAddress{0}, rom, spec),
+              internal::DensoTableOutcome::kInvalidBlockRange);
+    EXPECT_EQ(rom, original);
+}
