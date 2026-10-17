@@ -180,6 +180,8 @@ and [ADR 0023](adr/0023-hill-climb-nloc-with-kind-specific-guards.md).
 ```sh
 python3 scripts/nloc_loop.py measure            # total, production and test NLOC
 python3 scripts/nloc_loop.py candidates         # ranked duplicate-cluster queue
+python3 scripts/nloc_loop.py guards snapshot    # test cases and coverage of HEAD
+python3 scripts/nloc_loop.py guards check --kind test-only   # HEAD against its base
 python3 scripts/nloc_loop.py ledger record <cluster> rejected --reason mutation
 python3 scripts/nloc_loop.py ledger list        # attempts and the rejection streak
 python3 scripts/nloc_loop.py trend --pr <n> --kind test-only --before <base NLOC>
@@ -202,6 +204,22 @@ by estimated savings. The cluster ID is stable across line shifts.
 
 `trend` measures the working tree and appends a row to
 `docs/reference/nloc-trend.csv`; run it on the loop PR's branch before merge.
+
+`guards snapshot` runs `scripts/coverage-local.sh` into `.nloc-loop/coverage`
+and records the clean HEAD's executed test cases (from the `test.xml` files
+that run wrote; skipped and disabled cases excluded) and per-file covered
+lines in `.nloc-loop/snapshots/<commit>.json`. A failing test fails the
+snapshot. Take one on the base (the merge-base with `origin/master`) before
+branching and one on the loop PR's HEAD; `guards check` compares them and
+exits 1 when a guard fails:
+
+- Both kinds: executed test cases do not drop.
+- Test-only: no production file changed, and every production line covered
+  on the base is still covered.
+- Production: line coverage of each changed production file present on both
+  sides does not drop.
+
+The mutation guards run in CI ([ADR 0023](adr/0023-hill-climb-nloc-with-kind-specific-guards.md)).
 
 - **NLOC**: Lizard's `Total nloc` over first-party C++ in `src/`, `apps/`
   and `tests/` with the prek excludes. Non-blank, non-comment lines on the
