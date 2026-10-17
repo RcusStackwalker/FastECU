@@ -502,19 +502,16 @@ class OrchestrationTest(unittest.TestCase):
             tools.mkdir()
             bazel = tools / "bazel"
             bazel.write_text(
-                f"#!{sys.executable}\n"
-                + """import json, sys
+                """import json, sys
 if sys.argv[1] == "query":
     print("//a:t")
 elif sys.argv[1] == "cquery":
     print(json.dumps({"label": "//a:t", "env": {"FIXTURE": "available"}}))
 """
             )
-            bazel.chmod(0o755)
             runner = tools / "mull-runner-22"
             runner.write_text(
-                f"#!{sys.executable}\n"
-                + """import json, os, pathlib, sys
+                """import json, os, pathlib, sys
 assert os.environ["FIXTURE"] == "available"
 assert os.environ["GTEST_TOTAL_SHARDS"] == "2"
 directory = pathlib.Path(sys.argv[sys.argv.index("--report-dir") + 1])
@@ -526,18 +523,32 @@ mutant = {"mutatorName": "m", "replacement": "r", "status": "Killed",
     "src/algorithms/a.cpp": {"mutants": [mutant]}}}))
 """
             )
-            runner.chmod(0o755)
             plugin = tools / "mull-ir-frontend-22"
             plugin.touch()
+            # Explicit Python launchers keep the subprocess fixture portable:
+            # Windows cannot execute an extensionless script via a shebang.
+            driver = root / "scripts/drive_mutation.py"
+            driver.write_text(
+                """import pathlib, sys
+import mutation_test as mt
+run = mt._run
+def launch(command, root, **kwargs):
+    tool = pathlib.Path(__file__).parent.parent / "tools" / pathlib.Path(command[0]).name
+    if tool.is_file():
+        command = [sys.executable, str(tool), *command[1:]]
+    return run(command, root, **kwargs)
+mt._run = launch
+sys.exit(mt.main())
+"""
+            )
             schedule = root / "schedule.json"
             schedule.write_text(json.dumps({"tests": {"//a:t": {"seconds": 10, "test_shards": 2}}}))
             environment = {
                 **os.environ,
-                "PATH": str(tools) + os.pathsep + os.environ["PATH"],
                 "MULL_RUNNER": str(runner),
                 "MULL_IR_FRONTEND": str(plugin),
             }
-            script = [sys.executable, str(root / "scripts/mutation_test.py")]
+            script = [sys.executable, str(driver)]
             reports = root / "reports"
             for index in range(2):
                 result = subprocess.run(
