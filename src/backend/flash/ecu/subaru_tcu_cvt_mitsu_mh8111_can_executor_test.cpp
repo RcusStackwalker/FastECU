@@ -30,6 +30,7 @@
 #include "src/backend/ports/manual_cancellation_token.h"
 #include "src/backend/flash/flash_validation.h"
 #include "src/backend/flash/ecu/testing/can_executor_conformance.h"
+#include "src/backend/flash/ecu/testing/can_executor_run.h"
 #include "src/backend/flash/testing/scripted_can_flash_transport.h"
 #include "src/backend/ports/testing/fake_clock.h"
 #include "src/backend/ports/testing/recording_event_sink.h"
@@ -631,6 +632,9 @@ TEST(SubaruTcuCvtMitsuMh8111CanExecutor, WriteRefusesAnImageThatDoesNotMatchTheP
 // exercises exactly the same scripts and plans the family's own local tests
 // do.
 struct TcuCvtMitsuMh8111CanTraits
+    : fastecu::flash::testing::CanScriptForwarders<
+          &::ReadPlan, [](FlashOperation op) { return ::HandBuiltPlan(op, kImageSize); }, &::ScriptFullConnect,
+          &::ScriptDumpSetup, &::ScriptFlashDump, &::ScriptStopCommand, &::ScriptUpToFirstFatalRead>
 {
     using Executor = SubaruTcuCvtMitsuMh8111CanExecutor;
     static constexpr fastecu::flash::Iso15765Config kWire{
@@ -648,42 +652,6 @@ struct TcuCvtMitsuMh8111CanTraits
     // jump + alive check + dump setup (8) plus one per dump chunk
     // (kBlockLength / kPageSize == 1920).
     static constexpr int kProbeCount = 1928;
-
-    static fastecu::Result<fastecu::flash::FlashPlan> ReadPlan()
-    {
-        return ::ReadPlan();
-    }
-
-    static fastecu::Result<fastecu::flash::FlashPlan> HandBuiltPlan(FlashOperation operation)
-    {
-        return ::HandBuiltPlan(operation, kImageSize);
-    }
-
-    static void ScriptBenchConnect(ScriptedCanFlashTransport& t)
-    {
-        ::ScriptFullConnect(t);
-    }
-
-    static void ScriptReadSetup(ScriptedCanFlashTransport& t)
-    {
-        ::ScriptDumpSetup(t);
-    }
-
-    static void ScriptFlashDump(ScriptedCanFlashTransport& t, std::uint32_t start, std::uint32_t length,
-                                std::uint32_t pagesize, bytes::Byte fill)
-    {
-        ::ScriptFlashDump(t, start, length, pagesize, fill);
-    }
-
-    static void ScriptStopCommand(ScriptedCanFlashTransport& t)
-    {
-        ::ScriptStopCommand(t);
-    }
-
-    static void ScriptUpToFirstFatalRead(ScriptedCanFlashTransport& t)
-    {
-        ::ScriptUpToFirstFatalRead(t);
-    }
 };
 
 INSTANTIATE_TYPED_TEST_SUITE_P(SubaruTcuCvtMitsuMh8111Can, CanExecutorConformance, TcuCvtMitsuMh8111CanTraits);
