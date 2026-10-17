@@ -199,6 +199,61 @@ struct CommonFixture
     CanExecutorContext ctx{cancellation, events, clock, client, channel};
 };
 
+// A literal short chunk pins wire encoding without coupling to image encryption.
+TEST(DensoIso15765CanCommonTest, WriteChunkSendsLiteralB6AbsoluteAddress)
+{
+    CommonFixture f;
+    f.transport.Exchange(Request({0xB6, 0x08, 0xFA, 0xC0, 0x00, 0x11, 0x22}), Response({0xF6}));
+
+    EXPECT_THAT(DensoIso15765WriteChunk(f.ctx, 0x08FAC000, bytes::Bytes{0x11, 0x22}), fastecu::testing::IsOk());
+    EXPECT_TRUE(f.transport.ScriptConsumed());
+    EXPECT_THAT(f.transport.ReadTimeouts(), ::testing::ElementsAre(500ms));
+    EXPECT_THAT(f.clock.sleep_calls, ::testing::IsEmpty());
+    EXPECT_THAT(f.events.progress_calls, ::testing::IsEmpty());
+}
+
+TEST(DensoIso15765CanCommonTest, WriteChunkPropagatesNegativeTransportAndCancellation)
+{
+    for (int response_case = 0; response_case < 3; ++response_case)
+    {
+        SCOPED_TRACE(response_case);
+        CommonFixture f;
+        f.transport.Exchange(Request({0xB6, 0x08, 0xFA, 0xC0, 0x00, 0x11, 0x22}));
+        if (response_case == 0)
+        {
+            f.transport.QueueRead(Response({0x7F, 0xB6, 0x22}));
+        }
+        else
+        {
+            f.transport.QueueError(response_case == 1 ? ErrorKind::kDisconnected : ErrorKind::kCancelled,
+                                   "write exchange failed");
+        }
+
+        const auto result = DensoIso15765WriteChunk(f.ctx, 0x08FAC000, bytes::Bytes{0x11, 0x22});
+
+        const auto kind = response_case == 0   ? ErrorKind::kBadResponse
+                          : response_case == 1 ? ErrorKind::kDisconnected
+                                               : ErrorKind::kCancelled;
+        ASSERT_THAT(result, fastecu::testing::IsErr(kind));
+        if (response_case != 0)
+        {
+            EXPECT_EQ(result.error().detail, "write exchange failed");
+        }
+        if (response_case == 2)
+        {
+            EXPECT_THAT(f.events.logs, ::testing::Contains(::testing::Pair(
+                                           LogLevel::kWarning, ::testing::HasSubstr("the flash write at 0x8fac000"))));
+        }
+        else
+        {
+            EXPECT_THAT(f.events.logs, ::testing::Contains(::testing::Pair(
+                                           LogLevel::kError, ::testing::StartsWith("Wrong response from ECU: "))));
+        }
+        EXPECT_TRUE(f.transport.ScriptConsumed());
+        EXPECT_THAT(f.transport.ReadTimeouts(), ::testing::ElementsAre(500ms));
+    }
+}
+
 // Wrong address encoding, timeout, or accepting a partial crypto word breaks this
 // literal page transcript. The helper must leave pacing and progress to callers.
 TEST(DensoIso15765CanCommonTest, ReadPageUsesLiteralB7AddressAndWholeWordDecrypt)
