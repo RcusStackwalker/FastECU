@@ -13,6 +13,7 @@
 #include "src/backend/flash/testing/scripted_can_flash_transport.h"
 #include "src/backend/ports/testing/recording_clock.h"
 #include "src/backend/ports/testing/result_matchers.h"
+#include "src/backend/flash/ecu/testing/denso_can_frames.h"
 #include "src/backend/flash/flash_executor.h"
 #include "src/backend/ports/manual_cancellation_token.h"
 #include "src/backend/ports/testing/fake_clock.h"
@@ -109,6 +110,75 @@ void ExpectShortPageRead(const FlashPlan& plan, ScriptedCanFlashTransport& trans
     {
         EXPECT_THAT(events.logs, stop_logged);
     }
+}
+
+// The checksum leg of the close/verify flow after ScriptCloseRetries. Outcomes:
+// 0 and 1 succeed (1 after a 0x78 responsePending re-read), 2 times out, 3
+// disconnects, 4 is responsePending then a timeout.
+inline void ScriptChecksumOutcome(ScriptedCanFlashTransport& t, int outcome)
+{
+    t.Exchange(Request({0x31, 0x01, 0x02, 0x02, 0x01}));
+    if (outcome == 1)
+    {
+        t.QueueRead(Response({0x7F, 0x31, 0x78}));
+        t.QueueRead(Response({0x71, 0x01, 0x02}));
+    }
+    else if (outcome == 2)
+    {
+        t.QueueNoFrame();
+    }
+    else if (outcome == 3)
+    {
+        t.QueueError(ErrorKind::kDisconnected, "checksum fails");
+    }
+    else if (outcome == 4)
+    {
+        t.QueueRead(Response({0x7F, 0x31, 0x78}));
+        t.QueueNoFrame();
+    }
+    else
+    {
+        t.QueueRead(Response({0x71, 0x01, 0x02}));
+    }
+}
+
+// Per-family timing of the close/verify flow.
+struct CloseOutcomeExpectation
+{
+    std::vector<std::chrono::milliseconds> sleeps;
+    std::chrono::milliseconds checksum_timeout;
+    std::chrono::milliseconds reread_timeout;
+};
+
+// Executes `plan` against the scripted `transport` and checks `outcome`
+// (see ScriptChecksumOutcome) and the close/checksum timing.
+template <class Executor>
+void ExpectCloseOutcome(const FlashPlan& plan, ScriptedCanFlashTransport& transport, int outcome,
+                        const CloseOutcomeExpectation& expect)
+{
+    using std::chrono::milliseconds;
+    auto [clock, events, cancellation, result] = ExecutorRun<Executor, RecordingClock>(plan, transport);
+    if (outcome < 2)
+    {
+        EXPECT_THAT(result, fastecu::testing::IsOk());
+    }
+    else
+    {
+        EXPECT_THAT(result, fastecu::testing::IsErr(outcome == 3 ? ErrorKind::kDisconnected : ErrorKind::kTimeout));
+    }
+    EXPECT_TRUE(transport.ScriptConsumed());
+    EXPECT_EQ(clock.sleep_calls, expect.sleeps);
+    const auto& timeouts = transport.ReadTimeouts();
+    const bool reread = outcome == 1 || outcome == 4;
+    ASSERT_GE(timeouts.size(), 8U);
+    const auto checksum_index = static_cast<std::ptrdiff_t>(timeouts.size() - (reread ? 2 : 1));
+    EXPECT_EQ(timeouts[static_cast<std::size_t>(checksum_index)], expect.checksum_timeout);
+    if (reread)
+    {
+        EXPECT_EQ(timeouts.back(), expect.reread_timeout);
+    }
+    EXPECT_THAT(std::vector<milliseconds>(timeouts.begin() + checksum_index - 6, timeouts.begin() + checksum_index),
+                ::testing::Each(milliseconds(200)));
 }
 
 // The scripting members CanExecutorConformance expects of a family's Traits,

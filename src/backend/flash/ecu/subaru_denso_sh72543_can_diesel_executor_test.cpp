@@ -946,55 +946,14 @@ TEST(SubaruDensoSh72543CanDieselExecutor, CloseRetriesSettleAndChecksumOutcomes)
         transport.QueueRead(Response({0x71, 0x01, 0x02}));
         ScriptReflashChunks(transport, rom);
         ScriptCloseRetries(transport, outcome == 0);
-        transport.Exchange(Request({0x31, 0x01, 0x02, 0x02, 0x01}));
-        if (outcome == 1)
-        {
-            transport.QueueRead(Response({0x7F, 0x31, 0x78}));
-            transport.QueueRead(Response({0x71, 0x01, 0x02}));
-        }
-        else if (outcome == 2)
-        {
-            transport.QueueNoFrame();
-        }
-        else if (outcome == 3)
-        {
-            transport.QueueError(ErrorKind::kDisconnected, "checksum fails");
-        }
-        else if (outcome == 4)
-        {
-            transport.QueueRead(Response({0x7F, 0x31, 0x78}));
-            transport.QueueNoFrame();
-        }
-        else
-        {
-            transport.QueueRead(Response({0x71, 0x01, 0x02}));
-        }
+        ScriptChecksumOutcome(transport, outcome);
         const auto plan = WritePlan(rom);
         ASSERT_THAT(plan, fastecu::testing::IsOk());
-        auto [clock, events, cancellation, result] =
-            ExecutorRun<SubaruDensoSh72543CanDieselExecutor, fastecu::RecordingClock>(*plan, transport);
-        if (outcome < 2)
-        {
-            EXPECT_THAT(result, fastecu::testing::IsOk());
-        }
-        else
-        {
-            EXPECT_THAT(result, fastecu::testing::IsErr(outcome == 3 ? ErrorKind::kDisconnected : ErrorKind::kTimeout));
-        }
-        EXPECT_TRUE(transport.ScriptConsumed());
-        EXPECT_EQ(clock.sleep_calls, (std::vector<std::chrono::milliseconds>{50ms, 500ms, 100ms}));
-        const auto& timeouts = transport.ReadTimeouts();
-        const bool reread = outcome == 1 || outcome == 4;
-        ASSERT_GE(timeouts.size(), 8U);
-        const std::size_t checksum_index = timeouts.size() - (reread ? 2 : 1);
-        EXPECT_EQ(timeouts[checksum_index], 2000ms);
-        if (reread)
-        {
-            EXPECT_EQ(timeouts.back(), 2000ms);
-        }
-        EXPECT_THAT(std::vector<std::chrono::milliseconds>(timeouts.begin() + checksum_index - 6,
-                                                           timeouts.begin() + checksum_index),
-                    Each(200ms));
+        ExpectCloseOutcome<SubaruDensoSh72543CanDieselExecutor>(
+            *plan, transport, outcome,
+            {.sleeps = std::vector<std::chrono::milliseconds>{50ms, 500ms, 100ms},
+             .checksum_timeout = 2000ms,
+             .reread_timeout = 2000ms});
     }
 }
 
