@@ -241,7 +241,7 @@ inline bytes::Bytes PatternedRom(std::size_t size)
 
 // A read whose first page reply is absent (0), empty (1) or a cancelled
 // exchange (2) fails with that error, with no stop request and no progress.
-template <class Executor, class MakePlan, class ReadSetup>
+template <typename Executor, typename MakePlan, typename ReadSetup>
 void ExpectPageFailuresWithoutStopOrProgress(MakePlan make_plan, ReadSetup read_setup, std::uint32_t block_start)
 {
     for (int response_case = 0; response_case < 3; ++response_case)
@@ -277,7 +277,7 @@ void ExpectPageFailuresWithoutStopOrProgress(MakePlan make_plan, ReadSetup read_
 
 // A cancellation after the first page fails the read; one raised at the final
 // stop request is swallowed and the read completes.
-template <class Executor, class MakePlan, class ReadSetup, class FlashDump>
+template <typename Executor, typename MakePlan, typename ReadSetup, typename FlashDump>
 void ExpectCancellationAfterPageFailsButAtStopIsSwallowed(MakePlan make_plan, ReadSetup read_setup,
                                                           FlashDump flash_dump, std::uint32_t block_start,
                                                           std::uint32_t block_length, std::uint32_t page_size)
