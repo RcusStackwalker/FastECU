@@ -10,7 +10,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 
 import mutation_test as mt
 
@@ -41,6 +41,20 @@ def _report(path: str, *mutants):
 
 
 class RelativeSourcePathTest(unittest.TestCase):
+    def test_strips_a_windows_workspace_root(self) -> None:
+        self.assertEqual(
+            SOURCE,
+            mt.relative_source_path(
+                r"C:\work\FastECU\src\algorithms\a.cpp", PureWindowsPath(r"C:\work\FastECU")
+            ),
+        )
+
+    def test_strips_a_windows_bazel_execroot(self) -> None:
+        self.assertEqual(
+            SOURCE,
+            mt.relative_source_path(r"D:\_bazel\execroot\_main\src\algorithms\a.cpp", ROOT),
+        )
+
     def test_strips_the_workspace_root(self) -> None:
         self.assertEqual(
             SOURCE,
