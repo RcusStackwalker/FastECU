@@ -196,7 +196,7 @@ struct IsoStep
     std::string_view subject;
     std::uint8_t ack;
     std::size_t min_payload = 0;
-    std::string_view missing = {};
+    std::string_view missing;
 };
 
 Result<bytes::Bytes> IsoExchange(IMixedCanFlashTransport& transport, bytes::ByteView request,
