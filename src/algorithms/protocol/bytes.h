@@ -61,9 +61,16 @@ inline void AppendU32Le(Bytes& out, std::uint32_t value)
     out.push_back(static_cast<Byte>((value >> 24U) & 0xFFU));
 }
 
+// Whether `count` bytes from `offset` on lie within `bytes`. Checking `count`
+// first keeps `bytes.size() - count` from wrapping.
+inline constexpr bool FitsAt(ByteView bytes, std::size_t offset, std::size_t count)
+{
+    return count <= bytes.size() && offset <= bytes.size() - count;
+}
+
 inline std::uint16_t ReadU16Be(ByteView bytes, std::size_t offset = 0)
 {
-    if (offset > bytes.size() || 2 > bytes.size() - offset)
+    if (!FitsAt(bytes, offset, 2))
     {
         return 0;
     }
@@ -73,7 +80,7 @@ inline std::uint16_t ReadU16Be(ByteView bytes, std::size_t offset = 0)
 
 inline std::uint32_t ReadU24Be(ByteView bytes, std::size_t offset = 0)
 {
-    if (offset > bytes.size() || 3 > bytes.size() - offset)
+    if (!FitsAt(bytes, offset, 3))
     {
         return 0;
     }
@@ -83,7 +90,7 @@ inline std::uint32_t ReadU24Be(ByteView bytes, std::size_t offset = 0)
 
 inline std::uint32_t ReadU32Be(ByteView bytes, std::size_t offset = 0)
 {
-    if (offset > bytes.size() || 4 > bytes.size() - offset)
+    if (!FitsAt(bytes, offset, 4))
     {
         return 0;
     }
@@ -93,7 +100,7 @@ inline std::uint32_t ReadU32Be(ByteView bytes, std::size_t offset = 0)
 
 inline std::uint16_t ReadU16Le(ByteView bytes, std::size_t offset = 0)
 {
-    if (offset > bytes.size() || 2 > bytes.size() - offset)
+    if (!FitsAt(bytes, offset, 2))
     {
         return 0;
     }
@@ -103,7 +110,7 @@ inline std::uint16_t ReadU16Le(ByteView bytes, std::size_t offset = 0)
 
 inline std::uint32_t ReadU24Le(ByteView bytes, std::size_t offset = 0)
 {
-    if (offset > bytes.size() || 3 > bytes.size() - offset)
+    if (!FitsAt(bytes, offset, 3))
     {
         return 0;
     }
@@ -113,7 +120,7 @@ inline std::uint32_t ReadU24Le(ByteView bytes, std::size_t offset = 0)
 
 inline std::uint32_t ReadU32Le(ByteView bytes, std::size_t offset = 0)
 {
-    if (offset > bytes.size() || 4 > bytes.size() - offset)
+    if (!FitsAt(bytes, offset, 4))
     {
         return 0;
     }
@@ -179,7 +186,7 @@ inline void OverwriteAt(MutableByteView out, std::size_t offset, ByteView payloa
 
 inline void WriteU16Be(MutableByteView out, std::size_t offset, std::uint16_t value)
 {
-    if (offset > out.size() || 2 > out.size() - offset)
+    if (!FitsAt(out, offset, 2))
     {
         return;
     }
@@ -190,7 +197,7 @@ inline void WriteU16Be(MutableByteView out, std::size_t offset, std::uint16_t va
 
 inline void WriteU24Be(MutableByteView out, std::size_t offset, std::uint32_t value)
 {
-    if (offset > out.size() || 3 > out.size() - offset)
+    if (!FitsAt(out, offset, 3))
     {
         return;
     }
@@ -201,7 +208,7 @@ inline void WriteU24Be(MutableByteView out, std::size_t offset, std::uint32_t va
 
 inline void WriteU32Be(MutableByteView out, std::size_t offset, std::uint32_t value)
 {
-    if (offset > out.size() || 4 > out.size() - offset)
+    if (!FitsAt(out, offset, 4))
     {
         return;
     }
@@ -213,7 +220,7 @@ inline void WriteU32Be(MutableByteView out, std::size_t offset, std::uint32_t va
 
 inline void WriteU16Le(MutableByteView out, std::size_t offset, std::uint16_t value)
 {
-    if (offset > out.size() || 2 > out.size() - offset)
+    if (!FitsAt(out, offset, 2))
     {
         return;
     }
@@ -224,7 +231,7 @@ inline void WriteU16Le(MutableByteView out, std::size_t offset, std::uint16_t va
 
 inline void WriteU24Le(MutableByteView out, std::size_t offset, std::uint32_t value)
 {
-    if (offset > out.size() || 3 > out.size() - offset)
+    if (!FitsAt(out, offset, 3))
     {
         return;
     }
@@ -235,7 +242,7 @@ inline void WriteU24Le(MutableByteView out, std::size_t offset, std::uint32_t va
 
 inline void WriteU32Le(MutableByteView out, std::size_t offset, std::uint32_t value)
 {
-    if (offset > out.size() || 4 > out.size() - offset)
+    if (!FitsAt(out, offset, 4))
     {
         return;
     }
