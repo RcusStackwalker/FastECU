@@ -84,17 +84,6 @@ Actions:
   sequencing, and safety rules. Follow the
   [sharing decision](design-notes.md#share-only-proven-protocol-equivalence).
 
-### P1: Establish independent flash protocol evidence
-
-Map ECUFlash family functions and callers or obtain timestamped family captures
-for the [unresolved flash protocol questions](reference/flash-protocol-evidence.md).
-Prioritize capability/final-verification outcomes, K-Line pacing/address/upload/CRC
-policy, CVT security/close retries, and Denso page/jump/identity/address/close/checksum
-policy. Record exact source identity and applicability before proposing a correction;
-retain independent family regressions and a separate correction decision. The
-completed extraction series leaves no pending authorized extraction in this evidence
-work. Characterization and duplication measurements do not change qualification.
-
 ### P1: Narrow serial and hardware interfaces
 
 The remaining separation is inside the desktop facade/direct serial/J2534
