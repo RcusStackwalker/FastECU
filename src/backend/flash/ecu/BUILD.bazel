@@ -488,6 +488,7 @@ cc_library(
     hdrs = ["subaru_denso_mc68hc16y5_02_executor.h"],
     implementation_deps = [
         ":denso_beef_kline_common",
+        ":plan_primitives",
         "//src/algorithms/checksum",
         "//src/algorithms/memory:address",
         "//src/algorithms/memory:memory_error",
@@ -508,6 +509,7 @@ cc_library(
     hdrs = ["subaru_denso_sh7055_02_executor.h"],
     implementation_deps = [
         ":denso_beef_kline_common",
+        ":plan_primitives",
         "//src/algorithms/checksum",
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/ssm",

@@ -1,5 +1,6 @@
 #include "src/backend/flash/ecu/denso_beef_kline_common.h"
 
+#include <format>
 #include <utility>
 #include "src/algorithms/protocol/bytes_compose.h"
 
@@ -60,14 +61,9 @@ DensoBeefKlineExchangeOptional(IKlineFlashTransport& transport, IClock *clock, c
     {
         return std::unexpected(cancelled.error());
     }
-    Result<std::size_t> written = transport.Write(request);
-    if (!written.has_value())
+    if (Status written = DensoBeefKlineWriteAll(transport, request); !written.has_value())
     {
         return std::unexpected(written.error());
-    }
-    if (*written != request.size())
-    {
-        return Fail(ErrorKind::kDisconnected, "short K-Line write");
     }
     if (Status cancelled = CheckCancelled(cancellation, "cancelled after write"); !cancelled.has_value())
     {
@@ -94,6 +90,52 @@ DensoBeefKlineExchangeOptional(IKlineFlashTransport& transport, IClock *clock, c
         return std::unexpected(cancelled.error());
     }
     return std::move(*received);
+}
+
+Status DensoBeefKlineWriteAll(IKlineFlashTransport& transport, bytes::ByteView request)
+{
+    Result<std::size_t> written = transport.Write(request);
+    if (!written.has_value())
+    {
+        return std::unexpected(written.error());
+    }
+    if (*written != request.size())
+    {
+        return Fail(ErrorKind::kDisconnected, "short K-Line write");
+    }
+    return {};
+}
+
+Status DensoBeefKlineCheckAck(bytes::ByteView response, bytes::Byte opcode, std::string_view phase,
+                              std::size_t more_than)
+{
+    if (response.size() <= more_than || !DensoBeefKlineResponseOk(response, static_cast<bytes::Byte>(opcode | 0x40U)))
+    {
+        return Fail(ErrorKind::kBadResponse, std::format("Wrong response from ECU during {}", phase));
+    }
+    return {};
+}
+
+Result<bytes::Bytes> DensoBeefKlineExchangeAck(IKlineFlashTransport& transport, IClock *clock,
+                                               const ICancellationToken& cancellation, bytes::ByteView request,
+                                               std::chrono::milliseconds settle, std::chrono::milliseconds timeout,
+                                               bytes::Byte opcode, std::string_view phase, std::size_t more_than)
+{
+    Result<IKlineFlashTransport::OptionalBytes> received =
+        DensoBeefKlineExchangeOptional(transport, clock, cancellation, request, settle, timeout);
+    if (!received.has_value())
+    {
+        return std::unexpected(received.error());
+    }
+    if (!received->has_value())
+    {
+        return Fail(ErrorKind::kTimeout, std::format("no response from ECU during {}", phase));
+    }
+    if (Status ack = DensoBeefKlineCheckAck(**received, opcode, phase, more_than); !ack.has_value())
+    {
+        return std::unexpected(ack.error());
+    }
+    return std::move(**received);
 }
 
 } // namespace fastecu::flash
