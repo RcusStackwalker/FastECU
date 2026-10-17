@@ -323,6 +323,21 @@ TEST(ScriptedCanFlashTransport, ExchangePairsARequestWithItsReply)
     EXPECT_TRUE(transport.ScriptConsumed());
 }
 
+TEST(ScriptedCanFlashTransport, DifferentLengthWritesDoNotConsumeTheExpectation)
+{
+    ScriptedCanFlashTransport transport;
+    FakeCancellationToken cancellation;
+    transport.ExpectWrite(bytes::Bytes{0x27, 0x62});
+    for (const auto& wrong : {bytes::Bytes{}, bytes::Bytes{0x27}, bytes::Bytes{0x27, 0x62, 0x00}})
+    {
+        SCOPED_TRACE(::testing::PrintToString(wrong));
+        EXPECT_THAT(transport.Write(wrong, cancellation), IsErr(ErrorKind::kInternal));
+        EXPECT_EQ(transport.WritesConsumed(), 0U);
+    }
+    EXPECT_THAT(transport.Write(bytes::Bytes{0x27, 0x62}, cancellation), IsOk());
+    EXPECT_TRUE(transport.ScriptConsumed());
+}
+
 TEST(ScriptedCanFlashTransport, ADivergentWriteNamesTheStepAndPrintsBothSides)
 {
     ScriptedCanFlashTransport transport;

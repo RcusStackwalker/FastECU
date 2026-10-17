@@ -205,8 +205,15 @@ EXPECT_EQ(result.error().kind, ErrorKind::kTimeout);
 **Assert containers with gmock matchers** (`ElementsAre`, `Each`, `Field`),
 not loops or algorithms reduced to `EXPECT_TRUE`.
 
+For uniform ROM buffers, use `test_bytes::BytesFilledWith(value)` from
+[byte_matchers.h](../src/algorithms/protocol/testing/byte_matchers.h). It checks
+every byte and reports the first mismatching offset without Google Mock's
+per-element matcher overhead in unoptimized mutation builds.
+
 **A loop with assertions needs `SCOPED_TRACE`**, or becomes a `TEST_P` with
 `PrintToStringParamName`, so a failure names its case.
+Use separate `TEST_P` cases for expensive transfer outcomes: GoogleTest
+sharding can distribute them, and mutation fail-fast can stop between cases.
 
 ### Structure
 

@@ -3,12 +3,41 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <string>
+
 namespace test_bytes
 {
 namespace
 {
 using ::testing::HasSubstr;
 using ::testing::Not;
+
+TEST(BytesFilledWith, MatchesEmptyAndUniformRanges)
+{
+    EXPECT_THAT(bytes::Bytes{}, BytesFilledWith(0xFF));
+    EXPECT_THAT(bytes::Bytes(4096, 0xA5), BytesFilledWith(0xA5));
+    const bytes::Bytes storage{0x00, 0xFF, 0xFF, 0x00};
+    EXPECT_THAT(bytes::ByteView(storage).subspan(1, 2), BytesFilledWith(0xFF));
+}
+
+TEST(BytesFilledWith, RejectsAMismatchAtEveryPosition)
+{
+    for (const std::size_t offset : {0U, 2048U, 4095U})
+    {
+        SCOPED_TRACE(offset);
+        bytes::Bytes actual(4096, 0xA5);
+        actual[offset] = 0x5A;
+        ::testing::StringMatchResultListener listener;
+        EXPECT_FALSE(::testing::ExplainMatchResult(BytesFilledWith(0xA5), actual, &listener));
+        EXPECT_THAT(listener.str(), HasSubstr(std::to_string(offset)));
+        EXPECT_THAT(listener.str(), HasSubstr("5a"));
+    }
+}
+
+TEST(BytesFilledWith, DoesNotTruncateTheExpectedValue)
+{
+    EXPECT_THAT(bytes::Bytes{0x00}, Not(BytesFilledWith(0x100)));
+}
 
 TEST(BytesEq, MatchesEqualContent)
 {

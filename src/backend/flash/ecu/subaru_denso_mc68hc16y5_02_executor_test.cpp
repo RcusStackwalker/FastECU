@@ -1,3 +1,4 @@
+#include "src/algorithms/protocol/testing/byte_matchers.h"
 #include "src/backend/ports/testing/result_matchers.h"
 // Equivalence tests for SubaruDensoMc68hc16y5_02Executor, the portable
 // replacement for flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp.
@@ -41,7 +42,6 @@ using bytes::ComposeBeWithChecksum;
 using bytes::U24;
 using namespace bytes::literals;
 using namespace std::chrono_literals;
-using ::testing::Each;
 
 class ToggleCancellation final : public ICancellationToken
 {
@@ -789,7 +789,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, TpuReadHonorsDeclaredPackedRomSize)
     ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_TRUE(result->read_bytes.has_value());
     EXPECT_EQ(result->read_bytes->size(), device->romsize);
-    EXPECT_THAT(*result->read_bytes, Each(0x6a));
+    EXPECT_THAT(*result->read_bytes, test_bytes::BytesFilledWith(0x6a));
     EXPECT_TRUE(transport.ScriptConsumed());
 }
 

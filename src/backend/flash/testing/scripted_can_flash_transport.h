@@ -2,6 +2,7 @@
 #include "src/backend/flash/flash_executor.h"
 #include "src/backend/flash/testing/scripted_flash_transport_state.h"
 
+#include <algorithm>
 #include <chrono>
 #include <condition_variable>
 #include <deque>
@@ -153,16 +154,16 @@ class ScriptedCanFlashTransport : public ICanFlashTransport
         {
             return Fail(ErrorKind::kCancelled, "scripted CAN write cancelled");
         }
-        const bytes::Bytes actual(data.begin(), data.end());
         if (w_idx_ >= expected_.size())
         {
             return Fail(ErrorKind::kInternal,
                         std::format("scripted CAN write ran past the end of the script ({} exchanges); wrote {}",
-                                    expected_.size(), bytes::ToHex(actual)));
+                                    expected_.size(), bytes::ToHex(data)));
         }
-        if (expected_.at(w_idx_) != actual)
+        const auto& expected = expected_.at(w_idx_);
+        if (!std::equal(expected.begin(), expected.end(), data.begin(), data.end()))
         {
-            return Fail(ErrorKind::kInternal, DescribeDivergence(w_idx_, actual));
+            return Fail(ErrorKind::kInternal, DescribeDivergence(w_idx_, data));
         }
         ++w_idx_;
         return {};
@@ -205,7 +206,7 @@ class ScriptedCanFlashTransport : public ICanFlashTransport
     std::optional<Iso15765Config> last_config;
 
   private:
-    std::string DescribeDivergence(std::size_t index, const bytes::Bytes& actual) const
+    std::string DescribeDivergence(std::size_t index, bytes::ByteView actual) const
     {
         const std::string& label = sections_.at(index);
         const std::string where = label.empty() ? std::format("scripted CAN exchange #{}", index + 1)

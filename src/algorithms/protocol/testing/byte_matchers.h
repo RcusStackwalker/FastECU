@@ -2,10 +2,29 @@
 
 #include <gmock/gmock.h>
 
+#include <cstddef>
+
 #include "src/algorithms/protocol/bytes.h"
 
 namespace test_bytes
 {
+
+// Full ROMs contain millions of bytes. Avoid constructing a polymorphic
+// matcher/listener for each byte, and keep failures bounded to one offset.
+MATCHER_P(BytesFilledWith, value, "")
+{
+    std::size_t offset = 0;
+    for (const auto byte : arg)
+    {
+        if (byte != value)
+        {
+            *result_listener << "byte #" << offset << " is " << bytes::ToHex(bytes::ByteView(&byte, 1));
+            return false;
+        }
+        ++offset;
+    }
+    return true;
+}
 
 // Compares any byte range against any byte range and explains a mismatch as
 // hex. A matcher rather than a PrintTo because bytes::Bytes and

@@ -1,3 +1,4 @@
+#include "src/algorithms/protocol/testing/byte_matchers.h"
 #include "src/backend/flash/ecu/subaru_denso_sh7058_can_executor.h"
 
 #include <algorithm>
@@ -49,7 +50,6 @@ using namespace std::chrono_literals;
 using fastecu::testing::IsErr;
 using fastecu::testing::IsErrWith;
 using fastecu::testing::IsOk;
-using ::testing::Each;
 using ::testing::StrEq;
 
 constexpr std::uint32_t kRomSize = 0x00100000;
@@ -713,7 +713,7 @@ TEST(SubaruDensoSh7058CanExecutor, AlreadyRunningKernelReadsFirstAndLastBoundary
     ASSERT_THAT(result, IsOk());
     ASSERT_TRUE(result->read_bytes.has_value());
     EXPECT_EQ(result->read_bytes->size(), kRomSize);
-    EXPECT_THAT(*result->read_bytes, Each(0));
+    EXPECT_THAT(*result->read_bytes, test_bytes::BytesFilledWith(0));
     EXPECT_EQ(result->rom_id, std::nullopt);
     EXPECT_TRUE(transport.scripted.ScriptConsumed());
     ASSERT_EQ(transport.writes.size(), 1025U);

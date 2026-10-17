@@ -368,19 +368,18 @@ void ScriptReflashChunks(ScriptedCanFlashTransport& t, bytes::ByteView encrypted
 
 // The write image and its wire encoding are the same for every write test, and
 // encrypting a multi-megabyte image dominates their time, so each is built once
-// per suite.
-class SubaruDenso1n83m_4mCanExecutorWrite : public testing::Test
+// per process, including when both plain and parameterized suites run.
+class SubaruDenso1n83m_4mCanExecutorWrite : public testing::TestWithParam<int>
 {
   protected:
     static void SetUpTestSuite()
     {
-        rom_ = fastecu::flash::testing::PatternedRom(kImageSize);
-        wire_ = ToWire(rom_);
-    }
-    static void TearDownTestSuite()
-    {
-        rom_ = {};
-        wire_ = {};
+        // Plain and parameterized suites share these immutable fixtures.
+        if (rom_.empty())
+        {
+            rom_ = fastecu::flash::testing::PatternedRom(kImageSize);
+            wire_ = ToWire(rom_);
+        }
     }
 
     static inline bytes::Bytes rom_;
@@ -408,7 +407,7 @@ TEST(SubaruDenso1n83m_4mCanExecutor, ProceedsPastMalformedConnectAndDumpSetupRes
     ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_TRUE(result->read_bytes.has_value());
     ASSERT_EQ(result->read_bytes->size(), kImageSize);
-    EXPECT_THAT(bytes::ByteView(*result->read_bytes).subspan(0x10000, kBlockLength), Each(0x5A));
+    EXPECT_THAT(bytes::ByteView(*result->read_bytes).subspan(0x10000, kBlockLength), test_bytes::BytesFilledWith(0x5A));
     EXPECT_TRUE(transport.ScriptConsumed());
     // Legacy's own wording for the absent-reply branch it then steps over.
     EXPECT_THAT(events.logs, Contains(Pair(LogLevel::kError, "No valid response from ECU")));
@@ -451,9 +450,10 @@ TEST(SubaruDenso1n83m_4mCanExecutor, BenchReadReturnsPaddedImage)
     ASSERT_TRUE(result->read_bytes.has_value());
     const bytes::Bytes& rom = *result->read_bytes;
     ASSERT_EQ(rom.size(), kImageSize);
-    EXPECT_THAT(bytes::ByteView(rom).first(0x10000), Each(0xFF));                 // leading pad
-    EXPECT_THAT(bytes::ByteView(rom).subspan(0x10000, kBlockLength), Each(0xA5)); // decrypted payload
-    EXPECT_THAT(bytes::ByteView(rom).last(0x100), Each(0xFF));                    // tail pad
+    EXPECT_THAT(bytes::ByteView(rom).first(0x10000), test_bytes::BytesFilledWith(0xFF)); // leading pad
+    EXPECT_THAT(bytes::ByteView(rom).subspan(0x10000, kBlockLength),
+                test_bytes::BytesFilledWith(0xA5));                                   // decrypted payload
+    EXPECT_THAT(bytes::ByteView(rom).last(0x100), test_bytes::BytesFilledWith(0xFF)); // tail pad
     EXPECT_TRUE(transport.ScriptConsumed());
     // The seed and key exchanges both read with the shared two-second timeout.
     ASSERT_GT(transport.ReadTimeouts().size(), 9U);
@@ -477,9 +477,9 @@ TEST(SubaruDenso1n83m_4mCanExecutor, InCarReadReturnsPaddedImage)
     ASSERT_TRUE(result->read_bytes.has_value());
     const bytes::Bytes& rom = *result->read_bytes;
     ASSERT_EQ(rom.size(), kImageSize);
-    EXPECT_THAT(bytes::ByteView(rom).first(0x10000), Each(0xFF));
-    EXPECT_THAT(bytes::ByteView(rom).subspan(0x10000, kBlockLength), Each(0x5A));
-    EXPECT_THAT(bytes::ByteView(rom).last(0x100), Each(0xFF));
+    EXPECT_THAT(bytes::ByteView(rom).first(0x10000), test_bytes::BytesFilledWith(0xFF));
+    EXPECT_THAT(bytes::ByteView(rom).subspan(0x10000, kBlockLength), test_bytes::BytesFilledWith(0x5A));
+    EXPECT_THAT(bytes::ByteView(rom).last(0x100), test_bytes::BytesFilledWith(0xFF));
     EXPECT_TRUE(transport.ScriptConsumed());
 }
 
@@ -767,27 +767,27 @@ TEST_F(SubaruDenso1n83m_4mCanExecutorWrite, CancellationAtCloseSettlePreventsChe
 
 // A whole-image script includes both edge chunks with address-sensitive data;
 // N83M's nonzero image base must be subtracted exactly once.
-TEST_F(SubaruDenso1n83m_4mCanExecutorWrite, CloseRetriesSettleAndChecksumOutcomes)
+TEST_P(SubaruDenso1n83m_4mCanExecutorWrite, CloseRetriesSettleAndChecksumOutcomes)
 {
-    for (int outcome = 0; outcome < 5; ++outcome)
-    {
-        SCOPED_TRACE(outcome);
-        ScriptedCanFlashTransport transport;
-        ScriptBenchConnect(transport);
-        ScriptEraseMemory(transport);
-        transport.QueueRead(Response({0x71, 0x01, 0x02}));
-        ScriptReflashChunks(transport, wire_);
-        ScriptCloseRetries(transport, outcome == 0);
-        ScriptChecksumOutcome(transport, outcome);
-        const auto plan = WritePlan(rom_);
-        ASSERT_THAT(plan, fastecu::testing::IsOk());
-        ExpectCloseOutcome<SubaruDenso1n83m_4mCanExecutor>(
-            *plan, transport, outcome,
-            {.sleeps = std::vector<std::chrono::milliseconds>{500ms, 50ms, 500ms, 100ms},
-             .checksum_timeout = 500ms,
-             .reread_timeout = 3000ms});
-    }
+    const int outcome = GetParam();
+    ScriptedCanFlashTransport transport;
+    ScriptBenchConnect(transport);
+    ScriptEraseMemory(transport);
+    transport.QueueRead(Response({0x71, 0x01, 0x02}));
+    ScriptReflashChunks(transport, wire_);
+    ScriptCloseRetries(transport, outcome == 0);
+    ScriptChecksumOutcome(transport, outcome);
+    const auto plan = WritePlan(rom_);
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    ExpectCloseOutcome<SubaruDenso1n83m_4mCanExecutor>(
+        *plan, transport, outcome,
+        {.sleeps = std::vector<std::chrono::milliseconds>{500ms, 50ms, 500ms, 100ms},
+         .checksum_timeout = 500ms,
+         .reread_timeout = 3000ms});
 }
+
+INSTANTIATE_TEST_SUITE_P(ChecksumOutcomes, SubaruDenso1n83m_4mCanExecutorWrite, testing::Range(0, 5),
+                         testing::PrintToStringParamName());
 
 TEST(SubaruDenso1n83m_4mCanExecutor, IdentityExchangeFailuresIncludingCancellationAreNonFatal)
 {

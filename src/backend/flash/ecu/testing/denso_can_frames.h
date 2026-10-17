@@ -70,10 +70,10 @@ inline void ScriptFlashDump(ScriptedCanFlashTransport& t, std::uint32_t start, s
 {
     const auto section = t.Section("flash dump");
     const bytes::Bytes wire_page = ToWire(bytes::Bytes(pagesize, fill));
+    bytes::Bytes reply = Response({0xF7});
+    reply.insert(reply.end(), wire_page.begin(), wire_page.end());
     for (std::uint32_t addr = start; addr < start + length; addr += pagesize)
     {
-        bytes::Bytes reply = Response({0xF7});
-        reply.insert(reply.end(), wire_page.begin(), wire_page.end());
         t.Exchange(Request(bytes::ComposeBe(bytes::Byte(0xB7), addr)), reply);
     }
 }

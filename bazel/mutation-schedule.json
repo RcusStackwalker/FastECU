@@ -1,7 +1,8 @@
 {
   "baseline_run": "https://github.com/RcusStackwalker/FastECU/actions/runs/39027359985",
   "timing_runs": [
-    "39032047946"
+    "39032047946",
+    "39071413017"
   ],
   "tests": {
     "//src/algorithms/checksum:checksum_ecu_mitsu_m32r_can_test": {
@@ -249,13 +250,13 @@
       "seconds": 0.219
     },
     "//src/backend/flash/ecu:subaru_denso_1n83m_4m_can_executor_test": {
-      "seconds": 1062.617,
+      "seconds": 753.516,
       "test_shards": 4,
       "shard_seconds": [
-        340.894,
-        577.754,
-        100.358,
-        43.611
+        180.554,
+        111.67,
+        241.656,
+        219.636
       ]
     },
     "//src/backend/flash/ecu:subaru_denso_1n83m_4m_can_plan_test": {
