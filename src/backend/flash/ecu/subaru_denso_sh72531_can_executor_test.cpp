@@ -295,27 +295,6 @@ void ScriptReflashChunks(ScriptedCanFlashTransport& t, bytes::ByteView encrypted
     }
 }
 
-// The close-block 0x37 and the checksum verify. UdsClient absorbs the
-// intermediate 0x78 responsePending NRC by re-reading, so only one write is
-// expected even though two reads are queued.
-void ScriptCloseAndChecksum(ScriptedCanFlashTransport& t)
-{
-    const auto section = t.Section("close and checksum");
-    t.Exchange(Request({0x37}), Response({0x77}));
-    t.Exchange(Request({0x31, 0x01, 0x02, 0x02, 0x01}), Response({0x7F, 0x31, 0x78}));
-    t.QueueRead(Response({0x71, 0x01, 0x02}));
-}
-
-bytes::Bytes WriteRom()
-{
-    bytes::Bytes rom(kImageSize, 0x00);
-    for (std::size_t i = 0; i < rom.size(); ++i)
-    {
-        rom[i] = static_cast<bytes::Byte>((i ^ (i >> 8) ^ (i >> 16)) & 0xFF);
-    }
-    return rom;
-}
-
 // The write image and its wire encoding are the same for every write test, and
 // encrypting a multi-megabyte image dominates their time, so each is built once
 // per suite.
@@ -324,7 +303,7 @@ class SubaruDensoSh72531CanExecutorWrite : public testing::Test
   protected:
     static void SetUpTestSuite()
     {
-        rom_ = WriteRom();
+        rom_ = fastecu::flash::testing::PatternedRom(kImageSize);
         wire_ = ToWire(rom_);
     }
     static void TearDownTestSuite()
@@ -677,70 +656,14 @@ TEST(SubaruDensoSh72531CanExecutor, ShortPagesAdvanceByRequestedSizeAndStopIsBes
 
 TEST(SubaruDensoSh72531CanExecutor, PageAbsentEmptyAndCancelledFailWithoutStopOrProgress)
 {
-    for (int response_case = 0; response_case < 3; ++response_case)
-    {
-        SCOPED_TRACE(response_case);
-        ScriptedCanFlashTransport transport;
-        transport.Exchange(Request({0x10, 0x5F}), Response({0x50, 0x5F}));
-        ScriptReadSetup(transport);
-        transport.Exchange(Request(bytes::ComposeBe(bytes::Byte(0xB7), kBlockStart)));
-        if (response_case == 0)
-        {
-            transport.QueueNoFrame();
-        }
-        else if (response_case == 1)
-        {
-            transport.QueueRead(bytes::Bytes{});
-        }
-        else
-        {
-            transport.QueueError(ErrorKind::kCancelled, "page cancelled");
-        }
-        FakeClock clock;
-        RecordingEventSink events;
-        fastecu::ManualCancellationToken cancellation;
-        SubaruDensoSh72531CanExecutor executor;
-        const auto plan = ReadPlan();
-        ASSERT_THAT(plan, fastecu::testing::IsOk());
-        const auto kind = response_case == 0   ? ErrorKind::kTimeout
-                          : response_case == 1 ? ErrorKind::kBadResponse
-                                               : ErrorKind::kCancelled;
-        EXPECT_THAT(executor.Execute(*plan, transport, clock, cancellation, events), fastecu::testing::IsErr(kind));
-        EXPECT_TRUE(transport.ScriptConsumed());
-        EXPECT_EQ(events.phase_progress_calls.back().done, 0);
-    }
+    fastecu::flash::testing::ExpectPageFailuresWithoutStopOrProgress<SubaruDensoSh72531CanExecutor>(
+        &ReadPlan, &ScriptReadSetup, kBlockStart);
 }
 
 TEST(SubaruDensoSh72531CanExecutor, CancellationAfterPageFailsButCancellationAtStopIsSwallowed)
 {
-    for (const bool at_stop : {false, true})
-    {
-        SCOPED_TRACE(at_stop);
-        ScriptedCanFlashTransport transport;
-        transport.Exchange(Request({0x10, 0x5F}), Response({0x50, 0x5F}));
-        ScriptReadSetup(transport);
-        ScriptFlashDump(transport, kBlockStart, at_stop ? kBlockLength : kPageSize, kPageSize, 0xA5);
-        fastecu::ManualCancellationToken cancellation;
-        fastecu::flash::testing::CancelAtReadStopOrFirstPageSink events(cancellation, at_stop,
-                                                                        static_cast<int>(kPageSize));
-        FakeClock clock;
-        SubaruDensoSh72531CanExecutor executor;
-        const auto plan = ReadPlan();
-        ASSERT_THAT(plan, fastecu::testing::IsOk());
-        const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
-        if (at_stop)
-        {
-            EXPECT_THAT(result, fastecu::testing::IsOk());
-            EXPECT_EQ(events.phase_progress_calls.back().done, static_cast<int>(kBlockLength));
-        }
-        else
-        {
-            EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kCancelled));
-            EXPECT_EQ(events.phase_progress_calls.back().done, static_cast<int>(kPageSize));
-        }
-        EXPECT_TRUE(cancellation.Cancelled());
-        EXPECT_TRUE(transport.ScriptConsumed());
-    }
+    fastecu::flash::testing::ExpectCancellationAfterPageFailsButAtStopIsSwallowed<SubaruDensoSh72531CanExecutor>(
+        &ReadPlan, &ScriptReadSetup, &ScriptFlashDump, kBlockStart, kBlockLength, kPageSize);
 }
 
 // No acknowledgement is required after the bounded bench wait. A matching

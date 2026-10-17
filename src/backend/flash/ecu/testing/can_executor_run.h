@@ -216,6 +216,100 @@ inline void ScriptShortPageDumpAndStopRetries(ScriptedCanFlashTransport& t, bool
     }
 }
 
+// The close-block 0x37 and the checksum verify. UdsClient absorbs the
+// intermediate 0x78 responsePending NRC by re-reading, so only one write is
+// expected even though two reads are queued.
+inline void ScriptCloseAndChecksum(ScriptedCanFlashTransport& t)
+{
+    const auto section = t.Section("close and checksum");
+    t.Exchange(Request({0x37}), Response({0x77}));
+    t.Exchange(Request({0x31, 0x01, 0x02, 0x02, 0x01}), Response({0x7F, 0x31, 0x78}));
+    t.QueueRead(Response({0x71, 0x01, 0x02}));
+}
+
+// The write image shared by the Denso write tests: every byte a distinct
+// function of its offset, so a misplaced page cannot match by accident.
+inline bytes::Bytes PatternedRom(std::size_t size)
+{
+    bytes::Bytes rom(size, 0x00);
+    for (std::size_t i = 0; i < rom.size(); ++i)
+    {
+        rom[i] = static_cast<bytes::Byte>((i ^ (i >> 8) ^ (i >> 16)) & 0xFF);
+    }
+    return rom;
+}
+
+// A read whose first page reply is absent (0), empty (1) or a cancelled
+// exchange (2) fails with that error, with no stop request and no progress.
+template <class Executor, class MakePlan, class ReadSetup>
+void ExpectPageFailuresWithoutStopOrProgress(MakePlan make_plan, ReadSetup read_setup, std::uint32_t block_start)
+{
+    for (int response_case = 0; response_case < 3; ++response_case)
+    {
+        SCOPED_TRACE(response_case);
+        ScriptedCanFlashTransport transport;
+        transport.Exchange(Request({0x10, 0x5F}), Response({0x50, 0x5F}));
+        read_setup(transport);
+        transport.Exchange(Request(bytes::ComposeBe(bytes::Byte(0xB7), block_start)));
+        if (response_case == 0)
+        {
+            transport.QueueNoFrame();
+        }
+        else if (response_case == 1)
+        {
+            transport.QueueRead(bytes::Bytes{});
+        }
+        else
+        {
+            transport.QueueError(ErrorKind::kCancelled, "page cancelled");
+        }
+        const auto plan = make_plan();
+        ASSERT_THAT(plan, fastecu::testing::IsOk());
+        const auto kind = response_case == 0   ? ErrorKind::kTimeout
+                          : response_case == 1 ? ErrorKind::kBadResponse
+                                               : ErrorKind::kCancelled;
+        auto [clock, events, cancellation, result] = ExecutorRun<Executor>(*plan, transport);
+        EXPECT_THAT(result, fastecu::testing::IsErr(kind));
+        EXPECT_TRUE(transport.ScriptConsumed());
+        EXPECT_EQ(events.phase_progress_calls.back().done, 0);
+    }
+}
+
+// A cancellation after the first page fails the read; one raised at the final
+// stop request is swallowed and the read completes.
+template <class Executor, class MakePlan, class ReadSetup, class FlashDump>
+void ExpectCancellationAfterPageFailsButAtStopIsSwallowed(MakePlan make_plan, ReadSetup read_setup,
+                                                          FlashDump flash_dump, std::uint32_t block_start,
+                                                          std::uint32_t block_length, std::uint32_t page_size)
+{
+    for (const bool at_stop : {false, true})
+    {
+        SCOPED_TRACE(at_stop);
+        ScriptedCanFlashTransport transport;
+        transport.Exchange(Request({0x10, 0x5F}), Response({0x50, 0x5F}));
+        read_setup(transport);
+        flash_dump(transport, block_start, at_stop ? block_length : page_size, page_size, 0xA5);
+        ManualCancellationToken cancellation;
+        CancelAtReadStopOrFirstPageSink events(cancellation, at_stop, static_cast<int>(page_size));
+        FakeClock clock;
+        const auto plan = make_plan();
+        ASSERT_THAT(plan, fastecu::testing::IsOk());
+        const auto result = Executor{}.Execute(*plan, transport, clock, cancellation, events);
+        if (at_stop)
+        {
+            EXPECT_THAT(result, fastecu::testing::IsOk());
+            EXPECT_EQ(events.phase_progress_calls.back().done, static_cast<int>(block_length));
+        }
+        else
+        {
+            EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kCancelled));
+            EXPECT_EQ(events.phase_progress_calls.back().done, static_cast<int>(page_size));
+        }
+        EXPECT_TRUE(cancellation.Cancelled());
+        EXPECT_TRUE(transport.ScriptConsumed());
+    }
+}
+
 // A cancellation raised by the successful-close log must stop the flow before
 // the checksum: the last settle is the 100 ms one and no "Verifying checksum"
 // is logged.
