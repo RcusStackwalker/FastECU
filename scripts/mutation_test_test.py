@@ -218,6 +218,8 @@ class RunnerCommandTest(unittest.TestCase):
                 "checksum_test",
                 "--timeout",
                 str(mt.ORIGINAL_RUN_TIMEOUT_MS),
+                "--minimum-timeout",
+                "1000",
                 "--allow-surviving",
                 "--no-test-output",
                 "--no-mutant-output",

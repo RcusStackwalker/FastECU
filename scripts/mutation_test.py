@@ -48,8 +48,11 @@ _STATUS_RANK = {"NoCoverage": 0, "Survived": 1, "Timeout": 2, "Killed": 3}
 _RUNNER = re.compile(r"^mull-runner-(\d+)$")
 # Limit for mull-runner's unmutated warm-up and baseline runs. Its 3000 ms
 # default kills checksum_test, whose full-size ROMs take seconds in the -O0
-# coverage build. Mutant runs are unaffected: they get 10x the baseline time.
+# coverage build. Mutant runs get 10x the baseline time, with a one-second
+# floor: Mull's 30 ms default misclassifies fast assertion failures under CI
+# scheduling noise as timeouts.
 ORIGINAL_RUN_TIMEOUT_MS = 60_000
+MINIMUM_MUTANT_TIMEOUT_MS = 1_000
 # Each test's `env` attribute as `bazel test` would set it. mull-runner runs
 # the binary directly, so the script sets it instead: a test reading a data
 # path from its environment fails its unmutated run without it.
@@ -403,7 +406,9 @@ def refresh_schedule(schedule: Mapping, reports: Sequence[Mapping]) -> dict:
             max(0.001, round(binary["seconds"], 3))
             for binary in sorted(binaries, key=lambda binary: binary["test_shard"])
         ]
-        tests[label] = {"seconds": sum(costs), "test_shards": count, "shard_seconds": costs}
+        tests[label] = {"seconds": round(sum(costs), 3)}
+        if count > 1:
+            tests[label].update(test_shards=count, shard_seconds=costs)
     return {
         **schedule,
         "timing_runs": sorted({report["run_id"] for report in reports if report.get("run_id")}),
@@ -565,6 +570,8 @@ def runner_command(runner: str, binary: Path, report_dir: Path) -> list[str]:
         binary.name,
         "--timeout",
         str(ORIGINAL_RUN_TIMEOUT_MS),
+        "--minimum-timeout",
+        str(MINIMUM_MUTANT_TIMEOUT_MS),
         # The runner otherwise fails below a 100% score; survivors are
         # reported, never fatal (ADR 0022).
         "--allow-surviving",

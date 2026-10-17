@@ -31,6 +31,9 @@ real.
   GoogleTest stops after the first failing case for a mutant: subsequent
   cases cannot strengthen that verdict. Passing baseline runs execute every
   selected case.
+  Mutant deadlines retain Mull's ten-times-baseline limit, with a one-second
+  minimum instead of its 30 ms default so CI scheduling noise does not turn
+  fast assertion failures into timeout kills.
 - It is advisory. A weekly run covers all portable code and publishes its
   reports; a PR job mutates only the changed lines (`gitDiffRef`, applied by
   the runner so the build stays the same in every mode) and reports survivors
