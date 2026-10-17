@@ -165,61 +165,67 @@ Result<UnresolvedAxisDefinition> ParseAxisDefinition(pugi::xml_node table, std::
     return axis;
 }
 
+// A static Y axis, or the Y axis of a 2D map, lies along the map's only
+// dimension, so it fills the X slot.
+inline bool FillsXAxisSlot(std::string_view type, std::string_view map_type)
+{
+    return type == "X Axis" || type == "Static X Axis" || type == "Static Y Axis" ||
+           (type == "Y Axis" && map_type == "2D");
+}
+
+// An X-slot axis is stored as an X axis; a transposed one defaults to the
+// map length it took over.
+inline void NormalizeXAxis(UnresolvedAxisDefinition& axis, bool transposed, std::uint32_t length)
+{
+    if (axis.type == "Static Y Axis")
+    {
+        axis.type = "Static X Axis";
+    }
+    if (transposed && !axis.size)
+    {
+        axis.size = length;
+    }
+}
+
 template <typename ParseAxis>
 Status PopulateAxes(pugi::xml_node table, UnresolvedCalibrationMap& map, std::string_view source,
                     std::string_view definition_id, std::vector<UnresolvedScaling>& scalings, ParseAxis parse_axis)
 {
-    // #lizard forgives(cyclomatic_complexity)
-    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     bool x_axis_populated = false;
     bool y_axis_populated = false;
     for (pugi::xml_node axis_table : table.children("table"))
     {
         const std::string type = ValueOrEmpty(axis_table.attribute("type"));
-        if (type == "X Axis" || type == "Static X Axis" || type == "Static Y Axis" ||
-            (type == "Y Axis" && map.type == "2D"))
+        const bool x_slot = FillsXAxisSlot(type, map.type);
+        if (!x_slot && type != "Y Axis")
         {
-            if (x_axis_populated)
-            {
-                return Invalid(source, std::format("element <table> child <table> type '{}'", type),
-                               "second axis targets already-populated X axis slot", definition_id);
-            }
-            x_axis_populated = true;
-            if (type == "Static Y Axis" || type == "Y Axis")
-            {
-                map.x_size = map.y_size;
-                map.y_size = 1;
-            }
-            auto axis = parse_axis(axis_table, map.x_size.value_or(1U), source, definition_id, scalings);
-            if (!axis)
-            {
-                return std::unexpected(axis.error());
-            }
-            if (axis->type == "Static Y Axis")
-            {
-                axis->type = "Static X Axis";
-            }
-            if ((type == "Static Y Axis" || type == "Y Axis") && !axis->size)
-            {
-                axis->size = map.x_size.value_or(1U);
-            }
-            map.x_axis = std::move(*axis);
+            continue;
         }
-        else if (type == "Y Axis")
+        bool& populated = x_slot ? x_axis_populated : y_axis_populated;
+        if (populated)
         {
-            if (y_axis_populated)
-            {
-                return Invalid(source, std::format("element <table> child <table> type '{}'", type),
-                               "second axis targets already-populated Y axis slot", definition_id);
-            }
-            y_axis_populated = true;
-            auto axis = parse_axis(axis_table, map.y_size.value_or(1U), source, definition_id, scalings);
-            if (!axis)
-            {
-                return std::unexpected(axis.error());
-            }
-            map.y_axis = std::move(*axis);
+            return Invalid(source, std::format("element <table> child <table> type '{}'", type),
+                           std::format("second axis targets already-populated {} axis slot", x_slot ? "X" : "Y"),
+                           definition_id);
         }
+        populated = true;
+        const bool transposed = x_slot && (type == "Static Y Axis" || type == "Y Axis");
+        if (transposed)
+        {
+            map.x_size = map.y_size;
+            map.y_size = 1;
+        }
+        auto axis =
+            parse_axis(axis_table, (x_slot ? map.x_size : map.y_size).value_or(1U), source, definition_id, scalings);
+        if (!axis)
+        {
+            return std::unexpected(axis.error());
+        }
+        if (x_slot)
+        {
+            NormalizeXAxis(*axis, transposed, map.x_size.value_or(1U));
+        }
+        (x_slot ? map.x_axis : map.y_axis) = std::move(*axis);
     }
     return {};
 }

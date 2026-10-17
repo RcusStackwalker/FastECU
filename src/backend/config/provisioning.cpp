@@ -3,7 +3,9 @@
 #include <algorithm>
 #include <cstdint>
 #include <format>
+#include <functional>
 #include <iterator>
+#include <optional>
 #include <string>
 #include <tuple>
 #include <vector>
@@ -70,66 +72,100 @@ Status CopyBundleIfAbsent(IFileSystem& fs, IResourceBundle& bundle, IFileReposit
     return {};
 }
 
+// Directory entries of one kind, newest first.
+std::vector<DirEntry> NewestFirst(const std::vector<DirEntry>& entries, bool directories)
+{
+    std::vector<DirEntry> selected;
+    std::ranges::copy_if(entries, std::back_inserter(selected),
+                         [directories](const DirEntry& e) { return e.is_directory == directories; });
+    std::ranges::sort(selected, std::ranges::greater{}, &DirEntry::modified_time_epoch_seconds);
+    return selected;
+}
+
+// The config file of the newest sibling version directory, if any.
+std::optional<std::string> PreviousConfigFile(IFileSystem& fs, const ConfigPaths& paths)
+{
+    Result<std::vector<DirEntry>> siblings = fs.ListDirectory(paths.base_config_directory);
+    if (!siblings.has_value())
+    {
+        return std::nullopt;
+    }
+    const std::vector<DirEntry> dirs = NewestFirst(*siblings, true);
+    if (dirs.empty())
+    {
+        return std::nullopt;
+    }
+    return paths.base_config_directory + "/" + dirs.front().name + "/config/fastecu.cfg";
+}
+
+// Creates a new version directory, carrying over the newest previous
+// version's config file.
+Status CreateVersionDirectory(const ConfigPaths& paths, IFileSystem& fs, IEventSink& events)
+{
+    // Find the previous version before touching the filesystem: discovering
+    // it needs the version directory's siblings to be exactly what's there
+    // today.
+    const std::optional<std::string> previous_config_file = PreviousConfigFile(fs, paths);
+
+    // Create the version directory and its config subdirectory *before*
+    // attempting the migration copy -- mirroring the legacy
+    // FileActions::check_config_dirs ordering (parent directories exist
+    // before the copy is attempted). copy_file has no mkpath behavior
+    // (matches QFile::copy), so doing this in the other order would
+    // make the migration copy always target a directory tree that
+    // doesn't exist yet, permanently defeating it.
+    for (const std::string& dir : {paths.version_config_directory, paths.config_files_directory})
+    {
+        if (Status r = EnsureDirectory(fs, dir, events); !r.has_value())
+        {
+            return r;
+        }
+    }
+    if (previous_config_file.has_value())
+    {
+        // A missing previous config is not an error for this step;
+        // matches QFile::copy's legacy silent-failure behavior.
+        std::ignore = fs.CopyFileTo(*previous_config_file, paths.config_files_directory + "fastecu.cfg", false);
+    }
+    return {};
+}
+
+// Keeps the 20 newest system logs.
+Status PruneSyslogs(const ConfigPaths& paths, IFileSystem& fs)
+{
+    Result<std::vector<DirEntry>> syslogs = fs.ListDirectory(paths.syslog_files_directory);
+    if (!syslogs.has_value())
+    {
+        return {};
+    }
+    const std::vector<DirEntry> files = NewestFirst(*syslogs, false);
+    for (std::size_t i = 20; i < files.size(); ++i)
+    {
+        const std::string path = paths.syslog_files_directory + files[i].name;
+        if (Status r = fs.RemoveFile(path); !r.has_value())
+        {
+            return AtPath(r.error(), path);
+        }
+    }
+    return {};
+}
+
 } // namespace
 
 Status ProvisionConfigDirectories(const ConfigPaths& paths, IFileSystem& fs, IResourceBundle& resource_bundle,
                                   IFileRepository& file_repository, IEventSink& events)
 {
-    // #lizard forgives(cyclomatic_complexity)
-    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     if (Status r = EnsureDirectory(fs, paths.base_config_directory, events); !r.has_value())
     {
         return r;
     }
-
-    if (const bool has_version_subdirectory = paths.version_config_directory != paths.base_config_directory;
-        has_version_subdirectory && !fs.Exists(paths.version_config_directory))
+    if (paths.version_config_directory != paths.base_config_directory && !fs.Exists(paths.version_config_directory))
     {
-        // Find the newest previous-version sibling directory (if any) before
-        // touching the filesystem, since discovering it needs the
-        // not-yet-created version directory's siblings to still be exactly
-        // what's there today.
-        std::string previous_config_file;
-        bool has_previous_config_file = false;
-        if (Result<std::vector<DirEntry>> siblings = fs.ListDirectory(paths.base_config_directory);
-            siblings.has_value() && !siblings->empty())
-        {
-            std::vector<DirEntry> dirs;
-            std::copy_if(siblings->begin(), siblings->end(), std::back_inserter(dirs),
-                         [](const DirEntry& e) { return e.is_directory; });
-            std::sort(dirs.begin(), dirs.end(), [](const DirEntry& a, const DirEntry& b)
-                      { return a.modified_time_epoch_seconds > b.modified_time_epoch_seconds; });
-            if (!dirs.empty())
-            {
-                previous_config_file = paths.base_config_directory + "/" + dirs.front().name + "/config/fastecu.cfg";
-                has_previous_config_file = true;
-            }
-        }
-
-        // Create the version directory and its config subdirectory *before*
-        // attempting the migration copy -- mirroring the legacy
-        // FileActions::check_config_dirs ordering (parent directories exist
-        // before the copy is attempted). copy_file has no mkpath behavior
-        // (matches QFile::copy), so doing this in the other order would
-        // make the migration copy always target a directory tree that
-        // doesn't exist yet, permanently defeating it.
-        if (Status r = EnsureDirectory(fs, paths.version_config_directory, events); !r.has_value())
+        if (Status r = CreateVersionDirectory(paths, fs, events); !r.has_value())
         {
             return r;
-        }
-        if (Status r = EnsureDirectory(fs, paths.config_files_directory, events); !r.has_value())
-        {
-            return r;
-        }
-
-        if (has_previous_config_file)
-        {
-            // A missing previous config is not an error for this step;
-            // matches QFile::copy's legacy silent-failure behavior.
-            std::ignore = fs.CopyFileTo(previous_config_file, paths.config_files_directory + "fastecu.cfg", false);
         }
     }
-
     for (const std::string& dir :
          {paths.calibration_files_directory, paths.config_files_directory, paths.definition_files_directory,
           paths.kernel_files_directory, paths.datalog_files_directory, paths.syslog_files_directory})
@@ -139,38 +175,16 @@ Status ProvisionConfigDirectories(const ConfigPaths& paths, IFileSystem& fs, IRe
             return r;
         }
     }
-
-    if (Status r =
-            CopyBundleIfAbsent(fs, resource_bundle, file_repository, "config", paths.config_files_directory, events);
-        !r.has_value())
+    for (const auto& [bundle_id, directory] :
+         {std::pair{"config", &paths.config_files_directory}, std::pair{"kernels", &paths.kernel_files_directory}})
     {
-        return r;
-    }
-    if (Status r =
-            CopyBundleIfAbsent(fs, resource_bundle, file_repository, "kernels", paths.kernel_files_directory, events);
-        !r.has_value())
-    {
-        return r;
-    }
-
-    if (Result<std::vector<DirEntry>> syslogs = fs.ListDirectory(paths.syslog_files_directory); syslogs.has_value())
-    {
-        std::vector<DirEntry> files;
-        std::copy_if(syslogs->begin(), syslogs->end(), std::back_inserter(files),
-                     [](const DirEntry& e) { return !e.is_directory; });
-        std::sort(files.begin(), files.end(), [](const DirEntry& a, const DirEntry& b)
-                  { return a.modified_time_epoch_seconds > b.modified_time_epoch_seconds; });
-        for (std::size_t i = 20; i < files.size(); ++i)
+        if (Status r = CopyBundleIfAbsent(fs, resource_bundle, file_repository, bundle_id, *directory, events);
+            !r.has_value())
         {
-            Status r = fs.RemoveFile(paths.syslog_files_directory + files[i].name);
-            if (!r.has_value())
-            {
-                return AtPath(r.error(), paths.syslog_files_directory + files[i].name);
-            }
+            return r;
         }
     }
-
-    return {};
+    return PruneSyslogs(paths, fs);
 }
 
 } // namespace fastecu::config

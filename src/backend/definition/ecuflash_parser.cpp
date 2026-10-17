@@ -140,38 +140,30 @@ Result<UnresolvedAxisDefinition> ParseAxis(pugi::xml_node table, std::uint32_t d
                                { return ParseScaling(scaling_node, std::move(fallback_name), source, definition_id); });
 }
 
-Result<UnresolvedCalibrationMap> ParseTable(pugi::xml_node table, std::string_view source,
-                                            std::string_view definition_id, std::vector<UnresolvedScaling>& scalings)
+// A top-level axis table is a 2D map sized by its own element count.
+Status PopulateDimensions(pugi::xml_node table, UnresolvedCalibrationMap& map, std::string_view source,
+                          std::string_view definition_id)
 {
-    // #lizard forgives(cyclomatic_complexity)
-    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
-    UnresolvedCalibrationMap map;
-    if (auto status = PopulateMapHeader(table, map, source, definition_id); !status.has_value())
+    const bool is_x_axis = map.type == "X Axis";
+    if (!is_x_axis && map.type != "Y Axis")
     {
-        return std::unexpected(status.error());
+        return PopulateMapSize(table, map, source, definition_id);
     }
+    auto elements = DimensionAttribute(table, "elements", 1, source, definition_id);
+    if (!elements.has_value())
+    {
+        return std::unexpected(elements.error());
+    }
+    map.type = "2D";
+    map.x_size = is_x_axis ? *elements : 1;
+    map.y_size = is_x_axis ? 1 : *elements;
+    return {};
+}
 
-    // A top-level axis table is a 2D map sized by its own element count.
-    if (const bool is_x_axis = map.type == "X Axis"; is_x_axis || map.type == "Y Axis")
-    {
-        auto elements = DimensionAttribute(table, "elements", 1, source, definition_id);
-        if (!elements.has_value())
-        {
-            return std::unexpected(elements.error());
-        }
-        map.type = "2D";
-        map.x_size = is_x_axis ? *elements : 1;
-        map.y_size = is_x_axis ? 1 : *elements;
-    }
-    else if (auto status = PopulateMapSize(table, map, source, definition_id); !status.has_value())
-    {
-        return std::unexpected(status.error());
-    }
-    if (auto status = PopulateMapOrientation(table, map, source, definition_id); !status.has_value())
-    {
-        return std::unexpected(status.error());
-    }
-
+// A bloblist scaling makes the map a selectable list.
+Status AddMapScaling(pugi::xml_node table, UnresolvedCalibrationMap& map, std::string_view source,
+                     std::string_view definition_id, std::vector<UnresolvedScaling>& scalings)
+{
     auto scaling =
         ParseMapScaling(table, map, [&](pugi::xml_node scaling_node, std::string fallback_name)
                         { return ParseScaling(scaling_node, std::move(fallback_name), source, definition_id); });
@@ -187,25 +179,53 @@ Result<UnresolvedCalibrationMap> ParseTable(pugi::xml_node table, std::string_vi
         }
         scalings.push_back(std::move(**scaling));
     }
+    return {};
+}
 
+// A map with no axis but bare <data> children carries its X axis values inline.
+void PopulateInlineXAxis(pugi::xml_node table, UnresolvedCalibrationMap& map)
+{
+    if (map.x_axis != UnresolvedAxisDefinition{} || !table.child("data"))
+    {
+        return;
+    }
+    map.x_axis.type = "Static X Axis";
+    std::vector<std::string> values;
+    for (pugi::xml_node data : table.children("data"))
+    {
+        values.push_back(TableElementText(data));
+    }
+    map.x_axis.static_data = std::move(values);
+    map.x_axis.size = static_cast<std::uint32_t>(map.x_axis.static_data->size());
+    map.x_size = map.x_axis.size;
+    map.y_size = 1;
+}
+
+Result<UnresolvedCalibrationMap> ParseTable(pugi::xml_node table, std::string_view source,
+                                            std::string_view definition_id, std::vector<UnresolvedScaling>& scalings)
+{
+    UnresolvedCalibrationMap map;
+    if (auto status = PopulateMapHeader(table, map, source, definition_id); !status.has_value())
+    {
+        return std::unexpected(status.error());
+    }
+    if (auto status = PopulateDimensions(table, map, source, definition_id); !status.has_value())
+    {
+        return std::unexpected(status.error());
+    }
+    if (auto status = PopulateMapOrientation(table, map, source, definition_id); !status.has_value())
+    {
+        return std::unexpected(status.error());
+    }
+    if (auto status = AddMapScaling(table, map, source, definition_id, scalings); !status.has_value())
+    {
+        return std::unexpected(status.error());
+    }
     if (auto status = PopulateAxes(table, map, source, definition_id, scalings, ParseAxis); !status.has_value())
     {
         return std::unexpected(status.error());
     }
-    // A map with no axis but bare <data> children carries its X axis values inline.
-    if (map.x_axis == UnresolvedAxisDefinition{} && table.child("data"))
-    {
-        map.x_axis.type = "Static X Axis";
-        std::vector<std::string> values;
-        for (pugi::xml_node data : table.children("data"))
-        {
-            values.push_back(TableElementText(data));
-        }
-        map.x_axis.static_data = std::move(values);
-        map.x_axis.size = static_cast<std::uint32_t>(map.x_axis.static_data->size());
-        map.x_size = map.x_axis.size;
-        map.y_size = 1;
-    }
+    PopulateInlineXAxis(table, map);
     return map;
 }
 

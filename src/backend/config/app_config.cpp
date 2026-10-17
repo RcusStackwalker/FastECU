@@ -1,10 +1,14 @@
 #include "src/backend/config/app_config.h"
 
+#include <algorithm>
+#include <array>
 #include <cstring>
 #include <format>
 #include <sstream>
 #include <string_view>
+#include <string>
 #include <tuple>
+#include <vector>
 
 #include <pugixml.hpp>
 
@@ -24,12 +28,110 @@ void AppendTrailingSlashIfMissing(std::string& path)
     }
 }
 
+bool IsDefinitionBase(std::string_view value)
+{
+    return value == "romraider" || value == "ecuflash";
+}
+
+bool IsNonEmpty(std::string_view value)
+{
+    return !value.empty();
+}
+
+// A setting stored as one value's data attribute, or as a list of them.
+struct SettingField
+{
+    std::string_view name;
+    std::string AppConfig::*single = nullptr;
+    std::vector<std::string> AppConfig::*list = nullptr;
+    // Values it rejects are ignored on load. Null accepts every value.
+    bool (*accepts)(std::string_view) = nullptr;
+};
+
+// window_size is saved first, then these in order.
+constexpr auto kSettingFields = std::to_array<SettingField>({
+    {.name = "toolbar_iconsize", .single = &AppConfig::toolbar_iconsize},
+    {.name = "serial_port", .single = &AppConfig::serial_port},
+    {.name = "vehicle_id", .single = &AppConfig::selected_vehicle_id},
+    {.name = "flash_transport", .single = &AppConfig::selected_flash_transport},
+    {.name = "log_transport", .single = &AppConfig::selected_log_transport},
+    {.name = "log_protocol", .single = &AppConfig::selected_log_protocol},
+    {.name = "primary_definition_base", .single = &AppConfig::primary_definition_base, .accepts = IsDefinitionBase},
+    {.name = "calibration_files", .list = &AppConfig::calibration_files},
+    {.name = "calibration_files_directory", .single = &AppConfig::calibration_files_directory},
+    {.name = "use_romraider_definitions", .single = &AppConfig::use_romraider_definitions},
+    {.name = "romraider_definition_files", .list = &AppConfig::romraider_definition_files, .accepts = IsNonEmpty},
+    {.name = "use_ecuflash_definitions", .single = &AppConfig::use_ecuflash_definitions},
+    {.name = "ecuflash_definition_files_directory", .single = &AppConfig::ecuflash_definition_files_directory},
+    {.name = "logger_definition_file", .single = &AppConfig::romraider_logger_definition_file},
+    {.name = "datalog_files_directory", .single = &AppConfig::datalog_files_directory},
+});
+
+void ParseWindowSize(pugi::xml_node setting, AppConfig& config)
+{
+    for (pugi::xml_node value : setting.children("value"))
+    {
+        if (!std::string{value.attribute("width").value()}.empty())
+        {
+            config.window_width = value.attribute("width").value();
+        }
+        else if (!std::string{value.attribute("height").value()}.empty())
+        {
+            config.window_height = value.attribute("height").value();
+        }
+    }
+}
+
+void ParseField(pugi::xml_node setting, const SettingField& field, AppConfig& config)
+{
+    const auto accepted = [&field](std::string_view value) { return field.accepts == nullptr || field.accepts(value); };
+    if (field.single != nullptr)
+    {
+        if (const std::string value = setting.child("value").attribute("data").value(); accepted(value))
+        {
+            config.*field.single = value;
+        }
+        return;
+    }
+    for (pugi::xml_node value : setting.children("value"))
+    {
+        if (const std::string data = value.attribute("data").value(); accepted(data))
+        {
+            (config.*field.list).push_back(data);
+        }
+    }
+}
+
+void ParseSetting(pugi::xml_node setting, AppConfig& config)
+{
+    const std::string_view name = setting.attribute("name").value();
+    if (name == "window_size")
+    {
+        ParseWindowSize(setting, config);
+        return;
+    }
+    if (const auto field = std::ranges::find(kSettingFields, name, &SettingField::name); field != kSettingFields.end())
+    {
+        ParseField(setting, *field, config);
+    }
+}
+
+void SaveField(pugi::xml_node settings, const SettingField& field, const AppConfig& config)
+{
+    pugi::xml_node setting = settings.append_child("setting");
+    setting.append_attribute("name") = field.name;
+    const std::vector<std::string> values =
+        field.single != nullptr ? std::vector{config.*field.single} : config.*field.list;
+    for (const std::string& value : values)
+    {
+        setting.append_child("value").append_attribute("data") = value;
+    }
+}
+
 } // namespace
 
 Result<AppConfig> ParseAppConfig(const ConfigPaths& paths, IFileRepository& file_repository)
 {
-    // #lizard forgives(cyclomatic_complexity)
-    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     Result<std::vector<std::uint8_t>> bytes = file_repository.Read(paths.config_file);
     if (!bytes.has_value())
     {
@@ -54,97 +156,8 @@ Result<AppConfig> ParseAppConfig(const ConfigPaths& paths, IFileRepository& file
                                   : pugi::xml_node();
     for (pugi::xml_node setting : settings.children("setting"))
     {
-        const std::string name = setting.attribute("name").value();
-        if (name == "window_size")
-        {
-            for (pugi::xml_node value : setting.children("value"))
-            {
-                if (!std::string{value.attribute("width").value()}.empty())
-                {
-                    config.window_width = value.attribute("width").value();
-                }
-                else if (!std::string{value.attribute("height").value()}.empty())
-                {
-                    config.window_height = value.attribute("height").value();
-                }
-            }
-        }
-        else if (name == "toolbar_iconsize")
-        {
-            config.toolbar_iconsize = setting.child("value").attribute("data").value();
-        }
-        else if (name == "serial_port")
-        {
-            config.serial_port = setting.child("value").attribute("data").value();
-        }
-        else if (name == "vehicle_id")
-        {
-            config.selected_vehicle_id = setting.child("value").attribute("data").value();
-        }
-        else if (name == "flash_transport")
-        {
-            config.selected_flash_transport = setting.child("value").attribute("data").value();
-        }
-        else if (name == "log_transport")
-        {
-            config.selected_log_transport = setting.child("value").attribute("data").value();
-        }
-        else if (name == "log_protocol")
-        {
-            config.selected_log_protocol = setting.child("value").attribute("data").value();
-        }
-        else if (name == "primary_definition_base")
-        {
-            const std::string value = setting.child("value").attribute("data").value();
-            if (value == "romraider" || value == "ecuflash")
-            {
-                config.primary_definition_base = value;
-            }
-        }
-        else if (name == "calibration_files")
-        {
-            for (pugi::xml_node value : setting.children("value"))
-            {
-                config.calibration_files.push_back(value.attribute("data").value());
-            }
-        }
-        else if (name == "calibration_files_directory")
-        {
-            config.calibration_files_directory = setting.child("value").attribute("data").value();
-        }
-        else if (name == "romraider_definition_files")
-        {
-            for (pugi::xml_node value : setting.children("value"))
-            {
-                const std::string filename = value.attribute("data").value();
-                if (!filename.empty())
-                {
-                    config.romraider_definition_files.push_back(filename);
-                }
-            }
-        }
-        else if (name == "use_romraider_definitions")
-        {
-            config.use_romraider_definitions = setting.child("value").attribute("data").value();
-        }
-        else if (name == "ecuflash_definition_files_directory")
-        {
-            config.ecuflash_definition_files_directory = setting.child("value").attribute("data").value();
-        }
-        else if (name == "use_ecuflash_definitions")
-        {
-            config.use_ecuflash_definitions = setting.child("value").attribute("data").value();
-        }
-        else if (name == "logger_definition_file")
-        {
-            config.romraider_logger_definition_file = setting.child("value").attribute("data").value();
-        }
-        else if (name == "datalog_files_directory")
-        {
-            config.datalog_files_directory = setting.child("value").attribute("data").value();
-        }
+        ParseSetting(setting, config);
     }
-
     return config;
 }
 
@@ -175,44 +188,14 @@ Result<AppConfig> SaveAppConfig(AppConfig config, const ConfigPaths& paths, IFil
     config_node.append_attribute("version") = "0.1.0-beta.5";
     pugi::xml_node settings = config_node.append_child("software_settings");
 
-    auto add_single = [&](std::string_view name, const std::string& data)
-    {
-        pugi::xml_node setting = settings.append_child("setting");
-        setting.append_attribute("name") = name;
-        pugi::xml_node value = setting.append_child("value");
-        value.append_attribute("data") = data;
-    };
-    auto add_list = [&](std::string_view name, const std::vector<std::string>& items)
-    {
-        pugi::xml_node setting = settings.append_child("setting");
-        setting.append_attribute("name") = name;
-        for (const std::string& item : items)
-        {
-            pugi::xml_node value = setting.append_child("value");
-            value.append_attribute("data") = item;
-        }
-    };
-
     pugi::xml_node window = settings.append_child("setting");
     window.append_attribute("name") = "window_size";
     window.append_child("value").append_attribute("width") = config.window_width;
     window.append_child("value").append_attribute("height") = config.window_height;
-
-    add_single("toolbar_iconsize", config.toolbar_iconsize);
-    add_single("serial_port", config.serial_port);
-    add_single("vehicle_id", config.selected_vehicle_id);
-    add_single("flash_transport", config.selected_flash_transport);
-    add_single("log_transport", config.selected_log_transport);
-    add_single("log_protocol", config.selected_log_protocol);
-    add_single("primary_definition_base", config.primary_definition_base);
-    add_list("calibration_files", config.calibration_files);
-    add_single("calibration_files_directory", config.calibration_files_directory);
-    add_single("use_romraider_definitions", config.use_romraider_definitions);
-    add_list("romraider_definition_files", config.romraider_definition_files);
-    add_single("use_ecuflash_definitions", config.use_ecuflash_definitions);
-    add_single("ecuflash_definition_files_directory", config.ecuflash_definition_files_directory);
-    add_single("logger_definition_file", config.romraider_logger_definition_file);
-    add_single("datalog_files_directory", config.datalog_files_directory);
+    for (const SettingField& field : kSettingFields)
+    {
+        SaveField(settings, field, config);
+    }
 
     std::ostringstream stream;
     doc.save(stream, "    ");
