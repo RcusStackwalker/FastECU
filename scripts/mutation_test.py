@@ -758,8 +758,7 @@ def main(argv: Sequence[str] = sys.argv[1:]) -> int:
     try:
         if args.report_dir:
             args.report_dir = report_directory(args.report_dir, root, os.environ)
-        if args.schedule:
-            args.schedule = report_directory(args.schedule, root, os.environ)
+        schedule_path = report_directory(args.schedule, root, os.environ) if args.schedule else None
         if args.refresh_schedule:
             args.refresh_schedule = report_directory(args.refresh_schedule, root, os.environ)
         if args.baseline_reports:
@@ -774,9 +773,9 @@ def main(argv: Sequence[str] = sys.argv[1:]) -> int:
                 raise MutationTestError(
                     f"cannot refresh from an incomplete run: missing shards {missing}"
                 )
-            schedule = json.loads(args.schedule.read_text())
+            schedule = json.loads(schedule_path.read_text())
             refreshed = refresh_schedule(schedule, read_performance(args.refresh_schedule))
-            args.schedule.write_text(json.dumps(refreshed, indent=2) + "\n")
+            schedule_path.write_text(json.dumps(refreshed, indent=2) + "\n")
             return 0
         if args.merge_reports:
             args.merge_reports = report_directory(args.merge_reports, root, os.environ)
@@ -791,7 +790,7 @@ def main(argv: Sequence[str] = sys.argv[1:]) -> int:
                 return 0
         runner, plugin = find_mull(os.environ)
         targets = query_tests(root, args.scope, changed)
-        schedule = json.loads(args.schedule.read_text())["tests"] if args.schedule else {}
+        schedule = json.loads(schedule_path.read_text())["tests"] if schedule_path else {}
         selection = plan_work(targets, schedule)
         work = balance_work(selection, args.shard or Shard(0, 1))
         targets = sorted({item.label for item in work})

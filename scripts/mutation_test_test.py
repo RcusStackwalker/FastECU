@@ -22,6 +22,7 @@ TITLE = "Mutation testing"
 DIFF_REF = "origin/master"
 LABEL_A = "//a:t"
 LABEL_B = "//b:t"
+LABEL_C = "//c:t"
 PACKAGE_SCOPE = "//src/a/..."
 
 
@@ -345,9 +346,9 @@ class ShardTest(unittest.TestCase):
                 mt.parse_shard(value)
 
     def test_takes_every_nth_label_of_the_sorted_list(self) -> None:
-        labels = ["//e:t", LABEL_B, "//d:t", LABEL_A, "//c:t"]
+        labels = ["//e:t", LABEL_B, "//d:t", LABEL_A, LABEL_C]
         self.assertEqual([LABEL_B, "//d:t"], mt.Shard(1, 2).select(labels))
-        self.assertEqual([LABEL_A, "//c:t", "//e:t"], mt.Shard(0, 2).select(labels))
+        self.assertEqual([LABEL_A, LABEL_C, "//e:t"], mt.Shard(0, 2).select(labels))
 
     def test_a_shard_past_the_last_label_selects_nothing(self) -> None:
         self.assertEqual([], mt.Shard(3, 4).select([LABEL_A, LABEL_B]))
@@ -356,7 +357,7 @@ class ShardTest(unittest.TestCase):
 class ScheduleTest(unittest.TestCase):
     def test_splits_slow_binaries_and_balances_all_work_without_loss(self) -> None:
         schedule = {LABEL_A: {"seconds": 100, "test_shards": 2}, LABEL_B: {"seconds": 40}}
-        work = mt.plan_work(["//c:t", LABEL_B, LABEL_A], schedule)
+        work = mt.plan_work([LABEL_C, LABEL_B, LABEL_A], schedule)
         shards = [mt.balance_work(work, mt.Shard(i, 2)) for i in range(2)]
         self.assertCountEqual(work, shards[0] + shards[1])
         self.assertEqual([90, 51], [sum(item.seconds for item in shard) for shard in shards])
