@@ -63,6 +63,42 @@ coordinators retain their UI roles; see the relevant
   End-to-end qualification remains outstanding. The
   [wire evidence](reference/logging-wire-evidence.md) owns the firmware source.
   ACKs and returned values do not establish per-measurement availability or meaning.
+- **Denso checksum firmware coverage.** The table engine applies the record
+  check disassembled from SH7055 and SH7058 petrol firmware
+  ([#668](https://github.com/RcusStackwalker/FastECU/pull/668)). The SH7059,
+  SH72531, 1N83M, SH705x and SH72543 diesel, and SH7058 TCU routes have not
+  been checked against their own firmware. Well-formed tables give the same
+  result either way, so only malformed records are at stake. The diesel
+  override words at `0x0FFAFC` and `0x17FAFC`, summed as `0xFFFFFFFF`, have no
+  firmware evidence at all. Disassemble a diesel ROM's checksum routine before
+  changing or relying on them.
+
+### P1: Turn surviving Mull mutants into tests
+
+[#656](https://github.com/RcusStackwalker/FastECU/issues/656) tracks the
+surviving mutants package by package and owns the per-file counts; the
+[coding guide](coding-style.md#tests) owns the rules. Keep each PR to one
+package. Quote its before and after survivors from a scoped run
+(`gh workflow run mutation -r <branch> -f scope=//pkg/...`), and list its
+suppressions. Remaining packages, in order of what a missed defect could do to
+an ECU:
+
+- **Flash executors, shared guards** (`backend/flash/ecu`). Add the shared
+  boundary cases to `CanExecutorConformance` and `SingleWindowPlanContract`:
+  image offset plus block length against the image size, a page against the
+  region's remaining length, and block-count rounding. Then record pulling the
+  copied guards into a shared helper here.
+- **Flash executors, per family.** Cover what the shared cases leave, including
+  the flash-voltage log line in `subaru_denso_sh7058_can_executor.cpp`.
+- **Flash plans**, including `flash_validation.cpp`.
+- **EEPROM** (`denso_sh705x_eeprom_*`).
+- **Calibration, definitions, protocol codecs, logging, and diagnostics.**
+- **Key recovery** (`algorithms/crypto/subaru_key_recovery.cpp`). Also make its
+  test binary cheaper under Mull. It takes about 24 minutes, which sets the
+  floor for a sharded run's wall time. Try an internal entry point that takes
+  the analyzed size, so most cases run on small windows.
+- **The rest:** `expression`, the CDBG driver, config, ports, and service
+  functions.
 
 ### P1: Consolidate flash workflow orchestration
 
