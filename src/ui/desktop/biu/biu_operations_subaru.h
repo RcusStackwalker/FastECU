@@ -33,6 +33,8 @@ class BiuOperationsSubaru : public QDialog
 {
     Q_OBJECT
 
+    friend class BiuOperationsSubaruTest;
+
   signals:
     void logE(QString message, bool timestamp, bool linefeed);
     void logW(QString message, bool timestamp, bool linefeed);
@@ -304,6 +306,15 @@ class BiuOperationsSubaru : public QDialog
     QTimer *keep_alive_timer_;
 
     void parseBiuMessage(const QByteArray& message);
+    void parseInfoReply(const QByteArray& message);
+    void parseStatusReply(const QByteArray& message);
+    void parseWriteReply(const QByteArray& message);
+    void showData(const QStringList& rows, BiuOpsSubaruData *& window);
+    void showSwitches(const QByteArray& message, const QStringList& names, BiuOpsSubaruSwitches *& window);
+    void showOptions(const QByteArray& message);
+    QStringList dtcRows(const QByteArray& message);
+    QStringList canDataRows(const QByteArray& message) const;
+    QStringList timeTempRows(const QByteArray& message);
     QString parseMessageToHex(const QByteArray& received);
     void delay(int timeout);
     BiuOpsSubaruSwitches *updateBiuOpsSubaruSwitchesWindow(BiuOpsSubaruSwitches *biuOpsSubaruSwitches);

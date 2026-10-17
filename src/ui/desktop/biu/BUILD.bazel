@@ -1,3 +1,5 @@
+load("//bazel:gtest_targets.bzl", "fastecu_gtest")
+
 # gazelle:resolve_regexp cc ^ui_(.*)\.h$ //src/ui/desktop/biu:ui_$1
 # gazelle:map_kind cc_library qt_cc_library //bazel:qt_targets.bzl
 load("//bazel:qt_targets.bzl", "qt_cc_library", "qt_ui_basename_libraries")
@@ -54,5 +56,17 @@ qt_cc_library(
         "//bazel/qt:widgets",
         "//src/algorithms/protocol",
         "//src/backend/protocol",
+    ],
+)
+
+fastecu_gtest(
+    name = "biu_operations_subaru_test",
+    srcs = ["biu_operations_subaru_test.cpp"],
+    deps = [
+        ":biu",
+        "//bazel/qt:core",
+        "//src/backend/protocol/testing:fake_diagnostic_link",
+        "//src/platform/desktop/common/testing:widgets_application_environment",
+        "@googletest//:gtest",
     ],
 )
