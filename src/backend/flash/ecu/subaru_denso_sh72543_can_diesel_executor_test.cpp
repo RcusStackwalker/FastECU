@@ -20,6 +20,7 @@
 #include "src/backend/flash/ecu/subaru_denso_sh72543_can_diesel_plan.h"
 #include "src/backend/flash/flash_validation.h"
 #include "src/backend/flash/ecu/testing/can_executor_conformance.h"
+#include "src/backend/flash/ecu/testing/denso_can_frames.h"
 #include "src/backend/flash/testing/scripted_can_flash_transport.h"
 #include "src/backend/ports/manual_cancellation_token.h"
 #include "src/backend/ports/testing/fake_clock.h"
@@ -75,36 +76,6 @@ constexpr std::uint32_t kPageSize = 0x100;
 // executor got.
 constexpr std::size_t kBenchConnectWrites = 11;
 constexpr std::size_t kEraseWrites = 2;
-
-// Every primary request carries the 4-byte big-endian 0x7E0 envelope; every
-// primary response the 0x7E8 reply id (legacy connect_bootloader).
-bytes::Bytes RequestTo(std::uint32_t id, bytes::ByteView payload)
-{
-    bytes::Bytes out;
-    bytes::AppendU32Be(out, id);
-    out.insert(out.end(), payload.begin(), payload.end());
-    return out;
-}
-bytes::Bytes RequestTo(std::uint32_t id, std::initializer_list<bytes::Byte> payload)
-{
-    return RequestTo(id, bytes::ByteView(payload.begin(), payload.size()));
-}
-bytes::Bytes Request(bytes::ByteView payload)
-{
-    return RequestTo(0x7e0, payload);
-}
-bytes::Bytes Request(std::initializer_list<bytes::Byte> payload)
-{
-    return RequestTo(0x7e0, payload);
-}
-bytes::Bytes ResponseFrom(std::uint32_t id, std::initializer_list<bytes::Byte> tail)
-{
-    return RequestTo(id, tail);
-}
-bytes::Bytes Response(std::initializer_list<bytes::Byte> tail)
-{
-    return RequestTo(0x7e8, tail);
-}
 
 fastecu::Result<fastecu::flash::FlashPlan> ReadPlan()
 {
@@ -1142,34 +1113,6 @@ TEST(SubaruDensoSh72543CanDieselExecutor, BenchJumpExhaustionPreservesReadCountA
     EXPECT_THAT(std::vector<std::chrono::milliseconds>(timeouts.begin() + 11, timeouts.begin() + 61), Each(200ms));
 }
 
-void ScriptCloseRetries(ScriptedCanFlashTransport& transport, bool acknowledged)
-{
-    for (int attempt = 0; attempt < 6; ++attempt)
-    {
-        transport.Exchange(Request({0x37}));
-        if (attempt == 5 && acknowledged)
-        {
-            transport.QueueRead(Response({0x77}));
-        }
-        else if (attempt == 1)
-        {
-            transport.QueueError(ErrorKind::kDisconnected, "close ignored");
-        }
-        else if (attempt == 2)
-        {
-            transport.QueueRead(Response({0x7F, 0x37, 0x31}));
-        }
-        else if (attempt == 3)
-        {
-            transport.QueueError(ErrorKind::kCancelled, "close cancellation ignored");
-        }
-        else
-        {
-            transport.QueueNoFrame();
-        }
-    }
-}
-
 TEST(SubaruDensoSh72543CanDieselExecutor, CancellationAtCloseSettlePreventsChecksum)
 {
     ScriptedCanFlashTransport transport;
@@ -1180,24 +1123,7 @@ TEST(SubaruDensoSh72543CanDieselExecutor, CancellationAtCloseSettlePreventsCheck
     ScriptReflashChunks(transport, rom);
     ScriptCloseRetries(transport, true);
     fastecu::ManualCancellationToken cancellation;
-    class CancellingCloseEvents final : public RecordingEventSink
-    {
-      public:
-        explicit CancellingCloseEvents(fastecu::ManualCancellationToken& token) : token_(token)
-        {
-        }
-        void Log(fastecu::LogLevel level, std::string_view message) override
-        {
-            RecordingEventSink::Log(level, message);
-            if (message == "Closed succesfully: 77 ")
-            {
-                token_.Cancel();
-            }
-        }
-
-      private:
-        fastecu::ManualCancellationToken& token_;
-    } events(cancellation);
+    fastecu::flash::testing::CancelOnCloseSuccessSink events(cancellation);
     RecordingClock clock;
     SubaruDensoSh72543CanDieselExecutor executor;
     const auto plan = WritePlan(rom);
