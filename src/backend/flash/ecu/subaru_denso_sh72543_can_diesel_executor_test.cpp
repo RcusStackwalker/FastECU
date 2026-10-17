@@ -239,7 +239,7 @@ void ScriptEraseMemory(ScriptedCanFlashTransport& t)
 void ScriptReflashChunks(ScriptedCanFlashTransport& t, bytes::ByteView rom)
 {
     const auto section = t.Section("reflash chunks");
-    const bytes::Bytes encrypted = ToWire(rom);
+    const bytes::Bytes& encrypted = ToWireCached(rom);
     for (std::uint32_t offset = 0; offset < kBlockLength; offset += 256)
     {
         const std::uint32_t addr = kBlockStart + offset;
@@ -432,7 +432,7 @@ TEST(SubaruDensoSh72543CanDieselExecutor, WriteTakesBytesFromTheAbsoluteAddress)
     ScriptBenchConnect(transport);
     ScriptEraseMemory(transport);
     transport.QueueRead(Response({0x71, 0x01, 0x02}));
-    const bytes::Bytes encrypted = ToWire(rom);
+    const bytes::Bytes& encrypted = ToWireCached(rom);
     transport.Exchange(Request(bytes::ComposeBe(bytes::Byte(0xB6), kBlockStart,
                                                 bytes::ByteView(encrypted).subspan(kBlockStart - kImageStart, 256))),
                        Response({0xF6}));

@@ -305,7 +305,7 @@ void ScriptEraseMemory(ScriptedCanFlashTransport& t)
 void ScriptReflashChunks(ScriptedCanFlashTransport& t, bytes::ByteView rom)
 {
     const auto section = t.Section("reflash chunks");
-    const bytes::Bytes encrypted = ToWire(rom);
+    const bytes::Bytes& encrypted = ToWireCached(rom);
     for (std::uint32_t offset = 0; offset < kBlockLength; offset += 256)
     {
         const std::uint32_t addr = kBlockStart + offset;
@@ -511,7 +511,7 @@ TEST(SubaruDenso1n83m_4mCanExecutor, WriteErasesThenFlashesBlockOne)
     // out of the caller's &data_array[0], which is the whole encrypted image
     // starting at fblocks[0].start -- so the first chunk of block 1 is
     // encrypted[0x10000..0x10100).
-    const bytes::Bytes encrypted = ToWire(rom);
+    const bytes::Bytes& encrypted = ToWireCached(rom);
     EXPECT_THAT(bytes::Bytes(encrypted.begin() + 0x10000, encrypted.begin() + 0x10000 + 256),
                 test_bytes::BytesEq(ToWire(bytes::ByteView(rom).subspan(0x10000, 256))));
     // Every sleep the write path performs, in order, each with the legacy

@@ -221,7 +221,7 @@ void ScriptEraseMemory(ScriptedCanFlashTransport& t)
 void ScriptReflashChunks(ScriptedCanFlashTransport& t, bytes::ByteView rom)
 {
     const auto section = t.Section("reflash chunks");
-    const bytes::Bytes encrypted = ToWire(rom);
+    const bytes::Bytes& encrypted = ToWireCached(rom);
     for (std::uint32_t offset = 0; offset < kBlockLength; offset += 256)
     {
         const std::uint32_t addr = kBlockStart + offset;
@@ -407,7 +407,7 @@ TEST(SubaruDenso1n83m_1_5mCanExecutor, WriteErasesThenFlashesBlockOne)
     // - kImageStart, 256). This adds only that calculatePayload is 4-byte-word
     // independent, so the page-at-a-time comparison above is a valid way to
     // express it.
-    const bytes::Bytes encrypted = ToWire(rom);
+    const bytes::Bytes& encrypted = ToWireCached(rom);
     EXPECT_THAT(bytes::Bytes(encrypted.begin() + 0x10000, encrypted.begin() + 0x10000 + 256),
                 test_bytes::BytesEq(ToWire(bytes::ByteView(rom).subspan(0x10000, 256))));
     // Every sleep the write path performs, in order, each with the legacy

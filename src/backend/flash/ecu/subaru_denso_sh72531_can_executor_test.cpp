@@ -234,7 +234,7 @@ void ScriptEraseMemory(ScriptedCanFlashTransport& t)
 void ScriptReflashChunks(ScriptedCanFlashTransport& t, bytes::ByteView rom)
 {
     const auto section = t.Section("reflash chunks");
-    const bytes::Bytes encrypted = ToWire(rom);
+    const bytes::Bytes& encrypted = ToWireCached(rom);
     for (std::uint32_t offset = 0; offset < kBlockLength; offset += 256)
     {
         const std::uint32_t addr = kBlockStart + offset;
@@ -397,7 +397,7 @@ TEST(SubaruDensoSh72531CanExecutor, WriteErasesThenFlashesBlockOne)
     // above; assert the indexing convention explicitly too, so a wrong image
     // base fails here with a readable message rather than as an "unexpected
     // write".
-    const bytes::Bytes encrypted = ToWire(rom);
+    const bytes::Bytes& encrypted = ToWireCached(rom);
     EXPECT_THAT(bytes::Bytes(encrypted.begin() + 0x8000, encrypted.begin() + 0x8000 + 256),
                 test_bytes::BytesEq(ToWire(bytes::ByteView(rom).subspan(0x8000, 256))));
     // Every sleep the write path performs, in order, each with the legacy
