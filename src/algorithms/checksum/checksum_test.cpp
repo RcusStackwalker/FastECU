@@ -63,9 +63,8 @@ void CompareChangedBytes(const bytes::Bytes& original, const bytes::Bytes& actua
     EXPECT_EQ(actual, expected);
 }
 
-// Mirrors the Qt test file's densoRomWithChecksumTable(): 4 zero bytes,
-// then dword 0x00000001 (the value the checksum block will sum), then 8
-// zero bytes of padding, then the {addr_lo=4, addr_hi=8, diff=stored}
+// 4 zero bytes, then dword 0x00000001 (the value the checksum block will
+// sum), then 8 zero bytes of padding, then the {start=4, end=7, diff=stored}
 // checksum record at offset 16 -- 28 bytes total.
 bytes::Bytes DensoRomWithChecksumTable(std::uint32_t stored_checksum)
 {
@@ -73,7 +72,7 @@ bytes::Bytes DensoRomWithChecksumTable(std::uint32_t stored_checksum)
     bytes::AppendU32Be(rom, 0x00000001);
     rom.resize(rom.size() + 8, 0x00);
     bytes::AppendU32Be(rom, 0x00000004);
-    bytes::AppendU32Be(rom, 0x00000008);
+    bytes::AppendU32Be(rom, 0x00000007);
     bytes::AppendU32Be(rom, stored_checksum);
     return rom;
 }
@@ -107,7 +106,7 @@ TEST(ChecksumPortable, DensoSh705xDieselCorrectedRecordTriggersDisabledCompatibi
 
 TEST(ChecksumPortable, DensoSh705xDieselKeepsMatchingRecord)
 {
-    const bytes::Bytes original = {0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x08, 0x5a, 0xa5, 0xa5, 0x52};
+    const bytes::Bytes original = {0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x07, 0x5a, 0xa5, 0xa5, 0x53};
 
     const ChecksumResult result = ChecksumEcuSubaruDensoSH705xDiesel::CalculateChecksumResult(
         memory::testing::ViewOf(bytes::ByteView(original)), memory::FlashAddress{0}, 12);
@@ -379,7 +378,7 @@ TEST(ChecksumPortable, DensoDieselReportsAPrimaryBlockPastTheEndOfTheRom)
 {
     bytes::Bytes original(24, 0);
     bytes::WriteU32Be(original, 0, 4);
-    bytes::WriteU32Be(original, 4, 28);
+    bytes::WriteU32Be(original, 4, 27);
 
     const ChecksumResult result = ChecksumEcuSubaruDensoSH705xDiesel::CalculateChecksumResult(
         memory::testing::ViewOf(original), memory::FlashAddress{0}, 12);
@@ -421,7 +420,7 @@ TEST_P(DensoDieselFixedWord, SumsTheWordAsAllOnes)
     bytes::Bytes original(table_position + 12, 0);
     bytes::WriteU32Be(original, 0, 0x12345678);
     bytes::WriteU32Be(original, table_position, c.fixed_word_address);
-    bytes::WriteU32Be(original, table_position + 4, c.fixed_word_address + 4);
+    bytes::WriteU32Be(original, table_position + 4, c.fixed_word_address + 3);
 
     const ChecksumResult result = ChecksumEcuSubaruDensoSH705xDiesel::CalculateChecksumResult(
         memory::testing::ViewOf(original, memory::FlashAddress{c.fixed_word_address}),
@@ -438,7 +437,7 @@ TEST(ChecksumPortable, DensoDieselSecondaryFailureRollsBackPrimaryCorrection)
 {
     bytes::Bytes original(0x200000, 0);
     bytes::WriteU32Be(original, 0x1FF8E8, 0x1FFFFC);
-    bytes::WriteU32Be(original, 0x1FF8EC, 0x200004);
+    bytes::WriteU32Be(original, 0x1FF8EC, 0x200003);
 
     const ChecksumResult result = ChecksumEcuSubaruDensoSH705xDiesel::CalculateChecksumResult(
         memory::testing::ViewOf(original), memory::FlashAddress{0x1FF800}, 12);
@@ -453,7 +452,7 @@ TEST(ChecksumPortable, DensoDieselCorrectsSh72543SecondaryTableAfterPrimary)
     bytes::Bytes original(0x200000, 0);
     bytes::WriteU32Be(original, 4, 1);
     bytes::WriteU32Be(original, 0x1FF800, 4);
-    bytes::WriteU32Be(original, 0x1FF804, 8);
+    bytes::WriteU32Be(original, 0x1FF804, 7);
     bytes::WriteU32Be(original, 0x1FF808, 0x5AA5A559);
 
     const ChecksumResult result = ChecksumEcuSubaruDensoSH705xDiesel::CalculateChecksumResult(
@@ -464,21 +463,21 @@ TEST(ChecksumPortable, DensoDieselCorrectsSh72543SecondaryTableAfterPrimary)
     EXPECT_EQ(bytes::ReadU32Be(result.rom_data, 0x1FF8FC), 0x5AA5A55AU);
 }
 
-TEST(ChecksumPortable, DensoDieselReversedSecondaryBlockRollsBackPrimaryCorrection)
+TEST(ChecksumPortable, DensoDieselMalformedSecondaryBlockRollsBackPrimaryCorrection)
 {
     bytes::Bytes original(0x200000, 0);
     bytes::WriteU32Be(original, 0x1FF8E8, 0x1FFF00);
-    bytes::WriteU32Be(original, 0x1FF8EC, 0x1FFE00);
+    bytes::WriteU32Be(original, 0x1FF8EC, 0x1FFDFF);
 
     const ChecksumResult result = ChecksumEcuSubaruDensoSH705xDiesel::CalculateChecksumResult(
         memory::testing::ViewOf(original), memory::FlashAddress{0x1FF800}, 12);
 
     EXPECT_EQ(result.status, ChecksumResult::Status::kParseError);
-    EXPECT_EQ(result.message, "A checksum block range ends before it starts");
+    EXPECT_EQ(result.message, "A checksum block must start on a word and end at or after it, on a word's last byte");
     EXPECT_THAT(result.rom_data, test_bytes::BytesEq(original));
 }
 
-TEST(ChecksumPortable, DensoSh7xxxReportsAReversedBlockRange)
+TEST(ChecksumPortable, DensoSh7xxxReportsAMalformedBlockRange)
 {
     bytes::Bytes original(24, 0);
     bytes::WriteU32Be(original, 0, 20);
@@ -488,7 +487,7 @@ TEST(ChecksumPortable, DensoSh7xxxReportsAReversedBlockRange)
         memory::testing::ViewOf(original), memory::FlashAddress{0}, 12);
 
     EXPECT_EQ(result.status, ChecksumResult::Status::kParseError);
-    EXPECT_EQ(result.message, "A checksum block range ends before it starts");
+    EXPECT_EQ(result.message, "A checksum block must start on a word and end at or after it, on a word's last byte");
     EXPECT_THAT(result.rom_data, test_bytes::BytesEq(original));
 }
 
@@ -496,7 +495,7 @@ TEST(ChecksumPortable, DensoSh7xxxReportsInvalidBlockRangeMessage)
 {
     bytes::Bytes original(24, 0);
     bytes::WriteU32Be(original, 0, 20);
-    bytes::WriteU32Be(original, 4, 28);
+    bytes::WriteU32Be(original, 4, 27);
 
     const ChecksumResult result = ChecksumEcuSubaruDensoSH7xxx::CalculateChecksumResult(
         memory::testing::ViewOf(original), memory::FlashAddress{0}, 12);

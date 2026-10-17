@@ -575,13 +575,13 @@ TEST(ApplyChecksumCorrection, AWindowWithUnmappedAddressesIsABadRomSize)
 }
 
 // The table sits at ECU 0x0937FE00 (file 0x3E3E00) and its one record covers
-// ECU [0x08FAC000, 0x08FAC004) (file 0x10000), which holds 1.
+// ECU 0x08FAC000 through 0x08FAC003 (file 0x10000), which holds 1.
 TEST(ApplyChecksumCorrection, N83m4mTableIsAddressedByEcuAddress)
 {
     bytes::Bytes rom(0x3E4000, 0);
     bytes::WriteU32Be(rom, 0x10000, 1);
     bytes::WriteU32Be(rom, 0x3E3E00, 0x08FAC000);
-    bytes::WriteU32Be(rom, 0x3E3E04, 0x08FAC004);
+    bytes::WriteU32Be(rom, 0x3E3E04, 0x08FAC003);
     const auto outcome =
         ApplyChecksumCorrection(N83mImageOf(rom), SubaruSelection("sub_ecu_denso_1n83m_4m_can", "N83M_4MB"));
 
