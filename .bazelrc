@@ -16,6 +16,15 @@ build:linux --host_cxxopt=-std=c++23
 build:linux --copt=-fPIC
 build:macos --cxxopt=-std=c++23
 build:macos --host_cxxopt=-std=c++23
+# GCC's -Wall includes -Wsign-compare but clang's does not, so Linux CI failed
+# on signed/unsigned comparisons that macOS accepted. Enable it for first-party
+# C++ only: Bazel matches the path relative to the owning repository, so an
+# external repository's sources look like "googlemock/src/x.cc" and the filter
+# lists our top-level source directories instead. The repo-wide
+# treat_warnings_as_errors feature supplies the -Werror, and it too skips
+# dependencies. See docs/adr/0018-treat-first-party-warnings-as-errors.md.
+# No backslashes: .bazelrc unescapes them before Bazel sees the regex.
+build:macos --per_file_copt=^(src|apps|tests|bazel)/.*[.](cc|cpp|cxx|mm)$@-Wsign-compare
 # needed for std::format
 build:macos --macos_minimum_os=26.0
 # MSVC does not accept a plain /std:c++23 (it warns D9002 and falls back to its
