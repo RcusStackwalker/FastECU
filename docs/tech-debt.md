@@ -93,10 +93,7 @@ an ECU:
 - **Flash plans**, including `flash_validation.cpp`.
 - **EEPROM** (`denso_sh705x_eeprom_*`).
 - **Calibration, definitions, protocol codecs, logging, and diagnostics.**
-- **Key recovery** (`algorithms/crypto/subaru_key_recovery.cpp`). Also make its
-  test binary cheaper under Mull. It takes about 24 minutes, which sets the
-  floor for a sharded run's wall time. Try an internal entry point that takes
-  the analyzed size, so most cases run on small windows.
+- **Key recovery** (`algorithms/crypto/subaru_key_recovery.cpp`).
 - **The rest:** `expression`, the CDBG driver, config, ports, and service
   functions.
 

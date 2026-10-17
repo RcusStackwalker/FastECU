@@ -78,25 +78,52 @@ std::vector<WordPair> DistinctPairs(bytes::ByteView plain, bytes::ByteView ciphe
     return pairs;
 }
 
+// The five bits of word that the nybble's S-box reads, as the subkey that
+// covers them: Candidate(nybble, Window(nybble, word)) keeps just those bits
+// of word.
+std::uint32_t Window(std::size_t nybble, std::uint16_t word)
+{
+    const std::uint32_t doubled = word | (static_cast<std::uint32_t>(word) << 16U);
+    return (doubled >> (12U - nybble * 4U)) & (kSubkeys - 1U);
+}
+
+// A pair's parity under a candidate key for one nybble:
+// constant ^ Bits(FFunction(word, key), kInBits[nybble]).
+struct ParityTerm
+{
+    std::uint32_t constant;
+    std::uint16_t word;
+};
+
 // For each nybble, counts the pairs whose parity is zero under each candidate
 // subkey and keeps the subkey whose count strays furthest from half the
 // pairs; a tie goes to the higher subkey. Only the low four bits of each
 // chosen subkey reach the key.
-template <typename Parity> std::uint16_t MostBiasedKey(std::span<const WordPair> pairs, Parity parity)
+//
+// The key reaches a term's parity only through the kInBits[nybble] bits of
+// FFunction's output, which one S-box computes from the word's window alone.
+// Pairs with the same window and constant therefore share a parity under
+// every candidate, so they are counted together and each group is evaluated
+// once per candidate.
+template <typename Term> std::uint16_t MostBiasedKey(std::span<const WordPair> pairs, Term term)
 {
     const std::size_t half = pairs.size() / 2;
     std::uint16_t key = 0;
     for (std::size_t nybble = 0; nybble < kNybbles; ++nybble)
     {
-        std::array<std::size_t, kSubkeys> agreeing{};
+        std::array<std::array<std::size_t, kSubkeys>, 2> grouped{};
         for (const WordPair& pair : pairs)
         {
-            for (std::uint32_t subkey = 0; subkey < kSubkeys; ++subkey)
+            const ParityTerm parity = term(pair, nybble);
+            ++grouped[parity.constant][Window(nybble, parity.word)];
+        }
+        std::array<std::size_t, kSubkeys> agreeing{};
+        for (std::uint32_t subkey = 0; subkey < kSubkeys; ++subkey)
+        {
+            for (std::uint32_t window = 0; window < kSubkeys; ++window)
             {
-                if (parity(pair, nybble, Candidate(nybble, subkey)) == 0)
-                {
-                    ++agreeing[subkey];
-                }
+                const std::uint16_t output = FFunction(Candidate(nybble, window), Candidate(nybble, subkey));
+                agreeing[subkey] += grouped[Bits(output, kInBits[nybble])][window];
             }
         }
         std::uint32_t best = 0;
@@ -211,26 +238,28 @@ std::expected<Recovery, Failure> RecoverKeys(bytes::ByteView plain, bytes::ByteV
     }
     const std::vector<WordPair> pairs = DistinctPairs(plain, cipher);
 
-    const std::uint16_t k4 = MostBiasedKey(
-        pairs,
-        [](const WordPair& pair, std::size_t nybble, std::uint16_t key)
-        {
-            const std::uint32_t p = Bits(pair.plain, kInBits[nybble]) ^ Bits(pair.plain, kOutBits[nybble]);
-            const std::uint32_t c = Bits(pair.cipher, kOutBits[nybble], 16);
-            const auto x3 = static_cast<std::uint16_t>(High(pair.cipher) ^ FFunction(Low(pair.cipher), key));
-            return p ^ c ^ Bits(x3, kInBits[nybble]);
-        });
+    // Bits is linear, so each x3 or x2 under the candidate key splits into a
+    // constant half and an FFunction half.
+    const std::uint16_t k4 =
+        MostBiasedKey(pairs,
+                      [](const WordPair& pair, std::size_t nybble)
+                      {
+                          const std::uint32_t p =
+                              Bits(pair.plain, kInBits[nybble]) ^ Bits(pair.plain, kOutBits[nybble]);
+                          const std::uint32_t c = Bits(pair.cipher, kOutBits[nybble], 16);
+                          return ParityTerm{p ^ c ^ Bits(High(pair.cipher), kInBits[nybble]), Low(pair.cipher)};
+                      });
 
-    const std::uint16_t k1 = MostBiasedKey(
-        pairs,
-        [k4](const WordPair& pair, std::size_t nybble, std::uint16_t key)
-        {
-            const auto x3 = static_cast<std::uint16_t>(High(pair.cipher) ^ FFunction(Low(pair.cipher), k4));
-            const std::uint32_t p = Bits(pair.plain, kOutBits[nybble], 16);
-            const std::uint32_t c = Bits(x3, kOutBits[nybble], 16);
-            const auto x2 = static_cast<std::uint16_t>(High(pair.plain) ^ FFunction(Low(pair.plain), key));
-            return p ^ c ^ Bits(x2, kInBits[nybble]);
-        });
+    const std::uint16_t k1 =
+        MostBiasedKey(pairs,
+                      [k4](const WordPair& pair, std::size_t nybble)
+                      {
+                          const auto x3 =
+                              static_cast<std::uint16_t>(High(pair.cipher) ^ FFunction(Low(pair.cipher), k4));
+                          const std::uint32_t p = Bits(pair.plain, kOutBits[nybble], 16);
+                          const std::uint32_t c = Bits(x3, kOutBits[nybble], 16);
+                          return ParityTerm{p ^ c ^ Bits(High(pair.plain), kInBits[nybble]), Low(pair.plain)};
+                      });
 
     // The middle rounds: from each pair's halves after round 1 (x2) and
     // before round 4 (x3), f_function(x2, k2) == x3 ^ low(plain) and
