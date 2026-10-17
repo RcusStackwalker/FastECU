@@ -1,7 +1,6 @@
 ---
 name: hill-climbing-nloc
-description: One iteration of the NLOC hill-climbing loop; run it under /loop.
-disable-model-invocation: true
+description: Run one iteration of this repo's NLOC hill-climbing loop (settle the open nloc-loop PR or open the next one that lowers NLOC by 50+). Use only when the user invokes /hill-climbing-nloc or /loop /hill-climbing-nloc, or when a /loop firing carries that prompt; never for ordinary refactors, cleanup, duplicate-code questions, or NLOC measurement.
 ---
 
 # NLOC hill-climbing loop
