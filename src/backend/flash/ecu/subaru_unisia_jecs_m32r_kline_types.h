@@ -11,5 +11,7 @@ struct SubaruUnisiaJecsM32rKlinePlan
     int initial_baud;
     std::uint8_t tester_id;
     std::uint8_t target_id;
+
+    bool operator==(const SubaruUnisiaJecsM32rKlinePlan&) const = default;
 };
 } // namespace fastecu::flash

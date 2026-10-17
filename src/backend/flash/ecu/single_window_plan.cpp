@@ -1,6 +1,7 @@
 #include "src/backend/flash/ecu/single_window_plan.h"
 
 #include <algorithm>
+#include <array>
 #include <format>
 #include <string>
 #include <utility>
@@ -39,12 +40,23 @@ Status ValidateIdentity(const SingleWindowPlanSpec& spec, std::string_view proto
     }
     return {};
 }
+
+Status ValidateOperation(const SingleWindowPlanSpec& spec, FlashOperation operation)
+{
+    if (operation == FlashOperation::kTestWrite)
+    {
+        return Fail(kUnsupported, "test_write is not supported by this family");
+    }
+    if (!spec.supports_write && operation == FlashOperation::kWrite)
+    {
+        return Fail(kUnsupported, std::format("write is not supported by {}", spec.display_name));
+    }
+    return {};
+}
 } // namespace
 
 Status ValidateSingleWindowPlan(const SingleWindowPlanSpec& spec, const FlashPlan& plan)
 {
-    // #lizard forgives(cyclomatic_complexity)
-    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     if (auto valid = ValidateIdentity(spec, plan.TargetId(), plan.McuName()); !valid.has_value())
     {
         return valid;
@@ -66,26 +78,19 @@ Status ValidateSingleWindowPlan(const SingleWindowPlanSpec& spec, const FlashPla
     {
         return Fail(kInvalidConfig, std::format("{} plans are kernel-free", spec.display_name));
     }
-    if (plan.Operation() == FlashOperation::kTestWrite)
+    if (auto valid = ValidateOperation(spec, plan.Operation()); !valid.has_value())
     {
-        return Fail(kUnsupported, "test_write is not supported by this family");
+        return valid;
     }
-    if (!spec.supports_write && plan.Operation() == FlashOperation::kWrite)
+    if (plan.Operation() == FlashOperation::kRead)
     {
-        return Fail(kUnsupported, std::format("write is not supported by {}", spec.display_name));
+        return plan.EraseRegions().empty() ? Status{} : Fail(kInvalidConfig, "read plans must not erase memory");
     }
-    if (plan.Operation() == FlashOperation::kRead && !plan.EraseRegions().empty())
-    {
-        return Fail(kInvalidConfig, "read plans must not erase memory");
-    }
-    if (plan.Operation() == FlashOperation::kWrite &&
-        (plan.EraseRegions().size() != 1 || plan.EraseRegions()[0].start != spec.write_region.start ||
-         plan.EraseRegions()[0].length != spec.write_region.length))
+    if (!std::ranges::equal(plan.EraseRegions(), std::array{spec.write_region}))
     {
         return Fail(kInvalidConfig, std::format("{} erase region is invalid", spec.display_name));
     }
-    if (plan.Operation() == FlashOperation::kWrite &&
-        (!plan.Image().has_value() || plan.Image()->size() != spec.image_size))
+    if (!plan.Image().has_value() || plan.Image()->size() != spec.image_size)
     {
         return Fail(kInvalidConfig, std::format("ROM file must be exactly 0x{:X} bytes", spec.image_size));
     }
@@ -100,13 +105,9 @@ Result<FlashPlan> BuildSingleWindowPlan(const SingleWindowPlanSpec& spec, FlashO
     {
         return std::unexpected(valid.error());
     }
-    if (operation == FlashOperation::kTestWrite)
+    if (auto valid = ValidateOperation(spec, operation); !valid.has_value())
     {
-        return Fail(kUnsupported, "test_write is not supported by this family");
-    }
-    if (!spec.supports_write && operation == FlashOperation::kWrite)
-    {
-        return Fail(kUnsupported, std::format("write is not supported by {}", spec.display_name));
+        return std::unexpected(valid.error());
     }
     if (operation == FlashOperation::kWrite)
     {

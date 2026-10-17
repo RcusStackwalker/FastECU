@@ -112,12 +112,39 @@ Status ValidateKernelUpload(const KernelImage& kernel)
     return {};
 }
 
+// The transfer covers the MCU's ROM, and a write's image places every flash block.
+Status ValidateRomPlacement(const FlashPlan& plan)
+{
+    using enum ErrorKind;
+    const int index = FindFlashDeviceIndex(plan.McuName());
+    if (index < 0)
+    {
+        return Fail(kInvalidConfig, "Unknown MCU type");
+    }
+    if (!detail::TransferMatchesDevice(plan.TransferRegion(), kFlashDevices[index]))
+    {
+        return Fail(kInvalidConfig, "MC68HC16Y5_02 transfer region does not match the MCU");
+    }
+    if (auto valid = ValidateOperation(plan.TargetId(), plan.Operation()); !valid.has_value())
+    {
+        return valid;
+    }
+    if (plan.Operation() == FlashOperation::kRead)
+    {
+        return {};
+    }
+    const std::optional<memory::MemoryImage>& image = plan.RomImage();
+    if (!image.has_value())
+    {
+        return Fail(kInvalidConfig, "MC68HC16Y5_02 write requires a ROM image");
+    }
+    return CheckFlashBlocksPlaced(*image, kFlashDevices[index]);
+}
+
 } // namespace
 
 Status ValidateSubaruDensoMc68hc16y502Plan(const FlashPlan& plan)
 {
-    // #lizard forgives(cyclomatic_complexity)
-    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     using enum ErrorKind;
     if (plan.Family() != FlashFamily::kSubaruDensoMc68hc16y502 || plan.Transport() != TransportKind::kKline)
     {
@@ -132,10 +159,7 @@ Status ValidateSubaruDensoMc68hc16y502Plan(const FlashPlan& plan)
     {
         return valid;
     }
-    if (const SubaruDensoMc68hc16y5_02Plan expected = WireParams(plan.TargetId());
-        family->connect_baud != expected.connect_baud || family->kernel_baud != expected.kernel_baud ||
-        family->encryption_xor != expected.encryption_xor || family->kernel_magic != expected.kernel_magic ||
-        family->bootloader_ok != expected.bootloader_ok)
+    if (*family != WireParams(plan.TargetId()))
     {
         return Fail(kInvalidConfig, "MC68HC16Y5_02 wire parameters are invalid");
     }
@@ -155,29 +179,7 @@ Status ValidateSubaruDensoMc68hc16y502Plan(const FlashPlan& plan)
     {
         return Fail(kInvalidConfig, "MC68HC16Y5_02 plans must not declare confirmations");
     }
-    const int index = FindFlashDeviceIndex(plan.McuName());
-    if (index < 0)
-    {
-        return Fail(kInvalidConfig, "Unknown MCU type");
-    }
-    if (!detail::TransferMatchesDevice(plan.TransferRegion(), kFlashDevices[index]))
-    {
-        return Fail(kInvalidConfig, "MC68HC16Y5_02 transfer region does not match the MCU");
-    }
-    if (auto valid = ValidateOperation(plan.TargetId(), plan.Operation()); !valid.has_value())
-    {
-        return valid;
-    }
-    if (plan.Operation() == FlashOperation::kWrite || plan.Operation() == FlashOperation::kTestWrite)
-    {
-        const std::optional<memory::MemoryImage>& image = plan.RomImage();
-        if (!image.has_value())
-        {
-            return Fail(kInvalidConfig, "MC68HC16Y5_02 write requires a ROM image");
-        }
-        return CheckFlashBlocksPlaced(*image, kFlashDevices[index]);
-    }
-    return {};
+    return ValidateRomPlacement(plan);
 }
 
 Result<FlashPlan> BuildSubaruDensoMc68hc16y502Plan(FlashOperation operation, std::string_view protocol_name,

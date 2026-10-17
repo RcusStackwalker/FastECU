@@ -5,6 +5,7 @@
 #include <string_view>
 #include <utility>
 
+#include "src/backend/flash/ecu/plan_primitives.h"
 #include "src/backend/flash/flash_device_lookup.h"
 #include "src/backend/flash/flash_validation.h"
 
@@ -41,6 +42,27 @@ Status ValidateIdentity(std::string_view protocol, std::string_view mcu)
     return {};
 }
 
+Status ValidateReadShape(const FlashPlan& plan)
+{
+    if (plan.TransferRegion() != kReadRegion || plan.Image().has_value())
+    {
+        return Fail(ErrorKind::kInvalidConfig, "MC68HC16Y5 BDM read-plan shape is invalid");
+    }
+    return {};
+}
+
+// The image is the chunk-padded kernel, uploaded into the start of RAM.
+Status ValidateBootstrapShape(const FlashPlan& plan)
+{
+    const auto& image = plan.Image();
+    if (!image.has_value() || image->empty() || image->size() % kUploadChunk != 0 || image->size() > kRam.length ||
+        plan.TransferRegion() != MemoryRegion{kRam.start, static_cast<std::uint32_t>(image->size())})
+    {
+        return Fail(ErrorKind::kInvalidConfig, "MC68HC16Y5 BDM kernel-bootstrap plan shape is invalid");
+    }
+    return {};
+}
+
 bytes::Bytes PadKernel(bytes::Bytes kernel)
 {
     kernel.resize((kernel.size() + kUploadChunk - 1) / kUploadChunk * kUploadChunk, 0x00);
@@ -50,8 +72,6 @@ bytes::Bytes PadKernel(bytes::Bytes kernel)
 
 Status ValidateSubaruDensoMc68hc16y502BdmPlan(const FlashPlan& plan)
 {
-    // #lizard forgives(cyclomatic_complexity)
-    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     if (plan.Family() != FlashFamily::kSubaruDensoMc68hc16y502Bdm || plan.Transport() != TransportKind::kKline)
     {
         return Fail(ErrorKind::kInvalidConfig, "plan is not for Subaru Denso MC68HC16Y5 BDM");
@@ -73,30 +93,14 @@ Status ValidateSubaruDensoMc68hc16y502BdmPlan(const FlashPlan& plan)
     {
         return Fail(ErrorKind::kInvalidConfig, "MC68HC16Y5 BDM plan shape is invalid");
     }
-    const auto confirmations = plan.Confirmations();
-    const bool exactly_bootstrap = confirmations.size() == 1 &&
-                                   confirmations.front().id == ConfirmationSpec::Id::kKernelBootstrap &&
-                                   confirmations.front().arguments.empty();
-    if (plan.Operation() == FlashOperation::kWrite ? !exactly_bootstrap : !confirmations.empty())
+    const bool write = plan.Operation() == FlashOperation::kWrite;
+    if (write ? !detail::RequiresOnly(plan.Confirmations(), ConfirmationSpec::Id::kKernelBootstrap)
+              : !plan.Confirmations().empty())
     {
         return Fail(ErrorKind::kInvalidConfig,
                     "MC68HC16Y5 BDM Write requires exactly the KernelBootstrap confirmation; Read requires none");
     }
-    if (plan.Operation() == FlashOperation::kRead)
-    {
-        if (plan.TransferRegion() != kReadRegion || plan.Image().has_value())
-        {
-            return Fail(ErrorKind::kInvalidConfig, "MC68HC16Y5 BDM read-plan shape is invalid");
-        }
-        return {};
-    }
-    const auto& image = plan.Image();
-    if (!image.has_value() || image->empty() || image->size() % kUploadChunk != 0 || image->size() > kRam.length ||
-        plan.TransferRegion() != MemoryRegion{kRam.start, static_cast<std::uint32_t>(image->size())})
-    {
-        return Fail(ErrorKind::kInvalidConfig, "MC68HC16Y5 BDM kernel-bootstrap plan shape is invalid");
-    }
-    return {};
+    return write ? ValidateBootstrapShape(plan) : ValidateReadShape(plan);
 }
 
 Result<FlashPlan> BuildSubaruDensoMc68hc16y502BdmPlan(FlashOperation operation, std::string_view protocol_name,

@@ -76,12 +76,25 @@ MemoryRegion RegionFor(const Variant& variant, FlashOperation operation)
     return operation == FlashOperation::kRead ? MemoryRegion{kReadBase, variant.rom_size}
                                               : MemoryRegion{0, variant.rom_size};
 }
+// The programming-voltage confirmation is optional: the adapter may supply it.
+Status ValidateWriteShape(const FlashPlan& plan, const Variant& variant)
+{
+    if (!plan.Image().has_value() || plan.Image()->size() != variant.rom_size)
+    {
+        return Fail(ErrorKind::kInvalidConfig, "Unisia Jecs M32R write image must be exactly the ROM size");
+    }
+    if (const auto& confirmations = plan.Confirmations();
+        confirmations.size() > 1 ||
+        (confirmations.size() == 1 && confirmations[0].id != ConfirmationSpec::Id::kApplyProgrammingVoltage))
+    {
+        return Fail(ErrorKind::kInvalidConfig, "Unisia Jecs M32R write confirmations are invalid");
+    }
+    return {};
+}
 } // namespace
 
 Status ValidateSubaruUnisiaJecsM32rKlinePlan(const FlashPlan& plan)
 {
-    // #lizard forgives(cyclomatic_complexity)
-    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     if (plan.Family() != FlashFamily::kSubaruUnisiaJecsM32rKline || plan.Transport() != TransportKind::kKline)
     {
         return Fail(ErrorKind::kInvalidConfig, "plan is not for Subaru Unisia Jecs M32R");
@@ -95,9 +108,8 @@ Status ValidateSubaruUnisiaJecsM32rKlinePlan(const FlashPlan& plan)
     {
         return operation;
     }
-    const auto *wire = std::get_if<SubaruUnisiaJecsM32rKlinePlan>(&plan.FamilyPlan());
-    if (wire == nullptr || wire->initial_baud != kWire.initial_baud || wire->tester_id != kWire.tester_id ||
-        wire->target_id != kWire.target_id)
+    if (const auto *wire = std::get_if<SubaruUnisiaJecsM32rKlinePlan>(&plan.FamilyPlan());
+        wire == nullptr || *wire != kWire)
     {
         return Fail(ErrorKind::kInvalidConfig, "Unisia Jecs M32R wire parameters are invalid");
     }
@@ -106,25 +118,15 @@ Status ValidateSubaruUnisiaJecsM32rKlinePlan(const FlashPlan& plan)
     {
         return Fail(ErrorKind::kInvalidConfig, "Unisia Jecs M32R plan shape is invalid");
     }
-    const auto& confirmations = plan.Confirmations();
     if (plan.Operation() == FlashOperation::kRead)
     {
-        if (plan.Image().has_value() || !confirmations.empty())
+        if (plan.Image().has_value() || !plan.Confirmations().empty())
         {
             return Fail(ErrorKind::kInvalidConfig, "Unisia Jecs M32R read-plan shape is invalid");
         }
         return {};
     }
-    if (!plan.Image().has_value() || plan.Image()->size() != variant->rom_size)
-    {
-        return Fail(ErrorKind::kInvalidConfig, "Unisia Jecs M32R write image must be exactly the ROM size");
-    }
-    if (confirmations.size() > 1 ||
-        (confirmations.size() == 1 && confirmations[0].id != ConfirmationSpec::Id::kApplyProgrammingVoltage))
-    {
-        return Fail(ErrorKind::kInvalidConfig, "Unisia Jecs M32R write confirmations are invalid");
-    }
-    return {};
+    return ValidateWriteShape(plan, *variant);
 }
 
 Result<FlashPlan> BuildSubaruUnisiaJecsM32rKlinePlan(FlashOperation operation, std::string_view protocol_name,

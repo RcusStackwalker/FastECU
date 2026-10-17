@@ -15,6 +15,8 @@ bool FixedShapeDeviceMatches(const FlashDevice *device, std::uint32_t rom_size, 
 bool OperationImageShapeMatches(const FlashPlan& plan, std::uint32_t rom_size);
 // Callers validate the flash table before comparing transfer geometry.
 bool TransferMatchesDevice(const MemoryRegion& transfer, const FlashDevice& device);
+// True when the plan declares exactly the confirmation `id`, without arguments.
+bool RequiresOnly(std::span<const ConfirmationSpec> confirmations, ConfirmationSpec::Id id);
 
 // Expected addresses and block sizes come from each family's protocol.
 // Use a numeric size so overflow boundaries can be checked without allocating

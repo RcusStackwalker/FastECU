@@ -132,15 +132,30 @@ Status ValidateSubaruDensoSh705xKlineGeometry(const FlashDevice& device)
 }
 } // namespace detail
 
+namespace
+{
+SubaruDensoSh705xKlinePlan WireFor(const Variant& variant)
+{
+    return {.initial_baud = 4800, .tester_id = 0xF0, .target_id = 0x10, .seed_key = variant.seed_key};
+}
+
+Result<const FlashDevice *> FindDevice(std::string_view mcu)
+{
+    const FlashDevice *device = FindFlashDevice(mcu);
+    if (device == nullptr)
+    {
+        return Fail(kInvalidConfig, "Unknown MCU type");
+    }
+    if (Status valid = detail::ValidateSubaruDensoSh705xKlineGeometry(*device); !valid.has_value())
+    {
+        return std::unexpected(valid.error());
+    }
+    return device;
+}
+} // namespace
+
 Status ValidateSubaruDensoSh705xKlinePlan(const FlashPlan& plan)
 {
-    // #lizard forgives(cyclomatic_complexity)
-    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
-    // Ruling 2: this function is outside the
-    // anonymous namespace above, so the `using enum ErrorKind;` there does
-    // not reach here -- reintroduce it locally rather than qualifying every
-    // use.
-    using enum ErrorKind;
     if (plan.Family() != FlashFamily::kSubaruDensoSh705xKline || plan.Transport() != TransportKind::kKline)
     {
         return Fail(kInvalidConfig, "plan is not for Denso SH705x K-Line");
@@ -154,9 +169,8 @@ Status ValidateSubaruDensoSh705xKlinePlan(const FlashPlan& plan)
     {
         return valid;
     }
-    const auto *family = std::get_if<SubaruDensoSh705xKlinePlan>(&plan.FamilyPlan());
-    if (family == nullptr || family->initial_baud != 4800 || family->tester_id != 0xF0 || family->target_id != 0x10 ||
-        family->seed_key != (*variant)->seed_key)
+    if (const auto *family = std::get_if<SubaruDensoSh705xKlinePlan>(&plan.FamilyPlan());
+        family == nullptr || *family != WireFor(**variant))
     {
         return Fail(kInvalidConfig, "Denso SH705x K-Line wire parameters are invalid");
     }
@@ -172,29 +186,22 @@ Status ValidateSubaruDensoSh705xKlinePlan(const FlashPlan& plan)
     {
         return valid;
     }
-    const FlashDevice *device = FindFlashDevice(plan.McuName());
-    if (device == nullptr)
+    Result<const FlashDevice *> device = FindDevice(plan.McuName());
+    if (!device.has_value())
     {
-        return Fail(kInvalidConfig, "Unknown MCU type");
+        return std::unexpected(device.error());
     }
-    if (Status valid = detail::ValidateSubaruDensoSh705xKlineGeometry(*device); !valid.has_value())
-    {
-        return valid;
-    }
-    if (plan.TransferRegion().start != 0 || plan.TransferRegion().length != device->romsize)
+    if (plan.TransferRegion() != MemoryRegion{0, (*device)->romsize})
     {
         return Fail(kInvalidConfig, "Denso SH705x K-Line transfer region does not match the MCU");
     }
-    return ValidateImage(plan.Operation(), plan.Image(), device->romsize);
+    return ValidateImage(plan.Operation(), plan.Image(), (*device)->romsize);
 }
 
 Result<FlashPlan> BuildSubaruDensoSh705xKlinePlan(FlashOperation operation, std::string_view protocol_name,
                                                   std::string_view mcu_type, std::optional<bytes::Bytes> image,
                                                   KernelImage kernel)
 {
-    // See the note in validate_subaru_denso_sh705x_kline_plan above: this
-    // function is likewise outside the anonymous namespace.
-    using enum ErrorKind;
     Result<const Variant *> variant = FindVariant(protocol_name, mcu_type);
     if (!variant.has_value())
     {
@@ -208,16 +215,12 @@ Result<FlashPlan> BuildSubaruDensoSh705xKlinePlan(FlashOperation operation, std:
     {
         return std::unexpected(valid.error());
     }
-    const FlashDevice *device = FindFlashDevice(mcu_type);
-    if (device == nullptr)
+    Result<const FlashDevice *> device = FindDevice(mcu_type);
+    if (!device.has_value())
     {
-        return Fail(kInvalidConfig, "Unknown MCU type");
+        return std::unexpected(device.error());
     }
-    if (Status valid = detail::ValidateSubaruDensoSh705xKlineGeometry(*device); !valid.has_value())
-    {
-        return std::unexpected(valid.error());
-    }
-    if (Status valid = ValidateImage(operation, image, device->romsize); !valid.has_value())
+    if (Status valid = ValidateImage(operation, image, (*device)->romsize); !valid.has_value())
     {
         return std::unexpected(valid.error());
     }
@@ -228,13 +231,11 @@ Result<FlashPlan> BuildSubaruDensoSh705xKlinePlan(FlashOperation operation, std:
         .transport = TransportKind::kKline,
         .target_id = std::string(protocol_name),
         .mcu_name = std::string(mcu_type),
-        .transfer_region = MemoryRegion{0, device->romsize},
+        .transfer_region = MemoryRegion{0, (*device)->romsize},
         .erase_regions = {},
         .image = operation == FlashOperation::kRead ? std::nullopt : std::move(image),
         .kernel = std::move(kernel),
-        .family_plan =
-            SubaruDensoSh705xKlinePlan{
-                .initial_baud = 4800, .tester_id = 0xF0, .target_id = 0x10, .seed_key = (*variant)->seed_key},
+        .family_plan = WireFor(**variant),
         .confirmations = {},
     };
     auto plan = ValidateAndBuild(std::move(fields));

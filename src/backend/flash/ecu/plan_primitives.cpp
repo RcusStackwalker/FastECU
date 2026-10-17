@@ -19,6 +19,11 @@ bool TransferMatchesDevice(const MemoryRegion& transfer, const FlashDevice& devi
     return transfer.start == device.fblocks[0].start && transfer.length == device.romsize;
 }
 
+bool RequiresOnly(std::span<const ConfirmationSpec> confirmations, ConfirmationSpec::Id id)
+{
+    return confirmations.size() == 1 && confirmations.front() == ConfirmationSpec{.id = id};
+}
+
 Status ValidateRegions(const FlashPlan& plan, const FlashDevice& device)
 {
     if (!TransferMatchesDevice(plan.TransferRegion(), device))
