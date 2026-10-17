@@ -114,10 +114,77 @@ class Session
         request.insert(request.end(), key.begin(), key.end());
         return Require(request, {0x67, 0x02});
     }
+    // ECU ID, VIN, CAL ID and CVN.
+    Status RequestIdentity()
+    {
+        if (auto status = Require(Bytes{0xaa}, {0xea}, 50ms); !status.has_value())
+        {
+            return status;
+        }
+        if (auto status = Require(Bytes{0x09, 0x02}, {0x49, 0x02}, 50ms); !status.has_value())
+        {
+            return status;
+        }
+        if (auto status = Require(Bytes{0x09, 0x04}, {0x49, 0x04}, 50ms); !status.has_value())
+        {
+            return status;
+        }
+        return Require(Bytes{0x09, 0x06}, {0x49, 0x06}, 50ms);
+    }
+    // The bench session answers 0xA0 or 0x20 to the mode query.
+    Status EnterBenchProgramming()
+    {
+        if (auto status = Require(Bytes{0x10, 0x43}, {0x50, 0x43}); !status.has_value())
+        {
+            return status;
+        }
+        if (auto status = Security(); !status.has_value())
+        {
+            return status;
+        }
+        return Require(Bytes{0x10, 0x42}, {0x50, 0x42});
+    }
+    Status EnterInCarProgramming()
+    {
+        struct Step
+        {
+            std::uint32_t id;
+            Bytes request;
+        };
+        const std::array<Step, 9> access{{
+            {0x7e0, {0xa8, 0, 0, 1, 0x3b}},
+            {0x7df, {0x10, 0x03}},
+            {0x7e1, {0x04}},
+            {0x7b0, {0x10, 0x03}},
+            {0x7b0, {0x85, 0x02}},
+            {0x7df, {0x85, 0x02}},
+            {0x7b0, {0x85, 0x02}},
+            {0x7df, {0x85, 0x02}},
+            {0x7df, {0x28, 0x03, 0x01}},
+        }};
+        for (const auto& step : access)
+        {
+            if (auto status = Present(step.request, step.id); !status.has_value())
+            {
+                return status;
+            }
+        }
+        if (auto status = Security(); !status.has_value())
+        {
+            return status;
+        }
+        for (const Bytes& request : {Bytes{0xa8, 0, 0, 0, 0xd5}, Bytes{0xa8, 0, 0, 1, 0x3b}, Bytes{0xa8, 0, 0, 0, 0x1c},
+                                     Bytes{0xa8, 0, 0, 0, 0x0e, 0, 0, 0x0f}})
+        {
+            if (auto status = Present(request); !status.has_value())
+            {
+                return status;
+            }
+        }
+        return Require(Bytes{0x10, 0x02}, {0x50, 0x02});
+    }
     Status Connect()
     {
-        // #lizard forgives(cyclomatic_complexity)
-        // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
         auto active = Exchange(Bytes{0xb7}, 50ms);
         if (!active.has_value())
         {
@@ -135,19 +202,7 @@ class Session
         {
             return Fail(ErrorKind::kBadResponse, "invalid SH7058 kernel probe");
         }
-        if (auto status = Require(Bytes{0xaa}, {0xea}, 50ms); !status.has_value())
-        {
-            return status;
-        }
-        if (auto status = Require(Bytes{0x09, 0x02}, {0x49, 0x02}, 50ms); !status.has_value())
-        {
-            return status;
-        }
-        if (auto status = Require(Bytes{0x09, 0x04}, {0x49, 0x04}, 50ms); !status.has_value())
-        {
-            return status;
-        }
-        if (auto status = Require(Bytes{0x09, 0x06}, {0x49, 0x06}, 50ms); !status.has_value())
+        if (auto status = RequestIdentity(); !status.has_value())
         {
             return status;
         }
@@ -164,62 +219,10 @@ class Session
         {
             return slept;
         }
-        if ((**mode)[5] == 0xa0 || (**mode)[5] == 0x20)
+        const bool bench = (**mode)[5] == 0xa0 || (**mode)[5] == 0x20;
+        if (auto status = bench ? EnterBenchProgramming() : EnterInCarProgramming(); !status.has_value())
         {
-            if (auto status = Require(Bytes{0x10, 0x43}, {0x50, 0x43}); !status.has_value())
-            {
-                return status;
-            }
-            if (auto status = Security(); !status.has_value())
-            {
-                return status;
-            }
-            if (auto status = Require(Bytes{0x10, 0x42}, {0x50, 0x42}); !status.has_value())
-            {
-                return status;
-            }
-        }
-        else
-        {
-            struct Step
-            {
-                std::uint32_t id;
-                Bytes request;
-            };
-            const std::array<Step, 9> access{{
-                {0x7e0, {0xa8, 0, 0, 1, 0x3b}},
-                {0x7df, {0x10, 0x03}},
-                {0x7e1, {0x04}},
-                {0x7b0, {0x10, 0x03}},
-                {0x7b0, {0x85, 0x02}},
-                {0x7df, {0x85, 0x02}},
-                {0x7b0, {0x85, 0x02}},
-                {0x7df, {0x85, 0x02}},
-                {0x7df, {0x28, 0x03, 0x01}},
-            }};
-            for (const auto& step : access)
-            {
-                if (auto status = Present(step.request, step.id); !status.has_value())
-                {
-                    return status;
-                }
-            }
-            if (auto status = Security(); !status.has_value())
-            {
-                return status;
-            }
-            for (const Bytes& request : {Bytes{0xa8, 0, 0, 0, 0xd5}, Bytes{0xa8, 0, 0, 1, 0x3b},
-                                         Bytes{0xa8, 0, 0, 0, 0x1c}, Bytes{0xa8, 0, 0, 0, 0x0e, 0, 0, 0x0f}})
-            {
-                if (auto status = Present(request); !status.has_value())
-                {
-                    return status;
-                }
-            }
-            if (auto status = Require(Bytes{0x10, 0x02}, {0x50, 0x02}); !status.has_value())
-            {
-                return status;
-            }
+            return status;
         }
         return Require(Bytes{0x34, 0x04, 0x33, 0, 0, 0, 0x10, 0, 0}, {0x74, 0x20, 0x01, 0x04});
     }

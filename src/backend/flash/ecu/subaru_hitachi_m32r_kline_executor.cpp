@@ -330,11 +330,37 @@ Status EraseRom(IKlineFlashTransport& transport, IClock& clock, const ICancellat
     return ExpectPrefix(response, {0x71, uds::kRoutineControlStop});
 }
 
+// Transfers the encrypted 512 KiB ROM in chunk_size blocks. A missing ack
+// is tolerated; a present one must acknowledge.
+Status TransferRom(IKlineFlashTransport& transport, const ICancellationToken& cancellation, IEventSink& events,
+                   const SubaruHitachiM32rKlinePlan& p, const FlashPlan& plan)
+{
+    const bytes::Bytes encrypted = Encrypt(plan.ImageOrEmpty());
+    for (std::uint32_t address = 0; address < 0x80000; address += p.chunk_size)
+    {
+        if (cancellation.Cancelled())
+        {
+            return Fail(ErrorKind::kCancelled, "cancelled during ROM write");
+        }
+        const bytes::Bytes request =
+            ComposeBe(uds::kSidTransferData, U24(address), bytes::ByteView(encrypted).subspan(address, p.chunk_size));
+        auto ack = ExchangeOptional(transport, cancellation, request, p);
+        if (!ack.has_value())
+        {
+            return std::unexpected(ack.error());
+        }
+        if (*ack && (*ack)->size() > 4 && (**ack)[4] != 0x76)
+        {
+            return Fail(ErrorKind::kBadResponse, "write data failed");
+        }
+        events.Progress(static_cast<int>(address + p.chunk_size), 0x80000);
+    }
+    return {};
+}
+
 Status WriteRom(IKlineFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
                 IEventSink& events, const SubaruHitachiM32rKlinePlan& p, const FlashPlan& plan)
 {
-    // #lizard forgives(cyclomatic_complexity)
-    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     if (auto baud = transport.SetBaud(p.write_baud); !baud.has_value())
     {
         return baud;
@@ -357,25 +383,9 @@ Status WriteRom(IKlineFlashTransport& transport, IClock& clock, const ICancellat
     {
         return Fail(ErrorKind::kCancelled, "cancelled after erase");
     }
-    const bytes::Bytes encrypted = Encrypt(plan.ImageOrEmpty());
-    for (std::uint32_t address = 0; address < 0x80000; address += p.chunk_size)
+    if (auto transferred = TransferRom(transport, cancellation, events, p, plan); !transferred.has_value())
     {
-        if (cancellation.Cancelled())
-        {
-            return Fail(ErrorKind::kCancelled, "cancelled during ROM write");
-        }
-        const bytes::Bytes request =
-            ComposeBe(uds::kSidTransferData, U24(address), bytes::ByteView(encrypted).subspan(address, p.chunk_size));
-        auto ack = ExchangeOptional(transport, cancellation, request, p);
-        if (!ack.has_value())
-        {
-            return std::unexpected(ack.error());
-        }
-        if (*ack && (*ack)->size() > 4 && (**ack)[4] != 0x76)
-        {
-            return Fail(ErrorKind::kBadResponse, "write data failed");
-        }
-        events.Progress(static_cast<int>(address + p.chunk_size), 0x80000);
+        return transferred;
     }
     if (auto slept = clock.Sleep(300ms, cancellation); !slept.has_value())
     {
