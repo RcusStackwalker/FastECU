@@ -643,34 +643,7 @@ TEST(SubaruDensoSh72531CanExecutor, ShortPagesAdvanceByRequestedSizeAndStopIsBes
         // access-method, security and jump exchanges.
         transport.Exchange(Request({0x10, 0x5F}), Response({0x50, 0x5F, 0x99}));
         ScriptReadSetup(transport);
-        auto wire = ToWire(bytes::Bytes{0x12, 0x34, 0x56, 0x78});
-        wire.insert(wire.end(), {0xAA, 0xBB, 0xCC});
-        auto reply = Response({0xF7});
-        reply.insert(reply.end(), wire.begin(), wire.end());
-        for (std::uint32_t offset = 0; offset < kBlockLength; offset += kPageSize)
-        {
-            transport.Exchange(Request(bytes::ComposeBe(bytes::Byte(0xB7), kBlockStart + offset)), reply);
-        }
-        // Six sends maximum. All failed kinds are tolerated, even a cancelled
-        // exchange. A positive sixth reply logs and breaks; exhaustion also
-        // returns the padded image. No reply length check is added here.
-        transport.Exchange(Request({0x37}));
-        transport.QueueNoFrame();
-        transport.Exchange(Request({0x37}), bytes::Bytes{});
-        transport.Exchange(Request({0x37}), Response({0x7F, 0x37, 0x22}));
-        transport.Exchange(Request({0x37}));
-        transport.QueueError(ErrorKind::kDisconnected, "stop disconnected");
-        transport.Exchange(Request({0x37}));
-        transport.QueueError(ErrorKind::kCancelled, "stop cancelled");
-        transport.Exchange(Request({0x37}));
-        if (exhausted)
-        {
-            transport.QueueError(ErrorKind::kTimeout, "stop exhausted");
-        }
-        else
-        {
-            transport.QueueRead(Response({0x77}));
-        }
+        ScriptShortPageDumpAndStopRetries(transport, exhausted, kBlockStart, kBlockLength, kPageSize);
         const auto plan = ReadPlan();
         ASSERT_THAT(plan, fastecu::testing::IsOk());
         ExpectShortPageRead<SubaruDensoSh72531CanExecutor>(
@@ -802,21 +775,9 @@ TEST(SubaruDensoSh72531CanExecutor, CancellationAtCloseSettlePreventsChecksum)
     transport.QueueRead(Response({0x71, 0x01, 0x02}));
     ScriptReflashChunks(transport, rom);
     ScriptCloseRetries(transport, true);
-    fastecu::ManualCancellationToken cancellation;
-    fastecu::flash::testing::CancelOnCloseSuccessSink events(cancellation);
-    RecordingClock clock;
-    SubaruDensoSh72531CanExecutor executor;
     const auto plan = WritePlan(rom);
     ASSERT_THAT(plan, fastecu::testing::IsOk());
-
-    EXPECT_THAT(executor.Execute(*plan, transport, clock, cancellation, events),
-                fastecu::testing::IsErr(ErrorKind::kCancelled));
-
-    EXPECT_TRUE(transport.ScriptConsumed());
-    ASSERT_FALSE(clock.sleep_calls.empty());
-    EXPECT_EQ(clock.sleep_calls.back(), 100ms);
-    EXPECT_THAT(events.logs,
-                ::testing::Not(::testing::Contains(::testing::Pair(fastecu::LogLevel::kInfo, "Verifying checksum"))));
+    ExpectCancelAtCloseSettle<SubaruDensoSh72531CanExecutor>(*plan, transport);
 }
 
 // A whole-image script includes both edge chunks with address-sensitive data;

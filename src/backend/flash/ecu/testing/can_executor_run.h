@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "src/algorithms/protocol/bytes.h"
+#include "src/algorithms/protocol/bytes_compose.h"
 #include "src/backend/flash/testing/scripted_can_flash_transport.h"
 #include "src/backend/ports/testing/recording_clock.h"
 #include "src/backend/ports/testing/result_matchers.h"
@@ -179,6 +180,58 @@ void ExpectCloseOutcome(const FlashPlan& plan, ScriptedCanFlashTransport& transp
     }
     EXPECT_THAT(std::vector<milliseconds>(timeouts.begin() + checksum_index - 6, timeouts.begin() + checksum_index),
                 ::testing::Each(milliseconds(200)));
+}
+
+// Short-page read script: every page reply carries 4 payload bytes plus 3
+// surplus ones instead of `pagesize`, then the six 0x37 stop sends. Sends 1-5
+// fail in different tolerated ways (even a cancelled exchange); the sixth
+// fails when `exhausted`, else is acknowledged. No reply length check is added.
+inline void ScriptShortPageDumpAndStopRetries(ScriptedCanFlashTransport& t, bool exhausted, std::uint32_t start,
+                                              std::uint32_t length, std::uint32_t pagesize)
+{
+    auto wire = ToWire(bytes::Bytes{0x12, 0x34, 0x56, 0x78});
+    wire.insert(wire.end(), {0xAA, 0xBB, 0xCC});
+    auto reply = Response({0xF7});
+    reply.insert(reply.end(), wire.begin(), wire.end());
+    for (std::uint32_t offset = 0; offset < length; offset += pagesize)
+    {
+        t.Exchange(Request(bytes::ComposeBe(bytes::Byte(0xB7), start + offset)), reply);
+    }
+    t.Exchange(Request({0x37}));
+    t.QueueNoFrame();
+    t.Exchange(Request({0x37}), bytes::Bytes{});
+    t.Exchange(Request({0x37}), Response({0x7F, 0x37, 0x22}));
+    t.Exchange(Request({0x37}));
+    t.QueueError(ErrorKind::kDisconnected, "stop disconnected");
+    t.Exchange(Request({0x37}));
+    t.QueueError(ErrorKind::kCancelled, "stop cancelled");
+    t.Exchange(Request({0x37}));
+    if (exhausted)
+    {
+        t.QueueError(ErrorKind::kTimeout, "stop exhausted");
+    }
+    else
+    {
+        t.QueueRead(Response({0x77}));
+    }
+}
+
+// A cancellation raised by the successful-close log must stop the flow before
+// the checksum: the last settle is the 100 ms one and no "Verifying checksum"
+// is logged.
+template <class Executor> void ExpectCancelAtCloseSettle(const FlashPlan& plan, ScriptedCanFlashTransport& transport)
+{
+    using std::chrono_literals::operator""ms;
+    ManualCancellationToken cancellation;
+    CancelOnCloseSuccessSink events(cancellation);
+    RecordingClock clock;
+    EXPECT_THAT(Executor{}.Execute(plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::kCancelled));
+    EXPECT_TRUE(transport.ScriptConsumed());
+    ASSERT_FALSE(clock.sleep_calls.empty());
+    EXPECT_EQ(clock.sleep_calls.back(), 100ms);
+    EXPECT_THAT(events.logs,
+                ::testing::Not(::testing::Contains(::testing::Pair(LogLevel::kInfo, "Verifying checksum"))));
 }
 
 // The scripting members CanExecutorConformance expects of a family's Traits,
