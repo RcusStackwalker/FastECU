@@ -222,7 +222,7 @@ class ModalDriver final : public QObject
             {kLegacyEcuIgnitionText, &legacy_ecu_ignition_count_},
             {kPortableEcuIgnitionText, &portable_ecu_ignition_count_},
         }};
-        if (const auto *match =
+        if (const auto match =
                 std::ranges::find_if(cancelled, [&](const auto& entry) { return messageBox.text() == entry.first; });
             match != cancelled.end())
         {
