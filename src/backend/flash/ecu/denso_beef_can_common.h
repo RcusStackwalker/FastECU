@@ -1,8 +1,11 @@
 #pragma once
 
+#include <algorithm>
 #include <chrono>
 #include <concepts>
+#include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -32,6 +35,11 @@
 // reflash_block all differ across all three in timeouts, retry counts,
 // geometry, address indexing, startup ordering or log wording.
 //
+// Inside upload_kernel, two steps are identical in all three and are shared
+// below: building the checksummed, encrypted payload, and walking it in 0xB6
+// blocks. Each family keeps its own size checks, wording, B6 reply handling
+// and kernel start.
+//
 // The executor suites do NOT read these helpers back: each carries wire
 // expectations transcribed independently from its legacy oracle, so a wrong
 // change here fails those suites rather than passing silently. Keep it that
@@ -56,6 +64,29 @@ inline bytes::Bytes BeefRequest(bytes::Byte opcode, bytes::ByteView payload = {}
 inline bytes::Bytes EncryptPayload(bytes::ByteView payload)
 {
     return DensoEncryptRom(payload);
+}
+
+// The kernel zero-padded to whole `block_size` transfer blocks, its last word
+// replaced by the 0x5AA5A55A complement of the other words' 32-bit sum, then
+// encrypted. Empty when the kernel is empty or its padding overflows.
+// `block_size` is a nonzero multiple of four.
+inline std::optional<bytes::Bytes> BeefKernelPayload(bytes::ByteView kernel, std::size_t block_size)
+{
+    const std::size_t padded_to_word = (kernel.size() + 3U) & ~std::size_t{3U};
+    const std::size_t block_count = (padded_to_word + block_size - 1U) / block_size;
+    if (block_count == 0 || block_count > std::numeric_limits<std::size_t>::max() / block_size)
+    {
+        return std::nullopt;
+    }
+    bytes::Bytes plain(kernel.begin(), kernel.end());
+    plain.resize(block_count * block_size - 4U, bytes::Byte{0});
+    std::uint32_t sum = 0;
+    for (std::size_t offset = 0; offset < plain.size(); offset += 4)
+    {
+        sum += bytes::ReadU32Be(plain, offset);
+    }
+    bytes::AppendU32Be(plain, 0x5AA5A55AU - sum);
+    return EncryptPayload(plain);
 }
 
 // Any executor context carrying a cancellation token.
@@ -106,6 +137,30 @@ ChannelRequestOptional(C& ctx, bytes::ByteView pdu, std::chrono::milliseconds ti
         }
     }
     return ctx.channel.Receive(timeout, ctx.cancellation);
+}
+
+// Sends `payload` to `load_address` in `block_size` 0xB6 blocks, then one
+// final address-only block, as every BEEF oracle does. `upload` sends one
+// request and handles its reply the family's way.
+template <WithCancellation C, class Upload>
+Status UploadBeefKernelBlocks(const C& ctx, bytes::ByteView payload, std::uint32_t load_address, std::size_t block_size,
+                              Upload upload)
+{
+    for (std::size_t offset = 0; offset <= payload.size(); offset += block_size)
+    {
+        if (const Status checkpoint = CancelledIfRequested(ctx, "kernel upload cancelled"); !checkpoint.has_value())
+        {
+            return checkpoint;
+        }
+        const bytes::ByteView chunk = payload.subspan(offset, std::min(block_size, payload.size() - offset));
+        if (const Status sent = upload(bytes::ComposeBe(
+                bytes::Byte{0xB6}, bytes::U24(load_address + static_cast<std::uint32_t>(offset)), chunk));
+            !sent.has_value())
+        {
+            return sent;
+        }
+    }
+    return {};
 }
 
 } // namespace fastecu::flash

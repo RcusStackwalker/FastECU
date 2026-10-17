@@ -1,6 +1,7 @@
 #include "src/backend/flash/ecu/denso_beef_can_common.h"
 
 #include <chrono>
+#include <vector>
 
 #include <gtest/gtest.h>
 
@@ -64,6 +65,40 @@ TEST(DensoBeefCanCommonTest, CancelledIfRequestedReportsTheCallerDetail)
     token.SetCancelled(true);
     const Status cancelled = CancelledIfRequested(ctx, "cancelled before CAN request");
     EXPECT_THAT(cancelled, IsErrWith(ErrorKind::kCancelled, StrEq("cancelled before CAN request")));
+}
+
+TEST(DensoBeefCanCommonTest, BeefKernelPayloadReplacesThePaddedLastWordWithTheChecksum)
+{
+    // Five bytes pad to one eight-byte block, whose last word (holding the
+    // kernel's fifth byte) becomes 0x5AA5A55A minus the sum of the others.
+    const auto payload = BeefKernelPayload(bytes::Bytes{0x00, 0x00, 0x00, 0x01, 0xAA}, 8);
+
+    ASSERT_TRUE(payload.has_value());
+    EXPECT_EQ(*payload, EncryptPayload(bytes::Bytes{0x00, 0x00, 0x00, 0x01, 0x5A, 0xA5, 0xA5, 0x59}));
+    EXPECT_FALSE(BeefKernelPayload({}, 8).has_value());
+}
+
+TEST(DensoBeefCanCommonTest, UploadBeefKernelBlocksEndsWithAnAddressOnlyBlock)
+{
+    struct Ctx
+    {
+        const ICancellationToken& cancellation;
+    };
+    FakeCancellationToken token;
+    const Ctx ctx{token};
+    std::vector<bytes::Bytes> requests;
+
+    const Status uploaded = UploadBeefKernelBlocks(ctx, bytes::Bytes{0x01, 0x02, 0x03, 0x04}, 0x1000, 2,
+                                                   [&requests](bytes::ByteView request) -> Status
+                                                   {
+                                                       requests.emplace_back(request.begin(), request.end());
+                                                       return {};
+                                                   });
+
+    EXPECT_THAT(uploaded, IsOk());
+    EXPECT_EQ(requests, (std::vector<bytes::Bytes>{{0xB6, 0x00, 0x10, 0x00, 0x01, 0x02},
+                                                   {0xB6, 0x00, 0x10, 0x02, 0x03, 0x04},
+                                                   {0xB6, 0x00, 0x10, 0x04}}));
 }
 
 } // namespace
