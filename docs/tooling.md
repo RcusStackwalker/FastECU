@@ -173,9 +173,10 @@ Experiment results and qualification evidence are recorded in
 
 ## NLOC hill-climbing loop
 
-Being delivered in steps. The design is in
-[the NLOC hill-climbing spec](superpowers/specs/2026-10-17-nloc-hill-climbing.md)
-and [ADR 0023](adr/0023-hill-climb-nloc-with-kind-specific-guards.md).
+The decision is [ADR 0023](adr/0023-hill-climb-nloc-with-kind-specific-guards.md).
+An agent runs it with `/loop /hill-climbing-nloc`: each iteration of the
+[project skill](../.claude/skills/hill-climbing-nloc/SKILL.md) settles the
+open loop PR or produces the next one with the commands below.
 
 ```sh
 python3 scripts/nloc_loop.py measure            # total, production and test NLOC

@@ -34,7 +34,7 @@ is an ADR.
 | [0020](0020-model-rom-memory-as-a-memory-map.md) | ROM memory is a memory map over the ROM file |
 | [0021](0021-fuzz-portable-code-with-fuzztest.md) | Portable code is fuzzed with FuzzTest under Clang only |
 | [0022](0022-advisory-mutation-testing-with-mull.md) | Mull mutation testing of portable code is advisory |
-| [0023](0023-hill-climb-nloc-with-kind-specific-guards.md) | NLOC hill-climbing PRs are strict and guarded by PR kind (proposed) |
+| [0023](0023-hill-climb-nloc-with-kind-specific-guards.md) | NLOC hill-climbing PRs are strict and guarded by PR kind |
 
 ## Retired numbers
 
