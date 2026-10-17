@@ -129,9 +129,10 @@ TEST(DensoChecksumTable, ABlockMayEndOnTheLastByteOfTheBytes)
     EXPECT_EQ(bytes::ReadU32Be(rom, 8), kTarget - 1);
 }
 
+// The block's last byte, 19, is the first one past the bytes.
 TEST(DensoChecksumTable, ABlockPastTheEndOfTheBytesIsAnInvalidBlockRange)
 {
-    bytes::Bytes rom(16, 0);
+    bytes::Bytes rom(19, 0);
     bytes::WriteU32Be(rom, 0, 12);
     bytes::WriteU32Be(rom, 4, 19);
     const bytes::Bytes original = rom;
