@@ -75,7 +75,7 @@ clang-tidy --load=<library> --checks='-*,fastecu-template-typename' --fix <file>
 ```
 
 The plugin's checks are registered without the `custom-` prefix, and the fixture
-target below loads it for its test.
+`//:clang_tidy_plugin_fixtures` target loads it for its tests (they skip under `//:clang_tidy_check_fixtures`).
 
 ```sh
 # Verify inline diagnostics and permitted counterexamples (run a report first

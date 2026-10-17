@@ -16,7 +16,10 @@ def _local_llvm_impl(repository_ctx):
 
 cc_library(
     name = "clang_tidy_headers",
-    hdrs = glob(["include/clang/**", "include/clang-tidy/**", "include/llvm/**", "include/llvm-c/**"]),
+    hdrs = glob(
+        ["include/clang/**", "include/clang-tidy/**", "include/llvm/**", "include/llvm-c/**"],
+        allow_empty = True,
+    ),
     includes = ["include"],
     visibility = ["//visibility:public"],
 )

@@ -27,10 +27,10 @@ class ClangTidyChecks(unittest.TestCase):
         )
 
     @classmethod
-    def plugin_library(cls) -> Path:
+    def plugin_library(cls) -> Path | None:
         """The AST-only checks, built by Bazel and shipped as runfiles data."""
         directory = Path(__file__).with_name("clang_tidy_plugin")
-        return next(directory.glob("libfastecu_tidy.*"))
+        return next(directory.glob("libfastecu_tidy.*"), None)
 
     def assert_diagnostics(
         self, body: str, filename: str = "fixture.cpp", plugin: bool = False
@@ -39,7 +39,10 @@ class ClangTidyChecks(unittest.TestCase):
         # Plugin checks are registered without the custom- prefix.
         prefix = "fastecu-" if plugin else "custom-fastecu-"
         checks = "fastecu-*" if plugin else "custom-fastecu-*"
-        load = ["-load", str(self.plugin_library())] if plugin else []
+        library = self.plugin_library()
+        if plugin and library is None:
+            self.skipTest("run //:clang_tidy_plugin_fixtures to build the AST plugin")
+        load = ["-load", str(library)] if plugin else []
         expected = set()
         for line, text in enumerate(body.splitlines(), 1):
             for severity in ("error", "warning"):
