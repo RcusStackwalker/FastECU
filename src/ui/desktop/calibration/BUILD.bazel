@@ -23,7 +23,6 @@ cc_library(
 fastecu_gtest(
     name = "map_edit_adapter_test",
     srcs = ["map_edit_adapter_test.cpp"],
-    env = {"QT_QPA_PLATFORM": "offscreen"},
     deps = [
         ":map_edit_adapter",
         "//bazel/qt:core",
@@ -143,7 +142,6 @@ cc_library(
 fastecu_gtest(
     name = "qt_calibration_interaction_test",
     srcs = ["qt_calibration_interaction_test.cpp"],
-    env = {"QT_QPA_PLATFORM": "offscreen"},
     deps = [
         ":qt_calibration_interaction",
         "//bazel/qt:core",

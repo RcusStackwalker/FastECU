@@ -30,7 +30,6 @@ cc_library(
 fastecu_gtest(
     name = "checksum_correction_command_test",
     srcs = ["checksum_correction_command_test.cpp"],
-    env = {"QT_QPA_PLATFORM": "offscreen"},
     deps = [
         ":checksum_correction_command",
         "//bazel/qt:widgets",

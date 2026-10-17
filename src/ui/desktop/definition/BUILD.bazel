@@ -20,7 +20,6 @@ cc_library(
 fastecu_gtest(
     name = "definition_header_form_test",
     srcs = ["definition_header_form_test.cpp"],
-    env = {"QT_QPA_PLATFORM": "offscreen"},
     # Widget dependencies are explicit; avoid the macro's broad Qt module bundle.
     qt_deps = [],
     deps = [

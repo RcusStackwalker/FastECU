@@ -30,7 +30,6 @@ fastecu_gtest(
     name = "test_service_function_dialog",
     srcs = ["service_function_dialog_test.cpp"],
     copts = ["-DQT_WIDGETS_LIB"],
-    env = {"QT_QPA_PLATFORM": "offscreen"},
     deps = [
         ":service_function_dialog",
         "//bazel/qt:widgets",
