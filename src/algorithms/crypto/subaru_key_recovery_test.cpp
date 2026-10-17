@@ -36,7 +36,7 @@ struct Pair
 // 0x20000 bytes of xorshift32 plaintext (seed 0x2545f491), with every 16th
 // word repeating word i/2 so duplicate plaintexts are present, and its
 // encryption under kKeys.
-Pair SyntheticPair()
+Pair BuildSyntheticPair()
 {
     std::array<std::uint32_t, 0x8000> words{};
     std::uint32_t state = 0x2545f491;
@@ -51,6 +51,14 @@ Pair SyntheticPair()
         bytes::AppendU32Be(pair.cipher, subaru_key_recovery::Encrypt(word, kKeys));
     }
     return pair;
+}
+
+// Built once: Mull reruns this binary for every mutant, and encrypting the
+// pair costs as much as an attack. Tests that change it take a copy.
+const Pair& SyntheticPair()
+{
+    static const Pair kPair = BuildSyntheticPair();
+    return kPair;
 }
 
 void OverwriteWord(bytes::Bytes& data, std::size_t index, std::uint32_t word)
@@ -122,7 +130,7 @@ constexpr std::size_t kDistinctPairs = 0x8000 - 0x8000 / 16;
 
 TEST(SubaruKeyRecovery, RecoversTheRealKeysFromASyntheticPair)
 {
-    const Pair pair = SyntheticPair();
+    const Pair& pair = SyntheticPair();
     const auto recovery = subaru_key_recovery::RecoverKeys(bytes::ByteView(pair.plain), bytes::ByteView(pair.cipher));
     ASSERT_TRUE(recovery.has_value());
     EXPECT_EQ(recovery->keys, kKeys);
@@ -143,7 +151,7 @@ TEST(SubaruKeyRecovery, ReadsOnlyTheFirst128KiB)
 
 TEST(SubaruKeyRecovery, ShortInputFailsBeforeReading)
 {
-    const Pair pair = SyntheticPair();
+    const Pair& pair = SyntheticPair();
     const bytes::ByteView full_plain(pair.plain);
     const bytes::ByteView full_cipher(pair.cipher);
     EXPECT_EQ(subaru_key_recovery::RecoverKeys(full_plain.first(full_plain.size() - 1), full_cipher),

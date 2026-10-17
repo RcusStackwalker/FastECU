@@ -56,9 +56,11 @@ real.
   pin lives in one composite action.
 - Mutation runs build every selected test a second time with the plugin and
   coverage. Mull reruns a whole test binary for every mutant it covers, so a
-  binary with slow cases costs that time per mutant: the slowest binary,
-  `subaru_key_recovery_test`, bounds a sharded run's wall time at about 25
-  minutes, and more shards cannot shorten it.
+  binary with slow cases costs that time per mutant, and the slowest binary
+  bounds a sharded run's wall time however many shards there are. Keep each
+  binary's unmutated run short: `subaru_key_recovery_test` took about 33
+  minutes until its attack stopped re-evaluating the f-function per pair and
+  candidate.
 - Round-robin ignores how long each binary takes, so one shard can run well
   past the others. Balancing on the previous run's timings was rejected as
   more machinery than an unattended weekly run needs.

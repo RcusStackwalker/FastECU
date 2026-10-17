@@ -32,7 +32,7 @@ jobs:
   shard:
     name: Mutation testing (shard ${{ matrix.shard }})
     runs-on: ubuntu-26.04
-    # The slowest test binary alone takes about 25 minutes.
+    # The slowest test binary alone takes about 15 minutes.
     timeout-minutes: 120
     strategy:
       # A failed shard must not cancel the others: the merge job reports
