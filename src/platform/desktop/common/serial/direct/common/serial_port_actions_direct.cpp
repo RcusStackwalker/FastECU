@@ -54,6 +54,46 @@ constexpr unsigned long kStartOfMessage = kJ2534StartOfMessage;
 constexpr unsigned long kIso15765FramePad = kJ2534Iso15765FramePad;
 constexpr unsigned long kIso9141NoChecksum = kJ2534Iso9141NoChecksum;
 constexpr unsigned long kCanIdBoth = kJ2534CanIdBoth;
+
+constexpr qsizetype kSerialHeaderLength = 4;
+
+// Drops leading bytes until the buffer starts with a BEEF or SSM response
+// header, keeping at most two unmatched bytes for the next read to complete.
+void DropToKnownHeader(QByteArray& received)
+{
+    while (received.length() > 2 && !received.startsWith("\xbe\xef") && !received.startsWith("\x80\xf0\x10") &&
+           !received.startsWith("\x80\xf0\x01"))
+    {
+        received.remove(0, 1);
+    }
+}
+
+// Bytes that follow the 4-byte header, including any checksum. A short
+// header is already an error response, so no payload is read after it.
+uint32_t PayloadLength(const QByteArray& header, bool is_iso14230)
+{
+    if (header.length() < kSerialHeaderLength)
+    {
+        return 0;
+    }
+    if (is_iso14230)
+    {
+        if (const auto format = static_cast<uint8_t>(header.at(0)); format & 0x3fU)
+        {
+            return format & 0x3fU; // Byte in index 3 is payload, no +1 for checksum
+        }
+        return header.at(3) + 1; // +1 for checksum
+    }
+    if (header.startsWith("\xbe\xef"))
+    {
+        return bytes::ReadU16Be(bytes::View(header), 2) + 1; // +1 for checksum
+    }
+    if (header.startsWith("\x80\xf0"))
+    {
+        return (uint8_t)header.at(3) + 1; // +1 for checksum
+    }
+    return 0;
+}
 } // namespace
 
 SerialPortActionsDirect::SerialPortActionsDirect(QObject *parent) : QObject(parent), serial_(new QSerialPort(this))
@@ -637,6 +677,31 @@ QByteArray SerialPortActionsDirect::SetError()
     return received;
 }
 
+void SerialPortActionsDirect::WaitForBytesAvailable(const QTime& die_time)
+{
+    while (!serial_->bytesAvailable() && QTime::currentTime() < die_time)
+    {
+        serial_->waitForReadyRead(1);
+    }
+}
+
+void SerialPortActionsDirect::ReadUntilLength(QByteArray& buffer, uint32_t length, const QTime& die_time,
+                                              bool resync_header)
+{
+    while ((uint32_t)buffer.length() < length && QTime::currentTime() < die_time)
+    {
+        while (serial_->bytesAvailable() && (uint32_t)buffer.length() < length)
+        {
+            buffer.append(serial_->read(1));
+        }
+        if (resync_header)
+        {
+            DropToKnownHeader(buffer);
+        }
+        serial_->waitForReadyRead(1);
+    }
+}
+
 QByteArray SerialPortActionsDirect::ReadSerialObdData(uint16_t timeout_arg)
 {
     QByteArray received;
@@ -649,34 +714,24 @@ QByteArray SerialPortActionsDirect::ReadSerialObdData(uint16_t timeout_arg)
             return received;
         }
 
-        // emit LOG_D("Check bytes available", true, true);
         QTime die_time = QTime::currentTime().addMSecs(timeout_arg);
-        while (!serial_->bytesAvailable() && QTime::currentTime() < die_time)
-        {
-            serial_->waitForReadyRead(1);
-        }
-        // emit LOG_D("Byte(s) available or timeout", true, true);
+        WaitForBytesAvailable(die_time);
         if (serial_->bytesAvailable())
         {
-            // emit LOG_D("Byte(s) available", true, true);
             QTime interval_time = QTime::currentTime().addMSecs(p1_max_ms);
             while (QTime::currentTime() < die_time)
             {
                 if (serial_->bytesAvailable())
                 {
-                    // emit LOG_D("Byte available", true, true);
                     received.append(serial_->read(1));
                     interval_time = QTime::currentTime().addMSecs(p1_max_ms);
                 }
                 if (interval_time < QTime::currentTime())
                 {
-                    // emit LOG_D("Byte timeout", true, true);
                     break;
                 }
                 serial_->waitForReadyRead(1);
             }
-            // if (QTime::currentTime() > dieTime)
-            //     emit LOG_D("Message timeout", true, true);
         }
     }
     return received;
@@ -684,102 +739,31 @@ QByteArray SerialPortActionsDirect::ReadSerialObdData(uint16_t timeout_arg)
 
 QByteArray SerialPortActionsDirect::ReadSerialData(uint16_t timeout_arg)
 {
-    // #lizard forgives(cyclomatic_complexity)
-    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
+    if (!IsSerialPortOpen())
+    {
+        return {};
+    }
+    if (use_openport2_adapter)
+    {
+        return ReadJ2534Data(timeout_arg);
+    }
+
+    const QTime die_time = QTime::currentTime().addMSecs(timeout_arg);
+    WaitForBytesAvailable(die_time);
     QByteArray received;
     QByteArray req_bytes;
     uint32_t msglen = 0;
-
-    if (IsSerialPortOpen())
+    if (serial_->bytesAvailable())
     {
-        if (use_openport2_adapter)
-        {
-            received = ReadJ2534Data(timeout_arg);
-            return received;
-        }
-
-        // emit LOG_D("Check if bytes available", true, true);
-        received.clear();
-        QTime die_time = QTime::currentTime().addMSecs(timeout_arg);
-        while (!serial_->bytesAvailable() && QTime::currentTime() < die_time)
-        {
-            serial_->waitForReadyRead(1);
-        }
-        if (serial_->bytesAvailable())
-        {
-            QByteArray error_bytes;
-            while (received.length() < 4 && QTime::currentTime() < die_time)
-            {
-                while (serial_->bytesAvailable() && received.length() < 4)
-                {
-                    received.append(serial_->read(1));
-                }
-                if (!is_iso14230_connection)
-                {
-                    // emit LOG_D("Check for valid header", true, true);
-                    error_bytes.clear();
-                    while (received.length() > 2 && !received.startsWith("\xbe\xef") &&
-                           !received.startsWith("\x80\xf0\x10") && !received.startsWith("\x80\xf0\x01"))
-                    {
-                        error_bytes.append(received.mid(0, 1));
-                        received.remove(0, 1);
-                    }
-                    // emit LOG_D("Error bytes length: " + QString::number(error_bytes.length()) + " : " +
-                    // parse_message_to_hex(error_bytes), true, true);
-                }
-                serial_->waitForReadyRead(1);
-            }
-            // emit LOG_D("1. Response (header): " + parse_message_to_hex(received), true, true);
-            if (is_iso14230_connection)
-            {
-                // emit LOG_D("Read with ISO14230", true, true);
-
-                if (const auto format = static_cast<uint8_t>(received.at(0)); format & 0x3fU)
-                {
-                    msglen = format & 0x3fU; // Byte in index 3 is payload, no +1 for checksum
-                }
-                else
-                {
-                    msglen = received.at(3) + 1; // +1 for checksum
-                }
-            }
-            else if (!is_iso14230_connection)
-            {
-                if (received.startsWith("\xbe\xef"))
-                {
-                    msglen = bytes::ReadU16Be(bytes::View(received), 2) + 1; // +1 for checksum
-                }
-                if (received.startsWith("\x80\xf0"))
-                {
-                    msglen = (uint8_t)received.at(3) + 1; // +1 for checksum
-                }
-            }
-            while ((uint32_t)req_bytes.length() < msglen && QTime::currentTime() < die_time)
-            {
-                while (serial_->bytesAvailable() && (uint32_t)req_bytes.length() < msglen)
-                {
-                    req_bytes.append(serial_->read(1));
-                }
-                serial_->waitForReadyRead(1);
-            }
-            // emit LOG_D("2. Response (payload): " + parse_message_to_hex(req_bytes), true, true);
-        }
-        if (!received.length())
-        {
-            // emit LOG_D("No message received!", true, true);
-        }
-        else if (received.length() < 4 || (received.length() && (uint32_t)req_bytes.length() < msglen))
-        {
-            received.insert(0, SetError());
-            received.append(req_bytes);
-            // emit LOG_D("Message too short: " + parse_message_to_hex(received), true, true);
-            return received;
-        }
-        received.append(req_bytes);
-        // emit LOG_D("3. Response (full): " + parse_message_to_hex(received), true, true);
-
-        return received;
+        ReadUntilLength(received, kSerialHeaderLength, die_time, !is_iso14230_connection);
+        msglen = PayloadLength(received, is_iso14230_connection);
+        ReadUntilLength(req_bytes, msglen, die_time, false);
     }
+    if (!received.isEmpty() && (received.length() < kSerialHeaderLength || (uint32_t)req_bytes.length() < msglen))
+    {
+        received.insert(0, SetError());
+    }
+    received.append(req_bytes);
     return received;
 }
 

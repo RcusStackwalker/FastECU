@@ -1,6 +1,7 @@
 #pragma once
 
 #include "J2534_tactrix_win.h"
+#include "j2534_bridge_protocol.h"
 
 #include <string>
 #include <windows.h>
@@ -50,4 +51,7 @@ class J2534BridgeClient
     PROCESS_INFORMATION process_info_{};
 
     void Stop();
+    // Sends one request and reads its response; on any pipe or protocol
+    // failure, stops the host and returns false.
+    template <typename Req, typename Resp> bool Call(j2534_bridge::Function function, const Req& req, Resp& resp);
 };

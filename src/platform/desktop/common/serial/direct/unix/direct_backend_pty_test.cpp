@@ -75,6 +75,44 @@ TEST_F(TestDirectBackendPty, ptyRead_reassemblesFragmentedFrame)
     ::close(master);
 }
 
+// Bytes ahead of a known response header are dropped while the header is
+// assembled; the SSM length byte then counts the payload plus checksum.
+TEST_F(TestDirectBackendPty, ptyRead_dropsBytesBeforeKnownHeader)
+{
+    SerialPortActionsDirect direct;
+    const int master = OpenPtyBackend(direct);
+    ASSERT_TRUE(master >= 0);
+
+    ASSERT_EQ(::write(master, "\x11\x22\x80\xf0\x10\x01\xaa\xbb", 8), 8);
+    ASSERT_EQ(direct.ReadSerialData(500), QByteArray("\x80\xf0\x10\x01\xaa\xbb", 6));
+    ::close(master);
+}
+
+// A BEEF header carries a 16-bit big-endian length in bytes two and three.
+TEST_F(TestDirectBackendPty, ptyRead_beefHeaderTakesLengthFromBytesTwoAndThree)
+{
+    SerialPortActionsDirect direct;
+    const int master = OpenPtyBackend(direct);
+    ASSERT_TRUE(master >= 0);
+
+    ASSERT_EQ(::write(master, "\xbe\xef\x00\x02\xaa\xbb\xcc\xdd", 8), 8);
+    ASSERT_EQ(direct.ReadSerialData(500), QByteArray("\xbe\xef\x00\x02\xaa\xbb\xcc", 7));
+    ::close(master);
+}
+
+// A frame cut short by the timeout comes back behind the synthetic SSM error
+// response, with whatever arrived.
+TEST_F(TestDirectBackendPty, ptyRead_shortFrameIsPrefixedWithError)
+{
+    SerialPortActionsDirect direct;
+    const int master = OpenPtyBackend(direct);
+    ASSERT_TRUE(master >= 0);
+
+    ASSERT_EQ(::write(master, "\x80\xf0\x10\x05\xaa", 5), 5);
+    ASSERT_EQ(direct.ReadSerialData(150), QByteArray("\x80\xf0\x10\x03\x7f\x00\x13\x80\xf0\x10\x05\xaa", 12));
+    ::close(master);
+}
+
 TEST_F(TestDirectBackendPty, ptyRead_timesOutCleanOnSilence)
 {
     SerialPortActionsDirect direct;

@@ -1,3 +1,5 @@
+load("//bazel:gtest_targets.bzl", "fastecu_gtest")
+
 # The driver declares Q_OBJECT; generated hdrs must run through moc.
 # gazelle:map_kind cc_library qt_cc_library //bazel:qt_targets.bzl
 load("//bazel:qt_targets.bzl", "qt_cc_library")
@@ -17,5 +19,16 @@ qt_cc_library(
         "//bazel/qt:serial_port",
         "//src/platform/desktop/unix/j2534:j2534_types",
         "//src/platform/desktop/unix/j2534:serial_byte_buffer",
+    ],
+)
+
+fastecu_gtest(
+    name = "J2534_unix_test",
+    srcs = ["J2534_unix_test.cpp"],
+    deps = [
+        ":j2534",
+        "//bazel/qt:core",
+        "//src/platform/desktop/common/testing:core_application_environment",
+        "@googletest//:gtest",
     ],
 )

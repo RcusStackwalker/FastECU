@@ -1,9 +1,9 @@
 #include "src/platform/desktop/windows/j2534/j2534_bridge_client.h"
 #include "src/platform/desktop/windows/j2534/j2534_bridge_protocol.h"
 
+#include <algorithm>
 #include <array>
 #include <cstring>
-#include <tuple>
 #include <vector>
 
 using namespace j2534_bridge;
@@ -32,6 +32,78 @@ template <typename Resp> bool ReadAndValidateResponse(HANDLE pipe, Function expe
         return false;
     }
     return header.function == expected_function;
+}
+
+bool PackConfig(const SConfigList *scl, PassThruIoctlRequest& req)
+{
+    if (!scl || scl->num_of_params > req.config_params.size())
+    {
+        return false;
+    }
+    req.num_config_params = scl->num_of_params;
+    std::copy_n(scl->config_ptr, scl->num_of_params, req.config_params.begin());
+    return true;
+}
+
+bool PackBytes(const SByteArray *in_arr, PassThruIoctlRequest& req)
+{
+    if (!in_arr || in_arr->num_of_bytes > req.input_bytes.size())
+    {
+        return false;
+    }
+    req.input_byte_count = in_arr->num_of_bytes;
+    std::memcpy(req.input_bytes.data(), in_arr->byte_ptr, in_arr->num_of_bytes);
+    return true;
+}
+
+// Mirror image of j2534_bridge_host/main.cpp's CallIoctl: that function
+// unpacks the typed Request fields back into the SConfigList/SByteArray/
+// unsigned-long* shapes PassThruIoctl's vendor signature expects; here we
+// pack the caller's pInput into those same Request fields before sending.
+// IoctlIDs the host doesn't give a typed shape to are sent as a bare request
+// (channel_id/ioctl_id only) and rejected by the host's own default case with
+// ERR_INVALID_IOCTL_ID -- no need to duplicate that validation on the client
+// side. Returns false when the input does not fit the request.
+bool PackIoctlInput(const void *p_input, PassThruIoctlRequest& req)
+{
+    switch (req.ioctl_id)
+    {
+    case kJ2534SetConfig:
+        return PackConfig(static_cast<const SConfigList *>(p_input), req);
+    case kJ2534FiveBaudInit:
+    case kJ2534FastInit:
+        return PackBytes(static_cast<const SByteArray *>(p_input), req);
+    default:
+        // NULL input (READ_VBATT/READ_PROG_VOLTAGE/CLEAR_*) or an
+        // unrecognized id -- nothing to pack.
+        return true;
+    }
+}
+
+void UnpackIoctlOutput(unsigned long ioctl_id, const PassThruIoctlResponse& resp, void *p_output)
+{
+    if (!p_output)
+    {
+        return;
+    }
+    switch (ioctl_id)
+    {
+    case kJ2534FiveBaudInit:
+    case kJ2534FastInit:
+    {
+        auto& out_arr = *static_cast<SByteArray *>(p_output);
+        // never overflow the caller's buffer
+        out_arr.num_of_bytes = std::min(resp.output_byte_count, out_arr.num_of_bytes);
+        std::memcpy(out_arr.byte_ptr, resp.output_bytes.data(), out_arr.num_of_bytes);
+        break;
+    }
+    case kJ2534ReadVbatt:
+    case kJ2534ReadProgVoltage:
+        *static_cast<unsigned long *>(p_output) = resp.vbatt;
+        break;
+    default:
+        break;
+    }
 }
 
 } // namespace
@@ -123,6 +195,17 @@ void J2534BridgeClient::Stop()
     running_ = false;
 }
 
+template <typename Req, typename Resp> bool J2534BridgeClient::Call(Function function, const Req& req, Resp& resp)
+{
+    if (WriteFrame(to_child_write_, function, &req, sizeof(req)) &&
+        ReadAndValidateResponse(from_child_read_, function, resp))
+    {
+        return true;
+    }
+    Stop();
+    return false;
+}
+
 long J2534BridgeClient::PassThruOpen(const void *p_name, unsigned long *p_device_id)
 {
     PassThruOpenRequest req{};
@@ -131,15 +214,9 @@ long J2534BridgeClient::PassThruOpen(const void *p_name, unsigned long *p_device
         req.has_name = true;
         strncpy_s(req.name.data(), req.name.size(), static_cast<const char *>(p_name), req.name.size() - 1);
     }
-    if (!WriteFrame(to_child_write_, Function::kPassThruOpen, &req, sizeof(req)))
-    {
-        Stop();
-        return kJ2534ErrFailed;
-    }
     PassThruOpenResponse resp{};
-    if (!ReadAndValidateResponse(from_child_read_, Function::kPassThruOpen, resp))
+    if (!Call(Function::kPassThruOpen, req, resp))
     {
-        Stop();
         return kJ2534ErrFailed;
     }
     *p_device_id = resp.device_id;
@@ -149,33 +226,17 @@ long J2534BridgeClient::PassThruOpen(const void *p_name, unsigned long *p_device
 long J2534BridgeClient::PassThruClose(unsigned long device_id)
 {
     PassThruCloseRequest req{device_id};
-    if (!WriteFrame(to_child_write_, Function::kPassThruClose, &req, sizeof(req)))
-    {
-        Stop();
-        return kJ2534ErrFailed;
-    }
     PassThruCloseResponse resp{};
-    if (!ReadAndValidateResponse(from_child_read_, Function::kPassThruClose, resp))
-    {
-        Stop();
-        return kJ2534ErrFailed;
-    }
-    return resp.result;
+    return Call(Function::kPassThruClose, req, resp) ? resp.result : kJ2534ErrFailed;
 }
 
 long J2534BridgeClient::PassThruConnect(unsigned long device_id, unsigned long protocol_id, unsigned long flags,
                                         unsigned long baudrate, unsigned long *p_channel_id)
 {
     PassThruConnectRequest req{device_id, protocol_id, flags, baudrate};
-    if (!WriteFrame(to_child_write_, Function::kPassThruConnect, &req, sizeof(req)))
-    {
-        Stop();
-        return kJ2534ErrFailed;
-    }
     PassThruConnectResponse resp{};
-    if (!ReadAndValidateResponse(from_child_read_, Function::kPassThruConnect, resp))
+    if (!Call(Function::kPassThruConnect, req, resp))
     {
-        Stop();
         return kJ2534ErrFailed;
     }
     *p_channel_id = resp.channel_id;
@@ -185,33 +246,17 @@ long J2534BridgeClient::PassThruConnect(unsigned long device_id, unsigned long p
 long J2534BridgeClient::PassThruDisconnect(unsigned long channel_id)
 {
     PassThruDisconnectRequest req{channel_id};
-    if (!WriteFrame(to_child_write_, Function::kPassThruDisconnect, &req, sizeof(req)))
-    {
-        Stop();
-        return kJ2534ErrFailed;
-    }
     PassThruDisconnectResponse resp{};
-    if (!ReadAndValidateResponse(from_child_read_, Function::kPassThruDisconnect, resp))
-    {
-        Stop();
-        return kJ2534ErrFailed;
-    }
-    return resp.result;
+    return Call(Function::kPassThruDisconnect, req, resp) ? resp.result : kJ2534ErrFailed;
 }
 
 long J2534BridgeClient::PassThruReadMsgs(unsigned long channel_id, PassThruMsg *p_msg, unsigned long *p_num_msgs,
                                          unsigned long timeout)
 {
     PassThruReadMsgsRequest req{channel_id, timeout};
-    if (!WriteFrame(to_child_write_, Function::kPassThruReadMsgs, &req, sizeof(req)))
-    {
-        Stop();
-        return kJ2534ErrFailed;
-    }
     PassThruReadMsgsResponse resp{};
-    if (!ReadAndValidateResponse(from_child_read_, Function::kPassThruReadMsgs, resp))
+    if (!Call(Function::kPassThruReadMsgs, req, resp))
     {
-        Stop();
         return kJ2534ErrFailed;
     }
     *p_msg = resp.msg;
@@ -229,15 +274,9 @@ long J2534BridgeClient::PassThruWriteMsgs(unsigned long channel_id, const PassTh
     {
         req.msg = *p_msg;
     }
-    if (!WriteFrame(to_child_write_, Function::kPassThruWriteMsgs, &req, sizeof(req)))
-    {
-        Stop();
-        return kJ2534ErrFailed;
-    }
     PassThruWriteMsgsResponse resp{};
-    if (!ReadAndValidateResponse(from_child_read_, Function::kPassThruWriteMsgs, resp))
+    if (!Call(Function::kPassThruWriteMsgs, req, resp))
     {
-        Stop();
         return kJ2534ErrFailed;
     }
     if (p_num_msgs)
@@ -257,15 +296,9 @@ long J2534BridgeClient::PassThruStartPeriodicMsg(unsigned long channel_id, const
     {
         req.msg = *p_msg;
     }
-    if (!WriteFrame(to_child_write_, Function::kPassThruStartPeriodicMsg, &req, sizeof(req)))
-    {
-        Stop();
-        return kJ2534ErrFailed;
-    }
     PassThruStartPeriodicMsgResponse resp{};
-    if (!ReadAndValidateResponse(from_child_read_, Function::kPassThruStartPeriodicMsg, resp))
+    if (!Call(Function::kPassThruStartPeriodicMsg, req, resp))
     {
-        Stop();
         return kJ2534ErrFailed;
     }
     *p_msg_id = resp.msg_id;
@@ -275,18 +308,8 @@ long J2534BridgeClient::PassThruStartPeriodicMsg(unsigned long channel_id, const
 long J2534BridgeClient::PassThruStopPeriodicMsg(unsigned long channel_id, unsigned long msg_id)
 {
     PassThruStopPeriodicMsgRequest req{channel_id, msg_id};
-    if (!WriteFrame(to_child_write_, Function::kPassThruStopPeriodicMsg, &req, sizeof(req)))
-    {
-        Stop();
-        return kJ2534ErrFailed;
-    }
     PassThruStopPeriodicMsgResponse resp{};
-    if (!ReadAndValidateResponse(from_child_read_, Function::kPassThruStopPeriodicMsg, resp))
-    {
-        Stop();
-        return kJ2534ErrFailed;
-    }
-    return resp.result;
+    return Call(Function::kPassThruStopPeriodicMsg, req, resp) ? resp.result : kJ2534ErrFailed;
 }
 
 long J2534BridgeClient::PassThruStartMsgFilter(unsigned long channel_id, unsigned long filter_type,
@@ -309,15 +332,9 @@ long J2534BridgeClient::PassThruStartMsgFilter(unsigned long channel_id, unsigne
     {
         req.flow_control_msg = *p_flow_control_msg;
     }
-    if (!WriteFrame(to_child_write_, Function::kPassThruStartMsgFilter, &req, sizeof(req)))
-    {
-        Stop();
-        return kJ2534ErrFailed;
-    }
     PassThruStartMsgFilterResponse resp{};
-    if (!ReadAndValidateResponse(from_child_read_, Function::kPassThruStartMsgFilter, resp))
+    if (!Call(Function::kPassThruStartMsgFilter, req, resp))
     {
-        Stop();
         return kJ2534ErrFailed;
     }
     *p_msg_id = resp.msg_id;
@@ -327,50 +344,24 @@ long J2534BridgeClient::PassThruStartMsgFilter(unsigned long channel_id, unsigne
 long J2534BridgeClient::PassThruStopMsgFilter(unsigned long channel_id, unsigned long msg_id)
 {
     PassThruStopMsgFilterRequest req{channel_id, msg_id};
-    if (!WriteFrame(to_child_write_, Function::kPassThruStopMsgFilter, &req, sizeof(req)))
-    {
-        Stop();
-        return kJ2534ErrFailed;
-    }
     PassThruStopMsgFilterResponse resp{};
-    if (!ReadAndValidateResponse(from_child_read_, Function::kPassThruStopMsgFilter, resp))
-    {
-        Stop();
-        return kJ2534ErrFailed;
-    }
-    return resp.result;
+    return Call(Function::kPassThruStopMsgFilter, req, resp) ? resp.result : kJ2534ErrFailed;
 }
 
 long J2534BridgeClient::PassThruSetProgrammingVoltage(unsigned long device_id, unsigned long pin, unsigned long voltage)
 {
     PassThruSetProgrammingVoltageRequest req{device_id, pin, voltage};
-    if (!WriteFrame(to_child_write_, Function::kPassThruSetProgrammingVoltage, &req, sizeof(req)))
-    {
-        Stop();
-        return kJ2534ErrFailed;
-    }
     PassThruSetProgrammingVoltageResponse resp{};
-    if (!ReadAndValidateResponse(from_child_read_, Function::kPassThruSetProgrammingVoltage, resp))
-    {
-        Stop();
-        return kJ2534ErrFailed;
-    }
-    return resp.result;
+    return Call(Function::kPassThruSetProgrammingVoltage, req, resp) ? resp.result : kJ2534ErrFailed;
 }
 
 long J2534BridgeClient::PassThruReadVersion(char *p_api_version, char *p_dll_version, char *p_firmware_version,
                                             unsigned long device_id)
 {
     PassThruReadVersionRequest req{device_id};
-    if (!WriteFrame(to_child_write_, Function::kPassThruReadVersion, &req, sizeof(req)))
-    {
-        Stop();
-        return kJ2534ErrFailed;
-    }
     PassThruReadVersionResponse resp{};
-    if (!ReadAndValidateResponse(from_child_read_, Function::kPassThruReadVersion, resp))
+    if (!Call(Function::kPassThruReadVersion, req, resp))
     {
-        Stop();
         return kJ2534ErrFailed;
     }
     // The vendor DLLs behind this bridge fill these as fixed-size,
@@ -394,15 +385,9 @@ long J2534BridgeClient::PassThruReadVersion(char *p_api_version, char *p_dll_ver
 long J2534BridgeClient::PassThruGetLastError(char *p_error_description)
 {
     PassThruGetLastErrorRequest req{};
-    if (!WriteFrame(to_child_write_, Function::kPassThruGetLastError, &req, sizeof(req)))
-    {
-        Stop();
-        return kJ2534ErrFailed;
-    }
     PassThruGetLastErrorResponse resp{};
-    if (!ReadAndValidateResponse(from_child_read_, Function::kPassThruGetLastError, resp))
+    if (!Call(Function::kPassThruGetLastError, req, resp))
     {
-        Stop();
         return kJ2534ErrFailed;
     }
     if (p_error_description)
@@ -415,105 +400,18 @@ long J2534BridgeClient::PassThruGetLastError(char *p_error_description)
 long J2534BridgeClient::PassThruIoctl(unsigned long channel_id, unsigned long ioctl_id, const void *p_input,
                                       void *p_output)
 {
-    // #lizard forgives(cyclomatic_complexity)
-    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     PassThruIoctlRequest req{};
     req.channel_id = channel_id;
     req.ioctl_id = ioctl_id;
-
-    // Mirror image of j2534_bridge_host/main.cpp's handlePassThruIoctl: that
-    // function unpacks the typed Request fields back into the SConfigList/
-    // SByteArray/unsigned-long* shapes PassThruIoctl's vendor signature
-    // expects; here we pack the caller's pInput into those same Request
-    // fields before sending. IoctlIDs the host doesn't give a typed shape to
-    // are sent as a bare request (channel_id/ioctl_id only) and rejected by
-    // the host's own default case with ERR_INVALID_IOCTL_ID -- no need to
-    // duplicate that validation on the client side.
-    switch (ioctl_id)
+    if (!PackIoctlInput(p_input, req))
     {
-    case kJ2534SetConfig:
-    {
-        const auto *scl = static_cast<const SConfigList *>(p_input);
-        constexpr unsigned long kMaxConfigParams = std::tuple_size_v<decltype(req.config_params)>;
-        if (!scl || scl->num_of_params > kMaxConfigParams)
-        {
-            return kJ2534ErrFailed;
-        }
-        req.num_config_params = scl->num_of_params;
-        for (unsigned long i = 0; i < scl->num_of_params; ++i)
-        {
-            req.config_params[i] = scl->config_ptr[i];
-        }
-        break;
-    }
-    case kJ2534FiveBaudInit:
-    case kJ2534FastInit:
-    {
-        const auto *in_arr = static_cast<const SByteArray *>(p_input);
-        if (!in_arr || in_arr->num_of_bytes > req.input_bytes.size())
-        {
-            return kJ2534ErrFailed;
-        }
-        req.input_byte_count = in_arr->num_of_bytes;
-        std::memcpy(req.input_bytes.data(), in_arr->byte_ptr, in_arr->num_of_bytes);
-        break;
-    }
-    case kJ2534ReadVbatt:
-    case kJ2534ReadProgVoltage:
-    case kJ2534ClearRxBuffer:
-    case kJ2534ClearTxBuffer:
-    case kJ2534ClearPeriodicMsgs:
-    case kJ2534ClearMsgFilters:
-    default:
-        // NULL input (READ_VBATT/READ_PROG_VOLTAGE/CLEAR_*) or an
-        // unrecognized id -- nothing to pack.
-        break;
-    }
-
-    if (!WriteFrame(to_child_write_, Function::kPassThruIoctl, &req, sizeof(req)))
-    {
-        Stop();
         return kJ2534ErrFailed;
     }
-
     PassThruIoctlResponse resp{};
-    if (!ReadAndValidateResponse(from_child_read_, Function::kPassThruIoctl, resp))
+    if (!Call(Function::kPassThruIoctl, req, resp))
     {
-        Stop();
         return kJ2534ErrFailed;
     }
-
-    switch (ioctl_id)
-    {
-    case kJ2534FiveBaudInit:
-    case kJ2534FastInit:
-    {
-        auto *out_arr = static_cast<SByteArray *>(p_output);
-        if (out_arr)
-        {
-            unsigned long n = resp.output_byte_count;
-            if (n > out_arr->num_of_bytes)
-            {
-                n = out_arr->num_of_bytes; // never overflow the caller's buffer
-            }
-            std::memcpy(out_arr->byte_ptr, resp.output_bytes.data(), n);
-            out_arr->num_of_bytes = n;
-        }
-        break;
-    }
-    case kJ2534ReadVbatt:
-    case kJ2534ReadProgVoltage:
-    {
-        auto *vbatt = static_cast<unsigned long *>(p_output);
-        if (vbatt)
-        {
-            *vbatt = resp.vbatt;
-        }
-        break;
-    }
-    default:
-        break;
-    }
-
+    UnpackIoctlOutput(ioctl_id, resp, p_output);
     return resp.result;
 }
