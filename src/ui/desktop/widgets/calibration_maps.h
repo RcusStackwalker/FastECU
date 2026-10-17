@@ -54,6 +54,21 @@ class CalibrationMaps : public QWidget
 
   private:
     void initializeView(const fastecu::ui::MapPresentation& map, const fastecu::calibration::RomSource& source);
+    QString layoutTable(const fastecu::ui::MapPresentation& map);
+    QString layout2D(const fastecu::ui::MapPresentation& map);
+    QString layout3D(const fastecu::ui::MapPresentation& map);
+    void setAxisOffsets(const fastecu::ui::MapPresentation& map, bool staticX);
+    void refreshSwitch();
+    bool refreshSelectable(const fastecu::ui::MapPresentation& map, const QFont& font);
+    QComboBox *selectableCombo(int row, int col, const fastecu::ui::MapPresentation& map, const QFont& font);
+    void refreshAxes(const fastecu::ui::MapPresentation& map, const QFont& font);
+    void refreshBody(const fastecu::ui::MapPresentation& map, const QFont& font);
+    void setCell(int row, int col, const fastecu::ui::PresentedCell& value, const QColor& background,
+                 const QFont& font);
+    QString mapLayout() const;
+    void setItemFlags(int firstRow, int firstCol, Qt::ItemFlags flags);
+    void lockAxisCells(const QString& layout);
+    void releaseAxisCells(const QString& layout);
     void showMapError(const fastecu::Error& error);
     void setMapTableWidgetSize(int maxWidth, int maxHeight, int sizeX);
 
@@ -63,8 +78,7 @@ class CalibrationMaps : public QWidget
   private slots:
     // void fetchFromEcu();
     // void storeToEcu();
-    void cellClicked(int row, int col);
-    void cellPressed(int row, int col);
+    void startSelection(int row, int col);
     void cellChanged(int curRow, int curCol, int prevRow, int prevCol);
 
   signals:

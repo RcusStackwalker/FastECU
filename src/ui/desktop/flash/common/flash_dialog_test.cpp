@@ -327,6 +327,62 @@ TEST(FlashDialogTest, programmingVoltageNoticeWithoutPowerOffAdviceOnSuccess)
     ASSERT_TRUE(!notice.text.contains("did not complete"));
 }
 
+TEST(FlashDialogTest, coltEraseTriggerWarnsWithTheWritableWindow)
+{
+    const auto question = FlashDialog::promptQuestion(
+        {FlashPromptKind::kColtEraseTrigger,
+         {{"capacity_kib", "512"}, {"writable_start_hex", "0x8000"}, {"rom_end_hex", "0x7FFFF"}}});
+    ASSERT_TRUE(question.warning);
+    ASSERT_EQ(question.title, QString("Erase trigger"));
+    ASSERT_TRUE(question.text.contains("exact 512 KiB ROM"));
+    ASSERT_TRUE(question.text.contains("(0x0000-0x8000)"));
+    ASSERT_TRUE(question.text.contains("only 0x8000-0x7FFFF is writable"));
+    ASSERT_EQ(question.buttons, QMessageBox::Yes | QMessageBox::Cancel);
+    ASSERT_EQ(question.default_button, QMessageBox::Cancel);
+    ASSERT_EQ(question.accept, QMessageBox::Yes);
+    ASSERT_EQ(question.accepted, FlashPromptResponse::kAccept);
+    ASSERT_EQ(question.declined, FlashPromptResponse::kDecline);
+}
+
+TEST(FlashDialogTest, inspectReadDefaultsToSaving)
+{
+    const auto question = FlashDialog::promptQuestion({FlashPromptKind::kInspectRead, {}});
+    ASSERT_FALSE(question.warning);
+    ASSERT_EQ(question.buttons, QMessageBox::Save | QMessageBox::Discard);
+    ASSERT_EQ(question.default_button, QMessageBox::Save);
+    ASSERT_EQ(question.accept, QMessageBox::Save);
+    ASSERT_EQ(question.accepted, FlashPromptResponse::kSave);
+    ASSERT_EQ(question.declined, FlashPromptResponse::kDiscard);
+}
+
+TEST(FlashDialogTest, removeProgrammingVoltageIsANoticeThatAlwaysContinues)
+{
+    const auto question =
+        FlashDialog::promptQuestion({FlashPromptKind::kRemoveProgrammingVoltage, {{"external_vpp", "yes"}}});
+    ASSERT_FALSE(question.warning);
+    ASSERT_EQ(question.title, QString("Programming voltage"));
+    ASSERT_EQ(question.buttons, QMessageBox::Ok);
+    ASSERT_EQ(question.default_button, QMessageBox::NoButton);
+    ASSERT_EQ(question.accepted, FlashPromptResponse::kAccept);
+    ASSERT_EQ(question.declined, FlashPromptResponse::kAccept);
+}
+
+TEST(FlashDialogTest, ignitionPromptsAskForOkOrCancel)
+{
+    const auto cycle = FlashDialog::promptQuestion({FlashPromptKind::kCycleIgnition, {}});
+    const auto begin = FlashDialog::promptQuestion({FlashPromptKind::kBegin, {}});
+    for (const auto& question : {cycle, begin})
+    {
+        ASSERT_FALSE(question.warning);
+        ASSERT_EQ(question.title, QString("Connecting to ECU"));
+        ASSERT_EQ(question.buttons, QMessageBox::Ok | QMessageBox::Cancel);
+        ASSERT_EQ(question.default_button, QMessageBox::Cancel);
+        ASSERT_EQ(question.accept, QMessageBox::Ok);
+    }
+    ASSERT_TRUE(cycle.text.contains("OFF and back ON"));
+    ASSERT_TRUE(begin.text.contains("Turn ignition ON and press OK"));
+}
+
 } // namespace
 } // namespace fastecu::flash
 

@@ -6,6 +6,7 @@
 
 #include <QDialog>
 #include <QEventLoop>
+#include <QMessageBox>
 
 #include "src/backend/ports/clock.h"
 #include "src/backend/flash/workflow/flash_workflow.h"
@@ -28,6 +29,19 @@ struct ProgrammingVoltageNotice
     QString text;
 };
 
+// The message box a prompt shows, and the response each answer gives.
+struct PromptQuestion
+{
+    bool warning = false; // otherwise information
+    QString title;
+    QString text;
+    QMessageBox::StandardButtons buttons = QMessageBox::Ok;
+    QMessageBox::StandardButton default_button = QMessageBox::NoButton;
+    QMessageBox::StandardButton accept = QMessageBox::Ok;
+    FlashPromptResponse accepted = FlashPromptResponse::kAccept;
+    FlashPromptResponse declined = FlashPromptResponse::kDecline;
+};
+
 class FlashDialog : public QDialog
 {
     Q_OBJECT
@@ -43,6 +57,7 @@ class FlashDialog : public QDialog
     // The RemoveProgrammingVoltage notice's title and text; see the prompt
     // kind's arguments in flash_workflow.h.
     static ProgrammingVoltageNotice programmingVoltageNotice(const FlashPromptStep& prompt);
+    static PromptQuestion promptQuestion(const FlashPromptStep& prompt);
 
   signals:
     void externalLogger(QString message);

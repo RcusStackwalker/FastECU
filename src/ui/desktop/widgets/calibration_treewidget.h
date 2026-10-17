@@ -71,5 +71,6 @@ class CalibrationTreeWidget : public QWidget
     void closeRom();
 
   private:
-  private slots:
+    void addRomInfo(QTreeWidget *tree, const fastecu::calibration::CalibrationSession& session,
+                    const fastecu::ui::CalibrationViewState& view);
 };

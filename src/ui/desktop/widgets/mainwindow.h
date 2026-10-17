@@ -90,6 +90,12 @@ class QtCalibrationInteraction;
 class QtIdentifyLauncher;
 } // namespace fastecu::ui
 
+namespace fastecu::flash
+{
+struct FlashOperationInput;
+struct FlashOperationOutcome;
+} // namespace fastecu::flash
+
 QT_BEGIN_NAMESPACE
 namespace Ui
 {
@@ -298,6 +304,35 @@ class MainWindow : public QMainWindow
 
     void setupLoggingEngine();
     void restoreLoggingUiState();
+    struct MeasurementLabel
+    {
+        QString name;
+        QString unit;
+        bool available = false;
+    };
+    MeasurementLabel measurementLabel(const fastecu::desktop::logging::DesktopLoggingRunView& view,
+                                      const std::string& key, fastecu::logging::LoggingMeasurementKind kind,
+                                      const std::string& id) const;
+
+    // Constructor steps, in order.
+    void logPlatform();
+    void createCoordinators();
+    void logSelectedVehicle();
+    void restoreWindowGeometry();
+    void warnIfNoDefinitionFiles();
+    void connectWidgetSignals();
+    void setupStatusBar();
+    void waitForPeer(const QString& peerAddress);
+    void setupToolbar();
+    void addSerialPortList();
+
+    void runFlashOperation(const QString& cmdType, const std::string& kernelDir);
+    fastecu::flash::FlashOperationOutcome runFlashController(const fastecu::flash::FlashOperationInput& input);
+    void adoptReadImage(const fastecu::flash::FlashOperationOutcome& outcome, const QString& kernelPath,
+                        const QString& kernelAddress);
+    void toggleMapWindow(QTreeWidgetItem *item, OpenCalibration& open, const QString& windowPrefix);
+    void openMapWindow(QTreeWidgetItem *item, OpenCalibration& open, fastecu::calibration::SessionId session,
+                       int mapIndex);
 
     // logvalues.c
     void changeLogValues(int tabIndex, const QString& protocolArg);

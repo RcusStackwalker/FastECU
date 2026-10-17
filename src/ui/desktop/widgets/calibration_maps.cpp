@@ -43,147 +43,64 @@ CalibrationMaps::CalibrationMaps(fastecu::calibration::CalibrationWorkspace& wor
     refresh();
 }
 
+namespace
+{
+// Selection maps show one control instead of numeric cells.
+bool isSelectionType(const QString& type)
+{
+    return type == "Switch" || type == "MultiSelectable" || type == "Selectable";
+}
+
+bool isStaticAxis(const QString& type)
+{
+    return type == "Static Y Axis" || type == "Static X Axis";
+}
+
+fastecu::ui::PresentedCell axisCell(const std::optional<std::vector<fastecu::ui::PresentedCell>>& axis, int index)
+{
+    return axis.has_value() ? axis->at(static_cast<std::size_t>(index))
+                            : fastecu::ui::PresentedCell{.text = QString::number(index)};
+}
+
+// A Selectable map shows the last selection whose value matches the blob; a
+// MultiSelectable map shows the selection its first body cell names.
+int selectedIndex(const fastecu::ui::MapPresentation& map, bool multi)
+{
+    if (multi)
+    {
+        return map.body.empty() ? 0 : fastecu::ui::selectionIndex(map.body.front());
+    }
+    int current = 0;
+    for (std::size_t i = 0; map.blob.has_value() && i < map.selection_values.size(); ++i)
+    {
+        if (map.selection_values[i] == *map.blob)
+        {
+            current = static_cast<int>(i);
+        }
+    }
+    return current;
+}
+} // namespace
+
 void CalibrationMaps::initializeView(const fastecu::ui::MapPresentation& map,
                                      const fastecu::calibration::RomSource& source)
 {
-    // #lizard forgives(cyclomatic_complexity)
-    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
-    QString mapWindowObjectName =
-        fastecu::ui::sessionKeyText(session_) + "," + QString::number(map_index_) + "," + map.name;
-
-    this->setObjectName(mapWindowObjectName);
     this->setWindowTitle(map.name + " - " + QString::fromStdString(source.display_name));
 
-    QString xScaleUnitsTitle = "";
+    QString xScaleUnitsTitle;
     if (map.x_name != " ")
     {
-        if (map.x_units != " ")
-        {
-            xScaleUnitsTitle = map.x_name + " (" + map.x_units + ")";
-        }
-        else
-        {
-            xScaleUnitsTitle = map.x_name;
-        }
+        xScaleUnitsTitle = map.x_units != " " ? map.x_name + " (" + map.x_units + ")" : map.x_name;
     }
     ui_->xScaleUnitsLabel->setText(xScaleUnitsTitle);
-
     if (!map.units.isEmpty())
     {
         ui_->mapDataUnitsLabel->setText(map.units);
     }
 
-    numeric_body_ = map.type != "Switch" && map.type != "MultiSelectable" && map.type != "Selectable";
-    if (map.type == "Switch")
-    {
-        // qDebug() << "Switchable map";
-        mapWindowObjectName = mapWindowObjectName + "," + "Switch";
-        map_cell_width = map_cell_width_selectable;
-        x_size = 1;
-        y_size = 1;
-        ui_->xScaleUnitsLabel->setFixedHeight(0);
-    }
-    if (map.type == "MultiSelectable")
-    {
-        // qDebug() << "MultiSelectable map";
-        mapWindowObjectName = mapWindowObjectName + "," + "MultiSelectable";
-        map_cell_width = map_cell_width_selectable;
-        x_size = 1;
-        y_size = 1;
-        ui_->xScaleUnitsLabel->setFixedHeight(0);
-    }
-    if (map.type == "Selectable")
-    {
-        // qDebug() << "Selectable map";
-        mapWindowObjectName = mapWindowObjectName + "," + "Selectable";
-        map_cell_width = map_cell_width_selectable;
-        x_size = 1;
-        y_size = 1;
-        ui_->xScaleUnitsLabel->setFixedHeight(0);
-    }
-    if (map.type == "1D")
-    {
-        qDebug() << "1D map";
-        mapWindowObjectName = mapWindowObjectName + "," + "1D";
-        map_cell_width = map_cell_width1_d;
-        x_size = 1;
-        y_size = 1;
-        ui_->xScaleUnitsLabel->setFixedHeight(0);
-    }
-    if (map.type == "2D")
-    {
-        // qDebug() << "2D map" << map.name << map.x_size <<
-        // map.y_size;
-        if (map.y_size > 1 || map.x_size > 1)
-        {
-            this->setWindowIcon(QIcon(":/icons/2D-64-W.png"));
-        }
-        else
-        {
-            this->setWindowIcon(QIcon(":/icons/1D-64-W.png"));
-        }
-        if (map.x_type == "Static Y Axis")
-        {
-            mapWindowObjectName = mapWindowObjectName + "," + "Static Y Axis";
-        }
-        if (map.x_type == "Static X Axis")
-        {
-            mapWindowObjectName = mapWindowObjectName + "," + "Static X Axis";
-        }
-        else if (map.y_size > 1)
-        {
-            mapWindowObjectName = mapWindowObjectName + "," + "Y Axis";
-        }
-        else
-        {
-            mapWindowObjectName = mapWindowObjectName + "," + "X Axis";
-        }
-        x_size_offset = 0;
-        y_size_offset = 0;
-        if (map.y_size > 1)
-        {
-            x_size_offset = 1;
-        }
-        if (map.x_size > 1 || map.x_type == "Static Y Axis" || map.x_type == "Static X Axis")
-        {
-            y_size_offset = 1;
-        }
-        x_size = map.x_size + x_size_offset;
-        y_size = map.y_size + y_size_offset;
-    }
-    if (map.type == "3D")
-    {
-        // qDebug() << "3D map" << map.name << map.x_size <<
-        // map.y_size;
-        this->setWindowIcon(QIcon(":/icons/3D-64-W.png"));
-        mapWindowObjectName = mapWindowObjectName + "," + "3D";
-        x_size_offset = 0;
-        y_size_offset = 0;
-        if (map.y_size > 1)
-        {
-            x_size_offset = 1;
-        }
-        if (map.x_size > 1)
-        {
-            y_size_offset = 1;
-        }
-        x_size = map.x_size + x_size_offset;
-        y_size = map.y_size + y_size_offset;
-
-        auto *yScaleUnitsLabel = findChild<QLabel *>("mapYAxisUnits");
-        if (yScaleUnitsLabel == nullptr)
-        {
-            yScaleUnitsLabel = new VerticalLabel();
-            yScaleUnitsLabel->setObjectName("mapYAxisUnits");
-            ui_->horizontalLayout_2->insertWidget(0, yScaleUnitsLabel);
-        }
-        yScaleUnitsLabel->setAlignment(Qt::AlignCenter);
-        yScaleUnitsLabel->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum);
-        QString yScaleUnitsTitle = map.y_name + " (" + map.y_units + ")";
-        yScaleUnitsLabel->setText(yScaleUnitsTitle);
-    }
-
-    // qDebug() << "Create map" << mapWindowObjectName;
+    numeric_body_ = !isSelectionType(map.type);
+    const QString mapWindowObjectName =
+        fastecu::ui::sessionKeyText(session_) + "," + QString::number(map_index_) + "," + map.name + layoutTable(map);
     this->setObjectName(mapWindowObjectName);
     ui_->mapDataTableWidget->setObjectName(mapWindowObjectName);
     ui_->mapDataTableWidget->setColumnCount(x_size);
@@ -201,15 +118,77 @@ void CalibrationMaps::initializeView(const fastecu::ui::MapPresentation& map,
 
     if (map.type != "Selectable" && map.type != "Switch")
     {
-        connect(ui_->mapDataTableWidget, &QTableWidget::cellClicked, this, &CalibrationMaps::cellClicked,
+        connect(ui_->mapDataTableWidget, &QTableWidget::cellClicked, this, &CalibrationMaps::startSelection,
                 Qt::UniqueConnection);
-        connect(ui_->mapDataTableWidget, &QTableWidget::cellPressed, this, &CalibrationMaps::cellPressed,
+        connect(ui_->mapDataTableWidget, &QTableWidget::cellPressed, this, &CalibrationMaps::startSelection,
                 Qt::UniqueConnection);
-        /// connect(ui->mapDataTableWidget, SIGNAL(cellEntered(int, int)), this, SLOT (cellActivated(int, int)));
         connect(ui_->mapDataTableWidget, &QTableWidget::currentCellChanged, this, &CalibrationMaps::cellChanged,
                 Qt::UniqueConnection);
     }
     view_initialized_ = true;
+}
+
+// Sizes the table for the map type and returns its object-name suffix, which
+// the cell slots read back.
+QString CalibrationMaps::layoutTable(const fastecu::ui::MapPresentation& map)
+{
+    if (map.type == "2D")
+    {
+        return layout2D(map);
+    }
+    if (map.type == "3D")
+    {
+        return layout3D(map);
+    }
+    if (isSelectionType(map.type) || map.type == "1D")
+    {
+        map_cell_width = map.type == "1D" ? map_cell_width1_d : map_cell_width_selectable;
+        x_size = 1;
+        y_size = 1;
+        ui_->xScaleUnitsLabel->setFixedHeight(0);
+        return "," + map.type;
+    }
+    return {};
+}
+
+QString CalibrationMaps::layout2D(const fastecu::ui::MapPresentation& map)
+{
+    this->setWindowIcon(QIcon(map.y_size > 1 || map.x_size > 1 ? ":/icons/2D-64-W.png" : ":/icons/1D-64-W.png"));
+    setAxisOffsets(map, isStaticAxis(map.x_type));
+    if (map.x_type == "Static X Axis")
+    {
+        return ",Static X Axis";
+    }
+    // A Static Y Axis map also names its orientation.
+    const QString orientation = map.y_size > 1 ? ",Y Axis" : ",X Axis";
+    return map.x_type == "Static Y Axis" ? ",Static Y Axis" + orientation : orientation;
+}
+
+QString CalibrationMaps::layout3D(const fastecu::ui::MapPresentation& map)
+{
+    this->setWindowIcon(QIcon(":/icons/3D-64-W.png"));
+    setAxisOffsets(map, false);
+
+    auto *yScaleUnitsLabel = findChild<QLabel *>("mapYAxisUnits");
+    if (yScaleUnitsLabel == nullptr)
+    {
+        yScaleUnitsLabel = new VerticalLabel();
+        yScaleUnitsLabel->setObjectName("mapYAxisUnits");
+        ui_->horizontalLayout_2->insertWidget(0, yScaleUnitsLabel);
+    }
+    yScaleUnitsLabel->setAlignment(Qt::AlignCenter);
+    yScaleUnitsLabel->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum);
+    yScaleUnitsLabel->setText(map.y_name + " (" + map.y_units + ")");
+    return ",3D";
+}
+
+// A Y axis takes the first column and an X (or static) axis the first row.
+void CalibrationMaps::setAxisOffsets(const fastecu::ui::MapPresentation& map, bool staticX)
+{
+    x_size_offset = map.y_size > 1 ? 1 : 0;
+    y_size_offset = map.x_size > 1 || staticX ? 1 : 0;
+    x_size = map.x_size + x_size_offset;
+    y_size = map.y_size + y_size_offset;
 }
 
 void CalibrationMaps::showMapError(const fastecu::Error& error)
@@ -296,8 +275,6 @@ void CalibrationMaps::setMapTableWidgetSize(int maxWidth, int maxHeight, int xSi
 
 void CalibrationMaps::refresh()
 {
-    // #lizard forgives(cyclomatic_complexity)
-    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     const auto *rom = workspace_.Find(session_);
     if (rom == nullptr)
     {
@@ -338,118 +315,111 @@ void CalibrationMaps::refresh()
 
     if (map.type == "Switch")
     {
-        // The retained typed formats resolve RomRaider switches to Selectable.
-        // No format populates legacy StateList; preserve the remaining empty
-        // switch control without introducing a new definition representation.
-        auto *checkbox = qobject_cast<QCheckBox *>(ui_->mapDataTableWidget->cellWidget(0, 0));
-        if (checkbox == nullptr)
-        {
-            checkbox = new QCheckBox("On/Off");
-            ui_->mapDataTableWidget->setCellWidget(0, 0, checkbox);
-            connect(checkbox, &QCheckBox::checkStateChanged, this,
-                    [this](Qt::CheckState state) { emit checkboxStateChanged(static_cast<int>(state)); });
-        }
-        const QSignalBlocker blocker(checkbox);
-        checkbox->setChecked(false);
+        refreshSwitch();
         return;
     }
-    if (map.type == "Selectable" || map.type == "MultiSelectable")
+    // The existing MultiSelectable layout has one visible column. Its numeric
+    // rendering follows control creation and replaces the label.
+    if ((map.type == "Selectable" || map.type == "MultiSelectable") && !refreshSelectable(map, font))
     {
-        const bool multi = map.type == "MultiSelectable";
-        const auto labels = map.y_units.split(',');
-        for (int row = 0; row < (multi ? labels.size() : 1); ++row)
-        {
-            if (multi)
-            {
-                auto *item = new QTableWidgetItem(labels[row]);
-                item->setTextAlignment(Qt::AlignCenter);
-                item->setFont(font);
-                ui_->mapDataTableWidget->setItem(row, 0, item);
-            }
-            const int col = multi ? 1 : 0;
-            auto *combo = qobject_cast<QComboBox *>(ui_->mapDataTableWidget->cellWidget(row, col));
-            if (combo == nullptr)
-            {
-                combo = new QComboBox;
-                combo->setFont(font);
-                combo->setFixedWidth(map_cell_width_selectable);
-                combo->setObjectName("selectableComboBox");
-                const QSignalBlocker blocker(combo);
-                for (int i = 0; i < map.selection_names.size(); ++i)
-                {
-                    if (multi || !map.selection_names[i].isEmpty())
-                    {
-                        combo->addItem(map.selection_names[i]);
-                    }
-                }
-                if (multi)
-                {
-                    // Preserve the explicit empty choice of the existing control.
-                    combo->addItem(map.selection_names.isEmpty() ? " " : "");
-                }
-                ui_->mapDataTableWidget->setCellWidget(row, col, combo);
-                connect(combo, &QComboBox::currentTextChanged, this, &CalibrationMaps::selectableComboboxItemChanged);
-            }
-            const QSignalBlocker blocker(combo);
-            int current = multi && !map.body.empty() ? fastecu::ui::selectionIndex(map.body.front()) : 0;
-            if (!multi)
-            {
-                for (std::size_t i = 0; i < map.selection_values.size(); ++i)
-                {
-                    if (map.blob.has_value() && map.selection_values[i] == *map.blob)
-                    {
-                        current = static_cast<int>(i);
-                    }
-                }
-            }
-            combo->setCurrentIndex(current);
-        }
-        if (!multi)
-        {
-            return;
-        }
-        // The existing MultiSelectable layout has one visible column. Its
-        // numeric rendering follows control creation and replaces the label.
+        return;
     }
+    refreshAxes(map, font);
+    refreshBody(map, font);
+}
 
-    const auto cell = [&](int row, int col, const fastecu::ui::PresentedCell& value, const QColor& background)
+// The retained typed formats resolve RomRaider switches to Selectable. No
+// format populates legacy StateList; preserve the remaining empty switch
+// control without introducing a new definition representation.
+void CalibrationMaps::refreshSwitch()
+{
+    auto *checkbox = qobject_cast<QCheckBox *>(ui_->mapDataTableWidget->cellWidget(0, 0));
+    if (checkbox == nullptr)
     {
-        auto *item = ui_->mapDataTableWidget->item(row, col);
-        if (item == nullptr)
+        checkbox = new QCheckBox("On/Off");
+        ui_->mapDataTableWidget->setCellWidget(0, 0, checkbox);
+        connect(checkbox, &QCheckBox::checkStateChanged, this,
+                [this](Qt::CheckState state) { emit checkboxStateChanged(static_cast<int>(state)); });
+    }
+    const QSignalBlocker blocker(checkbox);
+    checkbox->setChecked(false);
+}
+
+// Returns whether numeric cells follow the controls (MultiSelectable).
+bool CalibrationMaps::refreshSelectable(const fastecu::ui::MapPresentation& map, const QFont& font)
+{
+    const bool multi = map.type == "MultiSelectable";
+    const auto labels = map.y_units.split(',');
+    for (int row = 0; row < (multi ? labels.size() : 1); ++row)
+    {
+        if (multi)
         {
-            item = new QTableWidgetItem;
-            ui_->mapDataTableWidget->setItem(row, col, item);
+            auto *item = new QTableWidgetItem(labels[row]);
+            item->setTextAlignment(Qt::AlignCenter);
+            item->setFont(font);
+            ui_->mapDataTableWidget->setItem(row, 0, item);
         }
-        item->setTextAlignment(Qt::AlignCenter);
-        item->setFont(font);
-        item->setForeground(Qt::black);
-        item->setBackground(background);
-        item->setText(value.text);
-        item->setToolTip(value.diagnostic);
-    };
-    const bool staticX = map.x_type == "Static Y Axis" || map.x_type == "Static X Axis";
-    const auto axisCell = [](const std::optional<std::vector<fastecu::ui::PresentedCell>>& axis, int index)
+        auto *combo = selectableCombo(row, multi ? 1 : 0, map, font);
+        const QSignalBlocker blocker(combo);
+        combo->setCurrentIndex(selectedIndex(map, multi));
+    }
+    return multi;
+}
+
+QComboBox *CalibrationMaps::selectableCombo(int row, int col, const fastecu::ui::MapPresentation& map,
+                                            const QFont& font)
+{
+    if (auto *combo = qobject_cast<QComboBox *>(ui_->mapDataTableWidget->cellWidget(row, col)))
     {
-        return axis.has_value() ? axis->at(static_cast<std::size_t>(index))
-                                : fastecu::ui::PresentedCell{.text = QString::number(index)};
-    };
-    if (map.type != "1D")
+        return combo;
+    }
+    const bool multi = map.type == "MultiSelectable";
+    auto *combo = new QComboBox;
+    combo->setFont(font);
+    combo->setFixedWidth(map_cell_width_selectable);
+    combo->setObjectName("selectableComboBox");
+    const QSignalBlocker blocker(combo);
+    for (const auto& name : map.selection_names)
     {
-        if (map.y_size > 1 && (map.x_size <= 1 || !staticX))
+        if (multi || !name.isEmpty())
         {
-            for (int i = 0; i < map.y_size; ++i)
-            {
-                cell(i + y_size_offset, 0, axisCell(map.y_axis, i), Qt::white);
-            }
-        }
-        for (int i = 0; i < map.x_size; ++i)
-        {
-            const auto value = axisCell(map.x_axis, i);
-            cell(0, i + x_size_offset, value, Qt::white);
-            const int width = QFontMetrics(font).horizontalAdvance(value.text) + 20;
-            ui_->mapDataTableWidget->horizontalHeader()->resizeSection(i + x_size_offset, width);
+            combo->addItem(name);
         }
     }
+    if (multi)
+    {
+        // Preserve the explicit empty choice of the existing control.
+        combo->addItem(map.selection_names.isEmpty() ? " " : "");
+    }
+    ui_->mapDataTableWidget->setCellWidget(row, col, combo);
+    connect(combo, &QComboBox::currentTextChanged, this, &CalibrationMaps::selectableComboboxItemChanged);
+    return combo;
+}
+
+void CalibrationMaps::refreshAxes(const fastecu::ui::MapPresentation& map, const QFont& font)
+{
+    if (map.type == "1D")
+    {
+        return;
+    }
+    if (map.y_size > 1 && (map.x_size <= 1 || !isStaticAxis(map.x_type)))
+    {
+        for (int i = 0; i < map.y_size; ++i)
+        {
+            setCell(i + y_size_offset, 0, axisCell(map.y_axis, i), Qt::white, font);
+        }
+    }
+    for (int i = 0; i < map.x_size; ++i)
+    {
+        const auto value = axisCell(map.x_axis, i);
+        setCell(0, i + x_size_offset, value, Qt::white, font);
+        const int width = QFontMetrics(font).horizontalAdvance(value.text) + 20;
+        ui_->mapDataTableWidget->horizontalHeader()->resizeSection(i + x_size_offset, width);
+    }
+}
+
+void CalibrationMaps::refreshBody(const fastecu::ui::MapPresentation& map, const QFont& font)
+{
     for (int i = 0; i < map.x_size * map.y_size; ++i)
     {
         const int row = i / map.x_size + y_size_offset;
@@ -458,161 +428,112 @@ void CalibrationMaps::refresh()
         const auto background = map.type != "1D" && value.numeric_value.has_value() && color_bounds_.has_value()
                                     ? fastecu::ui::mapCellColor(*value.numeric_value, *color_bounds_)
                                     : QColor(Qt::white);
-        cell(row, col, value, background);
+        setCell(row, col, value, background, font);
     }
 }
 
-void CalibrationMaps::cellClicked(int row, int col)
+void CalibrationMaps::setCell(int row, int col, const fastecu::ui::PresentedCell& value, const QColor& background,
+                              const QFont& font)
 {
-    start_col = col;
-    start_row = row;
-    // qDebug() << "Cell" << col << ":" << row << "clicked";
-
-    QStringList objectName = ui_->mapDataTableWidget->objectName().split(",");
-    int cols = ui_->mapDataTableWidget->columnCount();
-    int rows = ui_->mapDataTableWidget->rowCount();
-
-    for (int i = 0; i < cols; i++)
+    auto *item = ui_->mapDataTableWidget->item(row, col);
+    if (item == nullptr)
     {
-        for (int j = 0; j < rows; j++)
+        item = new QTableWidgetItem;
+        ui_->mapDataTableWidget->setItem(row, col, item);
+    }
+    item->setTextAlignment(Qt::AlignCenter);
+    item->setFont(font);
+    item->setForeground(Qt::black);
+    item->setBackground(background);
+    item->setText(value.text);
+    item->setToolTip(value.diagnostic);
+}
+
+QString CalibrationMaps::mapLayout() const
+{
+    return ui_->mapDataTableWidget->objectName().split(",").at(3);
+}
+
+void CalibrationMaps::setItemFlags(int firstRow, int firstCol, Qt::ItemFlags flags)
+{
+    for (int col = firstCol; col < ui_->mapDataTableWidget->columnCount(); col++)
+    {
+        for (int row = firstRow; row < ui_->mapDataTableWidget->rowCount(); row++)
         {
-            if (ui_->mapDataTableWidget->item(j, i) != nullptr)
-
+            if (auto *item = ui_->mapDataTableWidget->item(row, col))
             {
-
-                ui_->mapDataTableWidget->item(j, i)->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEditable |
-                                                              Qt::ItemIsEnabled);
+                item->setFlags(flags);
             }
         }
     }
-    ui_->mapDataTableWidget->item(row, col)->setSelected(true);
-    if (objectName.at(3) == "3D")
+}
+
+// Keeps the 3D corner and a static axis row out of every selection.
+void CalibrationMaps::lockAxisCells(const QString& layout)
+{
+    if (layout == "3D")
     {
         ui_->mapDataTableWidget->item(0, 0)->setFlags(Qt::ItemIsEditable);
     }
-
-    if ((objectName.at(3) == "Static Y Axis" || objectName.at(3) == "Static X Axis") && rows > 1)
+    if (isStaticAxis(layout) && ui_->mapDataTableWidget->rowCount() > 1)
     {
-        for (int j = 0; j < cols; j++)
+        for (int col = 0; col < ui_->mapDataTableWidget->columnCount(); col++)
         {
-            ui_->mapDataTableWidget->item(0, j)->setFlags(Qt::ItemIsEditable | Qt::ItemIsEnabled);
+            ui_->mapDataTableWidget->item(0, col)->setFlags(Qt::ItemIsEditable | Qt::ItemIsEnabled);
         }
     }
 }
 
-void CalibrationMaps::cellPressed(int row, int col)
+void CalibrationMaps::startSelection(int row, int col)
 {
     start_col = col;
     start_row = row;
-    // qDebug() << "Cell" << col << ":" << row << "pressed";
-
-    int cols = ui_->mapDataTableWidget->columnCount();
-    int rows = ui_->mapDataTableWidget->rowCount();
-
-    QStringList objectName = ui_->mapDataTableWidget->objectName().split(",");
-    for (int i = 0; i < cols; i++)
-    {
-        for (int j = 0; j < rows; j++)
-        {
-            if (ui_->mapDataTableWidget->item(j, i) != nullptr)
-
-            {
-
-                ui_->mapDataTableWidget->item(j, i)->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEditable |
-                                                              Qt::ItemIsEnabled);
-            }
-        }
-    }
+    setItemFlags(0, 0, Qt::ItemIsSelectable | Qt::ItemIsEditable | Qt::ItemIsEnabled);
     ui_->mapDataTableWidget->item(row, col)->setSelected(true);
-    if (objectName.at(3) == "3D")
-    {
-        ui_->mapDataTableWidget->item(0, 0)->setFlags(Qt::ItemIsEditable);
-    }
-
-    if ((objectName.at(3) == "Static Y Axis" || objectName.at(3) == "Static X Axis") && rows > 1)
-    {
-        for (int j = 0; j < cols; j++)
-        {
-            ui_->mapDataTableWidget->item(0, j)->setFlags(Qt::ItemIsEditable | Qt::ItemIsEnabled);
-        }
-    }
+    lockAxisCells(mapLayout());
 }
 
+// While a selection extends, cells outside the part it started in (axis row,
+// axis column or body) stop being selectable.
 void CalibrationMaps::cellChanged(int curRow, int curCol, int prevRow, int prevCol)
 {
-    // #lizard forgives(cyclomatic_complexity)
-    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
-    // qDebug() << "Startcell =" << startCol << ":" << startRow << " and current cell is" << curCol << ":" << curRow;
-
-    int cols = ui_->mapDataTableWidget->columnCount();
-    int rows = ui_->mapDataTableWidget->rowCount();
-
-    // qDebug() << "cellChanged" << ui->mapDataTableWidget->objectName().split(",").at(3);
-
-    /* Check for 3D table */
-    QStringList objectName = ui_->mapDataTableWidget->objectName().split(",");
-    if (start_col == 0 && objectName.at(3) == "3D")
+    const QString layout = mapLayout();
+    const Qt::ItemFlags fixed = Qt::ItemIsEditable | Qt::ItemIsEnabled;
+    if (start_col == 0 && layout == "3D")
     {
-        for (int i = 1; i < cols; i++)
-        {
-            for (int j = 0; j < rows; j++)
-            {
-                // ui->mapDataTableWidget->item(0, i)->setFlags(Qt::ItemIsEditable|Qt::ItemIsEnabled);
-                if (ui_->mapDataTableWidget->item(j, i) != nullptr)
-
-                {
-
-                    ui_->mapDataTableWidget->item(j, i)->setFlags(Qt::ItemIsEditable | Qt::ItemIsEnabled);
-                }
-            }
-        }
+        setItemFlags(0, 1, fixed);
     }
-    else if (start_row == 0 &&
-             (objectName.at(3) == "3D" || objectName.at(3) == "X Axis" || objectName.at(3) == "Y Axis"))
+    else if (start_row == 0 && (layout == "3D" || layout == "X Axis" || layout == "Y Axis"))
     {
-        for (int i = 0; i < cols; i++)
-        {
-            for (int j = 1; j < rows; j++)
-            {
-                // ui->mapDataTableWidget->item(j, 0)->setFlags(Qt::ItemIsEditable|Qt::ItemIsEnabled);
-                if (ui_->mapDataTableWidget->item(j, i) != nullptr)
-
-                {
-
-                    ui_->mapDataTableWidget->item(j, i)->setFlags(Qt::ItemIsEditable | Qt::ItemIsEnabled);
-                }
-            }
-        }
+        setItemFlags(1, 0, fixed);
     }
     else
     {
-        if (objectName.at(3) == "3D" || objectName.at(3) == "X Axis")
-        {
-            for (int i = 0; i < cols; i++)
-            {
-                ui_->mapDataTableWidget->item(0, i)->setFlags(Qt::ItemIsEditable | Qt::ItemIsEnabled);
-                ui_->mapDataTableWidget->item(0, i)->setSelected(false);
-            }
-        }
-        if (objectName.at(3) == "3D")
-        {
-            for (int j = 0; j < rows; j++)
-            {
-                ui_->mapDataTableWidget->item(j, 0)->setFlags(Qt::ItemIsEditable | Qt::ItemIsEnabled);
-                ui_->mapDataTableWidget->item(j, 0)->setSelected(false);
-            }
-        }
+        releaseAxisCells(layout);
     }
-    if (objectName.at(3) == "3D")
-    {
-        ui_->mapDataTableWidget->item(0, 0)->setFlags(Qt::ItemIsEditable);
-    }
+    lockAxisCells(layout);
+}
 
-    if ((objectName.at(3) == "Static Y Axis" || objectName.at(3) == "Static X Axis") && rows > 1)
+void CalibrationMaps::releaseAxisCells(const QString& layout)
+{
+    const auto release = [this](int row, int col)
     {
-        for (int j = 0; j < cols; j++)
+        auto *item = ui_->mapDataTableWidget->item(row, col);
+        item->setFlags(Qt::ItemIsEditable | Qt::ItemIsEnabled);
+        item->setSelected(false);
+    };
+    if (layout == "3D" || layout == "X Axis")
+    {
+        for (int col = 0; col < ui_->mapDataTableWidget->columnCount(); col++)
         {
-            ui_->mapDataTableWidget->item(0, j)->setFlags(Qt::ItemIsEditable | Qt::ItemIsEnabled);
+            release(0, col);
+        }
+    }
+    if (layout == "3D")
+    {
+        for (int row = 0; row < ui_->mapDataTableWidget->rowCount(); row++)
+        {
+            release(row, 0);
         }
     }
 }

@@ -116,36 +116,53 @@ void DataTerminal::listenInterface()
     }
 }
 
+namespace
+{
+// QString::toDouble() parses "nan" text to NaN with ok=true; NaN fails both
+// comparisons, so it is out of range.
+bool baudInRange(const QString& text)
+{
+    const double baud = text.toDouble();
+    return baud >= 300 && baud <= 2000000;
+}
+} // namespace
+
 void DataTerminal::sendToInterface()
 {
-    // #lizard forgives(cyclomatic_complexity)
-    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
-    bool serialOk = true;
-    bool ok = false;
-    QObject *obj = sender();
-    QString interfaceTypeName = obj->objectName();
+    const QString interfaceTypeName = sender()->objectName();
     emit logD("Send data to interface", true, true);
-
-    QFile file;
-    QString msg;
-    std::vector<std::string> scriptLines;
-
-    if (interfaceTypeName.startsWith("sendKlineMessage"))
+    const bool kline = interfaceTypeName.startsWith("sendKlineMessage");
+    const auto script = readScript(kline ? ui_->klineMsgToSend->text() : ui_->canMsgToSend->text());
+    if (!script.has_value())
     {
-        msg = ui_->klineMsgToSend->text();
-    }
-    else
-    {
-        msg = ui_->canMsgToSend->text();
-    }
-
-    if (msg == "")
-    {
-        emit logE("Add message bytes or file to send", true, true);
-        QMessageBox::warning(this, tr("Data terminal"), "Add message bytes or file to send");
         return;
     }
+    if (kline)
+    {
+        sendKline(*script);
+    }
+    else if (interfaceTypeName.startsWith("sendCanMessage"))
+    {
+        sendCan(*script);
+    }
+}
 
+void DataTerminal::warn(const QString& message)
+{
+    emit logE(message, true, true);
+    QMessageBox::warning(this, tr("Data terminal"), message);
+}
+
+// A message starting with '.' or '/' names a script file; anything else is a
+// one-line script.
+std::optional<std::vector<fastecu::diagnostics::TerminalStep>> DataTerminal::readScript(const QString& msg)
+{
+    if (msg.isEmpty())
+    {
+        warn("Add message bytes or file to send");
+        return std::nullopt;
+    }
+    std::vector<std::string> scriptLines;
     if (msg.at(0) != '.' && msg.at(0) != '/')
     {
         emit logD("Read message from lineedit", true, true);
@@ -154,185 +171,137 @@ void DataTerminal::sendToInterface()
     else
     {
         emit logD("Read message from file", true, true);
-        QFile fileLocal(msg);
-        if (!fileLocal.open(QIODevice::ReadOnly))
+        QFile file(msg);
+        if (!file.open(QIODevice::ReadOnly))
         {
-            emit logE("Unable to open datastream file '" + fileLocal.fileName() + "' for reading", true, true);
-            QMessageBox::warning(this, tr("Data terminal"),
-                                 "Unable to open datastream file '" + fileLocal.fileName() + "' for reading");
-            return;
+            warn("Unable to open datastream file '" + file.fileName() + "' for reading");
+            return std::nullopt;
         }
-        QTextStream in(&fileLocal);
+        QTextStream in(&file);
         while (!in.atEnd())
         {
-            QString line = in.readLine();
-            scriptLines.push_back(line.toStdString());
+            scriptLines.push_back(in.readLine().toStdString());
         }
-        fileLocal.close();
     }
 
-    const auto script = fastecu::diagnostics::ParseTerminalScript(scriptLines);
+    auto script = fastecu::diagnostics::ParseTerminalScript(scriptLines);
     if (!script.has_value())
     {
-        const QString detail = QString::fromStdString(script.error().detail);
-        emit logE("Invalid script: " + detail, true, true);
-        QMessageBox::warning(this, tr("Data terminal"), "Invalid script: " + detail);
+        warn("Invalid script: " + QString::fromStdString(script.error().detail));
+        return std::nullopt;
+    }
+    return std::move(*script);
+}
+
+template <typename Config> void DataTerminal::openLink(bool settingsOk, const Config& config)
+{
+    if (!settingsOk)
+    {
         return;
     }
-
-    if (interfaceTypeName.startsWith("sendKlineMessage"))
+    emit logD("All good, setting interface...", true, true);
+    emit logD("Opening interface...", true, true);
+    if (const auto opened = link_->Open(config); !opened.has_value())
     {
-        emit logD("Send message via K-Line", true, true);
-
-        emit logD("Checking protocol: " + ui_->klineProtocol->currentText(), true, true);
-        bool iso14230 = false;
-        if (ui_->klineProtocol->currentText() == "SSM")
-        {
-            iso14230 = false;
-        }
-        else if (ui_->klineProtocol->currentText() == "iso14230")
-        {
-            iso14230 = true;
-        }
-        else
-        {
-            serialOk = false;
-        }
-        emit logD("Checking baudrate: " + ui_->klineBaudRate->text(), true, true);
-        // clang-tidy's DeMorgan rewrite (>= / && / <=  ->  < / || / >) is not value-identical
-        // here: QString::toDouble() parses "nan"/"NaN" text to NaN with ok=true, and NaN fails
-        // every relational operator, so the flipped form would treat a NaN baud rate as
-        // in-range instead of rejecting it.
-        // NOLINTNEXTLINE(readability-simplify-boolean-expr)
-        if (!(ui_->klineBaudRate->text().toDouble() >= 300 && ui_->klineBaudRate->text().toDouble() <= 2000000))
-        {
-            serialOk = false;
-        }
-        emit logD("Checking tester id: " + ui_->klineTesterId->text(), true, true);
-        const auto tester = static_cast<std::uint8_t>(ui_->klineTesterId->text().toUInt(&ok, 16));
-        emit logD("Checking target id: " + ui_->klineTargetId->text(), true, true);
-        const auto target = static_cast<std::uint8_t>(ui_->klineTargetId->text().toUInt(&ok, 16));
-        if (serialOk)
-        {
-            emit logD("All good, setting interface...", true, true);
-            emit logD("Opening interface...", true, true);
-            const auto opened = link_->Open(fastecu::diagnostics::KlineLinkConfig{
-                .header = fastecu::diagnostics::KlineHeader::kNone,
-                .iso14230_connection = iso14230,
-                .baud = qRound(ui_->klineBaudRate->text().toDouble()),
-                .start_byte = 0x80,
-                .tester_id = tester,
-                .target_id = target,
-            });
-            if (!opened.has_value())
-            {
-                emit logE("Unable to open interface: " + QString::fromStdString(opened.error().detail), true, true);
-            }
-        }
-
-        QByteArray received;
-        for (const auto& step : *script)
-        {
-            if (const auto *pause = std::get_if<fastecu::diagnostics::TerminalDelayStep>(&step))
-            {
-                emit logD("Delay " + QString::number(pause->duration.count()) + " ms", true, true);
-                delay(static_cast<int>(pause->duration.count()));
-                continue;
-            }
-            QByteArray output = bytes::ToQByteArray(std::get<fastecu::diagnostics::TerminalMessageStep>(step).payload);
-            if (ui_->klineProtocol->currentText() == "SSM")
-            {
-                output = addSsmHeader(output, ui_->klineTesterId->text().toUInt(&ok, 16),
-                                      ui_->klineTargetId->text().toUInt(&ok, 16), false);
-            }
-
-            emit logI("Sent: " + parseMessageToHex(output), true, true);
-            diagnostic_link_io::write(*link_, output);
-            delay(10);
-            received = diagnostic_link_io::readOrEmpty(*link_, serial_read_short_timeout_);
-            emit logI("Response: " + parseMessageToHex(received), true, true);
-        }
-        std::ignore = link_->Reset();
+        emit logE("Unable to open interface: " + QString::fromStdString(opened.error().detail), true, true);
     }
-    else if (interfaceTypeName.startsWith("sendCanMessage"))
+}
+
+void DataTerminal::sendKline(const std::vector<fastecu::diagnostics::TerminalStep>& script)
+{
+    emit logD("Send message via K-Line", true, true);
+    const QString protocol = ui_->klineProtocol->currentText();
+    emit logD("Checking protocol: " + protocol, true, true);
+    emit logD("Checking baudrate: " + ui_->klineBaudRate->text(), true, true);
+    const bool settingsOk = (protocol == "SSM" || protocol == "iso14230") && baudInRange(ui_->klineBaudRate->text());
+    bool ok = false;
+    emit logD("Checking tester id: " + ui_->klineTesterId->text(), true, true);
+    const auto tester = static_cast<std::uint8_t>(ui_->klineTesterId->text().toUInt(&ok, 16));
+    emit logD("Checking target id: " + ui_->klineTargetId->text(), true, true);
+    const auto target = static_cast<std::uint8_t>(ui_->klineTargetId->text().toUInt(&ok, 16));
+    openLink(settingsOk, fastecu::diagnostics::KlineLinkConfig{
+                             .header = fastecu::diagnostics::KlineHeader::kNone,
+                             .iso14230_connection = protocol == "iso14230",
+                             .baud = qRound(ui_->klineBaudRate->text().toDouble()),
+                             .start_byte = 0x80,
+                             .tester_id = tester,
+                             .target_id = target,
+                         });
+
+    runScript(script,
+              [this, &ok](const bytes::Bytes& payload)
+              {
+                  QByteArray output = bytes::ToQByteArray(payload);
+                  if (ui_->klineProtocol->currentText() == "SSM")
+                  {
+                      output = addSsmHeader(output, ui_->klineTesterId->text().toUInt(&ok, 16),
+                                            ui_->klineTargetId->text().toUInt(&ok, 16), false);
+                  }
+                  return output;
+              });
+}
+
+void DataTerminal::sendCan(const std::vector<fastecu::diagnostics::TerminalStep>& script)
+{
+    emit logD("Send message via CAN / iso15765", true, true);
+    const QString protocol = ui_->canProtocol->currentText();
+    emit logD("Checking protocol: " + protocol, true, true);
+    emit logD("Checking baudrate: " + ui_->canBaudRate->text(), true, true);
+    const bool settingsOk = (protocol == "CAN" || protocol == "iso15765") && baudInRange(ui_->canBaudRate->text());
+    bool ok = false;
+    emit logD("Checking CAN ID length: " + ui_->canIdLength->currentText(), true, true);
+    emit logD("Checking tester id: " + ui_->canTesterId->text(), true, true);
+    const std::uint32_t source = ui_->canTesterId->text().toUInt(&ok, 16);
+    emit logD("Checking target id: " + ui_->canTargetId->text(), true, true);
+    const std::uint32_t destination = ui_->canTargetId->text().toUInt(&ok, 16);
+    openLink(settingsOk, fastecu::diagnostics::CanLinkConfig{
+                             .iso15765 = protocol == "iso15765",
+                             .bitrate = qRound(ui_->canBaudRate->text().toDouble()),
+                             .extended_id = ui_->canIdLength->currentIndex() == 1,
+                             .source_id = source,
+                             .destination_id = destination,
+                         });
+
+    runScript(script,
+              [this, source](const bytes::Bytes& payload)
+              {
+                  if (ui_->canProtocol->currentText() == "CAN" && payload.size() > 8)
+                  {
+                      emit logE("CAN message too long (8 message bytes)", true, true);
+                      QMessageBox::warning(this, tr("CAN message"),
+                                           "CAN message too long (use 4 ID bytes + 8 message bytes)");
+                  }
+                  QByteArray output;
+                  for (const unsigned int shift : {24U, 16U, 8U, 0U})
+                  {
+                      output.append(static_cast<char>((source >> shift) & 0xffU));
+                  }
+                  output.append(bytes::ToQByteArray(payload));
+                  return output;
+              });
+}
+
+// Sends each message step as `encode` frames it and logs the response; a
+// delay step pauses. The link is reset afterwards.
+void DataTerminal::runScript(const std::vector<fastecu::diagnostics::TerminalStep>& script,
+                             const std::function<QByteArray(const bytes::Bytes&)>& encode)
+{
+    for (const auto& step : script)
     {
-        emit logD("Send message via CAN / iso15765", true, true);
-
-        emit logD("Checking protocol: " + ui_->canProtocol->currentText(), true, true);
-        bool iso15765 = false;
-        if (ui_->canProtocol->currentText() == "CAN")
+        if (const auto *pause = std::get_if<fastecu::diagnostics::TerminalDelayStep>(&step))
         {
-            iso15765 = false;
+            emit logD("Delay " + QString::number(pause->duration.count()) + " ms", true, true);
+            delay(static_cast<int>(pause->duration.count()));
+            continue;
         }
-        else if (ui_->canProtocol->currentText() == "iso15765")
-        {
-            iso15765 = true;
-        }
-        else
-        {
-            serialOk = false;
-        }
-        emit logD("Checking baudrate: " + ui_->canBaudRate->text(), true, true);
-        // See the K-Line baudrate check above; the same NaN-vs-DeMorgan hazard applies to this
-        // field's toDouble() call.
-        // NOLINTNEXTLINE(readability-simplify-boolean-expr)
-        if (!(ui_->canBaudRate->text().toDouble() >= 300 && ui_->canBaudRate->text().toDouble() <= 2000000))
-        {
-            serialOk = false;
-        }
-        emit logD("Checking CAN ID length: " + ui_->canIdLength->currentText(), true, true);
-        emit logD("Checking tester id: " + ui_->canTesterId->text(), true, true);
-        const std::uint32_t source = ui_->canTesterId->text().toUInt(&ok, 16);
-        emit logD("Checking target id: " + ui_->canTargetId->text(), true, true);
-        const std::uint32_t destination = ui_->canTargetId->text().toUInt(&ok, 16);
-        if (serialOk)
-        {
-            emit logD("All good, setting interface...", true, true);
-            emit logD("Opening interface...", true, true);
-            const auto opened = link_->Open(fastecu::diagnostics::CanLinkConfig{
-                .iso15765 = iso15765,
-                .bitrate = qRound(ui_->canBaudRate->text().toDouble()),
-                .extended_id = ui_->canIdLength->currentIndex() == 1,
-                .source_id = source,
-                .destination_id = destination,
-            });
-            if (!opened.has_value())
-            {
-                emit logE("Unable to open interface: " + QString::fromStdString(opened.error().detail), true, true);
-            }
-        }
-
-        QByteArray received;
-        const unsigned int canTesterId = ui_->canTesterId->text().toUInt(&ok, 16);
-        for (const auto& step : *script)
-        {
-            if (const auto *pause = std::get_if<fastecu::diagnostics::TerminalDelayStep>(&step))
-            {
-                emit logD("Delay " + QString::number(pause->duration.count()) + " ms", true, true);
-                delay(static_cast<int>(pause->duration.count()));
-                continue;
-            }
-            const auto& payload = std::get<fastecu::diagnostics::TerminalMessageStep>(step).payload;
-            if (ui_->canProtocol->currentText() == "CAN" && payload.size() > 8)
-            {
-                emit logE("CAN message too long (8 message bytes)", true, true);
-                QMessageBox::warning(this, tr("CAN message"),
-                                     "CAN message too long (use 4 ID bytes + 8 message bytes)");
-            }
-            QByteArray output;
-            for (const unsigned int shift : {24U, 16U, 8U, 0U})
-            {
-                output.append(static_cast<char>((canTesterId >> shift) & 0xffU));
-            }
-            output.append(bytes::ToQByteArray(payload));
-            emit logI("Sent: " + parseMessageToHex(output), true, true);
-            diagnostic_link_io::write(*link_, output);
-            delay(10);
-            received = diagnostic_link_io::readOrEmpty(*link_, serial_read_short_timeout_);
-            emit logI("Response: " + parseMessageToHex(received), true, true);
-        }
-        std::ignore = link_->Reset();
+        const QByteArray output = encode(std::get<fastecu::diagnostics::TerminalMessageStep>(step).payload);
+        emit logI("Sent: " + parseMessageToHex(output), true, true);
+        diagnostic_link_io::write(*link_, output);
+        delay(10);
+        const QByteArray received = diagnostic_link_io::readOrEmpty(*link_, serial_read_short_timeout_);
+        emit logI("Response: " + parseMessageToHex(received), true, true);
     }
+    std::ignore = link_->Reset();
 }
 
 /*
