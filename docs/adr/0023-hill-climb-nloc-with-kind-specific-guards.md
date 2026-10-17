@@ -2,7 +2,9 @@
 
 ## Status
 
-Proposed. Design in
+Accepted and implemented by `scripts/nloc_loop.py`, the manual-stage `nloc`
+and `jscpd` prek hooks, the `nloc-loop` workflow and the `hill-climbing-nloc`
+project skill. Design in
 [the NLOC hill-climbing spec](../superpowers/specs/2026-10-17-nloc-hill-climbing.md).
 
 ## Context
