@@ -43,40 +43,6 @@ using bytes::U24;
 using namespace bytes::literals;
 using namespace std::chrono_literals;
 
-class ToggleCancellation final : public ICancellationToken
-{
-  public:
-    bool Cancelled() const override
-    {
-        return cancelled_;
-    }
-
-    void Cancel()
-    {
-        cancelled_ = true;
-    }
-
-  private:
-    bool cancelled_ = false;
-};
-
-class FlipAfter final : public ICancellationToken
-{
-  public:
-    explicit FlipAfter(int allowed_checks) : allowed_checks_(allowed_checks)
-    {
-    }
-
-    bool Cancelled() const override
-    {
-        return checks_++ >= allowed_checks_;
-    }
-
-  private:
-    int allowed_checks_;
-    mutable int checks_ = 0;
-};
-
 class OpenScriptedKlineFlashTransport final : public ScriptedKlineFlashTransport
 {
   public:
@@ -101,7 +67,7 @@ class ShortWriteTransport final : public ScriptedKlineFlashTransport
 class DrainCancellingTransport final : public ScriptedKlineFlashTransport
 {
   public:
-    explicit DrainCancellingTransport(ToggleCancellation& cancellation)
+    explicit DrainCancellingTransport(FakeCancellationToken& cancellation)
         : ScriptedKlineFlashTransport(ScriptedTransportInitialState::kOpen), cancellation_(cancellation)
     {
     }
@@ -110,7 +76,7 @@ class DrainCancellingTransport final : public ScriptedKlineFlashTransport
     {
         if (timeout == 10ms)
         {
-            cancellation_.Cancel();
+            cancellation_.SetCancelled(true);
         }
         return ScriptedKlineFlashTransport::Read(timeout, cancellation);
     }
@@ -124,13 +90,13 @@ class DrainCancellingTransport final : public ScriptedKlineFlashTransport
     std::vector<bytes::Bytes> write_attempts;
 
   private:
-    ToggleCancellation& cancellation_;
+    FakeCancellationToken& cancellation_;
 };
 
 class CancelAfterEraseTransport final : public ScriptedKlineFlashTransport
 {
   public:
-    explicit CancelAfterEraseTransport(ToggleCancellation& cancellation)
+    explicit CancelAfterEraseTransport(FakeCancellationToken& cancellation)
         : ScriptedKlineFlashTransport(ScriptedTransportInitialState::kOpen), cancellation_(cancellation)
     {
     }
@@ -154,7 +120,7 @@ class CancelAfterEraseTransport final : public ScriptedKlineFlashTransport
         if (erase_response_pending_)
         {
             erase_response_pending_ = false;
-            cancellation_.Cancel();
+            cancellation_.SetCancelled(true);
         }
         return result;
     }
@@ -162,7 +128,7 @@ class CancelAfterEraseTransport final : public ScriptedKlineFlashTransport
     std::size_t flash_buffer_write_attempts = 0;
 
   private:
-    ToggleCancellation& cancellation_;
+    FakeCancellationToken& cancellation_;
     bool erase_response_pending_ = false;
 };
 
@@ -429,7 +395,8 @@ TEST(SubaruDensoMc68hc16y5_02Executor, BoundAttemptPreservesConfigureToOpenCance
     auto attempt =
         BindFlashAttempt(std::move(*plan), std::make_unique<SubaruDensoMc68hc16y5_02Executor>(), std::move(transport));
     FakeClock clock;
-    FlipAfter cancellation(1);
+    FakeCancellationToken cancellation;
+    cancellation.CancelOnCheck(2);
     RecordingEventSink events;
 
     ASSERT_THAT(attempt->Run(clock, cancellation, events), fastecu::testing::IsErr(ErrorKind::kCancelled));
@@ -715,7 +682,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, CancellationAtInitialDrainStopsBeforeBoot
 {
     auto plan = StockPlan();
     ASSERT_THAT(plan, fastecu::testing::IsOk());
-    ToggleCancellation cancellation;
+    FakeCancellationToken cancellation;
     DrainCancellingTransport transport(cancellation);
     FakeClock clock;
     RecordingEventSink events;
@@ -855,11 +822,11 @@ TEST(SubaruDensoMc68hc16y5_02Executor, ReadCancelsBetweenPages)
     ScriptStockConnectAndUpload(transport);
     ScriptReadPage(transport, 0x00000000, 0xA5);
 
-    ToggleCancellation cancellation;
+    FakeCancellationToken cancellation;
     MockClock clock;
     // Cancel only after the first page's 1 ms pacing sleep has completed.
     EXPECT_CALL(clock, Sleep(1ms, _))
-        .WillOnce(DoAll(clock.SleepOnFake(), [&] { cancellation.Cancel(); }, Return(Status{})));
+        .WillOnce(DoAll(clock.SleepOnFake(), [&] { cancellation.SetCancelled(true); }, Return(Status{})));
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
     ASSERT_THAT(executor.Execute(*plan, transport, clock, cancellation, events),
@@ -1100,7 +1067,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WriteCancelsMidBlockTransfer)
     auto plan = StockWritePlan(FlashOperation::kWrite, image);
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
-    ToggleCancellation cancellation;
+    FakeCancellationToken cancellation;
     CancelAfterEraseTransport transport(cancellation);
     ScriptStockConnectAndUpload(transport);
     ScriptCrcCompare(transport, *device, image, kDifferingBlock);
