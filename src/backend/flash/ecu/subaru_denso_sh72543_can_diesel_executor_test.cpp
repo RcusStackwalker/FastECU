@@ -20,6 +20,7 @@
 #include "src/backend/flash/ecu/subaru_denso_sh72543_can_diesel_plan.h"
 #include "src/backend/flash/flash_validation.h"
 #include "src/backend/flash/ecu/testing/can_executor_conformance.h"
+#include "src/backend/flash/ecu/testing/can_executor_run.h"
 #include "src/backend/flash/ecu/testing/denso_can_frames.h"
 #include "src/backend/flash/testing/scripted_can_flash_transport.h"
 #include "src/backend/ports/manual_cancellation_token.h"
@@ -373,15 +374,9 @@ TEST(SubaruDensoSh72543CanDieselExecutor, BenchReadReturnsPaddedImage)
     ScriptFlashDump(transport, kBlockStart, kBlockLength, kPageSize, 0xA5);
     ScriptStopCommand(transport);
 
-    FakeClock clock;
-    RecordingEventSink events;
-    fastecu::ManualCancellationToken cancellation;
-    SubaruDensoSh72543CanDieselExecutor executor;
-
     const auto plan = ReadPlan();
     ASSERT_THAT(plan, fastecu::testing::IsOk());
-
-    auto result = executor.Execute(*plan, transport, clock, cancellation, events);
+    auto [clock, events, cancellation, result] = ExecutorRun<SubaruDensoSh72543CanDieselExecutor>(*plan, transport);
     ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_TRUE(result->read_bytes.has_value());
     const bytes::Bytes& rom = *result->read_bytes;
@@ -412,15 +407,9 @@ TEST(SubaruDensoSh72543CanDieselExecutor, InCarReadReturnsPaddedImage)
     ScriptFlashDump(transport, kBlockStart, kBlockLength, kPageSize, 0x5A);
     ScriptStopCommand(transport);
 
-    FakeClock clock;
-    RecordingEventSink events;
-    fastecu::ManualCancellationToken cancellation;
-    SubaruDensoSh72543CanDieselExecutor executor;
-
     const auto plan = ReadPlan();
     ASSERT_THAT(plan, fastecu::testing::IsOk());
-
-    auto result = executor.Execute(*plan, transport, clock, cancellation, events);
+    auto [clock, events, cancellation, result] = ExecutorRun<SubaruDensoSh72543CanDieselExecutor>(*plan, transport);
     ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_TRUE(result->read_bytes.has_value());
     const bytes::Bytes& rom = *result->read_bytes;
@@ -443,15 +432,10 @@ TEST(SubaruDensoSh72543CanDieselExecutor, WriteErasesThenFlashesBlockZero)
     ScriptReflashChunks(transport, rom);
     ScriptCloseAndChecksum(transport);
 
-    RecordingClock clock;
-    RecordingEventSink events;
-    fastecu::ManualCancellationToken cancellation;
-    SubaruDensoSh72543CanDieselExecutor executor;
-
     const auto plan = WritePlan(rom);
     ASSERT_THAT(plan, fastecu::testing::IsOk());
-
-    auto result = executor.Execute(*plan, transport, clock, cancellation, events);
+    auto [clock, events, cancellation, result] =
+        ExecutorRun<SubaruDensoSh72543CanDieselExecutor, fastecu::RecordingClock>(*plan, transport);
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(result->operation, FlashOperation::kWrite);
     EXPECT_FALSE(result->read_bytes.has_value());
@@ -497,15 +481,9 @@ TEST(SubaruDensoSh72543CanDieselExecutor, WriteTakesBytesFromTheAbsoluteAddress)
                                                 bytes::ByteView(encrypted).subspan(kBlockStart - kImageStart, 256))),
                        Response({0xF6}));
 
-    FakeClock clock;
-    RecordingEventSink events;
-    fastecu::ManualCancellationToken cancellation;
-    SubaruDensoSh72543CanDieselExecutor executor;
-
     const auto plan = WritePlan(rom);
     ASSERT_THAT(plan, fastecu::testing::IsOk());
-
-    auto result = executor.Execute(*plan, transport, clock, cancellation, events);
+    auto [clock, events, cancellation, result] = ExecutorRun<SubaruDensoSh72543CanDieselExecutor>(*plan, transport);
 
     EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kInternal));
     EXPECT_EQ(transport.WritesConsumed(), kBenchConnectWrites + kEraseWrites + 1);
@@ -528,15 +506,9 @@ TEST(SubaruDensoSh72543CanDieselExecutor, BenchSessionMismatchIsToleratedAndCont
     transport.Exchange(Request({0x27, 0x61}));
     transport.QueueError(ErrorKind::kTimeout, "stop after the tolerated mismatch");
 
-    FakeClock clock;
-    RecordingEventSink events;
-    fastecu::ManualCancellationToken cancellation;
-    SubaruDensoSh72543CanDieselExecutor executor;
-
     const auto plan = ReadPlan();
     ASSERT_THAT(plan, fastecu::testing::IsOk());
-
-    auto result = executor.Execute(*plan, transport, clock, cancellation, events);
+    auto [clock, events, cancellation, result] = ExecutorRun<SubaruDensoSh72543CanDieselExecutor>(*plan, transport);
 
     EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kTimeout));
     EXPECT_TRUE(transport.ScriptConsumed());
@@ -559,15 +531,9 @@ TEST(SubaruDensoSh72543CanDieselExecutor, ReadTimeoutAfterConnectOnlySleepsTheBe
     transport.Exchange(Request({0x34, 0x04, 0x44, 0x00, 0x00, 0x80, 0x00, 0x00, 0x1F, 0x7F, 0x00}));
     transport.QueueError(ErrorKind::kTimeout, "no reply");
 
-    FakeClock clock;
-    RecordingEventSink events;
-    fastecu::ManualCancellationToken cancellation;
-    SubaruDensoSh72543CanDieselExecutor executor;
-
     const auto plan = ReadPlan();
     ASSERT_THAT(plan, fastecu::testing::IsOk());
-
-    auto result = executor.Execute(*plan, transport, clock, cancellation, events);
+    auto [clock, events, cancellation, result] = ExecutorRun<SubaruDensoSh72543CanDieselExecutor>(*plan, transport);
 
     EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kTimeout));
     EXPECT_TRUE(transport.ScriptConsumed());
@@ -593,15 +559,9 @@ TEST(SubaruDensoSh72543CanDieselExecutor, ReadDisconnectMidDumpLoopPropagates)
     transport.Exchange(Request(bytes::ComposeBe(bytes::Byte(0xB7), kBlockStart)));
     transport.QueueError(ErrorKind::kDisconnected, "adapter gone");
 
-    FakeClock clock;
-    RecordingEventSink events;
-    fastecu::ManualCancellationToken cancellation;
-    SubaruDensoSh72543CanDieselExecutor executor;
-
     const auto plan = ReadPlan();
     ASSERT_THAT(plan, fastecu::testing::IsOk());
-
-    const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
+    auto [clock, events, cancellation, result] = ExecutorRun<SubaruDensoSh72543CanDieselExecutor>(*plan, transport);
 
     EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kDisconnected));
     EXPECT_TRUE(transport.ScriptConsumed());
@@ -617,15 +577,9 @@ TEST(SubaruDensoSh72543CanDieselExecutor, NegativeResponseDuringConnectFails)
     transport.Exchange(Request({0x10, 0x43}), Response({0x50, 0x43}));
     transport.Exchange(Request({0x27, 0x61}), Response({0x7F, 0x27, 0x35}));
 
-    FakeClock clock;
-    RecordingEventSink events;
-    fastecu::ManualCancellationToken cancellation;
-    SubaruDensoSh72543CanDieselExecutor executor;
-
     const auto plan = ReadPlan();
     ASSERT_THAT(plan, fastecu::testing::IsOk());
-
-    auto result = executor.Execute(*plan, transport, clock, cancellation, events);
+    auto [clock, events, cancellation, result] = ExecutorRun<SubaruDensoSh72543CanDieselExecutor>(*plan, transport);
 
     EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kBadResponse));
     EXPECT_TRUE(transport.ScriptConsumed());
@@ -646,15 +600,9 @@ TEST(SubaruDensoSh72543CanDieselExecutor, NegativeResponseAtDumpSetupFails)
     transport.Exchange(Request({0x34, 0x04, 0x44, 0x00, 0x00, 0x80, 0x00, 0x00, 0x1F, 0x7F, 0x00}),
                        Response({0x7F, 0x34, 0x31}));
 
-    FakeClock clock;
-    RecordingEventSink events;
-    fastecu::ManualCancellationToken cancellation;
-    SubaruDensoSh72543CanDieselExecutor executor;
-
     const auto plan = ReadPlan();
     ASSERT_THAT(plan, fastecu::testing::IsOk());
-
-    const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
+    auto [clock, events, cancellation, result] = ExecutorRun<SubaruDensoSh72543CanDieselExecutor>(*plan, transport);
 
     EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kBadResponse));
     EXPECT_TRUE(transport.ScriptConsumed());
@@ -674,15 +622,9 @@ TEST(SubaruDensoSh72543CanDieselExecutor, EmptyBranchSelectorReplyFails)
     transport.Exchange(Request({0x22, 0x10, 0x1D}));
     transport.QueueNoFrame();
 
-    FakeClock clock;
-    RecordingEventSink events;
-    fastecu::ManualCancellationToken cancellation;
-    SubaruDensoSh72543CanDieselExecutor executor;
-
     const auto plan = ReadPlan();
     ASSERT_THAT(plan, fastecu::testing::IsOk());
-
-    auto result = executor.Execute(*plan, transport, clock, cancellation, events);
+    auto [clock, events, cancellation, result] = ExecutorRun<SubaruDensoSh72543CanDieselExecutor>(*plan, transport);
 
     EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kTimeout));
     EXPECT_TRUE(transport.ScriptConsumed());
@@ -702,15 +644,9 @@ TEST(SubaruDensoSh72543CanDieselExecutor, EcuIdLogKeepsOnlyLegacysFiveBytes)
     transport.Exchange(Request({0x09, 0x02}));
     transport.QueueNoFrame();
 
-    FakeClock clock;
-    RecordingEventSink events;
-    fastecu::ManualCancellationToken cancellation;
-    SubaruDensoSh72543CanDieselExecutor executor;
-
     const auto plan = ReadPlan();
     ASSERT_THAT(plan, fastecu::testing::IsOk());
-
-    const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
+    auto [clock, events, cancellation, result] = ExecutorRun<SubaruDensoSh72543CanDieselExecutor>(*plan, transport);
 
     EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kInternal,
                                                     ::testing::HasSubstr("ran past the end of the script")));
@@ -731,15 +667,9 @@ TEST(SubaruDensoSh72543CanDieselExecutor, EraseRetryExhaustionFails)
         transport.QueueRead(Response({0x71, 0x01, 0x03}));
     }
 
-    FakeClock clock;
-    RecordingEventSink events;
-    fastecu::ManualCancellationToken cancellation;
-    SubaruDensoSh72543CanDieselExecutor executor;
-
     const auto plan = WritePlan(rom);
     ASSERT_THAT(plan, fastecu::testing::IsOk());
-
-    auto result = executor.Execute(*plan, transport, clock, cancellation, events);
+    auto [clock, events, cancellation, result] = ExecutorRun<SubaruDensoSh72543CanDieselExecutor>(*plan, transport);
 
     EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kBadResponse));
     EXPECT_TRUE(transport.ScriptConsumed());
@@ -933,13 +863,10 @@ TEST(SubaruDensoSh72543CanDieselExecutor, ShortPagesAdvanceByRequestedSizeAndSto
         {
             transport.QueueRead(Response({0x77}));
         }
-        RecordingClock clock;
-        RecordingEventSink events;
-        fastecu::ManualCancellationToken cancellation;
-        SubaruDensoSh72543CanDieselExecutor executor;
         const auto plan = ReadPlan();
         ASSERT_THAT(plan, fastecu::testing::IsOk());
-        const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
+        auto [clock, events, cancellation, result] =
+            ExecutorRun<SubaruDensoSh72543CanDieselExecutor, fastecu::RecordingClock>(*plan, transport);
         ASSERT_THAT(result, fastecu::testing::IsOk());
         ASSERT_TRUE(result->read_bytes.has_value());
         constexpr std::size_t kPages = kBlockLength / kPageSize;
@@ -1151,13 +1078,10 @@ TEST(SubaruDensoSh72543CanDieselExecutor, CloseRetriesSettleAndChecksumOutcomes)
         {
             transport.QueueRead(Response({0x71, 0x01, 0x02}));
         }
-        RecordingClock clock;
-        RecordingEventSink events;
-        fastecu::ManualCancellationToken cancellation;
-        SubaruDensoSh72543CanDieselExecutor executor;
         const auto plan = WritePlan(rom);
         ASSERT_THAT(plan, fastecu::testing::IsOk());
-        const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
+        auto [clock, events, cancellation, result] =
+            ExecutorRun<SubaruDensoSh72543CanDieselExecutor, fastecu::RecordingClock>(*plan, transport);
         if (outcome < 2)
         {
             EXPECT_THAT(result, fastecu::testing::IsOk());
