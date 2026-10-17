@@ -213,6 +213,103 @@ struct CommonFixture
     CanExecutorContext ctx{cancellation, events, clock, client, channel};
 };
 
+TEST(DensoIso15765CanCommonTest, JumpWaitChecksCurrentReplyBeforeEachSleep)
+{
+    CommonFixture immediate;
+    EXPECT_THAT(DensoIso15765WaitForJumpAck(immediate.ctx, 0x42, bytes::Bytes{0x50, 0x42}, 50),
+                fastecu::testing::IsOk());
+    EXPECT_THAT(immediate.clock.sleep_calls, ::testing::IsEmpty());
+    EXPECT_THAT(immediate.transport.ReadTimeouts(), ::testing::IsEmpty());
+    EXPECT_THAT(immediate.events.logs,
+                ::testing::ElementsAre(::testing::Pair(LogLevel::kInfo, "Kernel jump acknowledged")));
+
+    // Absent, short, wrong-service and wrong-session replies must all wait.
+    for (const auto& reply : std::array<std::optional<bytes::Bytes>, 5>{
+             std::nullopt, bytes::Bytes{}, bytes::Bytes{0x50}, bytes::Bytes{0x51, 0x62}, bytes::Bytes{0x50, 0x42}})
+    {
+        CommonFixture late;
+        late.transport.QueueRead(Response({0x50, 0x62, 0xAA}));
+        EXPECT_THAT(DensoIso15765WaitForJumpAck(late.ctx, 0x62, reply, 10), fastecu::testing::IsOk());
+        EXPECT_TRUE(late.transport.ScriptConsumed());
+        EXPECT_THAT(late.clock.sleep_calls, ::testing::ElementsAre(100ms));
+        EXPECT_THAT(late.transport.ReadTimeouts(), ::testing::ElementsAre(200ms));
+        EXPECT_THAT(late.events.logs,
+                    ::testing::ElementsAre(::testing::Pair(LogLevel::kInfo, "Kernel jump acknowledged")));
+    }
+}
+
+TEST(DensoIso15765CanCommonTest, JumpWaitFinalReceiveIsNotChecked)
+{
+    for (const int attempts : {50, 10})
+    {
+        SCOPED_TRACE(attempts);
+        CommonFixture f;
+        const bytes::Byte session = attempts == 50 ? 0x42 : 0x62;
+        for (int attempt = 0; attempt < attempts - 1; ++attempt)
+        {
+            f.transport.QueueNoFrame();
+        }
+        f.transport.QueueRead(attempts == 50 ? Response({0x50, 0x42}) : Response({0x50, 0x62}));
+        ::testing::NiceMock<MockClock> clock;
+        int sleeps = 0;
+        EXPECT_CALL(clock, Sleep(100ms, ::testing::_))
+            .Times(attempts)
+            .WillRepeatedly(
+                [&](std::chrono::milliseconds duration, const ICancellationToken& cancellation)
+                {
+                    EXPECT_EQ(f.transport.ReadTimeouts().size(), static_cast<std::size_t>(sleeps));
+                    ++sleeps;
+                    return clock.Fake().Sleep(duration, cancellation);
+                });
+        CanExecutorContext ctx{f.cancellation, f.events, clock, f.client, f.channel};
+        EXPECT_THAT(DensoIso15765WaitForJumpAck(ctx, session, std::nullopt, attempts), fastecu::testing::IsOk());
+        EXPECT_TRUE(f.transport.ScriptConsumed());
+        EXPECT_EQ(f.transport.ReadTimeouts().size(), static_cast<std::size_t>(attempts));
+        EXPECT_THAT(f.transport.ReadTimeouts(), ::testing::Each(200ms));
+        EXPECT_EQ(sleeps, attempts);
+        EXPECT_THAT(f.events.logs,
+                    ::testing::ElementsAre(::testing::Pair(
+                        LogLevel::kError, "Kernel jump was not acknowledged; continuing, as legacy does")));
+    }
+}
+
+TEST(DensoIso15765CanCommonTest, JumpWaitPropagatesSleepAndReceiveErrors)
+{
+    for (const auto kind :
+         {ErrorKind::kInvalidConfig, ErrorKind::kTimeout, ErrorKind::kDisconnected, ErrorKind::kBadResponse,
+          ErrorKind::kCancelled, ErrorKind::kUnsupported, ErrorKind::kInternal})
+    {
+        SCOPED_TRACE(fastecu::ToString(kind));
+        CommonFixture f;
+        ::testing::NiceMock<MockClock> clock;
+        EXPECT_CALL(clock, Sleep(100ms, ::testing::_)).WillOnce(::testing::Return(fastecu::Fail(kind, "sleep failed")));
+        CanExecutorContext ctx{f.cancellation, f.events, clock, f.client, f.channel};
+        const auto slept = DensoIso15765WaitForJumpAck(ctx, 0x42, std::nullopt, 50);
+        ASSERT_THAT(slept, fastecu::testing::IsErr(kind));
+        EXPECT_EQ(slept.error().detail, "sleep failed");
+        EXPECT_THAT(f.transport.ReadTimeouts(), ::testing::IsEmpty());
+
+        f.transport.QueueError(kind, "receive failed");
+        const auto received = DensoIso15765WaitForJumpAck(f.ctx, 0x62, std::nullopt, 10);
+        ASSERT_THAT(received, fastecu::testing::IsErr(kind));
+        EXPECT_EQ(received.error().detail, "receive failed");
+        EXPECT_TRUE(f.transport.ScriptConsumed());
+        EXPECT_THAT(f.clock.sleep_calls, ::testing::ElementsAre(100ms));
+        EXPECT_THAT(f.transport.ReadTimeouts(), ::testing::ElementsAre(200ms));
+        EXPECT_THAT(f.events.logs, ::testing::IsEmpty());
+    }
+}
+
+TEST(DensoIso15765CanCommonTest, JumpWaitCancelledSleepDoesNotReceive)
+{
+    CommonFixture f;
+    f.cancellation.Cancel();
+    EXPECT_THAT(DensoIso15765WaitForJumpAck(f.ctx, 0x42, std::nullopt, 50),
+                fastecu::testing::IsErr(ErrorKind::kCancelled));
+    EXPECT_THAT(f.transport.ReadTimeouts(), ::testing::IsEmpty());
+    EXPECT_THAT(f.events.logs, ::testing::IsEmpty());
+}
+
 // Changing the retry bound, error tolerance, or timeout breaks this literal transcript.
 TEST(DensoIso15765CanCommonTest, TransferExitRetriesSixTimesAndSwallowsReturnedErrors)
 {

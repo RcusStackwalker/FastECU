@@ -240,26 +240,7 @@ Status JumpToKernel(Ctx& ctx, bytes::Byte session, int max_tries, bool duplicate
             return std::unexpected(received.error());
         }
     }
-    for (int attempt = 0; attempt < max_tries; ++attempt)
-    {
-        if (received->has_value() && received->value().size() > 1 && (**received)[0] == kSessionControlReply &&
-            (**received)[1] == session)
-        {
-            LogInfo(ctx, "Kernel jump acknowledged");
-            return {};
-        }
-        if (const Status slept = ctx.clock.Sleep(100ms, ctx.cancellation); !slept.has_value())
-        {
-            return slept;
-        }
-        received = ctx.channel.Receive(kShortTimeout, ctx.cancellation);
-        if (!received.has_value())
-        {
-            return std::unexpected(received.error());
-        }
-    }
-    LogError(ctx, "Kernel jump was not acknowledged; continuing, as legacy does");
-    return {};
+    return DensoIso15765WaitForJumpAck(ctx, session, std::move(*received), max_tries);
 }
 
 // In-car programming arm, legacy lines 345-661.

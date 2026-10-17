@@ -2,6 +2,7 @@
 
 #include <array>
 #include <format>
+#include <utility>
 
 #include "src/algorithms/protocol/bytes_compose.h"
 #include "src/algorithms/protocol/uds/uds_response.h"
@@ -123,6 +124,32 @@ void DensoIso15765BestEffortTransferExit(const CanExecutorContext& ctx)
             break;
         }
     }
+}
+
+Status DensoIso15765WaitForJumpAck(const CanExecutorContext& ctx, bytes::Byte session,
+                                   std::optional<bytes::Bytes> first_reply, int attempt_count)
+{
+    for (int attempt = 0; attempt < attempt_count; ++attempt)
+    {
+        if (first_reply.has_value() && first_reply->size() > 1 &&
+            (*first_reply)[0] == uds::kSidDiagnosticSessionControl + 0x40 && (*first_reply)[1] == session)
+        {
+            LogInfo(ctx, "Kernel jump acknowledged");
+            return {};
+        }
+        if (const Status slept = ctx.clock.Sleep(std::chrono::milliseconds{100}, ctx.cancellation); !slept.has_value())
+        {
+            return slept;
+        }
+        auto received = ctx.channel.Receive(std::chrono::milliseconds{200}, ctx.cancellation);
+        if (!received.has_value())
+        {
+            return std::unexpected(received.error());
+        }
+        first_reply = std::move(*received);
+    }
+    LogError(ctx, "Kernel jump was not acknowledged; continuing, as legacy does");
+    return {};
 }
 
 Result<bytes::Bytes> TolerantProbe(const CanExecutorContext& ctx, bytes::ByteView pdu, bytes::Byte expected_service,

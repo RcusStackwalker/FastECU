@@ -280,10 +280,12 @@ void ScriptInCarConnect(ScriptedCanFlashTransport& t, int jump_outcome = 0)
         }
         else
         {
-            for (int attempt = 0; attempt < 11; ++attempt)
+            const int absent_reads = jump_outcome == 3 ? 1 : 10;
+            for (int attempt = 0; attempt < absent_reads; ++attempt)
             {
                 t.QueueNoFrame();
             }
+            t.QueueRead(Response({0x50, 0x62})); // late ACK; exhausted final receive is unchecked
         }
     }
 }
@@ -979,10 +981,11 @@ TEST(SubaruDensoSh72531CanExecutor, BenchJumpExhaustionPreservesReadCountAndTimi
     transport.Exchange(Request({0x10, 0x42}));
     transport.QueueRead(Response({0x50, 0x42})); // discarded despite matching
     transport.QueueNoFrame();
-    for (int attempt = 0; attempt < 50; ++attempt)
+    for (int attempt = 0; attempt < 49; ++attempt)
     {
         transport.QueueNoFrame();
     }
+    transport.QueueRead(Response({0x50, 0x42})); // final receive is deliberately unchecked
     ScriptReadSetup(transport);
     transport.Exchange(Request(bytes::ComposeBe(bytes::Byte(0xB7), kBlockStart)));
     transport.QueueError(ErrorKind::kDisconnected, "stop after tolerated jump");
@@ -1178,11 +1181,11 @@ TEST(SubaruDensoSh72531CanExecutor, IdentityExchangeFailuresIncludingCancellatio
 
 TEST(SubaruDensoSh72531CanExecutor, InCarJumpExhaustionAndCancellationPreserveTimeoutPolicy)
 {
-    for (const int outcome : {1, 2})
+    for (const int outcome : {0, 1, 2, 3})
     {
         ScriptedCanFlashTransport transport;
         ScriptInCarConnect(transport, outcome);
-        if (outcome == 1)
+        if (outcome != 2)
         {
             ScriptReadSetup(transport);
             transport.Exchange(Request(bytes::ComposeBe(bytes::Byte(0xB7), kBlockStart)));
@@ -1195,21 +1198,26 @@ TEST(SubaruDensoSh72531CanExecutor, InCarJumpExhaustionAndCancellationPreserveTi
         const auto plan = ReadPlan();
         ASSERT_THAT(plan, fastecu::testing::IsOk());
         EXPECT_THAT(executor.Execute(*plan, transport, clock, cancellation, events),
-                    fastecu::testing::IsErr(outcome == 1 ? ErrorKind::kDisconnected : ErrorKind::kCancelled));
+                    fastecu::testing::IsErr(outcome != 2 ? ErrorKind::kDisconnected : ErrorKind::kCancelled));
         EXPECT_TRUE(transport.ScriptConsumed());
         const auto& timeouts = transport.ReadTimeouts();
-        const std::size_t count = outcome == 1 ? 11 : 1;
-        const std::size_t trailing_read_count = outcome == 1 ? 3 : 0;
+        const std::size_t count = outcome == 1 ? 11 : outcome == 3 ? 2 : 1;
+        const std::size_t trailing_read_count = outcome != 2 ? 3 : 0;
         ASSERT_GE(timeouts.size(), count + trailing_read_count);
         using TimeoutDifference = std::vector<std::chrono::milliseconds>::difference_type;
         const auto end = timeouts.end() - static_cast<TimeoutDifference>(trailing_read_count);
         EXPECT_THAT(std::vector<std::chrono::milliseconds>(end - static_cast<TimeoutDifference>(count), end),
                     Each(200ms));
         std::vector<std::chrono::milliseconds> sleeps{500ms};
-        if (outcome == 1)
+        if (outcome != 2)
         {
-            sleeps.insert(sleeps.end(), 10, 100ms);
+            sleeps.insert(sleeps.end(), outcome == 1 ? 10 : outcome == 3 ? 1 : 0, 100ms);
         }
+        EXPECT_THAT(events.logs, testing::Contains(testing::Pair(
+                                     outcome == 1 ? fastecu::LogLevel::kError : fastecu::LogLevel::kInfo,
+                                     outcome == 1   ? "Kernel jump was not acknowledged; continuing, as legacy does"
+                                     : outcome == 2 ? "Jump to onboad kernel"
+                                                    : "Kernel jump acknowledged")));
         EXPECT_EQ(clock.sleep_calls, sleeps);
     }
 }
