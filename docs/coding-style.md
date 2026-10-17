@@ -157,6 +157,11 @@ for (int attempt = 0; attempt < 20 && !connected; ++attempt) { ... }
 (`KernelFreeCanWorkflow<FooExecutor, &build_foo_plan>`), so the address is
 explicit. (Sonar cpp:S936)
 
+**Declare template type parameters with `typename`, not `class`**
+(`template <typename T>`). The keywords are equivalent there; one spelling keeps
+declarations uniform. Enforced by the `fastecu-template-typename` plugin check
+([tooling](tooling.md#clang-tidy-plugin)), which also provides the fix-it.
+
 ## Complexity
 
 **No function exceeds cyclomatic complexity 15** ([Lizard](tooling.md#lizard));

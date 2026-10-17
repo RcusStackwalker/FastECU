@@ -79,7 +79,7 @@ struct TrafficEvidence
 // exchange's pair is kept, the last pair overwrites it, and counts and elapsed
 // time add up. Templated on the accumulator because CommandOutcome carries the
 // same six fields inline, so both it and TrafficEvidence are valid totals.
-template <class Accumulator> void append_traffic(Accumulator& total, const TrafficEvidence& next)
+template <typename Accumulator> void append_traffic(Accumulator& total, const TrafficEvidence& next)
 {
     if (next.exchange_count == 0)
     {

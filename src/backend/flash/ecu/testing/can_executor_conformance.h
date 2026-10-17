@@ -25,7 +25,7 @@ namespace fastecu::flash::testing
 // Plan factories return Result<FlashPlan>. Each test must assert success
 // before dereferencing: a nonfatal assertion inside a value-returning
 // helper would let a failed setup continue into invalid access or I/O.
-template <class Traits> class CanExecutorConformance : public ::testing::Test
+template <typename Traits> class CanExecutorConformance : public ::testing::Test
 {
 };
 

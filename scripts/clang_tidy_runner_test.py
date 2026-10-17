@@ -1490,6 +1490,30 @@ class ClangTidyRunnerTest(unittest.TestCase):
         self.assertIn("-j", analyses[1])
         self.assertIn("custom-analysis", output.getvalue())
 
+    def test_plugin_checks_load_only_when_a_plugin_is_configured(self) -> None:
+        (self.root / ".clang-tidy").write_text("Checks: '-*'\n")
+        configured = {"FASTECU_CLANG_TIDY_PLUGIN": "/p/libx.dylib"}
+        for environ, loaded in (({}, False), (configured, True)):
+            with self.subTest(loaded=loaded):
+                commands, fake_run = self.prebuild_fixture()
+                with (
+                    mock.patch.object(runner, "discover_tools", return_value=_UNIX_TOOLS),
+                    redirect_stdout(StringIO()),
+                ):
+                    runner.run_workflow(
+                        mode="report",
+                        workspace=self.root,
+                        compdb_tool=_UNIX_COMPDB_TOOL,
+                        platform_name="linux",
+                        environ=environ,
+                        command_runner=fake_run,
+                    )
+                analyses = [c for c in commands if "-clang-tidy-binary" in c]
+                self.assertEqual(2 if loaded else 1, len(analyses))
+                if loaded:
+                    self.assertIn("-checks=-*,fastecu-template-typename", analyses[1])
+                    self.assertEqual("/p/libx.dylib", analyses[1][analyses[1].index("-load") + 1])
+
     def test_inline_header_filter_accepts_both_windows_separator_spellings(self) -> None:
         expression = runner.inline_header_filter(PurePath("C:/a/FastECU"))
         self.assertRegex("C:/a/FastECU/apps/bench/helper.h", expression)

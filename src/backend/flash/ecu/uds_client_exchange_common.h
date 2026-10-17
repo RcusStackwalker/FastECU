@@ -60,7 +60,7 @@ struct CanExecutorContext
 
 // Any executor context carrying an event sink -- the shared
 // CanExecutorContext above and the three families' own variants alike.
-template <class C>
+template <typename C>
 concept WithEventSink = requires(const C& ctx) {
     { ctx.events } -> std::convertible_to<IEventSink&>;
 };

@@ -995,6 +995,11 @@ def run_workflow(
                 names = [f"custom-{definition['Name']}" for definition in definitions]
             except (OSError, yaml.YAMLError, AttributeError, KeyError, TypeError) as error:
                 raise WorkflowError(f"could not read inline check definitions: {error}") from error
+            # Checks that need the AST live in a locally built plugin (see
+            # scripts/clang_tidy_plugin/); CI does not load it yet.
+            plugin = environ.get("FASTECU_CLANG_TIDY_PLUGIN")
+            if plugin:
+                names.append("fastecu-template-typename")
             if names:
                 custom_fixes = temp_root / "custom-fixes"
                 custom_fixes.mkdir()
@@ -1011,6 +1016,8 @@ def run_workflow(
                 upstream_arguments.extend(
                     ["-checks=-*," + ",".join(names), f"-header-filter={header_filter}"]
                 )
+                if plugin:
+                    upstream_arguments.extend(["-load", plugin])
                 adapter_command = [
                     sys.executable,
                     str(Path(__file__).with_name("clang_tidy_adapter.py")),

@@ -30,7 +30,7 @@ inline void PrintTo(const Error& error, std::ostream *os)
 
 // Result<T> and Status: fastecu::Error is a template argument of the
 // std::expected, which makes fastecu an associated namespace for ADL.
-template <class T> void PrintTo(const std::expected<T, Error>& result, std::ostream *os)
+template <typename T> void PrintTo(const std::expected<T, Error>& result, std::ostream *os)
 {
     if (!result.has_value())
     {

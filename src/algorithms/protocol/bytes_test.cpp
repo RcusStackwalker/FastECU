@@ -55,7 +55,7 @@ template <auto Read> std::uint32_t ReadAs(bytes::ByteView view, std::size_t offs
     return Read(view, offset);
 }
 
-template <auto Write, class Value = std::uint32_t>
+template <auto Write, typename Value = std::uint32_t>
 void WriteAs(bytes::MutableByteView view, std::size_t offset, std::uint32_t value)
 {
     Write(view, offset, static_cast<Value>(value));

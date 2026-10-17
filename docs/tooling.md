@@ -57,6 +57,26 @@ clang-tidy --experimental-custom-checks --checks='-*,custom-fastecu-linear-searc
     -p . src/backend/flash/ecu/subaru_denso_sh7058_can_plan.cpp
 ```
 
+#### clang-tidy plugin
+
+Checks that need the AST rather than a matcher query (query matchers cannot see
+whether a template parameter was written `class` or `typename`) live in a small
+plugin under [`scripts/clang_tidy_plugin/`](../scripts/clang_tidy_plugin/). It
+is local/dev only for now: CI does not load it and Windows clang-tidy cannot.
+Bazel builds it against the headers of the LLVM that provides your `llvm-config`
+(or `LLVM_CONFIG`), which must match the `clang-tidy` that loads it; the target
+is tagged `manual`. Point the runner at the result:
+
+```sh
+bazel build --config=release //scripts/clang_tidy_plugin:fastecu_tidy
+FASTECU_CLANG_TIDY_PLUGIN=$PWD/bazel-bin/scripts/clang_tidy_plugin/libfastecu_tidy.dylib \
+    bazel run //:clang_tidy_report_changed
+clang-tidy --load=<library> --checks='-*,fastecu-template-typename' --fix <file>
+```
+
+The plugin's checks are registered without the `custom-` prefix, and the fixture
+target below loads it for its test.
+
 ```sh
 # Verify inline diagnostics and permitted counterexamples (run a report first
 # to prepare the compilation database).

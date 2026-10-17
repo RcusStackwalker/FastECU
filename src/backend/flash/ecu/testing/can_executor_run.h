@@ -29,7 +29,7 @@ namespace fastecu::flash::testing
 //   const auto [clock, events, cancellation, result] = ExecutorRun<E>(*plan, transport);
 // The caller asserts the plan built before dereferencing it (see
 // can_executor_conformance.h).
-template <class Executor, class Clock = FakeClock> struct ExecutorRun
+template <typename Executor, typename Clock = FakeClock> struct ExecutorRun
 {
     Clock clock;
     RecordingEventSink events;
@@ -64,7 +64,7 @@ struct ShortPageReadExpectation
 // Runs `plan` against the already-scripted `transport` and checks the image,
 // progress, logs and timing. The caller asserts the plan is OK and scripts the
 // exchanges (whose framing is family-local).
-template <class Executor>
+template <typename Executor>
 void ExpectShortPageRead(const FlashPlan& plan, ScriptedCanFlashTransport& transport, bool exhausted,
                          const ShortPageReadExpectation& expect)
 {
@@ -153,7 +153,7 @@ struct CloseOutcomeExpectation
 
 // Executes `plan` against the scripted `transport` and checks `outcome`
 // (see ScriptChecksumOutcome) and the close/checksum timing.
-template <class Executor>
+template <typename Executor>
 void ExpectCloseOutcome(const FlashPlan& plan, ScriptedCanFlashTransport& transport, int outcome,
                         const CloseOutcomeExpectation& expect)
 {
@@ -219,7 +219,7 @@ inline void ScriptShortPageDumpAndStopRetries(ScriptedCanFlashTransport& t, bool
 // A cancellation raised by the successful-close log must stop the flow before
 // the checksum: the last settle is the 100 ms one and no "Verifying checksum"
 // is logged.
-template <class Executor> void ExpectCancelAtCloseSettle(const FlashPlan& plan, ScriptedCanFlashTransport& transport)
+template <typename Executor> void ExpectCancelAtCloseSettle(const FlashPlan& plan, ScriptedCanFlashTransport& transport)
 {
     using std::chrono_literals::operator""ms;
     ManualCancellationToken cancellation;

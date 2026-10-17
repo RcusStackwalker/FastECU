@@ -90,7 +90,7 @@ inline std::optional<bytes::Bytes> BeefKernelPayload(bytes::ByteView kernel, std
 }
 
 // Any executor context carrying a cancellation token.
-template <class C>
+template <typename C>
 concept WithCancellation = requires(const C& ctx) {
     { ctx.cancellation } -> std::convertible_to<const ICancellationToken&>;
 };
@@ -116,7 +116,7 @@ inline std::uint64_t ElapsedMilliseconds(std::chrono::steady_clock::time_point s
 // Sends `pdu` on the context's channel and returns whatever arrives within
 // `timeout`, with an optional post-send settle delay. Templated because each
 // family's channel member has its own type.
-template <class C>
+template <typename C>
 Result<std::optional<bytes::Bytes>>
 ChannelRequestOptional(C& ctx, bytes::ByteView pdu, std::chrono::milliseconds timeout,
                        std::chrono::milliseconds delay = std::chrono::milliseconds{0})
@@ -142,7 +142,7 @@ ChannelRequestOptional(C& ctx, bytes::ByteView pdu, std::chrono::milliseconds ti
 // Sends `payload` to `load_address` in `block_size` 0xB6 blocks, then one
 // final address-only block, as every BEEF oracle does. `upload` sends one
 // request and handles its reply the family's way.
-template <WithCancellation C, class Upload>
+template <WithCancellation C, typename Upload>
 Status UploadBeefKernelBlocks(const C& ctx, bytes::ByteView payload, std::uint32_t load_address, std::size_t block_size,
                               Upload upload)
 {
