@@ -196,3 +196,38 @@ TEST(DensoChecksumTable, AWordRunningPastTheEndOfTheBytesIsAnInvalidBlockRange)
               internal::DensoTableOutcome::kInvalidBlockRange);
     EXPECT_EQ(rom, original);
 }
+
+// The block [4, 12) is rom[0, 8); the override names its second word.
+TEST(DensoChecksumTable, AnOverrideReplacesALaterWordOfTheBlock)
+{
+    bytes::Bytes rom(20, 0);
+    bytes::WriteU32Be(rom, 4, 1);
+    bytes::WriteU32Be(rom, 8, 4);
+    bytes::WriteU32Be(rom, 12, 12);
+    const internal::DensoWordOverride override{8, 3};
+    const internal::DensoTableSpec spec{
+        .table_address = memory::FlashAddress{12},
+        .table_length = 12,
+        .overrides = std::span<const internal::DensoWordOverride>(&override, 1),
+    };
+
+    EXPECT_EQ(internal::CorrectDensoTable(memory::FlashAddress{4}, rom, spec), internal::DensoTableOutcome::kCorrected);
+    EXPECT_EQ(bytes::ReadU32Be(rom, 16), 0x5AA5A55AU - 3);
+}
+
+// The block [4, 8) is rom[0, 4); it stops before the overridden word at 8.
+TEST(DensoChecksumTable, AnOverrideJustPastTheBlockIsNotSummed)
+{
+    bytes::Bytes rom(20, 0);
+    bytes::WriteU32Be(rom, 8, 4);
+    bytes::WriteU32Be(rom, 12, 8);
+    const internal::DensoWordOverride override{8, 1};
+    const internal::DensoTableSpec spec{
+        .table_address = memory::FlashAddress{12},
+        .table_length = 12,
+        .overrides = std::span<const internal::DensoWordOverride>(&override, 1),
+    };
+
+    EXPECT_EQ(internal::CorrectDensoTable(memory::FlashAddress{4}, rom, spec), internal::DensoTableOutcome::kCorrected);
+    EXPECT_EQ(bytes::ReadU32Be(rom, 16), 0x5AA5A55AU);
+}

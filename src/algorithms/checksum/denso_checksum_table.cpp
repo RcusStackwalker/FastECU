@@ -40,6 +40,8 @@ std::optional<std::uint32_t> SumBlock(bytes::ByteView rom, std::uint32_t base, s
     {
         return std::nullopt;
     }
+    // Equivalent as `>`: at low == high the block below is empty and sums to 0.
+    // mull-ignore-next: cxx_ge_to_gt
     if (low >= high)
     {
         return 0;
