@@ -711,6 +711,9 @@ TEST(SubaruDensoSh72543CanDieselExecutor, ObkProbeAndReadSetupReadWithTheShortTi
 // exercises exactly the same scripts and plans the family's own local tests
 // do.
 struct Sh72543CanDieselTraits
+    : fastecu::flash::testing::CanScriptForwarders<&::ReadPlan, &::HandBuiltPlan, &::ScriptBenchConnect,
+                                                   &::ScriptReadSetup, &::ScriptFlashDump, &::ScriptStopCommand,
+                                                   &::ScriptUpToFirstFatalRead>
 {
     using Executor = SubaruDensoSh72543CanDieselExecutor;
     static constexpr fastecu::flash::Iso15765Config kWire{
@@ -730,42 +733,6 @@ struct Sh72543CanDieselTraits
     // ObkProbeAndReadSetupReadWithTheShortTimeout above is what isolates the
     // small, human-checkable connect-time count instead.
     static constexpr int kProbeCount = 8073;
-
-    static fastecu::Result<fastecu::flash::FlashPlan> ReadPlan()
-    {
-        return ::ReadPlan();
-    }
-
-    static fastecu::Result<fastecu::flash::FlashPlan> HandBuiltPlan(FlashOperation operation)
-    {
-        return ::HandBuiltPlan(operation);
-    }
-
-    static void ScriptBenchConnect(ScriptedCanFlashTransport& t)
-    {
-        ::ScriptBenchConnect(t);
-    }
-
-    static void ScriptReadSetup(ScriptedCanFlashTransport& t)
-    {
-        ::ScriptReadSetup(t);
-    }
-
-    static void ScriptFlashDump(ScriptedCanFlashTransport& t, std::uint32_t start, std::uint32_t length,
-                                std::uint32_t pagesize, bytes::Byte fill)
-    {
-        ::ScriptFlashDump(t, start, length, pagesize, fill);
-    }
-
-    static void ScriptStopCommand(ScriptedCanFlashTransport& t)
-    {
-        ::ScriptStopCommand(t);
-    }
-
-    static void ScriptUpToFirstFatalRead(ScriptedCanFlashTransport& t)
-    {
-        ::ScriptUpToFirstFatalRead(t);
-    }
 };
 
 INSTANTIATE_TYPED_TEST_SUITE_P(SubaruDensoSh72543CanDiesel, CanExecutorConformance, Sh72543CanDieselTraits);
