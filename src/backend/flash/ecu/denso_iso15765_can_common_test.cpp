@@ -187,10 +187,24 @@ class CancellingEventSink : public RecordingEventSink
     std::string_view trigger_;
 };
 
+// Best-effort operations swallow rejected writes, so count every attempt,
+// including writes rejected by the scripted transport's wire expectations.
+class WriteCountingCanTransport final : public ScriptedCanFlashTransport
+{
+  public:
+    Status Write(bytes::ByteView data, const ICancellationToken& cancellation) override
+    {
+        ++write_attempts;
+        return ScriptedCanFlashTransport::Write(data, cancellation);
+    }
+
+    std::size_t write_attempts = 0;
+};
+
 // The real UDS stack over the scripted transport, on the 0x7E0/0x7E8 pair.
 struct CommonFixture
 {
-    ScriptedCanFlashTransport transport;
+    WriteCountingCanTransport transport;
     CanFlashUdsChannel channel{transport, 0x7E0, 0x7E8};
     RecordingClock clock;
     ManualCancellationToken cancellation;
@@ -198,6 +212,88 @@ struct CommonFixture
     uds::UdsClient client{channel, clock, events};
     CanExecutorContext ctx{cancellation, events, clock, client, channel};
 };
+
+// Changing the retry bound, error tolerance, or timeout breaks this literal transcript.
+TEST(DensoIso15765CanCommonTest, TransferExitRetriesSixTimesAndSwallowsReturnedErrors)
+{
+    for (const bool acknowledged : {false, true})
+    {
+        SCOPED_TRACE(acknowledged);
+        CommonFixture f;
+        for (int attempt = 0; attempt < 6; ++attempt)
+        {
+            f.transport.Exchange(Request({0x37}));
+            if (attempt == 5 && acknowledged)
+            {
+                f.transport.QueueRead(Response({0x77}));
+            }
+            else if (attempt == 1)
+            {
+                f.transport.QueueRead(Response({0x7F, 0x37, 0x31}));
+            }
+            else if (attempt == 2 || attempt == 3)
+            {
+                f.transport.QueueError(attempt == 2 ? ErrorKind::kDisconnected : ErrorKind::kCancelled,
+                                       "close ignored");
+            }
+            else
+            {
+                f.transport.QueueNoFrame();
+            }
+        }
+
+        DensoIso15765BestEffortTransferExit(f.ctx);
+
+        EXPECT_TRUE(f.transport.ScriptConsumed());
+        EXPECT_EQ(f.transport.write_attempts, 6U);
+        EXPECT_THAT(f.transport.ReadTimeouts(), ::testing::ElementsAre(200ms, 200ms, 200ms, 200ms, 200ms, 200ms));
+        EXPECT_THAT(f.clock.sleep_calls, ::testing::IsEmpty());
+        if (acknowledged)
+        {
+            EXPECT_THAT(f.events.logs,
+                        ::testing::ElementsAre(::testing::Pair(LogLevel::kInfo, "Closing out Flashing of this block"),
+                                               ::testing::Pair(LogLevel::kInfo, "Closed succesfully: 77 ")));
+        }
+        else
+        {
+            EXPECT_THAT(f.events.logs,
+                        ::testing::ElementsAre(::testing::Pair(LogLevel::kInfo, "Closing out Flashing of this block")));
+        }
+    }
+}
+
+TEST(DensoIso15765CanCommonTest, TransferExitPendingRereadsWithinOneRequestAndStopsOnSuccess)
+{
+    CommonFixture f;
+    f.transport.Exchange(Request({0x37}), Response({0x7F, 0x37, 0x78}));
+    f.transport.QueueRead(Response({0x77, 0x12}));
+
+    DensoIso15765BestEffortTransferExit(f.ctx);
+
+    EXPECT_TRUE(f.transport.ScriptConsumed());
+    EXPECT_EQ(f.transport.write_attempts, 1U);
+    EXPECT_THAT(f.transport.ReadTimeouts(), ::testing::ElementsAre(200ms, 3000ms));
+    EXPECT_THAT(
+        f.events.logs,
+        ::testing::ElementsAre(::testing::Pair(LogLevel::kInfo, "Closing out Flashing of this block"),
+                               ::testing::Pair(LogLevel::kDebug, "ECU reported responsePending for SID 0x37; waiting"),
+                               ::testing::Pair(LogLevel::kInfo, "Closed succesfully: 77 12 ")));
+}
+
+TEST(DensoIso15765CanCommonTest, TransferExitWithCancelledTokenDoesNoLaterIo)
+{
+    CommonFixture f;
+    CancellingEventSink events(f.cancellation, "Closing out Flashing of this block");
+    CanExecutorContext ctx{f.cancellation, events, f.clock, f.client, f.channel};
+
+    DensoIso15765BestEffortTransferExit(ctx);
+
+    EXPECT_TRUE(f.cancellation.Cancelled());
+    EXPECT_EQ(f.transport.write_attempts, 0U);
+    EXPECT_THAT(f.transport.ReadTimeouts(), ::testing::IsEmpty());
+    EXPECT_THAT(events.logs,
+                ::testing::ElementsAre(::testing::Pair(LogLevel::kInfo, "Closing out Flashing of this block")));
+}
 
 // A literal short chunk pins wire encoding without coupling to image encryption.
 TEST(DensoIso15765CanCommonTest, WriteChunkSendsLiteralB6AbsoluteAddress)

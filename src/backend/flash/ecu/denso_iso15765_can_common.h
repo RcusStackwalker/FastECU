@@ -32,14 +32,14 @@ namespace fastecu::flash
 // The decrypt table remains valid for the bootloader-dialect normal-ROM read paths.
 // DensoCAN is not a consumer of this data-only cluster.
 //
-// Beyond these tables, the common module shares six narrow operations: pure
+// Beyond these tables, the common module shares seven narrow operations: pure
 // setup-PDU encoding, the SecurityAccess seed/key exchange, the erase flow,
-// one encrypted B7 page read and one B6 write request (all four Denso
-// ISO-15765 bootloader dialect executors), and the N83M in-car opening
+// one encrypted B7 page read, one B6 write request and best-effort transfer
+// exit (all four Denso ISO-15765 bootloader dialect executors), and the N83M in-car opening
 // exchange run (the two N83M executors
 // only; its 0x7E1 request asks for session 0x63, where the SH-family runs send
 // 0x03). Everything else that looks alike -- the connect/probe shapes, the
-// reflash routines, the kernel jump, the stop and close-block retry loops, the
+// reflash routines, the kernel jump, the stop retry loops, the
 // checksum verify -- differs between the families in read timeouts, retry
 // counts, pre-loop read counts, image base addresses, and, most importantly, in
 // how strictly a bad response is treated. Those differences are the
@@ -120,6 +120,10 @@ Result<bytes::Bytes> ReadDensoEncryptedPage(const CanExecutorContext& ctx, std::
 // One fatal B6 request at 500 ms with an absolute wire address and the
 // caller-selected encrypted bytes. Image encryption, indexing and loops stay local.
 Status DensoIso15765WriteChunk(const CanExecutorContext& ctx, std::uint32_t address, bytes::ByteView encrypted_chunk);
+
+// Up to six re-sent 37 requests at 200 ms, swallowing every returned error.
+// Logs the first positive reply and stops; callers own settle and checksum.
+void DensoIso15765BestEffortTransferExit(const CanExecutorContext& ctx);
 
 // Sends `pdu`, reads one reply, and compares its first two bytes. A mismatch
 // is LOGGED AND TOLERATED -- the frame is still returned and the caller

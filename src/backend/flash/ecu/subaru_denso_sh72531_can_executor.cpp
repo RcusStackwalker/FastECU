@@ -515,26 +515,7 @@ Status ReflashBlock(Ctx& ctx, bytes::ByteView image, const MemoryRegion& block, 
         progress.Update(static_cast<int>((chunk_index + 1) * kChunkSize));
     }
 
-    // Close-block retry loop (lines 1261-1293): up to six attempts, tolerant
-    // of any non-0x77 answer -- including a genuine exchange failure -- and
-    // the loop's own `connected` flag is never read afterwards. Transcribed
-    // exactly: no check is added here that legacy does not have.
-    LogInfo(ctx, "Closing out Flashing of this block");
-    for (int attempt = 0; attempt < 6; ++attempt)
-    {
-        if (Result<bytes::Bytes> closed =
-                ctx.uds.Request(bytes::Bytes{uds::kSidRequestTransferExit}, kShortPolicy, ctx.cancellation);
-            closed.has_value())
-        {
-            // Legacy appends the reply's hex to this line (line 1289);
-            // the port had dropped it. Restored by the bootloader-dialect factoring
-            // pass. The hex is the envelope-stripped PDU where legacy's was the
-            // raw frame, envelope included -- same divergence the
-            // "Stop request response" line above already carries.
-            LogInfo(ctx, std::format("Closed succesfully: {}", bytes::ToHex(*closed)));
-            break;
-        }
-    }
+    DensoIso15765BestEffortTransferExit(ctx);
 
     // Line 1295: a settle before the checksum write, which no read timeout
     // subsumes.

@@ -105,6 +105,26 @@ Status DensoIso15765WriteChunk(const CanExecutorContext& ctx, std::uint32_t addr
     return {};
 }
 
+// Legacy close-block loops: N83M 1.5M 1255-1289, N83M 4M 1269-1303,
+// SH72531 1261-1293 and SH72543 diesel 1282-1311. Each re-sends 37;
+// failures, including returned cancellation, are deliberately ignored.
+// Success hex remains the envelope-stripped PDU used by the existing port.
+void DensoIso15765BestEffortTransferExit(const CanExecutorContext& ctx)
+{
+    constexpr uds::ExchangePolicy kClosePolicy{.read_timeout = std::chrono::milliseconds{200}};
+    ctx.events.Log(LogLevel::kInfo, "Closing out Flashing of this block");
+    for (int attempt = 0; attempt < 6; ++attempt)
+    {
+        if (Result<bytes::Bytes> closed =
+                ctx.uds.Request(bytes::Bytes{uds::kSidRequestTransferExit}, kClosePolicy, ctx.cancellation);
+            closed.has_value())
+        {
+            ctx.events.Log(LogLevel::kInfo, std::format("Closed succesfully: {}", bytes::ToHex(*closed)));
+            break;
+        }
+    }
+}
+
 Result<bytes::Bytes> TolerantProbe(const CanExecutorContext& ctx, bytes::ByteView pdu, bytes::Byte expected_service,
                                    bytes::Byte expected_subfunction, std::chrono::milliseconds timeout,
                                    std::string_view rejection_prefix, std::string_view subject)
