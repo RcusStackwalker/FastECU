@@ -52,7 +52,7 @@ _FILE_HEADER = re.compile(r"^\s*NLOC\s+Avg\.NLOC\s+AvgCCN\s+Avg\.token\s+functio
 _FILE_ROW = re.compile(r"^\s*(\d+)\s+[\d.]+\s+[\d.]+\s+[\d.]+\s+\d+\s+(?:\./)?(\S.*?)\s*$")
 _TOTAL_HEADER = re.compile(r"^\s*Total nloc\s")
 _TOTAL_ROW = re.compile(r"^\s*(\d+)\s")
-_TEST_NAME = re.compile(r"(^tst_|_test[._])")
+_TEST_NAME = re.compile(r"_test[._]")
 _COVERAGE_ROW = re.compile(r"^\s*(\d+)\|\s*([0-9.]+[kMGTPE]?)?\s*\|")
 
 

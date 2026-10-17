@@ -150,8 +150,8 @@ fastecu_gtest(
 # PTY/process integration intentionally remains centralized: it exercises
 # algorithms, backend transports, serial I/O, cancellation, and J2534 together.
 fastecu_gtest(
-    name = "mut_dma_integration_tests_test",
-    srcs = ["tst_mut_dma_integration.cpp"],
+    name = "mut_dma_integration_test",
+    srcs = ["mut_dma_integration_test.cpp"],
     target_compatible_with = UNIX_ONLY,
     deps = [
         # The real direct backend is linked at runtime, not included.
@@ -172,8 +172,8 @@ fastecu_gtest(
 
 # Crash/teardown probe requires a real PTY and Unix J2534 process boundary.
 fastecu_gtest(
-    name = "serial_crash_tests_test",
-    srcs = ["tst_serial_port_crash.cpp"],
+    name = "serial_port_crash_test",
+    srcs = ["serial_port_crash_test.cpp"],
     target_compatible_with = UNIX_ONLY,
     deps = [
         # The real direct backend is linked at runtime, not included.

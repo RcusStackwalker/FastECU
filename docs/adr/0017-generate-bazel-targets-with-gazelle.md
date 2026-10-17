@@ -176,6 +176,8 @@ Generated test labels end in `_test`: the pinned unit-group generator appends
 `_test` to nonstandard names in mixed packages. The former
 `//tests:mut_dma_integration_tests`, `//tests:serial_crash_tests` and
 `//tests/force_asserts:tst_force_asserts` labels were not retained as aliases.
+Their sources and labels were later renamed to `<stem>_test` (`mut_dma_integration_test`,
+`serial_port_crash_test`, `force_asserts_test`) so every test file ends in `_test`.
 Platform constraints and runtime settings remain on the generated tests.
 
 The checker rejects uncovered C++ test packages and whole-rule test keeps.

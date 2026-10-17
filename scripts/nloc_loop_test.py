@@ -62,7 +62,7 @@ class ClassifyTest(unittest.TestCase):
     def test_test_code(self) -> None:
         for path in (
             "tests/serial_pty_e2e_test.cpp",
-            "tests/tst_serial_port_crash.cpp",
+            "tests/serial_port_crash_test.cpp",
             "src/backend/flash/ecu/executor_test.cpp",
             "src/backend/flash/ecu/executor_test.h",
             "src/backend/flash/testing/mock_transport.h",
@@ -260,12 +260,12 @@ class HostFilesTest(unittest.TestCase):
         output = (
             "//src/backend/config:catalog.h (null)\n"
             "//:BUILD.bazel (null)\n"
-            "//tests:tst_serial_port_crash.cpp (null)\n"
+            "//tests:serial_port_crash_test.cpp (null)\n"
             "@@rules_qt++fetch+qt//:lib/QtGui.h (null)\n"
         )
         self.assertEqual(
             nl.parse_host_files(output),
-            {"src/backend/config/catalog.h", "BUILD.bazel", "tests/tst_serial_port_crash.cpp"},
+            {"src/backend/config/catalog.h", "BUILD.bazel", "tests/serial_port_crash_test.cpp"},
         )
 
 
