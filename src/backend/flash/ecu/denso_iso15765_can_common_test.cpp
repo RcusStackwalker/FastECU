@@ -187,10 +187,24 @@ class CancellingEventSink : public RecordingEventSink
     std::string_view trigger_;
 };
 
+// Best-effort operations swallow rejected writes, so count every attempt,
+// including writes rejected by the scripted transport's wire expectations.
+class WriteCountingCanTransport final : public ScriptedCanFlashTransport
+{
+  public:
+    Status Write(bytes::ByteView data, const ICancellationToken& cancellation) override
+    {
+        ++write_attempts;
+        return ScriptedCanFlashTransport::Write(data, cancellation);
+    }
+
+    std::size_t write_attempts = 0;
+};
+
 // The real UDS stack over the scripted transport, on the 0x7E0/0x7E8 pair.
 struct CommonFixture
 {
-    ScriptedCanFlashTransport transport;
+    WriteCountingCanTransport transport;
     CanFlashUdsChannel channel{transport, 0x7E0, 0x7E8};
     RecordingClock clock;
     ManualCancellationToken cancellation;
@@ -231,7 +245,7 @@ TEST(DensoIso15765CanCommonTest, TransferExitRetriesSixTimesAndSwallowsReturnedE
         DensoIso15765BestEffortTransferExit(f.ctx);
 
         EXPECT_TRUE(f.transport.ScriptConsumed());
-        EXPECT_EQ(f.transport.WritesConsumed(), 6U);
+        EXPECT_EQ(f.transport.write_attempts, 6U);
         EXPECT_THAT(f.transport.ReadTimeouts(), ::testing::ElementsAre(200ms, 200ms, 200ms, 200ms, 200ms, 200ms));
         EXPECT_THAT(f.clock.sleep_calls, ::testing::IsEmpty());
         if (acknowledged)
@@ -257,7 +271,7 @@ TEST(DensoIso15765CanCommonTest, TransferExitPendingRereadsWithinOneRequestAndSt
     DensoIso15765BestEffortTransferExit(f.ctx);
 
     EXPECT_TRUE(f.transport.ScriptConsumed());
-    EXPECT_EQ(f.transport.WritesConsumed(), 1U);
+    EXPECT_EQ(f.transport.write_attempts, 1U);
     EXPECT_THAT(f.transport.ReadTimeouts(), ::testing::ElementsAre(200ms, 3000ms));
     EXPECT_THAT(
         f.events.logs,
@@ -275,7 +289,7 @@ TEST(DensoIso15765CanCommonTest, TransferExitWithCancelledTokenDoesNoLaterIo)
     DensoIso15765BestEffortTransferExit(ctx);
 
     EXPECT_TRUE(f.cancellation.Cancelled());
-    EXPECT_EQ(f.transport.WritesConsumed(), 0U);
+    EXPECT_EQ(f.transport.write_attempts, 0U);
     EXPECT_THAT(f.transport.ReadTimeouts(), ::testing::IsEmpty());
     EXPECT_THAT(events.logs,
                 ::testing::ElementsAre(::testing::Pair(LogLevel::kInfo, "Closing out Flashing of this block")));
