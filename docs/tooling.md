@@ -219,7 +219,22 @@ exits 1 when a guard fails:
 - Production: line coverage of each changed production file present on both
   sides does not drop.
 
-The mutation guards run in CI ([ADR 0023](adr/0023-hill-climb-nloc-with-kind-specific-guards.md)).
+The mutation guards run in CI ([ADR 0023](adr/0023-hill-climb-nloc-with-kind-specific-guards.md))
+on PRs labelled `nloc-loop`, through the [`nloc-loop` workflow](../.github/workflows/nloc-loop.yml).
+`pr-kind` derives the kind from the changed files; the PR title does not
+decide it. A test-only PR's base and head each run Mull in six shards over the
+portable tests that depend on its changed test sources (`mutation-scope`, in
+either checkout), and every mutant the base kills must still be killed. A
+production PR's changed lines are mutated, and any survivor fails. The
+`nloc-loop verdict` check reports the outcome; make it a required check for
+it to block a merge. A test-only change to UI or platform tests has no
+mutation scope, so only the local guards apply. Locally:
+
+```sh
+python3 scripts/nloc_loop.py pr-kind --base <sha> --head <sha>
+python3 scripts/nloc_loop.py mutation-scope --base <sha> --head <sha>
+python3 scripts/nloc_loop.py guards mutation --base-reports <dir> --reports <dir> --shards 6
+```
 
 - **NLOC**: Lizard's `Total nloc` over first-party C++ in `src/`, `apps/`
   and `tests/` with the prek excludes. Non-blank, non-comment lines on the

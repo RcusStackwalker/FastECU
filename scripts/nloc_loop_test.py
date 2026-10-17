@@ -384,6 +384,65 @@ class SnapshotTest(unittest.TestCase):
             self.assertEqual(nl.Snapshot.load(path), original)
 
 
+class PrKindTest(unittest.TestCase):
+    def test_kind_follows_the_changed_files(self) -> None:
+        self.assertEqual(nl.pr_kind([_A, "BUILD.bazel", "docs/x.md"]), "test-only")
+        self.assertEqual(nl.pr_kind([_A, _PROD]), "production")
+
+    def test_portable_test_sources_must_exist_in_the_checkout(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            for path in ("src/backend/x/a_test.cpp", "src/ui/b_test.cpp", "src/backend/x/a.cpp"):
+                (root / path).parent.mkdir(parents=True, exist_ok=True)
+                (root / path).write_text("")
+            changed = [
+                "src/backend/x/a_test.cpp",
+                "src/backend/x/deleted_test.cpp",
+                "src/backend/x/BUILD.bazel",
+                "src/ui/b_test.cpp",
+                "src/backend/x/a.cpp",
+            ]
+            self.assertEqual(nl.portable_test_sources(changed, root), ["src/backend/x/a_test.cpp"])
+
+
+def mull_report(path: str, *mutants: tuple[int, str]) -> dict:
+    """A Mutation Testing Elements report with one mutant per (line, status)."""
+    return {
+        "files": {
+            path: {
+                "mutants": [
+                    {
+                        "location": {"start": {"line": line, "column": 1}},
+                        "mutatorName": "cxx_add_to_sub",
+                        "replacement": "-",
+                        "status": status,
+                    }
+                    for line, status in mutants
+                ]
+            }
+        }
+    }
+
+
+class MutationGuardTest(unittest.TestCase):
+    def merged(self, *mutants: tuple[int, str]) -> dict:
+        return nl.mutation_test.merge_reports([mull_report(_PROD, *mutants)], _ROOT)
+
+    def test_kills_must_survive_in_the_head(self) -> None:
+        base = self.merged((1, "Killed"), (2, "Timeout"), (3, "Survived"), (4, "Killed"))
+        head = self.merged((1, "Timeout"), (2, "Killed"), (3, "Survived"), (4, "Survived"))
+        self.assertEqual([k.line for k in nl.lost_kills(base, head)], [4])
+
+    def test_a_missing_mutant_is_a_lost_kill(self) -> None:
+        self.assertEqual(
+            [k.line for k in nl.lost_kills(self.merged((1, "Killed")), self.merged())], [1]
+        )
+
+    def test_survivors(self) -> None:
+        merged = self.merged((1, "Killed"), (2, "Survived"), (3, "NoCoverage"))
+        self.assertEqual([k.line for k in nl.survivors(merged)], [2])
+
+
 class MainTest(unittest.TestCase):
     def setUp(self) -> None:
         self.temp_dir = tempfile.TemporaryDirectory()
@@ -502,6 +561,91 @@ class MainTest(unittest.TestCase):
         code, text = self.run_guards("snapshot", git=dirty)
         self.assertEqual(code, 2)
         self.assertIn("uncommitted", text)
+
+    def write_shards(self, side: str, count: int, *mutants: tuple[int, str]) -> Path:
+        """Report directories as `mutation_test.py --shard I/N --report-dir` leaves them."""
+        directory = self.root / side
+        for index in range(count):
+            shard = directory / f"shard-{index}"
+            shard.mkdir(parents=True)
+            report = mull_report(str(self.root / _PROD), *mutants) if index == 0 else {}
+            (shard / "item.json").write_text(json.dumps(report))
+            manifest = {"index": index, "count": count, "labels": []}
+            (shard / nl.mutation_test.SHARD_MANIFEST).write_text(json.dumps(manifest))
+        return directory
+
+    def run_mutation_guard(self, *argv: str) -> tuple[int, str]:
+        out = StringIO()
+        code = nl.main(["--root", str(self.root), "guards", "mutation", *argv], out=out)
+        return code, out.getvalue()
+
+    def test_mutation_guard_compares_sharded_runs(self) -> None:
+        base = self.write_shards("base", 2, (1, "Killed"), (2, "Survived"))
+        head = self.write_shards("head", 2, (1, "Killed"), (2, "Killed"))
+        code, text = self.run_mutation_guard(
+            "--base-reports", str(base), "--reports", str(head), "--shards", "2"
+        )
+        self.assertEqual(code, 0, text)
+        self.assertIn("PASS killed mutants: 1 -> 2", text)
+
+    def test_mutation_guard_names_lost_kills(self) -> None:
+        base = self.write_shards("base", 1, (1, "Killed"), (7, "Killed"))
+        head = self.write_shards("head", 1, (1, "Killed"), (7, "Survived"))
+        code, text = self.run_mutation_guard(
+            "--base-reports", str(base), "--reports", str(head), "--shards", "1"
+        )
+        self.assertEqual(code, 1)
+        self.assertIn(f"FAIL killed mutants: {_PROD}:7:1 cxx_add_to_sub", text)
+
+    def test_mutation_guard_rejects_an_incomplete_run(self) -> None:
+        base = self.write_shards("base", 2, (1, "Killed"))
+        head = self.write_shards("head", 2, (1, "Killed"))
+        (head / "shard-1" / nl.mutation_test.SHARD_MANIFEST).unlink()
+        code, text = self.run_mutation_guard(
+            "--base-reports", str(base), "--reports", str(head), "--shards", "2"
+        )
+        self.assertEqual(code, 2)
+        self.assertIn("missing shards [1]", text)
+
+    def test_mutation_guard_without_a_base_fails_on_survivors(self) -> None:
+        reports = self.root / "head"
+        reports.mkdir()
+        (reports / "item.json").write_text(
+            json.dumps(mull_report(str(self.root / _PROD), (3, "Survived")))
+        )
+        code, text = self.run_mutation_guard("--reports", str(reports))
+        self.assertEqual(code, 1)
+        self.assertIn(f"FAIL surviving mutants: {_PROD}:3:1", text)
+
+    def test_pr_kind(self) -> None:
+        out = StringIO()
+        code = nl.main(
+            ["--root", str(self.root), "pr-kind", "--base", "base", "--head", "head"],
+            run_git=lambda _root, args: self.git(args),
+            out=out,
+        )
+        self.assertEqual((code, out.getvalue()), (0, "test-only\n"))
+
+    def test_mutation_scope_lists_dependent_tests(self) -> None:
+        portable = "src/backend/flash/a_test.cpp"
+        (self.root / portable).parent.mkdir(parents=True)
+        (self.root / portable).write_text("")
+        queries = []
+        out = StringIO()
+
+        def query(root: Path, scope: str, changed: Sequence[str]) -> list[str]:
+            queries.append((scope, list(changed)))
+            return ["//src/flash:a_test", "//src/flash:b_test"]
+
+        code = nl.main(
+            ["--root", str(self.root), "mutation-scope", "--base", "base", "--head", "head"],
+            run_git=lambda _root, _args: f"{portable}\n{_PROD}\n",
+            query_tests=query,
+            out=out,
+        )
+        self.assertEqual(code, 0)
+        self.assertEqual(out.getvalue(), "//src/flash:a_test\n//src/flash:b_test\n")
+        self.assertEqual(queries, [(nl.mutation_test.PORTABLE_SCOPE, [portable])])
 
     def test_errors_exit_two(self) -> None:
         code, text = self.run_main("trend", "--pr", "700", "--kind", "test-only", "--before", "15")
