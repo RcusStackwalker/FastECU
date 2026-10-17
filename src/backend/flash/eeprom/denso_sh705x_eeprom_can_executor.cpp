@@ -325,6 +325,298 @@ Result<std::optional<bytes::Bytes>> RequestKernelId(ICanFlashTransport& transpor
                           kKernelIdReadTimeout);
 }
 
+// Legacy's positive-response check: the service at byte 4, its echo at 5.
+bool RepliesWith(bytes::ByteView response, bytes::Byte service, bytes::Byte echo)
+{
+    return response.size() > 5 && response[4] == service && response[5] == echo;
+}
+
+// The ECU/CAL identity queries: legacy logs their outcome but never returns
+// early on content (Task 7 report, "Legacy behavior surprises" #5), so only a
+// genuine transport-level failure propagates.
+Status QueryIdentity(ICanFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
+                     IEventSink& events, std::uint32_t request_id)
+{
+    for (const auto& [label, request] :
+         {std::pair{"Initializing connection...", InitConnectionRequest(request_id)},
+          std::pair{"Requesting ECU ID", EcuIdRequest(request_id)}, std::pair{"Requesting VIN", VinRequest(request_id)},
+          std::pair{"Requesting CAL ID", CalIdRequest(request_id)},
+          std::pair{"Requesting CVN", CvnRequest(request_id)}})
+    {
+        events.Log(LogLevel::kInfo, label);
+        if (auto response =
+                CanRawExchange(transport, clock, cancellation, request, kHandshakeDelayMs, kHandshakeTimeout);
+            !response.has_value())
+        {
+            return std::unexpected(response.error());
+        }
+    }
+    return {};
+}
+
+// True when the ECU accepted diagnostic session `mode`.
+Result<bool> RequestSession(ICanFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
+                            std::uint32_t request_id, std::uint8_t mode)
+{
+    Result<std::optional<bytes::Bytes>> response = CanRawExchange(
+        transport, clock, cancellation, SessionModeRequest(request_id, mode), kHandshakeDelayMs, kHandshakeTimeout);
+    if (!response.has_value())
+    {
+        return std::unexpected(response.error());
+    }
+    return response->has_value() && RepliesWith(**response, 0x50, mode);
+}
+
+// Dispatch over exactly the 4 values DensoSecurityVariant can hold -- no
+// default case (see the OPEN QUESTION resolution comment above).
+bytes::Bytes SeedKey(DensoSecurityVariant security, bytes::ByteView seed)
+{
+    switch (security)
+    {
+    case DensoSecurityVariant::kStock:
+        return GenerateStockSeedKey(seed);
+    case DensoSecurityVariant::kEcuTek:
+        return GenerateEcutekSeedKey(seed);
+    case DensoSecurityVariant::kCobb:
+        return GenerateCobbSeedKey(seed);
+    case DensoSecurityVariant::kEcuTekRaceRom:
+        return GenerateEcutekRaceromCanSeedKey(seed);
+    }
+    return {};
+}
+
+Status UnlockSecurity(ICanFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
+                      IEventSink& events, const DensoSh705xEepromCanPlan& can_plan)
+{
+    events.Log(LogLevel::kInfo, "Requesting seed");
+    Result<bytes::Bytes> seed_resp = CanExchangeGated(transport, clock, cancellation, SeedRequest(can_plan.request_id),
+                                                      kHandshakeDelayMs, kHandshakeTimeout);
+    if (!seed_resp.has_value())
+    {
+        return std::unexpected(seed_resp.error());
+    }
+    if (!RepliesWith(*seed_resp, 0x67, 0x01))
+    {
+        return Fail(ErrorKind::kBadResponse, "seed request rejected");
+    }
+    if (seed_resp->size() < 10)
+    {
+        return Fail(ErrorKind::kBadResponse, "seed response too short to contain a 4-byte seed");
+    }
+    const bytes::Bytes seed_key = SeedKey(can_plan.security, bytes::ByteView(*seed_resp).subspan(6, 4));
+    events.Log(LogLevel::kInfo, "Sending seed key");
+    Result<bytes::Bytes> key_resp =
+        CanExchangeGated(transport, clock, cancellation, SeedKeySendRequest(can_plan.request_id, seed_key),
+                         kHandshakeDelayMs, kHandshakeTimeout);
+    if (!key_resp.has_value())
+    {
+        return std::unexpected(key_resp.error());
+    }
+    if (!RepliesWith(*key_resp, 0x67, 0x02))
+    {
+        return Fail(ErrorKind::kBadResponse, "seed key send rejected");
+    }
+    return {};
+}
+
+// lines 734-760: pad the ORIGINAL file bytes up to data_len (always a
+// multiple of 128, hence of 4), drop the last 4 bytes, append a 32-bit
+// checksum word, then encrypt the whole data_len-byte buffer. Unlike the
+// K-Line sibling's upload_kernel(), buf.size() == len == data_len always
+// holds here by construction -- there is no latent OOB-read risk to fix
+// (Task 7 report: "there's no latent calculatePayload()-clamping/OOB-read
+// risk analogous to the K-Line finding").
+bytes::Bytes KernelPayload(bytes::ByteView kernel, std::uint32_t data_len)
+{
+    bytes::Bytes buf(kernel.begin(), kernel.end());
+    buf.resize(data_len - 4, 0);
+    std::uint32_t chk_sum = 0;
+    for (std::size_t i = 0; i < buf.size(); i += 4)
+    {
+        chk_sum += bytes::ReadU32Be(buf, i);
+    }
+    bytes::AppendU32Be(buf, 0x5aa5a55aU - chk_sum);
+    return EncryptCanKernelPayload(buf, static_cast<std::uint32_t>(buf.size()));
+}
+
+// lines 816-857: the block loop runs blockno = 0..max_blocks INCLUSIVE
+// (max_blocks+1 iterations). Each of the first max_blocks iterations sends a
+// full 128-byte chunk and decrements a running `data_len` copy by 128; since
+// that running value starts at exactly max_blocks*128, it has reached exactly
+// 0 by the final (blockno==max_blocks) iteration -- so the LAST 0xB6 frame
+// this loop sends is always header-only, zero payload bytes (Task 7 report,
+// "Legacy behavior surprises" #1). Faithfully reproduced, not corrected: an
+// N-block kernel produces N+1 wire frames.
+Status SendKernelBlocks(ICanFlashTransport& transport, const ICancellationToken& cancellation, IEventSink& events,
+                        std::uint32_t request_id, std::uint32_t start_address, bytes::ByteView encrypted)
+{
+    const auto max_blocks = static_cast<std::uint32_t>(encrypted.size() / kUploadChunkBytes);
+    for (std::uint32_t blockno = 0; blockno <= max_blocks; ++blockno)
+    {
+        if (cancellation.Cancelled())
+        {
+            return Fail(ErrorKind::kCancelled, "cancelled between kernel transfer chunks");
+        }
+        const std::uint32_t block_addr = start_address + blockno * kUploadChunkBytes;
+        const bytes::ByteView chunk =
+            blockno < max_blocks
+                ? encrypted.subspan(static_cast<std::size_t>(blockno) * kUploadChunkBytes, kUploadChunkBytes)
+                : bytes::ByteView{};
+        if (Status written = transport.Write(SidB6Request(request_id, block_addr, chunk), cancellation);
+            !written.has_value())
+        {
+            return std::unexpected(written.error());
+        }
+        if (cancellation.Cancelled())
+        {
+            return Fail(ErrorKind::kCancelled, "cancelled after kernel chunk write");
+        }
+        // No delay() call between this write and its read (legacy line
+        // 852-853). Response content is never inspected (legacy line 853 just
+        // discards it) -- reading it anyway keeps the wire exchange in
+        // lockstep with a real ECU.
+        if (auto block_resp = transport.Read(kBlockAckTimeout, cancellation); !block_resp.has_value())
+        {
+            return std::unexpected(block_resp.error());
+        }
+        if (cancellation.Cancelled())
+        {
+            return Fail(ErrorKind::kCancelled, "cancelled after kernel chunk read");
+        }
+        events.Progress(static_cast<int>(blockno), static_cast<int>(max_blocks));
+    }
+    return {};
+}
+
+Status StartKernel(ICanFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
+                   IEventSink& events, std::uint32_t request_id)
+{
+    events.Log(LogLevel::kInfo, "Kernel uploaded, starting...");
+    Result<bytes::Bytes> start_resp =
+        CanExchangeGated(transport, clock, cancellation, Sid37Request(request_id), kHandshakeDelayMs, kQuickAckTimeout);
+    if (!start_resp.has_value())
+    {
+        return std::unexpected(start_resp.error());
+    }
+    if (start_resp->size() <= 4 || (*start_resp)[4] != 0x77)
+    {
+        return Fail(ErrorKind::kBadResponse, "kernel start ack rejected");
+    }
+    if (Status slept = clock.Sleep(std::chrono::milliseconds{kPostUploadSettleDelayMs}, cancellation);
+        !slept.has_value())
+    {
+        return std::unexpected(slept.error());
+    }
+    if (cancellation.Cancelled())
+    {
+        return Fail(ErrorKind::kCancelled, "cancelled before start routine");
+    }
+    Result<bytes::Bytes> routine_resp =
+        CanExchangeGated(transport, clock, cancellation, Sid31Request(request_id), kHandshakeDelayMs, kQuickAckTimeout);
+    if (!routine_resp.has_value())
+    {
+        return std::unexpected(routine_resp.error());
+    }
+    if (routine_resp->size() <= 4 || (*routine_resp)[4] != 0x71)
+    {
+        return Fail(ErrorKind::kBadResponse, "kernel start routine rejected");
+    }
+    return {};
+}
+
+// The page body that follows a header ack: up to kMaxPagedataAttempts polls.
+// line 1069: `if (timeout >= 1000)` is legacy dead code -- the loop's own
+// bound is kMaxPagedataAttempts (100), so this can never trip. A page that
+// never fully arrives is therefore silently accepted short rather than
+// erroring; preserved faithfully (Task 7 report, "Legacy behavior surprises"
+// #2), same shape as the K-Line sibling's own analogous dead-code note.
+Result<bytes::Bytes> ReadPageData(ICanFlashTransport& transport, const ICancellationToken& cancellation,
+                                  std::uint32_t pagesize)
+{
+    bytes::Bytes pagedata;
+    for (int attempts = 0; pagedata.size() < pagesize && attempts < kMaxPagedataAttempts; ++attempts)
+    {
+        if (cancellation.Cancelled())
+        {
+            return Fail(ErrorKind::kCancelled, "cancelled during EEPROM page read");
+        }
+        auto chunk = transport.Read(kPagedataPollTimeout, cancellation);
+        if (!chunk.has_value())
+        {
+            return std::unexpected(chunk.error());
+        }
+        if (cancellation.Cancelled())
+        {
+            return Fail(ErrorKind::kCancelled, "cancelled during EEPROM page read");
+        }
+        if (chunk->has_value())
+        {
+            pagedata.append_range(**chunk);
+        }
+    }
+    return pagedata;
+}
+
+// One combined BEEF/READ_EEPROM request, returning the bytes it contributes:
+// the header ack's payload, then the page body without its 8-byte framing.
+Result<bytes::Bytes> ReadEepromPage(ICanFlashTransport& transport, const ICancellationToken& cancellation,
+                                    std::uint32_t request_id, EepromReadMode mode, std::uint32_t addr,
+                                    std::uint32_t pagesize)
+{
+    if (Status written = transport.Write(ReadEepromRequest(request_id, static_cast<std::uint8_t>(mode), addr, pagesize),
+                                         cancellation);
+        !written.has_value())
+    {
+        return std::unexpected(written.error());
+    }
+    if (cancellation.Cancelled())
+    {
+        return Fail(ErrorKind::kCancelled, "cancelled after EEPROM read request");
+    }
+    // No delay() call between this write and the header-ack read (legacy
+    // line 1036 has it commented out).
+    auto header = transport.Read(kPageHeaderTimeout, cancellation);
+    if (!header.has_value())
+    {
+        return std::unexpected(header.error());
+    }
+    if (cancellation.Cancelled())
+    {
+        return Fail(ErrorKind::kCancelled, "cancelled after EEPROM header ack");
+    }
+    if (!header->has_value())
+    {
+        return Fail(ErrorKind::kTimeout, "no response to EEPROM read request");
+    }
+    const bytes::Bytes& hdr = **header;
+    if (hdr.size() <= 8)
+    {
+        return Fail(ErrorKind::kBadResponse, "EEPROM read header ack too short");
+    }
+    bytes::Bytes contributed;
+    // A well-formed-length-but-wrong-content header ack is silently
+    // swallowed -- neither an error nor an append (Task 7 report, "Legacy
+    // behavior surprises" #3). Faithfully reproduced.
+    if (hdr[4] == 0xBE && hdr[5] == 0xEF && hdr[8] == static_cast<bytes::Byte>(kSubKernelReadArea | 0x40U))
+    {
+        contributed.assign(hdr.begin() + 9, hdr.end());
+    }
+    Result<bytes::Bytes> pagedata = ReadPageData(transport, cancellation, pagesize);
+    if (!pagedata.has_value())
+    {
+        return pagedata;
+    }
+    if (pagedata->size() > 7)
+    {
+        contributed.append_range(bytes::ByteView(*pagedata).subspan(8));
+    }
+    else
+    {
+        contributed.append_range(*pagedata);
+    }
+    return contributed;
+}
+
 } // namespace
 
 Result<Iso15765Config> DensoSh705xEepromCanExecutor::TransportSetup(const FlashPlan& plan) const
@@ -443,8 +735,6 @@ Status DensoSh705xEepromCanExecutor::ConnectBootloader(ICanFlashTransport& trans
                                                        const DensoSh705xEepromCanPlan& can_plan,
                                                        bool& kernel_alive) const
 {
-    // #lizard forgives(cyclomatic_complexity)
-    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     if (cancellation.Cancelled())
     {
         return Fail(ErrorKind::kCancelled, "cancelled before connect");
@@ -476,133 +766,35 @@ Status DensoSh705xEepromCanExecutor::ConnectBootloader(ICanFlashTransport& trans
     // 195-234) -- see the OPEN QUESTION resolution comment above this
     // function.
 
-    events.Log(LogLevel::kInfo, "Initializing connection...");
-    if (Result<std::optional<bytes::Bytes>> init_resp = CanRawExchange(
-            transport, clock, cancellation, InitConnectionRequest(request_id), kHandshakeDelayMs, kHandshakeTimeout);
-        !init_resp.has_value())
+    if (Status identity = QueryIdentity(transport, clock, cancellation, events, request_id); !identity.has_value())
     {
-        return std::unexpected(init_resp.error());
+        return identity;
     }
-    // Response content is never inspected here -- legacy logs success/failure
-    // but NEVER returns early on this step (Task 7 report, "Legacy behavior
-    // surprises" #5). Faithfully reproduced, not a gap this task authorizes
-    // closing: only a genuine transport-level failure (handled above)
-    // propagates.
-
-    events.Log(LogLevel::kInfo, "Requesting ECU ID");
-    if (Result<std::optional<bytes::Bytes>> ecuid_resp = CanRawExchange(
-            transport, clock, cancellation, EcuIdRequest(request_id), kHandshakeDelayMs, kHandshakeTimeout);
-        !ecuid_resp.has_value())
-    {
-        return std::unexpected(ecuid_resp.error());
-    }
-
-    events.Log(LogLevel::kInfo, "Requesting VIN");
-    if (Result<std::optional<bytes::Bytes>> vin_resp = CanRawExchange(
-            transport, clock, cancellation, VinRequest(request_id), kHandshakeDelayMs, kHandshakeTimeout);
-        !vin_resp.has_value())
-    {
-        return std::unexpected(vin_resp.error());
-    }
-
-    events.Log(LogLevel::kInfo, "Requesting CAL ID");
-    if (Result<std::optional<bytes::Bytes>> cal_resp = CanRawExchange(
-            transport, clock, cancellation, CalIdRequest(request_id), kHandshakeDelayMs, kHandshakeTimeout);
-        !cal_resp.has_value())
-    {
-        return std::unexpected(cal_resp.error());
-    }
-
-    events.Log(LogLevel::kInfo, "Requesting CVN");
-    if (Result<std::optional<bytes::Bytes>> cvn_resp = CanRawExchange(
-            transport, clock, cancellation, CvnRequest(request_id), kHandshakeDelayMs, kHandshakeTimeout);
-        !cvn_resp.has_value())
-    {
-        return std::unexpected(cvn_resp.error());
-    }
-
     events.Log(LogLevel::kInfo, "Requesting session mode");
-    bool req_10_03_connected = false;
-    Result<std::optional<bytes::Bytes>> s03_resp = CanRawExchange(
-        transport, clock, cancellation, SessionModeRequest(request_id, 0x03), kHandshakeDelayMs, kHandshakeTimeout);
-    if (!s03_resp.has_value())
+    Result<bool> req_10_03_connected = RequestSession(transport, clock, cancellation, request_id, 0x03);
+    if (!req_10_03_connected.has_value())
     {
-        return std::unexpected(s03_resp.error());
+        return std::unexpected(req_10_03_connected.error());
     }
-    if (s03_resp->has_value() && (*s03_resp)->size() > 5 && (**s03_resp)[4] == 0x50 && (**s03_resp)[5] == 0x03)
+    Result<bool> req_10_43_connected = RequestSession(transport, clock, cancellation, request_id, 0x43);
+    if (!req_10_43_connected.has_value())
     {
-        req_10_03_connected = true;
+        return std::unexpected(req_10_43_connected.error());
     }
-
-    bool req_10_43_connected = false;
-    Result<std::optional<bytes::Bytes>> s43_resp = CanRawExchange(
-        transport, clock, cancellation, SessionModeRequest(request_id, 0x43), kHandshakeDelayMs, kHandshakeTimeout);
-    if (!s43_resp.has_value())
+    if (Status unlocked = UnlockSecurity(transport, clock, cancellation, events, can_plan); !unlocked.has_value())
     {
-        return std::unexpected(s43_resp.error());
-    }
-    if (s43_resp->has_value() && (*s43_resp)->size() > 5 && (**s43_resp)[4] == 0x50 && (**s43_resp)[5] == 0x43)
-    {
-        req_10_43_connected = true;
-    }
-
-    events.Log(LogLevel::kInfo, "Requesting seed");
-    Result<bytes::Bytes> seed_resp =
-        CanExchangeGated(transport, clock, cancellation, SeedRequest(request_id), kHandshakeDelayMs, kHandshakeTimeout);
-    if (!seed_resp.has_value())
-    {
-        return std::unexpected(seed_resp.error());
-    }
-    if (seed_resp->size() <= 5 || (*seed_resp)[4] != 0x67 || (*seed_resp)[5] != 0x01)
-    {
-        return Fail(ErrorKind::kBadResponse, "seed request rejected");
-    }
-    if (seed_resp->size() < 10)
-    {
-        return Fail(ErrorKind::kBadResponse, "seed response too short to contain a 4-byte seed");
-    }
-    const bytes::Bytes seed(seed_resp->begin() + 6, seed_resp->begin() + 10);
-
-    // Dispatch over exactly the 4 values DensoSecurityVariant can hold -- no
-    // default case (see the OPEN QUESTION resolution comment above).
-    bytes::Bytes seed_key;
-    switch (can_plan.security)
-    {
-    case DensoSecurityVariant::kStock:
-        seed_key = GenerateStockSeedKey(seed);
-        break;
-    case DensoSecurityVariant::kEcuTek:
-        seed_key = GenerateEcutekSeedKey(seed);
-        break;
-    case DensoSecurityVariant::kCobb:
-        seed_key = GenerateCobbSeedKey(seed);
-        break;
-    case DensoSecurityVariant::kEcuTekRaceRom:
-        seed_key = GenerateEcutekRaceromCanSeedKey(seed);
-        break;
-    }
-
-    events.Log(LogLevel::kInfo, "Sending seed key");
-    Result<bytes::Bytes> key_resp = CanExchangeGated(
-        transport, clock, cancellation, SeedKeySendRequest(request_id, seed_key), kHandshakeDelayMs, kHandshakeTimeout);
-    if (!key_resp.has_value())
-    {
-        return std::unexpected(key_resp.error());
-    }
-    if (key_resp->size() <= 5 || (*key_resp)[4] != 0x67 || (*key_resp)[5] != 0x02)
-    {
-        return Fail(ErrorKind::kBadResponse, "seed key send rejected");
+        return unlocked;
     }
 
     events.Log(LogLevel::kInfo, "Set session mode");
     Result<bytes::Bytes> set_resp = CanExchangeGated(
-        transport, clock, cancellation, SessionSetRequest(request_id, req_10_03_connected, req_10_43_connected),
+        transport, clock, cancellation, SessionSetRequest(request_id, *req_10_03_connected, *req_10_43_connected),
         kHandshakeDelayMs, kHandshakeTimeout);
     if (!set_resp.has_value())
     {
         return std::unexpected(set_resp.error());
     }
-    if (set_resp->size() <= 5 || (*set_resp)[4] != 0x50 || ((*set_resp)[5] != 0x02 && (*set_resp)[5] != 0x42))
+    if (!RepliesWith(*set_resp, 0x50, 0x02) && !RepliesWith(*set_resp, 0x50, 0x42))
     {
         return Fail(ErrorKind::kBadResponse, "session set rejected");
     }
@@ -617,8 +809,6 @@ Status DensoSh705xEepromCanExecutor::UploadKernel(ICanFlashTransport& transport,
                                                   const DensoSh705xEepromCanPlan& can_plan,
                                                   const KernelImage& kernel) const
 {
-    // #lizard forgives(cyclomatic_complexity)
-    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     if (cancellation.Cancelled())
     {
         return Fail(ErrorKind::kCancelled, "cancelled before kernel upload");
@@ -637,26 +827,7 @@ Status DensoSh705xEepromCanExecutor::UploadKernel(ICanFlashTransport& transport,
         return std::unexpected(upload_sizes.error());
     }
     const std::uint32_t data_len = upload_sizes->payload_bytes;
-    const std::uint32_t max_blocks = data_len / kUploadChunkBytes;
-
-    // lines 734-760: pad the ORIGINAL file bytes up to data_len (always a
-    // multiple of 128, hence of 4), drop the last 4 bytes, append a 32-bit
-    // checksum word, then encrypt the whole data_len-byte buffer. Unlike the
-    // K-Line sibling's upload_kernel(), buf.size() == len == data_len always
-    // holds here by construction -- there is no latent OOB-read risk to fix
-    // (Task 7 report: "there's no latent calculatePayload()-clamping/OOB-read
-    // risk analogous to the K-Line finding").
-    bytes::Bytes buf = kernel.bytes;
-    buf.resize(data_len, 0);
-    buf.resize(data_len - 4);
-    std::uint32_t chk_sum = 0;
-    for (std::size_t i = 0; i < buf.size(); i += 4)
-    {
-        chk_sum += bytes::ReadU32Be(buf, i);
-    }
-    chk_sum = 0x5aa5a55aU - chk_sum;
-    bytes::AppendU32Be(buf, chk_sum);
-    const bytes::Bytes encrypted = EncryptCanKernelPayload(buf, static_cast<std::uint32_t>(buf.size()));
+    const bytes::Bytes encrypted = KernelPayload(kernel.bytes, data_len);
 
     events.Log(LogLevel::kInfo, "Initialize kernel upload");
     Result<bytes::Bytes> download_resp =
@@ -666,92 +837,19 @@ Status DensoSh705xEepromCanExecutor::UploadKernel(ICanFlashTransport& transport,
     {
         return std::unexpected(download_resp.error());
     }
-    if (download_resp->size() <= 5 || (*download_resp)[4] != 0x74 || (*download_resp)[5] != 0x20)
+    if (!RepliesWith(*download_resp, 0x74, 0x20))
     {
         return Fail(ErrorKind::kBadResponse, "kernel upload request rejected");
     }
-
     events.Log(LogLevel::kInfo, "Uploading kernel, please wait...");
-    const bytes::ByteView encrypted_view(encrypted);
-    for (std::uint32_t blockno = 0; blockno <= max_blocks; ++blockno)
+    if (Status sent = SendKernelBlocks(transport, cancellation, events, request_id, start_address, encrypted);
+        !sent.has_value())
     {
-        if (cancellation.Cancelled())
-        {
-            return Fail(ErrorKind::kCancelled, "cancelled between kernel transfer chunks");
-        }
-
-        const std::uint32_t block_addr = start_address + blockno * kUploadChunkBytes;
-        // lines 816-857: the block loop runs blockno = 0..max_blocks
-        // INCLUSIVE (max_blocks+1 iterations). Each of the first max_blocks
-        // iterations sends a full 128-byte chunk and decrements a running
-        // `data_len` copy by 128; since that running value starts at exactly
-        // max_blocks*128, it has reached exactly 0 by the final
-        // (blockno==max_blocks) iteration -- so the LAST 0xB6 frame this loop
-        // sends is always header-only, zero payload bytes (Task 7 report,
-        // "Legacy behavior surprises" #1). Faithfully reproduced, not
-        // corrected: an N-block kernel produces N+1 wire frames.
-        const bytes::ByteView chunk =
-            blockno < max_blocks
-                ? encrypted_view.subspan(static_cast<std::size_t>(blockno) * kUploadChunkBytes, kUploadChunkBytes)
-                : bytes::ByteView{};
-
-        if (Status written = transport.Write(SidB6Request(request_id, block_addr, chunk), cancellation);
-            !written.has_value())
-        {
-            return std::unexpected(written.error());
-        }
-        if (cancellation.Cancelled())
-        {
-            return Fail(ErrorKind::kCancelled, "cancelled after kernel chunk write");
-        }
-        // No delay() call between this write and its read (legacy line
-        // 852-853).
-        if (auto block_resp = transport.Read(kBlockAckTimeout, cancellation); !block_resp.has_value())
-        {
-            return std::unexpected(block_resp.error());
-        }
-        if (cancellation.Cancelled())
-        {
-            return Fail(ErrorKind::kCancelled, "cancelled after kernel chunk read");
-        }
-        // Response content is never inspected here (legacy line 853 just
-        // discards it) -- reading it anyway keeps the wire exchange in
-        // lockstep with a real ECU.
-
-        events.Progress(static_cast<int>(blockno), static_cast<int>(max_blocks));
+        return sent;
     }
-
-    events.Log(LogLevel::kInfo, "Kernel uploaded, starting...");
-    Result<bytes::Bytes> start_resp =
-        CanExchangeGated(transport, clock, cancellation, Sid37Request(request_id), kHandshakeDelayMs, kQuickAckTimeout);
-    if (!start_resp.has_value())
+    if (Status started = StartKernel(transport, clock, cancellation, events, request_id); !started.has_value())
     {
-        return std::unexpected(start_resp.error());
-    }
-    if (start_resp->size() <= 4 || (*start_resp)[4] != 0x77)
-    {
-        return Fail(ErrorKind::kBadResponse, "kernel start ack rejected");
-    }
-
-    if (Status slept = clock.Sleep(std::chrono::milliseconds{kPostUploadSettleDelayMs}, cancellation);
-        !slept.has_value())
-    {
-        return std::unexpected(slept.error());
-    }
-    if (cancellation.Cancelled())
-    {
-        return Fail(ErrorKind::kCancelled, "cancelled before start routine");
-    }
-
-    Result<bytes::Bytes> routine_resp =
-        CanExchangeGated(transport, clock, cancellation, Sid31Request(request_id), kHandshakeDelayMs, kQuickAckTimeout);
-    if (!routine_resp.has_value())
-    {
-        return std::unexpected(routine_resp.error());
-    }
-    if (routine_resp->size() <= 4 || (*routine_resp)[4] != 0x71)
-    {
-        return Fail(ErrorKind::kBadResponse, "kernel start routine rejected");
+        return started;
     }
 
     events.Log(LogLevel::kInfo, "Kernel requesting kernel ID...");
@@ -782,8 +880,6 @@ Result<bytes::Bytes> DensoSh705xEepromCanExecutor::ReadMem(ICanFlashTransport& t
                                                            const MemoryRegion& region, EepromReadMode mode,
                                                            std::uint32_t request_id) const
 {
-    // #lizard forgives(cyclomatic_complexity)
-    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     const std::uint32_t start_addr = region.start;
     const std::uint32_t length = region.length;
 
@@ -809,84 +905,15 @@ Result<bytes::Bytes> DensoSh705xEepromCanExecutor::ReadMem(ICanFlashTransport& t
         }
 
         constexpr std::uint32_t kNumBlocks = 1; // legacy hardcodes this per outer iteration
-
-        if (Status written = transport.Write(
-                ReadEepromRequest(request_id, static_cast<std::uint8_t>(mode), addr, pagesize), cancellation);
-            !written.has_value())
+        Result<bytes::Bytes> page = ReadEepromPage(transport, cancellation, request_id, mode, addr, pagesize);
+        if (!page.has_value())
         {
-            return std::unexpected(written.error());
-        }
-        if (cancellation.Cancelled())
-        {
-            return Fail(ErrorKind::kCancelled, "cancelled after EEPROM read request");
-        }
-
-        // No delay() call between this write and the header-ack read (legacy
-        // line 1036 has it commented out).
-        auto header = transport.Read(kPageHeaderTimeout, cancellation);
-        if (!header.has_value())
-        {
-            return std::unexpected(header.error());
-        }
-        if (cancellation.Cancelled())
-        {
-            return Fail(ErrorKind::kCancelled, "cancelled after EEPROM header ack");
-        }
-        if (!header->has_value())
-        {
-            return Fail(ErrorKind::kTimeout, "no response to EEPROM read request");
-        }
-        const bytes::Bytes& hdr = **header;
-        if (hdr.size() <= 8)
-        {
-            return Fail(ErrorKind::kBadResponse, "EEPROM read header ack too short");
-        }
-        if (hdr[4] == 0xBE && hdr[5] == 0xEF && hdr[8] == static_cast<bytes::Byte>(kSubKernelReadArea | 0x40U))
-        {
-            mapdata.insert(mapdata.end(), hdr.begin() + 9, hdr.end());
-        }
-        // else: a well-formed-length-but-wrong-content header ack is
-        // silently swallowed here -- neither an error nor an append (Task 7
-        // report, "Legacy behavior surprises" #3). Faithfully reproduced.
-
-        bytes::Bytes pagedata;
-        int attempts = 0;
-        while (pagedata.size() < pagesize && attempts < kMaxPagedataAttempts)
-        {
-            if (cancellation.Cancelled())
-            {
-                return Fail(ErrorKind::kCancelled, "cancelled during EEPROM page read");
-            }
-            auto chunk = transport.Read(kPagedataPollTimeout, cancellation);
-            if (!chunk.has_value())
-            {
-                return std::unexpected(chunk.error());
-            }
-            if (cancellation.Cancelled())
-            {
-                return Fail(ErrorKind::kCancelled, "cancelled during EEPROM page read");
-            }
-            if (chunk->has_value() && !(*chunk)->empty())
-            {
-                pagedata.insert(pagedata.end(), (*chunk)->begin(), (*chunk)->end());
-            }
-            ++attempts;
-        }
-        // line 1069: `if (timeout >= 1000)` is legacy dead code -- the loop's
-        // own bound is kMaxPagedataAttempts (100), so this can never trip. A
-        // page that never fully arrives is therefore silently accepted short
-        // rather than erroring; preserved faithfully (Task 7 report, "Legacy
-        // behavior surprises" #2), same shape as the K-Line sibling's own
-        // analogous dead-code note.
-
-        if (pagedata.size() > 7)
-        {
-            pagedata.erase(pagedata.begin(), pagedata.begin() + 8);
+            return std::unexpected(page.error());
         }
         // Unlike the K-Line sibling, mapdata is never sliced by cplen/
         // skip_start here -- it just accumulates whatever survived each
         // response's own framing strip, whole (Task 7 report).
-        mapdata.insert(mapdata.end(), pagedata.begin(), pagedata.end());
+        mapdata.append_range(*page);
 
         std::uint32_t cplen = kNumBlocks * pagesize - skip_start;
         skip_start = 0;
