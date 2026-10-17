@@ -5,10 +5,12 @@
 #include <cmath>
 #include <cstdint>
 #include <format>
+#include <optional>
 #include <chrono>
 #include <cstddef>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
 
@@ -86,6 +88,71 @@ Result<std::string> DecodeNumeric(bytes::ByteView data, const LoggingChannel& ch
     }
     return Fail(ErrorKind::kInvalidConfig, "invalid SSM numeric storage");
 }
+
+std::uint8_t TargetId(bool target_is_ecu)
+{
+    return target_is_ecu ? 0x10 : 0x18;
+}
+
+// Drops bytes before the first reply header from `target`. Once a whole reply
+// has arrived, returns it and leaves the bytes after it in `received`.
+std::optional<bytes::Bytes> TakeReply(bytes::Bytes& received, std::uint8_t target)
+{
+    while (received.size() >= 3 && (received[0] != 0x80 || received[1] != 0xf0 || received[2] != target))
+    {
+        received.erase(received.begin());
+    }
+    if (received.size() < 4 || received.size() < static_cast<std::size_t>(received[3]) + 5)
+    {
+        return std::nullopt;
+    }
+    const auto end = received.begin() + received[3] + 5;
+    bytes::Bytes reply(received.begin(), end);
+    received.erase(received.begin(), end);
+    return reply;
+}
+
+// A complete read-memory (E8) reply from `target` carrying `data_size` bytes.
+bool IsReadReply(bytes::ByteView reply, std::uint8_t target, std::size_t data_size)
+{
+    return reply.size() == data_size + 6 && reply[0] == 0x80 && reply[1] == 0xf0 && reply[2] == target &&
+           reply[3] == data_size + 1 && reply[4] == 0xe8 && bytes::Sum8(reply.first(reply.size() - 1)) == reply.back();
+}
+
+// `data` holds one byte per physical plan address.
+Result<std::vector<ProtocolSample>> DecodeSamples(const SsmReadPlan& plan, const std::vector<LoggingChannel>& channels,
+                                                  bytes::ByteView data)
+{
+    if (plan.response_positions.size() != channels.size())
+    {
+        return Fail(ErrorKind::kInvalidConfig, "SSM logical channel/read-plan count mismatch");
+    }
+    std::vector<ProtocolSample> samples;
+    for (std::size_t i = 0; i < channels.size(); ++i)
+    {
+        const auto& positions = plan.response_positions[i];
+        if (positions.size() != channels[i].length)
+        {
+            return Fail(ErrorKind::kInvalidConfig, "SSM channel byte positions do not match width");
+        }
+        bytes::Bytes raw_bytes;
+        for (const auto position : positions)
+        {
+            if (position >= data.size())
+            {
+                return Fail(ErrorKind::kInvalidConfig, "SSM response position outside physical read plan");
+            }
+            raw_bytes.push_back(data[position]);
+        }
+        const auto raw_value = DecodeNumeric(raw_bytes, channels[i]);
+        if (!raw_value.has_value())
+        {
+            return std::unexpected(raw_value.error());
+        }
+        samples.push_back({channels[i].id, *raw_value});
+    }
+    return samples;
+}
 } // namespace
 
 SsmLoggingProtocol::SsmLoggingProtocol(fastecu::IClock& clock, std::unique_ptr<ISsmTransport> transport,
@@ -98,14 +165,12 @@ SsmLoggingProtocol::SsmLoggingProtocol(fastecu::IClock& clock, std::unique_ptr<I
 
 bytes::Bytes SsmLoggingProtocol::BuildSsmHeader(bytes::ByteView output) const
 {
-    return ssm_protocol::AddHeader(output, 0xF0, target_is_ecu_ ? 0x10 : 0x18);
+    return ssm_protocol::AddHeader(output, 0xF0, TargetId(target_is_ecu_));
 }
 
 fastecu::Result<bytes::Bytes> SsmLoggingProtocol::ReadFramedResponse(std::chrono::milliseconds timeout,
                                                                      const fastecu::ICancellationToken& cancellation)
 {
-    // #lizard forgives(cyclomatic_complexity)
-    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     bytes::Bytes received;
     const auto deadline = clock_.Now() + timeout;
 
@@ -143,22 +208,11 @@ fastecu::Result<bytes::Bytes> SsmLoggingProtocol::ReadFramedResponse(std::chrono
         {
             return std::unexpected(status.error());
         }
-        while (received.size() >= 3 &&
-               (received[0] != 0x80 || received[1] != 0xf0 || received[2] != (target_is_ecu_ ? 0x10 : 0x18)))
+        if (auto reply = TakeReply(received, TargetId(target_is_ecu_)); reply.has_value())
         {
-            received.erase(received.begin());
-        }
-        if (received.size() >= 4)
-        {
-            const auto frame_size = static_cast<std::size_t>(received[3]) + 5;
-            if (received.size() >= frame_size)
-            {
-                // Continuous replies may arrive consecutively or in one read.
-                pending_response_bytes_.assign(received.begin() + static_cast<std::ptrdiff_t>(frame_size),
-                                               received.end());
-                received.resize(frame_size);
-                return received;
-            }
+            // Continuous replies may arrive consecutively or in one read.
+            pending_response_bytes_ = std::move(received);
+            return *std::move(reply);
         }
         // Process bytes already read, including a complete frame arriving at
         // the deadline, before deciding whether another read is permitted.
@@ -200,9 +254,7 @@ fastecu::Status SsmLoggingProtocol::Start(const fastecu::ICancellationToken& can
         return std::unexpected(received.error());
     }
     // The startup probe requests one address, hence one data byte.
-    if (received->size() != 7 || received->at(0) != 0x80 || received->at(1) != 0xf0 ||
-        received->at(2) != (target_is_ecu_ ? 0x10 : 0x18) || received->at(3) != 2 || received->at(4) != 0xe8 ||
-        bytes::Sum8(bytes::ByteView{*received}.first(6)) != received->back())
+    if (!IsReadReply(*received, TargetId(target_is_ecu_), 1))
     {
         return fastecu::Fail(fastecu::ErrorKind::kBadResponse, "no response to logging start request");
     }
@@ -212,8 +264,6 @@ fastecu::Status SsmLoggingProtocol::Start(const fastecu::ICancellationToken& can
 fastecu::Result<PollData> SsmLoggingProtocol::Poll(std::chrono::milliseconds timeout,
                                                    const fastecu::ICancellationToken& cancellation)
 {
-    // #lizard forgives(cyclomatic_complexity)
-    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     if (auto status = CheckCancellation(cancellation); !status.has_value())
     {
         return std::unexpected(status.error());
@@ -237,43 +287,16 @@ fastecu::Result<PollData> SsmLoggingProtocol::Poll(std::chrono::milliseconds tim
     {
         return PollData{.responded = false};
     }
-    const auto expected_size = plan_.addresses.size() + 6;
-    if (received->size() != expected_size || received->at(0) != 0x80 || received->at(1) != 0xf0 ||
-        received->at(2) != (target_is_ecu_ ? 0x10 : 0x18) || received->at(3) != plan_.addresses.size() + 1 ||
-        received->at(4) != 0xe8 ||
-        bytes::Sum8(bytes::ByteView{*received}.first(received->size() - 1)) != received->back())
+    if (!IsReadReply(*received, TargetId(target_is_ecu_), plan_.addresses.size()))
     {
         return Fail(ErrorKind::kBadResponse, "SSM logging response does not match complete physical read plan");
     }
-    if (plan_.response_positions.size() != channels_.size())
+    auto samples = DecodeSamples(plan_, channels_, bytes::ByteView{*received}.subspan(5, plan_.addresses.size()));
+    if (!samples.has_value())
     {
-        return Fail(ErrorKind::kInvalidConfig, "SSM logical channel/read-plan count mismatch");
+        return std::unexpected(samples.error());
     }
-    PollData data{.responded = true};
-    for (std::size_t i = 0; i < channels_.size(); ++i)
-    {
-        const auto& positions = plan_.response_positions[i];
-        if (positions.size() != channels_[i].length)
-        {
-            return Fail(ErrorKind::kInvalidConfig, "SSM channel byte positions do not match width");
-        }
-        bytes::Bytes raw_bytes;
-        for (const auto position : positions)
-        {
-            if (position >= plan_.addresses.size())
-            {
-                return Fail(ErrorKind::kInvalidConfig, "SSM response position outside physical read plan");
-            }
-            raw_bytes.push_back(received->at(5 + position));
-        }
-        const auto raw_value = DecodeNumeric(raw_bytes, channels_[i]);
-        if (!raw_value.has_value())
-        {
-            return std::unexpected(raw_value.error());
-        }
-        data.samples.push_back({channels_[i].id, *raw_value});
-    }
-    return data;
+    return PollData{.responded = true, .samples = std::move(*samples)};
 }
 
 fastecu::Status SsmLoggingProtocol::Stop()

@@ -42,14 +42,45 @@ bool ReconnectDue(const LoggingPolicy& policy, int consecutive_misses)
            (consecutive_misses - policy.reconnect_attempt_threshold) % policy.reconnect_retry_period == 0;
 }
 
+// A configuration failure leaves that sample without a value and is reported
+// once per channel; any other failure ends the run.
+fastecu::Result<std::vector<LogSample>> ConvertSamples(const LoggingSession& session,
+                                                       const std::vector<ProtocolSample>& samples,
+                                                       std::unordered_set<std::string>& reported_failures,
+                                                       fastecu::IEventSink& diagnostics)
+{
+    std::vector<LogSample> converted;
+    converted.reserve(samples.size());
+    for (const ProtocolSample& raw : samples)
+    {
+        auto sample = ConvertSample(session, raw);
+        if (sample.has_value())
+        {
+            converted.push_back(std::move(*sample));
+            continue;
+        }
+        if (sample.error().kind != ErrorKind::kInvalidConfig)
+        {
+            return std::unexpected(sample.error());
+        }
+        if (reported_failures.insert(raw.channel_id).second)
+        {
+            diagnostics.Log(LogLevel::kError, std::format("{} unavailable: {}", raw.channel_id, sample.error().detail));
+        }
+        converted.push_back({.channel_id = raw.channel_id,
+                             .numeric_value = std::nullopt,
+                             .raw_value = raw.raw_value,
+                             .unit = session.FindChannel(raw.channel_id)->unit});
+    }
+    return converted;
+}
+
 } // namespace
 
 fastecu::Status LoggingUseCase::Run(const LoggingSession& session, LoggingProtocol& protocol,
                                     const fastecu::ICancellationToken& cancellation, ILoggingEventSink& events,
                                     fastecu::IEventSink& diagnostics) const
 {
-    // #lizard forgives(cyclomatic_complexity)
-    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     if (cancellation.Cancelled())
     {
         return fastecu::Fail(fastecu::ErrorKind::kCancelled, "logging cancelled");
@@ -87,31 +118,12 @@ fastecu::Status LoggingUseCase::Run(const LoggingSession& session, LoggingProtoc
                 events.StateChanged(LoggingState::kRunning);
             }
 
-            std::vector<LogSample> converted;
-            converted.reserve(poll_result->samples.size());
-            for (const ProtocolSample& raw : poll_result->samples)
+            auto converted = ConvertSamples(session, poll_result->samples, reported_conversion_failures, diagnostics);
+            if (!converted.has_value())
             {
-                auto sample = ConvertSample(session, raw);
-                if (!sample.has_value())
-                {
-                    if (sample.error().kind != ErrorKind::kInvalidConfig)
-                    {
-                        return std::unexpected(sample.error());
-                    }
-                    if (reported_conversion_failures.insert(raw.channel_id).second)
-                    {
-                        diagnostics.Log(LogLevel::kError,
-                                        std::format("{} unavailable: {}", raw.channel_id, sample.error().detail));
-                    }
-                    converted.push_back({.channel_id = raw.channel_id,
-                                         .numeric_value = std::nullopt,
-                                         .raw_value = raw.raw_value,
-                                         .unit = session.FindChannel(raw.channel_id)->unit});
-                    continue;
-                }
-                converted.push_back(std::move(*sample));
+                return std::unexpected(converted.error());
             }
-            events.Samples(converted);
+            events.Samples(*converted);
             continue;
         }
 
