@@ -42,6 +42,13 @@ class ParseCheckProfileTest(unittest.TestCase):
         checks = profile.parse_check_profile(_TABLE_WITH_INSTR)
         self.assertEqual({"bugprone-infinite-loop": 0.01}, checks)
 
+    def test_tolerates_padding_inside_the_percentage(self) -> None:
+        row = "  0.0100 ( 50.0%) 0.0000 (  0.0%) 0.0100 ( 50.0%) 0.0100 ( 50.0%) misc-unused\n"
+        self.assertEqual({"misc-unused": 0.01}, profile.parse_check_profile(row))
+
+    def test_a_long_digit_run_is_not_a_column(self) -> None:
+        self.assertEqual({}, profile.parse_check_profile("1" * 100_000 + " (\n"))
+
     def test_ignores_text_without_a_table(self) -> None:
         self.assertEqual({}, profile.parse_check_profile("warning: something\n"))
 

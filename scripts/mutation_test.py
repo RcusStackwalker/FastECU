@@ -434,6 +434,33 @@ def operand(value: str) -> str:
     return value
 
 
+# One or more target patterns joined by `+` or `-`: no query functions or
+# parentheses, so `--scope` cannot rewrite the query it is spliced into.
+_TARGET_PATTERN = re.compile(r"//[\w./:-]*(?: [+-] //[\w./:-]*)*")
+
+
+def target_pattern(value: str) -> str:
+    """A Bazel target pattern expression, safe to splice into a query."""
+    if not _TARGET_PATTERN.fullmatch(value):
+        raise argparse.ArgumentTypeError(
+            f"{value!r} is not a target pattern such as //src/a/... + //src/b/..."
+        )
+    return value
+
+
+def report_directory(path: Path, root: Path, environ: Mapping[str, str]) -> Path:
+    """`path` resolved, provided it lies in the checkout or a temp directory."""
+    resolved = (root / path).resolve()
+    bases = [root.resolve(), Path(tempfile.gettempdir()).resolve()]
+    if environ.get("RUNNER_TEMP"):
+        bases.append(Path(environ["RUNNER_TEMP"]).resolve())
+    if not any(resolved.is_relative_to(base) for base in bases):
+        raise MutationTestError(
+            f"{path} is outside the checkout and the temp directories; reports go there"
+        )
+    return resolved
+
+
 def _parse_args(argv: Sequence[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument(
@@ -444,7 +471,7 @@ def _parse_args(argv: Sequence[str]) -> argparse.Namespace:
     parser.add_argument("--annotate", action="store_true", help="print GitHub annotations")
     parser.add_argument(
         "--scope",
-        type=operand,
+        type=target_pattern,
         default=PORTABLE_SCOPE,
         help=f"Bazel target pattern whose tests run (default: {PORTABLE_SCOPE})",
     )
@@ -504,7 +531,10 @@ def main(argv: Sequence[str] = sys.argv[1:]) -> int:
         else "Mutation testing"
     )
     try:
+        if args.report_dir:
+            args.report_dir = report_directory(args.report_dir, root, os.environ)
         if args.merge_reports:
+            args.merge_reports = report_directory(args.merge_reports, root, os.environ)
             return merge_shards(args, root)
         changed = None
         if args.diff_ref:

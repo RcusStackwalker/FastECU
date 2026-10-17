@@ -2,16 +2,41 @@
 
 from __future__ import annotations
 
-import re
 from collections.abc import Mapping
+from itertools import pairwise
 
 # A table row is N columns of `<seconds> (<percent>%)` followed by the check
 # name. The columns are user, system, user+system, wall and, on newer LLVM,
 # an instruction count; wall time is always the fourth.
-# The lookbehind stops the scan restarting inside a digit run, which made a
-# long run of digits quadratic.
-_COLUMN = re.compile(r"(?<![\d.])(\d+(?:\.\d+)?(?:e[+-]?\d+)?) {1,20}\( {0,20}\d+(?:\.\d+)?%\)")
 _WALL_COLUMN = 3
+
+
+def _is_number(token: str) -> bool:
+    if not token[:1].isdigit():
+        return False
+    try:
+        float(token)
+    except ValueError:
+        return False
+    return True
+
+
+def _columns(line: str) -> list[str]:
+    """The `<value>` of every `<value> (<percent>%)` pair in `line`, in order.
+
+    Tokenised rather than matched with a regex: a column pattern scanned
+    across a long digit run backtracks super-linearly.
+    """
+    # Split `(` off what precedes it and close up any padding inside it.
+    tokens = " ".join(line.replace("(", " (").split()).replace("( ", "(").split()
+    return [
+        value
+        for value, share in pairwise(tokens)
+        if _is_number(value)
+        and share.startswith("(")
+        and share.endswith("%)")
+        and _is_number(share[1:-2])
+    ]
 
 
 def parse_check_profile(text: str) -> dict[str, float]:
@@ -23,7 +48,7 @@ def parse_check_profile(text: str) -> dict[str, float]:
     """
     totals: dict[str, float] = {}
     for line in text.splitlines():
-        columns = _COLUMN.findall(line)
+        columns = _columns(line)
         if len(columns) <= _WALL_COLUMN:
             continue
         name = line.rsplit(None, 1)[-1]

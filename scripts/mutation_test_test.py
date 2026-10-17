@@ -153,6 +153,40 @@ class OperandTest(unittest.TestCase):
             mt.operand("")
 
 
+class TargetPatternTest(unittest.TestCase):
+    def test_accepts_the_portable_scope(self) -> None:
+        self.assertEqual(mt.PORTABLE_SCOPE, mt.target_pattern(mt.PORTABLE_SCOPE))
+
+    def test_accepts_a_package_or_label(self) -> None:
+        self.assertEqual("//src/a/...", mt.target_pattern("//src/a/..."))
+        self.assertEqual("//src/a:t_test", mt.target_pattern("//src/a:t_test"))
+
+    def test_accepts_a_subtraction(self) -> None:
+        self.assertEqual("//src/... - //src/ui/...", mt.target_pattern("//src/... - //src/ui/..."))
+
+    def test_rejects_query_functions(self) -> None:
+        for value in ("//src/...) union deps(//...", "kind(cc_binary, //...)", "--output=x", ""):
+            with self.subTest(value=value), self.assertRaises(argparse.ArgumentTypeError):
+                mt.target_pattern(value)
+
+
+class ReportDirectoryTest(unittest.TestCase):
+    def test_accepts_a_directory_under_the_checkout(self) -> None:
+        self.assertEqual(ROOT / "reports", mt.report_directory(Path("reports"), ROOT, {}))
+
+    def test_accepts_a_directory_under_the_runner_temp(self) -> None:
+        runner_temp = Path("/runner/_temp")
+        self.assertEqual(
+            runner_temp / "mutation",
+            mt.report_directory(runner_temp / "mutation", ROOT, {"RUNNER_TEMP": str(runner_temp)}),
+        )
+
+    def test_rejects_a_directory_that_escapes_the_bases(self) -> None:
+        for value in (Path("../elsewhere"), Path("/etc/fastecu")):
+            with self.subTest(value=value), self.assertRaises(mt.MutationTestError):
+                mt.report_directory(value, ROOT, {})
+
+
 class SelectionTest(unittest.TestCase):
     def test_keeps_portable_production_sources_only(self) -> None:
         self.assertEqual(
