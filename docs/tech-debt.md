@@ -207,6 +207,26 @@ refreshes has no entry for them, and the changed-files run skips them without
 a note. Give the refresh a fuzz-enabled pass (or a database merged from one) and
 make a changed source with no database entry a reported note, not silence.
 
+### P3: Flash protocol behaviors awaiting external evidence
+
+Characterization preserves these behaviors; none is a demonstrated defect.
+Changing one needs mapped protocol functions or captured family traffic plus a
+separate correction decision (see
+[corrections](design-notes.md#corrections-require-local-evidence)).
+
+- **Denso BEEF K-Line (MC68, SH7055).** Capability layout and final verification
+  lack independent evidence; MC68 CRC decoding accumulates ten bytes without
+  checksum validation. No local EcuFlash artifact maps family pacing,
+  address windows, upload silence or the CRC failure marker.
+- **Denso ISO-15765 bootloader.** The legacy pending-first checksum discrepancy
+  and the discarded first bench jump read (4M, SH72531) are unverified. No
+  mapped RomRaider or EcuFlash page-read oracle covers timeout, response policy,
+  short-page acceptance or stop-error precedence, and ECUFlash family names do
+  not map the addressing.
+- **Subaru TCU CVT.** EcuFlash security and reflash/retry functions for the
+  Hitachi M32R and MH8111 families are unmapped; legacy line citations establish
+  only crypto table provenance.
+
 ## Coverage growth sequence toward 80%
 
 Prioritize parser/model fixtures and validation; checksum golden vectors and
