@@ -128,9 +128,35 @@ class J2534 : public QObject
         kTxLbStartInd = 0xA0,
     };
 
-    int IsValidSconfigParam(SCONFIG s);
-    void DumpSbyteArray(const SByteArray *s);
-    void DumpSconfigParam(SCONFIG s);
+    // Progress of one PassThruReadMsgs call across adapter frames.
+    struct RxState
+    {
+        PassThruMsg *msg;
+        unsigned long timeout;
+        unsigned long msg_cnt = 0;
+        unsigned long chunk_cnt = 0;
+        unsigned long msg_byte_cnt = 0;
+        std::uint32_t msg_index = 0;
+    };
+    enum class FrameOutcome
+    {
+        kContinue, // read the next frame
+        kStop,     // a whole message is assembled
+        kReturn,   // an ioctl reply line is in the message
+    };
+    FrameOutcome HandleAdapterFrame(QByteArray& received, RxState& state);
+    QByteArray ReadUntil(char terminator, unsigned long timeout);
+    void ReadFastInitReply(RxState& state);
+    FrameOutcome HandleRxFrame(QByteArray& received, RxState& state);
+    FrameOutcome HandleNormFrame(QByteArray& received, RxState& state);
+    static void CopyTimestampedPayload(const QByteArray& received, RxState& state);
+    static void CopyPayload(const QByteArray& received, qsizetype offset, RxState& state);
+    FrameOutcome FinishMessage(QByteArray& received, RxState& state);
+
+    void SendConfig(unsigned long channel_id, const SConfigList& config);
+    long ReadVbatt(unsigned long channel_id, unsigned long *v_batt);
+    long FiveBaudInit(unsigned long channel_id, const SByteArray& address, SByteArray& response);
+    void SendFastInit(unsigned long channel_id, const PassThruMsg& request);
 
     void Delay(int n);
 

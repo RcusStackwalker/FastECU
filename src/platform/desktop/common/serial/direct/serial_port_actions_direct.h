@@ -675,6 +675,8 @@ class SerialPortActionsDirect : public QObject, public SerialBackend
     QByteArray AppendIso14230Header(QByteArray output);
     int WriteJ2534Data(QByteArray output);
     QByteArray ReadJ2534Data(unsigned long timeout_arg);
+    void WaitForBytesAvailable(const QTime& die_time);
+    void ReadUntilLength(QByteArray& buffer, std::uint32_t length, const QTime& die_time, bool resync_header);
     QString ParseMessageToHex(const QByteArray& received);
 
     /*public slots:
