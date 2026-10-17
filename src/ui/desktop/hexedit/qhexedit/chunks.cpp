@@ -1,4 +1,5 @@
 #include "chunks.h"
+#include <algorithm>
 #include <limits>
 
 namespace
@@ -46,8 +47,6 @@ bool Chunks::setIODevice(QIODevice& ioDevice)
 
 QByteArray Chunks::data(qint64 pos, qint64 maxSize, QByteArray *highlighted)
 {
-    // #lizard forgives(cyclomatic_complexity)
-    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     qint64 ioDelta = 0;
     int chunkIdx = 0;
 
@@ -79,8 +78,7 @@ QByteArray Chunks::data(qint64 pos, qint64 maxSize, QByteArray *highlighted)
     while (maxSize > 0)
     {
         chunk.abs_pos = std::numeric_limits<qint64>::max();
-        bool chunksLoopOngoing = true;
-        while ((chunkIdx < chunks_.count()) && chunksLoopOngoing)
+        while (chunkIdx < chunks_.count())
         {
             // In this section, we track changes before our required data and
             // we take the editdet data, if availible. ioDelta is a difference
@@ -90,31 +88,28 @@ QByteArray Chunks::data(qint64 pos, qint64 maxSize, QByteArray *highlighted)
             chunk = chunks_[chunkIdx];
             if (chunk.abs_pos > pos)
             {
-                chunksLoopOngoing = false;
+                break;
+            }
+            chunkIdx += 1;
+            qint64 count;
+            qint64 chunkOfs = pos - chunk.abs_pos;
+            if (maxSize > ((qint64)chunk.data.size() - chunkOfs))
+            {
+                count = (qint64)chunk.data.size() - chunkOfs;
+                ioDelta += kChunkSize - chunk.data.size();
             }
             else
             {
-                chunkIdx += 1;
-                qint64 count;
-                qint64 chunkOfs = pos - chunk.abs_pos;
-                if (maxSize > ((qint64)chunk.data.size() - chunkOfs))
+                count = maxSize;
+            }
+            if (count > 0)
+            {
+                buffer += chunk.data.mid(chunkOfs, (int)count);
+                maxSize -= count;
+                pos += count;
+                if (highlighted)
                 {
-                    count = (qint64)chunk.data.size() - chunkOfs;
-                    ioDelta += kChunkSize - chunk.data.size();
-                }
-                else
-                {
-                    count = maxSize;
-                }
-                if (count > 0)
-                {
-                    buffer += chunk.data.mid(chunkOfs, (int)count);
-                    maxSize -= count;
-                    pos += count;
-                    if (highlighted)
-                    {
-                        *highlighted += chunk.data_changed.mid(chunkOfs, (int)count);
-                    }
+                    *highlighted += chunk.data_changed.mid(chunkOfs, (int)count);
                 }
             }
         }
@@ -123,31 +118,27 @@ QByteArray Chunks::data(qint64 pos, qint64 maxSize, QByteArray *highlighted)
         {
             // In this section, we read data from the original source. This only will
             // happen, whe no copied data is available
-
-            qint64 byteCount;
-            QByteArray readBuffer;
-            if ((chunk.abs_pos - pos) > maxSize)
-            {
-                byteCount = maxSize;
-            }
-            else
-            {
-                byteCount = chunk.abs_pos - pos;
-            }
-
+            const qint64 byteCount = std::min(chunk.abs_pos - pos, maxSize);
             maxSize -= byteCount;
-            io_device_->seek(pos + ioDelta);
-            readBuffer = io_device_->read(byteCount);
-            buffer += readBuffer;
-            if (highlighted)
-            {
-                *highlighted += QByteArray(readBuffer.size(), kNormal);
-            }
-            pos += readBuffer.size();
+            pos += readOriginal(pos + ioDelta, byteCount, buffer, highlighted);
         }
     }
     io_device_->close();
     return buffer;
+}
+
+// Appends up to `count` bytes of the original source at `ioPos`, marked
+// unchanged, and returns how many it read.
+qint64 Chunks::readOriginal(qint64 ioPos, qint64 count, QByteArray& buffer, QByteArray *highlighted)
+{
+    io_device_->seek(ioPos);
+    const QByteArray readBuffer = io_device_->read(count);
+    buffer += readBuffer;
+    if (highlighted)
+    {
+        *highlighted += QByteArray(readBuffer.size(), kNormal);
+    }
+    return readBuffer.size();
 }
 
 bool Chunks::write(QIODevice& iODevice, qint64 pos, qint64 count)

@@ -36,3 +36,15 @@ fastecu_gtest(
         "@googletest//:gtest",
     ],
 )
+
+fastecu_gtest(
+    name = "qhexedit_keys_test",
+    srcs = ["qhexedit_keys_test.cpp"],
+    deps = [
+        ":qhexedit",
+        "//bazel/qt:gui",
+        "//bazel/qt:widgets",
+        "//src/platform/desktop/common/testing:widgets_application_environment",
+        "@googletest//:gtest",
+    ],
+)
