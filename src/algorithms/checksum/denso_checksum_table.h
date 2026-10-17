@@ -1,10 +1,12 @@
 #pragma once
 
+#include "checksum_result.h"
 #include "src/algorithms/memory/address.h"
 #include "src/algorithms/protocol/bytes.h"
 
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <span>
 
 namespace fastecu::checksum::internal
@@ -31,11 +33,22 @@ enum class DensoTableOutcome
     kDisabled,
     kInvalidTableRange,
     kInvalidBlockRange,
+    kReversedBlockRange,
     kInvalidRecordLength,
 };
 
 // `rom` holds the bytes from ECU address `base` on. The table's records hold
 // ECU addresses; a record with a zero start or end address sums nothing.
 DensoTableOutcome CorrectDensoTable(memory::FlashAddress base, bytes::MutableByteView rom, const DensoTableSpec& spec);
+
+struct DensoTableFailure
+{
+    ChecksumResult::Status status;
+    const char *message;
+};
+
+// What a family reports when CorrectDensoTable gives `outcome`; nullopt for
+// the outcomes that are not failures.
+std::optional<DensoTableFailure> FailureOf(DensoTableOutcome outcome);
 
 } // namespace fastecu::checksum::internal

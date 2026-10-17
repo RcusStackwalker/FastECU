@@ -46,19 +46,10 @@ ChecksumResult ChecksumEcuSubaruDensoSH705xDiesel::CalculateChecksumResult(const
         result.message = "ROM has all checksums disabled";
         return result;
     }
-    if (primary_outcome == DensoTableOutcome::kInvalidRecordLength)
+    if (const auto failure = fastecu::checksum::internal::FailureOf(primary_outcome))
     {
-        result.status = ChecksumResult::Status::kParseError;
-        result.message = "Checksum area length must be a multiple of 12 bytes";
-        return result;
-    }
-    if (primary_outcome == DensoTableOutcome::kInvalidTableRange ||
-        primary_outcome == DensoTableOutcome::kInvalidBlockRange)
-    {
-        result.status = ChecksumResult::Status::kInvalidSize;
-        result.message = primary_outcome == DensoTableOutcome::kInvalidTableRange
-                             ? "ROM is too small for the configured checksum area"
-                             : "ROM is too small for a checksum block range";
+        result.status = failure->status;
+        result.message = failure->message;
         return result;
     }
 
@@ -71,14 +62,11 @@ ChecksumResult ChecksumEcuSubaruDensoSH705xDiesel::CalculateChecksumResult(const
             .detect_disabled = false,
         };
         secondary_outcome = fastecu::checksum::internal::CorrectDensoTable(base, result.rom_data, secondary);
-        if (secondary_outcome == DensoTableOutcome::kInvalidTableRange ||
-            secondary_outcome == DensoTableOutcome::kInvalidBlockRange)
+        if (const auto failure = fastecu::checksum::internal::FailureOf(secondary_outcome))
         {
             result.rom_data.assign(rom_view.begin(), rom_view.end());
-            result.status = ChecksumResult::Status::kInvalidSize;
-            result.message = secondary_outcome == DensoTableOutcome::kInvalidTableRange
-                                 ? "ROM is too small for the configured checksum area"
-                                 : "ROM is too small for a checksum block range";
+            result.status = failure->status;
+            result.message = failure->message;
             return result;
         }
     }

@@ -14,12 +14,15 @@ ChecksumResult ChecksumEcuSubaruDensoSH7xxx::CalculateChecksumResult(const faste
     };
 
     using Outcome = fastecu::checksum::internal::DensoTableOutcome;
-    switch (fastecu::checksum::internal::CorrectDensoTable(rom.Range().Start(), result.rom_data, spec))
+    const Outcome outcome = fastecu::checksum::internal::CorrectDensoTable(rom.Range().Start(), result.rom_data, spec);
+    if (const auto failure = fastecu::checksum::internal::FailureOf(outcome))
     {
-    case Outcome::kUnchanged:
-        result.status = ChecksumResult::Status::kUnchanged;
-        result.message = "Checksums OK";
-        break;
+        result.status = failure->status;
+        result.message = failure->message;
+        return result;
+    }
+    switch (outcome)
+    {
     case Outcome::kCorrected:
         result.status = ChecksumResult::Status::kCorrected;
         result.message = "Checksums corrected";
@@ -28,17 +31,9 @@ ChecksumResult ChecksumEcuSubaruDensoSH7xxx::CalculateChecksumResult(const faste
         result.status = ChecksumResult::Status::kDisabled;
         result.message = "ROM has all checksums disabled";
         break;
-    case Outcome::kInvalidRecordLength:
-        result.status = ChecksumResult::Status::kParseError;
-        result.message = "Checksum area length must be a multiple of 12 bytes";
-        break;
-    case Outcome::kInvalidTableRange:
-        result.status = ChecksumResult::Status::kInvalidSize;
-        result.message = "ROM is too small for the configured checksum area";
-        break;
-    case Outcome::kInvalidBlockRange:
-        result.status = ChecksumResult::Status::kInvalidSize;
-        result.message = "ROM is too small for a checksum block range";
+    default:
+        result.status = ChecksumResult::Status::kUnchanged;
+        result.message = "Checksums OK";
         break;
     }
     return result;

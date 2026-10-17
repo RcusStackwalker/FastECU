@@ -48,10 +48,26 @@ TEST(DensoChecksumTable, RejectsInvalidBlockWithoutPartialMutation)
     EXPECT_EQ(rom, original);
 }
 
-TEST(DensoChecksumTable, DescendingRangeKeepsLegacyEmptySumBehavior)
+// Legacy summed nothing for a block ending before it starts and wrote the
+// target, but only because its loop never ran.
+TEST(DensoChecksumTable, ABlockEndingBeforeItStartsIsRejectedWithoutMutation)
 {
     bytes::Bytes rom(32, 0);
     bytes::WriteU32Be(rom, 20, 12);
+    bytes::WriteU32Be(rom, 24, 8);
+    const bytes::Bytes original = rom;
+    const internal::DensoTableSpec spec{.table_address = memory::FlashAddress{20}, .table_length = 12};
+
+    EXPECT_EQ(internal::CorrectDensoTable(memory::FlashAddress{0}, rom, spec),
+              internal::DensoTableOutcome::kReversedBlockRange);
+    EXPECT_EQ(rom, original);
+}
+
+TEST(DensoChecksumTable, AnEmptyBlockSumsNothing)
+{
+    bytes::Bytes rom(32, 0);
+    bytes::WriteU32Be(rom, 0, 1);
+    bytes::WriteU32Be(rom, 20, 4);
     bytes::WriteU32Be(rom, 24, 4);
     const internal::DensoTableSpec spec{.table_address = memory::FlashAddress{20}, .table_length = 12};
 
@@ -59,27 +75,26 @@ TEST(DensoChecksumTable, DescendingRangeKeepsLegacyEmptySumBehavior)
     EXPECT_EQ(bytes::ReadU32Be(rom, 28), 0x5AA5A55AU);
 }
 
-// With a nonzero base, a start address below it wraps above the end: a
-// descending range that sums nothing, so the record is "corrected" to the
-// target, as legacy does for any descending range.
-TEST(DensoChecksumTable, AStartBelowTheBaseSumsNothing)
+// With a nonzero base, a block may not start below it, even when it ends
+// inside the bytes.
+TEST(DensoChecksumTable, AStartBelowTheBaseIsAnInvalidBlockRange)
 {
     bytes::Bytes rom(32, 0);
     bytes::WriteU32Be(rom, 16, 0x0800);
     bytes::WriteU32Be(rom, 20, 0x1008);
+    const bytes::Bytes original = rom;
     const internal::DensoTableSpec spec{.table_address = memory::FlashAddress{0x1010}, .table_length = 12};
 
     EXPECT_EQ(internal::CorrectDensoTable(memory::FlashAddress{0x1000}, rom, spec),
-              internal::DensoTableOutcome::kCorrected);
-    EXPECT_EQ(bytes::ReadU32Be(rom, 24), 0x5AA5A55AU);
+              internal::DensoTableOutcome::kInvalidBlockRange);
+    EXPECT_EQ(rom, original);
 }
 
-// An end address below a nonzero base wraps past the end of the bytes.
-TEST(DensoChecksumTable, AnEndBelowTheBaseIsAnInvalidBlockRange)
+TEST(DensoChecksumTable, ABlockBelowTheBaseIsAnInvalidBlockRange)
 {
     bytes::Bytes rom(32, 0);
-    bytes::WriteU32Be(rom, 16, 0x1004);
-    bytes::WriteU32Be(rom, 20, 0x0800);
+    bytes::WriteU32Be(rom, 16, 0x0800);
+    bytes::WriteU32Be(rom, 20, 0x0804);
     const bytes::Bytes original = rom;
     const internal::DensoTableSpec spec{.table_address = memory::FlashAddress{0x1010}, .table_length = 12};
 
@@ -159,4 +174,75 @@ TEST(DensoChecksumTable, RejectsATableOutsideTheBytes)
 
     EXPECT_EQ(internal::CorrectDensoTable(memory::FlashAddress{4}, rom, spec),
               internal::DensoTableOutcome::kInvalidTableRange);
+}
+
+// An empty table fits anywhere in the bytes, even right at their end.
+TEST(DensoChecksumTable, AnEmptyTableAtTheEndOfTheBytesIsUnchanged)
+{
+    bytes::Bytes rom(24, 0);
+    const internal::DensoTableSpec spec{.table_address = memory::FlashAddress{24}, .table_length = 0};
+
+    EXPECT_EQ(internal::CorrectDensoTable(memory::FlashAddress{0}, rom, spec), internal::DensoTableOutcome::kUnchanged);
+}
+
+TEST(DensoChecksumTable, ABlockMayEndAtTheEndOfTheBytes)
+{
+    bytes::Bytes rom(16, 0);
+    bytes::WriteU32Be(rom, 0, 12);
+    bytes::WriteU32Be(rom, 4, 16);
+    bytes::WriteU32Be(rom, 12, 1);
+    const internal::DensoTableSpec spec{.table_address = memory::FlashAddress{0}, .table_length = 12};
+
+    EXPECT_EQ(internal::CorrectDensoTable(memory::FlashAddress{0}, rom, spec), internal::DensoTableOutcome::kCorrected);
+    EXPECT_EQ(bytes::ReadU32Be(rom, 8), 0x5AA5A559U);
+}
+
+// The block [12, 18) ends inside the bytes, but its second word, [16, 20),
+// runs past them.
+TEST(DensoChecksumTable, AWordRunningPastTheEndOfTheBytesIsAnInvalidBlockRange)
+{
+    bytes::Bytes rom(18, 0);
+    bytes::WriteU32Be(rom, 0, 12);
+    bytes::WriteU32Be(rom, 4, 18);
+    const bytes::Bytes original = rom;
+    const internal::DensoTableSpec spec{.table_address = memory::FlashAddress{0}, .table_length = 12};
+
+    EXPECT_EQ(internal::CorrectDensoTable(memory::FlashAddress{0}, rom, spec),
+              internal::DensoTableOutcome::kInvalidBlockRange);
+    EXPECT_EQ(rom, original);
+}
+
+// The block [4, 12) is rom[0, 8); the override names its second word.
+TEST(DensoChecksumTable, AnOverrideReplacesALaterWordOfTheBlock)
+{
+    bytes::Bytes rom(20, 0);
+    bytes::WriteU32Be(rom, 4, 1);
+    bytes::WriteU32Be(rom, 8, 4);
+    bytes::WriteU32Be(rom, 12, 12);
+    const internal::DensoWordOverride override{8, 3};
+    const internal::DensoTableSpec spec{
+        .table_address = memory::FlashAddress{12},
+        .table_length = 12,
+        .overrides = std::span<const internal::DensoWordOverride>(&override, 1),
+    };
+
+    EXPECT_EQ(internal::CorrectDensoTable(memory::FlashAddress{4}, rom, spec), internal::DensoTableOutcome::kCorrected);
+    EXPECT_EQ(bytes::ReadU32Be(rom, 16), 0x5AA5A55AU - 3);
+}
+
+// The block [4, 8) is rom[0, 4); it stops before the overridden word at 8.
+TEST(DensoChecksumTable, AnOverrideJustPastTheBlockIsNotSummed)
+{
+    bytes::Bytes rom(20, 0);
+    bytes::WriteU32Be(rom, 8, 4);
+    bytes::WriteU32Be(rom, 12, 8);
+    const internal::DensoWordOverride override{8, 1};
+    const internal::DensoTableSpec spec{
+        .table_address = memory::FlashAddress{12},
+        .table_length = 12,
+        .overrides = std::span<const internal::DensoWordOverride>(&override, 1),
+    };
+
+    EXPECT_EQ(internal::CorrectDensoTable(memory::FlashAddress{4}, rom, spec), internal::DensoTableOutcome::kCorrected);
+    EXPECT_EQ(bytes::ReadU32Be(rom, 16), 0x5AA5A55AU);
 }
