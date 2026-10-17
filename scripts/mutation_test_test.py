@@ -172,12 +172,14 @@ class TargetPatternTest(unittest.TestCase):
 
 class ReportDirectoryTest(unittest.TestCase):
     def test_accepts_a_directory_under_the_checkout(self) -> None:
-        self.assertEqual(ROOT / "reports", mt.report_directory(Path("reports"), ROOT, {}))
+        self.assertEqual(
+            (ROOT / "reports").resolve(), mt.report_directory(Path("reports"), ROOT, {})
+        )
 
     def test_accepts_a_directory_under_the_runner_temp(self) -> None:
         runner_temp = Path("/runner/_temp")
         self.assertEqual(
-            runner_temp / "mutation",
+            (runner_temp / "mutation").resolve(),
             mt.report_directory(runner_temp / "mutation", ROOT, {"RUNNER_TEMP": str(runner_temp)}),
         )
 
