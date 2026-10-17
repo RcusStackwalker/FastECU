@@ -5,6 +5,7 @@
 
 #include <chrono>
 #include <cstddef>
+#include <cstdint>
 #include <string_view>
 #include <vector>
 
@@ -109,5 +110,44 @@ void ExpectShortPageRead(const FlashPlan& plan, ScriptedCanFlashTransport& trans
         EXPECT_THAT(events.logs, stop_logged);
     }
 }
+
+// The scripting members CanExecutorConformance expects of a family's Traits,
+// each forwarding to the family's own free helper so the conformance suite
+// runs exactly the plans and scripts the local tests do. Derive a Traits from
+// it, passing the helpers' addresses in this order.
+template <auto Read, auto HandBuilt, auto BenchConnect, auto ReadSetup, auto FlashDump, auto StopCommand,
+          auto UpToFirstFatalRead>
+struct CanScriptForwarders
+{
+    static Result<FlashPlan> ReadPlan()
+    {
+        return Read();
+    }
+    static Result<FlashPlan> HandBuiltPlan(FlashOperation operation)
+    {
+        return HandBuilt(operation);
+    }
+    static void ScriptBenchConnect(ScriptedCanFlashTransport& t)
+    {
+        BenchConnect(t, 0);
+    }
+    static void ScriptReadSetup(ScriptedCanFlashTransport& t)
+    {
+        ReadSetup(t);
+    }
+    static void ScriptFlashDump(ScriptedCanFlashTransport& t, std::uint32_t start, std::uint32_t length,
+                                std::uint32_t pagesize, bytes::Byte fill)
+    {
+        FlashDump(t, start, length, pagesize, fill);
+    }
+    static void ScriptStopCommand(ScriptedCanFlashTransport& t)
+    {
+        StopCommand(t);
+    }
+    static void ScriptUpToFirstFatalRead(ScriptedCanFlashTransport& t)
+    {
+        UpToFirstFatalRead(t);
+    }
+};
 
 } // namespace fastecu::flash::testing

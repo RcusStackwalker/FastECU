@@ -580,6 +580,9 @@ TEST(SubaruDenso1n83m_1_5mCanExecutor, EraseRetryExhaustionFails)
 // exercises exactly the same scripts and plans the family's own local tests
 // do.
 struct Denso1n83m_1_5mCanTraits
+    : fastecu::flash::testing::CanScriptForwarders<&::ReadPlan, &::HandBuiltPlan, &::ScriptBenchConnect,
+                                                   &::ScriptReadSetup, &::ScriptFlashDump, &::ScriptStopCommand,
+                                                   &::ScriptUpToFirstFatalRead>
 {
     using Executor = SubaruDenso1n83m_1_5mCanExecutor;
     static constexpr fastecu::flash::Iso15765Config kWire{
@@ -592,42 +595,6 @@ struct Denso1n83m_1_5mCanTraits
     // probes with 2000ms instead).
     static constexpr std::chrono::milliseconds kProbeTimeout{200};
     static constexpr int kProbeCount = 7; // seed and key now read at 2000ms
-
-    static fastecu::Result<fastecu::flash::FlashPlan> ReadPlan()
-    {
-        return ::ReadPlan();
-    }
-
-    static fastecu::Result<fastecu::flash::FlashPlan> HandBuiltPlan(FlashOperation operation)
-    {
-        return ::HandBuiltPlan(operation);
-    }
-
-    static void ScriptBenchConnect(ScriptedCanFlashTransport& t)
-    {
-        ::ScriptBenchConnect(t);
-    }
-
-    static void ScriptReadSetup(ScriptedCanFlashTransport& t)
-    {
-        ::ScriptReadSetup(t);
-    }
-
-    static void ScriptFlashDump(ScriptedCanFlashTransport& t, std::uint32_t start, std::uint32_t length,
-                                std::uint32_t pagesize, bytes::Byte fill)
-    {
-        ::ScriptFlashDump(t, start, length, pagesize, fill);
-    }
-
-    static void ScriptStopCommand(ScriptedCanFlashTransport& t)
-    {
-        ::ScriptStopCommand(t);
-    }
-
-    static void ScriptUpToFirstFatalRead(ScriptedCanFlashTransport& t)
-    {
-        ::ScriptUpToFirstFatalRead(t);
-    }
 };
 
 INSTANTIATE_TYPED_TEST_SUITE_P(SubaruDenso1n83m_1_5mCan, CanExecutorConformance, Denso1n83m_1_5mCanTraits);
