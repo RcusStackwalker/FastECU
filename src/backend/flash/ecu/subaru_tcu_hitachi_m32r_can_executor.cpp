@@ -212,38 +212,75 @@ bytes::Bytes SeedKey(bytes::ByteView seed)
 // caller either gets the well-formed identifier legacy's success path
 // produces or none at all -- never a half-built one that could still end up
 // naming a saved dump.
-Result<std::optional<std::string>> ConnectBootloader(ICanFlashTransport& transport, IClock& clock,
-                                                     const ICancellationToken& cancellation, IEventSink& events,
-                                                     const SubaruTcuHitachiM32rCanPlan& plan)
+// Step 1: a matching response means the resident kernel is already live and
+// the remaining seven exchanges must not be sent. A missing or non-matching
+// frame means normal initialization should continue.
+Result<bool> KernelAlive(ICanFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
+                         IEventSink& events, const SubaruTcuHitachiM32rCanPlan& plan)
 {
-    // #lizard forgives(cyclomatic_complexity)
-    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
-    // Step 1: a matching response means the resident kernel is already live
-    // and the remaining seven exchanges must not be sent. A missing or
-    // non-matching frame means normal initialization should continue.
     Result<std::optional<bytes::Bytes>> alive = ExchangeOptional(
         transport, clock, cancellation, bytes::Bytes{0x31, 0x02, 0x02, 0x01}, plan.request_id, 0ms, kResponseTimeout);
     if (!alive.has_value())
     {
         return std::unexpected(alive.error());
     }
-    if (alive->has_value())
-    {
-        if (const Status matched = ExpectPrefix(**alive, {0x71, 0x02, 0x02, 0x03}); matched.has_value())
-        {
-            events.Log(LogLevel::kInfo, "Kernel already running");
-            // Legacy returns here too, before ever requesting the TCU/CAL ID
-            // (line 128), so RomId is never set on this path either.
-            return std::optional<std::string>{};
-        }
-        events.Log(LogLevel::kError, std::format("Wrong response from TCU: {}", bytes::ToHex(**alive)));
-    }
-    else
+    if (!alive->has_value())
     {
         events.Log(LogLevel::kError, "No valid response from TCU");
+        return false;
     }
+    if (const Status matched = ExpectPrefix(**alive, {0x71, 0x02, 0x02, 0x03}); matched.has_value())
+    {
+        events.Log(LogLevel::kInfo, "Kernel already running");
+        return true;
+    }
+    events.Log(LogLevel::kError, std::format("Wrong response from TCU: {}", bytes::ToHex(**alive)));
+    return false;
+}
 
-    // Steps 2 and 3: identity mismatches are diagnostic only in legacy.
+// Decodes the TCU ID's five bytes at offset 8; empty when absent or short.
+std::optional<std::string> DecodeTcuId(IEventSink& events, const std::optional<bytes::Bytes>& reply)
+{
+    constexpr std::size_t kTcuIdOffset = 8;
+    constexpr std::size_t kTcuIdSize = 5;
+    if (!reply.has_value())
+    {
+        return std::nullopt;
+    }
+    if (reply->size() < kTcuIdOffset + kTcuIdSize)
+    {
+        events.Log(LogLevel::kError, "TCU ID response is too short");
+        return std::nullopt;
+    }
+    std::string decoded = bytes::ToHex(bytes::ByteView{*reply}.subspan(kTcuIdOffset, kTcuIdSize), "{:02X}");
+    events.Log(LogLevel::kInfo, std::format("TCU ID: {}", decoded));
+    return decoded;
+}
+
+// Decodes the CAL ID text from offset 7; empty when absent or short.
+std::optional<std::string> DecodeCalId(IEventSink& events, const std::optional<bytes::Bytes>& reply)
+{
+    constexpr std::size_t kCalIdOffset = 7;
+    if (!reply.has_value())
+    {
+        return std::nullopt;
+    }
+    if (reply->size() < kCalIdOffset + 1)
+    {
+        events.Log(LogLevel::kError, "CAL ID response is too short");
+        return std::nullopt;
+    }
+    std::string decoded(reply->begin() + static_cast<std::ptrdiff_t>(kCalIdOffset), reply->end());
+    events.Log(LogLevel::kInfo, std::format("CAL ID: {}", decoded));
+    return decoded;
+}
+
+// Steps 2 and 3: identity mismatches are diagnostic only in legacy. Both
+// decoded cleanly compose the legacy ROM id; either missing leaves it unset
+// (see the function comment above).
+Result<std::optional<std::string>> RequestRomId(ICanFlashTransport& transport, IClock& clock,
+                                                const ICancellationToken& cancellation, IEventSink& events)
+{
     Result<std::optional<bytes::Bytes>> tcu_id =
         NonFatalPrefix(transport, clock, cancellation, events, bytes::Bytes{0xAA}, kDiagnosticRequestId, kShortDelay,
                        kResponseTimeout, {0xEA}, "TCU ID");
@@ -251,29 +288,7 @@ Result<std::optional<std::string>> ConnectBootloader(ICanFlashTransport& transpo
     {
         return std::unexpected(tcu_id.error());
     }
-    std::optional<std::string> tcu_id_hex;
-    if (tcu_id->has_value())
-    {
-        constexpr std::size_t kTcuIdOffset = 8;
-        constexpr std::size_t kTcuIdSize = 5;
-        const bytes::ByteView frame{**tcu_id};
-        if (frame.size() < kTcuIdOffset + kTcuIdSize)
-        {
-            events.Log(LogLevel::kError, "TCU ID response is too short");
-        }
-        else
-        {
-            std::string decoded;
-            decoded.reserve(kTcuIdSize * 2);
-            for (const bytes::Byte value : frame.subspan(kTcuIdOffset, kTcuIdSize))
-            {
-                decoded += std::format("{:02X}", value);
-            }
-            events.Log(LogLevel::kInfo, std::format("TCU ID: {}", decoded));
-            tcu_id_hex = std::move(decoded);
-        }
-    }
-
+    const std::optional<std::string> tcu_id_hex = DecodeTcuId(events, *tcu_id);
     Result<std::optional<bytes::Bytes>> cal_id =
         NonFatalPrefix(transport, clock, cancellation, events, bytes::Bytes{0x09, 0x04}, kDiagnosticRequestId,
                        kShortDelay, kResponseTimeout, {0x49, 0x04}, "CAL ID");
@@ -281,31 +296,17 @@ Result<std::optional<std::string>> ConnectBootloader(ICanFlashTransport& transpo
     {
         return std::unexpected(cal_id.error());
     }
-    std::optional<std::string> cal_id_text;
-    if (cal_id->has_value())
-    {
-        constexpr std::size_t kCalIdOffset = 7;
-        const bytes::ByteView frame{**cal_id};
-        if (frame.size() < kCalIdOffset + 1)
-        {
-            events.Log(LogLevel::kError, "CAL ID response is too short");
-        }
-        else
-        {
-            std::string decoded(frame.begin() + static_cast<std::ptrdiff_t>(kCalIdOffset), frame.end());
-            events.Log(LogLevel::kInfo, std::format("CAL ID: {}", decoded));
-            cal_id_text = std::move(decoded);
-        }
-    }
-
-    // Both decoded cleanly: compose the legacy format. Either or both missing
-    // leaves rom_id unset (see the function comment above).
-    std::optional<std::string> rom_id;
+    const std::optional<std::string> cal_id_text = DecodeCalId(events, *cal_id);
     if (tcu_id_hex.has_value() && cal_id_text.has_value())
     {
-        rom_id = *cal_id_text + "_" + *tcu_id_hex + "_";
+        return std::optional<std::string>{*cal_id_text + "_" + *tcu_id_hex + "_"};
     }
+    return std::optional<std::string>{};
+}
 
+Status UnlockAndJump(ICanFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
+                     IEventSink& events, const SubaruTcuHitachiM32rCanPlan& plan)
+{
     // Step 4: enter the extended diagnostic session; mismatch is fatal.
     if (Result<bytes::Bytes> session = RequestPrefix(transport, clock, cancellation, bytes::Bytes{0x10, 0x03},
                                                      kDiagnosticRequestId, kShortDelay, kResponseTimeout, {0x50, 0x03});
@@ -363,6 +364,33 @@ Result<std::optional<std::string>> ConnectBootloader(ICanFlashTransport& transpo
         !recheck.has_value())
     {
         return std::unexpected(recheck.error());
+    }
+    return {};
+}
+
+Result<std::optional<std::string>> ConnectBootloader(ICanFlashTransport& transport, IClock& clock,
+                                                     const ICancellationToken& cancellation, IEventSink& events,
+                                                     const SubaruTcuHitachiM32rCanPlan& plan)
+{
+    Result<bool> alive = KernelAlive(transport, clock, cancellation, events, plan);
+    if (!alive.has_value())
+    {
+        return std::unexpected(alive.error());
+    }
+    if (*alive)
+    {
+        // Legacy returns here too, before ever requesting the TCU/CAL ID
+        // (line 128), so RomId is never set on this path either.
+        return std::optional<std::string>{};
+    }
+    Result<std::optional<std::string>> rom_id = RequestRomId(transport, clock, cancellation, events);
+    if (!rom_id.has_value())
+    {
+        return rom_id;
+    }
+    if (Status unlocked = UnlockAndJump(transport, clock, cancellation, events, plan); !unlocked.has_value())
+    {
+        return std::unexpected(unlocked.error());
     }
     return rom_id;
 }

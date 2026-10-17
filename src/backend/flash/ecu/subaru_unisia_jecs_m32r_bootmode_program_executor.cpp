@@ -131,22 +131,8 @@ Status PollFor(Session& s, bytes::Byte status, std::chrono::milliseconds sleep, 
     return Fail(ErrorKind::kTimeout, std::format("no {} response after {} polls", what, kEraseRounds));
 }
 
-Status Program(Session& s, const FlashPlan& plan)
+Status EraseFlash(Session& s)
 {
-    // #lizard forgives(cyclomatic_complexity)
-    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
-    if (Status cancelled = CancelledIfRequested(s.cancellation, "before programming voltage"); !cancelled.has_value())
-    {
-        return cancelled;
-    }
-    // write_mem() :366: VPP stays, MOD1 drops. The operator removed MOD1
-    // before this attempt started (the workflow's RemoveMod1 prompt).
-    s.events.Log(LogLevel::kDebug, "Set programming voltage +12v to Line End Check 1");
-    if (Status raised = s.transport.EnableProgrammingVoltageLine(); !raised.has_value())
-    {
-        return raised;
-    }
-
     s.events.Log(LogLevel::kInfo, "Requesting flash erase, please wait...");
     if (Status sent = Send(s, ComposeBe(0xaf_b, 0x31_b)); !sent.has_value())
     {
@@ -170,45 +156,67 @@ Status Program(Session& s, const FlashPlan& plan)
     {
         return settled;
     }
+    return {};
+}
 
+// One block write; the final AF 69 block may go unanswered.
+Status WriteBlock(Session& s, bytes::ByteView image, int block, int blocks)
+{
+    const std::uint32_t address = static_cast<std::uint32_t>(block) * kBlock;
+    const bool last = block == blocks - 1;
+    const bytes::ByteView data = image.subspan(address, kBlock);
+    if (Status sent = Send(s, ComposeBe(0xaf_b, last ? 0x69_b : 0x61_b, U24(address), data)); !sent.has_value())
+    {
+        return sent;
+    }
+    auto response = Receive(s, kBlockTimeout);
+    if (!response.has_value())
+    {
+        return std::unexpected(response.error());
+    }
+    if (!response->has_value())
+    {
+        if (!last)
+        {
+            return Fail(ErrorKind::kTimeout, std::format("no response to block write at 0x{:06X}", address));
+        }
+        // Legacy never read a reply to AF 69 (:517); its shape is unknown.
+        s.events.Log(LogLevel::kWarning, "No reply to the final block; treating the write as complete");
+    }
+    else if (!IsStatus(**response, s.wire, 0x52))
+    {
+        return Fail(ErrorKind::kBadResponse,
+                    std::format("block write at 0x{:06X} failed: {}", address, Describe(**response, s.wire)));
+    }
+    s.events.Progress(block + 1, blocks);
+    return last ? Status{} : s.clock.Sleep(kBlockPacing, s.cancellation);
+}
+
+Status Program(Session& s, const FlashPlan& plan)
+{
+    if (Status cancelled = CancelledIfRequested(s.cancellation, "before programming voltage"); !cancelled.has_value())
+    {
+        return cancelled;
+    }
+    // write_mem() :366: VPP stays, MOD1 drops. The operator removed MOD1
+    // before this attempt started (the workflow's RemoveMod1 prompt).
+    s.events.Log(LogLevel::kDebug, "Set programming voltage +12v to Line End Check 1");
+    if (Status raised = s.transport.EnableProgrammingVoltageLine(); !raised.has_value())
+    {
+        return raised;
+    }
+    if (Status erased = EraseFlash(s); !erased.has_value())
+    {
+        return erased;
+    }
     // write_mem() :467-578. Data goes as-is; unlike 6c-3 there is no XOR.
     const bytes::Bytes& image = plan.ImageOrEmpty();
     const auto blocks = static_cast<int>(image.size() / kBlock);
     for (int block = 0; block < blocks; ++block)
     {
-        const std::uint32_t address = static_cast<std::uint32_t>(block) * kBlock;
-        const bool last = block == blocks - 1;
-        const bytes::ByteView data = bytes::ByteView(image).subspan(address, kBlock);
-        if (Status sent = Send(s, ComposeBe(0xaf_b, last ? 0x69_b : 0x61_b, U24(address), data)); !sent.has_value())
+        if (Status written = WriteBlock(s, image, block, blocks); !written.has_value())
         {
-            return sent;
-        }
-        auto response = Receive(s, kBlockTimeout);
-        if (!response.has_value())
-        {
-            return std::unexpected(response.error());
-        }
-        if (!response->has_value())
-        {
-            if (!last)
-            {
-                return Fail(ErrorKind::kTimeout, std::format("no response to block write at 0x{:06X}", address));
-            }
-            // Legacy never read a reply to AF 69 (:517); its shape is unknown.
-            s.events.Log(LogLevel::kWarning, "No reply to the final block; treating the write as complete");
-        }
-        else if (!IsStatus(**response, s.wire, 0x52))
-        {
-            return Fail(ErrorKind::kBadResponse,
-                        std::format("block write at 0x{:06X} failed: {}", address, Describe(**response, s.wire)));
-        }
-        s.events.Progress(block + 1, blocks);
-        if (!last)
-        {
-            if (Status paced = s.clock.Sleep(kBlockPacing, s.cancellation); !paced.has_value())
-            {
-                return paced;
-            }
+            return written;
         }
     }
     s.events.Log(LogLevel::kInfo, "ROM written to flash.");

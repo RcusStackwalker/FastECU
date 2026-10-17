@@ -1,7 +1,10 @@
 #pragma once
 
 #include <chrono>
+#include <cstddef>
+#include <format>
 #include <span>
+#include <string_view>
 #include <vector>
 #include "src/algorithms/checksum/checksum_primitives.h"
 #include "src/algorithms/protocol/bytes.h"
@@ -36,6 +39,36 @@ DensoBeefKlineExchangeOptional(IKlineFlashTransport& transport, IClock *clock, c
                                std::chrono::milliseconds timeout);
 bytes::Bytes DensoBeefKlineWritePayload(std::uint32_t address, bytes::ByteView chunk);
 Status DensoBeefKlineEnableProgrammingVoltage(IKlineFlashTransport& transport, const ICancellationToken& cancellation);
+// Writes all of `request`; a short write means the adapter went away.
+Status DensoBeefKlineWriteAll(IKlineFlashTransport& transport, bytes::ByteView request);
+// Accepts a reply longer than `more_than` bytes that acknowledges `opcode`.
+Status DensoBeefKlineCheckAck(bytes::ByteView response, bytes::Byte opcode, std::string_view phase,
+                              std::size_t more_than = 0);
+// Exchanges `request` and requires an acknowledging reply; none times out.
+Result<bytes::Bytes> DensoBeefKlineExchangeAck(IKlineFlashTransport& transport, IClock *clock,
+                                               const ICancellationToken& cancellation, bytes::ByteView request,
+                                               std::chrono::milliseconds settle, std::chrono::milliseconds timeout,
+                                               bytes::Byte opcode, std::string_view phase, std::size_t more_than = 0);
+
+// Runs `action` between cancellation checks reading "cancelled before <what>"
+// and "cancelled after <what>".
+template <class Action>
+Status DensoBeefKlineGuarded(const ICancellationToken& cancellation, std::string_view what, Action&& action)
+{
+    if (cancellation.Cancelled())
+    {
+        return Fail(ErrorKind::kCancelled, std::format("cancelled before {}", what));
+    }
+    if (Status done = action(); !done.has_value())
+    {
+        return done;
+    }
+    if (cancellation.Cancelled())
+    {
+        return Fail(ErrorKind::kCancelled, std::format("cancelled after {}", what));
+    }
+    return {};
+}
 
 // Callers provide valid absolute-addressed image slices and one flag per block.
 template <class ReadCrc>

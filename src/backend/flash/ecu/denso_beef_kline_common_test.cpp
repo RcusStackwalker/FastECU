@@ -282,5 +282,47 @@ TEST(DensoBeefKlineCommonTest, SettleAndOptionalPresenceRemainDistinct)
         }
     }
 }
+TEST(DensoBeefKlineCommonTest, CheckAckNamesThePhaseAndHonoursTheMinimumSize)
+{
+    const bytes::Bytes ack{0xBE, 0xEF, 0x00, 0x02, 0x62, 0x00, 0x00};
+    EXPECT_THAT(DensoBeefKlineCheckAck(ack, 0x22, "write"), fastecu::testing::IsOk());
+    EXPECT_THAT(
+        DensoBeefKlineCheckAck(ack, 0x22, "write", 7),
+        fastecu::testing::IsErrWith(ErrorKind::kBadResponse, ::testing::StrEq("Wrong response from ECU during write")));
+    EXPECT_THAT(DensoBeefKlineCheckAck(ack, 0x23, "commit"), fastecu::testing::IsErr(ErrorKind::kBadResponse));
+}
+
+TEST(DensoBeefKlineCommonTest, ExchangeAckTimesOutWithoutAFrame)
+{
+    FakeCancellationToken cancellation;
+    ExchangeTraceTransport transport(cancellation);
+    const auto result = DensoBeefKlineExchangeAck(transport, nullptr, cancellation,
+                                                  bytes::Bytes{0xBE, 0xEF, 0, 1, 1, 0xAF}, 0ms, 1234ms, 0x01, "erase");
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kTimeout,
+                                                    ::testing::StrEq("no response from ECU during erase")));
+}
+
+TEST(DensoBeefKlineCommonTest, GuardedChecksCancellationAroundTheAction)
+{
+    for (std::size_t checkpoint = 1; checkpoint <= 2; ++checkpoint)
+    {
+        SCOPED_TRACE(checkpoint);
+        FakeCancellationToken cancellation;
+        cancellation.CancelOnCheck(checkpoint);
+        int calls = 0;
+        const Status result = DensoBeefKlineGuarded(cancellation, "LEC pulse",
+                                                    [&calls]() -> Status
+                                                    {
+                                                        ++calls;
+                                                        return {};
+                                                    });
+        EXPECT_THAT(result,
+                    fastecu::testing::IsErrWith(ErrorKind::kCancelled,
+                                                ::testing::StrEq(checkpoint == 1 ? "cancelled before LEC pulse"
+                                                                                 : "cancelled after LEC pulse")));
+        EXPECT_EQ(calls, checkpoint == 1 ? 0 : 1);
+    }
+}
+
 } // namespace
 } // namespace fastecu::flash

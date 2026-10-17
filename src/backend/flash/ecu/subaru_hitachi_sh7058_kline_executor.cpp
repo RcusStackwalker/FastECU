@@ -1,6 +1,8 @@
 #include "src/backend/flash/ecu/subaru_hitachi_sh7058_kline_executor.h"
 
 #include <chrono>
+#include <string>
+#include <string_view>
 
 #include "src/algorithms/protocol/bytes.h"
 #include "src/algorithms/protocol/bytes_compose.h"
@@ -55,6 +57,82 @@ bool Valid(bytes::ByteView frame, bytes::Byte service, std::size_t payload_size)
 {
     return ssm_protocol::HasValidFrame(frame, 0xf0, 0x10) && frame[3] == payload_size && frame[4] == service;
 }
+
+Status ExpectPrefix(const Result<Bytes>& reply, bytes::Byte prefix, std::string_view rejected)
+{
+    if (!reply.has_value())
+    {
+        return std::unexpected(reply.error());
+    }
+    if (!ssm_protocol::HasPayloadPrefix(*reply, Bytes{prefix}, 0xf0, 0x10))
+    {
+        return Fail(ErrorKind::kBadResponse, std::string(rejected));
+    }
+    return {};
+}
+
+// No answer at 38400 baud: identify at 4800, ask the ECU to switch, and
+// resume at 38400. Returns the ROM id prefix from the identity reply.
+Result<std::string> IdentifyAndSwitchBaud(IKlineFlashTransport& transport, IClock& clock,
+                                          const ICancellationToken& cancel)
+{
+    if (auto status = transport.SetBaud(4800); !status.has_value())
+    {
+        return std::unexpected(status.error());
+    }
+    auto identity = Exchange(transport, clock, cancel, Bytes{0xbf});
+    if (!identity.has_value())
+    {
+        return std::unexpected(identity.error());
+    }
+    if (!ssm_protocol::HasValidFrame(*identity, 0xf0, 0x10) || identity->size() < 14 || (*identity)[4] != 0xff)
+    {
+        return Fail(ErrorKind::kBadResponse, "invalid SH7058 identity response");
+    }
+    std::string rom_id = bytes::ToHex(bytes::ByteView(*identity).subspan(8, 5), "{:02X}") + '_';
+    if (auto switched = ExpectPrefix(Exchange(transport, clock, cancel, Bytes{0xb8, 0, 0, 0, 0x75}, 50ms), 0xf8,
+                                     "SH7058 baud switch rejected");
+        !switched.has_value())
+    {
+        return std::unexpected(switched.error());
+    }
+    if (auto status = transport.SetBaud(38400); !status.has_value())
+    {
+        return std::unexpected(status.error());
+    }
+    if (auto resumed = ExpectPrefix(Exchange(transport, clock, cancel, Bytes{0xbf}), 0xff,
+                                    "SH7058 connection lost after baud switch");
+        !resumed.has_value())
+    {
+        return std::unexpected(resumed.error());
+    }
+    return rom_id;
+}
+
+// The 1 MiB window above the ROM, in 0x80-byte pages.
+Result<Bytes> ReadRom(IKlineFlashTransport& transport, IClock& clock, const ICancellationToken& cancel,
+                      IEventSink& events)
+{
+    Bytes rom;
+    rom.reserve(0x100000);
+    for (std::uint32_t offset = 0; offset < 0x100000; offset += 0x80)
+    {
+        const std::uint32_t address = 0x100000 + offset;
+        auto page =
+            Exchange(transport, clock, cancel, bytes::ComposeBe(bytes::Byte{0xa0}, address, bytes::Byte{0x7f}), 0ms);
+        if (!page.has_value())
+        {
+            return std::unexpected(page.error());
+        }
+        if (!Valid(*page, 0xe0, 0x81))
+        {
+            return Fail(ErrorKind::kBadResponse, "invalid SH7058 ROM page");
+        }
+        rom.insert(rom.end(), page->begin() + 5, page->begin() + 133);
+        events.Progress(static_cast<int>(offset + 0x80), 0x100000);
+    }
+    return rom;
+}
 } // namespace
 
 Result<KlineConfig> SubaruHitachiSh7058KlineExecutor::TransportSetup(const FlashPlan& plan) const
@@ -75,8 +153,6 @@ Result<FlashExecutionResult> SubaruHitachiSh7058KlineExecutor::Execute(const Fla
                                                                        const ICancellationToken& cancel,
                                                                        IEventSink& events)
 {
-    // #lizard forgives(cyclomatic_complexity)
-    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     if (auto setup = TransportSetup(plan); !setup.has_value())
     {
         return std::unexpected(setup.error());
@@ -97,62 +173,18 @@ Result<FlashExecutionResult> SubaruHitachiSh7058KlineExecutor::Execute(const Fla
     std::optional<std::string> rom_id;
     if (!initial.has_value() || !Valid(*initial, 0xff, initial->size() >= 5 ? (*initial)[3] : 0))
     {
-        if (auto status = transport.SetBaud(4800); !status.has_value())
-        {
-            return std::unexpected(status.error());
-        }
-        auto identity = Exchange(transport, clock, cancel, Bytes{0xbf});
-        if (!identity.has_value())
-        {
-            return std::unexpected(identity.error());
-        }
-        if (!ssm_protocol::HasValidFrame(*identity, 0xf0, 0x10) || identity->size() < 14 || (*identity)[4] != 0xff)
-        {
-            return Fail(ErrorKind::kBadResponse, "invalid SH7058 identity response");
-        }
-        std::string id = bytes::ToHex(bytes::ByteView(*identity).subspan(8, 5), "{:02X}");
-        rom_id = id + '_';
-        auto switched = Exchange(transport, clock, cancel, Bytes{0xb8, 0, 0, 0, 0x75}, 50ms);
+        auto switched = IdentifyAndSwitchBaud(transport, clock, cancel);
         if (!switched.has_value())
         {
             return std::unexpected(switched.error());
         }
-        if (!ssm_protocol::HasPayloadPrefix(*switched, Bytes{0xf8}, 0xf0, 0x10))
-        {
-            return Fail(ErrorKind::kBadResponse, "SH7058 baud switch rejected");
-        }
-        if (auto status = transport.SetBaud(38400); !status.has_value())
-        {
-            return std::unexpected(status.error());
-        }
-        auto resumed = Exchange(transport, clock, cancel, Bytes{0xbf});
-        if (!resumed.has_value())
-        {
-            return std::unexpected(resumed.error());
-        }
-        if (!ssm_protocol::HasPayloadPrefix(*resumed, Bytes{0xff}, 0xf0, 0x10))
-        {
-            return Fail(ErrorKind::kBadResponse, "SH7058 connection lost after baud switch");
-        }
+        rom_id = std::move(*switched);
     }
-    Bytes rom;
-    rom.reserve(0x100000);
-    for (std::uint32_t offset = 0; offset < 0x100000; offset += 0x80)
+    auto rom = ReadRom(transport, clock, cancel, events);
+    if (!rom.has_value())
     {
-        const std::uint32_t address = 0x100000 + offset;
-        Bytes request = bytes::ComposeBe(bytes::Byte{0xa0}, address, bytes::Byte{0x7f});
-        auto page = Exchange(transport, clock, cancel, request, 0ms);
-        if (!page.has_value())
-        {
-            return std::unexpected(page.error());
-        }
-        if (!Valid(*page, 0xe0, 0x81))
-        {
-            return Fail(ErrorKind::kBadResponse, "invalid SH7058 ROM page");
-        }
-        rom.insert(rom.end(), page->begin() + 5, page->begin() + 133);
-        events.Progress(static_cast<int>(offset + 0x80), 0x100000);
+        return std::unexpected(rom.error());
     }
-    return FlashExecutionResult{FlashOperation::kRead, std::move(rom), std::move(rom_id)};
+    return FlashExecutionResult{FlashOperation::kRead, std::move(*rom), std::move(rom_id)};
 }
 } // namespace fastecu::flash

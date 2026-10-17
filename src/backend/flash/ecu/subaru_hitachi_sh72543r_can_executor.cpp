@@ -170,10 +170,62 @@ class Session
         events_.Log(LogLevel::kInfo, "Seed key ok");
         return {};
     }
+    // Legacy 126-166: five ECU-ID bytes start at framed offset 8. Returns the
+    // ROM id prefix, empty when the ECU did not answer.
+    Result<std::string> RequestEcuId()
+    {
+        events_.Log(LogLevel::kInfo, "Requesting ECU ID");
+        auto ecu = Optional(Bytes{0xaa}, 50ms);
+        if (!ecu.has_value())
+        {
+            return std::unexpected(ecu.error());
+        }
+        if (!ecu->has_value() || !HasPrefix(**ecu, {0xea}) || (**ecu).size() < 13)
+        {
+            events_.Log(LogLevel::kError, "No valid response from ECU");
+            return std::string{};
+        }
+        const std::string id = bytes::ToHex(bytes::ByteView(**ecu).subspan(8, 5), "{:02X}");
+        events_.Log(LogLevel::kInfo, std::format("ECU ID: {}", id));
+        return id + "_";
+    }
+    // Legacy 170-200, 202-237, 239-274: identity queries remain optional. A
+    // CAL ID prefixes the ROM id.
+    Status RequestVehicleInfo(std::string& id)
+    {
+        struct Query
+        {
+            bytes::Byte service;
+            std::string_view request_log;
+            std::string_view label;
+        };
+        for (const Query& query : {Query{2, "Requesting VIN", "VIN: "}, Query{4, "Requesting CAL ID...", "CAL ID: "},
+                                   Query{6, "Requesting CVN", "CVN: "}})
+        {
+            events_.Log(LogLevel::kInfo, query.request_log);
+            auto r = Optional(Bytes{9, query.service}, 50ms);
+            if (!r.has_value())
+            {
+                return std::unexpected(r.error());
+            }
+            if (!r->has_value() || !HasPrefix(**r, {0x49, query.service}) || (**r).size() <= 7)
+            {
+                events_.Log(LogLevel::kError, "No valid response from ECU");
+                continue;
+            }
+            const auto data = bytes::ByteView(**r).subspan(7);
+            const std::string value =
+                query.service == 6 ? bytes::ToHex(data, "{:02X}") : std::string(data.begin(), data.end());
+            events_.Log(LogLevel::kInfo, std::format("{}{}", query.label, value));
+            if (query.service == 4)
+            {
+                id = value + "_" + id;
+            }
+        }
+        return {};
+    }
     Result<std::optional<std::string>> Connect()
     {
-        // #lizard forgives(cyclomatic_complexity)
-        // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
         // Legacy connect_bootloader:103-124. Vendor negative response is its alive marker.
         events_.Log(LogLevel::kInfo, "Checking if OBK is already running...");
         auto alive = Optional(Bytes{0xb7}, 50ms, 200ms);
@@ -187,65 +239,14 @@ class Session
             return std::optional<std::string>{};
         }
         events_.Log(LogLevel::kInfo, "OBK not active, initialising ECU...");
-        // Legacy 126-166: five ECU-ID bytes start at framed offset 8.
-        events_.Log(LogLevel::kInfo, "Requesting ECU ID");
-        auto ecu = Optional(Bytes{0xaa}, 50ms);
-        if (!ecu.has_value())
+        auto id = RequestEcuId();
+        if (!id.has_value())
         {
-            return std::unexpected(ecu.error());
+            return std::unexpected(id.error());
         }
-        std::string id;
-        if (ecu->has_value() && HasPrefix(**ecu, {0xea}) && (**ecu).size() >= 13)
+        if (auto info = RequestVehicleInfo(*id); !info.has_value())
         {
-            for (auto b : bytes::ByteView(**ecu).subspan(8, 5))
-            {
-                id += std::format("{:02X}", b);
-            }
-            events_.Log(LogLevel::kInfo, std::format("ECU ID: {}", id));
-            id += "_";
-        }
-        else
-        {
-            events_.Log(LogLevel::kError, "No valid response from ECU");
-        }
-        // Legacy 170-200, 202-237, 239-274: identity queries remain optional.
-        for (bytes::Byte service : {bytes::Byte{2}, bytes::Byte{4}, bytes::Byte{6}})
-        {
-            events_.Log(LogLevel::kInfo, service == 2   ? "Requesting VIN"
-                                         : service == 4 ? "Requesting CAL ID..."
-                                                        : "Requesting CVN");
-            auto r = Optional(Bytes{9, service}, 50ms);
-            if (!r.has_value())
-            {
-                return std::unexpected(r.error());
-            }
-            if (!r->has_value() || !HasPrefix(**r, {0x49, service}) || (**r).size() <= 7)
-            {
-                events_.Log(LogLevel::kError, "No valid response from ECU");
-                continue;
-            }
-            auto data = bytes::ByteView(**r).subspan(7);
-            std::string value;
-            if (service == 6)
-            {
-                for (auto b : data)
-                {
-                    value += std::format("{:02X}", b);
-                }
-            }
-            else
-            {
-                value.assign(data.begin(), data.end());
-            }
-            events_.Log(LogLevel::kInfo, std::format("{}{}",
-                                                     service == 2   ? "VIN: "
-                                                     : service == 4 ? "CAL ID: "
-                                                                    : "CVN: ",
-                                                     value));
-            if (service == 4)
-            {
-                id = value + "_" + id;
-            }
+            return std::unexpected(info.error());
         }
         // Legacy 276-310: both A8 replies are intentionally uninterpreted.
         events_.Log(LogLevel::kInfo, "Initializing bootloader...");
@@ -258,7 +259,7 @@ class Session
             }
         }
         events_.Log(LogLevel::kInfo, "Test script complete");
-        return id.empty() ? std::optional<std::string>{} : std::optional{std::move(id)};
+        return id->empty() ? std::optional<std::string>{} : std::optional{std::move(*id)};
     }
     Result<Bytes> Read(PhaseReporter& progress)
     {

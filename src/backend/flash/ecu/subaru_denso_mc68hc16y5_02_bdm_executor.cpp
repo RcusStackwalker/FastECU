@@ -245,12 +245,10 @@ Status LogReply(std::string_view command, IKlineFlashTransport& transport, ICloc
 
 // write_mem() :217-350 and flash_block() :352-474. Uploads the padded kernel to
 // RAM, enables SCIB, sets PC/SP and starts the kernel. The ROM is not written.
-Status BootstrapKernel(bytes::ByteView kernel, IKlineFlashTransport& transport, IClock& clock,
-                       const ICancellationToken& cancellation, IEventSink& events)
+// Writes the kernel into RAM in upload chunks.
+Status WriteKernelToRam(bytes::ByteView kernel, IKlineFlashTransport& transport, IClock& clock,
+                        const ICancellationToken& cancellation, IEventSink& events)
 {
-    // #lizard forgives(cyclomatic_complexity)
-    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
-    events.Log(LogLevel::kInfo, "Uploading kernel to Subaru Denso MC68HC16 RAM with BDM");
     // write_mem() :226.
     if (auto cleared = Discard(transport, clock, cancellation, events, kShortTimeout); !cleared.has_value())
     {
@@ -287,6 +285,12 @@ Status BootstrapKernel(bytes::ByteView kernel, IKlineFlashTransport& transport, 
     {
         return cleared;
     }
+    return {};
+}
+
+Status EnableScib(IKlineFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
+                  IEventSink& events)
+{
     // write_mem() :258-275: enable SCIB (the kernel sets 62500 baud itself).
     if (auto scib =
             SendAndAck(transport, clock, cancellation, Ascii("wdmem 0xFFC28 0x4"), kAckCommand, kExtraLongTimeout);
@@ -309,6 +313,12 @@ Status BootstrapKernel(bytes::ByteView kernel, IKlineFlashTransport& transport, 
     {
         return cleared;
     }
+    return {};
+}
+
+Status StartKernel(IKlineFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
+                   IEventSink& events)
+{
     // write_mem() :296-305.
     if (auto written = WriteExact(transport, Ascii("wpcsp")); !written.has_value())
     {
@@ -340,6 +350,21 @@ Status BootstrapKernel(bytes::ByteView kernel, IKlineFlashTransport& transport, 
         events.Log(LogLevel::kWarning, std::format("BDM go reply not read: {}", reply.error().detail));
     }
     return {};
+}
+
+Status BootstrapKernel(bytes::ByteView kernel, IKlineFlashTransport& transport, IClock& clock,
+                       const ICancellationToken& cancellation, IEventSink& events)
+{
+    events.Log(LogLevel::kInfo, "Uploading kernel to Subaru Denso MC68HC16 RAM with BDM");
+    if (auto written = WriteKernelToRam(kernel, transport, clock, cancellation, events); !written.has_value())
+    {
+        return written;
+    }
+    if (auto scib = EnableScib(transport, clock, cancellation, events); !scib.has_value())
+    {
+        return scib;
+    }
+    return StartKernel(transport, clock, cancellation, events);
 }
 } // namespace
 

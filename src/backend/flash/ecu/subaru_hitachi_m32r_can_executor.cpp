@@ -112,35 +112,32 @@ void NonFatalQuery(Ctx& ctx, bytes::ByteView request_pdu, std::optional<bytes::B
 // The legacy `is_serial_port_open()` guard (lines 85-89) has no equivalent:
 // execute() below opens the transport through the port and propagates that
 // Status, so an unopened bus fails earlier and with a typed error.
-Status ConnectBootloader(Ctx& ctx)
+// "Checking if OBK is already running..." (lines 91-113). The
+// already-running signal is packaged as a UDS negative response (0x7F 0xB7
+// 0x13) that UdsClient::request() would otherwise treat as an ordinary
+// exchange failure, so this one goes through the channel directly rather than
+// through ctx.uds -- and, matching legacy exactly, a mismatch OR an
+// empty/failed read is a non-fatal "miss" that falls through to initializing
+// the ECU rather than propagating.
+Result<bool> ObkActive(Ctx& ctx)
 {
-    // #lizard forgives(cyclomatic_complexity)
-    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
-    // "Checking if OBK is already running..." (lines 91-113). The
-    // already-running signal is packaged as a UDS negative response (0x7F
-    // 0xB7 0x13) that UdsClient::request() would otherwise treat as an
-    // ordinary exchange failure, so this one goes through the channel
-    // directly rather than through ctx.uds -- and, matching legacy exactly,
-    // a mismatch OR an empty/failed read is a non-fatal "miss" that falls
-    // through to initializing the ECU rather than propagating.
     LogInfo(ctx, "Checking if OBK is already running...");
     if (const Status sent = ctx.channel.Send(bytes::Bytes{0xB7}, ctx.cancellation); !sent.has_value())
     {
-        return sent;
+        return std::unexpected(sent.error());
     }
     Result<std::optional<bytes::Bytes>> obk = ctx.channel.Receive(200ms, ctx.cancellation);
     if (!obk.has_value())
     {
         return std::unexpected(obk.error());
     }
-    if (obk->has_value() && obk->value().size() > 2 && (**obk)[0] == 0x7F && (**obk)[1] == 0xB7 && (**obk)[2] == 0x13)
-    {
-        LogInfo(ctx, "OBK is active!");
-        return {};
-    }
-    LogInfo(ctx, "OBK not active, initializing ECU...");
+    return obk->has_value() && obk->value().size() > 2 && (**obk)[0] == 0x7F && (**obk)[1] == 0xB7 &&
+           (**obk)[2] == 0x13;
+}
 
-    // Lines 115-257: four non-fatal identity queries.
+// Lines 115-257: four non-fatal identity queries.
+void QueryIdentity(Ctx& ctx)
+{
     LogInfo(ctx, "Requesting ECU ID");
     NonFatalQuery(ctx, bytes::Bytes{uds::kSidEcuIdQuery}, std::nullopt, "ECU ID");
     LogInfo(ctx, "Requesting VIN");
@@ -152,10 +149,14 @@ Status ConnectBootloader(Ctx& ctx)
     LogInfo(ctx, "Requesting CVN");
     NonFatalQuery(ctx, bytes::Bytes{uds::kSidVehicleInfoRequest, uds::kVehicleInfoPidCvn}, uds::kVehicleInfoPidCvn,
                   "CVN");
+}
 
-    // Session-scope probe (lines 259-279): also a raw channel exchange,
-    // because the branch decision below inspects payload[1]/payload[2]
-    // without the response ever carrying a SID+0x40 echo of the request.
+// Session-scope probe (lines 259-279): also a raw channel exchange, because
+// the branch decision inspects payload[1]/payload[2] without the response
+// ever carrying a SID+0x40 echo of the request. Only the bench branch is
+// ported.
+Status RequireBenchSession(Ctx& ctx)
+{
     LogInfo(ctx, "Initializing bootloader...");
     if (const Status sent = ctx.channel.Send(bytes::Bytes{0xA8, 0x00, 0x00, 0x00, 0xD7}, ctx.cancellation);
         !sent.has_value())
@@ -185,9 +186,13 @@ Status ConnectBootloader(Ctx& ctx)
         return Fail(ErrorKind::kUnsupported, "on-car programming is not supported by this port");
     }
     LogInfo(ctx, "Bench Programming, Accessing...");
+    return {};
+}
 
-    // Bench branch (lines 581-753): every exchange from here on is fatal on
-    // mismatch or empty reply, unlike the identity queries above.
+// Bench branch (lines 581-753): every exchange from here on is fatal on
+// mismatch or empty reply, unlike the identity queries.
+Status UnlockAndJump(Ctx& ctx)
+{
     if (Result<bytes::Bytes> session = FatalQuery(ctx, bytes::Bytes{uds::kSidDiagnosticSessionControl, kSessionBench},
                                                   bytes::Bytes{kSessionBench}, "bench diagnostic session");
         !session.has_value())
@@ -238,7 +243,31 @@ Status ConnectBootloader(Ctx& ctx)
     {
         return std::unexpected(alive_reply.error());
     }
+    return {};
+}
 
+Status ConnectBootloader(Ctx& ctx)
+{
+    Result<bool> active = ObkActive(ctx);
+    if (!active.has_value())
+    {
+        return std::unexpected(active.error());
+    }
+    if (*active)
+    {
+        LogInfo(ctx, "OBK is active!");
+        return {};
+    }
+    LogInfo(ctx, "OBK not active, initializing ECU...");
+    QueryIdentity(ctx);
+    if (Status bench = RequireBenchSession(ctx); !bench.has_value())
+    {
+        return bench;
+    }
+    if (Status unlocked = UnlockAndJump(ctx); !unlocked.has_value())
+    {
+        return unlocked;
+    }
     LogInfo(ctx, "ECU initialised, continue...");
     return {};
 }
