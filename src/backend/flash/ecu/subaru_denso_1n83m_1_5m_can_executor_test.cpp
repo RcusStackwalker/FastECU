@@ -96,28 +96,6 @@ fastecu::Result<fastecu::flash::FlashPlan> HandBuiltPlan(FlashOperation operatio
     return fastecu::flash::ValidateAndBuild(std::move(fields));
 }
 
-// The seed/encrypt tables, transcribed independently from the same legacy
-// lines the executor was
-// (generate_can_seed_key/encrypt_payload/decrypt_payload) rather than read
-// back from the executor's own translation unit, so a wrong table entry in the
-// executor fails these assertions instead of passing silently.
-constexpr std::array<std::uint16_t, 4> kEncryptTable{0xC85B, 0x32C0, 0xE282, 0x92A0};
-constexpr std::array<std::uint8_t, 32> kIndexTransformation{0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8, 0xA, 0xD, 0x2,
-                                                            0xB, 0xF, 0x4, 0x0, 0x3, 0xB, 0x4, 0x6, 0x0, 0xF, 0x2,
-                                                            0xD, 0x9, 0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8};
-
-// The executor's decrypt table is this encrypt table exactly reversed, and
-// SsmProtocol::calculatePayload's Feistel structure inverts by reversing key
-// order, so this single helper both (a) pre-encrypts a known plaintext into
-// the wire bytes a scripted read reply must carry for the executor's decrypt
-// step to recover it, and (b) computes the wire bytes a write must carry for
-// a known plaintext image.
-bytes::Bytes ToWire(bytes::ByteView plain)
-{
-    return ssm_protocol::CalculatePayload(plain, static_cast<std::uint32_t>(plain.size()), kEncryptTable,
-                                          kIndexTransformation);
-}
-
 // The OBK probe miss, the four non-fatal identity queries, the access-method
 // probe and the branch selector. Byte 7 of the raw 0x22 0x10 0x1D reply frame
 // -- payload index 3 -- selects the programming branch.
@@ -164,28 +142,6 @@ void ScriptReadSetup(ScriptedCanFlashTransport& t)
                Response({0x74, 0x20, 0x01, 0x05}));
     t.Exchange(Request({0x35, 0x04, 0x44, 0x08, 0xFA, 0xC0, 0x00, 0x00, 0x17, 0x3F, 0x00}),
                Response({0x75, 0x20, 0x01, 0x01}));
-}
-
-// The chunked 0xB7 dump sweep (legacy read_memory): 0xB7 plus a 4-byte big-
-// endian address, answered with 0xF7 plus one encrypted page.
-void ScriptFlashDump(ScriptedCanFlashTransport& t, std::uint32_t start, std::uint32_t length, std::uint32_t pagesize,
-                     bytes::Byte fill)
-{
-    const auto section = t.Section("flash dump");
-    const bytes::Bytes wire_page = ToWire(bytes::Bytes(pagesize, fill));
-    for (std::uint32_t addr = start; addr < start + length; addr += pagesize)
-    {
-        bytes::Bytes reply = Response({0xF7});
-        reply.insert(reply.end(), wire_page.begin(), wire_page.end());
-        t.Exchange(Request(bytes::ComposeBe(bytes::Byte(0xB7), addr)), reply);
-    }
-}
-
-// The 0x37 stop command (legacy read_memory).
-void ScriptStopCommand(ScriptedCanFlashTransport& t)
-{
-    const auto section = t.Section("stop command");
-    t.Exchange(Request({0x37}), Response({0x77}));
 }
 
 // Connect plus read_memory's 0x34 dump-setup request, registered as an
