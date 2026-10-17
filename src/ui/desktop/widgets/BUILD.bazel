@@ -106,7 +106,6 @@ qt_cc_library(
         "//src/backend/calibration/session:selectable_edit_use_case",
         "//src/backend/definition:mappack_converter",
         "//src/backend/diagnostics:ssm_identify",
-        "//src/backend/diagnostics:terminal_script",
         "//src/backend/flash:flash_operation_request",
         "//src/backend/flash/workflow:flash_workflow",
         "//src/backend/logging:logger_definition_service",
@@ -152,6 +151,7 @@ qt_cc_library(
         "//src/backend/calibration/session:calibration_workspace",
         "//src/backend/config:config_session",
         "//src/backend/definition:definition_catalog_session",
+        "//src/backend/diagnostics:terminal_script",
         "//src/backend/ports",
         "//src/backend/protocol",
         "//src/platform/desktop/common/connection:adapter_connection",
@@ -355,6 +355,18 @@ fastecu_gtest(
         "//src/platform/desktop/common/testing:core_application_environment",
         "//src/platform/desktop/common/testing:event_helpers",
         "//src/platform/desktop/common/testing:signal_recorder",
+        "@googletest//:gtest",
+    ],
+)
+
+fastecu_gtest(
+    name = "dataterminal_test",
+    srcs = ["dataterminal_test.cpp"],
+    deps = [
+        ":desktop",
+        "//bazel/qt:widgets",
+        "//src/backend/protocol/testing:fake_diagnostic_link",
+        "//src/platform/desktop/common/testing:widgets_application_environment",
         "@googletest//:gtest",
     ],
 )

@@ -14,6 +14,45 @@ QString legacyValue(const std::string& value)
     return value.empty() ? QString(" ") : QString::fromStdString(value);
 }
 
+// Finds the top-level item of a category, creating it (expanded as the view
+// had it) when it is missing.
+QTreeWidgetItem *categoryItem(QTreeWidget *tree, const QString& category, const fastecu::ui::CalibrationViewState& view)
+{
+    for (int i = 0; i < tree->topLevelItemCount(); i++)
+    {
+        if (tree->topLevelItem(i)->text(0) == category)
+        {
+            return tree->topLevelItem(i);
+        }
+    }
+    auto *item = new QTreeWidgetItem();
+    item->setText(0, category);
+    tree->addTopLevelItem(item);
+    if (view.expanded_categories.contains(category))
+    {
+        item->setExpanded(true);
+    }
+    return item;
+}
+
+QString mapIcon(const fastecu::definition::CalibrationMap& map)
+{
+    const QString type = legacyValue(map.type);
+    if (type == "1D" || type == "Selectable" || (map.y_size == 1 && map.x_size == 1))
+    {
+        return ":/icons/1D-64.png";
+    }
+    if (type == "2D")
+    {
+        return ":/icons/2D-64.png";
+    }
+    if (type == "3D")
+    {
+        return ":/icons/3D-64.png";
+    }
+    return {};
+}
+
 } // namespace
 
 QTreeWidget *CalibrationTreeWidget::buildCalibrationFilesTree(fastecu::calibration::SessionId sessionId,
@@ -55,8 +94,6 @@ QTreeWidget *CalibrationTreeWidget::buildCalibrationDataTree(QTreeWidget *dataTr
                                                              const fastecu::calibration::CalibrationSession& session,
                                                              const fastecu::ui::CalibrationViewState& view)
 {
-    // #lizard forgives(cyclomatic_complexity)
-    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     dataTreeWidget->clear();
 
     QTreeWidget *calDataTree = dataTreeWidget;
@@ -65,23 +102,7 @@ QTreeWidget *CalibrationTreeWidget::buildCalibrationDataTree(QTreeWidget *dataTr
     QFont dataItemFont;
     dataItemFont.setPixelSize(12);
     calDataTree->setFont(dataItemFont);
-
-    const QStringList labels = fastecu::ui::romInfoLabels();
-    const QStringList values = fastecu::ui::romInfoValues(session, view.missing_definition_make);
-    QTreeWidgetItem *romInfoItem = new QTreeWidgetItem();
-    romInfoItem->setText(0, "ROM Info");
-    calDataTree->addTopLevelItem(romInfoItem);
-    if (view.rom_info_expanded)
-    {
-        romInfoItem->setExpanded(true);
-    }
-    for (int i = 0; i < values.length(); i++)
-    {
-        emit logD("Set " + labels.at(i) + ": " + values.at(i), true, true);
-        QTreeWidgetItem *item = new QTreeWidgetItem();
-        item->setText(0, labels.at(i) + ": " + values.at(i));
-        calDataTree->topLevelItem(0)->addChild(item);
-    }
+    addRomInfo(calDataTree, session, view);
 
     const fastecu::calibration::ResolvedDefinition *resolved = session.Definition();
     const std::size_t mapCount = resolved != nullptr ? resolved->definition.maps.size() : 0;
@@ -94,51 +115,39 @@ QTreeWidget *CalibrationTreeWidget::buildCalibrationDataTree(QTreeWidget *dataTr
         {
             continue;
         }
-        bool treeCategoryCreated = false;
-        for (int i = 0; i < calDataTree->topLevelItemCount(); i++)
+        QTreeWidgetItem *parent = categoryItem(calDataTree, category, view);
+        QTreeWidgetItem *item = new QTreeWidgetItem();
+        if (const QString icon = mapIcon(map); !icon.isEmpty())
         {
-            if (calDataTree->topLevelItem(i)->text(0) == category)
-            {
-                treeCategoryCreated = true;
-            }
+            item->setIcon(0, QIcon(icon));
         }
-        if (!treeCategoryCreated)
-        {
-            QTreeWidgetItem *categoryItem = new QTreeWidgetItem();
-            categoryItem->setText(0, category);
-            calDataTree->addTopLevelItem(categoryItem);
-            if (view.expanded_categories.contains(category))
-            {
-                categoryItem->setExpanded(true);
-            }
-        }
-        const QString type = legacyValue(map.type);
-        for (int i = 0; i < calDataTree->topLevelItemCount(); i++)
-        {
-            if (calDataTree->topLevelItem(i)->text(0) != category)
-            {
-                continue;
-            }
-            QTreeWidgetItem *item = new QTreeWidgetItem();
-            if (type == "1D" || type == "Selectable" || (map.y_size == 1 && map.x_size == 1))
-            {
-                item->setIcon(0, QIcon(":/icons/1D-64.png"));
-            }
-            else if (type == "2D")
-            {
-                item->setIcon(0, QIcon(":/icons/2D-64.png"));
-            }
-            else if (type == "3D")
-            {
-                item->setIcon(0, QIcon(":/icons/3D-64.png"));
-            }
-            item->setCheckState(0, view.open_maps.contains(j) ? Qt::Checked : Qt::Unchecked);
-            item->setText(0, name);
-            item->setText(1, QString::number(j));
-            calDataTree->topLevelItem(i)->addChild(item);
-            item->setToolTip(0, name + legacyValue(map.description));
-        }
+        item->setCheckState(0, view.open_maps.contains(j) ? Qt::Checked : Qt::Unchecked);
+        item->setText(0, name);
+        item->setText(1, QString::number(j));
+        parent->addChild(item);
+        item->setToolTip(0, name + legacyValue(map.description));
     }
 
     return calDataTree;
+}
+
+void CalibrationTreeWidget::addRomInfo(QTreeWidget *tree, const fastecu::calibration::CalibrationSession& session,
+                                       const fastecu::ui::CalibrationViewState& view)
+{
+    const QStringList labels = fastecu::ui::romInfoLabels();
+    const QStringList values = fastecu::ui::romInfoValues(session, view.missing_definition_make);
+    QTreeWidgetItem *romInfoItem = new QTreeWidgetItem();
+    romInfoItem->setText(0, "ROM Info");
+    tree->addTopLevelItem(romInfoItem);
+    if (view.rom_info_expanded)
+    {
+        romInfoItem->setExpanded(true);
+    }
+    for (int i = 0; i < values.length(); i++)
+    {
+        emit logD("Set " + labels.at(i) + ": " + values.at(i), true, true);
+        QTreeWidgetItem *item = new QTreeWidgetItem();
+        item->setText(0, labels.at(i) + ": " + values.at(i));
+        romInfoItem->addChild(item);
+    }
 }

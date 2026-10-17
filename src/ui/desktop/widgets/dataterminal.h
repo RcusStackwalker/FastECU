@@ -1,6 +1,9 @@
 #pragma once
 
+#include <functional>
 #include <memory>
+#include <optional>
+#include <vector>
 
 #include <QApplication>
 #include <QButtonGroup>
@@ -23,6 +26,7 @@
 
 #include <ui_data_terminal.h>
 
+#include "src/backend/diagnostics/terminal_script.h"
 #include "src/backend/protocol/idiagnostic_link.h"
 
 QT_BEGIN_NAMESPACE
@@ -60,6 +64,13 @@ class DataTerminal : public QDialog
     QByteArray addSsmHeader(QByteArray output, uint8_t testerId, uint8_t targetId, bool dec0x100);
     QString parseMessageToHex(const QByteArray& received);
     void delay(int timeout);
+    void warn(const QString& message);
+    std::optional<std::vector<fastecu::diagnostics::TerminalStep>> readScript(const QString& msg);
+    template <typename Config> void openLink(bool settingsOk, const Config& config);
+    void sendKline(const std::vector<fastecu::diagnostics::TerminalStep>& script);
+    void sendCan(const std::vector<fastecu::diagnostics::TerminalStep>& script);
+    void runScript(const std::vector<fastecu::diagnostics::TerminalStep>& script,
+                   const std::function<QByteArray(const bytes::Bytes&)>& encode);
 
     fastecu::diagnostics::IDiagnosticLink *link_ = nullptr;
 

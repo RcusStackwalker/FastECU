@@ -131,16 +131,17 @@ struct LayoutsAndRefreshCase
     int cols;
     int body_row;
     int body_col;
+    QString layout;
 };
 class LayoutsAndRefreshParameters : public ::testing::Test, public ::testing::WithParamInterface<LayoutsAndRefreshCase>
 {
 };
 
 INSTANTIATE_TEST_SUITE_P(Rows, LayoutsAndRefreshParameters,
-                         ::testing::Values(LayoutsAndRefreshCase{"1D", "1D", 1, 1, 1, 1, 0, 0},
-                                           LayoutsAndRefreshCase{"X_2D", "2D", 2, 1, 2, 2, 1, 0},
-                                           LayoutsAndRefreshCase{"Y_2D", "2D", 1, 2, 2, 2, 0, 1},
-                                           LayoutsAndRefreshCase{"3D", "3D", 2, 2, 3, 3, 1, 1}),
+                         ::testing::Values(LayoutsAndRefreshCase{"1D", "1D", 1, 1, 1, 1, 0, 0, "1D"},
+                                           LayoutsAndRefreshCase{"X_2D", "2D", 2, 1, 2, 2, 1, 0, "X Axis"},
+                                           LayoutsAndRefreshCase{"Y_2D", "2D", 1, 2, 2, 2, 0, 1, "Y Axis"},
+                                           LayoutsAndRefreshCase{"3D", "3D", 2, 2, 3, 3, 1, 1, "3D"}),
                          [](const ::testing::TestParamInfo<LayoutsAndRefreshCase>& info) { return info.param.name; });
 
 TEST_P(LayoutsAndRefreshParameters, layoutsAndRefresh)
@@ -173,6 +174,9 @@ TEST_P(LayoutsAndRefreshParameters, layoutsAndRefresh)
     CalibrationMaps map(fixture.workspace, *id, 0, QRect(0, 0, 800, 600));
     auto *table = tableOf(map);
     ASSERT_TRUE(table != nullptr);
+    // The layout after "<session>,<index>,<name>," is what the cell slots read.
+    ASSERT_EQ(map.objectName().section(',', 3), GetParam().layout);
+    ASSERT_EQ(table->objectName(), map.objectName());
     ASSERT_EQ(table->rowCount(), rows);
     ASSERT_EQ(table->columnCount(), cols);
     ASSERT_TRUE(table->item(bodyRow, bodyCol) != nullptr);
@@ -203,14 +207,15 @@ struct StaticAxisLabelsCase
 {
     std::string name;
     QString axis_type;
+    QString layout;
 };
 class StaticAxisLabelsParameters : public ::testing::Test, public ::testing::WithParamInterface<StaticAxisLabelsCase>
 {
 };
 
 INSTANTIATE_TEST_SUITE_P(Rows, StaticAxisLabelsParameters,
-                         ::testing::Values(StaticAxisLabelsCase{"static_X", "Static X Axis"},
-                                           StaticAxisLabelsCase{"static_Y", "Static Y Axis"}),
+                         ::testing::Values(StaticAxisLabelsCase{"static_X", "Static X Axis", "Static X Axis"},
+                                           StaticAxisLabelsCase{"static_Y", "Static Y Axis", "Static Y Axis,X Axis"}),
                          [](const ::testing::TestParamInfo<StaticAxisLabelsCase>& info) { return info.param.name; });
 
 TEST_P(StaticAxisLabelsParameters, staticAxisLabels)
@@ -233,6 +238,7 @@ TEST_P(StaticAxisLabelsParameters, staticAxisLabels)
     }
     CalibrationMaps map(fixture.workspace, *id, 0, QRect(0, 0, 800, 600));
     auto *table = tableOf(map);
+    ASSERT_EQ(map.objectName().section(',', 3), GetParam().layout);
     ASSERT_EQ(table->rowCount(), 2);
     ASSERT_EQ(table->columnCount(), 2);
     ASSERT_EQ(table->item(0, 0)->text(), "Low");
@@ -242,6 +248,45 @@ TEST_P(StaticAxisLabelsParameters, staticAxisLabels)
     map.refresh();
     ASSERT_EQ(table->item(0, 0)->text(), "Low");
     ASSERT_EQ(table->item(1, 0)->text(), "77.0");
+}
+
+// A drag that starts on one part of a 3D table (axis row, axis column or
+// body) keeps the other parts from joining the selection; the corner cell is
+// never selectable.
+TEST(CalibrationMapsTest, threeDSelectionStaysWithinTheStartingPart)
+{
+    MapFixture fixture;
+    const auto id = fixture.open(numericTable("3D", 2, 2, std::string(kXAxis) + kYAxis));
+    ASSERT_THAT(id, IsOk());
+    CalibrationMaps map(fixture.workspace, *id, 0, QRect(0, 0, 800, 600));
+    auto *table = tableOf(map);
+    const Qt::ItemFlags selectable = Qt::ItemIsSelectable | Qt::ItemIsEditable | Qt::ItemIsEnabled;
+    const Qt::ItemFlags fixed = Qt::ItemIsEditable | Qt::ItemIsEnabled;
+    const auto flags = [table](int row, int col) { return table->item(row, col)->flags(); };
+
+    emit table->cellClicked(1, 1);
+    ASSERT_EQ(flags(0, 0), Qt::ItemIsEditable);
+    ASSERT_EQ(flags(0, 1), selectable);
+    ASSERT_EQ(flags(1, 0), selectable);
+    ASSERT_EQ(flags(1, 1), selectable);
+    emit table->currentCellChanged(2, 2, 1, 1);
+    ASSERT_EQ(flags(0, 0), Qt::ItemIsEditable);
+    ASSERT_EQ(flags(0, 1), fixed);
+    ASSERT_EQ(flags(1, 0), fixed);
+    ASSERT_EQ(flags(1, 1), selectable);
+
+    emit table->cellPressed(0, 1);
+    emit table->currentCellChanged(0, 2, 0, 1);
+    ASSERT_EQ(flags(0, 1), selectable);
+    ASSERT_EQ(flags(1, 0), fixed);
+    ASSERT_EQ(flags(1, 1), fixed);
+
+    emit table->cellPressed(1, 0);
+    emit table->currentCellChanged(2, 0, 1, 0);
+    ASSERT_EQ(flags(0, 0), Qt::ItemIsEditable);
+    ASSERT_EQ(flags(0, 1), fixed);
+    ASSERT_EQ(flags(1, 0), selectable);
+    ASSERT_EQ(flags(1, 1), fixed);
 }
 
 TEST(CalibrationMapsTest, absentAxisUsesSequentialFallback)
