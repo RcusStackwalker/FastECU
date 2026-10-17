@@ -571,6 +571,9 @@ def runner_command(runner: str, binary: Path, report_dir: Path) -> list[str]:
         "--no-test-output",
         "--no-mutant-output",
         str(binary),
+        # Once an assertion kills a mutant, later cases cannot improve its
+        # verdict. Passing warm-up/baseline runs still execute every case.
+        "--gtest_fail_fast",
     ]
 
 

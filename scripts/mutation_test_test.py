@@ -222,6 +222,7 @@ class RunnerCommandTest(unittest.TestCase):
                 "--no-test-output",
                 "--no-mutant-output",
                 str(binary),
+                "--gtest_fail_fast",
             ],
             mt.runner_command("mull-runner-22", binary, report_dir),
         )

@@ -28,6 +28,9 @@ real.
   (`--config=mutation`, with coverage so a binary's unexecuted code is reported
   as not covered rather than surviving), runs `mull-runner` on each, and merges
   the per-binary reports: a mutant is killed when any test binary kills it.
+  GoogleTest stops after the first failing case for a mutant: subsequent
+  cases cannot strengthen that verdict. Passing baseline runs execute every
+  selected case.
 - It is advisory. A weekly run covers all portable code and publishes its
   reports; a PR job mutates only the changed lines (`gitDiffRef`, applied by
   the runner so the build stays the same in every mode) and reports survivors
