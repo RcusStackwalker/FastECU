@@ -3,6 +3,7 @@
 #include "src/algorithms/protocol/bytes_compose.h"
 
 #include <algorithm>
+#include <ranges>
 
 namespace ssm_protocol
 {
@@ -53,10 +54,9 @@ bytes::Bytes CalculateSeedKey(bytes::ByteView seed, SeedKeyToGenerateIndex keyto
 bytes::Bytes CalculatePayload(bytes::ByteView buf, uint32_t len, KeyToGenerateIndex keytogenerateindex,
                               IndexTransformation indextransformation)
 {
-    bytes::Bytes encrypted;
     if (buf.empty() || len == 0)
     {
-        return encrypted;
+        return {};
     }
 
     len &= ~uint32_t(3);
@@ -65,13 +65,14 @@ bytes::Bytes CalculatePayload(bytes::ByteView buf, uint32_t len, KeyToGenerateIn
         len = uint32_t(buf.size()) & ~uint32_t(3);
     }
 
-    for (uint32_t i = 0; i < len; i += 4)
-    {
-        bytes::AppendU32Be(encrypted,
-                           TransformWord(bytes::ReadU32Be(buf, i), keytogenerateindex, indextransformation, false));
-    }
-
-    return encrypted;
+    const auto encrypted_words = std::views::iota(std::size_t{0}, std::size_t{len / 4}) |
+                                 std::views::transform(
+                                     [&](std::size_t word_index)
+                                     {
+                                         return TransformWord(bytes::ReadU32Be(buf, word_index * 4), keytogenerateindex,
+                                                              indextransformation, false);
+                                     });
+    return bytes::ComposeBe(encrypted_words);
 }
 
 bytes::Bytes AddHeader(bytes::ByteView output, bytes::Byte tester_id, bytes::Byte target_id)

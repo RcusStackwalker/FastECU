@@ -6,6 +6,7 @@
 
 #include <array>
 #include <cstdint>
+#include <span>
 #include <string_view>
 
 using ::testing::ElementsAre;
@@ -53,6 +54,35 @@ TEST(ComposeBe, SplicesByteRangesInline)
     const bytes::Bytes payload{0xAA, 0xBB};
     const std::array<bytes::Byte, 2> tail{0xCC, 0xDD};
     EXPECT_THAT(ComposeBe(0x01_b, bytes::ByteView(payload), tail), ElementsAre(0x01, 0xAA, 0xBB, 0xCC, 0xDD));
+}
+
+TEST(ComposeBe, SplicesWordRangesAsFourBytesEachMostSignificantFirst)
+{
+    const std::array<std::uint32_t, 2> words{0x01020304, 0xA0B0C0D0};
+    EXPECT_THAT(ComposeBe(0xEE_b, words), ElementsAre(0xEE, 0x01, 0x02, 0x03, 0x04, 0xA0, 0xB0, 0xC0, 0xD0));
+}
+
+TEST(ComposeBe, SplicesHalfwordRangesAsTwoBytesEachMostSignificantFirst)
+{
+    const std::array<std::uint16_t, 2> halfwords{0x0102, 0xA0B0};
+    EXPECT_THAT(ComposeBe(halfwords), ElementsAre(0x01, 0x02, 0xA0, 0xB0));
+}
+
+TEST(ComposeBe, SplicesDoublewordRangesAsEightBytesEachMostSignificantFirst)
+{
+    const std::array<std::uint64_t, 1> doublewords{0x0102030405060708};
+    EXPECT_THAT(ComposeBe(doublewords), ElementsAre(0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08));
+}
+
+TEST(ComposeBe, ReservesTheWidthOfEveryElementOfASizedIntegerRange)
+{
+    const std::array<std::uint32_t, 3> words{1, 2, 3};
+    EXPECT_EQ(ComposeBe(words).capacity(), 12U);
+}
+
+TEST(ComposeBe, EmitsNothingForAnEmptyWordRange)
+{
+    EXPECT_THAT(ComposeBe(std::span<const std::uint32_t>{}), ElementsAre());
 }
 
 TEST(ComposeBe, AppendsStringViewCharsAsBytes)
