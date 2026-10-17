@@ -9,3 +9,10 @@ excludePaths:
   - '.*/external/.*'
   - '.*_test\.(c|cc|cpp|h)$'
   - '.*/testing/.*'
+# Junk detection re-parses each mutated file from the flags that
+# -grecord-command-line stored. The re-parse is syntax-only, so the driver warns
+# that Bazel's `-c` is unused. These flags apply only to the re-parse.
+# -Qunused-arguments silences the warning; -Wno-unused-command-line-argument
+# cannot, because the driver reports it before -W options take effect.
+compilerFlags:
+  - -Qunused-arguments
