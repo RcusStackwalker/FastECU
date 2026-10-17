@@ -35,7 +35,7 @@ import sys
 import tempfile
 import time
 from collections.abc import Iterable, Mapping, Sequence
-from pathlib import Path
+from pathlib import Path, PurePath
 
 PORTABLE_PREFIXES = ("src/algorithms/", "src/backend/")
 SOURCE_SUFFIXES = (".c", ".cc", ".cpp", ".cxx", ".h", ".hh", ".hpp", ".hxx")
@@ -166,9 +166,10 @@ class FileCounts:
         return self.killed / covered if covered else None
 
 
-def relative_source_path(path: str, root: Path) -> str:
+def relative_source_path(path: str, root: PurePath) -> str:
     """Map a path recorded in debug info to a workspace-relative one."""
-    # Debug-info and git paths are POSIX; so is this comparison on any host.
+    # Reports can contain native Windows paths; git identities use POSIX separators.
+    path = path.replace("\\", "/")
     root_prefix = root.as_posix().rstrip("/") + "/"
     if path.startswith(root_prefix):
         return path[len(root_prefix) :]
