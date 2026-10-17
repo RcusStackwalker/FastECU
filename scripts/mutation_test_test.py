@@ -443,6 +443,11 @@ class PerformanceTest(unittest.TestCase):
         self.assertIn("2 lost direct kills", summary)
         self.assertIn("1 new timeouts", summary)
 
+    def test_comparison_exposes_survivors_previously_hidden_by_timeouts(self) -> None:
+        key = mt.MutantKey(SHORT, 1, 2, "m", "r")
+        summary = mt.render_comparison({key: "Survived"}, {key: "Timeout"})
+        self.assertIn("Additional survivors: **1**", summary)
+
     def test_refresh_uses_measured_slice_costs_and_preserves_other_scopes(self) -> None:
         schedule = {"tests": {"//b:t": {"seconds": 5}}}
         reports = [
@@ -579,6 +584,23 @@ sys.exit(mt.main())
                     check=False,
                 )
                 self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+            reused = subprocess.run(
+                [
+                    *script,
+                    "--shard",
+                    "0/2",
+                    "--report-dir",
+                    str(reports / "0"),
+                    "--schedule",
+                    str(schedule),
+                ],
+                env=environment,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertEqual(2, reused.returncode, reused.stdout + reused.stderr)
+            self.assertIn("report directory must be empty", reused.stderr)
             result = subprocess.run(
                 [*script, "--merge-reports", str(reports), "--shards", "2"],
                 text=True,

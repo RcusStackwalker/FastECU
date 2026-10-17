@@ -366,10 +366,16 @@ def render_comparison(current: Mapping[MutantKey, str], baseline: Mapping[Mutant
         for key, status in current.items()
         if status == "Timeout" and baseline.get(key) != "Timeout"
     ]
+    survivors = [
+        key
+        for key, status in current.items()
+        if status == "Survived" and baseline.get(key) != "Survived"
+    ]
     return (
         "### Baseline comparison\n\n"
         f"Mutant identities: **{len(missing)} missing, {len(added)} added**.\n\n"
         f"**{len(lost)} lost direct kills; {len(timeouts)} new timeouts**. "
+        f"Additional survivors: **{len(survivors)}**. "
         "Review changes before retaining a speedup; "
         "compare identical production sources and scope.\n"
     )
@@ -736,6 +742,8 @@ def main(argv: Sequence[str] = sys.argv[1:]) -> int:
             return 0
         if args.merge_reports:
             return merge_shards(args, root)
+        if args.report_dir and args.report_dir.exists() and any(args.report_dir.iterdir()):
+            raise MutationTestError("report directory must be empty; use a fresh path for each run")
         changed = None
         if args.diff_ref:
             changed = changed_portable_sources(git_changed_files(root, args.diff_ref))

@@ -119,7 +119,8 @@ are failures, even if their partial reports look faster.
 
 The workflow uses [duration estimates](../bazel/mutation-schedule.json) to
 balance four jobs and GoogleTest slices of expensive binaries. Local runs
-can use the identical selection and assignment:
+can use the identical selection and assignment. Use a fresh report/download
+directory for each run so earlier artifacts cannot contaminate a comparison:
 
 ```sh
 python3 scripts/mutation_test.py --schedule bazel/mutation-schedule.json \
@@ -167,6 +168,8 @@ The initial estimates come from
 Its five slowest binaries account for 72% of execution, so their test slices
 are the first optimization experiment. No test cases or production guards
 are removed to meet the budget.
+Experiment results and qualification evidence are recorded in
+[PR 692](https://github.com/RcusStackwalker/FastECU/pull/692).
 
 ## Fuzzing
 
