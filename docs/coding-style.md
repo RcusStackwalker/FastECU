@@ -1,441 +1,242 @@
 # Coding Style Guide
 
-Conventions for C++ code in this repository. Everything here is the rule for
-new and edited code; there is no proposed/accepted lifecycle. Pre-existing
-sites that predate a rule are converted opportunistically as files are touched,
-not in repo-wide sweeps. [Naming](#naming) is the exception: clang-tidy
-enforces each naming rule from the change that adopts it, so that change
-renames every existing site.
+Conventions for new and edited C++ code. Pre-existing code is converted
+opportunistically as files are touched, not in repo-wide sweeps; remaining
+violations are tracked in [technical debt](tech-debt.md). The exception is
+[Naming](#naming): a rule clang-tidy enforces is applied to every existing site
+by the change that adopts it.
 
-Architectural decisions — the build graph, CI ownership, layering boundaries —
-live in [the ADR index](adr/README.md) instead. If a convention is enforced by
-a build-graph guard rather than by review, it belongs there and is cross-linked
-from here.
+Structural decisions (build graph, layering, CI) live in the
+[ADR index](adr/README.md). Enforcement is review plus the mechanical
+[checks](#checks); the custom clang-tidy checks report conservative patterns
+from this guide and do not replace review.
 
-Enforcement is PR review, supplemented by mechanical checks (`prek`
-formatting, the `#pragma once` check, clang-tidy for naming) and diagnostic-only
-repository-specific clang-tidy checks. The custom checks report conservative
-patterns from this guide as errors; they do not replace review for the
-conventions they cannot prove.
+## Naming
+
+Names follow the
+[Google C++ Style Guide](https://google.github.io/styleguide/cppguide.html#Naming).
+[`.clang-tidy`](../.clang-tidy) (`readability-identifier-naming`) is the source
+of truth and comments each deviation; kinds it does not check yet follow the
+surrounding code.
+
+- Functions and methods are `CamelCase`; parameters and locals are `lower_case`.
+- Enumerators (including `enum class`), `constexpr` variables at every storage
+  duration, and static-storage `const` values are `kCamelCase`. A
+  non-`constexpr` local never takes `k`. Macros are `UPPER_CASE`.
+- An underscore may separate words only next to a digit (`kFlashBlocksSH7058_1block`).
+- Mutable globals take `g_` (`g_log_level`).
+- Public struct members are `lower_case` with no trailing `_`; private and
+  protected class members keep it.
+- A function must not reuse the spelling of a type it could hide (`Error()`
+  beside `struct Error`) or of a gtest base member (`Run`, `Setup`); use a
+  verb-led name (`LogError`).
+- Avoid `windows.h` macro names (`CreateDirectory`, `CopyFile`, `SetPort`): the
+  macro rewrites them to `A`/`W` variants. Pick another verb (`CopyFileTo`).
+
+Qt exceptions:
+
+- Under `src/ui/desktop`, functions, parameters and locals are `camelBack`.
+- Overrides take the name they override (`closeEvent`, `readData`). Qt signals
+  and slots outside `src/ui/desktop` keep `camelBack` inside a
+  `NOLINTBEGIN/NOLINTEND` block that says why. `on_<widget>_<signal>` slots are
+  allowed by `MethodIgnoredRegexp` in `src/ui/desktop/.clang-tidy`.
+
+clang-tidy's `HeaderFilterRegex` does not yet cover headers under `apps/` and
+`tests/`; follow the rules there anyway.
 
 ## Strings and messages
 
-Use `std::string_view`, passed by value, for non-owning string parameters.
+**Take non-owning strings as `std::string_view` by value**, not `const char*`
+(not NULL-safe) or `const std::string&` (forces conversions at pugixml and
+standard-library boundaries). Never store a `string_view` beyond the call.
 
-Not `const char*`: `string_view` is NULL-safe, iterable, and works with the
-standard algorithms. Not `const std::string&`: its `constexpr` constructor is
-unreliable. Both alternatives also force conversions at the pugixml and
-standard-library boundaries this codebase crosses constantly.
-
-Do not persist a `std::string_view` beyond the call that received it.
-
-Construct messages with `std::format` rather than concatenation:
+**Build messages with `std::format`**, not concatenation, so the message stays
+readable and greppable:
 
 ```cpp
 // Yes
-return std::unexpected(Error{ErrorKind::kInvalidArgument,
-                             std::format("block {} exceeds ROM size {}", index, size)});
-
+std::format("block {} exceeds ROM size {}", index, size)
 // No
-return std::unexpected(Error{ErrorKind::kInvalidArgument,
-                             "block " + std::to_string(index) + " exceeds ROM size " +
-                                 std::to_string(size)});
+"block " + std::to_string(index) + " exceeds ROM size " + std::to_string(size)
 ```
 
-The format string keeps the message structure visible and greppable. The cost
-of formatting is irrelevant on an error path.
-
-Two things are deliberately outside this rule:
-
-- `QString`-based code in `src/ui` and `src/platform`.
-- Path and filename joining (for example `src/backend/config/config_paths.cpp`).
-  There is no message text and nothing to search for, so a format string buys
-  nothing.
+Out of scope: `QString` code in `src/ui` and `src/platform`, and path joining.
 
 ## Bytes and wire frames
 
-Pure protocol, checksum, logging, and flash-planning logic uses the byte
-aliases from `src/algorithms/protocol/bytes.h`:
+Pure protocol, checksum, logging and flash-planning code uses the aliases in
+[bytes.h](../src/algorithms/protocol/bytes.h): `bytes::Byte`, `bytes::ByteView`
+(read-only input), `bytes::Bytes` (owned output), and `std::array<bytes::Byte, N>`
+for fixed-size frames and seed/key fields. `QByteArray` is a boundary type only
+([ADR 0004](adr/0004-limit-qbytearray-to-qt-boundaries.md)); convert explicitly
+through [qt_bytes.h](../src/platform/desktop/common/bytes/qt_bytes.h).
 
-- `bytes::Byte` — one byte.
-- `bytes::ByteView` — non-owning read-only input.
-- `bytes::Bytes` — owned variable-length output.
-- `std::array<bytes::Byte, N>` — protocol-defined fixed-size frames, and
-  fixed seed/key fields.
-
-`QByteArray` is a boundary type only; the reasoning and the exact boundaries
-are in [ADR 0004](adr/0004-limit-qbytearray-to-qt-boundaries.md). Conversions
-go through `src/platform/desktop/common/bytes/qt_bytes.h` and stay explicit, so that
-copies are visible at the call site.
-
-Build frames with `bytes::ComposeBe`, `bytes::ComposeBeWithExtraCapacity`, and
-`bytes::ComposeBeWithChecksum` from
-[bytes_compose.h](../src/algorithms/protocol/bytes_compose.h) rather than
-hand-rolled shifts and masks:
+**Build frames with `ComposeBe`, `ComposeBeWithExtraCapacity` and
+`ComposeBeWithChecksum`** from [bytes_compose.h](../src/algorithms/protocol/bytes_compose.h),
+not hand-rolled shifts:
 
 ```cpp
-// Yes
 Bytes frame = ComposeBe(0x31_b, std::uint16_t(kReadPageSize), U24(address));
-
-// No
-Bytes frame;
-frame.push_back(0x31);
-frame.push_back(static_cast<Byte>(kReadPageSize >> 8));
-frame.push_back(static_cast<Byte>(kReadPageSize));
-frame.push_back(static_cast<Byte>(address >> 16));
-// ...
 ```
 
-Each argument's wire width comes from its C++ type: `Byte` emits one byte,
-`std::uint16_t` two, `U24(x)` three, `std::uint32_t` four, `std::string_view`
-and any range of `Byte` splice inline. Byte literals take the `_b` suffix. Any
-other type is a compile error — that is what stops a `std::size_t` from
-silently emitting eight bytes.
+Each argument's C++ type sets its wire width: `Byte` 1, `std::uint16_t` 2,
+`U24` 3, `std::uint32_t` 4; `std::string_view` and `Byte` ranges splice inline.
+Byte literals take `_b`. Any other type is a compile error.
 
-**Width is still your job.** A value declared wider than its wire field must be
-narrowed explicitly at the call site: `std::uint16_t(kReadPageSize)`,
-`U24(address)`. Passing a `std::uint32_t` where the field is three bytes
-compiles cleanly and silently changes the frame length. The type system only
-rejects argument types it has never heard of; it does not know how wide a given
-wire field is supposed to be. Count the bytes the frame needs — do not infer
-them from a variable's declared type. These frames are written to ECUs, where
-a wrong length or byte order is a bricking risk.
+**Width is still your job.** Narrow explicitly to the wire field
+(`std::uint16_t(x)`, `U24(x)`): a `std::uint32_t` in a 3-byte field compiles and
+silently lengthens a frame that will be written to an ECU.
 
-These compose helpers encode big-endian fields. Byte order belongs to the
-specific protocol contract, not the CPU or a repository-wide default. The
-[MUT/DMA free-form codec](reference/logging-mut-freeform-wire.md) uses explicit
-little-endian byte helpers for request codes and stream values;
-see the [wire evidence](reference/logging-wire-evidence.md).
+The helpers are big-endian. Byte order belongs to each protocol contract; the
+[MUT/DMA free-form codec](reference/logging-mut-freeform-wire.md), for example,
+is little-endian.
 
-Four shapes stay hand-rolled on purpose, and are not inconsistencies to tidy
-away:
-
-- A checksum patched into the middle of a frame with a second appended over the
-  extended buffer — the SH7055 and MC68HC16Y5 kernel-upload envelopes.
-- A checksum over a buffer built by `resize` rather than from an argument list
-  (the EEPROM CAN kernel word), which calls `bytes::AppendU32Be` directly.
-- Verification code. `HasValidFrame` compares an explicit `bytes::sum8` against
-  the received checksum, so a bug in a compose helper cannot cancel itself out
-  on both sides of the comparison.
-- Five test sites that build their expected wire bytes by hand:
-  `subaru_hitachi_m32r_kline_executor_test.cpp`'s `ScriptReadChunks` and its two
-  block-write loops, and `subaru_mitsu_m32r_kline_executor_test.cpp`'s two
-  block-write loops. The test derives the wire format independently of the
-  production code it checks, rather than through the same helper that could be
-  wrong on both sides at once.
+Hand-roll bytes where sharing a helper could hide a bug: checksums patched
+mid-frame or over a `resize`-built buffer, verification code (`HasValidFrame`
+sums independently of the composer), and test expectations, which must derive
+the wire format independently of the code under test.
 
 ## Units
 
-Carry a unit in the type, not in a name suffix: a timeout is
-`std::chrono::milliseconds timeout`, never `int timeout_ms`. A suffix is a
-comment the compiler cannot check, and it drifts from what the value actually
-holds.
+**Carry units in the type, not a name suffix:** `std::chrono::milliseconds timeout`,
+never `int timeout_ms`.
 
 ## Error handling
 
 Backend operations return `fastecu::Result<T>` (`std::expected<T, Error>`);
-`fastecu::Status` is `Result<void>`. Check both with `.has_value()`:
+`fastecu::Status` is `Result<void>`.
+
+**Check results with `.has_value()`, never the implicit `operator bool`.** For
+`Result<bool>` or `Result<std::optional<T>>`, `if (result)` reads as a question
+about the value:
 
 ```cpp
-// Yes
 if (Status s = writeBlock(block); !s.has_value()) {
     return s;
 }
-
-// No
-if (Status s = writeBlock(block); !s) {
-    return s;
-}
 ```
 
-Do not use the implicit `operator bool`. For a `Result<bool>` or a
-`Result<std::optional<T>>`, `if (result)` reads as a question about the
-contained value rather than about success, and the two readings disagree
-exactly when the contained value is falsy. Spelling the check out means no
-reader has to know a type's value category to know what is being tested.
-
-Keeping the declaration inside the `if` above is the `Result`/`Status`
-instance of the general minimum-scope rule below.
-
-Exceptions never cross a port. The `ErrorKind` set is closed: the values are
-in `src/backend/ports/error.h`, and adding one needs an
+**Exceptions never cross a port.** The `ErrorKind` set in
+[error.h](../src/backend/ports/error.h) is closed; adding a value needs an
 [ADR](adr/README.md).
 
-A result discarded on purpose is assigned to `std::ignore` (from `<tuple>`),
-with a comment saying why when the reason is not obvious from the call:
+**Discard a result on purpose with `std::ignore =`**, plus a comment when the
+reason is not obvious. Not `(void)` or `static_cast<void>`: GCC ignores a cast
+on `warn_unused_result`. Unused variables and parameters still take `(void)name;`.
+
+## Scope and loops
+
+**Give every variable the smallest scope that covers all its uses.** A value
+used only within one `if`/`else if` chain goes in its init-statement; one used
+after the chain stays where it is. (Sonar cpp:S6004)
 
 ```cpp
-// A missing previous config is not an error for this step.
-std::ignore = fs.CopyFileTo(previous_config_file, target, false);
-```
-
-Not `(void)call()` or `static_cast<void>(call())`: `std::ignore =` names the
-intent, and GCC ignores a cast on a `warn_unused_result` function. An unused
-variable or parameter is still marked `(void)name;`.
-
-## Scope
-
-Give every variable the smallest scope that satisfies all of its uses — don't
-declare it a line (or a function) above where it's needed "in case" something
-later wants it. The concrete form this takes depends on what's consuming the
-variable:
-
-**A value used only inside one `if`** (and, for an `if`/`else if` chain, only
-within that chain) goes in the statement's C++17 init-statement, not a
-separate line above it:
-
-```cpp
-// Yes
 if (const auto *plan = std::get_if<FooPlan>(&plan_variant); plan == nullptr) {
     return fail(InvalidConfig, "wrong plan kind");
 }
-
-// No
-const auto *plan = std::get_if<FooPlan>(&plan_variant);
-if (plan == nullptr) {
-    return fail(InvalidConfig, "wrong plan kind");
-}
 ```
 
-A variable used again later in the enclosing block — past the end of the
-`if`/`else` chain — does not qualify; forcing it into an init-statement would
-just take it out of scope early. Leave it declared where its full lifetime is
-actually needed. (SonarCloud cpp:S6004 — 20 of PR #199's 29 findings were
-this exact pattern, none caught by review because it compiles fine either
-way.)
+**Prefer range-for and `std::ranges`** over iterator pairs or index loops, and
+`std::ranges::find`/`find_if` over hand-written search loops.
 
-**A value used only inside a loop** is declared in the loop header or the
-loop body, never hoisted above the loop — see the loop-header corollary
-under Collections below, which is the same rule applied to `for`.
-
-Both forms compile fine either way, so nothing short of review or the
-scanner in [Static analysis](#static-analysis) catches a variable sitting one
-scope too wide.
-
-## Collections
-
-Prefer range-based `for` and `std::ranges` algorithms/views over iterator
-pairs or raw index loops. Ranges carry their own bounds and make it
-impossible to mismatch iterators from two different containers.
-
-When a range-for genuinely isn't feasible — a bounded retry count, a byte
-offset used to compute a wire address, or similar state that isn't "iterate
-this container" — it gets the same minimum-scope treatment `for` always
-does, extended to the loop's exit condition: the three clauses (init,
-condition, increment) stay about loop control alone, the counter, not a
-status flag that duplicates a `break` already in the body:
+**When an index loop is needed, its condition tests only the counter.** Exit
+early with `break`; do not fold a status flag into the condition. (Sonar cpp:S886)
 
 ```cpp
 // Yes
-bool connected = false;
 for (int attempt = 0; attempt < 20; ++attempt) {
-    if (probe(attempt)) {
-        connected = true;
-        break;
-    }
+    if (probe(attempt)) { connected = true; break; }
 }
-
 // No
-bool connected = false;
-for (int attempt = 0; attempt < 20 && !connected; ++attempt) {
-    if (probe(attempt)) {
-        connected = true;
-        break;
-    }
-}
+for (int attempt = 0; attempt < 20 && !connected; ++attempt) { ... }
 ```
-
-If there's no `break` yet because the loop keeps retrying after success (a
-flag that must stop the loop rather than merely exit early), add the `break`
-when the flag is set rather than folding the flag into the loop condition.
-Same outcome, one simple exit condition controlling the loop instead of two
-overlapping ones. (SonarCloud cpp:S886 — three sites in PR #199.)
-
-## Function complexity
-
-When an ECU family's `ConnectBootloader`/`ReadMem`/`ReflashBlock`-style
-function accumulates a long run of "send, check `has_value()`, log on
-content mismatch" exchanges, factor the repeated shape into a small
-same-file helper (`SingleShotLogged`, a retry-step helper, a one-line
-boolean predicate for a gnarly condition) rather than leaving it inline.
-Keep each family's own log wording and legacy-citation comments attached to
-the helper call site, not lost in the extraction — the point is fewer
-nesting levels per function, not fewer facts on the record. (SonarCloud
-cpp:S3776, cognitive complexity — one site in PR #199, at 28 against a limit
-of 25.)
 
 ## Templates
 
-A free function's name used as a non-type template argument (a plan-builder
-passed to a template that stores it as a function pointer, for example) needs
-an explicit `&`, even though the language allows the bare name to decay:
+**Write `&` on a function used as a non-type template argument**
+(`KernelFreeCanWorkflow<FooExecutor, &build_foo_plan>`), so the address is
+explicit. (Sonar cpp:S936)
 
-```cpp
-// Yes
-using FooWorkflow = KernelFreeCanWorkflow<FooExecutor, &build_foo_plan>;
+## Complexity
 
-// No
-using FooWorkflow = KernelFreeCanWorkflow<FooExecutor, build_foo_plan>;
-```
-
-Both compile identically. The bare name is also valid in a genuinely boolean
-context (`if (some_function)`, always true), which is what SonarCloud's
-check (cpp:S936) is really guarding against — it can't tell "deliberate
-function pointer" from "function name where a call was probably meant" from
-syntax alone, so write the `&` at every such use to make the address-of
-explicit. (Four sites in PR #199, all template arguments, not the bug the
-rule exists to catch — but the fix is the same either way.)
+**No function exceeds cyclomatic complexity 15** ([Lizard](tooling.md#lizard));
+none is exempt. Reduce it by extracting small same-file helpers (a repeated
+send/check/log exchange, a predicate for a gnarly condition), keeping each
+family's log wording and legacy-citation comments at the call site. Lizard's
+`forgives` marker is reserved for a confirmed parser inaccuracy, with a comment
+recording it. Sonar's cognitive complexity (cpp:S3776) is a separate metric
+with its own limit.
 
 ## Tests
 
-**Use gmock matchers** (`#include <gmock/gmock-matchers.h>`) to assert
-properties of containers, rather than loops or standard algorithms that reduce
-to a bare `EXPECT_TRUE`:
+### Assertions
+
+**Assert `Result`/`Status` with the matchers** from
+[result_matchers.h](../src/backend/ports/testing/result_matchers.h)
+(`//src/backend/ports/testing:result_matchers`): `IsOk()`, `IsOkAnd(m)`,
+`IsErr(kind)`, `IsErrWith(kind, m)`. They print the actual error; a bare
+`has_value()` assertion prints `false`. Do not append `result.error().detail`.
 
 ```cpp
 // Yes
-EXPECT_THAT(frame, ElementsAre(0x31, 0x00, 0x80));
-EXPECT_THAT(blocks, Each(Field(&Block::size, Le(kMaxBlockSize))));
-
-// No
-EXPECT_TRUE(std::ranges::all_of(blocks, [](const Block& b) { return b.size <= kMaxBlockSize; }));
-```
-
-A failing matcher describes itself and prints the container's contents; a
-failing `EXPECT_TRUE` prints `false` and needs a comment to be intelligible.
-
-**Use Result/Status matchers in GoogleTest suites.** Include
-[result_matchers.h](../src/backend/ports/testing/result_matchers.h) and depend on
-`//src/backend/ports/testing:result_matchers`. Use `IsOk()` for success,
-`IsOkAnd(matcher)` for the contained value, `IsErr(kind)` for an error kind,
-and `IsErrWith(kind, matcher)` for its detail. The matchers include the
-Result/Status, Error and ErrorKind printers, so failures name the actual
-error and its detail.
-Use `ASSERT_THAT` before accessing the result later in the test.
-When a result is used only by one assertion, pass the operation directly to
-`ASSERT_THAT` or `EXPECT_THAT` instead of declaring a local. Keep a local when
-needed to preserve operation or cleanup order.
-
-```cpp
-ASSERT_THAT(result, fastecu::testing::IsOk());
-EXPECT_THAT(result, fastecu::testing::IsOkAnd(42));
-EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kTimeout));
-```
-
-Use `Not(IsOk())` only when the contract intentionally permits any error.
-Plain `std::optional` checks and the low-level Result API tests use ordinary
-GoogleTest assertions. Production checks still use
-`.has_value()` as described under [Error handling](#error-handling).
-
-**Mocks are package-owned.** A package that defines an interface adds a
-`testing/` subpackage with one `cc_library(testonly = True)` per mock, each
-with its own test. `src/backend/ports/testing/` is the reference. One mock, one
-owner, no behavioural drift between copies — and the mock's own test keeps the
-blast radius small when it changes. See
-[ADR 0008](adr/0008-use-package-owned-mocks.md).
-
-See the [serial backend Google Mock reference](gmock-reference.md) for
-expectations, default actions, call ordering, and subprocess failure propagation.
-
-**Platform-specific tests go in separate source files**, listed in the matching
-`*_UNIX_SRCS` / `*_UNIX_HDRS` / `*_WIN32_SRCS` Bazel list — not behind `#ifdef`
-in a common source. Common backend test sources must compile on every supported
-platform, and must not reach for `openpty` or other Unix-only APIs. No guard
-target checks this: a Unix-only API in a common source fails the Windows leg of
-the CI matrix, so run the full matrix when moving a platform-specific test. Do
-not answer such a break by marking the common target `target_compatible_with`
-Unix — Bazel skips an incompatible target rather than failing it, and that
-platform's coverage of the whole suite disappears with a green CI run. Where
-separating sources is impractical,
-use a small local preprocessor guard with standard compiler/platform macros
-rather than Qt ones. See
-[ADR 0005](adr/0005-separate-platform-specific-backend-tests.md).
-
-**File headers name the legacy source only.** A test file ported from a
-legacy operation opens with a short header naming that source file, never a
-line range or a commit hash. A citation that includes them looks precise but
-decays immediately: the legacy file is deleted from the working tree (it
-survives only in history), so a line-range citation cannot be checked against
-anything and silently goes stale the moment the legacy source is edited or
-reformatted. Naming just the file is a claim that stays true.
-
-**Delete comments that restate the test name; keep those that explain why.**
-A comment repeating what the test name already says (`// checks that read
-propagates a disconnect`) on `ReadPropagatesADisconnectedTransport` adds
-nothing a reader doesn't already have. Keep comments that explain why this
-particular input was chosen, or why this particular failure mode matters —
-the kind of thing that isn't recoverable just by reading the assertions.
-
-**Name a suite for the type under test, with no `Test` suffix**
-(`SubaruHitachiM32rCanExecutor`, not `SubaruHitachiM32rCanExecutorTest`) — the
-suite name already reads as "tests for X" in every failure message gtest
-prints, so the suffix is redundant on every line of output.
-
-**Assert `Result`/`Status` with the matchers, not a bare `has_value()`.** Use
-`IsOk()`, `IsErr()`, and `IsErrWith()` from
-`src/backend/ports/testing/result_matchers.h`:
-
-```cpp
-// Yes
-EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kTimeout, HasSubstr("no reply")));
-
+EXPECT_THAT(result, IsErrWith(ErrorKind::kTimeout, HasSubstr("no reply")));
 // No
 ASSERT_FALSE(result.has_value());
 EXPECT_EQ(result.error().kind, ErrorKind::kTimeout);
 ```
 
-`ASSERT_TRUE(x.has_value())` throws away the error the assertion is already
-holding; on failure it prints `false` where a matcher would print the actual
-`ErrorKind` and detail string.
+- **Use `ASSERT_THAT` before accessing** `*result`, `result->` or
+  `result.error()`; `EXPECT_THAT` continues past a failure. `IsErrWith` checks
+  the error without accessing it.
+- **Pass the operation straight to the assertion** when its result is used
+  once, unless a local is needed to preserve operation or cleanup order.
+- `Not(IsOk())` only when the contract permits any error. Plain
+  `std::optional` checks and the low-level Result API tests use ordinary
+  assertions.
+- Helpers that build plans return `Result<FlashPlan>` without asserting; the
+  test body asserts `IsOk()`. A fatal assertion in a helper returns only from
+  the helper.
 
-**Use fatal assertions before accessing a result's value or error.**
-`EXPECT_THAT` records a failure and continues, so it cannot guard a later
-`*result`, `result->member`, or `result.error()`. Assert `IsOk()` before
-accessing the value, or use `IsErrWith()` to check the error and its detail
-together without accessing an inactive alternative. The matchers already
-print error details; do not append `result.error().detail` to them.
+**Assert containers with gmock matchers** (`ElementsAre`, `Each`, `Field`),
+not loops or algorithms reduced to `EXPECT_TRUE`.
 
-Plan-building test helpers return `Result<FlashPlan>` without asserting or
-unwrapping. Check that result with `ASSERT_THAT(plan, IsOk())` in the calling
-test body before passing `*plan` to the executor. Fatal assertions require
-a void function and only return from that function: hiding one in a void
-helper would still let its caller continue unless the caller also checks
-for the fatal failure.
+**A loop with assertions needs `SCOPED_TRACE`**, or becomes a `TEST_P` with
+`PrintToStringParamName`, so a failure names its case.
 
-Converting existing sites to the matchers is ongoing rather than complete —
-`src/backend/flash/ecu/` still carries a substantial number of bare
-`has_value()` assertions predating this rule, so a reader meeting one there
-should read it as known debt, not as a second accepted style.
+### Structure
 
-**A loop containing an assertion needs a `SCOPED_TRACE`, or should be a
-`TEST_P`.** A bare `for` loop with `EXPECT_*` calls inside reports every
-failure on the same line, so a reader can't tell which iteration failed
-without re-running under a debugger. Add `SCOPED_TRACE` naming the current
-case, or restructure as `TEST_P` with `PrintToStringParamName` so gtest's own
-output already says which case failed.
+- **Mocks are package-owned:** one `cc_library(testonly = True)` per mock in
+  the interface package's `testing/` subpackage, each with its own test
+  ([ADR 0008](adr/0008-use-package-owned-mocks.md); reference:
+  `src/backend/ports/testing/`). See the [Google Mock reference](gmock-reference.md).
+- **Platform-specific tests go in separate sources** in the matching
+  `*_UNIX_SRCS`/`*_WIN32_SRCS` lists, not behind `#ifdef`
+  ([ADR 0005](adr/0005-separate-platform-specific-backend-tests.md)). Never fix
+  a Windows break by marking a common target `target_compatible_with` Unix:
+  Bazel skips it and the platform's coverage vanishes behind a green run.
+  Unavoidable guards use standard macros, not Qt's.
+- **Name a suite for the type under test, without a `Test` suffix**
+  (`SubaruHitachiM32rCanExecutor`).
+- **A ported test's file header names the legacy source file only**, never a
+  line range or commit: the legacy file is gone from the tree, so finer
+  citations cannot be checked.
+- **Comments explain why an input or failure mode matters**; delete ones that
+  restate the test name.
 
-**Cross-document references are Markdown links with human-readable text**,
-never a bare path written as inline code — lychee, the link checker `prek`
-runs, resolves `[text](path)` links but cannot see a path spelled as
-`` `docs/foo.md` `` and so cannot catch it going stale.
+### Mutation
 
-**Prove protocol corrections with a mutation check.** When correcting bounds,
-reply gates, or cancellation without hardware qualification, temporarily restore
-the defective behavior, verify that a named regression fails, then restore the
-correction. This detects unreachable or vacuously passing coverage.
+**Prove a protocol correction with a mutation check:** without hardware
+qualification, temporarily restore the defect, confirm a named regression
+fails, then restore the fix.
 
-**Treat a surviving mutant as a missing assertion.** The PR `mutation` job
-mutates the portable lines a change touches and annotates the ones no test
-notices ([ADR 0022](adr/0022-advisory-mutation-testing-with-mull.md)). For each
-survivor, add the assertion that distinguishes the mutant. User-visible log and
-error text is observable behavior, so a mutant that only changes a message
-still needs a test. A `Timeout` counts as killed. The job is advisory and never
-fails a PR.
+**Treat a surviving mutant as a missing assertion.** The advisory PR `mutation`
+job ([ADR 0022](adr/0022-advisory-mutation-testing-with-mull.md)) annotates
+survivors on changed lines; add the assertion that kills each one. Log and
+error text is observable behavior. A `Timeout` counts as killed. To run it, see
+[tooling](tooling.md#mutation-testing).
 
-**Suppress an equivalent mutant on its line, naming the mutator.** When no
-input can tell the mutant apart (a capacity hint, a bound the next check
-already enforces), give the reason on its own comment line and the annotation
-on the line before the code:
+**Suppress only an equivalent mutant, on its line, naming the mutator,** with
+the reason on its own line above:
 
 ```cpp
 // Equivalent as `>`: at offset == size the count below is zero.
@@ -444,248 +245,29 @@ if (offset >= out.size())
 ```
 
 Mull keeps only letters, digits, `_` and `,` after the colon, so a reason on
-the annotation line itself joins the mutator's name and suppresses nothing. Do
-not use a bare `mull-ignore` or a `mull-off`/`mull-on` block: they hide every
-mutator, including real mutants a later change brings to that code. When a line
-holds an equivalent mutant beside a real one of the same mutator, suppressing
-either hides both; leave them and simplify the expression in its own change.
-Mull finds its annotations as substrings of any comment, so a comment that
-discusses them must not spell them out. To run it locally, put Mull's `mull-runner-<N>`
-and its LLVM's `clang` first on `PATH` (set `MULL_IR_FRONTEND` if the plugin is
-not beside the runner), then:
+that line suppresses nothing. Never use a bare or block suppression; they hide
+real mutants added later. If a line mixes an equivalent and a real mutant of
+the same mutator, simplify the expression in its own change instead. Mull
+matches its annotations inside any comment, so do not spell them out in prose.
 
-```sh
-python3 scripts/mutation_test.py --scope //src/algorithms/checksum/...
-python3 scripts/mutation_test.py --diff-ref origin/master   # only changed lines
-```
+### Fuzzing
 
-A change that only adds tests touches no mutable lines, so the PR job has
-nothing to mutate. Measure it with a scoped run of the `mutation` workflow on
-the branch instead, and compare its survivors with the same scope on `master`:
+**Fuzz untrusted input** (ECU replies, ROM files, definitions, expressions,
+terminal scripts) with a FuzzTest harness in `<unit>_fuzz_test.cpp` beside the
+unit ([ADR 0021](adr/0021-fuzz-portable-code-with-fuzztest.md)). Assert
+properties (round trips, output invariants, agreement between entry points),
+not only "does not crash", and prefer typed domains (`VectorOf(...).WithMaxSize(255)`,
+`InRange`).
 
-```sh
-gh workflow run mutation -r <branch> -f scope=//src/algorithms/protocol/...
-```
-
-The run is sharded like the weekly one; the `merged report` job's summary and
-its `mutation-report` artifact hold the result for the whole scope.
-
-**Verify reachability before retiring code.** String aliases and dispatch tables
-can make an apparently referenced branch dead; commented-out functions can look
-live to text searches. Check the built path or a comment-stripped parse before
-porting or deleting the behavior.
-
-**Fuzz untrusted input with a FuzzTest harness.** Code that parses bytes or
-text from outside the program (ECU replies, ROM files, definitions, conversion
-expressions, terminal scripts) gets a harness in `<unit>_fuzz_test.cpp` beside
-the unit, owned by the same package. Gazelle generates its
-`fastecu_portable_gtest` target like any other test; the `_fuzz_test` name
-suffix makes the macro link FuzzTest, tag the target `fuzz`, and build it only
-under `--config=asan` or `--config=fuzztest`
-([ADR 0021](adr/0021-fuzz-portable-code-with-fuzztest.md)). Write properties,
-not only "does not crash": a round trip, an invariant of the output, or
-agreement between two entry points. Prefer typed domains
-(`VectorOf(...).WithMaxSize(255)`, `InRange`) where the input has structure.
-
-```sh
-# The PR gate: portable tests and every committed seed under ASan + UBSan.
-bazel test --config=asan //src/algorithms/... //src/backend/...
-# Coverage-guided fuzzing of one property.
-bazel run --config=fuzztest //src/algorithms/expression:expression_fuzz_test -- \
-    --fuzz=ExpressionFuzz.EvaluatesAnyExpressionSafely --fuzz_for=10m
-```
-
-Both configs need Clang first on `PATH`: CI uses the pinned clang-tidy LLVM;
-on macOS Xcode's clang works.
-
-**Seeds are small synthetic files.** Store them under
-`<package>/testdata/fuzz/<harness>/`, list them in the target's `data` with
-`glob(["testdata/fuzz/**"])`, and load them with
+**Seeds are small synthetic files** under `<package>/testdata/fuzz/<harness>/`,
+in the target's `data` via `glob(["testdata/fuzz/**"])`, loaded with
 `fuzztest::ReadFilesFromDirectory` and a workspace-relative path. Derive them
-from existing test fixtures; never commit stock ROM bytes or bench reads. A
-prek hook rejects seed files over 4 KiB. A minimized crash input becomes a
-seed in the fix's PR, which makes it a regression test.
+from existing fixtures; never commit stock ROM bytes or bench reads. Seeds are
+at most 4 KiB. A minimized crash input becomes a seed in the fix's PR.
 
-## Naming
+## Checks
 
-Names follow the
-[Google C++ Style Guide](https://google.github.io/styleguide/cppguide.html#Naming).
-The rules clang-tidy enforces are the ones in
-[`.clang-tidy`](../.clang-tidy) (`readability-identifier-naming`); that file is
-the source of truth and each rule carries a comment where it deviates. Kinds not
-yet enabled there follow the surrounding code.
-
-- Enumerators are `kCamelCase`, including `enum class` values.
-- Static-storage `const` values (file-scope or function-local `static const`) are
-  `kCamelCase`, like `constexpr` ones; macros are `UPPER_CASE`.
-
-Deviations from Google style:
-
-- Constexpr variables are `kCamelCase` at every storage duration, including
-  function locals.
-
-```cpp
-inline constexpr std::size_t kReadPageSize = 0x100;
-template <typename> inline constexpr bool kDependentFalse = false;
-static constexpr auto kCells = std::to_array<std::string_view>({"10", "20"});
-```
-
-- An underscore may separate words only next to a digit (`kFlashBlocksSH7058_1block`).
-- Mutable globals carry a `g_` prefix (`g_log_level`); Google has none.
-- Public data members of structs are `lower_case` without Google's trailing
-  `_`; private and protected members of classes keep it.
-- A non-`constexpr` local never carries the `k` prefix (`kIndex` becomes
-  `index`); only `constexpr` variables do.
-
-Conforming to Google style, and enforced: functions and methods are
-`CamelCase` (`ReadMemory`, `ValidateAndBuild`); parameters and locals are
-`lower_case`. A function must not take the CamelCase spelling of a type it can
-hide (`Error()` next to `struct Error`, `DefinitionHeaderInput()` next to the
-struct it returns), nor of a member of a gtest base (`Run`, `Setup`): pick a
-verb-led name (`LogError`, `BuildDefinitionHeaderInput`).
-
-Qt exceptions:
-
-- Under `src/ui/desktop`, methods, functions, parameters and locals are
-  `camelBack` to match Qt.
-- Overrides are not checked: they take the name of the virtual they override,
-  including Qt's (`closeEvent`, `readData`). Qt signals and slots of Qt-derived
-  classes outside `src/ui/desktop` keep Qt's `camelBack` names (`logE`,
-  `stateChanged`) inside a `NOLINTBEGIN/NOLINTEND` block that says so. Qt
-  `on_<widget>_<signal>` slots keep their spelling (they are connected by name)
-  through `MethodIgnoredRegexp` in `src/ui/desktop/.clang-tidy`.
-
-Not enforced yet: clang-tidy's `HeaderFilterRegex` covers headers under
-`src/(algorithms|backend|platform|ui)` only, so declarations in headers under
-`apps/` and `tests/` are not checked (follow-up). Their definitions in `.cpp`
-files are.
-
-Win32 caveat: avoid function names that are `windows.h` macros
-(`CreateDirectory`, `CopyFile`, `SetPort`, ...); the macro rewrites the
-CamelCase name to its `A`/`W` variant on Windows builds. Pick a different verb
-(`CopyFileTo`).
-
-## Formatting and headers
-
-`clang-format` and the `#pragma once` check run under `prek`; run
-`prek run --all-files` before pushing. Every header needs `#pragma once`.
-
-## Static analysis
-
-### Lizard complexity gate
-
-`prek run lizard --all-files` checks per-function cyclomatic complexity, with
-a maximum of 15. The pinned hook in [the configuration](../.pre-commit-config.yaml)
-scans first-party C/C++ sources and headers, including tests, on every commit
-and in CI. The scan starts at the repository root to honor `.gitignore`, including
-Qt's generated-file patterns and local worktree directories. Generated, vendor,
-and third-party directories are also excluded explicitly.
-The scan covers the whole scope rather than only the filenames passed by the
-hook runner. Non-complexity metrics have
-effectively unbounded integer limits because Lizard's CLI requires integers.
-
-No function is exempt: a function over the limit is refactored. Lizard's native
-forgiveness marker is reserved for a confirmed Lizard parser inaccuracy, with a
-comment recording it:
-
-```cpp
-void Example()
-{
-    // #lizard forgives(cyclomatic_complexity)
-    // Lizard miscounts <construct>; its actual complexity is within the limit.
-}
-```
-
-A marker suppresses the warning for the whole function, with no score cap or
-automatic retirement check, so review rejects one without that reason.
-
-Lizard uses a partial parser and supplements the existing analysis and review
-gates. Cyclomatic complexity is distinct from SonarCloud's cognitive complexity;
-their numeric thresholds are not interchangeable.
-
-### Existing analysis gates
-
-`clang-tidy` and SonarCloud both gate the PR, and both are worth running
-locally before that gate ever sees the change:
-
-- `bazel run //:clang_tidy_report_changed` — the same changed-files scope as
-  the PR gate; `bazel run //:clang_tidy_fix_changed` applies its fixes
-  directly (macOS/Linux only; needs system LLVM on `PATH`).
-  Add `-- --profile` to the report run to see phase timings and the slowest
-  checks. Inline repository checks run in a separate pass covering
-  first-party headers, including those under `apps/` and `tests/`.
-  Findings are errors, like those of every check in [the configuration](../.clang-tidy).
-  The repository checks are the `CustomChecks` entries in
-  [the configuration](../.clang-tidy); their queries document scope and
-  permitted overloads (for example `fastecu-redundant-address-dereference`).
-  That check reports `&*` on raw pointers and allowlisted standard contiguous
-  iterator wrappers from libc++, libstdc++, and MSVC STL. Use `std::to_address`
-  and preserve any existing end guard. The outer address operator must be
-  built-in; optional/expected values, smart pointers, reverse and node
-  iterators, proxies, user subclasses of standard iterators, and arbitrary
-  overloaded operators remain excluded.
-  The wrapper allowlist lives in the query; real-container fixtures run with
-  each analysis job's standard library to catch implementation-name changes.
-  LLVM's experimental custom-check flag is inserted by
-  [the parallel-runner adapter](../scripts/clang_tidy_adapter.py); built-in
-  checks retain their existing enforcement and header scope.
-  Direct invocations must enable both the experimental flag and the registered
-  check name, for example:
-  `clang-tidy --experimental-custom-checks --checks='-*,custom-fastecu-linear-search-loop' -p . src/backend/flash/ecu/subaru_denso_sh7058_can_plan.cpp`.
-  This check reports range loops that compare an element (or its member) for
-  equality, including conjunctions, and return that element's address directly
-  or through a `std::expected` result constructor. It also reports incrementing index loops
-  that compare an indexed element for equality and return the matching index
-  or an indexed element's address. The matching branch must occur directly in the loop body, and returns
-  directly in that branch; returns inside callbacks are excluded. Diagnostics have no fix-its:
-  preserve sentinel bounds, parallel-container indexing, and validation order
-  when replacing the loop with `std::ranges::find` or `std::ranges::find_if`.
-- `bazel run --config=release //:clang_tidy_check_fixtures` verifies inline
-  diagnostics and permitted counterexamples using real GoogleTest headers.
-  Prepare the compilation database with a report run first.
-- `bazel run --config=release //:clang_tidy_benchmark -- --jobs 4 --output reports/clang-tidy-custom`
-  measures the full local scope. It warms both modes, then runs three paired
-  baseline/inline comparisons with fixed concurrency and alternates pair
-  order. Build/database preparation is recorded separately; elapsed analysis
-  includes the inline pass's additional parsing. Raw logs and JSON results
-  are retained in the requested new output directory. Per-check seconds sum
-  callback work across translation units, so they are not elapsed analysis
-  time.
-- Platform-gated code is listed in the clang-tidy
-  [scope manifest](../.clang-tidy-scope.toml): Linux analyzes everything it can
-  build, Windows only its exclusive code (`-- --scope-os windows`). The runner
-  fails when a `BUILD.bazel` gates targets by platform and no manifest prefix
-  covers it.
-  In CI, clang-tidy runs as its own `clang-tidy` job (Linux, plus Windows for
-  Windows-exclusive code), in parallel with the Bazel build and test job.
-  The job pins LLVM 23 on both OSes (`CLANG_TIDY_LLVM_*` in `pr.yml`), so an
-  older or newer local LLVM can report differently from CI; match the pin.
-  Changing any `.clang-tidy` file widens that changed-files run to every
-  translation unit in the OS's scope, because a new or retuned check can fire
-  in files the change never touched.
-  Before delivering a check change, run the full report with the revised
-  configuration and resolve all findings it introduces in the same PR.
-  Passing diagnostic fixtures alone does not establish a clean production scope.
-  The Linux analysis job uses the shared
-  [Qt runtime setup](../.github/actions/qt-runtime-linux/action.yml) before its
-  prebuild, just as the build job does.
-- Running the Sonar CLI locally, against the same `sonar-project.properties`
-  CI uses: install the SonarSource build wrapper for your platform from
-  `https://sonarcloud.io/static/cpp/` (`build-wrapper-macosx-x86` on macOS,
-  `build-wrapper-linux-x86` on Linux), then generate
-  `bw-output/compile_commands.json` by wrapping the real build:
-
-  ```sh
-  build-wrapper-linux-x86/build-wrapper-linux-x86-64 --out-dir bw-output env BAZEL_TEST_CONFIG=sonar scripts/coverage-local.sh
-  ```
-
-  Then run `sonar-scanner -Dsonar.token=$SONAR_TOKEN` (`brew install
-  sonar-scanner` on macOS, or the matching Linux CLI package, if it isn't
-  installed; the token is a personal one from SonarCloud → My Account →
-  Security, not the CI secret).
-
-Every rule in this guide with a `cpp:S*` citation — the Scope, Collections,
-Function complexity, and Templates sections above — exists because
-SonarCloud caught that pattern in PR #199 only after it had already merged,
-at which point fixing it needs its own PR instead of a pre-push scanner run
-catching it first.
+Every header has `#pragma once` and no `using namespace`. `prek` runs
+formatting, those header checks, Lizard and the link checker; clang-tidy (all findings are errors,
+including the repository's custom checks) and SonarCloud gate the PR. Run them
+locally before pushing; commands and CI details are in [tooling](tooling.md).

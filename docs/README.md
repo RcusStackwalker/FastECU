@@ -12,7 +12,7 @@ links as needed; the index is navigation, not a required reading list.
 | Logger selection, samples, persistence, CSV | [Logging decisions](design-notes.md#logging), [logging contracts](reference/logging-contracts.md) | [Logger XML workflow](../resources/shared/config/README.md), [wire evidence](reference/logging-wire-evidence.md), [logging qualification](checklists/logging-composition-bench-checklist.md) |
 | Connection, diagnostics, serial lifecycle, restart | [Desktop decisions](design-notes.md#desktop-composition), relevant [desktop contract section](reference/desktop-contracts.md) | [Connection](checklists/connection-bench-checklist.md) and [diagnostic](checklists/diagnostics-bench-checklist.md) checklists |
 | Flash family or wire behavior | [Flash decisions](design-notes.md#flash-architecture), [family matrix](flash-qualification-matrix.md) | Follow the matrix's family checklist links; [bench CLI](checklists/bench-cli-checklist.md) has its own gate |
-| Build graph, visibility, dependencies, tests | Relevant [ADR](adr/README.md), [coding conventions](coding-style.md) | [Google Mock reference](gmock-reference.md), [static analysis](coding-style.md#static-analysis) |
+| Build graph, visibility, dependencies, tests | Relevant [ADR](adr/README.md), [coding conventions](coding-style.md) | [Google Mock reference](gmock-reference.md), [tooling](tooling.md) |
 | Android native seam | [Remaining roadmap](modularization-plan.md) | [Portable boundary](design-notes.md#layering) |
 | Choose cleanup or investigate a known defect | Relevant [technical debt](tech-debt.md) item | Verify its applicability against current source before scheduling |
 
@@ -25,6 +25,7 @@ links as needed; the index is navigation, not a required reading list.
 | [Domain language](../CONTEXT.md) | Calibration, terminal-script, and logging domain terms |
 | [Focused references](reference/) | Detailed compatibility contracts and bounded domain evidence |
 | [Coding style](coding-style.md) | Writing/testing conventions |
+| [Tooling](tooling.md) | Running static analysis, mutation testing, and fuzzing locally and in CI |
 | [ADRs](adr/README.md) | Structural decisions, historical context, and supersession |
 | [Technical debt](tech-debt.md) | Unresolved defects and cleanup actions |
 | [Modularization plan](modularization-plan.md) | Remaining Android milestones and exit criteria |
