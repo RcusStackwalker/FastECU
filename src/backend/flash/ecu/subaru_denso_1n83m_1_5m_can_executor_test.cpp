@@ -1003,11 +1003,58 @@ void ScriptCloseRetries(ScriptedCanFlashTransport& transport, bool acknowledged)
         {
             transport.QueueRead(Response({0x7F, 0x37, 0x31}));
         }
+        else if (attempt == 3)
+        {
+            transport.QueueError(ErrorKind::kCancelled, "close cancellation ignored");
+        }
         else
         {
             transport.QueueNoFrame();
         }
     }
+}
+
+TEST(SubaruDenso1n83m_1_5mCanExecutor, CancellationAtCloseSettlePreventsChecksum)
+{
+    ScriptedCanFlashTransport transport;
+    const auto rom = WriteRom();
+    ScriptBenchConnect(transport);
+    ScriptEraseMemory(transport);
+    transport.QueueRead(Response({0x71, 0x01, 0x02}));
+    ScriptReflashChunks(transport, rom);
+    ScriptCloseRetries(transport, true);
+    fastecu::ManualCancellationToken cancellation;
+    class CancellingCloseEvents final : public RecordingEventSink
+    {
+      public:
+        explicit CancellingCloseEvents(fastecu::ManualCancellationToken& token) : token_(token)
+        {
+        }
+        void Log(fastecu::LogLevel level, std::string_view message) override
+        {
+            RecordingEventSink::Log(level, message);
+            if (message == "Closed succesfully: 77 ")
+            {
+                token_.Cancel();
+            }
+        }
+
+      private:
+        fastecu::ManualCancellationToken& token_;
+    } events(cancellation);
+    RecordingClock clock;
+    SubaruDenso1n83m_1_5mCanExecutor executor;
+    const auto plan = WritePlan(rom);
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+
+    EXPECT_THAT(executor.Execute(*plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::kCancelled));
+
+    EXPECT_TRUE(transport.ScriptConsumed());
+    ASSERT_FALSE(clock.sleep_calls.empty());
+    EXPECT_EQ(clock.sleep_calls.back(), 100ms);
+    EXPECT_THAT(events.logs,
+                ::testing::Not(::testing::Contains(::testing::Pair(fastecu::LogLevel::kInfo, "Verifying checksum"))));
 }
 
 // A whole-image script includes both edge chunks with address-sensitive data;

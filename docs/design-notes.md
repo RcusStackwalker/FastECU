@@ -112,11 +112,11 @@ logs an error and returns success; TestWrite keeps its PASS reporting. Independe
 capability-layout and verification evidence is still missing, so these preserved
 behaviors do not authorize corrections or establish hardware qualification.
 
-The four executors of the Denso ISO-15765 bootloader dialect share six
+The four executors of the Denso ISO-15765 bootloader dialect share seven
 operations in the common module: pure setup-PDU encoding, the SecurityAccess
 seed/key exchange, the erase flow, one encrypted page read, one B6 write request,
-and, for the two N83M families only, the in-car opening exchange run. The shared 0x7E1 request in
-that run asks for session `0x63`; the SH72531 and SH72543 diesel in-car runs send
+best-effort transfer exit, and, for the two N83M families only, the in-car opening
+exchange run. The shared 0x7E1 request in that run asks for session `0x63`; the SH72531 and SH72543 diesel in-car runs send
 `0x03` and stay local. The `write_memory` orchestration, read loops, reflash, connect
 and probe flows, kernel jumps, checksum verification, and family-specific response
 policies stay in each executor, and no configurable family state machine is shared.
@@ -141,6 +141,15 @@ bytes and N83M nonzero image origins, supplement each family’s calculated
 full-chunk sweep. These independent literals and common
 negative/transport/cancellation tests pin this bounded operation;
 this extraction does not establish hardware qualification.
+
+`DensoIso15765BestEffortTransferExit` sends up to six `37` requests with the
+existing 200 ms UDS policy, swallowing every returned error, including returned
+cancellation. The first positive reply stops re-sends and logs its PDU hex with
+the existing `Closed succesfully` spelling. UDS responsePending reads belong to
+one request. A cancelled token prevents later wire I/O. Each caller retains its
+100 ms cancellable settle, even after exhaustion, and its checksum request,
+timeouts and result handling. Literal common transcripts and all four family
+settle/checksum suites pin this boundary without changing hardware qualification.
 
 `ReadDensoEncryptedPage` shares only the B7 request with its four-byte
 big-endian address, fatal UDS positive-response handling at a 2000 ms initial
