@@ -32,6 +32,7 @@ cc_library(
     name = "can_executor_conformance",
     hdrs = [
         "can_executor_conformance.h",
+        "can_executor_run.h",
         "denso_can_frames.h",
     ],
     deps = [
