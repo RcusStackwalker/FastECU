@@ -871,33 +871,8 @@ TEST(SubaruDenso1n83m_1_5mCanExecutor, CancellationAfterPageFailsButCancellation
         ScriptReadSetup(transport);
         ScriptFlashDump(transport, kBlockStart, at_stop ? kBlockLength : kPageSize, kPageSize, 0xA5);
         fastecu::ManualCancellationToken cancellation;
-        class CancellingEvents final : public RecordingEventSink
-        {
-          public:
-            CancellingEvents(fastecu::ManualCancellationToken& token, bool stop) : token_(token), stop_(stop)
-            {
-            }
-            void Log(fastecu::LogLevel level, std::string_view text) override
-            {
-                RecordingEventSink::Log(level, text);
-                if (stop_ && text == "Sending stop command")
-                {
-                    token_.Cancel();
-                }
-            }
-            void PhaseProgress(const fastecu::PhaseProgressEvent& event) override
-            {
-                RecordingEventSink::PhaseProgress(event);
-                if (!stop_ && event.phase_name == "Read ROM" && event.done == static_cast<int>(kPageSize))
-                {
-                    token_.Cancel();
-                }
-            }
-
-          private:
-            fastecu::ManualCancellationToken& token_;
-            bool stop_;
-        } events(cancellation, at_stop);
+        fastecu::flash::testing::CancelAtReadStopOrFirstPageSink events(cancellation, at_stop,
+                                                                        static_cast<int>(kPageSize));
         FakeClock clock;
         SubaruDenso1n83m_1_5mCanExecutor executor;
         const auto plan = ReadPlan();

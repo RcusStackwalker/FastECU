@@ -93,4 +93,37 @@ class CancelOnCloseSuccessSink final : public RecordingEventSink
     ManualCancellationToken& token_;
 };
 
+// Read-loop cancellation points: when `stop` is set, cancel on the "Sending
+// stop command" log (after the last block); otherwise cancel once the "Read
+// ROM" phase reports its first full page.
+class CancelAtReadStopOrFirstPageSink final : public RecordingEventSink
+{
+  public:
+    CancelAtReadStopOrFirstPageSink(ManualCancellationToken& token, bool stop, int page_size)
+        : token_(token), stop_(stop), page_size_(page_size)
+    {
+    }
+    void Log(LogLevel level, std::string_view text) override
+    {
+        RecordingEventSink::Log(level, text);
+        if (stop_ && text == "Sending stop command")
+        {
+            token_.Cancel();
+        }
+    }
+    void PhaseProgress(const PhaseProgressEvent& event) override
+    {
+        RecordingEventSink::PhaseProgress(event);
+        if (!stop_ && event.phase_name == "Read ROM" && event.done == page_size_)
+        {
+            token_.Cancel();
+        }
+    }
+
+  private:
+    ManualCancellationToken& token_;
+    bool stop_;
+    int page_size_;
+};
+
 } // namespace fastecu::flash::testing
