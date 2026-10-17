@@ -79,214 +79,8 @@ when byte-level evidence establishes equivalence. Preserve family sequencing,
 timeouts, response tolerance, retry policy, address translation, and erase rules.
 Do not build a universal configurable state machine from similar-looking code.
 
-Pure [plan predicates](../src/backend/flash/ecu/plan_primitives.h) share only
-fixed device shape (nonnull device/flash/kernel tables and exact ROM size/block
-count), operation/image shape (no image for Read, exact ROM size otherwise), and
-transfer start/length equality with the device. Callers retain catalog identity,
-capabilities, diagnostics and validation order, including unsupported TCU
-TestWrite and SH7055 Write rejection before invalid image/kernel errors.
-Kernel upload arithmetic and erase-region construction retain their existing
-owners; family upload padding remains six versus 128 bytes.
-
-MC68 and SH7055 share the [Denso BEEF K-Line primitives](../src/backend/flash/ecu/denso_beef_kline_common.h):
-opcodes, frame/ACK checks, optional exchange, four-byte big-endian write-address
-encoding, block comparison and programming-voltage enable. The dialect stays
-separate from BEEF CAN. Framing preserves the 16-bit length conversion; ACK
-acceptance requires only six bytes, the BEEF marker and opcode at offset four.
-The optional exchange preserves before/after write/read cancellation checks,
-caller timeout and optional settle, and distinguishes absence from present-empty
-replies. Write/read transport failures and short writes precede later cancellation;
-programming-line errors likewise precede the post-line cancellation check.
-Required-response diagnostics remain local. CRC initial writes stay local because
-their cancellation diagnostics differ from ordinary exchange; fragment
-accumulation and family CRC decoding also remain local.
-
-Block comparison takes caller-prepared absolute-addressed image bytes, one flag
-per block and a family CRC reader, stops at cancellation or CRC failure, and
-preserves block order and modification counts. Families retain image rendering,
-address policy, startup, erase/commit sequencing, capability decoding and logs
-(including SH7055 offset-six lengths). MC68 chunk exchanges retain no settle and
-3000 ms reads; SH7055 retains 50 ms settles and 2000 ms reads. Both enable
-programming voltage before an unchanged-image return. Final Write mismatch still
-logs an error and returns success; TestWrite keeps its PASS reporting. Independent
-capability-layout and verification evidence is still missing, so these preserved
-behaviors do not authorize corrections or establish hardware qualification.
-
-The four executors of the Denso ISO-15765 bootloader dialect share eight
-operations in the common module: pure setup-PDU encoding, the SecurityAccess
-seed/key exchange, the erase flow, one encrypted page read, one B6 write request,
-best-effort transfer exit, and, for the two N83M families only, the in-car opening
-exchange run, plus the N83M 4M/SH72531 jump continuation wait. The shared
-0x7E1 request in that run asks for session `0x63`; the SH72531 and SH72543
-diesel in-car runs send `0x03` and stay local. The `write_memory` orchestration,
-read loops, reflash, connect and probe flows, complete kernel jumps, checksum
-verification, and family-specific response policies stay in each executor,
-and no configurable family state machine is shared.
-`DensoIso15765DownloadSetupPdu` and `DensoIso15765UploadSetupPdu` encode their
-fixed service (`34` or `35`), `04 44`, and the supplied region's four-byte
-big-endian start and length without validation or address arithmetic. The
-public interface accepts only the region, so callers cannot select another SID.
-Independent literal vectors and family transcripts pin its eleven-byte output.
-Read setup remains tolerant on N83M 4M and fatal on the other three families;
-SH72531 retains its long setup timeout, while SH72543 diesel and N83M 1.5M
-retain their short setup timeouts. Encoding does not change erase regions,
-caller response policy or hardware qualification. `DensoIso15765Erase` accepts
-the family-selected region and constructs its download setup internally; family
-write orchestration calls it directly without forwarding wrappers.
-
-`DensoIso15765WriteChunk` composes B6, a four-byte big-endian absolute address,
-and the supplied encrypted bytes, then runs the fatal UDS request at 500 ms and
-discards success. The four callers retain whole-image encryption, image origin
-subtraction, 256-byte chunk selection, cancellation, progress, geometry, close
-and checksum. Frozen complete first/last requests, including the 256 encrypted
-bytes and N83M nonzero image origins, supplement each family’s calculated
-full-chunk sweep. These independent literals and common
-negative/transport/cancellation tests pin this bounded operation;
-this extraction does not establish hardware qualification.
-
-`DensoIso15765BestEffortTransferExit` sends up to six `37` requests with the
-existing 200 ms UDS policy, swallowing every returned error, including returned
-cancellation. The first positive reply stops re-sends and logs its PDU hex with
-the existing `Closed succesfully` spelling. UDS responsePending reads belong to
-one request. A cancelled token prevents later wire I/O. Each caller retains its
-100 ms cancellable settle, even after exhaustion, and its checksum request,
-timeouts and result handling. Literal common transcripts and all four family
-settle/checksum suites pin this boundary without changing hardware qualification.
-
-`DensoIso15765WaitForJumpAck` shares only the N83M 4M/SH72531 continuation:
-check the supplied optional reply for `50` plus the caller's session, then
-sleep 100 ms and receive at 200 ms on each unsuccessful attempt. Sleep and
-receive errors propagate. The final receive is deliberately unchecked;
-exhaustion logs the existing error and succeeds. Callers retain the request,
-initial reads, bench discard and 50 ms delay, session choice and 50 bench/ten
-in-car attempts. N83M 1.5M and SH72543 diesel keep their own continuations.
-Literal helper and both family transcripts pin first/late ACK, exact timing,
-final-read ordering and cancellation. External correctness of the discarded
-bench read remains unresolved; this extraction preserves behavior and does not
-establish hardware qualification.
-
-`ReadDensoEncryptedPage` shares only the B7 request with its four-byte
-big-endian address, fatal UDS positive-response handling at a 2000 ms initial
-timeout with the existing address-bearing diagnostic, and whole-word payload
-decryption. Seven encrypted payload bytes still produce four decrypted bytes;
-no page-length check is added. The four callers retain
-setup tolerance, top-of-loop cancellation, append, requested-size progress,
-stop diagnostics and image padding. Progress advances by the requested 256
-bytes even for short pages. Both SH72531 and SH72543 diesel retain 1 ms pacing
-per page; neither N83M family adds that delay. Independent literal helper and
-family transcripts pin this boundary. No mapped RomRaider or
-ECUFlash family page-read oracle establishes the timeout, response policy or
-short-page acceptance, and no external oracle supports changing stop-error
-precedence. This extraction preserves behavior and does not establish hardware
-qualification.
-
-Keep complete OBK probes and best-effort read-stop operations local: their
-observable logs differ (N83M success punctuation; 4M omits the stop-response
-log), even though the wire-prefix predicate and six-attempt stop policy match.
-An absent OBK frame is a miss; an empty PDU in a valid envelope is also a miss,
-while a raw empty frame fails envelope validation. Probe transport errors and
-cancellation propagate. Stop ignores all exchange failures, including
-cancellation and six-attempt exhaustion; this is characterization, not approval
-to tighten permissiveness or a claim of hardware qualification.
-
-Denso connection/programming characterization also keeps complete jumps,
-identity preludes, close/checksum operations and reflash orchestration local.
-Bench jumps read once on N83M 1.5M and SH72543 diesel; 4M and SH72531 discard
-even a matching first reply, wait 50 ms and read again. Diesel initially waits
-2000 ms, then uses 200 ms bench or 2000 ms in-car continuation reads; other
-families use 200 ms. All tolerate 50 bench or ten in-car exhausted waits,
-with 100 ms sleeps; transport cancellation errors propagate at the jump.
-Non-fatal identity queries swallow exchange errors, including cancellation
-results; a genuinely cancelled token still prevents subsequent transport I/O.
-Programming indexes whole-image encrypted bytes by wire address minus image
-base, including the N83M nonzero bases. Address-sensitive full transcripts pin
-the first and last 256-byte chunks. Transfer exit retransmits `37` up to six
-times at 200 ms, tolerates exhaustion and settles 100 ms before checksum;
-these retries are distinct from erase's receive-only continuations. Checksum
-accepts immediate positives and pending/final replies: initial/pending timeouts
-are 500/500 ms (1.5M), 500/3000 ms (4M) and 2000/2000 ms (both SH families).
-The legacy pending-first discrepancy remains unresolved externally. ECUFlash
-family-name/constructor references do not map these operations and callers;
-neither addressing nor discarded-read correctness has an independent verdict.
-The matching bounded wait tail and B6/address/chunk exchange are now shared
-as described above, preserving caller policy and independent family tests.
-These observations do not authorize corrections or hardware qualification;
-the mappings remain unresolved.
-
-The [ordinary optional M32R SSM exchange](../src/backend/flash/ecu/m32r_ssm_exchange.h)
-is shared by the Subaru Hitachi M32R K-Line ECU, Subaru Mitsubishi M32R K-Line
-ECU, and Subaru TCU Hitachi M32R K-Line executors. Byte-level characterization
-establishes equivalent framing, write-size checks, cancellation checkpoints,
-and transport-error precedence; replies remain unchanged for family parsing.
-The two Hitachi executors also share the offset-four payload-prefix predicate;
-it does not validate headers, declared lengths, or checksums. Short-response and
-prefix-mismatch diagnostics remain family-owned. Required-response diagnostics
-remain local (`no response from ECU` or `no response from TCU`). The TCU block
-exchange retains its 100ms sleeps on either side of its 500ms read and five-attempt retry policy. Optional probes,
-handshakes, timeout policy, acknowledgement tolerance, and address mapping remain
-family-owned. Shared declarative plan validation does not establish
-interchangeable transfer loops. Transport seams keep failure and cancellation
-paths scriptable; sharing does not change hardware qualification.
-
-K-Line read mapping and kernel response policy remain family-owned.
-Hitachi ECU reads send `A0 00 00` with a `0x100000` wire bias and reconstruct
-all 512 KiB; Mitsubishi reads send `A0 00 20` from `0x8000`, synthesize the low
-32 KiB as `FF`, and warn. MC68 stock/Ecutek upload success is an absent frame;
-a present-empty reply is an error. Current MC68 CRC decoding accumulates ten
-bytes without checksum validation; SH7055 checks declared size and checksum,
-then strips a payload prefix and rejects its `7F` failure marker. Both retain
-twenty bounded 50 ms continuation reads and 100 ms continuation settles.
-Scripts characterize these differences; they do not prove their protocol
-correctness. Independent family-specific pacing, address-window, upload-silence
-and CRC-marker evidence remains unavailable in the inspected local EcuFlash
-artifacts. Changing any policy requires mapped protocol functions or captured
-family traffic and a separate correction decision; no hardware qualification
-follows from these tests.
-
-The Subaru Unisia Jecs M32R K-Line and bootmode program executors share
-`SendM32rSsmFrame` and `ReceiveM32rSsmOnce` in the
-[M32R SSM module](../src/backend/flash/ecu/m32r_ssm_exchange.h), keeping separate
-send and receive call sites. Send checks cancellation only before writing and
-compares the write count against the full framed request, preserving SSM's
-one-byte length wrap. Receive reads exactly once with the caller's timeout,
-propagates transport errors before checking cancellation after the read, and
-returns absent, present empty, or malformed replies unchanged. It adds no
-pre-read cancellation gate. The ordinary combined exchange above composes these
-same primitives with an additional after-write cancellation checkpoint. Family
-parsing, polling, timeouts, programming stages, cleanup ordering, and error
-precedence remain in each executor. Independent primitive fixtures and family
-transcripts pin this sharing; hardware qualification is unchanged.
-
-The Subaru TCU Mitsubishi CVT MH8104 CAN and MH8111 CAN executors share
-`TcuCvtMitsuSeedKey`, `TcuCvtMitsuEncryptRom`, and `TcuCvtMitsuDecryptPage` in
-the [CVT common module](../src/backend/flash/ecu/subaru_tcu_cvt_mitsu_can_common.h).
-These pure byte operations bind the existing family tables to the canonical
-stock transformation. Independent literal vectors and family wire transcripts
-pin the extraction. Connection, image addressing, programming flow, retries,
-chunk sizes, and acknowledgement policies remain family-owned: MH8104 retains
-its raw-channel exchanges and tolerant checksum handling, while MH8111 retains
-UDS exchanges and fatal checksum handling. Legacy line citations establish
-table provenance only; this sharing changes no hardware qualification.
-
-The Hitachi M32R CVT CAN security/session sequence remains separate from
-Mitsubishi MH8111: Hitachi sends its security exchanges through `other_uds` on
-`0x7E0`, then returns to `0x7E1`; MH8111 uses its primary `0x7E1` channel.
-Their current seed-key tables and stock transformation are identical, while
-payload encryption tables differ. Literal seed/key transcripts characterize
-these bindings without establishing interchangeable connection policy.
-The [CVT B6 chunk dialect](../src/backend/flash/CONTEXT.md) shares its
-[chunk exchange](../src/backend/flash/ecu/cvt_b6_chunk_exchange.h): B6 plus
-a U24 address and encrypted bytes, one send and one 2000 ms receive. Silence
-and every framed reply succeed; send and receive errors propagate unchanged.
-It adds no range guard, cancellation checkpoint or SID validation.
-Hitachi closes each block with one fatal attempt; MH8111 allows twenty attempts,
-succeeds on the first valid `0x77`, and reports `BadResponse` on exhaustion.
-Executor scripts pin these outcomes, including success on MH8111's twentieth
-attempt. They establish current behavior only: independent EcuFlash CVT
-security and reflash/retry function mappings remain unavailable, and the
-[qualification matrix](flash-qualification-matrix.md) remains authoritative.
-Each family retains geometry, encryption, cancellation, progress, setup, close
-and checksum policy. This extraction establishes no protocol correction.
+Shared modules, the behavior each family keeps, and the preserved quirks are
+recorded in the [flash sharing contracts](reference/flash-contracts.md).
 
 ### Corrections require local evidence
 
@@ -296,7 +90,11 @@ divergence. Similarity to a sibling family is a reason to investigate, never
 authority to change its protocol. Preserve command bytes, sequencing, and timing
 budgets while correcting demonstrated bounds, reply-gating, read-integrity,
 and cancellation defects. The [testing conventions](coding-style.md#mutation)
-describe mutation checks; automated success does not establish hardware qualification.
+describe mutation checks.
+
+Characterization tests, refactors and shared extractions preserve behavior; none
+of them establishes protocol correctness or hardware qualification. The
+[qualification matrix](flash-qualification-matrix.md) is authoritative.
 
 Verify reachability before porting or retiring legacy behavior. String aliases
 and dispatch tables can make an apparently referenced branch dead, and
@@ -342,26 +140,13 @@ identity resolution. One validated, immutable run value prevents independently
 mutable identity maps and channel metadata from disagreeing. Desktop adapters
 retain input conversion, fixed formatting, display caches, and transport binding.
 
-Definition fields follow an explicit portable grammar, allowing useful whitespace
-and hexadecimal prefixes while rejecting malformed formats. Empty units permit
-dimensionless measurements; contextual startup errors identify authoring mistakes.
-The [logging contract](reference/logging-contracts.md#definition-input-validation)
-owns the accepted syntax and failure behavior.
-
-Acquisition uses the union of selected gauges, Digital values and switches,
-sharing repeated identities within each measurement kind. Active displays and CSV
-columns use captured metadata; saved edits show a restart-needed state only when
-they differ. CSV exports each acquired identity once. Portable
-column projection/record serialization define output, while the desktop creates
-and closes an exclusive CSV for every run. These contracts are owned by the
-[logging reference](reference/logging-contracts.md).
-
-SSM decodes binary numeric values before applying scaling, using the first
-conversion's storage and byte-order metadata. Its portable read plan maps
-contiguous sources and ordered byte-address lists independently of display positions.
-Run-owned compiled expressions use checked arithmetic; a value-dependent failure
-clears only that measurement for the current update while healthy peers continue. Read the relevant section of the
-[logging reference](reference/logging-contracts.md) before changing these semantics.
+Definition fields follow an explicit portable grammar, so authoring mistakes fail
+at startup with context rather than producing silent misreads. Acquisition reads
+the union of selected displays once per identity, and active displays and CSV
+columns use the run's captured metadata. Run-owned compiled expressions use
+checked arithmetic: a value-dependent failure clears only that measurement for
+the current update. The [logging reference](reference/logging-contracts.md) owns
+the grammar, CSV, SSM decoding and failure contracts.
 
 ## Definitions
 
@@ -406,16 +191,10 @@ its accidental empty-cell extent. Retaining cell strings would have removed the
 delimiter but kept arithmetic dependent on formatting.
 
 Edits validate every write before mutation and clamp to definition limits before
-checked storage encoding. Invalid cells can receive absolute replacements;
-relative operations require valid inputs. An increment applies one requested
-step, and decoding errors remain visible. The
+checked storage encoding; decoding errors remain visible. The shared checked
+expression evaluator also supplies logging conversion. The
 [calibration contract](reference/calibration-compatibility.md#decoded-values-and-map-edits)
-owns numeric rules, operation-local target ownership, and operator outcomes.
-Shared backend interpretation supplies definition facts; prepared targets own
-metadata and fresh decoded cells without exposing borrowed views. Whole-map
-validation preserves axis failures for body operations, and each operation
-validates only the metadata it consumes. The shared checked expression evaluator
-also supplies logging conversion.
+owns numeric rules, target ownership and operator outcomes.
 
 ### Save and flash use operation images
 
