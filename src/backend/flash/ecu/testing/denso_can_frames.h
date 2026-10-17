@@ -63,22 +63,6 @@ inline bytes::Bytes ToWire(bytes::ByteView plain)
                                           kIndexTransformation);
 }
 
-// ToWire of the most recent input, kept for the process. The write tests
-// script and run the same 4 MB image several times (one pass per outcome), and
-// encrypting it dominates their time; the cache key is the image's content, so
-// a different image is re-encrypted.
-inline const bytes::Bytes& ToWireCached(bytes::ByteView plain)
-{
-    static bytes::Bytes last_plain;
-    static bytes::Bytes last_wire;
-    if (last_wire.empty() || !std::ranges::equal(plain, last_plain))
-    {
-        last_plain.assign(plain.begin(), plain.end());
-        last_wire = ToWire(plain);
-    }
-    return last_wire;
-}
-
 // The chunked 0xB7 dump sweep (legacy read_memory): 0xB7 plus a 4-byte big-
 // endian address, answered with 0xF7 plus one encrypted page.
 inline void ScriptFlashDump(ScriptedCanFlashTransport& t, std::uint32_t start, std::uint32_t length,

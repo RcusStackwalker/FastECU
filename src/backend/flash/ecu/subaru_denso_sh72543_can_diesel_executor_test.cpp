@@ -233,13 +233,12 @@ void ScriptEraseMemory(ScriptedCanFlashTransport& t)
     t.Exchange(Request({0x31, 0x01, 0x02, 0x01, 0xFF, 0xFF, 0xFF, 0xFF}));
 }
 
-// The 0xB6 write-chunk sweep for block 0 (legacy reflash_block). `rom` is the
+// The 0xB6 write-chunk sweep for block 0 (legacy reflash_block). `encrypted` is the
 // whole 0x200000 plan image, encrypted once, and indexed from kImageStart = 0
 // -- so chunk 0 carries encrypted[0x8000..0x8100).
-void ScriptReflashChunks(ScriptedCanFlashTransport& t, bytes::ByteView rom)
+void ScriptReflashChunks(ScriptedCanFlashTransport& t, bytes::ByteView encrypted)
 {
     const auto section = t.Section("reflash chunks");
-    const bytes::Bytes& encrypted = ToWireCached(rom);
     for (std::uint32_t offset = 0; offset < kBlockLength; offset += 256)
     {
         const std::uint32_t addr = kBlockStart + offset;
@@ -322,6 +321,27 @@ bytes::Bytes WriteRom()
     return rom;
 }
 
+// The write image and its wire encoding are the same for every write test, and
+// encrypting a multi-megabyte image dominates their time, so each is built once
+// per suite.
+class SubaruDensoSh72543CanDieselExecutorWrite : public testing::Test
+{
+  protected:
+    static void SetUpTestSuite()
+    {
+        rom_ = WriteRom();
+        wire_ = ToWire(rom_);
+    }
+    static void TearDownTestSuite()
+    {
+        rom_ = {};
+        wire_ = {};
+    }
+
+    static inline bytes::Bytes rom_;
+    static inline bytes::Bytes wire_;
+};
+
 TEST(SubaruDensoSh72543CanDieselExecutor, BenchReadReturnsPaddedImage)
 {
     ScriptedCanFlashTransport transport;
@@ -377,18 +397,17 @@ TEST(SubaruDensoSh72543CanDieselExecutor, InCarReadReturnsPaddedImage)
     EXPECT_THAT(events.logs, Contains(Pair(LogLevel::kInfo, "In car programming: accessing, please wait...")));
 }
 
-TEST(SubaruDensoSh72543CanDieselExecutor, WriteErasesThenFlashesBlockZero)
+TEST_F(SubaruDensoSh72543CanDieselExecutorWrite, WriteErasesThenFlashesBlockZero)
 {
     ScriptedCanFlashTransport transport;
-    const bytes::Bytes rom = WriteRom();
 
     ScriptBenchConnect(transport);
     ScriptEraseMemory(transport);
     transport.QueueRead(Response({0x71, 0x01, 0x02}));
-    ScriptReflashChunks(transport, rom);
+    ScriptReflashChunks(transport, wire_);
     ScriptCloseAndChecksum(transport);
 
-    const auto plan = WritePlan(rom);
+    const auto plan = WritePlan(rom_);
     ASSERT_THAT(plan, fastecu::testing::IsOk());
     auto [clock, events, cancellation, result] =
         ExecutorRun<SubaruDensoSh72543CanDieselExecutor, fastecu::RecordingClock>(*plan, transport);
@@ -432,7 +451,7 @@ TEST(SubaruDensoSh72543CanDieselExecutor, WriteTakesBytesFromTheAbsoluteAddress)
     ScriptBenchConnect(transport);
     ScriptEraseMemory(transport);
     transport.QueueRead(Response({0x71, 0x01, 0x02}));
-    const bytes::Bytes& encrypted = ToWireCached(rom);
+    const bytes::Bytes encrypted = ToWire(rom);
     transport.Exchange(Request(bytes::ComposeBe(bytes::Byte(0xB6), kBlockStart,
                                                 bytes::ByteView(encrypted).subspan(kBlockStart - kImageStart, 256))),
                        Response({0xF6}));
@@ -610,12 +629,11 @@ TEST(SubaruDensoSh72543CanDieselExecutor, EcuIdLogKeepsOnlyLegacysFiveBytes)
     EXPECT_THAT(events.logs, Contains(Pair(LogLevel::kInfo, "ECU ID: 11 22 33 44 55 ")));
 }
 
-TEST(SubaruDensoSh72543CanDieselExecutor, EraseRetryExhaustionFails)
+TEST_F(SubaruDensoSh72543CanDieselExecutorWrite, EraseRetryExhaustionFails)
 {
     // Legacy erase_memory's re-read loop: twenty reads, no re-send, then
     // "Flash area erase failed".
     ScriptedCanFlashTransport transport;
-    const bytes::Bytes rom = WriteRom();
     ScriptBenchConnect(transport);
     ScriptEraseMemory(transport);
     for (int attempt = 0; attempt < 20; ++attempt)
@@ -623,7 +641,7 @@ TEST(SubaruDensoSh72543CanDieselExecutor, EraseRetryExhaustionFails)
         transport.QueueRead(Response({0x71, 0x01, 0x03}));
     }
 
-    const auto plan = WritePlan(rom);
+    const auto plan = WritePlan(rom_);
     ASSERT_THAT(plan, fastecu::testing::IsOk());
     auto [clock, events, cancellation, result] = ExecutorRun<SubaruDensoSh72543CanDieselExecutor>(*plan, transport);
 
@@ -879,36 +897,34 @@ TEST(SubaruDensoSh72543CanDieselExecutor, BenchJumpExhaustionPreservesReadCountA
     EXPECT_THAT(std::vector<std::chrono::milliseconds>(timeouts.begin() + 11, timeouts.begin() + 61), Each(200ms));
 }
 
-TEST(SubaruDensoSh72543CanDieselExecutor, CancellationAtCloseSettlePreventsChecksum)
+TEST_F(SubaruDensoSh72543CanDieselExecutorWrite, CancellationAtCloseSettlePreventsChecksum)
 {
     ScriptedCanFlashTransport transport;
-    const auto rom = WriteRom();
     ScriptBenchConnect(transport);
     ScriptEraseMemory(transport);
     transport.QueueRead(Response({0x71, 0x01, 0x02}));
-    ScriptReflashChunks(transport, rom);
+    ScriptReflashChunks(transport, wire_);
     ScriptCloseRetries(transport, true);
-    const auto plan = WritePlan(rom);
+    const auto plan = WritePlan(rom_);
     ASSERT_THAT(plan, fastecu::testing::IsOk());
     ExpectCancelAtCloseSettle<SubaruDensoSh72543CanDieselExecutor>(*plan, transport);
 }
 
 // A whole-image script includes both edge chunks with address-sensitive data;
 // N83M's nonzero image base must be subtracted exactly once.
-TEST(SubaruDensoSh72543CanDieselExecutor, CloseRetriesSettleAndChecksumOutcomes)
+TEST_F(SubaruDensoSh72543CanDieselExecutorWrite, CloseRetriesSettleAndChecksumOutcomes)
 {
     for (int outcome = 0; outcome < 5; ++outcome)
     {
         SCOPED_TRACE(outcome);
         ScriptedCanFlashTransport transport;
-        const auto rom = WriteRom();
         ScriptBenchConnect(transport);
         ScriptEraseMemory(transport);
         transport.QueueRead(Response({0x71, 0x01, 0x02}));
-        ScriptReflashChunks(transport, rom);
+        ScriptReflashChunks(transport, wire_);
         ScriptCloseRetries(transport, outcome == 0);
         ScriptChecksumOutcome(transport, outcome);
-        const auto plan = WritePlan(rom);
+        const auto plan = WritePlan(rom_);
         ASSERT_THAT(plan, fastecu::testing::IsOk());
         ExpectCloseOutcome<SubaruDensoSh72543CanDieselExecutor>(
             *plan, transport, outcome,
