@@ -190,6 +190,8 @@ are the first optimization experiment. No test cases or production guards
 are removed to meet the budget.
 Experiment results and qualification evidence are recorded in
 [PR 692](https://github.com/RcusStackwalker/FastECU/pull/692).
+For executor-level profiling, see the
+[flash executor performance investigation](reference/executor-test-performance.md).
 
 ## NLOC hill-climbing loop
 

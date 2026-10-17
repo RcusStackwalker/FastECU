@@ -1,3 +1,4 @@
+#include "src/algorithms/protocol/testing/byte_matchers.h"
 // Equivalence tests for SubaruHitachiM32rCanExecutor, the portable replacement
 // for flash_ecu_subaru_hitachi_m32r_can_operation.cpp.
 #include "src/backend/flash/ecu/subaru_hitachi_m32r_can_executor.h"
@@ -39,7 +40,6 @@ using fastecu::flash::SubaruHitachiM32rCanPlan;
 // CanExecutorConformance's must be brought in wholesale rather than by a
 // single using-declaration.
 using namespace fastecu::flash::testing;
-using testing::Each;
 using testing::HasSubstr;
 using testing::IsEmpty;
 
@@ -314,7 +314,7 @@ TEST(SubaruHitachiM32rCanExecutor, ConnectAndReadReturnsTheFullRomFromAddressZer
     ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_TRUE(result->read_bytes.has_value());
     EXPECT_EQ(result->read_bytes->size(), 0x80000U);
-    EXPECT_THAT(*result->read_bytes, Each(0x5A));
+    EXPECT_THAT(*result->read_bytes, test_bytes::BytesFilledWith(0x5A));
     EXPECT_TRUE(transport.ScriptConsumed());
 }
 

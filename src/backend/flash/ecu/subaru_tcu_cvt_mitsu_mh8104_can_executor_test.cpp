@@ -1,3 +1,4 @@
+#include "src/algorithms/protocol/testing/byte_matchers.h"
 // Equivalence tests for SubaruTcuCvtMitsuMh8104CanExecutor, the portable
 // replacement for flash_tcu_cvt_subaru_mitsu_mh8104_can_operation.cpp.
 //
@@ -52,7 +53,6 @@ using fastecu::flash::SubaruTcuCvtMitsuMh8104CanPlan;
 using namespace fastecu::flash::testing;
 using testing::_;
 using testing::AtLeast;
-using testing::Each;
 using testing::HasSubstr;
 using testing::IsEmpty;
 
@@ -425,8 +425,8 @@ TEST(SubaruTcuCvtMitsuMh8104CanExecutor, ReadReturnsTheWindowPaddedWithFF)
     ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_TRUE(result->read_bytes.has_value());
     ASSERT_EQ(result->read_bytes->size(), kWindowStart + kWindowLength);
-    EXPECT_THAT(bytes::ByteView(*result->read_bytes).first(kWindowStart), Each(0xFF));
-    EXPECT_THAT(bytes::ByteView(*result->read_bytes).subspan(kWindowStart), Each(0x5A));
+    EXPECT_THAT(bytes::ByteView(*result->read_bytes).first(kWindowStart), test_bytes::BytesFilledWith(0xFF));
+    EXPECT_THAT(bytes::ByteView(*result->read_bytes).subspan(kWindowStart), test_bytes::BytesFilledWith(0x5A));
     EXPECT_TRUE(transport.ScriptConsumed());
 }
 

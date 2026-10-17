@@ -1,3 +1,4 @@
+#include "src/algorithms/protocol/testing/byte_matchers.h"
 // Equivalence tests for SubaruTcuCvtHitachiM32rCanExecutor, the portable
 // replacement for flash_tcu_cvt_subaru_hitachi_m32r_can_operation.cpp.
 //
@@ -44,7 +45,6 @@ using fastecu::flash::SubaruTcuCvtHitachiM32rCanPlan;
 // CanExecutorConformance's must be brought in wholesale rather than by a
 // single using-declaration.
 using namespace fastecu::flash::testing;
-using testing::Each;
 using testing::HasSubstr;
 using testing::IsEmpty;
 
@@ -536,8 +536,8 @@ TEST(SubaruTcuCvtHitachiM32rCanExecutor, ReadReturnsTheFloorClampedWindowPaddedW
     ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_TRUE(result->read_bytes.has_value());
     ASSERT_EQ(result->read_bytes->size(), 0x80000U);
-    EXPECT_THAT(bytes::ByteView(*result->read_bytes).first(0x8000), Each(0x00));
-    EXPECT_THAT(bytes::ByteView(*result->read_bytes).subspan(0x8000), Each(0x5A));
+    EXPECT_THAT(bytes::ByteView(*result->read_bytes).first(0x8000), test_bytes::BytesFilledWith(0x00));
+    EXPECT_THAT(bytes::ByteView(*result->read_bytes).subspan(0x8000), test_bytes::BytesFilledWith(0x5A));
     EXPECT_TRUE(transport.ScriptConsumed());
 }
 

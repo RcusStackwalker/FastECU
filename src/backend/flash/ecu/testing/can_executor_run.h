@@ -1,5 +1,7 @@
 #pragma once
 
+#include "src/algorithms/protocol/testing/byte_matchers.h"
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
@@ -73,8 +75,8 @@ void ExpectShortPageRead(const FlashPlan& plan, ScriptedCanFlashTransport& trans
     ASSERT_TRUE(result->read_bytes.has_value());
     const std::size_t pages = expect.block_length / expect.page_size;
     ASSERT_EQ(result->read_bytes->size(), expect.lead_pad + pages * 4 + 0x100);
-    EXPECT_THAT(bytes::ByteView(*result->read_bytes).first(expect.lead_pad), ::testing::Each(0xFF));
-    EXPECT_THAT(bytes::ByteView(*result->read_bytes).last(0x100), ::testing::Each(0xFF));
+    EXPECT_THAT(bytes::ByteView(*result->read_bytes).first(expect.lead_pad), test_bytes::BytesFilledWith(0xFF));
+    EXPECT_THAT(bytes::ByteView(*result->read_bytes).last(0x100), test_bytes::BytesFilledWith(0xFF));
     for (std::size_t page = 0; page < pages; ++page)
     {
         SCOPED_TRACE(page);

@@ -1,3 +1,4 @@
+#include "src/algorithms/protocol/testing/byte_matchers.h"
 #include "src/backend/ports/testing/result_matchers.h"
 #include "src/backend/flash/ecu/subaru_mitsu_m32r_kline_executor.h"
 
@@ -16,7 +17,6 @@ namespace
 {
 using namespace fastecu;
 using namespace fastecu::flash;
-using ::testing::Each;
 
 bytes::Bytes Frame(bytes::Bytes payload)
 {
@@ -153,7 +153,7 @@ TEST(SubaruMitsuM32rKlineExecutor, ReadsAllUserspaceChunksAndSynthesizesBootPref
     ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_TRUE(result->read_bytes.has_value());
     EXPECT_EQ(result->read_bytes->size(), 0x80000U);
-    EXPECT_THAT(bytes::ByteView(*result->read_bytes).first(0x8000), Each(0xff));
+    EXPECT_THAT(bytes::ByteView(*result->read_bytes).first(0x8000), test_bytes::BytesFilledWith(0xff));
     bytes::Bytes expected(0x80000, 0xff);
     for (std::uint32_t i = 0x8000; i < expected.size(); ++i)
     {

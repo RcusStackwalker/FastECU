@@ -1,3 +1,4 @@
+#include "src/algorithms/protocol/testing/byte_matchers.h"
 #include "src/backend/flash/ecu/subaru_denso_mc68hc16y5_02_bdm_executor.h"
 
 #include <gmock/gmock.h>
@@ -233,7 +234,7 @@ TEST(SubaruDensoMc68hc16y5_02BdmExecutor, ReadsTheAddressSpaceImageWithTheRamHol
         ASSERT_TRUE(std::equal(image.begin() + address, image.begin() + address + 0x400, PageBytes(address).begin()))
             << std::format("page 0x{:05X}", address);
     }
-    EXPECT_THAT(bytes::ByteView(image).subspan(0x20000, 0x8000), Each(0xff));
+    EXPECT_THAT(bytes::ByteView(image).subspan(0x20000, 0x8000), test_bytes::BytesFilledWith(0xff));
     EXPECT_TRUE(transport.ScriptConsumed());
     EXPECT_EQ(transport.framed_calls, 0);
     // Every read (the initial discard and each page's polls) uses the

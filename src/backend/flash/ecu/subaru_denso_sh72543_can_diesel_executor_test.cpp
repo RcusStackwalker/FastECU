@@ -1,3 +1,4 @@
+#include "src/algorithms/protocol/testing/byte_matchers.h"
 // Equivalence tests for SubaruDensoSh72543CanDieselExecutor, the portable
 // replacement for flash_ecu_subaru_denso_sh72543_can_diesel_operation.cpp.
 #include "src/backend/flash/ecu/subaru_denso_sh72543_can_diesel_executor.h"
@@ -302,19 +303,18 @@ void ScriptReflashChunks(ScriptedCanFlashTransport& t, bytes::ByteView encrypted
 
 // The write image and its wire encoding are the same for every write test, and
 // encrypting a multi-megabyte image dominates their time, so each is built once
-// per suite.
-class SubaruDensoSh72543CanDieselExecutorWrite : public testing::Test
+// per process, including when both plain and parameterized suites run.
+class SubaruDensoSh72543CanDieselExecutorWrite : public testing::TestWithParam<int>
 {
   protected:
     static void SetUpTestSuite()
     {
-        rom_ = fastecu::flash::testing::PatternedRom(kImageSize);
-        wire_ = ToWire(rom_);
-    }
-    static void TearDownTestSuite()
-    {
-        rom_ = {};
-        wire_ = {};
+        // Plain and parameterized suites share these immutable fixtures.
+        if (rom_.empty())
+        {
+            rom_ = fastecu::flash::testing::PatternedRom(kImageSize);
+            wire_ = ToWire(rom_);
+        }
     }
 
     static inline bytes::Bytes rom_;
@@ -336,9 +336,10 @@ TEST(SubaruDensoSh72543CanDieselExecutor, BenchReadReturnsPaddedImage)
     ASSERT_TRUE(result->read_bytes.has_value());
     const bytes::Bytes& rom = *result->read_bytes;
     EXPECT_EQ(rom.size(), kImageSize);
-    EXPECT_THAT(bytes::ByteView(rom).first(0x8000), Each(0xFF));                 // leading pad
-    EXPECT_THAT(bytes::ByteView(rom).subspan(0x8000, kBlockLength), Each(0xA5)); // decrypted payload
-    EXPECT_THAT(bytes::ByteView(rom).last(0x100), Each(0xFF));                   // tail pad
+    EXPECT_THAT(bytes::ByteView(rom).first(0x8000), test_bytes::BytesFilledWith(0xFF)); // leading pad
+    EXPECT_THAT(bytes::ByteView(rom).subspan(0x8000, kBlockLength),
+                test_bytes::BytesFilledWith(0xA5));                                   // decrypted payload
+    EXPECT_THAT(bytes::ByteView(rom).last(0x100), test_bytes::BytesFilledWith(0xFF)); // tail pad
     EXPECT_TRUE(transport.ScriptConsumed());
     // The seed and key exchanges both read with the shared two-second timeout.
     ASSERT_GT(transport.ReadTimeouts().size(), 9U);
@@ -369,9 +370,9 @@ TEST(SubaruDensoSh72543CanDieselExecutor, InCarReadReturnsPaddedImage)
     ASSERT_TRUE(result->read_bytes.has_value());
     const bytes::Bytes& rom = *result->read_bytes;
     EXPECT_EQ(rom.size(), kImageSize);
-    EXPECT_THAT(bytes::ByteView(rom).first(0x8000), Each(0xFF));
-    EXPECT_THAT(bytes::ByteView(rom).subspan(0x8000, kBlockLength), Each(0x5A));
-    EXPECT_THAT(bytes::ByteView(rom).last(0x100), Each(0xFF));
+    EXPECT_THAT(bytes::ByteView(rom).first(0x8000), test_bytes::BytesFilledWith(0xFF));
+    EXPECT_THAT(bytes::ByteView(rom).subspan(0x8000, kBlockLength), test_bytes::BytesFilledWith(0x5A));
+    EXPECT_THAT(bytes::ByteView(rom).last(0x100), test_bytes::BytesFilledWith(0xFF));
     EXPECT_TRUE(transport.ScriptConsumed());
     EXPECT_THAT(events.logs, Contains(Pair(LogLevel::kInfo, "In car programming: accessing, please wait...")));
 }
@@ -793,27 +794,27 @@ TEST_F(SubaruDensoSh72543CanDieselExecutorWrite, CancellationAtCloseSettlePreven
 
 // A whole-image script includes both edge chunks with address-sensitive data;
 // N83M's nonzero image base must be subtracted exactly once.
-TEST_F(SubaruDensoSh72543CanDieselExecutorWrite, CloseRetriesSettleAndChecksumOutcomes)
+TEST_P(SubaruDensoSh72543CanDieselExecutorWrite, CloseRetriesSettleAndChecksumOutcomes)
 {
-    for (int outcome = 0; outcome < 5; ++outcome)
-    {
-        SCOPED_TRACE(outcome);
-        ScriptedCanFlashTransport transport;
-        ScriptBenchConnect(transport);
-        ScriptEraseMemory(transport);
-        transport.QueueRead(Response({0x71, 0x01, 0x02}));
-        ScriptReflashChunks(transport, wire_);
-        ScriptCloseRetries(transport, outcome == 0);
-        ScriptChecksumOutcome(transport, outcome);
-        const auto plan = WritePlan(rom_);
-        ASSERT_THAT(plan, fastecu::testing::IsOk());
-        ExpectCloseOutcome<SubaruDensoSh72543CanDieselExecutor>(
-            *plan, transport, outcome,
-            {.sleeps = std::vector<std::chrono::milliseconds>{50ms, 500ms, 100ms},
-             .checksum_timeout = 2000ms,
-             .reread_timeout = 2000ms});
-    }
+    const int outcome = GetParam();
+    ScriptedCanFlashTransport transport;
+    ScriptBenchConnect(transport);
+    ScriptEraseMemory(transport);
+    transport.QueueRead(Response({0x71, 0x01, 0x02}));
+    ScriptReflashChunks(transport, wire_);
+    ScriptCloseRetries(transport, outcome == 0);
+    ScriptChecksumOutcome(transport, outcome);
+    const auto plan = WritePlan(rom_);
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    ExpectCloseOutcome<SubaruDensoSh72543CanDieselExecutor>(
+        *plan, transport, outcome,
+        {.sleeps = std::vector<std::chrono::milliseconds>{50ms, 500ms, 100ms},
+         .checksum_timeout = 2000ms,
+         .reread_timeout = 2000ms});
 }
+
+INSTANTIATE_TEST_SUITE_P(ChecksumOutcomes, SubaruDensoSh72543CanDieselExecutorWrite, testing::Range(0, 5),
+                         testing::PrintToStringParamName());
 
 TEST(SubaruDensoSh72543CanDieselExecutor, IdentityExchangeFailuresIncludingCancellationAreNonFatal)
 {
