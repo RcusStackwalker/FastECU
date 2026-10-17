@@ -92,15 +92,6 @@ using Ctx = CanExecutorContext;
 
 constexpr std::string_view kRejectionPrefix = "Wrong response from ECU: ";
 
-// The "fatal" shape every UdsClient-backed exchange below uses. See
-// uds_client_exchange_common.h for the shared rejection/cancellation logging
-// this delegates to.
-Result<bytes::Bytes> FatalRequest(Ctx& ctx, bytes::ByteView pdu, const uds::ExchangePolicy& policy,
-                                  std::string_view operation)
-{
-    return ::fastecu::flash::FatalRequest(ExchangeContext(ctx, policy), pdu, kRejectionPrefix, operation);
-}
-
 // fatal_request plus the expected-response-prefix check -- see
 // uds_client_exchange_common.h's fatal_query for what expected_prefix,
 // subject and min_payload_size mean.
@@ -435,11 +426,8 @@ Status ReflashBlock(Ctx& ctx, bytes::ByteView image, const MemoryRegion& block, 
         // Lines 1210-1227: SID 0xB6, a 4-byte big-endian address, and the 256
         // encrypted bytes at newdata[i + blockaddr - fblocks[0].start].
         const std::size_t image_offset = block_addr - kImageStart;
-        if (Result<bytes::Bytes> written =
-                FatalRequest(ctx,
-                             ComposeBe(uds::kSidWriteMemoryChunk, block_addr,
-                                       bytes::ByteView(encrypted).subspan(image_offset, kChunkSize)),
-                             kReceivePolicy, std::format("the flash write at 0x{:x}", block_addr));
+        if (const Status written =
+                DensoIso15765WriteChunk(ctx, block_addr, bytes::ByteView(encrypted).subspan(image_offset, kChunkSize));
             !written.has_value())
         {
             return std::unexpected(written.error());

@@ -112,10 +112,10 @@ logs an error and returns success; TestWrite keeps its PASS reporting. Independe
 capability-layout and verification evidence is still missing, so these preserved
 behaviors do not authorize corrections or establish hardware qualification.
 
-The four executors of the Denso ISO-15765 bootloader dialect share five
+The four executors of the Denso ISO-15765 bootloader dialect share six
 operations in the common module: pure setup-PDU encoding, the SecurityAccess
-seed/key exchange, the erase flow, one encrypted page read, and, for the two
-N83M families only, the in-car opening exchange run. The shared 0x7E1 request in
+seed/key exchange, the erase flow, one encrypted page read, one B6 write request,
+and, for the two N83M families only, the in-car opening exchange run. The shared 0x7E1 request in
 that run asks for session `0x63`; the SH72531 and SH72543 diesel in-car runs send
 `0x03` and stay local. The `write_memory` orchestration, read loops, reflash, connect
 and probe flows, kernel jumps, checksum verification, and family-specific response
@@ -131,6 +131,16 @@ retain their short setup timeouts. Encoding does not change erase regions,
 caller response policy or hardware qualification. `DensoIso15765Erase` accepts
 the family-selected region and constructs its download setup internally; family
 write orchestration calls it directly without forwarding wrappers.
+
+`DensoIso15765WriteChunk` composes B6, a four-byte big-endian absolute address,
+and the supplied encrypted bytes, then runs the fatal UDS request at 500 ms and
+discards success. The four callers retain whole-image encryption, image origin
+subtraction, 256-byte chunk selection, cancellation, progress, geometry, close
+and checksum. Frozen complete first/last requests, including the 256 encrypted
+bytes and N83M nonzero image origins, supplement each family’s calculated
+full-chunk sweep. These independent literals and common
+negative/transport/cancellation tests pin this bounded operation;
+this extraction does not establish hardware qualification.
 
 `ReadDensoEncryptedPage` shares only the B7 request with its four-byte
 big-endian address, fatal UDS positive-response handling at a 2000 ms initial

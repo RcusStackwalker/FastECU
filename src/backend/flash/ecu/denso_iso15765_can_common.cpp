@@ -92,6 +92,19 @@ Result<bytes::Bytes> ReadDensoEncryptedPage(const CanExecutorContext& ctx, std::
     return DensoDecryptPage(uds::Payload(*reply));
 }
 
+Status DensoIso15765WriteChunk(const CanExecutorContext& ctx, std::uint32_t address, bytes::ByteView encrypted_chunk)
+{
+    constexpr uds::ExchangePolicy kWritePolicy{.read_timeout = std::chrono::milliseconds{500}};
+    Result<bytes::Bytes> reply = FatalRequest(ExchangeContext(ctx, kWritePolicy),
+                                              bytes::ComposeBe(uds::kSidWriteMemoryChunk, address, encrypted_chunk),
+                                              kRejectionPrefix, std::format("the flash write at 0x{:x}", address));
+    if (!reply.has_value())
+    {
+        return std::unexpected(reply.error());
+    }
+    return {};
+}
+
 Result<bytes::Bytes> TolerantProbe(const CanExecutorContext& ctx, bytes::ByteView pdu, bytes::Byte expected_service,
                                    bytes::Byte expected_subfunction, std::chrono::milliseconds timeout,
                                    std::string_view rejection_prefix, std::string_view subject)
