@@ -1,0 +1,625 @@
+{
+  "baseline_run": "https://github.com/RcusStackwalker/FastECU/actions/runs/39027359985",
+  "timing_runs": [
+    "39032047946"
+  ],
+  "tests": {
+    "//src/algorithms/checksum:checksum_ecu_mitsu_m32r_can_test": {
+      "seconds": 11.328
+    },
+    "//src/algorithms/checksum:checksum_ecu_subaru_hitachi_m32r_can_test": {
+      "seconds": 6.751
+    },
+    "//src/algorithms/checksum:checksum_primitives_test": {
+      "seconds": 0.205
+    },
+    "//src/algorithms/checksum:checksum_test": {
+      "seconds": 126.059
+    },
+    "//src/algorithms/checksum:denso_checksum_table_test": {
+      "seconds": 0.35
+    },
+    "//src/algorithms/crypto:subaru_key_recovery_test": {
+      "seconds": 23.755
+    },
+    "//src/algorithms/diagnostics:diagnostics_test": {
+      "seconds": 0.226
+    },
+    "//src/algorithms/diagnostics:dtc_tables_test": {
+      "seconds": 0.183
+    },
+    "//src/algorithms/expression:expression_test": {
+      "seconds": 0.48
+    },
+    "//src/algorithms/memory/testing:memory_views_test": {
+      "seconds": 0.195
+    },
+    "//src/algorithms/memory:address_test": {
+      "seconds": 0.25
+    },
+    "//src/algorithms/memory:memory_image_test": {
+      "seconds": 0.718
+    },
+    "//src/algorithms/memory:memory_map_test": {
+      "seconds": 0.343
+    },
+    "//src/algorithms/protocol/biu:subaru_biu_frame_test": {
+      "seconds": 0.22
+    },
+    "//src/algorithms/protocol/colt:test_mitsu_colt_can_cdbg_protocol": {
+      "seconds": 0.253
+    },
+    "//src/algorithms/protocol/colt:test_mitsu_colt_can_protocol": {
+      "seconds": 0.198
+    },
+    "//src/algorithms/protocol/colt:test_mitsu_colt_can_vendor_ext_protocol": {
+      "seconds": 0.324
+    },
+    "//src/algorithms/protocol/mut_dma:mut_dma_test": {
+      "seconds": 0.291
+    },
+    "//src/algorithms/protocol/mut_dma:test_codec": {
+      "seconds": 0.247
+    },
+    "//src/algorithms/protocol/mut_dma:test_freeform": {
+      "seconds": 0.217
+    },
+    "//src/algorithms/protocol/mut_dma:test_memory": {
+      "seconds": 0.276
+    },
+    "//src/algorithms/protocol/ssm:ssm_protocol_core_test": {
+      "seconds": 0.38
+    },
+    "//src/algorithms/protocol/testing:byte_matchers_test": {
+      "seconds": 0.234
+    },
+    "//src/algorithms/protocol/uds:uds_pdu_test": {
+      "seconds": 0.142
+    },
+    "//src/algorithms/protocol/uds:uds_response_test": {
+      "seconds": 0.295
+    },
+    "//src/algorithms/protocol:bytes_compose_test": {
+      "seconds": 0.241
+    },
+    "//src/algorithms/protocol:bytes_test": {
+      "seconds": 0.386
+    },
+    "//src/algorithms/protocol:fixed_buffer_test": {
+      "seconds": 0.117
+    },
+    "//src/backend/calibration/session:calibration_session_test": {
+      "seconds": 0.65
+    },
+    "//src/backend/calibration/session:calibration_workspace_test": {
+      "seconds": 0.907
+    },
+    "//src/backend/calibration/session:numeric_copy_use_case_test": {
+      "seconds": 4.046
+    },
+    "//src/backend/calibration/session:numeric_edit_use_case_test": {
+      "seconds": 2.436
+    },
+    "//src/backend/calibration/session:numeric_target_internal_test": {
+      "seconds": 1.216
+    },
+    "//src/backend/calibration/session:rom_open_test": {
+      "seconds": 2.028
+    },
+    "//src/backend/calibration/session:rom_save_test": {
+      "seconds": 1.012
+    },
+    "//src/backend/calibration/session:selectable_edit_use_case_test": {
+      "seconds": 0.847
+    },
+    "//src/backend/calibration:calibration_service_test": {
+      "seconds": 0.544
+    },
+    "//src/backend/calibration:definition_bytes_test": {
+      "seconds": 0.245
+    },
+    "//src/backend/calibration:definition_interpretation_internal_test": {
+      "seconds": 0.655
+    },
+    "//src/backend/calibration:map_edit_test": {
+      "seconds": 0.345
+    },
+    "//src/backend/calibration:map_placement_test": {
+      "seconds": 0.308
+    },
+    "//src/backend/calibration:numeric_map_edit_test": {
+      "seconds": 1.703
+    },
+    "//src/backend/checksum:catalog_checksum_agreement_test": {
+      "seconds": 180.373
+    },
+    "//src/backend/checksum:dispatch_test": {
+      "seconds": 246.652
+    },
+    "//src/backend/config:app_config_test": {
+      "seconds": 0.704
+    },
+    "//src/backend/config:builtin_catalog_test": {
+      "seconds": 0.59
+    },
+    "//src/backend/config:catalog_test": {
+      "seconds": 0.222
+    },
+    "//src/backend/config:config_paths_test": {
+      "seconds": 0.193
+    },
+    "//src/backend/config:config_session_test": {
+      "seconds": 0.849
+    },
+    "//src/backend/config:provisioning_test": {
+      "seconds": 0.318
+    },
+    "//src/backend/definition:definition_catalog_session_test": {
+      "seconds": 0.616
+    },
+    "//src/backend/definition:definition_header_fields_test": {
+      "seconds": 0.643
+    },
+    "//src/backend/definition:definition_model_test": {
+      "seconds": 0.251
+    },
+    "//src/backend/definition:definition_resolver_test": {
+      "seconds": 2.441
+    },
+    "//src/backend/definition:definition_service_test": {
+      "seconds": 0.73
+    },
+    "//src/backend/definition:definition_writer_test": {
+      "seconds": 0.55
+    },
+    "//src/backend/definition:ecuflash_parser_test": {
+      "seconds": 0.626
+    },
+    "//src/backend/definition:mappack_converter_test": {
+      "seconds": 0.658
+    },
+    "//src/backend/definition:parser_utils_test": {
+      "seconds": 0.43
+    },
+    "//src/backend/definition:romraider_parser_test": {
+      "seconds": 0.752
+    },
+    "//src/backend/definition:text_format_test": {
+      "seconds": 0.228
+    },
+    "//src/backend/diagnostics:dtc_session_test": {
+      "seconds": 0.603
+    },
+    "//src/backend/diagnostics:obd_frames_test": {
+      "seconds": 0.362
+    },
+    "//src/backend/diagnostics:ssm_identify_test": {
+      "seconds": 0.413
+    },
+    "//src/backend/diagnostics:terminal_script_test": {
+      "seconds": 0.298
+    },
+    "//src/backend/flash/ecu:catalog_memory_map_agreement_test": {
+      "seconds": 2.225
+    },
+    "//src/backend/flash/ecu:cvt_b6_chunk_exchange_test": {
+      "seconds": 0.16
+    },
+    "//src/backend/flash/ecu:denso_beef_can_common_test": {
+      "seconds": 0.296
+    },
+    "//src/backend/flash/ecu:denso_beef_kline_common_test": {
+      "seconds": 0.255
+    },
+    "//src/backend/flash/ecu:denso_iso15765_can_common_test": {
+      "seconds": 0.39
+    },
+    "//src/backend/flash/ecu:denso_sh705x_kline_common_test": {
+      "seconds": 0.192
+    },
+    "//src/backend/flash/ecu:flash_phase_progress_test": {
+      "seconds": 0.224
+    },
+    "//src/backend/flash/ecu:m32r_ssm_exchange_test": {
+      "seconds": 0.311
+    },
+    "//src/backend/flash/ecu:mitsu_colt_m32r_can_executor_test": {
+      "seconds": 6.776
+    },
+    "//src/backend/flash/ecu:mitsu_colt_m32r_can_plan_test": {
+      "seconds": 0.374
+    },
+    "//src/backend/flash/ecu:plan_primitives_test": {
+      "seconds": 0.363
+    },
+    "//src/backend/flash/ecu:single_window_plan_test": {
+      "seconds": 0.208
+    },
+    "//src/backend/flash/ecu:subaru_denso_1n83m_1_5m_can_executor_test": {
+      "seconds": 400.667,
+      "test_shards": 4,
+      "shard_seconds": [
+        232.516,
+        38.099,
+        19.132,
+        110.92
+      ]
+    },
+    "//src/backend/flash/ecu:subaru_denso_1n83m_1_5m_can_plan_test": {
+      "seconds": 0.219
+    },
+    "//src/backend/flash/ecu:subaru_denso_1n83m_4m_can_executor_test": {
+      "seconds": 1062.617,
+      "test_shards": 4,
+      "shard_seconds": [
+        340.894,
+        577.754,
+        100.358,
+        43.611
+      ]
+    },
+    "//src/backend/flash/ecu:subaru_denso_1n83m_4m_can_plan_test": {
+      "seconds": 0.249
+    },
+    "//src/backend/flash/ecu:subaru_denso_mc68hc16y5_02_bdm_executor_test": {
+      "seconds": 0.952
+    },
+    "//src/backend/flash/ecu:subaru_denso_mc68hc16y5_02_bdm_plan_test": {
+      "seconds": 0.215
+    },
+    "//src/backend/flash/ecu:subaru_denso_mc68hc16y5_02_executor_test": {
+      "seconds": 2.95
+    },
+    "//src/backend/flash/ecu:subaru_denso_mc68hc16y5_02_plan_test": {
+      "seconds": 0.406
+    },
+    "//src/backend/flash/ecu:subaru_denso_sh7055_02_executor_test": {
+      "seconds": 4.316
+    },
+    "//src/backend/flash/ecu:subaru_denso_sh7055_02_plan_test": {
+      "seconds": 0.264
+    },
+    "//src/backend/flash/ecu:subaru_denso_sh7058_can_diesel_executor_test": {
+      "seconds": 12.556
+    },
+    "//src/backend/flash/ecu:subaru_denso_sh7058_can_diesel_plan_test": {
+      "seconds": 0.581
+    },
+    "//src/backend/flash/ecu:subaru_denso_sh7058_can_executor_test": {
+      "seconds": 21.826
+    },
+    "//src/backend/flash/ecu:subaru_denso_sh7058_can_plan_test": {
+      "seconds": 0.323
+    },
+    "//src/backend/flash/ecu:subaru_denso_sh705x_densocan_executor_test": {
+      "seconds": 8.542
+    },
+    "//src/backend/flash/ecu:subaru_denso_sh705x_densocan_plan_test": {
+      "seconds": 0.53
+    },
+    "//src/backend/flash/ecu:subaru_denso_sh705x_kline_executor_test": {
+      "seconds": 13.406
+    },
+    "//src/backend/flash/ecu:subaru_denso_sh705x_kline_plan_test": {
+      "seconds": 0.363
+    },
+    "//src/backend/flash/ecu:subaru_denso_sh72531_can_executor_test": {
+      "seconds": 316.127,
+      "test_shards": 4,
+      "shard_seconds": [
+        195.422,
+        30.122,
+        55.901,
+        34.682
+      ]
+    },
+    "//src/backend/flash/ecu:subaru_denso_sh72531_can_plan_test": {
+      "seconds": 0.238
+    },
+    "//src/backend/flash/ecu:subaru_denso_sh72543_can_diesel_executor_test": {
+      "seconds": 609.176,
+      "test_shards": 4,
+      "shard_seconds": [
+        363.935,
+        53.045,
+        60.841,
+        131.355
+      ]
+    },
+    "//src/backend/flash/ecu:subaru_denso_sh72543_can_diesel_plan_test": {
+      "seconds": 0.22
+    },
+    "//src/backend/flash/ecu:subaru_hitachi_m32r_can_executor_test": {
+      "seconds": 48.377
+    },
+    "//src/backend/flash/ecu:subaru_hitachi_m32r_can_plan_test": {
+      "seconds": 0.211
+    },
+    "//src/backend/flash/ecu:subaru_hitachi_m32r_kline_executor_test": {
+      "seconds": 26.163
+    },
+    "//src/backend/flash/ecu:subaru_hitachi_m32r_kline_plan_test": {
+      "seconds": 0.28
+    },
+    "//src/backend/flash/ecu:subaru_hitachi_sh7058_can_executor_test": {
+      "seconds": 39.598
+    },
+    "//src/backend/flash/ecu:subaru_hitachi_sh7058_kline_executor_test": {
+      "seconds": 1.456
+    },
+    "//src/backend/flash/ecu:subaru_hitachi_sh7058_plan_test": {
+      "seconds": 0.195
+    },
+    "//src/backend/flash/ecu:subaru_hitachi_sh72543r_can_executor_test": {
+      "seconds": 352.785,
+      "test_shards": 4,
+      "shard_seconds": [
+        104.586,
+        69.157,
+        88.344,
+        90.698
+      ]
+    },
+    "//src/backend/flash/ecu:subaru_hitachi_sh72543r_can_plan_test": {
+      "seconds": 0.232
+    },
+    "//src/backend/flash/ecu:subaru_mitsu_m32r_kline_executor_test": {
+      "seconds": 7.712
+    },
+    "//src/backend/flash/ecu:subaru_mitsu_m32r_kline_plan_test": {
+      "seconds": 0.227
+    },
+    "//src/backend/flash/ecu:subaru_tcu_cvt_hitachi_m32r_can_executor_test": {
+      "seconds": 36.933
+    },
+    "//src/backend/flash/ecu:subaru_tcu_cvt_hitachi_m32r_can_plan_test": {
+      "seconds": 0.127
+    },
+    "//src/backend/flash/ecu:subaru_tcu_cvt_mitsu_can_common_test": {
+      "seconds": 0.215
+    },
+    "//src/backend/flash/ecu:subaru_tcu_cvt_mitsu_mh8104_can_executor_test": {
+      "seconds": 26.254
+    },
+    "//src/backend/flash/ecu:subaru_tcu_cvt_mitsu_mh8104_can_plan_test": {
+      "seconds": 0.21
+    },
+    "//src/backend/flash/ecu:subaru_tcu_cvt_mitsu_mh8111_can_executor_test": {
+      "seconds": 90.827
+    },
+    "//src/backend/flash/ecu:subaru_tcu_cvt_mitsu_mh8111_can_plan_test": {
+      "seconds": 0.23
+    },
+    "//src/backend/flash/ecu:subaru_tcu_denso_sh705x_can_executor_test": {
+      "seconds": 12.924
+    },
+    "//src/backend/flash/ecu:subaru_tcu_denso_sh705x_can_plan_test": {
+      "seconds": 0.206
+    },
+    "//src/backend/flash/ecu:subaru_tcu_hitachi_m32r_can_executor_test": {
+      "seconds": 119.262
+    },
+    "//src/backend/flash/ecu:subaru_tcu_hitachi_m32r_can_plan_test": {
+      "seconds": 0.328
+    },
+    "//src/backend/flash/ecu:subaru_tcu_hitachi_m32r_kline_executor_test": {
+      "seconds": 9.989
+    },
+    "//src/backend/flash/ecu:subaru_tcu_hitachi_m32r_kline_plan_test": {
+      "seconds": 0.206
+    },
+    "//src/backend/flash/ecu:subaru_unisia_jecs_executor_test": {
+      "seconds": 4.529
+    },
+    "//src/backend/flash/ecu:subaru_unisia_jecs_m32r_bootmode_kernel_executor_test": {
+      "seconds": 0.229
+    },
+    "//src/backend/flash/ecu:subaru_unisia_jecs_m32r_bootmode_plan_test": {
+      "seconds": 0.297
+    },
+    "//src/backend/flash/ecu:subaru_unisia_jecs_m32r_bootmode_program_executor_test": {
+      "seconds": 2.977
+    },
+    "//src/backend/flash/ecu:subaru_unisia_jecs_m32r_kline_executor_test": {
+      "seconds": 4.497
+    },
+    "//src/backend/flash/ecu:subaru_unisia_jecs_m32r_kline_plan_test": {
+      "seconds": 0.247
+    },
+    "//src/backend/flash/ecu:subaru_unisia_jecs_plan_test": {
+      "seconds": 0.199
+    },
+    "//src/backend/flash/ecu:uds_client_exchange_common_test": {
+      "seconds": 0.199
+    },
+    "//src/backend/flash/eeprom:denso_sh705x_eeprom_can_executor_test": {
+      "seconds": 0.887
+    },
+    "//src/backend/flash/eeprom:denso_sh705x_eeprom_common_test": {
+      "seconds": 0.234
+    },
+    "//src/backend/flash/eeprom:denso_sh705x_eeprom_kline_executor_test": {
+      "seconds": 0.484
+    },
+    "//src/backend/flash/eeprom:eeprom_read_plan_test": {
+      "seconds": 0.253
+    },
+    "//src/backend/flash/eeprom:test_eeprom_read_plan_goldens": {
+      "seconds": 0.361
+    },
+    "//src/backend/flash/testing:flash_printers_test": {
+      "seconds": 0.144
+    },
+    "//src/backend/flash/testing:scripted_flash_transport_source_test": {
+      "seconds": 0.207
+    },
+    "//src/backend/flash/testing:scripted_flash_transports_test": {
+      "seconds": 0.177
+    },
+    "//src/backend/flash/workflow:flash_workflow_test": {
+      "seconds": 5.78
+    },
+    "//src/backend/flash:bound_flash_attempt_test": {
+      "seconds": 0.246
+    },
+    "//src/backend/flash:can_flash_uds_channel_test": {
+      "seconds": 0.203
+    },
+    "//src/backend/flash:flash_device_lookup_test": {
+      "seconds": 0.13
+    },
+    "//src/backend/flash:flash_executor_test": {
+      "seconds": 0.17
+    },
+    "//src/backend/flash:flash_operation_request_test": {
+      "seconds": 0.196
+    },
+    "//src/backend/flash:flash_types_test": {
+      "seconds": 0.189
+    },
+    "//src/backend/flash:flash_validation_test": {
+      "seconds": 0.316
+    },
+    "//src/backend/flash:transfer_progress_test": {
+      "seconds": 0.134
+    },
+    "//src/backend/logging/protocols:test_cdbg_logging_protocol": {
+      "seconds": 0.93
+    },
+    "//src/backend/logging/protocols:test_mut_dma_logging_protocol": {
+      "seconds": 0.327
+    },
+    "//src/backend/logging/protocols:test_ssm_logging_protocol": {
+      "seconds": 1.013
+    },
+    "//src/backend/logging:logger_conf_test": {
+      "seconds": 0.453
+    },
+    "//src/backend/logging:logger_definition_parser_test": {
+      "seconds": 0.515
+    },
+    "//src/backend/logging:logger_definition_service_test": {
+      "seconds": 0.635
+    },
+    "//src/backend/logging:logger_model_test": {
+      "seconds": 0.157
+    },
+    "//src/backend/logging:logging_channel_preparation_test": {
+      "seconds": 0.905
+    },
+    "//src/backend/logging:logging_conversion_test": {
+      "seconds": 0.431
+    },
+    "//src/backend/logging:logging_csv_columns_test": {
+      "seconds": 0.336
+    },
+    "//src/backend/logging:logging_csv_record_test": {
+      "seconds": 0.138
+    },
+    "//src/backend/logging:logging_read_plan_test": {
+      "seconds": 0.265
+    },
+    "//src/backend/logging:logging_run_snapshot_test": {
+      "seconds": 0.59
+    },
+    "//src/backend/logging:logging_sample_resolution_test": {
+      "seconds": 0.445
+    },
+    "//src/backend/logging:logging_session_test": {
+      "seconds": 1.359
+    },
+    "//src/backend/logging:logging_use_case_test": {
+      "seconds": 0.48
+    },
+    "//src/backend/ports/testing:error_printers_test": {
+      "seconds": 0.221
+    },
+    "//src/backend/ports/testing:fake_cancellation_token_test": {
+      "seconds": 0.397
+    },
+    "//src/backend/ports/testing:fake_clock_test": {
+      "seconds": 0.127
+    },
+    "//src/backend/ports/testing:in_memory_atomic_file_writer_test": {
+      "seconds": 0.242
+    },
+    "//src/backend/ports/testing:in_memory_file_repository_test": {
+      "seconds": 0.239
+    },
+    "//src/backend/ports/testing:in_memory_file_system_test": {
+      "seconds": 0.236
+    },
+    "//src/backend/ports/testing:in_memory_resource_bundle_test": {
+      "seconds": 0.129
+    },
+    "//src/backend/ports/testing:in_memory_settings_test": {
+      "seconds": 0.214
+    },
+    "//src/backend/ports/testing:mock_clock_test": {
+      "seconds": 0.256
+    },
+    "//src/backend/ports/testing:recording_clock_test": {
+      "seconds": 0.188
+    },
+    "//src/backend/ports/testing:recording_event_sink_test": {
+      "seconds": 0.126
+    },
+    "//src/backend/ports/testing:result_matchers_test": {
+      "seconds": 0.236
+    },
+    "//src/backend/ports:duration_cast_test": {
+      "seconds": 0.175
+    },
+    "//src/backend/ports:manual_cancellation_token_test": {
+      "seconds": 0.129
+    },
+    "//src/backend/ports:result_test": {
+      "seconds": 0.107
+    },
+    "//src/backend/protocol/j2534:j2534_constants_test": {
+      "seconds": 0.17
+    },
+    "//src/backend/protocol/testing:fake_diagnostic_link_test": {
+      "seconds": 0.163
+    },
+    "//src/backend/protocol/testing:scripted_ssm_transport_test": {
+      "seconds": 0.156
+    },
+    "//src/backend/protocol/uds/testing:scripted_uds_channel_test": {
+      "seconds": 0.086
+    },
+    "//src/backend/protocol/uds:uds_client_test": {
+      "seconds": 0.187
+    },
+    "//src/backend/protocol:mut_memory_test": {
+      "seconds": 0.569
+    },
+    "//src/backend/protocol:test_cdbg_driver": {
+      "seconds": 0.397
+    },
+    "//src/backend/protocol:test_driver": {
+      "seconds": 0.199
+    },
+    "//src/backend/protocol:test_init": {
+      "seconds": 0.131
+    },
+    "//src/backend/protocol:test_transport": {
+      "seconds": 0.264
+    },
+    "//src/backend/service_functions:read_parameters_session_test": {
+      "seconds": 0.278
+    },
+    "//src/backend/service_functions:relearn_session_test": {
+      "seconds": 0.176
+    },
+    "//src/backend/service_functions:service_function_types_test": {
+      "seconds": 0.129
+    },
+    "//src/backend/service_functions:set_parameters_session_test": {
+      "seconds": 0.285
+    },
+    "//src/backend/service_functions:tcu_parameter_table_test": {
+      "seconds": 0.201
+    }
+  }
+}

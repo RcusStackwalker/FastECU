@@ -109,6 +109,68 @@ gh workflow run mutation -r <branch> -f scope=//src/algorithms/protocol/...
 The `merged report` job's summary and `mutation-report` artifact hold the
 result.
 
+### Mutation performance loop
+
+The target is **20 minutes from workflow start through the merged report**
+for all portable tests. Record runner queue delay separately. Keep the
+production revision, Mull/LLVM pins, mutant scope and runner class fixed when
+comparing experiments. Surviving mutants remain advisory; incomplete runs
+are failures, even if their partial reports look faster.
+
+The workflow uses [duration estimates](../bazel/mutation-schedule.json) to
+balance six jobs and GoogleTest slices of expensive binaries. Local runs
+can use the identical selection and assignment. Use a fresh report/download
+directory for each run so earlier artifacts cannot contaminate a comparison:
+
+```sh
+python3 scripts/mutation_test.py --schedule bazel/mutation-schedule.json \
+  --shard 0/6 --report-dir /tmp/mutation-shard-0
+```
+
+1. Run one experiment on a feature branch, changing one performance variable.
+   Start with a scoped run, then measure the full workflow:
+
+   ```sh
+   gh workflow run mutation -r <branch> -f baseline_run=<baseline-run-id>
+   ```
+
+2. Inspect the merged summary: build/query time, total Mull execution, the
+   slowest work items, per-shard loads and baseline mutant comparison. The
+   artifact's `_performance.json` files record revision, run ID, each slice's
+   measured seconds and completion status, including the failing slice on a
+   runner error. Setup/upload and final workflow duration come from Actions
+   job/step timestamps. The runner-capacity step records the CPU model and
+   logical CPU count; compare these too when execution speeds differ.
+
+3. Compare identical production sources and scope. Investigate missing
+   mutant identities, lost direct kills, additional survivors or new timeouts
+   before retaining a speedup. Timeouts remain killed for the score but are
+   shown separately. New mutant identities can expose coverage aggregation
+   differences and also need review.
+
+4. Download a complete candidate and refresh the estimates from measured
+   slices. Review the resulting diff; a scoped refresh preserves other
+   estimates. Partial binary slices and failed work cannot refresh estimates.
+
+   ```sh
+   gh run download <run-id> -n mutation-report -D /tmp/mutation-candidate
+   python3 scripts/mutation_test.py --refresh-schedule /tmp/mutation-candidate \
+     --schedule bazel/mutation-schedule.json
+   ```
+
+5. Repeat full runs after balancing. Qualify the target with three consecutive
+   complete runs under 20 minutes and record their IDs, durations, cache
+   conditions and quality differences. Aim for at most 17 minutes of Mull
+   work on the slowest job to reserve time for setup, builds and merging.
+
+The initial estimates come from
+[run 39027359985](https://github.com/RcusStackwalker/FastECU/actions/runs/39027359985).
+Its five slowest binaries account for 72% of execution, so their test slices
+are the first optimization experiment. No test cases or production guards
+are removed to meet the budget.
+Experiment results and qualification evidence are recorded in
+[PR 692](https://github.com/RcusStackwalker/FastECU/pull/692).
+
 ## Fuzzing
 
 A target named `*_fuzz_test` links FuzzTest, is tagged `fuzz`, and builds only
