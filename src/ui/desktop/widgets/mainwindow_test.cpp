@@ -173,91 +173,10 @@ class ModalDriver final : public QObject
   private:
     void drive()
     {
-        // #lizard forgives(cyclomatic_complexity)
-        // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
-        for (QWidget *widget : QApplication::topLevelWidgets())
+        if (answerMessageBox() || answerDialog())
         {
-            if (auto *messageBox = qobject_cast<QMessageBox *>(widget); messageBox != nullptr)
-            {
-                if (messageBox->text() == kTcuChooserText)
-                {
-                    saw_chooser_ = true;
-                    if (chooser_choice_.isEmpty())
-                    {
-                        messageBox->reject();
-                        return;
-                    }
-                    for (QAbstractButton *button : messageBox->buttons())
-                    {
-                        if (button->text() == chooser_choice_)
-                        {
-                            button->click();
-                            return;
-                        }
-                    }
-                }
-                if (messageBox->text() == kTcuIgnitionText)
-                {
-                    ++ignition_count_;
-                    messageBox->done(QMessageBox::Cancel);
-                    return;
-                }
-                if (messageBox->text() == kLegacyEcuIgnitionText)
-                {
-                    ++legacy_ecu_ignition_count_;
-                    messageBox->done(QMessageBox::Cancel);
-                    return;
-                }
-                if (messageBox->text().startsWith(kNoChecksumModuleText))
-                {
-                    ++checksum_warning_count_;
-                    messageBox->done(QMessageBox::Cancel);
-                    return;
-                }
-                if (messageBox->text() == kPortableEcuIgnitionText)
-                {
-                    ++portable_ecu_ignition_count_;
-                    messageBox->done(QMessageBox::Cancel);
-                    return;
-                }
-                if (messageBox->text() == kNoFileSelectedText)
-                {
-                    ++no_file_selected_count_;
-                }
-
-                accepted_texts_ << messageBox->text();
-                messageBox->accept();
-                return;
-            }
-            if (widget->inherits("fastecu::flash::FlashDialog"))
-            {
-                unexpected_flash_dialog_count_ = 1;
-            }
+            return;
         }
-
-        for (QWidget *widget : QApplication::topLevelWidgets())
-        {
-            auto *dialog = qobject_cast<QDialog *>(widget);
-            if (dialog == nullptr || !dialog->isVisible())
-            {
-                continue;
-            }
-            if (dialog->objectName() == "BiuOperationsSubaruWindow")
-            {
-                dialog->reject(); // the BIU window has no work to do here
-                return;
-            }
-            for (QRadioButton *button : dialog->findChildren<QRadioButton *>())
-            {
-                if (button->text() == kContinueWithoutDefinitionText)
-                {
-                    ++missing_definition_prompt_count_;
-                    dialog->reject(); // the continue-without path
-                    return;
-                }
-            }
-        }
-
         if (elapsed_.elapsed() > 3000)
         {
             timed_out_ = true;
@@ -269,6 +188,108 @@ class ModalDriver final : public QObject
                 }
             }
         }
+    }
+
+    // Answers the first open message box, noting any flash dialog before it.
+    bool answerMessageBox()
+    {
+        const auto widgets = QApplication::topLevelWidgets();
+        const auto box = std::ranges::find_if(widgets, [](const QWidget *widget)
+                                              { return qobject_cast<const QMessageBox *>(widget) != nullptr; });
+        if (std::any_of(widgets.begin(), box,
+                        [](const QWidget *widget) { return widget->inherits("fastecu::flash::FlashDialog"); }))
+        {
+            unexpected_flash_dialog_count_ = 1;
+        }
+        if (box == widgets.end())
+        {
+            return false;
+        }
+        answer(*qobject_cast<QMessageBox *>(*box));
+        return true;
+    }
+
+    // Picks the chooser option, counts and cancels the prompts below, and
+    // accepts any other box.
+    void answer(QMessageBox& messageBox)
+    {
+        if (messageBox.text() == kTcuChooserText && choose(messageBox))
+        {
+            return;
+        }
+        const std::array<std::pair<const char *, int *>, 3> cancelled{{
+            {kTcuIgnitionText, &ignition_count_},
+            {kLegacyEcuIgnitionText, &legacy_ecu_ignition_count_},
+            {kPortableEcuIgnitionText, &portable_ecu_ignition_count_},
+        }};
+        if (const auto *match =
+                std::ranges::find_if(cancelled, [&](const auto& entry) { return messageBox.text() == entry.first; });
+            match != cancelled.end())
+        {
+            ++*match->second;
+            messageBox.done(QMessageBox::Cancel);
+            return;
+        }
+        if (messageBox.text().startsWith(kNoChecksumModuleText))
+        {
+            ++checksum_warning_count_;
+            messageBox.done(QMessageBox::Cancel);
+            return;
+        }
+        if (messageBox.text() == kNoFileSelectedText)
+        {
+            ++no_file_selected_count_;
+        }
+        accepted_texts_ << messageBox.text();
+        messageBox.accept();
+    }
+
+    // Rejects the chooser without a choice, or clicks the chosen option;
+    // false when no option matches.
+    bool choose(QMessageBox& messageBox)
+    {
+        saw_chooser_ = true;
+        if (chooser_choice_.isEmpty())
+        {
+            messageBox.reject();
+            return true;
+        }
+        const auto buttons = messageBox.buttons();
+        const auto chosen = std::ranges::find_if(buttons, [this](const QAbstractButton *button)
+                                                 { return button->text() == chooser_choice_; });
+        if (chosen == buttons.end())
+        {
+            return false;
+        }
+        (*chosen)->click();
+        return true;
+    }
+
+    // Closes the BIU window, and takes the continue-without-definition path.
+    bool answerDialog()
+    {
+        for (QWidget *widget : QApplication::topLevelWidgets())
+        {
+            auto *dialog = qobject_cast<QDialog *>(widget);
+            if (dialog == nullptr || !dialog->isVisible())
+            {
+                continue;
+            }
+            if (dialog->objectName() == "BiuOperationsSubaruWindow")
+            {
+                dialog->reject(); // the BIU window has no work to do here
+                return true;
+            }
+            const auto buttons = dialog->findChildren<QRadioButton *>();
+            if (std::ranges::any_of(buttons, [](const QRadioButton *button)
+                                    { return button->text() == kContinueWithoutDefinitionText; }))
+            {
+                ++missing_definition_prompt_count_;
+                dialog->reject(); // the continue-without path
+                return true;
+            }
+        }
+        return false;
     }
 
   private:
@@ -897,24 +918,56 @@ class MainWindowTest : public ::testing::Test
     void checkSaveAsUpdatesOriginalSessionAfterSelectionChanges();
     void checkSelectableSignalEditsItsEmittingSession();
     void checkFailedMapDecodeKeepsAnErrorView();
-    enum class AssignmentScenario
+    // A second ROM opened beside the edited one: none, its session only, or
+    // also its window of the same map.
+    enum class AssignmentOther
     {
-        kAbsolute,
-        kRelative,
-        kCurrentBytes,
-        kCurrentBytesNoOp,
-        kSelectionChanged,
-        kActiveMapChanged,
-        kActiveMapChangedNoOp,
-        kPasteLf,
-        kPasteCrLf,
-        kPasteInteriorEmpty,
-        kOriginalClosed,
-        kInvalidCurrent,
-        kNoOpResolution,
-        kNoOpLimit
+        kNone,
+        kSession,
+        kWindow,
     };
-    void checkTypedAssignment(AssignmentScenario scenario);
+    enum class AssignmentAction
+    {
+        kSet,
+        kPaste,
+        kFineUp,
+    };
+    // One set-value, paste or increment edit of a 1D int16 map holding 10:
+    // its scaling, what happens while the value dialog is open, and what the
+    // ROM, the cell and any notice show afterwards.
+    struct AssignmentCase
+    {
+        std::string from_byte = "x";
+        std::string to_byte = "x";
+        std::string fine_increment;
+        std::string maximum;
+        AssignmentOther other = AssignmentOther::kNone;
+        bool write_during_dialog = false; // the map's bytes become 20
+        bool select_other_during_dialog = false;
+        bool close_during_dialog = false;
+        QString typed = "x+1";
+        AssignmentAction action = AssignmentAction::kSet;
+        QString clipboard;
+        std::optional<std::uint16_t> value; // absent: the edited session is closed
+        QString cell;
+        std::optional<bool> dirty;
+        std::optional<bool> notice;
+        QString notice_contains;
+        QString notice_excludes;
+    };
+    void checkTypedAssignment(const AssignmentCase& c);
+    static fastecu::definition::RomDefinition assignmentDefinition(const AssignmentCase& c);
+    void openAssignmentMap(MainWindow& window, QMdiSubWindow *& subwindow, QTableWidget *& table);
+    void addOtherCalibration(MainWindow& window, TestServices& services,
+                             const fastecu::definition::RomDefinition& definition, const AssignmentCase& c,
+                             QMdiSubWindow *subwindow, std::optional<fastecu::calibration::SessionId>& other,
+                             QMdiSubWindow *& otherWindow);
+    void answerAssignmentDialog(const AssignmentCase& c, MainWindow& window, TestServices& services,
+                                fastecu::calibration::SessionId id, QMdiSubWindow *otherWindow, bool& answered,
+                                QString& noticeText);
+    void verifyAssignment(const AssignmentCase& c, TestServices& services, fastecu::calibration::SessionId id,
+                          std::optional<fastecu::calibration::SessionId> other, QTableWidget *table,
+                          const QString& noticeText);
     void checkWindowPreservesInjectedLoggingFactory();
     void checkLoggingCapturesTargetForEachRun();
     void checkLoggingDefinitionErrorShowsDetailAndLeavesStopped();
@@ -2455,11 +2508,69 @@ INSTANTIATE_TEST_SUITE_P(
         }
         return name;
     });
+namespace
+{
+bool selectTreeText(QTreeWidget *tree, const QString& text)
+{
+    if (!tree)
+    {
+        return false;
+    }
+    for (int i = 0; i < tree->topLevelItemCount(); ++i)
+    {
+        if (tree->topLevelItem(i)->text(0) == text)
+        {
+            tree->setCurrentItem(tree->topLevelItem(i));
+            return true;
+        }
+    }
+    return false;
+}
+
+// Selects `target`'s protocol, or its make, model and version row (column 12
+// holds the row number).
+bool selectChoice(QDialog *dialog, bool protocol, const fastecu::config::VehicleSpec& target)
+{
+    if (protocol)
+    {
+        return selectTreeText(dialog->findChild<QTreeWidget *>("treeWidget"), qs(target.protocol->name));
+    }
+    if (!selectTreeText(dialog->findChild<QTreeWidget *>("car_make_tree_widget"), qs(target.make)) ||
+        !selectTreeText(dialog->findChild<QTreeWidget *>("car_model_tree_widget"), qs(target.model)))
+    {
+        return false;
+    }
+    auto *versions = dialog->findChild<QTreeWidget *>("car_version_tree_widget");
+    for (int i = 0; versions != nullptr && i < versions->topLevelItemCount(); ++i)
+    {
+        if (versions->topLevelItem(i)->text(12) == "1")
+        {
+            versions->setCurrentItem(versions->topLevelItem(i));
+            return true;
+        }
+    }
+    return false;
+}
+
+// The row a choice of `target` selects: itself for a vehicle, the last row
+// with its protocol for a protocol.
+std::size_t chosenRow(const fastecu::config::ConfigSession& config, bool protocol)
+{
+    const auto& target = config.Vehicles()[1];
+    std::size_t expected = 1;
+    for (std::size_t row = 0; protocol && row < config.Vehicles().size(); ++row)
+    {
+        if (config.Vehicles()[row].protocol == target.protocol)
+        {
+            expected = row;
+        }
+    }
+    return expected;
+}
+} // namespace
+
 void MainWindowTest::checkChooserDialogsApplyAcceptedChoicesAndIgnoreCancellation(bool protocol, bool accept)
 {
-    // #lizard forgives(cyclomatic_complexity)
-    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
-
     QTemporaryDir root;
     ASSERT_TRUE(root.isValid());
     ASSERT_NO_FATAL_FAILURE(copyFixtureConfig(root.path()));
@@ -2472,102 +2583,43 @@ void MainWindowTest::checkChooserDialogsApplyAcceptedChoicesAndIgnoreCancellatio
     MainWindow window{services.services()};
     constructorDriver.stop();
     const auto target = services.config.Vehicles()[1];
-    std::size_t expected = 1;
-    if (protocol)
-    {
-        for (std::size_t row = 0; row < services.config.Vehicles().size(); ++row)
-        {
-            if (services.config.Vehicles()[row].protocol == target.protocol)
-            {
-                expected = row;
-            }
-        }
-    }
+    const std::size_t expected = chosenRow(services.config, protocol);
     QTimer driver;
     QElapsedTimer deadline;
     bool driven = false;
     bool unexpected = false;
     bool timedOut = false;
-    QObject::connect(
-        &driver, &QTimer::timeout,
-        [&]
-        {
-            auto *dialog = qobject_cast<QDialog *>(QApplication::activeModalWidget());
-            if (deadline.elapsed() > 3000)
-            {
-                timedOut = true;
-                if (dialog)
-                {
-                    dialog->reject();
-                }
-                return;
-            }
-            if (!dialog)
-            {
-                return;
-            }
-            const char *expectedClass = protocol ? "ProtocolSelect" : "VehicleSelect";
-            if (!dialog->inherits(expectedClass))
-            {
-                unexpected = true;
-                dialog->reject();
-                return;
-            }
-            auto selectText = [](QTreeWidget *tree, const QString& text)
-            {
-                if (!tree)
-                {
-                    return false;
-                }
-                for (int i = 0; i < tree->topLevelItemCount(); ++i)
-                {
-                    if (tree->topLevelItem(i)->text(0) == text)
-                    {
-                        tree->setCurrentItem(tree->topLevelItem(i));
-                        return true;
-                    }
-                }
-                return false;
-            };
-            bool selected = false;
-            if (protocol)
-            {
-                selected = selectText(dialog->findChild<QTreeWidget *>("treeWidget"), qs(target.protocol->name));
-            }
-            else
-            {
-                selected = selectText(dialog->findChild<QTreeWidget *>("car_make_tree_widget"), qs(target.make)) &&
-                           selectText(dialog->findChild<QTreeWidget *>("car_model_tree_widget"), qs(target.model));
-                auto *versions = dialog->findChild<QTreeWidget *>("car_version_tree_widget");
-                selected = selected && versions != nullptr;
-                bool rowFound = false;
-                if (versions)
-                {
-                    for (int i = 0; i < versions->topLevelItemCount(); ++i)
-                    {
-                        auto *item = versions->topLevelItem(i);
-                        if (item->text(12) == "1")
-                        {
-                            versions->setCurrentItem(item);
-                            rowFound = true;
-                            break;
-                        }
-                    }
-                }
-                selected = selected && rowFound;
-            }
-            auto *button = dialog->findChild<QPushButton *>(accept ? "select_button" : "cancel_button");
-            driven = selected && button && button->isEnabled();
-            if (driven)
-            {
-                button->click();
-            }
-            else
-            {
-                unexpected = true;
-                dialog->reject();
-            }
-        });
+    QObject::connect(&driver, &QTimer::timeout,
+                     [&]
+                     {
+                         auto *dialog = qobject_cast<QDialog *>(QApplication::activeModalWidget());
+                         if (deadline.elapsed() > 3000)
+                         {
+                             timedOut = true;
+                             if (dialog)
+                             {
+                                 dialog->reject();
+                             }
+                             return;
+                         }
+                         if (!dialog)
+                         {
+                             return;
+                         }
+                         const bool selected = dialog->inherits(protocol ? "ProtocolSelect" : "VehicleSelect") &&
+                                               selectChoice(dialog, protocol, target);
+                         auto *button = dialog->findChild<QPushButton *>(accept ? "select_button" : "cancel_button");
+                         driven = selected && button && button->isEnabled();
+                         if (driven)
+                         {
+                             button->click();
+                         }
+                         else
+                         {
+                             unexpected = true;
+                             dialog->reject();
+                         }
+                     });
     deadline.start();
     driver.start(5);
     if (protocol)
@@ -4875,28 +4927,17 @@ class MainWindowFixtureEnvironment : public ::testing::Environment
 const auto *const kFixtureEnvironment = ::testing::AddGlobalTestEnvironment(new MainWindowFixtureEnvironment);
 } // namespace
 
-void MainWindowTest::checkTypedAssignment(AssignmentScenario scenario)
+fastecu::definition::RomDefinition MainWindowTest::assignmentDefinition(const AssignmentCase& c)
 {
-    // #lizard forgives(cyclomatic_complexity)
-    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
-    ModalDriver driver{QString()};
-    driver.start();
-    TestServices services{config_root_->path()};
-    ASSERT_THAT(services.config_status, fastecu::testing::IsOk());
-    MainWindow window{services.services()};
-    QTemporaryDir files;
-    ASSERT_EQ(window.openCalibrationFile(writeRom(files, "edit.bin", '\x11')), 0);
-    driver.stop();
-    const auto id = window.calibrations_.front().id;
-    auto *session = services.calibrations.Find(id);
-    ASSERT_NE(session, nullptr);
     fastecu::definition::RomDefinition definition;
     definition.scalings.push_back({.name = "Raw",
-                                   .from_byte = scenario == AssignmentScenario::kInvalidCurrent ? "1/0" : "x",
-                                   .to_byte = "x",
+                                   .from_byte = c.from_byte,
+                                   .to_byte = c.to_byte,
                                    .format = "0.00",
                                    .storage_type = fastecu::definition::StorageType::kInt16,
                                    .endian = "big"});
+    definition.scalings[0].fine_increment = c.fine_increment;
+    definition.scalings[0].maximum = c.maximum;
     fastecu::definition::CalibrationMap model;
     model.name = "Value";
     model.category = "Controls";
@@ -4906,23 +4947,25 @@ void MainWindowTest::checkTypedAssignment(AssignmentScenario scenario)
     model.endian = "big";
     model.scaling_name = "Raw";
     definition.maps.push_back(model);
-    const bool noOp = scenario == AssignmentScenario::kNoOpResolution || scenario == AssignmentScenario::kNoOpLimit;
-    if (noOp)
-    {
-        definition.scalings[0].from_byte = "x/10";
-        definition.scalings[0].to_byte = "x*10";
-        definition.scalings[0].fine_increment = "0.01";
-        if (scenario == AssignmentScenario::kNoOpLimit)
-        {
-            definition.scalings[0].maximum = "1";
-        }
-    }
+    return definition;
+}
+
+namespace
+{
+void replaceContents(TestServices& services, fastecu::calibration::SessionId id,
+                     const fastecu::definition::RomDefinition& definition, std::vector<std::uint8_t> bytes)
+{
+    auto *session = services.calibrations.Find(id);
+    ASSERT_NE(session, nullptr);
     *session = fastecu::calibration::CalibrationSession(
         id, {.source = session->Source(),
-             .image = fastecu::memory::testing::IdentityImage({0, 10}),
+             .image = fastecu::memory::testing::IdentityImage(std::move(bytes)),
              .definition = fastecu::calibration::ResolvedDefinition{.definition = definition}});
-    window.calibrationFilesTreewidgetItemSelected(window.ui_->calibrationFilesTreeWidget->topLevelItem(0));
-    auto *tree = window.ui_->calibrationDataTreeWidget;
+}
+
+// The map item under the last "Controls" category of the data tree.
+QTreeWidgetItem *controlsMapItem(QTreeWidget *tree)
+{
     QTreeWidgetItem *item = nullptr;
     for (int row = 0; row < tree->topLevelItemCount(); ++row)
     {
@@ -4931,257 +4974,277 @@ void MainWindowTest::checkTypedAssignment(AssignmentScenario scenario)
             item = tree->topLevelItem(row)->child(0);
         }
     }
-    ASSERT_NE(item, nullptr);
-    tree->setCurrentItem(item);
-    window.calibrationDataTreewidgetItemSelected(item);
-    ASSERT_EQ(window.ui_->mdiArea->subWindowList().size(), 1);
-    auto *subwindow = window.ui_->mdiArea->subWindowList().front();
-    window.ui_->mdiArea->setActiveSubWindow(subwindow);
-    auto *table = subwindow->findChild<QTableWidget *>();
-    ASSERT_NE(table, nullptr);
-    table->setRangeSelected(QTableWidgetSelectionRange(0, 0, 0, 0), true);
+    return item;
+}
+} // namespace
+
+void MainWindowTest::checkTypedAssignment(const AssignmentCase& c)
+{
+    ModalDriver driver{QString()};
+    driver.start();
+    TestServices services{config_root_->path()};
+    ASSERT_THAT(services.config_status, fastecu::testing::IsOk());
+    MainWindow window{services.services()};
+    QTemporaryDir files;
+    ASSERT_EQ(window.openCalibrationFile(writeRom(files, "edit.bin", '\x11')), 0);
+    driver.stop();
+    const auto id = window.calibrations_.front().id;
+    const auto definition = assignmentDefinition(c);
+    ASSERT_NO_FATAL_FAILURE(replaceContents(services, id, definition, {0, 10}));
+    window.calibrationFilesTreewidgetItemSelected(window.ui_->calibrationFilesTreeWidget->topLevelItem(0));
+    QMdiSubWindow *subwindow = nullptr;
+    QTableWidget *table = nullptr;
+    ASSERT_NO_FATAL_FAILURE(openAssignmentMap(window, subwindow, table));
     std::optional<fastecu::calibration::SessionId> other;
-    const bool activeChanged =
-        scenario == AssignmentScenario::kActiveMapChanged || scenario == AssignmentScenario::kActiveMapChangedNoOp;
-    const bool paste = scenario == AssignmentScenario::kPasteLf || scenario == AssignmentScenario::kPasteCrLf ||
-                       scenario == AssignmentScenario::kPasteInteriorEmpty;
     QMdiSubWindow *otherWindow = nullptr;
-    if (scenario == AssignmentScenario::kSelectionChanged || activeChanged)
+    if (c.other != AssignmentOther::kNone)
     {
-        const auto adopted = services.calibrations.AdoptReadImage({.rom = {0, 40}, .filename = "other.bin"});
-        ASSERT_THAT(adopted, fastecu::testing::IsOk());
-        other = adopted->id;
-        auto *otherSession = services.calibrations.Find(*other);
-        ASSERT_NE(otherSession, nullptr);
-        *otherSession = fastecu::calibration::CalibrationSession(
-            *other, {.source = otherSession->Source(),
-                     .image = fastecu::memory::testing::IdentityImage({0, 40}),
-                     .definition = fastecu::calibration::ResolvedDefinition{.definition = definition}});
-        ASSERT_TRUE(window.addCalibration(*other));
-        if (activeChanged)
-        {
-            auto *category = window.ui_->calibrationDataTreeWidget->topLevelItem(0);
-            for (int row = 0; row < window.ui_->calibrationDataTreeWidget->topLevelItemCount(); ++row)
-            {
-                auto *candidate = window.ui_->calibrationDataTreeWidget->topLevelItem(row);
-                if (candidate->text(0) == "Controls")
-                {
-                    category = candidate;
-                }
-            }
-            ASSERT_NE(category->child(0), nullptr);
-            window.calibrationDataTreewidgetItemSelected(category->child(0));
-            for (auto *candidate : window.ui_->mdiArea->subWindowList())
-            {
-                if (candidate != subwindow)
-                {
-                    otherWindow = candidate;
-                }
-            }
-            ASSERT_NE(otherWindow, nullptr);
-            window.ui_->mdiArea->setActiveSubWindow(subwindow);
-        }
+        ASSERT_NO_FATAL_FAILURE(addOtherCalibration(window, services, definition, c, subwindow, other, otherWindow));
     }
+
     bool answered = false;
     QString noticeText;
     QTimer reply;
     reply.setInterval(5);
-    QObject::connect(
-        &reply, &QTimer::timeout,
-        [&]
-        {
-            if (auto *notice = qobject_cast<QMessageBox *>(QApplication::activeModalWidget()); notice != nullptr)
-            {
-                noticeText = notice->text();
-                answered = true;
-                notice->accept();
-                return;
-            }
-            auto *dialog = qobject_cast<QInputDialog *>(QApplication::activeModalWidget());
-            if (dialog == nullptr)
-            {
-                if (auto *modal = qobject_cast<QDialog *>(QApplication::activeModalWidget()); modal != nullptr)
-                {
-                    modal->reject();
-                }
-                return;
-            }
-            if (scenario == AssignmentScenario::kCurrentBytes || scenario == AssignmentScenario::kCurrentBytesNoOp ||
-                scenario == AssignmentScenario::kActiveMapChangedNoOp)
-            {
-                EXPECT_THAT(services.calibrations.Find(id)->WriteBytes(0, bytes::Bytes{0, 20}),
-                            fastecu::testing::IsOk());
-            }
-            if (scenario == AssignmentScenario::kSelectionChanged)
-            {
-                auto *fileTree = window.ui_->calibrationFilesTreeWidget;
-                for (int row = 0; row < fileTree->topLevelItemCount(); ++row)
-                {
-                    fileTree->topLevelItem(row)->setSelected(row == fileTree->topLevelItemCount() - 1);
-                }
-                window.calibrationFilesTreewidgetItemSelected(
-                    fileTree->topLevelItem(fileTree->topLevelItemCount() - 1));
-            }
-            if (activeChanged)
-            {
-                window.ui_->mdiArea->setActiveSubWindow(otherWindow);
-            }
-            if (scenario == AssignmentScenario::kOriginalClosed)
-            {
-                window.closeCalibration();
-            }
-            dialog->setTextValue(scenario == AssignmentScenario::kAbsolute   ? "-20"
-                                 : scenario == AssignmentScenario::kRelative ? "x-20"
-                                 : scenario == AssignmentScenario::kInvalidCurrent ||
-                                         scenario == AssignmentScenario::kCurrentBytesNoOp ||
-                                         scenario == AssignmentScenario::kActiveMapChangedNoOp
-                                     ? "20"
-                                     : "x+1");
-            answered = true;
-            dialog->accept();
-        });
+    QObject::connect(&reply, &QTimer::timeout,
+                     [&] { answerAssignmentDialog(c, window, services, id, otherWindow, answered, noticeText); });
     reply.start();
-    if (paste)
+    switch (c.action)
     {
-        QApplication::clipboard()->setText(scenario == AssignmentScenario::kPasteLf     ? "20\n"
-                                           : scenario == AssignmentScenario::kPasteCrLf ? "20\r\n"
-                                                                                        : "20\n\n30");
+    case AssignmentAction::kPaste:
+        QApplication::clipboard()->setText(c.clipboard);
         answered = true;
         window.pasteValue();
-    }
-    else if (noOp)
-    {
+        break;
+    case AssignmentAction::kFineUp:
         window.incDecValue(fastecu::calibration::IncrementStep::kFineUp);
-    }
-    else
-    {
+        break;
+    case AssignmentAction::kSet:
         window.setValue();
+        break;
     }
     reply.stop();
     ASSERT_TRUE(answered);
-    if (scenario == AssignmentScenario::kOriginalClosed)
+    verifyAssignment(c, services, id, other, table, noticeText);
+}
+
+// Opens the edited map's window, active, with its one cell selected.
+void MainWindowTest::openAssignmentMap(MainWindow& window, QMdiSubWindow *& subwindow, QTableWidget *& table)
+{
+    auto *tree = window.ui_->calibrationDataTreeWidget;
+    QTreeWidgetItem *item = controlsMapItem(tree);
+    ASSERT_NE(item, nullptr);
+    tree->setCurrentItem(item);
+    window.calibrationDataTreewidgetItemSelected(item);
+    ASSERT_EQ(window.ui_->mdiArea->subWindowList().size(), 1);
+    subwindow = window.ui_->mdiArea->subWindowList().front();
+    window.ui_->mdiArea->setActiveSubWindow(subwindow);
+    table = subwindow->findChild<QTableWidget *>();
+    ASSERT_NE(table, nullptr);
+    table->setRangeSelected(QTableWidgetSelectionRange(0, 0, 0, 0), true);
+}
+
+// Adds a second ROM with the same definition holding 40; with
+// AssignmentOther::kWindow its map window opens too, behind the edited one.
+void MainWindowTest::addOtherCalibration(MainWindow& window, TestServices& services,
+                                         const fastecu::definition::RomDefinition& definition, const AssignmentCase& c,
+                                         QMdiSubWindow *subwindow,
+                                         std::optional<fastecu::calibration::SessionId>& other,
+                                         QMdiSubWindow *& otherWindow)
+{
+    const auto adopted = services.calibrations.AdoptReadImage({.rom = {0, 40}, .filename = "other.bin"});
+    ASSERT_THAT(adopted, fastecu::testing::IsOk());
+    other = adopted->id;
+    ASSERT_NO_FATAL_FAILURE(replaceContents(services, *other, definition, {0, 40}));
+    ASSERT_TRUE(window.addCalibration(*other));
+    if (c.other != AssignmentOther::kWindow)
     {
-        EXPECT_EQ(services.calibrations.Find(id), nullptr);
         return;
     }
-    session = services.calibrations.Find(id);
+    QTreeWidgetItem *item = controlsMapItem(window.ui_->calibrationDataTreeWidget);
+    ASSERT_NE(item, nullptr);
+    window.calibrationDataTreewidgetItemSelected(item);
+    for (auto *candidate : window.ui_->mdiArea->subWindowList())
+    {
+        if (candidate != subwindow)
+        {
+            otherWindow = candidate;
+        }
+    }
+    ASSERT_NE(otherWindow, nullptr);
+    window.ui_->mdiArea->setActiveSubWindow(subwindow);
+}
+
+// Records and accepts a notice; otherwise applies the case's changes while
+// the value dialog is open, then types its value.
+void MainWindowTest::answerAssignmentDialog(const AssignmentCase& c, MainWindow& window, TestServices& services,
+                                            fastecu::calibration::SessionId id, QMdiSubWindow *otherWindow,
+                                            bool& answered, QString& noticeText)
+{
+    if (auto *notice = qobject_cast<QMessageBox *>(QApplication::activeModalWidget()); notice != nullptr)
+    {
+        noticeText = notice->text();
+        answered = true;
+        notice->accept();
+        return;
+    }
+    auto *dialog = qobject_cast<QInputDialog *>(QApplication::activeModalWidget());
+    if (dialog == nullptr)
+    {
+        if (auto *modal = qobject_cast<QDialog *>(QApplication::activeModalWidget()); modal != nullptr)
+        {
+            modal->reject();
+        }
+        return;
+    }
+    if (c.write_during_dialog)
+    {
+        EXPECT_THAT(services.calibrations.Find(id)->WriteBytes(0, bytes::Bytes{0, 20}), fastecu::testing::IsOk());
+    }
+    if (c.select_other_during_dialog)
+    {
+        auto *fileTree = window.ui_->calibrationFilesTreeWidget;
+        for (int row = 0; row < fileTree->topLevelItemCount(); ++row)
+        {
+            fileTree->topLevelItem(row)->setSelected(row == fileTree->topLevelItemCount() - 1);
+        }
+        window.calibrationFilesTreewidgetItemSelected(fileTree->topLevelItem(fileTree->topLevelItemCount() - 1));
+    }
+    if (otherWindow != nullptr)
+    {
+        window.ui_->mdiArea->setActiveSubWindow(otherWindow);
+    }
+    if (c.close_during_dialog)
+    {
+        window.closeCalibration();
+    }
+    dialog->setTextValue(c.typed);
+    answered = true;
+    dialog->accept();
+}
+
+void MainWindowTest::verifyAssignment(const AssignmentCase& c, TestServices& services,
+                                      fastecu::calibration::SessionId id,
+                                      std::optional<fastecu::calibration::SessionId> other, QTableWidget *table,
+                                      const QString& noticeText)
+{
+    const auto *session = services.calibrations.Find(id);
+    if (!c.value.has_value())
+    {
+        EXPECT_EQ(session, nullptr);
+        return;
+    }
     ASSERT_NE(session, nullptr);
-    if (noOp)
+    EXPECT_EQ(bytes::ReadU16Be(session->File()), *c.value);
+    if (c.dirty.has_value())
     {
-        EXPECT_EQ(bytes::ReadU16Be(session->File()), 10);
-        EXPECT_FALSE(session->Dirty());
-        if (scenario == AssignmentScenario::kNoOpResolution)
-        {
-            EXPECT_TRUE(noticeText.contains("storage resolution"));
-        }
-        else
-        {
-            EXPECT_TRUE(noticeText.contains("definition limit"));
-            EXPECT_FALSE(noticeText.contains("storage resolution"));
-        }
-        return;
+        EXPECT_EQ(session->Dirty(), *c.dirty);
     }
-    if (scenario == AssignmentScenario::kPasteInteriorEmpty)
+    if (!c.cell.isEmpty())
     {
-        EXPECT_EQ(bytes::ReadU16Be(session->File()), 10);
-        EXPECT_FALSE(session->Dirty());
-        EXPECT_FALSE(noticeText.isEmpty());
-        return;
+        EXPECT_EQ(table->item(0, 0)->text(), c.cell);
     }
-    if (paste)
+    if (c.notice.has_value())
     {
-        EXPECT_EQ(bytes::ReadU16Be(session->File()), 20);
-        EXPECT_EQ(table->item(0, 0)->text(), "20.00");
-        EXPECT_TRUE(noticeText.isEmpty());
-        return;
+        EXPECT_EQ(!noticeText.isEmpty(), *c.notice);
     }
-    const std::uint16_t expected =
-        scenario == AssignmentScenario::kAbsolute       ? 65516
-        : scenario == AssignmentScenario::kRelative     ? 65526
-        : scenario == AssignmentScenario::kCurrentBytes ? 21
-        : scenario == AssignmentScenario::kCurrentBytesNoOp || scenario == AssignmentScenario::kActiveMapChangedNoOp
-            ? 20
-        : scenario == AssignmentScenario::kInvalidCurrent ? 20
-                                                          : 11;
-    EXPECT_EQ(bytes::ReadU16Be(session->File()), expected);
+    if (!c.notice_contains.isEmpty())
+    {
+        EXPECT_TRUE(noticeText.contains(c.notice_contains));
+    }
+    if (!c.notice_excludes.isEmpty())
+    {
+        EXPECT_FALSE(noticeText.contains(c.notice_excludes));
+    }
     if (other.has_value())
     {
         EXPECT_EQ(bytes::ReadU16Be(services.calibrations.Find(*other)->File()), 40);
         EXPECT_FALSE(services.calibrations.Find(*other)->Dirty());
     }
-    if (scenario == AssignmentScenario::kActiveMapChanged)
-    {
-        EXPECT_EQ(table->item(0, 0)->text(), "11.00");
-    }
-    if (scenario == AssignmentScenario::kInvalidCurrent)
-    {
-        EXPECT_EQ(table->item(0, 0)->text(), "NaN");
-    }
-    if (scenario == AssignmentScenario::kCurrentBytesNoOp || scenario == AssignmentScenario::kActiveMapChangedNoOp)
-    {
-        EXPECT_EQ(table->item(0, 0)->text(), "20.00");
-        EXPECT_TRUE(session->Dirty());
-    }
 }
 
 TEST_F(MainWindowTest, SignedLiteralAssignsAbsoluteValue)
 {
-    ASSERT_NO_FATAL_FAILURE(checkTypedAssignment(AssignmentScenario::kAbsolute));
+    ASSERT_NO_FATAL_FAILURE(checkTypedAssignment({.typed = "-20", .value = 65516}));
 }
 TEST_F(MainWindowTest, VariableExpressionEditsRelativeValue)
 {
-    ASSERT_NO_FATAL_FAILURE(checkTypedAssignment(AssignmentScenario::kRelative));
+    ASSERT_NO_FATAL_FAILURE(checkTypedAssignment({.typed = "x-20", .value = 65526}));
 }
 TEST_F(MainWindowTest, AssignmentUsesBytesChangedDuringDialog)
 {
-    ASSERT_NO_FATAL_FAILURE(checkTypedAssignment(AssignmentScenario::kCurrentBytes));
+    ASSERT_NO_FATAL_FAILURE(checkTypedAssignment({.write_during_dialog = true, .value = 21}));
 }
 TEST_F(MainWindowTest, AssignmentKeepsOriginalSessionDuringSelectionChange)
 {
-    ASSERT_NO_FATAL_FAILURE(checkTypedAssignment(AssignmentScenario::kSelectionChanged));
+    ASSERT_NO_FATAL_FAILURE(
+        checkTypedAssignment({.other = AssignmentOther::kSession, .select_other_during_dialog = true, .value = 11}));
 }
 TEST_F(MainWindowTest, AssignmentOfClosedOriginalSessionIsInert)
 {
-    ASSERT_NO_FATAL_FAILURE(checkTypedAssignment(AssignmentScenario::kOriginalClosed));
+    ASSERT_NO_FATAL_FAILURE(checkTypedAssignment({.close_during_dialog = true}));
 }
 TEST_F(MainWindowTest, AssignmentCanLeaveBrokenDecodeDisplayedAsNan)
 {
-    ASSERT_NO_FATAL_FAILURE(checkTypedAssignment(AssignmentScenario::kInvalidCurrent));
+    ASSERT_NO_FATAL_FAILURE(checkTypedAssignment({.from_byte = "1/0", .typed = "20", .value = 20, .cell = "NaN"}));
 }
 
 TEST_F(MainWindowTest, SubResolutionIncrementReportsNoChangeAndKeepsClean)
 {
-    ASSERT_NO_FATAL_FAILURE(checkTypedAssignment(AssignmentScenario::kNoOpResolution));
+    ASSERT_NO_FATAL_FAILURE(checkTypedAssignment({.from_byte = "x/10",
+                                                  .to_byte = "x*10",
+                                                  .fine_increment = "0.01",
+                                                  .action = AssignmentAction::kFineUp,
+                                                  .value = 10,
+                                                  .dirty = false,
+                                                  .notice_contains = "storage resolution"}));
 }
 TEST_F(MainWindowTest, ClampedIncrementReportsLimitAndKeepsClean)
 {
-    ASSERT_NO_FATAL_FAILURE(checkTypedAssignment(AssignmentScenario::kNoOpLimit));
+    ASSERT_NO_FATAL_FAILURE(checkTypedAssignment({.from_byte = "x/10",
+                                                  .to_byte = "x*10",
+                                                  .fine_increment = "0.01",
+                                                  .maximum = "1",
+                                                  .action = AssignmentAction::kFineUp,
+                                                  .value = 10,
+                                                  .dirty = false,
+                                                  .notice_contains = "definition limit",
+                                                  .notice_excludes = "storage resolution"}));
 }
 
 TEST_F(MainWindowTest, NoOpAssignmentRefreshesBytesChangedDuringDialog)
 {
-    ASSERT_NO_FATAL_FAILURE(checkTypedAssignment(AssignmentScenario::kCurrentBytesNoOp));
+    ASSERT_NO_FATAL_FAILURE(checkTypedAssignment(
+        {.write_during_dialog = true, .typed = "20", .value = 20, .cell = "20.00", .dirty = true}));
 }
 
 TEST_F(MainWindowTest, AssignmentRefreshesOriginalAfterActiveMapChanges)
 {
-    ASSERT_NO_FATAL_FAILURE(checkTypedAssignment(AssignmentScenario::kActiveMapChanged));
+    ASSERT_NO_FATAL_FAILURE(checkTypedAssignment({.other = AssignmentOther::kWindow, .value = 11, .cell = "11.00"}));
 }
 TEST_F(MainWindowTest, NoOpAssignmentRefreshesOriginalAfterActiveMapChanges)
 {
-    ASSERT_NO_FATAL_FAILURE(checkTypedAssignment(AssignmentScenario::kActiveMapChangedNoOp));
+    ASSERT_NO_FATAL_FAILURE(checkTypedAssignment({.other = AssignmentOther::kWindow,
+                                                  .write_during_dialog = true,
+                                                  .typed = "20",
+                                                  .value = 20,
+                                                  .cell = "20.00",
+                                                  .dirty = true}));
 }
 TEST_F(MainWindowTest, PasteAcceptsTerminalLf)
 {
-    ASSERT_NO_FATAL_FAILURE(checkTypedAssignment(AssignmentScenario::kPasteLf));
+    ASSERT_NO_FATAL_FAILURE(checkTypedAssignment(
+        {.action = AssignmentAction::kPaste, .clipboard = "20\n", .value = 20, .cell = "20.00", .notice = false}));
 }
 TEST_F(MainWindowTest, PasteAcceptsTerminalCrLf)
 {
-    ASSERT_NO_FATAL_FAILURE(checkTypedAssignment(AssignmentScenario::kPasteCrLf));
+    ASSERT_NO_FATAL_FAILURE(checkTypedAssignment(
+        {.action = AssignmentAction::kPaste, .clipboard = "20\r\n", .value = 20, .cell = "20.00", .notice = false}));
 }
 TEST_F(MainWindowTest, PasteRejectsInteriorEmptyCellAtomically)
 {
-    ASSERT_NO_FATAL_FAILURE(checkTypedAssignment(AssignmentScenario::kPasteInteriorEmpty));
+    ASSERT_NO_FATAL_FAILURE(checkTypedAssignment(
+        {.action = AssignmentAction::kPaste, .clipboard = "20\n\n30", .value = 10, .dirty = false, .notice = true}));
 }
 
 void MainWindowTest::checkTargetChangeInvalidatesIdentificationAndSupport()
