@@ -33,12 +33,13 @@ enum class DensoTableOutcome
     kDisabled,
     kInvalidTableRange,
     kInvalidBlockRange,
-    kReversedBlockRange,
+    kMalformedBlockRange,
     kInvalidRecordLength,
 };
 
-// `rom` holds the bytes from ECU address `base` on. The table's records hold
-// ECU addresses; a record with a zero start or end address sums nothing.
+// `rom` holds the bytes from ECU address `base` on. Each record holds a
+// block's start and end ECU addresses, the end being the block's last byte,
+// and the value that brings the block's word sum to the target.
 DensoTableOutcome CorrectDensoTable(memory::FlashAddress base, bytes::MutableByteView rom, const DensoTableSpec& spec);
 
 struct DensoTableFailure

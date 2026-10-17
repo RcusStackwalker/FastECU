@@ -21,38 +21,36 @@ std::uint32_t WordAt(bytes::ByteView block, std::size_t offset, std::uint32_t bl
     return match == overrides.end() ? bytes::ReadU32Be(block, offset) : match->value;
 }
 
-// The sum of the words from ECU address `start` up to `end`, in `rom`, which
-// starts at ECU address `base`. A zero start or end sums nothing.
+// Whether the ECU's own record check accepts the block from `start` through
+// `end`, its last byte: a word-aligned start and an end on the last byte of a
+// word at or after it, or an empty block (start == end). SH7055 and SH7058
+// firmware fails any other record before summing it; firmware without the
+// check reads the same words for every record it accepts.
+constexpr bool EcuAcceptsBlock(std::uint32_t start, std::uint32_t end)
+{
+    return start % 4 == 0 && start <= end && (start == end || end % 4 == 3);
+}
+
+// The sum of the words from ECU address `start` through `end` in `rom`, which
+// starts at ECU address `base`.
 std::expected<std::uint32_t, DensoTableOutcome> SumBlock(bytes::ByteView rom, std::uint32_t base, std::uint32_t start,
                                                          std::uint32_t end,
                                                          std::span<const DensoWordOverride> overrides)
 {
-    if (start == 0 || end == 0)
+    if (!EcuAcceptsBlock(start, end))
+    {
+        return std::unexpected(DensoTableOutcome::kMalformedBlockRange);
+    }
+    if (start == end)
     {
         return 0;
     }
-    // Legacy summed nothing here, but only because its loop never ran. The
-    // ECU's own check (SH7055 and SH7058 petrol firmware) fails such a
-    // record before summing it.
-    if (end < start)
-    {
-        return std::unexpected(DensoTableOutcome::kReversedBlockRange);
-    }
-    if (start < base || end - base > rom.size())
+    if (start < base || end - base >= rom.size())
     {
         return std::unexpected(DensoTableOutcome::kInvalidBlockRange);
     }
-    // Positions in `rom`: low <= high <= rom.size().
-    const std::size_t low = start - base;
-    const std::size_t high = end - base;
-    // Whole words from `low`, so the last may run past `high`; it must still
-    // fit in `rom`.
-    const std::size_t length = (high - low + 3) & ~std::size_t{3};
-    if (length > rom.size() - low)
-    {
-        return std::unexpected(DensoTableOutcome::kInvalidBlockRange);
-    }
-    const bytes::ByteView block = rom.subspan(low, length);
+    // Whole words: `start` is aligned and `end` is the last byte of a word.
+    const bytes::ByteView block = rom.subspan(start - base, end - start + 1);
     std::uint32_t sum = 0;
     for (std::size_t offset = 0; offset < block.size(); offset += 4)
     {
@@ -91,19 +89,13 @@ DensoTableOutcome CorrectDensoTable(memory::FlashAddress base, bytes::MutableByt
             return DensoTableOutcome::kDisabled;
         }
 
-        // A record already holding the target is left as it is.
-        std::uint32_t sum = 0;
-        if (stored != kChecksumTarget)
+        const std::expected<std::uint32_t, DensoTableOutcome> sum =
+            SumBlock(rom, base.Value(), start, end, spec.overrides);
+        if (!sum.has_value())
         {
-            const std::expected<std::uint32_t, DensoTableOutcome> block_sum =
-                SumBlock(rom, base.Value(), start, end, spec.overrides);
-            if (!block_sum.has_value())
-            {
-                return block_sum.error();
-            }
-            sum = *block_sum;
+            return sum.error();
         }
-        const std::uint32_t expected = kChecksumTarget - sum;
+        const std::uint32_t expected = kChecksumTarget - *sum;
         changed = changed || stored != expected;
         bytes::AppendU32Be(corrected, start);
         bytes::AppendU32Be(corrected, end);
@@ -131,8 +123,9 @@ std::optional<DensoTableFailure> FailureOf(DensoTableOutcome outcome)
                                  "ROM is too small for the configured checksum area"};
     case DensoTableOutcome::kInvalidBlockRange:
         return DensoTableFailure{ChecksumResult::Status::kInvalidSize, "ROM is too small for a checksum block range"};
-    case DensoTableOutcome::kReversedBlockRange:
-        return DensoTableFailure{ChecksumResult::Status::kParseError, "A checksum block range ends before it starts"};
+    case DensoTableOutcome::kMalformedBlockRange:
+        return DensoTableFailure{ChecksumResult::Status::kParseError,
+                                 "A checksum block must start on a word and end at or after it, on a word's last byte"};
     case DensoTableOutcome::kInvalidRecordLength:
         return DensoTableFailure{ChecksumResult::Status::kParseError,
                                  "Checksum area length must be a multiple of 12 bytes"};
