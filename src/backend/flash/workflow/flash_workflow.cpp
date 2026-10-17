@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <array>
-#include <cassert>
 #include <concepts>
 #include <format>
 #include <string_view>
@@ -336,29 +335,9 @@ class SubaruUnisiaJecsM32rBootModeWorkflow final : public FlashWorkflow
 
     FlashWorkflowStep Next() override
     {
-        // #lizard forgives(cyclomatic_complexity)
-        // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
-        if (!built_.has_value())
+        if (auto step = StepBeforeStage(); step.has_value())
         {
-            built_ = BuildPlans();
-        }
-        if (!built_->has_value())
-        {
-            return FlashFailureStep{built_->error()};
-        }
-        // The notice precedes whatever the attempt produced, failure included.
-        if (stage_ == Stage::kNotice)
-        {
-            return FlashPromptStep{FlashPromptKind::kRemoveProgrammingVoltage,
-                                   {{"outcome", notice_outcome_}, {"external_vpp", "yes"}, {"power_off_advice", "no"}}};
-        }
-        if (auto failure = outcome_.TakeFailure(); failure.has_value())
-        {
-            return std::move(*failure);
-        }
-        if (outcome_.Terminal())
-        {
-            return outcome_.CompletedStep();
+            return *std::move(step);
         }
         switch (stage_)
         {
@@ -447,6 +426,34 @@ class SubaruUnisiaJecsM32rBootModeWorkflow final : public FlashWorkflow
     }
 
   private:
+    // A plan failure, the VPP notice, or the outcome of a finished attempt.
+    std::optional<FlashWorkflowStep> StepBeforeStage()
+    {
+        if (!built_.has_value())
+        {
+            built_ = BuildPlans();
+        }
+        if (!built_->has_value())
+        {
+            return FlashFailureStep{built_->error()};
+        }
+        // The notice precedes whatever the attempt produced, failure included.
+        if (stage_ == Stage::kNotice)
+        {
+            return FlashPromptStep{FlashPromptKind::kRemoveProgrammingVoltage,
+                                   {{"outcome", notice_outcome_}, {"external_vpp", "yes"}, {"power_off_advice", "no"}}};
+        }
+        if (auto failure = outcome_.TakeFailure(); failure.has_value())
+        {
+            return std::move(*failure);
+        }
+        if (outcome_.Terminal())
+        {
+            return outcome_.CompletedStep();
+        }
+        return std::nullopt;
+    }
+
     enum class Stage
     {
         kBegin,
@@ -999,46 +1006,55 @@ enum class RouteMatch
     kExact,
 };
 
+using CreateWorkflow = std::unique_ptr<FlashWorkflow> (*)(FlashWorkflowRequest, FlashWorkflowPorts);
+
+template <typename Workflow> std::unique_ptr<FlashWorkflow> Make(FlashWorkflowRequest request, FlashWorkflowPorts ports)
+{
+    return std::make_unique<Workflow>(std::move(request), std::move(ports));
+}
+
+// SH7058 reads over K-Line and writes over CAN.
+std::unique_ptr<FlashWorkflow> MakeSubaruHitachiSh7058(FlashWorkflowRequest request, FlashWorkflowPorts ports)
+{
+    return request.operation == FlashOperation::kRead
+               ? Make<SubaruHitachiSh7058KlineWorkflow>(std::move(request), std::move(ports))
+               : Make<SubaruHitachiSh7058CanWorkflow>(std::move(request), std::move(ports));
+}
+
+constexpr CreateWorkflow kColt = &Make<ColtWorkflow>;
+constexpr CreateWorkflow kEeprom = &Make<EepromWorkflow>;
+constexpr CreateWorkflow kSubaruMitsuM32rKline = &Make<SubaruMitsuM32rKlineWorkflow>;
+constexpr CreateWorkflow kSubaruHitachiM32rKline = &Make<SubaruHitachiM32rKlineWorkflow>;
+constexpr CreateWorkflow kSubaruDensoMc68hc16y502 = &Make<SubaruDensoMc68hc16y5_02Workflow>;
+constexpr CreateWorkflow kSubaruDensoSh705502 = &Make<SubaruDensoSh7055_02Workflow>;
+constexpr CreateWorkflow kSubaruDensoSh705xDensoCan = &Make<SubaruDensoSh705xDensoCanWorkflow>;
+constexpr CreateWorkflow kSubaruTcuDensoSh705xCan = &Make<SubaruTcuDensoSh705xCanWorkflow>;
+constexpr CreateWorkflow kSubaruDensoSh7058Can = &Make<SubaruDensoSh7058CanWorkflow>;
+constexpr CreateWorkflow kSubaruDensoSh7058CanDiesel = &Make<SubaruDensoSh7058CanDieselWorkflow>;
+constexpr CreateWorkflow kSubaruHitachiM32rCan = &Make<SubaruHitachiM32rCanWorkflow>;
+constexpr CreateWorkflow kSubaruTcuHitachiM32rKline = &Make<SubaruTcuHitachiM32rKlineWorkflow>;
+constexpr CreateWorkflow kSubaruUnisiaJecs = &Make<SubaruUnisiaJecsWorkflow>;
+constexpr CreateWorkflow kSubaruTcuHitachiM32rCan = &Make<SubaruTcuHitachiM32rCanWorkflow>;
+constexpr CreateWorkflow kSubaruHitachiSh72543rCan = &Make<SubaruHitachiSh72543rCanWorkflow>;
+constexpr CreateWorkflow kSubaruHitachiSh7058 = &MakeSubaruHitachiSh7058;
+constexpr CreateWorkflow kSubaruTcuCvtHitachiM32rCan = &Make<SubaruTcuCvtHitachiM32rCanWorkflow>;
+constexpr CreateWorkflow kSubaruTcuCvtMitsuMh8111Can = &Make<SubaruTcuCvtMitsuMh8111CanWorkflow>;
+constexpr CreateWorkflow kSubaruTcuCvtMitsuMh8104Can = &Make<SubaruTcuCvtMitsuMh8104CanWorkflow>;
+constexpr CreateWorkflow kSubaruDenso1n83m15mCan = &Make<SubaruDenso1n83m_1_5mCanWorkflow>;
+constexpr CreateWorkflow kSubaruDensoSh72531Can = &Make<SubaruDensoSh72531CanWorkflow>;
+constexpr CreateWorkflow kSubaruDensoSh72543CanDiesel = &Make<SubaruDensoSh72543CanDieselWorkflow>;
+constexpr CreateWorkflow kSubaruDenso1n83m4mCan = &Make<SubaruDenso1n83m_4mCanWorkflow>;
+constexpr CreateWorkflow kSubaruDensoSh705xKline = &Make<SubaruDensoSh705xKlineWorkflow>;
+constexpr CreateWorkflow kSubaruDensoMc68hc16y502Bdm = &Make<SubaruDensoMc68hc16y5_02BdmWorkflow>;
+constexpr CreateWorkflow kSubaruUnisiaJecsM32rKline = &Make<SubaruUnisiaJecsM32rKlineWorkflow>;
+constexpr CreateWorkflow kSubaruUnisiaJecsM32rBootMode = &Make<SubaruUnisiaJecsM32rBootModeWorkflow>;
+
 struct Route
 {
-    enum class Kind
-    {
-        kColt,
-        kEeprom,
-        kSubaruMitsuM32rKline,
-        kSubaruHitachiM32rKline,
-        kSubaruDensoMc68hc16y502,
-        kSubaruDensoSh705502,
-        kSubaruDensoSh705xDensoCan,
-        kSubaruTcuDensoSh705xCan,
-        kSubaruDensoSh7058Can,
-        kSubaruDensoSh7058CanDiesel,
-        kSubaruHitachiM32rCan,
-        kSubaruTcuHitachiM32rKline,
-        kSubaruUnisiaJecs,
-        kSubaruTcuHitachiM32rCan,
-        kSubaruHitachiSh72543rCan,
-        kSubaruHitachiSh7058,
-        kSubaruTcuCvtHitachiM32rCan,
-        kSubaruTcuCvtMitsuMh8111Can,
-        kSubaruTcuCvtMitsuMh8104Can,
-        kSubaruDenso1n83m15mCan,
-        kSubaruDensoSh72531Can,
-        kSubaruDensoSh72543CanDiesel,
-        kSubaruDenso1n83m4mCan,
-        kSubaruDensoSh705xKline,
-        kSubaruDensoMc68hc16y502Bdm,
-        kSubaruUnisiaJecsM32rKline,
-        kSubaruUnisiaJecsM32rBootMode,
-        kUnrouted,
-    };
-
     std::string_view pattern;
-    Kind kind;
+    CreateWorkflow create;
     RouteMatch match = RouteMatch::kPrefix;
 };
-
-using enum Route::Kind;
 
 constexpr auto kRoutes = std::to_array<Route>({
     {"sub_ecu_hitachi_m32r_kline", kSubaruHitachiM32rKline},
@@ -1116,8 +1132,6 @@ std::optional<bytes::Bytes> PortableImageForOperation(FlashOperation operation, 
 
 std::unique_ptr<FlashWorkflow> FlashWorkflowFactory::TryCreate(FlashWorkflowRequest request, FlashWorkflowPorts ports)
 {
-    // #lizard forgives(cyclomatic_complexity)
-    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     const auto route = std::ranges::find_if(kRoutes,
                                             [&request](const Route& candidate)
                                             {
@@ -1125,76 +1139,7 @@ std::unique_ptr<FlashWorkflow> FlashWorkflowFactory::TryCreate(FlashWorkflowRequ
                                                            ? request.protocol.name == candidate.pattern
                                                            : request.protocol.name.starts_with(candidate.pattern);
                                             });
-    if (route == kRoutes.end())
-    {
-        return nullptr;
-    }
-
-    switch (route->kind)
-    {
-    case kColt:
-        return std::make_unique<ColtWorkflow>(std::move(request), std::move(ports));
-    case kEeprom:
-        return std::make_unique<EepromWorkflow>(std::move(request), std::move(ports));
-    case kSubaruMitsuM32rKline:
-        return std::make_unique<SubaruMitsuM32rKlineWorkflow>(std::move(request), std::move(ports));
-    case kSubaruHitachiM32rKline:
-        return std::make_unique<SubaruHitachiM32rKlineWorkflow>(std::move(request), std::move(ports));
-    case kSubaruDensoMc68hc16y502:
-        return std::make_unique<SubaruDensoMc68hc16y5_02Workflow>(std::move(request), std::move(ports));
-    case kSubaruDensoSh705502:
-        return std::make_unique<SubaruDensoSh7055_02Workflow>(std::move(request), std::move(ports));
-    case kSubaruDensoSh705xDensoCan:
-        return std::make_unique<SubaruDensoSh705xDensoCanWorkflow>(std::move(request), std::move(ports));
-    case kSubaruTcuDensoSh705xCan:
-        return std::make_unique<SubaruTcuDensoSh705xCanWorkflow>(std::move(request), std::move(ports));
-    case kSubaruDensoSh7058Can:
-        return std::make_unique<SubaruDensoSh7058CanWorkflow>(std::move(request), std::move(ports));
-    case kSubaruDensoSh7058CanDiesel:
-        return std::make_unique<SubaruDensoSh7058CanDieselWorkflow>(std::move(request), std::move(ports));
-    case kSubaruHitachiM32rCan:
-        return std::make_unique<SubaruHitachiM32rCanWorkflow>(std::move(request), std::move(ports));
-    case kSubaruTcuHitachiM32rKline:
-        return std::make_unique<SubaruTcuHitachiM32rKlineWorkflow>(std::move(request), std::move(ports));
-    case kSubaruUnisiaJecs:
-        return std::make_unique<SubaruUnisiaJecsWorkflow>(std::move(request), std::move(ports));
-    case kSubaruHitachiSh72543rCan:
-        return std::make_unique<SubaruHitachiSh72543rCanWorkflow>(std::move(request), std::move(ports));
-    case kSubaruHitachiSh7058:
-        if (request.operation == FlashOperation::kRead)
-        {
-            return std::make_unique<SubaruHitachiSh7058KlineWorkflow>(std::move(request), std::move(ports));
-        }
-        return std::make_unique<SubaruHitachiSh7058CanWorkflow>(std::move(request), std::move(ports));
-    case kSubaruTcuHitachiM32rCan:
-        return std::make_unique<SubaruTcuHitachiM32rCanWorkflow>(std::move(request), std::move(ports));
-    case kSubaruTcuCvtHitachiM32rCan:
-        return std::make_unique<SubaruTcuCvtHitachiM32rCanWorkflow>(std::move(request), std::move(ports));
-    case kSubaruTcuCvtMitsuMh8111Can:
-        return std::make_unique<SubaruTcuCvtMitsuMh8111CanWorkflow>(std::move(request), std::move(ports));
-    case kSubaruTcuCvtMitsuMh8104Can:
-        return std::make_unique<SubaruTcuCvtMitsuMh8104CanWorkflow>(std::move(request), std::move(ports));
-    case kSubaruDenso1n83m15mCan:
-        return std::make_unique<SubaruDenso1n83m_1_5mCanWorkflow>(std::move(request), std::move(ports));
-    case kSubaruDensoSh72531Can:
-        return std::make_unique<SubaruDensoSh72531CanWorkflow>(std::move(request), std::move(ports));
-    case kSubaruDensoSh72543CanDiesel:
-        return std::make_unique<SubaruDensoSh72543CanDieselWorkflow>(std::move(request), std::move(ports));
-    case kSubaruDenso1n83m4mCan:
-        return std::make_unique<SubaruDenso1n83m_4mCanWorkflow>(std::move(request), std::move(ports));
-    case kSubaruDensoSh705xKline:
-        return std::make_unique<SubaruDensoSh705xKlineWorkflow>(std::move(request), std::move(ports));
-    case kSubaruDensoMc68hc16y502Bdm:
-        return std::make_unique<SubaruDensoMc68hc16y5_02BdmWorkflow>(std::move(request), std::move(ports));
-    case kSubaruUnisiaJecsM32rKline:
-        return std::make_unique<SubaruUnisiaJecsM32rKlineWorkflow>(std::move(request), std::move(ports));
-    case kSubaruUnisiaJecsM32rBootMode:
-        return std::make_unique<SubaruUnisiaJecsM32rBootModeWorkflow>(std::move(request), std::move(ports));
-    case kUnrouted:
-        return nullptr;
-    }
-    assert(false);
-    return nullptr;
+    return route == kRoutes.end() ? nullptr : route->create(std::move(request), std::move(ports));
 }
 
 } // namespace fastecu::flash

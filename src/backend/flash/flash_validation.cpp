@@ -4,6 +4,7 @@
 #include "src/backend/flash/flash_types.h"
 #include "src/backend/ports/error.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <format>
 #include <optional>
@@ -45,12 +46,9 @@ bool FamilyMatchesTransportVariant(const FlashPlanFields& fields)
         { return fields.family == FamilyTraits<T>::kFamily && fields.transport == FamilyTraits<T>::kTransport; },
         fields.family_plan);
 }
-} // namespace
 
-Result<FlashPlan> ValidateAndBuild(FlashPlanFields fields)
+Status ValidateTargetAndRegions(const FlashPlanFields& fields)
 {
-    // #lizard forgives(cyclomatic_complexity)
-    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     if (fields.target_id.empty())
     {
         return Fail(ErrorKind::kInvalidConfig, "target_id must not be empty");
@@ -67,85 +65,114 @@ Result<FlashPlan> ValidateAndBuild(FlashPlanFields fields)
     {
         return Fail(ErrorKind::kInvalidConfig, "transfer_region end address does not fit in 32 bits");
     }
-    for (const MemoryRegion& erase : fields.erase_regions)
+    if (std::ranges::any_of(fields.erase_regions, RegionEndNotRepresentable))
     {
-        if (RegionEndNotRepresentable(erase))
-        {
-            return Fail(ErrorKind::kInvalidConfig, "erase region end address does not fit in 32 bits");
-        }
+        return Fail(ErrorKind::kInvalidConfig, "erase region end address does not fit in 32 bits");
     }
-    if (fields.operation == FlashOperation::kRead)
+    return {};
+}
+
+// Reads erase nothing and carry no image; writes and test writes carry one.
+Status ValidateOperationShape(const FlashPlanFields& fields)
+{
+    if (fields.operation != FlashOperation::kRead)
     {
-        if (!fields.erase_regions.empty())
-        {
-            return Fail(ErrorKind::kInvalidConfig, "Read plans must not declare erase regions");
-        }
-        if (fields.image.has_value())
-        {
-            return Fail(ErrorKind::kInvalidConfig, "Read plans must not carry an image");
-        }
+        return fields.image.has_value() ? Status{}
+                                        : Fail(ErrorKind::kInvalidConfig, "Write/TestWrite plans must carry an image");
     }
-    else
+    if (!fields.erase_regions.empty())
     {
-        if (!fields.image.has_value())
-        {
-            return Fail(ErrorKind::kInvalidConfig, "Write/TestWrite plans must carry an image");
-        }
+        return Fail(ErrorKind::kInvalidConfig, "Read plans must not declare erase regions");
     }
-    std::optional<memory::MemoryImage> rom_image;
-    if (fields.image_map.has_value())
+    if (fields.image.has_value())
     {
-        if (!fields.image.has_value())
-        {
-            return Fail(ErrorKind::kInvalidConfig, "only a write image can have a memory map");
-        }
-        auto placed = memory::MemoryImage::Create(*std::move(fields.image_map), *fields.image);
-        fields.image_map.reset();
-        if (!placed.has_value())
-        {
-            return Fail(ErrorKind::kInvalidConfig,
-                        std::format("the image does not fit its memory map: {}", placed.error().detail));
-        }
-        rom_image = std::move(*placed);
+        return Fail(ErrorKind::kInvalidConfig, "Read plans must not carry an image");
     }
-    if (const bool requires_kernel =
-            std::visit([]<typename T>(const T&) { return kFamilyRequiresKernel<T>; }, fields.family_plan);
-        requires_kernel && !fields.kernel.has_value())
+    return {};
+}
+
+// Places the write image in its memory map, consuming the map.
+Result<std::optional<memory::MemoryImage>> PlaceImage(FlashPlanFields& fields)
+{
+    if (!fields.image_map.has_value())
     {
-        return Fail(ErrorKind::kInvalidConfig, "family requires a kernel image");
+        return std::nullopt;
     }
-    if (fields.kernel.has_value())
+    if (!fields.image.has_value())
     {
-        if (fields.kernel->id.empty())
-        {
-            return Fail(ErrorKind::kInvalidConfig, "kernel id must not be empty");
-        }
-        if (fields.kernel->bytes.empty())
-        {
-            return Fail(ErrorKind::kInvalidConfig, "kernel bytes must not be empty");
-        }
-        const std::uint64_t kernel_end =
-            static_cast<std::uint64_t>(fields.kernel->load_address) + fields.kernel->bytes.size();
-        if (kernel_end > static_cast<std::uint64_t>(0xffffffffU))
-        {
-            return Fail(ErrorKind::kInvalidConfig, "kernel upload range overflows a 32-bit address space");
-        }
+        return Fail(ErrorKind::kInvalidConfig, "only a write image can have a memory map");
+    }
+    auto placed = memory::MemoryImage::Create(*std::move(fields.image_map), *fields.image);
+    fields.image_map.reset();
+    if (!placed.has_value())
+    {
+        return Fail(ErrorKind::kInvalidConfig,
+                    std::format("the image does not fit its memory map: {}", placed.error().detail));
+    }
+    return std::optional{std::move(*placed)};
+}
+
+Status ValidateKernel(const FlashPlanFields& fields)
+{
+    if (!fields.kernel.has_value())
+    {
+        return std::visit([]<typename T>(const T&) { return kFamilyRequiresKernel<T>; }, fields.family_plan)
+                   ? Fail(ErrorKind::kInvalidConfig, "family requires a kernel image")
+                   : Status{};
+    }
+    if (fields.kernel->id.empty())
+    {
+        return Fail(ErrorKind::kInvalidConfig, "kernel id must not be empty");
+    }
+    if (fields.kernel->bytes.empty())
+    {
+        return Fail(ErrorKind::kInvalidConfig, "kernel bytes must not be empty");
+    }
+    if (static_cast<std::uint64_t>(fields.kernel->load_address) + fields.kernel->bytes.size() >
+        static_cast<std::uint64_t>(0xffffffffU))
+    {
+        return Fail(ErrorKind::kInvalidConfig, "kernel upload range overflows a 32-bit address space");
+    }
+    return {};
+}
+
+bool HasDuplicateConfirmation(const FlashPlanFields& fields)
+{
+    std::unordered_set<ConfirmationSpec::Id> seen_ids;
+    return std::ranges::any_of(fields.confirmations, [&seen_ids](const ConfirmationSpec& confirmation)
+                               { return !seen_ids.insert(confirmation.id).second; });
+}
+} // namespace
+
+Result<FlashPlan> ValidateAndBuild(FlashPlanFields fields)
+{
+    if (auto valid = ValidateTargetAndRegions(fields); !valid.has_value())
+    {
+        return std::unexpected(valid.error());
+    }
+    if (auto valid = ValidateOperationShape(fields); !valid.has_value())
+    {
+        return std::unexpected(valid.error());
+    }
+    auto rom_image = PlaceImage(fields);
+    if (!rom_image.has_value())
+    {
+        return std::unexpected(rom_image.error());
+    }
+    if (auto valid = ValidateKernel(fields); !valid.has_value())
+    {
+        return std::unexpected(valid.error());
     }
     if (!FamilyMatchesTransportVariant(fields))
     {
         return Fail(ErrorKind::kInvalidConfig, "family_plan variant does not match transport kind or declared family");
     }
-    std::unordered_set<ConfirmationSpec::Id> seen_ids;
-    for (const ConfirmationSpec& confirmation : fields.confirmations)
+    if (HasDuplicateConfirmation(fields))
     {
-        if (!seen_ids.insert(confirmation.id).second)
-        {
-            return Fail(ErrorKind::kInvalidConfig, "duplicate confirmation id declared");
-        }
+        return Fail(ErrorKind::kInvalidConfig, "duplicate confirmation id declared");
     }
-
     const std::uint64_t total_transfer_bytes = fields.transfer_region.length;
-    return FlashPlan(std::move(fields), total_transfer_bytes, std::move(rom_image));
+    return FlashPlan(std::move(fields), total_transfer_bytes, *std::move(rom_image));
 }
 
 } // namespace fastecu::flash

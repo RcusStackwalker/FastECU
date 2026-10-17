@@ -147,13 +147,37 @@ std::vector<ConfirmationSpec> ConfirmationsForMode(EepromReadMode mode)
     };
 }
 
+// The kernel loads inside RAM; with a known size, its upload footprint fits too.
+Result<void> ValidateKernelPlacement(const DensoSh705xEepromInput& input, const MemoryRegion& kernel_ram,
+                                     std::optional<std::size_t> kernel_size)
+{
+    const std::uint64_t ram_end = static_cast<std::uint64_t>(kernel_ram.start) + kernel_ram.length;
+    if (input.kernel.load_address < kernel_ram.start ||
+        static_cast<std::uint64_t>(input.kernel.load_address) >= ram_end)
+    {
+        return Fail(ErrorKind::kInvalidConfig, "kernel load range is outside the SH705x RAM region");
+    }
+    if (!kernel_size.has_value())
+    {
+        return {};
+    }
+    Result<DensoSh705xEepromUploadSizes> upload_sizes = ComputeDensoSh705xEepromUploadSizes(input.family, *kernel_size);
+    if (!upload_sizes.has_value())
+    {
+        return std::unexpected(upload_sizes.error());
+    }
+    if (upload_sizes->ram_footprint_bytes > ram_end - static_cast<std::uint64_t>(input.kernel.load_address))
+    {
+        return Fail(ErrorKind::kInvalidConfig, "kernel upload footprint is outside the SH705x RAM region");
+    }
+    return {};
+}
+
 } // namespace
 
 Result<void> ValidateDensoSh705xEepromPreflight(const DensoSh705xEepromInput& input,
                                                 std::optional<std::size_t> kernel_size)
 {
-    // #lizard forgives(cyclomatic_complexity)
-    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     if (input.family != FlashFamily::kDensoSh705xEepromKline && input.family != FlashFamily::kDensoSh705xEepromCan)
     {
         return Fail(ErrorKind::kInvalidConfig, "unsupported family for Denso SH705x EEPROM builder");
@@ -176,31 +200,14 @@ Result<void> ValidateDensoSh705xEepromPreflight(const DensoSh705xEepromInput& in
     {
         return std::unexpected(bounds.error());
     }
-    if (input.eeprom_region.start != bounds->eeprom.start || input.eeprom_region.length != bounds->eeprom.length)
+    if (input.eeprom_region != bounds->eeprom)
     {
         return Fail(ErrorKind::kInvalidConfig, "eeprom_region does not match the resolved MCU table entry");
     }
-    const std::uint64_t ram_end = static_cast<std::uint64_t>(bounds->kernel_ram.start) + bounds->kernel_ram.length;
-    if (input.kernel.load_address < bounds->kernel_ram.start ||
-        static_cast<std::uint64_t>(input.kernel.load_address) >= ram_end)
+    if (auto placed = ValidateKernelPlacement(input, bounds->kernel_ram, kernel_size); !placed.has_value())
     {
-        return Fail(ErrorKind::kInvalidConfig, "kernel load range is outside the SH705x RAM region");
+        return placed;
     }
-    if (kernel_size.has_value())
-    {
-        Result<DensoSh705xEepromUploadSizes> upload_sizes =
-            ComputeDensoSh705xEepromUploadSizes(input.family, *kernel_size);
-        if (!upload_sizes.has_value())
-        {
-            return std::unexpected(upload_sizes.error());
-        }
-        const std::uint64_t available = ram_end - static_cast<std::uint64_t>(input.kernel.load_address);
-        if (upload_sizes->ram_footprint_bytes > available)
-        {
-            return Fail(ErrorKind::kInvalidConfig, "kernel upload footprint is outside the SH705x RAM region");
-        }
-    }
-
     if (input.family == FlashFamily::kDensoSh705xEepromKline && !KlineSupports(input.security))
     {
         return Fail(ErrorKind::kInvalidConfig, "security variant is not supported on the K-Line transport");

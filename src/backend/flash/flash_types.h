@@ -1,6 +1,9 @@
 #pragma once
+#include <array>
+#include <cstddef>
 #include <cstdint>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -80,6 +83,59 @@ enum class FlashFamily
     kSubaruUnisiaJecsM32rBootModeKernel,
     kSubaruUnisiaJecsM32rBootModeProgram,
 };
+
+// Stable family identifiers, in FlashFamily order.
+inline constexpr auto kFlashFamilyNames = std::to_array({
+    std::pair{FlashFamily::kDensoSh705xEepromKline, std::string_view{"DensoSh705xEepromKline"}},
+    std::pair{FlashFamily::kDensoSh705xEepromCan, std::string_view{"DensoSh705xEepromCan"}},
+    std::pair{FlashFamily::kMitsuColtM32rCan, std::string_view{"MitsuColtM32rCan"}},
+    std::pair{FlashFamily::kSubaruMitsuM32rKline, std::string_view{"SubaruMitsuM32rKline"}},
+    std::pair{FlashFamily::kSubaruHitachiM32rKline, std::string_view{"SubaruHitachiM32rKline"}},
+    std::pair{FlashFamily::kSubaruDensoMc68hc16y502, std::string_view{"SubaruDensoMc68hc16y5_02"}},
+    std::pair{FlashFamily::kSubaruDensoSh705502, std::string_view{"SubaruDensoSh7055_02"}},
+    std::pair{FlashFamily::kSubaruHitachiM32rCan, std::string_view{"SubaruHitachiM32rCan"}},
+    std::pair{FlashFamily::kSubaruTcuCvtHitachiM32rCan, std::string_view{"SubaruTcuCvtHitachiM32rCan"}},
+    std::pair{FlashFamily::kSubaruTcuCvtMitsuMh8111Can, std::string_view{"SubaruTcuCvtMitsuMh8111Can"}},
+    std::pair{FlashFamily::kSubaruTcuCvtMitsuMh8104Can, std::string_view{"SubaruTcuCvtMitsuMh8104Can"}},
+    std::pair{FlashFamily::kSubaruDenso1n83m15mCan, std::string_view{"SubaruDenso1n83m_1_5mCan"}},
+    std::pair{FlashFamily::kSubaruDensoSh72531Can, std::string_view{"SubaruDensoSh72531Can"}},
+    std::pair{FlashFamily::kSubaruDensoSh72543CanDiesel, std::string_view{"SubaruDensoSh72543CanDiesel"}},
+    std::pair{FlashFamily::kSubaruDenso1n83m4mCan, std::string_view{"SubaruDenso1n83m_4mCan"}},
+    std::pair{FlashFamily::kSubaruDensoSh705xDensoCan, std::string_view{"SubaruDensoSh705xDensoCan"}},
+    std::pair{FlashFamily::kSubaruTcuDensoSh705xCan, std::string_view{"SubaruTcuDensoSh705xCan"}},
+    std::pair{FlashFamily::kSubaruDensoSh7058Can, std::string_view{"SubaruDensoSh7058Can"}},
+    std::pair{FlashFamily::kSubaruDensoSh7058CanDiesel, std::string_view{"SubaruDensoSh7058CanDiesel"}},
+    std::pair{FlashFamily::kSubaruTcuHitachiM32rKline, std::string_view{"SubaruTcuHitachiM32rKline"}},
+    std::pair{FlashFamily::kSubaruTcuHitachiM32rCan, std::string_view{"SubaruTcuHitachiM32rCan"}},
+    std::pair{FlashFamily::kSubaruHitachiSh72543rCan, std::string_view{"SubaruHitachiSh72543rCan"}},
+    std::pair{FlashFamily::kSubaruHitachiSh7058, std::string_view{"SubaruHitachiSh7058"}},
+    std::pair{FlashFamily::kSubaruUnisiaJecs, std::string_view{"SubaruUnisiaJecs"}},
+    std::pair{FlashFamily::kSubaruDensoSh705xKline, std::string_view{"SubaruDensoSh705xKline"}},
+    std::pair{FlashFamily::kSubaruDensoMc68hc16y502Bdm, std::string_view{"SubaruDensoMc68hc16y5_02Bdm"}},
+    std::pair{FlashFamily::kSubaruUnisiaJecsM32rKline, std::string_view{"SubaruUnisiaJecsM32rKline"}},
+    std::pair{FlashFamily::kSubaruUnisiaJecsM32rBootModeKernel, std::string_view{"SubaruUnisiaJecsM32rBootModeKernel"}},
+    std::pair{FlashFamily::kSubaruUnisiaJecsM32rBootModeProgram,
+              std::string_view{"SubaruUnisiaJecsM32rBootModeProgram"}},
+});
+
+consteval bool FlashFamilyNamesFollowEnumOrder()
+{
+    for (std::size_t index = 0; index < kFlashFamilyNames.size(); ++index)
+    {
+        if (static_cast<std::size_t>(kFlashFamilyNames[index].first) != index)
+        {
+            return false;
+        }
+    }
+    return static_cast<std::size_t>(FlashFamily::kSubaruUnisiaJecsM32rBootModeProgram) + 1 == kFlashFamilyNames.size();
+}
+static_assert(FlashFamilyNamesFollowEnumOrder(), "name every FlashFamily, in declaration order");
+
+constexpr std::string_view FlashFamilyName(FlashFamily family)
+{
+    const auto index = static_cast<std::size_t>(family);
+    return index < kFlashFamilyNames.size() ? kFlashFamilyNames[index].second : "Unknown";
+}
 
 enum class TransportKind
 {
