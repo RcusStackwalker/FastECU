@@ -136,8 +136,10 @@ write orchestration calls it directly without forwarding wrappers.
 and the supplied encrypted bytes, then runs the fatal UDS request at 500 ms and
 discards success. The four callers retain whole-image encryption, image origin
 subtraction, 256-byte chunk selection, cancellation, progress, geometry, close
-and checksum. Literal first/last frames, including N83M nonzero image origins,
-and common negative/transport/cancellation tests pin this bounded operation;
+and checksum. Frozen complete first/last requests, including the 256 encrypted
+bytes and N83M nonzero image origins, supplement each family’s calculated
+full-chunk sweep. These independent literals and common
+negative/transport/cancellation tests pin this bounded operation;
 this extraction does not establish hardware qualification.
 
 `ReadDensoEncryptedPage` shares only the B7 request with its four-byte
