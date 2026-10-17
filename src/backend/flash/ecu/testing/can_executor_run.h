@@ -310,6 +310,59 @@ void ExpectCancellationAfterPageFailsButAtStopIsSwallowed(MakePlan make_plan, Re
     }
 }
 
+// An OBK probe that mismatches (0), is absent (1) or is empty (2) is a miss:
+// the ECU is initialised and the read proceeds, here until the scripted stop.
+template <class Executor, class MakePlan, class BenchConnect, class ReadSetup>
+void ExpectObkProbeMissesInitialise(MakePlan make_plan, BenchConnect bench_connect, ReadSetup read_setup,
+                                    std::uint32_t block_start)
+{
+    using std::chrono_literals::operator""ms;
+    for (int probe_case = 0; probe_case < 3; ++probe_case)
+    {
+        SCOPED_TRACE(probe_case);
+        ScriptedCanFlashTransport transport;
+        bench_connect(transport, probe_case);
+        read_setup(transport);
+        transport.Exchange(Request(bytes::ComposeBe(bytes::Byte(0xB7), block_start)));
+        transport.QueueError(ErrorKind::kDisconnected, "stop after successful connection");
+        const auto plan = make_plan();
+        ASSERT_THAT(plan, fastecu::testing::IsOk());
+        auto [clock, events, cancellation, result] = ExecutorRun<Executor>(*plan, transport);
+        EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kDisconnected));
+        EXPECT_TRUE(transport.ScriptConsumed());
+        EXPECT_THAT(events.logs,
+                    ::testing::Contains(::testing::Pair(LogLevel::kInfo, "OBK not active, initialising ECU...")));
+        EXPECT_EQ(transport.ReadTimeouts().front(), 200ms);
+    }
+}
+
+// A transport error, a cancellation or a malformed reply to the OBK probe is
+// returned as is, before the ECU is initialised.
+template <class Executor, class MakePlan> void ExpectObkProbeErrorsPropagate(MakePlan make_plan)
+{
+    for (const auto kind : {ErrorKind::kDisconnected, ErrorKind::kCancelled, ErrorKind::kBadResponse})
+    {
+        SCOPED_TRACE(static_cast<int>(kind));
+        ScriptedCanFlashTransport transport;
+        transport.Exchange(Request({0x10, 0x5F}));
+        if (kind == ErrorKind::kBadResponse)
+        {
+            transport.QueueRead(bytes::Bytes{}); // malformed envelope, unlike an empty PDU
+        }
+        else
+        {
+            transport.QueueError(kind, "probe failure");
+        }
+        const auto plan = make_plan();
+        ASSERT_THAT(plan, fastecu::testing::IsOk());
+        auto [clock, events, cancellation, result] = ExecutorRun<Executor>(*plan, transport);
+        EXPECT_THAT(result, fastecu::testing::IsErr(kind));
+        EXPECT_TRUE(transport.ScriptConsumed());
+        EXPECT_THAT(events.logs, ::testing::Not(::testing::Contains(
+                                     ::testing::Pair(LogLevel::kInfo, "OBK not active, initialising ECU..."))));
+    }
+}
+
 // A cancellation raised by the successful-close log must stop the flow before
 // the checksum: the last settle is the 100 ms one and no "Verifying checksum"
 // is logged.

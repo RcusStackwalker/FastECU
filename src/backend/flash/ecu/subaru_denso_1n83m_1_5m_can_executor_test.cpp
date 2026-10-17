@@ -556,55 +556,13 @@ INSTANTIATE_TYPED_TEST_SUITE_P(SubaruDenso1n83m_1_5mCan, CanExecutorConformance,
 // permissiveness, without invoking a new production helper or normalizing it.
 TEST(SubaruDenso1n83m_1_5mCanExecutor, ObkMismatchAbsentAndEmptyAreMisses)
 {
-    for (int probe_case = 0; probe_case < 3; ++probe_case)
-    {
-        SCOPED_TRACE(probe_case);
-        ScriptedCanFlashTransport transport;
-        ScriptBenchConnect(transport, probe_case);
-        ScriptReadSetup(transport);
-        transport.Exchange(Request(bytes::ComposeBe(bytes::Byte(0xB7), kBlockStart)));
-        transport.QueueError(ErrorKind::kDisconnected, "stop after successful connection");
-        FakeClock clock;
-        RecordingEventSink events;
-        fastecu::ManualCancellationToken cancellation;
-        SubaruDenso1n83m_1_5mCanExecutor executor;
-        const auto plan = ReadPlan();
-        ASSERT_THAT(plan, fastecu::testing::IsOk());
-        EXPECT_THAT(executor.Execute(*plan, transport, clock, cancellation, events),
-                    fastecu::testing::IsErr(ErrorKind::kDisconnected));
-        EXPECT_TRUE(transport.ScriptConsumed());
-        EXPECT_THAT(events.logs,
-                    testing::Contains(testing::Pair(fastecu::LogLevel::kInfo, "OBK not active, initialising ECU...")));
-        EXPECT_EQ(transport.ReadTimeouts().front(), 200ms);
-    }
+    fastecu::flash::testing::ExpectObkProbeMissesInitialise<SubaruDenso1n83m_1_5mCanExecutor>(
+        &ReadPlan, &ScriptBenchConnect, &ScriptReadSetup, kBlockStart);
 }
 
 TEST(SubaruDenso1n83m_1_5mCanExecutor, ObkErrorsAndCancellationPropagateBeforeInitialization)
 {
-    for (const auto kind : {ErrorKind::kDisconnected, ErrorKind::kCancelled, ErrorKind::kBadResponse})
-    {
-        SCOPED_TRACE(static_cast<int>(kind));
-        ScriptedCanFlashTransport transport;
-        transport.Exchange(Request({0x10, 0x5F}));
-        if (kind == ErrorKind::kBadResponse)
-        {
-            transport.QueueRead(bytes::Bytes{}); // malformed envelope, unlike an empty PDU
-        }
-        else
-        {
-            transport.QueueError(kind, "probe failure");
-        }
-        FakeClock clock;
-        RecordingEventSink events;
-        fastecu::ManualCancellationToken cancellation;
-        SubaruDenso1n83m_1_5mCanExecutor executor;
-        const auto plan = ReadPlan();
-        ASSERT_THAT(plan, fastecu::testing::IsOk());
-        EXPECT_THAT(executor.Execute(*plan, transport, clock, cancellation, events), fastecu::testing::IsErr(kind));
-        EXPECT_TRUE(transport.ScriptConsumed());
-        EXPECT_THAT(events.logs, testing::Not(testing::Contains(
-                                     testing::Pair(fastecu::LogLevel::kInfo, "OBK not active, initialising ECU..."))));
-    }
+    fastecu::flash::testing::ExpectObkProbeErrorsPropagate<SubaruDenso1n83m_1_5mCanExecutor>(&ReadPlan);
 }
 
 TEST(SubaruDenso1n83m_1_5mCanExecutor, ShortPagesAdvanceByRequestedSizeAndStopIsBestEffort)
