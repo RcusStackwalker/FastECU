@@ -57,6 +57,7 @@ class Chunks : public QObject
     qint64 size();
 
   private:
+    qint64 readOriginal(qint64 ioPos, qint64 count, QByteArray& buffer, QByteArray *highlighted);
     int getChunkIndex(qint64 absPos);
 
     QIODevice *io_device_{};

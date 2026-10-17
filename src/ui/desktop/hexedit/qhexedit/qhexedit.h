@@ -391,6 +391,37 @@ class QHEXEDIT_API QHexEdit : public QAbstractScrollArea
     virtual bool focusNextPrevChild(bool next);
 
   private:
+    // Cursor motions, in the order of their keys in qhexedit.cpp.
+    enum class Motion
+    {
+        kNextChar,
+        kPreviousChar,
+        kEndOfLine,
+        kStartOfLine,
+        kPreviousLine,
+        kNextLine,
+        kNextPage,
+        kPreviousPage,
+        kEndOfDocument,
+        kStartOfDocument,
+    };
+    qint64 motionTarget(Motion motion, qint64 page);
+    void moveOrSelect(QKeyEvent *event);
+    void edit(QKeyEvent *event);
+    void copySelection();
+    void eraseSelection();
+    void pasteClipboard();
+    void deleteForward();
+    void deleteBackward();
+    bool acceptsKey(int key) const;
+    char withTypedNibble(int key);
+    void type(const QString& text);
+    void switchEditArea(QKeyEvent *event);
+    void paintAreas(QPainter& painter, const QRect& rect, int pxOfsX);
+    void paintAddresses(QPainter& painter, int pxOfsX);
+    void paintByte(QPainter& painter, qint64 index, int colIdx, int pxPosY, int pxOfsX);
+    void paintCursor(QPainter& painter, int pxOfsX);
+
     // Handle selections
     void resetSelection(qint64 pos); // set selectionStart and selectionEnd to pos
     void resetSelection();           // set selectionEnd to selectionStart
