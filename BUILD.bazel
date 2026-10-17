@@ -149,6 +149,24 @@ py_binary(
     deps = ["@python_deps//pyyaml"],
 )
 
+# The same fixtures plus the AST plugin's, which need a system LLVM matching
+# clang-tidy; without the plugin library those tests skip.
+py_binary(
+    name = "clang_tidy_plugin_fixtures",
+    srcs = [
+        "scripts/clang_tidy_adapter.py",
+        "scripts/clang_tidy_checks_test.py",
+        "scripts/clang_tidy_profile.py",
+        "scripts/clang_tidy_runner.py",
+        "scripts/clang_tidy_scope.py",
+    ],
+    data = ["//scripts/clang_tidy_plugin:fastecu_tidy"],
+    imports = ["scripts"],
+    main = "scripts/clang_tidy_checks_test.py",
+    tags = ["manual"],
+    deps = ["@python_deps//pyyaml"],
+)
+
 py_test(
     name = "clang_tidy_benchmark_test",
     size = "small",

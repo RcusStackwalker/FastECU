@@ -202,7 +202,7 @@ Status Upload(BenchContext& context, CommandOutcome& outcome, std::uint32_t addr
 // policy, record the decoded reply as the note, and fail on any status but 0.
 // Shared by crc-check and erase, whose replies differ only in which routine id
 // they echo and how the status decodes.
-template <class Decode>
+template <typename Decode>
 Status RoutineWithStatus(BenchContext& context, CommandOutcome& outcome, bytes::ByteView pdu, bytes::Byte routine,
                          Decode decode)
 {

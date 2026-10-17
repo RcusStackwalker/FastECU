@@ -71,7 +71,7 @@ struct MixedCanConfig
     RawCanConfig bootloader;
 };
 
-template <class Plan>
+template <typename Plan>
 concept Iso15765ConfigSource = requires(const Plan& plan) {
     { plan.bitrate } -> std::convertible_to<int>;
     { plan.request_id } -> std::convertible_to<std::uint32_t>;
@@ -89,7 +89,7 @@ template <Iso15765ConfigSource Plan> constexpr Iso15765Config Iso15765ConfigFrom
     };
 }
 
-template <class Plan>
+template <typename Plan>
 concept KlineConfigSource = requires(const Plan& plan) {
     { plan.initial_baud } -> std::convertible_to<int>;
     { plan.tester_id } -> std::convertible_to<std::uint8_t>;
@@ -367,7 +367,7 @@ class BoundFlashAttempt
     virtual void RequestUnblock() noexcept = 0;
 };
 
-template <class Executor, class Transport> class BoundAttempt final : public BoundFlashAttempt
+template <typename Executor, typename Transport> class BoundAttempt final : public BoundFlashAttempt
 {
   public:
     BoundAttempt(FlashPlan plan, std::unique_ptr<Executor> executor, std::unique_ptr<Transport> transport)
@@ -443,7 +443,7 @@ template <class Executor, class Transport> class BoundAttempt final : public Bou
     std::unique_ptr<Transport> transport_;
 };
 
-template <class Executor, class Transport>
+template <typename Executor, typename Transport>
     requires std::derived_from<Transport, typename Executor::TransportType>
 std::unique_ptr<BoundFlashAttempt> BindFlashAttempt(FlashPlan plan, std::unique_ptr<Executor> executor,
                                                     std::unique_ptr<Transport> transport)

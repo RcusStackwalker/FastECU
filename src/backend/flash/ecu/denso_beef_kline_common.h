@@ -52,7 +52,7 @@ Result<bytes::Bytes> DensoBeefKlineExchangeAck(IKlineFlashTransport& transport, 
 
 // Runs `action` between cancellation checks reading "cancelled before <what>"
 // and "cancelled after <what>".
-template <class Action>
+template <typename Action>
 Status DensoBeefKlineGuarded(const ICancellationToken& cancellation, std::string_view what, Action&& action)
 {
     if (cancellation.Cancelled())
@@ -71,7 +71,7 @@ Status DensoBeefKlineGuarded(const ICancellationToken& cancellation, std::string
 }
 
 // Callers provide valid absolute-addressed image slices and one flag per block.
-template <class ReadCrc>
+template <typename ReadCrc>
 Result<unsigned> DensoBeefKlineCompareBlocks(std::span<const MemoryRegion> blocks, bytes::ByteView addressed_image,
                                              std::vector<bool>& modified, const ICancellationToken& cancellation,
                                              ReadCrc&& read_crc)

@@ -26,16 +26,29 @@ class ClangTidyChecks(unittest.TestCase):
             if str(entry["file"]).endswith("src/backend/ports/result_test.cpp")
         )
 
-    def assert_diagnostics(self, body: str, filename: str = "fixture.cpp") -> None:
+    @classmethod
+    def plugin_library(cls) -> Path | None:
+        """The AST-only checks, built by Bazel and shipped as runfiles data."""
+        directory = Path(__file__).with_name("clang_tidy_plugin")
+        return next(directory.glob("libfastecu_tidy.*"), None)
+
+    def assert_diagnostics(
+        self, body: str, filename: str = "fixture.cpp", plugin: bool = False
+    ) -> None:
         # Literal markers identify independently expected user-file locations.
+        # Plugin checks are registered without the custom- prefix.
+        prefix = "fastecu-" if plugin else "custom-fastecu-"
+        checks = "fastecu-*" if plugin else "custom-fastecu-*"
+        library = self.plugin_library()
+        if plugin and library is None:
+            self.skipTest("run //:clang_tidy_plugin_fixtures to build the AST plugin")
+        load = ["-load", str(library)] if plugin else []
         expected = set()
         for line, text in enumerate(body.splitlines(), 1):
             for severity in ("error", "warning"):
                 marker = f"// {severity}: "
                 if marker in text:
-                    expected.add(
-                        ("custom-fastecu-" + text.split(marker)[1], line, severity.title())
-                    )
+                    expected.add((prefix + text.split(marker)[1], line, severity.title()))
         with tempfile.TemporaryDirectory(prefix="fastecu-inline-fixture-") as directory:
             source = Path(directory) / filename
             source.parent.mkdir(parents=True, exist_ok=True)
@@ -59,7 +72,8 @@ class ClangTidyChecks(unittest.TestCase):
                     self.tools.clang_tidy,
                     "-config-file",
                     str(self.workspace / ".clang-tidy"),
-                    "-checks=-*,custom-fastecu-*",
+                    f"-checks=-*,{checks}",
+                    *load,
                     "-extra-arg=-Wno-error",
                     "-p",
                     directory,
@@ -89,7 +103,10 @@ class ClangTidyChecks(unittest.TestCase):
                 if Path(message["FilePath"]).resolve() == source.resolve():
                     line = source.read_bytes()[: message["FileOffset"]].count(b"\n") + 1
                     actual.add((diagnostic["DiagnosticName"], line, diagnostic["Level"]))
-                    self.assertEqual([], message["Replacements"])
+                    self.assertEqual(
+                        ["typename"] if plugin else [],
+                        [r["ReplacementText"] for r in message["Replacements"]],
+                    )
             self.assertEqual(expected, actual, result.stdout + result.stderr)
 
     def test_linear_search_returns_matching_catalog_entry_address(self) -> None:
@@ -518,6 +535,34 @@ void Messages(fastecu::IEventSink& events, DerivedSink& derived, std::string nam
     TemplateMessage(name);
 }
 """)
+
+    def test_template_type_parameters_use_typename(self) -> None:
+        self.assert_diagnostics(
+            plugin=True,
+            body="""#include <concepts>
+template <class First, // error: template-typename
+          typename Second, class... Rest> // error: template-typename
+struct Pair {};
+template <class> // error: template-typename
+void Unnamed() {}
+template <class Value = int> // error: template-typename
+void Defaulted() {}
+template <template <class> class Wrapper> // error: template-typename
+void Nested() {}
+template <typename Value> void Fine() {}
+template <typename... Values> void FinePack() {}
+template <std::integral Constrained> void FineConstrained() {}
+template <auto Value> void NonType() {}
+template <template <typename> class Wrapper> void FineNested() {}
+void Implicit() {
+    auto generic = [](auto value) { return value; };
+    (void)generic(1);
+}
+void Abbreviated(auto value) { (void)value; }
+template <class Guided> struct Wrap { Wrap(Guided) {} }; // error: template-typename
+void Deduce() { Wrap wrapped(1); }
+""",
+        )
 
 
 if __name__ == "__main__":

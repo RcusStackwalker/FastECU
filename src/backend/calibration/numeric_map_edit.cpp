@@ -158,7 +158,7 @@ Status AppendWrite(NumericEditResult& result, const DefinitionBytes& rom, const 
     return {};
 }
 
-template <class Candidate>
+template <typename Candidate>
 Result<NumericEditResult> BuildPatch(const DefinitionBytes& rom, const MapElementSpec& spec, std::uint32_t width,
                                      std::span<const NumericCell> cells, const SelectionRange& range,
                                      Candidate candidate)

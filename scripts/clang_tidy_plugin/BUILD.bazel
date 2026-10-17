@@ -1,0 +1,30 @@
+load("@rules_cc//cc:defs.bzl", "cc_binary")
+
+# Built against the system LLVM's headers (see //bazel:llvm.bzl). Tagged manual:
+# it needs an LLVM matching the clang-tidy that loads it, which CI does not have.
+cc_binary(
+    name = "fastecu_tidy",
+    srcs = [
+        "FastecuTidyModule.cpp",
+        "TemplateTypenameCheck.cpp",
+        "TemplateTypenameCheck.h",
+    ],
+    copts = [
+        "-std=c++20",
+        "-fno-rtti",
+        "-fno-exceptions",
+        # LLVM's own headers trip the tree-wide -Werror.
+        "-Wno-deprecated-this-capture",
+    ],
+    linkopts = select({
+        "@platforms//os:macos": [
+            "-undefined",
+            "dynamic_lookup",
+        ],
+        "//conditions:default": [],
+    }),
+    linkshared = True,
+    tags = ["manual"],
+    visibility = ["//:__pkg__"],
+    deps = ["@local_llvm//:clang_tidy_headers"],
+)

@@ -42,7 +42,7 @@ Status RunSetters(std::initializer_list<Setter> setters)
     return {};
 }
 
-template <class F> auto Guarded(F&& body) -> decltype(body())
+template <typename F> auto Guarded(F&& body) -> decltype(body())
 {
     try
     {
@@ -243,7 +243,7 @@ Result<bytes::Bytes> SerialDiagnosticLink::Write(bytes::ByteView data)
 
 namespace
 {
-template <class ReadCall>
+template <typename ReadCall>
 Result<IDiagnosticLink::OptionalBytes> GuardedRead(SerialPortActions *serial, const ICancellationToken& cancellation,
                                                    ReadCall read_call)
 {

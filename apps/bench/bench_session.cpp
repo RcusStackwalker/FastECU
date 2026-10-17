@@ -40,7 +40,7 @@ Status CheckEcho(const Result<bytes::Bytes>& reply, bytes::Byte expected, std::s
 }
 
 // The vendor challenge: a seed whose inverse transform is the key.
-template <class Request> Status PassVendorChallenge(Request& request)
+template <typename Request> Status PassVendorChallenge(Request& request)
 {
     const Result<bytes::Bytes> vendor_seed_reply = request(mitsu_colt_can_vendor_ext::BuildChallengeSeedRequest());
     if (!vendor_seed_reply.has_value())
