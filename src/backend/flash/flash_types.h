@@ -133,6 +133,8 @@ struct ConfirmationSpec
     Id id;
     // Stable semantic arguments; desktop owns translated title/body/buttons.
     std::vector<std::pair<std::string, std::string>> arguments;
+
+    bool operator==(const ConfirmationSpec&) const = default;
 };
 
 } // namespace fastecu::flash

@@ -17,6 +17,8 @@ struct SubaruDensoMc68hc16y5_02Plan
     std::uint16_t kernel_magic;                // 0x3940 (_ecutek) or 0x3941 (stock/_cobb)
     std::array<std::uint8_t, 3> bootloader_ok; // WRX02 init OK response: stock/_cobb
                                                // {0x4D,0x00,0xB3}, _ecutek {0x4C,0x00,0xB4}
+
+    bool operator==(const SubaruDensoMc68hc16y5_02Plan&) const = default;
 };
 
 } // namespace fastecu::flash

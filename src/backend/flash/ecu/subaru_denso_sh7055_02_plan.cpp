@@ -76,8 +76,6 @@ Status ValidateKernelUpload(const KernelImage& kernel)
 
 Status ValidateSubaruDensoSh705502Plan(const FlashPlan& plan)
 {
-    // #lizard forgives(cyclomatic_complexity)
-    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     using enum ErrorKind;
     if (auto valid = ValidateIdentity(plan.TargetId(), plan.McuName()); !valid.has_value())
     {
@@ -87,18 +85,11 @@ Status ValidateSubaruDensoSh705502Plan(const FlashPlan& plan)
     {
         return Fail(kInvalidConfig, "plan is not for SH7055_02");
     }
-    const auto *family = std::get_if<SubaruDensoSh7055_02Plan>(&plan.FamilyPlan());
-    if (family == nullptr)
+    // The wire parameters include the ECU-ID read, which only a Read performs.
+    if (const auto *family = std::get_if<SubaruDensoSh7055_02Plan>(&plan.FamilyPlan());
+        family == nullptr || *family != WireParams(plan.Operation()))
     {
-        return Fail(kInvalidConfig, "SH7055_02 wire parameters are missing");
-    }
-    if (family->tester_id != 0xf0 || family->target_id != 0x10)
-    {
-        return Fail(kInvalidConfig, "SH7055_02 wire parameters are invalid");
-    }
-    if (family->read_ecu_id != (plan.Operation() == FlashOperation::kRead))
-    {
-        return Fail(kInvalidConfig, "SH7055_02 ECU-ID read does not match the operation");
+        return Fail(kInvalidConfig, "SH7055_02 wire parameters are missing or do not match the operation");
     }
     if (!plan.EraseRegions().empty())
     {
@@ -112,8 +103,7 @@ Status ValidateSubaruDensoSh705502Plan(const FlashPlan& plan)
     {
         return valid;
     }
-    if (plan.Confirmations().size() != 1 || plan.Confirmations().front().id != ConfirmationSpec::Id::kCycleIgnition ||
-        !plan.Confirmations().front().arguments.empty())
+    if (!detail::RequiresOnly(plan.Confirmations(), ConfirmationSpec::Id::kCycleIgnition))
     {
         return Fail(kInvalidConfig, "SH7055_02 requires exactly the CycleIgnition confirmation");
     }

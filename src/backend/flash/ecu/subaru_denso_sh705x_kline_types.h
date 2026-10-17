@@ -18,6 +18,8 @@ struct SubaruDensoSh705xKlinePlan
     std::uint8_t tester_id; // 0xF0, execute():73
     std::uint8_t target_id; // 0x10, execute():74
     SubaruDensoSh705xKlineSeedKey seed_key;
+
+    bool operator==(const SubaruDensoSh705xKlinePlan&) const = default;
 };
 
 } // namespace fastecu::flash

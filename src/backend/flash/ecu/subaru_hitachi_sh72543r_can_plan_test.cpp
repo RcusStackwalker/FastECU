@@ -4,6 +4,9 @@
 #include <gtest/gtest.h>
 #include <array>
 #include <functional>
+#include <string_view>
+#include <utility>
+#include <vector>
 
 namespace fastecu::flash
 {
@@ -73,71 +76,36 @@ TEST(Sh72543rPlan, RejectsIdentityAndImageErrors)
             fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     }
 }
+SubaruHitachiSh72543rCanPlan& WireOf(FlashPlanFields& f)
+{
+    return std::get<SubaruHitachiSh72543rCanPlan>(f.family_plan);
+}
 TEST(Sh72543rPlan, ForgedPlansCannotChangeWireOrGeometry)
 {
-    // #lizard forgives(cyclomatic_complexity)
-    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
-    for (int mutation = 0; mutation < 16; ++mutation)
+    const std::vector<std::pair<std::string_view, std::function<void(FlashPlanFields&)>>> cases{
+        {"request id", [](FlashPlanFields& f) { WireOf(f).request_id++; }},
+        {"response id", [](FlashPlanFields& f) { WireOf(f).response_id++; }},
+        {"bitrate", [](FlashPlanFields& f) { WireOf(f).bitrate = 250000; }},
+        {"extended id", [](FlashPlanFields& f) { WireOf(f).extended_id = true; }},
+        {"page size", [](FlashPlanFields& f) { WireOf(f).page_size = 0x100; }},
+        {"write frame size", [](FlashPlanFields& f) { WireOf(f).write_frame_size = 128; }},
+        {"transfer start", [](FlashPlanFields& f) { f.transfer_region.start = 0; }},
+        {"transfer length", [](FlashPlanFields& f) { f.transfer_region.length--; }},
+        {"no erase region", [](FlashPlanFields& f) { f.erase_regions.clear(); }},
+        {"erase start", [](FlashPlanFields& f) { f.erase_regions[0].start = 0; }},
+        {"erase length", [](FlashPlanFields& f) { f.erase_regions[0].length--; }},
+        {"short image", [](FlashPlanFields& f) { f.image = bytes::Bytes(0x1fffff, 0xa5); }},
+        {"long image", [](FlashPlanFields& f) { f.image = bytes::Bytes(0x200001, 0xa5); }},
+        {"protocol", [](FlashPlanFields& f) { f.target_id = "wrong"; }},
+        {"MCU", [](FlashPlanFields& f) { f.mcu_name = "SH72543d"; }},
+        {"confirmation",
+         [](FlashPlanFields& f) { f.confirmations.push_back({ConfirmationSpec::Id::kEraseTrigger, {}}); }},
+    };
+    for (const auto& [name, mutate] : cases)
     {
-        SCOPED_TRACE(mutation);
+        SCOPED_TRACE(name);
         auto f = Fields();
-        auto& wire = std::get<SubaruHitachiSh72543rCanPlan>(f.family_plan);
-        switch (mutation)
-        {
-        case 0:
-            wire.request_id++;
-            break;
-        case 1:
-            wire.response_id++;
-            break;
-        case 2:
-            wire.bitrate = 250000;
-            break;
-        case 3:
-            wire.extended_id = true;
-            break;
-        case 4:
-            wire.page_size = 0x100;
-            break;
-        case 5:
-            wire.write_frame_size = 128;
-            break;
-        case 6:
-            f.transfer_region.start = 0;
-            break;
-        case 7:
-            f.transfer_region.length--;
-            break;
-        case 8:
-            f.erase_regions.clear();
-            break;
-        case 9:
-            f.erase_regions[0].start = 0;
-            break;
-        case 10:
-            f.erase_regions[0].length--;
-            break;
-        case 11:
-            ASSERT_TRUE(f.image.has_value());
-            f.image->pop_back();
-            break;
-        case 12:
-            ASSERT_TRUE(f.image.has_value());
-            f.image->push_back(0);
-            break;
-        case 13:
-            f.target_id = "wrong";
-            break;
-        case 14:
-            f.mcu_name = "SH72543d";
-            break;
-        case 15:
-            f.confirmations.push_back({ConfirmationSpec::Id::kEraseTrigger, {}});
-            break;
-        default:
-            FAIL() << "unexpected mutation";
-            break;
-        }
+        mutate(f);
         auto built = ValidateAndBuild(std::move(f));
         ASSERT_THAT(built, fastecu::testing::IsOk());
         EXPECT_THAT(ValidateSubaruHitachiSh72543rCanPlan(*built), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));

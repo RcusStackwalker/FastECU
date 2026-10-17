@@ -119,8 +119,7 @@ Status ValidateSubaruDensoSh705xDensocanPlan(const FlashPlan& plan)
     {
         return kernel;
     }
-    if (plan.Confirmations().size() != 1 || plan.Confirmations().front().id != ConfirmationSpec::Id::kCycleIgnition ||
-        !plan.Confirmations().front().arguments.empty())
+    if (!detail::RequiresOnly(plan.Confirmations(), ConfirmationSpec::Id::kCycleIgnition))
     {
         return Fail(ErrorKind::kInvalidConfig, "DensoCAN requires exactly the CycleIgnition confirmation");
     }

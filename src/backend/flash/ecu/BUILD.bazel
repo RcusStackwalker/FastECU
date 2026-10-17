@@ -19,6 +19,7 @@ cc_library(
     srcs = ["subaru_hitachi_sh7058_plan.cpp"],
     hdrs = ["subaru_hitachi_sh7058_plan.h"],
     implementation_deps = [
+        ":plan_primitives",
         ":subaru_hitachi_sh7058_types",
         "//src/backend/flash:flash_device_lookup",
         "//src/backend/flash:flash_validation",
@@ -862,6 +863,7 @@ cc_library(
     srcs = ["subaru_denso_mc68hc16y5_02_bdm_plan.cpp"],
     hdrs = ["subaru_denso_mc68hc16y5_02_bdm_plan.h"],
     implementation_deps = [
+        ":plan_primitives",
         "//src/backend/flash:flash_device_lookup",
         "//src/backend/flash:flash_validation",
     ],

@@ -10,6 +10,8 @@ struct SubaruHitachiSh7058KlinePlan
     std::uint8_t tester_id = 0xf0;
     std::uint8_t target_id = 0x10;
     std::uint32_t page_size = 0x80;
+
+    bool operator==(const SubaruHitachiSh7058KlinePlan&) const = default;
 };
 
 struct SubaruHitachiSh7058CanPlan
@@ -19,5 +21,7 @@ struct SubaruHitachiSh7058CanPlan
     std::uint32_t response_id = 0x7e8;
     bool extended_id = false;
     std::uint32_t frame_size = 0x100;
+
+    bool operator==(const SubaruHitachiSh7058CanPlan&) const = default;
 };
 } // namespace fastecu::flash

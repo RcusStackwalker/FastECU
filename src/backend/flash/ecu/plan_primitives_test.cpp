@@ -39,6 +39,18 @@ TEST(PlanPrimitives, TransferRequiresExactFlashStartAndRomLength)
     EXPECT_FALSE(TransferMatchesDevice({0x100, 0x1FF}, device));
 }
 
+TEST(PlanPrimitives, RequiresOnlyAcceptsExactlyTheArgumentFreeConfirmation)
+{
+    using enum ConfirmationSpec::Id;
+    const ConfirmationSpec cycle{.id = kCycleIgnition};
+    EXPECT_TRUE(RequiresOnly(std::array{cycle}, kCycleIgnition));
+    EXPECT_FALSE(RequiresOnly({}, kCycleIgnition));
+    EXPECT_FALSE(RequiresOnly(std::array{cycle}, kEraseTrigger));
+    EXPECT_FALSE(RequiresOnly(std::array{cycle, cycle}, kCycleIgnition));
+    EXPECT_FALSE(RequiresOnly(std::array{ConfirmationSpec{.id = kCycleIgnition, .arguments = {{"key", "value"}}}},
+                              kCycleIgnition));
+}
+
 TEST(PlanPrimitives, OperationImageShapeRequiresNoReadImageAndExactWriteSize)
 {
     for (const FlashOperation operation : {FlashOperation::kRead, FlashOperation::kWrite, FlashOperation::kTestWrite})
