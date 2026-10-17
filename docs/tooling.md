@@ -173,9 +173,22 @@ Experiment results and qualification evidence are recorded in
 
 ## NLOC hill-climbing loop
 
-Proposed; not yet implemented. The design is in
+Being delivered in steps. The design is in
 [the NLOC hill-climbing spec](superpowers/specs/2026-10-17-nloc-hill-climbing.md)
 and [ADR 0023](adr/0023-hill-climb-nloc-with-kind-specific-guards.md).
+
+```sh
+python3 scripts/nloc_loop.py measure            # total, production and test NLOC
+python3 scripts/nloc_loop.py ledger record <cluster> rejected --reason mutation
+python3 scripts/nloc_loop.py ledger list        # attempts and the rejection streak
+python3 scripts/nloc_loop.py trend --pr <n> --kind test-only --before <base NLOC>
+```
+
+`measure` runs the manual-stage `nloc` prek hook, which shares the `lizard`
+hook's pinned dependencies and excludes. A file is test code when it is under
+`tests/`, `testing/` or `testdata/`, or its name starts with `tst_` or contains
+`_test.` or `_test_`. `trend` measures the working tree and appends a row to
+`docs/reference/nloc-trend.csv`; run it on the loop PR's branch before merge.
 
 - **NLOC**: Lizard's `Total nloc` over first-party C++ in `src/`, `apps/`
   and `tests/` with the prek excludes. Non-blank, non-comment lines on the

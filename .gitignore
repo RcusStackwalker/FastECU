@@ -101,3 +101,6 @@ __pycache__/
 
 # Local/CI Bazel overrides (CI writes the BuildBuddy key here)
 .bazelrc.user
+
+# NLOC hill-climbing loop ledger (docs/tooling.md#nloc-hill-climbing-loop)
+.nloc-loop/

@@ -224,6 +224,17 @@ py_test(
 )
 
 py_test(
+    name = "nloc_loop_test",
+    size = "small",
+    srcs = [
+        "scripts/nloc_loop.py",
+        "scripts/nloc_loop_test.py",
+    ],
+    imports = ["scripts"],
+    main = "scripts/nloc_loop_test.py",
+)
+
+py_test(
     name = "test_ownership_test",
     size = "small",
     srcs = [

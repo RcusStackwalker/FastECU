@@ -22,7 +22,8 @@ repos:
       - id: lizard
         name: C/C++ cyclomatic complexity
         language: python
-        additional_dependencies: [lizard==1.24.1, pathspec==1.1.1, pygments==2.21.0]
+        additional_dependencies: &lizard_dependencies
+          [lizard==1.24.1, pathspec==1.1.1, pygments==2.21.0]
         entry: lizard
         pass_filenames: false
         always_run: true
@@ -38,6 +39,27 @@ repos:
           - --exclude=*/vendor/*
           - --exclude=*/generated/*
           # Start at the root so Lizard loads .gitignore (including Qt-generated files).
+          - .
+      # The NLOC hill-climbing metric (docs/tooling.md#nloc-hill-climbing-loop):
+      # the same scan as `lizard`, reporting every file. Run by scripts/nloc_loop.py.
+      - id: nloc
+        name: C/C++ NLOC report
+        language: python
+        additional_dependencies: *lizard_dependencies
+        entry: lizard
+        pass_filenames: false
+        always_run: true
+        verbose: true
+        stages: [manual]
+        # Unbounded limits keep the report free of warnings and the exit status 0.
+        args:
+          - --languages=cpp
+          - --CCN=1000000000
+          - --length=1000000000
+          - --arguments=1000000000
+          - --exclude=*/third_party/*
+          - --exclude=*/vendor/*
+          - --exclude=*/generated/*
           - .
       - id: pragma-once
         name: require pragma once in headers
