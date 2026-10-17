@@ -365,6 +365,7 @@ TEST(ChecksumPortable, DensoDieselRejectsMalformedTableWithoutMutation)
     const ChecksumResult malformed = ChecksumEcuSubaruDensoSH705xDiesel::CalculateChecksumResult(
         memory::testing::ViewOf(original), memory::FlashAddress{0}, 10);
     EXPECT_EQ(malformed.status, ChecksumResult::Status::kParseError);
+    EXPECT_EQ(malformed.message, "Checksum area length must be a multiple of 12 bytes");
     EXPECT_THAT(malformed.rom_data, test_bytes::BytesEq(original));
 
     const ChecksumResult out_of_range = ChecksumEcuSubaruDensoSH705xDiesel::CalculateChecksumResult(
@@ -461,6 +462,34 @@ TEST(ChecksumPortable, DensoDieselCorrectsSh72543SecondaryTableAfterPrimary)
     EXPECT_EQ(result.status, ChecksumResult::Status::kCorrected);
     EXPECT_EQ(bytes::ReadU32Be(result.rom_data, 0x1FF8F0), 0x5AA5A55AU);
     EXPECT_EQ(bytes::ReadU32Be(result.rom_data, 0x1FF8FC), 0x5AA5A55AU);
+}
+
+TEST(ChecksumPortable, DensoDieselReversedSecondaryBlockRollsBackPrimaryCorrection)
+{
+    bytes::Bytes original(0x200000, 0);
+    bytes::WriteU32Be(original, 0x1FF8E8, 0x1FFF00);
+    bytes::WriteU32Be(original, 0x1FF8EC, 0x1FFE00);
+
+    const ChecksumResult result = ChecksumEcuSubaruDensoSH705xDiesel::CalculateChecksumResult(
+        memory::testing::ViewOf(original), memory::FlashAddress{0x1FF800}, 12);
+
+    EXPECT_EQ(result.status, ChecksumResult::Status::kParseError);
+    EXPECT_EQ(result.message, "A checksum block range ends before it starts");
+    EXPECT_THAT(result.rom_data, test_bytes::BytesEq(original));
+}
+
+TEST(ChecksumPortable, DensoSh7xxxReportsAReversedBlockRange)
+{
+    bytes::Bytes original(24, 0);
+    bytes::WriteU32Be(original, 0, 20);
+    bytes::WriteU32Be(original, 4, 8);
+
+    const ChecksumResult result = ChecksumEcuSubaruDensoSH7xxx::CalculateChecksumResult(
+        memory::testing::ViewOf(original), memory::FlashAddress{0}, 12);
+
+    EXPECT_EQ(result.status, ChecksumResult::Status::kParseError);
+    EXPECT_EQ(result.message, "A checksum block range ends before it starts");
+    EXPECT_THAT(result.rom_data, test_bytes::BytesEq(original));
 }
 
 TEST(ChecksumPortable, DensoSh7xxxReportsInvalidBlockRangeMessage)

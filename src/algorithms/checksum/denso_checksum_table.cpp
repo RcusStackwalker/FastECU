@@ -1,6 +1,7 @@
 #include "denso_checksum_table.h"
 
 #include <algorithm>
+#include <expected>
 #include <optional>
 
 namespace fastecu::checksum::internal
@@ -21,37 +22,34 @@ std::uint32_t WordAt(bytes::ByteView block, std::size_t offset, std::uint32_t bl
 }
 
 // The sum of the words from ECU address `start` up to `end`, in `rom`, which
-// starts at ECU address `base`; nullopt when one lies outside `rom`. A zero
-// start or end sums nothing.
-std::optional<std::uint32_t> SumBlock(bytes::ByteView rom, std::uint32_t base, std::uint32_t start, std::uint32_t end,
-                                      std::span<const DensoWordOverride> overrides)
+// starts at ECU address `base`. A zero start or end sums nothing.
+std::expected<std::uint32_t, DensoTableOutcome> SumBlock(bytes::ByteView rom, std::uint32_t base, std::uint32_t start,
+                                                         std::uint32_t end,
+                                                         std::span<const DensoWordOverride> overrides)
 {
     if (start == 0 || end == 0)
     {
         return 0;
     }
-    // Positions in `rom`. An end below `base` wraps past the end of `rom`
-    // and fails the range check; a start below `base` alone wraps above the
-    // end, which is a descending range and sums nothing, as legacy does for
-    // any descending range.
-    const std::uint32_t low = start - base;
-    const std::uint32_t high = end - base;
-    if (high > rom.size())
+    // Legacy summed nothing here, but only because its loop never ran; no
+    // ECU code or other tool says what the ECU expects.
+    if (end < start)
     {
-        return std::nullopt;
+        return std::unexpected(DensoTableOutcome::kReversedBlockRange);
     }
-    // Equivalent as `>`: at low == high the block below is empty and sums to 0.
-    // mull-ignore-next: cxx_ge_to_gt
-    if (low >= high)
+    if (start < base || end - base > rom.size())
     {
-        return 0;
+        return std::unexpected(DensoTableOutcome::kInvalidBlockRange);
     }
+    // Positions in `rom`: low <= high <= rom.size().
+    const std::size_t low = start - base;
+    const std::size_t high = end - base;
     // Whole words from `low`, so the last may run past `high`; it must still
-    // fit in `rom`. low < high <= rom.size(), so the subtraction cannot wrap.
-    const std::size_t length = (std::size_t{high - low} + 3) & ~std::size_t{3};
+    // fit in `rom`.
+    const std::size_t length = (high - low + 3) & ~std::size_t{3};
     if (length > rom.size() - low)
     {
-        return std::nullopt;
+        return std::unexpected(DensoTableOutcome::kInvalidBlockRange);
     }
     const bytes::ByteView block = rom.subspan(low, length);
     std::uint32_t sum = 0;
@@ -96,10 +94,11 @@ DensoTableOutcome CorrectDensoTable(memory::FlashAddress base, bytes::MutableByt
         std::uint32_t sum = 0;
         if (stored != kChecksumTarget)
         {
-            const std::optional<std::uint32_t> block_sum = SumBlock(rom, base.Value(), start, end, spec.overrides);
+            const std::expected<std::uint32_t, DensoTableOutcome> block_sum =
+                SumBlock(rom, base.Value(), start, end, spec.overrides);
             if (!block_sum.has_value())
             {
-                return DensoTableOutcome::kInvalidBlockRange;
+                return block_sum.error();
             }
             sum = *block_sum;
         }
@@ -116,6 +115,28 @@ DensoTableOutcome CorrectDensoTable(memory::FlashAddress base, bytes::MutableByt
     }
     bytes::OverwriteAt(rom, table_position->Value(), corrected);
     return DensoTableOutcome::kCorrected;
+}
+
+std::optional<DensoTableFailure> FailureOf(DensoTableOutcome outcome)
+{
+    switch (outcome)
+    {
+    case DensoTableOutcome::kUnchanged:
+    case DensoTableOutcome::kCorrected:
+    case DensoTableOutcome::kDisabled:
+        return std::nullopt;
+    case DensoTableOutcome::kInvalidTableRange:
+        return DensoTableFailure{ChecksumResult::Status::kInvalidSize,
+                                 "ROM is too small for the configured checksum area"};
+    case DensoTableOutcome::kInvalidBlockRange:
+        return DensoTableFailure{ChecksumResult::Status::kInvalidSize, "ROM is too small for a checksum block range"};
+    case DensoTableOutcome::kReversedBlockRange:
+        return DensoTableFailure{ChecksumResult::Status::kParseError, "A checksum block range ends before it starts"};
+    case DensoTableOutcome::kInvalidRecordLength:
+        return DensoTableFailure{ChecksumResult::Status::kParseError,
+                                 "Checksum area length must be a multiple of 12 bytes"};
+    }
+    return std::nullopt;
 }
 
 } // namespace fastecu::checksum::internal
