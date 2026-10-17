@@ -29,6 +29,61 @@ Status ValidateEcho(bytes::ByteView reply, bytes::Byte expected, std::size_t min
     }
     return {};
 }
+Status CheckEcho(const Result<bytes::Bytes>& reply, bytes::Byte expected, std::size_t minimum_size,
+                 std::string_view subject)
+{
+    if (!reply.has_value())
+    {
+        return std::unexpected(reply.error());
+    }
+    return ValidateEcho(*reply, expected, minimum_size, subject);
+}
+
+// The vendor challenge: a seed whose inverse transform is the key.
+template <class Request> Status PassVendorChallenge(Request& request)
+{
+    const Result<bytes::Bytes> vendor_seed_reply = request(mitsu_colt_can_vendor_ext::BuildChallengeSeedRequest());
+    if (!vendor_seed_reply.has_value())
+    {
+        return std::unexpected(vendor_seed_reply.error());
+    }
+    // [selector][subfunction][4-byte seed].
+    const bytes::ByteView vendor_seed_payload = uds::Payload(*vendor_seed_reply);
+    if (vendor_seed_payload.size() < 6)
+    {
+        return Fail(ErrorKind::kBadResponse, "vendor challenge seed reply too short");
+    }
+    if (vendor_seed_payload[0] != mitsu_colt_can_vendor_ext::kVendorChallengeSelector ||
+        vendor_seed_payload[1] != mitsu_colt_can_vendor_ext::kVendorChallengeSeedSubfunction)
+    {
+        return Fail(ErrorKind::kBadResponse, std::format("vendor challenge seed reply carried 0x{:02x} 0x{:02x}",
+                                                         vendor_seed_payload[0], vendor_seed_payload[1]));
+    }
+
+    const std::uint32_t vendor_key = mitsu_colt_can_vendor_ext::ChallengeInverseTransform(
+        mitsu_colt_can_vendor_ext::BytesToSeed(vendor_seed_payload.subspan(2, 4)));
+
+    const Result<bytes::Bytes> vendor_key_reply = request(mitsu_colt_can_vendor_ext::BuildChallengeKey(vendor_key));
+    if (!vendor_key_reply.has_value())
+    {
+        return std::unexpected(vendor_key_reply.error());
+    }
+    const bytes::ByteView vendor_key_payload = uds::Payload(*vendor_key_reply);
+    if (vendor_key_payload.size() < 2)
+    {
+        return Fail(ErrorKind::kBadResponse, "vendor challenge key reply too short");
+    }
+    // Mirrors connect_bootloader's fatal_query prefix check: the reply must
+    // carry both the echoed selector and kVendorChallengeAccepted, not just
+    // one or the other.
+    if (vendor_key_payload[0] != mitsu_colt_can_vendor_ext::kVendorChallengeSelector ||
+        vendor_key_payload[1] != mitsu_colt_can_vendor_ext::kVendorChallengeAccepted)
+    {
+        return Fail(ErrorKind::kBadResponse, std::format("vendor challenge key rejected: reply 0x{:02x} 0x{:02x}",
+                                                         vendor_key_payload[0], vendor_key_payload[1]));
+    }
+    return {};
+}
 } // namespace
 
 BenchSession::RecordingChannel::RecordingChannel(uds::IUdsChannel& inner) : inner_(inner)
@@ -90,8 +145,6 @@ Result<bytes::Bytes> BenchSession::requestOnce(bytes::ByteView pdu, const uds::E
 
 Status BenchSession::connect()
 {
-    // #lizard forgives(cyclomatic_complexity)
-    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     TrafficEvidence total;
     const auto request = [&](bytes::ByteView pdu) -> Result<bytes::Bytes>
     {
@@ -100,99 +153,35 @@ Status BenchSession::connect()
         last_traffic_ = total;
         return result;
     };
-
     if (vendor_challenge_)
     {
-        const Result<bytes::Bytes> basic_reply =
-            request(mitsu_colt_can::BuildDiagnosticSession(mitsu_colt_can::kSessionBasic));
-        if (!basic_reply.has_value())
+        if (const Status basic =
+                CheckEcho(request(mitsu_colt_can::BuildDiagnosticSession(mitsu_colt_can::kSessionBasic)),
+                          mitsu_colt_can::kSessionBasic, 1, "basic diagnostic session");
+            !basic.has_value())
         {
-            return std::unexpected(basic_reply.error());
+            return basic;
         }
-        if (const Status valid =
-                ValidateEcho(*basic_reply, mitsu_colt_can::kSessionBasic, 1, "basic diagnostic session");
-            !valid.has_value())
+        if (const Status passed = PassVendorChallenge(request); !passed.has_value())
         {
-            return valid;
-        }
-
-        const Result<bytes::Bytes> vendor_seed_reply = request(mitsu_colt_can_vendor_ext::BuildChallengeSeedRequest());
-        if (!vendor_seed_reply.has_value())
-        {
-            return std::unexpected(vendor_seed_reply.error());
-        }
-        // [selector][subfunction][4-byte seed].
-        const bytes::ByteView vendor_seed_payload = uds::Payload(*vendor_seed_reply);
-        if (vendor_seed_payload.size() < 6)
-        {
-            return Fail(ErrorKind::kBadResponse, "vendor challenge seed reply too short");
-        }
-        if (vendor_seed_payload[0] != mitsu_colt_can_vendor_ext::kVendorChallengeSelector ||
-            vendor_seed_payload[1] != mitsu_colt_can_vendor_ext::kVendorChallengeSeedSubfunction)
-        {
-            return Fail(ErrorKind::kBadResponse, std::format("vendor challenge seed reply carried 0x{:02x} 0x{:02x}",
-                                                             vendor_seed_payload[0], vendor_seed_payload[1]));
-        }
-
-        const std::uint32_t vendor_key = mitsu_colt_can_vendor_ext::ChallengeInverseTransform(
-            mitsu_colt_can_vendor_ext::BytesToSeed(vendor_seed_payload.subspan(2, 4)));
-
-        const Result<bytes::Bytes> vendor_key_reply = request(mitsu_colt_can_vendor_ext::BuildChallengeKey(vendor_key));
-        if (!vendor_key_reply.has_value())
-        {
-            return std::unexpected(vendor_key_reply.error());
-        }
-        const bytes::ByteView vendor_key_payload = uds::Payload(*vendor_key_reply);
-        if (vendor_key_payload.size() < 2)
-        {
-            return Fail(ErrorKind::kBadResponse, "vendor challenge key reply too short");
-        }
-        // Mirrors connect_bootloader's fatal_query prefix check: the reply must
-        // carry both the echoed selector and kVendorChallengeAccepted, not just
-        // one or the other.
-        if (vendor_key_payload[0] != mitsu_colt_can_vendor_ext::kVendorChallengeSelector ||
-            vendor_key_payload[1] != mitsu_colt_can_vendor_ext::kVendorChallengeAccepted)
-        {
-            return Fail(ErrorKind::kBadResponse, std::format("vendor challenge key rejected: reply 0x{:02x} 0x{:02x}",
-                                                             vendor_key_payload[0], vendor_key_payload[1]));
+            return passed;
         }
     }
-
-    const Result<bytes::Bytes> session_reply =
-        request(mitsu_colt_can::BuildDiagnosticSession(mitsu_colt_can::kSessionBootload));
-    if (!session_reply.has_value())
+    if (const Status session =
+            CheckEcho(request(mitsu_colt_can::BuildDiagnosticSession(mitsu_colt_can::kSessionBootload)),
+                      mitsu_colt_can::kSessionBootload, 1, "diagnostic session");
+        !session.has_value())
     {
-        return std::unexpected(session_reply.error());
+        return session;
     }
-    if (const Status valid = ValidateEcho(*session_reply, mitsu_colt_can::kSessionBootload, 1, "diagnostic session");
-        !valid.has_value())
-    {
-        return valid;
-    }
-
     const Result<bytes::Bytes> seed_reply = request(mitsu_colt_can::BuildSecurityAccessSeedRequest());
-    if (!seed_reply.has_value())
-    {
-        return std::unexpected(seed_reply.error());
-    }
-    if (const Status valid = ValidateEcho(*seed_reply, 0x05, 5, "security access seed"); !valid.has_value())
+    if (const Status valid = CheckEcho(seed_reply, 0x05, 5, "security access seed"); !valid.has_value())
     {
         return valid;
     }
-    const bytes::ByteView seed_payload = uds::Payload(*seed_reply);
-    const bytes::ByteView seed = seed_payload.subspan(1, 4);
-
-    const Result<bytes::Bytes> key_reply =
-        request(mitsu_colt_can::BuildSecurityAccessKey(mitsu_colt_can::SeedKey(seed)));
-    if (!key_reply.has_value())
-    {
-        return std::unexpected(key_reply.error());
-    }
-    if (const Status valid = ValidateEcho(*key_reply, 0x06, 1, "security access key"); !valid.has_value())
-    {
-        return valid;
-    }
-    return {};
+    const bytes::ByteView seed = uds::Payload(*seed_reply).subspan(1, 4);
+    return CheckEcho(request(mitsu_colt_can::BuildSecurityAccessKey(mitsu_colt_can::SeedKey(seed))), 0x06, 1,
+                     "security access key");
 }
 
 Result<bytes::Bytes> BenchSession::exchange(bytes::ByteView pdu, const uds::ExchangePolicy& policy)

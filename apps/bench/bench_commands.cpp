@@ -273,11 +273,140 @@ std::string decode_crc_reply(bytes::ByteView payload)
     return payload[1] == 0 ? "status=0x00 (CRC matched)" : std::format("status=0x{:02x} (CRC mismatch)", payload[1]);
 }
 
-Result<PreparedStep> prepare_step(IBenchFiles& files, const StepSpec& step)
+namespace
 {
-    // #lizard forgives(cyclomatic_complexity)
-    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
-    PreparedStep prepared{.spec = step};
+// read/dump <address> <length>.
+Result<PreparedStep> PrepareRange(const StepSpec& step, PreparedStep prepared)
+{
+    const Result<std::uint32_t> address = parse_u32(step.args[0]);
+    if (!address.has_value())
+    {
+        return std::unexpected(address.error());
+    }
+    const Result<std::uint32_t> length = parse_u32(step.args[1]);
+    if (!length.has_value())
+    {
+        return std::unexpected(length.error());
+    }
+    if (const Status valid = ValidateWireRange(*address, *length, "read"); !valid.has_value())
+    {
+        return std::unexpected(valid.error());
+    }
+    prepared.address = *address;
+    prepared.length = *length;
+    return prepared;
+}
+
+Status CheckCrcAddress(std::uint32_t address)
+{
+    if (address > kMaxWireU24)
+    {
+        return Fail(ErrorKind::kInvalidConfig,
+                    std::format("CRC address 0x{:x} does not fit the 24-bit address space", address));
+    }
+    return {};
+}
+
+Result<PreparedStep> PrepareCrc(const StepSpec& step, PreparedStep prepared)
+{
+    const Result<std::uint32_t> address = parse_u32(step.args[0]);
+    if (!address.has_value())
+    {
+        return std::unexpected(address.error());
+    }
+    if (const Status valid = CheckCrcAddress(*address); !valid.has_value())
+    {
+        return std::unexpected(valid.error());
+    }
+    prepared.address = *address;
+    return prepared;
+}
+
+Status CheckNotDestructive(const CommandSpec& spec, bytes::ByteView pdu)
+{
+    if (mitsu_colt_can::IsDestructiveRequest(pdu))
+    {
+        return Fail(ErrorKind::kInvalidConfig, std::format("{} cannot bypass a named destructive command", spec.name));
+    }
+    return {};
+}
+
+Result<PreparedStep> PreparePdu(const CommandSpec& spec, const StepSpec& step, PreparedStep prepared)
+{
+    Result<bytes::Bytes> pdu = parse_hex_bytes(step.args);
+    if (!pdu.has_value())
+    {
+        return std::unexpected(pdu.error());
+    }
+    if (const Status valid = CheckNotDestructive(spec, *pdu); !valid.has_value())
+    {
+        return std::unexpected(valid.error());
+    }
+    prepared.pdu = std::move(*pdu);
+    return prepared;
+}
+
+Result<PreparedStep> PrepareDownload(IBenchFiles& files, const StepSpec& step, PreparedStep prepared)
+{
+    const Result<std::uint32_t> address = parse_u32(step.args[0]);
+    if (!address.has_value())
+    {
+        return std::unexpected(address.error());
+    }
+    Result<bytes::Bytes> data = files.load(step.args[1]);
+    if (!data.has_value())
+    {
+        return std::unexpected(data.error());
+    }
+    if (const Status valid = ValidateWireRange(*address, data->size(), "download"); !valid.has_value())
+    {
+        return std::unexpected(valid.error());
+    }
+    prepared.address = *address;
+    prepared.upload_payload = std::move(*data);
+    return prepared;
+}
+
+// upload-routine <slot> [--from <path>]. Only the built-in bytes are a known
+// erase helper; a file could hold anything, so it never arms erase.
+Result<PreparedStep> PrepareRoutine(IBenchFiles& files, const CommandSpec& spec, const StepSpec& step,
+                                    PreparedStep prepared)
+{
+    const Result<RoutineSlot> slot = FindRoutineSlot(step.args[0]);
+    if (!slot.has_value())
+    {
+        return std::unexpected(slot.error());
+    }
+    bytes::Bytes payload(slot->bytes.begin(), slot->bytes.end());
+    const bool from_file = step.args.size() > 1;
+    if (from_file)
+    {
+        if (step.args.size() != 3 || step.args[1] != "--from")
+        {
+            return Fail(ErrorKind::kInvalidConfig,
+                        std::format("{}'s extra arguments must be --from <path>", spec.name));
+        }
+        Result<bytes::Bytes> loaded = files.load(step.args[2]);
+        if (!loaded.has_value())
+        {
+            return std::unexpected(loaded.error());
+        }
+        payload = std::move(*loaded);
+    }
+    if (const Status valid = ValidateWireRange(slot->ram_address, payload.size(), "download"); !valid.has_value())
+    {
+        return std::unexpected(valid.error());
+    }
+    prepared.address = slot->ram_address;
+    prepared.upload_payload = std::move(payload);
+    prepared.provides_erase_helper = slot->erase_helper && !from_file;
+    return prepared;
+}
+
+// Looks up and validates the step's command; repeated at execution so a
+// StepSpec built another way cannot reach the wire ungated.
+Result<const CommandSpec *> CheckedSpec(const StepSpec& step)
+{
     const CommandSpec *const spec = find_command(step.id);
     if (spec == nullptr)
     {
@@ -287,116 +416,95 @@ Result<PreparedStep> prepare_step(IBenchFiles& files, const StepSpec& step)
     {
         return std::unexpected(valid.error());
     }
+    return spec;
+}
 
+Status ExecuteRead(BenchContext& context, const PreparedStep& prepared, CommandOutcome& outcome)
+{
+    if (const Status result = ReadIntoOutcome(context, prepared, outcome); !result.has_value())
+    {
+        return result;
+    }
+    if (prepared.spec.id == CommandId::Dump)
+    {
+        return context.files.save(prepared.spec.args[2], outcome.data);
+    }
+    return {};
+}
+
+// exchange_raw bypasses SID/NRC validation entirely -- whatever comes back is
+// the observation the operator asked for, not something to classify as
+// success or failure by content. A genuine transport error (nothing arrived
+// at all) still propagates like every other command's Result does.
+Status ExecuteSend(BenchContext& context, const CommandSpec& spec, const PreparedStep& prepared,
+                   CommandOutcome& outcome)
+{
+    // Gated at parse and prepare time as well; repeated here so no PDU
+    // reaches the wire without passing the one destructive predicate.
+    if (const Status valid = CheckNotDestructive(spec, prepared.pdu); !valid.has_value())
+    {
+        return valid;
+    }
+    if (const Result<bytes::Bytes> reply =
+            prepared.spec.id == CommandId::Send
+                ? Exchange(context, outcome, prepared.pdu, kRoutinePolicy)
+                : ExchangeRaw(context, outcome, prepared.pdu, context.options.timeout_ms);
+        !reply.has_value())
+    {
+        return std::unexpected(reply.error());
+    }
+    return {};
+}
+
+Status ExecuteUpload(BenchContext& context, const PreparedStep& prepared, CommandOutcome& outcome)
+{
+    if (!prepared.upload_payload.has_value())
+    {
+        return Fail(ErrorKind::kInternal, "prepared upload has no payload");
+    }
+    if (const Status uploaded = Upload(context, outcome, prepared.address, *prepared.upload_payload);
+        !uploaded.has_value())
+    {
+        return uploaded;
+    }
+    outcome.note = std::format("uploaded {} {}bytes to 0x{:06x}", prepared.upload_payload->size(),
+                               prepared.spec.id == CommandId::UploadRoutine ? "routine " : "", prepared.address);
+    return {};
+}
+
+Status ExecuteUnlock(BenchContext& context, CommandOutcome& outcome)
+{
+    const bytes::Bytes pdu = mitsu_colt_can::BuildRequestReflashUnlock();
+    if (const Result<bytes::Bytes> reply = Exchange(context, outcome, pdu, kSlowPolicy); !reply.has_value())
+    {
+        return std::unexpected(reply.error());
+    }
+    return {};
+}
+} // namespace
+
+Result<PreparedStep> prepare_step(IBenchFiles& files, const StepSpec& step)
+{
+    const Result<const CommandSpec *> spec = CheckedSpec(step);
+    if (!spec.has_value())
+    {
+        return std::unexpected(spec.error());
+    }
+    PreparedStep prepared{.spec = step};
     switch (step.id)
     {
     case CommandId::Read:
     case CommandId::Dump:
-    {
-        const Result<std::uint32_t> address = parse_u32(step.args[0]);
-        if (!address.has_value())
-        {
-            return std::unexpected(address.error());
-        }
-        const Result<std::uint32_t> length = parse_u32(step.args[1]);
-        if (!length.has_value())
-        {
-            return std::unexpected(length.error());
-        }
-        if (const Status valid = ValidateWireRange(*address, *length, "read"); !valid.has_value())
-        {
-            return std::unexpected(valid.error());
-        }
-        prepared.address = *address;
-        prepared.length = *length;
-        return prepared;
-    }
+        return PrepareRange(step, std::move(prepared));
     case CommandId::CrcCheck:
-    {
-        const Result<std::uint32_t> address = parse_u32(step.args[0]);
-        if (!address.has_value())
-        {
-            return std::unexpected(address.error());
-        }
-        if (*address > kMaxWireU24)
-        {
-            return Fail(ErrorKind::kInvalidConfig,
-                        std::format("CRC address 0x{:x} does not fit the 24-bit address space", *address));
-        }
-        prepared.address = *address;
-        return prepared;
-    }
+        return PrepareCrc(step, std::move(prepared));
     case CommandId::Send:
     case CommandId::SendRaw:
-    {
-        Result<bytes::Bytes> pdu = parse_hex_bytes(step.args);
-        if (!pdu.has_value())
-        {
-            return std::unexpected(pdu.error());
-        }
-        if (mitsu_colt_can::IsDestructiveRequest(*pdu))
-        {
-            return Fail(ErrorKind::kInvalidConfig,
-                        std::format("{} cannot bypass a named destructive command", spec->name));
-        }
-        prepared.pdu = std::move(*pdu);
-        return prepared;
-    }
+        return PreparePdu(**spec, step, std::move(prepared));
     case CommandId::Download:
-    {
-        const Result<std::uint32_t> address = parse_u32(step.args[0]);
-        if (!address.has_value())
-        {
-            return std::unexpected(address.error());
-        }
-        Result<bytes::Bytes> data = files.load(step.args[1]);
-        if (!data.has_value())
-        {
-            return std::unexpected(data.error());
-        }
-        if (const Status valid = ValidateWireRange(*address, data->size(), "download"); !valid.has_value())
-        {
-            return std::unexpected(valid.error());
-        }
-        prepared.address = *address;
-        prepared.upload_payload = std::move(*data);
-        return prepared;
-    }
+        return PrepareDownload(files, step, std::move(prepared));
     case CommandId::UploadRoutine:
-    {
-        const Result<RoutineSlot> slot = FindRoutineSlot(step.args[0]);
-        if (!slot.has_value())
-        {
-            return std::unexpected(slot.error());
-        }
-        bytes::Bytes payload(slot->bytes.begin(), slot->bytes.end());
-        bool from_file = false;
-        if (step.args.size() > 1)
-        {
-            if (step.args.size() != 3 || step.args[1] != "--from")
-            {
-                return Fail(ErrorKind::kInvalidConfig,
-                            std::format("{}'s extra arguments must be --from <path>", spec->name));
-            }
-            Result<bytes::Bytes> loaded = files.load(step.args[2]);
-            if (!loaded.has_value())
-            {
-                return std::unexpected(loaded.error());
-            }
-            payload = std::move(*loaded);
-            // Only the built-in bytes are a known erase helper; a file could
-            // hold anything, so it never arms erase.
-            from_file = true;
-        }
-        if (const Status valid = ValidateWireRange(slot->ram_address, payload.size(), "download"); !valid.has_value())
-        {
-            return std::unexpected(valid.error());
-        }
-        prepared.address = slot->ram_address;
-        prepared.upload_payload = std::move(payload);
-        prepared.provides_erase_helper = slot->erase_helper && !from_file;
-        return prepared;
-    }
+        return PrepareRoutine(files, **spec, step, std::move(prepared));
     case CommandId::Ports:
     case CommandId::Connect:
     case CommandId::Unlock:
@@ -408,116 +516,42 @@ Result<PreparedStep> prepare_step(IBenchFiles& files, const StepSpec& step)
 
 Status ExecuteStep(BenchContext& context, const PreparedStep& prepared, CommandOutcome& outcome)
 {
-    // #lizard forgives(cyclomatic_complexity)
-    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
-    const StepSpec& step = prepared.spec;
-    const CommandSpec *const spec = find_command(step.id);
-    if (spec == nullptr)
+    const Result<const CommandSpec *> spec = CheckedSpec(prepared.spec);
+    if (!spec.has_value())
     {
-        return Fail(ErrorKind::kInternal, "step has no command spec");
+        return std::unexpected(spec.error());
     }
-    // bench_args gates this at parse time; repeated here so a StepSpec built
-    // another way cannot reach the wire ungated.
-    if (const Status valid = validate_against_table(*spec, step); !valid.has_value())
-    {
-        return std::unexpected(valid.error());
-    }
-
-    switch (step.id)
+    switch (prepared.spec.id)
     {
     case CommandId::Read:
     case CommandId::Dump:
-    {
-        if (const Status result = ReadIntoOutcome(context, prepared, outcome); !result.has_value())
-        {
-            return std::unexpected(result.error());
-        }
-        if (step.id == CommandId::Dump)
-        {
-            if (const Status saved = context.files.save(step.args[2], outcome.data); !saved.has_value())
-            {
-                return std::unexpected(saved.error());
-            }
-        }
-        break;
-    }
+        return ExecuteRead(context, prepared, outcome);
     case CommandId::CrcCheck:
-    {
         // Re-checked at the wire, not re-parsed: prepare_step decoded the
         // address, but an address-window guard belongs at the last gate too.
-        if (prepared.address > kMaxWireU24)
+        if (const Status valid = CheckCrcAddress(prepared.address); !valid.has_value())
         {
-            return Fail(ErrorKind::kInvalidConfig,
-                        std::format("CRC address 0x{:x} does not fit the 24-bit address space", prepared.address));
+            return valid;
         }
         return RoutineWithStatus(context, outcome, mitsu_colt_can::BuildRoutineCheckCrc(prepared.address),
                                  mitsu_colt_can::kRoutineCheckCrc, decode_crc_reply);
-    }
     case CommandId::Send:
     case CommandId::SendRaw:
-    {
-        // Gated at parse and prepare time as well; repeated here so no PDU
-        // reaches the wire without passing the one destructive predicate.
-        if (mitsu_colt_can::IsDestructiveRequest(prepared.pdu))
-        {
-            return Fail(ErrorKind::kInvalidConfig,
-                        std::format("{} cannot bypass a named destructive command", spec->name));
-        }
-        // exchange_raw bypasses SID/NRC validation entirely -- whatever comes
-        // back is the observation the operator asked for, not something to
-        // classify as success or failure by content. A genuine transport
-        // error (nothing arrived at all) still propagates like every other
-        // command's Result does.
-        if (const Result<bytes::Bytes> reply =
-                step.id == CommandId::Send ? Exchange(context, outcome, prepared.pdu, kRoutinePolicy)
-                                           : ExchangeRaw(context, outcome, prepared.pdu, context.options.timeout_ms);
-            !reply.has_value())
-        {
-            return std::unexpected(reply.error());
-        }
-        break;
-    }
+        return ExecuteSend(context, **spec, prepared, outcome);
     case CommandId::Connect:
-    {
-        if (const Status connected = Connect(context, outcome); !connected.has_value())
-        {
-            return std::unexpected(connected.error());
-        }
-        break;
-    }
+        return Connect(context, outcome);
     case CommandId::Ports:
         // main.cpp (Task 7) handles `ports` before any session exists.
         return Fail(ErrorKind::kUnsupported, "ports does not use a session");
     case CommandId::Unlock:
-    {
-        const bytes::Bytes pdu = mitsu_colt_can::BuildRequestReflashUnlock();
-        if (const Result<bytes::Bytes> reply = Exchange(context, outcome, pdu, kSlowPolicy); !reply.has_value())
-        {
-            return std::unexpected(reply.error());
-        }
-        break;
-    }
+        return ExecuteUnlock(context, outcome);
     case CommandId::Erase:
         return RoutineWithStatus(context, outcome, mitsu_colt_can::BuildRoutineErase(), mitsu_colt_can::kRoutineErase,
                                  decode_erase_reply);
     case CommandId::Download:
     case CommandId::UploadRoutine:
-    {
-        if (!prepared.upload_payload.has_value())
-        {
-            return Fail(ErrorKind::kInternal, "prepared upload has no payload");
-        }
-        if (const Status uploaded = Upload(context, outcome, prepared.address, *prepared.upload_payload);
-            !uploaded.has_value())
-        {
-            return std::unexpected(uploaded.error());
-        }
-        outcome.note = std::format("uploaded {} {}bytes to 0x{:06x}", prepared.upload_payload->size(),
-                                   step.id == CommandId::UploadRoutine ? "routine " : "", prepared.address);
-        break;
+        return ExecuteUpload(context, prepared, outcome);
     }
-    }
-
     return {};
 }
 
