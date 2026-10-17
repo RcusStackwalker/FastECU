@@ -36,7 +36,6 @@ fastecu_gtest(
     size = "small",
     srcs = ["flash_operation_controller_test.cpp"],
     copts = ["-DQT_WIDGETS_LIB"],
-    env = {"QT_QPA_PLATFORM": "offscreen"},
     deps = [
         ":flash_operation_controller",
         "//bazel/qt:core",

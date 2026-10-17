@@ -183,7 +183,7 @@ class Parser
             instructions_.push_back({'~', 0.0});
             if (value->has_value())
             {
-                **value = -**value;
+                *value = -**value;
             }
         }
         return value;

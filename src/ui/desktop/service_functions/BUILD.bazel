@@ -20,7 +20,6 @@ fastecu_gtest(
     name = "test_denso_tcu_read_preflight",
     srcs = ["denso_tcu_read_preflight_test.cpp"],
     copts = ["-DQT_WIDGETS_LIB"],
-    env = {"QT_QPA_PLATFORM": "offscreen"},
     deps = [
         ":denso_tcu_read_preflight",
         "//bazel/qt:core",

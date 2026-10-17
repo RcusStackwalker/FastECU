@@ -94,7 +94,6 @@ fastecu_gtest(
     name = "startup_diagnostics_test",
     size = "small",
     srcs = ["startup_diagnostics_test.cpp"],
-    env = {"QT_QPA_PLATFORM": "offscreen"},
     deps = [
         ":startup",
         ":startup_test_platform",

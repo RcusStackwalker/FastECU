@@ -46,7 +46,6 @@ fastecu_gtest(
     name = "hexedit_test",
     srcs = ["hexedit_test.cpp"],
     copts = ["-DQT_WIDGETS_LIB"],
-    env = {"QT_QPA_PLATFORM": "offscreen"},
     deps = [
         ":hexedit",
         "//bazel/qt:core",

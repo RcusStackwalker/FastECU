@@ -26,7 +26,6 @@ fastecu_gtest(
     name = "test_flash_dialog",
     srcs = ["flash_dialog_test.cpp"],
     copts = ["-DQT_WIDGETS_LIB"],
-    env = {"QT_QPA_PLATFORM": "offscreen"},
     deps = [
         ":flash_dialog",
         "//bazel/qt:core",

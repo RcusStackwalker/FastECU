@@ -217,7 +217,9 @@ def qt_cc_test(name, srcs, deps = None, copts = [], data = [], env = {}, **kwarg
         deps = deps,
         copts = copts + _PIC_COPTS,
         data = qt_plugin_data + data,
-        env = _env_select(env),
+        # Tests need no display: CI installs no xcb libraries, so a widget test
+        # on Linux's default xcb platform aborts there.
+        env = _env_select({"QT_QPA_PLATFORM": "offscreen"} | env),
         **kwargs
     )
 

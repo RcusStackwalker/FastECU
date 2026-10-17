@@ -312,18 +312,22 @@ def collect_shard_reports(directory: Path, count: int) -> tuple[list[Mapping], l
                 raise MutationTestError(f"duplicate or invalid shard index in {path}")
             finished.add(data["index"])
             manifests.append(data)
-    if len(finished) == count and any("selection" in manifest for manifest in manifests):
-        expected = manifests[0].get("selection")
-        labels = [label for manifest in manifests for label in manifest["labels"]]
-        if (
-            any(manifest.get("selection") != expected for manifest in manifests)
-            or len(labels) != len(set(labels))
-            or set(labels) != set(expected or [])
-        ):
-            raise MutationTestError(
-                "shard manifests contain missing, duplicated or inconsistent work"
-            )
+    if len(finished) == count:
+        validate_selection(manifests)
     return reports, sorted(set(range(count)) - finished)
+
+
+def validate_selection(manifests: Sequence[Mapping]) -> None:
+    if not any("selection" in manifest for manifest in manifests):
+        return
+    expected = manifests[0].get("selection")
+    labels = [label for manifest in manifests for label in manifest["labels"]]
+    if (
+        any(manifest.get("selection") != expected for manifest in manifests)
+        or len(labels) != len(set(labels))
+        or set(labels) != set(expected or [])
+    ):
+        raise MutationTestError("shard manifests contain missing, duplicated or inconsistent work")
 
 
 def render_performance(reports: Sequence[Mapping]) -> str:
@@ -628,6 +632,33 @@ def operand(value: str) -> str:
     return value
 
 
+# One or more target patterns joined by `+` or `-`: no query functions or
+# parentheses, so `--scope` cannot rewrite the query it is spliced into.
+_TARGET_PATTERN = re.compile(r"//[\w./:-]*(?: [+-] //[\w./:-]*)*")
+
+
+def target_pattern(value: str) -> str:
+    """A Bazel target pattern expression, safe to splice into a query."""
+    if not _TARGET_PATTERN.fullmatch(value):
+        raise argparse.ArgumentTypeError(
+            f"{value!r} is not a target pattern such as //src/a/... + //src/b/..."
+        )
+    return value
+
+
+def report_directory(path: Path, root: Path, environ: Mapping[str, str]) -> Path:
+    """`path` resolved, provided it lies in the checkout or a temp directory."""
+    resolved = (root / path).resolve()
+    bases = [root.resolve(), Path(tempfile.gettempdir()).resolve()]
+    if environ.get("RUNNER_TEMP"):
+        bases.append(Path(environ["RUNNER_TEMP"]).resolve())
+    if not any(resolved.is_relative_to(base) for base in bases):
+        raise MutationTestError(
+            f"{path} is outside the checkout and the temp directories; reports go there"
+        )
+    return resolved
+
+
 def _parse_args(argv: Sequence[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument(
@@ -638,7 +669,7 @@ def _parse_args(argv: Sequence[str]) -> argparse.Namespace:
     parser.add_argument("--annotate", action="store_true", help="print GitHub annotations")
     parser.add_argument(
         "--scope",
-        type=operand,
+        type=target_pattern,
         default=PORTABLE_SCOPE,
         help=f"Bazel target pattern whose tests run (default: {PORTABLE_SCOPE})",
     )
@@ -719,13 +750,20 @@ def merge_shards(args: argparse.Namespace, root: Path) -> int:
 def main(argv: Sequence[str] = sys.argv[1:]) -> int:
     args = _parse_args(argv)
     root = Path(__file__).resolve().parent.parent
-    base_config = (root / CONFIG_NAME).read_text()
     title = (
         f"Mutation testing (lines changed since {args.diff_ref})"
         if args.diff_ref
         else "Mutation testing"
     )
     try:
+        if args.report_dir:
+            args.report_dir = report_directory(args.report_dir, root, os.environ)
+        if args.schedule:
+            args.schedule = report_directory(args.schedule, root, os.environ)
+        if args.refresh_schedule:
+            args.refresh_schedule = report_directory(args.refresh_schedule, root, os.environ)
+        if args.baseline_reports:
+            args.baseline_reports = report_directory(args.baseline_reports, root, os.environ)
         if args.refresh_schedule:
             manifests = sorted(args.refresh_schedule.rglob(SHARD_MANIFEST))
             if not manifests:
@@ -741,6 +779,7 @@ def main(argv: Sequence[str] = sys.argv[1:]) -> int:
             args.schedule.write_text(json.dumps(refreshed, indent=2) + "\n")
             return 0
         if args.merge_reports:
+            args.merge_reports = report_directory(args.merge_reports, root, os.environ)
             return merge_shards(args, root)
         if args.report_dir and args.report_dir.exists() and any(args.report_dir.iterdir()):
             raise MutationTestError("report directory must be empty; use a fresh path for each run")
@@ -769,6 +808,7 @@ def main(argv: Sequence[str] = sys.argv[1:]) -> int:
             report_dir.mkdir(parents=True, exist_ok=True)
             config_path = root / CONFIG_NAME
             if args.diff_ref:
+                base_config = (root / CONFIG_NAME).read_text()
                 config_path = Path(scratch) / CONFIG_NAME
                 config_path.write_text(diff_config(base_config, args.diff_ref, root))
             # The build always uses the checked-in config, so every mode shares one

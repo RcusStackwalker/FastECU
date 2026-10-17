@@ -27,7 +27,6 @@ fastecu_gtest(
     name = "dtc_operations_test",
     srcs = ["dtc_operations_test.cpp"],
     copts = ["-DQT_WIDGETS_LIB"],
-    env = {"QT_QPA_PLATFORM": "offscreen"},
     deps = [
         ":dtc_operations",
         "//bazel/qt:core",
@@ -179,10 +178,7 @@ fastecu_gtest(
     srcs = ["mainwindow_test.cpp"],
     copts = ["-DQT_WIDGETS_LIB"],
     data = ["testdata/main_menu.golden"],
-    env = {
-        "MAIN_MENU_GOLDEN_PATH": "$(location testdata/main_menu.golden)",
-        "QT_QPA_PLATFORM": "offscreen",
-    },
+    env = {"MAIN_MENU_GOLDEN_PATH": "$(location testdata/main_menu.golden)"},
     # Static linking keeps MainWindow symbols available on Windows.
     linkstatic = True,
     deps = [
@@ -234,7 +230,6 @@ fastecu_gtest(
     size = "small",
     srcs = ["settings_test.cpp"],
     copts = ["-DQT_WIDGETS_LIB"],
-    env = {"QT_QPA_PLATFORM": "offscreen"},
     # Static for the same reason as test_mainwindow above.
     linkstatic = True,
     deps = [
@@ -259,7 +254,6 @@ fastecu_gtest(
     size = "small",
     srcs = ["vehicle_select_test.cpp"],
     copts = ["-DQT_WIDGETS_LIB"],
-    env = {"QT_QPA_PLATFORM": "offscreen"},
     # Static for the same reason as test_mainwindow above.
     linkstatic = True,
     deps = [
@@ -276,7 +270,6 @@ fastecu_gtest(
     size = "small",
     srcs = ["protocol_select_test.cpp"],
     copts = ["-DQT_WIDGETS_LIB"],
-    env = {"QT_QPA_PLATFORM": "offscreen"},
     # Static for the same reason as test_mainwindow above.
     linkstatic = True,
     deps = [
@@ -294,7 +287,6 @@ fastecu_gtest(
     size = "small",
     srcs = ["calibration_treewidget_test.cpp"],
     copts = ["-DQT_WIDGETS_LIB"],
-    env = {"QT_QPA_PLATFORM": "offscreen"},
     linkstatic = True,
     deps = [
         ":desktop",
@@ -311,7 +303,6 @@ fastecu_gtest(
     size = "small",
     srcs = ["calibration_maps_test.cpp"],
     copts = ["-DQT_WIDGETS_LIB"],
-    env = {"QT_QPA_PLATFORM": "offscreen"},
     linkstatic = True,
     deps = [
         ":desktop",

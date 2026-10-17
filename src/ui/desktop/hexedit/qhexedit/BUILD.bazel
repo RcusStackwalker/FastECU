@@ -28,7 +28,6 @@ fastecu_gtest(
     name = "qhexedit_test",
     srcs = ["qhexedit_test.cpp"],
     copts = ["-DQT_WIDGETS_LIB"],
-    env = {"QT_QPA_PLATFORM": "offscreen"},
     deps = [
         ":qhexedit",
         "//src/platform/desktop/common/testing:event_helpers",

@@ -20,6 +20,9 @@ ABSOLUTE_SOURCE = f"/work/FastECU/{SOURCE}"
 SHORT = "src/a.cpp"
 TITLE = "Mutation testing"
 DIFF_REF = "origin/master"
+LABEL_A = "//a:t"
+LABEL_B = "//b:t"
+PACKAGE_SCOPE = "//src/a/..."
 
 
 def _mutant(line: int, status: str, mutator: str = "cxx_sub_to_add", replacement: str = "+"):
@@ -157,6 +160,54 @@ class OperandTest(unittest.TestCase):
             mt.operand("")
 
 
+class TargetPatternTest(unittest.TestCase):
+    def test_accepts_the_portable_scope(self) -> None:
+        self.assertEqual(mt.PORTABLE_SCOPE, mt.target_pattern(mt.PORTABLE_SCOPE))
+
+    def test_accepts_a_package_or_label(self) -> None:
+        self.assertEqual(PACKAGE_SCOPE, mt.target_pattern(PACKAGE_SCOPE))
+        self.assertEqual("//src/a:t_test", mt.target_pattern("//src/a:t_test"))
+
+    def test_accepts_a_subtraction(self) -> None:
+        self.assertEqual("//src/... - //src/ui/...", mt.target_pattern("//src/... - //src/ui/..."))
+
+    def test_rejects_query_functions(self) -> None:
+        for value in ("//src/...) union deps(//...", "kind(cc_binary, //...)", "--output=x", ""):
+            with self.subTest(value=value), self.assertRaises(argparse.ArgumentTypeError):
+                mt.target_pattern(value)
+
+
+class ReportDirectoryTest(unittest.TestCase):
+    def test_accepts_a_directory_under_the_checkout(self) -> None:
+        self.assertEqual(
+            (ROOT / "reports").resolve(), mt.report_directory(Path("reports"), ROOT, {})
+        )
+
+    def test_accepts_a_directory_under_the_runner_temp(self) -> None:
+        runner_temp = Path("/runner/_temp")
+        self.assertEqual(
+            (runner_temp / "mutation").resolve(),
+            mt.report_directory(runner_temp / "mutation", ROOT, {"RUNNER_TEMP": str(runner_temp)}),
+        )
+
+    def test_rejects_a_directory_that_escapes_the_bases(self) -> None:
+        for value in (Path("../elsewhere"), Path("/etc/fastecu")):
+            with self.subTest(value=value), self.assertRaises(mt.MutationTestError):
+                mt.report_directory(value, ROOT, {})
+
+    def test_new_cli_paths_use_the_same_checkout_and_temp_policy(self) -> None:
+        outside = "/etc/fastecu-mutation-test-nonexistent"
+        for argv in (
+            ["--schedule", outside],
+            ["--schedule", "bazel/mutation-schedule.json", "--refresh-schedule", outside],
+            ["--merge-reports", ".", "--shards", "1", "--baseline-reports", outside],
+        ):
+            errors = io.StringIO()
+            with self.subTest(argv=argv), contextlib.redirect_stderr(errors):
+                self.assertEqual(2, mt.main(argv))
+                self.assertIn("outside the checkout", errors.getvalue())
+
+
 class SelectionTest(unittest.TestCase):
     def test_keeps_portable_production_sources_only(self) -> None:
         self.assertEqual(
@@ -186,14 +237,14 @@ class SelectionTest(unittest.TestCase):
     def test_tests_expression_excludes_fuzz_harnesses(self) -> None:
         self.assertEqual(
             'kind(cc_test, //src/a/...) except attr(tags, "\\bfuzz\\b", //src/a/...)',
-            mt.tests_expression("//src/a/...", None),
+            mt.tests_expression(PACKAGE_SCOPE, None),
         )
 
     def test_tests_expression_narrows_to_dependents_of_the_change(self) -> None:
         self.assertEqual(
             '(kind(cc_test, //src/a/...) except attr(tags, "\\bfuzz\\b", //src/a/...))'
             " intersect rdeps(//src/a/..., set(src/a/x.cpp src/a/y.h))",
-            mt.tests_expression("//src/a/...", ["src/a/x.cpp", "src/a/y.h"]),
+            mt.tests_expression(PACKAGE_SCOPE, ["src/a/x.cpp", "src/a/y.h"]),
         )
 
     def test_binary_path_follows_the_label(self) -> None:
@@ -251,7 +302,7 @@ class TestEnvironmentTest(unittest.TestCase):
                 "--",
                 "set(//a:t //b:u)",
             ],
-            mt.env_query_command(["//a:t", "//b:u"], flags),
+            mt.env_query_command([LABEL_A, "//b:u"], flags),
         )
 
     def test_parses_each_targets_env_by_its_label(self) -> None:
@@ -294,31 +345,31 @@ class ShardTest(unittest.TestCase):
                 mt.parse_shard(value)
 
     def test_takes_every_nth_label_of_the_sorted_list(self) -> None:
-        labels = ["//e:t", "//b:t", "//d:t", "//a:t", "//c:t"]
-        self.assertEqual(["//b:t", "//d:t"], mt.Shard(1, 2).select(labels))
-        self.assertEqual(["//a:t", "//c:t", "//e:t"], mt.Shard(0, 2).select(labels))
+        labels = ["//e:t", LABEL_B, "//d:t", LABEL_A, "//c:t"]
+        self.assertEqual([LABEL_B, "//d:t"], mt.Shard(1, 2).select(labels))
+        self.assertEqual([LABEL_A, "//c:t", "//e:t"], mt.Shard(0, 2).select(labels))
 
     def test_a_shard_past_the_last_label_selects_nothing(self) -> None:
-        self.assertEqual([], mt.Shard(3, 4).select(["//a:t", "//b:t"]))
+        self.assertEqual([], mt.Shard(3, 4).select([LABEL_A, LABEL_B]))
 
 
 class ScheduleTest(unittest.TestCase):
     def test_splits_slow_binaries_and_balances_all_work_without_loss(self) -> None:
-        schedule = {"//a:t": {"seconds": 100, "test_shards": 2}, "//b:t": {"seconds": 40}}
-        work = mt.plan_work(["//c:t", "//b:t", "//a:t"], schedule)
+        schedule = {LABEL_A: {"seconds": 100, "test_shards": 2}, LABEL_B: {"seconds": 40}}
+        work = mt.plan_work(["//c:t", LABEL_B, LABEL_A], schedule)
         shards = [mt.balance_work(work, mt.Shard(i, 2)) for i in range(2)]
         self.assertCountEqual(work, shards[0] + shards[1])
         self.assertEqual([90, 51], [sum(item.seconds for item in shard) for shard in shards])
         self.assertEqual(
-            [mt.WorkItem("//a:t", 0, 2, 50), mt.WorkItem("//a:t", 1, 2, 50)],
-            [item for item in work if item.label == "//a:t"],
+            [mt.WorkItem(LABEL_A, 0, 2, 50), mt.WorkItem(LABEL_A, 1, 2, 50)],
+            [item for item in work if item.label == LABEL_A],
         )
 
     def test_selection_is_deterministic_and_new_labels_are_never_dropped(self) -> None:
-        first = mt.plan_work(["//b:t", "//a:t"], {})
-        second = mt.plan_work(["//a:t", "//b:t"], {})
+        first = mt.plan_work([LABEL_B, LABEL_A], {})
+        second = mt.plan_work([LABEL_A, LABEL_B], {})
         self.assertEqual(first, second)
-        self.assertEqual(["//a:t", "//b:t"], [item.label for item in first])
+        self.assertEqual([LABEL_A, LABEL_B], [item.label for item in first])
         self.assertEqual(first, mt.balance_work(first, mt.Shard(0, 1)))
 
     def test_rejects_invalid_estimates_and_shard_counts(self) -> None:
@@ -329,15 +380,15 @@ class ScheduleTest(unittest.TestCase):
             {"seconds": 1, "test_shards": 1.5},
         ):
             with self.subTest(entry=entry), self.assertRaises(mt.MutationTestError):
-                mt.plan_work(["//a:t"], {"//a:t": entry})
+                mt.plan_work([LABEL_A], {LABEL_A: entry})
 
     def test_work_items_use_distinct_report_directories_and_google_test_slices(self) -> None:
-        first = mt.WorkItem("//a:t", 0, 2, 1)
-        second = mt.WorkItem("//b:t", 0, 2, 1)
+        first = mt.WorkItem(LABEL_A, 0, 2, 1)
+        second = mt.WorkItem(LABEL_B, 0, 2, 1)
         self.assertNotEqual(first.report_path(ROOT), second.report_path(ROOT))
         self.assertEqual(ROOT / "a/t/gtest-0-of-2", first.report_path(ROOT))
         self.assertEqual({"GTEST_TOTAL_SHARDS": "2", "GTEST_SHARD_INDEX": "0"}, first.environment())
-        self.assertEqual({}, mt.WorkItem("//a:t").environment())
+        self.assertEqual({}, mt.WorkItem(LABEL_A).environment())
 
 
 class MergeShardsTest(unittest.TestCase):
@@ -400,7 +451,7 @@ class MergeShardsTest(unittest.TestCase):
             mt.collect_shard_reports(self.root, 2)
 
     def test_rejects_a_completed_run_with_missing_or_duplicate_work(self) -> None:
-        for labels in (["//a:t"], ["//a:t", "//b:t", "//b:t"]):
+        for labels in ([LABEL_A], [LABEL_A, LABEL_B, LABEL_B]):
             with self.subTest(labels=labels):
                 for index in range(2):
                     directory = self.root / f"mutation-report-shard-{index}"
@@ -409,7 +460,7 @@ class MergeShardsTest(unittest.TestCase):
                         directory,
                         mt.Shard(index, 2),
                         labels if index == 0 else [],
-                        selection=["//a:t", "//b:t"],
+                        selection=[LABEL_A, LABEL_B],
                     )
                 with self.assertRaises(mt.MutationTestError):
                     mt.collect_shard_reports(self.root, 2)
@@ -421,13 +472,13 @@ class PerformanceTest(unittest.TestCase):
             "build_seconds": 20,
             "query_seconds": 2,
             "binaries": [
-                {"id": "//a:t", "seconds": 3, "status": "complete"},
-                {"id": "//b:t", "seconds": 50, "status": "complete"},
+                {"id": LABEL_A, "seconds": 3, "status": "complete"},
+                {"id": LABEL_B, "seconds": 50, "status": "complete"},
             ],
         }
         summary = mt.render_performance([performance])
         self.assertIn("53.0s", summary)
-        self.assertLess(summary.index("//b:t"), summary.index("//a:t"))
+        self.assertLess(summary.index(LABEL_B), summary.index(LABEL_A))
 
     def test_summary_reports_timeouts_separately_without_changing_score(self) -> None:
         merged = {mt.MutantKey(SHORT, 1, 2, "m", "r"): "Timeout"}
@@ -449,20 +500,20 @@ class PerformanceTest(unittest.TestCase):
         self.assertIn("Additional survivors: **1**", summary)
 
     def test_refresh_uses_measured_slice_costs_and_preserves_other_scopes(self) -> None:
-        schedule = {"tests": {"//b:t": {"seconds": 5}}}
+        schedule = {"tests": {LABEL_B: {"seconds": 5}}}
         reports = [
             {
                 "run_id": "42",
                 "binaries": [
                     {
-                        "label": "//a:t",
+                        "label": LABEL_A,
                         "test_shard": 1,
                         "test_shards": 2,
                         "seconds": 30,
                         "status": "complete",
                     },
                     {
-                        "label": "//a:t",
+                        "label": LABEL_A,
                         "test_shard": 0,
                         "test_shards": 2,
                         "seconds": 10,
@@ -472,11 +523,11 @@ class PerformanceTest(unittest.TestCase):
             }
         ]
         updated = mt.refresh_schedule(schedule, reports)
-        self.assertEqual({"seconds": 5}, updated["tests"]["//b:t"])
+        self.assertEqual({"seconds": 5}, updated["tests"][LABEL_B])
         self.assertEqual(
-            {"seconds": 40, "test_shards": 2, "shard_seconds": [10, 30]}, updated["tests"]["//a:t"]
+            {"seconds": 40, "test_shards": 2, "shard_seconds": [10, 30]}, updated["tests"][LABEL_A]
         )
-        work = mt.plan_work(["//a:t"], updated["tests"])
+        work = mt.plan_work([LABEL_A], updated["tests"])
         self.assertEqual([10, 30], [item.seconds for item in work])
 
     def test_refresh_rejects_incomplete_slices(self) -> None:
@@ -485,7 +536,7 @@ class PerformanceTest(unittest.TestCase):
                 "run_id": "42",
                 "binaries": [
                     {
-                        "label": "//a:t",
+                        "label": LABEL_A,
                         "test_shard": 0,
                         "test_shards": 2,
                         "seconds": 10,
@@ -557,7 +608,7 @@ sys.exit(mt.main())
 """
             )
             schedule = root / "schedule.json"
-            schedule.write_text(json.dumps({"tests": {"//a:t": {"seconds": 10, "test_shards": 2}}}))
+            schedule.write_text(json.dumps({"tests": {LABEL_A: {"seconds": 10, "test_shards": 2}}}))
             environment = {
                 **os.environ,
                 "PYTHONSAFEPATH": "1",
@@ -641,7 +692,7 @@ class ParseArgsTest(unittest.TestCase):
         self._rejects("--merge-reports", "r")
 
     def test_accepts_a_scoped_shard(self) -> None:
-        args = mt._parse_args(["--shard", "2/4", "--report-dir", "r", "--scope", "//src/a/..."])
+        args = mt._parse_args(["--shard", "2/4", "--report-dir", "r", "--scope", PACKAGE_SCOPE])
         self.assertEqual(mt.Shard(2, 4), args.shard)
 
 
