@@ -1,7 +1,7 @@
 # Tooling
 
-How to run the static-analysis, mutation and fuzzing checks locally and how CI
-runs them. The rules they enforce live in the [coding style guide](coding-style.md).
+How to run the static-analysis, mutation and fuzzing checks and the NLOC
+hill-climbing loop locally, and how CI runs them. The rules they enforce live in the [coding style guide](coding-style.md).
 
 ## Static analysis
 
@@ -170,6 +170,25 @@ are the first optimization experiment. No test cases or production guards
 are removed to meet the budget.
 Experiment results and qualification evidence are recorded in
 [PR 692](https://github.com/RcusStackwalker/FastECU/pull/692).
+
+## NLOC hill-climbing loop
+
+Proposed; not yet implemented. The design is in
+[the NLOC hill-climbing spec](superpowers/specs/2026-10-17-nloc-hill-climbing.md)
+and [ADR 0023](adr/0023-hill-climb-nloc-with-kind-specific-guards.md).
+
+- **NLOC**: Lizard's `Total nloc` over first-party C++ in `src/`, `apps/`
+  and `tests/` with the prek excludes. Non-blank, non-comment lines on the
+  clang-formatted tree. Avoid "line count", which is ambiguous.
+- **Candidate cluster**: a group of duplicated blocks reported by jscpd,
+  ranked by estimated savings.
+- **Loop PR**: one iteration of the loop: a pull request that lowers NLOC by
+  at least 50 and passes the guards for its kind.
+- **Test-only PR**: a loop PR whose production sources are byte-identical to
+  the base.
+- **Production PR**: a loop PR that changes production sources.
+- **Ledger**: the gitignored record of attempted clusters and their outcomes,
+  which keeps rejected clusters from being retried.
 
 ## Fuzzing
 
