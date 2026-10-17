@@ -175,8 +175,8 @@ stop diagnostics and image padding. Progress advances by the requested 256
 bytes even for short pages. Both SH72531 and SH72543 diesel retain 1 ms pacing
 per page; neither N83M family adds that delay. Independent literal helper and
 family transcripts pin this boundary. The
-[P81 triage record](superpowers/specs/2026-10-14-flash-duplication-triage.md)
-records its extraction and remaining evidence limits. No mapped RomRaider or
+[page-read evidence reference](reference/flash-protocol-evidence.md#denso-iso-15765-read-questions)
+records the remaining external evidence limits. No mapped RomRaider or
 ECUFlash family page-read oracle establishes the timeout, response policy or
 short-page acceptance, and no external oracle supports changing stop-error
 precedence. This extraction preserves behavior and does not establish hardware
@@ -210,10 +210,9 @@ are 500/500 ms (1.5M), 500/3000 ms (4M) and 2000/2000 ms (both SH families).
 The legacy pending-first discrepancy remains unresolved externally. ECUFlash
 family-name/constructor references do not map these operations and callers;
 neither addressing nor discarded-read correctness has an independent verdict.
-A separately authorized extraction may consider only the matching bounded wait
-tail or B6/address/chunk exchange, preserving caller policy and independent
-family tests. These observations do not authorize corrections or hardware
-qualification; the [remaining pair evidence](superpowers/specs/2026-10-14-flash-duplication-triage.md)
+The matching bounded wait tail and B6/address/chunk exchange are now shared
+as described above, preserving caller policy and independent family tests.
+These observations do not authorize corrections or hardware qualification; the [protocol evidence reference](reference/flash-protocol-evidence.md#denso-connection-and-programming-questions)
 records unresolved mappings.
 
 The [ordinary optional M32R SSM exchange](../src/backend/flash/ecu/m32r_ssm_exchange.h)
@@ -232,7 +231,7 @@ interchangeable transfer loops. Transport seams keep failure and cancellation
 paths scriptable; sharing does not change hardware qualification.
 
 K-Line read mapping and kernel response policy remain family-owned
-([P06, P19, P48 and P49](superpowers/specs/2026-10-14-flash-duplication-triage.md)).
+([pacing, address, upload and CRC evidence](reference/flash-protocol-evidence.md#k-line-capability-verification-and-transfer-questions)).
 Hitachi ECU reads send `A0 00 00` with a `0x100000` wire bias and reconstruct
 all 512 KiB; Mitsubishi reads send `A0 00 20` from `0x8000`, synthesize the low
 32 KiB as `FF`, and warn. MC68 stock/Ecutek upload success is an absent frame;
