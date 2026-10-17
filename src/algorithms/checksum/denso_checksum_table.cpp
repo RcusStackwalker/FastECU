@@ -31,8 +31,9 @@ std::expected<std::uint32_t, DensoTableOutcome> SumBlock(bytes::ByteView rom, st
     {
         return 0;
     }
-    // Legacy summed nothing here, but only because its loop never ran; no
-    // ECU code or other tool says what the ECU expects.
+    // Legacy summed nothing here, but only because its loop never ran. The
+    // ECU's own check (SH7055 and SH7058 petrol firmware) fails such a
+    // record before summing it.
     if (end < start)
     {
         return std::unexpected(DensoTableOutcome::kReversedBlockRange);
