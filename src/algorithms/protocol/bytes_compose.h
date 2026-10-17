@@ -36,6 +36,14 @@ consteval Byte operator""_b(unsigned long long value)
 template <typename T>
 concept ByteRange = std::ranges::input_range<T> && std::same_as<std::ranges::range_value_t<T>, Byte>;
 
+// A sized range of unsigned integers wider than a byte, each composed
+// big-endian at its own width. Sized so the output is allocated once and
+// filled in place; ROM-sized payloads go through here.
+template <typename T>
+concept WideIntegerRange =
+    std::ranges::input_range<T> && std::ranges::sized_range<T> &&
+    std::unsigned_integral<std::ranges::range_value_t<T>> && (sizeof(std::ranges::range_value_t<T>) > 1);
+
 namespace detail
 {
 
@@ -78,11 +86,18 @@ template <typename T> constexpr std::size_t WidthBe(const T& arg)
             return 0; // capacity is a hint, never correctness
         }
     }
+    else if constexpr (WideIntegerRange<U>)
+    {
+        return sizeof(std::ranges::range_value_t<U>) * std::ranges::size(arg);
+    }
     else
     {
-        static_assert(kDependentFalse<U>, "composeBe: argument must be Byte, std::uint16_t, u24(), "
-                                          "std::uint32_t, std::string_view, or a range of Byte. A bare "
-                                          "integer literal is an int -- write 0x34_b instead.");
+        static_assert(
+            kDependentFalse<U>,
+            "composeBe: argument must be Byte, std::uint16_t, u24(), "
+            "std::uint32_t, std::string_view, or a range of Byte or "
+            "a range of std::uint16_t, std::uint32_t or std::uint64_t. A bare integer literal is an int -- write "
+            "0x34_b instead.");
         return 0;
     }
 }
@@ -117,11 +132,27 @@ template <typename T> void AppendBe(Bytes& out, const T& arg)
     {
         out.insert(out.end(), std::ranges::begin(arg), std::ranges::end(arg));
     }
+    else if constexpr (WideIntegerRange<U>)
+    {
+        constexpr std::size_t kWidth = sizeof(std::ranges::range_value_t<U>);
+        auto at = out.size();
+        out.resize(at + kWidth * std::ranges::size(arg));
+        for (const auto value : arg)
+        {
+            for (std::size_t shift = kWidth; shift-- > 0;)
+            {
+                out[at++] = static_cast<Byte>(value >> (8 * shift));
+            }
+        }
+    }
     else
     {
-        static_assert(kDependentFalse<U>, "composeBe: argument must be Byte, std::uint16_t, u24(), "
-                                          "std::uint32_t, std::string_view, or a range of Byte. A bare "
-                                          "integer literal is an int -- write 0x34_b instead.");
+        static_assert(
+            kDependentFalse<U>,
+            "composeBe: argument must be Byte, std::uint16_t, u24(), "
+            "std::uint32_t, std::string_view, or a range of Byte or "
+            "a range of std::uint16_t, std::uint32_t or std::uint64_t. A bare integer literal is an int -- write "
+            "0x34_b instead.");
     }
 }
 
