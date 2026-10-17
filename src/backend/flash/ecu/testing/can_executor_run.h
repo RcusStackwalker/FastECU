@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <string_view>
+#include <type_traits>
 #include <vector>
 
 #include "src/algorithms/protocol/bytes.h"
@@ -384,7 +385,8 @@ template <typename Executor> void ExpectCancelAtCloseSettle(const FlashPlan& pla
 // The scripting members CanExecutorConformance expects of a family's Traits,
 // each forwarding to the family's own free helper so the conformance suite
 // runs exactly the plans and scripts the local tests do. Derive a Traits from
-// it, passing the helpers' addresses in this order.
+// it, passing the helpers' addresses (or callables) in this order; a
+// BenchConnect taking no probe case is called without one.
 template <auto Read, auto HandBuilt, auto BenchConnect, auto ReadSetup, auto FlashDump, auto StopCommand,
           auto UpToFirstFatalRead>
 struct CanScriptForwarders
@@ -399,7 +401,14 @@ struct CanScriptForwarders
     }
     static void ScriptBenchConnect(ScriptedCanFlashTransport& t)
     {
-        BenchConnect(t, 0);
+        if constexpr (std::is_invocable_v<decltype(BenchConnect), ScriptedCanFlashTransport&, int>)
+        {
+            BenchConnect(t, 0);
+        }
+        else
+        {
+            BenchConnect(t);
+        }
     }
     static void ScriptReadSetup(ScriptedCanFlashTransport& t)
     {
