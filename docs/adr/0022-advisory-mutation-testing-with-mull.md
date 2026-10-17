@@ -39,13 +39,15 @@ real.
   the runner so the build stays the same in every mode) and reports survivors
   as annotations on the diff and a job summary. Surviving mutants never fail
   either; a tool or build failure does.
-- The weekly and manual runs use four jobs, balancing work longest-first
+- The weekly and manual runs use six jobs, balancing work longest-first
   from the versioned [duration estimates](../../bazel/mutation-schedule.json).
   Expensive binaries use GoogleTest's disjoint test shards: every test case
   still runs, while Mull's coverage filter limits each slice's mutants.
   Each job computes the same assignment without a planning job and builds
   only the binaries it needs. Missing estimates use a deterministic default;
   estimates never define which Bazel tests are selected.
+  Six jobs reserve headroom for hosted-runner variation and queueing; balanced
+  four-job runs nearly consumed the entire 20-minute budget.
   Each shard writes a manifest after its last binary, and a merge job that
   runs even when a shard fails merges every report it finds, names the shards
   that left no manifest in the summary, and fails the run if there were any.

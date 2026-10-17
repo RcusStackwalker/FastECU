@@ -118,13 +118,13 @@ comparing experiments. Surviving mutants remain advisory; incomplete runs
 are failures, even if their partial reports look faster.
 
 The workflow uses [duration estimates](../bazel/mutation-schedule.json) to
-balance four jobs and GoogleTest slices of expensive binaries. Local runs
+balance six jobs and GoogleTest slices of expensive binaries. Local runs
 can use the identical selection and assignment. Use a fresh report/download
 directory for each run so earlier artifacts cannot contaminate a comparison:
 
 ```sh
 python3 scripts/mutation_test.py --schedule bazel/mutation-schedule.json \
-  --shard 0/4 --report-dir /tmp/mutation-shard-0
+  --shard 0/6 --report-dir /tmp/mutation-shard-0
 ```
 
 1. Run one experiment on a feature branch, changing one performance variable.

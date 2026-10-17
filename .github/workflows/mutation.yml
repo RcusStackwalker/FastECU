@@ -2,7 +2,7 @@ name: mutation
 
 # Weekly Mull mutation testing of all portable code (ADR 0022); a manual run
 # can narrow it to a scope. Advisory: it reports surviving mutants and never
-# gates anything. Four jobs balance duration estimates, splitting expensive
+# gates anything. Six jobs balance duration estimates, splitting expensive
 # binaries with GoogleTest sharding; a merge job combines their reports. The PR
 # workflow's `mutation` job runs the same script, unsharded, on a PR's changed
 # lines.
@@ -46,8 +46,8 @@ jobs:
       # whatever finished and names the shards that did not.
       fail-fast: false
       matrix:
-        # The script's --shard I/4 and the merge job's --shards 4 follow this.
-        shard: [0, 1, 2, 3]
+        # The script's --shard I/6 and the merge job's --shards 6 follow this.
+        shard: [0, 1, 2, 3, 4, 5]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -71,7 +71,7 @@ jobs:
           SCOPE: ${{ inputs.scope }}
           SHARD: ${{ matrix.shard }}
         run: |
-          python3 scripts/mutation_test.py --shard "${SHARD}/4" \
+          python3 scripts/mutation_test.py --shard "${SHARD}/6" \
             --schedule bazel/mutation-schedule.json ${SCOPE:+--scope "$SCOPE"} \
             --report-dir "${RUNNER_TEMP}/mutation"
 
@@ -116,7 +116,7 @@ jobs:
           if [ -n "$BASELINE_RUN" ]; then
             args+=(--baseline-reports "${RUNNER_TEMP}/mutation-baseline")
           fi
-          python3 scripts/mutation_test.py --merge-reports "${RUNNER_TEMP}/mutation" --shards 4 \
+          python3 scripts/mutation_test.py --merge-reports "${RUNNER_TEMP}/mutation" --shards 6 \
             --summary "$GITHUB_STEP_SUMMARY" "${args[@]}"
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
