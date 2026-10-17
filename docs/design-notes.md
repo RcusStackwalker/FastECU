@@ -112,14 +112,16 @@ logs an error and returns success; TestWrite keeps its PASS reporting. Independe
 capability-layout and verification evidence is still missing, so these preserved
 behaviors do not authorize corrections or establish hardware qualification.
 
-The four executors of the Denso ISO-15765 bootloader dialect share seven
+The four executors of the Denso ISO-15765 bootloader dialect share eight
 operations in the common module: pure setup-PDU encoding, the SecurityAccess
 seed/key exchange, the erase flow, one encrypted page read, one B6 write request,
 best-effort transfer exit, and, for the two N83M families only, the in-car opening
-exchange run. The shared 0x7E1 request in that run asks for session `0x63`; the SH72531 and SH72543 diesel in-car runs send
-`0x03` and stay local. The `write_memory` orchestration, read loops, reflash, connect
-and probe flows, kernel jumps, checksum verification, and family-specific response
-policies stay in each executor, and no configurable family state machine is shared.
+exchange run, plus the N83M 4M/SH72531 jump continuation wait. The shared
+0x7E1 request in that run asks for session `0x63`; the SH72531 and SH72543
+diesel in-car runs send `0x03` and stay local. The `write_memory` orchestration,
+read loops, reflash, connect and probe flows, complete kernel jumps, checksum
+verification, and family-specific response policies stay in each executor,
+and no configurable family state machine is shared.
 `DensoIso15765DownloadSetupPdu` and `DensoIso15765UploadSetupPdu` encode their
 fixed service (`34` or `35`), `04 44`, and the supplied region's four-byte
 big-endian start and length without validation or address arithmetic. The
@@ -150,6 +152,18 @@ one request. A cancelled token prevents later wire I/O. Each caller retains its
 100 ms cancellable settle, even after exhaustion, and its checksum request,
 timeouts and result handling. Literal common transcripts and all four family
 settle/checksum suites pin this boundary without changing hardware qualification.
+
+`DensoIso15765WaitForJumpAck` shares only the N83M 4M/SH72531 continuation:
+check the supplied optional reply for `50` plus the caller's session, then
+sleep 100 ms and receive at 200 ms on each unsuccessful attempt. Sleep and
+receive errors propagate. The final receive is deliberately unchecked;
+exhaustion logs the existing error and succeeds. Callers retain the request,
+initial reads, bench discard and 50 ms delay, session choice and 50 bench/ten
+in-car attempts. N83M 1.5M and SH72543 diesel keep their own continuations.
+Literal helper and both family transcripts pin first/late ACK, exact timing,
+final-read ordering and cancellation. External correctness of the discarded
+bench read remains unresolved; this extraction preserves behavior and does not
+establish hardware qualification.
 
 `ReadDensoEncryptedPage` shares only the B7 request with its four-byte
 big-endian address, fatal UDS positive-response handling at a 2000 ms initial

@@ -3,6 +3,7 @@
 #include <array>
 #include <chrono>
 #include <cstdint>
+#include <optional>
 #include <string_view>
 
 #include "src/algorithms/protocol/bytes.h"
@@ -32,20 +33,18 @@ namespace fastecu::flash
 // The decrypt table remains valid for the bootloader-dialect normal-ROM read paths.
 // DensoCAN is not a consumer of this data-only cluster.
 //
-// Beyond these tables, the common module shares seven narrow operations: pure
+// Beyond these tables, the common module shares eight narrow operations: pure
 // setup-PDU encoding, the SecurityAccess seed/key exchange, the erase flow,
 // one encrypted B7 page read, one B6 write request and best-effort transfer
 // exit (all four Denso ISO-15765 bootloader dialect executors), and the N83M in-car opening
 // exchange run (the two N83M executors
 // only; its 0x7E1 request asks for session 0x63, where the SH-family runs send
-// 0x03). Everything else that looks alike -- the connect/probe shapes, the
-// reflash routines, the kernel jump, the stop retry loops, the
-// checksum verify -- differs between the families in read timeouts, retry
-// counts, pre-loop read counts, image base addresses, and, most importantly, in
-// how strictly a bad response is treated. Those differences are the
-// safety-relevant part of each family: collapsing them behind a parameterized
-// common routine would make a future reader believe these are the same
-// protocol when they are not. They stay in their own executors deliberately.
+// 0x03), plus the N83M 4M/SH72531 jump continuation wait. Everything else that looks alike -- the connect/probe shapes,
+// the reflash routines, the complete kernel jump, the stop retry loops, the checksum verify -- differs between the
+// families in read timeouts, retry counts, pre-loop read counts, image base addresses, and, most importantly, in how
+// strictly a bad response is treated. Those differences are the safety-relevant part of each family: collapsing them
+// behind a parameterized common routine would make a future reader believe these are the same protocol when they are
+// not. They stay in their own executors deliberately.
 //
 // Scope note: the index transformation these tables are paired with is NOT
 // here. It is not specific to this cluster -- it was spelled out at fourteen
@@ -124,6 +123,12 @@ Status DensoIso15765WriteChunk(const CanExecutorContext& ctx, std::uint32_t addr
 // Up to six re-sent 37 requests at 200 ms, swallowing every returned error.
 // Logs the first positive reply and stops; callers own settle and checksum.
 void DensoIso15765BestEffortTransferExit(const CanExecutorContext& ctx);
+
+// N83M 4M/SH72531 continuation only: check current reply, sleep 100 ms,
+// receive at 200 ms. The last receive remains unchecked; exhaustion logs and
+// succeeds. Callers own first reads, bench discard/50 ms wait, session and bound.
+Status DensoIso15765WaitForJumpAck(const CanExecutorContext& ctx, bytes::Byte session,
+                                   std::optional<bytes::Bytes> first_reply, int attempt_count);
 
 // Sends `pdu`, reads one reply, and compares its first two bytes. A mismatch
 // is LOGGED AND TOLERATED -- the frame is still returned and the caller
