@@ -169,6 +169,105 @@ class TrendTest(unittest.TestCase):
         self.assertFalse(self.path.exists())
 
 
+_ROOT = Path("/repo")
+
+
+def clone(a: str, a_lines: tuple[int, int], b: str, b_lines: tuple[int, int], text="x") -> dict:
+    """One jscpd duplicate pair with absolute paths, as the `jscpd` hook reports it."""
+
+    def side(path: str, lines: tuple[int, int]) -> dict:
+        return {"name": str(_ROOT / path), "start": lines[0], "end": lines[1]}
+
+    return {"firstFile": side(a, a_lines), "secondFile": side(b, b_lines), "fragment": text}
+
+
+_A = "src/flash/a_test.cpp"
+_B = "src/flash/b_test.cpp"
+_C = "src/flash/c_test.cpp"
+_PROD = "src/flash/a.cpp"
+
+
+def find(duplicates, host=None, ledger=None) -> list:
+    host = {_A, _B, _C, _PROD} if host is None else host
+    return nl.find_candidates({"duplicates": duplicates}, _ROOT, host, ledger or nl.Ledger([]))
+
+
+class CandidatesTest(unittest.TestCase):
+    def test_pairs_sharing_a_fragment_form_one_cluster(self) -> None:
+        [cluster] = find([clone(_A, (1, 60), _B, (5, 64)), clone(_B, (5, 64), _C, (9, 68))])
+        self.assertEqual(
+            [(o.path, o.start, o.end) for o in cluster.occurrences],
+            [(_A, 1, 60), (_B, 5, 64), (_C, 9, 68)],
+        )
+        self.assertEqual((cluster.kind, cluster.savings), ("test-only", 2 * 60))
+
+    def test_overlapping_fragments_in_one_file_merge(self) -> None:
+        [cluster] = find([clone(_A, (1, 60), _B, (1, 60)), clone(_A, (50, 120), _C, (1, 71))])
+        self.assertEqual(len(cluster.occurrences), 3)
+        # Conservative: the shortest occurrence bounds what each removal saves.
+        self.assertEqual(cluster.savings, 2 * 60)
+
+    def test_savings_below_the_minimum_are_dropped(self) -> None:
+        self.assertEqual(find([clone(_A, (1, 49), _B, (1, 49))]), [])
+        self.assertEqual(len(find([clone(_A, (1, 50), _B, (1, 50))])), 1)
+
+    def test_files_not_built_on_the_host_are_dropped(self) -> None:
+        self.assertEqual(find([clone(_A, (1, 60), _B, (1, 60))], host={_A}), [])
+        [cluster] = find(
+            [clone(_A, (1, 60), _B, (1, 60)), clone(_B, (1, 60), _C, (1, 60))], host={_A, _B}
+        )
+        self.assertEqual([o.path for o in cluster.occurrences], [_A, _B])
+
+    def test_any_production_occurrence_makes_a_production_cluster(self) -> None:
+        [cluster] = find([clone(_A, (1, 60), _PROD, (1, 60))])
+        self.assertEqual(cluster.kind, "production")
+
+    def test_test_only_clusters_come_first_and_by_savings(self) -> None:
+        clusters = find(
+            [
+                clone(_PROD, (1, 500), _PROD, (600, 1099)),
+                clone(_A, (1, 60), _B, (1, 60)),
+                clone(_A, (100, 199), _C, (100, 199)),
+            ]
+        )
+        self.assertEqual(
+            [(c.kind, c.savings) for c in clusters],
+            [("test-only", 100), ("test-only", 60), ("production", 500)],
+        )
+
+    def test_identity_ignores_line_numbers_and_whitespace(self) -> None:
+        [before] = find([clone(_A, (1, 60), _B, (1, 60), text="int  a;\n  f();")])
+        [after] = find([clone(_A, (31, 90), _B, (7, 66), text="int a; f();")])
+        self.assertEqual(before.cluster_id, after.cluster_id)
+        [other] = find([clone(_A, (1, 60), _C, (1, 60), text="int a; f();")])
+        self.assertNotEqual(before.cluster_id, other.cluster_id)
+
+    def test_attempted_clusters_are_dropped(self) -> None:
+        [cluster] = find([clone(_A, (1, 60), _B, (1, 60))])
+        ledger = nl.Ledger([nl.Attempt(cluster.cluster_id, "rejected", "2026-10-17")])
+        self.assertEqual(find([clone(_A, (1, 60), _B, (1, 60))], ledger=ledger), [])
+
+    def test_rejects_a_report_outside_the_root(self) -> None:
+        duplicate = clone(_A, (1, 60), _B, (1, 60))
+        duplicate["firstFile"]["name"] = "/elsewhere/a.cpp"
+        with self.assertRaisesRegex(nl.NlocLoopError, "outside"):
+            find([duplicate])
+
+
+class HostFilesTest(unittest.TestCase):
+    def test_reads_first_party_source_labels(self) -> None:
+        output = (
+            "//src/backend/config:catalog.h (null)\n"
+            "//:BUILD.bazel (null)\n"
+            "//tests:tst_serial_port_crash.cpp (null)\n"
+            "@@rules_qt++fetch+qt//:lib/QtGui.h (null)\n"
+        )
+        self.assertEqual(
+            nl.parse_host_files(output),
+            {"src/backend/config/catalog.h", "BUILD.bazel", "tests/tst_serial_port_crash.cpp"},
+        )
+
+
 class MainTest(unittest.TestCase):
     def setUp(self) -> None:
         self.temp_dir = tempfile.TemporaryDirectory()
@@ -212,6 +311,27 @@ class MainTest(unittest.TestCase):
             (self.root / "docs/reference/nloc-trend.csv").read_text().splitlines()[1],
             "2026-10-17,700,test-only,80,15",
         )
+
+    def test_candidates_lists_the_queue(self) -> None:
+        out = StringIO()
+        code = nl.main(
+            ["--root", str(self.root), "candidates"],
+            run_jscpd=lambda root: {
+                "duplicates": [
+                    {
+                        "firstFile": {"name": str(root / _A), "start": 1, "end": 60},
+                        "secondFile": {"name": str(root / _B), "start": 3, "end": 62},
+                        "fragment": "x",
+                    }
+                ]
+            },
+            host_files=lambda _root: {_A, _B},
+            out=out,
+        )
+        self.assertEqual(code, 0)
+        [header, first, second] = out.getvalue().splitlines()
+        self.assertRegex(header, r"^[0-9a-f]{12} test-only savings=60 occurrences=2$")
+        self.assertEqual([first, second], [f"  {_A}:1-60", f"  {_B}:3-62"])
 
     def test_errors_exit_two(self) -> None:
         code, text = self.run_main("trend", "--pr", "700", "--kind", "test-only", "--before", "15")

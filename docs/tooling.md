@@ -179,6 +179,7 @@ and [ADR 0023](adr/0023-hill-climb-nloc-with-kind-specific-guards.md).
 
 ```sh
 python3 scripts/nloc_loop.py measure            # total, production and test NLOC
+python3 scripts/nloc_loop.py candidates         # ranked duplicate-cluster queue
 python3 scripts/nloc_loop.py ledger record <cluster> rejected --reason mutation
 python3 scripts/nloc_loop.py ledger list        # attempts and the rejection streak
 python3 scripts/nloc_loop.py trend --pr <n> --kind test-only --before <base NLOC>
@@ -187,7 +188,19 @@ python3 scripts/nloc_loop.py trend --pr <n> --kind test-only --before <base NLOC
 `measure` runs the manual-stage `nloc` prek hook, which shares the `lizard`
 hook's pinned dependencies and excludes. A file is test code when it is under
 `tests/`, `testing/` or `testdata/`, or its name starts with `tst_` or contains
-`_test.` or `_test_`. `trend` measures the working tree and appends a row to
+`_test.` or `_test_`.
+
+`candidates` runs the manual-stage `jscpd` prek hook (settings in
+`.jscpd.json`; its ignore list mirrors `sonar.cpd.exclusions`) and a Bazel
+`cquery` for the sources that build on the host. Duplicate pairs that share a
+fragment, or overlap within a file, form one cluster; transitive links can
+join fragments that are only similar to their neighbours, so read the
+occurrences before choosing an abstraction. Occurrences in files that do not
+build on the host are dropped, as are clusters saving fewer than 50 NLOC and
+clusters already in the ledger. Test-only clusters are listed first, each kind
+by estimated savings. The cluster ID is stable across line shifts.
+
+`trend` measures the working tree and appends a row to
 `docs/reference/nloc-trend.csv`; run it on the loop PR's branch before merge.
 
 - **NLOC**: Lizard's `Total nloc` over first-party C++ in `src/`, `apps/`

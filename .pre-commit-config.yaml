@@ -61,6 +61,15 @@ repos:
           - --exclude=*/vendor/*
           - --exclude=*/generated/*
           - .
+      # Duplicate-code candidates for the NLOC loop; settings in .jscpd.json.
+      - id: jscpd
+        name: C/C++ duplicate-code report
+        language: node
+        additional_dependencies: [jscpd@5.4.0]
+        entry: jscpd
+        pass_filenames: false
+        always_run: true
+        stages: [manual]
       - id: pragma-once
         name: require pragma once in headers
         language: system

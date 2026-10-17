@@ -87,9 +87,10 @@ stay clean, and no behavior changes.
   `--min-lines 10 --min-tokens 100`, ignoring the `sonar.cpd.exclusions` files
   and the generated-code coverage exclusions. Sonar CPD remains a CI
   cross-check.
-- **Ranking.** Estimated savings = (occurrences − 1) × cluster lines. Clusters
-  matching a duplication item in [technical debt](../../tech-debt.md) rank
-  higher.
+- **Ranking.** Estimated savings = (occurrences − 1) × the shortest
+  occurrence's lines. The [technical debt](../../tech-debt.md) duplication
+  items name concepts, not files, so matching a cluster to one is the skill's
+  judgement, not the script's ranking.
 - **Eligibility.**
   - Clusters below 50 NLOC of estimated savings are dropped.
   - Files whose owning target is incompatible with the host
