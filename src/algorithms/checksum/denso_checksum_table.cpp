@@ -10,20 +10,59 @@ namespace
 constexpr std::size_t kRecordLength = 12;
 constexpr std::uint32_t kChecksumTarget = 0x5AA5A55A;
 
-// The word at `position` in `rom`, which is ECU address `ecu_address`.
-std::uint32_t WordAt(bytes::ByteView rom, std::uint32_t position, std::uint32_t ecu_address,
+// The word at `offset` in `block`, which starts at ECU address `block_address`.
+std::uint32_t WordAt(bytes::ByteView block, std::size_t offset, std::uint32_t block_address,
                      std::span<const DensoWordOverride> overrides)
 {
+    const std::uint32_t ecu_address = block_address + static_cast<std::uint32_t>(offset);
     const auto match = std::find_if(overrides.begin(), overrides.end(), [ecu_address](const DensoWordOverride& item)
                                     { return item.address == ecu_address; });
-    return match == overrides.end() ? bytes::ReadU32Be(rom, position) : match->value;
+    return match == overrides.end() ? bytes::ReadU32Be(block, offset) : match->value;
+}
+
+// The sum of the words from ECU address `start` up to `end`, in `rom`, which
+// starts at ECU address `base`; nullopt when one lies outside `rom`. A zero
+// start or end sums nothing.
+std::optional<std::uint32_t> SumBlock(bytes::ByteView rom, std::uint32_t base, std::uint32_t start, std::uint32_t end,
+                                      std::span<const DensoWordOverride> overrides)
+{
+    if (start == 0 || end == 0)
+    {
+        return 0;
+    }
+    // Positions in `rom`. An end below `base` wraps past the end of `rom`
+    // and fails the range check; a start below `base` alone wraps above the
+    // end, which is a descending range and sums nothing, as legacy does for
+    // any descending range.
+    const std::uint32_t low = start - base;
+    const std::uint32_t high = end - base;
+    if (high > rom.size())
+    {
+        return std::nullopt;
+    }
+    if (low >= high)
+    {
+        return 0;
+    }
+    // Whole words from `low`, so the last may run past `high`; it must still
+    // fit in `rom`. low < high <= rom.size(), so the subtraction cannot wrap.
+    const std::size_t length = (std::size_t{high - low} + 3) & ~std::size_t{3};
+    if (length > rom.size() - low)
+    {
+        return std::nullopt;
+    }
+    const bytes::ByteView block = rom.subspan(low, length);
+    std::uint32_t sum = 0;
+    for (std::size_t offset = 0; offset < block.size(); offset += 4)
+    {
+        sum += WordAt(block, offset, start, overrides);
+    }
+    return sum;
 }
 } // namespace
 
 DensoTableOutcome CorrectDensoTable(memory::FlashAddress base, bytes::MutableByteView rom, const DensoTableSpec& spec)
 {
-    // #lizard forgives(cyclomatic_complexity)
-    // TODO: Reduce complexity and remove forgiveness; see docs/tech-debt.md.
     if (spec.table_length % kRecordLength != 0)
     {
         return DensoTableOutcome::kInvalidRecordLength;
@@ -42,44 +81,30 @@ DensoTableOutcome CorrectDensoTable(memory::FlashAddress base, bytes::MutableByt
     for (std::size_t record = 0; record < spec.table_length; record += kRecordLength)
     {
         const std::size_t position = table_position->Value() + record;
-        const std::uint32_t raw_low = bytes::ReadU32Be(rom, position);
-        const std::uint32_t raw_high = bytes::ReadU32Be(rom, position + 4);
+        const std::uint32_t start = bytes::ReadU32Be(rom, position);
+        const std::uint32_t end = bytes::ReadU32Be(rom, position + 4);
         const std::uint32_t stored = bytes::ReadU32Be(rom, position + 8);
 
-        if (record == 0 && spec.detect_disabled && raw_low == 0 && raw_high == 0 && stored == kChecksumTarget)
+        if (record == 0 && spec.detect_disabled && start == 0 && end == 0 && stored == kChecksumTarget)
         {
             return DensoTableOutcome::kDisabled;
         }
 
-        // Positions in `rom`. In a record that is summed (both addresses
-        // nonzero, stored value not the target), an end address below `base`
-        // wraps past the end of `rom` and fails the range checks below; a
-        // start address below `base` alone wraps above the end, which is a
-        // descending range and sums nothing, as legacy does for any
-        // descending range.
-        const std::uint32_t low = raw_low - base.Value();
-        const std::uint32_t high = raw_high - base.Value();
+        // A record already holding the target is left as it is.
         std::uint32_t sum = 0;
-        if (raw_low != 0 && raw_high != 0 && stored != kChecksumTarget)
+        if (stored != kChecksumTarget)
         {
-            if (high > rom.size())
+            const std::optional<std::uint32_t> block_sum = SumBlock(rom, base.Value(), start, end, spec.overrides);
+            if (!block_sum.has_value())
             {
                 return DensoTableOutcome::kInvalidBlockRange;
             }
-            // address < high <= rom.size(), so the subtraction cannot wrap.
-            for (std::uint32_t address = low; address < high; address += 4)
-            {
-                if (4 > rom.size() - address)
-                {
-                    return DensoTableOutcome::kInvalidBlockRange;
-                }
-                sum += WordAt(rom, address, address + base.Value(), spec.overrides);
-            }
+            sum = *block_sum;
         }
         const std::uint32_t expected = kChecksumTarget - sum;
         changed = changed || stored != expected;
-        bytes::AppendU32Be(corrected, raw_low);
-        bytes::AppendU32Be(corrected, raw_high);
+        bytes::AppendU32Be(corrected, start);
+        bytes::AppendU32Be(corrected, end);
         bytes::AppendU32Be(corrected, expected);
     }
 
