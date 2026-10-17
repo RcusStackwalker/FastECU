@@ -1,7 +1,6 @@
 ---
 name: hill-climbing-nloc
-description: One iteration of the NLOC hill-climbing loop; run it under /loop.
-disable-model-invocation: true
+description: Run one iteration of this repo's NLOC hill-climbing loop (settle the open nloc-loop PR or open the next one that lowers NLOC by 50+). Use only when the user invokes /hill-climbing-nloc or /loop /hill-climbing-nloc, or when a /loop firing carries that prompt; never for ordinary refactors, cleanup, duplicate-code questions, or NLOC measurement.
 ---
 
 # NLOC hill-climbing loop
@@ -76,10 +75,7 @@ the same files when the first is exhausted. Stop earlier when the next cluster
 is not a sound abstraction; 50 stays the minimum. A larger cluster continues in
 the next loop PR.
 
-Done when the focused tests pass, including under GCC's sign-compare
-(`--copt=-Wsign-compare --copt=-Werror=sign-compare`: CI's Ubuntu jobs build
-with GCC and `-Werror=sign-compare`, which macOS clang accepts, so skipping it
-costs a failed CI round), and the change is committed. Run the Bazel
+Done when the focused tests pass and the change is committed. Run the Bazel
 commands with explicit target labels; a shell variable holding a
 newline-separated list is one invalid label under zsh.
 
@@ -94,7 +90,7 @@ Every check green, or the attempt is rejected:
    Commit what they change before pushing: a pre-commit hook that reformats
    makes the first `git commit` fail, so re-add and commit again.
 4. `bazel test` of the touched test targets and their reverse dependencies
-   (`rdeps`), under the sign-compare flags. The full `bazel test
+   (`rdeps`). The full `bazel test
    --config=release //...` is CI's job (Bazel on three OSes), not a local gate.
 
 A red check that the refactor cannot fix without weakening a test: delete the

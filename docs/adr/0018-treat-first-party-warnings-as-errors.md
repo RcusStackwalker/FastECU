@@ -44,8 +44,12 @@ repo(features = ["treat_warnings_as_errors"])
 - clang-tidy runs with `-Wno-error`: it analyzes compile commands that carry
   `-Werror`, reports compiler errors regardless of its check filter, and uses
   a newer LLVM than the build. The build is the warnings gate.
-- Warning levels are unchanged: `-Wall` on clang and GCC, MSVC's default.
-  Raising them is [issue #470](https://github.com/RcusStackwalker/FastECU/issues/470).
+- Warning levels are unchanged: `-Wall` on clang and GCC, MSVC's default,
+  plus `-Wsign-compare` on macOS. GCC's `-Wall` includes it and clang's does
+  not, so Linux CI rejected comparisons that macOS accepted. `.bazelrc`
+  adds it with a `--per_file_copt` filter on our own source directories, so
+  dependencies stay untouched; the generated `moc_*` files are outside it.
+  Raising the levels further is [issue #470](https://github.com/RcusStackwalker/FastECU/issues/470).
 
 ## Alternatives
 
