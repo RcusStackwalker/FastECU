@@ -1,0 +1,106 @@
+{
+  "baseline_run": "https://github.com/RcusStackwalker/FastECU/actions/runs/39027359985",
+  "timing_runs": [
+    "39027359985"
+  ],
+  "tests": {
+    "//src/algorithms/checksum:checksum_ecu_mitsu_m32r_can_test": {
+      "seconds": 20.096
+    },
+    "//src/algorithms/checksum:checksum_ecu_subaru_hitachi_m32r_can_test": {
+      "seconds": 24.692
+    },
+    "//src/algorithms/checksum:checksum_test": {
+      "seconds": 214.584
+    },
+    "//src/algorithms/crypto:subaru_key_recovery_test": {
+      "seconds": 77.975
+    },
+    "//src/backend/calibration/session:numeric_edit_use_case_test": {
+      "seconds": 5.88
+    },
+    "//src/backend/checksum:catalog_checksum_agreement_test": {
+      "seconds": 180.165
+    },
+    "//src/backend/checksum:dispatch_test": {
+      "seconds": 278.974
+    },
+    "//src/backend/flash/ecu:mitsu_colt_m32r_can_executor_test": {
+      "seconds": 16.945
+    },
+    "//src/backend/flash/ecu:subaru_denso_1n83m_1_5m_can_executor_test": {
+      "seconds": 608.464,
+      "test_shards": 4
+    },
+    "//src/backend/flash/ecu:subaru_denso_1n83m_4m_can_executor_test": {
+      "seconds": 1580.149,
+      "test_shards": 4
+    },
+    "//src/backend/flash/ecu:subaru_denso_mc68hc16y5_02_executor_test": {
+      "seconds": 5.024
+    },
+    "//src/backend/flash/ecu:subaru_denso_sh7055_02_executor_test": {
+      "seconds": 12.036
+    },
+    "//src/backend/flash/ecu:subaru_denso_sh7058_can_diesel_executor_test": {
+      "seconds": 20.386
+    },
+    "//src/backend/flash/ecu:subaru_denso_sh7058_can_executor_test": {
+      "seconds": 31.73
+    },
+    "//src/backend/flash/ecu:subaru_denso_sh705x_densocan_executor_test": {
+      "seconds": 15.331
+    },
+    "//src/backend/flash/ecu:subaru_denso_sh705x_kline_executor_test": {
+      "seconds": 24.978
+    },
+    "//src/backend/flash/ecu:subaru_denso_sh72531_can_executor_test": {
+      "seconds": 471.804,
+      "test_shards": 4
+    },
+    "//src/backend/flash/ecu:subaru_denso_sh72543_can_diesel_executor_test": {
+      "seconds": 892.583,
+      "test_shards": 4
+    },
+    "//src/backend/flash/ecu:subaru_hitachi_m32r_can_executor_test": {
+      "seconds": 67.234
+    },
+    "//src/backend/flash/ecu:subaru_hitachi_m32r_kline_executor_test": {
+      "seconds": 43.97
+    },
+    "//src/backend/flash/ecu:subaru_hitachi_sh7058_can_executor_test": {
+      "seconds": 55.837
+    },
+    "//src/backend/flash/ecu:subaru_hitachi_sh72543r_can_executor_test": {
+      "seconds": 784.932,
+      "test_shards": 4
+    },
+    "//src/backend/flash/ecu:subaru_mitsu_m32r_kline_executor_test": {
+      "seconds": 17.31
+    },
+    "//src/backend/flash/ecu:subaru_tcu_cvt_hitachi_m32r_can_executor_test": {
+      "seconds": 54.958
+    },
+    "//src/backend/flash/ecu:subaru_tcu_cvt_mitsu_mh8104_can_executor_test": {
+      "seconds": 42.986
+    },
+    "//src/backend/flash/ecu:subaru_tcu_cvt_mitsu_mh8111_can_executor_test": {
+      "seconds": 171.874
+    },
+    "//src/backend/flash/ecu:subaru_tcu_denso_sh705x_can_executor_test": {
+      "seconds": 16.195
+    },
+    "//src/backend/flash/ecu:subaru_tcu_hitachi_m32r_can_executor_test": {
+      "seconds": 208.865
+    },
+    "//src/backend/flash/ecu:subaru_tcu_hitachi_m32r_kline_executor_test": {
+      "seconds": 10.297
+    },
+    "//src/backend/flash/ecu:subaru_unisia_jecs_m32r_kline_executor_test": {
+      "seconds": 6.777
+    },
+    "//src/backend/flash/workflow:flash_workflow_test": {
+      "seconds": 10.006
+    }
+  }
+}

@@ -12,8 +12,9 @@ Modes:
                    and src/backend.
   --diff-ref REF   only tests that depend on portable files changed since
                    REF, and only mutants on the changed lines.
-  --shard I/N      only every Nth test of the sorted selection, from the Ith;
+  --shard I/N      one duration-balanced slice of the selected work;
                    writes reports and a manifest for --merge-reports.
+  --schedule FILE  duration estimates and GoogleTest splits (optional).
   --merge-reports  merge the reports of N shards' report directories.
 
 Surviving mutants never fail the run (mutation testing is advisory); a tool or
@@ -25,12 +26,14 @@ from __future__ import annotations
 import argparse
 import dataclasses
 import json
+import math
 import os
 import re
 import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
 
@@ -59,6 +62,7 @@ TEST_ENV_EXPR = (
 
 # Written last by a shard, so a shard that failed or was cancelled has none.
 SHARD_MANIFEST = "_shard.json"
+PERFORMANCE_REPORT = "_performance.json"
 
 
 class MutationTestError(RuntimeError):
@@ -80,6 +84,62 @@ def parse_shard(value: str) -> Shard:
     if not (index.isdigit() and count.isdigit()) or not int(index) < int(count):
         raise argparse.ArgumentTypeError(f"{value!r} is not I/N with 0 <= I < N")
     return Shard(int(index), int(count))
+
+
+@dataclasses.dataclass(frozen=True)
+class WorkItem:
+    label: str
+    index: int = 0
+    count: int = 1
+    seconds: float = 1.0
+
+    @property
+    def id(self) -> str:
+        return self.label if self.count == 1 else f"{self.label}[{self.index}/{self.count}]"
+
+    def report_path(self, directory: Path) -> Path:
+        return (
+            directory
+            / self.label.removeprefix("//").replace(":", "/")
+            / f"gtest-{self.index}-of-{self.count}"
+        )
+
+    def environment(self) -> dict[str, str]:
+        if self.count == 1:
+            return {}
+        return {"GTEST_TOTAL_SHARDS": str(self.count), "GTEST_SHARD_INDEX": str(self.index)}
+
+
+def plan_work(labels: Iterable[str], schedule: Mapping) -> list[WorkItem]:
+    """Expand only selected labels; stale estimates cannot remove or add tests."""
+    work = []
+    for label in sorted(set(labels)):
+        entry = schedule.get(label, {})
+        seconds = entry.get("seconds", 1.0)
+        count = entry.get("test_shards", 1)
+        if not isinstance(seconds, (float, int)) or not math.isfinite(seconds) or seconds <= 0:
+            raise MutationTestError(f"invalid duration estimate for {label}: {seconds!r}")
+        if type(count) is not int or count < 1:
+            raise MutationTestError(f"invalid GoogleTest shard count for {label}: {count!r}")
+        costs = entry.get("shard_seconds", [seconds / count] * count)
+        if len(costs) != count or any(
+            not isinstance(cost, (float, int)) or not math.isfinite(cost) or cost <= 0
+            for cost in costs
+        ):
+            raise MutationTestError(f"invalid per-slice duration estimates for {label}")
+        work.extend(WorkItem(label, index, count, costs[index]) for index in range(count))
+    return work
+
+
+def balance_work(work: Sequence[WorkItem], shard: Shard) -> list[WorkItem]:
+    """Longest estimated work first, with stable ties and no planning job."""
+    bins: list[list[WorkItem]] = [[] for _ in range(shard.count)]
+    loads = [0.0] * shard.count
+    for item in sorted(work, key=lambda item: (-item.seconds, item.id)):
+        index = min(range(shard.count), key=lambda index: (loads[index], index))
+        bins[index].append(item)
+        loads[index] += item.seconds
+    return bins[shard.index]
 
 
 @dataclasses.dataclass(frozen=True, order=True)
@@ -170,6 +230,8 @@ def render_summary(merged: Mapping[MutantKey, str], title: str) -> str:
     lines += [
         f"Mutation score **{_percent(total.score)}**: {total.killed} killed, "
         f"{total.survived} survived, {total.no_coverage} not covered by any test.",
+        f"Of the killed mutants, "
+        f"{sum(status == 'Timeout' for status in merged.values())} timed out.",
         "",
         "| File | Killed | Survived | Not covered | Score |",
         "| --- | ---: | ---: | ---: | ---: |",
@@ -222,23 +284,131 @@ def diff_config(base_config: str, diff_ref: str, root: Path) -> str:
     )
 
 
-def write_shard_manifest(report_dir: Path, shard: Shard, labels: Sequence[str]) -> None:
+def write_shard_manifest(
+    report_dir: Path, shard: Shard, labels: Sequence[str], *, selection: Sequence[str] | None = None
+) -> None:
     manifest = {"index": shard.index, "count": shard.count, "labels": list(labels)}
+    if selection is not None:
+        manifest["selection"] = list(selection)
     (report_dir / SHARD_MANIFEST).write_text(json.dumps(manifest))
 
 
 def collect_shard_reports(directory: Path, count: int) -> tuple[list[Mapping], list[int]]:
     """Every report under `directory`, and the shards that left no manifest."""
-    reports, finished = [], set()
+    reports, finished, manifests = [], set(), []
     for path in sorted(directory.rglob("*.json")):
+        if path.name == PERFORMANCE_REPORT:
+            continue
         data = json.loads(path.read_text())
         if path.name != SHARD_MANIFEST:
             reports.append(data)
         elif data["count"] != count:
             raise MutationTestError(f"{path} is from a run of {data['count']} shards, not {count}")
         else:
+            if data["index"] in finished or data["index"] not in range(count):
+                raise MutationTestError(f"duplicate or invalid shard index in {path}")
             finished.add(data["index"])
+            manifests.append(data)
+    if len(finished) == count and any("selection" in manifest for manifest in manifests):
+        expected = manifests[0].get("selection")
+        labels = [label for manifest in manifests for label in manifest["labels"]]
+        if (
+            any(manifest.get("selection") != expected for manifest in manifests)
+            or len(labels) != len(set(labels))
+            or set(labels) != set(expected or [])
+        ):
+            raise MutationTestError(
+                "shard manifests contain missing, duplicated or inconsistent work"
+            )
     return reports, sorted(set(range(count)) - finished)
+
+
+def render_performance(reports: Sequence[Mapping]) -> str:
+    binaries = [binary for report in reports for binary in report["binaries"]]
+    total = sum(binary["seconds"] for binary in binaries)
+    lines = [
+        "### Performance",
+        "",
+        f"Aggregate Mull execution: **{total:.1f}s**.",
+        "",
+        "| Work item | Seconds | Status |",
+        "| --- | ---: | --- |",
+    ]
+    for binary in sorted(binaries, key=lambda binary: (-binary["seconds"], binary["id"]))[:15]:
+        lines.append(f"| `{binary['id']}` | {binary['seconds']:.1f} | {binary['status']} |")
+    lines += [
+        "",
+        "| Shard | Build seconds | Query seconds | Mull seconds |",
+        "| --- | ---: | ---: | ---: |",
+    ]
+    for index, report in enumerate(reports):
+        duration = sum(binary["seconds"] for binary in report["binaries"])
+        lines.append(
+            f"| {report.get('shard', index)} | {report['build_seconds']:.1f} | "
+            f"{report['query_seconds']:.1f} | {duration:.1f} |"
+        )
+    return "\n".join(lines) + "\n"
+
+
+def render_comparison(current: Mapping[MutantKey, str], baseline: Mapping[MutantKey, str]) -> str:
+    missing = baseline.keys() - current.keys()
+    added = current.keys() - baseline.keys()
+    lost = [
+        key
+        for key, status in baseline.items()
+        if status == "Killed" and current.get(key) != "Killed"
+    ]
+    timeouts = [
+        key
+        for key, status in current.items()
+        if status == "Timeout" and baseline.get(key) != "Timeout"
+    ]
+    return (
+        "### Baseline comparison\n\n"
+        f"Mutant identities: **{len(missing)} missing, {len(added)} added**.\n\n"
+        f"**{len(lost)} lost direct kills; {len(timeouts)} new timeouts**. "
+        "Review changes before retaining a speedup; "
+        "compare identical production sources and scope.\n"
+    )
+
+
+def read_reports(directory: Path) -> list[Mapping]:
+    return [
+        json.loads(path.read_text())
+        for path in sorted(directory.rglob("*.json"))
+        if path.name not in (SHARD_MANIFEST, PERFORMANCE_REPORT)
+    ]
+
+
+def read_performance(directory: Path) -> list[Mapping]:
+    return [json.loads(path.read_text()) for path in sorted(directory.rglob(PERFORMANCE_REPORT))]
+
+
+def refresh_schedule(schedule: Mapping, reports: Sequence[Mapping]) -> dict:
+    """Refresh measured slices only, refusing partial or failed binary runs."""
+    tests = dict(schedule["tests"])
+    grouped: dict[str, list[Mapping]] = {}
+    for report in reports:
+        for binary in report["binaries"]:
+            grouped.setdefault(binary["label"], []).append(binary)
+    if not grouped:
+        raise MutationTestError("no performance records to refresh")
+    for label, binaries in grouped.items():
+        count = binaries[0]["test_shards"]
+        if any(
+            binary["status"] != "complete" or binary["test_shards"] != count for binary in binaries
+        ) or sorted(binary["test_shard"] for binary in binaries) != list(range(count)):
+            raise MutationTestError(f"incomplete or duplicated timing slices for {label}")
+        costs = [
+            max(0.001, round(binary["seconds"], 3))
+            for binary in sorted(binaries, key=lambda binary: binary["test_shard"])
+        ]
+        tests[label] = {"seconds": sum(costs), "test_shards": count, "shard_seconds": costs}
+    return {
+        **schedule,
+        "timing_runs": sorted({report["run_id"] for report in reports if report.get("run_id")}),
+        "tests": dict(sorted(tests.items())),
+    }
 
 
 def render_missing_shards(missing: Sequence[int], count: int) -> str:
@@ -411,14 +581,22 @@ def run_mull(
     test_env: Mapping[str, str],
     config_path: Path,
     report_dir: Path,
+    item: WorkItem | None = None,
 ) -> Mapping | None:
     binary = binary_path(root, label)
     # The test's env holds runfiles-relative paths, as under `bazel test`.
     runfiles = binary.parent / f"{binary.name}.runfiles" / "_main"
+    report_dir.mkdir(parents=True, exist_ok=True)
+    environment = runner_environment(os.environ, test_env, config_path)
+    # Prevent a caller's Bazel/GoogleTest sharding state from dropping cases.
+    for name in ("GTEST_TOTAL_SHARDS", "GTEST_SHARD_INDEX", "GTEST_SHARD_STATUS_FILE"):
+        environment.pop(name, None)
+    if item is not None:
+        environment.update(item.environment())
     result = _run(
         runner_command(runner, binary, report_dir),
         runfiles if runfiles.is_dir() else root,
-        env=runner_environment(os.environ, test_env, config_path),
+        env=environment,
     )
     if result.returncode:
         raise MutationTestError(f"mull-runner failed on {label}")
@@ -449,7 +627,21 @@ def _parse_args(argv: Sequence[str]) -> argparse.Namespace:
         help=f"Bazel target pattern whose tests run (default: {PORTABLE_SCOPE})",
     )
     parser.add_argument(
-        "--shard", type=parse_shard, help="run only shard I of N (0-based), e.g. 1/4"
+        "--shard", type=parse_shard, help="run only balanced shard I of N (0-based), e.g. 1/4"
+    )
+    parser.add_argument(
+        "--schedule", type=Path, help="JSON duration estimates and GoogleTest splits"
+    )
+    parser.add_argument(
+        "--refresh-schedule",
+        type=Path,
+        metavar="REPORT_DIR",
+        help="update --schedule from complete per-slice performance records",
+    )
+    parser.add_argument(
+        "--baseline-reports",
+        type=Path,
+        help="compare merged mutants with this baseline report directory",
     )
     parser.add_argument(
         "--merge-reports",
@@ -467,6 +659,12 @@ def _parse_args(argv: Sequence[str]) -> argparse.Namespace:
         parser.error("--merge-reports needs --shards N")
     if args.merge_reports and (args.shard or args.diff_ref):
         parser.error("--merge-reports runs no tests; drop --shard and --diff-ref")
+    if args.refresh_schedule and (
+        not args.schedule or args.merge_reports or args.shard or args.diff_ref
+    ):
+        parser.error("--refresh-schedule needs --schedule and runs no tests")
+    if args.baseline_reports and not args.merge_reports:
+        parser.error("--baseline-reports needs --merge-reports")
     return args
 
 
@@ -484,6 +682,14 @@ def merge_shards(args: argparse.Namespace, root: Path) -> int:
     reports, missing = collect_shard_reports(args.merge_reports, args.shards)
     merged = merge_reports(reports, root)
     summary = render_summary(merged, "Mutation testing")
+    performance = read_performance(args.merge_reports)
+    if performance:
+        summary += "\n" + render_performance(performance)
+    if args.baseline_reports:
+        baseline_reports = read_reports(args.baseline_reports)
+        if not baseline_reports:
+            raise MutationTestError("baseline directory contains no mutation reports")
+        summary += "\n" + render_comparison(merged, merge_reports(baseline_reports, root))
     if missing:
         heading, _, body = summary.partition("\n\n")
         summary = f"{heading}\n\n{render_missing_shards(missing, args.shards)}\n{body}"
@@ -504,6 +710,20 @@ def main(argv: Sequence[str] = sys.argv[1:]) -> int:
         else "Mutation testing"
     )
     try:
+        if args.refresh_schedule:
+            manifests = sorted(args.refresh_schedule.rglob(SHARD_MANIFEST))
+            if not manifests:
+                raise MutationTestError("cannot refresh from an incomplete run: no shard manifests")
+            count = json.loads(manifests[0].read_text())["count"]
+            _, missing = collect_shard_reports(args.refresh_schedule, count)
+            if missing:
+                raise MutationTestError(
+                    f"cannot refresh from an incomplete run: missing shards {missing}"
+                )
+            schedule = json.loads(args.schedule.read_text())
+            refreshed = refresh_schedule(schedule, read_performance(args.refresh_schedule))
+            args.schedule.write_text(json.dumps(refreshed, indent=2) + "\n")
+            return 0
         if args.merge_reports:
             return merge_shards(args, root)
         changed = None
@@ -514,14 +734,16 @@ def main(argv: Sequence[str] = sys.argv[1:]) -> int:
                 return 0
         runner, plugin = find_mull(os.environ)
         targets = query_tests(root, args.scope, changed)
-        if args.shard:
-            targets = args.shard.select(targets)
-            if not targets:
-                args.report_dir.mkdir(parents=True, exist_ok=True)
-                write_shard_manifest(args.report_dir, args.shard, targets)
-                _emit(f"## {title}\n\nNo tests fall in this shard.\n", {}, args)
-                return 0
+        schedule = json.loads(args.schedule.read_text())["tests"] if args.schedule else {}
+        selection = plan_work(targets, schedule)
+        work = balance_work(selection, args.shard or Shard(0, 1))
+        targets = sorted({item.label for item in work})
         if not targets:
+            if args.shard:
+                args.report_dir.mkdir(parents=True, exist_ok=True)
+                write_shard_manifest(
+                    args.report_dir, args.shard, [], selection=[item.id for item in selection]
+                )
             _emit(f"## {title}\n\nNo portable tests depend on the change.\n", {}, args)
             return 0
         with tempfile.TemporaryDirectory(prefix="fastecu-mull-") as scratch:
@@ -534,29 +756,69 @@ def main(argv: Sequence[str] = sys.argv[1:]) -> int:
             # The build always uses the checked-in config, so every mode shares one
             # set of mutated binaries; the runner applies the diff filter.
             flags = mutation_flags(plugin, root / CONFIG_NAME)
+            performance = {
+                "revision": os.environ.get("GITHUB_SHA", "local"),
+                "run_id": os.environ.get("GITHUB_RUN_ID"),
+                "shard": args.shard.index if args.shard else 0,
+                "build_seconds": 0.0,
+                "query_seconds": 0.0,
+                "binaries": [],
+            }
+            started = time.monotonic()
             build_tests(root, targets, flags)
+            performance["build_seconds"] = time.monotonic() - started
+            started = time.monotonic()
             environments = query_test_environments(root, targets, flags)
+            performance["query_seconds"] = time.monotonic() - started
             missing = sorted(set(targets) - environments.keys())
             if missing:
                 raise MutationTestError(f"cquery reported no environment for {', '.join(missing)}")
             grouped = os.environ.get("GITHUB_ACTIONS") == "true"
             reports = []
-            for position, label in enumerate(targets, start=1):
+            for position, item in enumerate(work, start=1):
                 if grouped:
-                    print(group_title(position, len(targets), label), flush=True)
+                    print(group_title(position, len(work), item.id), flush=True)
+                started = time.monotonic()
+                timing = {
+                    "id": item.id,
+                    "label": item.label,
+                    "test_shard": item.index,
+                    "test_shards": item.count,
+                    "status": "failed",
+                    "seconds": 0.0,
+                }
                 try:
                     report = run_mull(
-                        root, runner, label, environments[label], config_path, report_dir
+                        root,
+                        runner,
+                        item.label,
+                        environments[item.label],
+                        config_path,
+                        item.report_path(report_dir),
+                        item,
                     )
+                    timing["status"] = "complete"
                 finally:
+                    timing["seconds"] = time.monotonic() - started
+                    performance["binaries"].append(timing)
+                    (report_dir / PERFORMANCE_REPORT).write_text(
+                        json.dumps(performance, indent=2) + "\n"
+                    )
                     if grouped:
                         print("::endgroup::", flush=True)
                 if report:
                     reports.append(report)
             if args.shard:
-                write_shard_manifest(report_dir, args.shard, targets)
+                write_shard_manifest(
+                    report_dir,
+                    args.shard,
+                    [item.id for item in work],
+                    selection=[item.id for item in selection],
+                )
         merged = merge_reports(reports, root)
-        _emit(render_summary(merged, title), merged, args)
+        _emit(
+            render_summary(merged, title) + "\n" + render_performance([performance]), merged, args
+        )
         return 0
     except MutationTestError as error:
         print(f"mutation_test: {error}", file=sys.stderr)

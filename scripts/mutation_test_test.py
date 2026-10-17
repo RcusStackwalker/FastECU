@@ -4,6 +4,10 @@ import argparse
 import contextlib
 import io
 import json
+import os
+import shutil
+import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -295,6 +299,44 @@ class ShardTest(unittest.TestCase):
         self.assertEqual([], mt.Shard(3, 4).select(["//a:t", "//b:t"]))
 
 
+class ScheduleTest(unittest.TestCase):
+    def test_splits_slow_binaries_and_balances_all_work_without_loss(self) -> None:
+        schedule = {"//a:t": {"seconds": 100, "test_shards": 2}, "//b:t": {"seconds": 40}}
+        work = mt.plan_work(["//c:t", "//b:t", "//a:t"], schedule)
+        shards = [mt.balance_work(work, mt.Shard(i, 2)) for i in range(2)]
+        self.assertCountEqual(work, shards[0] + shards[1])
+        self.assertEqual([90, 51], [sum(item.seconds for item in shard) for shard in shards])
+        self.assertEqual(
+            [mt.WorkItem("//a:t", 0, 2, 50), mt.WorkItem("//a:t", 1, 2, 50)],
+            [item for item in work if item.label == "//a:t"],
+        )
+
+    def test_selection_is_deterministic_and_new_labels_are_never_dropped(self) -> None:
+        first = mt.plan_work(["//b:t", "//a:t"], {})
+        second = mt.plan_work(["//a:t", "//b:t"], {})
+        self.assertEqual(first, second)
+        self.assertEqual(["//a:t", "//b:t"], [item.label for item in first])
+        self.assertEqual(first, mt.balance_work(first, mt.Shard(0, 1)))
+
+    def test_rejects_invalid_estimates_and_shard_counts(self) -> None:
+        for entry in (
+            {"seconds": -1},
+            {"seconds": float("nan")},
+            {"seconds": 1, "test_shards": 0},
+            {"seconds": 1, "test_shards": 1.5},
+        ):
+            with self.subTest(entry=entry), self.assertRaises(mt.MutationTestError):
+                mt.plan_work(["//a:t"], {"//a:t": entry})
+
+    def test_work_items_use_distinct_report_directories_and_google_test_slices(self) -> None:
+        first = mt.WorkItem("//a:t", 0, 2, 1)
+        second = mt.WorkItem("//b:t", 0, 2, 1)
+        self.assertNotEqual(first.report_path(ROOT), second.report_path(ROOT))
+        self.assertEqual(ROOT / "a/t/gtest-0-of-2", first.report_path(ROOT))
+        self.assertEqual({"GTEST_TOTAL_SHARDS": "2", "GTEST_SHARD_INDEX": "0"}, first.environment())
+        self.assertEqual({}, mt.WorkItem("//a:t").environment())
+
+
 class MergeShardsTest(unittest.TestCase):
     def setUp(self) -> None:
         scratch = tempfile.TemporaryDirectory()
@@ -340,6 +382,196 @@ class MergeShardsTest(unittest.TestCase):
         self._shard(0, 4)
         with self.assertRaises(mt.MutationTestError):
             mt.collect_shard_reports(self.root, 2)
+
+    def test_does_not_parse_performance_metadata_as_a_mutation_report(self) -> None:
+        self._shard(0, 1, ("x_test", _report(ABSOLUTE_SOURCE)))
+        (self.root / mt.PERFORMANCE_REPORT).write_text('{"binaries": []}')
+        self.assertEqual(1, len(mt.collect_shard_reports(self.root, 1)[0]))
+
+    def test_rejects_duplicate_shard_manifests(self) -> None:
+        self._shard(0, 2)
+        duplicate = self.root / "duplicate"
+        duplicate.mkdir()
+        mt.write_shard_manifest(duplicate, mt.Shard(0, 2), [])
+        with self.assertRaises(mt.MutationTestError):
+            mt.collect_shard_reports(self.root, 2)
+
+    def test_rejects_a_completed_run_with_missing_or_duplicate_work(self) -> None:
+        for labels in (["//a:t"], ["//a:t", "//b:t", "//b:t"]):
+            with self.subTest(labels=labels):
+                for index in range(2):
+                    directory = self.root / f"mutation-report-shard-{index}"
+                    directory.mkdir(exist_ok=True)
+                    mt.write_shard_manifest(
+                        directory,
+                        mt.Shard(index, 2),
+                        labels if index == 0 else [],
+                        selection=["//a:t", "//b:t"],
+                    )
+                with self.assertRaises(mt.MutationTestError):
+                    mt.collect_shard_reports(self.root, 2)
+
+
+class PerformanceTest(unittest.TestCase):
+    def test_summary_keeps_timeouts_visible_and_ranks_expensive_work(self) -> None:
+        performance = {
+            "build_seconds": 20,
+            "query_seconds": 2,
+            "binaries": [
+                {"id": "//a:t", "seconds": 3, "status": "complete"},
+                {"id": "//b:t", "seconds": 50, "status": "complete"},
+            ],
+        }
+        summary = mt.render_performance([performance])
+        self.assertIn("53.0s", summary)
+        self.assertLess(summary.index("//b:t"), summary.index("//a:t"))
+
+    def test_summary_reports_timeouts_separately_without_changing_score(self) -> None:
+        merged = {mt.MutantKey(SHORT, 1, 2, "m", "r"): "Timeout"}
+        self.assertIn("1 timed out", mt.render_summary(merged, TITLE))
+
+    def test_comparison_exposes_missing_mutants_lost_kills_and_new_timeouts(self) -> None:
+        keys = [mt.MutantKey(SHORT, line, 2, "m", "r") for line in range(4)]
+        baseline = dict(zip(keys[:3], ["Killed", "Killed", "Survived"], strict=True))
+        current = {keys[0]: "Timeout", keys[2]: "Survived", keys[3]: "Killed"}
+        summary = mt.render_comparison(current, baseline)
+        self.assertIn("1 missing", summary)
+        self.assertIn("1 added", summary)
+        self.assertIn("2 lost direct kills", summary)
+        self.assertIn("1 new timeouts", summary)
+
+    def test_refresh_uses_measured_slice_costs_and_preserves_other_scopes(self) -> None:
+        schedule = {"tests": {"//b:t": {"seconds": 5}}}
+        reports = [
+            {
+                "run_id": "42",
+                "binaries": [
+                    {
+                        "label": "//a:t",
+                        "test_shard": 1,
+                        "test_shards": 2,
+                        "seconds": 30,
+                        "status": "complete",
+                    },
+                    {
+                        "label": "//a:t",
+                        "test_shard": 0,
+                        "test_shards": 2,
+                        "seconds": 10,
+                        "status": "complete",
+                    },
+                ],
+            }
+        ]
+        updated = mt.refresh_schedule(schedule, reports)
+        self.assertEqual({"seconds": 5}, updated["tests"]["//b:t"])
+        self.assertEqual(
+            {"seconds": 40, "test_shards": 2, "shard_seconds": [10, 30]}, updated["tests"]["//a:t"]
+        )
+        work = mt.plan_work(["//a:t"], updated["tests"])
+        self.assertEqual([10, 30], [item.seconds for item in work])
+
+    def test_refresh_rejects_incomplete_slices(self) -> None:
+        reports = [
+            {
+                "run_id": "42",
+                "binaries": [
+                    {
+                        "label": "//a:t",
+                        "test_shard": 0,
+                        "test_shards": 2,
+                        "seconds": 10,
+                        "status": "complete",
+                    },
+                ],
+            }
+        ]
+        with self.assertRaises(mt.MutationTestError):
+            mt.refresh_schedule({"tests": {}}, reports)
+
+
+class OrchestrationTest(unittest.TestCase):
+    def test_runs_every_slice_and_merges_reports_without_metadata_polluting_counts(self) -> None:
+        with tempfile.TemporaryDirectory() as scratch:
+            root = Path(scratch)
+            (root / "scripts").mkdir()
+            shutil.copyfile(mt.__file__, root / "scripts/mutation_test.py")
+            (root / "mull.yml").write_text("includePaths: []\n")
+            tools = root / "tools"
+            tools.mkdir()
+            bazel = tools / "bazel"
+            bazel.write_text(
+                f"#!{sys.executable}\n"
+                + """import json, sys
+if sys.argv[1] == "query":
+    print("//a:t")
+elif sys.argv[1] == "cquery":
+    print(json.dumps({"label": "//a:t", "env": {"FIXTURE": "available"}}))
+"""
+            )
+            bazel.chmod(0o755)
+            runner = tools / "mull-runner-22"
+            runner.write_text(
+                f"#!{sys.executable}\n"
+                + """import json, os, pathlib, sys
+assert os.environ["FIXTURE"] == "available"
+assert os.environ["GTEST_TOTAL_SHARDS"] == "2"
+directory = pathlib.Path(sys.argv[sys.argv.index("--report-dir") + 1])
+name = sys.argv[sys.argv.index("--report-name") + 1]
+index = int(os.environ["GTEST_SHARD_INDEX"])
+mutant = {"mutatorName": "m", "replacement": "r", "status": "Killed",
+          "location": {"start": {"line": index + 1, "column": 1}}}
+(directory / (name + ".json")).write_text(json.dumps({"files": {
+    "src/algorithms/a.cpp": {"mutants": [mutant]}}}))
+"""
+            )
+            runner.chmod(0o755)
+            plugin = tools / "mull-ir-frontend-22"
+            plugin.touch()
+            schedule = root / "schedule.json"
+            schedule.write_text(json.dumps({"tests": {"//a:t": {"seconds": 10, "test_shards": 2}}}))
+            environment = {
+                **os.environ,
+                "PATH": str(tools) + os.pathsep + os.environ["PATH"],
+                "MULL_RUNNER": str(runner),
+                "MULL_IR_FRONTEND": str(plugin),
+            }
+            script = [sys.executable, str(root / "scripts/mutation_test.py")]
+            reports = root / "reports"
+            for index in range(2):
+                result = subprocess.run(
+                    [
+                        *script,
+                        "--shard",
+                        f"{index}/2",
+                        "--report-dir",
+                        str(reports / str(index)),
+                        "--schedule",
+                        str(schedule),
+                    ],
+                    env=environment,
+                    text=True,
+                    capture_output=True,
+                    check=False,
+                )
+                self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+            result = subprocess.run(
+                [*script, "--merge-reports", str(reports), "--shards", "2"],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+            self.assertIn("2 killed, 0 survived", result.stdout)
+            self.assertIn("### Performance", result.stdout)
+            self.assertEqual(2, len(list(reports.rglob(mt.PERFORMANCE_REPORT))))
+            refresh = [*script, "--refresh-schedule", str(reports), "--schedule", str(schedule)]
+            result = subprocess.run(refresh, text=True, capture_output=True, check=False)
+            self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+            (reports / "1" / mt.SHARD_MANIFEST).unlink()
+            result = subprocess.run(refresh, text=True, capture_output=True, check=False)
+            self.assertEqual(2, result.returncode, result.stdout + result.stderr)
+            self.assertIn("incomplete run", result.stderr)
 
     def test_the_summary_names_the_missing_shards(self) -> None:
         self.assertEqual(

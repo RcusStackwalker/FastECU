@@ -33,12 +33,19 @@ real.
   the runner so the build stays the same in every mode) and reports survivors
   as annotations on the diff and a job summary. Surviving mutants never fail
   either; a tool or build failure does.
-- The weekly and manual runs are sharded by test binary, the unit Mull runs:
-  four jobs each take every fourth label of the sorted selection, so each can
-  compute its own slice without a planning job, and build only its slice.
+- The weekly and manual runs use four jobs, balancing work longest-first
+  from the versioned [duration estimates](../../bazel/mutation-schedule.json).
+  Expensive binaries use GoogleTest's disjoint test shards: every test case
+  still runs, while Mull's coverage filter limits each slice's mutants.
+  Each job computes the same assignment without a planning job and builds
+  only the binaries it needs. Missing estimates use a deterministic default;
+  estimates never define which Bazel tests are selected.
   Each shard writes a manifest after its last binary, and a merge job that
   runs even when a shard fails merges every report it finds, names the shards
   that left no manifest in the summary, and fails the run if there were any.
+  Completed manifests must also agree on the complete selection and account
+  for every work item exactly once. Per-work-item report directories prevent
+  slices or identically named binaries from overwriting one another.
   The PR job, usually a few minutes, stays one job.
 
 ## Alternatives
@@ -61,8 +68,12 @@ real.
   binary's unmutated run short: `subaru_key_recovery_test` took about 33
   minutes until its attack stopped re-evaluating the f-function per pair and
   candidate.
-- Round-robin ignores how long each binary takes, so one shard can run well
-  past the others. Balancing on the previous run's timings was rejected as
-  more machinery than an unattended weekly run needs.
+- The [2026-10-17 baseline](https://github.com/RcusStackwalker/FastECU/actions/runs/39027359985)
+  took 54m27s, with shard durations from 3m22s to 54m11s and one binary
+  taking 26m20s. This supersedes the original choice to avoid timing-based
+  balancing. The performance target is 20 minutes for the complete workflow;
+  its diagnostic timeout stays longer so regressions retain complete evidence.
+  The [tooling loop](../tooling.md#mutation-performance-loop) owns measurement,
+  estimate refresh and quality comparison instructions.
 - macOS runs are local and best-effort with Mull's macOS release and the
   LLVM it was built against.

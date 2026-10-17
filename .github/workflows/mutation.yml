@@ -2,8 +2,8 @@ name: mutation
 
 # Weekly Mull mutation testing of all portable code (ADR 0022); a manual run
 # can narrow it to a scope. Advisory: it reports surviving mutants and never
-# gates anything. Four shards each run every fourth test of the sorted
-# selection, and a merge job combines their reports into one summary. The PR
+# gates anything. Four jobs balance duration estimates, splitting expensive
+# binaries with GoogleTest sharding; a merge job combines their reports. The PR
 # workflow's `mutation` job runs the same script, unsharded, on a PR's changed
 # lines.
 
@@ -20,9 +20,15 @@ on:
         required: false
         default: ''
         type: string
+      baseline_run:
+        description: 'Optional run ID to compare against (use identical production sources and scope)'
+        required: false
+        default: ''
+        type: string
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: mutation-${{ github.ref }}
@@ -32,7 +38,8 @@ jobs:
   shard:
     name: Mutation testing (shard ${{ matrix.shard }})
     runs-on: ubuntu-26.04
-    # The slowest test binary alone takes about 15 minutes.
+    # Keep the diagnostic ceiling above the 20-minute performance target so
+    # a regression still publishes complete measurements.
     timeout-minutes: 120
     strategy:
       # A failed shard must not cancel the others: the merge job reports
@@ -61,7 +68,8 @@ jobs:
           SCOPE: ${{ inputs.scope }}
           SHARD: ${{ matrix.shard }}
         run: |
-          python3 scripts/mutation_test.py --shard "${SHARD}/4" ${SCOPE:+--scope "$SCOPE"} \
+          python3 scripts/mutation_test.py --shard "${SHARD}/4" \
+            --schedule bazel/mutation-schedule.json ${SCOPE:+--scope "$SCOPE"} \
             --report-dir "${RUNNER_TEMP}/mutation"
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -88,10 +96,25 @@ jobs:
           pattern: mutation-report-shard-*
           path: ${{ runner.temp }}/mutation
 
+      - name: Download comparison baseline
+        if: inputs.baseline_run != '' && inputs.baseline_run != null
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: mutation-report
+          run-id: ${{ inputs.baseline_run }}
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/mutation-baseline
+
       - name: Merge the shards' reports
+        env:
+          BASELINE_RUN: ${{ inputs.baseline_run }}
         run: |
+          args=()
+          if [ -n "$BASELINE_RUN" ]; then
+            args+=(--baseline-reports "${RUNNER_TEMP}/mutation-baseline")
+          fi
           python3 scripts/mutation_test.py --merge-reports "${RUNNER_TEMP}/mutation" --shards 4 \
-            --summary "$GITHUB_STEP_SUMMARY"
+            --summary "$GITHUB_STEP_SUMMARY" "${args[@]}"
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
