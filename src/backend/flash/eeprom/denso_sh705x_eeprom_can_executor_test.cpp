@@ -20,6 +20,7 @@
 #include <gtest/gtest.h>
 
 #include <string_view>
+#include <utility>
 
 #include "src/algorithms/protocol/bytes_compose.h"
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
@@ -425,9 +426,9 @@ bytes::Bytes KernelFixtureBytes()
     return out;
 }
 
-// Enqueues the exact write/read sequence for one full "kernel not yet
-// running" connect_bootloader() round using the Stock seed-key algorithm.
-void EnqueueConnectBootloaderFullInit(ScriptedCanFlashTransport& transport, bytes::ByteView seed)
+// The write/read sequence of connect_bootloader() from "kernel not yet
+// running" up to and including the seed request; the caller scripts the reply.
+void EnqueueConnectUpToSeedRequest(ScriptedCanFlashTransport& transport)
 {
     transport.ExpectWrite(RequestKernelIdRequest());
     transport.QueueNoFrame(); // kernel not (yet) alive
@@ -454,6 +455,13 @@ void EnqueueConnectBootloaderFullInit(ScriptedCanFlashTransport& transport, byte
     transport.QueueRead(Session43Response());
 
     transport.ExpectWrite(SeedRequestFrame());
+}
+
+// Enqueues the exact write/read sequence for one full "kernel not yet
+// running" connect_bootloader() round using the Stock seed-key algorithm.
+void EnqueueConnectBootloaderFullInit(ScriptedCanFlashTransport& transport, bytes::ByteView seed)
+{
+    EnqueueConnectUpToSeedRequest(transport);
     transport.QueueRead(SeedResponse(seed));
 
     const bytes::Bytes seed_key = GenerateSeedKeyStock(seed);
@@ -531,6 +539,16 @@ Result<FlashPlan> ValidCanPlan(EepromReadMode mode = EepromReadMode::kMode2)
 
 static_assert(kRequestId == 0x7e0, "kernel-id/handshake frame literals above assume request_id == 0x7e0");
 
+// Runs the executor over `plan` against the scripted transport with fresh
+// collaborators; a test that needs to arm the token passes its own.
+Result<FlashExecutionResult> RunExecutor(const FlashPlan& plan, ScriptedCanFlashTransport& transport,
+                                         FakeCancellationToken&& cancellation = FakeCancellationToken{})
+{
+    FakeClock clock;
+    RecordingEventSink events;
+    return DensoSh705xEepromCanExecutor{}.Execute(plan, transport, clock, cancellation, events);
+}
+
 } // namespace
 
 TEST(DensoSh705xEepromCanExecutorTest, TransportSetupReturnsThePlansWireParameters)
@@ -563,14 +581,9 @@ TEST(DensoSh705xEepromCanExecutorTest, WrongFamilyPlanIsRejectedWithNoTransportC
     });
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
-    DensoSh705xEepromCanExecutor executor;
     ScriptedCanFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::kOpen};
-    FakeClock clock;
-    FakeCancellationToken cancellation;
-    RecordingEventSink events;
 
-    ASSERT_THAT(executor.Execute(*plan, transport, clock, cancellation, events),
-                fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
+    ASSERT_THAT(RunExecutor(*plan, transport), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     EXPECT_TRUE(transport.ScriptConsumed()); // nothing was ever queued or consumed
 }
 
@@ -584,12 +597,7 @@ TEST(DensoSh705xEepromCanExecutorTest, KernelAlreadyRunningSkipsBootloaderMatche
     transport.QueueRead(KernelAliveResponse());
     EnqueueReadMem(transport, 2);
 
-    DensoSh705xEepromCanExecutor executor;
-    FakeClock clock;
-    FakeCancellationToken cancellation;
-    RecordingEventSink events;
-
-    auto result = executor.Execute(*plan, transport, clock, cancellation, events);
+    auto result = RunExecutor(*plan, transport);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(result->operation, FlashOperation::kRead);
@@ -609,12 +617,7 @@ TEST(DensoSh705xEepromCanExecutorTest, FullBootloaderStockSecurityMode2MatchesLe
     EnqueueUploadKernel(transport, KernelFixtureBytes(), kKernelStartAddr);
     EnqueueReadMem(transport, 2);
 
-    DensoSh705xEepromCanExecutor executor;
-    FakeClock clock;
-    FakeCancellationToken cancellation;
-    RecordingEventSink events;
-
-    auto result = executor.Execute(*plan, transport, clock, cancellation, events);
+    auto result = RunExecutor(*plan, transport);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(result->operation, FlashOperation::kRead);
@@ -646,23 +649,7 @@ TEST(DensoSh705xEepromCanExecutorTest, AllFourSecurityVariantsProduceDistinctSee
         ASSERT_THAT(plan, fastecu::testing::IsOk());
 
         ScriptedCanFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::kOpen};
-        transport.ExpectWrite(RequestKernelIdRequest());
-        transport.QueueNoFrame();
-        transport.ExpectWrite(InitConnectionRequest());
-        transport.QueueRead(InitConnResponse());
-        transport.ExpectWrite(EcuIdRequest());
-        transport.QueueRead(EcuIdResponse());
-        transport.ExpectWrite(VinRequest());
-        transport.QueueRead(VinResponse());
-        transport.ExpectWrite(CalIdRequest());
-        transport.QueueRead(CalIdResponse());
-        transport.ExpectWrite(CvnRequest());
-        transport.QueueRead(CvnResponse());
-        transport.ExpectWrite(SessionMode03Request());
-        transport.QueueRead(Session03Response());
-        transport.ExpectWrite(SessionMode43Request());
-        transport.QueueRead(Session43Response());
-        transport.ExpectWrite(SeedRequestFrame());
+        EnqueueConnectUpToSeedRequest(transport);
         transport.QueueRead(SeedResponse(seed));
         // The seed-key-send frame itself is captured via expectWrite() below
         // (whichever bytes the executor sends must match, or the write fails
@@ -688,13 +675,7 @@ TEST(DensoSh705xEepromCanExecutorTest, AllFourSecurityVariantsProduceDistinctSee
         transport.ExpectWrite(SeedKeySendRequest(expected_key));
         transport.QueueNoFrame(); // no response at all -> Timeout, stopping the round here
 
-        DensoSh705xEepromCanExecutor executor;
-        FakeClock clock;
-        FakeCancellationToken cancellation;
-        RecordingEventSink events;
-
-        ASSERT_THAT(executor.Execute(*plan, transport, clock, cancellation, events),
-                    fastecu::testing::IsErr(ErrorKind::kTimeout));
+        ASSERT_THAT(RunExecutor(*plan, transport), fastecu::testing::IsErr(ErrorKind::kTimeout));
         EXPECT_EQ(transport.WritesConsumed(), 10U); // kernel-id probe + 9 handshake writes
         EXPECT_TRUE(transport.ScriptConsumed());
 
@@ -717,32 +698,10 @@ TEST(DensoSh705xEepromCanExecutorTest, NoResponseAtSeedRequestReturnsTimeout)
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
     ScriptedCanFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::kOpen};
-    transport.ExpectWrite(RequestKernelIdRequest());
-    transport.QueueNoFrame();
-    transport.ExpectWrite(InitConnectionRequest());
-    transport.QueueRead(InitConnResponse());
-    transport.ExpectWrite(EcuIdRequest());
-    transport.QueueRead(EcuIdResponse());
-    transport.ExpectWrite(VinRequest());
-    transport.QueueRead(VinResponse());
-    transport.ExpectWrite(CalIdRequest());
-    transport.QueueRead(CalIdResponse());
-    transport.ExpectWrite(CvnRequest());
-    transport.QueueRead(CvnResponse());
-    transport.ExpectWrite(SessionMode03Request());
-    transport.QueueRead(Session03Response());
-    transport.ExpectWrite(SessionMode43Request());
-    transport.QueueRead(Session43Response());
-    transport.ExpectWrite(SeedRequestFrame());
+    EnqueueConnectUpToSeedRequest(transport);
     transport.QueueNoFrame(); // no response at all -> Timeout
 
-    DensoSh705xEepromCanExecutor executor;
-    FakeClock clock;
-    FakeCancellationToken cancellation;
-    RecordingEventSink events;
-
-    ASSERT_THAT(executor.Execute(*plan, transport, clock, cancellation, events),
-                fastecu::testing::IsErr(ErrorKind::kTimeout));
+    ASSERT_THAT(RunExecutor(*plan, transport), fastecu::testing::IsErr(ErrorKind::kTimeout));
 }
 
 TEST(DensoSh705xEepromCanExecutorTest, MalformedSeedResponseReturnsBadResponse)
@@ -751,35 +710,13 @@ TEST(DensoSh705xEepromCanExecutorTest, MalformedSeedResponseReturnsBadResponse)
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
     ScriptedCanFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::kOpen};
-    transport.ExpectWrite(RequestKernelIdRequest());
-    transport.QueueNoFrame();
-    transport.ExpectWrite(InitConnectionRequest());
-    transport.QueueRead(InitConnResponse());
-    transport.ExpectWrite(EcuIdRequest());
-    transport.QueueRead(EcuIdResponse());
-    transport.ExpectWrite(VinRequest());
-    transport.QueueRead(VinResponse());
-    transport.ExpectWrite(CalIdRequest());
-    transport.QueueRead(CalIdResponse());
-    transport.ExpectWrite(CvnRequest());
-    transport.QueueRead(CvnResponse());
-    transport.ExpectWrite(SessionMode03Request());
-    transport.QueueRead(Session03Response());
-    transport.ExpectWrite(SessionMode43Request());
-    transport.QueueRead(Session43Response());
-    transport.ExpectWrite(SeedRequestFrame());
+    EnqueueConnectUpToSeedRequest(transport);
     bytes::Bytes malformed(6, 0);
     malformed[4] = 0x00; // should be 0x67
     malformed[5] = 0x00; // should be 0x01
     transport.QueueRead(malformed);
 
-    DensoSh705xEepromCanExecutor executor;
-    FakeClock clock;
-    FakeCancellationToken cancellation;
-    RecordingEventSink events;
-
-    ASSERT_THAT(executor.Execute(*plan, transport, clock, cancellation, events),
-                fastecu::testing::IsErr(ErrorKind::kBadResponse));
+    ASSERT_THAT(RunExecutor(*plan, transport), fastecu::testing::IsErr(ErrorKind::kBadResponse));
 }
 
 TEST(DensoSh705xEepromCanExecutorTest, CancellationDuringKernelUploadReturnsCancelled)
@@ -793,8 +730,6 @@ TEST(DensoSh705xEepromCanExecutorTest, CancellationDuringKernelUploadReturnsCanc
     EnqueueUploadKernel(transport, KernelFixtureBytes(), kKernelStartAddr);
     EnqueueReadMem(transport, 2);
 
-    DensoSh705xEepromCanExecutor executor;
-    FakeClock clock;
     // Trips partway through upload_kernel()'s chunk loop: connect_bootloader()
     // completes fully (kernel not alive -> probe + full init/ecuid/vin/calid/
     // cvn/session03/session43/seedreq/seedkeysend/sessionset = 10 writes),
@@ -804,10 +739,8 @@ TEST(DensoSh705xEepromCanExecutorTest, CancellationDuringKernelUploadReturnsCanc
     // this exact trace's total cancellation.cancelled() call count.
     FakeCancellationToken cancellation;
     cancellation.CancelOnCheck(75);
-    RecordingEventSink events;
 
-    ASSERT_THAT(executor.Execute(*plan, transport, clock, cancellation, events),
-                fastecu::testing::IsErr(ErrorKind::kCancelled));
+    ASSERT_THAT(RunExecutor(*plan, transport, std::move(cancellation)), fastecu::testing::IsErr(ErrorKind::kCancelled));
     EXPECT_EQ(transport.WritesConsumed(), 11U);
 }
 
