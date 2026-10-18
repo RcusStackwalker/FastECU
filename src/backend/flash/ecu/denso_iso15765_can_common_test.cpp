@@ -559,6 +559,130 @@ TEST(DensoIso15765CanCommonTest, ReadPagePropagatesAbsentEmptyTransportAndCancel
     }
 }
 
+// Two short literal pages (four decrypted bytes each) pin addressing, the
+// page-to-page order, progress and padding without a full-size region.
+void ScriptTwoShortPages(CommonFixture& f)
+{
+    f.transport.Exchange(Request({0xB7, 0x08, 0xFA, 0xC0, 0x00}), Response({0xF7, 0xE0, 0xD3, 0x85, 0x2B}));
+    f.transport.Exchange(Request({0xB7, 0x08, 0xFA, 0xC1, 0x00}), Response({0xF7, 0xE0, 0xD3, 0x85, 0x2B}));
+}
+
+std::vector<int> ProgressDone(const RecordingEventSink& events)
+{
+    std::vector<int> done;
+    for (const auto& call : events.phase_progress_calls)
+    {
+        done.push_back(call.done);
+    }
+    return done;
+}
+
+TEST(DensoIso15765CanCommonTest, ReadDumpReadsPagesStopsAndPadsWithPacingOnlyWhenAsked)
+{
+    for (const bool pace_pages : {false, true})
+    {
+        SCOPED_TRACE(pace_pages);
+        CommonFixture f;
+        ScriptTwoShortPages(f);
+        f.transport.Exchange(Request({0x37}), Response({0x77}));
+        PhaseReporter progress(f.events, "Read ROM", 1, 1, 0x1000);
+
+        const auto image = DensoIso15765ReadDump(f.ctx, MemoryRegion{0x08FAC000, 0x200}, 2, 1, progress, pace_pages,
+                                                 /*log_stop_response=*/true);
+
+        ASSERT_THAT(image, fastecu::testing::IsOk());
+        EXPECT_THAT(*image, test_bytes::BytesEq(
+                                (bytes::Bytes{0xFF, 0xFF, 0x00, 0x01, 0x02, 0x03, 0x00, 0x01, 0x02, 0x03, 0xFF})));
+        EXPECT_TRUE(f.transport.ScriptConsumed());
+        EXPECT_THAT(f.transport.ReadTimeouts(), ::testing::ElementsAre(2000ms, 2000ms, 500ms));
+        if (pace_pages)
+        {
+            EXPECT_THAT(f.clock.sleep_calls, ::testing::ElementsAre(1ms, 1ms));
+        }
+        else
+        {
+            EXPECT_THAT(f.clock.sleep_calls, ::testing::IsEmpty());
+        }
+        EXPECT_THAT(ProgressDone(f.events), ::testing::ElementsAre(0, 0x100, 0x200));
+        EXPECT_THAT(f.events.logs,
+                    ::testing::ElementsAre(::testing::Pair(LogLevel::kInfo, "Start reading ROM, please wait..."),
+                                           ::testing::Pair(LogLevel::kInfo, "ROM read complete"),
+                                           ::testing::Pair(LogLevel::kInfo, "Sending stop command"),
+                                           ::testing::Pair(LogLevel::kInfo, "Stop request response: 77 ")));
+    }
+}
+
+// The stop loop's outcome is never checked, so six failures still yield the image.
+TEST(DensoIso15765CanCommonTest, ReadDumpStopRetriesSixTimesAndIgnoresFailures)
+{
+    CommonFixture f;
+    for (int attempt = 0; attempt < 6; ++attempt)
+    {
+        f.transport.Exchange(Request({0x37}));
+        if (attempt == 2)
+        {
+            f.transport.QueueError(ErrorKind::kDisconnected, "stop ignored");
+        }
+        else
+        {
+            f.transport.QueueNoFrame();
+        }
+    }
+    PhaseReporter progress(f.events, "Read ROM", 1, 1, 1);
+
+    const auto image = DensoIso15765ReadDump(f.ctx, MemoryRegion{0x8000, 0}, 1, 1, progress, /*pace_pages=*/false,
+                                             /*log_stop_response=*/true);
+
+    ASSERT_THAT(image, fastecu::testing::IsOk());
+    EXPECT_THAT(*image, test_bytes::BytesEq((bytes::Bytes{0xFF, 0xFF})));
+    EXPECT_TRUE(f.transport.ScriptConsumed());
+    EXPECT_EQ(f.transport.write_attempts, 6U);
+    EXPECT_THAT(f.transport.ReadTimeouts(), ::testing::Each(500ms));
+}
+
+TEST(DensoIso15765CanCommonTest, ReadDumpStopResponseIsLoggedOnlyWhenAsked)
+{
+    CommonFixture f;
+    f.transport.Exchange(Request({0x37}), Response({0x77}));
+    PhaseReporter progress(f.events, "Read ROM", 1, 1, 1);
+
+    ASSERT_THAT(DensoIso15765ReadDump(f.ctx, MemoryRegion{0x8000, 0}, 0, 0, progress, /*pace_pages=*/false,
+                                      /*log_stop_response=*/false),
+                fastecu::testing::IsOk());
+
+    EXPECT_TRUE(f.transport.ScriptConsumed());
+    EXPECT_EQ(f.events.logs.back(), std::make_pair(LogLevel::kInfo, std::string{"Sending stop command"}));
+}
+
+TEST(DensoIso15765CanCommonTest, ReadDumpPageFailureOrCancellationSendsNoStop)
+{
+    for (const bool cancelled : {false, true})
+    {
+        SCOPED_TRACE(cancelled);
+        CommonFixture f;
+        if (cancelled)
+        {
+            f.cancellation.Cancel();
+        }
+        else
+        {
+            f.transport.Exchange(Request({0xB7, 0x08, 0xFA, 0xC0, 0x00}));
+            f.transport.QueueError(ErrorKind::kDisconnected, "page lost");
+        }
+        PhaseReporter progress(f.events, "Read ROM", 1, 1, 0x1000);
+
+        EXPECT_THAT(DensoIso15765ReadDump(f.ctx, MemoryRegion{0x08FAC000, 0x200}, 0, 0, progress,
+                                          /*pace_pages=*/true, /*log_stop_response=*/true),
+                    fastecu::testing::IsErr(cancelled ? ErrorKind::kCancelled : ErrorKind::kDisconnected));
+
+        EXPECT_TRUE(f.transport.ScriptConsumed());
+        EXPECT_EQ(f.transport.write_attempts, cancelled ? 0U : 1U);
+        EXPECT_THAT(f.clock.sleep_calls, ::testing::IsEmpty());
+        EXPECT_THAT(f.events.logs,
+                    ::testing::Not(::testing::Contains(::testing::Pair(LogLevel::kInfo, "Sending stop command"))));
+    }
+}
+
 TEST(DensoIso15765CanCommonTest, SecurityAccessReadsLiteralSeedAndKeyAtTwoSeconds)
 {
     CommonFixture f;

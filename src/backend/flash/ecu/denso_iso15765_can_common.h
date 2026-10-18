@@ -35,9 +35,10 @@ namespace fastecu::flash
 // The decrypt table remains valid for the bootloader-dialect normal-ROM read paths.
 // DensoCAN is not a consumer of this data-only cluster.
 //
-// Beyond these tables, the common module shares eleven narrow operations: pure
+// Beyond these tables, the common module shares twelve narrow operations: pure
 // setup-PDU encoding, the SecurityAccess seed/key exchange, the erase flow,
-// one encrypted B7 page read, one B6 write request, best-effort transfer
+// one encrypted B7 page read and the read dump built on it (page loop, stop and
+// padding), one B6 write request, best-effort transfer
 // exit and the settle-and-checksum close around it (all four Denso ISO-15765 bootloader dialect executors), and the
 // N83M in-car opening exchange run (the two N83M executors only; its 0x7E1 request asks for session 0x63, where the
 // SH-family runs send 0x03), plus the N83M 4M/SH72531 jump continuation wait, and connect_bootloader's prelude (OBK
@@ -45,7 +46,7 @@ namespace fastecu::flash
 // across all four apart from one log line, the diesel ECU ID query and the diesel probe timeout, all kept as parameters
 // or local. The single-block write_memory body is shared too; each family keeps its own reflash and passes it in.
 // Everything else that looks alike -- the in-car and bench connect arms,
-// the reflash routines, the complete kernel jump, the stop retry loops -- differs between the
+// the reflash routines, the complete kernel jump -- differs between the
 // families in read timeouts, retry counts, pre-loop read counts, image base addresses, and, most importantly, in how
 // strictly a bad response is treated. Those differences are the safety-relevant part of each family: collapsing them
 // behind a parameterized common routine would make a future reader believe these are the same protocol when they are
@@ -118,8 +119,19 @@ bytes::Bytes DensoIso15765UploadSetupPdu(const MemoryRegion& region);
 
 // One B7 request with a four-byte big-endian address, fatal UDS response
 // handling at 2000 ms, and whole-word payload decryption. Short pages remain
-// accepted; callers own read loops, pacing, progress, stop and image padding.
+// accepted; DensoIso15765ReadDump below owns the loop around it.
 Result<bytes::Bytes> ReadDensoEncryptedPage(const CanExecutorContext& ctx, std::uint32_t address);
+
+// read_memory after its setup exchanges: one B7 page per 256 bytes of
+// `region`, cancellation checked before each, progress after each; then up to
+// six best-effort 37 stop requests at 500 ms, whose outcome is never checked;
+// then the dump between `lead_pad_len` and `tail_pad_len` bytes of 0xFF. Only
+// the SH families pace each page by 1 ms (`pace_pages`), and N83M 4M alone
+// does not log the stop response (`log_stop_response`). Setup stays local:
+// its policy and tolerance differ per family.
+Result<bytes::Bytes> DensoIso15765ReadDump(const CanExecutorContext& ctx, const MemoryRegion& region,
+                                           std::size_t lead_pad_len, std::size_t tail_pad_len, PhaseReporter& progress,
+                                           bool pace_pages, bool log_stop_response);
 
 // One fatal B6 request at 500 ms with an absolute wire address and the
 // caller-selected encrypted bytes. Image encryption, indexing and loops stay local.

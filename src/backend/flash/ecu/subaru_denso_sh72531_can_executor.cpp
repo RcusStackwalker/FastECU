@@ -30,16 +30,15 @@ namespace
 using bytes::ComposeBe;
 using namespace std::chrono_literals;
 
-// Legacy's three read timeouts, kept apart rather than flattened into one
-// policy: they are this family's own wire timing (header lines 45-48).
-// Legacy reaches most of them through bare literals rather than the named
-// members -- 200 at lines 671/703/748/782/785/1278, 500 at lines 1041/1392/
-// 1435 -- which is why the values, not the names, are authoritative here.
-constexpr std::chrono::milliseconds kShortTimeout{200};   // serial_read_short_timeout
-constexpr std::chrono::milliseconds kReceiveTimeout{500}; // receive_timeout
-constexpr std::chrono::milliseconds kLongTimeout{2000};   // serial_read_timeout
+// Legacy's read timeouts, kept apart rather than flattened into one policy:
+// they are this family's own wire timing (header lines 45-48). Legacy
+// reaches most of them through bare literals rather than the named members
+// -- 200 at lines 671/703/748/782/785/1278 -- which is why the values, not
+// the names, are authoritative here. The third, receive_timeout (500), is now
+// read only by the shared read stop in denso_iso15765_can_common.
+constexpr std::chrono::milliseconds kShortTimeout{200}; // serial_read_short_timeout
+constexpr std::chrono::milliseconds kLongTimeout{2000}; // serial_read_timeout
 constexpr uds::ExchangePolicy kShortPolicy{.read_timeout = kShortTimeout};
-constexpr uds::ExchangePolicy kReceivePolicy{.read_timeout = kReceiveTimeout};
 constexpr uds::ExchangePolicy kLongPolicy{.read_timeout = kLongTimeout};
 // The timeout the tolerant_probe exchanges in connect_bootloader read with:
 // serial_read_short_timeout, as in two of its three siblings.
@@ -80,7 +79,6 @@ constexpr bytes::Byte kSidCommunicationControl = 0x28; // ISO 14229-1
 // reflash_block then indexes newdata[i + blockaddr] (line 1225) -- so byte 0
 // of the plan image is this address, which for SH72531 is 0.
 constexpr std::uint32_t kImageStart = 0x00000000;
-constexpr std::uint32_t kPageSize = 0x100;
 
 // Additional CAN request ids the in-car arm addresses (legacy lines 373-492).
 // 0x7DF is ISO 15765-4's functional-broadcast id; the other three are
@@ -89,11 +87,6 @@ constexpr std::uint32_t kInCarIdA2 = 0x7a2;
 constexpr std::uint32_t kInCarIdFunctional = 0x7df;
 constexpr std::uint32_t kInCarIdE1 = 0x7e1;
 constexpr std::uint32_t kInCarIdB0 = 0x7b0;
-
-// Legacy decrypts the whole accumulated dump in one call (line 1058);
-// SsmProtocol::calculatePayload transforms independent 4-byte words, so
-// decrypting each 256-byte page as it arrives produces byte-identical output
-// without a second full-ROM buffer.
 
 // Most exchanges go through UdsClient over CanFlashUdsChannel. The
 // exceptions are the probes and fire-and-forget writes whose reply legacy
@@ -308,65 +301,8 @@ Result<bytes::Bytes> ReadMemory(Ctx& ctx, const SubaruDensoSh72531CanPlan& famil
         return std::unexpected(upload.error());
     }
 
-    LogInfo(ctx, "Start reading ROM, please wait...");
-    bytes::Bytes rom;
-    rom.reserve(region.length);
-    for (std::uint32_t offset = 0; offset < region.length; offset += kPageSize)
-    {
-        // Legacy stopRequested() at line 933, top of loop.
-        if (ctx.cancellation.Cancelled())
-        {
-            return Fail(ErrorKind::kCancelled, "read cancelled");
-        }
-        const std::uint32_t addr = region.start + offset;
-        // Lines 916-952: SID 0xB7 plus a 4-byte address. Legacy fixes the
-        // top byte at 0x00 (line 922) and patches only bytes 6-8 (lines
-        // 946-948); every address in this region is below 0x1000000, so the
-        // 4-byte big-endian encoding here is byte-identical. The reply is
-        // 0xF7 plus one 256-byte encrypted page (lines 955-976).
-        Result<bytes::Bytes> chunk = ReadDensoEncryptedPage(ctx, addr);
-        if (!chunk.has_value())
-        {
-            return std::unexpected(chunk.error());
-        }
-        rom.insert(rom.end(), chunk->begin(), chunk->end());
-        progress.Update(static_cast<int>(offset + kPageSize));
-        // Line 1007: this family paces each page by a millisecond before the
-        // next 0xB7 write. Kept, since no read timeout subsumes a delay that
-        // precedes a write.
-        if (const Status slept = ctx.clock.Sleep(1ms, ctx.cancellation); !slept.has_value())
-        {
-            return std::unexpected(slept.error());
-        }
-    }
-
-    LogInfo(ctx, "ROM read complete");
-
-    // Stop command (lines 1025-1056): up to six attempts, each re-sending
-    // 0x37, and the loop's outcome is never checked -- legacy proceeds to
-    // build the image whether or not the ECU ever answered 0x77.
-    LogInfo(ctx, "Sending stop command");
-    for (int attempt = 0; attempt < 6; ++attempt)
-    {
-        if (Result<bytes::Bytes> stop =
-                ctx.uds.Request(bytes::Bytes{uds::kSidRequestTransferExit}, kReceivePolicy, ctx.cancellation);
-            stop.has_value())
-        {
-            LogInfo(ctx, std::format("Stop request response: {}", bytes::ToHex(*stop)));
-            break;
-        }
-    }
-
-    // Lines 1058-1069: the unread region below 0x8000 is synthesized as 0xFF
-    // at offset 0 and a 0x100 0xFF tail is inserted at 0x13FF00, which is the
-    // end of the padded dump -- an append. Byte 0 of the returned image is
-    // therefore address kImageStart = 0.
-    bytes::Bytes image;
-    image.reserve(family.lead_pad_len + rom.size() + family.tail_pad_len);
-    image.assign(family.lead_pad_len, 0xFF);
-    image.insert(image.end(), rom.begin(), rom.end());
-    image.insert(image.end(), family.tail_pad_len, 0xFF);
-    return image;
+    return DensoIso15765ReadDump(ctx, region, family.lead_pad_len, family.tail_pad_len, progress,
+                                 /*pace_pages=*/true, /*log_stop_response=*/true);
 }
 
 // Legacy reflash_block, lines 1167-1350, called for block 1 only.
