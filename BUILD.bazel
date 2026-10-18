@@ -135,6 +135,7 @@ py_binary(
     srcs = [
         "scripts/clang_tidy_adapter.py",
         "scripts/clang_tidy_checks_test.py",
+        "scripts/clang_tidy_output.py",
         "scripts/clang_tidy_profile.py",
         "scripts/clang_tidy_runner.py",
         "scripts/clang_tidy_scope.py",
@@ -151,6 +152,7 @@ py_binary(
     srcs = [
         "scripts/clang_tidy_adapter.py",
         "scripts/clang_tidy_checks_test.py",
+        "scripts/clang_tidy_output.py",
         "scripts/clang_tidy_profile.py",
         "scripts/clang_tidy_runner.py",
         "scripts/clang_tidy_scope.py",
@@ -168,6 +170,7 @@ py_test(
     srcs = [
         "scripts/clang_tidy_benchmark.py",
         "scripts/clang_tidy_benchmark_test.py",
+        "scripts/clang_tidy_output.py",
         "scripts/clang_tidy_profile.py",
         "scripts/clang_tidy_runner.py",
         "scripts/clang_tidy_scope.py",
@@ -181,6 +184,7 @@ py_test(
     name = "clang_tidy_runner_test",
     size = "small",
     srcs = [
+        "scripts/clang_tidy_output.py",
         "scripts/clang_tidy_profile.py",
         "scripts/clang_tidy_runner.py",
         "scripts/clang_tidy_runner_test.py",
@@ -189,6 +193,17 @@ py_test(
     imports = ["scripts"],
     main = "scripts/clang_tidy_runner_test.py",
     deps = ["@python_deps//pyyaml"],
+)
+
+py_test(
+    name = "clang_tidy_output_test",
+    size = "small",
+    srcs = [
+        "scripts/clang_tidy_output.py",
+        "scripts/clang_tidy_output_test.py",
+    ],
+    imports = ["scripts"],
+    main = "scripts/clang_tidy_output_test.py",
 )
 
 py_test(

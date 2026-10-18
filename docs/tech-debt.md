@@ -207,6 +207,19 @@ refreshes has no entry for them, and the changed-files run skips them without
 a note. Give the refresh a fuzz-enabled pass (or a database merged from one) and
 make a changed source with no database entry a reported note, not silence.
 
+### P2: Give the clang-tidy tooling its own directory
+
+The clang-tidy gate's seven `clang_tidy_*.py` modules, their tests and
+`clang_tidy_plugin/` sit flat in `scripts/` among unrelated scripts. Move them
+into `scripts/clang_tidy/`, with that package's `BUILD.bazel` owning the Python
+targets. Keep the `//:clang_tidy_*` labels that CI and the
+[tooling guide](tooling.md#clang-tidy) run (root aliases, or keep the runner
+macros at the root). Paths that name these files: root `BUILD.bazel`,
+`bazel/clang_tidy.bzl` (`srcs`, `main`, `imports`), `.clang-tidy` comments,
+the `.clang-tidy-scope.toml` plugin prefix, a `MODULE.bazel` comment, `pr.yml`
+comments and the tooling guide. The runner finds the adapter beside itself
+(`Path(__file__).with_name`), so the two must move together.
+
 ### P3: Flash protocol behaviors awaiting external evidence
 
 Characterization preserves these behaviors; none is a demonstrated defect.
