@@ -135,6 +135,14 @@ class LedgerTest(unittest.TestCase):
         ledger.record(nl.Attempt("d", "rejected", "2026-10-17"))
         self.assertEqual(ledger.consecutive_rejections(), 2)
 
+    def test_unsuitable_clusters_neither_count_nor_break_the_run(self) -> None:
+        ledger = nl.Ledger([])
+        for cluster, outcome in (("a", "failed"), ("b", "unsuitable"), ("c", "rejected")):
+            ledger.record(nl.Attempt(cluster, outcome, "2026-10-18"))
+        self.assertEqual(ledger.consecutive_rejections(), 2)
+        ledger.record(nl.Attempt("d", "merged", "2026-10-18"))
+        self.assertEqual(ledger.consecutive_rejections(), 0)
+
     def test_rejects_an_unknown_outcome(self) -> None:
         with self.assertRaisesRegex(nl.NlocLoopError, "outcome"):
             nl.Attempt("c1", "abandoned", "2026-10-17")
@@ -297,7 +305,11 @@ class CoverageParseTest(unittest.TestCase):
         report = coverage_report(_ROOT, {_PROD: {1: "", 2: "3", 3: "0", 4: "10.2k", 5: "1.5M"}})
         self.assertEqual(
             nl.parse_coverage(report, _ROOT),
-            {_PROD: nl.FileCoverage(covered=frozenset({2, 4, 5}), executable=4)},
+            {
+                _PROD: nl.FileCoverage(
+                    covered=frozenset({2, 4, 5}), executable=4, uncovered=frozenset({3})
+                )
+            },
         )
 
     def test_ignores_instantiation_subviews(self) -> None:
@@ -322,17 +334,23 @@ class TestCaseCountTest(unittest.TestCase):
             nl.count_test_cases(["<testsuites>"])
 
 
-def snapshot(test_cases: int, coverage: dict[str, tuple[set[int], int]]) -> nl.Snapshot:
+def snapshot(test_cases: int, coverage: dict[str, tuple]) -> nl.Snapshot:
+    """`coverage` maps a path to (covered lines, executable count[, uncovered lines])."""
     return nl.Snapshot(
         "c0ffee",
         test_cases,
-        {p: nl.FileCoverage(frozenset(lines), n) for p, (lines, n) in coverage.items()},
+        {
+            p: nl.FileCoverage(
+                frozenset(spec[0]), spec[1], frozenset(spec[2]) if len(spec) > 2 else None
+            )
+            for p, spec in coverage.items()
+        },
     )
 
 
 class GuardsTest(unittest.TestCase):
-    def failures(self, base, head, kind, changed) -> list[str]:
-        return [r.name for r in nl.check_guards(base, head, kind, changed) if not r.ok]
+    def failures(self, base, head, kind, changed, hunks=None) -> list[str]:
+        return [r.name for r in nl.check_guards(base, head, kind, changed, hunks) if not r.ok]
 
     def test_test_only_passes_when_coverage_and_cases_are_kept(self) -> None:
         base = snapshot(10, {_PROD: ({1, 2}, 4), _A: ({1}, 9)})
@@ -360,28 +378,101 @@ class GuardsTest(unittest.TestCase):
             with self.subTest(kind=kind):
                 self.assertEqual(self.failures(base, head, kind, [_A]), ["test cases"])
 
-    def test_production_compares_touched_files_by_percentage(self) -> None:
-        other = "src/flash/b.cpp"
-        base = snapshot(10, {_PROD: ({1, 2}, 4), other: ({1, 2}, 2)})
-        # 2/4 -> 1/2 keeps 50%, and the untouched file may lose lines.
-        head = snapshot(10, {_PROD: ({7}, 2), other: ({1}, 2)})
-        self.assertEqual(self.failures(base, head, "production", [_PROD]), [])
-        worse = snapshot(10, {_PROD: ({7}, 3), other: ({1, 2}, 2)})
-        self.assertEqual(self.failures(base, worse, "production", [_PROD]), ["touched coverage"])
+    def test_production_moving_covered_code_out_of_a_file_is_not_a_regression(self) -> None:
+        # Lines 3-8 (all covered) move to a new shared file; the ratio of _PROD
+        # drops from 4/6 to 1/3 but no covered line is lost and none is added.
+        shared = "src/flash/shared.h"
+        base = snapshot(10, {_PROD: ({1, 3, 4, 5}, 6, {2, 6})})
+        head = snapshot(10, {_PROD: ({1}, 3, {2, 3}), shared: ({1, 2, 3, 4}, 4, set())})
+        hunks = {_PROD: [nl.Hunk(3, 4, 3, 0)], shared: [nl.Hunk(0, 0, 1, 4)]}
+        results = nl.check_guards(base, head, "production", [_PROD, shared], hunks)
+        self.assertEqual([r.name for r in results if not r.ok], [])
+
+    def test_production_fails_when_a_pr_adds_more_uncovered_lines_than_it_removes(self) -> None:
+        base = snapshot(10, {_PROD: ({1, 2}, 3, {3})})
+        head = snapshot(10, {_PROD: ({1, 2}, 5, {3, 4, 5})})
+        hunks = {_PROD: [nl.Hunk(3, 0, 4, 2)]}
+        results = nl.check_guards(base, head, "production", [_PROD], hunks)
+        [failed] = [r for r in results if not r.ok]
+        self.assertEqual(failed.name, "uncovered lines not added")
+        self.assertEqual(failed.detail, "2 uncovered added vs 0 uncovered deleted")
+
+    def test_production_deleting_uncovered_code_pays_for_adding_it_elsewhere(self) -> None:
+        base = snapshot(10, {_PROD: ({1}, 3, {2, 3})})
+        head = snapshot(10, {_PROD: ({1}, 1, set()), "src/flash/s.h": (set(), 2, {1, 2})})
+        hunks = {_PROD: [nl.Hunk(2, 2, 1, 0)], "src/flash/s.h": [nl.Hunk(0, 0, 1, 2)]}
+        self.assertEqual(
+            self.failures(base, head, "production", [_PROD, "src/flash/s.h"], hunks), []
+        )
+
+    def test_production_fails_when_an_unchanged_covered_line_loses_coverage(self) -> None:
+        base = snapshot(10, {_PROD: ({1, 4}, 4, {2, 3})})
+        # Lines 2-3 deleted, so base line 4 is head line 2; it is no longer covered.
+        head = snapshot(10, {_PROD: ({1}, 2, {2})})
+        hunks = {_PROD: [nl.Hunk(2, 2, 1, 0)]}
+        [lost] = [r for r in nl.check_guards(base, head, "production", [_PROD], hunks) if not r.ok]
+        self.assertEqual((lost.name, lost.detail), ("unchanged lines stay covered", f"{_PROD}:4"))
+
+    def test_production_needs_line_tracking_in_both_snapshots(self) -> None:
+        old = snapshot(10, {_PROD: ({1}, 4)})
+        with self.assertRaisesRegex(nl.NlocLoopError, "re-run `guards snapshot`"):
+            nl.check_guards(old, old, "production", [_PROD], {_PROD: [nl.Hunk(1, 1, 1, 1)]})
 
     def test_production_ignores_deleted_and_new_files(self) -> None:
-        base = snapshot(10, {_PROD: ({1}, 4)})
-        head = snapshot(10, {"src/flash/new.cpp": (set(), 4)})
-        self.assertEqual(self.failures(base, head, "production", [_PROD, "src/flash/new.cpp"]), [])
+        base = snapshot(10, {_PROD: ({1}, 4, {2})})
+        head = snapshot(10, {"src/flash/new.cpp": (set(), 4, {1})})
+        hunks = {_PROD: [nl.Hunk(1, 4, 0, 0)], "src/flash/new.cpp": [nl.Hunk(0, 0, 1, 4)]}
+        self.assertEqual(
+            self.failures(base, head, "production", [_PROD, "src/flash/new.cpp"], hunks), []
+        )
+
+
+class DiffTest(unittest.TestCase):
+    DIFF = (
+        "diff --git a/src/a.cpp b/src/a.cpp\n"
+        "--- a/src/a.cpp\n+++ b/src/a.cpp\n"
+        "@@ -3,2 +3 @@\n-x\n-y\n+z\n"
+        "@@ -9,0 +9,3 @@\n+p\n+q\n+r\n"
+        "diff --git a/src/new.h b/src/new.h\n"
+        "new file mode 100644\n--- /dev/null\n+++ b/src/new.h\n"
+        "@@ -0,0 +1,2 @@\n+a\n+b\n"
+        "diff --git a/src/gone.cpp b/src/gone.cpp\n"
+        "deleted file mode 100644\n--- a/src/gone.cpp\n+++ /dev/null\n"
+        "@@ -1,5 +0,0 @@\n-1\n-2\n-3\n-4\n-5\n"
+    )
+
+    def test_parses_hunks_per_file(self) -> None:
+        self.assertEqual(
+            nl.parse_hunks(self.DIFF),
+            {
+                "src/a.cpp": [nl.Hunk(3, 2, 3, 1), nl.Hunk(9, 0, 9, 3)],
+                "src/new.h": [nl.Hunk(0, 0, 1, 2)],
+                "src/gone.cpp": [nl.Hunk(1, 5, 0, 0)],
+            },
+        )
+
+    def test_changed_line_sets(self) -> None:
+        hunks = nl.parse_hunks(self.DIFF)["src/a.cpp"]
+        self.assertEqual(nl.deleted_lines(hunks), {3, 4})
+        self.assertEqual(nl.added_lines(hunks), {3, 9, 10, 11})
+
+    def test_maps_unchanged_base_lines_to_the_head(self) -> None:
+        hunks = nl.parse_hunks(self.DIFF)["src/a.cpp"]
+        mapped = {n: nl.map_line(n, hunks) for n in (1, 2, 3, 4, 5, 8, 9, 10)}
+        # Lines 3-4 became one line; the insertion sits after base line 9.
+        self.assertEqual(mapped, {1: 1, 2: 2, 3: None, 4: None, 5: 4, 8: 7, 9: 8, 10: 12})
 
 
 class SnapshotTest(unittest.TestCase):
     def test_round_trips(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             path = Path(temp) / "s.json"
-            original = snapshot(10, {_PROD: ({3, 1}, 4)})
-            original.save(path)
-            self.assertEqual(nl.Snapshot.load(path), original)
+            for original in (
+                snapshot(10, {_PROD: ({3, 1}, 4)}),  # taken before line tracking
+                snapshot(10, {_PROD: ({3, 1}, 4, {2, 5})}),
+            ):
+                original.save(path)
+                self.assertEqual(nl.Snapshot.load(path), original)
 
 
 class PrKindTest(unittest.TestCase):

@@ -29,7 +29,7 @@ the commands and terms are in
 - **Open, `nloc-loop verdict` red**: read the failure. Fix it on the branch
   only when the guard caught a mistake in the refactor rather than a weaker
   test; otherwise close the PR with a comment naming the guard, delete the
-  branch, and `nl ledger record <cluster> rejected --reason <guard> --pr <n>`.
+  branch, and `nl ledger record <cluster> failed --reason <guard> --pr <n>`.
 - **Merged or closed** (`gh pr view <n> --json state,mergedAt`) and the ledger
   still says `open`: record `merged` or `closed`. A prepared-ahead branch (step 7) is rebased onto the new `master`
   after a merge, and deleted after a close without merge, with its cluster
@@ -37,7 +37,8 @@ the commands and terms are in
 
 Done when no loop PR is open. When a PR merges, go straight on to step 2 in
 the same iteration. Stop the loop (`ScheduleWakeup` with `stop`)
-when the ledger shows three consecutive rejections.
+when the ledger shows three consecutive `failed` attempts (`unsuitable` ones
+neither count nor break the run: they cost no work).
 
 ## 2. Measure the base
 
@@ -59,7 +60,7 @@ occurrences are only similar. Check it against:
   platform-specific tests stay in their own sources.
 
 A cluster that cannot become a sound abstraction is
-`nl ledger record <cluster> rejected --reason "unsuitable: <why>"`; take the
+`nl ledger record <cluster> unsuitable --reason "<why>"`; take the
 next. Mutation cost: the tests in a cluster's scope all run in full, on both the
 base and the head side, in CI. `bazel/mutation-schedule.json` holds each
 test's seconds; a cluster touching a test over about 60 s (the Denso CAN
@@ -114,7 +115,14 @@ newline-separated list is one invalid label under zsh.
 Every check green, or the attempt is rejected:
 
 1. `nl measure`: total at least 50 below **before**.
-2. `nl guards snapshot`, then `nl guards check --kind <kind>`.
+2. `nl guards snapshot`, then `nl guards check --kind <kind>`. A production
+   PR passes when no line it leaves alone lost coverage and the uncovered
+   executable lines it adds (shared files included) do not outnumber the
+   uncovered lines it deletes: moving code is free, but code a PR adds needs
+   tests of its own, and the shared file's tests count toward the NLOC delta.
+   Estimate that test cost before branching; a cluster whose moved code is
+   mostly uncovered error branches is cheap, one that is mostly covered happy
+   path leaves the tests to the new file.
 3. `prek run --all-files` (then re-measure: it reformats), `python3 scripts/gazelle_check.py --fix`, and
    `PATH=/opt/homebrew/opt/llvm/bin:$PATH bazel run --config=release //:clang_tidy_report_changed`.
    Commit what they change before pushing: a pre-commit hook that reformats
@@ -126,7 +134,7 @@ Every check green, or the attempt is rejected:
    --config=release //...` is CI's job (Bazel on three OSes), not a local gate.
 
 A red check that the refactor cannot fix without weakening a test: delete the
-branch, record `rejected` with the check's name, and return to step 3.
+branch, record `failed` with the check's name, and return to step 3.
 
 `guards check` `covered lines` failing only on files outside the diff and its
 tests' dependencies is not the refactor's fault, but do not skip it silently:
