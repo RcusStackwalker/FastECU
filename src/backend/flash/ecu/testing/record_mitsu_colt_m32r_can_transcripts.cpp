@@ -37,11 +37,11 @@ namespace colt = fastecu::flash::colt_testing;
 // - Silence: UdsClient::Request turns a no-frame read into kTimeout,
 //   CanFlashUdsChannel::Receive only passes it up, and the executor never
 //   reads the transport itself (every exchange is FatalRequest/FatalQuery).
-// - Deferrals: every cancellation check (UdsClient::Request before the send;
-//   the executor's ReadFlashRange, FlashRangeMatches, UnlockAndErase and
-//   Execute entry) returns kCancelled at once.
-// If the executor, UdsClient or CanFlashUdsChannel gains a deferral (a token
-// read that does not stop) or a tolerated silence, redo this audit and update
+// - Deferrals: cancellation is refused by GuardedCanFlashTransport Write/Read
+//   and by UdsClient::Request; each returns kCancelled at once and nothing
+//   defers.
+// If the guard, the executor, UdsClient or CanFlashUdsChannel gains a deferral
+// (a token read that does not stop) or a tolerated silence, redo this audit and update
 // these lines before re-recording.
 constexpr std::string_view kHeader =
     "## Recorded by //src/backend/flash/ecu/testing:record_mitsu_colt_m32r_can_transcripts; regenerate, never edit.\n"

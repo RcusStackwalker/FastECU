@@ -8,32 +8,9 @@ GuardedCanFlashTransport::GuardedCanFlashTransport(ICanFlashTransport& inner, co
 {
 }
 
-GuardedCanFlashTransport::CriticalSection::CriticalSection(GuardedCanFlashTransport& guard) noexcept : guard_(&guard)
-{
-    ++guard_->critical_depth_;
-}
-
-GuardedCanFlashTransport::CriticalSection::CriticalSection(CriticalSection&& other) noexcept : guard_(other.guard_)
-{
-    other.guard_ = nullptr;
-}
-
-GuardedCanFlashTransport::CriticalSection::~CriticalSection()
-{
-    if (guard_ != nullptr)
-    {
-        --guard_->critical_depth_;
-    }
-}
-
-GuardedCanFlashTransport::CriticalSection GuardedCanFlashTransport::EnterCriticalSection()
-{
-    return CriticalSection(*this);
-}
-
 bool GuardedCanFlashTransport::Refuses() const
 {
-    return critical_depth_ == 0 && cancellation_.Cancelled();
+    return cancellation_.Cancelled();
 }
 
 Status GuardedCanFlashTransport::ResetConnection()

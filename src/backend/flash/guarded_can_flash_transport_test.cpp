@@ -91,51 +91,6 @@ TEST(GuardedCanFlashTransportTest, CloseIsNeverRefused)
     EXPECT_EQ(inner.close_call_count, 1);
 }
 
-TEST(GuardedCanFlashTransportTest, ACriticalSectionDefersCancelToTheNextIo)
-{
-    ScriptedCanFlashTransport inner(ScriptedTransportInitialState::kOpen);
-    ManualCancellationToken cancellation;
-    ManualCancellationToken never;
-    inner.Exchange(Bytes{0x01}, Bytes{0x02});
-    inner.ExpectWrite(Bytes{0x03});
-    GuardedCanFlashTransport guarded(inner, cancellation);
-
-    {
-        const auto section = guarded.EnterCriticalSection();
-        cancellation.Cancel();
-        EXPECT_THAT(guarded.Write(Bytes{0x01}, never), IsOk());
-        const auto reply = guarded.Read(100ms, never);
-        ASSERT_THAT(reply, IsOk());
-        EXPECT_EQ(*reply, std::optional<Bytes>(Bytes{0x02}));
-    }
-
-    EXPECT_THAT(guarded.Write(Bytes{0x03}, never), IsErr(ErrorKind::kCancelled));
-    EXPECT_EQ(inner.WritesConsumed(), 1U);
-}
-
-TEST(GuardedCanFlashTransportTest, NestedCriticalSectionsDeferUntilTheOutermostEnds)
-{
-    ScriptedCanFlashTransport inner(ScriptedTransportInitialState::kOpen);
-    ManualCancellationToken cancellation;
-    ManualCancellationToken never;
-    inner.ExpectWrite(Bytes{0x01});
-    inner.ExpectWrite(Bytes{0x02});
-    GuardedCanFlashTransport guarded(inner, cancellation);
-
-    std::optional<GuardedCanFlashTransport::CriticalSection> outer = guarded.EnterCriticalSection();
-    cancellation.Cancel();
-    {
-        const auto nested = guarded.EnterCriticalSection();
-        EXPECT_THAT(guarded.Write(Bytes{0x01}, never), IsOk());
-    }
-    EXPECT_THAT(guarded.Write(Bytes{0x02}, never), IsOk());
-
-    // Destroying the outer section is the only thing that re-arms the guard.
-    outer.reset();
-    EXPECT_THAT(guarded.Write(Bytes{0x03}, never), IsErr(ErrorKind::kCancelled));
-    EXPECT_EQ(inner.WritesConsumed(), 2U);
-}
-
 TEST(GuardedCanFlashTransportTest, RequestUnblockReachesTheTransport)
 {
     ScriptedCanFlashTransport inner(ScriptedTransportInitialState::kOpen);

@@ -14,32 +14,11 @@ namespace fastecu::flash
 // drives the guarded lifecycle methods above.
 //
 // Not thread-safe except RequestUnblock(), which only forwards to the inner
-// transport. The critical-section depth is touched by the worker thread only.
+// transport.
 class GuardedCanFlashTransport final : public ICanFlashTransport
 {
   public:
     GuardedCanFlashTransport(ICanFlashTransport& inner, const ICancellationToken& cancellation);
-
-    // While one is alive, Write/Read do not stop on cancellation, so a
-    // multi-message sequence that must not be torn can finish. The first
-    // Write/Read after the last section ends reports kCancelled. Sections
-    // nest. Must not outlive the guard that created it.
-    class CriticalSection
-    {
-      public:
-        CriticalSection(const CriticalSection&) = delete;
-        CriticalSection& operator=(const CriticalSection&) = delete;
-        CriticalSection(CriticalSection&& other) noexcept;
-        CriticalSection& operator=(CriticalSection&&) = delete;
-        ~CriticalSection();
-
-      private:
-        friend class GuardedCanFlashTransport;
-        explicit CriticalSection(GuardedCanFlashTransport& guard) noexcept;
-        GuardedCanFlashTransport *guard_;
-    };
-
-    [[nodiscard]] CriticalSection EnterCriticalSection();
 
     Status ResetConnection() override;
     Status Configure(const Iso15765Config& config) override;
@@ -55,7 +34,6 @@ class GuardedCanFlashTransport final : public ICanFlashTransport
 
     ICanFlashTransport& inner_;
     const ICancellationToken& cancellation_;
-    int critical_depth_ = 0;
 };
 
 } // namespace fastecu::flash

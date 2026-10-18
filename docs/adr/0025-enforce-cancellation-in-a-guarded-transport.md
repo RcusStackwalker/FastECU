@@ -27,9 +27,10 @@ it.
   effect at the next I/O. It maps transport errors and disconnects to one
   typed error that executors propagate unchanged.
 - Executors stop checking the token, and `UdsClient` stops once all its users
-  are behind a guarded transport. A family that must not
-  be interrupted declares a **critical section**; the guarded transport
-  finishes it and then reports cancellation. An exchange that may get no reply
+  are behind a guarded transport. Critical sections are not part of the pilot.
+  A family that must not be interrupted declares one, designed with its first
+  user in phase 4. A real section must pass `inner` a never-cancelled token,
+  survive `RequestUnblock`, and get past `UdsClient`'s own check. An exchange that may get no reply
   declares **expected silence** instead of having it inferred.
 - Plan confirmations that the user declined are not cancellation and stay in
   the executor.
