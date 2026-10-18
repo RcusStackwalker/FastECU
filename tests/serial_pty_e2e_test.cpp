@@ -19,7 +19,7 @@
 
 namespace
 {
-// The real local backend, as the desktop app's DirectSerial connection builds it.
+// The real local backend, as the desktop app's serial factory builds it.
 std::function<SerialBackend *()> DirectBackend()
 {
     return [] { return MakeDirectSerialBackend().release(); };

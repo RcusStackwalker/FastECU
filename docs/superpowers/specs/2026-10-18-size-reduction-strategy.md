@@ -79,7 +79,8 @@ configuration (`bazel/qt`, `third_party/qt`, the Windows add-ons patch).
 
 `SerialPortActions` remains: it marshals calls onto the serial I/O thread,
 which the direct backend still needs. Its `QRemoteObjectReplica::State` signal
-becomes a plain connection-state signal. With one production backend left,
+had no direct-mode emitter, so it was removed without a replacement. With one
+production backend left,
 the 44 getter/setter pairs on `SerialBackend` no longer have a remote schema to
 match; narrowing them to cohesive configuration values is follow-up work
 within the serial pool. Keep the observed behavior of the direct backend's

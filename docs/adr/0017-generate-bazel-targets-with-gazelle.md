@@ -26,7 +26,7 @@ the documented exceptions below.
   `fastecu_gtest` once, and descendants inherit it; portable packages elsewhere
   keep the default. The shared Qt header mappings live in the root
   `BUILD.bazel` and are inherited by every package. These `resolve` directives map encountered headers to their Qt modules, including
-  Core, Gui, Widgets, Xml, SerialPort and RemoteObjects. Moc-free
+  Core, Gui, Widgets, Xml and SerialPort. Moc-free
   libraries use plain `cc_library`
   with `COMMON_COPTS` instead of the moc-bearing `qt_cc_library`; the header-only
   calibration view state retains its existing compiler settings. The connection

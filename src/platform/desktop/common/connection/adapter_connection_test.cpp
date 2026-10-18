@@ -3,7 +3,6 @@
 
 #include <QCoreApplication>
 #include <QSerialPort>
-#include "src/platform/desktop/common/testing/signal_recorder.h"
 #include "src/platform/desktop/common/testing/event_helpers.h"
 #include <gtest/gtest.h>
 

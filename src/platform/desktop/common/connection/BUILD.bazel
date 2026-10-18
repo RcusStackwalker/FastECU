@@ -34,7 +34,6 @@ fastecu_gtest(
         "//src/platform/desktop/common/serial/testing:fake_serial_backend",
         "//src/platform/desktop/common/testing:core_application_environment",
         "//src/platform/desktop/common/testing:event_helpers",
-        "//src/platform/desktop/common/testing:signal_recorder",
         "@googletest//:gtest",
     ],
 )

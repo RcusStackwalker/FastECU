@@ -10,7 +10,6 @@
 #include "src/ui/desktop/calibration/rom_info.h"
 #include "src/ui/desktop/calibration/session_key.h"
 #include "ui_mainwindow.h"
-#include <QProgressBar>
 #include <QScopeGuard>
 #include <cstddef>
 #include <iterator>
