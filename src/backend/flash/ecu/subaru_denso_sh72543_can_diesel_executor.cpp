@@ -144,51 +144,6 @@ void NonFatalDidQuery(Ctx& ctx, bytes::ByteView pdu, bytes::ByteView expected_di
     LogInfo(ctx, std::format("{}: {}", label, bytes::ToHex(rest.subspan(0, std::min(kEcuIdBytes, rest.size())))));
 }
 
-// Legacy's kernel jump plus its bounded re-read loop (in-car lines 617-648,
-// try_count < 10; bench lines 755-790, try_count < 50). Both arms read once
-// before the loop, with serial_read_timeout (lines 629, 770); inside the loop
-// the in-car arm keeps reading with serial_read_timeout (line 643) while the
-// bench arm drops to serial_read_short_timeout (line 785), which is why
-// `loop_timeout` is a parameter. The loop's `init_ready` flag is never read
-// after the loop and both arms fall straight through to
-// `return STATUS_SUCCESS` (line 796), so an unacknowledged jump is logged
-// here but is not an error -- deliberately not "fixed".
-Status JumpToKernel(Ctx& ctx, bytes::Byte session, int max_tries, std::chrono::milliseconds loop_timeout)
-{
-    LogInfo(ctx, "Jump to onboad kernel");
-    if (const Status sent =
-            ctx.channel.Send(bytes::Bytes{uds::kSidDiagnosticSessionControl, session}, ctx.cancellation);
-        !sent.has_value())
-    {
-        return sent;
-    }
-    Result<std::optional<bytes::Bytes>> received = ctx.channel.Receive(kLongTimeout, ctx.cancellation);
-    if (!received.has_value())
-    {
-        return std::unexpected(received.error());
-    }
-    for (int attempt = 0; attempt < max_tries; ++attempt)
-    {
-        if (received->has_value() && received->value().size() > 1 && (**received)[0] == kSessionControlReply &&
-            (**received)[1] == session)
-        {
-            LogInfo(ctx, "Kernel jump acknowledged");
-            return {};
-        }
-        if (const Status slept = ctx.clock.Sleep(100ms, ctx.cancellation); !slept.has_value())
-        {
-            return slept;
-        }
-        received = ctx.channel.Receive(loop_timeout, ctx.cancellation);
-        if (!received.has_value())
-        {
-            return std::unexpected(received.error());
-        }
-    }
-    LogError(ctx, "Kernel jump was not acknowledged; continuing, as legacy does");
-    return {};
-}
-
 // In-car programming arm, legacy lines 342-649.
 Status ConnectInCar(Ctx& ctx, ICanFlashTransport& can)
 {
@@ -280,7 +235,8 @@ Status ConnectInCar(Ctx& ctx, ICanFlashTransport& can)
         return std::unexpected(selector.error());
     }
 
-    return JumpToKernel(ctx, kSessionInCarJump, 10, kLongTimeout);
+    return DensoIso15765JumpToKernel(ctx, kSessionInCarJump, 10, kLongTimeout, kLongTimeout,
+                                     /*discard_first_reply=*/false);
 }
 
 // Bench programming arm, legacy lines 649-791.
@@ -313,7 +269,8 @@ Status ConnectBench(Ctx& ctx)
         return unlocked;
     }
 
-    return JumpToKernel(ctx, kSessionBenchJump, 50, kShortTimeout);
+    return DensoIso15765JumpToKernel(ctx, kSessionBenchJump, 50, kLongTimeout, kShortTimeout,
+                                     /*discard_first_reply=*/false);
 }
 
 // Legacy connect_bootloader, lines 92-797. The legacy `is_serial_port_open()`
