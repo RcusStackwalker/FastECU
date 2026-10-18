@@ -154,23 +154,6 @@ void NonFatalDidQuery(Ctx& ctx, bytes::ByteView pdu, bytes::ByteView expected_di
     LogInfo(ctx, std::format("{}: {}", label, bytes::ToHex(rest.subspan(0, std::min(kEcuIdBytes, rest.size())))));
 }
 
-// Legacy's "log a mismatch, abort only on an absent or too-short reply"
-// probe shape (lines 286-312, 314-340, 346-372, 655-681). fatal_query aborts
-// on a mismatch and non_fatal_query never aborts, so neither fits; this goes
-// through the channel directly and returns the envelope-stripped frame so a
-// caller can read further bytes out of it. Every one of this family's four
-// tolerant probes reads with serial_read_timeout (lines 297, 324, 357, 663).
-
-// Legacy's in-car fire-and-forget exchange (lines 375-483): write on `id`,
-// read whatever arrives next, discard it. Legacy validates neither the
-// reply's arbitration id nor its content, so the reply is taken from the
-// transport directly -- a CanFlashUdsChannel bound to `id` would impose a
-// reply-id check legacy does not have. The channel is still used for the
-// write, which is exactly its 4-byte-envelope job. `timeout` is per
-// exchange: this family reads the 0x7E0 `10 63` write with
-// serial_read_timeout (line 394) and the other nine with
-// serial_read_short_timeout.
-
 // Legacy's kernel jump plus its bounded re-read loop (in-car lines 617-648,
 // try_count < 10; bench lines 755-790, try_count < 50). Both arms read once
 // before the loop, with serial_read_timeout (lines 629, 770); inside the loop

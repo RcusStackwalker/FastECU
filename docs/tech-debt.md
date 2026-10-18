@@ -222,7 +222,10 @@ separate correction decision (see
   and the discarded first bench jump read (4M, SH72531) are unverified. No
   mapped RomRaider or EcuFlash page-read oracle covers timeout, response policy,
   short-page acceptance or stop-error precedence, and ECUFlash family names do
-  not map the addressing.
+  not map the addressing. Every per-family deviation in the
+  [family deviations](reference/denso-iso15765-families.md) page is likewise
+  transcribed, unverified; collapse the ones bench evidence shows are
+  unneeded, which also lets more of each executor move into the common module.
 - **Subaru TCU CVT.** EcuFlash security and reflash/retry functions for the
   Hitachi M32R and MH8111 families are unmapped; legacy line citations establish
   only crypto table provenance.
