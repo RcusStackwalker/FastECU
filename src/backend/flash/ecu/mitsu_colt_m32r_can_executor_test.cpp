@@ -379,13 +379,21 @@ void ScriptUnlockAndErase(ScriptedCanFlashTransport& transport)
     transport.Exchange(Request(mitsu_colt_can::BuildRoutineErase()), Response({0x71, 0xe0, 0x00}));
 }
 
-void ScriptWriteThroughEraseTrigger(ScriptedCanFlashTransport& transport)
+// Scripts a write through the handshake, the top-region check and both
+// routine uploads, up to the reflash unlock.
+void ScriptWriteThroughRoutineUploads(ScriptedCanFlashTransport& transport)
 {
-    const auto section = transport.Section("write through erase trigger");
+    const auto section = transport.Section("write through routine uploads");
     ScriptBootloadHandshake(transport);
     ScriptFlashRead(transport, mitsu_colt_can::kTopRegionStart, mitsu_colt_can::kTopRegionLength, 0xEE);
     ScriptUploadAndCommit(transport, mitsu_colt_can::kEraseRoutineRamAddr, mitsu_colt_can::kErasePageRoutine);
     ScriptUploadAndCommit(transport, mitsu_colt_can::kWriteRoutineRamAddr, mitsu_colt_can::kWritePageRoutine);
+}
+
+void ScriptWriteThroughEraseTrigger(ScriptedCanFlashTransport& transport)
+{
+    const auto section = transport.Section("write through erase trigger");
+    ScriptWriteThroughRoutineUploads(transport);
     transport.Exchange(Request(mitsu_colt_can::BuildRequestReflashUnlock()), Response({0x7b}));
     transport.Exchange(Request(mitsu_colt_can::BuildRoutineErase()));
 }
@@ -865,10 +873,7 @@ TEST(MitsuColtM32rCanExecutor, WriteSkipsBootstrapWhenTheTopRegionAlreadyMatches
     auto plan = WritePlan(rom);
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
-    ScriptBootloadHandshake(transport);
-    ScriptFlashRead(transport, mitsu_colt_can::kTopRegionStart, mitsu_colt_can::kTopRegionLength, 0xEE);
-    ScriptUploadAndCommit(transport, mitsu_colt_can::kEraseRoutineRamAddr, mitsu_colt_can::kErasePageRoutine);
-    ScriptUploadAndCommit(transport, mitsu_colt_can::kWriteRoutineRamAddr, mitsu_colt_can::kWritePageRoutine);
+    ScriptWriteThroughRoutineUploads(transport);
     ScriptUnlockAndErase(transport);
     // The checksum the commit must carry is stated outright, not recomputed:
     // the scripted frame is [0x36, 0x12, 0x34], so both the running sum and
@@ -907,18 +912,25 @@ TEST(MitsuColtM32rCanExecutor, WriteSkipsBootstrapWhenTheTopRegionAlreadyMatches
     EXPECT_THAT(events.phase_progress_calls, Each(testing::Field(&fastecu::RecordedPhaseProgress::phase_count, 6)));
 }
 
-TEST(MitsuColtM32rCanExecutor, WriteRunsTheBootstrapWhenTheTopRegionDiffers)
+// A 512 KB write against a fresh scripted transport; `plan` is checked in SetUp.
+struct MitsuColtM32rCanWriteExecutor : ::testing::Test
 {
+    void SetUp() override
+    {
+        ASSERT_THAT(plan, fastecu::testing::IsOk());
+    }
+
     ScriptedCanFlashTransport transport;
     FakeClock clock;
     RecordingEventSink events;
     fastecu::ManualCancellationToken cancellation;
     MitsuColtM32rCanExecutor executor;
-
     const bytes::Bytes rom = WriteRom();
-    auto plan = WritePlan(rom);
-    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    fastecu::Result<fastecu::flash::FlashPlan> plan = WritePlan(rom);
+};
 
+TEST_F(MitsuColtM32rCanWriteExecutor, WriteRunsTheBootstrapWhenTheTopRegionDiffers)
+{
     ScriptBootloadHandshake(transport);
     // ECU reports 0xFF from the very first chunk: mismatch, so the
     // bootstrap runs. top_region_matches() stops at that first chunk rather
@@ -953,18 +965,8 @@ TEST(MitsuColtM32rCanExecutor, WriteRunsTheBootstrapWhenTheTopRegionDiffers)
     EXPECT_THAT(events.logs, Contains(Pair(LogLevel::kInfo, "Userspace flash verified")));
 }
 
-TEST(MitsuColtM32rCanExecutor, WriteRefusesRedirectBootstrapWhenTheCarrierDoesNotMatchTheDesiredTopPayload)
+TEST_F(MitsuColtM32rCanWriteExecutor, WriteRefusesRedirectBootstrapWhenTheCarrierDoesNotMatchTheDesiredTopPayload)
 {
-    ScriptedCanFlashTransport transport;
-    FakeClock clock;
-    RecordingEventSink events;
-    fastecu::ManualCancellationToken cancellation;
-    MitsuColtM32rCanExecutor executor;
-
-    const bytes::Bytes rom = WriteRom();
-    auto plan = WritePlan(rom);
-    ASSERT_THAT(plan, fastecu::testing::IsOk());
-
     ScriptBootloadHandshake(transport);
     ScriptFlashReadChunk(transport, mitsu_colt_can::kTopRegionStart, mitsu_colt_can::kFlashReadBlockSize, 0xFF);
     ScriptFlashRead(transport, mitsu_colt_can::kUserspaceStart, 3 * mitsu_colt_can::kFlashReadBlockSize, 0xEE);
@@ -984,18 +986,8 @@ TEST(MitsuColtM32rCanExecutor, WriteRefusesRedirectBootstrapWhenTheCarrierDoesNo
     EXPECT_THAT(events.logs, Not(Contains(Pair(LogLevel::kInfo, "Carrier window erased"))));
 }
 
-TEST(MitsuColtM32rCanExecutor, WritePropagatesACarrierReadFailureBeforeRedirectHelpers)
+TEST_F(MitsuColtM32rCanWriteExecutor, WritePropagatesACarrierReadFailureBeforeRedirectHelpers)
 {
-    ScriptedCanFlashTransport transport;
-    FakeClock clock;
-    RecordingEventSink events;
-    fastecu::ManualCancellationToken cancellation;
-    MitsuColtM32rCanExecutor executor;
-
-    const bytes::Bytes rom = WriteRom();
-    auto plan = WritePlan(rom);
-    ASSERT_THAT(plan, fastecu::testing::IsOk());
-
     ScriptBootloadHandshake(transport);
     ScriptFlashReadChunk(transport, mitsu_colt_can::kTopRegionStart, mitsu_colt_can::kFlashReadBlockSize, 0xFF);
     transport.Exchange(Request(mitsu_colt_can::BuildReadMemoryByAddress(
@@ -1058,22 +1050,9 @@ TEST(MitsuColtM32rCanExecutor, WriteStopsReadingTheTopRegionAtTheFirstMismatched
                 Contains(Pair(LogLevel::kInfo, "Top 128KB mismatch, bootstrapping via redirect routines...")));
 }
 
-TEST(MitsuColtM32rCanExecutor, WriteFailsWhenTheUserspaceVerifyMismatches)
+TEST_F(MitsuColtM32rCanWriteExecutor, WriteFailsWhenTheUserspaceVerifyMismatches)
 {
-    ScriptedCanFlashTransport transport;
-    FakeClock clock;
-    RecordingEventSink events;
-    fastecu::ManualCancellationToken cancellation;
-    MitsuColtM32rCanExecutor executor;
-
-    const bytes::Bytes rom = WriteRom();
-    auto plan = WritePlan(rom);
-    ASSERT_THAT(plan, fastecu::testing::IsOk());
-
-    ScriptBootloadHandshake(transport);
-    ScriptFlashRead(transport, mitsu_colt_can::kTopRegionStart, mitsu_colt_can::kTopRegionLength, 0xEE);
-    ScriptUploadAndCommit(transport, mitsu_colt_can::kEraseRoutineRamAddr, mitsu_colt_can::kErasePageRoutine);
-    ScriptUploadAndCommit(transport, mitsu_colt_can::kWriteRoutineRamAddr, mitsu_colt_can::kWritePageRoutine);
+    ScriptWriteThroughRoutineUploads(transport);
     ScriptUnlockAndErase(transport);
     ScriptUploadAndCommit(transport, mitsu_colt_can::kUserspaceStart, UserspaceOf(rom));
     ScriptFlashRead(transport, mitsu_colt_can::kUserspaceStart,
@@ -1085,18 +1064,8 @@ TEST(MitsuColtM32rCanExecutor, WriteFailsWhenTheUserspaceVerifyMismatches)
     EXPECT_THAT(events.logs, Contains(Pair(LogLevel::kError, "Userspace verify failed after write")));
 }
 
-TEST(MitsuColtM32rCanExecutor, WriteFailsWhenTheTopRegionVerifyMismatches)
+TEST_F(MitsuColtM32rCanWriteExecutor, WriteFailsWhenTheTopRegionVerifyMismatches)
 {
-    ScriptedCanFlashTransport transport;
-    FakeClock clock;
-    RecordingEventSink events;
-    fastecu::ManualCancellationToken cancellation;
-    MitsuColtM32rCanExecutor executor;
-
-    const bytes::Bytes rom = WriteRom();
-    auto plan = WritePlan(rom);
-    ASSERT_THAT(plan, fastecu::testing::IsOk());
-
     ScriptBootloadHandshake(transport);
     // ECU reports 0xFF from the very first chunk: mismatch. See
     // WriteRunsTheBootstrapWhenTheTopRegionDiffers for why only one chunk is
@@ -1119,22 +1088,9 @@ TEST(MitsuColtM32rCanExecutor, WriteFailsWhenTheTopRegionVerifyMismatches)
     EXPECT_THAT(events.logs, Not(Contains(Pair(LogLevel::kInfo, "Erase page uploaded"))));
 }
 
-TEST(MitsuColtM32rCanExecutor, WriteStopsWhenTheReflashUnlockIsRejected)
+TEST_F(MitsuColtM32rCanWriteExecutor, WriteStopsWhenTheReflashUnlockIsRejected)
 {
-    ScriptedCanFlashTransport transport;
-    FakeClock clock;
-    RecordingEventSink events;
-    fastecu::ManualCancellationToken cancellation;
-    MitsuColtM32rCanExecutor executor;
-
-    const bytes::Bytes rom = WriteRom();
-    auto plan = WritePlan(rom);
-    ASSERT_THAT(plan, fastecu::testing::IsOk());
-
-    ScriptBootloadHandshake(transport);
-    ScriptFlashRead(transport, mitsu_colt_can::kTopRegionStart, mitsu_colt_can::kTopRegionLength, 0xEE);
-    ScriptUploadAndCommit(transport, mitsu_colt_can::kEraseRoutineRamAddr, mitsu_colt_can::kErasePageRoutine);
-    ScriptUploadAndCommit(transport, mitsu_colt_can::kWriteRoutineRamAddr, mitsu_colt_can::kWritePageRoutine);
+    ScriptWriteThroughRoutineUploads(transport);
     transport.Exchange(Request(mitsu_colt_can::BuildRequestReflashUnlock()), Response({0x7f, 0x3b, 0x33}));
 
     ASSERT_THAT(executor.Execute(*plan, transport, clock, cancellation, events),
@@ -1145,22 +1101,9 @@ TEST(MitsuColtM32rCanExecutor, WriteStopsWhenTheReflashUnlockIsRejected)
                 Contains(Pair(LogLevel::kError, "the reflash unlock request rejected: Security access denied")));
 }
 
-TEST(MitsuColtM32rCanExecutor, WriteStopsWhenTheEraseTriggerIsRejected)
+TEST_F(MitsuColtM32rCanWriteExecutor, WriteStopsWhenTheEraseTriggerIsRejected)
 {
-    ScriptedCanFlashTransport transport;
-    FakeClock clock;
-    RecordingEventSink events;
-    fastecu::ManualCancellationToken cancellation;
-    MitsuColtM32rCanExecutor executor;
-
-    const bytes::Bytes rom = WriteRom();
-    auto plan = WritePlan(rom);
-    ASSERT_THAT(plan, fastecu::testing::IsOk());
-
-    ScriptBootloadHandshake(transport);
-    ScriptFlashRead(transport, mitsu_colt_can::kTopRegionStart, mitsu_colt_can::kTopRegionLength, 0xEE);
-    ScriptUploadAndCommit(transport, mitsu_colt_can::kEraseRoutineRamAddr, mitsu_colt_can::kErasePageRoutine);
-    ScriptUploadAndCommit(transport, mitsu_colt_can::kWriteRoutineRamAddr, mitsu_colt_can::kWritePageRoutine);
+    ScriptWriteThroughRoutineUploads(transport);
     transport.Exchange(Request(mitsu_colt_can::BuildRequestReflashUnlock()), Response({0x7b}));
     transport.Exchange(Request(mitsu_colt_can::BuildRoutineErase()), Response({0x7f, 0x31, 0x22}));
 
@@ -1597,18 +1540,8 @@ TEST(MitsuColtM32rCanExecutor, ACancellationThatArrivesAfterTheRequestStopsBefor
     EXPECT_FALSE(transport.ScriptConsumed()); // the reply was never read
 }
 
-TEST(MitsuColtM32rCanExecutor, WriteAbortsWhenTheEraseRoutineRequestDownloadIsRejected)
+TEST_F(MitsuColtM32rCanWriteExecutor, WriteAbortsWhenTheEraseRoutineRequestDownloadIsRejected)
 {
-    ScriptedCanFlashTransport transport;
-    FakeClock clock;
-    RecordingEventSink events;
-    fastecu::ManualCancellationToken cancellation;
-    MitsuColtM32rCanExecutor executor;
-
-    const bytes::Bytes rom = WriteRom();
-    auto plan = WritePlan(rom);
-    ASSERT_THAT(plan, fastecu::testing::IsOk());
-
     ScriptBootloadHandshake(transport);
     ScriptFlashRead(transport, mitsu_colt_can::kTopRegionStart, mitsu_colt_can::kTopRegionLength, 0xEE);
     // The bootloader refuses to open the RAM window for the erase-page
@@ -1628,18 +1561,8 @@ TEST(MitsuColtM32rCanExecutor, WriteAbortsWhenTheEraseRoutineRequestDownloadIsRe
     EXPECT_THAT(events.logs, Not(Contains(Pair(LogLevel::kInfo, "Erase page uploaded"))));
 }
 
-TEST(MitsuColtM32rCanExecutor, WriteAbortsWhenTheWriteRoutineTransferDataIsRejected)
+TEST_F(MitsuColtM32rCanWriteExecutor, WriteAbortsWhenTheWriteRoutineTransferDataIsRejected)
 {
-    ScriptedCanFlashTransport transport;
-    FakeClock clock;
-    RecordingEventSink events;
-    fastecu::ManualCancellationToken cancellation;
-    MitsuColtM32rCanExecutor executor;
-
-    const bytes::Bytes rom = WriteRom();
-    auto plan = WritePlan(rom);
-    ASSERT_THAT(plan, fastecu::testing::IsOk());
-
     ScriptBootloadHandshake(transport);
     ScriptFlashRead(transport, mitsu_colt_can::kTopRegionStart, mitsu_colt_can::kTopRegionLength, 0xEE);
     ScriptUploadAndCommit(transport, mitsu_colt_can::kEraseRoutineRamAddr, mitsu_colt_can::kErasePageRoutine);
@@ -1661,22 +1584,9 @@ TEST(MitsuColtM32rCanExecutor, WriteAbortsWhenTheWriteRoutineTransferDataIsRejec
     EXPECT_THAT(events.logs, Not(Contains(Pair(LogLevel::kInfo, "Userspace flash erased"))));
 }
 
-TEST(MitsuColtM32rCanExecutor, WriteFailsWhenTheUserspaceCrcCheckIsRejected)
+TEST_F(MitsuColtM32rCanWriteExecutor, WriteFailsWhenTheUserspaceCrcCheckIsRejected)
 {
-    ScriptedCanFlashTransport transport;
-    FakeClock clock;
-    RecordingEventSink events;
-    fastecu::ManualCancellationToken cancellation;
-    MitsuColtM32rCanExecutor executor;
-
-    const bytes::Bytes rom = WriteRom();
-    auto plan = WritePlan(rom);
-    ASSERT_THAT(plan, fastecu::testing::IsOk());
-
-    ScriptBootloadHandshake(transport);
-    ScriptFlashRead(transport, mitsu_colt_can::kTopRegionStart, mitsu_colt_can::kTopRegionLength, 0xEE);
-    ScriptUploadAndCommit(transport, mitsu_colt_can::kEraseRoutineRamAddr, mitsu_colt_can::kErasePageRoutine);
-    ScriptUploadAndCommit(transport, mitsu_colt_can::kWriteRoutineRamAddr, mitsu_colt_can::kWritePageRoutine);
+    ScriptWriteThroughRoutineUploads(transport);
     ScriptUnlockAndErase(transport);
     // Every byte goes out and is acknowledged, and only the ECU's own
     // post-write checksum verification fails. This is the one rejection that
@@ -1713,18 +1623,8 @@ TEST(MitsuColtM32rCanExecutor, WriteFailsWhenTheUserspaceCrcCheckIsRejected)
               0);
 }
 
-TEST(MitsuColtM32rCanExecutor, BootstrapAbortsWhenTheChecksumRequestDownloadIsRejected)
+TEST_F(MitsuColtM32rCanWriteExecutor, BootstrapAbortsWhenTheChecksumRequestDownloadIsRejected)
 {
-    ScriptedCanFlashTransport transport;
-    FakeClock clock;
-    RecordingEventSink events;
-    fastecu::ManualCancellationToken cancellation;
-    MitsuColtM32rCanExecutor executor;
-
-    const bytes::Bytes rom = WriteRom();
-    auto plan = WritePlan(rom);
-    ASSERT_THAT(plan, fastecu::testing::IsOk());
-
     ScriptBootloadHandshake(transport);
     // ECU reports 0xFF from the very first chunk: mismatch. top_region_matches()
     // stops there instead of reading the full 128KB before comparing.
@@ -1746,18 +1646,8 @@ TEST(MitsuColtM32rCanExecutor, BootstrapAbortsWhenTheChecksumRequestDownloadIsRe
     EXPECT_THAT(events.logs, Contains(Pair(LogLevel::kError, "Erase redirect routine upload failed")));
 }
 
-TEST(MitsuColtM32rCanExecutor, BootstrapAbortsWhenTheChecksumTransferDataIsRejected)
+TEST_F(MitsuColtM32rCanWriteExecutor, BootstrapAbortsWhenTheChecksumTransferDataIsRejected)
 {
-    ScriptedCanFlashTransport transport;
-    FakeClock clock;
-    RecordingEventSink events;
-    fastecu::ManualCancellationToken cancellation;
-    MitsuColtM32rCanExecutor executor;
-
-    const bytes::Bytes rom = WriteRom();
-    auto plan = WritePlan(rom);
-    ASSERT_THAT(plan, fastecu::testing::IsOk());
-
     ScriptBootloadHandshake(transport);
     // ECU reports 0xFF from the very first chunk: mismatch. top_region_matches()
     // stops there instead of reading the full 128KB before comparing.
@@ -1784,18 +1674,8 @@ TEST(MitsuColtM32rCanExecutor, BootstrapAbortsWhenTheChecksumTransferDataIsRejec
     EXPECT_THAT(events.logs, Not(Contains(Pair(LogLevel::kInfo, "Carrier window erased"))));
 }
 
-TEST(MitsuColtM32rCanExecutor, BootstrapReportsItsOwnReflashUnlockRejection)
+TEST_F(MitsuColtM32rCanWriteExecutor, BootstrapReportsItsOwnReflashUnlockRejection)
 {
-    ScriptedCanFlashTransport transport;
-    FakeClock clock;
-    RecordingEventSink events;
-    fastecu::ManualCancellationToken cancellation;
-    MitsuColtM32rCanExecutor executor;
-
-    const bytes::Bytes rom = WriteRom();
-    auto plan = WritePlan(rom);
-    ASSERT_THAT(plan, fastecu::testing::IsOk());
-
     ScriptBootloadHandshake(transport);
     // ECU reports 0xFF from the very first chunk: mismatch. top_region_matches()
     // stops there instead of reading the full 128KB before comparing.
@@ -1866,10 +1746,7 @@ TEST(MitsuColtM32rCanExecutor, WriteRefusesTheEraseTriggerWhenItsConfirmationIsA
 
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
-    ScriptBootloadHandshake(transport);
-    ScriptFlashRead(transport, mitsu_colt_can::kTopRegionStart, mitsu_colt_can::kTopRegionLength, 0xEE);
-    ScriptUploadAndCommit(transport, mitsu_colt_can::kEraseRoutineRamAddr, mitsu_colt_can::kErasePageRoutine);
-    ScriptUploadAndCommit(transport, mitsu_colt_can::kWriteRoutineRamAddr, mitsu_colt_can::kWritePageRoutine);
+    ScriptWriteThroughRoutineUploads(transport);
 
     ASSERT_THAT(executor.Execute(*plan, transport, clock, cancellation, events),
                 fastecu::testing::IsErr(ErrorKind::kCancelled));
