@@ -70,8 +70,7 @@ constexpr bytes::Byte kSessionVendorC0 = 0xC0;
 
 // Positive-response service ids for the SIDs this file inspects without going
 // through UdsClient (which does the SID + 0x40 arithmetic itself).
-constexpr bytes::Byte kSessionControlReply = uds::kSidDiagnosticSessionControl + 0x40;   // 0x50
-constexpr bytes::Byte kReadDataByIdentifierReply = uds::kSidReadDataByIdentifier + 0x40; // 0x62
+constexpr bytes::Byte kSessionControlReply = uds::kSidDiagnosticSessionControl + 0x40; // 0x50
 
 // ISO 14229-1 services used only by the in-car arm's fire-and-forget run
 // (legacy lines 429-483). Kept local per uds_service_ids.h's rule that a
@@ -135,19 +134,6 @@ Result<bytes::Bytes> FatalQuery(Ctx& ctx, bytes::ByteView pdu, bytes::ByteView e
 {
     return ::fastecu::flash::FatalQuery(ExchangeContext(ctx, policy), pdu, expected_prefix, kRejectionPrefix, subject,
                                         min_payload_size);
-}
-
-// Legacy's four non-fatal identity queries (ECU ID/VIN/CAL ID/CVN, lines
-// 131-282): each is info-logged on a matching reply and error-logged
-// otherwise, but the connect sequence never halts here -- even a genuine
-// exchange failure is logged and swallowed, mirroring legacy's total absence
-// of early returns in that block. All four read with serial_read_timeout
-// (lines 143, 186, 219, 256).
-void NonFatalQuery(Ctx& ctx, bytes::ByteView pdu, std::optional<bytes::Byte> expected_subfunction,
-                   std::string_view label)
-{
-    ::fastecu::flash::NonFatalQuery(ExchangeContext(ctx, kLongPolicy), pdu, expected_subfunction, kRejectionPrefix,
-                                    label);
 }
 
 // The ECU ID query needs a two-byte reply check (`F1 82`, line 146) where the
@@ -375,75 +361,32 @@ Status ConnectBench(Ctx& ctx)
 Status ConnectBootloader(Ctx& ctx, ICanFlashTransport& can)
 {
     // OBK-already-active probe (lines 108-128). A match short-circuits the
-    // whole sequence; a mismatch OR an empty read is a non-fatal miss that
-    // falls through to initializing the ECU, so this goes through the channel
-    // directly rather than through ctx.uds. The only exchange in the connect
-    // sequence that reads with serial_read_short_timeout (line 118).
-    LogInfo(ctx, "Checking if OBK is active...");
-    if (const Status sent =
-            ctx.channel.Send(bytes::Bytes{uds::kSidDiagnosticSessionControl, kSessionProbe}, ctx.cancellation);
-        !sent.has_value())
+    // whole sequence; a mismatch or an empty read falls through.
+    // The only exchange in the connect sequence that reads with
+    // serial_read_short_timeout (line 118).
+    Result<bool> obk_active = DensoObkIsActive(ctx, "OBK is active!");
+    if (!obk_active.has_value())
     {
-        return sent;
+        return std::unexpected(obk_active.error());
     }
-    Result<std::optional<bytes::Bytes>> obk = ctx.channel.Receive(kShortTimeout, ctx.cancellation);
-    if (!obk.has_value())
+    if (*obk_active)
     {
-        return std::unexpected(obk.error());
-    }
-    if (obk->has_value() && obk->value().size() > 1 && (**obk)[0] == kSessionControlReply &&
-        (**obk)[1] == kSessionProbe)
-    {
-        LogInfo(ctx, "OBK is active!");
         return {};
     }
-    LogInfo(ctx, "OBK not active, initialising ECU...");
 
     // Lines 131-282: four non-fatal identity queries.
     LogInfo(ctx, "Requesting ECU ID");
     NonFatalDidQuery(ctx, bytes::Bytes{uds::kSidReadDataByIdentifier, kDidEcuIdHigh, kDidEcuIdLow},
                      bytes::Bytes{kDidEcuIdHigh, kDidEcuIdLow}, "ECU ID");
-    LogInfo(ctx, "Requesting VIN");
-    NonFatalQuery(ctx, bytes::Bytes{uds::kSidVehicleInfoRequest, uds::kVehicleInfoPidVin}, uds::kVehicleInfoPidVin,
-                  "VIN");
-    LogInfo(ctx, "Requesting CAL ID");
-    NonFatalQuery(ctx, bytes::Bytes{uds::kSidVehicleInfoRequest, uds::kVehicleInfoPidCalId}, uds::kVehicleInfoPidCalId,
-                  "CAL ID");
-    LogInfo(ctx, "Requesting CVN");
-    NonFatalQuery(ctx, bytes::Bytes{uds::kSidVehicleInfoRequest, uds::kVehicleInfoPidCvn}, uds::kVehicleInfoPidCvn,
-                  "CVN");
+    DensoVehicleInfoQueries(ctx);
 
-    // Lines 284-312: mismatch logs, absent reply aborts.
-    LogInfo(ctx, "Checking access method");
-    if (Result<bytes::Bytes> access =
-            TolerantProbe(ctx, bytes::Bytes{uds::kSidDiagnosticSessionControl, kSessionProbe}, kSessionControlReply,
-                          0x01, kProbeTimeout, kRejectionPrefix, "access-method probe");
-        !access.has_value())
+    // Lines 284-342: the tolerant access-method probe and branch selector.
+    Result<bool> in_car = DensoProgrammingBranchIsInCar(ctx, kProbeTimeout);
+    if (!in_car.has_value())
     {
-        return std::unexpected(access.error());
+        return std::unexpected(in_car.error());
     }
-
-    // Lines 314-340: the branch selector, same tolerant shape.
-    Result<bytes::Bytes> selector =
-        TolerantProbe(ctx, bytes::Bytes{uds::kSidReadDataByIdentifier, 0x10, 0x1D}, kReadDataByIdentifierReply, 0x10,
-                      kProbeTimeout, kRejectionPrefix, "programming-branch selector");
-    if (!selector.has_value())
-    {
-        return std::unexpected(selector.error());
-    }
-    // Line 342 reads raw frame byte 7, i.e. payload byte 3 once the envelope
-    // is stripped. Legacy reads it without a length check and would run past
-    // the end of a short reply; this refuses instead of reading out of bounds.
-    // This is a second, non-redundant guard: tolerant_probe above only
-    // enforces a floor of 2 bytes (frame[0]/frame[1]), which does not cover
-    // a 3-byte reply, so a length check for the byte-3 access needed here
-    // still has to happen at this call site.
-    if (selector->size() < 4)
-    {
-        LogError(ctx, "Wrong response from ECU: programming-branch selector reply is too short");
-        return Fail(ErrorKind::kBadResponse, "programming-branch selector reply is too short");
-    }
-    return (*selector)[3] != 0xFF ? ConnectInCar(ctx, can) : ConnectBench(ctx);
+    return *in_car ? ConnectInCar(ctx, can) : ConnectBench(ctx);
 }
 
 // Legacy's own log line for all three "start & length" announcements

@@ -66,6 +66,12 @@ constexpr std::array<InCarExchange, 10> kN83mInCarSequence{{
 
 constexpr std::string_view kRejectionPrefix = "Wrong response from ECU: ";
 
+constexpr std::chrono::milliseconds kObkProbeTimeout{200};
+constexpr uds::ExchangePolicy kIdentityPolicy{.read_timeout = std::chrono::milliseconds{2000}};
+constexpr bytes::Byte kSessionProbe = 0x5F;
+constexpr bytes::Byte kSessionControlReply = uds::kSidDiagnosticSessionControl + 0x40;
+constexpr bytes::Byte kReadDataByIdentifierReply = uds::kSidReadDataByIdentifier + 0x40;
+
 } // namespace
 
 bytes::Bytes DensoIso15765DownloadSetupPdu(const MemoryRegion& region)
@@ -179,6 +185,78 @@ Result<bytes::Bytes> TolerantProbe(const CanExecutorContext& ctx, bytes::ByteVie
         LogError(ctx, std::format("{}{}", rejection_prefix, bytes::ToHex(frame)));
     }
     return frame;
+}
+
+Result<bool> DensoObkIsActive(const CanExecutorContext& ctx, std::string_view active_log)
+{
+    LogInfo(ctx, "Checking if OBK is active...");
+    if (const Status sent =
+            ctx.channel.Send(bytes::Bytes{uds::kSidDiagnosticSessionControl, kSessionProbe}, ctx.cancellation);
+        !sent.has_value())
+    {
+        return std::unexpected(sent.error());
+    }
+    Result<std::optional<bytes::Bytes>> obk = ctx.channel.Receive(kObkProbeTimeout, ctx.cancellation);
+    if (!obk.has_value())
+    {
+        return std::unexpected(obk.error());
+    }
+    if (obk->has_value() && obk->value().size() > 1 && (**obk)[0] == kSessionControlReply &&
+        (**obk)[1] == kSessionProbe)
+    {
+        LogInfo(ctx, active_log);
+        return true;
+    }
+    LogInfo(ctx, "OBK not active, initialising ECU...");
+    return false;
+}
+
+void DensoEcuIdQuery(const CanExecutorContext& ctx)
+{
+    LogInfo(ctx, "Requesting ECU ID");
+    NonFatalQuery(ExchangeContext(ctx, kIdentityPolicy), bytes::Bytes{uds::kSidEcuIdQuery}, std::nullopt,
+                  kRejectionPrefix, "ECU ID");
+}
+
+void DensoVehicleInfoQueries(const CanExecutorContext& ctx)
+{
+    const UdsExchangeContext exchange = ExchangeContext(ctx, kIdentityPolicy);
+    LogInfo(ctx, "Requesting VIN");
+    NonFatalQuery(exchange, bytes::Bytes{uds::kSidVehicleInfoRequest, uds::kVehicleInfoPidVin}, uds::kVehicleInfoPidVin,
+                  kRejectionPrefix, "VIN");
+    LogInfo(ctx, "Requesting CAL ID");
+    NonFatalQuery(exchange, bytes::Bytes{uds::kSidVehicleInfoRequest, uds::kVehicleInfoPidCalId},
+                  uds::kVehicleInfoPidCalId, kRejectionPrefix, "CAL ID");
+    LogInfo(ctx, "Requesting CVN");
+    NonFatalQuery(exchange, bytes::Bytes{uds::kSidVehicleInfoRequest, uds::kVehicleInfoPidCvn}, uds::kVehicleInfoPidCvn,
+                  kRejectionPrefix, "CVN");
+}
+
+Result<bool> DensoProgrammingBranchIsInCar(const CanExecutorContext& ctx, std::chrono::milliseconds probe_timeout)
+{
+    LogInfo(ctx, "Checking access method");
+    if (Result<bytes::Bytes> access =
+            TolerantProbe(ctx, bytes::Bytes{uds::kSidDiagnosticSessionControl, kSessionProbe}, kSessionControlReply,
+                          0x01, probe_timeout, kRejectionPrefix, "access-method probe");
+        !access.has_value())
+    {
+        return std::unexpected(access.error());
+    }
+    Result<bytes::Bytes> selector =
+        TolerantProbe(ctx, bytes::Bytes{uds::kSidReadDataByIdentifier, 0x10, 0x1D}, kReadDataByIdentifierReply, 0x10,
+                      probe_timeout, kRejectionPrefix, "programming-branch selector");
+    if (!selector.has_value())
+    {
+        return std::unexpected(selector.error());
+    }
+    // Legacy reads raw frame byte 7 (payload byte 3) without a length check;
+    // TolerantProbe only guarantees two bytes, so this guard is not redundant.
+    if (selector->size() < 4)
+    {
+        LogError(ctx, "Wrong response from ECU: programming-branch selector reply is too short");
+        return Fail(ErrorKind::kBadResponse, "programming-branch selector reply is too short");
+    }
+    return (*selector)[3] != 0xFF;
 }
 
 Status FireAndForget(const CanExecutorContext& ctx, ICanFlashTransport& can, std::uint32_t request_id,
