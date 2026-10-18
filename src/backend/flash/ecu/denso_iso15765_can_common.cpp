@@ -38,6 +38,7 @@ constexpr int kErasePollLimit = 20;
 // routines; vendor-assigned.
 constexpr bytes::Byte kRoutineIdHigh = 0x02;
 constexpr bytes::Byte kRoutineErase = 0x01;
+constexpr bytes::Byte kRoutineChecksum = 0x02;
 constexpr bytes::Byte kRoutineControlReply = uds::kSidRoutineControl + 0x40;
 
 constexpr std::chrono::milliseconds kInCarTimeout{200};
@@ -132,6 +133,38 @@ void DensoIso15765BestEffortTransferExit(const CanExecutorContext& ctx)
             break;
         }
     }
+}
+
+// Legacy settle and checksum verify: N83M 1.5M 1291-1352, N83M 4M 1305-1362,
+// SH72531 1295-1347 and SH72543 diesel 1313-1365; the request bytes and the
+// settle are identical in all four. The settle precedes a write, so no read
+// timeout subsumes it. Legacy also required the 7F 31 78 pending answer
+// before the result; UdsClient absorbs that NRC and accepts an immediate
+// positive answer too. "Checksum not verified" follows each SH rejection
+// (SH72531 1315/1325, diesel 1333/1343).
+Status DensoIso15765CloseAndVerifyChecksum(const CanExecutorContext& ctx, const uds::ExchangePolicy& checksum_policy,
+                                           bool log_not_verified)
+{
+    DensoIso15765BestEffortTransferExit(ctx);
+    if (const Status slept = ctx.clock.Sleep(std::chrono::milliseconds{100}, ctx.cancellation); !slept.has_value())
+    {
+        return slept;
+    }
+    LogInfo(ctx, "Verifying checksum");
+    if (Result<bytes::Bytes> checksum = FatalQuery(
+            ctx,
+            bytes::Bytes{uds::kSidRoutineControl, uds::kRoutineControlStart, kRoutineIdHigh, kRoutineChecksum, 0x01},
+            bytes::Bytes{uds::kRoutineControlStart, kRoutineIdHigh}, checksum_policy, "checksum verify");
+        !checksum.has_value())
+    {
+        if (log_not_verified)
+        {
+            LogInfo(ctx, "Checksum not verified");
+        }
+        return std::unexpected(checksum.error());
+    }
+    LogInfo(ctx, "Checksum verified");
+    return {};
 }
 
 Status DensoIso15765WaitForJumpAck(const CanExecutorContext& ctx, bytes::Byte session,
