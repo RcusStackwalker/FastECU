@@ -144,6 +144,7 @@ fastecu_portable_gtest(
     deps = [
         ":flash_executor",
         "//src/backend/flash/testing:scripted_flash_transports",
+        "//src/backend/ports",
         "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
     ],
