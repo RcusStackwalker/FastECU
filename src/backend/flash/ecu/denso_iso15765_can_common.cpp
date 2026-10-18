@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <format>
+#include <ranges>
 #include <utility>
 
 #include "src/algorithms/protocol/bytes_compose.h"
@@ -202,7 +203,8 @@ Result<bool> DensoObkIsActive(const CanExecutorContext& ctx, std::string_view ac
     {
         return std::unexpected(obk.error());
     }
-    if (obk->has_value() && std::ranges::starts_with(**obk, std::array{kSessionControlReply, kSessionProbe}))
+    constexpr std::array kObkActiveReply{kSessionControlReply, kSessionProbe};
+    if (obk->has_value() && std::ranges::equal(**obk | std::views::take(kObkActiveReply.size()), kObkActiveReply))
     {
         LogInfo(ctx, active_log);
         return true;
