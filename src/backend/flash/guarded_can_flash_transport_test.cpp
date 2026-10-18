@@ -35,7 +35,7 @@ TEST(GuardedCanFlashTransportTest, ACancelledWriteNeverReachesTheTransport)
     cancellation.Cancel();
 
     EXPECT_THAT(guarded.Write(Bytes{0x01}, never), IsErr(ErrorKind::kCancelled));
-    EXPECT_EQ(inner.WritesConsumed(), 0u);
+    EXPECT_EQ(inner.WritesConsumed(), 0U);
 }
 
 TEST(GuardedCanFlashTransportTest, ACancelBetweenRequestAndReplyStopsBeforeTheReply)
@@ -110,7 +110,7 @@ TEST(GuardedCanFlashTransportTest, ACriticalSectionDefersCancelToTheNextIo)
     }
 
     EXPECT_THAT(guarded.Write(Bytes{0x03}, never), IsErr(ErrorKind::kCancelled));
-    EXPECT_EQ(inner.WritesConsumed(), 1u);
+    EXPECT_EQ(inner.WritesConsumed(), 1U);
 }
 
 TEST(GuardedCanFlashTransportTest, NestedCriticalSectionsDeferUntilTheOutermostEnds)
@@ -133,7 +133,7 @@ TEST(GuardedCanFlashTransportTest, NestedCriticalSectionsDeferUntilTheOutermostE
     // Destroying the outer section is the only thing that re-arms the guard.
     outer.reset();
     EXPECT_THAT(guarded.Write(Bytes{0x03}, never), IsErr(ErrorKind::kCancelled));
-    EXPECT_EQ(inner.WritesConsumed(), 2u);
+    EXPECT_EQ(inner.WritesConsumed(), 2U);
 }
 
 TEST(GuardedCanFlashTransportTest, RequestUnblockReachesTheTransport)
