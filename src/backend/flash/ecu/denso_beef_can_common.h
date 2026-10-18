@@ -9,12 +9,17 @@
 #include <iterator>
 #include <limits>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
+#include <vector>
 
+#include "src/algorithms/checksum/checksum_primitives.h"
 #include "src/algorithms/protocol/bytes.h"
 #include "src/algorithms/protocol/bytes_compose.h"
 #include "src/backend/flash/ecu/denso_iso15765_can_common.h"
+#include "src/backend/flash/ecu/flash_phase_progress.h"
+#include "src/backend/flash/flash_types.h"
 #include "src/backend/ports/cancellation.h"
 #include "src/backend/ports/error.h"
 #include "src/backend/ports/result.h"
@@ -91,6 +96,23 @@ inline std::optional<bytes::Bytes> BeefKernelPayload(bytes::ByteView kernel, std
     }
     bytes::AppendU32Be(plain, 0x5AA5A55AU - sum);
     return EncryptPayload(plain);
+}
+
+// BeefKernelPayload for a family that sends the length in a 24-bit wire field;
+// `family` names the executor in the errors.
+inline Result<bytes::Bytes> BeefKernelUploadPayload(bytes::ByteView kernel, std::size_t block_size,
+                                                    std::string_view family)
+{
+    std::optional<bytes::Bytes> encrypted = BeefKernelPayload(kernel, block_size);
+    if (!encrypted.has_value())
+    {
+        return Fail(ErrorKind::kInvalidConfig, std::format("{} kernel upload size is invalid", family));
+    }
+    if (encrypted->size() >= 0x1000000U)
+    {
+        return Fail(ErrorKind::kInvalidConfig, std::format("{} kernel upload exceeds the 24-bit wire length", family));
+    }
+    return std::move(*encrypted);
 }
 
 // A parsed BEEF reply: its opcode and the payload the declared length covers.
@@ -191,6 +213,75 @@ ChannelRequestOptional(C& ctx, bytes::ByteView pdu, std::chrono::milliseconds ti
     return ctx.channel.Receive(timeout, ctx.cancellation);
 }
 
+// ChannelRequestOptional where silence is a timeout error.
+template <typename C>
+Result<bytes::Bytes> ChannelRequest(C& ctx, bytes::ByteView pdu, std::chrono::milliseconds timeout,
+                                    std::chrono::milliseconds delay = std::chrono::milliseconds{0})
+{
+    Result<std::optional<bytes::Bytes>> received = ChannelRequestOptional(ctx, pdu, timeout, delay);
+    if (!received.has_value())
+    {
+        return std::unexpected(received.error());
+    }
+    if (!received->has_value())
+    {
+        return Fail(ErrorKind::kTimeout, "no CAN response within the read timeout");
+    }
+    return std::move(**received);
+}
+
+// A BEEF request whose reply must carry `opcode | 0x40` and at least
+// `minimum_payload` payload bytes; returns that payload.
+template <typename C>
+Result<bytes::Bytes> BeefExchange(C& ctx, bytes::Byte opcode, bytes::ByteView payload, std::size_t minimum_payload,
+                                  std::chrono::milliseconds timeout)
+{
+    Result<bytes::Bytes> reply = ChannelRequest(ctx, BeefRequest(opcode, payload), timeout);
+    if (!reply.has_value())
+    {
+        return std::unexpected(reply.error());
+    }
+    Result<BeefMessage> parsed = ParseBeef(*reply);
+    if (!parsed.has_value())
+    {
+        return std::unexpected(parsed.error());
+    }
+    const bytes::Byte expected = static_cast<bytes::Byte>(opcode | 0x40U);
+    if (parsed->opcode != expected)
+    {
+        return Fail(ErrorKind::kBadResponse, std::format("unexpected BEEF response opcode 0x{:02x}, expected 0x{:02x}",
+                                                         parsed->opcode, expected));
+    }
+    if (parsed->payload.size() < minimum_payload)
+    {
+        return Fail(ErrorKind::kBadResponse, "short BEEF response payload");
+    }
+    return bytes::Bytes(parsed->payload.begin(), parsed->payload.end());
+}
+
+// Every 0xB6 kernel-upload block is followed by a raw read whose content is
+// ignored. Send through the channel for the request CAN envelope, but read the
+// reply directly so short, malformed and wrong-ID frames and adapter stale
+// errors stay non-fatal; only cancellation and disconnection are typed.
+template <typename C> Status DiscardB6Reply(C& ctx, bytes::ByteView pdu, std::chrono::milliseconds read_timeout)
+{
+    if (const Status checkpoint = CancelledIfRequested(ctx, "kernel upload cancelled"); !checkpoint.has_value())
+    {
+        return checkpoint;
+    }
+    if (const Status sent = ctx.channel.Send(pdu, ctx.cancellation); !sent.has_value())
+    {
+        return sent;
+    }
+    const Result<std::optional<bytes::Bytes>> ignored = ctx.transport.Read(read_timeout, ctx.cancellation);
+    if (!ignored.has_value() &&
+        (ignored.error().kind == ErrorKind::kCancelled || ignored.error().kind == ErrorKind::kDisconnected))
+    {
+        return std::unexpected(ignored.error());
+    }
+    return CancelledIfRequested(ctx, "kernel upload cancelled");
+}
+
 // The short raw read that follows a CRC reply. The legacy operation does not
 // validate it, so malformed and wrong-ID frames stay tolerated stale content;
 // only cancellation and disconnection are actionable transport failures.
@@ -227,6 +318,116 @@ Result<std::uint32_t> QueryBeefCrc(C& ctx, const MemoryRegion& block, Exchange e
         return std::unexpected(drained.error());
     }
     return crc;
+}
+
+// Which erase regions the ECU's CRC disagrees with the image on.
+struct CompareResult
+{
+    std::vector<bool> modified;
+    std::size_t changed_count{};
+};
+
+// write_mem()/get_changed_blocks(): asks the ECU for the CRC of every erase
+// region and flags those that differ from the image. `query_crc` fetches one
+// region's CRC; `image_base` is the ECU address of the image's first byte;
+// `family` names the executor in the out-of-image error.
+template <typename C, typename QueryCrc>
+Result<CompareResult> CompareBeefBlocks(C& ctx, std::span<const MemoryRegion> blocks, std::uint32_t image_base,
+                                        bytes::ByteView image, PhaseReporter *progress, bool after_reflash,
+                                        std::string_view family, QueryCrc query_crc)
+{
+    CompareResult result;
+    result.modified.assign(blocks.size(), false);
+    LogInfo(ctx, after_reflash ? "--- Comparing ECU flash memory pages to image file after reflash ---"
+                               : "--- Comparing ECU flash memory pages to image file ---");
+    LogInfo(ctx, "blk\tstart\tlen\tecu crc\timg crc\tsame?");
+    for (std::size_t index = 0; index < blocks.size(); ++index)
+    {
+        if (const Status checkpoint = CancelledIfRequested(ctx, "ROM compare cancelled"); !checkpoint.has_value())
+        {
+            return std::unexpected(checkpoint.error());
+        }
+        const MemoryRegion block = blocks[index];
+        if (block.start < image_base ||
+            static_cast<std::uint64_t>(block.start - image_base) + block.length > image.size())
+        {
+            return Fail(ErrorKind::kInvalidConfig, std::format("{} CRC block is outside the image", family));
+        }
+        LogInfo(ctx, std::format("FB{:02}\t0x{:08X}\t0x{:08X}", index, block.start, block.length));
+        Result<std::uint32_t> ecu_crc = query_crc(block);
+        if (!ecu_crc.has_value())
+        {
+            return std::unexpected(ecu_crc.error());
+        }
+        const std::size_t image_offset = block.start - image_base;
+        const std::uint32_t image_crc = fastecu::checksum::Crc32(image.subspan(image_offset, block.length));
+        LogDebug(ctx, std::format("ROM CRC: 0x{:08x} IMG CRC: 0x{:08x}", *ecu_crc, image_crc));
+        LogInfo(ctx, std::format("\t{:08X}\t{:08X}", *ecu_crc, image_crc));
+        result.modified[index] = *ecu_crc != image_crc;
+        LogInfo(ctx, result.modified[index] ? "\tNO" : "\tYES");
+        if (result.modified[index])
+        {
+            ++result.changed_count;
+        }
+        if (progress != nullptr)
+        {
+            progress->Update(static_cast<int>(index + 1));
+        }
+        if (const Status slept = ctx.clock.Sleep(std::chrono::milliseconds{5}, ctx.cancellation); !slept.has_value())
+        {
+            return std::unexpected(slept.error());
+        }
+    }
+
+    LogInfo(ctx, "Different blocks : ");
+    for (std::size_t index = 0; index < result.modified.size(); ++index)
+    {
+        if (result.modified[index])
+        {
+            LogInfo(ctx, std::format("{}, ", index));
+        }
+    }
+    LogInfo(ctx, std::format(" (total: {})", result.changed_count));
+    return result;
+}
+
+// init_flash_write(): reads the kernel's maximum message and flash block sizes,
+// then selects test-write or real-write mode. `exchange` sends one opcode and
+// returns its reply once it holds the given number of payload bytes. Logs the
+// sizes in upper-case hex when `upper_hex`, lower-case otherwise.
+template <typename C, typename Exchange>
+Status InitializeBeefFlash(const C& ctx, bool test_write, bool upper_hex, Exchange exchange)
+{
+    const auto log_size = [&](const bytes::Bytes& reply)
+    {
+        const std::uint32_t size = bytes::ReadU32Be(reply);
+        LogInfo(ctx, upper_hex ? std::format(": 0x{:04X}", size) : std::format(": 0x{:04x}", size));
+    };
+    LogInfo(ctx, "Check max message length");
+    Result<bytes::Bytes> max_message = exchange(bytes::Byte{0x05}, 4);
+    if (!max_message.has_value())
+    {
+        return std::unexpected(max_message.error());
+    }
+    log_size(*max_message);
+
+    LogInfo(ctx, "Check flashblock size");
+    Result<bytes::Bytes> max_block = exchange(bytes::Byte{0x06}, 4);
+    if (!max_block.has_value())
+    {
+        return std::unexpected(max_block.error());
+    }
+    log_size(*max_block);
+
+    LogInfo(ctx, test_write ? "Test write mode on, no actual flash write is performed"
+                            : "Test write mode off, perform actual flash write");
+    Result<bytes::Bytes> mode = exchange(bytes::Byte{test_write ? std::uint8_t{0x21} : std::uint8_t{0x20}}, 0);
+    if (!mode.has_value())
+    {
+        return std::unexpected(mode.error());
+    }
+    LogError(ctx, "Flash mode succesfully set");
+    return {};
 }
 
 // Sends `payload` to `load_address` in `block_size` 0xB6 blocks, then one

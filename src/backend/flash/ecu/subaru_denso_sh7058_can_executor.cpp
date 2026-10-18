@@ -64,10 +64,6 @@ constexpr bytes::Byte kKernelId = 0x01;
 constexpr bytes::Byte kKernelCrc = 0x02;
 constexpr bytes::Byte kKernelReadArea = 0x03;
 constexpr bytes::Byte kKernelProgVolt = 0x04;
-constexpr bytes::Byte kKernelGetMaxMessage = 0x05;
-constexpr bytes::Byte kKernelGetMaxBlock = 0x06;
-constexpr bytes::Byte kKernelFlashEnable = 0x20;
-constexpr bytes::Byte kKernelFlashDisable = 0x21;
 constexpr bytes::Byte kKernelWriteBuffer = 0x22;
 constexpr bytes::Byte kKernelValidateBuffer = 0x23;
 constexpr bytes::Byte kKernelCommitBuffer = 0x24;
@@ -106,74 +102,6 @@ struct Context
     uds::UdsClient& uds;
     uds::IUdsChannel& channel;
 };
-
-Result<bytes::Bytes> ChannelRequest(Context& context, bytes::ByteView pdu, std::chrono::milliseconds timeout,
-                                    std::chrono::milliseconds delay = 0ms)
-{
-    Result<std::optional<bytes::Bytes>> received = ChannelRequestOptional(context, pdu, timeout, delay);
-    if (!received.has_value())
-    {
-        return std::unexpected(received.error());
-    }
-    if (!received->has_value())
-    {
-        return Fail(ErrorKind::kTimeout, "no CAN response within the read timeout");
-    }
-    return std::move(**received);
-}
-
-Status UploadB6Discard(Context& context, bytes::ByteView pdu)
-{
-    // upload_kernel(), revision 59f4e442:738-751 unconditionally reads and
-    // discards every B6 reply. Send through the channel for the request CAN
-    // envelope, but read the reply directly so short/malformed/wrong-ID
-    // frames and adapter-specific stale errors remain non-fatal like legacy.
-    if (const Status checkpoint = CancelledIfRequested(context, "kernel upload cancelled"); !checkpoint.has_value())
-    {
-        return checkpoint;
-    }
-    if (const Status sent = context.channel.Send(pdu, context.cancellation); !sent.has_value())
-    {
-        return sent;
-    }
-    const Result<std::optional<bytes::Bytes>> ignored = context.transport.Read(kReadTimeout, context.cancellation);
-    if (!ignored.has_value() &&
-        (ignored.error().kind == ErrorKind::kCancelled || ignored.error().kind == ErrorKind::kDisconnected))
-    {
-        return std::unexpected(ignored.error());
-    }
-    if (const Status checkpoint = CancelledIfRequested(context, "kernel upload cancelled"); !checkpoint.has_value())
-    {
-        return checkpoint;
-    }
-    return {};
-}
-
-Result<bytes::Bytes> BeefExchange(Context& context, bytes::Byte opcode, bytes::ByteView payload,
-                                  std::size_t minimum_payload, std::chrono::milliseconds timeout)
-{
-    Result<bytes::Bytes> reply = ChannelRequest(context, BeefRequest(opcode, payload), timeout);
-    if (!reply.has_value())
-    {
-        return std::unexpected(reply.error());
-    }
-    Result<BeefMessage> parsed = ParseBeef(*reply);
-    if (!parsed.has_value())
-    {
-        return std::unexpected(parsed.error());
-    }
-    const bytes::Byte expected = static_cast<bytes::Byte>(opcode | 0x40U);
-    if (parsed->opcode != expected)
-    {
-        return Fail(ErrorKind::kBadResponse, std::format("unexpected BEEF response opcode 0x{:02x}, expected 0x{:02x}",
-                                                         parsed->opcode, expected));
-    }
-    if (parsed->payload.size() < minimum_payload)
-    {
-        return Fail(ErrorKind::kBadResponse, "short BEEF response payload");
-    }
-    return bytes::Bytes(parsed->payload.begin(), parsed->payload.end());
-}
 
 Result<std::optional<bytes::Bytes>> NonfatalQuery(Context& context, bytes::ByteView pdu)
 {
@@ -691,16 +619,12 @@ Status UploadKernel(Context& context, const KernelImage& kernel)
     // upload_kernel(), revision 59f4e442:626-868. The unusual <= loop is
     // intentional: after every 128-byte payload block the oracle emits one
     // final address-only 0xB6 request.
-    const std::optional<bytes::Bytes> encrypted = BeefKernelPayload(kernel.bytes, kKernelUploadBlockSize);
+    const Result<bytes::Bytes> encrypted = BeefKernelUploadPayload(kernel.bytes, kKernelUploadBlockSize, "petrol");
     if (!encrypted.has_value())
     {
-        return Fail(ErrorKind::kInvalidConfig, "petrol kernel upload size is invalid");
+        return std::unexpected(encrypted.error());
     }
     const std::size_t data_length = encrypted->size();
-    if (data_length > 0xFFFFFFU)
-    {
-        return Fail(ErrorKind::kInvalidConfig, "petrol kernel upload exceeds the 24-bit wire length");
-    }
 
     LogDebug(context, std::format("Start address to upload kernel: 0x{:x}", kernel.load_address));
     LogInfo(context, "Initialize kernel upload");
@@ -714,9 +638,9 @@ Status UploadKernel(Context& context, const KernelImage& kernel)
     }
 
     LogInfo(context, "Uploading kernel, please wait...");
-    if (const Status uploaded =
-            UploadBeefKernelBlocks(context, *encrypted, kernel.load_address, kKernelUploadBlockSize,
-                                   [&context](bytes::ByteView request) { return UploadB6Discard(context, request); });
+    if (const Status uploaded = UploadBeefKernelBlocks(context, *encrypted, kernel.load_address, kKernelUploadBlockSize,
+                                                       [&context](bytes::ByteView request)
+                                                       { return DiscardB6Reply(context, request, kReadTimeout); });
         !uploaded.has_value())
     {
         return uploaded;
@@ -801,12 +725,6 @@ Result<bytes::Bytes> ReadMemory(Context& context, const FlashPlan& plan, PhaseRe
     return rom;
 }
 
-struct CompareResult
-{
-    std::vector<bool> modified;
-    std::size_t changed_count{};
-};
-
 Result<std::uint32_t> QueryCrc(Context& context, const MemoryRegion& block)
 {
     return QueryBeefCrc(context, block, [&](bytes::ByteView payload)
@@ -816,91 +734,14 @@ Result<std::uint32_t> QueryCrc(Context& context, const MemoryRegion& block)
 Result<CompareResult> CompareBlocks(Context& context, const FlashPlan& plan, bytes::ByteView image,
                                     PhaseReporter *progress, bool after_reflash = false)
 {
-    // write_mem()/get_changed_blocks(), revision 59f4e442:1027-1177.
-    CompareResult result;
-    result.modified.assign(plan.EraseRegions().size(), false);
-    LogInfo(context, after_reflash ? "--- Comparing ECU flash memory pages to image file after reflash ---"
-                                   : "--- Comparing ECU flash memory pages to image file ---");
-    LogInfo(context, "blk\tstart\tlen\tecu crc\timg crc\tsame?");
-    for (std::size_t index = 0; index < plan.EraseRegions().size(); ++index)
-    {
-        if (const Status checkpoint = CancelledIfRequested(context, "ROM compare cancelled"); !checkpoint.has_value())
-        {
-            return std::unexpected(checkpoint.error());
-        }
-        const MemoryRegion block = plan.EraseRegions()[index];
-        if (block.start < plan.TransferRegion().start ||
-            static_cast<std::uint64_t>(block.start - plan.TransferRegion().start) + block.length > image.size())
-        {
-            return Fail(ErrorKind::kInvalidConfig, "petrol CRC block is outside the image");
-        }
-        LogInfo(context, std::format("FB{:02}\t0x{:08X}\t0x{:08X}", index, block.start, block.length));
-        Result<std::uint32_t> ecu_crc = QueryCrc(context, block);
-        if (!ecu_crc.has_value())
-        {
-            return std::unexpected(ecu_crc.error());
-        }
-        const std::size_t image_offset = block.start - plan.TransferRegion().start;
-        const std::uint32_t image_crc = fastecu::checksum::Crc32(image.subspan(image_offset, block.length));
-        LogDebug(context, std::format("ROM CRC: 0x{:08x} IMG CRC: 0x{:08x}", *ecu_crc, image_crc));
-        LogInfo(context, std::format("\t{:08X}\t{:08X}", *ecu_crc, image_crc));
-        result.modified[index] = *ecu_crc != image_crc;
-        LogInfo(context, result.modified[index] ? "\tNO" : "\tYES");
-        if (result.modified[index])
-        {
-            ++result.changed_count;
-        }
-        if (progress != nullptr)
-        {
-            progress->Update(static_cast<int>(index + 1));
-        }
-        if (const Status slept = context.clock.Sleep(5ms, context.cancellation); !slept.has_value())
-        {
-            return std::unexpected(slept.error());
-        }
-    }
-
-    LogInfo(context, "Different blocks : ");
-    for (std::size_t index = 0; index < result.modified.size(); ++index)
-    {
-        if (result.modified[index])
-        {
-            LogInfo(context, std::format("{}, ", index));
-        }
-    }
-    LogInfo(context, std::format(" (total: {})", result.changed_count));
-    return result;
+    return CompareBeefBlocks(context, plan.EraseRegions(), plan.TransferRegion().start, image, progress, after_reflash,
+                             "petrol", [&](const MemoryRegion& block) { return QueryCrc(context, block); });
 }
 
 Status InitializeFlash(Context& context, bool test_write)
 {
-    // init_flash_write(), revision 59f4e442:1270-1418.
-    LogInfo(context, "Check max message length");
-    Result<bytes::Bytes> max_message = BeefExchange(context, kKernelGetMaxMessage, {}, 4, kMediumTimeout);
-    if (!max_message.has_value())
-    {
-        return std::unexpected(max_message.error());
-    }
-    LogInfo(context, std::format(": 0x{:04x}", bytes::ReadU32Be(*max_message)));
-
-    LogInfo(context, "Check flashblock size");
-    Result<bytes::Bytes> max_block = BeefExchange(context, kKernelGetMaxBlock, {}, 4, kMediumTimeout);
-    if (!max_block.has_value())
-    {
-        return std::unexpected(max_block.error());
-    }
-    LogInfo(context, std::format(": 0x{:04x}", bytes::ReadU32Be(*max_block)));
-
-    const bytes::Byte command = test_write ? kKernelFlashDisable : kKernelFlashEnable;
-    LogInfo(context, test_write ? "Test write mode on, no actual flash write is performed"
-                                : "Test write mode off, perform actual flash write");
-    Result<bytes::Bytes> mode = BeefExchange(context, command, {}, 0, kMediumTimeout);
-    if (!mode.has_value())
-    {
-        return std::unexpected(mode.error());
-    }
-    LogError(context, "Flash mode succesfully set");
-    return {};
+    return InitializeBeefFlash(context, test_write, false, [&](bytes::Byte opcode, std::size_t minimum_payload)
+                               { return BeefExchange(context, opcode, {}, minimum_payload, kMediumTimeout); });
 }
 
 Status FlashBlock(Context& context, bytes::ByteView image, const FlashPlan& plan, const MemoryRegion& block,
