@@ -1040,6 +1040,52 @@ TEST(SubaruDensoSh705xDensoCanExecutor, UploadPaddingAndChecksumUseHandDerivedSe
     EXPECT_TRUE(transport.ScriptConsumed());
 }
 
+// Scripts a write up to the first raw write chunk of the first block; the
+// caller queues the chunk's response.
+void ScriptUpToFirstWriteChunk(ScriptedMixedCanFlashTransport& transport, const FlashDevice& device)
+{
+    ScriptKernelAlive(transport);
+    ScriptCompare(transport, device, true);
+    ScriptFlashInit(transport, false);
+    transport.ExpectIsoWrite(IsoRequest(0x04));
+    transport.QueueIsoRead(IsoResponse(0x44, bytes::Bytes{0x00, 0x64}));
+    transport.ExpectIsoWrite(IsoRequest(0x25, ComposeBe(std::uint32_t{0})));
+    transport.QueueIsoRead(IsoResponse(0x65));
+    transport.ExpectIsoWrite(IsoRequest(0x22, ComposeBe(std::uint32_t{0}, FixedRawZeroBytes(kWriteChunkSize))));
+}
+
+// Runs a write whose first raw write chunk is answered with `response` and
+// expects it to end with `expected`; `events` is the caller's sink.
+template <typename Sink>
+void ExpectFirstWriteChunkResponseEnds(const bytes::Bytes& response, ErrorKind expected, Sink& events,
+                                       FakeCancellationToken& cancellation)
+{
+    const Case& test_case = kCases.front();
+    const FlashDevice *device = FindFlashDevice(test_case.mcu);
+    ASSERT_NE(device, nullptr);
+    auto plan = WritePlan(test_case);
+    ASSERT_THAT(plan, IsOk());
+    SubaruDensoSh705xDensoCanExecutor executor;
+    ScriptedMixedCanFlashTransport transport;
+    ConfigureAndOpen(executor, *plan, transport);
+    ScriptUpToFirstWriteChunk(transport, *device);
+    transport.QueueIsoRead(response);
+    FakeClock clock;
+
+    auto result = executor.Execute(*plan, transport, clock, cancellation, events);
+
+    ASSERT_THAT(result, IsErr(expected));
+    EXPECT_TRUE(transport.ScriptConsumed());
+}
+
+void ExpectLegacyRecoveryWarningIsLast(const RecordingEventSink& events)
+{
+    EXPECT_EQ(ExactLogCount(events, LogLevel::kError, kReflashRecoveryWarning), 1);
+    ASSERT_FALSE(events.logs.empty());
+    EXPECT_EQ(events.logs.back().first, LogLevel::kError);
+    EXPECT_EQ(events.logs.back().second, kReflashRecoveryWarning);
+}
+
 TEST(SubaruDensoSh705xDensoCanExecutor, NonzeroLargeBlockUsesEightFixedCommitWindowsAndCumulativeWriteProgress)
 {
     const Case& test_case = kCases.front();
@@ -1518,98 +1564,28 @@ TEST(SubaruDensoSh705xDensoCanExecutor, ShortRawAndFlashAcknowledgementsAreRejec
         EXPECT_TRUE(transport.ScriptConsumed());
     }
 
-    {
-        auto plan = WritePlan(test_case);
-        ASSERT_THAT(plan, IsOk());
-        const FlashDevice *device = FindFlashDevice(test_case.mcu);
-        ASSERT_NE(device, nullptr);
-        const bytes::Bytes raw_chunk = FixedRawZeroBytes(kWriteChunkSize);
-        SubaruDensoSh705xDensoCanExecutor executor;
-        ScriptedMixedCanFlashTransport transport;
-        ConfigureAndOpen(executor, *plan, transport);
-        ScriptKernelAlive(transport);
-        ScriptCompare(transport, *device, true);
-        ScriptFlashInit(transport, false);
-        transport.ExpectIsoWrite(IsoRequest(0x04));
-        transport.QueueIsoRead(IsoResponse(0x44, bytes::Bytes{0x00, 0x64}));
-        transport.ExpectIsoWrite(IsoRequest(0x25, ComposeBe(std::uint32_t{0})));
-        transport.QueueIsoRead(IsoResponse(0x65));
-        transport.ExpectIsoWrite(IsoRequest(0x22, ComposeBe(std::uint32_t{0}, raw_chunk)));
-        transport.QueueIsoRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE8, 0xBE, 0xEF, 0x00, 0x01});
-
-        auto result = executor.Execute(*plan, transport, clock, cancellation, events);
-
-        EXPECT_THAT(result, IsErr(ErrorKind::kBadResponse));
-        EXPECT_TRUE(transport.ScriptConsumed());
-    }
+    ExpectFirstWriteChunkResponseEnds(bytes::Bytes{0x00, 0x00, 0x07, 0xE8, 0xBE, 0xEF, 0x00, 0x01},
+                                      ErrorKind::kBadResponse, events, cancellation);
 }
 
 TEST(SubaruDensoSh705xDensoCanExecutor, PostEraseProtocolFailureEmitsTheLegacyRecoveryWarning)
 {
-    const Case& test_case = kCases.front();
-    const FlashDevice *device = FindFlashDevice(test_case.mcu);
-    ASSERT_NE(device, nullptr);
-    auto plan = WritePlan(test_case);
-    ASSERT_THAT(plan, IsOk());
-    const bytes::Bytes raw_chunk = FixedRawZeroBytes(kWriteChunkSize);
-    SubaruDensoSh705xDensoCanExecutor executor;
-    ScriptedMixedCanFlashTransport transport;
-    ConfigureAndOpen(executor, *plan, transport);
-    ScriptKernelAlive(transport);
-    ScriptCompare(transport, *device, true);
-    ScriptFlashInit(transport, false);
-    transport.ExpectIsoWrite(IsoRequest(0x04));
-    transport.QueueIsoRead(IsoResponse(0x44, bytes::Bytes{0x00, 0x64}));
-    transport.ExpectIsoWrite(IsoRequest(0x25, ComposeBe(std::uint32_t{0})));
-    transport.QueueIsoRead(IsoResponse(0x65));
-    transport.ExpectIsoWrite(IsoRequest(0x22, ComposeBe(std::uint32_t{0}, raw_chunk)));
-    transport.QueueIsoRead(IsoResponse(0x7F));
     FakeCancellationToken cancellation;
-    FakeClock clock;
     RecordingEventSink events;
 
-    auto result = executor.Execute(*plan, transport, clock, cancellation, events);
+    ExpectFirstWriteChunkResponseEnds(IsoResponse(0x7F), ErrorKind::kBadResponse, events, cancellation);
 
-    EXPECT_THAT(result, IsErr(ErrorKind::kBadResponse));
-    EXPECT_EQ(ExactLogCount(events, LogLevel::kError, kReflashRecoveryWarning), 1);
-    ASSERT_FALSE(events.logs.empty());
-    EXPECT_EQ(events.logs.back().first, LogLevel::kError);
-    EXPECT_EQ(events.logs.back().second, kReflashRecoveryWarning);
-    EXPECT_TRUE(transport.ScriptConsumed());
+    ExpectLegacyRecoveryWarningIsLast(events);
 }
 
 TEST(SubaruDensoSh705xDensoCanExecutor, CancellationAfterEraseEmitsTheLegacyRecoveryWarning)
 {
-    const Case& test_case = kCases.front();
-    const FlashDevice *device = FindFlashDevice(test_case.mcu);
-    ASSERT_NE(device, nullptr);
-    auto plan = WritePlan(test_case);
-    ASSERT_THAT(plan, IsOk());
-    const bytes::Bytes raw_chunk = FixedRawZeroBytes(kWriteChunkSize);
-    SubaruDensoSh705xDensoCanExecutor executor;
-    ScriptedMixedCanFlashTransport transport;
-    ConfigureAndOpen(executor, *plan, transport);
-    ScriptKernelAlive(transport);
-    ScriptCompare(transport, *device, true);
-    ScriptFlashInit(transport, false);
-    transport.ExpectIsoWrite(IsoRequest(0x04));
-    transport.QueueIsoRead(IsoResponse(0x44, bytes::Bytes{0x00, 0x64}));
-    transport.ExpectIsoWrite(IsoRequest(0x25, ComposeBe(std::uint32_t{0})));
-    transport.QueueIsoRead(IsoResponse(0x65));
-    transport.ExpectIsoWrite(IsoRequest(0x22, ComposeBe(std::uint32_t{0}, raw_chunk)));
-    transport.QueueIsoRead(IsoResponse(0x62));
     FakeCancellationToken cancellation;
-    FakeClock clock;
     CancellingEventSink events(cancellation);
 
-    auto result = executor.Execute(*plan, transport, clock, cancellation, events);
+    ExpectFirstWriteChunkResponseEnds(IsoResponse(0x62), ErrorKind::kCancelled, events, cancellation);
 
-    EXPECT_THAT(result, IsErr(ErrorKind::kCancelled));
-    EXPECT_EQ(ExactLogCount(events, LogLevel::kError, kReflashRecoveryWarning), 1);
-    ASSERT_FALSE(events.logs.empty());
-    EXPECT_EQ(events.logs.back().first, LogLevel::kError);
-    EXPECT_EQ(events.logs.back().second, kReflashRecoveryWarning);
-    EXPECT_TRUE(transport.ScriptConsumed());
+    ExpectLegacyRecoveryWarningIsLast(events);
 }
 
 TEST(SubaruDensoSh705xDensoCanExecutor, FailureBeforeEraseDoesNotEmitTheRecoveryWarning)
@@ -1710,31 +1686,9 @@ TEST(SubaruDensoSh705xDensoCanExecutor, ReadAndWriteCancellationStopBeforeASecon
     }
 
     {
-        auto plan = WritePlan(test_case);
-        ASSERT_THAT(plan, IsOk());
-        const FlashDevice *device = FindFlashDevice(test_case.mcu);
-        ASSERT_NE(device, nullptr);
-        const bytes::Bytes raw_chunk = FixedRawZeroBytes(kWriteChunkSize);
-        SubaruDensoSh705xDensoCanExecutor executor;
-        ScriptedMixedCanFlashTransport transport;
-        ConfigureAndOpen(executor, *plan, transport);
-        ScriptKernelAlive(transport);
-        ScriptCompare(transport, *device, true);
-        ScriptFlashInit(transport, false);
-        transport.ExpectIsoWrite(IsoRequest(0x04));
-        transport.QueueIsoRead(IsoResponse(0x44, bytes::Bytes{0x00, 0x64}));
-        transport.ExpectIsoWrite(IsoRequest(0x25, ComposeBe(std::uint32_t{0})));
-        transport.QueueIsoRead(IsoResponse(0x65));
-        transport.ExpectIsoWrite(IsoRequest(0x22, ComposeBe(std::uint32_t{0}, raw_chunk)));
-        transport.QueueIsoRead(IsoResponse(0x62));
         FakeCancellationToken cancellation;
-        FakeClock clock;
         CancellingEventSink events(cancellation);
-
-        auto result = executor.Execute(*plan, transport, clock, cancellation, events);
-
-        ASSERT_THAT(result, IsErr(ErrorKind::kCancelled));
-        EXPECT_TRUE(transport.ScriptConsumed());
+        ExpectFirstWriteChunkResponseEnds(IsoResponse(0x62), ErrorKind::kCancelled, events, cancellation);
     }
 }
 
