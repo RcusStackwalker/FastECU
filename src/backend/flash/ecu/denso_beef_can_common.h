@@ -11,10 +11,14 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <vector>
 
+#include "src/algorithms/checksum/checksum_primitives.h"
 #include "src/algorithms/protocol/bytes.h"
 #include "src/algorithms/protocol/bytes_compose.h"
 #include "src/backend/flash/ecu/denso_iso15765_can_common.h"
+#include "src/backend/flash/ecu/flash_phase_progress.h"
+#include "src/backend/flash/flash_types.h"
 #include "src/backend/ports/cancellation.h"
 #include "src/backend/ports/error.h"
 #include "src/backend/ports/result.h"
@@ -227,6 +231,75 @@ Result<std::uint32_t> QueryBeefCrc(C& ctx, const MemoryRegion& block, Exchange e
         return std::unexpected(drained.error());
     }
     return crc;
+}
+
+// Which erase regions the ECU's CRC disagrees with the image on.
+struct CompareResult
+{
+    std::vector<bool> modified;
+    std::size_t changed_count{};
+};
+
+// write_mem()/get_changed_blocks(): asks the ECU for the CRC of every erase
+// region and flags those that differ from the image. `query_crc` fetches one
+// region's CRC; `family` names the executor in the out-of-image error.
+template <typename C, typename QueryCrc>
+Result<CompareResult> CompareBeefBlocks(C& ctx, const FlashPlan& plan, bytes::ByteView image, PhaseReporter *progress,
+                                        bool after_reflash, std::string_view family, QueryCrc query_crc)
+{
+    CompareResult result;
+    result.modified.assign(plan.EraseRegions().size(), false);
+    LogInfo(ctx, after_reflash ? "--- Comparing ECU flash memory pages to image file after reflash ---"
+                               : "--- Comparing ECU flash memory pages to image file ---");
+    LogInfo(ctx, "blk\tstart\tlen\tecu crc\timg crc\tsame?");
+    for (std::size_t index = 0; index < plan.EraseRegions().size(); ++index)
+    {
+        if (const Status checkpoint = CancelledIfRequested(ctx, "ROM compare cancelled"); !checkpoint.has_value())
+        {
+            return std::unexpected(checkpoint.error());
+        }
+        const MemoryRegion block = plan.EraseRegions()[index];
+        if (block.start < plan.TransferRegion().start ||
+            static_cast<std::uint64_t>(block.start - plan.TransferRegion().start) + block.length > image.size())
+        {
+            return Fail(ErrorKind::kInvalidConfig, std::format("{} CRC block is outside the image", family));
+        }
+        LogInfo(ctx, std::format("FB{:02}\t0x{:08X}\t0x{:08X}", index, block.start, block.length));
+        Result<std::uint32_t> ecu_crc = query_crc(block);
+        if (!ecu_crc.has_value())
+        {
+            return std::unexpected(ecu_crc.error());
+        }
+        const std::size_t image_offset = block.start - plan.TransferRegion().start;
+        const std::uint32_t image_crc = fastecu::checksum::Crc32(image.subspan(image_offset, block.length));
+        LogDebug(ctx, std::format("ROM CRC: 0x{:08x} IMG CRC: 0x{:08x}", *ecu_crc, image_crc));
+        LogInfo(ctx, std::format("\t{:08X}\t{:08X}", *ecu_crc, image_crc));
+        result.modified[index] = *ecu_crc != image_crc;
+        LogInfo(ctx, result.modified[index] ? "\tNO" : "\tYES");
+        if (result.modified[index])
+        {
+            ++result.changed_count;
+        }
+        if (progress != nullptr)
+        {
+            progress->Update(static_cast<int>(index + 1));
+        }
+        if (const Status slept = ctx.clock.Sleep(std::chrono::milliseconds{5}, ctx.cancellation); !slept.has_value())
+        {
+            return std::unexpected(slept.error());
+        }
+    }
+
+    LogInfo(ctx, "Different blocks : ");
+    for (std::size_t index = 0; index < result.modified.size(); ++index)
+    {
+        if (result.modified[index])
+        {
+            LogInfo(ctx, std::format("{}, ", index));
+        }
+    }
+    LogInfo(ctx, std::format(" (total: {})", result.changed_count));
+    return result;
 }
 
 // Sends `payload` to `load_address` in `block_size` 0xB6 blocks, then one

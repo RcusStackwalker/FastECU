@@ -1650,7 +1650,10 @@ cc_library(
     hdrs = ["denso_beef_can_common.h"],
     deps = [
         ":denso_iso15765_can_common",
+        ":flash_phase_progress",
+        "//src/algorithms/checksum",
         "//src/algorithms/protocol",
+        "//src/backend/flash:flash_types",
         "//src/backend/ports",
     ],
 )
@@ -1660,8 +1663,10 @@ fastecu_portable_gtest(
     srcs = ["denso_beef_can_common_test.cpp"],
     deps = [
         ":denso_beef_can_common",
+        ":subaru_denso_sh7058_can_plan",
         "//src/backend/ports/testing:fake_cancellation_token",
         "//src/backend/ports/testing:fake_clock",
+        "//src/backend/ports/testing:recording_event_sink",
         "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
     ],

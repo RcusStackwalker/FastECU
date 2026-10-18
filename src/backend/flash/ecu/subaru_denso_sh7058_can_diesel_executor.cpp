@@ -822,12 +822,6 @@ Result<bytes::Bytes> ReadMemory(Context& context, const FlashPlan& plan, PhaseRe
     return rom;
 }
 
-struct CompareResult
-{
-    std::vector<bool> modified;
-    std::size_t changed_count{};
-};
-
 Result<std::uint32_t> QueryCrc(Context& context, const MemoryRegion& block)
 {
     return QueryBeefCrc(context, block, [&](bytes::ByteView payload)
@@ -837,60 +831,8 @@ Result<std::uint32_t> QueryCrc(Context& context, const MemoryRegion& block)
 Result<CompareResult> CompareBlocks(Context& context, const FlashPlan& plan, bytes::ByteView image,
                                     PhaseReporter *progress, bool after_reflash = false)
 {
-    // write_mem()/get_changed_blocks(), revision 59f4e442:943-1093.
-    CompareResult result;
-    result.modified.assign(plan.EraseRegions().size(), false);
-    LogInfo(context, after_reflash ? "--- Comparing ECU flash memory pages to image file after reflash ---"
-                                   : "--- Comparing ECU flash memory pages to image file ---");
-    LogInfo(context, "blk\tstart\tlen\tecu crc\timg crc\tsame?");
-    for (std::size_t index = 0; index < plan.EraseRegions().size(); ++index)
-    {
-        if (const Status checkpoint = CancelledIfRequested(context, "ROM compare cancelled"); !checkpoint.has_value())
-        {
-            return std::unexpected(checkpoint.error());
-        }
-        const MemoryRegion block = plan.EraseRegions()[index];
-        if (block.start < plan.TransferRegion().start ||
-            static_cast<std::uint64_t>(block.start - plan.TransferRegion().start) + block.length > image.size())
-        {
-            return Fail(ErrorKind::kInvalidConfig, "diesel CRC block is outside the image");
-        }
-        LogInfo(context, std::format("FB{:02}\t0x{:08X}\t0x{:08X}", index, block.start, block.length));
-        Result<std::uint32_t> ecu_crc = QueryCrc(context, block);
-        if (!ecu_crc.has_value())
-        {
-            return std::unexpected(ecu_crc.error());
-        }
-        const std::size_t image_offset = block.start - plan.TransferRegion().start;
-        const std::uint32_t image_crc = fastecu::checksum::Crc32(image.subspan(image_offset, block.length));
-        LogDebug(context, std::format("ROM CRC: 0x{:08x} IMG CRC: 0x{:08x}", *ecu_crc, image_crc));
-        LogInfo(context, std::format("\t{:08X}\t{:08X}", *ecu_crc, image_crc));
-        result.modified[index] = *ecu_crc != image_crc;
-        LogInfo(context, result.modified[index] ? "\tNO" : "\tYES");
-        if (result.modified[index])
-        {
-            ++result.changed_count;
-        }
-        if (progress != nullptr)
-        {
-            progress->Update(static_cast<int>(index + 1));
-        }
-        if (const Status slept = context.clock.Sleep(5ms, context.cancellation); !slept.has_value())
-        {
-            return std::unexpected(slept.error());
-        }
-    }
-
-    LogInfo(context, "Different blocks : ");
-    for (std::size_t index = 0; index < result.modified.size(); ++index)
-    {
-        if (result.modified[index])
-        {
-            LogInfo(context, std::format("{}, ", index));
-        }
-    }
-    LogInfo(context, std::format(" (total: {})", result.changed_count));
-    return result;
+    return CompareBeefBlocks(context, plan, image, progress, after_reflash, "diesel",
+                             [&](const MemoryRegion& block) { return QueryCrc(context, block); });
 }
 
 Status InitializeFlash(Context& context, bool test_write)
