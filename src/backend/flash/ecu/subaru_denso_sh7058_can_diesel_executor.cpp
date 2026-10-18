@@ -54,12 +54,10 @@ constexpr std::chrono::milliseconds kKernelStartDelay{100};
 constexpr std::chrono::milliseconds kKernelStartReadTimeout{10};
 constexpr std::chrono::milliseconds kKernelTransferTimeout = kMediumTimeout;
 
-constexpr std::size_t kKernelPageSize = 0x400;
 constexpr std::size_t kKernelUploadBlockSize = 128;
 
 constexpr bytes::Byte kKernelId = 0x01;
 constexpr bytes::Byte kKernelCrc = 0x02;
-constexpr bytes::Byte kKernelReadArea = 0x03;
 
 constexpr uds::ExchangePolicy kStrictPolicy{
     .pre_read_delay = kExtraShortTimeout,
@@ -734,49 +732,12 @@ Status UploadKernel(Context& context, const KernelImage& kernel)
     return {};
 }
 
-Result<bytes::Bytes> ReadMemory(Context& context, const FlashPlan& plan, PhaseReporter& progress)
+// The family's BEEF exchange as a callable for the shared read and write paths.
+auto Exchanger(Context& context)
 {
-    // read_mem(), revision 59f4e442:789-936. Reads remain fixed at 0x400
-    // bytes and proprietary BEEF replies are appended as received; the
-    // legacy read path performs no payload decryption.
-    const MemoryRegion region = plan.TransferRegion();
-    bytes::Bytes rom;
-    rom.reserve(region.length);
-    LogInfo(context, "Start reading ROM, please wait...");
-    for (std::uint32_t offset = 0; offset < region.length; offset += kKernelPageSize)
-    {
-        const auto started = context.clock.Now();
-        if (const Status checkpoint = CancelledIfRequested(context, "read cancelled"); !checkpoint.has_value())
-        {
-            return std::unexpected(checkpoint.error());
-        }
-        const std::uint32_t address = region.start + offset;
-        const bytes::Bytes request = ComposeBe(bytes::Byte{0x00}, bytes::U24(address), std::uint16_t{kKernelPageSize});
-        Result<bytes::Bytes> reply = BeefExchange(context, kKernelReadArea, request, kKernelPageSize, kReadTimeout);
-        if (!reply.has_value())
-        {
-            return std::unexpected(reply.error());
-        }
-        bytes::Bytes page(bytes::ByteView(*reply).first(kKernelPageSize).begin(),
-                          bytes::ByteView(*reply).first(kKernelPageSize).end());
-        if (page.size() > region.length - offset)
-        {
-            page.resize(region.length - offset);
-        }
-
-        // Local defect proof: revision-59f4e442:890 samples an unstarted
-        // QElapsedTimer before line 891 starts it. A deterministic
-        // monotonic sample and 1 ms minimum preserve the formula without an
-        // invalid elapsed value; the exact first/last logs are regression
-        // tested and disclosed in the diesel qualification row.
-        const std::uint64_t elapsed_ms = ElapsedMilliseconds(started, context.clock.Now());
-        const TransferRate rate = ComputeTransferRate(kKernelPageSize, elapsed_ms, region.length - offset);
-        LogInfo(context, FormatReadProgress(address, kKernelPageSize, rate));
-        rom.insert(rom.end(), page.begin(), page.end());
-        progress.Update(static_cast<int>(std::min<std::uint64_t>(region.length, offset + kKernelPageSize)));
-    }
-    LogInfo(context, "ROM read ready");
-    return rom;
+    return [&context](bytes::Byte opcode, bytes::ByteView payload, std::size_t minimum_payload,
+                      std::chrono::milliseconds timeout)
+    { return BeefExchange(context, opcode, payload, minimum_payload, timeout); };
 }
 
 Result<std::uint32_t> QueryCrc(Context& context, const MemoryRegion& block)
@@ -801,9 +762,8 @@ Status InitializeFlash(Context& context, bool test_write)
 Status WriteMemory(Context& context, const FlashPlan& plan, PhaseSequence& phases, PhaseReporter& compare_progress)
 {
     return WriteBeefMemory(
-        context, plan, phases, compare_progress, "diesel",
-        [&](bytes::Byte opcode, bytes::ByteView payload, std::size_t minimum_payload, std::chrono::milliseconds timeout)
-        { return BeefExchange(context, opcode, payload, minimum_payload, timeout); },
+        context, plan.ImageOrEmpty(), plan.TransferRegion().start, plan.EraseRegions(),
+        plan.Operation() == FlashOperation::kTestWrite, phases, compare_progress, "diesel", Exchanger(context),
         [&](PhaseReporter *progress, bool after_reflash)
         { return CompareBlocks(context, plan, plan.ImageOrEmpty(), progress, after_reflash); },
         [&](bool test_write) { return InitializeFlash(context, test_write); });
@@ -893,7 +853,7 @@ Result<FlashExecutionResult> SubaruDensoSh7058CanDieselExecutor::Execute(const F
         events.Notice("Reading ROM, please wait...");
         LogInfo(context, "Reading ROM from Subaru 07+ Diesel 32-bit using CAN");
         PhaseReporter read_phase = phases.Start("Read", static_cast<int>(plan.TransferRegion().length));
-        Result<bytes::Bytes> rom = ReadMemory(context, plan, read_phase);
+        Result<bytes::Bytes> rom = ReadBeefMemory(context, plan.TransferRegion(), read_phase, Exchanger(context));
         if (!rom.has_value())
         {
             return std::unexpected(rom.error());

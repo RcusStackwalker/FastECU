@@ -431,6 +431,45 @@ Status InitializeBeefFlash(const C& ctx, bool test_write, bool upper_hex, Exchan
     return {};
 }
 
+// read_mem(): reads `region` in 0x400-byte pages of proprietary BEEF replies,
+// appended as received (the legacy read path performs no payload decryption).
+// The legacy samples an unstarted timer for the first page's rate; a
+// monotonic sample floored to 1 ms stands in for it.
+inline constexpr std::size_t kBeefReadPageSize = 0x400;
+inline constexpr std::chrono::milliseconds kBeefReadTimeout{2000};
+
+template <typename C, typename Exchange>
+Result<bytes::Bytes> ReadBeefMemory(C& ctx, const MemoryRegion& region, PhaseReporter& progress, Exchange exchange)
+{
+    bytes::Bytes rom;
+    rom.reserve(region.length);
+    LogInfo(ctx, "Start reading ROM, please wait...");
+    for (std::uint32_t offset = 0; offset < region.length; offset += kBeefReadPageSize)
+    {
+        const auto started = ctx.clock.Now();
+        if (const Status checkpoint = CancelledIfRequested(ctx, "read cancelled"); !checkpoint.has_value())
+        {
+            return std::unexpected(checkpoint.error());
+        }
+        const std::uint32_t address = region.start + offset;
+        const bytes::Bytes request =
+            bytes::ComposeBe(bytes::Byte{0x00}, bytes::U24(address), std::uint16_t{kBeefReadPageSize});
+        Result<bytes::Bytes> reply = exchange(bytes::Byte{0x03}, request, kBeefReadPageSize, kBeefReadTimeout);
+        if (!reply.has_value())
+        {
+            return std::unexpected(reply.error());
+        }
+        const std::size_t length = std::min<std::size_t>(kBeefReadPageSize, region.length - offset);
+        const std::uint64_t elapsed_ms = ElapsedMilliseconds(started, ctx.clock.Now());
+        const TransferRate rate = ComputeTransferRate(kBeefReadPageSize, elapsed_ms, region.length - offset);
+        LogInfo(ctx, FormatReadProgress(address, kBeefReadPageSize, rate));
+        rom.insert(rom.end(), reply->begin(), reply->begin() + static_cast<std::ptrdiff_t>(length));
+        progress.Update(static_cast<int>(std::min<std::uint64_t>(region.length, offset + kBeefReadPageSize)));
+    }
+    LogInfo(ctx, "ROM read ready");
+    return rom;
+}
+
 // The write path shared by the petrol and diesel SH7058 executors, whose
 // flash_block()/reflash_block()/write_mem() ports are identical but for the
 // family named in their errors. The kernel opcodes, buffer windows and
@@ -544,10 +583,10 @@ Status FlashBeefBlock(C& ctx, bytes::ByteView image, std::uint32_t image_base, c
 // compares again. `compare(progress, after_reflash)` and `initialize(test_write)`
 // are the family's CompareBlocks and InitializeFlash.
 template <typename C, typename Exchange, typename Compare, typename Initialize>
-Status WriteBeefMemory(C& ctx, const FlashPlan& plan, PhaseSequence& phases, PhaseReporter& compare_progress,
-                       std::string_view family, Exchange exchange, Compare compare, Initialize initialize)
+Status WriteBeefMemory(C& ctx, bytes::ByteView image, std::uint32_t image_base, std::span<const MemoryRegion> regions,
+                       bool test_write, PhaseSequence& phases, PhaseReporter& compare_progress, std::string_view family,
+                       Exchange exchange, Compare compare, Initialize initialize)
 {
-    const bytes::ByteView image = plan.ImageOrEmpty();
     Result<CompareResult> before = compare(&compare_progress, false);
     if (!before.has_value())
     {
@@ -566,11 +605,10 @@ Status WriteBeefMemory(C& ctx, const FlashPlan& plan, PhaseSequence& phases, Pha
     {
         if (before->modified[index])
         {
-            flash_bytes_count += plan.EraseRegions()[index].length;
+            flash_bytes_count += regions[index].length;
         }
     }
     LogInfo(ctx, "--- Start writing ROM file to ECU flash memory ---");
-    const bool test_write = plan.Operation() == FlashOperation::kTestWrite;
     if (const Status initialized = initialize(test_write); !initialized.has_value())
     {
         return initialized;
@@ -588,10 +626,10 @@ Status WriteBeefMemory(C& ctx, const FlashPlan& plan, PhaseSequence& phases, Pha
         {
             return checkpoint;
         }
-        const MemoryRegion& block = plan.EraseRegions()[index];
+        const MemoryRegion& block = regions[index];
         LogInfo(ctx, std::format("Flash block addr: 0x{:08X} len: 0x{:08X}", block.start, block.length));
         LogInfo(ctx, "Check flash voltage");
-        Result<bytes::Bytes> voltage = exchange(kBeefProgVolt, {}, 2, kBeefVoltageTimeout);
+        Result<bytes::Bytes> voltage = exchange(kBeefProgVolt, bytes::ByteView{}, 2, kBeefVoltageTimeout);
         if (!voltage.has_value())
         {
             LogInfo(ctx, std::format("Block {} reflash failed.", index));
@@ -599,8 +637,8 @@ Status WriteBeefMemory(C& ctx, const FlashPlan& plan, PhaseSequence& phases, Pha
         }
         LogInfo(ctx, std::format(": {}V", static_cast<double>(bytes::ReadU16Be(*voltage)) / 50.0));
 
-        const Status flashed = FlashBeefBlock(ctx, image, plan.TransferRegion().start, block, test_write,
-                                              flash_bytes_index, flash_bytes_count, write_progress, family, exchange);
+        const Status flashed = FlashBeefBlock(ctx, image, image_base, block, test_write, flash_bytes_index,
+                                              flash_bytes_count, write_progress, family, exchange);
         if (!flashed.has_value())
         {
             LogError(ctx, "Reflash error! Do not panic, do not reset the ECU immediately. The kernel is most likely "
