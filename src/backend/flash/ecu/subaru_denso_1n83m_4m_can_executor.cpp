@@ -42,8 +42,6 @@ namespace fastecu::flash
 {
 namespace
 {
-using bytes::ComposeBe;
-using namespace std::chrono_literals;
 
 // Legacy's read timeouts. This family writes most of them as bare literals
 // (200 at lines 677, 709, 754, 788, 790; 500 at lines 1056, 1409, 1452) where
@@ -80,17 +78,8 @@ constexpr bytes::Byte kRequestUploadReply = uds::kSidRequestUpload + 0x40;     /
 // the plan image is this address.
 constexpr std::uint32_t kImageStart = 0x08F9C000;
 
-// Most exchanges go through UdsClient over CanFlashUdsChannel. The
-// exceptions are the probes and fire-and-forget writes whose reply legacy
-// either tolerates or never inspects at all: UdsClient enforces the
-// SID+0x40 convention and decodes NRCs, so those go through the channel --
-// or, where legacy does not even validate the reply's arbitration id,
-// through the transport -- directly. `channel` is the same
-// CanFlashUdsChannel instance `uds` wraps.
 // The five-field context this package shares; see uds_client_exchange_common.h.
 using Ctx = CanExecutorContext;
-
-constexpr std::string_view kRejectionPrefix = "Wrong response from ECU: ";
 
 // read_memory's two dump-setup exchanges (lines 843-884 and 886-925). Unlike
 // tolerant_probe this tolerates BOTH halves of the check.
@@ -125,7 +114,7 @@ Status TolerantSetup(Ctx& ctx, bytes::ByteView pdu, bytes::ByteView expected_pre
     const bytes::Bytes& frame = **received;
     if (!std::equal(expected_prefix.begin(), expected_prefix.end(), frame.begin()))
     {
-        LogError(ctx, std::format("{}{}", kRejectionPrefix, bytes::ToHex(frame)));
+        LogError(ctx, std::format("{}{}", kDensoIso15765RejectionPrefix, bytes::ToHex(frame)));
     }
     return {};
 }

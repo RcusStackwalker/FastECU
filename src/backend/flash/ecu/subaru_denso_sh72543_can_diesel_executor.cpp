@@ -28,7 +28,6 @@ namespace fastecu::flash
 {
 namespace
 {
-using bytes::ComposeBe;
 using namespace std::chrono_literals;
 
 // Legacy's read timeouts, kept apart rather than flattened into one policy:
@@ -80,17 +79,8 @@ constexpr bytes::Byte kDidEcuIdLow = 0x82;
 // pre-offset it does not. Do not "restore" a 0x8000 shift on its strength.
 constexpr std::uint32_t kImageStart = 0x00000000;
 
-// Most exchanges go through UdsClient over CanFlashUdsChannel. The
-// exceptions are the probes and fire-and-forget writes whose reply legacy
-// either tolerates or never inspects at all: UdsClient enforces the
-// SID+0x40 convention and decodes NRCs, so those go through the channel --
-// or, where legacy does not even validate the reply's arbitration id,
-// through the transport -- directly. `channel` is the same
-// CanFlashUdsChannel instance `uds` wraps.
 // The five-field context this package shares; see uds_client_exchange_common.h.
 using Ctx = CanExecutorContext;
-
-constexpr std::string_view kRejectionPrefix = "Wrong response from ECU: ";
 
 // The ECU ID query needs a two-byte reply check (`F1 82`, line 146) where the
 // shared non_fatal_query checks one subfunction byte, so this family carries
@@ -101,13 +91,13 @@ void NonFatalDidQuery(Ctx& ctx, bytes::ByteView pdu, bytes::ByteView expected_di
     Result<bytes::Bytes> reply = ctx.uds.Request(pdu, kLongPolicy, ctx.cancellation);
     if (!reply.has_value())
     {
-        LogError(ctx, std::format("{}{}", kRejectionPrefix, reply.error().detail));
+        LogError(ctx, std::format("{}{}", kDensoIso15765RejectionPrefix, reply.error().detail));
         return;
     }
     const bytes::ByteView payload = uds::Payload(*reply);
     if (payload.size() < expected_did.size() || !std::equal(expected_did.begin(), expected_did.end(), payload.begin()))
     {
-        LogError(ctx, std::format("{}unexpected {} response", kRejectionPrefix, label));
+        LogError(ctx, std::format("{}unexpected {} response", kDensoIso15765RejectionPrefix, label));
         return;
     }
     // Legacy trims the raw frame with remove(0, 7) -- the 4-byte envelope plus
@@ -139,7 +129,7 @@ Status ConnectBench(Ctx& ctx)
     // deliberately rather than normalized away.
     if (Result<bytes::Bytes> session =
             TolerantProbe(ctx, bytes::Bytes{uds::kSidDiagnosticSessionControl, kSessionBench}, kSessionControlReply,
-                          kSessionBench, kProbeTimeout, kRejectionPrefix, "bench diagnostic session");
+                          kSessionBench, kProbeTimeout, kDensoIso15765RejectionPrefix, "bench diagnostic session");
         !session.has_value())
     {
         return std::unexpected(session.error());
