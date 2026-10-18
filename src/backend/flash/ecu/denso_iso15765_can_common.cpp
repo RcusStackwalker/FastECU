@@ -160,6 +160,13 @@ Status DensoIso15765WaitForJumpAck(const CanExecutorContext& ctx, bytes::Byte se
     return {};
 }
 
+Result<bytes::Bytes> FatalQuery(const CanExecutorContext& ctx, bytes::ByteView pdu, bytes::ByteView expected_prefix,
+                                const uds::ExchangePolicy& policy, std::string_view subject,
+                                std::optional<std::size_t> min_payload_size)
+{
+    return FatalQuery(ExchangeContext(ctx, policy), pdu, expected_prefix, kRejectionPrefix, subject, min_payload_size);
+}
+
 Result<bytes::Bytes> TolerantProbe(const CanExecutorContext& ctx, bytes::ByteView pdu, bytes::Byte expected_service,
                                    bytes::Byte expected_subfunction, std::chrono::milliseconds timeout,
                                    std::string_view rejection_prefix, std::string_view subject)
