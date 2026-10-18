@@ -107,6 +107,53 @@ template <typename Executor, typename Clock = FakeClock> struct ExecutorRun
     }
 };
 
+// The seed and key exchanges both read with the shared two-second timeout.
+inline void ExpectSeedAndKeyReadTimeouts(const ScriptedCanFlashTransport& transport)
+{
+    ASSERT_GT(transport.ReadTimeouts().size(), 9U);
+    EXPECT_EQ(transport.ReadTimeouts()[8], std::chrono::milliseconds(2000));
+    EXPECT_EQ(transport.ReadTimeouts()[9], std::chrono::milliseconds(2000));
+}
+
+// Runs a scripted read that must succeed and checks the padded image it
+// returns: `lead_pad` bytes of 0xFF, the block filled with `fill`, then a
+// 0x100-byte 0xFF tail. `inspect(run, transport)` adds the caller's own checks.
+struct NoInspection
+{
+    template <typename Run, typename Transport> void operator()(const Run&, const Transport&) const
+    {
+    }
+};
+
+template <typename Executor, typename Inspect = NoInspection>
+void ExpectPaddedRead(const Result<FlashPlan>& plan, ScriptedCanFlashTransport& transport, std::size_t image_size,
+                      std::size_t lead_pad, std::size_t block_length, bytes::Byte fill, Inspect&& inspect = {})
+{
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    auto run = ExecutorRun<Executor>(*plan, transport);
+    ASSERT_THAT(run.result, fastecu::testing::IsOk());
+    ASSERT_TRUE(run.result->read_bytes.has_value());
+    const bytes::Bytes& rom = *run.result->read_bytes;
+    ASSERT_EQ(rom.size(), image_size);
+    EXPECT_THAT(bytes::ByteView(rom).first(lead_pad), test_bytes::BytesFilledWith(0xFF));
+    EXPECT_THAT(bytes::ByteView(rom).subspan(lead_pad, block_length), test_bytes::BytesFilledWith(fill));
+    EXPECT_THAT(bytes::ByteView(rom).last(0x100), test_bytes::BytesFilledWith(0xFF));
+    EXPECT_TRUE(transport.ScriptConsumed());
+    inspect(run, transport);
+}
+
+// Runs a read of `plan` against the scripted `transport` and expects it to fail
+// with `kind` having consumed the whole script.
+template <typename Executor>
+void ExpectReadFailsWith(const Result<FlashPlan>& plan, ScriptedCanFlashTransport& transport, ErrorKind kind)
+{
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    auto run = ExecutorRun<Executor>(*plan, transport);
+
+    EXPECT_THAT(run.result, fastecu::testing::IsErr(kind));
+    EXPECT_TRUE(transport.ScriptConsumed());
+}
+
 // What differs between families in the short-page read test. Page replies of
 // 4 bytes (instead of the requested size) must advance the address by the
 // requested page size and still return the padded image.
