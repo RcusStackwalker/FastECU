@@ -211,6 +211,25 @@ template <typename C> Status DiscardStaleFrame(C& ctx)
     return {};
 }
 
+// The CRC query every BEEF executor issues for a block: a start/length
+// request, whose four-byte reply is the CRC, then the stale-frame drain.
+// `exchange` sends the payload with the family's opcode and timeout.
+template <typename C, typename Exchange>
+Result<std::uint32_t> QueryBeefCrc(C& ctx, const MemoryRegion& block, Exchange exchange)
+{
+    Result<bytes::Bytes> reply = exchange(ComposeBe(block.start, bytes::Byte{0x00}, bytes::U24(block.length)));
+    if (!reply.has_value())
+    {
+        return std::unexpected(reply.error());
+    }
+    const std::uint32_t crc = bytes::ReadU32Be(*reply);
+    if (const Status drained = DiscardStaleFrame(ctx); !drained.has_value())
+    {
+        return std::unexpected(drained.error());
+    }
+    return crc;
+}
+
 // Sends `payload` to `load_address` in `block_size` 0xB6 blocks, then one
 // final address-only block, as every BEEF oracle does. `upload` sends one
 // request and handles its reply the family's way.

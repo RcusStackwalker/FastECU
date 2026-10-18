@@ -625,20 +625,8 @@ struct CompareResult
 
 Result<std::uint32_t> QueryCrc(Context& context, const MemoryRegion& block)
 {
-    // check_romcrc(), revision 59f4e442 lines 942-1024. The short read after
-    // a comparison is a stale-frame drain and is deliberately retained.
-    const bytes::Bytes payload = ComposeBe(block.start, bytes::Byte{0x00}, bytes::U24(block.length));
-    Result<bytes::Bytes> reply = BeefExchange(context, kKernelCrc, payload, 4, kExtraLongTimeout);
-    if (!reply.has_value())
-    {
-        return std::unexpected(reply.error());
-    }
-    const std::uint32_t crc = bytes::ReadU32Be(*reply);
-    if (const Status drained = DiscardStaleFrame(context); !drained.has_value())
-    {
-        return std::unexpected(drained.error());
-    }
-    return crc;
+    return QueryBeefCrc(context, block, [&](bytes::ByteView payload)
+                        { return BeefExchange(context, kKernelCrc, payload, 4, kExtraLongTimeout); });
 }
 
 Result<CompareResult> CompareBlocks(Context& context, const FlashPlan& plan, bytes::ByteView image,
