@@ -1361,6 +1361,47 @@ TEST(SubaruDensoSh7058CanDieselExecutor, CrcStaleDrainToleratesContentButPropaga
     }
 }
 
+// Walks one injected disconnect through every read of a complete cold write
+// (connect, kernel upload, compare, erase, program, commit, verify): each
+// step must hand the typed error back instead of swallowing it.
+TEST(SubaruDensoSh7058CanDieselExecutor, DisconnectAtAnyReadOfAColdWriteIsReportedAsDisconnected)
+{
+    for (const DieselVariant& variant : kVariants)
+    {
+        const auto run = [&](std::optional<std::size_t> fail_at)
+        {
+            bytes::Bytes kernel_data(129, bytes::Byte{0});
+            kernel_data.back() = 0x01;
+            auto plan = PlanFor(variant, FlashOperation::kWrite, {}, std::move(kernel_data));
+            EXPECT_THAT(plan, IsOk());
+            SubaruDensoSh7058CanDieselExecutor executor;
+            RecordingCanFlashTransport transport;
+            transport.fail_read_at = fail_at;
+            ConfigureAndOpen(executor, *plan, transport);
+            ScriptBootloaderConnection(transport.scripted);
+            Script129ByteKernelUpload(transport.scripted, variant.kernel_address);
+            ScriptCompare(transport.scripted, BlocksFor(variant), 0U);
+            ScriptFlashInit(transport.scripted, false);
+            ScriptFlashBlock(transport.scripted, BlocksFor(variant)[0], 0x00, false);
+            ScriptCompare(transport.scripted, BlocksFor(variant), std::nullopt);
+            FakeCancellationToken cancellation;
+            FakeClock clock;
+            RecordingEventSink events;
+            const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
+            return std::pair{result.has_value() ? std::optional<ErrorKind>{} : std::optional{result.error().kind},
+                             transport.read_count};
+        };
+
+        const auto [clean_error, read_count] = run(std::nullopt);
+        ASSERT_FALSE(clean_error.has_value());
+        for (std::size_t index = 0; index < read_count; ++index)
+        {
+            SCOPED_TRACE(std::format("{} read {}", variant.protocol, index));
+            EXPECT_EQ(run(index).first, std::optional{ErrorKind::kDisconnected});
+        }
+    }
+}
+
 TEST(SubaruDensoSh7058CanDieselExecutor, UnchangedWriteSkipsFlashForBothGenerations)
 {
     for (const DieselVariant& variant : kVariants)

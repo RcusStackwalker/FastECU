@@ -1848,6 +1848,46 @@ TEST(SubaruTcuDensoSh705xCanExecutor, CrcDrainIgnoresMalformedAndWrongIdFramesFo
     }
 }
 
+// Walks one injected disconnect through every read of a complete cold write
+// (connect, kernel upload, compare, erase, program, commit, verify): each step
+// must hand the typed error back instead of swallowing it.
+TEST(SubaruTcuDensoSh705xCanExecutor, DisconnectAtAnyReadOfAColdWriteIsReportedAsDisconnected)
+{
+    const Case& test_case = kCases[1];
+    const auto run = [&](std::optional<std::size_t> fail_at)
+    {
+        auto plan = WritePlan(test_case);
+        EXPECT_THAT(plan, IsOk());
+        SubaruTcuDensoSh705xCanExecutor executor;
+        RecordingCanFlashTransport transport;
+        transport.fail_read_at = fail_at;
+        ConfigureAndOpen(executor, *plan, transport);
+        ScriptKernelProbeTimeout(transport.scripted);
+        ScriptIdentityQueries(transport.scripted);
+        ScriptStrictSessionAndSecurity(transport.scripted);
+        ScriptKernelUpload(transport.scripted, test_case);
+        ScriptKernelAlive(transport.scripted);
+        ScriptCompare(transport.scripted, BlocksFor(test_case), true);
+        ScriptFlashInit(transport.scripted);
+        ScriptFirstFlashBlock(transport.scripted);
+        ScriptCompare(transport.scripted, BlocksFor(test_case), false);
+        FakeCancellationToken cancellation;
+        FakeClock clock;
+        RecordingEventSink events;
+        const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
+        return std::pair{result.has_value() ? std::optional<ErrorKind>{} : std::optional{result.error().kind},
+                         transport.read_count};
+    };
+
+    const auto [clean_error, read_count] = run(std::nullopt);
+    ASSERT_FALSE(clean_error.has_value());
+    for (std::size_t index = 0; index < read_count; ++index)
+    {
+        SCOPED_TRACE(index);
+        EXPECT_EQ(run(index).first, std::optional{ErrorKind::kDisconnected});
+    }
+}
+
 TEST(SubaruTcuDensoSh705xCanExecutor, CrcDrainPropagatesCancellationAndDisconnect)
 {
     for (const ErrorKind error_kind : {ErrorKind::kCancelled, ErrorKind::kDisconnected})

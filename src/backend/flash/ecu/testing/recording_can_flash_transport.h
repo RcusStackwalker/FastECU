@@ -109,6 +109,11 @@ class RecordingCanFlashTransport final : public ICanFlashTransport
     {
         read_timeouts.push_back(timeout);
         Result<std::optional<bytes::Bytes>> result = scripted.Read(timeout, cancellation);
+        if (fail_read_at.has_value() && read_count == *fail_read_at)
+        {
+            ++read_count;
+            return Fail(ErrorKind::kDisconnected, "injected disconnect");
+        }
         ++read_count;
         if (result.has_value() && cancellation_to_trigger != nullptr && cancel_after_read_count.has_value() &&
             read_count == *cancel_after_read_count)
@@ -129,6 +134,9 @@ class RecordingCanFlashTransport final : public ICanFlashTransport
     FakeCancellationToken *cancellation_on_open = nullptr;
     bytes::Bytes cancel_prefix;
     std::optional<std::size_t> cancel_after_read_count;
+    // Replaces the scripted outcome of the read with this zero-based index by a
+    // disconnect, for walking a fault through every step of a flow.
+    std::optional<std::size_t> fail_read_at;
     std::size_t read_count{};
     std::vector<std::string> *timeline = nullptr;
 };
