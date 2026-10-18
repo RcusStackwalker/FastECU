@@ -100,8 +100,6 @@ Status RunInCarSequence(const CanExecutorContext& ctx, ICanFlashTransport& can,
     return {};
 }
 
-constexpr std::string_view kRejectionPrefix = "Wrong response from ECU: ";
-
 constexpr std::chrono::milliseconds kObkProbeTimeout{200};
 constexpr uds::ExchangePolicy kIdentityPolicy{.read_timeout = std::chrono::milliseconds{2000}};
 constexpr bytes::Byte kSessionProbe = 0x5F;
@@ -131,7 +129,7 @@ Result<bytes::Bytes> ReadDensoEncryptedPage(const CanExecutorContext& ctx, std::
     constexpr uds::ExchangePolicy kPagePolicy{.read_timeout = std::chrono::milliseconds{2000}};
     Result<bytes::Bytes> reply =
         FatalRequest(ExchangeContext(ctx, kPagePolicy), bytes::ComposeBe(uds::kSidReadMemoryChunk, address),
-                     kRejectionPrefix, std::format("the flash read at 0x{:x}", address));
+                     kDensoIso15765RejectionPrefix, std::format("the flash read at 0x{:x}", address));
     if (!reply.has_value())
     {
         return std::unexpected(reply.error());
@@ -142,9 +140,9 @@ Result<bytes::Bytes> ReadDensoEncryptedPage(const CanExecutorContext& ctx, std::
 Status DensoIso15765WriteChunk(const CanExecutorContext& ctx, std::uint32_t address, bytes::ByteView encrypted_chunk)
 {
     constexpr uds::ExchangePolicy kWritePolicy{.read_timeout = std::chrono::milliseconds{500}};
-    Result<bytes::Bytes> reply = FatalRequest(ExchangeContext(ctx, kWritePolicy),
-                                              bytes::ComposeBe(uds::kSidWriteMemoryChunk, address, encrypted_chunk),
-                                              kRejectionPrefix, std::format("the flash write at 0x{:x}", address));
+    Result<bytes::Bytes> reply = FatalRequest(
+        ExchangeContext(ctx, kWritePolicy), bytes::ComposeBe(uds::kSidWriteMemoryChunk, address, encrypted_chunk),
+        kDensoIso15765RejectionPrefix, std::format("the flash write at 0x{:x}", address));
     if (!reply.has_value())
     {
         return std::unexpected(reply.error());
@@ -375,7 +373,8 @@ Result<bytes::Bytes> FatalQuery(const CanExecutorContext& ctx, bytes::ByteView p
                                 const uds::ExchangePolicy& policy, std::string_view subject,
                                 std::optional<std::size_t> min_payload_size)
 {
-    return FatalQuery(ExchangeContext(ctx, policy), pdu, expected_prefix, kRejectionPrefix, subject, min_payload_size);
+    return FatalQuery(ExchangeContext(ctx, policy), pdu, expected_prefix, kDensoIso15765RejectionPrefix, subject,
+                      min_payload_size);
 }
 
 Result<bytes::Bytes> TolerantProbe(const CanExecutorContext& ctx, bytes::ByteView pdu, bytes::Byte expected_service,
@@ -435,7 +434,7 @@ void DensoEcuIdQuery(const CanExecutorContext& ctx)
 {
     LogInfo(ctx, "Requesting ECU ID");
     NonFatalQuery(ExchangeContext(ctx, kIdentityPolicy), bytes::Bytes{uds::kSidEcuIdQuery}, std::nullopt,
-                  kRejectionPrefix, "ECU ID");
+                  kDensoIso15765RejectionPrefix, "ECU ID");
 }
 
 void DensoVehicleInfoQueries(const CanExecutorContext& ctx)
@@ -443,13 +442,13 @@ void DensoVehicleInfoQueries(const CanExecutorContext& ctx)
     const UdsExchangeContext exchange = ExchangeContext(ctx, kIdentityPolicy);
     LogInfo(ctx, "Requesting VIN");
     NonFatalQuery(exchange, bytes::Bytes{uds::kSidVehicleInfoRequest, uds::kVehicleInfoPidVin}, uds::kVehicleInfoPidVin,
-                  kRejectionPrefix, "VIN");
+                  kDensoIso15765RejectionPrefix, "VIN");
     LogInfo(ctx, "Requesting CAL ID");
     NonFatalQuery(exchange, bytes::Bytes{uds::kSidVehicleInfoRequest, uds::kVehicleInfoPidCalId},
-                  uds::kVehicleInfoPidCalId, kRejectionPrefix, "CAL ID");
+                  uds::kVehicleInfoPidCalId, kDensoIso15765RejectionPrefix, "CAL ID");
     LogInfo(ctx, "Requesting CVN");
     NonFatalQuery(exchange, bytes::Bytes{uds::kSidVehicleInfoRequest, uds::kVehicleInfoPidCvn}, uds::kVehicleInfoPidCvn,
-                  kRejectionPrefix, "CVN");
+                  kDensoIso15765RejectionPrefix, "CVN");
 }
 
 Result<bool> DensoProgrammingBranchIsInCar(const CanExecutorContext& ctx, std::chrono::milliseconds probe_timeout)
@@ -457,14 +456,14 @@ Result<bool> DensoProgrammingBranchIsInCar(const CanExecutorContext& ctx, std::c
     LogInfo(ctx, "Checking access method");
     if (Result<bytes::Bytes> access =
             TolerantProbe(ctx, bytes::Bytes{uds::kSidDiagnosticSessionControl, kSessionProbe}, kSessionControlReply,
-                          0x01, probe_timeout, kRejectionPrefix, "access-method probe");
+                          0x01, probe_timeout, kDensoIso15765RejectionPrefix, "access-method probe");
         !access.has_value())
     {
         return std::unexpected(access.error());
     }
     Result<bytes::Bytes> selector =
         TolerantProbe(ctx, bytes::Bytes{uds::kSidReadDataByIdentifier, 0x10, 0x1D}, kReadDataByIdentifierReply, 0x10,
-                      probe_timeout, kRejectionPrefix, "programming-branch selector");
+                      probe_timeout, kDensoIso15765RejectionPrefix, "programming-branch selector");
     if (!selector.has_value())
     {
         return std::unexpected(selector.error());
@@ -504,7 +503,7 @@ Status DensoSecurityAccess(const CanExecutorContext& ctx)
     LogInfo(ctx, "Starting seed request");
     Result<bytes::Bytes> seed_reply =
         FatalQuery(exchange, bytes::Bytes{uds::kSidSecurityAccess, kSecurityAccessRequestSeed},
-                   bytes::Bytes{kSecurityAccessRequestSeed}, kRejectionPrefix, "seed request", 5);
+                   bytes::Bytes{kSecurityAccessRequestSeed}, kDensoIso15765RejectionPrefix, "seed request", 5);
     if (!seed_reply.has_value())
     {
         return std::unexpected(seed_reply.error());
@@ -517,7 +516,7 @@ Status DensoSecurityAccess(const CanExecutorContext& ctx)
     LogInfo(ctx, "Sending seed key");
     Result<bytes::Bytes> key_reply =
         FatalQuery(exchange, bytes::ComposeBe(uds::kSidSecurityAccess, kSecurityAccessSendKey, key),
-                   bytes::Bytes{kSecurityAccessSendKey}, kRejectionPrefix, "seed key");
+                   bytes::Bytes{kSecurityAccessSendKey}, kDensoIso15765RejectionPrefix, "seed key");
     if (!key_reply.has_value())
     {
         return std::unexpected(key_reply.error());
@@ -531,7 +530,7 @@ Status DensoIso15765Erase(const CanExecutorContext& ctx, const MemoryRegion& reg
     LogInfo(ctx, "Setting flash start & length");
     if (Result<bytes::Bytes> setup =
             FatalQuery(ExchangeContext(ctx, kErasePolicy), DensoIso15765DownloadSetupPdu(region),
-                       bytes::Bytes{0x20, 0x01, 0x05}, kRejectionPrefix, "flash start & length setup");
+                       bytes::Bytes{0x20, 0x01, 0x05}, kDensoIso15765RejectionPrefix, "flash start & length setup");
         !setup.has_value())
     {
         return std::unexpected(setup.error());
@@ -603,7 +602,7 @@ Status DensoIso15765ConnectInCar(const CanExecutorContext& ctx, ICanFlashTranspo
     }
     if (Result<bytes::Bytes> probe =
             TolerantProbe(ctx, bytes::Bytes{uds::kSidDiagnosticSessionControl, kSessionProbe}, kSessionControlReply,
-                          0x01, read_timeout, kRejectionPrefix, "in-car access-method probe");
+                          0x01, read_timeout, kDensoIso15765RejectionPrefix, "in-car access-method probe");
         !probe.has_value())
     {
         return std::unexpected(probe.error());

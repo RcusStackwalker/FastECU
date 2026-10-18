@@ -18,6 +18,9 @@
 namespace fastecu::flash
 {
 
+// The dialect's rejection log prefix, legacy's "Wrong response from ECU: ".
+inline constexpr std::string_view kDensoIso15765RejectionPrefix = "Wrong response from ECU: ";
+
 // The SSM seed/key and payload crypto constants shared by the Denso
 // ISO-15765 CAN executors. The bootloader-dialect consumers are
 // SubaruDenso1n83m_1_5mCanExecutor, SubaruDensoSh72531CanExecutor,
@@ -57,6 +60,16 @@ namespace fastecu::flash
 // all, how strictly a bad response is treated are the safety-relevant part of
 // each family, and a parameterized common routine would make a future reader
 // believe they are the same protocol when they are not.
+//
+// Most exchanges go through UdsClient over CanFlashUdsChannel. The
+// exceptions here are the probes and fire-and-forget writes whose reply legacy
+// either tolerates or never inspects at all: UdsClient enforces the
+// SID+0x40 convention and decodes NRCs, so those go through the channel --
+// or, where legacy does not even validate the reply's arbitration id,
+// through the transport -- directly. `channel` is the same
+// CanFlashUdsChannel instance `uds` wraps.
+//
+// Executors that log their own rejections use kDensoIso15765RejectionPrefix.
 //
 // Scope note: the index transformation these tables are paired with is NOT
 // here. It is not specific to this cluster -- it was spelled out at fourteen

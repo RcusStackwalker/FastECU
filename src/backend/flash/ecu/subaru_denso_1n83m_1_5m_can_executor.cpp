@@ -27,8 +27,6 @@ namespace fastecu::flash
 {
 namespace
 {
-using bytes::ComposeBe;
-using namespace std::chrono_literals;
 
 // Legacy's read timeouts, kept apart rather than flattened into one policy:
 // they are this family's own wire timing (header lines 44-47). The third,
@@ -54,13 +52,6 @@ constexpr uds::ExchangePolicy kChecksumPolicy{.read_timeout = kReceiveTimeout, .
 // the plan image is this address.
 constexpr std::uint32_t kImageStart = 0x08F9C000;
 
-// Most exchanges go through UdsClient over CanFlashUdsChannel. The
-// exceptions are the probes and fire-and-forget writes whose reply legacy
-// either tolerates or never inspects at all: UdsClient enforces the
-// SID+0x40 convention and decodes NRCs, so those go through the channel --
-// or, where legacy does not even validate the reply's arbitration id,
-// through the transport -- directly. `channel` is the same
-// CanFlashUdsChannel instance `uds` wraps.
 // The five-field context this package shares; see uds_client_exchange_common.h.
 using Ctx = CanExecutorContext;
 
