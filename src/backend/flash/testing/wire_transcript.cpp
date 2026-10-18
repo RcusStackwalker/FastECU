@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <format>
 #include <functional>
+#include <memory>
 #include <optional>
 #include <string_view>
 #include <utility>
@@ -40,8 +41,9 @@ std::string_view Trim(std::string_view text)
 template <typename T> std::optional<T> ParseNumber(std::string_view text, int base = 10)
 {
     T value{};
-    const auto *end = text.data() + text.size();
-    const auto [ptr, ec] = std::from_chars(text.data(), end, value, base);
+    const char *begin = std::to_address(text.begin());
+    const char *end = std::to_address(text.end());
+    const auto [ptr, ec] = std::from_chars(begin, end, value, base);
     if (ec != std::errc{} || ptr != end || text.empty())
     {
         return std::nullopt;

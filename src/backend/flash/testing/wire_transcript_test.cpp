@@ -5,6 +5,7 @@
 #include <gtest/gtest.h>
 
 #include <chrono>
+#include <cstddef>
 #include <numeric>
 #include <string>
 
@@ -123,10 +124,10 @@ TEST(WireTranscriptTest, SequentialChunksReferenceSequentialOffsets)
         image[i] = static_cast<bytes::Byte>(i % 32U); // repeats every 32 bytes
     }
     WireTranscript transcript;
-    for (std::size_t chunk = 0; chunk < 3; ++chunk)
+    for (std::ptrdiff_t chunk = 0; chunk < 3; ++chunk)
     {
         bytes::Bytes frame = {0x36};
-        frame.insert(frame.end(), image.begin() + chunk * 32, image.begin() + (chunk + 1) * 32);
+        frame.insert(frame.end(), image.begin() + (chunk * 32), image.begin() + ((chunk + 1) * 32));
         transcript.push_back({.kind = WireTranscriptStep::Kind::kWrite, .frame = frame});
     }
     const std::string text = FormatWireTranscript(transcript, image);
