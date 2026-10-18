@@ -77,47 +77,6 @@ using Ctx = CanExecutorContext;
 
 constexpr std::string_view kRejectionPrefix = "Wrong response from ECU: ";
 
-// Legacy's kernel jump plus its bounded re-read loop (bench lines 770-802,
-// try_count < 50; in-car lines 625-655, try_count < 10). The loop's
-// `init_ready` flag is never read after the loop and both arms fall straight
-// through to `return STATUS_SUCCESS` (line 805), so an unacknowledged jump is
-// logged here but is not an error -- deliberately not "fixed".
-Status JumpToKernel(Ctx& ctx, bytes::Byte session, int max_tries)
-{
-    LogInfo(ctx, "Jump to onboad kernel");
-    if (const Status sent =
-            ctx.channel.Send(bytes::Bytes{uds::kSidDiagnosticSessionControl, session}, ctx.cancellation);
-        !sent.has_value())
-    {
-        return sent;
-    }
-    Result<std::optional<bytes::Bytes>> received = ctx.channel.Receive(kShortTimeout, ctx.cancellation);
-    if (!received.has_value())
-    {
-        return std::unexpected(received.error());
-    }
-    for (int attempt = 0; attempt < max_tries; ++attempt)
-    {
-        if (received->has_value() && received->value().size() > 1 && (**received)[0] == kSessionControlReply &&
-            (**received)[1] == session)
-        {
-            LogInfo(ctx, "Kernel jump acknowledged");
-            return {};
-        }
-        if (const Status slept = ctx.clock.Sleep(100ms, ctx.cancellation); !slept.has_value())
-        {
-            return slept;
-        }
-        received = ctx.channel.Receive(kShortTimeout, ctx.cancellation);
-        if (!received.has_value())
-        {
-            return std::unexpected(received.error());
-        }
-    }
-    LogError(ctx, "Kernel jump was not acknowledged; continuing, as legacy does");
-    return {};
-}
-
 // In-car programming arm, legacy lines 341-656.
 Status ConnectInCar(Ctx& ctx, ICanFlashTransport& can)
 {
@@ -169,7 +128,8 @@ Status ConnectInCar(Ctx& ctx, ICanFlashTransport& can)
         return std::unexpected(selector.error());
     }
 
-    return JumpToKernel(ctx, kSessionInCarJump, 10);
+    return DensoIso15765JumpToKernel(ctx, kSessionInCarJump, 10, kShortTimeout, kShortTimeout,
+                                     /*discard_first_reply=*/false);
 }
 
 // Bench programming arm, legacy lines 657-803.
@@ -196,7 +156,8 @@ Status ConnectBench(Ctx& ctx)
         return unlocked;
     }
 
-    return JumpToKernel(ctx, kSessionBenchJump, 50);
+    return DensoIso15765JumpToKernel(ctx, kSessionBenchJump, 50, kShortTimeout, kShortTimeout,
+                                     /*discard_first_reply=*/false);
 }
 
 // Legacy connect_bootloader, lines 89-806. The legacy `is_serial_port_open()`

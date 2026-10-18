@@ -42,6 +42,11 @@ The diagnostic-session request that hands a bootloader flash family's ECU over
 to its resident on-board kernel, ending the connect.
 _Avoid_: Kernel upload (that sends a kernel; a kernel jump sends none)
 
+**Jump continuation**:
+The bounded wait after a kernel jump for the ECU to acknowledge it. Running
+out of attempts is logged but does not fail the connect.
+_Avoid_: Retry loop, init wait
+
 **Tolerant probe**:
 An exchange whose wrong reply is logged and stepped over, but whose absent or
 too-short reply aborts the operation.

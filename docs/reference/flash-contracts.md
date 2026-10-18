@@ -56,7 +56,8 @@ stop-response log are parameters), one B6 write request and the image write loop
 built on it (whole-image encryption, image-base indexing, whole chunks only),
 best-effort transfer exit with the settle-and-checksum close (the
 checksum read timeouts are a parameter), the N83M-only in-car opening run, the
-N83M 4M/SH72531 jump continuation wait, and the connect prelude (OBK probe,
+kernel jump with its continuation wait (first and loop read timeouts and the
+N83M 4M/SH72531 bench discard are parameters), and the connect prelude (OBK probe,
 identity queries, access-method probe and branch selector), and the
 single-block `write_memory` body (block-count log, erase, then the family's
 own reflash under the write phase), plus the dialect's `FatalQuery` prefix. Its header
@@ -65,7 +66,7 @@ own deviations, with legacy citations, are listed side by side in
 [Denso ISO-15765 family deviations](denso-iso15765-families.md).
 
 Kept local in each executor: read setup, the reflash header log line,
-the in-car and bench connect arms, complete kernel jumps and family response
+the in-car and bench connect arms and family response
 policy. In particular:
 
 - Setup PDUs accept only a region, so callers cannot select another SID. Read
@@ -81,8 +82,9 @@ policy. In particular:
   re-sends are distinct from erase's receive-only continuations. It keeps the
   legacy `Closed succesfully` spelling.
 - Bench jumps: 4M and SH72531 discard even a matching first reply, wait and read
-  again; N83M 1.5M and SH72543 diesel read once and keep their own continuations.
-  The final continuation receive is unchecked and exhaustion succeeds.
+  again; N83M 1.5M and SH72543 diesel read once. The diesel reads its first
+  reply at 2000 ms and continues at 2000 ms in car; everything else reads at
+  200 ms. The final continuation receive is unchecked and exhaustion succeeds.
 - Non-fatal identity queries swallow exchange errors, including cancellation;
   a cancelled token still prevents later transport I/O. SH72543 diesel reads
   the ECU ID by DID and keeps that query local.

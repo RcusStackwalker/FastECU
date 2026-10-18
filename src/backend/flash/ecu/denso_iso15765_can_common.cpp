@@ -272,7 +272,8 @@ Status DensoIso15765WriteImageAndVerifyChecksum(const CanExecutorContext& ctx, b
 }
 
 Status DensoIso15765WaitForJumpAck(const CanExecutorContext& ctx, bytes::Byte session,
-                                   std::optional<bytes::Bytes> first_reply, int attempt_count)
+                                   std::optional<bytes::Bytes> first_reply, int attempt_count,
+                                   std::chrono::milliseconds receive_timeout)
 {
     for (int attempt = 0; attempt < attempt_count; ++attempt)
     {
@@ -286,7 +287,7 @@ Status DensoIso15765WaitForJumpAck(const CanExecutorContext& ctx, bytes::Byte se
         {
             return slept;
         }
-        auto received = ctx.channel.Receive(std::chrono::milliseconds{200}, ctx.cancellation);
+        auto received = ctx.channel.Receive(receive_timeout, ctx.cancellation);
         if (!received.has_value())
         {
             return std::unexpected(received.error());
@@ -295,6 +296,44 @@ Status DensoIso15765WaitForJumpAck(const CanExecutorContext& ctx, bytes::Byte se
     }
     LogError(ctx, "Kernel jump was not acknowledged; continuing, as legacy does");
     return {};
+}
+
+// Legacy kernel jumps and their bounded re-read loops: N83M 1.5M bench
+// 770-802 / in car 625-655, N83M 4M 776-806 / 631-659, SH72531 770-804 /
+// 625-655, SH72543 diesel 755-790 / 617-648. The bench discard is N83M 4M
+// lines 788-791 and SH72531 782-785: read, delay(50), read again. The loop's
+// `init_ready` flag is never read after the loop and every arm falls through
+// to `return STATUS_SUCCESS`, so an unacknowledged jump is logged but is not
+// an error -- deliberately not "fixed".
+Status DensoIso15765JumpToKernel(const CanExecutorContext& ctx, bytes::Byte session, int max_tries,
+                                 std::chrono::milliseconds first_read_timeout,
+                                 std::chrono::milliseconds loop_read_timeout, bool discard_first_reply)
+{
+    LogInfo(ctx, "Jump to onboad kernel");
+    if (const Status sent =
+            ctx.channel.Send(bytes::Bytes{uds::kSidDiagnosticSessionControl, session}, ctx.cancellation);
+        !sent.has_value())
+    {
+        return sent;
+    }
+    Result<std::optional<bytes::Bytes>> received = ctx.channel.Receive(first_read_timeout, ctx.cancellation);
+    if (!received.has_value())
+    {
+        return std::unexpected(received.error());
+    }
+    if (discard_first_reply)
+    {
+        if (const Status slept = ctx.clock.Sleep(std::chrono::milliseconds{50}, ctx.cancellation); !slept.has_value())
+        {
+            return slept;
+        }
+        received = ctx.channel.Receive(first_read_timeout, ctx.cancellation);
+        if (!received.has_value())
+        {
+            return std::unexpected(received.error());
+        }
+    }
+    return DensoIso15765WaitForJumpAck(ctx, session, std::move(*received), max_tries, loop_read_timeout);
 }
 
 Result<bytes::Bytes> FatalQuery(const CanExecutorContext& ctx, bytes::ByteView pdu, bytes::ByteView expected_prefix,

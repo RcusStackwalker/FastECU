@@ -139,49 +139,6 @@ Status TolerantSetup(Ctx& ctx, bytes::ByteView pdu, bytes::ByteView expected_pre
     return {};
 }
 
-// Legacy's kernel jump plus its bounded re-read loop (bench lines 776-806,
-// try_count < 50; in-car lines 631-659, try_count < 10). The loop's
-// `init_ready` flag is never read after the loop and both arms fall straight
-// through to `return STATUS_SUCCESS` (line 808), so an unacknowledged jump is
-// logged here but is not an error -- deliberately not "fixed".
-//
-// `duplicate_pre_loop_read` reproduces the bench arm's extra read: legacy
-// reads once at line 788, discards it, waits 50 ms at line 790 and reads
-// again at line 791, and only that second frame seeds the wait loop. The
-// in-car arm reads once (line 642). Its SH72531 sibling's bench arm does the
-// same two reads and the same delay (its legacy lines 782-785); only the
-// 1N83M 1.5M reads once.
-Status JumpToKernel(Ctx& ctx, bytes::Byte session, int max_tries, bool duplicate_pre_loop_read)
-{
-    LogInfo(ctx, "Jump to onboad kernel");
-    if (const Status sent =
-            ctx.channel.Send(bytes::Bytes{uds::kSidDiagnosticSessionControl, session}, ctx.cancellation);
-        !sent.has_value())
-    {
-        return sent;
-    }
-    Result<std::optional<bytes::Bytes>> received = ctx.channel.Receive(kShortTimeout, ctx.cancellation);
-    if (!received.has_value())
-    {
-        return std::unexpected(received.error());
-    }
-    if (duplicate_pre_loop_read)
-    {
-        // Line 790's delay(50), then line 791's second read, whose result
-        // overwrites the first and is the only one the loop ever sees.
-        if (const Status slept = ctx.clock.Sleep(50ms, ctx.cancellation); !slept.has_value())
-        {
-            return slept;
-        }
-        received = ctx.channel.Receive(kShortTimeout, ctx.cancellation);
-        if (!received.has_value())
-        {
-            return std::unexpected(received.error());
-        }
-    }
-    return DensoIso15765WaitForJumpAck(ctx, session, std::move(*received), max_tries);
-}
-
 // In-car programming arm, legacy lines 345-661.
 Status ConnectInCar(Ctx& ctx, ICanFlashTransport& can)
 {
@@ -234,7 +191,8 @@ Status ConnectInCar(Ctx& ctx, ICanFlashTransport& can)
         return std::unexpected(selector.error());
     }
 
-    return JumpToKernel(ctx, kSessionInCarJump, 10, false);
+    return DensoIso15765JumpToKernel(ctx, kSessionInCarJump, 10, kShortTimeout, kShortTimeout,
+                                     /*discard_first_reply=*/false);
 }
 
 // Bench programming arm, legacy lines 663-808.
@@ -261,7 +219,8 @@ Status ConnectBench(Ctx& ctx)
         return unlocked;
     }
 
-    return JumpToKernel(ctx, kSessionBenchJump, 50, true);
+    return DensoIso15765JumpToKernel(ctx, kSessionBenchJump, 50, kShortTimeout, kShortTimeout,
+                                     /*discard_first_reply=*/true);
 }
 
 // Legacy connect_bootloader, lines 89-810. The legacy `is_serial_port_open()`

@@ -41,12 +41,13 @@ namespace fastecu::flash
 // padding), one B6 write request and the image write loop built on it, best-effort transfer
 // exit and the settle-and-checksum close around it (all four Denso ISO-15765 bootloader dialect executors), and the
 // N83M in-car opening exchange run (the two N83M executors only; its 0x7E1 request asks for session 0x63, where the
-// SH-family runs send 0x03), plus the N83M 4M/SH72531 jump continuation wait, and connect_bootloader's prelude (OBK
-// probe, identity queries, access-method probe and branch selector), which direct comparison showed byte-identical
-// across all four apart from one log line, the diesel ECU ID query and the diesel probe timeout, all kept as parameters
-// or local. The single-block write_memory body is shared too; each family's reflash is now only its header log line,
-// the shared write loop and the shared close. Everything else that looks alike -- the in-car and bench connect arms,
-// the complete kernel jump -- differs between the
+// SH-family runs send 0x03), plus the kernel jump with its continuation wait (all four; the read timeouts and the N83M
+// 4M/SH72531 bench discard are parameters), and connect_bootloader's prelude (OBK probe, identity queries,
+// access-method probe and branch selector), which direct comparison showed byte-identical across all four apart from
+// one log line, the diesel ECU ID query and the diesel probe timeout, all kept as parameters or local. The single-block
+// write_memory body is shared too; each family's reflash is now only its header log line, the shared write loop and the
+// shared close. Everything else that looks alike -- the in-car and bench connect arms,
+// -- differs between the
 // families in read timeouts, retry counts, pre-loop read counts, image base addresses, and, most importantly, in how
 // strictly a bad response is treated. Those differences are the safety-relevant part of each family: collapsing them
 // behind a parameterized common routine would make a future reader believe these are the same protocol when they are
@@ -168,11 +169,23 @@ Result<bytes::Bytes> FatalQuery(const CanExecutorContext& ctx, bytes::ByteView p
                                 const uds::ExchangePolicy& policy, std::string_view subject,
                                 std::optional<std::size_t> min_payload_size = std::nullopt);
 
-// N83M 4M/SH72531 continuation only: check current reply, sleep 100 ms,
-// receive at 200 ms. The last receive remains unchecked; exhaustion logs and
-// succeeds. Callers own first reads, bench discard/50 ms wait, session and bound.
+// The kernel jump's continuation: check the current reply for 50 <session>,
+// sleep 100 ms, receive at `receive_timeout`. The last receive remains
+// unchecked; exhaustion logs and succeeds.
 Status DensoIso15765WaitForJumpAck(const CanExecutorContext& ctx, bytes::Byte session,
-                                   std::optional<bytes::Bytes> first_reply, int attempt_count);
+                                   std::optional<bytes::Bytes> first_reply, int attempt_count,
+                                   std::chrono::milliseconds receive_timeout);
+
+// connect_bootloader's kernel jump: send 10 <session>, read one reply at
+// `first_read_timeout`, then the continuation above at `loop_read_timeout`
+// for at most `max_tries` (10 in car, 50 on the bench). The N83M 4M and
+// SH72531 bench arms set `discard_first_reply`: a 50 ms wait and a second
+// read at `first_read_timeout` replace even a matching first reply. Every
+// family reads at 200 ms except SH72543 diesel, which reads its first reply at
+// 2000 ms and continues at 2000 ms in car and 200 ms on the bench.
+Status DensoIso15765JumpToKernel(const CanExecutorContext& ctx, bytes::Byte session, int max_tries,
+                                 std::chrono::milliseconds first_read_timeout,
+                                 std::chrono::milliseconds loop_read_timeout, bool discard_first_reply);
 
 // Sends `pdu`, reads one reply, and compares its first two bytes. A mismatch
 // is LOGGED AND TOLERATED -- the frame is still returned and the caller
