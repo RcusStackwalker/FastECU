@@ -52,8 +52,7 @@ The [common module](../../src/backend/flash/ecu/denso_iso15765_can_common.h)
 shares eleven operations across N83M 1.5M, N83M 4M, SH72531 and SH72543 diesel:
 setup-PDU encoding, seed/key, erase, one encrypted B7 page read, one B6 write
 request, best-effort transfer exit with the settle-and-checksum close (the
-checksum read timeouts and the SH-only `Checksum not verified` log are
-parameters), the N83M-only in-car opening run, the
+checksum read timeouts are a parameter), the N83M-only in-car opening run, the
 N83M 4M/SH72531 jump continuation wait, and the connect prelude (OBK probe,
 identity queries, access-method probe and branch selector), and the
 single-block `write_memory` body (block-count log, erase, then the family's
