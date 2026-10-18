@@ -17,6 +17,7 @@
 #include "src/platform/desktop/common/transport/desktop_mixed_can_flash_transport.h"
 #include "src/platform/desktop/common/transport/fastecu_kline_transport.h"
 #include "src/platform/desktop/common/transport/fastecu_ssm_transport.h"
+#include "src/platform/desktop/common/transport/serial_read.h"
 
 namespace
 {
@@ -255,6 +256,23 @@ TEST(TransportReadPrechecks, ClosedAdaptersKeepCancellationAndModePrecedence)
     // Mixed CAN checks its lifecycle/mode before the serial-read precheck.
     const auto mixed_closed = mixed.ReadIso15765(10ms, cancellation);
     EXPECT_THAT(mixed_closed, IsErrWith(ErrorKind::kDisconnected, StrEq("ISO-15765 read called after close()")));
+}
+
+TEST(GuardedDriverCall, MapsEscapingExceptionsToTheRequestedKind)
+{
+    using fastecu::desktop::detail::GuardedDriverCall;
+    EXPECT_THAT(GuardedDriverCall(ErrorKind::kInternal, "unknown",
+                                  []() -> fastecu::Status { throw std::runtime_error("driver broke"); }),
+                IsErrWith(ErrorKind::kInternal, StrEq("driver broke")));
+    EXPECT_THAT(GuardedDriverCall(ErrorKind::kDisconnected, "unknown", []() -> fastecu::Status { throw 7; }),
+                IsErrWith(ErrorKind::kDisconnected, StrEq("unknown")));
+    EXPECT_THAT(GuardedDriverCall(ErrorKind::kInternal, "unknown", []() -> fastecu::Status { return {}; }), IsOk());
+}
+
+TEST(GuardedDriverCall, ResetOfAClosedSerialIsDisconnected)
+{
+    EXPECT_THAT(fastecu::desktop::detail::ResetSerialConnection(nullptr),
+                IsErrWith(ErrorKind::kDisconnected, StrEq("reset_connection() called after close()")));
 }
 
 INSTANTIATE_TEST_SUITE_P(Adapters, TransportReads,
