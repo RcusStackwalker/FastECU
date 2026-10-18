@@ -65,3 +65,24 @@ fastecu_portable_gtest(
         "@googletest//:gtest",
     ],
 )
+
+cc_library(
+    name = "wire_transcript",
+    testonly = True,
+    srcs = ["wire_transcript.cpp"],
+    hdrs = ["wire_transcript.h"],
+    deps = [
+        "//src/algorithms/protocol",
+        "//src/backend/ports",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "wire_transcript_test",
+    srcs = ["wire_transcript_test.cpp"],
+    deps = [
+        ":wire_transcript",
+        "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
+    ],
+)
