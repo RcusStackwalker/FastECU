@@ -734,8 +734,8 @@ Result<std::uint32_t> QueryCrc(Context& context, const MemoryRegion& block)
 Result<CompareResult> CompareBlocks(Context& context, const FlashPlan& plan, bytes::ByteView image,
                                     PhaseReporter *progress, bool after_reflash = false)
 {
-    return CompareBeefBlocks(context, plan, image, progress, after_reflash, "petrol",
-                             [&](const MemoryRegion& block) { return QueryCrc(context, block); });
+    return CompareBeefBlocks(context, plan.EraseRegions(), plan.TransferRegion().start, image, progress, after_reflash,
+                             "petrol", [&](const MemoryRegion& block) { return QueryCrc(context, block); });
 }
 
 Status InitializeFlash(Context& context, bool test_write)

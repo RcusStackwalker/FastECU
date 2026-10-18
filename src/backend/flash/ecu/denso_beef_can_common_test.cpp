@@ -1,13 +1,14 @@
 #include "src/backend/flash/ecu/denso_beef_can_common.h"
 
+#include <algorithm>
 #include <array>
 #include <chrono>
+#include <numeric>
 #include <utility>
 #include <vector>
 
 #include <gtest/gtest.h>
 
-#include "src/backend/flash/ecu/subaru_denso_sh7058_can_plan.h"
 #include "src/backend/ports/testing/fake_cancellation_token.h"
 #include "src/backend/ports/testing/fake_clock.h"
 #include "src/backend/ports/testing/recording_event_sink.h"
@@ -93,49 +94,69 @@ TEST(DensoBeefCanCommonTest, ParseBeefBoundsEveryDeclaredField)
     }
 }
 
-// A real petrol write plan stands in for any BEEF family's: CompareBeefBlocks
-// reads only its transfer and erase regions.
+// The context shape the shared helpers expect: cancellation, events and clock.
 struct CompareFixture
 {
-    CompareFixture()
-    {
-        auto built = BuildSubaruDensoSh7058CanPlan(
-            FlashOperation::kWrite, "sub_ecu_denso_sh7058_can", "SH7058", bytes::Bytes(0x100000, bytes::Byte{0}),
-            KernelImage{.id = "kernel", .load_address = 0xFFFF3000, .bytes = {0x01, 0x02, 0x03, 0x04}});
-        EXPECT_THAT(built, IsOk());
-        plan.emplace(std::move(*built));
-    }
-
-    std::optional<FlashPlan> plan;
     FakeCancellationToken cancellation;
     RecordingEventSink sink;
     FakeClock fake_clock;
     IEventSink& events{sink};
     IClock& clock{fake_clock};
-    bytes::Bytes image = bytes::Bytes(0x100000, bytes::Byte{0});
 };
 
-TEST(DensoBeefCanCommonTest, CompareBeefBlocksRejectsAnImageShorterThanTheRegionsAndNamesTheFamily)
+// Three 4-byte regions of an image that starts at ECU address 0x1000.
+constexpr std::uint32_t kImageBase = 0x1000;
+constexpr std::array<MemoryRegion, 3> kRegions{{{0x1000, 4}, {0x1004, 4}, {0x1008, 4}}};
+
+TEST(DensoBeefCanCommonTest, CompareBeefBlocksChecksEachRegionAgainstItsOwnSliceOfTheImage)
 {
     CompareFixture fixture;
-    const bytes::Bytes short_image(16, bytes::Byte{0});
+    bytes::Bytes image(12);
+    std::iota(image.begin(), image.end(), bytes::Byte{1});
+    std::size_t queried = 0;
 
-    const auto result = CompareBeefBlocks(fixture, *fixture.plan, short_image, nullptr, true, "petrol",
-                                          [](const MemoryRegion&) -> Result<std::uint32_t> { return 0U; });
+    const auto result =
+        CompareBeefBlocks(fixture, kRegions, kImageBase, image, nullptr, false, "petrol",
+                          [&](const MemoryRegion& block) -> Result<std::uint32_t>
+                          {
+                              const std::uint32_t crc = fastecu::checksum::Crc32(
+                                  bytes::ByteView{image}.subspan(block.start - kImageBase, block.length));
+                              return queried++ == 1 ? crc ^ 1U : crc;
+                          });
 
-    EXPECT_THAT(result, IsErrWith(ErrorKind::kInvalidConfig, StrEq("petrol CRC block is outside the image")));
+    ASSERT_THAT(result, IsOk());
+    EXPECT_EQ(queried, kRegions.size());
+    EXPECT_EQ(result->changed_count, 1U);
+    EXPECT_EQ(result->modified, (std::vector<bool>{false, true, false}));
+    EXPECT_EQ(fixture.fake_clock.Elapsed(), 5ms * queried);
+    EXPECT_EQ(fixture.sink.logs.at(fixture.sink.logs.size() - 2).second, "1, ");
+}
+
+TEST(DensoBeefCanCommonTest, CompareBeefBlocksRejectsRegionsOutsideTheImageAndNamesTheFamily)
+{
+    const auto never_asked = [](const MemoryRegion&) -> Result<std::uint32_t> { return 0U; };
+    const bytes::Bytes image(12);
+    CompareFixture fixture;
+
+    EXPECT_THAT(CompareBeefBlocks(fixture, kRegions, kImageBase, bytes::ByteView{image}.first(11), nullptr, true,
+                                  "petrol", never_asked),
+                IsErrWith(ErrorKind::kInvalidConfig, StrEq("petrol CRC block is outside the image")));
+    EXPECT_THAT(CompareBeefBlocks(fixture, kRegions, kImageBase + 1, image, nullptr, true, "petrol", never_asked),
+                IsErrWith(ErrorKind::kInvalidConfig, StrEq("petrol CRC block is outside the image")));
+    EXPECT_THAT(CompareBeefBlocks(fixture, kRegions, kImageBase, image, nullptr, true, "petrol", never_asked), IsOk());
 }
 
 TEST(DensoBeefCanCommonTest, CompareBeefBlocksStopsOnQueryFailureAndOnCancellationDuringTheSettle)
 {
+    const bytes::Bytes image(12);
     CompareFixture failing;
-    EXPECT_THAT(CompareBeefBlocks(failing, *failing.plan, failing.image, nullptr, false, "petrol",
+    EXPECT_THAT(CompareBeefBlocks(failing, kRegions, kImageBase, image, nullptr, false, "petrol",
                                   [](const MemoryRegion&) -> Result<std::uint32_t>
                                   { return Fail(ErrorKind::kTimeout, "no CRC reply"); }),
                 IsErrWith(ErrorKind::kTimeout, StrEq("no CRC reply")));
 
     CompareFixture cancelling;
-    EXPECT_THAT(CompareBeefBlocks(cancelling, *cancelling.plan, cancelling.image, nullptr, false, "petrol",
+    EXPECT_THAT(CompareBeefBlocks(cancelling, kRegions, kImageBase, image, nullptr, false, "petrol",
                                   [&](const MemoryRegion&) -> Result<std::uint32_t>
                                   {
                                       cancelling.cancellation.SetCancelled(true);

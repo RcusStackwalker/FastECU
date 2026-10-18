@@ -9,6 +9,7 @@
 #include <iterator>
 #include <limits>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -107,7 +108,7 @@ inline Result<bytes::Bytes> BeefKernelUploadPayload(bytes::ByteView kernel, std:
     {
         return Fail(ErrorKind::kInvalidConfig, std::format("{} kernel upload size is invalid", family));
     }
-    if (encrypted->size() > 0xFFFFFFU)
+    if (encrypted->size() >= 0x1000000U)
     {
         return Fail(ErrorKind::kInvalidConfig, std::format("{} kernel upload exceeds the 24-bit wire length", family));
     }
@@ -328,25 +329,27 @@ struct CompareResult
 
 // write_mem()/get_changed_blocks(): asks the ECU for the CRC of every erase
 // region and flags those that differ from the image. `query_crc` fetches one
-// region's CRC; `family` names the executor in the out-of-image error.
+// region's CRC; `image_base` is the ECU address of the image's first byte;
+// `family` names the executor in the out-of-image error.
 template <typename C, typename QueryCrc>
-Result<CompareResult> CompareBeefBlocks(C& ctx, const FlashPlan& plan, bytes::ByteView image, PhaseReporter *progress,
-                                        bool after_reflash, std::string_view family, QueryCrc query_crc)
+Result<CompareResult> CompareBeefBlocks(C& ctx, std::span<const MemoryRegion> blocks, std::uint32_t image_base,
+                                        bytes::ByteView image, PhaseReporter *progress, bool after_reflash,
+                                        std::string_view family, QueryCrc query_crc)
 {
     CompareResult result;
-    result.modified.assign(plan.EraseRegions().size(), false);
+    result.modified.assign(blocks.size(), false);
     LogInfo(ctx, after_reflash ? "--- Comparing ECU flash memory pages to image file after reflash ---"
                                : "--- Comparing ECU flash memory pages to image file ---");
     LogInfo(ctx, "blk\tstart\tlen\tecu crc\timg crc\tsame?");
-    for (std::size_t index = 0; index < plan.EraseRegions().size(); ++index)
+    for (std::size_t index = 0; index < blocks.size(); ++index)
     {
         if (const Status checkpoint = CancelledIfRequested(ctx, "ROM compare cancelled"); !checkpoint.has_value())
         {
             return std::unexpected(checkpoint.error());
         }
-        const MemoryRegion block = plan.EraseRegions()[index];
-        if (block.start < plan.TransferRegion().start ||
-            static_cast<std::uint64_t>(block.start - plan.TransferRegion().start) + block.length > image.size())
+        const MemoryRegion block = blocks[index];
+        if (block.start < image_base ||
+            static_cast<std::uint64_t>(block.start - image_base) + block.length > image.size())
         {
             return Fail(ErrorKind::kInvalidConfig, std::format("{} CRC block is outside the image", family));
         }
@@ -356,7 +359,7 @@ Result<CompareResult> CompareBeefBlocks(C& ctx, const FlashPlan& plan, bytes::By
         {
             return std::unexpected(ecu_crc.error());
         }
-        const std::size_t image_offset = block.start - plan.TransferRegion().start;
+        const std::size_t image_offset = block.start - image_base;
         const std::uint32_t image_crc = fastecu::checksum::Crc32(image.subspan(image_offset, block.length));
         LogDebug(ctx, std::format("ROM CRC: 0x{:08x} IMG CRC: 0x{:08x}", *ecu_crc, image_crc));
         LogInfo(ctx, std::format("\t{:08X}\t{:08X}", *ecu_crc, image_crc));
