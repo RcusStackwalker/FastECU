@@ -3,11 +3,13 @@
 #include <array>
 #include <chrono>
 #include <cstdint>
+#include <format>
 #include <optional>
 #include <string_view>
 
 #include "src/algorithms/protocol/bytes.h"
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
+#include "src/backend/flash/ecu/flash_phase_progress.h"
 #include "src/backend/flash/ecu/uds_client_exchange_common.h"
 #include "src/backend/flash/flash_executor.h"
 #include "src/backend/flash/flash_types.h"
@@ -33,7 +35,7 @@ namespace fastecu::flash
 // The decrypt table remains valid for the bootloader-dialect normal-ROM read paths.
 // DensoCAN is not a consumer of this data-only cluster.
 //
-// Beyond these tables, the common module shares nine narrow operations: pure
+// Beyond these tables, the common module shares ten narrow operations: pure
 // setup-PDU encoding, the SecurityAccess seed/key exchange, the erase flow,
 // one encrypted B7 page read, one B6 write request and best-effort transfer
 // exit (all four Denso ISO-15765 bootloader dialect executors), and the N83M in-car opening
@@ -42,6 +44,7 @@ namespace fastecu::flash
 // 0x03), plus the N83M 4M/SH72531 jump continuation wait, and connect_bootloader's prelude (OBK probe, identity
 // queries, access-method probe and branch selector), which direct comparison showed byte-identical across all four
 // apart from one log line, the diesel ECU ID query and the diesel probe timeout, all kept as parameters or local.
+// The single-block write_memory body is shared too; each family keeps its own reflash and passes it in.
 // Everything else that looks alike -- the in-car and bench connect arms,
 // the reflash routines, the complete kernel jump, the stop retry loops, the checksum verify -- differs between the
 // families in read timeouts, retry counts, pre-loop read counts, image base addresses, and, most importantly, in how
@@ -127,6 +130,13 @@ Status DensoIso15765WriteChunk(const CanExecutorContext& ctx, std::uint32_t addr
 // Logs the first positive reply and stops; callers own settle and checksum.
 void DensoIso15765BestEffortTransferExit(const CanExecutorContext& ctx);
 
+// fatal_query with this dialect's "Wrong response from ECU: " rejection
+// prefix; see uds_client_exchange_common.h for what expected_prefix, subject
+// and min_payload_size mean.
+Result<bytes::Bytes> FatalQuery(const CanExecutorContext& ctx, bytes::ByteView pdu, bytes::ByteView expected_prefix,
+                                const uds::ExchangePolicy& policy, std::string_view subject,
+                                std::optional<std::size_t> min_payload_size = std::nullopt);
+
 // N83M 4M/SH72531 continuation only: check current reply, sleep 100 ms,
 // receive at 200 ms. The last receive remains unchecked; exhaustion logs and
 // succeeds. Callers own first reads, bench discard/50 ms wait, session and bound.
@@ -202,5 +212,35 @@ Status DensoIso15765Erase(const CanExecutorContext& ctx, const MemoryRegion& reg
 // the SH72531 and SH72543 diesel in-car arms send 0x03 there and keep their own
 // runs.
 Status N83mInCarFireAndForget(const CanExecutorContext& ctx, ICanFlashTransport& can);
+
+// write_memory's body: each family erases and reflashes exactly one block
+// (legacy block_modified marks one entry), so this logs `block_index` -- 1 of
+// a three-block table on the N83M and SH72531 families, 0 of SH72543 diesel's
+// one-block table -- erases `block` with DensoIso15765Erase, then runs the
+// family's `reflash(PhaseReporter&)` under a "Write ROM" phase sized to the
+// block. Reflash stays local: its pacing and checks differ per family.
+template <typename Reflash>
+Status DensoIso15765WriteBlock(const CanExecutorContext& ctx, const MemoryRegion& block, int block_index,
+                               PhaseSequence& phases, Reflash&& reflash)
+{
+    LogInfo(ctx, std::format("Blocks to flash: {},  (total: 1)", block_index));
+    LogInfo(ctx, "--- Erasing ECU flash memory ---");
+    PhaseReporter erase = phases.Start("Erase", 1);
+    if (const Status erased = DensoIso15765Erase(ctx, block); !erased.has_value())
+    {
+        return erased;
+    }
+    erase.Complete();
+
+    LogInfo(ctx, "--- Start writing ROM file to ECU flash memory ---");
+    PhaseReporter write = phases.Start("Write ROM", static_cast<int>(block.length));
+    if (const Status written = reflash(write); !written.has_value())
+    {
+        return written;
+    }
+    write.Complete();
+    LogInfo(ctx, std::format("Block {} reflash complete.", block_index));
+    return {};
+}
 
 } // namespace fastecu::flash

@@ -113,17 +113,6 @@ using Ctx = CanExecutorContext;
 
 constexpr std::string_view kRejectionPrefix = "Wrong response from ECU: ";
 
-// fatal_request plus the expected-response-prefix check -- see
-// uds_client_exchange_common.h's fatal_query for what expected_prefix,
-// subject and min_payload_size mean.
-Result<bytes::Bytes> FatalQuery(Ctx& ctx, bytes::ByteView pdu, bytes::ByteView expected_prefix,
-                                const uds::ExchangePolicy& policy, std::string_view subject,
-                                std::optional<std::size_t> min_payload_size = std::nullopt)
-{
-    return ::fastecu::flash::FatalQuery(ExchangeContext(ctx, policy), pdu, expected_prefix, kRejectionPrefix, subject,
-                                        min_payload_size);
-}
-
 // Legacy's "log a mismatch, abort only on an absent or too-short reply"
 // probe shape (lines 286-311, 313-339, 346-371). fatal_query aborts on a
 // mismatch and non_fatal_query never aborts, so neither fits; this goes
@@ -474,24 +463,8 @@ Status ReflashBlock(Ctx& ctx, bytes::ByteView image, const MemoryRegion& block, 
 // which is the plan's transfer region.
 Status WriteMemory(Ctx& ctx, bytes::ByteView image, const MemoryRegion& block, PhaseSequence& phases)
 {
-    LogInfo(ctx, "Blocks to flash: 1,  (total: 1)");
-    LogInfo(ctx, "--- Erasing ECU flash memory ---");
-    PhaseReporter erase = phases.Start("Erase", 1);
-    if (const Status erased = DensoIso15765Erase(ctx, block); !erased.has_value())
-    {
-        return erased;
-    }
-    erase.Complete();
-
-    LogInfo(ctx, "--- Start writing ROM file to ECU flash memory ---");
-    PhaseReporter write = phases.Start("Write ROM", static_cast<int>(block.length));
-    if (const Status written = ReflashBlock(ctx, image, block, write); !written.has_value())
-    {
-        return written;
-    }
-    write.Complete();
-    LogInfo(ctx, "Block 1 reflash complete.");
-    return {};
+    return DensoIso15765WriteBlock(ctx, block, 1, phases,
+                                   [&](PhaseReporter& write) { return ReflashBlock(ctx, image, block, write); });
 }
 
 } // namespace

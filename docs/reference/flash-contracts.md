@@ -49,14 +49,16 @@ checksum and rejects its `7F` failure marker.
 ## Denso ISO-15765 bootloader dialect
 
 The [common module](../../src/backend/flash/ecu/denso_iso15765_can_common.h)
-shares nine operations across N83M 1.5M, N83M 4M, SH72531 and SH72543 diesel:
+shares ten operations across N83M 1.5M, N83M 4M, SH72531 and SH72543 diesel:
 setup-PDU encoding, seed/key, erase, one encrypted B7 page read, one B6 write
 request, best-effort transfer exit, the N83M-only in-car opening run, the
 N83M 4M/SH72531 jump continuation wait, and the connect prelude (OBK probe,
-identity queries, access-method probe and branch selector). Its header
+identity queries, access-method probe and branch selector), and the
+single-block `write_memory` body (block-count log, erase, then the family's
+own reflash under the write phase), plus the dialect's `FatalQuery` prefix. Its header
 documents each operation and why everything else stays local.
 
-Kept local in each executor: `write_memory` orchestration, read loops, reflash,
+Kept local in each executor: read loops, reflash,
 the in-car and bench connect arms, complete kernel jumps, close/checksum and
 family response policy. In particular:
 

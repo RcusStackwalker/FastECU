@@ -125,17 +125,6 @@ using Ctx = CanExecutorContext;
 
 constexpr std::string_view kRejectionPrefix = "Wrong response from ECU: ";
 
-// fatal_request plus the expected-response-prefix check -- see
-// uds_client_exchange_common.h's fatal_query for what expected_prefix,
-// subject and min_payload_size mean.
-Result<bytes::Bytes> FatalQuery(Ctx& ctx, bytes::ByteView pdu, bytes::ByteView expected_prefix,
-                                const uds::ExchangePolicy& policy, std::string_view subject,
-                                std::optional<std::size_t> min_payload_size = std::nullopt)
-{
-    return ::fastecu::flash::FatalQuery(ExchangeContext(ctx, policy), pdu, expected_prefix, kRejectionPrefix, subject,
-                                        min_payload_size);
-}
-
 // The ECU ID query needs a two-byte reply check (`F1 82`, line 146) where the
 // shared non_fatal_query checks one subfunction byte, so this family carries
 // its own non-fatal variant. Same shape otherwise: log on a match, log and
@@ -575,24 +564,8 @@ Status ReflashBlock(Ctx& ctx, bytes::ByteView image, const MemoryRegion& block, 
 // block because its 0x0-0x8000 entry is commented out.
 Status WriteMemory(Ctx& ctx, bytes::ByteView image, const MemoryRegion& block, PhaseSequence& phases)
 {
-    LogInfo(ctx, "Blocks to flash: 0,  (total: 1)");
-    LogInfo(ctx, "--- Erasing ECU flash memory ---");
-    PhaseReporter erase = phases.Start("Erase", 1);
-    if (const Status erased = DensoIso15765Erase(ctx, block); !erased.has_value())
-    {
-        return erased;
-    }
-    erase.Complete();
-
-    LogInfo(ctx, "--- Start writing ROM file to ECU flash memory ---");
-    PhaseReporter write = phases.Start("Write ROM", static_cast<int>(block.length));
-    if (const Status written = ReflashBlock(ctx, image, block, write); !written.has_value())
-    {
-        return written;
-    }
-    write.Complete();
-    LogInfo(ctx, "Block 0 reflash complete.");
-    return {};
+    return DensoIso15765WriteBlock(ctx, block, 0, phases,
+                                   [&](PhaseReporter& write) { return ReflashBlock(ctx, image, block, write); });
 }
 
 } // namespace

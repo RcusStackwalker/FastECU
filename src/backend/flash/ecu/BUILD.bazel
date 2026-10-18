@@ -1682,6 +1682,7 @@ cc_library(
         "//src/backend/flash:can_flash_uds_channel",
     ],
     deps = [
+        ":flash_phase_progress",
         ":uds_client_exchange_common",
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/ssm",
