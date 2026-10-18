@@ -67,11 +67,46 @@ constexpr std::array<InCarExchange, 10> kN83mInCarSequence{{
     {0x7DF, {kSidCommunicationControl, 0x03, 0x01}, 3},
 }};
 
+// The SH72531 and SH72543 diesel run: the N83M run with session 0x03, not
+// 0x63, on 0x7E1 (SH72531 legacy 409-419, diesel 408-416).
+constexpr std::array<InCarExchange, 10> kShInCarSequence{{
+    {0x7A2, {uds::kSidDiagnosticSessionControl, 0xC0, 0}, 2},
+    {0x7E0, {uds::kSidDiagnosticSessionControl, 0x63, 0}, 2},
+    {0x7DF, {uds::kSidDiagnosticSessionControl, uds::kSessionExtendedDiagnostic, 0}, 2},
+    {0x7E1, {uds::kSidDiagnosticSessionControl, uds::kSessionExtendedDiagnostic, 0}, 2},
+    {0x7B0, {uds::kSidDiagnosticSessionControl, uds::kSessionExtendedDiagnostic, 0}, 2},
+    {0x7B0, {kSidControlDtcSetting, 0x02, 0}, 2},
+    {0x7DF, {kSidControlDtcSetting, 0x02, 0}, 2},
+    {0x7B0, {kSidControlDtcSetting, 0x02, 0}, 2},
+    {0x7DF, {kSidControlDtcSetting, 0x02, 0}, 2},
+    {0x7DF, {kSidCommunicationControl, 0x03, 0x01}, 3},
+}};
+
+// Every reply is read at 200 ms except the primary ECU's (0x7E0) session-open
+// reply, which reads at `primary_timeout`.
+Status RunInCarSequence(const CanExecutorContext& ctx, ICanFlashTransport& can,
+                        const std::array<InCarExchange, 10>& sequence, std::chrono::milliseconds primary_timeout)
+{
+    for (const InCarExchange& exchange : sequence)
+    {
+        if (const Status sent =
+                FireAndForget(ctx, can, exchange.id, bytes::ByteView(exchange.pdu.data(), exchange.length),
+                              exchange.id == 0x7E0 ? primary_timeout : kInCarTimeout);
+            !sent.has_value())
+        {
+            return sent;
+        }
+    }
+    return {};
+}
+
 constexpr std::string_view kRejectionPrefix = "Wrong response from ECU: ";
 
 constexpr std::chrono::milliseconds kObkProbeTimeout{200};
 constexpr uds::ExchangePolicy kIdentityPolicy{.read_timeout = std::chrono::milliseconds{2000}};
 constexpr bytes::Byte kSessionProbe = 0x5F;
+constexpr bytes::Byte kSessionInCarOpen = 0x63;
+constexpr bytes::Byte kSessionInCarJump = 0x62;
 constexpr bytes::Byte kSessionControlReply = uds::kSidDiagnosticSessionControl + 0x40;
 constexpr bytes::Byte kReadDataByIdentifierReply = uds::kSidReadDataByIdentifier + 0x40;
 
@@ -540,16 +575,63 @@ Status DensoIso15765Erase(const CanExecutorContext& ctx, const MemoryRegion& reg
 
 Status N83mInCarFireAndForget(const CanExecutorContext& ctx, ICanFlashTransport& can)
 {
-    for (const InCarExchange& exchange : kN83mInCarSequence)
+    return RunInCarSequence(ctx, can, kN83mInCarSequence, kInCarTimeout);
+}
+
+// SH72531 legacy 373-492 reads every reply at serial_read_short_timeout; the
+// diesel (375-483) reads the 0x7E0 reply at serial_read_timeout (line 394).
+Status ShInCarFireAndForget(const CanExecutorContext& ctx, ICanFlashTransport& can,
+                            std::chrono::milliseconds primary_timeout)
+{
+    return RunInCarSequence(ctx, can, kShInCarSequence, primary_timeout);
+}
+
+// Legacy in-car arms: N83M 1.5M 341-656, N83M 4M 345-661, SH72531 341-656,
+// SH72543 diesel 341-648. The probe logs a mismatch and aborts only on an
+// absent or short reply; unlike it, the session confirmation is fatal on a
+// mismatch and expects 0x63 rather than 0x01; the selector re-read is fatal
+// and its content past 62 10 is not inspected.
+Status DensoIso15765ConnectInCar(const CanExecutorContext& ctx, ICanFlashTransport& can, DensoInCarRun run,
+                                 std::chrono::milliseconds read_timeout)
+{
+    LogInfo(ctx, "In car programming: accessing, please wait...");
+    if (const Status slept = ctx.clock.Sleep(std::chrono::milliseconds{500}, ctx.cancellation); !slept.has_value())
     {
-        if (const Status sent = FireAndForget(ctx, can, exchange.id,
-                                              bytes::ByteView(exchange.pdu.data(), exchange.length), kInCarTimeout);
-            !sent.has_value())
-        {
-            return sent;
-        }
+        return slept;
     }
-    return {};
+    if (Result<bytes::Bytes> probe =
+            TolerantProbe(ctx, bytes::Bytes{uds::kSidDiagnosticSessionControl, kSessionProbe}, kSessionControlReply,
+                          0x01, read_timeout, kRejectionPrefix, "in-car access-method probe");
+        !probe.has_value())
+    {
+        return std::unexpected(probe.error());
+    }
+    if (const Status sent =
+            run == DensoInCarRun::kSh ? ShInCarFireAndForget(ctx, can, read_timeout) : N83mInCarFireAndForget(ctx, can);
+        !sent.has_value())
+    {
+        return sent;
+    }
+    if (const Status unlocked = DensoSecurityAccess(ctx); !unlocked.has_value())
+    {
+        return unlocked;
+    }
+    const uds::ExchangePolicy policy{.read_timeout = read_timeout};
+    if (Result<bytes::Bytes> session =
+            FatalQuery(ctx, bytes::Bytes{uds::kSidDiagnosticSessionControl, kSessionProbe},
+                       bytes::Bytes{kSessionInCarOpen}, policy, "in-car session confirmation");
+        !session.has_value())
+    {
+        return std::unexpected(session.error());
+    }
+    if (Result<bytes::Bytes> selector = FatalQuery(ctx, bytes::Bytes{uds::kSidReadDataByIdentifier, 0x10, 0x1D},
+                                                   bytes::Bytes{0x10}, policy, "in-car programming-mode confirmation");
+        !selector.has_value())
+    {
+        return std::unexpected(selector.error());
+    }
+    return DensoIso15765JumpToKernel(ctx, kSessionInCarJump, 10, read_timeout, read_timeout,
+                                     /*discard_first_reply=*/false);
 }
 
 } // namespace fastecu::flash

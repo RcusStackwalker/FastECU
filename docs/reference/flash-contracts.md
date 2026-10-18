@@ -49,13 +49,15 @@ checksum and rejects its `7F` failure marker.
 ## Denso ISO-15765 bootloader dialect
 
 The [common module](../../src/backend/flash/ecu/denso_iso15765_can_common.h)
-shares thirteen operations across N83M 1.5M, N83M 4M, SH72531 and SH72543 diesel:
+shares ten operations across N83M 1.5M, N83M 4M, SH72531 and SH72543 diesel:
 setup-PDU encoding, seed/key, erase, one encrypted B7 page read and the read dump built
 on it (page loop, best-effort stop and 0xFF padding; SH page pacing is a
 parameter), one B6 write request and the image write loop
 built on it (whole-image encryption, image-base indexing, whole chunks only),
 best-effort transfer exit with the settle-and-checksum close (the
-checksum read timeouts are a parameter), the N83M-only in-car opening run, the
+checksum read timeouts are a parameter), the in-car arm with its opening runs (an N83M
+run and an SH run; one read timeout, 2000 ms on the diesel, covers the probe,
+the confirmations, the run's 0x7E0 reply and the jump), the
 kernel jump with its continuation wait (first and loop read timeouts and the
 N83M 4M/SH72531 bench discard are parameters), and the connect prelude (OBK probe,
 identity queries, access-method probe and branch selector), and the
@@ -66,13 +68,12 @@ own deviations, with legacy citations, are listed side by side in
 [Denso ISO-15765 family deviations](denso-iso15765-families.md).
 
 Kept local in each executor: read setup, the reflash header log line,
-the in-car and bench connect arms and family response
-policy. In particular:
+the bench connect arms and family response policy. In particular:
 
 - Setup PDUs accept only a region, so callers cannot select another SID. Read
   setup failure is tolerated on N83M 4M and fatal on the other three.
-- The shared in-car run requests session `0x63`; the SH-family in-car runs send
-  `0x03` and stay local.
+- The in-car runs differ by one byte: the N83M run asks 0x7E1 for session `0x63`,
+  the SH run for `0x03`.
 - Page reads accept short pages: seven encrypted bytes yield four decrypted
   bytes, and progress still advances by the requested 256 bytes. Only the two SH
   families add per-page pacing.

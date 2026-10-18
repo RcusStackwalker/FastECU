@@ -964,5 +964,57 @@ TEST(DensoIso15765CanCommonTest, N83mInCarSequencePreservesBothFamilyTranscripts
     EXPECT_THAT(f.transport.ReadTimeouts(), ::testing::Each(200ms));
 }
 
+// Session 0x03 on 0x7E1, and only the 0x7E0 reply reads at the primary timeout.
+TEST(DensoIso15765CanCommonTest, ShInCarSequenceSends03To7E1AndReadsThePrimaryReplyAtItsTimeout)
+{
+    CommonFixture f;
+    const std::array<bytes::Bytes, 10> requests{RequestTo(0x7A2, {0x10, 0xC0}), RequestTo(0x7E0, {0x10, 0x63}),
+                                                RequestTo(0x7DF, {0x10, 0x03}), RequestTo(0x7E1, {0x10, 0x03}),
+                                                RequestTo(0x7B0, {0x10, 0x03}), RequestTo(0x7B0, {0x85, 0x02}),
+                                                RequestTo(0x7DF, {0x85, 0x02}), RequestTo(0x7B0, {0x85, 0x02}),
+                                                RequestTo(0x7DF, {0x85, 0x02}), RequestTo(0x7DF, {0x28, 0x03, 0x01})};
+    for (const bytes::Bytes& request : requests)
+    {
+        f.transport.Exchange(request);
+        f.transport.QueueNoFrame();
+    }
+
+    EXPECT_THAT(ShInCarFireAndForget(f.ctx, f.transport, 2000ms), fastecu::testing::IsOk());
+
+    EXPECT_TRUE(f.transport.ScriptConsumed());
+    EXPECT_THAT(f.transport.ReadTimeouts(),
+                ::testing::ElementsAre(200ms, 2000ms, 200ms, 200ms, 200ms, 200ms, 200ms, 200ms, 200ms, 200ms));
+}
+
+// A cancelled opening wait sends nothing; an absent probe reply aborts before the run.
+TEST(DensoIso15765CanCommonTest, ConnectInCarStopsOnCancelledWaitOrAbsentProbe)
+{
+    for (const bool cancelled : {false, true})
+    {
+        SCOPED_TRACE(cancelled);
+        CommonFixture f;
+        if (cancelled)
+        {
+            f.cancellation.Cancel();
+        }
+        else
+        {
+            f.transport.Exchange(Request({0x10, 0x5F}));
+            f.transport.QueueNoFrame();
+        }
+
+        EXPECT_THAT(DensoIso15765ConnectInCar(f.ctx, f.transport, DensoInCarRun::kSh, 2000ms),
+                    fastecu::testing::IsErr(cancelled ? ErrorKind::kCancelled : ErrorKind::kTimeout));
+
+        EXPECT_TRUE(f.transport.ScriptConsumed());
+        EXPECT_EQ(f.transport.write_attempts, cancelled ? 0U : 1U);
+        EXPECT_THAT(f.clock.sleep_calls, ::testing::ElementsAre(500ms));
+        if (!cancelled)
+        {
+            EXPECT_THAT(f.transport.ReadTimeouts(), ::testing::ElementsAre(2000ms));
+        }
+    }
+}
+
 } // namespace
 } // namespace fastecu::flash
