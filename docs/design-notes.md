@@ -45,7 +45,7 @@ so a CAN operation cannot inherit a prior K-Line header setting.
 ### Backend workflows own staging policy
 
 Backend flash workflows own routing, preparation and staging. Each workflow
-owns its file-repository and [flash transport source](../src/backend/flash/CONTEXT.md)
+owns its file-repository and [flash transport source](../src/backend/flash/GLOSSARY.md)
 ports. Desktop composition supplies those ports and each attempt's caller-owned
 clock, binds execution to workers and renders the workflow's prompts.
 

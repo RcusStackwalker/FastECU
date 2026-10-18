@@ -3,7 +3,7 @@
 What each shared flash module covers, what deliberately stays in the family
 executors, and the preserved quirks a reader could mistake for bugs. Rationale is
 in the [flash design notes](../design-notes.md#share-only-proven-protocol-equivalence);
-dialect terms are in the [flash language](../../src/backend/flash/CONTEXT.md).
+dialect terms are in the [flash language](../../src/backend/flash/GLOSSARY.md).
 Exact timeouts, attempt counts and log text are asserted by each family's
 executor tests and the shared module headers; read those rather than restating
 them here. Open evidence questions are tracked in

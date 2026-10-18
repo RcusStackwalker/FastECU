@@ -3,6 +3,8 @@
 Terms used when viewing and editing calibration maps, running terminal scripts,
 and logging vehicle measurements.
 
+Other glossaries: [flash](src/backend/flash/GLOSSARY.md).
+
 ## Language
 
 **Map body**:
