@@ -107,6 +107,8 @@ constexpr uds::ExchangePolicy kIdentityPolicy{.read_timeout = std::chrono::milli
 constexpr bytes::Byte kSessionProbe = 0x5F;
 constexpr bytes::Byte kSessionInCarOpen = 0x63;
 constexpr bytes::Byte kSessionInCarJump = 0x62;
+constexpr bytes::Byte kSessionBench = 0x43;
+constexpr bytes::Byte kSessionBenchJump = 0x42;
 constexpr bytes::Byte kSessionControlReply = uds::kSidDiagnosticSessionControl + 0x40;
 constexpr bytes::Byte kReadDataByIdentifierReply = uds::kSidReadDataByIdentifier + 0x40;
 
@@ -632,6 +634,29 @@ Status DensoIso15765ConnectInCar(const CanExecutorContext& ctx, ICanFlashTranspo
     }
     return DensoIso15765JumpToKernel(ctx, kSessionInCarJump, 10, read_timeout, read_timeout,
                                      /*discard_first_reply=*/false);
+}
+
+// Legacy bench arms: N83M 1.5M 657-803, N83M 4M 663-808, SH72531 657-805.
+Status DensoIso15765ConnectBench(const CanExecutorContext& ctx, bool discard_first_reply)
+{
+    constexpr std::chrono::milliseconds kBenchTimeout{200};
+    LogInfo(ctx, "Bench programming: accessing, please wait...");
+    if (const Status slept = ctx.clock.Sleep(std::chrono::milliseconds{500}, ctx.cancellation); !slept.has_value())
+    {
+        return slept;
+    }
+    if (Result<bytes::Bytes> session =
+            FatalQuery(ctx, bytes::Bytes{uds::kSidDiagnosticSessionControl, kSessionBench}, bytes::Bytes{kSessionBench},
+                       {.read_timeout = kBenchTimeout}, "bench diagnostic session");
+        !session.has_value())
+    {
+        return std::unexpected(session.error());
+    }
+    if (const Status unlocked = DensoSecurityAccess(ctx); !unlocked.has_value())
+    {
+        return unlocked;
+    }
+    return DensoIso15765JumpToKernel(ctx, kSessionBenchJump, 50, kBenchTimeout, kBenchTimeout, discard_first_reply);
 }
 
 } // namespace fastecu::flash

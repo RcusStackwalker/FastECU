@@ -37,7 +37,6 @@ using namespace std::chrono_literals;
 // read only by the shared read stop in denso_iso15765_can_common.
 constexpr std::chrono::milliseconds kShortTimeout{200}; // serial_read_short_timeout
 constexpr std::chrono::milliseconds kLongTimeout{2000}; // serial_read_timeout
-constexpr uds::ExchangePolicy kShortPolicy{.read_timeout = kShortTimeout};
 constexpr uds::ExchangePolicy kLongPolicy{.read_timeout = kLongTimeout};
 // The timeout the tolerant_probe exchanges in connect_bootloader read with:
 // serial_read_short_timeout, as in two of its three siblings.
@@ -51,10 +50,6 @@ constexpr std::chrono::milliseconds kProbeTimeout = kShortTimeout;
 // the policy pins it to 2000 as well.
 constexpr uds::ExchangePolicy kChecksumPolicy{.read_timeout = kLongTimeout, .pending_timeout = kLongTimeout};
 
-// Session ids in ISO 14229-1's 0x40-0x5F vehicle-manufacturer-specific band;
-// legacy uses its own values here rather than the standard subfunctions.
-constexpr bytes::Byte kSessionBench = 0x43;     // bench programming session
-constexpr bytes::Byte kSessionBenchJump = 0x42; // bench jump to on-board kernel
 // kFlashBlocksSH72531[0].start. write_memory hands reflash_block
 // &data_array[fdt->fblocks->start] (line 1140), i.e. fblocks[0].start, and
 // reflash_block then indexes newdata[i + blockaddr] (line 1225) -- so byte 0
@@ -70,34 +65,6 @@ constexpr std::uint32_t kImageStart = 0x00000000;
 // CanFlashUdsChannel instance `uds` wraps.
 // The five-field context this package shares; see uds_client_exchange_common.h.
 using Ctx = CanExecutorContext;
-
-// Bench programming arm, legacy lines 657-805.
-Status ConnectBench(Ctx& ctx)
-{
-    LogInfo(ctx, "Bench programming: accessing, please wait...");
-    if (const Status slept = ctx.clock.Sleep(500ms, ctx.cancellation); !slept.has_value())
-    {
-        return slept;
-    }
-
-    // Lines 661-689.
-    if (Result<bytes::Bytes> session =
-            FatalQuery(ctx, bytes::Bytes{uds::kSidDiagnosticSessionControl, kSessionBench}, bytes::Bytes{kSessionBench},
-                       kShortPolicy, "bench diagnostic session");
-        !session.has_value())
-    {
-        return std::unexpected(session.error());
-    }
-
-    // Lines 691-768.
-    if (const Status unlocked = DensoSecurityAccess(ctx); !unlocked.has_value())
-    {
-        return unlocked;
-    }
-
-    return DensoIso15765JumpToKernel(ctx, kSessionBenchJump, 50, kShortTimeout, kShortTimeout,
-                                     /*discard_first_reply=*/true);
-}
 
 // Legacy connect_bootloader, lines 91-808. The legacy `is_serial_port_open()`
 // guard (lines 99-103) has no equivalent: execute() below opens the transport
@@ -127,7 +94,8 @@ Status ConnectBootloader(Ctx& ctx, ICanFlashTransport& can)
     {
         return std::unexpected(in_car.error());
     }
-    return *in_car ? DensoIso15765ConnectInCar(ctx, can, DensoInCarRun::kSh, kShortTimeout) : ConnectBench(ctx);
+    return *in_car ? DensoIso15765ConnectInCar(ctx, can, DensoInCarRun::kSh, kShortTimeout)
+                   : DensoIso15765ConnectBench(ctx, /*discard_first_reply=*/true);
 }
 
 // Legacy read_memory, lines 815-1073. start_addr and length are overwritten

@@ -49,10 +49,6 @@ constexpr std::chrono::milliseconds kProbeTimeout = kShortTimeout;
 // policy pins it to 500 as well.
 constexpr uds::ExchangePolicy kChecksumPolicy{.read_timeout = kReceiveTimeout, .pending_timeout = kReceiveTimeout};
 
-// Session ids in ISO 14229-1's 0x40-0x5F vehicle-manufacturer-specific band;
-// legacy uses its own values here rather than the standard subfunctions.
-constexpr bytes::Byte kSessionBench = 0x43;     // bench programming session
-constexpr bytes::Byte kSessionBenchJump = 0x42; // bench jump to on-board kernel
 // kFlashBlocksN83M_1_5MB[0].start -- reflash_block indexes the image as
 // newdata[i + blockaddr - fdt->fblocks[0].start] (line 1225), so byte 0 of
 // the plan image is this address.
@@ -67,34 +63,6 @@ constexpr std::uint32_t kImageStart = 0x08F9C000;
 // CanFlashUdsChannel instance `uds` wraps.
 // The five-field context this package shares; see uds_client_exchange_common.h.
 using Ctx = CanExecutorContext;
-
-// Bench programming arm, legacy lines 657-803.
-Status ConnectBench(Ctx& ctx)
-{
-    LogInfo(ctx, "Bench programming: accessing, please wait...");
-    if (const Status slept = ctx.clock.Sleep(500ms, ctx.cancellation); !slept.has_value())
-    {
-        return slept;
-    }
-
-    // Lines 661-689.
-    if (Result<bytes::Bytes> session =
-            FatalQuery(ctx, bytes::Bytes{uds::kSidDiagnosticSessionControl, kSessionBench}, bytes::Bytes{kSessionBench},
-                       kShortPolicy, "bench diagnostic session");
-        !session.has_value())
-    {
-        return std::unexpected(session.error());
-    }
-
-    // Lines 691-768.
-    if (const Status unlocked = DensoSecurityAccess(ctx); !unlocked.has_value())
-    {
-        return unlocked;
-    }
-
-    return DensoIso15765JumpToKernel(ctx, kSessionBenchJump, 50, kShortTimeout, kShortTimeout,
-                                     /*discard_first_reply=*/false);
-}
 
 // Legacy connect_bootloader, lines 89-806. The legacy `is_serial_port_open()`
 // guard (lines 97-101) has no equivalent: execute() below opens the transport
@@ -124,7 +92,8 @@ Status ConnectBootloader(Ctx& ctx, ICanFlashTransport& can)
     {
         return std::unexpected(in_car.error());
     }
-    return *in_car ? DensoIso15765ConnectInCar(ctx, can, DensoInCarRun::kN83m, kShortTimeout) : ConnectBench(ctx);
+    return *in_car ? DensoIso15765ConnectInCar(ctx, can, DensoInCarRun::kN83m, kShortTimeout)
+                   : DensoIso15765ConnectBench(ctx, /*discard_first_reply=*/false);
 }
 
 // Legacy read_memory, lines 813-1074. start_addr and length are overwritten
