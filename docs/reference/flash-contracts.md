@@ -49,10 +49,12 @@ checksum and rejects its `7F` failure marker.
 ## Denso ISO-15765 bootloader dialect
 
 The [common module](../../src/backend/flash/ecu/denso_iso15765_can_common.h)
-shares twelve operations across N83M 1.5M, N83M 4M, SH72531 and SH72543 diesel:
+shares thirteen operations across N83M 1.5M, N83M 4M, SH72531 and SH72543 diesel:
 setup-PDU encoding, seed/key, erase, one encrypted B7 page read and the read dump built
 on it (page loop, best-effort stop and 0xFF padding; SH page pacing and the
-stop-response log are parameters), one B6 write request, best-effort transfer exit with the settle-and-checksum close (the
+stop-response log are parameters), one B6 write request and the image write loop
+built on it (whole-image encryption, image-base indexing, whole chunks only),
+best-effort transfer exit with the settle-and-checksum close (the
 checksum read timeouts are a parameter), the N83M-only in-car opening run, the
 N83M 4M/SH72531 jump continuation wait, and the connect prelude (OBK probe,
 identity queries, access-method probe and branch selector), and the
@@ -62,7 +64,7 @@ documents each operation and why everything else stays local. Each family's
 own deviations, with legacy citations, are listed side by side in
 [Denso ISO-15765 family deviations](denso-iso15765-families.md).
 
-Kept local in each executor: read setup, reflash,
+Kept local in each executor: read setup, the reflash header log line,
 the in-car and bench connect arms, complete kernel jumps and family response
 policy. In particular:
 

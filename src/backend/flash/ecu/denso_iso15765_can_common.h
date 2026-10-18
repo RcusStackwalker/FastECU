@@ -35,18 +35,18 @@ namespace fastecu::flash
 // The decrypt table remains valid for the bootloader-dialect normal-ROM read paths.
 // DensoCAN is not a consumer of this data-only cluster.
 //
-// Beyond these tables, the common module shares twelve narrow operations: pure
+// Beyond these tables, the common module shares thirteen narrow operations: pure
 // setup-PDU encoding, the SecurityAccess seed/key exchange, the erase flow,
 // one encrypted B7 page read and the read dump built on it (page loop, stop and
-// padding), one B6 write request, best-effort transfer
+// padding), one B6 write request and the image write loop built on it, best-effort transfer
 // exit and the settle-and-checksum close around it (all four Denso ISO-15765 bootloader dialect executors), and the
 // N83M in-car opening exchange run (the two N83M executors only; its 0x7E1 request asks for session 0x63, where the
 // SH-family runs send 0x03), plus the N83M 4M/SH72531 jump continuation wait, and connect_bootloader's prelude (OBK
 // probe, identity queries, access-method probe and branch selector), which direct comparison showed byte-identical
 // across all four apart from one log line, the diesel ECU ID query and the diesel probe timeout, all kept as parameters
-// or local. The single-block write_memory body is shared too; each family keeps its own reflash and passes it in.
-// Everything else that looks alike -- the in-car and bench connect arms,
-// the reflash routines, the complete kernel jump -- differs between the
+// or local. The single-block write_memory body is shared too; each family's reflash is now only its header log line,
+// the shared write loop and the shared close. Everything else that looks alike -- the in-car and bench connect arms,
+// the complete kernel jump -- differs between the
 // families in read timeouts, retry counts, pre-loop read counts, image base addresses, and, most importantly, in how
 // strictly a bad response is treated. Those differences are the safety-relevant part of each family: collapsing them
 // behind a parameterized common routine would make a future reader believe these are the same protocol when they are
@@ -134,8 +134,16 @@ Result<bytes::Bytes> DensoIso15765ReadDump(const CanExecutorContext& ctx, const 
                                            bool pace_pages, bool log_stop_response);
 
 // One fatal B6 request at 500 ms with an absolute wire address and the
-// caller-selected encrypted bytes. Image encryption, indexing and loops stay local.
+// caller-selected encrypted bytes. DensoIso15765WriteImage below owns the loop.
 Status DensoIso15765WriteChunk(const CanExecutorContext& ctx, std::uint32_t address, bytes::ByteView encrypted_chunk);
+
+// reflash_block's write loop: the whole image is encrypted once, then one B6
+// chunk per whole 256 bytes of `block`, cancellation checked before each and
+// progress after each. Chunk bytes are taken at the wire address minus
+// `image_base`, the flash address of the image's byte 0 (nonzero on both N83M
+// families). DensoIso15765WriteImageAndVerifyChecksum adds the close.
+Status DensoIso15765WriteImage(const CanExecutorContext& ctx, bytes::ByteView image, std::uint32_t image_base,
+                               const MemoryRegion& block, PhaseReporter& progress);
 
 // Up to six re-sent 37 requests at 200 ms, swallowing every returned error.
 // Logs the first positive reply and stops; callers own settle and checksum.
@@ -146,6 +154,12 @@ void DensoIso15765BestEffortTransferExit(const CanExecutorContext& ctx);
 // timeouts are the family's own `checksum_policy` (500/500 on N83M 1.5M,
 // 500/3000 on N83M 4M, 2000/2000 on both SH families).
 Status DensoIso15765CloseAndVerifyChecksum(const CanExecutorContext& ctx, const uds::ExchangePolicy& checksum_policy);
+
+// reflash_block after the family's own header log line: the image write loop,
+// then the close. A failed or cancelled write never reaches the close.
+Status DensoIso15765WriteImageAndVerifyChecksum(const CanExecutorContext& ctx, bytes::ByteView image,
+                                                std::uint32_t image_base, const MemoryRegion& block,
+                                                PhaseReporter& progress, const uds::ExchangePolicy& checksum_policy);
 
 // fatal_query with this dialect's "Wrong response from ECU: " rejection
 // prefix; see uds_client_exchange_common.h for what expected_prefix, subject
@@ -235,7 +249,7 @@ Status N83mInCarFireAndForget(const CanExecutorContext& ctx, ICanFlashTransport&
 // a three-block table on the N83M and SH72531 families, 0 of SH72543 diesel's
 // one-block table -- erases `block` with DensoIso15765Erase, then runs the
 // family's `reflash(PhaseReporter&)` under a "Write ROM" phase sized to the
-// block. Reflash stays local: its pacing and checks differ per family.
+// block. Each family's reflash logs its own header line around the shared write and close.
 template <typename Reflash>
 Status DensoIso15765WriteBlock(const CanExecutorContext& ctx, const MemoryRegion& block, int block_index,
                                PhaseSequence& phases, Reflash&& reflash)

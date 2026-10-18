@@ -115,6 +115,40 @@ Status DensoIso15765WriteChunk(const CanExecutorContext& ctx, std::uint32_t addr
     return {};
 }
 
+// Legacy reflash_block write loops: N83M 1.5M 1205-1227, N83M 4M 1206-1242,
+// SH72531 1205-1227 and SH72543 diesel 1197-1218, after write_memory encrypts
+// the whole ROM once (1096, 1109, 1095, 1084). Legacy's stopRequested()
+// returns 0 -- success -- to write_memory, which reports a completed block;
+// a cancellation mid-write must never read as a successful ROM write, so it
+// fails here instead, as subaru_hitachi_m32r_can_executor.cpp does. Each
+// family's index composes to the wire address minus its image base; the
+// SH families' legacy pins the address's top byte to 0x00, which matches the
+// big-endian encoding for every address in their regions.
+Status DensoIso15765WriteImage(const CanExecutorContext& ctx, bytes::ByteView image, std::uint32_t image_base,
+                               const MemoryRegion& block, PhaseReporter& progress)
+{
+    constexpr std::uint32_t kChunkSize = 256;
+    const std::uint32_t max_chunks = block.length / kChunkSize;
+    const bytes::Bytes encrypted = DensoEncryptRom(image);
+    for (std::uint32_t chunk_index = 0; chunk_index < max_chunks; ++chunk_index)
+    {
+        if (ctx.cancellation.Cancelled())
+        {
+            return Fail(ErrorKind::kCancelled, "write cancelled");
+        }
+        const std::uint32_t block_addr = block.start + chunk_index * kChunkSize;
+        const std::size_t image_offset = block_addr - image_base;
+        if (const Status written =
+                DensoIso15765WriteChunk(ctx, block_addr, bytes::ByteView(encrypted).subspan(image_offset, kChunkSize));
+            !written.has_value())
+        {
+            return std::unexpected(written.error());
+        }
+        progress.Update(static_cast<int>((chunk_index + 1) * kChunkSize));
+    }
+    return {};
+}
+
 // Legacy read_memory after setup: page loops at N83M 1.5M 922-979,
 // N83M 4M 929-991, SH72531 916-1007 and SH72543 diesel 907-1001, each with
 // stopRequested() at the top; stop loops at 1027-1057, 1040-1070, 1025-1056
@@ -224,6 +258,17 @@ Status DensoIso15765CloseAndVerifyChecksum(const CanExecutorContext& ctx, const 
     }
     LogInfo(ctx, "Checksum verified");
     return {};
+}
+
+Status DensoIso15765WriteImageAndVerifyChecksum(const CanExecutorContext& ctx, bytes::ByteView image,
+                                                std::uint32_t image_base, const MemoryRegion& block,
+                                                PhaseReporter& progress, const uds::ExchangePolicy& checksum_policy)
+{
+    if (const Status written = DensoIso15765WriteImage(ctx, image, image_base, block, progress); !written.has_value())
+    {
+        return written;
+    }
+    return DensoIso15765CloseAndVerifyChecksum(ctx, checksum_policy);
 }
 
 Status DensoIso15765WaitForJumpAck(const CanExecutorContext& ctx, bytes::Byte session,

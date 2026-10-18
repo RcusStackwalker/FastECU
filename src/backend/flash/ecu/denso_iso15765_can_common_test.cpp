@@ -683,6 +683,64 @@ TEST(DensoIso15765CanCommonTest, ReadDumpPageFailureOrCancellationSendsNoStop)
     }
 }
 
+// The B6 request for one encrypted chunk at `address`.
+bytes::Bytes ChunkRequest(std::uint32_t address, bytes::ByteView encrypted_chunk)
+{
+    bytes::Bytes out = Request({0xB6});
+    bytes::AppendU32Be(out, address);
+    out.insert(out.end(), encrypted_chunk.begin(), encrypted_chunk.end());
+    return out;
+}
+
+// A nonzero image base and a trailing partial chunk: only the one whole chunk
+// is sent, taken at the wire address minus the base, never at the block offset.
+TEST(DensoIso15765CanCommonTest, WriteImageSendsWholeChunksIndexedFromImageBase)
+{
+    CommonFixture f;
+    bytes::Bytes image(0x300);
+    for (std::size_t i = 0; i < image.size(); ++i)
+    {
+        image[i] = static_cast<bytes::Byte>(i * 7);
+    }
+    f.transport.Exchange(ChunkRequest(0x1100, bytes::ByteView(DensoEncryptRom(image)).subspan(0x100, 0x100)),
+                         Response({0xF6}));
+    PhaseReporter progress(f.events, "Write", 1, 1, 0x1000);
+
+    EXPECT_THAT(DensoIso15765WriteImage(f.ctx, image, 0x1000, MemoryRegion{0x1100, 0x1FF}, progress),
+                fastecu::testing::IsOk());
+
+    EXPECT_TRUE(f.transport.ScriptConsumed());
+    EXPECT_THAT(ProgressDone(f.events), ::testing::ElementsAre(0, 0x100));
+}
+
+// A cancelled or rejected write stops the loop and never reaches the close.
+TEST(DensoIso15765CanCommonTest, WriteImageAndVerifyStopsOnCancellationOrChunkFailureBeforeClosing)
+{
+    for (const bool cancelled : {false, true})
+    {
+        SCOPED_TRACE(cancelled);
+        CommonFixture f;
+        if (cancelled)
+        {
+            f.cancellation.Cancel();
+        }
+        else
+        {
+            f.transport.Exchange(ChunkRequest(0, DensoEncryptRom(bytes::Bytes(0x100))), Response({0x7F, 0xB6, 0x22}));
+        }
+        PhaseReporter progress(f.events, "Write", 1, 1, 0x1000);
+
+        EXPECT_THAT(DensoIso15765WriteImageAndVerifyChecksum(f.ctx, bytes::Bytes(0x200), 0, MemoryRegion{0, 0x200},
+                                                             progress, {.read_timeout = 500ms}),
+                    fastecu::testing::IsErr(cancelled ? ErrorKind::kCancelled : ErrorKind::kBadResponse));
+
+        EXPECT_EQ(f.transport.write_attempts, cancelled ? 0U : 1U);
+        EXPECT_THAT(ProgressDone(f.events), ::testing::ElementsAre(0));
+        EXPECT_THAT(f.events.logs, ::testing::Not(::testing::Contains(
+                                       ::testing::Pair(LogLevel::kInfo, "Closing out Flashing of this block"))));
+    }
+}
+
 TEST(DensoIso15765CanCommonTest, SecurityAccessReadsLiteralSeedAndKeyAtTwoSeconds)
 {
     CommonFixture f;
