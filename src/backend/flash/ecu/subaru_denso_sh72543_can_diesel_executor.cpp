@@ -88,7 +88,11 @@ constexpr bytes::Byte kDidEcuIdLow = 0x82;
 // reflash_block &data_array[fdt->fblocks->start] (line 1129), i.e. the
 // encrypted whole-ROM buffer offset by fblocks[0].start = 0x8000, and
 // reflash_block then indexes newdata[i + blockctr * blocksize] (line 1217) --
-// which together read data_array[blockaddr + i]. See reflash_block below.
+// which together read data_array[blockaddr + i]: the absolute address,
+// matching read_memory's own image base and the three sibling families. The
+// original port design's "write-base divergence" section reads line 1217
+// alone and concludes legacy wrote a full ROM 0x8000 low; with the caller's
+// pre-offset it does not. Do not "restore" a 0x8000 shift on its strength.
 constexpr std::uint32_t kImageStart = 0x00000000;
 
 // Additional CAN request ids the in-car arm addresses (legacy lines 375-483).
@@ -387,57 +391,11 @@ Result<bytes::Bytes> ReadMemory(Ctx& ctx, const SubaruDensoSh72543CanDieselPlan&
 // Legacy reflash_block, lines 1156-1368, called for block 0 only.
 Status ReflashBlock(Ctx& ctx, bytes::ByteView image, const MemoryRegion& block, PhaseReporter& progress)
 {
-    constexpr std::uint32_t kChunkSize = 256;
-    const std::uint32_t max_chunks = block.length / kChunkSize;
-
-    // The whole image is encrypted once up front (legacy write_memory line
-    // 1084), not per chunk.
-    const bytes::Bytes encrypted = DensoEncryptRom(image);
-
     LogInfo(ctx, StartAndLengthLine(block));
-    for (std::uint32_t chunk_index = 0; chunk_index < max_chunks; ++chunk_index)
+    if (const Status written = DensoIso15765WriteImage(ctx, image, kImageStart, block, progress); !written.has_value())
     {
-        // Legacy's stopRequested() check (line 1197) returns 0 -- success --
-        // to the caller, which write_memory then reports as a completed
-        // block. That is not reproduced: a cancellation mid-write must never
-        // be reported as a successful ROM write, so this deliberately
-        // diverges from the literal legacy return value, exactly as
-        // subaru_hitachi_m32r_can_executor.cpp does.
-        if (ctx.cancellation.Cancelled())
-        {
-            return Fail(ErrorKind::kCancelled, "write cancelled");
-        }
-        const std::uint32_t block_addr = block.start + chunk_index * kChunkSize;
-        // Lines 1202-1218: SID 0xB6, a 4-byte address whose top byte legacy
-        // pins to 0x00 (line 1210) -- identical to a big-endian encoding for
-        // every address in this region -- and 256 encrypted bytes taken from
-        // the absolute flash address.
-        //
-        // The write image is based at address 0 (kImageStart), which is what
-        // legacy does too, though it takes two lines to see: write_memory
-        // passes `&data_array[fdt->fblocks->start]` (line 1129) -- the
-        // encrypted whole-ROM buffer offset by kFlashBlocksSH72543d[0].start =
-        // 0x8000 -- and reflash_block then indexes
-        // `newdata[i + blockctr * blocksize]` (line 1217), a block-relative
-        // index. The two compose to data_array[0x8000 + blockctr*256 + i],
-        // i.e. data_array[block_addr + i]: the absolute address, matching
-        // read_memory's own image base and the three sibling families.
-        //
-        // The original port design's "write-base divergence" section reads line 1217
-        // alone and concludes legacy wrote a full ROM 0x8000 low. Re-deriving
-        // it with the caller's pre-offset shows it does not: this port is
-        // byte-identical to legacy here, not a behavior change. Do not
-        // "restore" a 0x8000 shift on the strength of that section.
-        const std::size_t image_offset = block_addr - kImageStart;
-        if (const Status written =
-                DensoIso15765WriteChunk(ctx, block_addr, bytes::ByteView(encrypted).subspan(image_offset, kChunkSize));
-            !written.has_value())
-        {
-            return std::unexpected(written.error());
-        }
-        progress.Update(static_cast<int>((chunk_index + 1) * kChunkSize));
+        return written;
     }
-
     return DensoIso15765CloseAndVerifyChecksum(ctx, kChecksumPolicy);
 }
 
