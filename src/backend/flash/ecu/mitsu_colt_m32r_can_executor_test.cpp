@@ -51,6 +51,7 @@
 #include "src/algorithms/protocol/colt/mitsu_colt_can_protocol.h"
 #include "src/algorithms/protocol/colt/mitsu_colt_can_vendor_ext_protocol.h"
 #include "src/backend/flash/ecu/mitsu_colt_m32r_can_plan.h"
+#include "src/backend/flash/ecu/testing/mitsu_colt_m32r_can_scripts.h"
 #include "src/backend/ports/manual_cancellation_token.h"
 #include "src/backend/flash/flash_validation.h"
 #include "src/backend/flash/testing/scripted_can_flash_transport.h"
@@ -73,12 +74,7 @@ using testing::HasSubstr;
 using testing::IsEmpty;
 using testing::Not;
 using testing::Pair;
-
-constexpr std::string_view kProtocol384 = "mitsu_ecu_m32r_can";
-constexpr std::string_view kVendorProtocol384 = "mitsu_ecu_m32r_can_vendor_ext";
-constexpr std::string_view kProtocol512 = "mitsu_ecu_m32r_can_512kb";
-constexpr std::string_view kMcu384 = "M32R_384KB_1block";
-constexpr std::string_view kMcu512 = "M32R_512KB_1block";
+using namespace fastecu::flash::colt_testing;
 
 class ScriptedCanFlashTransport : public fastecu::flash::ScriptedCanFlashTransport
 {
@@ -88,86 +84,6 @@ class ScriptedCanFlashTransport : public fastecu::flash::ScriptedCanFlashTranspo
     {
     }
 };
-
-std::string_view McuFor(std::string_view protocol)
-{
-    return protocol == kProtocol512 ? kMcu512 : kMcu384;
-}
-
-// Every request on this bus carries a 4-byte big-endian 0x7E0 prefix
-// (legacy build_request, flash_ecu_mitsu_m32r_can_operation.cpp:58-64).
-bytes::Bytes Request(bytes::ByteView payload)
-{
-    bytes::Bytes out;
-    bytes::AppendU32Be(out, 0x7e0);
-    out.insert(out.end(), payload.begin(), payload.end());
-    return out;
-}
-
-// Responses carry the 4-byte 0x7E8 reply id; the legacy code indexes
-// received.at(4) for the service byte throughout.
-bytes::Bytes Response(bytes::ByteView tail)
-{
-    bytes::Bytes out;
-    bytes::AppendU32Be(out, 0x7e8);
-    out.insert(out.end(), tail.begin(), tail.end());
-    return out;
-}
-
-bytes::Bytes Response(std::initializer_list<bytes::Byte> tail)
-{
-    return Response(bytes::ByteView{tail.begin(), tail.end()});
-}
-
-fastecu::Result<fastecu::flash::FlashPlan> ReadPlan(std::string_view protocol = kProtocol384)
-{
-    return BuildMitsuColtM32rCanPlan(FlashOperation::kRead, protocol, McuFor(protocol), std::nullopt);
-}
-
-// The two checksum bytes the executor must commit, in order, for the
-// userspace slice of the ROM writeRom() builds. Written out rather than
-// recomputed with checksum(): the scripted CRC frame is the only place the
-// executor's own running sum and byte split are observable, so deriving the
-// expectation the way the implementation does would let an inversion pass in
-// both.
-const bytes::Bytes kUserspaceChecksumBytes{0x12, 0x34};
-
-// The ROM image every write test writes: kTopRegionEnd bytes, 0x00 below
-// kTopRegionStart and 0xEE above it. The distinctive top-region fill is what
-// makes the bootstrap comparison observable -- an ECU that reports 0xEE
-// matches, one that reports 0xFF (erased flash) does not.
-//
-// The userspace window additionally opens with 18 * 0xFF followed by 0x46,
-// which sums to exactly 0x1234 (18 * 255 + 70) over the otherwise-zero
-// slice -- a checksum whose two halves differ, so the order they go on the
-// wire in is pinned too (kUserspaceChecksumBytes).
-bytes::Bytes WriteRom()
-{
-    bytes::Bytes rom(mitsu_colt_can::kTopRegionEnd, 0xA5);
-    std::fill(rom.begin() + mitsu_colt_can::kUserspaceStart, rom.begin() + mitsu_colt_can::kTopRegionStart, 0x00);
-    std::fill(rom.begin() + mitsu_colt_can::kTopRegionStart, rom.end(), 0xEE);
-    std::fill_n(rom.begin() + mitsu_colt_can::kUserspaceStart, 18, 0xFF);
-    rom[mitsu_colt_can::kUserspaceStart + 18] = 0x46;
-    return rom;
-}
-
-bytes::Bytes WriteRom384()
-{
-    bytes::Bytes rom(0x60000, 0xA5);
-    std::fill(rom.begin() + mitsu_colt_can::kUserspaceStart, rom.end(), 0x00);
-    std::fill_n(rom.begin() + mitsu_colt_can::kUserspaceStart, 18, 0xFF);
-    rom[mitsu_colt_can::kUserspaceStart + 18] = 0x46;
-    return rom;
-}
-
-// A Write plan is what selects kSessionBootload, and kSessionBootload is the
-// only thing that reaches connect_bootloader()'s factory SecurityAccess arm.
-// This helper defaults to the 512 KiB protocol, whose builder declares both
-// ConfirmationSpecs, so a plan from here is fully gated.
-fastecu::Result<fastecu::flash::FlashPlan> WritePlan(bytes::Bytes rom, std::string_view protocol = kProtocol512)
-{
-    return BuildMitsuColtM32rCanPlan(FlashOperation::kWrite, protocol, McuFor(protocol), std::move(rom));
-}
 
 // Hand-built rather than produced by build_mitsu_colt_m32r_can_plan: the
 // default 512 KiB plan declares both confirmations, and validate_and_build
@@ -225,158 +141,12 @@ fastecu::Result<fastecu::flash::FlashPlan> HandBuiltWritePlan(std::string_view t
     return fastecu::flash::ValidateAndBuild(std::move(fields));
 }
 
-// The 4 seed bytes the ECU returns in the tests below. Deliberately all
-// distinct and distinct from the surrounding framing bytes, so that reading
-// the seed from any offset other than the legacy `received.mid(6, 4)` yields
-// a different seed -- and therefore a different key on the wire, which the
-// scripted transport rejects.
-constexpr auto kSeed = std::to_array<bytes::Byte>({0x11, 0x22, 0x33, 0x44});
-
-// Scripts the chunked ReadMemoryByAddress sweep over [start, start+length),
-// filling every payload with `fill`.
-void ScriptFlashRead(ScriptedCanFlashTransport& transport, std::uint32_t start, std::uint32_t length, bytes::Byte fill)
-{
-    const auto section = transport.Section("flash read");
-    for (std::uint32_t addr = start; addr < start + length; addr += mitsu_colt_can::kFlashReadBlockSize)
-    {
-        const std::uint32_t remaining = start + length - addr;
-        const auto chunk = static_cast<bytes::Byte>(
-            remaining < mitsu_colt_can::kFlashReadBlockSize ? remaining : mitsu_colt_can::kFlashReadBlockSize);
-        bytes::Bytes reply = Response({0x63});
-        reply.insert(reply.end(), chunk, fill);
-        transport.Exchange(Request(mitsu_colt_can::BuildReadMemoryByAddress(addr, chunk)), reply);
-    }
-}
-
-// Scripts a single ReadMemoryByAddress chunk at `addr`, replying with
-// `chunk_len` bytes of `fill`. Used where the caller wants exactly one
-// chunk on the wire instead of scriptFlashRead's full-range sweep -- e.g.
-// to prove top_region_matches() stops issuing reads at the first mismatch.
-void ScriptFlashReadChunk(ScriptedCanFlashTransport& transport, std::uint32_t addr, bytes::Byte chunk_len,
-                          bytes::Byte fill)
-{
-    const auto section = transport.Section("flash read chunk");
-    bytes::Bytes reply = Response({0x63});
-    reply.insert(reply.end(), chunk_len, fill);
-    transport.Exchange(Request(mitsu_colt_can::BuildReadMemoryByAddress(addr, chunk_len)), reply);
-}
-
-void ScriptFlashReadData(ScriptedCanFlashTransport& transport, std::uint32_t start, bytes::ByteView data)
-{
-    const auto section = transport.Section("flash read data");
-    for (std::uint32_t offset = 0; offset < data.size(); offset += mitsu_colt_can::kFlashReadBlockSize)
-    {
-        const std::uint32_t remaining = static_cast<std::uint32_t>(data.size()) - offset;
-        const auto chunk = static_cast<bytes::Byte>(
-            remaining < mitsu_colt_can::kFlashReadBlockSize ? remaining : mitsu_colt_can::kFlashReadBlockSize);
-        bytes::Bytes reply = Response({0x63});
-        reply.insert(reply.end(), data.begin() + offset, data.begin() + offset + chunk);
-        transport.Exchange(Request(mitsu_colt_can::BuildReadMemoryByAddress(start + offset, chunk)), reply);
-    }
-}
-
 // Scripts the full sweep the executor must perform over the plan's transfer
 // region.
 void ScriptFullRead(ScriptedCanFlashTransport& transport, const fastecu::flash::FlashPlan& plan, bytes::Byte fill)
 {
     const auto section = transport.Section("full read");
     ScriptFlashRead(transport, plan.TransferRegion().start, plan.TransferRegion().length, fill);
-}
-
-// Scripts a complete zero-based ROM read with address-derived data. The
-// literal endpoints in the tests below then catch either a shifted first
-// request or a truncated final request without duplicating thousands of
-// chunk expectations.
-void ScriptAddressMarkedRead(ScriptedCanFlashTransport& transport, std::uint32_t length)
-{
-    const auto section = transport.Section("address marked read");
-    for (std::uint32_t addr = 0; addr < length; addr += mitsu_colt_can::kFlashReadBlockSize)
-    {
-        const std::uint32_t remaining = length - addr;
-        const auto chunk = static_cast<bytes::Byte>(
-            remaining < mitsu_colt_can::kFlashReadBlockSize ? remaining : mitsu_colt_can::kFlashReadBlockSize);
-        transport.Exchange(Request(mitsu_colt_can::BuildReadMemoryByAddress(addr, chunk)));
-        bytes::Bytes reply = Response({0x63});
-        for (std::uint32_t offset = 0; offset < chunk; ++offset)
-        {
-            reply.push_back(static_cast<bytes::Byte>(addr + offset));
-        }
-        transport.QueueRead(reply);
-    }
-}
-
-// Scripts the bootload handshake every operation drives: session 0x85 then
-// the factory SecurityAccess seed/key pair.
-void ScriptBootloadHandshake(ScriptedCanFlashTransport& transport)
-{
-    const auto section = transport.Section("bootload handshake");
-    transport.Exchange(Request(mitsu_colt_can::BuildDiagnosticSession(mitsu_colt_can::kSessionBootload)),
-                       Response({0x50, 0x85}));
-
-    transport.Exchange(Request(mitsu_colt_can::BuildSecurityAccessSeedRequest()),
-                       Response({0x67, 0x05, 0x11, 0x22, 0x33, 0x44}));
-
-    transport.Exchange(Request(mitsu_colt_can::BuildSecurityAccessKey(mitsu_colt_can::SeedKey(kSeed))),
-                       Response({0x67, 0x06}));
-}
-
-// Scripts the payload half of one upload_and_commit(start, data): the
-// RequestDownload and every accepted TransferData chunk, stopping before the
-// checksum exchanges.
-void ScriptUploadFrames(ScriptedCanFlashTransport& transport, std::uint32_t start, bytes::ByteView data)
-{
-    const auto section = transport.Section("upload frames");
-    transport.Exchange(Request(mitsu_colt_can::BuildRequestDownload(start, static_cast<std::uint32_t>(data.size()))),
-                       Response({0x74}));
-
-    for (const bytes::Bytes& chunk : mitsu_colt_can::BuildTransferDataFrames(data))
-    {
-        transport.Exchange(Request(chunk), Response({0x76}));
-    }
-}
-
-// Scripts the checksum half of one upload_and_commit: the CRC RequestDownload,
-// the single CRC TransferData frame, and the RoutineControl CRC check.
-// `crcBytes`, when set, is the exact payload the test demands on the wire --
-// both the value and the order of its two halves -- instead of one recomputed
-// the way the implementation does.
-void ScriptCrcCommit(ScriptedCanFlashTransport& transport, std::uint32_t start, bytes::ByteView data,
-                     std::optional<bytes::Bytes> crc_bytes = std::nullopt)
-{
-    const auto section = transport.Section("crc commit");
-    transport.Exchange(Request(mitsu_colt_can::BuildRequestDownload(mitsu_colt_can::kCrcTransferAddress,
-                                                                    mitsu_colt_can::kCrcTransferSize)),
-                       Response({0x74}));
-
-    const std::uint16_t crc = mitsu_colt_can::Checksum(data);
-    const bytes::Bytes crc_data = crc_bytes.value_or(bytes::ComposeBe(crc));
-    transport.Exchange(Request(mitsu_colt_can::BuildTransferDataFrames(crc_data).front()), Response({0x76}));
-
-    // [echo][status=0], the routine-id echo plus the CRC-match status byte
-    // (colt_commented.S ~0x5aa0-0x5ad4); the executor now checks the latter.
-    transport.Exchange(Request(mitsu_colt_can::BuildRoutineCheckCrc(start)), Response({0x71, 0xe1, 0x00}));
-}
-
-// Scripts one upload_and_commit(start, data): RequestDownload, the
-// TransferData chunks, the CRC RequestDownload + TransferData, and the
-// RoutineControl CRC check.
-void ScriptUploadAndCommit(ScriptedCanFlashTransport& transport, std::uint32_t start, bytes::ByteView data,
-                           std::optional<bytes::Bytes> crc_bytes = std::nullopt)
-{
-    const auto section = transport.Section("upload and commit");
-    ScriptUploadFrames(transport, start, data);
-    ScriptCrcCommit(transport, start, data, std::move(crc_bytes));
-}
-
-// Scripts the unlock + erase-trigger pair.
-void ScriptUnlockAndErase(ScriptedCanFlashTransport& transport)
-{
-    const auto section = transport.Section("unlock and erase");
-    transport.Exchange(Request(mitsu_colt_can::BuildRequestReflashUnlock()), Response({0x7b}));
-    // [echo][status=0], the routine-id echo plus the erase-succeeded status
-    // byte (colt_commented.S ~0x59c8-0x5a38); the executor now checks the
-    // latter -- this is the exact wire shape a real ECU sends.
-    transport.Exchange(Request(mitsu_colt_can::BuildRoutineErase()), Response({0x71, 0xe0, 0x00}));
 }
 
 // Scripts a write through the handshake, the top-region check and both
@@ -411,19 +181,6 @@ void ScriptWriteThroughEraseRoutineCrcCheck(ScriptedCanFlashTransport& transport
     const bytes::Bytes crc_data = bytes::ComposeBe(crc);
     transport.Exchange(Request(mitsu_colt_can::BuildTransferDataFrames(crc_data).front()), Response({0x76}));
     transport.Exchange(Request(mitsu_colt_can::BuildRoutineCheckCrc(mitsu_colt_can::kEraseRoutineRamAddr)));
-}
-
-// The userspace slice of `rom` the write path must transfer.
-bytes::ByteView UserspaceOf(const bytes::Bytes& rom)
-{
-    return bytes::ByteView(rom.data() + mitsu_colt_can::kUserspaceStart,
-                           mitsu_colt_can::kUserspaceEnd - mitsu_colt_can::kUserspaceStart);
-}
-
-// The top-region slice of `rom` the bootstrap must write and verify.
-bytes::ByteView TopRegionOf(const bytes::Bytes& rom)
-{
-    return bytes::ByteView(rom.data() + mitsu_colt_can::kTopRegionStart, mitsu_colt_can::kTopRegionLength);
 }
 
 TEST(MitsuColtM32rCanExecutor, RejectsAPlanFromAnotherFamilyBeforeAnyIo)
@@ -833,12 +590,7 @@ TEST(MitsuColtM32rCanExecutor, WriteBoundsTheDefaultProtocolTo384KiB)
     auto plan = WritePlan(rom, kProtocol384);
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
-    ScriptBootloadHandshake(transport);
-    ScriptUploadAndCommit(transport, mitsu_colt_can::kEraseRoutineRamAddr, mitsu_colt_can::kErasePageRoutine);
-    ScriptUploadAndCommit(transport, mitsu_colt_can::kWriteRoutineRamAddr, mitsu_colt_can::kWritePageRoutine);
-    ScriptUnlockAndErase(transport);
-    ScriptUploadAndCommit(transport, mitsu_colt_can::kUserspaceStart, UserspaceOf(rom), kUserspaceChecksumBytes);
-    ScriptFlashReadData(transport, mitsu_colt_can::kUserspaceStart, UserspaceOf(rom));
+    ScriptWrite384KiB(transport, rom);
 
     ASSERT_THAT(executor.Execute(*plan, transport, clock, cancellation, events), fastecu::testing::IsOk());
     EXPECT_TRUE(transport.ScriptConsumed());
@@ -931,26 +683,7 @@ struct MitsuColtM32rCanWriteExecutor : ::testing::Test
 
 TEST_F(MitsuColtM32rCanWriteExecutor, WriteRunsTheBootstrapWhenTheTopRegionDiffers)
 {
-    ScriptBootloadHandshake(transport);
-    // ECU reports 0xFF from the very first chunk: mismatch, so the
-    // bootstrap runs. top_region_matches() stops at that first chunk rather
-    // than reading the full 128KB before comparing.
-    ScriptFlashReadChunk(transport, mitsu_colt_can::kTopRegionStart, mitsu_colt_can::kFlashReadBlockSize, 0xFF);
-    ScriptFlashReadData(transport, mitsu_colt_can::kUserspaceStart, TopRegionOf(rom));
-    ScriptUploadAndCommit(transport, mitsu_colt_can::kEraseRoutineRamAddr, mitsu_colt_can::kEraseRedirectRoutine);
-    ScriptUploadAndCommit(transport, mitsu_colt_can::kWriteRoutineRamAddr, mitsu_colt_can::kWriteRedirectRoutine);
-    ScriptUnlockAndErase(transport);
-    // The carrier address is kUserspaceStart, not kTopRegionStart: the redirect
-    // routines add the +0x058000 offset themselves.
-    ScriptUploadAndCommit(transport, mitsu_colt_can::kUserspaceStart, TopRegionOf(rom));
-    // Verify read-back returns what was written.
-    ScriptFlashRead(transport, mitsu_colt_can::kTopRegionStart, mitsu_colt_can::kTopRegionLength, 0xEE);
-    // Then the ordinary write proceeds.
-    ScriptUploadAndCommit(transport, mitsu_colt_can::kEraseRoutineRamAddr, mitsu_colt_can::kErasePageRoutine);
-    ScriptUploadAndCommit(transport, mitsu_colt_can::kWriteRoutineRamAddr, mitsu_colt_can::kWritePageRoutine);
-    ScriptUnlockAndErase(transport);
-    ScriptUploadAndCommit(transport, mitsu_colt_can::kUserspaceStart, UserspaceOf(rom));
-    ScriptFlashReadData(transport, mitsu_colt_can::kUserspaceStart, UserspaceOf(rom));
+    ScriptWriteWithTopRegionBootstrap(transport, rom);
 
     ASSERT_THAT(executor.Execute(*plan, transport, clock, cancellation, events), fastecu::testing::IsOk());
     EXPECT_TRUE(transport.ScriptConsumed());

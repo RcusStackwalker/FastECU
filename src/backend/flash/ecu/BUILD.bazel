@@ -684,6 +684,7 @@ fastecu_portable_gtest(
         "//src/algorithms/protocol/colt:mitsu_colt_can_protocol",
         "//src/algorithms/protocol/colt:mitsu_colt_can_vendor_ext_protocol",
         "//src/backend/flash:flash_validation",
+        "//src/backend/flash/ecu/testing:mitsu_colt_m32r_can_scripts",
         "//src/backend/flash/testing:scripted_flash_transports",
         "//src/backend/ports",
         "//src/backend/ports/testing:fake_clock",

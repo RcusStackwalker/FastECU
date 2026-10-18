@@ -61,3 +61,19 @@ cc_library(
         "//src/backend/config:catalog",
     ],
 )
+
+cc_library(
+    name = "mitsu_colt_m32r_can_scripts",
+    srcs = ["mitsu_colt_m32r_can_scripts.cpp"],
+    hdrs = ["mitsu_colt_m32r_can_scripts.h"],
+    implementation_deps = [
+        "//src/algorithms/protocol/colt:mitsu_colt_can_protocol",
+        "//src/backend/flash/ecu:mitsu_colt_m32r_can_plan",
+    ],
+    deps = [
+        "//src/algorithms/protocol",
+        "//src/backend/flash:flash_plan",
+        "//src/backend/flash/testing:scripted_flash_transports",
+        "//src/backend/ports",
+    ],
+)
