@@ -35,7 +35,7 @@ namespace fastecu::flash
 // The decrypt table remains valid for the bootloader-dialect normal-ROM read paths.
 // DensoCAN is not a consumer of this data-only cluster.
 //
-// Beyond these tables, the common module shares ten operations, across all
+// Beyond these tables, the common module shares eleven operations, across all
 // four bootloader-dialect executors unless noted:
 // - setup-PDU encoding;
 // - the SecurityAccess seed/key exchange;
@@ -48,10 +48,11 @@ namespace fastecu::flash
 //   probe and branch selector;
 // - the in-car arm, with one fire-and-forget run for the N83M families and one
 //   for the SH families;
+// - the bench arm (not SH72543 diesel, which keeps its own);
 // - the kernel jump with its continuation wait.
 // Each declaration below names the family differences it takes as parameters.
 // Direct comparison of the legacy sources proved everything else identical.
-// What still differs -- read setup, the bench arms and family response
+// What still differs -- read setup, the diesel bench arm and family response
 // policy -- stays in the executors: read timeouts, retry counts and, above
 // all, how strictly a bad response is treated are the safety-relevant part of
 // each family, and a parameterized common routine would make a future reader
@@ -281,6 +282,13 @@ enum class DensoInCarRun
 // 200 ms, or 2000 ms on SH72543 diesel.
 Status DensoIso15765ConnectInCar(const CanExecutorContext& ctx, ICanFlashTransport& can, DensoInCarRun run,
                                  std::chrono::milliseconds read_timeout);
+
+// connect_bootloader's bench programming arm on N83M 1.5M, N83M 4M and
+// SH72531: a 500 ms wait, the fatal bench session (10 43, expecting 50 43) at
+// 200 ms, seed/key, then the bench kernel jump (10 42, at most 50 tries, all
+// reads at 200 ms); N83M 4M and SH72531 set `discard_first_reply`. SH72543
+// diesel keeps its own bench arm: a 50 ms wait and a tolerant session probe.
+Status DensoIso15765ConnectBench(const CanExecutorContext& ctx, bool discard_first_reply);
 
 // write_memory's body: each family erases and reflashes exactly one block
 // (legacy block_modified marks one entry), so this logs `block_index` -- 1 of

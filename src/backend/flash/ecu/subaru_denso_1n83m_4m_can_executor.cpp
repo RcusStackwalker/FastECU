@@ -53,7 +53,6 @@ using namespace std::chrono_literals;
 // one policy.
 constexpr std::chrono::milliseconds kShortTimeout{200};   // serial_read_short_timeout, and the bare 200 literals
 constexpr std::chrono::milliseconds kReceiveTimeout{500}; // receive_timeout, and the bare 500 literals
-constexpr uds::ExchangePolicy kShortPolicy{.read_timeout = kShortTimeout};
 // The timeout the tolerant_probe exchanges in connect_bootloader read with:
 // serial_read_short_timeout, as in two of its three siblings.
 // Named rather than repeated at each call so the one line a reader has to
@@ -70,10 +69,6 @@ constexpr std::chrono::milliseconds kExtraLongTimeout{3000}; // serial_read_extr
 // not a shared number and each family pins its own.
 constexpr uds::ExchangePolicy kChecksumPolicy{.read_timeout = kReceiveTimeout, .pending_timeout = kExtraLongTimeout};
 
-// Session ids in ISO 14229-1's 0x40-0x5F vehicle-manufacturer-specific band;
-// legacy uses its own values here rather than the standard subfunctions.
-constexpr bytes::Byte kSessionBench = 0x43;     // bench programming session
-constexpr bytes::Byte kSessionBenchJump = 0x42; // bench jump to on-board kernel
 // Positive-response service ids for the two SIDs this file inspects without
 // going through UdsClient (which does the SID + 0x40 arithmetic itself).
 constexpr bytes::Byte kRequestDownloadReply = uds::kSidRequestDownload + 0x40; // 0x74
@@ -135,34 +130,6 @@ Status TolerantSetup(Ctx& ctx, bytes::ByteView pdu, bytes::ByteView expected_pre
     return {};
 }
 
-// Bench programming arm, legacy lines 663-808.
-Status ConnectBench(Ctx& ctx)
-{
-    LogInfo(ctx, "Bench programming: accessing, please wait...");
-    if (const Status slept = ctx.clock.Sleep(500ms, ctx.cancellation); !slept.has_value())
-    {
-        return slept;
-    }
-
-    // Lines 667-695.
-    if (Result<bytes::Bytes> session =
-            FatalQuery(ctx, bytes::Bytes{uds::kSidDiagnosticSessionControl, kSessionBench}, bytes::Bytes{kSessionBench},
-                       kShortPolicy, "bench diagnostic session");
-        !session.has_value())
-    {
-        return std::unexpected(session.error());
-    }
-
-    // Lines 697-772.
-    if (const Status unlocked = DensoSecurityAccess(ctx); !unlocked.has_value())
-    {
-        return unlocked;
-    }
-
-    return DensoIso15765JumpToKernel(ctx, kSessionBenchJump, 50, kShortTimeout, kShortTimeout,
-                                     /*discard_first_reply=*/true);
-}
-
 // Legacy connect_bootloader, lines 89-810. The legacy `is_serial_port_open()`
 // guard (lines 95-101) has no equivalent: execute() below opens the transport
 // through the port and propagates that Status, so an unopened bus fails
@@ -191,7 +158,8 @@ Status ConnectBootloader(Ctx& ctx, ICanFlashTransport& can)
     {
         return std::unexpected(in_car.error());
     }
-    return *in_car ? DensoIso15765ConnectInCar(ctx, can, DensoInCarRun::kN83m, kShortTimeout) : ConnectBench(ctx);
+    return *in_car ? DensoIso15765ConnectInCar(ctx, can, DensoInCarRun::kN83m, kShortTimeout)
+                   : DensoIso15765ConnectBench(ctx, /*discard_first_reply=*/true);
 }
 
 // Legacy read_memory, lines 821-1081. start_addr and length are overwritten
