@@ -38,6 +38,10 @@ than copying its inventory.
 
 ## Active work
 
+The [size-reduction strategy](superpowers/specs/2026-10-18-size-reduction-strategy.md)
+phases the reduction toward 100k NLOC: remote-mode deletion, tooling audit,
+transport-level cancellation with wire transcripts, and per-family rollout.
+
 Task-specific specs and plans exist only while their work is proposed or unfinished.
 Find them, when present, with:
 

@@ -11,9 +11,11 @@ through [Git history](README.md#recover-completed-work-and-deleted-source-citati
 
 The portable-core cross-compilation spike is implemented: backend and algorithms,
 including portable GoogleTest binaries for compile/link only, build for Android
-arm64 with C++23. The native facade and smoke fixture have not started. Android
-v1 targets MUT/DMA live logging over USB serial, API 29, `arm64-v8a`; the Kotlin
-product application and real Android USB implementation are later work.
+arm64 with C++23. The Android application is the desktop Qt UI with full
+parity, over a wired OpenPort 2.0 or a Bluetooth STN-class adapter, API 29,
+`arm64-v8a`. It is the last phase of the
+[size-reduction strategy](superpowers/specs/2026-10-18-size-reduction-strategy.md#6-android),
+which owns its sequencing.
 
 The spike uses `rules_android_ndk` 0.1.5 and was verified against NDK r30
 (30.0.16248370). [Android configuration](../bazel/android.bazelrc) is opt-in through
@@ -26,20 +28,20 @@ Remaining milestones:
 
 1. **Pin deployment/toolchain inputs.** Set API 29 explicitly (the spike used the
    toolchain default) and establish a hermetic NDK pin. Keep Android dependencies
-   isolated; add Kotlin rules only if the fixture needs them.
-2. **Add the native facade under `src/platform/android/native`.** Export versioned
-   `fastecu_v1_*` C symbols with opaque handles, fixed-width POD values, caller-owned
-   buffers, structured errors, and transport callbacks. Wrap the existing logging
-   use case and cancellation/event contracts; callers supply execution context.
-   Keep STL layouts and exceptions behind the ABI and JNI out of the portable core.
-3. **Verify the ABI and smoke fixture.** Host tests cover ownership, buffer sizing,
-   invalid inputs, cancellation, errors, and teardown. An API-29/arm64 no-UI
-   `android_native_smoke_apk` proves native compilation, exported symbols, and
-   packaging. Desktop builds remain independent of Android setup.
+   isolated.
+2. **Build the Qt application for Android.** Prove that Bazel and `rules_qt`
+   package the existing Qt Widgets application as an API-29/arm64 APK. Desktop
+   builds remain independent of Android setup.
+3. **Add the Android platform layer under `src/platform/android`.** USB serial
+   and BLE byte pipes for the portable OpenPort and STN drivers, and
+   permissions. Use JNI only where Qt does not cover the platform API, and keep
+   it out of the portable core.
 
-These exit gates establish a native seam, not Android USB behavior or device
-qualification. Generic Sonar cleanup, UI policy migration, and evidence-dependent
-protocol corrections are separate debt, not hidden Android prerequisites.
+The APK ships the native code and the UI together, so there is no versioned C
+ABI or separate Kotlin application. These exit gates establish the Android
+build and transports, not device qualification. SonarCloud cleanup, UI policy
+migration, and evidence-dependent protocol corrections are separate debt, not
+hidden Android prerequisites.
 
 ## Verification and qualification
 
