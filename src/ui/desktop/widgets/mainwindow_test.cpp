@@ -68,7 +68,6 @@
 #include "src/platform/desktop/common/ports/qt_file_system.h"
 #include "src/platform/desktop/common/ports/qt_resource_bundle.h"
 #include "src/ui/desktop/channels/log_channel.h"
-#include "src/ui/desktop/channels/remote_peer.h"
 #include "src/backend/calibration/session/calibration_workspace.h"
 #include "src/backend/calibration/session/rom_open.h"
 #include "src/backend/definition/definition_service.h"
@@ -652,7 +651,6 @@ struct TestServices
             .file_action_events = events,
             .log = log_channel,
             .connection = adapter.Connection(),
-            .remote = remote_peer,
             .logging_engine = logging_engine,
             .make_clock = make_clock,
         };
@@ -677,7 +675,6 @@ struct TestServices
     fastecu::ui::LogChannel log_channel;
     fastecu::desktop::connection::testing::AdapterConnectionHarness adapter;
     FakeBackend *fake = adapter.Fake(); // null if the fake backend failed to start
-    fastecu::ui::RemotePeer remote_peer;
     fastecu::desktop::logging::LoggingEngine logging_engine;
     std::function<std::unique_ptr<fastecu::IClock>()> make_clock{[]() -> std::unique_ptr<fastecu::IClock>
                                                                  { return std::make_unique<QtClock>(); }};
@@ -690,8 +687,6 @@ class MainWindowTest : public ::testing::Test
 
   public:
     static void SetUpTestSuite();
-
-    // A direct session (no peer address) must never wait for a remote source.
 
     // Spec behavior change 1: "No file selected!" returns after the entry
     // reset started battery polling; it must now run the cleanup.
@@ -918,12 +913,8 @@ class MainWindowTest : public ::testing::Test
 
   protected:
     void checkExplicitConfigRootLoadsFixtureAndProvisionsDirectories();
-    void checkDirectSessionStartupNeverWaitsForARemoteSource();
     void checkWindowLogLinesReachTheLogChannel();
     void checkWindowEnablesFileLoggingThroughTheChannel();
-    void checkDirectSessionStartupNeverRequestsTheRemoteWait();
-    void checkExternalLoggerMirrorsToTheRemotePeer();
-    void checkPeerStateChangesReachTheWindow();
     void checkHandledDensoTcuReadChoicesRunMainWindowCleanupAndStopVoltagePolling(QString choice,
                                                                                   int expectedIgnitionCount);
     void checkFutureDensoSuffixesDoNotInstantiateKlineOrPerformEcuIo(QString protocol);
@@ -1138,23 +1129,6 @@ TEST_F(MainWindowTest, explicitConfigRootLoadsFixtureAndProvisionsDirectories)
     ASSERT_NO_FATAL_FAILURE(checkExplicitConfigRootLoadsFixtureAndProvisionsDirectories());
 }
 
-void MainWindowTest::checkDirectSessionStartupNeverWaitsForARemoteSource()
-{
-    ModalDriver constructorDriver{QString()};
-    constructorDriver.start();
-    TestServices services{config_root_->path()};
-    ASSERT_THAT(services.config_status, fastecu::testing::IsOk());
-    ASSERT_TRUE(services.fake != nullptr);
-    EXPECT_CALL(*services.fake, WaitForSource()).Times(0);
-    MainWindow window{services.services()};
-    constructorDriver.stop();
-}
-
-TEST_F(MainWindowTest, directSessionStartupNeverWaitsForARemoteSource)
-{
-    ASSERT_NO_FATAL_FAILURE(checkDirectSessionStartupNeverWaitsForARemoteSource());
-}
-
 void MainWindowTest::checkWindowLogLinesReachTheLogChannel()
 {
     ModalDriver constructorDriver{QString()};
@@ -1194,74 +1168,6 @@ void MainWindowTest::checkWindowEnablesFileLoggingThroughTheChannel()
 TEST_F(MainWindowTest, windowEnablesFileLoggingThroughTheChannel)
 {
     ASSERT_NO_FATAL_FAILURE(checkWindowEnablesFileLoggingThroughTheChannel());
-}
-
-void MainWindowTest::checkDirectSessionStartupNeverRequestsTheRemoteWait()
-{
-    ModalDriver constructorDriver{QString()};
-    constructorDriver.start();
-    TestServices services{config_root_->path()};
-    ASSERT_THAT(services.config_status, fastecu::testing::IsOk());
-    fastecu::testing::SignalRecorder waits{&services.remote_peer, &fastecu::ui::RemotePeer::waitRequested};
-    MainWindow window{services.services()};
-    constructorDriver.stop();
-
-    ASSERT_EQ(waits.Count(), 0U);
-}
-
-TEST_F(MainWindowTest, directSessionStartupNeverRequestsTheRemoteWait)
-{
-    ASSERT_NO_FATAL_FAILURE(checkDirectSessionStartupNeverRequestsTheRemoteWait());
-}
-
-void MainWindowTest::checkExternalLoggerMirrorsToTheRemotePeer()
-{
-    ModalDriver constructorDriver{QString()};
-    constructorDriver.start();
-    TestServices services{config_root_->path()};
-    ASSERT_THAT(services.config_status, fastecu::testing::IsOk());
-    MainWindow window{services.services()};
-    constructorDriver.stop();
-    fastecu::testing::SignalRecorder lines{&services.remote_peer, &fastecu::ui::RemotePeer::logWindowMessage};
-    fastecu::testing::SignalRecorder progress{&services.remote_peer, &fastecu::ui::RemotePeer::progress};
-
-    // Private slots: call by name so the Windows link needs no mangled
-    // private symbol (see startEcuOperations).
-    ASSERT_TRUE(QMetaObject::invokeMethod(&window, "externalLogger", Qt::DirectConnection,
-                                          Q_ARG(QString, QString("mirrored line"))));
-    ASSERT_TRUE(
-        QMetaObject::invokeMethod(&window, "externalLoggerSetProgressbarValue", Qt::DirectConnection, Q_ARG(int, 42)));
-
-    ASSERT_EQ(lines.Count(), 1U);
-    ASSERT_EQ(std::get<0>(lines.Snapshot().at(0)), QString("mirrored line"));
-    ASSERT_EQ(progress.Count(), 1U);
-    ASSERT_EQ(std::get<0>(progress.Snapshot().at(0)), 42);
-}
-
-TEST_F(MainWindowTest, externalLoggerMirrorsToTheRemotePeer)
-{
-    ASSERT_NO_FATAL_FAILURE(checkExternalLoggerMirrorsToTheRemotePeer());
-}
-
-void MainWindowTest::checkPeerStateChangesReachTheWindow()
-{
-    ModalDriver constructorDriver{QString()};
-    constructorDriver.start();
-    TestServices services{config_root_->path()};
-    ASSERT_THAT(services.config_status, fastecu::testing::IsOk());
-    MainWindow window{services.services()};
-    constructorDriver.stop();
-    fastecu::testing::SignalRecorder debugLines{&window, &MainWindow::logD};
-
-    emit services.remote_peer.stateChanged(QRemoteObjectReplica::Valid, QRemoteObjectReplica::Default);
-
-    ASSERT_THAT(logLines(debugLines), ::testing::Contains(::testing::FieldsAre("Network connection established",
-                                                                               ::testing::_, ::testing::_)));
-}
-
-TEST_F(MainWindowTest, peerStateChangesReachTheWindow)
-{
-    ASSERT_NO_FATAL_FAILURE(checkPeerStateChangesReachTheWindow());
 }
 
 struct HandledDensoTcuReadChoicesRunMainWindowCleanupAndStopVoltagePollingCase

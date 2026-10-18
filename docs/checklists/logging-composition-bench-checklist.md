@@ -7,7 +7,7 @@ established sequences.
 Automated tests are regression evidence, not hardware qualification.
 
 All scenarios below are **unrun**. Record each applicable adapter/OS/protocol
-combination separately; record unavailable hardware or remote peers as unverified.
+combination separately; record unavailable hardware as unverified.
 Run the host test suite (`bazel test -k --config=release //...`) first.
 Windows/macOS/Linux CI and Windows/macOS packaging remain merge gates.
 
@@ -48,8 +48,6 @@ Windows/macOS/Linux CI and Windows/macOS packaging remain merge gates.
       of corrupt startup/poll checksums. OpenPort keeps one adapter read per response.
       Direct desktop TCU framing remains unqualified; backend sender tests do not
       qualify the serial facade or hardware. Record unsupported combinations.
-- [ ] Repeat applicable protocol start/stop checks through a remote peer.
-      Without a peer, record remote operation unverified.
 - [ ] Exit or restart with logging active. The worker stops before serial and
       clock services are released; no hang or callback into a destroyed window.
 

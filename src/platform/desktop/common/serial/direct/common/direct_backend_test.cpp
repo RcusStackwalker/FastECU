@@ -50,7 +50,6 @@ TEST(TestDirectBackend, closedPort_ioCalls_returnEmpty)
     // Writes preserve the historical empty-array result on closed ports.
     ASSERT_EQ(b->WriteSerialData(QByteArray("\x01\x02", 2)), QByteArray());
     ASSERT_EQ(b->WriteSerialDataEchoCheck(QByteArray("\x01\x02", 2)), QByteArray());
-    b->WaitForSource(); // default no-op must not block or crash
 }
 
 TEST(TestDirectBackend, j2534Selection_usesInstalledDllPathAfterVendorProbe)

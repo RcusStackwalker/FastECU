@@ -35,7 +35,7 @@ using fastecu::bench::TrafficEvidence;
 fastecu::flash::DesktopCanTransportConfig DirectTransportConfig()
 {
     fastecu::flash::DesktopCanTransportConfig config;
-    config.backend_factory = MakeSerialBackendFactory(DirectSerial{});
+    config.backend_factory = MakeSerialBackendFactory();
     return config;
 }
 

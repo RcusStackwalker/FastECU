@@ -25,7 +25,6 @@ qt_cc_library(
     implementation_deps = ["//src/platform/desktop/common/serial:serial_backend_host"],
     deps = [
         "//bazel/qt:core",
-        "//bazel/qt:remote_objects",
         "//src/platform/desktop/common/serial:serial_backend",
         "//src/platform/desktop/common/serial:serial_facade_codes",
     ],

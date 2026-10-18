@@ -1,6 +1,7 @@
 # Size-reduction strategy
 
-Status: accepted direction; phases are not yet implemented.
+Status: accepted direction. Phase 1 is done (−1,437 NLOC); later phases are
+not yet implemented.
 Baseline: `136ad0fa` (master, 2026-10-18), 150,494 NLOC (70,746 production,
 79,748 test) by `python3 scripts/nloc_loop.py measure`.
 
@@ -61,7 +62,7 @@ rolling out.
 
 | Phase | Pool | Expected |
 | --- | ---: | --- |
-| 1. Delete remote mode | ~1.1k + remote branches in callers | Exact on deletion |
+| 1. Delete remote mode | ~1.1k + remote branches in callers | Done: −1,437 (1,248 production, 189 test) |
 | 2. Vendored code and tooling | 2.1k | Exact on move |
 | 3. Transport-level cancellation and transcript harness (Colt pilot) | 1.9k Colt executor + tests | Measured in pilot |
 | 4. Roll out per family | ~35k remaining executor code and tests | Extrapolated only after phase 3 |
@@ -78,7 +79,8 @@ configuration (`bazel/qt`, `third_party/qt`, the Windows add-ons patch).
 
 `SerialPortActions` remains: it marshals calls onto the serial I/O thread,
 which the direct backend still needs. Its `QRemoteObjectReplica::State` signal
-becomes a plain connection-state signal. With one production backend left,
+had no direct-mode emitter, so it was removed without a replacement. With one
+production backend left,
 the 44 getter/setter pairs on `SerialBackend` no longer have a remote schema to
 match; narrowing them to cohesive configuration values is follow-up work
 within the serial pool. Keep the observed behavior of the direct backend's

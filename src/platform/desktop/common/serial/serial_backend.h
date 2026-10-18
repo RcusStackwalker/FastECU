@@ -7,8 +7,8 @@
 
 class QObject;
 
-// Internal seam between the SerialPortActions facade and the two adapter
-// backends (SerialPortActionsDirect, RemoteSerialBackend). Consumers never
+// Internal seam between the SerialPortActions facade and the direct adapter
+// backend (SerialPortActionsDirect) or a test fake. Consumers never
 // see this type. Every method executes on the SerialIoThread — implementations
 // may block, but must never pump the application event loop.
 //
@@ -21,7 +21,7 @@ class SerialBackend
     virtual ~SerialBackend() = default;
 
     // The QObject identity of the concrete backend, used by the facade to
-    // wire LOG_* / stateChanged signal forwarding.
+    // wire LOG_* signal forwarding.
     virtual QObject *Qobject() = 0;
 
     // -- config get/set pairs (44) --------------------------------------
@@ -143,10 +143,4 @@ class SerialBackend
     virtual QStringList CheckSerialPorts() = 0;
     virtual QString OpenSerialPort() = 0;
     virtual unsigned long ReadVbatt() = 0;
-
-    // Remote-only: block until the QtRO source is replicated. No-op for the
-    // direct backend.
-    virtual void WaitForSource()
-    {
-    }
 };

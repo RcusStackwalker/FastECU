@@ -5,7 +5,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include <variant>
+#include <tuple>
 #include <QMap>
 #include "src/backend/ports/testing/result_matchers.h"
 #include "src/platform/desktop/common/logging/runtime/logging_worker.h"
@@ -29,16 +29,13 @@
 #include <memory>
 
 #include "src/platform/desktop/common/logging/runtime/systemlogger.h"
-#include "src/platform/desktop/common/remote_utility/remote_utility.h"
 #include "src/ui/desktop/channels/log_channel.h"
-#include "src/ui/desktop/channels/remote_peer.h"
 
 namespace
 {
 
 using fastecu::testing::IsOk;
 using fastecu::ui::LogChannel;
-using fastecu::ui::RemotePeer;
 
 constexpr auto kVersion = "0.1.0-beta.5";
 
@@ -152,10 +149,6 @@ class DesktopCompositionTest : public ::testing::Test
     {
         return composition.connection_;
     }
-    static auto& RemoteUtilityOf(DesktopComposition& composition)
-    {
-        return composition.remote_utility_;
-    }
     static auto& LoggingEngineOf(DesktopComposition& composition)
     {
         return composition.logging_engine_;
@@ -170,7 +163,7 @@ TEST_F(DesktopCompositionTest, compositionRegistersAllLoggingProtocolsWithoutWin
 {
     QTemporaryDir root;
     ASSERT_TRUE(root.isValid());
-    DesktopComposition composition{{}, {}, root.path()};
+    DesktopComposition composition{root.path()};
     ASSERT_TRUE(composition.started());
     ASSERT_EQ(composition.services().logging_engine.registrations_.keys(), (QStringList{"CDBG", "MUT_DMA", "SSM"}));
 }
@@ -179,7 +172,7 @@ TEST_F(DesktopCompositionTest, servicesReferToTheCompositionsOwnObjects)
 {
     QTemporaryDir root;
     ASSERT_TRUE(root.isValid());
-    DesktopComposition composition{{}, {}, root.path()};
+    DesktopComposition composition{root.path()};
 
     const MainWindowServices first = composition.services();
     const MainWindowServices second = composition.services();
@@ -189,7 +182,6 @@ TEST_F(DesktopCompositionTest, servicesReferToTheCompositionsOwnObjects)
     ASSERT_EQ(&first.file_action_events, &second.file_action_events);
     ASSERT_EQ(&first.log, &second.log);
     ASSERT_EQ(&first.connection, &second.connection);
-    ASSERT_EQ(&first.remote, &second.remote);
     ASSERT_EQ(&first.logging_engine, &second.logging_engine);
     ASSERT_EQ(&first.config, &second.config);
     ASSERT_EQ(&first.application, &second.application);
@@ -206,7 +198,7 @@ TEST_F(DesktopCompositionTest, failedStartupBuildsNoServicesAndPerformsNoEcuIo)
     ASSERT_TRUE(QDir().mkpath(config_dir));
     ASSERT_TRUE(WriteFile(config_dir + "fastecu.cfg", "<config"));
 
-    DesktopComposition composition{{}, {}, root.path()};
+    DesktopComposition composition{root.path()};
 
     ASSERT_TRUE(!composition.started());
     ASSERT_TRUE(composition.startup_error().has_value());
@@ -218,7 +210,6 @@ TEST_F(DesktopCompositionTest, failedStartupBuildsNoServicesAndPerformsNoEcuIo)
     ASSERT_TRUE(!SysloggerOf(composition));
     ASSERT_TRUE(!SerialOf(composition));
     ASSERT_TRUE(!ConnectionOf(composition));
-    ASSERT_TRUE(!RemoteUtilityOf(composition));
     ASSERT_TRUE(!LoggingEngineOf(composition));
     ASSERT_TRUE(!RomOpenOf(composition));
     ASSERT_TRUE(!CalibrationWorkspaceOf(composition));
@@ -228,7 +219,7 @@ TEST_F(DesktopCompositionTest, workspaceOpensARomFromDisk)
 {
     QTemporaryDir root;
     ASSERT_TRUE(root.isValid());
-    DesktopComposition composition{{}, {}, root.path()};
+    DesktopComposition composition{root.path()};
     ASSERT_TRUE(composition.started());
     ASSERT_TRUE(CalibrationWorkspaceOf(composition));
 
@@ -261,7 +252,7 @@ TEST_F(DesktopCompositionTest, migrationLoadsPreviousVersionSettingsFromDisk)
     const QString current_file = root.path() + "/" + kVersion + "/config/fastecu.cfg";
     ASSERT_TRUE(!QFile::exists(current_file));
 
-    DesktopComposition composition{{}, {}, root.path()};
+    DesktopComposition composition{root.path()};
 
     ASSERT_TRUE(composition.started());
     ASSERT_EQ(ConfigOf(composition).Settings().serial_port, std::string("ttyMIGRATED_UNIQUE"));
@@ -280,7 +271,7 @@ TEST_F(DesktopCompositionTest, aPreviousVersionsSavedRowSelectsNoVehicle)
 <setting name="protocol_id"><value data="35"/></setting>
 </software_settings></config>)"));
 
-    DesktopComposition composition{{}, {}, root.path()};
+    DesktopComposition composition{root.path()};
 
     ASSERT_TRUE(composition.started());
     ASSERT_TRUE(ConfigOf(composition).SelectedVehicle() == nullptr);
@@ -294,7 +285,7 @@ TEST_F(DesktopCompositionTest, malformedSettingsRejectStartup)
     ASSERT_TRUE(QDir().mkpath(config_dir));
     ASSERT_TRUE(WriteFile(config_dir + "fastecu.cfg", "<config"));
 
-    DesktopComposition composition{{}, {}, root.path()};
+    DesktopComposition composition{root.path()};
 
     ASSERT_TRUE(!composition.started());
     const auto& startup_error = composition.startup_error();
@@ -320,7 +311,7 @@ TEST_F(DesktopCompositionTest, settingsRewriteFailureIsAStartupWarning)
         GTEST_SKIP() << "this filesystem ignores the read-only permission";
     }
 
-    DesktopComposition composition{{}, {}, root.path()};
+    DesktopComposition composition{root.path()};
 
     ASSERT_TRUE(composition.started());
     // Joined so a failure prints the warnings as text; a path has no '\n',
@@ -333,7 +324,7 @@ TEST_F(DesktopCompositionTest, servicesShareTheCompositionsSession)
 {
     QTemporaryDir root;
     ASSERT_TRUE(root.isValid());
-    DesktopComposition composition{{}, {}, root.path()};
+    DesktopComposition composition{root.path()};
     ASSERT_TRUE(composition.started());
     ASSERT_EQ(&composition.services().config, &ConfigOf(composition));
     ASSERT_EQ(composition.services().application.version, std::string(kVersion));
@@ -346,65 +337,23 @@ TEST_F(DesktopCompositionTest, restartSeesSavedSettingsAndTheDatalogDirectory)
     ASSERT_TRUE(root.isValid());
     const std::string datalogs = root.path().toStdString() + "/elsewhere/";
     {
-        DesktopComposition first{{}, {}, root.path()};
+        DesktopComposition first{root.path()};
         ASSERT_TRUE(first.started());
         ConfigOf(first).Settings().serial_port = "ttyRESTART";
         ConfigOf(first).Settings().datalog_files_directory = datalogs;
         ASSERT_THAT(ConfigOf(first).Save(), IsOk());
     }
-    DesktopComposition second{{}, {}, root.path()};
+    DesktopComposition second{root.path()};
     ASSERT_TRUE(second.started());
     ASSERT_EQ(ConfigOf(second).Settings().serial_port, std::string("ttyRESTART"));
     ASSERT_EQ(ConfigOf(second).Settings().datalog_files_directory, datalogs);
-}
-
-TEST_F(DesktopCompositionTest, waitRequestIsWiredToTheRemoteUtility)
-{
-    QTemporaryDir root;
-    ASSERT_TRUE(root.isValid());
-    DesktopComposition composition{{}, {}, root.path()};
-    // Running the wait needs a peer; it loops until one answers, so this
-    // checks the wiring without invoking it: isSignalConnected is
-    // protected, so disconnect-and-report-whether-anything-was-there
-    // is the public way to observe the same fact.
-    ASSERT_TRUE(QObject::disconnect(&composition.services().remote, &RemotePeer::waitRequested, nullptr, nullptr));
-}
-
-TEST_F(DesktopCompositionTest, remoteStateChangesReachThePeer)
-{
-    QTemporaryDir root;
-    ASSERT_TRUE(root.isValid());
-    DesktopComposition composition{{}, {}, root.path()};
-    fastecu::testing::SignalRecorder changes{&composition.services().remote, &RemotePeer::stateChanged};
-
-    emit RemoteUtilityOf(composition)->stateChanged(QRemoteObjectReplica::Suspect, QRemoteObjectReplica::Valid);
-
-    ASSERT_EQ(changes.Count(), 1U);
-    ASSERT_EQ(std::get<0>(changes.Snapshot().at(0)), QRemoteObjectReplica::Suspect);
-    ASSERT_EQ(std::get<1>(changes.Snapshot().at(0)), QRemoteObjectReplica::Valid);
-}
-
-// No --host: the replica never becomes valid, so the mirror drops both.
-TEST_F(DesktopCompositionTest, mirroringWithoutAPeerReturnsPromptly)
-{
-    QTemporaryDir root;
-    ASSERT_TRUE(root.isValid());
-    DesktopComposition composition{{}, {}, root.path()};
-    RemotePeer& remote = composition.services().remote;
-    ASSERT_TRUE(!RemoteUtilityOf(composition)->IsValid());
-
-    QElapsedTimer elapsed;
-    elapsed.start();
-    emit remote.logWindowMessage("mirrored line");
-    emit remote.progress(42);
-    ASSERT_TRUE(elapsed.elapsed() < 1000) << "mirroring without a peer blocked";
 }
 
 TEST_F(DesktopCompositionTest, channelLevelsReachTheLogWindowWithTheirPrefix)
 {
     QTemporaryDir root;
     ASSERT_TRUE(root.isValid());
-    DesktopComposition composition{{}, {}, root.path()};
+    DesktopComposition composition{root.path()};
     LogChannel& log = composition.services().log;
     fastecu::testing::SignalRecorder window{&log, &LogChannel::logWindowMessage};
 
@@ -424,7 +373,7 @@ TEST_F(DesktopCompositionTest, debugLinesStayOutOfTheLogWindow)
 {
     QTemporaryDir root;
     ASSERT_TRUE(root.isValid());
-    DesktopComposition composition{{}, {}, root.path()};
+    DesktopComposition composition{root.path()};
     LogChannel& log = composition.services().log;
     fastecu::testing::SignalRecorder window{&log, &LogChannel::logWindowMessage};
 
@@ -443,7 +392,7 @@ TEST_F(DesktopCompositionTest, relayedLineSurvivesItsSenderButADirectOneDoesNot)
 {
     QTemporaryDir root;
     ASSERT_TRUE(root.isValid());
-    DesktopComposition composition{{}, {}, root.path()};
+    DesktopComposition composition{root.path()};
     LogChannel& log = composition.services().log;
     fastecu::testing::SignalRecorder window{&log, &LogChannel::logWindowMessage};
 
@@ -471,7 +420,7 @@ TEST_F(DesktopCompositionTest, enablingFileLoggingWritesASyslogFile)
 {
     QTemporaryDir root;
     ASSERT_TRUE(root.isValid());
-    DesktopComposition composition{{}, {}, root.path()};
+    DesktopComposition composition{root.path()};
     const QString syslog_dir =
         QString::fromStdString(composition.services().config.EffectivePaths().syslog_files_directory);
     ASSERT_TRUE(!syslog_dir.isEmpty());
@@ -505,7 +454,7 @@ TEST_F(DesktopCompositionTest, destructionRightAfterConstructionDoesNotHang)
     QElapsedTimer elapsed;
     elapsed.start();
     {
-        DesktopComposition composition{{}, {}, root.path()};
+        DesktopComposition composition{root.path()};
     }
     ASSERT_TRUE(elapsed.elapsed() < 5000) << "composition teardown took longer than 5 s";
 }
@@ -517,26 +466,11 @@ TEST_F(DesktopCompositionTest, constructingTwiceInOneProcessSucceeds)
     ASSERT_TRUE(root.isValid());
     for (int iteration = 0; iteration < 2; ++iteration)
     {
-        DesktopComposition composition{{}, {}, root.path()};
+        DesktopComposition composition{root.path()};
         ASSERT_TRUE(composition.started());
         ASSERT_EQ(QString::fromStdString(composition.services().config.ProvisionedPaths().base_config_directory),
                   root.path());
     }
-}
-
-TEST_F(DesktopCompositionTest, emptyHostSelectsTheDirectBackend)
-{
-    ASSERT_TRUE(std::holds_alternative<DirectSerial>(serial_connection_from_args({}, {})));
-    ASSERT_TRUE(std::holds_alternative<DirectSerial>(serial_connection_from_args({}, "ignored")));
-}
-
-TEST_F(DesktopCompositionTest, nonEmptyHostSelectsTheRemoteBackendWithItsCredentials)
-{
-    const SerialConnection connection = serial_connection_from_args("peer.example:1234", "secret");
-    const auto *remote = std::get_if<RemoteSerial>(&connection);
-    ASSERT_TRUE(remote != nullptr);
-    ASSERT_EQ(remote->address, QString("peer.example:1234"));
-    ASSERT_EQ(remote->password, QString("secret"));
 }
 
 namespace

@@ -2,9 +2,6 @@
 
 #include <functional>
 #include <memory>
-#include <variant>
-
-#include <QString>
 
 class QObject;
 class SerialBackend;
@@ -20,26 +17,12 @@ struct SerialPortActionsDeleter
 
 using OwnedSerialPortActions = std::unique_ptr<SerialPortActions, SerialPortActionsDeleter>;
 
-// Which backend the facade drives: the local adapter, or a FastECU remote
-// peer. The composition root decides; the facade never knows.
-struct DirectSerial
-{
-};
+// The direct backend factory. The facade calls it once, lazily, on its I/O
+// thread; separate from MakeSerialPortActions so the backend can be tested
+// without starting that thread.
+std::function<SerialBackend *()> MakeSerialBackendFactory();
 
-struct RemoteSerial
-{
-    QString address;
-    QString password;
-};
-
-using SerialConnection = std::variant<DirectSerial, RemoteSerial>;
-
-// The backend factory for a connection. The facade calls it once, lazily, on
-// its I/O thread; separate from MakeSerialPortActions so the choice can be
-// tested without starting that thread.
-std::function<SerialBackend *()> MakeSerialBackendFactory(const SerialConnection& connection);
-
-// Builds the facade over the connection's backend and routes its
+// Builds the facade over the direct backend and routes its
 // logE/logW/logI/logD signals to log_sink's
 // logMessages(QString, bool, bool) slot.
-OwnedSerialPortActions MakeSerialPortActions(const SerialConnection& connection, QObject& log_sink);
+OwnedSerialPortActions MakeSerialPortActions(QObject& log_sink);

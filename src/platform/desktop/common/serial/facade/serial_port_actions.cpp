@@ -46,12 +46,6 @@ void SerialPortActions::EnsureBackendStarted()
     connect(b, SIGNAL(logW(QString, bool, bool)), this, SIGNAL(logW(QString, bool, bool)));
     connect(b, SIGNAL(logI(QString, bool, bool)), this, SIGNAL(logI(QString, bool, bool)));
     connect(b, SIGNAL(logD(QString, bool, bool)), this, SIGNAL(logD(QString, bool, bool)));
-    if (b->metaObject()->indexOfSignal(QMetaObject::normalizedSignature(
-            "stateChanged(QRemoteObjectReplica::State,QRemoteObjectReplica::State)")) >= 0)
-    {
-        connect(b, SIGNAL(stateChanged(QRemoteObjectReplica::State, QRemoteObjectReplica::State)), this,
-                SIGNAL(stateChanged(QRemoteObjectReplica::State, QRemoteObjectReplica::State)));
-    }
 }
 
 void SerialPortActions::WaitForDone(const std::shared_ptr<QSemaphore>& done)
@@ -62,11 +56,6 @@ void SerialPortActions::WaitForDone(const std::shared_ptr<QSemaphore>& done)
     // connection code). DTC now runs its session on DtcWorker, off the UI
     // thread, and the legacy hexcommander dialog has been removed.
     done->acquire();
-}
-
-void SerialPortActions::waitForSource(void)
-{
-    RunOnBackend([this] { m_backend_->WaitForSource(); });
 }
 
 // -- config get/set pairs (44) ------------------------------------------

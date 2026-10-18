@@ -22,12 +22,6 @@ Run `bazel test --config=release //...` first.
 - [ ] Selecting the OpenPort 2.0 vendor connects ("J2534: Interface opened
       succesfully!" in the log).
 
-## Remote session
-
-- [ ] `fastecu --host <peer> --password <pw>` shows the network splash and
-      connects to a running remote peer. If no peer is available, record
-      "unverified" here.
-
 ## Sign-off
 
 - [ ] Date: ________________
