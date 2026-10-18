@@ -205,8 +205,8 @@ python3 scripts/nloc_loop.py measure            # total, production and test NLO
 python3 scripts/nloc_loop.py candidates         # ranked duplicate-cluster queue
 python3 scripts/nloc_loop.py guards snapshot    # test cases and coverage of HEAD
 python3 scripts/nloc_loop.py guards check --kind test-only   # HEAD against its base
-python3 scripts/nloc_loop.py ledger record <cluster> rejected --reason mutation
-python3 scripts/nloc_loop.py ledger list        # attempts and the rejection streak
+python3 scripts/nloc_loop.py ledger record <cluster> failed --reason mutation
+python3 scripts/nloc_loop.py ledger list        # attempts and the streak of failed ones
 python3 scripts/nloc_loop.py trend --pr <n> --kind test-only --before <base NLOC>
 ```
 
@@ -225,6 +225,12 @@ build on the host are dropped, as are clusters saving fewer than 50 NLOC and
 clusters already in the ledger. Test-only clusters are listed first, each kind
 by estimated savings. The cluster ID is stable across line shifts.
 
+`ledger record` takes `open`, `merged`, `closed`, `failed` (a guard failed after
+the work was done), `unsuitable` (judged by reading, before any work) and the
+older `rejected`, which counts as `failed`. The streak that stops the loop
+counts trailing failed attempts; an unsuitable cluster costs no work, so it
+neither counts nor breaks the streak.
+
 `trend` measures the working tree and appends a row to
 `docs/reference/nloc-trend.csv`; run it on the loop PR's branch before merge.
 
@@ -239,8 +245,17 @@ exits 1 when a guard fails:
 - Both kinds: executed test cases do not drop.
 - Test-only: no production file changed, and every production line covered
   on the base is still covered.
-- Production: line coverage of each changed production file present on both
-  sides does not drop.
+- Production, judged on lines rather than per-file ratios (a ratio punishes
+  moving well-covered code into a shared file; ADR 0023):
+  - *unchanged lines stay covered*: a line a changed production file shares
+    with the base (mapped through `git diff -U0`) and the base covered is still
+    covered;
+  - *uncovered lines not added*: the executable lines the PR adds that no test
+    runs (new files included) do not outnumber the uncovered lines it deletes.
+    Moving code keeps the count equal; adding code needs its own tests.
+
+  Snapshots taken before the guards tracked uncovered lines are rejected with a
+  request to re-run `guards snapshot`.
 
 The mutation guards run in CI ([ADR 0023](adr/0023-hill-climb-nloc-with-kind-specific-guards.md))
 on PRs labelled `nloc-loop`, through the [`nloc-loop` workflow](../.github/workflows/nloc-loop.yml).

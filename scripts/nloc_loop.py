@@ -35,7 +35,9 @@ LEDGER = Path(".nloc-loop/ledger.json")
 TREND = Path("docs/reference/nloc-trend.csv")
 TREND_HEADER = ("date", "pr", "kind", "nloc_before", "nloc_after")
 KINDS = ("test-only", "production")
-OUTCOMES = ("open", "merged", "rejected", "closed")
+# "rejected" predates the split and counts as "failed".
+OUTCOMES = ("open", "merged", "rejected", "failed", "unsuitable", "closed")
+FAILED = ("rejected", "failed")
 MIN_SAVINGS = 50
 JSCPD_REPORT = Path(".nloc-loop/jscpd/jscpd-report.json")
 SNAPSHOTS = Path(".nloc-loop/snapshots")
@@ -165,9 +167,12 @@ class Ledger:
         return matches[-1] if matches else None
 
     def consecutive_rejections(self) -> int:
+        """Trailing failed attempts; unsuitable ones (no work lost) neither count nor break it."""
         count = 0
         for attempt in reversed(self.attempts):
-            if attempt.outcome != "rejected":
+            if attempt.outcome == "unsuitable":
+                continue
+            if attempt.outcome not in FAILED:
                 break
             count += 1
         return count
@@ -322,15 +327,17 @@ def query_host_files(root: Path) -> set[str]:
 class FileCoverage:
     covered: frozenset[int]
     executable: int
+    # None in snapshots taken before the diff-aware guards recorded them.
+    uncovered: frozenset[int] | None = None
 
 
 def parse_coverage(report: str, root: Path) -> dict[str, FileCoverage]:
     """Per-file covered lines from `llvm-cov show`; instantiation sub-views are skipped."""
-    sections: dict[str, tuple[set[int], list[int]]] = {}
+    sections: dict[str, tuple[set[int], list[int], set[int]]] = {}
     current = None
     for line in report.splitlines():
         if line.endswith(":") and not line[:1].isspace():
-            current = sections.setdefault(_relative(root, line[:-1]), (set(), [0]))
+            current = sections.setdefault(_relative(root, line[:-1]), (set(), [0], set()))
             continue
         row = _COVERAGE_ROW.match(line)
         if current is None or row is None or row.group(2) is None:
@@ -338,9 +345,11 @@ def parse_coverage(report: str, root: Path) -> dict[str, FileCoverage]:
         current[1][0] += 1
         if row.group(2) != "0":
             current[0].add(int(row.group(1)))
+        else:
+            current[2].add(int(row.group(1)))
     return {
-        path: FileCoverage(frozenset(covered), executable[0])
-        for path, (covered, executable) in sections.items()
+        path: FileCoverage(frozenset(covered), executable[0], frozenset(uncovered))
+        for path, (covered, executable, uncovered) in sections.items()
     }
 
 
@@ -374,7 +383,11 @@ class Snapshot:
             data["commit"],
             data["test_cases"],
             {
-                p: FileCoverage(frozenset(c["covered"]), c["executable"])
+                p: FileCoverage(
+                    frozenset(c["covered"]),
+                    c["executable"],
+                    frozenset(c["uncovered"]) if "uncovered" in c else None,
+                )
                 for p, c in data["coverage"].items()
             },
         )
@@ -383,6 +396,7 @@ class Snapshot:
         path.parent.mkdir(parents=True, exist_ok=True)
         coverage = {
             p: {"covered": sorted(c.covered), "executable": c.executable}
+            | ({} if c.uncovered is None else {"uncovered": sorted(c.uncovered)})
             for p, c in sorted(self.coverage.items())
         }
         payload = {"commit": self.commit, "test_cases": self.test_cases, "coverage": coverage}
@@ -407,23 +421,98 @@ def _lost_lines(base: Snapshot, head: Snapshot) -> dict[str, list[int]]:
     return lost
 
 
-def _worse_files(base: Snapshot, head: Snapshot, changed: Sequence[str]) -> list[str]:
-    worse = []
-    for path in changed:
-        before, after = base.coverage.get(path), head.coverage.get(path)
-        if classify(path) != PRODUCTION or before is None or after is None:
+@dataclass(frozen=True)
+class Hunk:
+    """One `git diff -U0` hunk: base lines [old_start, old_start + old_count) became the head's."""
+
+    old_start: int
+    old_count: int
+    new_start: int
+    new_count: int
+
+
+_DIFF_FILE = re.compile(r"^diff --git a/(\S+) b/(\S+)$")
+_HUNK = re.compile(r"^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@")
+
+
+def parse_hunks(diff: str) -> dict[str, list[Hunk]]:
+    """Per-file hunks of `git diff -U0 --no-renames`, keyed by the head path."""
+    hunks: dict[str, list[Hunk]] = {}
+    current: list[Hunk] | None = None
+    for line in diff.splitlines():
+        if file := _DIFF_FILE.match(line):
+            current = hunks.setdefault(file.group(2), [])
+        elif (hunk := _HUNK.match(line)) and current is not None:
+            old_count = 1 if hunk.group(2) is None else int(hunk.group(2))
+            new_count = 1 if hunk.group(4) is None else int(hunk.group(4))
+            current.append(Hunk(int(hunk.group(1)), old_count, int(hunk.group(3)), new_count))
+    return hunks
+
+
+def deleted_lines(hunks: Sequence[Hunk]) -> set[int]:
+    return {n for h in hunks for n in range(h.old_start, h.old_start + h.old_count)}
+
+
+def added_lines(hunks: Sequence[Hunk]) -> set[int]:
+    return {n for h in hunks for n in range(h.new_start, h.new_start + h.new_count)}
+
+
+def map_line(line: int, hunks: Sequence[Hunk]) -> int | None:
+    """The head line of an unchanged base line; None if the base line was deleted."""
+    shift = 0
+    for h in hunks:
+        if h.old_start <= line < h.old_start + h.old_count:
+            return None
+        # An insertion (old_count 0) sits after old_start; a replacement starts at it.
+        end = h.old_start + (h.old_count if h.old_count else 1)
+        if line >= end:
+            shift += h.new_count - h.old_count
+    return line + shift
+
+
+def _lost_unchanged(
+    base: Snapshot, head: Snapshot, hunks: Mapping[str, Sequence[Hunk]], touched: Sequence[str]
+) -> list[str]:
+    """Base-covered lines the PR left alone that the head no longer covers."""
+    lost = []
+    for path in touched:
+        before = base.coverage.get(path)
+        if before is None:
             continue
-        # Cross-multiplied so equal fractions compare equal.
-        if len(after.covered) * before.executable < len(before.covered) * after.executable:
-            worse.append(
-                f"{path}: {len(before.covered)}/{before.executable}"
-                f" -> {len(after.covered)}/{after.executable}"
-            )
-    return worse
+        kept = head.coverage.get(path, FileCoverage(frozenset(), 0)).covered
+        for line in sorted(before.covered):
+            mapped = map_line(line, hunks.get(path, ()))
+            if mapped is not None and mapped not in kept:
+                lost.append(f"{path}:{line}")
+    return lost
+
+
+def _uncovered_in(snapshot: Snapshot, path: str, lines: set[int], role: str) -> int:
+    coverage = snapshot.coverage.get(path)
+    if coverage is None:
+        return 0
+    if coverage.uncovered is None:
+        raise NlocLoopError(f"the {role} snapshot predates line tracking; re-run `guards snapshot`")
+    return len(coverage.uncovered & lines)
+
+
+def _uncovered_balance(
+    base: Snapshot, head: Snapshot, hunks: Mapping[str, Sequence[Hunk]], touched: Sequence[str]
+) -> tuple[int, int]:
+    """(uncovered executable lines added, uncovered ones deleted) over production files."""
+    added = deleted = 0
+    for path in touched:
+        added += _uncovered_in(head, path, added_lines(hunks.get(path, ())), "head")
+        deleted += _uncovered_in(base, path, deleted_lines(hunks.get(path, ())), "base")
+    return added, deleted
 
 
 def check_guards(
-    base: Snapshot, head: Snapshot, kind: str, changed: Sequence[str]
+    base: Snapshot,
+    head: Snapshot,
+    kind: str,
+    changed: Sequence[str],
+    hunks: Mapping[str, Sequence[Hunk]] | None = None,
 ) -> list[GuardResult]:
     """The local guards for a loop PR of `kind` (docs/tooling.md#nloc-hill-climbing-loop)."""
     results = [
@@ -443,8 +532,20 @@ def check_guards(
         )
         results.append(GuardResult("covered lines", not lost, detail))
     else:
-        worse = _worse_files(base, head, changed)
-        results.append(GuardResult("touched coverage", not worse, "; ".join(worse)))
+        # Judged on lines, not ratios: moving covered code into shared code must not
+        # count against the files it leaves (ADR 0023).
+        hunks = hunks or {}
+        touched = [p for p in changed if classify(p) == PRODUCTION]
+        lost = _lost_unchanged(base, head, hunks, touched)
+        results.append(GuardResult("unchanged lines stay covered", not lost, "; ".join(lost[:10])))
+        added, deleted = _uncovered_balance(base, head, hunks, touched)
+        results.append(
+            GuardResult(
+                "uncovered lines not added",
+                added <= deleted,
+                f"{added} uncovered added vs {deleted} uncovered deleted",
+            )
+        )
     return results
 
 
@@ -505,8 +606,16 @@ def _guards(args: argparse.Namespace, run_coverage: RunCoverage, git: RunGit, ou
         return 0
     base = git(root, ["merge-base", args.base, "HEAD"]).strip()
     changed = git(root, ["diff", "--name-only", base, head]).split()
+    hunks = {}
+    if args.kind == "production":
+        diff = git(root, ["diff", "-U0", "--no-renames", "--no-color", base, head, "--", *changed])
+        hunks = parse_hunks(diff)
     results = check_guards(
-        _load_snapshot(root, base, "base"), _load_snapshot(root, head, "head"), args.kind, changed
+        _load_snapshot(root, base, "base"),
+        _load_snapshot(root, head, "head"),
+        args.kind,
+        changed,
+        hunks,
     )
     for r in results:
         out.write(f"{'PASS' if r.ok else 'FAIL'} {r.name}{': ' + r.detail if r.detail else ''}\n")
