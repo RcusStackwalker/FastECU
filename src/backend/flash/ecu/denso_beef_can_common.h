@@ -212,6 +212,75 @@ ChannelRequestOptional(C& ctx, bytes::ByteView pdu, std::chrono::milliseconds ti
     return ctx.channel.Receive(timeout, ctx.cancellation);
 }
 
+// ChannelRequestOptional where silence is a timeout error.
+template <typename C>
+Result<bytes::Bytes> ChannelRequest(C& ctx, bytes::ByteView pdu, std::chrono::milliseconds timeout,
+                                    std::chrono::milliseconds delay = std::chrono::milliseconds{0})
+{
+    Result<std::optional<bytes::Bytes>> received = ChannelRequestOptional(ctx, pdu, timeout, delay);
+    if (!received.has_value())
+    {
+        return std::unexpected(received.error());
+    }
+    if (!received->has_value())
+    {
+        return Fail(ErrorKind::kTimeout, "no CAN response within the read timeout");
+    }
+    return std::move(**received);
+}
+
+// A BEEF request whose reply must carry `opcode | 0x40` and at least
+// `minimum_payload` payload bytes; returns that payload.
+template <typename C>
+Result<bytes::Bytes> BeefExchange(C& ctx, bytes::Byte opcode, bytes::ByteView payload, std::size_t minimum_payload,
+                                  std::chrono::milliseconds timeout)
+{
+    Result<bytes::Bytes> reply = ChannelRequest(ctx, BeefRequest(opcode, payload), timeout);
+    if (!reply.has_value())
+    {
+        return std::unexpected(reply.error());
+    }
+    Result<BeefMessage> parsed = ParseBeef(*reply);
+    if (!parsed.has_value())
+    {
+        return std::unexpected(parsed.error());
+    }
+    const bytes::Byte expected = static_cast<bytes::Byte>(opcode | 0x40U);
+    if (parsed->opcode != expected)
+    {
+        return Fail(ErrorKind::kBadResponse, std::format("unexpected BEEF response opcode 0x{:02x}, expected 0x{:02x}",
+                                                         parsed->opcode, expected));
+    }
+    if (parsed->payload.size() < minimum_payload)
+    {
+        return Fail(ErrorKind::kBadResponse, "short BEEF response payload");
+    }
+    return bytes::Bytes(parsed->payload.begin(), parsed->payload.end());
+}
+
+// Every 0xB6 kernel-upload block is followed by a raw read whose content is
+// ignored. Send through the channel for the request CAN envelope, but read the
+// reply directly so short, malformed and wrong-ID frames and adapter stale
+// errors stay non-fatal; only cancellation and disconnection are typed.
+template <typename C> Status DiscardB6Reply(C& ctx, bytes::ByteView pdu, std::chrono::milliseconds read_timeout)
+{
+    if (const Status checkpoint = CancelledIfRequested(ctx, "kernel upload cancelled"); !checkpoint.has_value())
+    {
+        return checkpoint;
+    }
+    if (const Status sent = ctx.channel.Send(pdu, ctx.cancellation); !sent.has_value())
+    {
+        return sent;
+    }
+    const Result<std::optional<bytes::Bytes>> ignored = ctx.transport.Read(read_timeout, ctx.cancellation);
+    if (!ignored.has_value() &&
+        (ignored.error().kind == ErrorKind::kCancelled || ignored.error().kind == ErrorKind::kDisconnected))
+    {
+        return std::unexpected(ignored.error());
+    }
+    return CancelledIfRequested(ctx, "kernel upload cancelled");
+}
+
 // The short raw read that follows a CRC reply. The legacy operation does not
 // validate it, so malformed and wrong-ID frames stay tolerated stale content;
 // only cancellation and disconnection are actionable transport failures.

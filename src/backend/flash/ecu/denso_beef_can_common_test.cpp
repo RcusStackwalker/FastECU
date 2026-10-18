@@ -144,6 +144,78 @@ TEST(DensoBeefCanCommonTest, CompareBeefBlocksStopsOnQueryFailureAndOnCancellati
                 IsErr(ErrorKind::kCancelled));
 }
 
+// A scripted channel and raw transport behind the context shape the shared
+// exchange helpers expect.
+struct ExchangeFixture
+{
+    struct Channel
+    {
+        Status Send(bytes::ByteView, const ICancellationToken&)
+        {
+            return send_result;
+        }
+        Result<std::optional<bytes::Bytes>> Receive(std::chrono::milliseconds, const ICancellationToken&)
+        {
+            return reply;
+        }
+        Status send_result;
+        Result<std::optional<bytes::Bytes>> reply{std::nullopt};
+    };
+    struct Transport
+    {
+        Result<std::optional<bytes::Bytes>> Read(std::chrono::milliseconds, const ICancellationToken&)
+        {
+            return stale;
+        }
+        Result<std::optional<bytes::Bytes>> stale{std::nullopt};
+    };
+
+    Channel channel;
+    Transport transport;
+    FakeClock clock;
+    FakeCancellationToken cancellation;
+};
+
+TEST(DensoBeefCanCommonTest, BeefExchangeReturnsThePayloadOfAnOpcodeOrSizeCheckedReply)
+{
+    ExchangeFixture fixture;
+    const auto exchange = [&](bytes::Bytes reply, std::size_t minimum)
+    {
+        fixture.channel.reply = std::move(reply);
+        return BeefExchange(fixture, 0x05, {}, minimum, 10ms);
+    };
+    const bytes::Bytes good{0xBE, 0xEF, 0x00, 0x03, 0x45, 0xAA, 0xBB};
+
+    EXPECT_THAT(exchange(good, 2), IsOk());
+    EXPECT_THAT(exchange(good, 3), IsErrWith(ErrorKind::kBadResponse, StrEq("short BEEF response payload")));
+    EXPECT_THAT(exchange({0xBE, 0xEF, 0x00, 0x01, 0x46}, 0),
+                IsErrWith(ErrorKind::kBadResponse, StrEq("unexpected BEEF response opcode 0x46, expected 0x45")));
+    EXPECT_THAT(exchange({0xBE}, 0), IsErrWith(ErrorKind::kBadResponse, StrEq("short BEEF response envelope")));
+
+    fixture.channel.reply = std::nullopt;
+    EXPECT_THAT(BeefExchange(fixture, 0x05, {}, 0, 10ms),
+                IsErrWith(ErrorKind::kTimeout, StrEq("no CAN response within the read timeout")));
+    fixture.channel.reply = Fail(ErrorKind::kDisconnected, "gone");
+    EXPECT_THAT(BeefExchange(fixture, 0x05, {}, 0, 10ms), IsErr(ErrorKind::kDisconnected));
+}
+
+TEST(DensoBeefCanCommonTest, DiscardB6ReplyIgnoresStaleContentButNotCancellationOrDisconnection)
+{
+    ExchangeFixture fixture;
+    const bytes::Bytes pdu{0xB6};
+
+    EXPECT_THAT(DiscardB6Reply(fixture, pdu, 10ms), IsOk());
+    fixture.transport.stale = Fail(ErrorKind::kBadResponse, "noise");
+    EXPECT_THAT(DiscardB6Reply(fixture, pdu, 10ms), IsOk());
+    fixture.transport.stale = Fail(ErrorKind::kDisconnected, "gone");
+    EXPECT_THAT(DiscardB6Reply(fixture, pdu, 10ms), IsErr(ErrorKind::kDisconnected));
+    fixture.transport.stale = std::nullopt;
+    fixture.channel.send_result = Fail(ErrorKind::kTimeout, "no ack");
+    EXPECT_THAT(DiscardB6Reply(fixture, pdu, 10ms), IsErr(ErrorKind::kTimeout));
+    fixture.cancellation.SetCancelled(true);
+    EXPECT_THAT(DiscardB6Reply(fixture, pdu, 10ms), IsErr(ErrorKind::kCancelled));
+}
+
 TEST(DensoBeefCanCommonTest, InitializeBeefFlashSelectsTheModeAndStopsAtTheFirstFailingExchange)
 {
     for (const bool test_write : {false, true})

@@ -103,74 +103,6 @@ struct Context
     uds::IUdsChannel& channel;
 };
 
-Result<bytes::Bytes> ChannelRequest(Context& context, bytes::ByteView pdu, std::chrono::milliseconds timeout,
-                                    std::chrono::milliseconds delay = 0ms)
-{
-    Result<std::optional<bytes::Bytes>> received = ChannelRequestOptional(context, pdu, timeout, delay);
-    if (!received.has_value())
-    {
-        return std::unexpected(received.error());
-    }
-    if (!received->has_value())
-    {
-        return Fail(ErrorKind::kTimeout, "no CAN response within the read timeout");
-    }
-    return std::move(**received);
-}
-
-Status UploadB6Discard(Context& context, bytes::ByteView pdu)
-{
-    // upload_kernel(), revision 59f4e442:738-751 unconditionally reads and
-    // discards every B6 reply. Send through the channel for the request CAN
-    // envelope, but read the reply directly so short/malformed/wrong-ID
-    // frames and adapter-specific stale errors remain non-fatal like legacy.
-    if (const Status checkpoint = CancelledIfRequested(context, "kernel upload cancelled"); !checkpoint.has_value())
-    {
-        return checkpoint;
-    }
-    if (const Status sent = context.channel.Send(pdu, context.cancellation); !sent.has_value())
-    {
-        return sent;
-    }
-    const Result<std::optional<bytes::Bytes>> ignored = context.transport.Read(kReadTimeout, context.cancellation);
-    if (!ignored.has_value() &&
-        (ignored.error().kind == ErrorKind::kCancelled || ignored.error().kind == ErrorKind::kDisconnected))
-    {
-        return std::unexpected(ignored.error());
-    }
-    if (const Status checkpoint = CancelledIfRequested(context, "kernel upload cancelled"); !checkpoint.has_value())
-    {
-        return checkpoint;
-    }
-    return {};
-}
-
-Result<bytes::Bytes> BeefExchange(Context& context, bytes::Byte opcode, bytes::ByteView payload,
-                                  std::size_t minimum_payload, std::chrono::milliseconds timeout)
-{
-    Result<bytes::Bytes> reply = ChannelRequest(context, BeefRequest(opcode, payload), timeout);
-    if (!reply.has_value())
-    {
-        return std::unexpected(reply.error());
-    }
-    Result<BeefMessage> parsed = ParseBeef(*reply);
-    if (!parsed.has_value())
-    {
-        return std::unexpected(parsed.error());
-    }
-    const bytes::Byte expected = static_cast<bytes::Byte>(opcode | 0x40U);
-    if (parsed->opcode != expected)
-    {
-        return Fail(ErrorKind::kBadResponse, std::format("unexpected BEEF response opcode 0x{:02x}, expected 0x{:02x}",
-                                                         parsed->opcode, expected));
-    }
-    if (parsed->payload.size() < minimum_payload)
-    {
-        return Fail(ErrorKind::kBadResponse, "short BEEF response payload");
-    }
-    return bytes::Bytes(parsed->payload.begin(), parsed->payload.end());
-}
-
 Result<std::optional<bytes::Bytes>> NonfatalQuery(Context& context, bytes::ByteView pdu)
 {
     Result<std::optional<bytes::Bytes>> received =
@@ -706,9 +638,9 @@ Status UploadKernel(Context& context, const KernelImage& kernel)
     }
 
     LogInfo(context, "Uploading kernel, please wait...");
-    if (const Status uploaded =
-            UploadBeefKernelBlocks(context, *encrypted, kernel.load_address, kKernelUploadBlockSize,
-                                   [&context](bytes::ByteView request) { return UploadB6Discard(context, request); });
+    if (const Status uploaded = UploadBeefKernelBlocks(context, *encrypted, kernel.load_address, kKernelUploadBlockSize,
+                                                       [&context](bytes::ByteView request)
+                                                       { return DiscardB6Reply(context, request, kReadTimeout); });
         !uploaded.has_value())
     {
         return uploaded;

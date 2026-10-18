@@ -118,34 +118,6 @@ void LogOracleFrameFailure(Context& context, bytes::ByteView frame, std::size_t 
     LogError(context, std::format("Wrong response from ECU: {}", uds::Describe(frame.subspan(nrc_offset))));
 }
 
-Status UploadB6Discard(Context& context, bytes::ByteView pdu)
-{
-    // upload_kernel(), revision 59f4e442:517-782 unconditionally reads and
-    // discards every B6 reply. Send through the channel for the request CAN
-    // envelope, but read the reply directly so short/malformed/wrong-ID
-    // frames and adapter-specific stale errors remain non-fatal like legacy.
-    if (const Status checkpoint = CancelledIfRequested(context, "kernel upload cancelled"); !checkpoint.has_value())
-    {
-        return checkpoint;
-    }
-    if (const Status sent = context.channel.Send(pdu, context.cancellation); !sent.has_value())
-    {
-        return sent;
-    }
-    const Result<std::optional<bytes::Bytes>> ignored =
-        context.transport.Read(kKernelTransferTimeout, context.cancellation);
-    if (!ignored.has_value() &&
-        (ignored.error().kind == ErrorKind::kCancelled || ignored.error().kind == ErrorKind::kDisconnected))
-    {
-        return std::unexpected(ignored.error());
-    }
-    if (const Status checkpoint = CancelledIfRequested(context, "kernel upload cancelled"); !checkpoint.has_value())
-    {
-        return checkpoint;
-    }
-    return {};
-}
-
 Result<bytes::Bytes> BeefExchange(Context& context, bytes::Byte opcode, bytes::ByteView payload,
                                   std::size_t minimum_payload, std::chrono::milliseconds timeout)
 {
@@ -727,9 +699,9 @@ Status UploadKernel(Context& context, const KernelImage& kernel)
     }
 
     LogInfo(context, "Uploading kernel, please wait...");
-    if (const Status uploaded =
-            UploadBeefKernelBlocks(context, *encrypted, kernel.load_address, kKernelUploadBlockSize,
-                                   [&context](bytes::ByteView request) { return UploadB6Discard(context, request); });
+    if (const Status uploaded = UploadBeefKernelBlocks(
+            context, *encrypted, kernel.load_address, kKernelUploadBlockSize,
+            [&context](bytes::ByteView request) { return DiscardB6Reply(context, request, kKernelTransferTimeout); });
         !uploaded.has_value())
     {
         return uploaded;

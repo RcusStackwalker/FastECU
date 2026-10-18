@@ -91,52 +91,6 @@ bytes::Bytes SeedKey(bytes::ByteView seed)
     return DensoSeedKey(seed);
 }
 
-Result<bytes::Bytes> ChannelRequest(Context& context, bytes::ByteView pdu, std::chrono::milliseconds timeout,
-                                    std::chrono::milliseconds delay = 0ms)
-{
-    if (const Status sent = SendChannelRequest(context, pdu, delay); !sent.has_value())
-    {
-        return std::unexpected(sent.error());
-    }
-    Result<std::optional<bytes::Bytes>> received = context.channel.Receive(timeout, context.cancellation);
-    if (!received.has_value())
-    {
-        return std::unexpected(received.error());
-    }
-    if (!received->has_value())
-    {
-        return Fail(ErrorKind::kTimeout, "no CAN response within the read timeout");
-    }
-    return std::move(**received);
-}
-
-Result<bytes::Bytes> BeefExchange(Context& context, bytes::Byte opcode, bytes::ByteView payload,
-                                  std::size_t minimum_payload, std::chrono::milliseconds timeout)
-{
-    const bytes::Bytes request = BeefRequest(opcode, payload);
-    Result<bytes::Bytes> reply = ChannelRequest(context, request, timeout);
-    if (!reply.has_value())
-    {
-        return std::unexpected(reply.error());
-    }
-    Result<BeefMessage> parsed = ParseBeef(*reply);
-    if (!parsed.has_value())
-    {
-        return std::unexpected(parsed.error());
-    }
-    const bytes::Byte expected_opcode = static_cast<bytes::Byte>(opcode | 0x40U);
-    if (parsed->opcode != expected_opcode)
-    {
-        return Fail(ErrorKind::kBadResponse, std::format("unexpected BEEF response opcode 0x{:02x}, expected 0x{:02x}",
-                                                         parsed->opcode, expected_opcode));
-    }
-    if (parsed->payload.size() < minimum_payload)
-    {
-        return Fail(ErrorKind::kBadResponse, "short BEEF response payload");
-    }
-    return bytes::Bytes(parsed->payload.begin(), parsed->payload.end());
-}
-
 bool IsFatal(const Error& error)
 {
     return error.kind == ErrorKind::kCancelled || error.kind == ErrorKind::kDisconnected;
@@ -325,29 +279,6 @@ Status StrictPayload(Context& context, bytes::ByteView pdu, bytes::ByteView expe
     return {};
 }
 
-Status UploadB6Discard(Context& context, bytes::ByteView pdu)
-{
-    // upload_kernel(), revision 59f4e442 lines 473-513. Every B6 block is
-    // followed by one raw read whose content is ignored. Preserve typed
-    // cancellation/disconnection while treating every other read outcome as
-    // legacy discardable content.
-    if (const Status checkpoint = CancelledIfRequested(context, "kernel upload cancelled"); !checkpoint.has_value())
-    {
-        return checkpoint;
-    }
-    if (const Status sent = context.channel.Send(pdu, context.cancellation); !sent.has_value())
-    {
-        return sent;
-    }
-    const Result<std::optional<bytes::Bytes>> ignored = context.transport.Read(kReadTimeout, context.cancellation);
-    if (!ignored.has_value() &&
-        (ignored.error().kind == ErrorKind::kCancelled || ignored.error().kind == ErrorKind::kDisconnected))
-    {
-        return std::unexpected(ignored.error());
-    }
-    return CancelledIfRequested(context, "kernel upload cancelled");
-}
-
 Status StrictSeed(Context& context, bytes::Bytes& key)
 {
     Result<bytes::Bytes> seed_reply = context.uds.Request(
@@ -515,9 +446,9 @@ Status UploadKernel(Context& context, const KernelImage& kernel)
     }
 
     LogInfo(context, "Uploading kernel, please wait...");
-    if (const Status uploaded =
-            UploadBeefKernelBlocks(context, *encrypted, kernel.load_address, kKernelUploadBlockSize,
-                                   [&context](bytes::ByteView request) { return UploadB6Discard(context, request); });
+    if (const Status uploaded = UploadBeefKernelBlocks(context, *encrypted, kernel.load_address, kKernelUploadBlockSize,
+                                                       [&context](bytes::ByteView request)
+                                                       { return DiscardB6Reply(context, request, kReadTimeout); });
         !uploaded.has_value())
     {
         return uploaded;
