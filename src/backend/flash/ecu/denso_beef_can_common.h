@@ -127,7 +127,6 @@ inline Result<BeefMessage> ParseBeef(bytes::ByteView pdu)
 inline std::string UppercaseHexCompact(bytes::ByteView data)
 {
     std::string rendered;
-    rendered.reserve(data.size() * 2);
     for (const bytes::Byte value : data)
     {
         std::format_to(std::back_inserter(rendered), "{:02X}", value);
