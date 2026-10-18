@@ -391,6 +391,40 @@ TEST(DensoBeefCanCommonTest, FlashBeefBlockErasesWritesAndCommitsOrValidatesOneW
     }
 }
 
+TEST(DensoBeefCanCommonTest, WriteBeefMemoryLogsTheVoltageAndTheTimeLeftFromTheBytesStillToWrite)
+{
+    const std::array<MemoryRegion, 1> regions{{{0x2000, 0x1000}}};
+    const bytes::Bytes image(0x1000);
+    CompareFixture fixture;
+    PhaseSequence phases(fixture.events, 4);
+    PhaseReporter compare_progress = phases.Start("Compare", 1);
+    const auto exchange = [](bytes::Byte opcode, bytes::ByteView, std::size_t,
+                             std::chrono::milliseconds) -> Result<bytes::Bytes>
+    { return opcode == 0x04 ? bytes::Bytes{0x00, 0x64} : bytes::Bytes(2); };
+    const auto compare = [](PhaseReporter *, bool after) -> Result<CompareResult>
+    { return CompareResult{.modified = {!after}, .changed_count = after ? 0U : 1U}; };
+
+    EXPECT_THAT(WriteBeefMemory(fixture, image, 0x2000, regions, false, phases, compare_progress, "petrol", exchange,
+                                compare, [](bool) { return Status{}; }),
+                IsOk());
+    const auto has_log = [&](std::string_view text)
+    { return std::ranges::any_of(fixture.sink.logs, [&](const auto& log) { return log.second == text; }); };
+    EXPECT_TRUE(has_log(": 2V"));
+}
+
+TEST(DensoBeefCanCommonTest, FlashBeefBlockReportsTheTimeLeftForTheRestOfTheWrite)
+{
+    CompareFixture fixture;
+    PhaseReporter progress(fixture.events, "Write", 1, 1, 0x1000);
+    ScriptedExchange exchange;
+    std::size_t index = 0x200;
+
+    EXPECT_THAT(FlashBeefBlock(fixture, bytes::Bytes(0x1000), 0x2000, {0x2000, 0x1000}, false, index,
+                               0x400 + 5 * 512000 - 1, progress, "petrol", std::ref(exchange)),
+                IsOk());
+    EXPECT_EQ(fixture.sink.logs[5].second, "Write flash buffer: 0x00002000 (0% - 512000 B/s, ~ 5 s)");
+}
+
 TEST(DensoBeefCanCommonTest, SendChannelRequestSleepsOnlyForAPositiveDelay)
 {
     struct Channel
