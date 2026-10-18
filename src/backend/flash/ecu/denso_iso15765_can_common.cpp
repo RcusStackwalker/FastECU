@@ -260,6 +260,17 @@ Status DensoIso15765CloseAndVerifyChecksum(const CanExecutorContext& ctx, const 
     return {};
 }
 
+Status DensoIso15765WriteImageAndVerifyChecksum(const CanExecutorContext& ctx, bytes::ByteView image,
+                                                std::uint32_t image_base, const MemoryRegion& block,
+                                                PhaseReporter& progress, const uds::ExchangePolicy& checksum_policy)
+{
+    if (const Status written = DensoIso15765WriteImage(ctx, image, image_base, block, progress); !written.has_value())
+    {
+        return written;
+    }
+    return DensoIso15765CloseAndVerifyChecksum(ctx, checksum_policy);
+}
+
 Status DensoIso15765WaitForJumpAck(const CanExecutorContext& ctx, bytes::Byte session,
                                    std::optional<bytes::Bytes> first_reply, int attempt_count)
 {

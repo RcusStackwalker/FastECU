@@ -713,7 +713,8 @@ TEST(DensoIso15765CanCommonTest, WriteImageSendsWholeChunksIndexedFromImageBase)
     EXPECT_THAT(ProgressDone(f.events), ::testing::ElementsAre(0, 0x100));
 }
 
-TEST(DensoIso15765CanCommonTest, WriteImageStopsOnCancellationOrChunkFailure)
+// A cancelled or rejected write stops the loop and never reaches the close.
+TEST(DensoIso15765CanCommonTest, WriteImageAndVerifyStopsOnCancellationOrChunkFailureBeforeClosing)
 {
     for (const bool cancelled : {false, true})
     {
@@ -729,11 +730,14 @@ TEST(DensoIso15765CanCommonTest, WriteImageStopsOnCancellationOrChunkFailure)
         }
         PhaseReporter progress(f.events, "Write", 1, 1, 0x1000);
 
-        EXPECT_THAT(DensoIso15765WriteImage(f.ctx, bytes::Bytes(0x200), 0, MemoryRegion{0, 0x200}, progress),
+        EXPECT_THAT(DensoIso15765WriteImageAndVerifyChecksum(f.ctx, bytes::Bytes(0x200), 0, MemoryRegion{0, 0x200},
+                                                             progress, {.read_timeout = 500ms}),
                     fastecu::testing::IsErr(cancelled ? ErrorKind::kCancelled : ErrorKind::kBadResponse));
 
         EXPECT_EQ(f.transport.write_attempts, cancelled ? 0U : 1U);
         EXPECT_THAT(ProgressDone(f.events), ::testing::ElementsAre(0));
+        EXPECT_THAT(f.events.logs, ::testing::Not(::testing::Contains(
+                                       ::testing::Pair(LogLevel::kInfo, "Closing out Flashing of this block"))));
     }
 }
 

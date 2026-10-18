@@ -392,11 +392,7 @@ Result<bytes::Bytes> ReadMemory(Ctx& ctx, const SubaruDensoSh72543CanDieselPlan&
 Status ReflashBlock(Ctx& ctx, bytes::ByteView image, const MemoryRegion& block, PhaseReporter& progress)
 {
     LogInfo(ctx, StartAndLengthLine(block));
-    if (const Status written = DensoIso15765WriteImage(ctx, image, kImageStart, block, progress); !written.has_value())
-    {
-        return written;
-    }
-    return DensoIso15765CloseAndVerifyChecksum(ctx, kChecksumPolicy);
+    return DensoIso15765WriteImageAndVerifyChecksum(ctx, image, kImageStart, block, progress, kChecksumPolicy);
 }
 
 // Legacy write_memory, lines 1070-1149. block_modified is {1} over

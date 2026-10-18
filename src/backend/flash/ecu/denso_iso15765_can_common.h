@@ -141,7 +141,7 @@ Status DensoIso15765WriteChunk(const CanExecutorContext& ctx, std::uint32_t addr
 // chunk per whole 256 bytes of `block`, cancellation checked before each and
 // progress after each. Chunk bytes are taken at the wire address minus
 // `image_base`, the flash address of the image's byte 0 (nonzero on both N83M
-// families). Callers own the header log line and the close.
+// families). DensoIso15765WriteImageAndVerifyChecksum adds the close.
 Status DensoIso15765WriteImage(const CanExecutorContext& ctx, bytes::ByteView image, std::uint32_t image_base,
                                const MemoryRegion& block, PhaseReporter& progress);
 
@@ -154,6 +154,12 @@ void DensoIso15765BestEffortTransferExit(const CanExecutorContext& ctx);
 // timeouts are the family's own `checksum_policy` (500/500 on N83M 1.5M,
 // 500/3000 on N83M 4M, 2000/2000 on both SH families).
 Status DensoIso15765CloseAndVerifyChecksum(const CanExecutorContext& ctx, const uds::ExchangePolicy& checksum_policy);
+
+// reflash_block after the family's own header log line: the image write loop,
+// then the close. A failed or cancelled write never reaches the close.
+Status DensoIso15765WriteImageAndVerifyChecksum(const CanExecutorContext& ctx, bytes::ByteView image,
+                                                std::uint32_t image_base, const MemoryRegion& block,
+                                                PhaseReporter& progress, const uds::ExchangePolicy& checksum_policy);
 
 // fatal_query with this dialect's "Wrong response from ECU: " rejection
 // prefix; see uds_client_exchange_common.h for what expected_prefix, subject
