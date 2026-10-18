@@ -1184,7 +1184,7 @@
     },
     "@@rules_qt+//extension:qt.bzl%fetch": {
       "general": {
-        "bzlTransitiveDigest": "+OZ3XQqAwEZnh8H6S7gbKTdLO2IVFgXFwsTR2cNBpjA=",
+        "bzlTransitiveDigest": "jzcRvigZjrFdsGu/h4KXdK0GxcKFuqfJM44J+G8k2X4=",
         "usagesDigest": "rAQpmw7hCuc+DkGFC8jp0uHNttCNhjq9oQvaA02E3BI=",
         "recordedInputs": [
           "REPO_MAPPING:fastecu_qt+,rules_qt rules_qt+",

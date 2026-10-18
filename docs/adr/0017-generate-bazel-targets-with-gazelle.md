@@ -141,12 +141,10 @@ not a Bazel-run target, so adopting it would add a CI binary download and rework
 Packages containing only moc libraries use `map_kind cc_library qt_cc_library`.
 Bench uses `map_kind cc_binary qt_cc_binary` for its existing binary and keeps
 the portable GoogleTest mapping. The binary's selected direct backend is an
-explained dependency keep. Designer-form and remote-replica generation remain
-hand-owned. Forms are listed in each owner's `FORMS` (no `glob`, to keep
+explained dependency keep. Designer-form generation remains hand-owned. Forms are listed in each owner's `FORMS` (no `glob`, to keep
 Bazel loading cheap); a scoped `resolve_regexp` maps `ui_<name>.h` to that
 package's `ui_<name>` target, with `src/ui/desktop` as the default and the
-`biu` and `hexedit` children overriding it. Package-local resolutions connect
-the Remote Objects `rep_*_replica.h` headers to their generated targets. Resource registration
+`biu` and `hexedit` children overriding it. Resource registration
 is retained with dependency keeps wherever no include expresses the link.
 
 ### Complete C++ test ownership
@@ -204,13 +202,10 @@ implementations and keep their target names. The connection package and the UI
 flash dialog and controller packages are homogeneous moc packages and use the
 same mapping in place. Children that use the event sink depend on `ports/event_sink:qt_event_sink`.
 
-The serial package follows the same rule. The facade (`serial/facade`), the
-remote backend (`serial/remote`), the websocket device (`serial/websocket`) and
+The serial package follows the same rule. The facade (`serial/facade`) and
 the recording log sink (`serial/testing/log_sink`) are moc children; the backend
-interface, facade codes, backend host, factory, idle-state adapter and
-`qtrohelper.hpp` are plain generated libraries in the parent. Replica
-generation stays hand-owned, and the remote package resolves the generated
-`rep_serial_port_actions_replica.h` to it. The facade-threading test keeps its
+interface, facade codes, backend host, factory and idle-state adapter are plain
+generated libraries in the parent. The facade-threading test keeps its
 custom main as an excluded source with a narrow source-entry keep. The J2534
 driver-selection library keeps its OS-selecting `srcs` as an explained
 exception and generates its header and dependencies.

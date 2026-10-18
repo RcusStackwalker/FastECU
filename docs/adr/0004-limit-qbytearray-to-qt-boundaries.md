@@ -9,7 +9,7 @@ Accepted
 FastECU is a Qt application, but protocol, checksum, logging, and flash-planning
 logic do not need to depend on Qt byte containers. Broad `QByteArray` use in
 core helpers makes pure logic harder to test, harder to reuse, and easier to
-couple to UI, file, serial, and Qt Remote Objects boundaries.
+couple to UI, file, and serial boundaries.
 
 The project builds as C++23, so `std::span` is available. Several protocol
 areas have already moved to the shared byte aliases in
@@ -55,8 +55,7 @@ Negative consequences and risks:
 Migrate one bounded slice at a time, starting from the reusable protocol and
 checksum helpers and working outward to their consumers. Do not attempt a
 sweeping conversion across all operation classes; leave `QByteArray` in place
-where data is directly owned by Qt file APIs, widgets, Qt Remote Objects, or
-serial adapters until a local byte-native boundary is practical.
+where data is directly owned by Qt file APIs, widgets, or serial adapters until a local byte-native boundary is practical.
 
 The byte-type conventions this decision implies — `ByteView` for read-only
 input, `Bytes` for owned output, fixed arrays for fixed-size frames — are

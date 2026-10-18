@@ -1,7 +1,6 @@
 #pragma once
 
 #include <QObject>
-#include <QRemoteObjectReplica>
 #include <QString>
 #include <QStringList>
 
@@ -55,15 +54,9 @@ class AdapterConnection final : public QObject
     void SetPortSpeed(int baud);
     // Empty unless the adapter is an OpenPort, the only one that reports it.
     std::optional<unsigned long> BatteryMillivolts();
-    void WaitForSource();
     // For the handoffs that still take the facade: the flash controller, the
     // diagnostic link, and reset_serial_to_idle.
     SerialPortActions& Facade();
-
-  signals:
-    // NOLINTBEGIN(readability-identifier-naming): Qt signals keep Qt's camelBack names
-    void stateChanged(QRemoteObjectReplica::State state, QRemoteObjectReplica::State old_state);
-    // NOLINTEND(readability-identifier-naming)
 
   private:
     SerialPortActions& facade_;

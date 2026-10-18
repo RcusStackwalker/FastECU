@@ -32,7 +32,6 @@ LogTransport LogTransportFromText(const QString& text)
 
 AdapterConnection::AdapterConnection(SerialPortActions& facade, QObject *parent) : QObject(parent), facade_(facade)
 {
-    connect(&facade_, &SerialPortActions::stateChanged, this, &AdapterConnection::stateChanged, Qt::DirectConnection);
 }
 
 QStringList AdapterConnection::AvailablePorts()
@@ -132,11 +131,6 @@ std::optional<unsigned long> AdapterConnection::BatteryMillivolts()
         return std::nullopt;
     }
     return facade_.ReadVbatt();
-}
-
-void AdapterConnection::WaitForSource()
-{
-    facade_.waitForSource();
 }
 
 SerialPortActions& AdapterConnection::Facade()

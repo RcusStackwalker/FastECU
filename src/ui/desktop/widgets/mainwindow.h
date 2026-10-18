@@ -7,10 +7,6 @@
 #include <string>
 #include <vector>
 
-// Exit application with this code to restart it instead of quitting:
-// qApp->exit(kRestartCode)
-inline constexpr int kRestartCode = 1000;
-
 #include <QMainWindow>
 #include <QTreeWidget>
 #include <QLabel>
@@ -30,15 +26,12 @@ inline constexpr int kRestartCode = 1000;
 #include <QCheckBox>
 #include <QStandardItemModel>
 #include <QStackedWidget>
-#include <QSplashScreen>
 #include <QAtomicInteger>
 #include <QFontDatabase>
-#include <QRemoteObjectReplica>
 
 #include <QFuture>
 #include <QDebug>
 #include <QThread>
-#include <QMutex>
 
 #include "src/backend/calibration/session/calibration_workspace.h"
 #include "src/ui/desktop/calibration/calibration_view_state.h"
@@ -61,7 +54,6 @@ inline constexpr int kRestartCode = 1000;
 #include "src/ui/desktop/widgets/dtc_operations.h"
 #include "src/ui/desktop/hexedit/hexedit.h"
 #include "src/ui/desktop/channels/log_channel.h"
-#include "src/ui/desktop/channels/remote_peer.h"
 
 // Flash modules
 
@@ -110,7 +102,7 @@ class MainWindow : public QMainWindow
     friend class MainWindowTest;
 
   public:
-    MainWindow(MainWindowServices services, const QString& peerAddress = "", QWidget *parent = nullptr);
+    explicit MainWindow(MainWindowServices services, QWidget *parent = nullptr);
     ~MainWindow();
 
     void delay(int n);
@@ -123,11 +115,6 @@ class MainWindow : public QMainWindow
     QString software_title_;
     QString software_version_;
 
-    QMutex restart_question_active_;
-
-    QString peer_address_;
-    QSplashScreen *net_splash_;
-    fastecu::ui::RemotePeer *remote_peer_ = nullptr;
     static const QColor kRedLightOff;
     static const QColor kRedLightOn;
     static const QColor kYellowLightOff;
@@ -287,8 +274,6 @@ class MainWindow : public QMainWindow
 
     fastecu::ui::LogChannel *log_channel_ = nullptr;
 
-    bool eventFilter(QObject *target, QEvent *event);
-
     // fileactions.c
     bool openCalibrationFile(QString filename);
     void promptForMissingDefinition(fastecu::calibration::SessionId id);
@@ -322,7 +307,6 @@ class MainWindow : public QMainWindow
     void warnIfNoDefinitionFiles();
     void connectWidgetSignals();
     void setupStatusBar();
-    void waitForPeer(const QString& peerAddress);
     void setupToolbar();
     void addSerialPortList();
 
@@ -475,7 +459,6 @@ class MainWindow : public QMainWindow
     // void logger(QString message, bool timestamp, bool linefeed);
     // void sendMsgToLogWindow(QWidget* parent, QString msg);
     void sendMessageToLogWindow(const QString& msg);
-    void networkStateChanged(QRemoteObjectReplica::State state, QRemoteObjectReplica::State oldState);
 
     // logvalues.c
     void changeLogGaugeValue(int index);

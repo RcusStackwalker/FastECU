@@ -5,7 +5,6 @@
 #include <QObject>
 #include <QSemaphore>
 #include <QThread>
-#include <QtRemoteObjects/qremoteobjectnode.h>
 #include <atomic>
 #include <exception>
 #include <functional>
@@ -27,7 +26,6 @@ class SerialPortActions : public QObject
 
   signals:
     // NOLINTBEGIN(readability-identifier-naming): Qt signals keep Qt's camelBack names
-    void stateChanged(QRemoteObjectReplica::State state, QRemoteObjectReplica::State old_state);
     void logE(QString message, bool timestamp, bool linefeed);
     void logW(QString message, bool timestamp, bool linefeed);
     void logI(QString message, bool timestamp, bool linefeed);
@@ -181,11 +179,6 @@ class SerialPortActions : public QObject
     QString ParseMessageToHex(const QByteArray& received);
 
     unsigned long ReadVbatt();
-
-  public slots:
-    // NOLINTBEGIN(readability-identifier-naming): Qt slots keep Qt's camelBack names
-    void waitForSource(void);
-    // NOLINTEND(readability-identifier-naming)
 
   private:
     void EnsureBackendStarted();

@@ -76,12 +76,9 @@ use_repo(pip, "python_deps")
 # mac_single_rpath gives every Qt module's framework rpath to one shared
 # library, so Apple's ld sees it once per link instead of warning on each repeat.
 #
-# windows_addons adds the Qt addon modules (charts, remoteobjects, serialport,
-# websockets) rules_qt does not list for Windows 6.8.3, each with its pinned
-# sha256 so Bazel's remote downloader can serve it from BuildBuddy's CAS.
-#
-# export_repc adds the Remote Objects replica compiler next to the exported moc
-# and rcc, so replica generation uses this Qt's repc, not one found via qmake6.
+# windows_addons adds the Qt addon modules (charts, serialport) rules_qt does
+# not list for Windows 6.8.3, each with its pinned sha256 so Bazel's remote
+# downloader can serve it from BuildBuddy's CAS.
 single_version_override(
     module_name = "rules_qt",
     patch_strip = 1,
@@ -89,7 +86,6 @@ single_version_override(
         "//bazel/patches:rules_qt_drop_intel_mac.patch",
         "//bazel/patches:rules_qt_mac_single_rpath.patch",
         "//bazel/patches:rules_qt_windows_addons.patch",
-        "//bazel/patches:rules_qt_export_repc.patch",
     ],
 )
 

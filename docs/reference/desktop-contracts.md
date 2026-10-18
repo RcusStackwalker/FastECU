@@ -26,8 +26,7 @@ exposes construction through an owner with a custom deleter and keeps the facade
 incomplete to the application. Its string-based signal connections are checked
 by the factory tests because connection failure is only visible at runtime.
 
-An empty `--host` selects direct serial; a supplied host selects remote serial.
-The facade receives a backend factory and owns no platform-selection policy.
+The facade drives the direct serial backend. It receives a backend factory and owns no platform-selection policy.
 The application binary selects the per-OS direct implementation. Each moc header
 has one owner, including the shared direct-backend header; see
 [ADR 0017](../adr/0017-generate-bazel-targets-with-gazelle.md).
@@ -144,12 +143,8 @@ Qualification is recorded in the [diagnostics checklist](../checklists/diagnosti
 
 ## UI channels
 
-UI-owned `LogChannel` and `RemotePeer` expose signals; composition wires platform
-services to them. Timestamp/linefeed flags remain part of the desktop log contract.
+UI-owned `LogChannel` exposes signals; composition wires platform services to
+it. Timestamp/linefeed flags remain part of the desktop log contract.
 Signals retain the names `logE`, `logW`, `logI`, and `logD`: the logger reads
 the delivering signal's name to choose level. UI signals relay signal-to-signal
 through the long-lived channel so logs survive destruction of short-lived dialogs.
-
-`RemotePeer::waitForSource` connects to the remote utility with
-`Qt::DirectConnection`, retaining its blocking behavior. Headless composition
-tests verify the connection, not completion of a wait requiring a live peer.

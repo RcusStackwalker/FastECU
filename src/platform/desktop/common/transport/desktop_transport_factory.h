@@ -27,7 +27,7 @@ struct DesktopCanTransportConfig
     std::string port_name;
 
     // Builds the serial backend the facade drives; required. Production
-    // passes make_serial_backend_factory(DirectSerial{}) from
+    // passes MakeSerialBackendFactory() from
     // desktop_serial_factory.h; tests pass a fake.
     std::function<SerialBackend *()> backend_factory;
 };

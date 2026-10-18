@@ -3,38 +3,21 @@
 #include <array>
 
 #include "src/platform/desktop/common/serial/direct_serial_backend.h"
-#include "src/platform/desktop/common/serial/remote/remote_serial_backend.h"
 #include "src/platform/desktop/common/serial/facade/serial_port_actions.h"
-
-namespace
-{
-struct BackendFactoryFor
-{
-    std::function<SerialBackend *()> operator()(const DirectSerial& /*direct*/) const
-    {
-        return [] { return MakeDirectSerialBackend().release(); };
-    }
-
-    std::function<SerialBackend *()> operator()(const RemoteSerial& remote) const
-    {
-        return [remote]() -> SerialBackend * { return new RemoteSerialBackend(remote.address, remote.password); };
-    }
-};
-} // namespace
 
 void SerialPortActionsDeleter::operator()(SerialPortActions *serial) const
 {
     delete serial;
 }
 
-std::function<SerialBackend *()> MakeSerialBackendFactory(const SerialConnection& connection)
+std::function<SerialBackend *()> MakeSerialBackendFactory()
 {
-    return std::visit(BackendFactoryFor{}, connection);
+    return [] { return MakeDirectSerialBackend().release(); };
 }
 
-OwnedSerialPortActions MakeSerialPortActions(const SerialConnection& connection, QObject& log_sink)
+OwnedSerialPortActions MakeSerialPortActions(QObject& log_sink)
 {
-    auto serial = std::make_unique<SerialPortActions>(MakeSerialBackendFactory(connection));
+    auto serial = std::make_unique<SerialPortActions>(MakeSerialBackendFactory());
     // String-based connections, so log_sink can be any QObject with a
     // log_messages(QString, bool, bool) slot (SystemLogger in production).
     // SystemLogger::log_messages reads sender()'s signal to pick the level,

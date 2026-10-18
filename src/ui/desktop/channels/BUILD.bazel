@@ -1,10 +1,10 @@
-# Both channel headers declare Q_OBJECT; generated hdrs must run through moc.
+# The channel header declares Q_OBJECT; generated hdrs must run through moc.
 # gazelle:map_kind cc_library qt_cc_library //bazel:qt_targets.bzl
 load("//bazel:qt_targets.bzl", "qt_cc_library")
 
-# Signal-only endpoints through which the UI reaches desktop services it does
-# not name. apps/desktop's composition root connects them to the platform
-# objects; the UI connects to them. They hold no logic.
+# A signal-only endpoint through which the UI reaches desktop services it does
+# not name. apps/desktop's composition root connects it to the platform
+# objects; the UI connects to it. It holds no logic.
 package(default_visibility = [
     "//bazel/layers:apps_desktop",
     "//src/ui/desktop:__subpackages__",
@@ -15,14 +15,4 @@ qt_cc_library(
     # The Qt macro requires srcs even for a header-only moc library.
     hdrs = ["log_channel.h"],
     deps = ["//bazel/qt:core"],
-)
-
-qt_cc_library(
-    name = "remote_peer",
-    # The Qt macro requires srcs even for a header-only moc library.
-    hdrs = ["remote_peer.h"],
-    deps = [
-        "//bazel/qt:core",
-        "//bazel/qt:remote_objects",
-    ],
 )

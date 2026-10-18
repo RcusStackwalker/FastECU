@@ -192,23 +192,6 @@ TEST(TestAdapterConnection, batteryIsReadOnlyFromAnOpenPort)
     ASSERT_EQ(*reading, 12500UL);
 }
 
-TEST(TestAdapterConnection, waitForSourceWaitsOnTheFacade)
-{
-    FakeBackedSerial serial;
-    EXPECT_CALL(serial.Fake(), WaitForSource());
-    AdapterConnection connection(*serial);
-    connection.WaitForSource();
-}
-
-TEST(TestAdapterConnection, forwardsFacadeStateChanges)
-{
-    FakeBackedSerial serial;
-    AdapterConnection connection(*serial);
-    fastecu::testing::SignalRecorder spy(&connection, &AdapterConnection::stateChanged);
-    emit serial->stateChanged(QRemoteObjectReplica::Valid, QRemoteObjectReplica::Default);
-    ASSERT_EQ(spy.Count(), 1U);
-}
-
 TEST(TestAdapterConnection, exposesTheSameFacade)
 {
     FakeBackedSerial serial;

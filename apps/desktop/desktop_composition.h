@@ -26,10 +26,8 @@
 #include "src/platform/desktop/common/connection/adapter_connection.h"
 #include "src/ui/desktop/main_window_services.h"
 #include "src/ui/desktop/channels/log_channel.h"
-#include "src/ui/desktop/channels/remote_peer.h"
 
 class QThread;
-class RemoteUtility;
 class SystemLogger;
 namespace fastecu::desktop::logging
 {
@@ -49,7 +47,7 @@ class DesktopComposition
 
   public:
     // An empty config_root uses the platform's default FastECU directory.
-    DesktopComposition(const QString& peer_address, const QString& peer_password, const QString& config_root = {});
+    explicit DesktopComposition(const QString& config_root = {});
     ~DesktopComposition();
 
     DesktopComposition(const DesktopComposition&) = delete;
@@ -80,15 +78,10 @@ class DesktopComposition
     std::unique_ptr<fastecu::calibration::CalibrationWorkspace> calibration_workspace_;
     fastecu::calibration::RomSaveUseCase rom_save_{file_repository_, file_action_events_};
     fastecu::ui::LogChannel log_channel_;
-    fastecu::ui::RemotePeer remote_peer_;
     std::unique_ptr<QThread> syslog_thread_;
     std::unique_ptr<SystemLogger> syslogger_;
     OwnedSerialPortActions serial_;
     std::unique_ptr<fastecu::desktop::connection::AdapterConnection> connection_;
-    std::unique_ptr<RemoteUtility> remote_utility_;
     QtClock logging_clock_;
     std::unique_ptr<fastecu::desktop::logging::LoggingEngine> logging_engine_;
 };
-
-// The desktop app's direct/remote rule: no --host means the local adapter.
-SerialConnection serial_connection_from_args(const QString& host, const QString& password);

@@ -158,7 +158,6 @@ class FakeBackend : public SerialPortActionsDirect
     MOCK_METHOD(QStringList, CheckSerialPorts, (), (override));
     MOCK_METHOD(QString, OpenSerialPort, (), (override));
     MOCK_METHOD(unsigned long, ReadVbatt, (), (override));
-    MOCK_METHOD(void, WaitForSource, (), (override));
 
   private:
     void InstallDefaultActions()
@@ -381,7 +380,6 @@ class FakeBackend : public SerialPortActionsDirect
         ON_CALL(*this, CheckSerialPorts()).WillByDefault(::testing::Return(QStringList{}));
         ON_CALL(*this, OpenSerialPort()).WillByDefault(::testing::Return(QString{}));
         ON_CALL(*this, ReadVbatt()).WillByDefault(::testing::Return(0UL));
-        ON_CALL(*this, WaitForSource()).WillByDefault([] {});
     }
 };
 

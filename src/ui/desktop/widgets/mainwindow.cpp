@@ -12,7 +12,6 @@
 #include "ui_mainwindow.h"
 #include <QProgressBar>
 #include <QScopeGuard>
-#include <QSplashScreen>
 #include <cstddef>
 #include <iterator>
 #include <memory>
@@ -55,11 +54,10 @@ template <typename Sender> void forwardLogs(Sender *sender, fastecu::ui::LogChan
 }
 } // namespace
 
-MainWindow::MainWindow(MainWindowServices services, const QString& peerAddress, QWidget *parent)
-    : QMainWindow(parent), services_(services), peer_address_(peerAddress), ui_{std::make_unique<Ui::MainWindow>()}
+MainWindow::MainWindow(MainWindowServices services, QWidget *parent)
+    : QMainWindow(parent), services_(services), ui_{std::make_unique<Ui::MainWindow>()}
 {
     ui_->setupUi(this);
-    qApp->installEventFilter(this);
     qRegisterMetaType<QVector<int>>("QVector<int>");
     QFontDatabase::addApplicationFont(":/fonts/FastECU_bars.ttf");
 
@@ -101,8 +99,6 @@ MainWindow::MainWindow(MainWindowServices services, const QString& peerAddress, 
     setupStatusBar();
 
     connection_ = &services_.connection;
-    remote_peer_ = &services_.remote;
-    waitForPeer(peerAddress);
 
     // Set timer to read vbatt value
     vbatt_timer_ = new QTimer(this);
@@ -148,7 +144,6 @@ MainWindow::MainWindow(MainWindowServices services, const QString& peerAddress, 
 
     setFlashArrowState();
 
-    net_splash_->deleteLater();
     emit logI("FastECU initialized", true, true);
 }
 
@@ -315,78 +310,6 @@ void MainWindow::setupStatusBar()
     ui_->splitter->setSizes(QList<int>({125, INT_MAX}));
 }
 
-// In remote mode, shows a splash while the J2534/serial and utility peers
-// connect; init may take a long time due to the network.
-void MainWindow::waitForPeer(const QString& peerAddress)
-{
-    // Splash screen
-    net_splash_ = new QSplashScreen();
-    QVBoxLayout *netSplashLayout = new QVBoxLayout(net_splash_);
-    netSplashLayout->setAlignment(Qt::AlignCenter);
-    QLabel *netSplashLabel = new QLabel(QString("Waiting for peer " + peerAddress + "..."), net_splash_);
-    netSplashLabel->setAlignment(Qt::AlignCenter);
-    QProgressBar *netSplashProgressBar = new QProgressBar(net_splash_);
-    netSplashProgressBar->setAlignment(Qt::AlignCenter);
-    netSplashProgressBar->setMinimum(0);
-    // Number of network connection stages
-    netSplashProgressBar->setMaximum(2);
-    netSplashProgressBar->setValue(0);
-    QPushButton *btnCloseApp = new QPushButton("Close app", net_splash_);
-    netSplashLayout->addWidget(netSplashLabel);
-    netSplashLayout->addWidget(netSplashProgressBar);
-    netSplashLayout->addWidget(btnCloseApp);
-    // splash->setLayout(layout);
-    net_splash_->resize(350, 50);
-    // Show it in remote mode only
-    // Prepare for remote mode
-    if (!peerAddress.isEmpty())
-    {
-        net_splash_->show();
-        // Move splashscreen to the center of the screen
-        QScreen *screenLocal = QGuiApplication::primaryScreen();
-        QRect screenGeometryLocal = screenLocal->geometry();
-        net_splash_->move(screenGeometryLocal.center() - net_splash_->rect().center());
-        QCoreApplication::processEvents(QEventLoop::AllEvents, 10);
-
-        this->setWindowTitle(this->windowTitle() + " - Remote Connection to " + peerAddress);
-    }
-    // Add option to close app while waiting for network connection
-    QObject::connect(btnCloseApp, &QPushButton::released, this,
-                     [netSplashLabel]()
-                     {
-                         netSplashLabel->setText("Closing app, please wait...");
-                         exit(1);
-                     });
-
-    // Init may take a long time due to network
-    // Do it in a non-blocking way
-    // This timer will timeout as fast as possible
-    // processing events
-    QTimer *timer = new QTimer(this);
-    connect(timer, &QTimer::timeout, this, [] { QApplication::processEvents(); });
-    timer->start();
-
-    if (!peerAddress.isEmpty())
-    {
-        netSplashProgressBar->setValue(0);
-        netSplashProgressBar->setFormat("Connecting to J2534 and serial devices...");
-        connection_->WaitForSource();
-        netSplashProgressBar->setValue(1);
-        netSplashProgressBar->setFormat("Connecting to utility functions...");
-        remote_peer_->waitForSource();
-        netSplashProgressBar->setValue(2);
-    }
-    externalLogger("Connection successfull.");
-
-    timer->stop();
-    net_splash_->close();
-    timer->deleteLater();
-    connect(connection_, &fastecu::desktop::connection::AdapterConnection::stateChanged, this,
-            &MainWindow::networkStateChanged, Qt::DirectConnection);
-    connect(remote_peer_, &fastecu::ui::RemotePeer::stateChanged, this, &MainWindow::networkStateChanged,
-            Qt::DirectConnection);
-}
-
 void MainWindow::setupToolbar()
 {
     toolbar_item_size_.setWidth(qs(config_session_->Settings().toolbar_iconsize).toInt());
@@ -513,46 +436,6 @@ MainWindow::~MainWindow()
 {
     connection_coordinator_->shutdown();
     logging_run_->shutdown();
-}
-
-void MainWindow::networkStateChanged(QRemoteObjectReplica::State state, QRemoteObjectReplica::State oldState)
-{
-    if (state == QRemoteObjectReplica::Valid)
-    {
-        emit logD("Network connection established", true, true);
-    }
-    else if (oldState == QRemoteObjectReplica::Valid)
-    {
-        if (!restart_question_active_.tryLock())
-        {
-            return;
-        }
-        emit logD("Network connection lost, reconnecting...", true, true);
-        QMessageBox msgBox;
-        msgBox.setText("Network connection lost.");
-        msgBox.setInformativeText("Do you want to restart application and try to connect again?");
-        QPushButton *restartButton = msgBox.addButton(tr("Restart"), QMessageBox::YesRole);
-        QPushButton *quitButton = msgBox.addButton(tr("Quit"), QMessageBox::NoRole);
-        msgBox.addButton(tr("Continue work"), QMessageBox::NoRole);
-        msgBox.setIcon(QMessageBox::Warning);
-        msgBox.setDetailedText("Press Restart to restart application. All your unsaved progress will be lost.\n\n"
-                               "Press Quit to quit application. All your unsaved progress will be lost.\n\n"
-                               "Press Continue work to return to application and save your progress. "
-                               "In this case all ECU operations will be unavailable until you restart application.");
-
-        msgBox.exec();
-
-        if (msgBox.clickedButton() == restartButton)
-        {
-            qApp->exit(kRestartCode);
-        }
-        else if (msgBox.clickedButton() == quitButton)
-        {
-            qApp->exit(1);
-        }
-
-        restart_question_active_.unlock();
-    }
 }
 
 void MainWindow::setComboBoxItemEnabled(QComboBox *comboBox, int index, bool enabled)
@@ -1831,23 +1714,6 @@ QString MainWindow::parseMessageToHex(const QByteArray& received)
     return msg;
 }
 
-bool MainWindow::eventFilter(QObject *target, QEvent *event)
-{
-    Q_UNUSED(target)
-    // Filter all mouse and keyboard events for splashscreen
-    if (target == net_splash_)
-    {
-        if ((event->type() == QEvent::MouseButtonPress) || (event->type() == QEvent::MouseButtonDblClick) ||
-            (event->type() == QEvent::MouseButtonRelease) || (event->type() == QEvent::KeyPress) ||
-            (event->type() == QEvent::KeyRelease))
-        {
-            return true;
-        }
-    }
-
-    return false;
-}
-
 template <typename FlashClass> FlashClass *MainWindow::connectSignalsAndRunModule(FlashClass *object)
 {
     // To successfully connect an overloaded signal,
@@ -1872,7 +1738,6 @@ void MainWindow::externalLogger(const QString& message)
 {
     emit logD(Q_FUNC_INFO, true, false);
     emit logD(" " + message, false, true);
-    emit remote_peer_->logWindowMessage(message);
 }
 
 // External progress bar slot
@@ -1880,7 +1745,6 @@ void MainWindow::externalLoggerSetProgressbarValue(int value)
 {
     emit logD(Q_FUNC_INFO, true, false);
     emit logD(" " + QString::number(value), false, true);
-    emit remote_peer_->progress(value);
 }
 
 void MainWindow::sendMessageToLogWindow(const QString& msg)

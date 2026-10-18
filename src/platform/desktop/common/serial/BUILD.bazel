@@ -5,22 +5,10 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("//bazel:gtest_targets.bzl", "fastecu_gtest")
 load("//bazel:qt_common.bzl", "COMMON_COPTS")
-load("//bazel:qt_remote_objects.bzl", "qt_replica_library")
-load("//bazel:qt_targets.bzl", "QT_DEPS")
 
 package(default_visibility = ["//bazel/layers:platform_and_composition_root"])
 
-# Qt Remote Objects replica generated from serial_port_actions.rep. Replica
-# generation is hand-owned: Gazelle cannot see the generated header, so the
-# remote package resolves its `rep_serial_port_actions_replica.h` include to
-# this target.
-qt_replica_library(
-    name = "serial_replicas",
-    reps = ["serial_port_actions.rep"],
-    deps = QT_DEPS,
-)
-
-# The interface the facade and its two backends implement. The facade itself
+# The interface the facade and the direct backend implement. The facade itself
 # lives in //src/platform/desktop/common/serial/facade; adapters whose public
 # headers forward-declare SerialPortActions take it as implementation_deps so
 # its headers stay out of their dependents' compile inputs.
@@ -53,19 +41,6 @@ cc_library(
     implementation_deps = [":serial_backend"],
     visibility = ["//src/platform/desktop/common/serial/facade:__pkg__"],
     deps = ["//bazel/qt:core"],
-)
-
-# The Qt Remote Objects synchronous-call helper shared by the remote backend
-# and remote_utility. It carries no facade header.
-cc_library(
-    name = "qtrohelper",
-    hdrs = ["qtrohelper.hpp"],
-    copts = COMMON_COPTS,
-    visibility = [
-        "//src/platform/desktop/common/remote_utility:__pkg__",
-        "//src/platform/desktop/common/serial/remote:__pkg__",
-    ],
-    deps = ["//bazel/qt:remote_objects"],
 )
 
 # isJ2534CapableEntry and the J2534 driver-registry helpers. Shared by the
@@ -157,13 +132,11 @@ cc_library(
     implementation_deps = [
         ":direct_serial_backend",
         "//src/platform/desktop/common/serial/facade:serial_port_actions",
-        "//src/platform/desktop/common/serial/remote:remote_serial_backend",
     ],
     visibility = [
         "//bazel/layers:apps_bench",
         "//bazel/layers:apps_desktop",
     ],
-    deps = ["//bazel/qt:core"],
 )
 
 fastecu_gtest(
@@ -177,7 +150,6 @@ fastecu_gtest(
         "//bazel/qt:core",
         "//src/platform/desktop/common/serial/direct:serial_port_actions_direct",
         "//src/platform/desktop/common/serial/facade:serial_port_actions",
-        "//src/platform/desktop/common/serial/remote:remote_serial_backend",
         "//src/platform/desktop/common/serial/testing/log_sink:recording_log_sink",
         "//src/platform/desktop/common/testing:core_application_environment",
         "@googletest//:gtest",

@@ -1,6 +1,7 @@
 # Size-reduction strategy
 
-Status: accepted direction; phases are not yet implemented.
+Status: accepted direction. Phase 1 is done (−1,437 NLOC); later phases are
+not yet implemented.
 Baseline: `136ad0fa` (master, 2026-10-18), 150,494 NLOC (70,746 production,
 79,748 test) by `python3 scripts/nloc_loop.py measure`.
 
@@ -61,7 +62,7 @@ rolling out.
 
 | Phase | Pool | Expected |
 | --- | ---: | --- |
-| 1. Delete remote mode | ~1.1k + remote branches in callers | Exact on deletion |
+| 1. Delete remote mode | ~1.1k + remote branches in callers | Done: −1,437 (1,248 production, 189 test) |
 | 2. Vendored code and tooling | 2.1k | Exact on move |
 | 3. Transport-level cancellation and transcript harness (Colt pilot) | 1.9k Colt executor + tests | Measured in pilot |
 | 4. Roll out per family | ~35k remaining executor code and tests | Extrapolated only after phase 3 |

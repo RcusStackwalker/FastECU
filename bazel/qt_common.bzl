@@ -18,9 +18,7 @@ qt_resource_via_qrc = _qt_resource_via_qrc
 QT_DEPS_NO_WIDGETS = [
     "//bazel/qt:core",
     "//bazel/qt:gui",
-    "//bazel/qt:remote_objects",
     "//bazel/qt:serial_port",
-    "//bazel/qt:web_sockets",
     "//bazel/qt:xml",
 ]
 

@@ -7,7 +7,6 @@
 #include "src/backend/config/builtin_catalog.h"
 #include "src/platform/desktop/common/logging/runtime/logging_engine.h"
 #include "src/platform/desktop/common/logging/runtime/systemlogger.h"
-#include "src/platform/desktop/common/remote_utility/remote_utility.h"
 #include "src/platform/desktop/common/transport/desktop_logging_protocol_registration.h"
 
 namespace
@@ -15,8 +14,7 @@ namespace
 const ApplicationIdentity kApplication{.name = "FastECU", .title = "FastECU", .version = "0.1.0-beta.5"};
 } // namespace
 
-DesktopComposition::DesktopComposition(const QString& peer_address, const QString& peer_password,
-                                       const QString& config_root)
+DesktopComposition::DesktopComposition(const QString& config_root)
     : config_(fastecu::config::BuiltinCatalog(), file_system_, resource_bundle_, file_repository_, startup_events_)
 {
     const QString root = config_root.isEmpty() ? default_config_root() : config_root;
@@ -56,32 +54,8 @@ DesktopComposition::DesktopComposition(const QString& peer_address, const QStrin
     QObject::connect(syslog_thread_.get(), &QThread::started, syslogger_.get(), &SystemLogger::Run);
     syslog_thread_->start();
 
-    serial_ = MakeSerialPortActions(serial_connection_from_args(peer_address, peer_password), *syslogger_);
+    serial_ = MakeSerialPortActions(*syslogger_);
     connection_ = std::make_unique<fastecu::desktop::connection::AdapterConnection>(*serial_);
-    remote_utility_ = std::make_unique<RemoteUtility>(peer_address, peer_password, nullptr, nullptr);
-
-    // The UI reaches the remote utility only through the peer channel. The
-    // mirror is dropped while the replica is not valid, as MainWindow did.
-    using fastecu::ui::RemotePeer;
-    QObject::connect(&remote_peer_, &RemotePeer::waitRequested, remote_utility_.get(), &RemoteUtility::waitForSource,
-                     Qt::DirectConnection);
-    QObject::connect(&remote_peer_, &RemotePeer::logWindowMessage, remote_utility_.get(),
-                     [utility = remote_utility_.get()](const QString& message)
-                     {
-                         if (utility->IsValid())
-                         {
-                             utility->sendLogWindowMessage(message);
-                         }
-                     });
-    QObject::connect(&remote_peer_, &RemotePeer::progress, remote_utility_.get(),
-                     [utility = remote_utility_.get()](int value)
-                     {
-                         if (utility->IsValid())
-                         {
-                             utility->setProgressbarValue(value);
-                         }
-                     });
-    QObject::connect(remote_utility_.get(), &RemoteUtility::stateChanged, &remote_peer_, &RemotePeer::stateChanged);
 
     using fastecu::desktop::logging::LoggingEngine;
     logging_engine_ = std::make_unique<LoggingEngine>();
@@ -98,7 +72,6 @@ DesktopComposition::~DesktopComposition()
     // and every service logs to the syslogger. After a failed start none of
     // these exist.
     logging_engine_.reset();
-    remote_utility_.reset();
     connection_.reset();
     serial_.reset();
     // The logger lives on its own thread; stop and join it before deleting
@@ -133,15 +106,6 @@ QStringList DesktopComposition::startup_warnings() const
     return startup_events_.warnings();
 }
 
-SerialConnection serial_connection_from_args(const QString& host, const QString& password)
-{
-    if (host.isEmpty())
-    {
-        return DirectSerial{};
-    }
-    return RemoteSerial{.address = host, .password = password};
-}
-
 MainWindowServices DesktopComposition::services()
 {
     return {
@@ -156,7 +120,6 @@ MainWindowServices DesktopComposition::services()
         .file_action_events = file_action_events_,
         .log = log_channel_,
         .connection = *connection_,
-        .remote = remote_peer_,
         .logging_engine = *logging_engine_,
         .make_clock = [] { return std::make_unique<QtClock>(); },
     };

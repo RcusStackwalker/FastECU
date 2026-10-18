@@ -41,9 +41,7 @@ package_group(
     for module in [
         "core",
         "gui",
-        "remote_objects",
         "serial_port",
-        "web_sockets",
         "xml",
     ]
 ]

@@ -24,7 +24,6 @@ cc_library(
         "//src/backend/config:builtin_catalog",
         "//src/platform/desktop/common/logging/runtime:logging_runtime",
         "//src/platform/desktop/common/logging/runtime:systemlogger",
-        "//src/platform/desktop/common/remote_utility",
         "//src/platform/desktop/common/transport:logging_protocol_registration",
     ],
     visibility = ["//visibility:private"],
@@ -49,7 +48,6 @@ cc_library(
         "//src/platform/desktop/common/serial:desktop_serial_factory",
         "//src/ui/desktop:main_window_services",
         "//src/ui/desktop/channels:log_channel",
-        "//src/ui/desktop/channels:remote_peer",
     ],
 )
 
@@ -157,12 +155,10 @@ fastecu_gtest(
         "//src/platform/desktop/common/logging:logging_adapters",
         "//src/platform/desktop/common/logging/runtime:logging_runtime",
         "//src/platform/desktop/common/logging/runtime:systemlogger",
-        "//src/platform/desktop/common/remote_utility",
         "//src/platform/desktop/common/testing:core_application_environment",
         "//src/platform/desktop/common/testing:event_helpers",
         "//src/platform/desktop/common/testing:signal_recorder",
         "//src/ui/desktop/channels:log_channel",
-        "//src/ui/desktop/channels:remote_peer",
         "@googletest//:gtest",
     ],
 )
