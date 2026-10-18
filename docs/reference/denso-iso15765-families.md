@@ -37,7 +37,7 @@ ECU needs it. Collapsing one waits on bench evidence (see
 | Deviation | Legacy | Executor | Status |
 |---|---|---|---|
 | Image base 0 | 1140, 1225 | `kImageStart` | transcribed, unverified |
-| In-car run of its own: `10 C0` to 0x7A2, and session `0x03` where the N83M run sends `0x63` | 373-492 | `ConnectInCar` | transcribed, unverified |
+| In-car run asks 0x7E1 for session `0x03` where the N83M run asks for `0x63` | 409-419 | `ShInCarFireAndForget` | transcribed, unverified |
 | Bench kernel jump discards a matching first reply, waits 50 ms and reads again (same as N83M 4M) | 782-785 | `DensoIso15765JumpToKernel(…, true)` | transcribed, unverified |
 | Read setup reads at 2000 ms (`serial_read_timeout`); N83M and diesel read it at 200 ms | 856, 893 | `ReadMemory` | transcribed, unverified |
 | Read pages paced by 1 ms | 1007 | `DensoIso15765ReadDump(…, pace_pages)` | transcribed, unverified |
@@ -51,7 +51,7 @@ ECU needs it. Collapsing one waits on bench evidence (see
 | ECU ID read by DID `F1 82` instead of vendor SID `AA` | 131-156 | `NonFatalDidQuery` | transcribed, unverified |
 | All four tolerant probes read at 2000 ms (`serial_read_timeout`); the siblings use 200 ms | 297, 324, 357, 663 | `kProbeTimeout` | transcribed, unverified |
 | Bench diagnostic session is a tolerant probe, with one commented-out `return STATUS_ERROR`. The siblings abort on a wrong `50 43` | 655-681, 672 | `ConnectBench` | transcribed, unverified |
-| In-car run of its own: like SH72531's, but the 0x7E0 `10 63` reply is read at 2000 ms and the other nine at 200 ms | 375-483, 394 | `ConnectInCar` | transcribed, unverified |
+| In-car run is SH72531's, but the 0x7E0 `10 63` reply is read at 2000 ms and the other nine at 200 ms | 375-483, 394 | `ShInCarFireAndForget(…, kLongTimeout)` | transcribed, unverified |
 | Kernel jump reads once at 2000 ms before the loop; the loop reads at 2000 ms in car and 200 ms on the bench | 629, 643, 770, 785 | `DensoIso15765JumpToKernel` timeouts | transcribed, unverified |
 | Bench arm waits 50 ms before its first write; the siblings' bench arms wait 500 ms | 653 | `ConnectBench` | transcribed, unverified |
 | Read pages paced by 1 ms | 1001 | `DensoIso15765ReadDump(…, pace_pages)` | transcribed, unverified |

@@ -964,5 +964,27 @@ TEST(DensoIso15765CanCommonTest, N83mInCarSequencePreservesBothFamilyTranscripts
     EXPECT_THAT(f.transport.ReadTimeouts(), ::testing::Each(200ms));
 }
 
+// Session 0x03 on 0x7E1, and only the 0x7E0 reply reads at the primary timeout.
+TEST(DensoIso15765CanCommonTest, ShInCarSequenceSends03To7E1AndReadsThePrimaryReplyAtItsTimeout)
+{
+    CommonFixture f;
+    const std::array<bytes::Bytes, 10> requests{RequestTo(0x7A2, {0x10, 0xC0}), RequestTo(0x7E0, {0x10, 0x63}),
+                                                RequestTo(0x7DF, {0x10, 0x03}), RequestTo(0x7E1, {0x10, 0x03}),
+                                                RequestTo(0x7B0, {0x10, 0x03}), RequestTo(0x7B0, {0x85, 0x02}),
+                                                RequestTo(0x7DF, {0x85, 0x02}), RequestTo(0x7B0, {0x85, 0x02}),
+                                                RequestTo(0x7DF, {0x85, 0x02}), RequestTo(0x7DF, {0x28, 0x03, 0x01})};
+    for (const bytes::Bytes& request : requests)
+    {
+        f.transport.Exchange(request);
+        f.transport.QueueNoFrame();
+    }
+
+    EXPECT_THAT(ShInCarFireAndForget(f.ctx, f.transport, 2000ms), fastecu::testing::IsOk());
+
+    EXPECT_TRUE(f.transport.ScriptConsumed());
+    EXPECT_THAT(f.transport.ReadTimeouts(),
+                ::testing::ElementsAre(200ms, 2000ms, 200ms, 200ms, 200ms, 200ms, 200ms, 200ms, 200ms, 200ms));
+}
+
 } // namespace
 } // namespace fastecu::flash

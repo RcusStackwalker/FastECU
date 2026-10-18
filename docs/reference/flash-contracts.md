@@ -55,7 +55,8 @@ on it (page loop, best-effort stop and 0xFF padding; SH page pacing is a
 parameter), one B6 write request and the image write loop
 built on it (whole-image encryption, image-base indexing, whole chunks only),
 best-effort transfer exit with the settle-and-checksum close (the
-checksum read timeouts are a parameter), the N83M-only in-car opening run, the
+checksum read timeouts are a parameter), the in-car opening runs (an N83M run and an SH
+run; the diesel reads the 0x7E0 reply at 2000 ms), the
 kernel jump with its continuation wait (first and loop read timeouts and the
 N83M 4M/SH72531 bench discard are parameters), and the connect prelude (OBK probe,
 identity queries, access-method probe and branch selector), and the
@@ -71,8 +72,8 @@ policy. In particular:
 
 - Setup PDUs accept only a region, so callers cannot select another SID. Read
   setup failure is tolerated on N83M 4M and fatal on the other three.
-- The shared in-car run requests session `0x63`; the SH-family in-car runs send
-  `0x03` and stay local.
+- The in-car runs differ by one byte: the N83M run asks 0x7E1 for session `0x63`,
+  the SH run for `0x03`.
 - Page reads accept short pages: seven encrypted bytes yield four decrypted
   bytes, and progress still advances by the requested 256 bytes. Only the two SH
   families add per-page pacing.

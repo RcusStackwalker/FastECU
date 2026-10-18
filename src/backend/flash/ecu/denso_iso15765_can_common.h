@@ -40,13 +40,13 @@ namespace fastecu::flash
 // one encrypted B7 page read and the read dump built on it (page loop, stop and
 // padding), one B6 write request and the image write loop built on it, best-effort transfer
 // exit and the settle-and-checksum close around it (all four Denso ISO-15765 bootloader dialect executors), and the
-// N83M in-car opening exchange run (the two N83M executors only; its 0x7E1 request asks for session 0x63, where the
-// SH-family runs send 0x03), plus the kernel jump with its continuation wait (all four; the read timeouts and the N83M
-// 4M/SH72531 bench discard are parameters), and connect_bootloader's prelude (OBK probe, identity queries,
-// access-method probe and branch selector), which direct comparison showed byte-identical across all four apart from
-// one log line, the diesel ECU ID query and the diesel probe timeout, all kept as parameters or local. The single-block
-// write_memory body is shared too; each family's reflash is now only its header log line, the shared write loop and the
-// shared close. Everything else that looks alike -- the in-car and bench connect arms,
+// in-car opening exchange runs (one N83M run, one SH run that sends session 0x03 rather than 0x63 to 0x7E1), plus the
+// kernel jump with its continuation wait (all four; the read timeouts and the N83M 4M/SH72531 bench discard are
+// parameters), and connect_bootloader's prelude (OBK probe, identity queries, access-method probe and branch selector),
+// which direct comparison showed byte-identical across all four apart from one log line, the diesel ECU ID query and
+// the diesel probe timeout, all kept as parameters or local. The single-block write_memory body is shared too; each
+// family's reflash is now only its header log line, the shared write loop and the shared close. Everything else that
+// looks alike -- the in-car and bench connect arms,
 // -- differs between the
 // families in read timeouts, retry counts, pre-loop read counts, image base addresses, and, most importantly, in how
 // strictly a bad response is treated. Those differences are the safety-relevant part of each family: collapsing them
@@ -251,10 +251,15 @@ Status DensoIso15765Erase(const CanExecutorContext& ctx, const MemoryRegion& reg
 
 // The N83M 1.5M and 4M in-car arms' opening run of ten session, DTC and
 // communication-control requests across 0x7A2, 0x7E0, 0x7DF, 0x7E1 and 0x7B0,
-// each read at 200 ms and discarded. Its 0x7E1 request asks for session 0x63;
-// the SH72531 and SH72543 diesel in-car arms send 0x03 there and keep their own
-// runs.
+// each read at 200 ms and discarded. Its 0x7E1 request asks for session 0x63.
 Status N83mInCarFireAndForget(const CanExecutorContext& ctx, ICanFlashTransport& can);
+
+// The SH72531 and SH72543 diesel in-car arms' run: the same ten requests but
+// session 0x03 on 0x7E1. The 0x7E0 session-open reply reads at
+// `primary_timeout` (200 ms on SH72531, 2000 ms on the diesel); the rest at
+// 200 ms.
+Status ShInCarFireAndForget(const CanExecutorContext& ctx, ICanFlashTransport& can,
+                            std::chrono::milliseconds primary_timeout);
 
 // write_memory's body: each family erases and reflashes exactly one block
 // (legacy block_modified marks one entry), so this logs `block_index` -- 1 of

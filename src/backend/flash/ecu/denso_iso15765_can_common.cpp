@@ -67,6 +67,39 @@ constexpr std::array<InCarExchange, 10> kN83mInCarSequence{{
     {0x7DF, {kSidCommunicationControl, 0x03, 0x01}, 3},
 }};
 
+// The SH72531 and SH72543 diesel run: the N83M run with session 0x03, not
+// 0x63, on 0x7E1 (SH72531 legacy 409-419, diesel 408-416).
+constexpr std::array<InCarExchange, 10> kShInCarSequence{{
+    {0x7A2, {uds::kSidDiagnosticSessionControl, 0xC0, 0}, 2},
+    {0x7E0, {uds::kSidDiagnosticSessionControl, 0x63, 0}, 2},
+    {0x7DF, {uds::kSidDiagnosticSessionControl, uds::kSessionExtendedDiagnostic, 0}, 2},
+    {0x7E1, {uds::kSidDiagnosticSessionControl, uds::kSessionExtendedDiagnostic, 0}, 2},
+    {0x7B0, {uds::kSidDiagnosticSessionControl, uds::kSessionExtendedDiagnostic, 0}, 2},
+    {0x7B0, {kSidControlDtcSetting, 0x02, 0}, 2},
+    {0x7DF, {kSidControlDtcSetting, 0x02, 0}, 2},
+    {0x7B0, {kSidControlDtcSetting, 0x02, 0}, 2},
+    {0x7DF, {kSidControlDtcSetting, 0x02, 0}, 2},
+    {0x7DF, {kSidCommunicationControl, 0x03, 0x01}, 3},
+}};
+
+// Every reply is read at 200 ms except the primary ECU's (0x7E0) session-open
+// reply, which reads at `primary_timeout`.
+Status RunInCarSequence(const CanExecutorContext& ctx, ICanFlashTransport& can,
+                        const std::array<InCarExchange, 10>& sequence, std::chrono::milliseconds primary_timeout)
+{
+    for (const InCarExchange& exchange : sequence)
+    {
+        if (const Status sent =
+                FireAndForget(ctx, can, exchange.id, bytes::ByteView(exchange.pdu.data(), exchange.length),
+                              exchange.id == 0x7E0 ? primary_timeout : kInCarTimeout);
+            !sent.has_value())
+        {
+            return sent;
+        }
+    }
+    return {};
+}
+
 constexpr std::string_view kRejectionPrefix = "Wrong response from ECU: ";
 
 constexpr std::chrono::milliseconds kObkProbeTimeout{200};
@@ -540,16 +573,15 @@ Status DensoIso15765Erase(const CanExecutorContext& ctx, const MemoryRegion& reg
 
 Status N83mInCarFireAndForget(const CanExecutorContext& ctx, ICanFlashTransport& can)
 {
-    for (const InCarExchange& exchange : kN83mInCarSequence)
-    {
-        if (const Status sent = FireAndForget(ctx, can, exchange.id,
-                                              bytes::ByteView(exchange.pdu.data(), exchange.length), kInCarTimeout);
-            !sent.has_value())
-        {
-            return sent;
-        }
-    }
-    return {};
+    return RunInCarSequence(ctx, can, kN83mInCarSequence, kInCarTimeout);
+}
+
+// SH72531 legacy 373-492 reads every reply at serial_read_short_timeout; the
+// diesel (375-483) reads the 0x7E0 reply at serial_read_timeout (line 394).
+Status ShInCarFireAndForget(const CanExecutorContext& ctx, ICanFlashTransport& can,
+                            std::chrono::milliseconds primary_timeout)
+{
+    return RunInCarSequence(ctx, can, kShInCarSequence, primary_timeout);
 }
 
 } // namespace fastecu::flash

@@ -1,6 +1,5 @@
 #include "src/backend/flash/ecu/subaru_denso_sh72531_can_executor.h"
 
-#include <array>
 #include <cstdint>
 #include <format>
 #include <utility>
@@ -59,34 +58,15 @@ constexpr bytes::Byte kSessionInCarOpen = 0x63; // in-car "session open" subfunc
 constexpr bytes::Byte kSessionBench = 0x43;     // bench programming session
 constexpr bytes::Byte kSessionBenchJump = 0x42; // bench jump to on-board kernel
 constexpr bytes::Byte kSessionInCarJump = 0x62; // in-car jump to on-board kernel
-// Sent to 0x7A2 only (line 379); legacy names it by its value alone, and
-// nothing in the source says what the addressed module does with it.
-constexpr bytes::Byte kSessionVendorC0 = 0xC0;
-
 // Positive-response service ids for the two SIDs this file inspects without
 // going through UdsClient (which does the SID + 0x40 arithmetic itself).
 constexpr bytes::Byte kSessionControlReply = uds::kSidDiagnosticSessionControl + 0x40; // 0x50
-
-// ISO 14229-1 services used only by the in-car arm's fire-and-forget run
-// (legacy lines 433-492). Kept local per uds_service_ids.h's rule that a
-// value no other family in that header's list sends stays with its own
-// executor.
-constexpr bytes::Byte kSidControlDtcSetting = 0x85;    // ISO 14229-1
-constexpr bytes::Byte kSidCommunicationControl = 0x28; // ISO 14229-1
 
 // kFlashBlocksSH72531[0].start. write_memory hands reflash_block
 // &data_array[fdt->fblocks->start] (line 1140), i.e. fblocks[0].start, and
 // reflash_block then indexes newdata[i + blockaddr] (line 1225) -- so byte 0
 // of the plan image is this address, which for SH72531 is 0.
 constexpr std::uint32_t kImageStart = 0x00000000;
-
-// Additional CAN request ids the in-car arm addresses (legacy lines 373-492).
-// 0x7DF is ISO 15765-4's functional-broadcast id; the other three are
-// physical ids of other modules, which legacy names only by their numbers.
-constexpr std::uint32_t kInCarIdA2 = 0x7a2;
-constexpr std::uint32_t kInCarIdFunctional = 0x7df;
-constexpr std::uint32_t kInCarIdE1 = 0x7e1;
-constexpr std::uint32_t kInCarIdB0 = 0x7b0;
 
 // Most exchanges go through UdsClient over CanFlashUdsChannel. The
 // exceptions are the probes and fire-and-forget writes whose reply legacy
@@ -118,33 +98,11 @@ Status ConnectInCar(Ctx& ctx, ICanFlashTransport& can)
         return std::unexpected(probe.error());
     }
 
-    // Lines 373-492: ten fire-and-forget writes across four extra CAN ids.
-    // Every reply is read and discarded, so a wrong byte here is invisible
-    // on the wire without the scripted test that pins it.
-    struct Exchange
+    // Lines 373-492:: ten fire-and-forget writes across four extra CAN ids;
+    // every reply is read and discarded. The shared sequence pins each byte.
+    if (const Status sent = ShInCarFireAndForget(ctx, can, kShortTimeout); !sent.has_value())
     {
-        std::uint32_t id;
-        bytes::Bytes pdu;
-    };
-    const auto fire_and_forget_run = std::to_array<Exchange>({
-        {kInCarIdA2, {uds::kSidDiagnosticSessionControl, kSessionVendorC0}},                        // lines 373-383
-        {0x7e0, {uds::kSidDiagnosticSessionControl, kSessionInCarOpen}},                            // lines 385-395
-        {kInCarIdFunctional, {uds::kSidDiagnosticSessionControl, uds::kSessionExtendedDiagnostic}}, // lines 397-407
-        // 0x03, not the 0x63 the 1N83M 1.5M sibling sends here (line 415).
-        {kInCarIdE1, {uds::kSidDiagnosticSessionControl, uds::kSessionExtendedDiagnostic}}, // lines 409-419
-        {kInCarIdB0, {uds::kSidDiagnosticSessionControl, uds::kSessionExtendedDiagnostic}}, // lines 421-431
-        {kInCarIdB0, {kSidControlDtcSetting, 0x02}},                                        // lines 433-443
-        {kInCarIdFunctional, {kSidControlDtcSetting, 0x02}},                                // lines 445-455
-        {kInCarIdB0, {kSidControlDtcSetting, 0x02}},                                        // lines 457-467
-        {kInCarIdFunctional, {kSidControlDtcSetting, 0x02}},                                // lines 469-479
-        {kInCarIdFunctional, {kSidCommunicationControl, 0x03, 0x01}},                       // lines 481-492
-    });
-    for (const auto& exchange : fire_and_forget_run)
-    {
-        if (const Status sent = FireAndForget(ctx, can, exchange.id, exchange.pdu, kShortTimeout); !sent.has_value())
-        {
-            return sent;
-        }
+        return sent;
     }
 
     // Lines 494-564: seed/key on the primary 0x7E0 pair, fatal throughout.
