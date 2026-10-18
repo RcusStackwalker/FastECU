@@ -8,8 +8,10 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <string>
 #include <string_view>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 #include "src/algorithms/protocol/bytes.h"
@@ -19,12 +21,72 @@
 #include "src/backend/ports/testing/result_matchers.h"
 #include "src/backend/flash/ecu/testing/denso_can_frames.h"
 #include "src/backend/flash/flash_executor.h"
+#include "src/backend/flash/flash_validation.h"
 #include "src/backend/ports/manual_cancellation_token.h"
 #include "src/backend/ports/testing/fake_clock.h"
 #include "src/backend/ports/testing/recording_event_sink.h"
 
 namespace fastecu::flash::testing
 {
+
+// The OBK probe miss, the four non-fatal identity queries, the access-method
+// probe and the branch selector shared by the Subaru Denso CAN families. Byte 7
+// of the raw 0x22 0x10 0x1D reply frame -- payload index 3 -- selects the
+// programming branch. `probe_case` 1 leaves the OBK probe unanswered and 2
+// answers it with an empty reply. `uds_ecu_id` asks for the ECU id with
+// ReadDataByIdentifier 0xF182 instead of the vendor 0xAA/0xEA pair.
+inline void ScriptDensoPreliminaries(ScriptedCanFlashTransport& t, bytes::Byte branch_byte, int probe_case = 0,
+                                     bool uds_ecu_id = false)
+{
+    const auto section = t.Section("preliminaries");
+    t.Exchange(Request({0x10, 0x5F}));
+    if (probe_case == 1)
+    {
+        t.QueueNoFrame();
+    }
+    else if (probe_case == 2)
+    {
+        t.QueueRead(Response({}));
+    }
+    else
+    {
+        t.QueueRead(Response({0x50, 0x01}));
+    }
+    if (uds_ecu_id)
+    {
+        t.Exchange(Request({0x22, 0xF1, 0x82}), Response({0x62, 0xF1, 0x82, 'I', 'D'})); // ECU ID
+    }
+    else
+    {
+        t.Exchange(Request({0xAA}), Response({0xEA, 0, 0, 0, 0, 1, 2, 3, 4, 5})); // ECU ID
+    }
+    t.Exchange(Request({0x09, 0x02}), Response({0x49, 0x02, 'V', 'I', 'N'}));           // VIN
+    t.Exchange(Request({0x09, 0x04}), Response({0x49, 0x04, 'C', 'A', 'L'}));           // CAL ID
+    t.Exchange(Request({0x09, 0x06}), Response({0x49, 0x06, 0xAA, 0xBB}));              // CVN
+    t.Exchange(Request({0x10, 0x5F}), Response({0x50, 0x01}));                          // access method
+    t.Exchange(Request({0x22, 0x10, 0x1D}), Response({0x62, 0x10, 0x1D, branch_byte})); // branch selector
+}
+
+// A plan built field by field rather than by the family's plan builder, so a
+// plan whose operation the builder itself would refuse can still reach the
+// executor -- the only way to prove the executor's own plan validation rejects
+// it before any I/O.
+inline Result<FlashPlan> HandBuiltCanPlan(FlashOperation operation, FlashFamily family, std::string_view protocol,
+                                          std::string_view mcu, const MemoryRegion& block, std::size_t image_size,
+                                          FamilyPlan family_plan)
+{
+    FlashPlanFields fields;
+    fields.operation = operation;
+    fields.family = family;
+    fields.transport = TransportKind::kCanIso15765;
+    fields.target_id = std::string(protocol);
+    fields.mcu_name = std::string(mcu);
+    fields.transfer_region = block;
+    fields.erase_regions = {block};
+    fields.image = bytes::Bytes(image_size, 0x00);
+    fields.family_plan = std::move(family_plan);
+    return ValidateAndBuild(std::move(fields));
+}
 
 // One Execute() of a default-constructed `Executor` against a scripted
 // transport, with the collaborators it ran against. Members are public and in
