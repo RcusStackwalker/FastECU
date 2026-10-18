@@ -5,6 +5,8 @@
 #include <concepts>
 #include <cstddef>
 #include <cstdint>
+#include <format>
+#include <iterator>
 #include <limits>
 #include <optional>
 #include <string>
@@ -25,8 +27,10 @@
 // happened only once all three and their independent characterization tests
 // were visible. Comparing all 22 signatures common to the three, exactly these
 // bodies were byte-identical. parse_beef matched petrol and diesel only and
-// stays family-local, because a two-way match is where the original port design
-// says to stop.
+// stayed family-local, because a two-way match is where the original port design
+// says to stop. The TCU copy has since proved to differ from them in comments
+// alone, so ParseBeef, BeefMessage, UppercaseHexCompact and the request half
+// of the channel exchange (SendChannelRequest) are shared below.
 //
 // Everything substantial was compared and deliberately left family-local:
 // connect_bootloader, flash_block, upload_kernel, write_memory,
@@ -89,6 +93,47 @@ inline std::optional<bytes::Bytes> BeefKernelPayload(bytes::ByteView kernel, std
     return EncryptPayload(plain);
 }
 
+// A parsed BEEF reply: its opcode and the payload the declared length covers.
+struct BeefMessage
+{
+    bytes::Byte opcode;
+    bytes::ByteView payload;
+};
+
+inline Result<BeefMessage> ParseBeef(bytes::ByteView pdu)
+{
+    if (pdu.size() < 5)
+    {
+        return Fail(ErrorKind::kBadResponse, "short BEEF response envelope");
+    }
+    if (bytes::ReadU16Be(pdu) != kKernelStartComm)
+    {
+        return Fail(ErrorKind::kBadResponse, "wrong BEEF response marker");
+    }
+    const std::uint16_t declared = bytes::ReadU16Be(pdu, 2);
+    // The legacy serial reader can return a complete ISO payload with
+    // transport padding or a coalesced trailing frame.  Its checks only use
+    // the declared BEEF body, so retain that tolerance while bounding every
+    // indexed field.  The view exposed to callers is limited to the declared
+    // opcode-plus-payload body.
+    if (declared < 1 || static_cast<std::size_t>(declared) + 4 > pdu.size())
+    {
+        return Fail(ErrorKind::kBadResponse, "invalid BEEF response length");
+    }
+    return BeefMessage{.opcode = pdu[4], .payload = pdu.subspan(5, declared - 1)};
+}
+
+// Upper-case hex of `data` with no separators.
+inline std::string UppercaseHexCompact(bytes::ByteView data)
+{
+    std::string rendered;
+    for (const bytes::Byte value : data)
+    {
+        std::format_to(std::back_inserter(rendered), "{:02X}", value);
+    }
+    return rendered;
+}
+
 // Any executor context carrying a cancellation token.
 template <typename C>
 concept WithCancellation = requires(const C& ctx) {
@@ -113,30 +158,75 @@ inline std::uint64_t ElapsedMilliseconds(std::chrono::steady_clock::time_point s
     return elapsed > 0 ? static_cast<std::uint64_t>(elapsed) : 1U;
 }
 
-// Sends `pdu` on the context's channel and returns whatever arrives within
-// `timeout`, with an optional post-send settle delay. Templated because each
-// family's channel member has its own type.
+// The request half of every BEEF exchange: cancellation check, send on the
+// context's channel, then an optional post-send settle delay. Templated because
+// each family's channel member has its own type.
+template <typename C> Status SendChannelRequest(C& ctx, bytes::ByteView pdu, std::chrono::milliseconds delay)
+{
+    if (const Status checkpoint = CancelledIfRequested(ctx, "cancelled before CAN request"); !checkpoint.has_value())
+    {
+        return checkpoint;
+    }
+    if (const Status sent = ctx.channel.Send(pdu, ctx.cancellation); !sent.has_value())
+    {
+        return sent;
+    }
+    if (delay > std::chrono::milliseconds{0})
+    {
+        return ctx.clock.Sleep(delay, ctx.cancellation);
+    }
+    return {};
+}
+
+// Sends `pdu` and returns whatever arrives within `timeout`.
 template <typename C>
 Result<std::optional<bytes::Bytes>>
 ChannelRequestOptional(C& ctx, bytes::ByteView pdu, std::chrono::milliseconds timeout,
                        std::chrono::milliseconds delay = std::chrono::milliseconds{0})
 {
-    if (const Status checkpoint = CancelledIfRequested(ctx, "cancelled before CAN request"); !checkpoint.has_value())
-    {
-        return std::unexpected(checkpoint.error());
-    }
-    if (const Status sent = ctx.channel.Send(pdu, ctx.cancellation); !sent.has_value())
+    if (const Status sent = SendChannelRequest(ctx, pdu, delay); !sent.has_value())
     {
         return std::unexpected(sent.error());
     }
-    if (delay > std::chrono::milliseconds{0})
-    {
-        if (const Status slept = ctx.clock.Sleep(delay, ctx.cancellation); !slept.has_value())
-        {
-            return std::unexpected(slept.error());
-        }
-    }
     return ctx.channel.Receive(timeout, ctx.cancellation);
+}
+
+// The short raw read that follows a CRC reply. The legacy operation does not
+// validate it, so malformed and wrong-ID frames stay tolerated stale content;
+// only cancellation and disconnection are actionable transport failures.
+// 200 ms is every consumer's kShortTimeout.
+template <typename C> Status DiscardStaleFrame(C& ctx)
+{
+    if (const Status checkpoint = CancelledIfRequested(ctx, "CRC stale-frame drain cancelled"); !checkpoint.has_value())
+    {
+        return checkpoint;
+    }
+    Result<std::optional<bytes::Bytes>> stale = ctx.transport.Read(std::chrono::milliseconds{200}, ctx.cancellation);
+    if (!stale.has_value() &&
+        (stale.error().kind == ErrorKind::kCancelled || stale.error().kind == ErrorKind::kDisconnected))
+    {
+        return std::unexpected(stale.error());
+    }
+    return {};
+}
+
+// The CRC query every BEEF executor issues for a block: a start/length
+// request, whose four-byte reply is the CRC, then the stale-frame drain.
+// `exchange` sends the payload with the family's opcode and timeout.
+template <typename C, typename Exchange>
+Result<std::uint32_t> QueryBeefCrc(C& ctx, const MemoryRegion& block, Exchange exchange)
+{
+    Result<bytes::Bytes> reply = exchange(ComposeBe(block.start, bytes::Byte{0x00}, bytes::U24(block.length)));
+    if (!reply.has_value())
+    {
+        return std::unexpected(reply.error());
+    }
+    const std::uint32_t crc = bytes::ReadU32Be(*reply);
+    if (const Status drained = DiscardStaleFrame(ctx); !drained.has_value())
+    {
+        return std::unexpected(drained.error());
+    }
+    return crc;
 }
 
 // Sends `payload` to `load_address` in `block_size` 0xB6 blocks, then one

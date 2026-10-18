@@ -47,7 +47,6 @@ using namespace bytes::literals;
 using namespace std::chrono_literals;
 
 constexpr std::chrono::milliseconds kExtraShortTimeout{50};
-constexpr std::chrono::milliseconds kShortTimeout{200};
 constexpr std::chrono::milliseconds kMediumTimeout{500};
 constexpr std::chrono::milliseconds kLongTimeout{800};
 constexpr std::chrono::milliseconds kReadTimeout{2000};
@@ -107,41 +106,6 @@ struct Context
     uds::UdsClient& uds;
     uds::IUdsChannel& channel;
 };
-
-std::string UppercaseHexCompact(bytes::ByteView data)
-{
-    std::string rendered;
-    rendered.reserve(data.size() * 2);
-    for (const bytes::Byte value : data)
-    {
-        std::format_to(std::back_inserter(rendered), "{:02X}", value);
-    }
-    return rendered;
-}
-
-struct BeefMessage
-{
-    bytes::Byte opcode;
-    bytes::ByteView payload;
-};
-
-Result<BeefMessage> ParseBeef(bytes::ByteView pdu)
-{
-    if (pdu.size() < 5)
-    {
-        return Fail(ErrorKind::kBadResponse, "short BEEF response envelope");
-    }
-    if (bytes::ReadU16Be(pdu) != kKernelStartComm)
-    {
-        return Fail(ErrorKind::kBadResponse, "wrong BEEF response marker");
-    }
-    const std::uint16_t declared = bytes::ReadU16Be(pdu, 2);
-    if (declared < 1 || static_cast<std::size_t>(declared) + 4 > pdu.size())
-    {
-        return Fail(ErrorKind::kBadResponse, "invalid BEEF response length");
-    }
-    return BeefMessage{.opcode = pdu[4], .payload = pdu.subspan(5, declared - 1)};
-}
 
 Result<bytes::Bytes> ChannelRequest(Context& context, bytes::ByteView pdu, std::chrono::milliseconds timeout,
                                     std::chrono::milliseconds delay = 0ms)
@@ -209,25 +173,6 @@ Result<bytes::Bytes> BeefExchange(Context& context, bytes::Byte opcode, bytes::B
         return Fail(ErrorKind::kBadResponse, "short BEEF response payload");
     }
     return bytes::Bytes(parsed->payload.begin(), parsed->payload.end());
-}
-
-Status DiscardStaleFrame(Context& context)
-{
-    // check_romcrc(), revision 59f4e442:1260-1266 deliberately ignores this
-    // short drain. Preserve malformed/timeout tolerance while retaining
-    // cooperative cancellation and adapter-loss semantics.
-    if (const Status checkpoint = CancelledIfRequested(context, "CRC stale-frame drain cancelled");
-        !checkpoint.has_value())
-    {
-        return checkpoint;
-    }
-    Result<std::optional<bytes::Bytes>> stale = context.transport.Read(kShortTimeout, context.cancellation);
-    if (!stale.has_value() &&
-        (stale.error().kind == ErrorKind::kCancelled || stale.error().kind == ErrorKind::kDisconnected))
-    {
-        return std::unexpected(stale.error());
-    }
-    return {};
 }
 
 Result<std::optional<bytes::Bytes>> NonfatalQuery(Context& context, bytes::ByteView pdu)
@@ -864,19 +809,8 @@ struct CompareResult
 
 Result<std::uint32_t> QueryCrc(Context& context, const MemoryRegion& block)
 {
-    // check_romcrc(), revision 59f4e442:1185-1267.
-    const bytes::Bytes payload = ComposeBe(block.start, bytes::Byte{0x00}, bytes::U24(block.length));
-    Result<bytes::Bytes> reply = BeefExchange(context, kKernelCrc, payload, 4, kExtraLongTimeout);
-    if (!reply.has_value())
-    {
-        return std::unexpected(reply.error());
-    }
-    const std::uint32_t crc = bytes::ReadU32Be(*reply);
-    if (const Status drained = DiscardStaleFrame(context); !drained.has_value())
-    {
-        return std::unexpected(drained.error());
-    }
-    return crc;
+    return QueryBeefCrc(context, block, [&](bytes::ByteView payload)
+                        { return BeefExchange(context, kKernelCrc, payload, 4, kExtraLongTimeout); });
 }
 
 Result<CompareResult> CompareBlocks(Context& context, const FlashPlan& plan, bytes::ByteView image,

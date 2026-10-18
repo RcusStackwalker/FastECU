@@ -1193,6 +1193,28 @@ TEST(SubaruDensoSh7058CanDieselExecutor, CancellationStopsAtPendingRetryBoundary
     EXPECT_EQ(transport.scripted.WritesConsumed(), transport.writes.size());
 }
 
+TEST(SubaruDensoSh7058CanDieselExecutor, ShortSeedResponseIsRejected)
+{
+    auto plan = PlanFor(kVariants.front(), FlashOperation::kRead);
+    ASSERT_THAT(plan, IsOk());
+    SubaruDensoSh7058CanDieselExecutor executor;
+    RecordingCanFlashTransport transport;
+    ConfigureAndOpen(executor, *plan, transport);
+    ScriptKernelProbeTimeout(transport.scripted);
+    ScriptIdentityQueries(transport.scripted);
+    ScriptSessionSelection(transport.scripted);
+    transport.scripted.ExpectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE0, 0x27, 0x01});
+    transport.scripted.QueueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE8, 0x67, 0x01, 0x11, 0x22, 0x33});
+    FakeCancellationToken cancellation;
+    FakeClock clock;
+    RecordingEventSink events;
+
+    const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
+
+    EXPECT_THAT(result,
+                fastecu::testing::IsErrWith(ErrorKind::kBadResponse, ::testing::StrEq("invalid diesel seed response")));
+}
+
 TEST(SubaruDensoSh7058CanDieselExecutor, TestWriteDisablesFlashAndValidatesWithoutCommitForBothGenerations)
 {
     for (const DieselVariant& variant : kVariants)
