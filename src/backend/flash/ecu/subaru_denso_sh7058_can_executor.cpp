@@ -64,10 +64,6 @@ constexpr bytes::Byte kKernelId = 0x01;
 constexpr bytes::Byte kKernelCrc = 0x02;
 constexpr bytes::Byte kKernelReadArea = 0x03;
 constexpr bytes::Byte kKernelProgVolt = 0x04;
-constexpr bytes::Byte kKernelGetMaxMessage = 0x05;
-constexpr bytes::Byte kKernelGetMaxBlock = 0x06;
-constexpr bytes::Byte kKernelFlashEnable = 0x20;
-constexpr bytes::Byte kKernelFlashDisable = 0x21;
 constexpr bytes::Byte kKernelWriteBuffer = 0x22;
 constexpr bytes::Byte kKernelValidateBuffer = 0x23;
 constexpr bytes::Byte kKernelCommitBuffer = 0x24;
@@ -691,16 +687,12 @@ Status UploadKernel(Context& context, const KernelImage& kernel)
     // upload_kernel(), revision 59f4e442:626-868. The unusual <= loop is
     // intentional: after every 128-byte payload block the oracle emits one
     // final address-only 0xB6 request.
-    const std::optional<bytes::Bytes> encrypted = BeefKernelPayload(kernel.bytes, kKernelUploadBlockSize);
+    const Result<bytes::Bytes> encrypted = BeefKernelUploadPayload(kernel.bytes, kKernelUploadBlockSize, "petrol");
     if (!encrypted.has_value())
     {
-        return Fail(ErrorKind::kInvalidConfig, "petrol kernel upload size is invalid");
+        return std::unexpected(encrypted.error());
     }
     const std::size_t data_length = encrypted->size();
-    if (data_length > 0xFFFFFFU)
-    {
-        return Fail(ErrorKind::kInvalidConfig, "petrol kernel upload exceeds the 24-bit wire length");
-    }
 
     LogDebug(context, std::format("Start address to upload kernel: 0x{:x}", kernel.load_address));
     LogInfo(context, "Initialize kernel upload");
@@ -816,33 +808,8 @@ Result<CompareResult> CompareBlocks(Context& context, const FlashPlan& plan, byt
 
 Status InitializeFlash(Context& context, bool test_write)
 {
-    // init_flash_write(), revision 59f4e442:1270-1418.
-    LogInfo(context, "Check max message length");
-    Result<bytes::Bytes> max_message = BeefExchange(context, kKernelGetMaxMessage, {}, 4, kMediumTimeout);
-    if (!max_message.has_value())
-    {
-        return std::unexpected(max_message.error());
-    }
-    LogInfo(context, std::format(": 0x{:04x}", bytes::ReadU32Be(*max_message)));
-
-    LogInfo(context, "Check flashblock size");
-    Result<bytes::Bytes> max_block = BeefExchange(context, kKernelGetMaxBlock, {}, 4, kMediumTimeout);
-    if (!max_block.has_value())
-    {
-        return std::unexpected(max_block.error());
-    }
-    LogInfo(context, std::format(": 0x{:04x}", bytes::ReadU32Be(*max_block)));
-
-    const bytes::Byte command = test_write ? kKernelFlashDisable : kKernelFlashEnable;
-    LogInfo(context, test_write ? "Test write mode on, no actual flash write is performed"
-                                : "Test write mode off, perform actual flash write");
-    Result<bytes::Bytes> mode = BeefExchange(context, command, {}, 0, kMediumTimeout);
-    if (!mode.has_value())
-    {
-        return std::unexpected(mode.error());
-    }
-    LogError(context, "Flash mode succesfully set");
-    return {};
+    return InitializeBeefFlash(context, test_write, false, [&](bytes::Byte opcode, std::size_t minimum_payload)
+                               { return BeefExchange(context, opcode, {}, minimum_payload, kMediumTimeout); });
 }
 
 Status FlashBlock(Context& context, bytes::ByteView image, const FlashPlan& plan, const MemoryRegion& block,

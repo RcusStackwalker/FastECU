@@ -144,6 +144,48 @@ TEST(DensoBeefCanCommonTest, CompareBeefBlocksStopsOnQueryFailureAndOnCancellati
                 IsErr(ErrorKind::kCancelled));
 }
 
+TEST(DensoBeefCanCommonTest, InitializeBeefFlashSelectsTheModeAndStopsAtTheFirstFailingExchange)
+{
+    for (const bool test_write : {false, true})
+    {
+        CompareFixture fixture;
+        std::vector<bytes::Byte> opcodes;
+        EXPECT_THAT(InitializeBeefFlash(fixture, test_write, test_write,
+                                        [&](bytes::Byte opcode, std::size_t) -> Result<bytes::Bytes>
+                                        {
+                                            opcodes.push_back(opcode);
+                                            return bytes::Bytes{0x00, 0x00, 0xAB, 0xCD};
+                                        }),
+                    IsOk());
+        EXPECT_EQ(opcodes, (std::vector<bytes::Byte>{0x05, 0x06, test_write ? bytes::Byte{0x21} : bytes::Byte{0x20}}));
+        EXPECT_EQ(fixture.sink.logs[1].second, test_write ? ": 0xABCD" : ": 0xabcd");
+    }
+    for (const std::size_t failing : {0U, 1U, 2U})
+    {
+        CompareFixture fixture;
+        std::size_t calls = 0;
+        EXPECT_THAT(InitializeBeefFlash(fixture, false, false,
+                                        [&](bytes::Byte, std::size_t) -> Result<bytes::Bytes>
+                                        {
+                                            return calls++ == failing ? Fail(ErrorKind::kTimeout, "no reply")
+                                                                      : Result<bytes::Bytes>{bytes::Bytes(4)};
+                                        }),
+                    IsErrWith(ErrorKind::kTimeout, StrEq("no reply")));
+        EXPECT_EQ(calls, failing + 1);
+    }
+}
+
+TEST(DensoBeefCanCommonTest, BeefKernelUploadPayloadNamesTheFamilyInBothSizeErrors)
+{
+    EXPECT_THAT(BeefKernelUploadPayload({}, 128, "petrol"),
+                IsErrWith(ErrorKind::kInvalidConfig, StrEq("petrol kernel upload size is invalid")));
+    EXPECT_THAT(BeefKernelUploadPayload(bytes::Bytes(0x1000000), 128, "diesel"),
+                IsErrWith(ErrorKind::kInvalidConfig, StrEq("diesel kernel upload exceeds the 24-bit wire length")));
+    const auto small = BeefKernelUploadPayload(bytes::Bytes(5), 8, "petrol");
+    ASSERT_THAT(small, IsOk());
+    EXPECT_EQ(small->size(), 8U);
+}
+
 TEST(DensoBeefCanCommonTest, SendChannelRequestSleepsOnlyForAPositiveDelay)
 {
     struct Channel

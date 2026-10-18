@@ -97,6 +97,23 @@ inline std::optional<bytes::Bytes> BeefKernelPayload(bytes::ByteView kernel, std
     return EncryptPayload(plain);
 }
 
+// BeefKernelPayload for a family that sends the length in a 24-bit wire field;
+// `family` names the executor in the errors.
+inline Result<bytes::Bytes> BeefKernelUploadPayload(bytes::ByteView kernel, std::size_t block_size,
+                                                    std::string_view family)
+{
+    std::optional<bytes::Bytes> encrypted = BeefKernelPayload(kernel, block_size);
+    if (!encrypted.has_value())
+    {
+        return Fail(ErrorKind::kInvalidConfig, std::format("{} kernel upload size is invalid", family));
+    }
+    if (encrypted->size() > 0xFFFFFFU)
+    {
+        return Fail(ErrorKind::kInvalidConfig, std::format("{} kernel upload exceeds the 24-bit wire length", family));
+    }
+    return std::move(*encrypted);
+}
+
 // A parsed BEEF reply: its opcode and the payload the declared length covers.
 struct BeefMessage
 {
@@ -300,6 +317,45 @@ Result<CompareResult> CompareBeefBlocks(C& ctx, const FlashPlan& plan, bytes::By
     }
     LogInfo(ctx, std::format(" (total: {})", result.changed_count));
     return result;
+}
+
+// init_flash_write(): reads the kernel's maximum message and flash block sizes,
+// then selects test-write or real-write mode. `exchange` sends one opcode and
+// returns its reply once it holds the given number of payload bytes. Logs the
+// sizes in upper-case hex when `upper_hex`, lower-case otherwise.
+template <typename C, typename Exchange>
+Status InitializeBeefFlash(const C& ctx, bool test_write, bool upper_hex, Exchange exchange)
+{
+    const auto log_size = [&](const bytes::Bytes& reply)
+    {
+        const std::uint32_t size = bytes::ReadU32Be(reply);
+        LogInfo(ctx, upper_hex ? std::format(": 0x{:04X}", size) : std::format(": 0x{:04x}", size));
+    };
+    LogInfo(ctx, "Check max message length");
+    Result<bytes::Bytes> max_message = exchange(bytes::Byte{0x05}, 4);
+    if (!max_message.has_value())
+    {
+        return std::unexpected(max_message.error());
+    }
+    log_size(*max_message);
+
+    LogInfo(ctx, "Check flashblock size");
+    Result<bytes::Bytes> max_block = exchange(bytes::Byte{0x06}, 4);
+    if (!max_block.has_value())
+    {
+        return std::unexpected(max_block.error());
+    }
+    log_size(*max_block);
+
+    LogInfo(ctx, test_write ? "Test write mode on, no actual flash write is performed"
+                            : "Test write mode off, perform actual flash write");
+    Result<bytes::Bytes> mode = exchange(bytes::Byte{test_write ? std::uint8_t{0x21} : std::uint8_t{0x20}}, 0);
+    if (!mode.has_value())
+    {
+        return std::unexpected(mode.error());
+    }
+    LogError(ctx, "Flash mode succesfully set");
+    return {};
 }
 
 // Sends `payload` to `load_address` in `block_size` 0xB6 blocks, then one

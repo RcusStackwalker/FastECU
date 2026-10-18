@@ -63,9 +63,6 @@ constexpr bytes::Byte kKernelId = 0x41;
 constexpr bytes::Byte kKernelCrc = 0x02;
 constexpr bytes::Byte kKernelReadArea = 0x03;
 constexpr bytes::Byte kKernelProgVolt = 0x04;
-constexpr bytes::Byte kKernelGetMaxMessage = 0x05;
-constexpr bytes::Byte kKernelGetMaxBlock = 0x06;
-constexpr bytes::Byte kKernelFlashEnable = 0x20;
 constexpr bytes::Byte kKernelWriteBuffer = 0x22;
 constexpr bytes::Byte kKernelCommitBuffer = 0x24;
 constexpr bytes::Byte kKernelBlankPage = 0x25;
@@ -632,31 +629,8 @@ Result<CompareResult> CompareBlocks(Context& context, const FlashPlan& plan, byt
 
 Status InitializeFlash(Context& context)
 {
-    // init_flash_write(), revision 59f4e442 lines 1027-1175.
-    LogInfo(context, "Check max message length");
-    Result<bytes::Bytes> max_message = BeefExchange(context, kKernelGetMaxMessage, {}, 4, kReadTimeout);
-    if (!max_message.has_value())
-    {
-        return std::unexpected(max_message.error());
-    }
-    LogInfo(context, std::format(": 0x{:04X}", bytes::ReadU32Be(*max_message)));
-
-    LogInfo(context, "Check flashblock size");
-    Result<bytes::Bytes> max_block = BeefExchange(context, kKernelGetMaxBlock, {}, 4, kReadTimeout);
-    if (!max_block.has_value())
-    {
-        return std::unexpected(max_block.error());
-    }
-    LogInfo(context, std::format(": 0x{:04X}", bytes::ReadU32Be(*max_block)));
-
-    LogInfo(context, "Test write mode off, perform actual flash write");
-    Result<bytes::Bytes> enabled = BeefExchange(context, kKernelFlashEnable, {}, 0, kReadTimeout);
-    if (!enabled.has_value())
-    {
-        return std::unexpected(enabled.error());
-    }
-    LogError(context, "Flash mode succesfully set");
-    return {};
+    return InitializeBeefFlash(context, false, true, [&](bytes::Byte opcode, std::size_t minimum_payload)
+                               { return BeefExchange(context, opcode, {}, minimum_payload, kReadTimeout); });
 }
 
 Status FlashBlock(Context& context, bytes::ByteView image, const FlashPlan& plan, const MemoryRegion& block,
