@@ -107,6 +107,13 @@ EraseSequenceState AdvanceEraseSequence(EraseSequenceState state, const Prepared
     {
         return EraseSequenceState::kNeedsUnlock;
     }
+    // MitsuColtM32rCanExecutor uploads erase-page, then write-page, then
+    // unlocks. The write routine sits in RAM clear of the erase routine, so it
+    // leaves the sequence where it was instead of resetting it.
+    if (step.provides_write_helper)
+    {
+        return state;
+    }
     if (step.spec.id == CommandId::Unlock)
     {
         return state == EraseSequenceState::kNeedsUnlock ? EraseSequenceState::kReady

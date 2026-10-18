@@ -383,6 +383,37 @@ TEST(BenchDriver, NamedEraseHelperAndUnlockPermitEraseInTheSameSession)
     EXPECT_TRUE(SentErase(harness.session));
 }
 
+TEST(BenchDriver, WriteHelperUploadedBetweenEraseHelperAndUnlockStillPermitsErase)
+{
+    Harness harness;
+    const auto helper_replies = SuccessfulUploadReplies();
+    harness.session.replies = helper_replies;
+    harness.session.replies.insert(harness.session.replies.end(), helper_replies.begin(), helper_replies.end());
+    harness.session.replies.push_back(bytes::Bytes{0x7B, 0x00});
+    harness.session.replies.push_back(bytes::Bytes{0x71, 0xE0, 0x00});
+
+    const int code = harness.Run({"upload-routine", "erase-page", "--destructive", ":", "upload-routine", "write-page",
+                                  "--destructive", ":", "unlock", "--destructive", ":", "erase", "--destructive"});
+
+    EXPECT_EQ(code, 0);
+    EXPECT_EQ(harness.environment.session_calls, 1);
+    EXPECT_TRUE(SentErase(harness.session));
+}
+
+TEST(BenchDriver, WriteHelperFromOverrideBetweenEraseHelperAndUnlockInvalidatesThePlan)
+{
+    Harness harness;
+    harness.files.contents["custom.bin"] = {0xAA};
+
+    const int code =
+        harness.Run({"upload-routine", "erase-page", "--destructive", ":", "upload-routine", "write-page", "--from",
+                     "custom.bin", "--destructive", ":", "unlock", "--destructive", ":", "erase", "--destructive"});
+
+    EXPECT_EQ(code, exit_code_for(ErrorKind::kInvalidConfig));
+    EXPECT_EQ(harness.environment.session_calls, 0);
+    EXPECT_TRUE(harness.session.requests.empty());
+}
+
 TEST(BenchDriver, FailedEraseHelperUploadPreventsEraseUnderKeepGoing)
 {
     Harness harness;

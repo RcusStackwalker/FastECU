@@ -33,6 +33,11 @@ struct PreparedStep
     // which is what arms `erase`. Resolved here so the driver never has to
     // recognise an erase helper by matching argument strings.
     bool provides_erase_helper = false;
+    // True when this step uploads one of the built-in write helper routines.
+    // It does not arm `erase`, but it is part of the same bootstrap rather than
+    // an interruption of it: the desktop executor uploads erase-page then
+    // write-page before it unlocks.
+    bool provides_write_helper = false;
 };
 
 // Command name plus its arguments, e.g. "read 0x200 1" -- what format_text's
