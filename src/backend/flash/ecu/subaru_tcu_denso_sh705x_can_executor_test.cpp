@@ -1848,6 +1848,48 @@ TEST(SubaruTcuDensoSh705xCanExecutor, CrcDrainIgnoresMalformedAndWrongIdFramesFo
     }
 }
 
+// Walks one injected disconnect through every read of a complete cold write
+// (connect, kernel upload, compare, erase, program, commit, verify): each step
+// must hand the typed error back instead of swallowing it.
+TEST(SubaruTcuDensoSh705xCanExecutor, DisconnectAtAnyReadOfAColdWriteIsReportedAsDisconnected)
+{
+    const auto run = [&](std::optional<std::size_t> fail_at, ColdWriteOutcome& outcome)
+    {
+        auto plan = WritePlan(kCases[1]);
+        ASSERT_THAT(plan, IsOk());
+        SubaruTcuDensoSh705xCanExecutor executor;
+        RecordingCanFlashTransport transport;
+        transport.fail_read_at = fail_at;
+        ConfigureAndOpen(executor, *plan, transport);
+        ScriptKernelProbeTimeout(transport.scripted);
+        ScriptIdentityQueries(transport.scripted);
+        ScriptStrictSessionAndSecurity(transport.scripted);
+        ScriptKernelUpload(transport.scripted, kCases[1]);
+        ScriptKernelAlive(transport.scripted);
+        ScriptCompare(transport.scripted, BlocksFor(kCases[1]), true);
+        ScriptFlashInit(transport.scripted);
+        ScriptFirstFlashBlock(transport.scripted);
+        ScriptCompare(transport.scripted, BlocksFor(kCases[1]), false);
+        FakeCancellationToken cancellation;
+        FakeClock clock;
+        RecordingEventSink events;
+        const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
+        outcome = {result.has_value() ? std::optional<ErrorKind>{} : std::optional{result.error().kind},
+                   transport.read_count};
+    };
+
+    ColdWriteOutcome clean;
+    run(std::nullopt, clean);
+    ASSERT_FALSE(clean.error.has_value());
+    for (std::size_t index = 0; index < clean.reads; ++index)
+    {
+        SCOPED_TRACE(index);
+        ColdWriteOutcome faulted;
+        run(index, faulted);
+        EXPECT_EQ(faulted.error, std::optional{ErrorKind::kDisconnected});
+    }
+}
+
 TEST(SubaruTcuDensoSh705xCanExecutor, CrcDrainPropagatesCancellationAndDisconnect)
 {
     for (const ErrorKind error_kind : {ErrorKind::kCancelled, ErrorKind::kDisconnected})
