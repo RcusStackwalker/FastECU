@@ -77,50 +77,17 @@ fastecu::Result<fastecu::flash::FlashPlan> WritePlan(bytes::Bytes rom)
     return BuildSubaruDenso1n83m15mCanPlan(FlashOperation::kWrite, kProtocol, kMcu, std::move(rom));
 }
 
-// Hand-built rather than produced by build_subaru_denso_1n83m_1_5m_can_plan,
-// so a plan whose operation the builder itself would refuse can still reach
-// the executor -- the only way to prove the executor's own
-// validate_subaru_denso_1n83m_1_5m_can_plan call rejects it before any I/O.
 fastecu::Result<fastecu::flash::FlashPlan> HandBuiltPlan(FlashOperation operation)
 {
-    fastecu::flash::FlashPlanFields fields;
-    fields.operation = operation;
-    fields.family = fastecu::flash::FlashFamily::kSubaruDenso1n83m15mCan;
-    fields.transport = fastecu::flash::TransportKind::kCanIso15765;
-    fields.target_id = std::string(kProtocol);
-    fields.mcu_name = std::string(kMcu);
-    fields.transfer_region = fastecu::flash::MemoryRegion{kBlockStart, kBlockLength};
-    fields.erase_regions = {fastecu::flash::MemoryRegion{kBlockStart, kBlockLength}};
-    fields.image = bytes::Bytes(kImageSize, 0x00);
-    fields.family_plan = SubaruDenso1n83m_1_5mCanPlan{0x7e0, 0x7e8, 500000, false, 0x10000, 0x100};
-    return fastecu::flash::ValidateAndBuild(std::move(fields));
+    return fastecu::flash::testing::HandBuiltCanPlan(
+        operation, fastecu::flash::FlashFamily::kSubaruDenso1n83m15mCan, kProtocol, kMcu,
+        fastecu::flash::MemoryRegion{kBlockStart, kBlockLength}, kImageSize,
+        SubaruDenso1n83m_1_5mCanPlan{0x7e0, 0x7e8, 500000, false, 0x10000, 0x100});
 }
 
-// The OBK probe miss, the four non-fatal identity queries, the access-method
-// probe and the branch selector. Byte 7 of the raw 0x22 0x10 0x1D reply frame
-// -- payload index 3 -- selects the programming branch.
 void ScriptPreliminaries(ScriptedCanFlashTransport& t, bytes::Byte branch_byte, int probe_case = 0)
 {
-    const auto section = t.Section("preliminaries");
-    t.Exchange(Request({0x10, 0x5F}));
-    if (probe_case == 1)
-    {
-        t.QueueNoFrame();
-    }
-    else if (probe_case == 2)
-    {
-        t.QueueRead(Response({}));
-    }
-    else
-    {
-        t.QueueRead(Response({0x50, 0x01}));
-    }
-    t.Exchange(Request({0xAA}), Response({0xEA, 0, 0, 0, 0, 1, 2, 3, 4, 5}));           // ECU ID
-    t.Exchange(Request({0x09, 0x02}), Response({0x49, 0x02, 'V', 'I', 'N'}));           // VIN
-    t.Exchange(Request({0x09, 0x04}), Response({0x49, 0x04, 'C', 'A', 'L'}));           // CAL ID
-    t.Exchange(Request({0x09, 0x06}), Response({0x49, 0x06, 0xAA, 0xBB}));              // CVN
-    t.Exchange(Request({0x10, 0x5F}), Response({0x50, 0x01}));                          // access method
-    t.Exchange(Request({0x22, 0x10, 0x1D}), Response({0x62, 0x10, 0x1D, branch_byte})); // branch selector
+    fastecu::flash::testing::ScriptDensoPreliminaries(t, branch_byte, probe_case);
 }
 
 // The bench arm.
