@@ -546,8 +546,7 @@ TEST(SubaruDensoSh72531CanExecutor, ShortPagesAdvanceByRequestedSizeAndStopIsBes
              .page_size = kPageSize,
              .lead_pad = 0x8000,
              .obk_active_log = "OBK is active!",
-             .sleeps = std::vector<std::chrono::milliseconds>(kBlockLength / kPageSize, 1ms),
-             .stop_log = StopResponseLog::kLoggedWhenAcknowledged});
+             .sleeps = std::vector<std::chrono::milliseconds>(kBlockLength / kPageSize, 1ms)});
     }
 }
 

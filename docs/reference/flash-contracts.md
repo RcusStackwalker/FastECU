@@ -51,8 +51,8 @@ checksum and rejects its `7F` failure marker.
 The [common module](../../src/backend/flash/ecu/denso_iso15765_can_common.h)
 shares thirteen operations across N83M 1.5M, N83M 4M, SH72531 and SH72543 diesel:
 setup-PDU encoding, seed/key, erase, one encrypted B7 page read and the read dump built
-on it (page loop, best-effort stop and 0xFF padding; SH page pacing and the
-stop-response log are parameters), one B6 write request and the image write loop
+on it (page loop, best-effort stop and 0xFF padding; SH page pacing is a
+parameter), one B6 write request and the image write loop
 built on it (whole-image encryption, image-base indexing, whole chunks only),
 best-effort transfer exit with the settle-and-checksum close (the
 checksum read timeouts are a parameter), the N83M-only in-car opening run, the
@@ -95,7 +95,7 @@ policy. In particular:
   validation.
 
 The best-effort read stop ignores every exchange failure, including
-cancellation; N83M 4M alone does not log the stop response.
+cancellation; every family logs the stop response.
 
 ## M32R SSM exchange
 

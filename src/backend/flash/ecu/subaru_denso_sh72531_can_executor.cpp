@@ -261,7 +261,7 @@ Result<bytes::Bytes> ReadMemory(Ctx& ctx, const SubaruDensoSh72531CanPlan& famil
     }
 
     return DensoIso15765ReadDump(ctx, region, family.lead_pad_len, family.tail_pad_len, progress,
-                                 /*pace_pages=*/true, /*log_stop_response=*/true);
+                                 /*pace_pages=*/true);
 }
 
 // Legacy reflash_block, lines 1167-1350, called for block 1 only.

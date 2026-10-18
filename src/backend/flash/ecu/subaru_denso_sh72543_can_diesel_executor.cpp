@@ -342,7 +342,7 @@ Result<bytes::Bytes> ReadMemory(Ctx& ctx, const SubaruDensoSh72543CanDieselPlan&
     }
 
     return DensoIso15765ReadDump(ctx, region, family.lead_pad_len, family.tail_pad_len, progress,
-                                 /*pace_pages=*/true, /*log_stop_response=*/true);
+                                 /*pace_pages=*/true);
 }
 
 // Legacy reflash_block, lines 1156-1368, called for block 0 only.

@@ -127,12 +127,11 @@ Result<bytes::Bytes> ReadDensoEncryptedPage(const CanExecutorContext& ctx, std::
 // `region`, cancellation checked before each, progress after each; then up to
 // six best-effort 37 stop requests at 500 ms, whose outcome is never checked;
 // then the dump between `lead_pad_len` and `tail_pad_len` bytes of 0xFF. Only
-// the SH families pace each page by 1 ms (`pace_pages`), and N83M 4M alone
-// does not log the stop response (`log_stop_response`). Setup stays local:
+// the SH families pace each page by 1 ms (`pace_pages`). Setup stays local:
 // its policy and tolerance differ per family.
 Result<bytes::Bytes> DensoIso15765ReadDump(const CanExecutorContext& ctx, const MemoryRegion& region,
                                            std::size_t lead_pad_len, std::size_t tail_pad_len, PhaseReporter& progress,
-                                           bool pace_pages, bool log_stop_response);
+                                           bool pace_pages);
 
 // One fatal B6 request at 500 ms with an absolute wire address and the
 // caller-selected encrypted bytes. DensoIso15765WriteImage below owns the loop.
