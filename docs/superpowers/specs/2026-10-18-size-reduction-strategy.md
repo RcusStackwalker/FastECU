@@ -66,6 +66,7 @@ rolling out.
 | 3. Transport-level cancellation and transcript harness (Colt pilot) | 1.9k Colt executor + tests | Measured in pilot |
 | 4. Roll out per family | ~35k remaining executor code and tests | Extrapolated only after phase 3 |
 | 5. Thin main-window tests | 4.7k | Measured per coordinator |
+| 6. Android | Adds code | Kept small by reusing the Qt UI and portable drivers |
 
 ### 1. Delete remote mode
 
@@ -95,7 +96,7 @@ Tooling audit, from the 30 days before the baseline:
 | Bazel build and tests (Linux, macOS, Windows) | Every PR; 33 failed jobs | Build and test failures | Keep |
 | clang-tidy | Every PR; 5 failed jobs | Lint findings blocking merge | Keep |
 | Sanitizers and fuzz seeds (ASan + UBSan) | Every PR; 1 failed job | One failure | Keep |
-| Portable core (Android build) | Every PR; 1 failed job | One failure | Keep while the [Android seam](../../modularization-plan.md) is planned |
+| Portable core (Android build) | Every PR; 1 failed job | One failure | Keep; Android ships the backend |
 | prek (format, buildifier, ruff, pragma-once, lychee, ...) | Every PR; 2 failed jobs | Formatting and links | Keep |
 | Gazelle | Every PR; none failed | Generates BUILD files | Keep |
 | SonarCloud | Every PR; 32 failed jobs | Duplication gate, already declared non-blocking | Cut |
@@ -174,15 +175,34 @@ holds 4,725 NLOC. Where a coordinator owns a rule, test the rule there and
 keep window tests only for wiring, visible output, signals and lifetime. Phase 1
 already removes the remote-mode cases.
 
+### 6. Android
+
+The Android app has full parity with desktop and works with a wired OpenPort
+2.0 and with Bluetooth STN-class adapters (STN11xx/22xx command set). Plain
+ELM327 chips are not supported: they cannot set arbitrary K-Line baud rates or
+ISO-TP flow control. Parity must not mean a second UI, so:
+
+1. **Spike the toolchain first.** Build the existing Qt Widgets application for
+   Android (arm64-v8a, API 29) through Bazel and `rules_qt`. If that fails,
+   stop and reopen the UI decision before writing Android code.
+2. **Portable adapter drivers.** Move the OpenPort protocol driver out of
+   [src/platform/desktop/unix/j2534](../../../src/platform/desktop/unix/j2534)
+   into the portable backend without Qt types, and add an STN driver. Both run
+   over a platform byte pipe and implement the transport ports the phase 3
+   session wrapper uses. macOS and Linux switch to the portable OpenPort
+   driver; Windows keeps the vendor J2534 DLL and its 32-bit bridge.
+3. **Android platform layer.** Byte pipes for USB serial and BLE, and
+   permissions. JNI only where Qt does not cover the platform API.
+4. **Parity.** Android runs the same Qt UI. Touch-optimize only the screens
+   that prove painful in use.
+
+The versioned C ABI and Kotlin application in the
+[modularization plan](../../modularization-plan.md) are dropped.
+
 ## Not changed
 
-- Bazel as the build graph, layer visibility, and the portable-core gate.
+- Bazel as the build graph, layer visibility, and the portable-core gate. The
+  backend stays Qt-free so it is host-testable, even though Android runs Qt.
+- Windows support through the vendor J2534 DLL.
 - [The caller owns flash transport lifetime](../../adr/0015-caller-owns-flash-transport-lifetime.md).
 - Hardware qualification: replaying a transcript is not hardware evidence.
-
-## Open question
-
-The portable core exists for the [Android seam](../../modularization-plan.md),
-which has not started. Whether that seam is still wanted decides whether the
-portable-core gate and its CI job stay. It is outside this strategy until
-decided.
