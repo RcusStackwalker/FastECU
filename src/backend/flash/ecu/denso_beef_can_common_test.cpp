@@ -67,6 +67,26 @@ TEST(DensoBeefCanCommonTest, CancelledIfRequestedReportsTheCallerDetail)
     EXPECT_THAT(cancelled, IsErrWith(ErrorKind::kCancelled, StrEq("cancelled before CAN request")));
 }
 
+TEST(DensoBeefCanCommonTest, ParseBeefBoundsEveryDeclaredField)
+{
+    const auto parse = [](bytes::Bytes pdu) { return ParseBeef(pdu); };
+    EXPECT_THAT(parse({0xBE, 0xEF, 0x00}), IsErrWith(ErrorKind::kBadResponse, StrEq("short BEEF response envelope")));
+    EXPECT_THAT(parse({0x12, 0x34, 0x00, 0x01, 0x00}),
+                IsErrWith(ErrorKind::kBadResponse, StrEq("wrong BEEF response marker")));
+    EXPECT_THAT(parse({0xBE, 0xEF, 0x00, 0x09, 0x00}),
+                IsErrWith(ErrorKind::kBadResponse, StrEq("invalid BEEF response length")));
+    const bytes::Bytes padded{0xBE, 0xEF, 0x00, 0x02, 0xB6, 0xAA, 0xFF};
+    const auto parsed = ParseBeef(padded);
+    ASSERT_THAT(parsed, IsOk());
+    EXPECT_EQ(parsed->opcode, 0xB6);
+    EXPECT_EQ(parsed->payload.size(), 1U);
+}
+
+TEST(DensoBeefCanCommonTest, UppercaseHexCompactHasNoSeparators)
+{
+    EXPECT_EQ(UppercaseHexCompact(bytes::Bytes{0x0A, 0xFF, 0x00}), "0AFF00");
+}
+
 TEST(DensoBeefCanCommonTest, BeefKernelPayloadReplacesThePaddedLastWordWithTheChecksum)
 {
     // Five bytes pad to one eight-byte block, whose last word (holding the

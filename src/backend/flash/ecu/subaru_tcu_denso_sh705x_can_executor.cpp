@@ -94,53 +94,12 @@ bytes::Bytes SeedKey(bytes::ByteView seed)
     return DensoSeedKey(seed);
 }
 
-struct BeefMessage
-{
-    bytes::Byte opcode;
-    bytes::ByteView payload;
-};
-
-Result<BeefMessage> ParseBeef(bytes::ByteView pdu)
-{
-    if (pdu.size() < 5)
-    {
-        return Fail(ErrorKind::kBadResponse, "short BEEF response envelope");
-    }
-    if (bytes::ReadU16Be(pdu) != kKernelStartComm)
-    {
-        return Fail(ErrorKind::kBadResponse, "wrong BEEF response marker");
-    }
-    const std::uint16_t declared = bytes::ReadU16Be(pdu, 2);
-    // The legacy serial reader can return a complete ISO payload with
-    // transport padding or a coalesced trailing frame.  Its checks only use
-    // the declared BEEF body, so retain that tolerance while bounding every
-    // indexed field.  The view exposed to callers is limited to the declared
-    // opcode-plus-payload body.
-    if (declared < 1 || static_cast<std::size_t>(declared) + 4 > pdu.size())
-    {
-        return Fail(ErrorKind::kBadResponse, "invalid BEEF response length");
-    }
-    return BeefMessage{.opcode = pdu[4], .payload = pdu.subspan(5, declared - 1)};
-}
-
 Result<bytes::Bytes> ChannelRequest(Context& context, bytes::ByteView pdu, std::chrono::milliseconds timeout,
                                     std::chrono::milliseconds delay = 0ms)
 {
-    if (const Status checkpoint = CancelledIfRequested(context, "cancelled before CAN request");
-        !checkpoint.has_value())
-    {
-        return std::unexpected(checkpoint.error());
-    }
-    if (const Status sent = context.channel.Send(pdu, context.cancellation); !sent.has_value())
+    if (const Status sent = SendChannelRequest(context, pdu, delay); !sent.has_value())
     {
         return std::unexpected(sent.error());
-    }
-    if (delay > 0ms)
-    {
-        if (const Status slept = context.clock.Sleep(delay, context.cancellation); !slept.has_value())
-        {
-            return std::unexpected(slept.error());
-        }
     }
     Result<std::optional<bytes::Bytes>> received = context.channel.Receive(timeout, context.cancellation);
     if (!received.has_value())
@@ -152,28 +111,6 @@ Result<bytes::Bytes> ChannelRequest(Context& context, bytes::ByteView pdu, std::
         return Fail(ErrorKind::kTimeout, "no CAN response within the read timeout");
     }
     return std::move(**received);
-}
-
-Status DiscardStaleFrame(Context& context)
-{
-    // check_romcrc(), revision 59f4e442 lines 1017-1023.  The short raw
-    // read is deliberately unvalidated by the legacy operation; malformed
-    // and wrong-ID frames therefore remain tolerated stale content.
-    if (const Status checkpoint = CancelledIfRequested(context, "CRC stale-frame drain cancelled");
-        !checkpoint.has_value())
-    {
-        return checkpoint;
-    }
-    Result<std::optional<bytes::Bytes>> stale = context.transport.Read(kShortTimeout, context.cancellation);
-    if (!stale.has_value() &&
-        (stale.error().kind == ErrorKind::kCancelled || stale.error().kind == ErrorKind::kDisconnected))
-    {
-        return std::unexpected(stale.error());
-    }
-    // Timeout, an absent frame, malformed bytes, a wrong arbitration id, and
-    // other adapter-specific stale-read results are all tolerated. Only
-    // cancellation/disconnection above are actionable transport failures.
-    return {};
 }
 
 Result<bytes::Bytes> BeefExchange(Context& context, bytes::Byte opcode, bytes::ByteView payload,
