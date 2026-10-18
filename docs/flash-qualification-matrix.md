@@ -8,7 +8,7 @@
 | `family_id` | Stable code identifier, one row per selectable operation family/transport variant |
 | `scope` | ECU, TCU, EEPROM, JTAG, BDM, or bootmode |
 | `transport` | K-Line, raw CAN, ISO-15765, SSM, JTAG, or BDM |
-| `dialect` | The dialect the family belongs to (see the [flash language](../src/backend/flash/CONTEXT.md)); `—` if it is in none |
+| `dialect` | The dialect the family belongs to (see the [flash language](../src/backend/flash/GLOSSARY.md)); `—` if it is in none |
 | `operations` | Actual supported `read`, `test_write`, `write` set; no inferred capability |
 | `portable` | `yes` only when plan + executor live under `src/backend` or `src/algorithms` and pass the portable-core gate |
 | `automated_evidence` | Golden/state-machine test labels and last qualifying revision |
