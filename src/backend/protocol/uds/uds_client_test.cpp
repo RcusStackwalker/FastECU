@@ -126,6 +126,28 @@ TEST(UdsClientTest, GivesUpAfterMaxPendingRepeats)
     EXPECT_EQ(f.channel.SendsConsumed(), 1U);
 }
 
+// A default-constructed policy is what a family gets when it sets only its
+// read timeout (the Colt M32R CAN executor does), so the default limit is part
+// of that family's wire contract: one normal read plus ten pending re-reads.
+TEST(UdsClientTest, TheDefaultPolicyGivesUpAfterTenPendingRepeats)
+{
+    Fixture f;
+    const bytes::Bytes request{0x10, 0x81};
+    f.channel.ExpectSend(request);
+    for (int i = 0; i < 11; ++i)
+    {
+        f.channel.QueueReceive(bytes::Bytes{0x7F, 0x10, 0x78});
+    }
+
+    uds::UdsClient client = f.Client();
+    const auto received = client.Request(request, uds::ExchangePolicy{}, f.cancellation);
+
+    ASSERT_THAT(received, fastecu::testing::IsErrWith(ErrorKind::kTimeout, HasSubstr("responsePending")));
+    EXPECT_EQ(f.channel.SendsConsumed(), 1U);
+    EXPECT_EQ(f.channel.timeouts.size(), 11U);
+    EXPECT_TRUE(f.channel.ScriptConsumed());
+}
+
 TEST(UdsClientTest, DoesNotRetryBusyRepeatRequest)
 {
     // The safety property: honoring 0x21 would mean re-TRANSMITTING, which is
@@ -204,6 +226,23 @@ TEST(UdsClientTest, PropagatesAChannelErrorVerbatim)
     uds::UdsClient client = f.Client();
     ASSERT_THAT(client.Request(request, kPolicy, f.cancellation),
                 fastecu::testing::IsErrWith(ErrorKind::kDisconnected, "adapter closed"));
+}
+
+TEST(UdsClientTest, ReturnsAFailedSendWithoutWaitingForAReply)
+{
+    // A good reply is waiting. If the send failure were swallowed, the client
+    // would read it and report success; the channel's own error must come
+    // back instead, and nothing may be read.
+    Fixture f;
+    const bytes::Bytes request{0x10, 0x85};
+    f.channel.ExpectSend(request, fastecu::Fail(ErrorKind::kDisconnected, "adapter write failed"));
+    f.channel.QueueReceive(bytes::Bytes{0x50, 0x85});
+
+    uds::UdsClient client = f.Client();
+    ASSERT_THAT(client.Request(request, kPolicy, f.cancellation),
+                fastecu::testing::IsErrWith(ErrorKind::kDisconnected, "adapter write failed"));
+    EXPECT_TRUE(f.channel.timeouts.empty());
+    EXPECT_FALSE(f.channel.ScriptConsumed());
 }
 
 TEST(UdsClientTest, RefusesToSendWhenAlreadyCancelled)
