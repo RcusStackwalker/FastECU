@@ -89,6 +89,13 @@ class ClassifyLineTest(unittest.TestCase):
             self.assertTrue(out.is_noise(line), line)
         self.assertFalse(out.is_noise("/ws/a.cpp:1:1: error: x [y]"))
         self.assertFalse(out.is_noise("Stack dump:"))
+
+    def test_enabled_checks_listing_is_noise(self) -> None:
+        # run-clang-tidy's opening `clang-tidy -list-checks` call.
+        self.assertTrue(out.is_noise("Enabled checks:"))
+        self.assertTrue(out.is_noise("    bugprone-argument-comment"))
+        self.assertTrue(out.is_noise("    clang-analyzer-unix.cstring.NullArg"))
+        self.assertFalse(out.is_noise("    some words here"))
         self.assertFalse(out.is_noise("12 is not a profile row"))
 
 
@@ -100,6 +107,14 @@ class PathTest(unittest.TestCase):
         self.assertIsNone(out.annotation_path("/ws/bazel-out/k8/bin/gen.h", _WORKSPACE))
         self.assertIsNone(out.annotation_path("/ws/external/qt/x.h", _WORKSPACE))
         self.assertEqual("src/a.cpp", out.annotation_path("/ws/src/a.cpp", _WORKSPACE))
+
+    def test_relative_paths_are_workspace_relative(self) -> None:
+        # Hedron's compile commands spell sources relative to the workspace,
+        # and clang echoes that spelling in its diagnostics.
+        self.assertEqual("src/a.cpp", out.annotation_path("src/a.cpp", _WORKSPACE))
+        self.assertEqual("src/a.cpp", out.display_path("./src/a.cpp", _WORKSPACE))
+        self.assertIsNone(out.annotation_path("../outside/a.cpp", _WORKSPACE))
+        self.assertIsNone(out.annotation_path("bazel-out/k8/bin/gen.h", _WORKSPACE))
 
     def test_windows_paths_display_with_forward_slashes(self) -> None:
         workspace = PureWindowsPath("C:/ws")

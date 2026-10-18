@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import posixpath
 import re
 import shlex
 from collections.abc import Callable
@@ -30,6 +31,9 @@ _NOISE = tuple(
         r"^Use -header-filter=",
         r"^\d+ warnings? treated as errors?$",
         r"^Running clang-tidy in \d+ threads ",
+        # run-clang-tidy's opening `clang-tidy -list-checks` call.
+        r"^Enabled checks:$",
+        r"^    [\w.\-]+$",
         # The -enable-check-profile report.
         r"^=+-+=+$",
         r"^\s*clang-tidy checks profiling$",
@@ -106,6 +110,10 @@ def is_noise(line: str) -> bool:
 
 def _relative(path: str, workspace: PurePath) -> PurePath | None:
     flavour = PureWindowsPath if _DRIVE.match(path) else PurePosixPath
+    if not flavour(path).is_absolute():
+        # Relative to the compile directory, which is the workspace.
+        relative = PurePosixPath(posixpath.normpath(path.replace("\\", "/")))
+        return None if relative.parts[:1] == ("..",) else relative
     try:
         return flavour(path).relative_to(workspace)
     except ValueError, TypeError:
