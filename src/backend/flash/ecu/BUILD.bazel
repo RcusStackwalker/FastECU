@@ -1654,6 +1654,7 @@ cc_library(
         "//src/algorithms/checksum",
         "//src/algorithms/protocol",
         "//src/backend/flash:flash_types",
+        "//src/backend/flash:transfer_progress",
         "//src/backend/ports",
     ],
 )

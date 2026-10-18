@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <array>
 #include <chrono>
+#include <functional>
+#include <limits>
 #include <numeric>
 #include <utility>
 #include <vector>
@@ -277,6 +279,150 @@ TEST(DensoBeefCanCommonTest, BeefKernelUploadPayloadNamesTheFamilyInBothSizeErro
     const auto small = BeefKernelUploadPayload(bytes::Bytes(5), 8, "petrol");
     ASSERT_THAT(small, IsOk());
     EXPECT_EQ(small->size(), 8U);
+}
+
+// A BEEF exchange that records every opcode and fails on the `failing`-th call
+// (counting from 0), calling `on_call` first.
+struct ScriptedExchange
+{
+    Result<bytes::Bytes> operator()(bytes::Byte opcode, bytes::ByteView, std::size_t minimum, std::chrono::milliseconds)
+    {
+        opcodes.push_back(opcode);
+        if (on_call)
+        {
+            on_call(opcodes.size() - 1);
+        }
+        if (opcodes.size() - 1 == failing)
+        {
+            return Fail(ErrorKind::kTimeout, "no reply");
+        }
+        return bytes::Bytes(std::max<std::size_t>(minimum, 2), bytes::Byte{0xAB});
+    }
+
+    std::size_t failing = std::numeric_limits<std::size_t>::max();
+    std::function<void(std::size_t)> on_call;
+    std::vector<bytes::Byte> opcodes;
+};
+
+TEST(DensoBeefCanCommonTest, ReadBeefMemoryTruncatesTheLastPageAndStopsOnFailureOrCancellation)
+{
+    const MemoryRegion region{0x1000, 0x500};
+    CompareFixture fixture;
+    PhaseReporter progress(fixture.events, "Read", 1, 1, 0x500);
+    ScriptedExchange exchange;
+
+    const auto rom = ReadBeefMemory(fixture, region, progress, std::ref(exchange));
+
+    ASSERT_THAT(rom, IsOk());
+    EXPECT_EQ(*rom, bytes::Bytes(0x500, bytes::Byte{0xAB}));
+    EXPECT_EQ(exchange.opcodes, (std::vector<bytes::Byte>{0x03, 0x03}));
+
+    ScriptedExchange failing{.failing = 1};
+    EXPECT_THAT(ReadBeefMemory(fixture, region, progress, std::ref(failing)), IsErr(ErrorKind::kTimeout));
+    fixture.cancellation.SetCancelled(true);
+    EXPECT_THAT(ReadBeefMemory(fixture, region, progress, std::ref(exchange)), IsErr(ErrorKind::kCancelled));
+}
+
+TEST(DensoBeefCanCommonTest, FlashBeefBlockRejectsBlocksThatDoNotFitTheImageAndNamesTheFamily)
+{
+    CompareFixture fixture;
+    PhaseReporter progress(fixture.events, "Write", 1, 1, 0x1000);
+    const bytes::Bytes image(0x1000);
+    std::size_t index = 0;
+    const auto flash = [&](const MemoryRegion& block, std::uint32_t base)
+    {
+        ScriptedExchange exchange;
+        return FlashBeefBlock(fixture, image, base, block, false, index, 0x1000, progress, "diesel",
+                              std::ref(exchange));
+    };
+
+    EXPECT_THAT(flash({0x2000, 0x300}, 0x2000),
+                IsErrWith(ErrorKind::kInvalidConfig, StrEq("diesel flash block is not aligned to write windows")));
+    EXPECT_THAT(flash({0x2000, 0}, 0x2000),
+                IsErrWith(ErrorKind::kInvalidConfig, StrEq("diesel flash block is not aligned to write windows")));
+    EXPECT_THAT(flash({0x2000, 0x1000}, 0x2001),
+                IsErrWith(ErrorKind::kInvalidConfig, StrEq("diesel flash block starts before the image")));
+    EXPECT_THAT(flash({0x2000, 0x1000}, 0x1001),
+                IsErrWith(ErrorKind::kInvalidConfig, StrEq("diesel flash block extends beyond the image")));
+}
+
+TEST(DensoBeefCanCommonTest, FlashBeefBlockErasesWritesAndCommitsOrValidatesOneWindow)
+{
+    for (const bool test_write : {false, true})
+    {
+        CompareFixture fixture;
+        PhaseReporter progress(fixture.events, "Write", 1, 1, 0x1000);
+        ScriptedExchange exchange;
+        std::size_t index = 0;
+
+        EXPECT_THAT(FlashBeefBlock(fixture, bytes::Bytes(0x1000), 0x2000, {0x2000, 0x1000}, test_write, index, 0x1000,
+                                   progress, "petrol", std::ref(exchange)),
+                    IsOk());
+        EXPECT_EQ(index, 0x1000U);
+        EXPECT_EQ(exchange.opcodes.size(), 10U);
+        EXPECT_EQ(exchange.opcodes.front(), 0x25);
+        EXPECT_EQ(exchange.opcodes.back(), test_write ? 0x23 : 0x24);
+    }
+    for (const std::size_t failing : {0U, 1U, 9U})
+    {
+        CompareFixture fixture;
+        PhaseReporter progress(fixture.events, "Write", 1, 1, 0x1000);
+        ScriptedExchange exchange{.failing = failing};
+        std::size_t index = 0;
+        EXPECT_THAT(FlashBeefBlock(fixture, bytes::Bytes(0x1000), 0x2000, {0x2000, 0x1000}, false, index, 0x1000,
+                                   progress, "petrol", std::ref(exchange)),
+                    IsErr(ErrorKind::kTimeout));
+    }
+    for (const std::size_t cancel_at : {0U, 8U})
+    {
+        CompareFixture fixture;
+        PhaseReporter progress(fixture.events, "Write", 1, 1, 0x1000);
+        ScriptedExchange exchange{.on_call = [&](std::size_t call)
+                                  {
+                                      if (call == cancel_at)
+                                      {
+                                          fixture.cancellation.SetCancelled(true);
+                                      }
+                                  }};
+        std::size_t index = 0;
+        EXPECT_THAT(FlashBeefBlock(fixture, bytes::Bytes(0x1000), 0x2000, {0x2000, 0x1000}, false, index, 0x1000,
+                                   progress, "petrol", std::ref(exchange)),
+                    IsErr(ErrorKind::kCancelled));
+    }
+}
+
+TEST(DensoBeefCanCommonTest, WriteBeefMemoryLogsTheVoltageAndTheTimeLeftFromTheBytesStillToWrite)
+{
+    const std::array<MemoryRegion, 1> regions{{{0x2000, 0x1000}}};
+    const bytes::Bytes image(0x1000);
+    CompareFixture fixture;
+    PhaseSequence phases(fixture.events, 4);
+    PhaseReporter compare_progress = phases.Start("Compare", 1);
+    const auto exchange = [](bytes::Byte opcode, bytes::ByteView, std::size_t,
+                             std::chrono::milliseconds) -> Result<bytes::Bytes>
+    { return opcode == 0x04 ? bytes::Bytes{0x00, 0x64} : bytes::Bytes(2); };
+    const auto compare = [](PhaseReporter *, bool after) -> Result<CompareResult>
+    { return CompareResult{.modified = {!after}, .changed_count = after ? 0U : 1U}; };
+
+    EXPECT_THAT(WriteBeefMemory(fixture, image, 0x2000, regions, false, phases, compare_progress, "petrol", exchange,
+                                compare, [](bool) { return Status{}; }),
+                IsOk());
+    const auto has_log = [&](std::string_view text)
+    { return std::ranges::any_of(fixture.sink.logs, [&](const auto& log) { return log.second == text; }); };
+    EXPECT_TRUE(has_log(": 2V"));
+}
+
+TEST(DensoBeefCanCommonTest, FlashBeefBlockReportsTheTimeLeftForTheRestOfTheWrite)
+{
+    CompareFixture fixture;
+    PhaseReporter progress(fixture.events, "Write", 1, 1, 0x1000);
+    ScriptedExchange exchange;
+    std::size_t index = 0x200;
+
+    EXPECT_THAT(FlashBeefBlock(fixture, bytes::Bytes(0x1000), 0x2000, {0x2000, 0x1000}, false, index,
+                               0x400 + 5 * 512000 - 1, progress, "petrol", std::ref(exchange)),
+                IsOk());
+    EXPECT_EQ(fixture.sink.logs[5].second, "Write flash buffer: 0x00002000 (0% - 512000 B/s, ~ 5 s)");
 }
 
 TEST(DensoBeefCanCommonTest, SendChannelRequestSleepsOnlyForAPositiveDelay)
