@@ -104,9 +104,13 @@ fastecu_portable_gtest(
 
 cc_library(
     name = "flash_executor",
-    srcs = ["flash_executor.cpp"],
+    srcs = [
+        "flash_executor.cpp",
+        "guarded_can_flash_transport.cpp",
+    ],
     hdrs = [
         "flash_executor.h",
+        "guarded_can_flash_transport.h",
     ],
     deps = [
         ":flash_plan",
@@ -132,6 +136,17 @@ cc_library(
     srcs = ["flash_operation_request.cpp"],
     hdrs = ["flash_operation_request.h"],
     deps = [":flash_types"],
+)
+
+fastecu_portable_gtest(
+    name = "guarded_can_flash_transport_test",
+    srcs = ["guarded_can_flash_transport_test.cpp"],
+    deps = [
+        ":flash_executor",
+        "//src/backend/flash/testing:scripted_flash_transports",
+        "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
+    ],
 )
 
 fastecu_portable_gtest(
