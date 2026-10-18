@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <charconv>
+#include <cstdint>
 #include <cstddef>
 #include <format>
 #include <functional>
@@ -146,8 +147,13 @@ std::optional<std::string> ExpandReference(std::string_view token, bytes::ByteVi
 Result<bytes::Bytes> ParseFrame(std::string_view rest, bytes::ByteView image, std::size_t line)
 {
     bytes::Bytes frame;
-    while (const auto token = NextToken(rest))
+    for (rest = Trim(rest); !rest.empty(); rest = Trim(rest))
     {
+        const auto token = NextToken(rest);
+        if (!token)
+        {
+            return std::unexpected(LineError(line, "unterminated reference"));
+        }
         if (token->front() == '{')
         {
             if (const auto error = ExpandReference(*token, image, frame))
@@ -175,7 +181,7 @@ Result<WireTranscriptStep> ParseTiming(std::string_view rest, std::size_t line)
         return std::unexpected(LineError(line, "malformed timing step"));
     }
     const auto ms = ParseNumber<std::int64_t>(*ms_token);
-    if (!ms)
+    if (!ms || *ms < 0)
     {
         return std::unexpected(LineError(line, "bad duration"));
     }

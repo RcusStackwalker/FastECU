@@ -74,6 +74,19 @@ TEST(WireTranscriptTest, RejectsAnUnknownLine)
     EXPECT_THAT(parsed.error().detail, HasSubstr("line 1"));
 }
 
+TEST(WireTranscriptTest, RejectsAnUnterminatedReference)
+{
+    const auto parsed = ParseWireTranscript("> 01 {image 0x0+4", Ramp256());
+    ASSERT_THAT(parsed, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
+    EXPECT_THAT(parsed.error().detail, HasSubstr("line 1"));
+}
+
+TEST(WireTranscriptTest, RejectsNegativeDurations)
+{
+    EXPECT_THAT(ParseWireTranscript("@ sleep -5", {}), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
+    EXPECT_THAT(ParseWireTranscript("@ read-timeout -1", {}), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
+}
+
 TEST(WireTranscriptTest, RejectsMalformedHex)
 {
     EXPECT_THAT(ParseWireTranscript("> 0g", {}), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
