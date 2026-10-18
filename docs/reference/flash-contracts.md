@@ -56,7 +56,9 @@ N83M 4M/SH72531 jump continuation wait, and the connect prelude (OBK probe,
 identity queries, access-method probe and branch selector), and the
 single-block `write_memory` body (block-count log, erase, then the family's
 own reflash under the write phase), plus the dialect's `FatalQuery` prefix. Its header
-documents each operation and why everything else stays local.
+documents each operation and why everything else stays local. Each family's
+own deviations, with legacy citations, are listed side by side in
+[Denso ISO-15765 family deviations](denso-iso15765-families.md).
 
 Kept local in each executor: read loops, reflash,
 the in-car and bench connect arms, complete kernel jumps, close/checksum and

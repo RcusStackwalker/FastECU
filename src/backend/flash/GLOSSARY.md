@@ -30,11 +30,27 @@ the bootloader dialect and the kernel-upload dialect both use.
 _Avoid_: Common dialect
 
 **Denso ISO-15765 bootloader dialect**:
-The N83M 1.5M, N83M 4M, SH72531 and SH72543 diesel flash families. They share
-the level-0x61/0x62 seed/key exchange and the erase flow, and both N83M
-families share the in-car exchange sequence. They talk to the ECU's resident
-on-board kernel after a diagnostic-session jump and upload no kernel.
+The N83M 1.5M, N83M 4M, SH72531 and SH72543 diesel flash families. They talk
+to the ECU's resident on-board kernel after a kernel jump and upload no
+kernel. Their wire behaviour from connect through close is shared operation by
+operation where it is proven identical; each family's remaining deviations are
+its own.
 _Avoid_: Wave 4
+
+**Kernel jump**:
+The diagnostic-session request that hands a bootloader flash family's ECU over
+to its resident on-board kernel, ending the connect.
+_Avoid_: Kernel upload (that sends a kernel; a kernel jump sends none)
+
+**Tolerant probe**:
+An exchange whose wrong reply is logged and stepped over, but whose absent or
+too-short reply aborts the operation.
+_Avoid_: Non-fatal query (that never aborts), soft check
+
+**Fire-and-forget run**:
+The in-car arm's opening writes to the other modules on the bus, whose replies
+are read and discarded without inspection.
+_Avoid_: Quiet sequence, broadcast
 
 **Denso BEEF CAN dialect**:
 The SH7058 petrol, SH7058 diesel and TCU Denso SH705x flash families. They

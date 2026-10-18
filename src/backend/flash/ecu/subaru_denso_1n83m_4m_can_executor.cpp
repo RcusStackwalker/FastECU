@@ -114,21 +114,6 @@ using Ctx = CanExecutorContext;
 
 constexpr std::string_view kRejectionPrefix = "Wrong response from ECU: ";
 
-// Legacy's "log a mismatch, abort only on an absent or too-short reply"
-// probe shape (lines 283-311, 313-341, 347-377). fatal_query aborts on a
-// mismatch and non_fatal_query never aborts, so neither fits; this goes
-// through the channel directly and returns the envelope-stripped frame so a
-// caller can read further bytes out of it.
-//
-// TOLERATED, lines 305 / 335 / 369: at all three of this shape's call sites
-// the `return STATUS_ERROR` that would follow the mismatch log is commented
-// out in legacy, so the early return is intentionally absent here too and
-// the sequence continues with whatever the ECU said. (Its 1N83M 1.5M sibling
-// has no return at these points either, so the behaviour matches there; the
-// commented-out lines are this family's own record that the strictness was
-// removed on purpose.) The absent-reply branch below still aborts: lines
-// 310, 340 and 374 keep their live `return STATUS_ERROR`.
-
 // read_memory's two dump-setup exchanges (lines 843-884 and 886-925). Unlike
 // tolerant_probe this tolerates BOTH halves of the check.
 //
@@ -166,13 +151,6 @@ Status TolerantSetup(Ctx& ctx, bytes::ByteView pdu, bytes::ByteView expected_pre
     }
     return {};
 }
-
-// Legacy's in-car fire-and-forget exchange (lines 379-498): write on `id`,
-// read whatever arrives next, discard it. Legacy validates neither the
-// reply's arbitration id nor its content, so the reply is taken from the
-// transport directly -- a CanFlashUdsChannel bound to `id` would impose a
-// reply-id check legacy does not have. The channel is still used for the
-// write, which is exactly its 4-byte-envelope job.
 
 // Legacy's kernel jump plus its bounded re-read loop (bench lines 776-806,
 // try_count < 50; in-car lines 631-659, try_count < 10). The loop's

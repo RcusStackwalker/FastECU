@@ -90,19 +90,6 @@ using Ctx = CanExecutorContext;
 
 constexpr std::string_view kRejectionPrefix = "Wrong response from ECU: ";
 
-// Legacy's "log a mismatch, abort only on an absent or too-short reply"
-// probe shape (lines 286-311, 313-339, 346-371). fatal_query aborts on a
-// mismatch and non_fatal_query never aborts, so neither fits; this goes
-// through the channel directly and returns the envelope-stripped frame so a
-// caller can read further bytes out of it.
-
-// Legacy's in-car fire-and-forget exchange (lines 373-492): write on `id`,
-// read whatever arrives next, discard it. Legacy validates neither the
-// reply's arbitration id nor its content, so the reply is taken from the
-// transport directly -- a CanFlashUdsChannel bound to `id` would impose a
-// reply-id check legacy does not have. The channel is still used for the
-// write, which is exactly its 4-byte-envelope job.
-
 // Legacy's kernel jump plus its bounded re-read loop (bench lines 770-802,
 // try_count < 50; in-car lines 625-655, try_count < 10). The loop's
 // `init_ready` flag is never read after the loop and both arms fall straight
