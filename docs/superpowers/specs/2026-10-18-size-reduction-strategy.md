@@ -100,7 +100,7 @@ Tooling audit, from the 30 days before the baseline:
 | prek (format, buildifier, ruff, pragma-once, lychee, ...) | Every PR; 2 failed jobs | Formatting and links | Keep |
 | Gazelle | Every PR; none failed | Generates BUILD files | Keep |
 | SonarCloud | Every PR; 32 failed jobs | Duplication gate, currently non-blocking | Keep; make it a merge gate |
-| CodeQL | 137 runs, none failed | 9 alerts fixed all-time, 0 open | Cut, or reduce to a weekly schedule |
+| CodeQL | 137 runs, none failed | 9 alerts fixed all-time, 0 open | Weekly only (#751) |
 | Mull mutation testing | Advisory on PRs; loop guard | Loop guard is superseded by ADR 0024 | Keep; make "no new surviving mutants on changed lines" a merge gate |
 | FuzzTest workflow | 2 scheduled runs, none failed | None recorded | Keep; make it a merge gate |
 | jscpd, Lizard `nloc` hook, `nloc_loop.py`, `hill-climbing-nloc` skill | Manual | Loop-specific | Keep `measure`; retire the loop guards and ledger with ADR 0023 |
