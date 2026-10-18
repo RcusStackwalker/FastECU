@@ -90,13 +90,8 @@ class ClassifyLineTest(unittest.TestCase):
         self.assertFalse(out.is_noise("/ws/a.cpp:1:1: error: x [y]"))
         self.assertFalse(out.is_noise("Stack dump:"))
 
-    def test_enabled_checks_listing_is_noise(self) -> None:
-        # run-clang-tidy's opening `clang-tidy -list-checks` call.
+    def test_enabled_checks_header_is_noise(self) -> None:
         self.assertTrue(out.is_noise("Enabled checks:"))
-        self.assertTrue(out.is_noise("    bugprone-argument-comment"))
-        self.assertTrue(out.is_noise("    clang-analyzer-unix.cstring.NullArg"))
-        self.assertFalse(out.is_noise("    some words here"))
-        self.assertFalse(out.is_noise("12 is not a profile row"))
 
 
 class PathTest(unittest.TestCase):
@@ -292,6 +287,25 @@ class OutputStreamTest(unittest.TestCase):
         self.assertEqual(
             ["Stack dump:", "0.  Program arguments: clang-tidy /ws/src/a.cpp"], lines[1:]
         )
+
+    def test_enabled_checks_listing_is_dropped(self) -> None:
+        # run-clang-tidy's opening `clang-tidy -list-checks` call.
+        lines, stream = self.stream()
+        for line in [
+            "Enabled checks:",
+            "    bugprone-argument-comment",
+            "    clang-analyzer-unix.cstring.NullArg",
+            "",
+            _PROGRESS_A,
+        ]:
+            stream.feed(line)
+        self.assertEqual(["[1/2] src/a.cpp"], lines)
+
+    def test_indented_word_outside_the_check_listing_passes_through(self) -> None:
+        lines, stream = self.stream()
+        for line in ["Enabled checks:", "    bugprone-x", _PROGRESS_A, "Traceback:", "    raise"]:
+            stream.feed(line)
+        self.assertEqual(["[1/2] src/a.cpp", "Traceback:", "    raise"], lines)
 
     def test_orphan_note_passes_through_verbatim(self) -> None:
         lines, stream = self.stream()

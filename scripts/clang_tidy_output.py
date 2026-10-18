@@ -22,6 +22,7 @@ _WARNINGS_AS_ERRORS = ",-warnings-as-errors"
 _PROGRESS = re.compile(r"^\[\s*(?P<index>\d+)/(?P<total>\d+)\]\[[\d.]+s\] (?P<command>.+)$")
 # clang's source snippet and caret lines: `   12 |   foo();`, `      |   ^~~`.
 _DETAIL = re.compile(r"^\s*(\d+\s*)?\|")
+_LISTED_CHECK = re.compile(r"^    [\w.\-]+$")
 _NOISE = tuple(
     re.compile(pattern)
     for pattern in (
@@ -31,9 +32,9 @@ _NOISE = tuple(
         r"^Use -header-filter=",
         r"^\d+ warnings? treated as errors?$",
         r"^Running clang-tidy in \d+ threads ",
-        # run-clang-tidy's opening `clang-tidy -list-checks` call.
+        # run-clang-tidy's opening `clang-tidy -list-checks` call; the check
+        # names under it are dropped by OutputStream while it is listing.
         r"^Enabled checks:$",
-        r"^    [\w.\-]+$",
         # The -enable-check-profile report.
         r"^=+-+=+$",
         r"^\s*clang-tidy checks profiling$",
@@ -235,8 +236,12 @@ class OutputStream:
         self._diagnostic: Diagnostic | None = None
         self._detail: list[str] = []
         self._notes: list[tuple[Diagnostic, list[str]]] = []
+        self._listing_checks = False
 
     def feed(self, line: str) -> None:
+        if self._listing_checks and _LISTED_CHECK.match(line):
+            return
+        self._listing_checks = line == "Enabled checks:"
         diagnostic = parse_diagnostic(line)
         if diagnostic is not None and diagnostic.severity == "note" and self._diagnostic:
             self._notes.append((diagnostic, []))
