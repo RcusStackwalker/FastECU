@@ -1,5 +1,6 @@
 #include "src/backend/flash/ecu/denso_iso15765_can_common.h"
 
+#include <algorithm>
 #include <array>
 #include <format>
 #include <utility>
@@ -201,8 +202,7 @@ Result<bool> DensoObkIsActive(const CanExecutorContext& ctx, std::string_view ac
     {
         return std::unexpected(obk.error());
     }
-    if (obk->has_value() && obk->value().size() > 1 && (**obk)[0] == kSessionControlReply &&
-        (**obk)[1] == kSessionProbe)
+    if (obk->has_value() && std::ranges::starts_with(**obk, std::array{kSessionControlReply, kSessionProbe}))
     {
         LogInfo(ctx, active_log);
         return true;
