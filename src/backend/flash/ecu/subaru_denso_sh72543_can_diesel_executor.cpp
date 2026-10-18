@@ -56,11 +56,8 @@ constexpr uds::ExchangePolicy kChecksumPolicy{.read_timeout = kLongTimeout, .pen
 
 // Session ids in ISO 14229-1's 0x40-0x5F vehicle-manufacturer-specific band;
 // legacy uses its own values here rather than the standard subfunctions.
-constexpr bytes::Byte kSessionProbe = 0x5F;     // OBK probe / access-method probe
-constexpr bytes::Byte kSessionInCarOpen = 0x63; // in-car "session open" subfunction
 constexpr bytes::Byte kSessionBench = 0x43;     // bench programming session
 constexpr bytes::Byte kSessionBenchJump = 0x42; // bench jump to on-board kernel
-constexpr bytes::Byte kSessionInCarJump = 0x62; // in-car jump to on-board kernel
 // Positive-response service ids for the SIDs this file inspects without going
 // through UdsClient (which does the SID + 0x40 arithmetic itself).
 constexpr bytes::Byte kSessionControlReply = uds::kSidDiagnosticSessionControl + 0x40; // 0x50
@@ -122,63 +119,6 @@ void NonFatalDidQuery(Ctx& ctx, bytes::ByteView pdu, bytes::ByteView expected_di
     constexpr std::size_t kEcuIdBytes = 5;
     const bytes::ByteView rest = payload.subspan(expected_did.size());
     LogInfo(ctx, std::format("{}: {}", label, bytes::ToHex(rest.subspan(0, std::min(kEcuIdBytes, rest.size())))));
-}
-
-// In-car programming arm, legacy lines 342-649.
-Status ConnectInCar(Ctx& ctx, ICanFlashTransport& can)
-{
-    LogInfo(ctx, "In car programming: accessing, please wait...");
-    // Line 345: this wait precedes the write below, so no read timeout
-    // subsumes it.
-    if (const Status slept = ctx.clock.Sleep(500ms, ctx.cancellation); !slept.has_value())
-    {
-        return slept;
-    }
-
-    // Lines 346-372: mismatch logs, absent reply aborts.
-    if (Result<bytes::Bytes> probe =
-            TolerantProbe(ctx, bytes::Bytes{uds::kSidDiagnosticSessionControl, kSessionProbe}, kSessionControlReply,
-                          0x01, kProbeTimeout, kRejectionPrefix, "in-car access-method probe");
-        !probe.has_value())
-    {
-        return std::unexpected(probe.error());
-    }
-
-    // Lines 375-483:: ten fire-and-forget writes across four extra CAN ids;
-    // every reply is read and discarded. The shared sequence pins each byte.
-    if (const Status sent = ShInCarFireAndForget(ctx, can, kLongTimeout); !sent.has_value())
-    {
-        return sent;
-    }
-
-    // Lines 485-556: seed/key on the primary 0x7E0 pair, fatal throughout.
-    if (const Status unlocked = DensoSecurityAccess(ctx); !unlocked.has_value())
-    {
-        return unlocked;
-    }
-
-    // Lines 558-585: unlike the earlier 0x10 0x5F probes, this one is fatal
-    // on a mismatch, and expects subfunction 0x63 rather than 0x01.
-    if (Result<bytes::Bytes> session =
-            FatalQuery(ctx, bytes::Bytes{uds::kSidDiagnosticSessionControl, kSessionProbe},
-                       bytes::Bytes{kSessionInCarOpen}, kLongPolicy, "in-car session confirmation");
-        !session.has_value())
-    {
-        return std::unexpected(session.error());
-    }
-
-    // Lines 587-615: the branch selector is re-read, this time fatally, and
-    // its content past the 0x62 0x10 header is not inspected.
-    if (Result<bytes::Bytes> selector =
-            FatalQuery(ctx, bytes::Bytes{uds::kSidReadDataByIdentifier, 0x10, 0x1D}, bytes::Bytes{0x10}, kLongPolicy,
-                       "in-car programming-mode confirmation");
-        !selector.has_value())
-    {
-        return std::unexpected(selector.error());
-    }
-
-    return DensoIso15765JumpToKernel(ctx, kSessionInCarJump, 10, kLongTimeout, kLongTimeout,
-                                     /*discard_first_reply=*/false);
 }
 
 // Bench programming arm, legacy lines 649-791.
@@ -247,7 +187,7 @@ Status ConnectBootloader(Ctx& ctx, ICanFlashTransport& can)
     {
         return std::unexpected(in_car.error());
     }
-    return *in_car ? ConnectInCar(ctx, can) : ConnectBench(ctx);
+    return *in_car ? DensoIso15765ConnectInCar(ctx, can, DensoInCarRun::kSh, kLongTimeout) : ConnectBench(ctx);
 }
 
 // Legacy's own log line for all three "start & length" announcements

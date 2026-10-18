@@ -35,23 +35,27 @@ namespace fastecu::flash
 // The decrypt table remains valid for the bootloader-dialect normal-ROM read paths.
 // DensoCAN is not a consumer of this data-only cluster.
 //
-// Beyond these tables, the common module shares thirteen narrow operations: pure
-// setup-PDU encoding, the SecurityAccess seed/key exchange, the erase flow,
-// one encrypted B7 page read and the read dump built on it (page loop, stop and
-// padding), one B6 write request and the image write loop built on it, best-effort transfer
-// exit and the settle-and-checksum close around it (all four Denso ISO-15765 bootloader dialect executors), and the
-// in-car opening exchange runs (one N83M run, one SH run that sends session 0x03 rather than 0x63 to 0x7E1), plus the
-// kernel jump with its continuation wait (all four; the read timeouts and the N83M 4M/SH72531 bench discard are
-// parameters), and connect_bootloader's prelude (OBK probe, identity queries, access-method probe and branch selector),
-// which direct comparison showed byte-identical across all four apart from one log line, the diesel ECU ID query and
-// the diesel probe timeout, all kept as parameters or local. The single-block write_memory body is shared too; each
-// family's reflash is now only its header log line, the shared write loop and the shared close. Everything else that
-// looks alike -- the in-car and bench connect arms,
-// -- differs between the
-// families in read timeouts, retry counts, pre-loop read counts, image base addresses, and, most importantly, in how
-// strictly a bad response is treated. Those differences are the safety-relevant part of each family: collapsing them
-// behind a parameterized common routine would make a future reader believe these are the same protocol when they are
-// not. They stay in their own executors deliberately.
+// Beyond these tables, the common module shares ten operations, across all
+// four bootloader-dialect executors unless noted:
+// - setup-PDU encoding;
+// - the SecurityAccess seed/key exchange;
+// - the erase flow;
+// - the read dump: B7 page reads, the best-effort stop and the 0xFF padding;
+// - the image write loop: B6 chunk writes at the family's image base;
+// - the close: best-effort transfer exit, settle and checksum verify;
+// - the single-block write_memory body around the family's reflash;
+// - connect_bootloader's prelude: OBK probe, identity queries, access-method
+//   probe and branch selector;
+// - the in-car arm, with one fire-and-forget run for the N83M families and one
+//   for the SH families;
+// - the kernel jump with its continuation wait.
+// Each declaration below names the family differences it takes as parameters.
+// Direct comparison of the legacy sources proved everything else identical.
+// What still differs -- read setup, the bench arms and family response
+// policy -- stays in the executors: read timeouts, retry counts and, above
+// all, how strictly a bad response is treated are the safety-relevant part of
+// each family, and a parameterized common routine would make a future reader
+// believe they are the same protocol when they are not.
 //
 // Scope note: the index transformation these tables are paired with is NOT
 // here. It is not specific to this cluster -- it was spelled out at fourteen
@@ -260,6 +264,23 @@ Status N83mInCarFireAndForget(const CanExecutorContext& ctx, ICanFlashTransport&
 // 200 ms.
 Status ShInCarFireAndForget(const CanExecutorContext& ctx, ICanFlashTransport& can,
                             std::chrono::milliseconds primary_timeout);
+
+// Which fire-and-forget run an in-car arm sends.
+enum class DensoInCarRun
+{
+    kN83m,
+    kSh,
+};
+
+// connect_bootloader's in-car programming arm: a 500 ms wait, the tolerant
+// access-method probe (10 5F, expecting 50 01), the family's fire-and-forget
+// run, seed/key, the fatal session confirmation (10 5F, expecting 50 63) and
+// programming-mode re-read (22 10 1D, expecting 62 10), then the kernel jump
+// (10 62, at most 10 tries). Every read in the arm -- the probe, both
+// confirmations, the run's 0x7E0 reply and the jump -- uses `read_timeout`:
+// 200 ms, or 2000 ms on SH72543 diesel.
+Status DensoIso15765ConnectInCar(const CanExecutorContext& ctx, ICanFlashTransport& can, DensoInCarRun run,
+                                 std::chrono::milliseconds read_timeout);
 
 // write_memory's body: each family erases and reflashes exactly one block
 // (legacy block_modified marks one entry), so this logs `block_index` -- 1 of

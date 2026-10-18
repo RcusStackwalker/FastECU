@@ -105,6 +105,8 @@ constexpr std::string_view kRejectionPrefix = "Wrong response from ECU: ";
 constexpr std::chrono::milliseconds kObkProbeTimeout{200};
 constexpr uds::ExchangePolicy kIdentityPolicy{.read_timeout = std::chrono::milliseconds{2000}};
 constexpr bytes::Byte kSessionProbe = 0x5F;
+constexpr bytes::Byte kSessionInCarOpen = 0x63;
+constexpr bytes::Byte kSessionInCarJump = 0x62;
 constexpr bytes::Byte kSessionControlReply = uds::kSidDiagnosticSessionControl + 0x40;
 constexpr bytes::Byte kReadDataByIdentifierReply = uds::kSidReadDataByIdentifier + 0x40;
 
@@ -582,6 +584,54 @@ Status ShInCarFireAndForget(const CanExecutorContext& ctx, ICanFlashTransport& c
                             std::chrono::milliseconds primary_timeout)
 {
     return RunInCarSequence(ctx, can, kShInCarSequence, primary_timeout);
+}
+
+// Legacy in-car arms: N83M 1.5M 341-656, N83M 4M 345-661, SH72531 341-656,
+// SH72543 diesel 341-648. The probe logs a mismatch and aborts only on an
+// absent or short reply; unlike it, the session confirmation is fatal on a
+// mismatch and expects 0x63 rather than 0x01; the selector re-read is fatal
+// and its content past 62 10 is not inspected.
+Status DensoIso15765ConnectInCar(const CanExecutorContext& ctx, ICanFlashTransport& can, DensoInCarRun run,
+                                 std::chrono::milliseconds read_timeout)
+{
+    LogInfo(ctx, "In car programming: accessing, please wait...");
+    if (const Status slept = ctx.clock.Sleep(std::chrono::milliseconds{500}, ctx.cancellation); !slept.has_value())
+    {
+        return slept;
+    }
+    if (Result<bytes::Bytes> probe =
+            TolerantProbe(ctx, bytes::Bytes{uds::kSidDiagnosticSessionControl, kSessionProbe}, kSessionControlReply,
+                          0x01, read_timeout, kRejectionPrefix, "in-car access-method probe");
+        !probe.has_value())
+    {
+        return std::unexpected(probe.error());
+    }
+    if (const Status sent =
+            run == DensoInCarRun::kSh ? ShInCarFireAndForget(ctx, can, read_timeout) : N83mInCarFireAndForget(ctx, can);
+        !sent.has_value())
+    {
+        return sent;
+    }
+    if (const Status unlocked = DensoSecurityAccess(ctx); !unlocked.has_value())
+    {
+        return unlocked;
+    }
+    const uds::ExchangePolicy policy{.read_timeout = read_timeout};
+    if (Result<bytes::Bytes> session =
+            FatalQuery(ctx, bytes::Bytes{uds::kSidDiagnosticSessionControl, kSessionProbe},
+                       bytes::Bytes{kSessionInCarOpen}, policy, "in-car session confirmation");
+        !session.has_value())
+    {
+        return std::unexpected(session.error());
+    }
+    if (Result<bytes::Bytes> selector = FatalQuery(ctx, bytes::Bytes{uds::kSidReadDataByIdentifier, 0x10, 0x1D},
+                                                   bytes::Bytes{0x10}, policy, "in-car programming-mode confirmation");
+        !selector.has_value())
+    {
+        return std::unexpected(selector.error());
+    }
+    return DensoIso15765JumpToKernel(ctx, kSessionInCarJump, 10, read_timeout, read_timeout,
+                                     /*discard_first_reply=*/false);
 }
 
 } // namespace fastecu::flash

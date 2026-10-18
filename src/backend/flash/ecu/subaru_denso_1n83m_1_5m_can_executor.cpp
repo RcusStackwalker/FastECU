@@ -51,15 +51,8 @@ constexpr uds::ExchangePolicy kChecksumPolicy{.read_timeout = kReceiveTimeout, .
 
 // Session ids in ISO 14229-1's 0x40-0x5F vehicle-manufacturer-specific band;
 // legacy uses its own values here rather than the standard subfunctions.
-constexpr bytes::Byte kSessionProbe = 0x5F;     // OBK probe / access-method probe
-constexpr bytes::Byte kSessionInCarOpen = 0x63; // in-car "session open" subfunction
 constexpr bytes::Byte kSessionBench = 0x43;     // bench programming session
 constexpr bytes::Byte kSessionBenchJump = 0x42; // bench jump to on-board kernel
-constexpr bytes::Byte kSessionInCarJump = 0x62; // in-car jump to on-board kernel
-// Positive-response service ids for the two SIDs this file inspects without
-// going through UdsClient (which does the SID + 0x40 arithmetic itself).
-constexpr bytes::Byte kSessionControlReply = uds::kSidDiagnosticSessionControl + 0x40; // 0x50
-
 // kFlashBlocksN83M_1_5MB[0].start -- reflash_block indexes the image as
 // newdata[i + blockaddr - fdt->fblocks[0].start] (line 1225), so byte 0 of
 // the plan image is this address.
@@ -74,63 +67,6 @@ constexpr std::uint32_t kImageStart = 0x08F9C000;
 // CanFlashUdsChannel instance `uds` wraps.
 // The five-field context this package shares; see uds_client_exchange_common.h.
 using Ctx = CanExecutorContext;
-
-constexpr std::string_view kRejectionPrefix = "Wrong response from ECU: ";
-
-// In-car programming arm, legacy lines 341-656.
-Status ConnectInCar(Ctx& ctx, ICanFlashTransport& can)
-{
-    LogInfo(ctx, "In car programming: accessing, please wait...");
-    if (const Status slept = ctx.clock.Sleep(500ms, ctx.cancellation); !slept.has_value())
-    {
-        return slept;
-    }
-
-    // Lines 346-371: mismatch logs, absent reply aborts.
-    if (Result<bytes::Bytes> probe =
-            TolerantProbe(ctx, bytes::Bytes{uds::kSidDiagnosticSessionControl, kSessionProbe}, kSessionControlReply,
-                          0x01, kProbeTimeout, kRejectionPrefix, "in-car access-method probe");
-        !probe.has_value())
-    {
-        return std::unexpected(probe.error());
-    }
-
-    // Ten fire-and-forget writes across four extra CAN ids; every reply is read
-    // and discarded. The shared sequence pins each byte in its own test.
-    if (const Status sent = N83mInCarFireAndForget(ctx, can); !sent.has_value())
-    {
-        return sent;
-    }
-
-    // Lines 494-564: seed/key on the primary 0x7E0 pair, fatal throughout.
-    if (const Status unlocked = DensoSecurityAccess(ctx); !unlocked.has_value())
-    {
-        return unlocked;
-    }
-
-    // Lines 566-593: unlike the earlier 0x10 0x5F probes, this one is fatal
-    // on a mismatch, and expects subfunction 0x63 rather than 0x01.
-    if (Result<bytes::Bytes> session =
-            FatalQuery(ctx, bytes::Bytes{uds::kSidDiagnosticSessionControl, kSessionProbe},
-                       bytes::Bytes{kSessionInCarOpen}, kShortPolicy, "in-car session confirmation");
-        !session.has_value())
-    {
-        return std::unexpected(session.error());
-    }
-
-    // Lines 595-623: the branch selector is re-read, this time fatally, and
-    // its content past the 0x62 0x10 header is not inspected.
-    if (Result<bytes::Bytes> selector =
-            FatalQuery(ctx, bytes::Bytes{uds::kSidReadDataByIdentifier, 0x10, 0x1D}, bytes::Bytes{0x10}, kShortPolicy,
-                       "in-car programming-mode confirmation");
-        !selector.has_value())
-    {
-        return std::unexpected(selector.error());
-    }
-
-    return DensoIso15765JumpToKernel(ctx, kSessionInCarJump, 10, kShortTimeout, kShortTimeout,
-                                     /*discard_first_reply=*/false);
-}
 
 // Bench programming arm, legacy lines 657-803.
 Status ConnectBench(Ctx& ctx)
@@ -188,7 +124,7 @@ Status ConnectBootloader(Ctx& ctx, ICanFlashTransport& can)
     {
         return std::unexpected(in_car.error());
     }
-    return *in_car ? ConnectInCar(ctx, can) : ConnectBench(ctx);
+    return *in_car ? DensoIso15765ConnectInCar(ctx, can, DensoInCarRun::kN83m, kShortTimeout) : ConnectBench(ctx);
 }
 
 // Legacy read_memory, lines 813-1074. start_addr and length are overwritten
