@@ -986,5 +986,35 @@ TEST(DensoIso15765CanCommonTest, ShInCarSequenceSends03To7E1AndReadsThePrimaryRe
                 ::testing::ElementsAre(200ms, 2000ms, 200ms, 200ms, 200ms, 200ms, 200ms, 200ms, 200ms, 200ms));
 }
 
+// A cancelled opening wait sends nothing; an absent probe reply aborts before the run.
+TEST(DensoIso15765CanCommonTest, ConnectInCarStopsOnCancelledWaitOrAbsentProbe)
+{
+    for (const bool cancelled : {false, true})
+    {
+        SCOPED_TRACE(cancelled);
+        CommonFixture f;
+        if (cancelled)
+        {
+            f.cancellation.Cancel();
+        }
+        else
+        {
+            f.transport.Exchange(Request({0x10, 0x5F}));
+            f.transport.QueueNoFrame();
+        }
+
+        EXPECT_THAT(DensoIso15765ConnectInCar(f.ctx, f.transport, DensoInCarRun::kSh, 2000ms),
+                    fastecu::testing::IsErr(cancelled ? ErrorKind::kCancelled : ErrorKind::kTimeout));
+
+        EXPECT_TRUE(f.transport.ScriptConsumed());
+        EXPECT_EQ(f.transport.write_attempts, cancelled ? 0U : 1U);
+        EXPECT_THAT(f.clock.sleep_calls, ::testing::ElementsAre(500ms));
+        if (!cancelled)
+        {
+            EXPECT_THAT(f.transport.ReadTimeouts(), ::testing::ElementsAre(2000ms));
+        }
+    }
+}
+
 } // namespace
 } // namespace fastecu::flash
