@@ -64,7 +64,7 @@ rolling out.
 | --- | ---: | --- |
 | 1. Delete remote mode | ~1.1k + remote branches in callers | Done: −1,437 (1,248 production, 189 test) |
 | 2. QHexEdit to first-party standards, and tooling | 2.1k | Measured per PR; may grow tests |
-| 3. Transport-level cancellation and transcript harness (Colt pilot) | 1.9k Colt executor + tests | Measured in pilot |
+| 3. Transport-level cancellation and transcript harness (Colt pilot) | 1.9k Colt executor + tests | Pilot: +1,039 (+106 production, +933 test); Task 6: −474 |
 | 4. Roll out per family | ~35k remaining executor code and tests | Extrapolated only after phase 3 |
 | 5. Thin main-window tests | 4.7k | Measured per coordinator |
 | 6. Android | Adds code | Kept small by reusing the Qt UI and portable drivers |
