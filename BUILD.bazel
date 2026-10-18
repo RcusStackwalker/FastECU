@@ -197,6 +197,17 @@ py_test(
 )
 
 py_test(
+    name = "clang_tidy_output_test",
+    size = "small",
+    srcs = [
+        "scripts/clang_tidy_output.py",
+        "scripts/clang_tidy_output_test.py",
+    ],
+    imports = ["scripts"],
+    main = "scripts/clang_tidy_output_test.py",
+)
+
+py_test(
     name = "clang_tidy_profile_test",
     size = "small",
     srcs = [
