@@ -3,14 +3,20 @@
 // testdata/mitsu_colt_m32r_can/ were recorded from the executor by
 // //src/backend/flash/ecu/testing:record_mitsu_colt_m32r_can_transcripts;
 // a divergence here means the bytes on the wire changed.
+//
+// Also holds the pilot's conformance case for ADR 0025: cancellation reaches
+// the Colt executor through the guarded transport BindFlashAttempt wraps it in.
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <chrono>
+#include <cstddef>
 #include <expected>
 #include <format>
 #include <fstream>
 #include <iterator>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -20,20 +26,29 @@
 #include "src/algorithms/protocol/testing/byte_matchers.h"
 #include "src/backend/flash/ecu/mitsu_colt_m32r_can_executor.h"
 #include "src/backend/flash/ecu/testing/mitsu_colt_m32r_can_scripts.h"
+#include "src/backend/flash/ecu/testing/recording_can_flash_transport.h"
 #include "src/backend/flash/flash_executor.h"
+#include "src/backend/flash/testing/scripted_can_flash_transport.h"
 #include "src/backend/flash/testing/transcript_can_flash_transport.h"
 #include "src/backend/flash/testing/wire_transcript.h"
 #include "src/backend/ports/manual_cancellation_token.h"
+#include "src/backend/ports/testing/fake_cancellation_token.h"
+#include "src/backend/ports/testing/fake_clock.h"
 #include "src/backend/ports/testing/recording_event_sink.h"
 #include "src/backend/ports/testing/result_matchers.h"
 
 namespace
 {
 
+using fastecu::ErrorKind;
+using fastecu::Status;
 using fastecu::flash::FlashExecutionResult;
 using fastecu::flash::FlashPlan;
+using fastecu::flash::ICanFlashTransport;
+using fastecu::flash::Iso15765Config;
 using fastecu::flash::MitsuColtM32rCanExecutor;
 using fastecu::flash::ReplayCanFlashTransport;
+using fastecu::flash::ScriptedCanFlashTransport;
 using rules_cc::cc::runfiles::Runfiles;
 namespace colt = fastecu::flash::colt_testing;
 
@@ -119,6 +134,78 @@ TEST(MitsuColtM32rCanTranscript, WriteReplays512KiBBootstrap)
 
     EXPECT_THAT(replayed.result, fastecu::testing::IsOk());
     EXPECT_TRUE(replayed.consumed);
+}
+
+// Forwards everything to a scripted transport but hands its Write and Read a
+// token that is never cancelled, so the scripted transport's own token checks
+// cannot stop a run: only a check above it can.
+class CancellationBlindCanFlashTransport final : public ICanFlashTransport
+{
+  public:
+    explicit CancellationBlindCanFlashTransport(ScriptedCanFlashTransport& inner) : inner_(inner)
+    {
+    }
+
+    Status ResetConnection() override
+    {
+        return inner_.ResetConnection();
+    }
+    Status Configure(const Iso15765Config& config) override
+    {
+        return inner_.Configure(config);
+    }
+    Status Open() override
+    {
+        return inner_.Open();
+    }
+    Status Close() override
+    {
+        return inner_.Close();
+    }
+    void RequestUnblock() noexcept override
+    {
+        inner_.RequestUnblock();
+    }
+    Status Write(bytes::ByteView data, const fastecu::ICancellationToken& /*cancellation*/) override
+    {
+        return inner_.Write(data, never_cancelled_);
+    }
+    fastecu::Result<std::optional<bytes::Bytes>> Read(std::chrono::milliseconds timeout,
+                                                      const fastecu::ICancellationToken& /*cancellation*/) override
+    {
+        return inner_.Read(timeout, never_cancelled_);
+    }
+
+  private:
+    ScriptedCanFlashTransport& inner_;
+    fastecu::ManualCancellationToken never_cancelled_;
+};
+
+// ADR 0025: cancelling as the ROM read begins stops the run before the first
+// read request. The scripted transport cannot see the cancel, so the guarded
+// transport BindFlashAttempt puts in front of the executor is what refuses it.
+TEST(MitsuColtM32rCanTranscript, CancelGoesThroughTheGuardedTransport)
+{
+    const auto plan = colt::ReadPlan(colt::kProtocol384);
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    ScriptedCanFlashTransport handshake_only;
+    colt::ScriptBootloadHandshake(handshake_only);
+    const std::size_t handshake_writes = handshake_only.Sections().size();
+
+    ScriptedCanFlashTransport scripted;
+    colt::ScriptBootloadHandshake(scripted);
+    colt::ScriptAddressMarkedRead(scripted, 0x60000);
+    auto attempt = fastecu::flash::BindFlashAttempt(*plan, std::make_unique<MitsuColtM32rCanExecutor>(),
+                                                    std::make_unique<CancellationBlindCanFlashTransport>(scripted));
+    fastecu::FakeCancellationToken cancellation;
+    fastecu::flash::PhaseCancellingEventSink events(cancellation, "Read ROM", 0);
+    fastecu::FakeClock clock;
+
+    const auto result = attempt->Run(clock, cancellation, events);
+
+    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kCancelled));
+    EXPECT_EQ(scripted.WritesConsumed(), handshake_writes);
+    EXPECT_EQ(scripted.close_call_count, 1);
 }
 
 } // namespace

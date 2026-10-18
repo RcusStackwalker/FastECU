@@ -353,6 +353,9 @@ class IMixedCanFlashExecutor
                                                  const ICancellationToken&, IEventSink&) = 0;
 };
 
+// Defined in guarded_can_flash_transport.h, included at the end of this file.
+class GuardedCanFlashTransport;
+
 // An executor already bound to a transport it is known to accept. FlashWorker
 // holds this instead of the two halves, so no caller can pair an executor with
 // the wrong transport: bind_flash_attempt is the only way to construct one and
@@ -411,7 +414,7 @@ template <typename Executor, typename Transport> class BoundAttempt final : publ
             return std::unexpected(opened.error());
         }
 
-        Result<FlashExecutionResult> outcome = executor_->Execute(plan_, *transport_, clock, cancellation, events);
+        Result<FlashExecutionResult> outcome = ExecutePlan(clock, cancellation, events);
 
         // Exactly once on every exit path past open(). Main error wins over a
         // close error; a close-only error is returned. This was step 5c's
@@ -438,6 +441,27 @@ template <typename Executor, typename Transport> class BoundAttempt final : publ
     }
 
   private:
+    // An executor that sets kRunsBehindGuardedTransport executes behind a
+    // GuardedCanFlashTransport, which refuses Write/Read once `cancellation`
+    // is set (ADR 0025); every other executor gets the bound transport as
+    // before. Guard is a template parameter only so its definition, which
+    // includes this header, is needed at instantiation rather than here.
+    template <typename Guard = GuardedCanFlashTransport>
+    Result<FlashExecutionResult> ExecutePlan(IClock& clock, const ICancellationToken& cancellation, IEventSink& events)
+    {
+        if constexpr (requires { requires Executor::kRunsBehindGuardedTransport; })
+        {
+            static_assert(std::same_as<typename Executor::TransportType, ICanFlashTransport>,
+                          "only a CAN executor can run behind the guarded transport");
+            Guard guarded(*transport_, cancellation);
+            return executor_->Execute(plan_, guarded, clock, cancellation, events);
+        }
+        else
+        {
+            return executor_->Execute(plan_, *transport_, clock, cancellation, events);
+        }
+    }
+
     FlashPlan plan_;
     std::unique_ptr<Executor> executor_;
     std::unique_ptr<Transport> transport_;
@@ -453,3 +477,8 @@ std::unique_ptr<BoundFlashAttempt> BindFlashAttempt(FlashPlan plan, std::unique_
 }
 
 } // namespace fastecu::flash
+
+// Last, so GuardedCanFlashTransport is complete wherever BoundAttempt is
+// instantiated; it derives from ICanFlashTransport above, so it cannot come
+// first.
+#include "src/backend/flash/guarded_can_flash_transport.h"
