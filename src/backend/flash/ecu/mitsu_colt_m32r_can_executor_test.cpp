@@ -913,9 +913,8 @@ TEST(MitsuColtM32rCanExecutor, WriteSkipsBootstrapWhenTheTopRegionAlreadyMatches
 }
 
 // A 512 KB write against a fresh scripted transport; `plan` is checked in SetUp.
-class MitsuColtM32rCanWriteExecutor : public ::testing::Test
+struct MitsuColtM32rCanWriteExecutor : ::testing::Test
 {
-  protected:
     void SetUp() override
     {
         ASSERT_THAT(plan, fastecu::testing::IsOk());
@@ -932,7 +931,6 @@ class MitsuColtM32rCanWriteExecutor : public ::testing::Test
 
 TEST_F(MitsuColtM32rCanWriteExecutor, WriteRunsTheBootstrapWhenTheTopRegionDiffers)
 {
-
     ScriptBootloadHandshake(transport);
     // ECU reports 0xFF from the very first chunk: mismatch, so the
     // bootstrap runs. top_region_matches() stops at that first chunk rather
@@ -969,7 +967,6 @@ TEST_F(MitsuColtM32rCanWriteExecutor, WriteRunsTheBootstrapWhenTheTopRegionDiffe
 
 TEST_F(MitsuColtM32rCanWriteExecutor, WriteRefusesRedirectBootstrapWhenTheCarrierDoesNotMatchTheDesiredTopPayload)
 {
-
     ScriptBootloadHandshake(transport);
     ScriptFlashReadChunk(transport, mitsu_colt_can::kTopRegionStart, mitsu_colt_can::kFlashReadBlockSize, 0xFF);
     ScriptFlashRead(transport, mitsu_colt_can::kUserspaceStart, 3 * mitsu_colt_can::kFlashReadBlockSize, 0xEE);
@@ -991,7 +988,6 @@ TEST_F(MitsuColtM32rCanWriteExecutor, WriteRefusesRedirectBootstrapWhenTheCarrie
 
 TEST_F(MitsuColtM32rCanWriteExecutor, WritePropagatesACarrierReadFailureBeforeRedirectHelpers)
 {
-
     ScriptBootloadHandshake(transport);
     ScriptFlashReadChunk(transport, mitsu_colt_can::kTopRegionStart, mitsu_colt_can::kFlashReadBlockSize, 0xFF);
     transport.Exchange(Request(mitsu_colt_can::BuildReadMemoryByAddress(
@@ -1056,7 +1052,6 @@ TEST(MitsuColtM32rCanExecutor, WriteStopsReadingTheTopRegionAtTheFirstMismatched
 
 TEST_F(MitsuColtM32rCanWriteExecutor, WriteFailsWhenTheUserspaceVerifyMismatches)
 {
-
     ScriptWriteThroughRoutineUploads(transport);
     ScriptUnlockAndErase(transport);
     ScriptUploadAndCommit(transport, mitsu_colt_can::kUserspaceStart, UserspaceOf(rom));
@@ -1071,7 +1066,6 @@ TEST_F(MitsuColtM32rCanWriteExecutor, WriteFailsWhenTheUserspaceVerifyMismatches
 
 TEST_F(MitsuColtM32rCanWriteExecutor, WriteFailsWhenTheTopRegionVerifyMismatches)
 {
-
     ScriptBootloadHandshake(transport);
     // ECU reports 0xFF from the very first chunk: mismatch. See
     // WriteRunsTheBootstrapWhenTheTopRegionDiffers for why only one chunk is
@@ -1096,7 +1090,6 @@ TEST_F(MitsuColtM32rCanWriteExecutor, WriteFailsWhenTheTopRegionVerifyMismatches
 
 TEST_F(MitsuColtM32rCanWriteExecutor, WriteStopsWhenTheReflashUnlockIsRejected)
 {
-
     ScriptWriteThroughRoutineUploads(transport);
     transport.Exchange(Request(mitsu_colt_can::BuildRequestReflashUnlock()), Response({0x7f, 0x3b, 0x33}));
 
@@ -1110,7 +1103,6 @@ TEST_F(MitsuColtM32rCanWriteExecutor, WriteStopsWhenTheReflashUnlockIsRejected)
 
 TEST_F(MitsuColtM32rCanWriteExecutor, WriteStopsWhenTheEraseTriggerIsRejected)
 {
-
     ScriptWriteThroughRoutineUploads(transport);
     transport.Exchange(Request(mitsu_colt_can::BuildRequestReflashUnlock()), Response({0x7b}));
     transport.Exchange(Request(mitsu_colt_can::BuildRoutineErase()), Response({0x7f, 0x31, 0x22}));
@@ -1550,7 +1542,6 @@ TEST(MitsuColtM32rCanExecutor, ACancellationThatArrivesAfterTheRequestStopsBefor
 
 TEST_F(MitsuColtM32rCanWriteExecutor, WriteAbortsWhenTheEraseRoutineRequestDownloadIsRejected)
 {
-
     ScriptBootloadHandshake(transport);
     ScriptFlashRead(transport, mitsu_colt_can::kTopRegionStart, mitsu_colt_can::kTopRegionLength, 0xEE);
     // The bootloader refuses to open the RAM window for the erase-page
@@ -1572,7 +1563,6 @@ TEST_F(MitsuColtM32rCanWriteExecutor, WriteAbortsWhenTheEraseRoutineRequestDownl
 
 TEST_F(MitsuColtM32rCanWriteExecutor, WriteAbortsWhenTheWriteRoutineTransferDataIsRejected)
 {
-
     ScriptBootloadHandshake(transport);
     ScriptFlashRead(transport, mitsu_colt_can::kTopRegionStart, mitsu_colt_can::kTopRegionLength, 0xEE);
     ScriptUploadAndCommit(transport, mitsu_colt_can::kEraseRoutineRamAddr, mitsu_colt_can::kErasePageRoutine);
@@ -1596,7 +1586,6 @@ TEST_F(MitsuColtM32rCanWriteExecutor, WriteAbortsWhenTheWriteRoutineTransferData
 
 TEST_F(MitsuColtM32rCanWriteExecutor, WriteFailsWhenTheUserspaceCrcCheckIsRejected)
 {
-
     ScriptWriteThroughRoutineUploads(transport);
     ScriptUnlockAndErase(transport);
     // Every byte goes out and is acknowledged, and only the ECU's own
@@ -1636,7 +1625,6 @@ TEST_F(MitsuColtM32rCanWriteExecutor, WriteFailsWhenTheUserspaceCrcCheckIsReject
 
 TEST_F(MitsuColtM32rCanWriteExecutor, BootstrapAbortsWhenTheChecksumRequestDownloadIsRejected)
 {
-
     ScriptBootloadHandshake(transport);
     // ECU reports 0xFF from the very first chunk: mismatch. top_region_matches()
     // stops there instead of reading the full 128KB before comparing.
@@ -1660,7 +1648,6 @@ TEST_F(MitsuColtM32rCanWriteExecutor, BootstrapAbortsWhenTheChecksumRequestDownl
 
 TEST_F(MitsuColtM32rCanWriteExecutor, BootstrapAbortsWhenTheChecksumTransferDataIsRejected)
 {
-
     ScriptBootloadHandshake(transport);
     // ECU reports 0xFF from the very first chunk: mismatch. top_region_matches()
     // stops there instead of reading the full 128KB before comparing.
@@ -1689,7 +1676,6 @@ TEST_F(MitsuColtM32rCanWriteExecutor, BootstrapAbortsWhenTheChecksumTransferData
 
 TEST_F(MitsuColtM32rCanWriteExecutor, BootstrapReportsItsOwnReflashUnlockRejection)
 {
-
     ScriptBootloadHandshake(transport);
     // ECU reports 0xFF from the very first chunk: mismatch. top_region_matches()
     // stops there instead of reading the full 128KB before comparing.
