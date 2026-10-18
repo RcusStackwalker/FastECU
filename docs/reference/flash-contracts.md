@@ -49,9 +49,10 @@ checksum and rejects its `7F` failure marker.
 ## Denso ISO-15765 bootloader dialect
 
 The [common module](../../src/backend/flash/ecu/denso_iso15765_can_common.h)
-shares eleven operations across N83M 1.5M, N83M 4M, SH72531 and SH72543 diesel:
-setup-PDU encoding, seed/key, erase, one encrypted B7 page read, one B6 write
-request, best-effort transfer exit with the settle-and-checksum close (the
+shares twelve operations across N83M 1.5M, N83M 4M, SH72531 and SH72543 diesel:
+setup-PDU encoding, seed/key, erase, one encrypted B7 page read and the read dump built
+on it (page loop, best-effort stop and 0xFF padding; SH page pacing and the
+stop-response log are parameters), one B6 write request, best-effort transfer exit with the settle-and-checksum close (the
 checksum read timeouts are a parameter), the N83M-only in-car opening run, the
 N83M 4M/SH72531 jump continuation wait, and the connect prelude (OBK probe,
 identity queries, access-method probe and branch selector), and the
@@ -61,7 +62,7 @@ documents each operation and why everything else stays local. Each family's
 own deviations, with legacy citations, are listed side by side in
 [Denso ISO-15765 family deviations](denso-iso15765-families.md).
 
-Kept local in each executor: read loops, reflash,
+Kept local in each executor: read setup, reflash,
 the in-car and bench connect arms, complete kernel jumps and family response
 policy. In particular:
 
@@ -89,9 +90,8 @@ policy. In particular:
   empty PDU in a valid envelope is a miss; a raw empty frame fails envelope
   validation.
 
-Best-effort read-stop stays local because its logs differ, even though the
-stop retry policy matches. Stop ignores every exchange failure, including
-cancellation.
+The best-effort read stop ignores every exchange failure, including
+cancellation; N83M 4M alone does not log the stop response.
 
 ## M32R SSM exchange
 

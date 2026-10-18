@@ -115,6 +115,69 @@ Status DensoIso15765WriteChunk(const CanExecutorContext& ctx, std::uint32_t addr
     return {};
 }
 
+// Legacy read_memory after setup: page loops at N83M 1.5M 922-979,
+// N83M 4M 929-991, SH72531 916-1007 and SH72543 diesel 907-1001, each with
+// stopRequested() at the top; stop loops at 1027-1057, 1040-1070, 1025-1056
+// and 1019-1045, all at receive_timeout; padding at 1061-1068, 1072-1078,
+// 1058-1069 and 1047-1058. The SH page pacing (SH72531 1007, diesel 1001)
+// precedes the next B7 write, so no read timeout subsumes it. N83M 4M logs
+// only an empty continuation line on a stop response (line 1066).
+// Legacy decrypts the whole accumulated dump in one call (1059, 1072, 1058,
+// 1047); SsmProtocol::calculatePayload transforms independent 4-byte words, so
+// decrypting each page as it arrives is byte-identical without a second
+// full-ROM buffer.
+Result<bytes::Bytes> DensoIso15765ReadDump(const CanExecutorContext& ctx, const MemoryRegion& region,
+                                           std::size_t lead_pad_len, std::size_t tail_pad_len, PhaseReporter& progress,
+                                           bool pace_pages, bool log_stop_response)
+{
+    constexpr std::uint32_t kPageSize = 0x100;
+    LogInfo(ctx, "Start reading ROM, please wait...");
+    bytes::Bytes image(lead_pad_len, 0xFF);
+    image.reserve(lead_pad_len + region.length + tail_pad_len);
+    for (std::uint32_t offset = 0; offset < region.length; offset += kPageSize)
+    {
+        if (ctx.cancellation.Cancelled())
+        {
+            return Fail(ErrorKind::kCancelled, "read cancelled");
+        }
+        Result<bytes::Bytes> page = ReadDensoEncryptedPage(ctx, region.start + offset);
+        if (!page.has_value())
+        {
+            return std::unexpected(page.error());
+        }
+        image.insert(image.end(), page->begin(), page->end());
+        progress.Update(static_cast<int>(offset + kPageSize));
+        if (pace_pages)
+        {
+            if (const Status slept = ctx.clock.Sleep(std::chrono::milliseconds{1}, ctx.cancellation);
+                !slept.has_value())
+            {
+                return std::unexpected(slept.error());
+            }
+        }
+    }
+    LogInfo(ctx, "ROM read complete");
+
+    constexpr uds::ExchangePolicy kStopPolicy{.read_timeout = std::chrono::milliseconds{500}};
+    LogInfo(ctx, "Sending stop command");
+    for (int attempt = 0; attempt < 6; ++attempt)
+    {
+        if (Result<bytes::Bytes> stop =
+                ctx.uds.Request(bytes::Bytes{uds::kSidRequestTransferExit}, kStopPolicy, ctx.cancellation);
+            stop.has_value())
+        {
+            if (log_stop_response)
+            {
+                LogInfo(ctx, std::format("Stop request response: {}", bytes::ToHex(*stop)));
+            }
+            break;
+        }
+    }
+
+    image.insert(image.end(), tail_pad_len, 0xFF);
+    return image;
+}
+
 // Legacy close-block loops: N83M 1.5M 1255-1289, N83M 4M 1269-1303,
 // SH72531 1261-1293 and SH72543 diesel 1282-1311. Each re-sends 37;
 // failures, including returned cancellation, are deliberately ignored.
