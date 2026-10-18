@@ -27,7 +27,7 @@ revision changes the constraints instead.
 | Cancellation and transport failure are enforced once, at the transport. | Per-step checks in every executor |
 | Wire transcripts and plan goldens are the test contract ([ADR 0024](../../adr/0024-wire-transcripts-and-goldens-are-the-test-contract.md)). | ADR 0023's case-count and kill-set guards |
 | Vendored code is not counted. | Counting QHexEdit as first-party |
-| A tool stays only if it has recently caught a real defect. | All tooling as fixed cost |
+| SonarCloud, FuzzTest and Mull stay and become merge gates once CI time is acceptable. Other tools stay only if they have recently caught a real defect. | All tooling as fixed cost |
 
 ## Where the size is
 
@@ -99,15 +99,20 @@ Tooling audit, from the 30 days before the baseline:
 | Portable core (Android build) | Every PR; 1 failed job | One failure | Keep; Android ships the backend |
 | prek (format, buildifier, ruff, pragma-once, lychee, ...) | Every PR; 2 failed jobs | Formatting and links | Keep |
 | Gazelle | Every PR; none failed | Generates BUILD files | Keep |
-| SonarCloud | Every PR; 32 failed jobs | Duplication gate, already declared non-blocking | Cut |
+| SonarCloud | Every PR; 32 failed jobs | Duplication gate, currently non-blocking | Keep; make it a merge gate |
 | CodeQL | 137 runs, none failed | 9 alerts fixed all-time, 0 open | Cut, or reduce to a weekly schedule |
-| Mull mutation testing | Advisory on PRs; loop guard | Loop guard is superseded by ADR 0024 | Cut from PRs; keep as an on-demand tool |
-| FuzzTest workflow | 2 scheduled runs, none failed | None recorded | Keep the seed run in sanitizers; cut the scheduled campaign |
+| Mull mutation testing | Advisory on PRs; loop guard | Loop guard is superseded by ADR 0024 | Keep; make "no new surviving mutants on changed lines" a merge gate |
+| FuzzTest workflow | 2 scheduled runs, none failed | None recorded | Keep; make it a merge gate |
 | jscpd, Lizard `nloc` hook, `nloc_loop.py`, `hill-climbing-nloc` skill | Manual | Loop-specific | Keep `measure`; retire the loop guards and ledger with ADR 0023 |
 
-A failed job is not a defect found; the cut proposals rest on the absence of
-any finding a remaining tool would not also report. Each cut is its own PR that
-states this evidence. Cutting a tool also deletes its configuration, scripts
+SonarCloud, FuzzTest and Mull become blocking merge gates once their CI time
+is acceptable. CI performance work (caching, sharding, narrowing each run to
+the changed packages) comes first, and each tool's switch to blocking is its
+own PR that records the CI time it adds.
+
+For the remaining tools, a failed job is not a defect found; a cut proposal
+rests on the absence of any finding another tool would not also report. Each
+cut is its own PR that states this evidence. Cutting a tool also deletes its configuration, scripts
 and documentation.
 
 ### 3. Transport-level cancellation and the transcript harness

@@ -16,8 +16,8 @@ itself. ADR 0023 guarded NLOC reductions with executed-case counts and
 killed-mutant and covered-line set inclusion. Those guards protect the current
 test shape, so they reject the change that removes the duplication at its
 source: enforcing cancellation once at the transport and testing it once. They
-also need a Linux Mull run per PR, which one maintainer cannot afford to wait
-on routinely.
+also compare whole kill sets, so a mutant that disappears with deleted
+duplicate code fails the step even when nothing the ECU sees has changed.
 
 What has to survive a refactor is what the ECU sees, not the number of test
 cases that observed it.
@@ -40,16 +40,17 @@ cases that observed it.
   family's own code decides something; tests that only re-prove shared
   behavior are deleted.
 - **Changed-line coverage stays.** Lines a PR adds or changes must be covered.
-- **Mutation testing stays advisory** ([ADR 0022](0022-advisory-mutation-testing-with-mull.md))
-  and is no longer a merge guard for size reductions. Executed-case count is
-  not a guard.
+- **Mutation testing guards changed lines.** No new surviving mutants on lines
+  a PR adds or changes. It stays advisory ([ADR 0022](0022-advisory-mutation-testing-with-mull.md))
+  until CI time is acceptable, then becomes a merge gate for every PR.
+  Kill-set inclusion and executed-case count are not guards.
 - NLOC (Lizard, formatted tree, vendored code excluded) remains the reported
   size metric. It is not ratcheted.
 
 ## Alternatives
 
 - **Keep ADR 0023's guards.** They forbid deleting redundant cases, so the
-  duplication can only be compressed, never removed, and every step needs Mull.
+  duplication can only be compressed, never removed.
 - **Coverage only.** A test can execute a line without checking its output; a
   transcript replay checks every frame.
 - **Golden tests computed by production encoders.** They agree with the

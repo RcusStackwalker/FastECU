@@ -39,8 +39,9 @@ Remaining milestones:
 
 The APK ships the native code and the UI together, so there is no versioned C
 ABI or separate Kotlin application. These exit gates establish the Android
-build and transports, not device qualification. Generic Sonar cleanup, UI policy migration, and evidence-dependent
-protocol corrections are separate debt, not hidden Android prerequisites.
+build and transports, not device qualification. SonarCloud cleanup, UI policy
+migration, and evidence-dependent protocol corrections are separate debt, not
+hidden Android prerequisites.
 
 ## Verification and qualification
 
