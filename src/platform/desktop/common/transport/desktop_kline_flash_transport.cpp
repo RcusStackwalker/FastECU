@@ -27,7 +27,7 @@ Status DesktopKlineFlashTransport::Configure(const KlineConfig& config)
         return Fail(ErrorKind::kDisconnected, "configure() called after close()");
     }
 
-    return fastecu::desktop::detail::GuardedDriverCall(
+    return fastecu::desktop::detail::GuardedDriverCall<Status>(
         ErrorKind::kInternal, "K-Line configure exception",
         [&]() -> Status
         {
@@ -76,25 +76,25 @@ Status DesktopKlineFlashTransport::Open()
         return Fail(ErrorKind::kDisconnected, "open() called after close()");
     }
 
-    return fastecu::desktop::detail::GuardedDriverCall(ErrorKind::kDisconnected, "open_serial_port exception",
-                                                       [&]() -> Status
-                                                       {
-                                                           // Real sentinel, confirmed by reading the body (step 5c Task
-                                                           // 12): SerialPortActionsDirect::open_serial_port()
-                                                           // (serial_port_actions_direct.cpp:519-644) returns
-                                                           // `openedSerialPort` (non-empty) on every success path and
-                                                           // `{}` (an empty/null QString) on every failure path -- the
-                                                           // brief's original guess of "empty QString means failure"
-                                                           // happened to be correct here (unlike change_port_speed()'s
-                                                           // sentinel below in setBaud()).
-                                                           const QString open_result = serial_->OpenSerialPort();
-                                                           if (open_result.isEmpty())
-                                                           {
-                                                               return Fail(ErrorKind::kDisconnected,
-                                                                           "open_serial_port failed");
-                                                           }
-                                                           return {};
-                                                       });
+    return fastecu::desktop::detail::GuardedDriverCall<Status>(
+        ErrorKind::kDisconnected, "open_serial_port exception",
+        [&]() -> Status
+        {
+            // Real sentinel, confirmed by reading the body (step 5c Task
+            // 12): SerialPortActionsDirect::open_serial_port()
+            // (serial_port_actions_direct.cpp:519-644) returns
+            // `openedSerialPort` (non-empty) on every success path and
+            // `{}` (an empty/null QString) on every failure path -- the
+            // brief's original guess of "empty QString means failure"
+            // happened to be correct here (unlike change_port_speed()'s
+            // sentinel below in setBaud()).
+            const QString open_result = serial_->OpenSerialPort();
+            if (open_result.isEmpty())
+            {
+                return Fail(ErrorKind::kDisconnected, "open_serial_port failed");
+            }
+            return {};
+        });
 }
 
 Status DesktopKlineFlashTransport::Close()
@@ -120,7 +120,7 @@ Status DesktopKlineFlashTransport::DisableLecLines()
     {
         return Fail(ErrorKind::kDisconnected, "disable_lec_lines() called after close()");
     }
-    return fastecu::desktop::detail::GuardedDriverCall(
+    return fastecu::desktop::detail::GuardedDriverCall<Status>(
         ErrorKind::kInternal, "disable_lec_lines exception",
         [&]() -> Status
         {
@@ -138,7 +138,7 @@ Status DesktopKlineFlashTransport::PulseLec2Line(std::chrono::milliseconds timeo
     {
         return Fail(ErrorKind::kDisconnected, "pulse_lec_2_line() called after close()");
     }
-    return fastecu::desktop::detail::GuardedDriverCall(
+    return fastecu::desktop::detail::GuardedDriverCall<Status>(
         ErrorKind::kInternal, "pulse_lec_2_line exception",
         [&]() -> Status
         {
@@ -156,7 +156,7 @@ Status DesktopKlineFlashTransport::EnableProgrammingVoltageLine()
     {
         return Fail(ErrorKind::kDisconnected, "enable_programming_voltage_line() called after close()");
     }
-    return fastecu::desktop::detail::GuardedDriverCall(
+    return fastecu::desktop::detail::GuardedDriverCall<Status>(
         ErrorKind::kInternal, "enable_programming_voltage_line exception",
         [&]() -> Status
         {
@@ -176,7 +176,7 @@ Status DesktopKlineFlashTransport::EnableBootModeLines()
     {
         return Fail(ErrorKind::kDisconnected, "enable_boot_mode_lines() called after close()");
     }
-    return fastecu::desktop::detail::GuardedDriverCall(
+    return fastecu::desktop::detail::GuardedDriverCall<Status>(
         ErrorKind::kInternal, "enable_boot_mode_lines exception",
         [&]() -> Status
         {
@@ -205,22 +205,22 @@ Status DesktopKlineFlashTransport::SetAddIso14230Header(bool add_header)
         return Fail(ErrorKind::kDisconnected, "set_add_iso14230_header() called after close()");
     }
 
-    return fastecu::desktop::detail::GuardedDriverCall(ErrorKind::kInternal, "set_add_iso14230_header exception",
-                                                       [&]() -> Status
-                                                       {
-                                                           // Same shape as configure()'s setters above:
-                                                           // SerialPortActionsDirect:: set_add_iso14230_header()
-                                                           // (serial_port_actions_direct.h:217-221) just assigns a
-                                                           // member and unconditionally `return true` -- it cannot
-                                                           // plausibly report "adapter gone", so any failure here is
-                                                           // InvalidConfig, never Disconnected.
-                                                           if (!serial_->SetAddIso14230Header(add_header))
-                                                           {
-                                                               return Fail(ErrorKind::kInvalidConfig,
-                                                                           "set_add_iso14230_header failed");
-                                                           }
-                                                           return {};
-                                                       });
+    return fastecu::desktop::detail::GuardedDriverCall<Status>(
+        ErrorKind::kInternal, "set_add_iso14230_header exception",
+        [&]() -> Status
+        {
+            // Same shape as configure()'s setters above:
+            // SerialPortActionsDirect:: set_add_iso14230_header()
+            // (serial_port_actions_direct.h:217-221) just assigns a
+            // member and unconditionally `return true` -- it cannot
+            // plausibly report "adapter gone", so any failure here is
+            // InvalidConfig, never Disconnected.
+            if (!serial_->SetAddIso14230Header(add_header))
+            {
+                return Fail(ErrorKind::kInvalidConfig, "set_add_iso14230_header failed");
+            }
+            return {};
+        });
 }
 
 void DesktopKlineFlashTransport::RequestUnblock() noexcept
@@ -244,7 +244,7 @@ Status DesktopKlineFlashTransport::SetBaud(int baud)
         return Fail(ErrorKind::kDisconnected, "setBaud() called after close()");
     }
 
-    return fastecu::desktop::detail::GuardedDriverCall(
+    return fastecu::desktop::detail::GuardedDriverCall<Status>(
         ErrorKind::kInternal, "K-Line driver baud-change exception",
         [&]() -> Status
         {
@@ -288,7 +288,7 @@ Result<std::size_t> DesktopKlineFlashTransport::Write(bytes::ByteView data)
         return Fail(ErrorKind::kDisconnected, "write() called after close()");
     }
 
-    return fastecu::desktop::detail::GuardedDriverCall(
+    return fastecu::desktop::detail::GuardedDriverCall<Result<std::size_t>>(
         ErrorKind::kInternal, "K-Line driver write exception",
         [&]() -> Result<std::size_t>
         {
@@ -343,7 +343,7 @@ Result<std::size_t> DesktopKlineFlashTransport::WriteRaw(bytes::ByteView data)
         return Fail(ErrorKind::kDisconnected, "write_raw() called after close()");
     }
 
-    return fastecu::desktop::detail::GuardedDriverCall(
+    return fastecu::desktop::detail::GuardedDriverCall<Result<std::size_t>>(
         ErrorKind::kInternal, "K-Line driver write exception",
         [&]() -> Result<std::size_t>
         {

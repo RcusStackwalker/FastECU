@@ -260,13 +260,22 @@ TEST(TransportReadPrechecks, ClosedAdaptersKeepCancellationAndModePrecedence)
 
 TEST(GuardedDriverCall, MapsEscapingExceptionsToTheRequestedKind)
 {
+    using fastecu::Status;
     using fastecu::desktop::detail::GuardedDriverCall;
-    EXPECT_THAT(GuardedDriverCall(ErrorKind::kInternal, "unknown",
-                                  []() -> fastecu::Status { throw std::runtime_error("driver broke"); }),
+    EXPECT_THAT(GuardedDriverCall<fastecu::Result<std::size_t>>(ErrorKind::kInternal, "unknown",
+                                                                []() -> fastecu::Result<std::size_t> { throw 7; }),
+                IsErrWith(ErrorKind::kInternal, StrEq("unknown")));
+    EXPECT_THAT(GuardedDriverCall<fastecu::Result<std::size_t>>(ErrorKind::kInternal, "unknown",
+                                                                []() -> fastecu::Result<std::size_t>
+                                                                { throw std::logic_error("x"); }),
+                IsErrWith(ErrorKind::kInternal, StrEq("x")));
+    EXPECT_THAT(GuardedDriverCall<Status>(ErrorKind::kInternal, "unknown",
+                                          []() -> fastecu::Status { throw std::runtime_error("driver broke"); }),
                 IsErrWith(ErrorKind::kInternal, StrEq("driver broke")));
-    EXPECT_THAT(GuardedDriverCall(ErrorKind::kDisconnected, "unknown", []() -> fastecu::Status { throw 7; }),
+    EXPECT_THAT(GuardedDriverCall<Status>(ErrorKind::kDisconnected, "unknown", []() -> fastecu::Status { throw 7; }),
                 IsErrWith(ErrorKind::kDisconnected, StrEq("unknown")));
-    EXPECT_THAT(GuardedDriverCall(ErrorKind::kInternal, "unknown", []() -> fastecu::Status { return {}; }), IsOk());
+    EXPECT_THAT(GuardedDriverCall<Status>(ErrorKind::kInternal, "unknown", []() -> fastecu::Status { return {}; }),
+                IsOk());
 }
 
 TEST(GuardedDriverCall, ResetOfAClosedSerialIsDisconnected)

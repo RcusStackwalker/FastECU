@@ -30,7 +30,7 @@ Status DesktopCanFlashTransport::Configure(const Iso15765Config& config)
         return Fail(ErrorKind::kDisconnected, "configure() called after close()");
     }
 
-    return fastecu::desktop::detail::GuardedDriverCall(
+    return fastecu::desktop::detail::GuardedDriverCall<Status>(
         ErrorKind::kInternal, "CAN configure exception",
         [&]() -> Status
         {
@@ -96,22 +96,22 @@ Status DesktopCanFlashTransport::Open()
         return Fail(ErrorKind::kDisconnected, "open() called after close()");
     }
 
-    return fastecu::desktop::detail::GuardedDriverCall(ErrorKind::kDisconnected, "open_serial_port exception",
-                                                       [&]() -> Status
-                                                       {
-                                                           // Real sentinel, confirmed by reading the body (step 5c Task
-                                                           // 12): SerialPortActionsDirect::open_serial_port()
-                                                           // (serial_port_actions_direct.cpp:519-644) returns
-                                                           // `openedSerialPort` (non-empty) on every success path and
-                                                           // `{}` (an empty/null QString) on every failure path.
-                                                           const QString open_result = serial_->OpenSerialPort();
-                                                           if (open_result.isEmpty())
-                                                           {
-                                                               return Fail(ErrorKind::kDisconnected,
-                                                                           "open_serial_port failed");
-                                                           }
-                                                           return {};
-                                                       });
+    return fastecu::desktop::detail::GuardedDriverCall<Status>(
+        ErrorKind::kDisconnected, "open_serial_port exception",
+        [&]() -> Status
+        {
+            // Real sentinel, confirmed by reading the body (step 5c Task
+            // 12): SerialPortActionsDirect::open_serial_port()
+            // (serial_port_actions_direct.cpp:519-644) returns
+            // `openedSerialPort` (non-empty) on every success path and
+            // `{}` (an empty/null QString) on every failure path.
+            const QString open_result = serial_->OpenSerialPort();
+            if (open_result.isEmpty())
+            {
+                return Fail(ErrorKind::kDisconnected, "open_serial_port failed");
+            }
+            return {};
+        });
 }
 
 Status DesktopCanFlashTransport::Close()
@@ -148,7 +148,7 @@ Status DesktopCanFlashTransport::Write(bytes::ByteView data, const ICancellation
         return Fail(ErrorKind::kDisconnected, "write() called after close()");
     }
 
-    return fastecu::desktop::detail::GuardedDriverCall(
+    return fastecu::desktop::detail::GuardedDriverCall<Status>(
         ErrorKind::kInternal, "CAN driver write exception",
         [&]() -> Status
         {

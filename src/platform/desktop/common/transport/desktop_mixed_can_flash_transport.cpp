@@ -50,16 +50,16 @@ Status DesktopMixedCanFlashTransport::Open()
     {
         return Fail(ErrorKind::kDisconnected, "open() called after close()");
     }
-    return fastecu::desktop::detail::GuardedDriverCall(ErrorKind::kDisconnected, "open_serial_port exception",
-                                                       [&]() -> Status
-                                                       {
-                                                           if (serial_->OpenSerialPort().isEmpty())
-                                                           {
-                                                               return Fail(ErrorKind::kDisconnected,
-                                                                           "open_serial_port failed");
-                                                           }
-                                                           return {};
-                                                       });
+    return fastecu::desktop::detail::GuardedDriverCall<Status>(ErrorKind::kDisconnected, "open_serial_port exception",
+                                                               [&]() -> Status
+                                                               {
+                                                                   if (serial_->OpenSerialPort().isEmpty())
+                                                                   {
+                                                                       return Fail(ErrorKind::kDisconnected,
+                                                                                   "open_serial_port failed");
+                                                                   }
+                                                                   return {};
+                                                               });
 }
 
 Status DesktopMixedCanFlashTransport::Close()
@@ -103,7 +103,7 @@ Status DesktopMixedCanFlashTransport::ClearReceiveBuffer()
     {
         return ready;
     }
-    return fastecu::desktop::detail::GuardedDriverCall(
+    return fastecu::desktop::detail::GuardedDriverCall<Status>(
         ErrorKind::kInternal, "clear_rx_buffer exception",
         [&]() -> Status
         {
@@ -231,7 +231,7 @@ Status DesktopMixedCanFlashTransport::ConfigureIso(const MixedCanConfig& config)
     {
         return Fail(ErrorKind::kDisconnected, "configure() called after close()");
     }
-    return fastecu::desktop::detail::GuardedDriverCall(
+    return fastecu::desktop::detail::GuardedDriverCall<Status>(
         ErrorKind::kInternal, "mixed CAN ISO-15765 configure exception",
         [&]() -> Status
         {
@@ -290,7 +290,7 @@ Status DesktopMixedCanFlashTransport::ConfigureIso(const MixedCanConfig& config)
 
 Status DesktopMixedCanFlashTransport::ConfigureRaw(const RawCanConfig& config)
 {
-    return fastecu::desktop::detail::GuardedDriverCall(
+    return fastecu::desktop::detail::GuardedDriverCall<Status>(
         ErrorKind::kInternal, "mixed CAN raw configure exception",
         [&]() -> Status
         {
@@ -364,7 +364,7 @@ Status DesktopMixedCanFlashTransport::WriteSerial(bytes::ByteView data, const IC
     {
         return Fail(ErrorKind::kCancelled, "mixed CAN write skipped due to cancellation/unblock");
     }
-    return fastecu::desktop::detail::GuardedDriverCall(
+    return fastecu::desktop::detail::GuardedDriverCall<Status>(
         ErrorKind::kInternal, "mixed CAN driver write exception",
         [&]() -> Status
         {
