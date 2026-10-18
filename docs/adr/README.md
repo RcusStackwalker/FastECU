@@ -34,7 +34,8 @@ is an ADR.
 | [0020](0020-model-rom-memory-as-a-memory-map.md) | ROM memory is a memory map over the ROM file |
 | [0021](0021-fuzz-portable-code-with-fuzztest.md) | Portable code is fuzzed with FuzzTest under Clang only |
 | [0022](0022-advisory-mutation-testing-with-mull.md) | Mull mutation testing of portable code is advisory |
-| [0023](0023-hill-climb-nloc-with-kind-specific-guards.md) | NLOC hill-climbing PRs are strict and guarded by PR kind |
+| [0023](0023-hill-climb-nloc-with-kind-specific-guards.md) | Superseded by 0024: NLOC hill-climbing PRs are strict and guarded by PR kind |
+| [0024](0024-wire-transcripts-and-goldens-are-the-test-contract.md) | Wire transcripts and plan goldens are the test contract |
 
 ## Retired numbers
 
@@ -51,4 +52,4 @@ and the numbers are not reused. Their rationale is in Git history.
 | 0013 | `bytes::composeBe` for wire frames | Bytes and wire frames |
 | 0014 | `.has_value()` over implicit `operator bool` | Error handling |
 
-The next new ADR is 0024.
+The next new ADR is 0025.

@@ -2,7 +2,8 @@
 
 ## Status
 
-Accepted and implemented by `scripts/nloc_loop.py`, the manual-stage `nloc`
+Superseded by [ADR 0024](0024-wire-transcripts-and-goldens-are-the-test-contract.md)
+(2026-10-18). Was accepted and implemented by `scripts/nloc_loop.py`, the manual-stage `nloc`
 and `jscpd` prek hooks, the `nloc-loop` workflow and the `hill-climbing-nloc`
 project skill. Design in
 [the NLOC hill-climbing spec](../superpowers/specs/2026-10-17-nloc-hill-climbing.md).
