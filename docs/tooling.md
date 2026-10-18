@@ -106,6 +106,14 @@ sonar-scanner -Dsonar.token=$SONAR_TOKEN
 The token is a personal one (SonarCloud → My Account → Security), not the CI
 secret. On macOS use the `build-wrapper-macosx-x86` package.
 
+### CodeQL
+
+[codeql.yml](../.github/workflows/codeql.yml) scans Actions, C/C++ (without a
+build) and Python weekly, and on demand through `workflow_dispatch`. It does
+not run on pull requests. GitHub's CodeQL default setup must stay disabled in
+the repository's code security settings; while it is enabled, the workflow's
+uploads are rejected.
+
 ## Mutation testing
 
 The PR `mutation` job mutates changed portable lines and never fails a PR
