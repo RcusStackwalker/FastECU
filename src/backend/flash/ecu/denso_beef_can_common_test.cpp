@@ -1,11 +1,13 @@
 #include "src/backend/flash/ecu/denso_beef_can_common.h"
 
 #include <chrono>
+#include <utility>
 #include <vector>
 
 #include <gtest/gtest.h>
 
 #include "src/backend/ports/testing/fake_cancellation_token.h"
+#include "src/backend/ports/testing/fake_clock.h"
 #include "src/backend/ports/testing/result_matchers.h"
 
 namespace fastecu::flash
@@ -75,11 +77,39 @@ TEST(DensoBeefCanCommonTest, ParseBeefBoundsEveryDeclaredField)
                 IsErrWith(ErrorKind::kBadResponse, StrEq("wrong BEEF response marker")));
     EXPECT_THAT(parse({0xBE, 0xEF, 0x00, 0x09, 0x00}),
                 IsErrWith(ErrorKind::kBadResponse, StrEq("invalid BEEF response length")));
-    const bytes::Bytes padded{0xBE, 0xEF, 0x00, 0x02, 0xB6, 0xAA, 0xFF};
-    const auto parsed = ParseBeef(padded);
-    ASSERT_THAT(parsed, IsOk());
-    EXPECT_EQ(parsed->opcode, 0xB6);
-    EXPECT_EQ(parsed->payload.size(), 1U);
+    EXPECT_THAT(parse({0xBE, 0xEF, 0x00, 0x00, 0x00}),
+                IsErrWith(ErrorKind::kBadResponse, StrEq("invalid BEEF response length")));
+    for (const auto& [pdu, payload_size] : {std::pair{bytes::Bytes{0xBE, 0xEF, 0x00, 0x01, 0xB6}, 0U},
+                                            std::pair{bytes::Bytes{0xBE, 0xEF, 0x00, 0x02, 0xB6, 0xAA, 0xFF}, 1U}})
+    {
+        const auto parsed = ParseBeef(pdu);
+        ASSERT_THAT(parsed, IsOk());
+        EXPECT_EQ(parsed->opcode, 0xB6);
+        EXPECT_EQ(parsed->payload.size(), payload_size);
+    }
+}
+
+TEST(DensoBeefCanCommonTest, SendChannelRequestSleepsOnlyForAPositiveDelay)
+{
+    struct Channel
+    {
+        Status Send(bytes::ByteView, const ICancellationToken&)
+        {
+            return {};
+        }
+    };
+    struct Ctx
+    {
+        Channel channel;
+        FakeClock clock;
+        FakeCancellationToken cancellation;
+    } ctx;
+    ctx.clock.SetSleepAdvance(5ms);
+
+    EXPECT_THAT(SendChannelRequest(ctx, bytes::Bytes{0x01}, 0ms), IsOk());
+    EXPECT_EQ(ctx.clock.Elapsed(), 0ms);
+    EXPECT_THAT(SendChannelRequest(ctx, bytes::Bytes{0x01}, 10ms), IsOk());
+    EXPECT_EQ(ctx.clock.Elapsed(), 5ms);
 }
 
 TEST(DensoBeefCanCommonTest, UppercaseHexCompactHasNoSeparators)

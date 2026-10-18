@@ -1661,6 +1661,7 @@ fastecu_portable_gtest(
     deps = [
         ":denso_beef_can_common",
         "//src/backend/ports/testing:fake_cancellation_token",
+        "//src/backend/ports/testing:fake_clock",
         "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
     ],
