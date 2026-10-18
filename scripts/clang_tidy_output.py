@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 import shlex
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path, PurePath, PurePosixPath, PureWindowsPath
 
@@ -38,6 +39,21 @@ _NOISE = tuple(
     )
 )
 _DRIVE = re.compile(r"^[A-Za-z]:[\\/]")
+_RESET = "\x1b[0m"
+_DIM = "\x1b[2m"
+_SEVERITY_COLOURS = {
+    "fatal error": "\x1b[1;31m",
+    "error": "\x1b[1;31m",
+    "warning": "\x1b[1;33m",
+    "note": "\x1b[1;36m",
+    "remark": "\x1b[1;36m",
+}
+_ANNOTATION_LEVELS = {
+    "fatal error": "error",
+    "error": "error",
+    "warning": "warning",
+    "remark": "notice",
+}
 
 
 @dataclass(frozen=True)
@@ -115,3 +131,143 @@ def annotation_path(path: str, workspace: PurePath) -> str | None:
     if first == "external" or first.startswith("bazel-"):
         return None
     return relative.as_posix()
+
+
+@dataclass(frozen=True)
+class Finding:
+    diagnostic: Diagnostic
+    detail: tuple[str, ...] = ()
+    notes: tuple[Finding, ...] = ()
+
+
+def _severity(severity: str, color: bool) -> str:
+    return f"{_SEVERITY_COLOURS[severity]}{severity}{_RESET}" if color else severity
+
+
+def _location(diagnostic: Diagnostic, workspace: PurePath) -> str:
+    path = display_path(diagnostic.path, workspace)
+    return f"{path}:{diagnostic.line}:{diagnostic.column}"
+
+
+def format_finding(finding: Finding, *, workspace: PurePath, color: bool) -> str:
+    """A finding as a console block: header, message, snippet, then notes."""
+    diagnostic = finding.diagnostic
+    header = f"{_severity(diagnostic.severity, color)}: {_location(diagnostic, workspace)}"
+    if diagnostic.check is not None:
+        check = f"[{diagnostic.check}]"
+        header += f" {_DIM}{check}{_RESET}" if color else f" {check}"
+    lines = [header, f"  {diagnostic.message}"]
+    lines.extend(f"    {detail}" for detail in finding.detail)
+    for note in finding.notes:
+        lines.append(
+            f"  {_severity(note.diagnostic.severity, color)}: "
+            f"{_location(note.diagnostic, workspace)} {note.diagnostic.message}"
+        )
+        lines.extend(f"    {detail}" for detail in note.detail)
+    return "\n".join(lines)
+
+
+def _escape_data(text: str) -> str:
+    return text.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+
+
+def _escape_property(text: str) -> str:
+    return _escape_data(text).replace(":", "%3A").replace(",", "%2C")
+
+
+def format_annotation(finding: Finding, *, workspace: PurePath) -> str | None:
+    """A GitHub workflow-command annotation, or None for a file outside the repo."""
+    diagnostic = finding.diagnostic
+    path = annotation_path(diagnostic.path, workspace)
+    if path is None:
+        return None
+    level = _ANNOTATION_LEVELS.get(diagnostic.severity, "notice")
+    title = diagnostic.check or diagnostic.severity
+    body = [diagnostic.message]
+    body.extend(
+        f"note: {_location(note.diagnostic, workspace)} {note.diagnostic.message}"
+        for note in finding.notes
+    )
+    message = "\n".join(body)
+    return (
+        f"::{level} file={_escape_property(path)},line={diagnostic.line},"
+        f"col={diagnostic.column},title={_escape_property(title)}::"
+        f"{_escape_data(message)}"
+    )
+
+
+@dataclass(frozen=True)
+class StreamCounts:
+    unique: int
+    raw: int
+
+
+class OutputStream:
+    """Formats run-clang-tidy output line by line as it arrives.
+
+    A finding is written once the line after it shows it is complete, so its
+    snippet and notes stay together; repeats of the same finding (a header
+    seen from several translation units) are written once.
+    """
+
+    def __init__(
+        self,
+        *,
+        workspace: PurePath,
+        write: Callable[[str], None],
+        color: bool,
+        annotate: bool,
+    ) -> None:
+        self._workspace = workspace
+        self._write = write
+        self._color = color
+        self._annotate = annotate
+        self._seen: set[tuple[str, int, int, str]] = set()
+        self._raw = 0
+        self._diagnostic: Diagnostic | None = None
+        self._detail: list[str] = []
+        self._notes: list[tuple[Diagnostic, list[str]]] = []
+
+    def feed(self, line: str) -> None:
+        diagnostic = parse_diagnostic(line)
+        if diagnostic is not None and diagnostic.severity == "note" and self._diagnostic:
+            self._notes.append((diagnostic, []))
+            return
+        if diagnostic is not None and diagnostic.severity != "note":
+            self._flush()
+            self._diagnostic = diagnostic
+            return
+        if self._diagnostic is not None and is_detail(line):
+            (self._notes[-1][1] if self._notes else self._detail).append(line)
+            return
+        self._flush()
+        progress = parse_progress(line)
+        if progress is not None:
+            index, total, source = progress
+            self._write(f"[{index}/{total}] {display_path(source, self._workspace)}")
+        elif not is_noise(line):
+            self._write(line)
+
+    def finish(self) -> StreamCounts:
+        self._flush()
+        return StreamCounts(unique=len(self._seen), raw=self._raw)
+
+    def _flush(self) -> None:
+        diagnostic = self._diagnostic
+        if diagnostic is None:
+            return
+        notes = tuple(Finding(note, tuple(detail)) for note, detail in self._notes)
+        finding = Finding(diagnostic, tuple(self._detail), notes)
+        self._diagnostic = None
+        self._detail = []
+        self._notes = []
+        self._raw += 1
+        key = (diagnostic.path, diagnostic.line, diagnostic.column, diagnostic.check or "")
+        if key in self._seen:
+            return
+        self._seen.add(key)
+        self._write(format_finding(finding, workspace=self._workspace, color=self._color))
+        if self._annotate:
+            annotation = format_annotation(finding, workspace=self._workspace)
+            if annotation is not None:
+                self._write(annotation)

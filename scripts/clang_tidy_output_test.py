@@ -118,5 +118,172 @@ class PathTest(unittest.TestCase):
             self.assertEqual("src/a.cpp", out.annotation_path(spelled, real))
 
 
+_NOTE = out.Finding(out.Diagnostic("/ws/src/a.h", 3, 1, "note", "declared here", None))
+_FINDING = out.Finding(
+    out.Diagnostic("/ws/src/a.cpp", 12, 5, "error", "use auto", "modernize-use-auto"),
+    detail=("   12 |   int x = f();", "      |   ^"),
+    notes=(_NOTE,),
+)
+_PROGRESS_A = "[1/2][0.3s] clang-tidy -p=/db /ws/src/a.cpp"
+_PROGRESS_B = "[2/2][0.4s] clang-tidy -p=/db /ws/src/b.cpp"
+_FINDING_LINE = "/ws/src/a.cpp:12:5: error: use auto [modernize-use-auto,-warnings-as-errors]"
+_HEADER_LINE = "/ws/src/a.h:3:1: warning: shared [c]"
+
+
+def _finding(severity: str, path: str = "/ws/src/a.cpp", message: str = "m") -> out.Finding:
+    return out.Finding(out.Diagnostic(path, 1, 1, severity, message, "c"))
+
+
+class FormatTest(unittest.TestCase):
+    def test_console_format_plain(self) -> None:
+        self.assertEqual(
+            "error: src/a.cpp:12:5 [modernize-use-auto]\n"
+            "  use auto\n"
+            "       12 |   int x = f();\n"
+            "          |   ^\n"
+            "  note: src/a.h:3:1 declared here",
+            out.format_finding(_FINDING, workspace=_WORKSPACE, color=False),
+        )
+
+    def test_console_format_indents_note_detail(self) -> None:
+        note = out.Finding(_NOTE.diagnostic, detail=("    3 | int f();",))
+        finding = out.Finding(_FINDING.diagnostic, notes=(note,))
+        self.assertTrue(
+            out.format_finding(finding, workspace=_WORKSPACE, color=False).endswith(
+                "  note: src/a.h:3:1 declared here\n        3 | int f();"
+            )
+        )
+
+    def test_console_format_colour_wraps_severity_and_check(self) -> None:
+        text = out.format_finding(_FINDING, workspace=_WORKSPACE, color=True)
+        self.assertTrue(
+            text.startswith(
+                "\x1b[1;31merror\x1b[0m: src/a.cpp:12:5 \x1b[2m[modernize-use-auto]\x1b[0m"
+            ),
+            text,
+        )
+        self.assertIn("\x1b[1;36mnote\x1b[0m: src/a.h:3:1", text)
+
+    def test_annotation_error_with_folded_note(self) -> None:
+        self.assertEqual(
+            "::error file=src/a.cpp,line=12,col=5,title=modernize-use-auto::"
+            "use auto%0Anote: src/a.h:3:1 declared here",
+            out.format_annotation(_FINDING, workspace=_WORKSPACE),
+        )
+
+    def test_annotation_levels(self) -> None:
+        for severity, level in [
+            ("warning", "::warning "),
+            ("remark", "::notice "),
+            ("fatal error", "::error "),
+        ]:
+            annotation = out.format_annotation(_finding(severity), workspace=_WORKSPACE)
+            assert annotation is not None
+            self.assertTrue(annotation.startswith(level), annotation)
+
+    def test_annotation_title_falls_back_to_severity(self) -> None:
+        finding = out.Finding(out.Diagnostic("/ws/a.cpp", 1, 1, "warning", "m", None))
+        self.assertIn(",title=warning::", out.format_annotation(finding, workspace=_WORKSPACE))
+
+    def test_annotation_escapes_data_and_properties(self) -> None:
+        finding = out.Finding(
+            out.Diagnostic("/ws/src/a,b.cpp", 1, 1, "warning", "100% bad: x\ny", "c:d")
+        )
+        self.assertEqual(
+            "::warning file=src/a%2Cb.cpp,line=1,col=1,title=c%3Ad::100%25 bad: x%0Ay",
+            out.format_annotation(finding, workspace=_WORKSPACE),
+        )
+
+    def test_annotation_skipped_outside_workspace(self) -> None:
+        self.assertIsNone(
+            out.format_annotation(_finding("error", "/usr/include/x.h"), workspace=_WORKSPACE)
+        )
+
+
+class OutputStreamTest(unittest.TestCase):
+    def stream(self, *, annotate: bool = False) -> tuple[list[str], out.OutputStream]:
+        lines: list[str] = []
+        stream = out.OutputStream(
+            workspace=_WORKSPACE, write=lines.append, color=False, annotate=annotate
+        )
+        return lines, stream
+
+    def test_stream_prints_progress_finding_and_drops_noise(self) -> None:
+        lines, stream = self.stream()
+        for line in [
+            _PROGRESS_A,
+            _FINDING_LINE,
+            "   12 |   int x = f();",
+            "      |   ^",
+            "1 warning generated.",
+            "",
+        ]:
+            stream.feed(line)
+        self.assertEqual(out.StreamCounts(unique=1, raw=1), stream.finish())
+        self.assertEqual("[1/2] src/a.cpp", lines[0])
+        self.assertTrue(lines[1].startswith("error: src/a.cpp:12:5 [modernize-use-auto]"))
+        self.assertIn("|   ^", lines[1])
+        self.assertEqual(2, len(lines))
+
+    def test_finding_is_written_when_the_next_line_arrives_not_at_finish(self) -> None:
+        lines, stream = self.stream()
+        stream.feed(_PROGRESS_A)
+        stream.feed(_FINDING_LINE)
+        stream.feed(_PROGRESS_B)
+        self.assertEqual(3, len(lines))
+        self.assertTrue(lines[1].startswith("error: src/a.cpp:12:5"))
+        self.assertEqual("[2/2] src/b.cpp", lines[2])
+
+    def test_header_finding_from_two_units_prints_once(self) -> None:
+        lines, stream = self.stream(annotate=True)
+        for line in [
+            _PROGRESS_A,
+            _HEADER_LINE,
+            "/ws/src/a.cpp:1:1: note: included from here",
+            _PROGRESS_B,
+            _HEADER_LINE,
+            "/ws/src/b.cpp:1:1: note: included from here",
+        ]:
+            stream.feed(line)
+        self.assertEqual(out.StreamCounts(unique=1, raw=2), stream.finish())
+        self.assertEqual(1, sum(line.startswith("warning: src/a.h:3:1") for line in lines))
+        self.assertEqual(1, sum(line.startswith("::warning") for line in lines))
+
+    def test_annotate_writes_annotation_after_console_block(self) -> None:
+        lines, stream = self.stream(annotate=True)
+        stream.feed(_FINDING_LINE)
+        stream.finish()
+        self.assertEqual(2, len(lines))
+        self.assertTrue(lines[0].startswith("error: src/a.cpp:12:5"))
+        self.assertTrue(lines[1].startswith("::error file=src/a.cpp,line=12,col=5"))
+
+    def test_no_annotation_without_annotate(self) -> None:
+        lines, stream = self.stream()
+        stream.feed(_FINDING_LINE)
+        stream.finish()
+        self.assertFalse(any(line.startswith("::") for line in lines))
+
+    def test_unrecognised_line_flushes_pending_finding_and_passes_through(self) -> None:
+        lines, stream = self.stream()
+        for line in [
+            _FINDING_LINE,
+            "Stack dump:",
+            "0.  Program arguments: clang-tidy /ws/src/a.cpp",
+        ]:
+            stream.feed(line)
+        stream.finish()
+        self.assertEqual(3, len(lines))
+        self.assertTrue(lines[0].startswith("error: src/a.cpp:12:5"))
+        self.assertEqual(
+            ["Stack dump:", "0.  Program arguments: clang-tidy /ws/src/a.cpp"], lines[1:]
+        )
+
+    def test_orphan_note_passes_through_verbatim(self) -> None:
+        lines, stream = self.stream()
+        stream.feed("/ws/src/a.h:3:1: note: declared here")
+        self.assertEqual(out.StreamCounts(unique=0, raw=0), stream.finish())
+        self.assertEqual(["/ws/src/a.h:3:1: note: declared here"], lines)
+
+
 if __name__ == "__main__":
     unittest.main()
