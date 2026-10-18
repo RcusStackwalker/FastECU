@@ -1,3 +1,4 @@
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 
 package(
@@ -75,5 +76,21 @@ cc_library(
         "//src/backend/flash:flash_plan",
         "//src/backend/flash/testing:scripted_flash_transports",
         "//src/backend/ports",
+    ],
+)
+
+cc_binary(
+    name = "record_mitsu_colt_m32r_can_transcripts",
+    srcs = ["record_mitsu_colt_m32r_can_transcripts.cpp"],
+    deps = [
+        ":mitsu_colt_m32r_can_scripts",
+        "//src/algorithms/protocol",
+        "//src/backend/flash/ecu:mitsu_colt_m32r_can_executor",
+        "//src/backend/flash/testing:scripted_flash_transports",
+        "//src/backend/flash/testing:transcript_can_flash_transport",
+        "//src/backend/flash/testing:wire_transcript",
+        "//src/backend/ports",
+        "//src/backend/ports/testing:fake_clock",
+        "//src/backend/ports/testing:recording_event_sink",
     ],
 )

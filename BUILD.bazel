@@ -8,6 +8,7 @@ package(default_visibility = ["//visibility:public"])
 # gazelle:cc_group unit
 # gazelle:map_kind cc_test fastecu_portable_gtest //bazel:gtest_targets.bzl
 # gazelle:resolve cc fuzztest/fuzztest.h @fuzztest//fuzztest
+# gazelle:resolve cc rules_cc/cc/runfiles/runfiles.h @rules_cc//cc/runfiles
 # Shared Qt system-header mappings are inherited by managed subpackages.
 # gazelle:resolve cc QAction //bazel/qt:gui
 # gazelle:resolve cc QApplication //bazel/qt:widgets

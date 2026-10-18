@@ -695,6 +695,26 @@ fastecu_portable_gtest(
 )
 
 fastecu_portable_gtest(
+    name = "mitsu_colt_m32r_can_transcript_test",
+    srcs = ["mitsu_colt_m32r_can_transcript_test.cpp"],
+    data = glob(["testdata/mitsu_colt_m32r_can/*.transcript"]),
+    deps = [
+        ":mitsu_colt_m32r_can_executor",
+        "//src/algorithms/protocol",
+        "//src/algorithms/protocol/testing:byte_matchers",
+        "//src/backend/flash:flash_executor",
+        "//src/backend/flash/ecu/testing:mitsu_colt_m32r_can_scripts",
+        "//src/backend/flash/testing:transcript_can_flash_transport",
+        "//src/backend/flash/testing:wire_transcript",
+        "//src/backend/ports",
+        "//src/backend/ports/testing:recording_event_sink",
+        "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
+        "@rules_cc//cc/runfiles",
+    ],
+)
+
+fastecu_portable_gtest(
     name = "subaru_mitsu_m32r_kline_plan_test",
     srcs = ["subaru_mitsu_m32r_kline_plan_test.cpp"],
     deps = [
