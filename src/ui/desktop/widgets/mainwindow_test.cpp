@@ -725,6 +725,33 @@ class MainWindowTest : public ::testing::Test
         }
     }
 
+    // A window built the way DesktopComposition builds it, with the modal
+    // driver dismissing any dialog the constructor raises.
+    struct WindowUnderTest
+    {
+        std::optional<TestServices> services;
+        std::optional<MainWindow> window;
+    };
+
+    void createWindow(WindowUnderTest& under)
+    {
+        ModalDriver constructorDriver{QString()};
+        constructorDriver.start();
+        under.services.emplace(config_root_->path());
+        ASSERT_THAT(under.services->config_status, fastecu::testing::IsOk());
+        ASSERT_TRUE(under.services->fake != nullptr);
+        under.window.emplace(under.services->services());
+        constructorDriver.stop();
+    }
+
+    static void selectOpenPort(MainWindow& window)
+    {
+        window.serial_ports_ = {"OpenPort 2.0"};
+        window.serial_port_list_->clear();
+        window.serial_port_list_->addItem("OpenPort 2.0");
+        window.serial_port_list_->setCurrentIndex(0);
+    }
+
     // Selects the fixture's last vehicle row using `protocol`.
     static void selectProtocol(MainWindow& window, const QString& protocol)
     {
@@ -1091,13 +1118,9 @@ void MainWindowTest::SetUpTestSuite()
 
 void MainWindowTest::checkExplicitConfigRootLoadsFixtureAndProvisionsDirectories()
 {
-    ModalDriver constructorDriver{QString()};
-    constructorDriver.start();
-    TestServices services{config_root_->path()};
-    ASSERT_THAT(services.config_status, fastecu::testing::IsOk());
-    ASSERT_TRUE(services.fake != nullptr);
-    MainWindow window{services.services()};
-    constructorDriver.stop();
+    WindowUnderTest under;
+    ASSERT_NO_FATAL_FAILURE(createWindow(under));
+    MainWindow& window = *under.window;
 
     const QString versionDir = config_root_->path() + "/" + window.software_version_ + "/";
     const fastecu::config::ConfigPaths paths = window.config_session_->ProvisionedPaths();
@@ -1283,13 +1306,10 @@ void MainWindowTest::checkHandledDensoTcuReadChoicesRunMainWindowCleanupAndStopV
                                                                                               int expectedIgnitionCount)
 {
 
-    ModalDriver constructorDriver{QString()};
-    constructorDriver.start();
-    TestServices services{config_root_->path()};
-    ASSERT_THAT(services.config_status, fastecu::testing::IsOk());
-    ASSERT_TRUE(services.fake != nullptr);
-    MainWindow window{services.services()};
-    constructorDriver.stop();
+    WindowUnderTest under;
+    ASSERT_NO_FATAL_FAILURE(createWindow(under));
+    TestServices& services = *under.services;
+    MainWindow& window = *under.window;
 
     FakeBackend *fake = services.fake;
     EXPECT_CALL(*fake, OpenSerialPort()).Times(0);
@@ -1303,10 +1323,7 @@ void MainWindowTest::checkHandledDensoTcuReadChoicesRunMainWindowCleanupAndStopV
 
     // A short poll period keeps the "timer stays stopped" check below quick.
     window.vbatt_timer_->setInterval(10);
-    window.serial_ports_ = {"OpenPort 2.0"};
-    window.serial_port_list_->clear();
-    window.serial_port_list_->addItem("OpenPort 2.0");
-    window.serial_port_list_->setCurrentIndex(0);
+    selectOpenPort(window);
     ASSERT_NO_FATAL_FAILURE(selectSubaruProtocol(window, "sub_tcu_denso_sh7058_can"));
 
     // The TCU log lines are relayed through MainWindow's own LOG_* signals.
@@ -1376,23 +1393,17 @@ INSTANTIATE_TEST_SUITE_P(
 void MainWindowTest::checkFutureDensoSuffixesDoNotInstantiateKlineOrPerformEcuIo(QString protocol)
 {
 
-    ModalDriver constructorDriver{QString()};
-    constructorDriver.start();
-    TestServices services{config_root_->path()};
-    ASSERT_THAT(services.config_status, fastecu::testing::IsOk());
-    ASSERT_TRUE(services.fake != nullptr);
-    MainWindow window{services.services()};
-    constructorDriver.stop();
+    WindowUnderTest under;
+    ASSERT_NO_FATAL_FAILURE(createWindow(under));
+    TestServices& services = *under.services;
+    MainWindow& window = *under.window;
 
     FakeBackend *fake = services.fake;
     EXPECT_CALL(*fake, OpenSerialPort()).Times(0);
     EXPECT_CALL(*fake, WriteSerialData(::testing::_)).Times(0);
     EXPECT_CALL(*fake, WriteSerialDataEchoCheck(::testing::_)).Times(0);
     EXPECT_CALL(*fake, ReadSerialData(::testing::_)).Times(0);
-    window.serial_ports_ = {"OpenPort 2.0"};
-    window.serial_port_list_->clear();
-    window.serial_port_list_->addItem("OpenPort 2.0");
-    window.serial_port_list_->setCurrentIndex(0);
+    selectOpenPort(window);
     ASSERT_NO_FATAL_FAILURE(selectSubaruProtocol(window, protocol));
 
     ModalDriver operationDriver{QString()};
@@ -1459,23 +1470,17 @@ INSTANTIATE_TEST_SUITE_P(
 void MainWindowTest::checkRepresentativePortableRoutesReachFactoryBeforeLegacyFallback(QString protocol)
 {
 
-    ModalDriver constructorDriver{QString()};
-    constructorDriver.start();
-    TestServices services{config_root_->path()};
-    ASSERT_THAT(services.config_status, fastecu::testing::IsOk());
-    ASSERT_TRUE(services.fake != nullptr);
-    MainWindow window{services.services()};
-    constructorDriver.stop();
+    WindowUnderTest under;
+    ASSERT_NO_FATAL_FAILURE(createWindow(under));
+    TestServices& services = *under.services;
+    MainWindow& window = *under.window;
 
     FakeBackend *fake = services.fake;
     EXPECT_CALL(*fake, OpenSerialPort()).Times(0);
     EXPECT_CALL(*fake, WriteSerialData(::testing::_)).Times(0);
     EXPECT_CALL(*fake, WriteSerialDataEchoCheck(::testing::_)).Times(0);
     EXPECT_CALL(*fake, ReadSerialData(::testing::_)).Times(0);
-    window.serial_ports_ = {"OpenPort 2.0"};
-    window.serial_port_list_->clear();
-    window.serial_port_list_->addItem("OpenPort 2.0");
-    window.serial_port_list_->setCurrentIndex(0);
+    selectOpenPort(window);
     ASSERT_NO_FATAL_FAILURE(selectSubaruProtocol(window, protocol));
 
     ModalDriver operationDriver{QString()};
@@ -1519,22 +1524,16 @@ INSTANTIATE_TEST_SUITE_P(Rows, WriteWithoutASelectedCalibrationStopsVoltagePolli
                          ::testing::ValuesIn(writeCommandRows()), writeCommandName);
 void MainWindowTest::checkWriteWithoutASelectedCalibrationStopsVoltagePolling(QString command)
 {
-    ModalDriver constructorDriver{QString()};
-    constructorDriver.start();
-    TestServices services{config_root_->path()};
-    ASSERT_THAT(services.config_status, fastecu::testing::IsOk());
-    ASSERT_TRUE(services.fake != nullptr);
-    MainWindow window{services.services()};
-    constructorDriver.stop();
+    WindowUnderTest under;
+    ASSERT_NO_FATAL_FAILURE(createWindow(under));
+    TestServices& services = *under.services;
+    MainWindow& window = *under.window;
 
     FakeBackend *fake = services.fake;
     EXPECT_CALL(*fake, OpenSerialPort()).Times(0);
     EXPECT_CALL(*fake, WriteSerialData(::testing::_)).Times(0);
     EXPECT_CALL(*fake, ChangePortSpeed(QStringLiteral("4800"))).Times(::testing::AtLeast(1));
-    window.serial_ports_ = {"OpenPort 2.0"};
-    window.serial_port_list_->clear();
-    window.serial_port_list_->addItem("OpenPort 2.0");
-    window.serial_port_list_->setCurrentIndex(0);
+    selectOpenPort(window);
     ASSERT_NO_FATAL_FAILURE(selectSubaruProtocol(window, "sub_ecu_denso_sh7058_can"));
 
     ModalDriver operationDriver{QString()};
@@ -1555,21 +1554,15 @@ TEST_P(WriteWithoutASelectedCalibrationStopsVoltagePollingParameters,
 
 void MainWindowTest::checkOtherMakesSkipDispatchButStillRunCleanup()
 {
-    ModalDriver constructorDriver{QString()};
-    constructorDriver.start();
-    TestServices services{config_root_->path()};
-    ASSERT_THAT(services.config_status, fastecu::testing::IsOk());
-    ASSERT_TRUE(services.fake != nullptr);
-    MainWindow window{services.services()};
-    constructorDriver.stop();
+    WindowUnderTest under;
+    ASSERT_NO_FATAL_FAILURE(createWindow(under));
+    TestServices& services = *under.services;
+    MainWindow& window = *under.window;
 
     FakeBackend *fake = services.fake;
     EXPECT_CALL(*fake, OpenSerialPort()).Times(0);
     EXPECT_CALL(*fake, ChangePortSpeed(QStringLiteral("4800"))).Times(::testing::AtLeast(1));
-    window.serial_ports_ = {"OpenPort 2.0"};
-    window.serial_port_list_->clear();
-    window.serial_port_list_->addItem("OpenPort 2.0");
-    window.serial_port_list_->setCurrentIndex(0);
+    selectOpenPort(window);
     ASSERT_NO_FATAL_FAILURE(selectMake(window, "Nissan"));
 
     ModalDriver operationDriver{QString()};
@@ -1589,18 +1582,12 @@ TEST_F(MainWindowTest, otherMakesSkipDispatchButStillRunCleanup)
 
 void MainWindowTest::checkReadOfAnUnsupportedProtocolAddsNoCalibration()
 {
-    ModalDriver constructorDriver{QString()};
-    constructorDriver.start();
-    TestServices services{config_root_->path()};
-    ASSERT_THAT(services.config_status, fastecu::testing::IsOk());
-    ASSERT_TRUE(services.fake != nullptr);
-    MainWindow window{services.services()};
-    constructorDriver.stop();
+    WindowUnderTest under;
+    ASSERT_NO_FATAL_FAILURE(createWindow(under));
+    TestServices& services = *under.services;
+    MainWindow& window = *under.window;
 
-    window.serial_ports_ = {"OpenPort 2.0"};
-    window.serial_port_list_->clear();
-    window.serial_port_list_->addItem("OpenPort 2.0");
-    window.serial_port_list_->setCurrentIndex(0);
+    selectOpenPort(window);
     ASSERT_NO_FATAL_FAILURE(selectSubaruProtocol(window, "sub_ecu_not_a_real_protocol"));
     ASSERT_EQ(window.calibrations_.size(), std::size_t{0});
 
@@ -1628,22 +1615,16 @@ INSTANTIATE_TEST_SUITE_P(Rows, CancellingTheChecksumWarningStopsVoltagePollingPa
                          ::testing::ValuesIn(writeCommandRows()), writeCommandName);
 void MainWindowTest::checkCancellingTheChecksumWarningStopsVoltagePolling(QString command)
 {
-    ModalDriver constructorDriver{QString()};
-    constructorDriver.start();
-    TestServices services{config_root_->path()};
-    ASSERT_THAT(services.config_status, fastecu::testing::IsOk());
-    ASSERT_TRUE(services.fake != nullptr);
-    MainWindow window{services.services()};
-    constructorDriver.stop();
+    WindowUnderTest under;
+    ASSERT_NO_FATAL_FAILURE(createWindow(under));
+    TestServices& services = *under.services;
+    MainWindow& window = *under.window;
 
     FakeBackend *fake = services.fake;
     EXPECT_CALL(*fake, OpenSerialPort()).Times(0);
     EXPECT_CALL(*fake, WriteSerialData(::testing::_)).Times(0);
     EXPECT_CALL(*fake, ChangePortSpeed(QStringLiteral("4800"))).Times(::testing::AtLeast(1));
-    window.serial_ports_ = {"OpenPort 2.0"};
-    window.serial_port_list_->clear();
-    window.serial_port_list_->addItem("OpenPort 2.0");
-    window.serial_port_list_->setCurrentIndex(0);
+    selectOpenPort(window);
     QTemporaryDir roms;
     const QString romPath = writeRom(roms, "test.bin", '\x5a', 16);
     ASSERT_TRUE(!romPath.isEmpty());
@@ -2354,13 +2335,10 @@ TEST_F(MainWindowTest, windowPreservesInjectedLoggingFactory)
 
 void MainWindowTest::checkLoggingCapturesTargetForEachRun()
 {
-    ModalDriver constructorDriver{QString()};
-    constructorDriver.start();
-    TestServices services{config_root_->path()};
-    ASSERT_THAT(services.config_status, fastecu::testing::IsOk());
-    ASSERT_TRUE(services.fake != nullptr);
-    MainWindow window{services.services()};
-    constructorDriver.stop();
+    WindowUnderTest under;
+    ASSERT_NO_FATAL_FAILURE(createWindow(under));
+    TestServices& services = *under.services;
+    MainWindow& window = *under.window;
     window.config_session_->Settings().selected_log_protocol = "SSM";
     QAction *action = prepareLogging(window, "SSM");
     std::vector<bool> targets;
@@ -3523,13 +3501,10 @@ TEST_F(MainWindowTest, loggingDisplayErrorContinuesOtherSamples)
 
 void MainWindowTest::checkLoggingUsesTheSessionLogProtocol()
 {
-    ModalDriver constructorDriver{QString()};
-    constructorDriver.start();
-    TestServices services{config_root_->path()};
-    ASSERT_THAT(services.config_status, fastecu::testing::IsOk());
-    ASSERT_TRUE(services.fake != nullptr);
-    MainWindow window{services.services()};
-    constructorDriver.stop();
+    WindowUnderTest under;
+    ASSERT_NO_FATAL_FAILURE(createWindow(under));
+    TestServices& services = *under.services;
+    MainWindow& window = *under.window;
     prepareLogging(window, "CDBG");
     services.logging_engine.RegisterProtocol("CDBG",
                                              [](const fastecu::desktop::logging::DesktopLoggingSnapshot&)
@@ -3556,13 +3531,9 @@ TEST_F(MainWindowTest, loggingUsesTheSessionLogProtocol)
 
 void MainWindowTest::checkSelectedSerialPortIsEmptyWithoutPorts()
 {
-    ModalDriver constructorDriver{QString()};
-    constructorDriver.start();
-    TestServices services{config_root_->path()};
-    ASSERT_THAT(services.config_status, fastecu::testing::IsOk());
-    ASSERT_TRUE(services.fake != nullptr);
-    MainWindow window{services.services()};
-    constructorDriver.stop();
+    WindowUnderTest under;
+    ASSERT_NO_FATAL_FAILURE(createWindow(under));
+    MainWindow& window = *under.window;
     window.serial_ports_.clear();
     window.serial_port_list_->clear();
     ASSERT_EQ(window.selectedSerialPort(), QString());
@@ -3578,13 +3549,10 @@ TEST_F(MainWindowTest, selectedSerialPortIsEmptyWithoutPorts)
 
 void MainWindowTest::checkDtcWindowWithoutAPortWarnsInsteadOfCrashing()
 {
-    ModalDriver constructorDriver{QString()};
-    constructorDriver.start();
-    TestServices services{config_root_->path()};
-    ASSERT_THAT(services.config_status, fastecu::testing::IsOk());
-    ASSERT_TRUE(services.fake != nullptr);
-    MainWindow window{services.services()};
-    constructorDriver.stop();
+    WindowUnderTest under;
+    ASSERT_NO_FATAL_FAILURE(createWindow(under));
+    TestServices& services = *under.services;
+    MainWindow& window = *under.window;
     window.serial_ports_.clear();
     window.serial_port_list_->clear();
     EXPECT_CALL(*services.fake, SetSerialPortList(::testing::_)).Times(0);
@@ -3648,13 +3616,10 @@ TEST_F(MainWindowTest, repeatedSaveFailuresLogOnceUntilASuccess)
 
 void MainWindowTest::checkBiuWindowRemembersTheOpenedPort()
 {
-    ModalDriver constructorDriver{QString()};
-    constructorDriver.start();
-    TestServices services{config_root_->path()};
-    ASSERT_THAT(services.config_status, fastecu::testing::IsOk());
-    ASSERT_TRUE(services.fake != nullptr);
-    MainWindow window{services.services()};
-    constructorDriver.stop();
+    WindowUnderTest under;
+    ASSERT_NO_FATAL_FAILURE(createWindow(under));
+    TestServices& services = *under.services;
+    MainWindow& window = *under.window;
     ASSERT_NO_FATAL_FAILURE(prepareConnect(window, *services.fake, "Subaru", "K-Line"));
     ON_CALL(*services.fake, GetOpenedSerialPort()).WillByDefault(::testing::Return(QString("ttyUSB0")));
     window.previous_serial_port_.clear();
@@ -3684,13 +3649,10 @@ TEST_F(MainWindowTest, biuWindowRemembersTheOpenedPort)
 
 void MainWindowTest::checkDisconnectReturnsTheAdapterToIdle()
 {
-    ModalDriver constructorDriver{QString()};
-    constructorDriver.start();
-    TestServices services{config_root_->path()};
-    ASSERT_THAT(services.config_status, fastecu::testing::IsOk());
-    ASSERT_TRUE(services.fake != nullptr);
-    MainWindow window{services.services()};
-    constructorDriver.stop();
+    WindowUnderTest under;
+    ASSERT_NO_FATAL_FAILURE(createWindow(under));
+    TestServices& services = *under.services;
+    MainWindow& window = *under.window;
     {
         ::testing::InSequence order;
         EXPECT_CALL(*services.fake, ResetConnection());
@@ -3711,13 +3673,10 @@ TEST_F(MainWindowTest, disconnectReturnsTheAdapterToIdle)
 
 void MainWindowTest::checkConnectOnAnotherMakeDisconnectsWithoutIdentifying()
 {
-    ModalDriver constructorDriver{QString()};
-    constructorDriver.start();
-    TestServices services{config_root_->path()};
-    ASSERT_THAT(services.config_status, fastecu::testing::IsOk());
-    ASSERT_TRUE(services.fake != nullptr);
-    MainWindow window{services.services()};
-    constructorDriver.stop();
+    WindowUnderTest under;
+    ASSERT_NO_FATAL_FAILURE(createWindow(under));
+    TestServices& services = *under.services;
+    MainWindow& window = *under.window;
     ASSERT_NO_FATAL_FAILURE(prepareConnect(window, *services.fake, "Mitsubishi", "K-Line"));
     EXPECT_CALL(*services.fake, WriteSerialDataEchoCheck(::testing::_)).Times(0);
     EXPECT_CALL(*services.fake, SetSerialPortParity(0)).Times(::testing::AtLeast(1));
@@ -3813,13 +3772,10 @@ TEST_F(MainWindowTest, subaruConnectThatNeverAnswersDisconnectsAndRestoresContro
 
 void MainWindowTest::checkDisconnectDuringIdentificationCancelsAndDropsTheResult()
 {
-    ModalDriver constructorDriver{QString()};
-    constructorDriver.start();
-    TestServices services{config_root_->path()};
-    ASSERT_THAT(services.config_status, fastecu::testing::IsOk());
-    ASSERT_TRUE(services.fake != nullptr);
-    MainWindow window{services.services()};
-    constructorDriver.stop();
+    WindowUnderTest under;
+    ASSERT_NO_FATAL_FAILURE(createWindow(under));
+    TestServices& services = *under.services;
+    MainWindow& window = *under.window;
     ASSERT_NO_FATAL_FAILURE(prepareConnect(window, *services.fake, "Subaru", "K-Line"));
 
     EXPECT_CALL(*services.fake, ReadSerialData(::testing::_)).WillOnce(::testing::Return(kEcuInit));
@@ -4079,13 +4035,10 @@ void MainWindowTest::checkLoggingStartWaitsForIdentification(bool targetIsEcu)
 {
 
     QSemaphore responseGate;
-    ModalDriver constructorDriver{QString()};
-    constructorDriver.start();
-    TestServices services{config_root_->path()};
-    ASSERT_THAT(services.config_status, fastecu::testing::IsOk());
-    ASSERT_TRUE(services.fake != nullptr);
-    MainWindow window{services.services()};
-    constructorDriver.stop();
+    WindowUnderTest under;
+    ASSERT_NO_FATAL_FAILURE(createWindow(under));
+    TestServices& services = *under.services;
+    MainWindow& window = *under.window;
     ASSERT_NO_FATAL_FAILURE(prepareConnect(window, *services.fake, "Subaru", "iso15765"));
     window.protocol_ = "SSM";
     (targetIsEcu ? window.ecu_radio_button_ : window.tcu_radio_button_)->setChecked(true);
