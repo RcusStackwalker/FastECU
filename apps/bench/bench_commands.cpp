@@ -118,6 +118,8 @@ struct RoutineSlot
     // Uploading this routine is what arms `erase`; see the erase prerequisite
     // chain in bench_driver.
     bool erase_helper = false;
+    // The write routine counterpart; see PreparedStep::provides_write_helper.
+    bool write_helper = false;
 };
 
 Result<RoutineSlot> FindRoutineSlot(std::string_view name)
@@ -133,11 +135,11 @@ Result<RoutineSlot> FindRoutineSlot(std::string_view name)
     }
     if (name == "write-page")
     {
-        return RoutineSlot{name, kWritePageRoutine, kWriteRoutineRamAddr};
+        return RoutineSlot{name, kWritePageRoutine, kWriteRoutineRamAddr, false, true};
     }
     if (name == "write-redirect")
     {
-        return RoutineSlot{name, kWriteRedirectRoutine, kWriteRoutineRamAddr};
+        return RoutineSlot{name, kWriteRedirectRoutine, kWriteRoutineRamAddr, false, true};
     }
     return Fail(ErrorKind::kInvalidConfig, std::format("unknown routine: {}", name));
 }
@@ -400,6 +402,7 @@ Result<PreparedStep> PrepareRoutine(IBenchFiles& files, const CommandSpec& spec,
     prepared.address = slot->ram_address;
     prepared.upload_payload = std::move(payload);
     prepared.provides_erase_helper = slot->erase_helper && !from_file;
+    prepared.provides_write_helper = slot->write_helper && !from_file;
     return prepared;
 }
 
