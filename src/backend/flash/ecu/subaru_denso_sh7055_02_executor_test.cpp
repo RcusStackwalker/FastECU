@@ -40,44 +40,10 @@ using bytes::U24;
 using namespace bytes::literals;
 using namespace std::chrono_literals;
 
-class ToggleCancellation final : public ICancellationToken
-{
-  public:
-    bool Cancelled() const override
-    {
-        return cancelled_;
-    }
-
-    void Cancel()
-    {
-        cancelled_ = true;
-    }
-
-  private:
-    bool cancelled_ = false;
-};
-
-class FlipAfter final : public ICancellationToken
-{
-  public:
-    explicit FlipAfter(int allowed_checks) : allowed_checks_(allowed_checks)
-    {
-    }
-
-    bool Cancelled() const override
-    {
-        return checks_++ >= allowed_checks_;
-    }
-
-  private:
-    int allowed_checks_;
-    mutable int checks_ = 0;
-};
-
 class CancelAfterEraseTransport final : public ScriptedKlineFlashTransport
 {
   public:
-    explicit CancelAfterEraseTransport(ToggleCancellation& cancellation)
+    explicit CancelAfterEraseTransport(FakeCancellationToken& cancellation)
         : ScriptedKlineFlashTransport(fastecu::flash::ScriptedTransportInitialState::kOpen), cancellation_(cancellation)
     {
     }
@@ -101,7 +67,7 @@ class CancelAfterEraseTransport final : public ScriptedKlineFlashTransport
         if (erase_response_pending_)
         {
             erase_response_pending_ = false;
-            cancellation_.Cancel();
+            cancellation_.SetCancelled(true);
         }
         return result;
     }
@@ -109,7 +75,7 @@ class CancelAfterEraseTransport final : public ScriptedKlineFlashTransport
     std::size_t flash_buffer_write_attempts = 0;
 
   private:
-    ToggleCancellation& cancellation_;
+    FakeCancellationToken& cancellation_;
     bool erase_response_pending_ = false;
 };
 
@@ -403,7 +369,8 @@ TEST(SubaruDensoSh7055_02Executor, BoundAttemptPreservesBothConfigureToOpenCance
     auto attempt =
         BindFlashAttempt(std::move(*plan), std::make_unique<SubaruDensoSh7055_02Executor>(), std::move(transport));
     FakeClock clock;
-    FlipAfter cancellation(2);
+    FakeCancellationToken cancellation;
+    cancellation.CancelOnCheck(3);
     RecordingEventSink events;
 
     ASSERT_THAT(attempt->Run(clock, cancellation, events), fastecu::testing::IsErr(ErrorKind::kCancelled));
@@ -640,11 +607,11 @@ TEST(SubaruDensoSh7055_02Executor, ReadCancelsBetweenPages)
     ScriptUpload(transport);
     ScriptReadPage(transport, 0x00000000, 0xA5);
 
-    ToggleCancellation cancellation;
+    FakeCancellationToken cancellation;
     MockClock clock;
     // Cancel only after the first page's 1 ms pacing sleep has completed.
     EXPECT_CALL(clock, Sleep(1ms, _))
-        .WillOnce(DoAll(clock.SleepOnFake(), [&] { cancellation.Cancel(); }, Return(Status{})));
+        .WillOnce(DoAll(clock.SleepOnFake(), [&] { cancellation.SetCancelled(true); }, Return(Status{})));
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
     ASSERT_THAT(executor.Execute(*plan, transport, clock, cancellation, events),
@@ -903,7 +870,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteCancelsMidBlockTransfer)
     auto plan = WritePlan(FlashOperation::kWrite, image);
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
-    ToggleCancellation cancellation;
+    FakeCancellationToken cancellation;
     CancelAfterEraseTransport transport(cancellation);
     ScriptWriteConnectAndUpload(transport);
     ScriptCrcCompare(transport, *device, image, kDifferingBlock);
@@ -1290,7 +1257,8 @@ TEST(SubaruDensoSh7055_02Executor, CancellationDuringWrxInitLoopStopsBeforeSecon
     FakeClock clock;
     // This threshold permits the first malformed WRX response,
     // then flips at the loop guard before attempt two.
-    FlipAfter cancellation(43);
+    FakeCancellationToken cancellation;
+    cancellation.CancelOnCheck(44);
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
     ASSERT_THAT(executor.Execute(*plan, transport, clock, cancellation, events),
