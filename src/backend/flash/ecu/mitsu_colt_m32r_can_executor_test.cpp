@@ -37,6 +37,7 @@
 #include <cstdint>
 #include <format>
 #include <initializer_list>
+#include <iterator>
 #include <ranges>
 #include <string>
 #include <string_view>
@@ -691,6 +692,154 @@ INSTANTIATE_TEST_SUITE_P(
                                                     mitsu_colt_can::kEraseRoutineRamAddr),
                                         "Erase page uploaded"}),
     [](const ::testing::TestParamInfo<RoutineStatusCase>& info) { return info.param.name; });
+
+// Which failures abort is part of the wire contract, and the abort happens at
+// this family's own call sites, not inside FatalRequest. Each case scripts a
+// 512 KiB write up to one request, which the ECU refuses with an NRC, and
+// nothing after it: any further request fails the scripted transport. Where a
+// site sits inside UploadAndCommit, the case also covers the call site that
+// invoked it (named in the comment).
+struct SiteRejectionCase
+{
+    std::string name;
+    void (*script)(ScriptedCanFlashTransport&);
+    bytes::Byte service;
+};
+
+// Handshake, a matching top region, then the main write's routine uploads.
+void ScriptWriteToMainUploads(ScriptedCanFlashTransport& transport)
+{
+    ScriptBootloadHandshake(transport);
+    ScriptFlashRead(transport, mitsu_colt_can::kTopRegionStart, mitsu_colt_can::kTopRegionLength, 0xEE);
+}
+
+// Handshake, a mismatched top region and the carrier check, up to the
+// bootstrap's redirect uploads.
+void ScriptWriteToBootstrapUploads(ScriptedCanFlashTransport& transport)
+{
+    const bytes::Bytes rom = WriteRom();
+    ScriptBootloadHandshake(transport);
+    ScriptFlashReadChunk(transport, mitsu_colt_can::kTopRegionStart, mitsu_colt_can::kFlashReadBlockSize, 0xFF);
+    ScriptFlashReadData(transport, mitsu_colt_can::kUserspaceStart, TopRegionOf(rom));
+}
+
+void ScriptBootstrapThroughRedirectUploads(ScriptedCanFlashTransport& transport)
+{
+    ScriptWriteToBootstrapUploads(transport);
+    ScriptUploadAndCommit(transport, mitsu_colt_can::kEraseRoutineRamAddr, mitsu_colt_can::kEraseRedirectRoutine);
+    ScriptUploadAndCommit(transport, mitsu_colt_can::kWriteRoutineRamAddr, mitsu_colt_can::kWriteRedirectRoutine);
+}
+
+class MitsuColtM32rCanExecutorSiteRejectionTest : public ::testing::TestWithParam<SiteRejectionCase>
+{
+};
+
+TEST_P(MitsuColtM32rCanExecutorSiteRejectionTest, StopsBeforeTheNextRequest)
+{
+    const SiteRejectionCase& test_case = GetParam();
+    ScriptedCanFlashTransport transport;
+    FakeClock clock;
+    RecordingEventSink events;
+    fastecu::ManualCancellationToken cancellation;
+    MitsuColtM32rCanExecutor executor;
+    auto plan = WritePlan(WriteRom());
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+
+    test_case.script(transport);
+    transport.QueueRead(Response({0x7f, test_case.service, 0x22}));
+
+    ASSERT_THAT(executor.Execute(*plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::kBadResponse));
+    EXPECT_TRUE(transport.ScriptConsumed());
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    MitsuColtM32rCanExecutor, MitsuColtM32rCanExecutorSiteRejectionTest,
+    ::testing::Values(
+        // UploadAndCommit's RequestDownload, via WriteMem's erase-page upload.
+        SiteRejectionCase{"EraseRoutineRequestDownload",
+                          [](ScriptedCanFlashTransport& transport)
+                          {
+                              ScriptWriteToMainUploads(transport);
+                              transport.Exchange(Request(mitsu_colt_can::BuildRequestDownload(
+                                  mitsu_colt_can::kEraseRoutineRamAddr,
+                                  static_cast<std::uint32_t>(std::size(mitsu_colt_can::kErasePageRoutine)))));
+                          },
+                          0x34},
+        // UploadAndCommit's TransferData, via WriteMem's write-page upload.
+        SiteRejectionCase{"WriteRoutineTransferData",
+                          [](ScriptedCanFlashTransport& transport)
+                          {
+                              ScriptWriteToMainUploads(transport);
+                              ScriptUploadAndCommit(transport, mitsu_colt_can::kEraseRoutineRamAddr,
+                                                    mitsu_colt_can::kErasePageRoutine);
+                              transport.Exchange(
+                                  Request(mitsu_colt_can::BuildRequestDownload(
+                                      mitsu_colt_can::kWriteRoutineRamAddr,
+                                      static_cast<std::uint32_t>(std::size(mitsu_colt_can::kWritePageRoutine)))),
+                                  Response({0x74}));
+                              transport.Exchange(Request(
+                                  mitsu_colt_can::BuildTransferDataFrames(mitsu_colt_can::kWritePageRoutine).front()));
+                          },
+                          0x36},
+        // UploadAndCommit's checksum RequestDownload, via the bootstrap's erase
+        // redirect upload.
+        SiteRejectionCase{"BootstrapChecksumRequestDownload",
+                          [](ScriptedCanFlashTransport& transport)
+                          {
+                              ScriptWriteToBootstrapUploads(transport);
+                              ScriptUploadFrames(transport, mitsu_colt_can::kEraseRoutineRamAddr,
+                                                 mitsu_colt_can::kEraseRedirectRoutine);
+                              transport.Exchange(Request(mitsu_colt_can::BuildRequestDownload(
+                                  mitsu_colt_can::kCrcTransferAddress, mitsu_colt_can::kCrcTransferSize)));
+                          },
+                          0x34},
+        // UploadAndCommit's checksum TransferData, via the bootstrap's write
+        // redirect upload.
+        SiteRejectionCase{
+            "BootstrapChecksumTransferData",
+            [](ScriptedCanFlashTransport& transport)
+            {
+                ScriptWriteToBootstrapUploads(transport);
+                ScriptUploadAndCommit(transport, mitsu_colt_can::kEraseRoutineRamAddr,
+                                      mitsu_colt_can::kEraseRedirectRoutine);
+                ScriptUploadFrames(transport, mitsu_colt_can::kWriteRoutineRamAddr,
+                                   mitsu_colt_can::kWriteRedirectRoutine);
+                transport.Exchange(Request(mitsu_colt_can::BuildRequestDownload(mitsu_colt_can::kCrcTransferAddress,
+                                                                                mitsu_colt_can::kCrcTransferSize)),
+                                   Response({0x74}));
+                const std::uint16_t crc = mitsu_colt_can::Checksum(mitsu_colt_can::kWriteRedirectRoutine);
+                transport.Exchange(Request(mitsu_colt_can::BuildTransferDataFrames(bytes::ComposeBe(crc)).front()));
+            },
+            0x36},
+        // UnlockAndErase's reflash unlock, via WriteMem.
+        SiteRejectionCase{"ReflashUnlock",
+                          [](ScriptedCanFlashTransport& transport)
+                          {
+                              ScriptWriteThroughRoutineUploads(transport);
+                              transport.Exchange(Request(mitsu_colt_can::BuildRequestReflashUnlock()));
+                          },
+                          0x3b},
+        // UnlockAndErase's reflash unlock, via the bootstrap.
+        SiteRejectionCase{"BootstrapReflashUnlock",
+                          [](ScriptedCanFlashTransport& transport)
+                          {
+                              ScriptBootstrapThroughRedirectUploads(transport);
+                              transport.Exchange(Request(mitsu_colt_can::BuildRequestReflashUnlock()));
+                          },
+                          0x3b},
+        // UploadAndCommit's RequestDownload, via the bootstrap's top-region
+        // redirect write.
+        SiteRejectionCase{"BootstrapRedirectWriteRequestDownload",
+                          [](ScriptedCanFlashTransport& transport)
+                          {
+                              ScriptBootstrapThroughRedirectUploads(transport);
+                              ScriptUnlockAndErase(transport);
+                              transport.Exchange(Request(mitsu_colt_can::BuildRequestDownload(
+                                  mitsu_colt_can::kUserspaceStart, mitsu_colt_can::kTopRegionLength)));
+                          },
+                          0x34}),
+    [](const ::testing::TestParamInfo<SiteRejectionCase>& info) { return info.param.name; });
 
 TEST(MitsuColtM32rCanExecutor, RefusesATestWritePlanRatherThanWritingForReal)
 {
