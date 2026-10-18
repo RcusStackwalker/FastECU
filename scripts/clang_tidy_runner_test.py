@@ -4,8 +4,11 @@ import json
 import os
 import re
 import subprocess
+import sys
 import tempfile
+import time
 import unittest
+from collections.abc import Callable
 from contextlib import nullcontext, redirect_stdout
 from io import StringIO
 from pathlib import Path, PurePath
@@ -23,6 +26,20 @@ _UNIX_TOOLS = runner.Tools(
     clang_tidy="/llvm/bin/clang-tidy",
     run_clang_tidy="/llvm/bin/run-clang-tidy",
 )
+
+
+def _streaming(fake_run: runner.CommandRunner) -> runner.StreamRunner:
+    """Adapt a CompletedProcess fake into the runner's streaming seam."""
+
+    def stream(
+        command: list[str], cwd: Path, on_line: Callable[[str], None]
+    ) -> subprocess.CompletedProcess[str]:
+        result = fake_run(command, cwd=cwd, check=False)
+        for line in (result.stdout or "").splitlines():
+            on_line(line)
+        return result
+
+    return stream
 
 
 class ClangTidyRunnerTest(unittest.TestCase):
@@ -287,6 +304,7 @@ class ClangTidyRunnerTest(unittest.TestCase):
                 platform_name="win32",
                 environ={},
                 command_runner=fake_run,
+                stream_runner=_streaming(fake_run),
             )
 
         self.assertEqual(_WINDOWS_COMPDB_TOOL, commands[0][0])
@@ -319,6 +337,7 @@ class ClangTidyRunnerTest(unittest.TestCase):
                 platform_name="linux",
                 environ={},
                 command_runner=fake_run,
+                stream_runner=_streaming(fake_run),
             )
 
         self.assertNotIn("-config-file", commands[1])
@@ -365,6 +384,7 @@ class ClangTidyRunnerTest(unittest.TestCase):
                         platform_name=platform_name,
                         environ={},
                         command_runner=fake_run,
+                        stream_runner=_streaming(fake_run),
                     )
 
                 analysis_command = next(
@@ -406,6 +426,7 @@ class ClangTidyRunnerTest(unittest.TestCase):
                 platform_name="linux",
                 environ=environ,
                 command_runner=fake_run,
+                stream_runner=_streaming(fake_run),
                 profile=profile,
             )
         return commands, output.getvalue()
@@ -568,6 +589,7 @@ class ClangTidyRunnerTest(unittest.TestCase):
                 platform_name="linux",
                 environ={},
                 command_runner=fake_run,
+                stream_runner=_streaming(fake_run),
                 build_args=[_CONFIG_RELEASE, "//..."],
                 compdb_args=[_CONFIG_RELEASE],
                 changed=changed,
@@ -632,6 +654,7 @@ class ClangTidyRunnerTest(unittest.TestCase):
                 platform_name="win32",
                 environ={},
                 command_runner=fake_run,
+                stream_runner=_streaming(fake_run),
             )
 
         self.assertEqual(runner.sys.executable, commands[1][0])
@@ -659,6 +682,7 @@ class ClangTidyRunnerTest(unittest.TestCase):
                 platform_name="linux",
                 environ={},
                 command_runner=fake_run,
+                stream_runner=_streaming(fake_run),
             )
         self.assertEqual(victim.read_text(), "do not overwrite\n")
 
@@ -672,6 +696,7 @@ class ClangTidyRunnerTest(unittest.TestCase):
                 platform_name="win32",
                 environ={},
                 command_runner=command_runner,
+                stream_runner=_streaming(command_runner),
             )
         command_runner.assert_not_called()
 
@@ -697,6 +722,7 @@ class ClangTidyRunnerTest(unittest.TestCase):
                 platform_name="darwin",
                 environ={},
                 command_runner=fake_run,
+                stream_runner=_streaming(fake_run),
             )
 
         self.assertIn(["xcrun", "--show-sdk-path"], commands)
@@ -731,6 +757,7 @@ class ClangTidyRunnerTest(unittest.TestCase):
                 platform_name="darwin",
                 environ={},
                 command_runner=fake_run,
+                stream_runner=_streaming(fake_run),
             )
 
     def test_fix_uses_deferred_replacements(self) -> None:
@@ -772,6 +799,7 @@ class ClangTidyRunnerTest(unittest.TestCase):
                 platform_name="darwin",
                 environ={},
                 command_runner=fake_run,
+                stream_runner=_streaming(fake_run),
             )
 
         analysis_command = next(
@@ -992,6 +1020,7 @@ class ClangTidyRunnerTest(unittest.TestCase):
                 platform_name="darwin",
                 environ={},
                 command_runner=fake_run,
+                stream_runner=_streaming(fake_run),
                 build_args=[_CONFIG_RELEASE, _FASTECU_TARGET],
             )
 
@@ -1011,6 +1040,7 @@ class ClangTidyRunnerTest(unittest.TestCase):
                 platform_name="darwin",
                 environ={},
                 command_runner=fake_run,
+                stream_runner=_streaming(fake_run),
                 build_args=[_CONFIG_RELEASE, _FASTECU_TARGET],
                 compdb_args=[_CONFIG_RELEASE],
             )
@@ -1030,6 +1060,7 @@ class ClangTidyRunnerTest(unittest.TestCase):
                 platform_name="darwin",
                 environ={},
                 command_runner=fake_run,
+                stream_runner=_streaming(fake_run),
             )
 
         self.assertEqual(_UNIX_COMPDB_TOOL, commands[0][0])
@@ -1045,6 +1076,7 @@ class ClangTidyRunnerTest(unittest.TestCase):
                 platform_name="darwin",
                 environ={},
                 command_runner=fake_run,
+                stream_runner=_streaming(fake_run),
                 build_args=[_FASTECU_TARGET],
             )
 
@@ -1062,6 +1094,7 @@ class ClangTidyRunnerTest(unittest.TestCase):
                 platform_name="darwin",
                 environ={},
                 command_runner=fake_run,
+                stream_runner=_streaming(fake_run),
             )
 
     def test_analysis_failure_is_propagated(self) -> None:
@@ -1090,6 +1123,7 @@ class ClangTidyRunnerTest(unittest.TestCase):
                 platform_name="darwin",
                 environ={},
                 command_runner=fake_run,
+                stream_runner=_streaming(fake_run),
             )
 
     def test_replacement_failure_is_propagated(self) -> None:
@@ -1119,6 +1153,7 @@ class ClangTidyRunnerTest(unittest.TestCase):
                 platform_name="darwin",
                 environ={},
                 command_runner=fake_run,
+                stream_runner=_streaming(fake_run),
             )
 
     def test_fix_applies_exported_replacements_before_propagating_analysis_failure(self) -> None:
@@ -1158,6 +1193,7 @@ class ClangTidyRunnerTest(unittest.TestCase):
                 platform_name="darwin",
                 environ={},
                 command_runner=fake_run,
+                stream_runner=_streaming(fake_run),
                 build_args=[_CONFIG_RELEASE, "//..."],
             )
 
@@ -1206,6 +1242,7 @@ class ClangTidyRunnerTest(unittest.TestCase):
                 platform_name="darwin",
                 environ={},
                 command_runner=fake_run,
+                stream_runner=_streaming(fake_run),
                 build_args=[_CONFIG_RELEASE, "//..."],
             )
 
@@ -1230,6 +1267,7 @@ class ClangTidyRunnerTest(unittest.TestCase):
                     platform_name="darwin",
                     environ={},
                     command_runner=noisy_run,
+                    stream_runner=_streaming(noisy_run),
                     build_args=[_CONFIG_RELEASE, _FASTECU_TARGET],
                 )
 
@@ -1256,6 +1294,7 @@ class ClangTidyRunnerTest(unittest.TestCase):
                     platform_name="darwin",
                     environ={},
                     command_runner=noisy_run,
+                    stream_runner=_streaming(noisy_run),
                     build_args=[_FASTECU_TARGET],
                 )
 
@@ -1296,6 +1335,7 @@ class ClangTidyRunnerTest(unittest.TestCase):
                     platform_name="darwin",
                     environ={},
                     command_runner=fake_run,
+                    stream_runner=_streaming(fake_run),
                     build_args=[_CONFIG_RELEASE, "//..."],
                 )
 
@@ -1357,6 +1397,7 @@ class ClangTidyRunnerTest(unittest.TestCase):
                     platform_name="darwin",
                     environ={},
                     command_runner=fake_run,
+                    stream_runner=_streaming(fake_run),
                 )
 
         printed = output.getvalue()
@@ -1393,6 +1434,7 @@ class ClangTidyRunnerTest(unittest.TestCase):
                 platform_name="linux",
                 environ={},
                 command_runner=fake_run,
+                stream_runner=_streaming(fake_run),
             )
         self.assertIn("warning: use Result matcher", output.getvalue())
         self.assertIn("1 findings", output.getvalue())
@@ -1434,6 +1476,7 @@ class ClangTidyRunnerTest(unittest.TestCase):
                     platform_name="linux",
                     environ={},
                     command_runner=fake_run,
+                    stream_runner=_streaming(fake_run),
                 )
             except runner.WorkflowError as error:
                 failure = str(error)
@@ -1451,14 +1494,14 @@ class ClangTidyRunnerTest(unittest.TestCase):
     def test_clean_inline_pass_reports_zero_findings(self) -> None:
         output, failure = self.run_inline_pass(findings=0, exit_code=0)
         self.assertIsNone(failure)
-        self.assertIn("clang-tidy: 0 inline findings\n", output)
+        self.assertIn("clang-tidy: 0 inline findings (0 unique)\n", output)
 
     def test_non_error_inline_findings_are_visible_without_failing(self) -> None:
         # A check excluded from WarningsAsErrors exits 0; its findings still print.
         output, failure = self.run_inline_pass(findings=1, exit_code=0)
         self.assertIsNone(failure)
         self.assertIn("error: use Result matcher", output)
-        self.assertIn("clang-tidy: 1 inline findings\n", output)
+        self.assertIn("clang-tidy: 1 inline findings (0 unique)\n", output)
 
     def test_custom_pass_uses_adapter_and_covers_application_headers(self) -> None:
         (self.root / ".clang-tidy").write_text(
@@ -1477,6 +1520,7 @@ class ClangTidyRunnerTest(unittest.TestCase):
                 platform_name="linux",
                 environ={},
                 command_runner=fake_run,
+                stream_runner=_streaming(fake_run),
                 jobs=2,
             )
         analyses = [command for command in commands if "-clang-tidy-binary" in command]
@@ -1507,6 +1551,7 @@ class ClangTidyRunnerTest(unittest.TestCase):
                         platform_name="linux",
                         environ=environ,
                         command_runner=fake_run,
+                        stream_runner=_streaming(fake_run),
                     )
                 analyses = [c for c in commands if "-clang-tidy-binary" in c]
                 self.assertEqual(2 if loaded else 1, len(analyses))
@@ -1534,6 +1579,7 @@ class ClangTidyRunnerTest(unittest.TestCase):
                 platform_name="linux",
                 environ={},
                 command_runner=fake_run,
+                stream_runner=_streaming(fake_run),
                 custom_checks=False,
                 reuse_compdb=True,
             )
@@ -1577,9 +1623,10 @@ class ClangTidyRunnerTest(unittest.TestCase):
                     platform_name="darwin",
                     environ={},
                     command_runner=fake_run,
+                    stream_runner=_streaming(fake_run),
                 )
 
-        self.assertIn("fix me [readability-fix]", output.getvalue())
+        self.assertIn("warning: main.cpp:1:1 [readability-fix]\n  fix me\n", output.getvalue())
 
     def test_changed_files_unions_git_sources(self) -> None:
         committed = self.root / "committed.cpp"
@@ -1716,6 +1763,7 @@ class ClangTidyRunnerTest(unittest.TestCase):
                 platform_name="darwin",
                 environ={},
                 command_runner=fake_run,
+                stream_runner=_streaming(fake_run),
                 changed=True,
             )
 
@@ -1747,6 +1795,7 @@ class ClangTidyRunnerTest(unittest.TestCase):
                     platform_name="darwin",
                     environ={},
                     command_runner=fake_run,
+                    stream_runner=_streaming(fake_run),
                     changed=True,
                 )
 
@@ -1789,6 +1838,7 @@ class ClangTidyRunnerTest(unittest.TestCase):
                 platform_name="darwin",
                 environ={},
                 command_runner=fake_run,
+                stream_runner=_streaming(fake_run),
                 changed=True,
             )
         return analyzed_files, output.getvalue()
@@ -1862,6 +1912,152 @@ class ClangTidyRunnerTest(unittest.TestCase):
         # win/w.cpp only: widened, but p.cpp stays outside the windows scope.
         self.assertIn("Analyzing 1 translation units", output)
         self.assertNotIn("no changed C/C++ translation units", output)
+
+    def finding_line(self, check: str = "c") -> str:
+        return f"{self.root / _MAIN_CPP}:1:1: error: bad [{check},-warnings-as-errors]"
+
+    def run_streamed(
+        self,
+        stream: runner.StreamRunner,
+        *,
+        annotate: bool = False,
+        inline: bool = False,
+        output: StringIO | None = None,
+    ) -> tuple[str, runner.WorkflowError | None]:
+        source = self.root / _MAIN_CPP
+        source.write_text("int main() { return 0; }\n")
+        self.write_database([source])
+        if inline:
+            (self.root / ".clang-tidy").write_text(
+                "Checks: '-*'\nCustomChecks:\n  - Name: fastecu-result-assertion\n"
+            )
+        output = output or StringIO()
+        failure = None
+        with (
+            mock.patch.object(runner, "discover_tools", return_value=_UNIX_TOOLS),
+            redirect_stdout(output),
+        ):
+            try:
+                runner.run_workflow(
+                    mode="report",
+                    workspace=self.root,
+                    compdb_tool=_UNIX_COMPDB_TOOL,
+                    platform_name="linux",
+                    environ={},
+                    command_runner=lambda command, **kwargs: subprocess.CompletedProcess(
+                        command, 0
+                    ),
+                    stream_runner=stream,
+                    annotate=annotate,
+                    color=False,
+                )
+            except runner.WorkflowError as error:
+                failure = error
+        return output.getvalue(), failure
+
+    def test_findings_print_while_analysis_is_still_running(self) -> None:
+        output = StringIO()
+        snapshots: list[str] = []
+
+        def stream(command, cwd, on_line):
+            if command[0] == _UNIX_TOOLS.run_clang_tidy:
+                on_line(self.finding_line())
+                on_line("[2/2][0.1s] clang-tidy other.cpp")
+                snapshots.append(output.getvalue())
+            return subprocess.CompletedProcess(command, 0, stdout="")
+
+        self.run_streamed(stream, output=output)
+        self.assertIn("error: main.cpp:1:1 [c]\n  bad\n", snapshots[0])
+
+    def test_failed_analysis_prints_findings_once_and_no_raw_dump(self) -> None:
+        raw = f"{self.finding_line()}\n1 warning generated.\n"
+
+        def stream(command, cwd, on_line):
+            for line in raw.splitlines():
+                on_line(line)
+            return subprocess.CompletedProcess(command, 1, stdout=raw)
+
+        printed, failure = self.run_streamed(stream)
+        self.assertIsNotNone(failure)
+        self.assertEqual(1, printed.count("error: main.cpp:1:1 [c]"))
+        self.assertNotIn("1 warning generated", printed)
+        self.assertNotIn(self.finding_line(), printed)
+
+    def test_inline_pass_streams_too(self) -> None:
+        def stream(command, cwd, on_line):
+            if any(Path(arg).name == "clang_tidy_adapter.py" for arg in command):
+                on_line(self.finding_line("custom-fastecu-result-assertion"))
+            return subprocess.CompletedProcess(command, 0, stdout="")
+
+        printed, failure = self.run_streamed(stream, inline=True)
+        self.assertIsNone(failure)
+        self.assertIn("error: main.cpp:1:1 [custom-fastecu-result-assertion]", printed)
+        self.assertIn("inline findings (1 unique)", printed)
+
+    def test_annotate_prints_github_annotation(self) -> None:
+        def stream(command, cwd, on_line):
+            on_line(self.finding_line())
+            return subprocess.CompletedProcess(command, 0, stdout="")
+
+        annotated, _ = self.run_streamed(stream, annotate=True)
+        self.assertIn("::error file=main.cpp,line=1,col=1,title=c::bad", annotated)
+        plain, _ = self.run_streamed(stream)
+        self.assertNotIn("::error", plain)
+
+    def test_summary_reports_unique_count(self) -> None:
+        def stream(command, cwd, on_line):
+            directory = Path(command[command.index("-export-fixes") + 1])
+            self.write_fixes(directory, "a.yaml", [self.diagnostic("c", [])] * 2)
+            on_line(self.finding_line())
+            on_line(self.finding_line())
+            return subprocess.CompletedProcess(command, 0, stdout="")
+
+        printed, _ = self.run_streamed(stream)
+        self.assertIn("2 findings (1 unique)", printed)
+
+    def test_main_forwards_annotate(self) -> None:
+        with (
+            mock.patch.object(runner, "workspace_root", return_value=self.root),
+            mock.patch.object(runner, "run_workflow") as run_workflow,
+        ):
+            self.assertEqual(0, runner.main(["report", "--annotate", "--compdb-tool", "/tools/x"]))
+        self.assertTrue(run_workflow.call_args.kwargs["annotate"])
+
+    def test_stream_lines_delivers_lines_unbuffered_and_merged(self) -> None:
+        script = (
+            "import os, sys, time\n"
+            "print(os.environ['PYTHONUNBUFFERED'])\n"
+            "print('err', file=sys.stderr)\n"
+            "time.sleep(0.3)\n"
+            "print('late')\n"
+        )
+        seen: list[tuple[str, float]] = []
+        result = runner.stream_lines(
+            [sys.executable, "-c", script],
+            self.root,
+            lambda line: seen.append((line, time.monotonic())),
+        )
+        self.assertEqual(0, result.returncode)
+        self.assertEqual(["1", "err", "late"], [line for line, _ in seen])
+        self.assertGreaterEqual(seen[2][1] - seen[0][1], 0.2)
+        self.assertEqual("1\nerr\nlate\n", result.stdout)
+
+    def test_stream_lines_replaces_undecodable_bytes(self) -> None:
+        seen: list[str] = []
+        runner.stream_lines(
+            [sys.executable, "-c", "import sys; sys.stdout.buffer.write(b'bad \\xff byte\\n')"],
+            self.root,
+            seen.append,
+        )
+        self.assertEqual(["bad \ufffd byte"], seen)
+
+    def test_stream_lines_missing_executable_is_actionable(self) -> None:
+        missing = str(self.root / "missing-tool")
+        _, failure = self.run_streamed(
+            lambda command, cwd, on_line: runner.stream_lines([missing], cwd, on_line)
+        )
+        self.assertIn("could not execute", str(failure))
+        self.assertIn("missing-tool", str(failure))
 
 
 class PhaseTimingsTest(unittest.TestCase):

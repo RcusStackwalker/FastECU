@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import io
 import json
 import os
 import re
@@ -18,6 +19,7 @@ from dataclasses import dataclass
 from pathlib import Path, PurePath
 from typing import TypedDict
 
+import clang_tidy_output as output_format
 import clang_tidy_profile as profile_report
 import clang_tidy_scope as scope_manifest
 import yaml
@@ -46,6 +48,8 @@ class Tools:
 
 
 CommandRunner = Callable[..., subprocess.CompletedProcess[str]]
+# Runs a command, handing each output line to the callback as it is produced.
+StreamRunner = Callable[[list[str], Path, Callable[[str], None]], subprocess.CompletedProcess[str]]
 
 
 class PhaseTimings:
@@ -484,6 +488,46 @@ def _run_quiet(
         raise WorkflowError(f"could not execute {command[0]}: {error}") from error
 
 
+def stream_lines(
+    command: list[str], cwd: Path, on_line: Callable[[str], None]
+) -> subprocess.CompletedProcess[str]:
+    """Run a command, passing each line of combined output on as it arrives.
+
+    run-clang-tidy and the inline-check adapter are Python, which block-buffers
+    a piped stdout; PYTHONUNBUFFERED makes them hand over each line at once.
+    """
+    lines: list[str] = []
+    with subprocess.Popen(
+        command,
+        cwd=cwd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        bufsize=1,
+        env={**os.environ, "PYTHONUNBUFFERED": "1"},
+    ) as process:
+        assert process.stdout is not None
+        for line in process.stdout:
+            lines.append(line)
+            on_line(line.rstrip("\r\n"))
+    return subprocess.CompletedProcess(command, process.returncode, stdout="".join(lines))
+
+
+def _run_streaming(
+    stream_runner: StreamRunner,
+    command: list[str],
+    workspace: Path,
+    stream: output_format.OutputStream,
+) -> tuple[subprocess.CompletedProcess[str], output_format.StreamCounts]:
+    try:
+        result = stream_runner(command, workspace, stream.feed)
+    except OSError as error:
+        raise WorkflowError(f"could not execute {command[0]}: {error}") from error
+    return result, stream.finish()
+
+
 _WINDOWS_EXECUTABLE_SUFFIXES = frozenset((".exe", ".bat", ".cmd", ".com"))
 
 
@@ -806,6 +850,7 @@ def run_workflow(
     platform_name: str,
     environ: Mapping[str, str],
     command_runner: CommandRunner = subprocess.run,
+    stream_runner: StreamRunner = stream_lines,
     build_args: Sequence[str] = (),
     compdb_args: Sequence[str] = (),
     changed: bool = False,
@@ -814,6 +859,8 @@ def run_workflow(
     jobs: int | None = None,
     custom_checks: bool = True,
     reuse_compdb: bool = False,
+    annotate: bool = False,
+    color: bool | None = None,
 ) -> WorkflowReport | None:
     if mode not in ("report", "fix"):
         raise WorkflowError(f"unsupported mode: {mode}")
@@ -949,9 +996,20 @@ def run_workflow(
                     "(LLVM 22+); reporting phase timings only.",
                     file=sys.stderr,
                 )
+        if color is None:
+            color = sys.stdout.isatty()
+
+        def new_stream() -> output_format.OutputStream:
+            return output_format.OutputStream(
+                workspace=workspace,
+                write=print,
+                color=color,
+                annotate=annotate,
+            )
+
         print(f"Analyzing {len(entries)} translation units in {mode} mode.")
         with timings.phase("analysis"):
-            tidy_result = _run_quiet(command_runner, command, workspace)
+            tidy_result, counts = _run_streaming(stream_runner, command, workspace, new_stream())
         checks = profile_report.parse_check_profile(tidy_result.stdout or "") if profile else {}
         if profile:
             _emit_profile(tidy_result.stdout or "", timings, len(entries), environ)
@@ -969,21 +1027,18 @@ def run_workflow(
                 workspace,
             )
             if apply_code:
-                if tidy_result.stdout:
-                    print(tidy_result.stdout, end="")
                 raise WorkflowError(f"replacement application failed with exit code {apply_code}")
             _post_fix_build(command_runner, build_args, workspace)
         if tidy_code:
-            if tidy_result.stdout:
-                print(tidy_result.stdout, end="")
             detail = f"{finding_count} findings; run-clang-tidy failed with exit code {tidy_code}"
             if mode == "fix":
                 detail += "; exported fixes were applied before reporting the failure"
             raise WorkflowError(detail)
         if finding_count:
-            if tidy_result.stdout:
-                print(tidy_result.stdout, end="")
-            print(f"clang-tidy: {len(entries)} files analyzed, {finding_count} findings (advisory)")
+            print(
+                f"clang-tidy: {len(entries)} files analyzed, {finding_count} findings "
+                f"({counts.unique} unique) (advisory)"
+            )
         else:
             print(f"clang-tidy: {len(entries)} files clean, 0 findings")
         if custom_checks:
@@ -1028,11 +1083,11 @@ def run_workflow(
                 ]
                 print(f"Analyzing {len(entries)} translation units with inline checks.")
                 with timings.phase("custom-analysis"):
-                    custom_result = _run_quiet(command_runner, adapter_command, workspace)
+                    custom_result, custom_counts = _run_streaming(
+                        stream_runner, adapter_command, workspace, new_stream()
+                    )
                 custom_count = _count_diagnostics(custom_fixes)
                 finding_count += custom_count
-                if custom_result.stdout:
-                    print(custom_result.stdout, end="")
                 if profile:
                     checks.update(profile_report.parse_check_profile(custom_result.stdout or ""))
                     _emit_profile(custom_result.stdout or "", timings, len(entries), environ)
@@ -1041,7 +1096,7 @@ def run_workflow(
                     if custom_count:
                         detail = f"{custom_count} inline findings; {detail}"
                     raise WorkflowError(detail)
-                print(f"clang-tidy: {custom_count} inline findings")
+                print(f"clang-tidy: {custom_count} inline findings ({custom_counts.unique} unique)")
         return {
             "translation_units": len(entries),
             "phases": dict(timings.durations),
@@ -1055,6 +1110,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("mode", choices=("report", "fix"))
     parser.add_argument("--changed", action="store_true")
     parser.add_argument("--profile", action="store_true")
+    parser.add_argument(
+        "--annotate", action="store_true", help="also print GitHub annotations for findings"
+    )
     parser.add_argument("--scope-os")
     parser.add_argument("--jobs", type=int)
     parser.add_argument("--no-custom-checks", action="store_true")
@@ -1067,6 +1125,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--build-arg", action="append", default=[], dest="build_args")
     parser.add_argument("--compdb-arg", action="append", default=[], dest="compdb_args")
     args = parser.parse_args(argv)
+    # In CI stdout is a pipe; flush each line so findings show as they stream.
+    if isinstance(sys.stdout, io.TextIOWrapper):
+        sys.stdout.reconfigure(line_buffering=True)
     try:
         root = workspace_root(os.environ)
         tool = Path(args.compdb_tool)
@@ -1086,6 +1147,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             jobs=args.jobs,
             custom_checks=not args.no_custom_checks,
             reuse_compdb=args.reuse_compdb,
+            annotate=args.annotate,
         )
         return 0
     except WorkflowError as error:
