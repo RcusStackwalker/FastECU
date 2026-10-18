@@ -89,3 +89,31 @@ They share only the B6/U24 encrypted-chunk exchange in
 2000 ms receive, accepting silence or any framed reply. Geometry, encryption,
 cancellation checkpoints, progress, setup, close and checksum stay family-owned.
 Mitsubishi CVT crypto sharing alone does not define this dialect.
+
+**Guarded transport**:
+The flash transport an executor talks to. It stops the run at the next I/O
+once cancellation is requested, outside a critical section, and reports every
+transport failure as one kind of error.
+_Avoid_: Session, session wrapper (a session is a UDS diagnostic session)
+
+**Critical section**:
+A span a flash family declares in which cancellation is deferred, because
+interrupting it would leave the ECU unbootable. Cancellation is reported when
+the span ends.
+_Avoid_: Atomic step, high-risk step
+
+**Expected silence**:
+An exchange a flash family declares as allowed to get no reply. Silence there
+is not a timeout.
+_Avoid_: Tolerated timeout
+
+**Wire transcript**:
+A recorded file of the frames a flash family writes and reads for one
+operation, with timing where the timing is part of the wire contract.
+Replaying it is equivalence evidence, not hardware evidence.
+_Avoid_: Trace, log, script
+
+**Plan golden**:
+The expected flash plan for a family and protocol, stated as literal data in
+a test.
+_Avoid_: Snapshot

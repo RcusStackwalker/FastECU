@@ -33,9 +33,9 @@ cases that observed it.
   or operation, or replaced by a recording that a reviewed PR shows to differ
   only in non-wire behavior.
 - **Generic behavior is tested once.** Cancellation, timeout, disconnect and
-  error propagation are tested against the shared transport session. A family
-  adds a conformance case for using the session and one per declared
-  critical section.
+  error propagation are tested against the guarded transport
+  ([ADR 0025](0025-enforce-cancellation-in-a-guarded-transport.md)). A family
+  adds a conformance case for using it and one per declared critical section.
 - **Family tests cover family branches.** A failure test exists where the
   family's own code decides something; tests that only re-prove shared
   behavior are deleted.
