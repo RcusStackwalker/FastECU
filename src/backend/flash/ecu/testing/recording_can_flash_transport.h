@@ -141,6 +141,14 @@ class RecordingCanFlashTransport final : public ICanFlashTransport
     std::vector<std::string> *timeline = nullptr;
 };
 
+// What a cold-write run that walks an injected fault ended with: the error
+// kind (empty on success) and how many reads the flow made.
+struct ColdWriteOutcome
+{
+    std::optional<ErrorKind> error;
+    std::size_t reads{};
+};
+
 // Cancels its bound token when a specific phase reaches a specific done count.
 // Byte-identical in all three BEEF-dialect CAN executor suites before extraction
 // (the token type changes from ToggleCancellation by Task 7's substitution).

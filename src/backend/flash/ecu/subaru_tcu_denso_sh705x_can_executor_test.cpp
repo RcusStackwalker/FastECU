@@ -1853,11 +1853,10 @@ TEST(SubaruTcuDensoSh705xCanExecutor, CrcDrainIgnoresMalformedAndWrongIdFramesFo
 // must hand the typed error back instead of swallowing it.
 TEST(SubaruTcuDensoSh705xCanExecutor, DisconnectAtAnyReadOfAColdWriteIsReportedAsDisconnected)
 {
-    const Case& test_case = kCases[1];
-    const auto run = [&](std::optional<std::size_t> fail_at)
+    const auto run = [&](std::optional<std::size_t> fail_at, ColdWriteOutcome& outcome)
     {
-        auto plan = WritePlan(test_case);
-        EXPECT_THAT(plan, IsOk());
+        auto plan = WritePlan(kCases[1]);
+        ASSERT_THAT(plan, IsOk());
         SubaruTcuDensoSh705xCanExecutor executor;
         RecordingCanFlashTransport transport;
         transport.fail_read_at = fail_at;
@@ -1865,26 +1864,29 @@ TEST(SubaruTcuDensoSh705xCanExecutor, DisconnectAtAnyReadOfAColdWriteIsReportedA
         ScriptKernelProbeTimeout(transport.scripted);
         ScriptIdentityQueries(transport.scripted);
         ScriptStrictSessionAndSecurity(transport.scripted);
-        ScriptKernelUpload(transport.scripted, test_case);
+        ScriptKernelUpload(transport.scripted, kCases[1]);
         ScriptKernelAlive(transport.scripted);
-        ScriptCompare(transport.scripted, BlocksFor(test_case), true);
+        ScriptCompare(transport.scripted, BlocksFor(kCases[1]), true);
         ScriptFlashInit(transport.scripted);
         ScriptFirstFlashBlock(transport.scripted);
-        ScriptCompare(transport.scripted, BlocksFor(test_case), false);
+        ScriptCompare(transport.scripted, BlocksFor(kCases[1]), false);
         FakeCancellationToken cancellation;
         FakeClock clock;
         RecordingEventSink events;
         const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
-        return std::pair{result.has_value() ? std::optional<ErrorKind>{} : std::optional{result.error().kind},
-                         transport.read_count};
+        outcome = {result.has_value() ? std::optional<ErrorKind>{} : std::optional{result.error().kind},
+                   transport.read_count};
     };
 
-    const auto [clean_error, read_count] = run(std::nullopt);
-    ASSERT_FALSE(clean_error.has_value());
-    for (std::size_t index = 0; index < read_count; ++index)
+    ColdWriteOutcome clean;
+    run(std::nullopt, clean);
+    ASSERT_FALSE(clean.error.has_value());
+    for (std::size_t index = 0; index < clean.reads; ++index)
     {
         SCOPED_TRACE(index);
-        EXPECT_EQ(run(index).first, std::optional{ErrorKind::kDisconnected});
+        ColdWriteOutcome faulted;
+        run(index, faulted);
+        EXPECT_EQ(faulted.error, std::optional{ErrorKind::kDisconnected});
     }
 }
 
