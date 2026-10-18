@@ -132,11 +132,8 @@ void DensoIso15765BestEffortTransferExit(const CanExecutorContext& ctx);
 // reflash_block's close: best-effort transfer exit, a 100 ms settle, then the
 // fatal checksum-verify routine 31 01 02 02 01 expecting 71 01 02. The read
 // timeouts are the family's own `checksum_policy` (500/500 on N83M 1.5M,
-// 500/3000 on N83M 4M, 2000/2000 on both SH families). The SH families pair a
-// rejection with "Checksum not verified" (`log_not_verified`); the N83M ones
-// do not.
-Status DensoIso15765CloseAndVerifyChecksum(const CanExecutorContext& ctx, const uds::ExchangePolicy& checksum_policy,
-                                           bool log_not_verified);
+// 500/3000 on N83M 4M, 2000/2000 on both SH families).
+Status DensoIso15765CloseAndVerifyChecksum(const CanExecutorContext& ctx, const uds::ExchangePolicy& checksum_policy);
 
 // fatal_query with this dialect's "Wrong response from ECU: " rejection
 // prefix; see uds_client_exchange_common.h for what expected_prefix, subject

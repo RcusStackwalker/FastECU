@@ -503,7 +503,7 @@ Status ReflashBlock(Ctx& ctx, bytes::ByteView image, const MemoryRegion& block, 
         progress.Update(static_cast<int>((chunk_index + 1) * kChunkSize));
     }
 
-    return DensoIso15765CloseAndVerifyChecksum(ctx, kChecksumPolicy, /*log_not_verified=*/true);
+    return DensoIso15765CloseAndVerifyChecksum(ctx, kChecksumPolicy);
 }
 
 // Legacy write_memory, lines 1070-1149. block_modified is {1} over

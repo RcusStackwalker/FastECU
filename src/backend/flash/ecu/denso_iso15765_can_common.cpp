@@ -140,10 +140,10 @@ void DensoIso15765BestEffortTransferExit(const CanExecutorContext& ctx)
 // settle are identical in all four. The settle precedes a write, so no read
 // timeout subsumes it. Legacy also required the 7F 31 78 pending answer
 // before the result; UdsClient absorbs that NRC and accepts an immediate
-// positive answer too. "Checksum not verified" follows each SH rejection
-// (SH72531 1315/1325, diesel 1333/1343).
-Status DensoIso15765CloseAndVerifyChecksum(const CanExecutorContext& ctx, const uds::ExchangePolicy& checksum_policy,
-                                           bool log_not_verified)
+// positive answer too. Legacy's SH-only "Checksum not verified" line after a
+// rejection (SH72531 1315/1325, diesel 1333/1343) is dropped on purpose:
+// FatalQuery already logs the rejection and the error propagates.
+Status DensoIso15765CloseAndVerifyChecksum(const CanExecutorContext& ctx, const uds::ExchangePolicy& checksum_policy)
 {
     DensoIso15765BestEffortTransferExit(ctx);
     if (const Status slept = ctx.clock.Sleep(std::chrono::milliseconds{100}, ctx.cancellation); !slept.has_value())
@@ -157,10 +157,6 @@ Status DensoIso15765CloseAndVerifyChecksum(const CanExecutorContext& ctx, const 
             bytes::Bytes{uds::kRoutineControlStart, kRoutineIdHigh}, checksum_policy, "checksum verify");
         !checksum.has_value())
     {
-        if (log_not_verified)
-        {
-            LogInfo(ctx, "Checksum not verified");
-        }
         return std::unexpected(checksum.error());
     }
     LogInfo(ctx, "Checksum verified");
