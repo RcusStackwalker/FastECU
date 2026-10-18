@@ -84,12 +84,6 @@ constexpr bytes::Byte kSessionControlReply = uds::kSidDiagnosticSessionControl +
 constexpr bytes::Byte kRequestDownloadReply = uds::kSidRequestDownload + 0x40;         // 0x74
 constexpr bytes::Byte kRequestUploadReply = uds::kSidRequestUpload + 0x40;             // 0x75
 
-// Routine identifier for both the erase (0x02 0x01) and the checksum verify
-// (0x02 0x02) routines; vendor-assigned, so it stays here rather than in the
-// shared UDS header.
-constexpr bytes::Byte kRoutineIdHigh = 0x02;
-constexpr bytes::Byte kRoutineChecksum = 0x02;
-
 // kFlashBlocksN83M_4MB[0].start -- reflash_block indexes the image as
 // newdata[i + blockaddr - fdt->fblocks[0].start] (line 1241) and write_memory
 // hands it &data_array[0] (line 1153), the whole encrypted ROM, so byte 0 of
@@ -425,39 +419,7 @@ Status ReflashBlock(Ctx& ctx, bytes::ByteView image, const MemoryRegion& block, 
         progress.Update(static_cast<int>((chunk_index + 1) * kChunkSize));
     }
 
-    DensoIso15765BestEffortTransferExit(ctx);
-
-    // Line 1305: a settle before the checksum write, which no read timeout
-    // subsumes.
-    if (const Status slept = ctx.clock.Sleep(100ms, ctx.cancellation); !slept.has_value())
-    {
-        return slept;
-    }
-
-    // Checksum verify (lines 1307-1362). The ECU answers pending
-    // (0x7F 0x31 0x78) before the real result; UdsClient absorbs that NRC by
-    // re-reading internally, so this is a single request() call. Legacy
-    // additionally *required* the pending answer to arrive first and failed
-    // without it; UdsClient accepts an immediate positive answer too.
-    //
-    // Both of legacy's reads here are reproduced at their own timeouts, and
-    // they differ: the first uses the bare 500 literal (line 1322, i.e.
-    // receive_timeout) and only the re-read after the pending NRC uses
-    // serial_read_extra_long_timeout = 3000 ms (line 1341). kChecksumPolicy
-    // carries that 500/3000 pair. It is this family's own pair, not a shared
-    // one: the 1N83M 1.5M reads 500/500 and the two SH families read
-    // 2000/2000 at the same exchange.
-    LogInfo(ctx, "Verifying checksum");
-    if (Result<bytes::Bytes> checksum = FatalQuery(
-            ctx,
-            bytes::Bytes{uds::kSidRoutineControl, uds::kRoutineControlStart, kRoutineIdHigh, kRoutineChecksum, 0x01},
-            bytes::Bytes{uds::kRoutineControlStart, kRoutineIdHigh}, kChecksumPolicy, "checksum verify");
-        !checksum.has_value())
-    {
-        return std::unexpected(checksum.error());
-    }
-    LogInfo(ctx, "Checksum verified");
-    return {};
+    return DensoIso15765CloseAndVerifyChecksum(ctx, kChecksumPolicy, /*log_not_verified=*/false);
 }
 
 // Legacy write_memory, lines 1095-1173. block_modified is {0, 1, 0} over

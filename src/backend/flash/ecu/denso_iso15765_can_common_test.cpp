@@ -392,6 +392,68 @@ TEST(DensoIso15765CanCommonTest, TransferExitWithCancelledTokenDoesNoLaterIo)
                 ::testing::ElementsAre(::testing::Pair(LogLevel::kInfo, "Closing out Flashing of this block")));
 }
 
+// Distinct read and pending timeouts show the family's policy reaches both reads.
+TEST(DensoIso15765CanCommonTest, CloseAndVerifyChecksumSettlesThenSendsLiteralRoutine)
+{
+    CommonFixture f;
+    f.transport.Exchange(Request({0x37}), Response({0x77}));
+    f.transport.Exchange(Request({0x31, 0x01, 0x02, 0x02, 0x01}), Response({0x7F, 0x31, 0x78}));
+    f.transport.QueueRead(Response({0x71, 0x01, 0x02}));
+
+    EXPECT_THAT(DensoIso15765CloseAndVerifyChecksum(f.ctx, {.read_timeout = 500ms, .pending_timeout = 3000ms},
+                                                    /*log_not_verified=*/true),
+                fastecu::testing::IsOk());
+
+    EXPECT_TRUE(f.transport.ScriptConsumed());
+    EXPECT_THAT(f.transport.ReadTimeouts(), ::testing::ElementsAre(200ms, 500ms, 3000ms));
+    EXPECT_THAT(f.clock.sleep_calls, ::testing::ElementsAre(100ms));
+    EXPECT_THAT(f.events.logs, ::testing::Contains(::testing::Pair(LogLevel::kInfo, "Verifying checksum")));
+    EXPECT_THAT(f.events.logs.back(), ::testing::Pair(LogLevel::kInfo, "Checksum verified"));
+}
+
+TEST(DensoIso15765CanCommonTest, CloseAndVerifyChecksumLogsNotVerifiedOnlyWhenAsked)
+{
+    for (const bool log_not_verified : {false, true})
+    {
+        SCOPED_TRACE(log_not_verified);
+        CommonFixture f;
+        f.transport.Exchange(Request({0x37}), Response({0x77}));
+        f.transport.Exchange(Request({0x31, 0x01, 0x02, 0x02, 0x01}), Response({0x71, 0x01, 0x03}));
+
+        EXPECT_THAT(DensoIso15765CloseAndVerifyChecksum(f.ctx, {.read_timeout = 2000ms}, log_not_verified),
+                    fastecu::testing::IsErr(ErrorKind::kBadResponse));
+
+        EXPECT_TRUE(f.transport.ScriptConsumed());
+        EXPECT_THAT(f.events.logs,
+                    ::testing::Not(::testing::Contains(::testing::Pair(LogLevel::kInfo, "Checksum verified"))));
+        const auto not_verified = ::testing::Pair(LogLevel::kInfo, "Checksum not verified");
+        if (log_not_verified)
+        {
+            EXPECT_THAT(f.events.logs.back(), not_verified);
+        }
+        else
+        {
+            EXPECT_THAT(f.events.logs, ::testing::Not(::testing::Contains(not_verified)));
+        }
+    }
+}
+
+TEST(DensoIso15765CanCommonTest, CloseAndVerifyChecksumCancelledSettleSendsNoChecksum)
+{
+    CommonFixture f;
+    CancellingEventSink events(f.cancellation, "Closed succesfully: 77 ");
+    CanExecutorContext ctx{f.cancellation, events, f.clock, f.client, f.channel};
+    f.transport.Exchange(Request({0x37}), Response({0x77}));
+
+    EXPECT_THAT(DensoIso15765CloseAndVerifyChecksum(ctx, {.read_timeout = 500ms}, /*log_not_verified=*/true),
+                fastecu::testing::IsErr(ErrorKind::kCancelled));
+
+    EXPECT_TRUE(f.transport.ScriptConsumed());
+    EXPECT_EQ(f.transport.write_attempts, 1U);
+    EXPECT_THAT(events.logs,
+                ::testing::Not(::testing::Contains(::testing::Pair(LogLevel::kInfo, "Verifying checksum"))));
+}
+
 // A literal short chunk pins wire encoding without coupling to image encryption.
 TEST(DensoIso15765CanCommonTest, WriteChunkSendsLiteralB6AbsoluteAddress)
 {

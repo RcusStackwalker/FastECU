@@ -75,12 +75,6 @@ constexpr bytes::Byte kSessionControlReply = uds::kSidDiagnosticSessionControl +
 constexpr bytes::Byte kSidControlDtcSetting = 0x85;    // ISO 14229-1
 constexpr bytes::Byte kSidCommunicationControl = 0x28; // ISO 14229-1
 
-// Routine identifier for both the erase (0x02 0x01) and the checksum verify
-// (0x02 0x02) routines; vendor-assigned, so it stays here rather than in the
-// shared UDS header.
-constexpr bytes::Byte kRoutineIdHigh = 0x02;
-constexpr bytes::Byte kRoutineChecksum = 0x02;
-
 // kFlashBlocksSH72531[0].start. write_memory hands reflash_block
 // &data_array[fdt->fblocks->start] (line 1140), i.e. fblocks[0].start, and
 // reflash_block then indexes newdata[i + blockaddr] (line 1225) -- so byte 0
@@ -414,35 +408,7 @@ Status ReflashBlock(Ctx& ctx, bytes::ByteView image, const MemoryRegion& block, 
         progress.Update(static_cast<int>((chunk_index + 1) * kChunkSize));
     }
 
-    DensoIso15765BestEffortTransferExit(ctx);
-
-    // Line 1295: a settle before the checksum write, which no read timeout
-    // subsumes.
-    if (const Status slept = ctx.clock.Sleep(100ms, ctx.cancellation); !slept.has_value())
-    {
-        return slept;
-    }
-
-    // Checksum verify (lines 1297-1347). The ECU answers pending
-    // (0x7F 0x31 0x78) before the real result; UdsClient absorbs that NRC by
-    // re-reading internally, so this is a single request() call. Legacy
-    // additionally *required* the pending answer to arrive first and failed
-    // without it (lines 1320-1327); UdsClient accepts an immediate positive
-    // answer too.
-    LogInfo(ctx, "Verifying checksum");
-    if (Result<bytes::Bytes> checksum = FatalQuery(
-            ctx,
-            bytes::Bytes{uds::kSidRoutineControl, uds::kRoutineControlStart, kRoutineIdHigh, kRoutineChecksum, 0x01},
-            bytes::Bytes{uds::kRoutineControlStart, kRoutineIdHigh}, kChecksumPolicy, "checksum verify");
-        !checksum.has_value())
-    {
-        // Legacy pairs every checksum rejection with this second line
-        // (lines 1315, 1325).
-        LogInfo(ctx, "Checksum not verified");
-        return std::unexpected(checksum.error());
-    }
-    LogInfo(ctx, "Checksum verified");
-    return {};
+    return DensoIso15765CloseAndVerifyChecksum(ctx, kChecksumPolicy, /*log_not_verified=*/true);
 }
 
 // Legacy write_memory, lines 1081-1160. block_modified is {0, 1, 0} over
