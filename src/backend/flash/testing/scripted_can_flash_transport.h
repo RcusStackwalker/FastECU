@@ -113,6 +113,12 @@ class ScriptedCanFlashTransport : public ICanFlashTransport
         return read_timeouts_;
     }
 
+    // One label per expected write, in script order.
+    const std::vector<std::string>& Sections() const
+    {
+        return sections_;
+    }
+
     Status ResetConnection() override
     {
         lifecycle_calls.push_back("reset_connection");

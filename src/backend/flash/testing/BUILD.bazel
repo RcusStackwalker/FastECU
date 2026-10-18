@@ -86,3 +86,27 @@ fastecu_portable_gtest(
         "@googletest//:gtest",
     ],
 )
+
+cc_library(
+    name = "transcript_can_flash_transport",
+    testonly = True,
+    hdrs = ["transcript_can_flash_transport.h"],
+    deps = [
+        ":scripted_flash_transports",
+        ":wire_transcript",
+        "//src/backend/flash:flash_executor",
+        "//src/backend/ports",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "transcript_can_flash_transport_test",
+    srcs = ["transcript_can_flash_transport_test.cpp"],
+    deps = [
+        ":transcript_can_flash_transport",
+        "//src/backend/ports/testing:fake_cancellation_token",
+        "//src/backend/ports/testing:fake_clock",
+        "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
+    ],
+)
