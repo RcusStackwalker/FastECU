@@ -32,6 +32,7 @@ def _clang_tidy_runner_impl(name, visibility, mode, changed):
         srcs = [
             "//:scripts/clang_tidy_adapter.py",
             "//:scripts/clang_tidy_benchmark.py",
+            "//:scripts/clang_tidy_output.py",
             "//:scripts/clang_tidy_profile.py",
             "//:scripts/clang_tidy_runner.py",
             "//:scripts/clang_tidy_scope.py",

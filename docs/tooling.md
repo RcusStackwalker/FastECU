@@ -24,9 +24,16 @@ integer limits, so other metrics are set effectively unbounded.
 ```sh
 bazel run //:clang_tidy_report_changed            # the PR gate's changed-files scope
 bazel run //:clang_tidy_report_changed -- --profile  # phase timings, slowest checks
+bazel run //:clang_tidy_report_changed -- --annotate # also GitHub annotations
 bazel run //:clang_tidy_fix_changed               # apply fixes (macOS/Linux, system LLVM on PATH)
 ```
 
+- **Output.** Findings print as each translation unit finishes, one block per
+  finding (`error: src/foo.cpp:12:5 [check]`, message, source snippet, notes),
+  each printed once even when several translation units report it. With
+  `--annotate`, which CI passes, each finding in a repository file is also a
+  GitHub annotation; GitHub shows at most 10 error annotations per step, so
+  past that the job log is the full list.
 - **LLVM pin.** CI pins LLVM (`CLANG_TIDY_LLVM_*` in
   [pr.yml](../.github/workflows/pr.yml)) on Linux and Windows; a different local
   LLVM can report differently.
