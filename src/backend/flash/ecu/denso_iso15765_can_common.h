@@ -33,13 +33,16 @@ namespace fastecu::flash
 // The decrypt table remains valid for the bootloader-dialect normal-ROM read paths.
 // DensoCAN is not a consumer of this data-only cluster.
 //
-// Beyond these tables, the common module shares eight narrow operations: pure
+// Beyond these tables, the common module shares nine narrow operations: pure
 // setup-PDU encoding, the SecurityAccess seed/key exchange, the erase flow,
 // one encrypted B7 page read, one B6 write request and best-effort transfer
 // exit (all four Denso ISO-15765 bootloader dialect executors), and the N83M in-car opening
 // exchange run (the two N83M executors
 // only; its 0x7E1 request asks for session 0x63, where the SH-family runs send
-// 0x03), plus the N83M 4M/SH72531 jump continuation wait. Everything else that looks alike -- the connect/probe shapes,
+// 0x03), plus the N83M 4M/SH72531 jump continuation wait, and connect_bootloader's prelude (OBK probe, identity
+// queries, access-method probe and branch selector), which direct comparison showed byte-identical across all four
+// apart from one log line, the diesel ECU ID query and the diesel probe timeout, all kept as parameters or local.
+// Everything else that looks alike -- the in-car and bench connect arms,
 // the reflash routines, the complete kernel jump, the stop retry loops, the checksum verify -- differs between the
 // families in read timeouts, retry counts, pre-loop read counts, image base addresses, and, most importantly, in how
 // strictly a bad response is treated. Those differences are the safety-relevant part of each family: collapsing them
@@ -146,6 +149,28 @@ Status DensoIso15765WaitForJumpAck(const CanExecutorContext& ctx, bytes::Byte se
 Result<bytes::Bytes> TolerantProbe(const CanExecutorContext& ctx, bytes::ByteView pdu, bytes::Byte expected_service,
                                    bytes::Byte expected_subfunction, std::chrono::milliseconds timeout,
                                    std::string_view rejection_prefix, std::string_view subject);
+
+// connect_bootloader's OBK-already-active probe: 10 5F through the channel,
+// one read at 200 ms. True when the reply starts 50 5F, after logging
+// `active_log` (the families differ only in that wording). A mismatch, an
+// absent frame or an empty PDU is a non-fatal miss that logs and returns
+// false; only send and receive errors fail.
+Result<bool> DensoObkIsActive(const CanExecutorContext& ctx, std::string_view active_log);
+
+// connect_bootloader's identity prelude: the ECU ID query (AA; SH72543 diesel
+// reads it by DID instead and keeps that query local), then VIN, CAL ID and
+// CVN (09 02/04/06). Each logs its request, reads at 2000 ms and is non-fatal:
+// a mismatch or an exchange error, cancellation included, is logged and
+// swallowed.
+void DensoEcuIdQuery(const CanExecutorContext& ctx);
+void DensoVehicleInfoQueries(const CanExecutorContext& ctx);
+
+// connect_bootloader's access-method probe (10 5F, expecting 50 01) and
+// programming-branch selector (22 10 1D, expecting 62 10), both tolerant at
+// `probe_timeout`. True selects the in-car arm: selector payload byte 3 is not
+// 0xFF. A selector reply shorter than four bytes fails rather than reading out
+// of bounds, which legacy would do.
+Result<bool> DensoProgrammingBranchIsInCar(const CanExecutorContext& ctx, std::chrono::milliseconds probe_timeout);
 
 // Sends `pdu` to `request_id` and reads one reply only to discard it: the
 // in-car arm's opening run of session/DTC/communication-control exchanges

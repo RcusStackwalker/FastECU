@@ -49,14 +49,15 @@ checksum and rejects its `7F` failure marker.
 ## Denso ISO-15765 bootloader dialect
 
 The [common module](../../src/backend/flash/ecu/denso_iso15765_can_common.h)
-shares eight operations across N83M 1.5M, N83M 4M, SH72531 and SH72543 diesel:
+shares nine operations across N83M 1.5M, N83M 4M, SH72531 and SH72543 diesel:
 setup-PDU encoding, seed/key, erase, one encrypted B7 page read, one B6 write
-request, best-effort transfer exit, the N83M-only in-car opening run, and the
-N83M 4M/SH72531 jump continuation wait. Its header documents each operation and
-why everything else stays local.
+request, best-effort transfer exit, the N83M-only in-car opening run, the
+N83M 4M/SH72531 jump continuation wait, and the connect prelude (OBK probe,
+identity queries, access-method probe and branch selector). Its header
+documents each operation and why everything else stays local.
 
 Kept local in each executor: `write_memory` orchestration, read loops, reflash,
-connect/probe, complete kernel jumps, identity preludes, close/checksum and
+the in-car and bench connect arms, complete kernel jumps, close/checksum and
 family response policy. In particular:
 
 - Setup PDUs accept only a region, so callers cannot select another SID. Read
@@ -75,12 +76,17 @@ family response policy. In particular:
   again; N83M 1.5M and SH72543 diesel read once and keep their own continuations.
   The final continuation receive is unchecked and exhaustion succeeds.
 - Non-fatal identity queries swallow exchange errors, including cancellation;
-  a cancelled token still prevents later transport I/O.
+  a cancelled token still prevents later transport I/O. SH72543 diesel reads
+  the ECU ID by DID and keeps that query local.
+- The OBK probe's success log is a parameter (`OBK is active` on N83M,
+  `OBK is active!` on the SH families), and so is the access-method and selector
+  probe timeout (200 ms, 2000 ms on SH72543 diesel). An absent OBK frame or an
+  empty PDU in a valid envelope is a miss; a raw empty frame fails envelope
+  validation.
 
-OBK probes and best-effort read-stop also stay local because their logs differ,
-even though the wire-prefix predicate and stop retry policy match. An absent OBK
-frame or an empty PDU in a valid envelope is a miss; a raw empty frame fails
-envelope validation. Stop ignores every exchange failure, including cancellation.
+Best-effort read-stop stays local because its logs differ, even though the
+stop retry policy matches. Stop ignores every exchange failure, including
+cancellation.
 
 ## M32R SSM exchange
 
