@@ -202,6 +202,7 @@ fastecu_gtest(
     srcs = ["transport_reads_test.cpp"],
     deps = [
         ":flash_transports",
+        ":serial_read",
         ":transport",
         "//src/backend/ports/testing:fake_cancellation_token",
         "//src/backend/ports/testing:result_matchers",

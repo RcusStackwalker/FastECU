@@ -17,6 +17,7 @@
 #include "src/platform/desktop/common/transport/desktop_mixed_can_flash_transport.h"
 #include "src/platform/desktop/common/transport/fastecu_kline_transport.h"
 #include "src/platform/desktop/common/transport/fastecu_ssm_transport.h"
+#include "src/platform/desktop/common/transport/serial_read.h"
 
 namespace
 {
@@ -255,6 +256,43 @@ TEST(TransportReadPrechecks, ClosedAdaptersKeepCancellationAndModePrecedence)
     // Mixed CAN checks its lifecycle/mode before the serial-read precheck.
     const auto mixed_closed = mixed.ReadIso15765(10ms, cancellation);
     EXPECT_THAT(mixed_closed, IsErrWith(ErrorKind::kDisconnected, StrEq("ISO-15765 read called after close()")));
+}
+
+TEST(GuardedDriverCall, MapsEscapingExceptionsToTheRequestedKind)
+{
+    using fastecu::Status;
+    using fastecu::desktop::detail::GuardedDriverCall;
+    EXPECT_THAT(
+        GuardedDriverCall<fastecu::Result<std::size_t>>(
+            ErrorKind::kInternal, "unknown",
+            []() -> fastecu::Result<std::size_t>
+            {
+                throw FakeBackendNonStandardFailure{}; // NOLINT(bugprone-std-exception-baseclass): catch-all probe.
+            }),
+        IsErrWith(ErrorKind::kInternal, StrEq("unknown")));
+    EXPECT_THAT(GuardedDriverCall<fastecu::Result<std::size_t>>(ErrorKind::kInternal, "unknown",
+                                                                []() -> fastecu::Result<std::size_t>
+                                                                { throw std::logic_error("x"); }),
+                IsErrWith(ErrorKind::kInternal, StrEq("x")));
+    EXPECT_THAT(GuardedDriverCall<Status>(ErrorKind::kInternal, "unknown",
+                                          []() -> fastecu::Status { throw std::runtime_error("driver broke"); }),
+                IsErrWith(ErrorKind::kInternal, StrEq("driver broke")));
+    EXPECT_THAT(
+        GuardedDriverCall<Status>(
+            ErrorKind::kDisconnected, "unknown",
+            []() -> fastecu::Status
+            {
+                throw FakeBackendNonStandardFailure{}; // NOLINT(bugprone-std-exception-baseclass): catch-all probe.
+            }),
+        IsErrWith(ErrorKind::kDisconnected, StrEq("unknown")));
+    EXPECT_THAT(GuardedDriverCall<Status>(ErrorKind::kInternal, "unknown", []() -> fastecu::Status { return {}; }),
+                IsOk());
+}
+
+TEST(GuardedDriverCall, ResetOfAClosedSerialIsDisconnected)
+{
+    EXPECT_THAT(fastecu::desktop::detail::ResetSerialConnection(nullptr),
+                IsErrWith(ErrorKind::kDisconnected, StrEq("reset_connection() called after close()")));
 }
 
 INSTANTIATE_TEST_SUITE_P(Adapters, TransportReads,

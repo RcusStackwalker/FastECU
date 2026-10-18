@@ -3,6 +3,7 @@
 #include <chrono>
 #include <cstdint>
 #include <exception>
+#include <functional>
 #include <optional>
 
 #include "src/backend/ports/cancellation.h"
@@ -58,5 +59,44 @@ Result<std::optional<bytes::Bytes>> ReadSerial(SerialPortActions *serial, std::c
         }
         return Fail(ErrorKind::kInternal, "serial driver read exception");
     }
+}
+
+// Runs a driver call whose exceptions must not escape the transport: a
+// std::exception becomes `kind` carrying its what(), anything else `kind` with
+// `unknown`. `Outcome` is instantiated only for Status and Result<std::size_t>,
+// so each catch path is exercised once per instantiation by the guard's tests.
+template <typename Outcome>
+Outcome GuardedDriverCall(ErrorKind kind, const char *unknown, const std::function<Outcome()>& body)
+{
+    try
+    {
+        return body();
+    }
+    catch (const std::exception& error)
+    {
+        return Fail(kind, error.what());
+    }
+    catch (...)
+    {
+        return Fail(kind, unknown);
+    }
+}
+
+inline Status ResetSerialConnection(SerialPortActions *serial)
+{
+    if (!serial)
+    {
+        return Fail(ErrorKind::kDisconnected, "reset_connection() called after close()");
+    }
+    return GuardedDriverCall<Status>(ErrorKind::kInternal, "reset_connection exception",
+                                     [serial]() -> Status
+                                     {
+                                         // SerialPortActions::reset_connection()
+                                         // (serial_port_actions.cpp:523-527) is `runOnBackend(...); return
+                                         // true;` -- it cannot report failure through its return value, so
+                                         // only an exception can produce an Internal error here.
+                                         serial->ResetConnection();
+                                         return {};
+                                     });
 }
 } // namespace fastecu::desktop::detail
