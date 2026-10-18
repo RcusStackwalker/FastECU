@@ -31,7 +31,6 @@ ECU needs it. Collapsing one waits on bench evidence (see
 | The three tolerant connect probes also have their `return STATUS_ERROR` commented out. The siblings have no return there either, so this is a record that the check was removed, not a behaviour difference | 305, 335, 369 | `DensoProgrammingBranchIsInCar`, `ConnectInCar` | no wire difference |
 | Bench kernel jump discards a matching first reply, waits 50 ms and reads again | 788-791 | `DensoIso15765JumpToKernel(…, true)` | transcribed, unverified |
 | Checksum verify reads 500 ms, then 3000 ms (`serial_read_extra_long_timeout`) after `7F 31 78` | 1322, 1341 | `kChecksumPolicy` | transcribed, unverified |
-| Read stop logs only an empty continuation line on a response, so no `Stop request response` line | 1066 | `DensoIso15765ReadDump(…, log_stop_response)` | log only |
 
 ## SH72531
 

@@ -154,15 +154,16 @@ Status DensoIso15765WriteImage(const CanExecutorContext& ctx, bytes::ByteView im
 // stopRequested() at the top; stop loops at 1027-1057, 1040-1070, 1025-1056
 // and 1019-1045, all at receive_timeout; padding at 1061-1068, 1072-1078,
 // 1058-1069 and 1047-1058. The SH page pacing (SH72531 1007, diesel 1001)
-// precedes the next B7 write, so no read timeout subsumes it. N83M 4M logs
-// only an empty continuation line on a stop response (line 1066).
+// precedes the next B7 write, so no read timeout subsumes it. Every family
+// logs the stop response: N83M 4M's legacy logs only an empty continuation
+// line there (line 1066), a log-only difference dropped on purpose.
 // Legacy decrypts the whole accumulated dump in one call (1059, 1072, 1058,
 // 1047); SsmProtocol::calculatePayload transforms independent 4-byte words, so
 // decrypting each page as it arrives is byte-identical without a second
 // full-ROM buffer.
 Result<bytes::Bytes> DensoIso15765ReadDump(const CanExecutorContext& ctx, const MemoryRegion& region,
                                            std::size_t lead_pad_len, std::size_t tail_pad_len, PhaseReporter& progress,
-                                           bool pace_pages, bool log_stop_response)
+                                           bool pace_pages)
 {
     constexpr std::uint32_t kPageSize = 0x100;
     LogInfo(ctx, "Start reading ROM, please wait...");
@@ -200,10 +201,7 @@ Result<bytes::Bytes> DensoIso15765ReadDump(const CanExecutorContext& ctx, const 
                 ctx.uds.Request(bytes::Bytes{uds::kSidRequestTransferExit}, kStopPolicy, ctx.cancellation);
             stop.has_value())
         {
-            if (log_stop_response)
-            {
-                LogInfo(ctx, std::format("Stop request response: {}", bytes::ToHex(*stop)));
-            }
+            LogInfo(ctx, std::format("Stop request response: {}", bytes::ToHex(*stop)));
             break;
         }
     }

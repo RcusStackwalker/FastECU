@@ -157,12 +157,6 @@ void ExpectReadFailsWith(const Result<FlashPlan>& plan, ScriptedCanFlashTranspor
 // What differs between families in the short-page read test. Page replies of
 // 4 bytes (instead of the requested size) must advance the address by the
 // requested page size and still return the padded image.
-enum class StopResponseLog
-{
-    kLoggedWhenAcknowledged,
-    kNeverLogged,
-};
-
 struct ShortPageReadExpectation
 {
     std::size_t block_length;
@@ -170,7 +164,6 @@ struct ShortPageReadExpectation
     std::size_t lead_pad;
     std::string_view obk_active_log;
     std::vector<std::chrono::milliseconds> sleeps;
-    StopResponseLog stop_log;
 };
 
 // Runs `plan` against the already-scripted `transport` and checks the image,
@@ -214,14 +207,9 @@ void ExpectShortPageRead(const FlashPlan& plan, ScriptedCanFlashTransport& trans
     EXPECT_THAT(events.logs, ::testing::Contains(::testing::Pair(LogLevel::kInfo, expect.obk_active_log)));
     EXPECT_EQ(clock.sleep_calls, expect.sleeps);
     EXPECT_EQ(transport.ReadTimeouts().back(), std::chrono::milliseconds(500));
-    const auto stop_logged = ::testing::Contains(::testing::Pair(LogLevel::kInfo, "Stop request response: 77 "));
-    if (expect.stop_log == StopResponseLog::kNeverLogged)
+    if (!exhausted)
     {
-        EXPECT_THAT(events.logs, ::testing::Not(stop_logged));
-    }
-    else if (!exhausted)
-    {
-        EXPECT_THAT(events.logs, stop_logged);
+        EXPECT_THAT(events.logs, ::testing::Contains(::testing::Pair(LogLevel::kInfo, "Stop request response: 77 ")));
     }
 }
 
