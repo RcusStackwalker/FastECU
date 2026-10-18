@@ -64,7 +64,7 @@ rolling out.
 | --- | ---: | --- |
 | 1. Delete remote mode | ~1.1k + remote branches in callers | Done: −1,437 (1,248 production, 189 test) |
 | 2. QHexEdit to first-party standards, and tooling | 2.1k | Measured per PR; may grow tests |
-| 3. Transport-level cancellation and transcript harness (Colt pilot) | 1.9k Colt executor + tests | Pilot: +1,160 (+106 production, +1,054 test); Task 6: −353 (−16 production, −337 test) |
+| 3. Transport-level cancellation and transcript harness (Colt pilot) | 1.9k Colt executor + tests | Pilot: +1,088 (+72 production, +1,016 test); Task 6: −425 (−50 production, −375 test). The phase-4 gate (net reduction) is not met: the net increase is shared, family-independent infrastructure (transcript format, record/replay, guard and their tests), and Colt's own migration was about break-even. The go/no-go decision is open. |
 | 4. Roll out per family | ~35k remaining executor code and tests | Extrapolated only after phase 3 |
 | 5. Thin main-window tests | 4.7k | Measured per coordinator |
 | 6. Android | Adds code | Kept small by reusing the Qt UI and portable drivers |
@@ -174,8 +174,10 @@ interrupted). The guarded transport finishes the span, then reports cancellation
 family whose current code defers cancel somewhere must declare that span;
 the pilot inventories every existing deferral before deleting any check. Colt
 defers none today (a cancel after the erase request stops before its reply),
-so the pilot declares no critical section; the mechanism is proven by the
-guarded transport's own tests. Making the Colt erase a critical section would be
+so the pilot declares no critical section. Critical sections are not part of
+the pilot; they are designed with their first user in phase 4, and a real
+section must pass `inner` a never-cancelled token, survive `RequestUnblock`,
+and get past `UdsClient`'s own check. Making the Colt erase a critical section would be
 a separate, bench-evidenced behavior change.
 
 **Expected silence.** Some exchanges tolerate no reply. These are declared in
