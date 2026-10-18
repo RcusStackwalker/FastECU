@@ -38,6 +38,9 @@ than copying its inventory.
 
 ## Active work
 
+The [deduplication strategy investigation](superpowers/specs/2026-10-18-deduplication-strategy.md)
+compares approaches toward 100k NLOC and proposes measurements before implementation.
+
 Task-specific specs and plans exist only while their work is proposed or unfinished.
 Find them, when present, with:
 
