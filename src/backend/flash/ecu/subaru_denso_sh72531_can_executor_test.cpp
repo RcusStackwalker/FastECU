@@ -290,27 +290,20 @@ TEST(SubaruDensoSh72531CanExecutor, BenchReadReturnsPaddedImage)
     ScriptFlashDump(transport, kBlockStart, kBlockLength, kPageSize, 0xA5);
     ScriptStopCommand(transport);
 
-    const auto plan = ReadPlan();
-    ASSERT_THAT(plan, fastecu::testing::IsOk());
-    auto [clock, events, cancellation, result] = ExecutorRun<SubaruDensoSh72531CanExecutor>(*plan, transport);
-    ASSERT_THAT(result, fastecu::testing::IsOk());
-    ASSERT_TRUE(result->read_bytes.has_value());
-    const bytes::Bytes& rom = *result->read_bytes;
-    ASSERT_EQ(rom.size(), kImageSize);
-    EXPECT_THAT(bytes::ByteView(rom).first(0x8000), test_bytes::BytesFilledWith(0xFF)); // leading pad
-    EXPECT_THAT(bytes::ByteView(rom).subspan(0x8000, kBlockLength),
-                test_bytes::BytesFilledWith(0xA5));                                   // decrypted payload
-    EXPECT_THAT(bytes::ByteView(rom).last(0x100), test_bytes::BytesFilledWith(0xFF)); // tail pad
-    EXPECT_TRUE(transport.ScriptConsumed());
-    // The seed and key exchanges both read with the shared two-second timeout.
-    ASSERT_GT(transport.ReadTimeouts().size(), 9U);
-    EXPECT_EQ(transport.ReadTimeouts()[8], 2000ms);
-    EXPECT_EQ(transport.ReadTimeouts()[9], 2000ms);
-    EXPECT_THAT(events.logs,
+    fastecu::flash::testing::ExpectPaddedRead<SubaruDensoSh72531CanExecutor>(
+        ReadPlan(), transport, kImageSize, 0x8000, kBlockLength, 0xA5,
+        [](const auto& run, const auto&)
+        {
+            EXPECT_THAT(
+                run.events.logs,
                 Contains(Pair(LogLevel::kInfo, "Connecting to ECU Denso SH72531 CAN bootloader, please wait...")));
-    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::kInfo, "Reading ROM from ECU, Denso SH72531 using CAN")));
-    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::kInfo, "OBK not active, initialising ECU...")));
-    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::kInfo, "Bench programming: accessing, please wait...")));
+            EXPECT_THAT(run.events.logs,
+                        Contains(Pair(LogLevel::kInfo, "Reading ROM from ECU, Denso SH72531 using CAN")));
+            EXPECT_THAT(run.events.logs, Contains(Pair(LogLevel::kInfo, "OBK not active, initialising ECU...")));
+            EXPECT_THAT(run.events.logs,
+                        Contains(Pair(LogLevel::kInfo, "Bench programming: accessing, please wait...")));
+        });
+    fastecu::flash::testing::ExpectSeedAndKeyReadTimeouts(transport);
 }
 
 TEST(SubaruDensoSh72531CanExecutor, InCarReadReturnsPaddedImage)
@@ -321,18 +314,13 @@ TEST(SubaruDensoSh72531CanExecutor, InCarReadReturnsPaddedImage)
     ScriptFlashDump(transport, kBlockStart, kBlockLength, kPageSize, 0x5A);
     ScriptStopCommand(transport);
 
-    const auto plan = ReadPlan();
-    ASSERT_THAT(plan, fastecu::testing::IsOk());
-    auto [clock, events, cancellation, result] = ExecutorRun<SubaruDensoSh72531CanExecutor>(*plan, transport);
-    ASSERT_THAT(result, fastecu::testing::IsOk());
-    ASSERT_TRUE(result->read_bytes.has_value());
-    const bytes::Bytes& rom = *result->read_bytes;
-    ASSERT_EQ(rom.size(), kImageSize);
-    EXPECT_THAT(bytes::ByteView(rom).first(0x8000), test_bytes::BytesFilledWith(0xFF));
-    EXPECT_THAT(bytes::ByteView(rom).subspan(0x8000, kBlockLength), test_bytes::BytesFilledWith(0x5A));
-    EXPECT_THAT(bytes::ByteView(rom).last(0x100), test_bytes::BytesFilledWith(0xFF));
-    EXPECT_TRUE(transport.ScriptConsumed());
-    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::kInfo, "In car programming: accessing, please wait...")));
+    fastecu::flash::testing::ExpectPaddedRead<SubaruDensoSh72531CanExecutor>(
+        ReadPlan(), transport, kImageSize, 0x8000, kBlockLength, 0x5A,
+        [](const auto& run, const auto&)
+        {
+            EXPECT_THAT(run.events.logs,
+                        Contains(Pair(LogLevel::kInfo, "In car programming: accessing, please wait...")));
+        });
 }
 
 TEST_F(SubaruDensoSh72531CanExecutorWrite, WriteErasesThenFlashesBlockOne)
@@ -415,12 +403,8 @@ TEST(SubaruDensoSh72531CanExecutor, NegativeResponseDuringConnectFails)
     transport.Exchange(Request({0x10, 0x43}), Response({0x50, 0x43}));
     transport.Exchange(Request({0x27, 0x61}), Response({0x7F, 0x27, 0x35}));
 
-    const auto plan = ReadPlan();
-    ASSERT_THAT(plan, fastecu::testing::IsOk());
-    auto [clock, events, cancellation, result] = ExecutorRun<SubaruDensoSh72531CanExecutor>(*plan, transport);
-
-    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kBadResponse));
-    EXPECT_TRUE(transport.ScriptConsumed());
+    fastecu::flash::testing::ExpectReadFailsWith<SubaruDensoSh72531CanExecutor>(ReadPlan(), transport,
+                                                                                ErrorKind::kBadResponse);
 }
 
 TEST(SubaruDensoSh72531CanExecutor, NegativeResponseAtDumpSetupFails)
@@ -436,12 +420,8 @@ TEST(SubaruDensoSh72531CanExecutor, NegativeResponseAtDumpSetupFails)
     transport.Exchange(Request({0x34, 0x04, 0x44, 0x00, 0x00, 0x80, 0x00, 0x00, 0x13, 0x7F, 0x00}),
                        Response({0x7F, 0x34, 0x31}));
 
-    const auto plan = ReadPlan();
-    ASSERT_THAT(plan, fastecu::testing::IsOk());
-    auto [clock, events, cancellation, result] = ExecutorRun<SubaruDensoSh72531CanExecutor>(*plan, transport);
-
-    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kBadResponse));
-    EXPECT_TRUE(transport.ScriptConsumed());
+    fastecu::flash::testing::ExpectReadFailsWith<SubaruDensoSh72531CanExecutor>(ReadPlan(), transport,
+                                                                                ErrorKind::kBadResponse);
 }
 
 TEST(SubaruDensoSh72531CanExecutor, EmptyBranchSelectorReplyFails)
@@ -458,12 +438,8 @@ TEST(SubaruDensoSh72531CanExecutor, EmptyBranchSelectorReplyFails)
     transport.Exchange(Request({0x22, 0x10, 0x1D}));
     transport.QueueNoFrame();
 
-    const auto plan = ReadPlan();
-    ASSERT_THAT(plan, fastecu::testing::IsOk());
-    auto [clock, events, cancellation, result] = ExecutorRun<SubaruDensoSh72531CanExecutor>(*plan, transport);
-
-    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kTimeout));
-    EXPECT_TRUE(transport.ScriptConsumed());
+    fastecu::flash::testing::ExpectReadFailsWith<SubaruDensoSh72531CanExecutor>(ReadPlan(), transport,
+                                                                                ErrorKind::kTimeout);
 }
 
 TEST_F(SubaruDensoSh72531CanExecutorWrite, EraseRetryExhaustionFails)
@@ -507,12 +483,8 @@ TEST(SubaruDensoSh72531CanExecutor, ReadDisconnectMidDumpLoopPropagates)
     transport.Exchange(Request(bytes::ComposeBe(bytes::Byte(0xB7), kBlockStart)));
     transport.QueueError(ErrorKind::kDisconnected, "adapter gone");
 
-    const auto plan = ReadPlan();
-    ASSERT_THAT(plan, fastecu::testing::IsOk());
-    auto [clock, events, cancellation, result] = ExecutorRun<SubaruDensoSh72531CanExecutor>(*plan, transport);
-
-    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kDisconnected));
-    EXPECT_TRUE(transport.ScriptConsumed());
+    fastecu::flash::testing::ExpectReadFailsWith<SubaruDensoSh72531CanExecutor>(ReadPlan(), transport,
+                                                                                ErrorKind::kDisconnected);
 }
 
 // The IFlashExecutor contract this family satisfies -- see
