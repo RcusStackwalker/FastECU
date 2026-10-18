@@ -564,6 +564,184 @@ void Deduce() { Wrap wrapped(1); }
 """,
         )
 
+    def test_index_loop_returning_bool_suggests_any_all_of(self) -> None:
+        self.assert_diagnostics("""#include <array>
+#include <cstddef>
+#include <vector>
+struct Block { int start; int len; };
+bool MatchesExpected(const std::vector<Block>& blocks, const std::array<Block, 2>& expected) {
+    for (std::size_t i = 0; i < blocks.size(); ++i) { // error: any-all-index-loop
+        if (blocks[i].start != expected[i].start) {
+            return false;
+        }
+    }
+    return true;
+}
+bool HasFlag(const std::vector<int>& values) {
+    for (std::size_t i = 0; i < values.size(); ++i) { // error: any-all-index-loop
+        if (values[i] == 3) {
+            return true;
+        }
+    }
+    return false;
+}
+bool Unrelated(const std::vector<int>& values) {
+    for (const int value : values) {
+        if (value == 3) {
+            return true;
+        }
+    }
+    return false;
+}
+int Attempt(int value) { return value; }
+bool Retry() {
+    for (int attempt = 0; attempt < 3; ++attempt) {
+        if (Attempt(attempt) == 2) {
+            return true;
+        }
+    }
+    return false;
+}
+int FindIndex(const std::vector<int>& values) {
+    for (std::size_t i = 0; i < values.size(); ++i) {
+        if (values[i] == 3) {
+            return static_cast<int>(i);
+        }
+    }
+    return -1;
+}
+bool TwoStatements(const std::vector<int>& values, int& seen) {
+    for (std::size_t i = 0; i < values.size(); ++i) {
+        ++seen;
+        if (values[i] == 3) {
+            return true;
+        }
+    }
+    return false;
+}
+""")
+
+    def test_counting_loop_suggests_count_if(self) -> None:
+        self.assert_diagnostics("""#include <cstddef>
+#include <vector>
+int CountLarge(const std::vector<int>& values) {
+    int large = 0;
+    for (const int value : values) { // error: count-if-loop
+        if (value > 3) {
+            ++large;
+        }
+    }
+    return large;
+}
+int CountIndexed(const std::vector<int>& values) {
+    int hits = 0;
+    for (std::size_t i = 0; i < values.size(); ++i) { // error: count-if-loop
+        if (values[i] == 3) {
+            hits++;
+        }
+    }
+    return hits;
+}
+int CountAll(const std::vector<int>& values) {
+    int total = 0;
+    for (const int value : values) {
+        ++total;
+    }
+    return total;
+}
+int CountTwoStatements(const std::vector<int>& values, int& seen) {
+    int hits = 0;
+    for (const int value : values) {
+        ++seen;
+        if (value == 3) {
+            ++hits;
+        }
+    }
+    return hits;
+}
+""")
+
+    def test_summing_loop_suggests_fold(self) -> None:
+        self.assert_diagnostics("""#include <cstddef>
+#include <cstdint>
+#include <string>
+#include <vector>
+std::uint32_t SumBytes(const std::vector<std::uint8_t>& bytes) {
+    std::uint32_t sum = 0;
+    for (const std::uint8_t byte : bytes) { // error: accumulate-loop
+        sum += byte;
+    }
+    return sum;
+}
+std::uint32_t SumBlocks(const std::vector<std::uint32_t>& lengths) {
+    std::uint32_t total = 0;
+    for (std::size_t i = 0; i < lengths.size(); ++i) { // error: accumulate-loop
+        total += lengths[i];
+    }
+    return total;
+}
+std::string Joined(const std::vector<std::string>& parts) {
+    std::string out;
+    for (const std::string& part : parts) { // error: accumulate-loop
+        out += part;
+    }
+    return out;
+}
+std::uint32_t SumWords(const std::vector<std::uint8_t>& rom, std::size_t size) {
+    std::uint32_t sum = 0;
+    for (std::size_t offset = 0; offset + 4 <= size; offset += 4) {
+        sum += rom[offset];
+    }
+    return sum;
+}
+std::uint32_t SumConstant(int count) {
+    std::uint32_t sum = 0;
+    for (int i = 0; i < count; ++i) {
+        sum += 1;
+    }
+    return sum;
+}
+""")
+
+    def test_collecting_loop_suggests_transform(self) -> None:
+        self.assert_diagnostics("""#include <cstddef>
+#include <cstdint>
+#include <string>
+#include <vector>
+std::vector<std::uint8_t> Indices(int count) {
+    std::vector<std::uint8_t> out;
+    for (int i = 0; i < count; ++i) { // error: transform-collect-loop
+        out.push_back(static_cast<std::uint8_t>(i));
+    }
+    return out;
+}
+std::vector<int> Doubled(const std::vector<int>& values) {
+    std::vector<int> out;
+    for (const int value : values) { // error: transform-collect-loop
+        out.emplace_back(value * 2);
+    }
+    return out;
+}
+std::vector<std::string> Labels(const std::vector<int>& values) {
+    std::vector<std::string> out;
+    for (const int value : values) { // error: transform-collect-loop
+        out.push_back(std::to_string(value));
+    }
+    return out;
+}
+void Constants(std::vector<int>& calls) {
+    for (int i = 0; i < 3; ++i) {
+        calls.push_back(7);
+    }
+}
+void Pairs(std::vector<int>& calls, const std::vector<int>& values) {
+    for (const int value : values) {
+        calls.push_back(value);
+        calls.push_back(value);
+    }
+}
+""")
+
 
 if __name__ == "__main__":
     unittest.main()

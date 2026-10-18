@@ -614,3 +614,216 @@ CustomChecks:
       - BindName: loop
         Message: "Linear search loop returning a matching element or index; consider std::ranges::find or std::ranges::find_if"
         Level: Warning
+# Index loops that return a bool from a subscripted test: the condition must read
+# an array through the loop counter, the body must be one `if` returning a bool
+# literal, and the counter must advance with ++. Range-for loops are left to
+# readability-use-anyofallof. Diagnostic only: confirm the bound is the array
+# the condition reads.
+  - Name: fastecu-any-all-index-loop
+    Query: |
+      match stmt(
+        forStmt(
+          hasLoopInit(declStmt(hasSingleDecl(varDecl().bind("index")))),
+          hasIncrement(
+            unaryOperator(
+              hasOperatorName("++"),
+              hasUnaryOperand(declRefExpr(to(varDecl(equalsBoundNode("index")))))
+            )
+          ),
+          hasBody(
+            compoundStmt(
+              statementCountIs(1),
+              has(
+                ifStmt(
+                  unless(hasElse(stmt())),
+                  hasCondition(
+                    hasDescendant(
+                      expr(
+                        anyOf(
+                          arraySubscriptExpr(
+                            hasIndex(ignoringParenImpCasts(declRefExpr(to(varDecl(equalsBoundNode("index"))))))
+                          ),
+                          cxxOperatorCallExpr(
+                            hasOverloadedOperatorName("[]"),
+                            hasArgument(1, ignoringParenImpCasts(declRefExpr(to(varDecl(equalsBoundNode("index"))))))
+                          )
+                        )
+                      )
+                    )
+                  ),
+                  hasThen(
+                    compoundStmt(
+                      statementCountIs(1),
+                      has(returnStmt(hasReturnValue(ignoringParenImpCasts(cxxBoolLiteral()))))
+                    )
+                  )
+                )
+              )
+            )
+          )
+        )
+      ).bind("loop")
+    Diagnostic:
+      - BindName: loop
+        Message: "Index loop returning a bool from a subscripted search; consider std::ranges::any_of, std::ranges::all_of, or std::ranges::none_of"
+        Level: Warning
+# Counting loops: a single `if` whose body only increments a counter declared
+# outside the loop. Diagnostic only: the counter must not be read inside the loop.
+  - Name: fastecu-count-if-loop
+    Query: |
+      match stmt(
+        anyOf(
+          cxxForRangeStmt(
+            hasBody(
+              compoundStmt(
+                statementCountIs(1),
+                has(
+                  ifStmt(
+                    hasThen(
+                      compoundStmt(
+                        statementCountIs(1),
+                        has(unaryOperator(hasOperatorName("++")))
+                      )
+                    )
+                  )
+                )
+              )
+            )
+          ),
+          forStmt(
+            hasBody(
+              compoundStmt(
+                statementCountIs(1),
+                has(
+                  ifStmt(
+                    hasThen(
+                      compoundStmt(
+                        statementCountIs(1),
+                        has(unaryOperator(hasOperatorName("++")))
+                      )
+                    )
+                  )
+                )
+              )
+            )
+          )
+        )
+      ).bind("loop")
+    Diagnostic:
+      - BindName: loop
+        Message: "Counting loop with a conditional increment; consider std::ranges::count_if"
+        Level: Warning
+# Summing loops: a single `+=` into a variable declared outside the loop, whose
+# right-hand side reads the loop variable. Strided loops (`offset += 4`) are not
+# matched because the counter must advance with ++. Diagnostic only.
+  - Name: fastecu-accumulate-loop
+    Query: |
+      match stmt(
+        anyOf(
+          cxxForRangeStmt(
+            hasLoopVariable(varDecl().bind("element")),
+            hasBody(
+              compoundStmt(
+                statementCountIs(1),
+                has(
+                  anyOf(
+                    binaryOperator(
+                      hasOperatorName("+="),
+                      hasLHS(declRefExpr()),
+                      hasDescendant(declRefExpr(to(varDecl(equalsBoundNode("element")))))
+                    ),
+                    cxxOperatorCallExpr(
+                      hasOverloadedOperatorName("+="),
+                      hasArgument(0, declRefExpr()),
+                      hasDescendant(declRefExpr(to(varDecl(equalsBoundNode("element")))))
+                    )
+                  )
+                )
+              )
+            )
+          ),
+          forStmt(
+            hasLoopInit(declStmt(hasSingleDecl(varDecl().bind("index")))),
+            hasIncrement(
+              unaryOperator(
+                hasOperatorName("++"),
+                hasUnaryOperand(declRefExpr(to(varDecl(equalsBoundNode("index")))))
+              )
+            ),
+            hasBody(
+              compoundStmt(
+                statementCountIs(1),
+                has(
+                  anyOf(
+                    binaryOperator(
+                      hasOperatorName("+="),
+                      hasLHS(declRefExpr()),
+                      hasDescendant(declRefExpr(to(varDecl(equalsBoundNode("index")))))
+                    ),
+                    cxxOperatorCallExpr(
+                      hasOverloadedOperatorName("+="),
+                      hasArgument(0, declRefExpr()),
+                      hasDescendant(declRefExpr(to(varDecl(equalsBoundNode("index")))))
+                    )
+                  )
+                )
+              )
+            )
+          )
+        )
+      ).bind("loop")
+    Diagnostic:
+      - BindName: loop
+        Message: "Summing loop; consider std::ranges::fold_left (or std::accumulate) over the range"
+        Level: Warning
+# Collecting loops: a single push_back or emplace_back whose argument reads the
+# loop variable, so each element maps to one appended value. Constant pushes are
+# not reported. Diagnostic only: the container must not be read in the loop.
+  - Name: fastecu-transform-collect-loop
+    Query: |
+      match stmt(
+        anyOf(
+          cxxForRangeStmt(
+            hasLoopVariable(varDecl().bind("element")),
+            hasBody(
+              compoundStmt(
+                statementCountIs(1),
+                has(
+                  expr(
+                  anyOf(
+                    cxxMemberCallExpr(callee(cxxMethodDecl(hasAnyName("push_back", "emplace_back"))), hasDescendant(declRefExpr(to(varDecl(equalsBoundNode("element")))))),
+                    exprWithCleanups(has(cxxMemberCallExpr(callee(cxxMethodDecl(hasAnyName("push_back", "emplace_back"))), hasDescendant(declRefExpr(to(varDecl(equalsBoundNode("element"))))))))
+                  )
+                )
+                )
+              )
+            )
+          ),
+          forStmt(
+            hasLoopInit(declStmt(hasSingleDecl(varDecl().bind("index")))),
+            hasIncrement(
+              unaryOperator(
+                hasOperatorName("++"),
+                hasUnaryOperand(declRefExpr(to(varDecl(equalsBoundNode("index")))))
+              )
+            ),
+            hasBody(
+              compoundStmt(
+                statementCountIs(1),
+                has(
+                  expr(
+                  anyOf(
+                    cxxMemberCallExpr(callee(cxxMethodDecl(hasAnyName("push_back", "emplace_back"))), hasDescendant(declRefExpr(to(varDecl(equalsBoundNode("index")))))),
+                    exprWithCleanups(has(cxxMemberCallExpr(callee(cxxMethodDecl(hasAnyName("push_back", "emplace_back"))), hasDescendant(declRefExpr(to(varDecl(equalsBoundNode("index"))))))))
+                  )
+                )
+                )
+              )
+            )
+          )
+        )
+      ).bind("loop")
+    Diagnostic:
+      - BindName: loop
+        Message: "Loop appending one value per element; consider std::ranges::transform into std::back_inserter or std::views::transform with std::ranges::to"
+        Level: Warning
