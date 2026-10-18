@@ -20,31 +20,7 @@ DesktopCanFlashTransport::~DesktopCanFlashTransport() = default;
 
 Status DesktopCanFlashTransport::ResetConnection()
 {
-    if (!serial_)
-    {
-        return Fail(ErrorKind::kDisconnected, "reset_connection() called after close()");
-    }
-    try
-    {
-        // No real sentinel: SerialPortActions::reset_connection()
-        // (serial_port_actions.cpp:541-544) is `runOnBackend(...); return
-        // true;` -- it cannot report failure through its return value, so
-        // this branch is unreachable today and only the surrounding catch
-        // blocks below can produce an Internal error here.
-        if (!serial_->ResetConnection())
-        {
-            return Fail(ErrorKind::kInternal, "reset_connection failed");
-        }
-        return {};
-    }
-    catch (const std::exception& error)
-    {
-        return Fail(ErrorKind::kInternal, error.what());
-    }
-    catch (...)
-    {
-        return Fail(ErrorKind::kInternal, "reset_connection exception");
-    }
+    return fastecu::desktop::detail::ResetSerialConnection(serial_);
 }
 
 Status DesktopCanFlashTransport::Configure(const Iso15765Config& config)
@@ -54,69 +30,63 @@ Status DesktopCanFlashTransport::Configure(const Iso15765Config& config)
         return Fail(ErrorKind::kDisconnected, "configure() called after close()");
     }
 
-    try
-    {
-        // Every setter below (SerialPortActionsDirect, the real backend --
-        // see serial_port_actions_direct.h) just assigns a member and
-        // unconditionally `return true`; none of them probe the port or
-        // touch hardware, so none can plausibly report "adapter gone" --
-        // every failure here is InvalidConfig, never Disconnected. open(),
-        // below, is the one call in this adapter that actually touches
-        // hardware and maps failure to Disconnected. Order matches the
-        // design spec exactly: connection mode, 11/29-bit selection,
-        // bitrate, request/response CAN IDs, then ISO-15765 source/
-        // destination IDs, then clears any ISO-14230 auto-header state that
-        // may survive from a previous K-Line session on the shared facade.
-        if (!serial_->SetIsIso15765Connection(true))
+    return fastecu::desktop::detail::GuardedDriverCall(
+        ErrorKind::kInternal, "CAN configure exception",
+        [&]() -> Status
         {
-            return Fail(ErrorKind::kInvalidConfig, "set_is_iso15765_connection failed");
-        }
-        if (!serial_->SetIsCanConnection(false))
-        {
-            return Fail(ErrorKind::kInvalidConfig, "set_is_can_connection failed");
-        }
-        if (!serial_->SetIsIso14230Connection(false))
-        {
-            return Fail(ErrorKind::kInvalidConfig, "set_is_iso14230_connection failed");
-        }
-        if (!serial_->SetIs29BitId(config.extended_id))
-        {
-            return Fail(ErrorKind::kInvalidConfig, "set_is_29_bit_id failed");
-        }
-        if (!serial_->SetCanSpeed(QString::number(config.bitrate)))
-        {
-            return Fail(ErrorKind::kInvalidConfig, "set_can_speed failed");
-        }
-        if (!serial_->SetCanSourceAddress(config.request_id))
-        {
-            return Fail(ErrorKind::kInvalidConfig, "set_can_source_address failed");
-        }
-        if (!serial_->SetCanDestinationAddress(config.response_id))
-        {
-            return Fail(ErrorKind::kInvalidConfig, "set_can_destination_address failed");
-        }
-        if (!serial_->SetIso15765SourceAddress(config.request_id))
-        {
-            return Fail(ErrorKind::kInvalidConfig, "set_iso15765_source_address failed");
-        }
-        if (!serial_->SetIso15765DestinationAddress(config.response_id))
-        {
-            return Fail(ErrorKind::kInvalidConfig, "set_iso15765_destination_address failed");
-        }
-        if (!serial_->SetAddIso14230Header(false))
-        {
-            return Fail(ErrorKind::kInvalidConfig, "set_add_iso14230_header failed");
-        }
-        return {};
-    }
-    catch (const std::exception& error)
-    {
-        return Fail(ErrorKind::kInternal, error.what());
-    }
-    catch (...)
-    {
-        return Fail(ErrorKind::kInternal, "CAN configure exception");
-    }
+            // Every setter below (SerialPortActionsDirect, the real backend --
+            // see serial_port_actions_direct.h) just assigns a member and
+            // unconditionally `return true`; none of them probe the port or
+            // touch hardware, so none can plausibly report "adapter gone" --
+            // every failure here is InvalidConfig, never Disconnected. open(),
+            // below, is the one call in this adapter that actually touches
+            // hardware and maps failure to Disconnected. Order matches the
+            // design spec exactly: connection mode, 11/29-bit selection,
+            // bitrate, request/response CAN IDs, then ISO-15765 source/
+            // destination IDs, then clears any ISO-14230 auto-header state that
+            // may survive from a previous K-Line session on the shared facade.
+            if (!serial_->SetIsIso15765Connection(true))
+            {
+                return Fail(ErrorKind::kInvalidConfig, "set_is_iso15765_connection failed");
+            }
+            if (!serial_->SetIsCanConnection(false))
+            {
+                return Fail(ErrorKind::kInvalidConfig, "set_is_can_connection failed");
+            }
+            if (!serial_->SetIsIso14230Connection(false))
+            {
+                return Fail(ErrorKind::kInvalidConfig, "set_is_iso14230_connection failed");
+            }
+            if (!serial_->SetIs29BitId(config.extended_id))
+            {
+                return Fail(ErrorKind::kInvalidConfig, "set_is_29_bit_id failed");
+            }
+            if (!serial_->SetCanSpeed(QString::number(config.bitrate)))
+            {
+                return Fail(ErrorKind::kInvalidConfig, "set_can_speed failed");
+            }
+            if (!serial_->SetCanSourceAddress(config.request_id))
+            {
+                return Fail(ErrorKind::kInvalidConfig, "set_can_source_address failed");
+            }
+            if (!serial_->SetCanDestinationAddress(config.response_id))
+            {
+                return Fail(ErrorKind::kInvalidConfig, "set_can_destination_address failed");
+            }
+            if (!serial_->SetIso15765SourceAddress(config.request_id))
+            {
+                return Fail(ErrorKind::kInvalidConfig, "set_iso15765_source_address failed");
+            }
+            if (!serial_->SetIso15765DestinationAddress(config.response_id))
+            {
+                return Fail(ErrorKind::kInvalidConfig, "set_iso15765_destination_address failed");
+            }
+            if (!serial_->SetAddIso14230Header(false))
+            {
+                return Fail(ErrorKind::kInvalidConfig, "set_add_iso14230_header failed");
+            }
+            return {};
+        });
 }
 
 Status DesktopCanFlashTransport::Open()
@@ -126,28 +96,22 @@ Status DesktopCanFlashTransport::Open()
         return Fail(ErrorKind::kDisconnected, "open() called after close()");
     }
 
-    try
-    {
-        // Real sentinel, confirmed by reading the body (step 5c Task 12):
-        // SerialPortActionsDirect::open_serial_port()
-        // (serial_port_actions_direct.cpp:519-644) returns `openedSerialPort`
-        // (non-empty) on every success path and `{}` (an empty/null QString)
-        // on every failure path.
-        const QString open_result = serial_->OpenSerialPort();
-        if (open_result.isEmpty())
-        {
-            return Fail(ErrorKind::kDisconnected, "open_serial_port failed");
-        }
-        return {};
-    }
-    catch (const std::exception& error)
-    {
-        return Fail(ErrorKind::kDisconnected, error.what());
-    }
-    catch (...)
-    {
-        return Fail(ErrorKind::kDisconnected, "open_serial_port exception");
-    }
+    return fastecu::desktop::detail::GuardedDriverCall(ErrorKind::kDisconnected, "open_serial_port exception",
+                                                       [&]() -> Status
+                                                       {
+                                                           // Real sentinel, confirmed by reading the body (step 5c Task
+                                                           // 12): SerialPortActionsDirect::open_serial_port()
+                                                           // (serial_port_actions_direct.cpp:519-644) returns
+                                                           // `openedSerialPort` (non-empty) on every success path and
+                                                           // `{}` (an empty/null QString) on every failure path.
+                                                           const QString open_result = serial_->OpenSerialPort();
+                                                           if (open_result.isEmpty())
+                                                           {
+                                                               return Fail(ErrorKind::kDisconnected,
+                                                                           "open_serial_port failed");
+                                                           }
+                                                           return {};
+                                                       });
 }
 
 Status DesktopCanFlashTransport::Close()
@@ -184,36 +148,30 @@ Status DesktopCanFlashTransport::Write(bytes::ByteView data, const ICancellation
         return Fail(ErrorKind::kDisconnected, "write() called after close()");
     }
 
-    try
-    {
-        if (!serial_->IsSerialPortOpen())
+    return fastecu::desktop::detail::GuardedDriverCall(
+        ErrorKind::kInternal, "CAN driver write exception",
+        [&]() -> Status
         {
-            return Fail(ErrorKind::kDisconnected, "CAN adapter disconnected before write");
-        }
-        // write_serial_data_echo_check()'s QByteArray return cannot signal
-        // success/failure: every path through SerialPortActionsDirect::
-        // write_serial_data_echo_check() (serial_port_actions_direct.cpp:
-        // 939-1002) -- including the echo-timeout path -- ends with
-        // `return STATUS_SUCCESS;` (0, implicitly converted to a null
-        // QByteArray), and the accumulated echo bytes are discarded
-        // afterward. is_serial_port_open() is the only reliable
-        // post-condition, matching FastEcuCanTransport::write() in this
-        // same package (which wraps the identical call).
-        serial_->WriteSerialDataEchoCheck(bytes::ToQByteArray(data));
-        if (!serial_->IsSerialPortOpen())
-        {
-            return Fail(ErrorKind::kDisconnected, "CAN adapter disconnected during write");
-        }
-        return {};
-    }
-    catch (const std::exception& error)
-    {
-        return Fail(ErrorKind::kInternal, error.what());
-    }
-    catch (...)
-    {
-        return Fail(ErrorKind::kInternal, "CAN driver write exception");
-    }
+            if (!serial_->IsSerialPortOpen())
+            {
+                return Fail(ErrorKind::kDisconnected, "CAN adapter disconnected before write");
+            }
+            // write_serial_data_echo_check()'s QByteArray return cannot signal
+            // success/failure: every path through SerialPortActionsDirect::
+            // write_serial_data_echo_check() (serial_port_actions_direct.cpp:
+            // 939-1002) -- including the echo-timeout path -- ends with
+            // `return STATUS_SUCCESS;` (0, implicitly converted to a null
+            // QByteArray), and the accumulated echo bytes are discarded
+            // afterward. is_serial_port_open() is the only reliable
+            // post-condition, matching FastEcuCanTransport::write() in this
+            // same package (which wraps the identical call).
+            serial_->WriteSerialDataEchoCheck(bytes::ToQByteArray(data));
+            if (!serial_->IsSerialPortOpen())
+            {
+                return Fail(ErrorKind::kDisconnected, "CAN adapter disconnected during write");
+            }
+            return {};
+        });
 }
 
 Result<std::optional<bytes::Bytes>> DesktopCanFlashTransport::Read(std::chrono::milliseconds timeout,

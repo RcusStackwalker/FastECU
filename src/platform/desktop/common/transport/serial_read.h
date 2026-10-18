@@ -59,4 +59,45 @@ Result<std::optional<bytes::Bytes>> ReadSerial(SerialPortActions *serial, std::c
         return Fail(ErrorKind::kInternal, "serial driver read exception");
     }
 }
+
+// Runs a driver call whose exceptions must not escape the transport: a
+// std::exception becomes `kind` carrying its what(), anything else `kind` with
+// `unknown`. `Body` returns a Status or a Result.
+template <typename Body> auto GuardedDriverCall(ErrorKind kind, const char *unknown, Body body) -> decltype(body())
+{
+    try
+    {
+        return body();
+    }
+    catch (const std::exception& error)
+    {
+        return Fail(kind, error.what());
+    }
+    catch (...)
+    {
+        return Fail(kind, unknown);
+    }
+}
+
+inline Status ResetSerialConnection(SerialPortActions *serial)
+{
+    if (!serial)
+    {
+        return Fail(ErrorKind::kDisconnected, "reset_connection() called after close()");
+    }
+    return GuardedDriverCall(ErrorKind::kInternal, "reset_connection exception",
+                             [serial]() -> Status
+                             {
+                                 // No real sentinel: SerialPortActions::reset_connection()
+                                 // (serial_port_actions.cpp:541-544) is `runOnBackend(...); return
+                                 // true;` -- it cannot report failure through its return value, so
+                                 // this branch is unreachable today and only the surrounding catch
+                                 // blocks can produce an Internal error here.
+                                 if (!serial->ResetConnection())
+                                 {
+                                     return Fail(ErrorKind::kInternal, "reset_connection failed");
+                                 }
+                                 return {};
+                             });
+}
 } // namespace fastecu::desktop::detail
