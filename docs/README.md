@@ -38,6 +38,11 @@ than copying its inventory.
 
 ## Active work
 
+The [approved clang-tidy enforcement design](superpowers/specs/2026-10-19-clang-tidy-plugin-enforcement-design.md)
+records the compiled-check migration and assertion enforcement scope. Its
+[implementation plan](superpowers/plans/2026-10-19-clang-tidy-plugin-enforcement.md)
+awaits review and selection of an execution method.
+
 The [size-reduction strategy](superpowers/specs/2026-10-18-size-reduction-strategy.md)
 phases the reduction toward 100k NLOC: remote-mode deletion, tooling audit,
 transport-level cancellation, separately assessed test compression, and a later
