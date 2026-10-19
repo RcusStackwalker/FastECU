@@ -2,19 +2,21 @@
 
 #include "src/algorithms/protocol/bytes_compose.h"
 
+#include <bit>
+
 namespace ssm_protocol
 {
 
 namespace
 {
 
-template <std::size_t Rounds>
+template <bool Reverse, std::size_t Rounds>
 uint32_t TransformWord(uint32_t word, std::span<const std::uint16_t, Rounds> keytogenerateindex,
-                       IndexTransformation indextransformation, bool reverse)
+                       IndexTransformation indextransformation)
 {
     for (std::size_t r = 0; r < Rounds; ++r)
     {
-        const std::size_t ki = reverse ? (Rounds - 1 - r) : r;
+        const std::size_t ki = Reverse ? (Rounds - 1 - r) : r;
         const uint16_t wordtogenerateindex = word;
         const uint16_t wordtobeencrypted = word >> 16U;
         uint32_t index = wordtogenerateindex ^ keytogenerateindex[ki];
@@ -28,7 +30,7 @@ uint32_t TransformWord(uint32_t word, std::span<const std::uint16_t, Rounds> key
         word = (encryptionkey ^ wordtobeencrypted) + (wordtogenerateindex << 16U);
     }
 
-    return (word >> 16U) + (word << 16U);
+    return std::rotr(word, 16);
 }
 
 } // namespace
@@ -42,7 +44,7 @@ bytes::Bytes CalculateSeedKey(bytes::ByteView seed, SeedKeyToGenerateIndex keyto
         return key;
     }
 
-    bytes::AppendU32Be(key, TransformWord(bytes::ReadU32Be(seed, 0), keytogenerateindex, indextransformation, true));
+    bytes::AppendU32Be(key, TransformWord<true>(bytes::ReadU32Be(seed, 0), keytogenerateindex, indextransformation));
     return key;
 }
 
@@ -64,8 +66,8 @@ bytes::Bytes CalculatePayload(bytes::ByteView buf, uint32_t len, KeyToGenerateIn
                                  std::views::transform(
                                      [&](std::size_t word_index)
                                      {
-                                         return TransformWord(bytes::ReadU32Be(buf, word_index * 4), keytogenerateindex,
-                                                              indextransformation, false);
+                                         return TransformWord<false>(bytes::ReadU32Be(buf, word_index * 4),
+                                                                     keytogenerateindex, indextransformation);
                                      });
     return bytes::ComposeBe(encrypted_words);
 }
