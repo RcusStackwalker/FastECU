@@ -89,8 +89,18 @@ jobs:
           version: ${{ steps.llvm.outputs.version }}
           sha256: ${{ steps.llvm.outputs.sha256 }}
 
+      # libstdc++'s inline std::atomic<bool>::load holds comparisons under
+      # _GLIBCXX_ASSERTIONS. When the linker keeps our instrumented copy,
+      # FuzzTest's own coverage hook (which calls it) re-enters itself until
+      # the stack overflows. The ignorelist keeps the standard library out of
+      # coverage. It is an absolute path because Bazel's sandbox only shows a
+      # compile action its declared inputs, while the rest of the filesystem
+      # stays readable.
       - name: Build the harness for fuzzing
-        run: bazel build --config=fuzztest "${TARGET}"
+        run: |
+          bazel build --config=fuzztest \
+            --copt=-fsanitize-coverage-ignorelist="${GITHUB_WORKSPACE}/bazel/fuzz_coverage_ignorelist.txt" \
+            "${TARGET}"
 
       # From the runfiles root, so the harness finds its seeds by their
       # workspace-relative paths, as under `bazel test`.

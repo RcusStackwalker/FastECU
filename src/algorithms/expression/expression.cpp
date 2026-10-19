@@ -193,7 +193,7 @@ class Parser
     {
         if (Consume('('))
         {
-            constexpr std::size_t kMaximumNesting = 128;
+            constexpr std::size_t kMaximumNesting = 8;
             if (nesting_ >= kMaximumNesting)
             {
                 return Error("expression nesting is too deep");
