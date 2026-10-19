@@ -6,9 +6,9 @@ Accepted direction, narrowed during the
 [guarded-transport refinement](../superpowers/specs/2026-10-19-guarded-transport-refinement-design.md).
 The original Colt pilot in [PR #756](https://github.com/RcusStackwalker/FastECU/pull/756)
 had not merged or completed its bench exit gate at the 2026-10-19 design review.
-The replacement pilot is specified for Mitsubishi Colt M32R CAN only; written
-design review is pending. No implementation, rollout, or hardware qualification
-is established by this decision.
+The replacement pilot is specified for Mitsubishi Colt M32R CAN only; its written
+design was confirmed on 2026-10-19. No implementation, rollout, or hardware
+qualification is established by this decision.
 
 ## Context
 

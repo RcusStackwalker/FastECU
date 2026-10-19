@@ -44,7 +44,7 @@ transport-level cancellation, separately assessed test compression, and a later
 decision on per-family rollout.
 
 The [focused Colt cancellation design](superpowers/specs/2026-10-19-guarded-transport-refinement-design.md)
-records the agreed scope and gates, pending written-design review. The
+records the confirmed scope and gates. The
 [pilot lessons](reference/guarded-transport-pilot-lessons.md) preserve evidence
 from the two unsuccessful size-reduction attempts.
 

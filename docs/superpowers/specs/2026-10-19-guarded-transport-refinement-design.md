@@ -1,7 +1,7 @@
 # Colt cancellation centralization
 
-Status: design decisions agreed in three interview rounds; written-design review
-pending. Documentation only; no implementation or rollout is authorized here.
+Status: written design confirmed on 2026-10-19 after three interview rounds.
+Implementation planning and rollout remain separate work.
 
 ## Intent and scope
 
@@ -179,5 +179,5 @@ of hardware status. Automated tests, replay, and mutations do not qualify hardwa
 Families with deliberate cancellation deferral require a separate end-to-end
 contract before their checks can be removed. No per-family rollout is automatic.
 
-All nine interview decisions are settled. Confirm the written design reflects
-that shared understanding before producing a replacement implementation plan.
+All nine interview decisions and the written design were confirmed on 2026-10-19.
+This is the baseline for a separately requested replacement implementation plan.
