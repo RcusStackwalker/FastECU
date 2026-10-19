@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <initializer_list>
 #include <iterator>
+#include <ranges>
 #include <string_view>
 
 #include <gmock/gmock.h>
@@ -641,10 +642,8 @@ void ScriptTwoShortPages(CommonFixture& f)
 
 std::vector<int> ProgressDone(const RecordingEventSink& events)
 {
-    std::vector<int> done;
-    std::ranges::transform(events.phase_progress_calls, std::back_inserter(done),
-                           [](const auto& call) { return call.done; });
-    return done;
+    return events.phase_progress_calls | std::views::transform([](const auto& call) { return call.done; }) |
+           std::ranges::to<std::vector<int>>();
 }
 
 TEST(DensoIso15765CanCommonTest, ReadDumpReadsPagesStopsAndPadsWithPacingOnlyWhenAsked)

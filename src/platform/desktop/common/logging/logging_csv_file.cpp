@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <iterator>
+#include <ranges>
 #include <string_view>
 #include <utility>
 #include <QDir>
@@ -20,10 +21,8 @@ bool LoggingCsvFile::IsOpen() const
 }
 Status LoggingCsvFile::WriteRecord(const std::vector<std::string>& fields)
 {
-    std::vector<std::string_view> views;
-    views.reserve(fields.size());
-    std::ranges::transform(fields, std::back_inserter(views),
-                           [](const auto& field) { return std::string_view{field}; });
+    auto views = fields | std::views::transform([](const auto& field) { return std::string_view{field}; }) |
+                 std::ranges::to<std::vector<std::string_view>>();
     const auto record = fastecu::logging::SerializeLoggingCsvRecord(views);
     const auto size = static_cast<qint64>(record.size());
     if (file_->write(record.data(), size) != size || !file_->flush())

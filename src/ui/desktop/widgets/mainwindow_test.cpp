@@ -1,4 +1,5 @@
 #include <cctype>
+#include <ranges>
 #include <string>
 #include <vector>
 #include "src/platform/desktop/common/testing/widgets_application_environment.h"
@@ -4111,14 +4112,13 @@ struct ConnectionEntryPointsStopIdentificationCase
 };
 std::vector<ConnectionEntryPointsStopIdentificationCase> connectionEntryPointsStopIdentificationRows()
 {
-    std::vector<ConnectionEntryPointsStopIdentificationCase> rows;
-
     constexpr std::array kNames{"logTransportChanged", "checkSerialPorts",    "openSerialPort",
                                 "showDtcWindow",       "showSubaruBiuWindow", "showTerminalWindow"};
-    std::ranges::transform(kNames, std::back_inserter(rows), [](const char *name)
-                           { return ConnectionEntryPointsStopIdentificationCase{name, QString::fromLatin1(name)}; });
-
-    return rows;
+    return kNames |
+           std::views::transform(
+               [](const char *name)
+               { return ConnectionEntryPointsStopIdentificationCase{name, QString::fromLatin1(name)}; }) |
+           std::ranges::to<std::vector>();
 }
 class ConnectionEntryPointsStopIdentificationParameters
     : public MainWindowTest,

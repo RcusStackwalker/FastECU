@@ -12,6 +12,7 @@
 #include <memory>
 #include <optional>
 #include <ostream>
+#include <ranges>
 #include <span>
 #include <string_view>
 #include <utility>
@@ -234,10 +235,11 @@ std::vector<Extent> WritableExtents(const MemoryMap& map)
 
 std::vector<Extent> FlashExtents(const FlashDevice& device)
 {
-    std::vector<Extent> extents;
-    std::ranges::transform(std::span(device.fblocks, device.numblocks), std::back_inserter(extents),
-                           [](const FlashBlock& block)
-                           { return Extent{.start = block.start, .end = std::uint64_t{block.start} + block.len}; });
+    auto extents =
+        std::span(device.fblocks, device.numblocks) |
+        std::views::transform([](const FlashBlock& block)
+                              { return Extent{.start = block.start, .end = std::uint64_t{block.start} + block.len}; }) |
+        std::ranges::to<std::vector<Extent>>();
     return Merged(std::move(extents));
 }
 

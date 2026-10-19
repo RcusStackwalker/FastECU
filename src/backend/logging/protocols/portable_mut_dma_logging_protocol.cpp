@@ -13,17 +13,16 @@ namespace
 {
 std::vector<mutdma::Channel> MakeWireChannels(const std::vector<LoggingChannel>& channels)
 {
-    std::vector<mutdma::Channel> wire_channels;
-    wire_channels.reserve(channels.size());
-    std::ranges::transform(channels, std::back_inserter(wire_channels),
-                           [](const LoggingChannel& channel)
-                           {
-                               return mutdma::Channel{
-                                   .id = static_cast<std::uint16_t>(channel.address),
-                                   .len = static_cast<bytes::Byte>(channel.length),
-                               };
-                           });
-    return wire_channels;
+    return channels |
+           std::views::transform(
+               [](const LoggingChannel& channel)
+               {
+                   return mutdma::Channel{
+                       .id = static_cast<std::uint16_t>(channel.address),
+                       .len = static_cast<bytes::Byte>(channel.length),
+                   };
+               }) |
+           std::ranges::to<std::vector<mutdma::Channel>>();
 }
 
 fastecu::Status CheckCancellation(const fastecu::ICancellationToken& cancellation)
@@ -85,15 +84,16 @@ fastecu::Result<PollData> MutDmaLoggingProtocol::Poll(std::chrono::milliseconds 
 
     PollData data{.responded = true};
     const std::size_t sample_count = std::min(values->size(), channels_.size());
-    data.samples.reserve(sample_count);
-    std::ranges::transform(std::views::iota(std::size_t{0}, sample_count), std::back_inserter(data.samples),
-                           [&](std::size_t i)
-                           {
-                               return ProtocolSample{
-                                   .channel_id = channels_[i].id,
-                                   .raw_value = std::to_string(values->at(i)),
-                               };
-                           });
+    data.samples = std::views::iota(std::size_t{0}, sample_count) |
+                   std::views::transform(
+                       [&](std::size_t i)
+                       {
+                           return ProtocolSample{
+                               .channel_id = channels_[i].id,
+                               .raw_value = std::to_string(values->at(i)),
+                           };
+                       }) |
+                   std::ranges::to<std::vector<ProtocolSample>>();
     return data;
 }
 

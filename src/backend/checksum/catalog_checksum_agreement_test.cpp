@@ -8,6 +8,7 @@
 #include <format>
 #include <iterator>
 #include <optional>
+#include <ranges>
 #include <set>
 #include <string>
 #include <string_view>
@@ -65,9 +66,9 @@ std::vector<const config::VehicleSpec *> OneVehiclePerRoutedProtocol()
 
 std::vector<std::uint32_t> AcceptedFileSizes(const config::ProtocolSpec& protocol)
 {
-    std::vector<std::uint32_t> sizes;
-    std::ranges::transform(protocol.memory_maps, std::back_inserter(sizes),
-                           [](const config::MemoryMapSpec& spec) { return spec.FileSize().Value(); });
+    auto sizes = protocol.memory_maps |
+                 std::views::transform([](const config::MemoryMapSpec& spec) { return spec.FileSize().Value(); }) |
+                 std::ranges::to<std::vector<std::uint32_t>>();
     if (sizes.empty())
     {
         if (const FlashDevice *device = flash::FindFlashDevice(protocol.mcu); device != nullptr)

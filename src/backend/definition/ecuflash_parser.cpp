@@ -13,6 +13,7 @@
 #include <iterator>
 #include <limits>
 #include <optional>
+#include <ranges>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -192,10 +193,10 @@ void PopulateInlineXAxis(pugi::xml_node table, UnresolvedCalibrationMap& map)
         return;
     }
     map.x_axis.type = "Static X Axis";
-    std::vector<std::string> values;
-    std::ranges::transform(table.children("data"), std::back_inserter(values),
-                           [](pugi::xml_node data) { return TableElementText(data); });
-    map.x_axis.static_data = std::move(values);
+    const auto data_nodes = table.children("data");
+    map.x_axis.static_data = data_nodes |
+                             std::views::transform([](pugi::xml_node data) { return TableElementText(data); }) |
+                             std::ranges::to<std::vector<std::string>>();
     map.x_axis.size = static_cast<std::uint32_t>(map.x_axis.static_data->size());
     map.x_size = map.x_axis.size;
     map.y_size = 1;

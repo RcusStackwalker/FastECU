@@ -63,10 +63,9 @@ bool EraseGeometryMatches(std::span<const MemoryRegion> regions, const FlashDevi
 
 std::vector<MemoryRegion> MakeEraseRegions(const FlashDevice& device)
 {
-    std::vector<MemoryRegion> regions;
-    regions.reserve(device.numblocks);
-    std::ranges::transform(std::views::iota(0U, device.numblocks), std::back_inserter(regions), [&](unsigned index)
-                           { return MemoryRegion{device.fblocks[index].start, device.fblocks[index].len}; });
-    return regions;
+    return std::views::iota(0U, device.numblocks) |
+           std::views::transform([&](unsigned index)
+                                 { return MemoryRegion{device.fblocks[index].start, device.fblocks[index].len}; }) |
+           std::ranges::to<std::vector<MemoryRegion>>();
 }
 } // namespace fastecu::flash::detail

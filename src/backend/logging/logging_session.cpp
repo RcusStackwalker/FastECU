@@ -6,6 +6,7 @@
 #include <cmath>
 #include <format>
 #include <iterator>
+#include <ranges>
 #include <string>
 #include <string_view>
 #include <unordered_set>
@@ -54,11 +55,14 @@ bool ValidWireShape(LoggingProtocolId protocol, const std::vector<LoggingChannel
         return channels.size() <= 255;
     case LoggingProtocolId::kCdbg:
     {
-        std::vector<mitsu_colt_can_cdbg::CdbgChannel> wire_channels;
-        wire_channels.reserve(channels.size());
-        std::ranges::transform(
-            channels, std::back_inserter(wire_channels), [](const LoggingChannel& channel)
-            { return mitsu_colt_can_cdbg::CdbgChannel{channel.address, static_cast<bytes::Byte>(channel.length)}; });
+        auto wire_channels =
+            channels |
+            std::views::transform(
+                [](const LoggingChannel& channel)
+                {
+                    return mitsu_colt_can_cdbg::CdbgChannel{channel.address, static_cast<bytes::Byte>(channel.length)};
+                }) |
+            std::ranges::to<std::vector<mitsu_colt_can_cdbg::CdbgChannel>>();
         std::vector<std::vector<mitsu_colt_can_cdbg::CdbgChannel>> frames;
         return mitsu_colt_can_cdbg::BatchChannelsIntoFrames(wire_channels, frames);
     }

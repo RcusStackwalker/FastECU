@@ -107,9 +107,8 @@ class FaultingTransport final : public ScriptedKlineFlashTransport
 
 bytes::Bytes Ascii(std::string_view text)
 {
-    bytes::Bytes out;
-    std::ranges::transform(text, std::back_inserter(out), [](const char c) { return static_cast<bytes::Byte>(c); });
-    return out;
+    return text | std::views::transform([](const char c) { return static_cast<bytes::Byte>(c); }) |
+           std::ranges::to<bytes::Bytes>();
 }
 
 void Nothing(ScriptedKlineFlashTransport& transport)
@@ -323,10 +322,8 @@ TEST(SubaruDensoMc68hc16y5_02BdmExecutor, CancellationBetweenPagesStopsBeforeThe
 // 40 bytes 0x01..0x28, padded by the plan to two 32-byte chunks.
 bytes::Bytes KernelBytes()
 {
-    bytes::Bytes kernel;
-    std::ranges::transform(std::views::iota(1, 41), std::back_inserter(kernel),
-                           [](int value) { return static_cast<bytes::Byte>(value); });
-    return kernel;
+    return std::views::iota(1, 41) | std::views::transform([](int value) { return static_cast<bytes::Byte>(value); }) |
+           std::ranges::to<bytes::Bytes>();
 }
 
 FlashPlan WritePlan()

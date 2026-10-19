@@ -194,10 +194,8 @@ bytes::Bytes EepromPayload280Bytes()
 
 bytes::Bytes ExpectedDecodedEeprom256Bytes()
 {
-    bytes::Bytes out;
-    std::ranges::transform(std::views::iota(0, 256), std::back_inserter(out),
-                           [](int i) { return static_cast<bytes::Byte>(i); });
-    return out;
+    return std::views::iota(0, 256) | std::views::transform([](int i) { return static_cast<bytes::Byte>(i); }) |
+           std::ranges::to<bytes::Bytes>();
 }
 
 // Minimal positive-response fixture: only byte index 4 (the service/session
@@ -252,10 +250,8 @@ bytes::Bytes KernelAliveResponse()
 // this executor's OOB-read-avoidance padding is a documented no-op here.
 bytes::Bytes KernelFixtureBytes()
 {
-    bytes::Bytes out;
-    std::ranges::transform(std::views::iota(0, 16), std::back_inserter(out),
-                           [](int i) { return static_cast<bytes::Byte>(i); });
-    return out;
+    return std::views::iota(0, 16) | std::views::transform([](int i) { return static_cast<bytes::Byte>(i); }) |
+           std::ranges::to<bytes::Bytes>();
 }
 
 // Enqueues the exact write/read sequence for one full "kernel not yet
@@ -440,9 +436,8 @@ TEST(DensoSh705xEepromKlineExecutorTest, KernelAlreadyRunningSkipsBootloaderMatc
 // the *unpadded* buffer size when len exceeds it.
 TEST(DensoSh705xEepromKlineExecutorTest, NonAlignedKernelIsPaddedBeforeEncryptionAvoidsOobRead)
 {
-    bytes::Bytes kernel15;
-    std::ranges::transform(std::views::iota(0, 15), std::back_inserter(kernel15),
-                           [](int i) { return static_cast<bytes::Byte>(i); });
+    auto kernel15 = std::views::iota(0, 15) | std::views::transform([](int i) { return static_cast<bytes::Byte>(i); }) |
+                    std::ranges::to<bytes::Bytes>();
     auto plan = MakeKlinePlan(EepromReadMode::kMode2, kernel15, kKernelStartAddr);
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 

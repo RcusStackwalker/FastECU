@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <iterator>
+#include <ranges>
 #include <utility>
 #include <cstddef>
 #include <optional>
@@ -135,10 +136,8 @@ std::vector<std::vector<std::string>> splitPasteRows(const QString& text)
     for (const auto& row : rows)
     {
         const QStringList columns = row.split('\t');
-        std::vector<std::string> ownedColumns;
-        ownedColumns.reserve(static_cast<std::size_t>(columns.size()));
-        std::ranges::transform(columns, std::back_inserter(ownedColumns),
-                               [](const auto& column) { return column.toStdString(); });
+        auto ownedColumns = columns | std::views::transform([](const auto& column) { return column.toStdString(); }) |
+                            std::ranges::to<std::vector<std::string>>();
         ownedRows.push_back(std::move(ownedColumns));
     }
     return ownedRows;

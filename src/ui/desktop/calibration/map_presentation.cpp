@@ -5,6 +5,7 @@
 #include <format>
 #include <iterator>
 #include <limits>
+#include <ranges>
 
 namespace fastecu::ui
 {
@@ -41,10 +42,10 @@ std::optional<std::vector<PresentedCell>> presentAxis(const calibration::AxisVal
     }
     if (const auto *labels = std::get_if<calibration::StaticAxis>(&axis))
     {
-        std::vector<PresentedCell> cells;
-        std::ranges::transform(labels->labels, std::back_inserter(cells),
-                               [](const auto& label) { return PresentedCell{.text = QString::fromStdString(label)}; });
-        return cells;
+        return labels->labels |
+               std::views::transform([](const auto& label)
+                                     { return PresentedCell{.text = QString::fromStdString(label)}; }) |
+               std::ranges::to<std::vector<PresentedCell>>();
     }
     return std::nullopt;
 }

@@ -1418,9 +1418,9 @@ TEST(SubaruTcuHitachiM32rCanExecutor, WriteFlashesBlocksThreeThroughTenAndNothin
     ASSERT_EQ(device->numblocks, 11U);
 
     const std::vector<std::uint32_t> opened = WindowStarts(transport.writes);
-    std::vector<std::uint32_t> expected_opened;
-    std::ranges::transform(std::views::iota(3U, device->numblocks), std::back_inserter(expected_opened),
-                           [&](unsigned blockno) { return device->fblocks[blockno].start; });
+    auto expected_opened = std::views::iota(3U, device->numblocks) |
+                           std::views::transform([&](unsigned blockno) { return device->fblocks[blockno].start; }) |
+                           std::ranges::to<std::vector<std::uint32_t>>();
     EXPECT_EQ(opened, expected_opened);
 
     // The "not" side, spelled out: blocks 0-2 carry the bootloader. An
@@ -1729,9 +1729,9 @@ TEST(SubaruTcuHitachiM32rCanExecutor, WithNoScriptToStopItTheWriteStillNeverTouc
     ASSERT_EQ(device->numblocks, 11U);
 
     const std::vector<std::uint32_t> opened = WindowStarts(transport.writes);
-    std::vector<std::uint32_t> expected_opened;
-    std::ranges::transform(std::views::iota(3U, device->numblocks), std::back_inserter(expected_opened),
-                           [&](unsigned blockno) { return device->fblocks[blockno].start; });
+    auto expected_opened = std::views::iota(3U, device->numblocks) |
+                           std::views::transform([&](unsigned blockno) { return device->fblocks[blockno].start; }) |
+                           std::ranges::to<std::vector<std::uint32_t>>();
     EXPECT_EQ(opened, expected_opened);
     for (unsigned blockno = 0; blockno < 3; ++blockno)
     {

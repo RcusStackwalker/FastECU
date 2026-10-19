@@ -30,11 +30,12 @@ namespace
 
 void AppendSelections(pugi::xml_node parent, UnresolvedScaling& scaling)
 {
-    for (pugi::xml_node state : parent.children("state"))
-    {
-        scaling.selections.emplace_back(SelectionName(ValueOrEmpty(state.attribute("name"))),
-                                        ValueOrEmpty(state.attribute("data")));
-    }
+    std::ranges::transform(parent.children("state"), std::back_inserter(scaling.selections),
+                           [](pugi::xml_node state)
+                           {
+                               return std::pair{SelectionName(ValueOrEmpty(state.attribute("name"))),
+                                                ValueOrEmpty(state.attribute("data"))};
+                           });
     std::ranges::transform(parent.children("data"), std::back_inserter(scaling.selections),
                            [](pugi::xml_node data)
                            {

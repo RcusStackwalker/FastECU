@@ -69,10 +69,9 @@ bytes::Bytes BlockResponse(std::uint32_t address, std::uint32_t length)
 void ExpectRomBlock(const bytes::Bytes& rom, std::uint32_t address, std::uint32_t length)
 {
     ASSERT_GE(rom.size(), address + length);
-    bytes::Bytes expected;
-    expected.reserve(length);
-    std::ranges::transform(std::views::iota(std::uint32_t{0}, length), std::back_inserter(expected),
-                           [address](std::uint32_t i) { return RomByte(address + i); });
+    auto expected = std::views::iota(std::uint32_t{0}, length) |
+                    std::views::transform([address](std::uint32_t i) { return RomByte(address + i); }) |
+                    std::ranges::to<bytes::Bytes>();
     const auto begin = rom.begin() + static_cast<std::ptrdiff_t>(address);
     EXPECT_EQ(bytes::Bytes(begin, begin + static_cast<std::ptrdiff_t>(length)), expected);
 }

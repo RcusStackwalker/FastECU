@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <format>
 #include <iterator>
+#include <ranges>
 #include <utility>
 
 #include "src/platform/desktop/common/serial/j2534_driver_selection.h"
@@ -36,10 +37,9 @@ Result<std::vector<std::string>> ListDesktopSerialPorts(const DesktopCanTranspor
         return std::unexpected(made.error());
     }
     std::unique_ptr<SerialPortActions> serial = std::move(*made);
-    std::vector<std::string> ports;
-    std::ranges::transform(serial->CheckSerialPorts(), std::back_inserter(ports),
-                           [](const QString& port) { return port.toStdString(); });
-    return ports;
+    const auto serial_ports = serial->CheckSerialPorts();
+    return serial_ports | std::views::transform([](const QString& port) { return port.toStdString(); }) |
+           std::ranges::to<std::vector<std::string>>();
 }
 
 Result<std::unique_ptr<ICanFlashTransport>> OpenDesktopCanFlashTransport(const DesktopCanTransportConfig& config,
