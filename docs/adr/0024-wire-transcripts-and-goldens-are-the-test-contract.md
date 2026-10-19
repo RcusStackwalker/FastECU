@@ -47,6 +47,16 @@ cases that observed it.
 - NLOC (Lizard, formatted tree, vendored code excluded) remains the reported
   size metric. It is not ratcheted.
 
+## Scoped N83M experiment
+
+The [two-family generative protocol pilot](../superpowers/specs/2026-10-19-generative-protocol-test-pilot-design.md)
+compares named independently scripted scenarios with the pinned N83M 1.5M/4M
+baseline. It is a reversible test-only experiment under this decision, with
+explicit behavior, net-size and matched-runtime gates; it does not replace the
+general transcript policy or ADR 0025. Its [evidence and disposition](../reference/generative-protocol-test-pilot-results.md)
+control whether this particular candidate meets those gates. PR #756 remains
+independent, and broader rollout requires a separate decision.
+
 ## Alternatives
 
 - **Keep ADR 0023's guards.** They forbid deleting redundant cases, so the

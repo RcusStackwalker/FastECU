@@ -44,7 +44,9 @@ transport-level cancellation with wire transcripts, and per-family rollout.
 
 The [alternative protocol-test pilot](superpowers/specs/2026-10-19-generative-protocol-test-pilot-design.md)
 proposes shared scenario construction and fault injection for the N83M 1.5M
-and 4M test suites, with explicit behavior, size and runtime gates.
+and 4M test suites, with explicit behavior, size and runtime gates. Its
+[results record](reference/generative-protocol-test-pilot-results.md) owns the
+baseline, assertion mapping, measurements and disposition.
 
 Task-specific specs and plans exist only while their work is proposed or unfinished.
 Find them, when present, with:

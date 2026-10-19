@@ -210,7 +210,12 @@ For executor-level profiling, see the
 
 ## NLOC hill-climbing loop
 
-The decision is [ADR 0023](adr/0023-hill-climb-nloc-with-kind-specific-guards.md).
+The loop below describes the historical [ADR 0023](adr/0023-hill-climb-nloc-with-kind-specific-guards.md)
+workflow, superseded by [ADR 0024](adr/0024-wire-transcripts-and-goldens-are-the-test-contract.md).
+For the scoped N83M pilot use its [measurement and mutation checks](superpowers/specs/2026-10-19-generative-protocol-test-pilot-design.md#verification-and-measurement)
+and [recorded results](reference/generative-protocol-test-pilot-results.md),
+not executed-case-count or whole-kill-set inclusion guards. Tool retirement is
+separate work.
 An agent runs it with `/loop /hill-climbing-nloc`: each iteration of the
 [project skill](../.claude/skills/hill-climbing-nloc/SKILL.md) settles the
 open loop PR or produces the next one with the commands below.

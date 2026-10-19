@@ -1,7 +1,10 @@
 # Generative protocol test pilot results
 
-Work in progress: the pilot is authorized for native execution. No acceptance
-or hardware qualification claim is made until the evidence below is complete.
+**Outcome: the bounded candidate fails the size and runtime gates.** It adds
+818 net NLOC and increases median ordinary execution by 436.8%.
+The required behavior matrix and all 17 targeted mutation detectors pass.
+This is a failed size-reduction experiment, not a rollout recommendation or a
+hardware qualification claim.
 See the [design](../superpowers/specs/2026-10-19-generative-protocol-test-pilot-design.md)
 and [implementation plan](../superpowers/plans/2026-10-19-generative-protocol-test-pilot.md).
 
@@ -12,7 +15,8 @@ and [implementation plan](../superpowers/plans/2026-10-19-generative-protocol-te
 - Host: Apple Silicon arm64, macOS 27.0.1, Apple clang 21.0.0 (`clang-2100.3.34.2`), Qt 6.11.1.
 - Bazel 9.1.1, `--config=release`, repository C++23 flags; runtime scheduling `--jobs=1 --local_test_jobs=1`.
 - No PR #756 code or measurements are used.
-- Local raw evidence: `/private/tmp/fastecu-generative-pilot-baseline/`. Durable publication location pending final review; local paths alone are not delivered evidence.
+- Delivered [computed evidence](generative-protocol-test-pilot-evidence.json): source IDs, baseline/candidate case manifests, exact mutation patches and failing assertions, runtime samples, per-file NLOC and raw-artifact hashes.
+- Raw logs/XML remain in `/private/tmp/fastecu-generative-pilot-baseline/` and `/private/tmp/fastecu-generative-pilot-candidate/`; the delivered JSON records the evidence needed to review and reproduce the comparison without relying on those local paths.
 
 ## Baseline
 
@@ -34,92 +38,116 @@ No assertions have been removed at baseline collection.
 
 | Family / executed baseline case | Candidate / status |
 | --- | --- |
-| 1_5m: `SubaruDenso1n83m_1_5mCanExecutor.BenchReadReturnsPaddedImage` | Retained, migration pending |
-| 1_5m: `SubaruDenso1n83m_1_5mCanExecutor.OperatorFacingLogLinesNameThe1_5MFamily` | Retained, migration pending |
-| 1_5m: `SubaruDenso1n83m_1_5mCanExecutor.InCarReadReturnsPaddedImage` | Retained, migration pending |
-| 1_5m: `SubaruDenso1n83m_1_5mCanExecutor.ReadDisconnectMidDumpLoopPropagates` | Retained, migration pending |
-| 1_5m: `SubaruDenso1n83m_1_5mCanExecutor.NegativeResponseDuringConnectFails` | Retained, migration pending |
-| 1_5m: `SubaruDenso1n83m_1_5mCanExecutor.NegativeResponseAtDumpSetupFails` | Retained, migration pending |
-| 1_5m: `SubaruDenso1n83m_1_5mCanExecutor.EmptyBranchSelectorReplyFails` | Retained, migration pending |
-| 1_5m: `SubaruDenso1n83m_1_5mCanExecutor.ObkMismatchAbsentAndEmptyAreMisses` | Retained, migration pending |
-| 1_5m: `SubaruDenso1n83m_1_5mCanExecutor.ObkErrorsAndCancellationPropagateBeforeInitialization` | Retained, migration pending |
-| 1_5m: `SubaruDenso1n83m_1_5mCanExecutor.ShortPagesAdvanceByRequestedSizeAndStopIsBestEffort` | Retained, migration pending |
-| 1_5m: `SubaruDenso1n83m_1_5mCanExecutor.PageAbsentEmptyAndCancelledFailWithoutStopOrProgress` | Retained, migration pending |
-| 1_5m: `SubaruDenso1n83m_1_5mCanExecutor.CancellationAfterPageFailsButCancellationAtStopIsSwallowed` | Retained, migration pending |
-| 1_5m: `SubaruDenso1n83m_1_5mCanExecutor.BenchJumpExhaustionPreservesReadCountAndTiming` | Retained, migration pending |
-| 1_5m: `SubaruDenso1n83m_1_5mCanExecutor.IdentityExchangeFailuresIncludingCancellationAreNonFatal` | Retained, migration pending |
-| 1_5m: `SubaruDenso1n83m_1_5mCanExecutor.InCarJumpExhaustionAndCancellationPreserveTimeoutPolicy` | Retained, migration pending |
-| 1_5m: `SubaruDenso1n83m_1_5mCanExecutorWrite.WriteErasesThenFlashesBlockOne` | Retained, migration pending |
-| 1_5m: `SubaruDenso1n83m_1_5mCanExecutorWrite.EraseRetryExhaustionFails` | Retained, migration pending |
-| 1_5m: `SubaruDenso1n83m_1_5mCanExecutorWrite.CancellationAtCloseSettlePreventsChecksum` | Retained, migration pending |
-| 1_5m: `SubaruDenso1n83m_1_5mCan/CanExecutorConformance/0.TransportSetupReturnsThePlansWireParameters` | Retained, migration pending |
-| 1_5m: `SubaruDenso1n83m_1_5mCan/CanExecutorConformance/0.RejectsAPlanFromAnotherFamilyBeforeAnyIo` | Retained, migration pending |
-| 1_5m: `SubaruDenso1n83m_1_5mCan/CanExecutorConformance/0.RefusesATestWritePlanRatherThanWritingForReal` | Retained, migration pending |
-| 1_5m: `SubaruDenso1n83m_1_5mCan/CanExecutorConformance/0.ReadPropagatesADisconnectedTransport` | Retained, migration pending |
-| 1_5m: `SubaruDenso1n83m_1_5mCan/CanExecutorConformance/0.ReadStopsAtTheNextChunkWhenCancelledMidRead` | Retained, migration pending |
-| 1_5m: `SubaruDenso1n83m_1_5mCan/CanExecutorConformance/0.ConnectProbesReadWithThisFamilysProbeTimeout` | Retained, migration pending |
-| 1_5m: `SubaruDenso1n83m_1_5mCan/CanExecutorConformance/0.ReadReportsAnEmptyReplyAsTimeout` | Retained, migration pending |
-| 1_5m: `SubaruDenso1n83m_1_5mCan/CanExecutorConformance/0.ReadTimeoutPropagates` | Retained, migration pending |
-| 1_5m: `ChecksumOutcomes/SubaruDenso1n83m_1_5mCanExecutorWrite.CloseRetriesSettleAndChecksumOutcomes/0` | Retained, migration pending |
-| 1_5m: `ChecksumOutcomes/SubaruDenso1n83m_1_5mCanExecutorWrite.CloseRetriesSettleAndChecksumOutcomes/1` | Retained, migration pending |
-| 1_5m: `ChecksumOutcomes/SubaruDenso1n83m_1_5mCanExecutorWrite.CloseRetriesSettleAndChecksumOutcomes/2` | Retained, migration pending |
-| 1_5m: `ChecksumOutcomes/SubaruDenso1n83m_1_5mCanExecutorWrite.CloseRetriesSettleAndChecksumOutcomes/3` | Retained, migration pending |
-| 1_5m: `ChecksumOutcomes/SubaruDenso1n83m_1_5mCanExecutorWrite.CloseRetriesSettleAndChecksumOutcomes/4` | Retained, migration pending |
-| 4m: `SubaruDenso1n83m_4mCanExecutor.ProceedsPastMalformedConnectAndDumpSetupResponses` | Retained, migration pending |
-| 4m: `SubaruDenso1n83m_4mCanExecutor.ProceedsPastMalformedInCarProbeAndDumpSetup` | Retained, migration pending |
-| 4m: `SubaruDenso1n83m_4mCanExecutor.BenchReadReturnsPaddedImage` | Retained, migration pending |
-| 4m: `SubaruDenso1n83m_4mCanExecutor.InCarReadReturnsPaddedImage` | Retained, migration pending |
-| 4m: `SubaruDenso1n83m_4mCanExecutor.ReadDisconnectMidDumpLoopPropagates` | Retained, migration pending |
-| 4m: `SubaruDenso1n83m_4mCanExecutor.ReadTimeoutAtTheTolerantDumpSetupStillPropagates` | Retained, migration pending |
-| 4m: `SubaruDenso1n83m_4mCanExecutor.NegativeResponseDuringConnectFails` | Retained, migration pending |
-| 4m: `SubaruDenso1n83m_4mCanExecutor.EmptyBranchSelectorReplyFails` | Retained, migration pending |
-| 4m: `SubaruDenso1n83m_4mCanExecutor.ObkMismatchAbsentAndEmptyAreMisses` | Retained, migration pending |
-| 4m: `SubaruDenso1n83m_4mCanExecutor.ObkErrorsAndCancellationPropagateBeforeInitialization` | Retained, migration pending |
-| 4m: `SubaruDenso1n83m_4mCanExecutor.ShortPagesAdvanceByRequestedSizeAndStopIsBestEffort` | Retained, migration pending |
-| 4m: `SubaruDenso1n83m_4mCanExecutor.PageAbsentEmptyAndCancelledFailWithoutStopOrProgress` | Retained, migration pending |
-| 4m: `SubaruDenso1n83m_4mCanExecutor.CancellationAfterPageFailsButCancellationAtStopIsSwallowed` | Retained, migration pending |
-| 4m: `SubaruDenso1n83m_4mCanExecutor.BenchJumpExhaustionPreservesReadCountAndTiming` | Retained, migration pending |
-| 4m: `SubaruDenso1n83m_4mCanExecutor.IdentityExchangeFailuresIncludingCancellationAreNonFatal` | Retained, migration pending |
-| 4m: `SubaruDenso1n83m_4mCanExecutor.InCarJumpExhaustionAndCancellationPreserveTimeoutPolicy` | Retained, migration pending |
-| 4m: `SubaruDenso1n83m_4mCanExecutorWrite.WriteErasesThenFlashesBlockOne` | Retained, migration pending |
-| 4m: `SubaruDenso1n83m_4mCanExecutorWrite.EraseRetryExhaustionFails` | Retained, migration pending |
-| 4m: `SubaruDenso1n83m_4mCanExecutorWrite.CancellationAtCloseSettlePreventsChecksum` | Retained, migration pending |
-| 4m: `SubaruDenso1n83m_4mCan/CanExecutorConformance/0.TransportSetupReturnsThePlansWireParameters` | Retained, migration pending |
-| 4m: `SubaruDenso1n83m_4mCan/CanExecutorConformance/0.RejectsAPlanFromAnotherFamilyBeforeAnyIo` | Retained, migration pending |
-| 4m: `SubaruDenso1n83m_4mCan/CanExecutorConformance/0.RefusesATestWritePlanRatherThanWritingForReal` | Retained, migration pending |
-| 4m: `SubaruDenso1n83m_4mCan/CanExecutorConformance/0.ReadPropagatesADisconnectedTransport` | Retained, migration pending |
-| 4m: `SubaruDenso1n83m_4mCan/CanExecutorConformance/0.ReadStopsAtTheNextChunkWhenCancelledMidRead` | Retained, migration pending |
-| 4m: `SubaruDenso1n83m_4mCan/CanExecutorConformance/0.ConnectProbesReadWithThisFamilysProbeTimeout` | Retained, migration pending |
-| 4m: `SubaruDenso1n83m_4mCan/CanExecutorConformance/0.ReadReportsAnEmptyReplyAsTimeout` | Retained, migration pending |
-| 4m: `SubaruDenso1n83m_4mCan/CanExecutorConformance/0.ReadTimeoutPropagates` | Retained, migration pending |
-| 4m: `ChecksumOutcomes/SubaruDenso1n83m_4mCanExecutorWrite.CloseRetriesSettleAndChecksumOutcomes/0` | Retained, migration pending |
-| 4m: `ChecksumOutcomes/SubaruDenso1n83m_4mCanExecutorWrite.CloseRetriesSettleAndChecksumOutcomes/1` | Retained, migration pending |
-| 4m: `ChecksumOutcomes/SubaruDenso1n83m_4mCanExecutorWrite.CloseRetriesSettleAndChecksumOutcomes/2` | Retained, migration pending |
-| 4m: `ChecksumOutcomes/SubaruDenso1n83m_4mCanExecutorWrite.CloseRetriesSettleAndChecksumOutcomes/3` | Retained, migration pending |
-| 4m: `ChecksumOutcomes/SubaruDenso1n83m_4mCanExecutorWrite.CloseRetriesSettleAndChecksumOutcomes/4` | Retained, migration pending |
+| 1_5m: `SubaruDenso1n83m_1_5mCanExecutor.BenchReadReturnsPaddedImage` | `N83m15mRead.ReturnsCompleteIndependentPayload/BenchForward and BenchReverse`: complete independent bytes/padding, operation shape and exact allowed I/O; seed/key timing on bench |
+| 1_5m: `SubaruDenso1n83m_1_5mCanExecutor.OperatorFacingLogLinesNameThe1_5MFamily` | Retained unchanged |
+| 1_5m: `SubaruDenso1n83m_1_5mCanExecutor.InCarReadReturnsPaddedImage` | `N83m15mRead.ReturnsCompleteIndependentPayload/InCarForward and InCarReverse`: complete independent bytes/padding, operation shape and exact allowed I/O; seed/key timing on bench |
+| 1_5m: `SubaruDenso1n83m_1_5mCanExecutor.ReadDisconnectMidDumpLoopPropagates` | `N83m15mTransferFault.AbortsAtSelectedIteration/ReadFirstDisconnected`: disconnected result and exact prefix; no stop or later progress |
+| 1_5m: `SubaruDenso1n83m_1_5mCanExecutor.NegativeResponseDuringConnectFails` | Retained unchanged |
+| 1_5m: `SubaruDenso1n83m_1_5mCanExecutor.NegativeResponseAtDumpSetupFails` | Retained unchanged |
+| 1_5m: `SubaruDenso1n83m_1_5mCanExecutor.EmptyBranchSelectorReplyFails` | Retained unchanged |
+| 1_5m: `SubaruDenso1n83m_1_5mCanExecutor.ObkMismatchAbsentAndEmptyAreMisses` | Retained unchanged |
+| 1_5m: `SubaruDenso1n83m_1_5mCanExecutor.ObkErrorsAndCancellationPropagateBeforeInitialization` | Retained unchanged |
+| 1_5m: `SubaruDenso1n83m_1_5mCanExecutor.ShortPagesAdvanceByRequestedSizeAndStopIsBestEffort` | Retained unchanged |
+| 1_5m: `SubaruDenso1n83m_1_5mCanExecutor.PageAbsentEmptyAndCancelledFailWithoutStopOrProgress` | Retained unchanged |
+| 1_5m: `SubaruDenso1n83m_1_5mCanExecutor.CancellationAfterPageFailsButCancellationAtStopIsSwallowed` | Retained unchanged |
+| 1_5m: `SubaruDenso1n83m_1_5mCanExecutor.BenchJumpExhaustionPreservesReadCountAndTiming` | Retained unchanged |
+| 1_5m: `SubaruDenso1n83m_1_5mCanExecutor.IdentityExchangeFailuresIncludingCancellationAreNonFatal` | Retained unchanged |
+| 1_5m: `SubaruDenso1n83m_1_5mCanExecutor.InCarJumpExhaustionAndCancellationPreserveTimeoutPolicy` | Retained unchanged |
+| 1_5m: `SubaruDenso1n83m_1_5mCanExecutorWrite.WriteErasesThenFlashesBlockOne` | Retained unchanged |
+| 1_5m: `SubaruDenso1n83m_1_5mCanExecutorWrite.EraseRetryExhaustionFails` | Retained unchanged |
+| 1_5m: `SubaruDenso1n83m_1_5mCanExecutorWrite.CancellationAtCloseSettlePreventsChecksum` | Retained unchanged |
+| 1_5m: `SubaruDenso1n83m_1_5mCan/CanExecutorConformance/0.TransportSetupReturnsThePlansWireParameters` | Retained unchanged |
+| 1_5m: `SubaruDenso1n83m_1_5mCan/CanExecutorConformance/0.RejectsAPlanFromAnotherFamilyBeforeAnyIo` | Retained unchanged |
+| 1_5m: `SubaruDenso1n83m_1_5mCan/CanExecutorConformance/0.RefusesATestWritePlanRatherThanWritingForReal` | Retained unchanged |
+| 1_5m: `SubaruDenso1n83m_1_5mCan/CanExecutorConformance/0.ReadPropagatesADisconnectedTransport` | Retained unchanged |
+| 1_5m: `SubaruDenso1n83m_1_5mCan/CanExecutorConformance/0.ReadStopsAtTheNextChunkWhenCancelledMidRead` | Retained unchanged |
+| 1_5m: `SubaruDenso1n83m_1_5mCan/CanExecutorConformance/0.ConnectProbesReadWithThisFamilysProbeTimeout` | Retained unchanged |
+| 1_5m: `SubaruDenso1n83m_1_5mCan/CanExecutorConformance/0.ReadReportsAnEmptyReplyAsTimeout` | Retained unchanged |
+| 1_5m: `SubaruDenso1n83m_1_5mCan/CanExecutorConformance/0.ReadTimeoutPropagates` | Retained unchanged |
+| 1_5m: `ChecksumOutcomes/SubaruDenso1n83m_1_5mCanExecutorWrite.CloseRetriesSettleAndChecksumOutcomes/0` | Retained unchanged |
+| 1_5m: `ChecksumOutcomes/SubaruDenso1n83m_1_5mCanExecutorWrite.CloseRetriesSettleAndChecksumOutcomes/1` | Retained unchanged |
+| 1_5m: `ChecksumOutcomes/SubaruDenso1n83m_1_5mCanExecutorWrite.CloseRetriesSettleAndChecksumOutcomes/2` | Retained unchanged |
+| 1_5m: `ChecksumOutcomes/SubaruDenso1n83m_1_5mCanExecutorWrite.CloseRetriesSettleAndChecksumOutcomes/3` | Retained unchanged |
+| 1_5m: `ChecksumOutcomes/SubaruDenso1n83m_1_5mCanExecutorWrite.CloseRetriesSettleAndChecksumOutcomes/4` | Retained unchanged |
+| 4m: `SubaruDenso1n83m_4mCanExecutor.ProceedsPastMalformedConnectAndDumpSetupResponses` | Retained unchanged |
+| 4m: `SubaruDenso1n83m_4mCanExecutor.ProceedsPastMalformedInCarProbeAndDumpSetup` | Retained unchanged |
+| 4m: `SubaruDenso1n83m_4mCanExecutor.BenchReadReturnsPaddedImage` | `N83m4mRead.ReturnsCompleteIndependentPayload/BenchForward and BenchReverse`: complete independent bytes/padding, operation shape and exact allowed I/O; seed/key timing on bench |
+| 4m: `SubaruDenso1n83m_4mCanExecutor.InCarReadReturnsPaddedImage` | `N83m4mRead.ReturnsCompleteIndependentPayload/InCarForward and InCarReverse`: complete independent bytes/padding, operation shape and exact allowed I/O; seed/key timing on bench |
+| 4m: `SubaruDenso1n83m_4mCanExecutor.ReadDisconnectMidDumpLoopPropagates` | `N83m4mTransferFault.AbortsAtSelectedIteration/ReadFirstDisconnected`: disconnected result and exact prefix; no stop or later progress |
+| 4m: `SubaruDenso1n83m_4mCanExecutor.ReadTimeoutAtTheTolerantDumpSetupStillPropagates` | Retained unchanged |
+| 4m: `SubaruDenso1n83m_4mCanExecutor.NegativeResponseDuringConnectFails` | Retained unchanged |
+| 4m: `SubaruDenso1n83m_4mCanExecutor.EmptyBranchSelectorReplyFails` | Retained unchanged |
+| 4m: `SubaruDenso1n83m_4mCanExecutor.ObkMismatchAbsentAndEmptyAreMisses` | Retained unchanged |
+| 4m: `SubaruDenso1n83m_4mCanExecutor.ObkErrorsAndCancellationPropagateBeforeInitialization` | Retained unchanged |
+| 4m: `SubaruDenso1n83m_4mCanExecutor.ShortPagesAdvanceByRequestedSizeAndStopIsBestEffort` | Retained unchanged |
+| 4m: `SubaruDenso1n83m_4mCanExecutor.PageAbsentEmptyAndCancelledFailWithoutStopOrProgress` | Retained unchanged |
+| 4m: `SubaruDenso1n83m_4mCanExecutor.CancellationAfterPageFailsButCancellationAtStopIsSwallowed` | Retained unchanged |
+| 4m: `SubaruDenso1n83m_4mCanExecutor.BenchJumpExhaustionPreservesReadCountAndTiming` | Retained unchanged |
+| 4m: `SubaruDenso1n83m_4mCanExecutor.IdentityExchangeFailuresIncludingCancellationAreNonFatal` | Retained unchanged |
+| 4m: `SubaruDenso1n83m_4mCanExecutor.InCarJumpExhaustionAndCancellationPreserveTimeoutPolicy` | Retained unchanged |
+| 4m: `SubaruDenso1n83m_4mCanExecutorWrite.WriteErasesThenFlashesBlockOne` | Retained unchanged |
+| 4m: `SubaruDenso1n83m_4mCanExecutorWrite.EraseRetryExhaustionFails` | Retained unchanged |
+| 4m: `SubaruDenso1n83m_4mCanExecutorWrite.CancellationAtCloseSettlePreventsChecksum` | Retained unchanged |
+| 4m: `SubaruDenso1n83m_4mCan/CanExecutorConformance/0.TransportSetupReturnsThePlansWireParameters` | Retained unchanged |
+| 4m: `SubaruDenso1n83m_4mCan/CanExecutorConformance/0.RejectsAPlanFromAnotherFamilyBeforeAnyIo` | Retained unchanged |
+| 4m: `SubaruDenso1n83m_4mCan/CanExecutorConformance/0.RefusesATestWritePlanRatherThanWritingForReal` | Retained unchanged |
+| 4m: `SubaruDenso1n83m_4mCan/CanExecutorConformance/0.ReadPropagatesADisconnectedTransport` | Retained unchanged |
+| 4m: `SubaruDenso1n83m_4mCan/CanExecutorConformance/0.ReadStopsAtTheNextChunkWhenCancelledMidRead` | Retained unchanged |
+| 4m: `SubaruDenso1n83m_4mCan/CanExecutorConformance/0.ConnectProbesReadWithThisFamilysProbeTimeout` | Retained unchanged |
+| 4m: `SubaruDenso1n83m_4mCan/CanExecutorConformance/0.ReadReportsAnEmptyReplyAsTimeout` | Retained unchanged |
+| 4m: `SubaruDenso1n83m_4mCan/CanExecutorConformance/0.ReadTimeoutPropagates` | Retained unchanged |
+| 4m: `ChecksumOutcomes/SubaruDenso1n83m_4mCanExecutorWrite.CloseRetriesSettleAndChecksumOutcomes/0` | Retained unchanged |
+| 4m: `ChecksumOutcomes/SubaruDenso1n83m_4mCanExecutorWrite.CloseRetriesSettleAndChecksumOutcomes/1` | Retained unchanged |
+| 4m: `ChecksumOutcomes/SubaruDenso1n83m_4mCanExecutorWrite.CloseRetriesSettleAndChecksumOutcomes/2` | Retained unchanged |
+| 4m: `ChecksumOutcomes/SubaruDenso1n83m_4mCanExecutorWrite.CloseRetriesSettleAndChecksumOutcomes/3` | Retained unchanged |
+| 4m: `ChecksumOutcomes/SubaruDenso1n83m_4mCanExecutorWrite.CloseRetriesSettleAndChecksumOutcomes/4` | Retained unchanged |
 
 Confirmed **63** executed executor cases in baseline XML.
 
-| Baseline internal branches (both families unless stated) | Protected assertions |
+| Baseline internal branch (both families unless stated) | Protected assertions; candidate retains the original case |
 | --- | --- |
-| `ObkMismatchAbsentAndEmptyAreMisses` | mismatched positive PDU |
-| `ObkMismatchAbsentAndEmptyAreMisses` | no frame |
-| `ObkMismatchAbsentAndEmptyAreMisses` | empty PDU: all initialize |
-| `ObkErrorsAndCancellationPropagateBeforeInitialization` | disconnected |
-| `ObkErrorsAndCancellationPropagateBeforeInitialization` | cancelled: no initialization |
-| `ShortPagesAdvanceByRequestedSizeAndStopIsBestEffort` | stop succeeds |
-| `ShortPagesAdvanceByRequestedSizeAndStopIsBestEffort` | stop exhausted: short decrypt, requested-size progress/address, padding, bounded attempts |
-| `PageAbsentEmptyAndCancelledFailWithoutStopOrProgress` | no frame |
-| `PageAbsentEmptyAndCancelledFailWithoutStopOrProgress` | empty PDU |
-| `PageAbsentEmptyAndCancelledFailWithoutStopOrProgress` | cancelled: no stop/progress |
-| `CancellationAfterPageFailsButCancellationAtStopIsSwallowed` | cancel after page |
-| `CancellationAfterPageFailsButCancellationAtStopIsSwallowed` | cancel at stop: abort versus best-effort success |
-| `IdentityExchangeFailuresIncludingCancellationAreNonFatal` | disconnected |
-| `IdentityExchangeFailuresIncludingCancellationAreNonFatal` | cancelled outcomes on each of four queries: tolerate, preserve timeout sequence |
-| `InCarJumpExhaustionAndCancellationPreserveTimeoutPolicy` | 1.5M outcomes 0/1/2 |
-| `InCarJumpExhaustionAndCancellationPreserveTimeoutPolicy` | 4M outcomes 0/1/2/3: acknowledgement/exhaustion/cancellation/additional acknowledgement shape |
-| `CloseRetriesSettleAndChecksumOutcomes` | each XML row 0..4: immediate success, pending success, absent, disconnected, pending absent |
-| `CloseRetriesSettleAndChecksumOutcomes` | each with six mixed-fault closes |
+| `ObkMismatchAbsentAndEmptyAreMisses` | mismatched positive PDU: initialize, then propagate the scripted first-page disconnection; initial probe timeout 200 ms |
+| `ObkMismatchAbsentAndEmptyAreMisses` | no frame: initialize, then propagate the scripted first-page disconnection; initial probe timeout 200 ms |
+| `ObkMismatchAbsentAndEmptyAreMisses` | empty PDU inside a valid envelope: initialize, then propagate the scripted first-page disconnection; initial probe timeout 200 ms |
+| `ObkErrorsAndCancellationPropagateBeforeInitialization` | disconnected transport → kDisconnected: do not initialize |
+| `ObkErrorsAndCancellationPropagateBeforeInitialization` | cancelled transport → kCancelled: do not initialize |
+| `ObkErrorsAndCancellationPropagateBeforeInitialization` | raw empty frame → kBadResponse: do not initialize |
+| `ShortPagesAdvanceByRequestedSizeAndStopIsBestEffort` | stop acknowledged: short decryption, requested-size address/progress increments, image padding and exact waits |
+| `ShortPagesAdvanceByRequestedSizeAndStopIsBestEffort` | six stop attempts exhausted: short decryption, requested-size address/progress increments, image padding and exact waits |
+| `PageAbsentEmptyAndCancelledFailWithoutStopOrProgress` | no frame → kTimeout: no later stop or page progress |
+| `PageAbsentEmptyAndCancelledFailWithoutStopOrProgress` | raw empty frame → kBadResponse: no later stop or page progress |
+| `PageAbsentEmptyAndCancelledFailWithoutStopOrProgress` | queued cancellation → kCancelled: no later stop or page progress |
+| `CancellationAfterPageFailsButCancellationAtStopIsSwallowed` | after first page: fail, preserving partial progress |
+| `CancellationAfterPageFailsButCancellationAtStopIsSwallowed` | at stop log: tolerate cancellation and complete the read |
+| `IdentityExchangeFailuresIncludingCancellationAreNonFatal` | ECU ID returns kDisconnected: tolerate; all four failures occur together; next access-method timeout propagates with the original read-timeout sequence |
+| `IdentityExchangeFailuresIncludingCancellationAreNonFatal` | VIN returns kDisconnected: tolerate; all four failures occur together; next access-method timeout propagates with the original read-timeout sequence |
+| `IdentityExchangeFailuresIncludingCancellationAreNonFatal` | CAL ID returns kDisconnected: tolerate; all four failures occur together; next access-method timeout propagates with the original read-timeout sequence |
+| `IdentityExchangeFailuresIncludingCancellationAreNonFatal` | CVN returns kDisconnected: tolerate; all four failures occur together; next access-method timeout propagates with the original read-timeout sequence |
+| `IdentityExchangeFailuresIncludingCancellationAreNonFatal` | ECU ID returns kCancelled: tolerate; all four failures occur together; next access-method timeout propagates with the original read-timeout sequence |
+| `IdentityExchangeFailuresIncludingCancellationAreNonFatal` | VIN returns kCancelled: tolerate; all four failures occur together; next access-method timeout propagates with the original read-timeout sequence |
+| `IdentityExchangeFailuresIncludingCancellationAreNonFatal` | CAL ID returns kCancelled: tolerate; all four failures occur together; next access-method timeout propagates with the original read-timeout sequence |
+| `IdentityExchangeFailuresIncludingCancellationAreNonFatal` | CVN returns kCancelled: tolerate; all four failures occur together; next access-method timeout propagates with the original read-timeout sequence |
+| `InCarJumpExhaustionAndCancellationPreserveTimeoutPolicy` | 1.5M outcome 0: immediate acknowledgement; preserve read count, 200 ms timeout policy, log meaning and exact sleep sequence |
+| `InCarJumpExhaustionAndCancellationPreserveTimeoutPolicy` | 1.5M outcome 1: all eleven replies absent, exhaustion continues; preserve read count, 200 ms timeout policy, log meaning and exact sleep sequence |
+| `InCarJumpExhaustionAndCancellationPreserveTimeoutPolicy` | 1.5M outcome 2: queued cancellation propagates; preserve read count, 200 ms timeout policy, log meaning and exact sleep sequence |
+| `InCarJumpExhaustionAndCancellationPreserveTimeoutPolicy` | 4M outcome 0: immediate acknowledgement; preserve read count, 200 ms timeout policy, log meaning and exact sleep sequence |
+| `InCarJumpExhaustionAndCancellationPreserveTimeoutPolicy` | 4M outcome 1: ten absent reads then unchecked final acknowledgement; preserve read count, 200 ms timeout policy, log meaning and exact sleep sequence |
+| `InCarJumpExhaustionAndCancellationPreserveTimeoutPolicy` | 4M outcome 2: queued cancellation propagates; preserve read count, 200 ms timeout policy, log meaning and exact sleep sequence |
+| `InCarJumpExhaustionAndCancellationPreserveTimeoutPolicy` | 4M outcome 3: one absent read then acknowledgement; preserve read count, 200 ms timeout policy, log meaning and exact sleep sequence |
+| `CloseRetriesSettleAndChecksumOutcomes` | 0: immediate positive checksum; original result and per-family checksum/pending timeouts; settle after close |
+| `CloseRetriesSettleAndChecksumOutcomes` | 1: responsePending then success; original result and per-family checksum/pending timeouts; settle after close |
+| `CloseRetriesSettleAndChecksumOutcomes` | 2: no frame; original result and per-family checksum/pending timeouts; settle after close |
+| `CloseRetriesSettleAndChecksumOutcomes` | 3: disconnected; original result and per-family checksum/pending timeouts; settle after close |
+| `CloseRetriesSettleAndChecksumOutcomes` | 4: responsePending then no frame; original result and per-family checksum/pending timeouts; settle after close |
+| `CloseRetriesSettleAndChecksumOutcomes` | combined close attempt 0: no frame; six writes/reads, 200 ms read timeouts, no universal stop-on-error rule |
+| `CloseRetriesSettleAndChecksumOutcomes` | combined close attempt 1: disconnected; six writes/reads, 200 ms read timeouts, no universal stop-on-error rule |
+| `CloseRetriesSettleAndChecksumOutcomes` | combined close attempt 2: negative PDU; six writes/reads, 200 ms read timeouts, no universal stop-on-error rule |
+| `CloseRetriesSettleAndChecksumOutcomes` | combined close attempt 3: queued cancellation; six writes/reads, 200 ms read timeouts, no universal stop-on-error rule |
+| `CloseRetriesSettleAndChecksumOutcomes` | combined close attempt 4: no frame; six writes/reads, 200 ms read timeouts, no universal stop-on-error rule |
+| `CloseRetriesSettleAndChecksumOutcomes` | combined close attempt 5: acknowledged for outcome 0; absent for other outcomes; six writes/reads, 200 ms read timeouts, no universal stop-on-error rule |
+| `WriteErasesThenFlashesBlockOne` | first complete literal request: retained unchanged, independent frozen boundary bytes remain executed |
+| `WriteErasesThenFlashesBlockOne` | last complete literal request: retained unchanged, independent frozen boundary bytes remain executed |
+| `WriteErasesThenFlashesBlockOne` | all intervening requests and image-base subtraction: retained unchanged, independent frozen boundary bytes remain executed |
 
 ## Evidence hashes
 
@@ -156,4 +184,120 @@ Confirmed **63** executed executor cases in baseline XML.
 
 ## Candidate verdict
 
-Behavior, size, runtime, mutation comparison, full gates and platform CI are pending.
+| Gate | Result | Evidence |
+| --- | --- | --- |
+| Protected obligations plus bounded additions | PASS for this scoped comparison | All original obligations retained or mapped above; both setup sites and both transfer loops exercised; 17/17 candidate mutations detected |
+| Remove at least 222 net NLOC including support | FAIL | 1,686 → 2,504: **+818 NLOC** |
+| Median ordinary runtime growth at most 25% | FAIL | 0.296s → 1.589s: **+436.8%** |
+
+The bounded migration retains existing shared-helper consumers and original
+family-local fault/close cases rather than forcing them into another large
+abstraction. Consequently this is a narrower compression attempt than the
+plan's intended complete migration. It establishes the cost of the added
+coverage and observations; it does not prove that every possible scenario
+refactor would fail. No assertion was weakened to meet either numerical gate.
+Any smaller useful test improvement needs a separate review; no other family
+migration or policy replacement follows from this result.
+
+## Migration scope
+
+The named matrices replace the two uniform-payload successful read cases and
+the misleadingly named first-page disconnect case in each family. The baseline
+write case still executes the frozen complete first/last requests. Both new
+patterns additionally exercise complete writes. All other original cases and
+internal branches are retained, including conformance, operator identity,
+combined malformed paths, short pages, stop cancellation, jumps, erase and
+mixed-fault close/checksum outcomes. No original semantic assertion is dropped.
+The old exact uniform fill checks are redundant with stronger full-image
+comparisons; no diagnostic narration assertions are removed.
+
+## Candidate size accounting
+
+| File | Baseline NLOC | Candidate NLOC | Delta |
+| --- | ---: | ---: | ---: |
+| `src/backend/flash/ecu/subaru_denso_1n83m_1_5m_can_executor_test.cpp` | 523 | 590 | +67 |
+| `src/backend/flash/ecu/subaru_denso_1n83m_4m_can_executor_test.cpp` | 584 | 651 | +67 |
+| `src/backend/flash/ecu/testing/n83m_executor_scenarios.h` | 0 | 375 | +375 |
+| `src/backend/flash/ecu/testing/n83m_executor_scenarios_test.cpp` | 0 | 64 | +64 |
+| `src/backend/flash/ecu/testing/n83m_payloads.h` | 0 | 38 | +38 |
+| `src/backend/flash/ecu/testing/n83m_payloads_test.cpp` | 0 | 80 | +80 |
+| `src/backend/flash/testing/scripted_can_flash_transport.h` | 203 | 246 | +43 |
+| `src/backend/flash/testing/scripted_flash_transports_test.cpp` | 376 | 460 | +84 |
+
+Whole-tree scoped metric: 149,087 → 149,905; production stays
+69,504 NLOC (delta zero). The eight-file comparison includes every
+new or changed C++ support file and support self-test. No relocation, generated
+data exclusion or unrelated cleanup contributes savings.
+
+## Matched runtime
+
+The candidate includes both executor targets, the existing scripted transport
+self-test and the two genuinely new support self-test targets. Each run uses
+fresh mutable state and shared immutable computed payloads only. The full
+focused suite also passes shuffled at GoogleTest seed 431.
+
+| Side | Warm-up (not measured) | Five summed XML execution durations | Median |
+| --- | ---: | --- | ---: |
+| Baseline | 0.332s | 0.303s, 0.294s, 0.304s, 0.296s, 0.280s | 0.296s |
+| Candidate | 1.596s | 1.616s, 1.606s, 1.589s, 1.568s, 1.553s | 1.589s |
+
+Build time and mutation verification are excluded from these execution durations.
+The initial focused baseline build took 23.170s; candidate release build and
+full-test wall/build timings are recorded separately in the gate logs and are
+not a speed comparison. Runtime measurements ran after static analysis finished,
+with no competing baseline builds. Case count (63 → 105)
+is a completeness cross-check, not an acceptance guard.
+
+## Targeted mutation comparison
+
+All patches were temporary; production files match the pinned source after
+restoration. A named assertion failure is required for detection. The JSON
+contains exact patches and assertion text, including detector case names.
+
+| Deliberate defect | Baseline | Candidate |
+| --- | --- | --- |
+| `strict-download` | `SubaruDenso1n83m_1_5mCanExecutor.NegativeResponseAtDumpSetupFails` | `SitesAndReplies/N83m15mSetup.PreservesSitePolicy/DownloadMismatch` |
+| `strict-upload` | `survived: pre-existing gap` | `SitesAndReplies/N83m15mSetup.PreservesSitePolicy/UploadMismatch` |
+| `tolerant-setup` | `SubaruDenso1n83m_4mCanExecutor.ProceedsPastMalformedConnectAndDumpSetupResponses` | `SitesAndReplies/N83m4mSetup.PreservesSitePolicy/DownloadNoFrame` |
+| `ignore-fatal-page` | `SubaruDenso1n83m_1_5mCanExecutor.ReadDisconnectMidDumpLoopPropagates` | `OperationsAndBoundaries/N83m15mTransferFault.AbortsAtSelectedIteration/ReadFirstDisconnected` |
+| `swallowed-extra-write` | `survived: pre-existing gap` | `PathsAndPatterns/N83m15mRead.ReturnsCompleteIndependentPayload/BenchForward` |
+| `swallowed-extra-read` | `survived: pre-existing gap` | `PathsAndPatterns/N83m15mRead.ReturnsCompleteIndependentPayload/BenchForward` |
+| `image-base-shift` | `SubaruDenso1n83m_1_5mCanExecutorWrite.WriteErasesThenFlashesBlockOne` | `Patterns/N83m15mWritePattern.SendsCompleteIndependentPayload/Forward` |
+| `omit-page-content` | `SubaruDenso1n83m_1_5mCanExecutor.BenchReadReturnsPaddedImage` | `PathsAndPatterns/N83m15mRead.ReturnsCompleteIndependentPayload/BenchForward` |
+| `reorder-page-address` | `SubaruDenso1n83m_1_5mCanExecutor.BenchReadReturnsPaddedImage` | `PathsAndPatterns/N83m15mRead.ReturnsCompleteIndependentPayload/BenchForward` |
+| `truncate-read` | `SubaruDenso1n83m_1_5mCanExecutor.BenchReadReturnsPaddedImage` | `PathsAndPatterns/N83m15mRead.ReturnsCompleteIndependentPayload/BenchForward` |
+| `truncate-write` | `SubaruDenso1n83m_1_5mCanExecutorWrite.WriteErasesThenFlashesBlockOne` | `Patterns/N83m15mWritePattern.SendsCompleteIndependentPayload/Forward` |
+| `bench-first-1_5m` | `SubaruDenso1n83m_1_5mCanExecutor.BenchReadReturnsPaddedImage` | `PathsAndPatterns/N83m15mRead.ReturnsCompleteIndependentPayload/BenchForward` |
+| `checksum-timeout-1_5m` | `ChecksumOutcomes/SubaruDenso1n83m_1_5mCanExecutorWrite.CloseRetriesSettleAndChecksumOutcomes/1` | `ChecksumOutcomes/SubaruDenso1n83m_1_5mCanExecutorWrite.CloseRetriesSettleAndChecksumOutcomes/1` |
+| `bench-first-4m` | `SubaruDenso1n83m_4mCanExecutor.BenchReadReturnsPaddedImage` | `PathsAndPatterns/N83m4mRead.ReturnsCompleteIndependentPayload/BenchForward` |
+| `read-cancellation-boundary` | `SubaruDenso1n83m_1_5mCan/CanExecutorConformance/0.ReadStopsAtTheNextChunkWhenCancelledMidRead` | `OperationsAndBoundaries/N83m15mTransferFault.AbortsAtSelectedIteration/ReadMiddleCancelled` |
+| `write-cancellation-boundary` | `survived: pre-existing gap` | `OperationsAndBoundaries/N83m15mTransferFault.AbortsAtSelectedIteration/WriteMiddleCancelled` |
+| `checksum-timeout-4m` | `ChecksumOutcomes/SubaruDenso1n83m_4mCanExecutorWrite.CloseRetriesSettleAndChecksumOutcomes/1` | `ChecksumOutcomes/SubaruDenso1n83m_4mCanExecutorWrite.CloseRetriesSettleAndChecksumOutcomes/1` |
+
+The baseline detects 13/17; the candidate detects 17/17. The gaps exposed are
+strict upload rejection, swallowed extra writes/reads, and middle-write
+cancellation. The first attempted 4M checksum patch failed compilation because
+it made a constant unused; it was replaced by a compilable timeout-value patch
+and is not counted as a detector. The post-admission TestWrite guard remains
+unreachable independently of admission rejection; no suppression or artificial
+production route was introduced to mutate it.
+
+## Verification and limits
+
+- Release application build: PASS.
+- Full release graph: 293 targets pass; 14 platform/fuzz targets are skipped by host selection. The baseline reverse-dependency manifest contains 40 passing consumers; the candidate full graph includes them.
+- All nine focused targets pass; shuffled focused checks pass at seed 431.
+- Formatting/complexity hooks, Gazelle regeneration/check and Markdown links: PASS.
+- Changed-code clang-tidy report: PASS after mechanical brace/constant-naming corrections. The runner reports no co-located source for the fake header; its changed test translation unit and pilot includers are among the five analyzed units. This is not a claim of universal header-includer analysis.
+- Platform CI/packaging: pending; no PR or push was authorized in this session.
+- Bench/in-car hardware qualification: unchanged; all new execution is scripted software testing.
+
+The payload dictionary checks mapping and orchestration, not arbitrary cipher
+inputs. Existing algorithm/plan tests remain evidence dependencies. Observation
+coverage applies to base fake calls; a subclass bypassing them is outside it.
+The original mixed-fault close and identity semantics remain family-local and
+unchanged. The size/runtime failures prohibit describing this as a successful
+pilot or extrapolating savings to other families.
+
+Bazel elapsed time for the 17 final valid mutation invocations, including builds,
+was 45.359s on baseline and 47.316s on candidate. These are verification costs, not ordinary test runtime.

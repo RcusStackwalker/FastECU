@@ -243,8 +243,12 @@ fails, then restore the fix.
 
 **Treat a surviving mutant as a missing assertion.** The advisory PR `mutation`
 job ([ADR 0022](adr/0022-advisory-mutation-testing-with-mull.md)) annotates
-survivors on changed lines; add the assertion that kills each one. Log and
-error text is observable behavior. A `Timeout` counts as killed. To run it, see
+survivors on changed lines; add the assertion that kills each one. Semantic operator information in log and
+error text is observable behavior, including correct flash-family identity.
+Exact narration and incidental progress granularity need not be frozen when
+[the scoped pilot contract](superpowers/specs/2026-10-19-generative-protocol-test-pilot-design.md#contracts-and-language)
+classifies and preserves the underlying behavior; this does not authorize
+changing production output as part of that test-only experiment. A `Timeout` counts as killed. To run it, see
 [tooling](tooling.md#mutation-testing).
 
 **Suppress only an equivalent mutant, on its line, naming the mutator,** with

@@ -69,6 +69,16 @@ rolling out.
 | 5. Thin main-window tests | 4.7k | Measured per coordinator |
 | 6. Android | Adds code | Kept small by reusing the Qt UI and portable drivers |
 
+### Scoped N83M test experiment
+
+The [generative protocol pilot](2026-10-19-generative-protocol-test-pilot-design.md)
+tests independently scripted named scenarios on N83M 1.5M and 4M. The
+[results](../../reference/generative-protocol-test-pilot-results.md) report its
+behavioral evidence, support-inclusive size and matched runtime separately.
+This experiment neither changes the general transcript policy nor incorporates
+PR #756. A failed gate is an experimental finding; another family migration
+requires a separate rollout decision.
+
 ### 1. Delete remote mode
 
 Delete the remote serial backend and its smoke test, `remote_utility`, the

@@ -1,7 +1,7 @@
 # Generative protocol test pilot
 
-Status: design decisions settled; awaiting final written-design review and
-shared-understanding confirmation. Implementation is not started. This is a
+Status: approved for native execution on 2026-10-19. The
+[results record](../../reference/generative-protocol-test-pilot-results.md) tracks implementation and evidence. This is a
 scoped experiment, not a replacement for an accepted repository-wide decision.
 
 ## Goal and acceptance
@@ -358,6 +358,6 @@ The user accepted all twelve interview recommendations:
 | Q11 | Additive observations in existing CAN test transport |
 | Q12 | Scoped experiment under existing policy; separate rollout decision |
 
-The design frontier is closed. Final written-design review and confirmation of
-shared understanding remain outstanding. No implementation plan or product/test
-code has been written in this design session.
+The design frontier is closed. The user approved native execution of the
+[implementation plan](../plans/2026-10-19-generative-protocol-test-pilot.md).
+The original design and this plan remain in delivered history before retirement.

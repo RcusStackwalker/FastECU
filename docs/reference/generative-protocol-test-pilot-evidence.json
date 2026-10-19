@@ -1,0 +1,1614 @@
+{
+  "source_baseline": "b866782bcb6295d4dde8e16eb95567bf7c855e48",
+  "candidate_start": "2310ac96c3727f6a869d739117e4964bb8fae6ec",
+  "date": "2026-10-19",
+  "environment": {
+    "host": "Apple Silicon arm64 macOS 27.0.1",
+    "compiler": "Apple clang 21.0.0 clang-2100.3.34.2",
+    "qt": "6.11.1",
+    "bazel": "9.1.1",
+    "lizard": "1.24.1",
+    "configuration": "--config=release",
+    "runtime_flags": [
+      "--nocache_test_results",
+      "--jobs=1",
+      "--local_test_jobs=1"
+    ]
+  },
+  "size": {
+    "baseline_total": 149087,
+    "candidate_total": 149905,
+    "scope": [
+      {
+        "path": "src/backend/flash/ecu/subaru_denso_1n83m_1_5m_can_executor_test.cpp",
+        "baseline": 523,
+        "candidate": 590,
+        "delta": 67
+      },
+      {
+        "path": "src/backend/flash/ecu/subaru_denso_1n83m_4m_can_executor_test.cpp",
+        "baseline": 584,
+        "candidate": 651,
+        "delta": 67
+      },
+      {
+        "path": "src/backend/flash/ecu/testing/n83m_executor_scenarios.h",
+        "baseline": 0,
+        "candidate": 375,
+        "delta": 375
+      },
+      {
+        "path": "src/backend/flash/ecu/testing/n83m_executor_scenarios_test.cpp",
+        "baseline": 0,
+        "candidate": 64,
+        "delta": 64
+      },
+      {
+        "path": "src/backend/flash/ecu/testing/n83m_payloads.h",
+        "baseline": 0,
+        "candidate": 38,
+        "delta": 38
+      },
+      {
+        "path": "src/backend/flash/ecu/testing/n83m_payloads_test.cpp",
+        "baseline": 0,
+        "candidate": 80,
+        "delta": 80
+      },
+      {
+        "path": "src/backend/flash/testing/scripted_can_flash_transport.h",
+        "baseline": 203,
+        "candidate": 246,
+        "delta": 43
+      },
+      {
+        "path": "src/backend/flash/testing/scripted_flash_transports_test.cpp",
+        "baseline": 376,
+        "candidate": 460,
+        "delta": 84
+      }
+    ],
+    "scoped_baseline": 1686,
+    "scoped_candidate": 2504,
+    "whole_tree_delta": 818,
+    "production_delta": 0
+  },
+  "runtime": {
+    "baseline": {
+      "targets": [
+        "//src/backend/flash/ecu:subaru_denso_1n83m_1_5m_can_executor_test",
+        "//src/backend/flash/ecu:subaru_denso_1n83m_4m_can_executor_test",
+        "//src/backend/flash/testing:scripted_flash_transports_test"
+      ],
+      "warmup": 0.33199999999999996,
+      "runs": [
+        0.303,
+        0.294,
+        0.304,
+        0.296,
+        0.28
+      ],
+      "median": 0.296,
+      "machine": "macOS-27.0.1-arm64-arm-64bit-Mach-O"
+    },
+    "candidate": {
+      "targets": [
+        "//src/backend/flash/ecu:subaru_denso_1n83m_1_5m_can_executor_test",
+        "//src/backend/flash/ecu:subaru_denso_1n83m_4m_can_executor_test",
+        "//src/backend/flash/testing:scripted_flash_transports_test",
+        "//src/backend/flash/ecu/testing:n83m_payloads_test",
+        "//src/backend/flash/ecu/testing:n83m_executor_scenarios_test"
+      ],
+      "warmup": 1.596,
+      "runs": [
+        1.616,
+        1.6059999999999999,
+        1.589,
+        1.568,
+        1.553
+      ],
+      "median": 1.589
+    },
+    "growth_percent": 436.8243243243243
+  },
+  "baseline_testcases": [
+    {
+      "family": "1_5m",
+      "suite": "SubaruDenso1n83m_1_5mCanExecutor",
+      "name": "BenchReadReturnsPaddedImage"
+    },
+    {
+      "family": "1_5m",
+      "suite": "SubaruDenso1n83m_1_5mCanExecutor",
+      "name": "OperatorFacingLogLinesNameThe1_5MFamily"
+    },
+    {
+      "family": "1_5m",
+      "suite": "SubaruDenso1n83m_1_5mCanExecutor",
+      "name": "InCarReadReturnsPaddedImage"
+    },
+    {
+      "family": "1_5m",
+      "suite": "SubaruDenso1n83m_1_5mCanExecutor",
+      "name": "ReadDisconnectMidDumpLoopPropagates"
+    },
+    {
+      "family": "1_5m",
+      "suite": "SubaruDenso1n83m_1_5mCanExecutor",
+      "name": "NegativeResponseDuringConnectFails"
+    },
+    {
+      "family": "1_5m",
+      "suite": "SubaruDenso1n83m_1_5mCanExecutor",
+      "name": "NegativeResponseAtDumpSetupFails"
+    },
+    {
+      "family": "1_5m",
+      "suite": "SubaruDenso1n83m_1_5mCanExecutor",
+      "name": "EmptyBranchSelectorReplyFails"
+    },
+    {
+      "family": "1_5m",
+      "suite": "SubaruDenso1n83m_1_5mCanExecutor",
+      "name": "ObkMismatchAbsentAndEmptyAreMisses"
+    },
+    {
+      "family": "1_5m",
+      "suite": "SubaruDenso1n83m_1_5mCanExecutor",
+      "name": "ObkErrorsAndCancellationPropagateBeforeInitialization"
+    },
+    {
+      "family": "1_5m",
+      "suite": "SubaruDenso1n83m_1_5mCanExecutor",
+      "name": "ShortPagesAdvanceByRequestedSizeAndStopIsBestEffort"
+    },
+    {
+      "family": "1_5m",
+      "suite": "SubaruDenso1n83m_1_5mCanExecutor",
+      "name": "PageAbsentEmptyAndCancelledFailWithoutStopOrProgress"
+    },
+    {
+      "family": "1_5m",
+      "suite": "SubaruDenso1n83m_1_5mCanExecutor",
+      "name": "CancellationAfterPageFailsButCancellationAtStopIsSwallowed"
+    },
+    {
+      "family": "1_5m",
+      "suite": "SubaruDenso1n83m_1_5mCanExecutor",
+      "name": "BenchJumpExhaustionPreservesReadCountAndTiming"
+    },
+    {
+      "family": "1_5m",
+      "suite": "SubaruDenso1n83m_1_5mCanExecutor",
+      "name": "IdentityExchangeFailuresIncludingCancellationAreNonFatal"
+    },
+    {
+      "family": "1_5m",
+      "suite": "SubaruDenso1n83m_1_5mCanExecutor",
+      "name": "InCarJumpExhaustionAndCancellationPreserveTimeoutPolicy"
+    },
+    {
+      "family": "1_5m",
+      "suite": "SubaruDenso1n83m_1_5mCanExecutorWrite",
+      "name": "WriteErasesThenFlashesBlockOne"
+    },
+    {
+      "family": "1_5m",
+      "suite": "SubaruDenso1n83m_1_5mCanExecutorWrite",
+      "name": "EraseRetryExhaustionFails"
+    },
+    {
+      "family": "1_5m",
+      "suite": "SubaruDenso1n83m_1_5mCanExecutorWrite",
+      "name": "CancellationAtCloseSettlePreventsChecksum"
+    },
+    {
+      "family": "1_5m",
+      "suite": "SubaruDenso1n83m_1_5mCan/CanExecutorConformance/0",
+      "name": "TransportSetupReturnsThePlansWireParameters"
+    },
+    {
+      "family": "1_5m",
+      "suite": "SubaruDenso1n83m_1_5mCan/CanExecutorConformance/0",
+      "name": "RejectsAPlanFromAnotherFamilyBeforeAnyIo"
+    },
+    {
+      "family": "1_5m",
+      "suite": "SubaruDenso1n83m_1_5mCan/CanExecutorConformance/0",
+      "name": "RefusesATestWritePlanRatherThanWritingForReal"
+    },
+    {
+      "family": "1_5m",
+      "suite": "SubaruDenso1n83m_1_5mCan/CanExecutorConformance/0",
+      "name": "ReadPropagatesADisconnectedTransport"
+    },
+    {
+      "family": "1_5m",
+      "suite": "SubaruDenso1n83m_1_5mCan/CanExecutorConformance/0",
+      "name": "ReadStopsAtTheNextChunkWhenCancelledMidRead"
+    },
+    {
+      "family": "1_5m",
+      "suite": "SubaruDenso1n83m_1_5mCan/CanExecutorConformance/0",
+      "name": "ConnectProbesReadWithThisFamilysProbeTimeout"
+    },
+    {
+      "family": "1_5m",
+      "suite": "SubaruDenso1n83m_1_5mCan/CanExecutorConformance/0",
+      "name": "ReadReportsAnEmptyReplyAsTimeout"
+    },
+    {
+      "family": "1_5m",
+      "suite": "SubaruDenso1n83m_1_5mCan/CanExecutorConformance/0",
+      "name": "ReadTimeoutPropagates"
+    },
+    {
+      "family": "1_5m",
+      "suite": "ChecksumOutcomes/SubaruDenso1n83m_1_5mCanExecutorWrite",
+      "name": "CloseRetriesSettleAndChecksumOutcomes/0"
+    },
+    {
+      "family": "1_5m",
+      "suite": "ChecksumOutcomes/SubaruDenso1n83m_1_5mCanExecutorWrite",
+      "name": "CloseRetriesSettleAndChecksumOutcomes/1"
+    },
+    {
+      "family": "1_5m",
+      "suite": "ChecksumOutcomes/SubaruDenso1n83m_1_5mCanExecutorWrite",
+      "name": "CloseRetriesSettleAndChecksumOutcomes/2"
+    },
+    {
+      "family": "1_5m",
+      "suite": "ChecksumOutcomes/SubaruDenso1n83m_1_5mCanExecutorWrite",
+      "name": "CloseRetriesSettleAndChecksumOutcomes/3"
+    },
+    {
+      "family": "1_5m",
+      "suite": "ChecksumOutcomes/SubaruDenso1n83m_1_5mCanExecutorWrite",
+      "name": "CloseRetriesSettleAndChecksumOutcomes/4"
+    },
+    {
+      "family": "4m",
+      "suite": "SubaruDenso1n83m_4mCanExecutor",
+      "name": "ProceedsPastMalformedConnectAndDumpSetupResponses"
+    },
+    {
+      "family": "4m",
+      "suite": "SubaruDenso1n83m_4mCanExecutor",
+      "name": "ProceedsPastMalformedInCarProbeAndDumpSetup"
+    },
+    {
+      "family": "4m",
+      "suite": "SubaruDenso1n83m_4mCanExecutor",
+      "name": "BenchReadReturnsPaddedImage"
+    },
+    {
+      "family": "4m",
+      "suite": "SubaruDenso1n83m_4mCanExecutor",
+      "name": "InCarReadReturnsPaddedImage"
+    },
+    {
+      "family": "4m",
+      "suite": "SubaruDenso1n83m_4mCanExecutor",
+      "name": "ReadDisconnectMidDumpLoopPropagates"
+    },
+    {
+      "family": "4m",
+      "suite": "SubaruDenso1n83m_4mCanExecutor",
+      "name": "ReadTimeoutAtTheTolerantDumpSetupStillPropagates"
+    },
+    {
+      "family": "4m",
+      "suite": "SubaruDenso1n83m_4mCanExecutor",
+      "name": "NegativeResponseDuringConnectFails"
+    },
+    {
+      "family": "4m",
+      "suite": "SubaruDenso1n83m_4mCanExecutor",
+      "name": "EmptyBranchSelectorReplyFails"
+    },
+    {
+      "family": "4m",
+      "suite": "SubaruDenso1n83m_4mCanExecutor",
+      "name": "ObkMismatchAbsentAndEmptyAreMisses"
+    },
+    {
+      "family": "4m",
+      "suite": "SubaruDenso1n83m_4mCanExecutor",
+      "name": "ObkErrorsAndCancellationPropagateBeforeInitialization"
+    },
+    {
+      "family": "4m",
+      "suite": "SubaruDenso1n83m_4mCanExecutor",
+      "name": "ShortPagesAdvanceByRequestedSizeAndStopIsBestEffort"
+    },
+    {
+      "family": "4m",
+      "suite": "SubaruDenso1n83m_4mCanExecutor",
+      "name": "PageAbsentEmptyAndCancelledFailWithoutStopOrProgress"
+    },
+    {
+      "family": "4m",
+      "suite": "SubaruDenso1n83m_4mCanExecutor",
+      "name": "CancellationAfterPageFailsButCancellationAtStopIsSwallowed"
+    },
+    {
+      "family": "4m",
+      "suite": "SubaruDenso1n83m_4mCanExecutor",
+      "name": "BenchJumpExhaustionPreservesReadCountAndTiming"
+    },
+    {
+      "family": "4m",
+      "suite": "SubaruDenso1n83m_4mCanExecutor",
+      "name": "IdentityExchangeFailuresIncludingCancellationAreNonFatal"
+    },
+    {
+      "family": "4m",
+      "suite": "SubaruDenso1n83m_4mCanExecutor",
+      "name": "InCarJumpExhaustionAndCancellationPreserveTimeoutPolicy"
+    },
+    {
+      "family": "4m",
+      "suite": "SubaruDenso1n83m_4mCanExecutorWrite",
+      "name": "WriteErasesThenFlashesBlockOne"
+    },
+    {
+      "family": "4m",
+      "suite": "SubaruDenso1n83m_4mCanExecutorWrite",
+      "name": "EraseRetryExhaustionFails"
+    },
+    {
+      "family": "4m",
+      "suite": "SubaruDenso1n83m_4mCanExecutorWrite",
+      "name": "CancellationAtCloseSettlePreventsChecksum"
+    },
+    {
+      "family": "4m",
+      "suite": "SubaruDenso1n83m_4mCan/CanExecutorConformance/0",
+      "name": "TransportSetupReturnsThePlansWireParameters"
+    },
+    {
+      "family": "4m",
+      "suite": "SubaruDenso1n83m_4mCan/CanExecutorConformance/0",
+      "name": "RejectsAPlanFromAnotherFamilyBeforeAnyIo"
+    },
+    {
+      "family": "4m",
+      "suite": "SubaruDenso1n83m_4mCan/CanExecutorConformance/0",
+      "name": "RefusesATestWritePlanRatherThanWritingForReal"
+    },
+    {
+      "family": "4m",
+      "suite": "SubaruDenso1n83m_4mCan/CanExecutorConformance/0",
+      "name": "ReadPropagatesADisconnectedTransport"
+    },
+    {
+      "family": "4m",
+      "suite": "SubaruDenso1n83m_4mCan/CanExecutorConformance/0",
+      "name": "ReadStopsAtTheNextChunkWhenCancelledMidRead"
+    },
+    {
+      "family": "4m",
+      "suite": "SubaruDenso1n83m_4mCan/CanExecutorConformance/0",
+      "name": "ConnectProbesReadWithThisFamilysProbeTimeout"
+    },
+    {
+      "family": "4m",
+      "suite": "SubaruDenso1n83m_4mCan/CanExecutorConformance/0",
+      "name": "ReadReportsAnEmptyReplyAsTimeout"
+    },
+    {
+      "family": "4m",
+      "suite": "SubaruDenso1n83m_4mCan/CanExecutorConformance/0",
+      "name": "ReadTimeoutPropagates"
+    },
+    {
+      "family": "4m",
+      "suite": "ChecksumOutcomes/SubaruDenso1n83m_4mCanExecutorWrite",
+      "name": "CloseRetriesSettleAndChecksumOutcomes/0"
+    },
+    {
+      "family": "4m",
+      "suite": "ChecksumOutcomes/SubaruDenso1n83m_4mCanExecutorWrite",
+      "name": "CloseRetriesSettleAndChecksumOutcomes/1"
+    },
+    {
+      "family": "4m",
+      "suite": "ChecksumOutcomes/SubaruDenso1n83m_4mCanExecutorWrite",
+      "name": "CloseRetriesSettleAndChecksumOutcomes/2"
+    },
+    {
+      "family": "4m",
+      "suite": "ChecksumOutcomes/SubaruDenso1n83m_4mCanExecutorWrite",
+      "name": "CloseRetriesSettleAndChecksumOutcomes/3"
+    },
+    {
+      "family": "4m",
+      "suite": "ChecksumOutcomes/SubaruDenso1n83m_4mCanExecutorWrite",
+      "name": "CloseRetriesSettleAndChecksumOutcomes/4"
+    }
+  ],
+  "candidate_testcases": [
+    {
+      "family": "1_5m",
+      "suite": "SubaruDenso1n83m_1_5mCanExecutor",
+      "name": "OperatorFacingLogLinesNameThe1_5MFamily"
+    },
+    {
+      "family": "1_5m",
+      "suite": "SubaruDenso1n83m_1_5mCanExecutor",
+      "name": "NegativeResponseDuringConnectFails"
+    },
+    {
+      "family": "1_5m",
+      "suite": "SubaruDenso1n83m_1_5mCanExecutor",
+      "name": "NegativeResponseAtDumpSetupFails"
+    },
+    {
+      "family": "1_5m",
+      "suite": "SubaruDenso1n83m_1_5mCanExecutor",
+      "name": "EmptyBranchSelectorReplyFails"
+    },
+    {
+      "family": "1_5m",
+      "suite": "SubaruDenso1n83m_1_5mCanExecutor",
+      "name": "ObkMismatchAbsentAndEmptyAreMisses"
+    },
+    {
+      "family": "1_5m",
+      "suite": "SubaruDenso1n83m_1_5mCanExecutor",
+      "name": "ObkErrorsAndCancellationPropagateBeforeInitialization"
+    },
+    {
+      "family": "1_5m",
+      "suite": "SubaruDenso1n83m_1_5mCanExecutor",
+      "name": "ShortPagesAdvanceByRequestedSizeAndStopIsBestEffort"
+    },
+    {
+      "family": "1_5m",
+      "suite": "SubaruDenso1n83m_1_5mCanExecutor",
+      "name": "PageAbsentEmptyAndCancelledFailWithoutStopOrProgress"
+    },
+    {
+      "family": "1_5m",
+      "suite": "SubaruDenso1n83m_1_5mCanExecutor",
+      "name": "CancellationAfterPageFailsButCancellationAtStopIsSwallowed"
+    },
+    {
+      "family": "1_5m",
+      "suite": "SubaruDenso1n83m_1_5mCanExecutor",
+      "name": "BenchJumpExhaustionPreservesReadCountAndTiming"
+    },
+    {
+      "family": "1_5m",
+      "suite": "SubaruDenso1n83m_1_5mCanExecutor",
+      "name": "IdentityExchangeFailuresIncludingCancellationAreNonFatal"
+    },
+    {
+      "family": "1_5m",
+      "suite": "SubaruDenso1n83m_1_5mCanExecutor",
+      "name": "InCarJumpExhaustionAndCancellationPreserveTimeoutPolicy"
+    },
+    {
+      "family": "1_5m",
+      "suite": "SubaruDenso1n83m_1_5mCanExecutorWrite",
+      "name": "WriteErasesThenFlashesBlockOne"
+    },
+    {
+      "family": "1_5m",
+      "suite": "SubaruDenso1n83m_1_5mCanExecutorWrite",
+      "name": "EraseRetryExhaustionFails"
+    },
+    {
+      "family": "1_5m",
+      "suite": "SubaruDenso1n83m_1_5mCanExecutorWrite",
+      "name": "CancellationAtCloseSettlePreventsChecksum"
+    },
+    {
+      "family": "1_5m",
+      "suite": "SubaruDenso1n83m_1_5mCan/CanExecutorConformance/0",
+      "name": "TransportSetupReturnsThePlansWireParameters"
+    },
+    {
+      "family": "1_5m",
+      "suite": "SubaruDenso1n83m_1_5mCan/CanExecutorConformance/0",
+      "name": "RejectsAPlanFromAnotherFamilyBeforeAnyIo"
+    },
+    {
+      "family": "1_5m",
+      "suite": "SubaruDenso1n83m_1_5mCan/CanExecutorConformance/0",
+      "name": "RefusesATestWritePlanRatherThanWritingForReal"
+    },
+    {
+      "family": "1_5m",
+      "suite": "SubaruDenso1n83m_1_5mCan/CanExecutorConformance/0",
+      "name": "ReadPropagatesADisconnectedTransport"
+    },
+    {
+      "family": "1_5m",
+      "suite": "SubaruDenso1n83m_1_5mCan/CanExecutorConformance/0",
+      "name": "ReadStopsAtTheNextChunkWhenCancelledMidRead"
+    },
+    {
+      "family": "1_5m",
+      "suite": "SubaruDenso1n83m_1_5mCan/CanExecutorConformance/0",
+      "name": "ConnectProbesReadWithThisFamilysProbeTimeout"
+    },
+    {
+      "family": "1_5m",
+      "suite": "SubaruDenso1n83m_1_5mCan/CanExecutorConformance/0",
+      "name": "ReadReportsAnEmptyReplyAsTimeout"
+    },
+    {
+      "family": "1_5m",
+      "suite": "SubaruDenso1n83m_1_5mCan/CanExecutorConformance/0",
+      "name": "ReadTimeoutPropagates"
+    },
+    {
+      "family": "1_5m",
+      "suite": "ChecksumOutcomes/SubaruDenso1n83m_1_5mCanExecutorWrite",
+      "name": "CloseRetriesSettleAndChecksumOutcomes/0"
+    },
+    {
+      "family": "1_5m",
+      "suite": "ChecksumOutcomes/SubaruDenso1n83m_1_5mCanExecutorWrite",
+      "name": "CloseRetriesSettleAndChecksumOutcomes/1"
+    },
+    {
+      "family": "1_5m",
+      "suite": "ChecksumOutcomes/SubaruDenso1n83m_1_5mCanExecutorWrite",
+      "name": "CloseRetriesSettleAndChecksumOutcomes/2"
+    },
+    {
+      "family": "1_5m",
+      "suite": "ChecksumOutcomes/SubaruDenso1n83m_1_5mCanExecutorWrite",
+      "name": "CloseRetriesSettleAndChecksumOutcomes/3"
+    },
+    {
+      "family": "1_5m",
+      "suite": "ChecksumOutcomes/SubaruDenso1n83m_1_5mCanExecutorWrite",
+      "name": "CloseRetriesSettleAndChecksumOutcomes/4"
+    },
+    {
+      "family": "1_5m",
+      "suite": "PathsAndPatterns/N83m15mRead",
+      "name": "ReturnsCompleteIndependentPayload/BenchForward"
+    },
+    {
+      "family": "1_5m",
+      "suite": "PathsAndPatterns/N83m15mRead",
+      "name": "ReturnsCompleteIndependentPayload/BenchReverse"
+    },
+    {
+      "family": "1_5m",
+      "suite": "PathsAndPatterns/N83m15mRead",
+      "name": "ReturnsCompleteIndependentPayload/InCarForward"
+    },
+    {
+      "family": "1_5m",
+      "suite": "PathsAndPatterns/N83m15mRead",
+      "name": "ReturnsCompleteIndependentPayload/InCarReverse"
+    },
+    {
+      "family": "1_5m",
+      "suite": "Patterns/N83m15mWritePattern",
+      "name": "SendsCompleteIndependentPayload/Forward"
+    },
+    {
+      "family": "1_5m",
+      "suite": "Patterns/N83m15mWritePattern",
+      "name": "SendsCompleteIndependentPayload/Reverse"
+    },
+    {
+      "family": "1_5m",
+      "suite": "SitesAndReplies/N83m15mSetup",
+      "name": "PreservesSitePolicy/DownloadSuccess"
+    },
+    {
+      "family": "1_5m",
+      "suite": "SitesAndReplies/N83m15mSetup",
+      "name": "PreservesSitePolicy/DownloadNoFrame"
+    },
+    {
+      "family": "1_5m",
+      "suite": "SitesAndReplies/N83m15mSetup",
+      "name": "PreservesSitePolicy/DownloadEmptyPdu"
+    },
+    {
+      "family": "1_5m",
+      "suite": "SitesAndReplies/N83m15mSetup",
+      "name": "PreservesSitePolicy/DownloadTruncatedRaw"
+    },
+    {
+      "family": "1_5m",
+      "suite": "SitesAndReplies/N83m15mSetup",
+      "name": "PreservesSitePolicy/DownloadMismatch"
+    },
+    {
+      "family": "1_5m",
+      "suite": "SitesAndReplies/N83m15mSetup",
+      "name": "PreservesSitePolicy/DownloadTransportError"
+    },
+    {
+      "family": "1_5m",
+      "suite": "SitesAndReplies/N83m15mSetup",
+      "name": "PreservesSitePolicy/UploadSuccess"
+    },
+    {
+      "family": "1_5m",
+      "suite": "SitesAndReplies/N83m15mSetup",
+      "name": "PreservesSitePolicy/UploadNoFrame"
+    },
+    {
+      "family": "1_5m",
+      "suite": "SitesAndReplies/N83m15mSetup",
+      "name": "PreservesSitePolicy/UploadEmptyPdu"
+    },
+    {
+      "family": "1_5m",
+      "suite": "SitesAndReplies/N83m15mSetup",
+      "name": "PreservesSitePolicy/UploadTruncatedRaw"
+    },
+    {
+      "family": "1_5m",
+      "suite": "SitesAndReplies/N83m15mSetup",
+      "name": "PreservesSitePolicy/UploadMismatch"
+    },
+    {
+      "family": "1_5m",
+      "suite": "SitesAndReplies/N83m15mSetup",
+      "name": "PreservesSitePolicy/UploadTransportError"
+    },
+    {
+      "family": "1_5m",
+      "suite": "OperationsAndBoundaries/N83m15mTransferFault",
+      "name": "AbortsAtSelectedIteration/ReadFirstDisconnected"
+    },
+    {
+      "family": "1_5m",
+      "suite": "OperationsAndBoundaries/N83m15mTransferFault",
+      "name": "AbortsAtSelectedIteration/ReadMiddleCancelled"
+    },
+    {
+      "family": "1_5m",
+      "suite": "OperationsAndBoundaries/N83m15mTransferFault",
+      "name": "AbortsAtSelectedIteration/ReadLastRejected"
+    },
+    {
+      "family": "1_5m",
+      "suite": "OperationsAndBoundaries/N83m15mTransferFault",
+      "name": "AbortsAtSelectedIteration/WriteFirstDisconnected"
+    },
+    {
+      "family": "1_5m",
+      "suite": "OperationsAndBoundaries/N83m15mTransferFault",
+      "name": "AbortsAtSelectedIteration/WriteMiddleCancelled"
+    },
+    {
+      "family": "1_5m",
+      "suite": "OperationsAndBoundaries/N83m15mTransferFault",
+      "name": "AbortsAtSelectedIteration/WriteLastRejected"
+    },
+    {
+      "family": "4m",
+      "suite": "SubaruDenso1n83m_4mCanExecutor",
+      "name": "ProceedsPastMalformedConnectAndDumpSetupResponses"
+    },
+    {
+      "family": "4m",
+      "suite": "SubaruDenso1n83m_4mCanExecutor",
+      "name": "ProceedsPastMalformedInCarProbeAndDumpSetup"
+    },
+    {
+      "family": "4m",
+      "suite": "SubaruDenso1n83m_4mCanExecutor",
+      "name": "ReadTimeoutAtTheTolerantDumpSetupStillPropagates"
+    },
+    {
+      "family": "4m",
+      "suite": "SubaruDenso1n83m_4mCanExecutor",
+      "name": "NegativeResponseDuringConnectFails"
+    },
+    {
+      "family": "4m",
+      "suite": "SubaruDenso1n83m_4mCanExecutor",
+      "name": "EmptyBranchSelectorReplyFails"
+    },
+    {
+      "family": "4m",
+      "suite": "SubaruDenso1n83m_4mCanExecutor",
+      "name": "ObkMismatchAbsentAndEmptyAreMisses"
+    },
+    {
+      "family": "4m",
+      "suite": "SubaruDenso1n83m_4mCanExecutor",
+      "name": "ObkErrorsAndCancellationPropagateBeforeInitialization"
+    },
+    {
+      "family": "4m",
+      "suite": "SubaruDenso1n83m_4mCanExecutor",
+      "name": "ShortPagesAdvanceByRequestedSizeAndStopIsBestEffort"
+    },
+    {
+      "family": "4m",
+      "suite": "SubaruDenso1n83m_4mCanExecutor",
+      "name": "PageAbsentEmptyAndCancelledFailWithoutStopOrProgress"
+    },
+    {
+      "family": "4m",
+      "suite": "SubaruDenso1n83m_4mCanExecutor",
+      "name": "CancellationAfterPageFailsButCancellationAtStopIsSwallowed"
+    },
+    {
+      "family": "4m",
+      "suite": "SubaruDenso1n83m_4mCanExecutor",
+      "name": "BenchJumpExhaustionPreservesReadCountAndTiming"
+    },
+    {
+      "family": "4m",
+      "suite": "SubaruDenso1n83m_4mCanExecutor",
+      "name": "IdentityExchangeFailuresIncludingCancellationAreNonFatal"
+    },
+    {
+      "family": "4m",
+      "suite": "SubaruDenso1n83m_4mCanExecutor",
+      "name": "InCarJumpExhaustionAndCancellationPreserveTimeoutPolicy"
+    },
+    {
+      "family": "4m",
+      "suite": "SubaruDenso1n83m_4mCanExecutorWrite",
+      "name": "WriteErasesThenFlashesBlockOne"
+    },
+    {
+      "family": "4m",
+      "suite": "SubaruDenso1n83m_4mCanExecutorWrite",
+      "name": "EraseRetryExhaustionFails"
+    },
+    {
+      "family": "4m",
+      "suite": "SubaruDenso1n83m_4mCanExecutorWrite",
+      "name": "CancellationAtCloseSettlePreventsChecksum"
+    },
+    {
+      "family": "4m",
+      "suite": "SubaruDenso1n83m_4mCan/CanExecutorConformance/0",
+      "name": "TransportSetupReturnsThePlansWireParameters"
+    },
+    {
+      "family": "4m",
+      "suite": "SubaruDenso1n83m_4mCan/CanExecutorConformance/0",
+      "name": "RejectsAPlanFromAnotherFamilyBeforeAnyIo"
+    },
+    {
+      "family": "4m",
+      "suite": "SubaruDenso1n83m_4mCan/CanExecutorConformance/0",
+      "name": "RefusesATestWritePlanRatherThanWritingForReal"
+    },
+    {
+      "family": "4m",
+      "suite": "SubaruDenso1n83m_4mCan/CanExecutorConformance/0",
+      "name": "ReadPropagatesADisconnectedTransport"
+    },
+    {
+      "family": "4m",
+      "suite": "SubaruDenso1n83m_4mCan/CanExecutorConformance/0",
+      "name": "ReadStopsAtTheNextChunkWhenCancelledMidRead"
+    },
+    {
+      "family": "4m",
+      "suite": "SubaruDenso1n83m_4mCan/CanExecutorConformance/0",
+      "name": "ConnectProbesReadWithThisFamilysProbeTimeout"
+    },
+    {
+      "family": "4m",
+      "suite": "SubaruDenso1n83m_4mCan/CanExecutorConformance/0",
+      "name": "ReadReportsAnEmptyReplyAsTimeout"
+    },
+    {
+      "family": "4m",
+      "suite": "SubaruDenso1n83m_4mCan/CanExecutorConformance/0",
+      "name": "ReadTimeoutPropagates"
+    },
+    {
+      "family": "4m",
+      "suite": "ChecksumOutcomes/SubaruDenso1n83m_4mCanExecutorWrite",
+      "name": "CloseRetriesSettleAndChecksumOutcomes/0"
+    },
+    {
+      "family": "4m",
+      "suite": "ChecksumOutcomes/SubaruDenso1n83m_4mCanExecutorWrite",
+      "name": "CloseRetriesSettleAndChecksumOutcomes/1"
+    },
+    {
+      "family": "4m",
+      "suite": "ChecksumOutcomes/SubaruDenso1n83m_4mCanExecutorWrite",
+      "name": "CloseRetriesSettleAndChecksumOutcomes/2"
+    },
+    {
+      "family": "4m",
+      "suite": "ChecksumOutcomes/SubaruDenso1n83m_4mCanExecutorWrite",
+      "name": "CloseRetriesSettleAndChecksumOutcomes/3"
+    },
+    {
+      "family": "4m",
+      "suite": "ChecksumOutcomes/SubaruDenso1n83m_4mCanExecutorWrite",
+      "name": "CloseRetriesSettleAndChecksumOutcomes/4"
+    },
+    {
+      "family": "4m",
+      "suite": "PathsAndPatterns/N83m4mRead",
+      "name": "ReturnsCompleteIndependentPayload/BenchForward"
+    },
+    {
+      "family": "4m",
+      "suite": "PathsAndPatterns/N83m4mRead",
+      "name": "ReturnsCompleteIndependentPayload/BenchReverse"
+    },
+    {
+      "family": "4m",
+      "suite": "PathsAndPatterns/N83m4mRead",
+      "name": "ReturnsCompleteIndependentPayload/InCarForward"
+    },
+    {
+      "family": "4m",
+      "suite": "PathsAndPatterns/N83m4mRead",
+      "name": "ReturnsCompleteIndependentPayload/InCarReverse"
+    },
+    {
+      "family": "4m",
+      "suite": "Patterns/N83m4mWritePattern",
+      "name": "SendsCompleteIndependentPayload/Forward"
+    },
+    {
+      "family": "4m",
+      "suite": "Patterns/N83m4mWritePattern",
+      "name": "SendsCompleteIndependentPayload/Reverse"
+    },
+    {
+      "family": "4m",
+      "suite": "SitesAndReplies/N83m4mSetup",
+      "name": "PreservesSitePolicy/DownloadSuccess"
+    },
+    {
+      "family": "4m",
+      "suite": "SitesAndReplies/N83m4mSetup",
+      "name": "PreservesSitePolicy/DownloadNoFrame"
+    },
+    {
+      "family": "4m",
+      "suite": "SitesAndReplies/N83m4mSetup",
+      "name": "PreservesSitePolicy/DownloadEmptyPdu"
+    },
+    {
+      "family": "4m",
+      "suite": "SitesAndReplies/N83m4mSetup",
+      "name": "PreservesSitePolicy/DownloadTruncatedRaw"
+    },
+    {
+      "family": "4m",
+      "suite": "SitesAndReplies/N83m4mSetup",
+      "name": "PreservesSitePolicy/DownloadMismatch"
+    },
+    {
+      "family": "4m",
+      "suite": "SitesAndReplies/N83m4mSetup",
+      "name": "PreservesSitePolicy/DownloadTransportError"
+    },
+    {
+      "family": "4m",
+      "suite": "SitesAndReplies/N83m4mSetup",
+      "name": "PreservesSitePolicy/UploadSuccess"
+    },
+    {
+      "family": "4m",
+      "suite": "SitesAndReplies/N83m4mSetup",
+      "name": "PreservesSitePolicy/UploadNoFrame"
+    },
+    {
+      "family": "4m",
+      "suite": "SitesAndReplies/N83m4mSetup",
+      "name": "PreservesSitePolicy/UploadEmptyPdu"
+    },
+    {
+      "family": "4m",
+      "suite": "SitesAndReplies/N83m4mSetup",
+      "name": "PreservesSitePolicy/UploadTruncatedRaw"
+    },
+    {
+      "family": "4m",
+      "suite": "SitesAndReplies/N83m4mSetup",
+      "name": "PreservesSitePolicy/UploadMismatch"
+    },
+    {
+      "family": "4m",
+      "suite": "SitesAndReplies/N83m4mSetup",
+      "name": "PreservesSitePolicy/UploadTransportError"
+    },
+    {
+      "family": "4m",
+      "suite": "OperationsAndBoundaries/N83m4mTransferFault",
+      "name": "AbortsAtSelectedIteration/ReadFirstDisconnected"
+    },
+    {
+      "family": "4m",
+      "suite": "OperationsAndBoundaries/N83m4mTransferFault",
+      "name": "AbortsAtSelectedIteration/ReadMiddleCancelled"
+    },
+    {
+      "family": "4m",
+      "suite": "OperationsAndBoundaries/N83m4mTransferFault",
+      "name": "AbortsAtSelectedIteration/ReadLastRejected"
+    },
+    {
+      "family": "4m",
+      "suite": "OperationsAndBoundaries/N83m4mTransferFault",
+      "name": "AbortsAtSelectedIteration/WriteFirstDisconnected"
+    },
+    {
+      "family": "4m",
+      "suite": "OperationsAndBoundaries/N83m4mTransferFault",
+      "name": "AbortsAtSelectedIteration/WriteMiddleCancelled"
+    },
+    {
+      "family": "4m",
+      "suite": "OperationsAndBoundaries/N83m4mTransferFault",
+      "name": "AbortsAtSelectedIteration/WriteLastRejected"
+    }
+  ],
+  "mutations": {
+    "baseline": [
+      {
+        "mutation": "strict-download",
+        "returncode": 3,
+        "executed": 1,
+        "failures": [
+          {
+            "case": "SubaruDenso1n83m_1_5mCanExecutor.NegativeResponseAtDumpSetupFails",
+            "assertion": "./src/backend/flash/ecu/testing/can_executor_run.h:153\nValue of: run.result\nExpected: is an error of kind BadResponse\n  Actual: error: Internal (scripted CAN write ran past the end of the script (12 exchanges); wrote 00 00 07 e0 35 04 44 08 fa c0 00 00 17 3f 00 ), which failed with Internal (scripted CAN write ran past the end of the script (12 exchanges); wrote 00 00 07 e0 35 04 44 08 fa c0 00 00 17 3f 00 )\n"
+          }
+        ],
+        "patch_sha256": "db6f22f12a859a9735d2b4c1aa1b612f8d62e193a23c4f7b05d88203f209fd13",
+        "patch": "--- src/backend/flash/ecu/subaru_denso_1n83m_1_5m_can_executor.cpp\n+++ src/backend/flash/ecu/subaru_denso_1n83m_1_5m_can_executor.cpp\n@@ -101,7 +101,7 @@\n                        \"dump start & length setup\");\n         !download.has_value())\n     {\n-        return std::unexpected(download.error());\n+        /* deliberate continuation */\n     }\n     if (Result<bytes::Bytes> upload = FatalQuery(ctx, DensoIso15765UploadSetupPdu(region),\n                                                  bytes::Bytes{0x20, 0x01, 0x01}, kShortPolicy, \"dump upload setup\");\n"
+      },
+      {
+        "mutation": "strict-upload",
+        "returncode": 0,
+        "executed": 31,
+        "failures": [],
+        "patch_sha256": "67933dd21cc89b61f661d71a7dd9a054f450f994dcf632561788eb652adf0028",
+        "patch": "--- src/backend/flash/ecu/subaru_denso_1n83m_1_5m_can_executor.cpp\n+++ src/backend/flash/ecu/subaru_denso_1n83m_1_5m_can_executor.cpp\n@@ -107,7 +107,7 @@\n                                                  bytes::Bytes{0x20, 0x01, 0x01}, kShortPolicy, \"dump upload setup\");\n         !upload.has_value())\n     {\n-        return std::unexpected(upload.error());\n+        /* deliberate continuation */\n     }\n \n     return DensoIso15765ReadDump(ctx, region, family.lead_pad_len, family.tail_pad_len, progress,\n"
+      },
+      {
+        "mutation": "tolerant-setup",
+        "returncode": 3,
+        "executed": 2,
+        "failures": [
+          {
+            "case": "SubaruDenso1n83m_4mCanExecutor.ProceedsPastMalformedConnectAndDumpSetupResponses",
+            "assertion": "src/backend/flash/ecu/subaru_denso_1n83m_4m_can_executor_test.cpp:374\nValue of: result\nExpected: is ok\n  Actual: error: BadResponse (mutation), which failed with BadResponse (mutation)\n"
+          },
+          {
+            "case": "SubaruDenso1n83m_4mCanExecutor.ProceedsPastMalformedInCarProbeAndDumpSetup",
+            "assertion": "src/backend/flash/ecu/subaru_denso_1n83m_4m_can_executor_test.cpp:400\nValue of: result\nExpected: is an error of kind Disconnected\n  Actual: error: BadResponse (mutation), which failed with BadResponse (mutation)\n"
+          },
+          {
+            "case": "SubaruDenso1n83m_4mCanExecutor.ProceedsPastMalformedInCarProbeAndDumpSetup",
+            "assertion": "src/backend/flash/ecu/subaru_denso_1n83m_4m_can_executor_test.cpp:401\nValue of: transport.ScriptConsumed()\n  Actual: false\nExpected: true\n"
+          }
+        ],
+        "patch_sha256": "2d2a5dad3c51bcfc33d6456f70c07ab07db66ff1c2db301de95b270da845d9d6",
+        "patch": "--- src/backend/flash/ecu/subaru_denso_1n83m_4m_can_executor.cpp\n+++ src/backend/flash/ecu/subaru_denso_1n83m_4m_can_executor.cpp\n@@ -109,7 +109,7 @@\n     if (!received->has_value() || received->value().size() < 4)\n     {\n         LogError(ctx, \"No valid response from ECU\");\n-        return {};\n+        return Fail(ErrorKind::kBadResponse, \"mutation\");\n     }\n     const bytes::Bytes& frame = **received;\n     if (!std::equal(expected_prefix.begin(), expected_prefix.end(), frame.begin()))\n"
+      },
+      {
+        "mutation": "ignore-fatal-page",
+        "returncode": 3,
+        "executed": 1,
+        "failures": [
+          {
+            "case": "SubaruDenso1n83m_1_5mCanExecutor.ReadDisconnectMidDumpLoopPropagates",
+            "assertion": "./src/backend/flash/ecu/testing/can_executor_run.h:153\nValue of: run.result\nExpected: is an error of kind Disconnected\n  Actual: ok: 72-byte object <00-00 00-00 01-00 00-00 00-00 41-99 79-00 00-00 00-01 42-99 79-00 00-00 00-40 59-99 79-00 00-00 01-A0 16-01 01-00 00-00 00-91 51-6F 01-00 00-00 A0-BB 93-00 01-00 00-00 E0-07 00-00 E8-07 00-00 00-A1 07-00 00-00 00-00>, which succeeded\n"
+          }
+        ],
+        "patch_sha256": "105e733cf8e4884f0ede58b6c60bf700ce007f5e371769975d0e17eb8a4d779b",
+        "patch": "--- src/backend/flash/ecu/denso_iso15765_can_common.cpp\n+++ src/backend/flash/ecu/denso_iso15765_can_common.cpp\n@@ -213,7 +213,7 @@\n         Result<bytes::Bytes> page = ReadDensoEncryptedPage(ctx, region.start + offset);\n         if (!page.has_value())\n         {\n-            return std::unexpected(page.error());\n+            page = bytes::Bytes{};\n         }\n         image.insert(image.end(), page->begin(), page->end());\n         progress.Update(static_cast<int>(offset + kPageSize));\n"
+      },
+      {
+        "mutation": "swallowed-extra-write",
+        "returncode": 0,
+        "executed": 1,
+        "failures": [],
+        "patch_sha256": "9ca695a2a3b46fb972994b14978297e11f8bf85d4ae7131e5ecdeec6c299c89f",
+        "patch": "--- src/backend/flash/ecu/denso_iso15765_can_common.cpp\n+++ src/backend/flash/ecu/denso_iso15765_can_common.cpp\n@@ -226,6 +226,7 @@\n             }\n         }\n     }\n+    static_cast<void>(ctx.channel.Send(bytes::Bytes{0}, ctx.cancellation));\n     LogInfo(ctx, \"ROM read complete\");\n \n     constexpr uds::ExchangePolicy kStopPolicy{.read_timeout = std::chrono::milliseconds{500}};\n"
+      },
+      {
+        "mutation": "swallowed-extra-read",
+        "returncode": 0,
+        "executed": 1,
+        "failures": [],
+        "patch_sha256": "6698b07b38fa410742f653931bd589bd5f1474207fc6a6b528700500010f5401",
+        "patch": "--- src/backend/flash/ecu/denso_iso15765_can_common.cpp\n+++ src/backend/flash/ecu/denso_iso15765_can_common.cpp\n@@ -241,6 +241,7 @@\n         }\n     }\n \n+    static_cast<void>(ctx.channel.Receive(std::chrono::milliseconds{500}, ctx.cancellation));\n     image.insert(image.end(), tail_pad_len, 0xFF);\n     return image;\n }\n"
+      },
+      {
+        "mutation": "image-base-shift",
+        "returncode": 3,
+        "executed": 1,
+        "failures": [
+          {
+            "case": "SubaruDenso1n83m_1_5mCanExecutorWrite.WriteErasesThenFlashesBlockOne",
+            "assertion": "src/backend/flash/ecu/subaru_denso_1n83m_1_5m_can_executor_test.cpp:339\nValue of: result\nExpected: is ok\n  Actual: error: Internal (scripted CAN exchange #14 (\"reflash chunks\") diverged\n  expected: 00 00 07 e0 b6 08 fa c0 00 43 e6 15 9e 65 55 00 d6 e5 45 c6 ee 01 26 5f a8 81 38 9f e2 f9 d3 ca 36 d8 79 c6 0f 31 84 f9 73 21 b3 83 27 d3 e6 24 fe fe f7 73 6c 36 a3 19 21 c3 72 c3 f9 0b c2 5a 23 f6 c6 ca 43 8f 78 8b 3d ea 8f 02 b3 67 23 4c fd 20 9d 89 1e 65 7a 8c 47 00 f6 8b 7b f1 2d 74 88 a4 69 45 34 06 7b 43 9a 9d 46 3a 3a e4 9c ef 47 fb e5 cd f2 94 a0 94 a7 f2 fa e8 84 25 33 03 d4 65 ee 37 94 4d d5 43 56 8c b4 33 1b b3 7f a9 3a 00 bd 32 08 c4 93 94 02 09 b9 8b 60 2b 34 e7 cf db 69 ff ad 45 9a 98 25 66 28 d3 6a 50 87 f4 76 9f b9 d3 a5 bb 37 94 70 cb 5d cb 94 52 3a 4e 16 3c 03 51 00 74 7d 34 df fd 9c c2 89 51 a6 4a e4 8a ee fb f7 f4 e2 5d 9e 74 f8 c2 ec 49 16 c0 bb c8 c0 76 e1 8c ec 43 50 98 "
+          }
+        ],
+        "patch_sha256": "a55a6aa425b8f0c210ae8e07486f9d94bc5c5bbbfab9ad6bb4fee1e8d75de015",
+        "patch": "--- src/backend/flash/ecu/denso_iso15765_can_common.cpp\n+++ src/backend/flash/ecu/denso_iso15765_can_common.cpp\n@@ -172,7 +172,7 @@\n             return Fail(ErrorKind::kCancelled, \"write cancelled\");\n         }\n         const std::uint32_t block_addr = block.start + chunk_index * kChunkSize;\n-        const std::size_t image_offset = block_addr - image_base;\n+        const std::size_t image_offset = block_addr - image_base + 0x100;\n         if (const Status written =\n                 DensoIso15765WriteChunk(ctx, block_addr, bytes::ByteView(encrypted).subspan(image_offset, kChunkSize));\n             !written.has_value())\n"
+      },
+      {
+        "mutation": "omit-page-content",
+        "returncode": 3,
+        "executed": 1,
+        "failures": [
+          {
+            "case": "SubaruDenso1n83m_1_5mCanExecutor.BenchReadReturnsPaddedImage",
+            "assertion": "./src/backend/flash/ecu/testing/can_executor_run.h:137\nExpected equality of these values:\n  rom.size()\n    Which is: 1588992\n  image_size\n    Which is: 1589248\n"
+          }
+        ],
+        "patch_sha256": "bf83edbf8cbdb7ffe9b7303dcadcfd983e13b9a4eef98c4e64d51fca1b13af37",
+        "patch": "--- src/backend/flash/ecu/denso_iso15765_can_common.cpp\n+++ src/backend/flash/ecu/denso_iso15765_can_common.cpp\n@@ -215,7 +215,7 @@\n         {\n             return std::unexpected(page.error());\n         }\n-        image.insert(image.end(), page->begin(), page->end());\n+        if (offset != 0) image.insert(image.end(), page->begin(), page->end());\n         progress.Update(static_cast<int>(offset + kPageSize));\n         if (pace_pages)\n         {\n"
+      },
+      {
+        "mutation": "reorder-page-address",
+        "returncode": 3,
+        "executed": 1,
+        "failures": [
+          {
+            "case": "SubaruDenso1n83m_1_5mCanExecutor.BenchReadReturnsPaddedImage",
+            "assertion": "./src/backend/flash/ecu/testing/can_executor_run.h:134\nValue of: run.result\nExpected: is ok\n  Actual: error: Internal (scripted CAN exchange #14 (\"flash dump\") diverged\n  expected: 00 00 07 e0 b7 08 fa c0 00 \n  actual:   00 00 07 e0 b7 08 fa c1 00 ), which failed with Internal (scripted CAN exchange #14 (\"flash dump\") diverged\n  expected: 00 00 07 e0 b7 08 fa c0 00 \n  actual:   00 00 07 e0 b7 08 fa c1 00 )\n"
+          }
+        ],
+        "patch_sha256": "d02204de2098373995dedb50aeb5ec6560501c643b46238c9ddf113833383202",
+        "patch": "--- src/backend/flash/ecu/denso_iso15765_can_common.cpp\n+++ src/backend/flash/ecu/denso_iso15765_can_common.cpp\n@@ -210,7 +210,7 @@\n         {\n             return Fail(ErrorKind::kCancelled, \"read cancelled\");\n         }\n-        Result<bytes::Bytes> page = ReadDensoEncryptedPage(ctx, region.start + offset);\n+        Result<bytes::Bytes> page = ReadDensoEncryptedPage(ctx, region.start + (offset ^ 0x100));\n         if (!page.has_value())\n         {\n             return std::unexpected(page.error());\n"
+      },
+      {
+        "mutation": "truncate-read",
+        "returncode": 3,
+        "executed": 1,
+        "failures": [
+          {
+            "case": "SubaruDenso1n83m_1_5mCanExecutor.BenchReadReturnsPaddedImage",
+            "assertion": "./src/backend/flash/ecu/testing/can_executor_run.h:137\nExpected equality of these values:\n  rom.size()\n    Which is: 1588992\n  image_size\n    Which is: 1589248\n"
+          }
+        ],
+        "patch_sha256": "770bb653e3e4870bbb86e15e8cb847349fb2ca608a599e328d265950d5798d3e",
+        "patch": "--- src/backend/flash/ecu/denso_iso15765_can_common.cpp\n+++ src/backend/flash/ecu/denso_iso15765_can_common.cpp\n@@ -204,7 +204,7 @@\n     LogInfo(ctx, \"Start reading ROM, please wait...\");\n     bytes::Bytes image(lead_pad_len, 0xFF);\n     image.reserve(lead_pad_len + region.length + tail_pad_len);\n-    for (std::uint32_t offset = 0; offset < region.length; offset += kPageSize)\n+    for (std::uint32_t offset = 0; offset + kPageSize < region.length; offset += kPageSize)\n     {\n         if (ctx.cancellation.Cancelled())\n         {\n"
+      },
+      {
+        "mutation": "truncate-write",
+        "returncode": 3,
+        "executed": 1,
+        "failures": [
+          {
+            "case": "SubaruDenso1n83m_1_5mCanExecutorWrite.WriteErasesThenFlashesBlockOne",
+            "assertion": "src/backend/flash/ecu/subaru_denso_1n83m_1_5m_can_executor_test.cpp:339\nValue of: result\nExpected: is ok\n  Actual: error: Internal (scripted CAN exchange #5964 (\"reflash chunks\") diverged\n  expected: 00 00 07 e0 b6 09 11 fe 00 36 1f fd d6 57 94 25 90 ca f5 62 97 50 b5 31 f7 ba b8 0e ff 8b f5 ce 1f 26 a4 de 83 5e e0 4a e9 f8 56 76 e3 ee d5 0a bd 69 7e 69 01 d8 99 85 92 bc 49 cf 37 70 c8 f7 06 c9 9f 7c 84 25 4e 4b 11 ab ff 15 f4 1b 5a 42 56 b1 1f f0 f7 69 d5 0c 1d d3 6c ac da 69 9c e7 98 2b 5d ee 04 96 e4 4b 69 15 22 2f 47 4e 0a ec b0 13 6b 7f f8 04 1a bb 4a 11 db 27 b4 16 c9 6a 3e 1f 61 1c 89 d9 53 cd ce c7 03 ec b2 6b 95 87 3b 5f 2f 7f 49 a3 c8 2b e5 1b 52 9c ad 05 b0 bd b6 32 bc b4 f5 83 ee 80 6f 1a 76 c6 d9 b5 f9 5a 88 03 95 c2 97 d6 b8 3d 50 a2 0d 30 19 5f 00 d6 db a6 b6 9d b9 c5 af c4 3e f7 17 52 70 aa a4 49 a7 7b 41 54 03 e9 8d 40 66 a5 5b 9c 15 20 b8 f2 e2 58 7d d0 31 46 31 d4 b6 2"
+          }
+        ],
+        "patch_sha256": "71e1188e970c9d124c9e968f7fddaba72b3a4d2de0a40a489837951702f86074",
+        "patch": "--- src/backend/flash/ecu/denso_iso15765_can_common.cpp\n+++ src/backend/flash/ecu/denso_iso15765_can_common.cpp\n@@ -165,7 +165,7 @@\n     constexpr std::uint32_t kChunkSize = 256;\n     const std::uint32_t max_chunks = block.length / kChunkSize;\n     const bytes::Bytes encrypted = DensoEncryptRom(image);\n-    for (std::uint32_t chunk_index = 0; chunk_index < max_chunks; ++chunk_index)\n+    for (std::uint32_t chunk_index = 0; chunk_index + 1 < max_chunks; ++chunk_index)\n     {\n         if (ctx.cancellation.Cancelled())\n         {\n"
+      },
+      {
+        "mutation": "bench-first-1_5m",
+        "returncode": 3,
+        "executed": 1,
+        "failures": [
+          {
+            "case": "SubaruDenso1n83m_1_5mCanExecutor.BenchReadReturnsPaddedImage",
+            "assertion": "./src/backend/flash/ecu/testing/can_executor_run.h:134\nValue of: run.result\nExpected: is ok\n  Actual: error: BadResponse (expected response to SID 0x34, got 0xb7), which failed with BadResponse (expected response to SID 0x34, got 0xb7)\n"
+          }
+        ],
+        "patch_sha256": "1cf9d7bd953556d9a504168d5dbb74d32b2805146577b2a6d28af1ab3830ffb5",
+        "patch": "--- src/backend/flash/ecu/subaru_denso_1n83m_1_5m_can_executor.cpp\n+++ src/backend/flash/ecu/subaru_denso_1n83m_1_5m_can_executor.cpp\n@@ -84,7 +84,7 @@\n         return std::unexpected(in_car.error());\n     }\n     return *in_car ? DensoIso15765ConnectInCar(ctx, can, DensoInCarRun::kN83m, kShortTimeout)\n-                   : DensoIso15765ConnectBench(ctx, /*discard_first_reply=*/false);\n+                   : DensoIso15765ConnectBench(ctx, /*discard_first_reply=*/true);\n }\n \n // Legacy read_memory, lines 813-1074. start_addr and length are overwritten\n"
+      },
+      {
+        "mutation": "checksum-timeout-1_5m",
+        "returncode": 3,
+        "executed": 1,
+        "failures": [
+          {
+            "case": "ChecksumOutcomes/SubaruDenso1n83m_1_5mCanExecutorWrite.CloseRetriesSettleAndChecksumOutcomes/1",
+            "assertion": "./src/backend/flash/ecu/testing/can_executor_run.h:279\nExpected equality of these values:\n  timeouts.back()\n    Which is: 123ms\n  expect.reread_timeout\n    Which is: 500ms\n"
+          }
+        ],
+        "patch_sha256": "6e69dd29583d44d0cfbb07a696f530528172b44f3a539cf55e03c010c577157a",
+        "patch": "--- src/backend/flash/ecu/subaru_denso_1n83m_1_5m_can_executor.cpp\n+++ src/backend/flash/ecu/subaru_denso_1n83m_1_5m_can_executor.cpp\n@@ -45,7 +45,7 @@\n // the re-read at line 1329. UdsClient substitutes pending_timeout for that\n // second read, whose 3000 ms default is not this family's number, so the\n // policy pins it to 500 as well.\n-constexpr uds::ExchangePolicy kChecksumPolicy{.read_timeout = kReceiveTimeout, .pending_timeout = kReceiveTimeout};\n+constexpr uds::ExchangePolicy kChecksumPolicy{.read_timeout = kReceiveTimeout, .pending_timeout = std::chrono::milliseconds{123}};\n \n // kFlashBlocksN83M_1_5MB[0].start -- reflash_block indexes the image as\n // newdata[i + blockaddr - fdt->fblocks[0].start] (line 1225), so byte 0 of\n"
+      },
+      {
+        "mutation": "bench-first-4m",
+        "returncode": 3,
+        "executed": 1,
+        "failures": [
+          {
+            "case": "SubaruDenso1n83m_4mCanExecutor.BenchReadReturnsPaddedImage",
+            "assertion": "./src/backend/flash/ecu/testing/can_executor_run.h:134\nValue of: run.result\nExpected: is ok\n  Actual: error: BadResponse (expected response to SID 0xb7, got 0x35), which failed with BadResponse (expected response to SID 0xb7, got 0x35)\n"
+          }
+        ],
+        "patch_sha256": "f292d427bc2df6b5647ba742985349ce2c00ea892e6b726dda24770a7f910d22",
+        "patch": "--- src/backend/flash/ecu/subaru_denso_1n83m_4m_can_executor.cpp\n+++ src/backend/flash/ecu/subaru_denso_1n83m_4m_can_executor.cpp\n@@ -148,7 +148,7 @@\n         return std::unexpected(in_car.error());\n     }\n     return *in_car ? DensoIso15765ConnectInCar(ctx, can, DensoInCarRun::kN83m, kShortTimeout)\n-                   : DensoIso15765ConnectBench(ctx, /*discard_first_reply=*/true);\n+                   : DensoIso15765ConnectBench(ctx, /*discard_first_reply=*/false);\n }\n \n // Legacy read_memory, lines 821-1081. start_addr and length are overwritten\n"
+      },
+      {
+        "mutation": "read-cancellation-boundary",
+        "returncode": 3,
+        "executed": 1,
+        "failures": [
+          {
+            "case": "SubaruDenso1n83m_1_5mCan/CanExecutorConformance/0.ReadStopsAtTheNextChunkWhenCancelledMidRead",
+            "assertion": "./src/backend/flash/ecu/testing/can_executor_conformance.h:182\nValue of: transport.ScriptConsumed()\n  Actual: false\nExpected: true\n"
+          }
+        ],
+        "patch_sha256": "9825f535af6a3183b0565790945201a4c6a3b0e84491f07d8c97835a32cc85bc",
+        "patch": "--- src/backend/flash/ecu/denso_iso15765_can_common.cpp\n+++ src/backend/flash/ecu/denso_iso15765_can_common.cpp\n@@ -210,13 +210,13 @@\n         {\n             return Fail(ErrorKind::kCancelled, \"read cancelled\");\n         }\n+        progress.Update(static_cast<int>(offset + kPageSize));\n         Result<bytes::Bytes> page = ReadDensoEncryptedPage(ctx, region.start + offset);\n         if (!page.has_value())\n         {\n             return std::unexpected(page.error());\n         }\n         image.insert(image.end(), page->begin(), page->end());\n-        progress.Update(static_cast<int>(offset + kPageSize));\n         if (pace_pages)\n         {\n             if (const Status slept = ctx.clock.Sleep(std::chrono::milliseconds{1}, ctx.cancellation);\n"
+      },
+      {
+        "mutation": "write-cancellation-boundary",
+        "returncode": 0,
+        "executed": 1,
+        "failures": [],
+        "patch_sha256": "b1841e58deab2a729e2ef04b4d42dbed0d1fe0375361927e85e0328037c52d21",
+        "patch": "--- src/backend/flash/ecu/denso_iso15765_can_common.cpp\n+++ src/backend/flash/ecu/denso_iso15765_can_common.cpp\n@@ -171,6 +171,7 @@\n         {\n             return Fail(ErrorKind::kCancelled, \"write cancelled\");\n         }\n+        progress.Update(static_cast<int>((chunk_index + 1) * kChunkSize));\n         const std::uint32_t block_addr = block.start + chunk_index * kChunkSize;\n         const std::size_t image_offset = block_addr - image_base;\n         if (const Status written =\n@@ -179,7 +180,6 @@\n         {\n             return std::unexpected(written.error());\n         }\n-        progress.Update(static_cast<int>((chunk_index + 1) * kChunkSize));\n     }\n     return {};\n }\n"
+      },
+      {
+        "mutation": "checksum-timeout-4m",
+        "returncode": 3,
+        "executed": 1,
+        "failures": [
+          {
+            "case": "ChecksumOutcomes/SubaruDenso1n83m_4mCanExecutorWrite.CloseRetriesSettleAndChecksumOutcomes/1",
+            "assertion": "./src/backend/flash/ecu/testing/can_executor_run.h:279\nExpected equality of these values:\n  timeouts.back()\n    Which is: 123ms\n  expect.reread_timeout\n    Which is: 3000ms\n"
+          }
+        ],
+        "patch_sha256": "912e8ae0a852579e1ebec765db75216af01c0c370aaad1c0b5f1bc5aa0f6e21b",
+        "patch": "--- src/backend/flash/ecu/subaru_denso_1n83m_4m_can_executor.cpp\n+++ src/backend/flash/ecu/subaru_denso_1n83m_4m_can_executor.cpp\n@@ -56,7 +56,7 @@\n // Named rather than repeated at each call so the one line a reader has to\n // compare across the four families is this one.\n constexpr std::chrono::milliseconds kProbeTimeout = kShortTimeout;\n-constexpr std::chrono::milliseconds kExtraLongTimeout{3000}; // serial_read_extra_long_timeout\n+constexpr std::chrono::milliseconds kExtraLongTimeout{123}; // serial_read_extra_long_timeout\n // Checksum verify reads twice and this family's two reads differ: the first\n // uses the bare 500 literal (line 1322, i.e. receive_timeout) and the re-read\n // after the ECU's 7F 31 78 pending answer uses\n"
+      }
+    ],
+    "candidate": [
+      {
+        "mutation": "strict-download",
+        "returncode": 3,
+        "executed": 1,
+        "failures": [
+          {
+            "case": "SitesAndReplies/N83m15mSetup.PreservesSitePolicy/DownloadMismatch",
+            "assertion": "./src/backend/flash/ecu/testing/n83m_executor_scenarios.h:309\nValue of: run.result\nExpected: is an error of kind BadResponse\n  Actual: error: Internal (scripted CAN write ran past the end of the script (12 exchanges); wrote 00 00 07 e0 35 04 44 08 fa c0 00 00 17 3f 00 ), which failed with Internal (scripted CAN write ran past the end of the script (12 exchanges); wrote 00 00 07 e0 35 04 44 08 fa c0 00 00 17 3f 00 )\n"
+          },
+          {
+            "case": "SitesAndReplies/N83m15mSetup.PreservesSitePolicy/DownloadMismatch",
+            "assertion": "./src/backend/flash/ecu/testing/n83m_executor_scenarios.h:23\nValue of: transport.FirstUnexpectedOperation().has_value()\n  Actual: true\nExpected: false\n"
+          },
+          {
+            "case": "SitesAndReplies/N83m15mSetup.PreservesSitePolicy/DownloadMismatch",
+            "assertion": "./src/backend/flash/ecu/testing/n83m_executor_scenarios.h:24\nValue of: transport.OperationAttempts()\nExpected: has 24 elements where\nelement #0 is equal to 16-byte object <00-00 00-00 01-00 00-00 00-77 59-F3 00-00 00-00>,\nelement #1 is equal to 16-byte object <01-00 00-00 01-00 00-00 00-00 00-00 00-00 00-00>,\nelement #2 is equal to 16-byte object <00-00 00-00 01-00 00-00 00-00 00-00 00-00 00-00>,\nelement #3 is equal to 16-byte object <01-00 00-00 01-00 00-00 00-00 00-00 00-00 00-00>,\nelement #4 is equal to 16-byte object <00-00 00-00 01-00 00-00 00-00 00-00 00-00 00-00>,\nelement #5 is equal to 16-byte object <01-00 00-00 01-00 00-00 00-00 00-00 00-00 00-00>,\nelement #6 is equal to 16-byte object <00-00 00-00 01-00 00-00 00-00 00-00 00-00 00-00>,\nelement #7 is equal to 16-byte object <01-00 00-00 01-00 00-00 00-00 00-00 00-00 00-00>,\nelement #8 is equal to 16-byte object <00-00 00-00 01-0"
+          }
+        ],
+        "patch_sha256": "db6f22f12a859a9735d2b4c1aa1b612f8d62e193a23c4f7b05d88203f209fd13",
+        "patch": "--- src/backend/flash/ecu/subaru_denso_1n83m_1_5m_can_executor.cpp\n+++ src/backend/flash/ecu/subaru_denso_1n83m_1_5m_can_executor.cpp\n@@ -101,7 +101,7 @@\n                        \"dump start & length setup\");\n         !download.has_value())\n     {\n-        return std::unexpected(download.error());\n+        /* deliberate continuation */\n     }\n     if (Result<bytes::Bytes> upload = FatalQuery(ctx, DensoIso15765UploadSetupPdu(region),\n                                                  bytes::Bytes{0x20, 0x01, 0x01}, kShortPolicy, \"dump upload setup\");\n"
+      },
+      {
+        "mutation": "strict-upload",
+        "returncode": 3,
+        "executed": 1,
+        "failures": [
+          {
+            "case": "SitesAndReplies/N83m15mSetup.PreservesSitePolicy/UploadMismatch",
+            "assertion": "./src/backend/flash/ecu/testing/n83m_executor_scenarios.h:309\nValue of: run.result\nExpected: is an error of kind BadResponse\n  Actual: error: Internal (scripted CAN write ran past the end of the script (13 exchanges); wrote 00 00 07 e0 b7 08 fa c0 00 ), which failed with Internal (scripted CAN write ran past the end of the script (13 exchanges); wrote 00 00 07 e0 b7 08 fa c0 00 )\n"
+          },
+          {
+            "case": "SitesAndReplies/N83m15mSetup.PreservesSitePolicy/UploadMismatch",
+            "assertion": "./src/backend/flash/ecu/testing/n83m_executor_scenarios.h:23\nValue of: transport.FirstUnexpectedOperation().has_value()\n  Actual: true\nExpected: false\n"
+          },
+          {
+            "case": "SitesAndReplies/N83m15mSetup.PreservesSitePolicy/UploadMismatch",
+            "assertion": "./src/backend/flash/ecu/testing/n83m_executor_scenarios.h:24\nValue of: transport.OperationAttempts()\nExpected: has 26 elements where\nelement #0 is equal to 16-byte object <00-00 00-00 01-00 00-00 00-77 59-F3 00-00 00-00>,\nelement #1 is equal to 16-byte object <01-00 00-00 01-00 00-00 00-00 00-00 00-00 00-00>,\nelement #2 is equal to 16-byte object <00-00 00-00 01-00 00-00 00-00 00-00 00-00 00-00>,\nelement #3 is equal to 16-byte object <01-00 00-00 01-00 00-00 00-00 00-00 00-00 00-00>,\nelement #4 is equal to 16-byte object <00-00 00-00 01-00 00-00 00-00 00-00 00-00 00-00>,\nelement #5 is equal to 16-byte object <01-00 00-00 01-00 00-00 00-00 00-00 00-00 00-00>,\nelement #6 is equal to 16-byte object <00-00 00-00 01-00 00-00 00-00 00-00 00-00 00-00>,\nelement #7 is equal to 16-byte object <01-00 00-00 01-00 00-00 00-00 00-00 00-00 00-00>,\nelement #8 is equal to 16-byte object <00-00 00-00 01-0"
+          }
+        ],
+        "patch_sha256": "67933dd21cc89b61f661d71a7dd9a054f450f994dcf632561788eb652adf0028",
+        "patch": "--- src/backend/flash/ecu/subaru_denso_1n83m_1_5m_can_executor.cpp\n+++ src/backend/flash/ecu/subaru_denso_1n83m_1_5m_can_executor.cpp\n@@ -107,7 +107,7 @@\n                                                  bytes::Bytes{0x20, 0x01, 0x01}, kShortPolicy, \"dump upload setup\");\n         !upload.has_value())\n     {\n-        return std::unexpected(upload.error());\n+        /* deliberate continuation */\n     }\n \n     return DensoIso15765ReadDump(ctx, region, family.lead_pad_len, family.tail_pad_len, progress,\n"
+      },
+      {
+        "mutation": "tolerant-setup",
+        "returncode": 3,
+        "executed": 2,
+        "failures": [
+          {
+            "case": "SitesAndReplies/N83m4mSetup.PreservesSitePolicy/DownloadNoFrame",
+            "assertion": "./src/backend/flash/ecu/testing/n83m_executor_scenarios.h:311\nValue of: run.result\nExpected: is ok\n  Actual: error: BadResponse (mutation), which failed with BadResponse (mutation)\n"
+          },
+          {
+            "case": "SitesAndReplies/N83m4mSetup.PreservesSitePolicy/DownloadNoFrame",
+            "assertion": "./src/backend/flash/ecu/testing/n83m_executor_scenarios.h:24\nValue of: transport.OperationAttempts()\nExpected: has 31387 elements where\nelement #0 is equal to 16-byte object <00-00 00-00 01-00 00-00 00-78 71-02 00-00 00-00>,\nelement #1 is equal to 16-byte object <01-00 00-00 01-00 00-00 00-00 00-00 00-00 00-00>,\nelement #2 is equal to 16-byte object <00-00 00-00 01-00 00-00 00-00 00-00 00-00 00-00>,\nelement #3 is equal to 16-byte object <01-00 00-00 01-00 00-00 00-00 00-00 00-00 00-00>,\nelement #4 is equal to 16-byte object <00-00 00-00 01-00 00-00 00-00 00-00 00-00 00-00>,\nelement #5 is equal to 16-byte object <01-00 00-00 01-00 00-00 00-00 00-00 00-00 00-00>,\nelement #6 is equal to 16-byte object <00-00 00-00 01-00 00-00 00-00 00-00 00-00 00-00>,\nelement #7 is equal to 16-byte object <01-00 00-00 01-00 00-00 00-00 00-00 00-00 00-00>,\nelement #8 is equal to 16-byte object <00-00 00-00 0"
+          },
+          {
+            "case": "SitesAndReplies/N83m4mSetup.PreservesSitePolicy/DownloadNoFrame",
+            "assertion": "./src/backend/flash/ecu/testing/n83m_executor_scenarios.h:25\nValue of: transport.ScriptConsumed()\n  Actual: false\nExpected: true\n"
+          },
+          {
+            "case": "SitesAndReplies/N83m4mSetup.PreservesSitePolicy/UploadNoFrame",
+            "assertion": "./src/backend/flash/ecu/testing/n83m_executor_scenarios.h:311\nValue of: run.result\nExpected: is ok\n  Actual: error: BadResponse (mutation), which failed with BadResponse (mutation)\n"
+          },
+          {
+            "case": "SitesAndReplies/N83m4mSetup.PreservesSitePolicy/UploadNoFrame",
+            "assertion": "./src/backend/flash/ecu/testing/n83m_executor_scenarios.h:24\nValue of: transport.OperationAttempts()\nExpected: has 31387 elements where\nelement #0 is equal to 16-byte object <00-00 00-00 01-00 00-00 00-40 F7-92 00-00 00-00>,\nelement #1 is equal to 16-byte object <01-00 00-00 01-00 00-00 00-00 00-00 00-00 00-00>,\nelement #2 is equal to 16-byte object <00-00 00-00 01-00 00-00 00-00 00-00 00-00 00-00>,\nelement #3 is equal to 16-byte object <01-00 00-00 01-00 00-00 00-00 00-00 00-00 00-00>,\nelement #4 is equal to 16-byte object <00-00 00-00 01-00 00-00 00-00 00-00 00-00 00-00>,\nelement #5 is equal to 16-byte object <01-00 00-00 01-00 00-00 00-00 00-00 00-00 00-00>,\nelement #6 is equal to 16-byte object <00-00 00-00 01-00 00-00 00-00 00-00 00-00 00-00>,\nelement #7 is equal to 16-byte object <01-00 00-00 01-00 00-00 00-00 00-00 00-00 00-00>,\nelement #8 is equal to 16-byte object <00-00 00-00 0"
+          },
+          {
+            "case": "SitesAndReplies/N83m4mSetup.PreservesSitePolicy/UploadNoFrame",
+            "assertion": "./src/backend/flash/ecu/testing/n83m_executor_scenarios.h:25\nValue of: transport.ScriptConsumed()\n  Actual: false\nExpected: true\n"
+          }
+        ],
+        "patch_sha256": "2d2a5dad3c51bcfc33d6456f70c07ab07db66ff1c2db301de95b270da845d9d6",
+        "patch": "--- src/backend/flash/ecu/subaru_denso_1n83m_4m_can_executor.cpp\n+++ src/backend/flash/ecu/subaru_denso_1n83m_4m_can_executor.cpp\n@@ -109,7 +109,7 @@\n     if (!received->has_value() || received->value().size() < 4)\n     {\n         LogError(ctx, \"No valid response from ECU\");\n-        return {};\n+        return Fail(ErrorKind::kBadResponse, \"mutation\");\n     }\n     const bytes::Bytes& frame = **received;\n     if (!std::equal(expected_prefix.begin(), expected_prefix.end(), frame.begin()))\n"
+      },
+      {
+        "mutation": "ignore-fatal-page",
+        "returncode": 3,
+        "executed": 1,
+        "failures": [
+          {
+            "case": "OperationsAndBoundaries/N83m15mTransferFault.AbortsAtSelectedIteration/ReadFirstDisconnected",
+            "assertion": "./src/backend/flash/ecu/testing/n83m_executor_scenarios.h:355\nValue of: result\nExpected: is an error of kind Disconnected\n  Actual: ok: 72-byte object <00-00 00-00 01-00 00-00 00-00 00-FC 79-00 00-00 00-01 01-FC 79-00 00-00 00-40 18-FC 79-00 00-00 01-CB C0-FC 79-00 00-00 00-00 00-00 00-00 00-00 00-00 00-00 00-00 00-00 00-00 00-00 00-00 00-00 00-00 00-00 00-00 00-00>, which succeeded\n"
+          },
+          {
+            "case": "OperationsAndBoundaries/N83m15mTransferFault.AbortsAtSelectedIteration/ReadFirstDisconnected",
+            "assertion": "./src/backend/flash/ecu/testing/n83m_executor_scenarios.h:23\nValue of: transport.FirstUnexpectedOperation().has_value()\n  Actual: true\nExpected: false\n"
+          },
+          {
+            "case": "OperationsAndBoundaries/N83m15mTransferFault.AbortsAtSelectedIteration/ReadFirstDisconnected",
+            "assertion": "./src/backend/flash/ecu/testing/n83m_executor_scenarios.h:24\nValue of: transport.OperationAttempts()\nExpected: has 28 elements where\nelement #0 is equal to 16-byte object <00-00 00-00 01-00 00-00 00-00 00-00 00-00 00-00>,\nelement #1 is equal to 16-byte object <01-00 00-00 01-00 00-00 00-00 00-00 00-00 00-00>,\nelement #2 is equal to 16-byte object <00-00 00-00 01-00 00-00 00-00 00-00 00-00 00-00>,\nelement #3 is equal to 16-byte object <01-00 00-00 01-00 00-00 00-00 00-00 00-00 00-00>,\nelement #4 is equal to 16-byte object <00-00 00-00 01-00 00-00 00-00 00-00 00-00 00-00>,\nelement #5 is equal to 16-byte object <01-00 00-00 01-00 00-00 00-00 00-00 00-00 00-00>,\nelement #6 is equal to 16-byte object <00-00 00-00 01-00 00-00 00-00 00-00 00-00 00-00>,\nelement #7 is equal to 16-byte object <01-00 00-00 01-00 00-00 00-00 00-00 00-00 00-00>,\nelement #8 is equal to 16-byte object <00-00 00-00 01-0"
+          }
+        ],
+        "patch_sha256": "105e733cf8e4884f0ede58b6c60bf700ce007f5e371769975d0e17eb8a4d779b",
+        "patch": "--- src/backend/flash/ecu/denso_iso15765_can_common.cpp\n+++ src/backend/flash/ecu/denso_iso15765_can_common.cpp\n@@ -213,7 +213,7 @@\n         Result<bytes::Bytes> page = ReadDensoEncryptedPage(ctx, region.start + offset);\n         if (!page.has_value())\n         {\n-            return std::unexpected(page.error());\n+            page = bytes::Bytes{};\n         }\n         image.insert(image.end(), page->begin(), page->end());\n         progress.Update(static_cast<int>(offset + kPageSize));\n"
+      },
+      {
+        "mutation": "swallowed-extra-write",
+        "returncode": 3,
+        "executed": 1,
+        "failures": [
+          {
+            "case": "PathsAndPatterns/N83m15mRead.ReturnsCompleteIndependentPayload/BenchForward",
+            "assertion": "./src/backend/flash/ecu/testing/n83m_executor_scenarios.h:23\nValue of: transport.FirstUnexpectedOperation().has_value()\n  Actual: true\nExpected: false\n"
+          },
+          {
+            "case": "PathsAndPatterns/N83m15mRead.ReturnsCompleteIndependentPayload/BenchForward",
+            "assertion": "./src/backend/flash/ecu/testing/n83m_executor_scenarios.h:24\nValue of: transport.OperationAttempts()\nExpected: has 11930 elements where\nelement #0 is equal to 16-byte object <00-00 00-00 01-00 00-00 00-00 00-00 00-00 00-00>,\nelement #1 is equal to 16-byte object <01-00 00-00 01-00 00-00 00-00 00-00 00-00 00-00>,\nelement #2 is equal to 16-byte object <00-00 00-00 01-00 00-00 00-00 00-00 00-00 00-00>,\nelement #3 is equal to 16-byte object <01-00 00-00 01-00 00-00 00-00 00-00 00-00 00-00>,\nelement #4 is equal to 16-byte object <00-00 00-00 01-00 00-00 00-00 00-00 00-00 00-00>,\nelement #5 is equal to 16-byte object <01-00 00-00 01-00 00-00 00-00 00-00 00-00 00-00>,\nelement #6 is equal to 16-byte object <00-00 00-00 01-00 00-00 00-00 00-00 00-00 00-00>,\nelement #7 is equal to 16-byte object <01-00 00-00 01-00 00-00 00-00 00-00 00-00 00-00>,\nelement #8 is equal to 16-byte object <00-00 00-00 0"
+          }
+        ],
+        "patch_sha256": "9ca695a2a3b46fb972994b14978297e11f8bf85d4ae7131e5ecdeec6c299c89f",
+        "patch": "--- src/backend/flash/ecu/denso_iso15765_can_common.cpp\n+++ src/backend/flash/ecu/denso_iso15765_can_common.cpp\n@@ -226,6 +226,7 @@\n             }\n         }\n     }\n+    static_cast<void>(ctx.channel.Send(bytes::Bytes{0}, ctx.cancellation));\n     LogInfo(ctx, \"ROM read complete\");\n \n     constexpr uds::ExchangePolicy kStopPolicy{.read_timeout = std::chrono::milliseconds{500}};\n"
+      },
+      {
+        "mutation": "swallowed-extra-read",
+        "returncode": 3,
+        "executed": 1,
+        "failures": [
+          {
+            "case": "PathsAndPatterns/N83m15mRead.ReturnsCompleteIndependentPayload/BenchForward",
+            "assertion": "./src/backend/flash/ecu/testing/n83m_executor_scenarios.h:23\nValue of: transport.FirstUnexpectedOperation().has_value()\n  Actual: true\nExpected: false\n"
+          },
+          {
+            "case": "PathsAndPatterns/N83m15mRead.ReturnsCompleteIndependentPayload/BenchForward",
+            "assertion": "./src/backend/flash/ecu/testing/n83m_executor_scenarios.h:24\nValue of: transport.OperationAttempts()\nExpected: has 11930 elements where\nelement #0 is equal to 16-byte object <00-00 00-00 01-00 00-00 00-00 00-00 00-00 00-00>,\nelement #1 is equal to 16-byte object <01-00 00-00 01-00 00-00 00-00 00-00 00-00 00-00>,\nelement #2 is equal to 16-byte object <00-00 00-00 01-00 00-00 00-00 00-00 00-00 00-00>,\nelement #3 is equal to 16-byte object <01-00 00-00 01-00 00-00 00-00 00-00 00-00 00-00>,\nelement #4 is equal to 16-byte object <00-00 00-00 01-00 00-00 00-00 00-00 00-00 00-00>,\nelement #5 is equal to 16-byte object <01-00 00-00 01-00 00-00 00-00 00-00 00-00 00-00>,\nelement #6 is equal to 16-byte object <00-00 00-00 01-00 00-00 00-00 00-00 00-00 00-00>,\nelement #7 is equal to 16-byte object <01-00 00-00 01-00 00-00 00-00 00-00 00-00 00-00>,\nelement #8 is equal to 16-byte object <00-00 00-00 0"
+          }
+        ],
+        "patch_sha256": "6698b07b38fa410742f653931bd589bd5f1474207fc6a6b528700500010f5401",
+        "patch": "--- src/backend/flash/ecu/denso_iso15765_can_common.cpp\n+++ src/backend/flash/ecu/denso_iso15765_can_common.cpp\n@@ -241,6 +241,7 @@\n         }\n     }\n \n+    static_cast<void>(ctx.channel.Receive(std::chrono::milliseconds{500}, ctx.cancellation));\n     image.insert(image.end(), tail_pad_len, 0xFF);\n     return image;\n }\n"
+      },
+      {
+        "mutation": "image-base-shift",
+        "returncode": 3,
+        "executed": 1,
+        "failures": [
+          {
+            "case": "Patterns/N83m15mWritePattern.SendsCompleteIndependentPayload/Forward",
+            "assertion": "./src/backend/flash/ecu/testing/n83m_executor_scenarios.h:240\nValue of: result\nExpected: is ok\n  Actual: error: Internal (scripted CAN exchange #14 diverged\n  expected: 00 00 07 e0 b6 08 fa c0 00 e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b c5 fe 4b 39 e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b c5 fe 4b 39 e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b c5 fe 4b 39 e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b c5 fe 4b 39 e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85"
+          }
+        ],
+        "patch_sha256": "a55a6aa425b8f0c210ae8e07486f9d94bc5c5bbbfab9ad6bb4fee1e8d75de015",
+        "patch": "--- src/backend/flash/ecu/denso_iso15765_can_common.cpp\n+++ src/backend/flash/ecu/denso_iso15765_can_common.cpp\n@@ -172,7 +172,7 @@\n             return Fail(ErrorKind::kCancelled, \"write cancelled\");\n         }\n         const std::uint32_t block_addr = block.start + chunk_index * kChunkSize;\n-        const std::size_t image_offset = block_addr - image_base;\n+        const std::size_t image_offset = block_addr - image_base + 0x100;\n         if (const Status written =\n                 DensoIso15765WriteChunk(ctx, block_addr, bytes::ByteView(encrypted).subspan(image_offset, kChunkSize));\n             !written.has_value())\n"
+      },
+      {
+        "mutation": "omit-page-content",
+        "returncode": 3,
+        "executed": 1,
+        "failures": [
+          {
+            "case": "PathsAndPatterns/N83m15mRead.ReturnsCompleteIndependentPayload/BenchForward",
+            "assertion": "./src/backend/flash/ecu/testing/n83m_executor_scenarios.h:203\nValue of: *run.result->read_bytes\nExpected: bytes eq (expected: { '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), ... })\n  Actual: { '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255"
+          }
+        ],
+        "patch_sha256": "bf83edbf8cbdb7ffe9b7303dcadcfd983e13b9a4eef98c4e64d51fca1b13af37",
+        "patch": "--- src/backend/flash/ecu/denso_iso15765_can_common.cpp\n+++ src/backend/flash/ecu/denso_iso15765_can_common.cpp\n@@ -215,7 +215,7 @@\n         {\n             return std::unexpected(page.error());\n         }\n-        image.insert(image.end(), page->begin(), page->end());\n+        if (offset != 0) image.insert(image.end(), page->begin(), page->end());\n         progress.Update(static_cast<int>(offset + kPageSize));\n         if (pace_pages)\n         {\n"
+      },
+      {
+        "mutation": "reorder-page-address",
+        "returncode": 3,
+        "executed": 1,
+        "failures": [
+          {
+            "case": "PathsAndPatterns/N83m15mRead.ReturnsCompleteIndependentPayload/BenchForward",
+            "assertion": "./src/backend/flash/ecu/testing/n83m_executor_scenarios.h:196\nValue of: run.result\nExpected: is ok\n  Actual: error: Internal (scripted CAN exchange #14 diverged\n  expected: 00 00 07 e0 b7 08 fa c0 00 \n  actual:   00 00 07 e0 b7 08 fa c1 00 ), which failed with Internal (scripted CAN exchange #14 diverged\n  expected: 00 00 07 e0 b7 08 fa c0 00 \n  actual:   00 00 07 e0 b7 08 fa c1 00 )\n"
+          }
+        ],
+        "patch_sha256": "d02204de2098373995dedb50aeb5ec6560501c643b46238c9ddf113833383202",
+        "patch": "--- src/backend/flash/ecu/denso_iso15765_can_common.cpp\n+++ src/backend/flash/ecu/denso_iso15765_can_common.cpp\n@@ -210,7 +210,7 @@\n         {\n             return Fail(ErrorKind::kCancelled, \"read cancelled\");\n         }\n-        Result<bytes::Bytes> page = ReadDensoEncryptedPage(ctx, region.start + offset);\n+        Result<bytes::Bytes> page = ReadDensoEncryptedPage(ctx, region.start + (offset ^ 0x100));\n         if (!page.has_value())\n         {\n             return std::unexpected(page.error());\n"
+      },
+      {
+        "mutation": "truncate-read",
+        "returncode": 3,
+        "executed": 1,
+        "failures": [
+          {
+            "case": "PathsAndPatterns/N83m15mRead.ReturnsCompleteIndependentPayload/BenchForward",
+            "assertion": "./src/backend/flash/ecu/testing/n83m_executor_scenarios.h:203\nValue of: *run.result->read_bytes\nExpected: bytes eq (expected: { '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), ... })\n  Actual: { '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255), '\\xFF' (255"
+          },
+          {
+            "case": "PathsAndPatterns/N83m15mRead.ReturnsCompleteIndependentPayload/BenchForward",
+            "assertion": "./src/backend/flash/ecu/testing/n83m_executor_scenarios.h:23\nValue of: transport.FirstUnexpectedOperation().has_value()\n  Actual: true\nExpected: false\n"
+          },
+          {
+            "case": "PathsAndPatterns/N83m15mRead.ReturnsCompleteIndependentPayload/BenchForward",
+            "assertion": "./src/backend/flash/ecu/testing/n83m_executor_scenarios.h:24\nValue of: transport.OperationAttempts()\nExpected: has 11930 elements where\nelement #0 is equal to 16-byte object <00-00 00-00 01-00 00-00 00-00 00-00 00-00 00-00>,\nelement #1 is equal to 16-byte object <01-00 00-00 01-00 00-00 00-00 00-00 00-00 00-00>,\nelement #2 is equal to 16-byte object <00-00 00-00 01-00 00-00 00-00 00-00 00-00 00-00>,\nelement #3 is equal to 16-byte object <01-00 00-00 01-00 00-00 00-00 00-00 00-00 00-00>,\nelement #4 is equal to 16-byte object <00-00 00-00 01-00 00-00 00-00 00-00 00-00 00-00>,\nelement #5 is equal to 16-byte object <01-00 00-00 01-00 00-00 00-00 00-00 00-00 00-00>,\nelement #6 is equal to 16-byte object <00-00 00-00 01-00 00-00 00-00 00-00 00-00 00-00>,\nelement #7 is equal to 16-byte object <01-00 00-00 01-00 00-00 00-00 00-00 00-00 00-00>,\nelement #8 is equal to 16-byte object <00-00 00-00 0"
+          },
+          {
+            "case": "PathsAndPatterns/N83m15mRead.ReturnsCompleteIndependentPayload/BenchForward",
+            "assertion": "./src/backend/flash/ecu/testing/n83m_executor_scenarios.h:25\nValue of: transport.ScriptConsumed()\n  Actual: false\nExpected: true\n"
+          }
+        ],
+        "patch_sha256": "770bb653e3e4870bbb86e15e8cb847349fb2ca608a599e328d265950d5798d3e",
+        "patch": "--- src/backend/flash/ecu/denso_iso15765_can_common.cpp\n+++ src/backend/flash/ecu/denso_iso15765_can_common.cpp\n@@ -204,7 +204,7 @@\n     LogInfo(ctx, \"Start reading ROM, please wait...\");\n     bytes::Bytes image(lead_pad_len, 0xFF);\n     image.reserve(lead_pad_len + region.length + tail_pad_len);\n-    for (std::uint32_t offset = 0; offset < region.length; offset += kPageSize)\n+    for (std::uint32_t offset = 0; offset + kPageSize < region.length; offset += kPageSize)\n     {\n         if (ctx.cancellation.Cancelled())\n         {\n"
+      },
+      {
+        "mutation": "truncate-write",
+        "returncode": 3,
+        "executed": 1,
+        "failures": [
+          {
+            "case": "Patterns/N83m15mWritePattern.SendsCompleteIndependentPayload/Forward",
+            "assertion": "./src/backend/flash/ecu/testing/n83m_executor_scenarios.h:240\nValue of: result\nExpected: is ok\n  Actual: error: Internal (scripted CAN exchange #5964 diverged\n  expected: 00 00 07 e0 b6 09 11 fe 00 ed 9f d9 31 af ac d5 94 af ac d5 94 e0 d3 85 2b e0 d3 85 2b ed 9f d9 31 c5 fe 4b 39 e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b ed 9f d9 31 af ac d5 94 af ac d5 94 e0 d3 85 2b e0 d3 85 2b ed 9f d9 31 c5 fe 4b 39 e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b ed 9f d9 31 af ac d5 94 af ac d5 94 e0 d3 85 2b e0 d3 85 2b ed 9f d9 31 c5 fe 4b 39 e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b ed 9f d9 31 af ac d5 94 af ac d5 94 e0 d3 85 2b e0 d3 85 2b ed 9f d9 31 c5 fe 4b 39 e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 "
+          }
+        ],
+        "patch_sha256": "71e1188e970c9d124c9e968f7fddaba72b3a4d2de0a40a489837951702f86074",
+        "patch": "--- src/backend/flash/ecu/denso_iso15765_can_common.cpp\n+++ src/backend/flash/ecu/denso_iso15765_can_common.cpp\n@@ -165,7 +165,7 @@\n     constexpr std::uint32_t kChunkSize = 256;\n     const std::uint32_t max_chunks = block.length / kChunkSize;\n     const bytes::Bytes encrypted = DensoEncryptRom(image);\n-    for (std::uint32_t chunk_index = 0; chunk_index < max_chunks; ++chunk_index)\n+    for (std::uint32_t chunk_index = 0; chunk_index + 1 < max_chunks; ++chunk_index)\n     {\n         if (ctx.cancellation.Cancelled())\n         {\n"
+      },
+      {
+        "mutation": "bench-first-1_5m",
+        "returncode": 3,
+        "executed": 1,
+        "failures": [
+          {
+            "case": "PathsAndPatterns/N83m15mRead.ReturnsCompleteIndependentPayload/BenchForward",
+            "assertion": "./src/backend/flash/ecu/testing/n83m_executor_scenarios.h:196\nValue of: run.result\nExpected: is ok\n  Actual: error: BadResponse (expected response to SID 0x34, got 0xb7), which failed with BadResponse (expected response to SID 0x34, got 0xb7)\n"
+          }
+        ],
+        "patch_sha256": "1cf9d7bd953556d9a504168d5dbb74d32b2805146577b2a6d28af1ab3830ffb5",
+        "patch": "--- src/backend/flash/ecu/subaru_denso_1n83m_1_5m_can_executor.cpp\n+++ src/backend/flash/ecu/subaru_denso_1n83m_1_5m_can_executor.cpp\n@@ -84,7 +84,7 @@\n         return std::unexpected(in_car.error());\n     }\n     return *in_car ? DensoIso15765ConnectInCar(ctx, can, DensoInCarRun::kN83m, kShortTimeout)\n-                   : DensoIso15765ConnectBench(ctx, /*discard_first_reply=*/false);\n+                   : DensoIso15765ConnectBench(ctx, /*discard_first_reply=*/true);\n }\n \n // Legacy read_memory, lines 813-1074. start_addr and length are overwritten\n"
+      },
+      {
+        "mutation": "checksum-timeout-1_5m",
+        "returncode": 3,
+        "executed": 1,
+        "failures": [
+          {
+            "case": "ChecksumOutcomes/SubaruDenso1n83m_1_5mCanExecutorWrite.CloseRetriesSettleAndChecksumOutcomes/1",
+            "assertion": "./src/backend/flash/ecu/testing/can_executor_run.h:279\nExpected equality of these values:\n  timeouts.back()\n    Which is: 123ms\n  expect.reread_timeout\n    Which is: 500ms\n"
+          }
+        ],
+        "patch_sha256": "6e69dd29583d44d0cfbb07a696f530528172b44f3a539cf55e03c010c577157a",
+        "patch": "--- src/backend/flash/ecu/subaru_denso_1n83m_1_5m_can_executor.cpp\n+++ src/backend/flash/ecu/subaru_denso_1n83m_1_5m_can_executor.cpp\n@@ -45,7 +45,7 @@\n // the re-read at line 1329. UdsClient substitutes pending_timeout for that\n // second read, whose 3000 ms default is not this family's number, so the\n // policy pins it to 500 as well.\n-constexpr uds::ExchangePolicy kChecksumPolicy{.read_timeout = kReceiveTimeout, .pending_timeout = kReceiveTimeout};\n+constexpr uds::ExchangePolicy kChecksumPolicy{.read_timeout = kReceiveTimeout, .pending_timeout = std::chrono::milliseconds{123}};\n \n // kFlashBlocksN83M_1_5MB[0].start -- reflash_block indexes the image as\n // newdata[i + blockaddr - fdt->fblocks[0].start] (line 1225), so byte 0 of\n"
+      },
+      {
+        "mutation": "bench-first-4m",
+        "returncode": 3,
+        "executed": 1,
+        "failures": [
+          {
+            "case": "PathsAndPatterns/N83m4mRead.ReturnsCompleteIndependentPayload/BenchForward",
+            "assertion": "./src/backend/flash/ecu/testing/n83m_executor_scenarios.h:196\nValue of: run.result\nExpected: is ok\n  Actual: error: BadResponse (expected response to SID 0xb7, got 0x35), which failed with BadResponse (expected response to SID 0xb7, got 0x35)\n"
+          }
+        ],
+        "patch_sha256": "f292d427bc2df6b5647ba742985349ce2c00ea892e6b726dda24770a7f910d22",
+        "patch": "--- src/backend/flash/ecu/subaru_denso_1n83m_4m_can_executor.cpp\n+++ src/backend/flash/ecu/subaru_denso_1n83m_4m_can_executor.cpp\n@@ -148,7 +148,7 @@\n         return std::unexpected(in_car.error());\n     }\n     return *in_car ? DensoIso15765ConnectInCar(ctx, can, DensoInCarRun::kN83m, kShortTimeout)\n-                   : DensoIso15765ConnectBench(ctx, /*discard_first_reply=*/true);\n+                   : DensoIso15765ConnectBench(ctx, /*discard_first_reply=*/false);\n }\n \n // Legacy read_memory, lines 821-1081. start_addr and length are overwritten\n"
+      },
+      {
+        "mutation": "read-cancellation-boundary",
+        "returncode": 3,
+        "executed": 1,
+        "failures": [
+          {
+            "case": "OperationsAndBoundaries/N83m15mTransferFault.AbortsAtSelectedIteration/ReadMiddleCancelled",
+            "assertion": "./src/backend/flash/ecu/testing/n83m_executor_scenarios.h:24\nValue of: transport.OperationAttempts()\nExpected: has 5976 elements where\nelement #0 is equal to 16-byte object <00-00 00-00 01-00 00-00 00-00 00-00 00-00 00-00>,\nelement #1 is equal to 16-byte object <01-00 00-00 01-00 00-00 00-00 00-00 00-00 00-00>,\nelement #2 is equal to 16-byte object <00-00 00-00 01-00 00-00 00-00 00-00 00-00 00-00>,\nelement #3 is equal to 16-byte object <01-00 00-00 01-00 00-00 00-00 00-00 00-00 00-00>,\nelement #4 is equal to 16-byte object <00-00 00-00 01-00 00-00 00-00 00-00 00-00 00-00>,\nelement #5 is equal to 16-byte object <01-00 00-00 01-00 00-00 00-00 00-00 00-00 00-00>,\nelement #6 is equal to 16-byte object <00-00 00-00 01-00 00-00 00-00 00-00 00-00 00-00>,\nelement #7 is equal to 16-byte object <01-00 00-00 01-00 00-00 00-00 00-00 00-00 00-00>,\nelement #8 is equal to 16-byte object <00-00 00-00 01"
+          },
+          {
+            "case": "OperationsAndBoundaries/N83m15mTransferFault.AbortsAtSelectedIteration/ReadMiddleCancelled",
+            "assertion": "./src/backend/flash/ecu/testing/n83m_executor_scenarios.h:25\nValue of: transport.ScriptConsumed()\n  Actual: false\nExpected: true\n"
+          }
+        ],
+        "patch_sha256": "9825f535af6a3183b0565790945201a4c6a3b0e84491f07d8c97835a32cc85bc",
+        "patch": "--- src/backend/flash/ecu/denso_iso15765_can_common.cpp\n+++ src/backend/flash/ecu/denso_iso15765_can_common.cpp\n@@ -210,13 +210,13 @@\n         {\n             return Fail(ErrorKind::kCancelled, \"read cancelled\");\n         }\n+        progress.Update(static_cast<int>(offset + kPageSize));\n         Result<bytes::Bytes> page = ReadDensoEncryptedPage(ctx, region.start + offset);\n         if (!page.has_value())\n         {\n             return std::unexpected(page.error());\n         }\n         image.insert(image.end(), page->begin(), page->end());\n-        progress.Update(static_cast<int>(offset + kPageSize));\n         if (pace_pages)\n         {\n             if (const Status slept = ctx.clock.Sleep(std::chrono::milliseconds{1}, ctx.cancellation);\n"
+      },
+      {
+        "mutation": "write-cancellation-boundary",
+        "returncode": 3,
+        "executed": 1,
+        "failures": [
+          {
+            "case": "OperationsAndBoundaries/N83m15mTransferFault.AbortsAtSelectedIteration/WriteMiddleCancelled",
+            "assertion": "./src/backend/flash/ecu/testing/n83m_executor_scenarios.h:24\nValue of: transport.OperationAttempts()\nExpected: has 5976 elements where\nelement #0 is equal to 16-byte object <00-00 00-00 01-00 00-00 00-00 00-00 00-00 00-00>,\nelement #1 is equal to 16-byte object <01-00 00-00 01-00 00-00 00-00 00-00 00-00 00-00>,\nelement #2 is equal to 16-byte object <00-00 00-00 01-00 00-00 00-00 00-00 00-00 00-00>,\nelement #3 is equal to 16-byte object <01-00 00-00 01-00 00-00 00-00 00-00 00-00 00-00>,\nelement #4 is equal to 16-byte object <00-00 00-00 01-00 00-00 00-00 00-00 00-00 00-00>,\nelement #5 is equal to 16-byte object <01-00 00-00 01-00 00-00 00-00 00-00 00-00 00-00>,\nelement #6 is equal to 16-byte object <00-00 00-00 01-00 00-00 00-00 00-00 00-00 00-00>,\nelement #7 is equal to 16-byte object <01-00 00-00 01-00 00-00 00-00 00-00 00-00 00-00>,\nelement #8 is equal to 16-byte object <00-00 00-00 01"
+          },
+          {
+            "case": "OperationsAndBoundaries/N83m15mTransferFault.AbortsAtSelectedIteration/WriteMiddleCancelled",
+            "assertion": "./src/backend/flash/ecu/testing/n83m_executor_scenarios.h:25\nValue of: transport.ScriptConsumed()\n  Actual: false\nExpected: true\n"
+          }
+        ],
+        "patch_sha256": "b1841e58deab2a729e2ef04b4d42dbed0d1fe0375361927e85e0328037c52d21",
+        "patch": "--- src/backend/flash/ecu/denso_iso15765_can_common.cpp\n+++ src/backend/flash/ecu/denso_iso15765_can_common.cpp\n@@ -171,6 +171,7 @@\n         {\n             return Fail(ErrorKind::kCancelled, \"write cancelled\");\n         }\n+        progress.Update(static_cast<int>((chunk_index + 1) * kChunkSize));\n         const std::uint32_t block_addr = block.start + chunk_index * kChunkSize;\n         const std::size_t image_offset = block_addr - image_base;\n         if (const Status written =\n@@ -179,7 +180,6 @@\n         {\n             return std::unexpected(written.error());\n         }\n-        progress.Update(static_cast<int>((chunk_index + 1) * kChunkSize));\n     }\n     return {};\n }\n"
+      },
+      {
+        "mutation": "checksum-timeout-4m",
+        "returncode": 3,
+        "executed": 1,
+        "failures": [
+          {
+            "case": "ChecksumOutcomes/SubaruDenso1n83m_4mCanExecutorWrite.CloseRetriesSettleAndChecksumOutcomes/1",
+            "assertion": "./src/backend/flash/ecu/testing/can_executor_run.h:279\nExpected equality of these values:\n  timeouts.back()\n    Which is: 123ms\n  expect.reread_timeout\n    Which is: 3000ms\n"
+          }
+        ],
+        "patch_sha256": "912e8ae0a852579e1ebec765db75216af01c0c370aaad1c0b5f1bc5aa0f6e21b",
+        "patch": "--- src/backend/flash/ecu/subaru_denso_1n83m_4m_can_executor.cpp\n+++ src/backend/flash/ecu/subaru_denso_1n83m_4m_can_executor.cpp\n@@ -56,7 +56,7 @@\n // Named rather than repeated at each call so the one line a reader has to\n // compare across the four families is this one.\n constexpr std::chrono::milliseconds kProbeTimeout = kShortTimeout;\n-constexpr std::chrono::milliseconds kExtraLongTimeout{3000}; // serial_read_extra_long_timeout\n+constexpr std::chrono::milliseconds kExtraLongTimeout{123}; // serial_read_extra_long_timeout\n // Checksum verify reads twice and this family's two reads differ: the first\n // uses the bare 500 literal (line 1322, i.e. receive_timeout) and the re-read\n // after the ECU's 7F 31 78 pending answer uses\n"
+      }
+    ]
+  },
+  "gates": {
+    "prek-final": 0,
+    "gazelle-verify": 0,
+    "focused-shuffle-final": 0,
+    "release-tests-final": 0,
+    "clang-tidy-final": 0,
+    "runtime-0": 0,
+    "runtime-1": 0,
+    "runtime-2": 0,
+    "runtime-3": 0,
+    "runtime-4": 0,
+    "runtime-5": 0
+  },
+  "platform_ci": "not run; no push authorized",
+  "hardware_qualification": "unchanged; no hardware operations",
+  "invalid_mutation_note": "Initial 4M pending-timeout replacement made kExtraLongTimeout unused and was rejected by -Werror. Replaced by kExtraLongTimeout{123}; both baseline and candidate failed named timeout assertions. Only the valid patch is counted.",
+  "gate_log_summaries": {
+    "release-build": [
+      "INFO: Elapsed time: 35.796s, Critical Path: 7.95s"
+    ],
+    "release-tests-final": [
+      "INFO: Elapsed time: 1.854s, Critical Path: 1.47s",
+      "Executed 5 out of 307 tests: 293 tests pass and 14 were skipped."
+    ],
+    "clang-tidy-final": [
+      "INFO: Elapsed time: 0.293s, Critical Path: 0.00s",
+      "Analyzing 5 translation units in report mode.",
+      "clang-tidy: analysis took 34.5s",
+      "Analyzing 5 translation units with inline checks.",
+      "clang-tidy: custom-analysis took 2.2s"
+    ]
+  },
+  "mutation_bazel_elapsed_seconds": {
+    "baseline": 45.359,
+    "candidate": 47.316
+  },
+  "artifact_hashes": {
+    "baseline": {
+      "consumers.log": "437c3f424e1237c90c34f6359e083ad432d343c71380eda39ab5ca2554f8bd35",
+      "focused.log": "446257eb9b44d8dd81f1e735f501f3362d45d10cecc0e5cb39aad19efc7edc7f",
+      "nloc-files.log": "3dd5ce246f7629aa77c61a66fc72ba328f91aed0db23ac55a3314a256792b3f3",
+      "nloc-summary.json": "7ce4d744a84707d6cb9d30ba82a1aa2be6a03484747d30ed0fb557a7a99e91fd",
+      "runtime-0.log": "e8f4070271620a2d3dcfbdb240ec045dce8ae4983018fd594f562fa2a518b0a7",
+      "runtime-1.log": "6fe165c021d2b65fc42558a3d953c0984ea318bb86ec05bfa2bc63706f7f4cb3",
+      "runtime-2.log": "11789737093b6bbda06fc68346ec590d3520fba3ee126385a2f882788e63e0b2",
+      "runtime-3.log": "1af99d985ffbbc877596199cf63135f8d5658021001b6feefeb80f3ec1932cc7",
+      "runtime-4.log": "69419b2e4c6494b9f5071aa3333112a06480ed37704f8c2ad2dd65a6eb5a94bb",
+      "runtime-5.log": "da25707ebfac3e279dc73fbb8992ab9f3551be4cd2cae93e7a013fddf7d56baa",
+      "runtime.json": "5bb95461e3ba86a4574a596e98c48166788767b69e657d585f4bec8660214178",
+      "scripted_flash_transports_test-0.xml": "533d559ada8b88d1d96c9e869d0bc411669099cffc5ee99fa0e661267f21f17e",
+      "scripted_flash_transports_test-1.xml": "0b0a8bfe7379ff0990d13ea27b42a19593da9d0b43f9749d5d026af5cd84dd39",
+      "scripted_flash_transports_test-2.xml": "5ee368c10ef4b66a26ae2bf94ac1461679218f193be67ab32ecd8147e7fff490",
+      "scripted_flash_transports_test-3.xml": "7cf09306701b6511a00c35ca874827c951c904e30977123d18531c94464cca23",
+      "scripted_flash_transports_test-4.xml": "5c41a2fc6c4f5e06230095fa957b9ff5233f1a5db5b396cea86c286498303e27",
+      "scripted_flash_transports_test-5.xml": "b86e5852d00b3fad88b9ae8334f3fab012291b0fd54c3479428ca31bceac74ac",
+      "subaru_denso_1n83m_1_5m_can_executor_test-0.xml": "b44a0c246d45056cc6e69718572916328b5e1ebcf23f9db0ed83237222c76010",
+      "subaru_denso_1n83m_1_5m_can_executor_test-1.xml": "2c76c473afaa32ecfb76825a4b08f080eed7b397892363c5455100d7b43c78c3",
+      "subaru_denso_1n83m_1_5m_can_executor_test-2.xml": "7bac2571314d14346f0f567db1de9f0900fc19795ee1a8f5d3c66a22f50e8181",
+      "subaru_denso_1n83m_1_5m_can_executor_test-3.xml": "21140f1c8586a31ad3b45f29264711d0156e911d227de81cd885edf6bb47905e",
+      "subaru_denso_1n83m_1_5m_can_executor_test-4.xml": "263f50e322dbd56440aa0754d3077813267f8481ae90d4e625b437525998d89c",
+      "subaru_denso_1n83m_1_5m_can_executor_test-5.xml": "9aa1c970835345fec403dae2b11437dd2935c3bccaa6fdaa73ca3e3429ef63a3",
+      "subaru_denso_1n83m_4m_can_executor_test-0.xml": "7dd2fe6a52fbcff64d91a5b52f61edc8d7554d5086cc7daa211143ccc50ddae3",
+      "subaru_denso_1n83m_4m_can_executor_test-1.xml": "ad7646d9d4d57a139d4202f2c22b516a453419664cff26dcd3ff48e807533fcf",
+      "subaru_denso_1n83m_4m_can_executor_test-2.xml": "fa6625d2673d5f468be400f07d8adf568fceb507eb228d1d453df30ef1e4e754",
+      "subaru_denso_1n83m_4m_can_executor_test-3.xml": "7c38e8ab3a9b376c6186168fba466aacde4189fa513f8f84c7ada6b9eac25e25",
+      "subaru_denso_1n83m_4m_can_executor_test-4.xml": "453b203d7299014391ede6a7b5834ad7b8da54261801b7ba67a03b0e2a11d684",
+      "subaru_denso_1n83m_4m_can_executor_test-5.xml": "50b4dc9f0d240d540f8a8d4cf5e0dc1f6bf337673cc5287932414c8ec8c20774"
+    },
+    "candidate": {
+      "n83m_executor_scenarios_test-0.xml": "d6dbf8db7a1a208d17c450ed0ea82361cdeaf57a71eb3d761e4454a694265951",
+      "n83m_executor_scenarios_test-1.xml": "5843fc432afd9ff2120da1076ce9a2aaf8d193e5777ce85c19c38c64d6e2f205",
+      "n83m_executor_scenarios_test-2.xml": "dc66d94201a5045215a817f865478178dadecb21b2f8f381cec7d4caa0460963",
+      "n83m_executor_scenarios_test-3.xml": "1aebbd9a88dd40ef915faa6d6b5fdd737f5b632c55dbe5e0b33bba28073713d1",
+      "n83m_executor_scenarios_test-4.xml": "88e1cd41ec5b2148750e5f4d6d68cae2d724a1ba9f12ce58e2b3183c6869ab57",
+      "n83m_executor_scenarios_test-5.xml": "9867089d4f001c093c84babf05d3610c3eb8e5691582299390848300d4145795",
+      "n83m_payloads_test-0.xml": "1d04a3bd461857b67a7f0cb9e7170e1ade74f393695581aed459de199d31b8cf",
+      "n83m_payloads_test-1.xml": "b7965a844efb2e09713f3f01fd535470f6101dbace9f5f69a074460dc1c226ac",
+      "n83m_payloads_test-2.xml": "096292f21a53f4ff21028c1509688826b867ad048dbb7bd4fc96d193fdae28a1",
+      "n83m_payloads_test-3.xml": "e32b9a09c2acd03f16e66d5db08b5c8497132d0c42a2d0f2f8dc91784d2c2502",
+      "n83m_payloads_test-4.xml": "1427c4f0a7dae87dd5512b1f85b80e8afc7c0f99eeacd6191e8009033ec1447f",
+      "n83m_payloads_test-5.xml": "249f617efc017997b2c7e351b11a8a49e38adb6d9e779822b28cff93f31509db",
+      "nloc-files.log": "fed4a0da44deaad30e247f40f698ffd33a83dc0873d80b69f40a1ef9acf4dfae",
+      "nloc-summary.log": "9ca0d0cfe015a920924f7ccb19ac3143b1014a1cc8e0b1722d5ea87b797bdd7e",
+      "nloc-summary.txt": "5e35254186996fe56abcf11d757062553126f78a8801c778a1a1744b9e25a56c",
+      "runtime.json": "cf1d57784e848502287e0b25f9576da89d63660bd682a27d0d615f356b40b4bb",
+      "scripted_flash_transports_test-0.xml": "4baa96dad138631bb4538641080fb829e185ac0d34caec913ce5efb2a7d68dad",
+      "scripted_flash_transports_test-1.xml": "440be202814645e942b96f85a282bd862f5b356b63a13d5327a893084c685fe4",
+      "scripted_flash_transports_test-2.xml": "53f45173c999c90c417cb96d20bdd2690feb85a97e3878a68f5dde1236c47dde",
+      "scripted_flash_transports_test-3.xml": "0f5de8d1dea52121a749341c14b9f5bb24462ae6e2c3a4ea0989c7e8139a4654",
+      "scripted_flash_transports_test-4.xml": "0571c2222a8fbc843139a081c1820cb6decc907242f58527887f15d978b13868",
+      "scripted_flash_transports_test-5.xml": "7e4c7154c0feb93511ee608fb022ee53f3ca265c55fcf7200d5eedd67744deca",
+      "size.json": "2a477447ade08e5327161b219c32d88925c08b813b579a609888e2130a5e65d7",
+      "subaru_denso_1n83m_1_5m_can_executor_test-0.xml": "e4693ba2d9637e1fd0f03eed7c52f4ac325d405564be2d2c1ee04f6f9dfc44ec",
+      "subaru_denso_1n83m_1_5m_can_executor_test-1.xml": "f7d0e5fc4df18f4e71f8c72a29d0e72f91a49caeda5965764ed0555974ea943f",
+      "subaru_denso_1n83m_1_5m_can_executor_test-2.xml": "e62971203db9c091c02e962f8d792ab18d6e99d872aedcea6cd484f92597488f",
+      "subaru_denso_1n83m_1_5m_can_executor_test-3.xml": "dc370165d2505a01050c723d95624ff400c4b48498eb3921509232a364f39d39",
+      "subaru_denso_1n83m_1_5m_can_executor_test-4.xml": "263bf20dcbb77e252e6765e94c59709029324aad523b032a84056dc27ed05ce6",
+      "subaru_denso_1n83m_1_5m_can_executor_test-5.xml": "e965339c423a69a49237a440929780eea9796a88482f3ae13006d28768f6c4f6",
+      "subaru_denso_1n83m_4m_can_executor_test-0.xml": "2f3b0f24600e4f36193386263927b9d7426105d14d906d350f708f0830637516",
+      "subaru_denso_1n83m_4m_can_executor_test-1.xml": "999d78d5cf5302f0a6aae936a9b46233612426a27844f9c9fe62633fdf43cf7f",
+      "subaru_denso_1n83m_4m_can_executor_test-2.xml": "394d6e2c53cfdf85e9afaf3c03d3802e5a5f5ffa9a7aca66a2f9068e3542407b",
+      "subaru_denso_1n83m_4m_can_executor_test-3.xml": "593c2d1886ba7fd9fc4e14ee1699cb3382a5d65894c37814b1d3fd547a060d02",
+      "subaru_denso_1n83m_4m_can_executor_test-4.xml": "62edb28e7d3a60e9eba330072e00deee96499ed3c74159b3ee669255f4fdeadc",
+      "subaru_denso_1n83m_4m_can_executor_test-5.xml": "bd596ac76f8c80798e67fbc125aef64c937188b4cd531967285dc60bff16cde1"
+    }
+  },
+  "consumer_manifest_observed_at_baseline": [
+    "//apps/bench:bench_session_test",
+    "//src/backend/flash/ecu:denso_beef_kline_common_test",
+    "//src/backend/flash/ecu:denso_iso15765_can_common_test",
+    "//src/backend/flash/ecu:m32r_ssm_exchange_test",
+    "//src/backend/flash/ecu:mitsu_colt_m32r_can_executor_test",
+    "//src/backend/flash/ecu:subaru_denso_1n83m_1_5m_can_executor_test",
+    "//src/backend/flash/ecu:subaru_denso_1n83m_4m_can_executor_test",
+    "//src/backend/flash/ecu:subaru_denso_mc68hc16y5_02_bdm_executor_test",
+    "//src/backend/flash/ecu:subaru_denso_mc68hc16y5_02_executor_test",
+    "//src/backend/flash/ecu:subaru_denso_sh7055_02_executor_test",
+    "//src/backend/flash/ecu:subaru_denso_sh7058_can_diesel_executor_test",
+    "//src/backend/flash/ecu:subaru_denso_sh7058_can_executor_test",
+    "//src/backend/flash/ecu:subaru_denso_sh705x_densocan_executor_test",
+    "//src/backend/flash/ecu:subaru_denso_sh705x_kline_executor_test",
+    "//src/backend/flash/ecu:subaru_denso_sh72531_can_executor_test",
+    "//src/backend/flash/ecu:subaru_denso_sh72543_can_diesel_executor_test",
+    "//src/backend/flash/ecu:subaru_hitachi_m32r_can_executor_test",
+    "//src/backend/flash/ecu:subaru_hitachi_m32r_kline_executor_test",
+    "//src/backend/flash/ecu:subaru_hitachi_sh7058_can_executor_test",
+    "//src/backend/flash/ecu:subaru_hitachi_sh7058_kline_executor_test",
+    "//src/backend/flash/ecu:subaru_hitachi_sh72543r_can_executor_test",
+    "//src/backend/flash/ecu:subaru_mitsu_m32r_kline_executor_test",
+    "//src/backend/flash/ecu:subaru_tcu_cvt_hitachi_m32r_can_executor_test",
+    "//src/backend/flash/ecu:subaru_tcu_cvt_mitsu_mh8104_can_executor_test",
+    "//src/backend/flash/ecu:subaru_tcu_cvt_mitsu_mh8111_can_executor_test",
+    "//src/backend/flash/ecu:subaru_tcu_denso_sh705x_can_executor_test",
+    "//src/backend/flash/ecu:subaru_tcu_hitachi_m32r_can_executor_test",
+    "//src/backend/flash/ecu:subaru_tcu_hitachi_m32r_kline_executor_test",
+    "//src/backend/flash/ecu:subaru_unisia_jecs_executor_test",
+    "//src/backend/flash/ecu:subaru_unisia_jecs_m32r_bootmode_kernel_executor_test",
+    "//src/backend/flash/ecu:subaru_unisia_jecs_m32r_bootmode_program_executor_test",
+    "//src/backend/flash/ecu:subaru_unisia_jecs_m32r_kline_executor_test",
+    "//src/backend/flash/eeprom:denso_sh705x_eeprom_can_executor_test",
+    "//src/backend/flash/eeprom:denso_sh705x_eeprom_kline_executor_test",
+    "//src/backend/flash/testing:scripted_flash_transport_source_test",
+    "//src/backend/flash/testing:scripted_flash_transports_test",
+    "//src/backend/flash/workflow:flash_workflow_test",
+    "//src/backend/flash:bound_flash_attempt_test",
+    "//src/backend/flash:can_flash_uds_channel_test",
+    "//src/platform/desktop/common/flash/worker:test_flash_worker"
+  ]
+}
