@@ -1540,10 +1540,12 @@ class ClangTidyRunnerTest(unittest.TestCase):
         self.assertIn("-j", analyses[1])
         self.assertIn("custom-analysis", output.getvalue())
 
-    def test_plugin_checks_load_only_when_a_plugin_is_configured(self) -> None:
+    def test_selected_analysis_host_is_forwarded_to_the_check_pass(self) -> None:
         (self.root / ".clang-tidy").write_text("Checks: '-*'\n")
-        configured = {"FASTECU_CLANG_TIDY_PLUGIN": "/p/libx.dylib"}
-        for environ, loaded in (({}, False), (configured, True)):
+        configured = runner.analysis_toolchain.AnalysisHost(
+            Path("/llvm/bin/clang-tidy"), ("--load=/p/libx.dylib",)
+        )
+        for host, loaded in ((None, False), (configured, True)):
             with self.subTest(loaded=loaded):
                 commands, fake_run = self.prebuild_fixture()
                 with (
@@ -1555,7 +1557,8 @@ class ClangTidyRunnerTest(unittest.TestCase):
                         workspace=self.root,
                         compdb_tool=_UNIX_COMPDB_TOOL,
                         platform_name="linux",
-                        environ=environ,
+                        environ={},
+                        analysis_host=host,
                         command_runner=fake_run,
                         stream_runner=_streaming(fake_run),
                     )
@@ -1563,7 +1566,7 @@ class ClangTidyRunnerTest(unittest.TestCase):
                 self.assertEqual(2 if loaded else 1, len(analyses))
                 if loaded:
                     self.assertIn("-checks=-*,fastecu-template-typename", analyses[1])
-                    self.assertEqual("/p/libx.dylib", analyses[1][analyses[1].index("-load") + 1])
+                    self.assertIn("-load=/p/libx.dylib", analyses[1])
 
     def test_inline_header_filter_accepts_both_windows_separator_spellings(self) -> None:
         expression = runner.inline_header_filter(PurePath("C:/a/FastECU"))
@@ -2039,11 +2042,31 @@ class ClangTidyRunnerTest(unittest.TestCase):
 
     def test_main_forwards_annotate(self) -> None:
         with (
+            mock.patch.object(
+                runner.analysis_toolchain,
+                "runfiles_analysis_host",
+                return_value=runner.analysis_toolchain.AnalysisHost(
+                    Path("/llvm/bin/clang-tidy"), ()
+                ),
+            ),
             mock.patch.object(runner, "workspace_root", return_value=self.root),
             mock.patch.object(runner, "run_workflow") as run_workflow,
         ):
             self.assertEqual(0, runner.main(["report", "--annotate", "--compdb-tool", "/tools/x"]))
         self.assertTrue(run_workflow.call_args.kwargs["annotate"])
+
+    def test_main_rejects_missing_host_before_prebuild(self) -> None:
+        with (
+            mock.patch.object(runner, "workspace_root", return_value=self.root),
+            mock.patch.object(
+                runner.analysis_toolchain,
+                "runfiles_analysis_host",
+                side_effect=runner.analysis_toolchain.ToolchainError("missing artifact"),
+            ),
+            mock.patch.object(runner, "run_workflow") as workflow,
+        ):
+            self.assertEqual(2, runner.main(["report", "--compdb-tool", "/tools/x"]))
+        workflow.assert_not_called()
 
     def test_stream_lines_delivers_lines_unbuffered_and_merged(self) -> None:
         script = (

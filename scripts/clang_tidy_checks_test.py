@@ -9,6 +9,7 @@ import unittest
 from pathlib import Path
 
 import clang_tidy_runner as runner
+import clang_tidy_toolchain as toolchain
 import yaml
 
 
@@ -16,8 +17,11 @@ class ClangTidyChecks(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.workspace = runner.workspace_root(os.environ)
+        cls.host = toolchain.runfiles_analysis_host(os.environ)
         cls.tools = runner.discover_tools(
-            "report", platform_name=runner.sys.platform, environ=os.environ
+            "report",
+            platform_name=runner.sys.platform,
+            environ=dict(os.environ, FASTECU_LLVM_ROOT=str(cls.host.llvm_root)),
         )
         entries = json.loads((cls.workspace / "compile_commands.json").read_text())
         cls.entry = next(
@@ -35,14 +39,15 @@ class ClangTidyChecks(unittest.TestCase):
     def assert_diagnostics(
         self, body: str, filename: str = "fixture.cpp", plugin: bool = False
     ) -> None:
+        template_check = plugin
+        plugin = plugin or os.environ.get("FASTECU_TIDY_NATIVE_FIXTURES") == "1"
         # Literal markers identify independently expected user-file locations.
         # Plugin checks are registered without the custom- prefix.
         prefix = "fastecu-" if plugin else "custom-fastecu-"
         checks = "fastecu-*" if plugin else "custom-fastecu-*"
-        library = self.plugin_library()
-        if plugin and library is None:
-            self.skipTest("run //:clang_tidy_plugin_fixtures to build the AST plugin")
-        load = ["-load", str(library)] if plugin else []
+        if plugin and not template_check:
+            checks += ",-fastecu-template-typename"
+        load = [argument.replace("--load=", "-load=") for argument in self.host.arguments]
         expected = set()
         for line, text in enumerate(body.splitlines(), 1):
             for severity in ("error", "warning"):
@@ -69,7 +74,7 @@ class ClangTidyChecks(unittest.TestCase):
                     self.tools.run_clang_tidy,
                     "--",
                     "-clang-tidy-binary",
-                    self.tools.clang_tidy,
+                    str(self.host.executable),
                     "-config-file",
                     str(self.workspace / ".clang-tidy"),
                     f"-checks=-*,{checks}",
@@ -104,7 +109,9 @@ class ClangTidyChecks(unittest.TestCase):
                     line = source.read_bytes()[: message["FileOffset"]].count(b"\n") + 1
                     actual.add((diagnostic["DiagnosticName"], line, diagnostic["Level"]))
                     self.assertEqual(
-                        ["typename"] if plugin else [],
+                        ["typename"]
+                        if diagnostic["DiagnosticName"] == "fastecu-template-typename"
+                        else [],
                         [r["ReplacementText"] for r in message["Replacements"]],
                     )
             self.assertEqual(expected, actual, result.stdout + result.stderr)

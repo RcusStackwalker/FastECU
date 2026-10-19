@@ -1,5 +1,54 @@
 load("@rules_cc//cc:defs.bzl", "cc_binary")
 load("@rules_python//python:defs.bzl", "py_binary")
+load("//bazel:llvm_static_runtime.bzl", "llvm_static_binary")
+
+genrule(
+    name = "llvm_identity",
+    srcs = ["@local_llvm//:llvm-identity.json"],
+    outs = ["llvm-identity.json"],
+    cmd = "cp $< $@",
+    cmd_bat = "copy /Y \"$(location @local_llvm//:llvm-identity.json)\" \"$@\" >nul",
+    tags = ["manual"],
+    visibility = ["//:__pkg__"],
+)
+
+cc_binary(
+    name = "windows_host",
+    srcs = [
+        "FastecuTidyMain.cpp",
+        "FastecuTidyModule.cpp",
+    ] + glob([
+        "*Check.cpp",
+        "*Check.h",
+    ]),
+    copts = ["/GR-"],
+    linkopts = [
+        "psapi.lib",
+        "shell32.lib",
+        "ole32.lib",
+        "uuid.lib",
+        "advapi32.lib",
+        "ws2_32.lib",
+        "ntdll.lib",
+        "version.lib",
+    ],
+    tags = ["manual"],
+    target_compatible_with = ["@platforms//os:windows"],
+    deps = [
+        "@local_llvm//:clang_tidy_headers",
+        "@local_llvm//:clang_tidy_libraries",
+        "@zlib",
+        "@zstd",
+    ],
+)
+
+llvm_static_binary(
+    name = "fastecu_clang_tidy",
+    binary = ":windows_host",
+    tags = ["manual"],
+    target_compatible_with = ["@platforms//os:windows"],
+    visibility = ["//:__pkg__"],
+)
 
 py_binary(
     name = "qualification_smoke",
@@ -15,15 +64,14 @@ cc_binary(
     name = "fastecu_tidy",
     srcs = [
         "FastecuTidyModule.cpp",
-        "TemplateTypenameCheck.cpp",
-        "TemplateTypenameCheck.h",
-    ],
+    ] + glob([
+        "*Check.cpp",
+        "*Check.h",
+    ]),
     copts = [
         "-std=c++20",
         "-fno-rtti",
         "-fno-exceptions",
-        # LLVM's own headers trip the tree-wide -Werror.
-        "-Wno-deprecated-this-capture",
     ],
     linkopts = select({
         "@platforms//os:macos": [

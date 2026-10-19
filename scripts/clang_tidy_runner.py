@@ -22,6 +22,7 @@ from typing import TypedDict
 import clang_tidy_output as output_format
 import clang_tidy_profile as profile_report
 import clang_tidy_scope as scope_manifest
+import clang_tidy_toolchain as analysis_toolchain
 import yaml
 
 SOURCE_SUFFIXES = frozenset((".c", ".cc", ".cpp", ".cxx"))
@@ -375,6 +376,14 @@ def find_executable(
     platform_name: str,
     environ: Mapping[str, str],
 ) -> str:
+    if root := environ.get("FASTECU_LLVM_ROOT"):
+        for name in names:
+            candidate = Path(root) / "bin" / name
+            if platform_name.startswith("win") and not candidate.suffix:
+                candidate = candidate.with_suffix(".exe")
+            if candidate.is_file():
+                return str(candidate)
+        raise WorkflowError(f"selected LLVM installation {root} is missing {', '.join(names)}")
     for name in names:
         located = shutil.which(name, path=environ.get("PATH"))
         if located:
@@ -866,6 +875,7 @@ def run_workflow(
     reuse_compdb: bool = False,
     annotate: bool = False,
     color: bool | None = None,
+    analysis_host: analysis_toolchain.AnalysisHost | None = None,
 ) -> WorkflowReport | None:
     if mode not in ("report", "fix"):
         raise WorkflowError(f"unsupported mode: {mode}")
@@ -873,6 +883,8 @@ def run_workflow(
         raise WorkflowError("clang-tidy fix mode is supported only on macOS and Linux")
     if jobs is not None and jobs < 1:
         raise WorkflowError("--jobs must be positive")
+    if analysis_host and analysis_host.llvm_root:
+        environ = dict(environ, FASTECU_LLVM_ROOT=str(analysis_host.llvm_root))
 
     manifest = _load_scope(workspace)
     scope_prefixes: tuple[PurePath, ...] = ()
@@ -976,7 +988,7 @@ def run_workflow(
             ) from error
         command = _executable_command(tools.run_clang_tidy, platform_name=platform_name) + [
             "-clang-tidy-binary",
-            tools.clang_tidy,
+            str(analysis_host.executable) if analysis_host else tools.clang_tidy,
             "-p",
             directory,
             # REPO.bazel makes the build fail on warnings, so the extracted
@@ -989,6 +1001,10 @@ def run_workflow(
         ]
         if jobs is not None:
             command.extend(["-j", str(jobs)])
+        if analysis_host:
+            command.extend(
+                argument.replace("--load=", "-load=") for argument in analysis_host.arguments
+            )
         if macos_sdk is not None:
             command.extend(
                 [
@@ -1066,8 +1082,7 @@ def run_workflow(
                 raise WorkflowError(f"could not read inline check definitions: {error}") from error
             # Checks that need the AST live in a locally built plugin (see
             # scripts/clang_tidy_plugin/); CI does not load it yet.
-            plugin = environ.get("FASTECU_CLANG_TIDY_PLUGIN")
-            if plugin:
+            if analysis_host:
                 names.append("fastecu-template-typename")
             if names:
                 custom_fixes = temp_root / "custom-fixes"
@@ -1085,8 +1100,6 @@ def run_workflow(
                 upstream_arguments.extend(
                     ["-checks=-*," + ",".join(names), f"-header-filter={header_filter}"]
                 )
-                if plugin:
-                    upstream_arguments.extend(["-load", plugin])
                 adapter_command = [
                     sys.executable,
                     str(Path(__file__).with_name("clang_tidy_adapter.py")),
@@ -1144,6 +1157,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         sys.stdout.reconfigure(line_buffering=True)
     try:
         root = workspace_root(os.environ)
+        analysis_host = analysis_toolchain.runfiles_analysis_host(os.environ)
         tool = Path(args.compdb_tool)
         if not tool.is_absolute():
             tool = (Path.cwd() / tool).resolve()
@@ -1162,9 +1176,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             custom_checks=not args.no_custom_checks,
             reuse_compdb=args.reuse_compdb,
             annotate=args.annotate,
+            analysis_host=analysis_host,
         )
         return 0
-    except WorkflowError as error:
+    except (WorkflowError, analysis_toolchain.ToolchainError) as error:
         print(f"clang-tidy: {error}", file=sys.stderr)
         return 2
 
