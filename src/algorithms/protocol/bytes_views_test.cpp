@@ -8,6 +8,7 @@
 #include <array>
 #include <cstdint>
 #include <ranges>
+#include <utility>
 #include <vector>
 
 using ::testing::ElementsAre;
@@ -19,7 +20,8 @@ namespace
 
 template <typename Range> std::vector<std::uint32_t> Words(Range&& range)
 {
-    return {std::ranges::begin(range), std::ranges::end(range)};
+    // The view's end is a sentinel of another type, so vector's iterator-pair constructor cannot take it.
+    return std::ranges::to<std::vector<std::uint32_t>>(std::forward<Range>(range));
 }
 
 } // namespace
