@@ -113,10 +113,10 @@ TEST(GuardedCanFlashTransport, ForwardsBytesTimeoutAndOriginalToken)
 }
 
 using ReadCase = std::tuple<int, bool>;
-class ReadOutcomes : public ::testing::TestWithParam<ReadCase>
+class GuardedCanFlashTransportReadOutcomes : public ::testing::TestWithParam<ReadCase>
 {
 };
-TEST_P(ReadOutcomes, ReadOutcomesPassThrough)
+TEST_P(GuardedCanFlashTransportReadOutcomes, ReadOutcomesPassThrough)
 {
     const auto [outcome, cancel] = GetParam();
     const std::array<std::optional<bytes::Bytes>, 3> outcomes{std::nullopt, bytes::Bytes{}, bytes::Bytes{0x12, 0xA5}};
@@ -131,7 +131,7 @@ TEST_P(ReadOutcomes, ReadOutcomesPassThrough)
     EXPECT_EQ(token.Cancelled(), cancel);
     EXPECT_EQ(inner.read_calls, 1);
 }
-INSTANTIATE_TEST_SUITE_P(GuardedCanFlashTransport, ReadOutcomes,
+INSTANTIATE_TEST_SUITE_P(GuardedCanFlashTransport, GuardedCanFlashTransportReadOutcomes,
                          ::testing::Combine(::testing::Values(0, 1, 2), ::testing::Bool()),
                          (
                              [](const auto& info)
@@ -142,10 +142,10 @@ INSTANTIATE_TEST_SUITE_P(GuardedCanFlashTransport, ReadOutcomes,
                              }));
 
 using FailureCase = std::tuple<ErrorKind, bool, bool>;
-class Failures : public ::testing::TestWithParam<FailureCase>
+class GuardedCanFlashTransportFailures : public ::testing::TestWithParam<FailureCase>
 {
 };
-TEST_P(Failures, TypedFailuresPassThrough)
+TEST_P(GuardedCanFlashTransportFailures, TypedFailuresPassThrough)
 {
     const auto [kind, read, cancel] = GetParam();
     ProbeCanTransport inner;
@@ -168,7 +168,7 @@ TEST_P(Failures, TypedFailuresPassThrough)
     }
     EXPECT_EQ(token.Cancelled(), cancel);
 }
-INSTANTIATE_TEST_SUITE_P(GuardedCanFlashTransport, Failures,
+INSTANTIATE_TEST_SUITE_P(GuardedCanFlashTransport, GuardedCanFlashTransportFailures,
                          ::testing::Combine(::testing::Values(ErrorKind::kInvalidConfig, ErrorKind::kTimeout,
                                                               ErrorKind::kDisconnected, ErrorKind::kBadResponse,
                                                               ErrorKind::kCancelled, ErrorKind::kUnsupported,
@@ -212,10 +212,10 @@ void ExpectConfig(const Iso15765Config& actual)
     EXPECT_FALSE(actual.extended_id);
 }
 
-class Lifecycle : public ::testing::TestWithParam<bool>
+class GuardedCanFlashTransportLifecycle : public ::testing::TestWithParam<bool>
 {
 };
-TEST_P(Lifecycle, LifecycleRestartAndUnblockForwardAfterCancellation)
+TEST_P(GuardedCanFlashTransportLifecycle, LifecycleRestartAndUnblockForwardAfterCancellation)
 {
     ProbeCanTransport inner;
     GuardedCanFlashTransport guard(inner);
@@ -229,10 +229,20 @@ TEST_P(Lifecycle, LifecycleRestartAndUnblockForwardAfterCancellation)
         inner.close_result = Fail(ErrorKind::kInternal, "close detail");
     }
     const Iso15765Config config{500000, 0x7E0, 0x7E8, false};
-    EXPECT_EQ(guard.ResetConnection(), inner.reset_result);
-    EXPECT_EQ(guard.Configure(config), inner.configure_result);
-    EXPECT_EQ(guard.Open(), inner.open_result);
-    EXPECT_EQ(guard.Close(), inner.close_result);
+    if (GetParam())
+    {
+        EXPECT_THAT(guard.ResetConnection(), IsErrWith(ErrorKind::kDisconnected, "reset detail"));
+        EXPECT_THAT(guard.Configure(config), IsErrWith(ErrorKind::kInvalidConfig, "configure detail"));
+        EXPECT_THAT(guard.Open(), IsErrWith(ErrorKind::kTimeout, "open detail"));
+        EXPECT_THAT(guard.Close(), IsErrWith(ErrorKind::kInternal, "close detail"));
+    }
+    else
+    {
+        EXPECT_THAT(guard.ResetConnection(), IsOk());
+        EXPECT_THAT(guard.Configure(config), IsOk());
+        EXPECT_THAT(guard.Open(), IsOk());
+        EXPECT_THAT(guard.Close(), IsOk());
+    }
     ASSERT_THAT(guard.RestartIso15765(config, token), IsErrWith(ErrorKind::kUnsupported, "restart override"));
     guard.RequestUnblock();
     EXPECT_THAT(inner.lifecycle_calls, ElementsAre("reset_connection", "configure", "open", "close"));
@@ -247,7 +257,7 @@ TEST_P(Lifecycle, LifecycleRestartAndUnblockForwardAfterCancellation)
     EXPECT_EQ(inner.restart_calls, 1);
     EXPECT_EQ(inner.unblock_calls, 1);
 }
-INSTANTIATE_TEST_SUITE_P(GuardedCanFlashTransport, Lifecycle, ::testing::Bool(),
+INSTANTIATE_TEST_SUITE_P(GuardedCanFlashTransport, GuardedCanFlashTransportLifecycle, ::testing::Bool(),
                          [](const auto& info) { return info.param ? "Failures" : "Success"; });
 
 } // namespace
