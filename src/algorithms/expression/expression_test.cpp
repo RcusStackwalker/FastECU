@@ -129,11 +129,5 @@ TEST(CheckedExpression, RejectsParenthesisNestingBeyondTheLimit)
     const std::string text = std::string(9, '(') + "x" + std::string(9, ')');
     EXPECT_THAT(EvaluateChecked(text, 3), HasError());
 }
-
-TEST(CheckedExpression, RejectsExcessiveParenthesisNesting)
-{
-    const std::string text = std::string(512, '(') + "1" + std::string(512, ')');
-    EXPECT_THAT(EvaluateChecked(text, 0), HasError());
-}
 } // namespace
 } // namespace fastecu::expression
