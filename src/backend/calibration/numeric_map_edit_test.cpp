@@ -3,6 +3,9 @@
 
 #include <array>
 #include <limits>
+#include <optional>
+#include <string_view>
+#include <tuple>
 #include <vector>
 
 #include <gmock/gmock-matchers.h>
@@ -17,6 +20,7 @@ using fastecu::testing::IsErr;
 using fastecu::testing::IsOk;
 using fastecu::testing::IsOkAnd;
 using ::testing::ElementsAre;
+using ::testing::ElementsAreArray;
 using ::testing::Field;
 
 MATCHER_P(WritesAre, matcher, "")
@@ -32,20 +36,19 @@ MapElementSpec SpecFor(StorageType storage)
     return spec;
 }
 
+// A ROM byte no expected encoding equals, so every encoding is a real write.
+constexpr std::uint8_t kFiller = 0x55;
+
+bytes::Bytes Filler(std::size_t size)
+{
+    return bytes::Bytes(size, kFiller);
+}
+
 constexpr SelectionRange kOneCell{.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0};
 constexpr SelectionRange kThreeCells{.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 2};
 
-TEST(NumericMapEdit, RoundsHalfAwayFromZero)
-{
-    const bytes::Bytes rom{0, 0};
-    const std::array<NumericCell, 1> cells{0.0};
-    const auto positive = CalculateAssignment(rom, SpecFor(StorageType::kInt16), 1, cells, kOneCell, "10.5");
-    ASSERT_THAT(positive, IsOk());
-    EXPECT_THAT(positive->writes, ElementsAre(Field(&CellWrite::bytes, ElementsAre(0, 11))));
-    const auto negative = CalculateAssignment(rom, SpecFor(StorageType::kInt16), 1, cells, kOneCell, "-10.5");
-    ASSERT_THAT(negative, IsOk());
-    EXPECT_THAT(negative->writes, ElementsAre(Field(&CellWrite::bytes, ElementsAre(0xff, 0xf5))));
-}
+// A nullopt expectation means the edit must be rejected.
+using Encoding = std::optional<bytes::Bytes>;
 
 struct StorageLimitCase
 {
@@ -96,33 +99,437 @@ INSTANTIATE_TEST_SUITE_P(
                          "-2147483649",
                          "2147483648",
                          {0x80, 0, 0, 0},
-                         {0x7f, 0xff, 0xff, 0xff}}));
+                         {0x7f, 0xff, 0xff, 0xff}},
+        // FLT_MAX is exact in a double; 3.4028235e38 is the next literal above it.
+        StorageLimitCase{StorageType::kFloat,
+                         "-3.4028234663852886e38",
+                         "3.4028234663852886e38",
+                         "-3.4028235e38",
+                         "3.4028235e38",
+                         {0xff, 0x7f, 0xff, 0xff},
+                         {0x7f, 0x7f, 0xff, 0xff}}));
 
-TEST(NumericMapEdit, EncodesFloatRepresentationAndRejectsOverflow)
+struct LiteralCase
 {
-    const bytes::Bytes rom(4, 0);
+    StorageType storage;
+    std::string_view formula;
+    Encoding encoded;
+};
+
+class AssignedLiterals : public ::testing::TestWithParam<LiteralCase>
+{
+};
+
+TEST_P(AssignedLiterals, EncodesOrRejects)
+{
+    const auto& example = GetParam();
+    const auto rom = Filler(4);
     const std::array<NumericCell, 1> cells{0.0};
-    const auto spec = SpecFor(StorageType::kFloat);
-    const auto patch = CalculateAssignment(rom, spec, 1, cells, kOneCell, "1.5");
-    ASSERT_THAT(patch, IsOk());
-    EXPECT_THAT(patch->writes, ElementsAre(Field(&CellWrite::bytes, ElementsAre(0x3f, 0xc0, 0, 0))));
-    EXPECT_THAT(CalculateAssignment(rom, spec, 1, cells, kOneCell, "1e100"), IsErr(ErrorKind::kInvalidConfig));
-    EXPECT_THAT(CalculateAssignment(rom, spec, 1, cells, kOneCell, "1/0"), IsErr(ErrorKind::kInvalidConfig));
+    const auto result = CalculateAssignment(rom, SpecFor(example.storage), 1, cells, kOneCell, example.formula);
+    if (!example.encoded.has_value())
+    {
+        EXPECT_THAT(result, IsErr(ErrorKind::kInvalidConfig));
+        return;
+    }
+    EXPECT_THAT(result, IsOkAnd(WritesAre(ElementsAre(CellWrite{0, 0, *example.encoded}))));
 }
 
-TEST(NumericMapEdit, ClampsDefinitionBoundsBeforeEncoding)
+INSTANTIATE_TEST_SUITE_P(EveryLeadingDigit, AssignedLiterals,
+                         ::testing::Values(LiteralCase{StorageType::kUint8, "0", bytes::Bytes{0}},
+                                           LiteralCase{StorageType::kUint8, "1", bytes::Bytes{1}},
+                                           LiteralCase{StorageType::kUint8, "2", bytes::Bytes{2}},
+                                           LiteralCase{StorageType::kUint8, "3", bytes::Bytes{3}},
+                                           LiteralCase{StorageType::kUint8, "4", bytes::Bytes{4}},
+                                           LiteralCase{StorageType::kUint8, "5", bytes::Bytes{5}},
+                                           LiteralCase{StorageType::kUint8, "6", bytes::Bytes{6}},
+                                           LiteralCase{StorageType::kUint8, "7", bytes::Bytes{7}},
+                                           LiteralCase{StorageType::kUint8, "8", bytes::Bytes{8}},
+                                           LiteralCase{StorageType::kUint8, "9", bytes::Bytes{9}},
+                                           LiteralCase{StorageType::kUint8, "95", bytes::Bytes{95}},
+                                           LiteralCase{StorageType::kUint8, "9.5", bytes::Bytes{10}}));
+
+INSTANTIATE_TEST_SUITE_P(RoundsHalfAwayFromZero, AssignedLiterals,
+                         ::testing::Values(LiteralCase{StorageType::kInt16, "0.5", bytes::Bytes{0, 1}},
+                                           LiteralCase{StorageType::kInt16, "-0.5", bytes::Bytes{0xff, 0xff}},
+                                           LiteralCase{StorageType::kInt16, "2.5", bytes::Bytes{0, 3}},
+                                           LiteralCase{StorageType::kInt16, "-2.5", bytes::Bytes{0xff, 0xfd}},
+                                           LiteralCase{StorageType::kInt16, "10.5", bytes::Bytes{0, 11}},
+                                           LiteralCase{StorageType::kInt16, "-10.5", bytes::Bytes{0xff, 0xf5}}));
+
+INSTANTIATE_TEST_SUITE_P(FloatStorage, AssignedLiterals,
+                         ::testing::Values(LiteralCase{StorageType::kFloat, "1.5", bytes::Bytes{0x3f, 0xc0, 0, 0}},
+                                           LiteralCase{StorageType::kFloat, "1e100", std::nullopt},
+                                           LiteralCase{StorageType::kFloat, "1/0", std::nullopt}));
+
+struct DefinitionLimitCase
 {
+    std::string_view minimum;
+    std::string_view maximum;
+    std::string_view formula;
+    Encoding encoded;
+};
+
+class DefinitionLimits : public ::testing::TestWithParam<DefinitionLimitCase>
+{
+};
+
+TEST_P(DefinitionLimits, ClampBeforeEncodingOrRejectBrokenLimits)
+{
+    const auto& example = GetParam();
     auto spec = SpecFor(StorageType::kUint8);
-    spec.min_value = "0";
-    spec.max_value = "100";
-    const bytes::Bytes rom{0};
+    spec.min_value = example.minimum;
+    spec.max_value = example.maximum;
+    const auto rom = Filler(1);
     const std::array<NumericCell, 1> cells{0.0};
-    EXPECT_THAT(CalculateAssignment(rom, spec, 1, cells, kOneCell, "120"),
-                IsOkAnd(WritesAre(ElementsAre(Field(&CellWrite::bytes, ElementsAre(100))))));
-    spec.min_value = "broken";
-    EXPECT_THAT(CalculateAssignment(rom, spec, 1, cells, kOneCell, "1"), IsErr(ErrorKind::kInvalidConfig));
-    spec.min_value = "101";
-    EXPECT_THAT(CalculateAssignment(rom, spec, 1, cells, kOneCell, "1"), IsErr(ErrorKind::kInvalidConfig));
+    const auto result = CalculateAssignment(rom, spec, 1, cells, kOneCell, example.formula);
+    if (!example.encoded.has_value())
+    {
+        EXPECT_THAT(result, IsErr(ErrorKind::kInvalidConfig));
+        return;
+    }
+    EXPECT_THAT(result, IsOkAnd(WritesAre(ElementsAre(CellWrite{0, 0, *example.encoded}))));
+}
+
+INSTANTIATE_TEST_SUITE_P(Bounds, DefinitionLimits,
+                         ::testing::Values(DefinitionLimitCase{"0", "100", "50", bytes::Bytes{50}},
+                                           DefinitionLimitCase{"0", "100", "120", bytes::Bytes{100}},
+                                           DefinitionLimitCase{"0", "100", "100", bytes::Bytes{100}},
+                                           DefinitionLimitCase{"10", "100", "-5", bytes::Bytes{10}},
+                                           DefinitionLimitCase{"10", "100", "10", bytes::Bytes{10}},
+                                           DefinitionLimitCase{"5", "5", "9", bytes::Bytes{5}},
+                                           DefinitionLimitCase{"5", "5", "1", bytes::Bytes{5}},
+                                           DefinitionLimitCase{"", "100", "120", bytes::Bytes{100}},
+                                           DefinitionLimitCase{"  ", "100", "120", bytes::Bytes{100}},
+                                           DefinitionLimitCase{"10", "", "120", bytes::Bytes{120}},
+                                           DefinitionLimitCase{"10", " \t", "120", bytes::Bytes{120}},
+                                           DefinitionLimitCase{"", "", "7", bytes::Bytes{7}},
+                                           DefinitionLimitCase{"broken", "100", "1", std::nullopt},
+                                           DefinitionLimitCase{"0", "broken", "1", std::nullopt},
+                                           DefinitionLimitCase{"101", "100", "1", std::nullopt}));
+
+struct NoChangeCase
+{
+    std::string_view max_value;
+    std::string_view to_byte;
+    std::string_view assignment; // empty: a fine increment is applied instead
+    double increment;
+    std::vector<double> cells;
+    bytes::Bytes rom;
+    NoChangeReason reason;
+    std::size_t write_count;
+};
+
+class NoChangeReasons : public ::testing::TestWithParam<NoChangeCase>
+{
+};
+
+TEST_P(NoChangeReasons, ReportsWhyNothingChanged)
+{
+    const auto& example = GetParam();
+    auto spec = SpecFor(StorageType::kUint8);
+    spec.max_value = example.max_value;
+    spec.to_byte = example.to_byte;
+    spec.fine_increment = example.increment;
+    const std::vector<NumericCell> cells(example.cells.begin(), example.cells.end());
+    const auto width = static_cast<std::uint32_t>(cells.size());
+    const SelectionRange range{.first_row = 0, .first_col = 0, .last_row = 0, .last_col = static_cast<int>(width) - 1};
+    const auto result = example.assignment.empty()
+                            ? CalculateIncrement(example.rom, spec, width, cells, range, IncrementStep::kFineUp)
+                            : CalculateAssignment(example.rom, spec, width, cells, range, example.assignment);
+    ASSERT_THAT(result, IsOk());
+    EXPECT_THAT(result->writes, ::testing::SizeIs(example.write_count));
+    EXPECT_EQ(result->no_change, example.reason);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    Reasons, NoChangeReasons,
+    ::testing::Values(
+        // Clamped to the definition maximum, which the ROM already holds.
+        NoChangeCase{"100", "x", "", 1, {100}, {100}, NoChangeReason::kDefinitionLimit, 0},
+        // Applied once: 10.01 encodes to the stored 100 and is not claimed as a limit.
+        NoChangeCase{"", "x*10", "", 0.01, {10}, {100}, NoChangeReason::kBelowStorageResolution, 0},
+        NoChangeCase{"", "x", "5", 0, {5}, {5}, NoChangeReason::kUnchanged, 0},
+        NoChangeCase{"100", "x", "", 0.5, {100, 50}, {100, 51}, NoChangeReason::kMultipleCauses, 0},
+        NoChangeCase{"100", "x", "", 1, {100, 100}, {100, 100}, NoChangeReason::kDefinitionLimit, 0},
+        NoChangeCase{"", "x", "", 1, {5}, {5}, NoChangeReason::kNone, 1}));
+
+struct IncrementCase
+{
+    StorageType storage;
+    double cell;
+    IncrementStep step;
+    double fine;
+    double coarse;
+    Encoding encoded;
+};
+
+class IncrementSteps : public ::testing::TestWithParam<IncrementCase>
+{
+};
+
+TEST_P(IncrementSteps, UsesTheSelectedSizeAndDirection)
+{
+    const auto& example = GetParam();
+    auto spec = SpecFor(example.storage);
+    spec.fine_increment = example.fine;
+    spec.coarse_increment = example.coarse;
+    const auto rom = Filler(1);
+    const std::array<NumericCell, 1> cells{example.cell};
+    const auto result = CalculateIncrement(rom, spec, 1, cells, kOneCell, example.step);
+    if (!example.encoded.has_value())
+    {
+        EXPECT_THAT(result, IsErr(ErrorKind::kInvalidConfig));
+        return;
+    }
+    EXPECT_THAT(result, IsOkAnd(WritesAre(ElementsAre(CellWrite{0, 0, *example.encoded}))));
+}
+
+constexpr double kNaN = std::numeric_limits<double>::quiet_NaN();
+constexpr double kInf = std::numeric_limits<double>::infinity();
+
+INSTANTIATE_TEST_SUITE_P(
+    Steps, IncrementSteps,
+    ::testing::Values(IncrementCase{StorageType::kUint8, 50, IncrementStep::kFineUp, 1, 10, bytes::Bytes{51}},
+                      IncrementCase{StorageType::kUint8, 50, IncrementStep::kFineDown, 1, 10, bytes::Bytes{49}},
+                      IncrementCase{StorageType::kUint8, 50, IncrementStep::kCoarseUp, 1, 10, bytes::Bytes{60}},
+                      IncrementCase{StorageType::kUint8, 50, IncrementStep::kCoarseDown, 1, 10, bytes::Bytes{40}},
+                      // The unused increment may be unset or invalid.
+                      IncrementCase{StorageType::kUint8, 50, IncrementStep::kCoarseUp, 0, 10, bytes::Bytes{60}},
+                      IncrementCase{StorageType::kUint8, 50, IncrementStep::kFineUp, 1, 0, bytes::Bytes{51}},
+                      IncrementCase{StorageType::kUint8, 50, IncrementStep::kFineDown, 1, kNaN, bytes::Bytes{49}},
+                      IncrementCase{StorageType::kUint8, 50, IncrementStep::kFineUp, 0, 10, std::nullopt},
+                      IncrementCase{StorageType::kUint8, 50, IncrementStep::kCoarseDown, 1, 0, std::nullopt},
+                      IncrementCase{StorageType::kUint8, 50, IncrementStep::kFineDown, kNaN, 10, std::nullopt},
+                      IncrementCase{StorageType::kUint8, 50, IncrementStep::kCoarseUp, 1, kInf, std::nullopt},
+                      IncrementCase{StorageType::kUint8, 0, IncrementStep::kFineDown, 1, 10, std::nullopt},
+                      IncrementCase{StorageType::kInt8, -1, IncrementStep::kFineUp, 2, 10, bytes::Bytes{1}},
+                      IncrementCase{StorageType::kInt8, 0, IncrementStep::kFineDown, 1, 10, bytes::Bytes{0xff}}));
+
+struct SelectionCase
+{
+    std::uint32_t width;
+    std::uint32_t height;
+    SelectionRange range;
+    bool valid;
+};
+
+class SelectionBounds : public ::testing::TestWithParam<SelectionCase>
+{
+};
+
+TEST_P(SelectionBounds, AcceptsOnlySelectionsInsideTheRun)
+{
+    const auto& example = GetParam();
+    const auto spec = SpecFor(StorageType::kUint8);
+    const auto expect_outcome = [&](const Result<NumericEditResult>& result)
+    {
+        if (example.valid)
+        {
+            EXPECT_THAT(result, IsOk());
+        }
+        else
+        {
+            EXPECT_THAT(result, IsErr(ErrorKind::kInvalidConfig));
+        }
+    };
+
+    const auto rom = Filler(4);
+    const std::vector<std::vector<double>> values{{1}};
+    expect_outcome(CalculatePaste(rom, spec, example.width, example.height, example.range, values));
+
+    // The run itself is only materialized when it is small.
+    const std::uint64_t count = std::uint64_t{example.width} * example.height;
+    if (count <= 64)
+    {
+        const std::vector<NumericCell> cells(count, 0.0);
+        const auto run_rom = Filler(count);
+        expect_outcome(CalculateAssignment(run_rom, spec, example.width, cells, example.range, "1"));
+    }
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    Rejected, SelectionBounds,
+    ::testing::Values(SelectionCase{0, 1, {0, 0, 0, 0}, false}, SelectionCase{1, 0, {0, 0, 0, 0}, false},
+                      SelectionCase{1, 1, {-1, 0, 0, 0}, false}, SelectionCase{1, 1, {0, -1, 0, 0}, false},
+                      SelectionCase{1, 2, {1, 0, 0, 0}, false}, SelectionCase{2, 1, {0, 1, 0, 0}, false},
+                      SelectionCase{1, 1, {0, 0, 0, 1}, false}, SelectionCase{1, 1, {0, 0, 1, 0}, false},
+                      SelectionCase{1, 1, {1, 0, 1, 0}, false}, SelectionCase{2, 1, {1, 0, 1, 0}, false},
+                      SelectionCase{2, 2, {0, 0, 1, 2}, false}, SelectionCase{2, 2, {0, 0, 2, 1}, false},
+                      // One cell more than a 32-bit index can address.
+                      SelectionCase{65537, 65536, {0, 0, 0, 0}, false}));
+
+INSTANTIATE_TEST_SUITE_P(Accepted, SelectionBounds,
+                         ::testing::Values(SelectionCase{1, 1, {0, 0, 0, 0}, true},
+                                           SelectionCase{2, 2, {0, 0, 1, 1}, true},
+                                           SelectionCase{2, 2, {1, 1, 1, 1}, true},
+                                           // Exactly as many cells as a 32-bit index can address.
+                                           SelectionCase{65537, 65535, {0, 0, 0, 0}, true}));
+
+struct PasteCase
+{
+    std::uint32_t width;
+    std::uint32_t height;
+    SelectionRange range;
+    std::vector<std::vector<double>> values;
+    std::vector<CellWrite> writes;
+};
+
+class PasteClipping : public ::testing::TestWithParam<PasteCase>
+{
+};
+
+TEST_P(PasteClipping, WritesOnlyWhatFitsInsideTheRun)
+{
+    const auto& example = GetParam();
+    const auto rom = Filler(std::size_t{example.width} * example.height);
+    EXPECT_THAT(
+        CalculatePaste(rom, SpecFor(StorageType::kUint8), example.width, example.height, example.range, example.values),
+        IsOkAnd(WritesAre(ElementsAreArray(example.writes))));
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    Shapes, PasteClipping,
+    ::testing::Values(
+        // Rows and columns beyond the run are dropped.
+        PasteCase{2,
+                  2,
+                  {0, 0, 0, 0},
+                  {{1, 2, 3}, {4}, {5, 6}},
+                  {CellWrite{0, 0, {1}}, CellWrite{1, 1, {2}}, CellWrite{2, 2, {4}}}},
+        // The first row sets how many columns are pasted.
+        PasteCase{2, 2, {0, 0, 0, 0}, {{1}, {2, 3}}, {CellWrite{0, 0, {1}}, CellWrite{2, 2, {2}}}},
+        PasteCase{1, 3, {1, 0, 1, 0}, {{1}, {2}, {3}}, {CellWrite{1, 1, {1}}, CellWrite{2, 2, {2}}}},
+        PasteCase{3, 1, {0, 1, 0, 1}, {{1, 2, 3}}, {CellWrite{1, 1, {1}}, CellWrite{2, 2, {2}}}},
+        PasteCase{3,
+                  3,
+                  {1, 1, 1, 1},
+                  {{1, 2, 3}, {4, 5, 6}, {7, 8, 9}},
+                  {CellWrite{4, 4, {1}}, CellWrite{5, 5, {2}}, CellWrite{7, 7, {4}}, CellWrite{8, 8, {5}}}},
+        PasteCase{2, 2, {0, 0, 0, 0}, {}, {}}));
+
+class OffsetInterpolation : public ::testing::TestWithParam<std::tuple<InterpolationMode, int>>
+{
+  protected:
+    static constexpr std::uint32_t kWidth = 4;
+
+    // The 3x3 selection starts at (origin, origin) in a 4x4 run. Cells outside
+    // it are valid decoys, so reading a wrong cell changes the result.
+    void SetUp() override
+    {
+        origin_ = std::get<1>(GetParam());
+        rom_ = bytes::Bytes(16, 99);
+        cells_ = std::vector<NumericCell>(16, 99.0);
+        for (int row = 0; row < 3; ++row)
+        {
+            for (int col = 0; col < 3; ++col)
+            {
+                rom_[Index(row, col)] = 0;
+                cells_[Index(row, col)] = Fail(ErrorKind::kInvalidConfig, "invalid interior");
+            }
+        }
+    }
+
+    std::size_t Index(int row, int col) const
+    {
+        return static_cast<std::size_t>((origin_ + row) * static_cast<int>(kWidth) + origin_ + col);
+    }
+
+    SelectionRange Range() const
+    {
+        return {.first_row = origin_, .first_col = origin_, .last_row = origin_ + 2, .last_col = origin_ + 2};
+    }
+
+    void SetValid(int row, int col, std::uint8_t value)
+    {
+        rom_[Index(row, col)] = value;
+        cells_[Index(row, col)] = static_cast<double>(value);
+    }
+
+    CellWrite WriteAt(int row, int col, std::uint8_t value) const
+    {
+        const auto index = static_cast<std::uint32_t>(Index(row, col));
+        return {index, index, {value}};
+    }
+
+    // Sets the cells the mode reads and returns the writes it must produce.
+    std::vector<CellWrite> Prepare(InterpolationMode mode)
+    {
+        std::vector<CellWrite> writes;
+        switch (mode)
+        {
+        case InterpolationMode::kHorizontal:
+            for (int row = 0; row < 3; ++row)
+            {
+                const auto start = static_cast<std::uint8_t>(10 * (row + 1));
+                SetValid(row, 0, start);
+                SetValid(row, 2, start + 20);
+                writes.push_back(WriteAt(row, 1, start + 10));
+            }
+            break;
+        case InterpolationMode::kVertical:
+            for (int col = 0; col < 3; ++col)
+            {
+                const auto start = static_cast<std::uint8_t>(10 * (col + 1));
+                SetValid(0, col, start);
+                SetValid(2, col, start + 20);
+            }
+            writes = {WriteAt(1, 0, 20), WriteAt(1, 1, 30), WriteAt(1, 2, 40)};
+            break;
+        case InterpolationMode::kBidirectional:
+            SetValid(0, 0, 0);
+            SetValid(0, 2, 20);
+            SetValid(2, 0, 40);
+            SetValid(2, 2, 60);
+            writes = {WriteAt(0, 1, 10), WriteAt(1, 0, 20), WriteAt(1, 1, 30), WriteAt(1, 2, 40), WriteAt(2, 1, 50)};
+            break;
+        }
+        return writes;
+    }
+
+    int origin_{0};
+    bytes::Bytes rom_;
+    std::vector<NumericCell> cells_;
+};
+
+TEST_P(OffsetInterpolation, InterpolatesBetweenTheSelectionEdges)
+{
+    const auto mode = std::get<0>(GetParam());
+    const auto expected = Prepare(mode);
+    EXPECT_THAT(CalculateInterpolation(rom_, SpecFor(StorageType::kUint8), kWidth, cells_, Range(), mode),
+                IsOkAnd(WritesAre(ElementsAreArray(expected))));
+}
+
+TEST_P(OffsetInterpolation, RejectsInvalidEndpoint)
+{
+    const auto mode = std::get<0>(GetParam());
+    Prepare(mode);
+    cells_[Index(0, 0)] = Fail(ErrorKind::kInvalidConfig, "invalid endpoint");
+    EXPECT_THAT(CalculateInterpolation(rom_, SpecFor(StorageType::kUint8), kWidth, cells_, Range(), mode),
+                IsErr(ErrorKind::kInvalidConfig));
+}
+
+INSTANTIATE_TEST_SUITE_P(ModesAndOrigins, OffsetInterpolation,
+                         ::testing::Combine(::testing::Values(InterpolationMode::kHorizontal,
+                                                              InterpolationMode::kVertical,
+                                                              InterpolationMode::kBidirectional),
+                                            ::testing::Values(0, 1)));
+
+TEST(NumericMapEdit, InterpolatesSelectionWiderThanLegacyFixedArray)
+{
+    const auto spec = SpecFor(StorageType::kUint8);
+    bytes::Bytes rom(190, 0);
+    rom.back() = 189;
+    std::vector<NumericCell> cells(190, Fail(ErrorKind::kInvalidConfig, "invalid interior"));
+    cells.front() = 0.0;
+    cells.back() = 189.0;
+    const SelectionRange range{.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 189};
+    const auto result = CalculateInterpolation(rom, spec, 190, cells, range, InterpolationMode::kHorizontal);
+    ASSERT_THAT(result, IsOk());
+    ASSERT_THAT(result->writes, ::testing::SizeIs(188));
+    EXPECT_EQ(result->writes.front().index, 1U);
+    EXPECT_THAT(result->writes.front().bytes, ElementsAre(1));
+    EXPECT_EQ(result->writes.back().index, 188U);
+    EXPECT_THAT(result->writes.back().bytes, ElementsAre(188));
 }
 
 TEST(NumericMapEdit, AssignsInvalidCellWithoutReadingOldValue)
@@ -149,43 +556,6 @@ TEST(NumericMapEdit, RejectsEntireIncrementWithInvalidRequiredCell)
     EXPECT_THAT(rom, ElementsAre(1, 2, 3));
 }
 
-TEST(NumericMapEdit, AppliesSubResolutionIncrementOnce)
-{
-    auto spec = SpecFor(StorageType::kUint8);
-    spec.to_byte = "x*10";
-    spec.from_byte = "x/10";
-    spec.fine_increment = 0.01;
-    const bytes::Bytes rom{100};
-    const std::array<NumericCell, 1> cells{10.0};
-    EXPECT_THAT(CalculateIncrement(rom, spec, 1, cells, kOneCell, IncrementStep::kFineUp),
-                IsOkAnd(WritesAre(::testing::IsEmpty())));
-}
-
-TEST(NumericMapEdit, ReportsDefinitionLimitWithoutClaimingStorageResolution)
-{
-    auto spec = SpecFor(StorageType::kUint8);
-    spec.max_value = "100";
-    spec.fine_increment = 1;
-    const bytes::Bytes rom{100};
-    const std::array<NumericCell, 1> cells{100.0};
-    const auto result = CalculateIncrement(rom, spec, 1, cells, kOneCell, IncrementStep::kFineUp);
-    ASSERT_THAT(result, IsOk());
-    EXPECT_THAT(result->writes, ::testing::IsEmpty());
-    EXPECT_EQ(result->no_change, NoChangeReason::kDefinitionLimit);
-}
-
-TEST(NumericMapEdit, ReportsSubResolutionNoChange)
-{
-    auto spec = SpecFor(StorageType::kUint8);
-    spec.to_byte = "x*10";
-    spec.fine_increment = 0.01;
-    const bytes::Bytes rom{100};
-    const std::array<NumericCell, 1> cells{10.0};
-    const auto result = CalculateIncrement(rom, spec, 1, cells, kOneCell, IncrementStep::kFineUp);
-    ASSERT_THAT(result, IsOk());
-    EXPECT_EQ(result->no_change, NoChangeReason::kBelowStorageResolution);
-}
-
 TEST(NumericMapEdit, UsesFullDoubleValueDespiteDisplayRounding)
 {
     auto spec = SpecFor(StorageType::kUint16);
@@ -196,28 +566,12 @@ TEST(NumericMapEdit, UsesFullDoubleValueDespiteDisplayRounding)
                 IsOkAnd(WritesAre(ElementsAre(Field(&CellWrite::bytes, ElementsAre(0, 101))))));
 }
 
-TEST(NumericMapEdit, InterpolatesAcrossInvalidInterior)
-{
-    const auto spec = SpecFor(StorageType::kUint8);
-    const bytes::Bytes rom{1, 0, 5};
-    std::array<NumericCell, 3> cells{1.0, Fail(ErrorKind::kInvalidConfig, "invalid"), 5.0};
-    EXPECT_THAT(CalculateInterpolation(rom, spec, 3, cells, kThreeCells, InterpolationMode::kHorizontal),
-                IsOkAnd(WritesAre(ElementsAre(Field(&CellWrite::bytes, ElementsAre(3))))));
-    cells[0] = Fail(ErrorKind::kInvalidConfig, "invalid endpoint");
-    EXPECT_THAT(CalculateInterpolation(rom, spec, 3, cells, kThreeCells, InterpolationMode::kHorizontal),
-                IsErr(ErrorKind::kInvalidConfig));
-}
-
-TEST(NumericMapEdit, RejectsInvalidSelectionAndEncodingMetadata)
+TEST(NumericMapEdit, RejectsFailingEncodingExpression)
 {
     auto spec = SpecFor(StorageType::kUint8);
+    spec.to_byte = "1/0";
     const bytes::Bytes rom{0};
     const std::array<NumericCell, 1> cells{0.0};
-    const SelectionRange negative{.first_row = -1, .last_row = 0};
-    EXPECT_THAT(CalculateAssignment(rom, spec, 1, cells, negative, "1"), IsErr(ErrorKind::kInvalidConfig));
-    const SelectionRange past_end{.first_col = 1, .last_col = 1};
-    EXPECT_THAT(CalculateAssignment(rom, spec, 1, cells, past_end, "1"), IsErr(ErrorKind::kInvalidConfig));
-    spec.to_byte = "1/0";
     EXPECT_THAT(CalculateAssignment(rom, spec, 1, cells, kOneCell, "1"), IsErr(ErrorKind::kInvalidConfig));
 }
 
@@ -227,198 +581,6 @@ TEST(NumericMapEdit, RejectsNonFinitePastedValueBeforeReturningAnyWrites)
     const bytes::Bytes rom{0, 0};
     const std::vector<std::vector<double>> pasted{{1, std::numeric_limits<double>::infinity()}};
     EXPECT_THAT(CalculatePaste(rom, spec, 2, 1, kOneCell, pasted), IsErr(ErrorKind::kInvalidConfig));
-}
-
-TEST(NumericMapEdit, InterpolatesBidirectionallyFromFourValidCorners)
-{
-    const auto spec = SpecFor(StorageType::kUint8);
-    const bytes::Bytes rom{0, 0, 10, 0, 0, 0, 20, 0, 30};
-    const auto invalid = Fail(ErrorKind::kInvalidConfig, "invalid interior");
-    std::array<NumericCell, 9> cells{0.0, invalid, 10.0, invalid, invalid, invalid, 20.0, invalid, 30.0};
-    const SelectionRange range{.first_row = 0, .first_col = 0, .last_row = 2, .last_col = 2};
-    const auto result = CalculateInterpolation(rom, spec, 3, cells, range, InterpolationMode::kBidirectional);
-    ASSERT_THAT(result, IsOk());
-    EXPECT_THAT(result->writes, ElementsAre(CellWrite{1, 1, {5}}, CellWrite{3, 3, {10}}, CellWrite{4, 4, {15}},
-                                            CellWrite{5, 5, {20}}, CellWrite{7, 7, {25}}));
-    cells[8] = invalid;
-    EXPECT_THAT(CalculateInterpolation(rom, spec, 3, cells, range, InterpolationMode::kBidirectional),
-                IsErr(ErrorKind::kInvalidConfig));
-}
-
-TEST(NumericMapEdit, InterpolatesVerticalRunWithoutReadingInvalidInterior)
-{
-    const auto spec = SpecFor(StorageType::kUint8);
-    const bytes::Bytes rom{0, 0, 4};
-    const std::array<NumericCell, 3> cells{0.0, Fail(ErrorKind::kInvalidConfig, "invalid interior"), 4.0};
-    const SelectionRange range{.first_row = 0, .first_col = 0, .last_row = 2, .last_col = 0};
-    EXPECT_THAT(CalculateInterpolation(rom, spec, 1, cells, range, InterpolationMode::kVertical),
-                IsOkAnd(WritesAre(ElementsAre(CellWrite{1, 1, {2}}))));
-}
-
-TEST(NumericMapEdit, PreservesRaggedPasteAndEdgeClipping)
-{
-    const auto spec = SpecFor(StorageType::kUint8);
-    const bytes::Bytes rom{0, 0, 0, 0};
-    const std::vector<std::vector<double>> values{{1, 2, 3}, {4}, {5, 6}};
-    EXPECT_THAT(CalculatePaste(rom, spec, 2, 2, kOneCell, values),
-                IsOkAnd(WritesAre(ElementsAre(CellWrite{0, 0, {1}}, CellWrite{1, 1, {2}}, CellWrite{2, 2, {4}}))));
-}
-
-TEST(NumericMapEdit, AllowsRepresentableSignedIncrementAcrossZero)
-{
-    auto spec = SpecFor(StorageType::kInt8);
-    spec.fine_increment = 2;
-    const bytes::Bytes rom{0xff};
-    const std::array<NumericCell, 1> cells{-1.0};
-    EXPECT_THAT(CalculateIncrement(rom, spec, 1, cells, kOneCell, IncrementStep::kFineUp),
-                IsOkAnd(WritesAre(ElementsAre(CellWrite{0, 0, {1}}))));
-}
-
-TEST(NumericMapEdit, InterpolatesSelectionWiderThanLegacyFixedArray)
-{
-    const auto spec = SpecFor(StorageType::kUint8);
-    bytes::Bytes rom(190, 0);
-    rom.back() = 189;
-    std::vector<NumericCell> cells(190, Fail(ErrorKind::kInvalidConfig, "invalid interior"));
-    cells.front() = 0.0;
-    cells.back() = 189.0;
-    const SelectionRange range{.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 189};
-    const auto result = CalculateInterpolation(rom, spec, 190, cells, range, InterpolationMode::kHorizontal);
-    ASSERT_THAT(result, IsOk());
-    ASSERT_THAT(result->writes, ::testing::SizeIs(188));
-    EXPECT_EQ(result->writes.front().index, 1U);
-    EXPECT_THAT(result->writes.front().bytes, ElementsAre(1));
-    EXPECT_EQ(result->writes.back().index, 188U);
-    EXPECT_THAT(result->writes.back().bytes, ElementsAre(188));
-}
-TEST(NumericMapEdit, AcceptsEqualDefinitionLimits)
-{
-    auto spec = SpecFor(StorageType::kUint8);
-    spec.min_value = "5";
-    spec.max_value = "5";
-    const bytes::Bytes rom{0};
-    const std::array<NumericCell, 1> cells{0.0};
-    EXPECT_THAT(CalculateAssignment(rom, spec, 1, cells, kOneCell, "9"),
-                IsOkAnd(WritesAre(ElementsAre(CellWrite{0, 0, {5}}))));
-}
-
-TEST(NumericMapEdit, AcceptsLeadingNineInAssignment)
-{
-    const bytes::Bytes rom{0};
-    const std::array<NumericCell, 1> cells{0.0};
-    EXPECT_THAT(CalculateAssignment(rom, SpecFor(StorageType::kUint8), 1, cells, kOneCell, "9"),
-                IsOkAnd(WritesAre(ElementsAre(CellWrite{0, 0, {9}}))));
-}
-
-TEST(NumericMapEdit, AcceptsLargestFiniteFloat)
-{
-    const bytes::Bytes rom(4, 0);
-    const std::vector<std::vector<double>> pasted{{static_cast<double>(std::numeric_limits<float>::max())}};
-    EXPECT_THAT(CalculatePaste(rom, SpecFor(StorageType::kFloat), 1, 1, kOneCell, pasted),
-                IsOkAnd(WritesAre(ElementsAre(CellWrite{0, 0, {0x7f, 0x7f, 0xff, 0xff}}))));
-}
-
-TEST(NumericMapEdit, AcceptsRunWithExactlyMaxUint32Cells)
-{
-    const bytes::Bytes rom{0};
-    const std::vector<std::vector<double>> pasted{{1}};
-    EXPECT_THAT(CalculatePaste(rom, SpecFor(StorageType::kUint8), 65537, 65535, kOneCell, pasted),
-                IsOkAnd(WritesAre(ElementsAre(CellWrite{0, 0, {1}}))));
-}
-
-TEST(NumericMapEdit, RejectsSelectionRowsPastRun)
-{
-    const auto spec = SpecFor(StorageType::kUint8);
-    const bytes::Bytes rom{0, 0};
-    const std::vector<std::vector<double>> pasted{{1}};
-    const SelectionRange one_past_single_column{.first_row = 1, .first_col = 0, .last_row = 1, .last_col = 0};
-    EXPECT_THAT(CalculatePaste(rom, spec, 1, 1, one_past_single_column, pasted), IsErr(ErrorKind::kInvalidConfig));
-    EXPECT_THAT(CalculatePaste(rom, spec, 2, 1, one_past_single_column, pasted), IsErr(ErrorKind::kInvalidConfig));
-}
-
-TEST(NumericMapEdit, ClipsPasteAtRunEdgesFromOffsetSelection)
-{
-    const auto spec = SpecFor(StorageType::kUint8);
-    const bytes::Bytes rows_rom{0, 0, 0};
-    const std::vector<std::vector<double>> rows{{1}, {2}, {3}};
-    const SelectionRange second_row{.first_row = 1, .first_col = 0, .last_row = 1, .last_col = 0};
-    EXPECT_THAT(CalculatePaste(rows_rom, spec, 1, 3, second_row, rows),
-                IsOkAnd(WritesAre(ElementsAre(CellWrite{1, 1, {1}}, CellWrite{2, 2, {2}}))));
-    const bytes::Bytes columns_rom{0, 0, 0};
-    const std::vector<std::vector<double>> columns{{1, 2, 3}};
-    const SelectionRange second_column{.first_row = 0, .first_col = 1, .last_row = 0, .last_col = 1};
-    EXPECT_THAT(CalculatePaste(columns_rom, spec, 3, 1, second_column, columns),
-                IsOkAnd(WritesAre(ElementsAre(CellWrite{1, 1, {1}}, CellWrite{2, 2, {2}}))));
-}
-
-// 4x4 run whose cells outside the selected block are valid decoys, so reading
-// a wrong cell changes the result instead of only failing.
-class OffsetInterpolation : public ::testing::Test
-{
-  protected:
-    static constexpr std::uint32_t kWidth = 4;
-    static constexpr SelectionRange kRange{.first_row = 1, .first_col = 1, .last_row = 3, .last_col = 3};
-
-    OffsetInterpolation() : spec_(SpecFor(StorageType::kUint8)), rom_(16, 99), cells_(16, 99.0)
-    {
-        for (std::size_t row = 1; row <= 3; ++row)
-        {
-            for (std::size_t col = 1; col <= 3; ++col)
-            {
-                Set(row, col, 0, Fail(ErrorKind::kInvalidConfig, "invalid interior"));
-            }
-        }
-    }
-
-    void Set(std::size_t row, std::size_t col, std::uint8_t byte, NumericCell cell)
-    {
-        rom_[row * kWidth + col] = byte;
-        cells_[row * kWidth + col] = std::move(cell);
-    }
-
-    void SetValid(std::size_t row, std::size_t col, std::uint8_t value)
-    {
-        Set(row, col, value, static_cast<double>(value));
-    }
-
-    MapElementSpec spec_;
-    bytes::Bytes rom_;
-    std::vector<NumericCell> cells_;
-};
-
-TEST_F(OffsetInterpolation, HorizontalUsesSelectionOffsets)
-{
-    for (std::uint8_t row = 1; row <= 3; ++row)
-    {
-        SetValid(row, 1, 10 * row);
-        SetValid(row, 3, 10 * row + 20);
-    }
-    EXPECT_THAT(
-        CalculateInterpolation(rom_, spec_, kWidth, cells_, kRange, InterpolationMode::kHorizontal),
-        IsOkAnd(WritesAre(ElementsAre(CellWrite{6, 6, {20}}, CellWrite{10, 10, {30}}, CellWrite{14, 14, {40}}))));
-}
-
-TEST_F(OffsetInterpolation, VerticalUsesSelectionOffsets)
-{
-    for (std::uint8_t col = 1; col <= 3; ++col)
-    {
-        SetValid(1, col, 10 * col);
-        SetValid(3, col, 10 * col + 20);
-    }
-    EXPECT_THAT(
-        CalculateInterpolation(rom_, spec_, kWidth, cells_, kRange, InterpolationMode::kVertical),
-        IsOkAnd(WritesAre(ElementsAre(CellWrite{9, 9, {20}}, CellWrite{10, 10, {30}}, CellWrite{11, 11, {40}}))));
-}
-
-TEST_F(OffsetInterpolation, BidirectionalUsesSelectionOffsets)
-{
-    SetValid(1, 1, 0);
-    SetValid(1, 3, 20);
-    SetValid(3, 1, 40);
-    SetValid(3, 3, 60);
-    EXPECT_THAT(CalculateInterpolation(rom_, spec_, kWidth, cells_, kRange, InterpolationMode::kBidirectional),
-                IsOkAnd(WritesAre(ElementsAre(CellWrite{6, 6, {10}}, CellWrite{9, 9, {20}}, CellWrite{10, 10, {30}},
-                                              CellWrite{11, 11, {40}}, CellWrite{14, 14, {50}}))));
 }
 } // namespace
 } // namespace fastecu::calibration
