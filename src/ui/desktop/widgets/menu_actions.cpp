@@ -2,8 +2,7 @@
 #include "src/platform/desktop/common/bytes/qt_bytes.h"
 #include "src/ui/desktop/config_fields.h"
 #include "src/backend/calibration/map_edit.h"
-#include "src/backend/calibration/session/numeric_copy_use_case.h"
-#include "src/backend/calibration/session/numeric_edit_use_case.h"
+#include "src/backend/calibration/session/map_operations.h"
 #include "src/platform/desktop/common/diagnostics/serial_diagnostic_link.h"
 #include "src/ui/desktop/calibration/map_edit_adapter.h"
 #include "ui_mainwindow.h"
@@ -96,17 +95,14 @@ void runNumericEdit(QWidget *parent, const QString& title, fastecu::calibration:
     {
         return;
     }
-    const auto outcome =
-        calibration::ApplyNumericEdit(workspace, {.session = id->session,
-                                                  .map_index = static_cast<std::size_t>(id->map_number),
-                                                  .selection = *selection,
-                                                  .operation = std::move(operation)});
+    const auto outcome = calibration::EditNumeric(workspace, {id->session, static_cast<std::size_t>(id->map_number)},
+                                                  *selection, std::move(operation));
     if (!outcome.has_value())
     {
         QMessageBox::warning(parent, title, QString::fromStdString(outcome.error().detail));
         return;
     }
-    if (std::holds_alternative<calibration::NumericEditNotApplicable>(*outcome))
+    if (std::holds_alternative<calibration::MapNotApplicable>(*outcome))
     {
         return;
     }
@@ -277,9 +273,8 @@ void MainWindow::copyValue()
     {
         return;
     }
-    const auto copied = calibration::CopyNumericValues(
-        *calibration_workspace_,
-        {.session = id->session, .map_index = static_cast<std::size_t>(id->map_number), .selection = *selection});
+    const auto copied = calibration::CopyNumeric(*calibration_workspace_,
+                                                 {id->session, static_cast<std::size_t>(id->map_number)}, *selection);
     if (!copied.has_value())
     {
         QMessageBox::warning(this, tr("Copy value"), QString::fromStdString(copied.error().detail));

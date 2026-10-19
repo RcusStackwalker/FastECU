@@ -73,8 +73,8 @@ indices; a trailing delimiter cannot create a fifth. Complete no-ops preserve
 dirty state and refresh the views from current bytes. Set Value refreshes its
 original map window even if another window becomes active during the dialog.
 
-The [numeric edit use case](../../src/backend/calibration/session/numeric_edit_use_case.h)
-owns increment/decrement, Set Value, interpolation, and Paste for a stable
+The [numeric edit](../../src/backend/calibration/session/map_operations.h)
+(`EditNumeric`) owns increment/decrement, Set Value, interpolation, and Paste for a stable
 session ID, a semantic target (map body, X axis, or Y axis), and an element
 range. It resolves the session, definition fields, and fresh decoded values,
 then calculates, validates, and writes in one synchronous call. Closed sessions,
@@ -108,7 +108,7 @@ selection, and a repeated selection name, fail the whole definition load, so a
 resolved selection is always valid bytes of one shared width.
 
 Choosing a selection of a selectable map writes that selection's bytes through
-`ApplySelectableEdit`; a write that would not match the blob width is an
+`EditSelectable`; a write that would not match the blob width is an
 error and changes nothing. Writing identical bytes reports an unchanged edit
 and leaves the session clean. Sessions without a definition, unknown maps, maps
 that are not blob selections and unknown selection names are not applicable; the
@@ -125,7 +125,7 @@ operations or session closure, and there is no persistent value or metadata cach
 Preparation uses the session's whole-map placement and structural validation.
 An invalid declared axis rejects a body operation, even if decoding would omit
 that axis. Absent/static axes and blob bodies are unavailable numeric targets.
-[Copy](../../src/backend/calibration/session/numeric_copy_use_case.h) requires
+[Copy](../../src/backend/calibration/session/map_operations.h) (`CopyNumeric`) requires
 valid selected decoded cells and preserves full-precision fixed decimal text
 with tabs between cells and LF between rows. It does not require encoding,
 limits, increments, or an edit byte window. Edits validate only consumed fields:

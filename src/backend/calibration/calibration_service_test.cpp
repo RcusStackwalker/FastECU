@@ -85,39 +85,6 @@ TEST(BackupRom, WriteFailureIsSwallowed)
     EXPECT_TRUE(repo.files.find("backup.bin") == repo.files.end());
 }
 
-TEST(ElementByteSizeTest, DelegatesToStorageByteSizeWhenNotBloblist)
-{
-    EXPECT_EQ(ElementByteSize(StorageType::kUint16, nullptr), 2U);
-    EXPECT_EQ(ElementByteSize(std::optional<StorageType>{}, nullptr), 1U);
-}
-
-TEST(ElementByteSizeTest, BloblistWithNoScalingFallsBackToOneByte)
-{
-    EXPECT_EQ(ElementByteSize(StorageType::kBloblist, nullptr), 1U);
-}
-
-TEST(ElementByteSizeTest, BloblistWithEmptySelectionsFallsBackToOneByte)
-{
-    Scaling scaling;
-    EXPECT_EQ(ElementByteSize(StorageType::kBloblist, &scaling), 1U);
-}
-
-TEST(ElementByteSizeTest, BloblistWidthComesFromFirstSelectionLength)
-{
-    Scaling scaling;
-    scaling.selections = {{"disabled", {0x00, 0x00}}, {"enabled", {0x00, 0x01}}};
-
-    EXPECT_EQ(ElementByteSize(StorageType::kBloblist, &scaling), 2U);
-}
-
-TEST(ElementByteSizeTest, BloblistWidthMatchesLegacySingleByteSelections)
-{
-    Scaling scaling;
-    scaling.selections = {{"disabled", {0x00}}, {"enabled", {0x01}}};
-
-    EXPECT_EQ(ElementByteSize(StorageType::kBloblist, &scaling), 1U);
-}
-
 TEST(ElementRunEndTest, SingleElementIsAddressPlusWidth)
 {
     EXPECT_EQ(ElementRunEnd(0x1000, /*start_position=*/1, /*interval=*/1,

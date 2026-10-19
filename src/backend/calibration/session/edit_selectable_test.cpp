@@ -1,4 +1,4 @@
-#include "src/backend/calibration/session/selectable_edit_use_case.h"
+#include "src/backend/calibration/session/map_operations.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -62,12 +62,12 @@ auto Unchanged()
     return IsOkAnd(VariantWith<SelectableEditUnchanged>(::testing::_));
 }
 
-auto NotApplicable(SelectableNotApplicableReason reason)
+auto NotApplicable(NotApplicableReason reason)
 {
-    return IsOkAnd(VariantWith<SelectableEditNotApplicable>(Field(&SelectableEditNotApplicable::reason, reason)));
+    return IsOkAnd(VariantWith<MapNotApplicable>(Field(&MapNotApplicable::reason, reason)));
 }
 
-class SelectableEditUseCaseTest : public ::testing::Test
+class EditSelectableTest : public ::testing::Test
 {
   protected:
     void SetUp() override
@@ -109,7 +109,7 @@ class SelectableEditUseCaseTest : public ::testing::Test
 
     Result<SelectableEditOutcome> Select(const std::string& name, std::size_t map_index = 0)
     {
-        return ApplySelectableEdit(workspace_, {.session = id_, .map_index = map_index, .selection = name});
+        return EditSelectable(workspace_, {id_, map_index}, name);
     }
 
     config::testing::ConfigSessionFixture cfg_;
@@ -121,7 +121,7 @@ class SelectableEditUseCaseTest : public ::testing::Test
     SessionId id_{};
 };
 
-TEST_F(SelectableEditUseCaseTest, WritesTheNamedSelectionAtTheMapAddress)
+TEST_F(EditSelectableTest, WritesTheNamedSelectionAtTheMapAddress)
 {
     EXPECT_THAT(Select("low"), Changed());
 
@@ -129,7 +129,7 @@ TEST_F(SelectableEditUseCaseTest, WritesTheNamedSelectionAtTheMapAddress)
     EXPECT_TRUE(Session().Dirty());
 }
 
-TEST_F(SelectableEditUseCaseTest, MismatchedSelectionWidthsAreRejectedWithoutChange)
+TEST_F(EditSelectableTest, MismatchedSelectionWidthsAreRejectedWithoutChange)
 {
     Install(SelectableDefinition(
         {{"off", {0x00, 0x00}}, {"long", {0xAA, 0xBB, 0xCC}}, {"short", {0x7F}}, {"same", {0x12, 0x34}}}));
@@ -145,7 +145,7 @@ TEST_F(SelectableEditUseCaseTest, MismatchedSelectionWidthsAreRejectedWithoutCha
     EXPECT_THAT(RomBytes(), ElementsAre(0x55, 0x55, 0x55, 0x55, 0x12, 0x34, 0x55, 0x55));
 }
 
-TEST_F(SelectableEditUseCaseTest, AMapWithoutAnAddressWritesAtOffsetZero)
+TEST_F(EditSelectableTest, AMapWithoutAnAddressWritesAtOffsetZero)
 {
     auto no_address = ModesDefinition();
     no_address.maps[0].address.reset();
@@ -156,7 +156,7 @@ TEST_F(SelectableEditUseCaseTest, AMapWithoutAnAddressWritesAtOffsetZero)
     EXPECT_THAT(RomBytes(), ElementsAre(0xFF, 0x10, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55));
 }
 
-TEST_F(SelectableEditUseCaseTest, StorageFallsBackToTheScaling)
+TEST_F(EditSelectableTest, StorageFallsBackToTheScaling)
 {
     auto fallback = ModesDefinition();
     fallback.maps[0].storage_type.reset();
@@ -167,7 +167,7 @@ TEST_F(SelectableEditUseCaseTest, StorageFallsBackToTheScaling)
     EXPECT_THAT(RomBytes(), ElementsAre(0x55, 0x55, 0x55, 0x55, 0x0A, 0x0B, 0x55, 0x55));
 }
 
-TEST_F(SelectableEditUseCaseTest, WritingTheCurrentBytesIsUnchangedAndLeavesTheSessionClean)
+TEST_F(EditSelectableTest, WritingTheCurrentBytesIsUnchangedAndLeavesTheSessionClean)
 {
     Install(ModesDefinition(), {0, 0, 0, 0, 0x0A, 0x0B, 0, 0});
 
@@ -176,7 +176,7 @@ TEST_F(SelectableEditUseCaseTest, WritingTheCurrentBytesIsUnchangedAndLeavesTheS
     EXPECT_FALSE(Session().Dirty());
 }
 
-TEST_F(SelectableEditUseCaseTest, AWriteOutsideTheImageIsRejectedWithoutChange)
+TEST_F(EditSelectableTest, AWriteOutsideTheImageIsRejectedWithoutChange)
 {
     Install(ModesDefinition(), std::vector<std::uint8_t>(5, 0x55));
     const auto before = RomBytes();
@@ -187,56 +187,56 @@ TEST_F(SelectableEditUseCaseTest, AWriteOutsideTheImageIsRejectedWithoutChange)
     EXPECT_FALSE(Session().Dirty());
 }
 
-TEST_F(SelectableEditUseCaseTest, StaleSessionIdsAreNotApplicable)
+TEST_F(EditSelectableTest, StaleSessionIdsAreNotApplicable)
 {
     const auto before = RomBytes();
-    EXPECT_THAT(ApplySelectableEdit(workspace_, {.session = SessionId{999}, .map_index = 0, .selection = "low"}),
-                NotApplicable(SelectableNotApplicableReason::kClosedSession));
+    EXPECT_THAT(EditSelectable(workspace_, {SessionId{999}, 0}, "low"),
+                NotApplicable(NotApplicableReason::kClosedSession));
     EXPECT_EQ(RomBytes(), before);
 
     ASSERT_THAT(workspace_.Close(id_), IsOk());
-    EXPECT_THAT(Select("low"), NotApplicable(SelectableNotApplicableReason::kClosedSession));
+    EXPECT_THAT(Select("low"), NotApplicable(NotApplicableReason::kClosedSession));
 }
 
-TEST_F(SelectableEditUseCaseTest, ASessionWithoutADefinitionIsNotApplicable)
+TEST_F(EditSelectableTest, ASessionWithoutADefinitionIsNotApplicable)
 {
     Install(std::nullopt);
 
-    EXPECT_THAT(Select("low"), NotApplicable(SelectableNotApplicableReason::kNoDefinition));
+    EXPECT_THAT(Select("low"), NotApplicable(NotApplicableReason::kNoDefinition));
     EXPECT_FALSE(Session().Dirty());
 }
 
-TEST_F(SelectableEditUseCaseTest, AnUnknownMapIsNotApplicable)
+TEST_F(EditSelectableTest, AnUnknownMapIsNotApplicable)
 {
-    EXPECT_THAT(Select("low", 1), NotApplicable(SelectableNotApplicableReason::kUnknownMap));
+    EXPECT_THAT(Select("low", 1), NotApplicable(NotApplicableReason::kUnknownMap));
     EXPECT_FALSE(Session().Dirty());
 }
 
-TEST_F(SelectableEditUseCaseTest, MapsThatAreNotBlobSelectionsAreNotApplicable)
+TEST_F(EditSelectableTest, AMapWithoutSelectionsOrScalingIsNotApplicable)
 {
     auto non_blob = ModesDefinition();
     non_blob.scalings[0].storage_type = definition::StorageType::kUint8;
     non_blob.maps[0].storage_type = definition::StorageType::kUint8;
     Install(std::move(non_blob));
-    EXPECT_THAT(Select("low"), NotApplicable(SelectableNotApplicableReason::kNotBloblist));
+    EXPECT_THAT(Select("low"), NotApplicable(NotApplicableReason::kUnavailableTarget));
 
     auto no_selections = ModesDefinition();
     no_selections.scalings[0].selections.clear();
     Install(std::move(no_selections));
-    EXPECT_THAT(Select("low"), NotApplicable(SelectableNotApplicableReason::kNotBloblist));
+    EXPECT_THAT(Select("low"), NotApplicable(NotApplicableReason::kUnavailableTarget));
 
     auto no_scaling = ModesDefinition();
     no_scaling.maps[0].scaling_name = "missing";
     Install(std::move(no_scaling));
-    EXPECT_THAT(Select("low"), NotApplicable(SelectableNotApplicableReason::kNotBloblist));
+    EXPECT_THAT(Select("low"), NotApplicable(NotApplicableReason::kUnavailableTarget));
     EXPECT_FALSE(Session().Dirty());
 }
 
-TEST_F(SelectableEditUseCaseTest, AnUnknownSelectionNameChangesNothing)
+TEST_F(EditSelectableTest, AnUnknownSelectionNameChangesNothing)
 {
     const auto before = RomBytes();
 
-    EXPECT_THAT(Select("missing"), NotApplicable(SelectableNotApplicableReason::kUnknownSelection));
+    EXPECT_THAT(Select("missing"), NotApplicable(NotApplicableReason::kUnknownSelection));
 
     EXPECT_EQ(RomBytes(), before);
     EXPECT_FALSE(Session().Dirty());

@@ -34,13 +34,6 @@ Result<std::vector<std::uint8_t>> ReadRom(std::string_view file_handle, IFileRep
 void BackupRom(std::span<const std::uint8_t> rom_data, std::string_view backup_handle,
                IFileRepository& file_repository);
 
-// Byte width of one element. For Bloblist, derived from the first selection's
-// hex-encoded value length (2 hex chars per byte) when `scaling` has one --
-// this is what the legacy Qt loop does, not a guess. Falls back to
-// definition::storage_byte_size(storage_type) (1 byte) when no scaling/
-// selections are available to derive it from.
-std::uint32_t ElementByteSize(std::optional<definition::StorageType> storage_type, const definition::Scaling *scaling);
-
 // Returns UINT64_MAX on layout arithmetic overflow.
 // One past the last byte touched by `count` elements of `element_width` bytes,
 // laid out starting at `address` with the legacy start_position/interval

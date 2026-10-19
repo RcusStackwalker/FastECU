@@ -2123,6 +2123,21 @@ void MainWindowTest::checkSelectableSignalEditsItsEmittingSession()
     ASSERT_TRUE(services.calibrations.Find(firstId)->Dirty());
     ASSERT_EQ(services.calibrations.Find(secondId)->File()[0], std::uint8_t{0});
     ASSERT_TRUE(!services.calibrations.Find(secondId)->Dirty());
+
+    // A name no selection carries changes nothing, yet still refreshes the map
+    // so the combo snaps back to the ROM's bytes.
+    auto *combo = first->findChild<QComboBox *>();
+    ASSERT_TRUE(combo != nullptr);
+    const QString romSelection = combo->currentText();
+    {
+        const QSignalBlocker blocker(combo);
+        combo->setCurrentIndex(combo->currentIndex() == 0 ? 1 : 0);
+    }
+    ASSERT_NE(combo->currentText(), romSelection);
+    first->selectableComboboxItemChanged("missing");
+    ASSERT_TRUE(first->findChild<QComboBox *>() != nullptr);
+    EXPECT_EQ(first->findChild<QComboBox *>()->currentText(), romSelection);
+    EXPECT_EQ(services.calibrations.Find(firstId)->File()[0], std::uint8_t{1});
     driver.stop();
     ASSERT_TRUE(!driver.timedOut());
 }

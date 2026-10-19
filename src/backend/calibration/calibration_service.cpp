@@ -174,11 +174,6 @@ void BackupRom(std::span<const std::uint8_t> rom_data, std::string_view backup_h
     std::ignore = file_repository.Write(backup_handle, rom_data);
 }
 
-std::uint32_t ElementByteSize(std::optional<definition::StorageType> storage_type, const definition::Scaling *scaling)
-{
-    return ElementByteWidth(storage_type, scaling);
-}
-
 std::uint64_t ElementRunEnd(std::uint64_t address, std::uint32_t start_position, std::uint32_t interval,
                             std::uint32_t element_width, std::uint32_t count)
 {

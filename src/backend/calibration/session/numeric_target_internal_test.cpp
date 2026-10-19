@@ -3,6 +3,7 @@
 #include <optional>
 #include <string>
 #include <utility>
+#include <variant>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -26,6 +27,20 @@ SelectionRange Cell(int row, int col)
 class NumericTargetInternalTest : public calibration::testing::NumericSessionFixture
 {
 };
+
+TEST_F(NumericTargetInternalTest, LocateMapReportsEachMiss)
+{
+    const auto reason = [](const std::variant<LocatedMap, MapNotApplicable>& located)
+    {
+        const auto *miss = std::get_if<MapNotApplicable>(&located);
+        return miss != nullptr ? std::optional{miss->reason} : std::nullopt;
+    };
+    EXPECT_EQ(reason(LocateMap(workspace_, SessionId{9999}, 0)), NotApplicableReason::kClosedSession);
+    EXPECT_EQ(reason(LocateMap(workspace_, id_, 5)), NotApplicableReason::kUnknownMap);
+    EXPECT_EQ(reason(LocateMap(workspace_, id_, 0)), std::nullopt);
+    Install(std::nullopt);
+    EXPECT_EQ(reason(LocateMap(workspace_, id_, 0)), NotApplicableReason::kNoDefinition);
+}
 
 TEST_F(NumericTargetInternalTest, MovedPreparationKeepsMetadataAndCellsUsable)
 {

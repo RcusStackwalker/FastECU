@@ -47,14 +47,6 @@ struct PasteEdit
 
 using NumericEditOperation = std::variant<IncrementEdit, AssignmentEdit, InterpolationEdit, PasteEdit>;
 
-struct NumericEditRequest
-{
-    SessionId session{};
-    std::size_t map_index{0};
-    NumericSelection selection;
-    NumericEditOperation operation;
-};
-
 // At least one stored byte changed; the session is dirty.
 struct NumericEditChanged
 {
@@ -66,28 +58,28 @@ struct NumericEditUnchanged
     NoChangeReason reason{NoChangeReason::kUnchanged};
 };
 
+// Why an operation does not apply to its map. Shared by every map operation:
+// a UI element can outlive its session or its map, so these are outcomes, not
+// errors.
 enum class NotApplicableReason
 {
     kClosedSession,
     kNoDefinition,
-    // An unknown map, an absent or static axis, a blob body, or a map whose
-    // layout cannot be decoded.
+    kUnknownMap,
+    // An absent or static axis, a blob body for a numeric operation, a map
+    // that is not a blob selection for a selectable one, or a map whose layout
+    // cannot be decoded.
     kUnavailableTarget,
+    // A selectable edit naming a selection the map does not carry.
+    kUnknownSelection,
 };
 
-struct NumericEditNotApplicable
+struct MapNotApplicable
 {
     NotApplicableReason reason{NotApplicableReason::kClosedSession};
 };
 
-using NumericEditOutcome = std::variant<NumericEditChanged, NumericEditUnchanged, NumericEditNotApplicable>;
-
-struct NumericCopyRequest
-{
-    SessionId session{};
-    std::size_t map_index{0};
-    NumericSelection selection;
-};
+using NumericEditOutcome = std::variant<NumericEditChanged, NumericEditUnchanged, MapNotApplicable>;
 
 // Tab-separated cells, LF-separated rows, row-major from the selection's
 // top-left. Each cell is the full-precision scaled value in locale-independent
@@ -107,6 +99,6 @@ struct NumericCopyInvalidCell
     std::string detail;
 };
 
-using NumericCopyOutcome = std::variant<NumericCopyText, NumericCopyInvalidCell, NumericEditNotApplicable>;
+using NumericCopyOutcome = std::variant<NumericCopyText, NumericCopyInvalidCell, MapNotApplicable>;
 
 } // namespace fastecu::calibration

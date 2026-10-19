@@ -9,7 +9,7 @@
 
 #include "src/ui/desktop/calibration/session_key.h"
 #include "src/backend/calibration/session/calibration_session.h"
-#include "src/backend/calibration/session/numeric_edit_use_case.h"
+#include "src/backend/calibration/session/numeric_operation_types.h"
 
 class QMdiSubWindow;
 
