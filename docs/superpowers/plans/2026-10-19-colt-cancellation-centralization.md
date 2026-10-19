@@ -8,7 +8,7 @@
 
 **Tech Stack:** Qt-free C++23, GoogleTest/Google Mock, Bazel 9.1.1, Gazelle, pinned Lizard reporting, existing coverage and mutation tooling.
 
-**Spec:** [Confirmed Colt cancellation design](../specs/2026-10-19-guarded-transport-refinement-design.md). Read both documents. This plan awaits review and an execution-method choice; it is not authorization to implement.
+**Spec:** [Confirmed Colt cancellation design](../specs/2026-10-19-guarded-transport-refinement-design.md). Read both documents. Execution was authorized on 2026-10-19 using executing-plans. Local implementation exists; the [results record](../../reference/colt-cancellation-centralization-results.md) tracks outstanding delivery gates. Preserve the original plan/spec in delivered history before retirement.
 
 ## Global Constraints
 

@@ -10,6 +10,34 @@ them here. Open evidence questions are tracked in
 [technical debt](../tech-debt.md#p3-flash-protocol-behaviors-awaiting-external-evidence).
 Nothing here establishes hardware qualification.
 
+## Colt cancellation ownership
+
+[GuardedCanFlashTransport](../../src/backend/flash/guarded_can_flash_transport.h)
+borrows the existing CAN port. Read and Write refuse delegation when their
+supplied token is cancelled at entry; otherwise bytes, timeout, token and the
+delegate's outcome pass unchanged. There is no post-call check, final sweep,
+error remapping or persistent stopped state. Cancellation after an accepted
+operation can leave that operation successful.
+
+Lifecycle, the inner RestartIso15765 override and RequestUnblock forward without
+a new gate. BoundAttempt constructs the executor's nested CancellationGuard
+only around Execute, after Open. Preparation, configuration, Open, Close and
+unblock remain on the owned transport. Execution failure wins over Close
+failure; a Close-only failure is returned. Non-opted-in families retain their
+existing path. Direct Colt Execute callers must supply the guard.
+
+Colt's read and comparison loops report cancellation through the next exchange,
+including its address in the warning. A valid precancelled direct call can emit
+connecting events; invalid plans still fail before events or I/O. An accepted
+erase reply can produce its completion event before the next request is refused.
+Complete ROM data and verification failures retain their meaning after late
+cancellation. Family abort returns and confirmations remain separate owners.
+
+The [pilot results](colt-cancellation-centralization-results.md) own measurements,
+preserved cases and mutation evidence. This is a Colt-only ownership change;
+test compression needs separate assessment and expansion needs reviewed results
+and the recorded Colt bench checklist. Hardware status remains unchanged.
+
 ## Plan predicates
 
 [Plan primitives](../../src/backend/flash/ecu/plan_primitives.h) share only

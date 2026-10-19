@@ -157,8 +157,9 @@ replaces the original bundled cancellation/transcript pilot. The
 [lessons from PRs #756 and #768](../../reference/guarded-transport-pilot-lessons.md)
 record the failed size goals, lost abort protection, and harness costs.
 
-First centralize refusal of cancelled CAN I/O for Colt while retaining its
-existing tests. Then assess test compression in a separate change. Cancellation
+The [Colt implementation results](../../reference/colt-cancellation-centralization-results.md)
+record the ownership candidate, retained tests, measurements and outstanding gates.
+Assess test compression in a separate change. Cancellation
 ownership may initially add measured support cost; it must not be reported as a
 size reduction. The focused design owns the guard contract, boundary inventory,
 preservation evidence, measurements, and exit criteria. It requires no transcript

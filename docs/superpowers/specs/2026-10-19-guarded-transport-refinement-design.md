@@ -1,7 +1,8 @@
 # Colt cancellation centralization
 
-Status: written design confirmed on 2026-10-19 after three interview rounds.
-Implementation planning and rollout remain separate work.
+Status: design confirmed on 2026-10-19; Colt implementation candidate exists.
+[Pilot results](../../reference/colt-cancellation-centralization-results.md) own
+verification and pending gates. Rollout and hardware qualification remain separate.
 
 ## Intent and scope
 
@@ -181,4 +182,4 @@ contract before their checks can be removed. No per-family rollout is automatic.
 
 All nine interview decisions and the written design were confirmed on 2026-10-19.
 The [replacement implementation plan](../plans/2026-10-19-colt-cancellation-centralization.md)
-is review material pending an execution-method choice.
+is being executed inline; delivery evidence and review remain in progress.
