@@ -1,7 +1,7 @@
 # Repository clang-tidy enforcement
 
-Status: approved for implementation planning on 2026-10-19. Implementation
-awaits review of the written plan and selection of an execution method.
+Status: design and implementation plan approved on 2026-10-19. Native execution
+started; platform packaging qualification precedes enforcement changes.
 
 ## Intent
 
@@ -148,6 +148,12 @@ Platform packaging is a qualification prerequisite, not an assumed capability.
 If the pinned Windows host cannot load the extension, use a Bazel-built host
 with linked checks as agreed; assess build cost and dependency availability
 before finalizing its implementation plan.
+
+Packaging amendment approved during qualification: the official Windows host
+has no exports, and its static libraries require zlib/zstd absent from the
+archive. Supply those dependencies through Bazel with compatible static Windows
+runtime settings, retaining the official LLVM distribution. A real Windows
+link/run smoke remains required before rollout.
 
 ## Integration facts and open decisions
 

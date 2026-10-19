@@ -1,4 +1,13 @@
 load("@rules_cc//cc:defs.bzl", "cc_binary")
+load("@rules_python//python:defs.bzl", "py_binary")
+
+py_binary(
+    name = "qualification_smoke",
+    srcs = ["qualification/smoke.py"],
+    data = ["qualification/smoke.cpp"],
+    main = "qualification/smoke.py",
+    deps = ["@python_deps//pyyaml"],
+)
 
 # Built against the system LLVM's headers (see //bazel:llvm.bzl). Tagged manual:
 # it needs an LLVM matching the clang-tidy that loads it, which CI does not have.
