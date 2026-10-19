@@ -22,6 +22,7 @@ cc_library(
     deps = [
         ":decoded_map",
         ":definition_bytes",
+        ":element_run",
         "//src/algorithms/protocol",
         "//src/backend/definition:definition_model",
         "//src/backend/ports",
@@ -159,4 +160,10 @@ fastecu_portable_gtest(
         "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
     ],
+)
+
+cc_library(
+    name = "element_run",
+    hdrs = ["element_run.h"],
+    deps = ["//src/backend/definition:definition_model"],
 )
