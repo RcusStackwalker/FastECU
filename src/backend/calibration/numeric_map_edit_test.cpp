@@ -1,7 +1,10 @@
 #include "src/backend/calibration/numeric_map_edit.h"
 #include "src/backend/ports/testing/result_matchers.h"
 
+#include <algorithm>
 #include <array>
+#include <cstdint>
+#include <format>
 #include <limits>
 #include <optional>
 #include <string_view>
@@ -513,6 +516,100 @@ INSTANTIATE_TEST_SUITE_P(ModesAndOrigins, OffsetInterpolation,
                                                               InterpolationMode::kVertical,
                                                               InterpolationMode::kBidirectional),
                                             ::testing::Values(0, 1)));
+
+struct CrossOperationCase
+{
+    StorageType storage;
+    std::size_t width;
+    double value;
+    std::string_view maximum;
+};
+
+// Independent oracle: a big-endian two's-complement encoding of the clamped value.
+bytes::Bytes ExpectedEncoding(const CrossOperationCase& example)
+{
+    auto target = static_cast<std::int64_t>(example.value);
+    if (!example.maximum.empty())
+    {
+        target = std::min<std::int64_t>(target, 50);
+    }
+    bytes::Bytes encoded;
+    for (std::size_t i = example.width; i-- > 0;)
+    {
+        encoded.push_back(static_cast<std::uint8_t>((static_cast<std::uint64_t>(target) >> (8 * i)) & 0xff));
+    }
+    return encoded;
+}
+
+std::vector<CrossOperationCase> CrossOperationCases()
+{
+    struct Storage
+    {
+        StorageType type;
+        std::size_t width;
+        bool is_signed;
+    };
+    const std::array<Storage, 8> storages{{{StorageType::kUint8, 1, false},
+                                           {StorageType::kInt8, 1, true},
+                                           {StorageType::kUint16, 2, false},
+                                           {StorageType::kInt16, 2, true},
+                                           {StorageType::kUint24, 3, false},
+                                           {StorageType::kInt24, 3, true},
+                                           {StorageType::kUint32, 4, false},
+                                           {StorageType::kInt32, 4, true}}};
+    std::vector<CrossOperationCase> cases;
+    for (const auto& storage : storages)
+    {
+        for (const std::string_view maximum : {"", "50"})
+        {
+            for (const double value : {1.0, 100.0, -5.0})
+            {
+                if (value < 0 && !storage.is_signed)
+                {
+                    continue;
+                }
+                cases.push_back({storage.type, storage.width, value, maximum});
+            }
+        }
+    }
+    return cases;
+}
+
+class CrossOperationEncoding : public ::testing::TestWithParam<CrossOperationCase>
+{
+};
+
+TEST_P(CrossOperationEncoding, EveryOperationWritesTheSameBytes)
+{
+    const auto& example = GetParam();
+    auto spec = SpecFor(example.storage);
+    spec.max_value = example.maximum;
+    spec.fine_increment = 1;
+    const auto encoded = ExpectedEncoding(example);
+    const auto filler = Filler(example.width);
+    const std::array<NumericCell, 1> before{example.value - 1};
+    const std::array<NumericCell, 1> zero{0.0};
+    const auto expected = ElementsAre(CellWrite{0, 0, encoded});
+
+    EXPECT_THAT(CalculateAssignment(filler, spec, 1, zero, kOneCell, std::format("{}", example.value)),
+                IsOkAnd(WritesAre(expected)));
+    EXPECT_THAT(CalculatePaste(filler, spec, 1, 1, kOneCell, std::vector<std::vector<double>>{{example.value}}),
+                IsOkAnd(WritesAre(expected)));
+    EXPECT_THAT(CalculateIncrement(filler, spec, 1, before, kOneCell, IncrementStep::kFineUp),
+                IsOkAnd(WritesAre(expected)));
+
+    // Equal endpoints interpolate to the same value in the invalid middle cell.
+    bytes::Bytes rom;
+    for (const auto& part : {encoded, filler, encoded})
+    {
+        rom.insert(rom.end(), part.begin(), part.end());
+    }
+    const std::array<NumericCell, 3> row{example.value, Fail(ErrorKind::kInvalidConfig, "invalid"), example.value};
+    EXPECT_THAT(CalculateInterpolation(rom, spec, 3, row, kThreeCells, InterpolationMode::kHorizontal),
+                IsOkAnd(WritesAre(ElementsAre(CellWrite{1, example.width, encoded}))));
+}
+
+INSTANTIATE_TEST_SUITE_P(StoragesAndLimits, CrossOperationEncoding, ::testing::ValuesIn(CrossOperationCases()));
 
 TEST(NumericMapEdit, InterpolatesSelectionWiderThanLegacyFixedArray)
 {
