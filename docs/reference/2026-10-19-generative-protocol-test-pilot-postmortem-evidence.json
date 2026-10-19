@@ -1,0 +1,244 @@
+{
+  "subject_commit": "5f6ac712",
+  "baseline_commit": "b866782bcb6295d4dde8e16eb95567bf7c855e48",
+  "source": "Retained five measured XML files per target; no new test execution",
+  "xml_field": "testsuites/@time, seconds at recorded XML precision",
+  "target_execution_seconds": {
+    "baseline": {
+      "subaru_denso_1n83m_1_5m_can_executor_test": {
+        "runs": [
+          0.08,
+          0.084,
+          0.087,
+          0.086,
+          0.083
+        ],
+        "median": 0.084
+      },
+      "subaru_denso_1n83m_4m_can_executor_test": {
+        "runs": [
+          0.223,
+          0.21,
+          0.217,
+          0.21,
+          0.197
+        ],
+        "median": 0.21
+      },
+      "scripted_flash_transports_test": {
+        "runs": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "median": 0.0
+      }
+    },
+    "candidate": {
+      "subaru_denso_1n83m_1_5m_can_executor_test": {
+        "runs": [
+          0.154,
+          0.152,
+          0.155,
+          0.156,
+          0.152
+        ],
+        "median": 0.154
+      },
+      "subaru_denso_1n83m_4m_can_executor_test": {
+        "runs": [
+          0.502,
+          0.506,
+          0.498,
+          0.49,
+          0.504
+        ],
+        "median": 0.502
+      },
+      "scripted_flash_transports_test": {
+        "runs": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "median": 0.0
+      },
+      "n83m_payloads_test": {
+        "runs": [
+          0.963,
+          0.984,
+          0.983,
+          1.0,
+          0.998
+        ],
+        "median": 0.984
+      },
+      "n83m_executor_scenarios_test": {
+        "runs": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "median": 0.0
+      }
+    }
+  },
+  "executor_only_diagnostic": {
+    "baseline": {
+      "executor_sums": [
+        0.303,
+        0.294,
+        0.304,
+        0.296,
+        0.28
+      ],
+      "executor_median": 0.296
+    },
+    "candidate": {
+      "executor_sums": [
+        0.656,
+        0.658,
+        0.653,
+        0.646,
+        0.656
+      ],
+      "executor_median": 0.656
+    }
+  },
+  "acceptance_runtime_baseline_median": 0.296,
+  "acceptance_runtime_candidate_median": 1.642,
+  "allowed_runtime_seconds": 0.37,
+  "nloc_baseline_scope": 1686,
+  "nloc_candidate_scope": 2523,
+  "nloc_required_maximum": 1464,
+  "nloc_remaining_gap": 1059,
+  "native_task_duration_ms": 2129665,
+  "native_task_duration_source": "main session record 995",
+  "raw_xml_sha256": {
+    "baseline": {
+      "subaru_denso_1n83m_1_5m_can_executor_test-1.xml": "2c76c473afaa32ecfb76825a4b08f080eed7b397892363c5455100d7b43c78c3",
+      "subaru_denso_1n83m_1_5m_can_executor_test-2.xml": "7bac2571314d14346f0f567db1de9f0900fc19795ee1a8f5d3c66a22f50e8181",
+      "subaru_denso_1n83m_1_5m_can_executor_test-3.xml": "21140f1c8586a31ad3b45f29264711d0156e911d227de81cd885edf6bb47905e",
+      "subaru_denso_1n83m_1_5m_can_executor_test-4.xml": "263f50e322dbd56440aa0754d3077813267f8481ae90d4e625b437525998d89c",
+      "subaru_denso_1n83m_1_5m_can_executor_test-5.xml": "9aa1c970835345fec403dae2b11437dd2935c3bccaa6fdaa73ca3e3429ef63a3",
+      "subaru_denso_1n83m_4m_can_executor_test-1.xml": "ad7646d9d4d57a139d4202f2c22b516a453419664cff26dcd3ff48e807533fcf",
+      "subaru_denso_1n83m_4m_can_executor_test-2.xml": "fa6625d2673d5f468be400f07d8adf568fceb507eb228d1d453df30ef1e4e754",
+      "subaru_denso_1n83m_4m_can_executor_test-3.xml": "7c38e8ab3a9b376c6186168fba466aacde4189fa513f8f84c7ada6b9eac25e25",
+      "subaru_denso_1n83m_4m_can_executor_test-4.xml": "453b203d7299014391ede6a7b5834ad7b8da54261801b7ba67a03b0e2a11d684",
+      "subaru_denso_1n83m_4m_can_executor_test-5.xml": "50b4dc9f0d240d540f8a8d4cf5e0dc1f6bf337673cc5287932414c8ec8c20774",
+      "scripted_flash_transports_test-1.xml": "0b0a8bfe7379ff0990d13ea27b42a19593da9d0b43f9749d5d026af5cd84dd39",
+      "scripted_flash_transports_test-2.xml": "5ee368c10ef4b66a26ae2bf94ac1461679218f193be67ab32ecd8147e7fff490",
+      "scripted_flash_transports_test-3.xml": "7cf09306701b6511a00c35ca874827c951c904e30977123d18531c94464cca23",
+      "scripted_flash_transports_test-4.xml": "5c41a2fc6c4f5e06230095fa957b9ff5233f1a5db5b396cea86c286498303e27",
+      "scripted_flash_transports_test-5.xml": "b86e5852d00b3fad88b9ae8334f3fab012291b0fd54c3479428ca31bceac74ac"
+    },
+    "candidate": {
+      "subaru_denso_1n83m_1_5m_can_executor_test-1.xml": "e9a80207d30a42a056e753d060ae0c43c7136973d45777505f44596754bf4b73",
+      "subaru_denso_1n83m_1_5m_can_executor_test-2.xml": "6de63f3aa76bee522fb4fdab4ca5b271b06ca27ea3631a7a4b81ea738d850ea6",
+      "subaru_denso_1n83m_1_5m_can_executor_test-3.xml": "93449488efb19d781960fcd88479cc718ae9e4998440d9867d36d01d8bad4589",
+      "subaru_denso_1n83m_1_5m_can_executor_test-4.xml": "33639b241bb27faca0978b014055de54a54499acd0f2c5f91a754d1651399020",
+      "subaru_denso_1n83m_1_5m_can_executor_test-5.xml": "2172fd3b1f25302bef3c0d8dad7003716726a892b6ac6cdcf3022d2865643530",
+      "subaru_denso_1n83m_4m_can_executor_test-1.xml": "9c1c6dd09acc2350586b8944b3bf0a882012ca9fdd0d713c72195e31f71d950b",
+      "subaru_denso_1n83m_4m_can_executor_test-2.xml": "8deb9635f65aedfde3d086ee8615f80292ca0fd0449e893688770fea7437d7e2",
+      "subaru_denso_1n83m_4m_can_executor_test-3.xml": "cd11e4fe52d1a906b6d3c219ad76f1c8370de094711182c4151cd3fa130a14c7",
+      "subaru_denso_1n83m_4m_can_executor_test-4.xml": "23fb556bb990eabe4f90a0425696615167435f66126d785b64c924b365809b55",
+      "subaru_denso_1n83m_4m_can_executor_test-5.xml": "b787ac84c9801cdd92583e6fec3faa76c692a806377f550235e6f04ec566038c",
+      "scripted_flash_transports_test-1.xml": "d0d14ebe5f956daafc1aef909fde4ebb7daeb93c29d2b146983414552166c0ae",
+      "scripted_flash_transports_test-2.xml": "6168d7066371cae415b03dadbbffdc32576ff267be4764422cb756694e3acb5f",
+      "scripted_flash_transports_test-3.xml": "f2b0de11a75ef712aedb3a449aa7bc997d8fdbfbe3f8bd62f07d781672f86de9",
+      "scripted_flash_transports_test-4.xml": "143dee73f946c86137c2e877fe9ebb2ce9e657525acd9e1416704e967984647d",
+      "scripted_flash_transports_test-5.xml": "7ed3af55d35070c5e57f292bae24f8397cc23e01b1f6f231e1916aaff9cee3fc",
+      "n83m_payloads_test-1.xml": "50899bc267f79ff0fa3638b26d72b2e1ed03256be3e0e46ff13e7765d33afc0a",
+      "n83m_payloads_test-2.xml": "26bae574bf14cb7edb8f4030d3790145ad6b6db6cf47e74659b439f70361e462",
+      "n83m_payloads_test-3.xml": "f198ff062175ebf00cb29043221a5c9b984324b9c4fbfdc5d6316ce94546a4ac",
+      "n83m_payloads_test-4.xml": "18f74883e94499493cf315d5e5dd48195976c0999371d8d525ec39fb33555c92",
+      "n83m_payloads_test-5.xml": "2699b26d861a2fdb5d62837c351370e5f3fad352c8b5c68d7dc6a16c4126d980",
+      "n83m_executor_scenarios_test-1.xml": "98060c0a30be2e2b17d6a3e2e42398e83256262f6ea51d25d13d9a611358c4c6",
+      "n83m_executor_scenarios_test-2.xml": "370c4d6f8f7b23fde0c067083d6774de0bd7d1fbdba9e0a852dac4feadc8a49f",
+      "n83m_executor_scenarios_test-3.xml": "804c869e48115f295a6cc801bf1f3aa297bd29dc3644aff96605909661c50bd9",
+      "n83m_executor_scenarios_test-4.xml": "9a5528db458b84e0a16ac39a71232b68d41438ba145a7e99bd47412815f3e500",
+      "n83m_executor_scenarios_test-5.xml": "5443c06df29729482a67b94e488b099d587cbc0cd4d7641dacba0c197902d7ab"
+    }
+  },
+  "source_artifact": {
+    "commit": "5f6ac712",
+    "path": "docs/reference/generative-protocol-test-pilot-evidence.json",
+    "sha256": "6209edef41362d1e327dd62eb2f3375589867ea2eb03b9ef40a3a4840ce1e31c"
+  },
+  "size_accounting": {
+    "baseline_total": 149087,
+    "candidate_total": 149924,
+    "scope": [
+      {
+        "path": "src/backend/flash/ecu/subaru_denso_1n83m_1_5m_can_executor_test.cpp",
+        "baseline": 523,
+        "candidate": 590,
+        "delta": 67
+      },
+      {
+        "path": "src/backend/flash/ecu/subaru_denso_1n83m_4m_can_executor_test.cpp",
+        "baseline": 584,
+        "candidate": 651,
+        "delta": 67
+      },
+      {
+        "path": "src/backend/flash/ecu/testing/n83m_executor_scenarios.h",
+        "baseline": 0,
+        "candidate": 394,
+        "delta": 394
+      },
+      {
+        "path": "src/backend/flash/ecu/testing/n83m_executor_scenarios_test.cpp",
+        "baseline": 0,
+        "candidate": 64,
+        "delta": 64
+      },
+      {
+        "path": "src/backend/flash/ecu/testing/n83m_payloads.h",
+        "baseline": 0,
+        "candidate": 38,
+        "delta": 38
+      },
+      {
+        "path": "src/backend/flash/ecu/testing/n83m_payloads_test.cpp",
+        "baseline": 0,
+        "candidate": 80,
+        "delta": 80
+      },
+      {
+        "path": "src/backend/flash/testing/scripted_can_flash_transport.h",
+        "baseline": 203,
+        "candidate": 246,
+        "delta": 43
+      },
+      {
+        "path": "src/backend/flash/testing/scripted_flash_transports_test.cpp",
+        "baseline": 376,
+        "candidate": 460,
+        "delta": 84
+      }
+    ],
+    "scoped_baseline": 1686,
+    "scoped_candidate": 2523,
+    "whole_tree_delta": 837,
+    "production_delta": 0
+  },
+  "candidate_executor_case_count": 105,
+  "baseline_executor_case_count": 63,
+  "selected_mutations": {
+    "baseline": {
+      "checked": 20,
+      "detected": 14
+    },
+    "candidate": {
+      "checked": 20,
+      "detected": 20
+    }
+  }
+}
