@@ -135,6 +135,23 @@ TEST(CalibrationSessionTest, WritePastTheEndChangesNothing)
     EXPECT_FALSE(session.Dirty());
 }
 
+TEST(CalibrationSessionTest, CheckWriteAcceptsAnEmptyWriteAtTheEndOfTheImageButNotBeyond)
+{
+    const CalibrationSession session(SessionId{1}, ContentsWithDefinition());
+
+    EXPECT_THAT(session.CheckWrite(6, 0), IsOk());
+    EXPECT_THAT(session.CheckWrite(7, 0), IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("outside the 6-byte image")));
+}
+
+TEST(CalibrationSessionTest, CheckWriteNamesTheImageBoundsWhenARunLeavesTheImage)
+{
+    const CalibrationSession session(SessionId{1}, ContentsWithDefinition());
+
+    EXPECT_THAT(session.CheckWrite(4, 2), IsOk());
+    EXPECT_THAT(session.CheckWrite(5, 2), IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("outside the 6-byte image")));
+    EXPECT_THAT(session.CheckWrite(0, 7), IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("outside the 6-byte image")));
+}
+
 TEST(CalibrationSessionTest, ProtocolInfoCanBeReplaced)
 {
     CalibrationSession session(SessionId{1}, ContentsWithDefinition());
@@ -203,6 +220,15 @@ TEST(CalibrationSessionMemory, AWriteIntoAFillBlockChangesNothing)
     EXPECT_THAT(session.File(), ElementsAre(1, 2, 3, 4));
     EXPECT_THAT(session.Read(0, 6), IsOkAnd(ElementsAre(1, 2, 0xFF, 0xFF, 3, 4)));
     EXPECT_FALSE(session.Dirty());
+}
+
+TEST(CalibrationSessionMemory, CheckWriteAloneRefusesAFillBlockAndAcceptsAnEmptyRun)
+{
+    const CalibrationSession session = PackedSession();
+
+    EXPECT_THAT(session.CheckWrite(1, 2), IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("fill block")));
+    EXPECT_THAT(session.CheckWrite(2, 1), IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("fill block")));
+    EXPECT_THAT(session.CheckWrite(2, 0), IsOk());
 }
 
 TEST(CalibrationSessionMemory, AWriteIntoAReadOnlyBlockChangesNothing)
