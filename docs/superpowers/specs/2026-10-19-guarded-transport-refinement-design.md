@@ -180,4 +180,5 @@ Families with deliberate cancellation deferral require a separate end-to-end
 contract before their checks can be removed. No per-family rollout is automatic.
 
 All nine interview decisions and the written design were confirmed on 2026-10-19.
-This is the baseline for a separately requested replacement implementation plan.
+The [replacement implementation plan](../plans/2026-10-19-colt-cancellation-centralization.md)
+is review material pending an execution-method choice.

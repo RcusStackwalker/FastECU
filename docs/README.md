@@ -47,6 +47,8 @@ The [focused Colt cancellation design](superpowers/specs/2026-10-19-guarded-tran
 records the confirmed scope and gates. The
 [pilot lessons](reference/guarded-transport-pilot-lessons.md) preserve evidence
 from the two unsuccessful size-reduction attempts.
+The [implementation plan](superpowers/plans/2026-10-19-colt-cancellation-centralization.md)
+is ready for review and an execution-method choice.
 
 Task-specific specs and plans exist only while their work is proposed or unfinished.
 Find them, when present, with:
