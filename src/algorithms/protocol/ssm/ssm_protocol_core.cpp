@@ -1,6 +1,7 @@
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
 
 #include "src/algorithms/protocol/bytes_compose.h"
+#include "src/algorithms/protocol/bytes_views.h"
 
 #include <bit>
 
@@ -51,24 +52,10 @@ bytes::Bytes CalculateSeedKey(bytes::ByteView seed, SeedKeyToGenerateIndex keyto
 bytes::Bytes CalculatePayload(bytes::ByteView buf, uint32_t len, KeyToGenerateIndex keytogenerateindex,
                               IndexTransformation indextransformation)
 {
-    if (buf.empty() || len == 0)
-    {
-        return {};
-    }
-
-    len &= ~uint32_t(3);
-    if (len > uint32_t(buf.size()))
-    {
-        len = uint32_t(buf.size()) & ~uint32_t(3);
-    }
-
-    const auto encrypted_words = std::views::iota(std::size_t{0}, std::size_t{len / 4}) |
-                                 std::views::transform(
-                                     [&](std::size_t word_index)
-                                     {
-                                         return TransformWord<false>(bytes::ReadU32Be(buf, word_index * 4),
-                                                                     keytogenerateindex, indextransformation);
-                                     });
+    const auto encrypted_words =
+        buf.first(std::min<std::size_t>(len, buf.size())) | bytes::views::kU32Be |
+        std::views::transform([&](std::uint32_t word)
+                              { return TransformWord<false>(word, keytogenerateindex, indextransformation); });
     return bytes::ComposeBe(encrypted_words);
 }
 
