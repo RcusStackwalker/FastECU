@@ -5,6 +5,9 @@
 Accepted. Supersedes [ADR 0023](0023-hill-climb-nloc-with-kind-specific-guards.md).
 Implementation is phased in the
 [size-reduction strategy](../superpowers/specs/2026-10-18-size-reduction-strategy.md).
+The [focused Colt pilot](../superpowers/specs/2026-10-19-guarded-transport-refinement-design.md)
+centralizes cancellation first while retaining existing scripted tests; test
+compression is a separate change. It does not require transcript infrastructure.
 
 ## Context
 
@@ -31,14 +34,21 @@ cases that observed it.
   plan golden tests and recorded read and write transcripts, replayed by a
   shared harness. A golden or transcript may be removed only with its family
   or operation, or replaced by a recording that a reviewed PR shows to differ
-  only in non-wire behavior.
-- **Generic behavior is tested once.** Cancellation, timeout, disconnect and
-  error propagation are tested against the guarded transport
-  ([ADR 0025](0025-enforce-cancellation-in-a-guarded-transport.md)). A family
-  adds a conformance case for using it and one per declared critical section.
+  only in non-wire behavior. This is the migration direction, not a claim that
+  all families already have transcript tests. The scoped Colt ownership pilot
+  retains its existing plan goldens and scripts without building a new harness.
+- **Test shared policy at its owner.** Cancellation refusal is tested against
+  the guarded transport
+  ([ADR 0025](0025-enforce-cancellation-in-a-guarded-transport.md)); timeout,
+  disconnect, and protocol interpretation remain tested at their owning layers.
+  A migrated family adds a discriminating guard-conformance case. The ownership
+  pilot retains all existing cases; later compression must justify each deletion
+  with a named replacement owner and preserved assertions.
 - **Family tests cover family branches.** A failure test exists where the
-  family's own code decides something; tests that only re-prove shared
-  behavior are deleted.
+  family's own code decides something, including whether to abort after a
+  shared operation fails. Shared error-propagation tests cannot replace evidence
+  that no forbidden subsequent work occurs. Tests that only re-prove shared
+  behavior are deletion candidates in the separate compression change.
 - **Changed-line coverage stays.** Lines a PR adds or changes must be covered.
 - **Mutation testing guards changed lines.** No new surviving mutants on lines
   a PR adds or changes. It stays advisory ([ADR 0022](0022-advisory-mutation-testing-with-mull.md))

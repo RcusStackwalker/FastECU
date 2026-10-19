@@ -91,9 +91,9 @@ cancellation checkpoints, progress, setup, close and checksum stay family-owned.
 Mitsubishi CVT crypto sharing alone does not define this dialect.
 
 **Guarded transport**:
-The flash transport an executor talks to. It stops the run at the next I/O
-once cancellation is requested, outside a critical section, and reports every
-transport failure as one kind of error.
+A flash transport boundary that refuses new I/O when it observes cancellation.
+Results of accepted operations retain their meaning; each flash family keeps
+its own protocol success, failure, and continuation policies.
 _Avoid_: Session, session wrapper (a session is a UDS diagnostic session)
 
 **Critical section**:

@@ -25,7 +25,7 @@ revision changes the constraints instead.
 | FastECU is a hard fork. No compatibility with upstream clients, remote peers or the `.rep` schema. | Preserving deployed remote slots |
 | Wire behavior is the contract: bytes, ordering, timeouts and delays, retry counts, address windows, and which failures abort. | Byte-identical legacy behavior everywhere |
 | Non-wire deviations may be normalized across families: log text and log points, error wording, progress granularity, helper structure. | Recording them as "transcribed, unverified" |
-| Cancellation and transport failure are enforced once, in a guarded transport ([ADR 0025](../../adr/0025-enforce-cancellation-in-a-guarded-transport.md)). | Per-step checks in every executor |
+| Cancellation refusal moves to a guarded transport; typed errors and family continuation policies retain their existing owners ([ADR 0025](../../adr/0025-enforce-cancellation-in-a-guarded-transport.md)). | Bundled cancellation and error normalization in every executor |
 | Wire transcripts and plan goldens are the test contract ([ADR 0024](../../adr/0024-wire-transcripts-and-goldens-are-the-test-contract.md)). | ADR 0023's case-count and kill-set guards |
 | QHexEdit is first-party code. It stays in `src/ui/desktop/hexedit/qhexedit`, counts toward NLOC and meets the same standards as the rest of the tree. | Moving it to `third_party/` to exclude it from the count |
 | SonarCloud, FuzzTest and Mull stay and become merge gates once CI time is acceptable. Other tools stay only if they have recently caught a real defect. | All tooling as fixed cost |
@@ -64,7 +64,7 @@ rolling out.
 | --- | ---: | --- |
 | 1. Delete remote mode | ~1.1k + remote branches in callers | Done: −1,437 (1,248 production, 189 test) |
 | 2. QHexEdit to first-party standards, and tooling | 2.1k | Measured per PR; may grow tests |
-| 3. Transport-level cancellation and transcript harness (Colt pilot) | 1.9k Colt executor + tests | Measured in pilot |
+| 3. Colt cancellation ownership, then separate test compression | 1.9k Colt executor + tests | Report initial support cost; assess compression separately |
 | 4. Roll out per family | ~35k remaining executor code and tests | Extrapolated only after phase 3 |
 | 5. Thin main-window tests | 4.7k | Measured per coordinator |
 | 6. Android | Adds code | Kept small by reusing the Qt UI and portable drivers |
@@ -150,106 +150,30 @@ rests on the absence of any finding another tool would not also report. Each
 cut is its own PR that states this evidence. Cutting a tool also deletes its configuration, scripts
 and documentation.
 
-### 3. Transport-level cancellation and the transcript harness
+### 3. Colt cancellation ownership, then test compression
 
-Pilot on the [Mitsu Colt M32R CAN executor](../../../src/backend/flash/ecu/mitsu_colt_m32r_can_executor.cpp)
-(492 production, 1,371 test NLOC, 46 cases), the family with bench hardware,
-so a behavior change gets hardware evidence first.
+The [focused Colt design](2026-10-19-guarded-transport-refinement-design.md)
+replaces the original bundled cancellation/transcript pilot. The
+[lessons from PRs #756 and #768](../../reference/guarded-transport-pilot-lessons.md)
+record the failed size goals, lost abort protection, and harness costs.
 
-**Guarded transport.** The flash runner wraps the caller-owned transport in a
-decorator that implements the existing transport ports in
-[flash_executor.h](../../../src/backend/flash/flash_executor.h), so executor
-signatures and [ADR 0015](../../adr/0015-caller-owns-flash-transport-lifetime.md)
-are unchanged. Before each I/O it checks the cancellation token, and it maps a
-transport error, an absent reply where one is required, or a disconnect to one
-typed error that executors propagate unchanged. Executors stop testing the
-token themselves. The same check in `UdsClient::Request` is deleted once every
-`UdsClient` user runs behind a guarded transport, not during the pilot. Cancel
-takes effect at the next I/O. ("Session" is avoided: it already names a UDS
-diagnostic session.)
+First centralize refusal of cancelled CAN I/O for Colt while retaining its
+existing tests. Then assess test compression in a separate change. Cancellation
+ownership may initially add measured support cost; it must not be reported as a
+size reduction. The focused design owns the guard contract, boundary inventory,
+preservation evidence, measurements, and exit criteria. It requires no transcript
+framework, error normalization, or cancellation-deferral mechanism.
 
-**Critical sections.** A family declares the spans in which cancel is deferred
-(for example an erase or a program run that leaves the ECU unbootable if
-interrupted). The guarded transport finishes the span, then reports cancellation. A
-family whose current code defers cancel somewhere must declare that span;
-the pilot inventories every existing deferral before deleting any check. Colt
-defers none today (a cancel after the erase request stops before its reply),
-so the pilot declares no critical section; the mechanism is proven by the
-guarded transport's own tests. Making the Colt erase a critical section would be
-a separate, bench-evidenced behavior change.
+### 4. Review before per-family rollout
 
-**Expected silence.** Some exchanges tolerate no reply. These are declared in
-the family's exchange, not inferred, so the guarded transport never turns intended
-silence into a timeout.
-
-**Transcripts.** A wire transcript is a line-oriented text file under
-`src/backend/flash/ecu/testdata/<family>/`: `> <hex>` for a write, `< <hex>`
-for a read, `< none` for no frame, `@ read-timeout <ms>` and `@ sleep <ms>`
-where timing is part of the contract (a read timeout is written only when it
-changes), and `# section <label>`. Bulk payload may be written as a reference,
-`{image <offset>+<length>}` into the test's input image or `{fill <byte>
-<length>}`; headers, service bytes, addresses, lengths, order and timing stay
-literal. The input image is a test fixture, not production output, so the
-transcript stays an independent oracle. A small parser lives in
-`src/backend/flash/testing/`. The shared
-harness replays it against the executor through a fake transport and fails on
-any deviation. A family's tests become:
-
-1. plan goldens;
-2. one read and one write transcript for the happy path (plus test-write where
-   the family supports it);
-3. failure tests only where the family's own code branches, such as bootstrap
-   skip, routine status codes, or redirect checks.
-
-Generic cancellation, timeout, disconnect and propagation are tested once,
-against the guarded transport. Each family keeps one conformance case proving it
-goes through the guarded transport, and one per declared critical section.
-
-Transcripts are recorded from the current implementation before the refactor
-and must replay unchanged afterwards; that is the equivalence evidence. A
-recording decorator over the scripted transport and fake clock writes them
-from the existing happy-path tests; replay tests are added while the old tests
-still pass, and only then are the old generic tests deleted.
-Where a test asserts encrypted or checksummed bytes, the transcript is the
-independent oracle, because it is recorded data, not computed by production
-encoders.
-
-**Pilot scope.** The pilot builds only the CAN guarded transport; the K-Line
-decorator arrives with the first K-Line family in phase 4. Colt reaches the
-transport only through `UdsClient`, which already turns a missing frame into
-an error, so the pilot's guarded transport takes over cancellation and
-transport-error mapping and passes no-frame results through. Absent-reply
-mapping and the expected-silence declaration move into the guarded transport
-with the first raw-transport family in phase 4; the pilot still inventories
-any silence Colt tolerates.
-
-**Colt cases kept.** Plan rejection and wire parameters; read, write and
-bootstrap-runs transcripts; bootstrap skip, carrier mismatch, erase status
-byte, userspace and top-region verify mismatches, absent confirmations, vendor
-challenge order and key rejection, and reply-service and reply-id checks where
-Colt configures them; one guarded-transport conformance case. Generic cancel,
-timeout, disconnect and propagation cases, per-step rejection cases (shared
-`FatalQuery` behavior) and responsePending repeat cases (owned by `UdsClient`)
-are deleted, each only after confirming the shared layer's own tests cover it;
-otherwise the case moves there.
-
-The pilot PRs merge on transcript evidence; Colt is already `experimental`.
-The bench checklist run is the pilot's exit gate before phase 4, not a merge
-gate.
-
-The pilot is done when the Colt suite has been migrated, the generic guarded-transport
-tests exist, the bench checklist has been run on the Colt ECU, and the net
-NLOC change is recorded. Phase 4 starts only if the pilot shows a net
-reduction.
-
-### 4. Roll out per family
-
-Migrate the remaining 29 executor suites. Within each family, normalize the
-non-wire deviations listed under Decisions; wire behavior stays per family and
-the [sharing decision](../../design-notes.md#share-only-proven-protocol-equivalence)
-still applies to wire behavior. Update the family's row in the
-[qualification matrix](../../flash-qualification-matrix.md) with the new
-transcript test labels.
+Rollout is a later decision, after the focused design's compression and hardware
+exit gates are satisfied. Review the recorded net/cumulative cost before
+extrapolating savings. Each future migration must inventory cancellation
+boundaries and retain family abort/continue decisions and wire behavior under the
+[sharing decision](../../design-notes.md#share-only-proven-protocol-equivalence).
+No additional family, K-Line decorator, or removal of UdsClient's checks is
+authorized by the Colt pilot. Hardware status stays with the
+[qualification matrix](../../flash-qualification-matrix.md).
 
 ### 5. Thin main-window tests
 
