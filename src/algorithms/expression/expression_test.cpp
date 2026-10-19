@@ -118,10 +118,16 @@ TEST(CheckedExpression, RejectsIncompleteOrNonFiniteLiterals)
     }
 }
 
-TEST(CheckedExpression, RejectsExcessiveParenthesisNesting)
+TEST(CheckedExpression, AcceptsParenthesisNestingUpToTheLimit)
 {
-    const std::string text = std::string(512, '(') + "1" + std::string(512, ')');
-    EXPECT_THAT(EvaluateChecked(text, 0), HasError());
+    const std::string text = std::string(8, '(') + "x" + std::string(8, ')');
+    EXPECT_THAT(EvaluateChecked(text, 3), ValueIs(::testing::DoubleEq(3)));
+}
+
+TEST(CheckedExpression, RejectsParenthesisNestingBeyondTheLimit)
+{
+    const std::string text = std::string(9, '(') + "x" + std::string(9, ')');
+    EXPECT_THAT(EvaluateChecked(text, 3), HasError());
 }
 } // namespace
 } // namespace fastecu::expression

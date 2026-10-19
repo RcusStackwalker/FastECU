@@ -1,0 +1,11 @@
+# Passed to -fsanitize-coverage-ignorelist by .github/workflows/fuzz.yml (the
+# `fuzztest` config cannot: Bazel's sandbox hides the file). Standard-library
+# functions are not worth covering, and one copy of them must stay
+# uninstrumented: FuzzTest's coverage hooks call std::atomic<bool>::load, whose
+# libstdc++ body (with _GLIBCXX_ASSERTIONS and UBSan) contains comparisons. If
+# the linker keeps our instrumented copy of the inline function, the hook's
+# comparison re-enters the hook until the stack overflows. Itanium-mangled
+# names, so the patterns cover namespace std.
+fun:_ZSt*
+fun:_ZNSt*
+fun:_ZNKSt*
