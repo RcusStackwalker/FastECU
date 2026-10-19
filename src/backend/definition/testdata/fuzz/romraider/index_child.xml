@@ -1,0 +1,5 @@
+<roms>
+  <rom><romid><xmlid>BASE</xmlid><internalidstring>BASE-ID</internalidstring></romid></rom>
+  <rom base="BASE"><romid><xmlid>CHILD</xmlid><internalidaddress>1A0</internalidaddress>
+  <internalidstring>CHILD-ID</internalidstring><ecuid>ECU-1</ecuid></romid></rom>
+</roms>
