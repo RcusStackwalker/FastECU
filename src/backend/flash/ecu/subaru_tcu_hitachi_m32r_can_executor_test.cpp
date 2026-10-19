@@ -255,9 +255,6 @@ Bytes ExpectedImage()
     // Legacy decrypt_payload (operation.cpp:1021) -- encrypt's four words
     // reversed.
     static constexpr std::array<std::uint16_t, 4> kDecryptTable{0x1075, 0x9E51, 0x8BEF, 0x3B61};
-    static constexpr std::array<std::uint8_t, 32> kIndexTransformation{
-        0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8, 0xA, 0xD, 0x2, 0xB, 0xF, 0x4, 0x0, 0x3,
-        0xB, 0x4, 0x6, 0x0, 0xF, 0x2, 0xD, 0x9, 0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8};
 
     Bytes dumped;
     dumped.reserve(kRegionLength);
@@ -269,7 +266,7 @@ Bytes ExpectedImage()
     // Deliberate divergence 4: a sized zero buffer. Legacy filled an empty
     // QByteArray through padBytes[i] for i in 0..0x7FFF.
     Bytes image(kRegionStart, Byte{0x00});
-    const Bytes decrypted = ssm_protocol::CalculatePayload(dumped, kDecryptTable, kIndexTransformation);
+    const Bytes decrypted = ssm_protocol::CalculatePayload(dumped, kDecryptTable, ssm_protocol::kStockPairTable);
     image.insert(image.end(), decrypted.begin(), decrypted.end());
     return image;
 }
@@ -987,10 +984,7 @@ const Bytes& EncryptedRom()
     {
         // Legacy encrypt_payload (operation.cpp:1002).
         static constexpr std::array<std::uint16_t, 4> kEncryptTable{0x3B61, 0x8BEF, 0x9E51, 0x1075};
-        static constexpr std::array<std::uint8_t, 32> kIndexTransformation{
-            0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8, 0xA, 0xD, 0x2, 0xB, 0xF, 0x4, 0x0, 0x3,
-            0xB, 0x4, 0x6, 0x0, 0xF, 0x2, 0xD, 0x9, 0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8};
-        return ssm_protocol::CalculatePayload(PlaintextRom(), kEncryptTable, kIndexTransformation);
+        return ssm_protocol::CalculatePayload(PlaintextRom(), kEncryptTable, ssm_protocol::kStockPairTable);
     }();
     return kRom;
 }

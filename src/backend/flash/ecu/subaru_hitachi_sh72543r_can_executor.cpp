@@ -21,9 +21,6 @@ using bytes::Bytes;
 // at 5dc86672. Header lines 45-52 define 200/2000/800 ms read timeouts.
 constexpr std::array<std::uint16_t, 16> kSeedTable{0x794B, 0x3CAF, 0x3019, 0x8B57, 0x52A0, 0xA77C, 0x38C9, 0xB0B5,
                                                    0x6520, 0x3B66, 0xA09D, 0x2877, 0x479F, 0xB685, 0x7568, 0x84D7};
-constexpr std::array<std::uint8_t, 32> kTransform{5,  6, 7, 1, 9,  12, 13, 8, 10, 13, 2, 11, 15, 4,  0,  3,
-                                                  11, 4, 6, 0, 15, 2,  13, 9, 5,  12, 1, 10, 3,  13, 14, 8};
-
 bool HasPrefix(bytes::ByteView reply, std::initializer_list<bytes::Byte> prefix)
 {
     return reply.size() >= 4 + prefix.size() && std::equal(prefix.begin(), prefix.end(), reply.begin() + 4);
@@ -159,7 +156,8 @@ class Session
         }
         events_.Log(LogLevel::kInfo, "Seed request ok");
         Bytes request{0x27, 2};
-        const auto key = ssm_protocol::CalculateSeedKey(bytes::ByteView(*seed).subspan(6, 4), kSeedTable, kTransform);
+        const auto key = ssm_protocol::CalculateSeedKey(bytes::ByteView(*seed).subspan(6, 4), kSeedTable,
+                                                        ssm_protocol::kStockPairTable);
         request.insert(request.end(), key.begin(), key.end());
         events_.Log(LogLevel::kInfo, "Sending seed key...");
         auto r = Required(request, 200ms, {0x67, 2});
@@ -511,7 +509,7 @@ Result<FlashExecutionResult> SubaruHitachiSh72543rCanExecutor::Execute(const Fla
         // Only the flash-sized prefix of the image is sent.
         const bytes::ByteView image(plan.ImageOrEmpty());
         const auto encrypted = ssm_protocol::CalculatePayload(
-            image.first(std::min<std::size_t>(image.size(), 0x200000)), kKeys, kTransform);
+            image.first(std::min<std::size_t>(image.size(), 0x200000)), kKeys, ssm_protocol::kStockPairTable);
         auto erasing = phases.Start("Erasing", 1);
         if (auto status = session.Erase(); !status.has_value())
         {

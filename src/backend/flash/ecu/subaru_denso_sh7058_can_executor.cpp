@@ -64,10 +64,6 @@ constexpr std::array<std::uint16_t, 16> kCobbSeedTable{
     0x9DDB, 0x9CFB, 0x9B9A, 0x6136, 0x59E1, 0xBA03, 0xD683, 0x7092,
     0x9E05, 0x8723, 0xF998, 0x15BB, 0xB8D5, 0xFF0C, 0x9D91, 0x24B9,
 };
-constexpr std::array<std::uint8_t, 32> kEcuTekIndexTransformation{
-    0x04, 0x02, 0x05, 0x01, 0x08, 0x0C, 0x0D, 0x08, 0x0A, 0x0D, 0x02, 0x0B, 0x0F, 0x04, 0x00, 0x03,
-    0x0B, 0x04, 0x06, 0x00, 0x0F, 0x02, 0x0D, 0x09, 0x05, 0x0C, 0x01, 0x0A, 0x03, 0x0D, 0x0E, 0x08,
-};
 constexpr uds::ExchangePolicy kStrictPolicy{
     .pre_read_delay = kExtraShortTimeout,
     .read_timeout = kReadTimeout,
@@ -168,7 +164,7 @@ Result<bytes::Bytes> SecurityKey(Context& context, bytes::ByteView seed, const s
         return DensoSeedKey(seed);
     case SubaruDensoSh7058CanSecurity::kEcuTek:
         LogInfo(context, "Using EcuTek seed key algo");
-        return ssm_protocol::CalculateSeedKey(seed, kDensoIso15765SeedKeyTable, kEcuTekIndexTransformation);
+        return ssm_protocol::CalculateSeedKey(seed, kDensoIso15765SeedKeyTable, ssm_protocol::kEcutekPairTable);
     case SubaruDensoSh7058CanSecurity::kRaceRom:
     {
         LogInfo(context, "Using EcuTek RaceRom RSA algo");
@@ -184,7 +180,8 @@ Result<bytes::Bytes> SecurityKey(Context& context, bytes::ByteView seed, const s
             return Fail(ErrorKind::kBadResponse, "RaceRom-alt RAM values are unavailable");
         }
         LogInfo(context, "Using EcuTek seed key algo");
-        bytes::Bytes key = ssm_protocol::CalculateSeedKey(seed, kDensoIso15765SeedKeyTable, kEcuTekIndexTransformation);
+        bytes::Bytes key =
+            ssm_protocol::CalculateSeedKey(seed, kDensoIso15765SeedKeyTable, ssm_protocol::kEcutekPairTable);
         std::uint32_t altered = bytes::ReadU32Be(key);
         constexpr std::uint32_t kXorMultiplier = 0x01000193U;
         altered = ((alt->seed_alter ^ altered) ^ alt->xor_byte_1) * kXorMultiplier;
@@ -195,7 +192,7 @@ Result<bytes::Bytes> SecurityKey(Context& context, bytes::ByteView seed, const s
     }
     case SubaruDensoSh7058CanSecurity::kCobb:
         LogInfo(context, "Using COBB seed key algo");
-        return ssm_protocol::CalculateSeedKey(seed, kCobbSeedTable, ssm_protocol::kIndexTransformationStock);
+        return ssm_protocol::CalculateSeedKey(seed, kCobbSeedTable, ssm_protocol::kStockPairTable);
     }
     return Fail(ErrorKind::kInternal, "unknown petrol security variant");
 }

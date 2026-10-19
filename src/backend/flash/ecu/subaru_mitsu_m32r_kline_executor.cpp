@@ -62,13 +62,13 @@ bytes::Bytes SeedKey(bytes::ByteView seed)
     static constexpr std::array<std::uint16_t, 16> kIndex = {0x8519, 0x5c53, 0xc0e9, 0x2452, 0x1e68, 0x6feb,
                                                              0x2648, 0x81e2, 0x8ce4, 0x953b, 0x1ca9, 0x6180,
                                                              0xb85e, 0x5109, 0xdb3c, 0x3cf2};
-    return ssm_protocol::CalculateSeedKey(seed, kIndex, ssm_protocol::kIndexTransformationStock);
+    return ssm_protocol::CalculateSeedKey(seed, kIndex, ssm_protocol::kStockPairTable);
 }
 
 bytes::Bytes Encrypt(bytes::ByteView image)
 {
     static constexpr std::array<std::uint16_t, 4> kIndex = {0x25b5, 0x3875, 0xca11, 0x2680};
-    return ssm_protocol::CalculatePayload(image, kIndex, ssm_protocol::kIndexTransformationStock);
+    return ssm_protocol::CalculatePayload(image, kIndex, ssm_protocol::kStockPairTable);
 }
 
 Result<std::string> Handshake(IKlineFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,

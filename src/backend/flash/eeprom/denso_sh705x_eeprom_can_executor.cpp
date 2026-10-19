@@ -174,7 +174,7 @@ bytes::Bytes GenerateStockSeedKey(bytes::ByteView seed)
     static constexpr std::array<std::uint16_t, 16> kIndex{0x78B1, 0x4625, 0x201C, 0x9EA5, 0xAD6B, 0x35F4,
                                                           0xFD21, 0x5E71, 0xB046, 0x7F4A, 0x4B75, 0x93F9,
                                                           0x1895, 0x8961, 0x3ECC, 0x862B};
-    return ssm_protocol::CalculateSeedKey(seed, kIndex, ssm_protocol::kIndexTransformationStock);
+    return ssm_protocol::CalculateSeedKey(seed, kIndex, ssm_protocol::kStockPairTable);
 }
 
 // generate_ecutek_seed_key(), lines 1224-1269 (base calculateSeedKey() call
@@ -188,7 +188,7 @@ bytes::Bytes GenerateEcutekSeedKey(bytes::ByteView seed)
     static constexpr std::array<std::uint16_t, 16> kIndex{0x78B1, 0x4625, 0x201C, 0x9EA5, 0xAD6B, 0x35F4,
                                                           0xFD21, 0x5E71, 0xB046, 0x7F4A, 0x4B75, 0x93F9,
                                                           0x1895, 0x8961, 0x3ECC, 0x862B};
-    return ssm_protocol::CalculateSeedKey(seed, kIndex, ssm_protocol::kIndexTransformationEcutek);
+    return ssm_protocol::CalculateSeedKey(seed, kIndex, ssm_protocol::kEcutekPairTable);
 }
 
 // generate_cobb_seed_key(), lines 1274-1302 ("2017 VA model" table -- the one
@@ -198,7 +198,7 @@ bytes::Bytes GenerateCobbSeedKey(bytes::ByteView seed)
     static constexpr std::array<std::uint16_t, 16> kIndex{0x9DDB, 0x9CFB, 0x9B9A, 0x6136, 0x59E1, 0xBA03,
                                                           0xD683, 0x7092, 0x9E05, 0x8723, 0xF998, 0x15BB,
                                                           0xB8D5, 0xFF0C, 0x9D91, 0x24B9};
-    return ssm_protocol::CalculateSeedKey(seed, kIndex, ssm_protocol::kIndexTransformationStock);
+    return ssm_protocol::CalculateSeedKey(seed, kIndex, ssm_protocol::kStockPairTable);
 }
 
 // decrypt_racerom_seed(), lines 1175-1189: plain modular exponentiation
@@ -237,7 +237,7 @@ bytes::Bytes GenerateEcutekRaceromCanSeedKey(bytes::ByteView seed)
 bytes::Bytes EncryptCanKernelPayload(bytes::ByteView buf)
 {
     static constexpr std::array<std::uint16_t, 4> kIndex{0xC85B, 0x32C0, 0xE282, 0x92A0};
-    return ssm_protocol::CalculatePayload(buf, kIndex, ssm_protocol::kIndexTransformationStock);
+    return ssm_protocol::CalculatePayload(buf, kIndex, ssm_protocol::kStockPairTable);
 }
 
 // ---------------------------------------------------------------------

@@ -22,17 +22,17 @@ constexpr std::array<std::uint16_t, 4> kDecryptTable{0x6587, 0x4492, 0xa8b4, 0x7
 
 bytes::Bytes TcuCvtMitsuSeedKey(bytes::ByteView seed)
 {
-    return ssm_protocol::CalculateSeedKey(seed, kSeedKeyTable, ssm_protocol::kIndexTransformationStock);
+    return ssm_protocol::CalculateSeedKey(seed, kSeedKeyTable, ssm_protocol::kStockPairTable);
 }
 
 bytes::Bytes TcuCvtMitsuEncryptRom(bytes::ByteView image)
 {
-    return ssm_protocol::CalculatePayload(image, kEncryptTable, ssm_protocol::kIndexTransformationStock);
+    return ssm_protocol::CalculatePayload(image, kEncryptTable, ssm_protocol::kStockPairTable);
 }
 
 bytes::Bytes TcuCvtMitsuDecryptPage(bytes::ByteView page)
 {
-    return ssm_protocol::CalculatePayload(page, kDecryptTable, ssm_protocol::kIndexTransformationStock);
+    return ssm_protocol::CalculatePayload(page, kDecryptTable, ssm_protocol::kStockPairTable);
 }
 
 } // namespace fastecu::flash

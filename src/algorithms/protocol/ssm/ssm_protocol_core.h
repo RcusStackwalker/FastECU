@@ -12,7 +12,24 @@ using SeedKeyToGenerateIndex = std::span<const std::uint16_t, 16>;
 using KeyToGenerateIndex = std::span<const std::uint16_t, 4>;
 using IndexTransformation = std::span<const std::uint8_t, 32>;
 
-// The index transformation calculateSeedKey and calculatePayload take.
+// Two index-transformation lookups folded into one: entry i is
+// t[i & 0x1F] + (t[(i >> 4) & 0x1F] << 4) for a 9-bit i. A round then needs two
+// loads instead of four. Built at compile time; the seed-key and payload
+// transforms take this form of the table, never the raw 32 entries.
+using PairTable = std::array<std::uint16_t, 512>;
+
+consteval PairTable BuildPairTable(IndexTransformation indextransformation)
+{
+    PairTable pairs{};
+    for (std::size_t i = 0; i < pairs.size(); ++i)
+    {
+        pairs[i] =
+            static_cast<std::uint16_t>(indextransformation[i & 0x1FU] + (indextransformation[(i >> 4U) & 0x1FU] << 4U));
+    }
+    return pairs;
+}
+
+// The index transformation behind kStockPairTable, the table calculateSeedKey and calculatePayload take.
 //
 // This is an ssm_protocol-level constant, not a per-family one: the same 32
 // entries drive every Subaru seed-key and payload transform in the tree. It
@@ -39,10 +56,11 @@ inline constexpr std::array<std::uint8_t, 32> kIndexTransformationEcutek{
     0x4, 0x2, 0x5, 0x1, 0x8, 0xC, 0xD, 0x8, 0xA, 0xD, 0x2, 0xB, 0xF, 0x4, 0x0, 0x3,
     0xB, 0x4, 0x6, 0x0, 0xF, 0x2, 0xD, 0x9, 0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8};
 
-bytes::Bytes CalculateSeedKey(bytes::ByteView seed, SeedKeyToGenerateIndex keytogenerateindex,
-                              IndexTransformation indextransformation);
-bytes::Bytes CalculatePayload(bytes::ByteView buf, KeyToGenerateIndex keytogenerateindex,
-                              IndexTransformation indextransformation);
+inline constexpr PairTable kStockPairTable = BuildPairTable(kIndexTransformationStock);
+inline constexpr PairTable kEcutekPairTable = BuildPairTable(kIndexTransformationEcutek);
+
+bytes::Bytes CalculateSeedKey(bytes::ByteView seed, SeedKeyToGenerateIndex keytogenerateindex, const PairTable& pairs);
+bytes::Bytes CalculatePayload(bytes::ByteView buf, KeyToGenerateIndex keytogenerateindex, const PairTable& pairs);
 bytes::Bytes AddHeader(bytes::ByteView output, bytes::Byte tester_id, bytes::Byte target_id);
 bool HasValidFrame(bytes::ByteView frame, bytes::Byte receiver_id, bytes::Byte sender_id);
 bool HasPayloadPrefix(bytes::ByteView frame, bytes::ByteView prefix, bytes::Byte receiver_id, bytes::Byte sender_id);

@@ -3,6 +3,8 @@
 #include "src/algorithms/protocol/bytes_compose.h"
 #include "src/algorithms/protocol/bytes_views.h"
 
+#include <algorithm>
+#include <array>
 #include <bit>
 
 namespace ssm_protocol
@@ -12,32 +14,29 @@ namespace
 {
 
 template <bool Reverse, std::size_t Rounds>
-uint32_t TransformWord(uint32_t word, std::span<const std::uint16_t, Rounds> keytogenerateindex,
-                       IndexTransformation indextransformation)
+uint32_t TransformWord(uint32_t word, std::span<const std::uint16_t, Rounds> keytogenerateindex, const PairTable& pairs)
 {
+    auto lo = static_cast<std::uint16_t>(word);
+    auto hi = static_cast<std::uint16_t>(word >> 16U);
     for (std::size_t r = 0; r < Rounds; ++r)
     {
-        const std::size_t ki = Reverse ? (Rounds - 1 - r) : r;
-        const uint16_t wordtogenerateindex = word;
-        const uint16_t wordtobeencrypted = word >> 16U;
-        uint32_t index = wordtogenerateindex ^ keytogenerateindex[ki];
-        index += index << 16U;
+        const std::uint32_t v = static_cast<std::uint16_t>(lo ^ keytogenerateindex[Reverse ? (Rounds - 1 - r) : r]);
+        const std::uint32_t index = v | (v << 16U);
 
-        uint16_t encryptionkey = static_cast<uint16_t>(
-            indextransformation[index & 0x1FU] + (indextransformation[(index >> 4U) & 0x1FU] << 4U) +
-            (indextransformation[(index >> 8U) & 0x1FU] << 8U) + (indextransformation[(index >> 12U) & 0x1FU] << 12U));
+        const auto encryptionkey =
+            static_cast<std::uint16_t>(pairs[index & 0x1FFU] + (pairs[(index >> 8U) & 0x1FFU] << 8U));
 
-        encryptionkey = (encryptionkey >> 3U) + (encryptionkey << 13U);
-        word = (encryptionkey ^ wordtobeencrypted) + (wordtogenerateindex << 16U);
+        const auto next = static_cast<std::uint16_t>(std::rotr(encryptionkey, 3) ^ hi);
+        hi = lo;
+        lo = next;
     }
 
-    return std::rotr(word, 16);
+    return static_cast<std::uint32_t>(hi) | (static_cast<std::uint32_t>(lo) << 16U);
 }
 
 } // namespace
 
-bytes::Bytes CalculateSeedKey(bytes::ByteView seed, SeedKeyToGenerateIndex keytogenerateindex,
-                              IndexTransformation indextransformation)
+bytes::Bytes CalculateSeedKey(bytes::ByteView seed, SeedKeyToGenerateIndex keytogenerateindex, const PairTable& pairs)
 {
     bytes::Bytes key;
     if (seed.size() < 4)
@@ -45,17 +44,16 @@ bytes::Bytes CalculateSeedKey(bytes::ByteView seed, SeedKeyToGenerateIndex keyto
         return key;
     }
 
-    bytes::AppendU32Be(key, TransformWord<true>(bytes::ReadU32Be(seed, 0), keytogenerateindex, indextransformation));
+    bytes::AppendU32Be(key, TransformWord<true>(bytes::ReadU32Be(seed, 0), keytogenerateindex, pairs));
     return key;
 }
 
-bytes::Bytes CalculatePayload(bytes::ByteView buf, KeyToGenerateIndex keytogenerateindex,
-                              IndexTransformation indextransformation)
+bytes::Bytes CalculatePayload(bytes::ByteView buf, KeyToGenerateIndex keytogenerateindex, const PairTable& pairs)
 {
     const auto encrypted_words =
         buf | bytes::views::kU32Be |
         std::views::transform([&](std::uint32_t word)
-                              { return TransformWord<false>(word, keytogenerateindex, indextransformation); });
+                              { return TransformWord<false>(word, keytogenerateindex, pairs); });
     return bytes::ComposeBe(encrypted_words);
 }
 
