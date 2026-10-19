@@ -1,3 +1,4 @@
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
 
@@ -30,5 +31,17 @@ fastecu_portable_gtest(
         ":ssm",
         "@fuzztest//fuzztest",
         "@googletest//:gtest",
+    ],
+)
+
+# Run by hand: bazel run -c opt //src/algorithms/protocol/ssm:ssm_protocol_core_benchmark
+cc_binary(
+    name = "ssm_protocol_core_benchmark",
+    testonly = True,
+    srcs = ["ssm_protocol_core_benchmark.cpp"],
+    tags = ["manual"],
+    deps = [
+        ":ssm",
+        "@google_benchmark//:benchmark_main",
     ],
 )

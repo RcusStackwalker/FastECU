@@ -15,6 +15,9 @@ bazel_dep(name = "gazelle_cc", version = "0.6.0", dev_dependency = True)
 # --config=fuzztest (bazel/fuzz.bazelrc), so other builds never fetch this graph.
 bazel_dep(name = "fuzztest", version = "20260629.0", dev_dependency = True)
 
+# Micro-benchmarks; their targets are tagged manual and run with `bazel run -c opt`.
+bazel_dep(name = "google_benchmark", version = "1.9.5", dev_dependency = True)
+
 # Modules in FuzzTest's graph whose resolved versions predate Bazel 9 (they
 # call removed native rules or rule() arguments) and fail to load. Only the root
 # module's overrides take effect. rules_foreign_cc and aspect_bazel_lib repeat
