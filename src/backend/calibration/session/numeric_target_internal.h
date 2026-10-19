@@ -13,6 +13,20 @@
 namespace fastecu::calibration::internal
 {
 
+// The session, definition and map a request names, resolved for one
+// synchronous operation. Borrows from the workspace: do not store it.
+struct LocatedMap
+{
+    CalibrationSession& session;
+    const definition::RomDefinition& definition;
+    const definition::CalibrationMap& map;
+};
+
+// Resolves a session, its definition and a map index, in that order. Each miss
+// is an outcome, not an error.
+std::variant<LocatedMap, MapNotApplicable> LocateMap(CalibrationWorkspace& workspace, SessionId session,
+                                                     std::size_t map_index);
+
 // Owns metadata and decoded cells for one synchronous operation. Moves retain
 // ownership; borrowed edit views are created only inside Apply. The session
 // must remain open, and this target must not be persisted across operations.
@@ -23,8 +37,8 @@ class PreparedNumericTarget
     Result<NumericEditOutcome> Apply(const SelectionRange& range, const NumericEditOperation& operation);
 
   private:
-    friend std::variant<PreparedNumericTarget, NumericEditNotApplicable>
-    PrepareNumericTarget(CalibrationWorkspace&, SessionId, std::size_t, NumericTarget);
+    friend std::variant<PreparedNumericTarget, MapNotApplicable> PrepareNumericTarget(CalibrationWorkspace&, SessionId,
+                                                                                      std::size_t, NumericTarget);
 
     PreparedNumericTarget(CalibrationSession& session, ResolvedElement element, NumericRun run);
 
@@ -33,7 +47,7 @@ class PreparedNumericTarget
     CalibrationSession *session_;
 };
 
-using NumericTargetPreparation = std::variant<PreparedNumericTarget, NumericEditNotApplicable>;
+using NumericTargetPreparation = std::variant<PreparedNumericTarget, MapNotApplicable>;
 NumericTargetPreparation PrepareNumericTarget(CalibrationWorkspace& workspace, SessionId session, std::size_t map_index,
                                               NumericTarget target);
 

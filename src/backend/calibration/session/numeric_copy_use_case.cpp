@@ -13,7 +13,7 @@ Result<NumericCopyOutcome> CopyNumericValues(CalibrationWorkspace& workspace, co
     {
         return target->Copy(request.selection.elements);
     }
-    return NumericCopyOutcome{std::get<NumericEditNotApplicable>(preparation)};
+    return NumericCopyOutcome{std::get<MapNotApplicable>(preparation)};
 }
 
 } // namespace fastecu::calibration

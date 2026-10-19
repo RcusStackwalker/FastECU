@@ -51,7 +51,7 @@ auto Unchanged(NoChangeReason reason)
 
 auto NotApplicable(NotApplicableReason reason)
 {
-    return IsOkAnd(VariantWith<NumericEditNotApplicable>(Field(&NumericEditNotApplicable::reason, reason)));
+    return IsOkAnd(VariantWith<MapNotApplicable>(Field(&MapNotApplicable::reason, reason)));
 }
 
 class NumericEditUseCaseTest : public testing::NumericSessionFixture
@@ -335,7 +335,7 @@ TEST_F(NumericEditUseCaseTest, ASessionWithoutADefinitionIsNotApplicable)
 TEST_F(NumericEditUseCaseTest, UnavailableTargetsAreNotApplicable)
 {
     EXPECT_THAT(Edit(NumericTarget::kMapBody, Cell(0, 0), AssignmentEdit{"7"}, 1),
-                NotApplicable(NotApplicableReason::kUnavailableTarget));
+                NotApplicable(NotApplicableReason::kUnknownMap));
 
     auto static_axis = GridDefinition();
     static_axis.maps[0].x_axis = {.type = "Static X Axis", .static_data = {"a", "b", "c"}};

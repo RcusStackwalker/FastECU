@@ -1053,8 +1053,8 @@ void MainWindow::setMapSelection(fastecu::calibration::SessionId id, int mapInde
         return;
     }
     // A name no selection carries still refreshes, so the combo snaps back to the ROM's bytes.
-    if (const auto *skipped = std::get_if<fastecu::calibration::SelectableEditNotApplicable>(&*outcome);
-        skipped != nullptr && skipped->reason != fastecu::calibration::SelectableNotApplicableReason::kUnknownSelection)
+    if (const auto *skipped = std::get_if<fastecu::calibration::MapNotApplicable>(&*outcome);
+        skipped != nullptr && skipped->reason != fastecu::calibration::NotApplicableReason::kUnknownSelection)
     {
         return;
     }

@@ -170,6 +170,8 @@ fastecu_portable_gtest(
     srcs = ["numeric_copy_use_case_test.cpp"],
     deps = [
         ":numeric_copy_use_case",
+        ":numeric_edit_use_case",
+        ":selectable_edit_use_case",
         "//src/backend/calibration/session/testing:numeric_session_fixture",
         "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
@@ -181,6 +183,7 @@ cc_library(
     srcs = ["selectable_edit_use_case.cpp"],
     hdrs = ["selectable_edit_use_case.h"],
     implementation_deps = [
+        ":numeric_target_internal",
         "//src/algorithms/protocol",
         "//src/backend/calibration:definition_interpretation_internal",
         "//src/backend/definition:definition_model",
@@ -188,6 +191,7 @@ cc_library(
     deps = [
         ":calibration_session",
         ":calibration_workspace",
+        ":numeric_operation_types",
         "//src/backend/ports",
     ],
 )

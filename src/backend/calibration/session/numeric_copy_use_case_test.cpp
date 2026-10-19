@@ -9,6 +9,8 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "src/backend/calibration/session/numeric_edit_use_case.h"
+#include "src/backend/calibration/session/selectable_edit_use_case.h"
 #include "src/backend/calibration/session/testing/numeric_session_fixture.h"
 #include "src/backend/ports/testing/result_matchers.h"
 
@@ -34,7 +36,7 @@ SelectionRange Cell(int row, int col)
 
 auto NotApplicable(NotApplicableReason reason)
 {
-    return IsOkAnd(VariantWith<NumericEditNotApplicable>(Field(&NumericEditNotApplicable::reason, reason)));
+    return IsOkAnd(VariantWith<MapNotApplicable>(Field(&MapNotApplicable::reason, reason)));
 }
 
 class NumericCopyUseCaseTest : public testing::NumericSessionFixture
@@ -178,7 +180,7 @@ TEST_F(NumericCopyUseCaseTest, IsNotApplicableWithoutAUsableTarget)
         CopyNumericValues(workspace_, {.session = SessionId{9999},
                                        .selection = {.target = NumericTarget::kMapBody, .elements = Cell(0, 0)}}),
         NotApplicable(NotApplicableReason::kClosedSession));
-    EXPECT_THAT(Copy(NumericTarget::kMapBody, Cell(0, 0), 5), NotApplicable(NotApplicableReason::kUnavailableTarget));
+    EXPECT_THAT(Copy(NumericTarget::kMapBody, Cell(0, 0), 5), NotApplicable(NotApplicableReason::kUnknownMap));
 
     auto static_axis = GridDefinition();
     static_axis.maps[0].x_axis = {.type = "Static X Axis", .static_data = {"a", "b", "c"}};
@@ -197,6 +199,20 @@ TEST_F(NumericCopyUseCaseTest, IsNotApplicableWithoutAUsableTarget)
 
     Install(std::nullopt);
     EXPECT_THAT(Copy(NumericTarget::kMapBody, Cell(0, 0)), NotApplicable(NotApplicableReason::kNoDefinition));
+}
+
+TEST_F(NumericCopyUseCaseTest, UnknownMapIndexIsTheSameReasonForEveryOperation)
+{
+    const SelectionRange cell = Cell(0, 0);
+    EXPECT_THAT(Copy(NumericTarget::kMapBody, cell, 5), NotApplicable(NotApplicableReason::kUnknownMap));
+    EXPECT_THAT(ApplyNumericEdit(workspace_, {.session = id_,
+                                              .map_index = 5,
+                                              .selection = {.target = NumericTarget::kMapBody, .elements = cell},
+                                              .operation = IncrementEdit{}}),
+                NotApplicable(NotApplicableReason::kUnknownMap));
+    EXPECT_THAT(
+        ApplySelectableEdit(workspace_, {.session = id_, .map_index = 5, .selection = "any"}),
+        IsOkAnd(VariantWith<MapNotApplicable>(Field(&MapNotApplicable::reason, NotApplicableReason::kUnknownMap))));
 }
 
 TEST_F(NumericCopyUseCaseTest, CopyReadsValuesAfterAnEdit)

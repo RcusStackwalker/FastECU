@@ -135,35 +135,46 @@ PreparedNumericTarget::PreparedNumericTarget(CalibrationSession& session, Resolv
 {
 }
 
-NumericTargetPreparation PrepareNumericTarget(CalibrationWorkspace& workspace, SessionId session_id,
-                                              std::size_t map_index, NumericTarget target)
+std::variant<LocatedMap, MapNotApplicable> LocateMap(CalibrationWorkspace& workspace, SessionId session_id,
+                                                     std::size_t map_index)
 {
     CalibrationSession *session = workspace.Find(session_id);
     if (session == nullptr)
     {
-        return NumericEditNotApplicable{.reason = NotApplicableReason::kClosedSession};
+        return MapNotApplicable{.reason = NotApplicableReason::kClosedSession};
     }
     if (session->Definition() == nullptr)
     {
-        return NumericEditNotApplicable{.reason = NotApplicableReason::kNoDefinition};
+        return MapNotApplicable{.reason = NotApplicableReason::kNoDefinition};
     }
     const auto& definition = session->Definition()->definition;
     if (map_index >= definition.maps.size())
     {
-        return NumericEditNotApplicable{.reason = NotApplicableReason::kUnavailableTarget};
+        return MapNotApplicable{.reason = NotApplicableReason::kUnknownMap};
     }
-    auto decoded = session->DecodeMap(map_index);
+    return LocatedMap{*session, definition, definition.maps[map_index]};
+}
+
+NumericTargetPreparation PrepareNumericTarget(CalibrationWorkspace& workspace, SessionId session_id,
+                                              std::size_t map_index, NumericTarget target)
+{
+    const auto located = LocateMap(workspace, session_id, map_index);
+    if (const auto *miss = std::get_if<MapNotApplicable>(&located); miss != nullptr)
+    {
+        return *miss;
+    }
+    const auto& [session, definition, map] = std::get<LocatedMap>(located);
+    auto decoded = session.DecodeMap(map_index);
     if (!decoded.has_value())
     {
-        return NumericEditNotApplicable{.reason = NotApplicableReason::kUnavailableTarget};
+        return MapNotApplicable{.reason = NotApplicableReason::kUnavailableTarget};
     }
     NumericRun *run = TargetCells(*decoded, target);
     if (run == nullptr)
     {
-        return NumericEditNotApplicable{.reason = NotApplicableReason::kUnavailableTarget};
+        return MapNotApplicable{.reason = NotApplicableReason::kUnavailableTarget};
     }
-    return PreparedNumericTarget(*session, ResolveMapElement(definition, definition.maps[map_index], target),
-                                 std::move(*run));
+    return PreparedNumericTarget(session, ResolveMapElement(definition, map, target), std::move(*run));
 }
 
 Result<NumericCopyOutcome> PreparedNumericTarget::Copy(const SelectionRange& range) const

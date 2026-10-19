@@ -6,6 +6,7 @@
 
 #include "src/backend/calibration/session/calibration_session.h"
 #include "src/backend/calibration/session/calibration_workspace.h"
+#include "src/backend/calibration/session/numeric_operation_types.h"
 #include "src/backend/ports/result.h"
 
 namespace fastecu::calibration
@@ -30,24 +31,9 @@ struct SelectableEditUnchanged
 {
 };
 
-enum class SelectableNotApplicableReason
-{
-    kClosedSession,
-    kNoDefinition,
-    kUnknownMap,
-    // The map has no selections or is not stored as a blob, such as a
-    // multi-selectable map.
-    kNotBloblist,
-    // No selection carries the requested name.
-    kUnknownSelection,
-};
-
-struct SelectableEditNotApplicable
-{
-    SelectableNotApplicableReason reason{SelectableNotApplicableReason::kClosedSession};
-};
-
-using SelectableEditOutcome = std::variant<SelectableEditChanged, SelectableEditUnchanged, SelectableEditNotApplicable>;
+// Not applicable also covers a map with no selections or one not stored as a
+// blob (kUnavailableTarget), and a name no selection carries (kUnknownSelection).
+using SelectableEditOutcome = std::variant<SelectableEditChanged, SelectableEditUnchanged, MapNotApplicable>;
 
 // Resolves the session when called. The blob's width is the first selection's
 // byte length; a selection of any other width, and a write the image rejects,

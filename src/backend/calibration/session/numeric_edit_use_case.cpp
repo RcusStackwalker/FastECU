@@ -13,7 +13,7 @@ Result<NumericEditOutcome> ApplyNumericEdit(CalibrationWorkspace& workspace, con
     {
         return target->Apply(request.selection.elements, request.operation);
     }
-    return NumericEditOutcome{std::get<NumericEditNotApplicable>(preparation)};
+    return NumericEditOutcome{std::get<MapNotApplicable>(preparation)};
 }
 
 } // namespace fastecu::calibration

@@ -106,7 +106,7 @@ void runNumericEdit(QWidget *parent, const QString& title, fastecu::calibration:
         QMessageBox::warning(parent, title, QString::fromStdString(outcome.error().detail));
         return;
     }
-    if (std::holds_alternative<calibration::NumericEditNotApplicable>(*outcome))
+    if (std::holds_alternative<calibration::MapNotApplicable>(*outcome))
     {
         return;
     }
