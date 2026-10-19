@@ -146,7 +146,11 @@ cc_library(
     hdrs = ["definition_interpretation_internal.h"],
     implementation_deps = ["//src/algorithms/expression"],
     visibility = ["//bazel/layers:backend"],
-    deps = [":map_edit"],
+    deps = [
+        ":map_edit",
+        "//src/algorithms/protocol",
+        "//src/backend/ports",
+    ],
 )
 
 fastecu_portable_gtest(

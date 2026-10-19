@@ -3,9 +3,12 @@
 #include <cstdint>
 #include <optional>
 #include <string>
-#include <vector>
+#include <string_view>
+#include <variant>
 
+#include "src/algorithms/protocol/bytes.h"
 #include "src/backend/calibration/map_edit.h"
+#include "src/backend/ports/result.h"
 
 namespace fastecu::calibration::internal
 {
@@ -30,14 +33,31 @@ struct ResolvedElement
     std::uint32_t byte_width{1};
     std::uint64_t count{0};
     bool is_selectable{false};
-    // Owned copy of a body target's scaling selections; empty for axes.
-    std::vector<definition::Selection> selections;
 
-    // A bloblist body with at least one named selection to choose from.
-    bool IsBlobSelection() const;
     MapElementSpec EditSpec() const&;
     MapElementSpec EditSpec() const&& = delete;
 };
+
+// The bytes choosing a named selection writes into a selectable map's body.
+struct BlobPatch
+{
+    std::uint64_t address{0};
+    bytes::Bytes bytes;
+};
+
+enum class BlobMiss
+{
+    // Not a bloblist body with at least one selection to choose from.
+    kNotABlob,
+    // No selection carries the requested name.
+    kUnknownSelection,
+};
+
+// A selection whose width differs from the blob width is an InvalidConfig
+// error. A map without an address resolves to address 0.
+Result<std::variant<BlobPatch, BlobMiss>> ResolveBlobSelection(const definition::RomDefinition& definition,
+                                                               const definition::CalibrationMap& map,
+                                                               std::string_view selection);
 
 ResolvedElement ResolveMapElement(const definition::RomDefinition& definition, const definition::CalibrationMap& map,
                                   NumericTarget target);

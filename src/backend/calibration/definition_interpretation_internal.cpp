@@ -1,5 +1,6 @@
 #include "src/backend/calibration/definition_interpretation_internal.h"
 
+#include <algorithm>
 #include <limits>
 #include <string_view>
 
@@ -19,12 +20,14 @@ double IncrementValue(std::string_view text)
     // Increment metadata cannot prevent an operation that does not use it.
     return value.has_value() ? *value : std::numeric_limits<double>::quiet_NaN();
 }
-} // namespace
 
-bool ResolvedElement::IsBlobSelection() const
+// A body's storage is its own, else its scaling's.
+std::optional<definition::StorageType> BodyStorage(const definition::CalibrationMap& map,
+                                                   const definition::Scaling *scaling)
 {
-    return storage_type == definition::StorageType::kBloblist && !selections.empty();
+    return map.storage_type.has_value() ? map.storage_type : scaling != nullptr ? scaling->storage_type : std::nullopt;
 }
+} // namespace
 
 MapElementSpec ResolvedElement::EditSpec() const&
 {
@@ -52,6 +55,29 @@ std::uint32_t ElementByteWidth(std::optional<definition::StorageType> storage_ty
     return definition::StorageByteSize(storage_type);
 }
 
+Result<std::variant<BlobPatch, BlobMiss>> ResolveBlobSelection(const definition::RomDefinition& definition,
+                                                               const definition::CalibrationMap& map,
+                                                               std::string_view selection)
+{
+    using Resolved = std::variant<BlobPatch, BlobMiss>;
+    const auto *scaling = definition::FindScaling(definition, map.scaling_name);
+    const auto storage = BodyStorage(map, scaling);
+    if (scaling == nullptr || scaling->selections.empty() || storage != definition::StorageType::kBloblist)
+    {
+        return Resolved{BlobMiss::kNotABlob};
+    }
+    const auto selected = std::ranges::find(scaling->selections, selection, &definition::Selection::name);
+    if (selected == scaling->selections.end())
+    {
+        return Resolved{BlobMiss::kUnknownSelection};
+    }
+    if (selected->value.size() != ElementByteWidth(storage, scaling))
+    {
+        return Fail(ErrorKind::kInvalidConfig, "selection value width differs from the blob width");
+    }
+    return Resolved{BlobPatch{.address = map.address.has_value() ? map.address->Value() : 0, .bytes = selected->value}};
+}
+
 ResolvedElement ResolveMapElement(const definition::RomDefinition& definition, const definition::CalibrationMap& map,
                                   NumericTarget target)
 {
@@ -62,9 +88,7 @@ ResolvedElement ResolveMapElement(const definition::RomDefinition& definition, c
     {
         scaling = definition::FindScaling(definition, map.scaling_name);
         result.address = map.address;
-        result.storage_type = map.storage_type.has_value() ? map.storage_type
-                              : scaling != nullptr         ? scaling->storage_type
-                                                           : std::nullopt;
+        result.storage_type = BodyStorage(map, scaling);
         result.endian = !map.endian.empty() ? map.endian : scaling != nullptr ? scaling->endian : "";
         result.from_byte = scaling != nullptr ? scaling->from_byte : "x";
         result.to_byte = scaling != nullptr ? scaling->to_byte : "x";
@@ -73,10 +97,6 @@ ResolvedElement ResolveMapElement(const definition::RomDefinition& definition, c
         result.start_position = map.start_position;
         result.interval = map.interval;
         result.is_selectable = map.type == "Selectable";
-        if (scaling != nullptr)
-        {
-            result.selections = scaling->selections;
-        }
     }
     else
     {

@@ -53,22 +53,17 @@ Result<SelectableEditOutcome> EditSelectable(CalibrationWorkspace& workspace, Ma
         return SelectableEditOutcome{*miss};
     }
     const auto& [session, definition, map] = std::get<internal::LocatedMap>(located);
-    const auto element = internal::ResolveMapElement(definition, map, NumericTarget::kMapBody);
-    if (!element.IsBlobSelection())
+    const auto resolved = internal::ResolveBlobSelection(definition, map, selection);
+    if (!resolved.has_value())
     {
-        return NotApplicable(NotApplicableReason::kUnavailableTarget);
+        return std::unexpected(resolved.error());
     }
-    const auto selected = std::ranges::find(element.selections, selection, &definition::Selection::name);
-    if (selected == element.selections.end())
+    if (const auto *miss = std::get_if<internal::BlobMiss>(&*resolved); miss != nullptr)
     {
-        return NotApplicable(NotApplicableReason::kUnknownSelection);
+        return NotApplicable(*miss == internal::BlobMiss::kNotABlob ? NotApplicableReason::kUnavailableTarget
+                                                                    : NotApplicableReason::kUnknownSelection);
     }
-    const auto& data = selected->value;
-    if (data.size() != element.byte_width)
-    {
-        return Fail(ErrorKind::kInvalidConfig, "selection value width differs from the blob width");
-    }
-    const std::uint64_t offset = element.address.has_value() ? element.address->Value() : 0;
+    const auto& [offset, data] = std::get<internal::BlobPatch>(*resolved);
     if (const auto current = session.Read(offset, data.size());
         current.has_value() && std::ranges::equal(data, *current))
     {
