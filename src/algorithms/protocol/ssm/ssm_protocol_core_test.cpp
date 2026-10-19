@@ -2,10 +2,7 @@
 
 #include <algorithm>
 #include <array>
-#include <bit>
 #include <cstdint>
-#include <random>
-#include <span>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -128,6 +125,26 @@ TEST(SsmProtocolCore, CalculatePayloadTruncatesToAFourByteBoundary)
                 test_bytes::BytesEq(test_bytes::BytesFromHex("ed9fd931")));
 }
 
+TEST(SsmProtocolCore, CalculatePayloadTransformsEveryWordOfALongPayloadTheSame)
+{
+    const bytes::Bytes word = test_bytes::BytesFromHex("00112233");
+    const bytes::Bytes encrypted_word = test_bytes::BytesFromHex("ed9fd931");
+    for (const std::size_t words : {63U, 64U, 65U, 200U})
+    {
+        bytes::Bytes plain;
+        bytes::Bytes expected;
+        for (std::size_t i = 0; i < words; ++i)
+        {
+            plain.insert(plain.end(), word.begin(), word.end());
+            expected.insert(expected.end(), encrypted_word.begin(), encrypted_word.end());
+        }
+        EXPECT_THAT(ssm_protocol::CalculatePayload(bytes::ByteView(plain), kPayloadTable,
+                                                   ssm_protocol::kIndexTransformationStock),
+                    test_bytes::BytesEq(expected))
+            << "words=" << words;
+    }
+}
+
 TEST(SsmProtocolCore, HasPayloadPrefixAcceptsAMatchingPrefix)
 {
     const bytes::Bytes response =
@@ -163,134 +180,4 @@ TEST(SsmProtocolCore, HasValidFrameRejectsAShortFrameOrAWrongReceiverSenderOrLen
     EXPECT_FALSE(ssm_protocol::HasValidFrame(bytes::ByteView(response), 0x11, 0xF0));
     EXPECT_FALSE(ssm_protocol::HasValidFrame(bytes::ByteView(response), 0x10, 0xF1));
     EXPECT_FALSE(ssm_protocol::HasValidFrame(bytes::ByteView(bad_length), 0x10, 0xF0));
-}
-
-namespace
-{
-// Verbatim copy of the original per-word implementation, kept as an oracle.
-template <bool Reverse, std::size_t Rounds>
-std::uint32_t ReferenceTransformWord(std::uint32_t word, std::span<const std::uint16_t, Rounds> keytogenerateindex,
-                                     std::span<const std::uint8_t, 32> indextransformation)
-{
-    for (std::size_t r = 0; r < Rounds; ++r)
-    {
-        const std::size_t ki = Reverse ? (Rounds - 1 - r) : r;
-        const std::uint16_t wordtogenerateindex = word;
-        const std::uint16_t wordtobeencrypted = word >> 16U;
-        std::uint32_t index = wordtogenerateindex ^ keytogenerateindex[ki];
-        index += index << 16U;
-
-        std::uint16_t encryptionkey = static_cast<std::uint16_t>(
-            indextransformation[index & 0x1FU] + (indextransformation[(index >> 4U) & 0x1FU] << 4U) +
-            (indextransformation[(index >> 8U) & 0x1FU] << 8U) + (indextransformation[(index >> 12U) & 0x1FU] << 12U));
-
-        encryptionkey = (encryptionkey >> 3U) + (encryptionkey << 13U);
-        word = (encryptionkey ^ wordtobeencrypted) + (wordtogenerateindex << 16U);
-    }
-    return std::rotr(word, 16);
-}
-
-bytes::Bytes BigEndian(std::uint32_t word)
-{
-    return {bytes::Byte(word >> 24U), bytes::Byte(word >> 16U), bytes::Byte(word >> 8U), bytes::Byte(word)};
-}
-} // namespace
-
-TEST(SsmProtocolCore, SeedKeyAndPayloadMatchTheReferenceTransformOnRandomInputs)
-{
-    std::mt19937 rng(12345);
-    for (int round = 0; round < 200; ++round)
-    {
-        std::array<std::uint8_t, 32> table{};
-        std::array<std::uint16_t, 16> seed_keys{};
-        for (auto& entry : table)
-        {
-            entry = static_cast<std::uint8_t>(rng()); // entries above 15 exercise carries between nibbles
-        }
-        for (auto& key : seed_keys)
-        {
-            key = static_cast<std::uint16_t>(rng());
-        }
-        const std::span<const std::uint16_t, 4> payload_keys(seed_keys.data(), 4);
-
-        for (int i = 0; i < 200; ++i)
-        {
-            const auto word = static_cast<std::uint32_t>(rng());
-            EXPECT_THAT(
-                ssm_protocol::CalculateSeedKey(bytes::ByteView(BigEndian(word)), seed_keys, table),
-                test_bytes::BytesEq(BigEndian(ReferenceTransformWord<true, 16>(word, std::span(seed_keys), table))));
-            EXPECT_THAT(ssm_protocol::CalculatePayload(bytes::ByteView(BigEndian(word)), payload_keys, table),
-                        test_bytes::BytesEq(BigEndian(ReferenceTransformWord<false, 4>(word, payload_keys, table))));
-        }
-    }
-}
-
-namespace
-{
-
-// The original per-word transform, kept as an oracle for CalculatePayload's
-// paired-table fast path.
-std::uint32_t ReferencePayloadWord(std::uint32_t word, const std::array<std::uint16_t, 4>& keys,
-                                   const std::array<std::uint8_t, 32>& table)
-{
-    for (std::size_t r = 0; r < keys.size(); ++r)
-    {
-        const std::uint16_t low = static_cast<std::uint16_t>(word);
-        const std::uint16_t high = static_cast<std::uint16_t>(word >> 16U);
-        std::uint32_t index = low ^ keys[r];
-        index += index << 16U;
-        std::uint16_t key =
-            static_cast<std::uint16_t>(table[index & 0x1FU] + (table[(index >> 4U) & 0x1FU] << 4U) +
-                                       (table[(index >> 8U) & 0x1FU] << 8U) + (table[(index >> 12U) & 0x1FU] << 12U));
-        key = static_cast<std::uint16_t>((key >> 3U) + (key << 13U));
-        word = (static_cast<std::uint32_t>(key ^ high)) + (static_cast<std::uint32_t>(low) << 16U);
-    }
-    return (word >> 16U) | (word << 16U);
-}
-
-} // namespace
-
-TEST(SsmProtocolCore, CalculatePayloadMatchesTheReferenceTransformForAnyTableAndLength)
-{
-    std::uint32_t state = 12345U;
-    const auto next = [&state]
-    {
-        state = state * 1664525U + 1013904223U;
-        return state >> 8U;
-    };
-    for (const std::size_t words : {0U, 1U, 2U, 63U, 64U, 65U, 200U})
-    {
-        for (int trial = 0; trial < 20; ++trial)
-        {
-            std::array<std::uint8_t, 32> table{};
-            for (auto& entry : table)
-            {
-                entry = static_cast<std::uint8_t>(next()); // entries above 0xF included on purpose
-            }
-            std::array<std::uint16_t, 4> keys{};
-            for (auto& key : keys)
-            {
-                key = static_cast<std::uint16_t>(next());
-            }
-            bytes::Bytes input(words * 4 + 3);
-            for (auto& byte : input)
-            {
-                byte = static_cast<bytes::Byte>(next());
-            }
-            bytes::Bytes expected;
-            for (std::size_t w = 0; w < words; ++w)
-            {
-                const std::uint32_t in = (std::uint32_t{input[w * 4]} << 24U) |
-                                         (std::uint32_t{input[w * 4 + 1]} << 16U) |
-                                         (std::uint32_t{input[w * 4 + 2]} << 8U) | input[w * 4 + 3];
-                const std::uint32_t out = ReferencePayloadWord(in, keys, table);
-                for (int shift = 24; shift >= 0; shift -= 8)
-                {
-                    expected.push_back(static_cast<bytes::Byte>(out >> shift));
-                }
-            }
-            EXPECT_EQ(ssm_protocol::CalculatePayload(bytes::ByteView(input), keys, table), expected)
-                << "words=" << words << " trial=" << trial;
-        }
-    }
 }

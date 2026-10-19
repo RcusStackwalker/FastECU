@@ -16,8 +16,6 @@ template <bool Reverse, std::size_t Rounds>
 uint32_t TransformWord(uint32_t word, std::span<const std::uint16_t, Rounds> keytogenerateindex,
                        IndexTransformation indextransformation)
 {
-    // Feistel halves kept as separate 16-bit values: no per-round recombine, and the compiler can see that
-    // every intermediate fits in 16 bits.
     auto lo = static_cast<std::uint16_t>(word);
     auto hi = static_cast<std::uint16_t>(word >> 16U);
     for (std::size_t r = 0; r < Rounds; ++r)
