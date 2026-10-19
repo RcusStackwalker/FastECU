@@ -21,6 +21,14 @@ double IncrementValue(std::string_view text)
     return value.has_value() ? *value : std::numeric_limits<double>::quiet_NaN();
 }
 
+std::uint32_t ElementByteWidth(std::optional<definition::StorageType> storage_type, const definition::Scaling *scaling)
+{
+    if (storage_type == definition::StorageType::kBloblist && scaling != nullptr && !scaling->selections.empty())
+    {
+        return static_cast<std::uint32_t>(scaling->selections.front().value.size());
+    }
+    return definition::StorageByteSize(storage_type);
+}
 // A body's storage is its own, else its scaling's.
 std::optional<definition::StorageType> BodyStorage(const definition::CalibrationMap& map,
                                                    const definition::Scaling *scaling)
@@ -29,7 +37,19 @@ std::optional<definition::StorageType> BodyStorage(const definition::Calibration
 }
 } // namespace
 
-MapElementSpec ResolvedElement::EditSpec() const&
+ElementRun MapElement::Run() const&
+{
+    return {.address = address.has_value() ? address->Value() : 0,
+            .count = static_cast<std::uint32_t>(count()),
+            .start_position = start_position,
+            .interval = interval,
+            .storage_type = storage_type,
+            .endian = endian,
+            .from_byte = from_byte,
+            .is_selectable = is_selectable};
+}
+
+MapElementSpec MapElement::EditSpec() const&
 {
     return {.address = address.has_value() ? address->Value() : 0,
             .storage_type = storage_type,
@@ -44,15 +64,6 @@ MapElementSpec ResolvedElement::EditSpec() const&
             .y_size = dimensions.y_size,
             .start_position = start_position,
             .interval = interval};
-}
-
-std::uint32_t ElementByteWidth(std::optional<definition::StorageType> storage_type, const definition::Scaling *scaling)
-{
-    if (storage_type == definition::StorageType::kBloblist && scaling != nullptr && !scaling->selections.empty())
-    {
-        return static_cast<std::uint32_t>(scaling->selections.front().value.size());
-    }
-    return definition::StorageByteSize(storage_type);
 }
 
 Result<std::variant<BlobPatch, BlobMiss>> ResolveBlobSelection(const definition::RomDefinition& definition,
@@ -78,10 +89,10 @@ Result<std::variant<BlobPatch, BlobMiss>> ResolveBlobSelection(const definition:
     return Resolved{BlobPatch{.address = map.address.has_value() ? map.address->Value() : 0, .bytes = selected->value}};
 }
 
-ResolvedElement ResolveMapElement(const definition::RomDefinition& definition, const definition::CalibrationMap& map,
-                                  NumericTarget target)
+MapElement ResolveMapElement(const definition::RomDefinition& definition, const definition::CalibrationMap& map,
+                             NumericTarget target)
 {
-    ResolvedElement result;
+    MapElement result;
     result.dimensions = {.x_size = map.x_size, .y_size = map.y_size};
     const definition::Scaling *scaling = nullptr;
     if (target == NumericTarget::kMapBody)
@@ -113,7 +124,6 @@ ResolvedElement ResolveMapElement(const definition::RomDefinition& definition, c
         result.interval = axis.interval;
         result.is_selectable = axis.type == "Selectable";
     }
-    result.count = std::uint64_t{result.width} * result.height;
     result.byte_width = ElementByteWidth(result.storage_type, scaling);
     if (scaling != nullptr)
     {

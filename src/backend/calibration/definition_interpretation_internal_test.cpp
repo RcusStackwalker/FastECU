@@ -5,6 +5,7 @@
 #include <limits>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
@@ -29,15 +30,19 @@ using ::testing::VariantWith;
 template <typename T>
 concept HasRvalueEditSpec = requires(T value) { std::move(value).EditSpec(); };
 
-static_assert(!HasRvalueEditSpec<internal::ResolvedElement>);
+template <typename T>
+concept HasRvalueRun = requires(T value) { std::move(value).Run(); };
+
+static_assert(!HasRvalueEditSpec<internal::MapElement>);
+static_assert(!HasRvalueRun<internal::MapElement>);
 
 class DefinitionInterpretation : public ::testing::TestWithParam<std::size_t>
 {
 };
 
-TEST_P(DefinitionInterpretation, ResolvedElementOwnsMetadataAcrossMoves)
+TEST_P(DefinitionInterpretation, MapElementOwnsMetadataAcrossMoves)
 {
-    internal::ResolvedElement moved;
+    internal::MapElement moved;
     {
         definition::RomDefinition definition;
         definition::Scaling scaling;
@@ -58,14 +63,7 @@ TEST_P(DefinitionInterpretation, ResolvedElementOwnsMetadataAcrossMoves)
         auto original = internal::ResolveMapElement(definition, map, NumericTarget::kMapBody);
         moved = std::move(original);
     }
-    const ElementRun run{.address = moved.address->Value(),
-                         .count = static_cast<std::uint32_t>(moved.count),
-                         .start_position = moved.start_position,
-                         .interval = moved.interval,
-                         .storage_type = moved.storage_type,
-                         .endian = moved.endian,
-                         .from_byte = moved.from_byte,
-                         .is_selectable = moved.is_selectable};
+    const ElementRun run = moved.Run();
     const bytes::Bytes rom{0xE8, 0x03, 0xD0, 0x07};
     const auto decoded = DecodeNumericRun(DefinitionBytes(rom), run);
     ASSERT_THAT(decoded, IsOk());
@@ -110,14 +108,14 @@ TEST(ResolveMapElement, UsesResolvedAxisFieldsAndScalingBounds)
     const auto resolved = internal::ResolveMapElement(definition, map, NumericTarget::kXAxis);
     EXPECT_EQ(resolved.address, memory::DefinitionAddress{12});
     EXPECT_EQ(resolved.storage_type, std::nullopt);
-    EXPECT_TRUE(resolved.endian.empty());
-    EXPECT_EQ(resolved.from_byte, "x*2");
-    EXPECT_EQ(resolved.to_byte, "x/2");
-    EXPECT_EQ(resolved.min_value, "-10");
-    EXPECT_EQ(resolved.max_value, "100");
-    EXPECT_DOUBLE_EQ(resolved.coarse_increment, 0);
-    EXPECT_TRUE(std::isnan(resolved.fine_increment));
-    EXPECT_EQ(resolved.count, 3U);
+    EXPECT_TRUE(resolved.Run().endian.empty());
+    EXPECT_EQ(resolved.Run().from_byte, "x*2");
+    EXPECT_EQ(resolved.EditSpec().to_byte, "x/2");
+    EXPECT_EQ(resolved.EditSpec().min_value, "-10");
+    EXPECT_EQ(resolved.EditSpec().max_value, "100");
+    EXPECT_DOUBLE_EQ(resolved.EditSpec().coarse_increment, 0);
+    EXPECT_TRUE(std::isnan(resolved.EditSpec().fine_increment));
+    EXPECT_EQ(resolved.count(), 3U);
     EXPECT_EQ(resolved.width, 3U);
     EXPECT_EQ(resolved.height, 1U);
     EXPECT_EQ(resolved.start_position, 2U);
@@ -126,7 +124,7 @@ TEST(ResolveMapElement, UsesResolvedAxisFieldsAndScalingBounds)
     EXPECT_EQ(resolved.EditSpec().y_size, 4U);
     const auto y = internal::ResolveMapElement(definition, map, NumericTarget::kYAxis);
     EXPECT_EQ(y.address, std::nullopt);
-    EXPECT_EQ(y.count, 4U);
+    EXPECT_EQ(y.count(), 4U);
     EXPECT_EQ(y.width, 1U);
     EXPECT_EQ(y.height, 4U);
 }
@@ -139,43 +137,71 @@ TEST(ResolveMapElement, KeepsWideBodyCountAndMissingAddress)
     map.type = "Selectable";
     const auto resolved = internal::ResolveMapElement({}, map, NumericTarget::kMapBody);
     EXPECT_EQ(resolved.address, std::nullopt);
-    EXPECT_EQ(resolved.count, 8589934590ULL);
-    EXPECT_EQ(resolved.from_byte, "x");
-    EXPECT_EQ(resolved.to_byte, "x");
-    EXPECT_TRUE(resolved.is_selectable);
+    EXPECT_EQ(resolved.count(), 8589934590ULL);
+    EXPECT_EQ(resolved.Run().from_byte, "x");
+    EXPECT_EQ(resolved.EditSpec().to_byte, "x");
+    EXPECT_TRUE(resolved.Run().is_selectable);
 }
 
-TEST(ElementByteWidthTest, DelegatesToStorageByteSizeWhenNotBloblist)
+// The byte width of a body stored as `storage`, whose scaling (when present)
+// carries `selections`.
+std::uint32_t BodyByteWidth(std::optional<definition::StorageType> storage,
+                            std::optional<std::vector<definition::Selection>> selections)
 {
-    EXPECT_EQ(internal::ElementByteWidth(definition::StorageType::kUint16, nullptr), 2U);
-    EXPECT_EQ(internal::ElementByteWidth(std::optional<definition::StorageType>{}, nullptr), 1U);
+    definition::RomDefinition definition;
+    definition::CalibrationMap map;
+    map.x_size = 1;
+    map.y_size = 1;
+    map.storage_type = storage;
+    if (selections.has_value())
+    {
+        definition.scalings.push_back({.name = "s", .storage_type = storage, .selections = *selections});
+        map.scaling_name = "s";
+    }
+    return internal::ResolveMapElement(definition, map, NumericTarget::kMapBody).byte_width;
 }
 
-TEST(ElementByteWidthTest, BloblistWithNoScalingFallsBackToOneByte)
+TEST(ByteWidth, DelegatesToStorageByteSizeWhenNotBloblist)
 {
-    EXPECT_EQ(internal::ElementByteWidth(definition::StorageType::kBloblist, nullptr), 1U);
+    EXPECT_EQ(BodyByteWidth(definition::StorageType::kUint16, std::nullopt), 2U);
+    EXPECT_EQ(BodyByteWidth(std::nullopt, std::nullopt), 1U);
 }
 
-TEST(ElementByteWidthTest, BloblistWithEmptySelectionsFallsBackToOneByte)
+TEST(ByteWidth, BloblistWithNoScalingFallsBackToOneByte)
 {
-    definition::Scaling scaling;
-    EXPECT_EQ(internal::ElementByteWidth(definition::StorageType::kBloblist, &scaling), 1U);
+    EXPECT_EQ(BodyByteWidth(definition::StorageType::kBloblist, std::nullopt), 1U);
 }
 
-TEST(ElementByteWidthTest, BloblistWidthComesFromFirstSelectionLength)
+TEST(ByteWidth, BloblistWithEmptySelectionsFallsBackToOneByte)
 {
-    definition::Scaling scaling;
-    scaling.selections = {{"disabled", {0x00, 0x00}}, {"enabled", {0x00, 0x01}}};
-
-    EXPECT_EQ(internal::ElementByteWidth(definition::StorageType::kBloblist, &scaling), 2U);
+    EXPECT_EQ(BodyByteWidth(definition::StorageType::kBloblist, std::vector<definition::Selection>{}), 1U);
 }
 
-TEST(ElementByteWidthTest, BloblistWidthMatchesLegacySingleByteSelections)
+TEST(ByteWidth, BloblistWidthComesFromFirstSelectionLength)
 {
-    definition::Scaling scaling;
-    scaling.selections = {{"disabled", {0x00}}, {"enabled", {0x01}}};
+    EXPECT_EQ(BodyByteWidth(definition::StorageType::kBloblist,
+                            std::vector<definition::Selection>{{"disabled", {0x00, 0x00}}, {"enabled", {0x00, 0x01}}}),
+              2U);
+}
 
-    EXPECT_EQ(internal::ElementByteWidth(definition::StorageType::kBloblist, &scaling), 1U);
+TEST(ByteWidth, BloblistWidthMatchesLegacySingleByteSelections)
+{
+    EXPECT_EQ(BodyByteWidth(definition::StorageType::kBloblist,
+                            std::vector<definition::Selection>{{"disabled", {0x00}}, {"enabled", {0x01}}}),
+              1U);
+}
+
+TEST(ByteWidth, AxisWithABloblistScalingUsesTheFirstSelectionWidth)
+{
+    definition::RomDefinition definition;
+    definition.scalings.push_back(
+        {.name = "s", .storage_type = definition::StorageType::kBloblist, .selections = {{"a", {0x01, 0x02, 0x03}}}});
+    definition::CalibrationMap map;
+    map.x_size = 2;
+    map.y_size = 1;
+    map.x_axis.scaling_name = "s";
+    map.x_axis.storage_type = definition::StorageType::kBloblist;
+    EXPECT_EQ(internal::ResolveMapElement(definition, map, NumericTarget::kXAxis).byte_width, 3U);
 }
 
 definition::RomDefinition BlobDefinition()

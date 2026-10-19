@@ -147,6 +147,7 @@ cc_library(
     implementation_deps = ["//src/algorithms/expression"],
     visibility = ["//bazel/layers:backend"],
     deps = [
+        ":element_run",
         ":map_edit",
         "//src/algorithms/protocol",
         "//src/backend/ports",
