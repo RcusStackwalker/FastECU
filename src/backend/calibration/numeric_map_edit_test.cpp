@@ -434,7 +434,8 @@ class OffsetInterpolation : public ::testing::TestWithParam<std::tuple<Interpola
 
     std::size_t Index(int row, int col) const
     {
-        return static_cast<std::size_t>((origin_ + row) * static_cast<int>(kWidth) + origin_ + col);
+        const auto origin = static_cast<std::size_t>(origin_);
+        return (origin + static_cast<std::size_t>(row)) * kWidth + origin + static_cast<std::size_t>(col);
     }
 
     SelectionRange Range() const
