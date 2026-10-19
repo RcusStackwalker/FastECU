@@ -189,6 +189,31 @@ void ScriptN83mTransfer(N83mScript& script, TransferOperation operation, N83mPat
     }
 }
 
+using N83mSleepPositions = std::vector<std::pair<std::chrono::milliseconds, std::size_t>>;
+
+inline void RecordN83mSleeps(MockClock& clock, RecordingClock& recording, const ScriptedCanFlashTransport& transport,
+                             N83mSleepPositions& sleeps)
+{
+    ON_CALL(clock, Now()).WillByDefault([&recording] { return recording.Now(); });
+    ON_CALL(clock, Sleep)
+        .WillByDefault(
+            [&recording, &transport, &sleeps](auto duration, const auto& token)
+            {
+                sleeps.emplace_back(duration, transport.OperationAttempts().size());
+                return recording.Sleep(duration, token);
+            });
+}
+
+template <typename Traits> N83mSleepPositions N83mConnectSleeps(bool in_car)
+{
+    N83mSleepPositions expected{{std::chrono::milliseconds{500}, 14}};
+    if (!in_car && Traits::kDiscardFirstJumpReply)
+    {
+        expected.emplace_back(std::chrono::milliseconds{50}, 22);
+    }
+    return expected;
+}
+
 template <typename Traits> void ExpectN83mRead(ReadSuccessCase test_case)
 {
     N83mScript script;
@@ -198,20 +223,27 @@ template <typename Traits> void ExpectN83mRead(ReadSuccessCase test_case)
     script.Exchange(Request({0x37}), Response({0x77}));
     const auto plan = Traits::ReadPlan();
     ASSERT_THAT(plan, fastecu::testing::IsOk());
-    auto run = ExecutorRun<typename Traits::Executor, RecordingClock>(*plan, script.transport);
-    ASSERT_THAT(run.result, fastecu::testing::IsOk());
-    ASSERT_TRUE(run.result->read_bytes.has_value());
+    RecordingClock recording;
+    MockClock clock;
+    N83mSleepPositions sleeps;
+    RecordN83mSleeps(clock, recording, script.transport, sleeps);
+    ManualCancellationToken token;
+    RecordingEventSink events;
+    const auto result = typename Traits::Executor{}.Execute(*plan, script.transport, clock, token, events);
+    ASSERT_THAT(result, fastecu::testing::IsOk());
+    ASSERT_TRUE(result->read_bytes.has_value());
     bytes::Bytes expected(0x10000, 0xFF);
     const auto& payload = N83mImage<Traits>(test_case.pattern);
     expected.insert(expected.end(), payload.plain.begin() + 0x10000, payload.plain.end() - 0x100);
     expected.insert(expected.end(), 0x100, 0xFF);
-    EXPECT_THAT(run.events.logs, ::testing::Not(::testing::IsEmpty()));
-    EXPECT_EQ(run.result->operation, FlashOperation::kRead);
-    EXPECT_THAT(*run.result->read_bytes, test_bytes::BytesEq(expected));
+    EXPECT_THAT(events.logs, ::testing::Not(::testing::IsEmpty()));
+    EXPECT_EQ(result->operation, FlashOperation::kRead);
+    EXPECT_THAT(*result->read_bytes, test_bytes::BytesEq(expected));
     script.Check();
-    ASSERT_FALSE(run.events.phase_progress_calls.empty());
-    EXPECT_EQ(run.events.phase_progress_calls.front().done, 0);
-    EXPECT_EQ(run.events.phase_progress_calls.back().done, static_cast<int>(Traits::kBlockLength));
+    EXPECT_THAT(sleeps, ::testing::ElementsAreArray(N83mConnectSleeps<Traits>(test_case.in_car)));
+    ASSERT_FALSE(events.phase_progress_calls.empty());
+    EXPECT_EQ(events.phase_progress_calls.front().done, 0);
+    EXPECT_EQ(events.phase_progress_calls.back().done, static_cast<int>(Traits::kBlockLength));
     if (!test_case.in_car)
     {
         ExpectSeedAndKeyReadTimeouts(script.transport);
@@ -237,14 +269,8 @@ template <typename Traits> void ExpectN83mWrite(N83mPattern pattern)
     ASSERT_THAT(plan, fastecu::testing::IsOk());
     RecordingClock recording;
     MockClock clock;
-    std::vector<std::pair<std::chrono::milliseconds, std::size_t>> sleeps;
-    ON_CALL(clock, Sleep)
-        .WillByDefault(
-            [&](auto duration, const auto& token)
-            {
-                sleeps.emplace_back(duration, script.transport.OperationAttempts().size());
-                return recording.Sleep(duration, token);
-            });
+    N83mSleepPositions sleeps;
+    RecordN83mSleeps(clock, recording, script.transport, sleeps);
     ManualCancellationToken token;
     RecordingEventSink events;
     const auto result = typename Traits::Executor{}.Execute(*plan, script.transport, clock, token, events);
@@ -255,11 +281,7 @@ template <typename Traits> void ExpectN83mWrite(N83mPattern pattern)
     EXPECT_EQ(events.phase_progress_calls.back().done, static_cast<int>(Traits::kBlockLength));
     script.Check();
     const std::size_t bench_reads = Traits::kDiscardFirstJumpReply ? 1 : 0;
-    std::vector<std::pair<std::chrono::milliseconds, std::size_t>> expected{{milliseconds{500}, 14}};
-    if (Traits::kDiscardFirstJumpReply)
-    {
-        expected.emplace_back(milliseconds{50}, 22);
-    }
+    auto expected = N83mConnectSleeps<Traits>(false);
     expected.emplace_back(milliseconds{500}, 25 + bench_reads);
     expected.emplace_back(milliseconds{100}, 28 + bench_reads + 2 * (Traits::kBlockLength / 256));
     EXPECT_THAT(sleeps, ::testing::ElementsAreArray(expected));

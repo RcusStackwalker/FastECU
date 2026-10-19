@@ -17,7 +17,7 @@
   },
   "size": {
     "baseline_total": 149087,
-    "candidate_total": 149905,
+    "candidate_total": 149924,
     "scope": [
       {
         "path": "src/backend/flash/ecu/subaru_denso_1n83m_1_5m_can_executor_test.cpp",
@@ -34,8 +34,8 @@
       {
         "path": "src/backend/flash/ecu/testing/n83m_executor_scenarios.h",
         "baseline": 0,
-        "candidate": 375,
-        "delta": 375
+        "candidate": 394,
+        "delta": 394
       },
       {
         "path": "src/backend/flash/ecu/testing/n83m_executor_scenarios_test.cpp",
@@ -69,8 +69,8 @@
       }
     ],
     "scoped_baseline": 1686,
-    "scoped_candidate": 2504,
-    "whole_tree_delta": 818,
+    "scoped_candidate": 2523,
+    "whole_tree_delta": 837,
     "production_delta": 0
   },
   "runtime": {
@@ -99,17 +99,17 @@
         "//src/backend/flash/ecu/testing:n83m_payloads_test",
         "//src/backend/flash/ecu/testing:n83m_executor_scenarios_test"
       ],
-      "warmup": 1.596,
+      "warmup": 1.604,
       "runs": [
-        1.616,
-        1.6059999999999999,
-        1.589,
-        1.568,
-        1.553
+        1.619,
+        1.642,
+        1.6360000000000001,
+        1.646,
+        1.654
       ],
-      "median": 1.589
+      "median": 1.642
     },
-    "growth_percent": 436.8243243243243
+    "growth_percent": 454.72972972972974
   },
   "baseline_testcases": [
     {
@@ -1165,6 +1165,35 @@
         ],
         "patch_sha256": "912e8ae0a852579e1ebec765db75216af01c0c370aaad1c0b5f1bc5aa0f6e21b",
         "patch": "--- src/backend/flash/ecu/subaru_denso_1n83m_4m_can_executor.cpp\n+++ src/backend/flash/ecu/subaru_denso_1n83m_4m_can_executor.cpp\n@@ -56,7 +56,7 @@\n // Named rather than repeated at each call so the one line a reader has to\n // compare across the four families is this one.\n constexpr std::chrono::milliseconds kProbeTimeout = kShortTimeout;\n-constexpr std::chrono::milliseconds kExtraLongTimeout{3000}; // serial_read_extra_long_timeout\n+constexpr std::chrono::milliseconds kExtraLongTimeout{123}; // serial_read_extra_long_timeout\n // Checksum verify reads twice and this family's two reads differ: the first\n // uses the bare 500 literal (line 1322, i.e. receive_timeout) and the re-read\n // after the ECU's 7F 31 78 pending answer uses\n"
+      },
+      {
+        "mutation": "in-car-settle-position-1_5m",
+        "returncode": 0,
+        "executed": 1,
+        "failures": [],
+        "patch_sha256": "00c999926f8883f0d4347837e1a6b70310fba94e55ea2eb3d92c267f9bea76d6",
+        "patch": "--- src/backend/flash/ecu/denso_iso15765_can_common.cpp\n+++ src/backend/flash/ecu/denso_iso15765_can_common.cpp\n@@ -596,16 +596,16 @@\n                                  std::chrono::milliseconds read_timeout)\n {\n     LogInfo(ctx, \"In car programming: accessing, please wait...\");\n-    if (const Status slept = ctx.clock.Sleep(std::chrono::milliseconds{500}, ctx.cancellation); !slept.has_value())\n-    {\n-        return slept;\n-    }\n     if (Result<bytes::Bytes> probe =\n             TolerantProbe(ctx, bytes::Bytes{uds::kSidDiagnosticSessionControl, kSessionProbe}, kSessionControlReply,\n                           0x01, read_timeout, kDensoIso15765RejectionPrefix, \"in-car access-method probe\");\n         !probe.has_value())\n     {\n         return std::unexpected(probe.error());\n+    }\n+    if (const Status slept = ctx.clock.Sleep(std::chrono::milliseconds{500}, ctx.cancellation); !slept.has_value())\n+    {\n+        return slept;\n     }\n     if (const Status sent =\n             run == DensoInCarRun::kSh ? ShInCarFireAndForget(ctx, can, read_timeout) : N83mInCarFireAndForget(ctx, can);\n"
+      },
+      {
+        "mutation": "in-car-settle-position-4m",
+        "returncode": 0,
+        "executed": 1,
+        "failures": [],
+        "patch_sha256": "00c999926f8883f0d4347837e1a6b70310fba94e55ea2eb3d92c267f9bea76d6",
+        "patch": "--- src/backend/flash/ecu/denso_iso15765_can_common.cpp\n+++ src/backend/flash/ecu/denso_iso15765_can_common.cpp\n@@ -596,16 +596,16 @@\n                                  std::chrono::milliseconds read_timeout)\n {\n     LogInfo(ctx, \"In car programming: accessing, please wait...\");\n-    if (const Status slept = ctx.clock.Sleep(std::chrono::milliseconds{500}, ctx.cancellation); !slept.has_value())\n-    {\n-        return slept;\n-    }\n     if (Result<bytes::Bytes> probe =\n             TolerantProbe(ctx, bytes::Bytes{uds::kSidDiagnosticSessionControl, kSessionProbe}, kSessionControlReply,\n                           0x01, read_timeout, kDensoIso15765RejectionPrefix, \"in-car access-method probe\");\n         !probe.has_value())\n     {\n         return std::unexpected(probe.error());\n+    }\n+    if (const Status slept = ctx.clock.Sleep(std::chrono::milliseconds{500}, ctx.cancellation); !slept.has_value())\n+    {\n+        return slept;\n     }\n     if (const Status sent =\n             run == DensoInCarRun::kSh ? ShInCarFireAndForget(ctx, can, read_timeout) : N83mInCarFireAndForget(ctx, can);\n"
+      },
+      {
+        "mutation": "image-base-full-offset",
+        "returncode": 3,
+        "executed": 1,
+        "failures": [
+          {
+            "case": "SubaruDenso1n83m_1_5mCanExecutorWrite.WriteErasesThenFlashesBlockOne",
+            "assertion": "src/backend/flash/ecu/subaru_denso_1n83m_1_5m_can_executor_test.cpp:339\nValue of: result\nExpected: is ok\n  Actual: error: Internal (scripted CAN exchange #14 (\"reflash chunks\") diverged\n  expected: 00 00 07 e0 b6 08 fa c0 00 43 e6 15 9e 65 55 00 d6 e5 45 c6 ee 01 26 5f a8 81 38 9f e2 f9 d3 ca 36 d8 79 c6 0f 31 84 f9 73 21 b3 83 27 d3 e6 24 fe fe f7 73 6c 36 a3 19 21 c3 72 c3 f9 0b c2 5a 23 f6 c6 ca 43 8f 78 8b 3d ea 8f 02 b3 67 23 4c fd 20 9d 89 1e 65 7a 8c 47 00 f6 8b 7b f1 2d 74 88 a4 69 45 34 06 7b 43 9a 9d 46 3a 3a e4 9c ef 47 fb e5 cd f2 94 a0 94 a7 f2 fa e8 84 25 33 03 d4 65 ee 37 94 4d d5 43 56 8c b4 33 1b b3 7f a9 3a 00 bd 32 08 c4 93 94 02 09 b9 8b 60 2b 34 e7 cf db 69 ff ad 45 9a 98 25 66 28 d3 6a 50 87 f4 76 9f b9 d3 a5 bb 37 94 70 cb 5d cb 94 52 3a 4e 16 3c 03 51 00 74 7d 34 df fd 9c c2 89 51 a6 4a e4 8a ee fb f7 f4 e2 5d 9e 74 f8 c2 ec 49 16 c0 bb c8 c0 76 e1 8c ec 43 50 98 "
+          }
+        ],
+        "patch_sha256": "ee6dcaa9d8bb98c37f5a009269ff7466f3025428f46c92a4eefbd312172e4b63",
+        "patch": "--- src/backend/flash/ecu/denso_iso15765_can_common.cpp\n+++ src/backend/flash/ecu/denso_iso15765_can_common.cpp\n@@ -172,7 +172,7 @@\n             return Fail(ErrorKind::kCancelled, \"write cancelled\");\n         }\n         const std::uint32_t block_addr = block.start + chunk_index * kChunkSize;\n-        const std::size_t image_offset = block_addr - image_base;\n+        const std::size_t image_offset = block_addr - image_base - 0x10000;\n         if (const Status written =\n                 DensoIso15765WriteChunk(ctx, block_addr, bytes::ByteView(encrypted).subspan(image_offset, kChunkSize));\n             !written.has_value())\n"
       }
     ],
     "candidate": [
@@ -1460,6 +1489,45 @@
         ],
         "patch_sha256": "912e8ae0a852579e1ebec765db75216af01c0c370aaad1c0b5f1bc5aa0f6e21b",
         "patch": "--- src/backend/flash/ecu/subaru_denso_1n83m_4m_can_executor.cpp\n+++ src/backend/flash/ecu/subaru_denso_1n83m_4m_can_executor.cpp\n@@ -56,7 +56,7 @@\n // Named rather than repeated at each call so the one line a reader has to\n // compare across the four families is this one.\n constexpr std::chrono::milliseconds kProbeTimeout = kShortTimeout;\n-constexpr std::chrono::milliseconds kExtraLongTimeout{3000}; // serial_read_extra_long_timeout\n+constexpr std::chrono::milliseconds kExtraLongTimeout{123}; // serial_read_extra_long_timeout\n // Checksum verify reads twice and this family's two reads differ: the first\n // uses the bare 500 literal (line 1322, i.e. receive_timeout) and the re-read\n // after the ECU's 7F 31 78 pending answer uses\n"
+      },
+      {
+        "mutation": "in-car-settle-position-1_5m",
+        "returncode": 3,
+        "executed": 1,
+        "failures": [
+          {
+            "case": "PathsAndPatterns/N83m15mRead.ReturnsCompleteIndependentPayload/InCarForward",
+            "assertion": "./src/backend/flash/ecu/testing/n83m_executor_scenarios.h:240\nValue of: sleeps\nExpected: has 1 element that is equal to (500ms, 14)\n  Actual: { (500ms, 16) }, whose element #0 ((500ms, 16)) isn't equal to (500ms, 14)\n"
+          }
+        ],
+        "patch_sha256": "00c999926f8883f0d4347837e1a6b70310fba94e55ea2eb3d92c267f9bea76d6",
+        "patch": "--- src/backend/flash/ecu/denso_iso15765_can_common.cpp\n+++ src/backend/flash/ecu/denso_iso15765_can_common.cpp\n@@ -596,16 +596,16 @@\n                                  std::chrono::milliseconds read_timeout)\n {\n     LogInfo(ctx, \"In car programming: accessing, please wait...\");\n-    if (const Status slept = ctx.clock.Sleep(std::chrono::milliseconds{500}, ctx.cancellation); !slept.has_value())\n-    {\n-        return slept;\n-    }\n     if (Result<bytes::Bytes> probe =\n             TolerantProbe(ctx, bytes::Bytes{uds::kSidDiagnosticSessionControl, kSessionProbe}, kSessionControlReply,\n                           0x01, read_timeout, kDensoIso15765RejectionPrefix, \"in-car access-method probe\");\n         !probe.has_value())\n     {\n         return std::unexpected(probe.error());\n+    }\n+    if (const Status slept = ctx.clock.Sleep(std::chrono::milliseconds{500}, ctx.cancellation); !slept.has_value())\n+    {\n+        return slept;\n     }\n     if (const Status sent =\n             run == DensoInCarRun::kSh ? ShInCarFireAndForget(ctx, can, read_timeout) : N83mInCarFireAndForget(ctx, can);\n"
+      },
+      {
+        "mutation": "in-car-settle-position-4m",
+        "returncode": 3,
+        "executed": 1,
+        "failures": [
+          {
+            "case": "PathsAndPatterns/N83m4mRead.ReturnsCompleteIndependentPayload/InCarForward",
+            "assertion": "./src/backend/flash/ecu/testing/n83m_executor_scenarios.h:240\nValue of: sleeps\nExpected: has 1 element that is equal to (500ms, 14)\n  Actual: { (500ms, 16) }, whose element #0 ((500ms, 16)) isn't equal to (500ms, 14)\n"
+          }
+        ],
+        "patch_sha256": "00c999926f8883f0d4347837e1a6b70310fba94e55ea2eb3d92c267f9bea76d6",
+        "patch": "--- src/backend/flash/ecu/denso_iso15765_can_common.cpp\n+++ src/backend/flash/ecu/denso_iso15765_can_common.cpp\n@@ -596,16 +596,16 @@\n                                  std::chrono::milliseconds read_timeout)\n {\n     LogInfo(ctx, \"In car programming: accessing, please wait...\");\n-    if (const Status slept = ctx.clock.Sleep(std::chrono::milliseconds{500}, ctx.cancellation); !slept.has_value())\n-    {\n-        return slept;\n-    }\n     if (Result<bytes::Bytes> probe =\n             TolerantProbe(ctx, bytes::Bytes{uds::kSidDiagnosticSessionControl, kSessionProbe}, kSessionControlReply,\n                           0x01, read_timeout, kDensoIso15765RejectionPrefix, \"in-car access-method probe\");\n         !probe.has_value())\n     {\n         return std::unexpected(probe.error());\n+    }\n+    if (const Status slept = ctx.clock.Sleep(std::chrono::milliseconds{500}, ctx.cancellation); !slept.has_value())\n+    {\n+        return slept;\n     }\n     if (const Status sent =\n             run == DensoInCarRun::kSh ? ShInCarFireAndForget(ctx, can, read_timeout) : N83mInCarFireAndForget(ctx, can);\n"
+      },
+      {
+        "mutation": "image-base-full-offset",
+        "returncode": 3,
+        "executed": 1,
+        "failures": [
+          {
+            "case": "Patterns/N83m15mWritePattern.SendsCompleteIndependentPayload/Forward",
+            "assertion": "./src/backend/flash/ecu/testing/n83m_executor_scenarios.h:274\nValue of: result\nExpected: is ok\n  Actual: error: Internal (scripted CAN exchange #14 diverged\n  expected: 00 00 07 e0 b6 08 fa c0 00 e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b c5 fe 4b 39 e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b c5 fe 4b 39 e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b c5 fe 4b 39 e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b c5 fe 4b 39 e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85 2b e0 d3 85"
+          }
+        ],
+        "patch_sha256": "ee6dcaa9d8bb98c37f5a009269ff7466f3025428f46c92a4eefbd312172e4b63",
+        "patch": "--- src/backend/flash/ecu/denso_iso15765_can_common.cpp\n+++ src/backend/flash/ecu/denso_iso15765_can_common.cpp\n@@ -172,7 +172,7 @@\n             return Fail(ErrorKind::kCancelled, \"write cancelled\");\n         }\n         const std::uint32_t block_addr = block.start + chunk_index * kChunkSize;\n-        const std::size_t image_offset = block_addr - image_base;\n+        const std::size_t image_offset = block_addr - image_base - 0x10000;\n         if (const Status written =\n                 DensoIso15765WriteChunk(ctx, block_addr, bytes::ByteView(encrypted).subspan(image_offset, kChunkSize));\n             !written.has_value())\n"
       }
     ]
   },
@@ -1484,20 +1552,20 @@
       "INFO: Elapsed time: 35.796s, Critical Path: 7.95s"
     ],
     "release-tests-final": [
-      "INFO: Elapsed time: 1.854s, Critical Path: 1.47s",
+      "INFO: Elapsed time: 2.000s, Critical Path: 1.59s",
       "Executed 5 out of 307 tests: 293 tests pass and 14 were skipped."
     ],
     "clang-tidy-final": [
-      "INFO: Elapsed time: 0.293s, Critical Path: 0.00s",
+      "INFO: Elapsed time: 0.321s, Critical Path: 0.00s",
       "Analyzing 5 translation units in report mode.",
-      "clang-tidy: analysis took 34.5s",
+      "clang-tidy: analysis took 36.8s",
       "Analyzing 5 translation units with inline checks.",
-      "clang-tidy: custom-analysis took 2.2s"
+      "clang-tidy: custom-analysis took 2.4s"
     ]
   },
   "mutation_bazel_elapsed_seconds": {
-    "baseline": 45.359,
-    "candidate": 47.316
+    "baseline": 52.322,
+    "candidate": 63.06
   },
   "artifact_hashes": {
     "baseline": {
@@ -1532,41 +1600,41 @@
       "subaru_denso_1n83m_4m_can_executor_test-5.xml": "50b4dc9f0d240d540f8a8d4cf5e0dc1f6bf337673cc5287932414c8ec8c20774"
     },
     "candidate": {
-      "n83m_executor_scenarios_test-0.xml": "d6dbf8db7a1a208d17c450ed0ea82361cdeaf57a71eb3d761e4454a694265951",
-      "n83m_executor_scenarios_test-1.xml": "5843fc432afd9ff2120da1076ce9a2aaf8d193e5777ce85c19c38c64d6e2f205",
-      "n83m_executor_scenarios_test-2.xml": "dc66d94201a5045215a817f865478178dadecb21b2f8f381cec7d4caa0460963",
-      "n83m_executor_scenarios_test-3.xml": "1aebbd9a88dd40ef915faa6d6b5fdd737f5b632c55dbe5e0b33bba28073713d1",
-      "n83m_executor_scenarios_test-4.xml": "88e1cd41ec5b2148750e5f4d6d68cae2d724a1ba9f12ce58e2b3183c6869ab57",
-      "n83m_executor_scenarios_test-5.xml": "9867089d4f001c093c84babf05d3610c3eb8e5691582299390848300d4145795",
-      "n83m_payloads_test-0.xml": "1d04a3bd461857b67a7f0cb9e7170e1ade74f393695581aed459de199d31b8cf",
-      "n83m_payloads_test-1.xml": "b7965a844efb2e09713f3f01fd535470f6101dbace9f5f69a074460dc1c226ac",
-      "n83m_payloads_test-2.xml": "096292f21a53f4ff21028c1509688826b867ad048dbb7bd4fc96d193fdae28a1",
-      "n83m_payloads_test-3.xml": "e32b9a09c2acd03f16e66d5db08b5c8497132d0c42a2d0f2f8dc91784d2c2502",
-      "n83m_payloads_test-4.xml": "1427c4f0a7dae87dd5512b1f85b80e8afc7c0f99eeacd6191e8009033ec1447f",
-      "n83m_payloads_test-5.xml": "249f617efc017997b2c7e351b11a8a49e38adb6d9e779822b28cff93f31509db",
-      "nloc-files.log": "fed4a0da44deaad30e247f40f698ffd33a83dc0873d80b69f40a1ef9acf4dfae",
-      "nloc-summary.log": "9ca0d0cfe015a920924f7ccb19ac3143b1014a1cc8e0b1722d5ea87b797bdd7e",
+      "n83m_executor_scenarios_test-0.xml": "d0818adf4cf105a38db72d86e3cb40c3eca2bc9df5e0043dd703a097aaaa691d",
+      "n83m_executor_scenarios_test-1.xml": "98060c0a30be2e2b17d6a3e2e42398e83256262f6ea51d25d13d9a611358c4c6",
+      "n83m_executor_scenarios_test-2.xml": "370c4d6f8f7b23fde0c067083d6774de0bd7d1fbdba9e0a852dac4feadc8a49f",
+      "n83m_executor_scenarios_test-3.xml": "804c869e48115f295a6cc801bf1f3aa297bd29dc3644aff96605909661c50bd9",
+      "n83m_executor_scenarios_test-4.xml": "9a5528db458b84e0a16ac39a71232b68d41438ba145a7e99bd47412815f3e500",
+      "n83m_executor_scenarios_test-5.xml": "5443c06df29729482a67b94e488b099d587cbc0cd4d7641dacba0c197902d7ab",
+      "n83m_payloads_test-0.xml": "c53af1fc2c0cec8e3cc01f7fe54caf980a51a7ded775f8b24ad2ed3385d273d3",
+      "n83m_payloads_test-1.xml": "50899bc267f79ff0fa3638b26d72b2e1ed03256be3e0e46ff13e7765d33afc0a",
+      "n83m_payloads_test-2.xml": "26bae574bf14cb7edb8f4030d3790145ad6b6db6cf47e74659b439f70361e462",
+      "n83m_payloads_test-3.xml": "f198ff062175ebf00cb29043221a5c9b984324b9c4fbfdc5d6316ce94546a4ac",
+      "n83m_payloads_test-4.xml": "18f74883e94499493cf315d5e5dd48195976c0999371d8d525ec39fb33555c92",
+      "n83m_payloads_test-5.xml": "2699b26d861a2fdb5d62837c351370e5f3fad352c8b5c68d7dc6a16c4126d980",
+      "nloc-files.log": "cdf6aba23df71472f32084f66ad7e4120edac064726f777761c6d38c461afe6b",
+      "nloc-summary.log": "e09c26a5dcf49ad851b708af174afadbcfe74f050001cf1b092115791be6bd23",
       "nloc-summary.txt": "5e35254186996fe56abcf11d757062553126f78a8801c778a1a1744b9e25a56c",
-      "runtime.json": "cf1d57784e848502287e0b25f9576da89d63660bd682a27d0d615f356b40b4bb",
-      "scripted_flash_transports_test-0.xml": "4baa96dad138631bb4538641080fb829e185ac0d34caec913ce5efb2a7d68dad",
-      "scripted_flash_transports_test-1.xml": "440be202814645e942b96f85a282bd862f5b356b63a13d5327a893084c685fe4",
-      "scripted_flash_transports_test-2.xml": "53f45173c999c90c417cb96d20bdd2690feb85a97e3878a68f5dde1236c47dde",
-      "scripted_flash_transports_test-3.xml": "0f5de8d1dea52121a749341c14b9f5bb24462ae6e2c3a4ea0989c7e8139a4654",
-      "scripted_flash_transports_test-4.xml": "0571c2222a8fbc843139a081c1820cb6decc907242f58527887f15d978b13868",
-      "scripted_flash_transports_test-5.xml": "7e4c7154c0feb93511ee608fb022ee53f3ca265c55fcf7200d5eedd67744deca",
+      "runtime.json": "f5e75545f7d1ca8386e256738c50aa730d3950ebdcf286f74c40c4344a7b24e4",
+      "scripted_flash_transports_test-0.xml": "899471bac84e5db43e0e8fbfa08e82210ab02e3a8331f72895cb8c62070fd130",
+      "scripted_flash_transports_test-1.xml": "d0d14ebe5f956daafc1aef909fde4ebb7daeb93c29d2b146983414552166c0ae",
+      "scripted_flash_transports_test-2.xml": "6168d7066371cae415b03dadbbffdc32576ff267be4764422cb756694e3acb5f",
+      "scripted_flash_transports_test-3.xml": "f2b0de11a75ef712aedb3a449aa7bc997d8fdbfbe3f8bd62f07d781672f86de9",
+      "scripted_flash_transports_test-4.xml": "143dee73f946c86137c2e877fe9ebb2ce9e657525acd9e1416704e967984647d",
+      "scripted_flash_transports_test-5.xml": "7ed3af55d35070c5e57f292bae24f8397cc23e01b1f6f231e1916aaff9cee3fc",
       "size.json": "2a477447ade08e5327161b219c32d88925c08b813b579a609888e2130a5e65d7",
-      "subaru_denso_1n83m_1_5m_can_executor_test-0.xml": "e4693ba2d9637e1fd0f03eed7c52f4ac325d405564be2d2c1ee04f6f9dfc44ec",
-      "subaru_denso_1n83m_1_5m_can_executor_test-1.xml": "f7d0e5fc4df18f4e71f8c72a29d0e72f91a49caeda5965764ed0555974ea943f",
-      "subaru_denso_1n83m_1_5m_can_executor_test-2.xml": "e62971203db9c091c02e962f8d792ab18d6e99d872aedcea6cd484f92597488f",
-      "subaru_denso_1n83m_1_5m_can_executor_test-3.xml": "dc370165d2505a01050c723d95624ff400c4b48498eb3921509232a364f39d39",
-      "subaru_denso_1n83m_1_5m_can_executor_test-4.xml": "263bf20dcbb77e252e6765e94c59709029324aad523b032a84056dc27ed05ce6",
-      "subaru_denso_1n83m_1_5m_can_executor_test-5.xml": "e965339c423a69a49237a440929780eea9796a88482f3ae13006d28768f6c4f6",
-      "subaru_denso_1n83m_4m_can_executor_test-0.xml": "2f3b0f24600e4f36193386263927b9d7426105d14d906d350f708f0830637516",
-      "subaru_denso_1n83m_4m_can_executor_test-1.xml": "999d78d5cf5302f0a6aae936a9b46233612426a27844f9c9fe62633fdf43cf7f",
-      "subaru_denso_1n83m_4m_can_executor_test-2.xml": "394d6e2c53cfdf85e9afaf3c03d3802e5a5f5ffa9a7aca66a2f9068e3542407b",
-      "subaru_denso_1n83m_4m_can_executor_test-3.xml": "593c2d1886ba7fd9fc4e14ee1699cb3382a5d65894c37814b1d3fd547a060d02",
-      "subaru_denso_1n83m_4m_can_executor_test-4.xml": "62edb28e7d3a60e9eba330072e00deee96499ed3c74159b3ee669255f4fdeadc",
-      "subaru_denso_1n83m_4m_can_executor_test-5.xml": "bd596ac76f8c80798e67fbc125aef64c937188b4cd531967285dc60bff16cde1"
+      "subaru_denso_1n83m_1_5m_can_executor_test-0.xml": "f71f897ef9c6c40e46d4ad92529de736436e5fa99ff7e66b5d6ad261873a8dea",
+      "subaru_denso_1n83m_1_5m_can_executor_test-1.xml": "e9a80207d30a42a056e753d060ae0c43c7136973d45777505f44596754bf4b73",
+      "subaru_denso_1n83m_1_5m_can_executor_test-2.xml": "6de63f3aa76bee522fb4fdab4ca5b271b06ca27ea3631a7a4b81ea738d850ea6",
+      "subaru_denso_1n83m_1_5m_can_executor_test-3.xml": "93449488efb19d781960fcd88479cc718ae9e4998440d9867d36d01d8bad4589",
+      "subaru_denso_1n83m_1_5m_can_executor_test-4.xml": "33639b241bb27faca0978b014055de54a54499acd0f2c5f91a754d1651399020",
+      "subaru_denso_1n83m_1_5m_can_executor_test-5.xml": "2172fd3b1f25302bef3c0d8dad7003716726a892b6ac6cdcf3022d2865643530",
+      "subaru_denso_1n83m_4m_can_executor_test-0.xml": "23893da6c718be3ccd9e818205eb8a7ffd47fd8d20a46ebb9479335f9caeb40c",
+      "subaru_denso_1n83m_4m_can_executor_test-1.xml": "9c1c6dd09acc2350586b8944b3bf0a882012ca9fdd0d713c72195e31f71d950b",
+      "subaru_denso_1n83m_4m_can_executor_test-2.xml": "8deb9635f65aedfde3d086ee8615f80292ca0fd0449e893688770fea7437d7e2",
+      "subaru_denso_1n83m_4m_can_executor_test-3.xml": "cd11e4fe52d1a906b6d3c219ad76f1c8370de094711182c4151cd3fa130a14c7",
+      "subaru_denso_1n83m_4m_can_executor_test-4.xml": "23fb556bb990eabe4f90a0425696615167435f66126d785b64c924b365809b55",
+      "subaru_denso_1n83m_4m_can_executor_test-5.xml": "b787ac84c9801cdd92583e6fec3faa76c692a806377f550235e6f04ec566038c"
     }
   },
   "consumer_manifest_observed_at_baseline": [
@@ -1610,5 +1678,16 @@
     "//src/backend/flash:bound_flash_attempt_test",
     "//src/backend/flash:can_flash_uds_channel_test",
     "//src/platform/desktop/common/flash/worker:test_flash_worker"
-  ]
+  ],
+  "candidate_cpp_sha256": {
+    "src/backend/flash/ecu/subaru_denso_1n83m_1_5m_can_executor_test.cpp": "42068de166acc2c094dec02b5804a9fe21edb77208ac7241263196b92b31e83c",
+    "src/backend/flash/ecu/subaru_denso_1n83m_4m_can_executor_test.cpp": "7875e31f4afc4a4c6dcb282173ea7c81baf9128e62817d598b40369c9451ba91",
+    "src/backend/flash/ecu/testing/n83m_executor_scenarios.h": "e06fe50ee27790dd4f16f23fc826962f257e210f8257d03b9a1790233664833d",
+    "src/backend/flash/ecu/testing/n83m_executor_scenarios_test.cpp": "a02417ba41e6506f8167dbdd4630f1a73cd7f111a8964d7ce00cd42a6ec6f979",
+    "src/backend/flash/ecu/testing/n83m_payloads.h": "f38fef64b29ae9172510217e9c82411b7b0e3055e66ddfcee634bea85de146b0",
+    "src/backend/flash/ecu/testing/n83m_payloads_test.cpp": "15e0009998d806920d3ef27f6c7b424b10b91e36852718c37ed0d6ebeeb0b675",
+    "src/backend/flash/testing/scripted_can_flash_transport.h": "892d94482cb406e578fb5d1828e4c5bb67543bfb87152f61bceb287635ad5fd5",
+    "src/backend/flash/testing/scripted_flash_transports_test.cpp": "7b21d27006316450ee27ace35dc83da029a920bc3ef1ffb5d75fd9b1e2a998ed"
+  },
+  "mutation_revision_note": "Mutation failure text records line numbers at the time each defect was checked during implementation. Named cases and exact patches identify the detectors. Final ordinary checks and runtime measurements use the restored source snapshot identified by candidate_cpp_sha256; no production mutation is delivered."
 }

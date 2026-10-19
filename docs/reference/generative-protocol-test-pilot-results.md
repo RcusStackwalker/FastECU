@@ -1,8 +1,8 @@
 # Generative protocol test pilot results
 
 **Outcome: the bounded candidate fails the size and runtime gates.** It adds
-818 net NLOC and increases median ordinary execution by 436.8%.
-The required behavior matrix and all 17 targeted mutation detectors pass.
+837 net NLOC and increases median ordinary execution by 454.7%.
+The required behavior matrix and all 20 targeted mutation detectors pass.
 This is a failed size-reduction experiment, not a rollout recommendation or a
 hardware qualification claim.
 See the [design](../superpowers/specs/2026-10-19-generative-protocol-test-pilot-design.md)
@@ -127,7 +127,7 @@ Confirmed **63** executed executor cases in baseline XML.
 | `IdentityExchangeFailuresIncludingCancellationAreNonFatal` | VIN returns kCancelled: tolerate; all four failures occur together; next access-method timeout propagates with the original read-timeout sequence |
 | `IdentityExchangeFailuresIncludingCancellationAreNonFatal` | CAL ID returns kCancelled: tolerate; all four failures occur together; next access-method timeout propagates with the original read-timeout sequence |
 | `IdentityExchangeFailuresIncludingCancellationAreNonFatal` | CVN returns kCancelled: tolerate; all four failures occur together; next access-method timeout propagates with the original read-timeout sequence |
-| `InCarJumpExhaustionAndCancellationPreserveTimeoutPolicy` | 1.5M outcome 0: immediate acknowledgement; preserve read count, 200 ms timeout policy, log meaning and exact sleep sequence |
+| `InCarReadReturnsPaddedImage` | 1.5M immediate acknowledgement: baseline asserts complete padded content; the two replacement in-car pattern cases additionally assert the 500 ms settle before the probe |
 | `InCarJumpExhaustionAndCancellationPreserveTimeoutPolicy` | 1.5M outcome 1: all eleven replies absent, exhaustion continues; preserve read count, 200 ms timeout policy, log meaning and exact sleep sequence |
 | `InCarJumpExhaustionAndCancellationPreserveTimeoutPolicy` | 1.5M outcome 2: queued cancellation propagates; preserve read count, 200 ms timeout policy, log meaning and exact sleep sequence |
 | `InCarJumpExhaustionAndCancellationPreserveTimeoutPolicy` | 4M outcome 0: immediate acknowledgement; preserve read count, 200 ms timeout policy, log meaning and exact sleep sequence |
@@ -186,9 +186,9 @@ Confirmed **63** executed executor cases in baseline XML.
 
 | Gate | Result | Evidence |
 | --- | --- | --- |
-| Protected obligations plus bounded additions | PASS for this scoped comparison | All original obligations retained or mapped above; both setup sites and both transfer loops exercised; 17/17 candidate mutations detected |
-| Remove at least 222 net NLOC including support | FAIL | 1,686 → 2,504: **+818 NLOC** |
-| Median ordinary runtime growth at most 25% | FAIL | 0.296s → 1.589s: **+436.8%** |
+| Protected obligations plus bounded additions | PASS for this scoped comparison | All original obligations retained or mapped above; both setup sites and both transfer loops exercised; 20/20 candidate mutations detected |
+| Remove at least 222 net NLOC including support | FAIL | 1,686 → 2,523: **+837 NLOC** |
+| Median ordinary runtime growth at most 25% | FAIL | 0.296s → 1.642s: **+454.7%** |
 
 The bounded migration retains existing shared-helper consumers and original
 family-local fault/close cases rather than forcing them into another large
@@ -211,20 +211,21 @@ mixed-fault close/checksum outcomes. No original semantic assertion is dropped.
 The old exact uniform fill checks are redundant with stronger full-image
 comparisons; no diagnostic narration assertions are removed.
 
+
 ## Candidate size accounting
 
 | File | Baseline NLOC | Candidate NLOC | Delta |
 | --- | ---: | ---: | ---: |
 | `src/backend/flash/ecu/subaru_denso_1n83m_1_5m_can_executor_test.cpp` | 523 | 590 | +67 |
 | `src/backend/flash/ecu/subaru_denso_1n83m_4m_can_executor_test.cpp` | 584 | 651 | +67 |
-| `src/backend/flash/ecu/testing/n83m_executor_scenarios.h` | 0 | 375 | +375 |
+| `src/backend/flash/ecu/testing/n83m_executor_scenarios.h` | 0 | 394 | +394 |
 | `src/backend/flash/ecu/testing/n83m_executor_scenarios_test.cpp` | 0 | 64 | +64 |
 | `src/backend/flash/ecu/testing/n83m_payloads.h` | 0 | 38 | +38 |
 | `src/backend/flash/ecu/testing/n83m_payloads_test.cpp` | 0 | 80 | +80 |
 | `src/backend/flash/testing/scripted_can_flash_transport.h` | 203 | 246 | +43 |
 | `src/backend/flash/testing/scripted_flash_transports_test.cpp` | 376 | 460 | +84 |
 
-Whole-tree scoped metric: 149,087 → 149,905; production stays
+Whole-tree scoped metric: 149,087 → 149,924; production stays
 69,504 NLOC (delta zero). The eight-file comparison includes every
 new or changed C++ support file and support self-test. No relocation, generated
 data exclusion or unrelated cleanup contributes savings.
@@ -239,7 +240,7 @@ focused suite also passes shuffled at GoogleTest seed 431.
 | Side | Warm-up (not measured) | Five summed XML execution durations | Median |
 | --- | ---: | --- | ---: |
 | Baseline | 0.332s | 0.303s, 0.294s, 0.304s, 0.296s, 0.280s | 0.296s |
-| Candidate | 1.596s | 1.616s, 1.606s, 1.589s, 1.568s, 1.553s | 1.589s |
+| Candidate | 1.604s | 1.619s, 1.642s, 1.636s, 1.646s, 1.654s | 1.642s |
 
 Build time and mutation verification are excluded from these execution durations.
 The initial focused baseline build took 23.170s; candidate release build and
@@ -253,12 +254,14 @@ is a completeness cross-check, not an acceptance guard.
 All patches were temporary; production files match the pinned source after
 restoration. A named assertion failure is required for detection. The JSON
 contains exact patches and assertion text, including detector case names.
+Failure line numbers reflect the test revision used during implementation; the
+final restored C++ source hashes identify the ordinary-test/runtime snapshot.
 
 | Deliberate defect | Baseline | Candidate |
 | --- | --- | --- |
 | `strict-download` | `SubaruDenso1n83m_1_5mCanExecutor.NegativeResponseAtDumpSetupFails` | `SitesAndReplies/N83m15mSetup.PreservesSitePolicy/DownloadMismatch` |
 | `strict-upload` | `survived: pre-existing gap` | `SitesAndReplies/N83m15mSetup.PreservesSitePolicy/UploadMismatch` |
-| `tolerant-setup` | `SubaruDenso1n83m_4mCanExecutor.ProceedsPastMalformedConnectAndDumpSetupResponses` | `SitesAndReplies/N83m4mSetup.PreservesSitePolicy/DownloadNoFrame` |
+| `tolerant-setup` | `SubaruDenso1n83m_4mCanExecutor.ProceedsPastMalformedConnectAndDumpSetupResponses` | `SitesAndReplies/N83m4mSetup.PreservesSitePolicy/DownloadNoFrame; SitesAndReplies/N83m4mSetup.PreservesSitePolicy/UploadNoFrame` |
 | `ignore-fatal-page` | `SubaruDenso1n83m_1_5mCanExecutor.ReadDisconnectMidDumpLoopPropagates` | `OperationsAndBoundaries/N83m15mTransferFault.AbortsAtSelectedIteration/ReadFirstDisconnected` |
 | `swallowed-extra-write` | `survived: pre-existing gap` | `PathsAndPatterns/N83m15mRead.ReturnsCompleteIndependentPayload/BenchForward` |
 | `swallowed-extra-read` | `survived: pre-existing gap` | `PathsAndPatterns/N83m15mRead.ReturnsCompleteIndependentPayload/BenchForward` |
@@ -273,10 +276,13 @@ contains exact patches and assertion text, including detector case names.
 | `read-cancellation-boundary` | `SubaruDenso1n83m_1_5mCan/CanExecutorConformance/0.ReadStopsAtTheNextChunkWhenCancelledMidRead` | `OperationsAndBoundaries/N83m15mTransferFault.AbortsAtSelectedIteration/ReadMiddleCancelled` |
 | `write-cancellation-boundary` | `survived: pre-existing gap` | `OperationsAndBoundaries/N83m15mTransferFault.AbortsAtSelectedIteration/WriteMiddleCancelled` |
 | `checksum-timeout-4m` | `ChecksumOutcomes/SubaruDenso1n83m_4mCanExecutorWrite.CloseRetriesSettleAndChecksumOutcomes/1` | `ChecksumOutcomes/SubaruDenso1n83m_4mCanExecutorWrite.CloseRetriesSettleAndChecksumOutcomes/1` |
+| `in-car-settle-position-1_5m` | `survived: pre-existing gap` | `PathsAndPatterns/N83m15mRead.ReturnsCompleteIndependentPayload/InCarForward` |
+| `in-car-settle-position-4m` | `survived: pre-existing gap` | `PathsAndPatterns/N83m4mRead.ReturnsCompleteIndependentPayload/InCarForward` |
+| `image-base-full-offset` | `SubaruDenso1n83m_1_5mCanExecutorWrite.WriteErasesThenFlashesBlockOne` | `Patterns/N83m15mWritePattern.SendsCompleteIndependentPayload/Forward` |
 
-The baseline detects 13/17; the candidate detects 17/17. The gaps exposed are
-strict upload rejection, swallowed extra writes/reads, and middle-write
-cancellation. The first attempted 4M checksum patch failed compilation because
+The baseline detects 14/20; the candidate detects 20/20. The gaps exposed are
+strict upload rejection, swallowed extra writes/reads, middle-write
+cancellation, and misplaced in-car settles in both families. The first attempted 4M checksum patch failed compilation because
 it made a constant unused; it was replaced by a compilable timeout-value patch
 and is not counted as a detector. The post-admission TestWrite guard remains
 unreachable independently of admission rejection; no suppression or artificial
@@ -299,5 +305,31 @@ The original mixed-fault close and identity semantics remain family-local and
 unchanged. The size/runtime failures prohibit describing this as a successful
 pilot or extrapolating savings to other families.
 
-Bazel elapsed time for the 17 final valid mutation invocations, including builds,
-was 45.359s on baseline and 47.316s on candidate. These are verification costs, not ordinary test runtime.
+Bazel elapsed time for the 20 final valid mutation invocations, including builds,
+was 52.322s on baseline and 63.06s on candidate. These are verification costs, not ordinary test runtime.
+
+## Final review disposition
+
+One fresh whole-branch reviewer checked the candidate, independently confirmed
+runtime medians, and checked mutation patch hashes. Its Important finding was
+missing read sleep/I/O-position assertions. The single fix pass now snapshots
+both read paths as well as writes. Moving the in-car 500 ms settle past its
+probe survived before the fix and fails afterward for both families; restored
+executors pass. The additional full image-origin `0x10000` shift also fails a
+named independent-payload assertion. Numerical measurements above were refreshed
+after this pass.
+
+Execution rulings and their limits:
+
+- Retain other original obligations in place: existing helpers already share them; the cost is a narrower compression attempt and less potential savings.
+- Correct the immediate-ack ledger mapping to the executing read-success case: crediting the nonexistent 1.5M outcome-0 branch would misstate evidence. This documentation accuracy issue was treated as part of the required fix pass.
+- The tolerant-setup mutation already detects Download and Upload; both case names are now shown rather than only the first JSON failure. Treating the first summary name as exhaustive would understate the existing evidence.
+- Hardware qualification/physical timing remain unchanged: scripted checks do not remove the risk of unqualified hardware behavior.
+- Platform CI/packaging remain pending: host-only success does not remove platform risk, and no push was authorized.
+- The negative result applies only to this bounded candidate: a better abstraction remains unexplored.
+- Arbitrary cipher inputs remain owned by the unchanged algorithm suites: the dictionary is a mapping oracle, not comprehensive crypto evidence.
+- Concurrent fake I/O and subclasses bypassing its base methods stay outside the observation contract: those uses need separate evidence.
+
+No further reviewer was dispatched and no unrelated polishing was folded into
+the fix pass. No remaining Critical/Important review finding is knowingly left
+open; external platform gates remain pending.

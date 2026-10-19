@@ -129,6 +129,14 @@ Use four literal pairs with provenance comments: `00010203/E0D3852B`, `FCFDFEFF/
 - [x] **Step 4: Implement `MakeN83mPayload` using only the committed dictionary and selection rule.** Cache immutable fixtures at suite scope only in consumers; every executor run gets fresh mutable collaborators. Do not replace old frozen boundary requests with these generated expectations.
 - [x] **Step 5: Run fixture, SSM and Denso common tests.** Expected: all pass, preserving the independent algorithm evidence. Regenerate/review BUILD changes and commit named paths as `test: add independent N83M payload patterns`.
 
+Execution ruling: steps below were closed with a bounded migration. Existing
+fault, short-page, jump and close obligations remain in their original cases;
+only proven read-success/first-page-disconnect predecessors were removed. The
+[results](../../reference/generative-protocol-test-pilot-results.md#final-review-disposition)
+record the narrower conclusion, review fixes and numerical failures. Checked
+steps do not imply that a full compression trial or external platform gates
+completed.
+
 ### Task 4: Introduce operation-specific scenarios and migrate 1.5M
 
 **Files:** Create `n83m_executor_scenarios.h` and its self-test; modify the 1.5M executor test, generated BUILD files and results ledger.
