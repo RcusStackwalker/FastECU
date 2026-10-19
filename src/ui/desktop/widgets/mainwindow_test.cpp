@@ -4113,11 +4113,10 @@ std::vector<ConnectionEntryPointsStopIdentificationCase> connectionEntryPointsSt
 {
     std::vector<ConnectionEntryPointsStopIdentificationCase> rows;
 
-    for (const char *name : {"logTransportChanged", "checkSerialPorts", "openSerialPort", "showDtcWindow",
-                             "showSubaruBiuWindow", "showTerminalWindow"})
-    {
-        rows.push_back(ConnectionEntryPointsStopIdentificationCase{name, QString::fromLatin1(name)});
-    }
+    constexpr std::array kNames{"logTransportChanged", "checkSerialPorts",    "openSerialPort",
+                                "showDtcWindow",       "showSubaruBiuWindow", "showTerminalWindow"};
+    std::ranges::transform(kNames, std::back_inserter(rows), [](const char *name)
+                           { return ConnectionEntryPointsStopIdentificationCase{name, QString::fromLatin1(name)}; });
 
     return rows;
 }

@@ -1,5 +1,7 @@
 #include "src/platform/desktop/common/logging/logging_csv_file.h"
 
+#include <algorithm>
+#include <iterator>
 #include <string_view>
 #include <utility>
 #include <QDir>
@@ -20,10 +22,8 @@ Status LoggingCsvFile::WriteRecord(const std::vector<std::string>& fields)
 {
     std::vector<std::string_view> views;
     views.reserve(fields.size());
-    for (const auto& field : fields)
-    {
-        views.push_back(field);
-    }
+    std::ranges::transform(fields, std::back_inserter(views),
+                           [](const auto& field) { return std::string_view{field}; });
     const auto record = fastecu::logging::SerializeLoggingCsvRecord(views);
     const auto size = static_cast<qint64>(record.size());
     if (file_->write(record.data(), size) != size || !file_->flush())
@@ -65,10 +65,7 @@ Result<QString> LoggingCsvFile::BeginRun(const fastecu::logging::LoggingRunSnaps
         }
     }
     std::vector<std::string> header{"Time"};
-    for (const auto& column : columns_)
-    {
-        header.push_back(column.name);
-    }
+    std::ranges::transform(columns_, std::back_inserter(header), [](const auto& column) { return column.name; });
     const auto written = WriteRecord(header);
     if (!written.has_value())
     {

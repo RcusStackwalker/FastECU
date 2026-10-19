@@ -5,6 +5,8 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <iterator>
+#include <ranges>
 #include <vector>
 
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
@@ -54,10 +56,8 @@ constexpr bytes::Byte kBlockChecksum = 0xc7;
 bytes::Bytes BlockResponse(std::uint32_t address, std::uint32_t length)
 {
     bytes::Bytes response{0x80, 0xf0, 0x18, static_cast<bytes::Byte>(length + 1), 0xe0};
-    for (std::uint32_t i = 0; i < length; ++i)
-    {
-        response.push_back(RomByte(address + i));
-    }
+    std::ranges::transform(std::views::iota(std::uint32_t{0}, length), std::back_inserter(response),
+                           [address](std::uint32_t i) { return RomByte(address + i); });
     response.push_back(kBlockChecksum);
     return response;
 }
@@ -71,10 +71,8 @@ void ExpectRomBlock(const bytes::Bytes& rom, std::uint32_t address, std::uint32_
     ASSERT_GE(rom.size(), address + length);
     bytes::Bytes expected;
     expected.reserve(length);
-    for (std::uint32_t i = 0; i < length; ++i)
-    {
-        expected.push_back(RomByte(address + i));
-    }
+    std::ranges::transform(std::views::iota(std::uint32_t{0}, length), std::back_inserter(expected),
+                           [address](std::uint32_t i) { return RomByte(address + i); });
     const auto begin = rom.begin() + static_cast<std::ptrdiff_t>(address);
     EXPECT_EQ(bytes::Bytes(begin, begin + static_cast<std::ptrdiff_t>(length)), expected);
 }

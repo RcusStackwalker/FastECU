@@ -1,7 +1,9 @@
 #include "src/backend/flash/ecu/subaru_mitsu_m32r_kline_plan.h"
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
+#include <ranges>
 #include <string_view>
 #include <utility>
 
@@ -23,14 +25,9 @@ bool GeometryOk(const FlashDevice& device)
     {
         return false;
     }
-    for (std::size_t i = 0; i < kExpected.size(); ++i)
-    {
-        if (device.fblocks[i].start != kExpected[i].start || device.fblocks[i].len != kExpected[i].len)
-        {
-            return false;
-        }
-    }
-    return true;
+    return std::ranges::all_of(
+        std::views::iota(std::size_t{0}, kExpected.size()), [&](std::size_t i)
+        { return device.fblocks[i].start == kExpected[i].start && device.fblocks[i].len == kExpected[i].len; });
 }
 
 bool WireParamsOk(const FlashPlan& plan)

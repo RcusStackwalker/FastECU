@@ -1,7 +1,9 @@
 #pragma once
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <ranges>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -120,14 +122,11 @@ inline constexpr auto kFlashFamilyNames = std::to_array({
 
 consteval bool FlashFamilyNamesFollowEnumOrder()
 {
-    for (std::size_t index = 0; index < kFlashFamilyNames.size(); ++index)
-    {
-        if (static_cast<std::size_t>(kFlashFamilyNames[index].first) != index)
-        {
-            return false;
-        }
-    }
-    return static_cast<std::size_t>(FlashFamily::kSubaruUnisiaJecsM32rBootModeProgram) + 1 == kFlashFamilyNames.size();
+    const bool in_order =
+        std::ranges::all_of(std::views::iota(std::size_t{0}, kFlashFamilyNames.size()), [](std::size_t index)
+                            { return static_cast<std::size_t>(kFlashFamilyNames[index].first) == index; });
+    return in_order &&
+           static_cast<std::size_t>(FlashFamily::kSubaruUnisiaJecsM32rBootModeProgram) + 1 == kFlashFamilyNames.size();
 }
 static_assert(FlashFamilyNamesFollowEnumOrder(), "name every FlashFamily, in declaration order");
 

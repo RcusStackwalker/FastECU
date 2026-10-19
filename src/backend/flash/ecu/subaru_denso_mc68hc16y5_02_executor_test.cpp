@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <array>
+#include <ranges>
 #include <span>
 
 #include <gmock/gmock.h>
@@ -214,12 +215,9 @@ void ScriptReadPage(ScriptedKlineFlashTransport& transport, std::uint32_t addres
 
 std::size_t PackedBlockOffset(const FlashDevice& device, unsigned block_no)
 {
-    std::size_t offset = 0;
-    for (unsigned index = 0; index < block_no; ++index)
-    {
-        offset += device.fblocks[index].len;
-    }
-    return offset;
+    return std::ranges::fold_left(std::views::iota(0U, block_no), std::size_t{0},
+                                  [&](std::size_t offset, unsigned index)
+                                  { return offset + device.fblocks[index].len; });
 }
 
 void ScriptCrcCompare(ScriptedKlineFlashTransport& transport, const FlashDevice& device, bytes::ByteView image,

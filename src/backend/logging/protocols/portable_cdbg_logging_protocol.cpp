@@ -1,5 +1,8 @@
 #include "src/backend/logging/protocols/portable_cdbg_logging_protocol.h"
 
+#include <algorithm>
+#include <iterator>
+#include <ranges>
 #include <string>
 #include <utility>
 
@@ -11,13 +14,14 @@ std::vector<mitsu_colt_can_cdbg::CdbgChannel> MakeWireChannels(const std::vector
 {
     std::vector<mitsu_colt_can_cdbg::CdbgChannel> wire_channels;
     wire_channels.reserve(channels.size());
-    for (const LoggingChannel& channel : channels)
-    {
-        wire_channels.push_back(mitsu_colt_can_cdbg::CdbgChannel{
-            .pointer = channel.address,
-            .size = static_cast<bytes::Byte>(channel.length),
-        });
-    }
+    std::ranges::transform(channels, std::back_inserter(wire_channels),
+                           [](const LoggingChannel& channel)
+                           {
+                               return mitsu_colt_can_cdbg::CdbgChannel{
+                                   .pointer = channel.address,
+                                   .size = static_cast<bytes::Byte>(channel.length),
+                               };
+                           });
     return wire_channels;
 }
 
@@ -84,13 +88,14 @@ fastecu::Result<PollData> CdbgLoggingProtocol::Poll(std::chrono::milliseconds ti
     }
     const std::size_t sample_count = values->values.size();
     data.samples.reserve(sample_count);
-    for (std::size_t i = 0; i < sample_count; ++i)
-    {
-        data.samples.push_back(ProtocolSample{
-            .channel_id = channels_[values->channel_offset + i].id,
-            .raw_value = std::to_string(values->values.at(i)),
-        });
-    }
+    std::ranges::transform(std::views::iota(std::size_t{0}, sample_count), std::back_inserter(data.samples),
+                           [&](std::size_t i)
+                           {
+                               return ProtocolSample{
+                                   .channel_id = channels_[values->channel_offset + i].id,
+                                   .raw_value = std::to_string(values->values.at(i)),
+                               };
+                           });
     return data;
 }
 

@@ -23,11 +23,9 @@ uint32_t TransformWord(uint32_t word, std::span<const std::uint16_t, Rounds> key
         uint32_t index = wordtogenerateindex ^ keytogenerateindex[ki];
         index += index << 16U;
 
-        uint16_t encryptionkey = 0;
-        for (unsigned int n = 0; n < 4; ++n)
-        {
-            encryptionkey += indextransformation[(index >> (n * 4)) & 0x1FU] << (n * 4);
-        }
+        uint16_t encryptionkey = std::ranges::fold_left(
+            std::views::iota(0U, 4U), uint16_t{0}, [&](uint16_t key, unsigned int n)
+            { return static_cast<uint16_t>(key + (indextransformation[(index >> (n * 4)) & 0x1FU] << (n * 4))); });
 
         encryptionkey = (encryptionkey >> 3U) + (encryptionkey << 13U);
         word = (encryptionkey ^ wordtobeencrypted) + (wordtogenerateindex << 16U);

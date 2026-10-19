@@ -19,6 +19,9 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <algorithm>
+#include <iterator>
+#include <ranges>
 #include <string_view>
 #include <utility>
 
@@ -397,19 +400,15 @@ bytes::Bytes EepromHeaderAckResponse()
 bytes::Bytes EepromPagedataResponse264Bytes()
 {
     bytes::Bytes out(8, 0xEE);
-    for (int i = 0; i < 256; ++i)
-    {
-        out.push_back(static_cast<bytes::Byte>(i));
-    }
+    std::ranges::transform(std::views::iota(0, 256), std::back_inserter(out),
+                           [](int i) { return static_cast<bytes::Byte>(i); });
     return out; // 264 bytes
 }
 bytes::Bytes ExpectedDecodedEeprom256Bytes()
 {
     bytes::Bytes out;
-    for (int i = 0; i < 256; ++i)
-    {
-        out.push_back(static_cast<bytes::Byte>(i));
-    }
+    std::ranges::transform(std::views::iota(0, 256), std::back_inserter(out),
+                           [](int i) { return static_cast<bytes::Byte>(i); });
     return out;
 }
 // A 16-byte (already 4-byte-aligned) kernel fixture -- this class's
@@ -419,10 +418,8 @@ bytes::Bytes ExpectedDecodedEeprom256Bytes()
 bytes::Bytes KernelFixtureBytes()
 {
     bytes::Bytes out;
-    for (int i = 0; i < 16; ++i)
-    {
-        out.push_back(static_cast<bytes::Byte>(i));
-    }
+    std::ranges::transform(std::views::iota(0, 16), std::back_inserter(out),
+                           [](int i) { return static_cast<bytes::Byte>(i); });
     return out;
 }
 

@@ -3,6 +3,7 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include <algorithm>
 #include <tuple>
 
 #include "src/algorithms/protocol/uds/uds_response.h"
@@ -237,14 +238,8 @@ TEST(UdsClientTest, LogsOnceForEachAbsorbedPending)
     uds::UdsClient client = f.Client();
     std::ignore = client.Request(request, kPolicy, f.cancellation);
 
-    int pending_lines = 0;
-    for (const auto& entry : f.events.logs)
-    {
-        if (entry.second.find("responsePending") != std::string::npos)
-        {
-            ++pending_lines;
-        }
-    }
+    const auto pending_lines = std::ranges::count_if(
+        f.events.logs, [](const auto& entry) { return entry.second.find("responsePending") != std::string::npos; });
     EXPECT_EQ(pending_lines, 1);
 }
 

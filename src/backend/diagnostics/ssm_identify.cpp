@@ -1,5 +1,6 @@
 #include "src/backend/diagnostics/ssm_identify.h"
 
+#include <algorithm>
 #include <array>
 #include <chrono>
 #include <cstddef>
@@ -25,11 +26,8 @@ bytes::Byte TargetId(SsmTarget target)
 
 bytes::Byte SsmChecksum(bytes::ByteView data)
 {
-    unsigned sum = 0;
-    for (const bytes::Byte byte : data)
-    {
-        sum += byte;
-    }
+    const unsigned sum =
+        std::ranges::fold_left(data, 0U, [](unsigned total, const bytes::Byte byte) { return total + byte; });
     return static_cast<bytes::Byte>(sum & 0xFFU);
 }
 

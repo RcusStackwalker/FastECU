@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <functional>
+#include <iterator>
 #include <span>
 #include <tuple>
 #include <utility>
@@ -247,10 +248,8 @@ void BiuOperationsSubaru::parseBiuCmd()
     }
 
     cmd_.clear();
-    for (int i = 0; i < selectedItemMsg.length(); i++)
-    {
-        cmd_.push_back(static_cast<bytes::Byte>(selectedItemMsg.at(i).toUInt(&ok, 16)));
-    }
+    std::ranges::transform(selectedItemMsg, std::back_inserter(cmd_),
+                           [&ok](const QString& item) { return static_cast<bytes::Byte>(item.toUInt(&ok, 16)); });
 
     if (selectedItemText == "SET:  Times & Temps")
     {

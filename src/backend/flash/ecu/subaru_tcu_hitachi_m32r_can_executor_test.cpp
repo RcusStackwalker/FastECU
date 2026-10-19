@@ -10,7 +10,9 @@
 #include <cstdint>
 #include <format>
 #include <initializer_list>
+#include <iterator>
 #include <optional>
+#include <ranges>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -1417,10 +1419,8 @@ TEST(SubaruTcuHitachiM32rCanExecutor, WriteFlashesBlocksThreeThroughTenAndNothin
 
     const std::vector<std::uint32_t> opened = WindowStarts(transport.writes);
     std::vector<std::uint32_t> expected_opened;
-    for (unsigned blockno = 3; blockno < device->numblocks; ++blockno)
-    {
-        expected_opened.push_back(device->fblocks[blockno].start);
-    }
+    std::ranges::transform(std::views::iota(3U, device->numblocks), std::back_inserter(expected_opened),
+                           [&](unsigned blockno) { return device->fblocks[blockno].start; });
     EXPECT_EQ(opened, expected_opened);
 
     // The "not" side, spelled out: blocks 0-2 carry the bootloader. An
@@ -1730,10 +1730,8 @@ TEST(SubaruTcuHitachiM32rCanExecutor, WithNoScriptToStopItTheWriteStillNeverTouc
 
     const std::vector<std::uint32_t> opened = WindowStarts(transport.writes);
     std::vector<std::uint32_t> expected_opened;
-    for (unsigned blockno = 3; blockno < device->numblocks; ++blockno)
-    {
-        expected_opened.push_back(device->fblocks[blockno].start);
-    }
+    std::ranges::transform(std::views::iota(3U, device->numblocks), std::back_inserter(expected_opened),
+                           [&](unsigned blockno) { return device->fblocks[blockno].start; });
     EXPECT_EQ(opened, expected_opened);
     for (unsigned blockno = 0; blockno < 3; ++blockno)
     {

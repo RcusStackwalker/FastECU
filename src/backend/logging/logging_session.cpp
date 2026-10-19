@@ -5,6 +5,7 @@
 #include <chrono>
 #include <cmath>
 #include <format>
+#include <iterator>
 #include <string>
 #include <string_view>
 #include <unordered_set>
@@ -55,10 +56,9 @@ bool ValidWireShape(LoggingProtocolId protocol, const std::vector<LoggingChannel
     {
         std::vector<mitsu_colt_can_cdbg::CdbgChannel> wire_channels;
         wire_channels.reserve(channels.size());
-        for (const LoggingChannel& channel : channels)
-        {
-            wire_channels.push_back({channel.address, static_cast<bytes::Byte>(channel.length)});
-        }
+        std::ranges::transform(
+            channels, std::back_inserter(wire_channels), [](const LoggingChannel& channel)
+            { return mitsu_colt_can_cdbg::CdbgChannel{channel.address, static_cast<bytes::Byte>(channel.length)}; });
         std::vector<std::vector<mitsu_colt_can_cdbg::CdbgChannel>> frames;
         return mitsu_colt_can_cdbg::BatchChannelsIntoFrames(wire_channels, frames);
     }
@@ -242,11 +242,8 @@ CompileChannels(LoggingProtocolId protocol, const std::vector<LoggingChannel>& c
 
 fastecu::Status ValidateMutRequestSize(const std::vector<LoggingChannel>& channels)
 {
-    std::size_t bytes = 0;
-    for (const auto& source : channels)
-    {
-        bytes += source.length;
-    }
+    const std::size_t bytes = std::ranges::fold_left(channels, std::size_t{0}, [](std::size_t total, const auto& source)
+                                                     { return total + source.length; });
     if (channels.size() > 96 || bytes > 96)
     {
         return Fail(ErrorKind::kInvalidConfig, "MUT request exceeds 96 entries or 96 response bytes");

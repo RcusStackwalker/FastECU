@@ -6,6 +6,8 @@
 
 #include <algorithm>
 #include <format>
+#include <iterator>
+#include <ranges>
 #include <string_view>
 #include <vector>
 
@@ -106,10 +108,7 @@ class FaultingTransport final : public ScriptedKlineFlashTransport
 bytes::Bytes Ascii(std::string_view text)
 {
     bytes::Bytes out;
-    for (const char c : text)
-    {
-        out.push_back(static_cast<bytes::Byte>(c));
-    }
+    std::ranges::transform(text, std::back_inserter(out), [](const char c) { return static_cast<bytes::Byte>(c); });
     return out;
 }
 
@@ -325,10 +324,8 @@ TEST(SubaruDensoMc68hc16y5_02BdmExecutor, CancellationBetweenPagesStopsBeforeThe
 bytes::Bytes KernelBytes()
 {
     bytes::Bytes kernel;
-    for (int value = 1; value <= 40; ++value)
-    {
-        kernel.push_back(static_cast<bytes::Byte>(value));
-    }
+    std::ranges::transform(std::views::iota(1, 41), std::back_inserter(kernel),
+                           [](int value) { return static_cast<bytes::Byte>(value); });
     return kernel;
 }
 

@@ -1,8 +1,10 @@
 #include "src/backend/flash/ecu/subaru_denso_mc68hc16y5_02_bdm_executor.h"
 
+#include <algorithm>
 #include <chrono>
 #include <cstddef>
 #include <format>
+#include <iterator>
 #include <limits>
 #include <string>
 #include <string_view>
@@ -34,10 +36,7 @@ bytes::Bytes Ascii(std::string_view text)
 {
     bytes::Bytes out;
     out.reserve(text.size());
-    for (const char c : text)
-    {
-        out.push_back(static_cast<bytes::Byte>(c));
-    }
+    std::ranges::transform(text, std::back_inserter(out), [](const char c) { return static_cast<bytes::Byte>(c); });
     return out;
 }
 

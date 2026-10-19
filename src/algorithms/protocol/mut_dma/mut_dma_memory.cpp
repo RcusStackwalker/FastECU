@@ -2,6 +2,8 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <iterator>
+#include <ranges>
 
 namespace mutdma
 {
@@ -34,20 +36,16 @@ std::vector<Channel> PlanReadChannels(std::uint16_t addr, int len)
 {
     std::vector<Channel> ch;
     ch.reserve(len > 0 ? static_cast<std::size_t>(len) : 0);
-    for (int i = 0; i < len; ++i)
-    {
-        ch.push_back(Channel{static_cast<std::uint16_t>(addr + i), 1});
-    }
+    std::ranges::transform(std::views::iota(0, len), std::back_inserter(ch),
+                           [addr](int i) { return Channel{static_cast<std::uint16_t>(addr + i), 1}; });
     return ch;
 }
 bytes::Bytes ReassembleRead(const std::vector<std::uint32_t>& values)
 {
     bytes::Bytes out;
     out.reserve(static_cast<std::size_t>(values.size()));
-    for (std::uint32_t v : values)
-    {
-        out.push_back(static_cast<bytes::Byte>(v & 0xFF));
-    }
+    std::ranges::transform(values, std::back_inserter(out),
+                           [](std::uint32_t v) { return static_cast<bytes::Byte>(v & 0xFF); });
     return out;
 }
 } // namespace mutdma

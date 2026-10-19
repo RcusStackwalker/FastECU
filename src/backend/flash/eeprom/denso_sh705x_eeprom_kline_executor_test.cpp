@@ -13,6 +13,9 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <algorithm>
+#include <iterator>
+#include <ranges>
 #include <string_view>
 
 #include "src/algorithms/protocol/bytes_compose.h"
@@ -182,10 +185,8 @@ bytes::Bytes EepromPayload280Bytes()
     {
         out.push_back(0xEE);
         out.push_back(0xEE);
-        for (int j = 0; j < 32; ++j)
-        {
-            out.push_back(static_cast<bytes::Byte>(block * 32 + j));
-        }
+        std::ranges::transform(std::views::iota(0, 32), std::back_inserter(out),
+                               [block](int j) { return static_cast<bytes::Byte>(block * 32 + j); });
         out.push_back(0xFF);
     }
     return out; // 280 bytes
@@ -194,10 +195,8 @@ bytes::Bytes EepromPayload280Bytes()
 bytes::Bytes ExpectedDecodedEeprom256Bytes()
 {
     bytes::Bytes out;
-    for (int i = 0; i < 256; ++i)
-    {
-        out.push_back(static_cast<bytes::Byte>(i));
-    }
+    std::ranges::transform(std::views::iota(0, 256), std::back_inserter(out),
+                           [](int i) { return static_cast<bytes::Byte>(i); });
     return out;
 }
 
@@ -254,10 +253,8 @@ bytes::Bytes KernelAliveResponse()
 bytes::Bytes KernelFixtureBytes()
 {
     bytes::Bytes out;
-    for (int i = 0; i < 16; ++i)
-    {
-        out.push_back(static_cast<bytes::Byte>(i));
-    }
+    std::ranges::transform(std::views::iota(0, 16), std::back_inserter(out),
+                           [](int i) { return static_cast<bytes::Byte>(i); });
     return out;
 }
 
@@ -444,10 +441,8 @@ TEST(DensoSh705xEepromKlineExecutorTest, KernelAlreadyRunningSkipsBootloaderMatc
 TEST(DensoSh705xEepromKlineExecutorTest, NonAlignedKernelIsPaddedBeforeEncryptionAvoidsOobRead)
 {
     bytes::Bytes kernel15;
-    for (int i = 0; i < 15; ++i)
-    {
-        kernel15.push_back(static_cast<bytes::Byte>(i));
-    }
+    std::ranges::transform(std::views::iota(0, 15), std::back_inserter(kernel15),
+                           [](int i) { return static_cast<bytes::Byte>(i); });
     auto plan = MakeKlinePlan(EepromReadMode::kMode2, kernel15, kKernelStartAddr);
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 

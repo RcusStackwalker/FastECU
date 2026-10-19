@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <format>
+#include <iterator>
 #include <utility>
 
 namespace fastecu::calibration
@@ -59,10 +60,7 @@ std::vector<SessionId> CalibrationWorkspace::Ids() const
 {
     std::vector<SessionId> result;
     result.reserve(sessions_.size());
-    for (const auto& session : sessions_)
-    {
-        result.push_back(session->Id());
-    }
+    std::ranges::transform(sessions_, std::back_inserter(result), [](const auto& session) { return session->Id(); });
     return result;
 }
 

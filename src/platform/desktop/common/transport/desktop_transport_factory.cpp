@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <format>
+#include <iterator>
 #include <utility>
 
 #include "src/platform/desktop/common/serial/j2534_driver_selection.h"
@@ -36,10 +37,8 @@ Result<std::vector<std::string>> ListDesktopSerialPorts(const DesktopCanTranspor
     }
     std::unique_ptr<SerialPortActions> serial = std::move(*made);
     std::vector<std::string> ports;
-    for (const QString& port : serial->CheckSerialPorts())
-    {
-        ports.push_back(port.toStdString());
-    }
+    std::ranges::transform(serial->CheckSerialPorts(), std::back_inserter(ports),
+                           [](const QString& port) { return port.toStdString(); });
     return ports;
 }
 

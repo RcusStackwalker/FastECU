@@ -1,4 +1,5 @@
 #include "src/algorithms/protocol/colt/mitsu_colt_can_cdbg_protocol.h"
+#include <algorithm>
 #include <array>
 #include <bit>
 
@@ -198,11 +199,8 @@ std::vector<std::uint32_t> DecodeFrame(bytes::Byte expected_frame_index, const s
         return {};
     }
 
-    std::size_t need = 1;
-    for (const CdbgChannel& ch : frame_items)
-    {
-        need += ch.size;
-    }
+    const std::size_t need = std::ranges::fold_left(
+        frame_items, std::size_t{1}, [](std::size_t sum, const CdbgChannel& ch) { return sum + ch.size; });
     if (frame.size() < need)
     {
         return {};

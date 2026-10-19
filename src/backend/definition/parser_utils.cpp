@@ -9,6 +9,7 @@
 #include <cctype>
 #include <cstddef>
 #include <format>
+#include <iterator>
 #include <limits>
 #include <system_error>
 #include <utility>
@@ -490,10 +491,8 @@ Status PopulateCommonAxisAttributes(pugi::xml_node table, UnresolvedAxisDefiniti
     if (table.child("data"))
     {
         std::vector<std::string> values;
-        for (pugi::xml_node data : table.children("data"))
-        {
-            values.push_back(TableElementText(data));
-        }
+        std::ranges::transform(table.children("data"), std::back_inserter(values),
+                               [](pugi::xml_node data) { return TableElementText(data); });
         axis.static_data = std::move(values);
     }
     return {};

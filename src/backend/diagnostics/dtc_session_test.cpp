@@ -3,6 +3,8 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <algorithm>
+#include <iterator>
 #include <string>
 #include <tuple>
 #include <vector>
@@ -35,10 +37,7 @@ namespace
 bytes::Bytes B(std::initializer_list<int> values)
 {
     bytes::Bytes out;
-    for (int v : values)
-    {
-        out.push_back(static_cast<bytes::Byte>(v));
-    }
+    std::ranges::transform(values, std::back_inserter(out), [](int v) { return static_cast<bytes::Byte>(v); });
     return out;
 }
 

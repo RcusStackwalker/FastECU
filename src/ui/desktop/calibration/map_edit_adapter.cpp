@@ -1,5 +1,7 @@
 #include "src/ui/desktop/calibration/map_edit_adapter.h"
 
+#include <algorithm>
+#include <iterator>
 #include <utility>
 #include <cstddef>
 #include <optional>
@@ -135,10 +137,8 @@ std::vector<std::vector<std::string>> splitPasteRows(const QString& text)
         const QStringList columns = row.split('\t');
         std::vector<std::string> ownedColumns;
         ownedColumns.reserve(static_cast<std::size_t>(columns.size()));
-        for (const auto& column : columns)
-        {
-            ownedColumns.push_back(column.toStdString());
-        }
+        std::ranges::transform(columns, std::back_inserter(ownedColumns),
+                               [](const auto& column) { return column.toStdString(); });
         ownedRows.push_back(std::move(ownedColumns));
     }
     return ownedRows;

@@ -6,6 +6,8 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <iterator>
+#include <ranges>
 #include <string_view>
 #include <tuple>
 #include <vector>
@@ -427,10 +429,9 @@ bytes::Bytes BlockRequest(std::uint32_t index)
     const bool last = index == kRomSize / 0x80 - 1;
     bytes::Bytes payload{0xaf, static_cast<bytes::Byte>(last ? 0x69 : 0x61), static_cast<bytes::Byte>(address >> 16U),
                          static_cast<bytes::Byte>(address >> 8U), static_cast<bytes::Byte>(address)};
-    for (std::uint32_t j = 0; j < 0x80; ++j)
-    {
-        payload.push_back(static_cast<bytes::Byte>(RomImage()[address + j] ^ 0x82U));
-    }
+    std::ranges::transform(std::views::iota(std::uint32_t{0}, std::uint32_t{0x80}), std::back_inserter(payload),
+                           [address](std::uint32_t j)
+                           { return static_cast<bytes::Byte>(RomImage()[address + j] ^ 0x82U); });
     return Request(payload);
 }
 

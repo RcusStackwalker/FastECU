@@ -8,6 +8,7 @@
 #include <array>
 #include <cstdint>
 #include <format>
+#include <iterator>
 #include <memory>
 #include <optional>
 #include <ostream>
@@ -234,10 +235,9 @@ std::vector<Extent> WritableExtents(const MemoryMap& map)
 std::vector<Extent> FlashExtents(const FlashDevice& device)
 {
     std::vector<Extent> extents;
-    for (const FlashBlock& block : std::span(device.fblocks, device.numblocks))
-    {
-        extents.push_back(Extent{.start = block.start, .end = std::uint64_t{block.start} + block.len});
-    }
+    std::ranges::transform(std::span(device.fblocks, device.numblocks), std::back_inserter(extents),
+                           [](const FlashBlock& block)
+                           { return Extent{.start = block.start, .end = std::uint64_t{block.start} + block.len}; });
     return Merged(std::move(extents));
 }
 
@@ -274,10 +274,8 @@ std::vector<MemoryMap> CandidateMaps(const config::ProtocolSpec& protocol, const
     {
         sizes.push_back(ByteCount{device.romsize});
     }
-    for (const config::MemoryMapSpec& spec : protocol.memory_maps)
-    {
-        sizes.push_back(spec.FileSize());
-    }
+    std::ranges::transform(protocol.memory_maps, std::back_inserter(sizes),
+                           [](const config::MemoryMapSpec& spec) { return spec.FileSize(); });
     std::vector<MemoryMap> maps;
     for (const ByteCount size : sizes)
     {

@@ -5,6 +5,8 @@
 #include <QClipboard>
 #include <QKeyEvent>
 #include <QKeySequence>
+#include <algorithm>
+#include <iterator>
 #include <string>
 #include <variant>
 #include <vector>
@@ -167,11 +169,9 @@ TEST_F(QHexEditKeysTest, cutsCopiesAndPastesThroughTheClipboard)
 {
     std::vector<std::string> steps = trace({SK::SelectNextChar, SK::SelectNextChar, SK::Copy});
     steps.push_back(QApplication::clipboard()->text().toStdString());
-    for (const auto& step : trace({SK::MoveToEndOfLine, SK::Paste, SK::SelectNextChar, SK::SelectNextChar, SK::Cut,
-                                   Qt::Key_Insert, SK::Paste, SK::SelectNextChar, SK::SelectNextChar, SK::Cut}))
-    {
-        steps.push_back(step);
-    }
+    std::ranges::copy(trace({SK::MoveToEndOfLine, SK::Paste, SK::SelectNextChar, SK::SelectNextChar, SK::Cut,
+                             Qt::Key_Insert, SK::Paste, SK::SelectNextChar, SK::SelectNextChar, SK::Cut}),
+                      std::back_inserter(steps));
     EXPECT_THAT(
         steps,
         ElementsAre("1 [] 00112233445566778899aabbccddeeff0123456789abcdef0123456789abcdef/32 ovr",

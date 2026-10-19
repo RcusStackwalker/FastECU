@@ -1,5 +1,7 @@
 #include <gtest/gtest.h>
 
+#include <algorithm>
+
 #include "src/algorithms/protocol/mut_dma/mut_dma_codec.h"
 #include "src/algorithms/protocol/mut_dma/mut_dma_freeform.h"
 #include "src/algorithms/protocol/mut_dma/mut_dma_memory.h"
@@ -29,11 +31,7 @@ TEST(TestMemory, write_chunks_large_payload)
     bytes::Bytes data(100, 0x5A); // > one frame's data capacity
     const std::vector<MutDmaFrame> frames = BuildWriteFrames(0x8000, data);
     ASSERT_TRUE(frames.size() >= 3);
-    int total = 0;
-    for (const MutDmaFrame& f : frames)
-    {
-        total += f[5];
-    }
+    const int total = std::ranges::fold_left(frames, 0, [](int sum, const MutDmaFrame& f) { return sum + f[5]; });
     ASSERT_EQ(total, static_cast<int>(data.size())); // all bytes accounted for
 }
 

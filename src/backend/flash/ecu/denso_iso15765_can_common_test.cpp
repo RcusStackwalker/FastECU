@@ -1,10 +1,12 @@
 #include "src/algorithms/protocol/testing/byte_matchers.h"
 #include "src/backend/flash/ecu/denso_iso15765_can_common.h"
 
+#include <algorithm>
 #include <array>
 #include <chrono>
 #include <cstdint>
 #include <initializer_list>
+#include <iterator>
 #include <string_view>
 
 #include <gmock/gmock.h>
@@ -640,10 +642,8 @@ void ScriptTwoShortPages(CommonFixture& f)
 std::vector<int> ProgressDone(const RecordingEventSink& events)
 {
     std::vector<int> done;
-    for (const auto& call : events.phase_progress_calls)
-    {
-        done.push_back(call.done);
-    }
+    std::ranges::transform(events.phase_progress_calls, std::back_inserter(done),
+                           [](const auto& call) { return call.done; });
     return done;
 }
 

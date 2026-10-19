@@ -1,6 +1,8 @@
 #include "src/backend/logging/logger_definition_parser.h"
 
+#include <algorithm>
 #include <format>
+#include <iterator>
 #include <string>
 
 #include <pugixml.hpp>
@@ -50,20 +52,20 @@ LoggerParameter ParseParameter(pugi::xml_node node, std::string_view protocol)
     {
         parameter.address = address.child_value();
         parameter.length = AttributeOr(address, "length", "1");
-        for (pugi::xml_node item : node.children("address"))
-        {
-            parameter.address_specs.push_back(
-                {.value = item.child_value(),
-                 .length = item.attribute("length") ? std::optional<std::string>{item.attribute("length").value()}
-                                                    : std::nullopt,
-                 .bit =
-                     item.attribute("bit") ? std::optional<std::string>{item.attribute("bit").value()} : std::nullopt});
-        }
+        std::ranges::transform(
+            node.children("address"), std::back_inserter(parameter.address_specs),
+            [](pugi::xml_node item)
+            {
+                return LoggerAddressSpec{
+                    .value = item.child_value(),
+                    .length = item.attribute("length") ? std::optional<std::string>{item.attribute("length").value()}
+                                                       : std::nullopt,
+                    .bit = item.attribute("bit") ? std::optional<std::string>{item.attribute("bit").value()}
+                                                 : std::nullopt};
+            });
     }
-    for (pugi::xml_node conversion : node.child("conversions").children("conversion"))
-    {
-        parameter.conversions.push_back(ParseConversion(conversion));
-    }
+    std::ranges::transform(node.child("conversions").children("conversion"), std::back_inserter(parameter.conversions),
+                           [](pugi::xml_node conversion) { return ParseConversion(conversion); });
     return parameter;
 }
 
@@ -105,14 +107,11 @@ Result<LoggerDefinition> ParseLoggerDefinition(bytes::ByteView xml, std::string_
     for (pugi::xml_node protocol : root.child("protocols").children("protocol"))
     {
         const std::string protocol_id = AttributeOr(protocol, "id", "No protocol id");
-        for (pugi::xml_node parameter : protocol.child("parameters").children("parameter"))
-        {
-            definition.parameters.push_back(ParseParameter(parameter, protocol_id));
-        }
-        for (pugi::xml_node paramswitch : protocol.child("switches").children("switch"))
-        {
-            definition.switches.push_back(ParseSwitch(paramswitch, protocol_id));
-        }
+        std::ranges::transform(protocol.child("parameters").children("parameter"),
+                               std::back_inserter(definition.parameters),
+                               [&](pugi::xml_node parameter) { return ParseParameter(parameter, protocol_id); });
+        std::ranges::transform(protocol.child("switches").children("switch"), std::back_inserter(definition.switches),
+                               [&](pugi::xml_node paramswitch) { return ParseSwitch(paramswitch, protocol_id); });
     }
     return definition;
 }

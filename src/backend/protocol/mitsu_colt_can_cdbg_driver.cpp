@@ -1,6 +1,7 @@
 #include "src/backend/protocol/mitsu_colt_can_cdbg_driver.h"
 
 #include <algorithm>
+#include <ranges>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -164,11 +165,9 @@ fastecu::Result<CdbgLogDriver::PollResult> CdbgLogDriver::PollOnce(std::chrono::
     {
         return PollResult{};
     }
-    std::size_t offset = 0;
-    for (std::size_t index = 0; index < frame_index; ++index)
-    {
-        offset += frames_[index].size();
-    }
+    const std::size_t offset =
+        std::ranges::fold_left(std::views::iota(std::size_t{0}, frame_index), std::size_t{0},
+                               [this](std::size_t total, std::size_t index) { return total + frames_[index].size(); });
     return PollResult{.responded = true, .channel_offset = offset, .values = std::move(decoded)};
 }
 

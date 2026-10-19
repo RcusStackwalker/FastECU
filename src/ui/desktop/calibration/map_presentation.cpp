@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <format>
+#include <iterator>
 #include <limits>
 
 namespace fastecu::ui
@@ -41,10 +42,8 @@ std::optional<std::vector<PresentedCell>> presentAxis(const calibration::AxisVal
     if (const auto *labels = std::get_if<calibration::StaticAxis>(&axis))
     {
         std::vector<PresentedCell> cells;
-        for (const auto& label : labels->labels)
-        {
-            cells.push_back({.text = QString::fromStdString(label)});
-        }
+        std::ranges::transform(labels->labels, std::back_inserter(cells),
+                               [](const auto& label) { return PresentedCell{.text = QString::fromStdString(label)}; });
         return cells;
     }
     return std::nullopt;

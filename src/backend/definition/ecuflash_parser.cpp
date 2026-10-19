@@ -2,6 +2,7 @@
 #include "src/backend/definition/parser_utils.h"
 #include "src/backend/definition/text_format.h"
 
+#include <algorithm>
 #include <array>
 #include <charconv>
 #include <cctype>
@@ -9,6 +10,7 @@
 #include <cstdlib>
 #include <format>
 #include <iomanip>
+#include <iterator>
 #include <limits>
 #include <optional>
 #include <sstream>
@@ -191,10 +193,8 @@ void PopulateInlineXAxis(pugi::xml_node table, UnresolvedCalibrationMap& map)
     }
     map.x_axis.type = "Static X Axis";
     std::vector<std::string> values;
-    for (pugi::xml_node data : table.children("data"))
-    {
-        values.push_back(TableElementText(data));
-    }
+    std::ranges::transform(table.children("data"), std::back_inserter(values),
+                           [](pugi::xml_node data) { return TableElementText(data); });
     map.x_axis.static_data = std::move(values);
     map.x_axis.size = static_cast<std::uint32_t>(map.x_axis.static_data->size());
     map.x_size = map.x_axis.size;

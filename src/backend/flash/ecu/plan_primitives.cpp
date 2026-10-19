@@ -1,5 +1,9 @@
 #include "src/backend/flash/ecu/plan_primitives.h"
 
+#include <algorithm>
+#include <iterator>
+#include <ranges>
+
 namespace fastecu::flash::detail
 {
 bool FixedShapeDeviceMatches(const FlashDevice *device, std::uint32_t rom_size, unsigned block_count)
@@ -49,24 +53,20 @@ bool EraseGeometryMatches(std::span<const MemoryRegion> regions, const FlashDevi
     {
         return false;
     }
-    for (unsigned index = 0; index < device.numblocks; ++index)
-    {
-        if (regions[index].start != device.fblocks[index].start || regions[index].length != device.fblocks[index].len)
-        {
-            return false;
-        }
-    }
-    return true;
+    return std::ranges::all_of(std::views::iota(0U, device.numblocks),
+                               [&](unsigned index)
+                               {
+                                   return regions[index].start == device.fblocks[index].start &&
+                                          regions[index].length == device.fblocks[index].len;
+                               });
 }
 
 std::vector<MemoryRegion> MakeEraseRegions(const FlashDevice& device)
 {
     std::vector<MemoryRegion> regions;
     regions.reserve(device.numblocks);
-    for (unsigned index = 0; index < device.numblocks; ++index)
-    {
-        regions.push_back({device.fblocks[index].start, device.fblocks[index].len});
-    }
+    std::ranges::transform(std::views::iota(0U, device.numblocks), std::back_inserter(regions), [&](unsigned index)
+                           { return MemoryRegion{device.fblocks[index].start, device.fblocks[index].len}; });
     return regions;
 }
 } // namespace fastecu::flash::detail
