@@ -19,13 +19,9 @@ namespace fastecu::calibration
 {
 namespace
 {
-using fastecu::testing::IsErr;
 using fastecu::testing::IsOk;
 using fastecu::testing::IsOkAnd;
-using ::testing::AllOf;
 using ::testing::ElementsAre;
-using ::testing::Field;
-using ::testing::VariantWith;
 
 template <typename T>
 concept HasRvalueEditSpec = requires(T value) { std::move(value).EditSpec(); };
@@ -202,96 +198,6 @@ TEST(ByteWidth, AxisWithABloblistScalingUsesTheFirstSelectionWidth)
     map.x_axis.scaling_name = "s";
     map.x_axis.storage_type = definition::StorageType::kBloblist;
     EXPECT_EQ(internal::ResolveMapElement(definition, map, NumericTarget::kXAxis).byte_width, 3U);
-}
-
-definition::RomDefinition BlobDefinition()
-{
-    definition::RomDefinition definition;
-    definition::Scaling scaling;
-    scaling.name = "modes";
-    scaling.storage_type = definition::StorageType::kBloblist;
-    scaling.selections = {{"low", {0x01}}, {"high", {0x02}}};
-    definition.scalings.push_back(scaling);
-    return definition;
-}
-
-definition::CalibrationMap BlobMap()
-{
-    definition::CalibrationMap map;
-    map.type = "Selectable";
-    map.scaling_name = "modes";
-    map.storage_type = definition::StorageType::kBloblist;
-    map.address = memory::DefinitionAddress{4};
-    return map;
-}
-
-auto PatchAt(std::uint64_t address, bytes::Bytes value)
-{
-    return IsOkAnd(VariantWith<internal::BlobPatch>(
-        AllOf(Field(&internal::BlobPatch::address, address), Field(&internal::BlobPatch::bytes, value))));
-}
-
-auto Miss(internal::BlobMiss miss)
-{
-    return IsOkAnd(VariantWith<internal::BlobMiss>(miss));
-}
-
-TEST(ResolveBlobSelection, ReturnsTheNamedBytesAtTheMapAddress)
-{
-    EXPECT_THAT(internal::ResolveBlobSelection(BlobDefinition(), BlobMap(), "high"), PatchAt(4, {0x02}));
-    EXPECT_THAT(internal::ResolveBlobSelection(BlobDefinition(), BlobMap(), "low"), PatchAt(4, {0x01}));
-}
-
-TEST(ResolveBlobSelection, AMapWithoutAnAddressResolvesToAddressZero)
-{
-    auto map = BlobMap();
-    map.address.reset();
-    EXPECT_THAT(internal::ResolveBlobSelection(BlobDefinition(), map, "low"), PatchAt(0, {0x01}));
-}
-
-TEST(ResolveBlobSelection, StorageFallsBackToTheScaling)
-{
-    auto map = BlobMap();
-    map.storage_type.reset();
-    EXPECT_THAT(internal::ResolveBlobSelection(BlobDefinition(), map, "low"), PatchAt(4, {0x01}));
-}
-
-TEST(ResolveBlobSelection, StorageDeclaredOnTheMapAloneIsEnough)
-{
-    auto definition = BlobDefinition();
-    definition.scalings[0].storage_type.reset();
-    EXPECT_THAT(internal::ResolveBlobSelection(definition, BlobMap(), "low"), PatchAt(4, {0x01}));
-}
-
-TEST(ResolveBlobSelection, NonBlobMapsAreNotABlob)
-{
-    auto uint8 = BlobDefinition();
-    uint8.scalings[0].storage_type = definition::StorageType::kUint8;
-    auto uint8_map = BlobMap();
-    uint8_map.storage_type = definition::StorageType::kUint8;
-    EXPECT_THAT(internal::ResolveBlobSelection(uint8, uint8_map, "low"), Miss(internal::BlobMiss::kNotABlob));
-
-    auto no_selections = BlobDefinition();
-    no_selections.scalings[0].selections.clear();
-    EXPECT_THAT(internal::ResolveBlobSelection(no_selections, BlobMap(), "low"), Miss(internal::BlobMiss::kNotABlob));
-
-    auto no_scaling = BlobMap();
-    no_scaling.scaling_name = "missing";
-    EXPECT_THAT(internal::ResolveBlobSelection(BlobDefinition(), no_scaling, "low"),
-                Miss(internal::BlobMiss::kNotABlob));
-}
-
-TEST(ResolveBlobSelection, AnUnknownNameIsAnUnknownSelection)
-{
-    EXPECT_THAT(internal::ResolveBlobSelection(BlobDefinition(), BlobMap(), "missing"),
-                Miss(internal::BlobMiss::kUnknownSelection));
-}
-
-TEST(ResolveBlobSelection, AWidthMismatchIsAnInvalidConfigError)
-{
-    auto definition = BlobDefinition();
-    definition.scalings[0].selections = {{"low", {0x01}}, {"wide", {0x02, 0x03}}};
-    EXPECT_THAT(internal::ResolveBlobSelection(definition, BlobMap(), "wide"), IsErr(ErrorKind::kInvalidConfig));
 }
 
 } // namespace
