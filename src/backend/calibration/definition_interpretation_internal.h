@@ -33,7 +33,7 @@ class MapElement
     // A bloblist's width is its first selection's length.
     std::uint32_t byte_width{1};
 
-    std::uint64_t count() const
+    std::uint64_t Count() const
     {
         return std::uint64_t{width} * height;
     }
@@ -47,16 +47,16 @@ class MapElement
     friend MapElement ResolveMapElement(const definition::RomDefinition&, const definition::CalibrationMap&,
                                         NumericTarget);
 
-    std::string endian;
-    std::string from_byte{"x"};
-    std::string to_byte{"x"};
-    std::string min_value;
-    std::string max_value;
-    double coarse_increment{0.0};
-    double fine_increment{0.0};
+    std::string endian_;
+    std::string from_byte_{"x"};
+    std::string to_byte_{"x"};
+    std::string min_value_;
+    std::string max_value_;
+    double coarse_increment_{0.0};
+    double fine_increment_{0.0};
     // The map's own size, which differs from width and height for an axis.
-    MapDimensions dimensions;
-    bool is_selectable{false};
+    MapDimensions dimensions_;
+    bool is_selectable_{false};
 };
 
 // The bytes choosing a named selection writes into a selectable map's body.

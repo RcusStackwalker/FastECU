@@ -111,7 +111,7 @@ TEST(ResolveMapElement, UsesResolvedAxisFieldsAndScalingBounds)
     EXPECT_EQ(resolved.EditSpec().max_value, "100");
     EXPECT_DOUBLE_EQ(resolved.EditSpec().coarse_increment, 0);
     EXPECT_TRUE(std::isnan(resolved.EditSpec().fine_increment));
-    EXPECT_EQ(resolved.count(), 3U);
+    EXPECT_EQ(resolved.Count(), 3U);
     EXPECT_EQ(resolved.width, 3U);
     EXPECT_EQ(resolved.height, 1U);
     EXPECT_EQ(resolved.start_position, 2U);
@@ -120,7 +120,7 @@ TEST(ResolveMapElement, UsesResolvedAxisFieldsAndScalingBounds)
     EXPECT_EQ(resolved.EditSpec().y_size, 4U);
     const auto y = internal::ResolveMapElement(definition, map, NumericTarget::kYAxis);
     EXPECT_EQ(y.address, std::nullopt);
-    EXPECT_EQ(y.count(), 4U);
+    EXPECT_EQ(y.Count(), 4U);
     EXPECT_EQ(y.width, 1U);
     EXPECT_EQ(y.height, 4U);
 }
@@ -133,7 +133,7 @@ TEST(ResolveMapElement, KeepsWideBodyCountAndMissingAddress)
     map.type = "Selectable";
     const auto resolved = internal::ResolveMapElement({}, map, NumericTarget::kMapBody);
     EXPECT_EQ(resolved.address, std::nullopt);
-    EXPECT_EQ(resolved.count(), 8589934590ULL);
+    EXPECT_EQ(resolved.Count(), 8589934590ULL);
     EXPECT_EQ(resolved.Run().from_byte, "x");
     EXPECT_EQ(resolved.EditSpec().to_byte, "x");
     EXPECT_TRUE(resolved.Run().is_selectable);

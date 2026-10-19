@@ -108,8 +108,8 @@ Result<DecodedMap> DecodeCalibrationMap(const definition::RomDefinition& rom_def
         return Fail(ErrorKind::kInvalidConfig, std::format("map '{}' has unresolved scaling", map.name));
     }
     const auto element = ResolveMapElement(rom_definition, map, NumericTarget::kMapBody);
-    if (!element.address.has_value() || element.count() == 0 ||
-        element.count() > std::numeric_limits<std::uint32_t>::max())
+    if (!element.address.has_value() || element.Count() == 0 ||
+        element.Count() > std::numeric_limits<std::uint32_t>::max())
     {
         return Fail(ErrorKind::kInvalidConfig, std::format("map '{}' has invalid address or dimensions", map.name));
     }

@@ -40,28 +40,28 @@ std::optional<definition::StorageType> BodyStorage(const definition::Calibration
 ElementRun MapElement::Run() const&
 {
     return {.address = address.has_value() ? address->Value() : 0,
-            .count = static_cast<std::uint32_t>(count()),
+            .count = static_cast<std::uint32_t>(Count()),
             .start_position = start_position,
             .interval = interval,
             .storage_type = storage_type,
-            .endian = endian,
-            .from_byte = from_byte,
-            .is_selectable = is_selectable};
+            .endian = endian_,
+            .from_byte = from_byte_,
+            .is_selectable = is_selectable_};
 }
 
 MapElementSpec MapElement::EditSpec() const&
 {
     return {.address = address.has_value() ? address->Value() : 0,
             .storage_type = storage_type,
-            .endian = endian,
-            .to_byte = to_byte,
-            .from_byte = from_byte,
-            .min_value = min_value,
-            .max_value = max_value,
-            .coarse_increment = coarse_increment,
-            .fine_increment = fine_increment,
-            .x_size = dimensions.x_size,
-            .y_size = dimensions.y_size,
+            .endian = endian_,
+            .to_byte = to_byte_,
+            .from_byte = from_byte_,
+            .min_value = min_value_,
+            .max_value = max_value_,
+            .coarse_increment = coarse_increment_,
+            .fine_increment = fine_increment_,
+            .x_size = dimensions_.x_size,
+            .y_size = dimensions_.y_size,
             .start_position = start_position,
             .interval = interval};
 }
@@ -93,21 +93,21 @@ MapElement ResolveMapElement(const definition::RomDefinition& definition, const 
                              NumericTarget target)
 {
     MapElement result;
-    result.dimensions = {.x_size = map.x_size, .y_size = map.y_size};
+    result.dimensions_ = {.x_size = map.x_size, .y_size = map.y_size};
     const definition::Scaling *scaling = nullptr;
     if (target == NumericTarget::kMapBody)
     {
         scaling = definition::FindScaling(definition, map.scaling_name);
         result.address = map.address;
         result.storage_type = BodyStorage(map, scaling);
-        result.endian = !map.endian.empty() ? map.endian : scaling != nullptr ? scaling->endian : "";
-        result.from_byte = scaling != nullptr ? scaling->from_byte : "x";
-        result.to_byte = scaling != nullptr ? scaling->to_byte : "x";
+        result.endian_ = !map.endian.empty() ? map.endian : scaling != nullptr ? scaling->endian : "";
+        result.from_byte_ = scaling != nullptr ? scaling->from_byte : "x";
+        result.to_byte_ = scaling != nullptr ? scaling->to_byte : "x";
         result.width = map.x_size;
         result.height = map.y_size;
         result.start_position = map.start_position;
         result.interval = map.interval;
-        result.is_selectable = map.type == "Selectable";
+        result.is_selectable_ = map.type == "Selectable";
     }
     else
     {
@@ -115,22 +115,22 @@ MapElement ResolveMapElement(const definition::RomDefinition& definition, const 
         scaling = definition::FindScaling(definition, axis.scaling_name);
         result.address = axis.address;
         result.storage_type = axis.storage_type;
-        result.endian = axis.endian;
-        result.from_byte = axis.from_byte;
-        result.to_byte = axis.to_byte;
+        result.endian_ = axis.endian;
+        result.from_byte_ = axis.from_byte;
+        result.to_byte_ = axis.to_byte;
         result.width = target == NumericTarget::kXAxis ? map.x_size : 1;
         result.height = target == NumericTarget::kYAxis ? map.y_size : 1;
         result.start_position = axis.start_position;
         result.interval = axis.interval;
-        result.is_selectable = axis.type == "Selectable";
+        result.is_selectable_ = axis.type == "Selectable";
     }
     result.byte_width = ElementByteWidth(result.storage_type, scaling);
     if (scaling != nullptr)
     {
-        result.min_value = scaling->minimum;
-        result.max_value = scaling->maximum;
-        result.coarse_increment = IncrementValue(scaling->coarse_increment);
-        result.fine_increment = IncrementValue(scaling->fine_increment);
+        result.min_value_ = scaling->minimum;
+        result.max_value_ = scaling->maximum;
+        result.coarse_increment_ = IncrementValue(scaling->coarse_increment);
+        result.fine_increment_ = IncrementValue(scaling->fine_increment);
     }
     return result;
 }
