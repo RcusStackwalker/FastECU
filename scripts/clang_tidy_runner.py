@@ -941,6 +941,15 @@ def run_workflow(
                     "analyzing every translation unit in scope."
                 )
             else:
+                if scope_os is not None:
+                    # Sources outside this OS's scope were never meant to be in
+                    # the database; noting them would only add noise.
+                    resolved_root = workspace.resolve()
+                    changed_paths = [
+                        path
+                        for path in changed_paths
+                        if scope_manifest.in_scope(path.relative_to(resolved_root), scope_prefixes)
+                    ]
                 entries, notes = filter_changed_entries(entries, changed_paths, workspace.resolve())
                 for note in notes:
                     print(note)

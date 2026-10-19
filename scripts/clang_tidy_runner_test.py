@@ -616,6 +616,12 @@ class ClangTidyRunnerTest(unittest.TestCase):
         _, output = self.run_scoped(changed=True)
         self.assertIn("no changed C/C++ translation units", output)
 
+    def test_scope_os_does_not_note_changed_source_outside_scope(self) -> None:
+        self.scoped_fixture()
+        _, output = self.run_scoped(changed=True, changed_paths=[self.root / "p.cpp"])
+        self.assertNotIn("no compile-database entry", output)
+        self.assertIn("no changed C/C++ translation units", output)
+
     def test_unknown_scope_os_is_an_error(self) -> None:
         self.scoped_fixture()
         with self.assertRaisesRegex(runner.WorkflowError, "scope.*plan9"):
