@@ -203,9 +203,8 @@ rg -o '^TEST(_F|_P)?\(\w+Test,' -g '*_test.cpp' src apps tests | wc -l
 
 `*_fuzz_test.cpp` targets build only under `--config=asan` or
 `--config=fuzztest`, so the default compilation database the clang-tidy gate
-refreshes has no entry for them, and the changed-files run skips them without
-a note. Give the refresh a fuzz-enabled pass (or a database merged from one) and
-make a changed source with no database entry a reported note, not silence.
+refreshes has no entry for them (a changed one is reported as a note, not
+analyzed). Give the refresh a fuzz-enabled pass (or a database merged from one).
 
 ### P2: Give the clang-tidy tooling its own directory
 
