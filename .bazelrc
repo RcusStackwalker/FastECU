@@ -1,4 +1,5 @@
 common --enable_platform_specific_config
+common --downloader_config=bazel/downloader.cfg
 build --incompatible_default_to_explicit_init_py
 
 # Disable the built-in C++17 default on Windows to stop the D9025 override warning
