@@ -2,9 +2,6 @@
 
 #include "src/algorithms/protocol/bytes_compose.h"
 
-#include <algorithm>
-#include <ranges>
-
 namespace ssm_protocol
 {
 
@@ -23,9 +20,9 @@ uint32_t TransformWord(uint32_t word, std::span<const std::uint16_t, Rounds> key
         uint32_t index = wordtogenerateindex ^ keytogenerateindex[ki];
         index += index << 16U;
 
-        uint16_t encryptionkey = std::ranges::fold_left(
-            std::views::iota(0U, 4U), uint16_t{0}, [&](uint16_t key, unsigned int n)
-            { return static_cast<uint16_t>(key + (indextransformation[(index >> (n * 4)) & 0x1FU] << (n * 4))); });
+        uint16_t encryptionkey = static_cast<uint16_t>(
+            indextransformation[index & 0x1FU] + (indextransformation[(index >> 4U) & 0x1FU] << 4U) +
+            (indextransformation[(index >> 8U) & 0x1FU] << 8U) + (indextransformation[(index >> 12U) & 0x1FU] << 12U));
 
         encryptionkey = (encryptionkey >> 3U) + (encryptionkey << 13U);
         word = (encryptionkey ^ wordtobeencrypted) + (wordtogenerateindex << 16U);
