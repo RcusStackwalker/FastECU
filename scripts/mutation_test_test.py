@@ -297,8 +297,23 @@ class RunnerCommandTest(unittest.TestCase):
 
 
 class TestEnvironmentTest(unittest.TestCase):
+    def test_macos_selects_the_homebrew_llvm_toolchain_after_the_base_config(self) -> None:
+        flags = mt.mutation_flags(
+            "/opt/homebrew/lib/mull-ir-frontend-22", ROOT / "mull.yml", platform="darwin"
+        )
+        self.assertEqual(["--config=mutation", "--config=mutation-macos"], flags[:2])
+
+    def test_other_platforms_do_not_get_the_macos_config(self) -> None:
+        for platform in ("linux", "win32"):
+            flags = mt.mutation_flags(
+                "/usr/lib/mull-ir-frontend-22", ROOT / "mull.yml", platform=platform
+            )
+            self.assertNotIn("--config=mutation-macos", flags)
+
     def test_build_and_cquery_share_one_configuration(self) -> None:
-        flags = mt.mutation_flags("/usr/lib/mull-ir-frontend-22", ROOT / "mull.yml")
+        flags = mt.mutation_flags(
+            "/usr/lib/mull-ir-frontend-22", ROOT / "mull.yml", platform="linux"
+        )
         self.assertEqual(
             [
                 "--config=mutation",

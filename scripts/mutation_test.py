@@ -516,10 +516,15 @@ def git_changed_files(root: Path, diff_ref: str) -> list[str]:
     return result.stdout.splitlines()
 
 
-def mutation_flags(plugin: str, config_path: Path) -> list[str]:
-    """Flags for the mutated build; cquery reuses them to see the same targets."""
+def mutation_flags(plugin: str, config_path: Path, platform: str = sys.platform) -> list[str]:
+    """Flags for the mutated build; cquery reuses them to see the same targets.
+
+    macOS also gets `--config=mutation-macos`: Bazel's default Apple toolchain
+    compiles with Xcode's clang, which cannot load Mull's plugin.
+    """
     return [
         "--config=mutation",
+        *(["--config=mutation-macos"] if platform == "darwin" else []),
         f"--copt=-fpass-plugin={plugin}",
         f"--action_env=MULL_CONFIG={config_path}",
     ]

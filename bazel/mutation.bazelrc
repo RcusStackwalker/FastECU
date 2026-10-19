@@ -5,8 +5,8 @@
 # frontend> and --action_env=MULL_CONFIG=<workspace>/mull.yml.
 #
 # The plugin must match the compiler that loads it, so CC is the first `clang`
-# on PATH: put Mull's LLVM first (CI: /usr/lib/llvm-22/bin; macOS: the LLVM
-# Mull's macOS release was built against).
+# on PATH: put Mull's LLVM first (CI: /usr/lib/llvm-22/bin; macOS: Homebrew's
+# llvm@22, see `mutation-macos` below and docs/tooling.md).
 build:mutation --repo_env=CC=clang
 build:mutation --repo_env=CXX=clang++
 # Static links: mull-runner mutates code linked into the test executable.
@@ -28,3 +28,19 @@ build:mutation --linkopt=-fcoverage-mapping
 # writing past it unnoticed: this build has no sanitizer to see the overrun.
 build:mutation --copt=-D_GLIBCXX_ASSERTIONS
 build:mutation --copt=-D_LIBCPP_HARDENING_MODE=_LIBCPP_HARDENING_MODE_DEBUG
+
+# macOS, added by scripts/mutation_test.py after `mutation` on darwin. Bazel's
+# default Apple toolchain (apple_support) always compiles with Xcode's clang
+# through xcrun and ignores CC; Xcode's clang rejects Mull's plugin ("Wrong API
+# version on plugin"). These switch to rules_cc's autodetected toolchain, which
+# honours the CC set above, so Homebrew's LLVM (first on PATH) compiles instead.
+build:mutation-macos --repo_env=BAZEL_USE_CPP_ONLY_TOOLCHAIN=1
+build:mutation-macos --repo_env=BAZEL_USE_LEGACY_MACOS_TOOLCHAIN=1
+build:mutation-macos --extra_toolchains=@@rules_cc++cc_configure_extension+local_config_cc_toolchains//:all
+# Homebrew LLVM 22.1.8 with the current SDK leaves <float.h>'s DBL_DIG undefined
+# (plain `clang++ -std=c++23` fails on pugixml.cpp), so every C++ file includes
+# <cfloat> first. Drop this once a Homebrew LLVM compiles pugixml unaided.
+build:mutation-macos --cxxopt=-include
+build:mutation-macos --cxxopt=cfloat
+build:mutation-macos --host_cxxopt=-include
+build:mutation-macos --host_cxxopt=cfloat
