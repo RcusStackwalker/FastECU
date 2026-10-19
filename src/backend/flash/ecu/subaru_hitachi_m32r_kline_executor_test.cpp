@@ -89,11 +89,7 @@ void ScriptNormalAuthenticatedFallback(ScriptedKlineFlashTransport& transport)
 bytes::Bytes EncryptedImage(bytes::ByteView image)
 {
     static constexpr auto kIndex = std::to_array<std::uint16_t>({0x78f1, 0x2962, 0x9312, 0x7c03});
-    static constexpr auto kTransform =
-        std::to_array<std::uint8_t>({0x5, 0x6, 0x7, 0x1, 0x9, 0xc, 0xd, 0x8, 0xa, 0xd, 0x2, 0xb, 0xf, 0x4, 0x0, 0x3,
-                                     0xb, 0x4, 0x6, 0x0, 0xf, 0x2, 0xd, 0x9, 0x5, 0xc, 0x1, 0xa, 0x3, 0xd, 0xe, 0x8});
-    static constexpr auto kTransformPairs = ssm_protocol::BuildPairTable(kTransform);
-    return ssm_protocol::CalculatePayload(image, kIndex, kTransformPairs);
+    return ssm_protocol::CalculatePayload(image, kIndex, ssm_protocol::kStockPairTable);
 }
 
 void ScriptWriteBody(ScriptedKlineFlashTransport& transport, bytes::ByteView image)

@@ -128,10 +128,6 @@ fastecu::Result<fastecu::flash::FlashPlan> HandBuiltPlan(FlashOperation operatio
 // not read back from the executor's own translation unit.
 // Mirrors subaru_hitachi_m32r_can_executor_test.cpp's own precedent.
 constexpr std::array<std::uint16_t, 4> kEncryptTable{0x3B61, 0x8BEF, 0x9E51, 0x1075};
-constexpr std::array<std::uint8_t, 32> kIndexTransformation{0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8, 0xA, 0xD, 0x2,
-                                                            0xB, 0xF, 0x4, 0x0, 0x3, 0xB, 0x4, 0x6, 0x0, 0xF, 0x2,
-                                                            0xD, 0x9, 0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8};
-constexpr auto kIndexTransformationPairs = ssm_protocol::BuildPairTable(kIndexTransformation);
 
 // calculatePayload's Feistel structure inverts by reversing key order and is
 // memoryless per 4-byte word (position-independent), so this single helper
@@ -141,7 +137,7 @@ constexpr auto kIndexTransformationPairs = ssm_protocol::BuildPairTable(kIndexTr
 // image -- even for a sub-window that does not start at image offset 0.
 bytes::Bytes ToWire(bytes::ByteView plain)
 {
-    return ssm_protocol::CalculatePayload(plain, kEncryptTable, kIndexTransformationPairs);
+    return ssm_protocol::CalculatePayload(plain, kEncryptTable, ssm_protocol::kStockPairTable);
 }
 
 const bytes::Bytes kSeed{0x11, 0x22, 0x33, 0x44};

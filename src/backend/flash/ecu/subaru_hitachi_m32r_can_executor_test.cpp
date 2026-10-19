@@ -113,14 +113,10 @@ fastecu::Result<fastecu::flash::FlashPlan> HandBuiltPlan(FlashOperation operatio
 constexpr std::array<std::uint16_t, 16> kSeedKeyTable{0x90A1, 0x2F92, 0xDE3C, 0xCDC0, 0x1A99, 0x437C, 0xF91B, 0xDB57,
                                                       0x96BA, 0xDE10, 0xFCAF, 0x3F31, 0xF47F, 0x0BB6, 0x16E9, 0x4645};
 constexpr std::array<std::uint16_t, 4> kEncryptTable{0x14CA, 0x77F4, 0x973C, 0xF50E};
-constexpr std::array<std::uint8_t, 32> kIndexTransformation{0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8, 0xA, 0xD, 0x2,
-                                                            0xB, 0xF, 0x4, 0x0, 0x3, 0xB, 0x4, 0x6, 0x0, 0xF, 0x2,
-                                                            0xD, 0x9, 0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8};
-constexpr auto kIndexTransformationPairs = ssm_protocol::BuildPairTable(kIndexTransformation);
 
 bytes::Bytes SeedKey(bytes::ByteView seed)
 {
-    return ssm_protocol::CalculateSeedKey(seed, kSeedKeyTable, kIndexTransformationPairs);
+    return ssm_protocol::CalculateSeedKey(seed, kSeedKeyTable, ssm_protocol::kStockPairTable);
 }
 
 // The encrypt table is a genuine round-trip inverse of the decrypt table the
@@ -132,7 +128,7 @@ bytes::Bytes SeedKey(bytes::ByteView seed)
 // computes the wire bytes a write must carry for a known plaintext image.
 bytes::Bytes ToWire(bytes::ByteView plain)
 {
-    return ssm_protocol::CalculatePayload(plain, kEncryptTable, kIndexTransformationPairs);
+    return ssm_protocol::CalculatePayload(plain, kEncryptTable, ssm_protocol::kStockPairTable);
 }
 
 const bytes::Bytes kSeed{0x11, 0x22, 0x33, 0x44};
