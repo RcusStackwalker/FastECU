@@ -291,3 +291,38 @@ fastecu_portable_gtest(
         "@googletest//:gtest",
     ],
 )
+
+fastecu_portable_gtest(
+    name = "definition_resolver_fuzz_test",
+    srcs = ["definition_resolver_fuzz_test.cpp"],
+    deps = [
+        ":definition_resolver",
+        "@fuzztest//fuzztest",
+        "@googletest//:gtest",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "mappack_converter_fuzz_test",
+    srcs = ["mappack_converter_fuzz_test.cpp"],
+    data = glob(["testdata/fuzz/mappack/**"]),
+    deps = [
+        ":mappack_converter",
+        ":romraider_parser",
+        "//src/backend/ports",
+        "@fuzztest//fuzztest",
+        "@googletest//:gtest",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "definition_writer_fuzz_test",
+    srcs = ["definition_writer_fuzz_test.cpp"],
+    data = glob(["testdata/fuzz/writer/**"]),
+    deps = [
+        ":definition_writer",
+        ":ecuflash_parser",
+        "@fuzztest//fuzztest",
+        "@googletest//:gtest",
+    ],
+)

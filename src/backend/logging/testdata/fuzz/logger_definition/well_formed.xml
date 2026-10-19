@@ -1,0 +1,15 @@
+<logger><protocols><protocol id="SSM"><parameters>
+  <parameter id="P1" name="Engine Speed" desc="RPM"
+             ecubyteindex="3" ecubit="4" target="1" enabled="1">
+    <address length="2">0x1234</address>
+    <conversions>
+      <conversion units="rpm" expr="x*0.25" format="0.00"
+                  gauge_min="0" gauge_max="8000" gauge_step="500"/>
+      <conversion units="rps" expr="x/240" format="0.0"
+                  gauge_min="0" gauge_max="133" gauge_step="10"/>
+    </conversions>
+  </parameter>
+</parameters><switches>
+  <switch id="S1" name="Test Switch" desc="flag" byte="0x20"
+          ecubyteindex="7" bit="1" target="2"/>
+</switches></protocol></protocols></logger>
