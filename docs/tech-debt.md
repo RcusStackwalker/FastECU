@@ -175,10 +175,11 @@ Remaining behavior and code gaps:
 - Live channel/interval/protocol reconfiguration requires an explicit path through
   session config and worker; saved selection edits remain pending with a visible
   restart-needed state and current acquisition/display/CSV bindings stay frozen.
-- `LoggingEngine::stop()` disconnects worker signals and publishes
-  `StoppedByUser` itself; its worker-Cancelled mapping is not reached by stop.
-- `FastEcuSsmTransport::write()` reports input size while discarding returned
-  echo-check bytes, so it does not expose an echo failure. Recheck before fixing.
+- `FastEcuSsmTransport::write()` discards `WriteSerialDataEchoCheck`'s return,
+  as do the CAN, mixed-CAN and K-Line flash transports: the call never signals
+  failure (every path returns a null `QByteArray`), so each transport checks
+  `IsSerialPortOpen()` afterwards. The behavior is consistent across siblings;
+  an echo-mismatch signal would need a new backend contract.
 
 ### P2: Naming and source/data organization
 
