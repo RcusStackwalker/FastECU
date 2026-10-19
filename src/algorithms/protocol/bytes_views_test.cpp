@@ -20,7 +20,6 @@ namespace
 
 template <typename Range> std::vector<std::uint32_t> Words(Range&& range)
 {
-    // The view's end is a sentinel of another type, so vector's iterator-pair constructor cannot take it.
     return std::ranges::to<std::vector<std::uint32_t>>(std::forward<Range>(range));
 }
 
