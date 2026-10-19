@@ -149,7 +149,9 @@ fastecu_portable_gtest(
     deps = [
         ":flash_executor",
         ":flash_validation",
+        ":guarded_can_flash_transport",
         "//src/backend/flash/testing:scripted_flash_transports",
+        "//src/backend/ports",
         "//src/backend/ports/testing:fake_cancellation_token",
         "//src/backend/ports/testing:fake_clock",
         "//src/backend/ports/testing:recording_event_sink",
@@ -202,4 +204,23 @@ cc_library(
     name = "flash_transport_source",
     hdrs = ["flash_transport_source.h"],
     deps = [":flash_executor"],
+)
+
+cc_library(
+    name = "guarded_can_flash_transport",
+    srcs = ["guarded_can_flash_transport.cpp"],
+    hdrs = ["guarded_can_flash_transport.h"],
+    deps = [":flash_executor"],
+)
+
+fastecu_portable_gtest(
+    name = "guarded_can_flash_transport_test",
+    srcs = ["guarded_can_flash_transport_test.cpp"],
+    deps = [
+        ":guarded_can_flash_transport",
+        "//src/backend/flash/testing:scripted_flash_transports",
+        "//src/backend/ports",
+        "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
+    ],
 )

@@ -2,54 +2,76 @@
 
 ## Status
 
-Accepted. Piloted on the Mitsubishi Colt M32R CAN family in phase 3 of the
-[size-reduction strategy](../superpowers/specs/2026-10-18-size-reduction-strategy.md),
-then rolled out per family.
+Accepted direction, narrowed during the
+[guarded-transport refinement](../superpowers/specs/2026-10-19-guarded-transport-refinement-design.md).
+The original Colt pilot in [PR #756](https://github.com/RcusStackwalker/FastECU/pull/756)
+had not merged or completed its bench exit gate at the 2026-10-19 design review.
+The replacement Colt-only implementation now has a guarded CAN port, executor
+opt-in at BoundAttempt, and four fewer explicit Colt polls. The
+[pilot results](../reference/colt-cancellation-centralization-results.md) record
+verification and outstanding delivery gates; the
+[flash contract](../reference/flash-contracts.md#colt-cancellation-ownership)
+owns its enduring boundaries. Expansion and hardware qualification remain gated.
 
 ## Context
 
-Every flash executor tests the cancellation token itself and maps transport
-failures itself. Production flash code mentions `cancel` about 1,100 times,
-and the executor suites spend about 193 cases re-proving the same generic
-behavior family by family. Half the executors also reach the wire through
-`UdsClient`, which already checks the token before each request, so those
-families check it twice. [ADR 0024](0024-wire-transcripts-and-goldens-are-the-test-contract.md)
-requires generic behavior to be tested once, which needs one place that owns
-it.
+At the original strategy baseline, every flash executor tested the cancellation
+token itself and mapped transport failures itself. Production flash code
+mentioned `cancel` about 1,100 times, and about 193 executor cases re-proved
+generic behavior family by family. Half the executors also reached the wire
+through `UdsClient`, which checks the token before each request, duplicating
+those families' checks. [ADR 0024](0024-wire-transcripts-and-goldens-are-the-test-contract.md)
+places shared-policy tests at their owner. The pilot narrows that ownership
+change to cancellation refusal; protocol error handling remains separate.
 
 ## Decision
 
-- The flash runner wraps the caller-owned transport in a **guarded
-  transport**: a decorator implementing the existing `ICanFlashTransport` and
-  `IKlineFlashTransport` ports. Executor signatures do not change, and the
-  caller still owns transport lifetime ([ADR 0015](0015-caller-owns-flash-transport-lifetime.md)).
-- Before each I/O the guarded transport checks the token, so cancel takes
-  effect at the next I/O. It maps transport errors and disconnects to one
-  typed error that executors propagate unchanged.
-- Executors stop checking the token, and `UdsClient` stops once all its users
-  are behind a guarded transport. A family that must not
-  be interrupted declares a **critical section**; the guarded transport
-  finishes it and then reports cancellation. An exchange that may get no reply
-  declares **expected silence** instead of having it inferred.
-- Plan confirmations that the user declined are not cancellation and stay in
-  the executor.
+- A **guarded transport** centralizes refusal of new I/O when cancellation is
+  observed before delegation. The first pilot implements only the existing
+  `ICanFlashTransport` port for Colt; executor signatures and caller-owned
+  transport lifetime remain unchanged
+  ([ADR 0015](0015-caller-owns-flash-transport-lifetime.md)).
+- The guard returns delegated results unchanged. It does not normalize error
+  kinds, interpret absent replies, impose a stop-after-error policy, or check
+  cancellation again after a delegated call. Existing transport and clock
+  handling of cancellation during operations remains in force.
+- Only the migrated executor's explicit token polls are removed. Runner setup
+  checks, cancellable waits, platform checks, and `UdsClient` checks for its
+  other callers remain. Removing further checks requires a separate caller
+  and boundary audit.
+- A cancellation signal after the final successful operation does not
+  retrospectively cancel completion when no later cancellable work observes it.
+  This does not override lower-layer cancellation results or family validation.
+- Protocol validation, abort/continue decisions, and plan confirmations stay
+  with their current owners. Declining a confirmation is a distinct operator
+  decision even where the executor reports it using `kCancelled`.
+- The pilot adds no critical-section or expected-silence API. A decorator alone
+  cannot guarantee deferral across clocks, drivers, clients, and unblock paths.
 
 ## Alternatives
 
 - **Enforce it in `UdsClient` and the exchange helpers.** This is less new
   code, but only the 15 executors using `UdsClient` would be covered. The raw
   K-Line families would keep their own checks and tests.
-- **Keep per-executor checks and share only the tests.** This leaves the
-  1,100 call sites and the decision about where cancel can land spread across
-  30 files.
+- **Keep per-executor checks and share only the tests.** This leaves repeated
+  polling and decisions about cancellation boundaries scattered across families.
 
 ## Consequences
 
-- An executor that never touches the token is deliberate: cancellation reaches
-  it as an error from its next transport call.
-- Cancel granularity becomes "next I/O" everywhere. A family whose current
-  code defers cancel must declare that span before its own checks are deleted.
-  A new deferral is a wire-behavior change that needs bench evidence.
-- The CAN decorator lands with the Colt pilot, and the K-Line one with the
-  first K-Line family. Absent-reply mapping and expected silence move into the
-  guarded transport with the first family that bypasses `UdsClient`.
+- A migrated executor can propagate cancellation from its transport rather
+  than polling explicitly. This is an ownership change, not evidence that all
+  cancellation checks throughout the stack can be removed.
+- "Next I/O" describes a cancellation observation before delegation, not an
+  atomic guarantee against a concurrent cancellation signal. Existing bounded
+  driver operations and cancellable waits retain their own semantics.
+- Removing Colt's four checks requires an explicit inventory of changed
+  cancellation boundaries and operator events. Family-specific early returns
+  and tests protecting forbidden subsequent work remain necessary.
+- Centralization and test compression are independently assessed changes.
+  Neither a transcript framework nor a generated-scenario framework is required
+  for the cancellation pilot, which retains existing Colt behavior tests.
+  Initial measured support growth is permitted and must not be called savings.
+- The focused design owns runner opt-in, evidence and measurement requirements.
+  A separately assessed compression change and the applicable recorded Colt
+  bench checklist precede any expansion. K-Line, additional families, and
+  deferral need separate decisions after the pilot's evidence is reviewed.

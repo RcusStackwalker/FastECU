@@ -40,7 +40,19 @@ than copying its inventory.
 
 The [size-reduction strategy](superpowers/specs/2026-10-18-size-reduction-strategy.md)
 phases the reduction toward 100k NLOC: remote-mode deletion, tooling audit,
-transport-level cancellation with wire transcripts, and per-family rollout.
+transport-level cancellation, separately assessed test compression, and a later
+decision on per-family rollout.
+
+The [focused Colt cancellation design](superpowers/specs/2026-10-19-guarded-transport-refinement-design.md)
+records the confirmed scope and gates. The
+[pilot lessons](reference/guarded-transport-pilot-lessons.md) preserve evidence
+from the two unsuccessful size-reduction attempts.
+The [implementation plan](superpowers/plans/2026-10-19-colt-cancellation-centralization.md)
+is being executed inline. The
+[pilot results](reference/colt-cancellation-centralization-results.md) own measured
+costs, preservation evidence and outstanding gates; the
+[flash contract](reference/flash-contracts.md#colt-cancellation-ownership) owns
+the implemented boundaries.
 
 Task-specific specs and plans exist only while their work is proposed or unfinished.
 Find them, when present, with:

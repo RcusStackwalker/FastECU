@@ -10,6 +10,9 @@
 #include <vector>
 
 #include "src/backend/flash/flash_validation.h"
+#include "src/backend/flash/guarded_can_flash_transport.h"
+#include "src/backend/flash/testing/scripted_can_flash_transport.h"
+#include "src/backend/ports/manual_cancellation_token.h"
 #include "src/backend/flash/testing/scripted_kline_flash_transport.h"
 #include "src/backend/ports/testing/fake_cancellation_token.h"
 #include "src/backend/ports/testing/fake_clock.h"
@@ -352,6 +355,125 @@ TEST(BoundFlashAttemptTest, MixedTransportBeforeConfigureErrorSkipsConfigureOpen
     ASSERT_THAT(attempt->Run(clock, cancellation, events), fastecu::testing::IsErr(ErrorKind::kInternal));
     EXPECT_THAT(calls, ::testing::ElementsAre("before_transport_configure"));
     EXPECT_THAT(calls, ::testing::Not(::testing::Contains("configure")));
+}
+
+// Deliberately cancellation-blind: only the runner's opted-in guard can refuse.
+class BlindCanTransport final : public ScriptedCanFlashTransport
+{
+  public:
+    Status Write(bytes::ByteView, const ICancellationToken&) override
+    {
+        ++write_calls;
+        return {};
+    }
+    void RequestUnblock() noexcept override
+    {
+        ++unblock_calls;
+    }
+    int write_calls = 0;
+    int unblock_calls = 0;
+};
+
+class CanExecutorProbe : public ICanFlashExecutor
+{
+  public:
+    explicit CanExecutorProbe(ManualCancellationToken *cancel_inside) : cancel_inside_(cancel_inside)
+    {
+    }
+    Result<Iso15765Config> TransportSetup(const FlashPlan&) const override
+    {
+        return Iso15765Config{500000, 0x7E0, 0x7E8, false};
+    }
+    Result<FlashExecutionResult> Execute(const FlashPlan&, ICanFlashTransport& transport, IClock&,
+                                         const ICancellationToken& token, IEventSink&) override
+    {
+        if (cancel_inside_ != nullptr)
+        {
+            cancel_inside_->Cancel();
+        }
+        if (auto result = transport.Write(bytes::Bytes{0x12}, token); !result.has_value())
+        {
+            return std::unexpected(result.error());
+        }
+        return FlashExecutionResult{.operation = FlashOperation::kRead};
+    }
+
+  private:
+    ManualCancellationToken *cancel_inside_;
+};
+
+class GuardedCanExecutorProbe : public CanExecutorProbe
+{
+  public:
+    using CancellationGuard = GuardedCanFlashTransport;
+    using CanExecutorProbe::CanExecutorProbe;
+};
+
+template <typename Executor = GuardedCanExecutorProbe> struct CanProbeHarness
+{
+    explicit CanProbeHarness(bool cancel_inside = true)
+    {
+        auto owned = std::make_unique<BlindCanTransport>();
+        inner = owned.get();
+        attempt = BindFlashAttempt(BuiltPlan(), std::make_unique<Executor>(cancel_inside ? &token : nullptr),
+                                   std::move(owned));
+    }
+    Result<FlashExecutionResult> Run()
+    {
+        return attempt->Run(clock, token, events);
+    }
+    ManualCancellationToken token;
+    FakeClock clock;
+    RecordingEventSink events;
+    BlindCanTransport *inner = nullptr;
+    std::unique_ptr<BoundFlashAttempt> attempt;
+};
+
+TEST(BoundFlashAttemptTest, OptedInExecutorRefusesCancelledWrite)
+{
+    CanProbeHarness h;
+    const auto result = h.Run();
+    EXPECT_EQ(h.inner->write_calls, 0);
+    EXPECT_EQ(h.inner->configure_call_count, 1);
+    EXPECT_EQ(h.inner->open_call_count, 1);
+    EXPECT_EQ(h.inner->close_call_count, 1);
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kCancelled));
+}
+
+TEST(BoundFlashAttemptTest, UnoptedInCanExecutorKeepsItsExistingPath)
+{
+    CanProbeHarness<CanExecutorProbe> h;
+    ASSERT_THAT(h.Run(), fastecu::testing::IsOk());
+    EXPECT_EQ(h.inner->write_calls, 1);
+    EXPECT_EQ(h.inner->close_call_count, 1);
+}
+
+TEST(BoundFlashAttemptTest, OptedInExecutionErrorWinsOverCloseError)
+{
+    CanProbeHarness h;
+    h.inner->close_result = Fail(ErrorKind::kInternal, "close failed");
+    ASSERT_THAT(h.Run(), fastecu::testing::IsErr(ErrorKind::kCancelled));
+    EXPECT_EQ(h.inner->close_call_count, 1);
+    EXPECT_THAT(h.events.logs,
+                ::testing::Contains(::testing::Pair(LogLevel::kWarning, "close failed after execution error")));
+}
+
+TEST(BoundFlashAttemptTest, OptedInCloseOnlyFailureIsReturned)
+{
+    CanProbeHarness h(false);
+    h.inner->close_result = Fail(ErrorKind::kInternal, "close failed");
+    ASSERT_THAT(h.Run(), fastecu::testing::IsErrWith(ErrorKind::kInternal, "close failed"));
+    EXPECT_EQ(h.inner->close_call_count, 1);
+}
+
+TEST(BoundFlashAttemptTest, OptedInUnblockReachesOwnedTransport)
+{
+    CanProbeHarness h(false);
+    h.attempt->RequestUnblock();
+    EXPECT_EQ(h.inner->unblock_calls, 1);
+    ASSERT_THAT(h.Run(), fastecu::testing::IsOk());
+    h.attempt->RequestUnblock();
+    EXPECT_EQ(h.inner->unblock_calls, 2);
 }
 
 } // namespace
