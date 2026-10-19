@@ -241,12 +241,6 @@ Result<bytes::Bytes> ReadFlashRange(Ctx& ctx, std::uint32_t start_addr, std::uin
 
     for (std::uint32_t addr = start_addr; addr < end_addr;)
     {
-        // Line 183: stopRequested() is polled only at the top of each chunk.
-        if (ctx.cancellation.Cancelled())
-        {
-            return Fail(ErrorKind::kCancelled, "read cancelled");
-        }
-
         // Lines 188-189.
         const std::uint32_t remaining = end_addr - addr;
         const auto chunk_len =
@@ -284,11 +278,6 @@ Result<bool> FlashRangeMatches(Ctx& ctx, std::uint32_t start_addr, bytes::ByteVi
     const std::uint32_t end_addr = start_addr + length;
     for (std::uint32_t addr = start_addr; addr < end_addr;)
     {
-        if (ctx.cancellation.Cancelled())
-        {
-            return Fail(ErrorKind::kCancelled, "read cancelled");
-        }
-
         const std::uint32_t remaining = end_addr - addr;
         const auto chunk_len =
             static_cast<bytes::Byte>(remaining < kFlashReadBlockSize ? remaining : kFlashReadBlockSize);
@@ -413,11 +402,6 @@ Status UnlockAndErase(Ctx& ctx, std::string_view stage)
     if (!received.has_value())
     {
         return std::unexpected(received.error());
-    }
-
-    if (ctx.cancellation.Cancelled())
-    {
-        return Fail(ErrorKind::kCancelled, "cancelled after erase");
     }
 
     return {};
@@ -675,11 +659,6 @@ Result<FlashExecutionResult> MitsuColtM32rCanExecutor::Execute(const FlashPlan& 
     {
         return std::unexpected(valid.error());
     }
-    if (cancellation.Cancelled())
-    {
-        return Fail(ErrorKind::kCancelled, "cancelled before setup");
-    }
-
     const auto& family = std::get<MitsuColtM32rCanPlan>(plan.FamilyPlan());
 
     const std::uint32_t rom_end = plan.TransferRegion().start + plan.TransferRegion().length;

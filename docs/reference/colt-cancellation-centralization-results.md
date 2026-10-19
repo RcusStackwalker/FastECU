@@ -123,3 +123,24 @@ MitsuColtM32rCanExecutor.RejectsAFrameFromTheWrongReplyId
 NLOC measure: {"total": 149650, "production": 69539, "test": 80111}
 
 Raw NLOC hook total: 149718 (scope classification excludes 68 lines outside the metric).
+
+## Boundary preservation
+
+All 47 baseline XML cases retained; candidate has 54.
+Direct tests use ExecuteGuarded; original after-write cancellation detail now reads
+"CAN read cancelled before delegation". Existing log/detail assertions otherwise remain.
+Four explicit Colt polls removed. Mid-read/comparison cancellation now reports the
+next address through exchange warnings; accepted erase emits its completion event
+before the next request is refused. Invalid-plan and final-result precedence remain.
+
+Task 3 RED: the five specified boundary/conformance tests failed on missing events
+or one extra delegated Read; validation and late-completion cases already passed.
+
+## Named mutation checks
+
+- `runner-bypass`: `src/backend/flash/flash_executor.h`; Read attempts 1 vs 0; exit 3.
+- `unlock-abort`: `src/backend/flash/ecu/mitsu_colt_m32r_can_executor.cpp`; Forbidden request attempts 1 vs 0; exit 3.
+- `erase-abort`: `src/backend/flash/ecu/mitsu_colt_m32r_can_executor.cpp`; Forbidden request attempts 1 vs 0; exit 3.
+
+Full commands and original/mutant SHA-256 values are in the raw evidence manifest.
+All mutants restored; all ten focused targets pass afterwards.

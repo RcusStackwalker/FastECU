@@ -671,7 +671,10 @@ cc_library(
         "//src/backend/flash:can_flash_uds_channel",
         "//src/backend/protocol/uds:uds_client",
     ],
-    deps = ["//src/backend/flash:flash_executor"],
+    deps = [
+        "//src/backend/flash:flash_executor",
+        "//src/backend/flash:guarded_can_flash_transport",
+    ],
 )
 
 fastecu_portable_gtest(
@@ -683,7 +686,9 @@ fastecu_portable_gtest(
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/colt:mitsu_colt_can_protocol",
         "//src/algorithms/protocol/colt:mitsu_colt_can_vendor_ext_protocol",
+        "//src/algorithms/protocol/testing:byte_matchers",
         "//src/backend/flash:flash_validation",
+        "//src/backend/flash:guarded_can_flash_transport",
         "//src/backend/flash/testing:scripted_flash_transports",
         "//src/backend/ports",
         "//src/backend/ports/testing:fake_clock",
