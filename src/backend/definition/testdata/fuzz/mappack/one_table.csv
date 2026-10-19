@@ -1,0 +1,2 @@
+Name;FolderName;DataOrg;Columns;Rows;Fieldvalues.Name;Fieldvalues.Unit;Fieldvalues.Factor;Precision;Fieldvalues.StartAddr;AxisX.Name;AxisX.DataOrg;AxisX.Unit;AxisX.Factor;AxisX.Precision;AxisX.DataHeader;AxisX.DataAddr;AxisY.Name;AxisY.DataOrg;AxisY.Unit;AxisY.Factor;AxisY.Precision;AxisY.DataHeader;AxisY.DataAddr;Comment
+Boost;Engine;eHiLo;2;3;Pressure;bar;0,01;2;$1234;RPM;eHiLoHiLo;rpm;2;0;1;$2000;Load;eByte;%;0,5;1;1;$3000;"a;quoted ""description"""

@@ -37,6 +37,17 @@ fastecu_portable_gtest(
     ],
 )
 
+fastecu_portable_gtest(
+    name = "logger_definition_parser_fuzz_test",
+    srcs = ["logger_definition_parser_fuzz_test.cpp"],
+    data = glob(["testdata/fuzz/logger_definition/**"]),
+    deps = [
+        ":logger_definition_parser",
+        "@fuzztest//fuzztest",
+        "@googletest//:gtest",
+    ],
+)
+
 cc_library(
     name = "logger_conf",
     srcs = ["logger_conf.cpp"],

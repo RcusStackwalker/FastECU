@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rom custom="keep">
+  <!-- root comment -->
+  <romid><xmlid>OLD_XML</xmlid><internalidaddress>0x1a0</internalidaddress>
+  <internalidstring>OLD_ID</internalidstring><ecuid>OLD_ECU</ecuid></romid>
+  <include>OLD_BASE</include>
+  <table name="Fuel" address="200" type="1D"/>
+</rom>
