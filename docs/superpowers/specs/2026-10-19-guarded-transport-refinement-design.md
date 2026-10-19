@@ -182,4 +182,4 @@ contract before their checks can be removed. No per-family rollout is automatic.
 
 All nine interview decisions and the written design were confirmed on 2026-10-19.
 The [replacement implementation plan](../plans/2026-10-19-colt-cancellation-centralization.md)
-is being executed inline; delivery evidence and review remain in progress.
+is being executed inline; delivery CI and preservation remain in progress; fresh branch review found no issues.
