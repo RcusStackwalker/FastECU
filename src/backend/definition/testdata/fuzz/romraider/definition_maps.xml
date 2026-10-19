@@ -1,0 +1,12 @@
+<roms><rom base="BASE"><romid><xmlid>CHILD</xmlid>
+<internalidaddress>100</internalidaddress><internalidstring>ABCD</internalidstring>
+<ecuid>ECU-A</ecuid><make>Subaru</make><flashmethod>subaru_denso_can</flashmethod>
+<filesize>1048576</filesize></romid>
+<table id="fuel" name="Fuel" address="200" type="3D" sizex="4" sizey="2"
+       storagetype="uint16" endian="big" startpos="12" interval="3">
+  <scaling name="s" units="%" expression="x*0.5" to_byte="x*2" format="0.0"/>
+  <table type="X Axis" name="RPM" address="300" elements="4" storagetype="uint16">
+    <scaling name="r" units="rpm" expression="x" to_byte="x"/>
+  </table>
+  <table type="Y Axis" name="Load" storageaddress="400" elements="2" storagetype="uint8"/>
+</table></rom></roms>

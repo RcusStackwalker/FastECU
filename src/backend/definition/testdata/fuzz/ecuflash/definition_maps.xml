@@ -1,0 +1,10 @@
+<rom>
+  <romid><xmlid>TEST</xmlid><internalidaddress>100</internalidaddress>
+  <internalidstring>TEST-ID</internalidstring><ecuid>ECU-A</ecuid>
+  <make>Subaru</make><flashmethod>denso</flashmethod><filesize>1024kb</filesize></romid>
+  <scaling name="rpm" units="rpm" toexpr="x" frexpr="x" format="%0.0f" min="0" max="8000" inc="50"/>
+  <table name="Fuel" category="Fuel" address="200" type="3D" scaling="rpm" swapxy="false">
+    <table name="X" type="X Axis" address="300" elements="4" scaling="rpm"/>
+    <table name="Y" type="Y Axis" address="400" elements="2" scaling="rpm"/>
+  </table>
+</rom>
