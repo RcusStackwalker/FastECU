@@ -167,6 +167,17 @@ TEST_F(EditSelectableTest, StorageFallsBackToTheScaling)
     EXPECT_THAT(RomBytes(), ElementsAre(0x55, 0x55, 0x55, 0x55, 0x0A, 0x0B, 0x55, 0x55));
 }
 
+TEST_F(EditSelectableTest, StorageDeclaredOnTheMapAloneIsEnough)
+{
+    auto map_only = ModesDefinition();
+    map_only.scalings[0].storage_type.reset();
+    Install(std::move(map_only));
+
+    EXPECT_THAT(Select("low"), Changed());
+
+    EXPECT_THAT(RomBytes(), ElementsAre(0x55, 0x55, 0x55, 0x55, 0x0A, 0x0B, 0x55, 0x55));
+}
+
 TEST_F(EditSelectableTest, WritingTheCurrentBytesIsUnchangedAndLeavesTheSessionClean)
 {
     Install(ModesDefinition(), {0, 0, 0, 0, 0x0A, 0x0B, 0, 0});
@@ -219,16 +230,21 @@ TEST_F(EditSelectableTest, AMapWithoutSelectionsOrScalingIsNotApplicable)
     non_blob.maps[0].storage_type = definition::StorageType::kUint8;
     Install(std::move(non_blob));
     EXPECT_THAT(Select("low"), NotApplicable(NotApplicableReason::kUnavailableTarget));
+    EXPECT_EQ(RomBytes(), std::vector<std::uint8_t>(8, 0x55));
+    EXPECT_FALSE(Session().Dirty());
 
     auto no_selections = ModesDefinition();
     no_selections.scalings[0].selections.clear();
     Install(std::move(no_selections));
     EXPECT_THAT(Select("low"), NotApplicable(NotApplicableReason::kUnavailableTarget));
+    EXPECT_EQ(RomBytes(), std::vector<std::uint8_t>(8, 0x55));
+    EXPECT_FALSE(Session().Dirty());
 
     auto no_scaling = ModesDefinition();
     no_scaling.maps[0].scaling_name = "missing";
     Install(std::move(no_scaling));
     EXPECT_THAT(Select("low"), NotApplicable(NotApplicableReason::kUnavailableTarget));
+    EXPECT_EQ(RomBytes(), std::vector<std::uint8_t>(8, 0x55));
     EXPECT_FALSE(Session().Dirty());
 }
 

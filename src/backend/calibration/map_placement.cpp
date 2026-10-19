@@ -100,7 +100,7 @@ Result<MapExtent> CheckMapPlacement(const definition::RomDefinition& definition,
     // A blob is read whole at its address, whatever its stride fields say.
     const auto cells = body.storage_type == definition::StorageType::kBloblist
                            ? CheckRun(map.name, "cells lie", body.address, 1, 1, 1, body.byte_width, memory_map)
-                           : CheckRun(map.name, "cells lie", body.address, body.count, body.start_position,
+                           : CheckRun(map.name, "cells lie", body.address, body.Count(), body.start_position,
                                       body.interval, body.byte_width, memory_map);
     if (!cells.has_value())
     {
@@ -112,7 +112,7 @@ Result<MapExtent> CheckMapPlacement(const definition::RomDefinition& definition,
     {
         const auto axis = internal::ResolveMapElement(definition, map, target);
         // Check declared axis storage even when the decoder omits that axis.
-        const auto placed = CheckRun(map.name, subject, axis.address, axis.count, axis.start_position, axis.interval,
+        const auto placed = CheckRun(map.name, subject, axis.address, axis.Count(), axis.start_position, axis.interval,
                                      axis.byte_width, memory_map);
         if (!placed.has_value())
         {

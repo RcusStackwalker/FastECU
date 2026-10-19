@@ -22,6 +22,7 @@ cc_library(
     deps = [
         ":decoded_map",
         ":definition_bytes",
+        ":element_run",
         "//src/algorithms/protocol",
         "//src/backend/definition:definition_model",
         "//src/backend/ports",
@@ -145,7 +146,12 @@ cc_library(
     hdrs = ["definition_interpretation_internal.h"],
     implementation_deps = ["//src/algorithms/expression"],
     visibility = ["//bazel/layers:backend"],
-    deps = [":map_edit"],
+    deps = [
+        ":element_run",
+        ":map_edit",
+        "//src/algorithms/protocol",
+        "//src/backend/ports",
+    ],
 )
 
 fastecu_portable_gtest(
@@ -159,4 +165,10 @@ fastecu_portable_gtest(
         "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
     ],
+)
+
+cc_library(
+    name = "element_run",
+    hdrs = ["element_run.h"],
+    deps = ["//src/backend/definition:definition_model"],
 )

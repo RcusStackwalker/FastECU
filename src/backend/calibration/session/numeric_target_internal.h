@@ -40,9 +40,9 @@ class PreparedNumericTarget
     friend std::variant<PreparedNumericTarget, MapNotApplicable> PrepareNumericTarget(CalibrationWorkspace&, SessionId,
                                                                                       std::size_t, NumericTarget);
 
-    PreparedNumericTarget(CalibrationSession& session, ResolvedElement element, NumericRun run);
+    PreparedNumericTarget(CalibrationSession& session, MapElement element, NumericRun run);
 
-    ResolvedElement element_;
+    MapElement element_;
     NumericRun run_;
     CalibrationSession *session_;
 };

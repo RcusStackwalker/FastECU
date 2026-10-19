@@ -212,6 +212,18 @@ TEST(DecodeCalibrationMap, UsesIdentityWithoutScaling)
                                        fastecu::testing::IsOkAnd(7)));
 }
 
+TEST(DecodeCalibrationMap, ANumericSelectableBodyDecodesEveryCellAsZero)
+{
+    auto definition = OneMapDefinition(0);
+    definition.maps[0].type = "Selectable";
+    const bytes::Bytes rom{5, 6, 7};
+    const auto decoded = DecodeCalibrationMap(definition, definition.maps[0], rom);
+    ASSERT_THAT(decoded, fastecu::testing::IsOk());
+    EXPECT_THAT(std::get<NumericRun>(decoded->body).cells,
+                ::testing::ElementsAre(fastecu::testing::IsOkAnd(0), fastecu::testing::IsOkAnd(0),
+                                       fastecu::testing::IsOkAnd(0)));
+}
+
 TEST(DecodeCalibrationMap, RetainsLabelsContainingCommas)
 {
     auto definition = OneMapDefinition(0);

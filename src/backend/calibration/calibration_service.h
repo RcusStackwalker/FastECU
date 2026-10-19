@@ -10,6 +10,7 @@
 #include "src/algorithms/protocol/bytes.h"
 #include "src/backend/definition/definition_model.h"
 #include "src/backend/calibration/decoded_map.h"
+#include "src/backend/calibration/element_run.h"
 #include "src/backend/calibration/definition_bytes.h"
 #include "src/backend/ports/file_repository.h"
 #include "src/backend/ports/result.h"
@@ -52,25 +53,6 @@ void BackupRom(std::span<const std::uint8_t> rom_data, std::string_view backup_h
 //     smallest legal value, i.e. offset 0.
 std::uint64_t ElementRunEnd(std::uint64_t address, std::uint32_t start_position, std::uint32_t interval,
                             std::uint32_t element_width, std::uint32_t count);
-
-// One run of consecutive elements: a map's cells, or one axis's points. Built
-// from either a CalibrationMap or an AxisDefinition -- the three call sites
-// (map cells, X axis, Y axis) differ only in which fields they read.
-//
-// A non-owning view: `endian` and `from_byte` borrow from the RomDefinition
-// (the map's scaling or the resolved axis fields) used to build the run, which
-// always outlives the decode_numeric_run call. Never store one.
-struct ElementRun
-{
-    std::uint64_t address{0};
-    std::uint32_t count{0};
-    std::uint32_t start_position{1};
-    std::uint32_t interval{1};
-    std::optional<definition::StorageType> storage_type;
-    std::string_view endian;
-    std::string_view from_byte{"x"};
-    bool is_selectable{false};
-};
 
 Result<NumericRun> DecodeNumericRun(const DefinitionBytes& rom, const ElementRun& run);
 Result<DecodedMap> DecodeCalibrationMap(const definition::RomDefinition& definition,

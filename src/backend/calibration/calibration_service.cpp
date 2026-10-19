@@ -65,23 +65,9 @@ Result<NumericRun> DecodeNumericRun(const DefinitionBytes& rom, const ElementRun
 namespace
 {
 
-ElementRun NumericElementRun(const ResolvedElement& element)
-{
-    return ElementRun{
-        .address = element.address.has_value() ? element.address->Value() : 0,
-        .count = static_cast<std::uint32_t>(element.count),
-        .start_position = element.start_position,
-        .interval = element.interval,
-        .storage_type = element.storage_type,
-        .endian = element.endian,
-        .from_byte = element.from_byte,
-        .is_selectable = element.is_selectable,
-    };
-}
-
 Result<AxisValue> DecodeTypedAxis(const definition::AxisDefinition& axis, std::uint32_t extent,
                                   const DefinitionBytes& rom, bool x_axis, std::string_view map_type,
-                                  const ResolvedElement& element)
+                                  const MapElement& element)
 {
     if (extent <= 1 || axis.type.empty())
     {
@@ -103,7 +89,7 @@ Result<AxisValue> DecodeTypedAxis(const definition::AxisDefinition& axis, std::u
     {
         return Fail(ErrorKind::kInvalidConfig, "numeric axis has no address");
     }
-    auto values = DecodeNumericRun(rom, NumericElementRun(element));
+    auto values = DecodeNumericRun(rom, element.Run());
     if (!values.has_value())
     {
         return std::unexpected(values.error());
@@ -122,7 +108,8 @@ Result<DecodedMap> DecodeCalibrationMap(const definition::RomDefinition& rom_def
         return Fail(ErrorKind::kInvalidConfig, std::format("map '{}' has unresolved scaling", map.name));
     }
     const auto element = ResolveMapElement(rom_definition, map, NumericTarget::kMapBody);
-    if (!element.address.has_value() || element.count == 0 || element.count > std::numeric_limits<std::uint32_t>::max())
+    if (!element.address.has_value() || element.Count() == 0 ||
+        element.Count() > std::numeric_limits<std::uint32_t>::max())
     {
         return Fail(ErrorKind::kInvalidConfig, std::format("map '{}' has invalid address or dimensions", map.name));
     }
@@ -137,7 +124,7 @@ Result<DecodedMap> DecodeCalibrationMap(const definition::RomDefinition& rom_def
         result.body = BlobValue{bytes::Bytes(data->begin(), data->end())};
         return result;
     }
-    const auto run = NumericElementRun(element);
+    const auto run = element.Run();
     auto body = DecodeNumericRun(rom, run);
     if (!body.has_value())
     {

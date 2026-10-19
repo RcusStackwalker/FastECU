@@ -130,7 +130,7 @@ Status WritePatch(CalibrationSession& session, const MapElementSpec& spec, std::
 
 } // namespace
 
-PreparedNumericTarget::PreparedNumericTarget(CalibrationSession& session, ResolvedElement element, NumericRun run)
+PreparedNumericTarget::PreparedNumericTarget(CalibrationSession& session, MapElement element, NumericRun run)
     : element_(std::move(element)), run_(std::move(run)), session_(&session)
 {
 }

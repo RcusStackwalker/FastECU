@@ -95,11 +95,14 @@
     "//src/backend/calibration/session:calibration_workspace_test": {
       "seconds": 0.907
     },
-    "//src/backend/calibration/session:numeric_copy_use_case_test": {
+    "//src/backend/calibration/session:copy_numeric_test": {
       "seconds": 4.046
     },
-    "//src/backend/calibration/session:numeric_edit_use_case_test": {
+    "//src/backend/calibration/session:edit_numeric_test": {
       "seconds": 2.436
+    },
+    "//src/backend/calibration/session:edit_selectable_test": {
+      "seconds": 0.847
     },
     "//src/backend/calibration/session:numeric_target_internal_test": {
       "seconds": 1.216
@@ -109,9 +112,6 @@
     },
     "//src/backend/calibration/session:rom_save_test": {
       "seconds": 1.012
-    },
-    "//src/backend/calibration/session:selectable_edit_use_case_test": {
-      "seconds": 0.847
     },
     "//src/backend/calibration:calibration_service_test": {
       "seconds": 0.544
