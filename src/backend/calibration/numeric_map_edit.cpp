@@ -308,6 +308,8 @@ Result<NumericEditResult> CalculateIncrement(const DefinitionBytes& rom, const M
 {
     const bool fine = step == IncrementStep::kFineUp || step == IncrementStep::kFineDown;
     const bool down = step == IncrementStep::kFineDown || step == IncrementStep::kCoarseDown;
+    // Equivalent as `/`: the divisor is exactly 1.0 or -1.0, so the quotient equals the product.
+    // mull-ignore-next: cxx_mul_to_div
     const double amount = (fine ? spec.fine_increment : spec.coarse_increment) * (down ? -1.0 : 1.0);
     if (!std::isfinite(amount) || amount == 0.0)
     {

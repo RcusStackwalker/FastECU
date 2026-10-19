@@ -3,6 +3,7 @@
 
 #include <array>
 #include <limits>
+#include <vector>
 
 #include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
@@ -289,6 +290,135 @@ TEST(NumericMapEdit, InterpolatesSelectionWiderThanLegacyFixedArray)
     EXPECT_THAT(result->writes.front().bytes, ElementsAre(1));
     EXPECT_EQ(result->writes.back().index, 188U);
     EXPECT_THAT(result->writes.back().bytes, ElementsAre(188));
+}
+TEST(NumericMapEdit, AcceptsEqualDefinitionLimits)
+{
+    auto spec = SpecFor(StorageType::kUint8);
+    spec.min_value = "5";
+    spec.max_value = "5";
+    const bytes::Bytes rom{0};
+    const std::array<NumericCell, 1> cells{0.0};
+    EXPECT_THAT(CalculateAssignment(rom, spec, 1, cells, kOneCell, "9"),
+                IsOkAnd(WritesAre(ElementsAre(CellWrite{0, 0, {5}}))));
+}
+
+TEST(NumericMapEdit, AcceptsLeadingNineInAssignment)
+{
+    const bytes::Bytes rom{0};
+    const std::array<NumericCell, 1> cells{0.0};
+    EXPECT_THAT(CalculateAssignment(rom, SpecFor(StorageType::kUint8), 1, cells, kOneCell, "9"),
+                IsOkAnd(WritesAre(ElementsAre(CellWrite{0, 0, {9}}))));
+}
+
+TEST(NumericMapEdit, AcceptsLargestFiniteFloat)
+{
+    const bytes::Bytes rom(4, 0);
+    const std::vector<std::vector<double>> pasted{{static_cast<double>(std::numeric_limits<float>::max())}};
+    EXPECT_THAT(CalculatePaste(rom, SpecFor(StorageType::kFloat), 1, 1, kOneCell, pasted),
+                IsOkAnd(WritesAre(ElementsAre(CellWrite{0, 0, {0x7f, 0x7f, 0xff, 0xff}}))));
+}
+
+TEST(NumericMapEdit, AcceptsRunWithExactlyMaxUint32Cells)
+{
+    const bytes::Bytes rom{0};
+    const std::vector<std::vector<double>> pasted{{1}};
+    EXPECT_THAT(CalculatePaste(rom, SpecFor(StorageType::kUint8), 65537, 65535, kOneCell, pasted),
+                IsOkAnd(WritesAre(ElementsAre(CellWrite{0, 0, {1}}))));
+}
+
+TEST(NumericMapEdit, RejectsSelectionRowsPastRun)
+{
+    const auto spec = SpecFor(StorageType::kUint8);
+    const bytes::Bytes rom{0, 0};
+    const std::vector<std::vector<double>> pasted{{1}};
+    const SelectionRange one_past_single_column{.first_row = 1, .first_col = 0, .last_row = 1, .last_col = 0};
+    EXPECT_THAT(CalculatePaste(rom, spec, 1, 1, one_past_single_column, pasted), IsErr(ErrorKind::kInvalidConfig));
+    EXPECT_THAT(CalculatePaste(rom, spec, 2, 1, one_past_single_column, pasted), IsErr(ErrorKind::kInvalidConfig));
+}
+
+TEST(NumericMapEdit, ClipsPasteAtRunEdgesFromOffsetSelection)
+{
+    const auto spec = SpecFor(StorageType::kUint8);
+    const bytes::Bytes rows_rom{0, 0, 0};
+    const std::vector<std::vector<double>> rows{{1}, {2}, {3}};
+    const SelectionRange second_row{.first_row = 1, .first_col = 0, .last_row = 1, .last_col = 0};
+    EXPECT_THAT(CalculatePaste(rows_rom, spec, 1, 3, second_row, rows),
+                IsOkAnd(WritesAre(ElementsAre(CellWrite{1, 1, {1}}, CellWrite{2, 2, {2}}))));
+    const bytes::Bytes columns_rom{0, 0, 0};
+    const std::vector<std::vector<double>> columns{{1, 2, 3}};
+    const SelectionRange second_column{.first_row = 0, .first_col = 1, .last_row = 0, .last_col = 1};
+    EXPECT_THAT(CalculatePaste(columns_rom, spec, 3, 1, second_column, columns),
+                IsOkAnd(WritesAre(ElementsAre(CellWrite{1, 1, {1}}, CellWrite{2, 2, {2}}))));
+}
+
+// 4x4 run whose cells outside the selected block are valid decoys, so reading
+// a wrong cell changes the result instead of only failing.
+class OffsetInterpolation : public ::testing::Test
+{
+  protected:
+    static constexpr std::uint32_t kWidth = 4;
+    static constexpr SelectionRange kRange{.first_row = 1, .first_col = 1, .last_row = 3, .last_col = 3};
+
+    OffsetInterpolation() : spec_(SpecFor(StorageType::kUint8)), rom_(16, 99), cells_(16, 99.0)
+    {
+        for (std::size_t row = 1; row <= 3; ++row)
+        {
+            for (std::size_t col = 1; col <= 3; ++col)
+            {
+                Set(row, col, 0, Fail(ErrorKind::kInvalidConfig, "invalid interior"));
+            }
+        }
+    }
+
+    void Set(std::size_t row, std::size_t col, std::uint8_t byte, NumericCell cell)
+    {
+        rom_[row * kWidth + col] = byte;
+        cells_[row * kWidth + col] = std::move(cell);
+    }
+
+    void SetValid(std::size_t row, std::size_t col, std::uint8_t value)
+    {
+        Set(row, col, value, static_cast<double>(value));
+    }
+
+    MapElementSpec spec_;
+    bytes::Bytes rom_;
+    std::vector<NumericCell> cells_;
+};
+
+TEST_F(OffsetInterpolation, HorizontalUsesSelectionOffsets)
+{
+    for (std::uint8_t row = 1; row <= 3; ++row)
+    {
+        SetValid(row, 1, 10 * row);
+        SetValid(row, 3, 10 * row + 20);
+    }
+    EXPECT_THAT(
+        CalculateInterpolation(rom_, spec_, kWidth, cells_, kRange, InterpolationMode::kHorizontal),
+        IsOkAnd(WritesAre(ElementsAre(CellWrite{6, 6, {20}}, CellWrite{10, 10, {30}}, CellWrite{14, 14, {40}}))));
+}
+
+TEST_F(OffsetInterpolation, VerticalUsesSelectionOffsets)
+{
+    for (std::uint8_t col = 1; col <= 3; ++col)
+    {
+        SetValid(1, col, 10 * col);
+        SetValid(3, col, 10 * col + 20);
+    }
+    EXPECT_THAT(
+        CalculateInterpolation(rom_, spec_, kWidth, cells_, kRange, InterpolationMode::kVertical),
+        IsOkAnd(WritesAre(ElementsAre(CellWrite{9, 9, {20}}, CellWrite{10, 10, {30}}, CellWrite{11, 11, {40}}))));
+}
+
+TEST_F(OffsetInterpolation, BidirectionalUsesSelectionOffsets)
+{
+    SetValid(1, 1, 0);
+    SetValid(1, 3, 20);
+    SetValid(3, 1, 40);
+    SetValid(3, 3, 60);
+    EXPECT_THAT(CalculateInterpolation(rom_, spec_, kWidth, cells_, kRange, InterpolationMode::kBidirectional),
+                IsOkAnd(WritesAre(ElementsAre(CellWrite{6, 6, {10}}, CellWrite{9, 9, {20}}, CellWrite{10, 10, {30}},
+                                              CellWrite{11, 11, {40}}, CellWrite{14, 14, {50}}))));
 }
 } // namespace
 } // namespace fastecu::calibration
