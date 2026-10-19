@@ -18,12 +18,27 @@ namespace fastecu::definition
 {
 namespace
 {
-// Valid XML text: markup characters, tab, newline and multi-byte UTF-8. NUL and
-// CR are excluded because the writer does not preserve them (docs/tech-debt.md).
+// Markup characters, tab, newline, multi-byte UTF-8, and the NUL and CR the
+// writer rejects.
 const std::vector<std::string>& TextPieces()
 {
-    static const std::vector<std::string> pieces{"a", "Z",  "7", " ",  "-",  "_",        "<",       ">",
-                                                 "&", "\"", "'", "\t", "\n", "\xC3\xA9", "\xCE\xA9"};
+    static const std::vector<std::string> pieces{"a",
+                                                 "Z",
+                                                 "7",
+                                                 " ",
+                                                 "-",
+                                                 "_",
+                                                 "<",
+                                                 ">",
+                                                 "&",
+                                                 "\"",
+                                                 "'",
+                                                 "\t",
+                                                 "\n",
+                                                 "\xC3\xA9",
+                                                 "\xCE\xA9",
+                                                 "\r",
+                                                 std::string("\0", 1)};
     return pieces;
 }
 
@@ -91,8 +106,9 @@ void ExpectReadsBack(const std::vector<std::uint8_t>& xml, const DefinitionHeade
     EXPECT_EQ(parsed->metadata, expected.metadata);
 }
 
-// Writing a definition header either fails with a reported error or yields
-// XML whose header reads back as the normalized input.
+// Writing a definition header either fails with a reported error, which it
+// must when any value holds NUL or CR, or yields XML whose header reads back as
+// the normalized input.
 void CreatedXmlReadsBack(const DefinitionHeaderInput& input)
 {
     const auto created = CreateEcuflashXml(input);
