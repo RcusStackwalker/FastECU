@@ -90,7 +90,6 @@ class LoggingEngine final : public QObject
     std::uint64_t active_run_generation_ = 0;
     std::uint64_t next_run_generation_ = 0;
     bool worker_reached_running_ = false;
-    bool explicit_stop_pending_ = false;
     bool destroying_ = false;
     bool completion_published_ = false;
     // NOLINTEND(readability-identifier-naming)
