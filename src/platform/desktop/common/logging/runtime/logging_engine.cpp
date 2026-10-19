@@ -83,7 +83,6 @@ fastecu::Status LoggingEngine::Start(const LogSessionConfig& config, DesktopLogg
 
     last_status_.reset();
     worker_reached_running_ = false;
-    explicit_stop_pending_ = false;
     completion_published_ = false;
     active_run_generation_ = ++next_run_generation_;
     active_worker_ = new LoggingWorker(active_snapshot_->Session(), active_protocol_.get(), diagnostics_, this);
@@ -126,9 +125,7 @@ void LoggingEngine::Stop()
         return;
     }
 
-    explicit_stop_pending_ = true;
     FinishActiveRun(SessionEndReason::kStoppedByUser, {}, true);
-    explicit_stop_pending_ = false;
 }
 
 void LoggingEngine::handleWorkerStateChanged(fastecu::logging::LoggingState state)
@@ -172,7 +169,7 @@ void LoggingEngine::handleWorkerSessionFinished(fastecu::Status result)
         detail = QString::fromStdString(error.detail);
         if (error.kind == fastecu::ErrorKind::kCancelled)
         {
-            reason = explicit_stop_pending_ ? SessionEndReason::kStoppedByUser : SessionEndReason::kRuntimeFailed;
+            reason = SessionEndReason::kRuntimeFailed;
         }
         else if (error.kind == fastecu::ErrorKind::kDisconnected)
         {

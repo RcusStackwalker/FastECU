@@ -300,8 +300,8 @@ def filter_changed_entries(
     Source files match by path directly. A changed header with no changed
     source file falls back to co-located sources in the same directory
     (foo.h -> foo.cpp, foo_test.cpp), matching this repo's package-owned test
-    convention. A header with no co-located source in `entries` produces a
-    note instead of a match; this design does not trace transitive includers.
+    convention. A source or header with no matching entry produces a note
+    instead of a match; this design does not trace transitive includers.
     """
     tree = _workspace_tree(root)
     by_path: dict[Path, dict[str, object]] = {}
@@ -320,6 +320,11 @@ def filter_changed_entries(
             entry = by_path.get(resolved)
             if entry is not None:
                 matched[resolved] = entry
+            else:
+                notes.append(
+                    f"clang-tidy: {resolved} changed with no compile-database entry; "
+                    "it was not checked."
+                )
         elif suffix in HEADER_SUFFIXES:
             stem = resolved.stem
             candidates = by_directory.get(resolved.parent, [])
@@ -936,6 +941,15 @@ def run_workflow(
                     "analyzing every translation unit in scope."
                 )
             else:
+                if scope_os is not None:
+                    # Sources outside this OS's scope were never meant to be in
+                    # the database; noting them would only add noise.
+                    resolved_root = workspace.resolve()
+                    changed_paths = [
+                        path
+                        for path in changed_paths
+                        if scope_manifest.in_scope(path.relative_to(resolved_root), scope_prefixes)
+                    ]
                 entries, notes = filter_changed_entries(entries, changed_paths, workspace.resolve())
                 for note in notes:
                     print(note)

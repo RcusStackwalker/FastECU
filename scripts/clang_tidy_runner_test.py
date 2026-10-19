@@ -616,6 +616,12 @@ class ClangTidyRunnerTest(unittest.TestCase):
         _, output = self.run_scoped(changed=True)
         self.assertIn("no changed C/C++ translation units", output)
 
+    def test_scope_os_does_not_note_changed_source_outside_scope(self) -> None:
+        self.scoped_fixture()
+        _, output = self.run_scoped(changed=True, changed_paths=[self.root / "p.cpp"])
+        self.assertNotIn("no compile-database entry", output)
+        self.assertIn("no changed C/C++ translation units", output)
+
     def test_unknown_scope_os_is_an_error(self) -> None:
         self.scoped_fixture()
         with self.assertRaisesRegex(runner.WorkflowError, "scope.*plan9"):
@@ -1715,6 +1721,22 @@ class ClangTidyRunnerTest(unittest.TestCase):
         self.assertEqual([], matched)
         self.assertEqual(1, len(notes))
         self.assertIn(str(header.resolve()), notes[0])
+
+    def test_filter_changed_entries_notes_source_without_database_entry(self) -> None:
+        pkg = self.root / "pkg"
+        pkg.mkdir()
+        listed = pkg / "listed.cpp"
+        listed.write_text("// listed\n")
+        fuzz = pkg / "thing_fuzz_test.cpp"
+        fuzz.write_text("// fuzz\n")
+        self.write_database([listed])
+        entries = runner.load_project_entries(self.root, self.root / "compile_commands.json")
+
+        matched, notes = runner.filter_changed_entries(entries, [fuzz], self.root)
+
+        self.assertEqual([], matched)
+        self.assertEqual(1, len(notes))
+        self.assertIn(str(fuzz.resolve()), notes[0])
 
     def test_filter_changed_entries_ignores_non_cpp_changes(self) -> None:
         source = self.root / "foo.cpp"
