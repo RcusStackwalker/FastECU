@@ -118,15 +118,15 @@ void ScriptProbeAlive(ScriptedKlineFlashTransport& t)
 
 bytes::Bytes StockKey(bytes::ByteView seed)
 {
-    return ssm_protocol::CalculateSeedKey(seed, kKeyTable, ssm_protocol::kIndexTransformationStock);
+    return ssm_protocol::CalculateSeedKey(seed, kKeyTable, ssm_protocol::kStockPairTable);
 }
 bytes::Bytes EcutekKey(bytes::ByteView seed)
 {
-    return ssm_protocol::CalculateSeedKey(seed, kKeyTable, ssm_protocol::kIndexTransformationEcutek);
+    return ssm_protocol::CalculateSeedKey(seed, kKeyTable, ssm_protocol::kEcutekPairTable);
 }
 bytes::Bytes EncryptedKernel(bytes::ByteView balanced)
 {
-    return ssm_protocol::CalculatePayload(balanced, kEncryptTable, ssm_protocol::kIndexTransformationStock);
+    return ssm_protocol::CalculatePayload(balanced, kEncryptTable, ssm_protocol::kStockPairTable);
 }
 
 const bytes::Bytes kEcuIdPayload{0xFF, 0x00, 0x00, 0x00, 0x41, 0x42, 0x43, 0x44, 0x45};

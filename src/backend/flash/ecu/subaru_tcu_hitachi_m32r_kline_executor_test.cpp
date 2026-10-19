@@ -175,7 +175,7 @@ bytes::Bytes ExpectedSeedKey()
                                                              0x1794, 0x5C7B, 0xA7BF, 0x98E5, 0x0B63, 0xA1C9,
                                                              0x79BF, 0xF413, 0x82B1, 0xA895};
     const bytes::Bytes seed{0xde, 0xad, 0xbe, 0xef};
-    return ssm_protocol::CalculateSeedKey(seed, kIndex, ssm_protocol::kIndexTransformationStock);
+    return ssm_protocol::CalculateSeedKey(seed, kIndex, ssm_protocol::kStockPairTable);
 }
 
 // The five legacy connect_bootloader() exchanges, byte-exact. Task 3 reuses

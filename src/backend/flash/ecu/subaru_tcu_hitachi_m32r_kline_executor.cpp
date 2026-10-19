@@ -172,7 +172,7 @@ bytes::Bytes SeedKey(bytes::ByteView seed)
     static constexpr std::array<std::uint16_t, 16> kIndex = {0x0FE9, 0xCA58, 0x5E90, 0xDFF1, 0x690B, 0xF591,
                                                              0x1794, 0x5C7B, 0xA7BF, 0x98E5, 0x0B63, 0xA1C9,
                                                              0x79BF, 0xF413, 0x82B1, 0xA895};
-    return ssm_protocol::CalculateSeedKey(seed, kIndex, ssm_protocol::kIndexTransformationStock);
+    return ssm_protocol::CalculateSeedKey(seed, kIndex, ssm_protocol::kStockPairTable);
 }
 
 Result<std::string> ConnectBootloader(IKlineFlashTransport& transport, IClock& clock,

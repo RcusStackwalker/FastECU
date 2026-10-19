@@ -137,7 +137,8 @@ bytes::Bytes GenerateSeedKey(bytes::ByteView seed)
     static constexpr auto kTransform =
         std::to_array<std::uint8_t>({0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8, 0xA, 0xD, 0x2, 0xB, 0xF, 0x4, 0x0, 0x3,
                                      0xB, 0x4, 0x6, 0x0, 0xF, 0x2, 0xD, 0x9, 0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8});
-    return ssm_protocol::CalculateSeedKey(seed, kIndex, kTransform);
+    static constexpr auto kTransformPairs = ssm_protocol::BuildPairTable(kTransform);
+    return ssm_protocol::CalculateSeedKey(seed, kIndex, kTransformPairs);
 }
 
 // generate_ecutek_seed_key(), lines 886-911: the same key table as stock,
@@ -152,7 +153,8 @@ bytes::Bytes GenerateEcutekSeedKey(bytes::ByteView seed)
     static constexpr auto kTransform =
         std::to_array<std::uint8_t>({0x4, 0x2, 0x5, 0x1, 0x8, 0xC, 0xD, 0x8, 0xA, 0xD, 0x2, 0xB, 0xF, 0x4, 0x0, 0x3,
                                      0xB, 0x4, 0x6, 0x0, 0xF, 0x2, 0xD, 0x9, 0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8});
-    return ssm_protocol::CalculateSeedKey(seed, kIndex, kTransform);
+    static constexpr auto kTransformPairs = ssm_protocol::BuildPairTable(kTransform);
+    return ssm_protocol::CalculateSeedKey(seed, kIndex, kTransformPairs);
 }
 
 // encrypt_payload(), lines 923-939.
@@ -162,7 +164,8 @@ bytes::Bytes EncryptPayload(bytes::ByteView buf)
     static constexpr auto kTransform =
         std::to_array<std::uint8_t>({0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8, 0xA, 0xD, 0x2, 0xB, 0xF, 0x4, 0x0, 0x3,
                                      0xB, 0x4, 0x6, 0x0, 0xF, 0x2, 0xD, 0x9, 0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8});
-    return ssm_protocol::CalculatePayload(buf, kIndex, kTransform);
+    static constexpr auto kTransformPairs = ssm_protocol::BuildPairTable(kTransform);
+    return ssm_protocol::CalculatePayload(buf, kIndex, kTransformPairs);
 }
 
 // For McuType "SH7055", kEepromBlocksSH7055[0] == {start=0, len=0x100}

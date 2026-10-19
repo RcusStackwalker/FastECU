@@ -14,54 +14,13 @@ namespace
 {
 
 template <bool Reverse, std::size_t Rounds>
-uint32_t TransformWord(uint32_t word, std::span<const std::uint16_t, Rounds> keytogenerateindex,
-                       IndexTransformation indextransformation)
+uint32_t TransformWord(uint32_t word, std::span<const std::uint16_t, Rounds> keytogenerateindex, const PairTable& pairs)
 {
     auto lo = static_cast<std::uint16_t>(word);
     auto hi = static_cast<std::uint16_t>(word >> 16U);
     for (std::size_t r = 0; r < Rounds; ++r)
     {
         const std::uint32_t v = static_cast<std::uint16_t>(lo ^ keytogenerateindex[Reverse ? (Rounds - 1 - r) : r]);
-        const std::uint32_t index = v | (v << 16U);
-
-        const auto encryptionkey = static_cast<std::uint16_t>(
-            indextransformation[index & 0x1FU] + (indextransformation[(index >> 4U) & 0x1FU] << 4U) +
-            (indextransformation[(index >> 8U) & 0x1FU] << 8U) + (indextransformation[(index >> 12U) & 0x1FU] << 12U));
-
-        const auto next = static_cast<std::uint16_t>(std::rotr(encryptionkey, 3) ^ hi);
-        hi = lo;
-        lo = next;
-    }
-
-    return static_cast<std::uint32_t>(hi) | (static_cast<std::uint32_t>(lo) << 16U);
-}
-
-// Two index-transformation lookups folded into one: entry i is
-// t[i & 0x1F] + (t[(i >> 4) & 0x1F] << 4) for a 9-bit i. A round then needs two
-// loads instead of four.
-using PairTable = std::array<std::uint16_t, 512>;
-
-consteval PairTable BuildPairTable(IndexTransformation indextransformation)
-{
-    PairTable pairs{};
-    for (std::size_t i = 0; i < pairs.size(); ++i)
-    {
-        pairs[i] =
-            static_cast<uint16_t>(indextransformation[i & 0x1FU] + (indextransformation[(i >> 4U) & 0x1FU] << 4U));
-    }
-    return pairs;
-}
-
-constexpr PairTable kStockPairTable = BuildPairTable(kIndexTransformationStock);
-constexpr PairTable kEcutekPairTable = BuildPairTable(kIndexTransformationEcutek);
-
-uint32_t TransformWordPaired(uint32_t word, KeyToGenerateIndex keytogenerateindex, const PairTable& pairs)
-{
-    auto lo = static_cast<std::uint16_t>(word);
-    auto hi = static_cast<std::uint16_t>(word >> 16U);
-    for (const std::uint16_t key : keytogenerateindex)
-    {
-        const std::uint32_t v = static_cast<std::uint16_t>(lo ^ key);
         const std::uint32_t index = v | (v << 16U);
 
         const auto encryptionkey =
@@ -75,18 +34,9 @@ uint32_t TransformWordPaired(uint32_t word, KeyToGenerateIndex keytogenerateinde
     return static_cast<std::uint32_t>(hi) | (static_cast<std::uint32_t>(lo) << 16U);
 }
 
-template <typename Words>
-bytes::Bytes TransformPayloadPaired(const Words& words, KeyToGenerateIndex keytogenerateindex, const PairTable& pairs)
-{
-    return bytes::ComposeBe(words |
-                            std::views::transform([&](std::uint32_t word)
-                                                  { return TransformWordPaired(word, keytogenerateindex, pairs); }));
-}
-
 } // namespace
 
-bytes::Bytes CalculateSeedKey(bytes::ByteView seed, SeedKeyToGenerateIndex keytogenerateindex,
-                              IndexTransformation indextransformation)
+bytes::Bytes CalculateSeedKey(bytes::ByteView seed, SeedKeyToGenerateIndex keytogenerateindex, const PairTable& pairs)
 {
     bytes::Bytes key;
     if (seed.size() < 4)
@@ -94,25 +44,17 @@ bytes::Bytes CalculateSeedKey(bytes::ByteView seed, SeedKeyToGenerateIndex keyto
         return key;
     }
 
-    bytes::AppendU32Be(key, TransformWord<true>(bytes::ReadU32Be(seed, 0), keytogenerateindex, indextransformation));
+    bytes::AppendU32Be(key, TransformWord<true>(bytes::ReadU32Be(seed, 0), keytogenerateindex, pairs));
     return key;
 }
 
-bytes::Bytes CalculatePayload(bytes::ByteView buf, KeyToGenerateIndex keytogenerateindex,
-                              IndexTransformation indextransformation)
+bytes::Bytes CalculatePayload(bytes::ByteView buf, KeyToGenerateIndex keytogenerateindex, const PairTable& pairs)
 {
-    const auto words = buf | bytes::views::kU32Be;
-    if (std::ranges::equal(indextransformation, kIndexTransformationStock))
-    {
-        return TransformPayloadPaired(words, keytogenerateindex, kStockPairTable);
-    }
-    if (std::ranges::equal(indextransformation, kIndexTransformationEcutek))
-    {
-        return TransformPayloadPaired(words, keytogenerateindex, kEcutekPairTable);
-    }
-    return bytes::ComposeBe(
-        words | std::views::transform([&](std::uint32_t word)
-                                      { return TransformWord<false>(word, keytogenerateindex, indextransformation); }));
+    const auto encrypted_words =
+        buf | bytes::views::kU32Be |
+        std::views::transform([&](std::uint32_t word)
+                              { return TransformWord<false>(word, keytogenerateindex, pairs); });
+    return bytes::ComposeBe(encrypted_words);
 }
 
 bytes::Bytes AddHeader(bytes::ByteView output, bytes::Byte tester_id, bytes::Byte target_id)

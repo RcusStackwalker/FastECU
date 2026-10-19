@@ -129,10 +129,11 @@ constexpr std::array<std::uint16_t, 4> kEncryptTable{0x7bf2, 0xa8b4, 0x4492, 0x6
 constexpr std::array<std::uint8_t, 32> kIndexTransformation{0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8, 0xA, 0xD, 0x2,
                                                             0xB, 0xF, 0x4, 0x0, 0x3, 0xB, 0x4, 0x6, 0x0, 0xF, 0x2,
                                                             0xD, 0x9, 0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8};
+constexpr auto kIndexTransformationPairs = ssm_protocol::BuildPairTable(kIndexTransformation);
 
 bytes::Bytes SeedKey(bytes::ByteView seed)
 {
-    return ssm_protocol::CalculateSeedKey(seed, kSeedKeyTable, kIndexTransformation);
+    return ssm_protocol::CalculateSeedKey(seed, kSeedKeyTable, kIndexTransformationPairs);
 }
 
 // calculatePayload's Feistel structure is memoryless per 4-byte word
@@ -142,7 +143,7 @@ bytes::Bytes SeedKey(bytes::ByteView seed)
 // bytes a write must carry for a known plaintext image.
 bytes::Bytes ToWire(bytes::ByteView plain)
 {
-    return ssm_protocol::CalculatePayload(plain, kEncryptTable, kIndexTransformation);
+    return ssm_protocol::CalculatePayload(plain, kEncryptTable, kIndexTransformationPairs);
 }
 
 const bytes::Bytes kSeed{0x11, 0x22, 0x33, 0x44};

@@ -73,8 +73,8 @@ FUZZ_TEST(SsmProtocolCoreFuzz, AcceptsWhatAddHeaderFrames)
 // trailing partial word.
 void TransformsWholeWordsOfTheBuffer(const std::vector<std::uint8_t>& buffer)
 {
-    const bytes::Bytes encrypted = ssm_protocol::CalculatePayload(bytes::ByteView(buffer), kKeyToGenerateIndex,
-                                                                  ssm_protocol::kIndexTransformationStock);
+    const bytes::Bytes encrypted =
+        ssm_protocol::CalculatePayload(bytes::ByteView(buffer), kKeyToGenerateIndex, ssm_protocol::kStockPairTable);
     const std::size_t words = buffer.size() / 4;
     EXPECT_EQ(encrypted.size(), words * 4);
 }

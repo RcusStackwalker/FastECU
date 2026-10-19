@@ -24,18 +24,17 @@ inline constexpr std::array<std::uint16_t, 4> kDensoSh705xKlineEncryptTable{0x78
 
 inline bytes::Bytes DensoSh705xKlineStockSeedKey(bytes::ByteView seed)
 {
-    return ssm_protocol::CalculateSeedKey(seed, kDensoSh705xKlineSeedKeyTable, ssm_protocol::kIndexTransformationStock);
+    return ssm_protocol::CalculateSeedKey(seed, kDensoSh705xKlineSeedKeyTable, ssm_protocol::kStockPairTable);
 }
 
 inline bytes::Bytes DensoSh705xKlineEcutekSeedKey(bytes::ByteView seed)
 {
-    return ssm_protocol::CalculateSeedKey(seed, kDensoSh705xKlineSeedKeyTable,
-                                          ssm_protocol::kIndexTransformationEcutek);
+    return ssm_protocol::CalculateSeedKey(seed, kDensoSh705xKlineSeedKeyTable, ssm_protocol::kEcutekPairTable);
 }
 
 inline bytes::Bytes DensoSh705xKlineEncryptPayload(bytes::ByteView buf)
 {
-    return ssm_protocol::CalculatePayload(buf, kDensoSh705xKlineEncryptTable, ssm_protocol::kIndexTransformationStock);
+    return ssm_protocol::CalculatePayload(buf, kDensoSh705xKlineEncryptTable, ssm_protocol::kStockPairTable);
 }
 
 } // namespace fastecu::flash

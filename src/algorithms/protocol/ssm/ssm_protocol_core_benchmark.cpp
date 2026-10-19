@@ -32,7 +32,7 @@ void BM_CalculatePayload(benchmark::State& state)
     for (auto _ : state)
     {
         benchmark::DoNotOptimize(
-            ssm_protocol::CalculatePayload(bytes::ByteView(payload), kKeys, ssm_protocol::kIndexTransformationStock));
+            ssm_protocol::CalculatePayload(bytes::ByteView(payload), kKeys, ssm_protocol::kStockPairTable));
     }
     state.SetBytesProcessed(state.iterations() * state.range(0));
 }
@@ -43,7 +43,7 @@ void BM_CalculateSeedKey(benchmark::State& state)
     for (auto _ : state)
     {
         benchmark::DoNotOptimize(
-            ssm_protocol::CalculateSeedKey(bytes::ByteView(seed), kSeedKeys, ssm_protocol::kIndexTransformationStock));
+            ssm_protocol::CalculateSeedKey(bytes::ByteView(seed), kSeedKeys, ssm_protocol::kStockPairTable));
     }
 }
 

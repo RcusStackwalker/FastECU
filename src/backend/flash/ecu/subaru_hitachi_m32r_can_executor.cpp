@@ -45,17 +45,17 @@ constexpr auto kDecryptTable = std::to_array<std::uint16_t>({0xF50E, 0x973C, 0x7
 
 bytes::Bytes SeedKey(bytes::ByteView seed)
 {
-    return ssm_protocol::CalculateSeedKey(seed, kSeedKeyTable, ssm_protocol::kIndexTransformationStock);
+    return ssm_protocol::CalculateSeedKey(seed, kSeedKeyTable, ssm_protocol::kStockPairTable);
 }
 
 bytes::Bytes EncryptRom(bytes::ByteView image)
 {
-    return ssm_protocol::CalculatePayload(image, kEncryptTable, ssm_protocol::kIndexTransformationStock);
+    return ssm_protocol::CalculatePayload(image, kEncryptTable, ssm_protocol::kStockPairTable);
 }
 
 bytes::Bytes DecryptPage(bytes::ByteView page)
 {
-    return ssm_protocol::CalculatePayload(page, kDecryptTable, ssm_protocol::kIndexTransformationStock);
+    return ssm_protocol::CalculatePayload(page, kDecryptTable, ssm_protocol::kStockPairTable);
 }
 
 // Every exchange goes through UdsClient over CanFlashUdsChannel except two

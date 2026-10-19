@@ -50,6 +50,7 @@ inline constexpr std::array<std::uint16_t, 4> kEncryptTable{0xC85B, 0x32C0, 0xE2
 inline constexpr std::array<std::uint8_t, 32> kIndexTransformation{
     0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8, 0xA, 0xD, 0x2, 0xB, 0xF, 0x4, 0x0, 0x3,
     0xB, 0x4, 0x6, 0x0, 0xF, 0x2, 0xD, 0x9, 0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8};
+inline constexpr auto kIndexTransformationPairs = ssm_protocol::BuildPairTable(kIndexTransformation);
 
 // The executor's decrypt table is this encrypt table exactly reversed, and
 // SsmProtocol::calculatePayload's Feistel structure inverts by reversing key
@@ -59,7 +60,7 @@ inline constexpr std::array<std::uint8_t, 32> kIndexTransformation{
 // a known plaintext image.
 inline bytes::Bytes ToWire(bytes::ByteView plain)
 {
-    return ssm_protocol::CalculatePayload(plain, kEncryptTable, kIndexTransformation);
+    return ssm_protocol::CalculatePayload(plain, kEncryptTable, kIndexTransformationPairs);
 }
 
 // The chunked 0xB7 dump sweep (legacy read_memory): 0xB7 plus a 4-byte big-

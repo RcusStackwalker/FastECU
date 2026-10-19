@@ -75,11 +75,23 @@ TEST(SsmProtocolCore, StockAndEcutekIndexTransformationsDifferOnlyInTheFirstFive
                            ssm_protocol::kIndexTransformationEcutek.begin() + 5));
 }
 
+// A pair table entry is two nibble lookups of the raw table, one per 5-bit window.
+TEST(SsmProtocolCore, PairTablesFoldTwoLookupsOfTheirIndexTransformation)
+{
+    for (std::size_t i = 0; i < ssm_protocol::kStockPairTable.size(); ++i)
+    {
+        const auto stock = ssm_protocol::kIndexTransformationStock;
+        const auto ecutek = ssm_protocol::kIndexTransformationEcutek;
+        EXPECT_EQ(ssm_protocol::kStockPairTable[i], stock[i & 0x1FU] + (stock[(i >> 4U) & 0x1FU] << 4U)) << i;
+        EXPECT_EQ(ssm_protocol::kEcutekPairTable[i], ecutek[i & 0x1FU] + (ecutek[(i >> 4U) & 0x1FU] << 4U)) << i;
+    }
+}
+
 // Ported from the deleted src/algorithms/protocol/ssm/qt_compat/ssm_protocol_qt_compat_test.cpp
 // so calculateSeedKey and calculatePayload's known-answer vectors survive the
 // Qt shim's removal. kAlternateSeedTable/kAlternateTransformTable are
 // synthetic fixtures proving the transform generalizes beyond
-// kIndexTransformationStock; they are not production tables.
+// kStockPairTable; they are not production tables.
 namespace
 {
 constexpr auto kCommonSeedTable =
@@ -94,42 +106,48 @@ constexpr auto kAlternateTransformTable =
     std::to_array<std::uint8_t>({0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9, 0xA, 0xB, 0xC, 0xD, 0xE, 0xF,
                                  0xF, 0xE, 0xD, 0xC, 0xB, 0xA, 0x9, 0x8, 0x7, 0x6, 0x5, 0x4, 0x3, 0x2, 0x1, 0x0});
 
+constexpr auto kAlternatePairTable = ssm_protocol::BuildPairTable(kAlternateTransformTable);
+
 constexpr auto kPayloadTable = std::to_array<std::uint16_t>({0xC85B, 0x32C0, 0xE282, 0x92A0});
 } // namespace
 
 TEST(SsmProtocolCore, CalculateSeedKeyMatchesTheCommonDensoVector)
 {
     EXPECT_THAT(ssm_protocol::CalculateSeedKey(bytes::ByteView(test_bytes::BytesFromHex("12345678")), kCommonSeedTable,
-                                               ssm_protocol::kIndexTransformationStock),
+                                               ssm_protocol::kStockPairTable),
                 test_bytes::BytesEq(test_bytes::BytesFromHex("2daa46dc")));
 }
 
 TEST(SsmProtocolCore, CalculateSeedKeyMatchesTheAlternateTableVector)
 {
     EXPECT_THAT(ssm_protocol::CalculateSeedKey(bytes::ByteView(test_bytes::BytesFromHex("89abcdef")),
-                                               kAlternateSeedTable, kAlternateTransformTable),
+                                               kAlternateSeedTable, kAlternatePairTable),
                 test_bytes::BytesEq(test_bytes::BytesFromHex("408d111d")));
 }
 
 TEST(SsmProtocolCore, CalculatePayloadMatchesTheCommonDensoVector)
 {
     EXPECT_THAT(ssm_protocol::CalculatePayload(bytes::ByteView(test_bytes::BytesFromHex("0011223344556677")),
-                                               kPayloadTable, ssm_protocol::kIndexTransformationStock),
+                                               kPayloadTable, ssm_protocol::kStockPairTable),
                 test_bytes::BytesEq(test_bytes::BytesFromHex("ed9fd931afacd594")));
 }
 
 TEST(SsmProtocolCore, CalculatePayloadTruncatesToAFourByteBoundary)
 {
     EXPECT_THAT(ssm_protocol::CalculatePayload(bytes::ByteView(test_bytes::BytesFromHex("0011223344")), kPayloadTable,
-                                               ssm_protocol::kIndexTransformationStock),
+                                               ssm_protocol::kStockPairTable),
                 test_bytes::BytesEq(test_bytes::BytesFromHex("ed9fd931")));
 }
 
 TEST(SsmProtocolCore, CalculatePayloadTransformsEveryWordOfAPayloadTheSame)
 {
-    // Stock and Ecutek take the precomputed pair tables, any other table the plain path.
-    auto custom = ssm_protocol::kIndexTransformationStock;
-    custom[9] = 0xE;
+    static constexpr auto kCustomTransform = []
+    {
+        auto table = ssm_protocol::kIndexTransformationStock;
+        table[9] = 0xE;
+        return table;
+    }();
+    static constexpr auto kCustomPairTable = ssm_protocol::BuildPairTable(kCustomTransform);
     const bytes::Bytes word = test_bytes::BytesFromHex("44556677");
     const auto repeat = [](const bytes::Bytes& unit, std::size_t count)
     {
@@ -143,15 +161,15 @@ TEST(SsmProtocolCore, CalculatePayloadTransformsEveryWordOfAPayloadTheSame)
     for (const std::size_t words : {1U, 63U, 64U, 65U, 200U})
     {
         const bytes::Bytes plain = repeat(word, words);
-        const auto encrypt = [&](ssm_protocol::IndexTransformation table)
-        { return ssm_protocol::CalculatePayload(bytes::ByteView(plain), kPayloadTable, table); };
-        EXPECT_THAT(encrypt(ssm_protocol::kIndexTransformationStock),
+        const auto encrypt = [&](const ssm_protocol::PairTable& pairs)
+        { return ssm_protocol::CalculatePayload(bytes::ByteView(plain), kPayloadTable, pairs); };
+        EXPECT_THAT(encrypt(ssm_protocol::kStockPairTable),
                     test_bytes::BytesEq(repeat(test_bytes::BytesFromHex("afacd594"), words)))
             << "stock words=" << words;
-        EXPECT_THAT(encrypt(ssm_protocol::kIndexTransformationEcutek),
+        EXPECT_THAT(encrypt(ssm_protocol::kEcutekPairTable),
                     test_bytes::BytesEq(repeat(test_bytes::BytesFromHex("57cdb994"), words)))
             << "ecutek words=" << words;
-        EXPECT_THAT(encrypt(custom), test_bytes::BytesEq(repeat(test_bytes::BytesFromHex("071374f5"), words)))
+        EXPECT_THAT(encrypt(kCustomPairTable), test_bytes::BytesEq(repeat(test_bytes::BytesFromHex("071374f5"), words)))
             << "custom words=" << words;
     }
 }
