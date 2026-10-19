@@ -1,4 +1,4 @@
-#include "src/backend/calibration/session/selectable_edit_use_case.h"
+#include "src/backend/calibration/session/map_operations.h"
 
 #include <algorithm>
 #include <cstdint>
@@ -23,9 +23,31 @@ SelectableEditOutcome NotApplicable(NotApplicableReason reason)
 
 } // namespace
 
-Result<SelectableEditOutcome> ApplySelectableEdit(CalibrationWorkspace& workspace, const SelectableEditRequest& request)
+Result<NumericEditOutcome> EditNumeric(CalibrationWorkspace& workspace, MapRef map, const NumericSelection& selection,
+                                       NumericEditOperation operation)
 {
-    const auto located = internal::LocateMap(workspace, request.session, request.map_index);
+    auto preparation = internal::PrepareNumericTarget(workspace, map.session, map.map_index, selection.target);
+    if (auto *target = std::get_if<internal::PreparedNumericTarget>(&preparation); target != nullptr)
+    {
+        return target->Apply(selection.elements, operation);
+    }
+    return NumericEditOutcome{std::get<MapNotApplicable>(preparation)};
+}
+
+Result<NumericCopyOutcome> CopyNumeric(CalibrationWorkspace& workspace, MapRef map, const NumericSelection& selection)
+{
+    auto preparation = internal::PrepareNumericTarget(workspace, map.session, map.map_index, selection.target);
+    if (auto *target = std::get_if<internal::PreparedNumericTarget>(&preparation); target != nullptr)
+    {
+        return target->Copy(selection.elements);
+    }
+    return NumericCopyOutcome{std::get<MapNotApplicable>(preparation)};
+}
+
+Result<SelectableEditOutcome> EditSelectable(CalibrationWorkspace& workspace, MapRef map_ref,
+                                             std::string_view selection)
+{
+    const auto located = internal::LocateMap(workspace, map_ref.session, map_ref.map_index);
     if (const auto *miss = std::get_if<MapNotApplicable>(&located); miss != nullptr)
     {
         return SelectableEditOutcome{*miss};
@@ -36,7 +58,7 @@ Result<SelectableEditOutcome> ApplySelectableEdit(CalibrationWorkspace& workspac
     {
         return NotApplicable(NotApplicableReason::kUnavailableTarget);
     }
-    const auto selected = std::ranges::find(element.selections, request.selection, &definition::Selection::name);
+    const auto selected = std::ranges::find(element.selections, selection, &definition::Selection::name);
     if (selected == element.selections.end())
     {
         return NotApplicable(NotApplicableReason::kUnknownSelection);

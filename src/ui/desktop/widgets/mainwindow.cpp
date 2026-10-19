@@ -1,5 +1,5 @@
 #include "src/ui/desktop/widgets/mainwindow.h"
-#include "src/backend/calibration/session/selectable_edit_use_case.h"
+#include "src/backend/calibration/session/map_operations.h"
 #include "src/ui/desktop/calibration/calibration_operation_coordinator.h"
 #include "src/ui/desktop/calibration/map_presentation.h"
 #include "src/ui/desktop/calibration/map_edit_adapter.h"
@@ -1044,9 +1044,8 @@ void MainWindow::setMapSelection(fastecu::calibration::SessionId id, int mapInde
     {
         return;
     }
-    const auto outcome = fastecu::calibration::ApplySelectableEdit(
-        *calibration_workspace_,
-        {.session = id, .map_index = static_cast<std::size_t>(mapIndex), .selection = item.toStdString()});
+    const auto outcome = fastecu::calibration::EditSelectable(
+        *calibration_workspace_, {id, static_cast<std::size_t>(mapIndex)}, item.toStdString());
     if (!outcome.has_value())
     {
         QMessageBox::warning(this, tr("Set value"), qs(outcome.error().detail));

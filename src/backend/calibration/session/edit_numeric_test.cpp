@@ -1,4 +1,4 @@
-#include "src/backend/calibration/session/numeric_edit_use_case.h"
+#include "src/backend/calibration/session/map_operations.h"
 
 #include <algorithm>
 #include <array>
@@ -54,7 +54,7 @@ auto NotApplicable(NotApplicableReason reason)
     return IsOkAnd(VariantWith<MapNotApplicable>(Field(&MapNotApplicable::reason, reason)));
 }
 
-class NumericEditUseCaseTest : public testing::NumericSessionFixture
+class EditNumericTest : public testing::NumericSessionFixture
 {
   protected:
     std::vector<std::uint8_t> BodyBytes()
@@ -66,14 +66,12 @@ class NumericEditUseCaseTest : public testing::NumericSessionFixture
     Result<NumericEditOutcome> Edit(NumericTarget target, SelectionRange elements, NumericEditOperation operation,
                                     std::size_t map_index = 0)
     {
-        return ApplyNumericEdit(workspace_, {.session = id_,
-                                             .map_index = map_index,
-                                             .selection = {.target = target, .elements = elements},
-                                             .operation = std::move(operation)});
+        return EditNumeric(workspace_, {id_, map_index}, {.target = target, .elements = elements},
+                           std::move(operation));
     }
 };
 
-TEST_F(NumericEditUseCaseTest, ChangesTheSelectedBodyCell)
+TEST_F(EditNumericTest, ChangesTheSelectedBodyCell)
 {
     EXPECT_THAT(Edit(NumericTarget::kMapBody, Cell(1, 1), IncrementEdit{IncrementStep::kCoarseUp}), Changed());
 
@@ -81,7 +79,7 @@ TEST_F(NumericEditUseCaseTest, ChangesTheSelectedBodyCell)
     EXPECT_TRUE(Session().Dirty());
 }
 
-TEST_F(NumericEditUseCaseTest, EditsAxesWithTheirOwnGeometry)
+TEST_F(EditNumericTest, EditsAxesWithTheirOwnGeometry)
 {
     EXPECT_THAT(Edit(NumericTarget::kXAxis, Cell(0, 2), IncrementEdit{IncrementStep::kCoarseUp}), Changed());
     EXPECT_THAT(Edit(NumericTarget::kYAxis, Cell(1, 0), IncrementEdit{IncrementStep::kFineUp}), Changed());
@@ -91,7 +89,7 @@ TEST_F(NumericEditUseCaseTest, EditsAxesWithTheirOwnGeometry)
     EXPECT_THAT(BodyBytes(), ElementsAre(10, 20, 30, 40, 50, 200));
 }
 
-TEST_F(NumericEditUseCaseTest, CalculatesFromBytesWrittenBeforeTheCall)
+TEST_F(EditNumericTest, CalculatesFromBytesWrittenBeforeTheCall)
 {
     const std::array<std::uint8_t, 1> value{33};
     ASSERT_THAT(Session().WriteBytes(kBody, value), IsOk());
@@ -101,7 +99,7 @@ TEST_F(NumericEditUseCaseTest, CalculatesFromBytesWrittenBeforeTheCall)
     EXPECT_EQ(Session().File()[kBody], 34);
 }
 
-TEST_F(NumericEditUseCaseTest, AssignsAnExpressionAcrossARow)
+TEST_F(EditNumericTest, AssignsAnExpressionAcrossARow)
 {
     EXPECT_THAT(Edit(NumericTarget::kMapBody, {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 2},
                      AssignmentEdit{"x*2"}),
@@ -110,7 +108,7 @@ TEST_F(NumericEditUseCaseTest, AssignsAnExpressionAcrossARow)
     EXPECT_THAT(BodyBytes(), ElementsAre(20, 40, 60, 40, 50, 200));
 }
 
-TEST_F(NumericEditUseCaseTest, InterpolatesBetweenTheSelectionEdges)
+TEST_F(EditNumericTest, InterpolatesBetweenTheSelectionEdges)
 {
     const std::array<std::uint8_t, 3> row{10, 0, 30};
     ASSERT_THAT(Session().WriteBytes(kBody, row), IsOk());
@@ -122,7 +120,7 @@ TEST_F(NumericEditUseCaseTest, InterpolatesBetweenTheSelectionEdges)
     EXPECT_THAT(BodyBytes(), ElementsAre(10, 20, 30, 40, 50, 200));
 }
 
-TEST_F(NumericEditUseCaseTest, RejectsSelectionsOutsideTheTargetRun)
+TEST_F(EditNumericTest, RejectsSelectionsOutsideTheTargetRun)
 {
     const auto before = RomBytes();
 
@@ -139,7 +137,7 @@ TEST_F(NumericEditUseCaseTest, RejectsSelectionsOutsideTheTargetRun)
     EXPECT_FALSE(Session().Dirty());
 }
 
-TEST_F(NumericEditUseCaseTest, RejectsAnInvalidExpressionWithoutMutation)
+TEST_F(EditNumericTest, RejectsAnInvalidExpressionWithoutMutation)
 {
     const auto before = RomBytes();
 
@@ -149,7 +147,7 @@ TEST_F(NumericEditUseCaseTest, RejectsAnInvalidExpressionWithoutMutation)
     EXPECT_FALSE(Session().Dirty());
 }
 
-TEST_F(NumericEditUseCaseTest, AFailingCellRejectsTheWholeSelection)
+TEST_F(EditNumericTest, AFailingCellRejectsTheWholeSelection)
 {
     auto def = GridDefinition();
     def.scalings[0].maximum.clear();
@@ -165,7 +163,7 @@ TEST_F(NumericEditUseCaseTest, AFailingCellRejectsTheWholeSelection)
     EXPECT_FALSE(Session().Dirty());
 }
 
-TEST_F(NumericEditUseCaseTest, AFailedEditKeepsAnAlreadyDirtySessionDirty)
+TEST_F(EditNumericTest, AFailedEditKeepsAnAlreadyDirtySessionDirty)
 {
     auto def = GridDefinition();
     def.scalings[0].maximum.clear();
@@ -184,7 +182,7 @@ TEST_F(NumericEditUseCaseTest, AFailedEditKeepsAnAlreadyDirtySessionDirty)
     EXPECT_TRUE(Session().Dirty());
 }
 
-TEST_F(NumericEditUseCaseTest, RelativeEditsNeedValidCurrentValuesButAssignmentsDoNot)
+TEST_F(EditNumericTest, RelativeEditsNeedValidCurrentValuesButAssignmentsDoNot)
 {
     auto def = GridDefinition();
     def.scalings[0].from_byte = "1/0";
@@ -200,7 +198,7 @@ TEST_F(NumericEditUseCaseTest, RelativeEditsNeedValidCurrentValuesButAssignments
     EXPECT_EQ(Session().File()[kBody], 5);
 }
 
-TEST_F(NumericEditUseCaseTest, ReportsLimitAndOrdinaryNoChangeWithoutDirtying)
+TEST_F(EditNumericTest, ReportsLimitAndOrdinaryNoChangeWithoutDirtying)
 {
     const auto before = RomBytes();
 
@@ -212,7 +210,7 @@ TEST_F(NumericEditUseCaseTest, ReportsLimitAndOrdinaryNoChangeWithoutDirtying)
     EXPECT_FALSE(Session().Dirty());
 }
 
-TEST_F(NumericEditUseCaseTest, ReportsStorageResolutionAndCombinedCauses)
+TEST_F(EditNumericTest, ReportsStorageResolutionAndCombinedCauses)
 {
     auto def = GridDefinition();
     def.scalings[0].from_byte = "x/10";
@@ -229,7 +227,7 @@ TEST_F(NumericEditUseCaseTest, ReportsStorageResolutionAndCombinedCauses)
     EXPECT_FALSE(Session().Dirty());
 }
 
-TEST_F(NumericEditUseCaseTest, ACompleteNoOpKeepsAnAlreadyDirtySessionDirty)
+TEST_F(EditNumericTest, ACompleteNoOpKeepsAnAlreadyDirtySessionDirty)
 {
     const std::array<std::uint8_t, 1> unrelated{7};
     ASSERT_THAT(Session().WriteBytes(0x1F, unrelated), IsOk());
@@ -239,7 +237,7 @@ TEST_F(NumericEditUseCaseTest, ACompleteNoOpKeepsAnAlreadyDirtySessionDirty)
     EXPECT_TRUE(Session().Dirty());
 }
 
-TEST_F(NumericEditUseCaseTest, BodyStorageAndEndianFallBackToTheScaling)
+TEST_F(EditNumericTest, BodyStorageAndEndianFallBackToTheScaling)
 {
     auto def = GridDefinition();
     auto& map = def.maps[0];
@@ -265,7 +263,7 @@ TEST_F(NumericEditUseCaseTest, BodyStorageAndEndianFallBackToTheScaling)
 // A real HC16Y5 `_02` session holds the padded 0x30000-byte image under its
 // canonical protocol name (RomOpenUseCase resolves the `wrx02` alias before
 // any edit), so a definition address at or above 0x28000 is written in place.
-TEST_F(NumericEditUseCaseTest, Mc68PaddedImagesWriteHighAddressesInPlace)
+TEST_F(EditNumericTest, Mc68PaddedImagesWriteHighAddressesInPlace)
 {
     definition::RomDefinition def = GridDefinition();
     auto& map = def.maps[0];
@@ -287,7 +285,7 @@ TEST_F(NumericEditUseCaseTest, Mc68PaddedImagesWriteHighAddressesInPlace)
 
 // Q13: a map in memory the protocol never writes (a bootloader prefix) decodes
 // but cannot be edited, and a multi-cell edit changes no byte at all.
-TEST_F(NumericEditUseCaseTest, EditsToAMapInReadOnlyMemoryChangeNothing)
+TEST_F(EditNumericTest, EditsToAMapInReadOnlyMemoryChangeNothing)
 {
     const std::vector<std::uint8_t> rom = GridRom();
     const std::array blocks{memory::MemoryBlock{
@@ -308,13 +306,11 @@ TEST_F(NumericEditUseCaseTest, EditsToAMapInReadOnlyMemoryChangeNothing)
     EXPECT_FALSE(Session().Dirty());
 }
 
-TEST_F(NumericEditUseCaseTest, StaleSessionIdsAreNotApplicable)
+TEST_F(EditNumericTest, StaleSessionIdsAreNotApplicable)
 {
     const auto before = RomBytes();
-    EXPECT_THAT(ApplyNumericEdit(workspace_, {.session = SessionId{999},
-                                              .map_index = 0,
-                                              .selection = {.target = NumericTarget::kMapBody, .elements = Cell(0, 0)},
-                                              .operation = AssignmentEdit{"7"}}),
+    EXPECT_THAT(EditNumeric(workspace_, {SessionId{999}, 0},
+                            {.target = NumericTarget::kMapBody, .elements = Cell(0, 0)}, AssignmentEdit{"7"}),
                 NotApplicable(NotApplicableReason::kClosedSession));
     EXPECT_EQ(RomBytes(), before);
 
@@ -323,7 +319,7 @@ TEST_F(NumericEditUseCaseTest, StaleSessionIdsAreNotApplicable)
                 NotApplicable(NotApplicableReason::kClosedSession));
 }
 
-TEST_F(NumericEditUseCaseTest, ASessionWithoutADefinitionIsNotApplicable)
+TEST_F(EditNumericTest, ASessionWithoutADefinitionIsNotApplicable)
 {
     Install(std::nullopt);
 
@@ -332,7 +328,7 @@ TEST_F(NumericEditUseCaseTest, ASessionWithoutADefinitionIsNotApplicable)
     EXPECT_FALSE(Session().Dirty());
 }
 
-TEST_F(NumericEditUseCaseTest, UnavailableTargetsAreNotApplicable)
+TEST_F(EditNumericTest, UnavailableTargetsAreNotApplicable)
 {
     EXPECT_THAT(Edit(NumericTarget::kMapBody, Cell(0, 0), AssignmentEdit{"7"}, 1),
                 NotApplicable(NotApplicableReason::kUnknownMap));
@@ -363,7 +359,7 @@ TEST_F(NumericEditUseCaseTest, UnavailableTargetsAreNotApplicable)
     EXPECT_FALSE(Session().Dirty());
 }
 
-TEST_F(NumericEditUseCaseTest, AnInvalidAxisRejectsBodyOperations)
+TEST_F(EditNumericTest, AnInvalidAxisRejectsBodyOperations)
 {
     auto def = GridDefinition();
     def.maps[0].x_axis.address = memory::DefinitionAddress{0x40};
@@ -374,7 +370,7 @@ TEST_F(NumericEditUseCaseTest, AnInvalidAxisRejectsBodyOperations)
     EXPECT_FALSE(Session().Dirty());
 }
 
-TEST_F(NumericEditUseCaseTest, ReciprocalEncodingIsValidatedForTheRequestedValue)
+TEST_F(EditNumericTest, ReciprocalEncodingIsValidatedForTheRequestedValue)
 {
     auto def = GridDefinition();
     auto& map = def.maps[0];
@@ -402,7 +398,7 @@ TEST_F(NumericEditUseCaseTest, ReciprocalEncodingIsValidatedForTheRequestedValue
     EXPECT_FALSE(Session().Dirty());
 }
 
-TEST_F(NumericEditUseCaseTest, AssignmentIgnoresMalformedIncrement)
+TEST_F(EditNumericTest, AssignmentIgnoresMalformedIncrement)
 {
     auto def = GridDefinition();
     def.scalings[0].fine_increment = "bad";
@@ -416,7 +412,7 @@ TEST_F(NumericEditUseCaseTest, AssignmentIgnoresMalformedIncrement)
     EXPECT_TRUE(Session().Dirty());
 }
 
-TEST_F(NumericEditUseCaseTest, ConsumedMalformedLimitRejectsAssignment)
+TEST_F(EditNumericTest, ConsumedMalformedLimitRejectsAssignment)
 {
     auto def = GridDefinition();
     def.scalings[0].minimum = "bad";
@@ -426,7 +422,7 @@ TEST_F(NumericEditUseCaseTest, ConsumedMalformedLimitRejectsAssignment)
     EXPECT_FALSE(Session().Dirty());
 }
 
-TEST_F(NumericEditUseCaseTest, ResolvedAxisExpressionsAndStrideDriveEdits)
+TEST_F(EditNumericTest, ResolvedAxisExpressionsAndStrideDriveEdits)
 {
     auto def = GridDefinition();
     auto& axis = def.maps[0].x_axis;
@@ -446,14 +442,14 @@ TEST_F(NumericEditUseCaseTest, ResolvedAxisExpressionsAndStrideDriveEdits)
     EXPECT_THAT(BodyBytes(), ElementsAre(10, 20, 30, 40, 50, 200));
 }
 
-TEST_F(NumericEditUseCaseTest, PastesRowsFromTheSelectionTopLeft)
+TEST_F(EditNumericTest, PastesRowsFromTheSelectionTopLeft)
 {
     EXPECT_THAT(Edit(NumericTarget::kMapBody, Cell(0, 1), PasteEdit{{{"1", "2"}, {"3", "4"}}}), Changed());
 
     EXPECT_THAT(BodyBytes(), ElementsAre(10, 1, 2, 40, 3, 4));
 }
 
-TEST_F(NumericEditUseCaseTest, ClipsALargerSourceToTheRunEdges)
+TEST_F(EditNumericTest, ClipsALargerSourceToTheRunEdges)
 {
     EXPECT_THAT(
         Edit(NumericTarget::kMapBody, Cell(1, 1), PasteEdit{{{"1", "2", "3"}, {"4", "5", "6"}, {"7", "8", "9"}}}),
@@ -464,14 +460,14 @@ TEST_F(NumericEditUseCaseTest, ClipsALargerSourceToTheRunEdges)
     EXPECT_THAT(std::vector<std::uint8_t>(rom.begin(), rom.begin() + 3), ElementsAre(1, 2, 3));
 }
 
-TEST_F(NumericEditUseCaseTest, RaggedRowsPasteWhatEachRowSupplies)
+TEST_F(EditNumericTest, RaggedRowsPasteWhatEachRowSupplies)
 {
     EXPECT_THAT(Edit(NumericTarget::kMapBody, Cell(0, 0), PasteEdit{{{"1", "2"}, {"3"}}}), Changed());
 
     EXPECT_THAT(BodyBytes(), ElementsAre(1, 2, 30, 3, 50, 200));
 }
 
-TEST_F(NumericEditUseCaseTest, EverySuppliedCellIsValidatedBeforeClipping)
+TEST_F(EditNumericTest, EverySuppliedCellIsValidatedBeforeClipping)
 {
     const auto before = RomBytes();
 
@@ -486,7 +482,7 @@ TEST_F(NumericEditUseCaseTest, EverySuppliedCellIsValidatedBeforeClipping)
     EXPECT_FALSE(Session().Dirty());
 }
 
-TEST_F(NumericEditUseCaseTest, PasteAcceptsCarriageReturnsAndOnlyDotDecimals)
+TEST_F(EditNumericTest, PasteAcceptsCarriageReturnsAndOnlyDotDecimals)
 {
     EXPECT_THAT(Edit(NumericTarget::kMapBody, Cell(1, 0), PasteEdit{{{"1,5"}}}), IsErr(ErrorKind::kInvalidConfig));
     EXPECT_FALSE(Session().Dirty());
@@ -496,7 +492,7 @@ TEST_F(NumericEditUseCaseTest, PasteAcceptsCarriageReturnsAndOnlyDotDecimals)
     EXPECT_THAT(BodyBytes(), ElementsAre(7, 2, 30, 40, 50, 200));
 }
 
-TEST_F(NumericEditUseCaseTest, AxesUseTheirOwnGeometry)
+TEST_F(EditNumericTest, AxesUseTheirOwnGeometry)
 {
     EXPECT_THAT(Edit(NumericTarget::kXAxis, Cell(0, 1), PasteEdit{{{"7", "8"}, {"9", "9"}}}), Changed());
     EXPECT_THAT(Edit(NumericTarget::kYAxis, Cell(0, 0), PasteEdit{{{"6", "9"}, {"7", "9"}}}), Changed());
@@ -507,7 +503,7 @@ TEST_F(NumericEditUseCaseTest, AxesUseTheirOwnGeometry)
     EXPECT_THAT(BodyBytes(), ElementsAre(10, 20, 30, 40, 50, 200));
 }
 
-TEST_F(NumericEditUseCaseTest, PastingCurrentValuesIsANoOp)
+TEST_F(EditNumericTest, PastingCurrentValuesIsANoOp)
 {
     EXPECT_THAT(Edit(NumericTarget::kMapBody, Cell(0, 0), PasteEdit{{{"10", "20"}}}),
                 Unchanged(NoChangeReason::kUnchanged));

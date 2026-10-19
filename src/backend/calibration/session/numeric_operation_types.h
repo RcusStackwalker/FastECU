@@ -47,14 +47,6 @@ struct PasteEdit
 
 using NumericEditOperation = std::variant<IncrementEdit, AssignmentEdit, InterpolationEdit, PasteEdit>;
 
-struct NumericEditRequest
-{
-    SessionId session{};
-    std::size_t map_index{0};
-    NumericSelection selection;
-    NumericEditOperation operation;
-};
-
 // At least one stored byte changed; the session is dirty.
 struct NumericEditChanged
 {
@@ -88,13 +80,6 @@ struct MapNotApplicable
 };
 
 using NumericEditOutcome = std::variant<NumericEditChanged, NumericEditUnchanged, MapNotApplicable>;
-
-struct NumericCopyRequest
-{
-    SessionId session{};
-    std::size_t map_index{0};
-    NumericSelection selection;
-};
 
 // Tab-separated cells, LF-separated rows, row-major from the selection's
 // top-left. Each cell is the full-precision scaled value in locale-independent

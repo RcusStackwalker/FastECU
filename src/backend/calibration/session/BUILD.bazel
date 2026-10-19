@@ -129,88 +129,6 @@ cc_library(
 )
 
 cc_library(
-    name = "numeric_edit_use_case",
-    srcs = ["numeric_edit_use_case.cpp"],
-    hdrs = ["numeric_edit_use_case.h"],
-    implementation_deps = [":numeric_target_internal"],
-    deps = [
-        ":calibration_workspace",
-        ":numeric_operation_types",
-        "//src/backend/ports",
-    ],
-)
-
-fastecu_portable_gtest(
-    name = "numeric_edit_use_case_test",
-    srcs = ["numeric_edit_use_case_test.cpp"],
-    deps = [
-        ":numeric_edit_use_case",
-        "//src/algorithms/memory:memory_map",
-        "//src/backend/calibration/session/testing:numeric_session_fixture",
-        "//src/backend/ports/testing:result_matchers",
-        "@googletest//:gtest",
-    ],
-)
-
-cc_library(
-    name = "numeric_copy_use_case",
-    srcs = ["numeric_copy_use_case.cpp"],
-    hdrs = ["numeric_copy_use_case.h"],
-    implementation_deps = [":numeric_target_internal"],
-    deps = [
-        ":calibration_workspace",
-        ":numeric_edit_use_case",
-        ":numeric_operation_types",
-        "//src/backend/ports",
-    ],
-)
-
-fastecu_portable_gtest(
-    name = "numeric_copy_use_case_test",
-    srcs = ["numeric_copy_use_case_test.cpp"],
-    deps = [
-        ":numeric_copy_use_case",
-        ":numeric_edit_use_case",
-        ":selectable_edit_use_case",
-        "//src/backend/calibration/session/testing:numeric_session_fixture",
-        "//src/backend/ports/testing:result_matchers",
-        "@googletest//:gtest",
-    ],
-)
-
-cc_library(
-    name = "selectable_edit_use_case",
-    srcs = ["selectable_edit_use_case.cpp"],
-    hdrs = ["selectable_edit_use_case.h"],
-    implementation_deps = [
-        ":numeric_target_internal",
-        "//src/algorithms/protocol",
-        "//src/backend/calibration:definition_interpretation_internal",
-        "//src/backend/definition:definition_model",
-    ],
-    deps = [
-        ":calibration_session",
-        ":calibration_workspace",
-        ":numeric_operation_types",
-        "//src/backend/ports",
-    ],
-)
-
-fastecu_portable_gtest(
-    name = "selectable_edit_use_case_test",
-    srcs = ["selectable_edit_use_case_test.cpp"],
-    deps = [
-        ":selectable_edit_use_case",
-        "//src/algorithms/memory/testing:memory_views",
-        "//src/backend/calibration/session/testing:fake_definition_catalogs",
-        "//src/backend/config/testing:config_session_fixture",
-        "//src/backend/ports/testing:in_memory_atomic_file_writer",
-        "//src/backend/ports/testing:result_matchers",
-        "@googletest//:gtest",
-    ],
-)
-
-cc_library(
     name = "numeric_operation_types",
     hdrs = ["numeric_operation_types.h"],
     deps = [
@@ -246,6 +164,61 @@ fastecu_portable_gtest(
     deps = [
         ":numeric_target_internal",
         "//src/backend/calibration/session/testing:numeric_session_fixture",
+        "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
+    ],
+)
+
+cc_library(
+    name = "map_operations",
+    srcs = ["map_operations.cpp"],
+    hdrs = ["map_operations.h"],
+    implementation_deps = [
+        ":numeric_target_internal",
+        "//src/algorithms/protocol",
+        "//src/backend/calibration:definition_interpretation_internal",
+        "//src/backend/definition:definition_model",
+    ],
+    deps = [
+        ":calibration_session",
+        ":calibration_workspace",
+        ":numeric_operation_types",
+        "//src/backend/ports",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "copy_numeric_test",
+    srcs = ["copy_numeric_test.cpp"],
+    deps = [
+        ":map_operations",
+        "//src/backend/calibration/session/testing:numeric_session_fixture",
+        "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "edit_numeric_test",
+    srcs = ["edit_numeric_test.cpp"],
+    deps = [
+        ":map_operations",
+        "//src/algorithms/memory:memory_map",
+        "//src/backend/calibration/session/testing:numeric_session_fixture",
+        "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "edit_selectable_test",
+    srcs = ["edit_selectable_test.cpp"],
+    deps = [
+        ":map_operations",
+        "//src/algorithms/memory/testing:memory_views",
+        "//src/backend/calibration/session/testing:fake_definition_catalogs",
+        "//src/backend/config/testing:config_session_fixture",
+        "//src/backend/ports/testing:in_memory_atomic_file_writer",
         "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
     ],

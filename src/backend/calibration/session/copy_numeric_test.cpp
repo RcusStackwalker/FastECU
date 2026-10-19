@@ -1,4 +1,4 @@
-#include "src/backend/calibration/session/numeric_copy_use_case.h"
+#include "src/backend/calibration/session/map_operations.h"
 
 #include <cstddef>
 #include <cstdlib>
@@ -9,8 +9,6 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include "src/backend/calibration/session/numeric_edit_use_case.h"
-#include "src/backend/calibration/session/selectable_edit_use_case.h"
 #include "src/backend/calibration/session/testing/numeric_session_fixture.h"
 #include "src/backend/ports/testing/result_matchers.h"
 
@@ -39,14 +37,12 @@ auto NotApplicable(NotApplicableReason reason)
     return IsOkAnd(VariantWith<MapNotApplicable>(Field(&MapNotApplicable::reason, reason)));
 }
 
-class NumericCopyUseCaseTest : public testing::NumericSessionFixture
+class CopyNumericTest : public testing::NumericSessionFixture
 {
   protected:
     Result<NumericCopyOutcome> Copy(NumericTarget target, SelectionRange elements, std::size_t map_index = 0)
     {
-        return CopyNumericValues(
-            workspace_,
-            {.session = id_, .map_index = map_index, .selection = {.target = target, .elements = elements}});
+        return CopyNumeric(workspace_, {id_, map_index}, {.target = target, .elements = elements});
     }
 };
 
@@ -55,20 +51,20 @@ auto CopiedText(const std::string& text)
     return IsOkAnd(VariantWith<NumericCopyText>(Field(&NumericCopyText::text, text)));
 }
 
-TEST_F(NumericCopyUseCaseTest, CopiesTheWholeBodyRowMajorWithTabsAndLineFeeds)
+TEST_F(CopyNumericTest, CopiesTheWholeBodyRowMajorWithTabsAndLineFeeds)
 {
     EXPECT_THAT(Copy(NumericTarget::kMapBody, {.first_row = 0, .first_col = 0, .last_row = 1, .last_col = 2}),
                 CopiedText("10\t20\t30\n40\t50\t200"));
 }
 
-TEST_F(NumericCopyUseCaseTest, CopiesASubRangeFromItsTopLeft)
+TEST_F(CopyNumericTest, CopiesASubRangeFromItsTopLeft)
 {
     EXPECT_THAT(Copy(NumericTarget::kMapBody, {.first_row = 0, .first_col = 1, .last_row = 1, .last_col = 2}),
                 CopiedText("20\t30\n50\t200"));
     EXPECT_THAT(Copy(NumericTarget::kMapBody, Cell(1, 0)), CopiedText("40"));
 }
 
-TEST_F(NumericCopyUseCaseTest, CopiesAxesWithTheirOwnGeometry)
+TEST_F(CopyNumericTest, CopiesAxesWithTheirOwnGeometry)
 {
     EXPECT_THAT(Copy(NumericTarget::kXAxis, {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 2}),
                 CopiedText("1\t2\t3"));
@@ -77,7 +73,7 @@ TEST_F(NumericCopyUseCaseTest, CopiesAxesWithTheirOwnGeometry)
 }
 
 // The copied text is the scaled value, not what a display format would show.
-TEST_F(NumericCopyUseCaseTest, CopiesFullPrecisionScaledValuesNotRoundedDisplayText)
+TEST_F(CopyNumericTest, CopiesFullPrecisionScaledValuesNotRoundedDisplayText)
 {
     auto def = GridDefinition();
     def.scalings[0].from_byte = "x/3";
@@ -94,7 +90,7 @@ TEST_F(NumericCopyUseCaseTest, CopiesFullPrecisionScaledValuesNotRoundedDisplayT
     EXPECT_GT(text->text.size(), std::string("3.3").size());
 }
 
-TEST_F(NumericCopyUseCaseTest, WritesPlainDecimalNeverExponentNotation)
+TEST_F(CopyNumericTest, WritesPlainDecimalNeverExponentNotation)
 {
     auto def = GridDefinition();
     def.scalings[0].from_byte = "x/1000000";
@@ -110,7 +106,7 @@ TEST_F(NumericCopyUseCaseTest, WritesPlainDecimalNeverExponentNotation)
     EXPECT_EQ(std::strtod(text->text.c_str(), nullptr), 10.0 / 1000000.0);
 }
 
-TEST_F(NumericCopyUseCaseTest, PastingTheCopiedTextBackIsAnUnchangedEdit)
+TEST_F(CopyNumericTest, PastingTheCopiedTextBackIsAnUnchangedEdit)
 {
     auto def = GridDefinition();
     def.scalings[0].from_byte = "x/3";
@@ -140,15 +136,12 @@ TEST_F(NumericCopyUseCaseTest, PastingTheCopiedTextBackIsAnUnchangedEdit)
     row.push_back(cell_text);
     paste.rows.push_back(row);
 
-    const auto pasted = ApplyNumericEdit(workspace_, {.session = id_,
-                                                      .map_index = 0,
-                                                      .selection = {.target = NumericTarget::kMapBody, .elements = all},
-                                                      .operation = paste});
+    const auto pasted = EditNumeric(workspace_, {id_, 0}, {.target = NumericTarget::kMapBody, .elements = all}, paste);
 
     EXPECT_THAT(pasted, IsOkAnd(VariantWith<NumericEditUnchanged>(::testing::_)));
 }
 
-TEST_F(NumericCopyUseCaseTest, ReportsTheFirstInvalidCellAndNoText)
+TEST_F(CopyNumericTest, ReportsTheFirstInvalidCellAndNoText)
 {
     auto def = GridDefinition();
     def.scalings[0].from_byte = "1/0";
@@ -164,7 +157,7 @@ TEST_F(NumericCopyUseCaseTest, ReportsTheFirstInvalidCellAndNoText)
     EXPECT_FALSE(invalid->detail.empty());
 }
 
-TEST_F(NumericCopyUseCaseTest, CopyNeverChangesTheSession)
+TEST_F(CopyNumericTest, CopyNeverChangesTheSession)
 {
     const auto before = RomBytes();
 
@@ -174,11 +167,10 @@ TEST_F(NumericCopyUseCaseTest, CopyNeverChangesTheSession)
     EXPECT_FALSE(Session().Dirty());
 }
 
-TEST_F(NumericCopyUseCaseTest, IsNotApplicableWithoutAUsableTarget)
+TEST_F(CopyNumericTest, IsNotApplicableWithoutAUsableTarget)
 {
     EXPECT_THAT(
-        CopyNumericValues(workspace_, {.session = SessionId{9999},
-                                       .selection = {.target = NumericTarget::kMapBody, .elements = Cell(0, 0)}}),
+        CopyNumeric(workspace_, {SessionId{9999}, 0}, {.target = NumericTarget::kMapBody, .elements = Cell(0, 0)}),
         NotApplicable(NotApplicableReason::kClosedSession));
     EXPECT_THAT(Copy(NumericTarget::kMapBody, Cell(0, 0), 5), NotApplicable(NotApplicableReason::kUnknownMap));
 
@@ -201,31 +193,27 @@ TEST_F(NumericCopyUseCaseTest, IsNotApplicableWithoutAUsableTarget)
     EXPECT_THAT(Copy(NumericTarget::kMapBody, Cell(0, 0)), NotApplicable(NotApplicableReason::kNoDefinition));
 }
 
-TEST_F(NumericCopyUseCaseTest, UnknownMapIndexIsTheSameReasonForEveryOperation)
+TEST_F(CopyNumericTest, UnknownMapIndexIsTheSameReasonForEveryOperation)
 {
     const SelectionRange cell = Cell(0, 0);
     EXPECT_THAT(Copy(NumericTarget::kMapBody, cell, 5), NotApplicable(NotApplicableReason::kUnknownMap));
-    EXPECT_THAT(ApplyNumericEdit(workspace_, {.session = id_,
-                                              .map_index = 5,
-                                              .selection = {.target = NumericTarget::kMapBody, .elements = cell},
-                                              .operation = IncrementEdit{}}),
-                NotApplicable(NotApplicableReason::kUnknownMap));
     EXPECT_THAT(
-        ApplySelectableEdit(workspace_, {.session = id_, .map_index = 5, .selection = "any"}),
+        EditNumeric(workspace_, {id_, 5}, {.target = NumericTarget::kMapBody, .elements = cell}, IncrementEdit{}),
+        NotApplicable(NotApplicableReason::kUnknownMap));
+    EXPECT_THAT(
+        EditSelectable(workspace_, {id_, 5}, "any"),
         IsOkAnd(VariantWith<MapNotApplicable>(Field(&MapNotApplicable::reason, NotApplicableReason::kUnknownMap))));
 }
 
-TEST_F(NumericCopyUseCaseTest, CopyReadsValuesAfterAnEdit)
+TEST_F(CopyNumericTest, CopyReadsValuesAfterAnEdit)
 {
-    ASSERT_THAT(ApplyNumericEdit(workspace_, {.session = id_,
-                                              .map_index = 0,
-                                              .selection = {.target = NumericTarget::kMapBody, .elements = Cell(0, 0)},
-                                              .operation = AssignmentEdit{"33"}}),
+    ASSERT_THAT(EditNumeric(workspace_, {id_, 0}, {.target = NumericTarget::kMapBody, .elements = Cell(0, 0)},
+                            AssignmentEdit{"33"}),
                 IsOkAnd(VariantWith<NumericEditChanged>(::testing::_)));
     EXPECT_THAT(Copy(NumericTarget::kMapBody, Cell(0, 0)), CopiedText("33"));
 }
 
-TEST_F(NumericCopyUseCaseTest, AnInvalidAxisRejectsBodyOperations)
+TEST_F(CopyNumericTest, AnInvalidAxisRejectsBodyOperations)
 {
     auto def = GridDefinition();
     def.maps[0].x_axis.address = memory::DefinitionAddress{0x40};
@@ -235,7 +223,7 @@ TEST_F(NumericCopyUseCaseTest, AnInvalidAxisRejectsBodyOperations)
     EXPECT_FALSE(Session().Dirty());
 }
 
-TEST_F(NumericCopyUseCaseTest, CopiesReciprocalScaledValues)
+TEST_F(CopyNumericTest, CopiesReciprocalScaledValues)
 {
     auto def = GridDefinition();
     auto& map = def.maps[0];
@@ -260,7 +248,7 @@ TEST_F(NumericCopyUseCaseTest, CopiesReciprocalScaledValues)
     EXPECT_FALSE(Session().Dirty());
 }
 
-class CopyIgnoresEditOnlyMetadataTest : public NumericCopyUseCaseTest, public ::testing::WithParamInterface<int>
+class CopyIgnoresEditOnlyMetadataTest : public CopyNumericTest, public ::testing::WithParamInterface<int>
 {
 };
 
@@ -294,29 +282,25 @@ TEST_P(CopyIgnoresEditOnlyMetadataTest, CopyIgnoresEditOnlyMetadata)
 
 INSTANTIATE_TEST_SUITE_P(EditMetadata, CopyIgnoresEditOnlyMetadataTest, ::testing::Values(0, 1, 2, 3));
 
-TEST_F(NumericCopyUseCaseTest, ClosingAnotherSessionKeepsTheTargetIdStable)
+TEST_F(CopyNumericTest, ClosingAnotherSessionKeepsTheTargetIdStable)
 {
     const auto other =
         workspace_.AdoptReadImage(ReadImage{.rom = GridRom(), .filename = "other.bin", .protocol_name = "proto_b"});
     ASSERT_THAT(other, IsOk());
     ASSERT_THAT(workspace_.Close(other->id), IsOk());
     EXPECT_THAT(Copy(NumericTarget::kMapBody, Cell(0, 0)), CopiedText("10"));
-    ASSERT_THAT(ApplyNumericEdit(workspace_, {.session = id_,
-                                              .map_index = 0,
-                                              .selection = {.target = NumericTarget::kMapBody, .elements = Cell(0, 0)},
-                                              .operation = AssignmentEdit{"7"}}),
+    ASSERT_THAT(EditNumeric(workspace_, {id_, 0}, {.target = NumericTarget::kMapBody, .elements = Cell(0, 0)},
+                            AssignmentEdit{"7"}),
                 IsOkAnd(VariantWith<NumericEditChanged>(::testing::_)));
     EXPECT_EQ(Session().File()[kBody], 7);
     ASSERT_THAT(workspace_.Close(id_), IsOk());
     EXPECT_THAT(Copy(NumericTarget::kMapBody, Cell(0, 0)), NotApplicable(NotApplicableReason::kClosedSession));
-    EXPECT_THAT(ApplyNumericEdit(workspace_, {.session = id_,
-                                              .map_index = 0,
-                                              .selection = {.target = NumericTarget::kMapBody, .elements = Cell(0, 0)},
-                                              .operation = AssignmentEdit{"7"}}),
+    EXPECT_THAT(EditNumeric(workspace_, {id_, 0}, {.target = NumericTarget::kMapBody, .elements = Cell(0, 0)},
+                            AssignmentEdit{"7"}),
                 NotApplicable(NotApplicableReason::kClosedSession));
 }
 
-TEST_F(NumericCopyUseCaseTest, RejectsSelectionsOutsideTheRun)
+TEST_F(CopyNumericTest, RejectsSelectionsOutsideTheRun)
 {
     EXPECT_THAT(Copy(NumericTarget::kMapBody, Cell(2, 0)), IsErr(ErrorKind::kInvalidConfig));
     EXPECT_THAT(Copy(NumericTarget::kMapBody, Cell(0, 3)), IsErr(ErrorKind::kInvalidConfig));
