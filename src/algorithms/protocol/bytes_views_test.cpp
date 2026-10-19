@@ -8,6 +8,7 @@
 #include <array>
 #include <cstdint>
 #include <ranges>
+#include <utility>
 #include <vector>
 
 using ::testing::ElementsAre;
@@ -19,7 +20,7 @@ namespace
 
 template <typename Range> std::vector<std::uint32_t> Words(Range&& range)
 {
-    return {std::ranges::begin(range), std::ranges::end(range)};
+    return std::ranges::to<std::vector<std::uint32_t>>(std::forward<Range>(range));
 }
 
 } // namespace
