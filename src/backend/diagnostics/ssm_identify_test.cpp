@@ -5,6 +5,8 @@
 
 #include <algorithm>
 #include <initializer_list>
+#include <iterator>
+#include <ranges>
 #include <string>
 
 #include "src/backend/ports/testing/fake_cancellation_token.h"
@@ -29,22 +31,15 @@ namespace
 {
 bytes::Bytes B(std::initializer_list<int> values)
 {
-    bytes::Bytes out;
-    for (int v : values)
-    {
-        out.push_back(static_cast<bytes::Byte>(v));
-    }
-    return out;
+    return values | std::views::transform([](int v) { return static_cast<bytes::Byte>(v); }) |
+           std::ranges::to<bytes::Bytes>();
 }
 
 // Appends the 8-bit sum of all bytes as a checksum.
 bytes::Bytes WithChecksum(bytes::Bytes frame)
 {
-    unsigned sum = 0;
-    for (const bytes::Byte byte : frame)
-    {
-        sum += byte;
-    }
+    const unsigned sum =
+        std::ranges::fold_left(frame, 0U, [](unsigned total, const bytes::Byte byte) { return total + byte; });
     frame.push_back(static_cast<bytes::Byte>(sum & 0xFFU));
     return frame;
 }

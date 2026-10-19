@@ -3,9 +3,12 @@
 // memory, and reject any other size (ADR 0020). It accepts the file sizes of
 // the memory maps it declares, else its MCU's romsize under the identity map:
 // the size gate before checksum routes declared their ECU window.
+#include <algorithm>
 #include <cstdint>
 #include <format>
+#include <iterator>
 #include <optional>
+#include <ranges>
 #include <set>
 #include <string>
 #include <string_view>
@@ -63,11 +66,9 @@ std::vector<const config::VehicleSpec *> OneVehiclePerRoutedProtocol()
 
 std::vector<std::uint32_t> AcceptedFileSizes(const config::ProtocolSpec& protocol)
 {
-    std::vector<std::uint32_t> sizes;
-    for (const config::MemoryMapSpec& spec : protocol.memory_maps)
-    {
-        sizes.push_back(spec.FileSize().Value());
-    }
+    auto sizes = protocol.memory_maps |
+                 std::views::transform([](const config::MemoryMapSpec& spec) { return spec.FileSize().Value(); }) |
+                 std::ranges::to<std::vector<std::uint32_t>>();
     if (sizes.empty())
     {
         if (const FlashDevice *device = flash::FindFlashDevice(protocol.mcu); device != nullptr)

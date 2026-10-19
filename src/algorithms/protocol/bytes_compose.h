@@ -2,9 +2,11 @@
 
 #include "src/algorithms/protocol/bytes.h"
 
+#include <algorithm>
 #include <concepts>
 #include <cstddef>
 #include <cstdint>
+#include <iterator>
 #include <ranges>
 #include <stdexcept>
 #include <string_view>
@@ -123,10 +125,8 @@ template <typename T> void AppendBe(Bytes& out, const T& arg)
     }
     else if constexpr (std::same_as<U, std::string_view>)
     {
-        for (const char character : arg)
-        {
-            out.push_back(static_cast<Byte>(character));
-        }
+        std::ranges::transform(arg, std::back_inserter(out),
+                               [](const char character) { return static_cast<Byte>(character); });
     }
     else if constexpr (ByteRange<U>)
     {

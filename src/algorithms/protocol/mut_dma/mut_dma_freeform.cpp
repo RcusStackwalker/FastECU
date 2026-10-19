@@ -1,5 +1,6 @@
 #include "src/algorithms/protocol/mut_dma/mut_dma_freeform.h"
 
+#include <algorithm>
 #include <cstddef>
 
 namespace mutdma
@@ -54,12 +55,7 @@ bytes::Bytes BuildIdListFrame(bytes::Byte list_cmd, const std::vector<Channel>& 
 }
 std::size_t ResponseDataLength(const std::vector<Channel>& channels)
 {
-    std::size_t n = 0;
-    for (const Channel& c : channels)
-    {
-        n += c.len;
-    }
-    return n;
+    return std::ranges::fold_left(channels, std::size_t{0}, [](std::size_t n, const Channel& c) { return n + c.len; });
 }
 std::vector<std::uint32_t> DecodeStreamValues(const std::vector<Channel>& channels, bytes::ByteView data)
 {

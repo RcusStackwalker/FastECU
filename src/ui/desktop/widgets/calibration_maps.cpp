@@ -3,6 +3,7 @@
 #include "src/ui/desktop/calibration/map_edit_adapter.h"
 
 #include <algorithm>
+#include <ranges>
 #include <QEvent>
 #include <QKeyEvent>
 #include <QKeySequence>
@@ -236,14 +237,10 @@ void CalibrationMaps::setMapTableWidgetSize(int maxWidth, int maxHeight, int xSi
     w += ui_->mapDataTableWidget->contentsMargins().left() + ui_->mapDataTableWidget->contentsMargins().right();
     h += ui_->mapDataTableWidget->contentsMargins().top() + ui_->mapDataTableWidget->contentsMargins().bottom();
     w += ui_->mapDataTableWidget->verticalHeader()->width();
-    for (int i = 0; i < ui_->mapDataTableWidget->columnCount(); i++)
-    {
-        w += ui_->mapDataTableWidget->columnWidth(i);
-    }
-    for (int i = 0; i < ui_->mapDataTableWidget->rowCount(); i++)
-    {
-        h += ui_->mapDataTableWidget->rowHeight(i);
-    }
+    w += std::ranges::fold_left(std::views::iota(0, ui_->mapDataTableWidget->columnCount()), 0,
+                                [this](int total, int i) { return total + ui_->mapDataTableWidget->columnWidth(i); });
+    h += std::ranges::fold_left(std::views::iota(0, ui_->mapDataTableWidget->rowCount()), 0,
+                                [this](int total, int i) { return total + ui_->mapDataTableWidget->rowHeight(i); });
 
     if (w > maxWidth)
     {

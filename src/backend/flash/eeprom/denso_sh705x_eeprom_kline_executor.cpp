@@ -8,7 +8,9 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cstddef>
 #include <cstdint>
+#include <iterator>
 #include <utility>
 #include <array>
 
@@ -223,19 +225,14 @@ Status TransferDataBlocks(IKlineFlashTransport& transport, IClock& clock, const 
 
         const std::uint32_t block_addr = addr + blockno * kUploadChunkBytes;
         bytes::Bytes payload = ComposeBe(0x36_b, U24(block_addr));
+        const std::size_t chunk_offset = static_cast<std::size_t>(blockno) * kUploadChunkBytes;
         if (blockno == maxblocks)
         {
-            for (std::uint32_t i = 0; i < len; ++i)
-            {
-                payload.push_back(encrypted[i + blockno * kUploadChunkBytes]);
-            }
+            std::ranges::copy(encrypted.subspan(chunk_offset, len), std::back_inserter(payload));
         }
         else
         {
-            for (std::uint32_t i = 0; i < kUploadChunkBytes; ++i)
-            {
-                payload.push_back(encrypted[i + blockno * kUploadChunkBytes]);
-            }
+            std::ranges::copy(encrypted.subspan(chunk_offset, kUploadChunkBytes), std::back_inserter(payload));
             len -= kUploadChunkBytes;
         }
 

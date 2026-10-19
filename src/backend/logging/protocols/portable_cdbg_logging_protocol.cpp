@@ -1,5 +1,8 @@
 #include "src/backend/logging/protocols/portable_cdbg_logging_protocol.h"
 
+#include <algorithm>
+#include <iterator>
+#include <ranges>
 #include <string>
 #include <utility>
 
@@ -9,16 +12,16 @@ namespace
 {
 std::vector<mitsu_colt_can_cdbg::CdbgChannel> MakeWireChannels(const std::vector<LoggingChannel>& channels)
 {
-    std::vector<mitsu_colt_can_cdbg::CdbgChannel> wire_channels;
-    wire_channels.reserve(channels.size());
-    for (const LoggingChannel& channel : channels)
-    {
-        wire_channels.push_back(mitsu_colt_can_cdbg::CdbgChannel{
-            .pointer = channel.address,
-            .size = static_cast<bytes::Byte>(channel.length),
-        });
-    }
-    return wire_channels;
+    return channels |
+           std::views::transform(
+               [](const LoggingChannel& channel)
+               {
+                   return mitsu_colt_can_cdbg::CdbgChannel{
+                       .pointer = channel.address,
+                       .size = static_cast<bytes::Byte>(channel.length),
+                   };
+               }) |
+           std::ranges::to<std::vector<mitsu_colt_can_cdbg::CdbgChannel>>();
 }
 
 fastecu::Status CheckCancellation(const fastecu::ICancellationToken& cancellation)
@@ -83,14 +86,16 @@ fastecu::Result<PollData> CdbgLoggingProtocol::Poll(std::chrono::milliseconds ti
         return Fail(ErrorKind::kInternal, "CDBG frame values lie outside the captured channels");
     }
     const std::size_t sample_count = values->values.size();
-    data.samples.reserve(sample_count);
-    for (std::size_t i = 0; i < sample_count; ++i)
-    {
-        data.samples.push_back(ProtocolSample{
-            .channel_id = channels_[values->channel_offset + i].id,
-            .raw_value = std::to_string(values->values.at(i)),
-        });
-    }
+    data.samples = std::views::iota(std::size_t{0}, sample_count) |
+                   std::views::transform(
+                       [&](std::size_t i)
+                       {
+                           return ProtocolSample{
+                               .channel_id = channels_[values->channel_offset + i].id,
+                               .raw_value = std::to_string(values->values.at(i)),
+                           };
+                       }) |
+                   std::ranges::to<std::vector<ProtocolSample>>();
     return data;
 }
 

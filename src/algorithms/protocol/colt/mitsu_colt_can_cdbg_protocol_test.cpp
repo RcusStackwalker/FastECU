@@ -1,4 +1,7 @@
 #include <gtest/gtest.h>
+
+#include <ranges>
+
 #include "src/algorithms/protocol/colt/mitsu_colt_can_cdbg_protocol.h"
 using namespace mitsu_colt_can_cdbg;
 
@@ -104,11 +107,9 @@ TEST(TestMitsuColtCanCdbgProtocol, batching_rejects_more_than_kMaxFrames_frames)
     // 9 single-byte-incompatible channels forcing 9 frames (one 4-byte
     // channel per frame, since 1+4=5 <= 8 but a second 4-byte channel
     // would overflow) - one more than kMaxFrames (8).
-    std::vector<CdbgChannel> channels;
-    for (int i = 0; i < 9; ++i)
-    {
-        channels.push_back(CdbgChannel{std::uint32_t(0x800000 + i), 4});
-    }
+    const auto channels = std::views::iota(0, 9) |
+                          std::views::transform([](int i) { return CdbgChannel{std::uint32_t(0x800000 + i), 4}; }) |
+                          std::ranges::to<std::vector>();
     std::vector<std::vector<CdbgChannel>> frames;
     ASSERT_TRUE(!BatchChannelsIntoFrames(channels, frames));
 }

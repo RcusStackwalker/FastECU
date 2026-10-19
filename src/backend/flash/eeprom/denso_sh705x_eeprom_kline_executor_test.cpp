@@ -13,6 +13,9 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <algorithm>
+#include <iterator>
+#include <ranges>
 #include <string_view>
 
 #include "src/algorithms/protocol/bytes_compose.h"
@@ -182,10 +185,8 @@ bytes::Bytes EepromPayload280Bytes()
     {
         out.push_back(0xEE);
         out.push_back(0xEE);
-        for (int j = 0; j < 32; ++j)
-        {
-            out.push_back(static_cast<bytes::Byte>(block * 32 + j));
-        }
+        std::ranges::transform(std::views::iota(0, 32), std::back_inserter(out),
+                               [block](int j) { return static_cast<bytes::Byte>(block * 32 + j); });
         out.push_back(0xFF);
     }
     return out; // 280 bytes
@@ -193,12 +194,8 @@ bytes::Bytes EepromPayload280Bytes()
 
 bytes::Bytes ExpectedDecodedEeprom256Bytes()
 {
-    bytes::Bytes out;
-    for (int i = 0; i < 256; ++i)
-    {
-        out.push_back(static_cast<bytes::Byte>(i));
-    }
-    return out;
+    return std::views::iota(0, 256) | std::views::transform([](int i) { return static_cast<bytes::Byte>(i); }) |
+           std::ranges::to<bytes::Bytes>();
 }
 
 // Minimal positive-response fixture: only byte index 4 (the service/session
@@ -253,12 +250,8 @@ bytes::Bytes KernelAliveResponse()
 // this executor's OOB-read-avoidance padding is a documented no-op here.
 bytes::Bytes KernelFixtureBytes()
 {
-    bytes::Bytes out;
-    for (int i = 0; i < 16; ++i)
-    {
-        out.push_back(static_cast<bytes::Byte>(i));
-    }
-    return out;
+    return std::views::iota(0, 16) | std::views::transform([](int i) { return static_cast<bytes::Byte>(i); }) |
+           std::ranges::to<bytes::Bytes>();
 }
 
 // Enqueues the exact write/read sequence for one full "kernel not yet
@@ -443,11 +436,8 @@ TEST(DensoSh705xEepromKlineExecutorTest, KernelAlreadyRunningSkipsBootloaderMatc
 // the *unpadded* buffer size when len exceeds it.
 TEST(DensoSh705xEepromKlineExecutorTest, NonAlignedKernelIsPaddedBeforeEncryptionAvoidsOobRead)
 {
-    bytes::Bytes kernel15;
-    for (int i = 0; i < 15; ++i)
-    {
-        kernel15.push_back(static_cast<bytes::Byte>(i));
-    }
+    auto kernel15 = std::views::iota(0, 15) | std::views::transform([](int i) { return static_cast<bytes::Byte>(i); }) |
+                    std::ranges::to<bytes::Bytes>();
     auto plan = MakeKlinePlan(EepromReadMode::kMode2, kernel15, kKernelStartAddr);
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 

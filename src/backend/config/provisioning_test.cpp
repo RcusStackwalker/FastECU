@@ -140,14 +140,8 @@ TEST(ProvisionConfigDirectories, PrunesSyslogsKeepingNewest20)
 
     ASSERT_THAT(ProvisionConfigDirectories(paths, fs, bundle, repo, events), fastecu::testing::IsOk());
 
-    int remaining = 0;
-    for (auto& [path, bytes] : fs.files)
-    {
-        if (path.starts_with(paths.syslog_files_directory))
-        {
-            ++remaining;
-        }
-    }
+    const auto remaining = std::ranges::count_if(fs.files, [&](const auto& entry)
+                                                 { return entry.first.starts_with(paths.syslog_files_directory); });
     EXPECT_EQ(remaining, 20);
     // The 5 oldest (mtime 0..4) are the ones removed.
     for (int i = 0; i < 5; ++i)

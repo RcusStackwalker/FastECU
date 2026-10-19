@@ -1,5 +1,7 @@
 #include "src/platform/desktop/common/logging/runtime/logging_worker.h"
 
+#include <algorithm>
+#include <iterator>
 #include <span>
 #include <utility>
 
@@ -25,10 +27,7 @@ class QtLoggingEventSink final : public fastecu::logging::ILoggingEventSink
     {
         QVector<fastecu::logging::LogSample> values;
         values.reserve(static_cast<qsizetype>(samples.size()));
-        for (const auto& sample : samples)
-        {
-            values.push_back(sample);
-        }
+        std::ranges::copy(samples, std::back_inserter(values));
         emit worker_->samplesReady(std::move(values));
     }
 

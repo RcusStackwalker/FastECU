@@ -2,6 +2,8 @@
 
 #include <algorithm>
 #include <format>
+#include <iterator>
+#include <ranges>
 #include <utility>
 
 namespace fastecu::calibration
@@ -57,13 +59,8 @@ const CalibrationSession *CalibrationWorkspace::Find(SessionId id) const
 
 std::vector<SessionId> CalibrationWorkspace::Ids() const
 {
-    std::vector<SessionId> result;
-    result.reserve(sessions_.size());
-    for (const auto& session : sessions_)
-    {
-        result.push_back(session->Id());
-    }
-    return result;
+    return sessions_ | std::views::transform([](const auto& session) { return session->Id(); }) |
+           std::ranges::to<std::vector<SessionId>>();
 }
 
 OpenedSession CalibrationWorkspace::Insert(RomOpenOutcome outcome)

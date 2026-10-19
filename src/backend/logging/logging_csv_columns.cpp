@@ -1,15 +1,17 @@
 #include "src/backend/logging/logging_csv_columns.h"
 
+#include <algorithm>
+#include <iterator>
+#include <ranges>
+
 namespace fastecu::logging
 {
 Result<std::vector<LoggingCsvColumn>> PrepareLoggingCsvColumns(const LoggingRunSnapshot& snapshot)
 {
-    std::vector<LoggingCsvColumn> columns;
-    columns.reserve(snapshot.Measurements().size());
-    for (const auto& measurement : snapshot.Measurements())
-    {
-        columns.push_back({measurement.kind, measurement.identity, measurement.name});
-    }
-    return columns;
+    return snapshot.Measurements() |
+           std::views::transform(
+               [](const auto& measurement)
+               { return LoggingCsvColumn{measurement.kind, measurement.identity, measurement.name}; }) |
+           std::ranges::to<std::vector<LoggingCsvColumn>>();
 }
 } // namespace fastecu::logging

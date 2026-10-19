@@ -1,5 +1,6 @@
 #include "src/algorithms/protocol/colt/mitsu_colt_can_protocol.h"
 
+#include <algorithm>
 #include <cassert>
 
 #include "src/algorithms/protocol/bytes_compose.h"
@@ -77,12 +78,8 @@ bytes::Bytes SeedKey(bytes::ByteView seed)
 
 std::uint16_t Checksum(bytes::ByteView data)
 {
-    std::uint16_t sum = 0;
-    for (bytes::Byte byte : data)
-    {
-        sum += byte;
-    }
-    return sum;
+    return std::ranges::fold_left(data, std::uint16_t{0}, [](std::uint16_t sum, bytes::Byte byte)
+                                  { return static_cast<std::uint16_t>(sum + byte); });
 }
 
 bool IsDestructiveRequest(bytes::ByteView pdu)

@@ -6,6 +6,8 @@
 
 #include <algorithm>
 #include <format>
+#include <iterator>
+#include <ranges>
 #include <string_view>
 #include <vector>
 
@@ -105,12 +107,8 @@ class FaultingTransport final : public ScriptedKlineFlashTransport
 
 bytes::Bytes Ascii(std::string_view text)
 {
-    bytes::Bytes out;
-    for (const char c : text)
-    {
-        out.push_back(static_cast<bytes::Byte>(c));
-    }
-    return out;
+    return text | std::views::transform([](const char c) { return static_cast<bytes::Byte>(c); }) |
+           std::ranges::to<bytes::Bytes>();
 }
 
 void Nothing(ScriptedKlineFlashTransport& transport)
@@ -324,12 +322,8 @@ TEST(SubaruDensoMc68hc16y5_02BdmExecutor, CancellationBetweenPagesStopsBeforeThe
 // 40 bytes 0x01..0x28, padded by the plan to two 32-byte chunks.
 bytes::Bytes KernelBytes()
 {
-    bytes::Bytes kernel;
-    for (int value = 1; value <= 40; ++value)
-    {
-        kernel.push_back(static_cast<bytes::Byte>(value));
-    }
-    return kernel;
+    return std::views::iota(1, 41) | std::views::transform([](int value) { return static_cast<bytes::Byte>(value); }) |
+           std::ranges::to<bytes::Bytes>();
 }
 
 FlashPlan WritePlan()

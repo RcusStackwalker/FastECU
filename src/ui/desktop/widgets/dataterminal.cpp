@@ -7,6 +7,7 @@
 #include <QFile>
 #include <QtGlobal>
 
+#include <algorithm>
 #include <cstdint>
 #include <string>
 #include <tuple>
@@ -333,12 +334,8 @@ QByteArray DataTerminal::addSsmHeader(QByteArray output, uint8_t testerId, uint8
  */
 uint8_t DataTerminal::calculateChecksum(const QByteArray& output, bool dec0x100)
 {
-    uint8_t checksum = 0;
-
-    for (qsizetype i = 0; i < output.length(); i++)
-    {
-        checksum += (uint8_t)output.at(i);
-    }
+    uint8_t checksum = std::ranges::fold_left(output, uint8_t{0}, [](uint8_t sum, char byte)
+                                              { return static_cast<uint8_t>(sum + static_cast<uint8_t>(byte)); });
 
     if (dec0x100)
     {

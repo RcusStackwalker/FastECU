@@ -5,6 +5,8 @@
 #include <iostream>
 #include <memory>
 #include <optional>
+#include <ranges>
+#include <span>
 #include <string_view>
 #include <vector>
 
@@ -122,12 +124,9 @@ int main(int argc, char *argv[])
 {
     const QCoreApplication app(argc, argv);
 
-    std::vector<std::string_view> args;
-    args.reserve(argc > 0 ? static_cast<std::size_t>(argc - 1) : std::size_t{0});
-    for (int index = 1; index < argc; ++index)
-    {
-        args.emplace_back(argv[index]);
-    }
+    const std::span<char *> raw_args(argv, argc > 0 ? static_cast<std::size_t>(argc) : std::size_t{0});
+    const std::vector<std::string_view> args =
+        raw_args | std::views::drop(1) | std::ranges::to<std::vector<std::string_view>>();
 
     SigintCancellationToken cancellation;
 

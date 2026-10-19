@@ -1,9 +1,12 @@
 #include "src/backend/flash/ecu/subaru_denso_mc68hc16y5_02_bdm_executor.h"
 
+#include <algorithm>
 #include <chrono>
 #include <cstddef>
 #include <format>
+#include <iterator>
 #include <limits>
+#include <ranges>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -32,13 +35,8 @@ constexpr std::size_t kUnbounded = std::numeric_limits<std::size_t>::max();
 
 bytes::Bytes Ascii(std::string_view text)
 {
-    bytes::Bytes out;
-    out.reserve(text.size());
-    for (const char c : text)
-    {
-        out.push_back(static_cast<bytes::Byte>(c));
-    }
-    return out;
+    return text | std::views::transform([](const char c) { return static_cast<bytes::Byte>(c); }) |
+           std::ranges::to<bytes::Bytes>();
 }
 
 Status CancelledIfRequested(const ICancellationToken& cancellation)

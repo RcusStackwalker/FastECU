@@ -1,8 +1,10 @@
 #include "src/backend/flash/ecu/subaru_denso_sh705x_densocan_executor.h"
 
+#include <algorithm>
 #include <chrono>
 #include <format>
 #include <optional>
+#include <ranges>
 #include <string>
 #include <utility>
 #include <vector>
@@ -817,11 +819,9 @@ Status ReflashBlocks(IMixedCanFlashTransport& transport, const FlashDevice& devi
                      const ICancellationToken& cancellation, IEventSink& events, PhaseSequence& phases,
                      bool& destructive_erase_succeeded)
 {
-    std::uint32_t flashbytescount = 0;
-    for (unsigned index = 0; index < device.numblocks; ++index)
-    {
-        flashbytescount += modified[index] ? device.fblocks[index].len : 0U;
-    }
+    const std::uint32_t flashbytescount = std::ranges::fold_left(
+        std::views::iota(0U, device.numblocks), std::uint32_t{0}, [&](std::uint32_t total, unsigned index)
+        { return total + (modified[index] ? device.fblocks[index].len : 0U); });
     auto write_phase = phases.Start(test_write ? "TestWrite" : "Write", static_cast<int>(flashbytescount));
     std::uint32_t flashbytesindex = 0;
     for (unsigned index = 0; index < device.numblocks; ++index)

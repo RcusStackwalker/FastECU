@@ -1,4 +1,9 @@
 #include "src/platform/desktop/common/ports/qt_file_system.h"
+
+#include <algorithm>
+#include <iterator>
+#include <ranges>
+
 #include <QDir>
 #include <QDateTime>
 #include <QFile>
@@ -61,16 +66,17 @@ fastecu::Result<std::vector<fastecu::DirEntry>> QtFileSystem::ListDirectory(std:
     {
         return fastecu::Fail(fastecu::ErrorKind::kInternal, "directory does not exist");
     }
-    std::vector<fastecu::DirEntry> entries;
     const QFileInfoList list = dir.entryInfoList(QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot);
-    for (const QFileInfo& info : list)
-    {
-        entries.push_back(fastecu::DirEntry{
-            info.fileName().toStdString(),
-            info.isDir(),
-            info.lastModified().toSecsSinceEpoch(),
-            info.isSymLink(),
-        });
-    }
-    return entries;
+    return list |
+           std::views::transform(
+               [](const QFileInfo& info)
+               {
+                   return fastecu::DirEntry{
+                       info.fileName().toStdString(),
+                       info.isDir(),
+                       info.lastModified().toSecsSinceEpoch(),
+                       info.isSymLink(),
+                   };
+               }) |
+           std::ranges::to<std::vector<fastecu::DirEntry>>();
 }

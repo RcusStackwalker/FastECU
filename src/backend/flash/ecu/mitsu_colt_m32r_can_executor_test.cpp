@@ -195,10 +195,9 @@ WritePlanGranting(std::initializer_list<fastecu::flash::ConfirmationSpec::Id> gr
         .use_vendor_challenge = false,
         .session_id = mitsu_colt_can::kSessionBootload,
     };
-    for (const fastecu::flash::ConfirmationSpec::Id id : granted)
-    {
-        fields.confirmations.push_back(fastecu::flash::ConfirmationSpec{id, {}});
-    }
+    std::ranges::transform(granted, std::back_inserter(fields.confirmations),
+                           [](const fastecu::flash::ConfirmationSpec::Id id)
+                           { return fastecu::flash::ConfirmationSpec{id, {}}; });
     return fastecu::flash::ValidateAndBuild(std::move(fields));
 }
 
@@ -297,10 +296,8 @@ void ScriptAddressMarkedRead(ScriptedCanFlashTransport& transport, std::uint32_t
             remaining < mitsu_colt_can::kFlashReadBlockSize ? remaining : mitsu_colt_can::kFlashReadBlockSize);
         transport.Exchange(Request(mitsu_colt_can::BuildReadMemoryByAddress(addr, chunk)));
         bytes::Bytes reply = Response({0x63});
-        for (std::uint32_t offset = 0; offset < chunk; ++offset)
-        {
-            reply.push_back(static_cast<bytes::Byte>(addr + offset));
-        }
+        std::ranges::transform(std::views::iota(std::uint32_t{0}, chunk), std::back_inserter(reply),
+                               [addr](std::uint32_t offset) { return static_cast<bytes::Byte>(addr + offset); });
         transport.QueueRead(reply);
     }
 }

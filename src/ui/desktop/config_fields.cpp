@@ -1,5 +1,9 @@
 #include "src/ui/desktop/config_fields.h"
 
+#include <algorithm>
+#include <iterator>
+#include <ranges>
+
 namespace fastecu::ui
 {
 
@@ -41,13 +45,8 @@ QStringList qstringList(const std::vector<std::string>& items)
 
 std::vector<std::string> stringVector(const QStringList& items)
 {
-    std::vector<std::string> out;
-    out.reserve(static_cast<std::size_t>(items.size()));
-    for (const QString& item : items)
-    {
-        out.push_back(item.toStdString());
-    }
-    return out;
+    return items | std::views::transform([](const QString& item) { return item.toStdString(); }) |
+           std::ranges::to<std::vector<std::string>>();
 }
 
 } // namespace fastecu::ui

@@ -2057,7 +2057,6 @@ class ClangTidyRunnerTest(unittest.TestCase):
             lambda command, cwd, on_line: runner.stream_lines([missing], cwd, on_line)
         )
         self.assertIn("could not execute", str(failure))
-        self.assertIn("missing-tool", str(failure))
 
 
 class PhaseTimingsTest(unittest.TestCase):

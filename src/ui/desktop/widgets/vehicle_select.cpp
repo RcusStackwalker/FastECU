@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <functional>
+#include <ranges>
 
 #include "src/ui/desktop/config_fields.h"
 
@@ -38,11 +39,9 @@ VehicleSelect::VehicleSelect(const fastecu::config::ConfigSession& config, QWidg
     ui_->car_version_tree_widget->setColumnWidth(10, 40);
     ui_->car_version_tree_widget->setColumnWidth(11, 225);
 
-    int width = 0;
-    for (int i = 0; i < ui_->car_version_tree_widget->columnCount(); i++)
-    {
-        width += ui_->car_version_tree_widget->columnWidth(i);
-    }
+    const int width = std::ranges::fold_left(std::views::iota(0, ui_->car_version_tree_widget->columnCount()), 0,
+                                             [this](int total, int i)
+                                             { return total + ui_->car_version_tree_widget->columnWidth(i); });
 
     // qDebug() << "Full width =" << width;
     ui_->car_version_tree_widget->setMinimumWidth(width);

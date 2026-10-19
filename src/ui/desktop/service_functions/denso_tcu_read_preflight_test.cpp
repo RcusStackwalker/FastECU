@@ -1,4 +1,6 @@
 #include "src/platform/desktop/common/testing/widgets_application_environment.h"
+#include <algorithm>
+#include <iterator>
 #include <string>
 #include "src/platform/desktop/common/testing/event_helpers.h"
 #include "src/ui/desktop/service_functions/denso_tcu_read_preflight.h"
@@ -83,10 +85,8 @@ class ChooserDriver final : public QObject
             saw_chooser_ = true;
             text_ = messageBox->text();
             information_ = messageBox->informativeText();
-            for (QAbstractButton *button : messageBox->buttons())
-            {
-                button_labels_.push_back(button->text());
-            }
+            std::ranges::transform(messageBox->buttons(), std::back_inserter(button_labels_),
+                                   [](QAbstractButton *button) { return button->text(); });
             button_labels_.sort();
 
             if (choice_.isEmpty())

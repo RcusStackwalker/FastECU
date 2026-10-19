@@ -1,7 +1,10 @@
 #include "src/ui/desktop/widgets/settings.h"
 #include "ui_settings.h"
 
+#include <algorithm>
+#include <iterator>
 #include <memory>
+#include <ranges>
 #include <tuple>
 
 #include <QFileDialog>
@@ -432,9 +435,7 @@ void Settings::removeDefinitionFiles()
 
     config_.Settings().romraider_definition_files.clear();
 
-    for (int i = 0; i < romraider_definition_files_list_->count(); ++i)
-    {
-        config_.Settings().romraider_definition_files.push_back(
-            romraider_definition_files_list_->item(i)->text().toStdString());
-    }
+    std::ranges::transform(std::views::iota(0, romraider_definition_files_list_->count()),
+                           std::back_inserter(config_.Settings().romraider_definition_files),
+                           [this](int i) { return romraider_definition_files_list_->item(i)->text().toStdString(); });
 }

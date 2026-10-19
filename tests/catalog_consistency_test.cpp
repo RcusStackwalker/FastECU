@@ -1,7 +1,10 @@
 // The built-in catalog against the three things it must agree with and no
 // single production package owns: checksum routing, the kernel bundle, and
 // the flash memory models.
+#include <algorithm>
 #include <cstdlib>
+#include <iterator>
+#include <ranges>
 #include <set>
 #include <sstream>
 #include <string>
@@ -66,11 +69,10 @@ TEST(CatalogConsistency, EveryKernelNameIsABundledFileSpelledExactly)
 TEST(CatalogConsistency, EveryBundledKernelIsUsed)
 {
     // ProtocolSpec has no printer; match the kernel names so a failure lists them.
-    std::vector<std::string_view> used_kernels;
-    for (const auto& protocol : BuiltinCatalog().Protocols())
-    {
-        used_kernels.push_back(protocol.kernel);
-    }
+    const auto used_kernels =
+        BuiltinCatalog().Protocols() |
+        std::views::transform([](const auto& protocol) { return std::string_view{protocol.kernel}; }) |
+        std::ranges::to<std::vector>();
     EXPECT_THAT(used_kernels, ::testing::IsSupersetOf(BundledKernelNames()));
 }
 

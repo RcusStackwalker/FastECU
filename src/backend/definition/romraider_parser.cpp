@@ -2,11 +2,13 @@
 #include "src/backend/definition/parser_utils.h"
 #include "src/backend/definition/text_format.h"
 
+#include <algorithm>
 #include <array>
 #include <charconv>
 #include <cctype>
 #include <cstdint>
 #include <format>
+#include <iterator>
 #include <limits>
 #include <optional>
 #include <string>
@@ -28,20 +30,22 @@ namespace
 
 void AppendSelections(pugi::xml_node parent, UnresolvedScaling& scaling)
 {
-    for (pugi::xml_node state : parent.children("state"))
-    {
-        scaling.selections.emplace_back(SelectionName(ValueOrEmpty(state.attribute("name"))),
-                                        ValueOrEmpty(state.attribute("data")));
-    }
-    for (pugi::xml_node data : parent.children("data"))
-    {
-        std::string value = ValueOrEmpty(data.attribute("value"));
-        if (value.empty())
-        {
-            value = ValueOrEmpty(data.attribute("data"));
-        }
-        scaling.selections.emplace_back(SelectionName(ValueOrEmpty(data.attribute("name"))), std::move(value));
-    }
+    std::ranges::transform(parent.children("state"), std::back_inserter(scaling.selections),
+                           [](pugi::xml_node state)
+                           {
+                               return std::pair{SelectionName(ValueOrEmpty(state.attribute("name"))),
+                                                ValueOrEmpty(state.attribute("data"))};
+                           });
+    std::ranges::transform(parent.children("data"), std::back_inserter(scaling.selections),
+                           [](pugi::xml_node data)
+                           {
+                               std::string value = ValueOrEmpty(data.attribute("value"));
+                               if (value.empty())
+                               {
+                                   value = ValueOrEmpty(data.attribute("data"));
+                               }
+                               return std::pair{SelectionName(ValueOrEmpty(data.attribute("name"))), std::move(value)};
+                           });
 }
 
 Result<UnresolvedScaling> ParseScaling(pugi::xml_node scaling_node, std::string fallback_name, pugi::xml_node owner,
