@@ -22,6 +22,7 @@
 #include "src/backend/flash/ecu/subaru_denso_1n83m_1_5m_can_plan.h"
 #include "src/backend/flash/flash_validation.h"
 #include "src/backend/flash/ecu/testing/can_executor_conformance.h"
+#include "src/backend/flash/ecu/testing/n83m_executor_scenarios.h"
 #include "src/backend/flash/ecu/testing/can_executor_run.h"
 #include "src/backend/flash/ecu/testing/denso_can_frames.h"
 #include "src/backend/flash/testing/scripted_can_flash_transport.h"
@@ -269,20 +270,6 @@ class SubaruDenso1n83m_1_5mCanExecutorWrite : public testing::TestWithParam<int>
     static inline bytes::Bytes wire_;
 };
 
-TEST(SubaruDenso1n83m_1_5mCanExecutor, BenchReadReturnsPaddedImage)
-{
-    ScriptedCanFlashTransport transport;
-    ScriptBenchConnect(transport);
-    ScriptReadSetup(transport);
-    ScriptFlashDump(transport, kBlockStart, kBlockLength, kPageSize, 0xA5);
-    ScriptStopCommand(transport);
-
-    fastecu::flash::testing::ExpectPaddedRead<SubaruDenso1n83m_1_5mCanExecutor>(
-        ReadPlan(), transport, kImageSize, 0x10000, kBlockLength, 0xA5,
-        [](const auto& run, const auto&) { EXPECT_THAT(run.events.logs, testing::Not(IsEmpty())); });
-    fastecu::flash::testing::ExpectSeedAndKeyReadTimeouts(transport);
-}
-
 // Legacy (20892df) names the 4MB sibling in all three of this family's
 // operator-facing identity lines -- an upstream copy-paste. Every other
 // identity string in this executor says 1.5M, so a flash log could not be
@@ -308,18 +295,6 @@ TEST(SubaruDenso1n83m_1_5mCanExecutor, OperatorFacingLogLinesNameThe1_5MFamily)
                                                               "Reading ROM from ECU, Denso 1N83M 1.5MB using CAN")));
             EXPECT_THAT(logs, testing::Each(testing::Pair(testing::_, testing::Not(testing::HasSubstr("4MB")))));
         });
-}
-
-TEST(SubaruDenso1n83m_1_5mCanExecutor, InCarReadReturnsPaddedImage)
-{
-    ScriptedCanFlashTransport transport;
-    ScriptInCarConnect(transport);
-    ScriptReadSetup(transport);
-    ScriptFlashDump(transport, kBlockStart, kBlockLength, kPageSize, 0x5A);
-    ScriptStopCommand(transport);
-
-    fastecu::flash::testing::ExpectPaddedRead<SubaruDenso1n83m_1_5mCanExecutor>(ReadPlan(), transport, kImageSize,
-                                                                                0x10000, kBlockLength, 0x5A);
 }
 
 TEST_F(SubaruDenso1n83m_1_5mCanExecutorWrite, WriteErasesThenFlashesBlockOne)
@@ -361,28 +336,6 @@ TEST_F(SubaruDenso1n83m_1_5mCanExecutorWrite, WriteErasesThenFlashesBlockOne)
     // port did with the checksum-verify settle -- fails here instead of
     // passing silently.
     EXPECT_EQ(clock.sleep_calls, (std::vector<std::chrono::milliseconds>{500ms, 500ms, 100ms}));
-}
-
-// Unlike ReadPropagatesADisconnectedTransport (can_executor_conformance.h),
-// which stops at read_memory's 0x34 setup exchange -- a fatal_query call --
-// this pins a transport error raised *inside* the 0xB7 dump-chunk loop, whose
-// reads go through fatal_request at a different call site, inside a `for`
-// loop carrying its own cancellation-check and progress-accumulation state.
-// fatal_request's generic error propagation is covered once for every family
-// by uds_client_exchange_common_test.cpp; this test is what actually proves
-// the loop itself aborts cleanly -- without corrupting rom/progress state --
-// on a transport error, rather than assuming fatal_request's coverage
-// implies the loop wrapping it behaves the same way.
-TEST(SubaruDenso1n83m_1_5mCanExecutor, ReadDisconnectMidDumpLoopPropagates)
-{
-    ScriptedCanFlashTransport transport;
-    ScriptBenchConnect(transport);
-    ScriptReadSetup(transport);
-    transport.Exchange(Request(bytes::ComposeBe(bytes::Byte(0xB7), kBlockStart)));
-    transport.QueueError(ErrorKind::kDisconnected, "adapter gone");
-
-    fastecu::flash::testing::ExpectReadFailsWith<SubaruDenso1n83m_1_5mCanExecutor>(ReadPlan(), transport,
-                                                                                   ErrorKind::kDisconnected);
 }
 
 TEST(SubaruDenso1n83m_1_5mCanExecutor, NegativeResponseDuringConnectFails)
@@ -672,4 +625,108 @@ TEST(SubaruDenso1n83m_1_5mCanExecutor, InCarJumpExhaustionAndCancellationPreserv
         EXPECT_EQ(clock.sleep_calls, sleeps);
     }
 }
+
+struct N83m15mTraits
+{
+    using Executor = SubaruDenso1n83m_1_5mCanExecutor;
+    static constexpr std::size_t kImageSize = 0x184000;
+    static constexpr std::uint32_t kBlockLength = 0x173F00;
+    static constexpr bool kDiscardFirstJumpReply = false;
+    static constexpr bool kStrictSetup = true;
+    static auto ReadPlan()
+    {
+        return ::ReadPlan();
+    }
+    static auto WritePlan(bytes::Bytes image)
+    {
+        return ::WritePlan(std::move(image));
+    }
+    static void ScriptBenchConnect(ScriptedCanFlashTransport& t)
+    {
+        ::ScriptBenchConnect(t);
+    }
+    static void ScriptInCarConnect(ScriptedCanFlashTransport& t)
+    {
+        ::ScriptInCarConnect(t);
+    }
+};
+
+class N83m15mRead : public testing::TestWithParam<ReadSuccessCase>
+{
+};
+TEST_P(N83m15mRead, ReturnsCompleteIndependentPayload)
+{
+    ExpectN83mRead<N83m15mTraits>(GetParam());
+}
+INSTANTIATE_TEST_SUITE_P(PathsAndPatterns, N83m15mRead,
+                         testing::Values(ReadSuccessCase{false, N83mPattern::kForward},
+                                         ReadSuccessCase{false, N83mPattern::kReverse},
+                                         ReadSuccessCase{true, N83mPattern::kForward},
+                                         ReadSuccessCase{true, N83mPattern::kReverse}),
+                         [](const auto& p)
+                         {
+                             return std::string(p.param.in_car ? "InCar" : "Bench") +
+                                    (p.param.pattern == N83mPattern::kForward ? "Forward" : "Reverse");
+                         });
+
+class N83m15mWritePattern : public testing::TestWithParam<N83mPattern>
+{
+};
+TEST_P(N83m15mWritePattern, SendsCompleteIndependentPayload)
+{
+    ExpectN83mWrite<N83m15mTraits>(GetParam());
+}
+INSTANTIATE_TEST_SUITE_P(Patterns, N83m15mWritePattern, testing::Values(N83mPattern::kForward, N83mPattern::kReverse),
+                         [](const auto& p) { return p.param == N83mPattern::kForward ? "Forward" : "Reverse"; });
+
+std::string SetupCaseName(const testing::TestParamInfo<ReadSetupCase>& p)
+{
+    constexpr std::array names{"Success", "NoFrame", "EmptyPdu", "TruncatedRaw", "Mismatch", "TransportError"};
+    return std::string(p.param.site == SetupSite::kDownload ? "Download" : "Upload") +
+           names[static_cast<std::size_t>(p.param.reply)];
+}
+std::string TransferCaseName(const testing::TestParamInfo<TransferFaultCase>& p)
+{
+    constexpr std::array names{"FirstDisconnected", "MiddleCancelled", "LastRejected"};
+    return std::string(p.param.operation == TransferOperation::kRead ? "Read" : "Write") +
+           names[static_cast<std::size_t>(p.param.position)];
+}
+
+class N83m15mSetup : public testing::TestWithParam<ReadSetupCase>
+{
+};
+TEST_P(N83m15mSetup, PreservesSitePolicy)
+{
+    ExpectN83mSetup<N83m15mTraits>(GetParam());
+}
+INSTANTIATE_TEST_SUITE_P(SitesAndReplies, N83m15mSetup,
+                         testing::Values(ReadSetupCase{SetupSite::kDownload, ReplyShape::kSuccess},
+                                         ReadSetupCase{SetupSite::kDownload, ReplyShape::kNoFrame},
+                                         ReadSetupCase{SetupSite::kDownload, ReplyShape::kEmptyPdu},
+                                         ReadSetupCase{SetupSite::kDownload, ReplyShape::kTruncatedRaw},
+                                         ReadSetupCase{SetupSite::kDownload, ReplyShape::kMismatch},
+                                         ReadSetupCase{SetupSite::kDownload, ReplyShape::kTransportError},
+                                         ReadSetupCase{SetupSite::kUpload, ReplyShape::kSuccess},
+                                         ReadSetupCase{SetupSite::kUpload, ReplyShape::kNoFrame},
+                                         ReadSetupCase{SetupSite::kUpload, ReplyShape::kEmptyPdu},
+                                         ReadSetupCase{SetupSite::kUpload, ReplyShape::kTruncatedRaw},
+                                         ReadSetupCase{SetupSite::kUpload, ReplyShape::kMismatch},
+                                         ReadSetupCase{SetupSite::kUpload, ReplyShape::kTransportError}),
+                         SetupCaseName);
+
+class N83m15mTransferFault : public testing::TestWithParam<TransferFaultCase>
+{
+};
+TEST_P(N83m15mTransferFault, AbortsAtSelectedIteration)
+{
+    ExpectN83mTransferFault<N83m15mTraits>(GetParam());
+}
+INSTANTIATE_TEST_SUITE_P(OperationsAndBoundaries, N83m15mTransferFault,
+                         testing::Values(TransferFaultCase{TransferOperation::kRead, FaultPosition::kFirst},
+                                         TransferFaultCase{TransferOperation::kRead, FaultPosition::kMiddle},
+                                         TransferFaultCase{TransferOperation::kRead, FaultPosition::kLast},
+                                         TransferFaultCase{TransferOperation::kWrite, FaultPosition::kFirst},
+                                         TransferFaultCase{TransferOperation::kWrite, FaultPosition::kMiddle},
+                                         TransferFaultCase{TransferOperation::kWrite, FaultPosition::kLast}),
+                         TransferCaseName);
 } // namespace
