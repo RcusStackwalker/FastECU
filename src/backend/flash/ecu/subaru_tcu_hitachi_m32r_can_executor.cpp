@@ -472,8 +472,8 @@ Result<bytes::Bytes> ReadRom(ICanFlashTransport& transport, IClock& clock, const
     // default-constructed, empty QByteArray through padBytes[i] for i in
     // 0..0x7FFF (lines 605-609), which does not extend under Qt 6.
     bytes::Bytes image(region.start, bytes::Byte{0x00});
-    const bytes::Bytes decrypted = ssm_protocol::CalculatePayload(
-        dumped, static_cast<std::uint32_t>(dumped.size()), kDecryptTable, ssm_protocol::kIndexTransformationStock);
+    const bytes::Bytes decrypted =
+        ssm_protocol::CalculatePayload(dumped, kDecryptTable, ssm_protocol::kIndexTransformationStock);
     image.insert(image.end(), decrypted.begin(), decrypted.end());
     return image;
 }
@@ -646,8 +646,8 @@ Status WriteRom(ICanFlashTransport& transport, IClock& clock, const ICancellatio
     // (operation.cpp:640) and then indexes it by absolute flash address
     // (operation.cpp:803, newdata[i + blockaddr] over fblocks[0].start == 0).
     const bytes::Bytes& image = *flash_plan.Image();
-    const bytes::Bytes encrypted = ssm_protocol::CalculatePayload(
-        image, static_cast<std::uint32_t>(image.size()), kEncryptTable, ssm_protocol::kIndexTransformationStock);
+    const bytes::Bytes encrypted =
+        ssm_protocol::CalculatePayload(image, kEncryptTable, ssm_protocol::kIndexTransformationStock);
     // A second defensive guard, same treatment as the one in reflash_block above:
     // no test pins this line, and it is unreachable on a correct build --
     // calculatePayload only ever truncates its output to a multiple of 4, and

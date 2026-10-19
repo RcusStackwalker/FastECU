@@ -338,8 +338,10 @@ Result<FlashExecutionResult> SubaruHitachiSh7058CanExecutor::Execute(const Flash
     {
         return std::unexpected(status.error());
     }
-    const Bytes encrypted = ssm_protocol::CalculatePayload(plan.ImageOrEmpty(), 0x100000, kPayloadTable,
-                                                           ssm_protocol::kIndexTransformationStock);
+    // Only the flash-sized prefix of the image is sent.
+    const bytes::ByteView image(plan.ImageOrEmpty());
+    const Bytes encrypted = ssm_protocol::CalculatePayload(image.first(std::min<std::size_t>(image.size(), 0x100000)),
+                                                           kPayloadTable, ssm_protocol::kIndexTransformationStock);
     if (auto status = session.Erase(); !status.has_value())
     {
         return std::unexpected(status.error());

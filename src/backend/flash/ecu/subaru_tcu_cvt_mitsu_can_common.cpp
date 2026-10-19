@@ -27,14 +27,12 @@ bytes::Bytes TcuCvtMitsuSeedKey(bytes::ByteView seed)
 
 bytes::Bytes TcuCvtMitsuEncryptRom(bytes::ByteView image)
 {
-    return ssm_protocol::CalculatePayload(image, static_cast<std::uint32_t>(image.size()), kEncryptTable,
-                                          ssm_protocol::kIndexTransformationStock);
+    return ssm_protocol::CalculatePayload(image, kEncryptTable, ssm_protocol::kIndexTransformationStock);
 }
 
 bytes::Bytes TcuCvtMitsuDecryptPage(bytes::ByteView page)
 {
-    return ssm_protocol::CalculatePayload(page, static_cast<std::uint32_t>(page.size()), kDecryptTable,
-                                          ssm_protocol::kIndexTransformationStock);
+    return ssm_protocol::CalculatePayload(page, kDecryptTable, ssm_protocol::kIndexTransformationStock);
 }
 
 } // namespace fastecu::flash

@@ -356,7 +356,7 @@ Status UploadChecksumBypass(IKlineFlashTransport& transport, IClock& clock, cons
     }
     const bytes::Bytes cks_bypass{0x00, 0x00, 0x5A, 0xA5};
     return TransferDataBlocks(transport, clock, cancellation, kline_plan.tester_id, kline_plan.target_id, address,
-                              DensoSh705xKlineEncryptPayload(cks_bypass, 4), 4);
+                              DensoSh705xKlineEncryptPayload(cks_bypass), 4);
 }
 
 // lines 422-445: up to 10 iterations, 200ms between attempts, 100ms extra
@@ -671,7 +671,7 @@ Status DensoSh705xEepromKlineExecutor::UploadKernel(IKlineFlashTransport& transp
     {
         return std::unexpected(upload_req.error());
     }
-    const bytes::Bytes encrypted_kernel = DensoSh705xKlineEncryptPayload(padded_kernel, pl_len);
+    const bytes::Bytes encrypted_kernel = DensoSh705xKlineEncryptPayload(padded_kernel);
     events.Log(LogLevel::kInfo, "Transfer kernel data");
     if (Status transferred = TransferDataBlocks(transport, clock, cancellation, kline_plan.tester_id,
                                                 kline_plan.target_id, start_address, encrypted_kernel, pl_len);

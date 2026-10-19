@@ -126,9 +126,9 @@ TEST(DensoIso15765CanCommonTest, SeedKeyProducesKnownVectors)
 TEST(DensoIso15765CanCommonTest, EncryptProducesKnownPayloadVector)
 {
     const bytes::Bytes plain{0x00, 0x01, 0x02, 0x03, 0xFC, 0xFD, 0xFE, 0xFF};
-    EXPECT_THAT(ssm_protocol::CalculatePayload(plain, static_cast<std::uint32_t>(plain.size()),
-                                               kDensoIso15765EncryptTable, ssm_protocol::kIndexTransformationStock),
-                test_bytes::BytesEq((bytes::Bytes{0xE0, 0xD3, 0x85, 0x2B, 0xC5, 0xFE, 0x4B, 0x39})));
+    EXPECT_THAT(
+        ssm_protocol::CalculatePayload(plain, kDensoIso15765EncryptTable, ssm_protocol::kIndexTransformationStock),
+        test_bytes::BytesEq((bytes::Bytes{0xE0, 0xD3, 0x85, 0x2B, 0xC5, 0xFE, 0x4B, 0x39})));
 }
 
 // The dump path decrypts each 256-byte page with the decrypt table; the write
@@ -138,9 +138,9 @@ TEST(DensoIso15765CanCommonTest, EncryptProducesKnownPayloadVector)
 TEST(DensoIso15765CanCommonTest, DecryptInvertsEncrypt)
 {
     const bytes::Bytes cipher{0xE0, 0xD3, 0x85, 0x2B, 0xC5, 0xFE, 0x4B, 0x39};
-    EXPECT_THAT(ssm_protocol::CalculatePayload(cipher, static_cast<std::uint32_t>(cipher.size()),
-                                               kDensoIso15765DecryptTable, ssm_protocol::kIndexTransformationStock),
-                test_bytes::BytesEq((bytes::Bytes{0x00, 0x01, 0x02, 0x03, 0xFC, 0xFD, 0xFE, 0xFF})));
+    EXPECT_THAT(
+        ssm_protocol::CalculatePayload(cipher, kDensoIso15765DecryptTable, ssm_protocol::kIndexTransformationStock),
+        test_bytes::BytesEq((bytes::Bytes{0x00, 0x01, 0x02, 0x03, 0xFC, 0xFD, 0xFE, 0xFF})));
 }
 
 using namespace std::chrono_literals;

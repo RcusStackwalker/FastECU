@@ -118,15 +118,13 @@ inline bytes::Bytes DensoSeedKey(bytes::ByteView seed)
 // encrypt_payload(), run once over the whole image before a flash write.
 inline bytes::Bytes DensoEncryptRom(bytes::ByteView image)
 {
-    return ssm_protocol::CalculatePayload(image, static_cast<std::uint32_t>(image.size()), kDensoIso15765EncryptTable,
-                                          ssm_protocol::kIndexTransformationStock);
+    return ssm_protocol::CalculatePayload(image, kDensoIso15765EncryptTable, ssm_protocol::kIndexTransformationStock);
 }
 
 // decrypt_payload(), run per 256-byte page as a dump arrives.
 inline bytes::Bytes DensoDecryptPage(bytes::ByteView page)
 {
-    return ssm_protocol::CalculatePayload(page, static_cast<std::uint32_t>(page.size()), kDensoIso15765DecryptTable,
-                                          ssm_protocol::kIndexTransformationStock);
+    return ssm_protocol::CalculatePayload(page, kDensoIso15765DecryptTable, ssm_protocol::kIndexTransformationStock);
 }
 
 // Pure setup encoding shared by the N83M 1.5M/4M, SH72531 and SH72543 diesel

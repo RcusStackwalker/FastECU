@@ -50,14 +50,12 @@ bytes::Bytes SeedKey(bytes::ByteView seed)
 
 bytes::Bytes EncryptRom(bytes::ByteView image)
 {
-    return ssm_protocol::CalculatePayload(image, static_cast<std::uint32_t>(image.size()), kEncryptTable,
-                                          ssm_protocol::kIndexTransformationStock);
+    return ssm_protocol::CalculatePayload(image, kEncryptTable, ssm_protocol::kIndexTransformationStock);
 }
 
 bytes::Bytes DecryptPage(bytes::ByteView page)
 {
-    return ssm_protocol::CalculatePayload(page, static_cast<std::uint32_t>(page.size()), kDecryptTable,
-                                          ssm_protocol::kIndexTransformationStock);
+    return ssm_protocol::CalculatePayload(page, kDecryptTable, ssm_protocol::kIndexTransformationStock);
 }
 
 // Every exchange goes through UdsClient over CanFlashUdsChannel except two

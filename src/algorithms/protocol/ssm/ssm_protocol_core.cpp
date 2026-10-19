@@ -49,11 +49,11 @@ bytes::Bytes CalculateSeedKey(bytes::ByteView seed, SeedKeyToGenerateIndex keyto
     return key;
 }
 
-bytes::Bytes CalculatePayload(bytes::ByteView buf, uint32_t len, KeyToGenerateIndex keytogenerateindex,
+bytes::Bytes CalculatePayload(bytes::ByteView buf, KeyToGenerateIndex keytogenerateindex,
                               IndexTransformation indextransformation)
 {
     const auto encrypted_words =
-        buf.first(std::min<std::size_t>(len, buf.size())) | bytes::views::kU32Be |
+        buf | bytes::views::kU32Be |
         std::views::transform([&](std::uint32_t word)
                               { return TransformWord<false>(word, keytogenerateindex, indextransformation); });
     return bytes::ComposeBe(encrypted_words);

@@ -131,8 +131,7 @@ bytes::Bytes SeedKey(bytes::ByteView seed)
 // computes the wire bytes a write must carry for a known plaintext image.
 bytes::Bytes ToWire(bytes::ByteView plain)
 {
-    return ssm_protocol::CalculatePayload(plain, static_cast<std::uint32_t>(plain.size()), kEncryptTable,
-                                          kIndexTransformation);
+    return ssm_protocol::CalculatePayload(plain, kEncryptTable, kIndexTransformation);
 }
 
 const bytes::Bytes kSeed{0x11, 0x22, 0x33, 0x44};

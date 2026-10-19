@@ -113,15 +113,15 @@ TEST(SsmProtocolCore, CalculateSeedKeyMatchesTheAlternateTableVector)
 
 TEST(SsmProtocolCore, CalculatePayloadMatchesTheCommonDensoVector)
 {
-    EXPECT_THAT(ssm_protocol::CalculatePayload(bytes::ByteView(test_bytes::BytesFromHex("0011223344556677")), 8,
+    EXPECT_THAT(ssm_protocol::CalculatePayload(bytes::ByteView(test_bytes::BytesFromHex("0011223344556677")),
                                                kPayloadTable, ssm_protocol::kIndexTransformationStock),
                 test_bytes::BytesEq(test_bytes::BytesFromHex("ed9fd931afacd594")));
 }
 
 TEST(SsmProtocolCore, CalculatePayloadTruncatesToAFourByteBoundary)
 {
-    EXPECT_THAT(ssm_protocol::CalculatePayload(bytes::ByteView(test_bytes::BytesFromHex("0011223344")), 5,
-                                               kPayloadTable, ssm_protocol::kIndexTransformationStock),
+    EXPECT_THAT(ssm_protocol::CalculatePayload(bytes::ByteView(test_bytes::BytesFromHex("0011223344")), kPayloadTable,
+                                               ssm_protocol::kIndexTransformationStock),
                 test_bytes::BytesEq(test_bytes::BytesFromHex("ed9fd931")));
 }
 

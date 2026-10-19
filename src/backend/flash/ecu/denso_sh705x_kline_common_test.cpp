@@ -47,8 +47,8 @@ TEST(DensoSh705xKlineCommon, EcutekSeedKeyUsesTheEcutekTransformation)
 TEST(DensoSh705xKlineCommon, EncryptPayloadUsesTheKlineTableAndStockTransformation)
 {
     const bytes::Bytes payload{0xAA, 0xBB, 0xCC, 0xDD, 0x00, 0x00, 0x8D, 0xC8};
-    EXPECT_EQ(DensoSh705xKlineEncryptPayload(payload, 8),
-              ssm_protocol::CalculatePayload(payload, 8, kLegacyEncryptTable, ssm_protocol::kIndexTransformationStock));
+    EXPECT_EQ(DensoSh705xKlineEncryptPayload(payload),
+              ssm_protocol::CalculatePayload(payload, kLegacyEncryptTable, ssm_protocol::kIndexTransformationStock));
 }
 
 } // namespace

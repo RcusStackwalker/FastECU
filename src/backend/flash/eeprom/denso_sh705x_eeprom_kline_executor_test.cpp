@@ -156,13 +156,13 @@ bytes::Bytes GenerateEcutekSeedKey(bytes::ByteView seed)
 }
 
 // encrypt_payload(), lines 923-939.
-bytes::Bytes EncryptPayload(bytes::ByteView buf, std::uint32_t len)
+bytes::Bytes EncryptPayload(bytes::ByteView buf)
 {
     static constexpr auto kIndex = std::to_array<std::uint16_t>({0x7856, 0xCE22, 0xF513, 0x6E86});
     static constexpr auto kTransform =
         std::to_array<std::uint8_t>({0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8, 0xA, 0xD, 0x2, 0xB, 0xF, 0x4, 0x0, 0x3,
                                      0xB, 0x4, 0x6, 0x0, 0xF, 0x2, 0xD, 0x9, 0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8});
-    return ssm_protocol::CalculatePayload(buf, len, kIndex, kTransform);
+    return ssm_protocol::CalculatePayload(buf, kIndex, kTransform);
 }
 
 // For McuType "SH7055", kEepromBlocksSH7055[0] == {start=0, len=0x100}
@@ -295,14 +295,14 @@ void EnqueueFullBootloaderAndKernelUpload(ScriptedKlineFlashTransport& transport
     // exercises the case where padding actually changes the wire bytes.
     bytes::Bytes padded_kernel(kernel_bytes.begin(), kernel_bytes.end());
     padded_kernel.resize(pl_len, 0);
-    transport.ExpectWrite(Sid36TransferDataRequest(kernel_start_addr, EncryptPayload(padded_kernel, pl_len)));
+    transport.ExpectWrite(Sid36TransferDataRequest(kernel_start_addr, EncryptPayload(padded_kernel)));
     transport.QueueRead(PositiveResponse(0x76));
 
     const bytes::Bytes cks_bypass{0x00, 0x00, 0x5A, 0xA5};
     transport.ExpectWrite(Sid34RequestUploadRequest(kernel_start_addr + pl_len, 4));
     transport.QueueRead(PositiveResponse(0x74));
 
-    transport.ExpectWrite(Sid36TransferDataRequest(kernel_start_addr + pl_len, EncryptPayload(cks_bypass, 4)));
+    transport.ExpectWrite(Sid36TransferDataRequest(kernel_start_addr + pl_len, EncryptPayload(cks_bypass)));
     transport.QueueRead(PositiveResponse(0x76));
 
     transport.ExpectWrite(Sid31StartRoutineRequest());

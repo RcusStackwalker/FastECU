@@ -133,8 +133,7 @@ constexpr std::array<std::uint8_t, 32> kIndexTransformation{0x5, 0x6, 0x7, 0x1, 
 // bytes a write must carry for a known plaintext image.
 bytes::Bytes ToWire(bytes::ByteView plain)
 {
-    return ssm_protocol::CalculatePayload(plain, static_cast<std::uint32_t>(plain.size()), kEncryptTable,
-                                          kIndexTransformation);
+    return ssm_protocol::CalculatePayload(plain, kEncryptTable, kIndexTransformation);
 }
 
 const bytes::Bytes kSeed{0x11, 0x22, 0x33, 0x44};
