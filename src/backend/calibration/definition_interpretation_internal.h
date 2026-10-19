@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <vector>
 
 #include "src/backend/calibration/map_edit.h"
 
@@ -29,7 +30,11 @@ struct ResolvedElement
     std::uint32_t byte_width{1};
     std::uint64_t count{0};
     bool is_selectable{false};
+    // Owned copy of a body target's scaling selections; empty for axes.
+    std::vector<definition::Selection> selections;
 
+    // A bloblist body with at least one named selection to choose from.
+    bool IsBlobSelection() const;
     MapElementSpec EditSpec() const&;
     MapElementSpec EditSpec() const&& = delete;
 };

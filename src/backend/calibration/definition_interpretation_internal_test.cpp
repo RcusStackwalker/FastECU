@@ -141,5 +141,97 @@ TEST(ResolveMapElement, KeepsWideBodyCountAndMissingAddress)
     EXPECT_TRUE(resolved.is_selectable);
 }
 
+TEST(ElementByteWidthTest, DelegatesToStorageByteSizeWhenNotBloblist)
+{
+    EXPECT_EQ(internal::ElementByteWidth(definition::StorageType::kUint16, nullptr), 2U);
+    EXPECT_EQ(internal::ElementByteWidth(std::optional<definition::StorageType>{}, nullptr), 1U);
+}
+
+TEST(ElementByteWidthTest, BloblistWithNoScalingFallsBackToOneByte)
+{
+    EXPECT_EQ(internal::ElementByteWidth(definition::StorageType::kBloblist, nullptr), 1U);
+}
+
+TEST(ElementByteWidthTest, BloblistWithEmptySelectionsFallsBackToOneByte)
+{
+    definition::Scaling scaling;
+    EXPECT_EQ(internal::ElementByteWidth(definition::StorageType::kBloblist, &scaling), 1U);
+}
+
+TEST(ElementByteWidthTest, BloblistWidthComesFromFirstSelectionLength)
+{
+    definition::Scaling scaling;
+    scaling.selections = {{"disabled", {0x00, 0x00}}, {"enabled", {0x00, 0x01}}};
+
+    EXPECT_EQ(internal::ElementByteWidth(definition::StorageType::kBloblist, &scaling), 2U);
+}
+
+TEST(ElementByteWidthTest, BloblistWidthMatchesLegacySingleByteSelections)
+{
+    definition::Scaling scaling;
+    scaling.selections = {{"disabled", {0x00}}, {"enabled", {0x01}}};
+
+    EXPECT_EQ(internal::ElementByteWidth(definition::StorageType::kBloblist, &scaling), 1U);
+}
+
+definition::RomDefinition BlobDefinition()
+{
+    definition::RomDefinition definition;
+    definition::Scaling scaling;
+    scaling.name = "modes";
+    scaling.storage_type = definition::StorageType::kBloblist;
+    scaling.selections = {{"low", {0x01}}, {"high", {0x02}}};
+    definition.scalings.push_back(scaling);
+    return definition;
+}
+
+definition::CalibrationMap BlobMap()
+{
+    definition::CalibrationMap map;
+    map.type = "Selectable";
+    map.scaling_name = "modes";
+    map.storage_type = definition::StorageType::kBloblist;
+    return map;
+}
+
+TEST(ResolvedElementSelections, BodySelectionsAreCopiedFromTheScaling)
+{
+    const auto resolved = internal::ResolveMapElement(BlobDefinition(), BlobMap(), NumericTarget::kMapBody);
+    ASSERT_EQ(resolved.selections.size(), 2U);
+    EXPECT_EQ(resolved.selections[0].name, "low");
+    EXPECT_EQ(resolved.selections[0].value, (bytes::Bytes{0x01}));
+    EXPECT_EQ(resolved.selections[1].name, "high");
+    EXPECT_TRUE(resolved.IsBlobSelection());
+}
+
+TEST(ResolvedElementSelections, MovedResolvedElementKeepsItsSelectionBytes)
+{
+    internal::ResolvedElement moved;
+    {
+        const auto definition = BlobDefinition();
+        auto original = internal::ResolveMapElement(definition, BlobMap(), NumericTarget::kMapBody);
+        moved = std::move(original);
+    }
+    ASSERT_EQ(moved.selections.size(), 2U);
+    EXPECT_EQ(moved.selections[1].value, (bytes::Bytes{0x02}));
+}
+
+TEST(ResolvedElementSelections, AxisTargetsCarryNoSelections)
+{
+    auto map = BlobMap();
+    map.x_axis.scaling_name = "modes";
+    const auto resolved = internal::ResolveMapElement(BlobDefinition(), map, NumericTarget::kXAxis);
+    EXPECT_TRUE(resolved.selections.empty());
+    EXPECT_FALSE(resolved.IsBlobSelection());
+}
+
+TEST(ResolvedElementSelections, BloblistWithoutSelectionsIsNotABlobSelection)
+{
+    auto definition = BlobDefinition();
+    definition.scalings[0].selections.clear();
+    const auto resolved = internal::ResolveMapElement(definition, BlobMap(), NumericTarget::kMapBody);
+    EXPECT_FALSE(resolved.IsBlobSelection());
+}
+
 } // namespace
 } // namespace fastecu::calibration

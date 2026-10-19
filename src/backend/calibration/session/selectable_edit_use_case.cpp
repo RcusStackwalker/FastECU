@@ -7,7 +7,7 @@
 #include <utility>
 
 #include "src/algorithms/protocol/bytes.h"
-#include "src/backend/calibration/calibration_service.h"
+#include "src/backend/calibration/definition_interpretation_internal.h"
 #include "src/backend/definition/definition_model.h"
 
 namespace fastecu::calibration
@@ -38,26 +38,23 @@ Result<SelectableEditOutcome> ApplySelectableEdit(CalibrationWorkspace& workspac
     {
         return NotApplicable(SelectableNotApplicableReason::kUnknownMap);
     }
-    const auto& map = definition.maps[request.map_index];
-    const auto *scaling = definition::FindScaling(definition, map.scaling_name);
-    const auto storage = map.storage_type.has_value() ? map.storage_type
-                         : scaling != nullptr         ? scaling->storage_type
-                                                      : std::nullopt;
-    if (scaling == nullptr || scaling->selections.empty() || storage != definition::StorageType::kBloblist)
+    const auto element =
+        internal::ResolveMapElement(definition, definition.maps[request.map_index], NumericTarget::kMapBody);
+    if (!element.IsBlobSelection())
     {
         return NotApplicable(SelectableNotApplicableReason::kNotBloblist);
     }
-    const auto selected = std::ranges::find(scaling->selections, request.selection, &definition::Selection::name);
-    if (selected == scaling->selections.end())
+    const auto selected = std::ranges::find(element.selections, request.selection, &definition::Selection::name);
+    if (selected == element.selections.end())
     {
         return NotApplicable(SelectableNotApplicableReason::kUnknownSelection);
     }
     const auto& data = selected->value;
-    if (data.size() != ElementByteSize(storage, scaling))
+    if (data.size() != element.byte_width)
     {
         return Fail(ErrorKind::kInvalidConfig, "selection value width differs from the blob width");
     }
-    const std::uint64_t offset = map.address.has_value() ? map.address->Value() : 0;
+    const std::uint64_t offset = element.address.has_value() ? element.address->Value() : 0;
     if (const auto current = session->Read(offset, data.size());
         current.has_value() && std::ranges::equal(data, *current))
     {

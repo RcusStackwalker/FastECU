@@ -21,6 +21,11 @@ double IncrementValue(std::string_view text)
 }
 } // namespace
 
+bool ResolvedElement::IsBlobSelection() const
+{
+    return storage_type == definition::StorageType::kBloblist && !selections.empty();
+}
+
 MapElementSpec ResolvedElement::EditSpec() const&
 {
     return {.address = address.has_value() ? address->Value() : 0,
@@ -68,6 +73,10 @@ ResolvedElement ResolveMapElement(const definition::RomDefinition& definition, c
         result.start_position = map.start_position;
         result.interval = map.interval;
         result.is_selectable = map.type == "Selectable";
+        if (scaling != nullptr)
+        {
+            result.selections = scaling->selections;
+        }
     }
     else
     {
