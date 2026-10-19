@@ -125,23 +125,34 @@ TEST(SsmProtocolCore, CalculatePayloadTruncatesToAFourByteBoundary)
                 test_bytes::BytesEq(test_bytes::BytesFromHex("ed9fd931")));
 }
 
-TEST(SsmProtocolCore, CalculatePayloadTransformsEveryWordOfALongPayloadTheSame)
+TEST(SsmProtocolCore, CalculatePayloadTransformsEveryWordOfAPayloadTheSame)
 {
-    const bytes::Bytes word = test_bytes::BytesFromHex("00112233");
-    const bytes::Bytes encrypted_word = test_bytes::BytesFromHex("ed9fd931");
-    for (const std::size_t words : {63U, 64U, 65U, 200U})
+    // Stock and Ecutek take the precomputed pair tables, any other table the plain path.
+    auto custom = ssm_protocol::kIndexTransformationStock;
+    custom[9] = 0xE;
+    const bytes::Bytes word = test_bytes::BytesFromHex("44556677");
+    const auto repeat = [](const bytes::Bytes& unit, std::size_t count)
     {
-        bytes::Bytes plain;
-        bytes::Bytes expected;
-        for (std::size_t i = 0; i < words; ++i)
+        bytes::Bytes repeated;
+        for (std::size_t i = 0; i < count; ++i)
         {
-            plain.insert(plain.end(), word.begin(), word.end());
-            expected.insert(expected.end(), encrypted_word.begin(), encrypted_word.end());
+            repeated.insert(repeated.end(), unit.begin(), unit.end());
         }
-        EXPECT_THAT(ssm_protocol::CalculatePayload(bytes::ByteView(plain), kPayloadTable,
-                                                   ssm_protocol::kIndexTransformationStock),
-                    test_bytes::BytesEq(expected))
-            << "words=" << words;
+        return repeated;
+    };
+    for (const std::size_t words : {1U, 63U, 64U, 65U, 200U})
+    {
+        const bytes::Bytes plain = repeat(word, words);
+        const auto encrypt = [&](ssm_protocol::IndexTransformation table)
+        { return ssm_protocol::CalculatePayload(bytes::ByteView(plain), kPayloadTable, table); };
+        EXPECT_THAT(encrypt(ssm_protocol::kIndexTransformationStock),
+                    test_bytes::BytesEq(repeat(test_bytes::BytesFromHex("afacd594"), words)))
+            << "stock words=" << words;
+        EXPECT_THAT(encrypt(ssm_protocol::kIndexTransformationEcutek),
+                    test_bytes::BytesEq(repeat(test_bytes::BytesFromHex("57cdb994"), words)))
+            << "ecutek words=" << words;
+        EXPECT_THAT(encrypt(custom), test_bytes::BytesEq(repeat(test_bytes::BytesFromHex("071374f5"), words)))
+            << "custom words=" << words;
     }
 }
 

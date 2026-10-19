@@ -3,6 +3,7 @@
 #include "src/algorithms/protocol/bytes_compose.h"
 #include "src/algorithms/protocol/bytes_views.h"
 
+#include <algorithm>
 #include <array>
 #include <bit>
 
@@ -37,13 +38,12 @@ uint32_t TransformWord(uint32_t word, std::span<const std::uint16_t, Rounds> key
 
 // Two index-transformation lookups folded into one: entry i is
 // t[i & 0x1F] + (t[(i >> 4) & 0x1F] << 4) for a 9-bit i. A round then needs two
-// loads instead of four. Building the table costs about as much as transforming
-// 35 words, so only multi-word payloads use it.
+// loads instead of four.
 using PairTable = std::array<std::uint16_t, 512>;
 
-PairTable BuildPairTable(IndexTransformation indextransformation)
+consteval PairTable BuildPairTable(IndexTransformation indextransformation)
 {
-    PairTable pairs;
+    PairTable pairs{};
     for (std::size_t i = 0; i < pairs.size(); ++i)
     {
         pairs[i] =
@@ -51,6 +51,9 @@ PairTable BuildPairTable(IndexTransformation indextransformation)
     }
     return pairs;
 }
+
+constexpr PairTable kStockPairTable = BuildPairTable(kIndexTransformationStock);
+constexpr PairTable kEcutekPairTable = BuildPairTable(kIndexTransformationEcutek);
 
 uint32_t TransformWordPaired(uint32_t word, KeyToGenerateIndex keytogenerateindex, const PairTable& pairs)
 {
@@ -72,7 +75,13 @@ uint32_t TransformWordPaired(uint32_t word, KeyToGenerateIndex keytogenerateinde
     return static_cast<std::uint32_t>(hi) | (static_cast<std::uint32_t>(lo) << 16U);
 }
 
-constexpr std::size_t kPairTableMinWords = 64;
+template <typename Words>
+bytes::Bytes TransformPayloadPaired(const Words& words, KeyToGenerateIndex keytogenerateindex, const PairTable& pairs)
+{
+    return bytes::ComposeBe(words |
+                            std::views::transform([&](std::uint32_t word)
+                                                  { return TransformWordPaired(word, keytogenerateindex, pairs); }));
+}
 
 } // namespace
 
@@ -93,12 +102,13 @@ bytes::Bytes CalculatePayload(bytes::ByteView buf, KeyToGenerateIndex keytogener
                               IndexTransformation indextransformation)
 {
     const auto words = buf | bytes::views::kU32Be;
-    if (words.size() >= kPairTableMinWords)
+    if (std::ranges::equal(indextransformation, kIndexTransformationStock))
     {
-        const PairTable pairs = BuildPairTable(indextransformation);
-        return bytes::ComposeBe(
-            words | std::views::transform([&](std::uint32_t word)
-                                          { return TransformWordPaired(word, keytogenerateindex, pairs); }));
+        return TransformPayloadPaired(words, keytogenerateindex, kStockPairTable);
+    }
+    if (std::ranges::equal(indextransformation, kIndexTransformationEcutek))
+    {
+        return TransformPayloadPaired(words, keytogenerateindex, kEcutekPairTable);
     }
     return bytes::ComposeBe(
         words | std::views::transform([&](std::uint32_t word)
