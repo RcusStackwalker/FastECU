@@ -20,7 +20,7 @@ namespace fastecu::flash::testing
 inline void ExpectN83mOperations(const ScriptedCanFlashTransport& transport,
                                  const std::vector<ScriptedCanFlashTransport::OperationAttempt>& expected)
 {
-    EXPECT_FALSE(transport.FirstUnexpectedOperation().has_value());
+    EXPECT_EQ(transport.FirstUnexpectedOperation(), std::nullopt);
     EXPECT_THAT(transport.OperationAttempts(), ::testing::ElementsAreArray(expected));
     EXPECT_TRUE(transport.ScriptConsumed());
 }
@@ -135,20 +135,26 @@ class CancelAtTransferProgressSink final : public RecordingEventSink
 
 template <typename Traits> const N83mPayload& N83mImage(N83mPattern pattern)
 {
-    static const auto forward = MakeN83mPayload(Traits::kImageSize, N83mPattern::kForward);
-    static const auto reverse = MakeN83mPayload(Traits::kImageSize, N83mPattern::kReverse);
-    return pattern == N83mPattern::kForward ? forward : reverse;
+    static const auto kForward = MakeN83mPayload(Traits::kImageSize, N83mPattern::kForward);
+    static const auto kReverse = MakeN83mPayload(Traits::kImageSize, N83mPattern::kReverse);
+    return pattern == N83mPattern::kForward ? kForward : kReverse;
 }
 
 template <typename Traits> void ScriptN83mConnect(N83mScript& script, bool in_car = false)
 {
     if (in_car)
+    {
         Traits::ScriptInCarConnect(script.transport);
+    }
     else
+    {
         Traits::ScriptBenchConnect(script.transport);
+    }
     script.Pairs(in_car ? 23 : 11);
     if (!in_car && Traits::kDiscardFirstJumpReply)
+    {
         script.ReadOutcome();
+    }
 }
 
 template <typename Traits> bytes::Bytes N83mSetupRequest(SetupSite site)
@@ -199,12 +205,17 @@ template <typename Traits> void ExpectN83mRead(ReadSuccessCase test_case)
     const auto& payload = N83mImage<Traits>(test_case.pattern);
     expected.insert(expected.end(), payload.plain.begin() + 0x10000, payload.plain.end() - 0x100);
     expected.insert(expected.end(), 0x100, 0xFF);
+    EXPECT_THAT(run.events.logs, ::testing::Not(::testing::IsEmpty()));
     EXPECT_EQ(run.result->operation, FlashOperation::kRead);
     EXPECT_THAT(*run.result->read_bytes, test_bytes::BytesEq(expected));
     script.Check();
-    EXPECT_FALSE(run.events.phase_progress_calls.empty());
+    ASSERT_FALSE(run.events.phase_progress_calls.empty());
+    EXPECT_EQ(run.events.phase_progress_calls.front().done, 0);
+    EXPECT_EQ(run.events.phase_progress_calls.back().done, static_cast<int>(Traits::kBlockLength));
     if (!test_case.in_car)
+    {
         ExpectSeedAndKeyReadTimeouts(script.transport);
+    }
 }
 
 template <typename Traits> void ScriptN83mWritePrefix(N83mScript& script)
@@ -240,11 +251,15 @@ template <typename Traits> void ExpectN83mWrite(N83mPattern pattern)
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(result->operation, FlashOperation::kWrite);
     EXPECT_FALSE(result->read_bytes.has_value());
+    ASSERT_FALSE(events.phase_progress_calls.empty());
+    EXPECT_EQ(events.phase_progress_calls.back().done, static_cast<int>(Traits::kBlockLength));
     script.Check();
     const std::size_t bench_reads = Traits::kDiscardFirstJumpReply ? 1 : 0;
     std::vector<std::pair<std::chrono::milliseconds, std::size_t>> expected{{milliseconds{500}, 14}};
     if (Traits::kDiscardFirstJumpReply)
+    {
         expected.emplace_back(milliseconds{50}, 22);
+    }
     expected.emplace_back(milliseconds{500}, 25 + bench_reads);
     expected.emplace_back(milliseconds{100}, 28 + bench_reads + 2 * (Traits::kBlockLength / 256));
     EXPECT_THAT(sleeps, ::testing::ElementsAreArray(expected));
@@ -253,11 +268,17 @@ template <typename Traits> void ExpectN83mWrite(N83mPattern pattern)
 inline std::optional<ErrorKind> N83mSetupError(ReplyShape shape, bool strict)
 {
     if (shape == ReplyShape::kTransportError)
+    {
         return ErrorKind::kDisconnected;
+    }
     if (shape == ReplyShape::kTruncatedRaw)
+    {
         return ErrorKind::kBadResponse;
+    }
     if (!strict || shape == ReplyShape::kSuccess)
+    {
         return {};
+    }
     return shape == ReplyShape::kNoFrame ? ErrorKind::kTimeout : ErrorKind::kBadResponse;
 }
 
@@ -266,7 +287,9 @@ template <typename Traits> void ExpectN83mSetup(ReadSetupCase test_case)
     N83mScript script;
     ScriptN83mConnect<Traits>(script);
     if (test_case.site == SetupSite::kUpload)
+    {
         script.Exchange(N83mSetupRequest<Traits>(SetupSite::kDownload), Response({0x74, 0x20, 0x01, 0x05}));
+    }
     script.transport.ExpectWrite(N83mSetupRequest<Traits>(test_case.site));
     script.expected.push_back({N83mScript::Kind::kWrite, true, {}});
     const auto positive = test_case.site == SetupSite::kDownload ? Response({0x74, 0x20, 0x01, 0x05})
@@ -298,7 +321,9 @@ template <typename Traits> void ExpectN83mSetup(ReadSetupCase test_case)
     if (!error.has_value())
     {
         if (test_case.site == SetupSite::kDownload)
+        {
             script.Exchange(N83mSetupRequest<Traits>(SetupSite::kUpload), Response({0x75, 0x20, 0x01, 0x01}));
+        }
         ScriptN83mTransfer<Traits>(script, TransferOperation::kRead, N83mPattern::kForward, Traits::kBlockLength / 256);
         script.Exchange(Request({0x37}), Response({0x77}));
     }
@@ -306,9 +331,13 @@ template <typename Traits> void ExpectN83mSetup(ReadSetupCase test_case)
     ASSERT_THAT(plan, fastecu::testing::IsOk());
     auto run = ExecutorRun<typename Traits::Executor>(*plan, script.transport);
     if (error.has_value())
+    {
         EXPECT_THAT(run.result, fastecu::testing::IsErr(*error));
+    }
     else
+    {
         EXPECT_THAT(run.result, fastecu::testing::IsOk());
+    }
     script.Check();
 }
 
@@ -317,7 +346,9 @@ template <typename Traits> void ExpectN83mTransferFault(TransferFaultCase test_c
     N83mScript script;
     const bool write = test_case.operation == TransferOperation::kWrite;
     if (write)
+    {
         ScriptN83mWritePrefix<Traits>(script);
+    }
     else
     {
         ScriptN83mConnect<Traits>(script);
@@ -337,9 +368,13 @@ template <typename Traits> void ExpectN83mTransferFault(TransferFaultCase test_c
                                                  .subspan(0x10000 + index * 256, 256)))
                   : Request(bytes::ComposeBe(bytes::Byte(0xB7), addr));
         if (test_case.position == FaultPosition::kFirst)
+        {
             script.Failure(request, ErrorKind::kDisconnected);
+        }
         else
+        {
             script.Exchange(request, Response({0x7F, bytes::Byte(write ? 0xB6 : 0xB7), 0x31}));
+        }
     }
     const auto plan = write ? Traits::WritePlan(N83mImage<Traits>(N83mPattern::kForward).plain) : Traits::ReadPlan();
     ASSERT_THAT(plan, fastecu::testing::IsOk());
@@ -354,6 +389,10 @@ template <typename Traits> void ExpectN83mTransferFault(TransferFaultCase test_c
                                                                      : ErrorKind::kBadResponse;
     EXPECT_THAT(result, fastecu::testing::IsErr(kind));
     EXPECT_EQ(events.Triggered(), test_case.position == FaultPosition::kMiddle);
+    ASSERT_FALSE(events.phase_progress_calls.empty());
+    EXPECT_EQ(events.phase_progress_calls.back().phase_name, write ? "Write ROM" : "Read ROM");
+    EXPECT_EQ(events.phase_progress_calls.back().done, static_cast<int>(index * 256));
+    EXPECT_LT(events.phase_progress_calls.back().done, events.phase_progress_calls.back().total);
     script.Check();
 }
 } // namespace fastecu::flash::testing

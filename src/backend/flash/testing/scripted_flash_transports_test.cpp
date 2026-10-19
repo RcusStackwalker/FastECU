@@ -389,6 +389,7 @@ TEST(ScriptedCanFlashTransport, CanUnblockedReadRecordsAcceptedCancellationWitho
     transport.QueueBlockingRead();
     transport.RequestUnblock();
     EXPECT_THAT(transport.Read(10ms, cancellation), IsErr(ErrorKind::kCancelled));
+    EXPECT_EQ(cancellation.CheckCount(), 0U);
     EXPECT_TRUE(transport.ScriptConsumed());
     EXPECT_FALSE(transport.FirstUnexpectedOperation().has_value());
     EXPECT_THAT(transport.OperationAttempts(),
@@ -408,6 +409,7 @@ TEST(ScriptedCanFlashTransport, ExchangePairsARequestWithItsReply)
     ASSERT_THAT(reply, IsOk());
     ASSERT_TRUE(reply->has_value());
     EXPECT_THAT(**reply, test_bytes::BytesEq(bytes::Bytes{0x50, 0x43}));
+    EXPECT_EQ(cancellation.CheckCount(), 2U);
     EXPECT_TRUE(transport.ScriptConsumed());
 }
 

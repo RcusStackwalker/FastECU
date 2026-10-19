@@ -46,14 +46,22 @@ TEST(N83mExecutorScenarios, FreshRunsDoNotShareState)
         ScriptedCanFlashTransport transport;
         FakeCancellationToken token;
         if (error)
+        {
             transport.QueueError(ErrorKind::kInternal, "intentional");
+        }
         else
+        {
             transport.QueueNoFrame();
+        }
         const auto result = transport.Read(std::chrono::milliseconds{1}, token);
         if (error)
+        {
             EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kInternal));
+        }
         else
+        {
             EXPECT_THAT(result, fastecu::testing::IsOk());
+        }
         ExpectN83mOperations(transport,
                              {{Kind::kRead, true, error ? std::optional{ErrorKind::kInternal} : std::nullopt}});
     }

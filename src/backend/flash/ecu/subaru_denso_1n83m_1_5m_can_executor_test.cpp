@@ -681,15 +681,15 @@ INSTANTIATE_TEST_SUITE_P(Patterns, N83m15mWritePattern, testing::Values(N83mPatt
 
 std::string SetupCaseName(const testing::TestParamInfo<ReadSetupCase>& p)
 {
-    constexpr std::array names{"Success", "NoFrame", "EmptyPdu", "TruncatedRaw", "Mismatch", "TransportError"};
+    constexpr std::array kNames{"Success", "NoFrame", "EmptyPdu", "TruncatedRaw", "Mismatch", "TransportError"};
     return std::string(p.param.site == SetupSite::kDownload ? "Download" : "Upload") +
-           names[static_cast<std::size_t>(p.param.reply)];
+           kNames[static_cast<std::size_t>(p.param.reply)];
 }
 std::string TransferCaseName(const testing::TestParamInfo<TransferFaultCase>& p)
 {
-    constexpr std::array names{"FirstDisconnected", "MiddleCancelled", "LastRejected"};
+    constexpr std::array kNames{"FirstDisconnected", "MiddleCancelled", "LastRejected"};
     return std::string(p.param.operation == TransferOperation::kRead ? "Read" : "Write") +
-           names[static_cast<std::size_t>(p.param.position)];
+           kNames[static_cast<std::size_t>(p.param.position)];
 }
 
 class N83m15mSetup : public testing::TestWithParam<ReadSetupCase>
