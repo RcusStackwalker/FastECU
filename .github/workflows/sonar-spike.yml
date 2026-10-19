@@ -2,11 +2,16 @@ name: SonarCloud spike (compile database)
 
 # Spike: can SonarCloud take its C++ compile database from a cached Bazel build
 # instead of the build wrapper? Runs both variants on one commit into a separate
-# SonarCloud project so master's history is untouched. Manual only.
+# SonarCloud project so master's history is untouched.
 # Findings: docs/superpowers/spikes/2026-10-19-sonar-compile-database.md
 
+# The push trigger exists because workflow_dispatch only works for workflows on
+# the default branch. Branch push (not pull_request) keeps this a branch
+# analysis, which -Dsonar.branchName requires. Remove with the spike.
 on:
   workflow_dispatch:
+  push:
+    branches: [spike/sonar-compile-db]
 
 permissions:
   contents: read
