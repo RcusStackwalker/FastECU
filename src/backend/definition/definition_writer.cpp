@@ -4,10 +4,10 @@
 #include <cctype>
 #include <cstdint>
 #include <format>
+#include <iterator>
 #include <sstream>
 #include <string>
 #include <string_view>
-#include <system_error>
 #include <utility>
 #include <vector>
 
@@ -41,10 +41,9 @@ Status ValidateRepresentableText(const DefinitionHeaderInput& input)
         {"identity notes", input.metadata.notes},
         {"file size", input.metadata.file_size},
     };
-    for (const auto& field : kEditableMetadataFields)
-    {
-        fields.emplace_back(field.xml_name, input.metadata.*field.member);
-    }
+    std::ranges::transform(kEditableMetadataFields, std::back_inserter(fields),
+                           [&input](const auto& field) -> std::pair<std::string_view, std::string_view>
+                           { return {field.xml_name, input.metadata.*field.member}; });
     for (const auto& [name, value] : fields)
     {
         if (HasUnrepresentableCharacter(value))
