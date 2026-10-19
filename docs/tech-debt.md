@@ -55,13 +55,6 @@ coordinators retain their UI roles; see the relevant
   override words at `0x0FFAFC` and `0x17FAFC`, summed as `0xFFFFFFFF`, have no
   firmware evidence at all. Disassemble a diesel ROM's checksum routine before
   changing or relying on them.
-- **Definition writer corrupts unrepresentable header text.**
-  `CreateEcuflashXml` and `RewriteEcuflashXml` accept header values the XML
-  round trip cannot keep: an embedded NUL truncates the value and a carriage
-  return is read back as a newline. Found by `definition_writer_fuzz_test`,
-  whose text domain excludes both until the writer either escapes them
-  (`&#13;`) or rejects them with `kInvalidConfig`. Header text comes from the UI, so notes pasted from a
-  Windows editor are the realistic case.
 
 ### P1: Turn surviving Mull mutants into tests
 

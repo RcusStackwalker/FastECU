@@ -24,8 +24,44 @@ namespace fastecu::definition
 namespace
 {
 
+// XML cannot carry these: a NUL ends the value and a carriage return is read back as a newline.
+bool HasUnrepresentableCharacter(std::string_view text)
+{
+    return text.find_first_of("\0\r"sv) != std::string_view::npos;
+}
+
+Status ValidateRepresentableText(const DefinitionHeaderInput& input)
+{
+    std::vector<std::pair<std::string_view, std::string_view>> fields{
+        {"XML ID", input.xml_id},
+        {"internal ID", input.internal_id},
+        {"ECU ID", input.ecu_id},
+        {"include", input.include},
+        {"notes", input.notes},
+        {"identity notes", input.metadata.notes},
+        {"file size", input.metadata.file_size},
+    };
+    for (const auto& field : kEditableMetadataFields)
+    {
+        fields.emplace_back(field.xml_name, input.metadata.*field.member);
+    }
+    for (const auto& [name, value] : fields)
+    {
+        if (HasUnrepresentableCharacter(value))
+        {
+            return Fail(ErrorKind::kInvalidConfig,
+                        std::format("definition {} cannot contain NUL or carriage return characters", name));
+        }
+    }
+    return {};
+}
+
 Status ValidateInput(const DefinitionHeaderInput& input)
 {
+    if (auto representable = ValidateRepresentableText(input); !representable.has_value())
+    {
+        return representable;
+    }
     if (input.xml_id.empty())
     {
         return Fail(ErrorKind::kInvalidConfig, "definition XML ID is required");

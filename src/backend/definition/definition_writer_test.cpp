@@ -8,6 +8,7 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include <gmock/gmock.h>
@@ -173,6 +174,31 @@ TEST(DefinitionWriterTest, RejectsEachEmptyRequiredIdentity)
         }
 
         ASSERT_THAT(CreateEcuflashXml(input), fastecu::testing::IsErr(ErrorKind::kInvalidConfig)) << field;
+    }
+}
+
+TEST(DefinitionWriterTest, RejectsTextXmlCannotRepresent)
+{
+    using Setter = void (*)(DefinitionHeaderInput&, std::string);
+    const std::pair<std::string_view, Setter> fields[] = {
+        {"xml_id", [](DefinitionHeaderInput& input, std::string value) { input.xml_id = std::move(value); }},
+        {"include", [](DefinitionHeaderInput& input, std::string value) { input.include = std::move(value); }},
+        {"notes", [](DefinitionHeaderInput& input, std::string value) { input.notes = std::move(value); }},
+        {"identity notes",
+         [](DefinitionHeaderInput& input, std::string value) { input.metadata.notes = std::move(value); }},
+        {"make", [](DefinitionHeaderInput& input, std::string value) { input.metadata.make = std::move(value); }},
+    };
+    for (const auto& [field, set] : fields)
+    {
+        for (const std::string& bad : {std::string("a\rb"), std::string("a\0b", 3)})
+        {
+            DefinitionHeaderInput input = CompleteInput();
+            set(input, bad);
+
+            ASSERT_THAT(CreateEcuflashXml(input), fastecu::testing::IsErr(ErrorKind::kInvalidConfig)) << field;
+            ASSERT_THAT(RewriteEcuflashXml(Bytes("<rom/>"), input), fastecu::testing::IsErr(ErrorKind::kInvalidConfig))
+                << field;
+        }
     }
 }
 
