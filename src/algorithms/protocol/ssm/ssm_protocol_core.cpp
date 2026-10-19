@@ -1,6 +1,9 @@
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
 
 #include "src/algorithms/protocol/bytes_compose.h"
+#include "src/algorithms/protocol/bytes_views.h"
+
+#include <bit>
 
 namespace ssm_protocol
 {
@@ -8,13 +11,13 @@ namespace ssm_protocol
 namespace
 {
 
-template <std::size_t Rounds>
+template <bool Reverse, std::size_t Rounds>
 uint32_t TransformWord(uint32_t word, std::span<const std::uint16_t, Rounds> keytogenerateindex,
-                       IndexTransformation indextransformation, bool reverse)
+                       IndexTransformation indextransformation)
 {
     for (std::size_t r = 0; r < Rounds; ++r)
     {
-        const std::size_t ki = reverse ? (Rounds - 1 - r) : r;
+        const std::size_t ki = Reverse ? (Rounds - 1 - r) : r;
         const uint16_t wordtogenerateindex = word;
         const uint16_t wordtobeencrypted = word >> 16U;
         uint32_t index = wordtogenerateindex ^ keytogenerateindex[ki];
@@ -28,7 +31,7 @@ uint32_t TransformWord(uint32_t word, std::span<const std::uint16_t, Rounds> key
         word = (encryptionkey ^ wordtobeencrypted) + (wordtogenerateindex << 16U);
     }
 
-    return (word >> 16U) + (word << 16U);
+    return std::rotr(word, 16);
 }
 
 } // namespace
@@ -42,31 +45,17 @@ bytes::Bytes CalculateSeedKey(bytes::ByteView seed, SeedKeyToGenerateIndex keyto
         return key;
     }
 
-    bytes::AppendU32Be(key, TransformWord(bytes::ReadU32Be(seed, 0), keytogenerateindex, indextransformation, true));
+    bytes::AppendU32Be(key, TransformWord<true>(bytes::ReadU32Be(seed, 0), keytogenerateindex, indextransformation));
     return key;
 }
 
 bytes::Bytes CalculatePayload(bytes::ByteView buf, uint32_t len, KeyToGenerateIndex keytogenerateindex,
                               IndexTransformation indextransformation)
 {
-    if (buf.empty() || len == 0)
-    {
-        return {};
-    }
-
-    len &= ~uint32_t(3);
-    if (len > uint32_t(buf.size()))
-    {
-        len = uint32_t(buf.size()) & ~uint32_t(3);
-    }
-
-    const auto encrypted_words = std::views::iota(std::size_t{0}, std::size_t{len / 4}) |
-                                 std::views::transform(
-                                     [&](std::size_t word_index)
-                                     {
-                                         return TransformWord(bytes::ReadU32Be(buf, word_index * 4), keytogenerateindex,
-                                                              indextransformation, false);
-                                     });
+    const auto encrypted_words =
+        buf.first(std::min<std::size_t>(len, buf.size())) | bytes::views::kU32Be |
+        std::views::transform([&](std::uint32_t word)
+                              { return TransformWord<false>(word, keytogenerateindex, indextransformation); });
     return bytes::ComposeBe(encrypted_words);
 }
 

@@ -133,6 +133,22 @@ python3 scripts/mutation_test.py --scope //src/algorithms/checksum/...
 python3 scripts/mutation_test.py --diff-ref origin/master   # changed lines only
 ```
 
+On macOS there is no Mull release for LLVM 22 yet (0.34.2 stops at LLVM 21;
+LLVM 22 support is on Mull's `main`), so use Mull's nightly formula, built
+against the same Homebrew LLVM:
+
+```sh
+brew install llvm@22 mull-project/mull/mull-nightly@22
+export PATH="/opt/homebrew/opt/llvm@22/bin:$PATH"   # Homebrew's clang first, then run the commands above
+```
+
+`scripts/mutation_test.py` adds `--config=mutation-macos`
+([`bazel/mutation.bazelrc`](../bazel/mutation.bazelrc)) on macOS. Bazel's Apple
+toolchain otherwise compiles with Xcode's clang through `xcrun`, ignores `CC`,
+and fails with `Wrong API version on plugin`. A nightly Mull can score a few
+mutants differently from the 0.34.1 release CI pins, so compare runs made with
+the same install.
+
 A test-only change touches no mutable lines, so the PR job has nothing to
 mutate. Run the workflow scoped on the branch and compare its survivors with
 the same scope on `master`:

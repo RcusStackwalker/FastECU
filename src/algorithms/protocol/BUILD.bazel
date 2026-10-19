@@ -11,6 +11,7 @@ cc_library(
     hdrs = [
         "bytes.h",
         "bytes_compose.h",
+        "bytes_views.h",
         "fixed_buffer.h",
     ],
 )
@@ -37,6 +38,16 @@ fastecu_portable_gtest(
 fastecu_portable_gtest(
     name = "bytes_compose_test",
     srcs = ["bytes_compose_test.cpp"],
+    deps = [
+        ":protocol",
+        "//src/algorithms/protocol/testing:byte_matchers",
+        "@googletest//:gtest",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "bytes_views_test",
+    srcs = ["bytes_views_test.cpp"],
     deps = [
         ":protocol",
         "//src/algorithms/protocol/testing:byte_matchers",
