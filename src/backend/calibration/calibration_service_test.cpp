@@ -212,6 +212,28 @@ TEST(DecodeCalibrationMap, UsesIdentityWithoutScaling)
                                        fastecu::testing::IsOkAnd(7)));
 }
 
+// 65535 * 65537 is 2^32 - 1, the most cells a run can hold; 65536 * 65536 is one more.
+TEST(DecodeCalibrationMap, RejectsABodyWithMoreCellsThanARunCanHold)
+{
+    auto definition = OneMapDefinition(0);
+    definition.maps[0].x_size = 65536;
+    definition.maps[0].y_size = 65536;
+    EXPECT_THAT(
+        DecodeCalibrationMap(definition, definition.maps[0], bytes::Bytes{1, 2, 3}),
+        fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, ::testing::HasSubstr("invalid address or dimensions")));
+}
+
+TEST(DecodeCalibrationMap, AcceptsABodyWithExactlyTheMostCellsARunCanHold)
+{
+    auto definition = OneMapDefinition(0);
+    definition.maps[0].x_size = 65535;
+    definition.maps[0].y_size = 65537;
+    // The dimensions pass; the three-byte ROM is then too short for them.
+    EXPECT_THAT(DecodeCalibrationMap(definition, definition.maps[0], bytes::Bytes{1, 2, 3}),
+                fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig,
+                                            ::testing::Not(::testing::HasSubstr("invalid address or dimensions"))));
+}
+
 TEST(DecodeCalibrationMap, ANumericSelectableBodyDecodesEveryCellAsZero)
 {
     auto definition = OneMapDefinition(0);

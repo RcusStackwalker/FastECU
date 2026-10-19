@@ -261,6 +261,36 @@ TEST(CheckMapPlacement, FollowsTheStartPositionAndIntervalStride)
     EXPECT_THAT(Check(definition, Layout()), IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("fill block")));
 }
 
+// A run of more cells than 2^32 - 1 is left to the decoder; one of exactly
+// 2^32 - 1 is still placed, and lies outside this small memory map.
+TEST(CheckMapPlacement, ARunTooLongToCountIsLeftToTheDecoder)
+{
+    auto definition = OneMap(0x10, 65536);
+    definition.maps[0].y_size = 65536;
+    EXPECT_THAT(Check(definition, Layout()), IsOk());
+}
+
+TEST(CheckMapPlacement, ARunOfExactlyTheMostCellsIsStillPlaced)
+{
+    auto definition = OneMap(0x10, 65535);
+    definition.maps[0].y_size = 65537;
+    EXPECT_THAT(Check(definition, Layout()),
+                IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("outside the ROM's memory map")));
+}
+
+// The most bytes a range can hold is 2^32 - 1; a run ending exactly there fits
+// a block that covers the whole address space.
+TEST(CheckMapPlacement, ARunSpanningTheLargestRangeFitsABlockCoveringIt)
+{
+    const std::array blocks{File(0, 0xFFFFFFFF, 0, kWritable)};
+    const auto layout =
+        memory::MemoryMap::Create(blocks, memory::ByteCount{0xFFFFFFFF}, memory::FlashAddress{0}).value();
+    auto definition = OneMap(0, 65535);
+    definition.maps[0].y_size = 65537;
+
+    EXPECT_THAT(Check(definition, layout), IsOkAnd(MapExtent{.start = 0, .end = 0xFFFFFFFF}));
+}
+
 TEST(CheckMapPlacement, AnExtentPastTheAddressSpaceLiesOutsideTheMemoryMap)
 {
     auto wide = OneMap(0x10, 2);
