@@ -275,7 +275,6 @@ fastecu_portable_gtest(
     srcs = ["romraider_parser_fuzz_test.cpp"],
     data = glob(["testdata/fuzz/romraider/**"]),
     deps = [
-        ":definition_model",
         ":romraider_parser",
         "@fuzztest//fuzztest",
         "@googletest//:gtest",
@@ -287,7 +286,6 @@ fastecu_portable_gtest(
     srcs = ["ecuflash_parser_fuzz_test.cpp"],
     data = glob(["testdata/fuzz/ecuflash/**"]),
     deps = [
-        ":definition_model",
         ":ecuflash_parser",
         "@fuzztest//fuzztest",
         "@googletest//:gtest",
