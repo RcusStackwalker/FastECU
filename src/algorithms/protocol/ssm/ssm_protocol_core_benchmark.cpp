@@ -11,6 +11,9 @@ namespace
 
 constexpr std::array<std::uint16_t, 4> kKeys{0x1234, 0xABCD, 0x5678, 0xEF01};
 
+constexpr std::array<std::uint16_t, 16> kSeedKeys{0x1234, 0xABCD, 0x5678, 0xEF01, 0x0F0F, 0x9A9A, 0x3C3C, 0xC3C3,
+                                                  0x7777, 0x1357, 0x2468, 0xDEAD, 0xBEEF, 0x4242, 0x0001, 0xFFFE};
+
 bytes::Bytes MakePayload(std::size_t size)
 {
     bytes::Bytes payload(size);
@@ -34,6 +37,17 @@ void BM_CalculatePayload(benchmark::State& state)
     state.SetBytesProcessed(state.iterations() * state.range(0));
 }
 
+void BM_CalculateSeedKey(benchmark::State& state)
+{
+    const bytes::Bytes seed = MakePayload(4);
+    for (auto _ : state)
+    {
+        benchmark::DoNotOptimize(
+            ssm_protocol::CalculateSeedKey(bytes::ByteView(seed), kSeedKeys, ssm_protocol::kIndexTransformationStock));
+    }
+}
+
 } // namespace
 
+BENCHMARK(BM_CalculateSeedKey);
 BENCHMARK(BM_CalculatePayload)->Arg(16)->Arg(4096)->Arg(1 << 20);
