@@ -22,6 +22,28 @@ namespace fastecu::flash
 class ScriptedCanFlashTransport : public ICanFlashTransport
 {
   public:
+    enum class OperationKind
+    {
+        kWrite,
+        kRead
+    };
+    struct OperationAttempt
+    {
+        OperationKind kind;
+        bool accepted;
+        std::optional<ErrorKind> error;
+        bool operator==(const OperationAttempt&) const = default;
+    };
+
+    const std::vector<OperationAttempt>& OperationAttempts() const
+    {
+        return operation_attempts_;
+    }
+    const std::optional<std::string>& FirstUnexpectedOperation() const
+    {
+        return first_unexpected_operation_;
+    }
+
     ScriptedCanFlashTransport() = default;
 
     explicit ScriptedCanFlashTransport(ScriptedTransportInitialState initial_state)
@@ -150,27 +172,31 @@ class ScriptedCanFlashTransport : public ICanFlashTransport
     }
     Status Write(bytes::ByteView data, const ICancellationToken& cancellation) override
     {
+        operation_attempts_.push_back({OperationKind::kWrite, false, std::nullopt});
         if (cancellation.Cancelled())
         {
+            operation_attempts_.back().error = ErrorKind::kCancelled;
             return Fail(ErrorKind::kCancelled, "scripted CAN write cancelled");
         }
         if (w_idx_ >= expected_.size())
         {
-            return Fail(ErrorKind::kInternal,
-                        std::format("scripted CAN write ran past the end of the script ({} exchanges); wrote {}",
-                                    expected_.size(), bytes::ToHex(data)));
+            return UnexpectedOperation(
+                std::format("scripted CAN write ran past the end of the script ({} exchanges); wrote {}",
+                            expected_.size(), bytes::ToHex(data)));
         }
         const auto& expected = expected_.at(w_idx_);
         if (!std::equal(expected.begin(), expected.end(), data.begin(), data.end()))
         {
-            return Fail(ErrorKind::kInternal, DescribeDivergence(w_idx_, data));
+            return UnexpectedOperation(DescribeDivergence(w_idx_, data));
         }
         ++w_idx_;
+        operation_attempts_.back().accepted = true;
         return {};
     }
     Result<std::optional<bytes::Bytes>> Read(std::chrono::milliseconds timeout,
                                              const ICancellationToken& cancellation) override
     {
+        operation_attempts_.push_back({OperationKind::kRead, false, std::nullopt});
         read_timeouts_.push_back(timeout);
         {
             std::unique_lock lock(mutex_);
@@ -178,19 +204,27 @@ class ScriptedCanFlashTransport : public ICanFlashTransport
             {
                 cv_.wait(lock, [this] { return unblock_requested_; });
                 blocking_read_pending_ = false;
+                operation_attempts_.back().accepted = true;
+                operation_attempts_.back().error = ErrorKind::kCancelled;
                 return Fail(ErrorKind::kCancelled, "scripted CAN read unblocked");
             }
         }
         if (cancellation.Cancelled())
         {
+            operation_attempts_.back().error = ErrorKind::kCancelled;
             return Fail(ErrorKind::kCancelled, "scripted CAN read cancelled");
         }
         if (reads_.empty())
         {
-            return Fail(ErrorKind::kInternal, "no scripted CAN read outcome");
+            return UnexpectedOperation("no scripted CAN read outcome");
         }
         auto result = std::move(reads_.front());
         reads_.pop_front();
+        operation_attempts_.back().accepted = true;
+        if (!result.has_value())
+        {
+            operation_attempts_.back().error = result.error().kind;
+        }
         return result;
     }
 
@@ -206,6 +240,19 @@ class ScriptedCanFlashTransport : public ICanFlashTransport
     std::optional<Iso15765Config> last_config;
 
   private:
+    std::unexpected<Error> UnexpectedOperation(std::string detail)
+    {
+        operation_attempts_.back().error = ErrorKind::kInternal;
+        if (!first_unexpected_operation_.has_value())
+        {
+            first_unexpected_operation_ = detail;
+        }
+        return Fail(ErrorKind::kInternal, std::move(detail));
+    }
+
+    std::vector<OperationAttempt> operation_attempts_;
+    std::optional<std::string> first_unexpected_operation_;
+
     std::string DescribeDivergence(std::size_t index, bytes::ByteView actual) const
     {
         const std::string& label = sections_.at(index);

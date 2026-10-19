@@ -307,6 +307,94 @@ TEST(ScriptedMixedCanFlashTransport, RequestUnblockReleasesBlockingIsoReadAsCanc
     EXPECT_TRUE(transport.ScriptConsumed());
 }
 
+using CanAttempt = ScriptedCanFlashTransport::OperationAttempt;
+using CanOperation = ScriptedCanFlashTransport::OperationKind;
+
+TEST(ScriptedCanFlashTransport, CanMismatchRecoveryRetainsViolation)
+{
+    ScriptedCanFlashTransport transport;
+    FakeCancellationToken cancellation;
+    transport.Exchange(bytes::Bytes{0x10}, bytes::Bytes{0x50});
+    EXPECT_THAT(transport.Write(bytes::Bytes{0x11}, cancellation), IsErr(ErrorKind::kInternal));
+    const auto first = transport.FirstUnexpectedOperation();
+    ASSERT_TRUE(first.has_value());
+    EXPECT_THAT(transport.Write(bytes::Bytes{0x10}, cancellation), IsOk());
+    EXPECT_THAT(transport.Read(10ms, cancellation), IsOk());
+    EXPECT_TRUE(transport.ScriptConsumed());
+    EXPECT_EQ(transport.FirstUnexpectedOperation(), first);
+    EXPECT_THAT(transport.OperationAttempts(),
+                ::testing::ElementsAre(CanAttempt{CanOperation::kWrite, false, ErrorKind::kInternal},
+                                       CanAttempt{CanOperation::kWrite, true, std::nullopt},
+                                       CanAttempt{CanOperation::kRead, true, std::nullopt}));
+}
+
+TEST(ScriptedCanFlashTransport, CanExtraSwallowedOperationsRemainVisible)
+{
+    ScriptedCanFlashTransport transport;
+    FakeCancellationToken cancellation;
+    EXPECT_THAT(transport.Write(bytes::Bytes{0x37}, cancellation), IsErr(ErrorKind::kInternal));
+    const auto first = transport.FirstUnexpectedOperation();
+    ASSERT_TRUE(first.has_value());
+    EXPECT_THAT(transport.Read(10ms, cancellation), IsErr(ErrorKind::kInternal));
+    EXPECT_TRUE(transport.ScriptConsumed());
+    EXPECT_EQ(transport.FirstUnexpectedOperation(), first);
+    EXPECT_THAT(transport.OperationAttempts(),
+                ::testing::ElementsAre(CanAttempt{CanOperation::kWrite, false, ErrorKind::kInternal},
+                                       CanAttempt{CanOperation::kRead, false, ErrorKind::kInternal}));
+    ScriptedCanFlashTransport read_only;
+    EXPECT_THAT(read_only.Read(10ms, cancellation), IsErr(ErrorKind::kInternal));
+    EXPECT_TRUE(read_only.FirstUnexpectedOperation().has_value());
+}
+
+TEST(ScriptedCanFlashTransport, CanQueuedInternalErrorIsNotUnexpected)
+{
+    ScriptedCanFlashTransport transport;
+    FakeCancellationToken cancellation;
+    transport.QueueError(ErrorKind::kInternal, "intentional");
+    EXPECT_THAT(transport.Read(10ms, cancellation), IsErr(ErrorKind::kInternal));
+    EXPECT_FALSE(transport.FirstUnexpectedOperation().has_value());
+    EXPECT_TRUE(transport.ScriptConsumed());
+    EXPECT_THAT(transport.OperationAttempts(),
+                ::testing::ElementsAre(CanAttempt{CanOperation::kRead, true, ErrorKind::kInternal}));
+}
+
+TEST(ScriptedCanFlashTransport, CanCancelledAttemptsAreRecorded)
+{
+    class CountingCancellation final : public ICancellationToken
+    {
+      public:
+        bool Cancelled() const override
+        {
+            ++calls;
+            return true;
+        }
+        mutable int calls = 0;
+    } cancellation;
+    ScriptedCanFlashTransport transport;
+    transport.Exchange(bytes::Bytes{0x10}, bytes::Bytes{0x50});
+    EXPECT_THAT(transport.Write(bytes::Bytes{0x10}, cancellation), IsErr(ErrorKind::kCancelled));
+    EXPECT_THAT(transport.Read(10ms, cancellation), IsErr(ErrorKind::kCancelled));
+    EXPECT_EQ(cancellation.calls, 2);
+    EXPECT_FALSE(transport.ScriptConsumed());
+    EXPECT_FALSE(transport.FirstUnexpectedOperation().has_value());
+    EXPECT_THAT(transport.OperationAttempts(),
+                ::testing::ElementsAre(CanAttempt{CanOperation::kWrite, false, ErrorKind::kCancelled},
+                                       CanAttempt{CanOperation::kRead, false, ErrorKind::kCancelled}));
+}
+
+TEST(ScriptedCanFlashTransport, CanUnblockedReadRecordsAcceptedCancellationWithoutTokenPoll)
+{
+    ScriptedCanFlashTransport transport;
+    FakeCancellationToken cancellation;
+    transport.QueueBlockingRead();
+    transport.RequestUnblock();
+    EXPECT_THAT(transport.Read(10ms, cancellation), IsErr(ErrorKind::kCancelled));
+    EXPECT_TRUE(transport.ScriptConsumed());
+    EXPECT_FALSE(transport.FirstUnexpectedOperation().has_value());
+    EXPECT_THAT(transport.OperationAttempts(),
+                ::testing::ElementsAre(CanAttempt{CanOperation::kRead, true, ErrorKind::kCancelled}));
+}
+
 TEST(ScriptedCanFlashTransport, ExchangePairsARequestWithItsReply)
 {
     ScriptedCanFlashTransport transport;
