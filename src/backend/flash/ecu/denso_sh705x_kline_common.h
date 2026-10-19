@@ -33,10 +33,9 @@ inline bytes::Bytes DensoSh705xKlineEcutekSeedKey(bytes::ByteView seed)
                                           ssm_protocol::kIndexTransformationEcutek);
 }
 
-inline bytes::Bytes DensoSh705xKlineEncryptPayload(bytes::ByteView buf, std::uint32_t len)
+inline bytes::Bytes DensoSh705xKlineEncryptPayload(bytes::ByteView buf)
 {
-    return ssm_protocol::CalculatePayload(buf, len, kDensoSh705xKlineEncryptTable,
-                                          ssm_protocol::kIndexTransformationStock);
+    return ssm_protocol::CalculatePayload(buf, kDensoSh705xKlineEncryptTable, ssm_protocol::kIndexTransformationStock);
 }
 
 } // namespace fastecu::flash

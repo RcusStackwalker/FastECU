@@ -234,10 +234,10 @@ bytes::Bytes GenerateEcutekRaceromCanSeedKey(bytes::ByteView seed)
 // encrypt_payload(), lines 1314-1330: this class's OWN key table --
 // {0xC85B, 0x32C0, 0xE282, 0x92A0} -- distinct from the K-Line sibling's
 // ({0x7856, 0xCE22, 0xF513, 0x6E86}).
-bytes::Bytes EncryptCanKernelPayload(bytes::ByteView buf, std::uint32_t len)
+bytes::Bytes EncryptCanKernelPayload(bytes::ByteView buf)
 {
     static constexpr std::array<std::uint16_t, 4> kIndex{0xC85B, 0x32C0, 0xE282, 0x92A0};
-    return ssm_protocol::CalculatePayload(buf, len, kIndex, ssm_protocol::kIndexTransformationStock);
+    return ssm_protocol::CalculatePayload(buf, kIndex, ssm_protocol::kIndexTransformationStock);
 }
 
 // ---------------------------------------------------------------------
@@ -436,7 +436,7 @@ bytes::Bytes KernelPayload(bytes::ByteView kernel, std::uint32_t data_len)
         chk_sum += bytes::ReadU32Be(buf, i);
     }
     bytes::AppendU32Be(buf, 0x5aa5a55aU - chk_sum);
-    return EncryptCanKernelPayload(buf, static_cast<std::uint32_t>(buf.size()));
+    return EncryptCanKernelPayload(buf);
 }
 
 // lines 816-857: the block loop runs blockno = 0..max_blocks INCLUSIVE

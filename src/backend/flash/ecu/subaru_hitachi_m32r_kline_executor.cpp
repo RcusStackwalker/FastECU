@@ -90,8 +90,7 @@ bytes::Bytes SeedKey(bytes::ByteView seed)
 bytes::Bytes Encrypt(bytes::ByteView image)
 {
     static constexpr std::array<std::uint16_t, 4> kIndex = {0x78f1, 0x2962, 0x9312, 0x7c03};
-    return ssm_protocol::CalculatePayload(image, static_cast<std::uint32_t>(image.size()), kIndex,
-                                          ssm_protocol::kIndexTransformationStock);
+    return ssm_protocol::CalculatePayload(image, kIndex, ssm_protocol::kIndexTransformationStock);
 }
 
 Status RequestPrefix(IKlineFlashTransport& transport, const ICancellationToken& cancellation, bytes::Bytes request,

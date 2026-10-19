@@ -59,8 +59,7 @@ inline constexpr std::array<std::uint8_t, 32> kIndexTransformation{
 // a known plaintext image.
 inline bytes::Bytes ToWire(bytes::ByteView plain)
 {
-    return ssm_protocol::CalculatePayload(plain, static_cast<std::uint32_t>(plain.size()), kEncryptTable,
-                                          kIndexTransformation);
+    return ssm_protocol::CalculatePayload(plain, kEncryptTable, kIndexTransformation);
 }
 
 // The chunked 0xB7 dump sweep (legacy read_memory): 0xB7 plus a 4-byte big-

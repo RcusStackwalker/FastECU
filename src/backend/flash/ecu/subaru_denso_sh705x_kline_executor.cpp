@@ -460,8 +460,7 @@ Status UploadKernel(IKlineFlashTransport& transport, IClock& clock, const ICance
     }
     // :366-389 -- balance, then encrypt_payload(pl_encr, pl_encr.length()).
     const bytes::Bytes balanced = DensoSh705xKlineBalancedKernel(kernel.bytes);
-    const bytes::Bytes encrypted =
-        DensoSh705xKlineEncryptPayload(balanced, static_cast<std::uint32_t>(balanced.size()));
+    const bytes::Bytes encrypted = DensoSh705xKlineEncryptPayload(balanced);
     const auto size = static_cast<std::uint32_t>(encrypted.size());
 
     // :391-411, send_sid_34_request_upload():1494-1506.

@@ -41,7 +41,7 @@ inline constexpr std::array<std::uint8_t, 32> kIndexTransformationEcutek{
 
 bytes::Bytes CalculateSeedKey(bytes::ByteView seed, SeedKeyToGenerateIndex keytogenerateindex,
                               IndexTransformation indextransformation);
-bytes::Bytes CalculatePayload(bytes::ByteView buf, std::uint32_t len, KeyToGenerateIndex keytogenerateindex,
+bytes::Bytes CalculatePayload(bytes::ByteView buf, KeyToGenerateIndex keytogenerateindex,
                               IndexTransformation indextransformation);
 bytes::Bytes AddHeader(bytes::ByteView output, bytes::Byte tester_id, bytes::Byte target_id);
 bool HasValidFrame(bytes::ByteView frame, bytes::Byte receiver_id, bytes::Byte sender_id);

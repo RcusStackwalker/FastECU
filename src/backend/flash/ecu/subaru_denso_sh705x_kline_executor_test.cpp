@@ -126,8 +126,7 @@ bytes::Bytes EcutekKey(bytes::ByteView seed)
 }
 bytes::Bytes EncryptedKernel(bytes::ByteView balanced)
 {
-    return ssm_protocol::CalculatePayload(balanced, static_cast<std::uint32_t>(balanced.size()), kEncryptTable,
-                                          ssm_protocol::kIndexTransformationStock);
+    return ssm_protocol::CalculatePayload(balanced, kEncryptTable, ssm_protocol::kIndexTransformationStock);
 }
 
 const bytes::Bytes kEcuIdPayload{0xFF, 0x00, 0x00, 0x00, 0x41, 0x42, 0x43, 0x44, 0x45};

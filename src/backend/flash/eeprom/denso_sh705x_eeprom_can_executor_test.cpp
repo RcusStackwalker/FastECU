@@ -235,13 +235,13 @@ bytes::Bytes GenerateEcutekRacecomCanSeedKey(bytes::ByteView seed)
 }
 // encrypt_payload(), this class's OWN key table, distinct from the K-Line
 // sibling's.
-bytes::Bytes EncryptPayloadCan(bytes::ByteView buf, std::uint32_t len)
+bytes::Bytes EncryptPayloadCan(bytes::ByteView buf)
 {
     static constexpr auto kIndex = std::to_array<std::uint16_t>({0xC85B, 0x32C0, 0xE282, 0x92A0});
     static constexpr auto kTransform =
         std::to_array<std::uint8_t>({0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8, 0xA, 0xD, 0x2, 0xB, 0xF, 0x4, 0x0, 0x3,
                                      0xB, 0x4, 0x6, 0x0, 0xF, 0x2, 0xD, 0x9, 0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8});
-    return ssm_protocol::CalculatePayload(buf, len, kIndex, kTransform);
+    return ssm_protocol::CalculatePayload(buf, kIndex, kTransform);
 }
 
 // ---- Kernel-upload framing: TRANSCRIBE of upload_kernel()'s padding/-------
@@ -281,7 +281,7 @@ KernelUploadPlan ComputeKernelUploadPlan(bytes::ByteView kernel_bytes)
 
     bytes::AppendU32Be(pl_encr, chk_sum);
 
-    plan.encrypted_payload = EncryptPayloadCan(pl_encr, static_cast<std::uint32_t>(pl_encr.size()));
+    plan.encrypted_payload = EncryptPayloadCan(pl_encr);
     return plan;
 }
 

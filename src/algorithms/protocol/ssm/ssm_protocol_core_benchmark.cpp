@@ -28,9 +28,8 @@ void BM_CalculatePayload(benchmark::State& state)
     const bytes::Bytes payload = MakePayload(static_cast<std::size_t>(state.range(0)));
     for (auto _ : state)
     {
-        benchmark::DoNotOptimize(ssm_protocol::CalculatePayload(bytes::ByteView(payload),
-                                                                static_cast<std::uint32_t>(payload.size()), kKeys,
-                                                                ssm_protocol::kIndexTransformationStock));
+        benchmark::DoNotOptimize(
+            ssm_protocol::CalculatePayload(bytes::ByteView(payload), kKeys, ssm_protocol::kIndexTransformationStock));
     }
     state.SetBytesProcessed(state.iterations() * state.range(0));
 }

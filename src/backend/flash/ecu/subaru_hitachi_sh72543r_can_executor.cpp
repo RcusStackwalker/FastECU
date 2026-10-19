@@ -508,7 +508,10 @@ Result<FlashExecutionResult> SubaruHitachiSh72543rCanExecutor::Execute(const Fla
         {
             return std::unexpected(status.error());
         }
-        const auto encrypted = ssm_protocol::CalculatePayload(plan.ImageOrEmpty(), 0x200000, kKeys, kTransform);
+        // Only the flash-sized prefix of the image is sent.
+        const bytes::ByteView image(plan.ImageOrEmpty());
+        const auto encrypted = ssm_protocol::CalculatePayload(
+            image.first(std::min<std::size_t>(image.size(), 0x200000)), kKeys, kTransform);
         auto erasing = phases.Start("Erasing", 1);
         if (auto status = session.Erase(); !status.has_value())
         {

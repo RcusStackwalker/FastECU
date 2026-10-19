@@ -69,13 +69,13 @@ FUZZ_TEST(SsmProtocolCoreFuzz, AcceptsWhatAddHeaderFrames)
     .WithDomains(fuzztest::VectorOf(fuzztest::Arbitrary<std::uint8_t>()).WithMaxSize(255),
                  fuzztest::Arbitrary<bytes::Byte>(), fuzztest::Arbitrary<bytes::Byte>());
 
-// The payload transform consumes whole 32-bit words of the shorter of the
-// requested length and the buffer, never reading past either.
-void TransformsWholeWordsOfTheBuffer(const std::vector<std::uint8_t>& buffer, std::uint32_t length)
+// The payload transform consumes whole 32-bit words of the buffer and drops any
+// trailing partial word.
+void TransformsWholeWordsOfTheBuffer(const std::vector<std::uint8_t>& buffer)
 {
-    const bytes::Bytes encrypted = ssm_protocol::CalculatePayload(bytes::ByteView(buffer), length, kKeyToGenerateIndex,
+    const bytes::Bytes encrypted = ssm_protocol::CalculatePayload(bytes::ByteView(buffer), kKeyToGenerateIndex,
                                                                   ssm_protocol::kIndexTransformationStock);
-    const std::size_t words = std::min<std::size_t>(length, buffer.size()) / 4;
+    const std::size_t words = buffer.size() / 4;
     EXPECT_EQ(encrypted.size(), words * 4);
 }
 FUZZ_TEST(SsmProtocolCoreFuzz, TransformsWholeWordsOfTheBuffer);
