@@ -2,14 +2,10 @@
 
 #include <algorithm>
 #include <cstdint>
-#include <optional>
 #include <string_view>
-#include <utility>
 
-#include "src/algorithms/protocol/bytes.h"
 #include "src/backend/calibration/definition_interpretation_internal.h"
 #include "src/backend/calibration/session/numeric_target_internal.h"
-#include "src/backend/definition/definition_model.h"
 
 namespace fastecu::calibration
 {

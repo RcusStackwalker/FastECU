@@ -175,9 +175,7 @@ cc_library(
     hdrs = ["map_operations.h"],
     implementation_deps = [
         ":numeric_target_internal",
-        "//src/algorithms/protocol",
         "//src/backend/calibration:definition_interpretation_internal",
-        "//src/backend/definition:definition_model",
     ],
     deps = [
         ":calibration_session",

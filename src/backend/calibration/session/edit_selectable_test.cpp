@@ -219,16 +219,22 @@ TEST_F(EditSelectableTest, AMapWithoutSelectionsOrScalingIsNotApplicable)
     non_blob.maps[0].storage_type = definition::StorageType::kUint8;
     Install(std::move(non_blob));
     EXPECT_THAT(Select("low"), NotApplicable(NotApplicableReason::kUnavailableTarget));
+    EXPECT_EQ(RomBytes(), std::vector<std::uint8_t>(8, 0x55));
+    EXPECT_FALSE(Session().Dirty());
 
     auto no_selections = ModesDefinition();
     no_selections.scalings[0].selections.clear();
     Install(std::move(no_selections));
     EXPECT_THAT(Select("low"), NotApplicable(NotApplicableReason::kUnavailableTarget));
+    EXPECT_EQ(RomBytes(), std::vector<std::uint8_t>(8, 0x55));
+    EXPECT_FALSE(Session().Dirty());
 
     auto no_scaling = ModesDefinition();
     no_scaling.maps[0].scaling_name = "missing";
     Install(std::move(no_scaling));
     EXPECT_THAT(Select("low"), NotApplicable(NotApplicableReason::kUnavailableTarget));
+    EXPECT_EQ(RomBytes(), std::vector<std::uint8_t>(8, 0x55));
+    EXPECT_FALSE(Session().Dirty());
     EXPECT_FALSE(Session().Dirty());
 }
 

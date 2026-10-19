@@ -74,12 +74,12 @@ dirty state and refresh the views from current bytes. Set Value refreshes its
 original map window even if another window becomes active during the dialog.
 
 The [numeric edit](../../src/backend/calibration/session/map_operations.h)
-(`EditNumeric`) owns increment/decrement, Set Value, interpolation, and Paste for a stable
-session ID, a semantic target (map body, X axis, or Y axis), and an element
-range. It resolves the session, definition fields, and fresh decoded values,
-then calculates, validates, and writes in one synchronous call. Closed sessions,
-definition-less sessions, and unavailable numeric targets return not-applicable
-outcomes, which desktop handles silently. Desktop translates table selections
+(`EditNumeric`) owns increment/decrement, Set Value, interpolation, and Paste
+for a stable session ID, a semantic target (map body, X axis, or Y axis), and
+an element range. It resolves the session, definition fields, and fresh decoded
+values, then calculates, validates, and writes in one synchronous call. Closed
+sessions, definition-less sessions, unknown maps, and unavailable numeric
+targets return not-applicable outcomes, which desktop handles silently. Desktop translates table selections
 and clipboard text, owns dialogs, warnings, and no-change messages, and
 refreshes the originating map window. Paste validates every supplied text cell,
 including cells clipped away, before clipping to the target run's edges.
@@ -116,7 +116,9 @@ view still refreshes after an unknown name.
 
 [Shared backend interpretation](../../src/backend/calibration/definition_interpretation_internal.h)
 owns definition facts: body fields precede scaling defaults, while axes retain
-resolved-axis semantics. [Backend target preparation](../../src/backend/calibration/session/numeric_target_internal.h)
+resolved-axis semantics, and the numeric metadata stays private behind the
+element's decode and edit views. Choosing a selection resolves in one call that
+owns what counts as a blob, the name lookup, and the width check. [Backend target preparation](../../src/backend/calibration/session/numeric_target_internal.h)
 owns metadata and decoded cells freshly for each synchronous copy or edit.
 Moving that owner preserves its strings and cells; borrowed edit metadata and
 byte windows remain inside the operation. Prepared targets do not survive
