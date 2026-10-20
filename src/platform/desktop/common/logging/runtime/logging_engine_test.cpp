@@ -301,6 +301,7 @@ TEST(TestLoggingEngine, completion_observer_can_immediately_start_a_second_run)
 {
     const auto prepared = Snapshot();
     ASSERT_THAT(prepared, fastecu::testing::IsOk());
+    const auto& snapshot = *prepared;
     LoggingEngine engine;
     auto *first_protocol = new ScriptedLoggingProtocol();
     first_protocol->QueueStartResult({});
@@ -329,11 +330,11 @@ TEST(TestLoggingEngine, completion_observer_can_immediately_start_a_second_run)
                          }
                          restart_attempted = true;
                          observer_saw_idle = !engine.IsRunning();
-                         restart_result.emplace(engine.Start(LogSessionConfig{.protocol_id = "TEST"}, *prepared));
+                         restart_result.emplace(engine.Start(LogSessionConfig{.protocol_id = "TEST"}, snapshot));
                      });
     fastecu::testing::SignalRecorder ended_spy(&engine, &LoggingEngine::sessionEnded);
 
-    ASSERT_THAT(engine.Start(LogSessionConfig{.protocol_id = "TEST"}, *prepared), fastecu::testing::IsOk());
+    ASSERT_THAT(engine.Start(LogSessionConfig{.protocol_id = "TEST"}, snapshot), fastecu::testing::IsOk());
     ASSERT_TRUE(fastecu::testing::WaitUntil([&] { return ended_spy.Count() != 0; }, std::chrono::milliseconds(2000)));
 
     ASSERT_TRUE(restart_attempted);
@@ -349,6 +350,7 @@ TEST(TestLoggingEngine, explicit_stop_restart_ignores_stale_worker_events_and_pr
 {
     const auto prepared = Snapshot();
     ASSERT_THAT(prepared, fastecu::testing::IsOk());
+    const auto& snapshot = *prepared;
     LoggingEngine engine;
     auto *first_protocol = new SampleThenBlockProtocol();
     auto *second_protocol = new ScriptedLoggingProtocol();
@@ -374,11 +376,11 @@ TEST(TestLoggingEngine, explicit_stop_restart_ignores_stale_worker_events_and_pr
                          if (reason == SessionEndReason::kStoppedByUser)
                          {
                              restart_succeeded =
-                                 engine.Start(LogSessionConfig{.protocol_id = "TEST"}, *prepared).has_value();
+                                 engine.Start(LogSessionConfig{.protocol_id = "TEST"}, snapshot).has_value();
                          }
                      });
 
-    ASSERT_THAT(engine.Start(LogSessionConfig{.protocol_id = "TEST"}, *prepared), fastecu::testing::IsOk());
+    ASSERT_THAT(engine.Start(LogSessionConfig{.protocol_id = "TEST"}, snapshot), fastecu::testing::IsOk());
     ASSERT_TRUE(first_protocol->WaitUntilBlockingPollEntered(std::chrono::milliseconds(500)));
     engine.Stop();
     ASSERT_TRUE(restart_succeeded);

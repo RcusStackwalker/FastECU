@@ -631,7 +631,7 @@ TEST(DensoSh705xEepromKlineExecutorTest, StockAndEcutekSecurityProduceDifferentS
     auto run_to_seed_key = [&](DensoSecurityVariant security, bytes::ByteView expected_key)
     {
         auto plan = MakeKlinePlan(EepromReadMode::kMode2, KernelFixtureBytes(), kKernelStartAddr, security);
-        EXPECT_THAT(plan, fastecu::testing::IsOk());
+        ASSERT_THAT(plan, fastecu::testing::IsOk());
 
         ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::kOpen};
         transport.ExpectWrite(RequestKernelIdRequest());

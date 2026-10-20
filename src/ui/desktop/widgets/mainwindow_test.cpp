@@ -4592,9 +4592,9 @@ void MainWindowTest::checkTuneActionsEditTheSelectionThroughTheirOwnHandlers()
         table->clearSelection();
         table->setRangeSelected(QTableWidgetSelectionRange(top, left, bottom, right), true);
     };
-    const auto grid = [&]
+    const auto grid = [&, id = opened->id]
     {
-        const bytes::ByteView rom = services.calibrations.Find(opened->id)->File();
+        const bytes::ByteView rom = services.calibrations.Find(id)->File();
         const auto first = rom.begin() + static_cast<std::ptrdiff_t>(kBody);
         return std::vector<int>(first, first + static_cast<std::ptrdiff_t>(body.size()));
     };
@@ -4764,9 +4764,9 @@ void MainWindowTest::checkCopyFromALargerMapPastesIntoASmallerOneThroughItsScali
     ASSERT_NE(sourceTable, nullptr);
     ASSERT_NE(destTable, nullptr);
 
-    const auto destBody = [&]
+    const auto destBody = [&, id = opened->id]
     {
-        const bytes::ByteView rom = services.calibrations.Find(opened->id)->File();
+        const bytes::ByteView rom = services.calibrations.Find(id)->File();
         const auto first = rom.begin() + static_cast<std::ptrdiff_t>(kDest);
         return std::vector<int>(first, first + 4);
     };
