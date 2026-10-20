@@ -18,41 +18,71 @@ from pathlib import Path
 import clang_tidy_runner as runner
 
 
-def fingerprint(workspace: Path) -> dict[str, str]:
+def fingerprint(workspace: Path, artifacts: tuple[Path, ...] = ()) -> dict[str, str]:
     tree = runner._workspace_tree(workspace)
     inputs = {
         path: file
         for path, file in tree.files.items()
-        if path.name == ".clang-tidy"
+        if path.name in {".clang-tidy", ".clang-tidy-exceptions.yaml", ".clang-tidy-scope.toml"}
+        or path.parts[:2] == ("scripts", "clang_tidy_plugin")
+        or (path.parts[0] == "bazel" and path.name.startswith(("llvm", "clang_tidy")))
         or (
             path.parts[0] in {"src", "apps", "tests"}
             and path.suffix in runner.SOURCE_SUFFIXES | runner.HEADER_SUFFIXES
         )
         or path.as_posix()
         in {
-            "scripts/clang_tidy_adapter.py",
             "scripts/clang_tidy_benchmark.py",
             "scripts/clang_tidy_runner.py",
             "scripts/clang_tidy_profile.py",
             "scripts/clang_tidy_scope.py",
+            "scripts/clang_tidy_toolchain.py",
+            "scripts/clang_tidy_exceptions.py",
         }
     }
-    return {
+    result = {
         path.as_posix(): hashlib.sha256(file.read_bytes()).hexdigest()
         for path, file in sorted(inputs.items())
     }
+    result.update(
+        {
+            f"artifact:{path.resolve()}": hashlib.sha256(path.read_bytes()).hexdigest()
+            for path in artifacts
+        }
+    )
+    return result
+
+
+def normalized_diagnostics(diagnostics: list[dict], workspace: Path) -> list[str]:
+    def normalize(value):
+        if isinstance(value, list):
+            return [normalize(item) for item in value]
+        if not isinstance(value, dict):
+            return value
+        result = {}
+        for key, item in value.items():
+            if key == "BuildDirectory":
+                continue
+            if key == "DiagnosticName":
+                result[key] = item.removeprefix("custom-")
+            elif key == "FilePath":
+                try:
+                    result[key] = Path(item).resolve().relative_to(workspace.resolve()).as_posix()
+                except ValueError:
+                    result[key] = item
+            else:
+                result[key] = normalize(item)
+        return result
+
+    return sorted({json.dumps(normalize(item), sort_keys=True) for item in diagnostics})
 
 
 def summarize(runs: list[dict]) -> dict:
     baseline = [run["phases"]["analysis"] for run in runs if not run["enabled"]]
-    enabled = [
-        run["phases"]["analysis"] + run["phases"]["custom-analysis"]
-        for run in runs
-        if run["enabled"]
-    ]
+    enabled = [run["phases"]["analysis"] for run in runs if run["enabled"]]
     baseline_median = statistics.median(baseline)
     enabled_median = statistics.median(enabled)
-    names = {name for run in runs for name in run["checks"] if name.startswith("custom-fastecu-")}
+    names = {name for run in runs for name in run["checks"] if name.startswith("fastecu-")}
     return {
         "baseline_seconds": baseline,
         "enabled_seconds": enabled,
@@ -75,10 +105,21 @@ def main() -> int:
     parser.add_argument("--output", type=Path, default=Path("reports/clang-tidy-custom"))
     args = parser.parse_args()
     root = runner.workspace_root(os.environ)
+    host = runner.analysis_toolchain.runfiles_analysis_host(os.environ)
+    artifacts = (
+        host.executable,
+        Path(__file__).with_name("clang_tidy_plugin") / "llvm-identity.json",
+        *(Path(arg.split("=", 1)[1]) for arg in host.arguments),
+    )
+    os.environ["PYTHONHASHSEED"] = "0"
     output = args.output if args.output.is_absolute() else root / args.output
     output.mkdir(parents=True, exist_ok=False)
     compdb_tool = Path(args.compdb_tool).resolve()
-    tools = runner.discover_tools("report", platform_name=sys.platform, environ=os.environ)
+    tools = runner.discover_tools(
+        "report",
+        platform_name=sys.platform,
+        environ=dict(os.environ, FASTECU_LLVM_ROOT=str(host.llvm_root)),
+    )
     metadata = {
         "host": platform.platform(),
         "machine": platform.machine(),
@@ -94,7 +135,8 @@ def main() -> int:
         ).hexdigest(),
         "profiling_enabled_in_both_modes": True,
         "scope": "all translation units buildable on this host; included first-party headers",
-        "input_sha256": fingerprint(root),
+        "input_sha256": fingerprint(root, artifacts),
+        "python_hash_seed": "0",
     }
     runs = []
     warmups = []
@@ -118,7 +160,7 @@ def main() -> int:
             mode = "enabled" if enabled else "baseline"
             name = f"{index + 1:02d}-{kind}-{mode}"
             print(f"Starting {name}; logs: {output / (name + '.log')}", flush=True)
-            if fingerprint(root) != metadata["input_sha256"]:
+            if fingerprint(root, artifacts) != metadata["input_sha256"]:
                 raise runner.WorkflowError(
                     "analysis configuration or implementation changed during benchmark"
                 )
@@ -128,6 +170,7 @@ def main() -> int:
                 redirect_stdout(log),
             ):
                 report = runner.run_workflow(
+                    analysis_host=host,
                     mode="report",
                     workspace=root,
                     compdb_tool=str(compdb_tool),
@@ -142,9 +185,9 @@ def main() -> int:
                 )
             if report is None:
                 raise runner.WorkflowError("benchmark analyzed no translation units")
-            if enabled and not any(name.startswith("custom-fastecu-") for name in report["checks"]):
-                raise runner.WorkflowError("inline per-check profile data is missing")
-            if fingerprint(root) != metadata["input_sha256"]:
+            if enabled and not any(name.startswith("fastecu-") for name in report["checks"]):
+                raise runner.WorkflowError("repository per-check profile data is missing")
+            if fingerprint(root, artifacts) != metadata["input_sha256"]:
                 raise runner.WorkflowError(
                     "analysis configuration or implementation changed during benchmark"
                 )

@@ -35,8 +35,7 @@ bazel run //:clang_tidy_fix_changed               # apply fixes (macOS/Linux, sy
   GitHub annotation; GitHub shows at most 10 error annotations per step, so
   past that the job log is the full list.
 - **LLVM pin.** CI pins LLVM (`CLANG_TIDY_LLVM_*` in
-  [pr.yml](../.github/workflows/pr.yml)) on Linux and Windows; a different local
-  LLVM can report differently.
+  [pr.yml](../.github/workflows/pr.yml)) on Linux and Windows. Local analysis requires that exact release.
 - **CI.** The `clang-tidy` job runs in parallel with the build and test job, on
   Linux and, for Windows-exclusive code, on Windows. The Linux job uses the
   shared [Qt runtime setup](../.github/actions/qt-runtime-linux/action.yml)
@@ -54,50 +53,62 @@ The built-in and existing custom checks use the same reachable first-party heade
 scope under `src/`, `apps/`, `tests/`, and `scripts/`, including `.hpp`.
 Generated and vendor headers retain their exclusions.
 
-#### Custom checks
+#### Repository checks
 
-The repository checks are the `CustomChecks` entries in
-[`.clang-tidy`](../.clang-tidy); each query's comment documents what it
-matches and how to fix a finding. They run in a separate inline pass with the
-same header scope as the built-ins. The
-[adapter](../scripts/clang_tidy_adapter.py) adds LLVM's experimental flag; a
-direct invocation needs it plus the registered name:
+Repository checks are compiled in
+[`scripts/clang_tidy_plugin/`](../scripts/clang_tidy_plugin/); the enabled
+`fastecu-*` names live in [`.clang-tidy`](../.clang-tidy). Bazel builds the
+analysis artifact automatically for the report, fix, benchmark and fixture
+commands. The runner validates the selected LLVM installation, release and
+registered checks before analyzing code. Missing artifacts or required checks
+fail the run.
+
+Set `FASTECU_LLVM_ROOT` to an installation of CI's exact LLVM release, with
+its development headers. On Linux also select that installation's compiler
+for the analysis build, since GCC can diagnose LLVM's inline matcher headers:
 
 ```sh
-clang-tidy --experimental-custom-checks --checks='-*,custom-fastecu-linear-search-loop' \
-    -p . src/backend/flash/ecu/subaru_denso_sh7058_can_plan.cpp
+export FASTECU_LLVM_ROOT=/absolute/path/to/llvm
+# Linux analysis builds:
+export CC="$FASTECU_LLVM_ROOT/bin/clang"
+export CXX="$FASTECU_LLVM_ROOT/bin/clang++"
+bazel run --config=release //:clang_tidy_report_changed
 ```
 
-#### clang-tidy plugin
+On Windows, also set `BAZEL_LLVM` to the same root and `USE_CLANG_CL=1`
+for analysis builds. The pinned compiler builds against its own development
+headers while retaining warnings as errors in first-party code.
 
-Checks that need the AST rather than a matcher query (query matchers cannot see
-whether a template parameter was written `class` or `typename`) live in a small
-plugin under [`scripts/clang_tidy_plugin/`](../scripts/clang_tidy_plugin/). It
-is local/dev only for now: CI does not load it and Windows clang-tidy cannot.
-Bazel builds it against the headers of the LLVM that provides your `llvm-config`
-(or `LLVM_CONFIG`), which must match the `clang-tidy` that loads it; the target
-is tagged `manual`. Point the runner at the result:
+macOS/Linux load a shared extension. The pinned Windows executable does not
+export the required symbols, so Bazel builds an analysis host with the checks
+linked into it and supplies its missing compression dependencies. The
+[packaging qualification](../scripts/clang_tidy_plugin/qualification/README.md)
+records the archive evidence. Ordinary
+application builds do not need LLVM development headers.
+
+Built-in and repository checks run together with the wider first-party header
+scope under `src/`, `apps/`, `tests/`, and `scripts/`, including `.hpp`. Generated
+headers retain their exclusions; vendor headers stay outside the scope.
+Changing enforcement sources or configuration widens a changed-files run to
+all translation units in its platform scope. Before delivering an enabled
+check change, run the full report and fix its findings; fixtures alone do not
+establish a clean production scope.
 
 ```sh
-bazel build --config=release //scripts/clang_tidy_plugin:fastecu_tidy
-FASTECU_CLANG_TIDY_PLUGIN=$PWD/bazel-bin/scripts/clang_tidy_plugin/libfastecu_tidy.dylib \
-    bazel run //:clang_tidy_report_changed
-clang-tidy --load=<library> --checks='-*,fastecu-template-typename' --fix <file>
-```
-
-The plugin's checks are registered without the `custom-` prefix, and the fixture
-`//:clang_tidy_plugin_fixtures` target loads it for its tests (they skip under `//:clang_tidy_check_fixtures`).
-
-```sh
-# Verify inline diagnostics and permitted counterexamples (run a report first
-# to prepare the compilation database).
+# Required real-dependency positive and permitted-counterexample fixtures.
+# Prepare the compilation database with a report first.
 bazel run --config=release //:clang_tidy_check_fixtures
-# Compare baseline and inline-check analysis time over the full local scope.
+# Compare built-ins alone with built-ins plus repository checks.
 bazel run --config=release //:clang_tidy_benchmark -- --jobs 4 --output reports/clang-tidy-custom
 ```
 
-The benchmark writes raw logs and JSON to a new output directory. Per-check
-seconds sum work across translation units; they are not elapsed time.
+Fixtures require the registered checks and do not silently skip when an
+extension is missing. The benchmark pins translation-unit scheduling and
+fingerprints check sources, configuration, host identity and compiled artifacts.
+It writes raw logs and JSON into a new output directory. Per-check CPU seconds
+sum work across translation units; they are not elapsed time. Investigate
+reproducible runtime regressions above 10 percent on the same machine and scope;
+wall-clock timing is a review threshold, not a CI pass/fail gate.
 
 ### SonarCloud
 

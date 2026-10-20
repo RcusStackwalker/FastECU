@@ -161,7 +161,7 @@ explicit. (Sonar cpp:S936)
 **Declare template type parameters with `typename`, not `class`**
 (`template <typename T>`). The keywords are equivalent there; one spelling keeps
 declarations uniform. Enforced by the `fastecu-template-typename` plugin check
-([tooling](tooling.md#clang-tidy-plugin)), which also provides the fix-it.
+([tooling](tooling.md#repository-checks)), which also provides the fix-it.
 
 ## Complexity
 

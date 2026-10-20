@@ -30,12 +30,13 @@ def _clang_tidy_runner_impl(name, visibility, mode, changed):
         name = name,
         visibility = visibility,
         srcs = [
-            "//:scripts/clang_tidy_adapter.py",
             "//:scripts/clang_tidy_benchmark.py",
             "//:scripts/clang_tidy_output.py",
             "//:scripts/clang_tidy_profile.py",
+            "//:scripts/clang_tidy_exceptions.py",
             "//:scripts/clang_tidy_runner.py",
             "//:scripts/clang_tidy_scope.py",
+            "//:scripts/clang_tidy_toolchain.py",
         ],
         imports = ["scripts"],
         args = ([] if mode == "benchmark" else [mode]) + (["--changed"] if changed else []) + [
@@ -47,8 +48,14 @@ def _clang_tidy_runner_impl(name, visibility, mode, changed):
         ],
         data = [
             "//:.clang-tidy",
+            "//:.clang-tidy-exceptions.yaml",
             "//bazel/compile_commands:refresh",
-        ],
+            "//scripts/clang_tidy_plugin:llvm_identity",
+        ] + select({
+            "@platforms//os:windows": ["//scripts/clang_tidy_plugin:fastecu_clang_tidy"],
+            "//conditions:default": ["//scripts/clang_tidy_plugin:fastecu_tidy"],
+        }),
+        tags = ["manual"],
         main = "//:scripts/clang_tidy_benchmark.py" if mode == "benchmark" else "//:scripts/clang_tidy_runner.py",
         deps = ["@python_deps//pyyaml"],
     )

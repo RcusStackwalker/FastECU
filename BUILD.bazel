@@ -108,7 +108,10 @@ gazelle(
 )
 
 # Symbolic macros cannot implicitly declare their hardcoded source inputs.
-exports_files([".clang-tidy"])
+exports_files([
+    ".clang-tidy",
+    ".clang-tidy-exceptions.yaml",
+])
 
 alias(
     name = "fastecu",
@@ -121,47 +124,54 @@ alias(
 )
 
 py_test(
-    name = "clang_tidy_adapter_test",
+    name = "clang_tidy_exceptions_test",
     size = "small",
     srcs = [
-        "scripts/clang_tidy_adapter.py",
-        "scripts/clang_tidy_adapter_test.py",
+        "scripts/clang_tidy_exceptions.py",
+        "scripts/clang_tidy_exceptions_test.py",
     ],
-    main = "scripts/clang_tidy_adapter_test.py",
+    imports = ["scripts"],
+    main = "scripts/clang_tidy_exceptions_test.py",
+    deps = ["@python_deps//pyyaml"],
+)
+
+py_test(
+    name = "clang_tidy_toolchain_test",
+    srcs = [
+        "scripts/clang_tidy_toolchain.py",
+        "scripts/clang_tidy_toolchain_test.py",
+    ],
+    data = [".github/workflows/pr.yml"],
+    imports = ["scripts"],
+    main = "scripts/clang_tidy_toolchain_test.py",
 )
 
 py_binary(
     name = "clang_tidy_check_fixtures",
     srcs = [
-        "scripts/clang_tidy_adapter.py",
         "scripts/clang_tidy_checks_test.py",
+        "scripts/clang_tidy_exceptions.py",
         "scripts/clang_tidy_output.py",
         "scripts/clang_tidy_profile.py",
         "scripts/clang_tidy_runner.py",
         "scripts/clang_tidy_scope.py",
+        "scripts/clang_tidy_toolchain.py",
     ],
-    imports = ["scripts"],
-    main = "scripts/clang_tidy_checks_test.py",
-    deps = ["@python_deps//pyyaml"],
-)
-
-# The same fixtures plus the AST plugin's, which need a system LLVM matching
-# clang-tidy; without the plugin library those tests skip.
-py_binary(
-    name = "clang_tidy_plugin_fixtures",
-    srcs = [
-        "scripts/clang_tidy_adapter.py",
-        "scripts/clang_tidy_checks_test.py",
-        "scripts/clang_tidy_output.py",
-        "scripts/clang_tidy_profile.py",
-        "scripts/clang_tidy_runner.py",
-        "scripts/clang_tidy_scope.py",
-    ],
-    data = ["//scripts/clang_tidy_plugin:fastecu_tidy"],
+    data = ["//scripts/clang_tidy_plugin:llvm_identity"] + select({
+        "@platforms//os:windows": ["//scripts/clang_tidy_plugin:fastecu_clang_tidy"],
+        "//conditions:default": ["//scripts/clang_tidy_plugin:fastecu_tidy"],
+    }),
     imports = ["scripts"],
     main = "scripts/clang_tidy_checks_test.py",
     tags = ["manual"],
     deps = ["@python_deps//pyyaml"],
+)
+
+# Compatibility label; all fixtures now require the registered checks.
+alias(
+    name = "clang_tidy_plugin_fixtures",
+    actual = ":clang_tidy_check_fixtures",
+    tags = ["manual"],
 )
 
 py_test(
@@ -170,10 +180,12 @@ py_test(
     srcs = [
         "scripts/clang_tidy_benchmark.py",
         "scripts/clang_tidy_benchmark_test.py",
+        "scripts/clang_tidy_exceptions.py",
         "scripts/clang_tidy_output.py",
         "scripts/clang_tidy_profile.py",
         "scripts/clang_tidy_runner.py",
         "scripts/clang_tidy_scope.py",
+        "scripts/clang_tidy_toolchain.py",
     ],
     imports = ["scripts"],
     main = "scripts/clang_tidy_benchmark_test.py",
@@ -184,11 +196,13 @@ py_test(
     name = "clang_tidy_runner_test",
     size = "small",
     srcs = [
+        "scripts/clang_tidy_exceptions.py",
         "scripts/clang_tidy_output.py",
         "scripts/clang_tidy_profile.py",
         "scripts/clang_tidy_runner.py",
         "scripts/clang_tidy_runner_test.py",
         "scripts/clang_tidy_scope.py",
+        "scripts/clang_tidy_toolchain.py",
     ],
     imports = ["scripts"],
     main = "scripts/clang_tidy_runner_test.py",

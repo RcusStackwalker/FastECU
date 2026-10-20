@@ -16,12 +16,15 @@ import time
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
+from functools import partial
 from pathlib import Path, PurePath
 from typing import TypedDict
 
+import clang_tidy_exceptions as exception_policy
 import clang_tidy_output as output_format
 import clang_tidy_profile as profile_report
 import clang_tidy_scope as scope_manifest
+import clang_tidy_toolchain as analysis_toolchain
 import yaml
 
 SOURCE_SUFFIXES = frozenset((".c", ".cc", ".cpp", ".cxx"))
@@ -351,7 +354,30 @@ def config_changed(changed: Sequence[Path]) -> bool:
     A config change can produce findings in files the change never touched,
     so the changed-files run analyzes everything in scope instead.
     """
-    return any(path.name == CONFIG_FILE_NAME for path in changed)
+    for path in changed:
+        if path.name in {
+            CONFIG_FILE_NAME,
+            ".bazelrc",
+            "BUILD",
+            "BUILD.bazel",
+            ".clang-tidy-exceptions.yaml",
+            ".clang-tidy-scope.toml",
+            "MODULE.bazel",
+            "MODULE.bazel.lock",
+        }:
+            return True
+        if "clang_tidy_plugin" in path.parts:
+            return True
+        if "bazel" in path.parts:
+            return True
+        if ".github" in path.parts and (
+            (path.parent.name == "workflows" and path.name == "pr.yml")
+            or "llvm-linux" in path.parts
+        ):
+            return True
+        if path.parent.name == "scripts" and path.name.startswith("clang_tidy_"):
+            return True
+    return False
 
 
 def _search_directories(platform_name: str, environ: Mapping[str, str]) -> list[Path]:
@@ -375,6 +401,16 @@ def find_executable(
     platform_name: str,
     environ: Mapping[str, str],
 ) -> str:
+    if root := environ.get("FASTECU_LLVM_ROOT"):
+        for name in names:
+            candidate = Path(root) / "bin" / name
+            candidates = [candidate]
+            if platform_name.startswith("win") and not candidate.suffix:
+                candidates.append(candidate.with_suffix(".exe"))
+            for path in candidates:
+                if path.is_file():
+                    return str(path)
+        raise WorkflowError(f"selected LLVM installation {root} is missing {', '.join(names)}")
     for name in names:
         located = shutil.which(name, path=environ.get("PATH"))
         if located:
@@ -494,11 +530,15 @@ def _run_quiet(
 
 
 def stream_lines(
-    command: list[str], cwd: Path, on_line: Callable[[str], None]
+    command: list[str],
+    cwd: Path,
+    on_line: Callable[[str], None],
+    *,
+    extra_environ: Mapping[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
     """Run a command, passing each line of combined output on as it arrives.
 
-    run-clang-tidy and the inline-check adapter are Python, which block-buffers
+    run-clang-tidy is Python, which block-buffers
     a piped stdout; PYTHONUNBUFFERED makes them hand over each line at once.
     """
     lines: list[str] = []
@@ -511,7 +551,7 @@ def stream_lines(
         encoding="utf-8",
         errors="replace",
         bufsize=1,
-        env={**os.environ, "PYTHONUNBUFFERED": "1"},
+        env={**os.environ, **(extra_environ or {}), "PYTHONUNBUFFERED": "1"},
     ) as process:
         assert process.stdout is not None
         for line in process.stdout:
@@ -840,7 +880,7 @@ def _supports_check_profile(
     return "-enable-check-profile" in (_run_quiet(command_runner, command, workspace).stdout or "")
 
 
-def inline_header_filter(workspace: PurePath) -> str:
+def first_party_header_filter(workspace: PurePath) -> str:
     """First-party headers with Clang's native or normalized separators."""
     parts = re.split(r"[/\\]", str(workspace))
     prefix = r"[/\\]".join(re.escape(part) for part in parts)
@@ -866,6 +906,7 @@ def run_workflow(
     reuse_compdb: bool = False,
     annotate: bool = False,
     color: bool | None = None,
+    analysis_host: analysis_toolchain.AnalysisHost | None = None,
 ) -> WorkflowReport | None:
     if mode not in ("report", "fix"):
         raise WorkflowError(f"unsupported mode: {mode}")
@@ -873,7 +914,19 @@ def run_workflow(
         raise WorkflowError("clang-tidy fix mode is supported only on macOS and Linux")
     if jobs is not None and jobs < 1:
         raise WorkflowError("--jobs must be positive")
+    if analysis_host and analysis_host.llvm_root:
+        environ = dict(environ, FASTECU_LLVM_ROOT=str(analysis_host.llvm_root))
 
+    policy_path = workspace / ".clang-tidy-exceptions.yaml"
+    try:
+        rules = (
+            exception_policy.load_exceptions(policy_path)
+            if analysis_host or policy_path.exists()
+            else ()
+        )
+    except exception_policy.ExceptionConfigError as error:
+        raise WorkflowError(str(error)) from error
+    full_scope = not changed
     manifest = _load_scope(workspace)
     scope_prefixes: tuple[PurePath, ...] = ()
     if manifest is not None:
@@ -936,8 +989,9 @@ def run_workflow(
         if changed:
             changed_paths = changed_files(workspace, command_runner)
             if config_changed(changed_paths):
+                full_scope = True
                 print(
-                    f"clang-tidy: a {CONFIG_FILE_NAME} file changed; "
+                    "clang-tidy: enforcement inputs changed; "
                     "analyzing every translation unit in scope."
                 )
             else:
@@ -976,7 +1030,7 @@ def run_workflow(
             ) from error
         command = _executable_command(tools.run_clang_tidy, platform_name=platform_name) + [
             "-clang-tidy-binary",
-            tools.clang_tidy,
+            str(analysis_host.executable) if analysis_host else tools.clang_tidy,
             "-p",
             directory,
             # REPO.bazel makes the build fail on warnings, so the extracted
@@ -987,9 +1041,15 @@ def run_workflow(
             # gate.
             "-extra-arg=-Wno-error",
         ]
-        command.append(f"-header-filter={inline_header_filter(workspace)}")
+        command.append(f"-header-filter={first_party_header_filter(workspace)}")
+        if not custom_checks:
+            command.append("-checks=-fastecu-*")
         if jobs is not None:
             command.extend(["-j", str(jobs)])
+        if analysis_host:
+            command.extend(
+                argument.replace("--load=", "-load=") for argument in analysis_host.arguments
+            )
         if macos_sdk is not None:
             command.extend(
                 [
@@ -1022,6 +1082,15 @@ def run_workflow(
                 annotate=annotate,
             )
 
+        usage_directory = temp_root / "exception-usage"
+        usage_directory.mkdir()
+        if stream_runner is stream_lines:
+            stream_runner = partial(
+                stream_lines,
+                extra_environ={
+                    "FASTECU_TIDY_EXCEPTION_USAGE_DIR": str(usage_directory),
+                },
+            )
         print(f"Analyzing {len(entries)} translation units in {mode} mode.")
         with timings.phase("analysis"):
             tidy_result, counts = _run_streaming(stream_runner, command, workspace, new_stream())
@@ -1049,6 +1118,31 @@ def run_workflow(
             if mode == "fix":
                 detail += "; exported fixes were applied before reporting the failure"
             raise WorkflowError(detail)
+        if custom_checks:
+            try:
+                used = set()
+                for usage_file in usage_directory.glob("*.json"):
+                    records = json.loads(usage_file.read_text())
+                    if not isinstance(records, list):
+                        raise ValueError("usage report must contain a list")
+                    for record in records:
+                        if (
+                            not isinstance(record, dict)
+                            or set(record) != {"check", "file", "symbol"}
+                            or not all(isinstance(value, str) for value in record.values())
+                        ):
+                            raise ValueError("invalid exception usage identity")
+                        used.add((record["check"], record["file"], record["symbol"]))
+                scoped_rules = rules
+                if scope_os is not None:
+                    scoped_rules = tuple(
+                        rule
+                        for rule in rules
+                        if scope_manifest.in_scope(Path(rule.file), scope_prefixes)
+                    )
+                exception_policy.validate_usage(scoped_rules, used, full_scope=full_scope)
+            except (exception_policy.ExceptionConfigError, OSError, ValueError) as error:
+                raise WorkflowError(f"exception usage audit failed: {error}") from error
         if finding_count:
             print(
                 f"clang-tidy: {len(entries)} files analyzed, {finding_count} findings "
@@ -1056,62 +1150,6 @@ def run_workflow(
             )
         else:
             print(f"clang-tidy: {len(entries)} files clean, 0 findings")
-        if custom_checks:
-            try:
-                configuration = yaml.safe_load(
-                    (workspace / CONFIG_FILE_NAME).read_text(encoding="utf-8")
-                )
-                definitions = (configuration or {}).get("CustomChecks", [])
-                names = [f"custom-{definition['Name']}" for definition in definitions]
-            except (OSError, yaml.YAMLError, AttributeError, KeyError, TypeError) as error:
-                raise WorkflowError(f"could not read inline check definitions: {error}") from error
-            # Checks that need the AST live in a locally built plugin (see
-            # scripts/clang_tidy_plugin/); CI does not load it yet.
-            plugin = environ.get("FASTECU_CLANG_TIDY_PLUGIN")
-            if plugin:
-                names.append("fastecu-template-typename")
-            if names:
-                custom_fixes = temp_root / "custom-fixes"
-                custom_fixes.mkdir()
-                # Build the same upstream arguments, changing only check/header scope
-                # and diagnostics destination. The adapter injects a tidy option,
-                # not a compiler option, into every upstream invocation.
-                upstream_arguments = command[
-                    len(_executable_command(tools.run_clang_tidy, platform_name=platform_name)) :
-                ]
-                upstream_arguments = list(upstream_arguments)
-                export_index = upstream_arguments.index("-export-fixes") + 1
-                upstream_arguments[export_index] = str(custom_fixes) + os.sep
-                header_filter = inline_header_filter(workspace)
-                upstream_arguments.extend(
-                    ["-checks=-*," + ",".join(names), f"-header-filter={header_filter}"]
-                )
-                if plugin:
-                    upstream_arguments.extend(["-load", plugin])
-                adapter_command = [
-                    sys.executable,
-                    str(Path(__file__).with_name("clang_tidy_adapter.py")),
-                    "--upstream",
-                    tools.run_clang_tidy,
-                    "--",
-                    *upstream_arguments,
-                ]
-                print(f"Analyzing {len(entries)} translation units with inline checks.")
-                with timings.phase("custom-analysis"):
-                    custom_result, custom_counts = _run_streaming(
-                        stream_runner, adapter_command, workspace, new_stream()
-                    )
-                custom_count = _count_diagnostics(custom_fixes)
-                finding_count += custom_count
-                if profile:
-                    checks.update(profile_report.parse_check_profile(custom_result.stdout or ""))
-                    _emit_profile(custom_result.stdout or "", timings, len(entries), environ)
-                if custom_result.returncode:
-                    detail = f"inline check pass failed with exit code {custom_result.returncode}"
-                    if custom_count:
-                        detail = f"{custom_count} inline findings; {detail}"
-                    raise WorkflowError(detail)
-                print(f"clang-tidy: {custom_count} inline findings ({custom_counts.unique} unique)")
         return {
             "translation_units": len(entries),
             "phases": dict(timings.durations),
@@ -1130,7 +1168,6 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     parser.add_argument("--scope-os")
     parser.add_argument("--jobs", type=int)
-    parser.add_argument("--no-custom-checks", action="store_true")
     parser.add_argument(
         "--reuse-compdb",
         action="store_true",
@@ -1145,6 +1182,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         sys.stdout.reconfigure(line_buffering=True)
     try:
         root = workspace_root(os.environ)
+        analysis_host = analysis_toolchain.runfiles_analysis_host(os.environ)
         tool = Path(args.compdb_tool)
         if not tool.is_absolute():
             tool = (Path.cwd() / tool).resolve()
@@ -1160,12 +1198,12 @@ def main(argv: Sequence[str] | None = None) -> int:
             profile=args.profile,
             scope_os=args.scope_os,
             jobs=args.jobs,
-            custom_checks=not args.no_custom_checks,
             reuse_compdb=args.reuse_compdb,
             annotate=args.annotate,
+            analysis_host=analysis_host,
         )
         return 0
-    except WorkflowError as error:
+    except (WorkflowError, analysis_toolchain.ToolchainError) as error:
         print(f"clang-tidy: {error}", file=sys.stderr)
         return 2
 
