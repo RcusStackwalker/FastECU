@@ -318,7 +318,7 @@ jobs:
 
       - name: clang-tidy module fixtures
         shell: bash
-        run: bazel test --config=release //:clang_tidy_check_fixtures
+        run: bazel run --config=release //:clang_tidy_check_fixtures
 
       - name: clang-tidy report
         # bash, not the Windows default pwsh: pwsh swallows the `--`, so bazel

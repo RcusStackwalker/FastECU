@@ -123,7 +123,7 @@ establish a clean production scope.
 ```sh
 # Required real-dependency positive and permitted-counterexample fixtures.
 # No application build or compilation database is needed.
-bazel test --config=release //:clang_tidy_check_fixtures
+bazel run --config=release //:clang_tidy_check_fixtures
 # Select individual fixtures with lit's filter (or list them with --show-tests).
 bazel run --config=release //:clang_tidy_check_fixtures -- --filter template-type
 # Compare built-ins alone with built-ins plus repository checks.
