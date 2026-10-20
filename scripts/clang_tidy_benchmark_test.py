@@ -118,6 +118,15 @@ class ClangTidyBenchmark(unittest.TestCase):
         self.assertAlmostEqual(500.0 / 11.0, result["slowdown_percent"])
         self.assertEqual(1.5, result["custom_check_median_seconds"]["fastecu-result-assertion"])
 
+    def test_scope_change_invalidates_fingerprint(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            scope = root / ".clang-tidy-scope.toml"
+            scope.write_text("version = 1\n")
+            original = benchmark.fingerprint(root)
+            scope.write_text("version = 1\n# revised platform selection\n")
+            self.assertNotEqual(original, benchmark.fingerprint(root))
+
     def test_plugin_change_invalidates_fingerprint(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

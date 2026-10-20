@@ -23,8 +23,7 @@ def fingerprint(workspace: Path, artifacts: tuple[Path, ...] = ()) -> dict[str, 
     inputs = {
         path: file
         for path, file in tree.files.items()
-        if path.name == ".clang-tidy"
-        or path.name == ".clang-tidy-exceptions.yaml"
+        if path.name in {".clang-tidy", ".clang-tidy-exceptions.yaml", ".clang-tidy-scope.toml"}
         or path.parts[:2] == ("scripts", "clang_tidy_plugin")
         or (path.parts[0] == "bazel" and path.name.startswith(("llvm", "clang_tidy")))
         or (
