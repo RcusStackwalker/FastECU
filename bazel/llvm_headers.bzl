@@ -6,7 +6,10 @@ load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
 def _llvm_headers_impl(ctx):
     return [CcInfo(compilation_context = cc_common.create_compilation_context(
         headers = depset(ctx.files.hdrs),
-        system_includes = depset([ctx.label.workspace_root + "/include"]),
+        system_includes = depset([
+            ctx.label.workspace_root + "/include",
+            ctx.label.workspace_root + "/generated",
+        ]),
     ))]
 
 llvm_headers = rule(

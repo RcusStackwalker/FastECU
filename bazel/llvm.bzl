@@ -34,6 +34,21 @@ def _local_llvm_impl(repository_ctx):
         fail("Cannot fingerprint selected LLVM: " + digest.stderr)
     identity["clang_tidy_sha256"] = digest.stdout.strip()
     repository_ctx.file("llvm-identity.json", json.encode(identity))
+
+    # Official binary distributions omit this generated header, although the
+    # installed force-linker includes it. Infer only the two switches consumed
+    # by that header from the optional module libraries actually supplied.
+    features = {
+        "CLANG_TIDY_ENABLE_QUERY_BASED_CUSTOM_CHECKS": "Custom",
+        "CLANG_TIDY_ENABLE_STATIC_ANALYZER": "MPI",
+    }
+    configuration = "// Feature availability in the selected LLVM archive.\n"
+    for define, module in features.items():
+        windows_library = repository_ctx.path(root + "/lib/clangTidy" + module + "Module.lib")
+        unix_library = repository_ctx.path(root + "/lib/libclangTidy" + module + "Module.a")
+        enabled = windows_library.exists or unix_library.exists
+        configuration += "#define " + define + " " + ("1" if enabled else "0") + "\n"
+    repository_ctx.file("generated/clang-tidy-config.h", configuration)
     repository_ctx.file("BUILD.bazel", """load("@rules_cc//cc:defs.bzl", "cc_library")
 load("{headers_rule}", "llvm_headers")
 
@@ -41,7 +56,7 @@ exports_files(["llvm-identity.json"])
 
 llvm_headers(
     name = "clang_tidy_headers",
-    hdrs = glob(
+    hdrs = ["generated/clang-tidy-config.h"] + glob(
         ["include/clang/**", "include/clang-tidy/**", "include/llvm/**", "include/llvm-c/**"],
         allow_empty = True,
     ),
