@@ -42,7 +42,7 @@ TEST(BenchArgs, RejectsADestructiveStepWithoutItsFlag)
     const auto parsed = Parse({"erase"});
 
     ASSERT_THAT(parsed, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
-    EXPECT_NE(parsed.error().detail.find("--destructive"), std::string::npos);
+    EXPECT_THAT(parsed, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, ::testing::HasSubstr("--destructive")));
 }
 
 TEST(BenchArgs, AcceptsADestructiveStepCarryingItsFlag)
@@ -69,7 +69,7 @@ TEST(BenchArgs, RejectsPortsChainedWithAnotherStep)
     const auto parsed = Parse({"ports", ":", "erase", "--destructive"});
 
     ASSERT_THAT(parsed, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
-    EXPECT_NE(parsed.error().detail.find("ports"), std::string::npos);
+    EXPECT_THAT(parsed, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, ::testing::HasSubstr("ports")));
 }
 
 TEST(BenchArgs, RejectsDestructiveFlagOnANonDestructiveStep)
@@ -89,7 +89,8 @@ TEST(BenchArgs, RejectsArbitraryDiagnosticPdusWithoutDestructiveAcknowledgement)
         SCOPED_TRACE(::testing::PrintToString(command_line));
         const auto parsed = Parse(command_line);
         ASSERT_THAT(parsed, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
-        EXPECT_NE(parsed.error().detail.find("--destructive"), std::string::npos);
+        EXPECT_THAT(parsed,
+                    fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, ::testing::HasSubstr("--destructive")));
     }
 }
 
@@ -124,7 +125,8 @@ TEST(BenchArgs, RejectsKnownDestructivePdusThroughDiagnosticCommands)
         SCOPED_TRACE(::testing::PrintToString(command_line));
         const auto parsed = Parse(command_line);
         ASSERT_THAT(parsed, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
-        EXPECT_NE(parsed.error().detail.find("named destructive command"), std::string::npos);
+        EXPECT_THAT(parsed, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig,
+                                                        ::testing::HasSubstr("named destructive command")));
     }
 }
 

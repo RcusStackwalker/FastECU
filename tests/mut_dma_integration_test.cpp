@@ -291,7 +291,6 @@ TEST_F(MutDmaIntegrationTest, setBaud_throughAdapter_trueWhenConnected_falseWhen
     FastEcuKlineTransport closed_tr(&closed);
     // change_port_speed returns STATUS_ERROR when the port is not open -> false.
     const auto closed_result = closed_tr.SetBaud(15625);
-    ASSERT_TRUE(!closed_result);
     ASSERT_THAT(closed_result, fastecu::testing::IsErr(fastecu::ErrorKind::kDisconnected));
 
     int master = -1, slave = -1;
@@ -306,8 +305,8 @@ TEST_F(MutDmaIntegrationTest, setBaud_throughAdapter_trueWhenConnected_falseWhen
         FastEcuKlineTransport tr(&spad);
         // Connected + Openport branch -> change_port_speed routes to SET_CONFIG ioctl
         // and returns STATUS_SUCCESS -> adapter setBaud() == true.
-        ASSERT_TRUE(tr.SetBaud(15625));
-        ASSERT_TRUE(tr.SetBaud(62500));
+        ASSERT_THAT(tr.SetBaud(15625), fastecu::testing::IsOk());
+        ASSERT_THAT(tr.SetBaud(62500), fastecu::testing::IsOk());
     }
     ::close(master);
 }
@@ -341,7 +340,7 @@ TEST_F(MutDmaIntegrationTest, write_throughAdapter_putsExactFrameOnWire)
         mock.ResetParser();                  // then start capture from a clean buffer
 
         const auto written = tr.Write(bytes::View(frame));
-        ASSERT_TRUE(written);
+        ASSERT_THAT(written, fastecu::testing::IsOk());
         ASSERT_EQ(*written, static_cast<std::size_t>(frame.size()));
 
         // Pump the event loop so the mock's QSocketNotifier drains and captures it.
@@ -376,7 +375,7 @@ TEST_F(MutDmaIntegrationTest, read_throughAdapter_returnsEcuReplyBytes)
         mock.InjectDataFrame(reply);
 
         const auto read = tr.Read(500ms, cancellation);
-        ASSERT_TRUE(read);
+        ASSERT_THAT(read, fastecu::testing::IsOk());
         ASSERT_TRUE(read->has_value());
         ASSERT_EQ(bytes::ToQByteArray(read->value()), reply);
     }
@@ -420,7 +419,7 @@ TEST_F(MutDmaIntegrationTest, driverPollOnce_throughAdapter_decodesStreamFrameFr
         mock.InjectDataFrame(frame);
 
         const auto values = driver.PollOnce(500ms, cancellation);
-        ASSERT_TRUE(values);
+        ASSERT_THAT(values, fastecu::testing::IsOk());
         ASSERT_EQ(values->size(), std::size_t(2));
         ASSERT_EQ(values->at(0), std::uint32_t(0x42));
         ASSERT_EQ(values->at(1), std::uint32_t(0xDEAD));

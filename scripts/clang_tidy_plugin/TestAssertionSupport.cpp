@@ -212,6 +212,8 @@ std::optional<RangePredicate> AllOfRange(const clang::CallExpr& call)
     const auto *object = llvm::dyn_cast_or_null<clang::DeclRefExpr>(StripExpression(operation->getArg(0)));
     if (!object || object->getDecl()->getQualifiedNameAsString() != "std::ranges::all_of")
         return std::nullopt;
+    if (operation->getNumArgs() > 3 && !llvm::isa<clang::CXXDefaultArgExpr>(operation->getArg(3)))
+        return std::nullopt;
     return RangePredicate{operation->getArg(1), operation->getArg(2)};
 }
 const clang::BinaryOperator *LambdaEquality(const clang::LambdaExpr& lambda)

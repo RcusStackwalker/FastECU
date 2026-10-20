@@ -278,7 +278,7 @@ TEST(SubaruDensoSh7055_02Plan, KernelUploadRejectsLengthOutsideThreeByteWireFiel
         KernelImage{.id = "wire-overflow", .load_address = 0xFFFF6004, .bytes = std::move(too_large)});
 
     ASSERT_THAT(plan, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
-    EXPECT_NE(plan.error().detail.find("24-bit"), std::string::npos);
+    EXPECT_THAT(plan, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, ::testing::HasSubstr("24-bit")));
 }
 
 } // namespace

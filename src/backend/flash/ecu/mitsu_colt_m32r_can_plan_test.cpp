@@ -61,7 +61,7 @@ TEST(MitsuColtM32rCanPlan, ReadPlansSnapshotProtocolCapacityAndVendorChallenge)
         SCOPED_TRACE(::testing::PrintToString(test));
         const auto plan = BuildMitsuColtM32rCanPlan(FlashOperation::kRead, test.id, test.mcu, std::nullopt);
 
-        ASSERT_THAT(plan, fastecu::testing::IsOk()) << test.id << ": " << plan.error().detail;
+        ASSERT_THAT(plan, fastecu::testing::IsOk()) << test.id;
         EXPECT_EQ(plan->TransferRegion().start, 0U) << test.id;
         EXPECT_EQ(plan->TransferRegion().length, test.size) << test.id;
         const auto& family = std::get<MitsuColtM32rCanPlan>(plan->FamilyPlan());
@@ -86,7 +86,7 @@ TEST(MitsuColtM32rCanPlan, WritePlansUseTheCapacitySpecificRangeAndConfirmations
         SCOPED_TRACE(::testing::PrintToString(test));
         const auto plan = BuildMitsuColtM32rCanPlan(FlashOperation::kWrite, test.id, test.mcu, Rom(test.size));
 
-        ASSERT_THAT(plan, fastecu::testing::IsOk()) << test.id << ": " << plan.error().detail;
+        ASSERT_THAT(plan, fastecu::testing::IsOk()) << test.id;
         EXPECT_EQ(plan->TransferRegion().start, 0x8000U) << test.id;
         EXPECT_EQ(plan->TransferRegion().length, test.size - 0x8000U) << test.id;
         ASSERT_TRUE(plan->Image().has_value()) << test.id;

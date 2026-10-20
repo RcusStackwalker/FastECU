@@ -11,6 +11,26 @@ from dataclasses import dataclass
 from pathlib import Path
 
 REQUIRED_LLVM_VERSION = "23.1.2"
+REQUIRED_CHECKS = frozenset(
+    {
+        "fastecu-accumulate-loop",
+        "fastecu-any-all-index-loop",
+        "fastecu-assertion-loop-trace",
+        "fastecu-container-assertion",
+        "fastecu-count-if-loop",
+        "fastecu-linear-search-loop",
+        "fastecu-message-concatenation",
+        "fastecu-parameterized-case-name",
+        "fastecu-plan-helper",
+        "fastecu-redundant-address-dereference",
+        "fastecu-result-access",
+        "fastecu-result-assertion",
+        "fastecu-single-use-result",
+        "fastecu-template-typename",
+        "fastecu-transform-collect-loop",
+        "fastecu-uniform-bytes",
+    }
+)
 
 
 class ToolchainError(RuntimeError):
@@ -90,8 +110,9 @@ def resolve_analysis_host(llvm_root: Path, artifact: Path) -> AnalysisHost:
         )
     except (OSError, subprocess.CalledProcessError) as error:
         raise ToolchainError(f"cannot load the repository checks: {error}") from error
-    if "fastecu-template-typename" not in registered.split():
+    if missing := REQUIRED_CHECKS - set(registered.split()):
         raise ToolchainError(
-            "analysis host did not register the repository checks; check LLVM ABI compatibility"
+            "analysis host did not register required repository checks: "
+            + ", ".join(sorted(missing))
         )
     return AnalysisHost(executable, arguments, root)

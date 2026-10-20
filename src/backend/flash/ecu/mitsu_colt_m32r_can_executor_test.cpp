@@ -973,7 +973,7 @@ struct MitsuColtM32rCanWriteExecutor : ::testing::Test
     fastecu::ManualCancellationToken cancellation;
     MitsuColtM32rCanExecutor executor;
     const bytes::Bytes rom = WriteRom();
-    fastecu::Result<fastecu::flash::FlashPlan> plan = WritePlan(rom);
+    const fastecu::Result<fastecu::flash::FlashPlan> plan = WritePlan(rom);
 };
 
 TEST_F(MitsuColtM32rCanWriteExecutor, WriteRunsTheBootstrapWhenTheTopRegionDiffers)

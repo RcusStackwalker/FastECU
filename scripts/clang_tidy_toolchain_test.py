@@ -55,11 +55,22 @@ class AnalysisHostTest(unittest.TestCase):
         with self.assertRaisesRegex(toolchain.ToolchainError, "artifact"):
             toolchain.resolve_analysis_host(self.root, self.artifact)
 
+    def test_incomplete_registration_fails(self):
+        with (
+            patch.object(
+                toolchain.subprocess,
+                "check_output",
+                side_effect=["LLVM version 23.1.2", "fastecu-template-typename"],
+            ),
+            self.assertRaisesRegex(toolchain.ToolchainError, "register"),
+        ):
+            toolchain.resolve_analysis_host(self.root, self.artifact)
+
     def test_paths_with_spaces(self):
         def output(command, **kwargs):
             if command[-1] == "--version":
                 return "LLVM version 23.1.2\n"
-            return "fastecu-template-typename\n"
+            return "\n".join(sorted(toolchain.REQUIRED_CHECKS))
 
         with patch.object(toolchain.subprocess, "check_output", side_effect=output):
             host = toolchain.resolve_analysis_host(self.root, self.artifact)
@@ -97,7 +108,7 @@ class AnalysisHostTest(unittest.TestCase):
         with patch.object(
             toolchain.subprocess,
             "check_output",
-            side_effect=["LLVM version 23.1.2", "fastecu-template-typename"],
+            side_effect=["LLVM version 23.1.2", "\n".join(sorted(toolchain.REQUIRED_CHECKS))],
         ):
             host = toolchain.resolve_analysis_host(self.root, executable)
         self.assertEqual(executable.resolve(), host.executable)
@@ -109,7 +120,7 @@ class AnalysisHostTest(unittest.TestCase):
         with patch.object(
             toolchain.subprocess,
             "check_output",
-            side_effect=["LLVM version 23.1.2", "fastecu-template-typename"],
+            side_effect=["LLVM version 23.1.2", "\n".join(sorted(toolchain.REQUIRED_CHECKS))],
         ):
             host = toolchain.resolve_analysis_host(self.root, self.artifact)
         self.assertEqual(self.root.resolve(), host.llvm_root)

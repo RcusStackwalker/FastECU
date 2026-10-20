@@ -797,6 +797,29 @@ TEST(ResultAccess, Guards) {
 }
 """)
 
+    def test_result_access_does_not_invent_proofs_across_jumps(self) -> None:
+        self.assert_diagnostics("""#include <gmock/gmock.h>
+#include "src/backend/ports/result.h"
+#include "src/backend/ports/testing/result_matchers.h"
+fastecu::Result<int> ReadValue();
+bool Coin();
+TEST(ResultAccess, Jump) {
+    auto result = ReadValue();
+    if (Coin()) goto access;
+    ASSERT_THAT(result, fastecu::testing::IsOk());
+access:
+    EXPECT_EQ(*result, 7); // error: result-access
+}
+TEST(ResultAccess, Exception) {
+    auto result = ReadValue();
+    try {
+        if (Coin()) throw 1;
+        ASSERT_THAT(result, fastecu::testing::IsOk());
+    } catch (...) {}
+    EXPECT_EQ(*result, 7); // error: result-access
+}
+""")
+
     def test_result_access_invalidates_mutation_and_merges_branches(self) -> None:
         self.assert_diagnostics("""#include <gmock/gmock.h>
 #include "src/backend/ports/result.h"
@@ -880,6 +903,65 @@ TEST(ResultAssertions, Conversion) {
     ASSERT_TRUE(optional);
 }
 """)
+
+    def test_fixture_setup_proof_has_an_exact_audited_exception(self) -> None:
+        self.assert_diagnostics(
+            """#include <gmock/gmock.h>
+#include "src/backend/ports/result.h"
+#include "src/backend/ports/testing/result_matchers.h"
+fastecu::Result<int> ReadValue();
+class SharedSetup : public ::testing::Test {
+protected:
+    void SetUp() override { ASSERT_THAT(result, fastecu::testing::IsOk()); }
+    const fastecu::Result<int> result = ReadValue();
+};
+TEST_F(SharedSetup, Allowed) { EXPECT_EQ(*result, 1); }
+TEST_F(SharedSetup, Other) { EXPECT_EQ(*result, 1); } // error: result-access
+""",
+            exceptions=[
+                {
+                    "check": "fastecu-result-access",
+                    "file": "fixture_test.cpp",
+                    "symbol": "SharedSetup.Allowed",
+                    "rationale": "Fatal SetUp proves the immutable Result before this body.",
+                }
+            ],
+        )
+
+    def test_result_access_accounts_for_unspecified_argument_order(self) -> None:
+        self.assert_diagnostics("""#include <gmock/gmock.h>
+#include "src/backend/ports/result.h"
+#include "src/backend/ports/testing/result_matchers.h"
+fastecu::Result<int> ReadValue();
+int MutateAndCount(fastecu::Result<int>&);
+void Consume(int, int);
+TEST(ResultFlow, SiblingMutation) {
+    auto result = ReadValue();
+    ASSERT_THAT(result, fastecu::testing::IsOk());
+    Consume(*result, MutateAndCount(result)); // error: result-access
+    ASSERT_THAT(result, fastecu::testing::IsOk());
+    const auto sum = *result + MutateAndCount(result); // error: result-access
+    EXPECT_EQ(sum, 1);
+}
+""")
+
+    def test_uniform_bytes_respect_range_projections(self) -> None:
+        self.assert_diagnostics(
+            """#include <gmock/gmock.h>
+#include <algorithm>
+#include "src/algorithms/protocol/bytes.h"
+TEST(Bytes, Projection) {
+    bytes::Bytes data{1, 3};
+    EXPECT_TRUE(
+        std::ranges::all_of(data, // error: uniform-bytes
+            [](bytes::Byte byte) { return byte == 1; }));
+    EXPECT_TRUE(std::ranges::all_of(data,
+        [](bytes::Byte byte) { return byte == 1; },
+        [](bytes::Byte byte) { return byte & 1; }));
+}
+""",
+            checks="fastecu-uniform-bytes",
+        )
 
     def test_uniform_bytes_use_specialized_matcher(self) -> None:
         self.assert_diagnostics(

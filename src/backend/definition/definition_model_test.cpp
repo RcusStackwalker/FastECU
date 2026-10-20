@@ -139,7 +139,7 @@ TEST(DefinitionCatalogTest, FindsEntryByFormatAndDefinitionId)
 
     ASSERT_THAT(catalog, fastecu::testing::IsOk());
     auto found = catalog->Find(DefinitionFormat::kEcuFlash, "ECUFLASH");
-    ASSERT_TRUE(found);
+    ASSERT_THAT(found, fastecu::testing::IsOk());
     EXPECT_EQ(found->get().source, "ecuflash.xml");
     EXPECT_EQ(catalog->Entries().size(), 2U);
 }

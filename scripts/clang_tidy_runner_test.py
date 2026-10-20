@@ -1880,6 +1880,7 @@ class ClangTidyRunnerTest(unittest.TestCase):
 
     def test_enforcement_sources_invalidate_full_scope(self) -> None:
         for relative in (
+            "BUILD.bazel",
             "scripts/clang_tidy_plugin/ResultAssertionCheck.cpp",
             "scripts/clang_tidy_plugin/BUILD.bazel",
             "bazel/llvm_headers.bzl",

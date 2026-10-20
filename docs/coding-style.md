@@ -41,8 +41,9 @@ Qt exceptions:
   `NOLINTBEGIN/NOLINTEND` block that says why. `on_<widget>_<signal>` slots are
   allowed by `MethodIgnoredRegexp` in `src/ui/desktop/.clang-tidy`.
 
-clang-tidy's `HeaderFilterRegex` does not yet cover headers under `apps/` and
-`tests/`; follow the rules there anyway.
+Analysis covers reachable first-party `.h` and `.hpp` headers under `src/`,
+`apps/`, `tests/`, and `scripts/`; generated and vendor headers are excluded.
+See [the analysis workflow](tooling.md#repository-checks).
 
 ## Strings and messages
 
@@ -190,28 +191,36 @@ ASSERT_FALSE(result.has_value());
 EXPECT_EQ(result.error().kind, ErrorKind::kTimeout);
 ```
 
-- **Use `ASSERT_THAT` before accessing** `*result`, `result->` or
-  `result.error()`; `EXPECT_THAT` continues past a failure. `IsErrWith` checks
-  the error without accessing it.
+- **Prove the matching state before accessing** `*result`, `result->` or
+  `result.error()`: use fatal `ASSERT_THAT` with a success or error matcher,
+  or a terminating `.has_value()` guard. `EXPECT_THAT` continues past failure.
+  Mutation invalidates earlier proof. `IsErrWith` checks the error without
+  accessing it.
 - **Pass the operation straight to the assertion** when its result is used
   once, unless a local is needed to preserve operation or cleanup order.
-- `Not(IsOk())` only when the contract permits any error. Plain
+- `Not(IsOk())` only when the contract permits any error, with an exact
+  rationale in [the central exception policy](../.clang-tidy-exceptions.yaml). Plain
   `std::optional` checks and the low-level Result API tests use ordinary
   assertions.
-- Helpers that build plans return `Result<FlashPlan>` without asserting; the
-  test body asserts `IsOk()`. A fatal assertion in a helper returns only from
-  the helper.
+- Helpers that fallibly build plans return `Result<FlashPlan>` and propagate
+  errors without asserting or throwing to unwrap. The test body asserts
+  `IsOk()`. A fatal assertion in a helper returns only from the helper.
+  Receiving or forwarding an already valid plan is allowed.
 
 **Assert containers with gmock matchers** (`ElementsAre`, `Each`, `Field`),
-not loops or algorithms reduced to `EXPECT_TRUE`.
+not element-checking loops or equality algorithms reduced to `EXPECT_TRUE`.
+Ordinary `EXPECT_EQ` container equality remains allowed.
 
 For uniform ROM buffers, use `test_bytes::BytesFilledWith(value)` from
 [byte_matchers.h](../src/algorithms/protocol/testing/byte_matchers.h). It checks
 every byte and reports the first mismatching offset without Google Mock's
-per-element matcher overhead in unoptimized mutation builds.
+per-element matcher overhead in unoptimized mutation builds. Keep an explicit
+size assertion when replacing equality against a constant-filled buffer.
 
-**A loop with assertions needs `SCOPED_TRACE`**, or becomes a `TEST_P` with
-`PrintToStringParamName`, so a failure names its case.
+**A loop with assertions needs an iteration-local `SCOPED_TRACE`** identifying
+the input or iteration, or becomes a `TEST_P` with an explicit name generator,
+so a failure names its case. Name quality and whether an expensive outcome
+should become its own `TEST_P` remain review responsibilities.
 Use separate `TEST_P` cases for expensive transfer outcomes: GoogleTest
 sharding can distribute them, and mutation fail-fast can stop between cases.
 

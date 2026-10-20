@@ -154,7 +154,6 @@ class SampleThenBlockProtocol final : public fastecu::logging::LoggingProtocol
 
 void ExpectStartError(fastecu::Status result, fastecu::ErrorKind kind, std::string_view detail)
 {
-    ASSERT_TRUE(!result);
     ASSERT_THAT(result, fastecu::testing::IsErr(kind));
     ASSERT_THAT(result, fastecu::testing::IsErrWith(kind, ::testing::Eq(std::string(detail))));
 }
@@ -206,7 +205,7 @@ TEST_P(StartRejectionsParameters, start_rejections)
         active_protocol = new BlockingFailureProtocol();
         engine.RegisterProtocol("TEST", [active_protocol](const DesktopLoggingSnapshot&)
                                 { return std::unique_ptr<LoggingProtocol>(active_protocol); });
-        ASSERT_TRUE(engine.Start(LogSessionConfig{.protocol_id = "TEST"}, *prepared));
+        ASSERT_THAT(engine.Start(LogSessionConfig{.protocol_id = "TEST"}, *prepared), fastecu::testing::IsOk());
         ASSERT_TRUE(active_protocol->WaitUntilPollEntered(std::chrono::milliseconds(500)));
     }
     else if (source == 2)
@@ -283,7 +282,7 @@ TEST(TestLoggingEngine, user_stop_publishes_joined_completion_exactly_once)
     fastecu::testing::SignalRecorder ended_spy(&engine, &LoggingEngine::sessionEnded);
     fastecu::testing::SignalRecorder error_spy(&engine, &LoggingEngine::logE);
 
-    ASSERT_TRUE(engine.Start(LogSessionConfig{.protocol_id = "TEST"}, *prepared));
+    ASSERT_THAT(engine.Start(LogSessionConfig{.protocol_id = "TEST"}, *prepared), fastecu::testing::IsOk());
     ASSERT_TRUE(protocol->WaitUntilPollEntered(std::chrono::milliseconds(500)));
     ASSERT_TRUE(saw_session);
     ASSERT_TRUE(engine.IsRunning());
@@ -334,13 +333,13 @@ TEST(TestLoggingEngine, completion_observer_can_immediately_start_a_second_run)
                      });
     fastecu::testing::SignalRecorder ended_spy(&engine, &LoggingEngine::sessionEnded);
 
-    ASSERT_TRUE(engine.Start(LogSessionConfig{.protocol_id = "TEST"}, *prepared));
+    ASSERT_THAT(engine.Start(LogSessionConfig{.protocol_id = "TEST"}, *prepared), fastecu::testing::IsOk());
     ASSERT_TRUE(fastecu::testing::WaitUntil([&] { return ended_spy.Count() != 0; }, std::chrono::milliseconds(2000)));
 
     ASSERT_TRUE(restart_attempted);
     ASSERT_TRUE(observer_saw_idle);
     ASSERT_TRUE(restart_result.has_value());
-    ASSERT_TRUE(*restart_result);
+    ASSERT_THAT(*restart_result, fastecu::testing::IsOk());
     ASSERT_TRUE(second_protocol->WaitUntilPollEntered(std::chrono::milliseconds(500)));
     ASSERT_TRUE(engine.IsRunning());
     engine.Stop();
@@ -379,7 +378,7 @@ TEST(TestLoggingEngine, explicit_stop_restart_ignores_stale_worker_events_and_pr
                          }
                      });
 
-    ASSERT_TRUE(engine.Start(LogSessionConfig{.protocol_id = "TEST"}, *prepared));
+    ASSERT_THAT(engine.Start(LogSessionConfig{.protocol_id = "TEST"}, *prepared), fastecu::testing::IsOk());
     ASSERT_TRUE(first_protocol->WaitUntilBlockingPollEntered(std::chrono::milliseconds(500)));
     engine.Stop();
     ASSERT_TRUE(restart_succeeded);
@@ -406,7 +405,7 @@ TEST(TestLoggingEngine, natural_terminal_result_is_published_once_after_reproces
                             { return std::unique_ptr<LoggingProtocol>(protocol); });
     fastecu::testing::SignalRecorder ended_spy(&engine, &LoggingEngine::sessionEnded);
 
-    ASSERT_TRUE(engine.Start(LogSessionConfig{.protocol_id = "TEST"}, *prepared));
+    ASSERT_THAT(engine.Start(LogSessionConfig{.protocol_id = "TEST"}, *prepared), fastecu::testing::IsOk());
     ASSERT_TRUE(fastecu::testing::WaitUntil([&] { return ended_spy.Count() != 0; }, std::chrono::milliseconds(2000)));
     ASSERT_EQ(ended_spy.Count(), 1U);
 
@@ -428,7 +427,7 @@ TEST(TestLoggingEngine, successful_worker_result_is_reported_as_runtime_failure)
                             { return std::unique_ptr<LoggingProtocol>(protocol); });
     fastecu::testing::SignalRecorder ended_spy(&engine, &LoggingEngine::sessionEnded);
 
-    ASSERT_TRUE(engine.Start(LogSessionConfig{.protocol_id = "TEST"}, *prepared));
+    ASSERT_THAT(engine.Start(LogSessionConfig{.protocol_id = "TEST"}, *prepared), fastecu::testing::IsOk());
     ASSERT_TRUE(protocol->WaitUntilPollEntered(std::chrono::milliseconds(500)));
     ASSERT_TRUE(QMetaObject::invokeMethod(&engine, "handleWorkerSessionFinished", Qt::DirectConnection,
                                           Q_ARG(fastecu::Status, fastecu::Status{})));
@@ -452,7 +451,7 @@ TEST(TestLoggingEngine, destruction_joins_blocked_run_without_publishing_complet
     QObject::connect(engine, &LoggingEngine::sessionEnded,
                      [&completion_count](SessionEndReason, const QString&) { ++completion_count; });
 
-    ASSERT_TRUE(engine->Start(LogSessionConfig{.protocol_id = "TEST"}, *prepared));
+    ASSERT_THAT(engine->Start(LogSessionConfig{.protocol_id = "TEST"}, *prepared), fastecu::testing::IsOk());
     ASSERT_TRUE(protocol->WaitUntilPollEntered(std::chrono::milliseconds(500)));
     delete engine;
 
@@ -467,6 +466,7 @@ TEST(TestLoggingEngine, every_cdbg_serial_setup_failure_is_structured_and_stops_
 
     for (int failure = 0; failure < 7; ++failure)
     {
+        SCOPED_TRACE(failure);
         int calls = 0;
         const auto step = [&calls, failure]() { return calls++ != failure; };
         const auto status = ConfigureCdbgSerial(CdbgSerialSetupActions{
@@ -479,7 +479,6 @@ TEST(TestLoggingEngine, every_cdbg_serial_setup_failure_is_structured_and_stops_
             .select_reply_id = step,
         });
 
-        ASSERT_TRUE(!status);
         ASSERT_THAT(status, fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
         ASSERT_EQ(calls, failure + 1);
     }
@@ -497,7 +496,7 @@ TEST(TestLoggingEngine, start_error_preserves_handshake_failure_ui_path)
     fastecu::testing::SignalRecorder ended_spy(&engine, &LoggingEngine::sessionEnded);
     fastecu::testing::SignalRecorder error_spy(&engine, &LoggingEngine::logE);
 
-    ASSERT_TRUE(engine.Start(LogSessionConfig{.protocol_id = "TEST"}, *prepared));
+    ASSERT_THAT(engine.Start(LogSessionConfig{.protocol_id = "TEST"}, *prepared), fastecu::testing::IsOk());
     ASSERT_TRUE(fastecu::testing::WaitUntil([&] { return ended_spy.Count() != 0; }, std::chrono::milliseconds(2000)));
 
     ASSERT_EQ(std::get<0>(ended_spy.Snapshot().at(0)), SessionEndReason::kHandshakeFailed);
@@ -518,7 +517,7 @@ TEST(TestLoggingEngine, disconnect_error_preserves_adapter_failure_ui_path)
                             { return std::unique_ptr<LoggingProtocol>(protocol); });
     fastecu::testing::SignalRecorder ended_spy(&engine, &LoggingEngine::sessionEnded);
 
-    ASSERT_TRUE(engine.Start(LogSessionConfig{.protocol_id = "TEST"}, *prepared));
+    ASSERT_THAT(engine.Start(LogSessionConfig{.protocol_id = "TEST"}, *prepared), fastecu::testing::IsOk());
     ASSERT_TRUE(fastecu::testing::WaitUntil([&] { return ended_spy.Count() != 0; }, std::chrono::milliseconds(2000)));
 
     ASSERT_EQ(std::get<0>(ended_spy.Snapshot().at(0)), SessionEndReason::kAdapterDisconnected);
@@ -539,7 +538,7 @@ TEST(TestLoggingEngine, post_start_failure_is_not_reported_as_handshake_failure)
     fastecu::testing::SignalRecorder ended_spy(&engine, &LoggingEngine::sessionEnded);
     fastecu::testing::SignalRecorder error_spy(&engine, &LoggingEngine::logE);
 
-    ASSERT_TRUE(engine.Start(LogSessionConfig{.protocol_id = "TEST"}, *prepared));
+    ASSERT_THAT(engine.Start(LogSessionConfig{.protocol_id = "TEST"}, *prepared), fastecu::testing::IsOk());
     ASSERT_TRUE(fastecu::testing::WaitUntil([&] { return ended_spy.Count() != 0; }, std::chrono::milliseconds(2000)));
 
     ASSERT_EQ(std::get<0>(ended_spy.Snapshot().at(0)), SessionEndReason::kRuntimeFailed);
@@ -559,7 +558,7 @@ TEST(TestLoggingEngine, unexpected_cancelled_outcome_is_reported_as_runtime_fail
     fastecu::testing::SignalRecorder ended_spy(&engine, &LoggingEngine::sessionEnded);
     fastecu::testing::SignalRecorder error_spy(&engine, &LoggingEngine::logE);
 
-    ASSERT_TRUE(engine.Start(LogSessionConfig{.protocol_id = "TEST"}, *prepared));
+    ASSERT_THAT(engine.Start(LogSessionConfig{.protocol_id = "TEST"}, *prepared), fastecu::testing::IsOk());
     ASSERT_TRUE(fastecu::testing::WaitUntil([&] { return ended_spy.Count() != 0; }, std::chrono::milliseconds(2000)));
 
     ASSERT_EQ(ended_spy.Count(), 1U);
@@ -646,7 +645,7 @@ TEST(TestLoggingEngine, portable_events_map_to_existing_status_and_value_signals
     fastecu::testing::SignalRecorder status_spy(&engine, &LoggingEngine::statusChanged);
     fastecu::testing::SignalRecorder value_spy(&engine, &LoggingEngine::valuesUpdated);
 
-    ASSERT_TRUE(engine.Start(LogSessionConfig{.protocol_id = "TEST"}, *prepared));
+    ASSERT_THAT(engine.Start(LogSessionConfig{.protocol_id = "TEST"}, *prepared), fastecu::testing::IsOk());
     ASSERT_TRUE(fastecu::testing::WaitUntil([&] { return value_spy.Count() != 0; }, std::chrono::milliseconds(2000)));
     engine.Stop();
 

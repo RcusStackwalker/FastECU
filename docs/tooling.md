@@ -72,6 +72,10 @@ export CXX="$FASTECU_LLVM_ROOT/bin/clang++"
 bazel run --config=release //:clang_tidy_report_changed
 ```
 
+On Windows, also set `BAZEL_LLVM` to the same root and `USE_CLANG_CL=1`
+for analysis builds. The pinned compiler builds against its own development
+headers while retaining warnings as errors in first-party code.
+
 macOS/Linux load a shared extension. The pinned Windows executable does not
 export the required symbols, so Bazel builds an analysis host with the checks
 linked into it and supplies its missing compression dependencies. The
@@ -102,6 +106,27 @@ It writes raw logs and JSON into a new output directory. Per-check CPU seconds
 sum work across translation units; they are not elapsed time. Investigate
 reproducible runtime regressions above 10 percent on the same machine and scope;
 wall-clock timing is a review threshold, not a CI pass/fail gate.
+
+The [central exception policy](../.clang-tidy-exceptions.yaml) has schema
+`version: 1`, with `exceptions` entries containing exactly `check`, `file`,
+`symbol`, and `rationale`. Files are canonical repository-relative paths;
+identities are `Suite.Test` or a qualified helper signature. Wildcards and
+line-number identities are unsupported. Malformed and duplicate entries fail
+before analysis; a full-scope report also rejects unused entries. Changed-file
+runs do not reject entries outside their analyzed scope.
+
+Result access reasoning is intraprocedural and bounded to structured control
+flow, fatal state matchers, terminating guards, stable local/member identities,
+and supported mutation/alias patterns. Functions containing source-level
+`goto`, `switch`, or exception handlers receive no propagated state proofs;
+GoogleTest's internal macro control flow does not impose this restriction.
+Captured lambda and framework setup proofs are not inferred across functions.
+Use a simpler local proof or a narrowly justified central exception where
+needed. Unknown aliases and complex matcher compositions remain review
+responsibilities. Single-use suggestions require an adjacent final block pair,
+a void Result, and a pure `IsOk()` matcher to preserve cleanup ordering.
+Uniform-buffer detection covers supported unsigned-byte vectors, spans and
+arrays; custom projections and unrelated containers are permitted.
 
 ### SonarCloud
 

@@ -215,6 +215,44 @@ class MutationFinder : public clang::RecursiveASTVisitor<MutationFinder>
     }
 };
 
+bool HasUnsequencedOperands(const clang::BinaryOperator& operation)
+{
+    return !operation.isAssignmentOp() && operation.getOpcode() != clang::BO_Comma &&
+           operation.getOpcode() != clang::BO_Shl && operation.getOpcode() != clang::BO_Shr;
+}
+
+// Structured proof deliberately stops at non-local control flow. A jump can
+// bypass a fatal assertion, and handlers can join paths that never reached it.
+class NonlocalFlowFinder : public clang::RecursiveASTVisitor<NonlocalFlowFinder>
+{
+  public:
+    bool found = false;
+    bool TraverseLambdaExpr(clang::LambdaExpr *)
+    {
+        return true;
+    }
+    bool VisitGotoStmt(clang::GotoStmt *statement)
+    {
+        found |= !statement->getBeginLoc().isMacroID();
+        return true;
+    }
+    bool VisitIndirectGotoStmt(clang::IndirectGotoStmt *statement)
+    {
+        found |= !statement->getBeginLoc().isMacroID();
+        return true;
+    }
+    bool VisitCXXTryStmt(clang::CXXTryStmt *statement)
+    {
+        found |= !statement->getBeginLoc().isMacroID();
+        return true;
+    }
+    bool VisitSwitchStmt(clang::SwitchStmt *statement)
+    {
+        found |= !statement->getBeginLoc().isMacroID();
+        return true;
+    }
+};
+
 struct Flow
 {
     Facts facts;
@@ -227,6 +265,19 @@ class FunctionAnalysis
     using Report = std::function<void(const clang::Expr&, ResultState)>;
     FunctionAnalysis(clang::ASTContext& context, Report report) : context_(context), report_(std::move(report))
     {
+    }
+
+    void AnalyzeFunction(const clang::Stmt *body)
+    {
+        NonlocalFlowFinder flow;
+        flow.TraverseStmt(const_cast<clang::Stmt *>(body));
+        if (flow.found)
+        {
+            Facts unknown;
+            Scan(body, unknown);
+            return;
+        }
+        Analyze(body, {});
     }
 
     Flow Analyze(const clang::Stmt *statement, Facts facts)
@@ -311,10 +362,44 @@ class FunctionAnalysis
             facts = Intersection(yes, no);
             return;
         }
+        if (ScanCall(statement, facts))
+            return;
+        if (const auto *binary = llvm::dyn_cast<clang::BinaryOperator>(statement);
+            binary && HasUnsequencedOperands(*binary))
+        {
+            MutationFinder mutations;
+            mutations.TraverseStmt(const_cast<clang::Stmt *>(statement));
+            for (const auto& key : mutations.keys)
+                Kill(facts, key);
+        }
         for (const auto *child : statement->children())
             Scan(child, facts);
         ObserveAccess(statement, facts);
         InvalidateMutation(statement, facts);
+    }
+
+    bool ScanCall(const clang::Stmt *statement, Facts& facts)
+    {
+        const auto *call = llvm::dyn_cast<clang::CallExpr>(statement);
+        const auto *operation = llvm::dyn_cast<clang::CXXOperatorCallExpr>(statement);
+        if (!call || (operation && operation->getOperator() != clang::OO_Call))
+            return false;
+        // C++17 sequences the callee/object before the arguments, whose order
+        // remains unspecified. An argument mutation invalidates sibling proof.
+        Scan(call->getCallee(), facts);
+        const unsigned first = operation ? 1U : 0U;
+        if (first)
+            Scan(call->getArg(0), facts);
+        MutationFinder mutations;
+        for (unsigned index = first; index < call->getNumArgs(); ++index)
+            mutations.TraverseStmt(const_cast<clang::Expr *>(call->getArg(index)));
+        for (const auto& key : mutations.keys)
+            Kill(facts, key);
+        for (unsigned index = first; index < call->getNumArgs(); ++index)
+            Scan(call->getArg(index), facts);
+        ObserveAccess(statement, facts);
+        InvalidateMutation(statement, facts);
+        return true;
     }
 
     void ObserveAccess(const clang::Stmt *statement, const Facts& facts)
@@ -437,7 +522,7 @@ void ResultAccessCheck::check(const clang::ast_matchers::MatchFinder::MatchResul
                      : "prove Result failure with ASSERT_THAT(IsErr()) or a terminating guard before accessing its "
                        "error");
         });
-    analysis.Analyze(function->getBody(), {});
+    analysis.AnalyzeFunction(function->getBody());
 }
 
 void ResultAccessCheck::storeOptions(clang::tidy::ClangTidyOptions::OptionMap& options)

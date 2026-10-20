@@ -357,6 +357,8 @@ def config_changed(changed: Sequence[Path]) -> bool:
     for path in changed:
         if path.name in {
             CONFIG_FILE_NAME,
+            "BUILD",
+            "BUILD.bazel",
             ".clang-tidy-exceptions.yaml",
             ".clang-tidy-scope.toml",
             "MODULE.bazel",

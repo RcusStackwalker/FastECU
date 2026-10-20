@@ -3,8 +3,9 @@
 This record supports Task 1 of the
 [approved enforcement plan](../../../docs/superpowers/plans/2026-10-19-clang-tidy-plugin-enforcement.md).
 Qualification is incomplete until the Windows build/run probe passes. The
-Bazel-built zlib/zstd dependency amendment is approved. No repository check has been migrated or enabled by this
-change.
+Bazel-built zlib/zstd dependency amendment is approved. Migrated checks and
+assertion fixtures are implemented; this record distinguishes packaging
+qualification from the remaining full-scope and performance gates.
 
 ## Smoke contract
 
@@ -54,9 +55,10 @@ target loading therefore does not require LLVM discovery in this checkout.
 
 ### Linux x86-64
 
-The checksum-verified official distribution is being tested in an ephemeral
-Ubuntu 24.04 x86-64 container using Bazel 9.1.1. Runtime/build results must be
-recorded here before claiming Linux qualification.
+The checksum-verified official distribution built and passed the smoke in an
+Ubuntu 24.04 x86-64 container using Bazel 9.1.1 and the selected LLVM Clang
+compiler. The shared extension emitted the required diagnostic and fix-it.
+The application build remains independently qualified by platform CI.
 
 ### Windows x86-64
 
