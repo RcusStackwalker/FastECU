@@ -281,7 +281,7 @@ class Session
         for (std::uint32_t address = 0; address < 0x100000; address += 0x100)
         {
             const Bytes request =
-                bytes::ComposeBe(bytes::Byte{0xb6}, bytes::U24(address), encrypted.subspan(address, 0x100));
+                bytes::ComposeBe(bytes::Byte{0xb6}, bytes::U24{address}, encrypted.subspan(address, 0x100));
             auto reply = Exchange(request, 0ms, 5000ms);
             if (!reply.has_value())
             {

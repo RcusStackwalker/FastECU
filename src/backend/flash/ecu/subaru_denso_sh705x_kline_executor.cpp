@@ -426,7 +426,7 @@ Status TransferKernel(IKlineFlashTransport& transport, IClock& clock, const ICan
         const std::uint32_t chunk = std::min(kUploadChunkBytes, length - offset);
         Result<bytes::Bytes> reply = RequiredExchange(
             transport, clock, cancellation,
-            ssm_protocol::AddHeader(ComposeBe(0x36_b, U24(address + offset), encrypted.subspan(offset, chunk)),
+            ssm_protocol::AddHeader(ComposeBe(0x36_b, U24{address + offset}, encrypted.subspan(offset, chunk)),
                                     plan.tester_id, plan.target_id),
             0ms, kReadTimeout, "kernel transfer");
         if (!reply.has_value())
@@ -466,7 +466,7 @@ Status UploadKernel(IKlineFlashTransport& transport, IClock& clock, const ICance
     // :391-411, send_sid_34_request_upload():1494-1506.
     events.Log(LogLevel::kInfo, "Requesting kernel upload");
     Result<bytes::Bytes> request = SsmExchange(transport, clock, cancellation, events, plan,
-                                               ComposeBe(0x34_b, U24(kernel.load_address), 0x04_b, U24(size)),
+                                               ComposeBe(0x34_b, U24{kernel.load_address}, 0x04_b, U24{size}),
                                                kExtraLongTimeout, "upload request");
     if (!request.has_value())
     {
@@ -582,7 +582,7 @@ Result<bytes::Bytes> ReadMem(IKlineFlashTransport& transport, IClock& clock, con
     events.Progress(0, static_cast<int>(region.length));
     for (std::uint32_t address = region.start; address < region.start + region.length; address += kReadPageSize)
     {
-        const bytes::Bytes request = Frame(kOpReadArea, ComposeBe(0x00_b, U24(address), std::uint16_t(kReadPageSize)));
+        const bytes::Bytes request = Frame(kOpReadArea, ComposeBe(0x00_b, U24{address}, std::uint16_t(kReadPageSize)));
         Result<bytes::Bytes> reply =
             RequiredExchange(transport, clock, cancellation, request, 0ms, kExtraLongTimeout, "read");
         if (!reply.has_value())
@@ -655,7 +655,7 @@ Result<std::uint32_t> ReadBlockCrc(IKlineFlashTransport& transport, IClock& cloc
                                    const ICancellationToken& cancellation, IEventSink& events,
                                    const MemoryRegion& block)
 {
-    const bytes::Bytes request = Frame(kOpCrc, ComposeBe(block.start, 0x00_b, U24(block.length)));
+    const bytes::Bytes request = Frame(kOpCrc, ComposeBe(block.start, 0x00_b, U24{block.length}));
     Result<bytes::Bytes> reply =
         KernelExchange(transport, clock, cancellation, events, request, kExtraLongTimeout, "CRC check");
     if (!reply.has_value())

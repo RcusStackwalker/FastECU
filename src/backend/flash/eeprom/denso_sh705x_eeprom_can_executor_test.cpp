@@ -112,11 +112,11 @@ bytes::Bytes RequestKernelIdRequest()
 }
 bytes::Bytes Sid34RequestDownloadRequest(std::uint32_t start_address, std::uint32_t data_len)
 {
-    return ComposeBe(bytes::Bytes{0x00, 0x00, 0x07, 0xE0}, 0x34_b, 0x04_b, 0x33_b, U24(start_address), U24(data_len));
+    return ComposeBe(bytes::Bytes{0x00, 0x00, 0x07, 0xE0}, 0x34_b, 0x04_b, 0x33_b, U24{start_address}, U24{data_len});
 }
 bytes::Bytes SidB6TransferBlockRequest(std::uint32_t block_addr, bytes::ByteView payload)
 {
-    return ComposeBe(bytes::Bytes{0x00, 0x00, 0x07, 0xE0}, 0xB6_b, U24(block_addr), payload);
+    return ComposeBe(bytes::Bytes{0x00, 0x00, 0x07, 0xE0}, 0xB6_b, U24{block_addr}, payload);
 }
 bytes::Bytes Sid37StartKernelRequest()
 {

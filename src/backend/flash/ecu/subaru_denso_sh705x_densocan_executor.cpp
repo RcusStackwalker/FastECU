@@ -557,7 +557,7 @@ Result<bytes::Bytes> ReadMem(IMixedCanFlashTransport& transport, const MemoryReg
             return std::unexpected(cancelled.error());
         }
         const std::uint32_t address = region.start + offset;
-        const bytes::Bytes request = IsoRequest(0x03, ComposeBe(0x00_b, U24(address), std::uint16_t{kReadPageSize}));
+        const bytes::Bytes request = IsoRequest(0x03, ComposeBe(0x00_b, U24{address}, std::uint16_t{kReadPageSize}));
         Result<bytes::Bytes> received = IsoExchange(transport, request, kPageTimeout, cancellation,
                                                     {.subject = "ROM read", .ack = 0x43, .min_payload = kReadPageSize});
         if (!received)
@@ -583,7 +583,7 @@ Result<std::uint32_t> ReadBlockCrc(IMixedCanFlashTransport& transport, const Mem
 {
     // Legacy check_romcrc(), lines 820-905. The seven-byte CRC request body
     // is [address:4][00][length:3]; response bytes 9..12 hold the ECU CRC.
-    const bytes::Bytes request = IsoRequest(0x02, ComposeBe(block.start, 0x00_b, U24(block.length)));
+    const bytes::Bytes request = IsoRequest(0x02, ComposeBe(block.start, 0x00_b, U24{block.length}));
     Result<bytes::Bytes> received = IsoExchange(transport, request, kCrcTimeout, cancellation,
                                                 {.subject = "ROM CRC", .ack = 0x42, .min_payload = 4});
     if (!received)

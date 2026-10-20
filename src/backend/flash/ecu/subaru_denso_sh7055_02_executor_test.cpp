@@ -181,7 +181,7 @@ void ScriptReadPage(ScriptedKlineFlashTransport& transport, std::uint32_t addres
     const auto section = transport.Section("read page");
     // SUB_KERNEL_READ_AREA uses a zero byte plus the 24-bit address and a
     // fixed 0x400-byte page request. The reply carries the 0x43 acknowledgment.
-    transport.Exchange(Framed(0x03, ComposeBe(0x00_b, U24(address), std::uint16_t{0x400})),
+    transport.Exchange(Framed(0x03, ComposeBe(0x00_b, U24{address}, std::uint16_t{0x400})),
                        Framed(response_opcode, bytes::Bytes(0x400, fill)));
 }
 
@@ -240,7 +240,7 @@ void ScriptCrcCompare(ScriptedKlineFlashTransport& transport, const FlashDevice&
     for (unsigned block_no = 0; block_no < device.numblocks; ++block_no)
     {
         const auto& block = device.fblocks[block_no];
-        const bytes::Bytes request_payload = ComposeBe(block.start, 0x00_b, U24(block.len));
+        const bytes::Bytes request_payload = ComposeBe(block.start, 0x00_b, U24{block.len});
         transport.Exchange(Framed(0x02, request_payload));
 
         std::uint32_t ecu_crc = fastecu::checksum::Crc32(bytes::ByteView(image).subspan(block.start, block.len));
@@ -958,7 +958,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteAcceptsFragmentedBlockCrcAndDrainsIt)
     for (unsigned block_no = 0; block_no < device->numblocks; ++block_no)
     {
         const auto& block = device->fblocks[block_no];
-        const bytes::Bytes payload = ComposeBe(block.start, 0x00_b, U24(block.len));
+        const bytes::Bytes payload = ComposeBe(block.start, 0x00_b, U24{block.len});
         transport.Exchange(Framed(0x02, payload));
         const std::uint32_t crc = fastecu::checksum::Crc32(bytes::ByteView(image).subspan(block.start, block.len));
         const bytes::Bytes response = CrcResponse(crc);
@@ -998,7 +998,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteAcceptsBlockCrcAfterEmptyInitialRead)
     for (unsigned block_no = 0; block_no < device->numblocks; ++block_no)
     {
         const auto& block = device->fblocks[block_no];
-        const bytes::Bytes payload = ComposeBe(block.start, 0x00_b, U24(block.len));
+        const bytes::Bytes payload = ComposeBe(block.start, 0x00_b, U24{block.len});
         transport.Exchange(Framed(0x02, payload));
         const std::uint32_t crc = fastecu::checksum::Crc32(bytes::ByteView(image).subspan(block.start, block.len));
         if (block_no == 0)

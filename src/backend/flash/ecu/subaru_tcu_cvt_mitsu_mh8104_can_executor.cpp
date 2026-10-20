@@ -413,7 +413,7 @@ Result<bytes::Bytes> DumpFlashRange(Ctx& ctx, PhaseReporter& progress)
         // 0xB7 dump request (lines 406-454): single-shot per chunk, NO
         // retry, content-blind (line 453's `// return STATUS_ERROR;` for
         // "Page data request failed!" is commented out).
-        Result<bytes::Bytes> chunk = SingleShot(ctx, ComposeBe(uds::kSidReadMemoryChunk, U24(addr)), 200ms,
+        Result<bytes::Bytes> chunk = SingleShot(ctx, ComposeBe(uds::kSidReadMemoryChunk, U24{addr}), 200ms,
                                                 std::format("the flash read at 0x{:x}", addr));
         if (!chunk.has_value())
         {
@@ -514,7 +514,7 @@ Status UnlockAndReflashBlock(Ctx& ctx, bytes::ByteView block_plain, PhaseReporte
     // source, not assumed from the sibling family's own halving quirk.
     LogInfo(ctx, "Settting flash start & length...");
     Result<std::optional<bytes::Bytes>> setup = RetryUntilAnyReply(
-        ctx, ComposeBe(uds::kSidRequestDownload, 0x04_b, 0x33_b, U24(kWriteRegion.start), U24(kWriteRegion.length)), 6,
+        ctx, ComposeBe(uds::kSidRequestDownload, 0x04_b, 0x33_b, U24{kWriteRegion.start}, U24{kWriteRegion.length}), 6,
         200ms);
     if (!setup.has_value())
     {
@@ -545,7 +545,7 @@ Status UnlockAndReflashBlock(Ctx& ctx, bytes::ByteView block_plain, PhaseReporte
         // transport-level failure from the read itself fails this
         // exchange, unlike every single-shot exchange above.
         if (const Status sent =
-                ctx.channel.Send(ComposeBe(uds::kSidWriteMemoryChunk, U24(addr), chunk_data), ctx.cancellation);
+                ctx.channel.Send(ComposeBe(uds::kSidWriteMemoryChunk, U24{addr}, chunk_data), ctx.cancellation);
             !sent.has_value())
         {
             return sent;

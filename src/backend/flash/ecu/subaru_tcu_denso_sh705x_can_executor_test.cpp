@@ -391,7 +391,7 @@ void ScriptReadPages(ScriptedCanFlashTransport& transport, std::uint32_t size, b
 {
     for (std::uint32_t address = 0; address < size; address += kReadPageSize)
     {
-        transport.ExpectWrite(BeefRequest(0x03, ComposeBe(0x00_b, U24(address), std::uint16_t{kReadPageSize})));
+        transport.ExpectWrite(BeefRequest(0x03, ComposeBe(0x00_b, U24{address}, std::uint16_t{kReadPageSize})));
         transport.QueueRead(BeefResponse(0x43, bytes::Bytes(kReadPageSize, wire_fill)));
     }
 }
@@ -402,7 +402,7 @@ void ScriptRawReadPagesWithBoundarySentinels(ScriptedCanFlashTransport& transpor
     constexpr std::array<bytes::Byte, 8> kLastWireBytes{0x9C, 0x31, 0xE7, 0x04, 0xB2, 0x6D, 0x58, 0xAF};
     for (std::uint32_t address = 0; address < size; address += kReadPageSize)
     {
-        transport.ExpectWrite(BeefRequest(0x03, ComposeBe(0x00_b, U24(address), std::uint16_t{kReadPageSize})));
+        transport.ExpectWrite(BeefRequest(0x03, ComposeBe(0x00_b, U24{address}, std::uint16_t{kReadPageSize})));
         bytes::Bytes page(kReadPageSize, bytes::Byte{0});
         if (address == 0)
         {
@@ -481,7 +481,7 @@ void ScriptKernelUploadUntilStart(ScriptedCanFlashTransport& transport, const Ca
     // 128-byte transfer. The checksum word is 59 A3 A2 56, and the first and
     // last encrypted words are fixed here so the test never calls production
     // crypto helpers.
-    transport.ExpectWrite(Request(ComposeBe(0x34_b, 0x04_b, 0x33_b, U24(test_case.kernel_address), U24(0x80))));
+    transport.ExpectWrite(Request(ComposeBe(0x34_b, 0x04_b, 0x33_b, U24{test_case.kernel_address}, U24{0x80})));
     transport.QueueRead(Response(bytes::Bytes{0x74, 0x20}));
 
     bytes::Bytes block{0xB6,
@@ -561,7 +561,7 @@ bytes::Bytes ZeroChunk(std::size_t size)
 
 void ScriptCrc(ScriptedCanFlashTransport& transport, const BlockFixture& block, std::uint32_t crc)
 {
-    transport.ExpectWrite(BeefRequest(0x02, ComposeBe(block.start, 0x00_b, U24(block.length))));
+    transport.ExpectWrite(BeefRequest(0x02, ComposeBe(block.start, 0x00_b, U24{block.length})));
     transport.QueueRead(BeefResponse(0x42, ComposeBe(crc)));
     transport.QueueNoFrame(); // Legacy drains a short stale frame after each CRC comparison.
 }
@@ -569,7 +569,7 @@ void ScriptCrc(ScriptedCanFlashTransport& transport, const BlockFixture& block, 
 void ScriptCrcWithStale(ScriptedCanFlashTransport& transport, const BlockFixture& block, std::uint32_t crc,
                         bytes::ByteView stale)
 {
-    transport.ExpectWrite(BeefRequest(0x02, ComposeBe(block.start, 0x00_b, U24(block.length))));
+    transport.ExpectWrite(BeefRequest(0x02, ComposeBe(block.start, 0x00_b, U24{block.length})));
     transport.QueueRead(BeefResponse(0x42, ComposeBe(crc)));
     transport.QueueRead(stale);
 }
@@ -1330,7 +1330,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, ProbeTimeoutRunsIdentityStrictUdsUploadAnd
     transport.QueueRead(KernelIdResponse());
     transport.QueueNoFrame();
     ScriptReadPages(transport, kReadPageSize);
-    transport.ExpectWrite(BeefRequest(0x03, ComposeBe(0x00_b, U24(kReadPageSize), std::uint16_t{kReadPageSize})));
+    transport.ExpectWrite(BeefRequest(0x03, ComposeBe(0x00_b, U24{kReadPageSize}, std::uint16_t{kReadPageSize})));
     transport.QueueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0xBE, 0xEF, 0x00, 0x01, 0x43});
     FakeCancellationToken cancellation;
     MockClock clock;
@@ -2140,7 +2140,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, BoundAttemptReturnsCloseErrorOnlyWhenExecu
 
     auto failing_transport = std::make_unique<ScriptedCanFlashTransport>();
     ScriptKernelAlive(*failing_transport);
-    failing_transport->ExpectWrite(BeefRequest(0x03, ComposeBe(0x00_b, U24(0), std::uint16_t{kReadPageSize})));
+    failing_transport->ExpectWrite(BeefRequest(0x03, ComposeBe(0x00_b, U24{0}, std::uint16_t{kReadPageSize})));
     failing_transport->QueueNoFrame();
     failing_transport->close_result = Fail(ErrorKind::kInternal, "close also failed");
     auto failing_attempt =

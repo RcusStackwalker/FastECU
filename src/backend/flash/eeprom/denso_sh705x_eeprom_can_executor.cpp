@@ -128,11 +128,11 @@ bytes::Bytes RequestKernelIdFrame(std::uint32_t request_id)
 }
 bytes::Bytes Sid34Request(std::uint32_t request_id, std::uint32_t addr, std::uint32_t data_len)
 {
-    return CanFrame(request_id, ComposeBe(0x34_b, 0x04_b, 0x33_b, U24(addr), U24(data_len)));
+    return CanFrame(request_id, ComposeBe(0x34_b, 0x04_b, 0x33_b, U24{addr}, U24{data_len}));
 }
 bytes::Bytes SidB6Request(std::uint32_t request_id, std::uint32_t block_addr, bytes::ByteView chunk)
 {
-    return CanFrame(request_id, ComposeBe(0xB6_b, U24(block_addr), chunk));
+    return CanFrame(request_id, ComposeBe(0xB6_b, U24{block_addr}, chunk));
 }
 bytes::Bytes Sid37Request(std::uint32_t request_id)
 {
@@ -148,7 +148,7 @@ bytes::Bytes ReadEepromRequest(std::uint32_t request_id, std::uint8_t mode, std:
 {
     constexpr std::uint32_t kDatalen = 6;
     return CanFrame(request_id, ComposeBe(kSubKernelStartComm, std::uint16_t(kDatalen + 1), kSubKernelReadEeprom, mode,
-                                          U24(addr), std::uint16_t(pagesize)));
+                                          U24{addr}, std::uint16_t(pagesize)));
 }
 
 // request_kernel_id()'s / upload_kernel()'s post-upload poll's "kernel alive"

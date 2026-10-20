@@ -491,7 +491,7 @@ Result<bytes::Bytes> SubaruDensoSh7055_02Executor::ReadMem(IKlineFlashTransport&
         {
             return std::unexpected(cancelled.error());
         }
-        const bytes::Bytes payload = ComposeBe(0x00_b, U24(address), std::uint16_t(kReadPageSize));
+        const bytes::Bytes payload = ComposeBe(0x00_b, U24{address}, std::uint16_t(kReadPageSize));
         // Legacy lines 415-421 settle for 10ms and use serial_read_extra_long_timeout (3000ms).
         Result<IKlineFlashTransport::OptionalBytes> response = DensoBeefKlineExchangeOptional(
             transport, &clock, cancellation, DensoBeefKlineFrame(kDensoKlineOpReadArea, payload), 10ms, 3000ms);
@@ -535,7 +535,7 @@ Result<std::uint32_t> SubaruDensoSh7055_02Executor::ReadBlockCrc(IKlineFlashTran
     // Legacy check_romcrc(), lines 645-749: request the ECU CRC for the
     // physical [start, start + length) block.
     const bytes::Bytes request =
-        DensoBeefKlineFrame(kDensoKlineOpCrc, ComposeBe(block.start, 0x00_b, U24(block.length)));
+        DensoBeefKlineFrame(kDensoKlineOpCrc, ComposeBe(block.start, 0x00_b, U24{block.length}));
     if (Status written = DensoBeefKlineGuarded(cancellation, "CRC write",
                                                [&] { return DensoBeefKlineWriteAll(transport, request); });
         !written.has_value())

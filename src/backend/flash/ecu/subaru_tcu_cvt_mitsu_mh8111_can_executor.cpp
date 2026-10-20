@@ -248,7 +248,7 @@ Result<bytes::Bytes> ReadPages(Ctx& ctx, PhaseReporter& progress)
 
         // Lines 406-454: SID 0xB7 + 3-byte big-endian address, standard
         // SID+0x40 convention (0xB7 -> 0xF7).
-        Result<bytes::Bytes> chunk = FatalRequest(ctx, ComposeBe(uds::kSidReadMemoryChunk, U24(addr)),
+        Result<bytes::Bytes> chunk = FatalRequest(ctx, ComposeBe(uds::kSidReadMemoryChunk, U24{addr}),
                                                   std::format("the flash read at 0x{:x}", addr));
         if (!chunk.has_value())
         {
@@ -463,7 +463,7 @@ Status UnlockAndReflashBlock(Ctx& ctx, bytes::ByteView block_plain, PhaseReporte
     // ctx.uds.request() already enforces (0x34 -> 0x74), so no extra check
     // is added here beyond the retry-count wrapper.
     LogInfo(ctx, "Settting flash start & length...");
-    if (!RequestWithRetries(ctx, ComposeBe(uds::kSidRequestDownload, 0x04_b, 0x33_b, U24(0), U24(kSetupDataLen)), 6))
+    if (!RequestWithRetries(ctx, ComposeBe(uds::kSidRequestDownload, 0x04_b, 0x33_b, U24{0}, U24{kSetupDataLen}), 6))
     {
         return Fail(ErrorKind::kBadResponse, "flash start & length setup rejected");
     }

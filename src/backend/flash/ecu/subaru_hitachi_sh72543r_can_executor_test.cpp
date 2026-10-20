@@ -483,7 +483,7 @@ class Sh72543rWrite : public Sh72543rExecutor
         for (std::uint32_t a = 0x6000; a < 0x200000; a += 0x100)
         {
             SCOPED_TRACE(::testing::PrintToString(a));
-            Bytes payload = bytes::ComposeBe(0xb6_b, bytes::U24(a));
+            Bytes payload = bytes::ComposeBe(0xb6_b, bytes::U24{a});
             for (unsigned offset = 0; offset < 0x100; offset += 4)
             {
                 bytes::AppendU32Be(payload, ReferenceCipher(0xdeadbeefU ^ (a + offset)));

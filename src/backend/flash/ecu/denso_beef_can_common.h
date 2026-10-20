@@ -308,7 +308,7 @@ template <typename C> Status DiscardStaleFrame(C& ctx)
 template <typename C, typename Exchange>
 Result<std::uint32_t> QueryBeefCrc(C& ctx, const MemoryRegion& block, Exchange exchange)
 {
-    Result<bytes::Bytes> reply = exchange(ComposeBe(block.start, bytes::Byte{0x00}, bytes::U24(block.length)));
+    Result<bytes::Bytes> reply = exchange(ComposeBe(block.start, bytes::Byte{0x00}, bytes::U24{block.length}));
     if (!reply.has_value())
     {
         return std::unexpected(reply.error());
@@ -453,7 +453,7 @@ Result<bytes::Bytes> ReadBeefMemory(C& ctx, const MemoryRegion& region, PhaseRep
         }
         const std::uint32_t address = region.start + offset;
         const bytes::Bytes request =
-            bytes::ComposeBe(bytes::Byte{0x00}, bytes::U24(address), std::uint16_t{kBeefReadPageSize});
+            bytes::ComposeBe(bytes::Byte{0x00}, bytes::U24{address}, std::uint16_t{kBeefReadPageSize});
         Result<bytes::Bytes> reply = exchange(bytes::Byte{0x03}, request, kBeefReadPageSize, kBeefReadTimeout);
         if (!reply.has_value())
         {
@@ -683,7 +683,7 @@ Status UploadBeefKernelBlocks(const C& ctx, bytes::ByteView payload, std::uint32
         }
         const bytes::ByteView chunk = payload.subspan(offset, std::min(block_size, payload.size() - offset));
         if (const Status sent = upload(bytes::ComposeBe(
-                bytes::Byte{0xB6}, bytes::U24(load_address + static_cast<std::uint32_t>(offset)), chunk));
+                bytes::Byte{0xB6}, bytes::U24{load_address + static_cast<std::uint32_t>(offset)}, chunk));
             !sent.has_value())
         {
             return sent;

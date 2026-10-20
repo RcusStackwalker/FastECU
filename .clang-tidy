@@ -49,6 +49,7 @@ Checks: >
   fastecu-any-all-index-loop,
   fastecu-count-if-loop,
   fastecu-accumulate-loop,
+  fastecu-aggregate-parens,
   fastecu-transform-collect-loop,
   fastecu-template-typename,
   fastecu-result-access,

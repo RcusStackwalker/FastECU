@@ -46,6 +46,19 @@ Analysis covers reachable first-party `.h` and `.hpp` headers under `src/`,
 `apps/`, `tests/`, and `scripts/`; generated and vendor headers are excluded.
 See [the analysis workflow](tooling.md#repository-checks).
 
+## Aggregate initialization
+
+Initialize aggregates with braces: `bytes::U24{length}`, not `bytes::U24(length)`.
+This also applies to aggregate variable declarations, arrays, `new` expressions,
+and aggregate initialization in instantiated templates and macros.
+The `fastecu-aggregate-parens` check enforces this rule. Constructor calls
+(including aggregate copy construction) and value initialization such as
+`Aggregate()` are different operations and remain permitted.
+
+The check reports a diagnostic without an automatic fix: replacing parentheses
+with braces can reject narrowing conversions or change reference-member
+lifetimes. Review those semantics when converting an existing initialization.
+
 ## Strings and messages
 
 **Take non-owning strings as `std::string_view` by value**, not `const char*`

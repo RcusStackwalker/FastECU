@@ -240,7 +240,7 @@ void ScriptFlashDump(ScriptedCanFlashTransport& transport, std::uint32_t start, 
     {
         bytes::Bytes reply = Response({0xF7});
         reply.insert(reply.end(), wire_page.begin(), wire_page.end());
-        transport.Exchange(Request(bytes::ComposeBe(bytes::Byte(0xB7), bytes::U24(addr))), reply);
+        transport.Exchange(Request(bytes::ComposeBe(bytes::Byte(0xB7), bytes::U24{addr})), reply);
     }
 }
 
@@ -464,7 +464,7 @@ TEST(SubaruTcuCvtMitsuMh8104CanExecutor, ReadDisconnectMidDumpLoopPropagates)
 
     ScriptFullConnect(transport);
     ScriptDumpSetup(transport);
-    transport.Exchange(Request(bytes::ComposeBe(bytes::Byte(0xB7), bytes::U24(kWindowStart))));
+    transport.Exchange(Request(bytes::ComposeBe(bytes::Byte(0xB7), bytes::U24{kWindowStart})));
     transport.QueueError(ErrorKind::kDisconnected, "adapter gone");
 
     const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
@@ -498,7 +498,7 @@ TEST(SubaruTcuCvtMitsuMh8104CanExecutor, WriteFlashesTheBlockToleratingEveryCont
     // that ends the retry), so only one attempt is scripted here, with a
     // deliberately wrong reply.
     transport.Exchange(Request(bytes::ComposeBe(bytes::Byte(0x34), bytes::Byte(0x04), bytes::Byte(0x33),
-                                                bytes::U24(kWindowStart), bytes::U24(kWindowLength))),
+                                                bytes::U24{kWindowStart}, bytes::U24{kWindowLength})),
                        Response({0x7F, 0x34, 0x22}));
 
     const bytes::ByteView block_plain = bytes::ByteView(rom).subspan(kWindowStart, kWindowLength);
@@ -514,7 +514,7 @@ TEST(SubaruTcuCvtMitsuMh8104CanExecutor, WriteFlashesTheBlockToleratingEveryCont
     for (std::uint32_t offset = 0; offset < kWindowLength; offset += kChunkSize)
     {
         const std::uint32_t addr = kWindowStart + offset;
-        bytes::Bytes req = bytes::ComposeBe(bytes::Byte(0xB6), bytes::U24(addr),
+        bytes::Bytes req = bytes::ComposeBe(bytes::Byte(0xB6), bytes::U24{addr},
                                             bytes::ByteView(encrypted).subspan(offset, kChunkSize));
         // Content is never even inspected by the executor for this
         // exchange -- script a deliberately wrong reply to prove that.
@@ -559,13 +559,13 @@ TEST(SubaruTcuCvtMitsuMh8104CanExecutor, WriteStopsOnATimeoutBetweenChunks)
     ScriptEraseMemory(transport);
 
     transport.Exchange(Request(bytes::ComposeBe(bytes::Byte(0x34), bytes::Byte(0x04), bytes::Byte(0x33),
-                                                bytes::U24(kWindowStart), bytes::U24(kWindowLength))),
+                                                bytes::U24{kWindowStart}, bytes::U24{kWindowLength})),
                        Response({0x74}));
 
     const bytes::ByteView block_plain = bytes::ByteView(rom).subspan(kWindowStart, kWindowLength);
     const bytes::Bytes encrypted = ToWire(block_plain);
     bytes::Bytes first_chunk_req =
-        bytes::ComposeBe(bytes::Byte(0xB6), bytes::U24(kWindowStart), bytes::ByteView(encrypted).subspan(0, 128));
+        bytes::ComposeBe(bytes::Byte(0xB6), bytes::U24{kWindowStart}, bytes::ByteView(encrypted).subspan(0, 128));
     transport.Exchange(Request(first_chunk_req));
     transport.QueueError(ErrorKind::kDisconnected, "adapter gone mid-write");
 

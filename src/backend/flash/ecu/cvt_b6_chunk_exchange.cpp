@@ -11,7 +11,7 @@ Status ExchangeCvtB6Chunk(uds::IUdsChannel& channel, const ICancellationToken& c
                           bytes::ByteView encrypted_chunk)
 {
     if (const Status sent = channel.Send(
-            bytes::ComposeBe(uds::kSidWriteMemoryChunk, bytes::U24(address), encrypted_chunk), cancellation);
+            bytes::ComposeBe(uds::kSidWriteMemoryChunk, bytes::U24{address}, encrypted_chunk), cancellation);
         !sent.has_value())
     {
         return sent;
