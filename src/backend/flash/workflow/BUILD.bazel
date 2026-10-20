@@ -88,6 +88,7 @@ fastecu_portable_gtest(
     deps = [
         ":flash_workflow",
         "//src/algorithms/memory:memory_image",
+        "//src/algorithms/protocol/testing:byte_matchers",
         "//src/backend/config:builtin_catalog",
         "//src/backend/config:catalog",
         "//src/backend/config:config_paths",

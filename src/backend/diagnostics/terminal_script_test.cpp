@@ -92,6 +92,7 @@ TEST(TerminalScript, MalformedDelaysAreRejected)
     for (const char *bad : {"delay()", "delay(abc)", "delay(-5)", "delay(1.5)", "delay 100", "delay(100", "delay(100)x",
                             "delay( 100 )", "Delay(100)", "delay(+5)"})
     {
+        SCOPED_TRACE(::testing::PrintToString(bad));
         EXPECT_THAT(Parse({bad}), IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("line 1"))) << bad;
     }
 }
@@ -100,6 +101,7 @@ TEST(TerminalScript, NonHexOrOversizedByteTokensAreRejected)
 {
     for (const char *bad : {"zz", "10 0g", "100", "0x10", "10,11"})
     {
+        SCOPED_TRACE(::testing::PrintToString(bad));
         EXPECT_THAT(Parse({bad}), IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("line 1"))) << bad;
     }
 }

@@ -10,6 +10,21 @@
 
 **Spec:** [Approved design](../specs/2026-10-19-clang-tidy-plugin-enforcement-design.md).
 
+## Draft implementation checkpoint
+
+The native migration, unified runner, assertion-check implementations and initial
+cleanup are available for review. On macOS the current snapshot passes all 31
+native fixtures, the changed-file pre-commit gates and the full release test
+run (294 passed, 20 platform-incompatible tests skipped). Earlier focused runs
+also passed the 67 flash ECU/bound-attempt suites and 47 applicable
+parameterized-case suites.
+
+This remains a draft. Frozen full-scope zero-finding reports, fresh-database
+migration equivalence, runtime measurements, Windows linked-host qualification,
+remaining check enablement, enduring documentation and final independent review
+are still required. Exploratory reports taken during cleanup are not final
+qualification evidence. The original approved plan remains preserved in history.
+
 ## Global Constraints
 
 - Supported local LLVM is CI's pinned release, currently 23.1.2; validate the actual selected installation and host compatibility.

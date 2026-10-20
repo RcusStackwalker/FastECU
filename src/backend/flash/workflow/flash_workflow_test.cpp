@@ -1,3 +1,4 @@
+#include "src/algorithms/protocol/testing/byte_matchers.h"
 #include "src/backend/flash/workflow/flash_workflow.h"
 
 #include <gtest/gtest.h>
@@ -297,6 +298,7 @@ TEST(FlashWorkflowTest, recognizesEveryPortableFamilyPrefixAndLeavesLegacyAlone)
                                                                    "sub_ecu_unisia_jecs_70"});
     for (const char *protocol : kPortable)
     {
+        SCOPED_TRACE(::testing::PrintToString(protocol));
         ASSERT_TRUE(CreateWorkflow(Request(protocol)) != nullptr) << protocol;
     }
 }
@@ -345,6 +347,7 @@ TEST(FlashWorkflowTest, unisiaJecsRoutesOnlyExactProtocolMcuPairs)
 
     for (const auto& [protocol, mcu] : kPairs)
     {
+        SCOPED_TRACE(::testing::PrintToString(protocol));
         auto input = Request(protocol);
         input.protocol.mcu = mcu;
         auto workflow = CreateWorkflow(std::move(input));
@@ -373,6 +376,7 @@ TEST(FlashWorkflowTest, unisiaJecsCrossPairsFailBeforeAttempt)
 
     for (const auto& [protocol, mcu] : kCrossPairs)
     {
+        SCOPED_TRACE(::testing::PrintToString(protocol));
         auto input = Request(protocol);
         input.protocol.mcu = mcu;
         auto workflow = CreateWorkflow(std::move(input));
@@ -402,6 +406,7 @@ TEST(FlashWorkflowTest, subaruHitachiRoutesBothModesAndPropagatesReadResult)
 {
     for (const char *protocol : {"sub_ecu_hitachi_m32r_kline", "sub_ecu_hitachi_m32r_kline_recovery"})
     {
+        SCOPED_TRACE(::testing::PrintToString(protocol));
         auto input = Request(protocol);
         input.protocol.mcu = "M32R_512KB_1block";
         auto workflow = CreateWorkflow(std::move(input));
@@ -519,8 +524,10 @@ TEST(FlashWorkflowTest, routesSh72543rAliasesAndPreservesImageAndIdentity)
 {
     for (const char *protocol : {"sub_ecu_hitachi_sh72543r_can", "sub_ecu_hitachi_sh72543r_can_recovery"})
     {
+        SCOPED_TRACE(::testing::PrintToString(protocol));
         for (auto operation : {FlashOperation::kRead, FlashOperation::kWrite})
         {
+            SCOPED_TRACE(::testing::PrintToString(operation));
             auto input = Request(protocol, operation);
             input.protocol.mcu = "SH72543R";
             if (operation == FlashOperation::kWrite)
@@ -569,6 +576,7 @@ TEST(FlashWorkflowTest, routesSh7058ReadAndWriteWithPreTransportPrompts)
     ASSERT_TRUE(!CreateWorkflow(Request("sub_ecu_hitachi_sh7058_can_extra")));
     for (const auto operation : {FlashOperation::kRead, FlashOperation::kWrite})
     {
+        SCOPED_TRACE(::testing::PrintToString(operation));
         auto input = Request("sub_ecu_hitachi_sh7058_can", operation);
         input.protocol.mcu = "SH7058_1block";
         if (operation == FlashOperation::kWrite)
@@ -612,8 +620,10 @@ TEST(FlashWorkflowTest, sh72543rRejectsPreflightAndDeclinedBegin)
 {
     for (const char *protocol : {"sub_ecu_hitachi_sh72543r_can", "sub_ecu_hitachi_sh72543r_can_recovery"})
     {
+        SCOPED_TRACE(::testing::PrintToString(protocol));
         for (int fault = 0; fault < 3; ++fault)
         {
+            SCOPED_TRACE(::testing::PrintToString(fault));
             auto input = Request(protocol, fault == 0 ? FlashOperation::kTestWrite : FlashOperation::kWrite);
             input.protocol.mcu = fault == 1 ? "SH72543d" : "SH72543R";
             input.image = bytes::Bytes(fault == 2 ? 16 : 0x200000);
@@ -639,6 +649,7 @@ TEST(FlashWorkflowTest, sh72543rPropagatesFailureAndAbsentIdentity)
 {
     for (int outcome = 0; outcome < 3; ++outcome)
     {
+        SCOPED_TRACE(::testing::PrintToString(outcome));
         auto input = Request("sub_ecu_hitachi_sh72543r_can");
         input.protocol.mcu = "SH72543R";
         auto workflow = CreateWorkflow(std::move(input));
@@ -789,6 +800,7 @@ TEST(FlashWorkflowTest, mc68Revision04HasNoRoute)
 {
     for (const char *protocol : {"sub_ecu_denso_mc68hc16y5_04", "sub_ecu_denso_mc68hc16y5_04_ecutek"})
     {
+        SCOPED_TRACE(::testing::PrintToString(protocol));
         auto input = Request(protocol);
         input.protocol.mcu = "MC68HC16Y5";
         ASSERT_TRUE(CreateWorkflow(std::move(input)) == nullptr) << protocol;
@@ -813,10 +825,12 @@ TEST(FlashWorkflowTest, densoCanRoutesOnlyTheFiveExactProtocols)
     });
     for (const char *protocol : kProtocols)
     {
+        SCOPED_TRACE(::testing::PrintToString(protocol));
         ASSERT_TRUE(CreateWorkflow(Request(protocol)) != nullptr) << protocol;
     }
     for (const char *near_miss : {"sub_ecu_denso_sh7058_densocan_extra", "future_densocan"})
     {
+        SCOPED_TRACE(::testing::PrintToString(near_miss));
         ASSERT_TRUE(CreateWorkflow(Request(near_miss)) == nullptr) << near_miss;
     }
 }
@@ -885,6 +899,7 @@ TEST(FlashWorkflowTest, densoCanPreflightAndDeclinedPromptsStopBeforeAttempt)
 
     for (const bool decline_begin : {true, false})
     {
+        SCOPED_TRACE(::testing::PrintToString(decline_begin));
         auto input = Request("sub_ecu_denso_sh7055_densocan");
         input.protocol.mcu = "SH7055";
         const auto paths = CatalogPaths();
@@ -920,6 +935,7 @@ TEST(FlashWorkflowTest, petrolRoutesOnlyTheFiveExactProtocols)
     });
     for (const char *protocol : kProtocols)
     {
+        SCOPED_TRACE(::testing::PrintToString(protocol));
         ASSERT_TRUE(CreateWorkflow(Request(protocol)) != nullptr) << protocol;
     }
     for (const char *near_miss : {
@@ -928,6 +944,7 @@ TEST(FlashWorkflowTest, petrolRoutesOnlyTheFiveExactProtocols)
              "sub_ecu_denso_sh7058_can_cobb_typo",
          })
     {
+        SCOPED_TRACE(::testing::PrintToString(near_miss));
         ASSERT_TRUE(CreateWorkflow(Request(near_miss)) == nullptr) << near_miss;
     }
 }
@@ -953,6 +970,7 @@ TEST(FlashWorkflowTest, petrolSupportedOperationsResolveSecurityAndCatalogKernel
 
     for (const Case& test : cases)
     {
+        SCOPED_TRACE(::testing::PrintToString(test));
         auto input = Request(test.protocol, test.operation);
         input.protocol.mcu = "SH7058";
         input.paths = paths;
@@ -1070,11 +1088,13 @@ TEST(FlashWorkflowTest, dieselRoutesOnlyTheTwoExactProtocols)
 {
     for (const char *protocol : {"sub_ecu_denso_sh7058_can_diesel", "sub_ecu_denso_sh7059_can_diesel"})
     {
+        SCOPED_TRACE(::testing::PrintToString(protocol));
         ASSERT_TRUE(CreateWorkflow(Request(protocol)) != nullptr) << protocol;
     }
     for (const char *near_miss : {"sub_ecu_denso_sh7058_can_diesel_future", "sub_ecu_denso_sh7059_can_diesel_extra",
                                   "sub_ecu_denso_sh7058_can_diesel_typo", "sub_ecu_denso_sh7058_can_diesel_ecutek"})
     {
+        SCOPED_TRACE(::testing::PrintToString(near_miss));
         ASSERT_TRUE(CreateWorkflow(Request(near_miss)) == nullptr) << near_miss;
     }
 }
@@ -1109,6 +1129,7 @@ TEST(FlashWorkflowTest, dieselSupportedOperationsResolveGenerationCatalogKernels
 
     for (const Case& test : cases)
     {
+        SCOPED_TRACE(::testing::PrintToString(test));
         auto input = Request(test.protocol, test.operation);
         input.protocol.mcu = test.mcu;
         input.paths = paths;
@@ -1234,11 +1255,13 @@ TEST(FlashWorkflowTest, tcuRoutesOnlyTheTwoExactProtocols)
 {
     for (const char *protocol : {"sub_tcu_denso_sh7055_can", "sub_tcu_denso_sh7058_can"})
     {
+        SCOPED_TRACE(::testing::PrintToString(protocol));
         ASSERT_TRUE(CreateWorkflow(Request(protocol)) != nullptr) << protocol;
     }
     for (const char *near_miss :
          {"sub_tcu_denso_sh7055_can_future", "sub_tcu_denso_sh7058_can_typo", "sub_tcu_denso_sh7058_can_extra"})
     {
+        SCOPED_TRACE(::testing::PrintToString(near_miss));
         ASSERT_TRUE(CreateWorkflow(Request(near_miss)) == nullptr) << near_miss;
     }
 }
@@ -1269,6 +1292,7 @@ TEST(FlashWorkflowTest, tcuSupportedOperationsResolveTheirCatalogKernelAndReachA
 
     for (const Case& test : cases)
     {
+        SCOPED_TRACE(::testing::PrintToString(test));
         auto input = Request(test.protocol, test.operation);
         input.protocol.mcu = test.mcu;
         input.paths = paths;
@@ -1318,6 +1342,7 @@ TEST(FlashWorkflowTest, tcuUnsupportedOperationsFailBeforeTransportIo)
 
     for (const Case& test : kCases)
     {
+        SCOPED_TRACE(::testing::PrintToString(test));
         auto input = Request(test.protocol, test.operation);
         input.protocol.mcu = test.mcu;
         input.paths = paths;
@@ -1559,8 +1584,10 @@ TEST(FlashWorkflowTest, mc68FullFileIsPlacedByItsCatalogMap)
     ASSERT_EQ(plan.Image(), full_file);
     ASSERT_TRUE(plan.RomImage().has_value());
     EXPECT_EQ(plan.RomImage()->Map().FileSize(), memory::ByteCount{0x30000});
-    EXPECT_EQ(RenderedFlash(plan, 0x00000, 0x20000), bytes::Bytes(0x20000, 0x11));
-    EXPECT_EQ(RenderedFlash(plan, 0x28000, 0x8000), bytes::Bytes(0x8000, 0x22));
+    EXPECT_THAT(RenderedFlash(plan, 0x00000, 0x20000),
+                ::testing::AllOf(::testing::SizeIs(0x20000), test_bytes::BytesFilledWith(0x11)));
+    EXPECT_THAT(RenderedFlash(plan, 0x28000, 0x8000),
+                ::testing::AllOf(::testing::SizeIs(0x8000), test_bytes::BytesFilledWith(0x22)));
 }
 
 TEST(FlashWorkflowTest, mc68FullAndPackedFilesRenderTheSameFlash)
@@ -1581,6 +1608,7 @@ TEST(FlashWorkflowTest, mc68FullAndPackedFilesRenderTheSameFlash)
     std::vector<decltype(FlashAttempt::attempt)> attempts;
     for (bytes::Bytes file : {packed_file, full_file})
     {
+        SCOPED_TRACE(::testing::PrintToString(file));
         auto input = Mc68Request(FlashOperation::kTestWrite);
         input.paths = paths;
         input.image = std::move(file);
@@ -1686,6 +1714,7 @@ TEST(FlashWorkflowTest, densoSh705xKlineRoutesExactProtocolsThroughBeginToAttemp
     };
     for (const Case& c : cases)
     {
+        SCOPED_TRACE(::testing::PrintToString(c));
         const auto paths = CatalogPaths();
 
         auto input = Request(c.protocol, c.operation);
@@ -1730,6 +1759,7 @@ TEST(FlashWorkflowTest, densoSh705xKlineIgnoresPrefixLookalikes)
     for (const char *near_miss :
          {"sub_ecu_denso_sh7055_04_future", "sub_ecu_denso_sh7058_extra", "sub_ecu_denso_sh7058_ecutek_racerom"})
     {
+        SCOPED_TRACE(::testing::PrintToString(near_miss));
         ASSERT_TRUE(CreateWorkflow(Request(near_miss)) == nullptr) << near_miss;
     }
 }
@@ -1749,6 +1779,7 @@ TEST(FlashWorkflowTest, unisiaJecsM32rRoutesTheFourExactProtocols)
              {"sub_ecu_unisia_jecs_70", "M32R_512KB", 0x80000},
          }))
     {
+        SCOPED_TRACE(::testing::PrintToString(variant));
         auto input = Request(variant.protocol);
         input.protocol.mcu = variant.mcu;
         auto workflow = CreateWorkflow(std::move(input));
@@ -1768,6 +1799,7 @@ TEST(FlashWorkflowTest, unisiaJecsM32rLookalikesStayUnrouted)
     for (const char *protocol : {"sub_ecu_unisia_jecs_20x", "sub_ecu_unisia_jecs_7", "sub_ecu_unisia_jecs_20_bootmodex",
                                  "sub_ecu_unisia_jecs_40_bootmode"})
     {
+        SCOPED_TRACE(::testing::PrintToString(protocol));
         ASSERT_TRUE(CreateWorkflow(Request(protocol)) == nullptr) << protocol;
     }
 }
@@ -1785,6 +1817,7 @@ TEST(FlashWorkflowTest, unisiaBootmodeReadUsesTheKlineReadFamily)
              {"sub_ecu_unisia_jecs_30_bootmode", "M32R_256KB", 0x40000},
          }))
     {
+        SCOPED_TRACE(::testing::PrintToString(variant));
         auto input = Request(variant.protocol);
         input.protocol.mcu = variant.mcu;
         auto workflow = CreateWorkflow(std::move(input));
@@ -2404,6 +2437,7 @@ TEST(FlashWorkflowTest, singleAttemptFamiliesCancelWhenAnyPromptIsDeclined)
 
     for (const SingleAttemptCase& test : SingleAttemptCases())
     {
+        SCOPED_TRACE(::testing::PrintToString(test));
         const std::vector<FlashPromptKind> sequence = WithBegin(test.confirmations);
         for (std::size_t declined = 0; declined < sequence.size(); ++declined)
         {
@@ -2412,6 +2446,7 @@ TEST(FlashWorkflowTest, singleAttemptFamiliesCancelWhenAnyPromptIsDeclined)
             ASSERT_TRUE(workflow != nullptr);
             for (std::size_t accepted = 0; accepted < declined; ++accepted)
             {
+                SCOPED_TRACE(::testing::PrintToString(accepted));
                 ASSERT_EQ(std::get<FlashPromptStep>(workflow->Next()).kind, sequence[accepted]);
                 workflow->Submit(FlashPromptResponse::kAccept);
             }
@@ -2420,6 +2455,7 @@ TEST(FlashWorkflowTest, singleAttemptFamiliesCancelWhenAnyPromptIsDeclined)
 
             for (int repeat = 0; repeat < 2; ++repeat)
             {
+                SCOPED_TRACE(::testing::PrintToString(repeat));
                 const auto step = workflow->Next();
                 ASSERT_TRUE(std::holds_alternative<FlashCompletedStep>(step));
                 const auto& done = std::get<FlashCompletedStep>(step);
@@ -2437,6 +2473,7 @@ TEST(FlashWorkflowTest, singleAttemptFamiliesTreatEveryNonAcceptResponseAsDeclin
 
     for (const SingleAttemptCase& test : SingleAttemptCases())
     {
+        SCOPED_TRACE(::testing::PrintToString(test));
         for (const auto response : {FlashPromptResponse::kSave, FlashPromptResponse::kDiscard})
         {
             SCOPED_TRACE(std::format("{} response {}", test.protocol, static_cast<int>(response)));
@@ -2529,6 +2566,7 @@ TEST(FlashWorkflowTest, singleAttemptFamiliesRejectInvalidConfigurationBeforeAny
         ASSERT_TRUE(workflow != nullptr);
         for (int repeat = 0; repeat < 2; ++repeat)
         {
+            SCOPED_TRACE(::testing::PrintToString(repeat));
             const auto step = workflow->Next();
             ASSERT_TRUE(std::holds_alternative<FlashFailureStep>(step));
             EXPECT_EQ(std::get<FlashFailureStep>(step).error.kind, ErrorKind::kInvalidConfig);
@@ -2543,6 +2581,7 @@ TEST(FlashWorkflowTest, kernelBackedFamiliesFailBeforeAnyPromptOrIoWithoutTheirK
 
     for (const SingleAttemptCase& test : SingleAttemptCases())
     {
+        SCOPED_TRACE(::testing::PrintToString(test));
         if (!test.kernel.has_value())
         {
             continue;
@@ -2557,6 +2596,7 @@ TEST(FlashWorkflowTest, kernelBackedFamiliesFailBeforeAnyPromptOrIoWithoutTheirK
             ASSERT_TRUE(workflow != nullptr);
             for (int repeat = 0; repeat < 2; ++repeat)
             {
+                SCOPED_TRACE(::testing::PrintToString(repeat));
                 const auto step = workflow->Next();
                 ASSERT_TRUE(std::holds_alternative<FlashFailureStep>(step));
                 EXPECT_EQ(std::get<FlashFailureStep>(step).error.kind, ErrorKind::kInvalidConfig);
@@ -2656,6 +2696,7 @@ TEST(FlashWorkflowTest, sh7058WriteCancelsWhenBeginIsDeclined)
     workflow->Submit(FlashPromptResponse::kDecline);
     for (int repeat = 0; repeat < 2; ++repeat)
     {
+        SCOPED_TRACE(::testing::PrintToString(repeat));
         const auto step = workflow->Next();
         ASSERT_TRUE(std::holds_alternative<FlashCompletedStep>(step));
         EXPECT_EQ(std::get<FlashCompletedStep>(step).outcome, FlashWorkflowOutcome::kCancelled);
@@ -2686,6 +2727,7 @@ TEST(FlashWorkflowTest, sh7058WriteRejectsInvalidInputBeforeAnyPromptOrIo)
         ASSERT_TRUE(workflow != nullptr);
         for (int repeat = 0; repeat < 2; ++repeat)
         {
+            SCOPED_TRACE(::testing::PrintToString(repeat));
             const auto step = workflow->Next();
             ASSERT_TRUE(std::holds_alternative<FlashFailureStep>(step));
             EXPECT_EQ(std::get<FlashFailureStep>(step).error.kind, test.expected);
@@ -2782,6 +2824,7 @@ TEST(FlashWorkflowTest, mc68BdmWriteCancelsWhenEitherPromptIsDeclined)
         ASSERT_TRUE(workflow != nullptr);
         for (std::size_t accepted = 0; accepted < declined; ++accepted)
         {
+            SCOPED_TRACE(::testing::PrintToString(accepted));
             ASSERT_EQ(std::get<FlashPromptStep>(workflow->Next()).kind, sequence[accepted]);
             workflow->Submit(FlashPromptResponse::kAccept);
         }
@@ -2789,6 +2832,7 @@ TEST(FlashWorkflowTest, mc68BdmWriteCancelsWhenEitherPromptIsDeclined)
         workflow->Submit(FlashPromptResponse::kDecline);
         for (int repeat = 0; repeat < 2; ++repeat)
         {
+            SCOPED_TRACE(::testing::PrintToString(repeat));
             const auto step = workflow->Next();
             ASSERT_TRUE(std::holds_alternative<FlashCompletedStep>(step));
             EXPECT_EQ(std::get<FlashCompletedStep>(step).outcome, FlashWorkflowOutcome::kCancelled);
@@ -2810,6 +2854,7 @@ TEST(FlashWorkflowTest, mc68BdmWriteWithoutItsKernelFailsBeforeAnyPromptOrIo)
         ASSERT_TRUE(workflow != nullptr);
         for (int repeat = 0; repeat < 2; ++repeat)
         {
+            SCOPED_TRACE(::testing::PrintToString(repeat));
             const auto step = workflow->Next();
             ASSERT_TRUE(std::holds_alternative<FlashFailureStep>(step));
             EXPECT_EQ(std::get<FlashFailureStep>(step).error.kind, ErrorKind::kInvalidConfig);
@@ -2897,6 +2942,7 @@ TEST(FlashWorkflowTest, coltWritePromptsCarryTheirCapacityArgumentsInOrder)
         ASSERT_EQ(prompts.size(), test.prompts.size());
         for (std::size_t index = 0; index < prompts.size(); ++index)
         {
+            SCOPED_TRACE(::testing::PrintToString(index));
             EXPECT_THAT(prompts[index], IsPrompt(test.prompts[index])) << "prompt " << index;
         }
 
@@ -2928,6 +2974,7 @@ TEST(FlashWorkflowTest, coltWriteCancelsWhenAnyPromptIsDeclined)
 {
     for (const ColtWriteCase& test : ColtWriteCases())
     {
+        SCOPED_TRACE(::testing::PrintToString(test));
         for (std::size_t declined = 0; declined < test.prompts.size(); ++declined)
         {
             SCOPED_TRACE(std::format("{} declining prompt {}", test.protocol, declined));
@@ -2935,6 +2982,7 @@ TEST(FlashWorkflowTest, coltWriteCancelsWhenAnyPromptIsDeclined)
             ASSERT_TRUE(workflow != nullptr);
             for (std::size_t accepted = 0; accepted < declined; ++accepted)
             {
+                SCOPED_TRACE(::testing::PrintToString(accepted));
                 ASSERT_THAT(std::get<FlashPromptStep>(workflow->Next()), IsPrompt(test.prompts[accepted]));
                 workflow->Submit(FlashPromptResponse::kAccept);
             }
@@ -2942,6 +2990,7 @@ TEST(FlashWorkflowTest, coltWriteCancelsWhenAnyPromptIsDeclined)
             workflow->Submit(FlashPromptResponse::kDecline);
             for (int repeat = 0; repeat < 2; ++repeat)
             {
+                SCOPED_TRACE(::testing::PrintToString(repeat));
                 const auto step = workflow->Next();
                 ASSERT_TRUE(std::holds_alternative<FlashCompletedStep>(step));
                 EXPECT_EQ(std::get<FlashCompletedStep>(step).outcome, FlashWorkflowOutcome::kCancelled);

@@ -43,14 +43,24 @@ TEST_P(CheckedArithmetic, EvaluatesWithoutTextRounding)
     EXPECT_THAT(EvaluateChecked(example.expression, example.input), ValueIs(::testing::DoubleEq(example.expected)));
 }
 
-INSTANTIATE_TEST_SUITE_P(Grammar, CheckedArithmetic,
-                         ::testing::Values(ArithmeticCase{"x*2+1", 3, 7}, ArithmeticCase{"-(x+2)", 3, -5},
-                                           ArithmeticCase{"+1.25e-2", 3, 0.0125}, ArithmeticCase{"", 3, 3},
-                                           ArithmeticCase{" \t\n", 3, 3}, ArithmeticCase{"(2+3)*(4-1)", 0, 15},
-                                           ArithmeticCase{"x/-2", 3, -1.5}, ArithmeticCase{"-x+5", 3, 2},
-                                           ArithmeticCase{"x*-2", 3, -6}, ArithmeticCase{"--x", 3, 3},
-                                           ArithmeticCase{".5+1.", 0, 1.5}, ArithmeticCase{"1E+2", 0, 100},
-                                           ArithmeticCase{"1000000000000000+1-1000000000000000", 0, 1}));
+INSTANTIATE_TEST_SUITE_P(
+    Grammar, CheckedArithmetic,
+    ::testing::Values(ArithmeticCase{"x*2+1", 3, 7}, ArithmeticCase{"-(x+2)", 3, -5},
+                      ArithmeticCase{"+1.25e-2", 3, 0.0125}, ArithmeticCase{"", 3, 3}, ArithmeticCase{" \t\n", 3, 3},
+                      ArithmeticCase{"(2+3)*(4-1)", 0, 15}, ArithmeticCase{"x/-2", 3, -1.5},
+                      ArithmeticCase{"-x+5", 3, 2}, ArithmeticCase{"x*-2", 3, -6}, ArithmeticCase{"--x", 3, 3},
+                      ArithmeticCase{".5+1.", 0, 1.5}, ArithmeticCase{"1E+2", 0, 100},
+                      ArithmeticCase{"1000000000000000+1-1000000000000000", 0, 1}),
+    (
+        [](const auto& info)
+        {
+            static constexpr std::array kNames{
+                "MultiplyThenAdd",           "NegatedParentheses",      "ScientificFraction",   "EmptyIdentity",
+                "WhitespaceIdentity",        "ParenthesizedArithmetic", "NegativeDivisor",      "NegatedVariable",
+                "NegativeMultiplier",        "DoubleNegation",          "DecimalWithoutDigits", "ScientificInteger",
+                "LargeMagnitudeCancellation"};
+            return kNames[info.index];
+        }));
 
 class InvalidExpression : public ::testing::TestWithParam<std::string_view>
 {
@@ -63,7 +73,20 @@ TEST_P(InvalidExpression, RejectsWithDiagnostic)
 
 INSTANTIATE_TEST_SUITE_P(Grammar, InvalidExpression,
                          ::testing::Values("2junk", "(x", "x)", "()", "x+", "*x", "x x", "y", "sin(x)", "x^2", "1/0",
-                                           "0/0", "1e309", "1e308*10", "nan", "inf", "0x10", "1e", "1e+", ".", "1..2"));
+                                           "0/0", "1e309", "1e308*10", "nan", "inf", "0x10", "1e", "1e+", ".", "1..2"),
+                         (
+                             [](const auto& info)
+                             {
+                                 static constexpr std::array kNames{
+                                     "TrailingJunk",          "UnclosedParenthesis", "UnopenedParenthesis",
+                                     "EmptyParentheses",      "MissingRightOperand", "MissingLeftOperand",
+                                     "AdjacentVariables",     "UnknownVariable",     "UnsupportedFunction",
+                                     "UnsupportedPower",      "DivideByZero",        "ZeroDividedByZero",
+                                     "LiteralOverflow",       "ArithmeticOverflow",  "NanLiteral",
+                                     "InfinityLiteral",       "HexadecimalLiteral",  "MissingExponent",
+                                     "MissingSignedExponent", "DecimalPointOnly",    "MultipleDecimalPoints"};
+                                 return kNames[info.index];
+                             }));
 
 TEST(CompiledExpression, OwnsSourceAndCanBeCopiedForRepeatedEvaluation)
 {

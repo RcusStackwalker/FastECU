@@ -208,14 +208,15 @@ TEST(ParserUtilsTest, HeaderRejectsNestedScalarContentWithSourceContext)
 {
     for (const std::string field : {"xmlid", "internalidstring", "model", "notes"})
     {
+        SCOPED_TRACE(::testing::PrintToString(field));
         pugi::xml_document document;
         const std::string xml = "<rom><romid><" + field + ">A<b>B</b></" + field + ">" +
                                 (field == "xmlid" ? "" : "<xmlid>ID</xmlid>") + "</romid></rom>";
         ASSERT_TRUE(document.load_string(xml.c_str()));
         const auto header = ParseRomHeader(document.document_element(), "nested.xml");
         ASSERT_THAT(header, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
-        EXPECT_THAT(header.error().detail, ::testing::HasSubstr("nested.xml"));
-        EXPECT_THAT(header.error().detail, ::testing::HasSubstr(field));
+        EXPECT_THAT(header, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, ::testing::HasSubstr("nested.xml")));
+        EXPECT_THAT(header, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, ::testing::HasSubstr(field)));
     }
 }
 

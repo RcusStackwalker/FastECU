@@ -32,6 +32,7 @@ TEST(Sh72543rPlan, BothAliasesHaveDistinctReadAndWriteWindows)
 {
     for (auto protocol : {kProtocol, "sub_ecu_hitachi_sh72543r_can_recovery"})
     {
+        SCOPED_TRACE(::testing::PrintToString(protocol));
         auto read = BuildSubaruHitachiSh72543rCanPlan(FlashOperation::kRead, protocol, "SH72543R", std::nullopt);
         ASSERT_THAT(read, fastecu::testing::IsOk());
         EXPECT_EQ(read->TransferRegion().start, 0U);
@@ -71,6 +72,7 @@ TEST(Sh72543rPlan, RejectsIdentityAndImageErrors)
                 fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     for (auto size : {0U, 0x1fffffU, 0x200001U})
     {
+        SCOPED_TRACE(::testing::PrintToString(size));
         EXPECT_THAT(
             BuildSubaruHitachiSh72543rCanPlan(FlashOperation::kWrite, kProtocol, "SH72543R", bytes::Bytes(size)),
             fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
@@ -128,6 +130,7 @@ TEST(Sh72543rPlan, CoreRejectsMismatchedFamilyTransportAndVariant)
 {
     for (int mutation = 0; mutation < 3; ++mutation)
     {
+        SCOPED_TRACE(::testing::PrintToString(mutation));
         auto f = Fields();
         if (mutation == 0)
         {

@@ -196,6 +196,7 @@ TEST(DefinitionHeaderFields, ImportAndBothLoadersAgreeOnNormalizedHeaderValues)
     ASSERT_THAT(romraider, IsOk());
     for (const auto *definition : {&*ecuflash, &*romraider})
     {
+        SCOPED_TRACE(::testing::PrintToString(definition));
         EXPECT_EQ(definition->identity.xml_id, input->xml_id);
         EXPECT_EQ(definition->identity.internal_id, input->internal_id);
         EXPECT_EQ(definition->identity.ecu_id, input->ecu_id);

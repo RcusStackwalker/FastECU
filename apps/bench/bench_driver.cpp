@@ -51,7 +51,7 @@ struct Reporter
     void Report(const CommandOutcome& outcome) const
     {
         const std::string rendered =
-            options.json ? format_json(outcome, options.stats) : format_text(outcome, options.stats);
+            options.json ? FormatJson(outcome, options.stats) : FormatText(outcome, options.stats);
         output << rendered;
         if (rendered.empty() || rendered.back() != '\n')
         {
@@ -67,7 +67,7 @@ struct Reporter
     int Fail(std::string step, const Error& error, const TrafficEvidence& traffic = {}) const
     {
         Report(FailedOutcome(std::move(step), error, traffic));
-        return exit_code_for(error.kind);
+        return ExitCodeFor(error.kind);
     }
 };
 
@@ -82,7 +82,7 @@ void Ratchet(int& first_code, int code)
 
 bool IsDestructiveStep(const PreparedStep& step)
 {
-    const CommandSpec *const spec = find_command(step.spec.id);
+    const CommandSpec *const spec = FindCommand(step.spec.id);
     return spec != nullptr && spec->destructive;
 }
 
@@ -114,7 +114,7 @@ EraseSequenceState AdvanceEraseSequence(EraseSequenceState state, const Prepared
     {
         return state;
     }
-    if (step.spec.id == CommandId::Unlock)
+    if (step.spec.id == CommandId::kUnlock)
     {
         return state == EraseSequenceState::kNeedsUnlock ? EraseSequenceState::kReady
                                                          : EraseSequenceState::kNeedsHelper;
@@ -143,11 +143,11 @@ std::optional<PlanValidationFailure> ValidateSessionPlan(Steps&& steps)
     EraseSequenceState erase_sequence = EraseSequenceState::kNeedsHelper;
     for (const PreparedStep& step : steps)
     {
-        if (step.spec.id == CommandId::Ports)
+        if (step.spec.id == CommandId::kPorts)
         {
             continue;
         }
-        if (step.spec.id == CommandId::Connect && saw_session_step)
+        if (step.spec.id == CommandId::kConnect && saw_session_step)
         {
             return PlanValidationFailure{
                 &step, Error{ErrorKind::kInvalidConfig,
@@ -155,7 +155,7 @@ std::optional<PlanValidationFailure> ValidateSessionPlan(Steps&& steps)
         }
         saw_session_step = true;
 
-        if (step.spec.id == CommandId::Erase && erase_sequence != EraseSequenceState::kReady)
+        if (step.spec.id == CommandId::kErase && erase_sequence != EraseSequenceState::kReady)
         {
             return PlanValidationFailure{&step,
                                          Error{ErrorKind::kInvalidConfig, std::string(kEraseSequenceRequirement)}};
@@ -178,18 +178,18 @@ int RunSteps(IBenchSession& session, IBenchFiles& files, const Reporter& reporte
     for (const PreparedStep& step : steps)
     {
         CommandOutcome outcome;
-        if (step.spec.id == CommandId::Erase && state.erase_sequence != EraseSequenceState::kReady)
+        if (step.spec.id == CommandId::kErase && state.erase_sequence != EraseSequenceState::kReady)
         {
-            outcome = FailedOutcome(render_step(step.spec),
+            outcome = FailedOutcome(RenderStep(step.spec),
                                     Error{ErrorKind::kInvalidConfig, std::string(kEraseSequenceRequirement)});
-            if (const Result<double> battery = session.vbatt(); battery.has_value())
+            if (const Result<double> battery = session.Vbatt(); battery.has_value())
             {
                 outcome.vbatt = *battery;
             }
         }
         else
         {
-            outcome = run_step(context, step);
+            outcome = RunStep(context, step);
         }
 
         state.erase_sequence = AdvanceEraseSequence(state.erase_sequence, step, outcome.ok);
@@ -199,7 +199,7 @@ int RunSteps(IBenchSession& session, IBenchFiles& files, const Reporter& reporte
         {
             continue;
         }
-        Ratchet(code, exit_code_for(outcome.error_kind.value_or(ErrorKind::kInternal)));
+        Ratchet(code, ExitCodeFor(outcome.error_kind.value_or(ErrorKind::kInternal)));
         if (!reporter.options.keep_going)
         {
             break;
@@ -210,7 +210,7 @@ int RunSteps(IBenchSession& session, IBenchFiles& files, const Reporter& reporte
 
 int RunPorts(IBenchEnvironment& environment, const Reporter& reporter)
 {
-    const Result<std::vector<std::string>> ports = environment.list_ports(reporter.options);
+    const Result<std::vector<std::string>> ports = environment.ListPorts(reporter.options);
     if (!ports.has_value())
     {
         return reporter.Fail("ports", ports.error());
@@ -246,7 +246,7 @@ std::expected<std::vector<PreparedStep>, PreparationFailure> PrepareSteps(IBench
     prepared.reserve(specs.size());
     for (const StepSpec& spec : specs)
     {
-        Result<PreparedStep> step = prepare_step(files, spec);
+        Result<PreparedStep> step = PrepareStep(files, spec);
         if (!step.has_value())
         {
             return std::unexpected(PreparationFailure{.step = &spec, .error = step.error()});
@@ -259,7 +259,7 @@ std::expected<std::vector<PreparedStep>, PreparationFailure> PrepareSteps(IBench
 // What a failure before the first step ran is called.
 std::string PlanLabel(std::span<const PreparedStep> steps)
 {
-    return steps.empty() ? std::string("setup") : render_step(steps.front().spec);
+    return steps.empty() ? std::string("setup") : RenderStep(steps.front().spec);
 }
 
 // The one session every step shares. Connecting is implicit unless the plan
@@ -268,8 +268,8 @@ Result<std::reference_wrapper<IBenchSession>> OpenSession(IBenchEnvironment& env
                                                           std::span<const PreparedStep> steps)
 {
     const bool connect_implicitly =
-        !options.no_connect && !steps.empty() && steps.front().spec.id != CommandId::Connect;
-    return environment.session(options, connect_implicitly);
+        !options.no_connect && !steps.empty() && steps.front().spec.id != CommandId::kConnect;
+    return environment.Session(options, connect_implicitly);
 }
 
 int RunBatch(IBenchEnvironment& environment, IBenchFiles& files, const Reporter& reporter,
@@ -278,17 +278,17 @@ int RunBatch(IBenchEnvironment& environment, IBenchFiles& files, const Reporter&
     const std::expected<std::vector<PreparedStep>, PreparationFailure> prepared = PrepareSteps(files, steps);
     if (!prepared.has_value())
     {
-        return reporter.Fail(render_step(*prepared.error().step), prepared.error().error);
+        return reporter.Fail(RenderStep(*prepared.error().step), prepared.error().error);
     }
     if (const std::optional<PlanValidationFailure> failure = ValidateSessionPlan(*prepared); failure.has_value())
     {
-        return reporter.Fail(render_step(failure->step->spec), failure->error);
+        return reporter.Fail(RenderStep(failure->step->spec), failure->error);
     }
 
     const Result<std::reference_wrapper<IBenchSession>> session = OpenSession(environment, reporter.options, *prepared);
     if (!session.has_value())
     {
-        return reporter.Fail(PlanLabel(*prepared), session.error(), environment.last_setup_traffic());
+        return reporter.Fail(PlanLabel(*prepared), session.error(), environment.LastSetupTraffic());
     }
     SessionState state;
     return RunSteps(session->get(), files, reporter, *prepared, state);
@@ -329,8 +329,8 @@ ScriptPlan PrepareScript(IBenchFiles& files, const Reporter& reporter, std::istr
 
         const std::string line_label = std::format("script line {}", line_number);
 
-        if (const auto forbidden = std::ranges::find_if(tokens, [](std::string_view token)
-                                                        { return find_global_option(token) != nullptr; });
+        if (const auto forbidden =
+                std::ranges::find_if(tokens, [](std::string_view token) { return FindGlobalOption(token) != nullptr; });
             forbidden != tokens.end())
         {
             if (const Error error{ErrorKind::kInvalidConfig,
@@ -345,7 +345,7 @@ ScriptPlan PrepareScript(IBenchFiles& files, const Reporter& reporter, std::istr
         }
 
         const std::vector<std::string_view> line_args(tokens.begin(), tokens.end());
-        const Result<ParsedCommandLine> parsed = parse_command_line(line_args);
+        const Result<ParsedCommandLine> parsed = ParseCommandLine(line_args);
         if (!parsed.has_value())
         {
             if (line_failed(line_label, parsed.error()))
@@ -358,7 +358,7 @@ ScriptPlan PrepareScript(IBenchFiles& files, const Reporter& reporter, std::istr
         std::expected<std::vector<PreparedStep>, PreparationFailure> prepared = PrepareSteps(files, parsed->steps);
         if (!prepared.has_value())
         {
-            if (line_failed(std::format("{}: {}", line_label, render_step(*prepared.error().step)),
+            if (line_failed(std::format("{}: {}", line_label, RenderStep(*prepared.error().step)),
                             prepared.error().error))
             {
                 return plan;
@@ -375,7 +375,7 @@ ScriptPlan PrepareScript(IBenchFiles& files, const Reporter& reporter, std::istr
 // other step and needs no session.
 bool IsPortsLine(std::span<const PreparedStep> steps)
 {
-    return !steps.empty() && steps.front().spec.id == CommandId::Ports;
+    return !steps.empty() && steps.front().spec.id == CommandId::kPorts;
 }
 
 int RunScriptLines(IBenchEnvironment& environment, IBenchFiles& files, const Reporter& reporter,
@@ -401,7 +401,7 @@ int RunScriptLines(IBenchEnvironment& environment, IBenchFiles& files, const Rep
                     OpenSession(environment, reporter.options, steps);
                 if (!opened.has_value())
                 {
-                    return reporter.Fail(PlanLabel(steps), opened.error(), environment.last_setup_traffic());
+                    return reporter.Fail(PlanLabel(steps), opened.error(), environment.LastSetupTraffic());
                 }
                 session = *opened;
             }
@@ -430,17 +430,17 @@ int RunScript(IBenchEnvironment& environment, IBenchFiles& files, const Reporter
     if (const std::optional<PlanValidationFailure> failure = ValidateSessionPlan(plan.lines | std::views::join);
         failure.has_value())
     {
-        return reporter.Fail(render_step(failure->step->spec), failure->error);
+        return reporter.Fail(RenderStep(failure->step->spec), failure->error);
     }
     return RunScriptLines(environment, files, reporter, plan.lines);
 }
 
 } // namespace
 
-int run_cli(IBenchEnvironment& environment, IBenchFiles& files, std::span<const std::string_view> args,
-            std::istream& input, std::ostream& output, std::ostream& diagnostics)
+int RunCli(IBenchEnvironment& environment, IBenchFiles& files, std::span<const std::string_view> args,
+           std::istream& input, std::ostream& output, std::ostream& diagnostics)
 {
-    const Result<ParsedCommandLine> parsed = parse_command_line(args);
+    const Result<ParsedCommandLine> parsed = ParseCommandLine(args);
     if (!parsed.has_value())
     {
         if (std::ranges::find(args, "--json") != args.end())
@@ -450,7 +450,7 @@ int run_cli(IBenchEnvironment& environment, IBenchFiles& files, std::span<const 
             return Reporter{options, output, diagnostics}.Fail("command line", parsed.error());
         }
         diagnostics << parsed.error().detail << '\n';
-        return exit_code_for(parsed.error().kind);
+        return ExitCodeFor(parsed.error().kind);
     }
 
     const Reporter reporter{parsed->options, output, diagnostics};
@@ -458,7 +458,7 @@ int run_cli(IBenchEnvironment& environment, IBenchFiles& files, std::span<const 
     {
         return RunScript(environment, files, reporter, input);
     }
-    if (parsed->steps.front().id == CommandId::Ports)
+    if (parsed->steps.front().id == CommandId::kPorts)
     {
         return RunPorts(environment, reporter);
     }

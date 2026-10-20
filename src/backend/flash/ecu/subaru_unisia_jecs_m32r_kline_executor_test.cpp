@@ -1,3 +1,5 @@
+#include "src/algorithms/protocol/testing/byte_matchers.h"
+#include <array>
 #include "src/backend/flash/ecu/subaru_unisia_jecs_m32r_kline_executor.h"
 
 #include <gmock/gmock.h>
@@ -105,11 +107,9 @@ void ScriptPages(ScriptedKlineFlashTransport& transport, std::uint32_t count)
     }
 }
 
-FlashPlan ReadPlan(std::string_view protocol = kProtocol, std::string_view mcu = kMcu)
+Result<FlashPlan> ReadPlan(std::string_view protocol = kProtocol, std::string_view mcu = kMcu)
 {
-    auto plan = BuildSubaruUnisiaJecsM32rKlinePlan(FlashOperation::kRead, protocol, mcu, std::nullopt, false);
-    EXPECT_THAT(plan, IsOk());
-    return std::move(*plan);
+    return BuildSubaruUnisiaJecsM32rKlinePlan(FlashOperation::kRead, protocol, mcu, std::nullopt, false);
 }
 
 struct RunContext
@@ -128,7 +128,9 @@ Result<FlashExecutionResult> RunScripted(const FlashPlan& plan, ScriptedKlineFla
 
 TEST(SubaruUnisiaJecsM32rKlineExecutor, TransportSetupIs4800BaudPlainSsm)
 {
-    const auto setup = SubaruUnisiaJecsM32rKlineExecutor{}.TransportSetup(ReadPlan());
+    auto built_plan_1 = ReadPlan();
+    ASSERT_THAT(built_plan_1, fastecu::testing::IsOk());
+    const auto setup = SubaruUnisiaJecsM32rKlineExecutor{}.TransportSetup(std::move(*built_plan_1));
     ASSERT_THAT(setup, IsOk());
     EXPECT_EQ(setup->baud, 4800);      // execute() :57
     EXPECT_FALSE(setup->iso14230);     // execute() :51
@@ -154,7 +156,9 @@ TEST(SubaruUnisiaJecsM32rKlineExecutor, ReadsTheRomWhenAlreadyInReadMode)
     ScriptPages(transport, kRomSize / 0x80);
     RunContext context;
 
-    auto result = RunScripted(ReadPlan(), transport, context);
+    auto built_plan_2 = ReadPlan();
+    ASSERT_THAT(built_plan_2, fastecu::testing::IsOk());
+    auto result = RunScripted(std::move(*built_plan_2), transport, context);
 
     ASSERT_THAT(result, IsOk());
     EXPECT_EQ(result->operation, FlashOperation::kRead);
@@ -162,9 +166,10 @@ TEST(SubaruUnisiaJecsM32rKlineExecutor, ReadsTheRomWhenAlreadyInReadMode)
     ASSERT_EQ(result->read_bytes->size(), kRomSize);
     for (std::uint32_t page = 0; page < kRomSize / 0x80; ++page)
     {
+        SCOPED_TRACE(::testing::PrintToString(page));
         const auto offset = static_cast<std::ptrdiff_t>(page) * 0x80;
-        ASSERT_TRUE(std::equal(result->read_bytes->begin() + offset, result->read_bytes->begin() + offset + 0x80,
-                               PageData(page).begin()))
+        ASSERT_THAT(bytes::ByteView(*result->read_bytes).subspan(static_cast<std::size_t>(offset), 0x80),
+                    test_bytes::BytesEq(PageData(page)))
             << page;
     }
     EXPECT_EQ(result->rom_id, std::optional<std::string>(std::string(kEcuId) + "_"));
@@ -184,7 +189,9 @@ TEST(SubaruUnisiaJecsM32rKlineExecutor, ColdInitSwitchesBaudBeforeReading)
     ScriptPages(transport, kRomSize / 0x80);
     RunContext context;
 
-    auto result = RunScripted(ReadPlan(), transport, context);
+    auto built_plan_3 = ReadPlan();
+    ASSERT_THAT(built_plan_3, fastecu::testing::IsOk());
+    auto result = RunScripted(std::move(*built_plan_3), transport, context);
 
     ASSERT_THAT(result, IsOk());
     EXPECT_EQ(transport.baud_calls, (std::vector<int>{38400, 4800, 38400}));
@@ -203,7 +210,9 @@ TEST(SubaruUnisiaJecsM32rKlineExecutor, TruncatedProbeReplyFallsBackToColdInit)
     ScriptPages(transport, kRomSize / 0x80);
     RunContext context;
 
-    auto result = RunScripted(ReadPlan(), transport, context);
+    auto built_plan_4 = ReadPlan();
+    ASSERT_THAT(built_plan_4, fastecu::testing::IsOk());
+    auto result = RunScripted(std::move(*built_plan_4), transport, context);
 
     ASSERT_THAT(result, IsOk());
     EXPECT_EQ(result->rom_id, std::optional<std::string>(std::string(kEcuId) + "_"));
@@ -219,7 +228,9 @@ TEST(SubaruUnisiaJecsM32rKlineExecutor, ColdInitRejectsABadBaudChangeReply)
     transport.Exchange(Request({0xb8, 0x00, 0x00, 0x00, 0x75}), Reply({0x7f, 0xb8, 0x22}));
     RunContext context;
 
-    auto result = RunScripted(ReadPlan(), transport, context);
+    auto built_plan_5 = ReadPlan();
+    ASSERT_THAT(built_plan_5, fastecu::testing::IsOk());
+    auto result = RunScripted(std::move(*built_plan_5), transport, context);
 
     EXPECT_THAT(result, IsErr(ErrorKind::kBadResponse));
     EXPECT_EQ(transport.WritesConsumed(), 3U);
@@ -235,7 +246,9 @@ TEST(SubaruUnisiaJecsM32rKlineExecutor, ColdInitWithoutAnyReplyTimesOut)
     transport.QueueNoFrame();
     RunContext context;
 
-    EXPECT_THAT(RunScripted(ReadPlan(), transport, context), IsErr(ErrorKind::kTimeout));
+    auto built_plan_6 = ReadPlan();
+    ASSERT_THAT(built_plan_6, fastecu::testing::IsOk());
+    EXPECT_THAT(RunScripted(std::move(*built_plan_6), transport, context), IsErr(ErrorKind::kTimeout));
     EXPECT_TRUE(transport.ScriptConsumed());
 }
 
@@ -250,7 +263,9 @@ TEST(SubaruUnisiaJecsM32rKlineExecutor, ColdInitReplyTooShortForTheEcuIdFails)
     transport.Exchange(Request({0xbf}), Reply({0xff, 0xa1}));
     RunContext context;
 
-    EXPECT_THAT(RunScripted(ReadPlan(), transport, context), IsErr(ErrorKind::kBadResponse));
+    auto built_plan_7 = ReadPlan();
+    ASSERT_THAT(built_plan_7, fastecu::testing::IsOk());
+    EXPECT_THAT(RunScripted(std::move(*built_plan_7), transport, context), IsErr(ErrorKind::kBadResponse));
     EXPECT_EQ(transport.WritesConsumed(), 2U);
 }
 
@@ -260,7 +275,9 @@ TEST(SubaruUnisiaJecsM32rKlineExecutor, ReadFailsWhenTheInitialBaudChangeFails)
     transport.set_baud_result = Fail(ErrorKind::kDisconnected, "adapter gone");
     RunContext context;
 
-    EXPECT_THAT(RunScripted(ReadPlan(), transport, context), IsErr(ErrorKind::kDisconnected));
+    auto built_plan_8 = ReadPlan();
+    ASSERT_THAT(built_plan_8, fastecu::testing::IsOk());
+    EXPECT_THAT(RunScripted(std::move(*built_plan_8), transport, context), IsErr(ErrorKind::kDisconnected));
     EXPECT_TRUE(transport.ScriptConsumed());
 }
 
@@ -273,7 +290,9 @@ TEST(SubaruUnisiaJecsM32rKlineExecutor, ShortPageFailsBeforeTheNextRequest)
     transport.Exchange(PageRequest(0x100000), Reply(short_page));
     RunContext context;
 
-    EXPECT_THAT(RunScripted(ReadPlan(), transport, context), IsErr(ErrorKind::kBadResponse));
+    auto built_plan_9 = ReadPlan();
+    ASSERT_THAT(built_plan_9, fastecu::testing::IsOk());
+    EXPECT_THAT(RunScripted(std::move(*built_plan_9), transport, context), IsErr(ErrorKind::kBadResponse));
     EXPECT_EQ(transport.WritesConsumed(), 2U);
 }
 
@@ -286,7 +305,9 @@ TEST(SubaruUnisiaJecsM32rKlineExecutor, BadChecksumPageFailsBeforeTheNextRequest
     transport.Exchange(PageRequest(0x100000), corrupted);
     RunContext context;
 
-    EXPECT_THAT(RunScripted(ReadPlan(), transport, context), IsErr(ErrorKind::kBadResponse));
+    auto built_plan_10 = ReadPlan();
+    ASSERT_THAT(built_plan_10, fastecu::testing::IsOk());
+    EXPECT_THAT(RunScripted(std::move(*built_plan_10), transport, context), IsErr(ErrorKind::kBadResponse));
     EXPECT_EQ(transport.WritesConsumed(), 2U);
 }
 
@@ -297,7 +318,9 @@ TEST(SubaruUnisiaJecsM32rKlineExecutor, NegativePageReplyFailsBeforeTheNextReque
     transport.Exchange(PageRequest(0x100000), Reply({0x7f, 0xa0, 0x31}));
     RunContext context;
 
-    EXPECT_THAT(RunScripted(ReadPlan(), transport, context), IsErr(ErrorKind::kBadResponse));
+    auto built_plan_11 = ReadPlan();
+    ASSERT_THAT(built_plan_11, fastecu::testing::IsOk());
+    EXPECT_THAT(RunScripted(std::move(*built_plan_11), transport, context), IsErr(ErrorKind::kBadResponse));
     EXPECT_EQ(transport.WritesConsumed(), 2U);
 }
 
@@ -309,7 +332,9 @@ TEST(SubaruUnisiaJecsM32rKlineExecutor, MissingPageTimesOut)
     transport.QueueNoFrame();
     RunContext context;
 
-    EXPECT_THAT(RunScripted(ReadPlan(), transport, context), IsErr(ErrorKind::kTimeout));
+    auto built_plan_12 = ReadPlan();
+    ASSERT_THAT(built_plan_12, fastecu::testing::IsOk());
+    EXPECT_THAT(RunScripted(std::move(*built_plan_12), transport, context), IsErr(ErrorKind::kTimeout));
     EXPECT_TRUE(transport.ScriptConsumed());
 }
 
@@ -322,7 +347,9 @@ TEST(SubaruUnisiaJecsM32rKlineExecutor, CancellationStopsTheReadBeforeTheNextPag
     // Trips once the probe and the first page request have been written.
     context.cancellation.SetPredicate([&transport] { return transport.WritesConsumed() >= 2; });
 
-    EXPECT_THAT(RunScripted(ReadPlan(), transport, context), IsErr(ErrorKind::kCancelled));
+    auto built_plan_13 = ReadPlan();
+    ASSERT_THAT(built_plan_13, fastecu::testing::IsOk());
+    EXPECT_THAT(RunScripted(std::move(*built_plan_13), transport, context), IsErr(ErrorKind::kCancelled));
     EXPECT_EQ(transport.WritesConsumed(), 2U);
 }
 
@@ -332,7 +359,9 @@ TEST(SubaruUnisiaJecsM32rKlineExecutor, CancellationBeforeTheFirstWriteAbortsImm
     RunContext context;
     context.cancellation.SetPredicate([] { return true; });
 
-    EXPECT_THAT(RunScripted(ReadPlan(), transport, context), IsErr(ErrorKind::kCancelled));
+    auto built_plan_14 = ReadPlan();
+    ASSERT_THAT(built_plan_14, fastecu::testing::IsOk());
+    EXPECT_THAT(RunScripted(std::move(*built_plan_14), transport, context), IsErr(ErrorKind::kCancelled));
     EXPECT_EQ(transport.WritesConsumed(), 0U);
 }
 
@@ -344,7 +373,9 @@ TEST(SubaruUnisiaJecsM32rKlineExecutor, CancellationAfterTheFirstReadAbortsBefor
     // Trips once the probe reply has actually been read, not before.
     context.cancellation.SetPredicate([&transport] { return !transport.read_timeouts.empty(); });
 
-    EXPECT_THAT(RunScripted(ReadPlan(), transport, context), IsErr(ErrorKind::kCancelled));
+    auto built_plan_15 = ReadPlan();
+    ASSERT_THAT(built_plan_15, fastecu::testing::IsOk());
+    EXPECT_THAT(RunScripted(std::move(*built_plan_15), transport, context), IsErr(ErrorKind::kCancelled));
     EXPECT_EQ(transport.WritesConsumed(), 1U);
 }
 
@@ -357,7 +388,9 @@ TEST(SubaruUnisiaJecsM32rKlineExecutor, CancellationBeforeAPageRequestPropagates
     // trip on the third check, which is the first page request's send.
     context.cancellation.CancelOnCheck(3);
 
-    EXPECT_THAT(RunScripted(ReadPlan(), transport, context), IsErr(ErrorKind::kCancelled));
+    auto built_plan_16 = ReadPlan();
+    ASSERT_THAT(built_plan_16, fastecu::testing::IsOk());
+    EXPECT_THAT(RunScripted(std::move(*built_plan_16), transport, context), IsErr(ErrorKind::kCancelled));
     EXPECT_EQ(transport.WritesConsumed(), 1U);
 }
 
@@ -374,7 +407,9 @@ TEST_P(SubaruUnisiaJecsM32rKlineReadSizes, ReadsEveryPageOfTheVariant)
     ScriptPages(transport, rom_size / 0x80);
     RunContext context;
 
-    auto result = RunScripted(ReadPlan(protocol, mcu), transport, context);
+    auto built_plan_17 = ReadPlan(protocol, mcu);
+    ASSERT_THAT(built_plan_17, fastecu::testing::IsOk());
+    auto result = RunScripted(std::move(*built_plan_17), transport, context);
 
     ASSERT_THAT(result, IsOk());
     ASSERT_TRUE(result->read_bytes.has_value());
@@ -386,7 +421,15 @@ INSTANTIATE_TEST_SUITE_P(AllVariants, SubaruUnisiaJecsM32rKlineReadSizes,
                          ::testing::Values(std::tuple{"sub_ecu_unisia_jecs_20", "M32R_128KB", 0x20000U},
                                            std::tuple{"sub_ecu_unisia_jecs_30", "M32R_256KB", 0x40000U},
                                            std::tuple{"sub_ecu_unisia_jecs_40", "M32R_384KB", 0x60000U},
-                                           std::tuple{"sub_ecu_unisia_jecs_70", "M32R_512KB", 0x80000U}));
+                                           std::tuple{"sub_ecu_unisia_jecs_70", "M32R_512KB", 0x80000U}),
+                         (
+                             [](const auto& info)
+                             {
+                                 static constexpr std::array kNames{
+                                     "SubEcuUnisiaJecs20M32R128KB0x20000U", "SubEcuUnisiaJecs30M32R256KB0x40000U",
+                                     "SubEcuUnisiaJecs40M32R384KB0x60000U", "SubEcuUnisiaJecs70M32R512KB0x80000U"};
+                                 return kNames[info.index];
+                             }));
 
 TEST(SubaruUnisiaJecsM32rKlineExecutor, ReadsABootmodeProtocolWithTheSameWireSequence)
 {
@@ -394,7 +437,9 @@ TEST(SubaruUnisiaJecsM32rKlineExecutor, ReadsABootmodeProtocolWithTheSameWireSeq
     ScriptWarmEntry(transport);
     ScriptPages(transport, 0x40000 / 0x80);
     RunContext context;
-    const auto result = RunScripted(ReadPlan("sub_ecu_unisia_jecs_30_bootmode", "M32R_256KB"), transport, context);
+    auto built_plan_18 = ReadPlan("sub_ecu_unisia_jecs_30_bootmode", "M32R_256KB");
+    ASSERT_THAT(built_plan_18, fastecu::testing::IsOk());
+    const auto result = RunScripted(std::move(*built_plan_18), transport, context);
     ASSERT_THAT(result, IsOk());
     ASSERT_TRUE(result->read_bytes.has_value());
     EXPECT_EQ(result->read_bytes->size(), 0x40000U);
@@ -416,11 +461,9 @@ const bytes::Bytes& RomImage()
     return kImage;
 }
 
-FlashPlan WritePlan()
+Result<FlashPlan> WritePlan()
 {
-    auto plan = BuildSubaruUnisiaJecsM32rKlinePlan(FlashOperation::kWrite, kProtocol, kMcu, RomImage(), false);
-    EXPECT_THAT(plan, IsOk());
-    return std::move(*plan);
+    return BuildSubaruUnisiaJecsM32rKlinePlan(FlashOperation::kWrite, kProtocol, kMcu, RomImage(), false);
 }
 
 bytes::Bytes BlockRequest(std::uint32_t index)
@@ -487,7 +530,9 @@ TEST(SubaruUnisiaJecsM32rKlineExecutor, WritesWhenTheKernelIsAlreadyRunning)
     ScriptBlocks(transport, BlockCount());
     RunContext context;
 
-    auto result = RunScripted(WritePlan(), transport, context);
+    auto built_plan_19 = WritePlan();
+    ASSERT_THAT(built_plan_19, fastecu::testing::IsOk());
+    auto result = RunScripted(std::move(*built_plan_19), transport, context);
 
     ASSERT_THAT(result, IsOk());
     EXPECT_EQ(result->operation, FlashOperation::kWrite);
@@ -512,7 +557,9 @@ TEST(SubaruUnisiaJecsM32rKlineExecutor, EntersFlashModeFromCold)
     ScriptBlocks(transport, BlockCount());
     RunContext context;
 
-    ASSERT_THAT(RunScripted(WritePlan(), transport, context), IsOk());
+    auto built_plan_20 = WritePlan();
+    ASSERT_THAT(built_plan_20, fastecu::testing::IsOk());
+    ASSERT_THAT(RunScripted(std::move(*built_plan_20), transport, context), IsOk());
     EXPECT_TRUE(transport.ScriptConsumed());
     EXPECT_EQ(transport.baud_calls, (std::vector<int>{19200, 4800, 19200}));
     EXPECT_EQ(transport.programming_voltage_line_write_index, std::optional<std::size_t>(3));
@@ -533,7 +580,9 @@ TEST(SubaruUnisiaJecsM32rKlineExecutor, NonEfObkProbeReplyFallsBackToColdFlashMo
     ScriptBlocks(transport, BlockCount());
     RunContext context;
 
-    ASSERT_THAT(RunScripted(WritePlan(), transport, context), IsOk());
+    auto built_plan_21 = WritePlan();
+    ASSERT_THAT(built_plan_21, fastecu::testing::IsOk());
+    ASSERT_THAT(RunScripted(std::move(*built_plan_21), transport, context), IsOk());
     EXPECT_TRUE(transport.ScriptConsumed());
     EXPECT_EQ(transport.baud_calls, (std::vector<int>{19200, 4800, 19200}));
     EXPECT_EQ(transport.programming_voltage_line_write_index, std::optional<std::size_t>(3));
@@ -549,7 +598,9 @@ TEST(SubaruUnisiaJecsM32rKlineExecutor, RejectedFlashModeEntryNeverRaisesProgram
                        Reply({0x7f, 0xaf, 0x22}));
     RunContext context;
 
-    EXPECT_THAT(RunScripted(WritePlan(), transport, context), IsErr(ErrorKind::kBadResponse));
+    auto built_plan_22 = WritePlan();
+    ASSERT_THAT(built_plan_22, fastecu::testing::IsOk());
+    EXPECT_THAT(RunScripted(std::move(*built_plan_22), transport, context), IsErr(ErrorKind::kBadResponse));
     EXPECT_EQ(transport.WritesConsumed(), 3U);
     EXPECT_EQ(transport.control_line_trace, std::vector<Line>{Line::kDisableLecLines});
 }
@@ -560,7 +611,9 @@ TEST(SubaruUnisiaJecsM32rKlineExecutor, WriteFailsWhenTheInitialBaudChangeFails)
     transport.set_baud_result = Fail(ErrorKind::kDisconnected, "adapter gone");
     RunContext context;
 
-    EXPECT_THAT(RunScripted(WritePlan(), transport, context), IsErr(ErrorKind::kDisconnected));
+    auto built_plan_23 = WritePlan();
+    ASSERT_THAT(built_plan_23, fastecu::testing::IsOk());
+    EXPECT_THAT(RunScripted(std::move(*built_plan_23), transport, context), IsErr(ErrorKind::kDisconnected));
     EXPECT_TRUE(transport.ScriptConsumed());
     // execute() :71-72 still drops the LEC line on this early exit.
     EXPECT_EQ(transport.control_line_trace, std::vector<Line>{Line::kDisableLecLines});
@@ -576,7 +629,9 @@ TEST(SubaruUnisiaJecsM32rKlineExecutor, CancellationBeforeRaisingProgrammingVolt
     // "before programming voltage" gate (write_mem() :440-441).
     context.cancellation.CancelOnCheck(3);
 
-    EXPECT_THAT(RunScripted(WritePlan(), transport, context), IsErr(ErrorKind::kCancelled));
+    auto built_plan_24 = WritePlan();
+    ASSERT_THAT(built_plan_24, fastecu::testing::IsOk());
+    EXPECT_THAT(RunScripted(std::move(*built_plan_24), transport, context), IsErr(ErrorKind::kCancelled));
     EXPECT_EQ(transport.control_line_trace, std::vector<Line>{Line::kDisableLecLines});
     EXPECT_TRUE(transport.ScriptConsumed());
 }
@@ -588,7 +643,9 @@ TEST(SubaruUnisiaJecsM32rKlineExecutor, WriteFailsWhenProgrammingVoltageCannotBe
     transport.enable_programming_voltage_line_result = Fail(ErrorKind::kDisconnected, "VPP relay stuck");
     RunContext context;
 
-    EXPECT_THAT(RunScripted(WritePlan(), transport, context), IsErr(ErrorKind::kDisconnected));
+    auto built_plan_25 = WritePlan();
+    ASSERT_THAT(built_plan_25, fastecu::testing::IsOk());
+    EXPECT_THAT(RunScripted(std::move(*built_plan_25), transport, context), IsErr(ErrorKind::kDisconnected));
     EXPECT_EQ(transport.control_line_trace,
               (std::vector<Line>{Line::kEnableProgrammingVoltageLine, Line::kDisableLecLines}));
     EXPECT_TRUE(transport.ScriptConsumed());
@@ -605,7 +662,9 @@ TEST(SubaruUnisiaJecsM32rKlineExecutor, EraseStartExhaustionFails)
     }
     RunContext context;
 
-    EXPECT_THAT(RunScripted(WritePlan(), transport, context), IsErr(ErrorKind::kTimeout));
+    auto built_plan_26 = WritePlan();
+    ASSERT_THAT(built_plan_26, fastecu::testing::IsOk());
+    EXPECT_THAT(RunScripted(std::move(*built_plan_26), transport, context), IsErr(ErrorKind::kTimeout));
     EXPECT_TRUE(transport.ScriptConsumed());
     EXPECT_EQ(context.clock.Elapsed(), 20 * 500ms);
     EXPECT_EQ(transport.control_line_trace.back(), Line::kDisableLecLines);
@@ -623,7 +682,9 @@ TEST(SubaruUnisiaJecsM32rKlineExecutor, EraseCompleteExhaustionFailsInsteadOfPro
     }
     RunContext context;
 
-    EXPECT_THAT(RunScripted(WritePlan(), transport, context), IsErr(ErrorKind::kTimeout));
+    auto built_plan_27 = WritePlan();
+    ASSERT_THAT(built_plan_27, fastecu::testing::IsOk());
+    EXPECT_THAT(RunScripted(std::move(*built_plan_27), transport, context), IsErr(ErrorKind::kTimeout));
     EXPECT_TRUE(transport.ScriptConsumed());
     EXPECT_EQ(transport.WritesConsumed(), 2U) << "legacy went on to program blank flash";
 }
@@ -636,7 +697,9 @@ TEST(SubaruUnisiaJecsM32rKlineExecutor, UnexpectedEraseReplyFails)
     transport.QueueRead(Reply({0xef, 0x48}));
     RunContext context;
 
-    EXPECT_THAT(RunScripted(WritePlan(), transport, context), IsErr(ErrorKind::kBadResponse));
+    auto built_plan_28 = WritePlan();
+    ASSERT_THAT(built_plan_28, fastecu::testing::IsOk());
+    EXPECT_THAT(RunScripted(std::move(*built_plan_28), transport, context), IsErr(ErrorKind::kBadResponse));
     EXPECT_EQ(transport.WritesConsumed(), 2U);
 }
 
@@ -648,7 +711,9 @@ TEST(SubaruUnisiaJecsM32rKlineExecutor, BadBlockReplyStopsBeforeTheNextBlock)
     transport.Exchange(BlockRequest(0), Reply({0xef, 0x5a}));
     RunContext context;
 
-    EXPECT_THAT(RunScripted(WritePlan(), transport, context), IsErr(ErrorKind::kBadResponse));
+    auto built_plan_29 = WritePlan();
+    ASSERT_THAT(built_plan_29, fastecu::testing::IsOk());
+    EXPECT_THAT(RunScripted(std::move(*built_plan_29), transport, context), IsErr(ErrorKind::kBadResponse));
     EXPECT_EQ(transport.WritesConsumed(), 3U);
     EXPECT_EQ(transport.control_line_trace.back(), Line::kDisableLecLines);
 }
@@ -663,7 +728,9 @@ TEST(SubaruUnisiaJecsM32rKlineExecutor, LongerBlockReplyStopsBeforeTheNextBlock)
     transport.Exchange(BlockRequest(0), Reply({0xef, 0x52, 0x00}));
     RunContext context;
 
-    EXPECT_THAT(RunScripted(WritePlan(), transport, context), IsErr(ErrorKind::kBadResponse));
+    auto built_plan_30 = WritePlan();
+    ASSERT_THAT(built_plan_30, fastecu::testing::IsOk());
+    EXPECT_THAT(RunScripted(std::move(*built_plan_30), transport, context), IsErr(ErrorKind::kBadResponse));
     EXPECT_EQ(transport.WritesConsumed(), 3U);
     EXPECT_EQ(transport.control_line_trace.back(), Line::kDisableLecLines);
 }
@@ -678,7 +745,9 @@ TEST(SubaruUnisiaJecsM32rKlineExecutor, SilentNonFinalBlockTimesOutBeforeTheNext
     transport.QueueNoFrame();
     RunContext context;
 
-    EXPECT_THAT(RunScripted(WritePlan(), transport, context), IsErr(ErrorKind::kTimeout));
+    auto built_plan_31 = WritePlan();
+    ASSERT_THAT(built_plan_31, fastecu::testing::IsOk());
+    EXPECT_THAT(RunScripted(std::move(*built_plan_31), transport, context), IsErr(ErrorKind::kTimeout));
     EXPECT_EQ(transport.WritesConsumed(), 4U);
     EXPECT_EQ(transport.control_line_trace.back(), Line::kDisableLecLines);
 }
@@ -693,7 +762,9 @@ TEST(SubaruUnisiaJecsM32rKlineExecutor, FinalBlockSilenceSucceedsWithAWarning)
     transport.QueueNoFrame();
     RunContext context;
 
-    ASSERT_THAT(RunScripted(WritePlan(), transport, context), IsOk());
+    auto built_plan_32 = WritePlan();
+    ASSERT_THAT(built_plan_32, fastecu::testing::IsOk());
+    ASSERT_THAT(RunScripted(std::move(*built_plan_32), transport, context), IsOk());
     EXPECT_TRUE(transport.ScriptConsumed());
     EXPECT_THAT(context.events.logs, Contains(Pair(LogLevel::kWarning, _)));
     EXPECT_EQ(transport.read_timeouts.back(), 3000ms);
@@ -708,7 +779,9 @@ TEST(SubaruUnisiaJecsM32rKlineExecutor, FinalBlockBadReplyFails)
     transport.Exchange(BlockRequest(BlockCount() - 1), Reply({0x7f, 0xaf, 0x22}));
     RunContext context;
 
-    EXPECT_THAT(RunScripted(WritePlan(), transport, context), IsErr(ErrorKind::kBadResponse));
+    auto built_plan_33 = WritePlan();
+    ASSERT_THAT(built_plan_33, fastecu::testing::IsOk());
+    EXPECT_THAT(RunScripted(std::move(*built_plan_33), transport, context), IsErr(ErrorKind::kBadResponse));
     EXPECT_TRUE(transport.ScriptConsumed());
 }
 
@@ -722,7 +795,9 @@ TEST(SubaruUnisiaJecsM32rKlineExecutor, CancellationDuringProgrammingReportsCanc
     // Trips as soon as the first block has been written.
     context.cancellation.SetPredicate([&transport] { return transport.WritesConsumed() >= 3; });
 
-    EXPECT_THAT(RunScripted(WritePlan(), transport, context), IsErr(ErrorKind::kCancelled));
+    auto built_plan_34 = WritePlan();
+    ASSERT_THAT(built_plan_34, fastecu::testing::IsOk());
+    EXPECT_THAT(RunScripted(std::move(*built_plan_34), transport, context), IsErr(ErrorKind::kCancelled));
     EXPECT_EQ(transport.WritesConsumed(), 3U);
     EXPECT_EQ(transport.control_line_trace.back(), Line::kDisableLecLines);
 }
@@ -740,7 +815,9 @@ TEST(SubaruUnisiaJecsM32rKlineExecutor, CancellationDuringTheErasePollDropsTheLi
     // Trips on the third erase poll.
     context.cancellation.SetPredicate([&transport] { return transport.read_timeouts.size() >= 4; });
 
-    EXPECT_THAT(RunScripted(WritePlan(), transport, context), IsErr(ErrorKind::kCancelled));
+    auto built_plan_35 = WritePlan();
+    ASSERT_THAT(built_plan_35, fastecu::testing::IsOk());
+    EXPECT_THAT(RunScripted(std::move(*built_plan_35), transport, context), IsErr(ErrorKind::kCancelled));
     EXPECT_EQ(transport.WritesConsumed(), 2U);
     EXPECT_EQ(transport.control_line_trace,
               (std::vector<Line>{Line::kEnableProgrammingVoltageLine, Line::kDisableLecLines}));
@@ -755,7 +832,9 @@ TEST(SubaruUnisiaJecsM32rKlineExecutor, TransportErrorMidProgrammingPropagatesAn
     transport.QueueError(ErrorKind::kDisconnected, "adapter unplugged");
     RunContext context;
 
-    EXPECT_THAT(RunScripted(WritePlan(), transport, context), IsErr(ErrorKind::kDisconnected));
+    auto built_plan_36 = WritePlan();
+    ASSERT_THAT(built_plan_36, fastecu::testing::IsOk());
+    EXPECT_THAT(RunScripted(std::move(*built_plan_36), transport, context), IsErr(ErrorKind::kDisconnected));
     EXPECT_EQ(transport.control_line_trace.back(), Line::kDisableLecLines);
 }
 
@@ -768,7 +847,9 @@ TEST(SubaruUnisiaJecsM32rKlineExecutor, CleanupFailureFailsAnOtherwiseSuccessful
     transport.disable_lec_lines_result = Fail(ErrorKind::kDisconnected, "RTS stuck");
     RunContext context;
 
-    EXPECT_THAT(RunScripted(WritePlan(), transport, context), IsErr(ErrorKind::kDisconnected));
+    auto built_plan_37 = WritePlan();
+    ASSERT_THAT(built_plan_37, fastecu::testing::IsOk());
+    EXPECT_THAT(RunScripted(std::move(*built_plan_37), transport, context), IsErr(ErrorKind::kDisconnected));
 }
 
 TEST(SubaruUnisiaJecsM32rKlineExecutor, CleanupFailureNeverReplacesAnEarlierError)
@@ -780,7 +861,9 @@ TEST(SubaruUnisiaJecsM32rKlineExecutor, CleanupFailureNeverReplacesAnEarlierErro
     transport.disable_lec_lines_result = Fail(ErrorKind::kDisconnected, "RTS stuck");
     RunContext context;
 
-    EXPECT_THAT(RunScripted(WritePlan(), transport, context), IsErr(ErrorKind::kBadResponse));
+    auto built_plan_38 = WritePlan();
+    ASSERT_THAT(built_plan_38, fastecu::testing::IsOk());
+    EXPECT_THAT(RunScripted(std::move(*built_plan_38), transport, context), IsErr(ErrorKind::kBadResponse));
 }
 class FirstWriteFaultTransport final : public ScriptedKlineFlashTransport
 {
@@ -821,7 +904,9 @@ TEST(SubaruUnisiaJecsM32rKlineExecutor, ShortWriteStopsBeforeReceiving)
     transport.ExpectWrite(bytes::Bytes{0x80, 0x10, 0xf0, 0x01, 0xaf, 0x30});
     RunContext context;
 
-    EXPECT_THAT(RunScripted(WritePlan(), transport, context),
+    auto built_plan_39 = WritePlan();
+    ASSERT_THAT(built_plan_39, fastecu::testing::IsOk());
+    EXPECT_THAT(RunScripted(std::move(*built_plan_39), transport, context),
                 IsErrWith(ErrorKind::kDisconnected, ::testing::Eq("short K-Line write")));
     EXPECT_EQ(transport.WritesConsumed(), 1U);
     EXPECT_EQ(transport.read_calls, 0);
@@ -835,7 +920,9 @@ TEST(SubaruUnisiaJecsM32rKlineExecutor, WriteFailureStopsBeforeReceiving)
     transport.ExpectWrite(bytes::Bytes{0x80, 0x10, 0xf0, 0x01, 0xaf, 0x30});
     RunContext context;
 
-    EXPECT_THAT(RunScripted(WritePlan(), transport, context),
+    auto built_plan_40 = WritePlan();
+    ASSERT_THAT(built_plan_40, fastecu::testing::IsOk());
+    EXPECT_THAT(RunScripted(std::move(*built_plan_40), transport, context),
                 IsErrWith(ErrorKind::kDisconnected, ::testing::Eq("write fault")));
     EXPECT_EQ(transport.WritesConsumed(), 1U);
     EXPECT_EQ(transport.read_calls, 0);

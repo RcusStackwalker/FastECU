@@ -112,7 +112,19 @@ INSTANTIATE_TEST_SUITE_P(
                       InvalidInput{"length", "1 0"}, InvalidInput{"length", "18446744073709551616"},
                       InvalidInput{"format", ""}, InvalidInput{"format", "banana"}, InvalidInput{"format", "0."},
                       InvalidInput{"format", "0.0garbage0"}, InvalidInput{"format", "0.00.000"},
-                      InvalidInput{"format", " 0.00 "}, InvalidInput{"format", "0." + std::string(16, '0')}));
+                      InvalidInput{"format", " 0.00 "}, InvalidInput{"format", "0." + std::string(16, '0')}),
+    (
+        [](const auto& info)
+        {
+            static constexpr std::array kNames{
+                "EmptyAddress",    "MissingHexAddress", "PositiveSignedAddress", "NegativeAddress",
+                "AddressJunk",     "AddressWhitespace", "AddressOverflow",       "AddressUnicodeWhitespace",
+                "EmptyLength",     "ZeroLength",        "PositiveSignedLength",  "NegativeLength",
+                "LengthJunk",      "HexLength",         "LengthWhitespace",      "LengthOverflow",
+                "EmptyFormat",     "UnknownFormat",     "ZeroPrecision",         "FormatJunk",
+                "MultipleFormats", "NullFormat",        "StringFormat"};
+            return kNames[info.index];
+        }));
 
 TEST(LoggingChannelPreparation, AcceptsHexadecimalAddressesAndAsciiWhitespace)
 {
@@ -215,6 +227,7 @@ TEST(LoggingChannelPreparation, RetainsProtocolLengthBounds)
 {
     for (const auto protocol : {LoggingProtocolId::kSsm, LoggingProtocolId::kMutDma, LoggingProtocolId::kCdbg})
     {
+        SCOPED_TRACE(::testing::PrintToString(protocol));
         for (const auto length : {1U, 2U, 3U, 4U, 255U, 256U})
         {
             SCOPED_TRACE(static_cast<int>(protocol));
@@ -271,6 +284,7 @@ TEST(LoggingChannelPreparation, RejectsUnsupportedNondefaultNumericMetadataForOt
 {
     for (const auto protocol : {LoggingProtocolId::kMutDma, LoggingProtocolId::kCdbg})
     {
+        SCOPED_TRACE(::testing::PrintToString(protocol));
         auto parameter = Parameter();
         parameter.protocol = protocol == LoggingProtocolId::kMutDma ? "MUT_DMA" : "CDBG";
         parameter.conversions.front().storage_type = "int16";

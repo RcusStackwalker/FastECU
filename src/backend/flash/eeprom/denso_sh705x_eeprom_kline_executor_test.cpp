@@ -655,7 +655,7 @@ TEST(DensoSh705xEepromKlineExecutorTest, StockAndEcutekSecurityProduceDifferentS
         RecordingEventSink events;
 
         EXPECT_THAT(executor.Execute(*plan, transport, clock, cancellation, events),
-                    ::testing::Not(fastecu::testing::IsOk()));
+                    fastecu::testing::IsErr(ErrorKind::kTimeout));
         EXPECT_TRUE(transport.ScriptConsumed());
     };
 

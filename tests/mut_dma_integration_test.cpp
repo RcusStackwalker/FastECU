@@ -1,3 +1,4 @@
+#include "src/backend/ports/testing/result_matchers.h"
 #include "src/platform/desktop/common/testing/core_application_environment.h"
 // Integration tests: the MUT/DMA host client driven through FastECU's REAL serial
 // stack against a scripted mock Openport 2.0 over a pseudo-terminal (PTY).
@@ -291,7 +292,7 @@ TEST_F(MutDmaIntegrationTest, setBaud_throughAdapter_trueWhenConnected_falseWhen
     // change_port_speed returns STATUS_ERROR when the port is not open -> false.
     const auto closed_result = closed_tr.SetBaud(15625);
     ASSERT_TRUE(!closed_result);
-    ASSERT_EQ(closed_result.error().kind, fastecu::ErrorKind::kDisconnected);
+    ASSERT_THAT(closed_result, fastecu::testing::IsErr(fastecu::ErrorKind::kDisconnected));
 
     int master = -1, slave = -1;
     std::array<char, 256> name{};

@@ -95,10 +95,10 @@ TEST(StartupDiagnosticsTest, realPresentersReportSeverityAndOrderedDetails)
     StartupModalDriver dialogs;
     MessageCapture messages;
     const QString detail = QStringLiteral("Invalid /tmp/配置/fastecu.cfg: broken");
-    present_startup_failure({fastecu::ErrorKind::kInvalidConfig, detail.toStdString()});
-    present_startup_warnings({"first /a.cfg", "second /b.cfg"});
+    PresentStartupFailure({fastecu::ErrorKind::kInvalidConfig, detail.toStdString()});
+    PresentStartupWarnings({"first /a.cfg", "second /b.cfg"});
     ASSERT_EQ(dialogs.icons, (QList<QMessageBox::Icon>{QMessageBox::Critical, QMessageBox::Warning}));
-    ASSERT_EQ(dialogs.titles, (QStringList{startup_message_box_title(), startup_message_box_title()}));
+    ASSERT_EQ(dialogs.titles, (QStringList{StartupMessageBoxTitle(), StartupMessageBoxTitle()}));
     ASSERT_TRUE(dialogs.texts[0].contains(detail));
     ASSERT_TRUE(dialogs.texts[1].contains("first /a.cfg\nsecond /b.cfg"));
     // Platform plugins may emit their own warnings; compare the presenter's messages.
@@ -116,7 +116,7 @@ TEST(StartupDiagnosticsTest, emptyWarningsDoNotOpenAModalOrLog)
 {
     StartupModalDriver dialogs;
     MessageCapture messages;
-    present_startup_warnings({});
+    PresentStartupWarnings({});
     QCoreApplication::processEvents();
     ASSERT_TRUE(dialogs.texts.isEmpty());
     ASSERT_TRUE(messages.texts.isEmpty());
@@ -135,7 +135,7 @@ TEST(StartupDiagnosticsTest, sinkRetainsBoundedUtf8DiagnosticsInOrder)
                                         "chec");
     sink.Notice(std::string_view{"notice ignored", 6});
     sink.Progress(10, 10);
-    ASSERT_EQ(sink.warnings(), (QStringList{QString::fromUtf8("\xE8\xAD\xA6\xE5\x91\x8A"),
+    ASSERT_EQ(sink.Warnings(), (QStringList{QString::fromUtf8("\xE8\xAD\xA6\xE5\x91\x8A"),
                                             QString::fromUtf8("\xC3\xA9"
                                                               "chec"),
                                             "notice"}));
@@ -144,21 +144,21 @@ TEST(StartupDiagnosticsTest, sinkRetainsBoundedUtf8DiagnosticsInOrder)
 TEST(StartupDiagnosticsTest, failureTextCarriesTheDetail)
 {
     const QString text =
-        startup_failure_text(fastecu::Error{fastecu::ErrorKind::kInvalidConfig, "Unable to load /r/fastecu.cfg: bad"});
+        StartupFailureText(fastecu::Error{fastecu::ErrorKind::kInvalidConfig, "Unable to load /r/fastecu.cfg: bad"});
     ASSERT_TRUE(text.contains("/r/fastecu.cfg"));
     ASSERT_TRUE(text.contains("bad"));
 }
 
 TEST(StartupDiagnosticsTest, warningTextListsEveryWarning)
 {
-    const QString text = startup_warning_text({"first /a.cfg", "second"});
+    const QString text = StartupWarningText({"first /a.cfg", "second"});
     ASSERT_TRUE(text.contains("first /a.cfg"));
     ASSERT_TRUE(text.contains("second"));
 }
 
 TEST(StartupDiagnosticsTest, defaultRootIsUnderHomeAndEndsInFastEcu)
 {
-    const QString root = default_config_root();
+    const QString root = DefaultConfigRoot();
     ASSERT_TRUE(root.startsWith(QDir::homePath() + "/"));
     ASSERT_TRUE(root.endsWith("/FastECU/"));
 }

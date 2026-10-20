@@ -42,23 +42,23 @@ struct PreparedStep
 
 // Command name plus its arguments, e.g. "read 0x200 1" -- what format_text's
 // first line and format_json's "step" field show the operator.
-std::string render_step(const StepSpec& step);
+std::string RenderStep(const StepSpec& step);
 
 // Validates everything that can be checked without an ECU session and loads
 // file-backed payloads exactly once.
-Result<PreparedStep> prepare_step(IBenchFiles& files, const StepSpec& step);
+Result<PreparedStep> PrepareStep(IBenchFiles& files, const StepSpec& step);
 
 // Executes one step and always returns its outcome. Failures are represented
 // by ok=false plus error_kind/error_detail so traffic already observed is not
 // discarded when the caller decides whether to stop the chain.
-CommandOutcome run_step(BenchContext& context, const StepSpec& step);
-CommandOutcome run_step(BenchContext& context, const PreparedStep& step);
+CommandOutcome RunStep(BenchContext& context, const StepSpec& step);
+CommandOutcome RunStep(BenchContext& context, const PreparedStep& step);
 
 // RoutineControl 224's reply payload ([routine-id][status]). Names both code
 // paths that can produce status 1 because the reply cannot distinguish them.
-std::string decode_erase_reply(bytes::ByteView payload);
+std::string DecodeEraseReply(bytes::ByteView payload);
 
 // RoutineControl 225's reply payload ([routine-id][status]).
-std::string decode_crc_reply(bytes::ByteView payload);
+std::string DecodeCrcReply(bytes::ByteView payload);
 
 } // namespace fastecu::bench

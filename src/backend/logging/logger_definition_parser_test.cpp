@@ -188,7 +188,8 @@ TEST(LoggerDefinitionParser, RejectsMalformedXml)
 {
     const auto result = ParseLoggerDefinition(View("<logger><protocols>"), "broken.xml");
     ASSERT_THAT(result, fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
-    EXPECT_THAT(result.error().detail, ::testing::HasSubstr("broken.xml"));
+    EXPECT_THAT(result,
+                fastecu::testing::IsErrWith(fastecu::ErrorKind::kInvalidConfig, ::testing::HasSubstr("broken.xml")));
 }
 
 TEST(LoggerDefinitionParser, RejectsWrongRootElement)

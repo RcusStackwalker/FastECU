@@ -76,17 +76,18 @@ class Sh72543rExecutor : public ::testing::Test
     ManualCancellationToken cancel_;
     RecordingEventSink events_;
     SubaruHitachiSh72543rCanExecutor executor_;
-    FlashPlan Plan(FlashOperation op = FlashOperation::kRead,
-                   std::string_view protocol = "sub_ecu_hitachi_sh72543r_can")
+    Result<FlashPlan> Plan(FlashOperation op = FlashOperation::kRead,
+                           std::string_view protocol = "sub_ecu_hitachi_sh72543r_can")
     {
-        auto p = BuildSubaruHitachiSh72543rCanPlan(
+        return BuildSubaruHitachiSh72543rCanPlan(
             op, protocol, "SH72543R", op == FlashOperation::kRead ? std::nullopt : std::optional{Bytes(0x200000)});
-        EXPECT_THAT(p, fastecu::testing::IsOk());
-        return std::move(*p);
     }
     Result<FlashExecutionResult> ExecutePlan()
     {
-        return executor_.Execute(Plan(), transport_, clock_, cancel_, events_);
+        auto built_plan_1 = Plan();
+        if (!built_plan_1.has_value())
+            return std::unexpected(built_plan_1.error());
+        return executor_.Execute(std::move(*built_plan_1), transport_, clock_, cancel_, events_);
     }
     void X(Bytes request, Bytes response)
     {
@@ -165,7 +166,9 @@ class Sh72543rExecutor : public ::testing::Test
 };
 TEST_F(Sh72543rExecutor, SetupAndForeignPlanRejectBeforeIo)
 {
-    auto cfg = executor_.TransportSetup(Plan());
+    auto built_plan_2 = Plan();
+    ASSERT_THAT(built_plan_2, fastecu::testing::IsOk());
+    auto cfg = executor_.TransportSetup(std::move(*built_plan_2));
     ASSERT_THAT(cfg, fastecu::testing::IsOk());
     EXPECT_EQ(cfg->request_id, 0x7e0U);
     EXPECT_EQ(cfg->response_id, 0x7e8U);
@@ -197,6 +200,7 @@ TEST_F(Sh72543rExecutor, CompleteReadPinsBytesTimingAndKernelShortcut)
     EXPECT_EQ(transport_.ReadTimeouts().back(), 800ms);
     for (std::size_t i = 1; i + 1 < transport_.ReadTimeouts().size(); ++i)
     {
+        SCOPED_TRACE(::testing::PrintToString(i));
         EXPECT_EQ(transport_.ReadTimeouts()[i], 2000ms);
     }
     ASSERT_FALSE(events_.phase_progress_calls.empty());
@@ -208,8 +212,9 @@ TEST_F(Sh72543rExecutor, FullInitializationReturnsIdentityAndRecoveryAlias)
     Access();
     auto expected = Pages();
     Stop();
-    auto result = executor_.Execute(Plan(FlashOperation::kRead, "sub_ecu_hitachi_sh72543r_can_recovery"), transport_,
-                                    clock_, cancel_, events_);
+    auto built_plan_3 = Plan(FlashOperation::kRead, "sub_ecu_hitachi_sh72543r_can_recovery");
+    ASSERT_THAT(built_plan_3, fastecu::testing::IsOk());
+    auto result = executor_.Execute(std::move(*built_plan_3), transport_, clock_, cancel_, events_);
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(result->rom_id, "CAL_1122334455_");
     EXPECT_EQ(result->read_bytes, expected);
@@ -245,13 +250,16 @@ TEST_F(Sh72543rExecutor, ShortSeedStopsBeforeKey)
 {
     for (unsigned count = 0; count < 4; ++count)
     {
+        SCOPED_TRACE(::testing::PrintToString(count));
         Transport t;
         t.Exchange(Req(Bytes{0xb7}), Reply(Bytes{0x7f, 0xb7, 0x13}));
         t.Exchange(Req(Bytes{0x10, 3}), Reply(Bytes{0x50, 3}));
         Bytes s{0x67, 1};
         s.resize(2 + count, 0xde);
         t.Exchange(Req(Bytes{0x27, 1}), Reply(s));
-        EXPECT_THAT(executor_.Execute(Plan(), t, clock_, cancel_, events_),
+        auto built_plan_4 = Plan();
+        ASSERT_THAT(built_plan_4, fastecu::testing::IsOk());
+        EXPECT_THAT(executor_.Execute(std::move(*built_plan_4), t, clock_, cancel_, events_),
                     fastecu::testing::IsErr(ErrorKind::kBadResponse));
         EXPECT_TRUE(t.ScriptConsumed());
         EXPECT_EQ(t.writes, 3U);
@@ -270,6 +278,7 @@ TEST_F(Sh72543rExecutor, RejectsMalformedPagesWithoutPartialSuccess)
 {
     for (auto size : {0U, 1U, 0x400U, 0x402U})
     {
+        SCOPED_TRACE(::testing::PrintToString(size));
         Transport t;
         t.Exchange(Req(Bytes{0xb7}), Reply(Bytes{0x7f, 0xb7, 0x13}));
         t.Exchange(Req(Bytes{0x10, 3}), Reply(Bytes{0x50, 3}));
@@ -277,7 +286,9 @@ TEST_F(Sh72543rExecutor, RejectsMalformedPagesWithoutPartialSuccess)
         t.Exchange(Req(Bytes{0x27, 2, 0xde, 0x44, 0x6f, 0xc3}), Reply(Bytes{0x67, 2}));
         Bytes p(size, 0x63);
         t.Exchange(Req(PageRequest(0)), Reply(p));
-        EXPECT_THAT(executor_.Execute(Plan(), t, clock_, cancel_, events_),
+        auto built_plan_5 = Plan();
+        ASSERT_THAT(built_plan_5, fastecu::testing::IsOk());
+        EXPECT_THAT(executor_.Execute(std::move(*built_plan_5), t, clock_, cancel_, events_),
                     fastecu::testing::IsErr(ErrorKind::kBadResponse));
         EXPECT_EQ(t.writes, 5U);
         EXPECT_TRUE(t.ScriptConsumed());
@@ -371,6 +382,7 @@ TEST_F(Sh72543rExecutor, ForgedDryRunAndWireChangesAreRejectedBeforeIo)
 {
     for (int mutation = 0; mutation < 2; ++mutation)
     {
+        SCOPED_TRACE(::testing::PrintToString(mutation));
         FlashPlanFields f{.operation = FlashOperation::kTestWrite,
                           .family = FlashFamily::kSubaruHitachiSh72543rCan,
                           .transport = TransportKind::kCanIso15765,
@@ -465,6 +477,7 @@ class Sh72543rWrite : public Sh72543rExecutor
     {
         for (std::uint32_t a = 0x6000; a < 0x200000; a += 0x100)
         {
+            SCOPED_TRACE(::testing::PrintToString(a));
             Bytes payload = bytes::ComposeBe(0xb6_b, bytes::U24(a));
             for (unsigned offset = 0; offset < 0x100; offset += 4)
             {
@@ -509,6 +522,7 @@ TEST_F(Sh72543rWrite, CompleteWriteUsesAbsoluteOffsetsAndImmediateEraseReply)
     int previous_phase = 0, previous_done = 0;
     for (const auto& p : events_.phase_progress_calls)
     {
+        SCOPED_TRACE(::testing::PrintToString(p));
         EXPECT_GE(p.phase_index, previous_phase);
         if (p.phase_index == previous_phase)
         {
@@ -556,7 +570,13 @@ TEST_P(Sh72543rWriteFault, EraseExhaustionNeverSendsData)
     EXPECT_EQ(transport_.reads, 27U);
     EXPECT_TRUE(transport_.ScriptConsumed());
 }
-INSTANTIATE_TEST_SUITE_P(SilenceAndWrongReply, Sh72543rWriteFault, ::testing::Values(0, 1));
+INSTANTIATE_TEST_SUITE_P(SilenceAndWrongReply, Sh72543rWriteFault, ::testing::Values(0, 1),
+                         (
+                             [](const auto& info)
+                             {
+                                 static constexpr std::array kNames{"Silence", "WrongReply"};
+                                 return kNames[info.index];
+                             }));
 class Sh72543rWriteCancel : public Sh72543rWrite, public ::testing::WithParamInterface<int>
 {
 };
@@ -578,7 +598,14 @@ TEST_P(Sh72543rWriteCancel, CancelAtEveryProgrammingPhaseStopsSubsequentIo)
     EXPECT_LT(events_.phase_progress_calls.back().done, events_.phase_progress_calls.back().total);
 }
 // After erase, first/middle/last frame, close, and checksum respectively.
-INSTANTIATE_TEST_SUITE_P(Boundaries, Sh72543rWriteCancel, ::testing::Values(6, 7, 100, 8102, 8103, 8104));
+INSTANTIATE_TEST_SUITE_P(Boundaries, Sh72543rWriteCancel, ::testing::Values(6, 7, 100, 8102, 8103, 8104),
+                         (
+                             [](const auto& info)
+                             {
+                                 static constexpr std::array kNames{"AfterErase", "FirstFrame", "MiddleFrame",
+                                                                    "LastFrame",  "Close",      "Checksum"};
+                                 return kNames[info.index];
+                             }));
 TEST_F(Sh72543rWrite, CancelDuringErasePollingStopsBeforeData)
 {
     ScriptSetup();
@@ -651,7 +678,14 @@ TEST_P(Sh72543rFinalizeFault, BoundedFinalizationRetriesClassifyFailure)
     EXPECT_TRUE(transport_.ScriptConsumed());
     EXPECT_EQ(transport_.writes, static_cast<std::size_t>(8103 + 20 + (checksum ? 1 : 0)));
 }
-INSTANTIATE_TEST_SUITE_P(CloseAndChecksum, Sh72543rFinalizeFault, ::testing::Values(0, 1, 2, 3));
+INSTANTIATE_TEST_SUITE_P(CloseAndChecksum, Sh72543rFinalizeFault, ::testing::Values(0, 1, 2, 3),
+                         (
+                             [](const auto& info)
+                             {
+                                 static constexpr std::array kNames{"CloseSilence", "CloseWrongReply",
+                                                                    "ChecksumSilence", "ChecksumWrongReply"};
+                                 return kNames[info.index];
+                             }));
 TEST_F(Sh72543rWrite, LastRetrySucceedsWithoutEarlyCompletion)
 {
     ScriptSetup();

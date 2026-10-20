@@ -96,11 +96,11 @@ TEST(LoggingSessionTest, RejectsOutOfRangeProtocolAddresses)
 {
     auto c = Channel("rpm", 0x1000000);
     ASSERT_THAT(MakeLoggingSession(LoggingProtocolId::kSsm, {c}, ValidPolicy()),
-                ::testing::Not(fastecu::testing::IsOk()));
+                fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
 
     c.address = 0x10000;
     ASSERT_THAT(MakeLoggingSession(LoggingProtocolId::kMutDma, {c}, ValidPolicy()),
-                ::testing::Not(fastecu::testing::IsOk()));
+                fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
 
     c.address = 0xffffffff;
     ASSERT_THAT(MakeLoggingSession(LoggingProtocolId::kCdbg, {c}, ValidPolicy()), fastecu::testing::IsOk());
@@ -111,16 +111,16 @@ TEST(LoggingSessionTest, RejectsInvalidConversionConfiguration)
     auto c = Channel("rpm", 0x10);
     c.from_byte_expression.clear();
     ASSERT_THAT(MakeLoggingSession(LoggingProtocolId::kSsm, {c}, ValidPolicy()),
-                ::testing::Not(fastecu::testing::IsOk()));
+                fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
 
     c.from_byte_expression = "x+invalid";
     ASSERT_THAT(MakeLoggingSession(LoggingProtocolId::kSsm, {c}, ValidPolicy()),
-                ::testing::Not(fastecu::testing::IsOk()));
+                fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
 
     c.from_byte_expression = "x";
     c.decimal_precision = 16;
     ASSERT_THAT(MakeLoggingSession(LoggingProtocolId::kSsm, {c}, ValidPolicy()),
-                ::testing::Not(fastecu::testing::IsOk()));
+                fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
 }
 
 TEST(LoggingSessionTest, RejectsExpressionsWithoutFiniteEvaluation)
@@ -157,17 +157,17 @@ TEST(LoggingSessionTest, RejectsProtocolSpecificWireShapesBeforeIo)
     auto ssm_channel = Channel("ssm", 0x10);
     ssm_channel.length = 256;
     EXPECT_THAT(MakeLoggingSession(LoggingProtocolId::kSsm, {ssm_channel}, ValidPolicy()),
-                ::testing::Not(fastecu::testing::IsOk()));
+                fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
 
     auto mut_channel = Channel("mut", 0x10);
     mut_channel.length = 3;
     EXPECT_THAT(MakeLoggingSession(LoggingProtocolId::kMutDma, {mut_channel}, ValidPolicy()),
-                ::testing::Not(fastecu::testing::IsOk()));
+                fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
 
     auto cdbg_channel = Channel("cdbg", 0x804000);
     cdbg_channel.length = 3;
     EXPECT_THAT(MakeLoggingSession(LoggingProtocolId::kCdbg, {cdbg_channel}, ValidPolicy()),
-                ::testing::Not(fastecu::testing::IsOk()));
+                fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
 
     std::vector<LoggingChannel> too_many_cdbg_channels;
     for (int i = 0; i < 57; ++i)
@@ -176,7 +176,7 @@ TEST(LoggingSessionTest, RejectsProtocolSpecificWireShapesBeforeIo)
         too_many_cdbg_channels.back().length = 1;
     }
     EXPECT_THAT(MakeLoggingSession(LoggingProtocolId::kCdbg, std::move(too_many_cdbg_channels), ValidPolicy()),
-                ::testing::Not(fastecu::testing::IsOk()));
+                fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
 
     std::vector<LoggingChannel> too_many_ssm_channels;
     for (int i = 0; i < 85; ++i)
@@ -185,7 +185,7 @@ TEST(LoggingSessionTest, RejectsProtocolSpecificWireShapesBeforeIo)
         too_many_ssm_channels.back().length = 1;
     }
     EXPECT_THAT(MakeLoggingSession(LoggingProtocolId::kSsm, std::move(too_many_ssm_channels), ValidPolicy()),
-                ::testing::Not(fastecu::testing::IsOk()));
+                fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
 
     std::vector<LoggingChannel> too_many_mut_channels;
     for (int i = 0; i < 256; ++i)
@@ -194,7 +194,7 @@ TEST(LoggingSessionTest, RejectsProtocolSpecificWireShapesBeforeIo)
         too_many_mut_channels.back().length = 1;
     }
     EXPECT_THAT(MakeLoggingSession(LoggingProtocolId::kMutDma, std::move(too_many_mut_channels), ValidPolicy()),
-                ::testing::Not(fastecu::testing::IsOk()));
+                fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
 }
 
 TEST(LoggingSessionTest, SsmCapacityCountsPhysicalBytes)

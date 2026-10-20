@@ -19,6 +19,7 @@ TEST(ParseHexBytesTest, RejectsAnythingButWholeBareBytes)
 {
     for (const std::string_view text : {"0", "070", "0x07", "0Z", " 7", "7 ", "-1", "+1", "07 08"})
     {
+        SCOPED_TRACE(::testing::PrintToString(text));
         EXPECT_FALSE(ParseHexBytes(text).has_value()) << text;
     }
 }

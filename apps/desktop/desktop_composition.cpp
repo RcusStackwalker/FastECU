@@ -17,7 +17,7 @@ const ApplicationIdentity kApplication{.name = "FastECU", .title = "FastECU", .v
 DesktopComposition::DesktopComposition(const QString& config_root)
     : config_(fastecu::config::BuiltinCatalog(), file_system_, resource_bundle_, file_repository_, startup_events_)
 {
-    const QString root = config_root.isEmpty() ? default_config_root() : config_root;
+    const QString root = config_root.isEmpty() ? DefaultConfigRoot() : config_root;
     if (fastecu::Status initialized = config_.Initialize(root.toStdString(), kApplication.version);
         !initialized.has_value())
     {
@@ -91,22 +91,22 @@ DesktopComposition::~DesktopComposition()
     definition_service_.reset();
 }
 
-bool DesktopComposition::started() const
+bool DesktopComposition::Started() const
 {
     return !startup_error_.has_value();
 }
 
-const std::optional<fastecu::Error>& DesktopComposition::startup_error() const
+const std::optional<fastecu::Error>& DesktopComposition::StartupError() const
 {
     return startup_error_;
 }
 
-QStringList DesktopComposition::startup_warnings() const
+QStringList DesktopComposition::StartupWarnings() const
 {
-    return startup_events_.warnings();
+    return startup_events_.Warnings();
 }
 
-MainWindowServices DesktopComposition::services()
+MainWindowServices DesktopComposition::Services()
 {
     return {
         .application = kApplication,

@@ -205,6 +205,7 @@ TEST(TestDesktopMixedCanFlashTransport, configureFailsAtEverySetter)
     };
     for (const auto& set_failure : failures)
     {
+        SCOPED_TRACE(::testing::PrintToString(set_failure));
         FakeBackend *fake = nullptr;
         DesktopMixedCanFlashTransport transport(MakeSerial(fake));
         set_failure(*fake);
@@ -260,6 +261,7 @@ TEST(TestDesktopMixedCanFlashTransport, rawTransitionFailsAtEverySetterAndMakesI
     };
     for (const auto& set_failure : failures)
     {
+        SCOPED_TRACE(::testing::PrintToString(set_failure));
         FakeBackend *fake = nullptr;
         DesktopMixedCanFlashTransport transport(MakeSerial(fake));
         FakeCancellationToken cancellation;

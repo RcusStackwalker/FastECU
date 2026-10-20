@@ -92,9 +92,11 @@ TEST(SubaruDensoSh7058CanPlan, BuildsEveryExactSecurityVariantOperationAndGeomet
 {
     for (const Variant& variant : kVariants)
     {
+        SCOPED_TRACE(::testing::PrintToString(variant));
         for (const FlashOperation operation :
              {FlashOperation::kRead, FlashOperation::kTestWrite, FlashOperation::kWrite})
         {
+            SCOPED_TRACE(::testing::PrintToString(operation));
             auto plan =
                 BuildSubaruDensoSh7058CanPlan(operation, variant.protocol, "SH7058", ImageFor(operation), Kernel());
 
@@ -129,6 +131,7 @@ TEST(SubaruDensoSh7058CanPlan, BuildsEveryExactSecurityVariantOperationAndGeomet
                 ASSERT_EQ(plan->EraseRegions().size(), kSh7058Blocks.size());
                 for (std::size_t block = 0; block < kSh7058Blocks.size(); ++block)
                 {
+                    SCOPED_TRACE(::testing::PrintToString(block));
                     EXPECT_EQ(plan->EraseRegions()[block].start, kSh7058Blocks[block].start);
                     EXPECT_EQ(plan->EraseRegions()[block].length, kSh7058Blocks[block].length);
                 }
@@ -152,12 +155,14 @@ TEST(SubaruDensoSh7058CanPlan, RejectsUnknownSuffixDieselDensoCanTcuAndWrongMcuI
     }};
     for (const std::string_view protocol : kRejected)
     {
+        SCOPED_TRACE(::testing::PrintToString(protocol));
         auto plan = BuildSubaruDensoSh7058CanPlan(FlashOperation::kRead, protocol, "SH7058", std::nullopt, Kernel());
         ASSERT_THAT(plan, fastecu::testing::IsErr(ErrorKind::kInvalidConfig)) << protocol;
     }
 
     for (const Variant& variant : kVariants)
     {
+        SCOPED_TRACE(::testing::PrintToString(variant));
         auto plan =
             BuildSubaruDensoSh7058CanPlan(FlashOperation::kRead, variant.protocol, "SH7058d", std::nullopt, Kernel());
         EXPECT_THAT(plan, fastecu::testing::IsErr(ErrorKind::kInvalidConfig)) << variant.protocol;
@@ -173,6 +178,7 @@ TEST(SubaruDensoSh7058CanPlan, EnforcesReadAndWriteImageRequirementsExactly)
 
     for (const FlashOperation operation : {FlashOperation::kTestWrite, FlashOperation::kWrite})
     {
+        SCOPED_TRACE(::testing::PrintToString(operation));
         const std::array<std::optional<bytes::Bytes>, 3> invalid{{
             std::nullopt,
             std::optional<bytes::Bytes>{bytes::Bytes(kRomSize - 1, 0)},
@@ -180,6 +186,7 @@ TEST(SubaruDensoSh7058CanPlan, EnforcesReadAndWriteImageRequirementsExactly)
         }};
         for (const auto& image : invalid)
         {
+            SCOPED_TRACE(::testing::PrintToString(image));
             auto plan = BuildSubaruDensoSh7058CanPlan(operation, stock.protocol, "SH7058", image, Kernel());
             EXPECT_THAT(plan, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
         }
@@ -200,6 +207,7 @@ TEST(SubaruDensoSh7058CanPlan, EnforcesKernelIdentityAddressAnd128BytePaddedCont
              Kernel(bytes::Bytes(kKernelRegionSize + 1, bytes::Byte{0xA5})),
          })
     {
+        SCOPED_TRACE(::testing::PrintToString(invalid));
         auto plan = BuildSubaruDensoSh7058CanPlan(FlashOperation::kRead, stock.protocol, "SH7058", std::nullopt,
                                                   std::move(invalid));
         EXPECT_THAT(plan, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
@@ -210,6 +218,7 @@ TEST(SubaruDensoSh7058CanPlan, ValidatorRejectsWireSecurityRegionGeometryAndConf
 {
     for (int mutation = 0; mutation < 9; ++mutation)
     {
+        SCOPED_TRACE(::testing::PrintToString(mutation));
         auto fields = ValidFields(kVariants.front());
         auto& wire = std::get<SubaruDensoSh7058CanPlan>(fields.family_plan);
         switch (mutation)
@@ -257,8 +266,10 @@ TEST(SubaruDensoSh7058CanPlan, RejectsAlteredAddressesAndLengthsInEveryEraseBloc
 {
     for (unsigned index = 0; index < 16; ++index)
     {
+        SCOPED_TRACE(::testing::PrintToString(index));
         for (bool alter_start : {false, true})
         {
+            SCOPED_TRACE(::testing::PrintToString(alter_start));
             auto fields = ValidFields(kVariants.front());
             if (alter_start)
             {

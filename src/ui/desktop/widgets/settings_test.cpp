@@ -99,6 +99,7 @@ TEST_P(ProviderCheckboxesPersistBothDirectionsParameters, providerCheckboxesPers
         ASSERT_EQ(boxes.size(), 3);
         for (auto *box : boxes)
         {
+            SCOPED_TRACE(::testing::PrintToString(box));
             box->setChecked(!enabled);
             box->click();
             ASSERT_EQ(box->isChecked(), enabled);

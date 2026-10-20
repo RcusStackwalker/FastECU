@@ -159,6 +159,7 @@ TEST(DefinitionWriterTest, RejectsEachEmptyRequiredIdentity)
 {
     for (const std::string_view field : {"xml_id", "internal_id", "ecu_id"})
     {
+        SCOPED_TRACE(::testing::PrintToString(field));
         DefinitionHeaderInput input = CompleteInput();
         if (field == "xml_id")
         {
@@ -190,8 +191,10 @@ TEST(DefinitionWriterTest, RejectsTextXmlCannotRepresent)
     });
     for (const auto& [field, set] : kFields)
     {
+        SCOPED_TRACE(::testing::PrintToString(field));
         for (const std::string& bad : {std::string("a\rb"), std::string("a\0b", 3)})
         {
+            SCOPED_TRACE(::testing::PrintToString(bad));
             DefinitionHeaderInput input = CompleteInput();
             set(input, bad);
 
@@ -279,8 +282,8 @@ TEST(DefinitionWriterTest, RejectsDuplicateTopLevelRomIdContainers)
     auto result = RewriteEcuflashXml(source, CompleteInput());
 
     ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
-    EXPECT_THAT(result.error().detail, HasSubstr("<romid>"));
-    EXPECT_THAT(result.error().detail, HasSubstr("duplicate"));
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("<romid>")));
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("duplicate")));
 }
 
 TEST(DefinitionWriterTest, CanonicalizesDirectCreateAndRewriteInputsWithoutChangingNotes)
@@ -302,6 +305,7 @@ TEST(DefinitionWriterTest, CanonicalizesDirectCreateAndRewriteInputsWithoutChang
         RewriteEcuflashXml(Bytes("<rom><romid><xmlid>OLD</xmlid></romid><!-- keep --></rom>"), input);
     for (const auto *result : {&created, &rewritten})
     {
+        SCOPED_TRACE(::testing::PrintToString(result));
         ASSERT_THAT(*result, fastecu::testing::IsOk());
         const auto xml = Text(**result);
         EXPECT_THAT(xml, HasSubstr("<xmlid>CAL123</xmlid>"));
@@ -336,6 +340,7 @@ TEST(DefinitionWriterTest, RejectsUnicodeWhitespaceOnlyRequiredFieldsForEveryCal
     for (const auto member :
          {&DefinitionHeaderInput::xml_id, &DefinitionHeaderInput::internal_id, &DefinitionHeaderInput::ecu_id})
     {
+        SCOPED_TRACE(::testing::PrintToString(member));
         auto input = CompleteInput();
         input.*member = "\xc2\xa0\xe2\x80\x83\xe3\x80\x80";
         EXPECT_THAT(CreateEcuflashXml(input), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));

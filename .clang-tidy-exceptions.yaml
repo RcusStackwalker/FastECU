@@ -1,0 +1,10 @@
+version: 1
+exceptions:
+  - check: fastecu-result-assertion
+    file: src/backend/ports/testing/result_matchers_test.cpp
+    symbol: ResultMatchers.IsOkAcceptsAValueAndRejectsAnError
+    rationale: This tests the negation of IsOk itself, so replacing it with IsErr would stop exercising the matcher contract.
+  - check: fastecu-result-assertion
+    file: src/backend/ports/testing/result_matchers_test.cpp
+    symbol: ResultMatchers.IsOkAcceptsAStatus
+    rationale: This tests IsOk negation for void Results, independently of error classification.

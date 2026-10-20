@@ -24,7 +24,7 @@ TEST(InMemoryAtomicFileWriter, FailedReplacementIsRecordedWithoutUpdatingContent
     writer.replace_error = fastecu::Error{fastecu::ErrorKind::kInternal, "replace failed"};
 
     ASSERT_THAT(writer.Replace("definition.xml", std::vector<std::uint8_t>{2}),
-                ::testing::Not(fastecu::testing::IsOk()));
+                fastecu::testing::IsErr(fastecu::ErrorKind::kInternal));
     ASSERT_EQ(writer.replace_calls.size(), 1U);
     EXPECT_THAT(writer.replace_calls[0].data, test_bytes::BytesEq((std::vector<std::uint8_t>{2})));
     EXPECT_EQ(writer.files.at("definition.xml"), (std::vector<std::uint8_t>{1}));

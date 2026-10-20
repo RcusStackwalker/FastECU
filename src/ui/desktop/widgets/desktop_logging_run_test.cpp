@@ -1,3 +1,4 @@
+#include <array>
 #include "src/ui/desktop/widgets/desktop_logging_run.h"
 
 #include <QDir>
@@ -504,7 +505,13 @@ TEST_P(DesktopLoggingRunFailure, newRunRetriesCsvAfterALatchedFailure)
     EXPECT_EQ(errors.Count(), 1U);
 }
 INSTANTIATE_TEST_SUITE_P(Failures, DesktopLoggingRunFailure,
-                         ::testing::Values(FailurePoint::kOpen, FailurePoint::kHeaderWrite, FailurePoint::kRowWrite));
+                         ::testing::Values(FailurePoint::kOpen, FailurePoint::kHeaderWrite, FailurePoint::kRowWrite),
+                         (
+                             [](const auto& info)
+                             {
+                                 static constexpr std::array kNames{"Open", "HeaderWrite", "RowWrite"};
+                                 return kNames[info.index];
+                             }));
 
 TEST_F(DesktopLoggingRunTest, csvErrorSubscriberStopsAfterFailureStateCommits)
 {
@@ -577,7 +584,13 @@ TEST_P(DesktopLoggingRunStartFailure, failedStartRollsBackInitializedStateAndCsv
 }
 INSTANTIATE_TEST_SUITE_P(Failures, DesktopLoggingRunStartFailure,
                          ::testing::Values(StartFailure::kMissingRegistration, StartFailure::kFactory,
-                                           StartFailure::kThrow, StartFailure::kNull));
+                                           StartFailure::kThrow, StartFailure::kNull),
+                         (
+                             [](const auto& info)
+                             {
+                                 static constexpr std::array kNames{"MissingRegistration", "Factory", "Throw", "Null"};
+                                 return kNames[info.index];
+                             }));
 
 enum class EndCase
 {
@@ -640,8 +653,13 @@ TEST_P(DesktopLoggingRunCompletion, engineCompletionReasonsReleaseRunAndCsv)
     EXPECT_TRUE(QFile::exists(path));
 }
 INSTANTIATE_TEST_SUITE_P(Reasons, DesktopLoggingRunCompletion,
-                         ::testing::Values(EndCase::kHandshake, EndCase::kCancel, EndCase::kAdapter,
-                                           EndCase::kRuntime));
+                         ::testing::Values(EndCase::kHandshake, EndCase::kCancel, EndCase::kAdapter, EndCase::kRuntime),
+                         (
+                             [](const auto& info)
+                             {
+                                 static constexpr std::array kNames{"Handshake", "Cancel", "Adapter", "Runtime"};
+                                 return kNames[info.index];
+                             }));
 
 TEST_F(DesktopLoggingRunTest, workerFirstSampleIsRetained)
 {

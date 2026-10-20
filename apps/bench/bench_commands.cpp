@@ -45,22 +45,22 @@ Status ValidateWireRange(std::uint32_t address, std::uint64_t length, std::strin
 Result<bytes::Bytes> Exchange(BenchContext& context, CommandOutcome& outcome, bytes::ByteView pdu,
                               const uds::ExchangePolicy& policy)
 {
-    Result<bytes::Bytes> result = context.session.exchange(pdu, policy);
-    append_traffic(outcome, context.session.last_traffic());
+    Result<bytes::Bytes> result = context.session.Exchange(pdu, policy);
+    AppendTraffic(outcome, context.session.LastTraffic());
     return result;
 }
 
 Result<bytes::Bytes> ExchangeRaw(BenchContext& context, CommandOutcome& outcome, bytes::ByteView pdu, int timeout_ms)
 {
-    Result<bytes::Bytes> result = context.session.exchange_raw(pdu, timeout_ms);
-    append_traffic(outcome, context.session.last_traffic());
+    Result<bytes::Bytes> result = context.session.ExchangeRaw(pdu, timeout_ms);
+    AppendTraffic(outcome, context.session.LastTraffic());
     return result;
 }
 
 Status Connect(BenchContext& context, CommandOutcome& outcome)
 {
-    Status result = context.session.connect();
-    append_traffic(outcome, context.session.last_traffic());
+    Status result = context.session.Connect();
+    AppendTraffic(outcome, context.session.LastTraffic());
     return result;
 }
 
@@ -195,7 +195,7 @@ Status Upload(BenchContext& context, CommandOutcome& outcome, std::uint32_t addr
     if (const bytes::ByteView crc_payload = uds::Payload(*crc_reply);
         crc_payload.size() < 2 || crc_payload[0] != mitsu_colt_can::kRoutineCheckCrc || crc_payload[1] != 0)
     {
-        return Fail(ErrorKind::kBadResponse, decode_crc_reply(crc_payload));
+        return Fail(ErrorKind::kBadResponse, DecodeCrcReply(crc_payload));
     }
     return {};
 }
@@ -224,9 +224,9 @@ Status RoutineWithStatus(BenchContext& context, CommandOutcome& outcome, bytes::
 
 } // namespace
 
-std::string render_step(const StepSpec& step)
+std::string RenderStep(const StepSpec& step)
 {
-    const CommandSpec *const spec = find_command(step.id);
+    const CommandSpec *const spec = FindCommand(step.id);
     std::string text{spec == nullptr ? std::string_view{} : spec->name};
     for (const std::string& arg : step.args)
     {
@@ -236,7 +236,7 @@ std::string render_step(const StepSpec& step)
     return text;
 }
 
-std::string decode_erase_reply(bytes::ByteView payload)
+std::string DecodeEraseReply(bytes::ByteView payload)
 {
     if (payload.size() < 2)
     {
@@ -261,7 +261,7 @@ std::string decode_erase_reply(bytes::ByteView payload)
                        payload[1]);
 }
 
-std::string decode_crc_reply(bytes::ByteView payload)
+std::string DecodeCrcReply(bytes::ByteView payload)
 {
     if (payload.size() < 2)
     {
@@ -280,12 +280,12 @@ namespace
 // read/dump <address> <length>.
 Result<PreparedStep> PrepareRange(const StepSpec& step, PreparedStep prepared)
 {
-    const Result<std::uint32_t> address = parse_u32(step.args[0]);
+    const Result<std::uint32_t> address = ParseU32(step.args[0]);
     if (!address.has_value())
     {
         return std::unexpected(address.error());
     }
-    const Result<std::uint32_t> length = parse_u32(step.args[1]);
+    const Result<std::uint32_t> length = ParseU32(step.args[1]);
     if (!length.has_value())
     {
         return std::unexpected(length.error());
@@ -311,7 +311,7 @@ Status CheckCrcAddress(std::uint32_t address)
 
 Result<PreparedStep> PrepareCrc(const StepSpec& step, PreparedStep prepared)
 {
-    const Result<std::uint32_t> address = parse_u32(step.args[0]);
+    const Result<std::uint32_t> address = ParseU32(step.args[0]);
     if (!address.has_value())
     {
         return std::unexpected(address.error());
@@ -335,7 +335,7 @@ Status CheckNotDestructive(const CommandSpec& spec, bytes::ByteView pdu)
 
 Result<PreparedStep> PreparePdu(const CommandSpec& spec, const StepSpec& step, PreparedStep prepared)
 {
-    Result<bytes::Bytes> pdu = parse_hex_bytes(step.args);
+    Result<bytes::Bytes> pdu = ParseHexBytes(step.args);
     if (!pdu.has_value())
     {
         return std::unexpected(pdu.error());
@@ -350,12 +350,12 @@ Result<PreparedStep> PreparePdu(const CommandSpec& spec, const StepSpec& step, P
 
 Result<PreparedStep> PrepareDownload(IBenchFiles& files, const StepSpec& step, PreparedStep prepared)
 {
-    const Result<std::uint32_t> address = parse_u32(step.args[0]);
+    const Result<std::uint32_t> address = ParseU32(step.args[0]);
     if (!address.has_value())
     {
         return std::unexpected(address.error());
     }
-    Result<bytes::Bytes> data = files.load(step.args[1]);
+    Result<bytes::Bytes> data = files.Load(step.args[1]);
     if (!data.has_value())
     {
         return std::unexpected(data.error());
@@ -388,7 +388,7 @@ Result<PreparedStep> PrepareRoutine(IBenchFiles& files, const CommandSpec& spec,
             return Fail(ErrorKind::kInvalidConfig,
                         std::format("{}'s extra arguments must be --from <path>", spec.name));
         }
-        Result<bytes::Bytes> loaded = files.load(step.args[2]);
+        Result<bytes::Bytes> loaded = files.Load(step.args[2]);
         if (!loaded.has_value())
         {
             return std::unexpected(loaded.error());
@@ -410,12 +410,12 @@ Result<PreparedStep> PrepareRoutine(IBenchFiles& files, const CommandSpec& spec,
 // StepSpec built another way cannot reach the wire ungated.
 Result<const CommandSpec *> CheckedSpec(const StepSpec& step)
 {
-    const CommandSpec *const spec = find_command(step.id);
+    const CommandSpec *const spec = FindCommand(step.id);
     if (spec == nullptr)
     {
         return Fail(ErrorKind::kInternal, "step has no command spec");
     }
-    if (const Status valid = validate_against_table(*spec, step); !valid.has_value())
+    if (const Status valid = ValidateAgainstTable(*spec, step); !valid.has_value())
     {
         return std::unexpected(valid.error());
     }
@@ -428,9 +428,9 @@ Status ExecuteRead(BenchContext& context, const PreparedStep& prepared, CommandO
     {
         return result;
     }
-    if (prepared.spec.id == CommandId::Dump)
+    if (prepared.spec.id == CommandId::kDump)
     {
-        return context.files.save(prepared.spec.args[2], outcome.data);
+        return context.files.Save(prepared.spec.args[2], outcome.data);
     }
     return {};
 }
@@ -449,7 +449,7 @@ Status ExecuteSend(BenchContext& context, const CommandSpec& spec, const Prepare
         return valid;
     }
     if (const Result<bytes::Bytes> reply =
-            prepared.spec.id == CommandId::Send
+            prepared.spec.id == CommandId::kSend
                 ? Exchange(context, outcome, prepared.pdu, kRoutinePolicy)
                 : ExchangeRaw(context, outcome, prepared.pdu, context.options.timeout_ms);
         !reply.has_value())
@@ -471,7 +471,7 @@ Status ExecuteUpload(BenchContext& context, const PreparedStep& prepared, Comman
         return uploaded;
     }
     outcome.note = std::format("uploaded {} {}bytes to 0x{:06x}", prepared.upload_payload->size(),
-                               prepared.spec.id == CommandId::UploadRoutine ? "routine " : "", prepared.address);
+                               prepared.spec.id == CommandId::kUploadRoutine ? "routine " : "", prepared.address);
     return {};
 }
 
@@ -486,7 +486,7 @@ Status ExecuteUnlock(BenchContext& context, CommandOutcome& outcome)
 }
 } // namespace
 
-Result<PreparedStep> prepare_step(IBenchFiles& files, const StepSpec& step)
+Result<PreparedStep> PrepareStep(IBenchFiles& files, const StepSpec& step)
 {
     const Result<const CommandSpec *> spec = CheckedSpec(step);
     if (!spec.has_value())
@@ -496,22 +496,22 @@ Result<PreparedStep> prepare_step(IBenchFiles& files, const StepSpec& step)
     PreparedStep prepared{.spec = step};
     switch (step.id)
     {
-    case CommandId::Read:
-    case CommandId::Dump:
+    case CommandId::kRead:
+    case CommandId::kDump:
         return PrepareRange(step, std::move(prepared));
-    case CommandId::CrcCheck:
+    case CommandId::kCrcCheck:
         return PrepareCrc(step, std::move(prepared));
-    case CommandId::Send:
-    case CommandId::SendRaw:
+    case CommandId::kSend:
+    case CommandId::kSendRaw:
         return PreparePdu(**spec, step, std::move(prepared));
-    case CommandId::Download:
+    case CommandId::kDownload:
         return PrepareDownload(files, step, std::move(prepared));
-    case CommandId::UploadRoutine:
+    case CommandId::kUploadRoutine:
         return PrepareRoutine(files, **spec, step, std::move(prepared));
-    case CommandId::Ports:
-    case CommandId::Connect:
-    case CommandId::Unlock:
-    case CommandId::Erase:
+    case CommandId::kPorts:
+    case CommandId::kConnect:
+    case CommandId::kUnlock:
+    case CommandId::kErase:
         return prepared;
     }
     return Fail(ErrorKind::kInternal, "unhandled command during validation");
@@ -526,10 +526,10 @@ Status ExecuteStep(BenchContext& context, const PreparedStep& prepared, CommandO
     }
     switch (prepared.spec.id)
     {
-    case CommandId::Read:
-    case CommandId::Dump:
+    case CommandId::kRead:
+    case CommandId::kDump:
         return ExecuteRead(context, prepared, outcome);
-    case CommandId::CrcCheck:
+    case CommandId::kCrcCheck:
         // Re-checked at the wire, not re-parsed: prepare_step decoded the
         // address, but an address-window guard belongs at the last gate too.
         if (const Status valid = CheckCrcAddress(prepared.address); !valid.has_value())
@@ -537,31 +537,31 @@ Status ExecuteStep(BenchContext& context, const PreparedStep& prepared, CommandO
             return valid;
         }
         return RoutineWithStatus(context, outcome, mitsu_colt_can::BuildRoutineCheckCrc(prepared.address),
-                                 mitsu_colt_can::kRoutineCheckCrc, decode_crc_reply);
-    case CommandId::Send:
-    case CommandId::SendRaw:
+                                 mitsu_colt_can::kRoutineCheckCrc, DecodeCrcReply);
+    case CommandId::kSend:
+    case CommandId::kSendRaw:
         return ExecuteSend(context, **spec, prepared, outcome);
-    case CommandId::Connect:
+    case CommandId::kConnect:
         return Connect(context, outcome);
-    case CommandId::Ports:
+    case CommandId::kPorts:
         // main.cpp (Task 7) handles `ports` before any session exists.
         return Fail(ErrorKind::kUnsupported, "ports does not use a session");
-    case CommandId::Unlock:
+    case CommandId::kUnlock:
         return ExecuteUnlock(context, outcome);
-    case CommandId::Erase:
+    case CommandId::kErase:
         return RoutineWithStatus(context, outcome, mitsu_colt_can::BuildRoutineErase(), mitsu_colt_can::kRoutineErase,
-                                 decode_erase_reply);
-    case CommandId::Download:
-    case CommandId::UploadRoutine:
+                                 DecodeEraseReply);
+    case CommandId::kDownload:
+    case CommandId::kUploadRoutine:
         return ExecuteUpload(context, prepared, outcome);
     }
     return {};
 }
 
-CommandOutcome run_step(BenchContext& context, const PreparedStep& prepared)
+CommandOutcome RunStep(BenchContext& context, const PreparedStep& prepared)
 {
     CommandOutcome outcome;
-    outcome.step = render_step(prepared.spec);
+    outcome.step = RenderStep(prepared.spec);
 
     if (const Status result = ExecuteStep(context, prepared, outcome); !result.has_value())
     {
@@ -570,26 +570,26 @@ CommandOutcome run_step(BenchContext& context, const PreparedStep& prepared)
         outcome.error_detail = result.error().detail;
     }
 
-    if (const Result<double> battery = context.session.vbatt(); battery.has_value())
+    if (const Result<double> battery = context.session.Vbatt(); battery.has_value())
     {
         outcome.vbatt = *battery;
     }
     return outcome;
 }
 
-CommandOutcome run_step(BenchContext& context, const StepSpec& step)
+CommandOutcome RunStep(BenchContext& context, const StepSpec& step)
 {
-    const Result<PreparedStep> prepared = prepare_step(context.files, step);
+    const Result<PreparedStep> prepared = PrepareStep(context.files, step);
     if (prepared.has_value())
     {
-        return run_step(context, *prepared);
+        return RunStep(context, *prepared);
     }
 
-    CommandOutcome outcome{.step = render_step(step),
+    CommandOutcome outcome{.step = RenderStep(step),
                            .ok = false,
                            .error_kind = prepared.error().kind,
                            .error_detail = prepared.error().detail};
-    if (const Result<double> battery = context.session.vbatt(); battery.has_value())
+    if (const Result<double> battery = context.session.Vbatt(); battery.has_value())
     {
         outcome.vbatt = *battery;
     }

@@ -1,3 +1,4 @@
+#include <array>
 #include "src/backend/calibration/definition_interpretation_internal.h"
 
 #include <cmath>
@@ -76,7 +77,13 @@ TEST_P(DefinitionInterpretation, MapElementOwnsMetadataAcrossMoves)
     EXPECT_THAT(encoded->writes[0].bytes, ElementsAre(0xA6, 0x0E));
 }
 
-INSTANTIATE_TEST_SUITE_P(ExpressionStorage, DefinitionInterpretation, ::testing::Values(0U, 128U));
+INSTANTIATE_TEST_SUITE_P(ExpressionStorage, DefinitionInterpretation, ::testing::Values(0U, 128U),
+                         (
+                             [](const auto& info)
+                             {
+                                 static constexpr std::array kNames{"ShortExpression", "HeapBackedExpression"};
+                                 return kNames[info.index];
+                             }));
 
 TEST(ResolveMapElement, UsesResolvedAxisFieldsAndScalingBounds)
 {

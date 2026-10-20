@@ -34,7 +34,7 @@ struct Harness
     int Run(std::vector<std::string_view> args, std::string script = {})
     {
         input.str(std::move(script));
-        return run_cli(environment, files, args, input, output, diagnostics);
+        return RunCli(environment, files, args, input, output, diagnostics);
     }
 };
 
@@ -78,7 +78,7 @@ TEST(BenchDriver, JsonPortsFailureIsAnObjectOnStdoutAndDiagnosticOnStderr)
 
     const int code = harness.Run({"--json", "ports"});
 
-    EXPECT_EQ(code, exit_code_for(ErrorKind::kDisconnected));
+    EXPECT_EQ(code, ExitCodeFor(ErrorKind::kDisconnected));
     EXPECT_EQ(NewlineCount(harness.output.str()), 1U);
     EXPECT_NE(harness.output.str().find("\"ok\":false"), std::string::npos);
     EXPECT_NE(harness.output.str().find("adapter unavailable"), std::string::npos);
@@ -99,7 +99,7 @@ TEST(BenchDriver, JsonSetupFailurePreservesHandshakeTraffic)
 
     const int code = harness.Run({"--json", "read", "0x200", "1"});
 
-    EXPECT_EQ(code, exit_code_for(ErrorKind::kBadResponse));
+    EXPECT_EQ(code, ExitCodeFor(ErrorKind::kBadResponse));
     EXPECT_NE(harness.output.str().find("\"tx\":\"1085\""), std::string::npos);
     EXPECT_NE(harness.output.str().find("\"rx\":\"5081\""), std::string::npos);
     EXPECT_NE(harness.output.str().find("\"ms\":7"), std::string::npos);
@@ -143,7 +143,7 @@ TEST(BenchDriver, InvalidFirstStepIsRejectedBeforeRequestingASession)
 
     const int code = harness.Run({"read", "0x1000000", "1"});
 
-    EXPECT_EQ(code, exit_code_for(ErrorKind::kInvalidConfig));
+    EXPECT_EQ(code, ExitCodeFor(ErrorKind::kInvalidConfig));
     EXPECT_EQ(harness.environment.session_calls, 0);
     EXPECT_TRUE(harness.session.requests.empty());
     EXPECT_NE(harness.output.str().find("read 0x1000000 1"), std::string::npos);
@@ -155,7 +155,7 @@ TEST(BenchDriver, InvalidLaterStepIsRejectedBeforeAnyEarlierDestructiveStep)
 
     const int code = harness.Run({"unlock", "--destructive", ":", "read", "nonsense", "1"});
 
-    EXPECT_EQ(code, exit_code_for(ErrorKind::kInvalidConfig));
+    EXPECT_EQ(code, ExitCodeFor(ErrorKind::kInvalidConfig));
     EXPECT_EQ(harness.environment.session_calls, 0);
     EXPECT_TRUE(harness.session.requests.empty());
     EXPECT_NE(harness.output.str().find("read nonsense 1"), std::string::npos);
@@ -169,7 +169,7 @@ TEST(BenchDriver, MissingLaterPayloadIsRejectedBeforeAnyEarlierDestructiveStep)
     const int code =
         harness.Run({"unlock", "--destructive", ":", "download", "0x8000", "missing.bin", "--destructive"});
 
-    EXPECT_EQ(code, exit_code_for(ErrorKind::kInvalidConfig));
+    EXPECT_EQ(code, ExitCodeFor(ErrorKind::kInvalidConfig));
     EXPECT_EQ(harness.environment.session_calls, 0);
     EXPECT_TRUE(harness.session.requests.empty());
     EXPECT_NE(harness.output.str().find("download 0x8000 missing.bin"), std::string::npos);
@@ -200,7 +200,7 @@ TEST(BenchDriver, InvalidLaterScriptLinePreventsEarlierDestructiveLine)
 
     const int code = harness.Run({"--script", "-"}, "unlock --destructive\nread nonsense 1\n");
 
-    EXPECT_EQ(code, exit_code_for(ErrorKind::kInvalidConfig));
+    EXPECT_EQ(code, ExitCodeFor(ErrorKind::kInvalidConfig));
     EXPECT_EQ(harness.environment.session_calls, 0);
     EXPECT_TRUE(harness.session.requests.empty());
     EXPECT_NE(harness.output.str().find("script line 2: read nonsense 1"), std::string::npos);
@@ -212,7 +212,7 @@ TEST(BenchDriver, ScriptLineGlobalOptionsAreRejectedInsteadOfDiscarded)
 
     const int code = harness.Run({"--json", "--script", "-"}, "read 0x200 1 --timeout 20\n");
 
-    EXPECT_EQ(code, exit_code_for(ErrorKind::kInvalidConfig));
+    EXPECT_EQ(code, ExitCodeFor(ErrorKind::kInvalidConfig));
     EXPECT_EQ(harness.environment.session_calls, 0);
     EXPECT_EQ(NewlineCount(harness.output.str()), 1U);
     EXPECT_NE(harness.output.str().find("script-line global option"), std::string::npos);
@@ -223,14 +223,15 @@ TEST(BenchDriver, ScriptLineGlobalOptionsAreRejectedInsteadOfDiscarded)
 // rejected on a script line rather than silently parsed and discarded.
 TEST(BenchDriver, EveryGlobalOptionIsRejectedOnAScriptLine)
 {
-    ASSERT_FALSE(global_option_table().empty());
-    for (const GlobalOptionSpec& option : global_option_table())
+    ASSERT_FALSE(GlobalOptionTable().empty());
+    for (const GlobalOptionSpec& option : GlobalOptionTable())
     {
+        SCOPED_TRACE(::testing::PrintToString(option.name));
         Harness harness;
 
         const int code = harness.Run({"--json", "--script", "-"}, std::format("read 0x200 1 {}\n", option.name));
 
-        EXPECT_EQ(code, exit_code_for(ErrorKind::kInvalidConfig)) << option.name;
+        EXPECT_EQ(code, ExitCodeFor(ErrorKind::kInvalidConfig)) << option.name;
         EXPECT_EQ(harness.environment.session_calls, 0) << option.name;
         EXPECT_EQ(NewlineCount(harness.output.str()), 1U) << option.name;
         EXPECT_NE(harness.output.str().find("script-line global option"), std::string::npos) << option.name;
@@ -251,7 +252,7 @@ TEST(BenchDriver, JsonConnectFailureIsAnOutcomeWithTraffic)
 
     const int code = harness.Run({"--json", "connect"});
 
-    EXPECT_EQ(code, exit_code_for(ErrorKind::kBadResponse));
+    EXPECT_EQ(code, ExitCodeFor(ErrorKind::kBadResponse));
     EXPECT_EQ(NewlineCount(harness.output.str()), 1U);
     EXPECT_NE(harness.output.str().find("\"last_rx\":\"6707\""), std::string::npos);
     EXPECT_NE(harness.diagnostics.str().find("bad key echo"), std::string::npos);
@@ -263,7 +264,7 @@ TEST(BenchDriver, StandaloneEraseIsRejectedBeforeRequestingASession)
 
     const int code = harness.Run({"erase", "--destructive"});
 
-    EXPECT_EQ(code, exit_code_for(ErrorKind::kInvalidConfig));
+    EXPECT_EQ(code, ExitCodeFor(ErrorKind::kInvalidConfig));
     EXPECT_EQ(harness.environment.session_calls, 0);
     EXPECT_FALSE(SentErase(harness.session));
     EXPECT_NE(harness.diagnostics.str().find("erase helper"), std::string::npos);
@@ -277,7 +278,7 @@ TEST(BenchDriver, EraseRequiresANamedEraseHelperRatherThanAnyRoutineUpload)
     const int code = harness.Run({"upload-routine", "write-page", "--destructive", ":", "unlock", "--destructive", ":",
                                   "erase", "--destructive"});
 
-    EXPECT_EQ(code, exit_code_for(ErrorKind::kInvalidConfig));
+    EXPECT_EQ(code, ExitCodeFor(ErrorKind::kInvalidConfig));
     EXPECT_EQ(harness.environment.session_calls, 0);
     EXPECT_TRUE(harness.session.requests.empty());
 }
@@ -289,7 +290,7 @@ TEST(BenchDriver, UnlockBeforeEraseHelperDoesNotQualifyForErase)
     const int code = harness.Run({"unlock", "--destructive", ":", "upload-routine", "erase-page", "--destructive", ":",
                                   "erase", "--destructive"});
 
-    EXPECT_EQ(code, exit_code_for(ErrorKind::kInvalidConfig));
+    EXPECT_EQ(code, ExitCodeFor(ErrorKind::kInvalidConfig));
     EXPECT_EQ(harness.environment.session_calls, 0);
     EXPECT_TRUE(harness.session.requests.empty());
 }
@@ -302,7 +303,7 @@ TEST(BenchDriver, ScriptUnlockBeforeEraseHelperDoesNotQualifyForErase)
                                                     "upload-routine erase-page --destructive\n"
                                                     "erase --destructive\n");
 
-    EXPECT_EQ(code, exit_code_for(ErrorKind::kInvalidConfig));
+    EXPECT_EQ(code, ExitCodeFor(ErrorKind::kInvalidConfig));
     EXPECT_EQ(harness.environment.session_calls, 0);
     EXPECT_TRUE(harness.session.requests.empty());
 }
@@ -315,7 +316,7 @@ TEST(BenchDriver, EraseHelperFromOverrideDoesNotQualifyForErase)
     const int code = harness.Run({"upload-routine", "erase-redirect", "--from", "custom.bin", "--destructive", ":",
                                   "unlock", "--destructive", ":", "erase", "--destructive"});
 
-    EXPECT_EQ(code, exit_code_for(ErrorKind::kInvalidConfig));
+    EXPECT_EQ(code, ExitCodeFor(ErrorKind::kInvalidConfig));
     EXPECT_EQ(harness.environment.session_calls, 0);
     EXPECT_TRUE(harness.session.requests.empty());
 }
@@ -330,12 +331,13 @@ TEST(BenchDriver, DownloadBetweenEraseHelperAndUnlockInvalidatesThePlan)
                                         "download", "0x900000", "payload.bin", "--destructive", ":", "unlock",
                                         "--destructive", ":", "erase", "--destructive"}})
     {
+        SCOPED_TRACE(::testing::PrintToString(args));
         Harness harness;
         harness.files.contents["payload.bin"] = {0xAA};
 
         const int code = harness.Run(args);
 
-        EXPECT_EQ(code, exit_code_for(ErrorKind::kInvalidConfig));
+        EXPECT_EQ(code, ExitCodeFor(ErrorKind::kInvalidConfig));
         EXPECT_EQ(harness.environment.session_calls, 0);
         EXPECT_TRUE(harness.session.requests.empty());
     }
@@ -351,7 +353,7 @@ TEST(BenchDriver, ScriptDownloadBetweenEraseHelperAndUnlockInvalidatesThePlan)
                                                                     "unlock --destructive\n"
                                                                     "erase --destructive\n");
 
-    EXPECT_EQ(code, exit_code_for(ErrorKind::kInvalidConfig));
+    EXPECT_EQ(code, ExitCodeFor(ErrorKind::kInvalidConfig));
     EXPECT_EQ(harness.environment.session_calls, 0);
     EXPECT_TRUE(harness.session.requests.empty());
 }
@@ -363,7 +365,7 @@ TEST(BenchDriver, DestructiveRawSendBetweenEraseHelperAndUnlockInvalidatesThePla
     const int code = harness.Run({"upload-routine", "erase-page", "--destructive", ":", "send-raw", "22",
                                   "--destructive", ":", "unlock", "--destructive", ":", "erase", "--destructive"});
 
-    EXPECT_EQ(code, exit_code_for(ErrorKind::kInvalidConfig));
+    EXPECT_EQ(code, ExitCodeFor(ErrorKind::kInvalidConfig));
     EXPECT_EQ(harness.environment.session_calls, 0);
     EXPECT_TRUE(harness.session.requests.empty());
 }
@@ -409,7 +411,7 @@ TEST(BenchDriver, WriteHelperFromOverrideBetweenEraseHelperAndUnlockInvalidatesT
         harness.Run({"upload-routine", "erase-page", "--destructive", ":", "upload-routine", "write-page", "--from",
                      "custom.bin", "--destructive", ":", "unlock", "--destructive", ":", "erase", "--destructive"});
 
-    EXPECT_EQ(code, exit_code_for(ErrorKind::kInvalidConfig));
+    EXPECT_EQ(code, ExitCodeFor(ErrorKind::kInvalidConfig));
     EXPECT_EQ(harness.environment.session_calls, 0);
     EXPECT_TRUE(harness.session.requests.empty());
 }
@@ -422,7 +424,7 @@ TEST(BenchDriver, FailedEraseHelperUploadPreventsEraseUnderKeepGoing)
     const int code = harness.Run({"--keep-going", "upload-routine", "erase-redirect", "--destructive", ":", "unlock",
                                   "--destructive", ":", "erase", "--destructive"});
 
-    EXPECT_EQ(code, exit_code_for(ErrorKind::kBadResponse));
+    EXPECT_EQ(code, ExitCodeFor(ErrorKind::kBadResponse));
     EXPECT_EQ(harness.environment.session_calls, 1);
     EXPECT_FALSE(SentErase(harness.session));
     EXPECT_NE(harness.diagnostics.str().find("successful erase helper"), std::string::npos);
@@ -437,7 +439,7 @@ TEST(BenchDriver, FailedUnlockPreventsEraseUnderKeepGoing)
     const int code = harness.Run({"--keep-going", "upload-routine", "erase-page", "--destructive", ":", "unlock",
                                   "--destructive", ":", "erase", "--destructive"});
 
-    EXPECT_EQ(code, exit_code_for(ErrorKind::kBadResponse));
+    EXPECT_EQ(code, ExitCodeFor(ErrorKind::kBadResponse));
     EXPECT_EQ(harness.environment.session_calls, 1);
     EXPECT_FALSE(SentErase(harness.session));
     EXPECT_NE(harness.diagnostics.str().find("successful unlock"), std::string::npos);
@@ -453,7 +455,7 @@ TEST(BenchDriver, FailedReadInvalidatesEraseEligibilityUnderKeepGoing)
     const int code = harness.Run({"--keep-going", "upload-routine", "erase-page", "--destructive", ":", "read", "0x200",
                                   "1", ":", "unlock", "--destructive", ":", "erase", "--destructive"});
 
-    EXPECT_EQ(code, exit_code_for(ErrorKind::kBadResponse));
+    EXPECT_EQ(code, ExitCodeFor(ErrorKind::kBadResponse));
     EXPECT_EQ(harness.environment.session_calls, 1);
     EXPECT_FALSE(SentErase(harness.session));
     EXPECT_NE(harness.diagnostics.str().find("no intervening destructive or failed step"), std::string::npos);
@@ -503,7 +505,7 @@ TEST(BenchDriver, ErasePrerequisitesDoNotCarryAcrossCliInvocations)
     ASSERT_EQ(harness.Run({"upload-routine", "erase-page", "--destructive", ":", "unlock", "--destructive"}), 0);
     const int code = harness.Run({"erase", "--destructive"});
 
-    EXPECT_EQ(code, exit_code_for(ErrorKind::kInvalidConfig));
+    EXPECT_EQ(code, ExitCodeFor(ErrorKind::kInvalidConfig));
     EXPECT_EQ(harness.environment.session_calls, 1);
     EXPECT_FALSE(SentErase(harness.session));
 }
@@ -514,11 +516,12 @@ TEST(BenchDriver, ExplicitConnectMustBeTheFirstSessionStepAndAppearOnlyOnce)
          {std::vector<std::string_view>{"read", "0x200", "1", ":", "connect"},
           std::vector<std::string_view>{"connect", ":", "connect"}})
     {
+        SCOPED_TRACE(::testing::PrintToString(args));
         Harness harness;
 
         const int code = harness.Run(args);
 
-        EXPECT_EQ(code, exit_code_for(ErrorKind::kInvalidConfig));
+        EXPECT_EQ(code, ExitCodeFor(ErrorKind::kInvalidConfig));
         EXPECT_EQ(harness.environment.session_calls, 0);
         EXPECT_EQ(harness.session.connect_calls, 0);
         EXPECT_TRUE(harness.session.requests.empty());

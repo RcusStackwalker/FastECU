@@ -32,6 +32,7 @@ TEST(TestMitsuColtCanVendorExtProtocol, challenge_inverse_round_trips_with_forwa
         {0x00000000U, 0xFFFFFFFFU, 0x12345678U, 0x00000001U, 0xDEADBEEFU, 0x80000000U, 0x7FFFFFFFU});
     for (std::uint32_t x : kValues)
     {
+        SCOPED_TRACE(::testing::PrintToString(x));
         ASSERT_EQ(ChallengeInverseTransform(ChallengeTransform(x)), x);
     }
 }

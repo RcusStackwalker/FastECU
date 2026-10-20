@@ -87,8 +87,10 @@ TEST(SubaruDensoSh7055_02Plan, EveryAcceptedPlanRequiresCycleIgnitionConfirmatio
     ASSERT_GE(index, 0);
     for (const std::string_view protocol : {"sub_ecu_denso_sh7055_02", "sub_ecu_denso_sh7055_02_ecutek"})
     {
+        SCOPED_TRACE(::testing::PrintToString(protocol));
         for (const auto operation : {FlashOperation::kRead, FlashOperation::kWrite})
         {
+            SCOPED_TRACE(::testing::PrintToString(operation));
             auto plan = BuildSubaruDensoSh705502Plan(
                 operation, protocol, "SH7055",
                 operation == FlashOperation::kRead
@@ -120,6 +122,7 @@ TEST(SubaruDensoSh7055_02Plan, RejectsKnownButWrongMcu)
 {
     for (const std::string_view mcu : {"SH7058", "MC68HC16Y5"})
     {
+        SCOPED_TRACE(::testing::PrintToString(mcu));
         ASSERT_THAT(BuildSubaruDensoSh705502Plan(FlashOperation::kRead, "sub_ecu_denso_sh7055_02", mcu, std::nullopt,
                                                  TestKernel()),
                     fastecu::testing::IsErr(ErrorKind::kInvalidConfig))
@@ -133,6 +136,7 @@ TEST(SubaruDensoSh7055_02Plan, WriteAndTestWriteRequireExactRomSize)
     ASSERT_GE(index, 0);
     for (const auto operation : {FlashOperation::kWrite, FlashOperation::kTestWrite})
     {
+        SCOPED_TRACE(::testing::PrintToString(operation));
         ASSERT_THAT(BuildSubaruDensoSh705502Plan(operation, "sub_ecu_denso_sh7055_02", "SH7055",
                                                  bytes::Bytes(kFlashDevices[index].romsize - 1, bytes::Byte{0}),
                                                  TestKernel()),
@@ -176,6 +180,7 @@ TEST(SubaruDensoSh7055_02Plan, ValidatorRequiresOperationSpecificEcuIdRead)
 {
     for (const auto operation : {FlashOperation::kRead, FlashOperation::kTestWrite})
     {
+        SCOPED_TRACE(::testing::PrintToString(operation));
         auto fields = ValidSh705502Fields(operation);
         auto& family = std::get<SubaruDensoSh7055_02Plan>(fields.family_plan);
         family.read_ecu_id = !family.read_ecu_id;
@@ -203,6 +208,7 @@ TEST(SubaruDensoSh7055_02Plan, ValidatorRejectsWrongTransferRegion)
     for (const auto region : {MemoryRegion{kFlashDevices[index].fblocks[0].start + 1, kFlashDevices[index].romsize},
                               MemoryRegion{kFlashDevices[index].fblocks[0].start, kFlashDevices[index].romsize - 1}})
     {
+        SCOPED_TRACE(::testing::PrintToString(region));
         auto fields = ValidSh705502Fields();
         fields.transfer_region = region;
         auto plan = ValidateAndBuild(std::move(fields));
@@ -223,6 +229,7 @@ TEST(SubaruDensoSh7055_02Plan, ValidatorRequiresOnlyCycleIgnitionConfirmation)
              }},
          })
     {
+        SCOPED_TRACE(::testing::PrintToString(confirmations));
         auto fields = ValidSh705502Fields();
         fields.confirmations = confirmations;
         auto plan = ValidateAndBuild(std::move(fields));
@@ -240,6 +247,7 @@ TEST(SubaruDensoSh7055_02Plan, KernelUploadAcceptsCanonicalAddressAndExactEnvelo
              KernelImage{.id = "full-envelope-fit", .load_address = kKernelStart, .bytes = bytes::Bytes(0x5ffc, 0)},
          })
     {
+        SCOPED_TRACE(::testing::PrintToString(kernel));
         ASSERT_THAT(BuildSubaruDensoSh705502Plan(FlashOperation::kRead, "sub_ecu_denso_sh7055_02", "SH7055",
                                                  std::nullopt, std::move(kernel)),
                     fastecu::testing::IsOk());
@@ -255,6 +263,7 @@ TEST(SubaruDensoSh7055_02Plan, KernelUploadRejectsAddressAndPaddedFootprintOutsi
              KernelImage{.id = "padded-past-end", .load_address = kKernelStart, .bytes = bytes::Bytes(0x5ffd, 0)},
          })
     {
+        SCOPED_TRACE(::testing::PrintToString(kernel));
         ASSERT_THAT(BuildSubaruDensoSh705502Plan(FlashOperation::kRead, "sub_ecu_denso_sh7055_02", "SH7055",
                                                  std::nullopt, std::move(kernel)),
                     fastecu::testing::IsErr(ErrorKind::kInvalidConfig));

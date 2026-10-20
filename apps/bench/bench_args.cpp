@@ -36,7 +36,7 @@ Result<StepSpec> MakeStep(const std::vector<std::string>& tokens)
         args.push_back(tokens[index]);
     }
 
-    const CommandSpec *spec = find_command(tokens.front());
+    const CommandSpec *spec = FindCommand(tokens.front());
     if (spec == nullptr)
     {
         return Fail(ErrorKind::kInvalidConfig, std::format("unknown command: {}", tokens.front()));
@@ -45,7 +45,7 @@ Result<StepSpec> MakeStep(const std::vector<std::string>& tokens)
     // Validated here, at parse time, rather than at execution: a chain whose
     // later step is ungated must fail before the port is opened, not after it
     // has already connected and unlocked.
-    if (const Status valid = validate_against_table(*spec, step); !valid.has_value())
+    if (const Status valid = ValidateAgainstTable(*spec, step); !valid.has_value())
     {
         return std::unexpected(valid.error());
     }
@@ -53,9 +53,9 @@ Result<StepSpec> MakeStep(const std::vector<std::string>& tokens)
     {
         return Fail(ErrorKind::kInvalidConfig, std::format("{} is not destructive", spec->name));
     }
-    if (spec->id == CommandId::Send || spec->id == CommandId::SendRaw)
+    if (spec->id == CommandId::kSend || spec->id == CommandId::kSendRaw)
     {
-        const Result<bytes::Bytes> pdu = parse_hex_bytes(step.args);
+        const Result<bytes::Bytes> pdu = ParseHexBytes(step.args);
         if (!pdu.has_value())
         {
             return std::unexpected(pdu.error());
@@ -85,7 +85,7 @@ Status ApplyPortOption(GlobalOptions& options, std::string_view value)
 
 Status SetTimeout(GlobalOptions& options, std::string_view value)
 {
-    const Result<std::uint32_t> timeout = parse_u32(value);
+    const Result<std::uint32_t> timeout = ParseU32(value);
     if (!timeout.has_value())
     {
         return std::unexpected(timeout.error());
@@ -138,18 +138,18 @@ constexpr std::array kGlobalOptions{
 
 } // namespace
 
-std::span<const GlobalOptionSpec> global_option_table()
+std::span<const GlobalOptionSpec> GlobalOptionTable()
 {
     return kGlobalOptions;
 }
 
-const GlobalOptionSpec *find_global_option(std::string_view token)
+const GlobalOptionSpec *FindGlobalOption(std::string_view token)
 {
     const auto match = std::ranges::find(kGlobalOptions, token, &GlobalOptionSpec::name);
     return match == kGlobalOptions.end() ? nullptr : std::to_address(match);
 }
 
-Result<std::uint32_t> parse_u32(std::string_view text)
+Result<std::uint32_t> ParseU32(std::string_view text)
 {
     int base = 10;
     if (text.starts_with("0x") || text.starts_with("0X"))
@@ -177,7 +177,7 @@ Result<std::uint32_t> parse_u32(std::string_view text)
     return static_cast<std::uint32_t>(value);
 }
 
-Result<bytes::Bytes> parse_hex_bytes(std::span<const std::string> tokens)
+Result<bytes::Bytes> ParseHexBytes(std::span<const std::string> tokens)
 {
     bytes::Bytes out;
     out.reserve(tokens.size());
@@ -199,7 +199,7 @@ Result<bytes::Bytes> parse_hex_bytes(std::span<const std::string> tokens)
     return out;
 }
 
-Result<ParsedCommandLine> parse_command_line(std::span<const std::string_view> args)
+Result<ParsedCommandLine> ParseCommandLine(std::span<const std::string_view> args)
 {
     ParsedCommandLine parsed;
     std::vector<std::vector<std::string>> groups{{}};
@@ -212,7 +212,7 @@ Result<ParsedCommandLine> parse_command_line(std::span<const std::string_view> a
             groups.emplace_back();
             continue;
         }
-        if (const GlobalOptionSpec *const option = find_global_option(arg); option != nullptr)
+        if (const GlobalOptionSpec *const option = FindGlobalOption(arg); option != nullptr)
         {
             const Result<std::string_view> value = GlobalOptionValue(*option, args, index);
             if (!value.has_value())
@@ -260,7 +260,7 @@ Result<ParsedCommandLine> parse_command_line(std::span<const std::string_view> a
     // would otherwise open the device just to run a command that promises
     // never to.
     if (parsed.steps.size() > 1 &&
-        std::ranges::any_of(parsed.steps, [](const StepSpec& step) { return step.id == CommandId::Ports; }))
+        std::ranges::any_of(parsed.steps, [](const StepSpec& step) { return step.id == CommandId::kPorts; }))
     {
         return Fail(ErrorKind::kInvalidConfig, "ports cannot be chained with other commands");
     }

@@ -72,6 +72,7 @@ TEST(BuiltinCatalogCapability, EveryOfferedOperationIsAcceptedAndEveryOtherIsUns
 
     for (const config::ProtocolSpec& protocol : config::BuiltinCatalog().Protocols())
     {
+        SCOPED_TRACE(::testing::PrintToString(protocol));
         if (!protocol.read && !protocol.test_write && !protocol.write)
         {
             EXPECT_TRUE(FlashWorkflowFactory::TryCreate(

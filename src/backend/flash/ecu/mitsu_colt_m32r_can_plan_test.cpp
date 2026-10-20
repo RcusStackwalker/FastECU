@@ -58,6 +58,7 @@ TEST(MitsuColtM32rCanPlan, ReadPlansSnapshotProtocolCapacityAndVendorChallenge)
     // read to omit bytes or cross the selected capacity boundary.
     for (const VariantCase& test : kVariants)
     {
+        SCOPED_TRACE(::testing::PrintToString(test));
         const auto plan = BuildMitsuColtM32rCanPlan(FlashOperation::kRead, test.id, test.mcu, std::nullopt);
 
         ASSERT_THAT(plan, fastecu::testing::IsOk()) << test.id << ": " << plan.error().detail;
@@ -82,6 +83,7 @@ TEST(MitsuColtM32rCanPlan, WritePlansUseTheCapacitySpecificRangeAndConfirmations
     // protected bytes or skip the 512 KiB top-region bootstrap gate.
     for (const VariantCase& test : kVariants)
     {
+        SCOPED_TRACE(::testing::PrintToString(test));
         const auto plan = BuildMitsuColtM32rCanPlan(FlashOperation::kWrite, test.id, test.mcu, Rom(test.size));
 
         ASSERT_THAT(plan, fastecu::testing::IsOk()) << test.id << ": " << plan.error().detail;
@@ -111,12 +113,12 @@ TEST(MitsuColtM32rCanPlan, RejectsImagesWhoseCapacityDoesNotMatchTheProtocol)
     // ineffective and can direct the ECU to erase/write the wrong extent.
     const auto plan384 = BuildMitsuColtM32rCanPlan(FlashOperation::kWrite, kDefaultProtocol, kMcu384, Rom(0x80000));
     ASSERT_THAT(plan384, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
-    EXPECT_THAT(plan384.error().detail, HasSubstr("0x60000"));
+    EXPECT_THAT(plan384, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("0x60000")));
 
     const auto plan512 =
         BuildMitsuColtM32rCanPlan(FlashOperation::kWrite, "mitsu_ecu_m32r_can_512kb", kMcu512, Rom(0x60000));
     ASSERT_THAT(plan512, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
-    EXPECT_THAT(plan512.error().detail, HasSubstr("0x80000"));
+    EXPECT_THAT(plan512, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("0x80000")));
 }
 
 TEST(MitsuColtM32rCanPlan, RejectsAnUnknownMcuType)
@@ -125,7 +127,8 @@ TEST(MitsuColtM32rCanPlan, RejectsAnUnknownMcuType)
         BuildMitsuColtM32rCanPlan(FlashOperation::kRead, kDefaultProtocol, "NOT_A_REAL_MCU", std::nullopt);
 
     ASSERT_THAT(plan, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
-    EXPECT_THAT(plan.error().detail, HasSubstr("Unknown MCU type: NOT_A_REAL_MCU"));
+    EXPECT_THAT(plan,
+                fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("Unknown MCU type: NOT_A_REAL_MCU")));
 }
 
 TEST(MitsuColtM32rCanPlan, RejectsProtocolAndMcuCapacityDisagreement)
@@ -135,6 +138,7 @@ TEST(MitsuColtM32rCanPlan, RejectsProtocolAndMcuCapacityDisagreement)
              {"mitsu_ecu_m32r_can_512kb", kMcu384},
          }))
     {
+        SCOPED_TRACE(::testing::PrintToString(protocol));
         ASSERT_THAT(BuildMitsuColtM32rCanPlan(FlashOperation::kRead, protocol, mcu, std::nullopt),
                     fastecu::testing::IsErr(ErrorKind::kInvalidConfig))
             << protocol;
@@ -146,7 +150,7 @@ TEST(MitsuColtM32rCanPlan, RejectsTestWriteAsUnsupported)
     const auto plan = BuildMitsuColtM32rCanPlan(FlashOperation::kTestWrite, kDefaultProtocol, kMcu384, Rom(0x60000));
 
     ASSERT_THAT(plan, fastecu::testing::IsErr(ErrorKind::kUnsupported));
-    EXPECT_THAT(plan.error().detail, HasSubstr("test_write"));
+    EXPECT_THAT(plan, fastecu::testing::IsErrWith(ErrorKind::kUnsupported, HasSubstr("test_write")));
 }
 
 TEST(MitsuColtM32rCanPlan, RejectsAnUnknownProtocolBeforeTestWriteCapabilityChecking)
@@ -155,7 +159,8 @@ TEST(MitsuColtM32rCanPlan, RejectsAnUnknownProtocolBeforeTestWriteCapabilityChec
         BuildMitsuColtM32rCanPlan(FlashOperation::kTestWrite, "mitsu_ecu_m32r_can_512kb_typo", kMcu512, Rom(0x80000));
 
     ASSERT_THAT(plan, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
-    EXPECT_THAT(plan.error().detail, HasSubstr("Unsupported Mitsubishi Colt M32R CAN protocol"));
+    EXPECT_THAT(plan, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig,
+                                                  HasSubstr("Unsupported Mitsubishi Colt M32R CAN protocol")));
 }
 
 TEST(MitsuColtM32rCanPlan, RejectsAWriteWithNoImage)

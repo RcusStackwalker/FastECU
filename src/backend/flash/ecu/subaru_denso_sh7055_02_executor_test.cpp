@@ -436,6 +436,7 @@ TEST(SubaruDensoSh7055_02Executor, RejectsMissingConfirmationAndMalformedFamilyB
              MalformedPlan({ConfirmationSpec{.id = ConfirmationSpec::Id::kCycleIgnition}}, 0xF1),
          })
     {
+        SCOPED_TRACE(::testing::PrintToString(plan));
         ASSERT_THAT(plan, fastecu::testing::IsOk());
         ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::kOpen};
         FakeClock clock;
@@ -749,10 +750,13 @@ TEST(SubaruDensoSh7055_02Executor, NoChangeProgrammingLinePreservesCancellationA
         {
             ASSERT_THAT(result,
                         fastecu::testing::IsErr(scenario == 3 ? ErrorKind::kDisconnected : ErrorKind::kCancelled));
-            EXPECT_EQ(result.error().detail, scenario == 1   ? "cancelled before programming line state"
-                                             : scenario == 2 ? "cancelled after programming line state"
-                                                             : "line failed");
-            EXPECT_EQ(result.error().kind, scenario == 3 ? ErrorKind::kDisconnected : ErrorKind::kCancelled);
+            EXPECT_THAT(result, fastecu::testing::IsErrWith(
+                                    scenario == 3 ? ErrorKind::kDisconnected : ErrorKind::kCancelled,
+                                    ::testing::Eq(scenario == 1   ? "cancelled before programming line state"
+                                                  : scenario == 2 ? "cancelled after programming line state"
+                                                                  : "line failed")));
+            EXPECT_THAT(result,
+                        fastecu::testing::IsErr(scenario == 3 ? ErrorKind::kDisconnected : ErrorKind::kCancelled));
         }
         EXPECT_TRUE(transport.ScriptConsumed());
         EXPECT_EQ(std::count(transport.control_line_trace.begin(), transport.control_line_trace.end(),
@@ -1355,8 +1359,8 @@ TEST(SubaruDensoSh7055_02Executor, FirstExchangePreservesTransportErrorAndCancel
                                  "probe read failed",      "cancelled after read", "cancelled before read",
                                  "cancelled before write", "probe sleep failed"};
         ASSERT_THAT(result, fastecu::testing::IsErr(kinds[scenario]));
-        EXPECT_EQ(result.error().kind, kinds[scenario]);
-        EXPECT_EQ(result.error().detail, details[scenario]);
+        EXPECT_THAT(result, fastecu::testing::IsErr(kinds[scenario]));
+        EXPECT_THAT(result, fastecu::testing::IsErrWith(kinds[scenario], ::testing::Eq(details[scenario])));
         std::vector<std::string> expected{"drain"};
         if (scenario != 6)
         {
@@ -1403,8 +1407,9 @@ TEST(SubaruDensoSh7055_02Executor, ReadPreservesAbsentVersusPresentEmptyResponse
         SubaruDensoSh7055_02Executor executor;
         const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
         ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kBadResponse));
-        EXPECT_EQ(result.error().kind, ErrorKind::kBadResponse);
-        EXPECT_EQ(result.error().detail, "Wrong response from ECU during read");
+        EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kBadResponse));
+        EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kBadResponse,
+                                                        ::testing::Eq("Wrong response from ECU during read")));
         ASSERT_FALSE(transport.read_timeouts.empty());
         EXPECT_EQ(transport.read_timeouts.back(), 3000ms);
         EXPECT_TRUE(transport.ScriptConsumed());

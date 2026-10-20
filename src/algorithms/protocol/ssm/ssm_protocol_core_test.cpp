@@ -70,9 +70,8 @@ TEST(SsmProtocolCore, EcutekIndexTransformationMatchesTheLegacyTable)
 TEST(SsmProtocolCore, StockAndEcutekIndexTransformationsDifferOnlyInTheFirstFiveEntries)
 {
     EXPECT_NE(ssm_protocol::kIndexTransformationStock, ssm_protocol::kIndexTransformationEcutek);
-    EXPECT_TRUE(std::equal(ssm_protocol::kIndexTransformationStock.begin() + 5,
-                           ssm_protocol::kIndexTransformationStock.end(),
-                           ssm_protocol::kIndexTransformationEcutek.begin() + 5));
+    EXPECT_THAT(bytes::ByteView(ssm_protocol::kIndexTransformationStock).subspan(5),
+                test_bytes::BytesEq(bytes::ByteView(ssm_protocol::kIndexTransformationEcutek).subspan(5)));
 }
 
 // A pair table entry is two nibble lookups of the raw table, one per 5-bit window.
@@ -80,6 +79,7 @@ TEST(SsmProtocolCore, PairTablesFoldTwoLookupsOfTheirIndexTransformation)
 {
     for (std::size_t i = 0; i < ssm_protocol::kStockPairTable.size(); ++i)
     {
+        SCOPED_TRACE(::testing::PrintToString(i));
         const auto stock = ssm_protocol::kIndexTransformationStock;
         const auto ecutek = ssm_protocol::kIndexTransformationEcutek;
         EXPECT_EQ(ssm_protocol::kStockPairTable[i], stock[i & 0x1FU] + (stock[(i >> 4U) & 0x1FU] << 4U)) << i;
@@ -160,6 +160,7 @@ TEST(SsmProtocolCore, CalculatePayloadTransformsEveryWordOfAPayloadTheSame)
     };
     for (const std::size_t words : {1U, 63U, 64U, 65U, 200U})
     {
+        SCOPED_TRACE(::testing::PrintToString(words));
         const bytes::Bytes plain = repeat(word, words);
         const auto encrypt = [&](const ssm_protocol::PairTable& pairs)
         { return ssm_protocol::CalculatePayload(bytes::ByteView(plain), kPayloadTable, pairs); };

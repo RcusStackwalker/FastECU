@@ -108,7 +108,10 @@ gazelle(
 )
 
 # Symbolic macros cannot implicitly declare their hardcoded source inputs.
-exports_files([".clang-tidy"])
+exports_files([
+    ".clang-tidy",
+    ".clang-tidy-exceptions.yaml",
+])
 
 alias(
     name = "fastecu",
@@ -118,6 +121,18 @@ alias(
 alias(
     name = "fastecu-bench",
     actual = "//apps/bench:fastecu-bench",
+)
+
+py_test(
+    name = "clang_tidy_exceptions_test",
+    size = "small",
+    srcs = [
+        "scripts/clang_tidy_exceptions.py",
+        "scripts/clang_tidy_exceptions_test.py",
+    ],
+    imports = ["scripts"],
+    main = "scripts/clang_tidy_exceptions_test.py",
+    deps = ["@python_deps//pyyaml"],
 )
 
 py_test(
@@ -131,21 +146,11 @@ py_test(
     main = "scripts/clang_tidy_toolchain_test.py",
 )
 
-py_test(
-    name = "clang_tidy_adapter_test",
-    size = "small",
-    srcs = [
-        "scripts/clang_tidy_adapter.py",
-        "scripts/clang_tidy_adapter_test.py",
-    ],
-    main = "scripts/clang_tidy_adapter_test.py",
-)
-
 py_binary(
     name = "clang_tidy_check_fixtures",
     srcs = [
-        "scripts/clang_tidy_adapter.py",
         "scripts/clang_tidy_checks_test.py",
+        "scripts/clang_tidy_exceptions.py",
         "scripts/clang_tidy_output.py",
         "scripts/clang_tidy_profile.py",
         "scripts/clang_tidy_runner.py",
@@ -175,6 +180,7 @@ py_test(
     srcs = [
         "scripts/clang_tidy_benchmark.py",
         "scripts/clang_tidy_benchmark_test.py",
+        "scripts/clang_tidy_exceptions.py",
         "scripts/clang_tidy_output.py",
         "scripts/clang_tidy_profile.py",
         "scripts/clang_tidy_runner.py",
@@ -190,6 +196,7 @@ py_test(
     name = "clang_tidy_runner_test",
     size = "small",
     srcs = [
+        "scripts/clang_tidy_exceptions.py",
         "scripts/clang_tidy_output.py",
         "scripts/clang_tidy_profile.py",
         "scripts/clang_tidy_runner.py",

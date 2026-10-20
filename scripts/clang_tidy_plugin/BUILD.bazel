@@ -9,7 +9,10 @@ genrule(
     cmd = "cp $< $@",
     cmd_bat = "copy /Y \"$(location @local_llvm//:llvm-identity.json)\" \"$@\" >nul",
     tags = ["manual"],
-    visibility = ["//:__pkg__"],
+    visibility = [
+        "//:__pkg__",
+        "//bazel:__pkg__",
+    ],
 )
 
 cc_binary(
@@ -17,6 +20,8 @@ cc_binary(
     srcs = [
         "FastecuTidyMain.cpp",
         "FastecuTidyModule.cpp",
+        "TestAssertionSupport.cpp",
+        "TestAssertionSupport.h",
     ] + glob([
         "*Check.cpp",
         "*Check.h",
@@ -47,7 +52,10 @@ llvm_static_binary(
     binary = ":windows_host",
     tags = ["manual"],
     target_compatible_with = ["@platforms//os:windows"],
-    visibility = ["//:__pkg__"],
+    visibility = [
+        "//:__pkg__",
+        "//bazel:__pkg__",
+    ],
 )
 
 py_binary(
@@ -64,6 +72,8 @@ cc_binary(
     name = "fastecu_tidy",
     srcs = [
         "FastecuTidyModule.cpp",
+        "TestAssertionSupport.cpp",
+        "TestAssertionSupport.h",
     ] + glob([
         "*Check.cpp",
         "*Check.h",
@@ -82,6 +92,9 @@ cc_binary(
     }),
     linkshared = True,
     tags = ["manual"],
-    visibility = ["//:__pkg__"],
+    visibility = [
+        "//:__pkg__",
+        "//bazel:__pkg__",
+    ],
     deps = ["@local_llvm//:clang_tidy_headers"],
 )

@@ -155,8 +155,8 @@ class SampleThenBlockProtocol final : public fastecu::logging::LoggingProtocol
 void ExpectStartError(fastecu::Status result, fastecu::ErrorKind kind, std::string_view detail)
 {
     ASSERT_TRUE(!result);
-    ASSERT_EQ(result.error().kind, kind);
-    ASSERT_EQ(result.error().detail, std::string(detail));
+    ASSERT_THAT(result, fastecu::testing::IsErr(kind));
+    ASSERT_THAT(result, fastecu::testing::IsErrWith(kind, ::testing::Eq(std::string(detail))));
 }
 
 } // namespace
@@ -480,7 +480,7 @@ TEST(TestLoggingEngine, every_cdbg_serial_setup_failure_is_structured_and_stops_
         });
 
         ASSERT_TRUE(!status);
-        ASSERT_EQ(status.error().kind, fastecu::ErrorKind::kInvalidConfig);
+        ASSERT_THAT(status, fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
         ASSERT_EQ(calls, failure + 1);
     }
 }

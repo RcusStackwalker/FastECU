@@ -128,9 +128,11 @@ TEST(SubaruDensoSh705xDensoCanPlan, BuildsEveryExactProtocolMcuOperationAndGeome
 {
     for (const Case& test_case : kCases)
     {
+        SCOPED_TRACE(::testing::PrintToString(test_case));
         for (const FlashOperation operation :
              {FlashOperation::kRead, FlashOperation::kTestWrite, FlashOperation::kWrite})
         {
+            SCOPED_TRACE(::testing::PrintToString(operation));
             auto plan = BuildSubaruDensoSh705xDensocanPlan(operation, test_case.protocol, test_case.mcu,
                                                            ImageFor(test_case, operation), KernelFor(test_case));
 
@@ -168,6 +170,7 @@ TEST(SubaruDensoSh705xDensoCanPlan, BuildsEveryExactProtocolMcuOperationAndGeome
                 ASSERT_EQ(plan->EraseRegions().size(), test_case.blocks.size());
                 for (std::size_t block = 0; block < test_case.blocks.size(); ++block)
                 {
+                    SCOPED_TRACE(::testing::PrintToString(block));
                     EXPECT_EQ(plan->EraseRegions()[block].start, test_case.blocks[block].start);
                     EXPECT_EQ(plan->EraseRegions()[block].length, test_case.blocks[block].length);
                 }
@@ -181,9 +184,11 @@ TEST(SubaruDensoSh705xDensoCanPlan, RejectsUnknownNearMissAndWrongMcuPairsBefore
 {
     for (const Case& test_case : kCases)
     {
+        SCOPED_TRACE(::testing::PrintToString(test_case));
         for (const std::string_view bad_protocol :
              {"unknown_densocan", "sub_ecu_denso_sh7058_densocan_extra", "sub_ecu_eeprom_denso_sh7058_densocan"})
         {
+            SCOPED_TRACE(::testing::PrintToString(bad_protocol));
             auto plan = BuildSubaruDensoSh705xDensocanPlan(FlashOperation::kRead, bad_protocol, test_case.mcu,
                                                            std::nullopt, KernelFor(test_case));
             ASSERT_THAT(plan, fastecu::testing::IsErr(ErrorKind::kInvalidConfig)) << bad_protocol;
@@ -200,8 +205,10 @@ TEST(SubaruDensoSh705xDensoCanPlan, WriteAndTestWriteRequireExactCatalogRomSizes
 {
     for (const Case& test_case : kCases)
     {
+        SCOPED_TRACE(::testing::PrintToString(test_case));
         for (const FlashOperation operation : {FlashOperation::kTestWrite, FlashOperation::kWrite})
         {
+            SCOPED_TRACE(::testing::PrintToString(operation));
             const std::array<std::optional<bytes::Bytes>, 3> invalid_images{{
                 std::nullopt,
                 std::optional<bytes::Bytes>{bytes::Bytes(test_case.rom_size - 1, 0)},
@@ -209,6 +216,7 @@ TEST(SubaruDensoSh705xDensoCanPlan, WriteAndTestWriteRequireExactCatalogRomSizes
             }};
             for (const std::optional<bytes::Bytes>& image : invalid_images)
             {
+                SCOPED_TRACE(::testing::PrintToString(image));
                 auto plan = BuildSubaruDensoSh705xDensocanPlan(operation, test_case.protocol, test_case.mcu, image,
                                                                KernelFor(test_case));
                 EXPECT_THAT(plan, fastecu::testing::IsErr(ErrorKind::kInvalidConfig)) << test_case.protocol;
@@ -221,6 +229,7 @@ TEST(SubaruDensoSh705xDensoCanPlan, KernelUploadRequiresExactCatalogAddressAndSi
 {
     for (const Case& test_case : kCases)
     {
+        SCOPED_TRACE(::testing::PrintToString(test_case));
         const std::size_t capacity = static_cast<std::size_t>(test_case.kernel_region_start) +
                                      test_case.kernel_region_size - test_case.kernel_load_address;
         ASSERT_GT(capacity, 0U);
@@ -236,6 +245,7 @@ TEST(SubaruDensoSh705xDensoCanPlan, KernelUploadRequiresExactCatalogAddressAndSi
                  KernelFor(test_case, bytes::Bytes(capacity + 1, bytes::Byte{0xA5})),
              })
         {
+            SCOPED_TRACE(::testing::PrintToString(kernel));
             auto plan = BuildSubaruDensoSh705xDensocanPlan(FlashOperation::kRead, test_case.protocol, test_case.mcu,
                                                            std::nullopt, std::move(kernel));
             EXPECT_THAT(plan, fastecu::testing::IsErr(ErrorKind::kInvalidConfig)) << test_case.protocol;
@@ -248,6 +258,7 @@ TEST(SubaruDensoSh705xDensoCanPlan, ValidatorRejectsWireGeometryAndConfirmationD
     const Case& test_case = kCases.front();
     for (int mutation = 0; mutation < 6; ++mutation)
     {
+        SCOPED_TRACE(::testing::PrintToString(mutation));
         auto fields = ValidFields(test_case, FlashOperation::kWrite);
         auto& wire = std::get<SubaruDensoSh705xDensoCanPlan>(fields.family_plan);
         switch (mutation)
@@ -284,8 +295,10 @@ TEST(SubaruDensoSh705xDensoCanPlan, RejectsAlteredAddressesAndLengthsInEveryEras
 {
     for (unsigned index = 0; index < 16; ++index)
     {
+        SCOPED_TRACE(::testing::PrintToString(index));
         for (bool alter_start : {false, true})
         {
+            SCOPED_TRACE(::testing::PrintToString(alter_start));
             auto fields = ValidFields(kCases.front(), FlashOperation::kWrite);
             if (alter_start)
             {

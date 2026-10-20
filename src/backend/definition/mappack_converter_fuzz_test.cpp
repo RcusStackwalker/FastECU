@@ -22,7 +22,7 @@ void ConvertsAnyCsvSafely(const std::string& csv, const std::string& ecu_id)
     const auto converted = ConvertMappackCsv(csv, ecu_id);
     if (!converted.has_value())
     {
-        EXPECT_EQ(converted.error().kind, ErrorKind::kInvalidConfig);
+        EXPECT_THAT(converted, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
         EXPECT_FALSE(converted.error().detail.empty());
         return;
     }

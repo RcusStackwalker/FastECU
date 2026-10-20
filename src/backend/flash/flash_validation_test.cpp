@@ -457,7 +457,7 @@ TEST(FlashValidationTest, MissingKernelIsRejectedForKlineFamilyByDefault)
     auto plan = ValidateAndBuild(std::move(fields));
 
     ASSERT_THAT(plan, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
-    EXPECT_THAT(plan.error().detail, ::testing::HasSubstr("kernel"));
+    EXPECT_THAT(plan, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, ::testing::HasSubstr("kernel")));
 }
 
 TEST(FlashValidationTest, MissingKernelIsRejectedForCanFamilyByDefault)
@@ -468,7 +468,7 @@ TEST(FlashValidationTest, MissingKernelIsRejectedForCanFamilyByDefault)
     auto plan = ValidateAndBuild(std::move(fields));
 
     ASSERT_THAT(plan, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
-    EXPECT_THAT(plan.error().detail, ::testing::HasSubstr("kernel"));
+    EXPECT_THAT(plan, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, ::testing::HasSubstr("kernel")));
 }
 
 TEST(FlashValidationTest, FamilyPlanTagMismatchWithTransportIsRejected)
@@ -491,8 +491,10 @@ TEST(FlashValidationTest, FamilyAndVariantMustMatchExhaustively)
 {
     for (std::size_t declared_index = 0; declared_index < FamilyCases().size(); ++declared_index)
     {
+        SCOPED_TRACE(::testing::PrintToString(declared_index));
         for (std::size_t variant_index = 0; variant_index < FamilyCases().size(); ++variant_index)
         {
+            SCOPED_TRACE(::testing::PrintToString(variant_index));
             auto fields = ValidReadFields();
             const auto& declared = FamilyCases()[declared_index];
             fields.family = declared.family;
@@ -511,6 +513,7 @@ TEST(FlashValidationTest, ExperimentalFamilyIdsCoverEveryFamily)
 {
     for (const auto& family_case : FamilyCases())
     {
+        SCOPED_TRACE(::testing::PrintToString(family_case));
         auto fields = ValidReadFields();
         fields.family = family_case.family;
         fields.transport = family_case.transport;
@@ -610,7 +613,8 @@ TEST(FlashValidation, RejectsAPresentKernelWithNoBytes)
     const auto plan = fastecu::flash::ValidateAndBuild(std::move(fields));
 
     ASSERT_THAT(plan, fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
-    EXPECT_THAT(plan.error().detail, ::testing::HasSubstr("kernel bytes"));
+    EXPECT_THAT(plan,
+                fastecu::testing::IsErrWith(fastecu::ErrorKind::kInvalidConfig, ::testing::HasSubstr("kernel bytes")));
 }
 
 TEST(FlashValidation, RejectsAPresentKernelWithNoId)
@@ -621,7 +625,8 @@ TEST(FlashValidation, RejectsAPresentKernelWithNoId)
     const auto plan = fastecu::flash::ValidateAndBuild(std::move(fields));
 
     ASSERT_THAT(plan, fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
-    EXPECT_THAT(plan.error().detail, ::testing::HasSubstr("kernel id"));
+    EXPECT_THAT(plan,
+                fastecu::testing::IsErrWith(fastecu::ErrorKind::kInvalidConfig, ::testing::HasSubstr("kernel id")));
 }
 
 TEST(FlashValidation, RejectsAColtPlanOnAKlineTransport)
@@ -632,7 +637,8 @@ TEST(FlashValidation, RejectsAColtPlanOnAKlineTransport)
     const auto plan = fastecu::flash::ValidateAndBuild(std::move(fields));
 
     ASSERT_THAT(plan, fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
-    EXPECT_THAT(plan.error().detail, ::testing::HasSubstr("does not match transport kind"));
+    EXPECT_THAT(plan, fastecu::testing::IsErrWith(fastecu::ErrorKind::kInvalidConfig,
+                                                  ::testing::HasSubstr("does not match transport kind")));
 }
 
 TEST(FlashValidation, StillRejectsDuplicateConfirmationIds)
@@ -646,8 +652,9 @@ TEST(FlashValidation, StillRejectsDuplicateConfirmationIds)
 
     const auto plan = fastecu::flash::ValidateAndBuild(std::move(fields));
 
-    ASSERT_THAT(plan, ::testing::Not(fastecu::testing::IsOk()));
-    EXPECT_THAT(plan.error().detail, ::testing::HasSubstr("duplicate confirmation id"));
+    ASSERT_THAT(plan, fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
+    EXPECT_THAT(plan, fastecu::testing::IsErrWith(fastecu::ErrorKind::kInvalidConfig,
+                                                  ::testing::HasSubstr("duplicate confirmation id")));
 }
 
 TEST(FlashValidation, KernellessPlanYieldsAnEmptyKernel)

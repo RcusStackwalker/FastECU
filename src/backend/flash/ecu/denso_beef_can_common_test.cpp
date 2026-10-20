@@ -1,3 +1,4 @@
+#include "src/algorithms/protocol/testing/byte_matchers.h"
 #include "src/backend/flash/ecu/denso_beef_can_common.h"
 
 #include <algorithm>
@@ -89,6 +90,7 @@ TEST(DensoBeefCanCommonTest, ParseBeefBoundsEveryDeclaredField)
     for (const auto& [pdu, payload_size] : {std::pair{bytes::Bytes{0xBE, 0xEF, 0x00, 0x01, 0xB6}, 0U},
                                             std::pair{bytes::Bytes{0xBE, 0xEF, 0x00, 0x02, 0xB6, 0xAA, 0xFF}, 1U}})
     {
+        SCOPED_TRACE(::testing::PrintToString(pdu));
         const auto parsed = ParseBeef(pdu);
         ASSERT_THAT(parsed, IsOk());
         EXPECT_EQ(parsed->opcode, 0xB6);
@@ -243,6 +245,7 @@ TEST(DensoBeefCanCommonTest, InitializeBeefFlashSelectsTheModeAndStopsAtTheFirst
 {
     for (const bool test_write : {false, true})
     {
+        SCOPED_TRACE(::testing::PrintToString(test_write));
         CompareFixture fixture;
         std::vector<bytes::Byte> opcodes;
         EXPECT_THAT(InitializeBeefFlash(fixture, test_write, test_write,
@@ -257,6 +260,7 @@ TEST(DensoBeefCanCommonTest, InitializeBeefFlashSelectsTheModeAndStopsAtTheFirst
     }
     for (const std::size_t failing : {0U, 1U, 2U})
     {
+        SCOPED_TRACE(::testing::PrintToString(failing));
         CompareFixture fixture;
         std::size_t calls = 0;
         EXPECT_THAT(InitializeBeefFlash(fixture, false, false,
@@ -314,7 +318,7 @@ TEST(DensoBeefCanCommonTest, ReadBeefMemoryTruncatesTheLastPageAndStopsOnFailure
     const auto rom = ReadBeefMemory(fixture, region, progress, std::ref(exchange));
 
     ASSERT_THAT(rom, IsOk());
-    EXPECT_EQ(*rom, bytes::Bytes(0x500, bytes::Byte{0xAB}));
+    EXPECT_THAT(*rom, ::testing::AllOf(::testing::SizeIs(0x500), test_bytes::BytesFilledWith(bytes::Byte{0xAB})));
     EXPECT_EQ(exchange.opcodes, (std::vector<bytes::Byte>{0x03, 0x03}));
 
     ScriptedExchange failing{.failing = 1};
@@ -350,6 +354,7 @@ TEST(DensoBeefCanCommonTest, FlashBeefBlockErasesWritesAndCommitsOrValidatesOneW
 {
     for (const bool test_write : {false, true})
     {
+        SCOPED_TRACE(::testing::PrintToString(test_write));
         CompareFixture fixture;
         PhaseReporter progress(fixture.events, "Write", 1, 1, 0x1000);
         ScriptedExchange exchange;
@@ -365,6 +370,7 @@ TEST(DensoBeefCanCommonTest, FlashBeefBlockErasesWritesAndCommitsOrValidatesOneW
     }
     for (const std::size_t failing : {0U, 1U, 9U})
     {
+        SCOPED_TRACE(::testing::PrintToString(failing));
         CompareFixture fixture;
         PhaseReporter progress(fixture.events, "Write", 1, 1, 0x1000);
         ScriptedExchange exchange{.failing = failing};
@@ -375,6 +381,7 @@ TEST(DensoBeefCanCommonTest, FlashBeefBlockErasesWritesAndCommitsOrValidatesOneW
     }
     for (const std::size_t cancel_at : {0U, 8U})
     {
+        SCOPED_TRACE(::testing::PrintToString(cancel_at));
         CompareFixture fixture;
         PhaseReporter progress(fixture.events, "Write", 1, 1, 0x1000);
         ScriptedExchange exchange{.on_call = [&](std::size_t call)

@@ -373,6 +373,7 @@ TEST(FlashDialogTest, ignitionPromptsAskForOkOrCancel)
     const auto begin = FlashDialog::promptQuestion({FlashPromptKind::kBegin, {}});
     for (const auto& question : {cycle, begin})
     {
+        SCOPED_TRACE(::testing::PrintToString(question));
         ASSERT_FALSE(question.warning);
         ASSERT_EQ(question.title, QString("Connecting to ECU"));
         ASSERT_EQ(question.buttons, QMessageBox::Ok | QMessageBox::Cancel);

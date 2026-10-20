@@ -32,6 +32,7 @@ TEST(ServiceFunctionDialogTest, setParametersSpinBoxesCarryTheLegacyPromptBounds
          {"correction_1to2", "correction_2to3", "correction_3to4", "correction_4to5", "correction_forward_brake",
           "correction_four_wheel_drive", "correction_line_pressure", "temperature_basis"})
     {
+        SCOPED_TRACE(::testing::PrintToString(name));
         QSpinBox *spin = box(dialog, name);
         ASSERT_TRUE(spin != nullptr) << name;
         ASSERT_EQ(spin->minimum(), 0);
@@ -112,6 +113,7 @@ TEST(ServiceFunctionDialogTest, readParametersRendersAllNineLegacyQualifiedLabel
     };
     for (int row = 0; row < static_cast<int>(labels.size()); ++row)
     {
+        SCOPED_TRACE(::testing::PrintToString(row));
         ASSERT_EQ(table->item(row, 0)->text(), QString::fromLatin1(labels[static_cast<std::size_t>(row)]));
     }
     ASSERT_EQ(table->item(0, 1)->text(), QString("17"));

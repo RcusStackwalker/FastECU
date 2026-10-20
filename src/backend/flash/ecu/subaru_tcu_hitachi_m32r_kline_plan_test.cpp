@@ -41,6 +41,7 @@ TEST(SubaruTcuHitachiM32rKlinePlan, RejectsWriteAndTestWriteAsUnsupported)
 {
     for (const FlashOperation operation : {FlashOperation::kWrite, FlashOperation::kTestWrite})
     {
+        SCOPED_TRACE(::testing::PrintToString(operation));
         const auto plan = BuildSubaruTcuHitachiM32rKlinePlan(operation, "sub_tcu_hitachi_m32r_kline", "M32R_512KB",
                                                              bytes::Bytes(0x80000, 0x00));
         EXPECT_THAT(plan, fastecu::testing::IsErr(ErrorKind::kUnsupported));

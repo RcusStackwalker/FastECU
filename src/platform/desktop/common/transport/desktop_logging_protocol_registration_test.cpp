@@ -96,6 +96,7 @@ TEST(DesktopLoggingProtocolRegistrationTest, cdbg_setup_failure_stops_at_failed_
                                                  "select CDBG reply identifier"};
     for (int failure = 0; failure < 7; ++failure)
     {
+        SCOPED_TRACE(::testing::PrintToString(failure));
         FakeBackedSerial serial;
         fastecu::FakeClock clock;
         LoggingEngine engine;
@@ -107,8 +108,9 @@ TEST(DesktopLoggingProtocolRegistrationTest, cdbg_setup_failure_stops_at_failed_
         ASSERT_THAT(data, fastecu::testing::IsOk());
         const auto result = engine.Start({.protocol_id = "CDBG"}, *data);
         ASSERT_TRUE(!result);
-        ASSERT_EQ(result.error().kind, fastecu::ErrorKind::kInvalidConfig);
-        ASSERT_EQ(result.error().detail, std::string("failed to ") + details[failure]);
+        ASSERT_THAT(result, fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
+        ASSERT_THAT(result, fastecu::testing::IsErrWith(fastecu::ErrorKind::kInvalidConfig,
+                                                        ::testing::Eq(std::string("failed to ") + details[failure])));
         ASSERT_TRUE(!engine.IsRunning());
     }
 }
@@ -117,6 +119,7 @@ TEST(DesktopLoggingProtocolRegistrationTest, cdbg_open_failure)
 {
     for (bool empty : {true, false})
     {
+        SCOPED_TRACE(::testing::PrintToString(empty));
         FakeBackedSerial serial;
         fastecu::FakeClock clock;
         LoggingEngine engine;
@@ -136,8 +139,10 @@ TEST(DesktopLoggingProtocolRegistrationTest, cdbg_open_failure)
         ASSERT_THAT(data, fastecu::testing::IsOk());
         const auto result = engine.Start({.protocol_id = "CDBG"}, *data);
         ASSERT_TRUE(!result);
-        ASSERT_EQ(result.error().kind, fastecu::ErrorKind::kDisconnected);
-        ASSERT_EQ(result.error().detail, std::string("unable to open CAN adapter for CDBG logging"));
+        ASSERT_THAT(result, fastecu::testing::IsErr(fastecu::ErrorKind::kDisconnected));
+        ASSERT_THAT(result, fastecu::testing::IsErrWith(
+                                fastecu::ErrorKind::kDisconnected,
+                                ::testing::Eq(std::string("unable to open CAN adapter for CDBG logging"))));
     }
 }
 
@@ -164,6 +169,7 @@ TEST(DesktopLoggingProtocolRegistrationTest, cdbg_success_preserves_start_sequen
                                                      "0000000000000000"};
         for (int i = 0; i < 7; ++i)
         {
+            SCOPED_TRACE(::testing::PrintToString(i));
             EXPECT_CALL(serial.Fake(),
                         WriteSerialDataEchoCheck(QByteArray::fromHex("00000630") + QByteArray::fromHex(requests[i])))
                 .WillOnce(Return(QByteArray{}));
@@ -190,8 +196,10 @@ TEST(DesktopLoggingProtocolRegistrationTest, ssm_target_and_adapter_are_per_run)
     fastecu::FakeCancellationToken cancellation;
     for (bool target : {true, false})
     {
+        SCOPED_TRACE(::testing::PrintToString(target));
         for (bool openport : {true, false})
         {
+            SCOPED_TRACE(::testing::PrintToString(openport));
             EXPECT_CALL(serial.Fake(), IsSerialPortOpen()).WillRepeatedly(Return(true));
             EXPECT_CALL(serial.Fake(), GetUseOpenport2Adapter()).WillOnce(Return(openport));
             const auto data =

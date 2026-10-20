@@ -82,7 +82,7 @@ TEST(CanFlashUdsChannelTest, RejectsAFrameFromAnUnexpectedReplyId)
     const auto received = channel.Receive(500ms, cancellation);
 
     ASSERT_THAT(received, fastecu::testing::IsErr(ErrorKind::kBadResponse));
-    EXPECT_THAT(received.error().detail, HasSubstr("7e9"));
+    EXPECT_THAT(received, fastecu::testing::IsErrWith(ErrorKind::kBadResponse, HasSubstr("7e9")));
 }
 
 TEST(CanFlashUdsChannelTest, AcceptsAnEnvelopeOnlyFrameAsAnEmptyPdu)

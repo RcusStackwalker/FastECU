@@ -560,6 +560,7 @@ TEST(SubaruDensoSh7058CanExecutor, TransportSetupUsesExactPetrolIsoConfiguration
     SubaruDensoSh7058CanExecutor executor;
     for (const Variant& variant : kVariants)
     {
+        SCOPED_TRACE(::testing::PrintToString(variant));
         auto plan = PlanFor(variant, FlashOperation::kRead);
         ASSERT_THAT(plan, IsOk());
         auto setup = executor.TransportSetup(*plan);
@@ -1025,6 +1026,7 @@ TEST(SubaruDensoSh7058CanExecutor, DisconnectAtAnyReadOfAColdWriteIsReportedAsDi
 {
     for (const Variant& variant : kVariants)
     {
+        SCOPED_TRACE(::testing::PrintToString(variant));
         const auto run = [&](std::optional<std::size_t> fail_at, ColdWriteOutcome& outcome)
         {
             bytes::Bytes kernel_data(129, bytes::Byte{0});
@@ -1175,6 +1177,7 @@ TEST(SubaruDensoSh7058CanExecutor, CrcStaleDrainPreservesToleranceButPropagatesC
          {std::optional<ErrorKind>{}, std::optional<ErrorKind>{ErrorKind::kCancelled},
           std::optional<ErrorKind>{ErrorKind::kDisconnected}})
     {
+        SCOPED_TRACE(::testing::PrintToString(terminal));
         auto plan = PlanFor(kVariants.front(), FlashOperation::kWrite);
         ASSERT_THAT(plan, IsOk());
         SubaruDensoSh7058CanExecutor executor;

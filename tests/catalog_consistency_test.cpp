@@ -28,6 +28,7 @@ TEST(CatalogConsistency, ChecksumFlagAgreesWithChecksumRouting)
 {
     for (const auto& vehicle : BuiltinCatalog().Vehicles())
     {
+        SCOPED_TRACE(::testing::PrintToString(vehicle));
         const bool routed = fastecu::checksum::HasRoute(vehicle.make, vehicle.protocol->name);
         EXPECT_EQ(vehicle.protocol->checksum == ChecksumSupport::kCorrected, routed)
             << vehicle.id << " (" << vehicle.protocol->name << ")";
@@ -59,6 +60,7 @@ TEST(CatalogConsistency, EveryKernelNameIsABundledFileSpelledExactly)
     ASSERT_FALSE(bundled.empty());
     for (const auto& protocol : BuiltinCatalog().Protocols())
     {
+        SCOPED_TRACE(::testing::PrintToString(protocol));
         if (!protocol.kernel.empty())
         {
             EXPECT_TRUE(bundled.contains(std::string(protocol.kernel))) << protocol.name << ": " << protocol.kernel;
@@ -82,6 +84,7 @@ TEST(CatalogConsistency, EveryFlashCapableProtocolNamesAKnownMcu)
 {
     for (const auto& protocol : BuiltinCatalog().Protocols())
     {
+        SCOPED_TRACE(::testing::PrintToString(protocol));
         if (protocol.read || protocol.test_write || protocol.write)
         {
             EXPECT_NE(fastecu::flash::FindFlashDevice(protocol.mcu), nullptr) << protocol.name << ": " << protocol.mcu;

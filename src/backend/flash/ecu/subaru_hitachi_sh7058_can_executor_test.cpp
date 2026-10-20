@@ -141,6 +141,7 @@ TEST(SubaruHitachiSh7058CanExecutor, BenchAndInCarConnectStopOnEraseTransportFai
 {
     for (const bool bench : {true, false})
     {
+        SCOPED_TRACE(::testing::PrintToString(bench));
         auto plan = BuildSubaruHitachiSh7058Plan(FlashOperation::kWrite, "sub_ecu_hitachi_sh7058_can", "SH7058_1block",
                                                  bytes::Bytes(0x100000));
         ASSERT_THAT(plan, fastecu::testing::IsOk());

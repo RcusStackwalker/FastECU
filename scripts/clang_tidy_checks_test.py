@@ -30,23 +30,17 @@ class ClangTidyChecks(unittest.TestCase):
             if str(entry["file"]).endswith("src/backend/ports/result_test.cpp")
         )
 
-    @classmethod
-    def plugin_library(cls) -> Path | None:
-        """The AST-only checks, built by Bazel and shipped as runfiles data."""
-        directory = Path(__file__).with_name("clang_tidy_plugin")
-        return next(directory.glob("libfastecu_tidy.*"), None)
-
     def assert_diagnostics(
-        self, body: str, filename: str = "fixture.cpp", plugin: bool = False
+        self,
+        body: str,
+        filename: str = "fixture_test.cpp",
+        plugin: bool = False,
+        checks: str | None = None,
+        exceptions: list[dict[str, str]] | None = None,
     ) -> None:
-        template_check = plugin
-        plugin = plugin or os.environ.get("FASTECU_TIDY_NATIVE_FIXTURES") == "1"
         # Literal markers identify independently expected user-file locations.
         # Plugin checks are registered without the custom- prefix.
-        prefix = "fastecu-" if plugin else "custom-fastecu-"
-        checks = "fastecu-*" if plugin else "custom-fastecu-*"
-        if plugin and not template_check:
-            checks += ",-fastecu-template-typename"
+        prefix = "fastecu-"
         load = [argument.replace("--load=", "-load=") for argument in self.host.arguments]
         expected = set()
         for line, text in enumerate(body.splitlines(), 1):
@@ -54,6 +48,10 @@ class ClangTidyChecks(unittest.TestCase):
                 marker = f"// {severity}: "
                 if marker in text:
                     expected.add((prefix + text.split(marker)[1], line, severity.title()))
+        if checks is None:
+            checks = ",".join(sorted({name for name, _, _ in expected}))
+        if not checks:
+            raise ValueError("negative fixtures must name the check they exercise")
         with tempfile.TemporaryDirectory(prefix="fastecu-inline-fixture-") as directory:
             source = Path(directory) / filename
             source.parent.mkdir(parents=True, exist_ok=True)
@@ -66,17 +64,28 @@ class ClangTidyChecks(unittest.TestCase):
             (Path(directory) / "compile_commands.json").write_text(json.dumps([entry]))
             fixes = Path(directory) / "fixes"
             fixes.mkdir()
+            configuration = yaml.safe_load((self.workspace / ".clang-tidy").read_text())
+            options = configuration.get("CheckOptions", {})
+            if isinstance(options, list):
+                options = {item["key"]: item["value"] for item in options}
+            policy_file = self.workspace / ".clang-tidy-exceptions.yaml"
+            if exceptions is not None:
+                policy_file = Path(directory) / ".clang-tidy-exceptions.yaml"
+                policy_file.write_text(yaml.safe_dump({"version": 1, "exceptions": exceptions}))
+            options["fastecu.ExceptionsFile"] = str(policy_file)
+            usage = Path(directory) / "usage"
+            usage.mkdir()
+            configuration["CheckOptions"] = options
+            fixture_config = Path(directory) / "config.yaml"
+            fixture_config.write_text(yaml.safe_dump(configuration))
             result = subprocess.run(
                 [
                     runner.sys.executable,
-                    str(Path(__file__).with_name("clang_tidy_adapter.py")),
-                    "--upstream",
                     self.tools.run_clang_tidy,
-                    "--",
                     "-clang-tidy-binary",
                     str(self.host.executable),
                     "-config-file",
-                    str(self.workspace / ".clang-tidy"),
+                    str(fixture_config),
                     f"-checks=-*,{checks}",
                     *load,
                     "-extra-arg=-Wno-error",
@@ -90,6 +99,7 @@ class ClangTidyChecks(unittest.TestCase):
                 capture_output=True,
                 text=True,
                 cwd=self.workspace,
+                env={**os.environ, "FASTECU_TIDY_EXCEPTION_USAGE_DIR": str(usage)},
             )
             # Advisory findings must succeed; existing error-level checks still fail.
             self.assertEqual(
@@ -97,6 +107,16 @@ class ClangTidyChecks(unittest.TestCase):
                 result.returncode != 0,
                 result.stdout + result.stderr,
             )
+            if exceptions is not None:
+                used = [
+                    record
+                    for path in usage.glob("*.json")
+                    for record in json.loads(path.read_text())
+                ]
+                self.assertEqual(
+                    {(entry["check"], entry["file"], entry["symbol"]) for entry in exceptions},
+                    {(entry["check"], entry["file"], entry["symbol"]) for entry in used},
+                )
             actual = set()
             diagnostics = [
                 diagnostic
@@ -315,7 +335,8 @@ void ContiguousAddresses(std::vector<int>& values, const std::vector<int>& const
 """)
 
     def test_redundant_address_dereference_excludes_other_overloads(self) -> None:
-        self.assert_diagnostics("""#include <iterator>
+        self.assert_diagnostics(
+            """#include <iterator>
 #include <list>
 #include <memory>
 #include <vector>
@@ -351,7 +372,9 @@ void OtherAddresses(std::vector<int>& values, std::list<int>& nodes,
     auto nested_lookalike_address = &*nested_lookalike;
     auto derived_address = &*derived;
 }
-""")
+""",
+            checks="fastecu-redundant-address-dereference",
+        )
 
     def test_result_assertions_distinguish_optional_and_matchers(self) -> None:
         self.assert_diagnostics("""#include <gmock/gmock.h>
@@ -393,62 +416,61 @@ TEST(InlineChecks, LowLevelResultApi) {
 }
 """,
             "src/backend/ports/result_test.cpp",
+            checks="fastecu-result-assertion",
         )
 
     def test_first_party_header_filter_reports_actual_header_declarations(self) -> None:
         with tempfile.TemporaryDirectory(prefix="fastecu-header-fixture-") as directory:
             root = Path(directory)
+            header = root / "src/probe.hpp"
+            header.parent.mkdir()
+            header.write_text("template <class T> struct HeaderProbe {};\n")
+            generated = root / "src/generated_ui/moc_probe.h"
+            generated.parent.mkdir()
+            generated.write_text("template <class T> struct GeneratedProbe {};\n")
+            source = root / "main.cpp"
+            source.write_text('#include "src/probe.hpp"\n#include "src/generated_ui/moc_probe.h"\n')
             configuration = {
-                "Checks": "-*,custom-fastecu-header-probe",
-                "WarningsAsErrors": "*,-custom-fastecu-header-probe",
-                "HeaderFilterRegex": runner.inline_header_filter(self.workspace),
-                "CustomChecks": [
-                    {
-                        "Name": "fastecu-header-probe",
-                        "Query": (
-                            'match cxxRecordDecl(hasName("::fastecu::Error"), '
-                            'isDefinition()).bind("header")'
-                        ),
-                        "Diagnostic": [
-                            {
-                                "BindName": "header",
-                                "Message": "header coverage probe",
-                                "Level": "Warning",
-                            }
-                        ],
-                    }
-                ],
+                "Checks": "-*,fastecu-template-typename",
+                "WarningsAsErrors": "*",
+                "HeaderFilterRegex": runner.first_party_header_filter(root),
+                "ExcludeHeaderFilterRegex": yaml.safe_load(
+                    (self.workspace / ".clang-tidy").read_text()
+                )["ExcludeHeaderFilterRegex"],
             }
             config = root / "config.yaml"
             config.write_text(yaml.safe_dump(configuration))
-            (root / "compile_commands.json").write_text(json.dumps([self.entry]))
+            entry = dict(self.entry)
+            arguments = [
+                str(source) if arg == str(entry["file"]) else arg for arg in entry["arguments"]
+            ]
+            entry.update(file=str(source), arguments=[*arguments, "-I", directory])
+            (root / "compile_commands.json").write_text(json.dumps([entry]))
             fixes = root / "fixes.yaml"
             result = subprocess.run(
                 [
-                    self.tools.clang_tidy,
-                    "--experimental-custom-checks",
+                    str(self.host.executable),
+                    *self.host.arguments,
                     f"--config-file={config}",
                     "-extra-arg=-Wno-error",
                     "-p",
                     directory,
                     f"-export-fixes={fixes}",
-                    self.entry["file"],
+                    str(source),
                 ],
                 capture_output=True,
                 text=True,
                 cwd=self.workspace,
             )
-            self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+            self.assertEqual(1, result.returncode, result.stdout + result.stderr)
             diagnostics = (
                 (yaml.safe_load(fixes.read_text()) or {}).get("Diagnostics", [])
                 if fixes.exists()
                 else []
             )
             self.assertEqual(1, len(diagnostics), result.stdout + result.stderr)
-            message = diagnostics[0]["DiagnosticMessage"]
             self.assertEqual(
-                self.workspace / "src/backend/ports/error.h",
-                (self.workspace / message["FilePath"]).resolve(),
+                header.resolve(), Path(diagnostics[0]["DiagnosticMessage"]["FilePath"]).resolve()
             )
 
     def test_container_predicates_distinguish_plain_booleans_and_matchers(self) -> None:
@@ -746,6 +768,309 @@ void Pairs(std::vector<int>& calls, const std::vector<int>& values) {
         calls.push_back(value);
         calls.push_back(value);
     }
+}
+""")
+
+    def test_result_access_requires_state_specific_fatal_guards(self) -> None:
+        self.assert_diagnostics("""#include <gmock/gmock.h>
+#include "src/backend/ports/result.h"
+#include "src/backend/ports/testing/result_matchers.h"
+using fastecu::testing::IsOk;
+using fastecu::testing::IsErr;
+fastecu::Result<int> ReadValue();
+TEST(ResultAccess, Guards) {
+    auto unsafe = ReadValue();
+    EXPECT_THAT(unsafe, IsOk());
+    EXPECT_EQ(*unsafe, 7); // error: result-access
+    auto good = ReadValue();
+    ASSERT_THAT(good, IsOk());
+    EXPECT_EQ(*good, 7);
+    auto error = ReadValue();
+    ASSERT_THAT(error, IsErr(fastecu::ErrorKind::kTimeout));
+    EXPECT_EQ(error.error().kind, fastecu::ErrorKind::kTimeout);
+    EXPECT_EQ(*error, 7); // error: result-access
+    auto guarded = ReadValue();
+    if (!guarded.has_value()) return;
+    EXPECT_EQ(*guarded, 7);
+    if (guarded.has_value()) EXPECT_EQ(*guarded, 7);
+    else EXPECT_EQ(guarded.error().kind, fastecu::ErrorKind::kTimeout);
+}
+""")
+
+    def test_result_access_invalidates_mutation_and_merges_branches(self) -> None:
+        self.assert_diagnostics("""#include <gmock/gmock.h>
+#include "src/backend/ports/result.h"
+#include "src/backend/ports/testing/result_matchers.h"
+using fastecu::testing::IsOk;
+fastecu::Result<int> ReadValue();
+void Mutate(fastecu::Result<int>&);
+void Observe(const fastecu::Result<int>&);
+bool Coin();
+TEST(ResultAccess, Mutation) {
+    auto changed = ReadValue();
+    ASSERT_THAT(changed, IsOk());
+    changed = fastecu::Fail(fastecu::ErrorKind::kTimeout, "timeout");
+    EXPECT_EQ(*changed, 7); // error: result-access
+    auto passed = ReadValue();
+    ASSERT_THAT(passed, IsOk());
+    Observe(passed);
+    EXPECT_EQ(*passed, 7);
+    Mutate(passed);
+    EXPECT_EQ(*passed, 7); // error: result-access
+    auto joined = ReadValue();
+    ASSERT_THAT(joined, IsOk());
+    if (Coin()) joined = ReadValue();
+    EXPECT_EQ(*joined, 7); // error: result-access
+    auto stable = ReadValue();
+    ASSERT_THAT(stable, IsOk());
+    for (int index = 0; index < 2; ++index) EXPECT_EQ(*stable, index);
+    for (int index = 0; index < 2; ++index) {
+        auto fresh = ReadValue();
+        ASSERT_THAT(fresh, IsOk());
+        EXPECT_EQ(*fresh, index);
+    }
+}
+""")
+
+    def test_result_assertion_inside_a_callback(self) -> None:
+        self.assert_diagnostics("""#include <gmock/gmock.h>
+#include "src/backend/ports/result.h"
+#include "src/backend/ports/testing/result_matchers.h"
+fastecu::Result<int> ReadValue();
+TEST(ResultAssertions, Callback) {
+    auto verify = [] {
+        auto result = ReadValue();
+        ASSERT_THAT(result, fastecu::testing::IsErr(fastecu::ErrorKind::kTimeout));
+        EXPECT_EQ(result.error().kind, fastecu::ErrorKind::kTimeout); // error: result-assertion
+    };
+    verify();
+}
+""")
+
+    def test_result_access_invalidates_reference_and_pointer_escape(self) -> None:
+        self.assert_diagnostics("""#include <gmock/gmock.h>
+#include "src/backend/ports/result.h"
+#include "src/backend/ports/testing/result_matchers.h"
+fastecu::Result<int> ReadValue();
+void Mutate(fastecu::Result<int>&);
+void MutatePointer(fastecu::Result<int>*);
+TEST(ResultFlow, Aliases) {
+    auto result = ReadValue();
+    auto& alias = result;
+    ASSERT_THAT(result, fastecu::testing::IsOk());
+    EXPECT_EQ(*alias, 1);
+    Mutate(alias);
+    EXPECT_EQ(*result, 1); // error: result-access
+    ASSERT_THAT(result, fastecu::testing::IsOk());
+    MutatePointer(&result);
+    EXPECT_EQ(*result, 1); // error: result-access
+}
+""")
+
+    def test_result_boolean_conversion_requires_matcher(self) -> None:
+        self.assert_diagnostics("""#include <gmock/gmock.h>
+#include "src/backend/ports/result.h"
+#include <optional>
+fastecu::Result<int> ReadValue();
+TEST(ResultAssertions, Conversion) {
+    auto result = ReadValue();
+    ASSERT_TRUE(result); // error: result-assertion
+    EXPECT_FALSE(!result); // error: result-assertion
+    std::optional<int> optional{1};
+    ASSERT_TRUE(optional);
+}
+""")
+
+    def test_uniform_bytes_use_specialized_matcher(self) -> None:
+        self.assert_diagnostics(
+            """#include <gmock/gmock.h>
+#include <algorithm>
+#include "src/algorithms/protocol/bytes.h"
+#include "src/algorithms/protocol/testing/byte_matchers.h"
+TEST(Bytes, Uniform) {
+    bytes::Bytes data{0xff, 0xff};
+    EXPECT_THAT(data, ::testing::Each(::testing::Eq(0xff))); // error: uniform-bytes
+    EXPECT_EQ(data, bytes::Bytes(2, 0xff)); // error: uniform-bytes
+    EXPECT_TRUE(
+        std::all_of(data.begin(), data.end(), // error: uniform-bytes
+                    [](bytes::Byte byte) { return byte == 0xff; }));
+    EXPECT_THAT(data, test_bytes::BytesFilledWith(0xff));
+    EXPECT_EQ(data, (bytes::Bytes{0xff, 0x00}));
+    std::vector<int> numbers{1, 1};
+    EXPECT_THAT(numbers, ::testing::Each(::testing::Eq(1)));
+}
+""",
+            checks="fastecu-uniform-bytes,fastecu-container-assertion",
+        )
+
+    def test_element_assertion_loop_uses_one_container_diagnostic(self) -> None:
+        self.assert_diagnostics(
+            """#include <gtest/gtest.h>
+#include <vector>
+TEST(Containers, Elements) {
+    std::vector<int> values{1, 1};
+    for (int value : values) { // error: container-assertion
+        EXPECT_EQ(value, 1);
+    }
+    for (int& value : values) value = 2;
+}
+""",
+            checks="fastecu-container-assertion,fastecu-assertion-loop-trace",
+        )
+
+    def test_assertion_loops_require_iteration_local_trace(self) -> None:
+        self.assert_diagnostics("""#include <gtest/gtest.h>
+TEST(Loops, Trace) {
+    SCOPED_TRACE("outside");
+    for (int index = 0; index < 2; ++index) { // error: assertion-loop-trace
+        EXPECT_GE(index, 0);
+    }
+    for (int index = 0; index < 2; ++index) {
+        SCOPED_TRACE(index);
+        EXPECT_GE(index, 0);
+    }
+    for (int index = 0; index < 2; ++index) { // error: assertion-loop-trace
+        auto verify = [&] { EXPECT_GE(index, 0); };
+        verify();
+    }
+    for (int outer = 0; outer < 2; ++outer) {
+        SCOPED_TRACE(outer);
+        for (int inner = 0; inner < 2; ++inner) { // error: assertion-loop-trace
+            EXPECT_GE(inner, 0);
+        }
+    }
+    for (int index = 0; index < 2; ++index) {
+        auto uncalled = [&] { EXPECT_GE(index, 0); };
+        (void)uncalled;
+    }
+}
+""")
+
+    def test_result_access_respects_known_branches_and_do_while_order(self) -> None:
+        self.assert_diagnostics("""#include <gmock/gmock.h>
+#include "src/backend/ports/result.h"
+#include "src/backend/ports/testing/result_matchers.h"
+fastecu::Result<int> ReadValue();
+TEST(ResultFlow, KnownBranch) {
+    auto result = ReadValue();
+    ASSERT_THAT(result, fastecu::testing::IsOk());
+    if (result.has_value()) EXPECT_EQ(*result, 1);
+    EXPECT_EQ(*result, 1);
+    auto other = ReadValue();
+    do { EXPECT_EQ(*other, 1); } while (other.has_value()); // error: result-access
+}
+TEST(ResultFlow, NegativeConjunction) {
+    auto result = ReadValue();
+    ASSERT_THAT(result, ::testing::Not(fastecu::testing::IsOkAnd(::testing::Eq(1))));
+    EXPECT_EQ(result.error().kind, fastecu::ErrorKind::kTimeout); // error: result-access
+}
+""")
+
+    def test_parameterized_cases_require_a_name_generator(self) -> None:
+        self.assert_diagnostics("""#include <gtest/gtest.h>
+class Cases : public ::testing::TestWithParam<int> {};
+TEST_P(Cases, Value) { EXPECT_GE(GetParam(), 0); }
+INSTANTIATE_TEST_SUITE_P(Unnamed, Cases, ::testing::Values(0, 1)); // error: parameterized-case-name
+INSTANTIATE_TEST_SUITE_P(Named, Cases, ::testing::Values(0, 1),
+                         ::testing::PrintToStringParamName());
+""")
+
+    def test_container_equality_algorithms_require_matchers(self) -> None:
+        self.assert_diagnostics("""#include <gtest/gtest.h>
+#include <algorithm>
+#include <vector>
+TEST(Containers, Equality) {
+    std::vector<int> actual{1, 2};
+    std::vector<int> expected{1, 2};
+    EXPECT_TRUE(
+        std::equal(actual.begin(), actual.end(), // error: container-assertion
+                   expected.begin(), expected.end()));
+    EXPECT_TRUE(std::ranges::equal(actual, expected)); // error: container-assertion
+    EXPECT_EQ(actual, expected);
+}
+""")
+
+    def test_plan_helpers_propagate_fallibility(self) -> None:
+        self.assert_diagnostics("""#include <gmock/gmock.h>
+#include <stdexcept>
+#include "src/backend/flash/flash_plan.h"
+#include "src/backend/ports/testing/result_matchers.h"
+using fastecu::Result;
+using fastecu::flash::FlashPlan;
+Result<FlashPlan> Build();
+FlashPlan HiddenFailure() { // error: plan-helper
+    auto result = Build();
+    EXPECT_THAT(result, fastecu::testing::IsOk());
+    return std::move(*result);
+}
+FlashPlan ThrowingFailure() { // error: plan-helper
+    auto result = Build();
+    if (!result.has_value()) throw std::runtime_error("failed");
+    return std::move(*result);
+}
+Result<FlashPlan> Propagate() { return Build(); }
+FlashPlan Forward(FlashPlan plan) { return plan; }
+""")
+
+    def test_single_use_result_only_when_safe(self) -> None:
+        self.assert_diagnostics("""#include <gmock/gmock.h>
+#include <memory>
+#include "src/backend/ports/result.h"
+#include "src/backend/ports/testing/result_matchers.h"
+fastecu::Status Act();
+fastecu::Result<std::unique_ptr<int>> Own();
+void Observe();
+TEST(SingleUse, Safe) {
+    auto ordered = Act();
+    Observe();
+    ASSERT_THAT(ordered, fastecu::testing::IsOk());
+    auto owned = Own();
+    ASSERT_THAT(owned, fastecu::testing::IsOk());
+    auto reused = Act();
+    ASSERT_THAT(reused, fastecu::testing::IsOk());
+    EXPECT_THAT(reused, fastecu::testing::IsOk());
+    auto status = Act(); // error: single-use-result
+    ASSERT_THAT(status, fastecu::testing::IsOk());
+}
+""")
+
+    def test_result_assertion_exception_is_exact_and_reports_usage(self) -> None:
+        self.assert_diagnostics(
+            """#include <gmock/gmock.h>
+#include "src/backend/ports/result.h"
+#include "src/backend/ports/testing/result_matchers.h"
+fastecu::Result<int> ReadValue();
+TEST(Exceptions, Allowed) {
+    EXPECT_THAT(ReadValue(), ::testing::Not(fastecu::testing::IsOk()));
+}
+TEST(Exceptions, Other) {
+    EXPECT_THAT(ReadValue(), ::testing::Not(fastecu::testing::IsOk())); // error: result-assertion
+}
+""",
+            exceptions=[
+                {
+                    "check": "fastecu-result-assertion",
+                    "file": "fixture_test.cpp",
+                    "symbol": "Exceptions.Allowed",
+                    "rationale": "Only the absence of a successful value matters here.",
+                }
+            ],
+        )
+
+    def test_result_assertions_cover_fields_messages_and_any_error(self) -> None:
+        self.assert_diagnostics("""#include <gmock/gmock.h>
+#include "src/backend/ports/result.h"
+#include "src/backend/ports/testing/result_matchers.h"
+using fastecu::testing::IsOk;
+using fastecu::testing::IsErr;
+fastecu::Result<int> ReadValue();
+TEST(ResultAssertions, Diagnostics) {
+    auto result = ReadValue();
+    ASSERT_THAT(result, IsErr(fastecu::ErrorKind::kTimeout));
+    EXPECT_EQ(result.error().kind, fastecu::ErrorKind::kTimeout); // error: result-assertion
+    EXPECT_THAT(result.error().detail, ::testing::HasSubstr("timeout")); // error: result-assertion
+    EXPECT_THAT(result, ::testing::Not(IsOk())); // error: result-assertion
+    ASSERT_THAT(result, IsOk()) << result.error().detail; // error: result-assertion
 }
 """)
 

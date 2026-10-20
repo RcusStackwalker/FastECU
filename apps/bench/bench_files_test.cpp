@@ -24,8 +24,8 @@ TEST(BenchFiles, RoundTripsBytesThroughTheFilesystem)
     const bytes::Bytes written{0x00, 0x01, 0xFE, 0xFF, 0x7F};
     BenchFiles files;
 
-    ASSERT_THAT(files.save(path, written), fastecu::testing::IsOk());
-    ASSERT_THAT(files.load(path), fastecu::testing::IsOkAnd(written));
+    ASSERT_THAT(files.Save(path, written), fastecu::testing::IsOk());
+    ASSERT_THAT(files.Load(path), fastecu::testing::IsOkAnd(written));
 }
 
 TEST(BenchFiles, LoadsAnEmptyFileAsNoBytes)
@@ -36,7 +36,7 @@ TEST(BenchFiles, LoadsAnEmptyFileAsNoBytes)
     }
     BenchFiles files;
 
-    const Result<bytes::Bytes> read = files.load(path);
+    const Result<bytes::Bytes> read = files.Load(path);
 
     ASSERT_THAT(read, fastecu::testing::IsOk());
     EXPECT_TRUE(read->empty());
@@ -46,14 +46,14 @@ TEST(BenchFiles, LoadReportsAMissingFileAsInvalidConfig)
 {
     BenchFiles files;
 
-    ASSERT_THAT(files.load(TempPath("absent.bin")), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
+    ASSERT_THAT(files.Load(TempPath("absent.bin")), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
 TEST(BenchFiles, SaveReportsAnUnwritablePathAsInternal)
 {
     BenchFiles files;
 
-    ASSERT_THAT(files.save(TempPath("no_such_dir/out.bin"), bytes::Bytes{0x01}),
+    ASSERT_THAT(files.Save(TempPath("no_such_dir/out.bin"), bytes::Bytes{0x01}),
                 fastecu::testing::IsErr(ErrorKind::kInternal));
 }
 

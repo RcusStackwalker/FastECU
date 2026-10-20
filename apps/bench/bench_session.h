@@ -24,11 +24,11 @@ class BenchSession final : public IBenchSession
                  std::uint32_t response_id, IClock& clock, IEventSink& events, const ICancellationToken& cancellation,
                  bool vendor_challenge = false);
 
-    Status connect() override;
-    Result<bytes::Bytes> exchange(bytes::ByteView pdu, const uds::ExchangePolicy& policy) override;
-    Result<bytes::Bytes> exchange_raw(bytes::ByteView pdu, int timeout_ms) override;
-    const TrafficEvidence& last_traffic() const override;
-    Result<double> vbatt() override;
+    Status Connect() override;
+    Result<bytes::Bytes> Exchange(bytes::ByteView pdu, const uds::ExchangePolicy& policy) override;
+    Result<bytes::Bytes> ExchangeRaw(bytes::ByteView pdu, int timeout_ms) override;
+    const TrafficEvidence& LastTraffic() const override;
+    Result<double> Vbatt() override;
 
   private:
     class RecordingChannel final : public uds::IUdsChannel
@@ -38,15 +38,15 @@ class BenchSession final : public IBenchSession
         Status Send(bytes::ByteView pdu, const ICancellationToken& cancellation) override;
         Result<std::optional<bytes::Bytes>> Receive(std::chrono::milliseconds timeout,
                                                     const ICancellationToken& cancellation) override;
-        void reset();
-        const bytes::Bytes& last_rx() const;
+        void Reset();
+        const bytes::Bytes& LastRx() const;
 
       private:
         uds::IUdsChannel& inner_;
         bytes::Bytes last_rx_;
     };
 
-    Result<bytes::Bytes> requestOnce(bytes::ByteView pdu, const uds::ExchangePolicy& policy);
+    Result<bytes::Bytes> RequestOnce(bytes::ByteView pdu, const uds::ExchangePolicy& policy);
 
     std::unique_ptr<flash::ICanFlashTransport> transport_;
     flash::CanFlashUdsChannel channel_;

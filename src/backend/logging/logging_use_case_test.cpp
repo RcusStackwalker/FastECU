@@ -1,3 +1,4 @@
+#include <array>
 #include "src/backend/ports/testing/result_matchers.h"
 #include "src/backend/logging/logging_event_sink.h"
 #include "src/backend/logging/logging_protocol.h"
@@ -240,7 +241,14 @@ TEST_P(TerminalPollErrorTest, TerminatesAndCleansUpOnce)
 INSTANTIATE_TEST_SUITE_P(LoggingUseCase, TerminalPollErrorTest,
                          ::testing::Values(fastecu::ErrorKind::kInvalidConfig, fastecu::ErrorKind::kUnsupported,
                                            fastecu::ErrorKind::kInternal, fastecu::ErrorKind::kDisconnected,
-                                           fastecu::ErrorKind::kCancelled, fastecu::ErrorKind::kTimeout));
+                                           fastecu::ErrorKind::kCancelled, fastecu::ErrorKind::kTimeout),
+                         (
+                             [](const auto& info)
+                             {
+                                 static constexpr std::array kNames{"InvalidConfig", "Unsupported", "Internal",
+                                                                    "Disconnected",  "Cancelled",   "Timeout"};
+                                 return kNames[info.index];
+                             }));
 
 TEST(LoggingUseCaseTest, ConversionFailureContinuesHealthyPeersAndRecoversWithBoundedDiagnostics)
 {

@@ -757,6 +757,7 @@ TEST(SubaruDensoSh72543CanDieselExecutor, IdentityExchangeFailuresIncludingCance
 {
     for (const auto error : {ErrorKind::kDisconnected, ErrorKind::kCancelled})
     {
+        SCOPED_TRACE(::testing::PrintToString(error));
         ScriptedCanFlashTransport transport;
         transport.Exchange(Request({0x10, 0x5F}), Response({0x50, 0x01}));
         transport.Exchange(Request({0x22, 0xF1, 0x82}));
@@ -786,6 +787,7 @@ TEST(SubaruDensoSh72543CanDieselExecutor, InCarJumpExhaustionAndCancellationPres
 {
     for (const int outcome : {1, 2})
     {
+        SCOPED_TRACE(::testing::PrintToString(outcome));
         ScriptedCanFlashTransport transport;
         ScriptInCarConnect(transport, outcome);
         if (outcome == 1)

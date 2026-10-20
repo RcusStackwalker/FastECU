@@ -298,6 +298,7 @@ TEST(CatalogMemoryMapAgreement, EveryProtocolThatWritesHasARowAndEveryRowNamesOn
 {
     for (const config::ProtocolSpec& protocol : config::BuiltinCatalog().Protocols())
     {
+        SCOPED_TRACE(::testing::PrintToString(protocol));
         if (Writes(protocol))
         {
             EXPECT_NE(RowFor(protocol.name), nullptr) << protocol.name << " writes but has no agreement row";
@@ -305,6 +306,7 @@ TEST(CatalogMemoryMapAgreement, EveryProtocolThatWritesHasARowAndEveryRowNamesOn
     }
     for (const AgreementRow& row : kRows)
     {
+        SCOPED_TRACE(::testing::PrintToString(row));
         const config::ProtocolSpec *protocol = config::BuiltinCatalog().FindProtocol(row.protocol);
         EXPECT_TRUE(protocol != nullptr && Writes(*protocol))
             << row.protocol << " is not a built-in protocol that writes";
@@ -315,6 +317,7 @@ TEST(CatalogMemoryMapAgreement, WritePlansWriteExactlyTheWritableBlocks)
 {
     for (const AgreementRow& row : kRows)
     {
+        SCOPED_TRACE(::testing::PrintToString(row));
         const config::ProtocolSpec *protocol = config::BuiltinCatalog().FindProtocol(row.protocol);
         ASSERT_NE(protocol, nullptr) << row.protocol;
         const FlashDevice *device = FindFlashDevice(protocol->mcu);
@@ -327,6 +330,7 @@ TEST(CatalogMemoryMapAgreement, WritePlansWriteExactlyTheWritableBlocks)
         int accepted = 0;
         for (const MemoryMap& map : CandidateMaps(*protocol, *device))
         {
+            SCOPED_TRACE(::testing::PrintToString(map));
             const Result<FlashPlan> plan = row.build(*protocol, operation, bytes::Bytes(map.FileSize().Value(), 0xFF));
             if (!plan.has_value())
             {
@@ -342,6 +346,7 @@ TEST(CatalogMemoryMapAgreement, WritePlansWriteExactlyTheWritableBlocks)
             {
                 for (const MemoryRegion& erase : plan->EraseRegions())
                 {
+                    SCOPED_TRACE(::testing::PrintToString(erase));
                     EXPECT_TRUE(Within(ExtentOf(erase), writable))
                         << row.protocol << " erases outside its writable blocks";
                 }
@@ -355,6 +360,7 @@ TEST(CatalogMemoryMapAgreement, WritableBlocksAreFlashAndFillBlocksAreNot)
 {
     for (const config::ProtocolSpec& protocol : config::BuiltinCatalog().Protocols())
     {
+        SCOPED_TRACE(::testing::PrintToString(protocol));
         if (!Writes(protocol))
         {
             continue;
@@ -364,8 +370,10 @@ TEST(CatalogMemoryMapAgreement, WritableBlocksAreFlashAndFillBlocksAreNot)
         const std::vector<Extent> flash = FlashExtents(*device);
         for (const MemoryMap& map : CandidateMaps(protocol, *device))
         {
+            SCOPED_TRACE(::testing::PrintToString(map));
             for (const memory::MemoryBlock& block : map.Blocks())
             {
+                SCOPED_TRACE(::testing::PrintToString(block));
                 if (block.writability == memory::Writability::kWritable)
                 {
                     EXPECT_TRUE(Within(ExtentOf(block), flash)) << protocol.name << ": writable block at 0x" << std::hex
@@ -392,6 +400,7 @@ TEST(CatalogMemoryMapAgreement, FamiliesIndexingFileBytesGetEcuAddressedFiles)
 {
     for (const AgreementRow& row : kRows)
     {
+        SCOPED_TRACE(::testing::PrintToString(row));
         if (row.window != WriteWindow::kTransferRegion)
         {
             continue;
@@ -402,9 +411,11 @@ TEST(CatalogMemoryMapAgreement, FamiliesIndexingFileBytesGetEcuAddressedFiles)
         ASSERT_NE(device, nullptr) << row.protocol;
         for (const MemoryMap& map : CandidateMaps(*protocol, *device))
         {
+            SCOPED_TRACE(::testing::PrintToString(map));
             const std::uint32_t base = map.DefinitionBase().Value();
             for (const memory::MemoryBlock& block : map.Blocks())
             {
+                SCOPED_TRACE(::testing::PrintToString(block));
                 const auto *file = std::get_if<memory::FileBacking>(&block.backing);
                 if (file == nullptr)
                 {

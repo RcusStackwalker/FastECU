@@ -66,7 +66,7 @@ TEST_F(RomSaveTest, FailurePreservesSourceAndDirtyBytes)
     cfg_.events.notices.clear();
     const auto result = saver_.Save(session_, "/cal/fail.bin", session_.File());
     ASSERT_THAT(result, IsErr(ErrorKind::kInternal));
-    EXPECT_EQ(result.error().detail, "disk full");
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kInternal, ::testing::Eq("disk full")));
     EXPECT_EQ(session_.Source(), before);
     EXPECT_TRUE(session_.Dirty());
     EXPECT_THAT(session_.File(), ElementsAre(1, 9, 3));

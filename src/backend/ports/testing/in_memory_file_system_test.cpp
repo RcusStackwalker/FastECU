@@ -23,8 +23,8 @@ TEST(InMemoryFileSystem, ConfiguredCreateDirectoryFailureIsReturned)
 
     auto result = fs.MakeDirectory("/config/");
 
-    ASSERT_THAT(result, ::testing::Not(fastecu::testing::IsOk()));
-    EXPECT_EQ(result.error(), injected);
+    ASSERT_THAT(result, fastecu::testing::IsErr(fastecu::ErrorKind::kInternal));
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(injected.kind, ::testing::Eq(injected.detail)));
     EXPECT_FALSE(fs.Exists("/config/"));
 }
 
@@ -42,7 +42,7 @@ TEST(FileSystem, CopyRespectsOverwriteFlag)
         fs.entries["/a"] = DirEntry{"/a", false, 100};
         fs.entries["/b"] = DirEntry{"/b", false, 200};
         auto blocked = fs.copy_file("/a", "/b", false);
-        ASSERT_THAT(blocked, ::testing::Not(fastecu::testing::IsOk()));
+        ASSERT_THAT(blocked, fastecu::testing::IsErr(fastecu::ErrorKind::kInternal));
         auto allowed = fs.copy_file("/a", "/b", true);
         ASSERT_THAT(allowed, fastecu::testing::IsOk());
     */
@@ -88,8 +88,8 @@ TEST(InMemoryFileSystem, ConfiguredListDirectoryFailureIsReturned)
 
     auto result = fs.ListDirectory("/definitions");
 
-    ASSERT_THAT(result, ::testing::Not(fastecu::testing::IsOk()));
-    EXPECT_EQ(result.error(), fs.list_directory_errors.at("/definitions"));
+    ASSERT_THAT(result, fastecu::testing::IsErr(fastecu::ErrorKind::kInternal));
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kInternal, ::testing::Eq("listing failed")));
 }
 
 TEST(InMemoryFileSystem, LegacyDirectoryFixturesRemainSupported)

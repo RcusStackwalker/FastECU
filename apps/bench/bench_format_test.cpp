@@ -34,7 +34,7 @@ CommandOutcome EraseFailure()
 
 TEST(BenchFormat, TextCarriesStepTxRxAndNote)
 {
-    const std::string text = format_text(EraseFailure());
+    const std::string text = FormatText(EraseFailure());
 
     EXPECT_NE(text.find("erase"), std::string::npos);
     EXPECT_NE(text.find("31 e0"), std::string::npos);
@@ -52,7 +52,7 @@ TEST(BenchFormat, TextMarksSuccessWithoutTheFailureWord)
     ok.error_kind.reset();
     ok.error_detail.clear();
 
-    const std::string text = format_text(ok);
+    const std::string text = FormatText(ok);
 
     EXPECT_NE(text.find("ok"), std::string::npos);
     EXPECT_EQ(text.find("FAIL"), std::string::npos);
@@ -60,7 +60,7 @@ TEST(BenchFormat, TextMarksSuccessWithoutTheFailureWord)
 
 TEST(BenchFormat, JsonIsOneFlatObjectWithHexStrings)
 {
-    const std::string json = format_json(EraseFailure());
+    const std::string json = FormatJson(EraseFailure());
 
     EXPECT_TRUE(json.starts_with("{"));
     EXPECT_TRUE(json.ends_with("}"));
@@ -83,8 +83,8 @@ TEST(BenchFormat, MultiExchangeTextAndJsonCarryFirstAndLastPdus)
     outcome.last_rx = {0x71, 0xE1, 0x00};
     outcome.data = {0xAA, 0xBB};
 
-    const std::string text = format_text(outcome);
-    const std::string json = format_json(outcome);
+    const std::string text = FormatText(outcome);
+    const std::string json = FormatJson(outcome);
 
     EXPECT_NE(text.find("5 exchanges"), std::string::npos);
     EXPECT_NE(text.find("TX first 31 e0"), std::string::npos);
@@ -101,7 +101,7 @@ TEST(BenchFormat, JsonEscapesQuotesAndBackslashesInDetail)
     CommandOutcome outcome = EraseFailure();
     outcome.error_detail = R"(said "no" \ here)";
 
-    const std::string json = format_json(outcome);
+    const std::string json = FormatJson(outcome);
 
     EXPECT_NE(json.find(R"(said \"no\" \\ here)"), std::string::npos);
 }
@@ -111,7 +111,7 @@ TEST(BenchFormat, JsonOmitsBatteryWhenUnavailable)
     CommandOutcome outcome = EraseFailure();
     outcome.vbatt.reset();
 
-    EXPECT_EQ(format_json(outcome).find("\"vbatt\""), std::string::npos);
+    EXPECT_EQ(FormatJson(outcome).find("\"vbatt\""), std::string::npos);
 }
 
 TEST(BenchFormat, JsonOmitsBatteryWhenNotFinite)
@@ -119,7 +119,7 @@ TEST(BenchFormat, JsonOmitsBatteryWhenNotFinite)
     CommandOutcome outcome = EraseFailure();
     outcome.vbatt = std::numeric_limits<double>::quiet_NaN();
 
-    EXPECT_EQ(format_json(outcome).find("\"vbatt\""), std::string::npos);
+    EXPECT_EQ(FormatJson(outcome).find("\"vbatt\""), std::string::npos);
 }
 
 TEST(BenchFormat, JsonEscapesControlCharactersInDetail)
@@ -127,7 +127,7 @@ TEST(BenchFormat, JsonEscapesControlCharactersInDetail)
     CommandOutcome outcome = EraseFailure();
     outcome.error_detail = "one\x01two\bthree\ffour";
 
-    const std::string json = format_json(outcome);
+    const std::string json = FormatJson(outcome);
 
     EXPECT_NE(json.find("\\u0001"), std::string::npos);
     EXPECT_NE(json.find("\\b"), std::string::npos);
@@ -145,7 +145,8 @@ TEST(BenchFormat, EveryErrorKindGetsADistinctNonZeroExitCode)
     std::vector<int> codes;
     for (const ErrorKind kind : kKinds)
     {
-        const int code = exit_code_for(kind);
+        SCOPED_TRACE(::testing::PrintToString(kind));
+        const int code = ExitCodeFor(kind);
         EXPECT_NE(code, 0) << ToString(kind);
         codes.push_back(code);
     }
@@ -155,22 +156,23 @@ TEST(BenchFormat, EveryErrorKindGetsADistinctNonZeroExitCode)
 
 TEST(BenchTypes, CommandTableMarksExactlyTheCommandsRequiringDestructiveAcknowledgement)
 {
-    for (const CommandSpec& spec : command_table())
+    for (const CommandSpec& spec : CommandTable())
     {
-        const bool expected = spec.id == CommandId::Send || spec.id == CommandId::SendRaw ||
-                              spec.id == CommandId::Unlock || spec.id == CommandId::Erase ||
-                              spec.id == CommandId::Download || spec.id == CommandId::UploadRoutine;
+        SCOPED_TRACE(::testing::PrintToString(spec.name));
+        const bool expected = spec.id == CommandId::kSend || spec.id == CommandId::kSendRaw ||
+                              spec.id == CommandId::kUnlock || spec.id == CommandId::kErase ||
+                              spec.id == CommandId::kDownload || spec.id == CommandId::kUploadRoutine;
         EXPECT_EQ(spec.destructive, expected) << spec.name;
     }
 }
 
 TEST(BenchTypes, FindCommandResolvesByNameAndRejectsUnknown)
 {
-    const CommandSpec *read = find_command("read");
+    const CommandSpec *read = FindCommand("read");
     ASSERT_NE(read, nullptr);
-    EXPECT_EQ(read->id, CommandId::Read);
+    EXPECT_EQ(read->id, CommandId::kRead);
     EXPECT_FALSE(read->destructive);
-    EXPECT_EQ(find_command("definitely-not-a-command"), nullptr);
+    EXPECT_EQ(FindCommand("definitely-not-a-command"), nullptr);
 }
 
 TEST(BenchFormat, StatsAreOmittedUnlessRequested)
@@ -178,8 +180,8 @@ TEST(BenchFormat, StatsAreOmittedUnlessRequested)
     const CommandOutcome outcome{
         .step = "read 0x200 4", .exchange_count = 2, .data = bytes::Bytes{1, 2, 3, 4}, .elapsed_ms = 100, .ok = true};
 
-    EXPECT_EQ(format_text(outcome).find("bytes/s"), std::string::npos);
-    EXPECT_EQ(format_json(outcome).find("bytes_per_s"), std::string::npos);
+    EXPECT_EQ(FormatText(outcome).find("bytes/s"), std::string::npos);
+    EXPECT_EQ(FormatJson(outcome).find("bytes_per_s"), std::string::npos);
 }
 
 TEST(BenchFormatStats, JsonCarriesBothDerivedFigures)
@@ -187,7 +189,7 @@ TEST(BenchFormatStats, JsonCarriesBothDerivedFigures)
     const CommandOutcome outcome{
         .step = "read 0x200 4", .exchange_count = 2, .data = bytes::Bytes{1, 2, 3, 4}, .elapsed_ms = 100, .ok = true};
 
-    const std::string json = format_json(outcome, true);
+    const std::string json = FormatJson(outcome, true);
 
     // 4 bytes / 0.100 s = 40 bytes/s; 100 ms / 2 exchanges = 50 ms.
     EXPECT_NE(json.find(R"("bytes_per_s":40.0)"), std::string::npos);
@@ -198,7 +200,7 @@ TEST(BenchFormatStats, BytesPerSecondIsOmittedWithoutData)
 {
     const CommandOutcome outcome{.step = "erase", .exchange_count = 1, .elapsed_ms = 100, .ok = true};
 
-    const std::string json = format_json(outcome, true);
+    const std::string json = FormatJson(outcome, true);
 
     EXPECT_EQ(json.find("bytes_per_s"), std::string::npos);
     EXPECT_NE(json.find(R"("ms_per_exchange":100.0)"), std::string::npos);
@@ -209,7 +211,7 @@ TEST(BenchFormatStats, BytesPerSecondIsOmittedWhenNoTimeElapsed)
     const CommandOutcome outcome{
         .step = "read 0x200 4", .exchange_count = 1, .data = bytes::Bytes{1, 2, 3, 4}, .elapsed_ms = 0, .ok = true};
 
-    const std::string json = format_json(outcome, true);
+    const std::string json = FormatJson(outcome, true);
 
     EXPECT_EQ(json.find("bytes_per_s"), std::string::npos);
 }
@@ -218,7 +220,7 @@ TEST(BenchFormatStats, MsPerExchangeIsOmittedWithoutExchanges)
 {
     const CommandOutcome outcome{.step = "ports", .exchange_count = 0, .elapsed_ms = 5, .ok = true};
 
-    const std::string json = format_json(outcome, true);
+    const std::string json = FormatJson(outcome, true);
 
     EXPECT_EQ(json.find("ms_per_exchange"), std::string::npos);
 }
@@ -228,7 +230,7 @@ TEST(BenchFormatStats, TextModePrintsAnIndentedStatsLine)
     const CommandOutcome outcome{
         .step = "read 0x200 4", .exchange_count = 2, .data = bytes::Bytes{1, 2, 3, 4}, .elapsed_ms = 100, .ok = true};
 
-    EXPECT_NE(format_text(outcome, true).find("  40.0 bytes/s, 50.0 ms/exchange\n"), std::string::npos);
+    EXPECT_NE(FormatText(outcome, true).find("  40.0 bytes/s, 50.0 ms/exchange\n"), std::string::npos);
 }
 
 } // namespace

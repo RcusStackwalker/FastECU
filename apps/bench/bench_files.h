@@ -9,8 +9,8 @@ namespace fastecu::bench
 class BenchFiles final : public IBenchFiles
 {
   public:
-    Result<bytes::Bytes> load(std::string_view path) override;
-    Status save(std::string_view path, bytes::ByteView data) override;
+    Result<bytes::Bytes> Load(std::string_view path) override;
+    Status Save(std::string_view path, bytes::ByteView data) override;
 };
 
 } // namespace fastecu::bench

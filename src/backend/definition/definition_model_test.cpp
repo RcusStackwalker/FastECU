@@ -166,8 +166,8 @@ TEST(DefinitionCatalogTest, ConflictingDuplicateInternalIdIsInvalidConfig)
     auto result = DefinitionCatalog::Create({first, second});
 
     ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
-    EXPECT_THAT(result.error().detail, ::testing::HasSubstr("a.xml"));
-    EXPECT_THAT(result.error().detail, ::testing::HasSubstr("b.xml"));
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, ::testing::HasSubstr("a.xml")));
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, ::testing::HasSubstr("b.xml")));
 }
 
 TEST(DefinitionCatalogTest, ConflictingDuplicateEcuIdentityIsInvalidConfig)
@@ -179,8 +179,8 @@ TEST(DefinitionCatalogTest, ConflictingDuplicateEcuIdentityIsInvalidConfig)
     auto result = DefinitionCatalog::Create({first, second});
 
     ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
-    EXPECT_THAT(result.error().detail, ::testing::HasSubstr("a.xml"));
-    EXPECT_THAT(result.error().detail, ::testing::HasSubstr("b.xml"));
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, ::testing::HasSubstr("a.xml")));
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, ::testing::HasSubstr("b.xml")));
 }
 
 TEST(DefinitionCatalogTest, ConflictingDuplicateAddressIsInvalidConfig)

@@ -444,6 +444,7 @@ TEST(ApplyChecksumCorrection, AllFourColtCanProtocolsRouteToTheMitsuM32rCanFamil
              {"mitsu_ecu_m32r_can_vendor_ext_512kb", "M32R_512KB_1block", 0x80000},
          }))
     {
+        SCOPED_TRACE(::testing::PrintToString(flash_method));
         const auto outcome = ApplyChecksumCorrection(IdentityOf(ColtRom(size)),
                                                      ColtSelection(std::string(flash_method), std::string(mcu_type)));
 
@@ -464,6 +465,7 @@ TEST(ApplyChecksumCorrection, ColtRoutesTakeOnlyTheirOwnFileSize)
              {"mitsu_ecu_m32r_can_vendor_ext_512kb", 0x60000},
          }))
     {
+        SCOPED_TRACE(::testing::PrintToString(flash_method));
         const auto outcome = ApplyChecksumCorrection(IdentityOf(ColtRom(size)),
                                                      ColtSelection(std::string(flash_method), "M32R_512KB_1block"));
 
