@@ -86,7 +86,9 @@ class Sh72543rExecutor : public ::testing::Test
     {
         auto built_plan_1 = Plan();
         if (!built_plan_1.has_value())
+        {
             return std::unexpected(built_plan_1.error());
+        }
         return executor_.Execute(std::move(*built_plan_1), transport_, clock_, cancel_, events_);
     }
     void X(Bytes request, Bytes response)
@@ -458,7 +460,9 @@ class Sh72543rWrite : public Sh72543rExecutor
         auto p = BuildSubaruHitachiSh72543rCanPlan(FlashOperation::kWrite, "sub_ecu_hitachi_sh72543r_can", "SH72543R",
                                                    Image());
         if (!p.has_value())
+        {
             return std::unexpected(p.error());
+        }
         return executor_.Execute(*p, transport_, clock_, cancel_, events_);
     }
     void ScriptSetup()

@@ -66,7 +66,9 @@ Result<DesktopLoggingRunStart> makeRequest(const QString& directory, LoggingTarg
                                     .reconnect_retry_period = 0},
                                    target);
     if (!snapshot.has_value())
+    {
         return std::unexpected(snapshot.error());
+    }
     return DesktopLoggingRunStart{{QString::fromStdString(protocol)}, std::move(*snapshot), directory, "run"};
 }
 QByteArray readFile(const QString& path)

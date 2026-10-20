@@ -125,7 +125,9 @@ Result<FlashExecutionResult> ExecuteRead(ScriptedKlineFlashTransport& transport,
 {
     auto built_plan_1 = ReadPlan();
     if (!built_plan_1.has_value())
+    {
         return std::unexpected(built_plan_1.error());
+    }
     return SubaruUnisiaJecsExecutor{}.Execute(std::move(*built_plan_1), transport, clock, cancellation, events);
 }
 
