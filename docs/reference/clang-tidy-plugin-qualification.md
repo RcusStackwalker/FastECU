@@ -31,8 +31,8 @@ The combined built-in/native macOS report found four missing-brace findings in
 changed helpers; all were fixed, their three translation units passed the full
 check set again, and all three affected suites passed. All four suites affected
 by the final lambda cleanup also passed. The analyzer/test-cleanup revision,
-`bdd0e9c4`, passed the combined 1,092-unit Linux CI scope with zero findings and
-all 42 fixtures in 64.357 seconds in
+`bdd0e9c4`, passed 1,092 Linux compilation commands covering 546 unique source
+files with zero findings and all 42 fixtures in 64.357 seconds in
 [run 39417827686](https://github.com/RcusStackwalker/FastECU/actions/runs/39417827686/job/118611205491).
 All platform application builds, Android, sanitizers/fuzz seeds, Sonar,
 pre-commit and Gazelle passed on that revision. The subsequent benchmark-only

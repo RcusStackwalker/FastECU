@@ -1660,7 +1660,9 @@
         "translation_units": 1092,
         "fixtures": 42,
         "fixture_seconds": 64.357,
-        "url": "https://github.com/RcusStackwalker/FastECU/actions/runs/39417827686/job/118611205491"
+        "url": "https://github.com/RcusStackwalker/FastECU/actions/runs/39417827686/job/118611205491",
+        "source_files": 546,
+        "count_note": "The original 1092 translation_units value counts compilation commands, including equivalent PIC object variants, for 546 unique source files."
       },
       "windows": {
         "translation_units": 41,
