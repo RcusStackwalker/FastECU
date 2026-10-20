@@ -113,8 +113,7 @@ secret. Sonar reads its C++ compile commands from Hedron's
 `compile_commands.json`, so the build stays cacheable (BuildBuddy in CI). The
 check script fails if Qt's `qobjectdefs.h` does not resolve through the
 database: without it Sonar misreads `emit` as a declaration and raises
-`cpp:S1117`/`cpp:S824` false positives. History and measurements:
-[the spike](superpowers/spikes/2026-10-19-sonar-compile-database.md).
+`cpp:S1117`/`cpp:S824` false positives.
 
 ### CodeQL
 
